@@ -1,0 +1,1211 @@
+ # UI/UX AUDIT — ĐẶT MUA LINH KIỆN
+
+  ## 1. Executive Summary
+
+  Module hiện tại đã có nền tảng nghiệp vụ khá đầy đủ:
+
+  - Phân quyền theo nhiều nhóm vai trò.
+  - Workflow nhiều bước cho đơn mua, phiếu xuất kho, thiếu linh kiện và trả hàng.
+  - Server-side pagination.
+  - Search server-side theo mã linh kiện, tên linh kiện và mã dòng đơn hàng.
+  - Bulk action cho một số trạng thái.
+  - Pipeline trạng thái có thể click để nhảy tới danh sách đã lọc.
+  - Cache danh mục linh kiện và một số dữ liệu dùng chung.
+
+  Tuy nhiên, giao diện hiện tại vẫn tổ chức theo cấu trúc “module nhiều tab + pipeline + filter + bảng”, chưa hoàn toàn
+  theo “việc cần làm trước”. Người dùng có thể thao tác được, nhưng phải tự đọc nhiều thành phần để xác định việc ưu
+  tiên.
+
+  Nhận định tổng quát:
+
+  - Business logic: tương đối rõ và có kiểm soát.
+  - UI architecture: component quá lớn, nhiều trạng thái cục bộ, nhiều workflow đặt cạnh nhau.
+  - Task clarity: tốt hơn phiên bản cũ nhưng chưa đạt “mở module là biết ngay cần làm gì”.
+  - Bulk processing: đã có nhưng chưa đồng nhất và chưa có quy trình “Next item”.
+  - Responsive: có responsive cơ bản, nhưng các bảng nghiệp vụ vẫn phụ thuộc vào overflow ngang.
+  - Information density: chưa tối ưu trên laptop 1366×768.
+  - Nội dung hiển thị: một số chuỗi tiếng Việt đang bị lỗi encoding trong source/runtime.
+
+  Current UX Score ước lượng: 6.4/10
+  Target UX Score: 9/10
+
+  Đây là đánh giá dựa trên source code. Chưa có số liệu telemetry hoặc session recording, vì vậy tần suất thao tác được
+  đánh dấu là assumption.
+
+  ———
+
+  ## 2. Phạm Vi Đã Đọc
+
+  Các phần chính đã được kiểm tra:
+
+  - Frontend module chính: frontend/src/modules/DatMuaLinhKienModule.tsx
+  - Backend route: backend/src/routes/datMuaLinhKien.ts
+  - Scope dữ liệu: backend/src/lib/scopeDatMua.ts
+  - Middleware phân quyền: backend/src/middleware/requireDatMuaLkArea.ts
+  - Các component dùng chung: PaginatedTable, Modal, Tabs, StatCard, Select, Btn, Badge
+  - Migration liên quan tới trạng thái, role và dữ liệu đặt mua.
+  - Tài liệu đặc tả và audit có sẵn:
+      - SPEC_MODULE_DAT_MUA_LINH_KIEN.md
+      - DANH_GIA_UX_DAT_MUA_LINH_KIEN.md
+
+  Chưa sửa code ở bước này.
+
+  ———
+
+  # 3. Hiện Trạng → Vấn Đề → Nguyên Nhân → Ảnh Hưởng → Mức Độ → Giải Pháp
+
+   Hiện trạng               Pipeline có nhiều bước và nhiều số đếm
+   Vấn đề                   Người dùng thấy nhiều thông tin nhưng không biết bước nào là việc của mình
+   Nguyên nhân              Pipeline đang trộn trạng thái toàn hệ thống và trạng thái thuộc role hiện tại
+   Người dùng bị ảnh hưởng  Tất cả role, đặc biệt TN/Kho/Kế toán
+   Mức độ                   High
+   Giải pháp                Tách “Việc của tôi” khỏi “Toàn bộ quy trình”; chỉ highlight action của role hiện tại
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   Hiện trạng               Tab Đơn của tôi / Danh sách, Phiếu xuất kho, Thiếu linh kiện, Báo cáo
+   Vấn đề                   Người dùng phải tự biết tab nào chứa workload của mình
+   Nguyên nhân              IA vẫn tổ chức theo loại dữ liệu thay vì task
+   Người dùng bị ảnh hưởng  Kho, Kế toán, QC
+   Mức độ                   High
+   Giải pháp                Mặc định vào queue của role và đặt queue đó làm view chính
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   Hiện trạng               Filter trạng thái là các Select lớn
+   Vấn đề                   Chiếm chiều ngang, phải mở dropdown để xem trạng thái
+   Nguyên nhân              Chưa tách quick filter và advanced filter
+   Người dùng bị ảnh hưởng  Tất cả role
+   Mức độ                   High
+   Giải pháp                Quick filter dạng segmented/chip; filter nâng cao trong drawer
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   Hiện trạng               Bảng có nhiều cột và action ở cuối dòng
+   Vấn đề                   Khó quét nhanh, đặc biệt trên laptop
+   Nguyên nhân              Chưa phân biệt MUST SEE và ON DEMAND
+   Người dùng bị ảnh hưởng  TN, Kho, Kế toán
+   Mức độ                   High
+   Giải pháp                Giữ 5–7 cột chính; phần còn lại vào detail drawer
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   Hiện trạng               Detail dùng modal
+   Vấn đề                   Mất context danh sách, thao tác xong phải đóng modal
+   Nguyên nhân              Modal là pattern chung cho nhiều loại chi tiết
+   Người dùng bị ảnh hưởng  Người xử lý số lượng lớn
+   Mức độ                   High
+   Giải pháp                Dùng right-side drawer; hỗ trợ Next/Previous
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   Hiện trạng               Một số action đã inline, một số action còn modal
+   Vấn đề                   Workflow thiếu nhất quán
+   Nguyên nhân              Logic được phát triển theo từng vòng cải tiến
+   Người dùng bị ảnh hưởng  Tất cả role
+   Mức độ                   Medium
+   Giải pháp                Chuẩn hóa action matrix theo trạng thái
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   Hiện trạng               Bulk action có ở trả hàng và thiếu linh kiện
+   Vấn đề                   Không đồng nhất giữa các queue
+   Nguyên nhân              Bulk action được thêm riêng từng tab
+   Người dùng bị ảnh hưởng  TN/Kho/Kế toán
+   Mức độ                   High
+   Giải pháp                Bulk action dùng chung component và API response chuẩn
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   Hiện trạng               Bulk action trả về kết quả từng dòng nhưng UI chỉ toast ngắn
+   Vấn đề                   Khó biết dòng nào thất bại
+   Nguyên nhân              Không có result panel sau xử lý
+   Người dùng bị ảnh hưởng  Người xử lý hàng loạt
+   Mức độ                   High
+   Giải pháp                Hiện summary thành công X/Y, danh sách lỗi có thể mở
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   Hiện trạng               Search ở danh sách đơn hàng có server-side query
+   Vấn đề                   Đây là điểm tốt
+   Nguyên nhân              Search đã đưa vào query trước pagination
+   Người dùng bị ảnh hưởng  Người tìm mã đơn/LK
+   Mức độ                   Low risk
+   Giải pháp                Giữ lại, bổ sung debounce và shortcut
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   Hiện trạng               Search chỉ tìm ma_lk, ten_lk_snapshot, id
+   Vấn đề                   Không tìm được người tạo, KTV nhận hàng, mã sự cố
+   Nguyên nhân              Query chưa bao phủ các trường nghiệp vụ hay dùng
+   Người dùng bị ảnh hưởng  TN/GS
+   Mức độ                   Medium
+   Giải pháp                Cho phép search nhiều trường có ranking
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   Hiện trạng               pageSize tối đa 200, bảng phân trang server-side
+   Vấn đề                   Có khả năng mở rộng tốt hơn tải toàn bộ
+   Nguyên nhân              Đã xử lý ở backend
+   Người dùng bị ảnh hưởng  Tất cả role
+   Mức độ                   Strength
+   Giải pháp                Giữ lại; cân nhắc virtual row chỉ khi dataset rất lớn
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   Hiện trạng               Mỗi tab có state filter riêng
+   Vấn đề                   User đổi tab dễ mất mental context
+   Nguyên nhân              Filter state phân tán trong nhiều component
+   Người dùng bị ảnh hưởng  Người dùng thường xuyên chuyển tab
+   Mức độ                   Medium
+   Giải pháp                Một QueueViewState cấp module
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   Hiện trạng               useLocalStorageState nhớ filter
+   Vấn đề                   Tốt cho người dùng hàng ngày
+   Nguyên nhân              Đã lưu trạng thái cục bộ
+   Người dùng bị ảnh hưởng  Người dùng lặp lại workflow
+   Mức độ                   Strength
+   Giải pháp                Giữ lại, bổ sung nút reset và hiển thị filter đang áp dụng
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   Hiện trạng               Header/pipeline/tab/filter cùng xuất hiện trước bảng
+   Vấn đề                   Content thực tế bị đẩy xuống
+   Nguyên nhân              Chrome nhiều tầng
+   Người dùng bị ảnh hưởng  Laptop 1366×768
+   Mức độ                   High
+   Giải pháp                Gộp context header + workload + quick filter thành một vùng cao tối đa 150–180px
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   Hiện trạng               Chuỗi tiếng Việt trong source hiển thị dạng mojibake như Ä, á», â€”
+   Vấn đề                   Giảm tin cậy và khả năng đọc
+   Nguyên nhân              Encoding không nhất quán
+   Người dùng bị ảnh hưởng  Tất cả role
+   Mức độ                   Critical
+   Giải pháp                Chuẩn hóa UTF-8 toàn bộ source/build pipeline
+
+  ———
+
+  # 4. Luồng Dữ Liệu Và Business Logic
+
+  ## Đơn mua linh kiện
+
+  Frontend gọi các route chính:
+
+  - GET /dat-mua-lk/luong-quy-trinh
+  - GET /dat-mua-lk/tom-tat
+  - GET /dat-mua-lk/loai-don-counts
+  - GET /dat-mua-lk/don-hang
+  - POST /dat-mua-lk/phieu-dat
+  - GET /dat-mua-lk/don-hang/:id
+  - POST /dat-mua-lk/don-hang/:id/log
+  - POST /dat-mua-lk/don-hang/bulk-log
+  - PATCH /dat-mua-lk/don-hang/:id
+
+  Danh sách hiện lấy ở cấp dòng đơn hàng, không còn hiển thị khái niệm “phiếu đặt” như một thực thể chính. Đây là quyết
+  định đúng cho xử lý từng linh kiện, nhưng UI vẫn có một số tên gọi và workflow khiến người dùng phải hiểu quan hệ
+  phiếu/dòng.
+
+  Trạng thái chính gồm:
+
+  - Cho Tram duyet
+  - Cho TBP xac nhan
+  - Cho TN duyet
+  - TN da duyet
+  - TN tu choi
+  - Cho hang
+  - Da huy
+
+  ## Phiếu xuất kho
+
+  Workflow:
+
+  1. Tạo PXK.
+  2. Chờ Kế toán.
+  3. Kế toán chốt đơn xuất.
+  4. Kho gửi hàng.
+  5. KTV xác nhận nhận hàng.
+
+  Có thêm nhánh:
+
+  - Chờ chuyển tiền.
+  - Kế toán hủy.
+  - Hàng trừ kho.
+  - Kho kết thúc.
+
+  ## Thiếu linh kiện
+
+  Workflow:
+
+  1. Cho kho xu ly
+  2. Kho da tiep nhan
+  3. Kho xac nhan hang da ve
+  4. Da ket thuc
+
+  Có thêm:
+
+  - Kho tu choi sai TT
+  - Da huy bo
+
+  ## Trả hàng
+
+  Workflow tách riêng qua tra_hang_log:
+
+  1. Kế toán duyệt mềm.
+  2. Kho xác nhận.
+  3. QC xác nhận.
+  4. TN duyệt tổng.
+  5. Kế toán xác nhận nhập kho.
+  6. Kho xác nhận nhập kho.
+  7. Hoàn thành.
+
+  Các trạng thái kết thúc:
+
+  - Da hoan thanh
+  - Tu choi
+  - Da huy
+
+  ———
+
+  # 5. Role Analysis
+
+   Role                    Công việc chính     Dữ liệu cần thấy     Action thường        Mức ưu tiên
+                                               ngay                 dùng
+  ━━━━━━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   KTV DVBH                Tạo yêu cầu,        Đơn của mình, đơn    Tạo đơn, xác nhận    Cao
+                           theo dõi đơn,       bị từ chối, PXK      đã nhận, xác nhận
+                           xác nhận nhận       chờ xác nhận         chuyển
+                           hàng, chuyển
+                           tiền nếu có
+  ──────────────────────  ──────────────────  ───────────────────  ───────────────────  ────────────────────────────────
+   Vệ tinh                 Tạo yêu cầu, chờ    Yêu cầu chờ Trạm     Tạo đơn, theo dõi    Cao
+                           Trạm duyệt          duyệt, trạng thái
+                                               đơn
+  ──────────────────────  ──────────────────  ───────────────────  ───────────────────  ────────────────────────────────
+   Trạm                    Duyệt yêu cầu       Cho Tram duyet       Duyệt/từ chối        Rất cao
+                           của Vệ tinh
+  ──────────────────────  ──────────────────  ───────────────────  ───────────────────  ────────────────────────────────
+   Giám sát                Theo dõi            Việc tồn theo        Lọc theo KTV, tạo    Cao
+                           workload theo       KTV, đơn quá hạn,    hộ, theo dõi
+                           KTV, có thể tạo     đơn bị từ chối
+                           hộ
+  ──────────────────────  ──────────────────  ───────────────────  ───────────────────  ────────────────────────────────
+   Tác nghiệp/TBP/Admin    Duyệt đơn, tạo      Chờ TN duyệt, PXK    Duyệt, từ chối,      Rất cao
+                           PXK, xử lý tiền,    cần tạo, chờ tiền    tạo PXK, bulk
+                           kết thúc thiếu                           action
+                           linh kiện
+  ──────────────────────  ──────────────────  ───────────────────  ───────────────────  ────────────────────────────────
+   TBP DVBH                Xác nhận linh       Đơn Cho TBP xac      Xác nhận/từ chối     Cao
+                           kiện đặc thù        nhan
+  ──────────────────────  ──────────────────  ───────────────────  ───────────────────  ────────────────────────────────
+   Kho                     Xử lý thiếu linh    Thiếu LK chờ xử      Tiếp nhận, xác       Rất cao
+                           kiện, gửi PXK       lý, PXK chờ gửi      nhận hàng về, gửi
+                                                                    hàng
+  ──────────────────────  ──────────────────  ───────────────────  ───────────────────  ────────────────────────────────
+   Kế toán                 Duyệt trả hàng,     PXK chờ kế toán,     Duyệt, chốt, xác     Rất cao
+                           chốt PXK, xác       trả hàng chờ         nhận nhập
+                           nhận nhập kho       duyệt
+  ──────────────────────  ──────────────────  ───────────────────  ───────────────────  ────────────────────────────────
+   QC                      Xác nhận trả        Trả hàng chờ QC      Duyệt/từ chối        Cao
+                           hàng
+  ──────────────────────  ──────────────────  ───────────────────  ───────────────────  ────────────────────────────────
+   Admin                   Toàn quyền, giám    Toàn bộ queue        Tất cả action        Cao nhưng cần tránh UI quá tải
+                           sát và xử lý
+                           ngoại lệ
+
+  ## Assumption
+
+  Source cho thấy role được xác định bằng kết hợp:
+
+  - vai_tro
+  - la_ktv_dvbh
+  - la_ve_tinh
+  - la_tac_nghiep
+  - la_tp_dvbh
+  - la_kho
+  - la_ke_toan
+
+  Tôi giả định một tài khoản có thể có nhiều flag đồng thời, dù phần comment trong code cho thấy một số tổ hợp hiếm.
+
+  ———
+
+  # 6. MUST SEE / SHOULD SEE / ON DEMAND / LOW VALUE
+
+  ## MUST SEE
+
+  - Số việc người dùng có thể xử lý ngay.
+  - Việc quá hạn.
+  - Trạng thái hiện tại.
+  - Mã đơn/mã thiếu linh kiện/PXK.
+  - Linh kiện và số lượng.
+  - Người/đơn vị liên quan.
+  - Action chính của role hiện tại.
+  - Dòng nào đang bị lỗi hoặc bị từ chối.
+
+  ## SHOULD SEE
+
+  - Ngày tạo.
+  - Người tạo.
+  - KTV nhận hàng.
+  - Giá trị đơn.
+  - Mã yêu cầu sự cố.
+  - Ngày dự kiến có hàng.
+  - Lịch sử ngắn gọn gần nhất.
+
+  ## ON DEMAND
+
+  - Toàn bộ log trạng thái.
+  - Ghi chú dài.
+  - Thông tin case bảo hành.
+  - Thông tin hóa đơn/mail/chính sách.
+  - Ảnh và bằng chứng.
+  - Các trường tài chính chi tiết.
+
+  ## LOW VALUE Ở LIST
+
+  - Các trường metadata dài.
+  - Email thô khi đã có tên hiển thị.
+  - Toàn bộ trạng thái workflow dạng text dài.
+  - Các cột chỉ phục vụ báo cáo nhưng không hỗ trợ action hiện tại.
+
+  ———
+
+  # 7. Đánh Giá Layout
+
+  Không có screenshot/rendered DOM trong môi trường audit, vì vậy tỷ lệ dưới đây là ước lượng theo cấu trúc JSX/CSS.
+
+  Trên viewport 1366×768, hiện trạng có thể phân bổ xấp xỉ:
+
+   Vùng                        Ước lượng
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━
+   App top bar/header chung        8–12%
+  ──────────────────────────  ───────────
+   Title/context + pipeline       10–15%
+  ──────────────────────────  ───────────
+   Tabs                             5–7%
+  ──────────────────────────  ───────────
+   Filter/search/action           10–18%
+  ──────────────────────────  ───────────
+   Khoảng cách và margin            5–8%
+  ──────────────────────────  ───────────
+   Bảng/list thực tế              42–55%
+
+  Tỷ lệ nội dung hữu ích thường chỉ đạt khoảng 45–55% viewport chiều cao trước khi người dùng phải cuộn.
+
+  Vấn đề chính không phải một vùng riêng lẻ quá lớn, mà là nhiều lớp nhỏ xếp chồng:
+
+  TopBar
+    → Page title
+      → Pipeline
+        → Tabs
+          → Filter
+            → Bulk toolbar
+              → Table
+
+  ## Đề xuất kích thước desktop
+
+  ### 1366×768
+
+  - Header module: 48–56px.
+  - Context/workload: 72–96px.
+  - Quick filter: 40–44px.
+  - Bảng: dùng phần còn lại, tối thiểu 500px chiều cao.
+  - Row height: 40–48px.
+  - Padding ngang cell: 8–12px.
+
+  ### 1440×900
+
+  - Cho phép detail drawer rộng 380–440px.
+  - Bảng giữ 7–9 cột tùy role.
+  - Không tăng padding chỉ vì màn hình lớn.
+
+  ### 1920×1080
+
+  - Có thể hiển thị thêm nhóm cột phụ.
+  - Không mở rộng quá mức khiến dòng dữ liệu bị loãng.
+  - Tối đa content width khoảng 1600–1760px.
+
+  ———
+
+  # 8. Information Architecture Mới
+
+  ## Before
+
+  Module
+  ├── Page title
+  ├── Pipeline trạng thái toàn hệ thống
+  ├── Tabs theo loại dữ liệu
+  ├── Filter
+  ├── Bulk toolbar
+  ├── Bảng
+  ├── Modal chi tiết
+  └── Báo cáo
+
+  ## After
+
+  Module
+  ├── Context header
+  │   ├── Tên module
+  │   ├── Vai trò hiện tại
+  │   └── Action chính
+  ├── My work queue
+  │   ├── Cần xử lý
+  │   ├── Quá hạn
+  │   ├── Đang chờ người khác
+  │   └── Hoàn tất gần đây
+  ├── Quick filters
+  │   ├── Tất cả việc của tôi
+  │   ├── Quan trọng
+  │   ├── Quá hạn
+  │   └── Trạng thái hiện tại của role
+  ├── Search + advanced filter
+  ├── Work list
+  │   ├── Selection
+  │   ├── Inline action
+  │   ├── Row status
+  │   └── Next item
+  └── Detail drawer
+      ├── Thông tin chính
+      ├── Lịch sử
+      ├── Action
+      └── Previous / Next
+
+  Điểm khác biệt: Báo cáo không nên là điểm vào chính cho role xử lý nghiệp vụ. Báo cáo là lớp theo dõi, không phải
+  queue hành động.
+
+  ———
+
+  # 9. Workload First
+
+  Backend hiện đã có dữ liệu đủ để tạo workload theo role thông qua /luong-quy-trinh, /tom-tat, /loai-don-counts.
+
+  Các workload có thể hiển thị:
+
+  ## Cho KTV/Vệ tinh
+
+  - Đơn cần theo dõi.
+  - Đơn bị từ chối.
+  - PXK đang gửi.
+  - PXK chờ xác nhận nhận hàng.
+  - Phiếu cần chuyển tiền.
+  - Đơn đang chờ hàng.
+
+  ## Cho Trạm
+
+  - Đơn chờ Trạm duyệt.
+
+  ## Cho TN/TBP
+
+  - Đơn chờ TN duyệt.
+  - Đơn đặc thù chờ TBP.
+  - PXK cần tạo.
+  - PXK chờ kế toán.
+  - Phiếu chờ chuyển tiền.
+  - Thiếu linh kiện chờ Kho.
+  - Trả hàng chờ TN duyệt tổng.
+
+  ## Cho Kho
+
+  - Thiếu linh kiện chờ xử lý.
+  - PXK chờ gửi hàng.
+  - Trả hàng chờ Kho xác nhận.
+  - Trả hàng chờ nhập kho.
+
+  ## Cho Kế toán
+
+  - PXK chờ chốt.
+  - Trả hàng chờ duyệt mềm.
+  - Trả hàng chờ xác nhận nhập kho.
+
+  ## Thiết kế đề xuất
+
+  Không hiển thị 13 bước pipeline ở dạng ngang ngay từ đầu cho mọi role. Thay bằng:
+
+  Cần xử lý 12   Quá hạn 3   Đang chờ 8   Đang xử lý 5
+
+  Bên dưới là tối đa 3 queue ưu tiên của role:
+
+  [Chờ TN duyệt 8] [PXK cần tạo 4] [Thiếu LK 3]
+
+  Mỗi queue là một button. Một click phải:
+
+  1. Đổi filter.
+  2. Chuyển tới đúng tab/list.
+  3. Focus dòng đầu tiên.
+
+  Pipeline toàn hệ thống nên nằm trong “Xem toàn bộ quy trình” hoặc được thu gọn trên desktop.
+
+  ———
+
+  # 10. Redesign Filter
+
+  ## Quick filter
+
+  Hiển thị thường trực:
+
+  - Việc của tôi.
+  - Cần xử lý.
+  - Quá hạn.
+  - Đang chờ người khác.
+  - Tất cả.
+
+  Với role có ít trạng thái, hiển thị thêm segmented control theo trạng thái chính.
+
+  ## Advanced filter
+
+  Đưa vào drawer/popover:
+
+  - Người tạo.
+  - KTV nhận hàng.
+  - Loại đơn.
+  - Khoảng ngày.
+  - Giá trị đơn.
+  - Khu vực.
+  - Có mã yêu cầu sự cố.
+  - Có thiếu linh kiện.
+  - Đã bị từ chối.
+
+  ## Cần giữ lại
+
+  - Nhớ filter cuối cùng bằng local storage.
+  - Reset filter.
+  - Hiển thị filter đang áp dụng dưới dạng chip.
+  - Khi đổi filter, reset page về 1 và xóa selection.
+
+  Các hành vi reset page/selection hiện đã có ở nhiều tab, nên chuyển thành helper dùng chung thay vì lặp lại.
+
+  ———
+
+  # 11. Search
+
+  ## Hiện trạng
+
+  Route /don-hang đã hỗ trợ server-side search theo:
+
+  - ma_lk
+  - ten_lk_snapshot
+  - id
+
+  Đây là thiết kế đúng hơn lọc client-side sau pagination.
+
+  ## Đề xuất
+
+  - Debounce 250–350ms.
+  - Shortcut Ctrl/Cmd + K hoặc /.
+  - Placeholder rõ: Tìm mã đơn, mã LK, tên LK, mã sự cố...
+  - Giữ query khi quay lại từ detail.
+  - Search nhiều trường:
+      - Mã đơn hàng.
+      - Mã linh kiện.
+      - Tên linh kiện.
+      - Người tạo.
+      - KTV nhận hàng.
+      - Mã yêu cầu sự cố.
+
+  - Không cần realtime từng ký tự nếu query backend nặng; debounce là đủ.
+  - Recent searches chỉ nên thêm sau khi có bằng chứng người dùng tìm lặp lại nhiều mã.
+
+  Cần mở rộng backend để search ma_yeu_cau_su_co, nguoi_tao, nguoi_nhan_hang, nhưng đây là thay đổi query, không phải
+  thay đổi business logic.
+
+  ———
+
+  # 12. Table/List
+
+  ## Giữ lại
+
+  - Server-side pagination.
+  - Sticky header.
+  - Sticky first column ở bảng rộng.
+  - Column customization trong PaginatedTable.
+  - Checkbox selection.
+  - Status badge.
+  - Inline action cho thao tác không cần dữ liệu bổ sung.
+
+  ## Nên rút gọn bảng đơn hàng
+
+  ### Cột mặc định
+
+  1. Checkbox.
+  2. Mã đơn.
+  3. Linh kiện.
+  4. Số lượng.
+  5. KTV/người nhận.
+  6. Trạng thái.
+  7. Tuổi đơn hoặc ngày tạo.
+  8. Action.
+
+  ### Cột vào detail drawer
+
+  - Giá đề xuất.
+  - Giá chốt.
+  - Ghi chú.
+  - Yêu cầu hóa đơn.
+  - Mail duyệt.
+  - Thông tin khách hàng.
+  - Chính sách.
+  - Mã sự cố chi tiết.
+  - Toàn bộ logs.
+
+  ## Row density
+
+  - Desktop: 44px.
+  - Dense mode: 36–40px.
+  - Mobile: 64–76px vì chuyển thành item compact.
+
+  ## Grouping
+
+  Có thể group theo:
+
+  - KTV nhận hàng.
+  - Trạng thái.
+  - Mức ưu tiên.
+
+  Nhưng chỉ bật grouping mặc định cho TN/GS; KTV và Kho nên giữ list phẳng để xử lý nhanh.
+
+  ———
+
+  # 13. Detail Drawer
+
+  Modal hiện tại phù hợp cho form nhập liệu, nhưng không phù hợp để xử lý danh sách lớn.
+
+  Đề xuất:
+
+  ┌──────────────────────────────────┬──────────────────────────────┐
+  │ Work list                        │ Chi tiết dòng đơn             │
+  │                                  │                              │
+  │ DDH-001                         │ DDH-001                       │
+  │ DDH-002                         │ Linh kiện / số lượng           │
+  │ DDH-003                         │ Người tạo / KTV nhận            │
+  │                                  │ Trạng thái hiện tại            │
+  │                                  │                              │
+  │                                  │ [Duyệt] [Từ chối]              │
+  │                                  │ [← Trước] [Tiếp →]             │
+  └──────────────────────────────────┴──────────────────────────────┘
+
+  - Desktop: drawer 400–480px.
+  - Tablet: drawer 55–65vw.
+  - Mobile: full-screen route/sheet.
+  - Giữ list phía sau.
+  - Sau action thành công:
+      - Tự chuyển item tiếp theo.
+      - Giữ filter.
+      - Không quay về đầu danh sách.
+
+  - Detail nên có các section:
+      - Tóm tắt.
+      - Thông tin linh kiện.
+      - Thông tin nhận hàng.
+      - Lịch sử.
+      - Case liên quan.
+      - Action.
+
+  ———
+
+  # 14. 1–2 Click Rule
+
+   Workflow                             Hiện tại ước lượng                Mục tiêu
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━━━━━━
+   Lọc việc của tôi                              1–3 click                 1 click
+  ────────────────────────────────  ───────────────────────  ──────────────────────
+   Xem chi tiết                                    1 click                 1 click
+  ────────────────────────────────  ───────────────────────  ──────────────────────
+   Duyệt đơn không cần ghi chú         2–4 click tùy modal                 1 click
+  ────────────────────────────────  ───────────────────────  ──────────────────────
+   Từ chối đơn không cần ghi chú                 2–4 click               1–2 click
+  ────────────────────────────────  ───────────────────────  ──────────────────────
+   Từ chối TN duyệt tổng có lý do                2–4 click                 2 click
+  ────────────────────────────────  ───────────────────────  ──────────────────────
+   Xử lý thiếu LK đơn giản                       1–2 click                 1 click
+  ────────────────────────────────  ───────────────────────  ──────────────────────
+   Giai trình thiếu hàng                         3–5 click                 2 click
+  ────────────────────────────────  ───────────────────────  ──────────────────────
+   Tạo PXK                           Nhập/copy ID + submit     Chọn checkbox + tạo
+  ────────────────────────────────  ───────────────────────  ──────────────────────
+   Xem item kế tiếp                    Đóng modal, tìm lại    1 click hoặc tự động
+  ────────────────────────────────  ───────────────────────  ──────────────────────
+   Bulk duyệt                           Chọn + bulk action                 2 click
+  ────────────────────────────────  ───────────────────────  ──────────────────────
+   Xem việc quá hạn                  Chưa có quick path rõ                 1 click
+
+  Các workflow còn yếu nhất:
+
+  - Tạo PXK bằng nhập ID thủ công.
+  - Xử lý liên tiếp nhiều dòng.
+  - Xem detail rồi quay lại context.
+  - Xem queue phù hợp với role ngay khi mở module.
+
+  ———
+
+  # 15. Bulk Operation
+
+  ## Đang có
+
+  - Bulk log cho trả hàng.
+  - Bulk log cho thiếu linh kiện.
+  - Selection được giới hạn theo action hợp lệ.
+  - Có xử lý partial result ở một số nơi.
+
+  ## Vấn đề
+
+  - Chưa có bulk thống nhất cho đơn mua chính.
+  - Không có confirmation preview cho thao tác rủi ro.
+  - Kết quả partial failure chưa có panel chi tiết.
+  - Một số action bắt buộc ghi chú nên không thể bulk, nhưng UI chưa giải thích đủ rõ.
+  - API bulk xử lý tuần tự và có thể commit một phần trước khi gặp lỗi.
+
+  ## Đề xuất
+
+  Chọn 10 dòng
+  → Thanh bulk action
+  → Xem trước 10 dòng
+  → Xác nhận
+  → Kết quả: 8 thành công, 2 lỗi
+  → [Mở danh sách lỗi] [Thử lại]
+
+  Không bulk các action cần lý do riêng từng dòng.
+
+  Với các action an toàn:
+
+  - Duyệt.
+  - Xác nhận.
+  - Chuyển trạng thái không yêu cầu ghi chú.
+
+  Với action nguy hiểm:
+
+  - Từ chối.
+  - Hủy.
+  - Đẩy lùi.
+
+  Cần confirmation và nêu rõ số lượng, trạng thái đích, tác động.
+
+  ———
+
+  # 16. Persona / Role Journey Mới
+
+  ## Nhân viên KTV
+
+  1. Mở module.
+  2. Thấy 2 việc của tôi.
+  3. Click PXK chờ xác nhận.
+  4. Danh sách đã lọc.
+  5. Click dòng đầu.
+  6. Drawer mở.
+  7. Click Đã nhận hàng.
+  8. Tự chuyển sang dòng tiếp theo.
+
+  ## Trạm
+
+  1. Mở module.
+  2. Thấy 8 đơn chờ Trạm duyệt.
+  3. Click queue.
+  4. Chọn nhiều dòng.
+  5. Click Duyệt.
+  6. Xem kết quả thành công/thất bại.
+
+  ## Tác nghiệp
+
+  1. Mở module.
+  2. Thấy:
+      - 12 đơn chờ duyệt
+      - 4 PXK cần tạo
+      - 3 phiếu chờ chuyển tiền
+
+  3. Click queue ưu tiên.
+  4. Xử lý trong drawer.
+  5. Click Duyệt và tiếp.
+  6. Sau khi duyệt, queue tự cập nhật.
+
+  ## Kho
+
+  1. Mở module.
+  2. Mặc định vào Thiếu linh kiện chờ xử lý.
+  3. Click Kho đã tiếp nhận.
+  4. Nhập ngày dự kiến và lý do.
+  5. Xác nhận.
+  6. Chuyển dòng tiếp theo.
+
+  ## Kế toán
+
+  1. Mở module.
+  2. Mặc định vào PXK chờ kế toán.
+  3. Click PXK.
+  4. Xem tổng tiền, số dòng và chứng từ.
+  5. Click Chốt đơn xuất.
+  6. Tự chuyển item kế tiếp.
+
+  ## QC
+
+  1. Mở module.
+  2. Mặc định vào Trả hàng chờ QC.
+  3. Mở drawer.
+  4. Kiểm checklist.
+  5. Duyệt hoặc từ chối.
+
+  ———
+
+  # 17. Visual Design System Đề Xuất
+
+  ## Typography
+
+  - Body: 13–14px.
+  - Table: 12–13px.
+  - Section label: 11–12px, semibold.
+  - Page title: 20–24px, không vượt quá.
+  - Không dùng quá nhiều chữ in hoa.
+
+  ## Spacing
+
+  - Gutter module: 16–24px.
+  - Row padding: 8–12px.
+  - Control height: 36–40px.
+  - Compact button: tối thiểu 32px chiều cao.
+  - Mobile target: tối thiểu 44px.
+
+  ## Button hierarchy
+
+  - Primary: action chính của role.
+  - Secondary: action phụ.
+  - Danger: từ chối/hủy.
+  - Ghost: action ít dùng.
+  - Icon button: refresh, close, next, previous, filter, column settings.
+
+  ## Status
+
+  - Amber: đang chờ xử lý.
+  - Ocean: đang ở bước trung gian.
+  - Teal: hoàn tất/đã xác nhận.
+  - Coral: từ chối/quá hạn/cần chú ý.
+  - Gray: đã đóng/hủy.
+
+  Giữ palette hiện có, nhưng giảm số lượng status chip xuất hiện đồng thời.
+
+  ## Border/radius/shadow
+
+  - Radius 6–8px cho control/card.
+  - Không dùng card lớn cho từng vùng nghiệp vụ.
+  - Shadow nhẹ chỉ cho drawer/popover.
+  - Table và list nên là surface phẳng có border.
+
+  ———
+
+  # 18. Responsive Strategy
+
+  ## Desktop
+
+  - Bảng dense.
+  - Sticky first column.
+  - Detail drawer bên phải.
+  - Bulk toolbar sticky phía trên bảng.
+
+  ## Laptop
+
+  - Ẩn cột phụ.
+  - Giữ mã đơn, linh kiện, trạng thái, action.
+  - Drawer 380–420px.
+  - Pipeline toàn hệ thống mặc định thu gọn.
+
+  ## Tablet
+
+  - Hiển thị 4–5 cột.
+  - Drawer 60vw.
+  - Filter nâng cao dùng bottom sheet/drawer.
+  - Bulk toolbar cố định dưới header list.
+
+  ## Mobile
+
+  Không chỉ scroll ngang toàn bộ bảng.
+
+  Chuyển mỗi dòng thành item:
+
+  DDH-001 · LK-123
+  Tụ điện 10uF · SL 5
+  Chờ TN duyệt · Ưu tiên cao
+  [ Duyệt ] [ Chi tiết ]
+
+  Giữ lại:
+
+  - Mã.
+  - Linh kiện.
+  - Số lượng.
+  - Trạng thái.
+  - Action chính.
+
+  Ẩn:
+
+  - Người tạo nếu không quyết định action.
+  - Ngày tạo nếu không cần ưu tiên.
+  - Metadata tài chính dài.
+
+  Detail thành full-screen:
+
+  - Header có mã và trạng thái.
+  - Footer sticky chứa action.
+  - Nút Tiếp theo.
+
+  ———
+
+  # 19. Accessibility
+
+  ## Ưu tiên sửa
+
+  - Chuẩn hóa chuỗi tiếng Việt UTF-8.
+  - Checkbox header có aria-label.
+  - Button chỉ có icon phải có tooltip/aria-label.
+  - Focus ring rõ trên tất cả control.
+  - Không dùng màu là tín hiệu duy nhất cho trạng thái.
+  - Badge trạng thái cần text đầy đủ.
+  - Modal/drawer phải:
+      - Trap focus.
+      - Đóng bằng Escape.
+      - Trả focus về trigger.
+
+  - Input cần label thực, không chỉ placeholder.
+  - Error message phải giải thích cách khắc phục.
+  - Loading button cần spinner hoặc text Đang xử lý....
+  - Empty state cần nêu rõ:
+      - Không có dữ liệu.
+      - Không có dữ liệu do filter.
+      - Có thể reset filter.
+
+  ———
+
+  # 20. Performance
+
+  ## Điểm tốt
+
+  - Backend đã phân trang server-side.
+  - Search được áp dụng trước pagination.
+  - Có index trạng thái hiện tại.
+  - Một số cache dùng React Query/IndexedDB.
+  - Query count pipeline được invalidate sau mutation.
+
+  ## Rủi ro
+
+  - DatMuaLinhKienModule.tsx khoảng vài nghìn dòng, nhiều tab và modal trong cùng file.
+  - Nhiều query độc lập có thể cùng chạy khi mở module.
+  - Endpoint options cho người tạo trả về pageSize: 500.
+  - Pipeline có nhiều count query.
+  - Bulk xử lý tuần tự ở backend.
+  - Chưa có virtual scrolling.
+
+  ## Đề xuất
+
+  - Chưa cần virtual scrolling ngay; pagination hiện tại đủ cho 20–200 dòng.
+  - Lazy-load các tab không phải view mặc định.
+  - Chỉ gọi query của tab đang active.
+  - Chuẩn hóa query key và invalidation.
+  - Debounce search.
+  - Chỉ thêm virtualized list nếu một view thực tế cần render trên 500 dòng cùng lúc.
+  - Bulk API cần trả kết quả chuẩn hóa và có thể retry từng item lỗi.
+
+  ———
+
+  # 21. UX Debt Theo Mức Độ
+
+  ## Critical
+
+  1. Chuỗi tiếng Việt bị lỗi encoding trong source/runtime.
+  2. Người dùng không có “my workload” đủ rõ ở điểm vào.
+  3. Tạo PXK bằng nhập ID thủ công.
+  4. Partial failure của bulk chưa được trình bày đủ rõ.
+  5. Detail modal làm mất context.
+
+  ## High
+
+  1. Nhiều lớp chrome trước bảng.
+  2. Filter dài và chưa phân biệt quick/advanced.
+  3. Không có workflow Next item.
+  4. Bảng quá rộng so với laptop.
+  5. Role chưa có layout riêng đủ mạnh.
+  6. Action của từng tab không đồng nhất.
+  7. Một số lỗi vẫn hiển thị mã kỹ thuật.
+
+  ## Medium
+
+  1. Chưa có keyboard shortcut.
+  2. Chưa có filter theo giá trị đơn.
+  3. Chưa có preview trước khi tạo PXK/bulk action.
+  4. Chưa có notification cập nhật thay đổi.
+  5. Báo cáo và queue cùng tồn tại nhưng chưa phân vai rõ.
+
+  ## Low
+
+  1. Recent search.
+  2. Saved views nâng cao.
+  3. Personal column presets.
+  4. Báo cáo tài chính mở rộng.
+  5. SSE/WebSocket.
+
+  ———
+
+  # 22. Đánh Giá Định Lượng
+
+   Tiêu chí               Điểm
+  ━━━━━━━━━━━━━━━━━━━━━  ━━━━━━
+   Visual hierarchy          6
+  ─────────────────────  ──────
+   Information density       6
+  ─────────────────────  ──────
+   Task clarity              6
+  ─────────────────────  ──────
+   Role-based UX             7
+  ─────────────────────  ──────
+   Search                    7
+  ─────────────────────  ──────
+   Filter                    5
+  ─────────────────────  ──────
+   Table/List                6
+  ─────────────────────  ──────
+   Workflow                  6
+  ─────────────────────  ──────
+   Number of clicks          6
+  ─────────────────────  ──────
+   Bulk operation            6
+  ─────────────────────  ──────
+   Responsive                5
+  ─────────────────────  ──────
+   Accessibility             5
+  ─────────────────────  ──────
+   Performance               7
+  ─────────────────────  ──────
+   Overall UX                6
+
+  ## Current UX Score: 6.4/10
+
+  Mức điểm cao hơn ở business logic và server-side data handling; thấp hơn ở task prioritization, responsive và context-
+  preserving workflow.
+
+  ———
+
+  # 23. Giao Diện Tôi Sẽ Xây Dựng Nếu Được Redesign
+
+  ┌──────────────────────────────────────────────────────────────┐
+  │ Đặt mua linh kiện                         [Tạo đơn] [Refresh] │
+  │ Tác nghiệp · 12 việc cần xử lý                               │
+  ├──────────────────────────────────────────────────────────────┤
+  │ CẦN XỬ LÝ 12 │ QUÁ HẠN 3 │ ĐANG CHỜ 8 │ HOÀN TẤT HÔM NAY 42 │
+  ├──────────────────────────────────────────────────────────────┤
+  │ [Cần xử lý 12] [Quá hạn 3] [Tất cả] [Bộ lọc nâng cao]        │
+  │ [Tìm mã đơn, mã LK, tên LK...]                  [Cột] [Export]│
+  ├──────────────────────────────────────────────────────────────┤
+  │ [x] Mã đơn | Linh kiện | SL | KTV | Trạng thái | Tuổi | Action│
+  │ [ ] DDH001 | LK-123    | 5  | A   | Chờ TN   | 2h  | Duyệt  │
+  │ [ ] DDH002 | LK-555    | 2  | B   | Quá hạn  | 2d  | Mở     │
+  └──────────────────────────────────────────────────────────────┘
+
+  Khi click dòng:
+
+  Danh sách vẫn giữ nguyên
+  Drawer phải mở bên phải
+
+  [← Trước] DDH001 / 12 [Tiếp →]
+  Tóm tắt
+  Linh kiện
+  Số lượng
+  Người tạo
+  KTV nhận
+  Trạng thái
+  Lịch sử
+  [ Từ chối ] [ Duyệt và tiếp ]
+
+  Nguyên tắc:
+
+  - Mở module là vào queue phù hợp role.
+  - Workload được nhìn thấy trước bảng.
+  - Một click vào workload là lọc danh sách.
+  - Action chính nằm ngay trên row và drawer.
+  - Không dùng modal cho mọi thao tác.
+  - Không quay lại đầu danh sách sau mỗi action.
+  - Dữ liệu phụ chỉ hiện khi mở detail.
+  - Báo cáo không cạnh tranh vị trí với queue xử lý.
+
+  ———
+
+  # 24. Phân Biệt UI Change Và Business Logic Change
+
+  ## Chỉ thay đổi UI
+
+  - Gộp header/pipeline.
+  - Đổi modal thành drawer.
+  - Đổi filter thành chip/segmented control.
+  - Rút gọn cột.
+  - Thêm quick filter.
+  - Thêm Next item.
+  - Thêm preview trước action.
+  - Thêm keyboard shortcut.
+  - Thêm responsive card/list.
+  - Chuẩn hóa error text.
+
+  ## Có nguy cơ ảnh hưởng business logic
+
+  - Cho phép Trạm tự duyệt đơn của mình.
+  - Cho phép bulk từ chối khi mỗi dòng cần lý do riêng.
+  - Bỏ bước TBP xác nhận với linh kiện đặc thù.
+  - Gán PXK không cần phiếu số tiền được duyệt.
+  - Thay đổi scope theo khu vực/người phụ trách.
+  - Cho phép role xử lý thay role khác.
+  - Gộp trạng thái trả hàng vào workflow đơn mua.
+
+  Các thay đổi trên cần được phê duyệt nghiệp vụ riêng, không nên thực hiện trong redesign UI thuần túy.
+
+  ———
+
+  # 25. Roadmap Triển Khai
+
+  ## Phase 1 — Quick Wins
+
+  1. Sửa encoding tiếng Việt.
+  2. Hiển thị workload theo role ở đầu module.
+  3. Mặc định mở đúng queue của role.
+  4. Rút gọn pipeline khi không cần.
+  5. Chuẩn hóa error message.
+  6. Hiển thị loading state rõ trong button.
+  7. Giữ filter/query khi quay lại danh sách.
+  8. Thêm reset filter.
+
+  ## Phase 2 — UX Improvement
+
+  1. Quick filter + advanced filter drawer.
+  2. Rút gọn bảng theo role.
+  3. Right-side detail drawer.
+  4. Inline action cho workflow đơn giản.
+  5. Duyệt và tiếp.
+  6. Preview trước bulk action và tạo PXK.
+  7. Cải thiện search và debounce.
+  8. Thêm filter quá hạn/ưu tiên.
+
+  ## Phase 3 — Structural Improvement
+
+  1. Tách module lớn thành:
+      - WorkloadHeader
+      - QuickFilterBar
+      - WorkList
+      - DetailDrawer
+      - BulkActionBar
+      - RoleQueueConfig
+
+  2. Đưa trạng thái và action matrix ra file cấu hình.
+  3. Gom filter state về module-level controller.
+  4. Chuẩn hóa response bulk.
+  5. Tách query hook khỏi view component.
+  6. Lazy-load tab.
+
+  ## Phase 4 — Advanced UX
+
+  1. Keyboard shortcuts.
+  2. Saved views.
+  3. User-specific column presets.
+  4. Notification/polling.
+  5. Retry từng item bulk lỗi.
+  6. Audit trail dễ đọc.
+  7. Báo cáo workload theo role.
+  8. Virtualized list khi dữ liệu thực tế đủ lớn.
+
+  ———
+
+  # 26. Kết Luận
+
+  Module hiện tại không thiếu nghiệp vụ; vấn đề chính là nghiệp vụ đang được trình bày theo cấu trúc kỹ thuật của hệ
+  thống thay vì cấu trúc công việc của người dùng.
+
+  Ưu tiên redesign nên là:
+
+  Workload
+  → Priority
+  → Quick filter
+  → Dense list
+  → Inline action
+  → Detail drawer
+  → Next item
+
+  Không nên bắt đầu bằng màu sắc, card hoặc header trang trí.
+
+  Ba thay đổi có giá trị cao nhất:
+
+  1. Role-based work queue ngay khi mở module.
+  2. Detail drawer + Duyệt và tiếp.
+  3. Quick filter và bulk workflow thống nhất.
+
+  Ba rủi ro cần bảo vệ:
+
+  1. Không làm thay đổi scope/phân quyền.
+  2. Không bulk hóa action cần lý do riêng từng dòng.
+  3. Không bỏ qua các bước kiểm soát nghiệp vụ như TBP, phiếu số tiền hoặc xác nhận KTV.
+
+  Audit này hoàn thành ở mức phân tích source và đề xuất triển khai. Chưa có thay đổi code nào được thực hiện.

@@ -1,0 +1,2250 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 5 — Warm Workspace — Đặt mua linh kiện</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FAF7F2;
+  --bg-gray:#E8E5E0;
+  --surface:#FFFFFF;
+  --surface-soft:#F5F1E9;
+  --ink:#2A2320;
+  --ink-soft:#6B6058;
+  --ink-faint:#9A9088;
+  --line:#EEE6D9;
+  --line-soft:#F3ECE0;
+  --shadow-sm:0 1px 2px rgba(60,40,20,.06);
+  --shadow-md:0 8px 24px rgba(60,40,20,.10);
+  --shadow-lg:0 20px 48px rgba(40,25,10,.22);
+  --radius:14px;
+  --radius-lg:20px;
+
+  --m-muahang:#2563EB;      --m-muahang-bg:#E8EFFD;
+  --m-congno:#7C3AED;       --m-congno-bg:#F1E9FE;
+  --m-trahang:#EA580C;      --m-trahang-bg:#FDEBDD;
+  --m-pxk:#059669;          --m-pxk-bg:#E1F5EE;
+  --m-thieulk:#DB2777;      --m-thieulk-bg:#FCE4F0;
+  --m-baocao:#0284C7;       --m-baocao-bg:#E3F2FB;
+  --m-danhmuc:#0891B2;      --m-danhmuc-bg:#E1F3F6;
+  --m-settings:#78716C;     --m-settings-bg:#EEEBE8;
+  --m-users:#4338CA;        --m-users-bg:#E9E7FC;
+  --m-home:#B45309;         --m-home-bg:#FBEBD0;
+
+  --st-amber:#92400E;   --st-amber-bg:#FEF0CD;
+  --st-green:#065F46;   --st-green-bg:#D3F4E4;
+  --st-red:#9F1239;     --st-red-bg:#FCE0E9;
+  --st-gray:#475569;    --st-gray-bg:#EAEEF2;
+  --st-blue:#1E40AF;    --st-blue-bg:#DCE7FD;
+
+  --priority:#EA580C;
+  --priority-bg:#FFEEDD;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background:var(--bg);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+}
+button, input, select, textarea{font-family:inherit;}
+button{cursor:pointer;}
+a{color:inherit;}
+.hidden{display:none !important;}
+.tabular{font-variant-numeric:tabular-nums;}
+
+/* ---------- meta harness bar (persona switcher + mode toggle) ---------- */
+#harness{
+  position:sticky; top:0; z-index:500;
+  display:flex; align-items:center; gap:14px;
+  padding:10px 20px;
+  background:#211A14;
+  color:#F5EFE4;
+  flex-wrap:wrap;
+}
+#harness .harness-group{display:flex; align-items:center; gap:8px;}
+#harness label{font-size:12px; color:#C9BEAF; font-weight:600;}
+#harness select{
+  background:#33281D; color:#fff; border:1px solid #4A3B2A; border-radius:8px;
+  padding:6px 10px; font-size:13px; font-weight:600;
+}
+#harness .chk{display:flex; align-items:center; gap:6px; font-size:12px; color:#E3D9C7;}
+#harness .chk input{accent-color:var(--priority);}
+#harness .spacer{flex:1;}
+#harness .mode-toggle{display:flex; background:#33281D; border-radius:10px; padding:3px; gap:2px;}
+#harness .mode-toggle button{
+  border:none; background:transparent; color:#C9BEAF; padding:7px 14px; border-radius:8px;
+  font-size:13px; font-weight:700;
+}
+#harness .mode-toggle button.active{background:var(--priority); color:#fff;}
+#harness .persona-badge{
+  font-size:11px; padding:3px 9px; border-radius:999px; background:#3D2F20; color:#F0C888; font-weight:700;
+}
+
+/* ---------- stage ---------- */
+#stage{min-height:calc(100vh - 49px);}
+#stage.web{background:var(--bg);}
+#stage.mobile{background:var(--bg-gray); display:flex; align-items:flex-start; justify-content:center; padding:28px 16px;}
+
+/* ============ WEB SHELL ============ */
+.web-shell{display:flex; min-height:calc(100vh - 49px);}
+.sidebar{
+  width:246px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--line);
+  padding:18px 12px; display:flex; flex-direction:column; gap:2px;
+}
+.sidebar .brand{font-size:15px; font-weight:800; padding:6px 10px 16px; color:var(--ink);}
+.sidebar .brand span{color:var(--priority);}
+.sidebar .navgroup{margin-bottom:8px;}
+.sidebar .navitem{
+  display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:10px;
+  font-size:13.5px; font-weight:600; color:var(--ink-soft); border:none; background:transparent; width:100%; text-align:left;
+}
+.sidebar .navitem .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+.sidebar .navitem:hover{background:var(--surface-soft);}
+.sidebar .navitem.active{background:var(--m-tint,var(--surface-soft)); color:var(--ink); font-weight:800;}
+.sidebar .subnav{margin-left:19px; display:flex; flex-direction:column; gap:1px; margin-top:2px; margin-bottom:6px;}
+.sidebar .subitem{
+  padding:7px 10px; border-radius:8px; font-size:12.8px; color:var(--ink-soft); font-weight:600; border:none; background:transparent; text-align:left;
+}
+.sidebar .subitem:hover{background:var(--surface-soft);}
+.sidebar .subitem.active{background:var(--m-tint2,#F0E9DC); color:var(--m-accent,var(--ink)); font-weight:800;}
+.sidebar .createbtn{
+  margin:10px 6px 16px; padding:10px 12px; border-radius:12px; border:none;
+  background:var(--priority); color:#fff; font-weight:800; font-size:13px; text-align:center;
+}
+
+.main{flex:1; min-width:0; padding:26px 34px 60px; overflow-x:hidden;}
+.main .crumb{font-size:12px; color:var(--ink-faint); font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px;}
+.main h1{font-size:23px; margin:0 0 18px; font-weight:800;}
+
+/* ============ MOBILE SHELL ============ */
+.phone-frame{
+  width:390px; height:844px; border-radius:44px; background:var(--bg);
+  border:10px solid #17130F; box-shadow:var(--shadow-lg);
+  position:relative; overflow:hidden; display:flex; flex-direction:column;
+}
+.phone-notch{
+  position:absolute; top:0; left:50%; transform:translateX(-50%); width:150px; height:26px;
+  background:#17130F; border-radius:0 0 16px 16px; z-index:50;
+}
+.phone-topbar{
+  padding:34px 18px 10px; display:flex; align-items:center; gap:10px; flex-shrink:0;
+  background:var(--bg);
+}
+.phone-topbar .title{font-size:19px; font-weight:800;}
+.phone-topbar .back{border:none; background:var(--surface); width:32px; height:32px; border-radius:9px; font-size:15px; box-shadow:var(--shadow-sm);}
+.phone-content{flex:1; overflow-y:auto; padding:6px 16px 18px;}
+.phone-bottomnav{
+  flex-shrink:0; position:relative; background:var(--surface); border-top:1px solid var(--line);
+  display:flex; align-items:center; justify-content:space-around; padding:8px 6px 14px;
+}
+.phone-bottomnav .navbtn{
+  border:none; background:transparent; display:flex; flex-direction:column; align-items:center; gap:2px;
+  font-size:10.5px; font-weight:700; color:var(--ink-faint); width:64px; padding:4px;
+}
+.phone-bottomnav .navbtn .ic{font-size:19px;}
+.phone-bottomnav .navbtn.active{color:var(--priority);}
+.phone-bottomnav .fab{
+  position:absolute; top:-24px; left:50%; transform:translateX(-50%);
+  width:54px; height:54px; border-radius:50%; background:var(--priority); color:#fff; border:5px solid var(--surface);
+  font-size:24px; font-weight:800; box-shadow:var(--shadow-md); display:flex; align-items:center; justify-content:center;
+}
+
+/* ---------- hero ---------- */
+.hero{
+  border-radius:var(--radius-lg); padding:22px 24px; margin-bottom:22px;
+  background:linear-gradient(135deg, var(--m-tint,var(--m-home-bg)) 0%, var(--surface) 120%);
+  border:1px solid var(--line-soft);
+}
+.hero .hero-label{font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--m-accent,var(--m-home)); margin-bottom:4px;}
+.hero .hero-title{font-size:19px; font-weight:800; margin-bottom:14px;}
+.hero-grid{display:flex; flex-wrap:wrap; gap:12px;}
+.hero-stat{
+  background:var(--surface); border-radius:14px; padding:14px 16px; min-width:150px; flex:1;
+  border:1px solid var(--line-soft); text-align:left; box-shadow:var(--shadow-sm);
+}
+.hero-stat .num{font-size:26px; font-weight:800; line-height:1;}
+.hero-stat .lbl{font-size:12px; color:var(--ink-soft); font-weight:700; margin-top:6px;}
+.hero-stat.warn .num{color:var(--priority);}
+.hero-stat.clickable{border:none; cursor:pointer; text-align:left;}
+.hero-stat.clickable:hover{box-shadow:var(--shadow-md); transform:translateY(-1px);}
+.hero-mobile-card{
+  border-radius:18px; padding:16px 16px 14px; margin-bottom:12px;
+  background:linear-gradient(135deg, var(--m-tint,var(--m-home-bg)) 0%, var(--surface) 130%);
+  border:1px solid var(--line-soft);
+}
+.hero-mobile-card .hero-title{font-size:15.5px; margin-bottom:10px;}
+.hero-mobile-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.hero-mobile-grid .hero-stat{min-width:0; padding:11px 12px;}
+.hero-mobile-grid .hero-stat .num{font-size:20px;}
+.hero-mobile-grid .hero-stat .lbl{font-size:10.5px;}
+
+/* ---------- chips / quick filter ---------- */
+.chiprow{display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;}
+.chiprow.scrollx{flex-wrap:nowrap; overflow-x:auto; padding-bottom:4px; -ms-overflow-style:none; scrollbar-width:none;}
+.chiprow.scrollx::-webkit-scrollbar{display:none;}
+.chip{
+  border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:7px 14px;
+  font-size:12.5px; font-weight:700; color:var(--ink-soft); white-space:nowrap; flex-shrink:0;
+}
+.chip.active{background:var(--m-accent,var(--ink)); border-color:var(--m-accent,var(--ink)); color:#fff;}
+.chip .cnt{opacity:.75; margin-left:3px;}
+
+/* ---------- toolbar ---------- */
+.toolbar{display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;}
+.toolbar .spacer{flex:1;}
+.btn{
+  border:1px solid var(--line); background:var(--surface); border-radius:10px; padding:8px 14px;
+  font-size:12.8px; font-weight:700; color:var(--ink); display:inline-flex; align-items:center; gap:6px;
+}
+.btn:hover{background:var(--surface-soft);}
+.btn-primary{background:var(--m-accent,var(--priority)); border-color:transparent; color:#fff;}
+.btn-primary:hover{filter:brightness(1.06);}
+.btn-danger{background:var(--st-red-bg); border-color:transparent; color:var(--st-red);}
+.btn-ghost{border-color:transparent; background:transparent;}
+.btn-sm{padding:5px 10px; font-size:11.8px; border-radius:8px;}
+.btn:disabled{opacity:.45; cursor:not-allowed;}
+.seg{display:flex; background:var(--surface-soft); border-radius:10px; padding:3px; gap:2px;}
+.seg button{border:none; background:transparent; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; color:var(--ink-soft);}
+.seg button.active{background:var(--surface); color:var(--ink); box-shadow:var(--shadow-sm);}
+
+/* ---------- table ---------- */
+.tablewrap{background:var(--surface); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-sm); border:1px solid var(--line-soft);}
+table{width:100%; border-collapse:collapse; font-size:13px;}
+thead th{
+  text-align:left; padding:11px 14px; font-size:11px; text-transform:uppercase; letter-spacing:.03em;
+  color:var(--ink-faint); font-weight:800; background:var(--surface-soft); border-bottom:1px solid var(--line);
+}
+tbody td{padding:11px 14px; border-bottom:1px solid var(--line-soft); vertical-align:middle;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:#FCFAF6;}
+tbody tr.clickrow{cursor:pointer;}
+.rowid{font-weight:800;}
+.rowactions{display:flex; gap:6px; flex-wrap:wrap;}
+.emptystate{padding:44px 20px; text-align:center; color:var(--ink-faint); font-size:13px;}
+.mono{font-variant-numeric:tabular-nums;}
+
+/* ---------- cards (mobile list) ---------- */
+.mcard{
+  background:var(--surface); border-radius:14px; padding:13px 14px; margin-bottom:10px;
+  border:1px solid var(--line-soft); box-shadow:var(--shadow-sm);
+}
+.mcard .mcard-top{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;}
+.mcard .mcard-id{font-weight:800; font-size:13.5px;}
+.mcard .mcard-sub{font-size:12px; color:var(--ink-soft); margin-bottom:8px;}
+.mcard .mcard-actions{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;}
+
+/* ---------- badges ---------- */
+.badge{display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:999px; font-size:11.5px; font-weight:800;}
+.badge.tone-amber{background:var(--st-amber-bg); color:var(--st-amber);}
+.badge.tone-green{background:var(--st-green-bg); color:var(--st-green);}
+.badge.tone-red{background:var(--st-red-bg); color:var(--st-red);}
+.badge.tone-gray{background:var(--st-gray-bg); color:var(--st-gray);}
+.badge.tone-blue{background:var(--st-blue-bg); color:var(--st-blue);}
+.star{color:var(--priority); font-weight:800;}
+.priority-pill{display:inline-flex; align-items:center; gap:4px; background:var(--priority-bg); color:var(--priority); padding:2px 9px; border-radius:999px; font-size:11px; font-weight:800;}
+
+/* ---------- kanban ---------- */
+.kanban{display:flex; gap:14px; overflow-x:auto; padding-bottom:10px;}
+.kcol{min-width:250px; flex-shrink:0; background:var(--surface-soft); border-radius:14px; padding:12px;}
+.kcol h4{font-size:12.5px; margin:0 0 10px; font-weight:800; display:flex; justify-content:space-between; align-items:center;}
+.kcard{background:var(--surface); border-radius:12px; padding:11px 12px; margin-bottom:9px; box-shadow:var(--shadow-sm); cursor:pointer; border:1px solid var(--line-soft);}
+.kcard .kid{font-weight:800; font-size:12.5px; margin-bottom:4px;}
+.kcard .ksub{font-size:11.5px; color:var(--ink-soft);}
+
+/* ---------- drawer / sheet ---------- */
+.overlay{position:fixed; inset:0; background:rgba(30,20,10,.32); z-index:900; opacity:0; pointer-events:none; transition:opacity .18s;}
+.overlay.show{opacity:1; pointer-events:auto;}
+.drawer{
+  position:fixed; top:0; right:0; height:100%; width:500px; max-width:92vw; background:var(--surface);
+  z-index:901; box-shadow:var(--shadow-lg); transform:translateX(100%); transition:transform .2s ease;
+  display:flex; flex-direction:column;
+}
+.drawer.show{transform:translateX(0);}
+.drawer-head{padding:18px 22px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px;}
+.drawer-head h3{margin:0; font-size:16.5px; font-weight:800; flex:1;}
+.drawer-close{border:none; background:var(--surface-soft); width:30px; height:30px; border-radius:9px; font-size:14px;}
+.drawer-body{flex:1; overflow-y:auto; padding:20px 22px;}
+.drawer-foot{padding:14px 22px; border-top:1px solid var(--line); display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;}
+
+.sheet-overlay{position:absolute; inset:0; background:rgba(30,20,10,.32); z-index:80; opacity:0; pointer-events:none; transition:opacity .18s;}
+.sheet-overlay.show{opacity:1; pointer-events:auto;}
+.sheet{
+  position:absolute; left:0; right:0; bottom:0; top:8%; background:var(--surface); border-radius:22px 22px 0 0;
+  z-index:81; box-shadow:0 -8px 30px rgba(30,20,10,.25); transform:translateY(100%); transition:transform .22s ease;
+  display:flex; flex-direction:column;
+}
+.sheet.show{transform:translateY(0);}
+.sheet .handle{width:38px; height:5px; background:var(--line); border-radius:99px; margin:10px auto 4px;}
+.sheet-head{padding:6px 18px 12px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:8px;}
+.sheet-head h3{margin:0; font-size:15.5px; font-weight:800; flex:1;}
+.sheet-body{flex:1; overflow-y:auto; padding:16px 18px;}
+.sheet-foot{padding:12px 18px 20px; border-top:1px solid var(--line); display:flex; gap:8px; flex-wrap:wrap;}
+
+/* ---------- form fields ---------- */
+.field{margin-bottom:14px;}
+.field label{display:block; font-size:12px; font-weight:800; color:var(--ink-soft); margin-bottom:5px;}
+.field input[type=text], .field input[type=number], .field input[type=date], .field select, .field textarea{
+  width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:9px; font-size:13px; background:var(--surface);
+}
+.field .hint{font-size:11px; color:var(--ink-faint); margin-top:4px;}
+.field-row{display:flex; gap:10px;}
+.field-row .field{flex:1;}
+.section-title{font-size:13px; font-weight:800; margin:18px 0 10px; color:var(--ink); border-top:1px solid var(--line-soft); padding-top:16px;}
+.section-title:first-child{border-top:none; padding-top:0; margin-top:0;}
+.infoline{display:flex; justify-content:space-between; font-size:12.8px; padding:6px 0; border-bottom:1px dashed var(--line-soft);}
+.infoline .k{color:var(--ink-soft); font-weight:600;}
+.infoline .v{font-weight:700;}
+.banner{border-radius:12px; padding:12px 14px; font-size:12.8px; margin-bottom:14px; font-weight:600; line-height:1.5;}
+.banner.warn{background:#FDECEC; color:#8A1F2C; border:1px solid #F5C2C7;}
+.banner.info{background:var(--st-blue-bg); color:var(--st-blue);}
+.checklabel{display:flex; align-items:flex-start; gap:8px; font-size:12.5px; font-weight:600;}
+
+/* ---------- misc ---------- */
+.tag-list{display:flex; flex-wrap:wrap; gap:6px;}
+.imgph{width:100%; height:110px; border-radius:10px; background:repeating-linear-gradient(45deg,#F0E9DC,#F0E9DC 10px,#F7F2E9 10px,#F7F2E9 20px); display:flex; align-items:center; justify-content:center; color:var(--ink-faint); font-size:11px; font-weight:700;}
+.stack{display:flex; flex-direction:column; gap:10px;}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+#toast{position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(20px); background:#211A14; color:#fff; padding:11px 18px; border-radius:12px; font-size:12.8px; font-weight:700; z-index:2000; opacity:0; pointer-events:none; transition:all .18s; box-shadow:var(--shadow-lg);}
+#toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+.linebtn{border:none; background:transparent; color:var(--priority); font-weight:800; font-size:12.5px; padding:4px 0;}
+.smallnote{font-size:11.5px; color:var(--ink-faint); margin-top:2px;}
+.pivot-table td, .pivot-table th{white-space:nowrap;}
+.kpi-strip{display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px;}
+.kpi{background:var(--surface); border-radius:12px; padding:12px 16px; flex:1; min-width:130px; border:1px solid var(--line-soft); box-shadow:var(--shadow-sm);}
+.kpi .n{font-size:20px; font-weight:800;}
+.kpi .l{font-size:11px; color:var(--ink-soft); font-weight:700;}
+</style>
+</head>
+<body>
+
+<div id="harness"></div>
+<div id="stage"></div>
+<div id="overlayRoot"></div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* =========================================================================
+   CONCEPT 5 — "WARM WORKSPACE" — prototype tĩnh, không gọi API.
+   Toàn bộ hành động chạy trên state JS trong bộ nhớ, re-render lại DOM.
+   ========================================================================= */
+
+/* ---------- 1. SEED DATA (copy nguyên văn từ SPEC.md mục 7) ---------- */
+const SEED = {
+  ktvList: [
+    { email: "tram.hadong@3t.vn", ten: "Trạm Hà Đông", vaiTro: "Trạm", tramCha: null, giamSat: "gs.mienbac@3t.vn" },
+    { email: "ktv.a@3t.vn", ten: "Nguyễn Văn A", vaiTro: "KTV/CTV", tramCha: null, giamSat: "gs.mienbac@3t.vn" },
+    { email: "vetinh.b@3t.vn", ten: "Lê Thị B (Vệ tinh)", vaiTro: "Vệ tinh", tramCha: "tram.hadong@3t.vn", giamSat: "gs.mienbac@3t.vn" },
+    { email: "vetinh.d@3t.vn", ten: "Phạm Văn D (Vệ tinh)", vaiTro: "Vệ tinh", tramCha: "tram.hadong@3t.vn", giamSat: "gs.mienbac@3t.vn" },
+    { email: "ktv.e@3t.vn", ten: "Hoàng Thị E", vaiTro: "KTV/CTV", tramCha: null, giamSat: "gs.miennam@3t.vn" },
+  ],
+  linhKien: [
+    { ma: "LK001", ten: "Bo mạch chủ Samsung A52", hang: "Samsung", gia: 350000, dacThu: false, thayThe: ["LK001B"] },
+    { ma: "LK001B", ten: "Bo mạch chủ Samsung A52 (hàng thay thế)", hang: "Samsung", gia: 340000, dacThu: false, thayThe: [] },
+    { ma: "LK002", ten: "Pin Samsung A52", hang: "Samsung", gia: 220000, dacThu: false, thayThe: [] },
+    { ma: "LK010", ten: "Màn hình iPhone 13", hang: "Apple", gia: 1850000, dacThu: true, thayThe: [] },
+    { ma: "LK011", ten: "Camera sau iPhone 13", hang: "Apple", gia: 620000, dacThu: true, thayThe: [] },
+    { ma: "LK020", ten: "Loa ngoài Xiaomi Redmi Note 11", hang: "Xiaomi", gia: 95000, dacThu: false, thayThe: [] },
+    { ma: "LK025", ten: "Pin Xiaomi Redmi Note 11", hang: "Xiaomi", gia: 180000, dacThu: false, thayThe: [] },
+    { ma: "LK030", ten: "Màn hình Oppo A96", hang: "Oppo", gia: 780000, dacThu: false, thayThe: [] },
+  ],
+  lyDoCham: [
+    { ma: "LDC1", ten: "Chờ hàng nhập kho", moTicketThieuLk: true },
+    { ma: "LDC2", ten: "Sai thông tin đơn hàng", moTicketThieuLk: false },
+    { ma: "LDC3", ten: "KTV yêu cầu huỷ", moTicketThieuLk: false },
+    { ma: "LDC4", ten: "Vượt hạn mức duyệt", moTicketThieuLk: false },
+  ],
+  donHang: [
+    { id: "DH-2401", loai: "mua", nguoiTao: "vetinh.b@3t.vn", emailGs: "gs.mienbac@3t.vn", tram: "tram.hadong@3t.vn", maLk: "LK001", soLuong: 2, trangThai: "Cho Tram duyet", uuTien: false },
+    { id: "DH-2402", loai: "mua", nguoiTao: "vetinh.d@3t.vn", emailGs: "gs.mienbac@3t.vn", tram: "tram.hadong@3t.vn", maLk: "LK002", soLuong: 1, trangThai: "Cho Tram duyet", uuTien: true },
+    { id: "DH-2403", loai: "mua", nguoiTao: "ktv.a@3t.vn", emailGs: "gs.mienbac@3t.vn", tram: null, maLk: "LK010", soLuong: 1, trangThai: "Cho TBP xac nhan", uuTien: false },
+    { id: "DH-2404", loai: "cong_no", nguoiTao: "ktv.a@3t.vn", emailGs: "gs.mienbac@3t.vn", tram: null, maLk: "LK020", soLuong: 3, trangThai: "Cho TN duyet", uuTien: false },
+    { id: "DH-2405", loai: "mua", nguoiTao: "tram.hadong@3t.vn", emailGs: "gs.mienbac@3t.vn", tram: null, maLk: "LK002", soLuong: 5, trangThai: "Cho TN duyet", uuTien: true },
+    { id: "DH-2406", loai: "cong_no", nguoiTao: "ktv.e@3t.vn", emailGs: "gs.miennam@3t.vn", tram: null, maLk: "LK030", soLuong: 1, trangThai: "Cho TN duyet", uuTien: false },
+    { id: "DH-2390", loai: "mua", nguoiTao: "ktv.a@3t.vn", emailGs: "gs.mienbac@3t.vn", tram: null, maLk: "LK025", soLuong: 2, trangThai: "TN da duyet", uuTien: false },
+    { id: "DH-2391", loai: "mua", nguoiTao: "vetinh.b@3t.vn", emailGs: "gs.mienbac@3t.vn", tram: "tram.hadong@3t.vn", maLk: "LK001", soLuong: 1, trangThai: "TN da duyet", uuTien: false },
+    { id: "DH-2380", loai: "mua", nguoiTao: "ktv.e@3t.vn", emailGs: "gs.miennam@3t.vn", tram: null, maLk: "LK011", soLuong: 1, trangThai: "Tu choi", lyDoCham: "LDC2", uuTien: false },
+    { id: "DH-2381", loai: "cong_no", nguoiTao: "ktv.a@3t.vn", emailGs: "gs.mienbac@3t.vn", tram: null, maLk: "LK020", soLuong: 2, trangThai: "Da huy", uuTien: false },
+  ],
+  thieuLk: [
+    { id: "TLK-01", donGoc: "DH-2390", nguoiTaoTicket: "kho.trungtam@3t.vn", emailGsDonGoc: "gs.mienbac@3t.vn", maLk: "LK025", trangThai: "Kho da tiep nhan", uuTien: false },
+    { id: "TLK-02", donGoc: "DH-2405", nguoiTaoTicket: "kho.trungtam@3t.vn", emailGsDonGoc: "gs.mienbac@3t.vn", maLk: "LK002", trangThai: "Cho kho xac nhan", uuTien: true },
+    { id: "TLK-03", donGoc: "DH-2406", nguoiTaoTicket: "kho.trungtam@3t.vn", emailGsDonGoc: "gs.miennam@3t.vn", maLk: "LK030", trangThai: "Da ket thuc", uuTien: false },
+  ],
+  pxk: [
+    { id: "PXK-501", nguoiNhanHang: "ktv.a@3t.vn", emailGs: "gs.mienbac@3t.vn", donHang: ["DH-2390"], trangThai: "Dang tao phieu", maXuatKho: null, maMisa: null },
+    { id: "PXK-502", nguoiNhanHang: "vetinh.b@3t.vn", emailGs: "gs.mienbac@3t.vn", donHang: ["DH-2391"], trangThai: "Cho ke toan", maXuatKho: "XK-99231", maMisa: null },
+  ],
+  traHang: [
+    { id: "TH-701", nguoiTao: "ktv.a@3t.vn", emailGs: "gs.mienbac@3t.vn", maLk: "LK002", trangThai: "Cho ke toan duyet mem", uuTien: false },
+    { id: "TH-702", nguoiTao: "vetinh.b@3t.vn", emailGs: "gs.mienbac@3t.vn", maLk: "LK001", trangThai: "Cho kho xac nhan", uuTien: false },
+    { id: "TH-703", nguoiTao: "ktv.e@3t.vn", emailGs: "gs.miennam@3t.vn", maLk: "LK011", trangThai: "Cho QC xac nhan", uuTien: true },
+    { id: "TH-704", nguoiTao: "tram.hadong@3t.vn", emailGs: "gs.mienbac@3t.vn", maLk: "LK030", trangThai: "Cho TN duyet tong", uuTien: false },
+    { id: "TH-699", nguoiTao: "ktv.a@3t.vn", emailGs: "gs.mienbac@3t.vn", maLk: "LK020", trangThai: "Da duyet", uuTien: false },
+  ],
+  users: [
+    { email: "khach.moi@3t.vn", ten: "Trần Văn Mới", trangThaiDuyet: "Cho duyet", vaiTro: null },
+  ],
+};
+
+/* ---------- 2. Dữ liệu bổ sung chỉ phục vụ demo (không có trong SEED bắt buộc) ---------- */
+const EXTRA = {
+  loaiDeXuat: [
+    { ma: "LDX1", ten: "Đề xuất đổi hàng lỗi NSX", nhom: "Bảo hành" },
+    { ma: "LDX2", ten: "Đề xuất cấp bù hao hụt", nhom: "Vận hành" },
+    { ma: "LDX3", ten: "Đề xuất mua ngoài kế hoạch", nhom: "Vận hành" },
+  ],
+  nhomLoaiDeXuat: ["Bảo hành", "Vận hành", "Khác"],
+};
+
+/* 10 persona + 2 cờ độc lập */
+const PERSONAS = [
+  { key:"admin",      ten:"Admin",              email:"admin@3t.vn",          vaiTro:"Admin" },
+  { key:"qc",         ten:"QC",                 email:"qc@3t.vn",             vaiTro:"QC" },
+  { key:"gs",         ten:"Giám sát (GS)",      email:"gs.mienbac@3t.vn",     vaiTro:"Giam sat" },
+  { key:"tram",       ten:"Trạm",               email:"tram.hadong@3t.vn",    vaiTro:"KTV DVBH", laTram:true },
+  { key:"ktv",        ten:"KTV/CTV",            email:"ktv.a@3t.vn",          vaiTro:"KTV DVBH" },
+  { key:"vetinh",     ten:"Vệ tinh",            email:"vetinh.b@3t.vn",       vaiTro:"KTV DVBH", laVeTinh:true },
+  { key:"kho",        ten:"Kho",                email:"kho.trungtam@3t.vn",   vaiTro:"Kho" },
+  { key:"ketoan",     ten:"Kế toán",            email:"ketoan.c@3t.vn",       vaiTro:"Kế toán" },
+  { key:"tacnghiep",  ten:"Tác nghiệp (TN)",    email:"tacnghiep.d@3t.vn",    vaiTro:"Tác nghiệp",  defaultQuanLyDmLk:true },
+  { key:"tpdvbh",     ten:"TP DVBH",            email:"tpdvbh.e@3t.vn",       vaiTro:"TP DVBH",     defaultXemDmLk:true },
+];
+const PERSONA_BY_KEY = Object.fromEntries(PERSONAS.map(p => [p.key, p]));
+
+/* ID quá hạn giả lập (curated, không random để demo ổn định) */
+const QUA_HAN_IDS = new Set(["DH-2402","DH-2406","TLK-02","TH-703","DH-2404"]);
+
+/* ---------- 3. DB — bản sao có thể mutate của SEED (state trong bộ nhớ) ---------- */
+function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
+const db = deepClone(SEED);
+
+/* Bổ sung PXK 2 field trạng thái tiền + biên bản để demo đủ luồng C */
+db.pxk[0].trangThaiTien = null;              db.pxk[0].daGuiHang=false; db.pxk[0].daNhanHang=false; db.pxk[0].bienBanUrl=null; db.pxk[0].chungTuTienUrl=null;
+db.pxk[1].trangThaiTien = "Cho KTV chuyen tien"; db.pxk[1].daGuiHang=false; db.pxk[1].daNhanHang=false; db.pxk[1].bienBanUrl=null; db.pxk[1].chungTuTienUrl=null;
+
+/* Users demo: mỗi persona = 1 user đã duyệt, cộng user "Chờ duyệt" từ SEED */
+db.users = PERSONAS.map(p => ({
+  email: p.email, ten: p.ten, trangThaiDuyet: "Da duyet", vaiTro: p.vaiTro, khoa:false,
+  laKtvDvbh: p.key==="tram"||p.key==="ktv"||p.key==="vetinh",
+  laVeTinh: !!p.laVeTinh, laTram: !!p.laTram, laKho:p.key==="kho", laKeToan:p.key==="ketoan",
+  laTacNghiep:p.key==="tacnghiep", laTpDvbh:p.key==="tpdvbh",
+  quanLyDmLk: !!p.defaultQuanLyDmLk, xemDmLk: !!p.defaultXemDmLk,
+})).concat(deepClone(SEED.users).map(u => ({...u, khoa:false, laKtvDvbh:false,laVeTinh:false,laTram:false,laKho:false,laKeToan:false,laTacNghiep:false,laTpDvbh:false,quanLyDmLk:false,xemDmLk:false})));
+
+/* ---------- 4. STATE ---------- */
+const state = {
+  personaKey: "admin",
+  flagQuanLyDmLk: false,
+  flagXemDmLk: false,
+  mode: "web",                 // 'web' | 'mobile'
+  module: "dat-mua-lk",        // 'dat-mua-lk' | 'danh-muc-lk' | 'settings' | 'users'
+  tab: "home",
+  settingsTab: "lydocham",
+  usersFilter: "tat-ca",
+  viewMode: { pxk:"table", traHang:"table" },   // bảng | kanban
+  filters: {
+    muaHang:  { quick:"tat-ca", open:false, ktv:"", gs:"", maLk:"" },
+    congNo:   { quick:"tat-ca", open:false, ktv:"", gs:"", maLk:"" },
+    traHang:  { quick:"tat-ca", open:false, ktv:"", gs:"", maLk:"" },
+    thieuLk:  { quick:"tat-ca", open:false, ktv:"", gs:"", maLk:"" },
+    pxk:      { quick:"tat-ca", open:false, ktv:"", gs:"", maLk:"" },
+    danhMuc:  { hang:"" },
+  },
+  selected: { muaHang:new Set(), congNo:new Set(), thieuLk:new Set(), traHang:new Set() },
+  drawer: null,        // {kind, id, listIds, index}
+  importDialog: null,  // {kind}
+  mobileMoreOpen: false,
+  newOrder: null,       // form state cho "Tạo đơn mới"
+  driveConnected: true,
+  driveAccount: "drive.uploader@3t.vn",
+  selfEditConfirm: false,
+  selfEditEmailTyped: "",
+  lkDraft: null,
+};
+
+function currentPersona(){ return PERSONA_BY_KEY[state.personaKey]; }
+function isAdmin(){ return state.personaKey === "admin"; }
+function hasQuanLyDmLk(){ return isAdmin() || state.flagQuanLyDmLk; }
+function hasXemDmLk(){ return true; } // mọi vai trò đã đăng nhập đều xem được danh mục
+
+/* ---------- 5. LOOKUP HELPERS ---------- */
+function lk(ma){ return db.linhKien.find(x=>x.ma===ma); }
+function ktv(email){ return db.ktvList.find(x=>x.email===email); }
+function ktvTen(email){ const k=ktv(email); if(k) return k.ten; const p=PERSONAS.find(x=>x.email===email); return p? p.ten : email; }
+function lyDo(ma){ return db.lyDoCham.find(x=>x.ma===ma); }
+function donHangById(id){ return db.donHang.find(x=>x.id===id); }
+function thieuLkById(id){ return db.thieuLk.find(x=>x.id===id); }
+function pxkById(id){ return db.pxk.find(x=>x.id===id); }
+function traHangById(id){ return db.traHang.find(x=>x.id===id); }
+function fmtTien(n){ if(n==null) return "—"; return new Intl.NumberFormat("vi-VN").format(n)+" đ"; }
+function isVeTinhCua(tramEmail, veTinhEmail){ const k=ktv(veTinhEmail); return k && k.tramCha===tramEmail; }
+
+/* ---------- 6. MA TRẬN 1 — Vai trò × Màn hình (module nào persona thấy) ---------- */
+const VIEW_MUAHANG_CONGNO = new Set(["admin","gs","tram","ktv","vetinh","tacnghiep","tpdvbh"]);
+const VIEW_TRAHANG_DAYDU  = new Set(["admin","qc","gs","kho","ketoan","tacnghiep"]);
+const VIEW_TRAHANG_THEODOI= new Set(["tram","ktv","vetinh","tpdvbh"]);
+const VIEW_PXK             = new Set(["admin","gs","kho","ketoan","tacnghiep"]);
+const VIEW_THIEULK         = new Set(["admin","gs","tram","ktv","vetinh","kho","ketoan","tacnghiep","tpdvbh"]);
+const CAN_TAODON            = new Set(["admin","gs","tram","ktv","vetinh","tacnghiep"]);
+
+function canView(tab){
+  const k = state.personaKey;
+  if(k==="admin") return true;
+  switch(tab){
+    case "mua-hang": case "cong-no": return VIEW_MUAHANG_CONGNO.has(k);
+    case "tra-hang": return VIEW_TRAHANG_DAYDU.has(k) || VIEW_TRAHANG_THEODOI.has(k);
+    case "pxk": return VIEW_PXK.has(k);
+    case "thieu-lk": return VIEW_THIEULK.has(k);
+    case "bao-cao": return true; // mọi vai trò trong module đều có 1 dạng báo cáo/thẻ nào đó
+    case "home": return true;
+    case "tao-don": return CAN_TAODON.has(k);
+    default: return false;
+  }
+}
+function traHangMode(){ // 'daydu' | 'theodoi' | null
+  const k = state.personaKey;
+  if(VIEW_TRAHANG_DAYDU.has(k)) return "daydu";
+  if(VIEW_TRAHANG_THEODOI.has(k)) return "theodoi";
+  return null;
+}
+function canSeeDatMuaLkModule(){
+  return ["admin","qc","gs","tram","ktv","vetinh","kho","ketoan","tacnghiep","tpdvbh"].includes(state.personaKey);
+}
+function canSeeDanhMucModule(){ return true; }
+function canSeeSettingsModule(){ return isAdmin(); }
+function canSeeUsersModule(){ return isAdmin(); }
+
+/* ---------- 7. MA TRẬN 4 — Phạm vi dữ liệu ---------- */
+function scopedDonHang(){
+  const k = state.personaKey, p = currentPersona();
+  if(k==="admin"||k==="kho"||k==="ketoan"||k==="tacnghiep"||k==="tpdvbh") return db.donHang.slice();
+  if(k==="gs") return db.donHang.filter(o=>o.emailGs===p.email);
+  if(k==="tram") return db.donHang.filter(o=>o.nguoiTao===p.email || o.tram===p.email);
+  if(k==="ktv") return db.donHang.filter(o=>o.nguoiTao===p.email);
+  if(k==="vetinh") return db.donHang.filter(o=>o.nguoiTao===p.email);
+  return [];
+}
+function scopedThieuLk(){
+  const k = state.personaKey, p = currentPersona();
+  if(k==="admin"||k==="kho"||k==="tacnghiep") return db.thieuLk.slice();
+  if(k==="gs") return db.thieuLk.filter(t=>t.emailGsDonGoc===p.email);
+  if(k==="tram"||k==="ktv"||k==="vetinh"||k==="ketoan"||k==="tpdvbh") return db.thieuLk.filter(t=>t.nguoiTaoTicket===p.email); // ticket tự tạo (hiếm)
+  return [];
+}
+function scopedPxk(){
+  const k = state.personaKey, p = currentPersona();
+  if(k==="admin"||k==="kho"||k==="ketoan"||k==="tacnghiep") return db.pxk.slice();
+  if(k==="gs") return db.pxk.filter(x=>x.emailGs===p.email);
+  if(k==="tram") return db.pxk.filter(x=> x.nguoiNhanHang===p.email || isVeTinhCua(p.email,x.nguoiNhanHang));
+  if(k==="ktv"||k==="vetinh") return db.pxk.filter(x=>x.nguoiNhanHang===p.email);
+  return [];
+}
+function scopedTraHang(){ // dùng cho luồng "đầy đủ" (có nút) — theo dõi thì luôn xem toàn bộ (chủ đích, mục 8.5)
+  const k = state.personaKey;
+  if(["admin","qc","kho","ketoan","tacnghiep"].includes(k)) return db.traHang.slice();
+  if(k==="gs") return db.traHang.filter(x=>x.emailGs===currentPersona().email);
+  return db.traHang.slice(); // fallback không dùng tới (theo dõi luôn toàn bộ)
+}
+
+/* ---------- 7b. CHUYỂN TRẠNG THÁI (mutate state trong bộ nhớ) ---------- */
+function advanceDonHang(o){
+  const item = lk(o.maLk);
+  if(o.trangThai==="Cho Tram duyet") o.trangThai = (item && item.dacThu) ? "Cho TBP xac nhan" : "Cho TN duyet";
+  else if(o.trangThai==="Cho TBP xac nhan") o.trangThai = "Cho TN duyet";
+  else if(o.trangThai==="Cho TN duyet") o.trangThai = "TN da duyet";
+}
+function rejectDonHang(o, reasonMa){
+  const reason = lyDo(reasonMa);
+  o.lyDoCham = reasonMa;
+  if(reason && reason.moTicketThieuLk){
+    const n = db.thieuLk.length + 1;
+    db.thieuLk.push({ id:`TLK-${String(90+n)}`, donGoc:o.id, nguoiTaoTicket: currentPersona().email, emailGsDonGoc:o.emailGs, maLk:o.maLk, trangThai:"Cho kho tiep nhan", uuTien:o.uuTien });
+    toast(`Lý do "${reason.ten}" có cờ mở ticket — đã tự tạo ticket Thiếu LK thay vì từ chối hẳn đơn.`);
+  } else {
+    o.trangThai = "Tu choi";
+  }
+}
+function advanceTraHang(t){
+  if(t.trangThai==="Cho ke toan duyet mem") t.trangThai = "Cho kho xac nhan";
+  else if(t.trangThai==="Cho kho xac nhan") t.trangThai = "Cho QC xac nhan";
+  else if(t.trangThai==="Cho QC xac nhan") t.trangThai = "Cho TN duyet tong";
+  else if(t.trangThai==="Cho TN duyet tong") t.trangThai = "Da duyet";
+}
+function luiBuocTraHang(t){
+  if(t.trangThai==="Cho kho xac nhan") t.trangThai = "Cho ke toan duyet mem";
+  else if(t.trangThai==="Cho QC xac nhan") t.trangThai = "Cho kho xac nhan";
+}
+function computeListIdsForScreen(screenKey){
+  if(screenKey==="muaHang") return applyFilters(scopedDonHang().filter(o=>o.loai==="mua"), "muaHang", donHangCanApprove).map(o=>o.id);
+  if(screenKey==="congNo") return applyFilters(scopedDonHang().filter(o=>o.loai==="cong_no"), "congNo", donHangCanApprove).map(o=>o.id);
+  if(screenKey==="thieuLk") return applyFilters(scopedThieuLk(), "thieuLk", thieuLkCanAct).map(t=>t.id);
+  if(screenKey==="traHang") return applyFilters(scopedTraHang(), "traHang", traHangCanAct).map(t=>t.id);
+  if(screenKey==="pxk") return applyFilters(scopedPxk(), "pxk", pxkActionable).map(x=>x.id);
+  return null;
+}
+function resetSelections(){ Object.keys(state.selected).forEach(k=>state.selected[k].clear()); }
+function submitNewOrder(){
+  const no = state.newOrder;
+  if(!no || !no.lines.length){ toast("Vui lòng thêm ít nhất 1 dòng linh kiện."); return; }
+  const p = currentPersona();
+  let creatorEmail = p.email, tramField = null, emailGs = null;
+  if(no.taoHo){
+    creatorEmail = no.taoHo;
+    const kk = ktv(no.taoHo);
+    emailGs = kk ? kk.giamSat : p.email;
+    tramField = kk && kk.tramCha ? kk.tramCha : null;
+  } else {
+    const kk = ktv(p.email);
+    emailGs = kk ? kk.giamSat : (state.personaKey==="gs" ? p.email : "gs.mienbac@3t.vn");
+    tramField = kk && kk.tramCha ? kk.tramCha : null;
+    if(state.personaKey==="tram") tramField = null; // Trạm tạo trực tiếp cho chính mình, không có tram cha
+  }
+  const created = [];
+  let maxNum = 2300;
+  db.donHang.forEach(o=>{ const n = Number((o.id.split("-")[1]||"0")); if(n>maxNum) maxNum=n; });
+  no.lines.forEach(l=>{
+    const item = lk(l.maLk);
+    let trangThai;
+    if(tramField) trangThai = "Cho Tram duyet";
+    else if(item && item.dacThu) trangThai = "Cho TBP xac nhan";
+    else trangThai = "Cho TN duyet";
+    maxNum += 1;
+    const id = `DH-${maxNum}`;
+    db.donHang.push({ id, loai:no.loai, nguoiTao:creatorEmail, emailGs, tram:tramField, maLk:l.maLk, soLuong:Number(l.soLuong)||1, trangThai, uuTien:false });
+    created.push(id);
+  });
+  toast(`Đã tạo ${created.length} đơn mới: ${created.join(", ")}.`);
+  state.newOrder = null;
+  state.tab = "home";
+}
+function doImportConfirm(kind){
+  if(kind==="taodon"){
+    ensureNewOrderState();
+    IMPORT_PREVIEW.taodon.rows.forEach(r=> state.newOrder.lines.push({ maLk:r[0], soLuong:Number(r[1])||1 }));
+    toast(`Đã nhập ${IMPORT_PREVIEW.taodon.rows.length} dòng vào đơn.`);
+  } else if(kind==="ktv"){
+    IMPORT_PREVIEW.ktv.rows.forEach(r=>{
+      db.ktvList.push({ email:r[0], ten:r[1], vaiTro:r[2], tramCha: r[3]==="—"?null:r[3], giamSat: state.personaKey==="gs" ? currentPersona().email : "gs.mienbac@3t.vn" });
+    });
+    toast(`Đã nhập ${IMPORT_PREVIEW.ktv.rows.length} KTV/CTV/Vệ tinh mới.`);
+  } else if(kind==="danhmuc"){
+    IMPORT_PREVIEW.danhmuc.rows.forEach(r=>{
+      db.linhKien.push({ ma:r[0], ten:r[1], hang:r[2], gia:Number(r[3])||0, dacThu:false, thayThe:[] });
+    });
+    toast(`Đã nhập ${IMPORT_PREVIEW.danhmuc.rows.length} linh kiện mới.`);
+  }
+  state.importDialog = null;
+}
+
+/* ---------- 8. STATUS META (nhãn trạng thái = thể quá khứ/trạng thái, KHÁC nhãn nút = mệnh lệnh) ---------- */
+const META_DONHANG = {
+  "Cho Tram duyet":   { label:"Chờ Trạm duyệt",      tone:"amber" },
+  "Cho TBP xac nhan": { label:"Chờ TBP xác nhận",    tone:"amber" },
+  "Cho TN duyet":     { label:"Chờ TN duyệt",        tone:"blue" },
+  "TN da duyet":      { label:"TN đã duyệt",         tone:"green" },
+  "Tu choi":          { label:"Đã từ chối",          tone:"red" },
+  "Da huy":           { label:"Đã huỷ",              tone:"gray" },
+};
+const META_THIEULK = {
+  "Cho kho tiep nhan":      { label:"Chờ Kho tiếp nhận",         tone:"amber" },
+  "Kho da tiep nhan":       { label:"Kho đã tiếp nhận",          tone:"blue" },
+  "Cho kho xac nhan":       { label:"Chờ Kho xác nhận hàng về",  tone:"amber" },
+  "Da ve kho":              { label:"Đã về kho",                 tone:"green" },
+  "Tu choi sai thong tin":  { label:"Từ chối — sai thông tin",   tone:"red" },
+  "Da ket thuc":            { label:"Đã kết thúc",               tone:"gray" },
+  "Da huy bo":              { label:"Đã huỷ bỏ",                 tone:"gray" },
+};
+const META_PXK = {
+  "Dang tao phieu": { label:"Đang tạo phiếu", tone:"amber" },
+  "Cho ke toan":    { label:"Chờ kế toán",     tone:"blue" },
+  "Dang gui KTV":   { label:"Đang gửi KTV",    tone:"blue" },
+  "Kho da ket thuc":{ label:"Kho đã kết thúc", tone:"green" },
+};
+const META_PXK_TIEN = {
+  "null":                { label:"Chưa yêu cầu chuyển tiền", tone:"gray" },
+  "Cho KTV chuyen tien":  { label:"Chờ KTV chuyển tiền",     tone:"amber" },
+  "KTV da chuyen":        { label:"KTV đã chuyển",           tone:"blue" },
+  "TN da duyet tien":     { label:"TN đã duyệt tiền",        tone:"green" },
+};
+const META_TRAHANG = {
+  "Cho ke toan duyet mem": { label:"Chờ Kế toán duyệt mềm", tone:"amber" },
+  "Cho kho xac nhan":      { label:"Chờ Kho xác nhận",      tone:"amber" },
+  "Cho QC xac nhan":       { label:"Chờ QC xác nhận",       tone:"blue" },
+  "Cho TN duyet tong":     { label:"Chờ TN duyệt tổng",     tone:"blue" },
+  "Da duyet":              { label:"Đã duyệt",              tone:"green" },
+  "Tu choi":               { label:"Đã từ chối",            tone:"red" },
+};
+function badge(meta){ return meta ? `<span class="badge tone-${meta.tone}">${meta.label}</span>` : ""; }
+function starIf(uuTien){ return uuTien ? `<span class="star" title="Ưu tiên">★</span> ` : ""; }
+function priorityPillIf(uuTien){ return uuTien ? `<span class="priority-pill">★ Ưu tiên</span>` : ""; }
+
+/* ---------- 9. Ma trận 2 — ai bấm được nút gì ở bước hiện tại ---------- */
+function donHangCanApprove(o){
+  const k = state.personaKey;
+  if(k==="admin") return ["Cho Tram duyet","Cho TBP xac nhan","Cho TN duyet"].includes(o.trangThai);
+  if(k==="tram") return o.trangThai==="Cho Tram duyet" && o.tram===currentPersona().email;
+  if(k==="tpdvbh") return o.trangThai==="Cho TBP xac nhan" && !!lk(o.maLk)?.dacThu;
+  if(k==="tacnghiep") return o.trangThai==="Cho TN duyet";
+  return false;
+}
+function donHangCanEdit(o){
+  const p = currentPersona();
+  if(o.nguoiTao===p.email && ["Cho Tram duyet","Cho TBP xac nhan","Cho TN duyet"].includes(o.trangThai)) return true;
+  if(state.personaKey==="tacnghiep" || state.personaKey==="admin") return !["Da huy"].includes(o.trangThai);
+  return false;
+}
+function donHangCanCancel(o){
+  const p = currentPersona(), k = state.personaKey;
+  if(["TN da duyet","Tu choi","Da huy"].includes(o.trangThai)) return false;
+  if(o.nguoiTao===p.email) return true;
+  if(k==="tram" && (o.tram===p.email)) return true;
+  if(k==="admin") return true;
+  return false;
+}
+function traHangCanAct(t){
+  const k = state.personaKey;
+  if(k==="admin") return ["Cho ke toan duyet mem","Cho kho xac nhan","Cho QC xac nhan","Cho TN duyet tong"].includes(t.trangThai);
+  if(k==="ketoan") return t.trangThai==="Cho ke toan duyet mem";
+  if(k==="kho") return t.trangThai==="Cho kho xac nhan";
+  if(k==="qc") return t.trangThai==="Cho QC xac nhan";
+  if(k==="tacnghiep") return t.trangThai==="Cho TN duyet tong";
+  return false;
+}
+function traHangCanLuiBuoc(t){
+  const k = state.personaKey;
+  if(!["Cho kho xac nhan","Cho QC xac nhan"].includes(t.trangThai) && !(t.trangThai==="Cho ke toan duyet mem")) {}
+  return (k==="ketoan"||k==="kho"||k==="admin") && ["Cho kho xac nhan","Cho QC xac nhan"].includes(t.trangThai);
+}
+function traHangCanHuy(t){
+  const p = currentPersona(), k = state.personaKey;
+  if(["Da duyet","Tu choi"].includes(t.trangThai)) return false;
+  return t.nguoiTao===p.email || k==="tacnghiep" || k==="admin";
+}
+function thieuLkCanAct(t){
+  const k = state.personaKey;
+  if(k==="admin") return true;
+  if(k==="kho") return ["Cho kho tiep nhan","Kho da tiep nhan","Cho kho xac nhan"].includes(t.trangThai);
+  if(k==="tacnghiep") return t.trangThai==="Da ve kho";
+  return false;
+}
+function thieuLkCanHuy(t){
+  const p = currentPersona(), k = state.personaKey;
+  if(["Da ket thuc","Da huy bo"].includes(t.trangThai)) return false;
+  return (k==="kho" && t.nguoiTaoTicket===p.email) || k==="admin";
+}
+
+/* ---------- 10. HERO — số liệu "Việc cần làm hôm nay" theo phạm vi persona ---------- */
+function heroStats(){
+  const stats = [];
+  if(canView("mua-hang")||canView("cong-no")){
+    const scoped = scopedDonHang();
+    const choToiDuyet = scoped.filter(donHangCanApprove).length;
+    stats.push({ key:"cho-toi-duyet", num:choToiDuyet, label:"Đơn chờ tôi duyệt", tab:"mua-hang", quick:"cho-toi-duyet", warn:choToiDuyet>0 });
+  }
+  {
+    const scoped = scopedDonHang();
+    const uuTien = scoped.filter(o=>o.uuTien && !["TN da duyet","Tu choi","Da huy"].includes(o.trangThai)).length;
+    if(uuTien>0 || canView("mua-hang")) stats.push({ key:"uu-tien", num:uuTien, label:"Đơn ưu tiên đang chờ", tab:"mua-hang", quick:"uu-tien", warn:uuTien>0 });
+  }
+  if(canView("thieu-lk")){
+    const scoped = scopedThieuLk();
+    const dangXuLy = scoped.filter(t=>!["Da ket thuc","Da huy bo"].includes(t.trangThai)).length;
+    stats.push({ key:"thieu-lk", num:dangXuLy, label:"Thiếu LK đang xử lý", tab:"thieu-lk", quick:"tat-ca", warn:dangXuLy>0 });
+  }
+  if(canView("pxk")){
+    const scoped = scopedPxk();
+    const canXuLy = scoped.filter(x=>x.trangThai!=="Kho da ket thuc").length;
+    stats.push({ key:"pxk", num:canXuLy, label:"PXK cần xử lý", tab:"pxk", quick:"tat-ca", warn:canXuLy>0 });
+  }
+  if(traHangMode()==="daydu"){
+    const scoped = scopedTraHang();
+    const canAct = scoped.filter(traHangCanAct).length;
+    stats.push({ key:"tra-hang", num:canAct, label:"Trả hàng cần xử lý", tab:"tra-hang", quick:"cho-toi-duyet", warn:canAct>0 });
+  }
+  if(state.personaKey==="qc"){
+    const cho = db.traHang.filter(t=>t.trangThai==="Cho QC xac nhan").length;
+    stats.length=0;
+    stats.push({ key:"qc-xacnhan", num:cho, label:"Đơn Trả hàng chờ QC xác nhận", tab:"tra-hang", quick:"cho-toi-duyet", warn:cho>0 });
+  }
+  return stats;
+}
+
+/* ---------- 11. TOAST ---------- */
+let toastTimer=null;
+function toast(msg){
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove("show"), 2200);
+}
+
+/* ---------- 12. MODULE ACCENT ---------- */
+const MODULE_ACCENT = {
+  "home":     { accent:"var(--m-home)",    tint:"var(--m-home-bg)",    icon:"🏠", label:"Trang chủ" },
+  "mua-hang": { accent:"var(--m-muahang)", tint:"var(--m-muahang-bg)", icon:"🛒", label:"Mua hàng" },
+  "cong-no":  { accent:"var(--m-congno)",  tint:"var(--m-congno-bg)",  icon:"💳", label:"Công nợ" },
+  "tra-hang": { accent:"var(--m-trahang)", tint:"var(--m-trahang-bg)", icon:"↩️", label:"Trả hàng" },
+  "pxk":      { accent:"var(--m-pxk)",     tint:"var(--m-pxk-bg)",     icon:"📦", label:"Phiếu xuất kho" },
+  "thieu-lk": { accent:"var(--m-thieulk)", tint:"var(--m-thieulk-bg)", icon:"⚠️", label:"Thiếu linh kiện" },
+  "bao-cao":  { accent:"var(--m-baocao)",  tint:"var(--m-baocao-bg)",  icon:"📊", label:"Báo cáo" },
+  "tao-don":  { accent:"var(--priority)",  tint:"var(--priority-bg)",  icon:"➕", label:"Tạo đơn mới" },
+};
+const MODULE_TOP_ACCENT = {
+  "dat-mua-lk":  { accent:"var(--m-home)",    tint:"var(--m-home-bg)",    icon:"🧰", label:"Đặt mua linh kiện" },
+  "danh-muc-lk": { accent:"var(--m-danhmuc)", tint:"var(--m-danhmuc-bg)", icon:"🗂️", label:"Danh mục linh kiện" },
+  "settings":    { accent:"var(--m-settings)",tint:"var(--m-settings-bg)",icon:"⚙️", label:"Settings" },
+  "users":       { accent:"var(--m-users)",   tint:"var(--m-users-bg)",   icon:"👤", label:"Quản lý User" },
+};
+function accentStyle(m){ return `--m-accent:${m.accent}; --m-tint:${m.tint};`; }
+
+/* ---------- 13. RENDER ENGINE ---------- */
+function renderAll(){
+  renderHarness();
+  renderStage();
+}
+
+function renderHarness(){
+  const el = document.getElementById("harness");
+  const p = currentPersona();
+  el.innerHTML = `
+    <div class="harness-group">
+      <label>Xem như</label>
+      <select data-act="set-persona">
+        ${PERSONAS.map(x=>`<option value="${x.key}" ${x.key===state.personaKey?"selected":""}>${x.ten}</option>`).join("")}
+      </select>
+      <span class="persona-badge">${p.email}</span>
+    </div>
+    <div class="harness-group">
+      <label class="chk"><input type="checkbox" data-act="toggle-flag" data-flag="flagQuanLyDmLk" ${state.flagQuanLyDmLk?"checked":""}> Quản lý DM LK</label>
+      <label class="chk"><input type="checkbox" data-act="toggle-flag" data-flag="flagXemDmLk" ${state.flagXemDmLk?"checked":""}> Xem DM LK</label>
+    </div>
+    <div class="spacer"></div>
+    <div class="mode-toggle">
+      <button data-act="set-mode" data-mode="web" class="${state.mode==="web"?"active":""}">🖥️ Bản Web</button>
+      <button data-act="set-mode" data-mode="mobile" class="${state.mode==="mobile"?"active":""}">📱 Bản Mobile</button>
+    </div>`;
+}
+
+function sidebarModules(){
+  const items = [];
+  if(canSeeDatMuaLkModule()){
+    const subs = [];
+    subs.push({tab:"home", label:"Trang chủ"});
+    if(canView("mua-hang")) subs.push({tab:"mua-hang", label:"Mua hàng"});
+    if(canView("cong-no")) subs.push({tab:"cong-no", label:"Công nợ"});
+    if(traHangMode()) subs.push({tab:"tra-hang", label:"Trả hàng"+(traHangMode()==="theodoi"?" (theo dõi)":"")});
+    if(canView("pxk")) subs.push({tab:"pxk", label:"Phiếu xuất kho"});
+    if(canView("thieu-lk")) subs.push({tab:"thieu-lk", label:"Thiếu linh kiện"});
+    subs.push({tab:"bao-cao", label: state.personaKey==="qc" ? "Việc QC cần xác nhận" : "Báo cáo"});
+    items.push({ module:"dat-mua-lk", subs });
+  }
+  items.push({ module:"danh-muc-lk", subs:null });
+  if(canSeeSettingsModule()) items.push({ module:"settings", subs:null });
+  if(canSeeUsersModule()) items.push({ module:"users", subs:null });
+  return items;
+}
+
+function renderStage(){
+  const stage = document.getElementById("stage");
+  stage.className = state.mode;
+  if(state.mode==="web"){
+    stage.innerHTML = webShellHtml();
+  } else {
+    stage.innerHTML = mobileShellHtml();
+  }
+  renderDrawerAndOverlays();
+}
+
+function webShellHtml(){
+  const mods = sidebarModules();
+  let sidebarHtml = `<div class="brand">3T <span>Linh kiện</span></div>`;
+  if(CAN_TAODON.has(state.personaKey)){
+    sidebarHtml += `<button class="createbtn" data-act="open-tao-don">+ Tạo đơn</button>`;
+  }
+  for(const m of mods){
+    const meta = MODULE_TOP_ACCENT[m.module];
+    const active = state.module===m.module;
+    sidebarHtml += `<div class="navgroup">
+      <button class="navitem ${active?"active":""}" style="${accentStyle(meta)}" data-act="set-module" data-module="${m.module}">
+        <span class="dot" style="background:${meta.accent}"></span> ${meta.icon} ${meta.label}
+      </button>`;
+    if(active && m.subs){
+      sidebarHtml += `<div class="subnav">` + m.subs.map(s=>{
+        const sMeta = MODULE_ACCENT[s.tab];
+        const sActive = state.tab===s.tab;
+        return `<button class="subitem ${sActive?"active":""}" style="${accentStyle(sMeta)}" data-act="set-tab" data-tab="${s.tab}">${sMeta.icon} ${s.label}</button>`;
+      }).join("") + `</div>`;
+    }
+    sidebarHtml += `</div>`;
+  }
+  const pt = pageTitleInfo();
+  return `<div class="web-shell">
+    <div class="sidebar">${sidebarHtml}</div>
+    <div class="main" style="${accentStyle(pt.meta)}">
+      <div class="crumb">${pt.crumb}</div>
+      <h1>${pt.meta.icon} ${pt.title}</h1>
+      ${renderMainContent()}
+    </div>
+  </div>`;
+}
+
+function pageTitleInfo(){
+  if(state.module==="dat-mua-lk"){
+    const meta = MODULE_ACCENT[state.tab] || MODULE_ACCENT.home;
+    let title = meta.label;
+    if(state.tab==="tra-hang") title = "Trả hàng" + (traHangMode()==="theodoi" ? " — chỉ theo dõi" : " — đầy đủ");
+    if(state.tab==="bao-cao" && state.personaKey==="qc") title = "Việc QC cần xác nhận";
+    return { crumb:"Đặt mua linh kiện", meta, title };
+  }
+  const meta = MODULE_TOP_ACCENT[state.module];
+  return { crumb:"Quản trị", meta, title: meta.label };
+}
+
+function mobileShellHtml(){
+  const mods = sidebarModules();
+  const datMuaOk = canSeeDatMuaLkModule();
+  // xác định 2 tab chính cho bottom nav (ưu tiên: mua-hang, thieu-lk, pxk, tra-hang, bao-cao)
+  const priorityOrder = ["mua-hang","thieu-lk","pxk","tra-hang","bao-cao"];
+  const avail = datMuaOk ? priorityOrder.filter(t=>canView(t) || (t==="tra-hang"&&traHangMode())) : [];
+  const navA = avail[0] || null;
+  const navB = avail[1] || null;
+  const fabOk = CAN_TAODON.has(state.personaKey);
+  const title = state.module==="dat-mua-lk" ? (MODULE_ACCENT[state.tab]?.label || "Đặt mua LK") : MODULE_TOP_ACCENT[state.module].label;
+  const curMeta = state.module==="dat-mua-lk" ? (MODULE_ACCENT[state.tab]||MODULE_ACCENT.home) : MODULE_TOP_ACCENT[state.module];
+
+  function navBtn(tabKey, label, icon){
+    const isActive = state.module==="dat-mua-lk" && state.tab===tabKey;
+    return `<button class="navbtn ${isActive?"active":""}" data-act="mnav-tab" data-tab="${tabKey}"><span class="ic">${icon}</span>${label}</button>`;
+  }
+
+  return `<div class="phone-frame" style="${accentStyle(curMeta)}">
+    <div class="phone-notch"></div>
+    <div class="phone-topbar">
+      ${state.tab==="tao-don" ? `<button class="back" data-act="mnav-tab" data-tab="home">←</button>` : ""}
+      <div class="title">${curMeta.icon||""} ${title}</div>
+    </div>
+    <div class="phone-content" id="phoneContent">${renderMainContent()}</div>
+    <div class="phone-bottomnav">
+      <button class="navbtn ${state.module==='dat-mua-lk'&&state.tab==='home'?'active':''}" data-act="mnav-tab" data-tab="home"><span class="ic">🏠</span>Trang chủ</button>
+      ${navA ? navBtn(navA, MODULE_ACCENT[navA].label.split(" ")[0], MODULE_ACCENT[navA].icon) : `<button class="navbtn" disabled><span class="ic">·</span>—</button>`}
+      ${fabOk ? `<button class="fab" data-act="open-tao-don">+</button>` : `<span style="width:54px"></span>`}
+      ${navB ? navBtn(navB, MODULE_ACCENT[navB].label.split(" ")[0], MODULE_ACCENT[navB].icon) : `<button class="navbtn" disabled><span class="ic">·</span>—</button>`}
+      <button class="navbtn ${state.mobileMoreOpen?'active':''}" data-act="toggle-mobile-more"><span class="ic">⋯</span>Khác</button>
+    </div>
+    ${mobileMoreSheetHtml(mods)}
+    ${state.drawer ? detailDrawerHtml() : ""}
+  </div>`;
+}
+function renderDrawerAndOverlays(){
+  const overlayRoot = document.getElementById("overlayRoot");
+  if(state.mode==="web"){
+    overlayRoot.innerHTML = state.drawer ? detailDrawerHtml() : "";
+  } else {
+    overlayRoot.innerHTML = ""; // ở mobile, drawer/sheet chi tiết được nhúng bên trong khung điện thoại
+  }
+}
+
+/* ---------- 14. DISPATCH TRANG NỘI DUNG ---------- */
+function renderMainContent(){
+  if(state.module==="danh-muc-lk") return renderDanhMucLk();
+  if(state.module==="settings") return renderSettings();
+  if(state.module==="users") return renderUsers();
+  // module dat-mua-lk
+  switch(state.tab){
+    case "home": return renderHomeScreen();
+    case "mua-hang": return renderOrderList("mua");
+    case "cong-no": return renderOrderList("cong_no");
+    case "tra-hang": return renderTraHangScreen();
+    case "pxk": return renderPxkScreen();
+    case "thieu-lk": return renderThieuLkScreen();
+    case "bao-cao": return renderBaoCaoScreen();
+    case "tao-don": return renderTaoDonScreen();
+    default: return renderHomeScreen();
+  }
+}
+
+/* ---------- 15. TRANG CHỦ / VIỆC CẦN LÀM (màn hình 1) ---------- */
+function renderHomeScreen(){
+  const p = currentPersona();
+  const stats = heroStats();
+  const isMobile = state.mode==="mobile";
+  const statCells = stats.map(s=>`
+    <button class="hero-stat clickable ${s.warn?'warn':''}" data-act="hero-jump" data-tab="${s.tab}" data-screen="${heroScreenKey(s.tab)}" data-quick="${s.quick}">
+      <div class="num tabular">${s.num}</div>
+      <div class="lbl">${s.label}</div>
+    </button>`).join("");
+
+  const heroBlock = isMobile
+    ? `<div class="hero-mobile-card" style="${accentStyle(MODULE_ACCENT.home)}">
+        <div class="hero-label">Việc cần làm hôm nay</div>
+        <div class="hero-title">Xin chào, ${p.ten}</div>
+        <div class="hero-mobile-grid">${statCells || emptyHeroNote()}</div>
+      </div>`
+    : `<div class="hero" style="${accentStyle(MODULE_ACCENT.home)}">
+        <div class="hero-label">Việc cần làm hôm nay</div>
+        <div class="hero-title">Xin chào, ${p.ten} — đây là tổng quan công việc đang chờ bạn</div>
+        <div class="hero-grid">${statCells || emptyHeroNote()}</div>
+      </div>`;
+
+  // vài dòng gợi ý nhanh bên dưới hero (đơn ưu tiên gần nhất trong phạm vi)
+  const scoped = scopedDonHang().filter(o=>o.uuTien && !["TN da duyet","Tu choi","Da huy"].includes(o.trangThai));
+  let below = "";
+  if(scoped.length){
+    below = `<div class="section-title">★ Đơn ưu tiên cần chú ý</div><div class="tablewrap"><table><tbody>` +
+      scoped.slice(0,5).map(o=>`<tr class="clickrow" data-act="open-drawer" data-kind="donHang" data-id="${o.id}">
+        <td>${starIf(o.uuTien)}<span class="rowid">${o.id}</span></td>
+        <td>${ktvTen(o.nguoiTao)}</td>
+        <td>${lk(o.maLk)?.ten||o.maLk}</td>
+        <td>${badge(META_DONHANG[o.trangThai])}</td>
+      </tr>`).join("") + `</tbody></table></div>`;
+  }
+  return heroBlock + below;
+}
+function emptyHeroNote(){ return `<div class="hero-stat"><div class="num">—</div><div class="lbl">Không có mục nào thuộc phạm vi của bạn ở module này</div></div>`; }
+function heroScreenKey(tab){
+  if(tab==="mua-hang") return "muaHang";
+  if(tab==="cong-no") return "congNo";
+  if(tab==="thieu-lk") return "thieuLk";
+  if(tab==="pxk") return "pxk";
+  if(tab==="tra-hang") return "traHang";
+  return "muaHang";
+}
+
+/* ---------- 16. HELPERS DÙNG CHUNG CHO CÁC MÀN DANH SÁCH ---------- */
+function quickChipsHtml(screenKey, fullList, actionableFn){
+  const f = state.filters[screenKey];
+  const chips = [
+    {key:"tat-ca", label:"Tất cả"},
+    {key:"cho-toi-duyet", label:"Chờ tôi duyệt"},
+    {key:"uu-tien", label:"★ Ưu tiên"},
+    {key:"qua-han", label:"Quá hạn"},
+  ];
+  return `<div class="chiprow ${state.mode==='mobile'?'scrollx':''}">` + chips.map(c=>{
+    let cnt;
+    if(c.key==="tat-ca") cnt = fullList.length;
+    else if(c.key==="cho-toi-duyet") cnt = fullList.filter(actionableFn).length;
+    else if(c.key==="uu-tien") cnt = fullList.filter(x=>x.uuTien).length;
+    else cnt = fullList.filter(x=>QUA_HAN_IDS.has(x.id)).length;
+    return `<button class="chip ${f.quick===c.key?'active':''}" data-act="quick-filter" data-screen="${screenKey}" data-key="${c.key}">${c.label} <span class="cnt">${cnt}</span></button>`;
+  }).join("") + `</div>`;
+}
+function applyFilters(list, screenKey, actionableFn){
+  const f = state.filters[screenKey];
+  let out = list;
+  if(f.quick==="cho-toi-duyet") out = out.filter(actionableFn);
+  else if(f.quick==="uu-tien") out = out.filter(x=>x.uuTien);
+  else if(f.quick==="qua-han") out = out.filter(x=>QUA_HAN_IDS.has(x.id));
+  if(f.ktv) out = out.filter(x=> x.nguoiTao===f.ktv || x.nguoiNhanHang===f.ktv);
+  if(f.gs) out = out.filter(x=> x.emailGs===f.gs || x.emailGsDonGoc===f.gs);
+  if(f.maLk) out = out.filter(x=> x.maLk===f.maLk);
+  return out;
+}
+function advancedFilterPanelHtml(screenKey){
+  const f = state.filters[screenKey];
+  const ktvOptions = db.ktvList.map(k=>`<option value="${k.email}" ${f.ktv===k.email?"selected":""}>${k.ten}</option>`).join("");
+  const gsSet = Array.from(new Set(db.ktvList.map(k=>k.giamSat)));
+  const gsOptions = gsSet.map(g=>`<option value="${g}" ${f.gs===g?"selected":""}>${ktvTen(g)}</option>`).join("");
+  const lkOptions = db.linhKien.map(l=>`<option value="${l.ma}" ${f.maLk===l.ma?"selected":""}>${l.ma} — ${l.ten}</option>`).join("");
+  const wrap = state.mode==="mobile" ? "sheet" : "drawer";
+  return `
+  <div class="${wrap==='drawer'?'overlay show':'sheet-overlay show'}" data-act="close-advanced" data-screen="${screenKey}"></div>
+  <div class="${wrap} show">
+    ${wrap==='sheet'?'<div class="handle"></div>':''}
+    <div class="${wrap==='drawer'?'drawer-head':'sheet-head'}"><h3>Lọc thêm</h3><button class="drawer-close" data-act="close-advanced" data-screen="${screenKey}">✕</button></div>
+    <div class="${wrap==='drawer'?'drawer-body':'sheet-body'}">
+      <div class="field"><label>Theo KTV/CTV/Vệ tinh/Trạm</label>
+        <select data-act="adv-set" data-screen="${screenKey}" data-key="ktv"><option value="">Tất cả</option>${ktvOptions}</select></div>
+      <div class="field"><label>Theo Giám sát phụ trách</label>
+        <select data-act="adv-set" data-screen="${screenKey}" data-key="gs"><option value="">Tất cả</option>${gsOptions}</select></div>
+      <div class="field"><label>Theo mã linh kiện</label>
+        <select data-act="adv-set" data-screen="${screenKey}" data-key="maLk"><option value="">Tất cả</option>${lkOptions}</select></div>
+      <div class="field-row">
+        <div class="field"><label>Từ ngày</label><input type="date"></div>
+        <div class="field"><label>Đến ngày</label><input type="date"></div>
+      </div>
+      <div class="smallnote">Khoảng ngày chỉ minh hoạ giao diện trong bản dựng tĩnh này.</div>
+    </div>
+    <div class="${wrap==='drawer'?'drawer-foot':'sheet-foot'}">
+      <button class="btn" data-act="adv-reset" data-screen="${screenKey}">Xoá lọc</button>
+      <button class="btn btn-primary" data-act="close-advanced" data-screen="${screenKey}">Áp dụng</button>
+    </div>
+  </div>`;
+}
+function bulkToolbarHtml(screenKey, canBulkApprove, canBulkReject){
+  const sel = state.selected[screenKey];
+  if(!sel || sel.size===0) return "";
+  let btns = `<span style="font-weight:800; font-size:12.5px;">${sel.size} dòng đã chọn</span>`;
+  if(canBulkApprove) btns += `<button class="btn btn-primary btn-sm" data-act="bulk-approve" data-screen="${screenKey}">Duyệt hàng loạt</button>`;
+  if(canBulkReject) btns += `<button class="btn btn-danger btn-sm" data-act="bulk-reject-open" data-screen="${screenKey}">Từ chối hàng loạt</button>`;
+  btns += `<button class="btn btn-ghost btn-sm" data-act="clear-select" data-screen="${screenKey}">Bỏ chọn</button>`;
+  return `<div class="toolbar" style="background:var(--surface-soft); border-radius:10px; padding:8px 12px;">${btns}</div>`;
+}
+function importExcelBtnHtml(kind){
+  return `<button class="btn" data-act="open-import" data-kind="${kind}">⇪ Nhập Excel</button>`;
+}
+
+/* ---------- 17. MUA HÀNG / CÔNG NỢ (màn hình 2 + 3) ---------- */
+function renderOrderList(kind){
+  const screenKey = kind==="mua" ? "muaHang" : "congNo";
+  const full = scopedDonHang().filter(o=>o.loai===kind);
+  const list = applyFilters(full, screenKey, donHangCanApprove);
+  const f = state.filters[screenKey];
+  const sel = state.selected[screenKey];
+  const canBulkApprove = list.some(o=>sel.has(o.id) && donHangCanApprove(o));
+  const canBulkReject = canBulkApprove;
+
+  let rowsHtml, listIds = list.map(o=>o.id);
+  if(state.mode==="mobile"){
+    rowsHtml = list.length ? list.map(o=>orderMobileCard(o, listIds)).join("") : `<div class="emptystate">Không có đơn nào phù hợp bộ lọc trong phạm vi của bạn.</div>`;
+  } else {
+    rowsHtml = `<div class="tablewrap"><table>
+      <thead><tr>
+        <th style="width:26px"><input type="checkbox" data-act="select-all" data-screen="${screenKey}" ${allSelected(screenKey,listIds)?"checked":""}></th>
+        <th>Mã đơn</th><th>Người tạo</th><th>Linh kiện</th><th>SL</th><th>Trạng thái</th><th></th>
+      </tr></thead>
+      <tbody>${list.length ? list.map(o=>orderTableRow(o, screenKey, listIds)).join("") : `<tr><td colspan="7"><div class="emptystate">Không có đơn nào phù hợp bộ lọc trong phạm vi của bạn.</div></td></tr>`}</tbody>
+    </table></div>`;
+  }
+
+  return `
+    ${quickChipsHtml(screenKey, full, donHangCanApprove)}
+    <div class="toolbar">
+      <button class="btn" data-act="open-advanced" data-screen="${screenKey}">☰ Lọc thêm ${activeAdvCount(screenKey)?`(${activeAdvCount(screenKey)})`:""}</button>
+      <div class="spacer"></div>
+      ${CAN_TAODON.has(state.personaKey)?`<button class="btn btn-primary" data-act="open-tao-don">+ Tạo đơn</button>`:""}
+    </div>
+    ${bulkToolbarHtml(screenKey, canBulkApprove, canBulkReject)}
+    ${rowsHtml}
+    ${f.open ? advancedFilterPanelHtml(screenKey) : ""}
+  `;
+}
+function activeAdvCount(screenKey){ const f=state.filters[screenKey]; return [f.ktv,f.gs,f.maLk].filter(Boolean).length; }
+function allSelected(screenKey, ids){ const sel=state.selected[screenKey]; return ids.length>0 && ids.every(id=>sel.has(id)); }
+function orderTableRow(o, screenKey, listIds){
+  const sel = state.selected[screenKey];
+  return `<tr class="clickrow" data-act="open-drawer" data-kind="donHang" data-id="${o.id}" data-screen="${screenKey}">
+    <td><input type="checkbox" data-act="toggle-select" data-screen="${screenKey}" data-id="${o.id}" ${sel.has(o.id)?"checked":""}></td>
+    <td>${starIf(o.uuTien)}<span class="rowid mono">${o.id}</span>${QUA_HAN_IDS.has(o.id)?' <span class="badge tone-red">Quá hạn</span>':''}</td>
+    <td>${ktvTen(o.nguoiTao)}</td>
+    <td>${lk(o.maLk)?.ten||o.maLk} <span class="smallnote">×${o.soLuong}</span></td>
+    <td class="mono">${o.soLuong}</td>
+    <td>${badge(META_DONHANG[o.trangThai])}</td>
+    <td><div class="rowactions">${orderRowActions(o, screenKey, listIds)}</div></td>
+  </tr>`;
+}
+function orderMobileCard(o, listIds){
+  return `<div class="mcard" data-act="open-drawer" data-kind="donHang" data-id="${o.id}">
+    <div class="mcard-top"><span class="mcard-id">${starIf(o.uuTien)}${o.id}</span>${badge(META_DONHANG[o.trangThai])}</div>
+    <div class="mcard-sub">${ktvTen(o.nguoiTao)} · ${lk(o.maLk)?.ten||o.maLk} ×${o.soLuong}${QUA_HAN_IDS.has(o.id)?' · <span style="color:var(--st-red)">Quá hạn</span>':''}</div>
+    <div class="mcard-actions">${orderRowActions(o, "muaHang", listIds)}</div>
+  </div>`;
+}
+function orderRowActions(o, screenKey, listIds){
+  let html = "";
+  if(donHangCanApprove(o)){
+    html += `<button class="btn btn-primary btn-sm" data-act="order-approve" data-id="${o.id}">Duyệt</button>`;
+    html += `<button class="btn btn-sm" data-act="open-drawer" data-kind="donHang" data-id="${o.id}" data-reject="1">Từ chối</button>`;
+  }
+  if(donHangCanCancel(o)){
+    html += `<button class="btn btn-danger btn-sm" data-act="order-cancel" data-id="${o.id}">Huỷ đơn</button>`;
+  }
+  return html;
+}
+
+/* ---------- 18. TRẢ HÀNG — đầy đủ (màn 4) + theo dõi (màn 5) ---------- */
+function renderTraHangScreen(){
+  const mode = traHangMode();
+  if(mode==="theodoi") return renderTraHangTheoDoi();
+  return renderTraHangDayDu();
+}
+function renderTraHangTheoDoi(){
+  // Trạm/KTV/Vệ tinh/TBP xem TOÀN BỘ đơn trả hàng hệ thống, chỉ xem, không nút (mục 8 điểm 5 — chủ đích)
+  const full = db.traHang.slice();
+  const rows = full.map(t=>`
+    <tr><td>${starIf(t.uuTien)}<span class="rowid mono">${t.id}</span></td>
+    <td>${ktvTen(t.nguoiTao)}</td><td>${lk(t.maLk)?.ten||t.maLk}</td><td>${badge(META_TRAHANG[t.trangThai])}</td></tr>`).join("");
+  const cards = full.map(t=>`<div class="mcard">
+    <div class="mcard-top"><span class="mcard-id">${starIf(t.uuTien)}${t.id}</span>${badge(META_TRAHANG[t.trangThai])}</div>
+    <div class="mcard-sub">${ktvTen(t.nguoiTao)} · ${lk(t.maLk)?.ten||t.maLk}</div></div>`).join("");
+  return `
+    <div class="banner info">📖 Bạn đang xem <b>toàn bộ</b> đơn trả hàng của hệ thống ở chế độ chỉ theo dõi (không có nút xử lý) — đây là chủ đích thiết kế, không giới hạn theo phạm vi cá nhân.</div>
+    ${state.mode==="mobile" ? (cards||`<div class="emptystate">Chưa có đơn trả hàng nào.</div>`) :
+      `<div class="tablewrap"><table><thead><tr><th>Mã</th><th>Người tạo</th><th>Linh kiện</th><th>Trạng thái</th></tr></thead><tbody>${rows||`<tr><td colspan="4"><div class="emptystate">Chưa có đơn trả hàng nào.</div></td></tr>`}</tbody></table></div>`}
+  `;
+}
+function renderTraHangDayDu(){
+  const screenKey = "traHang";
+  const full = scopedTraHang();
+  const list = applyFilters(full, screenKey, traHangCanAct);
+  const f = state.filters[screenKey];
+  const sel = state.selected[screenKey];
+  const canBulk = list.some(t=>sel.has(t.id) && traHangCanAct(t));
+  const view = state.viewMode.traHang;
+
+  let body;
+  if(view==="kanban"){
+    body = kanbanHtml(list, "traHang", META_TRAHANG, t=>`${ktvTen(t.nguoiTao)} · ${lk(t.maLk)?.ten||t.maLk}`);
+  } else if(state.mode==="mobile"){
+    body = list.length ? list.map(t=>traHangMobileCard(t)).join("") : `<div class="emptystate">Không có đơn trả hàng nào phù hợp.</div>`;
+  } else {
+    body = `<div class="tablewrap"><table><thead><tr>
+      <th style="width:26px"><input type="checkbox" data-act="select-all" data-screen="${screenKey}" ${allSelected(screenKey,list.map(t=>t.id))?"checked":""}></th>
+      <th>Mã</th><th>Người tạo</th><th>Linh kiện</th><th>Trạng thái</th><th></th></tr></thead>
+      <tbody>${list.length ? list.map(t=>traHangTableRow(t,screenKey)).join("") : `<tr><td colspan="6"><div class="emptystate">Không có đơn trả hàng nào phù hợp.</div></td></tr>`}</tbody></table></div>`;
+  }
+
+  return `
+    ${state.personaKey==="qc" ? `<div class="banner info">Ở Concept này, mục "Báo cáo" của QC được thay bằng chính danh sách này — QC không có bảng pivot toàn hệ thống (điểm sửa lỗi #1).</div>` : ""}
+    ${quickChipsHtml(screenKey, full, traHangCanAct)}
+    <div class="toolbar">
+      <button class="btn" data-act="open-advanced" data-screen="${screenKey}">☰ Lọc thêm ${activeAdvCount(screenKey)?`(${activeAdvCount(screenKey)})`:""}</button>
+      <div class="spacer"></div>
+      <div class="seg">
+        <button class="${view==='table'?'active':''}" data-act="set-view" data-screen="traHang" data-view="table">🗂 Bảng</button>
+        <button class="${view==='kanban'?'active':''}" data-act="set-view" data-screen="traHang" data-view="kanban">📌 Kanban</button>
+      </div>
+    </div>
+    ${bulkToolbarHtml(screenKey, canBulk, false)}
+    ${body}
+    ${f.open ? advancedFilterPanelHtml(screenKey) : ""}
+  `;
+}
+function traHangTableRow(t, screenKey){
+  const sel = state.selected[screenKey];
+  return `<tr class="clickrow" data-act="open-drawer" data-kind="traHang" data-id="${t.id}" data-screen="${screenKey}">
+    <td><input type="checkbox" data-act="toggle-select" data-screen="${screenKey}" data-id="${t.id}" ${sel.has(t.id)?"checked":""}></td>
+    <td>${starIf(t.uuTien)}<span class="rowid mono">${t.id}</span></td>
+    <td>${ktvTen(t.nguoiTao)}</td><td>${lk(t.maLk)?.ten||t.maLk}</td>
+    <td>${badge(META_TRAHANG[t.trangThai])}</td>
+    <td><div class="rowactions">${traHangRowActions(t)}</div></td>
+  </tr>`;
+}
+function traHangMobileCard(t){
+  return `<div class="mcard" data-act="open-drawer" data-kind="traHang" data-id="${t.id}">
+    <div class="mcard-top"><span class="mcard-id">${starIf(t.uuTien)}${t.id}</span>${badge(META_TRAHANG[t.trangThai])}</div>
+    <div class="mcard-sub">${ktvTen(t.nguoiTao)} · ${lk(t.maLk)?.ten||t.maLk}</div>
+    <div class="mcard-actions">${traHangRowActions(t)}</div></div>`;
+}
+function traHangRowActions(t){
+  let html = "";
+  if(traHangCanAct(t)){
+    const label = {"Cho ke toan duyet mem":"Duyệt mềm","Cho kho xac nhan":"Xác nhận","Cho QC xac nhan":"Xác nhận","Cho TN duyet tong":"Duyệt tổng"}[t.trangThai] || "Duyệt";
+    html += `<button class="btn btn-primary btn-sm" data-act="trahang-approve" data-id="${t.id}">${label}</button>`;
+  }
+  if(traHangCanLuiBuoc(t)) html += `<button class="btn btn-sm" data-act="trahang-luibuoc" data-id="${t.id}">Lùi bước</button>`;
+  if(traHangCanHuy(t)) html += `<button class="btn btn-danger btn-sm" data-act="trahang-huy" data-id="${t.id}">Huỷ yêu cầu</button>`;
+  return html;
+}
+function kanbanHtml(list, domain, metaMap, subFn){
+  const statuses = Object.keys(metaMap).filter(s=>s!=="null");
+  return `<div class="kanban">` + statuses.map(st=>{
+    const items = list.filter(x=>x.trangThai===st);
+    return `<div class="kcol"><h4><span>${metaMap[st].label}</span><span class="smallnote">${items.length}</span></h4>
+      ${items.map(x=>`<div class="kcard" data-act="open-drawer" data-kind="${domain}" data-id="${x.id}">
+        <div class="kid">${starIf(x.uuTien)}${x.id}</div><div class="ksub">${subFn(x)}</div></div>`).join("") || `<div class="smallnote">Trống</div>`}
+    </div>`;
+  }).join("") + `</div>`;
+}
+
+/* ---------- 19. THIẾU LINH KIỆN (màn 7) — nhóm theo KTV ---------- */
+function renderThieuLkScreen(){
+  const screenKey = "thieuLk";
+  const full = scopedThieuLk();
+  const list = applyFilters(full, screenKey, thieuLkCanAct);
+  const f = state.filters[screenKey];
+  const sel = state.selected[screenKey];
+  const canBulk = list.some(t=>sel.has(t.id) && thieuLkCanAct(t));
+
+  // nhóm theo KTV của đơn gốc
+  const groups = {};
+  for(const t of list){
+    const o = donHangById(t.donGoc);
+    const key = o ? o.nguoiTao : "khac";
+    (groups[key] = groups[key]||[]).push(t);
+  }
+  const groupKeys = Object.keys(groups);
+
+  let body;
+  if(state.mode==="mobile"){
+    body = groupKeys.length ? groupKeys.map(g=>`
+      <div class="section-title">${ktvTen(g)}</div>
+      ${groups[g].map(t=>thieuLkMobileCard(t)).join("")}
+    `).join("") : `<div class="emptystate">Không có ticket thiếu linh kiện nào phù hợp phạm vi/bộ lọc.</div>`;
+  } else {
+    body = groupKeys.length ? groupKeys.map(g=>`
+      <div class="section-title">👤 ${ktvTen(g)} <span class="smallnote">(${groups[g].length} ticket)</span></div>
+      <div class="tablewrap"><table><thead><tr>
+        <th style="width:26px"><input type="checkbox" data-act="select-all" data-screen="${screenKey}" ${allSelected(screenKey,groups[g].map(t=>t.id))?"checked":""}></th>
+        <th>Mã ticket</th><th>Đơn gốc</th><th>Linh kiện</th><th>GS phụ trách đơn gốc</th><th>Trạng thái</th><th></th>
+      </tr></thead><tbody>${groups[g].map(t=>thieuLkTableRow(t,screenKey)).join("")}</tbody></table></div>
+    `).join("") : `<div class="emptystate">Không có ticket thiếu linh kiện nào phù hợp phạm vi/bộ lọc.</div>`;
+  }
+
+  return `
+    ${state.personaKey==="gs" ? `<div class="banner info">Danh sách lọc theo GS phụ trách của <b>đơn gốc</b> sinh ra ticket (điểm sửa lỗi #3) — không theo người tạo ticket.</div>` : ""}
+    ${quickChipsHtml(screenKey, full, thieuLkCanAct)}
+    <div class="toolbar">
+      <button class="btn" data-act="open-advanced" data-screen="${screenKey}">☰ Lọc thêm ${activeAdvCount(screenKey)?`(${activeAdvCount(screenKey)})`:""}</button>
+    </div>
+    ${bulkToolbarHtml(screenKey, canBulk, false)}
+    ${body}
+    ${f.open ? advancedFilterPanelHtml(screenKey) : ""}
+  `;
+}
+function thieuLkTableRow(t, screenKey){
+  const sel = state.selected[screenKey];
+  return `<tr class="clickrow" data-act="open-drawer" data-kind="thieuLk" data-id="${t.id}" data-screen="${screenKey}">
+    <td><input type="checkbox" data-act="toggle-select" data-screen="${screenKey}" data-id="${t.id}" ${sel.has(t.id)?"checked":""}></td>
+    <td>${starIf(t.uuTien)}<span class="rowid mono">${t.id}</span></td>
+    <td class="mono">${t.donGoc}</td><td>${lk(t.maLk)?.ten||t.maLk}</td><td>${ktvTen(t.emailGsDonGoc)}</td>
+    <td>${badge(META_THIEULK[t.trangThai])}</td>
+    <td><div class="rowactions">${thieuLkRowActions(t)}</div></td>
+  </tr>`;
+}
+function thieuLkMobileCard(t){
+  return `<div class="mcard" data-act="open-drawer" data-kind="thieuLk" data-id="${t.id}">
+    <div class="mcard-top"><span class="mcard-id">${starIf(t.uuTien)}${t.id}</span>${badge(META_THIEULK[t.trangThai])}</div>
+    <div class="mcard-sub">Đơn gốc ${t.donGoc} · ${lk(t.maLk)?.ten||t.maLk}</div>
+    <div class="mcard-actions">${thieuLkRowActions(t)}</div></div>`;
+}
+function thieuLkRowActions(t){
+  let html="";
+  if(thieuLkCanAct(t)){
+    if(t.trangThai==="Cho kho tiep nhan") html += `<button class="btn btn-primary btn-sm" data-act="tlk-tiepnhan" data-id="${t.id}">Tiếp nhận xử lý</button>`;
+    else if(t.trangThai==="Kho da tiep nhan") html += `<button class="btn btn-primary btn-sm" data-act="tlk-baove" data-id="${t.id}">Báo hàng đã về</button>`;
+    else if(t.trangThai==="Cho kho xac nhan"){
+      html += `<button class="btn btn-primary btn-sm" data-act="tlk-xacnhan" data-id="${t.id}">Xác nhận hàng về</button>`;
+      html += `<button class="btn btn-sm" data-act="tlk-tuchoi" data-id="${t.id}">Từ chối sai thông tin</button>`;
+    } else if(t.trangThai==="Da ve kho") html += `<button class="btn btn-primary btn-sm" data-act="tlk-dong" data-id="${t.id}">Đóng ticket</button>`;
+  }
+  if(thieuLkCanHuy(t)) html += `<button class="btn btn-danger btn-sm" data-act="tlk-huy" data-id="${t.id}">Huỷ ticket</button>`;
+  return html;
+}
+
+/* ---------- 20. PHIẾU XUẤT KHO (màn 6) ---------- */
+function pxkActionable(x){
+  const k = state.personaKey;
+  if(k==="admin") return x.trangThai!=="Kho da ket thuc";
+  if(k==="tacnghiep") return x.trangThai==="Dang tao phieu" || (x.trangThaiTien==="KTV da chuyen");
+  if(k==="ketoan") return x.trangThai==="Cho ke toan";
+  if(k==="kho") return x.trangThai==="Dang gui KTV";
+  return false;
+}
+function renderPxkScreen(){
+  const screenKey = "pxk";
+  const full = scopedPxk();
+  const list = applyFilters(full, screenKey, pxkActionable);
+  const f = state.filters[screenKey];
+  const view = state.viewMode.pxk;
+
+  let body;
+  if(view==="kanban"){
+    body = kanbanHtml(list, "pxk", META_PXK, x=>`${ktvTen(x.nguoiNhanHang)} · ${x.donHang.join(", ")}`);
+  } else if(state.mode==="mobile"){
+    body = list.length ? list.map(x=>pxkMobileCard(x)).join("") : `<div class="emptystate">Không có phiếu xuất kho nào phù hợp.</div>`;
+  } else {
+    body = `<div class="tablewrap"><table><thead><tr>
+      <th>Mã PXK</th><th>Người nhận hàng</th><th>Đơn gộp</th><th>Trạng thái</th><th>Tiền</th><th>Mã XK</th><th>Mã MISA</th></tr></thead>
+      <tbody>${list.length ? list.map(x=>pxkTableRow(x)).join("") : `<tr><td colspan="7"><div class="emptystate">Không có phiếu xuất kho nào phù hợp.</div></td></tr>`}</tbody></table></div>`;
+  }
+
+  return `
+    ${quickChipsHtml(screenKey, full, pxkActionable)}
+    <div class="toolbar">
+      <button class="btn" data-act="open-advanced" data-screen="${screenKey}">☰ Lọc thêm ${activeAdvCount(screenKey)?`(${activeAdvCount(screenKey)})`:""}</button>
+      <div class="spacer"></div>
+      <div class="seg">
+        <button class="${view==='table'?'active':''}" data-act="set-view" data-screen="pxk" data-view="table">🗂 Bảng</button>
+        <button class="${view==='kanban'?'active':''}" data-act="set-view" data-screen="pxk" data-view="kanban">📌 Kanban</button>
+      </div>
+    </div>
+    ${body}
+    ${f.open ? advancedFilterPanelHtml(screenKey) : ""}
+  `;
+}
+function pxkTableRow(x){
+  return `<tr class="clickrow" data-act="open-drawer" data-kind="pxk" data-id="${x.id}">
+    <td><span class="rowid mono">${x.id}</span>${pxkActionable(x)?' <span class="badge tone-amber">Cần xử lý</span>':''}</td>
+    <td>${ktvTen(x.nguoiNhanHang)}</td><td class="mono">${x.donHang.join(", ")}</td>
+    <td>${badge(META_PXK[x.trangThai])}</td>
+    <td>${badge(META_PXK_TIEN[String(x.trangThaiTien)])}</td>
+    <td class="mono">${x.maXuatKho||"—"}</td><td class="mono">${x.maMisa||"—"}</td>
+  </tr>`;
+}
+function pxkMobileCard(x){
+  return `<div class="mcard" data-act="open-drawer" data-kind="pxk" data-id="${x.id}">
+    <div class="mcard-top"><span class="mcard-id">${x.id}</span>${badge(META_PXK[x.trangThai])}</div>
+    <div class="mcard-sub">${ktvTen(x.nguoiNhanHang)} · ${x.donHang.join(", ")}</div>
+    <div class="mcard-sub">${badge(META_PXK_TIEN[String(x.trangThaiTien)])}</div>
+  </div>`;
+}
+
+/* ---------- 21. BÁO CÁO (màn 8) — pivot / thẻ cá nhân / view riêng QC ---------- */
+function renderBaoCaoScreen(){
+  const k = state.personaKey;
+  if(k==="qc"){
+    // điểm sửa lỗi #1: QC không có pivot, chỉ có "Việc QC cần xác nhận" = chính màn Trả hàng đầy đủ (đã lọc D3)
+    return renderTraHangDayDu();
+  }
+  if(["admin","kho","ketoan","tacnghiep"].includes(k) || k==="gs"){
+    return renderPivotBaoCao();
+  }
+  return renderTheCaNhanBaoCao();
+}
+function renderPivotBaoCao(){
+  const scoped = scopedDonHang();
+  const byKtv = {};
+  for(const o of scoped){
+    (byKtv[o.nguoiTao] = byKtv[o.nguoiTao] || []).push(o);
+  }
+  const rows = Object.keys(byKtv).map(email=>{
+    const arr = byKtv[email];
+    const tongTien = arr.reduce((s,o)=>s + (lk(o.maLk)?.gia||0)*o.soLuong, 0);
+    const dangCho = arr.filter(o=>["Cho Tram duyet","Cho TBP xac nhan","Cho TN duyet"].includes(o.trangThai)).length;
+    const daDuyet = arr.filter(o=>o.trangThai==="TN da duyet").length;
+    const tuChoi = arr.filter(o=>o.trangThai==="Tu choi").length;
+    return `<tr><td>${ktvTen(email)}</td><td class="mono">${arr.length}</td><td class="mono">${dangCho}</td><td class="mono">${daDuyet}</td><td class="mono">${tuChoi}</td><td class="mono">${fmtTien(tongTien)}</td></tr>`;
+  }).join("");
+  const kpi = {
+    total: scoped.length,
+    dangCho: scoped.filter(o=>["Cho Tram duyet","Cho TBP xac nhan","Cho TN duyet"].includes(o.trangThai)).length,
+    daDuyet: scoped.filter(o=>o.trangThai==="TN da duyet").length,
+    tuChoi: scoped.filter(o=>o.trangThai==="Tu choi").length,
+  };
+  return `
+    <div class="kpi-strip">
+      <div class="kpi"><div class="n">${kpi.total}</div><div class="l">Tổng số đơn</div></div>
+      <div class="kpi"><div class="n">${kpi.dangCho}</div><div class="l">Đang chờ duyệt</div></div>
+      <div class="kpi"><div class="n">${kpi.daDuyet}</div><div class="l">TN đã duyệt</div></div>
+      <div class="kpi"><div class="n">${kpi.tuChoi}</div><div class="l">Bị từ chối</div></div>
+    </div>
+    <div class="section-title">Pivot theo KTV/CTV/Vệ tinh/Trạm ${state.personaKey==="gs"?"(trong phạm vi GS phụ trách)":"(toàn bộ)"}</div>
+    <div class="tablewrap"><table class="pivot-table"><thead><tr><th>Người tạo</th><th>Tổng đơn</th><th>Đang chờ</th><th>Đã duyệt</th><th>Từ chối</th><th>Tổng giá trị</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="6"><div class="emptystate">Chưa có dữ liệu trong phạm vi.</div></td></tr>`}</tbody></table></div>
+  `;
+}
+function renderTheCaNhanBaoCao(){
+  const p = currentPersona();
+  const mine = db.donHang.filter(o=>o.nguoiTao===p.email);
+  const tongTien = mine.reduce((s,o)=>s + (lk(o.maLk)?.gia||0)*o.soLuong, 0);
+  const dangCho = mine.filter(o=>["Cho Tram duyet","Cho TBP xac nhan","Cho TN duyet"].includes(o.trangThai)).length;
+  const daDuyet = mine.filter(o=>o.trangThai==="TN da duyet").length;
+  const tuChoi = mine.filter(o=>o.trangThai==="Tu choi").length;
+  return `
+    <div class="banner info">Vai trò của bạn chỉ xem <b>thẻ cá nhân</b> (không có bảng pivot nhiều người, theo Ma trận 4).</div>
+    <div class="kpi-strip">
+      <div class="kpi"><div class="n">${mine.length}</div><div class="l">Tổng đơn của tôi</div></div>
+      <div class="kpi"><div class="n">${dangCho}</div><div class="l">Đang chờ duyệt</div></div>
+      <div class="kpi"><div class="n">${daDuyet}</div><div class="l">Đã duyệt</div></div>
+      <div class="kpi"><div class="n">${tuChoi}</div><div class="l">Bị từ chối</div></div>
+      <div class="kpi"><div class="n">${fmtTien(tongTien)}</div><div class="l">Tổng giá trị</div></div>
+    </div>
+    ${mine.length ? `<div class="tablewrap"><table><thead><tr><th>Mã đơn</th><th>Linh kiện</th><th>Trạng thái</th></tr></thead><tbody>
+      ${mine.map(o=>`<tr class="clickrow" data-act="open-drawer" data-kind="donHang" data-id="${o.id}"><td>${starIf(o.uuTien)}<span class="rowid mono">${o.id}</span></td><td>${lk(o.maLk)?.ten||o.maLk}</td><td>${badge(META_DONHANG[o.trangThai])}</td></tr>`).join("")}
+    </tbody></table></div>` : `<div class="emptystate">Bạn chưa tạo đơn nào.</div>`}
+  `;
+}
+
+/* ---------- 22. TẠO ĐƠN MỚI (màn 9) ---------- */
+function ensureNewOrderState(){
+  if(!state.newOrder){
+    state.newOrder = { loai:"mua", taoHo:"", lines:[{ maLk:"LK001", soLuong:1 }] };
+  }
+}
+function taoHoOptions(){
+  const k = state.personaKey, p = currentPersona();
+  if(k==="gs") return db.ktvList.filter(x=>x.giamSat===p.email);
+  if(k==="tacnghiep") return db.ktvList.slice();
+  return [];
+}
+function renderTaoDonScreen(){
+  ensureNewOrderState();
+  const no = state.newOrder;
+  const showTaoHo = ["gs","tacnghiep"].includes(state.personaKey);
+  const taoHoOpts = taoHoOptions();
+  const tong = no.lines.reduce((s,l)=>{ const item=lk(l.maLk); return s + (item?item.gia:0) * (l.soLuong||0); }, 0);
+
+  const lineRows = no.lines.map((l,idx)=>{
+    const item = lk(l.maLk);
+    const thayTheNote = item && item.thayThe && item.thayThe.length
+      ? `<div class="smallnote">💡 Gợi ý thay thế: ${item.thayThe.map(t=>`${t} — ${lk(t)?.ten||t}`).join(", ")}</div>` : "";
+    return `<div class="field" style="background:var(--surface-soft); border-radius:10px; padding:10px 12px; margin-bottom:10px;">
+      <div class="field-row">
+        <div class="field" style="margin-bottom:0;"><label>Mã linh kiện</label>
+          <select data-act="line-set" data-idx="${idx}" data-key="maLk">
+            ${db.linhKien.map(x=>`<option value="${x.ma}" ${l.maLk===x.ma?"selected":""}>${x.ma} — ${x.ten}${x.dacThu?" (đặc thù)":""}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field" style="max-width:110px; margin-bottom:0;"><label>Số lượng</label>
+          <input type="number" min="1" value="${l.soLuong}" data-act="line-set" data-idx="${idx}" data-key="soLuong">
+        </div>
+        <div class="field" style="max-width:60px; margin-bottom:0;"><label>&nbsp;</label>
+          <button class="btn btn-danger btn-sm" data-act="line-remove" data-idx="${idx}" ${no.lines.length<=1?"disabled":""}>✕</button>
+        </div>
+      </div>
+      <div class="smallnote">Đơn giá: ${fmtTien(item?item.gia:0)} · Thành tiền: <b>${fmtTien((item?item.gia:0)*(l.soLuong||0))}</b>${item&&item.dacThu?' · <span class="badge tone-amber">Đặc thù — cần TP DVBH xác nhận</span>':''}</div>
+      ${thayTheNote}
+    </div>`;
+  }).join("");
+
+  return `
+    <div class="field-row">
+      <div class="field"><label>Loại đơn</label>
+        <select data-act="neworder-set" data-key="loai">
+          <option value="mua" ${no.loai==="mua"?"selected":""}>Mua hàng</option>
+          <option value="cong_no" ${no.loai==="cong_no"?"selected":""}>Công nợ</option>
+        </select>
+      </div>
+      ${showTaoHo ? `<div class="field"><label>Tạo hộ cho</label>
+        <select data-act="neworder-set" data-key="taoHo">
+          <option value="">— Chính tôi —</option>
+          ${taoHoOpts.map(x=>`<option value="${x.email}" ${no.taoHo===x.email?"selected":""}>${x.ten}</option>`).join("")}
+        </select>
+        <div class="hint">${state.personaKey==="gs" ? "GS chỉ tạo hộ đúng KTV/Vệ tinh mình phụ trách." : "TN được tạo hộ bất kỳ ai."}</div>
+      </div>` : ""}
+    </div>
+    <div class="section-title">Danh sách linh kiện</div>
+    ${lineRows}
+    <div class="toolbar">
+      <button class="btn" data-act="line-add">+ Thêm dòng</button>
+      ${importExcelBtnHtml("taodon")}
+    </div>
+    <div class="section-title">Tổng giá đề xuất: <span style="color:var(--priority); font-size:16px;">${fmtTien(tong)}</span></div>
+    <div class="toolbar">
+      <button class="btn" data-act="mnav-tab" data-tab="home">Huỷ bỏ</button>
+      <button class="btn btn-primary" data-act="neworder-submit">Tạo đơn</button>
+    </div>
+    ${state.importDialog && state.importDialog.kind==="taodon" ? importDialogHtml() : ""}
+  `;
+}
+
+/* ---------- 23. IMPORT EXCEL (dialog giả lập dùng chung 3 màn) ---------- */
+const IMPORT_PREVIEW = {
+  taodon: { cols:["Mã LK","Số lượng"], rows:[["LK020","4"],["LK025","2"],["LK030","1"]] },
+  ktv: { cols:["Email","Tên","Vai trò","Trạm cha"], rows:[["ktv.f@3t.vn","Vũ Văn F","KTV/CTV","—"],["vetinh.g@3t.vn","Đỗ Thị G (Vệ tinh)","Vệ tinh","tram.hadong@3t.vn"]] },
+  danhmuc: { cols:["Mã LK","Tên","Hãng","Giá"], rows:[["LK040","Pin Vsmart Live","Vsmart","165000"],["LK041","Màn hình Realme C35","Realme","560000"]] },
+};
+function importDialogHtml(){
+  const kind = state.importDialog.kind;
+  const spec = IMPORT_PREVIEW[kind];
+  const wrap = state.mode==="mobile" ? "sheet" : "drawer";
+  return `
+  <div class="${wrap==='drawer'?'overlay show':'sheet-overlay show'}" data-act="close-import"></div>
+  <div class="${wrap} show">
+    ${wrap==='sheet'?'<div class="handle"></div>':''}
+    <div class="${wrap==='drawer'?'drawer-head':'sheet-head'}"><h3>⇪ Nhập Excel hàng loạt</h3><button class="drawer-close" data-act="close-import">✕</button></div>
+    <div class="${wrap==='drawer'?'drawer-body':'sheet-body'}">
+      <div class="banner info">Đây là bản mô phỏng: nhấn "Chọn file" để xem trước dữ liệu mẫu, sau đó nhấn "Nhập ngay" để thêm vào danh sách.</div>
+      <button class="btn" data-act="import-pickfile" style="margin-bottom:14px;">📁 Chọn file .xlsx</button>
+      <div class="section-title">Xem trước (${spec.rows.length} dòng)</div>
+      <div class="tablewrap"><table><thead><tr>${spec.cols.map(c=>`<th>${c}</th>`).join("")}</tr></thead>
+      <tbody>${spec.rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    </div>
+    <div class="${wrap==='drawer'?'drawer-foot':'sheet-foot'}">
+      <button class="btn" data-act="close-import">Huỷ</button>
+      <button class="btn btn-primary" data-act="import-confirm" data-kind="${kind}">Nhập ngay (${spec.rows.length} dòng)</button>
+    </div>
+  </div>`;
+}
+
+/* ---------- 24. DANH MỤC LINH KIỆN (màn 10) ---------- */
+function renderDanhMucLk(){
+  const canManage = hasQuanLyDmLk();
+  const f = state.filters.danhMuc;
+  const hangs = Array.from(new Set(db.linhKien.map(x=>x.hang)));
+  const list = db.linhKien.filter(x=> !f.hang || x.hang===f.hang);
+
+  const rows = list.map(x=>`<tr>
+    <td class="mono">${x.ma}</td><td>${x.ten}</td><td>${x.hang}</td><td class="mono">${fmtTien(x.gia)}</td>
+    <td>${x.dacThu?'<span class="badge tone-amber">Đặc thù</span>':'<span class="badge tone-gray">Thường</span>'}</td>
+    <td>${x.thayThe && x.thayThe.length ? x.thayThe.join(", ") : "—"}</td>
+    <td>${canManage ? `<button class="btn btn-sm" data-act="lk-edit" data-ma="${x.ma}">Sửa</button>` : ""}</td>
+  </tr>`).join("");
+  const cards = list.map(x=>`<div class="mcard">
+    <div class="mcard-top"><span class="mcard-id">${x.ma}</span>${x.dacThu?'<span class="badge tone-amber">Đặc thù</span>':''}</div>
+    <div class="mcard-sub">${x.ten} · ${x.hang} · ${fmtTien(x.gia)}</div>
+    ${canManage ? `<div class="mcard-actions"><button class="btn btn-sm" data-act="lk-edit" data-ma="${x.ma}">Sửa</button></div>` : ""}
+  </div>`).join("");
+
+  return `
+    ${!canManage ? `<div class="banner info">Bạn đang xem ở chế độ chỉ đọc. Nút Thêm/Sửa/Nhập hàng loạt/Xuất ảnh chỉ hiện khi có cờ "Quản lý DM LK" hoặc là Admin (điểm sửa lỗi #2 — không hiện nút rồi báo lỗi).</div>` : ""}
+    <div class="toolbar">
+      <select data-act="danhmuc-filter-hang" style="padding:8px 10px; border-radius:9px; border:1px solid var(--line);">
+        <option value="">Tất cả hãng</option>
+        ${hangs.map(h=>`<option value="${h}" ${f.hang===h?"selected":""}>${h}</option>`).join("")}
+      </select>
+      <div class="spacer"></div>
+      ${canManage ? `
+        <button class="btn" data-act="lk-export-anh">🖼 Xuất ảnh</button>
+        ${importExcelBtnHtml("danhmuc")}
+        <button class="btn btn-primary" data-act="lk-add">+ Thêm LK</button>
+      ` : ""}
+    </div>
+    ${state.mode==="mobile" ? (cards || `<div class="emptystate">Không có linh kiện phù hợp.</div>`) :
+      `<div class="tablewrap"><table><thead><tr><th>Mã</th><th>Tên</th><th>Hãng</th><th>Giá</th><th>Loại</th><th>Hàng thay thế</th><th></th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7"><div class="emptystate">Không có linh kiện phù hợp.</div></td></tr>`}</tbody></table></div>`}
+    ${state.importDialog && state.importDialog.kind==="danhmuc" ? importDialogHtml() : ""}
+  `;
+}
+
+/* ---------- 25. SETTINGS (màn 11) — 4 tab, chỉ Admin ---------- */
+function renderSettings(){
+  const tabs = [
+    {key:"lydocham", label:"Lý do chậm"},
+    {key:"loaidexuat", label:"Loại đề xuất"},
+    {key:"ktv", label:"Danh sách KTV"},
+    {key:"drive", label:"Google Drive"},
+  ];
+  const seg = `<div class="seg" style="margin-bottom:16px;">${tabs.map(t=>`<button class="${state.settingsTab===t.key?"active":""}" data-act="set-settings-tab" data-tab="${t.key}">${t.label}</button>`).join("")}</div>`;
+  let body = "";
+  if(state.settingsTab==="lydocham") body = settingsLyDoCham();
+  else if(state.settingsTab==="loaidexuat") body = settingsLoaiDeXuat();
+  else if(state.settingsTab==="ktv") body = settingsKtv();
+  else body = settingsDrive();
+  return seg + body;
+}
+function settingsLyDoCham(){
+  const rows = db.lyDoCham.map(x=>`<tr>
+    <td class="mono">${x.ma}</td><td>${x.ten}</td>
+    <td><label class="checklabel"><input type="checkbox" data-act="lydocham-toggle" data-ma="${x.ma}" ${x.moTicketThieuLk?"checked":""}> Mở ticket Thiếu LK khi chọn</label></td>
+  </tr>`).join("");
+  return `<div class="toolbar"><div class="spacer"></div><button class="btn btn-primary" data-act="lydocham-add">+ Thêm lý do</button></div>
+    <div class="tablewrap"><table><thead><tr><th>Mã</th><th>Tên lý do</th><th>Cờ</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function settingsLoaiDeXuat(){
+  const rows = EXTRA.loaiDeXuat.map(x=>`<tr><td class="mono">${x.ma}</td><td>${x.ten}</td><td>${x.nhom}</td></tr>`).join("");
+  return `<div class="toolbar"><div class="spacer"></div><button class="btn btn-primary" data-act="toast-demo" data-msg="Đã thêm loại đề xuất mẫu (demo)">+ Thêm loại đề xuất</button></div>
+    <div class="tablewrap"><table><thead><tr><th>Mã</th><th>Tên</th><th>Nhóm</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function settingsKtv(){
+  const gsList = Array.from(new Set(db.ktvList.map(k=>k.giamSat)));
+  const rows = db.ktvList.map(x=>`<tr>
+    <td>${x.ten}</td><td class="mono">${x.email}</td><td>${x.vaiTro}</td><td>${x.tramCha?ktvTen(x.tramCha):"—"}</td>
+    <td><select data-act="ktv-set-gs" data-email="${x.email}">
+      ${gsList.map(g=>`<option value="${g}" ${x.giamSat===g?"selected":""}>${ktvTen(g)}</option>`).join("")}
+    </select></td>
+  </tr>`).join("");
+  return `<div class="toolbar"><div class="spacer"></div>${importExcelBtnHtml("ktv")}<button class="btn btn-primary" data-act="toast-demo" data-msg="Đã mở form thêm KTV (demo)">+ Thêm KTV</button></div>
+    <div class="tablewrap"><table><thead><tr><th>Tên</th><th>Email</th><th>Vai trò</th><th>Trạm cha</th><th>Giám sát phụ trách</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${state.importDialog && state.importDialog.kind==="ktv" ? importDialogHtml() : ""}`;
+}
+function settingsDrive(){
+  return `<div class="tablewrap" style="padding:20px;">
+    <div class="infoline"><span class="k">Trạng thái kết nối</span><span class="v">${state.driveConnected?'<span class="badge tone-green">Đã kết nối</span>':'<span class="badge tone-gray">Chưa kết nối</span>'}</span></div>
+    ${state.driveConnected ? `<div class="infoline"><span class="k">Tài khoản uỷ quyền</span><span class="v">${state.driveAccount}</span></div>` : ""}
+    <div style="margin-top:16px;">
+      ${state.driveConnected
+        ? `<button class="btn btn-danger" data-act="drive-toggle">Ngắt kết nối Google Drive</button>`
+        : `<button class="btn btn-primary" data-act="drive-toggle">Kết nối Google Drive</button>`}
+    </div>
+    <div class="smallnote" style="margin-top:10px;">Dùng để upload ảnh minh hoạ linh kiện trong Danh mục LK (OAuth uỷ quyền tài khoản thật, khác cơ chế Service Account của ảnh biên bản PXK).</div>
+  </div>`;
+}
+
+/* ---------- 26. QUẢN LÝ USER (màn 12) — chỉ Admin ---------- */
+function renderUsers(){
+  const chips = [
+    {key:"tat-ca", label:"Tất cả"},
+    {key:"cho-duyet", label:"Chờ duyệt"},
+    {key:"da-duyet", label:"Đã duyệt"},
+    {key:"khoa", label:"Đã khoá"},
+  ];
+  const chipsHtml = `<div class="chiprow ${state.mode==='mobile'?'scrollx':''}">` + chips.map(c=>{
+    let cnt;
+    if(c.key==="tat-ca") cnt=db.users.length;
+    else if(c.key==="cho-duyet") cnt=db.users.filter(u=>u.trangThaiDuyet==="Cho duyet").length;
+    else if(c.key==="da-duyet") cnt=db.users.filter(u=>u.trangThaiDuyet==="Da duyet"&&!u.khoa).length;
+    else cnt=db.users.filter(u=>u.khoa).length;
+    return `<button class="chip ${state.usersFilter===c.key?'active':''}" data-act="users-filter" data-key="${c.key}">${c.label} <span class="cnt">${cnt}</span></button>`;
+  }).join("") + `</div>`;
+
+  let list = db.users;
+  if(state.usersFilter==="cho-duyet") list = list.filter(u=>u.trangThaiDuyet==="Cho duyet");
+  else if(state.usersFilter==="da-duyet") list = list.filter(u=>u.trangThaiDuyet==="Da duyet"&&!u.khoa);
+  else if(state.usersFilter==="khoa") list = list.filter(u=>u.khoa);
+
+  const rows = list.map(u=>`<tr class="clickrow" data-act="open-drawer" data-kind="user" data-id="${u.email}">
+    <td>${u.ten}${u.email===currentPersona().email?' <span class="smallnote">(bạn)</span>':''}</td>
+    <td class="mono">${u.email}</td>
+    <td>${u.vaiTro||"—"}</td>
+    <td>${userStatusBadge(u)}</td>
+    <td><div class="rowactions">${userRowActions(u)}</div></td>
+  </tr>`).join("");
+  const cards = list.map(u=>`<div class="mcard" data-act="open-drawer" data-kind="user" data-id="${u.email}">
+    <div class="mcard-top"><span class="mcard-id">${u.ten}</span>${userStatusBadge(u)}</div>
+    <div class="mcard-sub">${u.email} · ${u.vaiTro||"—"}</div>
+    <div class="mcard-actions">${userRowActions(u)}</div>
+  </div>`).join("");
+
+  return `${chipsHtml}
+    ${state.mode==="mobile" ? (cards || `<div class="emptystate">Không có user phù hợp.</div>`) :
+    `<div class="tablewrap"><table><thead><tr><th>Tên</th><th>Email</th><th>Vai trò</th><th>Trạng thái</th><th></th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="5"><div class="emptystate">Không có user phù hợp.</div></td></tr>`}</tbody></table></div>`}`;
+}
+function userStatusBadge(u){
+  if(u.khoa) return `<span class="badge tone-red">Đã khoá</span>`;
+  if(u.trangThaiDuyet==="Cho duyet") return `<span class="badge tone-amber">Chờ duyệt</span>`;
+  return `<span class="badge tone-green">Đã duyệt</span>`;
+}
+function userRowActions(u){
+  let html = "";
+  if(u.trangThaiDuyet==="Cho duyet") html += `<button class="btn btn-primary btn-sm" data-act="user-duyet" data-email="${u.email}">Duyệt tài khoản</button>`;
+  else if(u.khoa) html += `<button class="btn btn-sm" data-act="user-mokhoa" data-email="${u.email}">Mở khoá</button>`;
+  else html += `<button class="btn btn-danger btn-sm" data-act="user-khoa" data-email="${u.email}">Khoá</button>`;
+  return html;
+}
+
+/* ---------- 27. DRAWER / SHEET CHI TIẾT (dùng chung cho mọi domain) ---------- */
+function drawerWrapOpen(title, bodyHtml, footHtml){
+  const wrap = state.mode==="mobile" ? "sheet" : "drawer";
+  return `
+  <div class="${wrap==='drawer'?'overlay show':'sheet-overlay show'}" data-act="close-drawer"></div>
+  <div class="${wrap} show">
+    ${wrap==='sheet'?'<div class="handle"></div>':''}
+    <div class="${wrap==='drawer'?'drawer-head':'sheet-head'}"><h3>${title}</h3><button class="drawer-close" data-act="close-drawer">✕</button></div>
+    <div class="${wrap==='drawer'?'drawer-body':'sheet-body'}">${bodyHtml}</div>
+    <div class="${wrap==='drawer'?'drawer-foot':'sheet-foot'}">${footHtml}</div>
+  </div>`;
+}
+function detailDrawerHtml(){
+  const d = state.drawer;
+  if(!d) return "";
+  if(d.kind==="donHang") return donHangDrawer(d);
+  if(d.kind==="thieuLk") return thieuLkDrawer(d);
+  if(d.kind==="pxk") return pxkDrawer(d);
+  if(d.kind==="traHang") return traHangDrawer(d);
+  if(d.kind==="user") return userDrawer(d);
+  if(d.kind==="linhKien") return linhKienDrawer(d);
+  if(d.kind==="bulk-reject") return bulkRejectDrawer(d);
+  return "";
+}
+function nextIdInList(listIds, id){
+  const i = listIds.indexOf(id);
+  if(i<0 || i>=listIds.length-1) return null;
+  return listIds[i+1];
+}
+function advanceOrClose(){
+  const d = state.drawer;
+  const nxt = d.listIds ? nextIdInList(d.listIds, d.id) : null;
+  if(nxt){ d.id = nxt; d.showReject=false; } else { state.drawer = null; }
+}
+
+function donHangDrawer(d){
+  const o = donHangById(d.id);
+  if(!o){ state.drawer=null; return ""; }
+  const item = lk(o.maLk);
+  const canApprove = donHangCanApprove(o);
+  const canEdit = donHangCanEdit(o);
+  const canCancel = donHangCanCancel(o);
+  const canCase = state.personaKey==="tacnghiep" || (o.nguoiTao===currentPersona().email && !["TN da duyet"].includes(o.trangThai));
+
+  const body = `
+    <div style="margin-bottom:10px;">${priorityPillIf(o.uuTien)} ${badge(META_DONHANG[o.trangThai])}</div>
+    <div class="infoline"><span class="k">Mã đơn</span><span class="v mono">${o.id}</span></div>
+    <div class="infoline"><span class="k">Loại</span><span class="v">${o.loai==="mua"?"Mua hàng":"Công nợ"}</span></div>
+    <div class="infoline"><span class="k">Người tạo</span><span class="v">${ktvTen(o.nguoiTao)}</span></div>
+    <div class="infoline"><span class="k">GS phụ trách</span><span class="v">${ktvTen(o.emailGs)}</span></div>
+    ${o.tram?`<div class="infoline"><span class="k">Trạm</span><span class="v">${ktvTen(o.tram)}</span></div>`:""}
+    <div class="infoline"><span class="k">Linh kiện</span><span class="v">${item?item.ten:o.maLk} (${o.maLk})</span></div>
+    <div class="infoline"><span class="k">Số lượng</span><span class="v mono">${o.soLuong}</span></div>
+    <div class="infoline"><span class="k">Đơn giá</span><span class="v mono">${fmtTien(item?item.gia:0)}</span></div>
+    <div class="infoline"><span class="k">Thành tiền</span><span class="v mono">${fmtTien((item?item.gia:0)*o.soLuong)}</span></div>
+    ${o.lyDoCham?`<div class="infoline"><span class="k">Lý do chậm/từ chối</span><span class="v">${lyDo(o.lyDoCham)?.ten||o.lyDoCham}</span></div>`:""}
+
+    ${canCase ? `
+    <div class="section-title">Mã yêu cầu sự cố (case)</div>
+    <div class="field-row">
+      <div class="field" style="margin-bottom:0;"><input type="text" placeholder="VD: YCSC-88213" value="${o.caseId||""}" data-act="order-case-input" data-id="${o.id}"></div>
+      <div class="field" style="max-width:100px; margin-bottom:0;"><button class="btn btn-sm" style="width:100%;" data-act="order-case-save" data-id="${o.id}">Gắn</button></div>
+    </div>` : ""}
+
+    ${canEdit ? `
+    <div class="section-title">Sửa đơn</div>
+    <div class="field"><label>Số lượng</label><input type="number" min="1" value="${o.soLuong}" data-act="order-edit-field" data-id="${o.id}" data-key="soLuong"></div>
+    ${state.personaKey==="tacnghiep"||state.personaKey==="admin" ? `
+      <div class="field"><label>Giá chốt</label><input type="number" value="${o.giaChot||item?.gia||0}" data-act="order-edit-field" data-id="${o.id}" data-key="giaChot"></div>
+      <div class="field"><label>Số lượng thực xuất</label><input type="number" value="${o.soLuongThucXuat||o.soLuong}" data-act="order-edit-field" data-id="${o.id}" data-key="soLuongThucXuat"></div>
+    ` : ""}
+    ` : ""}
+
+    ${d.showReject ? `
+    <div class="section-title">Từ chối đơn</div>
+    <div class="field"><label>Lý do chậm (bắt buộc)</label>
+      <select data-act="order-reject-reason" data-id="${o.id}">
+        <option value="">— Chọn lý do —</option>
+        ${db.lyDoCham.map(l=>`<option value="${l.ma}">${l.ten}${l.moTicketThieuLk?" (sẽ tự mở ticket Thiếu LK)":""}</option>`).join("")}
+      </select>
+    </div>` : ""}
+  `;
+  let foot = `<button class="btn" data-act="close-drawer">Đóng</button>`;
+  if(canApprove){
+    foot += `<button class="btn" data-act="order-toggle-reject" data-id="${o.id}">${d.showReject?"Ẩn từ chối":"Từ chối"}</button>`;
+    if(d.showReject) foot += `<button class="btn btn-danger" data-act="order-reject-confirm" data-id="${o.id}">Xác nhận từ chối</button>`;
+    foot += `<button class="btn btn-primary" data-act="order-approve-next" data-id="${o.id}">Duyệt và tiếp theo →</button>`;
+  }
+  if(canCancel) foot += `<button class="btn btn-danger" data-act="order-cancel" data-id="${o.id}">Huỷ đơn</button>`;
+  return drawerWrapOpen(`Đơn ${o.id}`, body, foot);
+}
+
+function thieuLkDrawer(d){
+  const t = thieuLkById(d.id);
+  if(!t){ state.drawer=null; return ""; }
+  const o = donHangById(t.donGoc);
+  const canAct = thieuLkCanAct(t);
+  const canHuy = thieuLkCanHuy(t);
+  const body = `
+    <div style="margin-bottom:10px;">${priorityPillIf(t.uuTien)} ${badge(META_THIEULK[t.trangThai])}</div>
+    <div class="infoline"><span class="k">Mã ticket</span><span class="v mono">${t.id}</span></div>
+    <div class="infoline"><span class="k">Đơn gốc</span><span class="v mono">${t.donGoc}</span></div>
+    <div class="infoline"><span class="k">GS phụ trách đơn gốc</span><span class="v">${ktvTen(t.emailGsDonGoc)}</span></div>
+    <div class="infoline"><span class="k">Người tạo ticket</span><span class="v">${ktvTen(t.nguoiTaoTicket)}</span></div>
+    <div class="infoline"><span class="k">Linh kiện thiếu</span><span class="v">${lk(t.maLk)?.ten||t.maLk}</span></div>
+    ${o?`<div class="infoline"><span class="k">Người tạo đơn gốc</span><span class="v">${ktvTen(o.nguoiTao)}</span></div>`:""}
+  `;
+  let foot = `<button class="btn" data-act="close-drawer">Đóng</button>`;
+  if(canAct){
+    if(t.trangThai==="Cho kho tiep nhan") foot += `<button class="btn btn-primary" data-act="tlk-tiepnhan-next" data-id="${t.id}">Tiếp nhận xử lý</button>`;
+    else if(t.trangThai==="Kho da tiep nhan") foot += `<button class="btn btn-primary" data-act="tlk-baove-next" data-id="${t.id}">Báo hàng đã về</button>`;
+    else if(t.trangThai==="Cho kho xac nhan"){
+      foot += `<button class="btn" data-act="tlk-tuchoi-next" data-id="${t.id}">Từ chối sai thông tin</button>`;
+      foot += `<button class="btn btn-primary" data-act="tlk-xacnhan-next" data-id="${t.id}">Xác nhận hàng về</button>`;
+    } else if(t.trangThai==="Da ve kho") foot += `<button class="btn btn-primary" data-act="tlk-dong-next" data-id="${t.id}">Đóng ticket</button>`;
+  }
+  if(canHuy) foot += `<button class="btn btn-danger" data-act="tlk-huy" data-id="${t.id}">Huỷ ticket</button>`;
+  return drawerWrapOpen(`Ticket ${t.id}`, body, foot);
+}
+
+function pxkDrawer(d){
+  const x = pxkById(d.id);
+  if(!x){ state.drawer=null; return ""; }
+  const p = currentPersona(), k = state.personaKey;
+  const isNguoiNhan = x.nguoiNhanHang===p.email;
+  const body = `
+    <div style="margin-bottom:10px;">${badge(META_PXK[x.trangThai])} ${badge(META_PXK_TIEN[String(x.trangThaiTien)])}</div>
+    <div class="infoline"><span class="k">Mã PXK</span><span class="v mono">${x.id}</span></div>
+    <div class="infoline"><span class="k">Người nhận hàng</span><span class="v">${ktvTen(x.nguoiNhanHang)}</span></div>
+    <div class="infoline"><span class="k">GS phụ trách</span><span class="v">${ktvTen(x.emailGs)}</span></div>
+    <div class="infoline"><span class="k">Đơn hàng gộp</span><span class="v mono">${x.donHang.join(", ")}</span></div>
+    <div class="infoline"><span class="k">Mã xuất kho</span><span class="v mono">${x.maXuatKho||"—"}</span></div>
+    <div class="infoline"><span class="k">Mã MISA</span><span class="v mono">${x.maMisa||"—"}</span></div>
+    <div class="infoline"><span class="k">Đã gửi hàng</span><span class="v">${x.daGuiHang?"Có":"Chưa"}</span></div>
+    <div class="infoline"><span class="k">Đã nhận hàng</span><span class="v">${x.daNhanHang?"Có":"Chưa"}</span></div>
+
+    ${k==="tacnghiep" && x.trangThai==="Dang tao phieu" ? `
+    <div class="section-title">TN — gán mã xuất kho thật</div>
+    <div class="field-row"><div class="field" style="margin-bottom:0;"><input type="text" placeholder="VD: XK-99999" id="pxkMaXk" data-act="pxk-input-maxk" data-id="${x.id}" value=""></div>
+    <div class="field" style="max-width:90px; margin-bottom:0;"><button class="btn btn-primary btn-sm" style="width:100%" data-act="pxk-gan-maxk" data-id="${x.id}">Gán</button></div></div>` : ""}
+
+    ${k==="ketoan" && x.trangThai==="Cho ke toan" ? `
+    <div class="section-title">Kế toán — gán mã MISA</div>
+    <div class="field-row"><div class="field" style="margin-bottom:0;"><input type="text" placeholder="VD: MISA-4471" data-act="pxk-input-misa" data-id="${x.id}" value=""></div>
+    <div class="field" style="max-width:90px; margin-bottom:0;"><button class="btn btn-primary btn-sm" style="width:100%" data-act="pxk-gan-misa" data-id="${x.id}">Gán</button></div></div>` : ""}
+
+    ${isNguoiNhan && x.daGuiHang && !x.daNhanHang ? `
+    <div class="section-title">Bạn là người nhận hàng</div>
+    <div class="imgph">📷 Ảnh biên bản nhận hàng (chưa upload)</div>
+    <button class="btn btn-sm" style="margin-top:8px;" data-act="pxk-upload-bienban" data-id="${x.id}">Upload ảnh biên bản</button>` : ""}
+
+    ${x.trangThaiTien==="Cho KTV chuyen tien" && isNguoiNhan ? `
+    <div class="section-title">Bạn cần chuyển tiền</div>
+    <div class="imgph">🧾 Bằng chứng chuyển khoản (chưa đính kèm)</div>
+    <button class="btn btn-sm" style="margin-top:8px;" data-act="pxk-xacnhan-chuyentien" data-id="${x.id}">Xác nhận đã chuyển tiền</button>` : ""}
+  `;
+  let foot = `<button class="btn" data-act="close-drawer">Đóng</button>`;
+  if(k==="tacnghiep"){
+    if(!x.trangThaiTien) foot += `<button class="btn" data-act="pxk-yeucau-chuyentien" data-id="${x.id}">Yêu cầu chuyển tiền</button>`;
+    if(x.trangThaiTien==="KTV da chuyen") foot += `<button class="btn btn-primary" data-act="pxk-duyet-tien" data-id="${x.id}">Duyệt tiền cuối cùng</button>`;
+    if(x.trangThai==="Dang tao phieu" && x.maXuatKho && (!x.trangThaiTien||x.trangThaiTien==="TN da duyet tien"))
+      foot += `<button class="btn btn-primary" data-act="pxk-chuyen-ketoan" data-id="${x.id}">Chuyển cho kế toán</button>`;
+  }
+  if(k==="ketoan"){
+    if(x.maMisa && x.trangThai==="Cho ke toan") foot += `<button class="btn btn-primary" data-act="pxk-chot-xong" data-id="${x.id}">Đã chốt xong đơn xuất</button>`;
+    foot += `<button class="btn btn-danger" data-act="pxk-huy" data-id="${x.id}">Huỷ phiếu</button>`;
+  }
+  if(k==="kho"){
+    if(x.trangThai==="Dang gui KTV" && !x.daGuiHang) foot += `<button class="btn btn-primary" data-act="pxk-gui-hang" data-id="${x.id}">Gửi hàng cho KTV</button>`;
+    if(x.trangThai==="Dang gui KTV" && x.daNhanHang) foot += `<button class="btn btn-primary" data-act="pxk-ketthuc" data-id="${x.id}">Kho kết thúc</button>`;
+  }
+  if(k==="tacnghiep") foot += `<button class="btn btn-danger" data-act="pxk-huy" data-id="${x.id}">Huỷ phiếu</button>`;
+  return drawerWrapOpen(`Phiếu xuất kho ${x.id}`, body, foot);
+}
+
+function traHangDrawer(d){
+  const t = traHangById(d.id);
+  if(!t){ state.drawer=null; return ""; }
+  const canAct = traHangCanAct(t);
+  const canLui = traHangCanLuiBuoc(t);
+  const canHuy = traHangCanHuy(t);
+  const label = {"Cho ke toan duyet mem":"Duyệt mềm (D1)","Cho kho xac nhan":"Xác nhận (D2)","Cho QC xac nhan":"Xác nhận (D3)","Cho TN duyet tong":"Duyệt tổng (D4)"}[t.trangThai] || "Duyệt";
+  const body = `
+    <div style="margin-bottom:10px;">${priorityPillIf(t.uuTien)} ${badge(META_TRAHANG[t.trangThai])}</div>
+    <div class="infoline"><span class="k">Mã yêu cầu</span><span class="v mono">${t.id}</span></div>
+    <div class="infoline"><span class="k">Người tạo</span><span class="v">${ktvTen(t.nguoiTao)}</span></div>
+    <div class="infoline"><span class="k">GS phụ trách</span><span class="v">${ktvTen(t.emailGs)}</span></div>
+    <div class="infoline"><span class="k">Linh kiện</span><span class="v">${lk(t.maLk)?.ten||t.maLk}</span></div>
+    <div class="section-title">Chuỗi xử lý</div>
+    <div class="tag-list">
+      ${["Cho ke toan duyet mem","Cho kho xac nhan","Cho QC xac nhan","Cho TN duyet tong","Da duyet"].map(s=>{
+        const done = stepOrderIdx(s) <= stepOrderIdx(t.trangThai) && t.trangThai!=="Tu choi";
+        return `<span class="badge ${done?'tone-green':'tone-gray'}">${META_TRAHANG[s].label}</span>`;
+      }).join(" → ")}
+    </div>
+    ${t.trangThai==="Cho TN duyet tong" && state.personaKey==="tacnghiep" ? `
+    <div class="section-title">Từ chối (D4) — bắt buộc ghi chú lý do</div>
+    <div class="field"><textarea rows="2" placeholder="Nhập lý do từ chối..." data-act="trahang-reject-note" data-id="${t.id}"></textarea></div>
+    ` : ""}
+  `;
+  let foot = `<button class="btn" data-act="close-drawer">Đóng</button>`;
+  if(canLui) foot += `<button class="btn" data-act="trahang-luibuoc-next" data-id="${t.id}">Lùi bước</button>`;
+  if(canAct){
+    if(t.trangThai==="Cho TN duyet tong") foot += `<button class="btn btn-danger" data-act="trahang-reject-confirm" data-id="${t.id}">Từ chối</button>`;
+    foot += `<button class="btn btn-primary" data-act="trahang-approve-next" data-id="${t.id}">${label} và tiếp theo →</button>`;
+  }
+  if(canHuy) foot += `<button class="btn btn-danger" data-act="trahang-huy" data-id="${t.id}">Huỷ yêu cầu</button>`;
+  return drawerWrapOpen(`Trả hàng ${t.id}`, body, foot);
+}
+function stepOrderIdx(s){ return ["Cho ke toan duyet mem","Cho kho xac nhan","Cho QC xac nhan","Cho TN duyet tong","Da duyet"].indexOf(s); }
+
+function userDrawer(d){
+  const u = db.users.find(x=>x.email===d.id);
+  if(!u){ state.drawer=null; return ""; }
+  const isSelf = u.email===currentPersona().email;
+  const roles = ["Admin","QC","Giam sat","Kho","Kế toán","Tác nghiệp","TP DVBH","KTV DVBH", ""];
+  const body = `
+    ${isSelf ? `
+    <div class="banner warn">⚠️ Bạn đang tự sửa tài khoản của chính mình — có thể tự khoá quyền Admin của bạn.<br>
+      Gõ lại email <b>${u.email}</b> để xác nhận trước khi lưu thay đổi.
+      <div class="field" style="margin-top:8px; margin-bottom:0;"><input type="text" placeholder="Gõ lại email để xác nhận" data-act="self-edit-type" value="${state.selfEditEmailTyped}"></div>
+    </div>` : ""}
+    <div class="infoline"><span class="k">Tên</span><span class="v">${u.ten}</span></div>
+    <div class="infoline"><span class="k">Email</span><span class="v mono">${u.email}</span></div>
+    <div class="infoline"><span class="k">Trạng thái duyệt</span><span class="v">${userStatusBadge(u)}</span></div>
+    <div class="section-title">Vai trò lõi</div>
+    <div class="field"><select data-act="user-set-field" data-email="${u.email}" data-key="vaiTro">
+      ${roles.map(r=>`<option value="${r}" ${u.vaiTro===r?"selected":""}>${r||"— (không có) —"}</option>`).join("")}
+    </select></div>
+    <div class="section-title">Cờ nghiệp vụ (6 cờ + 2 cờ danh mục)</div>
+    ${["laKtvDvbh:là KTV DVBH","laVeTinh:là Vệ tinh","laTram:là Trạm","laKho:là Kho","laKeToan:là Kế toán","laTacNghiep:là Tác nghiệp","laTpDvbh:là TP DVBH","quanLyDmLk:Quản lý DM LK","xemDmLk:Xem DM LK"].map(pair=>{
+      const [key,label] = pair.split(":");
+      return `<label class="checklabel" style="margin-bottom:8px;"><input type="checkbox" data-act="user-toggle-flag" data-email="${u.email}" data-key="${key}" ${u[key]?"checked":""}> ${label}</label>`;
+    }).join("")}
+  `;
+  let foot = `<button class="btn" data-act="close-drawer">Đóng</button>`;
+  foot += `<button class="btn btn-primary" data-act="user-save" data-email="${u.email}">Lưu thay đổi</button>`;
+  return drawerWrapOpen(`Người dùng — ${u.ten}`, body, foot);
+}
+
+function linhKienDrawer(d){
+  const isNew = d.id==="__new__";
+  if(!state.lkDraft) state.lkDraft = isNew ? { ma:"", ten:"", hang:"", gia:0, dacThu:false, thayThe:[] } : {...lk(d.id)};
+  const x = state.lkDraft;
+  const body = `
+    <div class="imgph" style="height:130px;">🖼 Ảnh minh hoạ linh kiện (chưa có)</div>
+    <div class="field" style="margin-top:12px;"><label>Mã LK</label><input type="text" value="${x.ma}" ${isNew?"":"disabled"} data-act="lk-field" data-key="ma"></div>
+    <div class="field"><label>Tên linh kiện</label><input type="text" value="${x.ten}" data-act="lk-field" data-key="ten"></div>
+    <div class="field-row">
+      <div class="field"><label>Hãng</label><input type="text" value="${x.hang}" data-act="lk-field" data-key="hang"></div>
+      <div class="field"><label>Giá</label><input type="number" value="${x.gia}" data-act="lk-field" data-key="gia"></div>
+    </div>
+    <label class="checklabel"><input type="checkbox" ${x.dacThu?"checked":""} data-act="lk-field" data-key="dacThu"> Linh kiện đặc thù (cần TP DVBH xác nhận khi mua)</label>
+  `;
+  const foot = `<button class="btn" data-act="close-drawer">Đóng</button><button class="btn btn-primary" data-act="lk-save" data-id="${d.id}">Lưu</button>`;
+  return drawerWrapOpen(isNew?"Thêm linh kiện mới":`Sửa ${x.ma}`, body, foot);
+}
+
+function bulkRejectDrawer(d){
+  const screenKey = d.screen;
+  const ids = Array.from(state.selected[screenKey]);
+  const body = `
+    <div class="banner info">Từ chối hàng loạt ${ids.length} dòng: ${ids.join(", ")}</div>
+    <div class="field"><label>Lý do chậm (bắt buộc, áp dụng cho tất cả các dòng)</label>
+      <select data-act="bulk-reject-reason">
+        <option value="">— Chọn lý do —</option>
+        ${db.lyDoCham.map(l=>`<option value="${l.ma}">${l.ten}${l.moTicketThieuLk?" (sẽ tự mở ticket Thiếu LK)":""}</option>`).join("")}
+      </select>
+    </div>`;
+  const foot = `<button class="btn" data-act="close-drawer">Huỷ</button><button class="btn btn-danger" data-act="bulk-reject-confirm" data-screen="${screenKey}">Xác nhận từ chối ${ids.length} dòng</button>`;
+  return drawerWrapOpen("Từ chối hàng loạt", body, foot);
+}
+
+/* ---------- 28. EVENT DISPATCH ---------- */
+function handleAction(act, el, evt){
+  const ds = el.dataset;
+  switch(act){
+    /* --- harness --- */
+    case "set-persona": {
+      state.personaKey = el.value;
+      const p = currentPersona();
+      state.flagQuanLyDmLk = !!p.defaultQuanLyDmLk;
+      state.flagXemDmLk = !!p.defaultXemDmLk;
+      state.module = "dat-mua-lk"; state.tab = "home"; state.drawer = null;
+      resetSelections();
+      break;
+    }
+    case "toggle-flag": state[ds.flag] = el.checked; break;
+    case "set-mode": state.mode = ds.mode; state.drawer = null; state.mobileMoreOpen=false; break;
+
+    /* --- điều hướng --- */
+    case "set-module": state.module = ds.module; state.tab = "home"; state.drawer = null; break;
+    case "set-tab": state.tab = ds.tab; state.drawer = null; break;
+    case "open-tao-don": state.module = "dat-mua-lk"; state.tab = "tao-don"; state.newOrder = null; state.drawer = null; break;
+    case "mnav-tab": state.module = "dat-mua-lk"; state.tab = ds.tab; state.mobileMoreOpen = false; state.drawer = null; break;
+    case "toggle-mobile-more": state.mobileMoreOpen = !state.mobileMoreOpen; break;
+    case "mmore-goto": state.module = ds.module; state.tab = ds.tab || "home"; state.mobileMoreOpen = false; state.drawer = null; break;
+    case "hero-jump": {
+      state.module = "dat-mua-lk"; state.tab = ds.tab; state.mobileMoreOpen = false;
+      if(ds.screen && state.filters[ds.screen]) state.filters[ds.screen].quick = ds.quick || "tat-ca";
+      break;
+    }
+
+    /* --- filter --- */
+    case "quick-filter": state.filters[ds.screen].quick = ds.key; break;
+    case "open-advanced": state.filters[ds.screen].open = true; break;
+    case "close-advanced": state.filters[ds.screen].open = false; break;
+    case "adv-set": state.filters[ds.screen][ds.key] = el.value; break;
+    case "adv-reset": { const f = state.filters[ds.screen]; f.ktv=""; f.gs=""; f.maLk=""; break; }
+    case "danhmuc-filter-hang": state.filters.danhMuc.hang = el.value; break;
+    case "set-view": state.viewMode[ds.screen] = ds.view; break;
+
+    /* --- chọn nhiều dòng / bulk --- */
+    case "toggle-select": { const sel = state.selected[ds.screen]; if(el.checked) sel.add(ds.id); else sel.delete(ds.id); break; }
+    case "select-all": {
+      const sel = state.selected[ds.screen];
+      const boxes = document.querySelectorAll(`[data-act="toggle-select"][data-screen="${ds.screen}"]`);
+      if(el.checked) boxes.forEach(b=>sel.add(b.dataset.id)); else sel.clear();
+      break;
+    }
+    case "clear-select": state.selected[ds.screen].clear(); break;
+    case "bulk-approve": {
+      const screen = ds.screen; const ids = Array.from(state.selected[screen]);
+      if(screen==="muaHang" || screen==="congNo") ids.forEach(id=>{ const o=donHangById(id); if(o && donHangCanApprove(o)) advanceDonHang(o); });
+      else if(screen==="thieuLk") ids.forEach(id=>{ const t=thieuLkById(id); if(t && thieuLkCanAct(t) && t.trangThai==="Cho kho tiep nhan") t.trangThai="Kho da tiep nhan"; });
+      else if(screen==="traHang") ids.forEach(id=>{ const t=traHangById(id); if(t && traHangCanAct(t)) advanceTraHang(t); });
+      state.selected[screen].clear();
+      toast(`Đã duyệt hàng loạt ${ids.length} dòng.`);
+      break;
+    }
+    case "bulk-reject-open": state.drawer = { kind:"bulk-reject", screen: ds.screen }; break;
+    case "bulk-reject-reason": break;
+    case "bulk-reject-confirm": {
+      const reasonSel = document.querySelector('[data-act="bulk-reject-reason"]');
+      const reason = reasonSel ? reasonSel.value : "";
+      if(!reason){ toast("Vui lòng chọn lý do trước khi từ chối hàng loạt."); break; }
+      const screen = ds.screen; const ids = Array.from(state.selected[screen]);
+      ids.forEach(id=>{ const o = donHangById(id); if(o) rejectDonHang(o, reason); });
+      state.selected[screen].clear();
+      state.drawer = null;
+      toast(`Đã từ chối hàng loạt ${ids.length} dòng.`);
+      break;
+    }
+
+    /* --- Mua hàng / Công nợ (Luồng A) --- */
+    case "order-approve": { const o=donHangById(ds.id); if(o){ advanceDonHang(o); toast(`Đã duyệt đơn ${o.id}.`); } break; }
+    case "order-approve-next": { const o=donHangById(ds.id); if(o){ advanceDonHang(o); toast(`Đã duyệt đơn ${o.id}.`); } advanceOrClose(); break; }
+    case "order-cancel": { const o=donHangById(ds.id); if(o){ o.trangThai="Da huy"; toast(`Đã huỷ đơn ${o.id}.`); } if(state.drawer && state.drawer.id===ds.id) state.drawer=null; break; }
+    case "order-toggle-reject": if(state.drawer) state.drawer.showReject = !state.drawer.showReject; break;
+    case "order-reject-reason": break;
+    case "order-reject-confirm": {
+      const sel = document.querySelector(`[data-act="order-reject-reason"][data-id="${ds.id}"]`);
+      const reason = sel ? sel.value : "";
+      if(!reason){ toast("Vui lòng chọn lý do từ chối."); break; }
+      const o = donHangById(ds.id); if(o) rejectDonHang(o, reason);
+      toast(`Đã từ chối đơn ${ds.id}.`);
+      advanceOrClose();
+      break;
+    }
+    case "order-case-input": break;
+    case "order-case-save": {
+      const input = document.querySelector(`[data-act="order-case-input"][data-id="${ds.id}"]`);
+      const o = donHangById(ds.id);
+      if(o && input){ o.caseId = input.value.trim(); toast(`Đã gắn mã case cho đơn ${ds.id}.`); }
+      break;
+    }
+    case "order-edit-field": {
+      const o = donHangById(ds.id);
+      if(o){ o[ds.key] = ["soLuong","giaChot","soLuongThucXuat"].includes(ds.key) ? Number(el.value)||0 : el.value; }
+      break;
+    }
+
+    /* --- Trả hàng (Luồng D) --- */
+    case "trahang-approve": case "trahang-approve-next": {
+      const t = traHangById(ds.id); if(t){ advanceTraHang(t); toast(`Đã xử lý ${t.id}.`); }
+      if(act==="trahang-approve-next") advanceOrClose();
+      break;
+    }
+    case "trahang-luibuoc": case "trahang-luibuoc-next": {
+      const t = traHangById(ds.id); if(t){ luiBuocTraHang(t); toast(`Đã lùi bước ${t.id}.`); }
+      if(act==="trahang-luibuoc-next") advanceOrClose();
+      break;
+    }
+    case "trahang-huy": { const t=traHangById(ds.id); if(t) t.trangThai="Tu choi"; if(state.drawer && state.drawer.id===ds.id) state.drawer=null; toast(`Đã huỷ yêu cầu trả hàng ${ds.id}.`); break; }
+    case "trahang-reject-note": break;
+    case "trahang-reject-confirm": {
+      const ta = document.querySelector(`[data-act="trahang-reject-note"][data-id="${ds.id}"]`);
+      const note = ta ? ta.value.trim() : "";
+      if(!note){ toast("Vui lòng ghi chú lý do từ chối (bắt buộc)."); break; }
+      const t = traHangById(ds.id); if(t){ t.trangThai="Tu choi"; t.ghiChuTuChoi = note; }
+      toast(`Đã từ chối ${ds.id}.`);
+      advanceOrClose();
+      break;
+    }
+
+    /* --- Thiếu linh kiện (Luồng B) --- */
+    case "tlk-tiepnhan": case "tlk-tiepnhan-next": { const t=thieuLkById(ds.id); if(t) t.trangThai="Kho da tiep nhan"; toast("Đã tiếp nhận xử lý."); if(act.endsWith("-next")) advanceOrClose(); break; }
+    case "tlk-baove": case "tlk-baove-next": { const t=thieuLkById(ds.id); if(t) t.trangThai="Cho kho xac nhan"; toast("Đã báo hàng về, chờ xác nhận."); if(act.endsWith("-next")) advanceOrClose(); break; }
+    case "tlk-xacnhan": case "tlk-xacnhan-next": { const t=thieuLkById(ds.id); if(t) t.trangThai="Da ve kho"; toast("Đã xác nhận hàng về."); if(act.endsWith("-next")) advanceOrClose(); break; }
+    case "tlk-tuchoi": case "tlk-tuchoi-next": { const t=thieuLkById(ds.id); if(t) t.trangThai="Tu choi sai thong tin"; toast("Đã từ chối — sai thông tin."); if(act.endsWith("-next")) advanceOrClose(); break; }
+    case "tlk-dong": case "tlk-dong-next": { const t=thieuLkById(ds.id); if(t) t.trangThai="Da ket thuc"; toast("Đã đóng ticket."); if(act.endsWith("-next")) advanceOrClose(); break; }
+    case "tlk-huy": { const t=thieuLkById(ds.id); if(t) t.trangThai="Da huy bo"; if(state.drawer && state.drawer.id===ds.id) state.drawer=null; toast("Đã huỷ ticket."); break; }
+
+    /* --- Phiếu xuất kho (Luồng C) --- */
+    case "pxk-input-maxk": case "pxk-input-misa": break;
+    case "pxk-gan-maxk": { const inp=document.querySelector(`[data-act="pxk-input-maxk"][data-id="${ds.id}"]`); const x=pxkById(ds.id); if(x&&inp&&inp.value.trim()){ x.maXuatKho=inp.value.trim(); toast("Đã gán mã xuất kho."); } else toast("Vui lòng nhập mã xuất kho."); break; }
+    case "pxk-gan-misa": { const inp=document.querySelector(`[data-act="pxk-input-misa"][data-id="${ds.id}"]`); const x=pxkById(ds.id); if(x&&inp&&inp.value.trim()){ x.maMisa=inp.value.trim(); toast("Đã gán mã MISA."); } else toast("Vui lòng nhập mã MISA."); break; }
+    case "pxk-upload-bienban": { const x=pxkById(ds.id); if(x){ x.bienBanUrl="bien-ban-demo.jpg"; x.daNhanHang=true; toast("Đã upload ảnh biên bản & xác nhận đã nhận hàng."); } break; }
+    case "pxk-yeucau-chuyentien": { const x=pxkById(ds.id); if(x) x.trangThaiTien="Cho KTV chuyen tien"; toast("Đã yêu cầu chuyển tiền."); break; }
+    case "pxk-xacnhan-chuyentien": { const x=pxkById(ds.id); if(x){ x.trangThaiTien="KTV da chuyen"; x.chungTuTienUrl="bang-chung-demo.jpg"; } toast("Đã xác nhận chuyển tiền + đính kèm bằng chứng."); break; }
+    case "pxk-duyet-tien": { const x=pxkById(ds.id); if(x) x.trangThaiTien="TN da duyet tien"; toast("Đã duyệt tiền cuối cùng."); break; }
+    case "pxk-chuyen-ketoan": { const x=pxkById(ds.id); if(x) x.trangThai="Cho ke toan"; toast("Đã chuyển phiếu cho kế toán."); break; }
+    case "pxk-chot-xong": { const x=pxkById(ds.id); if(x) x.trangThai="Dang gui KTV"; toast("Kế toán đã chốt xong đơn xuất."); break; }
+    case "pxk-gui-hang": { const x=pxkById(ds.id); if(x) x.daGuiHang=true; toast("Đã gửi hàng cho KTV."); break; }
+    case "pxk-ketthuc": { const x=pxkById(ds.id); if(x) x.trangThai="Kho da ket thuc"; if(state.drawer && state.drawer.id===ds.id) state.drawer=null; toast("Kho đã kết thúc phiếu."); break; }
+    case "pxk-huy": { db.pxk = db.pxk.filter(p=>p.id!==ds.id); state.drawer=null; toast("Đã huỷ phiếu xuất kho."); break; }
+
+    /* --- Tạo đơn mới --- */
+    case "line-set": {
+      const idx = Number(ds.idx); const l = state.newOrder.lines[idx];
+      if(!l) break;
+      if(ds.key==="soLuong") l.soLuong = Math.max(1, Number(el.value)||1); else l.maLk = el.value;
+      break;
+    }
+    case "line-add": ensureNewOrderState(); state.newOrder.lines.push({ maLk:"LK001", soLuong:1 }); break;
+    case "line-remove": { const idx=Number(ds.idx); if(state.newOrder.lines.length>1) state.newOrder.lines.splice(idx,1); break; }
+    case "neworder-set": ensureNewOrderState(); state.newOrder[ds.key] = el.value; break;
+    case "neworder-submit": submitNewOrder(); break;
+
+    /* --- Nhập Excel --- */
+    case "open-import": state.importDialog = { kind: ds.kind }; break;
+    case "close-import": state.importDialog = null; break;
+    case "import-pickfile": toast("Đã chọn file mẫu — xem trước bên dưới."); break;
+    case "import-confirm": doImportConfirm(ds.kind); break;
+
+    /* --- Danh mục linh kiện --- */
+    case "lk-edit": state.drawer = { kind:"linhKien", id: ds.ma }; state.lkDraft=null; break;
+    case "lk-add": state.drawer = { kind:"linhKien", id:"__new__" }; state.lkDraft=null; break;
+    case "lk-export-anh": toast("Đã xuất ảnh danh mục linh kiện (mô phỏng)."); break;
+    case "lk-field": {
+      if(!state.lkDraft) break;
+      if(ds.key==="dacThu") state.lkDraft.dacThu = el.checked;
+      else if(ds.key==="gia") state.lkDraft.gia = Number(el.value)||0;
+      else state.lkDraft[ds.key] = el.value;
+      break;
+    }
+    case "lk-save": {
+      const draft = state.lkDraft;
+      if(!draft || !draft.ma || !draft.ten){ toast("Vui lòng nhập đủ Mã và Tên linh kiện."); break; }
+      const existing = lk(draft.ma);
+      if(existing) Object.assign(existing, draft); else db.linhKien.push({ ...draft, thayThe: draft.thayThe||[] });
+      state.drawer = null; state.lkDraft = null;
+      toast(`Đã lưu linh kiện ${draft.ma}.`);
+      break;
+    }
+
+    /* --- Settings --- */
+    case "set-settings-tab": state.settingsTab = ds.tab; break;
+    case "lydocham-toggle": { const l=lyDo(ds.ma); if(l) l.moTicketThieuLk = el.checked; break; }
+    case "lydocham-add": { const n=db.lyDoCham.length+1; db.lyDoCham.push({ ma:`LDC${n}`, ten:"Lý do mới (demo)", moTicketThieuLk:false }); toast("Đã thêm lý do chậm mẫu."); break; }
+    case "ktv-set-gs": { const kk=ktv(ds.email); if(kk) kk.giamSat = el.value; toast("Đã cập nhật Giám sát phụ trách."); break; }
+    case "drive-toggle": state.driveConnected = !state.driveConnected; toast(state.driveConnected ? "Đã kết nối Google Drive." : "Đã ngắt kết nối Google Drive."); break;
+    case "toast-demo": toast(ds.msg || "Đã thực hiện (demo)."); break;
+
+    /* --- Quản lý User --- */
+    case "users-filter": state.usersFilter = ds.key; break;
+    case "user-duyet": { const u=db.users.find(x=>x.email===ds.email); if(u) u.trangThaiDuyet="Da duyet"; toast(`Đã duyệt tài khoản ${ds.email}.`); break; }
+    case "user-khoa": { const u=db.users.find(x=>x.email===ds.email); if(u) u.khoa=true; toast(`Đã khoá ${ds.email}.`); break; }
+    case "user-mokhoa": { const u=db.users.find(x=>x.email===ds.email); if(u) u.khoa=false; toast(`Đã mở khoá ${ds.email}.`); break; }
+    case "self-edit-type": state.selfEditEmailTyped = el.value; break;
+    case "user-set-field": { const u=db.users.find(x=>x.email===ds.email); if(u) u[ds.key] = el.value; break; }
+    case "user-toggle-flag": { const u=db.users.find(x=>x.email===ds.email); if(u) u[ds.key] = el.checked; break; }
+    case "user-save": {
+      const u = db.users.find(x=>x.email===ds.email);
+      if(!u) break;
+      const isSelf = u.email===currentPersona().email;
+      if(isSelf){
+        const input = document.querySelector('[data-act="self-edit-type"]');
+        const typed = input ? input.value.trim().toLowerCase() : "";
+        if(typed !== u.email.toLowerCase()){ toast("Vui lòng gõ lại đúng email của chính bạn để xác nhận trước khi lưu."); break; }
+      }
+      state.drawer = null; state.selfEditEmailTyped = "";
+      toast(`Đã lưu thay đổi cho ${u.email}.`);
+      break;
+    }
+
+    /* --- drawer chung --- */
+    case "open-drawer": {
+      const listIds = ds.screen ? computeListIdsForScreen(ds.screen) : null;
+      state.drawer = { kind: ds.kind, id: ds.id, listIds, showReject: ds.reject==="1" };
+      state.lkDraft = null;
+      break;
+    }
+    case "close-drawer": state.drawer = null; state.lkDraft = null; state.selfEditEmailTyped = ""; break;
+
+    default: break;
+  }
+  renderAll();
+}
+
+document.addEventListener("click", function(e){
+  const el = e.target.closest("[data-act]");
+  if(!el) return;
+  if(el.matches("input, select, textarea")) return; // các input/select xử lý qua sự kiện change
+  handleAction(el.dataset.act, el, e);
+});
+document.addEventListener("change", function(e){
+  const el = e.target.closest("[data-act]");
+  if(!el) return;
+  if(el.matches("input, select, textarea")) handleAction(el.dataset.act, el, e);
+});
+
+/* ---------- 29. KHỞI TẠO ---------- */
+(function init(){
+  const p = currentPersona();
+  state.flagQuanLyDmLk = !!p.defaultQuanLyDmLk;
+  state.flagXemDmLk = !!p.defaultXemDmLk;
+  renderAll();
+})();
+
+function mobileMoreSheetHtml(mods){
+  const rows = [];
+  for(const m of mods){
+    const meta = MODULE_TOP_ACCENT[m.module];
+    if(m.subs){
+      rows.push(`<div class="section-title" style="margin-top:${rows.length?18:0}px">${meta.icon} ${meta.label}</div>`);
+      for(const s of m.subs){
+        const sMeta = MODULE_ACCENT[s.tab];
+        rows.push(`<button class="btn" style="width:100%; justify-content:flex-start; margin-bottom:6px;" data-act="mmore-goto" data-module="${m.module}" data-tab="${s.tab}">${sMeta.icon} ${s.label}</button>`);
+      }
+    } else {
+      rows.push(`<button class="btn" style="width:100%; justify-content:flex-start; margin-bottom:6px;" data-act="mmore-goto" data-module="${m.module}" data-tab="">${meta.icon} ${meta.label}</button>`);
+    }
+  }
+  return `<div class="sheet-overlay ${state.mobileMoreOpen?'show':''}" data-act="toggle-mobile-more"></div>
+  <div class="sheet ${state.mobileMoreOpen?'show':''}">
+    <div class="handle"></div>
+    <div class="sheet-head"><h3>Tất cả màn hình</h3><button class="drawer-close" data-act="toggle-mobile-more">✕</button></div>
+    <div class="sheet-body">${rows.join("")}</div>
+  </div>`;
+}
+
+</script>
+</body>
+</html>

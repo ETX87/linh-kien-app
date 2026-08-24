@@ -1,0 +1,216 @@
+import { Hono } from "hono";
+import type { Env, AppUser } from "../types";
+import { verifySessionMiddleware } from "../middleware/session";
+import { loadUser } from "../middleware/loadUser";
+import { cachedReport, buildReportKey } from "../lib/reportCache";
+import { phuTrachGsSet } from "../lib/scopeDatMua";
+
+// Port gan nguyen ban tu backend/src/routes/notifications.ts cua he DVBH goc - CHI giu phan
+// "DatMuaLkBreakdown"/computeDatMuaLkBreakdown()/getDatMuaLkBadge() (badge rieng cho module "Dat
+// mua linh kien"), bo toan bo phan con lai (canGiaiTrinh/choQc/caThieuLinhKien/khaoSat/caLap/
+// danhGiaNapGas/tranhChap - deu thuoc cac module KHONG tach sang he nay).
+const notifications = new Hono<{ Bindings: Env }>();
+notifications.use("*", verifySessionMiddleware, loadUser);
+
+export interface DatMuaLkBreakdown {
+  total: number;
+  choTnDuyet: number;
+  choTnTraHang: number;
+  choKhoThieuLk: number;
+  choKhoPxk: number;
+  choKhoTraHang: number;
+  choKeToanPxk: number;
+  choKeToanTraHang: number;
+  choQcTraHang: number;
+  choTramDuyet: number;
+  choTpXacNhan: number;
+}
+
+const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
+  total: 0,
+  choTnDuyet: 0,
+  choTnTraHang: 0,
+  choKhoThieuLk: 0,
+  choKhoPxk: 0,
+  choKhoTraHang: 0,
+  choKeToanPxk: 0,
+  choKeToanTraHang: 0,
+  choQcTraHang: 0,
+  choTramDuyet: 0,
+  choTpXacNhan: 0,
+};
+
+export interface NotificationsCountPayload {
+  datMuaLk: DatMuaLkBreakdown;
+}
+
+function gsInClause(gsSet: Set<string> | null, ddhAlias: string): { sql: string; binds: string[] } | null {
+  if (gsSet === null || gsSet.size === 0) return gsSet === null ? null : { sql: " AND 1=0", binds: [] };
+  const emails = [...gsSet];
+  return { sql: ` AND ${ddhAlias}.email_gs IN (${emails.map(() => "?").join(",")})`, binds: emails };
+}
+
+export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): Promise<DatMuaLkBreakdown> {
+  const isTacNghiep = !!user.la_tac_nghiep || user.vai_tro === "Admin";
+  const isKho = !!user.la_kho || user.vai_tro === "Admin";
+  const isKeToan = !!user.la_ke_toan || user.vai_tro === "Admin";
+  const isQC = user.vai_tro === "QC" || user.vai_tro === "Admin";
+  const isTPDvbh = !!user.la_tp_dvbh || user.vai_tro === "Admin";
+
+  const out: DatMuaLkBreakdown = { ...EMPTY_DAT_MUA_LK_BREAKDOWN };
+  const gsSet = await phuTrachGsSet(db, user.email);
+
+  // SUA 2026-08-21: 4 dong "tra_hang" ben duoi (cho_tn_tra_hang/cho_kho_tra_hang/cho_ke_toan_tra_hang/
+  // QC) doi tu subquery tuong quan tra_hang_log sang doc thang ddh.trang_thai_hien_tai - dong tra_hang
+  // vua tao KHONG co dong log dau tien (xem datMuaLinhKien.ts POST /phieu-dat), nen subquery cu tra
+  // NULL cho buoc "Cho ke toan duyet mem", khien badge/danh sach thieu dung nhung dong moi tao nhat.
+  // Giai thich day du o backend/src/routes/traHang.ts (GET /).
+  if (isTacNghiep) {
+    const clause = gsInClause(gsSet, "ddh");
+    const row = await db
+      .prepare(
+        `SELECT
+           (SELECT COUNT(*) FROM dat_don_hang ddh
+              WHERE ddh.loai_don != 'tra_hang'
+              AND (SELECT trang_thai FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) = 'Cho TN duyet'${clause?.sql ?? ""}) as cho_tn_duyet,
+           (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang'
+              AND ddh.trang_thai_hien_tai = 'Cho TN duyet tong') as cho_tn_tra_hang`,
+      )
+      .bind(...(clause?.binds ?? []))
+      .first<{ cho_tn_duyet: number; cho_tn_tra_hang: number }>();
+    out.choTnDuyet = row?.cho_tn_duyet ?? 0;
+    out.choTnTraHang = row?.cho_tn_tra_hang ?? 0;
+  }
+
+  if (isKho) {
+    const thieuLkClause = gsInClause(gsSet, "ddh");
+    const pxkClause = gsInClause(gsSet, "ddh2");
+    const traHangClause = gsInClause(gsSet, "ddh");
+    const row = await db
+      .prepare(
+        `SELECT
+           (SELECT COUNT(*) FROM thieu_lk tlk JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id
+              WHERE (SELECT trang_thai FROM thieu_lk_log WHERE thieu_lk_id = tlk.id ORDER BY id DESC LIMIT 1) = 'Cho kho xu ly'${thieuLkClause?.sql ?? ""}) as cho_kho_thieu_lk,
+           (SELECT COUNT(*) FROM phieu_xuat_kho pxk
+              WHERE (SELECT trang_thai FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = pxk.id ORDER BY id DESC LIMIT 1) = 'Da chot xong don xuat'
+              ${pxkClause ? `AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id${pxkClause.sql})` : ""}) as cho_kho_pxk,
+           -- SUA (migration 0002_tra_hang_pxk.sql): "Cho kho xac nhan nhap kho" khong con dat toi
+           -- duoc (da xoa khoi tra_hang_log CHECK) - viec Kho lien quan tra hang o giai doan PXK gio
+           -- da nam SAN trong cho_kho_pxk o tren (query do khong loc loai_don nen tu dong gom ca PXK
+           -- tra_hang, khong can dem lai o day tranh trung).
+           (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang'
+              AND ddh.trang_thai_hien_tai = 'Cho kho xac nhan'
+              ${traHangClause?.sql ?? ""}) as cho_kho_tra_hang`,
+      )
+      .bind(...(thieuLkClause?.binds ?? []), ...(pxkClause?.binds ?? []), ...(traHangClause?.binds ?? []))
+      .first<{ cho_kho_thieu_lk: number; cho_kho_pxk: number; cho_kho_tra_hang: number }>();
+    out.choKhoThieuLk = row?.cho_kho_thieu_lk ?? 0;
+    out.choKhoPxk = row?.cho_kho_pxk ?? 0;
+    out.choKhoTraHang = row?.cho_kho_tra_hang ?? 0;
+  }
+
+  if (isKeToan) {
+    const pxkClause = gsInClause(gsSet, "ddh2");
+    const traHangClause = gsInClause(gsSet, "ddh");
+    const row = await db
+      .prepare(
+        `SELECT
+           (SELECT COUNT(*) FROM phieu_xuat_kho pxk
+              WHERE (SELECT trang_thai FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = pxk.id ORDER BY id DESC LIMIT 1) = 'Cho ke toan'
+              ${pxkClause ? `AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id${pxkClause.sql})` : ""}) as cho_ke_toan_pxk,
+           -- SUA (migration 0002_tra_hang_pxk.sql): "Cho ke toan xac nhan nhap kho" khong con dat toi
+           -- duoc - viec KT lien quan tra hang o giai doan PXK gio da nam SAN trong cho_ke_toan_pxk o
+           -- tren (query do khong loc loai_don nen tu dong gom ca PXK tra_hang).
+           (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang'
+              AND ddh.trang_thai_hien_tai = 'Cho ke toan duyet mem'
+              ${traHangClause?.sql ?? ""}) as cho_ke_toan_tra_hang`,
+      )
+      .bind(...(pxkClause?.binds ?? []), ...(traHangClause?.binds ?? []))
+      .first<{ cho_ke_toan_pxk: number; cho_ke_toan_tra_hang: number }>();
+    out.choKeToanPxk = row?.cho_ke_toan_pxk ?? 0;
+    out.choKeToanTraHang = row?.cho_ke_toan_tra_hang ?? 0;
+  }
+
+  if (isQC) {
+    const row = await db
+      .prepare(
+        `SELECT COUNT(*) as n FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang'
+           AND ddh.trang_thai_hien_tai = 'Cho QC xac nhan'`,
+      )
+      .first<{ n: number }>();
+    out.choQcTraHang = row?.n ?? 0;
+  }
+
+  if (isTPDvbh) {
+    const clause = gsInClause(gsSet, "ddh");
+    const row = await db
+      .prepare(
+        `SELECT COUNT(*) as n FROM dat_don_hang ddh
+           WHERE ddh.loai_don != 'tra_hang'
+           AND (SELECT trang_thai FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) = 'Cho TBP xac nhan'${clause?.sql ?? ""}`,
+      )
+      .bind(...(clause?.binds ?? []))
+      .first<{ n: number }>();
+    out.choTpXacNhan = row?.n ?? 0;
+  }
+
+  if (user.la_ktv_dvbh) {
+    const isTram = await db.prepare("SELECT 1 as x FROM users WHERE tram_cha = ? LIMIT 1").bind(user.email).first();
+    if (isTram) {
+      const row = await db
+        .prepare(
+          `SELECT COUNT(*) as n FROM dat_don_hang ddh JOIN users u ON u.email = ddh.nguoi_tao
+             WHERE u.tram_cha = ? AND ddh.loai_don != 'tra_hang'
+               AND (SELECT trang_thai FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) = 'Cho Tram duyet'`,
+        )
+        .bind(user.email)
+        .first<{ n: number }>();
+      out.choTramDuyet = row?.n ?? 0;
+    }
+  }
+
+  out.total =
+    out.choTnDuyet + out.choTnTraHang + out.choKhoThieuLk + out.choKhoPxk + out.choKhoTraHang +
+    out.choKeToanPxk + out.choKeToanTraHang + out.choQcTraHang + out.choTramDuyet + out.choTpXacNhan;
+
+  return out;
+}
+
+export async function getDatMuaLkBadge(db: D1Database, user: AppUser): Promise<DatMuaLkBreakdown> {
+  const capDung = !!(
+    user.la_ktv_dvbh ||
+    user.la_kho ||
+    user.la_ke_toan ||
+    user.la_tac_nghiep ||
+    user.la_tp_dvbh ||
+    user.vai_tro === "Admin" ||
+    user.vai_tro === "QC"
+  );
+  if (!capDung) return EMPTY_DAT_MUA_LK_BREAKDOWN;
+
+  const key = buildReportKey(
+    "notifications/count-dat-mua-lk",
+    {
+      email: user.email,
+      vai_tro: user.vai_tro ?? "",
+      la_ktv_dvbh: user.la_ktv_dvbh ? "1" : "",
+      la_kho: user.la_kho ? "1" : "",
+      la_ke_toan: user.la_ke_toan ? "1" : "",
+      la_tac_nghiep: user.la_tac_nghiep ? "1" : "",
+      la_tp_dvbh: user.la_tp_dvbh ? "1" : "",
+    },
+    null,
+  );
+  return cachedReport(db, key, ["dat_mua_lk", "users"], () => computeDatMuaLkBreakdown(db, user));
+}
+
+// GET /api/notifications/count - dung cho badge sidebar (Sidebar.tsx) + thanh tom tat trong chinh
+// module (PipelineFlow.tsx). He nay CHI co 1 mien nghiep vu nen response chi con field "datMuaLk".
+notifications.get("/count", async (c) => {
+  const user = c.get("user");
+  const datMuaLk = await getDatMuaLkBadge(c.env.DB, user);
+  const data: NotificationsCountPayload = { datMuaLk };
+  return c.json(data);
+});
+
+export default notifications;

@@ -1,0 +1,1845 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concept 3 — Enterprise Command Center — Đặt mua linh kiện</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --blue-70:#0043ce; --blue-60:#0f62fe; --blue-50:#4589ff; --blue-10:#edf5ff;
+  --gray-100:#161616; --gray-90:#262626; --gray-80:#393939; --gray-70:#525252;
+  --gray-50:#8d8d8d; --gray-30:#c6c6c6; --gray-20:#e0e0e0; --gray-10:#f4f4f4; --gray-05:#f7f9fc;
+  --white:#ffffff;
+  --green-60:#198038; --green-50:#24a148; --green-10:#defbe6;
+  --red-60:#da1e28; --red-50:#fa4d56; --red-10:#fff1f1;
+  --orange-40:#ff832b; --orange-60:#ba4e00; --orange-10:#fff2e8;
+  --yellow-30:#f1c21b; --yellow-10:#fcf4d6;
+  --purple-60:#8a3ffc; --purple-10:#f6f2ff;
+  --radius:3px;
+  --font: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --topbar-h:48px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:var(--font);
+  background:var(--gray-10);
+  color:var(--gray-100);
+  font-size:14px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+code,.mono{font-family:var(--mono);}
+button{font-family:inherit;font-size:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;font-size:inherit;}
+a{color:var(--blue-60);}
+::-webkit-scrollbar{width:8px;height:8px;}
+::-webkit-scrollbar-thumb{background:var(--gray-30);border-radius:4px;}
+
+/* ============ CONTROL BAR (persona switcher, fixed) ============ */
+#control-bar{
+  position:fixed; top:0; left:0; right:0; height:44px; z-index:500;
+  background:var(--gray-100); color:var(--white);
+  display:flex; align-items:center; gap:10px; padding:0 12px;
+  font-size:12.5px;
+  border-bottom:2px solid var(--blue-60);
+}
+#control-bar .cb-label{color:var(--gray-30); font-weight:600; letter-spacing:.03em; text-transform:uppercase; font-size:10.5px;}
+#control-bar select{
+  background:var(--gray-90); color:var(--white); border:1px solid var(--gray-70);
+  border-radius:var(--radius); padding:5px 8px; font-size:12.5px;
+}
+#control-bar label.flag{display:flex; align-items:center; gap:4px; color:var(--gray-20); white-space:nowrap;}
+#control-bar .spacer{flex:1;}
+#control-bar .persona-chip{
+  background:var(--blue-70); color:#fff; padding:3px 9px; border-radius:12px; font-weight:600;
+  white-space:nowrap;
+}
+#control-bar .mode-toggle{display:flex; gap:0; border:1px solid var(--gray-70); border-radius:var(--radius); overflow:hidden;}
+#control-bar .mode-toggle button{
+  background:var(--gray-90); color:var(--gray-20); border:none; padding:6px 12px; font-weight:600;
+}
+#control-bar .mode-toggle button.active{background:var(--blue-60); color:#fff;}
+
+/* ============ APP ROOT ============ */
+#app-root{padding-top:44px; min-height:100vh;}
+
+/* ---------- WEB SHELL ---------- */
+.web-shell{display:flex; min-height:calc(100vh - 44px);}
+.sidebar{
+  width:256px; flex:0 0 256px; background:var(--white); border-right:1px solid var(--gray-20);
+  min-height:calc(100vh - 44px); position:sticky; top:44px; align-self:flex-start;
+  height:calc(100vh - 44px); overflow-y:auto;
+}
+.sidebar .brand{
+  padding:16px; font-weight:700; font-size:15px; color:var(--gray-100);
+  border-bottom:1px solid var(--gray-20); display:flex; align-items:center; gap:8px;
+}
+.sidebar .brand .sq{width:22px;height:22px;background:var(--blue-60); flex:0 0 22px;}
+.sidebar .new-order-btn{
+  margin:12px; width:calc(100% - 24px); background:var(--blue-60); color:#fff; border:none;
+  padding:10px 12px; border-radius:var(--radius); font-weight:600; text-align:left;
+}
+.sidebar .new-order-btn:hover{background:var(--blue-70);}
+.sidebar .group-title{
+  font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--gray-50); padding:14px 16px 6px;
+}
+.sidebar .item{
+  display:flex; align-items:center; gap:8px; padding:9px 16px 9px 24px; color:var(--gray-80);
+  cursor:pointer; border-left:3px solid transparent; font-size:13.5px;
+}
+.sidebar .item:hover{background:var(--gray-10);}
+.sidebar .item.active{background:var(--blue-10); border-left-color:var(--blue-60); color:var(--blue-70); font-weight:600;}
+.sidebar .item .ic{width:16px; text-align:center; flex:0 0 16px; opacity:.8;}
+
+.topbar{
+  height:52px; background:var(--white); border-bottom:1px solid var(--gray-20);
+  display:flex; align-items:center; padding:0 20px; gap:12px; position:sticky; top:44px; z-index:50;
+}
+.topbar .crumb{font-size:15px; font-weight:700; color:var(--gray-100);}
+.topbar .crumb .sub{font-weight:400; color:var(--gray-50); font-size:13px;}
+.topbar .hamburger{display:none;}
+
+.main-web{flex:1; min-width:0; padding:20px 24px 60px;}
+
+/* ---------- KPI CARDS ---------- */
+.kpi-row{display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px;}
+.kpi-card{
+  background:var(--white); border:1px solid var(--gray-20); border-left:4px solid var(--blue-60);
+  border-radius:var(--radius); padding:12px 16px; min-width:168px; flex:1 1 168px; cursor:pointer;
+  text-align:left;
+}
+.kpi-card:hover{box-shadow:0 2px 6px rgba(0,0,0,.08);}
+.kpi-card .n{font-size:26px; font-weight:700; font-family:var(--mono); line-height:1.1;}
+.kpi-card .l{font-size:12px; color:var(--gray-70); margin-top:4px; font-weight:500;}
+.kpi-card.c-orange{border-left-color:var(--orange-40);}
+.kpi-card.c-red{border-left-color:var(--red-60);}
+.kpi-card.c-green{border-left-color:var(--green-60);}
+.kpi-card.c-purple{border-left-color:var(--purple-60);}
+.kpi-card.c-gray{border-left-color:var(--gray-50);}
+
+/* ---------- CARD / SECTION ---------- */
+.panel{background:var(--white); border:1px solid var(--gray-20); border-radius:var(--radius); margin-bottom:16px;}
+.panel-head{padding:12px 16px; border-bottom:1px solid var(--gray-20); display:flex; align-items:center; gap:10px;}
+.panel-head h2,.panel-head h3{margin:0; font-size:15px; font-weight:700;}
+.panel-body{padding:16px;}
+
+/* ---------- TOOLBAR / FILTERS ---------- */
+.toolbar{
+  background:var(--white); border:1px solid var(--gray-20); border-bottom:none; padding:10px 14px;
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap; border-radius:var(--radius) var(--radius) 0 0;
+}
+.qf{display:flex; gap:0; border:1px solid var(--gray-30); border-radius:var(--radius); overflow:hidden;}
+.qf button{background:var(--white); border:none; border-right:1px solid var(--gray-30); padding:7px 12px; font-size:12.5px; font-weight:500; color:var(--gray-80);}
+.qf button:last-child{border-right:none;}
+.qf button.active{background:var(--gray-100); color:#fff;}
+.qf button .cnt{font-family:var(--mono); font-weight:700; margin-left:3px;}
+.tb-select{border:1px solid var(--gray-30); border-radius:var(--radius); padding:7px 8px; font-size:12.5px; background:#fff; color:var(--gray-80);}
+.btn{
+  border:1px solid var(--gray-30); background:#fff; color:var(--gray-90); border-radius:var(--radius);
+  padding:7px 12px; font-size:12.5px; font-weight:600; display:inline-flex; align-items:center; gap:5px;
+}
+.btn:hover{background:var(--gray-10);}
+.btn-primary{background:var(--blue-60); color:#fff; border-color:var(--blue-60);}
+.btn-primary:hover{background:var(--blue-70);}
+.btn-danger{background:#fff; color:var(--red-60); border-color:var(--red-60);}
+.btn-danger:hover{background:var(--red-10);}
+.btn-success{background:var(--green-60); color:#fff; border-color:var(--green-60);}
+.btn-success:hover{background:#146c2b;}
+.btn-ghost{border-color:transparent; background:transparent;}
+.btn-ghost:hover{background:var(--gray-10);}
+.btn-xs{padding:4px 8px; font-size:11.5px;}
+.btn[disabled]{opacity:.4; cursor:not-allowed;}
+.tb-spacer{flex:1;}
+
+/* ---------- TABLE ---------- */
+.tbl-wrap{overflow-x:auto; background:var(--white); border:1px solid var(--gray-20); border-radius:0 0 var(--radius) var(--radius);}
+table.dtable{width:100%; border-collapse:collapse; font-size:13px;}
+table.dtable thead th{
+  background:var(--gray-10); text-align:left; padding:9px 12px; font-weight:700; font-size:11.5px;
+  text-transform:uppercase; letter-spacing:.03em; color:var(--gray-70); border-bottom:1px solid var(--gray-20);
+  white-space:nowrap; cursor:default;
+}
+table.dtable thead th.sortable{cursor:pointer;}
+table.dtable thead th.sortable:hover{color:var(--gray-100);}
+table.dtable tbody td{padding:9px 12px; border-bottom:1px solid var(--gray-20); vertical-align:middle;}
+table.dtable tbody tr:hover{background:var(--blue-10);}
+table.dtable tbody tr.row-uutien{background:var(--orange-10);}
+table.dtable tbody tr.row-uutien:hover{background:#ffe4cc;}
+table.dtable tbody tr.row-quahan td:first-child{box-shadow:inset 3px 0 0 var(--red-60);}
+.rowcheck{width:32px;}
+.pager{display:flex; align-items:center; justify-content:flex-end; gap:6px; padding:10px 14px; font-size:12px; color:var(--gray-70);}
+.pager button{border:1px solid var(--gray-30); background:#fff; border-radius:var(--radius); padding:3px 9px; font-family:var(--mono);}
+.pager button.active{background:var(--gray-100); color:#fff;}
+.empty-row{padding:36px; text-align:center; color:var(--gray-50); font-size:13px;}
+
+/* ---------- BADGES / TAGS ---------- */
+.tag{
+  display:inline-flex; align-items:center; gap:4px; border-radius:2px; padding:2px 7px; font-size:11px;
+  font-weight:600; border:1px solid transparent; white-space:nowrap;
+}
+.tag-wait{background:var(--yellow-10); color:#7c6000; border-color:#f1c21b;}
+.tag-ok{background:var(--green-10); color:var(--green-60); border-color:#a7f0ba;}
+.tag-bad{background:var(--red-10); color:var(--red-60); border-color:#ffb3b8;}
+.tag-info{background:var(--blue-10); color:var(--blue-70); border-color:#a6c8ff;}
+.tag-neutral{background:var(--gray-10); color:var(--gray-70); border-color:var(--gray-30);}
+.star-uutien{color:var(--orange-40); font-weight:700;}
+.chip-uutien{background:var(--orange-10); color:var(--orange-60); border:1px solid var(--orange-40); border-radius:2px; padding:2px 6px; font-size:10.5px; font-weight:700;}
+.chip-quahan{background:var(--red-10); color:var(--red-60); border:1px solid var(--red-60); border-radius:2px; padding:2px 6px; font-size:10.5px; font-weight:700;}
+.idcode{font-family:var(--mono); font-weight:600; color:var(--blue-70);}
+
+/* ---------- BULK BAR ---------- */
+.bulkbar{
+  display:none; align-items:center; gap:10px; background:var(--gray-100); color:#fff; padding:9px 14px;
+  border-radius:var(--radius); margin-bottom:10px; font-size:12.5px;
+}
+.bulkbar.show{display:flex;}
+.bulkbar b{font-family:var(--mono);}
+.bulkbar .tb-spacer{flex:1;}
+
+/* ---------- OVERLAY / DRAWER (web) ---------- */
+.overlay-bg{position:fixed; inset:0; background:rgba(22,22,22,.5); z-index:800;}
+.drawer-web{
+  position:fixed; top:0; right:0; bottom:0; width:520px; max-width:92vw; background:#fff; z-index:801;
+  display:flex; flex-direction:column; box-shadow:-4px 0 18px rgba(0,0,0,.18);
+}
+.drawer-head{padding:16px 20px; border-bottom:1px solid var(--gray-20); display:flex; align-items:flex-start; gap:10px;}
+.drawer-head .ttl{font-size:17px; font-weight:700; flex:1;}
+.drawer-head .sub{font-size:12px; color:var(--gray-70); margin-top:3px;}
+.drawer-close{border:none; background:transparent; font-size:18px; color:var(--gray-70); line-height:1;}
+.drawer-tabs{display:flex; border-bottom:1px solid var(--gray-20); padding:0 20px;}
+.drawer-tabs button{
+  background:none; border:none; padding:11px 14px; font-size:13px; font-weight:600; color:var(--gray-60);
+  border-bottom:2px solid transparent; margin-bottom:-1px;
+}
+.drawer-tabs button.active{color:var(--blue-70); border-bottom-color:var(--blue-60);}
+.drawer-body{flex:1; overflow-y:auto; padding:18px 20px;}
+.drawer-foot{padding:14px 20px; border-top:1px solid var(--gray-20); display:flex; gap:8px; flex-wrap:wrap;}
+.filter-drawer-web{
+  position:fixed; top:0; right:0; bottom:0; width:360px; max-width:90vw; background:#fff; z-index:801;
+  display:flex; flex-direction:column; box-shadow:-4px 0 18px rgba(0,0,0,.18);
+}
+
+.kv-grid{display:grid; grid-template-columns:140px 1fr; gap:8px 12px; font-size:13px;}
+.kv-grid dt{color:var(--gray-60); font-weight:500;}
+.kv-grid dd{margin:0; font-weight:600;}
+.field{margin-bottom:14px;}
+.field label{display:block; font-size:12px; font-weight:600; color:var(--gray-70); margin-bottom:5px;}
+.field input[type=text],.field input[type=number],.field input[type=date],.field select,.field textarea{
+  width:100%; border:1px solid var(--gray-30); border-radius:var(--radius); padding:8px 10px; font-size:13px;
+}
+.field .hint{font-size:11.5px; color:var(--gray-50); margin-top:4px;}
+.banner{padding:10px 12px; border-radius:var(--radius); font-size:12.5px; margin-bottom:14px; border:1px solid;}
+.banner-danger{background:var(--red-10); border-color:var(--red-60); color:#7a121a;}
+.banner-warn{background:var(--yellow-10); border-color:#f1c21b; color:#5c4a00;}
+.banner-info{background:var(--blue-10); border-color:var(--blue-50); color:var(--blue-70);}
+.banner-ok{background:var(--green-10); border-color:var(--green-60); color:#0e5e26;}
+
+.stepper{display:flex; flex-wrap:wrap; gap:0; margin-bottom:16px;}
+.stepper .st{flex:1; min-width:90px; text-align:center; padding:8px 4px; border-bottom:3px solid var(--gray-20); font-size:11px; font-weight:600; color:var(--gray-50);}
+.stepper .st.done{border-bottom-color:var(--green-60); color:var(--green-60);}
+.stepper .st.now{border-bottom-color:var(--blue-60); color:var(--blue-70);}
+.stepper .st.bad{border-bottom-color:var(--red-60); color:var(--red-60);}
+
+.history-item{display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--gray-10); font-size:12.5px;}
+.history-item .dot{width:8px;height:8px;border-radius:50%;background:var(--blue-60); margin-top:5px; flex:0 0 8px;}
+.history-item .tx b{font-weight:700;}
+.history-item .tx .t{color:var(--gray-50); font-size:11px;}
+
+.import-preview-table{width:100%; border-collapse:collapse; font-size:12.5px; margin:12px 0;}
+.import-preview-table th{background:var(--gray-10); padding:7px 9px; text-align:left; border-bottom:1px solid var(--gray-20);}
+.import-preview-table td{padding:7px 9px; border-bottom:1px solid var(--gray-10);}
+.dropzone{border:2px dashed var(--gray-30); border-radius:var(--radius); padding:26px; text-align:center; color:var(--gray-60); font-size:13px; background:var(--gray-05);}
+
+.kpi-mini{display:flex; gap:10px; flex-wrap:wrap; margin:10px 0;}
+.kpi-mini div{background:var(--gray-05); border:1px solid var(--gray-20); border-radius:var(--radius); padding:8px 12px; min-width:110px;}
+.kpi-mini div .n{font-family:var(--mono); font-weight:700; font-size:18px;}
+.kpi-mini div .l{font-size:11px; color:var(--gray-60);}
+
+.pivot-table{width:100%; border-collapse:collapse; font-size:12.5px;}
+.pivot-table th{background:var(--gray-90); color:#fff; padding:8px 10px; text-align:left; position:sticky; top:0;}
+.pivot-table td{padding:8px 10px; border-bottom:1px solid var(--gray-20);}
+.pivot-table tr:nth-child(even) td{background:var(--gray-05);}
+
+.toast-banner{
+  position:sticky; top:0; z-index:60; margin-bottom:14px; padding:10px 14px; border-radius:var(--radius);
+  background:var(--green-10); border:1px solid var(--green-60); color:#0e5e26; display:flex; align-items:center; gap:10px;
+}
+.toast-banner button{margin-left:auto; background:none; border:none; font-weight:700; color:#0e5e26;}
+
+/* ---------- MOBILE FRAME ---------- */
+.mobile-stage{display:flex; justify-content:center; align-items:flex-start; padding:24px 10px 60px; background:var(--gray-10); min-height:calc(100vh - 44px);}
+.phone{
+  width:390px; min-width:390px; max-width:390px; flex:0 0 390px; height:844px; background:var(--gray-05); border-radius:40px; border:10px solid var(--gray-100);
+  box-shadow:0 18px 40px rgba(0,0,0,.35); position:relative; overflow:hidden; display:flex; flex-direction:column;
+}
+.phone-notch{position:absolute; top:0; left:50%; transform:translateX(-50%); width:130px; height:22px; background:var(--gray-100); border-radius:0 0 14px 14px; z-index:30;}
+.m-topbar{
+  height:50px; flex:0 0 50px; background:var(--gray-100); color:#fff; display:flex; align-items:center; gap:10px;
+  padding:0 12px; padding-top:14px;
+}
+.m-topbar .hb{background:none; border:none; color:#fff; font-size:18px; padding:2px 4px;}
+.m-topbar .ttl{font-weight:700; font-size:14.5px; flex:1;}
+.m-scroll{flex:1; overflow-y:auto; padding:12px; padding-bottom:80px; background:var(--gray-10);}
+.m-bottomnav{
+  position:absolute; left:0; right:0; bottom:0; height:64px; background:#fff; border-top:1px solid var(--gray-20);
+  display:flex; align-items:stretch; z-index:20;
+}
+.m-bottomnav button{
+  flex:1; background:none; border:none; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:2px; font-size:10px; color:var(--gray-60); font-weight:600;
+}
+.m-bottomnav button.active{color:var(--blue-70);}
+.m-bottomnav button .ic{font-size:17px;}
+.m-sidebar-overlay{position:absolute; inset:0; background:rgba(0,0,0,.45); z-index:39;}
+.m-sidebar{
+  position:absolute; top:0; left:0; bottom:0; width:78%; background:#fff; z-index:40; overflow-y:auto;
+  box-shadow:4px 0 14px rgba(0,0,0,.25);
+}
+.m-card{background:#fff; border:1px solid var(--gray-20); border-left:4px solid var(--blue-60); border-radius:var(--radius); padding:11px 12px; margin-bottom:9px;}
+.m-card.uutien{border-left-color:var(--orange-40); background:var(--orange-10);}
+.m-card .row1{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px;}
+.m-card .fld{display:flex; justify-content:space-between; font-size:12px; padding:2px 0; color:var(--gray-70);}
+.m-card .fld b{color:var(--gray-100); font-weight:600;}
+.m-card .actions{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;}
+.m-hero{background:var(--gray-100); color:#fff; border-radius:var(--radius); padding:14px; margin-bottom:14px;}
+.m-hero .ttl{font-weight:700; font-size:14px; margin-bottom:8px;}
+.drawer-mobile{
+  position:absolute; inset:0; background:#fff; z-index:45; display:flex; flex-direction:column;
+}
+.m-bulkbar{
+  position:absolute; left:0; right:0; bottom:0; background:var(--gray-100); color:#fff; z-index:41;
+  display:none; align-items:center; gap:8px; padding:10px 12px; font-size:12px;
+}
+.m-bulkbar.show{display:flex;}
+.qf-scroll{display:flex; gap:6px; overflow-x:auto; padding-bottom:6px; margin-bottom:10px;}
+.qf-scroll button{flex:0 0 auto; border:1px solid var(--gray-30); background:#fff; border-radius:14px; padding:6px 11px; font-size:11.5px; font-weight:600;}
+.qf-scroll button.active{background:var(--gray-100); color:#fff; border-color:var(--gray-100);}
+.section-title{font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--gray-60); margin:14px 0 8px;}
+.checkbox-row{display:flex; align-items:center; gap:6px;}
+.helper-note{font-size:11.5px; color:var(--gray-50); margin-top:2px;}
+
+@media (max-width:900px){
+  .web-shell{flex-direction:column;}
+}
+</style>
+</head>
+<body>
+
+<div id="control-bar"></div>
+<div id="app-root"></div>
+
+<script>
+/* =========================================================================
+   SEED DATA — copy nguyên văn từ SPEC.md mục 7
+   ========================================================================= */
+const SEED = {
+  ktvList: [
+    { email: "tram.hadong@3t.vn", ten: "Trạm Hà Đông", vaiTro: "Trạm", tramCha: null, giamSat: "gs.mienbac@3t.vn" },
+    { email: "ktv.a@3t.vn", ten: "Nguyễn Văn A", vaiTro: "KTV/CTV", tramCha: null, giamSat: "gs.mienbac@3t.vn" },
+    { email: "vetinh.b@3t.vn", ten: "Lê Thị B (Vệ tinh)", vaiTro: "Vệ tinh", tramCha: "tram.hadong@3t.vn", giamSat: "gs.mienbac@3t.vn" },
+    { email: "vetinh.d@3t.vn", ten: "Phạm Văn D (Vệ tinh)", vaiTro: "Vệ tinh", tramCha: "tram.hadong@3t.vn", giamSat: "gs.mienbac@3t.vn" },
+    { email: "ktv.e@3t.vn", ten: "Hoàng Thị E", vaiTro: "KTV/CTV", tramCha: null, giamSat: "gs.miennam@3t.vn" },
+  ],
+  linhKien: [
+    { ma: "LK001", ten: "Bo mạch chủ Samsung A52", hang: "Samsung", gia: 350000, dacThu: false, thayThe: ["LK001B"] },
+    { ma: "LK001B", ten: "Bo mạch chủ Samsung A52 (hàng thay thế)", hang: "Samsung", gia: 340000, dacThu: false, thayThe: [] },
+    { ma: "LK002", ten: "Pin Samsung A52", hang: "Samsung", gia: 220000, dacThu: false, thayThe: [] },
+    { ma: "LK010", ten: "Màn hình iPhone 13", hang: "Apple", gia: 1850000, dacThu: true, thayThe: [] },
+    { ma: "LK011", ten: "Camera sau iPhone 13", hang: "Apple", gia: 620000, dacThu: true, thayThe: [] },
+    { ma: "LK020", ten: "Loa ngoài Xiaomi Redmi Note 11", hang: "Xiaomi", gia: 95000, dacThu: false, thayThe: [] },
+    { ma: "LK025", ten: "Pin Xiaomi Redmi Note 11", hang: "Xiaomi", gia: 180000, dacThu: false, thayThe: [] },
+    { ma: "LK030", ten: "Màn hình Oppo A96", hang: "Oppo", gia: 780000, dacThu: false, thayThe: [] },
+  ],
+  lyDoCham: [
+    { ma: "LDC1", ten: "Chờ hàng nhập kho", moTicketThieuLk: true },
+    { ma: "LDC2", ten: "Sai thông tin đơn hàng", moTicketThieuLk: false },
+    { ma: "LDC3", ten: "KTV yêu cầu huỷ", moTicketThieuLk: false },
+    { ma: "LDC4", ten: "Vượt hạn mức duyệt", moTicketThieuLk: false },
+  ],
+  donHang: [
+    { id: "DH-2401", loai: "mua", nguoiTao: "vetinh.b@3t.vn", emailGs: "gs.mienbac@3t.vn", tram: "tram.hadong@3t.vn", maLk: "LK001", soLuong: 2, trangThai: "Cho Tram duyet", uuTien: false },
+    { id: "DH-2402", loai: "mua", nguoiTao: "vetinh.d@3t.vn", emailGs: "gs.mienbac@3t.vn", tram: "tram.hadong@3t.vn", maLk: "LK002", soLuong: 1, trangThai: "Cho Tram duyet", uuTien: true },
+    { id: "DH-2403", loai: "mua", nguoiTao: "ktv.a@3t.vn", emailGs: "gs.mienbac@3t.vn", tram: null, maLk: "LK010", soLuong: 1, trangThai: "Cho TBP xac nhan", uuTien: false },
+    { id: "DH-2404", loai: "cong_no", nguoiTao: "ktv.a@3t.vn", emailGs: "gs.mienbac@3t.vn", tram: null, maLk: "LK020", soLuong: 3, trangThai: "Cho TN duyet", uuTien: false },
+    { id: "DH-2405", loai: "mua", nguoiTao: "tram.hadong@3t.vn", emailGs: "gs.mienbac@3t.vn", tram: null, maLk: "LK002", soLuong: 5, trangThai: "Cho TN duyet", uuTien: true },
+    { id: "DH-2406", loai: "cong_no", nguoiTao: "ktv.e@3t.vn", emailGs: "gs.miennam@3t.vn", tram: null, maLk: "LK030", soLuong: 1, trangThai: "Cho TN duyet", uuTien: false },
+    { id: "DH-2390", loai: "mua", nguoiTao: "ktv.a@3t.vn", emailGs: "gs.mienbac@3t.vn", tram: null, maLk: "LK025", soLuong: 2, trangThai: "TN da duyet", uuTien: false },
+    { id: "DH-2391", loai: "mua", nguoiTao: "vetinh.b@3t.vn", emailGs: "gs.mienbac@3t.vn", tram: "tram.hadong@3t.vn", maLk: "LK001", soLuong: 1, trangThai: "TN da duyet", uuTien: false },
+    { id: "DH-2380", loai: "mua", nguoiTao: "ktv.e@3t.vn", emailGs: "gs.miennam@3t.vn", tram: null, maLk: "LK011", soLuong: 1, trangThai: "Tu choi", lyDoCham: "LDC2", uuTien: false },
+    { id: "DH-2381", loai: "cong_no", nguoiTao: "ktv.a@3t.vn", emailGs: "gs.mienbac@3t.vn", tram: null, maLk: "LK020", soLuong: 2, trangThai: "Da huy", uuTien: false },
+  ],
+  thieuLk: [
+    { id: "TLK-01", donGoc: "DH-2390", nguoiTaoTicket: "kho.trungtam@3t.vn", emailGsDonGoc: "gs.mienbac@3t.vn", maLk: "LK025", trangThai: "Kho da tiep nhan", uuTien: false },
+    { id: "TLK-02", donGoc: "DH-2405", nguoiTaoTicket: "kho.trungtam@3t.vn", emailGsDonGoc: "gs.mienbac@3t.vn", maLk: "LK002", trangThai: "Cho kho xac nhan", uuTien: true },
+    { id: "TLK-03", donGoc: "DH-2406", nguoiTaoTicket: "kho.trungtam@3t.vn", emailGsDonGoc: "gs.miennam@3t.vn", maLk: "LK030", trangThai: "Da ket thuc", uuTien: false },
+  ],
+  pxk: [
+    { id: "PXK-501", nguoiNhanHang: "ktv.a@3t.vn", emailGs: "gs.mienbac@3t.vn", donHang: ["DH-2390"], trangThai: "Dang tao phieu", maXuatKho: null, maMisa: null },
+    { id: "PXK-502", nguoiNhanHang: "vetinh.b@3t.vn", emailGs: "gs.mienbac@3t.vn", donHang: ["DH-2391"], trangThai: "Cho ke toan", maXuatKho: "XK-99231", maMisa: null },
+  ],
+  traHang: [
+    { id: "TH-701", nguoiTao: "ktv.a@3t.vn", emailGs: "gs.mienbac@3t.vn", maLk: "LK002", trangThai: "Cho ke toan duyet mem", uuTien: false },
+    { id: "TH-702", nguoiTao: "vetinh.b@3t.vn", emailGs: "gs.mienbac@3t.vn", maLk: "LK001", trangThai: "Cho kho xac nhan", uuTien: false },
+    { id: "TH-703", nguoiTao: "ktv.e@3t.vn", emailGs: "gs.miennam@3t.vn", maLk: "LK011", trangThai: "Cho QC xac nhan", uuTien: true },
+    { id: "TH-704", nguoiTao: "tram.hadong@3t.vn", emailGs: "gs.mienbac@3t.vn", maLk: "LK030", trangThai: "Cho TN duyet tong", uuTien: false },
+    { id: "TH-699", nguoiTao: "ktv.a@3t.vn", emailGs: "gs.mienbac@3t.vn", maLk: "LK020", trangThai: "Da duyet", uuTien: false },
+  ],
+  users: [
+    { email: "khach.moi@3t.vn", ten: "Trần Văn Mới", trangThaiDuyet: "Cho duyet", vaiTro: null },
+  ],
+};
+
+/* Dữ liệu bổ sung cục bộ (không có trong SEED bắt buộc nhưng cần để dựng đủ 12 màn hình) */
+const LOAI_DE_XUAT = [
+  { ma:"LDX1", ten:"Đề xuất mua mới", nhom:"Mua hàng" },
+  { ma:"LDX2", ten:"Đề xuất đổi hàng lỗi", nhom:"Trả hàng" },
+  { ma:"LDX3", ten:"Đề xuất cấp công nợ", nhom:"Công nợ" },
+];
+
+/* =========================================================================
+   PERSONAS
+   ========================================================================= */
+const PERSONAS = [
+  { key:'admin',  label:'Admin',            email:'admin@3t.vn',        vaiTro:'Admin' },
+  { key:'qc',     label:'QC',               email:'qc@3t.vn',           vaiTro:'QC' },
+  { key:'gs',     label:'Giám sát (GS)',    email:'gs.mienbac@3t.vn',   vaiTro:'Giam sat' },
+  { key:'tram',   label:'Trạm',             email:'tram.hadong@3t.vn',  vaiTro:'KTV DVBH (Trạm)' },
+  { key:'ktv',    label:'KTV/CTV',          email:'ktv.a@3t.vn',        vaiTro:'KTV DVBH' },
+  { key:'vt',     label:'Vệ tinh',          email:'vetinh.b@3t.vn',     vaiTro:'KTV DVBH (Vệ tinh)' },
+  { key:'kho',    label:'Kho',              email:'kho.trungtam@3t.vn', vaiTro:'Kho' },
+  { key:'ketoan', label:'Kế toán',          email:'ketoan.c@3t.vn',     vaiTro:'Kế toán' },
+  { key:'tn',     label:'Tác nghiệp (TN)',  email:'tacnghiep.d@3t.vn',  vaiTro:'Tác nghiệp' },
+  { key:'tbp',    label:'TP DVBH',          email:'tpdvbh.e@3t.vn',     vaiTro:'TP DVBH' },
+];
+const DEFAULT_FLAGS = {
+  tn:  { quanLy:true,  xem:false },
+  tbp: { quanLy:false, xem:true  },
+};
+function personaMeta(key){ return PERSONAS.find(p=>p.key===key); }
+
+/* =========================================================================
+   STATE
+   ========================================================================= */
+let DB = JSON.parse(JSON.stringify(SEED));
+// enrich: quá hạn demo flags (mock — không có field ngày trong SEED nên đánh dấu tĩnh 1 vài dòng)
+DB.donHang.find(d=>d.id==='DH-2401').quaHan = true;
+DB.thieuLk.find(t=>t.id==='TLK-01').quaHan = true;
+DB.traHang.find(t=>t.id==='TH-701').quaHan = true;
+DB.pxk.find(p=>p.id==='PXK-501').quaHan = true;
+// enrich PXK với các field nghiệp vụ đầy đủ hơn (không có trong SEED gốc nhưng cần cho luồng C)
+DB.pxk.forEach(p=>{
+  if(p.anhBienBan===undefined) p.anhBienBan = false;
+  if(p.tienTrangThai===undefined) p.tienTrangThai = 'chua_yeu_cau'; // chua_yeu_cau | cho_ktv_chuyen | ktv_da_chuyen | tn_da_duyet
+  if(p.guiKtv===undefined) p.guiKtv = false;
+  if(p.khoKetThuc===undefined) p.khoKetThuc = false;
+  if(p.ktvXacNhanNhan===undefined) p.ktvXacNhanNhan = false;
+});
+// Danh sách user quản trị đầy đủ = 10 persona (đã duyệt) + user đang chờ duyệt trong SEED
+DB.users = PERSONAS.map(p=>({
+  email:p.email, ten:p.label, trangThaiDuyet:'Da duyet', vaiTro:p.vaiTro, khoa:false,
+  laKtvDvbh:['tram','ktv','vt'].includes(p.key), laVeTinh:p.key==='vt', laKho:p.key==='kho',
+  laKeToan:p.key==='ketoan', laTacNghiep:p.key==='tn', laTpDvbh:p.key==='tbp',
+})).concat(SEED.users.map(u=>({...u, khoa:false, laKtvDvbh:false,laVeTinh:false,laKho:false,laKeToan:false,laTacNghiep:false,laTpDvbh:false})));
+// Google Drive mock connection
+let googleDriveConnected = true;
+
+let state = {
+  persona:'admin',
+  quanLyDmLk:false,
+  xemDmLk:false,
+  mode:'web', // 'web' | 'mobile'
+  screen:'home',
+  mSidebarOpen:false,
+  overlay:null, // {kind:'detail',type,id,tab} | {kind:'filter',screen} | {kind:'import',screen}
+  selected:{}, // screenKey -> Set of ids
+  quickFilter:{}, // screenKey -> 'all'|'choduyet'|'uutien'|'quahan'
+  advFilter:{}, // screenKey -> {ktv,gs,maLk}
+  drawerListIds:[],
+  settingsTab:'lydocham',
+  toast:null,
+  selfEditAck:false,
+};
+
+function currentPersona(){ return personaMeta(state.persona); }
+function currentEmail(){ return currentPersona().email; }
+function isAdmin(){ return state.persona==='admin'; }
+function canQuanLyDmLk(){ return isAdmin() || state.quanLyDmLk; }
+function esc(s){ return (s===null||s===undefined) ? '' : String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function money(n){ return n.toLocaleString('vi-VN')+' đ'; }
+function getSel(screenKey){ if(!state.selected[screenKey]) state.selected[screenKey]=new Set(); return state.selected[screenKey]; }
+function getQF(screenKey){ return state.quickFilter[screenKey] || 'all'; }
+function getAdv(screenKey){ if(!state.advFilter[screenKey]) state.advFilter[screenKey]={ktv:'',gs:'',maLk:''}; return state.advFilter[screenKey]; }
+function lkByMa(ma){ return DB.linhKien.find(l=>l.ma===ma); }
+function ktvByEmail(email){ return DB.ktvList.find(k=>k.email===email); }
+function tenNguoi(email){ const k=ktvByEmail(email); if(k) return k.ten; const p=PERSONAS.find(x=>x.email===email); return p? p.label : email; }
+function isTramCuaVT(vtEmail, tramEmail){ const k=ktvByEmail(vtEmail); return k && k.tramCha===tramEmail; }
+
+/* =========================================================================
+   MENU MATRIX — Ma trận 1
+   ========================================================================= */
+const MENU_MATRIX = {
+  muahang:     {admin:'C',qc:'K',gs:'C',tram:'C',ktv:'C',vt:'C',kho:'K',ketoan:'K',tn:'C',tbp:'C'},
+  congno:      {admin:'C',qc:'K',gs:'C',tram:'C',ktv:'C',vt:'C',kho:'K',ketoan:'K',tn:'C',tbp:'C'},
+  trahangfull: {admin:'C',qc:'C',gs:'C',tram:'K',ktv:'K',vt:'K',kho:'C',ketoan:'C',tn:'C',tbp:'K'},
+  trahangview: {admin:'K',qc:'K',gs:'K',tram:'C',ktv:'C',vt:'C',kho:'K',ketoan:'K',tn:'K',tbp:'C'},
+  pxk:         {admin:'C',qc:'K',gs:'C',tram:'K',ktv:'K',vt:'K',kho:'C',ketoan:'C',tn:'C',tbp:'K'},
+  thieulk:     {admin:'C',qc:'K',gs:'C',tram:'C',ktv:'C',vt:'C',kho:'C',ketoan:'C',tn:'C',tbp:'C'},
+  baocao:      {admin:'C',qc:'C',gs:'C',tram:'X',ktv:'X',vt:'X',kho:'C',ketoan:'C',tn:'C',tbp:'X'},
+  taodon:      {admin:'C',qc:'K',gs:'C',tram:'C',ktv:'C',vt:'C',kho:'K',ketoan:'K',tn:'C',tbp:'K'},
+};
+function menuCode(key){ return (MENU_MATRIX[key]||{})[state.persona] || 'K'; }
+function canSee(key){ return menuCode(key)!=='K'; }
+function canSeeDanhMuc(){ return true; } // mọi vai trò đều xem được
+function canSeeSettings(){ return isAdmin(); }
+function canSeeUsers(){ return isAdmin(); }
+
+/* =========================================================================
+   PHẠM VI DỮ LIỆU — Ma trận 4
+   ========================================================================= */
+function scopeOrders(list){
+  const p=state.persona, email=currentEmail();
+  if(['admin','kho','ketoan','tn','tbp'].includes(p)) return list;
+  if(p==='gs') return list.filter(d=>d.emailGs===email);
+  if(p==='tram') return list.filter(d=>d.nguoiTao===email || d.tram===email);
+  if(p==='ktv'||p==='vt') return list.filter(d=>d.nguoiTao===email);
+  return [];
+}
+function scopeThieuLk(list){
+  const p=state.persona, email=currentEmail();
+  if(['admin','kho','tn'].includes(p)) return list;
+  if(p==='gs') return list.filter(t=>t.emailGsDonGoc===email); // theo GS phụ trách ĐƠN GỐC — điểm sửa lỗi #3
+  if(['tram','ktv','vt','tbp','ketoan'].includes(p)) return list.filter(t=>t.nguoiTaoTicket===email);
+  return [];
+}
+function scopePxk(list){
+  const p=state.persona, email=currentEmail();
+  if(['admin','kho','ketoan','tn'].includes(p)) return list;
+  if(p==='gs') return list.filter(x=>x.emailGs===email);
+  if(p==='ktv'||p==='vt') return list.filter(x=>x.nguoiNhanHang===email);
+  if(p==='tram') return list.filter(x=>x.nguoiNhanHang===email || isTramCuaVT(x.nguoiNhanHang,email));
+  return [];
+}
+function scopeTraHangFull(list){
+  const p=state.persona, email=currentEmail();
+  if(p==='gs') return list.filter(x=>x.emailGs===email);
+  return list; // admin/qc/kho/ketoan/tn: toàn bộ
+}
+function scopeTraHangView(list){ return list; } // điểm 5 mục 8: toàn bộ, chủ đích
+
+/* =========================================================================
+   BADGE TRẠNG THÁI
+   ========================================================================= */
+const TRANGTHAI_DON = {
+  'Cho Tram duyet':   {t:'Chờ Trạm duyệt', c:'tag-wait', i:'⏳'},
+  'Cho TBP xac nhan': {t:'Chờ TBP xác nhận', c:'tag-wait', i:'⏳'},
+  'Cho TN duyet':     {t:'Chờ TN duyệt', c:'tag-wait', i:'⏳'},
+  'TN da duyet':      {t:'TN đã duyệt', c:'tag-ok', i:'✓'},
+  'Tu choi':          {t:'Từ chối', c:'tag-bad', i:'✕'},
+  'Da huy':           {t:'Đã huỷ', c:'tag-neutral', i:'✕'},
+};
+const TRANGTHAI_THIEULK = {
+  'Cho kho tiep nhan':      {t:'Chờ Kho tiếp nhận', c:'tag-wait', i:'⏳'},
+  'Kho da tiep nhan':       {t:'Kho đã tiếp nhận', c:'tag-info', i:'✓'},
+  'Cho kho xac nhan':       {t:'Chờ Kho xác nhận', c:'tag-wait', i:'⏳'},
+  'Da ve kho':              {t:'Đã về kho', c:'tag-ok', i:'✓'},
+  'Tu choi sai thong tin':  {t:'Từ chối — sai thông tin', c:'tag-bad', i:'✕'},
+  'Da ket thuc':            {t:'Đã kết thúc', c:'tag-neutral', i:'✓'},
+  'Da huy bo':              {t:'Đã huỷ bỏ', c:'tag-neutral', i:'✕'},
+};
+const TRANGTHAI_PXK = {
+  'Dang tao phieu': {t:'Đang tạo phiếu', c:'tag-wait', i:'⏳'},
+  'Cho ke toan':    {t:'Chờ kế toán', c:'tag-wait', i:'⏳'},
+  'Dang gui KTV':   {t:'Đang gửi KTV', c:'tag-info', i:'⏳'},
+  'Kho da ket thuc':{t:'Kho đã kết thúc', c:'tag-ok', i:'✓'},
+};
+const TRANGTHAI_TRAHANG = {
+  'Cho ke toan duyet mem': {t:'Chờ KT duyệt mềm (D1)', c:'tag-wait', i:'⏳'},
+  'Cho kho xac nhan':      {t:'Chờ Kho xác nhận (D2)', c:'tag-wait', i:'⏳'},
+  'Cho QC xac nhan':       {t:'Chờ QC xác nhận (D3)', c:'tag-wait', i:'⏳'},
+  'Cho TN duyet tong':     {t:'Chờ TN duyệt tổng (D4)', c:'tag-wait', i:'⏳'},
+  'Da duyet':              {t:'Đã duyệt', c:'tag-ok', i:'✓'},
+  'Tu choi':               {t:'Từ chối', c:'tag-bad', i:'✕'},
+};
+function badge(map,key){ const b=map[key]||{t:key,c:'tag-neutral',i:'•'}; return `<span class="tag ${b.c}">${b.i} ${esc(b.t)}</span>`; }
+function uutienMark(o){ return o.uuTien ? '<span class="star-uutien" title="Ưu tiên">⭐</span>' : ''; }
+function quahanChip(o){ return o.quaHan ? '<span class="chip-quahan">QUÁ HẠN</span>' : ''; }
+function uutienChip(o){ return o.uuTien ? '<span class="chip-uutien">⭐ ƯU TIÊN</span>' : ''; }
+
+/* =========================================================================
+   QUYỀN HÀNH ĐỘNG — Ma trận 2
+   ========================================================================= */
+function canTramDuyet(o){ return (state.persona==='tram' && o.tram===currentEmail()) || isAdmin(); }
+function canTbpXacNhan(o){ return state.persona==='tbp' || isAdmin(); }
+function canTnDuyetDon(o){ return state.persona==='tn' || isAdmin(); }
+function canSuaDon(o){
+  if(isAdmin()) return true;
+  if(state.persona==='tn') return true;
+  return o.nguoiTao===currentEmail() && ['Cho Tram duyet','Cho TBP xac nhan','Cho TN duyet'].includes(o.trangThai);
+}
+function canHuyDon(o){
+  if(isAdmin()) return true;
+  if(o.nguoiTao===currentEmail()) return true;
+  if(state.persona==='tram' && o.tram===currentEmail()) return true;
+  return false;
+}
+function canTaoDon(){ return canSee('taodon'); }
+
+function canKhoXuLyThieuLk(){ return state.persona==='kho' || isAdmin(); }
+function canKhoHuyTicket(t){ return (state.persona==='kho' && t.nguoiTaoTicket===currentEmail()) || isAdmin(); }
+function canTnDongTicket(){ return state.persona==='tn' || isAdmin(); }
+
+function canTnTaoPxk(){ return state.persona==='tn' || isAdmin(); }
+function canTnGanMaXuatKho(x){ return (state.persona==='tn'||isAdmin()) && x.trangThai==='Dang tao phieu'; }
+function canKeToanGanMisa(x){ return (state.persona==='ketoan'||isAdmin()) && x.trangThai==='Cho ke toan'; }
+function canUploadBienBan(x){ return state.persona!=='admin' && x.nguoiNhanHang===currentEmail(); } // Admin KHÔNG miễn trừ
+function canYeuCauChuyenTien(x){ return state.persona==='tn' || isAdmin(); }
+function canXacNhanChuyenTien(x){ return isAdmin() || x.nguoiNhanHang===currentEmail(); } // Admin ĐƯỢC miễn trừ
+function canDuyetTienCuoi(x){ return state.persona==='tn' || isAdmin(); }
+function canChuyenChoKeToan(x){ return state.persona==='tn' || isAdmin(); }
+function canKeToanHuyPxk(x){ return ['ketoan','tn'].includes(state.persona) || isAdmin(); }
+function canKeToanChotXong(x){ return (state.persona==='ketoan'||isAdmin()) && !!x.maMisa; }
+function canKhoGuiHang(x){ return state.persona==='kho' || isAdmin(); }
+function canKhoKetThuc(x){ return state.persona==='kho' || isAdmin(); }
+function canKtvXacNhanNhan(x){ return isAdmin() || x.nguoiNhanHang===currentEmail(); }
+
+function canD1(t){ return state.persona==='ketoan' || isAdmin(); }
+function canD2(t){ return state.persona==='kho' || isAdmin(); }
+function canD3(t){ return state.persona==='qc' || isAdmin(); }
+function canD4(t){ return state.persona==='tn' || isAdmin(); }
+function canD5LuiBuoc(t){ return ['ketoan','kho'].includes(state.persona) || isAdmin(); }
+function canD6Huy(t){ return t.nguoiTao===currentEmail() || state.persona==='tn' || isAdmin(); }
+
+/* =========================================================================
+   "CHỜ TÔI DUYỆT"
+   ========================================================================= */
+function choToiDon(o){
+  if(state.persona==='tram') return o.trangThai==='Cho Tram duyet' && o.tram===currentEmail();
+  if(state.persona==='tbp') return o.trangThai==='Cho TBP xac nhan';
+  if(state.persona==='tn') return o.trangThai==='Cho TN duyet';
+  if(isAdmin()) return ['Cho Tram duyet','Cho TBP xac nhan','Cho TN duyet'].includes(o.trangThai);
+  return false;
+}
+function choToiThieuLk(t){
+  if(state.persona==='kho') return ['Cho kho tiep nhan','Cho kho xac nhan'].includes(t.trangThai);
+  if(state.persona==='tn') return t.trangThai==='Da ve kho';
+  if(isAdmin()) return true;
+  return false;
+}
+function choToiPxk(x){
+  if(state.persona==='tn') return true;
+  if(state.persona==='ketoan') return x.trangThai==='Cho ke toan';
+  if(state.persona==='kho') return x.trangThai==='Dang gui KTV' || (x.trangThai==='TN da duyet tien');
+  if(isAdmin()) return true;
+  return false;
+}
+function choToiTraHang(t){
+  if(state.persona==='ketoan') return t.trangThai==='Cho ke toan duyet mem';
+  if(state.persona==='kho') return t.trangThai==='Cho kho xac nhan';
+  if(state.persona==='qc') return t.trangThai==='Cho QC xac nhan';
+  if(state.persona==='tn') return t.trangThai==='Cho TN duyet tong';
+  if(isAdmin()) return true;
+  return false;
+}
+
+/* =========================================================================
+   RENDER — ROOT
+   ========================================================================= */
+function render(){
+  renderControlBar();
+  const root=document.getElementById('app-root');
+  root.innerHTML = state.mode==='web' ? renderWebShell() : renderMobileShell();
+}
+
+function renderControlBar(){
+  const bar=document.getElementById('control-bar');
+  const p=currentPersona();
+  bar.innerHTML = `
+    <span class="cb-label">Persona</span>
+    <select id="persona-select" onchange="onPersonaChange(this.value)">
+      ${PERSONAS.map(x=>`<option value="${x.key}" ${x.key===state.persona?'selected':''}>${esc(x.label)}</option>`).join('')}
+    </select>
+    <span class="persona-chip">${esc(p.email)}</span>
+    <label class="flag"><input type="checkbox" ${state.quanLyDmLk?'checked':''} onchange="toggleFlag('quanLyDmLk',this.checked)"> Quản lý DM LK</label>
+    <label class="flag"><input type="checkbox" ${state.xemDmLk?'checked':''} onchange="toggleFlag('xemDmLk',this.checked)"> Xem DM LK</label>
+    <div class="spacer"></div>
+    <div class="mode-toggle">
+      <button class="${state.mode==='web'?'active':''}" onclick="setMode('web')">🖥️ Bản Web</button>
+      <button class="${state.mode==='mobile'?'active':''}" onclick="setMode('mobile')">📱 Bản Mobile</button>
+    </div>
+  `;
+}
+function onPersonaChange(key){
+  state.persona=key;
+  const d=DEFAULT_FLAGS[key];
+  state.quanLyDmLk = d ? d.quanLy : false;
+  state.xemDmLk = d ? d.xem : false;
+  state.overlay=null; state.mSidebarOpen=false; state.selected={};
+  goScreen(defaultScreenFor(key));
+}
+function toggleFlag(name,val){ state[name]=val; render(); }
+function setMode(m){ state.mode=m; state.overlay=null; state.mSidebarOpen=false; render(); }
+function defaultScreenFor(key){ return 'home'; }
+
+/* =========================================================================
+   NAV / MENU CONFIG
+   ========================================================================= */
+const NAV_ITEMS = [
+  {key:'muahang', label:'Mua hàng', ic:'🛒'},
+  {key:'congno', label:'Công nợ', ic:'💳'},
+  {key:'trahangfull', label:'Trả hàng — đầy đủ', ic:'↩️'},
+  {key:'trahangview', label:'Trả hàng — theo dõi', ic:'👁️'},
+  {key:'pxk', label:'Phiếu xuất kho', ic:'📦'},
+  {key:'thieulk', label:'Thiếu linh kiện', ic:'⚠️'},
+  {key:'baocao', label:(state)=>state.persona==='qc'?'Việc QC cần xác nhận':'Báo cáo', ic:'📊'},
+];
+function screenTitle(key){
+  const map={home:'Trang chủ · Việc cần làm', muahang:'Mua hàng', congno:'Công nợ', trahangfull:'Trả hàng — đầy đủ',
+    trahangview:'Trả hàng — theo dõi', pxk:'Phiếu xuất kho', thieulk:'Thiếu linh kiện',
+    baocao: state.persona==='qc' ? 'Việc QC cần xác nhận' : 'Báo cáo',
+    taodon:'Tạo đơn mới', danhmuc:'Danh mục linh kiện', settings:'Settings', users:'Quản lý User'};
+  return map[key]||key;
+}
+function goScreen(key){ state.screen=key; state.overlay=null; state.mSidebarOpen=false; render(); }
+
+/* =========================================================================
+   WEB SHELL
+   ========================================================================= */
+function renderWebShell(){
+  return `
+    <div class="web-shell">
+      ${renderSidebar(false)}
+      <div class="main-web">
+        ${renderTopbarWeb()}
+        ${renderScreenContent()}
+      </div>
+    </div>
+    ${renderOverlay()}
+  `;
+}
+function renderSidebar(mobile){
+  const p=state.persona;
+  let html = `<div class="${mobile?'':'sidebar'}">`;
+  if(!mobile) html += `<div class="brand"><span class="sq"></span> Đặt mua linh kiện · 3T</div>`;
+  if(canTaoDon()){
+    html += `<button class="new-order-btn" onclick="${mobile?'closeMobileSidebar();':''}goScreen('taodon')">➕ Tạo đơn</button>`;
+  }
+  html += `<div class="group-title">Tổng quan</div>`;
+  html += sidebarItem('home','🏠 Trang chủ',mobile);
+
+  const modItems = NAV_ITEMS.filter(i=>canSee(i.key));
+  if(modItems.length){
+    html += `<div class="group-title">Đặt mua linh kiện</div>`;
+    modItems.forEach(i=>{
+      const label = typeof i.label==='function' ? i.label(state) : i.label;
+      html += sidebarItem(i.key, i.ic+' '+label, mobile);
+    });
+  }
+  html += `<div class="group-title">Danh mục</div>`;
+  html += sidebarItem('danhmuc','🧩 Danh mục linh kiện',mobile);
+
+  if(canSeeSettings() || canSeeUsers()){
+    html += `<div class="group-title">Quản trị</div>`;
+    if(canSeeSettings()) html += sidebarItem('settings','⚙️ Settings',mobile);
+    if(canSeeUsers()) html += sidebarItem('users','👤 Quản lý User',mobile);
+  }
+  html += `</div>`;
+  return html;
+}
+function sidebarItem(key,label,mobile){
+  const active = state.screen===key;
+  const onclick = mobile ? `closeMobileSidebar();goScreen('${key}')` : `goScreen('${key}')`;
+  return `<div class="item ${active?'active':''}" onclick="${onclick}"><span class="ic"></span>${label}</div>`;
+}
+function renderTopbarWeb(){
+  return `
+    <div class="topbar" style="margin:-20px -24px 20px; padding-left:24px; padding-right:24px;">
+      <div class="crumb">${esc(screenTitle(state.screen))} <span class="sub">— xem theo phạm vi của ${esc(currentPersona().label)}</span></div>
+    </div>
+  `;
+}
+
+/* =========================================================================
+   MOBILE SHELL
+   ========================================================================= */
+const MOBILE_TABS = [
+  {key:'home', label:'Trang chủ', ic:'🏠'},
+  {key:'muahang', label:'Mua hàng', ic:'🛒', needs:'muahang'},
+  {key:'thieulk', label:'Thiếu LK', ic:'⚠️', needs:'thieulk'},
+  {key:'pxk', label:'PXK', ic:'📦', needs:'pxk'},
+  {key:'more', label:'Thêm', ic:'☰'},
+];
+function renderMobileShell(){
+  return `
+  <div class="mobile-stage">
+    <div class="phone">
+      <div class="phone-notch"></div>
+      <div class="m-topbar">
+        <button class="hb" onclick="state.mSidebarOpen=true;render();">☰</button>
+        <div class="ttl">${esc(screenTitle(state.screen))}</div>
+        <span style="font-size:11px;opacity:.75;">${esc(currentPersona().label)}</span>
+      </div>
+      <div class="m-scroll" id="m-scroll">
+        ${renderScreenContent()}
+      </div>
+      ${renderMobileBottomNav()}
+      ${state.mSidebarOpen ? `<div class="m-sidebar-overlay" onclick="closeMobileSidebar()"></div><div class="m-sidebar">${renderSidebar(true)}</div>` : ''}
+      ${renderOverlay()}
+    </div>
+  </div>`;
+}
+function closeMobileSidebar(){ state.mSidebarOpen=false; render(); }
+function renderMobileBottomNav(){
+  return `<div class="m-bottomnav">
+    ${MOBILE_TABS.filter(t=>!t.needs || canSee(t.needs) || t.key==='more').map(t=>`
+      <button class="${state.screen===t.key || (t.key==='more' && !MOBILE_TABS.some(x=>x.key===state.screen))?'active':''}"
+        onclick="${t.key==='more'?'state.mSidebarOpen=true;render();':`goScreen('${t.key}')`}">
+        <span class="ic">${t.ic}</span>${t.label}
+      </button>`).join('')}
+  </div>`;
+}
+
+/* =========================================================================
+   SCREEN DISPATCH
+   ========================================================================= */
+function renderScreenContent(){
+  switch(state.screen){
+    case 'home': return renderHome();
+    case 'muahang': return renderOrderList('muahang','mua');
+    case 'congno': return renderOrderList('congno','cong_no');
+    case 'trahangfull': return renderTraHangFull();
+    case 'trahangview': return renderTraHangView();
+    case 'pxk': return renderPxkList();
+    case 'thieulk': return renderThieuLkList();
+    case 'baocao': return renderBaoCao();
+    case 'taodon': return renderTaoDon();
+    case 'danhmuc': return renderDanhMuc();
+    case 'settings': return canSeeSettings() ? renderSettings() : renderNoAccess();
+    case 'users': return canSeeUsers() ? renderUsers() : renderNoAccess();
+    default: return renderNoAccess();
+  }
+}
+function renderNoAccess(){
+  return `<div class="panel"><div class="panel-body">Bạn không có quyền truy cập màn hình này với vai trò hiện tại.</div></div>`;
+}
+function toastHtml(){
+  if(!state.toast) return '';
+  return `<div class="toast-banner">✓ ${esc(state.toast)}<button onclick="state.toast=null;render();">✕</button></div>`;
+}
+
+/* =========================================================================
+   1) TRANG CHỦ / VIỆC CẦN LÀM
+   ========================================================================= */
+function renderHome(){
+  const orders = scopeOrders(DB.donHang);
+  const cho = orders.filter(choToiDon).length;
+  const uutien = orders.filter(o=>o.uuTien && !['TN da duyet','Tu choi','Da huy'].includes(o.trangThai)).length;
+  const quahan = orders.filter(o=>o.quaHan).length;
+  const thieuLk = scopeThieuLk(DB.thieuLk).filter(choToiThieuLk).length;
+  const pxk = scopePxk(DB.pxk).filter(choToiPxk).length;
+  const traHangCho = (state.persona==='qc'
+      ? DB.traHang.filter(t=>t.trangThai==='Cho QC xac nhan')
+      : scopeTraHangFull(DB.traHang).filter(choToiTraHang)).length;
+
+  let cards = '';
+  if(canSee('muahang')||canSee('congno')){
+    cards += kpi('Chờ tôi duyệt', cho, 'blue', ()=>{}, `goScreen('${canSee('muahang')?'muahang':'congno'}');setTimeout(()=>setQF('${canSee('muahang')?'muahang':'congno'}','choduyet'),0)`);
+    cards += kpi('Đơn ưu tiên đang xử lý', uutien, 'orange', null, `goScreen('${canSee('muahang')?'muahang':'congno'}');setTimeout(()=>setQF('${canSee('muahang')?'muahang':'congno'}','uutien'),0)`);
+    cards += kpi('Quá hạn xử lý', quahan, 'red', null, `goScreen('${canSee('muahang')?'muahang':'congno'}');setTimeout(()=>setQF('${canSee('muahang')?'muahang':'congno'}','quahan'),0)`);
+  }
+  if(canSee('thieulk')) cards += kpi('Thiếu LK cần xử lý', thieuLk, 'purple', null, `goScreen('thieulk');setTimeout(()=>setQF('thieulk','choduyet'),0)`);
+  if(canSee('pxk')) cards += kpi('PXK cần xử lý', pxk, 'green', null, `goScreen('pxk');setTimeout(()=>setQF('pxk','choduyet'),0)`);
+  if(canSee('trahangfull')||state.persona==='qc') cards += kpi(state.persona==='qc'?'Trả hàng chờ QC xác nhận':'Trả hàng cần xử lý', traHangCho, 'blue', null, `goScreen('${canSee('trahangfull')?'trahangfull':'baocao'}')`);
+
+  return `
+    ${toastHtml()}
+    <div class="panel" style="border-left:4px solid var(--blue-60); margin-bottom:16px;">
+      <div class="panel-body">
+        <div style="font-size:13px; color:var(--gray-70);">Xin chào,</div>
+        <div style="font-size:18px; font-weight:700;">${esc(currentPersona().label)} <span class="mono" style="font-weight:400;color:var(--gray-50);font-size:12.5px;">(${esc(currentEmail())})</span></div>
+        <div style="font-size:12.5px; color:var(--gray-60); margin-top:4px;">Số liệu dưới đây đã lọc đúng theo phạm vi dữ liệu của vai trò này — bấm vào thẻ để nhảy thẳng tới danh sách cần xử lý.</div>
+      </div>
+    </div>
+    <div class="kpi-row">${cards || '<div class="panel-body" style="color:var(--gray-50);">Vai trò này không có việc cần xử lý trong module Đặt mua linh kiện.</div>'}</div>
+    ${renderHomeQuickList()}
+  `;
+}
+function kpi(label,n,color,_unused,onclick){
+  const cls = {blue:'',orange:'c-orange',red:'c-red',green:'c-green',purple:'c-purple'}[color]||'';
+  return `<button class="kpi-card ${cls}" onclick="${onclick}"><div class="n">${n}</div><div class="l">${esc(label)}</div></button>`;
+}
+function setQF(screen,val){ state.quickFilter[screen]=val; render(); }
+function renderHomeQuickList(){
+  if(!canSee('muahang') && !canSee('congno')) return '';
+  const orders = scopeOrders(DB.donHang).filter(choToiDon).slice(0,5);
+  if(!orders.length) return '';
+  return `<div class="panel">
+    <div class="panel-head"><h3>Việc cần làm gần nhất</h3></div>
+    <div class="tbl-wrap" style="border:none;">
+      <table class="dtable"><thead><tr><th>Mã đơn</th><th>LK</th><th>Người tạo</th><th>Trạng thái</th><th></th></tr></thead>
+      <tbody>${orders.map(o=>`<tr class="${o.uuTien?'row-uutien':''}">
+        <td><span class="idcode">${o.id}</span> ${uutienMark(o)}</td>
+        <td>${esc(lkByMa(o.maLk).ten)}</td>
+        <td>${esc(tenNguoi(o.nguoiTao))}</td>
+        <td>${badge(TRANGTHAI_DON,o.trangThai)}</td>
+        <td><button class="btn btn-primary btn-xs" onclick="openDrawer('donhang','${o.id}')">Xử lý</button></td>
+      </tr>`).join('')}</tbody></table>
+    </div>
+  </div>`;
+}
+
+/* =========================================================================
+   2/3) MUA HÀNG / CÔNG NỢ (dùng chung generic list)
+   ========================================================================= */
+function renderOrderList(screenKey, loai){
+  let list = scopeOrders(DB.donHang).filter(o=>o.loai===loai);
+  const sel = getSel(screenKey);
+  const qf = getQF(screenKey);
+  const adv = getAdv(screenKey);
+
+  const countChoDuyet = list.filter(choToiDon).length;
+  const countUuTien = list.filter(o=>o.uuTien).length;
+  const countQuaHan = list.filter(o=>o.quaHan).length;
+
+  let filtered = list;
+  if(qf==='choduyet') filtered = filtered.filter(choToiDon);
+  if(qf==='uutien') filtered = filtered.filter(o=>o.uuTien);
+  if(qf==='quahan') filtered = filtered.filter(o=>o.quaHan);
+  if(adv.ktv) filtered = filtered.filter(o=>o.nguoiTao===adv.ktv);
+  if(adv.gs) filtered = filtered.filter(o=>o.emailGs===adv.gs);
+  if(adv.maLk) filtered = filtered.filter(o=>o.maLk===adv.maLk);
+
+  state.drawerListIds = filtered.map(o=>o.id);
+
+  return `
+    ${toastHtml()}
+    <div class="bulkbar ${sel.size?'show':''}">
+      <span>Đã chọn <b>${sel.size}</b> đơn</span>
+      <div class="tb-spacer"></div>
+      <button class="btn btn-success btn-xs" onclick="bulkAction('${screenKey}','duyet')">Duyệt hàng loạt</button>
+      <button class="btn btn-danger btn-xs" onclick="bulkAction('${screenKey}','tuchoi')">Từ chối hàng loạt</button>
+      <button class="btn btn-ghost btn-xs" style="color:#fff;" onclick="getSel('${screenKey}').clear();render();">Bỏ chọn</button>
+    </div>
+    <div class="toolbar">
+      <div class="qf">
+        <button class="${qf==='all'?'active':''}" onclick="setQF('${screenKey}','all')">Tất cả <span class="cnt">${list.length}</span></button>
+        <button class="${qf==='choduyet'?'active':''}" onclick="setQF('${screenKey}','choduyet')">Chờ tôi duyệt <span class="cnt">${countChoDuyet}</span></button>
+        <button class="${qf==='uutien'?'active':''}" onclick="setQF('${screenKey}','uutien')">⭐ Ưu tiên <span class="cnt">${countUuTien}</span></button>
+        <button class="${qf==='quahan'?'active':''}" onclick="setQF('${screenKey}','quahan')">Quá hạn <span class="cnt">${countQuaHan}</span></button>
+      </div>
+      <div class="tb-spacer"></div>
+      <button class="btn" onclick="openFilterPanel('${screenKey}')">🔎 Lọc thêm ${(adv.ktv||adv.gs||adv.maLk)?'<span class=\"tag tag-info\">'+[adv.ktv,adv.gs,adv.maLk].filter(Boolean).length+'</span>':''}</button>
+      <button class="btn" onclick="openImport('taodonhangloat')">⭱ Nhập Excel</button>
+      ${canTaoDon()?`<button class="btn btn-primary" onclick="goScreen('taodon')">➕ Tạo đơn</button>`:''}
+    </div>
+    <div class="tbl-wrap">
+      <table class="dtable">
+        <thead><tr>
+          <th class="rowcheck"><input type="checkbox" onchange="toggleAllSel('${screenKey}',this.checked,${JSON.stringify(filtered.map(o=>o.id))})"></th>
+          <th class="sortable">Mã đơn</th><th>LK</th><th>SL</th><th>Người tạo</th><th>GS phụ trách</th>
+          <th class="sortable">Trạng thái</th><th>Cờ</th><th>Hành động</th>
+        </tr></thead>
+        <tbody>
+          ${filtered.length ? filtered.map(o=>renderOrderRow(o,screenKey)).join('') : `<tr><td colspan="8" class="empty-row">Không có đơn nào khớp bộ lọc hiện tại.</td></tr>`}
+        </tbody>
+      </table>
+      <div class="pager">Hiển thị ${filtered.length}/${list.length} đơn &nbsp; <button class="active">1</button></div>
+    </div>
+  `;
+}
+function renderOrderRow(o,screenKey){
+  const sel = getSel(screenKey);
+  const lk = lkByMa(o.maLk);
+  let action = `<button class="btn btn-xs" onclick="openDrawer('donhang','${o.id}')">Xem</button>`;
+  if(canTramDuyet(o) && o.trangThai==='Cho Tram duyet'){
+    action = `<button class="btn btn-success btn-xs" onclick="quickApproveDon('${o.id}')">Duyệt</button>
+              <button class="btn btn-danger btn-xs" onclick="openDrawer('donhang','${o.id}','hanhdong')">Từ chối</button>`;
+  } else if(canTbpXacNhan(o) && o.trangThai==='Cho TBP xac nhan'){
+    action = `<button class="btn btn-success btn-xs" onclick="quickApproveDon('${o.id}')">Xác nhận</button>
+              <button class="btn btn-danger btn-xs" onclick="openDrawer('donhang','${o.id}','hanhdong')">Từ chối</button>`;
+  } else if(canTnDuyetDon(o) && o.trangThai==='Cho TN duyet'){
+    action = `<button class="btn btn-success btn-xs" onclick="quickApproveDon('${o.id}')">Duyệt</button>
+              <button class="btn btn-danger btn-xs" onclick="openDrawer('donhang','${o.id}','hanhdong')">Từ chối</button>`;
+  }
+  return `<tr class="${o.uuTien?'row-uutien':''} ${o.quaHan?'row-quahan':''}">
+    <td class="rowcheck"><input type="checkbox" ${sel.has(o.id)?'checked':''} onchange="toggleRowSel('${screenKey}','${o.id}',this.checked)"></td>
+    <td><span class="idcode" style="cursor:pointer;" onclick="openDrawer('donhang','${o.id}')">${o.id}</span> ${uutienMark(o)}</td>
+    <td>${esc(lk.ten)} <span style="color:var(--gray-50);font-size:11px;">(${lk.ma})</span></td>
+    <td class="mono">${o.soLuong}</td>
+    <td>${esc(tenNguoi(o.nguoiTao))}</td>
+    <td>${esc(tenNguoi(o.emailGs))}</td>
+    <td>${badge(TRANGTHAI_DON,o.trangThai)}</td>
+    <td>${uutienChip(o)} ${quahanChip(o)}</td>
+    <td style="white-space:nowrap;">${action}</td>
+  </tr>`;
+}
+function toggleRowSel(screenKey,id,checked){ const s=getSel(screenKey); checked?s.add(id):s.delete(id); render(); }
+function toggleAllSel(screenKey,checked,ids){ const s=getSel(screenKey); s.clear(); if(checked) ids.forEach(i=>s.add(i)); render(); }
+function quickApproveDon(id){
+  const o = DB.donHang.find(x=>x.id===id);
+  if(o.trangThai==='Cho Tram duyet') o.trangThai = lkByMa(o.maLk).dacThu ? 'Cho TBP xac nhan' : 'Cho TN duyet';
+  else if(o.trangThai==='Cho TBP xac nhan') o.trangThai='Cho TN duyet';
+  else if(o.trangThai==='Cho TN duyet') o.trangThai='TN da duyet';
+  state.toast = `Đã duyệt đơn ${id}.`;
+  render();
+}
+function bulkAction(screenKey,kind){
+  const sel=getSel(screenKey);
+  if(!sel.size) return;
+  sel.forEach(id=>{
+    const o=DB.donHang.find(x=>x.id===id);
+    if(!o) return;
+    if(kind==='duyet') quickApproveDonSilent(o);
+    else o.trangThai='Tu choi';
+  });
+  state.toast = `Đã ${kind==='duyet'?'duyệt':'từ chối'} hàng loạt ${sel.size} đơn.`;
+  sel.clear();
+  render();
+}
+function quickApproveDonSilent(o){
+  if(o.trangThai==='Cho Tram duyet') o.trangThai = lkByMa(o.maLk).dacThu ? 'Cho TBP xac nhan' : 'Cho TN duyet';
+  else if(o.trangThai==='Cho TBP xac nhan') o.trangThai='Cho TN duyet';
+  else if(o.trangThai==='Cho TN duyet') o.trangThai='TN da duyet';
+}
+
+/* =========================================================================
+   FILTER PANEL (Lọc thêm) — drawer riêng
+   ========================================================================= */
+function openFilterPanel(screen){ state.overlay={kind:'filter',screen}; render(); }
+function closeOverlay(){ state.overlay=null; render(); }
+function renderFilterPanel(screen){
+  const adv=getAdv(screen);
+  const ktvOpts = DB.ktvList.map(k=>`<option value="${k.email}" ${adv.ktv===k.email?'selected':''}>${esc(k.ten)}</option>`).join('');
+  const gsSet = [...new Set(DB.donHang.map(o=>o.emailGs))];
+  const gsOpts = gsSet.map(g=>`<option value="${g}" ${adv.gs===g?'selected':''}>${esc(tenNguoi(g))} (${g})</option>`).join('');
+  const lkOpts = DB.linhKien.map(l=>`<option value="${l.ma}" ${adv.maLk===l.ma?'selected':''}>${l.ma} — ${esc(l.ten)}</option>`).join('');
+  const body = `
+    <div class="field"><label>Theo KTV/CTV/Vệ tinh/Trạm</label>
+      <select onchange="adv('${screen}','ktv',this.value)"><option value="">— Tất cả —</option>${ktvOpts}</select></div>
+    <div class="field"><label>Theo Giám sát phụ trách</label>
+      <select onchange="adv('${screen}','gs',this.value)"><option value="">— Tất cả —</option>${gsOpts}</select></div>
+    <div class="field"><label>Theo mã linh kiện</label>
+      <select onchange="adv('${screen}','maLk',this.value)"><option value="">— Tất cả —</option>${lkOpts}</select></div>
+    <div class="field"><label>Khoảng ngày tạo</label>
+      <div style="display:flex; gap:8px;"><input type="date"><input type="date"></div>
+      <div class="hint">(Prototype tĩnh — bộ lọc ngày minh hoạ, không tác động dữ liệu mẫu)</div></div>
+  `;
+  return `
+    <div class="overlay-bg" onclick="closeOverlay()"></div>
+    <div class="filter-drawer-web">
+      <div class="drawer-head"><div class="ttl">Lọc thêm</div><button class="drawer-close" onclick="closeOverlay()">✕</button></div>
+      <div class="drawer-body">${body}</div>
+      <div class="drawer-foot">
+        <button class="btn btn-primary" onclick="closeOverlay()">Áp dụng</button>
+        <button class="btn" onclick="resetAdv('${screen}')">Xoá lọc</button>
+      </div>
+    </div>`;
+}
+function adv(screen,field,val){ getAdv(screen)[field]=val; render(); }
+function resetAdv(screen){ state.advFilter[screen]={ktv:'',gs:'',maLk:''}; render(); }
+
+/* =========================================================================
+   IMPORT EXCEL (giả lập)
+   ========================================================================= */
+const IMPORT_PRESETS = {
+  taodonhangloat: {
+    title:'Nhập Excel — Tạo đơn hàng loạt',
+    cols:['Người nhận','Mã LK','Số lượng','Loại'],
+    rows:[
+      ['ktv.e@3t.vn','LK020',2,'mua'],
+      ['vetinh.d@3t.vn','LK002',1,'mua'],
+      ['ktv.a@3t.vn','LK011',1,'cong_no'],
+    ],
+    apply(rows){
+      rows.forEach((r,idx)=>{
+        const id = 'DH-'+(2500+idx+Math.floor(Math.random()*90));
+        DB.donHang.push({id, loai:r[3], nguoiTao:r[0], emailGs: (ktvByEmail(r[0])||{}).giamSat || 'gs.mienbac@3t.vn',
+          tram:(ktvByEmail(r[0])||{}).tramCha||null, maLk:r[1], soLuong:Number(r[2]), trangThai:'Cho TN duyet', uuTien:false});
+      });
+    }
+  },
+  nhapktv: {
+    title:'Nhập Excel — Nhập KTV hàng loạt',
+    cols:['Email','Tên','Vai trò','Giám sát phụ trách'],
+    rows:[
+      ['ktv.f@3t.vn','Đỗ Văn F','KTV/CTV','gs.mienbac@3t.vn'],
+      ['vetinh.g@3t.vn','Ngô Thị G (Vệ tinh)','Vệ tinh','gs.mienbac@3t.vn'],
+    ],
+    apply(rows){
+      rows.forEach(r=>DB.ktvList.push({email:r[0], ten:r[1], vaiTro:r[2], tramCha:r[2]==='Vệ tinh'?'tram.hadong@3t.vn':null, giamSat:r[3]}));
+    }
+  },
+  nhapdanhmuc: {
+    title:'Nhập Excel — Nhập Danh mục linh kiện hàng loạt',
+    cols:['Mã LK','Tên','Hãng','Giá','Đặc thù'],
+    rows:[
+      ['LK040','Màn hình Vivo Y33s','Vivo',690000,'Không'],
+      ['LK041','Pin Vivo Y33s','Vivo',175000,'Không'],
+    ],
+    apply(rows){
+      rows.forEach(r=>DB.linhKien.push({ma:r[0], ten:r[1], hang:r[2], gia:Number(r[3]), dacThu:r[4]==='Có', thayThe:[]}));
+    }
+  },
+};
+function openImport(preset){ state.overlay={kind:'import', preset}; render(); }
+function renderImportPanel(presetKey){
+  const p = IMPORT_PRESETS[presetKey];
+  return `
+    <div class="overlay-bg" onclick="closeOverlay()"></div>
+    <div class="drawer-web">
+      <div class="drawer-head"><div class="ttl">${esc(p.title)}</div><button class="drawer-close" onclick="closeOverlay()">✕</button></div>
+      <div class="drawer-body">
+        <div class="dropzone">⭱ Kéo thả file .xlsx vào đây, hoặc <b>bấm để chọn file</b><br><span style="font-size:11px;">(giả lập — file mẫu đã được nạp sẵn bên dưới)</span></div>
+        <div class="section-title">Xem trước dữ liệu (${p.rows.length} dòng)</div>
+        <table class="import-preview-table">
+          <thead><tr>${p.cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead>
+          <tbody>${p.rows.map(r=>`<tr>${r.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div class="drawer-foot">
+        <button class="btn btn-primary" onclick="confirmImport('${presetKey}')">Nhập ngay</button>
+        <button class="btn" onclick="closeOverlay()">Huỷ</button>
+      </div>
+    </div>`;
+}
+function confirmImport(presetKey){
+  const p=IMPORT_PRESETS[presetKey];
+  p.apply(p.rows);
+  state.toast = `Đã nhập ${p.rows.length} dòng từ Excel (${p.title}).`;
+  state.overlay=null;
+  render();
+}
+
+/* =========================================================================
+   7) THIẾU LINH KIỆN
+   ========================================================================= */
+function renderThieuLkList(){
+  const screenKey='thieulk';
+  let list = scopeThieuLk(DB.thieuLk);
+  const sel=getSel(screenKey), qf=getQF(screenKey), adv=getAdv(screenKey);
+  const countCho = list.filter(choToiThieuLk).length;
+  const countUu = list.filter(t=>t.uuTien).length;
+  const countQuaHan = list.filter(t=>t.quaHan).length;
+  let filtered=list;
+  if(qf==='choduyet') filtered=filtered.filter(choToiThieuLk);
+  if(qf==='uutien') filtered=filtered.filter(t=>t.uuTien);
+  if(qf==='quahan') filtered=filtered.filter(t=>t.quaHan);
+  if(adv.maLk) filtered=filtered.filter(t=>t.maLk===adv.maLk);
+  state.drawerListIds = filtered.map(t=>t.id);
+
+  // nhóm theo KTV (người tạo đơn gốc)
+  const groups = {};
+  filtered.forEach(t=>{
+    const donGoc = DB.donHang.find(d=>d.id===t.donGoc);
+    const owner = donGoc ? donGoc.nguoiTao : '—';
+    (groups[owner]=groups[owner]||[]).push(t);
+  });
+
+  return `
+    ${toastHtml()}
+    <div class="bulkbar ${sel.size?'show':''}">
+      <span>Đã chọn <b>${sel.size}</b> ticket</span><div class="tb-spacer"></div>
+      ${canKhoXuLyThieuLk()?`<button class="btn btn-success btn-xs" onclick="bulkThieuLk('tiepnhan')">Tiếp nhận hàng loạt</button>`:''}
+      <button class="btn btn-ghost btn-xs" style="color:#fff;" onclick="getSel('${screenKey}').clear();render();">Bỏ chọn</button>
+    </div>
+    <div class="toolbar">
+      <div class="qf">
+        <button class="${qf==='all'?'active':''}" onclick="setQF('${screenKey}','all')">Tất cả <span class="cnt">${list.length}</span></button>
+        <button class="${qf==='choduyet'?'active':''}" onclick="setQF('${screenKey}','choduyet')">Chờ tôi xử lý <span class="cnt">${countCho}</span></button>
+        <button class="${qf==='uutien'?'active':''}" onclick="setQF('${screenKey}','uutien')">⭐ Ưu tiên <span class="cnt">${countUu}</span></button>
+        <button class="${qf==='quahan'?'active':''}" onclick="setQF('${screenKey}','quahan')">Quá hạn <span class="cnt">${countQuaHan}</span></button>
+      </div>
+      <div class="tb-spacer"></div>
+      <button class="btn" onclick="openFilterPanel('${screenKey}')">🔎 Lọc thêm</button>
+    </div>
+    <div class="tbl-wrap">
+      <table class="dtable">
+        <thead><tr><th class="rowcheck"></th><th>Ticket</th><th>Đơn gốc</th><th>LK</th><th>GS đơn gốc</th><th>Trạng thái</th><th>Cờ</th><th>Hành động</th></tr></thead>
+        <tbody>
+          ${Object.keys(groups).length ? Object.entries(groups).map(([owner,items])=>`
+            <tr><td colspan="8" style="background:var(--gray-10); font-weight:700; font-size:12px;">👤 ${esc(tenNguoi(owner))} <span style="font-weight:400;color:var(--gray-50);">(${items.length} ticket)</span></td></tr>
+            ${items.map(t=>renderThieuLkRow(t,screenKey)).join('')}
+          `).join('') : `<tr><td colspan="8" class="empty-row">Không có ticket nào khớp bộ lọc.</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+function renderThieuLkRow(t,screenKey){
+  const sel=getSel(screenKey);
+  let action = `<button class="btn btn-xs" onclick="openDrawer('thieulk','${t.id}')">Xem</button>`;
+  if(canKhoXuLyThieuLk() && t.trangThai==='Cho kho tiep nhan') action = `<button class="btn btn-success btn-xs" onclick="thieuLkAction('${t.id}','tiepnhan')">Tiếp nhận xử lý</button>`;
+  else if(canKhoXuLyThieuLk() && t.trangThai==='Cho kho xac nhan') action = `<button class="btn btn-success btn-xs" onclick="thieuLkAction('${t.id}','vekho')">Xác nhận hàng về</button>
+    <button class="btn btn-danger btn-xs" onclick="thieuLkAction('${t.id}','saithongtin')">Từ chối — sai TT</button>`;
+  else if(canTnDongTicket() && t.trangThai==='Da ve kho') action = `<button class="btn btn-primary btn-xs" onclick="thieuLkAction('${t.id}','dongticket')">Đóng ticket</button>`;
+  return `<tr class="${t.uuTien?'row-uutien':''} ${t.quaHan?'row-quahan':''}">
+    <td class="rowcheck"><input type="checkbox" ${sel.has(t.id)?'checked':''} onchange="toggleRowSel('${screenKey}','${t.id}',this.checked)"></td>
+    <td><span class="idcode" style="cursor:pointer;" onclick="openDrawer('thieulk','${t.id}')">${t.id}</span> ${uutienMark(t)}</td>
+    <td class="idcode">${t.donGoc}</td>
+    <td>${esc(lkByMa(t.maLk).ten)}</td>
+    <td>${esc(tenNguoi(t.emailGsDonGoc))}</td>
+    <td>${badge(TRANGTHAI_THIEULK,t.trangThai)}</td>
+    <td>${uutienChip(t)} ${quahanChip(t)}</td>
+    <td style="white-space:nowrap;">${action}</td>
+  </tr>`;
+}
+function thieuLkAction(id,kind){
+  const t=DB.thieuLk.find(x=>x.id===id);
+  if(kind==='tiepnhan') t.trangThai='Kho da tiep nhan';
+  else if(kind==='vekho'){ t.trangThai='Da ve kho'; }
+  else if(kind==='saithongtin') t.trangThai='Tu choi sai thong tin';
+  else if(kind==='dongticket') t.trangThai='Da ket thuc';
+  state.toast=`Đã cập nhật ticket ${id}.`;
+  render();
+}
+function bulkThieuLk(kind){
+  const sel=getSel('thieulk');
+  sel.forEach(id=>{
+    const t=DB.thieuLk.find(x=>x.id===id);
+    if(t && t.trangThai==='Cho kho tiep nhan') t.trangThai='Kho da tiep nhan';
+  });
+  state.toast=`Đã tiếp nhận hàng loạt ${sel.size} ticket.`;
+  sel.clear(); render();
+}
+
+/* =========================================================================
+   6) PHIẾU XUẤT KHO
+   ========================================================================= */
+function renderPxkList(){
+  const screenKey='pxk';
+  let list = scopePxk(DB.pxk);
+  const sel=getSel(screenKey), qf=getQF(screenKey);
+  const countCho=list.filter(choToiPxk).length;
+  const countQuaHan=list.filter(x=>x.quaHan).length;
+  let filtered=list;
+  if(qf==='choduyet') filtered=filtered.filter(choToiPxk);
+  if(qf==='quahan') filtered=filtered.filter(x=>x.quaHan);
+  state.drawerListIds=filtered.map(x=>x.id);
+  return `
+    ${toastHtml()}
+    <div class="toolbar">
+      <div class="qf">
+        <button class="${qf==='all'?'active':''}" onclick="setQF('${screenKey}','all')">Tất cả <span class="cnt">${list.length}</span></button>
+        <button class="${qf==='choduyet'?'active':''}" onclick="setQF('${screenKey}','choduyet')">Chờ tôi xử lý <span class="cnt">${countCho}</span></button>
+        <button class="${qf==='quahan'?'active':''}" onclick="setQF('${screenKey}','quahan')">Quá hạn <span class="cnt">${countQuaHan}</span></button>
+      </div>
+      <div class="tb-spacer"></div>
+      ${canTnTaoPxk()?`<button class="btn btn-primary" onclick="alert('Prototype: chọn các đơn TN đã duyệt, cùng KTV, cùng loại đơn → Tạo PXK.')">➕ Tạo PXK</button>`:''}
+    </div>
+    <div class="tbl-wrap">
+      <table class="dtable">
+        <thead><tr><th>Mã PXK</th><th>Người nhận</th><th>Đơn gộp</th><th>Mã xuất kho</th><th>Mã MISA</th><th>Trạng thái</th><th>Cờ</th><th>Hành động</th></tr></thead>
+        <tbody>${filtered.length?filtered.map(x=>renderPxkRow(x)).join(''):`<tr><td colspan="8" class="empty-row">Không có PXK nào khớp bộ lọc.</td></tr>`}</tbody>
+      </table>
+    </div>
+  `;
+}
+function renderPxkRow(x){
+  return `<tr class="${x.quaHan?'row-quahan':''}">
+    <td><span class="idcode" style="cursor:pointer;" onclick="openDrawer('pxk','${x.id}')">${x.id}</span></td>
+    <td>${esc(tenNguoi(x.nguoiNhanHang))}</td>
+    <td class="mono">${x.donHang.join(', ')}</td>
+    <td class="mono">${x.maXuatKho||'—'}</td>
+    <td class="mono">${x.maMisa||'—'}</td>
+    <td>${badge(TRANGTHAI_PXK,x.trangThai)}</td>
+    <td>${quahanChip(x)}</td>
+    <td><button class="btn btn-xs" onclick="openDrawer('pxk','${x.id}','hanhdong')">Xử lý</button></td>
+  </tr>`;
+}
+
+/* =========================================================================
+   4) TRẢ HÀNG — ĐẦY ĐỦ
+   ========================================================================= */
+function renderTraHangFull(){
+  const screenKey='trahangfull';
+  let list = scopeTraHangFull(DB.traHang);
+  const sel=getSel(screenKey), qf=getQF(screenKey);
+  const countCho=list.filter(choToiTraHang).length;
+  const countQuaHan=list.filter(t=>t.quaHan).length;
+  let filtered=list;
+  if(qf==='choduyet') filtered=filtered.filter(choToiTraHang);
+  if(qf==='uutien') filtered=filtered.filter(t=>t.uuTien);
+  if(qf==='quahan') filtered=filtered.filter(t=>t.quaHan);
+  state.drawerListIds=filtered.map(t=>t.id);
+  return `
+    ${toastHtml()}
+    <div class="toolbar">
+      <div class="qf">
+        <button class="${qf==='all'?'active':''}" onclick="setQF('${screenKey}','all')">Tất cả <span class="cnt">${list.length}</span></button>
+        <button class="${qf==='choduyet'?'active':''}" onclick="setQF('${screenKey}','choduyet')">Chờ tôi xử lý <span class="cnt">${countCho}</span></button>
+        <button class="${qf==='uutien'?'active':''}" onclick="setQF('${screenKey}','uutien')">⭐ Ưu tiên</button>
+        <button class="${qf==='quahan'?'active':''}" onclick="setQF('${screenKey}','quahan')">Quá hạn <span class="cnt">${countQuaHan}</span></button>
+      </div>
+      <div class="tb-spacer"></div>
+      <button class="btn" onclick="openFilterPanel('${screenKey}')">🔎 Lọc thêm</button>
+    </div>
+    <div class="tbl-wrap">
+      <table class="dtable">
+        <thead><tr><th>Mã yêu cầu</th><th>Người tạo</th><th>LK</th><th>Bước hiện tại</th><th>Cờ</th><th>Hành động</th></tr></thead>
+        <tbody>${filtered.length?filtered.map(t=>renderTraHangRow(t)).join(''):`<tr><td colspan="6" class="empty-row">Không có yêu cầu nào khớp bộ lọc.</td></tr>`}</tbody>
+      </table>
+    </div>
+  `;
+}
+function renderTraHangRow(t){
+  let action=`<button class="btn btn-xs" onclick="openDrawer('trahang','${t.id}')">Xem</button>`;
+  if(canD1(t)&&t.trangThai==='Cho ke toan duyet mem') action=`<button class="btn btn-success btn-xs" onclick="traHangStep('${t.id}','d1')">Duyệt mềm</button>`;
+  else if(canD2(t)&&t.trangThai==='Cho kho xac nhan') action=`<button class="btn btn-success btn-xs" onclick="traHangStep('${t.id}','d2')">Xác nhận</button>`;
+  else if(canD3(t)&&t.trangThai==='Cho QC xac nhan') action=`<button class="btn btn-success btn-xs" onclick="traHangStep('${t.id}','d3')">Xác nhận</button>`;
+  else if(canD4(t)&&t.trangThai==='Cho TN duyet tong') action=`<button class="btn btn-success btn-xs" onclick="traHangStep('${t.id}','d4')">Duyệt tổng</button>
+    <button class="btn btn-danger btn-xs" onclick="openDrawer('trahang','${t.id}','hanhdong')">Từ chối</button>`;
+  return `<tr class="${t.uuTien?'row-uutien':''} ${t.quaHan?'row-quahan':''}">
+    <td><span class="idcode" style="cursor:pointer;" onclick="openDrawer('trahang','${t.id}')">${t.id}</span> ${uutienMark(t)}</td>
+    <td>${esc(tenNguoi(t.nguoiTao))}</td>
+    <td>${esc(lkByMa(t.maLk).ten)}</td>
+    <td>${badge(TRANGTHAI_TRAHANG,t.trangThai)}</td>
+    <td>${uutienChip(t)} ${quahanChip(t)}</td>
+    <td style="white-space:nowrap;">${action}</td>
+  </tr>`;
+}
+function traHangStep(id,step){
+  const t=DB.traHang.find(x=>x.id===id);
+  if(step==='d1') t.trangThai='Cho kho xac nhan';
+  else if(step==='d2') t.trangThai='Cho QC xac nhan';
+  else if(step==='d3') t.trangThai='Cho TN duyet tong';
+  else if(step==='d4') t.trangThai='Da duyet';
+  state.toast=`Đã xử lý bước cho yêu cầu ${id}.`;
+  render();
+}
+function traHangLuiBuoc(id){
+  const t=DB.traHang.find(x=>x.id===id);
+  const order=['Cho ke toan duyet mem','Cho kho xac nhan','Cho QC xac nhan','Cho TN duyet tong'];
+  const i=order.indexOf(t.trangThai);
+  if(i>0) t.trangThai=order[i-1];
+  state.toast=`Đã lùi bước yêu cầu ${id}.`;
+  render();
+}
+
+/* =========================================================================
+   5) TRẢ HÀNG — CHỈ THEO DÕI (read-only)
+   ========================================================================= */
+function renderTraHangView(){
+  const list = scopeTraHangView(DB.traHang);
+  return `
+    ${toastHtml()}
+    <div class="banner banner-info">Màn hình chỉ xem — không có nút xử lý. Theo chủ đích thiết kế, vai trò này xem <b>toàn bộ</b> yêu cầu trả hàng của hệ thống, không giới hạn theo phạm vi phụ trách.</div>
+    <div class="tbl-wrap">
+      <table class="dtable">
+        <thead><tr><th>Mã yêu cầu</th><th>Người tạo</th><th>LK</th><th>GS phụ trách</th><th>Trạng thái</th><th>Cờ</th></tr></thead>
+        <tbody>${list.map(t=>`<tr class="${t.uuTien?'row-uutien':''}">
+          <td class="idcode" style="cursor:pointer;" onclick="openDrawer('trahang','${t.id}')">${t.id} ${uutienMark(t)}</td>
+          <td>${esc(tenNguoi(t.nguoiTao))}</td><td>${esc(lkByMa(t.maLk).ten)}</td><td>${esc(tenNguoi(t.emailGs))}</td>
+          <td>${badge(TRANGTHAI_TRAHANG,t.trangThai)}</td><td>${uutienChip(t)}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+/* =========================================================================
+   8) BÁO CÁO
+   ========================================================================= */
+function renderBaoCao(){
+  if(state.persona==='qc') return renderQcViecCanXacNhan();
+  if(['admin','kho','ketoan','tn'].includes(state.persona)) return renderPivot(DB.donHang);
+  if(state.persona==='gs') return renderPivot(scopeOrders(DB.donHang));
+  return renderTheCaNhan();
+}
+function renderQcViecCanXacNhan(){
+  const list = DB.traHang.filter(t=>t.trangThai==='Cho QC xac nhan');
+  return `
+    ${toastHtml()}
+    <div class="banner banner-info"><b>Điểm sửa lỗi so với hệ cũ:</b> QC không có Báo cáo dạng bảng pivot toàn hệ thống — thay vào đó là danh sách các yêu cầu Trả hàng đang chờ QC xác nhận (bước D3), xử lý ngay tại đây.</div>
+    <div class="tbl-wrap">
+      <table class="dtable">
+        <thead><tr><th>Mã yêu cầu</th><th>Người tạo</th><th>LK</th><th>Cờ</th><th>Hành động</th></tr></thead>
+        <tbody>${list.length?list.map(t=>`<tr class="${t.uuTien?'row-uutien':''}">
+          <td class="idcode" style="cursor:pointer;" onclick="openDrawer('trahang','${t.id}')">${t.id} ${uutienMark(t)}</td>
+          <td>${esc(tenNguoi(t.nguoiTao))}</td><td>${esc(lkByMa(t.maLk).ten)}</td><td>${uutienChip(t)}</td>
+          <td><button class="btn btn-success btn-xs" onclick="traHangStep('${t.id}','d3')">Xác nhận</button></td>
+        </tr>`).join(''):'<tr><td colspan="5" class="empty-row">Không có yêu cầu nào đang chờ QC xác nhận.</td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
+function renderPivot(orders){
+  const groups={};
+  orders.forEach(o=>{ (groups[o.nguoiTao]=groups[o.nguoiTao]||[]).push(o); });
+  const statuses=['Cho Tram duyet','Cho TBP xac nhan','Cho TN duyet','TN da duyet','Tu choi','Da huy'];
+  return `
+    ${toastHtml()}
+    <div class="panel"><div class="panel-head"><h3>Báo cáo pivot theo KTV/CTV${state.persona==='gs'?' (trong phạm vi GS phụ trách)':''}</h3></div>
+    <div class="panel-body" style="padding:0;">
+      <table class="pivot-table">
+        <thead><tr><th>KTV/CTV/Vệ tinh/Trạm</th>${statuses.map(s=>`<th>${badge(TRANGTHAI_DON,s)}</th>`).join('')}<th>Tổng</th></tr></thead>
+        <tbody>${Object.entries(groups).map(([owner,items])=>`<tr>
+          <td style="font-weight:600;">${esc(tenNguoi(owner))}</td>
+          ${statuses.map(s=>`<td class="mono">${items.filter(i=>i.trangThai===s).length||'—'}</td>`).join('')}
+          <td class="mono" style="font-weight:700;">${items.length}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div></div>`;
+}
+function renderTheCaNhan(){
+  const orders = scopeOrders(DB.donHang);
+  const byStatus={};
+  orders.forEach(o=>byStatus[o.trangThai]=(byStatus[o.trangThai]||0)+1);
+  return `
+    ${toastHtml()}
+    <div class="panel"><div class="panel-head"><h3>Thẻ cá nhân — ${esc(currentPersona().label)}</h3></div>
+    <div class="panel-body">
+      <div class="kpi-mini">
+        ${Object.entries(byStatus).map(([s,n])=>`<div><div class="n">${n}</div><div class="l">${(TRANGTHAI_DON[s]||{t:s}).t}</div></div>`).join('') || '<div class="l" style="color:var(--gray-50);">Chưa có đơn nào.</div>'}
+      </div>
+    </div></div>`;
+}
+
+/* =========================================================================
+   9) TẠO ĐƠN MỚI
+   ========================================================================= */
+let taoDonState = { maLk:'', soLuong:1, nguoiNhanHo:'' };
+function renderTaoDon(){
+  if(!canTaoDon()) return renderNoAccess();
+  const lkOpts = DB.linhKien.map(l=>`<option value="${l.ma}" ${taoDonState.maLk===l.ma?'selected':''}>${l.ma} — ${esc(l.ten)} (${esc(l.hang)}) ${l.dacThu?'⚠ đặc thù':''}</option>`).join('');
+  const lk = lkByMa(taoDonState.maLk);
+  let thayTheHtml='';
+  if(lk && lk.thayThe.length){
+    thayTheHtml = `<div class="banner banner-info">Có <b>${lk.thayThe.length}</b> linh kiện thay thế gợi ý: ${lk.thayThe.map(m=>{const alt=lkByMa(m); return alt? `<b>${alt.ma}</b> — ${esc(alt.ten)} (${money(alt.gia)})` : m;}).join(', ')}</div>`;
+  }
+  let nguoiHoHtml='';
+  if(['tn','gs','admin'].includes(state.persona)){
+    let opts;
+    if(state.persona==='gs'){
+      opts = DB.ktvList.filter(k=>k.giamSat===currentEmail()).map(k=>`<option value="${k.email}">${esc(k.ten)}</option>`).join('');
+    } else {
+      opts = DB.ktvList.map(k=>`<option value="${k.email}">${esc(k.ten)}</option>`).join('');
+    }
+    nguoiHoHtml = `<div class="field"><label>Tạo hộ cho (để trống = tạo cho chính mình)</label>
+      <select onchange="taoDonState.nguoiNhanHo=this.value">
+        <option value="">— Chính mình (${esc(currentEmail())}) —</option>${opts}
+      </select>
+      <div class="hint">${state.persona==='gs'?'GS chỉ được tạo hộ đúng KTV/Vệ tinh mình phụ trách.':'TN/Admin được tạo hộ bất kỳ ai.'}</div></div>`;
+  }
+  const total = lk ? lk.gia * (Number(taoDonState.soLuong)||0) : 0;
+  return `
+    ${toastHtml()}
+    <div class="panel" style="max-width:640px;">
+      <div class="panel-head"><h2>Tạo đơn mới</h2></div>
+      <div class="panel-body">
+        <div class="field"><label>Loại đơn</label>
+          <select onchange="taoDonState.loai=this.value">
+            <option value="mua">Mua hàng</option><option value="cong_no">Công nợ</option>
+          </select></div>
+        <div class="field"><label>Chọn linh kiện</label>
+          <select onchange="taoDonState.maLk=this.value;renderTaoDonRefresh();"><option value="">— Chọn từ Danh mục —</option>${lkOpts}</select></div>
+        ${thayTheHtml}
+        <div class="field"><label>Số lượng</label>
+          <input type="number" min="1" value="${taoDonState.soLuong}" onchange="taoDonState.soLuong=this.value">
+        </div>
+        ${nguoiHoHtml}
+        <div class="kpi-mini"><div><div class="n">${money(total)}</div><div class="l">Tổng giá đề xuất tự tính (đơn giá × số lượng)</div></div></div>
+      </div>
+      <div class="drawer-foot" style="border-top:1px solid var(--gray-20);">
+        <button class="btn btn-primary" onclick="submitTaoDon()">Tạo đơn</button>
+        <button class="btn" onclick="goScreen('muahang')">Huỷ</button>
+      </div>
+    </div>
+  `;
+}
+function renderTaoDonRefresh(){ render(); }
+function submitTaoDon(){
+  if(!taoDonState.maLk){ alert('Vui lòng chọn linh kiện.'); return; }
+  const nguoiTao = taoDonState.nguoiNhanHo || currentEmail();
+  const k = ktvByEmail(nguoiTao);
+  const lk = lkByMa(taoDonState.maLk);
+  let trangThai;
+  if(k && k.tramCha){ trangThai='Cho Tram duyet'; }
+  else if(lk.dacThu){ trangThai='Cho TBP xac nhan'; }
+  else { trangThai='Cho TN duyet'; }
+  const id = 'DH-'+(2500+Math.floor(Math.random()*400));
+  DB.donHang.push({id, loai:taoDonState.loai||'mua', nguoiTao, emailGs:(k&&k.giamSat)||'gs.mienbac@3t.vn',
+    tram:(k&&k.tramCha)||null, maLk:taoDonState.maLk, soLuong:Number(taoDonState.soLuong)||1, trangThai, uuTien:false});
+  state.toast=`Đã tạo đơn ${id} (${(TRANGTHAI_DON[trangThai]||{}).t}).`;
+  taoDonState={maLk:'',soLuong:1,nguoiNhanHo:''};
+  goScreen('muahang');
+}
+
+/* =========================================================================
+   10) DANH MỤC LINH KIỆN
+   ========================================================================= */
+function renderDanhMuc(){
+  const editable = canQuanLyDmLk();
+  return `
+    ${toastHtml()}
+    <div class="toolbar">
+      <div class="tb-spacer"></div>
+      ${editable ? `
+        <button class="btn btn-primary" onclick="alert('Prototype: mở form Thêm linh kiện mới.')">➕ Thêm mới</button>
+        <button class="btn" onclick="openImport('nhapdanhmuc')">⭱ Nhập Excel hàng loạt</button>
+        <button class="btn" onclick="alert('Prototype: xuất ảnh minh hoạ các linh kiện đã chọn.')">🖼 Xuất ảnh</button>
+      ` : `<span style="font-size:12px; color:var(--gray-50);">Bạn chỉ có quyền xem — không có cờ "Quản lý DM LK".</span>`}
+    </div>
+    <div class="tbl-wrap">
+      <table class="dtable">
+        <thead><tr><th>Mã LK</th><th>Tên linh kiện</th><th>Hãng</th><th>Giá</th><th>Đặc thù</th><th>Hàng thay thế</th>${editable?'<th>Sửa</th>':''}</tr></thead>
+        <tbody>${DB.linhKien.map(l=>`<tr>
+          <td class="idcode">${l.ma}</td><td>${esc(l.ten)}</td><td>${esc(l.hang)}</td><td class="mono">${money(l.gia)}</td>
+          <td>${l.dacThu?'<span class="tag tag-wait">⚠ Đặc thù</span>':'<span class="tag tag-neutral">Thường</span>'}</td>
+          <td>${l.thayThe.length?l.thayThe.join(', '):'—'}</td>
+          ${editable?`<td><button class="btn btn-xs" onclick="alert('Prototype: mở form sửa ${l.ma}.')">Sửa</button></td>`:''}
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+/* =========================================================================
+   11) SETTINGS
+   ========================================================================= */
+function renderSettings(){
+  const tabs=[['lydocham','Lý do chậm'],['loaidexuat','Loại đề xuất'],['dsktv','Danh sách KTV'],['gdrive','Google Drive']];
+  return `
+    ${toastHtml()}
+    <div class="drawer-tabs" style="background:#fff; border:1px solid var(--gray-20); border-bottom:none; border-radius:var(--radius) var(--radius) 0 0; padding-left:16px;">
+      ${tabs.map(([k,l])=>`<button class="${state.settingsTab===k?'active':''}" onclick="state.settingsTab='${k}';render();">${esc(l)}</button>`).join('')}
+    </div>
+    <div class="panel" style="border-radius:0 0 var(--radius) var(--radius); margin-top:0;">
+      <div class="panel-body">${renderSettingsTab()}</div>
+    </div>
+  `;
+}
+function renderSettingsTab(){
+  if(state.settingsTab==='lydocham'){
+    return `<table class="dtable"><thead><tr><th>Mã</th><th>Lý do chậm</th><th>Mở ticket Thiếu LK</th></tr></thead>
+      <tbody>${DB.lyDoCham.map(l=>`<tr><td class="idcode">${l.ma}</td><td>${esc(l.ten)}</td><td>${l.moTicketThieuLk?'<span class="tag tag-wait">Có</span>':'<span class="tag tag-neutral">Không</span>'}</td></tr>`).join('')}</tbody></table>`;
+  }
+  if(state.settingsTab==='loaidexuat'){
+    return `<table class="dtable"><thead><tr><th>Mã</th><th>Loại đề xuất</th><th>Nhóm</th></tr></thead>
+      <tbody>${LOAI_DE_XUAT.map(l=>`<tr><td class="idcode">${l.ma}</td><td>${esc(l.ten)}</td><td>${esc(l.nhom)}</td></tr>`).join('')}</tbody></table>`;
+  }
+  if(state.settingsTab==='dsktv'){
+    const gsSet=[...new Set(DB.donHang.map(o=>o.emailGs))];
+    return `
+      <div class="toolbar" style="border:none; padding:0 0 12px;"><div class="tb-spacer"></div>
+        <button class="btn btn-primary" onclick="openImport('nhapktv')">⭱ Nhập Excel hàng loạt</button></div>
+      <table class="dtable"><thead><tr><th>Email</th><th>Tên</th><th>Vai trò</th><th>Trạm cha</th><th>Giám sát phụ trách</th></tr></thead>
+      <tbody>${DB.ktvList.map(k=>`<tr><td class="mono">${k.email}</td><td>${esc(k.ten)}</td><td>${esc(k.vaiTro)}</td><td>${k.tramCha?esc(tenNguoi(k.tramCha)):'—'}</td>
+        <td><select onchange="setKtvGiamSat('${k.email}',this.value)">${gsSet.map(g=>`<option value="${g}" ${k.giamSat===g?'selected':''}>${esc(tenNguoi(g))}</option>`).join('')}</select></td>
+      </tr>`).join('')}</tbody></table>`;
+  }
+  if(state.settingsTab==='gdrive'){
+    return `<div class="banner ${googleDriveConnected?'banner-ok':'banner-warn'}">
+        Trạng thái kết nối Google Drive: <b>${googleDriveConnected?'Đã kết nối (tài khoản drive.uploader@3t.vn)':'Chưa kết nối'}</b>
+      </div>
+      <button class="btn ${googleDriveConnected?'btn-danger':'btn-primary'}" onclick="googleDriveConnected=!googleDriveConnected;render();">
+        ${googleDriveConnected?'Ngắt kết nối':'Kết nối Google Drive'}
+      </button>`;
+  }
+  return '';
+}
+
+/* =========================================================================
+   12) QUẢN LÝ USER
+   ========================================================================= */
+let userEditState = { email:null, ack:false };
+function renderUsers(){
+  return `
+    ${toastHtml()}
+    <div class="tbl-wrap">
+      <table class="dtable">
+        <thead><tr><th>Email</th><th>Tên</th><th>Vai trò</th><th>Trạng thái duyệt</th><th>Khoá</th><th>Hành động</th></tr></thead>
+        <tbody>${DB.users.map(u=>`<tr>
+          <td class="mono">${u.email}${u.email===currentEmail()?' <span class="tag tag-info">Bạn</span>':''}</td>
+          <td>${esc(u.ten)}</td><td>${esc(u.vaiTro||'—')}</td>
+          <td>${u.trangThaiDuyet==='Cho duyet'?'<span class="tag tag-wait">Chờ duyệt</span>':'<span class="tag tag-ok">Đã duyệt</span>'}</td>
+          <td>${u.khoa?'<span class="tag tag-bad">Đã khoá</span>':'<span class="tag tag-ok">Hoạt động</span>'}</td>
+          <td style="white-space:nowrap;">
+            ${u.trangThaiDuyet==='Cho duyet'?`<button class="btn btn-success btn-xs" onclick="approveUser('${u.email}')">Duyệt</button>`:''}
+            <button class="btn btn-xs" onclick="openDrawer('user','${u.email}')">Sửa</button>
+            <button class="btn ${u.khoa?'':'btn-danger'} btn-xs" onclick="toggleLockUser('${u.email}')">${u.khoa?'Mở khoá':'Khoá'}</button>
+          </td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+  `;
+}
+function setKtvGiamSat(email,val){ const k=ktvByEmail(email); if(k){ k.giamSat=val; state.toast=`Đã gán Giám sát phụ trách cho ${tenNguoi(email)}.`; } render(); }
+function approveUser(email){ const u=DB.users.find(x=>x.email===email); u.trangThaiDuyet='Da duyet'; state.toast=`Đã duyệt tài khoản ${email}.`; render(); }
+function toggleLockUser(email){ const u=DB.users.find(x=>x.email===email); u.khoa=!u.khoa; state.toast=`Đã ${u.khoa?'khoá':'mở khoá'} tài khoản ${email}.`; render(); }
+
+/* =========================================================================
+   DRAWER (Chi tiết đơn/phiếu) — trượt phải (web) / bottom sheet full (mobile)
+   ========================================================================= */
+function openDrawer(type,id,tab){
+  state.overlay = {kind:'detail', type, id, tab: tab||'thongtin'};
+  render();
+}
+function setDrawerTab(tab){ state.overlay.tab=tab; render(); }
+function nextInList(){
+  const ids = state.drawerListIds;
+  if(!ids || !ids.length) return closeOverlay();
+  const i = ids.indexOf(state.overlay.id);
+  const next = ids[(i+1)%ids.length];
+  if(next===state.overlay.id || i===-1) { closeOverlay(); return; }
+  state.overlay.id = next;
+  state.overlay.tab='thongtin';
+  render();
+}
+
+function renderOverlay(){
+  if(!state.overlay) return '';
+  if(state.overlay.kind==='filter') return renderFilterPanel(state.overlay.screen);
+  if(state.overlay.kind==='import') return renderImportPanel(state.overlay.preset);
+  if(state.overlay.kind==='detail') return renderDetailDrawer();
+  return '';
+}
+function renderDetailDrawer(){
+  const {type,id,tab} = state.overlay;
+  let title='', sub='', tabsBody='';
+  if(type==='donhang') { const o=DB.donHang.find(x=>x.id===id); if(!o) {closeOverlay();return '';} title=`Đơn ${o.id}`; sub=badge(TRANGTHAI_DON,o.trangThai)+' '+uutienMark(o); tabsBody=drawerOrder(o); }
+  else if(type==='thieulk'){ const t=DB.thieuLk.find(x=>x.id===id); if(!t){closeOverlay();return '';} title=`Ticket ${t.id}`; sub=badge(TRANGTHAI_THIEULK,t.trangThai)+' '+uutienMark(t); tabsBody=drawerThieuLk(t); }
+  else if(type==='pxk'){ const x=DB.pxk.find(p=>p.id===id); if(!x){closeOverlay();return '';} title=`PXK ${x.id}`; sub=badge(TRANGTHAI_PXK,x.trangThai); tabsBody=drawerPxk(x); }
+  else if(type==='trahang'){ const t=DB.traHang.find(x=>x.id===id); if(!t){closeOverlay();return '';} title=`Trả hàng ${t.id}`; sub=badge(TRANGTHAI_TRAHANG,t.trangThai)+' '+uutienMark(t); tabsBody=drawerTraHang(t); }
+  else if(type==='user'){ const u=DB.users.find(x=>x.email===id); if(!u){closeOverlay();return '';} title=`User: ${u.ten}`; sub=`<span class="mono">${u.email}</span>`; tabsBody=drawerUser(u); }
+
+  const wrapClass = state.mode==='web' ? 'drawer-web' : 'drawer-mobile';
+  const bg = state.mode==='web' ? `<div class="overlay-bg" onclick="closeOverlay()"></div>` : '';
+  const tabs = type==='user' ? [] : [['thongtin','Thông tin'],['lichsu','Lịch sử xử lý'],['hanhdong','Hành động']];
+  return `
+    ${bg}
+    <div class="${wrapClass}">
+      <div class="drawer-head">
+        <div style="flex:1;"><div class="ttl">${esc(title)}</div><div class="sub">${sub}</div></div>
+        <button class="drawer-close" onclick="closeOverlay()">✕</button>
+      </div>
+      ${tabs.length? `<div class="drawer-tabs">${tabs.map(([k,l])=>`<button class="${tab===k?'active':''}" onclick="setDrawerTab('${k}')">${esc(l)}</button>`).join('')}</div>`:''}
+      <div class="drawer-body">${tabsBody}</div>
+    </div>
+  `;
+}
+
+function drawerOrder(o){
+  const {tab}=state.overlay;
+  const lk=lkByMa(o.maLk);
+  if(tab==='thongtin' || !state.overlay.tab){
+    return `<dl class="kv-grid">
+      <dt>Mã đơn</dt><dd class="idcode">${o.id}</dd>
+      <dt>Loại</dt><dd>${o.loai==='mua'?'Mua hàng':'Công nợ'}</dd>
+      <dt>Linh kiện</dt><dd>${esc(lk.ten)} (${lk.ma})${lk.dacThu?' <span class="tag tag-wait">Đặc thù</span>':''}</dd>
+      <dt>Số lượng</dt><dd>${o.soLuong}</dd>
+      <dt>Đơn giá</dt><dd>${money(lk.gia)}</dd>
+      <dt>Thành tiền</dt><dd>${money(lk.gia*o.soLuong)}</dd>
+      <dt>Người tạo</dt><dd>${esc(tenNguoi(o.nguoiTao))}</dd>
+      <dt>GS phụ trách</dt><dd>${esc(tenNguoi(o.emailGs))}</dd>
+      <dt>Trạng thái</dt><dd>${badge(TRANGTHAI_DON,o.trangThai)}</dd>
+      <dt>Ưu tiên</dt><dd>${o.uuTien?'⭐ Có':'Không'}</dd>
+      ${o.lyDoCham?`<dt>Lý do chậm</dt><dd>${esc((DB.lyDoCham.find(l=>l.ma===o.lyDoCham)||{}).ten||o.lyDoCham)}</dd>`:''}
+    </dl>
+    ${lk.thayThe.length?`<div class="banner banner-info" style="margin-top:14px;">Linh kiện thay thế gợi ý: ${lk.thayThe.join(', ')}</div>`:''}`;
+  }
+  if(tab==='lichsu'){
+    return renderHistoryMock([
+      ['Tạo đơn', `${tenNguoi(o.nguoiTao)} tạo đơn ${o.id}`],
+      ['Cập nhật trạng thái', `Trạng thái hiện tại: ${(TRANGTHAI_DON[o.trangThai]||{}).t}`],
+    ]);
+  }
+  if(tab==='hanhdong'){
+    let actions='';
+    if(canTramDuyet(o) && o.trangThai==='Cho Tram duyet') actions+=actBtn('Duyệt và tiếp theo →','btn-success',`quickApproveDon('${o.id}');nextInList();`)+actBtn('Từ chối','btn-danger',`o_reject('${o.id}')`);
+    if(canTbpXacNhan(o) && o.trangThai==='Cho TBP xac nhan') actions+=actBtn('Duyệt và tiếp theo →','btn-success',`quickApproveDon('${o.id}');nextInList();`)+actBtn('Từ chối','btn-danger',`o_reject('${o.id}')`);
+    if(canTnDuyetDon(o) && o.trangThai==='Cho TN duyet') actions+=actBtn('Duyệt và tiếp theo →','btn-success',`quickApproveDon('${o.id}');nextInList();`)+actBtn('Từ chối (chọn lý do chậm)','btn-danger',`o_reject('${o.id}')`);
+    if(canSuaDon(o)) actions+=actBtn('Sửa đơn','',`alert('Prototype: mở form sửa đơn ${o.id}.')`);
+    if(canHuyDon(o) && !['Da huy','Tu choi'].includes(o.trangThai)) actions+=actBtn('Huỷ đơn','btn-danger',`o_huy('${o.id}')`);
+    return `<div style="display:flex; flex-direction:column; gap:8px; align-items:flex-start;">${actions || '<span style="color:var(--gray-50);font-size:12.5px;">Vai trò hiện tại không có hành động khả dụng ở bước này.</span>'}</div>`;
+  }
+  return '';
+}
+function o_reject(id){
+  const reason = prompt('Chọn mã lý do chậm (LDC1..LDC4):','LDC1');
+  if(!reason) return;
+  const o=DB.donHang.find(x=>x.id===id);
+  const ld=DB.lyDoCham.find(l=>l.ma===reason);
+  if(ld && ld.moTicketThieuLk){
+    const tid='TLK-'+(90+Math.floor(Math.random()*90));
+    DB.thieuLk.push({id:tid, donGoc:o.id, nguoiTaoTicket:'kho.trungtam@3t.vn', emailGsDonGoc:o.emailGs, maLk:o.maLk, trangThai:'Cho kho tiep nhan', uuTien:o.uuTien});
+    o.trangThai='Cho TN duyet'; // vẫn giữ đơn chờ, mở ticket song song
+    state.toast=`Lý do "${ld.ten}" tự động mở ticket Thiếu LK ${tid}.`;
+  } else {
+    o.trangThai='Tu choi'; o.lyDoCham=reason;
+    state.toast=`Đã từ chối đơn ${id}.`;
+  }
+  render();
+}
+function o_huy(id){ const o=DB.donHang.find(x=>x.id===id); o.trangThai='Da huy'; state.toast=`Đã huỷ đơn ${id}.`; render(); }
+
+function drawerThieuLk(t){
+  const {tab}=state.overlay;
+  if(tab==='thongtin'){
+    return `<dl class="kv-grid">
+      <dt>Ticket</dt><dd class="idcode">${t.id}</dd>
+      <dt>Đơn gốc</dt><dd class="idcode">${t.donGoc}</dd>
+      <dt>Linh kiện</dt><dd>${esc(lkByMa(t.maLk).ten)}</dd>
+      <dt>Người tạo ticket</dt><dd>${esc(tenNguoi(t.nguoiTaoTicket))}</dd>
+      <dt>GS đơn gốc</dt><dd>${esc(tenNguoi(t.emailGsDonGoc))}</dd>
+      <dt>Trạng thái</dt><dd>${badge(TRANGTHAI_THIEULK,t.trangThai)}</dd>
+      <dt>Ưu tiên</dt><dd>${t.uuTien?'⭐ Có (lan từ đơn gốc)':'Không'}</dd>
+    </dl>`;
+  }
+  if(tab==='lichsu') return renderHistoryMock([['Mở ticket',`Kho báo thiếu LK từ đơn ${t.donGoc}`],['Cập nhật',`Trạng thái hiện tại: ${(TRANGTHAI_THIEULK[t.trangThai]||{}).t}`]]);
+  if(tab==='hanhdong'){
+    let actions='';
+    if(canKhoXuLyThieuLk() && t.trangThai==='Cho kho tiep nhan') actions+=actBtn('Tiếp nhận xử lý và tiếp theo →','btn-success',`thieuLkAction('${t.id}','tiepnhan');nextInList();`);
+    if(canKhoXuLyThieuLk() && t.trangThai==='Cho kho xac nhan') actions+=actBtn('Xác nhận hàng về và tiếp theo →','btn-success',`thieuLkAction('${t.id}','vekho');nextInList();`)+actBtn('Từ chối — sai thông tin','btn-danger',`thieuLkAction('${t.id}','saithongtin')`);
+    if(canTnDongTicket() && t.trangThai==='Da ve kho') actions+=actBtn('Đóng ticket','btn-primary',`thieuLkAction('${t.id}','dongticket')`);
+    if(canKhoHuyTicket(t) && !['Da ket thuc','Da huy bo'].includes(t.trangThai)) actions+=actBtn('Huỷ ticket','btn-danger',`t_huy('${t.id}')`);
+    return `<div style="display:flex; flex-direction:column; gap:8px; align-items:flex-start;">${actions||'<span style="color:var(--gray-50);font-size:12.5px;">Vai trò hiện tại không có hành động khả dụng ở bước này.</span>'}</div>`;
+  }
+  return '';
+}
+function t_huy(id){ const t=DB.thieuLk.find(x=>x.id===id); t.trangThai='Da huy bo'; state.toast=`Đã huỷ ticket ${id}.`; render(); }
+
+function drawerPxk(x){
+  const {tab}=state.overlay;
+  if(tab==='thongtin'){
+    return `<div class="stepper">
+      ${['Dang tao phieu','Cho ke toan','Dang gui KTV','Kho da ket thuc'].map(s=>{
+        const order=['Dang tao phieu','Cho ke toan','Dang gui KTV','Kho da ket thuc'];
+        const cur=order.indexOf(x.trangThai), i=order.indexOf(s);
+        const cls = i<cur?'done':(i===cur?'now':'');
+        return `<div class="st ${cls}">${(TRANGTHAI_PXK[s]||{}).t}</div>`;
+      }).join('')}
+    </div>
+    <dl class="kv-grid">
+      <dt>Mã PXK</dt><dd class="idcode">${x.id}</dd>
+      <dt>Người nhận hàng</dt><dd>${esc(tenNguoi(x.nguoiNhanHang))}</dd>
+      <dt>Đơn gộp</dt><dd class="mono">${x.donHang.join(', ')}</dd>
+      <dt>Mã xuất kho</dt><dd class="mono">${x.maXuatKho||'— chưa gán —'}</dd>
+      <dt>Mã MISA</dt><dd class="mono">${x.maMisa||'— chưa gán —'}</dd>
+      <dt>Ảnh biên bản nhận hàng</dt><dd>${x.anhBienBan?'<span class="tag tag-ok">Đã upload</span>':'<span class="tag tag-wait">Chưa có</span>'}</dd>
+      <dt>Chuyển tiền</dt><dd>${tienLabel(x.tienTrangThai)}</dd>
+      <dt>Gửi hàng cho KTV</dt><dd>${x.guiKtv?'<span class="tag tag-ok">Đã gửi</span>':'<span class="tag tag-neutral">Chưa gửi</span>'}</dd>
+      <dt>KTV xác nhận nhận</dt><dd>${x.ktvXacNhanNhan?'<span class="tag tag-ok">Đã xác nhận</span>':'<span class="tag tag-neutral">Chưa</span>'}</dd>
+    </dl>`;
+  }
+  if(tab==='lichsu') return renderHistoryMock([['Tạo phiếu',`Tác nghiệp gộp đơn ${x.donHang.join(', ')} vào ${x.id}`],['Cập nhật',`Trạng thái hiện tại: ${(TRANGTHAI_PXK[x.trangThai]||{}).t}`]]);
+  if(tab==='hanhdong'){
+    let a='';
+    if(canTnGanMaXuatKho(x)) a+=actBtn('Gán mã xuất kho','',`px_ganMa('${x.id}')`);
+    if(canKeToanGanMisa(x)) a+=actBtn('Gán mã MISA','',`px_ganMisa('${x.id}')`);
+    if(canUploadBienBan(x) && !x.anhBienBan) a+=actBtn('Upload ảnh biên bản nhận hàng','',`px_upload('${x.id}')`);
+    else if(!canUploadBienBan(x) && !x.anhBienBan) a+=`<div class="helper-note">Chỉ đúng người nhận hàng (${esc(tenNguoi(x.nguoiNhanHang))}) mới upload được ảnh biên bản — Admin KHÔNG được miễn trừ ở bước này.</div>`;
+    if(canYeuCauChuyenTien(x) && x.tienTrangThai==='chua_yeu_cau') a+=actBtn('Yêu cầu chuyển tiền','',`px_yeucauTien('${x.id}')`);
+    if(canXacNhanChuyenTien(x) && x.tienTrangThai==='cho_ktv_chuyen') a+=actBtn('Xác nhận đã chuyển tiền + đính kèm bằng chứng','',`px_xacnhanTien('${x.id}')`);
+    if(canDuyetTienCuoi(x) && x.tienTrangThai==='ktv_da_chuyen') a+=actBtn('Duyệt tiền (cuối)','btn-success',`px_duyetTien('${x.id}')`);
+    if(canChuyenChoKeToan(x) && x.trangThai==='Dang tao phieu' && x.maXuatKho) a+=actBtn('Chuyển cho kế toán','btn-primary',`px_chuyenKeToan('${x.id}')`);
+    if(canKeToanChotXong(x) && x.trangThai==='Cho ke toan') a+=actBtn('Chốt xong đơn xuất','btn-success',`px_chotXong('${x.id}')`);
+    if(canKhoGuiHang(x) && x.trangThai==='Dang gui KTV' && !x.guiKtv) a+=actBtn('Gửi hàng cho KTV','',`px_guiHang('${x.id}')`);
+    if(canKhoKetThuc(x) && x.guiKtv && !x.khoKetThuc) a+=actBtn('Kho kết thúc','btn-success',`px_khoKetThuc('${x.id}')`);
+    if(canKtvXacNhanNhan(x) && x.guiKtv && !x.ktvXacNhanNhan) a+=actBtn('Xác nhận đã nhận hàng','',`px_ktvXacNhan('${x.id}')`);
+    if(canKeToanHuyPxk(x)) a+=actBtn('Huỷ phiếu','btn-danger',`px_huy('${x.id}')`);
+    return `<div style="display:flex; flex-direction:column; gap:8px; align-items:flex-start;">${a||'<span style="color:var(--gray-50);font-size:12.5px;">Vai trò hiện tại không có hành động khả dụng ở bước này.</span>'}</div>`;
+  }
+  return '';
+}
+function tienLabel(s){
+  return {chua_yeu_cau:'<span class="tag tag-neutral">Chưa yêu cầu</span>', cho_ktv_chuyen:'<span class="tag tag-wait">Chờ KTV chuyển tiền</span>',
+    ktv_da_chuyen:'<span class="tag tag-info">KTV đã chuyển — chờ duyệt</span>', tn_da_duyet:'<span class="tag tag-ok">TN đã duyệt tiền</span>'}[s]||s;
+}
+function px_ganMa(id){ const x=DB.pxk.find(p=>p.id===id); x.maXuatKho='XK-'+(90000+Math.floor(Math.random()*9999)); state.toast='Đã gán mã xuất kho.'; render(); }
+function px_ganMisa(id){ const x=DB.pxk.find(p=>p.id===id); x.maMisa='MISA-'+(1000+Math.floor(Math.random()*899)); state.toast='Đã gán mã MISA.'; render(); }
+function px_upload(id){ const x=DB.pxk.find(p=>p.id===id); x.anhBienBan=true; state.toast='Đã upload ảnh biên bản nhận hàng.'; render(); }
+function px_yeucauTien(id){ const x=DB.pxk.find(p=>p.id===id); x.tienTrangThai='cho_ktv_chuyen'; state.toast='Đã yêu cầu chuyển tiền.'; render(); }
+function px_xacnhanTien(id){ const x=DB.pxk.find(p=>p.id===id); x.tienTrangThai='ktv_da_chuyen'; state.toast='Đã xác nhận chuyển tiền + đính kèm bằng chứng.'; render(); }
+function px_duyetTien(id){ const x=DB.pxk.find(p=>p.id===id); x.tienTrangThai='tn_da_duyet'; state.toast='Đã duyệt tiền (cuối).'; render(); }
+function px_chuyenKeToan(id){ const x=DB.pxk.find(p=>p.id===id); x.trangThai='Cho ke toan'; state.toast='Đã chuyển cho kế toán.'; render(); }
+function px_chotXong(id){ const x=DB.pxk.find(p=>p.id===id); x.trangThai='Dang gui KTV'; state.toast='Kế toán đã chốt xong đơn xuất.'; render(); }
+function px_guiHang(id){ const x=DB.pxk.find(p=>p.id===id); x.guiKtv=true; state.toast='Đã gửi hàng cho KTV.'; render(); }
+function px_khoKetThuc(id){ const x=DB.pxk.find(p=>p.id===id); x.khoKetThuc=true; x.trangThai='Kho da ket thuc'; state.toast='Kho đã kết thúc phiếu.'; render(); }
+function px_ktvXacNhan(id){ const x=DB.pxk.find(p=>p.id===id); x.ktvXacNhanNhan=true; state.toast='Đã xác nhận nhận hàng.'; render(); }
+function px_huy(id){ const x=DB.pxk.find(p=>p.id===id); DB.pxk=DB.pxk.filter(p=>p.id!==id); state.toast=`Đã huỷ phiếu ${id}.`; closeOverlay(); }
+
+function drawerTraHang(t){
+  const {tab}=state.overlay;
+  const steps=['Cho ke toan duyet mem','Cho kho xac nhan','Cho QC xac nhan','Cho TN duyet tong','Da duyet'];
+  if(tab==='thongtin'){
+    return `<div class="stepper">${steps.map(s=>{
+      const cur=steps.indexOf(t.trangThai), i=steps.indexOf(s);
+      const cls = t.trangThai==='Tu choi' ? '' : (i<cur?'done':(i===cur?'now':''));
+      return `<div class="st ${cls}">D${i+1} · ${(TRANGTHAI_TRAHANG[s]||{}).t.split('(')[0]}</div>`;
+    }).join('')}</div>
+    ${t.trangThai==='Tu choi'?'<div class="banner banner-danger">Yêu cầu đã bị từ chối.</div>':''}
+    <dl class="kv-grid">
+      <dt>Mã yêu cầu</dt><dd class="idcode">${t.id}</dd>
+      <dt>Người tạo</dt><dd>${esc(tenNguoi(t.nguoiTao))}</dd>
+      <dt>GS phụ trách</dt><dd>${esc(tenNguoi(t.emailGs))}</dd>
+      <dt>Linh kiện</dt><dd>${esc(lkByMa(t.maLk).ten)}</dd>
+      <dt>Trạng thái</dt><dd>${badge(TRANGTHAI_TRAHANG,t.trangThai)}</dd>
+      <dt>Ưu tiên</dt><dd>${t.uuTien?'⭐ Có':'Không'}</dd>
+    </dl>`;
+  }
+  if(tab==='lichsu') return renderHistoryMock([['Tạo yêu cầu',`${tenNguoi(t.nguoiTao)} tạo yêu cầu trả hàng ${t.id}`],['Cập nhật',`Trạng thái hiện tại: ${(TRANGTHAI_TRAHANG[t.trangThai]||{}).t}`]]);
+  if(tab==='hanhdong'){
+    let a='';
+    if(canD1(t)&&t.trangThai==='Cho ke toan duyet mem') a+=actBtn('Duyệt mềm và tiếp theo →','btn-success',`traHangStep('${t.id}','d1');nextInList();`);
+    if(canD2(t)&&t.trangThai==='Cho kho xac nhan') a+=actBtn('Xác nhận và tiếp theo →','btn-success',`traHangStep('${t.id}','d2');nextInList();`);
+    if(canD3(t)&&t.trangThai==='Cho QC xac nhan') a+=actBtn('Xác nhận và tiếp theo →','btn-success',`traHangStep('${t.id}','d3');nextInList();`);
+    if(canD4(t)&&t.trangThai==='Cho TN duyet tong') a+=actBtn('Duyệt tổng và tiếp theo →','btn-success',`traHangStep('${t.id}','d4');nextInList();`)+actBtn('Từ chối (ghi chú lý do)','btn-danger',`th_tuchoi('${t.id}')`);
+    if(canD5LuiBuoc(t) && !['Da duyet','Tu choi','Cho ke toan duyet mem'].includes(t.trangThai)) a+=actBtn('Lùi bước','',`traHangLuiBuoc('${t.id}')`);
+    if(canD6Huy(t) && !['Da duyet','Tu choi'].includes(t.trangThai)) a+=actBtn('Huỷ yêu cầu','btn-danger',`th_huy('${t.id}')`);
+    return `<div style="display:flex; flex-direction:column; gap:8px; align-items:flex-start;">${a||'<span style="color:var(--gray-50);font-size:12.5px;">Vai trò hiện tại không có hành động khả dụng ở bước này.</span>'}</div>`;
+  }
+  return '';
+}
+function th_tuchoi(id){ const note=prompt('Bắt buộc ghi chú lý do từ chối:'); if(!note) return; const t=DB.traHang.find(x=>x.id===id); t.trangThai='Tu choi'; t.ghiChuTuChoi=note; state.toast=`Đã từ chối yêu cầu ${id}.`; render(); }
+function th_huy(id){ const t=DB.traHang.find(x=>x.id===id); t.trangThai='Tu choi'; state.toast=`Đã huỷ yêu cầu ${id}.`; render(); }
+
+function drawerUser(u){
+  const isSelf = u.email===currentEmail() && isAdmin();
+  let warn='';
+  if(isSelf){
+    warn = `<div class="banner banner-danger">
+      ⚠ Bạn đang tự sửa tài khoản của chính mình (<b>${u.email}</b>) — thao tác này có thể tự khoá quyền Admin của bạn.
+      <div style="margin-top:8px;"><label class="checkbox-row"><input type="checkbox" ${userEditState.ack?'checked':''} onchange="userEditState.ack=this.checked;render();"> Tôi hiểu rủi ro và xác nhận muốn tiếp tục sửa tài khoản của chính mình</label></div>
+    </div>`;
+  }
+  const disabled = isSelf && !userEditState.ack;
+  return `
+    ${warn}
+    <div class="field"><label>Vai trò lõi</label>
+      <select ${disabled?'disabled':''}>
+        <option ${u.vaiTro==='Admin'?'selected':''}>Admin</option><option ${u.vaiTro==='QC'?'selected':''}>QC</option>
+        <option ${u.vaiTro==='Giam sat'?'selected':''}>Giam sat</option><option value="">— (NULL, dùng cờ nghiệp vụ) —</option>
+      </select></div>
+    <div class="field"><label>Cờ nghiệp vụ</label>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <label class="checkbox-row"><input type="checkbox" ${u.laKtvDvbh?'checked':''} ${disabled?'disabled':''}> là KTV DVBH</label>
+        <label class="checkbox-row"><input type="checkbox" ${u.laVeTinh?'checked':''} ${disabled?'disabled':''}> là Vệ tinh</label>
+        <label class="checkbox-row"><input type="checkbox" ${u.laKho?'checked':''} ${disabled?'disabled':''}> là Kho</label>
+        <label class="checkbox-row"><input type="checkbox" ${u.laKeToan?'checked':''} ${disabled?'disabled':''}> là Kế toán</label>
+        <label class="checkbox-row"><input type="checkbox" ${u.laTacNghiep?'checked':''} ${disabled?'disabled':''}> là Tác nghiệp</label>
+        <label class="checkbox-row"><input type="checkbox" ${u.laTpDvbh?'checked':''} ${disabled?'disabled':''}> là TP DVBH</label>
+      </div></div>
+    <div class="drawer-foot" style="padding:14px 0 0; border-top:1px solid var(--gray-20); margin-top:10px;">
+      <button class="btn btn-primary" ${disabled?'disabled':''} onclick="saveUser('${u.email}')">Lưu thay đổi</button>
+      <button class="btn" onclick="closeOverlay()">Huỷ</button>
+    </div>
+  `;
+}
+function saveUser(email){ state.toast=`Đã lưu thay đổi cho ${email}.`; userEditState={email:null,ack:false}; closeOverlay(); }
+
+function actBtn(label,cls,onclick){ return `<button class="btn ${cls}" onclick="${onclick}">${esc(label)}</button>`; }
+function renderHistoryMock(items){
+  return items.map(([title,desc])=>`<div class="history-item"><div class="dot"></div><div class="tx"><b>${esc(title)}</b><div>${esc(desc)}</div><div class="t">Mốc thời gian minh hoạ — prototype tĩnh</div></div></div>`).join('');
+}
+
+/* =========================================================================
+   INIT
+   ========================================================================= */
+render();
+</script>
+</body>
+</html>

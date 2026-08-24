@@ -1,0 +1,411 @@
+Tôi đã rà toàn bộ luồng Đặt đơn → duyệt → thiếu linh kiện → PXK → trả hàng, gồm frontend, backend, migration và quyền
+  người dùng. Không thay đổi mã nguồn.
+
+  Phát hiện nghiêm trọng
+
+  1. Bất kỳ tài khoản đăng nhập nào cũng có thể xóa đơn của người khác
+
+  Endpoint xóa không kiểm tra người tạo, scope hay vai trò. Chỉ cần biết DDH id:
+
+  backend/src/routes/datMuaLinhKien.ts:1347
+
+  Nguy hiểm hơn, endpoint xóa cả log lịch sử nên mất dấu audit. Cần giới hạn cho người tạo khi đơn còn mở hoặc Admin,
+  đồng thời nên chuyển sang hủy mềm thay vì DELETE.
+
+  2. Gắn/gỡ case khỏi bất kỳ đơn nào mà không cần quyền
+
+  Hai endpoint chỉ kiểm tra bản ghi tồn tại:
+
+  backend/src/routes/datMuaLinhKien.ts:1368
+  backend/src/routes/datMuaLinhKien.ts:1382
+
+  Không áp dụng scopeDatMuaNguoiTao, không kiểm tra chủ đơn và không kiểm tra quyền xem case.
+
+  3. Bất kỳ user nào cũng có thể giả mạo việc KTV đã chuyển tiền
+
+  Nhánh "KTV da chuyen" không xác nhận người gọi là nguoi_nhan_hang:
+
+  backend/src/routes/phieuXuatKho.ts:333
+
+  Một tài khoản Viewer biết ID PXK có thể gửi URL bằng chứng tùy ý và chuyển trạng thái tiền.
+
+  4. Quyền module mới chỉ được dùng để ẩn giao diện
+
+  Các router chỉ yêu cầu session, không gọi hasModule():
+
+  backend/src/routes/datMuaLinhKien.ts:35
+  backend/src/index.ts:66
+
+  User bị bỏ quyền module vẫn có thể gọi API trực tiếp.
+
+  5. Rò rỉ toàn bộ dữ liệu PXK và đơn trả hàng
+
+  Danh sách và chi tiết không giới hạn vai trò/scope:
+
+  backend/src/routes/phieuXuatKho.ts:60
+  backend/src/routes/phieuXuatKho.ts:203
+  backend/src/routes/traHang.ts:53
+  backend/src/routes/traHang.ts:72
+
+  Điều này có thể lộ giá, công nợ, mã MISA, vận đơn, bằng chứng chuyển tiền và người nhận.
+
+  Logic và vai trò
+
+  6. GS có thể bỏ qua phạm vi KTV mình quản lý bằng cách gọi API tạo đơn với email bất kỳ. Dropdown đã lọc theo GS,
+     nhưng backend chỉ kiểm tra tài khoản đích là KTV/Vệ tinh, không kiểm tra giam_sat_quan_ly.
+
+  backend/src/routes/datMuaLinhKien.ts:650
+
+  7. Một GS tạo đơn không truyền người nhận sẽ tạo đơn cho chính tài khoản GS, dù GS không phải KTV. Đây là hậu quả của
+     canCreatePhieuDat() cho phép GS nhưng nhánh mặc định dùng user.email.
+
+  8. Chuyển trạng thái dùng mô hình SELECT trạng thái → INSERT log, không có khóa/CAS. Hai request đồng thời có thể cùng
+     duyệt và ghi hai log trái nhau:
+
+  backend/src/routes/datMuaLinhKien.ts:1092
+  backend/src/routes/datMuaLinhKien.ts:1156
+
+  9. Các API bulk không giới hạn số ID và xử lý tuần tự. User đăng nhập có thể gửi hàng nghìn ID, gây nhiều lượt đọc/ghi
+     D1. Bulk còn gọi bumpVersions() ngay cả khi toàn bộ dòng thất bại.
+
+  Lãng phí D1
+
+  10. Pipeline chạy khoảng 16 correlated subquery đếm trạng thái trên toàn hệ thống mỗi 5 phút cho mỗi client:
+
+  backend/src/routes/datMuaLinhKien.ts:238
+  frontend/src/modules/DatMuaLinhKienModule.tsx:926
+
+  11. Danh sách đơn chạy hai lượt quét gần giống nhau: một COUNT(*), sau đó SELECT, trong khi mỗi dòng lại tra log mới
+     nhất bằng correlated subquery:
+
+  backend/src/routes/datMuaLinhKien.ts:571
+
+  12. PXK, thiếu linh kiện và trả hàng lấy toàn bộ kết quả rồi mới phân trang phía frontend. Khi dữ liệu tăng, mỗi lần
+     đổi filter sẽ đọc lại toàn bảng. Ví dụ tab thiếu LK slice phía client:
+
+  frontend/src/modules/DatMuaLinhKienModule.tsx:4518
+
+  13. Các bảng log chỉ có index theo khóa cha, chưa có composite index (parent_id, id DESC). Các bộ lọc chính cũng thiếu
+     index tổ hợp theo loai_don, nguoi_nhan_hang, ngay_tao.
+
+  14. Tạo đơn cấp ID và ghi bộ đếm trước khi hoàn tất validate tất cả dòng. Một dòng lỗi ở cuối làm mất nhiều lượt ghi
+     counter và tạo khoảng trống ID:
+
+  backend/src/routes/datMuaLinhKien.ts:665
+  backend/src/routes/datMuaLinhKien.ts:691
+
+  Giao diện
+
+     thể gặp bảng rỗng dù filter có dữ liệu:
+
+  frontend/src/modules/DatMuaLinhKienModule.tsx:2846
+  frontend/src/modules/DatMuaLinhKienModule.tsx:2889
+
+  16. Các dòng đã chọn không được xóa khi đổi trang/filter. Thao tác bulk có thể tác động cả các đơn không còn xuất hiện
+     trên màn hình.
+
+  17. Logic UI coi hầu hết KTV không có tram_cha là “Trạm”, dù backend chỉ cho duyệt nếu họ thực sự là tram_cha của
+     người tạo. KTV thường có thể mặc định vào bộ lọc “Chờ Trạm duyệt” và thấy trang rỗng.
+
+  18. Pipeline hiển thị số toàn hệ thống cho mọi người nhưng danh sách đích lại có scope. Người dùng bấm vào con số lớn
+     rồi chỉ thấy rỗng hoặc số lượng khác, vừa gây nhầm lẫn vừa lộ quy mô vận hành.
+
+=>> phương án đề xuất xử lý:
+Dưới đây là phương án nghiệp vụ và kế hoạch có thể giao thẳng cho Claude xử lý lại. Điểm quan trọng là phải tách ba
+  loại quyền: quyền mở module, phạm vi dữ liệu được xem, và quyền thực hiện bước nghiệp vụ. Hiện code đang trộn ba khái
+  niệm này.
+
+  Nguyên tắc phân quyền chốt
+
+  - Admin: toàn quyền, luôn xem toàn quốc.
+  - Tác nghiệp, Kho, Kế toán, QC, TP DVBH: chỉ thấy giao diện và công việc thuộc bước của mình. Mặc định lọc theo các
+    Giám sát được phân công; được chuyển sang “Toàn quốc” khi cần.
+
+  - Giám sát: mặc định dữ liệu của các KTV mình quản lý; có thể xem toàn quốc nếu được xác định là nhu cầu hợp lệ, nhưng
+    chỉ được tạo/sửa nghiệp vụ cho KTV mình quản lý.
+
+  - Trạm: thấy đơn của mình và đơn do Vệ tinh trực thuộc tạo.
+  - KTV/Vệ tinh: chỉ thấy đơn mà mình tham gia trong luồng, tối thiểu gồm nguoi_tao = mình hoặc nguoi_nhan_hang = mình.
+  - Việc “xem toàn quốc” không đồng nghĩa có quyền thao tác toàn quốc. Quyền thao tác vẫn phải kiểm tra theo vai trò,
+    trạng thái và quan hệ quản lý.
+
+  ## Tư vấn từng vấn đề
+
+  ### 1. Bỏ xóa, chỉ cho hủy
+
+  Nên xóa hoàn toàn endpoint DELETE /don-hang/:id.
+
+  Hai nhóm được hủy:
+
+  - Người tạo đơn.
+  - Tác nghiệp.
+  - Admin mặc định được phép do full quyền.
+
+  Điều kiện:
+
+  - Chỉ hủy khi đơn chưa hoàn thành, chưa bị hủy và chưa phát sinh nghiệp vụ vật lý không thể đảo ngược.
+  - Bắt buộc nhập lý do.
+  - Ghi thêm một dòng log Da huy, không xóa đơn, case liên kết hoặc lịch sử.
+  - Nếu đã nằm trong PXK thì phải hủy/tháo PXK hợp lệ trước, không được hủy trực tiếp làm dữ liệu lệch nhau.
+  - Backend phải kiểm tra quyền; không dựa vào việc UI có hiện nút hay không.
+
+  ### 2. “Gắn/gỡ case” là gì?
+
+  case ở đây là yêu cầu sửa chữa/bảo hành trong bảng case_dvbh. Bảng dat_don_case dùng để liên kết một đơn linh kiện với
+  một hoặc nhiều yêu cầu bảo hành.
+
+  Ví dụ:
+
+  - Case SC-123 cần linh kiện LK-456.
+  - Khi “gắn case”, hệ thống lưu quan hệ để từ đơn linh kiện có thể mở lại yêu cầu SC-123.
+  - “Gỡ case” chỉ xóa quan hệ liên kết, không xóa case và không xóa đơn.
+
+  Vấn đề hiện tại là bất kỳ user đăng nhập nào biết ID đều có thể gắn/gỡ liên kết của đơn khác.
+
+  Đề xuất:
+
+  - Người tạo và Tác nghiệp được gắn/gỡ khi đơn còn mở.
+  - Admin full quyền.
+  - Chỉ cho gắn case mà người thao tác có quyền xem.
+  - Khi đơn đã vào PXK hoặc hoàn thành, chỉ Tác nghiệp/Admin được chỉnh liên kết.
+  - Ghi audit log khi gắn/gỡ.
+  - Nếu thực tế không cần nhiều case cho một đơn, nên đơn giản hóa thành một ma_yeu_cau_su_co duy nhất và bỏ chức năng
+    liên kết nhiều case.
+
+  ### 3. Xác nhận chuyển tiền thuộc Tác nghiệp
+
+  Nên chốt luồng:
+
+  1. Tác nghiệp khai báo số tiền cần chuyển.
+  2. KTV/người nhận hàng tải bằng chứng và báo “Đã chuyển”.
+  3. Tác nghiệp xác nhận hoặc từ chối bằng chứng.
+  4. Chỉ sau khi Tác nghiệp xác nhận mới cho đi tiếp.
+
+  Nếu ý của anh là Tác nghiệp có thể thay KTV đánh dấu “Đã chuyển”, cần bắt buộc lý do và audit rõ Tác nghiệp xác nhận
+  thay. Không nên cho mọi tài khoản tự đánh dấu.
+
+  ### 4. “Quyền module chỉ ẩn giao diện” nghĩa là gì?
+
+  Hiện hệ thống có thể bỏ module khỏi sidebar của một user, nhưng user vẫn gọi API bằng URL hoặc DevTools vì backend chỉ
+  kiểm tra đã đăng nhập.
+
+  Ví dụ user không được cấp module vẫn có thể gọi:
+
+  GET /api/dat-mua-lk/don-hang
+
+  Cần thêm middleware backend:
+
+  đã đăng nhập
+  → có quyền module
+  → có quyền xem màn hình/bước
+  → áp dụng phạm vi khu vực
+  → thực hiện truy vấn
+
+  Ẩn menu chỉ là UX; backend mới là nơi bảo vệ dữ liệu thật.
+
+  ### 5. Chỉ vai trò tương tác mới thấy giao diện cần thiết
+
+  Đồng ý. Nên chia màn hình theo nhiệm vụ:
+
+  - Người tạo/KTV: Đơn liên quan đến tôi, nhận hàng, chuyển tiền.
+  - Trạm: Chờ Trạm duyệt.
+  - TP DVBH: Chờ xác nhận linh kiện đặc thù.
+  - Tác nghiệp: Chờ TN duyệt, tạo PXK, xác nhận tiền.
+  - Kế toán: Chờ kế toán, nhập MISA, luồng trả hàng tương ứng.
+  - Kho: Thiếu linh kiện, đóng gói/giao/nhập kho.
+  - QC: Chờ QC xác nhận trả hàng.
+  - Giám sát: theo dõi KTV thuộc quyền, báo cáo.
+  - Admin: tất cả.
+
+  Pipeline có thể vẫn hiện tổng quan, nhưng chỉ cho bấm vào bước user có quyền xem. Các bước chưa đến vai trò không cần
+  tải danh sách chi tiết.
+
+  ### 6. Giám sát chỉ tạo đơn cho KTV mình quản lý
+
+  Backend phải kiểm tra:
+
+  target.giam_sat_quan_ly = current_user.email
+
+  Không chỉ lọc dropdown frontend. Với Vệ tinh, cần kiểm tra Trạm cha của Vệ tinh có thuộc Giám sát đó hay không.
+
+  ### 7. Giám sát tạo đơn cho chính mình
+
+  Logic hiện tại cho GS không chọn người nhận thì nguoi_nhan_hang = email GS.
+
+  Điều này chỉ hợp lệ nếu GS thực sự có thể là người nhận hàng và thực hiện các bước KTV như chuyển tiền, nhận hàng. Nếu
+  đúng nghiệp vụ, cần:
+
+  - Cho GS xuất hiện như một người nhận hợp lệ.
+  - Cho GS thực hiện bước xác nhận nhận hàng của chính mình.
+  - Báo cáo không được giả định mọi nguoi_nhan_hang đều có mã KTV.
+  - Không tự tìm tram_cha.
+  - Xác định rõ email_gs: có thể là chính GS hoặc NULL, tránh quan hệ GS quản lý chính mình.
+
+  Nếu GS chỉ là người tạo hộ thì không nên mặc định chính mình; phải bắt buộc chọn KTV. Đây là điểm cần Claude giữ đúng
+  theo lựa chọn nghiệp vụ cuối cùng.
+
+  ### 8. Hai request duyệt đồng thời
+
+  Có thể gây:
+
+  - Ghi hai log duyệt.
+  - Một request duyệt, request kia từ chối cùng một trạng thái cũ.
+  - Pipeline cộng/trừ sai.
+  - PXK hoặc ticket thiếu linh kiện bị tạo trùng.
+
+  Nên thêm cột trang_thai_hien_tai và version trên bản ghi chính. Chuyển trạng thái bằng cập nhật có điều kiện:
+
+  UPDATE dat_don_hang
+  SET trang_thai_hien_tai = ?, version = version + 1
+  WHERE id = ? AND trang_thai_hien_tai = ? AND version = ?
+
+  Nếu rows_written = 0, trả 409 STATE_CHANGED. Sau đó ghi log trong cùng transaction/batch. Không nên tiếp tục suy trạng
+  thái hiện tại bằng “log mới nhất” cho mọi truy vấn.
+
+  ### 9. Bulk không giới hạn
+
+  Đề xuất:
+
+  - Tối đa 50 hoặc 100 ID/request.
+  - Loại ID trùng trước khi xử lý.
+  - Một query lấy toàn bộ bản ghi và trạng thái thay vì một query/ID.
+  - Phân loại hợp lệ/không hợp lệ trong bộ nhớ.
+  - Ghi các transition hợp lệ bằng một batch giới hạn.
+  - Chỉ bump version/cache khi có ít nhất một thành công.
+  - Trả kết quả rõ từng ID.
+  - Với import: giới hạn khoảng 500 dòng/file và chia chunk 50–100 dòng.
+
+  ### 10. Pipeline cập nhật tăng/giảm
+
+  Phương án anh đưa ra hợp lý, nhưng không nên để frontend tự cộng/trừ vì nhiều client sẽ làm số đếm lệch.
+
+  Nên có bảng đếm theo phạm vi và bước:
+
+  pipeline_counts
+  - scope_type
+  - scope_id
+  - step
+  - count
+  - updated_at
+
+  Khi transition từ A sang B, backend thực hiện trong cùng luồng ghi:
+
+  A: -1
+  B: +1
+
+  Chỉ cập nhật hai bước liên quan. Sau đó:
+
+  - Client invalidate/refetch đúng pipeline.
+  - Chạy reconciliation định kỳ, ví dụ mỗi 30–60 phút.
+  - Reconciliation tính lại từ trang_thai_hien_tai, không quét log.
+  - Nếu chưa muốn thêm cron, dùng “compute on stale”: request đầu tiên sau 60 phút kiểm tra và sửa lại count.
+
+  ### 11. COUNT(*) và SELECT quét hai lần
+
+  Với bảng danh sách phân trang, có ba lựa chọn:
+
+  - Giai đoạn đầu: giữ COUNT(*), nhưng lọc bằng cột trạng thái hiện tại có index.
+  - Tối ưu hơn: dùng phân trang cursor, trả hasMore, bỏ COUNT(*) mỗi lần.
+  - Tổng số chỉ tải khi user thật sự cần, cache theo bộ lọc phổ biến.
+
+  Khuyến nghị dùng cursor cho danh sách tác nghiệp; báo cáo riêng mới cần tổng số chính xác.
+
+  ### 12. Lấy toàn bộ rồi phân trang frontend
+
+  Phải chuyển PXK, thiếu linh kiện và trả hàng sang phân trang backend:
+
+  ?pageSize=20&cursor=...&trang_thai=...&scope=...
+
+  Backend áp dụng scope và filter trước LIMIT. Frontend không .slice() trên toàn bộ dữ liệu nữa. Đây là thay đổi trực
+  tiếp giảm D1 rows read.
+
+  ### 13. Index
+
+  Sau khi có trang_thai_hien_tai, thêm index theo mẫu truy vấn thật:
+
+  dat_don_hang(loai_don, trang_thai_hien_tai, email_gs, ngay_tao)
+  dat_don_hang(nguoi_nhan_hang, loai_don, trang_thai_hien_tai, ngay_tao)
+  dat_don_hang(nguoi_tao, ngay_tao)
+  phieu_xuat_kho(trang_thai_hien_tai, nguoi_nhan_hang, ngay_tao)
+  thieu_lk(trang_thai_hien_tai, ngay_tao)
+
+  Log phục vụ lịch sử:
+
+  dat_don_hang_log(dat_don_hang_id, id DESC)
+  phieu_xuat_kho_log(phieu_xuat_kho_id, id DESC)
+  tra_hang_log(dat_don_hang_id, id DESC)
+
+  Không thêm tất cả index cùng lúc; dùng EXPLAIN QUERY PLAN để xác nhận.
+
+  ### 14. Cấp ID trước khi validate xong
+
+  Nên validate toàn bộ request trước:
+
+  1. Chuẩn hóa và kiểm tra tất cả dòng.
+  2. Query toàn bộ mã linh kiện bằng một IN (...).
+  3. Kiểm tra người nhận và phạm vi GS.
+  4. Chỉ khi toàn bộ hợp lệ mới cấp ID.
+  5. Ghi header, dòng và log bằng batch.
+
+  Khoảng trống ID không làm sai dữ liệu nhưng gây lãng phí ghi counter và khó giải thích khi audit.
+
+  ### 15. Đổi filter nhưng không về trang 1
+
+  Mọi thay đổi ảnh hưởng tập kết quả phải:
+
+  setPage(1)
+  clear selection
+
+  Áp dụng cho loại đơn, trạng thái, người tạo, người nhận, từ ngày, đến ngày, scope khu vực và từ khóa.
+
+  ### 16. Chọn dòng rồi đổi trang/filter
+
+  Đây là lỗi nguy hiểm vì user có thể thao tác đơn không còn nhìn thấy.
+
+  Đề xuất đơn giản:
+
+  - Selection chỉ có hiệu lực trong trang hiện tại.
+  - Khi đổi trang/filter/tab: xóa selection.
+  - Trước khi submit bulk: modal liệt kê lại ID, KTV, trạng thái và số dòng.
+  - Backend vẫn kiểm tra lại trạng thái/quyền từng dòng.
+
+  ### 17. KTV thường bị nhận nhầm là Trạm
+
+  Không được suy Trạm bằng la_ktv_dvbh && !tram_cha.
+
+  Cần backend trả cờ rõ:
+
+  la_tram = EXISTS(users WHERE tram_cha = current_user.email)
+
+  UI chỉ hiện bộ lọc/nút Trạm khi la_tram = true. Vệ tinh dùng la_ve_tinh; KTV thường không có quyền duyệt Trạm.
+
+  ### 18. Pipeline toàn hệ thống nhưng danh sách có scope
+
+  Pipeline phải theo scope đang chọn:
+
+  - Mặc định: Khu vực của tôi.
+  - Tùy chọn: Toàn quốc.
+  - Khi đổi scope, cả pipeline và danh sách dùng cùng một scopeMode.
+  - KTV không có nút toàn quốc.
+  - Số pipeline và danh sách phải dùng cùng định nghĩa quyền/phạm vi.
+  - Bước user không có quyền chỉ hiển thị mờ hoặc ẩn, không tải chi tiết.
+
+  ## Kế hoạch giao Claude
+
+  1. Viết ma trận quyền cho từng endpoint và từng transition trước khi sửa code.
+  2. Thêm middleware requireModuleAccess và helper scope dùng chung.
+  3. Bỏ endpoint xóa; thay bằng transition hủy có audit.
+  4. Khóa quyền gắn/gỡ case và xác nhận chuyển tiền.
+  5. Sửa phạm vi GS, xác định rõ trường hợp GS nhận hàng.
+  6. Thêm trang_thai_hien_tai và cơ chế optimistic concurrency.
+  7. Chuyển pipeline sang counter tăng/giảm và reconciliation.
+  8. Chuyển PXK, thiếu LK, trả hàng sang phân trang backend.
+  9. Tối ưu bulk/import và validate trước khi cấp ID.
+  10. Sửa selection, reset page, nhận diện Trạm và scope pipeline frontend.
+  11. Thêm index sau khi chạy EXPLAIN QUERY PLAN.
+  12. Viết test ma trận quyền, test transition đồng thời, test scope và test bulk.
+  13. Chạy typecheck, build và kiểm thử API bằng ít nhất các tài khoản Admin, GS, TN, Kho, Kế toán, QC, Trạm, KTV, Vệ
+     tinh.
+
+  Yêu cầu Claude không được chỉ ẩn nút frontend. Mọi quyền, scope và transition phải được xác nhận lại ở backend, đồng
+  thời không được xóa lịch sử nghiệp vụ.

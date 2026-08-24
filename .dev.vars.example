@@ -1,0 +1,11 @@
+SESSION_SECRET=dev-only-local-testing-secret-change-me
+GOOGLE_CLIENT_ID=dev-placeholder-client-id
+GOOGLE_CLIENT_SECRET=dev-placeholder-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:8788/api/auth/callback
+FRONTEND_URL=http://localhost:8788
+GOOGLE_DRIVE_SA_EMAIL=dev-placeholder@example.iam.gserviceaccount.com
+GOOGLE_DRIVE_SA_PRIVATE_KEY=dev-placeholder-private-key
+GOOGLE_DRIVE_FOLDER_ID=dev-placeholder-folder-id
+CASE_LOOKUP_BASE_URL=https://dvbh.dichvu3t.workers.dev
+CASE_LOOKUP_API_KEY=dev-placeholder-case-lookup-key
+LOCAL_DEV_BYPASS_AUTH=true

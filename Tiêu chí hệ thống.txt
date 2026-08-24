@@ -1,0 +1,6 @@
+4 tiêu chí đã lưu:
+
+Mỗi vai trò vào module thấy ngay việc cần xử lý + số tồn đọng rõ ràng theo từng loại (không phải số liệu chung chung).
+Số tồn đọng bấm được → nhảy thẳng tới đúng màn hình/tab/filter xử lý, không bắt tự đi tìm lại.
+Nút hành động "1 chạm" cho thao tác phổ biến nhất trên các màn hình xử lý.
+Hỗ trợ xử lý hàng loạt theo đúng nhu cầu từng vai trò — kể cả import danh sách (Excel), không chỉ phê duyệt/từ chối hàng loạt.
