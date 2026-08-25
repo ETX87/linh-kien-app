@@ -7,13 +7,26 @@ import { Drawer, DrawerNavButtons, useDrawerArrowNav } from "../../components/ui
 import type { Column } from "../../components/ui/PaginatedTable";
 import { useColumnConfig } from "../../components/ui/useColumnConfig";
 import { ColumnSettingsButton, ResizableHeaderCell } from "../../components/ui/ColumnHeader";
+import { KvRow } from "../../components/ui/KvRow";
+import { SectionTitle } from "../../components/ui/SectionTitle";
+import { Timeline } from "../../components/ui/Timeline";
 import { api, buildQuery } from "../../api/client";
 import { fmtDateTime } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import type { ThieuLkRow, LyDoChamRow } from "./types";
-import { THIEU_LK_TRANG_THAI_TONE, THIEU_LK_TRANG_THAI_OPTIONS, TRANG_THAI_DOT_TONE } from "./constants";
+import { THIEU_LK_TRANG_THAI_TONE, THIEU_LK_TRANG_THAI_OPTIONS } from "./constants";
 import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, LOAI_DON_TONE } from "./helpers";
 import { StatusBadge, TrangThaiChipFilter, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar } from "./SharedUi";
+
+// Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
+// cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
+function PriorityTag() {
+  return (
+    <span className="inline-flex items-center gap-0.5 text-[var(--orange-600)] font-extrabold text-xs" title="Đơn ưu tiên">
+      <span aria-hidden>★</span>Ưu tiên
+    </span>
+  );
+}
 
 // ---------- Tab "Thieu linh kien" ----------
 
@@ -204,10 +217,10 @@ export function ThieuLkTab({
         </div>
       )}
       {selected.size > 0 && (
-        <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-3 py-2">
-          <span className="text-sm">Đã chọn {selected.size} dòng</span>
+        <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--indigo-100)] border border-[var(--indigo-600)]/30 rounded-lg px-3 py-2">
+          <span className="text-sm font-bold text-[var(--indigo-700)]">Đã chọn {selected.size} dòng</span>
           {commonBulkStates.length === 0 ? (
-            <span className="text-xs text-[var(--ink-500)]">Các dòng đã chọn không có bước xử lý chung — chọn lại theo cùng trạng thái</span>
+            <span className="text-xs text-[var(--indigo-700)]">Các dòng đã chọn không có bước xử lý chung — chọn lại theo cùng trạng thái</span>
           ) : (
             commonBulkStates.map((s) => (
               <BulkConfirmButton
@@ -372,7 +385,7 @@ function ThieuLkGroupedList({
         <>
           <div className="font-mono text-[10px] text-[var(--ink-400)] truncate">{r.ma_lk ?? r.id}</div>
           <div className="font-medium truncate">
-            {r.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
+            {r.uu_tien === 1 && <PriorityTag />}{" "}
             {r.ten_lk_snapshot ?? r.ma_lk ?? "—"}
           </div>
         </>
@@ -455,65 +468,70 @@ function ThieuLkGroupedList({
         const hoanTat = dongCon.filter((r) => r.trang_thai === "Kho xac nhan hang da ve" || r.trang_thai === "Da ket thuc").length;
         const huyBo = dongCon.filter((r) => r.trang_thai === "Da huy bo" || r.trang_thai === "Kho tu choi sai TT").length;
         return (
-          <div key={nguoiNhan} className="border border-[var(--line)] rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between gap-3 flex-wrap bg-[var(--surface-100)] px-3 py-2">
-              <div className="flex items-center gap-3 flex-wrap text-sm">
-                <span className="font-bold text-[var(--ink-900)]">{formatNguoiDisplay(nguoiNhan, ktvDisplayMap)}</span>
-                <span className="text-[var(--ink-400)] text-xs">{dongCon.length} dòng</span>
-              </div>
-              <div className="flex items-center gap-1 flex-wrap">
+          <div key={nguoiNhan} className="mb-4">
+            {/* SectionTitle + bang rieng ben duoi (concept 1 "Structured Neutral", pattern .section-title
+                + .tblwrap doc lap - khong long bang vao trong 1 the co vien mau nhu truoc). */}
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <SectionTitle>
+                KTV/Người tạo đơn gốc: {formatNguoiDisplay(nguoiNhan, ktvDisplayMap)}
+                <span className="ml-1.5 font-normal normal-case tracking-normal text-[var(--ink-400)]">({dongCon.length} dòng)</span>
+              </SectionTitle>
+              <div className="flex items-center gap-1 flex-wrap mb-2">
                 {choXuLy > 0 && <Badge tone="amber">{choXuLy} chờ xử lý</Badge>}
                 {dangXuLy > 0 && <Badge tone="ocean">{dangXuLy} đang xử lý</Badge>}
                 {hoanTat > 0 && <Badge tone="teal">{hoanTat} hoàn tất</Badge>}
                 {huyBo > 0 && <Badge tone="coral">{huyBo} huỷ/từ chối</Badge>}
               </div>
             </div>
-            <div className="hidden sm:block overflow-x-auto border-t border-[var(--line)]">
-              <table className="w-full min-w-[720px] text-xs border-collapse">
-                <thead>
-                  <tr className="bg-white text-[var(--ink-500)]">
-                    {effectiveColumns.map((col, idx) => (
-                      <ResizableHeaderCell
-                        key={col.key}
-                        col={col}
-                        idx={idx}
-                        isPinned={idx === 0}
-                        width={colWidths[col.key]}
-                        storageKey="dmlk-thieu-lk-list"
-                        dragOverKey={dragOverKey}
-                        setDragOverKey={setDragOverKey}
-                        draggedColKey={draggedColKey}
-                        handleColumnDrop={handleColumnDrop}
-                        handleResizeStart={handleResizeStart}
-                        sortable={false}
-                        isActive={false}
-                      />
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {dongCon.map((r) => (
-                    <tr
-                      key={r.id}
-                      onClick={() => onDetail(r.id)}
-                      className={`cursor-pointer transition-colors border-t border-[var(--line)] ${
-                        r.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)] hover:brightness-95" : "hover:bg-slate-50"
-                      }`}
-                    >
-                      {effectiveColumns.map((col) => {
-                        const width = colWidths[col.key];
-                        return (
-                          <td key={col.key} style={width ? { width, maxWidth: width, overflow: "hidden" } : undefined} className={`px-3 py-1.5 ${col.className ?? ""}`}>
-                            {col.render(r)}
-                          </td>
-                        );
-                      })}
+            <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full min-w-[720px] text-xs border-collapse">
+                  <thead>
+                    {/* Khop dung header PaginatedTable.tsx (bg #FBFBFB, chu ink-400 uppercase 10.5px) - truoc
+                        day dung bg-white text-ink-500, khac chuan da co san. */}
+                    <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[#FBFBFB] border-b border-[var(--line)]">
+                      {effectiveColumns.map((col, idx) => (
+                        <ResizableHeaderCell
+                          key={col.key}
+                          col={col}
+                          idx={idx}
+                          isPinned={idx === 0}
+                          width={colWidths[col.key]}
+                          storageKey="dmlk-thieu-lk-list"
+                          dragOverKey={dragOverKey}
+                          setDragOverKey={setDragOverKey}
+                          draggedColKey={draggedColKey}
+                          handleColumnDrop={handleColumnDrop}
+                          handleResizeStart={handleResizeStart}
+                          sortable={false}
+                          isActive={false}
+                        />
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="sm:hidden border-t border-[var(--line)] divide-y divide-[var(--line)]">
+                  </thead>
+                  <tbody>
+                    {dongCon.map((r) => (
+                      <tr
+                        key={r.id}
+                        onClick={() => onDetail(r.id)}
+                        className={`cursor-pointer transition-colors border-b border-[var(--line)] last:border-0 ${
+                          r.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)] hover:brightness-95" : "hover:bg-slate-50"
+                        }`}
+                      >
+                        {effectiveColumns.map((col) => {
+                          const width = colWidths[col.key];
+                          return (
+                            <td key={col.key} style={width ? { width, maxWidth: width, overflow: "hidden" } : undefined} className={`px-3 py-1.5 ${col.className ?? ""}`}>
+                              {col.render(r)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="sm:hidden divide-y divide-[var(--line)]">
               {dongCon.map((r) => {
                 const nexts = nextStates(r).filter((s) => s.canDo);
                 const t = LOAI_DON_TONE[(r.loai_don as keyof typeof LOAI_DON_TONE) ?? "mua"] ?? LOAI_DON_TONE.mua;
@@ -536,7 +554,7 @@ function ThieuLkGroupedList({
                       <div className="flex-1 min-w-0">
                         <div className="font-mono text-[10px] text-[var(--ink-400)] truncate">{r.ma_lk ?? r.id}</div>
                         <div className="font-medium text-sm truncate">
-                          {r.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
+                          {r.uu_tien === 1 && <PriorityTag />}{" "}
                           {r.ten_lk_snapshot ?? r.ma_lk ?? "—"}
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap mt-1">
@@ -569,6 +587,7 @@ function ThieuLkGroupedList({
                   </div>
                 );
               })}
+            </div>
             </div>
           </div>
         );
@@ -751,63 +770,41 @@ function ThieuLkDetailModal({
       {isLoading ? (
         <div className="text-sm text-[var(--ink-500)] py-4 text-center">Đang tải...</div>
       ) : !t ? null : (
-        <div className="space-y-4 text-sm">
-          <div className="grid grid-cols-2 gap-3 bg-[var(--surface-100)] rounded-xl p-3">
-            <div>
-              <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">TN báo</div>
-              <div className="font-semibold text-[var(--ink-900)]">{formatNguoiDisplay(t.nguoi_tao, ktvDisplayMap)}</div>
+        <div className="text-sm">
+          {/* Khoi thong tin ticket + lich su xu ly doi sang KvRow/SectionTitle/Timeline (concept 1
+              "Structured Neutral" da duyet, 2026-08-24, pattern .kv/.section-title/.timeline). */}
+          <SectionTitle>Thông tin ticket</SectionTitle>
+          <KvRow label="TN báo">{formatNguoiDisplay(t.nguoi_tao, ktvDisplayMap)}</KvRow>
+          <KvRow label="Ngày báo">{fmtDateTime(t.ngay_tao)}</KvRow>
+          <KvRow label="Trạng thái">
+            <div className="flex items-center gap-2 flex-wrap">
+              <StatusBadge value={t.trang_thai} tones={THIEU_LK_TRANG_THAI_TONE} options={THIEU_LK_TRANG_THAI_OPTIONS} />
+              {t.uu_tien === 1 && <PriorityTag />}
             </div>
-            <div>
-              <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Ngày báo</div>
-              <div className="text-[var(--ink-900)]">{fmtDateTime(t.ngay_tao)}</div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <StatusBadge value={t.trang_thai} tones={THIEU_LK_TRANG_THAI_TONE} options={THIEU_LK_TRANG_THAI_OPTIONS} />
-            {t.uu_tien === 1 && <Badge tone="orange">⭐ Ưu tiên</Badge>}
-          </div>
-
+          </KvRow>
           {t.ma_lk && (
-            <div>
-              <div className="font-mono text-xs text-[var(--ink-500)]">{t.ma_lk}</div>
-              <div className="font-semibold text-base">{t.ten_lk_snapshot ?? t.ma_lk}</div>
-            </div>
+            <KvRow label="Mã LK">
+              <span className="font-mono text-xs text-[var(--ink-500)] mr-1.5">{t.ma_lk}</span>
+              <span className="font-semibold">{t.ten_lk_snapshot ?? t.ma_lk}</span>
+            </KvRow>
           )}
+          <KvRow label="Đơn hàng"><span className="font-mono text-xs">{t.dat_don_hang_id}</span></KvRow>
+          <KvRow label="Ngày dự kiến có hàng">{t.ngay_du_kien_co_hang ?? "—"}</KvRow>
+          {t.ten_ly_do && <KvRow label="Lý do TN báo">{t.ten_ly_do}</KvRow>}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Đơn hàng</div>
-              <div className="font-mono text-xs">{t.dat_don_hang_id}</div>
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Ngày dự kiến có hàng</div>
-              <div>{t.ngay_du_kien_co_hang ?? "—"}</div>
-            </div>
-          </div>
-
-          {t.ten_ly_do && (
-            <div className="text-xs text-[var(--ink-600)]">
-              <span className="font-semibold">Lý do TN báo:</span> {t.ten_ly_do}
-            </div>
-          )}
-
-          {(data?.logs.length ?? 0) > 0 && (
-            <div>
-              <div className="font-semibold mb-1">Lịch sử xử lý</div>
-              <ul className="text-xs space-y-1.5 text-[var(--ink-500)]">
-                {data!.logs.map((l) => (
-                  <li key={l.id} className="flex items-start gap-1.5">
-                    <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${TRANG_THAI_DOT_TONE[THIEU_LK_TRANG_THAI_TONE[l.trang_thai] ?? "gray"]}`} />
-                    <span>
-                      {fmtDateTime(l.ngay_xu_ly)} — <span className="font-semibold text-[var(--ink-700)]">{trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, l.trang_thai)}</span> ({l.nguoi_xu_ly})
-                      {l.ghi_chu ? ` — ${l.ghi_chu}` : ""}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <SectionTitle>Lịch sử xử lý</SectionTitle>
+          <Timeline
+            items={(data?.logs ?? []).map((l) => ({
+              title: (
+                <>
+                  {trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, l.trang_thai)}
+                  <span className="font-normal text-[var(--ink-400)]"> ({l.nguoi_xu_ly})</span>
+                  {l.ghi_chu ? ` — ${l.ghi_chu}` : ""}
+                </>
+              ),
+              time: fmtDateTime(l.ngay_xu_ly),
+            }))}
+          />
         </div>
       )}
     </Drawer>

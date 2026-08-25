@@ -8,13 +8,104 @@ import { Select } from "../../components/ui/Select";
 import { PaginatedTable, type Column } from "../../components/ui/PaginatedTable";
 import { useColumnConfig } from "../../components/ui/useColumnConfig";
 import { ColumnSettingsButton } from "../../components/ui/ColumnHeader";
+import { KvRow } from "../../components/ui/KvRow";
+import { SectionTitle } from "../../components/ui/SectionTitle";
+import { Timeline } from "../../components/ui/Timeline";
 import { api, buildQuery, ApiError } from "../../api/client";
 import { fmtDateTime } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
+import { compressImage } from "../../lib/imageCompress";
 import type { TraHangRow } from "./types";
-import { TRA_HANG_TRANG_THAI_TONE, TRA_HANG_TRANG_THAI_OPTIONS, TRA_HANG_BULK_ERROR_MESSAGES, TRANG_THAI_DOT_TONE } from "./constants";
-import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel } from "./helpers";
+import { TRA_HANG_TRANG_THAI_TONE, TRA_HANG_TRANG_THAI_OPTIONS, TRA_HANG_BULK_ERROR_MESSAGES } from "./constants";
+import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, useNenAnhTraHangEnabled } from "./helpers";
 import { ActiveFiltersBar, TrangThaiChipFilter, BulkConfirmButton, FilterSearchBar, StatusBadge } from "./SharedUi";
+
+// Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
+// cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
+function PriorityTag() {
+  return (
+    <span className="inline-flex items-center gap-0.5 text-[var(--orange-600)] font-extrabold text-xs" title="Đơn ưu tiên">
+      <span aria-hidden>★</span>Ưu tiên
+    </span>
+  );
+}
+
+// Panel "QC tu choi - anh bang chung bat buoc" (them 2026-08-24, muc 2: "khi QC duyệt đơn trả hàng:
+// bắt buộc phải có ảnh bằng chứng nếu từ chối") - dung CHUNG cho ca nut hanh dong tren dong bang
+// (TraHangTab) lan footer Drawer (TraHangDetailModal). Moi anh chon UPLOAD + GAN NGAY qua
+// POST /tra-hang/:donHangId/anh (dong da TON TAI luc nay, khac TraHangAnhPicker luc TAO don o
+// SharedUi.tsx - o do dong CHUA sinh nen chi pre-upload). "Xác nhận từ chối" chi bat khi da co >=1
+// anh (khop dung kiem tra o applyTraHangLog backend).
+function QcTuChoiModal({
+  donHangId, onClose, onConfirm, confirmDisabled, confirmLoading, addToast,
+}: {
+  donHangId: string;
+  onClose: () => void;
+  onConfirm: () => void;
+  confirmDisabled?: boolean;
+  confirmLoading?: boolean;
+  addToast: (msg: string) => void;
+}) {
+  const [anh, setAnh] = useState<{ url: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const nenAnh = useNenAnhTraHangEnabled();
+
+  async function handleFile(file: File) {
+    if (anh.length >= 3) return;
+    setUploading(true);
+    try {
+      const upload = nenAnh ? await compressImage(file) : file;
+      const bytes = await upload.arrayBuffer();
+      const res = await api.postBinary<{ ok: true; url: string }>(`/tra-hang/${donHangId}/anh`, bytes, upload.type || "image/jpeg");
+      setAnh((prev) => [...prev, { url: res.url }]);
+    } catch (err) {
+      addToast("Lỗi tải ảnh: " + describeApiError(err));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <Modal open title={`Từ chối dòng ${donHangId} — QC — ảnh bằng chứng (bắt buộc)`} onClose={onClose}>
+      <div className="space-y-3 text-sm">
+        <div className="flex items-center gap-2 flex-wrap">
+          {anh.map((a, i) => (
+            <a key={i} href={a.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2 py-1 text-xs text-[var(--indigo-600)] underline underline-offset-2">
+              📷 Ảnh {i + 1}
+            </a>
+          ))}
+          {anh.length < 3 && (
+            <label
+              className={`text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed cursor-pointer ${
+                uploading ? "opacity-50 pointer-events-none" : "border-[var(--line)] text-[var(--ink-500)] hover:border-[var(--ocean-400)] hover:text-[var(--ocean-600)]"
+              }`}
+            >
+              {uploading ? "Đang tải..." : "+ Thêm ảnh"}
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void handleFile(f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          )}
+        </div>
+        <div className={`text-[11px] ${anh.length === 0 ? "text-[var(--coral-600)]" : "text-[var(--ink-400)]"}`}>{anh.length}/3 ảnh (bắt buộc tối thiểu 1)</div>
+        <div className="flex justify-end gap-2">
+          <Btn variant="ghost" size="sm" onClick={onClose}>Hủy</Btn>
+          <Btn size="sm" variant="danger" disabled={anh.length === 0 || confirmDisabled} loading={confirmLoading} onClick={onConfirm}>
+            Xác nhận từ chối
+          </Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
 
 // ---------- Tab "Don tra hang" (tach hoan toan khoi mua/cong no - buoc 3 ke hoach) ----------
 
@@ -45,6 +136,8 @@ export function TraHangTab({
   // DINH nhat ("Cho TN duyet tong") moi can mo modal nhap ly do bat buoc - 3 buoc KT/Kho/QC dau
   // chuoi van giu "bam thang" nhu cu (khong doi hanh vi cho da so truong hop).
   const [tuChoiTnId, setTuChoiTnId] = useState<string | null>(null);
+  // QC tu choi - anh bang chung bat buoc (them 2026-08-24, muc 2) - xem QcTuChoiModal o tren.
+  const [tuChoiQcId, setTuChoiQcId] = useState<string | null>(null);
   const [ghiChu, setGhiChu] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -98,6 +191,7 @@ export function TraHangTab({
       api.post(`/tra-hang/${args.id}/log`, { hanh_dong: args.hanhDong, ghi_chu: args.ghiChu?.trim() || undefined }),
     onSuccess: () => {
       setTuChoiTnId(null);
+      setTuChoiQcId(null);
       setGhiChu("");
       qc.invalidateQueries({ queryKey: ["tra-hang"] });
       invalidatePipelineCounts(qc);
@@ -105,7 +199,13 @@ export function TraHangTab({
     },
     onError: (err) => {
       const code = err instanceof ApiError ? err.code : undefined;
-      addToast(code === "MISSING_GHI_CHU" ? "Cần nhập lý do khi từ chối bước TN duyệt tổng" : "Lỗi: " + describeApiError(err));
+      addToast(
+        code === "MISSING_GHI_CHU"
+          ? "Cần nhập lý do khi từ chối bước TN duyệt tổng"
+          : code === "MISSING_ANH_QC"
+            ? "Cần tải ít nhất 1 ảnh bằng chứng trước khi từ chối"
+            : "Lỗi: " + describeApiError(err),
+      );
     },
   });
 
@@ -178,7 +278,7 @@ export function TraHangTab({
       key: "ten_lk_snapshot", header: "Tên LK",
       render: (r) => (
         <>
-          {r.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
+          {r.uu_tien === 1 && <PriorityTag />}{" "}
           {r.ten_lk_snapshot ?? r.ma_lk}
         </>
       ),
@@ -198,30 +298,37 @@ export function TraHangTab({
       key: "actions", header: "", mobileHint: "actions",
       render: (r) => {
         if (DA_DONG.includes(r.trang_thai_tra_hang)) return null;
+        // Sap xep nut theo dung nhom concept 1 (renderTraHangFull(): primary D1-D4 truoc, ghost "Lùi
+        // bước" (D5) giua, danger "Huỷ"/"Từ chối" cuoi cung) - CHI doi THU TU hien thi, dieu kien/
+        // handler cua tung nut giu nguyen 100%.
+        const coTheXuLy = canXuLy(r.trang_thai_tra_hang);
+        const coTheDayLui = (canKeToan || canKho) && CO_THE_DAY_LUI.includes(r.trang_thai_tra_hang);
         return (
           <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-            {canXuLy(r.trang_thai_tra_hang) && (
-              <>
-                <Btn size="sm" disabled={logMutation.isPending} loading={logMutation.isPending} onClick={() => logMutation.mutate({ id: r.id, hanhDong: "duyet" })}>Duyệt</Btn>
-                <Btn
-                  size="sm"
-                  variant="danger"
-                  disabled={logMutation.isPending}
-                  onClick={() => {
-                    if (r.trang_thai_tra_hang === "Cho TN duyet tong") {
-                      setTuChoiTnId(r.id);
-                      setGhiChu("");
-                    } else {
-                      logMutation.mutate({ id: r.id, hanhDong: "tu_choi" });
-                    }
-                  }}
-                >
-                  Từ chối
-                </Btn>
-              </>
+            {coTheXuLy && (
+              <Btn size="sm" disabled={logMutation.isPending} loading={logMutation.isPending} onClick={() => logMutation.mutate({ id: r.id, hanhDong: "duyet" })}>Duyệt</Btn>
             )}
-            {(canKeToan || canKho) && CO_THE_DAY_LUI.includes(r.trang_thai_tra_hang) && (
+            {coTheDayLui && (
               <Btn size="sm" variant="ghost" onClick={() => { setLayLuiId(r.id); setGhiChu(""); }}>Đẩy lùi</Btn>
+            )}
+            {coTheXuLy && (
+              <Btn
+                size="sm"
+                variant="danger"
+                disabled={logMutation.isPending}
+                onClick={() => {
+                  if (r.trang_thai_tra_hang === "Cho TN duyet tong") {
+                    setTuChoiTnId(r.id);
+                    setGhiChu("");
+                  } else if (r.trang_thai_tra_hang === "Cho QC xac nhan") {
+                    setTuChoiQcId(r.id);
+                  } else {
+                    logMutation.mutate({ id: r.id, hanhDong: "tu_choi" });
+                  }
+                }}
+              >
+                Từ chối
+              </Btn>
             )}
           </div>
         );
@@ -278,8 +385,8 @@ export function TraHangTab({
         ]}
       />
       {selected.size > 0 && (
-        <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-3 py-2">
-          <span className="text-sm">Đã chọn {selected.size} dòng</span>
+        <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--indigo-100)] border border-[var(--indigo-600)]/30 rounded-lg px-3 py-2">
+          <span className="text-sm font-bold text-[var(--indigo-700)]">Đã chọn {selected.size} dòng</span>
           <BulkConfirmButton
             label="Duyệt tất cả"
             confirmLabel={`Xác nhận duyệt ${selected.size} dòng?`}
@@ -346,6 +453,16 @@ export function TraHangTab({
           </div>
         </Modal>
       )}
+      {tuChoiQcId && (
+        <QcTuChoiModal
+          donHangId={tuChoiQcId}
+          onClose={() => setTuChoiQcId(null)}
+          onConfirm={() => logMutation.mutate({ id: tuChoiQcId, hanhDong: "tu_choi" })}
+          confirmDisabled={logMutation.isPending}
+          confirmLoading={logMutation.isPending}
+          addToast={addToast}
+        />
+      )}
       {tuChoiTnId && (
         <Modal open title={`Từ chối dòng ${tuChoiTnId} — TN duyệt tổng`} onClose={() => setTuChoiTnId(null)}>
           <div className="space-y-3 text-sm">
@@ -393,13 +510,15 @@ function TraHangDetailModal({
   onNavigate?: (id: string) => void;
 }) {
   const [ghiChu, setGhiChu] = useState("");
-  const [actionMode, setActionMode] = useState<"tu_choi_tn" | "day_lui" | null>(null);
+  const [actionMode, setActionMode] = useState<"tu_choi_tn" | "tu_choi_qc" | "day_lui" | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["tra-hang-detail", id],
     queryFn: () =>
       api.get<{
         donHang: TraHangRow;
         logs: Array<{ id: number; trang_thai: string; nguoi_xu_ly: string; ngay_xu_ly: string; ghi_chu: string | null }>;
+        // Anh tra hang (them 2026-08-24) - xem GET /tra-hang/:donHangId o backend.
+        anh: Array<{ id: number; loai: "tao_moi" | "qc_tu_choi"; url: string; nguoi_upload: string; ngay_upload: string }>;
       }>(`/tra-hang/${id}`),
   });
 
@@ -423,7 +542,13 @@ function TraHangDetailModal({
     },
     onError: (err) => {
       const code = err instanceof ApiError ? err.code : undefined;
-      addToast(code === "MISSING_GHI_CHU" ? "Cần nhập lý do khi từ chối bước TN duyệt tổng" : "Lỗi: " + describeApiError(err));
+      addToast(
+        code === "MISSING_GHI_CHU"
+          ? "Cần nhập lý do khi từ chối bước TN duyệt tổng"
+          : code === "MISSING_ANH_QC"
+            ? "Cần tải ít nhất 1 ảnh bằng chứng trước khi từ chối"
+            : "Lỗi: " + describeApiError(err),
+      );
     },
   });
 
@@ -456,6 +581,10 @@ function TraHangDetailModal({
       setGhiChu("");
       return;
     }
+    if (trangThai === "Cho QC xac nhan") {
+      setActionMode("tu_choi_qc");
+      return;
+    }
     logMutation.mutate({ hanhDong: "tu_choi" });
   }
 
@@ -477,6 +606,10 @@ function TraHangDetailModal({
             </Btn>
           </div>
         </div>
+      ) : actionMode === "tu_choi_qc" ? (
+        // QcTuChoiModal render RIENG (overlay Modal, xem ben duoi return chinh) - o day chi can an
+        // het cac nut hanh dong thuong trong luc modal do dang mo.
+        null
       ) : actionMode === "day_lui" ? (
         <div className="space-y-2">
           <div className="font-semibold text-xs">Đẩy lùi 1 bước — lý do</div>
@@ -492,25 +625,39 @@ function TraHangDetailModal({
           </div>
         </div>
       ) : coTheXuLy || coTheDayLui ? (
+        // Sap xep nut theo dung nhom concept 1 (renderTraHangDrawer(): primary D1-D4 truoc, ghost
+        // "Lùi bước" (D5) giua, danger "Từ chối" cuoi cung) - CHI doi THU TU hien thi, dieu kien/
+        // handler cua tung nut giu nguyen 100%.
         <div className="flex items-center gap-2 flex-wrap justify-end">
           {coTheXuLy && (
-            <>
-              <Btn size="sm" onClick={() => logMutation.mutate({ hanhDong: "duyet" })} disabled={logMutation.isPending} loading={logMutation.isPending}>
-                {navNextId && onNavigate ? "Duyệt và tiếp theo →" : "Duyệt"}
-              </Btn>
-              <Btn size="sm" variant="danger" onClick={handleTuChoi} disabled={logMutation.isPending}>Từ chối</Btn>
-            </>
+            <Btn size="sm" onClick={() => logMutation.mutate({ hanhDong: "duyet" })} disabled={logMutation.isPending} loading={logMutation.isPending}>
+              {navNextId && onNavigate ? "Duyệt và tiếp theo →" : "Duyệt"}
+            </Btn>
           )}
           {coTheDayLui && (
             <Btn size="sm" variant="ghost" onClick={() => { setActionMode("day_lui"); setGhiChu(""); }} disabled={logMutation.isPending}>
               Đẩy lùi
             </Btn>
           )}
+          {coTheXuLy && (
+            <Btn size="sm" variant="danger" onClick={handleTuChoi} disabled={logMutation.isPending}>Từ chối</Btn>
+          )}
         </div>
       ) : null
     ) : null;
 
   return (
+    <>
+    {actionMode === "tu_choi_qc" && (
+      <QcTuChoiModal
+        donHangId={id}
+        onClose={() => setActionMode(null)}
+        onConfirm={() => logMutation.mutate({ hanhDong: "tu_choi" })}
+        confirmDisabled={logMutation.isPending}
+        confirmLoading={logMutation.isPending}
+        addToast={addToast}
+      />
+    )}
     <Drawer
       open
       title={`Đơn trả hàng ${id}`}
@@ -530,55 +677,72 @@ function TraHangDetailModal({
       {isLoading ? (
         <div className="text-sm text-[var(--ink-500)] py-4 text-center">Đang tải...</div>
       ) : !d ? null : (
-        <div className="space-y-4 text-sm">
-          <div className="grid grid-cols-2 gap-3 bg-[var(--surface-100)] rounded-xl p-3">
-            <div>
-              <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Người tạo</div>
-              <div className="font-semibold text-[var(--ink-900)]">{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</div>
+        <div className="text-sm">
+          {/* Khoi thong tin don + lich su xu ly doi sang KvRow/SectionTitle/Timeline (concept 1
+              "Structured Neutral" da duyet, 2026-08-24, pattern .kv/.section-title/.timeline). */}
+          <SectionTitle>Thông tin đơn</SectionTitle>
+          <KvRow label="Người tạo">{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</KvRow>
+          <KvRow label="Ngày tạo">{fmtDateTime(d.ngay_tao)}</KvRow>
+          <KvRow label="Trạng thái">
+            <div className="flex items-center gap-2 flex-wrap">
+              <StatusBadge value={trangThai} tones={TRA_HANG_TRANG_THAI_TONE} options={TRA_HANG_TRANG_THAI_OPTIONS} />
+              {d.uu_tien === 1 && <PriorityTag />}
             </div>
-            <div>
-              <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Ngày tạo</div>
-              <div className="text-[var(--ink-900)]">{fmtDateTime(d.ngay_tao)}</div>
-            </div>
-          </div>
+          </KvRow>
+          <KvRow label="Mã LK">
+            <span className="font-mono text-xs text-[var(--ink-500)] mr-1.5">{d.ma_lk}</span>
+            <span className="font-semibold">{d.ten_lk_snapshot ?? d.ma_lk}</span>
+          </KvRow>
+          <KvRow label="SL">{d.so_luong_de_xuat}</KvRow>
+          {d.ghi_chu && <KvRow label="Ghi chú">{d.ghi_chu}</KvRow>}
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <StatusBadge value={trangThai} tones={TRA_HANG_TRANG_THAI_TONE} options={TRA_HANG_TRANG_THAI_OPTIONS} />
-            {d.uu_tien === 1 && <Badge tone="orange">⭐ Ưu tiên</Badge>}
-          </div>
+          {/* Anh tra hang (them 2026-08-24, muc 3: "các ảnh này các vai trò liên quan đến có thể xem
+              được") - moi vai tro xem duoc chi tiet don nay deu xem duoc ca 2 nhom anh. */}
+          {(() => {
+            const anhTaoMoi = (data?.anh ?? []).filter((a) => a.loai === "tao_moi");
+            const anhQc = (data?.anh ?? []).filter((a) => a.loai === "qc_tu_choi");
+            if (anhTaoMoi.length === 0 && anhQc.length === 0) return null;
+            return (
+              <>
+                <SectionTitle>Ảnh</SectionTitle>
+                {anhTaoMoi.length > 0 && (
+                  <KvRow label="Ảnh LK cần trả">
+                    <div className="flex gap-1.5 flex-wrap">
+                      {anhTaoMoi.map((a, i) => (
+                        <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className="text-[var(--indigo-600)] underline underline-offset-2 text-xs">📷 Ảnh {i + 1}</a>
+                      ))}
+                    </div>
+                  </KvRow>
+                )}
+                {anhQc.length > 0 && (
+                  <KvRow label="Ảnh bằng chứng QC">
+                    <div className="flex gap-1.5 flex-wrap">
+                      {anhQc.map((a, i) => (
+                        <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className="text-[var(--indigo-600)] underline underline-offset-2 text-xs">📷 Ảnh {i + 1}</a>
+                      ))}
+                    </div>
+                  </KvRow>
+                )}
+              </>
+            );
+          })()}
 
-          <div>
-            <div className="font-mono text-xs text-[var(--ink-500)]">{d.ma_lk}</div>
-            <div className="font-semibold text-base">{d.ten_lk_snapshot ?? d.ma_lk}</div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">SL</div>
-              <div>{d.so_luong_de_xuat}</div>
-            </div>
-          </div>
-
-          {d.ghi_chu && <div className="text-[var(--ink-500)]">{d.ghi_chu}</div>}
-
-          {(data?.logs.length ?? 0) > 0 && (
-            <div>
-              <div className="font-semibold mb-1">Lịch sử xử lý</div>
-              <ul className="text-xs space-y-1.5 text-[var(--ink-500)]">
-                {data!.logs.map((l) => (
-                  <li key={l.id} className="flex items-start gap-1.5">
-                    <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${TRANG_THAI_DOT_TONE[TRA_HANG_TRANG_THAI_TONE[l.trang_thai] ?? "gray"]}`} />
-                    <span>
-                      {fmtDateTime(l.ngay_xu_ly)} — <span className="font-semibold text-[var(--ink-700)]">{trangThaiLabel(TRA_HANG_TRANG_THAI_OPTIONS, l.trang_thai)}</span> ({l.nguoi_xu_ly})
-                      {l.ghi_chu ? ` — ${l.ghi_chu}` : ""}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <SectionTitle>Lịch sử xử lý</SectionTitle>
+          <Timeline
+            items={(data?.logs ?? []).map((l) => ({
+              title: (
+                <>
+                  {trangThaiLabel(TRA_HANG_TRANG_THAI_OPTIONS, l.trang_thai)}
+                  <span className="font-normal text-[var(--ink-400)]"> ({l.nguoi_xu_ly})</span>
+                  {l.ghi_chu ? ` — ${l.ghi_chu}` : ""}
+                </>
+              ),
+              time: fmtDateTime(l.ngay_xu_ly),
+            }))}
+          />
         </div>
       )}
     </Drawer>
+    </>
   );
 }

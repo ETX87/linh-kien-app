@@ -5,6 +5,8 @@ import { Modal } from "../components/ui/Modal";
 import { Select } from "../components/ui/Select";
 import { ToggleSwitch } from "../components/ui/ToggleSwitch";
 import { Badge } from "../components/ui/Badge";
+import { KvRow } from "../components/ui/KvRow";
+import { SectionTitle } from "../components/ui/SectionTitle";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { api } from "../api/client";
 import { useToast } from "../components/ui/Toast";
@@ -67,6 +69,7 @@ async function parseBulkImportFile(file: File): Promise<BulkImportRow[]> {
 interface BulkImportCatalogRow {
   ma_linh_kien: string; ten_linh_kien: string; gia_ban?: number; gia_tham_chieu?: number;
   don_vi?: string; ghi_chu?: string; dac_thu?: boolean; chi_sua_chua?: boolean; anh_url?: string;
+  phan_loai_dac_thu?: string;
 }
 interface BulkImportCatalogChunkResult {
   done: boolean; nextOffset: number; success: number; errorCount: number;
@@ -134,6 +137,9 @@ async function parseCatalogImportFile(file: File): Promise<BulkImportCatalogRow[
       ghi_chu: pickField(raw, ["Ghi chú", "Ghi chu", "ghi_chu"]) != null ? String(pickField(raw, ["Ghi chú", "Ghi chu", "ghi_chu"])).trim() : undefined,
       dac_thu: toBoolField(pickField(raw, ["Đặc thù", "Dac thu", "dac_thu"])),
       chi_sua_chua: toBoolField(pickField(raw, ["Only sửa chữa", "Chỉ sửa chữa", "chi_sua_chua"])),
+      phan_loai_dac_thu: pickField(raw, ["Phân loại đặc thù", "Phan loai dac thu", "phan_loai_dac_thu"]) != null
+        ? String(pickField(raw, ["Phân loại đặc thù", "Phan loai dac thu", "phan_loai_dac_thu"])).trim()
+        : undefined,
       anh_url: (() => {
         const v = pickField(raw, ["Ảnh", "ẢNH DEMO", "Anh demo", "Ảnh minh hoạ", "anh_url", "anh_demo"]) ?? findColumnByImageKeyword(raw);
         return v != null ? String(v).trim() : undefined;
@@ -293,6 +299,7 @@ function PartDetailDrawer({ part, onClose, onEdit, canEdit }: { part: LinhKienRo
     { label: "Giá bán", value: <span className="font-mono">{fmtVND(part.gia_ban)}</span> },
     { label: "Giá tham chiếu", value: <span className="font-mono">{fmtVND(part.gia_tham_chieu)}</span> },
     { label: "Phân loại", value: part.don_vi ?? "—" },
+    ...(part.dac_thu ? [{ label: "Phân loại đặc thù", value: part.phan_loai_dac_thu?.trim() || "—" }] : []),
   ];
 
   return (
@@ -314,22 +321,26 @@ function PartDetailDrawer({ part, onClose, onEdit, canEdit }: { part: LinhKienRo
 
           <div className="flex flex-wrap gap-1.5">
             {!!part.bat_tat === false && <Badge tone="gray">Đang ẩn</Badge>}
-            {!!part.dac_thu && <Badge tone="amber">Đặc thù — cần TP DVBH xác nhận</Badge>}
+            {!!part.dac_thu && (
+              <Badge tone="amber">
+                Đặc thù{part.phan_loai_dac_thu?.trim() ? `: ${part.phan_loai_dac_thu.trim()}` : ""} — cần TP DVBH xác nhận
+              </Badge>
+            )}
             {!!part.chi_sua_chua && <Badge tone="coral">Only sửa chữa</Badge>}
             {!part.dac_thu && !part.chi_sua_chua && !!part.bat_tat && <Badge tone="teal">Đang hiển thị bình thường</Badge>}
           </div>
 
-          <div className="rounded-xl border border-[var(--line)] divide-y divide-[var(--line)] overflow-hidden">
+          <div>
+            <SectionTitle>Thông tin</SectionTitle>
             {specs.map((s) => (
-              <div key={s.label} className="flex items-center justify-between px-3.5 py-2.5 text-sm">
-                <span className="text-[var(--ink-500)]">{s.label}</span>
-                <span className="font-semibold text-[var(--ink-900)]">{s.value}</span>
-              </div>
+              <KvRow key={s.label} label={s.label}>
+                {s.value}
+              </KvRow>
             ))}
           </div>
 
           <div>
-            <div className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1.5">Ghi chú</div>
+            <SectionTitle>Ghi chú</SectionTitle>
             <div className="text-sm text-[var(--ink-700)] whitespace-pre-wrap rounded-xl bg-[var(--surface-100)] px-3.5 py-2.5 min-h-[2.5rem]">
               {part.ghi_chu?.trim() || <span className="text-[var(--ink-400)]">Không có ghi chú.</span>}
             </div>
@@ -401,7 +412,7 @@ export function DanhMucLinhKienModule() {
   const [catalogImportSummary, setCatalogImportSummary] = useState<{ success: number; errorCount: number; anhLoi: number; coAnh: number } | null>(null);
   const [catalogImportFailDetails, setCatalogImportFailDetails] = useState<{ ma_linh_kien: string; status: string }[]>([]);
   const [form, setForm] = useState({
-    ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false,
+    ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "",
   });
 
   const { data: parts } = useQuery({
@@ -424,12 +435,18 @@ export function DanhMucLinhKienModule() {
   // TAT CA gia tri khac rong dang co san trong danh muc lam goi y qua <datalist>, khong can bang
   // settings/API rieng. Cot DB van ten "don_vi" (khong doi schema) - chi doi NHAN hien thi.
   const phanLoaiOptions = useMemo(() => Array.from(new Set((parts?.rows ?? []).map((p) => p.don_vi).filter((v): v is string => !!v?.trim()))).sort(), [parts?.rows]);
+  // "Phân loại đặc thù" (them 2026-08-25) - CUNG kieu listdown tu do nhu phanLoaiOptions o tren, chi
+  // goi y tu cac gia tri da tung nhap, khong phai danh sach co dinh quan ly rieng qua Settings.
+  const phanLoaiDacThuOptions = useMemo(
+    () => Array.from(new Set((parts?.rows ?? []).map((p) => p.phan_loai_dac_thu).filter((v): v is string => !!v?.trim()))).sort(),
+    [parts?.rows],
+  );
 
   const editingRow = editingMa ? parts?.rows.find((p) => p.ma_linh_kien === editingMa) ?? null : null;
   const viewingRow = viewingMa ? parts?.rows.find((p) => p.ma_linh_kien === viewingMa) ?? null : null;
 
   function openAdd() {
-    setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false });
+    setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "" });
     setStagedImageFile(null);
     setStagedImagePreview(null);
     setFormMode("add");
@@ -450,6 +467,7 @@ export function DanhMucLinhKienModule() {
       ghi_chu: p.ghi_chu ?? "",
       dac_thu: !!p.dac_thu,
       chi_sua_chua: !!p.chi_sua_chua,
+      phan_loai_dac_thu: p.phan_loai_dac_thu ?? "",
     });
     setFormMode("edit");
   }
@@ -503,13 +521,14 @@ export function DanhMucLinhKienModule() {
         ghi_chu: form.ghi_chu.trim() || undefined,
         dac_thu: form.dac_thu,
         chi_sua_chua: form.chi_sua_chua,
+        phan_loai_dac_thu: form.dac_thu ? form.phan_loai_dac_thu.trim() || undefined : undefined,
       }),
     onSuccess: async () => {
       // Anh (neu co chon luc them moi) chi upload duoc BAY GIO - dong vua duoc tao that su trong DB,
       // POST .../anh doi hoi dong da ton tai (xem backend/src/routes/settingsDatMua.ts).
       if (stagedImageFile) await uploadAnhForMa(form.ma_linh_kien.trim(), stagedImageFile);
       addToast("Đã thêm linh kiện mới");
-      setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false });
+      setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "" });
       closeForm();
       qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
     },
@@ -526,6 +545,7 @@ export function DanhMucLinhKienModule() {
         ghi_chu: form.ghi_chu.trim() || null,
         dac_thu: form.dac_thu,
         chi_sua_chua: form.chi_sua_chua,
+        phan_loai_dac_thu: form.dac_thu ? form.phan_loai_dac_thu.trim() || null : null,
       }),
     onSuccess: () => {
       addToast("Đã cập nhật linh kiện");
@@ -634,6 +654,11 @@ export function DanhMucLinhKienModule() {
       render: (p) => (!!p.dac_thu ? <span className="text-xs font-semibold text-[var(--amber-600)]">Đặc thù</span> : <span className="text-xs text-[var(--ink-400)]">—</span>),
     },
     {
+      key: "phan_loai_dac_thu",
+      header: "Phân loại đặc thù",
+      render: (p) => (!!p.dac_thu && p.phan_loai_dac_thu?.trim() ? <span className="text-xs">{p.phan_loai_dac_thu}</span> : <span className="text-xs text-[var(--ink-400)]">—</span>),
+    },
+    {
       key: "chi_sua_chua",
       header: "Only sửa chữa",
       render: (p) => (!!p.chi_sua_chua ? <span className="text-xs font-semibold text-[var(--coral-600)]">Only sửa chữa</span> : <span className="text-xs text-[var(--ink-400)]">—</span>),
@@ -686,6 +711,7 @@ export function DanhMucLinhKienModule() {
                 don_vi: "Phân loại",
                 ghi_chu: "Ghi chú",
                 dac_thu: "Đặc thù",
+                phan_loai_dac_thu: "Phân loại đặc thù",
                 chi_sua_chua: "Only sửa chữa",
                 bat_tat: "Hiển thị",
                 nguoi_cap_nhat: "Người cập nhật",
@@ -775,26 +801,26 @@ export function DanhMucLinhKienModule() {
         <div className="space-y-3">
           {formMode === "add" && (
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Mã linh kiện</label>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Mã linh kiện</label>
               <input value={form.ma_linh_kien} onChange={(e) => setForm({ ...form, ma_linh_kien: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
             </div>
           )}
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Tên linh kiện</label>
+            <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Tên linh kiện</label>
             <input value={form.ten_linh_kien} onChange={(e) => setForm({ ...form, ten_linh_kien: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Giá bán</label>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Giá bán</label>
               <input type="number" value={form.gia_ban} onChange={(e) => setForm({ ...form, gia_ban: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Giá tham chiếu</label>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Giá tham chiếu</label>
               <input type="number" value={form.gia_tham_chieu} onChange={(e) => setForm({ ...form, gia_tham_chieu: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Phân loại</label>
+            <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Phân loại</label>
             <input
               value={form.don_vi}
               onChange={(e) => setForm({ ...form, don_vi: e.target.value })}
@@ -809,7 +835,7 @@ export function DanhMucLinhKienModule() {
             </datalist>
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Ảnh minh hoạ</label>
+            <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Ảnh minh hoạ</label>
             <div className="flex items-center gap-3 mt-1">
               <AnhThumbnail url={formMode === "add" ? stagedImagePreview : editingRow?.anh_demo ?? null} cacheBust={formMode === "edit" ? imgCacheBust || undefined : undefined} size={64} />
               <div className="flex flex-col gap-1">
@@ -838,7 +864,7 @@ export function DanhMucLinhKienModule() {
             </div>
           </div>
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Ghi chú</label>
+            <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Ghi chú</label>
             <textarea value={form.ghi_chu} onChange={(e) => setForm({ ...form, ghi_chu: e.target.value })} rows={2} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
           </div>
           <label className="flex items-center gap-2 text-sm cursor-pointer">
@@ -846,6 +872,25 @@ export function DanhMucLinhKienModule() {
             <span className="font-semibold">Linh kiện đặc thù</span>
           </label>
           <div className="text-xs text-[var(--ink-400)] -mt-2">Khi tạo/duyệt phiếu đặt mua dùng mã này, hệ thống chèn thêm bước "Chờ TP DVBH xác nhận" trước khi Tác nghiệp (TN) duyệt.</div>
+          {/* "Phân loại đặc thù" (them 2026-08-25) - CHI hien khi da tick "Linh kien dac thu" o tren,
+              cung kieu listdown tu do nhu o "Phân loại" (khong bang settings rieng). */}
+          {form.dac_thu && (
+            <div className="-mt-1">
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Phân loại đặc thù</label>
+              <input
+                value={form.phan_loai_dac_thu}
+                onChange={(e) => setForm({ ...form, phan_loai_dac_thu: e.target.value })}
+                list="danh-muc-lk-phan-loai-dac-thu-options"
+                placeholder="Chọn có sẵn hoặc gõ phân loại đặc thù mới..."
+                className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              />
+              <datalist id="danh-muc-lk-phan-loai-dac-thu-options">
+                {phanLoaiDacThuOptions.map((v) => (
+                  <option key={v} value={v} />
+                ))}
+              </datalist>
+            </div>
+          )}
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={form.chi_sua_chua} onChange={(e) => setForm({ ...form, chi_sua_chua: e.target.checked })} className="w-4 h-4" />
             <span className="font-semibold">Only sửa chữa</span>

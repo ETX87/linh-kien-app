@@ -16,10 +16,13 @@ một phiên AI mới không chắc đã được uỷ quyền — đây đều 
      chốt sẵn trong `wrangler.jsonc` — có thể thêm tạm `http://localhost:8788/api/auth/callback` nữa
      để test local trước).
 4. Lưu lại `Client ID` + `Client Secret` — dùng ở bước 4.
-5. Nếu dùng tính năng "Google Drive - ảnh minh hoạ linh kiện" (`GoogleDriveTab` trong
-   `SettingsModule.tsx`): bật thêm Google Drive API cho project này (APIs & Services → Library →
-   Google Drive API → Enable). Không cần tạo thêm credential — dùng chung OAuth Client ở trên với
-   scope `drive.file` (đã khai trong `settingsDatMua.ts`).
+5. Bật thêm Google Drive API cho project này (APIs & Services → Library → Google Drive API →
+   Enable). Không cần tạo thêm credential — dùng chung OAuth Client ở trên với scope `drive.file` (đã
+   khai trong `settingsDatMua.ts`). Kết nối qua `GoogleDriveTab` (Settings) này dùng cho **cả 2**: ảnh
+   minh hoạ linh kiện (Danh mục linh kiện) VÀ ảnh trả hàng (Đặt mua linh kiện › Trả hàng, thêm
+   2026-08-25 - trước đó dùng Service Account riêng, đã đổi hẳn sang OAuth vì hệ chỉ có tài khoản
+   Gmail cá nhân) - nếu chưa kết nối, tạo/từ chối đơn trả hàng sẽ báo lỗi "Chưa kết nối tài khoản
+   Google Drive" khi upload ảnh.
 6. Nếu dùng tính năng upload "ảnh biên bản/bằng chứng chuyển tiền" của PXK (Service Account, khác cơ
    chế OAuth ở trên): APIs & Services → Credentials → Create Credentials → Service Account → tạo key
    JSON → lưu lại `client_email` (→ `GOOGLE_DRIVE_SA_EMAIL`) và `private_key` (→
@@ -127,8 +130,9 @@ FK thật tới `users(email)` (xem `CLAUDE.md`).
    `BOOTSTRAP_ADMIN_EMAIL` (mặc định `smarttrade.vp@gmail.com`, xem `wrangler.jsonc vars` — đổi nếu
    cần) → tự động lên Admin.
 2. Vào trang "Users" → duyệt/gán vai trò + cờ nghiệp vụ cho từng người dùng thật.
-3. Vào trang "Settings" → tab "Google Drive" → kết nối tài khoản Google Drive thật (nếu dùng tính
-   năng ảnh minh hoạ linh kiện) → xác nhận trạng thái "Đã kết nối".
+3. Vào trang "Settings" → tab "Google Drive" → kết nối tài khoản Google Drive thật → xác nhận trạng
+   thái "Đã kết nối" (bắt buộc để ảnh minh hoạ linh kiện VÀ ảnh trả hàng hoạt động - không kết nối thì
+   không tạo/từ chối được đơn trả hàng vì luồng đó bắt buộc phải có ảnh).
 4. Tạo thử 1 đơn hàng ở "Đặt mua linh kiện" → xác nhận ô "Mã yêu cầu sự cố" gọi được
    `case-lookup` (nhập 1 mã case thật đang tồn tại ở hệ gốc, xác nhận preview hiện ra đúng thông
    tin) — nếu lỗi 401/403, kiểm tra lại `CASE_LOOKUP_API_KEY`/bước 5.

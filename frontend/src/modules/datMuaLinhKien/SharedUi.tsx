@@ -1,7 +1,9 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { Btn, type BtnVariant } from "../../components/ui/Btn";
 import { Badge, type BadgeTone } from "../../components/ui/Badge";
-import { trangThaiLabel } from "./helpers";
+import { api } from "../../api/client";
+import { compressImage } from "../../lib/imageCompress";
+import { trangThaiLabel, describeApiError, useNenAnhTraHangEnabled } from "./helpers";
 
 // Cac component UI dung chung nhieu tab cua module "Dat mua linh kien" (tach tu
 // DatMuaLinhKienModule.tsx - UI redesign Phase 3, phan hoi Codex 2026-08-19).
@@ -81,10 +83,13 @@ export function FilterSearchBar({
     <>
       <div className="flex items-center gap-2 mb-2 flex-wrap justify-between">
         <div className="flex items-center gap-2 flex-wrap">
+          {/* DOI STYLE (2026-08-24, khop nut ".btn" cua concept 1 "Structured Neutral" - vien mong 1px,
+              KHONG shadow, chu semibold 600, hover doi nen sang token surface-100 thay vi mau slate
+              cung "roi" khoi bang mau he thong) - CHI doi className, khong doi hanh vi/logic. */}
           <button
             type="button"
             onClick={onToggleFilters}
-            className="focus-ring inline-flex items-center gap-1 rounded-lg border border-[var(--line)] bg-white px-2.5 py-1.5 text-sm font-medium text-[var(--ink-600)] hover:bg-slate-50"
+            className="focus-ring inline-flex items-center gap-1 rounded-lg border border-[var(--line)] bg-white px-2.5 py-1.5 text-sm font-semibold text-[var(--ink-600)] hover:bg-[var(--surface-100)]"
           >
             {showFilters ? "▲ Ẩn bộ lọc" : `☰ Bộ lọc${activeFilterCount > 0 ? ` (${activeFilterCount})` : ""} ▾`}
           </button>
@@ -170,6 +175,74 @@ export function BulkConfirmButton({
   );
 }
 
+
+// Anh linh kien can tra (phan hoi 2026-08-24, muc 1: "bắt buộc phải có ảnh... tối đa 3 ảnh") - dung
+// luc TAO don tra hang (TaoDonTab.tsx/TaoDonMobileScreen.tsx). Moi anh chon xong UPLOAD NGAY qua
+// POST /tra-hang/upload-anh (pre-upload len Drive, CHUA gan vao dong nao - id dong con chua sinh luc
+// nay), giu {driveFileId, url} trong state cua form (xem DonHangDraft.anh) de gui kem luc submit
+// POST /phieu-dat that su gan vao dong vua sinh (xem datMuaLinhKien.ts).
+export function TraHangAnhPicker({
+  photos, onChange, addToast, max = 3,
+}: {
+  photos: { driveFileId: string; url: string }[];
+  onChange: (next: { driveFileId: string; url: string }[]) => void;
+  addToast: (msg: string) => void;
+  max?: number;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const nenAnh = useNenAnhTraHangEnabled();
+  async function handleFile(file: File) {
+    if (photos.length >= max) return;
+    setUploading(true);
+    try {
+      const upload = nenAnh ? await compressImage(file) : file;
+      const bytes = await upload.arrayBuffer();
+      const res = await api.postBinary<{ driveFileId: string; url: string }>("/tra-hang/upload-anh", bytes, upload.type || "image/jpeg");
+      onChange([...photos, res]);
+    } catch (err) {
+      addToast("Lỗi tải ảnh: " + describeApiError(err));
+    } finally {
+      setUploading(false);
+    }
+  }
+  return (
+    <div>
+      <div className="flex items-center gap-2 flex-wrap">
+        {photos.map((p, i) => (
+          <span key={p.driveFileId} className="inline-flex items-center gap-1.5 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2 py-1 text-xs">
+            <a href={p.url} target="_blank" rel="noreferrer" className="text-[var(--indigo-600)] underline underline-offset-2">
+              📷 Ảnh {i + 1}
+            </a>
+            <button type="button" onClick={() => onChange(photos.filter((_, j) => j !== i))} className="text-[var(--coral-600)] font-bold leading-none" title="Xoá ảnh này">
+              ✕
+            </button>
+          </span>
+        ))}
+        {photos.length < max && (
+          <label
+            className={`text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed cursor-pointer ${
+              uploading ? "opacity-50 pointer-events-none" : "border-[var(--line)] text-[var(--ink-500)] hover:border-[var(--ocean-400)] hover:text-[var(--ocean-600)]"
+            }`}
+          >
+            {uploading ? "Đang tải..." : "+ Thêm ảnh"}
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void handleFile(f);
+                e.target.value = "";
+              }}
+            />
+          </label>
+        )}
+      </div>
+      <div className={`text-[11px] mt-1 ${photos.length === 0 ? "text-[var(--coral-600)]" : "text-[var(--ink-400)]"}`}>{photos.length}/{max} ảnh (bắt buộc tối thiểu 1)</div>
+    </div>
+  );
+}
 
 // Cot "Ma yeu cau su co lien quan" - bam mo popup chi tiet ca (App.tsx openCase) CHI khi
 // canXemChiTietCa (khong phai KTV/CTV/Tram, xem comment canXemChiTietCa o DatMuaLinhKienModule) VA

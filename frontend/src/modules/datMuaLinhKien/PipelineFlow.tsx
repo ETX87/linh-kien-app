@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
+import { Btn } from "../../components/ui/Btn";
 import type { LuongQuyTrinhStep, JumpTarget } from "./types";
-import { STEP_SHORT_LABEL, STEP_DESCRIPTION, PIPELINE_NOTCH, PIPELINE_SEG_WIDTH, PXK_TRANG_THAI_TONE, PXK_MINI_STEPS, PXK_MINI_LABEL, PXK_MINI_NHANH_RE, PXK_MINI_SEG_WIDTH } from "./constants";
+import { STEP_SHORT_LABEL, STEP_DESCRIPTION, PIPELINE_NOTCH, PXK_TRANG_THAI_TONE, PXK_MINI_STEPS, PXK_MINI_LABEL, PXK_MINI_NHANH_RE, PXK_MINI_SEG_WIDTH } from "./constants";
 
 // "Luong quy trinh" pipeline UI (thanh chevron so dem theo buoc) dung chung boi DatMuaLinhKienModule
 // (tab tong quan) va PhieuXuatKhoTab (mini-pipeline PXK) - tach tu DatMuaLinhKienModule.tsx (UI
@@ -67,37 +68,53 @@ export function pipelineChevronClip(hasLeftNotch: boolean, hasRightPoint: boolea
   if (hasLeftNotch) pts.push(`${d}px 50%`);
   return `polygon(${pts.join(", ")})`;
 }
+// DOI MAU (2026-08-24, khop concept 1 "Structured Neutral"): gradient truoc dung tong ocean
+// (--ocean-100 #ddf1fb -> gan --ocean-800 #0a4666) - doi sang tong indigo (--indigo-100 #eef2ff ->
+// --indigo-700 #3730a3), khop accent chinh cua concept 1, KHONG dung CSS var truc tiep (can noi suy
+// tung mau theo t) nen ghi thang RGB tuong ung 2 token do - CHI doi mau, KHONG doi hinh hoc/nguong t.
 export function pipelineGradientStyle(t: number): { background: string; color: string } {
-  const r = Math.round(221 + (10 - 221) * t);
-  const g = Math.round(241 + (70 - 241) * t);
-  const b = Math.round(251 + (102 - 251) * t);
-  return { background: `rgb(${r}, ${g}, ${b})`, color: t > 0.55 ? "#ffffff" : "#0e5d85" };
+  const r = Math.round(238 + (55 - 238) * t);
+  const g = Math.round(242 + (48 - 242) * t);
+  const b = Math.round(255 + (163 - 255) * t);
+  return { background: `rgb(${r}, ${g}, ${b})`, color: t > 0.55 ? "#ffffff" : "#3730a3" };
 }
-// CHOT (ra soat module "Dat Mua Linh Kien 2.0" #15):
-// 1) Gradient mo dan (mask) o mep phai khi con noi dung bi cat - tu an khi da cuon het, dua theo
-//    scrollLeft that su (khong phai gia dinh tinh).
-// 2) onJump tu day (khong phai tu BaoCaoTab) LUON truyen nguoiNhanHang="" - so lieu tren pipeline la
-//    TOAN HE THONG nen khi nhay sang tab dich phai CHU DONG xoa filter KTV cu dang ap dung, tranh
-//    danh sach dich bi loc hep con so tren pipeline lai la tong toan he thong (khong khop nhau).
-// 3) Cum "Tra hang" (6 buoc tra_hang_*) chi DOI MAU NEN (coral co dinh) o trang thai "yen" (khong
-//    urgent/attention) thay vi gradient theo vi tri nhu cac buoc khac - GIU NGUYEN hinh chevron/kich
-//    thuoc (chot voi chu he thong: "chỉ cần tô màu khác, không vẽ lại" - khong doi sang bo tron/pill).
+// THIET KE LAI (2026-08-24, theo yeu cau chu he thong "vẽ UI thử" -> duyet phuong an "dai the theo
+// luong, moi giai doan 1 mau"): bo han co che chevron long khop clip-path (pipelineChevronClip/
+// pipelineGradientStyle van GIU LAI ben tren - PxkMiniPipeline van dung, chi PipelineFlow doi cach ve).
+// Moi buoc (step) gio thuoc VE 1 TRONG 4 "LANE" theo dung luong nghiep vu, moi lane 1 mau rieng (dung
+// lai dung cac tong mau da co san trong tokens.css, khong bia mau moi ngoai 4 sac bo sung o tren) -
+// giup nhin la phan biet ngay dang xem so lieu cua luong nao, thay vi phai doc nhan chu.
+type LaneKey = "mua_cong_no" | "thieu_lk" | "pxk" | "tra_hang";
+const LANE_ORDER: LaneKey[] = ["mua_cong_no", "thieu_lk", "pxk", "tra_hang"];
+const LANE_META: Record<LaneKey, { label: string; bg: string; border: string; labelColor: string; numColor: string }> = {
+  mua_cong_no: { label: "Mua hàng / Công nợ", bg: "var(--ocean-100)", border: "var(--ocean-500)", labelColor: "var(--ocean-700)", numColor: "var(--ocean-800)" },
+  thieu_lk: { label: "Thiếu LK", bg: "var(--coral-100)", border: "var(--coral-500)", labelColor: "var(--coral-600)", numColor: "var(--coral-700)" },
+  pxk: { label: "Phiếu xuất kho", bg: "var(--teal-100)", border: "var(--teal-500)", labelColor: "var(--teal-600)", numColor: "var(--teal-700)" },
+  // "Tra hang" gom CA 3 buoc PXK rieng cua luong tra hang (tra_hang_tao_pxk/pxk_kt/pxk_kho, tab that
+  // su la "phieu-xuat-kho") lan 4 buoc D1-D4 (tab "tra-hang") - phan biet theo TIEN TO key
+  // "tra_hang_" (xem laneOf), KHONG theo field `tab`, vi 2 nhom nay khac tab nhung cung 1 luong nghiep
+  // vu tra hang nen phai gom chung 1 mau (khop dung STEP_SHORT_LABEL da dat tien to "Trả·" cho ca 7).
+  tra_hang: { label: "Trả hàng", bg: "var(--violet-100)", border: "var(--violet-500)", labelColor: "var(--violet-600)", numColor: "var(--violet-700)" },
+};
+function laneOf(s: LuongQuyTrinhStep): LaneKey {
+  if (s.key.startsWith("tra_hang_")) return "tra_hang";
+  if (s.tab === "thieu-lk") return "thieu_lk";
+  if (s.tab === "phieu-xuat-kho") return "pxk";
+  return "mua_cong_no";
+}
 export function PipelineFlow({
   steps, myRoleKeys, onJump, onCreateDon, canCreateDon, inHeader, collapsed, onToggleCollapsed,
 }: {
   steps: LuongQuyTrinhStep[]; myRoleKeys: Set<string>; onJump: (t: JumpTarget) => void;
-  // CHOT (theo yeu cau bo sung sau ra soat): "Buoc 0 - Tao don" dat DAU thanh pipeline - KHONG den tu
-  // /luong-quy-trinh (khong phai 1 so dem, la 1 LOI TAT hanh dong luon co san bat ke co viec cho hay
-  // khong) - bam mo thang TaoDonTab thay vi nhay tab+filter nhu cac buoc con lai.
+  // CHOT (theo yeu cau bo sung sau ra soat): nut "Tao don" la loi tat hanh dong LUON CO SAN bat ke co
+  // viec cho hay khong - KHONG den tu /luong-quy-trinh (khong phai 1 so dem).
   onCreateDon: () => void;
   canCreateDon: boolean;
   // Khi duoc portal len cung hang voi tieu de trang (App.tsx headerExtra) - bo margin-bottom vi luc
   // do no la 1 flex item CANH tieu de, khong con la 1 khoi rieng phia tren noi dung.
   inHeader?: boolean;
   // UI redesign (phan hoi Codex 2026-08-19, muc P1#3): thu gon danh sach TOAN BO cac buoc (toan he
-  // thong) mac dinh, chi giu "+ Tao don" luon hien (day la loi tat hanh dong, KHONG duoc an - xem
-  // comment onCreateDon o tren) + 1 nut toggle rieng NGOAI khoi pill chevron (tranh dung vao logic
-  // hinh hoc clip-path da duoc tinh chinh rat ky o cac vong truoc).
+  // thong) mac dinh, chi giu "+ Tao don" luon hien (day la loi tat hanh dong, KHONG duoc an).
   collapsed: boolean;
   onToggleCollapsed: () => void;
 }) {
@@ -117,7 +134,7 @@ export function PipelineFlow({
       el.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
     };
-  }, [steps.length, canCreateDon]);
+  }, [steps.length, canCreateDon, collapsed]);
 
   if (steps.length === 0 && !canCreateDon) return null;
   // SUA BUG (phan hoi 2026-08-19 #2, "xem full luồng quy trình bị tràn màn hình"): thieu min-w-0 tren
@@ -126,95 +143,73 @@ export function PipelineFlow({
   // phep overflow-x-auto ben trong tu cuon. Dac biet nghiem trong khi inHeader=true (portal vao
   // headerExtra cua App.tsx, 1 flex-row hep canh tieu de trang) - min-w-0 phai co O CA 2 CAP thi
   // overflow-x-auto moi thuc su phat huy tac dung thay vi day tran ca trang.
+  const lanes = LANE_ORDER.map((key) => ({ key, meta: LANE_META[key], items: steps.filter((s) => laneOf(s) === key) })).filter((l) => l.items.length > 0);
   return (
     <div className={`flex items-center gap-2 min-w-0 ${inHeader ? "" : "mb-3"}`}>
-      <div className="relative min-w-0 flex-1">
-      <div ref={scrollRef} className="overflow-x-auto pb-0.5">
-        <div className="flex w-max items-stretch overflow-hidden rounded-full border border-[var(--line)] bg-[var(--surface)] py-1 shadow-sm">
-          {canCreateDon && (
-            <div className="shrink-0">
-              <button
-                type="button"
-                onClick={onCreateDon}
-                style={{
-                  width: PIPELINE_SEG_WIDTH,
-                  clipPath: pipelineChevronClip(false, true),
-                  paddingLeft: 14,
-                  paddingRight: PIPELINE_NOTCH + 6,
-                  background: "var(--teal-500)",
-                  color: "white",
-                }}
-                className="focus-ring flex h-full flex-col items-center justify-center py-2 text-center transition-all hover:brightness-95"
-                title="Tạo đơn đặt linh kiện mới"
-              >
-                <span className="text-[10px] font-semibold leading-tight">＋ Tạo đơn</span>
-              </button>
-            </div>
-          )}
-          {!collapsed && steps.map((s, i) => {
-            const isMine = s.roleKeys.some((r) => myRoleKeys.has(r));
-            const hasCount = s.count > 0;
-            const urgent = hasCount && isMine;
-            const attention = hasCount && !isMine;
-            const isTraHang = s.key.startsWith("tra_hang_");
-            const toneClass = urgent ? "bg-[var(--coral-500)] text-white" : attention ? "bg-[var(--amber-500)] text-white" : "";
-            // "Tao don" (neu co) luon dung TRUOC nen tu step data dau tien (i===0) tro di deu co 1
-            // buoc dung truoc no roi - chi that su la "diem dau tien cua ca thanh" khi KHONG co nut
-            // Tao don VA i===0.
-            const isVeryFirst = i === 0 && !canCreateDon;
-            const t = steps.length > 1 ? i / (steps.length - 1) : 0;
-            return (
-              <div
-                key={s.key}
-                className={`shrink-0 ${urgent ? "pipeline-urgent-ring" : ""}`}
-                style={{ marginLeft: isVeryFirst ? 0 : -PIPELINE_NOTCH }}
-              >
-                <button
-                  type="button"
-                  onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
-                  style={{
-                    width: PIPELINE_SEG_WIDTH,
-                    clipPath: pipelineChevronClip(!isVeryFirst, true),
-                    paddingLeft: isVeryFirst ? 14 : PIPELINE_NOTCH + 6,
-                    paddingRight: PIPELINE_NOTCH + 6,
-                    ...(toneClass ? {} : isTraHang ? { background: "var(--coral-100)", color: "var(--coral-700)" } : pipelineGradientStyle(t)),
-                  }}
-                  className={`focus-ring flex h-full flex-col items-center justify-center py-2 text-center transition-all hover:brightness-95 ${toneClass}`}
-                  title={STEP_DESCRIPTION[s.key] ?? s.label}
-                >
-                  <span className="flex items-center gap-1">
-                    {urgent && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white motion-safe:animate-pulse" />}
-                    <span className="text-[10px] font-semibold leading-tight">{STEP_SHORT_LABEL[s.key] ?? s.label}</span>
+      {canCreateDon && (
+        <Btn size="sm" onClick={onCreateDon} className="shrink-0" title="Tạo đơn đặt linh kiện mới">
+          ＋ Tạo đơn
+        </Btn>
+      )}
+      {!collapsed && (
+        <div className="relative min-w-0 flex-1">
+          <div ref={scrollRef} className="overflow-x-auto pb-0.5">
+            {/* SUA (phan hoi chu he thong 2026-08-24 lan 2: "vẫn là ô vuông như ban đầu nhưng thu gọn
+                lại, không phải chuyển thành ô li") - QUAY LAI dang O VUONG/CHU NHAT (so xep TREN, nhan
+                xep DUOI, ca 2 giua tam), KHONG dung dang tron-so+nhan-inline (pill) cua ban truoc -
+                chi thu nho kich thuoc con khoang 1 nua so voi o vuong GOC (truoc do min-w-[62px]/
+                text-sm+text-[10px] -> gio min-w-[32px]/text-[11px]+text-[7px]). Nhan lane van dat
+                NGANG HANG truoc nhom o cua no (khong phai 1 dong rieng phia tren) de ca thanh van gon
+                trong 1 dong duy nhat nhu yeu cau lan truoc. */}
+            <div className="flex items-center gap-2 w-max border border-[var(--line)] bg-[var(--surface)] rounded-xl px-2 py-1.5">
+              {lanes.map((lane, laneIdx) => (
+                <div key={lane.key} className="flex items-center gap-1 shrink-0">
+                  {laneIdx > 0 && <span className="w-px h-6 bg-[var(--line)] mr-1" aria-hidden />}
+                  <span className="text-[8.5px] font-bold uppercase tracking-wide shrink-0" style={{ color: lane.meta.labelColor }}>
+                    {lane.meta.label}
                   </span>
-                  <span className={`leading-tight tabular-nums ${hasCount ? "text-sm font-extrabold" : "text-xs font-medium opacity-80"}`}>{s.count}</span>
-                </button>
-              </div>
-            );
-          })}
-          {!collapsed && (
-            <div
-              style={{
-                width: PIPELINE_SEG_WIDTH,
-                clipPath: pipelineChevronClip(true, false),
-                marginLeft: -PIPELINE_NOTCH,
-                paddingLeft: PIPELINE_NOTCH + 6,
-                paddingRight: 14,
-              }}
-              className="flex shrink-0 flex-col items-center justify-center bg-[var(--surface-100)] py-2 text-center text-[var(--ink-400)]"
-            >
-              <span className="text-[10px] font-semibold leading-tight">🏁 Kết thúc</span>
+                  <div className="flex items-center gap-1">
+                    {lane.items.map((s) => {
+                      const isMine = s.roleKeys.some((r) => myRoleKeys.has(r));
+                      const hasCount = s.count > 0;
+                      return (
+                        <button
+                          key={s.key}
+                          type="button"
+                          onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
+                          style={{ background: lane.meta.bg, borderColor: lane.meta.border }}
+                          className="focus-ring relative flex min-w-[32px] flex-col items-center justify-center gap-0 rounded-md border py-1 px-1 text-center transition-transform hover:-translate-y-0.5"
+                          title={STEP_DESCRIPTION[s.key] ?? s.label}
+                        >
+                          {isMine && hasCount && (
+                            <span className="absolute top-0.5 right-0.5 h-1 w-1 rounded-full bg-[var(--indigo-600)]" title="Việc của bạn" />
+                          )}
+                          <span
+                            className="text-[11px] font-extrabold leading-none tabular-nums"
+                            style={{ color: hasCount ? lane.meta.numColor : "var(--ink-400)" }}
+                          >
+                            {s.count}
+                          </span>
+                          <span className="text-[7px] font-semibold leading-none mt-0.5 whitespace-nowrap" style={{ color: hasCount ? lane.meta.labelColor : "var(--ink-400)" }}>
+                            {STEP_SHORT_LABEL[s.key] ?? s.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
+          </div>
+          {canScrollRight && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute top-0 right-0 bottom-0.5 w-10 rounded-r-xl"
+              style={{ background: "linear-gradient(to right, transparent, var(--bg))" }}
+            />
           )}
         </div>
-      </div>
-      {canScrollRight && !collapsed && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute top-0 right-0 bottom-0.5 w-10 rounded-r-full"
-          style={{ background: "linear-gradient(to right, transparent, var(--bg))" }}
-        />
       )}
-      </div>
       {steps.length > 0 && (
         <button
           type="button"
@@ -240,8 +235,11 @@ export function PxkMiniPipeline({ trangThai }: { trangThai: string }) {
           // ca 5 buoc chinh deu coi la nen/trung tinh, khong to dam buoc nao tren truc nua.
           const daQua = idxHienTai >= 0 && i < idxHienTai;
           const dangO = idxHienTai >= 0 && i === idxHienTai;
+          // DOI MAU (2026-08-24, khop concept 1): "dang o" (buoc hien tai cua chinh PXK nay) tu ocean
+          // sang indigo - dong bo voi accent chinh cua concept 1, CHI doi mau nen/chu, khong doi hinh
+          // hoc/logic dangO/daQua.
           const toneStyle = dangO
-            ? { background: "var(--ocean-500)", color: "white" }
+            ? { background: "var(--indigo-600)", color: "white" }
             : daQua
               ? { background: "var(--teal-100)", color: "var(--teal-700)" }
               : { background: "var(--surface-100)", color: "var(--ink-400)" };

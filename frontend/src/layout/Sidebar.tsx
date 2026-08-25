@@ -50,26 +50,23 @@ export function Sidebar({
       </div>
       <nav className="flex-1 overflow-y-auto sidebar-scroll py-3 px-2.5">
         {NAV_GROUPS.map((g) => {
-          const items = g.items.filter((i) => allowedModules.includes(i.key));
+          // "href" (lien ket ra ngoai, xem navConfig.ts) LUON hien cho MOI nguoi dang nhap, khong loc
+          // qua allowedModules - muc do khong phai 1 view noi bo cua app nay nen khong co khai niem
+          // "duoc cap quyen xem" giong cac module con lai.
+          const items = g.items.filter((i) => i.href || allowedModules.includes(i.key));
           if (items.length === 0) return null;
           return (
             <div key={g.label} className="mb-4">
               {(!collapsed || isMobile) && <div className="text-[10px] uppercase tracking-wider font-bold text-[var(--sidebar-ink-dim)] px-2.5 mb-1.5">{g.label}</div>}
               {items.map((it) => {
                 const count = !it.countKey || !counts ? 0 : counts.datMuaLk.total;
-                return (
-                  <button
-                    key={it.key}
-                    onClick={() => {
-                      setActive(it.key);
-                      if (isMobile) onMobileClose();
-                    }}
-                    className={`focus-ring w-full flex items-center gap-3 px-2.5 py-2 rounded-xl mb-0.5 text-sm font-semibold transition-colors border-l-[3px] ${
-                      active === it.key
-                        ? "bg-[var(--sidebar-highlight)] text-[var(--sidebar-ink)] border-[var(--indigo-600)]"
-                        : "border-transparent text-[var(--sidebar-ink-mid)] hover:bg-[var(--sidebar-highlight)] hover:text-[var(--sidebar-ink)]"
-                    }`}
-                  >
+                const itemClassName = `focus-ring w-full flex items-center gap-3 px-2.5 py-2 rounded-xl mb-0.5 text-sm font-semibold transition-colors border-l-[3px] ${
+                  active === it.key
+                    ? "bg-[var(--sidebar-highlight)] text-[var(--sidebar-ink)] border-[var(--indigo-600)]"
+                    : "border-transparent text-[var(--sidebar-ink-mid)] hover:bg-[var(--sidebar-highlight)] hover:text-[var(--sidebar-ink)]"
+                }`;
+                const itemContent = (
+                  <>
                     <span className="w-6 text-center text-base">{it.icon}</span>
                     {(!collapsed || isMobile) && (
                       <>
@@ -77,6 +74,29 @@ export function Sidebar({
                         {count > 0 && <span className="shrink-0 text-xs text-[var(--sidebar-ink-dim)] font-medium">({count})</span>}
                       </>
                     )}
+                  </>
+                );
+                // Muc "href" (them 2026-08-25) - dieu huong THAT sang he/app khac (khong phai
+                // setActive noi bo), dung <a> chuan thay vi <button onClick> de trinh duyet tu xu ly
+                // dieu huong "mượt" (khong can JS rieng), giu nguyen tab hien tai (khong target=_blank
+                // - dung y "chuyển sang trang" cua nguoi dung, khac "mo tab moi").
+                if (it.href) {
+                  return (
+                    <a key={it.key} href={it.href} className={itemClassName}>
+                      {itemContent}
+                    </a>
+                  );
+                }
+                return (
+                  <button
+                    key={it.key}
+                    onClick={() => {
+                      setActive(it.key);
+                      if (isMobile) onMobileClose();
+                    }}
+                    className={itemClassName}
+                  >
+                    {itemContent}
                   </button>
                 );
               })}

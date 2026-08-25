@@ -18,6 +18,14 @@ interface CacheEntry {
   anh_demo: string | null;
   bat_tat: number;
   chi_sua_chua: number;
+  // BUG THAT (phat hien 2026-08-25, khi kiem thu tinh nang "note linh kien đặc thù" trong
+  // LinhKienPicker.tsx): "dac_thu" da co san tren API/DB tu truoc nhung CHUA TUNG duoc whitelist o
+  // day - moi lan qua cache nay (LUON DUNG boi TaoDonTab/DonCuaToiTab qua useLkAndLdeCache) deu bi
+  // XOA MAT truong nay, khien moi tinh nang dua tren "options[i].dac_thu" o cac man tao/sua don deu
+  // luon nhan gia tri undefined du DB that su co dac_thu=1.
+  dac_thu: number;
+  // "phan_loai_dac_thu" (them 2026-08-25) - xem giai thich o types.ts LinhKienRow.
+  phan_loai_dac_thu: string | null;
   nguoi_cap_nhat: string | null;
   ngay_cap_nhat: string | null; // ISO timestamp
 }
@@ -81,6 +89,8 @@ export async function mergeLinhKienToCache(rows: LinhKienRow[]): Promise<void> {
         anh_demo: row.anh_demo,
         bat_tat: row.bat_tat,
         chi_sua_chua: row.chi_sua_chua,
+        dac_thu: row.dac_thu,
+        phan_loai_dac_thu: row.phan_loai_dac_thu,
         nguoi_cap_nhat: row.nguoi_cap_nhat,
         ngay_cap_nhat: row.ngay_cap_nhat,
       });

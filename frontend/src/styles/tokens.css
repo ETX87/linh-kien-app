@@ -73,6 +73,16 @@
      dung o dau khac trong he thong. */
   --violet-600: #7c3aed;
   --violet-500: #8b5cf6;
+  /* Them (2026-08-24) - "PipelineFlow" doi tu chevron sang dai the theo luong, moi luong 1 mau rieng
+     (yeu cau chu he thong). violet dung lam mau luong "Tra hang" nhung truoc do chi co 500/600, thieu
+     sac nhat (nen the)/dam (chu so khi >0) - bo sung cho DU bo 3 sac giong ocean/teal/coral da co san,
+     KHONG doi cac gia tri 500/600 cu (dang dung cho vien input noi bat trong module). Tuong tu them
+     teal-700/coral-700 (truoc chi co toi 600) lam mau chu so ">0" du dam de doc tren nen -100 nhat.
+  */
+  --violet-100: #ede9fe;
+  --violet-700: #4c1d95;
+  --teal-700: #0a5a52;
+  --coral-700: #7a2424;
 }
 
 * {

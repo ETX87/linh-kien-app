@@ -5,6 +5,12 @@ export interface NavItem {
   label: string;
   icon: string;
   countKey?: "datMuaLk";
+  // "href" (them 2026-08-25, phan hoi "chuyển mượt sang trang suachua.dichvu3t.workers.dev") - danh
+  // dau 1 muc menu la LIEN KET RA NGOAI (he Worker/app khac hoan toan, khong phai 1 view noi bo cua
+  // app nay), KHONG tham gia co che allowedModules/setActive binh thuong - Sidebar.tsx render <a
+  // href> that thay vi <button onClick={setActive}>, va LUON hien cho MOI nguoi dang nhap (khong loc
+  // theo allowedModules) vi day chi la 1 duong dan ra ngoai, khong lo du lieu gi cua app nay.
+  href?: string;
 }
 export interface NavGroup {
   label: string;
@@ -23,6 +29,8 @@ export const NAV_GROUPS: NavGroup[] = [
       // muc menu rieng nay thanh dư thua. Route forceView="tra-hang" o App.tsx GIU NGUYEN (khong
       // xoa) vi khong con duong nao tro toi no nua sau khi bo dong nay.
       { key: "danh-muc-lk", label: "Danh mục linh kiện", icon: "🔧" },
+      // Lien ket ra ngoai (them 2026-08-25) - xem giai thich day du o NavItem.href phia tren.
+      { key: "sua-chua-bao-hanh", label: "Sửa chữa bảo hành", icon: "🛠", href: "https://suachua.dichvu3t.workers.dev" },
     ],
   },
   {

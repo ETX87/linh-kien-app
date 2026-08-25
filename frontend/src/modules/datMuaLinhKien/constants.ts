@@ -54,6 +54,10 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   CASE_NOT_FOUND: "Không tìm thấy case này",
   DA_CO_CA_THIEU_LK_DANG_MO: "Đã có ca thiếu linh kiện đang mở cho dòng này",
   USE_TRA_HANG_ROUTE: "Dòng trả hàng xử lý ở tab Trả hàng riêng",
+  // Anh tra hang (them 2026-08-24, migration 0003_tra_hang_anh.sql).
+  THIEU_ANH_TRA_HANG: "Cần 1-3 ảnh linh kiện cần trả",
+  MISSING_ANH_QC: "Cần tải ít nhất 1 ảnh bằng chứng trước khi từ chối",
+  QUA_NHIEU_ANH: "Đã đủ tối đa 3 ảnh",
 };
 
 // Ma loi tra ve tu applyDonHangLog (backend/src/routes/datMuaLinhKien.ts) khi 1 dong trong bulk-log
@@ -87,6 +91,9 @@ export const TRA_HANG_BULK_ERROR_MESSAGES: Record<string, string> = {
   // KHONG the xu ly qua "Tu choi tat ca" hang loat (khong nhap duoc ghi_chu rieng tung dong), phai
   // mo tung dong de nhap ly do that su.
   MISSING_GHI_CHU: "cần nhập lý do khi từ chối bước TN duyệt tổng — mở từng dòng để nhập",
+  // Them 2026-08-24 (migration 0003_tra_hang_anh.sql) - QC tu choi hang loat se that bai o dong nao
+  // chua co san anh bang chung (phai tai anh + tu choi tung dong rieng, khong the qua bulk).
+  MISSING_ANH_QC: "cần ảnh bằng chứng — mở từng dòng để tải ảnh rồi từ chối",
   // Phat hien khi ra soat QA 2026-08-19: THIEU key nay khien 1 dong that bai do 2 nguoi cung xu ly
   // dong thoi (optimistic-concurrency, xem applyTraHangLog o backend) bi dem NHAM thanh thanh cong
   // trong toast bulk-log - day la truong hop THUC SU xay ra trong dung thao tac binh thuong (khong
@@ -251,6 +258,11 @@ export const DON_CUA_TOI_TRANG_THAI_OPTIONS = [
 ];
 export const PXK_TRANG_THAI_OPTIONS = [
   { value: "", label: "Tất cả" },
+  // Sentinel rieng (them 2026-08-24, xem GET /phieu-xuat-kho trong routes/phieuXuatKho.ts) - "Chờ
+  // tiền" la 1 DIEU KIEN CHAN (so_tien_can_chuyen/trang_thai_chuyen_tien), khong phai gia tri
+  // trang_thai_hien_tai that nen KHONG xuat hien trong StatusBadge cua tung dong (PXK_TRANG_THAI_TONE
+  // khong co key nay) - chi dung o day de lam 1 CHIP LOC rieng biet voi "Đang tạo phiếu".
+  { value: "CHO_TIEN", label: "Chờ chuyển tiền" },
   { value: "Dang tao phieu", label: "Đang tạo phiếu" },
   { value: "Cho ke toan", label: "Chờ kế toán" },
   { value: "Da chot xong don xuat", label: "Đã chốt xong đơn xuất" },

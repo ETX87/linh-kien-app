@@ -79,6 +79,27 @@ export function trangThaiLabel(options: { value: string; label: string }[], valu
   return options.find((o) => o.value === value)?.label ?? value;
 }
 
+// Co bat/tat "nen anh tra hang truoc khi upload" (them 2026-08-24, phan hoi "cơ chế nén ảnh này cho
+// tôi bật tắt tuỳ chỉnh trong settings") - doc tu GET /settings/app-settings (Admin doi qua
+// SettingsModule.tsx > tab Google Drive), dung o TraHangAnhPicker (SharedUi.tsx) va QcTuChoiModal
+// (TraHangTab.tsx) truoc khi goi compressImage(). Mac dinh true (bat) khi chua tai xong/loi, khop
+// dung fallback cua backend khi chua co dong nao trong app_settings.
+export function useNenAnhTraHangEnabled(): boolean {
+  const { data } = useQuery({
+    queryKey: ["app-settings"],
+    queryFn: () => api.get<{ nen_anh_tra_hang: boolean }>("/settings/app-settings"),
+    staleTime: 5 * 60_000,
+  });
+  return data?.nen_anh_tra_hang ?? true;
+}
+
+// CHOT (phan hoi 2026-08-24, muc 4): "Đơn ở thẻ công nợ do người khác tạo hộ (người tạo không phải
+// người nhận) => khi Tác nghiệp duyệt sẽ hiện popup cảnh báo" - dung o DonCuaToiTab.tsx (ca Drawer
+// DonHangDetailModal lan nut nhanh trong DonHangGroupedList) truoc khi goi mutation "duyet" that su.
+export function isCongNoTaoHo(d: { loai_don: string; nguoi_tao: string; nguoi_nhan_hang: string | null }): boolean {
+  return d.loai_don === "cong_no" && !!d.nguoi_nhan_hang && d.nguoi_tao !== d.nguoi_nhan_hang;
+}
+
 // ---------- Tab "Tao don" ----------
 
 export function deriveLoaiDon(v: string): "mua" | "cong_no" | "tra_hang" {
@@ -122,7 +143,7 @@ export function emptyDraft(): DonHangDraft {
   return {
     ma_lk: "", loai_de_xuat: "", so_luong_de_xuat: 1,
     ghi_chu: "", yeu_cau_hoa_don: YEU_CAU_HOA_DON_OPTIONS[0], tt_mail_duyet: "", tt_khach_hang: "", chinh_sach: "", ma_yeu_cau_su_co: "",
-    uu_tien: false,
+    uu_tien: false, anh: [],
   };
 }
 

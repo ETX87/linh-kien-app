@@ -14,6 +14,10 @@ export interface LinhKienRow {
   bat_tat: number;
   dac_thu: number;
   chi_sua_chua: number;
+  // "Phân loại đặc thù" (them 2026-08-25) - CHI co y nghia khi dac_thu=1, giai thich RO linh kien nay
+  // thuoc dang dac thu gi (vd "Hàng nhập riêng"/"Độc quyền hãng X"...), listdown tu do (dung y het
+  // don_vi/"Phân loại" - khong phai bang settings rieng, tu goi y tu cac gia tri da co san).
+  phan_loai_dac_thu: string | null;
 }
 
 export interface KtvLienHeRow {

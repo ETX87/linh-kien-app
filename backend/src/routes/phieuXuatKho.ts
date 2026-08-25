@@ -65,6 +65,23 @@ function canKho(c: Context<{ Bindings: Env }>): boolean {
   return !!user.la_kho || user.vai_tro === "Admin";
 }
 
+// GET /api/phieu-xuat-kho/mo-count - tong so PXK DANG MO (chua xu ly xong, xem TRANG_THAI_DONG dau
+// file), dung cho badge "(N)" o tab "Phiếu xuất kho" tren thanh tab (phan hoi 2026-08-24: "Thẻ phiếu
+// xuất kho có đơn nhưng đang không hiện (1) ở tên thẻ như thẻ trả hàng"). Gom CA mua/cong_no/tra_hang
+// (khong loc loai_don) - tab nay ban than da gom ca 3 qua sub-tab xemLoaiDon rieng, khop dung y nghia
+// "co viec dang cho xu ly trong tab nay" giong cach badge "Trả hàng" the hien. Dung CHUNG scope voi
+// GET / (scopePxkNguoiNhanHang) de con so khop dung nhung gi nguoi dung se thay khi mo tab that su.
+phieuXuatKho.get("/mo-count", async (c) => {
+  const scope = scopePxkNguoiNhanHang(c);
+  const placeholders = TRANG_THAI_DONG.map(() => "?").join(",");
+  const row = await c.env.DB.prepare(
+    `SELECT COUNT(*) as n FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai NOT IN (${placeholders})${scope?.whereSql ?? ""}`,
+  )
+    .bind(...TRANG_THAI_DONG, ...(scope?.binds ?? []))
+    .first<{ n: number }>();
+  return c.json({ count: row?.n ?? 0 });
+});
+
 // GET /api/phieu-xuat-kho?trang_thai= - danh sach. TN/Kho/Ke toan/QC/Admin xem toan bo (can theo doi
 // giao hang toan he thong); KTV/Ve tinh/Giam sat bi gioi han qua scopePxkNguoiNhanHang (RA SOAT BAO
 // MAT 2026-08-18, phan hoi Codex: truoc day KHONG gioi han cho AI ca, lo gia/cong no/ma MISA/bang
@@ -85,7 +102,24 @@ phieuXuatKho.get("/", async (c) => {
   const offset = (page - 1) * pageSize;
   let whereSql = "1=1" + (scope?.whereSql ?? "");
   const binds: unknown[] = [...(scope?.binds ?? [])];
-  if (trangThai) {
+  if (trangThai === "CHO_TIEN") {
+    // Sentinel rieng (phan hoi 2026-08-24: "2 thẻ chờ tiền và pxk hình như đang là 1... ấn giữa 2
+    // button này không có phản hồi") - "cho tien" la 1 DIEU KIEN CHAN tren so_tien_can_chuyen/
+    // trang_thai_chuyen_tien (xem comment dau file), KHONG phai 1 gia tri trang_thai_hien_tai that
+    // nen KHONG the loc bang so sanh = nhu cac trang thai khac - truoc day nut "Chờ tiền" tren
+    // pipeline tro TAM ve filter="Dang tao phieu" (trung voi nut "Tạo PXK" ben canh, khien 2 nut
+    // nhu lam 1 viec). Gio loc DUNG dieu kien that, doc lap voi trang_thai_hien_tai.
+    whereSql += " AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'";
+  } else if (trangThai === "Dang tao phieu") {
+    // CHOT (phan hoi 2026-08-24: "khi pxk đang chờ tiền, thì tính nó thành chờ tiền, khi cập nhật
+    // tiền xong thì mới chuyển thành pxk") - loai tru PXK dang thoa dieu kien CHO_TIEN o tren khoi
+    // chinh trang thai "Dang tao phieu", de 1 PXK CHI thuoc DUNG 1 trong 2 nhom tai 1 thoi diem. An
+    // toan: PXK co tien CHUA chuyen xong khong bao gio roi khoi "Dang tao phieu" duoc (POST /:id/log
+    // chan cung boi MISSING_CHUYEN_TIEN_APPROVED), nen dieu kien loai tru nay khong bao gio anh
+    // huong cac trang_thai_hien_tai khac.
+    whereSql += " AND pxk.trang_thai_hien_tai = ? AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')";
+    binds.push(trangThai);
+  } else if (trangThai) {
     // RA SOAT CHI PHI D1 2026-08-18 (phan hoi Codex #11/#13, migration 0087+0088): doc thang cot
     // trang_thai_hien_tai (co index idx_pxk_trang_thai_nhan_hang) thay vi correlated subquery.
     whereSql += " AND pxk.trang_thai_hien_tai = ?";

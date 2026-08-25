@@ -25,7 +25,14 @@ const DonCuaToiTab = lazy(() => import("./datMuaLinhKien/DonCuaToiTab").then((m)
 const PhieuXuatKhoTab = lazy(() => import("./datMuaLinhKien/PhieuXuatKhoTab").then((m) => ({ default: m.PhieuXuatKhoTab })));
 const ThieuLkTab = lazy(() => import("./datMuaLinhKien/ThieuLkTab").then((m) => ({ default: m.ThieuLkTab })));
 const TraHangTab = lazy(() => import("./datMuaLinhKien/TraHangTab").then((m) => ({ default: m.TraHangTab })));
-const BaoCaoTab = lazy(() => import("./datMuaLinhKien/BaoCaoTab").then((m) => ({ default: m.BaoCaoTab })));
+// Trang chu (them 2026-08-24, khop concept-1-structured-neutral.html renderHome()) - man mac dinh
+// moi khi vao module, dung LAI luongQuyTrinh/notifCounts/loaiDonCounts da co san o duoi, khong goi
+// API moi. Lazy giong cac tab khac (khong phai PipelineFlow/MyWorkloadStrip - 2 cai do luon eager vi
+// hien NGOAI Suspense, o moi tab).
+// SUA (phan hoi chu he thong 2026-08-24: "Trang chủ với báo cáo gộp làm 1") - bo tab "Báo cáo" rieng,
+// TrangChuTab.tsx gio TU render BaoCaoTab ben trong no (import thang, khong qua lazy rieng nua vi ban
+// than TrangChuTab da la 1 lazy chunk) - xem TrangChuTab.tsx.
+const TrangChuTab = lazy(() => import("./datMuaLinhKien/TrangChuTab").then((m) => ({ default: m.TrangChuTab })));
 
 function TabFallback() {
   return <div className="text-sm text-[var(--ink-500)] py-6 text-center mt-4">Đang tải...</div>;
@@ -101,16 +108,20 @@ export function DatMuaLinhKienModule({
   // cua Kho (duyet Tra hang + dong hang gui KTV qua PXK, van con nguyen o "Trả hàng"/"Phiếu xuất kho"/
   // "Thiếu linh kiện" ben duoi, khong bi anh huong).
   const canXemDonMuaCongNo = canDatHo || !!user?.la_tram || canTPDvbhXacNhan || user?.vai_tro === "Admin";
+  // Tab "Trang chu" (them 2026-08-24) - LUON hien cho MOI vai tro, khong dieu kien theo flag nao ca
+  // (khop dung MODULES.home cua concept 1: `m.key==="home" || ...` - "home" khong nam trong dieu kien
+  // flag). Dat DAU TIEN trong mang "tabs" (view that) de lam defaultView moi ben duoi.
   const tabs = [
+    { key: "trang-chu", label: "Trang chủ" },
     ...(canXemDonMuaCongNo ? [{ key: "don-cua-toi", label: "Đơn của tôi / Danh sách" }] : []),
     // Giam sat them vao tab duoi - CHI de theo doi (khong co canTacNghiep/canKho/canKeToan rieng nen
     // khong nut hanh dong nao hien ra, xem PxkDetailModal).
     ...(canTacNghiep || canKho || canKeToan || isGiamSat ? [{ key: "phieu-xuat-kho", label: "Phiếu xuất kho" }] : []),
     { key: "thieu-lk", label: "Thiếu linh kiện" },
-    // Tab rieng cho 12 chi so tong quan (phan hoi UX muc 6, nang cap 2026-08-15) - luon hien cho moi
-    // vai tro KHAC QC (isQCOnly, xem Fix Van de #1 o tren) - noi dung tu doi theo vai tro qua API (KTV/
-    // Ve tinh: the tong hop; GS/TN/Kho/Ke toan: bang theo KTV).
-    ...(isQCOnly ? [] : [{ key: "bao-cao", label: "Báo cáo" }]),
+    // Tab "Báo cáo" rieng DA BO (phan hoi chu he thong 2026-08-24: "Trang chủ với báo cáo gộp làm 1")
+    // - noi dung (12 chi so tong quan, phan hoi UX muc 6) gio nam NGAY TRONG "Trang chủ" (xem
+    // TrangChuTab.tsx), van chi hien cho vai tro KHAC QC (showBaoCaoTrongTrangChu ben duoi, giu dung
+    // Fix Van de #1: QC khong duoc xem bao cao pivot toan he thong).
   ];
   // "Đơn trả hàng" KHONG con la tab rieng tren thanh menu (CHOT vong 7: "thừa" - thanh luong quy trinh
   // da co san 3 buoc bam thang vao dung day: Trả hàng KT/Kho/QC). Van GIU render/activeView cho key
@@ -123,13 +134,12 @@ export function DatMuaLinhKienModule({
   // toi" - tab khong lien quan gi den viec cua ho (viec that o "Thieu linh kien"/"Phieu xuat kho"/
   // "Don tra hang"). Chi anh huong LAN DAU vao module (useLocalStorageState chi doc default nay khi
   // chua co gia tri luu san), nhung tu do khong bao gio tu doi lai (dung y muon).
-  const defaultView = canKho
-    ? "thieu-lk"
-    : canKeToan
-      ? "phieu-xuat-kho"
-      : canQC
-        ? "tra-hang"
-        : (tabs[0]?.key ?? "don-cua-toi");
+  // SUA (them Trang chu 2026-08-24): defaultView gio LUON la "trang-chu" (khop concept 1 - moi vai
+  // tro deu vao Trang chu truoc tien) thay cho logic re nhanh theo canKho/canKeToan/canQC cu. Vi
+  // useLocalStorageState CHI doc gia tri default nay khi nguoi dung CHUA TUNG luu view nao truoc do
+  // (xem comment goc cua hook), thay doi nay CHI anh huong nguoi dung MOI - ai da tung vao module va
+  // co gia tri luu san (vd "thieu-lk" cua Kho) se KHONG bi doi ve Trang chu, giu nguyen trai nghiem cu.
+  const defaultView = "trang-chu";
   const [view, setView] = useLocalStorageState("filters:dat-mua-lk-view", defaultView);
   const isValidView = (v: string) => tabs.some((t) => t.key === v) || (v === "tra-hang" && canTraHangView);
   const activeView = forceView && isValidView(forceView) ? forceView : isValidView(view) ? view : (tabs[0]?.key ?? "don-cua-toi");
@@ -144,6 +154,16 @@ export function DatMuaLinhKienModule({
     queryFn: () => api.get<{ mua: number; cong_no: number; tra_hang: number }>("/dat-mua-lk/loai-don-counts"),
   });
   const loaiDonCounts = loaiDonCountsData ?? { mua: 0, cong_no: 0, tra_hang: 0 };
+  // Badge "(N)" cho tab "Phiếu xuất kho" (phan hoi 2026-08-24: "Thẻ phiếu xuất kho có đơn nhưng đang
+  // không hiện (1) ở tên thẻ như thẻ trả hàng") - tong so PXK dang mo (chua xu ly xong), cung tinh
+  // than voi loaiDonCounts.tra_hang o tren. CHI fetch khi tab nay thuc su hien (khop dung dieu kien o
+  // mang "tabs" ben duoi) - tranh goi API thua cho KTV/Ve tinh (khong co tab nay).
+  const canXemPxkTab = canTacNghiep || canKho || canKeToan || isGiamSat;
+  const { data: pxkMoCountData } = useQuery({
+    queryKey: ["dat-mua-lk-pxk-mo-count"],
+    queryFn: () => api.get<{ count: number }>("/phieu-xuat-kho/mo-count"),
+    enabled: canXemPxkTab,
+  });
   // Thanh tab HIEN THI: thay muc "don-cua-toi" bang 3 muc "don-cua-toi:<loai>" mang so dem do (badge
   // tron mau do co san trong Tabs.tsx, dung "nhu thong bao tin nhan" dung y yeu cau). Cac muc con lai
   // (phieu-xuat-kho/thieu-lk/bao-cao) giu nguyen key that.
@@ -151,7 +171,11 @@ export function DatMuaLinhKienModule({
   // PHAN TU DIEU KIEN trong `tabs` (co the vang mat), tach rieng "Mua hàng"/"Công nợ" (theo
   // canXemDonMuaCongNo) khoi phan con lai cua tabs de tranh cat nham phan tu dau tien khi "don-cua-toi"
   // khong ton tai (vd Kho-thuan).
+  // "trang-chu" dat DAU TIEN (khop yeu cau UX "Trang chu la view mac dinh moi") - tach rieng khoi
+  // tabs.filter() ben duoi (giong "don-cua-toi") de khong bi xen giua cac muc "Mua hang/Cong no/Tra
+  // hang".
   const displayTabs = [
+    { key: "trang-chu", label: "Trang chủ" },
     ...(canXemDonMuaCongNo
       ? [
           { key: "don-cua-toi:mua", label: "Mua hàng", count: loaiDonCounts.mua },
@@ -159,7 +183,9 @@ export function DatMuaLinhKienModule({
         ]
       : []),
     { key: "don-cua-toi:tra_hang", label: "Trả hàng", count: loaiDonCounts.tra_hang },
-    ...tabs.filter((t) => t.key !== "don-cua-toi"),
+    ...tabs
+      .filter((t) => t.key !== "don-cua-toi" && t.key !== "trang-chu")
+      .map((t) => (t.key === "phieu-xuat-kho" ? { ...t, count: pxkMoCountData?.count ?? 0 } : t)),
   ];
   // SUA (phan hoi 2026-08-21: "bấm vào tab 'Trả hàng' thì giao diện danh sách lại khác giao diện khi
   // bấm trên pipeline... sao lại có 2 màn giao diện khác nhau cho cùng 1 chức năng?") - voi nguoi CO
@@ -266,10 +292,14 @@ export function DatMuaLinhKienModule({
   // hien san chi tiet nhu cu vi khong co nut tieu de nao de bam mo lai).
   const [showWorkloadDetail, setShowWorkloadDetail] = useState(false);
 
-  // SUA (phan hoi 2026-08-19: "mặc định bị thu nhỏ, không đúng ý đồ ban đầu... luôn mở") - doi mac
-  // dinh sang MO SAN (khong con thu gon), di kem PIPELINE_SEG_WIDTH da giam trong constants.ts de bot
-  // tran dong/can cuon ngang nhieu. Nut toggle van giu de nguoi dung tu thu gon neu muon.
-  const [pipelineCollapsed, setPipelineCollapsed] = useState(false);
+  // SUA (phan hoi 2026-08-19: "mặc định bị thu nhỏ, không đúng ý đồ ban đầu... luôn mở") - mac dinh
+  // MO SAN cho nguoi dung MOI (chua tung luu lua chon). Nut toggle van giu de nguoi dung tu thu gon
+  // neu muon.
+  // SUA (phan hoi chu he thong 2026-08-24: "lưu cache cách người dùng đang xem, nếu họ ẩn thì mặc
+  // định ẩn ở lần mở sau") - doi tu useState (mat het moi lan tai lai trang) sang useLocalStorageState
+  // (cung pattern voi filters:dat-mua-lk-view/filters:dmlk-th-tt... da dung khap module nay) - luu cuc
+  // bo tren trinh duyet cua tung nguoi dung, khong dong bo len server.
+  const [pipelineCollapsed, setPipelineCollapsed] = useLocalStorageState("filters:dmlk-pipeline-collapsed", false);
   // Mobile: khong render thanh pipeline (steps rong vi query da enabled:false o tren) - chi giu lai
   // duy nhat loi tat "+ Tao don" (hanh dong, khong phai bao cao) de khong mat tinh nang tao don, vi
   // day la CACH DUY NHAT tao don tren "Don cua toi" (nut rieng da bo, xem DonCuaToiTab.tsx dong 887).
@@ -301,15 +331,26 @@ export function DatMuaLinhKienModule({
   // no o App.tsx binh thuong). App.tsx da bo qua render h1 cho active==="dat-mua-lk" cu the de nhuong
   // cho o day, xem App.tsx. LUON hien (ke ca N=0) de khong bao gio bo trong khu vuc tieu de - chi
   // TAT tuong tac (khong con gi de mo rong) khi N=0.
+  // SUA (phan hoi chu he thong 2026-08-24: "Cần làm: 3 sửa lại ngắn gọn trong ô tròn (3)") - bo dang
+  // "Nhan: So" sang "Nhan" + 1 O TRON rieng chua so, giong ngon ngu badge thong bao da dung o noi khac
+  // (vd Tabs.tsx). Giu nguyen hanh vi cu: LUON hien (ke ca N=0, chi doi mau o tron sang xam/mo thay vi
+  // an han), bam mo/dong chi tiet tung buoc, disabled khi N=0.
   const titleButtonEl = !forceView ? (
     <button
       type="button"
       onClick={() => tongViecCuaToi > 0 && setShowWorkloadDetail((v) => !v)}
       disabled={tongViecCuaToi === 0}
       title={tongViecCuaToi === 0 ? undefined : showWorkloadDetail ? "Ẩn chi tiết việc cần làm" : "Xem chi tiết việc cần làm theo từng bước"}
-      className="focus-ring font-display text-lg sm:text-xl font-extrabold text-[var(--ink-900)] enabled:hover:text-[var(--indigo-600)] transition-colors whitespace-nowrap disabled:cursor-default"
+      className="focus-ring inline-flex items-center gap-1.5 font-display text-lg sm:text-xl font-extrabold text-[var(--ink-900)] enabled:hover:text-[var(--indigo-600)] transition-colors whitespace-nowrap disabled:cursor-default"
     >
-      Cần làm: {tongViecCuaToi}
+      <span>Cần làm</span>
+      <span
+        className={`inline-flex items-center justify-center min-w-[22px] h-[22px] rounded-full text-xs font-bold px-1 tabular-nums ${
+          tongViecCuaToi > 0 ? "bg-[var(--coral-500)] text-white" : "bg-[var(--surface-100)] text-[var(--ink-400)]"
+        }`}
+      >
+        {tongViecCuaToi}
+      </span>
     </button>
   ) : null;
   const headerContentEl = (
@@ -338,6 +379,18 @@ export function DatMuaLinhKienModule({
       {(forceView || showWorkloadDetail) && <MyWorkloadStrip steps={luongQuyTrinh?.steps ?? []} myRoleKeys={myRoleKeys} onJump={jumpTo} />}
       <Tabs active={displayActive} onChange={handleTabChange} tabs={displayTabs} />
       <Suspense fallback={<TabFallback />}>
+        {activeView === "trang-chu" && (
+          <TrangChuTab
+            steps={luongQuyTrinh?.steps ?? []}
+            myRoleKeys={myRoleKeys}
+            onJump={jumpTo}
+            loaiDonCounts={loaiDonCounts}
+            tongViecCuaToi={tongViecCuaToi}
+            canTraHangView={canTraHangView}
+            isManagerView={isManagerView}
+            showBaoCao={!isQCOnly}
+          />
+        )}
         {activeView === "don-cua-toi" && (
           <DonCuaToiTab
             user={user}
@@ -381,7 +434,6 @@ export function DatMuaLinhKienModule({
         {activeView === "tra-hang" && (
           <TraHangTab addToast={addToast} qc={qc} canKeToan={canKeToan} canKho={canKho} canQC={canQC} canTacNghiep={canTacNghiep} initialFilterOverride={filterFor("tra-hang")} />
         )}
-        {activeView === "bao-cao" && <BaoCaoTab onJump={jumpTo} isManagerView={isManagerView} />}
         {showCreateFromPipeline && (
           <TaoDonTab
             addToast={addToast}

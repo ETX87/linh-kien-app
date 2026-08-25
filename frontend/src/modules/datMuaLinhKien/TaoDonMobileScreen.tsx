@@ -8,6 +8,7 @@ import { YEU_CAU_HOA_DON_OPTIONS, CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABE
 import { deriveLoaiDon, reqLabelClass, pickLdeQuick, LOAI_DON_TONE, ktvOptionLabel, canNoRequired, formatLkLabel } from "./helpers";
 import { LinhKienPicker, ThayTheGoiY } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
+import { TraHangAnhPicker } from "./SharedUi";
 import type { TaoDonForm } from "./useTaoDonForm";
 
 // Man hinh "Tao don" rieng cho mobile (them 2026-08-21, phan hoi "giao diện tạo đơn mua hàng cho KTV
@@ -162,8 +163,11 @@ export function TaoDonMobileScreen({
         </div>
       )}
 
-      {/* Noi dung the dang active - cuon doc, chiem het khong gian con lai (diem #3) */}
-      <div className="flex-1 overflow-y-auto px-3.5 py-3 flex flex-col gap-3.5">
+      {/* Noi dung the dang active - cuon doc, chiem het khong gian con lai (diem #3). Nen ngoai doi
+          sang --bg (nhat, giong nen trang) de the .m-card (vien + bo goc, khong to mau) o duoi noi
+          bat len - doi chieu pattern .m-card cua concept 1 cho "card dong dang active". */}
+      <div className="flex-1 overflow-y-auto px-3.5 py-3 bg-[var(--bg)]">
+      <div className="bg-white border border-[var(--line)] rounded-xl p-3.5 flex flex-col gap-3.5">
         <div className={`flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 ${d.uu_tien ? "bg-[var(--orange-100)]" : "bg-[var(--surface-100)]"}`}>
           <Badge tone={tone.tone}>{tone.label}</Badge>
           <label
@@ -253,6 +257,14 @@ export function TaoDonMobileScreen({
           </div>
         </div>
 
+        {/* Anh linh kien can tra (them 2026-08-24, muc 1) - xem giai thich day du o TaoDonTab.tsx. */}
+        {loaiDon === "tra_hang" && (
+          <div>
+            <label className={reqLabelClass(d.anh.length === 0)}>Ảnh linh kiện cần trả *</label>
+            <TraHangAnhPicker photos={d.anh} onChange={(anh) => updateDraft(activeIdx, { anh })} addToast={addToast} />
+          </div>
+        )}
+
         {d.ma_lk.trim() && <ThayTheGoiY maLk={d.ma_lk.trim()} canQuanLy={canQuanLy} addToast={addToast} />}
 
         {showInfoBoSung ? (
@@ -264,7 +276,7 @@ export function TaoDonMobileScreen({
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Yêu cầu hóa đơn</label>
+              <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Yêu cầu hóa đơn</label>
               <div className="flex gap-1.5 flex-wrap">
                 {YEU_CAU_HOA_DON_OPTIONS.map((o) => (
                   <Btn key={o} type="button" size="md" variant={d.yeu_cau_hoa_don === o ? "primary" : "ghost"} onClick={() => updateDraft(activeIdx, { yeu_cau_hoa_don: o })}>
@@ -292,7 +304,7 @@ export function TaoDonMobileScreen({
               />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">TT khách hàng</label>
+              <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">TT khách hàng</label>
               <input
                 value={d.tt_khach_hang}
                 onChange={(e) => updateDraft(activeIdx, { tt_khach_hang: e.target.value })}
@@ -301,7 +313,7 @@ export function TaoDonMobileScreen({
               />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">TT+Mail duyệt</label>
+              <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">TT+Mail duyệt</label>
               <input
                 value={d.tt_mail_duyet}
                 onChange={(e) => updateDraft(activeIdx, { tt_mail_duyet: e.target.value })}
@@ -321,13 +333,14 @@ export function TaoDonMobileScreen({
         )}
 
         <div>
-          <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Ghi chú (tuỳ chọn)</label>
+          <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Ghi chú (tuỳ chọn)</label>
           <input
             value={d.ghi_chu}
             onChange={(e) => updateDraft(activeIdx, { ghi_chu: e.target.value })}
             className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 h-11 text-sm"
           />
         </div>
+      </div>
         {/* Khoang dem duoi cung de dong cuoi khong bi thanh CTA dinh (sticky) che khuat. */}
         <div className="h-1" />
       </div>

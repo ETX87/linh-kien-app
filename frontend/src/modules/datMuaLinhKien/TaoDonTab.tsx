@@ -13,6 +13,7 @@ import { YEU_CAU_HOA_DON_OPTIONS, CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABE
 import { deriveLoaiDon, reqLabelClass, pickLdeQuick, LOAI_DON_TONE, ktvOptionLabel, formatLkLabel } from "./helpers";
 import { LinhKienPicker, ThayTheGoiY } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
+import { TraHangAnhPicker } from "./SharedUi";
 import { useTaoDonForm } from "./useTaoDonForm";
 import { TaoDonMobileScreen } from "./TaoDonMobileScreen";
 
@@ -378,6 +379,15 @@ export function TaoDonTab({
                 {/* Tickbox Uu tien da chuyen len HEADER (phan hoi 2026-08-18 lan 3) - bo khoi day, xem
                     comment o header phia tren. */}
 
+                {/* Anh linh kien can tra (them 2026-08-24, muc 1) - CHI hien khi dong nay la Tra hang,
+                    bat buoc 1-3 anh (xem isLineComplete o useTaoDonForm.ts). */}
+                {loaiDon === "tra_hang" && (
+                  <div>
+                    <label className={reqLabelClass(d.anh.length === 0)}>Ảnh linh kiện cần trả *</label>
+                    <TraHangAnhPicker photos={d.anh} onChange={(anh) => updateDraft(idx, { anh })} addToast={addToast} />
+                  </div>
+                )}
+
                 {d.ma_lk.trim() && <ThayTheGoiY maLk={d.ma_lk.trim()} canQuanLy={canQuanLy} addToast={addToast} />}
 
                 {/* "Thong tin bo sung" - mac dinh AN (phan hoi 2026-08-19 #5), chi tu mo khi batBuoc/
@@ -394,7 +404,7 @@ export function TaoDonTab({
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <div>
-                        <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Yêu cầu hóa đơn</label>
+                        <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Yêu cầu hóa đơn</label>
                         <div className="flex gap-1 flex-wrap">
                           {YEU_CAU_HOA_DON_OPTIONS.map((o) => (
                             <Btn
@@ -431,7 +441,7 @@ export function TaoDonTab({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">TT khách hàng</label>
+                        <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">TT khách hàng</label>
                         <input
                           value={d.tt_khach_hang}
                           onChange={(e) => updateDraft(idx, { tt_khach_hang: e.target.value })}
@@ -440,7 +450,7 @@ export function TaoDonTab({
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">TT+Mail duyệt</label>
+                        <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">TT+Mail duyệt</label>
                         <input
                           value={d.tt_mail_duyet}
                           onChange={(e) => updateDraft(idx, { tt_mail_duyet: e.target.value })}
@@ -462,7 +472,7 @@ export function TaoDonTab({
 
                 {/* Ghi chu - luon o CUOI CUNG cua card (phan hoi UX dot 2). */}
                 <div>
-                  <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Ghi chú (tuỳ chọn)</label>
+                  <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Ghi chú (tuỳ chọn)</label>
                   <input
                     value={d.ghi_chu}
                     onChange={(e) => updateDraft(idx, { ghi_chu: e.target.value })}

@@ -71,6 +71,12 @@ function MainApp({
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const isMobile = useIsMobile();
+  // "Xem truoc Mobile" cho Admin (them 2026-08-24, yeu cau "nút chuyển đổi giữa giao diện mobile và
+  // web để test cho nhanh") - CHI Admin that duoc bat (gate o TopBar). Dung IFRAME that (khong phai
+  // CSS gia lap) vi Tailwind sm:/md:/useIsMobile() (window.matchMedia) deu doc theo VIEWPORT THAT cua
+  // trinh duyet - 1 <div> hep khong lam cac class do doi, chi co iframe (co viewport rieng, cung
+  // origin nen tu dong dung chung cookie dang nhap) moi kich hoat dung layout mobile that su.
+  const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
   // Command palette (Ctrl+K / Cmd+K, concept 1 "Structured Neutral" da duyet 2026-08-24) - danh sach
   // lenh CHI la cac module nguoi dung dang duoc phep vao (allowedModules, dung LAI y het danh sach
   // Sidebar da loc, khong tao nguon phan quyen thu 2).
@@ -146,6 +152,8 @@ function MainApp({
           onOpenMobileMenu={() => setMobileOpen(true)}
           onNavigate={setActive}
           onOpenCommandPalette={() => setCommandOpen(true)}
+          mobilePreviewOpen={mobilePreviewOpen}
+          onToggleMobilePreview={() => setMobilePreviewOpen((v) => !v)}
         />
         <main className={`p-3 sm:p-5 flex-1 ${isMobile ? "pb-20" : ""}`}>
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -163,6 +171,28 @@ function MainApp({
       </div>
       {isMobile && <BottomTabBar active={active} setActive={setActive} allowedModules={allowedModules} onOpenMore={() => setMobileOpen(true)} />}
       <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} items={commandItems} onSelect={setActive} />
+      {realIsAdmin && mobilePreviewOpen && (
+        <div className="fixed inset-0 z-[100] bg-[rgba(24,24,27,0.65)] flex items-center justify-center p-4 sm:p-8 overflow-auto">
+          <div className="relative shrink-0">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <span className="text-white text-xs font-semibold">📱 Xem trước Mobile — cửa sổ riêng, cùng phiên đăng nhập</span>
+              <button
+                type="button"
+                onClick={() => setMobilePreviewOpen(false)}
+                className="focus-ring text-white text-xs font-semibold underline underline-offset-2 shrink-0"
+              >
+                ✕ Đóng
+              </button>
+            </div>
+            <div
+              className="rounded-[36px] border-[10px] border-[#111113] bg-white shadow-2xl overflow-hidden"
+              style={{ width: 390, height: 844, maxHeight: "calc(100vh - 96px)" }}
+            >
+              <iframe src={window.location.href} title="Xem trước giao diện Mobile" className="w-full h-full border-0" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

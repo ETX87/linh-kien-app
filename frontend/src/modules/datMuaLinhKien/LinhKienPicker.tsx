@@ -4,6 +4,7 @@ import { Btn } from "../../components/ui/Btn";
 import { Badge } from "../../components/ui/Badge";
 import { Modal } from "../../components/ui/Modal";
 import { Select } from "../../components/ui/Select";
+import { KvRow } from "../../components/ui/KvRow";
 import { api } from "../../api/client";
 import { fmtVND } from "../../types";
 import { useToast } from "../../components/ui/Toast";
@@ -47,10 +48,21 @@ export function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQu
 
   return (
     <div className="col-span-2 sm:col-span-6 -mt-1 text-xs flex items-center gap-2 flex-wrap">
+      {/* Style ".substitute-chip" cua concept 1 (vien+chu+nen indigo, bo tron full) - thay cho danh
+          sach text thuan truoc day. Van la hien thi thuan tuy (khong them onClick chon thay the -
+          ngoai pham vi restyle JSX/className cua dot nay). */}
       {rows.length > 0 && (
-        <span className="text-[var(--ink-500)]">
-          Có thể thay thế bằng: {rows.map((r) => formatLkLabel(r.ma_linh_kien, r.ten_linh_kien)).join(", ")}
-        </span>
+        <>
+          <span className="text-[var(--ink-500)]">Có thể thay thế bằng:</span>
+          {rows.map((r) => (
+            <span
+              key={r.ma_linh_kien}
+              className="inline-flex items-center gap-1 border border-[var(--indigo-600)] text-[var(--indigo-600)] bg-[var(--indigo-100)] rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
+            >
+              ↔ {formatLkLabel(r.ma_linh_kien, r.ten_linh_kien)}
+            </span>
+          ))}
+        </>
       )}
       {canQuanLy && (nhomData?.rows.length ?? 0) > 0 && (
         <Select
@@ -115,7 +127,7 @@ export function LinhKienPickerRow({
         e.preventDefault();
         onPick();
       }}
-      className={`w-full flex items-center gap-2 text-left px-2.5 py-1.5 text-sm ${highlighted ? "bg-[var(--ocean-100)]/60" : selected ? "bg-[var(--ocean-100)]/40" : "hover:bg-slate-50"}`}
+      className={`w-full flex items-center gap-2 text-left px-2.5 py-1.5 text-sm ${highlighted ? "bg-[var(--ocean-100)]/60" : selected ? "bg-[var(--ocean-100)]/40" : "hover:bg-[var(--surface-100)]"}`}
     >
       <LinhKienThumbMini url={o.anh_demo ?? null} />
       <span className="flex-1 min-w-0">
@@ -220,7 +232,8 @@ export function LinhKienPicker({
   }
 
   return (
-    <div className={`flex items-center gap-1.5 ${className}`}>
+    <div className={className}>
+    <div className="flex items-center gap-1.5">
       <div ref={containerRef} className="relative flex-1 min-w-0">
         <input
           type="text"
@@ -301,16 +314,28 @@ export function LinhKienPicker({
           ℹ️
         </button>
       )}
-      {showDetail && selected && (
-        <LinhKienDetailModal
-          part={selected}
-          rank={rankMap.get(selected.ma_linh_kien)}
-          canEdit={canEditDanhMuc}
-          onClose={() => setShowDetail(false)}
-          addToast={addToast}
-          qc={qc}
-        />
-      )}
+    </div>
+    {/* Note "linh kien dac thu" (them 2026-08-25, phan hoi "khi chọn 1 lk thuộc diện đặc thù, bên
+        dưới sẽ hiện 1 note nhỏ màu nổi bật... nếu đặc thù = true thì thêm cảnh báo về việc linh kiện
+        này sẽ phải chờ TBP duyệt") - 2 dong DOC LAP: dong "Phân loại đặc thù" CHI hien khi truong do
+        co gia tri (bo trong thi khong hien dong nay); dong canh bao TBP LUON hien khi dac_thu, khong
+        phu thuoc phan_loai_dac_thu co dien hay khong. */}
+    {selected?.dac_thu ? (
+      <div className="mt-1.5 rounded-lg border border-[var(--amber-500)] bg-[var(--amber-100)] px-2.5 py-1.5 text-xs text-[var(--amber-700)] space-y-0.5">
+        {selected.phan_loai_dac_thu?.trim() && <div className="font-semibold">🔖 Phân loại đặc thù: {selected.phan_loai_dac_thu.trim()}</div>}
+        <div>⚠ Linh kiện đặc thù — đơn sẽ cần chờ TP DVBH xác nhận trước khi Tác nghiệp duyệt.</div>
+      </div>
+    ) : null}
+    {showDetail && selected && (
+      <LinhKienDetailModal
+        part={selected}
+        rank={rankMap.get(selected.ma_linh_kien)}
+        canEdit={canEditDanhMuc}
+        onClose={() => setShowDetail(false)}
+        addToast={addToast}
+        qc={qc}
+      />
+    )}
     </div>
   );
 }
@@ -441,19 +466,21 @@ export function LinhKienDetailModal({
           </div>
         ) : (
           <>
-            <div className="rounded-xl border border-[var(--line)] divide-y divide-[var(--line)] overflow-hidden">
-              <div className="flex items-center justify-between px-3.5 py-2.5">
-                <span className="text-[var(--ink-500)]">Giá bán</span>
+            <div>
+              <KvRow label="Giá bán">
                 <span className="font-semibold font-mono">{fmtVND(part.gia_ban)}</span>
-              </div>
-              <div className="flex items-center justify-between px-3.5 py-2.5">
-                <span className="text-[var(--ink-500)]">Giá tham chiếu</span>
+              </KvRow>
+              <KvRow label="Giá tham chiếu">
                 <span className="font-semibold font-mono">{fmtVND(part.gia_tham_chieu ?? null)}</span>
-              </div>
-              <div className="flex items-center justify-between px-3.5 py-2.5">
-                <span className="text-[var(--ink-500)]">Phân loại</span>
+              </KvRow>
+              <KvRow label="Phân loại">
                 <span className="font-semibold">{part.don_vi ?? "—"}</span>
-              </div>
+              </KvRow>
+              {!!part.dac_thu && (
+                <KvRow label="Phân loại đặc thù">
+                  <span className="font-semibold">{part.phan_loai_dac_thu?.trim() || "—"}</span>
+                </KvRow>
+              )}
             </div>
             <div>
               <div className="text-[10px] font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1">Ghi chú</div>

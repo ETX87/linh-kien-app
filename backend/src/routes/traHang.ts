@@ -7,6 +7,7 @@ import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nowVN } from "../lib/vnTime";
 import { bumpVersions } from "../lib/dataVersions";
 import { scopeDatMuaNguoiTao } from "../lib/scopeDatMua";
+import { uploadPublicImage } from "../lib/googleDrive";
 
 // Luong "Don tra hang" - tach hoan toan khoi state machine mua/cong no, xem migration
 // 0059_tra_hang_log.sql + 0064_tra_hang_log_du_6_buoc.sql. 1 dong dat_don_hang (loai_don='tra_hang')
@@ -28,6 +29,9 @@ traHang.use("*", verifySessionMiddleware, loadUser, requireDatMuaLkArea);
 const TRANG_THAI_DONG = ["TN da duyet", "Tu choi", "Da huy"] as const;
 // RA SOAT BAO MAT/CHI PHI D1 2026-08-18 (phan hoi Codex #9) - xem giai thich o datMuaLinhKien.ts.
 const MAX_BULK_IDS = 100;
+// Anh tra hang (phan hoi 2026-08-24, migration 0003_tra_hang_anh.sql) - toi da 3 anh/loai/dong,
+// dung chung cho ca "tao_moi" (luc tao don) va "qc_tu_choi" (QC tu choi).
+const MAX_ANH_TRA_HANG = 3;
 const THU_TU_BUOC = [
   "Cho ke toan duyet mem",
   "Cho kho xac nhan",
@@ -123,7 +127,90 @@ traHang.get("/:donHangId", async (c) => {
   if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
 
   const { results: logs } = await c.env.DB.prepare("SELECT * FROM tra_hang_log WHERE dat_don_hang_id = ? ORDER BY id DESC").bind(donHangId).all();
-  return c.json({ donHang: ddh, logs });
+  // Anh tra hang (phan hoi 2026-08-24) - moi vai tro xem duoc chi tiet dong nay (da qua scopeDatMuaNguoiTao
+  // o tren) deu xem duoc ca 2 loai anh, khong can gioi han them (yeu cau #3: "các ảnh này các vai trò
+  // liên quan đến có thể xem được").
+  const { results: anh } = await c.env.DB.prepare(
+    "SELECT id, loai, url, nguoi_upload, ngay_upload FROM tra_hang_anh WHERE dat_don_hang_id = ? ORDER BY id",
+  )
+    .bind(donHangId)
+    .all();
+  return c.json({ donHang: ddh, logs, anh });
+});
+
+// POST /api/tra-hang/upload-anh - upload BINARY THO 1 anh len Drive qua OAuth uy quyen tai khoan
+// Google THAT (phan hoi 2026-08-24: "hủy bỏ hoàn toàn cách lưu ảnh bằng google service [account]...
+// chuyển sang OAuth vì tôi chỉ có tài khoản gmail cá nhân" - CUNG co che voi anh minh hoa linh kien,
+// xem uploadPublicImage() trong lib/googleDrive.ts), KHONG gan vao don nao ca (dung luc TAO don - id
+// dong con chua sinh, xem POST /dat-mua-lk/phieu-dat). Client giu lai {driveFileId, url} tra ve, gui
+// kem trong body tao don de backend gan chinh thuc vao dong vua sinh trong CUNG 1 batch. Khong rang
+// buoc role/trang thai o day (viec kiem tra so luong/quyen gan nam o noi NHAN cac gia tri nay).
+traHang.post("/upload-anh", async (c) => {
+  const contentType = c.req.header("Content-Type") || "image/jpeg";
+  if (!contentType.startsWith("image/")) return c.json({ error: "INVALID_CONTENT_TYPE" }, 400);
+  const bytes = await c.req.arrayBuffer();
+  if (bytes.byteLength === 0) return c.json({ error: "EMPTY_FILE" }, 400);
+
+  const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
+  const filename = `tra-hang-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+  let uploaded: { id: string; thumbnailUrl: string };
+  try {
+    uploaded = await uploadPublicImage(c.env, c.env.DB, bytes, contentType, filename);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.startsWith("GOOGLE_DRIVE_NOT_CONNECTED")) {
+      return c.json({ error: "GOOGLE_DRIVE_NOT_CONNECTED", message: "Chưa kết nối tài khoản Google Drive - vào Cài đặt để kết nối." }, 400);
+    }
+    return c.json({ error: "UPLOAD_FAILED", message }, 502);
+  }
+  return c.json({ driveFileId: uploaded.id, url: uploaded.thumbnailUrl });
+});
+
+// POST /api/tra-hang/:donHangId/anh - upload BINARY THO 1 anh bang chung, gan THANG vao dong da
+// TON TAI (khac /upload-anh o tren - dung khi QC tu choi, dong da co san tu luc tao). CHI QC (hoac
+// Admin) duoc dung, CHI khi dong dang "Cho QC xac nhan" (khop dung buoc se bat buoc anh khi tu choi,
+// xem applyTraHangLog). Chan qua 3 anh/dong cho loai nay.
+traHang.post("/:donHangId/anh", async (c) => {
+  if (!canQC(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const donHangId = c.req.param("donHangId");
+  const ddh = await c.env.DB.prepare(
+    "SELECT trang_thai_hien_tai as trang_thai FROM dat_don_hang WHERE id = ? AND loai_don = 'tra_hang'",
+  )
+    .bind(donHangId)
+    .first<{ trang_thai: string | null }>();
+  if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
+  if (ddh.trang_thai !== "Cho QC xac nhan") return c.json({ error: "INVALID_STATE" }, 409);
+
+  const countRow = await c.env.DB.prepare("SELECT COUNT(*) as n FROM tra_hang_anh WHERE dat_don_hang_id = ? AND loai = 'qc_tu_choi'")
+    .bind(donHangId)
+    .first<{ n: number }>();
+  if ((countRow?.n ?? 0) >= MAX_ANH_TRA_HANG) return c.json({ error: "QUA_NHIEU_ANH" }, 400);
+
+  const contentType = c.req.header("Content-Type") || "image/jpeg";
+  if (!contentType.startsWith("image/")) return c.json({ error: "INVALID_CONTENT_TYPE" }, 400);
+  const bytes = await c.req.arrayBuffer();
+  if (bytes.byteLength === 0) return c.json({ error: "EMPTY_FILE" }, 400);
+
+  const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
+  const filename = `tra-hang-qc-${donHangId}-${Date.now()}.${ext}`;
+  let uploaded: { id: string; thumbnailUrl: string };
+  try {
+    uploaded = await uploadPublicImage(c.env, c.env.DB, bytes, contentType, filename);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.startsWith("GOOGLE_DRIVE_NOT_CONNECTED")) {
+      return c.json({ error: "GOOGLE_DRIVE_NOT_CONNECTED", message: "Chưa kết nối tài khoản Google Drive - vào Cài đặt để kết nối." }, 400);
+    }
+    return c.json({ error: "UPLOAD_FAILED", message }, 502);
+  }
+
+  const user = c.get("user");
+  await c.env.DB.prepare(
+    "INSERT INTO tra_hang_anh (dat_don_hang_id, loai, drive_file_id, url, nguoi_upload) VALUES (?, 'qc_tu_choi', ?, ?, ?)",
+  )
+    .bind(donHangId, uploaded.id, uploaded.thumbnailUrl, user.email)
+    .run();
+  return c.json({ ok: true, url: uploaded.thumbnailUrl });
 });
 
 // Logic dung chung cho 1 dong don tra hang - tach ra de route bulk-log tai su dung dung 1 cho (them
@@ -163,6 +250,16 @@ async function applyTraHangLog(
     nextTrangThai = hanhDong === "duyet" ? "Cho QC xac nhan" : "Tu choi";
   } else if (trangThaiHienTai === "Cho QC xac nhan") {
     if (!canQC(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
+    // CHOT (phan hoi 2026-08-24, muc 2 "khi QC duyệt đơn trả hàng: bắt buộc phải có ảnh bằng chứng
+    // nếu từ chối") - CHI rieng buoc QC (khong ap dung 3 buoc con lai KT/Kho/TN cua luong nay, da
+    // chot voi nguoi dung). Anh phai upload TRUOC qua POST /:donHangId/anh (xem tren) - kiem tra da
+    // co >=1 dong loai='qc_tu_choi' cho dong nay.
+    if (hanhDong === "tu_choi") {
+      const anhRow = await c.env.DB.prepare("SELECT COUNT(*) as n FROM tra_hang_anh WHERE dat_don_hang_id = ? AND loai = 'qc_tu_choi'")
+        .bind(donHangId)
+        .first<{ n: number }>();
+      if (!anhRow?.n) return { error: "MISSING_ANH_QC", status: 409 };
+    }
     nextTrangThai = hanhDong === "duyet" ? "Cho TN duyet tong" : "Tu choi";
   } else if (trangThaiHienTai === "Cho TN duyet tong") {
     if (!canTacNghiep(c)) return { error: "FORBIDDEN_ROLE", status: 403 };

@@ -5,6 +5,9 @@ import { Badge, type BadgeTone } from "../../components/ui/Badge";
 import { Modal } from "../../components/ui/Modal";
 import { Drawer, DrawerNavButtons, useDrawerArrowNav } from "../../components/ui/Drawer";
 import { Select } from "../../components/ui/Select";
+import { KvRow } from "../../components/ui/KvRow";
+import { SectionTitle } from "../../components/ui/SectionTitle";
+import { Timeline } from "../../components/ui/Timeline";
 import type { Column } from "../../components/ui/PaginatedTable";
 import { useColumnConfig } from "../../components/ui/useColumnConfig";
 import { ColumnSettingsButton, ResizableHeaderCell } from "../../components/ui/ColumnHeader";
@@ -22,7 +25,7 @@ import {
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   LOAI_DON_TONE, deriveLoaiDon, actionsFor, trangThaiLabel, canNoRequired, pickLdeQuick, emptyDraft,
-  useLkAndLdeCache, useLinhKienRankMap, formatLkLabel,
+  useLkAndLdeCache, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo,
 } from "./helpers";
 import { StatusBadge, ActiveFiltersBar, TrangThaiChipFilter, BulkConfirmButton, MaYcscCell } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
@@ -63,6 +66,9 @@ export function DonHangDetailModal({
   // "Tu choi" bat buoc chon 1 Ly do cham, "Huy" bat buoc nhap ghiChu tu do (phan hoi UX muc 1, xem
   // comment applyDonHangLog o backend).
   const [actionTarget, setActionTarget] = useState<"tu_choi" | "cho_hang" | "huy" | null>(null);
+  // Canh bao "Công nợ tạo hộ" (them 2026-08-24, muc 4) - chan 1 nhip TRUOC khi goi mutation "duyet"
+  // that su, xem isCongNoTaoHo o helpers.ts.
+  const [confirmDuyetTaoHo, setConfirmDuyetTaoHo] = useState(false);
   const [lyDoChamId, setLyDoChamId] = useState("");
   const { data, isLoading } = useQuery({
     queryKey: ["dat-mua-lk-don-hang-detail", id],
@@ -191,6 +197,10 @@ export function DonHangDetailModal({
       chinh_sach: d.chinh_sach ?? "",
       ma_yeu_cau_su_co: d.ma_yeu_cau_su_co ?? "",
       uu_tien: d.uu_tien === 1,
+      // "anh" khong dung o luong sua nay (chi don loai_don='tra_hang' moi co anh, va dong tra_hang
+      // KHONG bao gio vao duoc isCreatorEditWindow - xem giai thich o comment dat_don_hang_log/
+      // isCreatorEditWindow ben tren) - de rong cho khop type DonHangDraft.
+      anh: [],
     };
     setEditDraft(snap);
     setEditDraftSnapshot(snap);
@@ -262,67 +272,93 @@ export function DonHangDetailModal({
           <Btn size="sm" onClick={saveEdit} disabled={!editCanSave || editMutation.isPending}>Lưu thay đổi</Btn>
         </div>
       ) : actionTarget === "tu_choi" && d.trang_thai === "Cho TBP xac nhan" ? (
-        <div className="space-y-2">
+        // Panel tu choi inline (concept 1, pattern ".inline-panel"/".field": nen xam nhat, vien dut
+        // net, label chu hoa nho phia tren input) - thay khoi flex ngang tu viet tay truoc day.
+        <div className="w-full space-y-2 bg-[var(--surface-100)] border border-dashed border-[var(--line)] rounded-lg p-2.5">
           <div className="font-semibold text-xs">Từ chối dòng {d.id}</div>
-          <div className="flex gap-2 flex-wrap items-center">
+          <div>
+            <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">Ghi chú (tuỳ chọn)</label>
             <input
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
               placeholder="Ghi chú (tuỳ chọn)"
-              className="focus-ring flex-1 min-w-[160px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              className="focus-ring w-full bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
+          </div>
+          <div className="flex gap-2 justify-end">
             <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setGhiChu(""); }}>Hủy</Btn>
             <Btn size="sm" variant="danger" onClick={confirmTuChoi} disabled={logMutation.isPending}>Xác nhận từ chối</Btn>
           </div>
         </div>
       ) : actionTarget === "tu_choi" ? (
-        <div className="space-y-2">
+        <div className="w-full space-y-2 bg-[var(--surface-100)] border border-dashed border-[var(--line)] rounded-lg p-2.5">
           <div className="font-semibold text-xs">Từ chối dòng {d.id} — chọn lý do chậm</div>
-          <div className="flex gap-2 flex-wrap items-center">
-            <Select
-              value={lyDoChamId}
-              onChange={setLyDoChamId}
-              options={[{ value: "", label: "-- Chọn lý do --" }, ...tuChoiReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
-            />
-            <input
-              value={ghiChu}
-              onChange={(e) => setGhiChu(e.target.value)}
-              placeholder="Ghi chú thêm (tuỳ chọn)"
-              className="focus-ring flex-1 min-w-[160px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">Lý do chậm (bắt buộc)</label>
+              <Select
+                value={lyDoChamId}
+                onChange={setLyDoChamId}
+                options={[{ value: "", label: "-- Chọn lý do --" }, ...tuChoiReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">Ghi chú thêm (tuỳ chọn)</label>
+              <input
+                value={ghiChu}
+                onChange={(e) => setGhiChu(e.target.value)}
+                placeholder="Ghi chú thêm (tuỳ chọn)"
+                className="focus-ring w-full bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
             <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setLyDoChamId(""); }}>Hủy</Btn>
             <Btn size="sm" variant="danger" onClick={confirmTuChoi} disabled={!lyDoChamId || logMutation.isPending}>Xác nhận từ chối</Btn>
           </div>
         </div>
       ) : actionTarget === "cho_hang" ? (
-        <div className="space-y-2">
+        <div className="w-full space-y-2 bg-[var(--surface-100)] border border-dashed border-[var(--line)] rounded-lg p-2.5">
           <div className="font-semibold text-xs">Chuyển dòng {d.id} sang chờ hàng — chọn lý do</div>
-          <div className="flex gap-2 flex-wrap items-center">
-            <Select
-              value={lyDoChamId}
-              onChange={setLyDoChamId}
-              options={[{ value: "", label: "-- Chọn lý do --" }, ...choHangReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
-            />
-            <input
-              value={ghiChu}
-              onChange={(e) => setGhiChu(e.target.value)}
-              placeholder="Ghi chú thêm (tuỳ chọn)"
-              className="focus-ring flex-1 min-w-[160px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">Lý do (bắt buộc)</label>
+              <Select
+                value={lyDoChamId}
+                onChange={setLyDoChamId}
+                options={[{ value: "", label: "-- Chọn lý do --" }, ...choHangReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">Ghi chú thêm (tuỳ chọn)</label>
+              <input
+                value={ghiChu}
+                onChange={(e) => setGhiChu(e.target.value)}
+                placeholder="Ghi chú thêm (tuỳ chọn)"
+                className="focus-ring w-full bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
             <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setLyDoChamId(""); }}>Hủy</Btn>
             <Btn size="sm" onClick={confirmTuChoi} disabled={!lyDoChamId || logMutation.isPending}>Xác nhận chờ hàng</Btn>
           </div>
         </div>
       ) : actionTarget === "huy" ? (
-        <div className="space-y-2">
+        <div className="w-full space-y-2 bg-[var(--surface-100)] border border-dashed border-[var(--line)] rounded-lg p-2.5">
           <div className="font-semibold text-xs">Hủy dòng {d.id} — nhập lý do hủy</div>
-          <div className="flex gap-2 flex-wrap items-center">
+          <div>
+            <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">Lý do hủy (bắt buộc)</label>
             <input
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
               placeholder="Lý do hủy (bắt buộc)"
-              className="focus-ring flex-1 min-w-[200px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              className="focus-ring w-full bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
+          </div>
+          <div className="flex gap-2 justify-end">
             <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setGhiChu(""); }}>Đóng</Btn>
             <Btn size="sm" variant="danger" onClick={confirmHuy} disabled={!ghiChu.trim() || logMutation.isPending}>Xác nhận hủy</Btn>
           </div>
@@ -330,7 +366,12 @@ export function DonHangDetailModal({
       ) : actions.duyet || actions.tuChoi || actions.choHang || actions.huy ? (
         <div className="flex items-center gap-2 flex-wrap justify-end">
           {actions.duyet && (
-            <Btn size="sm" onClick={() => logMutation.mutate({ hanh_dong: "duyet" })} disabled={logMutation.isPending} loading={logMutation.isPending}>
+            <Btn
+              size="sm"
+              onClick={() => (isCongNoTaoHo(d) ? setConfirmDuyetTaoHo(true) : logMutation.mutate({ hanh_dong: "duyet" }))}
+              disabled={logMutation.isPending}
+              loading={logMutation.isPending}
+            >
               {navNextId && onNavigate ? "Duyệt và tiếp theo →" : "Duyệt"}
             </Btn>
           )}
@@ -364,6 +405,18 @@ export function DonHangDetailModal({
   });
 
   return (
+    <>
+    {confirmDuyetTaoHo && (
+      <Modal open title="Cảnh báo" onClose={() => setConfirmDuyetTaoHo(false)}>
+        <div className="space-y-3 text-sm">
+          <div className="font-semibold text-[var(--coral-600)]">(!!!) Đơn công nợ này được tạo hộ! Bạn có chắc đồng ý phê duyệt không?</div>
+          <div className="flex justify-end gap-2">
+            <Btn variant="ghost" size="sm" onClick={() => setConfirmDuyetTaoHo(false)}>Huỷ</Btn>
+            <Btn size="sm" onClick={() => { setConfirmDuyetTaoHo(false); logMutation.mutate({ hanh_dong: "duyet" }); }}>Đồng ý phê duyệt</Btn>
+          </div>
+        </div>
+      </Modal>
+    )}
     <Drawer
       open
       title={`Đơn hàng ${id}`}
@@ -393,60 +446,63 @@ export function DonHangDetailModal({
         <div className="text-sm text-[var(--ink-500)] py-4 text-center">Đang tải...</div>
       ) : !d ? null : (
         <div className="space-y-4 text-sm">
-          <div className="grid grid-cols-2 gap-3 bg-[var(--surface-100)] rounded-xl p-3">
-            <div>
-              <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Người tạo</div>
-              <div className="font-semibold text-[var(--ink-900)]">{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</div>
-            </div>
+          {/* Khoi thong tin dau Drawer doi sang KvRow/SectionTitle (concept 1 "Structured Neutral",
+              pattern ".kv"/".section-title") - thay cho luoi <div> label/value tu viet tay truoc day. */}
+          <div>
+            <SectionTitle>Thông tin đơn</SectionTitle>
+            <KvRow label="Người tạo">{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</KvRow>
             {d.nguoi_nhan_hang && d.nguoi_nhan_hang !== d.nguoi_tao && (
-              <div>
-                <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Người nhận hàng</div>
-                <div className="font-semibold text-[var(--ink-900)]">{formatNguoiDisplay(d.nguoi_nhan_hang, ktvDisplayMap)}</div>
+              <KvRow label="Người nhận hàng">{formatNguoiDisplay(d.nguoi_nhan_hang, ktvDisplayMap)}</KvRow>
+            )}
+            <KvRow label="Ngày tạo">{fmtDateTime(d.ngay_tao)}</KvRow>
+            <KvRow label="Tổng tiền đề xuất">
+              <span className="font-bold text-[var(--ocean-700)]">{fmtVND((d.gia_de_xuat ?? 0) * d.so_luong_de_xuat)}</span>
+            </KvRow>
+            <KvRow label="Trạng thái">
+              <div className="flex items-center gap-2 flex-wrap">
+                {tone && <Badge tone={tone.tone}>{tone.label}</Badge>}
+                <StatusBadge value={d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} options={DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL} />
+                {d.loai_don === "tra_hang" && (
+                  <span className="text-[var(--ink-400)] text-xs">(xử lý ở luồng quy trình phía trên)</span>
+                )}
+                {d.qua_han_ly_do_cham && <Badge tone="coral">Quá hạn - cần lý do chậm</Badge>}
+                {/* SUA (phan hoi 2026-08-19): amber trung mau voi loai_don "Cong no" gay nham lan "vien
+                    vang" - doi ca Badge nay lan ring/bg cua dong bang sang cam THAT (token --orange-*
+                    rieng, khac amber), dong bo voi TaoDonTab. */}
+                {d.uu_tien === 1 && <Badge tone="orange">⭐ Ưu tiên</Badge>}
               </div>
-            )}
-            <div>
-              <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Ngày tạo</div>
-              <div className="text-[var(--ink-900)]">{fmtDateTime(d.ngay_tao)}</div>
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Tổng tiền đề xuất</div>
-              <div className="font-bold text-[var(--ocean-700)]">{fmtVND((d.gia_de_xuat ?? 0) * d.so_luong_de_xuat)}</div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {tone && <Badge tone={tone.tone}>{tone.label}</Badge>}
-            <StatusBadge value={d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} options={DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL} />
-            {d.loai_don === "tra_hang" && (
-              <span className="text-[var(--ink-400)] text-xs">(xử lý ở luồng quy trình phía trên)</span>
-            )}
-            {d.qua_han_ly_do_cham && <Badge tone="coral">Quá hạn - cần lý do chậm</Badge>}
-            {/* SUA (phan hoi 2026-08-19): amber trung mau voi loai_don "Cong no" gay nham lan "vien
-                vang" - doi ca Badge nay lan ring/bg cua dong bang sang cam THAT (token --orange-*
-                rieng, khac amber), dong bo voi TaoDonTab. */}
-            {d.uu_tien === 1 && <Badge tone="orange">⭐ Ưu tiên</Badge>}
+            </KvRow>
           </div>
 
           {d.ly_do_cham ? (
-            <div className="text-xs text-[var(--ink-600)]">
-              <span className="font-semibold">Lý do chậm:</span> {d.ly_do_cham}
-            </div>
+            <KvRow label="Lý do chậm">{d.ly_do_cham}</KvRow>
           ) : canTacNghiep && d.trang_thai === "Cho TN duyet" ? (
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <input
-                value={lyDoChamDraft}
-                onChange={(e) => setLyDoChamDraft(e.target.value)}
-                placeholder="Nhập lý do chậm xử lý dòng này…"
-                className="focus-ring flex-1 min-w-[200px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-xs"
-              />
-              <Btn
-                size="sm"
-                variant="ghost"
-                onClick={() => lyDoChamMutation.mutate(lyDoChamDraft.trim())}
-                disabled={!lyDoChamDraft.trim() || lyDoChamMutation.isPending}
-              >
-                Lưu
-              </Btn>
+            <div className="flex flex-col gap-1">
+              {/* CHOT (phan hoi 2026-08-24: "đổi hẳn thành dropdown bắt buộc, bỏ ô nhập tay") - Select
+                  BAT BUOC chon tu danh muc "Mua hàng" (settings_ly_do_cham), khong con o nhap tu do -
+                  neu Settings CHUA co ly do nao, TN se khong nhap duoc cho toi khi Admin bo sung
+                  (dung y da chot voi nguoi dung). Dung lai lyDoData da fetch san o tren cho luong "Từ
+                  chối" (cung queryKey/endpoint), khong goi API moi.*/}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Select
+                  value={lyDoChamDraft}
+                  onChange={setLyDoChamDraft}
+                  options={[{ value: "", label: "-- Chọn lý do chậm --" }, ...(lyDoData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
+                  disabled={(lyDoData?.rows.length ?? 0) === 0}
+                  className="flex-1 min-w-[200px]"
+                />
+                <Btn
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => lyDoChamMutation.mutate(lyDoChamDraft.trim())}
+                  disabled={!lyDoChamDraft.trim() || lyDoChamMutation.isPending}
+                >
+                  Lưu
+                </Btn>
+              </div>
+              {(lyDoData?.rows.length ?? 0) === 0 && (
+                <div className="text-[11px] text-[var(--coral-600)]">Chưa có lý do chậm nào được cấu hình cho "Mua hàng" — vào Settings › Lý do chậm để thêm.</div>
+              )}
             </div>
           ) : null}
 
@@ -569,7 +625,9 @@ export function DonHangDetailModal({
                   />
                 </div>
               </div>
-              <label className={`flex items-center gap-2 text-xs font-semibold text-[var(--amber-700)] ${!canEditFull ? "opacity-40" : ""}`}>
+              {/* Mau uu tien dong bo voi .priority-tag concept 1 (var(--orange-600), khong dung amber
+                  de tranh trung mau voi loai_don "Cong no"). */}
+              <label className={`flex items-center gap-2 text-xs font-extrabold text-[var(--orange-600)] ${!canEditFull ? "opacity-40" : ""}`}>
                 <input type="checkbox" checked={editDraft.uu_tien} disabled={!canEditFull} onChange={(e) => updateEditDraft({ uu_tien: e.target.checked })} />
                 ⭐ Đơn ưu tiên
               </label>
@@ -586,7 +644,6 @@ export function DonHangDetailModal({
           ) : (
             <>
               <div>
-                <div className="font-mono text-xs text-[var(--ink-500)]">{d.ma_lk}</div>
                 <div className={`font-semibold text-base ${DON_HANG_ROW_STYLE[d.trang_thai ?? ""] ?? ""}`}>
                   {d.ten_lk_snapshot ?? d.ma_lk}
                   {!!d.dac_thu && (
@@ -595,27 +652,15 @@ export function DonHangDetailModal({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div>
-                  <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">SL đề xuất</div>
-                  <div>{d.so_luong_de_xuat}</div>
-                </div>
-                <div>
-                  <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Giá đề xuất</div>
-                  <div>{d.gia_de_xuat != null ? fmtVND(d.gia_de_xuat) : "—"}</div>
-                </div>
-                <div>
-                  <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Giá chốt</div>
-                  <div>{d.gia_chot != null ? fmtVND(d.gia_chot) : "—"}</div>
-                </div>
-                <div>
-                  <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Mã yêu cầu sự cố</div>
+              <div>
+                <KvRow label="Mã LK"><span className="font-mono text-xs">{d.ma_lk}</span></KvRow>
+                <KvRow label="SL đề xuất">{d.so_luong_de_xuat}</KvRow>
+                <KvRow label="Giá đề xuất">{d.gia_de_xuat != null ? fmtVND(d.gia_de_xuat) : "—"}</KvRow>
+                <KvRow label="Giá chốt">{d.gia_chot != null ? fmtVND(d.gia_chot) : "—"}</KvRow>
+                <KvRow label="Mã YCSC">
                   <MaYcscCell value={d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />
-                </div>
-                <div>
-                  <div className="text-[11px] font-semibold text-[var(--ink-500)] mb-0.5">Mã xuất kho</div>
-                  <div>{d.ma_xuat_kho ?? "—"}</div>
-                </div>
+                </KvRow>
+                <KvRow label="Mã xuất kho">{d.ma_xuat_kho ?? "—"}</KvRow>
               </div>
 
               {d.ghi_chu && <div className="text-[var(--ink-500)]">{d.ghi_chu}</div>}
@@ -632,7 +677,7 @@ export function DonHangDetailModal({
               thao tac trong app nay dien ra tren dien thoai KTV ngoai hien truong). */}
           {d.cases && d.cases.length > 0 && (
             <div>
-              <div className="font-semibold mb-1">Ca liên kết</div>
+              <SectionTitle>Ca liên kết</SectionTitle>
               <div className="flex gap-1.5 flex-wrap">
                 {d.cases.map((cRow) => (
                   <span
@@ -653,23 +698,26 @@ export function DonHangDetailModal({
               canh tranh voi StatusBadge chinh o dau modal (van la diem neo cho trang thai HIEN TAI). */}
           {(d.logs?.length ?? 0) > 0 && (
             <div>
-              <div className="font-semibold mb-1">Lịch sử xử lý</div>
-              <ul className="text-xs space-y-1.5 text-[var(--ink-500)]">
-                {d.logs!.map((l) => (
-                  <li key={l.id} className="flex items-start gap-1.5">
-                    <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${TRANG_THAI_DOT_TONE[DON_HANG_TRANG_THAI_TONE_ALL[l.trang_thai] ?? "gray"]}`} />
-                    <span>
-                      {fmtDateTime(l.ngay_xu_ly)} — <span className="font-semibold text-[var(--ink-700)]">{trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, l.trang_thai)}</span> ({l.nguoi_xu_ly})
-                      {l.ghi_chu ? ` — ${l.ghi_chu}` : ""}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              {/* Doi sang Timeline (concept 1, pattern ".timeline") - thay cho danh sach cham tron mau
+                  theo tone trang thai truoc day. TRANG_THAI_DOT_TONE khong con dung o day. */}
+              <SectionTitle>Lịch sử xử lý</SectionTitle>
+              <Timeline
+                items={d.logs!.map((l) => ({
+                  title: (
+                    <>
+                      {trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, l.trang_thai)}
+                      <span className="font-normal text-[var(--ink-500)]"> · {l.nguoi_xu_ly}</span>
+                    </>
+                  ),
+                  time: `${fmtDateTime(l.ngay_xu_ly)}${l.ghi_chu ? ` — ${l.ghi_chu}` : ""}`,
+                }))}
+              />
             </div>
           )}
         </div>
       )}
     </Drawer>
+    </>
   );
 }
 
@@ -1018,10 +1066,13 @@ export function DonCuaToiTab({
           <span className="text-[var(--ink-500)]">Chọn tất cả {rowsCoTheChon.length} dòng có thể xử lý (trên mọi nhóm KTV ở trang này)</span>
         </div>
       )}
+      {/* Toolbar hang loat (concept 1 "Structured Neutral" - pattern .bulkbar): nen indigo nhat, vien
+          indigo mo, chu indigo dam - thay cho khoi surface-100 trung mau voi cac panel loc khac truoc
+          day, giup phan biet ro day la thanh HANH DONG (dang co dong duoc chon) chu khong phai bo loc. */}
       {(canActAsTram || canTacNghiep) && selected.size > 0 && (
-        <div className="flex flex-col gap-2 mb-3 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-3 py-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm">Đã chọn {selected.size} dòng{tongTienDaChon > 0 ? ` · ${fmtVND(tongTienDaChon)}` : ""}</span>
+        <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--indigo-100)] border border-[#C7D2FE] text-[var(--indigo-700)] rounded-lg px-3 py-2 text-[12.5px]">
+          <span><b className="font-extrabold">{selected.size}</b> đơn được chọn{tongTienDaChon > 0 ? ` · ${fmtVND(tongTienDaChon)}` : ""}</span>
+          <div className="flex items-center gap-2 flex-wrap ml-auto">
             <BulkConfirmButton
               label="Duyệt tất cả"
               confirmLabel={`Xác nhận duyệt ${selected.size} dòng?`}
@@ -1250,7 +1301,7 @@ export function DonHangGroupedList({
             title="Xem chi tiết linh kiện"
             className={`block w-full truncate text-left font-medium hover:underline hover:text-[var(--ocean-600)] ${row.rowStyle}`}
           >
-            {row.d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
+            {row.d.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
             {row.d.ten_lk_snapshot ?? row.d.ma_lk}
             {!!row.d.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
           </button>
@@ -1289,7 +1340,19 @@ export function DonHangGroupedList({
       render: (row) => (
         <div className="flex gap-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
           {row.actions.duyet && (
-            <Btn size="sm" variant="ghost" className="px-2" title="Duyệt" aria-label="Duyệt" onClick={() => bulkMutation.mutate({ ids: [row.d.id], hanh_dong: "duyet" })} disabled={bulkMutation.isPending}>
+            <Btn
+              size="sm"
+              variant="ghost"
+              className="px-2"
+              title="Duyệt"
+              aria-label="Duyệt"
+              onClick={() =>
+                isCongNoTaoHo(row.d)
+                  ? setActionTarget({ id: row.d.id, action: "duyet_tao_ho" })
+                  : bulkMutation.mutate({ ids: [row.d.id], hanh_dong: "duyet" })
+              }
+              disabled={bulkMutation.isPending}
+            >
               ✓
             </Btn>
           )}
@@ -1399,7 +1462,9 @@ export function DonHangGroupedList({
                         dau danh sach). */}
                     <table className="w-full min-w-[720px] text-xs border-collapse">
                       <thead>
-                        <tr className="bg-white text-[var(--ink-500)]">
+                        {/* Khop dung header ".tbl th" concept 1 (chu hoa nho, xam, nen #FBFBFB) - dong
+                            bo voi header cua PaginatedTable.tsx (xem tr className tuong tu o do). */}
+                        <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[#FBFBFB] border-b border-[var(--line)]">
                           {effectiveColumns.map((col, idx) => (
                             <ResizableHeaderCell
                               key={col.key}
@@ -1434,7 +1499,7 @@ export function DonHangGroupedList({
                           <tr
                             key={row.d.id}
                             onClick={() => onDetail(row.d.id)}
-                            className={`cursor-pointer transition-colors border-t border-[var(--line)] ${row.tone.border} border-l-4 ${
+                            className={`cursor-pointer transition-colors border-b border-[var(--line)] last:border-0 ${row.tone.border} border-l-4 ${
                               row.d.uu_tien === 1
                                 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)] hover:brightness-95"
                                 : "hover:bg-slate-50"
@@ -1443,7 +1508,7 @@ export function DonHangGroupedList({
                             {effectiveColumns.map((col) => {
                               const width = colWidths[col.key];
                               return (
-                                <td key={col.key} style={width ? { width, maxWidth: width, overflow: "hidden" } : undefined} className={`px-3 py-1.5 ${col.className ?? ""}`}>
+                                <td key={col.key} style={width ? { width, maxWidth: width, overflow: "hidden" } : undefined} className={`px-3 py-2 ${col.className ?? ""}`}>
                                   {col.render(row)}
                                 </td>
                               );
@@ -1482,7 +1547,7 @@ export function DonHangGroupedList({
                               title="Xem chi tiết linh kiện"
                               className={`block w-full truncate text-left font-medium text-sm hover:underline hover:text-[var(--ocean-600)] ${rowStyle}`}
                             >
-                              {d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
+                              {d.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
                               {d.ten_lk_snapshot ?? d.ma_lk}
                               {!!d.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
                             </button>
@@ -1501,7 +1566,19 @@ export function DonHangGroupedList({
                             )}
                             <div className="flex gap-1 flex-wrap mt-1.5" onClick={(e) => e.stopPropagation()}>
                               {actions.duyet && (
-                                <Btn size="sm" variant="ghost" className="px-2" title="Duyệt" aria-label="Duyệt" onClick={() => bulkMutation.mutate({ ids: [d.id], hanh_dong: "duyet" })} disabled={bulkMutation.isPending}>
+                                <Btn
+                                  size="sm"
+                                  variant="ghost"
+                                  className="px-2"
+                                  title="Duyệt"
+                                  aria-label="Duyệt"
+                                  onClick={() =>
+                                    isCongNoTaoHo(d)
+                                      ? setActionTarget({ id: d.id, action: "duyet_tao_ho" })
+                                      : bulkMutation.mutate({ ids: [d.id], hanh_dong: "duyet" })
+                                  }
+                                  disabled={bulkMutation.isPending}
+                                >
                                   ✓
                                 </Btn>
                               )}
@@ -1556,8 +1633,28 @@ export function DonHangGroupedList({
         const isTuChoiTBP = !!targetId && actionTarget?.action === "tu_choi" && rowTarget?.trang_thai === "Cho TBP xac nhan";
         const isTuChoiTN = !!targetId && actionTarget?.action === "tu_choi" && rowTarget?.trang_thai !== "Cho TBP xac nhan";
         const isChoHang = !!targetId && actionTarget?.action === "cho_hang";
+        const isDuyetTaoHo = !!targetId && actionTarget?.action === "duyet_tao_ho";
         return (
           <>
+            {/* Canh bao "Công nợ tạo hộ" (them 2026-08-24, muc 4) - nut nhanh (✓) tren dong bang/the
+                mobile, xem isCongNoTaoHo o helpers.ts. */}
+            <Modal open={isDuyetTaoHo} onClose={() => setActionTarget(null)} title="Cảnh báo">
+              <div className="space-y-3 text-sm">
+                <div className="font-semibold text-[var(--coral-600)]">(!!!) Đơn công nợ này được tạo hộ! Bạn có chắc đồng ý phê duyệt không?</div>
+                <div className="flex justify-end gap-2">
+                  <Btn variant="ghost" size="sm" onClick={() => setActionTarget(null)}>Huỷ</Btn>
+                  <Btn
+                    size="sm"
+                    onClick={() => {
+                      if (targetId) bulkMutation.mutate({ ids: [targetId], hanh_dong: "duyet" });
+                      setActionTarget(null);
+                    }}
+                  >
+                    Đồng ý phê duyệt
+                  </Btn>
+                </div>
+              </div>
+            </Modal>
             <Modal open={isTuChoiTBP} onClose={() => { setActionTarget(null); setActionGhiChu(""); }} title={`Từ chối dòng ${targetId} — ghi chú (không bắt buộc)`}>
               <div className="space-y-3">
                 <input

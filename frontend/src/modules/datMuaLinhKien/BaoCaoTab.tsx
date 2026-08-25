@@ -1,29 +1,75 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../../api/client";
+import { api, buildQuery } from "../../api/client";
 import { fmtVND } from "../../types";
 import { StatCard } from "../../components/ui/StatCard";
+import { Btn } from "../../components/ui/Btn";
 import type { BaoCaoRow, JumpTarget } from "./types";
+
+// Nhan "Tháng N/N-1/N-2" (them 2026-08-25, phan hoi "hạn chế theo tháng") - tinh CLIENT-SIDE bang gio
+// trinh duyet (khong can round-trip server chi de lay nhan hien thi cho ca 3 tab, chi tab dang chon
+// moi thuc su goi API).
+function thangLabel(offset: number): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - offset);
+  return `Tháng ${d.getMonth() + 1}/${d.getFullYear()}`;
+}
 
 // Tab "Bao cao" (nang cap 2026-08-15 thanh tab rieng + bang theo KTV cho GS/TN/Kho/Ke toan, click 1
 // con so nhay sang danh sach chi tiet kem san filter). rows.length<=1 (KTV/Ve tinh tu xem minh) ->
 // luoi StatCard 3 nhom; rows.length>1 (GS/TN/Kho/Ke toan) -> bang co tim kiem, sap xep theo ton dong,
 // moi o so la nut bam nhay sang tab+filter+nguoiNhanHang tuong ung.
+//
+// Bo loc "Tháng N/N-1/N-2" + "Xem toàn hệ thống" (them 2026-08-25, phan hoi "hạn chế theo tháng...
+// mặc định load theo khu vực phụ trách => thêm lựa chọn để lọc full") - xem giai thich day du (4 diem
+// "kết thúc" tinh moc thang, pham vi "full") o GET /dat-mua-lk/bao-cao-tong-the backend. Nut "full"
+// CHI hien khi isManagerView (Giam sat/TN/Kho/Ke toan/Admin) - KTV/Ve tinh (!isManagerView) luon chi
+// xem duoc dung minh, khong co khai niem "khu vuc phu trach" de mo rong.
 export function BaoCaoTab({ onJump, isManagerView }: { onJump: (t: JumpTarget) => void; isManagerView: boolean }) {
+  const [thang, setThang] = useState(0);
+  const [full, setFull] = useState(false);
   const { data, isLoading } = useQuery({
-    queryKey: ["dat-mua-lk-bao-cao-tong-the"],
-    queryFn: () => api.get<{ rows: BaoCaoRow[] }>("/dat-mua-lk/bao-cao-tong-the"),
+    queryKey: ["dat-mua-lk-bao-cao-tong-the", thang, full],
+    queryFn: () => api.get<{ rows: BaoCaoRow[] }>("/dat-mua-lk/bao-cao-tong-the" + buildQuery({ thang, full: full ? 1 : undefined })),
   });
   const [search, setSearch] = useState("");
 
+  const thangFilterEl = (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {[0, 1, 2].map((o) => (
+        <Btn key={o} size="sm" variant={thang === o ? "primary" : "ghost"} onClick={() => setThang(o)}>
+          {thangLabel(o)}
+          {o === 0 ? " (đang xử lý)" : ""}
+        </Btn>
+      ))}
+      {isManagerView && (
+        <label className="flex items-center gap-1.5 text-xs text-[var(--ink-500)] ml-2 cursor-pointer select-none">
+          <input type="checkbox" checked={full} onChange={(e) => setFull(e.target.checked)} />
+          Xem toàn hệ thống (bỏ qua khu vực phụ trách)
+        </label>
+      )}
+    </div>
+  );
+
   const rows = data?.rows ?? [];
-  if (isLoading) return <div className="text-sm text-[var(--ink-500)] py-6 text-center mt-4">Đang tải...</div>;
-  if (rows.length === 0) return <div className="text-sm text-[var(--ink-400)] py-6 text-center mt-4">Chưa có dữ liệu.</div>;
+  if (isLoading) return (
+    <div className="mt-4 space-y-3">
+      {thangFilterEl}
+      <div className="text-sm text-[var(--ink-500)] py-6 text-center">Đang tải...</div>
+    </div>
+  );
+  if (rows.length === 0) return (
+    <div className="mt-4 space-y-3">
+      {thangFilterEl}
+      <div className="text-sm text-[var(--ink-400)] py-6 text-center">Chưa có dữ liệu.</div>
+    </div>
+  );
 
   if (!isManagerView) {
     const r = rows[0];
     return (
       <div className="mt-4 space-y-4">
+        {thangFilterEl}
         <div>
           <div className="text-xs font-semibold text-[var(--ink-500)] uppercase tracking-wide mb-1.5">Đơn hàng</div>
           <div className="flex gap-2 sm:gap-3 flex-wrap">
@@ -98,6 +144,7 @@ export function BaoCaoTab({ onJump, isManagerView }: { onJump: (t: JumpTarget) =
 
   return (
     <div className="mt-4 space-y-3">
+      {thangFilterEl}
       <input
         value={search}
         onChange={(e) => setSearch(e.target.value)}

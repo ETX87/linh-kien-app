@@ -64,46 +64,48 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
       ) : rows.length === 0 ? (
         <div className="text-sm text-[var(--ink-400)]">Không có tài khoản nào.</div>
       ) : (
-        <div className="overflow-x-auto border border-[var(--line)] rounded-xl">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase text-[var(--ink-400)] bg-slate-50 border-b border-[var(--line)]">
-                <th className="px-3 py-2">Email</th>
-                <th className="px-3 py-2">Tên</th>
-                <th className="px-3 py-2">Vai trò</th>
-                <th className="px-3 py-2">Cờ nghiệp vụ</th>
-                <th className="px-3 py-2">Trạng thái</th>
-                <th className="px-3 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((u) => (
-                <tr key={u.email} className="border-b border-[var(--line)] last:border-0">
-                  <td className="px-3 py-2">{u.email}</td>
-                  <td className="px-3 py-2">{u.ten ?? "—"}</td>
-                  <td className="px-3 py-2">{u.vai_tro ?? "—"}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-1">
-                      {ROLE_FLAGS.filter((f) => u[f.key]).map((f) => (
-                        <Badge key={f.key} tone="ocean">{f.label}</Badge>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2">
-                    <Badge tone={u.trang_thai_duyet === "Da duyet" ? "teal" : u.trang_thai_duyet === "Cho duyet" ? "amber" : "coral"}>
-                      {u.trang_thai_duyet}
-                    </Badge>
-                    {!!u.bi_khoa && <Badge tone="coral">Đã khoá</Badge>}
-                  </td>
-                  <td className="px-3 py-2">
-                    <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => setEditing(u)}>
-                      Sửa
-                    </button>
-                  </td>
+        <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[#FBFBFB] border-b border-[var(--line)]">
+                  <th className="px-3 py-2">Email</th>
+                  <th className="px-3 py-2">Tên</th>
+                  <th className="px-3 py-2">Vai trò</th>
+                  <th className="px-3 py-2">Cờ nghiệp vụ</th>
+                  <th className="px-3 py-2">Trạng thái</th>
+                  <th className="px-3 py-2" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((u) => (
+                  <tr key={u.email} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                    <td className="px-3 py-2">{u.email}</td>
+                    <td className="px-3 py-2">{u.ten ?? "—"}</td>
+                    <td className="px-3 py-2">{u.vai_tro ?? "—"}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-wrap gap-1">
+                        {ROLE_FLAGS.filter((f) => u[f.key]).map((f) => (
+                          <Badge key={f.key} tone="ocean">{f.label}</Badge>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <Badge tone={u.trang_thai_duyet === "Da duyet" ? "teal" : u.trang_thai_duyet === "Cho duyet" ? "amber" : "coral"}>
+                        {u.trang_thai_duyet}
+                      </Badge>
+                      {!!u.bi_khoa && <Badge tone="coral">Đã khoá</Badge>}
+                    </td>
+                    <td className="px-3 py-2">
+                      <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => setEditing(u)}>
+                        Sửa
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
       {editing && (
@@ -169,9 +171,9 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
     <Modal open onClose={onClose} title={user.email} width="max-w-lg">
       <div className="space-y-4 text-sm">
         {isSelf && (
-          <div className="rounded-lg border border-[var(--coral-500)] bg-[var(--coral-100)] px-3.5 py-3 text-[var(--coral-600)]">
-            <div className="font-semibold mb-1.5">⚠ Bạn đang tự sửa tài khoản của chính mình</div>
-            <div className="text-xs leading-relaxed mb-2">
+          <div className="rounded-lg border border-[var(--coral-500)] bg-[var(--coral-100)] px-3 py-2.5 text-[12.5px] leading-relaxed text-[var(--coral-600)]">
+            <div className="font-bold mb-0.5">⚠ Bạn đang tự sửa tài khoản của chính mình</div>
+            <div className="mb-2">
               Thay đổi vai trò/cờ quyền hoặc khoá tài khoản ở đây có thể khiến bạn tự mất quyền Admin hoặc tự khoá chính mình. Hãy chắc chắn trước khi lưu.
             </div>
             <label className="flex items-center gap-2 text-xs font-medium">
@@ -191,7 +193,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
           </div>
         )}
         <div>
-          <label className="text-xs font-semibold text-[var(--ink-400)]">Vai trò (quản trị)</label>
+          <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Vai trò (quản trị)</label>
           <Select
             value={form.vai_tro}
             onChange={(v) => setForm({ ...form, vai_tro: v })}
@@ -225,12 +227,12 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
         </div>
         {form.la_ve_tinh && (
           <div>
-            <label className="text-xs font-semibold text-[var(--ink-400)]">Email Giám sát quản lý (Vệ tinh)</label>
+            <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Email Giám sát quản lý (Vệ tinh)</label>
             <input value={form.giam_sat_quan_ly} onChange={(e) => setForm({ ...form, giam_sat_quan_ly: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
           </div>
         )}
         <div>
-          <label className="text-xs font-semibold text-[var(--ink-400)]">Email Trạm cha (nếu là CTV/Vệ tinh trực thuộc 1 trạm)</label>
+          <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Email Trạm cha (nếu là CTV/Vệ tinh trực thuộc 1 trạm)</label>
           <input value={form.tram_cha} onChange={(e) => setForm({ ...form, tram_cha: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
         </div>
         <label className="flex items-center gap-2">
@@ -284,31 +286,33 @@ function PhuTrachGsTab() {
       <div className="text-xs text-[var(--ink-500)]">
         Gán "Giám sát phụ trách" cho từng người TN/Kho/Kế toán - chỉ ảnh hưởng badge/thống kê việc cần làm, không giới hạn danh sách/tìm kiếm.
       </div>
-      <div className="overflow-x-auto border border-[var(--line)] rounded-xl">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs uppercase text-[var(--ink-400)] bg-slate-50 border-b border-[var(--line)]">
-              <th className="px-3 py-2">Người phụ trách</th>
-              <th className="px-3 py-2">Vai trò</th>
-              <th className="px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {tnKhoKeToan.map((u) => (
-              <tr key={u.email} className="border-b border-[var(--line)] last:border-0">
-                <td className="px-3 py-2">{u.email}</td>
-                <td className="px-3 py-2">
-                  {[u.la_tac_nghiep && "TN", u.la_kho && "Kho", u.la_ke_toan && "Kế toán"].filter(Boolean).join(", ")}
-                </td>
-                <td className="px-3 py-2">
-                  <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openFor(u.email)}>
-                    Gán Giám sát
-                  </button>
-                </td>
+      <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[#FBFBFB] border-b border-[var(--line)]">
+                <th className="px-3 py-2">Người phụ trách</th>
+                <th className="px-3 py-2">Vai trò</th>
+                <th className="px-3 py-2" />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {tnKhoKeToan.map((u) => (
+                <tr key={u.email} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                  <td className="px-3 py-2">{u.email}</td>
+                  <td className="px-3 py-2">
+                    {[u.la_tac_nghiep && "TN", u.la_kho && "Kho", u.la_ke_toan && "Kế toán"].filter(Boolean).join(", ")}
+                  </td>
+                  <td className="px-3 py-2">
+                    <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openFor(u.email)}>
+                      Gán Giám sát
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
       {selected && (
         <Modal open onClose={() => setSelected(null)} title={`Gán Giám sát phụ trách — ${selected}`} width="max-w-md">

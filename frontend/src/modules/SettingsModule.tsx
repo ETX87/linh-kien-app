@@ -6,6 +6,8 @@ import { Modal } from "../components/ui/Modal";
 import { Select } from "../components/ui/Select";
 import { Tabs } from "../components/ui/Tabs";
 import { useToast } from "../components/ui/Toast";
+import { Badge } from "../components/ui/Badge";
+import { KvRow } from "../components/ui/KvRow";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import type { LyDoChamMuaLkRow, KtvLienHeRow } from "../types";
 
@@ -126,43 +128,45 @@ function LyDoChamTab() {
     <div className="space-y-3">
       <div className="text-xs text-[var(--ink-500)]">Danh sách lý do dùng ở nút "Chờ hàng"/"Từ chối" khi TN xử lý đơn hàng.</div>
       <Btn size="sm" onClick={() => openEdit("new")}>+ Thêm lý do</Btn>
-      <div className="overflow-x-auto border border-[var(--line)] rounded-xl">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs uppercase text-[var(--ink-400)] bg-slate-50 border-b border-[var(--line)]">
-              <th className="px-3 py-2">Tên lý do</th>
-              <th className="px-3 py-2">Hệ thống sử dụng</th>
-              <th className="px-3 py-2">Quản lý đơn thiếu LK</th>
-              <th className="px-3 py-2">Bật/tắt</th>
-              <th className="px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {(data?.rows ?? []).map((r) => (
-              <tr key={r.id} className="border-b border-[var(--line)] last:border-0">
-                <td className="px-3 py-2">{r.ten_ly_do}</td>
-                <td className="px-3 py-2">{r.he_thong_su_dung}</td>
-                <td className="px-3 py-2">{r.quan_ly_don_thieu_linh_kien ? "Có" : "—"}</td>
-                <td className="px-3 py-2">{r.bat_tat ? "Bật" : "Tắt"}</td>
-                <td className="px-3 py-2">
-                  <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openEdit(r)}>
-                    Sửa
-                  </button>
-                </td>
+      <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[#FBFBFB] border-b border-[var(--line)]">
+                <th className="px-3 py-2">Tên lý do</th>
+                <th className="px-3 py-2">Hệ thống sử dụng</th>
+                <th className="px-3 py-2">Quản lý đơn thiếu LK</th>
+                <th className="px-3 py-2">Bật/tắt</th>
+                <th className="px-3 py-2" />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {(data?.rows ?? []).map((r) => (
+                <tr key={r.id} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                  <td className="px-3 py-2">{r.ten_ly_do}</td>
+                  <td className="px-3 py-2">{r.he_thong_su_dung}</td>
+                  <td className="px-3 py-2">{r.quan_ly_don_thieu_linh_kien ? "Có" : "—"}</td>
+                  <td className="px-3 py-2">{r.bat_tat ? "Bật" : "Tắt"}</td>
+                  <td className="px-3 py-2">
+                    <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openEdit(r)}>
+                      Sửa
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
       {editing && (
         <Modal open onClose={() => setEditing(null)} title={editing === "new" ? "Thêm lý do chậm" : "Sửa lý do chậm"} width="max-w-md">
           <div className="space-y-3 text-sm">
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Tên lý do</label>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Tên lý do</label>
               <input value={form.ten_ly_do} onChange={(e) => setForm({ ...form, ten_ly_do: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Hệ thống sử dụng</label>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Hệ thống sử dụng</label>
               <Select value={form.he_thong_su_dung} onChange={(v) => setForm({ ...form, he_thong_su_dung: v })} options={[{ value: "Mua hàng", label: "Mua hàng" }, { value: "Bảo hành", label: "Bảo hành" }]} />
             </div>
             <label className="flex items-center gap-2">
@@ -265,12 +269,19 @@ function LoaiDeXuatTab() {
         <Btn size="sm" onClick={() => setNewNhom({ ten_nhom: "", roles: new Set(["la_ktv_dvbh", "la_ve_tinh"]) })}>+ Thêm nhóm</Btn>
       )}
       {nhoms.map((n) => (
-        <div key={n.id} className="border border-[var(--line)] rounded-xl p-3">
+        <div key={n.id} className="border border-[var(--line)] rounded-xl bg-[var(--surface)] p-3">
           <div className="font-semibold text-sm mb-2">{n.ten_nhom}</div>
           <div className="flex flex-wrap gap-2">
             {options.filter((o) => o.nhom_id === n.id).map((o) => (
-              <label key={o.id} className="inline-flex items-center gap-1.5 border border-[var(--line)] rounded-full px-2.5 py-1 text-xs">
-                <input type="checkbox" checked={!!o.bat_tat} onChange={(e) => toggleOption.mutate({ id: o.id, bat_tat: e.target.checked })} />
+              <label
+                key={o.id}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium cursor-pointer border transition-colors ${
+                  o.bat_tat
+                    ? "bg-[var(--indigo-600)] border-[var(--indigo-600)] text-white"
+                    : "bg-white border-[var(--line)] text-[var(--ink-700)] hover:border-[var(--indigo-600)]"
+                }`}
+              >
+                <input type="checkbox" className="sr-only" checked={!!o.bat_tat} onChange={(e) => toggleOption.mutate({ id: o.id, bat_tat: e.target.checked })} />
                 {o.ten_option}
               </label>
             ))}
@@ -427,60 +438,62 @@ function KtvTab() {
           ⬇ Tải danh sách
         </Btn>
       </div>
-      <div className="overflow-x-auto border border-[var(--line)] rounded-xl">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs uppercase text-[var(--ink-400)] bg-slate-50 border-b border-[var(--line)]">
-              <th className="px-3 py-2">Mã KTV</th>
-              <th className="px-3 py-2">Tên hiển thị</th>
-              <th className="px-3 py-2">Vai trò</th>
-              <th className="px-3 py-2">Email đăng nhập</th>
-              <th className="px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {(data?.rows ?? []).map((r) => (
-              <tr key={r.ma_ktv} className="border-b border-[var(--line)] last:border-0">
-                <td className="px-3 py-2 font-mono text-xs">{r.ma_ktv}</td>
-                <td className="px-3 py-2">{r.ten_hien_thi ?? "—"}</td>
-                <td className="px-3 py-2">{r.vai_tro_ktv ?? "—"}</td>
-                <td className="px-3 py-2">{r.email_dang_nhap ?? "—"}</td>
-                <td className="px-3 py-2 flex gap-2">
-                  <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openEdit(r)}>Sửa</button>
-                  <button className="text-[var(--coral-500)] hover:underline text-xs" onClick={() => remove.mutate(r.ma_ktv)}>Xoá</button>
-                </td>
+      <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[#FBFBFB] border-b border-[var(--line)]">
+                <th className="px-3 py-2">Mã KTV</th>
+                <th className="px-3 py-2">Tên hiển thị</th>
+                <th className="px-3 py-2">Vai trò</th>
+                <th className="px-3 py-2">Email đăng nhập</th>
+                <th className="px-3 py-2" />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {(data?.rows ?? []).map((r) => (
+                <tr key={r.ma_ktv} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                  <td className="px-3 py-2 font-mono text-xs">{r.ma_ktv}</td>
+                  <td className="px-3 py-2">{r.ten_hien_thi ?? "—"}</td>
+                  <td className="px-3 py-2">{r.vai_tro_ktv ?? "—"}</td>
+                  <td className="px-3 py-2">{r.email_dang_nhap ?? "—"}</td>
+                  <td className="px-3 py-2 flex gap-2">
+                    <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openEdit(r)}>Sửa</button>
+                    <button className="text-[var(--coral-500)] hover:underline text-xs" onClick={() => remove.mutate(r.ma_ktv)}>Xoá</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
       {editing && (
         <Modal open onClose={() => setEditing(null)} title={editing === "new" ? "Thêm KTV" : "Sửa KTV"} width="max-w-md">
           <div className="space-y-3 text-sm">
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Mã KTV</label>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Mã KTV</label>
               <input value={form.ma_ktv} disabled={editing !== "new"} onChange={(e) => setForm({ ...form, ma_ktv: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Tên hiển thị</label>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Tên hiển thị</label>
               <input value={form.ten_hien_thi} onChange={(e) => setForm({ ...form, ten_hien_thi: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Số điện thoại</label>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Số điện thoại</label>
               <input value={form.sdt} onChange={(e) => setForm({ ...form, sdt: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Vai trò</label>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Vai trò</label>
               <Select value={form.vai_tro_ktv ?? "KTV"} onChange={(v) => setForm({ ...form, vai_tro_ktv: v as KtvLienHeRow["vai_tro_ktv"] })} options={[
                 { value: "KTV", label: "KTV" }, { value: "CTV", label: "CTV" }, { value: "Tram", label: "Trạm" }, { value: "Ve tinh", label: "Vệ tinh" },
               ]} />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Email đăng nhập (Google)</label>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Email đăng nhập (Google)</label>
               <input value={form.email_dang_nhap} onChange={(e) => setForm({ ...form, email_dang_nhap: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
             </div>
             <div>
-              <label className="text-xs font-semibold text-[var(--ink-400)]">Email Giám sát quản lý (nếu là Vệ tinh)</label>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Email Giám sát quản lý (nếu là Vệ tinh)</label>
               <input value={form.giam_sat_quan_ly} onChange={(e) => setForm({ ...form, giam_sat_quan_ly: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
             </div>
             <div className="flex justify-end gap-2 pt-2">
@@ -509,7 +522,7 @@ function KtvTab() {
               Đang xử lý... {bulkProcessed}/{bulkTotal} dòng
               <div className="w-full h-2 bg-[var(--surface-100)] rounded-full mt-1 overflow-hidden">
                 <div
-                  className="h-full bg-[var(--ocean-500)] transition-all"
+                  className="h-full bg-[var(--indigo-600)] transition-all"
                   style={{ width: `${bulkTotal ? Math.min(100, (bulkProcessed / bulkTotal) * 100) : 0}%` }}
                 />
               </div>
@@ -547,26 +560,85 @@ function GoogleDriveTab() {
   });
 
   return (
-    <div className="space-y-3 max-w-md">
-      <div className="text-xs text-[var(--ink-500)]">
-        Uỷ quyền 1 tài khoản Google thật để upload "ảnh minh hoạ linh kiện" (Danh mục linh kiện). Ảnh biên bản/bằng chứng chuyển tiền của Phiếu xuất kho dùng cơ chế khác (Service Account), không cần bước này.
+    <div className="max-w-md space-y-4">
+      <div>
+        <div className="text-xs text-[var(--ink-500)] mb-3">
+          Uỷ quyền 1 tài khoản Google thật để upload "ảnh minh hoạ linh kiện" (Danh mục linh kiện) và ảnh trả hàng (Đặt mua linh kiện › Trả hàng). Ảnh biên bản/bằng chứng chuyển tiền của Phiếu xuất kho dùng cơ chế khác (Service Account), không cần bước này.
+        </div>
+        <div className="border border-[var(--line)] rounded-xl bg-[var(--surface)] p-4">
+          {isLoading ? (
+            <div className="text-sm text-[var(--ink-400)]">Đang tải…</div>
+          ) : (
+            <>
+              <KvRow label="Trạng thái">
+                {data?.connected ? <Badge tone="teal">Đã kết nối</Badge> : <Badge tone="gray">Chưa kết nối</Badge>}
+              </KvRow>
+              {data?.connected && (
+                <>
+                  <KvRow label="Tài khoản">
+                    <span className="font-mono">{data.google_email}</span>
+                  </KvRow>
+                  <KvRow label="Uỷ quyền lúc">{data.authorized_at}</KvRow>
+                </>
+              )}
+              <div className="mt-3">
+                {data?.connected ? (
+                  <a href="/api/settings/google-drive/authorize" className="inline-block">
+                    <Btn size="sm" variant="ghost">Kết nối lại / đổi tài khoản</Btn>
+                  </a>
+                ) : (
+                  <a href="/api/settings/google-drive/authorize">
+                    <Btn size="sm">Kết nối tài khoản Google Drive</Btn>
+                  </a>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+      <NenAnhTraHangToggle />
+    </div>
+  );
+}
+
+// Co bat/tat "nen anh tra hang truoc khi upload" (them 2026-08-24, phan hoi "cơ chế nén ảnh này cho
+// tôi bật tắt tuỳ chỉnh trong settings") - nen chay o trinh duyet nguoi tao/QC (Canvas API, xem
+// frontend/src/lib/imageCompress.ts), khong phai o day - o day chi luu 1 co bat/tat DUNG CHUNG toan
+// he thong (bang app_settings, migration 0004_app_settings.sql).
+function NenAnhTraHangToggle() {
+  const qc = useQueryClient();
+  const addToast = useToast();
+  const { data, isLoading } = useQuery({
+    queryKey: ["app-settings"],
+    queryFn: () => api.get<{ nen_anh_tra_hang: boolean }>("/settings/app-settings"),
+  });
+  const save = useMutation({
+    mutationFn: (nen_anh_tra_hang: boolean) => api.patch("/settings/app-settings", { nen_anh_tra_hang }),
+    onSuccess: async () => {
+      addToast("Đã lưu");
+      await qc.invalidateQueries({ queryKey: ["app-settings"] });
+    },
+    onError: () => addToast("Không thể lưu, thử lại sau."),
+  });
+
+  return (
+    <div className="border border-[var(--line)] rounded-xl bg-[var(--surface)] p-4">
+      <div className="font-semibold text-sm mb-1">Nén ảnh trả hàng trước khi tải lên</div>
+      <div className="text-xs text-[var(--ink-500)] mb-3">
+        Tự động thu nhỏ (cạnh dài nhất ~2000px) + nén JPEG chất lượng cao ngay trên trình duyệt trước khi tải ảnh trả hàng (tạo đơn/QC từ chối) lên Drive — giảm dung lượng đáng kể, mắt thường không thấy khác biệt. Tắt nếu muốn giữ nguyên ảnh gốc.
       </div>
       {isLoading ? (
         <div className="text-sm text-[var(--ink-400)]">Đang tải…</div>
-      ) : data?.connected ? (
-        <div className="border border-[var(--line)] rounded-xl p-3 text-sm space-y-1">
-          <div>
-            Đã kết nối: <b>{data.google_email}</b>
-          </div>
-          <div className="text-xs text-[var(--ink-400)]">Uỷ quyền lúc: {data.authorized_at}</div>
-          <a href="/api/settings/google-drive/authorize" className="inline-block mt-2">
-            <Btn size="sm" variant="ghost">Kết nối lại / đổi tài khoản</Btn>
-          </a>
-        </div>
       ) : (
-        <a href="/api/settings/google-drive/authorize">
-          <Btn size="sm">Kết nối tài khoản Google Drive</Btn>
-        </a>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={data?.nen_anh_tra_hang ?? true}
+            disabled={save.isPending}
+            onChange={(e) => save.mutate(e.target.checked)}
+          />
+          {data?.nen_anh_tra_hang ?? true ? "Đang bật" : "Đang tắt"}
+        </label>
       )}
     </div>
   );

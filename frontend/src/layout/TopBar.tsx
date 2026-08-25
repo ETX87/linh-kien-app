@@ -43,6 +43,8 @@ export function TopBar({
   onOpenMobileMenu,
   onNavigate,
   onOpenCommandPalette,
+  mobilePreviewOpen,
+  onToggleMobilePreview,
 }: {
   role: string;
   user: AppUser;
@@ -56,6 +58,11 @@ export function TopBar({
   // Command palette (concept 1, 2026-08-24) - o "tim kiem" o day chi la 1 NUT MO palette that (dat tai
   // App.tsx), khong tu xu ly tim kiem tai day.
   onOpenCommandPalette: () => void;
+  // Nut "Xem truoc Mobile" (them 2026-08-24, chu he thong yeu cau "nút chuyển đổi giữa giao diện
+  // mobile và web để test cho nhanh") - CHI Admin that (giong dropdown "Xem thu vai tro" o duoi), mo
+  // 1 khung dien thoai that (iframe, xem App.tsx) thay vi tu resize cua so trinh duyet.
+  mobilePreviewOpen: boolean;
+  onToggleMobilePreview: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -118,6 +125,18 @@ export function TopBar({
         <kbd className="text-[10px] font-semibold border border-[var(--line)] rounded px-1.5 py-0.5">Ctrl K</kbd>
       </button>
       <div className="ml-auto flex items-center gap-3">
+        {realIsAdmin && (
+          <button
+            type="button"
+            onClick={onToggleMobilePreview}
+            title={mobilePreviewOpen ? "Đóng xem trước Mobile" : "Xem trước giao diện Mobile (test nhanh, không cần thu nhỏ cửa sổ)"}
+            className={`focus-ring w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+              mobilePreviewOpen ? "bg-[var(--indigo-100)] text-[var(--indigo-600)]" : "hover:bg-slate-100 text-[var(--ink-600)]"
+            }`}
+          >
+            📱
+          </button>
+        )}
         <div className="relative" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => setNotifOpen(!notifOpen)}

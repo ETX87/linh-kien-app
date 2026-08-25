@@ -30,6 +30,11 @@ export interface LkDanhMucRow {
   // da co san tu SELECT *, chi bo sung TYPE.
   ghi_chu?: string | null;
   gia_tham_chieu?: number | null;
+  // "dac_thu"/"phan_loai_dac_thu" (them 2026-08-25, phan hoi "khi chọn 1 lk thuộc diện đặc thù...
+  // hiện 1 note") - CUNG ly do voi anh_demo/ghi_chu o tren: du lieu da co san tu SELECT * o backend,
+  // chi thieu trong TYPE nay. Dung o LinhKienPicker.tsx de hien canh bao TBP duyet.
+  dac_thu?: number | null;
+  phan_loai_dac_thu?: string | null;
 }
 
 // Trang thai 1 DONG don hang - null cho dong loai_don='tra_hang' (dung tra_hang_log rieng, xem
@@ -224,6 +229,11 @@ export interface DonHangDraft {
   // Danh dau don uu tien (chot 2026-08-16, dot 3 gop y) - tich rieng TUNG dong, khong anh huong sap
   // xep, chi de hien thi/to mau noi bat.
   uu_tien: boolean;
+  // Anh linh kien can tra (them 2026-08-24, migration 0003_tra_hang_anh.sql) - CHI y nghia khi
+  // deriveLoaiDon(loai_de_xuat) === 'tra_hang' (bat buoc 1-3 anh, xem isLineComplete o
+  // useTaoDonForm.ts). Da upload SAN len Drive qua POST /tra-hang/upload-anh (xem TraHangAnhPicker
+  // trong SharedUi.tsx), chi con {driveFileId, url} de gui kem luc submit.
+  anh: { driveFileId: string; url: string }[];
 }
 
 export interface XepHangLinhKienRow {
@@ -246,4 +256,6 @@ export interface MaYeuCauSuCoPreview {
 // Muc tieu chung cho panel "can nhap truoc khi xac nhan" (tu choi CAN chon Ly do cham, huy CAN nhap
 // ly do tu do - phan hoi UX muc 1, 2026-08-15) - dung chung cho PhieuDatDetailModal va
 // DonCuaToiTab/PhieuDongBang. id = "bulk" khi ap dung cho ca tap `selected` dang chon.
-export type ActionTarget = { id: string | "bulk"; action: "tu_choi" | "cho_hang" | "huy" };
+// "duyet_tao_ho" (them 2026-08-24, muc 4) - CHI dung id 1 dong cu the (khong co "bulk"), xem
+// isCongNoTaoHo o helpers.ts.
+export type ActionTarget = { id: string | "bulk"; action: "tu_choi" | "cho_hang" | "huy" | "duyet_tao_ho" };

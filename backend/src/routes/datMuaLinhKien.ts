@@ -302,7 +302,11 @@ datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho hang') as cho_hang,
        (SELECT COUNT(*) FROM thieu_lk tlk WHERE (SELECT trang_thai FROM thieu_lk_log WHERE thieu_lk_id = tlk.id ORDER BY id DESC LIMIT 1) = 'Cho kho xu ly') as thieu_lk,
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet') as cho_tien,
-       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Dang tao phieu') as tao_pxk,
+       -- CHOT (phan hoi 2026-08-24: "khi pxk đang chờ tiền thì tính nó thành chờ tiền, khi cập nhật
+       -- tiền xong thì mới chuyển thành pxk") - loai tru PXK dang thoa dieu kien cho_tien o tren, khop
+       -- dung exclusion o GET /phieu-xuat-kho (routes/phieuXuatKho.ts) de badge/danh sach nhay toi
+       -- luon khop so.
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Dang tao phieu' AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')) as tao_pxk,
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Cho ke toan') as ke_toan,
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Da chot xong don xuat') as kho,
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Dang gui KTV') as ktv`,
@@ -327,7 +331,11 @@ datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
     { key: "tac_nghiep", label: "Tác nghiệp", count: n("tac_nghiep"), roleKeys: ["tac_nghiep"], tab: "don-cua-toi", filter: "Cho TN duyet", loaiDon: "all" },
     { key: "cho_hang", label: "Chờ hàng", count: n("cho_hang"), roleKeys: [], tab: "don-cua-toi", filter: "Cho hang", loaiDon: "all" },
     { key: "thieu_lk", label: "Thiếu LK", count: n("thieu_lk"), roleKeys: ["kho"], tab: "thieu-lk", filter: "Cho kho xu ly" },
-    { key: "cho_tien", label: "Chờ tiền", count: n("cho_tien"), roleKeys: ["ktv", "tac_nghiep"], tab: "phieu-xuat-kho", filter: "Dang tao phieu" },
+    // SUA (phan hoi 2026-08-24: "2 thẻ chờ tiền và pxk hình như đang là 1") - truoc day filter trung
+    // voi "tao_pxk" ben duoi ("Dang tao phieu") vi khong co cach loc rieng dieu kien "cho tien" (xem
+    // comment dieu kien cho_tien o dau file GET /luong-quy-trinh). Gio dung sentinel "CHO_TIEN" duoc
+    // GET /phieu-xuat-kho nhan dien rieng (xem routes/phieuXuatKho.ts).
+    { key: "cho_tien", label: "Chờ tiền", count: n("cho_tien"), roleKeys: ["ktv", "tac_nghiep"], tab: "phieu-xuat-kho", filter: "CHO_TIEN" },
     { key: "tao_pxk", label: "Tạo PXK", count: n("tao_pxk"), roleKeys: ["tac_nghiep"], tab: "phieu-xuat-kho", filter: "Dang tao phieu" },
     { key: "ke_toan", label: "Kế toán", count: n("ke_toan"), roleKeys: ["ke_toan"], tab: "phieu-xuat-kho", filter: "Cho ke toan" },
     { key: "kho", label: "Kho", count: n("kho"), roleKeys: ["kho"], tab: "phieu-xuat-kho", filter: "Da chot xong don xuat" },
@@ -368,6 +376,15 @@ interface BaoCaoRow {
   slDaXacNhan: number;
 }
 
+// "Thang lech N thang so voi thang hien tai (VN local)" - dung nowVN() (gio VN da luu san tren MOI
+// cot timestamp he thong, xem lib/vnTime.ts) lam moc, KHONG dung SQLite 'now' (UTC, se lech mui gio
+// so voi du lieu). Tra "YYYY-MM" de so sanh truc tiep voi strftime('%Y-%m', ...).
+function thangYYYYMM(offset: number): string {
+  const [y, m] = nowVN().slice(0, 7).split("-").map(Number);
+  const total = y * 12 + (m - 1) - offset;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`;
+}
+
 datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
   const user = c.get("user");
   // FIX (ma tran kiem soat he thong, Van de #1 sheet "5. Van de phat hien", xac nhan 2026-08-24): QC
@@ -377,39 +394,92 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
   // (khong dua vao frontend an nut) - QC dung y chi can xem dung buoc minh xu ly (Tra hang o buoc "Cho
   // QC xac nhan", da co san man TraHangTab), khong can/khong duoc xem bao cao tong hop toan he thong.
   if (user.vai_tro === "QC") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  // "full=1" (them 2026-08-25, phan hoi "mặc định load theo khu vực phụ trách => thêm lựa chọn để lọc
+  // full") - bo qua scope MEM (phuTrachGsSet/email_gs) khi nguoi xem la Giam sat/TN/Kho/Ke toan. KHONG
+  // ap dung cho nhanh KTV/Ve tinh (co dinh, khong doc query nay - dung y "ngoại trừ KTV/Trạm/CTV/Vệ
+  // tinh" da chot voi nguoi dung) - nhanh do van luon gioi han theo chinh minh du co truyen full=1.
+  const wantFull = c.req.query("full") === "1";
   // CHOT 2026-08-15: bo khai niem phieu_dat (migration 0075) - scope gio la 1 HAM sinh dieu kien
   // theo alias truyen vao (thay vi 1 chuoi co dinh) vi ham nay dung LAI CHINH dieu kien do o 2 noi
   // voi 2 alias khac nhau (ddh cho query don hang, ddh2 cho subquery EXISTS cua query PXK ben duoi).
   let scopeCond: ((alias: string) => string) | null = null;
   let scopeBinds: string[] = [];
   if (user.vai_tro === "Giam sat") {
-    scopeCond = (alias) => ` AND ${alias}.email_gs = ?`;
-    scopeBinds = [user.email];
+    if (!wantFull) {
+      scopeCond = (alias) => ` AND ${alias}.email_gs = ?`;
+      scopeBinds = [user.email];
+    }
   } else if (canTacNghiep(c) || user.la_kho || user.la_ke_toan) {
-    const gsSet = await phuTrachGsSet(c.env.DB, user.email);
-    if (gsSet) {
-      scopeCond = (alias) => ` AND ${alias}.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;
-      scopeBinds = [...gsSet];
+    if (!wantFull) {
+      const gsSet = await phuTrachGsSet(c.env.DB, user.email);
+      if (gsSet) {
+        scopeCond = (alias) => ` AND ${alias}.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;
+        scopeBinds = [...gsSet];
+      }
     }
   } else if (user.la_ktv_dvbh || user.la_ve_tinh) {
     scopeCond = (alias) => ` AND (${alias}.nguoi_tao = ? OR ${alias}.nguoi_nhan_hang = ?)`;
     scopeBinds = [user.email, user.email];
   }
 
+  // Bo loc "Tháng N/N-1/N-2" (them 2026-08-25, phan hoi "hạn chế theo tháng... tính theo thời điểm
+  // kết thúc cuối cùng của từng luồng quy trình") - "thang" query param: 0 = thang hien tai + TAT CA
+  // dong dang xu ly (chua co "ket_thuc_luc"), 1/2 = thang N-1/N-2 (CHI dong da dong trong dung thang
+  // do). 4 diem "ket thuc" da chot voi nguoi dung:
+  //   - "đơn hủy": dat_don_hang o 'TN tu choi'/'Da huy' (chua tung ra PXK) - moc thoi gian = updated_at
+  //     (duoc CAS ghi CUNG LUC voi trang_thai_hien_tai, xem applyDonHangLog).
+  //   - "kế toán/kho/ktv kết thúc": PXK o 'Ke toan huy'/'Kho da ket thuc'+'Hang tru kho'/'KTV da nhan' -
+  //     PXK KHONG co cot updated_at rieng nen phai lay tu phieu_xuat_kho_log (dong MOI NHAT khop dung
+  //     trang_thai hien tai cua no).
+  // Dong con "dang xu ly" (chua roi vao bat ky nhanh nao o tren) LUON hien o "thang 0", bat ke tao tu
+  // bao gio - dung y "cả đang xử lý" nguoi dung da chot.
+  const thangParam = Math.max(0, Math.min(2, Number(c.req.query("thang") ?? 0)));
+  const thangWhere =
+    thangParam === 0
+      ? "(ket_thuc_luc IS NULL OR strftime('%Y-%m', ket_thuc_luc) = ?)"
+      : "(ket_thuc_luc IS NOT NULL AND strftime('%Y-%m', ket_thuc_luc) = ?)";
+  const thangBind = thangYYYYMM(thangParam);
+
+  // TOI UU (kiem toan tai nguyen D1 quy mo 2-3 nam, 2026-08-24): truoc day dung
+  // latestDonHangStatusExpr("ddh.id") (subquery tuong quan doc dat_don_hang_log ORDER BY id DESC
+  // LIMIT 1) - lap lai 2 LAN MOI DONG cua toan bo dat_don_hang trong pham vi (khong gioi han thoi
+  // gian). Cot ddh.trang_thai_hien_tai da la NGUON THAT tuong duong (duoc ghi CUNG LUC voi dong log
+  // moi nhat qua co che CAS applyDonHangLog - moi endpoint khac nhu GET /don-hang, /luong-quy-trinh
+  // deu doc thang cot nay) - doi sang doc thang cot, bo han correlated subquery, giam manh chi phi
+  // dung dan luong endpoint nay gio chay THUONG XUYEN HON (nhung vao man "Trang chu" mac dinh).
+  //
+  // SUA (2026-08-25, cung dot voi bo loc thang): BO exclusion cung "trang_thai_hien_tai != 'Da huy'"
+  // truoc day (dong "Da huy" bi AN VINH VIEN khoi MOI chi so) - gio dong huy la 1 nhanh "ket_thuc_luc"
+  // that su (xem CTE ddh_kt), chi hien khi dung thang no bi huy duoc chon, khop dung yeu cau "đơn hủy"
+  // la 1 trong 4 diem ket thuc can loc duoc.
   const { results: donRows } = await c.env.DB.prepare(
-    `SELECT ddh.nguoi_nhan_hang as email, u.ten as ten,
+    `WITH ddh_kt AS (
+       SELECT ddh.id, ddh.nguoi_nhan_hang, ddh.so_luong_de_xuat, ddh.gia_de_xuat, ddh.gia_chot,
+         ddh.so_luong_thuc_xuat, ddh.trang_thai_hien_tai,
+         CASE
+           WHEN ddh.trang_thai_hien_tai IN ('TN tu choi', 'Da huy') THEN ddh.updated_at
+           WHEN pxk.trang_thai_hien_tai IN ('Ke toan huy', 'Kho da ket thuc', 'Hang tru kho', 'KTV da nhan')
+             THEN (SELECT ngay_xu_ly FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = pxk.id AND trang_thai = pxk.trang_thai_hien_tai ORDER BY id DESC LIMIT 1)
+           ELSE NULL
+         END as ket_thuc_luc
+       FROM dat_don_hang ddh
+       LEFT JOIN phieu_xuat_kho_dong pxkd ON pxkd.dat_don_hang_id = ddh.id
+       LEFT JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
+       WHERE ddh.loai_don != 'tra_hang'${scopeCond ? scopeCond("ddh") : ""}
+     )
+     SELECT ddh.nguoi_nhan_hang as email, u.ten as ten,
        COUNT(*) as sl_don,
        COALESCE(SUM(ddh.so_luong_de_xuat), 0) as sl_de_xuat,
-       COALESCE(SUM(CASE WHEN ${latestDonHangStatusExpr("ddh.id")} = 'TN tu choi' THEN 1 ELSE 0 END), 0) as sl_tu_choi,
-       COALESCE(SUM(CASE WHEN ${latestDonHangStatusExpr("ddh.id")} = 'TN da duyet' THEN 1 ELSE 0 END), 0) as sl_duyet,
+       COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai = 'TN tu choi' THEN 1 ELSE 0 END), 0) as sl_tu_choi,
+       COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai = 'TN da duyet' THEN 1 ELSE 0 END), 0) as sl_duyet,
        COALESCE(SUM(CASE WHEN ddh.so_luong_thuc_xuat IS NOT NULL THEN ddh.so_luong_thuc_xuat ELSE 0 END), 0) as sl_thuc_duyet,
        COALESCE(SUM(CASE WHEN ddh.gia_chot IS NOT NULL AND ddh.so_luong_thuc_xuat IS NOT NULL THEN ddh.gia_chot * ddh.so_luong_thuc_xuat ELSE 0 END), 0) as tong_tien_thuc_te,
        COALESCE(SUM(ddh.gia_de_xuat * ddh.so_luong_de_xuat), 0) as tong_tien_dat_mua
-     FROM dat_don_hang ddh LEFT JOIN users u ON u.email = ddh.nguoi_nhan_hang
-     WHERE ddh.loai_don != 'tra_hang' AND ${latestDonHangStatusExpr("ddh.id")} != 'Da huy'${scopeCond ? scopeCond("ddh") : ""}
+     FROM ddh_kt ddh LEFT JOIN users u ON u.email = ddh.nguoi_nhan_hang
+     WHERE ${thangWhere}
      GROUP BY ddh.nguoi_nhan_hang`,
   )
-    .bind(...scopeBinds)
+    .bind(...scopeBinds, thangBind)
     .all<{
       email: string; ten: string | null; sl_don: number; sl_de_xuat: number; sl_tu_choi: number; sl_duyet: number;
       sl_thuc_duyet: number; tong_tien_thuc_te: number; tong_tien_dat_mua: number;
@@ -418,19 +488,37 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
   const pxkScopeExists = scopeCond
     ? ` AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id${scopeCond("ddh2")})`
     : "";
-  const pxkLatestStatusExpr = "(SELECT trang_thai FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = pxk.id ORDER BY id DESC LIMIT 1)";
-  const { results: pxkRows } = await c.env.DB.prepare(
-    `SELECT pxk.nguoi_nhan_hang as email,
-       COALESCE(SUM(CASE WHEN pxk.so_tien_can_chuyen IS NOT NULL AND (pxk.trang_thai_chuyen_tien IS NULL OR pxk.trang_thai_chuyen_tien != 'TN da duyet') THEN pxk.so_tien_can_chuyen ELSE 0 END), 0) as tong_cho_chuyen,
-       COALESCE(SUM(CASE WHEN ${pxkLatestStatusExpr} = 'Cho ke toan' THEN 1 ELSE 0 END), 0) as sl_cho_ke_toan,
-       COALESCE(SUM(CASE WHEN ${pxkLatestStatusExpr} = 'Da chot xong don xuat' THEN 1 ELSE 0 END), 0) as sl_cho_kho_gui,
-       COALESCE(SUM(CASE WHEN ${pxkLatestStatusExpr} = 'Dang gui KTV' THEN 1 ELSE 0 END), 0) as sl_da_gui,
-       COALESCE(SUM(CASE WHEN ${pxkLatestStatusExpr} = 'KTV da nhan' THEN 1 ELSE 0 END), 0) as sl_da_xac_nhan
-     FROM phieu_xuat_kho pxk
-     WHERE pxk.nguoi_nhan_hang IS NOT NULL${pxkScopeExists}
-     GROUP BY pxk.nguoi_nhan_hang`,
-  )
-    .bind(...scopeBinds)
+  // 4 cot "tong_cho_chuyen/sl_cho_ke_toan/sl_cho_kho_gui/sl_da_gui" la snapshot "dang cho xu ly NGAY
+  // BAY GIO" (chua toi buoc dong) - CHI co nghia cho thang HIEN TAI (thangParam===0), thang qua khu
+  // khong con khai niem "dang cho" nua nen luon ve 0.
+  //
+  // SUA (2026-08-25, phat hien khi tu kiem thu bo loc thang moi them): "sl_da_xac_nhan" (KTV da nhan)
+  // KHAC 4 cot tren - day la 1 trang thai DONG that su (nam trong TRANG_THAI_DONG cua phieuXuatKho.ts,
+  // cung 1 trong "4 điểm kết thúc" da chot voi nguoi dung o CTE ddh_kt phia tren) nen PHAI bucket theo
+  // thang giong het cach ddh_kt lam, KHONG the giu nguyen dang "snapshot khong doi theo thang" nhu 4
+  // cot con lai - neu khong se tiep tuc cong don TOAN BO lich su "KTV da nhan" tu truoc toi gio vao
+  // MOI lan xem thang hien tai, di nguoc lai chinh muc dich "hạn chế hao tốn dữ liệu theo tháng".
+  const pxkSnapshotCols =
+    thangParam === 0
+      ? `COALESCE(SUM(CASE WHEN pxk.so_tien_can_chuyen IS NOT NULL AND (pxk.trang_thai_chuyen_tien IS NULL OR pxk.trang_thai_chuyen_tien != 'TN da duyet') THEN pxk.so_tien_can_chuyen ELSE 0 END), 0) as tong_cho_chuyen,
+         COALESCE(SUM(CASE WHEN pxk.trang_thai_hien_tai = 'Cho ke toan' THEN 1 ELSE 0 END), 0) as sl_cho_ke_toan,
+         COALESCE(SUM(CASE WHEN pxk.trang_thai_hien_tai = 'Da chot xong don xuat' THEN 1 ELSE 0 END), 0) as sl_cho_kho_gui,
+         COALESCE(SUM(CASE WHEN pxk.trang_thai_hien_tai = 'Dang gui KTV' THEN 1 ELSE 0 END), 0) as sl_da_gui,`
+      : `0 as tong_cho_chuyen, 0 as sl_cho_ke_toan, 0 as sl_cho_kho_gui, 0 as sl_da_gui,`;
+  const { results: pxkRows } = await c.env.DB
+    .prepare(
+      `SELECT pxk.nguoi_nhan_hang as email,
+         ${pxkSnapshotCols}
+         COALESCE(SUM(
+           CASE WHEN pxk.trang_thai_hien_tai = 'KTV da nhan'
+             AND strftime('%Y-%m', (SELECT ngay_xu_ly FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = pxk.id AND trang_thai = 'KTV da nhan' ORDER BY id DESC LIMIT 1)) = ?
+           THEN 1 ELSE 0 END
+         ), 0) as sl_da_xac_nhan
+       FROM phieu_xuat_kho pxk
+       WHERE pxk.nguoi_nhan_hang IS NOT NULL${pxkScopeExists}
+       GROUP BY pxk.nguoi_nhan_hang`,
+    )
+    .bind(thangBind, ...scopeBinds)
     .all<{ email: string; tong_cho_chuyen: number; sl_cho_ke_toan: number; sl_cho_kho_gui: number; sl_da_gui: number; sl_da_xac_nhan: number }>();
 
   const byEmail = new Map<string, BaoCaoRow>();
@@ -696,6 +784,11 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
       // TAC NGHIEP giai trinh SLA, dien qua PATCH /don-hang/:id (xem duoi).
       ghi_chu?: string; yeu_cau_hoa_don?: string; tt_mail_duyet?: string; tt_khach_hang?: string;
       chinh_sach?: string; ma_yeu_cau_su_co?: string; uu_tien?: boolean;
+      // Anh linh kien can tra (phan hoi 2026-08-24, muc 1 "bắt buộc phải có ảnh... tối đa 3 ảnh") -
+      // CHI ap dung khi deriveLoaiDon(loai_de_xuat) === 'tra_hang'. Da upload TRUOC qua
+      // POST /tra-hang/upload-anh (id dong don hang luc do CHUA sinh - xem lib/googleDrive.ts), gui
+      // kem {driveFileId, url} de gan vao dong VUA sinh trong CUNG vong lap ben duoi.
+      anh?: { driveFileId: string; url: string }[];
     }[];
   }>();
   if (!Array.isArray(body.don_hang) || body.don_hang.length === 0) return c.json({ error: "MISSING_DON_HANG" }, 400);
@@ -743,6 +836,12 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
     const lde = dh.loai_de_xuat.trim();
     if (canNoRequired(lde) && (!dh.chinh_sach?.trim() || !dh.ma_yeu_cau_su_co?.trim()))
       return c.json({ error: "THIEU_CHINH_SACH_HOAC_MA_YCSC", ma_lk: dh.ma_lk }, 400);
+    // CHOT (phan hoi 2026-08-24, muc 1): dong tra hang BAT BUOC 1-3 anh linh kien can tra, da upload
+    // truoc qua POST /tra-hang/upload-anh (xem khai bao "anh" o tren).
+    if (deriveLoaiDon(lde) === "tra_hang") {
+      const soAnh = dh.anh?.length ?? 0;
+      if (soAnh < 1 || soAnh > 3) return c.json({ error: "THIEU_ANH_TRA_HANG", ma_lk: dh.ma_lk }, 400);
+    }
   }
 
   // CHOT 2026-08-16 (dot 3 gop y): "Gia de xuat" lay tu linh_kien.gia_ban (gia ban dang duoc quan
@@ -825,6 +924,19 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
           now,
         ),
       );
+    } else {
+      // Gan anh linh kien can tra vao dong VUA sinh (da validate 1-3 anh o vong lap tren) - xem
+      // migration 0003_tra_hang_anh.sql.
+      for (const a of dh.anh ?? []) {
+        statements.push(
+          c.env.DB.prepare("INSERT INTO tra_hang_anh (dat_don_hang_id, loai, drive_file_id, url, nguoi_upload) VALUES (?, 'tao_moi', ?, ?, ?)").bind(
+            donHangId,
+            a.driveFileId,
+            a.url,
+            user.email,
+          ),
+        );
+      }
     }
   }
 
@@ -964,6 +1076,12 @@ async function processDatDonHangImportRows(
 
     if (canNoRequired(loaiDeXuat) && (!row.chinh_sach?.trim() || !row.ma_yeu_cau_su_co?.trim())) {
       errors.push(`Dòng ${dong}: Loại đề xuất "${loaiDeXuat}" yêu cầu điền CHÍNH SÁCH và MÃ YÊU CẦU SỰ CỐ`);
+      continue;
+    }
+    // CHOT (phan hoi 2026-08-24): don Tra hang bat buoc anh linh kien can tra - Excel khong the kem
+    // anh, nen KHONG ho tro tao qua Nhap Excel, phai tao thu cong tung dong qua POST /phieu-dat.
+    if (deriveLoaiDon(loaiDeXuat) === "tra_hang") {
+      errors.push(`Dòng ${dong}: đơn Trả hàng cần ảnh linh kiện - không hỗ trợ tạo qua Nhập Excel, vui lòng tạo thủ công`);
       continue;
     }
 

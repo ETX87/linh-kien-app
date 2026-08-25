@@ -8,11 +8,15 @@ import { Select } from "../../components/ui/Select";
 import { PaginatedTable, type Column } from "../../components/ui/PaginatedTable";
 import { useColumnConfig } from "../../components/ui/useColumnConfig";
 import { ColumnSettingsButton } from "../../components/ui/ColumnHeader";
+import { KvRow } from "../../components/ui/KvRow";
+import { SectionTitle } from "../../components/ui/SectionTitle";
+import { Timeline } from "../../components/ui/Timeline";
+import { Stepper } from "../../components/ui/Stepper";
 import { api, buildQuery, ApiError } from "../../api/client";
 import { fmtDateTime, fmtVND } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import type { DonHangRow, PhieuXuatKhoRow, DonHangKhaDungRow, NguoiNhanHangKhaDungRow, LyDoChamRow, KtvDisplayMap } from "./types";
-import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_TIEN_OPTIONS } from "./constants";
+import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_TIEN_OPTIONS, PXK_MINI_STEPS, PXK_MINI_LABEL } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   trangThaiLabel, LOAI_DON_TONE,
@@ -279,7 +283,7 @@ export function PhieuXuatKhoTab({
               onClick={() => setXemLoaiDon(l)}
               className={`focus-ring rounded-lg font-semibold transition-colors px-2.5 py-1.5 text-xs ${
                 active
-                  ? "bg-[var(--ocean-500)] text-white shadow-sm"
+                  ? "bg-[var(--indigo-600)] text-white shadow-sm"
                   : attention
                     ? "bg-[var(--amber-100)] text-[var(--amber-700)] border border-[var(--amber-500)]"
                     : "bg-white text-[var(--ink-600)] border border-[var(--line)] hover:bg-slate-50"
@@ -691,6 +695,17 @@ export function PxkDetailModal({
         <div className="text-sm text-[var(--ink-500)] py-4 text-center">Đang tải...</div>
       ) : !data || !pxk ? null : (
         <div className="space-y-4 text-sm">
+          {/* MOI (concept 1 "Structured Neutral", pattern .stepper): dai buoc tuyen tinh cho luong
+              chinh cua PXK (5 buoc chinh trong PXK_MINI_STEPS) - bo sung canh PxkMiniPipeline hien co
+              (chevron, van GIU NGUYEN khong doi), khong thay the. Trang thai nhanh re (Ke toan huy/
+              Hang tru kho/Kho da ket thuc/Kho da nhan hang tra) khong nam trong truc chinh -> khong
+              buoc nao duoc danh dau "done"/"cur", giong dung cach PxkMiniPipeline xu ly re nhanh. */}
+          <Stepper
+            steps={PXK_MINI_STEPS.map((s, i) => {
+              const idxHienTai = PXK_MINI_STEPS.indexOf(trangThai as (typeof PXK_MINI_STEPS)[number]);
+              return { label: PXK_MINI_LABEL[s], state: idxHienTai < 0 ? "todo" : i < idxHienTai ? "done" : i === idxHienTai ? "cur" : "todo" };
+            })}
+          />
           {/* CHOT (ra soat module "Dat Mua Linh Kien 2.0" #19): mini pipeline dau modal - truoc day
               chi co 1 StatusBadge dong dau, khong biet dang o buoc may trong bao nhieu buoc cua vong
               doi PXK (9 trang thai). */}
@@ -709,7 +724,7 @@ export function PxkDetailModal({
             {pxk.ma_misa && <span className="text-xs text-[var(--ink-500)]">Mã MISA: <span className="font-mono">{pxk.ma_misa}</span></span>}
             {pxk.ma_van_don && <span className="text-xs text-[var(--ink-500)]">Mã vận đơn: <span className="font-mono">{pxk.ma_van_don}</span></span>}
             {pxk.anh_bien_ban_url && (
-              <a href={pxk.anh_bien_ban_url} target="_blank" rel="noreferrer" className="text-[var(--accent)] underline text-xs">Xem ảnh biên bản</a>
+              <a href={pxk.anh_bien_ban_url} target="_blank" rel="noreferrer" className="text-[var(--indigo-600)] underline text-xs">Xem ảnh biên bản</a>
             )}
           </div>
 
@@ -719,8 +734,8 @@ export function PxkDetailModal({
           {/* Muc C (Dot 2, 2026-08-15): TN nhap "Ma don hang" that SAU khi KTV da chuyen tien xong -
               chi hien luc con "Dang tao phieu", bat buoc truoc khi duoc gui ke toan (chan o backend). */}
           {canTacNghiep && trangThai === "Dang tao phieu" && (
-            <div className="border border-[var(--line)] rounded-lg p-3 space-y-2">
-              <div className="font-semibold text-xs">Mã đơn hàng {!pxk.ma_xuat_kho_xac_nhan && <span className="text-[var(--coral-600)]">*</span>}</div>
+            <div className="border border-[var(--line)] rounded-lg p-3">
+              <SectionTitle>Mã đơn hàng {!pxk.ma_xuat_kho_xac_nhan && <span className="text-[var(--coral-600)] normal-case tracking-normal">*</span>}</SectionTitle>
               <div className="flex gap-2 items-end">
                 <input
                   value={maXuatKhoDraft}
@@ -735,8 +750,8 @@ export function PxkDetailModal({
 
           {/* Muc D (Dot 2): Ke toan dien "Ma MISA" tren chinh PXK, bat buoc truoc khi chot xong don xuat. */}
           {canKeToan && trangThai === "Cho ke toan" && (
-            <div className="border border-[var(--line)] rounded-lg p-3 space-y-2">
-              <div className="font-semibold text-xs">Mã MISA {!pxk.ma_misa && <span className="text-[var(--coral-600)]">*</span>}</div>
+            <div className="border border-[var(--line)] rounded-lg p-3">
+              <SectionTitle>Mã MISA {!pxk.ma_misa && <span className="text-[var(--coral-600)] normal-case tracking-normal">*</span>}</SectionTitle>
               <div className="flex gap-2 items-end">
                 <input
                   value={maMisaDraft}
@@ -751,8 +766,8 @@ export function PxkDetailModal({
 
           {/* Muc F (Dot 2): CHI dung nguoi nhan hang duoc tai anh bien ban + xac nhan da nhan. */}
           {trangThai === "Dang gui KTV" && currentEmail === pxk.nguoi_nhan_hang && (
-            <div className="border border-[var(--line)] rounded-lg p-3 space-y-2">
-              <div className="font-semibold text-xs">Ảnh biên bản tiếp nhận (không bắt buộc)</div>
+            <div className="border border-[var(--line)] rounded-lg p-3">
+              <SectionTitle>Ảnh biên bản tiếp nhận (không bắt buộc)</SectionTitle>
               <input
                 type="file"
                 accept="image/*"
@@ -761,12 +776,12 @@ export function PxkDetailModal({
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleUploadAnhBienBan(f); }}
                 className="text-xs"
               />
-              {uploadingAnh && <div className="text-xs text-[var(--ink-500)]">Đang tải ảnh...</div>}
+              {uploadingAnh && <div className="text-xs text-[var(--ink-500)] mt-2">Đang tải ảnh...</div>}
             </div>
           )}
 
-          <div className="border border-[var(--line)] rounded-lg p-3 space-y-2">
-            <div className="font-semibold text-xs">Chuyển tiền</div>
+          <div className="border border-[var(--line)] rounded-lg p-3">
+            <SectionTitle>Chuyển tiền</SectionTitle>
             {pxk.so_tien_can_chuyen == null ? (
               canTacNghiep && trangThai === "Dang tao phieu" ? (
                 <div className="flex gap-2 items-end">
@@ -784,24 +799,20 @@ export function PxkDetailModal({
               )
             ) : (
               <>
-                <div className="flex gap-2 items-center flex-wrap">
-                  <span className="font-semibold">{fmtVND(pxk.so_tien_can_chuyen)}</span>
-                  <StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} />
-                  {pxk.bang_chung_chuyen_tien_url && (
-                    <a href={pxk.bang_chung_chuyen_tien_url} target="_blank" rel="noreferrer" className="text-[var(--accent)] underline text-xs">Xem bằng chứng</a>
-                  )}
-                  {pxk.bang_chung_chuyen_tien_ghi_chu && (
-                    <span className="text-xs text-[var(--ink-600)]">
-                      <span className="font-semibold">Ghi chú:</span> {pxk.bang_chung_chuyen_tien_ghi_chu}
-                    </span>
-                  )}
-                </div>
+                <KvRow label="Số tiền"><span className="font-semibold">{fmtVND(pxk.so_tien_can_chuyen)}</span></KvRow>
+                <KvRow label="Trạng thái"><StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /></KvRow>
+                {pxk.bang_chung_chuyen_tien_url && (
+                  <KvRow label="Bằng chứng"><a href={pxk.bang_chung_chuyen_tien_url} target="_blank" rel="noreferrer" className="text-[var(--indigo-600)] underline text-xs">Xem bằng chứng</a></KvRow>
+                )}
+                {pxk.bang_chung_chuyen_tien_ghi_chu && (
+                  <KvRow label="Ghi chú"><span className="text-xs text-[var(--ink-600)]">{pxk.bang_chung_chuyen_tien_ghi_chu}</span></KvRow>
+                )}
                 {/* Phan hoi 2026-08-19: "cho phép upload ảnh hoặc ghi chú thông tin chuyển tiền" -
                     truoc day CHI co 1 o dan link tay. Gio 2 lua chon SONG SONG (co the dung ca 2):
                     upload anh THAT qua Drive (giong "Ảnh biên bản") HOAC go ghi chu van ban, goi y
                     nhanh tu CUNG danh muc "Lý do chậm (Mua hàng)" da dung o cot "Lý do chậm" ben duoi. */}
                 {pxk.trang_thai_chuyen_tien === "Cho KTV chuyen" && (
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 mt-2">
                     <div className="flex gap-2 items-center flex-wrap">
                       <input
                         type="file"
@@ -840,7 +851,7 @@ export function PxkDetailModal({
                   </div>
                 )}
                 {canTacNghiep && pxk.trang_thai_chuyen_tien === "KTV da chuyen" && (
-                  <Btn size="sm" onClick={() => chuyenTienMutation.mutate({ trang_thai: "TN da duyet" })} disabled={chuyenTienMutation.isPending}>Duyệt bằng chứng</Btn>
+                  <Btn size="sm" className="mt-2" onClick={() => chuyenTienMutation.mutate({ trang_thai: "TN da duyet" })} disabled={chuyenTienMutation.isPending}>Duyệt bằng chứng</Btn>
                 )}
               </>
             )}
@@ -848,38 +859,43 @@ export function PxkDetailModal({
           </div>
 
           <div>
-            <div className="font-semibold text-xs mb-1">Dòng đơn hàng</div>
-            <div className="overflow-x-auto">
+            <SectionTitle>Dòng đơn hàng</SectionTitle>
+            <div className="overflow-x-auto rounded-xl border border-[var(--line)]">
               <table className="min-w-full text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[var(--surface-2)]">
-                    <th className="px-2 py-1 text-left border border-[var(--line)]">Mã</th>
-                    <th className="px-2 py-1 text-left border border-[var(--line)]">Tên LK</th>
-                    <th className="px-2 py-1 text-right border border-[var(--line)]">SL</th>
-                    <th className="px-2 py-1 text-left border border-[var(--line)]">Lý do chậm</th>
+                  <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[#FBFBFB] border-b border-[var(--line)]">
+                    <th className="px-2.5 py-2">Mã</th>
+                    <th className="px-2.5 py-2">Tên LK</th>
+                    <th className="px-2.5 py-2 text-right">SL</th>
+                    <th className="px-2.5 py-2">Lý do chậm</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.donHang.map((d) => (
-                    <tr key={d.id} className={`hover:brightness-95 ${d.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)]" : "hover:bg-[var(--surface-2)]"}`}>
-                      <td className="px-2 py-1 border border-[var(--line)] font-mono">{d.ma_lk}</td>
-                      <td className="px-2 py-1 border border-[var(--line)]">
+                    <tr key={d.id} className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 ${d.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)]" : ""}`}>
+                      <td className="px-2.5 py-2 font-mono">{d.ma_lk}</td>
+                      <td className="px-2.5 py-2">
                         {d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
                         {d.ten_lk_snapshot ?? d.ma_lk}
                       </td>
-                      <td className="px-2 py-1 border border-[var(--line)] text-right">{d.so_luong_de_xuat}</td>
-                      <td className="px-2 py-1 border border-[var(--line)]">
+                      <td className="px-2.5 py-2 text-right">{d.so_luong_de_xuat}</td>
+                      <td className="px-2.5 py-2">
                         {d.ly_do_cham ? (
                           <span>{d.ly_do_cham}</span>
                         ) : canTacNghiep && trangThai === "Dang tao phieu" ? (
                           <div className="flex flex-col gap-1">
+                            {/* CHOT (phan hoi 2026-08-24: "đổi hẳn thành dropdown bắt buộc, bỏ ô nhập
+                                tay") - Select BAT BUOC chon tu danh muc "Mua hàng" (settings_ly_do_cham),
+                                khong con o nhap tu do - neu Settings CHUA co ly do nao, TN se khong
+                                nhap duoc cho toi khi Admin bo sung (dung y da chot voi nguoi dung). */}
                             <div className="flex gap-1 items-center">
                               {d.qua_han_ly_do_cham && <Badge tone="coral">Quá hạn</Badge>}
-                              <input
+                              <Select
                                 value={lyDoChamDraft[d.id] ?? ""}
-                                onChange={(e) => setLyDoChamDraft((p) => ({ ...p, [d.id]: e.target.value }))}
-                                placeholder="Nhập lý do chậm"
-                                className="focus-ring flex-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2 py-1 text-xs"
+                                onChange={(v) => setLyDoChamDraft((p) => ({ ...p, [d.id]: v }))}
+                                options={[{ value: "", label: "-- Chọn lý do chậm --" }, ...(lyDoChamGoiYData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
+                                disabled={(lyDoChamGoiYData?.rows.length ?? 0) === 0}
+                                className="flex-1"
                               />
                               <Btn
                                 size="sm"
@@ -890,13 +906,8 @@ export function PxkDetailModal({
                                 Lưu
                               </Btn>
                             </div>
-                            {(lyDoChamGoiYData?.rows.length ?? 0) > 0 && (
-                              <Select
-                                value=""
-                                onChange={(v) => v && setLyDoChamDraft((p) => ({ ...p, [d.id]: v }))}
-                                options={[{ value: "", label: "+ Chọn nhanh lý do có sẵn" }, ...(lyDoChamGoiYData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
-                                className="text-[11px]"
-                              />
+                            {(lyDoChamGoiYData?.rows.length ?? 0) === 0 && (
+                              <div className="text-[10.5px] text-[var(--coral-600)]">Chưa có lý do chậm nào được cấu hình cho "Mua hàng" — vào Settings › Lý do chậm để thêm.</div>
                             )}
                           </div>
                         ) : (
@@ -910,13 +921,19 @@ export function PxkDetailModal({
             </div>
           </div>
 
-          <div className="text-xs space-y-0.5">
-            {data.logs.map((l) => (
-              <div key={l.id} className="text-[var(--ink-600)]">
-                <span className="font-medium">{trangThaiLabel(PXK_TRANG_THAI_OPTIONS, l.trang_thai)}</span> — {l.nguoi_xu_ly} {fmtDateTime(l.ngay_xu_ly)}
-                {l.ghi_chu && <span className="ml-1 text-[var(--ink-400)]">({l.ghi_chu})</span>}
-              </div>
-            ))}
+          <div>
+            <SectionTitle>Lịch sử xử lý</SectionTitle>
+            <Timeline
+              items={data.logs.map((l) => ({
+                title: (
+                  <>
+                    {trangThaiLabel(PXK_TRANG_THAI_OPTIONS, l.trang_thai)}
+                    {l.ghi_chu && <span className="font-normal text-[var(--ink-400)]"> ({l.ghi_chu})</span>}
+                  </>
+                ),
+                time: `${l.nguoi_xu_ly} · ${fmtDateTime(l.ngay_xu_ly)}`,
+              }))}
+            />
           </div>
 
           {!isDong && (

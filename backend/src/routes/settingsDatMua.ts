@@ -44,15 +44,23 @@ settingsDatMua.post("/linh-kien", linhKienWriteRoles, async (c) => {
   const body = await c.req.json<{
     ma_linh_kien: string; ten_linh_kien: string; gia_ban?: number; gia_tham_chieu?: number;
     don_vi?: string; ghi_chu?: string; anh_demo?: string; dac_thu?: boolean; chi_sua_chua?: boolean;
+    // "Phân loại đặc thù" (them 2026-08-25) - listdown tu do (dung y het "don_vi"), chi co y nghia khi
+    // dac_thu=true, frontend tu an o nhap khi chua tick dac_thu.
+    phan_loai_dac_thu?: string;
   }>();
   if (!body.ma_linh_kien?.trim() || !body.ten_linh_kien?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
 
   const user = c.get("user");
   const row = await c.env.DB.prepare(
-    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, nguoi_cap_nhat, ngay_cap_nhat)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, nguoi_cap_nhat, ngay_cap_nhat)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
   )
-    .bind(body.ma_linh_kien.trim(), body.ten_linh_kien.trim(), body.gia_ban ?? null, body.gia_tham_chieu ?? null, body.don_vi?.trim() || null, body.ghi_chu?.trim() || null, body.anh_demo?.trim() || null, body.dac_thu ? 1 : 0, body.chi_sua_chua ? 1 : 0, user.email, nowVN())
+    .bind(
+      body.ma_linh_kien.trim(), body.ten_linh_kien.trim(), body.gia_ban ?? null, body.gia_tham_chieu ?? null,
+      body.don_vi?.trim() || null, body.ghi_chu?.trim() || null, body.anh_demo?.trim() || null,
+      body.dac_thu ? 1 : 0, body.chi_sua_chua ? 1 : 0, body.dac_thu ? body.phan_loai_dac_thu?.trim() || null : null,
+      user.email, nowVN(),
+    )
     .first();
 
   await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
@@ -62,11 +70,15 @@ settingsDatMua.post("/linh-kien", linhKienWriteRoles, async (c) => {
 settingsDatMua.patch("/linh-kien/:ma", linhKienWriteRoles, async (c) => {
   const ma = c.req.param("ma");
   if (!ma) return c.json({ error: "INVALID_PARAM" }, 400);
-  const body = await c.req.json<{ bat_tat?: boolean; gia_ban?: number; gia_tham_chieu?: number; don_vi?: string; ghi_chu?: string; anh_demo?: string; dac_thu?: boolean; chi_sua_chua?: boolean }>();
+  const body = await c.req.json<{
+    bat_tat?: boolean; gia_ban?: number; gia_tham_chieu?: number; don_vi?: string; ghi_chu?: string;
+    anh_demo?: string; dac_thu?: boolean; chi_sua_chua?: boolean; phan_loai_dac_thu?: string;
+  }>();
   const existing = await c.env.DB.prepare("SELECT * FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
 
   const user = c.get("user");
+  const dacThuNext = body.dac_thu !== undefined ? (body.dac_thu ? 1 : 0) : existing.dac_thu;
   const next = {
     bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat,
     gia_ban: body.gia_ban !== undefined ? body.gia_ban : existing.gia_ban,
@@ -74,13 +86,16 @@ settingsDatMua.patch("/linh-kien/:ma", linhKienWriteRoles, async (c) => {
     don_vi: body.don_vi !== undefined ? body.don_vi?.trim() || null : existing.don_vi,
     ghi_chu: body.ghi_chu !== undefined ? body.ghi_chu?.trim() || null : existing.ghi_chu,
     anh_demo: body.anh_demo !== undefined ? body.anh_demo?.trim() || null : existing.anh_demo,
-    dac_thu: body.dac_thu !== undefined ? (body.dac_thu ? 1 : 0) : existing.dac_thu,
+    dac_thu: dacThuNext,
     chi_sua_chua: body.chi_sua_chua !== undefined ? (body.chi_sua_chua ? 1 : 0) : existing.chi_sua_chua,
+    // "Phân loại đặc thù" chi giu gia tri khi dac_thu (sau khi ap gia tri moi) van true - bo tick
+    // "Linh kien dac thu" thi xoa luon phan loai di kem, tranh du lieu "mo côi" khong con y nghia.
+    phan_loai_dac_thu: !dacThuNext ? null : body.phan_loai_dac_thu !== undefined ? body.phan_loai_dac_thu?.trim() || null : existing.phan_loai_dac_thu,
   };
   await c.env.DB.prepare(
-    "UPDATE linh_kien SET bat_tat = ?, gia_ban = ?, gia_tham_chieu = ?, don_vi = ?, ghi_chu = ?, anh_demo = ?, dac_thu = ?, chi_sua_chua = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?",
+    "UPDATE linh_kien SET bat_tat = ?, gia_ban = ?, gia_tham_chieu = ?, don_vi = ?, ghi_chu = ?, anh_demo = ?, dac_thu = ?, chi_sua_chua = ?, phan_loai_dac_thu = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?",
   )
-    .bind(next.bat_tat, next.gia_ban, next.gia_tham_chieu, next.don_vi, next.ghi_chu, next.anh_demo, next.dac_thu, next.chi_sua_chua, user.email, nowVN(), ma)
+    .bind(next.bat_tat, next.gia_ban, next.gia_tham_chieu, next.don_vi, next.ghi_chu, next.anh_demo, next.dac_thu, next.chi_sua_chua, next.phan_loai_dac_thu, user.email, nowVN(), ma)
     .run();
 
   await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
@@ -191,6 +206,7 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
     rows: {
       ma_linh_kien: string; ten_linh_kien: string; gia_ban?: number; gia_tham_chieu?: number;
       don_vi?: string; ghi_chu?: string; dac_thu?: boolean; chi_sua_chua?: boolean; anh_url?: string;
+      phan_loai_dac_thu?: string;
     }[];
     offset: number;
   }>();
@@ -233,8 +249,8 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
 
     try {
       await c.env.DB.prepare(
-        `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, nguoi_cap_nhat, ngay_cap_nhat)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, nguoi_cap_nhat, ngay_cap_nhat)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(ma_linh_kien) DO UPDATE SET
            ten_linh_kien = excluded.ten_linh_kien,
            gia_ban = excluded.gia_ban,
@@ -244,10 +260,15 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
            anh_demo = COALESCE(excluded.anh_demo, linh_kien.anh_demo),
            dac_thu = excluded.dac_thu,
            chi_sua_chua = excluded.chi_sua_chua,
+           phan_loai_dac_thu = excluded.phan_loai_dac_thu,
            nguoi_cap_nhat = excluded.nguoi_cap_nhat,
            ngay_cap_nhat = excluded.ngay_cap_nhat`,
       )
-        .bind(ma, ten, row.gia_ban ?? null, row.gia_tham_chieu ?? null, row.don_vi?.trim() || null, row.ghi_chu?.trim() || null, anhDemo, row.dac_thu ? 1 : 0, row.chi_sua_chua ? 1 : 0, user.email, now)
+        .bind(
+          ma, ten, row.gia_ban ?? null, row.gia_tham_chieu ?? null, row.don_vi?.trim() || null, row.ghi_chu?.trim() || null,
+          anhDemo, row.dac_thu ? 1 : 0, row.chi_sua_chua ? 1 : 0, row.dac_thu ? row.phan_loai_dac_thu?.trim() || null : null,
+          user.email, now,
+        )
         .run();
       success++;
       details.push({ ma_linh_kien: ma, status: anhLoi ? "thanh_cong_loi_anh" : "thanh_cong" });
@@ -486,6 +507,29 @@ settingsDatMua.patch("/loai-de-xuat/:id", adminOnly, async (c) => {
 settingsDatMua.delete("/loai-de-xuat/:id", adminOnly, async (c) => {
   const id = Number(c.req.param("id"));
   await c.env.DB.prepare("DELETE FROM settings_loai_de_xuat WHERE id = ?").bind(id).run();
+  return c.json({ ok: true });
+});
+
+// ---------- App settings (key-value chung, migration 0004_app_settings.sql) ----------
+// GET mo cho MOI nguoi dung da dang nhap (khong rieng Admin) - "nen_anh_tra_hang" duoc doc boi client
+// luc chon anh tai TraHangAnhPicker/QcTuChoiModal (module Dat mua linh kien), khong phai man quan tri.
+settingsDatMua.get("/app-settings", async (c) => {
+  const row = await c.env.DB.prepare("SELECT value FROM app_settings WHERE key = 'nen_anh_tra_hang'").first<{ value: string }>();
+  return c.json({ nen_anh_tra_hang: row ? row.value === "1" : true });
+});
+
+// PATCH /api/settings/app-settings - { nen_anh_tra_hang?: boolean } - CHI Admin duoc doi (phan hoi
+// 2026-08-24: "cơ chế nén ảnh này cho tôi bật tắt tuỳ chỉnh trong settings").
+settingsDatMua.patch("/app-settings", adminOnly, async (c) => {
+  const body = await c.req.json<{ nen_anh_tra_hang?: boolean }>();
+  if (body.nen_anh_tra_hang === undefined) return c.json({ error: "INVALID_BODY" }, 400);
+  const user = c.get("user");
+  await c.env.DB.prepare(
+    `INSERT INTO app_settings (key, value, updated_by, updated_at) VALUES ('nen_anh_tra_hang', ?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
+  )
+    .bind(body.nen_anh_tra_hang ? "1" : "0", user.email, nowVN())
+    .run();
   return c.json({ ok: true });
 });
 
