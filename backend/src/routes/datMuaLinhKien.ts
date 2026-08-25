@@ -1320,12 +1320,12 @@ async function applyDonHangLog(
   ghiChu: string | undefined,
 ): Promise<{ error: string; status: 404 | 409 | 403 | 400 } | { nextTrangThai: string }> {
   const ddh = await c.env.DB.prepare(
-    `SELECT ddh.loai_don, ddh.nguoi_tao, ddh.email_gs, ddh.version, lk.dac_thu, ${latestDonHangStatusExpr("ddh.id")} as trang_thai,
+    `SELECT ddh.loai_don, ddh.nguoi_tao, ddh.email_gs, ddh.version, ddh.ly_do_cham, lk.dac_thu, ${latestDonHangStatusExpr("ddh.id")} as trang_thai,
             ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at
      FROM dat_don_hang ddh LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk WHERE ddh.id = ?`,
   )
     .bind(donHangId)
-    .first<{ loai_don: string; nguoi_tao: string; email_gs: string | null; version: number; dac_thu: number | null; trang_thai: string | null; cho_tn_duyet_at: string | null }>();
+    .first<{ loai_don: string; nguoi_tao: string; email_gs: string | null; version: number; ly_do_cham: string | null; dac_thu: number | null; trang_thai: string | null; cho_tn_duyet_at: string | null }>();
   if (!ddh) return { error: "NOT_FOUND", status: 404 };
   if (ddh.loai_don === "tra_hang") return { error: "USE_TRA_HANG_ROUTE", status: 400 };
   if (ddh.trang_thai && (DON_HANG_TRANG_THAI_DONG as readonly string[]).includes(ddh.trang_thai)) return { error: "DONG_DA_DONG", status: 409 };
@@ -1367,7 +1367,11 @@ async function applyDonHangLog(
       // ly_do_cham) bat buoc chon 1 ly do (dung LAI danh sach settings_ly_do_cham dang dung cho
       // "Tu choi/Cho hang" - khong tao khai niem "ly do qua han" rieng) truoc khi duoc Duyet. Don
       // chua qua han giu hanh vi cu: Duyet ngay, khong hoi gi.
-      if (ddh.cho_tn_duyet_at && quaHanLyDoCham(ddh.cho_tn_duyet_at, nowVN())) {
+      // FIX (audit 2026-08-26): PHAI check them "!ddh.ly_do_cham" giong het field qua_han_ly_do_cham
+      // o danh sach (dong 727) - thieu dieu kien nay se lech voi FE: don da tung co ly_do_cham (vd tu
+      // 1 lan "Cho hang" truoc do) roi quay lai "Cho TN duyet" va qua han LAN NUA se bi FE coi la
+      // "khong qua han" (khong mo modal) nhung BE van tu choi -> ket, khong co duong nhap ly do.
+      if (!ddh.ly_do_cham && ddh.cho_tn_duyet_at && quaHanLyDoCham(ddh.cho_tn_duyet_at, nowVN())) {
         if (!lyDoChamId) return { error: "MISSING_LY_DO_CHAM", status: 400 };
         const lyDo = await c.env.DB.prepare(
           "SELECT id, ten_ly_do FROM settings_ly_do_cham WHERE id = ? AND bat_tat = 1 AND he_thong_su_dung LIKE '%Mua hàng%'",

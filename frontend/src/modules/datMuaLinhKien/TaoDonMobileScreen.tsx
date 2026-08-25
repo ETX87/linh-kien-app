@@ -252,7 +252,7 @@ export function TaoDonMobileScreen({
               </button>
             </div>
             <div className="text-xs text-[var(--ink-500)]">
-              {giaUocTinh != null ? <><span className="text-[10px]">Ước tính: </span><b className="text-[var(--ocean-700)]">{fmtVND(giaUocTinh)}</b></> : <span className="text-[var(--ink-400)]">Giá: —</span>}
+              {giaUocTinh != null ? <><span className="text-[10px]">Ước tính: </span><b className="text-[var(--green-700)]">{fmtVND(giaUocTinh)}</b></> : <span className="text-[var(--ink-400)]">Giá: —</span>}
             </div>
           </div>
         </div>
@@ -352,7 +352,7 @@ export function TaoDonMobileScreen({
       >
         <div className="flex items-center justify-between text-sm">
           <span className="text-[var(--ink-500)]">{drafts.length} dòng · {tongSoLuong} cái</span>
-          {tongGiaUocTinh > 0 && <span className="font-bold text-[var(--ocean-700)]">{fmtVND(tongGiaUocTinh)}</span>}
+          {tongGiaUocTinh > 0 && <span className="font-bold text-[var(--green-700)]">{fmtVND(tongGiaUocTinh)}</span>}
         </div>
         <div className="flex items-center gap-2">
           <Btn variant="ghost" size="md" className="h-11 shrink-0" onClick={themDong}>

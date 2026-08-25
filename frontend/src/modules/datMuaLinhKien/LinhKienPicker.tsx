@@ -133,10 +133,10 @@ export function LinhKienPickerRow({
       <span className="flex-1 min-w-0">
         {/* SUA (phan hoi 2026-08-19): bo tien to "mã - " lap - nhieu ten_linh_kien da tu chua san ma
             dang "[ma]" trong chuoi, ghep them tien to se hien ma 2 lan. Xem formatLkLabel (helpers.ts). */}
-        <span className="block truncate font-medium text-[var(--ink-900)]">{formatLkLabel(o.ma_linh_kien, o.ten_linh_kien)}</span>
+        <span className="block truncate font-medium text-[var(--ocean-800)]">{formatLkLabel(o.ma_linh_kien, o.ten_linh_kien)}</span>
         {rank != null && rank <= 5 && <span className="text-[10px] font-semibold text-[var(--amber-700)]">🔥 #{rank} hay đặt (30 ngày)</span>}
       </span>
-      {o.gia_ban != null && <span className="shrink-0 text-[11px] text-[var(--ink-500)] font-mono">{fmtVND(o.gia_ban)}</span>}
+      {o.gia_ban != null && <span className="shrink-0 text-[11px] text-[var(--green-700)] font-mono font-semibold">{fmtVND(o.gia_ban)}</span>}
     </button>
   );
 }
@@ -435,7 +435,7 @@ export function LinhKienDetailModal({
         <LinhKienHeroImage url={part.anh_demo ?? null} alt={part.ten_linh_kien} />
         <div className="min-w-0">
           <div className="font-mono text-xs font-semibold text-[var(--ocean-600)]">{part.ma_linh_kien}</div>
-          <div className="font-display font-bold text-base text-[var(--ink-900)] leading-snug">{part.ten_linh_kien}</div>
+          <div className="font-display font-bold text-base text-[var(--ocean-800)] leading-snug">{part.ten_linh_kien}</div>
         </div>
         {rank != null && <Badge tone="amber">🔥 Hạng #{rank} trong 30 ngày gần nhất</Badge>}
 
@@ -468,10 +468,10 @@ export function LinhKienDetailModal({
           <>
             <div>
               <KvRow label="Giá bán">
-                <span className="font-semibold font-mono">{fmtVND(part.gia_ban)}</span>
+                <span className="font-semibold font-mono text-[var(--green-700)]">{fmtVND(part.gia_ban)}</span>
               </KvRow>
               <KvRow label="Giá tham chiếu">
-                <span className="font-semibold font-mono">{fmtVND(part.gia_tham_chieu ?? null)}</span>
+                <span className="font-semibold font-mono text-[var(--green-700)]">{fmtVND(part.gia_tham_chieu ?? null)}</span>
               </KvRow>
               <KvRow label="Phân loại">
                 <span className="font-semibold">{part.don_vi ?? "—"}</span>

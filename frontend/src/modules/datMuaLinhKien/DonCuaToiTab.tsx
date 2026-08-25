@@ -704,8 +704,8 @@ export function DonHangDetailModal({
               <div>
                 <KvRow label="Mã LK"><span className="font-mono text-xs">{d.ma_lk}</span></KvRow>
                 <KvRow label="SL đề xuất">{d.so_luong_de_xuat}</KvRow>
-                <KvRow label="Giá đề xuất">{d.gia_de_xuat != null ? fmtVND(d.gia_de_xuat) : "—"}</KvRow>
-                <KvRow label="Giá chốt">{d.gia_chot != null ? fmtVND(d.gia_chot) : "—"}</KvRow>
+                <KvRow label="Giá đề xuất">{d.gia_de_xuat != null ? <span className="font-semibold text-[var(--green-700)]">{fmtVND(d.gia_de_xuat)}</span> : "—"}</KvRow>
+                <KvRow label="Giá chốt">{d.gia_chot != null ? <span className="font-semibold text-[var(--green-700)]">{fmtVND(d.gia_chot)}</span> : "—"}</KvRow>
                 <KvRow label="Mã YCSC">
                   <MaYcscCell value={d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />
                 </KvRow>
@@ -1408,7 +1408,7 @@ export function DonHangGroupedList({
     },
     { key: "loai", header: "Loại", render: (row) => <Badge tone={row.tone.tone}>{row.tone.label}</Badge> },
     { key: "sl", header: "SL", className: "text-right", render: (row) => row.d.so_luong_de_xuat },
-    { key: "gia", header: "Giá đề xuất", className: "text-right", render: (row) => (row.d.gia_de_xuat != null ? fmtVND(row.d.gia_de_xuat) : "—") },
+    { key: "gia", header: "Giá đề xuất", className: "text-right", render: (row) => (row.d.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold">{fmtVND(row.d.gia_de_xuat)}</span> : "—") },
     {
       key: "ma_ycsc",
       header: "Mã yêu cầu sự cố",
@@ -1657,7 +1657,7 @@ export function DonHangGroupedList({
                               {d.qua_han_ly_do_cham && <Badge tone="coral">Quá hạn - cần lý do</Badge>}
                             </div>
                             <div className="text-xs text-[var(--ink-500)] mt-1">
-                              SL {d.so_luong_de_xuat} · {d.gia_de_xuat != null ? fmtVND(d.gia_de_xuat) : "—"}
+                              SL {d.so_luong_de_xuat} · {d.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold">{fmtVND(d.gia_de_xuat)}</span> : "—"}
                             </div>
                             {d.ma_yeu_cau_su_co && (
                               <div className="text-xs mt-1" onClick={(e) => e.stopPropagation()}>

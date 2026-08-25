@@ -709,11 +709,13 @@ export function DanhMucLinhKienModule() {
           <Tooltip text={`Đánh dấu "Đặc thù" để chèn thêm bước TP DVBH xác nhận trước khi Tác nghiệp duyệt khi tạo phiếu đặt. Đánh dấu "Only sửa chữa" để ẩn mã này khỏi danh sách chọn khi tạo đơn mua hàng.`} />
         </div>
         <div className="flex gap-2 shrink-0">
-          {/* FIX (phan hoi 2026-08-25, hang muc #6): KTV thuan (khong co quan_ly_danh_muc_lk/Admin)
-              khong duoc xuat Excel danh muc - truoc day nut nay khong gate gi (xem comment dau file),
-              vo tinh lo gia_ban/gia_tham_chieu cho vai tro khong nen thay gia. Cac vai tro khac
-              (Kho/Ke toan/TN/GS/Admin) khong bi anh huong vi khong mang co la_ktv_dvbh. */}
-          {!(authUser?.la_ktv_dvbh && !canWrite) && (
+          {/* FIX (phan hoi 2026-08-25, hang muc #6, mo rong 2026-08-26): KTV thuan VA Ve tinh thuan
+              (khong co quan_ly_danh_muc_lk/Admin) khong duoc xuat Excel danh muc - truoc day nut nay
+              khong gate gi (xem comment dau file), vo tinh lo gia_ban/gia_tham_chieu cho vai tro khong
+              nen thay gia. Ve tinh la vai tro ky thuat hien truong tuong tu KTV, cung ly do bao mat gia
+              nen chan luon (phan hoi 2026-08-26). Cac vai tro khac (Kho/Ke toan/TN/GS/Admin) khong bi
+              anh huong vi khong mang co la_ktv_dvbh/la_ve_tinh. */}
+          {!((authUser?.la_ktv_dvbh || authUser?.la_ve_tinh) && !canWrite) && (
           <Btn
             variant="ghost"
             size="sm"
@@ -806,14 +808,15 @@ export function DanhMucLinhKienModule() {
           <div className="py-8 text-center text-[var(--ink-400)] text-sm">Không có linh kiện phù hợp.</div>
         ) : (
           filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((p) => (
+            // FIX (phan hoi 2026-08-26, hang muc #7): rut con DUNG 2 dong thong tin co ban (ten + gia/
+            // trang thai) - bo ma_linh_kien/Dac thu khoi mat card (van xem day du trong
+            // PartDetailDrawer khi bam vao card), tranh card qua dai/roi mat tren man hinh hep.
             <div key={p.ma_linh_kien} onClick={() => setViewingMa(p.ma_linh_kien)} className="flex items-center gap-3 px-3 py-2.5 active:bg-slate-50 cursor-pointer">
               <AnhThumbnail url={p.anh_demo} active={!!p.bat_tat} size={56} />
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-mono text-[var(--ink-400)]">{p.ma_linh_kien}</div>
                 <div className="font-semibold text-[var(--ocean-800)] truncate">{p.ten_linh_kien}</div>
                 <div className="flex items-center gap-2 flex-wrap mt-0.5">
                   <span className="font-mono text-sm font-semibold text-[var(--green-700)]">{fmtVND(p.gia_ban)}</span>
-                  {!!p.dac_thu && <span className="text-[10px] font-semibold text-[var(--amber-600)]">Đặc thù</span>}
                   <Badge tone={p.bat_tat ? "teal" : "gray"}>{p.bat_tat ? "Bật" : "Tắt"}</Badge>
                 </div>
               </div>

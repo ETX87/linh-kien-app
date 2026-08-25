@@ -4,6 +4,7 @@ import { useIsMobile } from "../hooks/useMediaQuery";
 import { APP_VERSION } from "../version";
 import { api } from "../api/client";
 import { TopBarActions } from "./TopBarActions";
+import { InstallAppButton } from "./InstallAppButton";
 import type { AppUser } from "../auth/AuthContext";
 import type { ViewAsRole } from "../auth/viewAsRoles";
 
@@ -66,6 +67,13 @@ export function Sidebar({
       {isMobile && (
         <div className="px-3 py-2.5 border-b border-[var(--sidebar-highlight)] shrink-0">
           <TopBarActions role={role} user={user} realIsAdmin={realIsAdmin} viewAsRole={viewAsRole} onNavigate={(m) => { setActive(m); onMobileClose(); }} />
+        </div>
+      )}
+      {/* Nut "Cai dat vao man hinh chinh" (hang muc #1, phan hoi 2026-08-26: "chỉ hiện trên mobile") -
+          dat ngay duoi khoi TopBarActions, tren nav chinh. */}
+      {isMobile && (
+        <div className="px-2.5 pt-2 border-b border-[var(--sidebar-highlight)] shrink-0 pb-1">
+          <InstallAppButton onNavigateAway={onMobileClose} />
         </div>
       )}
       <nav className="flex-1 overflow-y-auto sidebar-scroll py-3 px-2.5">

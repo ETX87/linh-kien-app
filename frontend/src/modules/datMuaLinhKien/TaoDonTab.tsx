@@ -81,7 +81,7 @@ export function TaoDonTab({
               {tongGiaUocTinh > 0 && (
                 <>
                   <span className="text-[var(--ink-500)]"> · </span>
-                  <span className="font-bold text-[var(--ocean-700)]">{fmtVND(tongGiaUocTinh)}</span>
+                  <span className="font-bold text-[var(--green-700)]">{fmtVND(tongGiaUocTinh)}</span>
                   <span className="ml-1 text-[11px] text-[var(--ink-400)]">(*Giá tham khảo)</span>
                 </>
               )}
@@ -190,12 +190,12 @@ export function TaoDonTab({
                 className={`focus-ring w-full text-left bg-white border border-[var(--line)] ${toneThu.border} border-l-4 rounded-xl overflow-hidden text-xs hover:shadow-sm transition-shadow flex items-center gap-2.5 px-3 py-2 ${d.uu_tien ? "ring-2 ring-[var(--orange-500)]" : ""}`}
               >
                 <span className="font-mono text-[10px] text-[var(--ink-400)] shrink-0">Dòng {idx + 1}</span>
-                <span className="flex-1 min-w-0 flex items-center gap-1 font-semibold text-[var(--ink-900)]">
+                <span className="flex-1 min-w-0 flex items-center gap-1 font-semibold text-[var(--ocean-800)]">
                   {d.uu_tien && <span title="Ưu tiên">⭐</span>}
                   <span className="truncate">{d.ma_lk ? (lkThu ? formatLkLabel(d.ma_lk, lkThu.ten_linh_kien) : d.ma_lk) : "(Chưa chọn linh kiện)"}</span>
                 </span>
                 <span className="shrink-0 hidden sm:inline text-[var(--ink-500)] font-mono">×{d.so_luong_de_xuat}</span>
-                {giaTongThu != null && <span className="text-[var(--ocean-700)] font-semibold shrink-0 hidden md:inline">{fmtVND(giaTongThu)}</span>}
+                {giaTongThu != null && <span className="text-[var(--green-700)] font-semibold shrink-0 hidden md:inline">{fmtVND(giaTongThu)}</span>}
                 {d.ma_yeu_cau_su_co.trim() && (
                   <span className="shrink-0 hidden md:inline text-[10px] font-mono text-[var(--ink-500)] bg-[var(--surface-100)] border border-[var(--line)] rounded px-1.5 py-0.5" title={`Mã yêu cầu sự cố: ${d.ma_yeu_cau_su_co}`}>
                     🎫 {d.ma_yeu_cau_su_co}
@@ -371,7 +371,7 @@ export function TaoDonTab({
                       </button>
                     </div>
                     <div className="text-[11px] text-[var(--ink-500)] shrink-0 whitespace-nowrap">
-                      {giaUocTinh != null ? <b className="text-[var(--ocean-700)]">{fmtVND(giaUocTinh)}</b> : <span className="text-[var(--ink-400)]">Giá: —</span>}
+                      {giaUocTinh != null ? <b className="text-[var(--green-700)]">{fmtVND(giaUocTinh)}</b> : <span className="text-[var(--ink-400)]">Giá: —</span>}
                     </div>
                   </div>
                 </div>

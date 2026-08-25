@@ -48,7 +48,12 @@ export function formatNguoiDisplay(email: string, map: KtvDisplayMap): string {
   if (!entry) return email;
   // RA SOAT 2026-08-18: GS tu nhan hang khong co ma_ktv that (backend tra chuoi rong) - bo phan
   // "(ma_ktv)" thay vi hien "() Ten" xau.
-  return entry.ma_ktv ? `👤 (${entry.ma_ktv}) ${entry.ten_hien_thi ?? email}` : `👤 ${entry.ten_hien_thi ?? email}`;
+  const ten = entry.ten_hien_thi ?? email;
+  const base = entry.ma_ktv ? `(${entry.ma_ktv}) ${ten}` : ten;
+  // FIX (phan hoi 2026-08-26, hang muc #16): ghep them "(email)" o cuoi de dong nhat voi
+  // formatPersonDisplay toan he thong - bo qua neu ten hien thi CHINH LA email (tranh lap
+  // "user@x.com (user@x.com)").
+  return ten === email ? `👤 ${base}` : `👤 ${base} (${email})`;
 }
 
 // CHOT (ra soat "Tao Don Linh Kien 2.0" #2): hien them "(GS: Ten GS)" sau ten KTV trong cac Select
