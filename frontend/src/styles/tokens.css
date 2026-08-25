@@ -83,6 +83,11 @@
   --violet-700: #4c1d95;
   --teal-700: #0a5a52;
   --coral-700: #7a2424;
+  /* Xanh la THAT (them 2026-08-25, hang muc #13) - chua co truoc do (teal mang nghia rieng "trang
+     thai tich cuc/hoan thanh", khong tai dung de tranh lan y nghia) - danh rieng cho gia tien/tien te
+     xuyen suot he thong (ten linh kien dung --ocean-800, xem hang muc #12). */
+  --green-700: #15803d;
+  --green-600: #16a34a;
 }
 
 * {
@@ -188,11 +193,13 @@ table.dense th,
 table.dense td {
   white-space: nowrap;
 }
+/* Accent cau truc doi sang Navy dam (hang muc #10/#20, 2026-08-25 - xem giai thich day du o
+   Btn.tsx VARIANTS.primary) - indigo truoc day nhat/khong du tuong phan tren nen zinc nhat. */
 input[type="checkbox"] {
-  accent-color: var(--indigo-600);
+  accent-color: var(--ocean-800);
 }
 .focus-ring:focus-visible {
-  outline: 2px solid var(--indigo-600);
+  outline: 2px solid var(--ocean-800);
   outline-offset: 2px;
 }
 

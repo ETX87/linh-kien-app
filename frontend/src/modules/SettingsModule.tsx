@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { Btn } from "../components/ui/Btn";
+import { Tooltip } from "../components/ui/Tooltip";
 import { Modal } from "../components/ui/Modal";
 import { Select } from "../components/ui/Select";
 import { Tabs } from "../components/ui/Tabs";
@@ -9,6 +10,7 @@ import { useToast } from "../components/ui/Toast";
 import { Badge } from "../components/ui/Badge";
 import { KvRow } from "../components/ui/KvRow";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { formatPersonDisplay, usePersonDirectory } from "../lib/personDisplay";
 import type { LyDoChamMuaLkRow, KtvLienHeRow } from "../types";
 
 // Nhap/cap nhat hang loat danh ba KTV tu file Excel (phan hoi 2026-08-20, tiep theo tinh nang nhap
@@ -277,8 +279,8 @@ function LoaiDeXuatTab() {
                 key={o.id}
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium cursor-pointer border transition-colors ${
                   o.bat_tat
-                    ? "bg-[var(--indigo-600)] border-[var(--indigo-600)] text-white"
-                    : "bg-white border-[var(--line)] text-[var(--ink-700)] hover:border-[var(--indigo-600)]"
+                    ? "bg-[var(--ocean-800)] border-[var(--ocean-800)] text-white"
+                    : "bg-white border-[var(--line)] text-[var(--ink-700)] hover:border-[var(--ocean-800)]"
                 }`}
               >
                 <input type="checkbox" className="sr-only" checked={!!o.bat_tat} onChange={(e) => toggleOption.mutate({ id: o.id, bat_tat: e.target.checked })} />
@@ -313,8 +315,9 @@ function KtvTab() {
   const qc = useQueryClient();
   const addToast = useToast();
   const { data } = useQuery({ queryKey: ["settings-ktv"], queryFn: () => api.get<{ rows: KtvLienHeRow[] }>("/settings/ktv-lien-he") });
+  const personDir = usePersonDirectory();
   const [editing, setEditing] = useState<KtvLienHeRow | "new" | null>(null);
-  const [form, setForm] = useState({ ma_ktv: "", ten_hien_thi: "", sdt: "", vai_tro_ktv: "KTV" as KtvLienHeRow["vai_tro_ktv"], email_dang_nhap: "", giam_sat_quan_ly: "" });
+  const [form, setForm] = useState({ ma_ktv: "", ten_hien_thi: "", sdt: "", vai_tro_ktv: "KTV" as KtvLienHeRow["vai_tro_ktv"], email_dang_nhap: "" });
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkRunning, setBulkRunning] = useState(false);
   const [bulkTotal, setBulkTotal] = useState(0);
@@ -358,7 +361,7 @@ function KtvTab() {
 
   function openEdit(row: KtvLienHeRow | "new") {
     setEditing(row);
-    if (row === "new") setForm({ ma_ktv: "", ten_hien_thi: "", sdt: "", vai_tro_ktv: "KTV", email_dang_nhap: "", giam_sat_quan_ly: "" });
+    if (row === "new") setForm({ ma_ktv: "", ten_hien_thi: "", sdt: "", vai_tro_ktv: "KTV", email_dang_nhap: "" });
     else
       setForm({
         ma_ktv: row.ma_ktv,
@@ -366,7 +369,6 @@ function KtvTab() {
         sdt: row.sdt ?? "",
         vai_tro_ktv: row.vai_tro_ktv ?? "KTV",
         email_dang_nhap: row.email_dang_nhap ?? "",
-        giam_sat_quan_ly: row.giam_sat_quan_ly ?? "",
       });
   }
 
@@ -376,7 +378,6 @@ function KtvTab() {
       await api.patch(`/settings/ktv-lien-he/${encodeURIComponent(form.ma_ktv)}/dat-mua-lk`, {
         vai_tro_ktv: form.vai_tro_ktv,
         email_dang_nhap: form.email_dang_nhap || null,
-        giam_sat_quan_ly: form.giam_sat_quan_ly || null,
       });
     },
     onSuccess: async () => {
@@ -397,8 +398,9 @@ function KtvTab() {
 
   return (
     <div className="space-y-3">
-      <div className="text-xs text-[var(--ink-500)]">
-        Danh bạ KTV/CTV/Trạm/Vệ tinh - dùng để chọn "người nhận hàng" khi tạo đơn. Ghép "Email đăng nhập" để hệ thống tự cấp tài khoản chờ duyệt khi người đó đăng nhập Google lần đầu.
+      <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">
+        Danh bạ KTV/CTV/Trạm/Vệ tinh - dùng để chọn "người nhận hàng" khi tạo đơn.
+        <Tooltip text={`Ghép "Email đăng nhập" để hệ thống tự cấp tài khoản (đã duyệt sẵn) khi người đó đăng nhập Google lần đầu.`} />
       </div>
       <div className="flex gap-2">
         <Btn size="sm" onClick={() => openEdit("new")}>+ Thêm KTV</Btn>
@@ -421,18 +423,23 @@ function KtvTab() {
           variant="ghost"
           size="sm"
           onClick={() =>
-            exportRowsToExcel(data?.rows ?? [], "danh_sach_ktv.xlsx", "KTV", {
-              ma_ktv: "Mã KTV",
-              ten_hien_thi: "Tên hiển thị",
-              sdt: "SĐT",
-              vai_tro_ktv: "Vai trò",
-              email_dang_nhap: "Email đăng nhập",
-              giam_sat_quan_ly: "Email Giám sát quản lý",
-              gmail: "Gmail",
-              ghi_chu: "Ghi chú",
-              nguoi_cap_nhat: "Người cập nhật",
-              ngay_cap_nhat: "Ngày cập nhật",
-            })
+            exportRowsToExcel(
+              (data?.rows ?? []).map((r) => ({ ...r, giam_sat_quan_ly: r.giam_sat_quan_ly_hien_tai ?? r.giam_sat_quan_ly })),
+              "danh_sach_ktv.xlsx",
+              "KTV",
+              {
+                ma_ktv: "Mã KTV",
+                ten_hien_thi: "Tên hiển thị",
+                sdt: "SĐT",
+                vai_tro_ktv: "Vai trò",
+                email_dang_nhap: "Email đăng nhập",
+                giam_sat_quan_ly: "Email Giám sát quản lý (chỉ tham khảo)",
+                gmail: "Gmail",
+                ghi_chu: "Ghi chú",
+                nguoi_cap_nhat: "Người cập nhật",
+                ngay_cap_nhat: "Ngày cập nhật",
+              },
+            )
           }
         >
           ⬇ Tải danh sách
@@ -456,7 +463,7 @@ function KtvTab() {
                   <td className="px-3 py-2 font-mono text-xs">{r.ma_ktv}</td>
                   <td className="px-3 py-2">{r.ten_hien_thi ?? "—"}</td>
                   <td className="px-3 py-2">{r.vai_tro_ktv ?? "—"}</td>
-                  <td className="px-3 py-2">{r.email_dang_nhap ?? "—"}</td>
+                  <td className="px-3 py-2">{r.email_dang_nhap ? formatPersonDisplay(r.email_dang_nhap, personDir) : "—"}</td>
                   <td className="px-3 py-2 flex gap-2">
                     <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openEdit(r)}>Sửa</button>
                     <button className="text-[var(--coral-500)] hover:underline text-xs" onClick={() => remove.mutate(r.ma_ktv)}>Xoá</button>
@@ -492,10 +499,15 @@ function KtvTab() {
               <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Email đăng nhập (Google)</label>
               <input value={form.email_dang_nhap} onChange={(e) => setForm({ ...form, email_dang_nhap: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
             </div>
-            <div>
-              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Email Giám sát quản lý (nếu là Vệ tinh)</label>
-              <input value={form.giam_sat_quan_ly} onChange={(e) => setForm({ ...form, giam_sat_quan_ly: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
-            </div>
+            {editing !== "new" && (
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Email Giám sát quản lý</label>
+                <div className="w-full border border-[var(--line)] bg-[var(--surface-100)] rounded-lg px-2.5 py-1.5 text-sm mt-1 text-[var(--ink-600)]">
+                  {editing?.giam_sat_quan_ly_hien_tai ?? "— (chưa gán)"}
+                </div>
+                <div className="text-[11px] text-[var(--ink-400)] mt-1">Sửa Giám sát quản lý ở màn "Quản lý User" (chỉ hiển thị ở đây).</div>
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <Btn variant="ghost" size="sm" onClick={() => setEditing(null)}>Huỷ</Btn>
               <Btn size="sm" onClick={() => save.mutate()} disabled={!form.ma_ktv.trim() || save.isPending} loading={save.isPending}>Lưu</Btn>
@@ -506,8 +518,9 @@ function KtvTab() {
 
       <Modal open={bulkOpen} onClose={() => { if (!bulkRunning) setBulkOpen(false); }} title="Nhập danh sách KTV hàng loạt">
         <div className="space-y-3">
-          <div className="text-xs text-[var(--ink-500)]">
-            Chọn file Excel có ít nhất cột <span className="font-mono">Mã KTV</span>. Các cột khác (Tên hiển thị, SĐT, Ghi chú, Vai trò, Gmail, Email đăng nhập, Email Giám sát quản lý) là tuỳ chọn. Mã đã tồn tại sẽ được cập nhật đè, mã chưa có sẽ được thêm mới. Nếu có "Email đăng nhập", hệ thống tự cấp tài khoản chờ duyệt cho email đó (giống hệt khi ghép thủ công 1 dòng).
+          <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">
+            File Excel có ít nhất cột <span className="font-mono">Mã KTV</span>.
+            <Tooltip text={`Các cột khác (Tên hiển thị, SĐT, Ghi chú, Vai trò, Gmail, Email đăng nhập, Email Giám sát quản lý) là tuỳ chọn. Mã đã tồn tại sẽ được cập nhật đè, mã chưa có sẽ được thêm mới. Nếu có "Email đăng nhập", hệ thống tự cấp tài khoản (đã duyệt sẵn) cho email đó — giống hệt khi ghép thủ công 1 dòng.`} />
           </div>
           {!bulkRunning && !bulkSummary && (
             <input
@@ -522,7 +535,7 @@ function KtvTab() {
               Đang xử lý... {bulkProcessed}/{bulkTotal} dòng
               <div className="w-full h-2 bg-[var(--surface-100)] rounded-full mt-1 overflow-hidden">
                 <div
-                  className="h-full bg-[var(--indigo-600)] transition-all"
+                  className="h-full bg-[var(--ocean-800)] transition-all"
                   style={{ width: `${bulkTotal ? Math.min(100, (bulkProcessed / bulkTotal) * 100) : 0}%` }}
                 />
               </div>

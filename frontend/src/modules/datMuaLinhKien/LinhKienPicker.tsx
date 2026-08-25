@@ -57,7 +57,7 @@ export function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQu
           {rows.map((r) => (
             <span
               key={r.ma_linh_kien}
-              className="inline-flex items-center gap-1 border border-[var(--indigo-600)] text-[var(--indigo-600)] bg-[var(--indigo-100)] rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
+              className="inline-flex items-center gap-1 border border-[var(--ocean-800)] text-[var(--ocean-800)] bg-[var(--ocean-100)] rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
             >
               ↔ {formatLkLabel(r.ma_linh_kien, r.ten_linh_kien)}
             </span>

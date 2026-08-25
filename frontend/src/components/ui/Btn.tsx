@@ -8,12 +8,14 @@ const SIZES: Record<BtnSize, string> = {
   md: "px-3.5 py-2 text-sm",
 };
 
-// Accent chinh doi sang indigo (concept 1 "Structured Neutral" da duyet, 2026-08-24) - bo shadow o nut
-// chinh (concept 1 uu tien vien mong, gan nhu khong dung do bong).
+// Accent chinh doi sang Cam ruc (hang muc #10/#20, 2026-08-25: "màu sắc quá đơn điệu... không chọn
+// gam màu nhạt nhòa" - huong "Navy đậm + Cam rực" da chot voi nguoi dung) - nut hanh dong chinh gio
+// tuong phan ro voi nen trang/zinc, thay cho indigo truoc do. Bo shadow (giu nguyen tu concept 1 - uu
+// tien vien mong, gan nhu khong dung do bong).
 const VARIANTS: Record<BtnVariant, string> = {
-  primary: "bg-[var(--indigo-600)] text-white hover:bg-[var(--indigo-700)]",
+  primary: "bg-[var(--orange-600)] text-white hover:bg-[var(--orange-700)]",
   ghost: "bg-white text-[var(--ink-600)] border border-[var(--line)] hover:bg-[var(--surface-100)]",
-  subtle: "bg-[var(--indigo-100)] text-[var(--indigo-700)] hover:bg-[var(--indigo-100)]/70",
+  subtle: "bg-[var(--orange-100)] text-[var(--orange-700)] hover:bg-[var(--orange-100)]/70",
   danger: "bg-white text-[var(--coral-500)] border border-[var(--coral-100)] hover:bg-[var(--coral-100)]",
   success: "bg-[var(--teal-500)] text-white hover:opacity-90",
 };

@@ -4,6 +4,7 @@ import { api, buildQuery } from "../../api/client";
 import { fmtVND } from "../../types";
 import { StatCard } from "../../components/ui/StatCard";
 import { Btn } from "../../components/ui/Btn";
+import { formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay";
 import type { BaoCaoRow, JumpTarget } from "./types";
 
 // Nhan "Tháng N/N-1/N-2" (them 2026-08-25, phan hoi "hạn chế theo tháng") - tinh CLIENT-SIDE bang gio
@@ -26,6 +27,7 @@ function thangLabel(offset: number): string {
 // CHI hien khi isManagerView (Giam sat/TN/Kho/Ke toan/Admin) - KTV/Ve tinh (!isManagerView) luon chi
 // xem duoc dung minh, khong co khai niem "khu vuc phu trach" de mo rong.
 export function BaoCaoTab({ onJump, isManagerView }: { onJump: (t: JumpTarget) => void; isManagerView: boolean }) {
+  const personDir = usePersonDirectory();
   const [thang, setThang] = useState(0);
   const [full, setFull] = useState(false);
   const { data, isLoading } = useQuery({
@@ -184,7 +186,7 @@ export function BaoCaoTab({ onJump, isManagerView }: { onJump: (t: JumpTarget) =
           <tbody>
             {sorted.map((r) => (
               <tr key={r.email} className="border-t border-[var(--line)] hover:bg-[var(--surface-100)]/60">
-                <td className="sticky left-0 z-10 bg-[var(--surface)] px-3 py-1.5 font-medium whitespace-nowrap">{r.ten || r.email}</td>
+                <td className="sticky left-0 z-10 bg-[var(--surface)] px-3 py-1.5 font-medium whitespace-nowrap">{formatPersonDisplay(r.email, personDir)}</td>
                 <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={r.slDon} onClick={() => onJump({ tab: "don-cua-toi", filter: "", nguoiNhanHang: r.email })} /></td>
                 <td className="px-2 py-1.5 text-right"><Num value={r.slDeXuat} onClick={() => onJump({ tab: "don-cua-toi", filter: "", nguoiNhanHang: r.email })} /></td>
                 <td className="px-2 py-1.5 text-right"><Num value={r.slTuChoi} alert={r.slTuChoi > 0} onClick={() => onJump({ tab: "don-cua-toi", filter: "TN tu choi", nguoiNhanHang: r.email })} /></td>

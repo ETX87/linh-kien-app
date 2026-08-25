@@ -1320,11 +1320,12 @@ async function applyDonHangLog(
   ghiChu: string | undefined,
 ): Promise<{ error: string; status: 404 | 409 | 403 | 400 } | { nextTrangThai: string }> {
   const ddh = await c.env.DB.prepare(
-    `SELECT ddh.loai_don, ddh.nguoi_tao, ddh.email_gs, ddh.version, lk.dac_thu, ${latestDonHangStatusExpr("ddh.id")} as trang_thai
+    `SELECT ddh.loai_don, ddh.nguoi_tao, ddh.email_gs, ddh.version, lk.dac_thu, ${latestDonHangStatusExpr("ddh.id")} as trang_thai,
+            ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at
      FROM dat_don_hang ddh LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk WHERE ddh.id = ?`,
   )
     .bind(donHangId)
-    .first<{ loai_don: string; nguoi_tao: string; email_gs: string | null; version: number; dac_thu: number | null; trang_thai: string | null }>();
+    .first<{ loai_don: string; nguoi_tao: string; email_gs: string | null; version: number; dac_thu: number | null; trang_thai: string | null; cho_tn_duyet_at: string | null }>();
   if (!ddh) return { error: "NOT_FOUND", status: 404 };
   if (ddh.loai_don === "tra_hang") return { error: "USE_TRA_HANG_ROUTE", status: 400 };
   if (ddh.trang_thai && (DON_HANG_TRANG_THAI_DONG as readonly string[]).includes(ddh.trang_thai)) return { error: "DONG_DA_DONG", status: 409 };
@@ -1347,17 +1348,35 @@ async function applyDonHangLog(
     // Tram tu choi = huy han (khong phai "TN tu choi") - giu nguyen hanh vi da co truoc khi tach
     // xuong cap dong. CHOT 2026-08-17: Tram duyet xong -> "Cho TBP xac nhan" truoc neu ma LK dac
     // thu (migration 0082), khong di thang "Cho TN duyet" nhu truoc.
+    // FIX (phan hoi 2026-08-25, hang muc #19): bat buoc ghi_chu khi tu choi - dao nguoc quyet dinh cu
+    // "ghi chu tuy chon" (moi buoc huy/tu choi deu phai nhap ly do, khong chi buoc cuoi cung).
+    if (hanhDong !== "duyet" && !ghiChu?.trim()) return { error: "MISSING_GHI_CHU", status: 400 };
     nextTrangThai = hanhDong === "duyet" ? (ddh.dac_thu ? "Cho TBP xac nhan" : "Cho TN duyet") : "Da huy";
   } else if (ddh.trang_thai === "Cho TBP xac nhan") {
     if (!canTPDvbhXacNhan(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
-    // Giong pattern Tram: chi Duyet/Tu choi don gian, ghi chu tuy chon, KHONG bat buoc Ly do cham
-    // (khac buoc TN duyet ben duoi) - chot voi chu he thong 2026-08-17.
     nextTrangThai = hanhDong === "duyet" ? "Cho TN duyet" : hanhDong === "tu_choi" ? "Da huy" : "";
     if (!nextTrangThai) return { error: "INVALID_HANH_DONG", status: 400 };
+    // FIX (phan hoi 2026-08-25, hang muc #19): bat buoc ghi_chu khi tu choi (truoc day "tuy chon" -
+    // xem comment cu da xoa, dao nguoc quyet dinh CHOT 2026-08-17).
+    if (hanhDong === "tu_choi" && !ghiChu?.trim()) return { error: "MISSING_GHI_CHU", status: 400 };
   } else if (ddh.trang_thai === "Cho TN duyet") {
     if (!canTacNghiep(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
     tnDaXuLy = true;
     if (hanhDong === "duyet") {
+      // FIX (phan hoi 2026-08-25, hang muc #17/#18): don da qua han 24h "Cho TN duyet" (chua co
+      // ly_do_cham) bat buoc chon 1 ly do (dung LAI danh sach settings_ly_do_cham dang dung cho
+      // "Tu choi/Cho hang" - khong tao khai niem "ly do qua han" rieng) truoc khi duoc Duyet. Don
+      // chua qua han giu hanh vi cu: Duyet ngay, khong hoi gi.
+      if (ddh.cho_tn_duyet_at && quaHanLyDoCham(ddh.cho_tn_duyet_at, nowVN())) {
+        if (!lyDoChamId) return { error: "MISSING_LY_DO_CHAM", status: 400 };
+        const lyDo = await c.env.DB.prepare(
+          "SELECT id, ten_ly_do FROM settings_ly_do_cham WHERE id = ? AND bat_tat = 1 AND he_thong_su_dung LIKE '%Mua hàng%'",
+        )
+          .bind(lyDoChamId)
+          .first<{ id: number; ten_ly_do: string }>();
+        if (!lyDo) return { error: "LY_DO_CHAM_KHONG_HOP_LE", status: 400 };
+        ghiChu = lyDo.ten_ly_do + (ghiChu?.trim() ? ` - ${ghiChu.trim()}` : "");
+      }
       nextTrangThai = "TN da duyet";
     } else if (hanhDong === "tu_choi") {
       if (!lyDoChamId) return { error: "MISSING_LY_DO_CHAM", status: 400 };
@@ -1420,6 +1439,8 @@ async function applyDonHangLog(
 //    can ly_do_cham_id - giong pattern Tram).
 //  - TN (canTacNghiep - la_tac_nghiep/Admin) tren dong dang "Cho TN duyet": chuyen "TN da duyet", hoac tu choi kem
 //    ly_do_cham_id bat buoc (he thong tu quyet dinh "TN tu choi" hay tu dong mo ticket "Cho hang").
+//    "Duyet" 1 dong DA QUA HAN 24h (chua co ly_do_cham) cung bat buoc ly_do_cham_id (hang muc #17/#18,
+//    2026-08-25) - dung LAI danh sach ly do o tren, khong phai truong rieng.
 //  - Nguoi tao (hoac Tram cua nguoi tao): huy dong khi con dang mo (chua vao trang thai dong).
 datMuaLinhKien.post("/don-hang/:id/log", async (c) => {
   const id = c.req.param("id");

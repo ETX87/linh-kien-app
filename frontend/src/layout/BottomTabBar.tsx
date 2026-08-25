@@ -20,7 +20,7 @@ export function BottomTabBar({ active, setActive, allowedModules, onOpenMore }: 
           type="button"
           onClick={() => setActive(it.key)}
           className={`focus-ring flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold ${
-            active === it.key ? "text-[var(--indigo-600)]" : "text-[var(--ink-400)]"
+            active === it.key ? "text-[var(--ocean-800)]" : "text-[var(--ink-400)]"
           }`}
         >
           <span className="text-base leading-none">{it.icon}</span>

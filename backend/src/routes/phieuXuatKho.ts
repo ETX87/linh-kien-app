@@ -553,6 +553,9 @@ phieuXuatKho.post("/:id/log", async (c) => {
   } else if (target === "Ke toan huy") {
     if (hienTai !== "Dang tao phieu" && hienTai !== "Cho ke toan") return c.json({ error: "INVALID_STATE" }, 409);
     if (!canKeToan(c) && !canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+    // FIX (phan hoi 2026-08-25, hang muc #19): bat buoc ghi_chu khi huy PXK - truoc day khong bat
+    // buoc gi.
+    if (!body.ghi_chu?.trim()) return c.json({ error: "MISSING_GHI_CHU" }, 400);
   } else if (target === "Da chot xong don xuat") {
     if (hienTai !== "Cho ke toan") return c.json({ error: "INVALID_STATE" }, 409);
     if (!canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);

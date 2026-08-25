@@ -217,10 +217,10 @@ export function ThieuLkTab({
         </div>
       )}
       {selected.size > 0 && (
-        <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--indigo-100)] border border-[var(--indigo-600)]/30 rounded-lg px-3 py-2">
-          <span className="text-sm font-bold text-[var(--indigo-700)]">Đã chọn {selected.size} dòng</span>
+        <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--ocean-100)] border border-[var(--ocean-800)]/30 rounded-lg px-3 py-2">
+          <span className="text-sm font-bold text-[var(--ocean-900)]">Đã chọn {selected.size} dòng</span>
           {commonBulkStates.length === 0 ? (
-            <span className="text-xs text-[var(--indigo-700)]">Các dòng đã chọn không có bước xử lý chung — chọn lại theo cùng trạng thái</span>
+            <span className="text-xs text-[var(--ocean-900)]">Các dòng đã chọn không có bước xử lý chung — chọn lại theo cùng trạng thái</span>
           ) : (
             commonBulkStates.map((s) => (
               <BulkConfirmButton

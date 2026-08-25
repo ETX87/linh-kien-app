@@ -8,6 +8,7 @@ import { Select } from "../components/ui/Select";
 import { Tabs } from "../components/ui/Tabs";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
+import { formatPersonDisplay, usePersonDirectory } from "../lib/personDisplay";
 import type { UserRow } from "../types";
 
 // Trang quan tri nguoi dung RUT GON tu he goc - chi con vai_tro Admin/QC/Giam sat + 6 co vai tro
@@ -48,6 +49,7 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
     queryFn: () => api.get<{ rows: UserRow[] }>(`/users?tab=${tabValue}${search ? `&search=${encodeURIComponent(search)}` : ""}`),
   });
   const [editing, setEditing] = useState<UserRow | null>(null);
+  const personDir = usePersonDirectory();
 
   const rows = data?.rows ?? [];
 
@@ -69,8 +71,7 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[#FBFBFB] border-b border-[var(--line)]">
-                  <th className="px-3 py-2">Email</th>
-                  <th className="px-3 py-2">Tên</th>
+                  <th className="px-3 py-2">Người dùng</th>
                   <th className="px-3 py-2">Vai trò</th>
                   <th className="px-3 py-2">Cờ nghiệp vụ</th>
                   <th className="px-3 py-2">Trạng thái</th>
@@ -80,8 +81,8 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
               <tbody>
                 {rows.map((u) => (
                   <tr key={u.email} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
-                    <td className="px-3 py-2">{u.email}</td>
-                    <td className="px-3 py-2">{u.ten ?? "—"}</td>
+                    {/* Quy uoc "Ten (email)" toan he thong (phan hoi 2026-08-25, hang muc #16). */}
+                    <td className="px-3 py-2">{formatPersonDisplay(u.email, personDir)}</td>
                     <td className="px-3 py-2">{u.vai_tro ?? "—"}</td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-1">
@@ -225,12 +226,13 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
             Xem danh mục LK
           </label>
         </div>
-        {form.la_ve_tinh && (
-          <div>
-            <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Email Giám sát quản lý (Vệ tinh)</label>
-            <input value={form.giam_sat_quan_ly} onChange={(e) => setForm({ ...form, giam_sat_quan_ly: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
-          </div>
-        )}
+        <div>
+          {/* Nguon DUY NHAT gan Giam sat quan ly (yeu cau 2026-08-25, hang muc #3) - truoc chi hien
+              khi la_ve_tinh, nay luon hien vi day la noi DUY NHAT ghi users.giam_sat_quan_ly cho ca
+              KTV lan Ve tinh (Settings/Danh sach KTV chi con hien thi read-only). */}
+          <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Email Giám sát quản lý</label>
+          <input value={form.giam_sat_quan_ly} onChange={(e) => setForm({ ...form, giam_sat_quan_ly: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
+        </div>
         <div>
           <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Email Trạm cha (nếu là CTV/Vệ tinh trực thuộc 1 trạm)</label>
           <input value={form.tram_cha} onChange={(e) => setForm({ ...form, tram_cha: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
@@ -250,6 +252,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
 
 function PhuTrachGsTab() {
   const addToast = useToast();
+  const personDir = usePersonDirectory();
   const { data: usersData } = useQuery({ queryKey: ["users", "da-duyet", ""], queryFn: () => api.get<{ rows: UserRow[] }>("/users?tab=da-duyet") });
   const rows = usersData?.rows ?? [];
   const tnKhoKeToan = useMemo(
@@ -299,7 +302,7 @@ function PhuTrachGsTab() {
             <tbody>
               {tnKhoKeToan.map((u) => (
                 <tr key={u.email} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
-                  <td className="px-3 py-2">{u.email}</td>
+                  <td className="px-3 py-2">{formatPersonDisplay(u.email, personDir)}</td>
                   <td className="px-3 py-2">
                     {[u.la_tac_nghiep && "TN", u.la_kho && "Kho", u.la_ke_toan && "Kế toán"].filter(Boolean).join(", ")}
                   </td>
@@ -332,7 +335,7 @@ function PhuTrachGsTab() {
                       setChecked(next);
                     }}
                   />
-                  {email}
+                  {formatPersonDisplay(email, personDir)}
                 </label>
               ))
             )}

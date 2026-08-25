@@ -20,8 +20,16 @@ async function refreshHash(db: D1Database) {
   await computeAndStoreHash(db, "ktv_lien_he", results);
 }
 
+// "Giam sat quan ly" (yeu cau 2026-08-25, hang muc #3): users.giam_sat_quan_ly la NGUON DUY NHAT phan
+// quyen thuc su - LEFT JOIN sang users qua email_dang_nhap de tra them gia tri THAT dang ap dung
+// (giam_sat_quan_ly_hien_tai), chi de HIEN THI (frontend hien read-only). Cot
+// ktv_lien_he.giam_sat_quan_ly cu van giu nguyen trong DB/response nhung chi la ghi chu danh ba.
 settingsKtv.get("/", async (c) => {
-  const { results } = await c.env.DB.prepare("SELECT * FROM ktv_lien_he ORDER BY ma_ktv").all();
+  const { results } = await c.env.DB.prepare(
+    `SELECT k.*, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai
+     FROM ktv_lien_he k LEFT JOIN users u ON u.email = k.email_dang_nhap
+     ORDER BY k.ma_ktv`,
+  ).all();
   return c.json({ rows: results });
 });
 
@@ -53,30 +61,23 @@ settingsKtv.post("/", adminOnly, async (c) => {
 // Cap tai khoan "users" PLACEHOLDER cho 1 KTV da ghep email_dang_nhap nhung CHUA TUNG dang nhap
 // Google that - can thiet vi dat_don_hang.nguoi_nhan_hang/phieu_xuat_kho.nguoi_nhan_hang la FK THAT
 // toi users(email). Khong co placeholder nay, "Nguoi nhan hang (tao ho)" se rong voi KTV chua tung
-// mo app. trang_thai_duyet giu "Cho duyet" (chua cap quyen truy cap gi - loadUser.ts van chan cho
-// den khi Admin duyet that hoac chinh KTV do tu dang nhap, luc do auth.ts se nang len "Da duyet").
-async function filterValidGsEmails(db: D1Database, emails: (string | null)[]): Promise<Set<string>> {
-  const distinct = [...new Set(emails.filter((e): e is string => !!e))];
-  if (distinct.length === 0) return new Set();
-  const { results } = await db
-    .prepare(`SELECT email FROM users WHERE email IN (${distinct.map(() => "?").join(",")})`)
-    .bind(...distinct)
-    .all<{ email: string }>();
-  return new Set((results as { email: string }[]).map((r) => r.email));
-}
-
+// mo app. trang_thai_duyet = 'Da duyet' NGAY (yeu cau 2026-08-25, hang muc #2: Admin da chu dong gan
+// email dang nhap + vai tro luc nay roi nen khong can duyet lai lan 2 o Users module - khac truoc day
+// giu "Cho duyet" cho toi khi Admin duyet that hoac chinh KTV do tu dang nhap). KHONG con nhan/ghi
+// giam_sat_quan_ly o day (hang muc #3: users.giam_sat_quan_ly la nguon duy nhat, Admin gan rieng sau
+// trong Users module) - da bo luon filterValidGsEmails() vi khong con noi nao can nua.
 async function provisionPlaceholderUser(
   db: D1Database,
-  args: { email: string; ten: string | null; vaiTroKtv: string | null; giamSatQuanLy: string | null },
+  args: { email: string; ten: string | null; vaiTroKtv: string | null },
 ): Promise<D1PreparedStatement> {
   const laVeTinh = args.vaiTroKtv === "Ve tinh";
   return db
     .prepare(
-      `INSERT INTO users (email, ten, vai_tro, trang_thai_duyet, la_ktv_dvbh, la_ve_tinh, giam_sat_quan_ly)
-       VALUES (?, ?, NULL, 'Cho duyet', ?, ?, ?)
+      `INSERT INTO users (email, ten, vai_tro, trang_thai_duyet, la_ktv_dvbh, la_ve_tinh)
+       VALUES (?, ?, NULL, 'Da duyet', ?, ?)
        ON CONFLICT(email) DO NOTHING`,
     )
-    .bind(args.email, args.ten, laVeTinh ? 0 : 1, laVeTinh ? 1 : 0, args.giamSatQuanLy);
+    .bind(args.email, args.ten, laVeTinh ? 0 : 1, laVeTinh ? 1 : 0);
 }
 
 // POST /api/settings/ktv-lien-he/bulk-import - { rows: [{ma_ktv, ten_hien_thi?, sdt?, ghi_chu?,
@@ -101,8 +102,6 @@ settingsKtv.post("/bulk-import", adminOnly, async (c) => {
   const user = c.get("user");
   const now = nowVN();
   const VAI_TRO_KTV_VALUES = ["KTV", "CTV", "Tram", "Ve tinh"];
-
-  const validGs = await filterValidGsEmails(c.env.DB, chunk.map((r) => r.giam_sat_quan_ly?.trim() || null));
 
   let success = 0;
   let errorCount = 0;
@@ -138,12 +137,7 @@ settingsKtv.post("/bulk-import", adminOnly, async (c) => {
         .run();
 
       if (emailDangNhap) {
-        await provisionPlaceholderUser(c.env.DB, {
-          email: emailDangNhap,
-          ten: tenHienThi,
-          vaiTroKtv,
-          giamSatQuanLy: giamSatQuanLy && validGs.has(giamSatQuanLy) ? giamSatQuanLy : null,
-        }).then((stmt) => stmt.run());
+        await provisionPlaceholderUser(c.env.DB, { email: emailDangNhap, ten: tenHienThi, vaiTroKtv }).then((stmt) => stmt.run());
       }
       success++;
       details.push({ ma_ktv: ma, status: "thanh_cong" });
@@ -183,13 +177,7 @@ settingsKtv.patch("/:ma/dat-mua-lk", adminOnly, async (c) => {
     .run();
 
   if (next.email_dang_nhap) {
-    const validGs = await filterValidGsEmails(c.env.DB, [next.giam_sat_quan_ly]);
-    await provisionPlaceholderUser(c.env.DB, {
-      email: next.email_dang_nhap,
-      ten: existing.ten_hien_thi,
-      vaiTroKtv: next.vai_tro_ktv,
-      giamSatQuanLy: next.giam_sat_quan_ly && validGs.has(next.giam_sat_quan_ly) ? next.giam_sat_quan_ly : null,
-    }).then((stmt) => stmt.run());
+    await provisionPlaceholderUser(c.env.DB, { email: next.email_dang_nhap, ten: existing.ten_hien_thi, vaiTroKtv: next.vai_tro_ktv }).then((stmt) => stmt.run());
   }
 
   return c.json({ ok: true });
@@ -197,21 +185,13 @@ settingsKtv.patch("/:ma/dat-mua-lk", adminOnly, async (c) => {
 
 settingsKtv.post("/backfill-users", adminOnly, async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT ten_hien_thi, vai_tro_ktv, giam_sat_quan_ly, email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL",
-  ).all<{ ten_hien_thi: string | null; vai_tro_ktv: string | null; giam_sat_quan_ly: string | null; email_dang_nhap: string }>();
-  const rows = results as { ten_hien_thi: string | null; vai_tro_ktv: string | null; giam_sat_quan_ly: string | null; email_dang_nhap: string }[];
+    "SELECT ten_hien_thi, vai_tro_ktv, email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL",
+  ).all<{ ten_hien_thi: string | null; vai_tro_ktv: string | null; email_dang_nhap: string }>();
+  const rows = results as { ten_hien_thi: string | null; vai_tro_ktv: string | null; email_dang_nhap: string }[];
   if (rows.length === 0) return c.json({ ok: true, checked: 0 });
 
-  const validGs = await filterValidGsEmails(c.env.DB, rows.map((r) => r.giam_sat_quan_ly));
   const statements = await Promise.all(
-    rows.map((r) =>
-      provisionPlaceholderUser(c.env.DB, {
-        email: r.email_dang_nhap,
-        ten: r.ten_hien_thi,
-        vaiTroKtv: r.vai_tro_ktv,
-        giamSatQuanLy: r.giam_sat_quan_ly && validGs.has(r.giam_sat_quan_ly) ? r.giam_sat_quan_ly : null,
-      }),
-    ),
+    rows.map((r) => provisionPlaceholderUser(c.env.DB, { email: r.email_dang_nhap, ten: r.ten_hien_thi, vaiTroKtv: r.vai_tro_ktv })),
   );
   await c.env.DB.batch(statements);
   return c.json({ ok: true, checked: rows.length });

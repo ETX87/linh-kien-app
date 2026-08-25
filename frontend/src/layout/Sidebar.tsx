@@ -3,6 +3,9 @@ import { NAV_GROUPS } from "./navConfig";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { APP_VERSION } from "../version";
 import { api } from "../api/client";
+import { TopBarActions } from "./TopBarActions";
+import type { AppUser } from "../auth/AuthContext";
+import type { ViewAsRole } from "../auth/viewAsRoles";
 
 // Rut gon tu frontend/src/layout/Sidebar.tsx cua he DVBH goc - he nay chi co 1 badge duy nhat
 // (datMuaLk.total), khong con nhieu countKey nhu he goc.
@@ -18,6 +21,10 @@ export function Sidebar({
   setCollapsed,
   mobileOpen,
   onMobileClose,
+  role,
+  user,
+  realIsAdmin,
+  viewAsRole,
 }: {
   active: string;
   setActive: (key: string) => void;
@@ -26,6 +33,12 @@ export function Sidebar({
   setCollapsed: (v: boolean) => void;
   mobileOpen: boolean;
   onMobileClose: () => void;
+  // Chuong thong bao + avatar/tai khoan (hang muc #15, 2026-08-25) - CHI can khi render tren mobile
+  // (TopBar da bi an han tren mobile, xem TopBar.tsx). Optional vi Sidebar desktop khong dung toi.
+  role: string;
+  user: AppUser;
+  realIsAdmin: boolean;
+  viewAsRole: ViewAsRole | null;
 }) {
   const isMobile = useIsMobile();
   const { data: counts } = useQuery({
@@ -48,6 +61,13 @@ export function Sidebar({
           </div>
         )}
       </div>
+      {/* Chuong thong bao + avatar/tai khoan (hang muc #15, 2026-08-25) - TopBar da bi an han tren
+          mobile nen day gio la noi DUY NHAT tren mobile de xem/xu ly "Việc cần xử lý" hoac dang xuat. */}
+      {isMobile && (
+        <div className="px-3 py-2.5 border-b border-[var(--sidebar-highlight)] shrink-0">
+          <TopBarActions role={role} user={user} realIsAdmin={realIsAdmin} viewAsRole={viewAsRole} onNavigate={(m) => { setActive(m); onMobileClose(); }} />
+        </div>
+      )}
       <nav className="flex-1 overflow-y-auto sidebar-scroll py-3 px-2.5">
         {NAV_GROUPS.map((g) => {
           // "href" (lien ket ra ngoai, xem navConfig.ts) LUON hien cho MOI nguoi dang nhap, khong loc
@@ -60,9 +80,10 @@ export function Sidebar({
               {(!collapsed || isMobile) && <div className="text-[10px] uppercase tracking-wider font-bold text-[var(--sidebar-ink-dim)] px-2.5 mb-1.5">{g.label}</div>}
               {items.map((it) => {
                 const count = !it.countKey || !counts ? 0 : counts.datMuaLk.total;
+                // Accent doi sang Navy dam (hang muc #10/#20, 2026-08-25) - xem giai thich o Btn.tsx.
                 const itemClassName = `focus-ring w-full flex items-center gap-3 px-2.5 py-2 rounded-xl mb-0.5 text-sm font-semibold transition-colors border-l-[3px] ${
                   active === it.key
-                    ? "bg-[var(--sidebar-highlight)] text-[var(--sidebar-ink)] border-[var(--indigo-600)]"
+                    ? "bg-[var(--sidebar-highlight)] text-[var(--sidebar-ink)] border-[var(--ocean-800)]"
                     : "border-transparent text-[var(--sidebar-ink-mid)] hover:bg-[var(--sidebar-highlight)] hover:text-[var(--sidebar-ink)]"
                 }`;
                 const itemContent = (

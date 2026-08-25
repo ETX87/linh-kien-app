@@ -258,4 +258,6 @@ export interface MaYeuCauSuCoPreview {
 // DonCuaToiTab/PhieuDongBang. id = "bulk" khi ap dung cho ca tap `selected` dang chon.
 // "duyet_tao_ho" (them 2026-08-24, muc 4) - CHI dung id 1 dong cu the (khong co "bulk"), xem
 // isCongNoTaoHo o helpers.ts.
-export type ActionTarget = { id: string | "bulk"; action: "tu_choi" | "cho_hang" | "huy" | "duyet_tao_ho" };
+// "duyet_qua_han" (hang muc #17/#18, 2026-08-25): dong da qua han 24h "Cho TN duyet" - bam "Duyệt"
+// phai chon 1 ly do (tai dung modal/danh sach ly do cua tu_choi/cho_hang) truoc khi thuc su duyet.
+export type ActionTarget = { id: string | "bulk"; action: "tu_choi" | "cho_hang" | "huy" | "duyet_tao_ho" | "duyet_qua_han" };

@@ -41,13 +41,15 @@ function QcTuChoiModal({
 }: {
   donHangId: string;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (ghiChu: string) => void;
   confirmDisabled?: boolean;
   confirmLoading?: boolean;
   addToast: (msg: string) => void;
 }) {
   const [anh, setAnh] = useState<{ url: string }[]>([]);
   const [uploading, setUploading] = useState(false);
+  // FIX (phan hoi 2026-08-25, hang muc #19): ghi_chu nay BAT BUOC o backend (truoc chi bat buoc anh).
+  const [ghiChu, setGhiChu] = useState("");
   const nenAnh = useNenAnhTraHangEnabled();
 
   async function handleFile(file: File) {
@@ -70,7 +72,7 @@ function QcTuChoiModal({
       <div className="space-y-3 text-sm">
         <div className="flex items-center gap-2 flex-wrap">
           {anh.map((a, i) => (
-            <a key={i} href={a.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2 py-1 text-xs text-[var(--indigo-600)] underline underline-offset-2">
+            <a key={i} href={a.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2 py-1 text-xs text-[var(--ocean-800)] underline underline-offset-2">
               📷 Ảnh {i + 1}
             </a>
           ))}
@@ -96,9 +98,15 @@ function QcTuChoiModal({
           )}
         </div>
         <div className={`text-[11px] ${anh.length === 0 ? "text-[var(--coral-600)]" : "text-[var(--ink-400)]"}`}>{anh.length}/3 ảnh (bắt buộc tối thiểu 1)</div>
+        <input
+          value={ghiChu}
+          onChange={(e) => setGhiChu(e.target.value)}
+          placeholder="Lý do từ chối (bắt buộc)"
+          className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+        />
         <div className="flex justify-end gap-2">
           <Btn variant="ghost" size="sm" onClick={onClose}>Hủy</Btn>
-          <Btn size="sm" variant="danger" disabled={anh.length === 0 || confirmDisabled} loading={confirmLoading} onClick={onConfirm}>
+          <Btn size="sm" variant="danger" disabled={anh.length === 0 || !ghiChu.trim() || confirmDisabled} loading={confirmLoading} onClick={() => onConfirm(ghiChu)}>
             Xác nhận từ chối
           </Btn>
         </div>
@@ -132,12 +140,14 @@ export function TraHangTab({
     if (initialFilterOverride !== undefined) setFilterTrangThai(initialFilterOverride);
   }, [initialFilterOverride]);
   const [layLuiId, setLayLuiId] = useState<string | null>(null);
-  // CHOT (ra soat module "Dat Mua Linh Kien 2.0" #13): "Tu choi" o dung 1 buoc CUOI CO TINH QUYET
-  // DINH nhat ("Cho TN duyet tong") moi can mo modal nhap ly do bat buoc - 3 buoc KT/Kho/QC dau
-  // chuoi van giu "bam thang" nhu cu (khong doi hanh vi cho da so truong hop).
   const [tuChoiTnId, setTuChoiTnId] = useState<string | null>(null);
   // QC tu choi - anh bang chung bat buoc (them 2026-08-24, muc 2) - xem QcTuChoiModal o tren.
   const [tuChoiQcId, setTuChoiQcId] = useState<string | null>(null);
+  // "Tu choi" o buoc Ke toan/Kho (them hang muc #19, 2026-08-25) - truoc day "bam thang" khong hoi gi
+  // (backend khong bat buoc), nay backend bat buoc ghi_chu nen can mo modal nhap ly do truoc, cung
+  // pattern voi tuChoiTnId (chi khac text tieu de).
+  const [tuChoiSimpleId, setTuChoiSimpleId] = useState<string | null>(null);
+  const [bulkTuChoiOpen, setBulkTuChoiOpen] = useState(false);
   const [ghiChu, setGhiChu] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -192,6 +202,7 @@ export function TraHangTab({
     onSuccess: () => {
       setTuChoiTnId(null);
       setTuChoiQcId(null);
+      setTuChoiSimpleId(null);
       setGhiChu("");
       qc.invalidateQueries({ queryKey: ["tra-hang"] });
       invalidatePipelineCounts(qc);
@@ -201,7 +212,7 @@ export function TraHangTab({
       const code = err instanceof ApiError ? err.code : undefined;
       addToast(
         code === "MISSING_GHI_CHU"
-          ? "Cần nhập lý do khi từ chối bước TN duyệt tổng"
+          ? "Cần nhập lý do khi từ chối/huỷ"
           : code === "MISSING_ANH_QC"
             ? "Cần tải ít nhất 1 ảnh bằng chứng trước khi từ chối"
             : "Lỗi: " + describeApiError(err),
@@ -245,13 +256,16 @@ export function TraHangTab({
     });
   }
   const bulkMutation = useMutation({
-    mutationFn: (hanhDong: "duyet" | "tu_choi") => api.post<{ results: Record<string, string> }>("/tra-hang/bulk-log", { ids: [...selected], hanh_dong: hanhDong }),
+    mutationFn: ({ hanhDong, ghiChu: gc }: { hanhDong: "duyet" | "tu_choi"; ghiChu?: string }) =>
+      api.post<{ results: Record<string, string> }>("/tra-hang/bulk-log", { ids: [...selected], hanh_dong: hanhDong, ghi_chu: gc?.trim() || undefined }),
     onSuccess: (res) => {
       const entries = Object.entries(res.results);
       const failed = entries.filter(([, v]) => v in TRA_HANG_BULK_ERROR_MESSAGES);
       // Phase 4 (bulk retry): giu lai dung cac dong loi trong `selected` khi that bai 1 phan, xem
       // comment day du o DonCuaToiTab.tsx (cung pattern).
       setSelected(new Set(failed.map(([id]) => id)));
+      setBulkTuChoiOpen(false);
+      setGhiChu("");
       if (failed.length === 0) addToast(`Đã xử lý thành công ${entries.length} dòng`);
       else addToast(`Thành công ${entries.length - failed.length}/${entries.length} dòng. Thất bại: ${failed.map(([id, code]) => `${id}: ${TRA_HANG_BULK_ERROR_MESSAGES[code] ?? code}`).join("; ")} — đã giữ lại các dòng lỗi, bấm lại để thử lại`);
       qc.invalidateQueries({ queryKey: ["tra-hang"] });
@@ -323,7 +337,8 @@ export function TraHangTab({
                   } else if (r.trang_thai_tra_hang === "Cho QC xac nhan") {
                     setTuChoiQcId(r.id);
                   } else {
-                    logMutation.mutate({ id: r.id, hanhDong: "tu_choi" });
+                    setTuChoiSimpleId(r.id);
+                    setGhiChu("");
                   }
                 }}
               >
@@ -385,25 +400,23 @@ export function TraHangTab({
         ]}
       />
       {selected.size > 0 && (
-        <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--indigo-100)] border border-[var(--indigo-600)]/30 rounded-lg px-3 py-2">
-          <span className="text-sm font-bold text-[var(--indigo-700)]">Đã chọn {selected.size} dòng</span>
+        <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--ocean-100)] border border-[var(--ocean-800)]/30 rounded-lg px-3 py-2">
+          <span className="text-sm font-bold text-[var(--ocean-900)]">Đã chọn {selected.size} dòng</span>
           <BulkConfirmButton
             label="Duyệt tất cả"
             confirmLabel={`Xác nhận duyệt ${selected.size} dòng?`}
             count={selected.size}
-            onConfirm={() => bulkMutation.mutate("duyet")}
+            onConfirm={() => bulkMutation.mutate({ hanhDong: "duyet" })}
             disabled={bulkMutation.isPending}
             loading={bulkMutation.isPending}
           />
-          <BulkConfirmButton
-            label="Từ chối tất cả"
-            confirmLabel={`Xác nhận từ chối ${selected.size} dòng?`}
-            count={selected.size}
-            variant="danger"
-            onConfirm={() => bulkMutation.mutate("tu_choi")}
-            disabled={bulkMutation.isPending}
-            loading={bulkMutation.isPending}
-          />
+          {/* FIX (phan hoi 2026-08-25, hang muc #19): "Từ chối tất cả" truoc day bam la gui NGAY
+              khong ghi_chu - backend nay bat buoc, nen doi sang mo modal nhap ly do chung truoc
+              (ap dung cho ca lua chon, tru dong "Cho QC xac nhan" van can anh rieng tung dong nen
+              khong the xu ly hang loat - giu nguyen han che da co tu truoc). */}
+          <Btn size="sm" variant="danger" onClick={() => { setBulkTuChoiOpen(true); setGhiChu(""); }} disabled={bulkMutation.isPending}>
+            Từ chối tất cả
+          </Btn>
         </div>
       )}
       <PaginatedTable
@@ -457,7 +470,7 @@ export function TraHangTab({
         <QcTuChoiModal
           donHangId={tuChoiQcId}
           onClose={() => setTuChoiQcId(null)}
-          onConfirm={() => logMutation.mutate({ id: tuChoiQcId, hanhDong: "tu_choi" })}
+          onConfirm={(ghiChuQc) => logMutation.mutate({ id: tuChoiQcId, hanhDong: "tu_choi", ghiChu: ghiChuQc })}
           confirmDisabled={logMutation.isPending}
           confirmLoading={logMutation.isPending}
           addToast={addToast}
@@ -479,6 +492,52 @@ export function TraHangTab({
                 variant="danger"
                 onClick={() => logMutation.mutate({ id: tuChoiTnId, hanhDong: "tu_choi", ghiChu })}
                 disabled={logMutation.isPending || !ghiChu.trim()}
+              >
+                Xác nhận từ chối
+              </Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {tuChoiSimpleId && (
+        <Modal open title={`Từ chối dòng ${tuChoiSimpleId}`} onClose={() => setTuChoiSimpleId(null)}>
+          <div className="space-y-3 text-sm">
+            <input
+              value={ghiChu}
+              onChange={(e) => setGhiChu(e.target.value)}
+              placeholder="Lý do từ chối (bắt buộc)"
+              className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+            <div className="flex justify-end gap-2">
+              <Btn variant="ghost" size="sm" onClick={() => setTuChoiSimpleId(null)}>Hủy</Btn>
+              <Btn
+                size="sm"
+                variant="danger"
+                onClick={() => logMutation.mutate({ id: tuChoiSimpleId, hanhDong: "tu_choi", ghiChu })}
+                disabled={logMutation.isPending || !ghiChu.trim()}
+              >
+                Xác nhận từ chối
+              </Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {bulkTuChoiOpen && (
+        <Modal open title={`Từ chối ${selected.size} dòng đã chọn`} onClose={() => { setBulkTuChoiOpen(false); setGhiChu(""); }}>
+          <div className="space-y-3 text-sm">
+            <input
+              value={ghiChu}
+              onChange={(e) => setGhiChu(e.target.value)}
+              placeholder="Lý do từ chối (bắt buộc, áp dụng chung cho tất cả các dòng đã chọn)"
+              className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+            <div className="flex justify-end gap-2">
+              <Btn variant="ghost" size="sm" onClick={() => { setBulkTuChoiOpen(false); setGhiChu(""); }}>Hủy</Btn>
+              <Btn
+                size="sm"
+                variant="danger"
+                onClick={() => bulkMutation.mutate({ hanhDong: "tu_choi", ghiChu })}
+                disabled={bulkMutation.isPending || !ghiChu.trim()}
               >
                 Xác nhận từ chối
               </Btn>
@@ -510,7 +569,7 @@ function TraHangDetailModal({
   onNavigate?: (id: string) => void;
 }) {
   const [ghiChu, setGhiChu] = useState("");
-  const [actionMode, setActionMode] = useState<"tu_choi_tn" | "tu_choi_qc" | "day_lui" | null>(null);
+  const [actionMode, setActionMode] = useState<"tu_choi_tn" | "tu_choi_qc" | "tu_choi_simple" | "day_lui" | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["tra-hang-detail", id],
     queryFn: () =>
@@ -544,7 +603,7 @@ function TraHangDetailModal({
       const code = err instanceof ApiError ? err.code : undefined;
       addToast(
         code === "MISSING_GHI_CHU"
-          ? "Cần nhập lý do khi từ chối bước TN duyệt tổng"
+          ? "Cần nhập lý do khi từ chối/huỷ"
           : code === "MISSING_ANH_QC"
             ? "Cần tải ít nhất 1 ảnh bằng chứng trước khi từ chối"
             : "Lỗi: " + describeApiError(err),
@@ -585,7 +644,10 @@ function TraHangDetailModal({
       setActionMode("tu_choi_qc");
       return;
     }
-    logMutation.mutate({ hanhDong: "tu_choi" });
+    // FIX (phan hoi 2026-08-25, hang muc #19): cac buoc KT/Kho tu choi gio backend bat buoc ghi_chu -
+    // khong con ban duoc fire thang khong hoi ly do nua (truoc day khong prompt gi ca).
+    setActionMode("tu_choi_simple");
+    setGhiChu("");
   }
 
   const footer =
@@ -610,6 +672,22 @@ function TraHangDetailModal({
         // QcTuChoiModal render RIENG (overlay Modal, xem ben duoi return chinh) - o day chi can an
         // het cac nut hanh dong thuong trong luc modal do dang mo.
         null
+      ) : actionMode === "tu_choi_simple" ? (
+        <div className="space-y-2">
+          <div className="font-semibold text-xs">Từ chối — lý do (bắt buộc)</div>
+          <div className="flex gap-2 flex-wrap items-center">
+            <input
+              value={ghiChu}
+              onChange={(e) => setGhiChu(e.target.value)}
+              placeholder="Lý do từ chối (bắt buộc)"
+              className="focus-ring flex-1 min-w-[160px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+            <Btn variant="ghost" size="sm" onClick={() => { setActionMode(null); setGhiChu(""); }}>Hủy</Btn>
+            <Btn size="sm" variant="danger" onClick={() => logMutation.mutate({ hanhDong: "tu_choi", ghiChu })} disabled={!ghiChu.trim() || logMutation.isPending}>
+              Xác nhận từ chối
+            </Btn>
+          </div>
+        </div>
       ) : actionMode === "day_lui" ? (
         <div className="space-y-2">
           <div className="font-semibold text-xs">Đẩy lùi 1 bước — lý do</div>
@@ -652,7 +730,7 @@ function TraHangDetailModal({
       <QcTuChoiModal
         donHangId={id}
         onClose={() => setActionMode(null)}
-        onConfirm={() => logMutation.mutate({ hanhDong: "tu_choi" })}
+        onConfirm={(ghiChuQc) => logMutation.mutate({ hanhDong: "tu_choi", ghiChu: ghiChuQc })}
         confirmDisabled={logMutation.isPending}
         confirmLoading={logMutation.isPending}
         addToast={addToast}
@@ -709,7 +787,7 @@ function TraHangDetailModal({
                   <KvRow label="Ảnh LK cần trả">
                     <div className="flex gap-1.5 flex-wrap">
                       {anhTaoMoi.map((a, i) => (
-                        <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className="text-[var(--indigo-600)] underline underline-offset-2 text-xs">📷 Ảnh {i + 1}</a>
+                        <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className="text-[var(--ocean-800)] underline underline-offset-2 text-xs">📷 Ảnh {i + 1}</a>
                       ))}
                     </div>
                   </KvRow>
@@ -718,7 +796,7 @@ function TraHangDetailModal({
                   <KvRow label="Ảnh bằng chứng QC">
                     <div className="flex gap-1.5 flex-wrap">
                       {anhQc.map((a, i) => (
-                        <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className="text-[var(--indigo-600)] underline underline-offset-2 text-xs">📷 Ảnh {i + 1}</a>
+                        <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className="text-[var(--ocean-800)] underline underline-offset-2 text-xs">📷 Ảnh {i + 1}</a>
                       ))}
                     </div>
                   </KvRow>

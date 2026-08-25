@@ -1,0 +1,17 @@
+{
+  "name": "Đặt mua linh kiện - Dịch Vụ 3T",
+  "short_name": "Linh kiện 3T",
+  "description": "Hệ thống đặt mua/xuất kho/trả hàng linh kiện - Dịch Vụ 3T",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#06304a",
+  "theme_color": "#06304a",
+  "orientation": "portrait-primary",
+  "lang": "vi",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

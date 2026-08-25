@@ -283,7 +283,7 @@ export function PhieuXuatKhoTab({
               onClick={() => setXemLoaiDon(l)}
               className={`focus-ring rounded-lg font-semibold transition-colors px-2.5 py-1.5 text-xs ${
                 active
-                  ? "bg-[var(--indigo-600)] text-white shadow-sm"
+                  ? "bg-[var(--ocean-800)] text-white shadow-sm"
                   : attention
                     ? "bg-[var(--amber-100)] text-[var(--amber-700)] border border-[var(--amber-500)]"
                     : "bg-white text-[var(--ink-600)] border border-[var(--line)] hover:bg-slate-50"
@@ -582,6 +582,8 @@ export function PxkDetailModal({
         addToast("Cần nhập Mã đơn hàng trước khi gửi kế toán");
       } else if (code === "MISSING_MA_MISA") {
         addToast("Cần nhập Mã MISA trước khi chốt xong đơn xuất");
+      } else if (code === "MISSING_GHI_CHU") {
+        addToast("Cần nhập ghi chú/lý do trước khi huỷ");
       } else {
         addToast("Lỗi: " + describeApiError(err));
       }
@@ -724,7 +726,7 @@ export function PxkDetailModal({
             {pxk.ma_misa && <span className="text-xs text-[var(--ink-500)]">Mã MISA: <span className="font-mono">{pxk.ma_misa}</span></span>}
             {pxk.ma_van_don && <span className="text-xs text-[var(--ink-500)]">Mã vận đơn: <span className="font-mono">{pxk.ma_van_don}</span></span>}
             {pxk.anh_bien_ban_url && (
-              <a href={pxk.anh_bien_ban_url} target="_blank" rel="noreferrer" className="text-[var(--indigo-600)] underline text-xs">Xem ảnh biên bản</a>
+              <a href={pxk.anh_bien_ban_url} target="_blank" rel="noreferrer" className="text-[var(--ocean-800)] underline text-xs">Xem ảnh biên bản</a>
             )}
           </div>
 
@@ -802,7 +804,7 @@ export function PxkDetailModal({
                 <KvRow label="Số tiền"><span className="font-semibold">{fmtVND(pxk.so_tien_can_chuyen)}</span></KvRow>
                 <KvRow label="Trạng thái"><StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /></KvRow>
                 {pxk.bang_chung_chuyen_tien_url && (
-                  <KvRow label="Bằng chứng"><a href={pxk.bang_chung_chuyen_tien_url} target="_blank" rel="noreferrer" className="text-[var(--indigo-600)] underline text-xs">Xem bằng chứng</a></KvRow>
+                  <KvRow label="Bằng chứng"><a href={pxk.bang_chung_chuyen_tien_url} target="_blank" rel="noreferrer" className="text-[var(--ocean-800)] underline text-xs">Xem bằng chứng</a></KvRow>
                 )}
                 {pxk.bang_chung_chuyen_tien_ghi_chu && (
                   <KvRow label="Ghi chú"><span className="text-xs text-[var(--ink-600)]">{pxk.bang_chung_chuyen_tien_ghi_chu}</span></KvRow>
@@ -951,7 +953,11 @@ export function PxkDetailModal({
               <input
                 value={ghiChu}
                 onChange={(e) => setGhiChu(e.target.value)}
-                placeholder="Ghi chú (tuỳ chọn)"
+                placeholder={
+                  (canTacNghiep || canKeToan) && ["Dang tao phieu", "Cho ke toan"].includes(trangThai)
+                    ? "Ghi chú (bắt buộc nếu bấm Kế toán huỷ)"
+                    : "Ghi chú (tuỳ chọn)"
+                }
                 className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
               />
               {/* Icon hoa (phan hoi 2026-08-19: "PXK được tạo ra đang bị tràn vùng xem... dựa theo
@@ -973,7 +979,17 @@ export function PxkDetailModal({
                   </Btn>
                 )}
                 {(canTacNghiep || canKeToan) && ["Dang tao phieu", "Cho ke toan"].includes(trangThai) && (
-                  <Btn size="sm" variant="danger" className="px-2" onClick={() => logMutation.mutate("Ke toan huy")} disabled={logMutation.isPending} title="Kế toán huỷ" aria-label="Kế toán huỷ">
+                  // FIX (phan hoi 2026-08-25, hang muc #19): ghi_chu nay BAT BUOC o backend - disable
+                  // nut khi chua nhap (truoc day khong bat buoc gi).
+                  <Btn
+                    size="sm"
+                    variant="danger"
+                    className="px-2"
+                    onClick={() => logMutation.mutate("Ke toan huy")}
+                    disabled={logMutation.isPending || !ghiChu.trim()}
+                    title={!ghiChu.trim() ? "Cần nhập ghi chú/lý do huỷ trước" : "Kế toán huỷ"}
+                    aria-label="Kế toán huỷ"
+                  >
                     🚫
                   </Btn>
                 )}

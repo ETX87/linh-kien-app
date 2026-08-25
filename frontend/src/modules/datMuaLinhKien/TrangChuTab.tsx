@@ -51,7 +51,7 @@ export function TrangChuTab({
       else onJump({ tab: "don-cua-toi", filter: "", loaiDon });
     }
     return (
-      <button type="button" onClick={handleClick} className="focus-ring font-semibold hover:underline text-[var(--indigo-600)] tabular-nums">
+      <button type="button" onClick={handleClick} className="focus-ring font-semibold hover:underline text-[var(--ocean-800)] tabular-nums">
         {loaiDonCounts[loaiDon]}
       </button>
     );

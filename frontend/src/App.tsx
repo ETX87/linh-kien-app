@@ -122,6 +122,10 @@ function MainApp({
         setCollapsed={setCollapsed}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
+        role={role ?? "Đặt mua linh kiện"}
+        user={user}
+        realIsAdmin={realIsAdmin}
+        viewAsRole={viewAsRole}
       />
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Banner "xem thu vai tro" (phan hoi 2026-08-20) - LUON hien khi viewAsRole != null, ke ca
@@ -144,17 +148,20 @@ function MainApp({
             </button>
           </div>
         )}
-        <TopBar
-          role={role ?? "Đặt mua linh kiện"}
-          user={user}
-          realIsAdmin={realIsAdmin}
-          viewAsRole={viewAsRole}
-          onOpenMobileMenu={() => setMobileOpen(true)}
-          onNavigate={setActive}
-          onOpenCommandPalette={() => setCommandOpen(true)}
-          mobilePreviewOpen={mobilePreviewOpen}
-          onToggleMobilePreview={() => setMobilePreviewOpen((v) => !v)}
-        />
+        {/* FIX (phan hoi 2026-08-25, hang muc #15): TopBar mac dinh AN tren mobile - chuong thong
+            bao/avatar chuyen vao Sidebar (mo qua nut "Thêm" cuoi BottomTabBar), xem TopBar.tsx. */}
+        {!isMobile && (
+          <TopBar
+            role={role ?? "Đặt mua linh kiện"}
+            user={user}
+            realIsAdmin={realIsAdmin}
+            viewAsRole={viewAsRole}
+            onNavigate={setActive}
+            onOpenCommandPalette={() => setCommandOpen(true)}
+            mobilePreviewOpen={mobilePreviewOpen}
+            onToggleMobilePreview={() => setMobilePreviewOpen((v) => !v)}
+          />
+        )}
         <main className={`p-3 sm:p-5 flex-1 ${isMobile ? "pb-20" : ""}`}>
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <div className="flex items-center gap-3 flex-wrap min-w-0">

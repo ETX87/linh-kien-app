@@ -341,7 +341,7 @@ export function DatMuaLinhKienModule({
       onClick={() => tongViecCuaToi > 0 && setShowWorkloadDetail((v) => !v)}
       disabled={tongViecCuaToi === 0}
       title={tongViecCuaToi === 0 ? undefined : showWorkloadDetail ? "Ẩn chi tiết việc cần làm" : "Xem chi tiết việc cần làm theo từng bước"}
-      className="focus-ring inline-flex items-center gap-1.5 font-display text-lg sm:text-xl font-extrabold text-[var(--ink-900)] enabled:hover:text-[var(--indigo-600)] transition-colors whitespace-nowrap disabled:cursor-default"
+      className="focus-ring inline-flex items-center gap-1.5 font-display text-lg sm:text-xl font-extrabold text-[var(--ink-900)] enabled:hover:text-[var(--ocean-800)] transition-colors whitespace-nowrap disabled:cursor-default"
     >
       <span>Cần làm</span>
       <span

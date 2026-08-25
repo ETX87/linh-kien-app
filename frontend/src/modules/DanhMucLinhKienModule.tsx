@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../components/ui/Btn";
+import { Tooltip } from "../components/ui/Tooltip";
 import { Modal } from "../components/ui/Modal";
 import { Select } from "../components/ui/Select";
 import { ToggleSwitch } from "../components/ui/ToggleSwitch";
@@ -173,14 +174,22 @@ function IconZoom({ className = "" }: { className?: string }) {
 // thay vi chi co onError nhu ban truoc: skeleton nhap nhay trong luc cho, fade-in khi xong, roi ve
 // placeholder gon gang khi loi - KHONG BAO GIO chan luong lam viec chinh (danh sach/sua) du anh
 // cham hay hong. Bam vao thumbnail mo PartDetailDrawer (xem duoi) thay vi mo tab moi.
-function AnhThumbnail({ url, cacheBust, size = 40, onClick }: { url: string | null; cacheBust?: number; size?: number; onClick?: () => void }) {
+// "active" (hang muc #14, 2026-08-25): linh kien dang BAT -> anh noi len (shadow + vien ro); TAT ->
+// anh chim xuong + mo di (opacity + grayscale). undefined = khong ap dung (giu nguyen, dung o cho
+// khong lien quan trang thai bat_tat, vd anh trong form them/sua).
+function AnhThumbnail({
+  url, cacheBust, size = 40, onClick, active,
+}: {
+  url: string | null; cacheBust?: number; size?: number; onClick?: () => void; active?: boolean;
+}) {
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
   useEffect(() => setStatus("loading"), [url]);
+  const stateClass = active === false ? "opacity-50 grayscale" : active === true ? "shadow-md" : "";
 
   if (!url) {
     return (
       <div
-        className="flex items-center justify-center rounded-lg border border-dashed border-[var(--line)] text-[var(--ink-400)]"
+        className={`flex items-center justify-center rounded-lg border border-dashed border-[var(--line)] text-[var(--ink-400)] ${stateClass}`}
         style={{ width: size, height: size }}
       >
         <IconImageOff className="w-4 h-4" />
@@ -193,7 +202,7 @@ function AnhThumbnail({ url, cacheBust, size = 40, onClick }: { url: string | nu
     <button
       type="button"
       onClick={onClick}
-      className="relative block rounded-lg border border-[var(--line)] overflow-hidden shrink-0 focus-ring"
+      className={`relative block rounded-lg border border-[var(--line)] overflow-hidden shrink-0 focus-ring transition-all ${stateClass}`}
       style={{ width: size, height: size }}
       title="Xem chi tiết"
     >
@@ -296,8 +305,8 @@ function PartDetailDrawer({ part, onClose, onEdit, canEdit }: { part: LinhKienRo
   if (!part) return null;
 
   const specs: { label: string; value: ReactNode }[] = [
-    { label: "Giá bán", value: <span className="font-mono">{fmtVND(part.gia_ban)}</span> },
-    { label: "Giá tham chiếu", value: <span className="font-mono">{fmtVND(part.gia_tham_chieu)}</span> },
+    { label: "Giá bán", value: <span className="font-mono font-semibold text-[var(--green-700)]">{fmtVND(part.gia_ban)}</span> },
+    { label: "Giá tham chiếu", value: <span className="font-mono font-semibold text-[var(--green-700)]">{fmtVND(part.gia_tham_chieu)}</span> },
     { label: "Phân loại", value: part.don_vi ?? "—" },
     ...(part.dac_thu ? [{ label: "Phân loại đặc thù", value: part.phan_loai_dac_thu?.trim() || "—" }] : []),
   ];
@@ -308,8 +317,8 @@ function PartDetailDrawer({ part, onClose, onEdit, canEdit }: { part: LinhKienRo
       <div className="drawer-in fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[var(--surface)] shadow-2xl flex flex-col">
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-[var(--line)] shrink-0">
           <div className="min-w-0">
-            <div className="font-mono text-xs font-semibold text-[var(--indigo-600)] tracking-wide">{part.ma_linh_kien}</div>
-            <h3 className="font-display font-bold text-lg text-[var(--ink-900)] leading-snug mt-0.5 truncate">{part.ten_linh_kien}</h3>
+            <div className="font-mono text-xs font-semibold text-[var(--ocean-800)] tracking-wide">{part.ma_linh_kien}</div>
+            <h3 className="font-display font-bold text-lg text-[var(--ocean-800)] leading-snug mt-0.5 truncate">{part.ten_linh_kien}</h3>
           </div>
           <button onClick={onClose} className="focus-ring shrink-0 w-8 h-8 rounded-lg hover:bg-slate-100 text-[var(--ink-400)]">
             ✕
@@ -643,10 +652,10 @@ export function DanhMucLinhKienModule() {
 
   const columns: Column<LinhKienRow>[] = [
     { key: "ma_linh_kien", header: "Mã", render: (p) => <span className="font-mono text-xs">{p.ma_linh_kien}</span> },
-    { key: "ten_linh_kien", header: "Tên linh kiện", render: (p) => <span className="font-medium">{p.ten_linh_kien}</span> },
-    { key: "gia_ban", header: "Giá bán", render: (p) => <span className="font-mono">{fmtVND(p.gia_ban)}</span> },
+    { key: "ten_linh_kien", header: "Tên linh kiện", render: (p) => <span className="font-semibold text-[var(--ocean-800)]">{p.ten_linh_kien}</span> },
+    { key: "gia_ban", header: "Giá bán", render: (p) => <span className="font-mono font-semibold text-[var(--green-700)]">{fmtVND(p.gia_ban)}</span> },
     { key: "don_vi", header: "Phân loại", render: (p) => <span className="text-xs">{p.don_vi ?? "—"}</span> },
-    { key: "anh_demo", header: "Ảnh minh hoạ", render: (p) => <AnhThumbnail url={p.anh_demo} /> },
+    { key: "anh_demo", header: "Ảnh minh hoạ", render: (p) => <AnhThumbnail url={p.anh_demo} active={!!p.bat_tat} /> },
     { key: "ghi_chu", header: "Ghi chú", render: (p) => <span className="text-xs text-[var(--ink-600)]">{p.ghi_chu ?? "—"}</span> },
     {
       key: "dac_thu",
@@ -685,7 +694,7 @@ export function DanhMucLinhKienModule() {
       mobileHint: "actions",
       render: (p) =>
         canWrite ? (
-          <button className="text-xs text-[var(--indigo-600)] hover:underline" onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
+          <button className="text-xs text-[var(--ocean-800)] hover:underline" onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
             Sửa
           </button>
         ) : null,
@@ -695,10 +704,16 @@ export function DanhMucLinhKienModule() {
   return (
     <div className="anim-in">
       <div className="flex items-center justify-between mb-3">
-        <div className="text-sm text-[var(--ink-600)]">
-          Danh mục linh kiện dùng cho module "Đặt mua linh kiện". Đánh dấu "Đặc thù" để chèn thêm bước TP DVBH xác nhận trước khi Tác nghiệp duyệt khi tạo phiếu đặt. Đánh dấu "Only sửa chữa" để ẩn mã này khỏi danh sách chọn khi tạo đơn mua hàng.
+        <div className="text-sm text-[var(--ink-600)] flex items-center gap-1.5">
+          Danh mục linh kiện dùng cho module "Đặt mua linh kiện".
+          <Tooltip text={`Đánh dấu "Đặc thù" để chèn thêm bước TP DVBH xác nhận trước khi Tác nghiệp duyệt khi tạo phiếu đặt. Đánh dấu "Only sửa chữa" để ẩn mã này khỏi danh sách chọn khi tạo đơn mua hàng.`} />
         </div>
         <div className="flex gap-2 shrink-0">
+          {/* FIX (phan hoi 2026-08-25, hang muc #6): KTV thuan (khong co quan_ly_danh_muc_lk/Admin)
+              khong duoc xuat Excel danh muc - truoc day nut nay khong gate gi (xem comment dau file),
+              vo tinh lo gia_ban/gia_tham_chieu cho vai tro khong nen thay gia. Cac vai tro khac
+              (Kho/Ke toan/TN/GS/Admin) khong bi anh huong vi khong mang co la_ktv_dvbh. */}
+          {!(authUser?.la_ktv_dvbh && !canWrite) && (
           <Btn
             variant="ghost"
             size="sm"
@@ -721,6 +736,7 @@ export function DanhMucLinhKienModule() {
           >
             ⬇ Xuất Excel
           </Btn>
+          )}
           {canWrite && (
             <>
               <Btn
@@ -764,6 +780,8 @@ export function DanhMucLinhKienModule() {
           placeholder="Tìm theo mã hoặc tên linh kiện..."
           className="focus-ring w-64 bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
         />
+        {/* Nhac nho so ket qua (phan hoi 2026-08-25, hang muc #11) - chi hien khi dang go tim kiem. */}
+        {search.trim() && <span className="text-xs text-[var(--ink-400)]">{filteredRows.length} kết quả</span>}
         <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
           <span>Đặc thù:</span>
           <Select value={filterDacThu} onChange={(v) => { setFilterDacThu(v); setPage(1); }} options={BOOL_FILTER_OPTIONS} />
@@ -778,20 +796,60 @@ export function DanhMucLinhKienModule() {
         </div>
       </div>
 
-      <PaginatedTable
-        columns={columns}
-        rows={filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)}
-        isLoading={false}
-        isError={false}
-        page={page}
-        pageSize={PAGE_SIZE}
-        total={filteredRows.length}
-        onPageChange={setPage}
-        onRowClick={(p) => setViewingMa(p.ma_linh_kien)}
-        rowKey={(p) => p.ma_linh_kien}
-        emptyText="Không có linh kiện phù hợp."
-        storageKey="danh-muc-lk"
-      />
+      {/* Card mobile rieng cho module nay (hang muc #7, 2026-08-25) - thay cho fallback the chung cua
+          PaginatedTable (khong toi uu cho danh muc co anh: anh nho, khong noi bat). 1 dong = 1 linh
+          kien, anh lon ben trai + ten/gia/trang thai ben phai, dung LAI AnhThumbnail (prop `active`
+          moi = hang muc #14: linh kien tat -> anh mo/xam). An o >=640px (thay bang PaginatedTable
+          desktop table qua wrapper "hidden sm:block" ben duoi). */}
+      <div className="sm:hidden divide-y divide-[var(--line)] border border-[var(--line)] rounded-xl bg-[var(--surface)] overflow-hidden">
+        {filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).length === 0 ? (
+          <div className="py-8 text-center text-[var(--ink-400)] text-sm">Không có linh kiện phù hợp.</div>
+        ) : (
+          filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((p) => (
+            <div key={p.ma_linh_kien} onClick={() => setViewingMa(p.ma_linh_kien)} className="flex items-center gap-3 px-3 py-2.5 active:bg-slate-50 cursor-pointer">
+              <AnhThumbnail url={p.anh_demo} active={!!p.bat_tat} size={56} />
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-mono text-[var(--ink-400)]">{p.ma_linh_kien}</div>
+                <div className="font-semibold text-[var(--ocean-800)] truncate">{p.ten_linh_kien}</div>
+                <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                  <span className="font-mono text-sm font-semibold text-[var(--green-700)]">{fmtVND(p.gia_ban)}</span>
+                  {!!p.dac_thu && <span className="text-[10px] font-semibold text-[var(--amber-600)]">Đặc thù</span>}
+                  <Badge tone={p.bat_tat ? "teal" : "gray"}>{p.bat_tat ? "Bật" : "Tắt"}</Badge>
+                </div>
+              </div>
+              {canWrite && (
+                <button className="text-xs text-[var(--ocean-800)] shrink-0" onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
+                  Sửa
+                </button>
+              )}
+            </div>
+          ))
+        )}
+        <div className="flex items-center justify-between px-3 py-2.5 text-xs text-[var(--ink-400)]">
+          <span>{filteredRows.length} dòng</span>
+          <div className="flex gap-1">
+            <Btn variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>‹</Btn>
+            <span className="px-2 py-1.5">{page}/{Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE))}</span>
+            <Btn variant="ghost" size="sm" disabled={page >= Math.ceil(filteredRows.length / PAGE_SIZE)} onClick={() => setPage(page + 1)}>›</Btn>
+          </div>
+        </div>
+      </div>
+      <div className="hidden sm:block">
+        <PaginatedTable
+          columns={columns}
+          rows={filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)}
+          isLoading={false}
+          isError={false}
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={filteredRows.length}
+          onPageChange={setPage}
+          onRowClick={(p) => setViewingMa(p.ma_linh_kien)}
+          rowKey={(p) => p.ma_linh_kien}
+          emptyText="Không có linh kiện phù hợp."
+          storageKey="danh-muc-lk"
+        />
+      </div>
 
       {/* SUA (phan hoi 2026-08-20): gop "Thêm linh kiện mới" va "Sửa linh kiện" thanh 1 Modal DUY
           NHAT dung chung form (truoc day 2 Modal rieng, khac bo cuc - them moi khong co upload anh
@@ -870,8 +928,8 @@ export function DanhMucLinhKienModule() {
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={form.dac_thu} onChange={(e) => setForm({ ...form, dac_thu: e.target.checked })} className="w-4 h-4" />
             <span className="font-semibold">Linh kiện đặc thù</span>
+            <Tooltip text={`Khi tạo/duyệt phiếu đặt mua dùng mã này, hệ thống chèn thêm bước "Chờ TP DVBH xác nhận" trước khi Tác nghiệp (TN) duyệt.`} />
           </label>
-          <div className="text-xs text-[var(--ink-400)] -mt-2">Khi tạo/duyệt phiếu đặt mua dùng mã này, hệ thống chèn thêm bước "Chờ TP DVBH xác nhận" trước khi Tác nghiệp (TN) duyệt.</div>
           {/* "Phân loại đặc thù" (them 2026-08-25) - CHI hien khi da tick "Linh kien dac thu" o tren,
               cung kieu listdown tu do nhu o "Phân loại" (khong bang settings rieng). */}
           {form.dac_thu && (
@@ -894,8 +952,8 @@ export function DanhMucLinhKienModule() {
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" checked={form.chi_sua_chua} onChange={(e) => setForm({ ...form, chi_sua_chua: e.target.checked })} className="w-4 h-4" />
             <span className="font-semibold">Only sửa chữa</span>
+            <Tooltip text={`Mã này sẽ không hiện trong danh sách chọn khi tạo đơn mua hàng ở module "Đặt mua linh kiện".`} />
           </label>
-          <div className="text-xs text-[var(--ink-400)] -mt-2">Mã này sẽ không hiện trong danh sách chọn khi tạo đơn mua hàng ở module "Đặt mua linh kiện".</div>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={closeForm}>
               Hủy
@@ -915,8 +973,9 @@ export function DanhMucLinhKienModule() {
 
       <Modal open={bulkImportOpen} onClose={() => { if (!bulkImportRunning) setBulkImportOpen(false); }} title="Nhập ảnh demo hàng loạt">
         <div className="space-y-3">
-          <div className="text-xs text-[var(--ink-500)]">
-            Chọn file Excel có 2 cột <span className="font-mono">Mã linh kiện</span> và <span className="font-mono">ẢNH DEMO</span> (link ảnh nguồn). Hệ thống sẽ tải từng ảnh về và lưu lên Google Drive của hệ thống, khớp theo mã linh kiện đã có sẵn trong danh mục — mã chưa tồn tại sẽ bị bỏ qua.
+          <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">
+            File Excel 2 cột <span className="font-mono">Mã linh kiện</span> + <span className="font-mono">ẢNH DEMO</span>.
+            <Tooltip text="Hệ thống sẽ tải từng ảnh về và lưu lên Google Drive của hệ thống, khớp theo mã linh kiện đã có sẵn trong danh mục — mã chưa tồn tại sẽ bị bỏ qua." />
           </div>
           {!bulkImportRunning && !bulkImportSummary && (
             <input
@@ -961,8 +1020,11 @@ export function DanhMucLinhKienModule() {
 
       <Modal open={catalogImportOpen} onClose={() => { if (!catalogImportRunning) setCatalogImportOpen(false); }} title="Nhập danh mục linh kiện hàng loạt">
         <div className="space-y-3">
-          <div className="text-xs text-[var(--ink-500)]">
-            Chọn file Excel có ít nhất 2 cột <span className="font-mono">Mã</span> (hoặc "Mã linh kiện") và <span className="font-mono">Tên linh kiện</span> — dùng được luôn file xuất từ nút "⬇ Xuất Excel" ở trên, hoặc file xuất từ hệ khác (vd hệ bảo hành gốc) có tên cột tương tự. Các cột khác (Giá bán, Giá tham chiếu, Phân loại, Ghi chú, Đặc thù, Only sửa chữa) là tuỳ chọn. Có thể thêm cột <span className="font-mono">Ảnh</span> (link ảnh nguồn) — hệ thống sẽ tự tải về và lưu lên Google Drive của hệ thống, hiện luôn lên web (cần đã kết nối Google Drive ở Settings, xem tab "Google Drive"). Mã đã tồn tại sẽ được CẬP NHẬT đè (trừ trạng thái hiển thị — không bị ảnh hưởng; ảnh chỉ đè khi dòng đó có link ảnh mới), mã chưa có sẽ được thêm mới.
+          <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">
+            File Excel có ít nhất 2 cột <span className="font-mono">Mã</span> + <span className="font-mono">Tên linh kiện</span> — dùng được luôn file xuất từ nút "⬇ Xuất Excel".
+            <Tooltip
+              text={`Dùng được file xuất từ nút "⬇ Xuất Excel" ở trên, hoặc file từ hệ khác (vd hệ bảo hành gốc) có tên cột tương tự. Các cột khác (Giá bán, Giá tham chiếu, Phân loại, Ghi chú, Đặc thù, Only sửa chữa) là tuỳ chọn. Có thể thêm cột Ảnh (link ảnh nguồn) — hệ thống sẽ tự tải về và lưu lên Google Drive của hệ thống (cần đã kết nối ở Settings > Google Drive). Mã đã tồn tại sẽ được CẬP NHẬT đè (trừ trạng thái hiển thị; ảnh chỉ đè khi có link ảnh mới), mã chưa có sẽ được thêm mới.`}
+            />
           </div>
           {!catalogImportRunning && !catalogImportSummary && (
             <input

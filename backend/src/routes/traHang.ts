@@ -239,22 +239,29 @@ async function applyTraHangLog(
   const user = c.get("user");
   let nextTrangThai: string;
 
+  // FIX (phan hoi 2026-08-25, hang muc #19): bat buoc ghi_chu o TAT CA cac buoc huy/tu choi - dao
+  // nguoc quyet dinh cu (comment goc giai thich ly do cu da xoa: chi bat buoc o buoc cuoi cung de
+  // tranh ep nguoi dung nhap qua nhieu lan, nay chu he thong yeu cau nghiem ngat lai).
   if (hanhDong === "huy") {
     if (ddh.nguoi_tao !== user.email && !canTacNghiep(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
+    if (!ghiChu?.trim()) return { error: "MISSING_GHI_CHU", status: 409 };
     nextTrangThai = "Da huy";
   } else if (trangThaiHienTai === "Cho ke toan duyet mem") {
     if (!canKeToan(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
+    if (hanhDong === "tu_choi" && !ghiChu?.trim()) return { error: "MISSING_GHI_CHU", status: 409 };
     nextTrangThai = hanhDong === "duyet" ? "Cho kho xac nhan" : "Tu choi";
   } else if (trangThaiHienTai === "Cho kho xac nhan") {
     if (!canKho(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
+    if (hanhDong === "tu_choi" && !ghiChu?.trim()) return { error: "MISSING_GHI_CHU", status: 409 };
     nextTrangThai = hanhDong === "duyet" ? "Cho QC xac nhan" : "Tu choi";
   } else if (trangThaiHienTai === "Cho QC xac nhan") {
     if (!canQC(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
     // CHOT (phan hoi 2026-08-24, muc 2 "khi QC duyệt đơn trả hàng: bắt buộc phải có ảnh bằng chứng
-    // nếu từ chối") - CHI rieng buoc QC (khong ap dung 3 buoc con lai KT/Kho/TN cua luong nay, da
-    // chot voi nguoi dung). Anh phai upload TRUOC qua POST /:donHangId/anh (xem tren) - kiem tra da
-    // co >=1 dong loai='qc_tu_choi' cho dong nay.
+    // nếu từ chối") - anh phai upload TRUOC qua POST /:donHangId/anh (xem tren) - kiem tra da co >=1
+    // dong loai='qc_tu_choi' cho dong nay. Hang muc #19 (2026-08-25): THEM bat buoc ghi_chu (truoc chi
+    // bat buoc anh, khong bat buoc ghi_chu).
     if (hanhDong === "tu_choi") {
+      if (!ghiChu?.trim()) return { error: "MISSING_GHI_CHU", status: 409 };
       const anhRow = await c.env.DB.prepare("SELECT COUNT(*) as n FROM tra_hang_anh WHERE dat_don_hang_id = ? AND loai = 'qc_tu_choi'")
         .bind(donHangId)
         .first<{ n: number }>();
@@ -263,10 +270,6 @@ async function applyTraHangLog(
     nextTrangThai = hanhDong === "duyet" ? "Cho TN duyet tong" : "Tu choi";
   } else if (trangThaiHienTai === "Cho TN duyet tong") {
     if (!canTacNghiep(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
-    // CHOT (ra soat module "Dat Mua Linh Kien 2.0" #13): chi bat buoc ghi_chu khi Tu choi o BUOC
-    // CUOI CO TINH QUYET DINH nhat (tuong duong "Cho TN duyet" ben luong mua hang, noi
-    // DonHangDetailModal cung bat buoc chon Ly do cham) - 3 buoc KT/Kho/QC dau chuoi giu nhe nhu cu
-    // (khong bat buoc gi), tranh ep ca 4 buoc deu phai nhap trong khi chi 1 buoc that su nghiem trong.
     if (hanhDong === "tu_choi" && !ghiChu?.trim()) return { error: "MISSING_GHI_CHU", status: 409 };
     // SUA (migration 0002_tra_hang_pxk.sql): truoc day di tiep toi "Cho ke toan xac nhan nhap kho" ->
     // "Cho kho xac nhan nhap kho" -> "Da hoan thanh" - gio dung o "TN da duyet" (trang thai DONG cua

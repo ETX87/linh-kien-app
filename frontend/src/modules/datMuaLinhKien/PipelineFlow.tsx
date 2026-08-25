@@ -68,15 +68,15 @@ export function pipelineChevronClip(hasLeftNotch: boolean, hasRightPoint: boolea
   if (hasLeftNotch) pts.push(`${d}px 50%`);
   return `polygon(${pts.join(", ")})`;
 }
-// DOI MAU (2026-08-24, khop concept 1 "Structured Neutral"): gradient truoc dung tong ocean
-// (--ocean-100 #ddf1fb -> gan --ocean-800 #0a4666) - doi sang tong indigo (--indigo-100 #eef2ff ->
-// --indigo-700 #3730a3), khop accent chinh cua concept 1, KHONG dung CSS var truc tiep (can noi suy
-// tung mau theo t) nen ghi thang RGB tuong ung 2 token do - CHI doi mau, KHONG doi hinh hoc/nguong t.
+// DOI MAU (2026-08-25, hang muc #10/#20 - doi huong "Navy dam + Cam ruc", bo han indigo): gradient
+// tung dung tong indigo (--indigo-100 #eef2ff -> --indigo-700 #3730a3) - doi lai ve tong ocean
+// (--ocean-100 #ddf1fb -> --ocean-800 #0a4666), KHONG dung CSS var truc tiep (can noi suy tung mau
+// theo t) nen ghi thang RGB tuong ung 2 token do - CHI doi mau, KHONG doi hinh hoc/nguong t.
 export function pipelineGradientStyle(t: number): { background: string; color: string } {
-  const r = Math.round(238 + (55 - 238) * t);
-  const g = Math.round(242 + (48 - 242) * t);
-  const b = Math.round(255 + (163 - 255) * t);
-  return { background: `rgb(${r}, ${g}, ${b})`, color: t > 0.55 ? "#ffffff" : "#3730a3" };
+  const r = Math.round(221 + (10 - 221) * t);
+  const g = Math.round(241 + (70 - 241) * t);
+  const b = Math.round(251 + (102 - 251) * t);
+  return { background: `rgb(${r}, ${g}, ${b})`, color: t > 0.55 ? "#ffffff" : "#0a4666" };
 }
 // THIET KE LAI (2026-08-24, theo yeu cau chu he thong "vẽ UI thử" -> duyet phuong an "dai the theo
 // luong, moi giai doan 1 mau"): bo han co che chevron long khop clip-path (pipelineChevronClip/
@@ -182,7 +182,7 @@ export function PipelineFlow({
                           title={STEP_DESCRIPTION[s.key] ?? s.label}
                         >
                           {isMine && hasCount && (
-                            <span className="absolute top-0.5 right-0.5 h-1 w-1 rounded-full bg-[var(--indigo-600)]" title="Việc của bạn" />
+                            <span className="absolute top-0.5 right-0.5 h-1 w-1 rounded-full bg-[var(--ocean-800)]" title="Việc của bạn" />
                           )}
                           <span
                             className="text-[11px] font-extrabold leading-none tabular-nums"
@@ -235,11 +235,10 @@ export function PxkMiniPipeline({ trangThai }: { trangThai: string }) {
           // ca 5 buoc chinh deu coi la nen/trung tinh, khong to dam buoc nao tren truc nua.
           const daQua = idxHienTai >= 0 && i < idxHienTai;
           const dangO = idxHienTai >= 0 && i === idxHienTai;
-          // DOI MAU (2026-08-24, khop concept 1): "dang o" (buoc hien tai cua chinh PXK nay) tu ocean
-          // sang indigo - dong bo voi accent chinh cua concept 1, CHI doi mau nen/chu, khong doi hinh
-          // hoc/logic dangO/daQua.
+          // DOI MAU (2026-08-25, hang muc #10/#20): "dang o" quay lai tong ocean (bo indigo) - dong bo
+          // voi huong "Navy dam + Cam ruc", CHI doi mau nen/chu, khong doi hinh hoc/logic dangO/daQua.
           const toneStyle = dangO
-            ? { background: "var(--indigo-600)", color: "white" }
+            ? { background: "var(--ocean-800)", color: "white" }
             : daQua
               ? { background: "var(--teal-100)", color: "var(--teal-700)" }
               : { background: "var(--surface-100)", color: "var(--ink-400)" };

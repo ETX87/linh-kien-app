@@ -90,7 +90,7 @@ export function CommandPalette({ open, onClose, items, onSelect }: { open: boole
                     onSelect(it.key);
                     onClose();
                   }}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left ${idx === activeIdx ? "bg-[var(--indigo-100)] text-[var(--indigo-700)]" : "text-[var(--ink-700)]"}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left ${idx === activeIdx ? "bg-[var(--ocean-100)] text-[var(--ocean-900)]" : "text-[var(--ink-700)]"}`}
                 >
                   <span className="w-5 text-center shrink-0">{it.icon}</span>
                   <span className="flex-1 min-w-0 truncate">{it.label}</span>

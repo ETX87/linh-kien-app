@@ -31,7 +31,7 @@ export function ActiveFiltersBar({ chips }: { chips: { label: string; onClear: (
           key={i}
           type="button"
           onClick={c.onClear}
-          className="focus-ring inline-flex items-center gap-1 rounded-full bg-[var(--indigo-100)] px-2 py-0.5 text-xs font-medium text-[var(--indigo-700)] hover:brightness-95"
+          className="focus-ring inline-flex items-center gap-1 rounded-full bg-[var(--ocean-100)] px-2 py-0.5 text-xs font-medium text-[var(--ocean-900)] hover:brightness-95"
         >
           {c.label} <span aria-hidden="true">✕</span>
         </button>
@@ -126,7 +126,7 @@ export function TrangThaiChipFilter({ value, onChange, options }: { value: strin
             type="button"
             onClick={() => onChange(o.value)}
             className={`focus-ring rounded-full px-[13px] py-[5.5px] text-xs font-medium transition-colors ${
-              active ? "bg-[var(--indigo-600)] border border-[var(--indigo-600)] text-white font-semibold" : "bg-white text-[var(--ink-700)] border border-[var(--line)] hover:border-[var(--indigo-600)]"
+              active ? "bg-[var(--ocean-800)] border border-[var(--ocean-800)] text-white font-semibold" : "bg-white text-[var(--ink-700)] border border-[var(--line)] hover:border-[var(--ocean-800)]"
             }`}
           >
             {o.label}
@@ -210,7 +210,7 @@ export function TraHangAnhPicker({
       <div className="flex items-center gap-2 flex-wrap">
         {photos.map((p, i) => (
           <span key={p.driveFileId} className="inline-flex items-center gap-1.5 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2 py-1 text-xs">
-            <a href={p.url} target="_blank" rel="noreferrer" className="text-[var(--indigo-600)] underline underline-offset-2">
+            <a href={p.url} target="_blank" rel="noreferrer" className="text-[var(--ocean-800)] underline underline-offset-2">
               📷 Ảnh {i + 1}
             </a>
             <button type="button" onClick={() => onChange(photos.filter((_, j) => j !== i))} className="text-[var(--coral-600)] font-bold leading-none" title="Xoá ảnh này">
@@ -252,7 +252,7 @@ export function MaYcscCell({ value, canXemChiTietCa, openCase }: { value: string
   if (!value?.trim()) return <span className="text-[var(--ink-400)]">—</span>;
   if (canXemChiTietCa && openCase) {
     return (
-      <span className="font-mono text-[var(--indigo-600)] font-semibold cursor-pointer hover:underline" onClick={() => openCase(value.trim(), "giai-trinh")}>
+      <span className="font-mono text-[var(--ocean-800)] font-semibold cursor-pointer hover:underline" onClick={() => openCase(value.trim(), "giai-trinh")}>
         {value}
       </span>
     );

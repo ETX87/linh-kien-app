@@ -31,6 +31,9 @@ export interface KtvLienHeRow {
   vai_tro_ktv: "KTV" | "CTV" | "Tram" | "Ve tinh" | null;
   giam_sat_quan_ly: string | null;
   email_dang_nhap: string | null;
+  // Gia tri THAT dang ap dung tu users.giam_sat_quan_ly (nguon duy nhat phan quyen, xem CLAUDE.md) -
+  // chi de hien thi read-only, khac voi giam_sat_quan_ly o tren (chi la ghi chu danh ba).
+  giam_sat_quan_ly_hien_tai?: string | null;
 }
 
 export interface LyDoChamMuaLkRow {

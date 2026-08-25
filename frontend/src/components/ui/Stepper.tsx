@@ -17,7 +17,7 @@ export function Stepper({ steps }: { steps: StepperStep[] }) {
             s.state === "done"
               ? "text-[var(--teal-600)] border-[var(--teal-500)]"
               : s.state === "cur"
-                ? "text-[var(--indigo-600)] border-[var(--indigo-600)]"
+                ? "text-[var(--ocean-800)] border-[var(--ocean-800)]"
                 : "text-[var(--ink-400)] border-[var(--line)]"
           }`}
         >

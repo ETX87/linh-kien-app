@@ -31,11 +31,11 @@ export function StatCard({
   // Doi sang dung "kpi-card" cua concept 1 (2026-08-24): SO LIEU CHINH to mau theo tone (khong con
   // cham tron rieng) - vien 1px, hover chi doi mau vien + shadow nhe (khong nang/dich chuyen the nua).
   const numColor = { ocean: "var(--ocean-600)", teal: "var(--teal-600)", amber: "var(--amber-600)", coral: "var(--coral-600)", orange: "var(--orange-600)", gray: "var(--ink-900)" }[tone];
-  const hoverCls = onClick ? "cursor-pointer transition-colors hover:border-[var(--indigo-600)] hover:shadow-[0_0_0_3px_var(--indigo-100)]" : "";
+  const hoverCls = onClick ? "cursor-pointer transition-colors hover:border-[var(--ocean-800)] hover:shadow-[0_0_0_3px_var(--ocean-100)]" : "";
   if (size === "sm") {
     return (
       <Card
-        className={`p-1.5 flex-1 min-w-[110px] ${hoverCls} ${active ? "border-[var(--indigo-600)] shadow-[0_0_0_3px_var(--indigo-100)]" : ""}`}
+        className={`p-1.5 flex-1 min-w-[110px] ${hoverCls} ${active ? "border-[var(--ocean-800)] shadow-[0_0_0_3px_var(--ocean-100)]" : ""}`}
         onClick={onClick}
       >
         <span className="text-[10px] font-semibold text-[var(--ink-400)] uppercase tracking-wide leading-tight">{label}</span>
@@ -48,7 +48,7 @@ export function StatCard({
   }
   return (
     <Card
-      className={`p-3 sm:p-4 flex-1 min-w-[150px] ${hoverCls} ${active ? "border-[var(--indigo-600)] shadow-[0_0_0_3px_var(--indigo-100)]" : ""}`}
+      className={`p-3 sm:p-4 flex-1 min-w-[150px] ${hoverCls} ${active ? "border-[var(--ocean-800)] shadow-[0_0_0_3px_var(--ocean-100)]" : ""}`}
       onClick={onClick}
     >
       <span className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">{label}</span>

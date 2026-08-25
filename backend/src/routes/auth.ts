@@ -81,23 +81,18 @@ auth.get("/callback", async (c) => {
   // KTV/Ve tinh, effectiveModules() da xu ly an toan gia tri nay). CHI ap dung khi tai khoan van
   // dang "Cho duyet" (tai khoan MOI hoac placeholder tao truoc do) - KHONG BAO GIO ghi de 1 tai
   // khoan da duyet/cau hinh thu cong truoc do (xem CASE WHEN trong cau UPSERT ben duoi).
-  let ktvMatch: { laKtvDvbh: number; laVeTinh: number; giamSatQuanLy: string | null } | null = null;
+  // "Giam sat quan ly" (yeu cau 2026-08-25, hang muc #3): users.giam_sat_quan_ly la NGUON DUY NHAT -
+  // KHONG con tu dong copy tu ktv_lien_he.giam_sat_quan_ly o day nua (Admin gan rieng trong Users
+  // module). ktv_lien_he.giam_sat_quan_ly gio chi la ghi chu danh ba, khong lien quan phan quyen.
+  let ktvMatch: { laKtvDvbh: number; laVeTinh: number } | null = null;
   if (!isBootstrapAdmin) {
-    const ktvRow = await c.env.DB.prepare("SELECT vai_tro_ktv, giam_sat_quan_ly FROM ktv_lien_he WHERE email_dang_nhap = ?")
+    const ktvRow = await c.env.DB.prepare("SELECT vai_tro_ktv FROM ktv_lien_he WHERE email_dang_nhap = ?")
       .bind(userInfo.email)
-      .first<{ vai_tro_ktv: string | null; giam_sat_quan_ly: string | null }>();
+      .first<{ vai_tro_ktv: string | null }>();
     if (ktvRow) {
-      let giamSatQuanLy = ktvRow.giam_sat_quan_ly;
-      if (giamSatQuanLy) {
-        // Tranh vi pham FK users.giam_sat_quan_ly REFERENCES users(email) neu GS do chua tung dang
-        // nhap - dung bai hoc tu vu sua backfill-users truoc day (xem nhat_ky_lam_viec.md phien 5).
-        const gsExists = await c.env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(giamSatQuanLy).first();
-        if (!gsExists) giamSatQuanLy = null;
-      }
       ktvMatch = {
         laKtvDvbh: ktvRow.vai_tro_ktv === "Ve tinh" ? 0 : 1,
         laVeTinh: ktvRow.vai_tro_ktv === "Ve tinh" ? 1 : 0,
-        giamSatQuanLy,
       };
     }
   }
@@ -105,26 +100,23 @@ auth.get("/callback", async (c) => {
   await c.env.DB.prepare("PRAGMA foreign_keys = ON").run();
   if (ktvMatch) {
     await c.env.DB.prepare(
-      `INSERT INTO users (email, ten, vai_tro, trang_thai_duyet, la_ktv_dvbh, la_ve_tinh, giam_sat_quan_ly)
-       VALUES (?, ?, NULL, 'Da duyet', ?, ?, ?)
+      `INSERT INTO users (email, ten, vai_tro, trang_thai_duyet, la_ktv_dvbh, la_ve_tinh)
+       VALUES (?, ?, NULL, 'Da duyet', ?, ?)
        ON CONFLICT(email) DO UPDATE SET
          ten = excluded.ten,
          updated_at = ?,
          trang_thai_duyet = CASE WHEN trang_thai_duyet = 'Cho duyet' THEN 'Da duyet' ELSE trang_thai_duyet END,
          la_ktv_dvbh = CASE WHEN trang_thai_duyet = 'Cho duyet' THEN ? ELSE la_ktv_dvbh END,
-         la_ve_tinh = CASE WHEN trang_thai_duyet = 'Cho duyet' THEN ? ELSE la_ve_tinh END,
-         giam_sat_quan_ly = CASE WHEN trang_thai_duyet = 'Cho duyet' THEN ? ELSE giam_sat_quan_ly END`,
+         la_ve_tinh = CASE WHEN trang_thai_duyet = 'Cho duyet' THEN ? ELSE la_ve_tinh END`,
     )
       .bind(
         userInfo.email,
         userInfo.name ?? null,
         ktvMatch.laKtvDvbh,
         ktvMatch.laVeTinh,
-        ktvMatch.giamSatQuanLy,
         nowVN(),
         ktvMatch.laKtvDvbh,
         ktvMatch.laVeTinh,
-        ktvMatch.giamSatQuanLy,
       )
       .run();
   } else {

@@ -16,6 +16,7 @@ import { fmtDateTime, fmtVND } from "../../types";
 import { useAuth } from "../../auth/AuthContext";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
+import { formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay";
 import type { DonHangRow, DonHangLogRow, LyDoChamRow, ActionTarget, DonHangDraft, NguoiNhanHangKhaDungRow } from "./types";
 import {
   DON_HANG_TRANG_THAI_TONE_ALL, DON_HANG_ROW_STYLE, TRANG_THAI_DOT_TONE, DON_CUA_TOI_TRANG_THAI_OPTIONS,
@@ -65,7 +66,7 @@ export function DonHangDetailModal({
   const [ghiChu, setGhiChu] = useState("");
   // "Tu choi" bat buoc chon 1 Ly do cham, "Huy" bat buoc nhap ghiChu tu do (phan hoi UX muc 1, xem
   // comment applyDonHangLog o backend).
-  const [actionTarget, setActionTarget] = useState<"tu_choi" | "cho_hang" | "huy" | null>(null);
+  const [actionTarget, setActionTarget] = useState<"tu_choi" | "cho_hang" | "huy" | "duyet_qua_han" | null>(null);
   // Canh bao "Công nợ tạo hộ" (them 2026-08-24, muc 4) - chan 1 nhip TRUOC khi goi mutation "duyet"
   // that su, xem isCongNoTaoHo o helpers.ts.
   const [confirmDuyetTaoHo, setConfirmDuyetTaoHo] = useState(false);
@@ -125,9 +126,10 @@ export function DonHangDetailModal({
 
   function confirmTuChoi() {
     if (actionTarget !== "tu_choi" && actionTarget !== "cho_hang") return;
-    // "Cho TBP xac nhan" tu choi don gian (giong Tram) - khong can chon Ly do cham, ghi chu tuy
-    // chon - CHOT 2026-08-17, xem migration 0082.
-    if (data?.donHang.trang_thai === "Cho TBP xac nhan") {
+    // "Cho TBP xac nhan"/"Cho Tram duyet" tu choi don gian - khong can chon Ly do cham, chi ghi chu
+    // tu do (nay BAT BUOC, hang muc #19 2026-08-25 - nut xac nhan da disable san khi rong).
+    if (data?.donHang.trang_thai === "Cho TBP xac nhan" || data?.donHang.trang_thai === "Cho Tram duyet") {
+      if (!ghiChu.trim()) return;
       logMutation.mutate({ hanh_dong: "tu_choi" });
       return;
     }
@@ -140,6 +142,13 @@ export function DonHangDetailModal({
   function confirmHuy() {
     if (actionTarget !== "huy" || !ghiChu.trim()) return;
     logMutation.mutate({ hanh_dong: "huy" });
+  }
+  // Hang muc #17/#18 (2026-08-25): "Duyệt" 1 dong da qua han 24h "Cho TN duyet" bat buoc chon ly do
+  // truoc (dung LAI danh sach lyDoData, khong tach nhom nhu confirmTuChoi vi day khong phai tu
+  // choi/mo ticket thieu hang).
+  function confirmDuyetQuaHan() {
+    if (actionTarget !== "duyet_qua_han" || !lyDoChamId) return;
+    logMutation.mutate({ hanh_dong: "duyet", ly_do_cham_id: Number(lyDoChamId) });
   }
 
   const d = data?.donHang;
@@ -271,23 +280,26 @@ export function DonHangDetailModal({
           </Btn>
           <Btn size="sm" onClick={saveEdit} disabled={!editCanSave || editMutation.isPending}>Lưu thay đổi</Btn>
         </div>
-      ) : actionTarget === "tu_choi" && d.trang_thai === "Cho TBP xac nhan" ? (
+      ) : actionTarget === "tu_choi" && (d.trang_thai === "Cho TBP xac nhan" || d.trang_thai === "Cho Tram duyet") ? (
         // Panel tu choi inline (concept 1, pattern ".inline-panel"/".field": nen xam nhat, vien dut
         // net, label chu hoa nho phia tren input) - thay khoi flex ngang tu viet tay truoc day.
+        // FIX (phan hoi 2026-08-25, hang muc #19): ghi chu tu "tuy chon" thanh "bat buoc" (dao nguoc
+        // quyet dinh cu), va gop them "Cho Tram duyet" vao day (truoc do Tram tu choi ban ban khong
+        // qua panel nao ca - bam la huy ngay, khong con hop le sau khi backend bat buoc ghi_chu).
         <div className="w-full space-y-2 bg-[var(--surface-100)] border border-dashed border-[var(--line)] rounded-lg p-2.5">
           <div className="font-semibold text-xs">Từ chối dòng {d.id}</div>
           <div>
-            <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">Ghi chú (tuỳ chọn)</label>
+            <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">Lý do từ chối (bắt buộc)</label>
             <input
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
-              placeholder="Ghi chú (tuỳ chọn)"
+              placeholder="Lý do từ chối (bắt buộc)"
               className="focus-ring w-full bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
           </div>
           <div className="flex gap-2 justify-end">
             <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setGhiChu(""); }}>Hủy</Btn>
-            <Btn size="sm" variant="danger" onClick={confirmTuChoi} disabled={logMutation.isPending}>Xác nhận từ chối</Btn>
+            <Btn size="sm" variant="danger" onClick={confirmTuChoi} disabled={!ghiChu.trim() || logMutation.isPending}>Xác nhận từ chối</Btn>
           </div>
         </div>
       ) : actionTarget === "tu_choi" ? (
@@ -346,6 +358,37 @@ export function DonHangDetailModal({
             <Btn size="sm" onClick={confirmTuChoi} disabled={!lyDoChamId || logMutation.isPending}>Xác nhận chờ hàng</Btn>
           </div>
         </div>
+      ) : actionTarget === "duyet_qua_han" ? (
+        // Hang muc #17/#18 (2026-08-25): panel giong tu_choi/cho_hang o tren nhung khong tach nhom ly
+        // do (dung ca danh sach lyDoData) - day chi la giai trinh ly do cham xu ly, khong phai
+        // tu choi/mo ticket thieu hang.
+        <div className="w-full space-y-2 bg-[var(--surface-100)] border border-dashed border-[var(--coral-500)] rounded-lg p-2.5">
+          <div className="font-semibold text-xs text-[var(--coral-600)]">Đơn đã quá hạn 24h — chọn lý do trước khi duyệt dòng {d.id}</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">Lý do chậm (bắt buộc)</label>
+              <Select
+                value={lyDoChamId}
+                onChange={setLyDoChamId}
+                options={[{ value: "", label: "-- Chọn lý do --" }, ...(lyDoData?.rows ?? []).map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+                className="w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">Ghi chú thêm (tuỳ chọn)</label>
+              <input
+                value={ghiChu}
+                onChange={(e) => setGhiChu(e.target.value)}
+                placeholder="Ghi chú thêm (tuỳ chọn)"
+                className="focus-ring w-full bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setLyDoChamId(""); }}>Hủy</Btn>
+            <Btn size="sm" onClick={confirmDuyetQuaHan} disabled={!lyDoChamId || logMutation.isPending}>Xác nhận duyệt</Btn>
+          </div>
+        </div>
       ) : actionTarget === "huy" ? (
         <div className="w-full space-y-2 bg-[var(--surface-100)] border border-dashed border-[var(--line)] rounded-lg p-2.5">
           <div className="font-semibold text-xs">Hủy dòng {d.id} — nhập lý do hủy</div>
@@ -368,7 +411,13 @@ export function DonHangDetailModal({
           {actions.duyet && (
             <Btn
               size="sm"
-              onClick={() => (isCongNoTaoHo(d) ? setConfirmDuyetTaoHo(true) : logMutation.mutate({ hanh_dong: "duyet" }))}
+              onClick={() =>
+                isCongNoTaoHo(d)
+                  ? setConfirmDuyetTaoHo(true)
+                  : d.qua_han_ly_do_cham
+                    ? setActionTarget("duyet_qua_han")
+                    : logMutation.mutate({ hanh_dong: "duyet" })
+              }
               disabled={logMutation.isPending}
               loading={logMutation.isPending}
             >
@@ -384,7 +433,7 @@ export function DonHangDetailModal({
             <Btn
               size="sm"
               variant="danger"
-              onClick={() => (d.trang_thai === "Cho Tram duyet" ? logMutation.mutate({ hanh_dong: "tu_choi" }) : setActionTarget("tu_choi"))}
+              onClick={() => setActionTarget("tu_choi")}
               disabled={logMutation.isPending}
             >
               Từ chối
@@ -451,12 +500,12 @@ export function DonHangDetailModal({
           <div>
             <SectionTitle>Thông tin đơn</SectionTitle>
             <KvRow label="Người tạo">{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</KvRow>
-            {d.nguoi_nhan_hang && d.nguoi_nhan_hang !== d.nguoi_tao && (
-              <KvRow label="Người nhận hàng">{formatNguoiDisplay(d.nguoi_nhan_hang, ktvDisplayMap)}</KvRow>
-            )}
+            {/* Luon hien (phan hoi 2026-08-25, hang muc #9) - truoc chi hien khi khac nguoi tao, gay
+                cam giac "thieu thong tin nguoi nhan hang" khi 2 gia tri trung nhau. */}
+            <KvRow label="Người nhận hàng">{d.nguoi_nhan_hang ? formatNguoiDisplay(d.nguoi_nhan_hang, ktvDisplayMap) : "—"}</KvRow>
             <KvRow label="Ngày tạo">{fmtDateTime(d.ngay_tao)}</KvRow>
             <KvRow label="Tổng tiền đề xuất">
-              <span className="font-bold text-[var(--ocean-700)]">{fmtVND((d.gia_de_xuat ?? 0) * d.so_luong_de_xuat)}</span>
+              <span className="font-bold text-[var(--green-700)]">{fmtVND((d.gia_de_xuat ?? 0) * d.so_luong_de_xuat)}</span>
             </KvRow>
             <KvRow label="Trạng thái">
               <div className="flex items-center gap-2 flex-wrap">
@@ -756,6 +805,7 @@ export function DonCuaToiTab({
   initialLoaiDonOverride?: string;
   loaiDonTabClickSeq?: number;
 }) {
+  const personDir = usePersonDirectory();
   // Mac dinh loc thang vao bucket "can xu ly" cua vai tro dang xem (chi anh huong lan dau, xem
   // comment defaultView o component cha) - TN thay "Cho TN duyet", Tram thay "Cho Tram duyet", con
   // lai (KTV/Ve tinh xem don cua chinh minh, GS theo doi) giu "Tat ca" vi ho can thay CA lich su, khong
@@ -921,19 +971,42 @@ export function DonCuaToiTab({
     if (!actionTarget || (actionTarget.action !== "tu_choi" && actionTarget.action !== "cho_hang")) return;
     const ids = actionTarget.id === "bulk" ? [...selected] : [actionTarget.id];
     const targetRow = actionTarget.id !== "bulk" ? pageRows.find((r) => r.id === actionTarget.id) : undefined;
-    if (targetRow?.trang_thai === "Cho TBP xac nhan") {
-      bulkMutation.mutate({ ids, hanh_dong: "tu_choi", ghi_chu: actionGhiChu.trim() || undefined });
+    // "Cho TBP xac nhan"/"Cho Tram duyet" tu choi don gian (ghi chu tu do, khong chon Ly do cham) -
+    // ghi_chu nay BAT BUOC (hang muc #19 2026-08-25), nut xac nhan da disable san khi rong.
+    if (targetRow?.trang_thai === "Cho TBP xac nhan" || targetRow?.trang_thai === "Cho Tram duyet") {
+      if (!actionGhiChu.trim()) return;
+      bulkMutation.mutate({ ids, hanh_dong: "tu_choi", ghi_chu: actionGhiChu.trim() });
       return;
     }
-    if (!bulkLyDoChamId) return;
+    // Bulk (id === "bulk") co the gom lan CA dong "Cho Tram duyet" VA "Cho TN duyet" (Admin xem duoc
+    // ca 2 vai) - dong Tram BAT BUOC actionGhiChu rieng (khong dung ly_do_cham_id), dong TN BAT BUOC
+    // bulkLyDoChamId - modal chi hien field tuong ung neu co dong loai do trong lua chon (xem
+    // bulkCoDongTram/bulkCoDongTN o JSX ben duoi), nen chi validate field NAO thuc su can.
+    const coDongTram = ids.some((i) => pageRows.find((r) => r.id === i)?.trang_thai === "Cho Tram duyet");
+    const coDongTN = ids.some((i) => pageRows.find((r) => r.id === i)?.trang_thai === "Cho TN duyet");
+    if (coDongTN && !bulkLyDoChamId) return;
+    if (coDongTram && !actionGhiChu.trim()) return;
     // "cho_hang" cung goi hanh_dong backend "tu_choi" - xem comment actionsFor.choHang o helpers.ts.
-    bulkMutation.mutate({ ids, hanh_dong: "tu_choi", ly_do_cham_id: Number(bulkLyDoChamId) });
+    bulkMutation.mutate({
+      ids,
+      hanh_dong: "tu_choi",
+      ly_do_cham_id: bulkLyDoChamId ? Number(bulkLyDoChamId) : undefined,
+      ghi_chu: actionGhiChu.trim() || undefined,
+    });
   }
 
   function confirmHuyChe() {
     if (!actionTarget || actionTarget.action !== "huy" || !actionGhiChu.trim()) return;
     const ids = actionTarget.id === "bulk" ? [...selected] : [actionTarget.id];
     bulkMutation.mutate({ ids, hanh_dong: "huy", ghi_chu: actionGhiChu.trim() });
+  }
+
+  // "Duyệt" 1 dong da qua han 24h (hang muc #17/#18, 2026-08-25) - dung LAI cung ly_do_cham_id nhu
+  // tu_choi/cho_hang, chi khac hanh_dong gui len la "duyet".
+  function confirmDuyetQuaHan() {
+    if (!actionTarget || actionTarget.action !== "duyet_qua_han" || !bulkLyDoChamId) return;
+    const ids = actionTarget.id === "bulk" ? [...selected] : [actionTarget.id];
+    bulkMutation.mutate({ ids, hanh_dong: "duyet", ly_do_cham_id: Number(bulkLyDoChamId) });
   }
 
   const pageRows = data?.rows ?? [];
@@ -1008,7 +1081,7 @@ export function DonCuaToiTab({
                     onChange={setFilterNguoiTao}
                     options={[
                       { value: "", label: "Tất cả người tạo" },
-                      ...(veTinhData?.rows ?? []).map((v) => ({ value: v.email, label: v.ten || v.email })),
+                      ...(veTinhData?.rows ?? []).map((v) => ({ value: v.email, label: formatPersonDisplay(v.email, personDir) })),
                     ]}
                   />
                   <span className="text-xs text-[var(--ink-500)]">Từ ngày</span>
@@ -1070,7 +1143,7 @@ export function DonCuaToiTab({
           indigo mo, chu indigo dam - thay cho khoi surface-100 trung mau voi cac panel loc khac truoc
           day, giup phan biet ro day la thanh HANH DONG (dang co dong duoc chon) chu khong phai bo loc. */}
       {(canActAsTram || canTacNghiep) && selected.size > 0 && (
-        <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--indigo-100)] border border-[#C7D2FE] text-[var(--indigo-700)] rounded-lg px-3 py-2 text-[12.5px]">
+        <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--ocean-100)] border border-[#C7D2FE] text-[var(--ocean-900)] rounded-lg px-3 py-2 text-[12.5px]">
           <span><b className="font-extrabold">{selected.size}</b> đơn được chọn{tongTienDaChon > 0 ? ` · ${fmtVND(tongTienDaChon)}` : ""}</span>
           <div className="flex items-center gap-2 flex-wrap ml-auto">
             <BulkConfirmButton
@@ -1081,50 +1154,72 @@ export function DonCuaToiTab({
               disabled={bulkMutation.isPending}
               loading={bulkMutation.isPending}
             />
-            {canTacNghiep ? (
-              <Btn size="sm" variant="danger" onClick={() => setActionTarget({ id: "bulk", action: "tu_choi" })} disabled={bulkMutation.isPending}>
-                Từ chối tất cả
-              </Btn>
-            ) : (
-              <BulkConfirmButton
-                label="Từ chối tất cả"
-                confirmLabel={`Xác nhận từ chối ${selected.size} dòng?`}
-                count={selected.size}
-                variant="danger"
-                onConfirm={() => bulkMutation.mutate({ ids: [...selected], hanh_dong: "tu_choi" })}
-                disabled={bulkMutation.isPending}
-                loading={bulkMutation.isPending}
-              />
-            )}
+            {/* FIX (phan hoi 2026-08-25, hang muc #19): nhanh Tram (!canTacNghiep) truoc day bam la
+                tu choi NGAY khong qua modal nao - backend nay bat buoc ghi_chu nen phai qua cung
+                modal "tu_choi"/"bulk" (them o nut chua goi setActionTarget) de nhap ly do truoc. */}
+            <Btn size="sm" variant="danger" onClick={() => setActionTarget({ id: "bulk", action: "tu_choi" })} disabled={bulkMutation.isPending}>
+              Từ chối tất cả
+            </Btn>
           </div>
         </div>
       )}
       {/* Phan hoi 2026-08-19: "hien popup len de chon, chu khong phai hien 1 lua chon nho ben duoi
           nhu hien tai, rat kho thao tac" - doi tu khoi Select nho nhet trong thanh "Da chon N dong"
           sang Modal that su, giu dung logic/mutation cu (confirmTuChoiChe), chi doi lop hien thi. */}
-      <Modal
-        open={actionTarget?.id === "bulk" && actionTarget.action === "tu_choi"}
-        onClose={() => { setActionTarget(null); setBulkLyDoChamId(""); }}
-        title={`Từ chối ${selected.size} dòng đã chọn — chọn lý do chậm`}
-      >
-        <div className="space-y-3">
-          <Select
-            value={bulkLyDoChamId}
-            onChange={setBulkLyDoChamId}
-            options={[{ value: "", label: "-- Chọn lý do --" }, ...(bulkLyDoData?.rows ?? []).map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
-            className="w-full"
-          />
-          <div className="text-xs text-[var(--ink-500)]">
-            Lý do chậm chỉ ảnh hưởng tới các dòng đang chờ tác nghiệp (TN) xử lý trong lựa chọn — dòng đang chờ Trạm duyệt sẽ bỏ qua lý do này.
-          </div>
-          <div className="flex justify-end gap-2">
-            <Btn variant="ghost" onClick={() => { setActionTarget(null); setBulkLyDoChamId(""); }}>Huỷ</Btn>
-            <Btn variant="danger" onClick={confirmTuChoiChe} disabled={!bulkLyDoChamId || bulkMutation.isPending}>
-              Xác nhận từ chối
-            </Btn>
-          </div>
-        </div>
-      </Modal>
+      {(() => {
+        const bulkIds = [...selected];
+        const bulkCoDongTram = bulkIds.some((i) => pageRows.find((r) => r.id === i)?.trang_thai === "Cho Tram duyet");
+        const bulkCoDongTN = bulkIds.some((i) => pageRows.find((r) => r.id === i)?.trang_thai === "Cho TN duyet");
+        return (
+          <Modal
+            open={actionTarget?.id === "bulk" && actionTarget.action === "tu_choi"}
+            onClose={() => { setActionTarget(null); setBulkLyDoChamId(""); setActionGhiChu(""); }}
+            title={`Từ chối ${selected.size} dòng đã chọn`}
+          >
+            <div className="space-y-3">
+              {bulkCoDongTN && (
+                <Select
+                  value={bulkLyDoChamId}
+                  onChange={setBulkLyDoChamId}
+                  options={[{ value: "", label: "-- Chọn lý do chậm --" }, ...(bulkLyDoData?.rows ?? []).map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+                  className="w-full"
+                />
+              )}
+              {/* Hang muc #19 (2026-08-25): dong "Cho Tram duyet" trong lua chon bat buoc ghi_chu rieng
+                  (backend khong con nhan tuy chon). O luon o day de phuc vu ca truong hop chon lan
+                  ca 2 loai dong (Admin dong thoi xem duoc ca Tram lan TN). */}
+              {bulkCoDongTram && (
+                <div>
+                  <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">
+                    Lý do từ chối cho các dòng đang chờ Trạm duyệt (bắt buộc)
+                  </label>
+                  <input
+                    value={actionGhiChu}
+                    onChange={(e) => setActionGhiChu(e.target.value)}
+                    placeholder="Lý do từ chối (bắt buộc)"
+                    className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                  />
+                </div>
+              )}
+              {bulkCoDongTN && (
+                <div className="text-xs text-[var(--ink-500)]">
+                  Lý do chậm chỉ áp dụng cho các dòng đang chờ tác nghiệp (TN) xử lý trong lựa chọn.
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <Btn variant="ghost" onClick={() => { setActionTarget(null); setBulkLyDoChamId(""); setActionGhiChu(""); }}>Huỷ</Btn>
+                <Btn
+                  variant="danger"
+                  onClick={confirmTuChoiChe}
+                  disabled={(bulkCoDongTN && !bulkLyDoChamId) || (bulkCoDongTram && !actionGhiChu.trim()) || bulkMutation.isPending}
+                >
+                  Xác nhận từ chối
+                </Btn>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
       <DonHangGroupedList
         rows={pageRows}
         isLoading={isLoading}
@@ -1149,6 +1244,7 @@ export function DonCuaToiTab({
         setBulkLyDoChamId={setBulkLyDoChamId}
         bulkLyDoData={bulkLyDoData}
         confirmTuChoiChe={confirmTuChoiChe}
+        confirmDuyetQuaHan={confirmDuyetQuaHan}
         actionGhiChu={actionGhiChu}
         setActionGhiChu={setActionGhiChu}
         confirmHuyChe={confirmHuyChe}
@@ -1211,6 +1307,7 @@ export function DonHangGroupedList({
   setBulkLyDoChamId,
   bulkLyDoData,
   confirmTuChoiChe,
+  confirmDuyetQuaHan,
   actionGhiChu,
   setActionGhiChu,
   confirmHuyChe,
@@ -1241,6 +1338,7 @@ export function DonHangGroupedList({
   setBulkLyDoChamId: (v: string) => void;
   bulkLyDoData: { rows: { id: number; ten_ly_do: string; quan_ly_don_thieu_linh_kien: number }[] } | undefined;
   confirmTuChoiChe: () => void;
+  confirmDuyetQuaHan: () => void;
   actionGhiChu: string;
   setActionGhiChu: (v: string) => void;
   confirmHuyChe: () => void;
@@ -1349,7 +1447,9 @@ export function DonHangGroupedList({
               onClick={() =>
                 isCongNoTaoHo(row.d)
                   ? setActionTarget({ id: row.d.id, action: "duyet_tao_ho" })
-                  : bulkMutation.mutate({ ids: [row.d.id], hanh_dong: "duyet" })
+                  : row.d.qua_han_ly_do_cham
+                    ? setActionTarget({ id: row.d.id, action: "duyet_qua_han" })
+                    : bulkMutation.mutate({ ids: [row.d.id], hanh_dong: "duyet" })
               }
               disabled={bulkMutation.isPending}
             >
@@ -1368,7 +1468,7 @@ export function DonHangGroupedList({
               className="px-2"
               title="Từ chối"
               aria-label="Từ chối"
-              onClick={() => (row.d.trang_thai === "Cho Tram duyet" ? bulkMutation.mutate({ ids: [row.d.id], hanh_dong: "tu_choi" }) : setActionTarget({ id: row.d.id, action: "tu_choi" }))}
+              onClick={() => setActionTarget({ id: row.d.id, action: "tu_choi" })}
               disabled={bulkMutation.isPending}
             >
               ✕
@@ -1428,7 +1528,7 @@ export function DonHangGroupedList({
               <div className="flex items-center gap-3 flex-wrap text-sm">
                 <span className="font-bold text-[var(--ink-900)]">{formatNguoiDisplay(nguoiNhan, ktvDisplayMap)}</span>
                 <span className="text-[var(--ink-400)] text-xs">{dongCon.length} dòng</span>
-                <span className="font-semibold text-[var(--ocean-700)]">{fmtVND(tongTien)}</span>
+                <span className="font-semibold text-[var(--green-700)]">{fmtVND(tongTien)}</span>
               </div>
               <div className="flex items-center gap-1 flex-wrap">
                 {choDuyet > 0 && <Badge tone="amber">{choDuyet} chờ duyệt</Badge>}
@@ -1575,7 +1675,9 @@ export function DonHangGroupedList({
                                   onClick={() =>
                                     isCongNoTaoHo(d)
                                       ? setActionTarget({ id: d.id, action: "duyet_tao_ho" })
-                                      : bulkMutation.mutate({ ids: [d.id], hanh_dong: "duyet" })
+                                      : d.qua_han_ly_do_cham
+                                        ? setActionTarget({ id: d.id, action: "duyet_qua_han" })
+                                        : bulkMutation.mutate({ ids: [d.id], hanh_dong: "duyet" })
                                   }
                                   disabled={bulkMutation.isPending}
                                 >
@@ -1594,7 +1696,7 @@ export function DonHangGroupedList({
                                   className="px-2"
                                   title="Từ chối"
                                   aria-label="Từ chối"
-                                  onClick={() => (d.trang_thai === "Cho Tram duyet" ? bulkMutation.mutate({ ids: [d.id], hanh_dong: "tu_choi" }) : setActionTarget({ id: d.id, action: "tu_choi" }))}
+                                  onClick={() => setActionTarget({ id: d.id, action: "tu_choi" })}
                                   disabled={bulkMutation.isPending}
                                 >
                                   ✕
@@ -1630,10 +1732,12 @@ export function DonHangGroupedList({
       {(() => {
         const targetId = actionTarget && actionTarget.id !== "bulk" ? actionTarget.id : null;
         const rowTarget = targetId ? rows.find((r) => r.id === targetId) : undefined;
-        const isTuChoiTBP = !!targetId && actionTarget?.action === "tu_choi" && rowTarget?.trang_thai === "Cho TBP xac nhan";
-        const isTuChoiTN = !!targetId && actionTarget?.action === "tu_choi" && rowTarget?.trang_thai !== "Cho TBP xac nhan";
+        const isTuChoiTBP =
+          !!targetId && actionTarget?.action === "tu_choi" && (rowTarget?.trang_thai === "Cho TBP xac nhan" || rowTarget?.trang_thai === "Cho Tram duyet");
+        const isTuChoiTN = !!targetId && actionTarget?.action === "tu_choi" && !isTuChoiTBP;
         const isChoHang = !!targetId && actionTarget?.action === "cho_hang";
         const isDuyetTaoHo = !!targetId && actionTarget?.action === "duyet_tao_ho";
+        const isDuyetQuaHan = !!targetId && actionTarget?.action === "duyet_qua_han";
         return (
           <>
             {/* Canh bao "Công nợ tạo hộ" (them 2026-08-24, muc 4) - nut nhanh (✓) tren dong bang/the
@@ -1655,17 +1759,17 @@ export function DonHangGroupedList({
                 </div>
               </div>
             </Modal>
-            <Modal open={isTuChoiTBP} onClose={() => { setActionTarget(null); setActionGhiChu(""); }} title={`Từ chối dòng ${targetId} — ghi chú (không bắt buộc)`}>
+            <Modal open={isTuChoiTBP} onClose={() => { setActionTarget(null); setActionGhiChu(""); }} title={`Từ chối dòng ${targetId} — nhập lý do`}>
               <div className="space-y-3">
                 <input
                   value={actionGhiChu}
                   onChange={(e) => setActionGhiChu(e.target.value)}
-                  placeholder="Ghi chú (tuỳ chọn)"
+                  placeholder="Lý do từ chối (bắt buộc)"
                   className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
                 />
                 <div className="flex justify-end gap-2">
                   <Btn variant="ghost" onClick={() => { setActionTarget(null); setActionGhiChu(""); }}>Hủy</Btn>
-                  <Btn variant="danger" onClick={confirmTuChoiChe} disabled={bulkMutation.isPending}>Xác nhận</Btn>
+                  <Btn variant="danger" onClick={confirmTuChoiChe} disabled={!actionGhiChu.trim() || bulkMutation.isPending}>Xác nhận</Btn>
                 </div>
               </div>
             </Modal>
@@ -1694,6 +1798,25 @@ export function DonHangGroupedList({
                 <div className="flex justify-end gap-2">
                   <Btn variant="ghost" onClick={() => { setActionTarget(null); setBulkLyDoChamId(""); }}>Hủy</Btn>
                   <Btn onClick={confirmTuChoiChe} disabled={!bulkLyDoChamId || bulkMutation.isPending}>Xác nhận chờ hàng</Btn>
+                </div>
+              </div>
+            </Modal>
+            {/* Hang muc #17/#18 (2026-08-25): dong da qua han 24h "Cho TN duyet" chua co ly_do_cham -
+                bam Duyet bat buoc chon 1 ly do TRUOC khi thuc su duyet, dung LAI toan bo danh sach ly
+                do (khong tach nhom nhu tu_choi/cho_hang vi day khong phai tu choi/mo ticket thieu
+                hang, chi la giai trinh ly do cham xu ly). */}
+            <Modal open={isDuyetQuaHan} onClose={() => { setActionTarget(null); setBulkLyDoChamId(""); }} title={`Duyệt dòng ${targetId} đã quá hạn — chọn lý do chậm`}>
+              <div className="space-y-3">
+                <div className="text-xs text-[var(--coral-600)]">Đơn này đã quá 24h chưa được tiếp nhận. Vui lòng chọn lý do trước khi duyệt.</div>
+                <Select
+                  value={bulkLyDoChamId}
+                  onChange={setBulkLyDoChamId}
+                  options={[{ value: "", label: "-- Chọn lý do --" }, ...(bulkLyDoData?.rows ?? []).map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+                  className="w-full"
+                />
+                <div className="flex justify-end gap-2">
+                  <Btn variant="ghost" onClick={() => { setActionTarget(null); setBulkLyDoChamId(""); }}>Hủy</Btn>
+                  <Btn onClick={confirmDuyetQuaHan} disabled={!bulkLyDoChamId || bulkMutation.isPending}>Xác nhận duyệt</Btn>
                 </div>
               </div>
             </Modal>

@@ -18,7 +18,7 @@ export function Tabs({ tabs, active, onChange }: { tabs: TabItem[]; active: stri
             onClick={() => onChange(t.key)}
             className={`focus-ring px-3 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
               isActive
-                ? "border-[var(--indigo-600)] text-[var(--indigo-700)]"
+                ? "border-[var(--ocean-800)] text-[var(--ocean-900)]"
                 : hasCount
                   ? "border-transparent text-[var(--ink-700)] hover:text-[var(--ink-900)]"
                   : "border-transparent text-[var(--ink-400)] hover:text-[var(--ink-600)]"
