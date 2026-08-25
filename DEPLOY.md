@@ -18,16 +18,12 @@ một phiên AI mới không chắc đã được uỷ quyền — đây đều 
 4. Lưu lại `Client ID` + `Client Secret` — dùng ở bước 4.
 5. Bật thêm Google Drive API cho project này (APIs & Services → Library → Google Drive API →
    Enable). Không cần tạo thêm credential — dùng chung OAuth Client ở trên với scope `drive.file` (đã
-   khai trong `settingsDatMua.ts`). Kết nối qua `GoogleDriveTab` (Settings) này dùng cho **cả 2**: ảnh
-   minh hoạ linh kiện (Danh mục linh kiện) VÀ ảnh trả hàng (Đặt mua linh kiện › Trả hàng, thêm
-   2026-08-25 - trước đó dùng Service Account riêng, đã đổi hẳn sang OAuth vì hệ chỉ có tài khoản
-   Gmail cá nhân) - nếu chưa kết nối, tạo/từ chối đơn trả hàng sẽ báo lỗi "Chưa kết nối tài khoản
-   Google Drive" khi upload ảnh.
-6. Nếu dùng tính năng upload "ảnh biên bản/bằng chứng chuyển tiền" của PXK (Service Account, khác cơ
-   chế OAuth ở trên): APIs & Services → Credentials → Create Credentials → Service Account → tạo key
-   JSON → lưu lại `client_email` (→ `GOOGLE_DRIVE_SA_EMAIL`) và `private_key` (→
-   `GOOGLE_DRIVE_SA_PRIVATE_KEY`). Tạo 1 folder trên Google Drive, share cho email Service Account
-   (quyền Editor), lấy folder ID từ URL (→ `GOOGLE_DRIVE_FOLDER_ID`).
+   khai trong `settingsDatMua.ts`). Kết nối qua `GoogleDriveTab` (Settings) này dùng cho **mọi** ảnh
+   trong hệ: ảnh minh hoạ linh kiện (Danh mục linh kiện), ảnh trả hàng (Đặt mua linh kiện › Trả hàng),
+   và ảnh biên bản/bằng chứng chuyển tiền của PXK (2026-08-25: đã bỏ hẳn Service Account, dùng chung
+   1 cơ chế OAuth duy nhất vì hệ chỉ có tài khoản Gmail cá nhân, không có Google Workspace) - nếu chưa
+   kết nối, mọi thao tác upload ảnh (tạo/từ chối đơn trả hàng, ảnh PXK) sẽ báo lỗi "Chưa kết nối tài
+   khoản Google Drive".
 
 ## 2. Tạo Worker + D1 database thật
 
@@ -51,13 +47,12 @@ khác trong tài khoản chiếm trước khi chạy `wrangler deploy` lần đ�
 npx wrangler secret put GOOGLE_CLIENT_ID
 npx wrangler secret put GOOGLE_CLIENT_SECRET
 npx wrangler secret put SESSION_SECRET          # chuoi ngau nhien dai, vd: openssl rand -hex 32
-npx wrangler secret put GOOGLE_DRIVE_SA_EMAIL
-npx wrangler secret put GOOGLE_DRIVE_SA_PRIVATE_KEY
 npx wrangler secret put CASE_LOOKUP_API_KEY     # xem buoc 5 - lay tu he DVBH goc
 ```
 
-`GOOGLE_DRIVE_FOLDER_ID` KHÔNG cần bí mật, có thể để trong `vars` (đã đặt sẵn placeholder trong
-`wrangler.jsonc`) — chỉ cần thay giá trị thật.
+Google Drive (mọi loại ảnh trong hệ) không cần secret riêng — dùng chung `GOOGLE_CLIENT_ID`/
+`GOOGLE_CLIENT_SECRET` ở trên qua cơ chế OAuth, xem bước 7.3 (kết nối tài khoản Google Drive thật
+trong Settings sau khi deploy).
 
 ## 4. Chạy migration + deploy lần đầu
 

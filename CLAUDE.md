@@ -88,11 +88,15 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
 - `lib/caseLookupClient.ts` — **điểm nối hệ gốc DUY NHẤT**, xem mục riêng bên dưới.
 - `lib/dataVersions.ts`/`reportCache.ts` — hệ cache theo version-tag, rút gọn còn 2 domain:
   `dat_mua_lk`, `users` (hệ gốc có 11 domain).
-- `lib/googleDrive.ts` — port nguyên bản, **2 cơ chế riêng biệt** (giữ nguyên phân biệt của hệ gốc):
-  `uploadToDrive()` dùng Service Account (`GOOGLE_DRIVE_SA_*`, cho ảnh biên bản/bằng chứng chuyển
-  tiền của PXK) và `uploadPublicImage()` dùng OAuth uỷ quyền tài khoản thật lưu trong
-  `google_drive_oauth` (chỉ dùng cho ảnh minh hoạ linh kiện — Service Account không có storage quota
-  riêng, không upload được).
+- `lib/googleDrive.ts` — **1 cơ chế duy nhất**: `uploadPublicImage()` dùng OAuth uỷ quyền tài khoản
+  Google thật lưu trong `google_drive_oauth`, dùng cho MỌI ảnh trong hệ (ảnh minh hoạ linh kiện, ảnh
+  trả hàng, ảnh biên bản/bằng chứng chuyển tiền PXK). Khác hệ gốc: hệ gốc port ban đầu có thêm
+  `uploadToDrive()` dùng Service Account riêng cho ảnh PXK — đã **bỏ hẳn 2026-08-25** (yêu cầu: hệ chỉ
+  có tài khoản Gmail cá nhân, không có Google Workspace nên Service Account bị chặn 403 "no storage
+  quota"; và không cần cơ chế xoá ảnh sau 30 ngày vì lưu trên Drive không giới hạn). Không còn biến
+  env `GOOGLE_DRIVE_SA_EMAIL`/`GOOGLE_DRIVE_SA_PRIVATE_KEY`/`GOOGLE_DRIVE_FOLDER_ID` — Drive OAuth
+  dùng chung `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` sẵn có, folder tự tạo qua Drive API lúc kết
+  nối (lưu trong cột `google_drive_oauth.folder_id`, không phụ thuộc env var nào).
 - `lib/idCounter.ts` — `nextSequentialId()` sinh ID tuần tự qua `UPDATE ... RETURNING`. **KHÔNG tự
   seed** dòng còn thiếu trong `id_counters` — nếu thêm 1 bảng mới dùng cơ chế này, phải tự thêm dòng
   seed vào migration, nếu không mọi lần gọi sẽ trả về `1` mà không bao giờ lưu lại.

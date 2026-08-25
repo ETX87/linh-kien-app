@@ -563,7 +563,7 @@ function GoogleDriveTab() {
     <div className="max-w-md space-y-4">
       <div>
         <div className="text-xs text-[var(--ink-500)] mb-3">
-          Uỷ quyền 1 tài khoản Google thật để upload "ảnh minh hoạ linh kiện" (Danh mục linh kiện) và ảnh trả hàng (Đặt mua linh kiện › Trả hàng). Ảnh biên bản/bằng chứng chuyển tiền của Phiếu xuất kho dùng cơ chế khác (Service Account), không cần bước này.
+          Uỷ quyền 1 tài khoản Google thật để upload ảnh trong hệ: "ảnh minh hoạ linh kiện" (Danh mục linh kiện), ảnh trả hàng (Đặt mua linh kiện › Trả hàng), và ảnh biên bản/bằng chứng chuyển tiền (Phiếu xuất kho). Chưa kết nối thì các thao tác upload ảnh này sẽ báo lỗi.
         </div>
         <div className="border border-[var(--line)] rounded-xl bg-[var(--surface)] p-4">
           {isLoading ? (

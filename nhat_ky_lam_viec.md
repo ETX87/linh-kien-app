@@ -37,7 +37,7 @@ phiên tiếp theo hoặc trước khi deploy thật).
   đúng ngay từ đầu trong `migrations/0001_init.sql` của hệ mới.
 
 **Việc còn lại trước khi hệ này có thể dùng thật** — xem checklist đầy đủ trong `DEPLOY.md`: tạo
-Google OAuth Client + Service Account thật, `wrangler d1 create`, đặt secrets, deploy route
+Google OAuth Client thật (Drive dùng chung, không cần Service Account riêng — xem CLAUDE.md), `wrangler d1 create`, đặt secrets, deploy route
 `/api/partner/case-lookup` bên hệ gốc (đã viết code, CHƯA deploy), tạo API key đối tác, copy dữ liệu
 tham chiếu 1 lần, deploy Worker lần đầu, đăng nhập bằng `BOOTSTRAP_ADMIN_EMAIL` và khai báo vai trò
 cho người dùng thật.

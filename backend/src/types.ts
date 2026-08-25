@@ -40,11 +40,6 @@ export interface Env {
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
   SESSION_SECRET: string;
-  // Uy quyen Google Drive de upload anh bien ban/bang chung chuyen tien (xem lib/googleDrive.ts) -
-  // OAuth delegation rieng cua HE NAY, khong dung chung voi he DVBH goc.
-  GOOGLE_DRIVE_SA_EMAIL: string;
-  GOOGLE_DRIVE_SA_PRIVATE_KEY: string;
-  GOOGLE_DRIVE_FOLDER_ID: string;
   // Diem noi DUY NHAT toi he DVBH goc - tra cuu 1 case su co theo ID (xem lib/caseLookupClient.ts).
   // Khong ghi gi ca, chi doc.
   CASE_LOOKUP_BASE_URL: string;
