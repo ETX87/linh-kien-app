@@ -9,6 +9,7 @@ import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import type { LuongQuyTrinhStep, JumpTarget } from "./datMuaLinhKien/types";
 import { PipelineFlow, MyWorkloadStrip } from "./datMuaLinhKien/PipelineFlow";
+import { NotificationBell } from "./datMuaLinhKien/NotificationBell";
 
 // Module "Dat mua linh kien" (Phase 2) - thay the quy trinh dat hang linh kien tren Google
 // Sheets/AppSheet, xem plan "Module Dat Mua Linh Kien". Tabs hien theo co vai tro (la_ktv_dvbh/
@@ -290,6 +291,9 @@ export function DatMuaLinhKienModule({
   // Them (migration 0002_tra_hang_pxk.sql) - dat truoc sub-tab loai_don cua PhieuXuatKhoTab khi bam
   // vao 1 trong 3 buoc PXK tra hang tren pipeline, cung pattern voi filterFor/nguoiNhanHangFor.
   const loaiDonFor = (tab: string) => (jumpTarget?.tab === tab ? jumpTarget.loaiDon : undefined);
+  // Them (thong bao KTV, 2026-08-26) - mo thang Drawer chi tiet 1 dong khi bam "xem chi tiet" tu 1
+  // dong thong bao, cung pattern voi filterFor/nguoiNhanHangFor.
+  const openDetailIdFor = (tab: string) => (jumpTarget?.tab === tab ? jumpTarget.openDetailId : undefined);
 
   // Tren mobile bo han thanh "luong quy trinh" (phan hoi 2026-08-19: "bỏ tính năng này, không load,
   // không đọc, tránh tốn lượt đọc D1") - man hinh hep khong du cho hien huu ich, va day la 1 API rieng
@@ -311,9 +315,12 @@ export function DatMuaLinhKienModule({
   // lieu nang tren mobile", chi doi NGUON tinh tongViecCuaToi khi o mobile.
   const { data: notifCounts } = useQuery({
     queryKey: ["notifications-count"],
-    queryFn: () => api.get<{ datMuaLk: { total: number } }>("/notifications/count"),
+    queryFn: () => api.get<{ datMuaLk: { total: number }; ktvLogChuaDoc: number }>("/notifications/count"),
     refetchInterval: 5 * 60_000,
-    enabled: isMobile,
+    // enabled: true (bo dieu kien isMobile cu, them 2026-08-26) - can ktvLogChuaDoc cho badge chuong
+    // thong bao tren CA desktop (khong chi mobile nhu tongViecCuaToi truoc day). Sidebar.tsx/
+    // BottomTabBar.tsx da fetch key nay khong dieu kien nen khong ton them request thuc te (react-query
+    // chia se cache theo queryKey).
   });
 
   // Tap role cua nguoi dang xem, khop dung tu vung roleKeys backend tra ve - dung de to mau/phong to
@@ -402,10 +409,20 @@ export function DatMuaLinhKienModule({
       </span>
     </button>
   ) : null;
+  // Chuong thong bao KTV (them 2026-08-26) - CHI hien tren man Home ("trong màn hình Home, tạo icon
+  // góc trên cùng bên phải"), dat SAU pipeline de nam o dau NGOAI CUNG ben phai khu vuc tieu de.
+  const notificationBellEl =
+    forceView === "trang-chu" ? (
+      <NotificationBell
+        unreadCount={notifCounts?.ktvLogChuaDoc ?? 0}
+        onOpenDonHang={(donHangId) => jumpTo({ tab: "don-cua-toi", filter: "", openDetailId: donHangId })}
+      />
+    ) : null;
   const headerContentEl = (
     <>
       {titleButtonEl}
       {pipelineEl}
+      {notificationBellEl}
     </>
   );
 
@@ -473,6 +490,7 @@ export function DatMuaLinhKienModule({
             initialFilterOverride={filterFor("don-cua-toi")}
             initialNguoiNhanHangOverride={nguoiNhanHangFor("don-cua-toi")}
             initialLoaiDonOverride={loaiDonFor("don-cua-toi")}
+            initialDetailIdOverride={openDetailIdFor("don-cua-toi")}
             loaiDonTabClickSeq={loaiDonTabClickSeq}
           />
         )}

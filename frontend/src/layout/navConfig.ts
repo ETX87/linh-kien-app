@@ -4,7 +4,7 @@ export interface NavItem {
   key: string;
   label: string;
   icon: string;
-  countKey?: "datMuaLk";
+  countKey?: "datMuaLk" | "ktvLogChuaDoc";
   // "href" (them 2026-08-25, phan hoi "chuyển mượt sang trang suachua.dichvu3t.workers.dev") - danh
   // dau 1 muc menu la LIEN KET RA NGOAI (he Worker/app khac hoan toan, khong phai 1 view noi bo cua
   // app nay), KHONG tham gia co che allowedModules/setActive binh thuong - Sidebar.tsx render <a
@@ -28,7 +28,9 @@ export const NAV_GROUPS: NavGroup[] = [
       // linh kiện" (xem DatMuaLinhKienModule.tsx). Vao qua forceView="trang-chu"/"thieu-lk" o App.tsx,
       // dung y het pattern "tra-hang" da co san (route forceView rieng, khong con la tab noi bo).
       // "Trang chủ" dat DAU TIEN (phan hoi 2026-08-26) - lam diem vao dashboard cho MOI vai tro.
-      { key: "trang-chu", label: "Home", icon: "🏠" },
+      // countKey rieng (them 2026-08-26, thong bao KTV) - khac "datMuaLk" (viec can lam theo vai tro
+      // xu ly), day la so thong_bao_ktv CHUA DOC cua CHINH nguoi dang dang nhap (nguoi tao don).
+      { key: "trang-chu", label: "Home", icon: "🏠", countKey: "ktvLogChuaDoc" },
       { key: "dat-mua-lk", label: "Đơn hàng", icon: "◈", countKey: "datMuaLk" },
       { key: "thieu-lk", label: "Chờ LK", icon: "📦" },
       { key: "danh-muc-lk", label: "Bảng Giá", icon: "🔧" },

@@ -608,6 +608,23 @@ phieuXuatKho.post("/:id/log", async (c) => {
     await c.env.DB.prepare("UPDATE phieu_xuat_kho SET ma_van_don = ? WHERE id = ?").bind(body.ma_van_don.trim(), id).run();
   }
 
+  // Thong bao "chung" cho KTV nhan hang (phan hoi 2026-08-26) - 2 moc PXK dang tien trien ma KTV quan
+  // tam: Ke toan xu ly xong (sap toi luot Kho gui hang) va Kho da thuc su gui di. Bo qua neu nguoi
+  // vua thao tac CHINH LA KTV nhan hang do (hiem, nhung tranh tu bao chinh minh).
+  if ((target === "Da chot xong don xuat" || target === "Dang gui KTV") && pxk.nguoi_nhan_hang && pxk.nguoi_nhan_hang !== user.email) {
+    const noiDung =
+      target === "Da chot xong don xuat"
+        ? `Phiếu xuất kho ${id} của bạn đã được Kế toán duyệt xong`
+        : `Phiếu xuất kho ${id} của bạn đã được Kho gửi hàng`;
+    c.executionCtx.waitUntil(
+      c.env.DB.prepare(
+        "INSERT INTO thong_bao_ktv (nguoi_nhan, loai, noi_dung, link_type, link_id, ngay_tao) VALUES (?, ?, ?, 'phieu_xuat_kho', ?, ?)",
+      )
+        .bind(pxk.nguoi_nhan_hang, target === "Da chot xong don xuat" ? "pxk_da_duyet" : "kho_da_gui", noiDung, id, nowVN())
+        .run(),
+    );
+  }
+
   // Auto-claim khu vuc phu trach (muc F) - chi khi nguoi xu ly THUC SU la Kho/Ke toan (khong tinh
   // Admin/TN dung quyen "canTacNghiep" bypass o nhanh "Ke toan huy"). 1 PXK co the gom dong tu nhieu
   // phieu_dat khac nhau (nguoi nhan hang khac nhau) - auto-claim TUNG email_gs lien quan.

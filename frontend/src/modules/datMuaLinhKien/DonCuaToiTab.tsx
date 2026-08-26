@@ -786,6 +786,7 @@ export function DonCuaToiTab({
   initialFilterOverride,
   initialNguoiNhanHangOverride,
   initialLoaiDonOverride,
+  initialDetailIdOverride,
   loaiDonTabClickSeq,
 }: {
   user: { email: string; vai_tro: string | null } | null;
@@ -803,6 +804,11 @@ export function DonCuaToiTab({
   initialFilterOverride?: string;
   initialNguoiNhanHangOverride?: string;
   initialLoaiDonOverride?: string;
+  // Mo THANG chi tiet 1 dong (phan hoi 2026-08-26: "click vào xem đơn chi tiết" tu danh sach thong
+  // bao KTV) - khac initialFilterOverride (chi loc danh sach), gia tri nay mo LUON Drawer chi tiet
+  // ngay khi nhay toi, cung co che "tieu thu 1 lan" voi jumpTarget o component cha (xem
+  // DatMuaLinhKienModule.tsx/openDetailIdFor).
+  initialDetailIdOverride?: string;
   loaiDonTabClickSeq?: number;
 }) {
   const personDir = usePersonDirectory();
@@ -835,6 +841,9 @@ export function DonCuaToiTab({
     return () => clearTimeout(t);
   }, [filterQ]);
   const [detailId, setDetailId] = useState<string | null>(null);
+  useEffect(() => {
+    if (initialDetailIdOverride) setDetailId(initialDetailIdOverride);
+  }, [initialDetailIdOverride]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   // UI redesign (phan hoi 2026-08-19: "cho hết vào 1 nút thu gọn/mở rộng") - GOM toan bo bo loc (tim

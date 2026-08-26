@@ -9,10 +9,11 @@ import { ThemeMenuButton } from "../theme/ThemeMenuButton";
 import type { AppUser } from "../auth/AuthContext";
 import type { ViewAsRole } from "../auth/viewAsRoles";
 
-// Rut gon tu frontend/src/layout/Sidebar.tsx cua he DVBH goc - he nay chi co 1 badge duy nhat
-// (datMuaLk.total), khong con nhieu countKey nhu he goc.
+// Rut gon tu frontend/src/layout/Sidebar.tsx cua he DVBH goc - 2 nguon badge doc lap (them
+// ktvLogChuaDoc 2026-08-26, xem countKey trong navConfig.ts).
 interface NotificationCounts {
   datMuaLk: { total: number };
+  ktvLogChuaDoc: number;
 }
 
 export function Sidebar({
@@ -91,7 +92,7 @@ export function Sidebar({
             <div key={g.label} className="mb-4">
               {(!collapsed || isMobile) && <div className="text-[10px] uppercase tracking-wider font-bold text-[var(--sidebar-ink-dim)] px-2.5 mb-1.5">{g.label}</div>}
               {items.map((it) => {
-                const count = !it.countKey || !counts ? 0 : counts.datMuaLk.total;
+                const count = !it.countKey || !counts ? 0 : it.countKey === "ktvLogChuaDoc" ? counts.ktvLogChuaDoc : counts.datMuaLk.total;
                 // Accent doi sang Navy dam (hang muc #10/#20, 2026-08-25) - xem giai thich o Btn.tsx.
                 const itemClassName = `focus-ring w-full flex items-center gap-3 px-2.5 py-2 rounded-xl mb-0.5 text-sm font-semibold transition-colors border-l-[3px] ${
                   active === it.key

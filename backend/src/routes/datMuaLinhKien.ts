@@ -1312,6 +1312,28 @@ async function openThieuLkForDonHang(
 // "Mua hang", bat_tat=1) - CHOT 2026-08-14: he thong tu quyet dinh ket qua la "TN tu choi" (tu choi
 // thuong) hay "Cho hang" (tu dong mo ticket thieu_lk gui Kho giai trinh) dua vao co
 // quan_ly_don_thieu_linh_kien cua ly do do, KHONG con hanh_dong "cho_hang" rieng nua.
+// Thong bao cho NGUOI TAO don khi dong cua ho toi 1 trong 4 moc quan trong (phan hoi 2026-08-26: bo
+// qua cac buoc trung gian noi bo nhu "Cho Tram duyet"/"Cho TBP xac nhan" - nguoi tao khong can biet
+// tung buoc, chi can biet ket qua cuoi). "Da huy" dung chung cho ca Tram/TBP tu choi LAN tu huy that
+// su (hanhDong khac nhau) nen phai phan biet qua hanhDong de chon dung tu "từ chối" hay "huỷ".
+function thongBaoChoNguoiTao(
+  hanhDong: "duyet" | "tu_choi" | "huy",
+  nextTrangThai: string,
+  tenLk: string,
+  soLuong: number,
+): { loai: string; noiDung: string } | null {
+  const ten = `"${tenLk} (x${soLuong})"`;
+  if (nextTrangThai === "Da huy") {
+    return hanhDong === "huy"
+      ? { loai: "huy", noiDung: `Đơn hàng ${ten} của bạn đã bị huỷ` }
+      : { loai: "tu_choi", noiDung: `Đơn hàng ${ten} của bạn đã bị từ chối` };
+  }
+  if (nextTrangThai === "TN tu choi") return { loai: "tu_choi", noiDung: `Đơn hàng ${ten} của bạn đã bị từ chối` };
+  if (nextTrangThai === "Cho hang") return { loai: "cho_hang", noiDung: `Đơn hàng ${ten} của bạn bị báo chờ hàng` };
+  if (nextTrangThai === "TN da duyet") return { loai: "da_duyet", noiDung: `Đơn hàng ${ten} của bạn đã được duyệt` };
+  return null;
+}
+
 async function applyDonHangLog(
   c: Context<{ Bindings: Env }>,
   donHangId: string,
@@ -1320,12 +1342,15 @@ async function applyDonHangLog(
   ghiChu: string | undefined,
 ): Promise<{ error: string; status: 404 | 409 | 403 | 400 } | { nextTrangThai: string }> {
   const ddh = await c.env.DB.prepare(
-    `SELECT ddh.loai_don, ddh.nguoi_tao, ddh.email_gs, ddh.version, ddh.ly_do_cham, lk.dac_thu, ${latestDonHangStatusExpr("ddh.id")} as trang_thai,
-            ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at
+    `SELECT ddh.loai_don, ddh.nguoi_tao, ddh.email_gs, ddh.version, ddh.ly_do_cham, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat,
+            lk.dac_thu, ${latestDonHangStatusExpr("ddh.id")} as trang_thai, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at
      FROM dat_don_hang ddh LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk WHERE ddh.id = ?`,
   )
     .bind(donHangId)
-    .first<{ loai_don: string; nguoi_tao: string; email_gs: string | null; version: number; ly_do_cham: string | null; dac_thu: number | null; trang_thai: string | null; cho_tn_duyet_at: string | null }>();
+    .first<{
+      loai_don: string; nguoi_tao: string; email_gs: string | null; version: number; ly_do_cham: string | null;
+      ten_lk_snapshot: string; so_luong_de_xuat: number; dac_thu: number | null; trang_thai: string | null; cho_tn_duyet_at: string | null;
+    }>();
   if (!ddh) return { error: "NOT_FOUND", status: 404 };
   if (ddh.loai_don === "tra_hang") return { error: "USE_TRA_HANG_ROUTE", status: 400 };
   if (ddh.trang_thai && (DON_HANG_TRANG_THAI_DONG as readonly string[]).includes(ddh.trang_thai)) return { error: "DONG_DA_DONG", status: 409 };
@@ -1422,6 +1447,21 @@ async function applyDonHangLog(
   await c.env.DB.prepare("INSERT INTO dat_don_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)")
     .bind(donHangId, nextTrangThai, user.email, nowVN(), ghiChu?.trim() || null)
     .run();
+
+  // Thong bao cho nguoi tao (phan hoi 2026-08-26) - bo qua neu chinh nguoi tao la nguoi vua thao tac
+  // (vd tu huy don cua minh, da biet ket qua ngay tren man hinh, khong can bao lai).
+  if (ddh.nguoi_tao !== user.email) {
+    const thongBao = thongBaoChoNguoiTao(hanhDong, nextTrangThai, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat);
+    if (thongBao) {
+      c.executionCtx.waitUntil(
+        c.env.DB.prepare(
+          "INSERT INTO thong_bao_ktv (nguoi_nhan, loai, noi_dung, link_type, link_id, ngay_tao) VALUES (?, ?, ?, 'don_hang', ?, ?)",
+        )
+          .bind(ddh.nguoi_tao, thongBao.loai, thongBao.noiDung, donHangId, nowVN())
+          .run(),
+      );
+    }
+  }
 
   // Auto-claim khu vuc phu trach (muc F) - chi khi TN thuc su vua xu ly (duyet/tu choi) 1 dong o
   // trang thai "Cho TN duyet", khong chan response (waitUntil).

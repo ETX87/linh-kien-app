@@ -193,6 +193,9 @@ export interface JumpTarget {
   // bam vao 1 trong 3 buoc PXK tra hang tren pipeline (man nay co 1 lop loc rieng "xemLoaiDon" khong
   // nam trong "filter").
   loaiDon?: string;
+  // Mo thang Drawer chi tiet 1 dong (them 2026-08-26, tu danh sach thong bao KTV bam "xem chi tiet") -
+  // chi co y nghia khi tab === "don-cua-toi", xem openDetailIdFor/DonCuaToiTab.initialDetailIdOverride.
+  openDetailId?: string;
 }
 export interface BaoCaoRow {
   email: string;

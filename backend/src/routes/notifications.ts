@@ -49,6 +49,9 @@ const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
 
 export interface NotificationsCountPayload {
   datMuaLk: DatMuaLkBreakdown;
+  // Them 2026-08-26 - so thong_bao_ktv CHUA DOC cua nguoi dang dang nhap, dung cho badge "Home (N)"
+  // (nav muc trang-chu) - xem navConfig.ts/Sidebar.tsx/BottomTabBar.tsx.
+  ktvLogChuaDoc: number;
 }
 
 function gsInClause(gsSet: Set<string> | null, ddhAlias: string): { sql: string; binds: string[] } | null {
@@ -231,8 +234,65 @@ export async function getDatMuaLkBadge(db: D1Database, user: AppUser): Promise<D
 notifications.get("/count", async (c) => {
   const user = c.get("user");
   const datMuaLk = await getDatMuaLkBadge(c.env.DB, user);
-  const data: NotificationsCountPayload = { datMuaLk };
+  // ktvLogChuaDoc KHONG di qua cachedReport (khong can cache - 1 SELECT COUNT theo index, va can
+  // phan anh NGAY lap tuc sau khi nguoi dung bam "Danh dau da doc", khong the cho version-tag/ngay VN
+  // doi nhu cachedReport - xem bai hoc "badge dung nguyen 0" o computeDatMuaLkBreakdown lien quan cache
+  // cu khi vua them field moi).
+  const row = await c.env.DB.prepare("SELECT COUNT(*) as n FROM thong_bao_ktv WHERE nguoi_nhan = ? AND da_doc = 0").bind(user.email).first<{ n: number }>();
+  const data: NotificationsCountPayload = { datMuaLk, ktvLogChuaDoc: row?.n ?? 0 };
   return c.json(data);
+});
+
+export interface ThongBaoKtvRow {
+  id: number;
+  loai: string;
+  noi_dung: string;
+  link_type: string | null;
+  link_id: string | null;
+  da_doc: number;
+  ngay_tao: string;
+}
+
+// GET /api/notifications/ktv-log?filter=unread|read|all&page=&pageSize= - danh sach thong bao thay
+// doi trang thai don CUA CHINH nguoi dang dang nhap (phan hoi 2026-08-26). Moi nguoi CHI xem duoc
+// thong bao cua chinh minh (loc cung nguoi_nhan = user.email, khong co tham so nao khac de doc thay
+// nguoi khac).
+notifications.get("/ktv-log", async (c) => {
+  const user = c.get("user");
+  const filter = c.req.query("filter") ?? "all";
+  const page = Math.max(1, Number(c.req.query("page") ?? 1));
+  const pageSize = Math.min(100, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const offset = (page - 1) * pageSize;
+  const daDocClause = filter === "unread" ? " AND da_doc = 0" : filter === "read" ? " AND da_doc = 1" : "";
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, loai, noi_dung, link_type, link_id, da_doc, ngay_tao FROM thong_bao_ktv
+       WHERE nguoi_nhan = ?${daDocClause} ORDER BY id DESC LIMIT ? OFFSET ?`,
+  )
+    .bind(user.email, pageSize, offset)
+    .all<ThongBaoKtvRow>();
+  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM thong_bao_ktv WHERE nguoi_nhan = ?${daDocClause}`)
+    .bind(user.email)
+    .first<{ total: number }>();
+
+  return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
+});
+
+// POST /api/notifications/ktv-log/mark-all-read - danh dau TOAN BO thong bao cua nguoi dang dang
+// nhap la da doc (nut "Đánh dấu đã đọc toàn bộ").
+notifications.post("/ktv-log/mark-all-read", async (c) => {
+  const user = c.get("user");
+  await c.env.DB.prepare("UPDATE thong_bao_ktv SET da_doc = 1 WHERE nguoi_nhan = ? AND da_doc = 0").bind(user.email).run();
+  return c.json({ ok: true });
+});
+
+// POST /api/notifications/ktv-log/:id/read - danh dau 1 thong bao la da doc (goi khi nguoi dung bam
+// vao 1 dong de xem chi tiet don). Chi cho phep danh dau thong bao CUA CHINH MINH.
+notifications.post("/ktv-log/:id/read", async (c) => {
+  const user = c.get("user");
+  const id = c.req.param("id");
+  await c.env.DB.prepare("UPDATE thong_bao_ktv SET da_doc = 1 WHERE id = ? AND nguoi_nhan = ?").bind(id, user.email).run();
+  return c.json({ ok: true });
 });
 
 export default notifications;

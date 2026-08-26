@@ -9,9 +9,11 @@ import { api } from "../api/client";
 // truy cap duoc qua "Thêm ⋯".
 const MAX_TABS = 4;
 
-// Cung shape voi Sidebar.tsx (1 badge duy nhat datMuaLk.total).
+// Cung shape voi Sidebar.tsx - 2 nguon badge doc lap (them ktvLogChuaDoc 2026-08-26, xem
+// countKey trong navConfig.ts).
 interface NotificationCounts {
   datMuaLk: { total: number };
+  ktvLogChuaDoc: number;
 }
 
 export function BottomTabBar({ active, setActive, allowedModules, onOpenMore }: { active: string; setActive: (key: string) => void; allowedModules: string[]; onOpenMore: () => void }) {
@@ -31,7 +33,7 @@ export function BottomTabBar({ active, setActive, allowedModules, onOpenMore }: 
   return (
     <nav className="md:hidden fixed inset-x-0 bottom-0 z-40 bg-[var(--surface)] border-t border-[var(--line)] flex items-stretch" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
       {shown.map((it) => {
-        const count = !it.countKey || !counts ? 0 : counts.datMuaLk.total;
+        const count = !it.countKey || !counts ? 0 : it.countKey === "ktvLogChuaDoc" ? counts.ktvLogChuaDoc : counts.datMuaLk.total;
         return (
           <button
             key={it.key}
