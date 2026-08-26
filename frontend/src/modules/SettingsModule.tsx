@@ -9,61 +9,15 @@ import { Tabs } from "../components/ui/Tabs";
 import { useToast } from "../components/ui/Toast";
 import { Badge } from "../components/ui/Badge";
 import { KvRow } from "../components/ui/KvRow";
-import { exportRowsToExcel } from "../lib/exportExcel";
+import type { LyDoChamMuaLkRow, KhuVucRow, UserRow } from "../types";
 import { formatPersonDisplay, usePersonDirectory } from "../lib/personDisplay";
-import type { LyDoChamMuaLkRow, KtvLienHeRow } from "../types";
 
-// Nhap/cap nhat hang loat danh ba KTV tu file Excel (phan hoi 2026-08-20, tiep theo tinh nang nhap
-// danh muc linh kien hang loat) - khop dung backend/src/routes/settingsKtv.ts POST /bulk-import.
-// Header linh hoat, uu tien khop dung nhan cot bang KtvTab dang hien thi ("Mã KTV"/"Tên hiển
-// thị"/...) de export-thu-cong-roi-nhap-lai hoat dong xuoi, kem vai bien the tu he khac.
-interface BulkImportKtvRow {
-  ma_ktv: string; ten_hien_thi?: string; sdt?: string; ghi_chu?: string;
-  vai_tro_ktv?: string; gmail?: string; giam_sat_quan_ly?: string; email_dang_nhap?: string;
-}
-interface BulkImportKtvChunkResult {
-  done: boolean; nextOffset: number; success: number; errorCount: number;
-  details: { ma_ktv: string; status: string }[];
-}
-function pickKtvField(raw: Record<string, unknown>, keys: string[]): string | undefined {
-  for (const k of keys) {
-    if (raw[k] != null && raw[k] !== "") return String(raw[k]).trim();
-  }
-  return undefined;
-}
-const VAI_TRO_KTV_ALIASES: Record<string, string> = {
-  ktv: "KTV", ctv: "CTV", tram: "Tram", "trạm": "Tram", "ve tinh": "Ve tinh", "vệ tinh": "Ve tinh", "vetinh": "Ve tinh",
-};
-async function parseKtvImportFile(file: File): Promise<BulkImportKtvRow[]> {
-  const XLSX = await import("xlsx");
-  const data = await file.arrayBuffer();
-  const workbook = XLSX.read(data, { type: "array" });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: null });
-  const rows: BulkImportKtvRow[] = [];
-  for (const raw of rawRows) {
-    const ma = pickKtvField(raw, ["Mã KTV", "Ma KTV", "ma_ktv"]);
-    if (!ma) continue;
-    const vaiTroRaw = pickKtvField(raw, ["Vai trò", "Vai tro", "vai_tro_ktv"]);
-    const vaiTro = vaiTroRaw ? (VAI_TRO_KTV_ALIASES[vaiTroRaw.toLowerCase()] ?? vaiTroRaw) : undefined;
-    rows.push({
-      ma_ktv: ma,
-      ten_hien_thi: pickKtvField(raw, ["Tên hiển thị", "Ten hien thi", "ten_hien_thi"]),
-      sdt: pickKtvField(raw, ["SĐT", "Số điện thoại", "sdt"]),
-      ghi_chu: pickKtvField(raw, ["Ghi chú", "Ghi chu", "ghi_chu"]),
-      vai_tro_ktv: vaiTro,
-      gmail: pickKtvField(raw, ["Gmail", "gmail"]),
-      giam_sat_quan_ly: pickKtvField(raw, ["Email Giám sát quản lý", "Giám sát quản lý", "giam_sat_quan_ly"]),
-      email_dang_nhap: pickKtvField(raw, ["Email đăng nhập", "Email dang nhap", "email_dang_nhap"]),
-    });
-  }
-  return rows;
-}
-
-// Trang quan tri RUT GON tu frontend/src/modules/SettingsModule.tsx cua he DVBH goc - CHI giu 4 tab
-// thuc su can cho module "Dat mua linh kien" (xem CLAUDE.md muc "Nguon goc tach he thong"): Lý do
-// chậm, Loại đề xuất, Danh sách KTV, Google Drive. "Danh mục linh kiện" la 1 module rieng (menu
-// "Danh mục linh kiện"), khong nam trong Settings o he nay (khac he goc gom chung).
+// Trang quan tri RUT GON tu frontend/src/modules/SettingsModule.tsx cua he DVBH goc - CHI giu cac
+// tab thuc su can cho module "Dat mua linh kien" (xem CLAUDE.md muc "Nguon goc tach he thong"): Lý
+// do chậm, Loại đề xuất, Khu vực, Google Drive. "Danh mục linh kiện" la 1 module rieng (menu "Danh
+// mục linh kiện"), khong nam trong Settings o he nay (khac he goc gom chung). "Danh sách KTV" DA
+// CHUYEN sang UsersModule.tsx lam the "KTV hiện trường" (2026-08-26, xay lai quan ly tai khoan/vai
+// tro - yeu cau "tach rieng 2 the quan ly" KTV vs Nhan vien van phong, xem CLAUDE.md).
 
 interface LoaiDeXuatNhomRow {
   id: number;
@@ -83,7 +37,7 @@ interface LoaiDeXuatOptionRow {
 const TABS = [
   { key: "ly-do-cham", label: "Lý do chậm" },
   { key: "loai-de-xuat", label: "Loại đề xuất" },
-  { key: "ktv", label: "Danh sách KTV" },
+  { key: "khu-vuc", label: "Khu vực" },
   { key: "google-drive", label: "Google Drive" },
 ];
 
@@ -95,7 +49,7 @@ export function SettingsModule() {
       <div className="mt-4">
         {tab === "ly-do-cham" && <LyDoChamTab />}
         {tab === "loai-de-xuat" && <LoaiDeXuatTab />}
-        {tab === "ktv" && <KtvTab />}
+        {tab === "khu-vuc" && <KhuVucTab />}
         {tab === "google-drive" && <GoogleDriveTab />}
       </div>
     </div>
@@ -311,162 +265,79 @@ function LoaiDeXuatTab() {
   );
 }
 
-function KtvTab() {
+// Them 2026-08-26 (xay lai quan ly tai khoan/vai tro, migration 0009) - CRUD Khu vuc + gan/go GS phu
+// trach. 1 khu vuc chi 1 GS tai 1 thoi diem (ep o backend), 1 GS duoc phep phu trach nhieu khu vuc -
+// gan GS moi cho 1 khu vuc DA co GS se ghi de (canh bao ro truoc khi luu, khong chan cung).
+function KhuVucTab() {
   const qc = useQueryClient();
   const addToast = useToast();
-  const { data } = useQuery({ queryKey: ["settings-ktv"], queryFn: () => api.get<{ rows: KtvLienHeRow[] }>("/settings/ktv-lien-he") });
+  const { data } = useQuery({ queryKey: ["settings-khu-vuc"], queryFn: () => api.get<{ rows: KhuVucRow[] }>("/settings/khu-vuc") });
+  const { data: gsData } = useQuery({ queryKey: ["users", "da-duyet", "", "Giam sat"], queryFn: () => api.get<{ rows: UserRow[] }>("/users?tab=da-duyet&vai_tro=Giam sat") });
   const personDir = usePersonDirectory();
-  const [editing, setEditing] = useState<KtvLienHeRow | "new" | null>(null);
-  const [form, setForm] = useState({ ma_ktv: "", ten_hien_thi: "", sdt: "", vai_tro_ktv: "KTV" as KtvLienHeRow["vai_tro_ktv"], email_dang_nhap: "" });
-  const [bulkOpen, setBulkOpen] = useState(false);
-  const [bulkRunning, setBulkRunning] = useState(false);
-  const [bulkTotal, setBulkTotal] = useState(0);
-  const [bulkProcessed, setBulkProcessed] = useState(0);
-  const [bulkSummary, setBulkSummary] = useState<{ success: number; errorCount: number } | null>(null);
-  const [bulkFailDetails, setBulkFailDetails] = useState<{ ma_ktv: string; status: string }[]>([]);
+  const gsOptions = (gsData?.rows ?? []).map((u) => ({ value: u.email, label: formatPersonDisplay(u.email, personDir) }));
 
-  async function handleBulkImportKtv(file: File) {
-    setBulkRunning(true);
-    setBulkSummary(null);
-    setBulkFailDetails([]);
-    try {
-      const rows = await parseKtvImportFile(file);
-      if (rows.length === 0) {
-        addToast('Không đọc được dòng nào hợp lệ (kiểm tra lại tiêu đề cột "Mã KTV")');
-        return;
-      }
-      setBulkTotal(rows.length);
-      let offset = 0;
-      let success = 0, errorCount = 0;
-      const failDetails: { ma_ktv: string; status: string }[] = [];
-      while (offset < rows.length) {
-        const res = await api.post<BulkImportKtvChunkResult>("/settings/ktv-lien-he/bulk-import", { rows, offset });
-        success += res.success;
-        errorCount += res.errorCount;
-        failDetails.push(...res.details.filter((d) => d.status !== "thanh_cong"));
-        offset = res.nextOffset;
-        setBulkProcessed(Math.min(offset, rows.length));
-        if (res.done) break;
-      }
-      setBulkSummary({ success, errorCount });
-      setBulkFailDetails(failDetails);
-      await qc.invalidateQueries({ queryKey: ["settings-ktv"] });
-      addToast(`Đã nhập xong: ${success} thành công / ${rows.length} dòng`);
-    } catch (err) {
-      addToast("Lỗi nhập danh sách KTV hàng loạt: " + (err instanceof Error ? err.message : String(err)));
-    } finally {
-      setBulkRunning(false);
-    }
-  }
+  const [editing, setEditing] = useState<KhuVucRow | "new" | null>(null);
+  const [form, setForm] = useState({ ma: "", ten: "", stt: 0, bat_tat: true, gs_email: "" });
+  const [gsOverwriteAck, setGsOverwriteAck] = useState(false);
 
-  function openEdit(row: KtvLienHeRow | "new") {
+  function openEdit(row: KhuVucRow | "new") {
     setEditing(row);
-    if (row === "new") setForm({ ma_ktv: "", ten_hien_thi: "", sdt: "", vai_tro_ktv: "KTV", email_dang_nhap: "" });
-    else
-      setForm({
-        ma_ktv: row.ma_ktv,
-        ten_hien_thi: row.ten_hien_thi ?? "",
-        sdt: row.sdt ?? "",
-        vai_tro_ktv: row.vai_tro_ktv ?? "KTV",
-        email_dang_nhap: row.email_dang_nhap ?? "",
-      });
+    setGsOverwriteAck(false);
+    if (row === "new") setForm({ ma: "", ten: "", stt: (data?.rows.length ?? 0) + 1, bat_tat: true, gs_email: "" });
+    else setForm({ ma: row.ma, ten: row.ten, stt: row.stt, bat_tat: !!row.bat_tat, gs_email: row.gs_email ?? "" });
   }
+
+  const existingGs = editing !== "new" ? editing?.gs_email ?? null : null;
+  const gsChanged = form.gs_email !== (existingGs ?? "");
+  const needsOverwriteAck = gsChanged && !!existingGs && form.gs_email !== "";
 
   const save = useMutation({
     mutationFn: async () => {
-      await api.post("/settings/ktv-lien-he", { ma_ktv: form.ma_ktv, ten_hien_thi: form.ten_hien_thi, sdt: form.sdt });
-      await api.patch(`/settings/ktv-lien-he/${encodeURIComponent(form.ma_ktv)}/dat-mua-lk`, {
-        vai_tro_ktv: form.vai_tro_ktv,
-        email_dang_nhap: form.email_dang_nhap || null,
-      });
+      if (editing === "new") {
+        await api.post("/settings/khu-vuc", { ma: form.ma, ten: form.ten, stt: form.stt });
+      } else {
+        await api.patch(`/settings/khu-vuc/${encodeURIComponent(form.ma)}`, { ten: form.ten, stt: form.stt, bat_tat: form.bat_tat });
+      }
+      if (editing === "new" ? !!form.gs_email : gsChanged) {
+        await api.patch(`/settings/khu-vuc/${encodeURIComponent(form.ma)}/gs`, { gs_email: form.gs_email || null });
+      }
     },
     onSuccess: async () => {
       addToast("Đã lưu");
-      await qc.invalidateQueries({ queryKey: ["settings-ktv"] });
+      await qc.invalidateQueries({ queryKey: ["settings-khu-vuc"] });
       setEditing(null);
     },
     onError: () => addToast("Không thể lưu, thử lại sau."),
   });
 
-  const remove = useMutation({
-    mutationFn: (ma: string) => api.delete(`/settings/ktv-lien-he/${encodeURIComponent(ma)}`),
-    onSuccess: async () => {
-      addToast("Đã xoá");
-      await qc.invalidateQueries({ queryKey: ["settings-ktv"] });
-    },
-  });
-
   return (
     <div className="space-y-3">
       <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">
-        Danh bạ KTV/CTV/Trạm/Vệ tinh - dùng để chọn "người nhận hàng" khi tạo đơn.
-        <Tooltip text={`Ghép "Email đăng nhập" để hệ thống tự cấp tài khoản (đã duyệt sẵn) khi người đó đăng nhập Google lần đầu.`} />
+        Danh sách khu vực - gán 1 Giám sát phụ trách cho mỗi khu vực (1 khu vực chỉ 1 GS, 1 GS có thể phụ trách nhiều khu vực).
+        <Tooltip text={`Khu vực của KTV/Vệ tinh gán ở thẻ "KTV hiện trường" (Quản lý User). Khu vực của Tác nghiệp/Kho/Kế toán gán ở modal sửa từng người trong thẻ "Nhân viên văn phòng".`} />
       </div>
-      <div className="flex gap-2">
-        <Btn size="sm" onClick={() => openEdit("new")}>+ Thêm KTV</Btn>
-        <Btn
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            setBulkOpen(true);
-            setBulkSummary(null);
-            setBulkFailDetails([]);
-            setBulkTotal(0);
-            setBulkProcessed(0);
-          }}
-        >
-          📋 Nhập danh sách hàng loạt
-        </Btn>
-        {/* Xuat dung ten cot khop voi parseKtvImportFile o dau file - cho phep export, sua tay tren
-            Excel, roi nhap lai qua "Nhap danh sach hang loat" ma khong can doi ten cot. */}
-        <Btn
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            exportRowsToExcel(
-              (data?.rows ?? []).map((r) => ({ ...r, giam_sat_quan_ly: r.giam_sat_quan_ly_hien_tai ?? r.giam_sat_quan_ly })),
-              "danh_sach_ktv.xlsx",
-              "KTV",
-              {
-                ma_ktv: "Mã KTV",
-                ten_hien_thi: "Tên hiển thị",
-                sdt: "SĐT",
-                vai_tro_ktv: "Vai trò",
-                email_dang_nhap: "Email đăng nhập",
-                giam_sat_quan_ly: "Email Giám sát quản lý (chỉ tham khảo)",
-                gmail: "Gmail",
-                ghi_chu: "Ghi chú",
-                nguoi_cap_nhat: "Người cập nhật",
-                ngay_cap_nhat: "Ngày cập nhật",
-              },
-            )
-          }
-        >
-          ⬇ Tải danh sách
-        </Btn>
-      </div>
+      <Btn size="sm" onClick={() => openEdit("new")}>+ Thêm khu vực</Btn>
       <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
-                <th className="px-3 py-2">Mã KTV</th>
-                <th className="px-3 py-2">Tên hiển thị</th>
-                <th className="px-3 py-2">Vai trò</th>
-                <th className="px-3 py-2">Email đăng nhập</th>
+                <th className="px-3 py-2">Mã</th>
+                <th className="px-3 py-2">Tên</th>
+                <th className="px-3 py-2">Giám sát phụ trách</th>
+                <th className="px-3 py-2">Bật/tắt</th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>
               {(data?.rows ?? []).map((r) => (
-                <tr key={r.ma_ktv} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
-                  <td className="px-3 py-2 font-mono text-xs">{r.ma_ktv}</td>
-                  <td className="px-3 py-2">{r.ten_hien_thi ?? "—"}</td>
-                  <td className="px-3 py-2">{r.vai_tro_ktv ?? "—"}</td>
-                  <td className="px-3 py-2">{r.email_dang_nhap ? formatPersonDisplay(r.email_dang_nhap, personDir) : "—"}</td>
-                  <td className="px-3 py-2 flex gap-2">
+                <tr key={r.ma} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                  <td className="px-3 py-2 font-mono text-xs">{r.ma}</td>
+                  <td className="px-3 py-2">{r.ten}</td>
+                  <td className="px-3 py-2">{r.gs_email ? formatPersonDisplay(r.gs_email, personDir) : "— (chưa gán)"}</td>
+                  <td className="px-3 py-2">{r.bat_tat ? "Bật" : "Tắt"}</td>
+                  <td className="px-3 py-2">
                     <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openEdit(r)}>Sửa</button>
-                    <button className="text-[var(--coral-500)] hover:underline text-xs" onClick={() => remove.mutate(r.ma_ktv)}>Xoá</button>
                   </td>
                 </tr>
               ))}
@@ -475,93 +346,43 @@ function KtvTab() {
         </div>
       </div>
       {editing && (
-        <Modal open onClose={() => setEditing(null)} title={editing === "new" ? "Thêm KTV" : "Sửa KTV"} width="max-w-md">
+        <Modal open onClose={() => setEditing(null)} title={editing === "new" ? "Thêm khu vực" : "Sửa khu vực"} width="max-w-md">
           <div className="space-y-3 text-sm">
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Mã KTV</label>
-              <input value={form.ma_ktv} disabled={editing !== "new"} onChange={(e) => setForm({ ...form, ma_ktv: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60" />
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Mã khu vực</label>
+              <input value={form.ma} disabled={editing !== "new"} onChange={(e) => setForm({ ...form, ma: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60" />
             </div>
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Tên hiển thị</label>
-              <input value={form.ten_hien_thi} onChange={(e) => setForm({ ...form, ten_hien_thi: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
+              <input value={form.ten} onChange={(e) => setForm({ ...form, ten: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
             </div>
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Số điện thoại</label>
-              <input value={form.sdt} onChange={(e) => setForm({ ...form, sdt: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Giám sát phụ trách</label>
+              <Select value={form.gs_email} onChange={(v) => { setForm({ ...form, gs_email: v }); setGsOverwriteAck(false); }} options={[{ value: "", label: "— Không —" }, ...gsOptions]} />
             </div>
-            <div>
-              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Vai trò</label>
-              <Select value={form.vai_tro_ktv ?? "KTV"} onChange={(v) => setForm({ ...form, vai_tro_ktv: v as KtvLienHeRow["vai_tro_ktv"] })} options={[
-                { value: "KTV", label: "KTV" }, { value: "CTV", label: "CTV" }, { value: "Tram", label: "Trạm" }, { value: "Ve tinh", label: "Vệ tinh" },
-              ]} />
-            </div>
-            <div>
-              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Email đăng nhập (Google)</label>
-              <input value={form.email_dang_nhap} onChange={(e) => setForm({ ...form, email_dang_nhap: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
-            </div>
-            {editing !== "new" && (
-              <div>
-                <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Email Giám sát quản lý</label>
-                <div className="w-full border border-[var(--line)] bg-[var(--surface-100)] rounded-lg px-2.5 py-1.5 text-sm mt-1 text-[var(--ink-600)]">
-                  {editing?.giam_sat_quan_ly_hien_tai ?? "— (chưa gán)"}
-                </div>
-                <div className="text-[11px] text-[var(--ink-400)] mt-1">Sửa Giám sát quản lý ở màn "Quản lý User" (chỉ hiển thị ở đây).</div>
+            {needsOverwriteAck && (
+              <div className="rounded-lg border border-[var(--coral-500)] bg-[var(--coral-100)] px-3 py-2.5 text-[12.5px] leading-relaxed text-[var(--coral-600)]">
+                <div className="font-bold mb-0.5">⚠ Khu vực này đang do {formatPersonDisplay(existingGs!, personDir)} phụ trách</div>
+                <div className="mb-2">Gán Giám sát mới sẽ khiến người này MẤT khu vực "{form.ten || form.ma}" ngay lập tức.</div>
+                <label className="flex items-center gap-2 text-xs font-medium">
+                  <input type="checkbox" checked={gsOverwriteAck} onChange={(e) => setGsOverwriteAck(e.target.checked)} />
+                  Tôi hiểu và vẫn muốn gán lại
+                </label>
               </div>
+            )}
+            {editing !== "new" && (
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={form.bat_tat} onChange={(e) => setForm({ ...form, bat_tat: e.target.checked })} />
+                Đang bật (hiện trong dropdown chọn khu vực)
+              </label>
             )}
             <div className="flex justify-end gap-2 pt-2">
               <Btn variant="ghost" size="sm" onClick={() => setEditing(null)}>Huỷ</Btn>
-              <Btn size="sm" onClick={() => save.mutate()} disabled={!form.ma_ktv.trim() || save.isPending} loading={save.isPending}>Lưu</Btn>
+              <Btn size="sm" onClick={() => save.mutate()} disabled={!form.ma.trim() || !form.ten.trim() || save.isPending || (needsOverwriteAck && !gsOverwriteAck)} loading={save.isPending}>Lưu</Btn>
             </div>
           </div>
         </Modal>
       )}
-
-      <Modal open={bulkOpen} onClose={() => { if (!bulkRunning) setBulkOpen(false); }} title="Nhập danh sách KTV hàng loạt">
-        <div className="space-y-3">
-          <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">
-            File Excel có ít nhất cột <span className="font-mono">Mã KTV</span>.
-            <Tooltip text={`Các cột khác (Tên hiển thị, SĐT, Ghi chú, Vai trò, Gmail, Email đăng nhập, Email Giám sát quản lý) là tuỳ chọn. Mã đã tồn tại sẽ được cập nhật đè, mã chưa có sẽ được thêm mới. Nếu có "Email đăng nhập", hệ thống tự cấp tài khoản (đã duyệt sẵn) cho email đó — giống hệt khi ghép thủ công 1 dòng.`} />
-          </div>
-          {!bulkRunning && !bulkSummary && (
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleBulkImportKtv(f); e.target.value = ""; }}
-              className="text-sm"
-            />
-          )}
-          {bulkRunning && (
-            <div className="text-sm">
-              Đang xử lý... {bulkProcessed}/{bulkTotal} dòng
-              <div className="w-full h-2 bg-[var(--surface-100)] rounded-full mt-1 overflow-hidden">
-                <div
-                  className="h-full bg-[var(--ocean-800)] transition-all"
-                  style={{ width: `${bulkTotal ? Math.min(100, (bulkProcessed / bulkTotal) * 100) : 0}%` }}
-                />
-              </div>
-            </div>
-          )}
-          {bulkSummary && (
-            <div className="text-sm space-y-2">
-              <div>
-                ✅ Thành công: <b>{bulkSummary.success}</b> · Lỗi: <b>{bulkSummary.errorCount}</b>
-              </div>
-              {bulkFailDetails.length > 0 && (
-                <div className="max-h-40 overflow-y-auto border border-[var(--line)] rounded-lg p-2 text-xs font-mono space-y-0.5">
-                  {bulkFailDetails.map((d, i) => (
-                    <div key={i}>{d.ma_ktv}: {d.status}</div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          <div className="flex justify-end gap-2">
-            <Btn variant="ghost" onClick={() => setBulkOpen(false)} disabled={bulkRunning}>
-              {bulkSummary ? "Đóng" : "Hủy"}
-            </Btn>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }

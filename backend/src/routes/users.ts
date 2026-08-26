@@ -14,11 +14,23 @@ import { nowVN } from "../lib/vnTime";
 const users = new Hono<{ Bindings: Env }>();
 users.use("*", verifySessionMiddleware, loadUser, requireRole("Admin"));
 
-// GET /api/users?tab=cho-duyet|da-duyet&search=&vai_tro=
+// GET /api/users?tab=cho-duyet|da-duyet&search=&vai_tro=&nhom=van-phong|ktv&khu_vuc=&page=&pageSize=
+// "nhom" (them 2026-08-26, muc 1-2 yeu cau tach 2 the quan ly) - loc theo 6 co la_ktv_dvbh/la_ve_tinh:
+// "ktv" = 2 co do = 1, "van-phong" (mac dinh khi co truyen nhom) = ca 2 co = 0. Khong truyen "nhom" ->
+// giu nguyen hanh vi cu (tra ca 2 nhom lan trong 1 danh sach, tab "cho-duyet" dung kieu nay vi tai
+// khoan moi CHUA duoc Admin xac dinh thuoc nhom nao - xem PATCH /:email).
+// "khu_vuc" - loc nhan vien van phong dang phu trach 1 khu vuc cu the: GS qua khu_vuc.gs_email, TN/
+// Kho/Ke toan qua bang user_khu_vuc (xem migration 0009).
+// "page"/"pageSize" (them 2026-08-26 - GET truoc day tra het khong phan trang, se cham khi so luong
+// tang) - KHONG truyen page -> giu nguyen hanh vi cu (tra het) de khong pha frontend truoc khi Phase 3
+// cap nhat UI dung phan trang.
 users.get("/", async (c) => {
   const tab = c.req.query("tab") ?? "cho-duyet";
   const search = c.req.query("search")?.trim();
   const vaiTro = c.req.query("vai_tro")?.trim();
+  const nhom = c.req.query("nhom")?.trim();
+  const khuVuc = c.req.query("khu_vuc")?.trim();
+  const pageParam = c.req.query("page");
 
   const conditions: string[] = [];
   const binds: unknown[] = [];
@@ -38,10 +50,33 @@ users.get("/", async (c) => {
     conditions.push("vai_tro = ?");
     binds.push(vaiTro);
   }
+  if (nhom === "ktv") {
+    conditions.push("(la_ktv_dvbh = 1 OR la_ve_tinh = 1)");
+  } else if (nhom === "van-phong") {
+    conditions.push("la_ktv_dvbh = 0 AND la_ve_tinh = 0");
+  }
+  if (khuVuc) {
+    conditions.push(
+      "(email IN (SELECT gs_email FROM khu_vuc WHERE ma = ?) OR email IN (SELECT user_email FROM user_khu_vuc WHERE khu_vuc_ma = ?))",
+    );
+    binds.push(khuVuc, khuVuc);
+  }
 
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-  const { results } = await c.env.DB.prepare(`SELECT * FROM users ${where} ORDER BY created_at DESC`).bind(...binds).all();
-  return c.json({ rows: results });
+
+  if (!pageParam) {
+    const { results } = await c.env.DB.prepare(`SELECT * FROM users ${where} ORDER BY created_at DESC`).bind(...binds).all();
+    return c.json({ rows: results });
+  }
+
+  const page = Math.max(1, Number(pageParam) || 1);
+  const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 50)));
+  const offset = (page - 1) * pageSize;
+  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM users ${where}`).bind(...binds).first<{ total: number }>();
+  const { results } = await c.env.DB.prepare(`SELECT * FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+    .bind(...binds, pageSize, offset)
+    .all();
+  return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
 });
 
 // GET /api/users/login-log?email=&page=&pageSize=
@@ -61,7 +96,10 @@ users.get("/login-log", async (c) => {
   return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
 });
 
-// PATCH /api/users/:email - duyet/tu choi/doi vai tro + role-flag.
+// PATCH /api/users/:email - duyet/tu choi/doi vai tro + role-flag. KHONG con nhan tram_cha/
+// giam_sat_quan_ly tu body (Phase 4, 2026-08-26) - 2 cot nay tro thanh derived/read-only, tu dong
+// tinh tu Khu vuc/KTV cap 1 phu trach cua ktv_lien_he (xem lib/khuVucSync.ts, goi tu
+// routes/settingsKtv.ts/settingsDatMua.ts) thay vi Admin nhap tay o day nhu truoc.
 users.patch("/:email", async (c) => {
   const email = decodeURIComponent(c.req.param("email"));
   const body = await c.req.json<{
@@ -74,10 +112,9 @@ users.patch("/:email", async (c) => {
     la_ke_toan?: boolean;
     la_tac_nghiep?: boolean;
     la_tp_dvbh?: boolean;
+    la_view?: boolean;
     quan_ly_danh_muc_lk?: boolean;
     xem_danh_muc_lk?: boolean;
-    tram_cha?: string | null;
-    giam_sat_quan_ly?: string | null;
   }>();
 
   if (body.vai_tro !== undefined && body.vai_tro !== null && !(VAI_TRO_VALUES as readonly string[]).includes(body.vai_tro)) {
@@ -97,14 +134,13 @@ users.patch("/:email", async (c) => {
     la_ke_toan: body.la_ke_toan !== undefined ? (body.la_ke_toan ? 1 : 0) : existing.la_ke_toan,
     la_tac_nghiep: body.la_tac_nghiep !== undefined ? (body.la_tac_nghiep ? 1 : 0) : existing.la_tac_nghiep,
     la_tp_dvbh: body.la_tp_dvbh !== undefined ? (body.la_tp_dvbh ? 1 : 0) : existing.la_tp_dvbh,
+    la_view: body.la_view !== undefined ? (body.la_view ? 1 : 0) : existing.la_view,
     quan_ly_danh_muc_lk: body.quan_ly_danh_muc_lk !== undefined ? (body.quan_ly_danh_muc_lk ? 1 : 0) : existing.quan_ly_danh_muc_lk,
     xem_danh_muc_lk: body.xem_danh_muc_lk !== undefined ? (body.xem_danh_muc_lk ? 1 : 0) : existing.xem_danh_muc_lk,
-    tram_cha: body.tram_cha !== undefined ? (body.tram_cha ?? null) : existing.tram_cha,
-    giam_sat_quan_ly: body.giam_sat_quan_ly !== undefined ? (body.giam_sat_quan_ly ?? null) : existing.giam_sat_quan_ly,
   };
 
   await c.env.DB.prepare(
-    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, bi_khoa = ?, la_ktv_dvbh = ?, la_ve_tinh = ?, la_kho = ?, la_ke_toan = ?, la_tac_nghiep = ?, la_tp_dvbh = ?, quan_ly_danh_muc_lk = ?, xem_danh_muc_lk = ?, tram_cha = ?, giam_sat_quan_ly = ?, updated_at = ? WHERE email = ?",
+    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, bi_khoa = ?, la_ktv_dvbh = ?, la_ve_tinh = ?, la_kho = ?, la_ke_toan = ?, la_tac_nghiep = ?, la_tp_dvbh = ?, la_view = ?, quan_ly_danh_muc_lk = ?, xem_danh_muc_lk = ?, updated_at = ? WHERE email = ?",
   )
     .bind(
       next.trang_thai_duyet,
@@ -116,16 +152,45 @@ users.patch("/:email", async (c) => {
       next.la_ke_toan,
       next.la_tac_nghiep,
       next.la_tp_dvbh,
+      next.la_view,
       next.quan_ly_danh_muc_lk,
       next.xem_danh_muc_lk,
-      next.tram_cha,
-      next.giam_sat_quan_ly,
       nowVN(),
       email,
     )
     .run();
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["users"]));
+  return c.json({ ok: true });
+});
+
+// GET/PUT /api/users/:email/khu-vuc - gan nhieu Khu vuc cho 1 nguoi TN/Kho/Ke toan (them 2026-08-26,
+// muc 6 yeu cau: "co the gan dong thoi nhieu khu vuc, co the chong cheo"). CHI phuc vu tim
+// kiem/thong ke/badge (xac nhan cua nguoi dung), KHONG gioi han quyen xu ly don - giu dung y nghia cu
+// cua dat_mua_lk_phu_trach_gs (bang do van giu nguyen, chua doi sang co che nay, xem CLAUDE.md/ke
+// hoach Phase 4-5). Thay the toan bo tap hop moi lan PUT (giong pattern GET/PUT /phu-trach-gs cua
+// datMuaLinhKien.ts).
+users.get("/:email/khu-vuc", async (c) => {
+  const email = decodeURIComponent(c.req.param("email"));
+  const { results } = await c.env.DB.prepare("SELECT khu_vuc_ma FROM user_khu_vuc WHERE user_email = ? ORDER BY khu_vuc_ma")
+    .bind(email)
+    .all<{ khu_vuc_ma: string }>();
+  return c.json({ khu_vuc_ma: (results as { khu_vuc_ma: string }[]).map((r) => r.khu_vuc_ma) });
+});
+
+users.put("/:email/khu-vuc", async (c) => {
+  const email = decodeURIComponent(c.req.param("email"));
+  const existing = await c.env.DB.prepare("SELECT email FROM users WHERE email = ?").bind(email).first();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const body = await c.req.json<{ khu_vuc_ma?: string[] }>();
+  if (!Array.isArray(body.khu_vuc_ma)) return c.json({ error: "INVALID_BODY" }, 400);
+
+  const statements = [c.env.DB.prepare("DELETE FROM user_khu_vuc WHERE user_email = ?").bind(email)];
+  for (const ma of new Set(body.khu_vuc_ma.map((m) => m.trim()).filter(Boolean))) {
+    statements.push(c.env.DB.prepare("INSERT INTO user_khu_vuc (user_email, khu_vuc_ma) VALUES (?, ?)").bind(email, ma));
+  }
+  await c.env.DB.batch(statements);
   return c.json({ ok: true });
 });
 

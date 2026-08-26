@@ -42,14 +42,25 @@ export interface CaseLookupPreview {
 export async function lookupCase(id: string, env: Env): Promise<CaseLookupPreview | null> {
   const url = `${env.CASE_LOOKUP_BASE_URL.replace(/\/$/, "")}/api/partner/case-lookup?id=${encodeURIComponent(id)}`;
   try {
-    const res = await fetch(url, { headers: { "X-API-Key": env.CASE_LOOKUP_API_KEY } });
+    // SUA 2026-08-26 (debug production): fetch() thang toi URL nay tu 1 Worker khac (chinh he nay) bi
+    // Cloudflare chan voi "error code: 1042" (chong SSRF, chi xay ra khi ben goi CUNG la Worker - curl
+    // tay/server thuong khong dinh, do la ly do lam ra soat ban dau bi lac huong). Dung Service Binding
+    // (CASE_LOOKUP_SERVICE, xem wrangler.jsonc + types.ts) de dispatch NOI BO qua Cloudflare thay vi
+    // fetch() mang that - van dung dung URL/header nhu cu, chi doi noi goi .fetch().
+    const res = await env.CASE_LOOKUP_SERVICE.fetch(url, { headers: { "X-API-Key": env.CASE_LOOKUP_API_KEY } });
     // Neu route ben he goc chua deploy/sai URL, co the nhan ve trang SPA fallback (200 OK, HTML) thay
     // vi JSON that - kiem tra Content-Type truoc khi parse de tranh SyntaxError lam sap ca request
-    // (vd "kiem-tra-ma-yeu-cau" tra 500 thay vi "khong tim thay case" nhu mong doi).
-    if (!res.ok || !(res.headers.get("Content-Type") ?? "").includes("application/json")) return null;
+    // (vd "kiem-tra-ma-yeu-cau" tra 500 thay vi "khong tim thay case" nhu mong doi). Log lai (khong
+    // chan luong, endpoint goi ham nay van tra "khong tim thay" cho nguoi dung) de con cho ma tra cuu
+    // qua wrangler tail khi co su co - day la diem noi DUY NHAT toi 1 he ben ngoai, dang gia de log.
+    if (!res.ok || !(res.headers.get("Content-Type") ?? "").includes("application/json")) {
+      console.error("[caseLookup] fetch that bai", res.status, res.headers.get("Content-Type"));
+      return null;
+    }
     const body = await res.json<{ found: boolean; preview: CaseLookupPreview | null }>();
     return body.found ? body.preview : null;
-  } catch {
+  } catch (err) {
+    console.error("[caseLookup] exception", err instanceof Error ? err.message : err);
     return null;
   }
 }

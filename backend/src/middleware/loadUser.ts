@@ -20,6 +20,7 @@ interface UserRow {
   la_ke_toan: number;
   la_tac_nghiep: number;
   la_tp_dvbh: number;
+  la_view: number;
   quan_ly_danh_muc_lk: number;
   xem_danh_muc_lk: number;
   tram_cha: string | null;
@@ -27,7 +28,7 @@ interface UserRow {
 }
 
 const USER_COLUMNS =
-  "email, ten, vai_tro, trang_thai_duyet, bi_khoa, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, la_tac_nghiep, la_tp_dvbh, quan_ly_danh_muc_lk, xem_danh_muc_lk, tram_cha, giam_sat_quan_ly";
+  "email, ten, vai_tro, trang_thai_duyet, bi_khoa, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, la_tac_nghiep, la_tp_dvbh, la_view, quan_ly_danh_muc_lk, xem_danh_muc_lk, tram_cha, giam_sat_quan_ly";
 
 export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
   const email = c.get("email");
@@ -70,6 +71,7 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
     la_ke_toan: !!row.la_ke_toan,
     la_tac_nghiep: !!row.la_tac_nghiep,
     la_tp_dvbh: !!row.la_tp_dvbh,
+    la_view: !!row.la_view,
     quan_ly_danh_muc_lk: !!row.quan_ly_danh_muc_lk,
     xem_danh_muc_lk: !!row.xem_danh_muc_lk,
     tram_cha: row.tram_cha ?? null,

@@ -28,6 +28,16 @@
   // Khong co "triggers.crons" - he nay khong co cron job nao (xem index.ts).
   // Khong co "r2_buckets" - khong dung R2 (xem CLAUDE.md).
 
+  // Them 2026-08-26 (debug production case-lookup): fetch() thang toi URL "*.workers.dev" cua 1
+  // Worker KHAC bi Cloudflare chan (error code 1042, chong SSRF) khi ben goi cung la 1 Worker - chi
+  // xay ra vi ca "linhkien" lan "dvbh" (he DVBH goc) deu la Cloudflare Worker, cung 1 tai khoan. Dung
+  // Service Binding (dispatch noi bo qua Cloudflare, khong qua fetch() mang that) de vong qua han che
+  // nay - "service" la TEN SCRIPT that cua Worker dvbh (suy truc tiep tu URL "dvbh.dichvu3t.workers.dev",
+  // dung dinh dang "<ten-script>.<subdomain-tai-khoan>.workers.dev" cua Cloudflare).
+  // "remote": true - BAT BUOC de "npm run dev:worker" (local) cung dispatch toi ban DA DEPLOY that cua
+  // dvbh thay vi tim 1 "wrangler dev" khac dang chay local cho service "dvbh" (khong ton tai, se loi).
+  "services": [{ "binding": "CASE_LOOKUP_SERVICE", "service": "dvbh", "remote": true }],
+
   "vars": {
     "BOOTSTRAP_ADMIN_EMAIL": "smarttrade.vp@gmail.com",
     "GOOGLE_REDIRECT_URI": "https://linhkien.dichvu3t.workers.dev/api/auth/callback",

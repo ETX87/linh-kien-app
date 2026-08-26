@@ -6,7 +6,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nextSequentialId } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
-import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs } from "../lib/scopeDatMua";
+import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, khuVucViewEmailInSql } from "../lib/scopeDatMua";
 import { bumpVersions } from "../lib/dataVersions";
 import { quaHanLyDoCham } from "../lib/hanLyDoCham";
 import { getDatMuaLkBadge } from "./notifications";
@@ -1881,6 +1881,12 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
   } else if (user.vai_tro === "Giam sat") {
     whereSql += " AND ddh.email_gs = ?";
     binds.push(user.email);
+  } else if (user.la_view) {
+    // "View" (them 2026-08-26) - loc theo Khu vuc gan cho tai khoan nay, giong scopeDatMuaNguoiTao -
+    // xem comment khuVucViewEmailInSql() trong scopeDatMua.ts.
+    const emailIn = khuVucViewEmailInSql();
+    whereSql += ` AND (ddh.nguoi_tao IN ${emailIn} OR ddh.nguoi_nhan_hang IN ${emailIn})`;
+    binds.push(user.email, user.email);
   } else {
     whereSql += " AND tlk.nguoi_tao = ?";
     binds.push(user.email);
@@ -1942,6 +1948,12 @@ datMuaLinhKien.get("/thieu-lk/:id", async (c) => {
   } else if (user.vai_tro === "Giam sat") {
     whereSql += " AND ddh.email_gs = ?";
     binds.push(user.email);
+  } else if (user.la_view) {
+    // "View" (them 2026-08-26) - loc theo Khu vuc gan cho tai khoan nay, giong scopeDatMuaNguoiTao -
+    // xem comment khuVucViewEmailInSql() trong scopeDatMua.ts.
+    const emailIn = khuVucViewEmailInSql();
+    whereSql += ` AND (ddh.nguoi_tao IN ${emailIn} OR ddh.nguoi_nhan_hang IN ${emailIn})`;
+    binds.push(user.email, user.email);
   } else {
     whereSql += " AND tlk.nguoi_tao = ?";
     binds.push(user.email);

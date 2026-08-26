@@ -57,13 +57,15 @@ function MainApp({
   const role = user.vai_tro;
   // Tai khoan "chi Dat mua linh kien" - vai_tro=NULL CO CHU DICH (KTV/CTV/Tram/Ve tinh/Kho/Ke toan),
   // dung y giong he goc: khong tham gia mien nghiep vu nao khac, chi vao duoc qua cac co vai tro rieng.
-  const laTaiKhoanMuaHangThuanTuy = !role && !!(user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh);
+  const laTaiKhoanMuaHangThuanTuy = !role && !!(user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh || user.la_view);
   let allowedModules = role === "Admin" ? ROLE_MODULES.Admin : role ? (ROLE_MODULES[role] ?? []) : [];
-  // Cap them "dat-mua-lk"/"tra-hang" tu dong khi bat 1 trong 6 co "Dat mua linh kien", va
-  // "danh-muc-lk" khi bat xem_danh_muc_lk/quan_ly_danh_muc_lk - PHAI khop dung
-  // backend/src/middleware/requireDatMuaLkArea.ts + requireQuanLyDanhMucLk.ts (khong co co che dung
-  // chung giua 2 codebase Workers/Vite nen phai tu dong bo tay khi doi 1 ben).
-  if (role !== "Admin" && (user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh)) {
+  // Cap them "dat-mua-lk"/"tra-hang" tu dong khi bat 1 trong 7 co "Dat mua linh kien" (la_view them
+  // 2026-08-26 - "View" CHI doc, du lieu gioi han theo Khu vuc gan cho tai khoan, xem
+  // lib/scopeDatMua.ts/khuVucViewEmailInSql()), va "danh-muc-lk" khi bat xem_danh_muc_lk/
+  // quan_ly_danh_muc_lk - PHAI khop dung backend/src/middleware/requireDatMuaLkArea.ts +
+  // requireQuanLyDanhMucLk.ts (khong co co che dung chung giua 2 codebase Workers/Vite nen phai tu
+  // dong bo tay khi doi 1 ben).
+  if (role !== "Admin" && (user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh || user.la_view)) {
     // "trang-chu"/"thieu-lk" them vao day (phan hoi 2026-08-26: tach thanh muc menu rieng, truoc day
     // la 2 tab NOI BO cua "dat-mua-lk" hien khong dieu kien theo flag nao - gio phai duoc cap o day de
     // giu dung pham vi truy cap cu). "trang-chu" dat DAU TIEN de lam allowedModules[0] (tab mac dinh).

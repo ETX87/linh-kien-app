@@ -34,6 +34,26 @@ export interface KtvLienHeRow {
   // Gia tri THAT dang ap dung tu users.giam_sat_quan_ly (nguon duy nhat phan quyen, xem CLAUDE.md) -
   // chi de hien thi read-only, khac voi giam_sat_quan_ly o tren (chi la ghi chu danh ba).
   giam_sat_quan_ly_hien_tai?: string | null;
+  // Them 2026-08-26 (xay lai quan ly tai khoan/vai tro, migration 0009) - khu_vuc_ma gan truc tiep
+  // cho MOI KTV (ca cap 1 lan cap 2); ktv_cap1_phu_trach CHI y nghia khi vai_tro_ktv='Ve tinh' (tro
+  // toi ma_ktv cua 1 KTV cap 1 phu trach truc tiep); cong_no nhap tay/import, khong dong bo tu dong.
+  khu_vuc_ma: string | null;
+  ktv_cap1_phu_trach: string | null;
+  cong_no: number | null;
+  cong_no_cap_nhat_luc: string | null;
+}
+
+// Them 2026-08-26 (migration 0009) - 1 khu vuc chi 1 GS tai 1 thoi diem (gs_email), 1 GS duoc phep
+// phu trach nhieu khu vuc. gs_ten la LEFT JOIN users.ten, chi de hien thi.
+export interface KhuVucRow {
+  ma: string;
+  ten: string;
+  bat_tat: number;
+  stt: number;
+  gs_email: string | null;
+  gs_ten: string | null;
+  nguoi_cap_nhat: string | null;
+  ngay_cap_nhat: string;
 }
 
 export interface LyDoChamMuaLkRow {
@@ -59,6 +79,7 @@ export interface UserRow {
   la_ke_toan: number;
   la_tac_nghiep: number;
   la_tp_dvbh: number;
+  la_view: number;
   quan_ly_danh_muc_lk: number;
   xem_danh_muc_lk: number;
   tram_cha: string | null;

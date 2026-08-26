@@ -6,6 +6,7 @@ import { verifySessionMiddleware, SESSION_COOKIE, SESSION_TTL_SECONDS } from "..
 import { loadUser, VIEW_AS_COOKIE } from "../middleware/loadUser";
 import { nowVN } from "../lib/vnTime";
 import { isViewAsRole } from "../lib/viewAsPresets";
+import { resyncKhuVucDerivedFieldsForEmail } from "../lib/khuVucSync";
 
 const STATE_COOKIE = "dvbh_oauth_state";
 
@@ -119,6 +120,9 @@ auth.get("/callback", async (c) => {
         ktvMatch.laVeTinh,
       )
       .run();
+    // Phase 4 (2026-08-26): dong bo giam_sat_quan_ly/tram_cha tu Khu vuc/KTV cap 1 phu trach ngay
+    // sau khi tai khoan duoc tao/kich hoat lan dau - xem lib/khuVucSync.ts.
+    await resyncKhuVucDerivedFieldsForEmail(c.env.DB, userInfo.email);
   } else {
     // Upsert ten hien thi (khong dong lai vai_tro/trang_thai_duyet o day - loadUser xu ly).
     await c.env.DB.prepare(

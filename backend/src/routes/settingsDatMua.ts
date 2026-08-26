@@ -9,6 +9,7 @@ import { uploadPublicImage } from "../lib/googleDrive";
 import { encryptSecret } from "../lib/secretBox";
 import { computeAndStoreHash, getOrComputeHash } from "../lib/contentHash";
 import { nowVN } from "../lib/vnTime";
+import { resyncKhuVucDerivedFieldsForAll } from "../lib/khuVucSync";
 
 // Port rut gon tu backend/src/routes/settings.ts cua he DVBH goc - CHI giu 4 khoi thuc su can cho
 // mien nghiep vu "Dat mua linh kien" (xem CLAUDE.md muc "Nguon goc tach he thong"): danh muc linh
@@ -507,6 +508,78 @@ settingsDatMua.patch("/loai-de-xuat/:id", adminOnly, async (c) => {
 settingsDatMua.delete("/loai-de-xuat/:id", adminOnly, async (c) => {
   const id = Number(c.req.param("id"));
   await c.env.DB.prepare("DELETE FROM settings_loai_de_xuat WHERE id = ?").bind(id).run();
+  return c.json({ ok: true });
+});
+
+// ---------- Khu vuc (them 2026-08-26, xay lai quan ly tai khoan/vai tro - xem migration 0009) ----------
+// 1 khu vuc chi 1 GS tai 1 thoi diem (ep boi schema: 1 cot gs_email/dong), 1 GS duoc phep phu trach
+// nhieu khu vuc. Gan GS moi cho 1 khu vuc da co GS se ghi de - FE PHAI canh bao ro truoc khi goi PATCH
+// /:ma/gs (xem Phase 3, UsersModule/SettingsModule).
+
+settingsDatMua.get("/khu-vuc", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT k.*, u.ten as gs_ten FROM khu_vuc k LEFT JOIN users u ON u.email = k.gs_email ORDER BY k.stt, k.ma`,
+  ).all();
+  return c.json({ rows: results });
+});
+
+settingsDatMua.post("/khu-vuc", adminOnly, async (c) => {
+  const body = await c.req.json<{ ma: string; ten: string; stt?: number }>();
+  if (!body.ma?.trim() || !body.ten?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
+
+  const user = c.get("user");
+  const row = await c.env.DB.prepare(
+    `INSERT INTO khu_vuc (ma, ten, stt, nguoi_cap_nhat, ngay_cap_nhat)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(ma) DO UPDATE SET
+       ten = excluded.ten, stt = excluded.stt, nguoi_cap_nhat = excluded.nguoi_cap_nhat, ngay_cap_nhat = excluded.ngay_cap_nhat
+     RETURNING *`,
+  )
+    .bind(body.ma.trim(), body.ten.trim(), body.stt ?? 0, user.email, nowVN())
+    .first();
+  return c.json(row, 201);
+});
+
+settingsDatMua.patch("/khu-vuc/:ma", adminOnly, async (c) => {
+  const ma = c.req.param("ma");
+  const body = await c.req.json<{ ten?: string; bat_tat?: boolean; stt?: number }>();
+  const existing = await c.env.DB.prepare("SELECT * FROM khu_vuc WHERE ma = ?").bind(ma).first();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const next = {
+    ten: body.ten !== undefined ? body.ten.trim() : existing.ten,
+    bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat,
+    stt: body.stt !== undefined ? body.stt : existing.stt,
+  };
+  const user = c.get("user");
+  await c.env.DB.prepare("UPDATE khu_vuc SET ten = ?, bat_tat = ?, stt = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma = ?")
+    .bind(next.ten, next.bat_tat, next.stt, user.email, nowVN(), ma)
+    .run();
+  return c.json({ ok: true });
+});
+
+// PATCH /api/settings/khu-vuc/:ma/gs - gan/go GS phu trach 1 khu vuc. { gs_email: string | null }.
+// Validate gs_email (neu co) phai la 1 user vai_tro="Giam sat" - tranh gan nham 1 tai khoan khong
+// phai GS. Ghi de truc tiep (khong can xoa "khu vuc cu" cua GS do - 1 GS duoc phep nhieu khu vuc).
+settingsDatMua.patch("/khu-vuc/:ma/gs", adminOnly, async (c) => {
+  const ma = c.req.param("ma");
+  const existing = await c.env.DB.prepare("SELECT ma FROM khu_vuc WHERE ma = ?").bind(ma).first();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const body = await c.req.json<{ gs_email?: string | null }>();
+  const gsEmail = body.gs_email?.trim() || null;
+  if (gsEmail) {
+    const gsUser = await c.env.DB.prepare("SELECT vai_tro FROM users WHERE email = ?").bind(gsEmail).first<{ vai_tro: string | null }>();
+    if (!gsUser || gsUser.vai_tro !== "Giam sat") return c.json({ error: "NOT_A_GIAM_SAT" }, 400);
+  }
+
+  const user = c.get("user");
+  await c.env.DB.prepare("UPDATE khu_vuc SET gs_email = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma = ?")
+    .bind(gsEmail, user.email, nowVN(), ma)
+    .run();
+  // Phase 4 (2026-08-26): GS cua khu vuc nay vua doi - dong bo lai giam_sat_quan_ly cho MOI KTV
+  // thuoc khu vuc nay (co the nhieu dong cung luc) - xem lib/khuVucSync.ts.
+  await resyncKhuVucDerivedFieldsForAll(c.env.DB);
   return c.json({ ok: true });
 });
 

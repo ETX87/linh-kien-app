@@ -5,7 +5,7 @@ import type { AppUser } from "../types";
 // (vai_tro="Admin" doc tu DB, kiem tra trong middleware/loadUser.ts truoc khi ap dung override nay)
 // moi kich hoat duoc - khong co duong nao de 1 tai khoan thuong tu gia mao vai tro cao hon vi gia
 // tri cookie luon bi doi chieu lai voi DB o MOI request, khong tin client tu khai.
-export const VIEW_AS_ROLE_KEYS = ["ktv", "ve_tinh", "tram", "kho", "ke_toan", "tac_nghiep", "tp_dvbh", "qc", "giam_sat"] as const;
+export const VIEW_AS_ROLE_KEYS = ["ktv", "ve_tinh", "tram", "kho", "ke_toan", "tac_nghiep", "tp_dvbh", "qc", "giam_sat", "view"] as const;
 export type ViewAsRole = (typeof VIEW_AS_ROLE_KEYS)[number];
 
 export const VIEW_AS_LABELS: Record<ViewAsRole, string> = {
@@ -18,6 +18,7 @@ export const VIEW_AS_LABELS: Record<ViewAsRole, string> = {
   tp_dvbh: "TP DVBH",
   qc: "QC",
   giam_sat: "Giám sát",
+  view: "View",
 };
 
 export function isViewAsRole(v: unknown): v is ViewAsRole {
@@ -42,6 +43,7 @@ export function applyViewAsOverride(user: AppUser, role: ViewAsRole): AppUser {
     la_ke_toan: false,
     la_tac_nghiep: false,
     la_tp_dvbh: false,
+    la_view: false,
     quan_ly_danh_muc_lk: false,
     xem_danh_muc_lk: false,
     la_tram: false,
@@ -65,5 +67,7 @@ export function applyViewAsOverride(user: AppUser, role: ViewAsRole): AppUser {
       return { ...base, vai_tro: "QC" };
     case "giam_sat":
       return { ...base, vai_tro: "Giam sat" };
+    case "view":
+      return { ...base, la_view: true };
   }
 }

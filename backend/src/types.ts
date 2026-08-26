@@ -23,6 +23,7 @@ export interface AppUser {
   la_ke_toan: boolean; // Ke toan
   la_tac_nghiep: boolean; // "TN" - nguoi duyet don mua/PXK/tra hang
   la_tp_dvbh: boolean; // Xac nhan "linh kien dac thu" truoc buoc TN
+  la_view: boolean; // "View" (them 2026-08-26) - chi doc bao cao/danh sach, khong tao/duyet/sua
   quan_ly_danh_muc_lk: boolean; // Quyen SUA danh muc linh kien
   xem_danh_muc_lk: boolean; // Quyen XEM danh muc linh kien (doc lap voi quyen sua)
   tram_cha: string | null;
@@ -44,6 +45,12 @@ export interface Env {
   // Khong ghi gi ca, chi doc.
   CASE_LOOKUP_BASE_URL: string;
   CASE_LOOKUP_API_KEY: string;
+  // SUA 2026-08-26 (debug production: fetch() thang toi "*.workers.dev" tu 1 Worker khac bi Cloudflare
+  // chan voi "error code: 1042" - han che chong SSRF, CHI xay ra khi ben goi CUNG la 1 Worker, curl/
+  // server thuong khong dinh). "linhkien" va "dvbh" cung 1 tai khoan Cloudflare nen dung Service
+  // Binding (RPC noi bo, khong qua fetch() mang that) thay the - xem wrangler.jsonc muc "services"
+  // (service: "dvbh", dung ten script suy tu chinh URL "dvbh.dichvu3t.workers.dev").
+  CASE_LOOKUP_SERVICE: Fetcher;
   // Cua sau dang nhap CHI danh cho local dev (xem routes/auth.ts GET /dev-login), giong co che he goc.
   LOCAL_DEV_BYPASS_AUTH?: string;
   // Web Push (phan hoi 2026-08-26: day thong bao ngay khi co "tin nhan thong bao" moi trong

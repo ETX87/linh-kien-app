@@ -2,6 +2,19 @@ import type { Context } from "hono";
 import type { Env } from "../types";
 
 /**
+ * "View" (them 2026-08-26, xac nhan cua nguoi dung: "view thấy theo khu vực được set") - CHI doc,
+ * pham vi = tap KTV/Ve tinh co ktv_lien_he.khu_vuc_ma nam trong danh sach Khu vuc Admin gan cho
+ * chinh tai khoan View do (bang user_khu_vuc - CUNG bang TN/Kho/Ke toan dang dung de "tim
+ * kiem/thong ke", nhung voi View bang nay THAT SU gioi han du lieu xem duoc, khac y nghia cua
+ * TN/Kho/Ke toan). Chua gan Khu vuc nao -> IN (SELECT...) rong -> khong thay gi (an toan mac dinh,
+ * KHONG phai thay het). Dung chung 1 sql snippet o ca scopeDatMuaNguoiTao/scopePxkNguoiNhanHang va
+ * GET /dat-mua-lk/thieu-lk (xem routes/datMuaLinhKien.ts) de tranh viet lap subquery 3 lan.
+ */
+export function khuVucViewEmailInSql(): string {
+  return "(SELECT email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND khu_vuc_ma IN (SELECT khu_vuc_ma FROM user_khu_vuc WHERE user_email = ?))";
+}
+
+/**
  * Scope rieng cho module "Dat mua linh kien" - KHONG dung scopeByKhuVuc() (khu_vuc_phu_trach) vi
  * quyen xem o day phu thuoc vao QUAN HE nguoi dung (nguoi tao / Tram cha / GS quan ly) chu khong
  * theo khu vuc dia ly.
@@ -34,6 +47,13 @@ export function scopeDatMuaNguoiTao(c: Context<{ Bindings: Env }>): { whereSql: 
       binds: [user.email, user.email, user.email],
     };
   }
+  if (user.la_view) {
+    const emailIn = khuVucViewEmailInSql();
+    return {
+      whereSql: ` AND (ddh.nguoi_tao IN ${emailIn} OR ddh.nguoi_nhan_hang IN ${emailIn})`,
+      binds: [user.email, user.email],
+    };
+  }
   return { whereSql: " AND 1=0", binds: [] };
 }
 
@@ -60,6 +80,9 @@ export function scopePxkNguoiNhanHang(c: Context<{ Bindings: Env }>): { whereSql
       whereSql: " AND (pxk.nguoi_nhan_hang = ? OR pxk.nguoi_nhan_hang IN (SELECT email FROM users WHERE tram_cha = ?))",
       binds: [user.email, user.email],
     };
+  }
+  if (user.la_view) {
+    return { whereSql: ` AND pxk.nguoi_nhan_hang IN ${khuVucViewEmailInSql()}`, binds: [user.email] };
   }
   return { whereSql: " AND 1=0", binds: [] };
 }

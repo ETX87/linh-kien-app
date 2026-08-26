@@ -77,6 +77,13 @@ này. Trước khi hệ mới có thể tra cứu case:
 3. `npx wrangler secret put CASE_LOOKUP_API_KEY` ở hệ MỚI, dán giá trị key vừa tạo.
 4. `CASE_LOOKUP_BASE_URL` (đã có sẵn trong `wrangler.jsonc vars`, mặc định trỏ
    `https://dvbh.dichvu3t.workers.dev`) — chỉ cần sửa nếu domain hệ gốc đổi.
+5. **`services` binding `CASE_LOOKUP_SERVICE` trong `wrangler.jsonc` (đã cấu hình sẵn, trỏ tới script
+   `dvbh`) là BẮT BUỘC — không được xoá.** Phát hiện 2026-08-26: gọi thẳng `fetch()` tới URL
+   `*.workers.dev` của 1 Worker khác bị Cloudflare chặn với `error code: 1042` (chống SSRF) khi bên
+   gọi CŨNG là 1 Worker (curl/server thường không dính, nên dễ gây nhầm lẫn lúc test tay bằng curl mà
+   vẫn ra OK trong khi app thật bị chặn). Điều kiện áp dụng: `linhkien` và `dvbh` phải nằm CHUNG 1 tài
+   khoản Cloudflare — nếu tách tài khoản, phải bỏ binding này và đổi hệ gốc sang custom domain thật
+   (không phải `*.workers.dev`) rồi trỏ `CASE_LOOKUP_BASE_URL` vào domain đó.
 
 ## 6. Copy dữ liệu tham chiếu 1 lần từ hệ gốc (KHÔNG đồng bộ tiếp sau đó)
 
