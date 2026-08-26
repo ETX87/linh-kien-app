@@ -86,7 +86,18 @@ export function TopBarActions({
           </div>
         </button>
         {menuOpen && (
-          <div className="absolute right-0 mt-2 w-64 bg-[var(--surface)] border border-[var(--line)] rounded-xl shadow-lg py-1.5 anim-in">
+          // FIX (loi hien thi mobile, phat hien qua kiem thu 2026-08-26): dropdown nay TRUOC DAY luon
+          // "right-0" - dung tren desktop (TopBar.tsx dat trigger o SAT MEP PHAI 1 header rong, xem
+          // "ml-auto" o do), nhung SAI tren mobile tu khi component nay duoc nhung vao Sidebar off-canvas
+          // (hang muc #15) - trigger (avatar, ten bi an qua "hidden sm:block") gio nam SAT MEP TRAI 1
+          // drawer hep w-64 (256px), "right-0" neo canh phai dropdown vao canh phai cua trigger nho hep
+          // do khien dropdown w-64 tran GAN HET ra ngoai mep trai man hinh - hien thanh 1 khoi trang vo
+          // hinh de cat, chong len noi dung ben duoi. "left-0 md:left-auto md:right-0" (nguong md=768px
+          // khop dung useIsMobile()) neo dropdown theo dung huong mo con lai KHONG GIAN tren tung boi
+          // canh: trai tren mobile (mo ve phia phai, con cho trong drawer), phai tren desktop (nhu cu).
+          // w-56 (thay vi w-64 co dinh) tren mobile de dropdown khong tran qua canh phai cua chinh
+          // drawer 256px (trigger da chiem ~12-50px tu trai).
+          <div className="absolute left-0 md:left-auto md:right-0 mt-2 w-56 md:w-64 bg-[var(--surface)] border border-[var(--line)] rounded-xl shadow-lg py-1.5 anim-in">
             <div className="px-3.5 py-2 text-xs text-[var(--ink-400)] border-b border-[var(--line)] truncate">{user.email}</div>
             {realIsAdmin && (
               <div className="px-3.5 py-2.5 border-b border-[var(--line)]" onClick={(e) => e.stopPropagation()}>
