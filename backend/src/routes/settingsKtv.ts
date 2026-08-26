@@ -113,18 +113,29 @@ settingsKtv.post("/", adminOnly, async (c) => {
 // giu "Cho duyet" cho toi khi Admin duyet that hoac chinh KTV do tu dang nhap). KHONG con nhan/ghi
 // giam_sat_quan_ly o day (hang muc #3: users.giam_sat_quan_ly la nguon duy nhat, Admin gan rieng sau
 // trong Users module) - da bo luon filterValidGsEmails() vi khong con noi nao can nua.
+// FIX 2026-08-26 (phat hien tu bao cao "chờ duyệt vẫn có hàng loạt ktv"): truoc day dung
+// "ON CONFLICT DO NOTHING" nen KHONG BAO GIO tai kich hoat 1 dong users co san dang "Cho duyet" (vd
+// tao tu dot copy du lieu ban dau hoac tu 1 lan import truoc khi co quy tac "Da duyet NGAY") - KTV do
+// bi ket vinh vien o "Cho duyet" cho toi khi TU dang nhap that (chi auth.ts co logic tai kich hoat).
+// Doi sang DO UPDATE voi CASE WHEN GIONG HET pattern da dung dung o auth.ts (dong 102-122) de dam bao
+// ca 2 duong (Admin gan email_dang_nhap TRUOC, hoac KTV tu dang nhap TRUOC) deu kich hoat dung.
 async function provisionPlaceholderUser(
   db: D1Database,
   args: { email: string; ten: string | null; vaiTroKtv: string | null },
 ): Promise<D1PreparedStatement> {
   const laVeTinh = args.vaiTroKtv === "Ve tinh";
+  const laKtvDvbh = laVeTinh ? 0 : 1;
   return db
     .prepare(
       `INSERT INTO users (email, ten, vai_tro, trang_thai_duyet, la_ktv_dvbh, la_ve_tinh)
        VALUES (?, ?, NULL, 'Da duyet', ?, ?)
-       ON CONFLICT(email) DO NOTHING`,
+       ON CONFLICT(email) DO UPDATE SET
+         ten = CASE WHEN trang_thai_duyet = 'Cho duyet' THEN excluded.ten ELSE ten END,
+         trang_thai_duyet = CASE WHEN trang_thai_duyet = 'Cho duyet' THEN 'Da duyet' ELSE trang_thai_duyet END,
+         la_ktv_dvbh = CASE WHEN trang_thai_duyet = 'Cho duyet' THEN excluded.la_ktv_dvbh ELSE la_ktv_dvbh END,
+         la_ve_tinh = CASE WHEN trang_thai_duyet = 'Cho duyet' THEN excluded.la_ve_tinh ELSE la_ve_tinh END`,
     )
-    .bind(args.email, args.ten, laVeTinh ? 0 : 1, laVeTinh ? 1 : 0);
+    .bind(args.email, args.ten, laKtvDvbh, laVeTinh ? 1 : 0);
 }
 
 // POST /api/settings/ktv-lien-he/bulk-import - { rows: [{ma_ktv, ten_hien_thi?, sdt?, ghi_chu?,
