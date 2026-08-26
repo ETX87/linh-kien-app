@@ -33,7 +33,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: "thieu-lk", label: "Chờ LK", icon: "📦" },
       { key: "danh-muc-lk", label: "Bảng Giá", icon: "🔧" },
       // Lien ket ra ngoai (them 2026-08-25) - xem giai thich day du o NavItem.href phia tren.
-      { key: "sua-chua-bao-hanh", label: "Sửa chữa bảo hành", icon: "🛠", href: "https://suachua.dichvu3t.workers.dev" },
+      { key: "sua-chua-bao-hanh", label: "Sửa chữa", icon: "🛠", href: "https://suachua.dichvu3t.workers.dev" },
     ],
   },
   {
