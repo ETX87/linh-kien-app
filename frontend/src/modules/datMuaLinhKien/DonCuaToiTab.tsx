@@ -1524,7 +1524,12 @@ export function DonHangGroupedList({
         const tongTien = dongCon.reduce((s, d) => s + (d.gia_de_xuat ?? 0) * d.so_luong_de_xuat, 0);
         return (
           <div key={nguoiNhan} className="border border-[var(--line)] rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between gap-3 flex-wrap bg-[var(--surface-100)] px-3 py-2">
+            {/* Phan hoi 2026-08-26: "tô màu cho top banner này khác hẳn màu nền bên dưới (theo màu
+                được setup của giao diện)" - truoc day dung --surface-100 (xam trung tinh, giong het
+                nen bang phia duoi, nhin "phang" khong ro ranh gioi nhom). Doi sang --ocean-100 (mau
+                nhan chinh, TU DOI theo tung bo "Giao diện" ca nhan dang chon - xem theme/presets.ts),
+                tao tuong phan ro voi noi dung ban dong --surface trang o duoi. */}
+            <div className="flex items-center justify-between gap-3 flex-wrap bg-[var(--ocean-100)] px-3 py-2">
               <div className="flex items-center gap-3 flex-wrap text-sm">
                 <span className="font-bold text-[var(--ink-900)]">{formatNguoiDisplay(nguoiNhan, ktvDisplayMap)}</span>
                 <span className="text-[var(--ink-400)] text-xs">{dongCon.length} dòng</span>

@@ -37,8 +37,14 @@ export function BottomTabBar({ active, setActive, allowedModules, onOpenMore }: 
             key={it.key}
             type="button"
             onClick={() => setActive(it.key)}
-            className={`focus-ring flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold ${
-              active === it.key ? "text-[var(--ocean-800)]" : "text-[var(--ink-400)]"
+            // Phan hoi 2026-08-26: "chọn thẻ nào thì tô màu nền của tab đó lên" - truoc day CHI doi
+            // mau chu (text-[var(--ocean-800)]), de nham lan tren man hinh nho. Them nen tot-[var(
+            // --ocean-100)] + vien tren mau nhan de PHAN BIET RO tab dang mo, giong pattern active cua
+            // Sidebar.tsx (bg-[var(--sidebar-highlight)] + border-l).
+            className={`focus-ring flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold border-t-2 transition-colors ${
+              active === it.key
+                ? "text-[var(--ocean-800)] bg-[var(--ocean-100)] border-[var(--ocean-800)]"
+                : "text-[var(--ink-400)] border-transparent"
             }`}
           >
             <span className="relative">
