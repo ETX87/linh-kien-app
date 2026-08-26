@@ -24,6 +24,12 @@ export interface DatMuaLkBreakdown {
   choQcTraHang: number;
   choTramDuyet: number;
   choTpXacNhan: number;
+  // Them 2026-08-26 (bao cao "lỗi không hiện số đơn hàng đang xử lý" - tai khoan test la KTV/Ve
+  // tinh, cac muc con lai o tren CHI tinh cho vai tro XU LY (TN/Kho/Ke toan/QC/TP), nguoi TAO don
+  // thuan tuy luon thay 0 du chinh don cua ho dang cho duyet) - so don CHINH nguoi dang dang nhap da
+  // tao, dang o 1 trong 3 buoc cho duyet dau (Tram/TBP/TN), de badge co y nghia voi CA nhom nguoi
+  // dung nay.
+  choDonCuaToi: number;
 }
 
 const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
@@ -38,6 +44,7 @@ const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
   choQcTraHang: 0,
   choTramDuyet: 0,
   choTpXacNhan: 0,
+  choDonCuaToi: 0,
 };
 
 export interface NotificationsCountPayload {
@@ -169,9 +176,24 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
     }
   }
 
+  // Them 2026-08-26 - xem giai thich day du o field choDonCuaToi (interface DatMuaLkBreakdown tren
+  // dau file). Ap dung CHUNG cho MOI tai khoan (khong rieng KTV/Ve tinh) - staff tu tao don cung nen
+  // thay don cua chinh ho o day, khong chi hang cho xu ly cua nguoi khac.
+  const rowOwn = await db
+    .prepare(
+      `SELECT COUNT(*) as n FROM dat_don_hang ddh
+         WHERE ddh.nguoi_tao = ? AND ddh.loai_don != 'tra_hang'
+         AND (SELECT trang_thai FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1)
+           IN ('Cho Tram duyet', 'Cho TBP xac nhan', 'Cho TN duyet')`,
+    )
+    .bind(user.email)
+    .first<{ n: number }>();
+  out.choDonCuaToi = rowOwn?.n ?? 0;
+
   out.total =
     out.choTnDuyet + out.choTnTraHang + out.choKhoThieuLk + out.choKhoPxk + out.choKhoTraHang +
-    out.choKeToanPxk + out.choKeToanTraHang + out.choQcTraHang + out.choTramDuyet + out.choTpXacNhan;
+    out.choKeToanPxk + out.choKeToanTraHang + out.choQcTraHang + out.choTramDuyet + out.choTpXacNhan +
+    out.choDonCuaToi;
 
   return out;
 }

@@ -22,9 +22,12 @@ interface DatMuaLkBreakdown {
   choQcTraHang: number;
   choTramDuyet: number;
   choTpXacNhan: number;
+  // Them 2026-08-26 - xem giai thich day du o backend/src/routes/notifications.ts (cung ten field).
+  choDonCuaToi: number;
 }
 
 const BUCKET_LABELS: [keyof Omit<DatMuaLkBreakdown, "total">, string, string][] = [
+  ["choDonCuaToi", "Đơn của tôi đang chờ duyệt", "dat-mua-lk"],
   ["choTnDuyet", "Chờ TN duyệt (mua hàng)", "dat-mua-lk"],
   ["choTpXacNhan", "Chờ TP DVBH xác nhận (linh kiện đặc thù)", "dat-mua-lk"],
   ["choTramDuyet", "Chờ Trạm duyệt (Vệ tinh của bạn)", "dat-mua-lk"],

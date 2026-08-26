@@ -161,6 +161,19 @@ export function DatMuaLinhKienModule({
   // dau: 1 khi nguoi dung DA tu dieu huong (bam tab hoac jump) it nhat 1 lan trong phien mount nay -
   // tu do activeView tra ve dung `view` state binh thuong, thoat han khoi forceView.
   const [navigatedAway, setNavigatedAway] = useState(false);
+  // FIX (bao cao 2026-08-26: "bấm lại Home/Chờ LK thì chỉ đổi tiêu đề, không thật sự chuyển") -
+  // navigatedAway TRUOC DAY la 1 co MOT CHIEU (mot khi thanh true thi khong bao gio ve false trong
+  // suot vong doi component) - dung cho lan forceView bi "ghim" DAU TIEN, nhung neu nguoi dung nhay
+  // ra roi bam LAI CHINH muc menu do lan nua (vd Home -> bam so lieu nhay sang Don hang -> bam lai
+  // Home o Sidebar), App.tsx doi `active`/`forceView` ve dung "trang-chu" nhu cu nhung navigatedAway
+  // VAN con true tu lan truoc - activeView tiep tuc bo qua forceView vinh vien, noi dung dung nguyen
+  // o "don-cua-toi" trong khi tieu de h1/Sidebar (dieu khien rieng boi `active` o App.tsx, doc lap voi
+  // activeView noi bo o day) da doi dung - gay cam giac "bấm không ăn thua". Reset navigatedAway moi
+  // khi forceView PROP THUC SU doi gia tri (tai-ghim moi lan nguoi dung chu dong chon lai 1 muc menu
+  // cap cao), thay vi la co vinh vien cho ca vong doi component.
+  useEffect(() => {
+    setNavigatedAway(false);
+  }, [forceView]);
   // "trang-chu"/"thieu-lk" BO QUA isValidView khi den tu forceView (khong nam trong tabs[] nen
   // isValidView("trang-chu") luon false - neu doi qua isValidView o day forceView se bi lo, roi thang
   // ve view/tabs[0], y het bug da bat gap khi tu kiem thu 2026-08-26). Quyen truy cap 2 route nay da
