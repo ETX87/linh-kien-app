@@ -53,7 +53,10 @@ export function DatMuaLinhKienModule({
   // boi active o App.tsx) truoc day KHONG doi theo - van hien "Trang chủ" du noi dung thuc te da la
   // "Đặt mua linh kiện". Goi callback nay CHINH XAC 1 LAN tai thoi diem thoat forceView de App.tsx tu
   // doi active - dong bo lai menu/tieu de voi noi dung dang xem that su.
-  onLeaveForceView?: () => void;
+  // "view" (them 2026-08-26, fix bug Kho bam "Thiếu LK" o Home bi highlight nham "Đơn hàng" o
+  // Sidebar) - dich den THUC SU (view noi bo, xem markNavigatedAway) de App.tsx chon dung gia tri
+  // active thay vi luon gan cung "dat-mua-lk".
+  onLeaveForceView?: (view: string) => void;
   // Node DOM cua slot canh tieu de trang (App.tsx) - co thi "portal" thanh luong quy trinh len do
   // thay vi render 1 hang rieng ben duoi (theo yeu cau bo sung sau ra soat: "đẩy luồng thẻ quy trình
   // lên cùng dòng với tiêu đề, tiết kiệm diện tích") - dung dung pattern da co san o BacklogModule.
@@ -249,12 +252,12 @@ export function DatMuaLinhKienModule({
   // false -> true (dung gia tri navigatedAway HIEN TAI trong closure, KHONG doc lai sau setState vi
   // setState khong dong bo) - bao App.tsx biet da "thoat" khoi muc menu Trang chu/Thieu linh kien de
   // tu doi active, dong bo lai Sidebar/tieu de h1 voi noi dung dang xem that su.
-  function markNavigatedAway() {
-    if (forceView && !navigatedAway) onLeaveForceView?.();
+  function markNavigatedAway(view: string) {
+    if (forceView && !navigatedAway) onLeaveForceView?.(view);
     setNavigatedAway(true);
   }
   function handleTabChange(key: string) {
-    markNavigatedAway();
+    markNavigatedAway(key === "don-cua-toi:tra_hang" && canTraHangView ? "tra-hang" : key.startsWith("don-cua-toi:") ? "don-cua-toi" : key);
     if (key === "don-cua-toi:tra_hang" && canTraHangView) {
       setView("tra-hang");
       setLoaiDonTabClickSeq((n) => n + 1);
@@ -282,7 +285,7 @@ export function DatMuaLinhKienModule({
     return () => clearTimeout(t);
   }, [jumpTarget]);
   function jumpTo(target: JumpTarget) {
-    markNavigatedAway();
+    markNavigatedAway(target.tab);
     setJumpTarget(target);
     setView(target.tab);
   }

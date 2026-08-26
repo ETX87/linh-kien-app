@@ -194,7 +194,15 @@ function MainApp({
               // sang noi dung khac tu "Trang chủ"/"Thiếu linh kiện" (vd "Đơn của tôi"), noi dung thuc
               // te da chuyen sang "Đặt mua linh kiện" - goi callback nay de Sidebar/tieu de h1 (dieu
               // khien boi `active`) tu doi theo dung, tranh cam giac "bấm không ăn thua".
-              onLeaveForceView={() => setActive("dat-mua-lk")}
+              // FIX (kiem thu 2026-08-26, vai tro Kho bam StatCard "Thiếu LK" o Home): callback nay
+              // TRUOC DAY luon setActive("dat-mua-lk") bat ke dich den thuc su la view nao - dung voi
+              // "Đơn của tôi"/"Phiếu xuất kho" (khong co muc Sidebar rieng, gop chung vao "Đơn hàng"),
+              // nhung SAI voi "thieu-lk" (co muc Sidebar rieng "Chờ LK", xem navConfig.ts) - noi dung
+              // hien dung (ThieuLkTab) nhung Sidebar/tieu de van dung nguyen "Đơn hàng", gay cam giac
+              // bam nham tab. Nhan them `view` (dich den thuc su, xem markNavigatedAway o
+              // DatMuaLinhKienModule.tsx) de chon dung gia tri active: "thieu-lk" giu nguyen muc Sidebar
+              // rieng, con lai (don-cua-toi/phieu-xuat-kho) van gop ve "dat-mua-lk" nhu cu.
+              onLeaveForceView={(view) => setActive(view === "thieu-lk" ? "thieu-lk" : "dat-mua-lk")}
             />
           )}
           {active === "danh-muc-lk" && <DanhMucLinhKienModule />}
