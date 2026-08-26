@@ -1821,7 +1821,13 @@ export function DonHangGroupedList({
               </div>
             </Modal>
             {targetId && actionTarget?.action === "huy" && (
-              <div className="sticky bottom-2 z-10 flex items-center gap-2 flex-wrap border border-[var(--line)] bg-[var(--surface)] shadow-lg rounded-xl px-3 py-2.5">
+              // FIX (bao cao 2026-08-26: "nút hủy bỏ có hiện nhưng bấm vào không có phản hồi") - panel
+              // nay dung `position: sticky` neo theo VIEWPORT (khong co ancestor overflow rieng nao
+              // giua no va <main>), tren mobile BottomTabBar.tsx la `fixed bottom-0 z-40` PHU DUNG len
+              // dung vi tri `bottom-2` cu, va z-10 < z-40 nen panel bi VE PHIA SAU thanh tab duoi - vo
+              // hinh hoan toan du DA MO thanh cong. "bottom-20" (khop pb-20 cua <main> o App.tsx) +
+              // z-50 (> z-40 cua BottomTabBar) de panel luon noi TREN, khong bi che tren mobile.
+              <div className="sticky bottom-20 md:bottom-2 z-50 flex items-center gap-2 flex-wrap border border-[var(--line)] bg-[var(--surface)] shadow-lg rounded-xl px-3 py-2.5">
                 <span className="text-xs font-semibold">Hủy dòng {targetId} — nhập lý do</span>
                 <input
                   value={actionGhiChu}

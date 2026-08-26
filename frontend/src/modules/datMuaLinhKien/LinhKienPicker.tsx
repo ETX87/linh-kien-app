@@ -4,6 +4,7 @@ import { Btn } from "../../components/ui/Btn";
 import { Badge } from "../../components/ui/Badge";
 import { Modal } from "../../components/ui/Modal";
 import { Select } from "../../components/ui/Select";
+import { DropdownPortal } from "../../components/ui/DropdownPortal";
 import { KvRow } from "../../components/ui/KvRow";
 import { api } from "../../api/client";
 import { fmtVND } from "../../types";
@@ -163,6 +164,7 @@ export function LinhKienPicker({
   const [highlightIdx, setHighlightIdx] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const addToast = useToast();
   const qc = useQueryClient();
   const auth = useAuth();
@@ -172,10 +174,11 @@ export function LinhKienPicker({
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setQuery("");
-      }
+      const target = e.target as Node;
+      if (containerRef.current?.contains(target)) return;
+      if (dropdownRef.current?.contains(target)) return;
+      setOpen(false);
+      setQuery("");
     }
     if (open) document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
@@ -262,44 +265,42 @@ export function LinhKienPicker({
           placeholder="Gõ để tìm…"
           className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm text-[var(--ink-900)] disabled:opacity-40 disabled:cursor-not-allowed"
         />
-        {open && (
-          <div className="absolute z-20 mt-1 w-full max-h-72 overflow-y-auto bg-[var(--surface)] border border-[var(--line)] rounded-lg shadow-lg py-1">
-            {ranked.length === 0 && unranked.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-[var(--ink-400)] italic">Không tìm thấy.</div>
-            ) : (
-              <>
-                {ranked.map((o, i) => (
-                  <LinhKienPickerRow
-                    key={o.ma_linh_kien}
-                    o={o}
-                    rank={rankMap.get(o.ma_linh_kien)}
-                    selected={o.ma_linh_kien === value}
-                    highlighted={i === highlightIdx}
-                    onPick={() => pick(o.ma_linh_kien)}
-                  />
-                ))}
-                {ranked.length > 0 && unranked.length > 0 && (
-                  <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-400)] text-center">── Linh kiện khác ──</div>
-                )}
-                {unranked.map((o, i) => (
-                  <LinhKienPickerRow
-                    key={o.ma_linh_kien}
-                    o={o}
-                    rank={undefined}
-                    selected={o.ma_linh_kien === value}
-                    highlighted={ranked.length + i === highlightIdx}
-                    onPick={() => pick(o.ma_linh_kien)}
-                  />
-                ))}
-                {truncatedCount > 0 && (
-                  <div className="px-3 py-1.5 text-[10px] text-[var(--ink-400)] text-center border-t border-[var(--line)] mt-1">
-                    Còn {truncatedCount} kết quả khác — gõ thêm để thu hẹp
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
+        <DropdownPortal anchorRef={containerRef} contentRef={dropdownRef} open={open} maxHeight={288} className="rounded-lg py-1">
+          {ranked.length === 0 && unranked.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-[var(--ink-400)] italic">Không tìm thấy.</div>
+          ) : (
+            <>
+              {ranked.map((o, i) => (
+                <LinhKienPickerRow
+                  key={o.ma_linh_kien}
+                  o={o}
+                  rank={rankMap.get(o.ma_linh_kien)}
+                  selected={o.ma_linh_kien === value}
+                  highlighted={i === highlightIdx}
+                  onPick={() => pick(o.ma_linh_kien)}
+                />
+              ))}
+              {ranked.length > 0 && unranked.length > 0 && (
+                <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-400)] text-center">── Linh kiện khác ──</div>
+              )}
+              {unranked.map((o, i) => (
+                <LinhKienPickerRow
+                  key={o.ma_linh_kien}
+                  o={o}
+                  rank={undefined}
+                  selected={o.ma_linh_kien === value}
+                  highlighted={ranked.length + i === highlightIdx}
+                  onPick={() => pick(o.ma_linh_kien)}
+                />
+              ))}
+              {truncatedCount > 0 && (
+                <div className="px-3 py-1.5 text-[10px] text-[var(--ink-400)] text-center border-t border-[var(--line)] mt-1">
+                  Còn {truncatedCount} kết quả khác — gõ thêm để thu hẹp
+                </div>
+              )}
+            </>
+          )}
+        </DropdownPortal>
       </div>
       {/* CHOT (phan hoi 2026-08-18): nut xem chi tiet - chi hien khi DA CHON 1 linh kien, mo modal
           xem (va sua neu co quyen quan_ly_danh_muc_lk) - xem LinhKienDetailModal ben duoi. */}

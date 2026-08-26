@@ -143,6 +143,11 @@ export function PhieuXuatKhoTab({
   // Danh sach KTV thuc su co dong kha dung (de dung lam options Select "Chon KTV") - chi liet ke
   // KTV dang co dong cho tao PXK, tranh chon xong roi thay danh sach rong.
   const ktvKhaDung = [...new Set((khaDungData?.rows ?? []).map((r) => r.nguoi_nhan_hang).filter((x): x is string => !!x))];
+  // Tong tien cac dong DA CHON (them 2026-08-26: "1 nút ấn tự điền tiền ước tính... = số tiền tổng
+  // theo danh sách đã chọn") - tach thanh bien dung chung, truoc day chi tinh INLINE 1 lan de HIEN THI
+  // o dong "Đã chọn N" (xem JSX ben duoi), gio dung lai CHINH XAC con so nay de tu dien vao o "Số tiền
+  // cần KTV chuyển" qua 1 nut bam, tranh 2 noi tinh lai co the lech nhau.
+  const tongTienDaChon = (khaDungData?.rows ?? []).filter((r) => selectedDonHang.has(r.id)).reduce((s, r) => s + (r.gia_de_xuat ?? 0) * r.so_luong_de_xuat, 0);
 
   function toggleDonHang(id: string) {
     setSelectedDonHang((s) => {
@@ -407,13 +412,7 @@ export function PhieuXuatKhoTab({
                   {selectedDonHang.size > 0 && (
                     <>
                       {" · "}
-                      <span className="font-semibold text-[var(--green-700)]">
-                        {fmtVND(
-                          (khaDungData?.rows ?? [])
-                            .filter((r) => selectedDonHang.has(r.id))
-                            .reduce((s, r) => s + (r.gia_de_xuat ?? 0) * r.so_luong_de_xuat, 0),
-                        )}
-                      </span>
+                      <span className="font-semibold text-[var(--green-700)]">{fmtVND(tongTienDaChon)}</span>
                     </>
                   )}
                 </span>
@@ -453,7 +452,19 @@ export function PhieuXuatKhoTab({
               </div>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Số tiền cần KTV chuyển (bỏ trống nếu không cần)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-[var(--ink-600)]">Số tiền cần KTV chuyển (bỏ trống nếu không cần)</label>
+                {/* Tu dien tien uoc tinh (phan hoi 2026-08-26) - dien = tong tien cac dong DA CHON o
+                    tren (tongTienDaChon), nguoi dung van sua tay duoc sau khi bam neu can khac di. */}
+                <button
+                  type="button"
+                  onClick={() => setCreateData((p) => ({ ...p, so_tien_can_chuyen: String(tongTienDaChon) }))}
+                  disabled={selectedDonHang.size === 0}
+                  className="shrink-0 text-[11px] font-semibold text-[var(--ocean-700)] hover:underline disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline disabled:text-[var(--ink-400)]"
+                >
+                  = Tổng đã chọn ({fmtVND(tongTienDaChon)})
+                </button>
+              </div>
               <input
                 type="number"
                 value={createData.so_tien_can_chuyen}

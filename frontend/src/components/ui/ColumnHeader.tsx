@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import type { Column } from "./PaginatedTable";
+import { DropdownPortal } from "./DropdownPortal";
 
 // Tach tu PaginatedTable.tsx (UI redesign 2026-08-21) - phan UI cua 1 o <th> (sap xep/keo doi vi
 // tri/keo doi do rong) + nut "⚙ Tuy chinh cot" + panel, dung chung voi useColumnConfig.ts. Tach
@@ -19,8 +20,10 @@ export function ColumnSettingsButton<T>({
   setSettingsOpen: (v: boolean | ((prev: boolean) => boolean)) => void;
   toggleColumn: (key: string) => void;
 }) {
+  const anchorRef = useRef<HTMLSpanElement>(null);
+
   return (
-    <span className="relative inline-block ml-2" onClick={(e) => e.stopPropagation()}>
+    <span ref={anchorRef} className="relative inline-block ml-2" onClick={(e) => e.stopPropagation()}>
       <button
         type="button"
         onClick={() => setSettingsOpen((v) => !v)}
@@ -30,20 +33,18 @@ export function ColumnSettingsButton<T>({
         <span className="text-sm leading-none">⚙</span>
         <span className="hidden sm:inline whitespace-nowrap">Tùy chỉnh cột</span>
       </button>
-      {settingsOpen && (
-        <div className="absolute left-0 top-full mt-2 w-64 max-h-96 overflow-y-auto bg-[var(--surface)] border border-[var(--line)] rounded-xl shadow-lg py-1.5 z-20 anim-in normal-case font-normal">
-          <div className="px-3 py-1.5 text-xs text-[var(--ink-600)] border-b border-[var(--line)] mb-1">
-            ↔ Kéo đường kẻ giữa 2 tiêu đề để đổi độ rộng · Kéo cả tiêu đề để đổi vị trí cột
-          </div>
-          <div className="px-3 py-1.5 text-[11px] font-semibold text-[var(--ink-400)] uppercase tracking-wide">Cột hiển thị (bỏ tick để ẩn bớt)</div>
-          {toggleableColumns.map((tc) => (
-            <label key={tc.key} className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-700)] hover:bg-slate-50 cursor-pointer">
-              <input type="checkbox" checked={resolvedOrder.includes(tc.key)} onChange={() => toggleColumn(tc.key)} className="w-3.5 h-3.5" />
-              {tc.header}
-            </label>
-          ))}
+      <DropdownPortal anchorRef={anchorRef} open={settingsOpen} matchWidth={false} maxHeight={384} className="w-64 rounded-xl py-1.5 normal-case font-normal">
+        <div className="px-3 py-1.5 text-xs text-[var(--ink-600)] border-b border-[var(--line)] mb-1">
+          ↔ Kéo đường kẻ giữa 2 tiêu đề để đổi độ rộng · Kéo cả tiêu đề để đổi vị trí cột
         </div>
-      )}
+        <div className="px-3 py-1.5 text-[11px] font-semibold text-[var(--ink-400)] uppercase tracking-wide">Cột hiển thị (bỏ tick để ẩn bớt)</div>
+        {toggleableColumns.map((tc) => (
+          <label key={tc.key} className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-700)] hover:bg-slate-50 cursor-pointer">
+            <input type="checkbox" checked={resolvedOrder.includes(tc.key)} onChange={() => toggleColumn(tc.key)} className="w-3.5 h-3.5" />
+            {tc.header}
+          </label>
+        ))}
+      </DropdownPortal>
     </span>
   );
 }

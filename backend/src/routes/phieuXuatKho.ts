@@ -415,7 +415,12 @@ phieuXuatKho.post("/:id/bang-chung-chuyen-tien", async (c) => {
     .bind(id)
     .first<{ trang_thai_chuyen_tien: string | null; nguoi_nhan_hang: string | null }>();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
-  if (user.email !== pxk.nguoi_nhan_hang && user.vai_tro !== "Admin") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  // FIX (bao cao 2026-08-26: "Vai trò TN thử up hình ảnh bằng chứng chuyển tiền thì bị báo lỗi") -
+  // truoc day CHI KTV (nguoi_nhan_hang that su) hoac Admin upload duoc, nhung thuc te KTV thuong gui
+  // anh chuyen khoan qua Zalo/tin nhan roi TN (nguoi xu ly PXK) up HO len he thong, khong tu dang
+  // nhap upload. Them dieu kien canTacNghiep(c) (la_tac_nghiep hoac Admin, dung cung dinh nghia voi
+  // moi noi khac trong file nay) vao truong hop duoc phep.
+  if (user.email !== pxk.nguoi_nhan_hang && user.vai_tro !== "Admin" && !canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   if (pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen") return c.json({ error: "INVALID_STATE" }, 409);
 
   const contentType = c.req.header("Content-Type") || "image/jpeg";
@@ -470,7 +475,10 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
 
   if (body.trang_thai === "KTV da chuyen") {
     const user = c.get("user");
-    if (user.email !== pxk.nguoi_nhan_hang && user.vai_tro !== "Admin") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+    // FIX (bao cao 2026-08-26, cung ly do voi POST /:id/bang-chung-chuyen-tien o duoi): cho phep TN
+    // (canTacNghiep) xac nhan ho buoc nay - KTV thuong gui anh/tin nhan qua kenh khac, TN la nguoi
+    // thao tac tren he thong thay vi tu KTV dang nhap.
+    if (user.email !== pxk.nguoi_nhan_hang && user.vai_tro !== "Admin" && !canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
     if (pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen") return c.json({ error: "INVALID_STATE" }, 409);
     // migration 0091 (phan hoi 2026-08-19: "cho phép upload ảnh hoặc ghi chú thông tin chuyển
     // tiền") - bat buoc CO IT NHAT 1 trong 2 (anh that qua Drive HOAC ghi chu van ban), khong con

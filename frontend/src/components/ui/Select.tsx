@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { DropdownPortal } from "./DropdownPortal";
 
 export type SelectOption = string | { value: string; label: string };
 
@@ -71,15 +72,17 @@ function SearchableSelect({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selected = options.find((o) => optValue(o) === value);
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setQuery("");
-      }
+      const target = e.target as Node;
+      if (containerRef.current?.contains(target)) return;
+      if (dropdownRef.current?.contains(target)) return;
+      setOpen(false);
+      setQuery("");
     }
     if (open) document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
@@ -106,34 +109,32 @@ function SearchableSelect({
         placeholder="Gõ để tìm…"
         className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm text-[var(--ink-900)] disabled:opacity-40 disabled:cursor-not-allowed"
       />
-      {open && (
-        <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto bg-[var(--surface)] border border-[var(--line)] rounded-lg shadow-lg py-1">
-          {filtered.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-[var(--ink-400)] italic">Không tìm thấy.</div>
-          ) : (
-            filtered.map((o) => {
-              const v = optValue(o);
-              return (
-                // onMouseDown (khong phai onClick) de chay TRUOC su kien blur cua input.
-                <button
-                  key={v}
-                  type="button"
-                  title={optLabel(o)}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    onChange(v);
-                    setOpen(false);
-                    setQuery("");
-                  }}
-                  className={`w-full text-left px-3 py-1.5 text-sm truncate hover:bg-slate-50 ${v === value ? "bg-[var(--ocean-100)]/40 font-semibold" : ""}`}
-                >
-                  {optLabel(o)}
-                </button>
-              );
-            })
-          )}
-        </div>
-      )}
+      <DropdownPortal anchorRef={containerRef} contentRef={dropdownRef} open={open} maxHeight={224} className="rounded-lg py-1">
+        {filtered.length === 0 ? (
+          <div className="px-3 py-2 text-xs text-[var(--ink-400)] italic">Không tìm thấy.</div>
+        ) : (
+          filtered.map((o) => {
+            const v = optValue(o);
+            return (
+              // onMouseDown (khong phai onClick) de chay TRUOC su kien blur cua input.
+              <button
+                key={v}
+                type="button"
+                title={optLabel(o)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onChange(v);
+                  setOpen(false);
+                  setQuery("");
+                }}
+                className={`w-full text-left px-3 py-1.5 text-sm truncate hover:bg-slate-50 ${v === value ? "bg-[var(--ocean-100)]/40 font-semibold" : ""}`}
+              >
+                {optLabel(o)}
+              </button>
+            );
+          })
+        )}
+      </DropdownPortal>
     </div>
   );
 }
