@@ -14,6 +14,7 @@ import { UsersModule } from "./modules/UsersModule";
 import { api } from "./api/client";
 import { useIsMobile } from "./hooks/useMediaQuery";
 import { CommandPalette, type CommandItem } from "./components/ui/CommandPalette";
+import { useThemeSettings } from "./theme/useThemeSettings";
 
 // Shell RUT GON tu frontend/src/App.tsx cua he DVBH goc - he doc lap nay CHI phuc vu 1 mien nghiep
 // vu (Dat mua linh kien + Tra hang + Danh muc linh kien + Settings/Users quan tri), nen KHONG con
@@ -23,6 +24,11 @@ const ACTIVE_MODULE_KEY = "dat_mua_lk_active_module";
 
 export function App() {
   const auth = useAuth();
+  // Ap dung theme ca nhan (mau + font, luu localStorage - xem useThemeSettings.ts) ngay tu shell
+  // ngoai cung, khong phu thuoc trang thai dang nhap/module dang mo. index.html co san 1 script inline
+  // lam viec nay TRUOC khi React mount (chong nhay mau mac dinh) - goi lai o day de dong bo lai sau
+  // khi React hydrate va de ThemeSettingsModal (mo tu menu tai khoan) doc/ghi cung 1 nguon.
+  useThemeSettings();
 
   if (auth.status === "loading") {
     return (
@@ -172,12 +178,26 @@ function MainApp({
               <div ref={setHeaderExtraEl} className="flex items-center gap-2 flex-wrap min-w-0" />
             </div>
           </div>
-          {/* "trang-chu"/"thieu-lk" tach thanh muc menu rieng (phan hoi 2026-08-26) - dung LAI pattern
-              forceView da co san cho "tra-hang", khong tao co che dieu huong moi. */}
-          {active === "trang-chu" && <DatMuaLinhKienModule forceView="trang-chu" headerExtra={headerExtraEl} />}
-          {active === "dat-mua-lk" && <DatMuaLinhKienModule headerExtra={headerExtraEl} />}
-          {active === "thieu-lk" && <DatMuaLinhKienModule forceView="thieu-lk" headerExtra={headerExtraEl} />}
-          {active === "tra-hang" && <DatMuaLinhKienModule forceView="tra-hang" headerExtra={headerExtraEl} />}
+          {/* "trang-chu"/"dat-mua-lk"/"thieu-lk"/"tra-hang" GOP thanh 1 LAN GOI <DatMuaLinhKienModule>
+              duy nhat (phan hoi 2026-08-26: "click vào thẻ trang chủ, kích để xem đơn hàng, mà vẫn ở
+              thẻ trang chủ là sao?") - truoc day 4 nhanh JSX rieng ({active==="x" && <Module .../>}),
+              moi lan doi `active` giua chung la 1 lan UNMOUNT+REMOUNT component (khac vi tri trong
+              cay React) nen jumpTarget/navigatedAway (state noi bo, KHONG luu localStorage) bi MAT khi
+              onLeaveForceView goi setActive() - lam mat bo loc dang mang theo (vd bam "SL bị từ chối"
+              tu BaoCaoTab). Gop thanh 1 dieu kien + 1 component duy nhat: React coi la CUNG 1 instance
+              (cung vi tri cay) khi doi `active` giua 4 gia tri nay, chi re-render voi forceView prop
+              moi - KHONG unmount, moi state noi bo (jumpTarget, navigatedAway, view) giu nguyen. */}
+          {(active === "trang-chu" || active === "dat-mua-lk" || active === "thieu-lk" || active === "tra-hang") && (
+            <DatMuaLinhKienModule
+              forceView={active === "dat-mua-lk" ? undefined : active}
+              headerExtra={headerExtraEl}
+              // FIX (phan hoi 2026-08-26, cung van de tren): khi nguoi dung bam so lieu/StatCard nhay
+              // sang noi dung khac tu "Trang chủ"/"Thiếu linh kiện" (vd "Đơn của tôi"), noi dung thuc
+              // te da chuyen sang "Đặt mua linh kiện" - goi callback nay de Sidebar/tieu de h1 (dieu
+              // khien boi `active`) tu doi theo dung, tranh cam giac "bấm không ăn thua".
+              onLeaveForceView={() => setActive("dat-mua-lk")}
+            />
+          )}
           {active === "danh-muc-lk" && <DanhMucLinhKienModule />}
           {active === "settings" && <SettingsModule />}
           {active === "users" && <UsersModule />}

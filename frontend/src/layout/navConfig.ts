@@ -28,10 +28,10 @@ export const NAV_GROUPS: NavGroup[] = [
       // linh kiện" (xem DatMuaLinhKienModule.tsx). Vao qua forceView="trang-chu"/"thieu-lk" o App.tsx,
       // dung y het pattern "tra-hang" da co san (route forceView rieng, khong con la tab noi bo).
       // "Trang chủ" dat DAU TIEN (phan hoi 2026-08-26) - lam diem vao dashboard cho MOI vai tro.
-      { key: "trang-chu", label: "Trang chủ", icon: "🏠" },
-      { key: "dat-mua-lk", label: "Đặt mua linh kiện", icon: "◈", countKey: "datMuaLk" },
-      { key: "thieu-lk", label: "Thiếu linh kiện", icon: "📦" },
-      { key: "danh-muc-lk", label: "Danh mục linh kiện", icon: "🔧" },
+      { key: "trang-chu", label: "Home", icon: "🏠" },
+      { key: "dat-mua-lk", label: "Đơn hàng", icon: "◈", countKey: "datMuaLk" },
+      { key: "thieu-lk", label: "Chờ LK", icon: "📦" },
+      { key: "danh-muc-lk", label: "Bảng Giá", icon: "🔧" },
       // Lien ket ra ngoai (them 2026-08-25) - xem giai thich day du o NavItem.href phia tren.
       { key: "sua-chua-bao-hanh", label: "Sửa chữa bảo hành", icon: "🛠", href: "https://suachua.dichvu3t.workers.dev" },
     ],
@@ -58,11 +58,11 @@ export const ROLE_MODULES: Record<VaiTro, string[]> = {
 };
 
 export const MODULE_TITLES: Record<string, string> = {
-  "trang-chu": "Trang chủ",
-  "dat-mua-lk": "Đặt mua linh kiện",
-  "thieu-lk": "Thiếu linh kiện",
+  "trang-chu": "Home",
+  "dat-mua-lk": "Đơn hàng",
+  "thieu-lk": "Chờ LK",
   "tra-hang": "Đơn trả hàng",
-  "danh-muc-lk": "Danh mục linh kiện",
+  "danh-muc-lk": "Bảng Giá",
   settings: "Settings",
   users: "Quản lý User",
 };

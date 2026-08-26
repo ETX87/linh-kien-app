@@ -8,6 +8,12 @@
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
 @import "@fontsource/ibm-plex-mono/600.css";
+/* Font tuy chon rieng cho tinh nang "Giao diện" ca nhan (--font-body, xem theme/fonts.ts) - Inter/
+   Manrope da co san o tren, chi them Be Vietnam Pro (day du dau tieng Viet). */
+@import "@fontsource/be-vietnam-pro/400.css";
+@import "@fontsource/be-vietnam-pro/500.css";
+@import "@fontsource/be-vietnam-pro/600.css";
+@import "@fontsource/be-vietnam-pro/700.css";
 
 @tailwind base;
 @tailwind components;
@@ -46,6 +52,11 @@
      san, dung rieng cho 1 cho truoc do) nay la accent chinh xuyen suot he thong. */
   --bg: #fafafa;
   --surface: #ffffff;
+  /* Nen "mem" cho header bang/hover (them 2026-08-26, khop dung ten --surface-soft cua "mau css.txt")
+     - thay the 7 cho truoc do hardcode thang bg-[#FBFBFB] trong component (UsersModule.tsx,
+     SettingsModule.tsx, PaginatedTable.tsx, DonCuaToiTab.tsx, PhieuXuatKhoTab.tsx, ThieuLkTab.tsx) de
+     header bang doi mau theo tung bo giao dien (xem theme/) thay vi luon xam lanh co dinh. */
+  --surface-soft: #fbfbfb;
   --surface-100: #f4f4f5;
   --surface-200: #e4e4e7;
   --surface-2: #f4f4f5;
@@ -116,15 +127,20 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #c6d6e0;
+  /* Truoc la hex cung #c6d6e0 (khong doi theo bo mau) - doi sang tron giua vien/mau info bang
+     color-mix() de vua doi theo theme dang chon (xem thu muc theme/) vua khong qua rue nhu dung
+     thang --ocean-400 (mau dam, danh cho icon/chu, khong hop lam thanh cuon mo nhat). */
+  background: color-mix(in srgb, var(--ocean-400) 55%, var(--surface-200));
   border-radius: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 .ripple-bg {
-  background-image: radial-gradient(circle at 15% 25%, rgba(63, 176, 224, 0.16) 0, transparent 42%),
-    radial-gradient(circle at 85% 15%, rgba(21, 156, 147, 0.12) 0, transparent 38%);
+  /* Truoc la rgba(...) hardcode dung DUNG BANG --ocean-400/--teal-500 - doi sang color-mix() de doi
+     mau theo bo giao dien dang chon (xem theme/) thay vi luon co dinh tong ocean/teal. */
+  background-image: radial-gradient(circle at 15% 25%, color-mix(in srgb, var(--ocean-400) 16%, transparent) 0, transparent 42%),
+    radial-gradient(circle at 85% 15%, color-mix(in srgb, var(--teal-500) 12%, transparent) 0, transparent 38%);
 }
 .scrollbar-thin::-webkit-scrollbar {
   width: 6px;

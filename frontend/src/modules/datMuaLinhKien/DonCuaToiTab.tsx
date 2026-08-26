@@ -1564,7 +1564,7 @@ export function DonHangGroupedList({
                       <thead>
                         {/* Khop dung header ".tbl th" concept 1 (chu hoa nho, xam, nen #FBFBFB) - dong
                             bo voi header cua PaginatedTable.tsx (xem tr className tuong tu o do). */}
-                        <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[#FBFBFB] border-b border-[var(--line)]">
+                        <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
                           {effectiveColumns.map((col, idx) => (
                             <ResizableHeaderCell
                               key={col.key}

@@ -489,7 +489,7 @@ function ThieuLkGroupedList({
                   <thead>
                     {/* Khop dung header PaginatedTable.tsx (bg #FBFBFB, chu ink-400 uppercase 10.5px) - truoc
                         day dung bg-white text-ink-500, khac chuan da co san. */}
-                    <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[#FBFBFB] border-b border-[var(--line)]">
+                    <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
                       {effectiveColumns.map((col, idx) => (
                         <ResizableHeaderCell
                           key={col.key}

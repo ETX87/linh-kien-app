@@ -4,6 +4,7 @@ import type { AppUser } from "../auth/AuthContext";
 import { VIEW_AS_ROLES, type ViewAsRole } from "../auth/viewAsRoles";
 import { api } from "../api/client";
 import { formatPersonDisplay, usePersonDirectory } from "../lib/personDisplay";
+import { ThemeSettingsModal } from "../theme/ThemeSettingsModal";
 
 // Tach tu TopBar.tsx (hang muc #15, 2026-08-25: "mobile mặc định bỏ top, ấn menu ở bottom mới hiện")
 // - chuong thong bao + avatar/tai khoan gio dung CHUNG duoc o CA TopBar (desktop) lan Sidebar (mobile
@@ -58,6 +59,7 @@ export function TopBarActions({
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [themeModalOpen, setThemeModalOpen] = useState(false);
 
   const { data: counts } = useQuery({
     queryKey: ["notifications-count"],
@@ -170,12 +172,25 @@ export function TopBarActions({
                 </select>
               </div>
             )}
+            {/* "Giao diện" (them 2026-08-26) - so thich CA NHAN (chi luu localStorage, xem
+                useThemeSettings.ts), nen dat o day (hien cho MOI vai tro) thay vi trong SettingsModule
+                von chi Admin vao duoc qua ROLE_MODULES. */}
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                setThemeModalOpen(true);
+              }}
+              className="w-full text-left px-3.5 py-2 text-sm hover:bg-slate-50 text-[var(--ink-700)]"
+            >
+              🎨 Giao diện
+            </button>
             <button onClick={logout} className="w-full text-left px-3.5 py-2 text-sm hover:bg-slate-50 text-[var(--coral-500)]">
               Đăng xuất
             </button>
           </div>
         )}
       </div>
+      <ThemeSettingsModal open={themeModalOpen} onClose={() => setThemeModalOpen(false)} />
     </div>
   );
 }

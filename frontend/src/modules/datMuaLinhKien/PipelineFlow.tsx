@@ -56,10 +56,10 @@ export function MyWorkloadStrip({
 // SAU (ve sau trong DOM, tu nhien de len tren khi khong dinh position/z-index) hoan toan che doan truoc
 // - ket qua la 1 mui ten mau cua doan SAU chen giua 2 than hinh chu nhat, dung 1 duong noi lien mach.
 // 4 yeu cau cu van giu nguyen: khong nhap nhay ca o (chi 1 cham nho canh nhan o muc khan cap nhat), mau
-// nen mac dinh la gradient tang dan do dam theo vi tri (pipelineGradientStyle), o co viec can xu ly ghi
-// de bang mau dac amber/coral, khong con tien to "B{n}.". Vong 7: chu he thong thay cac o "khong deu
-// nhau" (dang tu co dan theo do dai nhan) - doi sang CHIEU RONG CO DINH (PIPELINE_SEG_WIDTH) cho moi
-// o deu nhau tam tap, bo "whitespace-nowrap" tren nhan de chu dai tu XUONG DONG thay vi day rong o.
+// nen mac dinh la gradient tang dan do dam theo vi tri, o co viec can xu ly ghi de bang mau dac
+// amber/coral, khong con tien to "B{n}.". Vong 7: chu he thong thay cac o "khong deu nhau" (dang tu co
+// dan theo do dai nhan) - doi sang CHIEU RONG CO DINH (PIPELINE_SEG_WIDTH) cho moi o deu nhau tam tap,
+// bo "whitespace-nowrap" tren nhan de chu dai tu XUONG DONG thay vi day rong o.
 export function pipelineChevronClip(hasLeftNotch: boolean, hasRightPoint: boolean): string {
   const d = PIPELINE_NOTCH;
   const pts = ["0 0", hasRightPoint ? `calc(100% - ${d}px) 0` : "100% 0"];
@@ -68,19 +68,10 @@ export function pipelineChevronClip(hasLeftNotch: boolean, hasRightPoint: boolea
   if (hasLeftNotch) pts.push(`${d}px 50%`);
   return `polygon(${pts.join(", ")})`;
 }
-// DOI MAU (2026-08-25, hang muc #10/#20 - doi huong "Navy dam + Cam ruc", bo han indigo): gradient
-// tung dung tong indigo (--indigo-100 #eef2ff -> --indigo-700 #3730a3) - doi lai ve tong ocean
-// (--ocean-100 #ddf1fb -> --ocean-800 #0a4666), KHONG dung CSS var truc tiep (can noi suy tung mau
-// theo t) nen ghi thang RGB tuong ung 2 token do - CHI doi mau, KHONG doi hinh hoc/nguong t.
-export function pipelineGradientStyle(t: number): { background: string; color: string } {
-  const r = Math.round(221 + (10 - 221) * t);
-  const g = Math.round(241 + (70 - 241) * t);
-  const b = Math.round(251 + (102 - 251) * t);
-  return { background: `rgb(${r}, ${g}, ${b})`, color: t > 0.55 ? "#ffffff" : "#0a4666" };
-}
 // THIET KE LAI (2026-08-24, theo yeu cau chu he thong "vẽ UI thử" -> duyet phuong an "dai the theo
-// luong, moi giai doan 1 mau"): bo han co che chevron long khop clip-path (pipelineChevronClip/
-// pipelineGradientStyle van GIU LAI ben tren - PxkMiniPipeline van dung, chi PipelineFlow doi cach ve).
+// luong, moi giai doan 1 mau"): bo han co che chevron long khop gradient theo t (ham cu
+// pipelineGradientStyle da xoa 2026-08-26 - khong con noi nao goi, gradient RGB hardcode dung dung
+// --ocean-100/--ocean-800 nen se KHONG doi theo tinh nang "Giao diện" moi o theme/).
 // Moi buoc (step) gio thuoc VE 1 TRONG 4 "LANE" theo dung luong nghiep vu, moi lane 1 mau rieng (dung
 // lai dung cac tong mau da co san trong tokens.css, khong bia mau moi ngoai 4 sac bo sung o tren) -
 // giup nhin la phan biet ngay dang xem so lieu cua luong nao, thay vi phai doc nhan chu.

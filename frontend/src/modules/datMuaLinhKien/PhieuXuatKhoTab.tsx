@@ -865,7 +865,7 @@ export function PxkDetailModal({
             <div className="overflow-x-auto rounded-xl border border-[var(--line)]">
               <table className="min-w-full text-xs border-collapse">
                 <thead>
-                  <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[#FBFBFB] border-b border-[var(--line)]">
+                  <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
                     <th className="px-2.5 py-2">Mã</th>
                     <th className="px-2.5 py-2">Tên LK</th>
                     <th className="px-2.5 py-2 text-right">SL</th>

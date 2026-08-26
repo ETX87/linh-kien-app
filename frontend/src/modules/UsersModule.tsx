@@ -70,7 +70,7 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[#FBFBFB] border-b border-[var(--line)]">
+                <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
                   <th className="px-3 py-2">Người dùng</th>
                   <th className="px-3 py-2">Vai trò</th>
                   <th className="px-3 py-2">Cờ nghiệp vụ</th>
@@ -293,7 +293,7 @@ function PhuTrachGsTab() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[#FBFBFB] border-b border-[var(--line)]">
+              <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
                 <th className="px-3 py-2">Người phụ trách</th>
                 <th className="px-3 py-2">Vai trò</th>
                 <th className="px-3 py-2" />

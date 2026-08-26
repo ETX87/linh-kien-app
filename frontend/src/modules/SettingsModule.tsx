@@ -134,7 +134,7 @@ function LyDoChamTab() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[#FBFBFB] border-b border-[var(--line)]">
+              <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
                 <th className="px-3 py-2">Tên lý do</th>
                 <th className="px-3 py-2">Hệ thống sử dụng</th>
                 <th className="px-3 py-2">Quản lý đơn thiếu LK</th>
@@ -449,7 +449,7 @@ function KtvTab() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[#FBFBFB] border-b border-[var(--line)]">
+              <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
                 <th className="px-3 py-2">Mã KTV</th>
                 <th className="px-3 py-2">Tên hiển thị</th>
                 <th className="px-3 py-2">Vai trò</th>
