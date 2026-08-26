@@ -70,10 +70,18 @@ export function ThieuLkTab({
   addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>; canKho: boolean; canTacNghiep: boolean; currentEmail: string;
   initialFilterOverride?: string;
 }) {
+  // FIX (ra soat bug mua hang 2026-08-26, BUG-002): tach lop luu-lau-dai (localStorage) khoi lop
+  // hien-thi/query - jump tu Home/Pipeline CHI doi lop hien thi, khong ghi de vinh vien filter da luu
+  // (dung y "giữ filter đã lưu gần nhất" cua chu he thong). Xem giai thich day du o DonCuaToiTab.tsx.
   // Kho mac dinh loc dung hang doi cua ho ("Cho kho xu ly"), con lai giu "Tat ca".
-  const [filterTrangThai, setFilterTrangThai] = useLocalStorageState("filters:dmlk-tlk-tt", canKho ? "Cho kho xu ly" : "");
+  const [savedFilterTrangThai, setSavedFilterTrangThai] = useLocalStorageState("filters:dmlk-tlk-tt", canKho ? "Cho kho xu ly" : "");
+  const [filterTrangThai, setFilterTrangThaiDisplay] = useState(savedFilterTrangThai);
+  function setFilterTrangThai(v: string) {
+    setFilterTrangThaiDisplay(v);
+    setSavedFilterTrangThai(v);
+  }
   useEffect(() => {
-    if (initialFilterOverride !== undefined) setFilterTrangThai(initialFilterOverride);
+    if (initialFilterOverride !== undefined) setFilterTrangThaiDisplay(initialFilterOverride);
   }, [initialFilterOverride]);
   const [actionId, setActionId] = useState<string | null>(null);
   const [actionTrangThai, setActionTrangThai] = useState("");
@@ -192,7 +200,13 @@ export function ThieuLkTab({
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
   });
 
-  const activeFilterCount = filterQ ? 1 : 0;
+  // FIX (ra soat bug mua hang 2026-08-26, BUG-003): thieu filterTrangThai trong bo dem - nut "☰ Bộ
+  // lọc" khong bao gio hien "(N)" du dang loc theo trang thai (mac dinh Kho la "Cho kho xu ly"), va
+  // panel loc mac dinh THU GON (showFilters=false) nen nguoi dung khong thay duoc dang loc gi ca. Khop
+  // dung pattern da co san o DonCuaToiTab.tsx (activeFilterCount co filterTrangThai). KHONG them chip
+  // rieng vao ActiveFiltersBar - da co TrangThaiChipFilter to sang chip dang chon, them chip nua se
+  // TRUNG LAP (xem comment tuong tu o DonCuaToiTab.tsx/PhieuXuatKhoTab.tsx).
+  const activeFilterCount = [filterTrangThai, filterQ].filter(Boolean).length;
 
   return (
     <div className="mt-4">

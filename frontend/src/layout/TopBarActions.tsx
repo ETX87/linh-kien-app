@@ -48,10 +48,19 @@ export function TopBarActions({
     window.location.href = "/";
   }
 
+  // FIX (ra soat bug mua hang 2026-08-26, BUG-004): filter trang thai mac dinh cua Don cua toi/Thieu
+  // LK/PXK/Tra hang phu thuoc vai tro (vd Kho -> "Cho kho xu ly") nhung duoc luu localStorage - doi
+  // "Xem thu vai tro" chi lam window.location.reload() (xoa QueryClient in-memory) chu KHONG xoa
+  // localStorage, nen filter cua vai tro TRUOC do (vd Kho) van con nguyen khi xem thu vai tro MOI (vd
+  // TN), sai voi mac dinh dang ky vong. Xoa dung 4 key trang-thai (KHONG dong tay filters:dat-mua-lk-
+  // view/filters:dmlk-xem-loai-don... - nhung key do khong phu thuoc vai tro nen khong lien quan bug
+  // nay) truoc khi reload, de moi lan xem thu vai tro moi tu tinh lai dung mac dinh theo vai tro do.
+  const FILTER_TRANG_THAI_KEYS = ["filters:dmlk-trang-thai", "filters:dmlk-tlk-tt", "filters:dmlk-pxk-tt", "filters:dmlk-th-tt"];
   async function setViewAs(role: ViewAsRole | "") {
     setSwitching(true);
     try {
       await api.post("/auth/view-as", { role: role || null });
+      for (const k of FILTER_TRANG_THAI_KEYS) localStorage.removeItem(k);
       window.location.reload();
     } finally {
       setSwitching(false);

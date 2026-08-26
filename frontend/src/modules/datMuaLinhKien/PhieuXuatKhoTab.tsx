@@ -40,12 +40,19 @@ export function PhieuXuatKhoTab({
 }) {
   // Ke toan/Kho mac dinh loc dung buoc cua ho, TN giu "Tat ca" (theo doi xuyen suot toan bo vong doi
   // PXK minh tao) - xem comment defaultView o component cha ve pham vi anh huong.
-  const [filterTrangThai, setFilterTrangThai] = useLocalStorageState(
+  // FIX (ra soat bug mua hang 2026-08-26, BUG-002): tach lop luu-lau-dai khoi lop hien-thi/query,
+  // xem giai thich day du o DonCuaToiTab.tsx.
+  const [savedFilterTrangThai, setSavedFilterTrangThai] = useLocalStorageState(
     "filters:dmlk-pxk-tt",
     canKeToan ? "Cho ke toan" : canKho ? "Da chot xong don xuat" : "",
   );
+  const [filterTrangThai, setFilterTrangThaiDisplay] = useState(savedFilterTrangThai);
+  function setFilterTrangThai(v: string) {
+    setFilterTrangThaiDisplay(v);
+    setSavedFilterTrangThai(v);
+  }
   useEffect(() => {
-    if (initialFilterOverride !== undefined) setFilterTrangThai(initialFilterOverride);
+    if (initialFilterOverride !== undefined) setFilterTrangThaiDisplay(initialFilterOverride);
   }, [initialFilterOverride]);
   // Loc theo "Nguoi nhan hang" (KTV) - them cung dot voi chot nghiep vu "1 PXK = 1 KTV" (migration
   // 0074), phuc vu drill-down tu tab "Bao cao" (nhay toi dung KTV + trang thai).
@@ -306,7 +313,8 @@ export function PhieuXuatKhoTab({
       <FilterSearchBar
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters((v) => !v)}
-        activeFilterCount={[filterNguoiNhanHang, filterQ].filter(Boolean).length}
+        // FIX (ra soat bug mua hang 2026-08-26, BUG-003): thieu filterTrangThai, khop pattern DonCuaToiTab.tsx.
+        activeFilterCount={[filterTrangThai, filterNguoiNhanHang, filterQ].filter(Boolean).length}
         searchValue={filterQ}
         onSearchChange={setFilterQ}
         searchPlaceholder="Tìm theo mã PXK, mã đơn hàng, mã MISA, mã vận đơn..."

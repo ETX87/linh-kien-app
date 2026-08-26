@@ -816,13 +816,25 @@ export function DonCuaToiTab({
   // comment defaultView o component cha) - TN thay "Cho TN duyet", Tram thay "Cho Tram duyet", con
   // lai (KTV/Ve tinh xem don cua chinh minh, GS theo doi) giu "Tat ca" vi ho can thay CA lich su, khong
   // chi phan cho duyet.
-  const [filterTrangThai, setFilterTrangThai] = useLocalStorageState(
+  // FIX (ra soat bug mua hang 2026-08-26, BUG-002): filterTrangThai TRUOC DAY la 1 bien localStorage
+  // DUY NHAT - jump tu Home/Pipeline (initialFilterOverride) goi thang setter cua no, nen 1 lan bam
+  // KPI tu Trang chu se GHI DE VINH VIEN filter da luu, du nguoi dung khong chu dong chon. Tach lam 2
+  // lop: `savedFilterTrangThai` (localStorage, CHI doi khi nguoi dung tu bam chip) la "gia tri nho lau
+  // dai", `filterTrangThai` (state thuong, dung cho query/hien thi) khoi tao tu gia tri da luu - jump
+  // chi doi lop hien thi nay, KHONG dong vao localStorage. Chot voi chu he thong: mo tab binh thuong
+  // (khong qua jump) van "giữ filter đã lưu gần nhất" nhu hanh vi cu.
+  const [savedFilterTrangThai, setSavedFilterTrangThai] = useLocalStorageState(
     "filters:dmlk-trang-thai",
     canTacNghiep ? "Cho TN duyet" : canTPDvbhXacNhan ? "Cho TBP xac nhan" : canBulkTram ? "Cho Tram duyet" : "",
   );
-  // Nhay tu thanh tom tat cua module cha (tieu chi UX #2) - ghi de filter khi co jumpTarget dich.
+  const [filterTrangThai, setFilterTrangThaiDisplay] = useState(savedFilterTrangThai);
+  function setFilterTrangThai(v: string) {
+    setFilterTrangThaiDisplay(v);
+    setSavedFilterTrangThai(v);
+  }
+  // Nhay tu thanh tom tat cua module cha (tieu chi UX #2) - CHI doi lop hien thi, khong ghi localStorage.
   useEffect(() => {
-    if (initialFilterOverride !== undefined) setFilterTrangThai(initialFilterOverride);
+    if (initialFilterOverride !== undefined) setFilterTrangThaiDisplay(initialFilterOverride);
   }, [initialFilterOverride]);
   const [filterNguoiTao, setFilterNguoiTao] = useState("");
   const [filterNguoiNhanHang, setFilterNguoiNhanHang] = useState("");

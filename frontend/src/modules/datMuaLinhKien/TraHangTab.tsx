@@ -132,12 +132,19 @@ export function TraHangTab({
 }) {
   // Uu tien QC > Ke toan > Kho > TN cho mac dinh (chi anh huong lan dau) - 1 nguoi hiem khi giu qua
   // 1 trong 4 flag nay cung luc (ngoai Admin, da tu roi tabs[0] khac o component cha).
-  const [filterTrangThai, setFilterTrangThai] = useLocalStorageState(
+  // FIX (ra soat bug mua hang 2026-08-26, BUG-002): tach lop luu-lau-dai khoi lop hien-thi/query,
+  // xem giai thich day du o DonCuaToiTab.tsx.
+  const [savedFilterTrangThai, setSavedFilterTrangThai] = useLocalStorageState(
     "filters:dmlk-th-tt",
     canQC ? "Cho QC xac nhan" : canKeToan ? "Cho ke toan duyet mem" : canKho ? "Cho kho xac nhan" : canTacNghiep ? "Cho TN duyet tong" : "",
   );
+  const [filterTrangThai, setFilterTrangThaiDisplay] = useState(savedFilterTrangThai);
+  function setFilterTrangThai(v: string) {
+    setFilterTrangThaiDisplay(v);
+    setSavedFilterTrangThai(v);
+  }
   useEffect(() => {
-    if (initialFilterOverride !== undefined) setFilterTrangThai(initialFilterOverride);
+    if (initialFilterOverride !== undefined) setFilterTrangThaiDisplay(initialFilterOverride);
   }, [initialFilterOverride]);
   const [layLuiId, setLayLuiId] = useState<string | null>(null);
   const [tuChoiTnId, setTuChoiTnId] = useState<string | null>(null);
@@ -351,7 +358,8 @@ export function TraHangTab({
     },
   ];
 
-  const activeFilterCount = [filterNguoiTao, filterQ].filter(Boolean).length;
+  // FIX (ra soat bug mua hang 2026-08-26, BUG-003): thieu filterTrangThai, khop pattern DonCuaToiTab.tsx.
+  const activeFilterCount = [filterTrangThai, filterNguoiTao, filterQ].filter(Boolean).length;
 
   // Nang len goi useColumnConfig O DAY (2026-08-21, sua loi UX "nút Tùy chỉnh cột khiến table bị
   // trống ra 1 khoảng trông rất xấu") - truoc day PaginatedTable tu goi hook nay noi bo VA tu ve nut
