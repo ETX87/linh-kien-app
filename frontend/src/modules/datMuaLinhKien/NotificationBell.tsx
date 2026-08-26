@@ -5,6 +5,7 @@ import { Drawer } from "../../components/ui/Drawer";
 import { Tabs } from "../../components/ui/Tabs";
 import { Badge, type BadgeTone } from "../../components/ui/Badge";
 import { fmtDateTime } from "../../types";
+import { usePushNotifications } from "../../hooks/usePushNotifications";
 
 // Chuong thong bao KTV (them 2026-08-26, phan hoi "thêm 1 trạng danh sách thông báo cho KTV với log
 // các trạng thái của đơn thay đổi... để trong màn hình Home, tạo icon góc trên cùng bên phải") - chi
@@ -45,6 +46,7 @@ export function NotificationBell({ unreadCount, onOpenDonHang }: { unreadCount: 
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
   const qc = useQueryClient();
+  const push = usePushNotifications();
   const { data, isLoading } = useQuery({
     queryKey: ["ktv-log", filter],
     queryFn: () => api.get<{ rows: ThongBaoKtvRow[]; total: number }>(`/notifications/ktv-log?filter=${filter}&pageSize=50`),
@@ -94,14 +96,33 @@ export function NotificationBell({ unreadCount, onOpenDonHang }: { unreadCount: 
         onClose={() => setOpen(false)}
         title="Thông báo"
         footer={
-          <button
-            type="button"
-            onClick={markAllRead}
-            disabled={unreadCount === 0}
-            className="focus-ring w-full text-center text-sm font-semibold text-[var(--ocean-800)] disabled:text-[var(--ink-400)] disabled:cursor-default py-1.5"
-          >
-            Đánh dấu đã đọc toàn bộ
-          </button>
+          <div className="flex flex-col gap-1.5">
+            {/* Bat/tat Web Push tren THIET BI NAY (phan hoi 2026-08-26) - an han neu trinh duyet
+                khong ho tro (vd Safari iOS chua "Cài đặt vào màn hình chính", xem
+                usePushNotifications.ts) thay vi hien nut roi bao loi kho hieu. */}
+            {push.checked && push.supported && (
+              <button
+                type="button"
+                onClick={push.subscribed ? push.unsubscribe : push.subscribe}
+                disabled={push.busy}
+                className={`focus-ring w-full text-center text-sm font-semibold py-1.5 rounded-lg border disabled:opacity-60 ${
+                  push.subscribed
+                    ? "border-[var(--line)] text-[var(--ink-600)]"
+                    : "border-[var(--ocean-500)]/50 text-[var(--ocean-800)]"
+                }`}
+              >
+                {push.subscribed ? "✓ Đã bật thông báo trên thiết bị này" : "🔔 Bật thông báo đẩy trên thiết bị này"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={markAllRead}
+              disabled={unreadCount === 0}
+              className="focus-ring w-full text-center text-sm font-semibold text-[var(--ocean-800)] disabled:text-[var(--ink-400)] disabled:cursor-default py-1.5"
+            >
+              Đánh dấu đã đọc toàn bộ
+            </button>
+          </div>
         }
       >
         <Tabs

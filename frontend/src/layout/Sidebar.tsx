@@ -64,11 +64,11 @@ export function Sidebar({
           </div>
         )}
       </div>
-      {/* Chuong thong bao + avatar/tai khoan (hang muc #15, 2026-08-25) - TopBar da bi an han tren
-          mobile nen day gio la noi DUY NHAT tren mobile de xem/xu ly "Việc cần xử lý" hoac dang xuat. */}
+      {/* Avatar/tai khoan (hang muc #15, 2026-08-25) - TopBar da bi an han tren mobile nen day gio la
+          noi DUY NHAT tren mobile de doi giao dien/dang xuat. */}
       {isMobile && (
         <div className="px-3 py-2.5 border-b border-[var(--sidebar-highlight)] shrink-0">
-          <TopBarActions role={role} user={user} realIsAdmin={realIsAdmin} viewAsRole={viewAsRole} onNavigate={(m) => { setActive(m); onMobileClose(); }} />
+          <TopBarActions role={role} user={user} realIsAdmin={realIsAdmin} viewAsRole={viewAsRole} />
         </div>
       )}
       {/* Nut "Cai dat vao man hinh chinh" (hang muc #1, phan hoi 2026-08-26: "chỉ hiện trên mobile") -

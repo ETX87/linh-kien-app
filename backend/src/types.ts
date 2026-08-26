@@ -46,6 +46,12 @@ export interface Env {
   CASE_LOOKUP_API_KEY: string;
   // Cua sau dang nhap CHI danh cho local dev (xem routes/auth.ts GET /dev-login), giong co che he goc.
   LOCAL_DEV_BYPASS_AUTH?: string;
+  // Web Push (phan hoi 2026-08-26: day thong bao ngay khi co "tin nhan thong bao" moi trong
+  // thong_bao_ktv) - xem lib/webPush.ts. VAPID_SUBJECT/PUBLIC_KEY khong nhay cam (dat trong "vars"),
+  // rieng VAPID_SERVER_PRIVATE_KEY la khoa ky JWT, PHAI dat qua "wrangler secret put" (xem DEPLOY.md).
+  VAPID_SUBJECT: string;
+  VAPID_SERVER_PUBLIC_KEY: string;
+  VAPID_SERVER_PRIVATE_KEY: string;
 }
 
 declare module "hono" {

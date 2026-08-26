@@ -34,11 +34,17 @@
     "FRONTEND_URL": "https://linhkien.dichvu3t.workers.dev",
     // Diem noi DUY NHAT toi he DVBH goc (chi tra cuu case theo ID, khong ghi) - xem
     // lib/caseLookupClient.ts + backend/src/routes/partnerApi.ts cua he goc.
-    "CASE_LOOKUP_BASE_URL": "https://dvbh.dichvu3t.workers.dev"
+    "CASE_LOOKUP_BASE_URL": "https://dvbh.dichvu3t.workers.dev",
+    // Web Push (them 2026-08-26, xem backend/src/lib/webPush.ts) - VAPID_SERVER_PUBLIC_KEY KHONG
+    // nhay cam (day la khoa cong khai frontend can de subscribe), an toan de trong "vars". Rieng
+    // VAPID_SERVER_PRIVATE_KEY dat qua "wrangler secret put" (xem duoi).
+    "VAPID_SUBJECT": "mailto:smarttrade.vp@gmail.com",
+    "VAPID_SERVER_PUBLIC_KEY": "BH76Ljxdui9LYP3uAT9hmacV8Phe-y3UzNQHQVHOKqcn_57Y6si5QxH2QxfAmr6W6wmZiMpR8eweAvImDgRRxSI"
   }
 
   // Cac gia tri NHAY CAM (khong dat trong "vars" - dat qua "wrangler secret put", xem DEPLOY.md):
-  // GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET, CASE_LOOKUP_API_KEY.
+  // GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET, CASE_LOOKUP_API_KEY,
+  // VAPID_SERVER_PRIVATE_KEY.
   // Google Drive (anh linh kien/PXK/tra hang) KHONG can them bien env nao - dung chung
   // GOOGLE_CLIENT_ID/SECRET o tren qua co che OAuth uy quyen 1 tai khoan that, luu refresh token
   // trong bang google_drive_oauth (xem lib/googleDrive.ts) - da bo Service Account 2026-08-25.

@@ -10,6 +10,7 @@ import { bumpVersions } from "../lib/dataVersions";
 import { quaHanLyDoCham } from "../lib/hanLyDoCham";
 import { autoClaimGs, scopePxkNguoiNhanHang } from "../lib/scopeDatMua";
 import { uploadPublicImage } from "../lib/googleDrive";
+import { sendPushToUser } from "../lib/webPush";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
 // Pattern header+log giong phieu_dat. TN tao (gom nhieu dong don hang da "TN da duyet" vao 1
@@ -617,11 +618,15 @@ phieuXuatKho.post("/:id/log", async (c) => {
         ? `Phiếu xuất kho ${id} của bạn đã được Kế toán duyệt xong`
         : `Phiếu xuất kho ${id} của bạn đã được Kho gửi hàng`;
     c.executionCtx.waitUntil(
-      c.env.DB.prepare(
-        "INSERT INTO thong_bao_ktv (nguoi_nhan, loai, noi_dung, link_type, link_id, ngay_tao) VALUES (?, ?, ?, 'phieu_xuat_kho', ?, ?)",
-      )
-        .bind(pxk.nguoi_nhan_hang, target === "Da chot xong don xuat" ? "pxk_da_duyet" : "kho_da_gui", noiDung, id, nowVN())
-        .run(),
+      (async () => {
+        await c.env.DB.prepare(
+          "INSERT INTO thong_bao_ktv (nguoi_nhan, loai, noi_dung, link_type, link_id, ngay_tao) VALUES (?, ?, ?, 'phieu_xuat_kho', ?, ?)",
+        )
+          .bind(pxk.nguoi_nhan_hang, target === "Da chot xong don xuat" ? "pxk_da_duyet" : "kho_da_gui", noiDung, id, nowVN())
+          .run();
+        // Day Web Push ngay (phan hoi 2026-08-26) - xem lib/webPush.ts.
+        await sendPushToUser(c.env, pxk.nguoi_nhan_hang!, { title: "Phiếu xuất kho", body: noiDung, url: "/" });
+      })(),
     );
   }
 

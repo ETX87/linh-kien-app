@@ -16,7 +16,6 @@ export function TopBar({
   user,
   realIsAdmin,
   viewAsRole,
-  onNavigate,
   onOpenCommandPalette,
   mobilePreviewOpen,
   onToggleMobilePreview,
@@ -28,7 +27,6 @@ export function TopBar({
   // sidebar co the da an het muc "He thong" luc do - xem App.tsx allowedModules).
   realIsAdmin: boolean;
   viewAsRole: ViewAsRole | null;
-  onNavigate?: (module: string) => void;
   // Command palette (concept 1, 2026-08-24) - o "tim kiem" o day chi la 1 NUT MO palette that (dat tai
   // App.tsx), khong tu xu ly tim kiem tai day.
   onOpenCommandPalette: () => void;
@@ -55,7 +53,6 @@ export function TopBar({
           user={user}
           realIsAdmin={realIsAdmin}
           viewAsRole={viewAsRole}
-          onNavigate={onNavigate}
           mobilePreviewOpen={mobilePreviewOpen}
           onToggleMobilePreview={onToggleMobilePreview}
         />

@@ -14,6 +14,7 @@ import { csvTemplateResponse } from "../lib/csvTemplate";
 import { getOrCompute } from "../lib/precomputedCache";
 import { extractMaKtv } from "../lib/ktvCode";
 import { lookupCase, lookupCases } from "../lib/caseLookupClient";
+import { sendPushToUser } from "../lib/webPush";
 
 // Luong chinh "Dat mua linh kien" - phieu dat (header, chi de tong hop hien thi) + dong don hang -
 // xem migration 0056_phieu_dat.sql + 0063_dat_don_hang_trang_thai_theo_dong.sql.
@@ -1454,11 +1455,15 @@ async function applyDonHangLog(
     const thongBao = thongBaoChoNguoiTao(hanhDong, nextTrangThai, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat);
     if (thongBao) {
       c.executionCtx.waitUntil(
-        c.env.DB.prepare(
-          "INSERT INTO thong_bao_ktv (nguoi_nhan, loai, noi_dung, link_type, link_id, ngay_tao) VALUES (?, ?, ?, 'don_hang', ?, ?)",
-        )
-          .bind(ddh.nguoi_tao, thongBao.loai, thongBao.noiDung, donHangId, nowVN())
-          .run(),
+        (async () => {
+          await c.env.DB.prepare(
+            "INSERT INTO thong_bao_ktv (nguoi_nhan, loai, noi_dung, link_type, link_id, ngay_tao) VALUES (?, ?, ?, 'don_hang', ?, ?)",
+          )
+            .bind(ddh.nguoi_tao, thongBao.loai, thongBao.noiDung, donHangId, nowVN())
+            .run();
+          // Day Web Push ngay (phan hoi 2026-08-26) - xem lib/webPush.ts.
+          await sendPushToUser(c.env, ddh.nguoi_tao, { title: "Đặt mua linh kiện", body: thongBao.noiDung, url: "/" });
+        })(),
       );
     }
   }

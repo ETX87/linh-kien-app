@@ -9,6 +9,7 @@ import settingsKtvRoutes from "./routes/settingsKtv";
 import datMuaLinhKienRoutes from "./routes/datMuaLinhKien";
 import phieuXuatKhoRoutes from "./routes/phieuXuatKho";
 import traHangRoutes from "./routes/traHang";
+import pushRoutes from "./routes/push";
 
 // He doc lap "Dat mua linh kien" - tach tu he DVBH goc (xem CLAUDE.md muc "Nguon goc tach he
 // thong"). KHONG co cron job nao (khong co snapshot/archive/sync-sheet nhu he goc - he nay nho, moi
@@ -24,6 +25,7 @@ app.route("/api/settings", settingsDatMuaRoutes);
 app.route("/api/dat-mua-lk", datMuaLinhKienRoutes);
 app.route("/api/phieu-xuat-kho", phieuXuatKhoRoutes);
 app.route("/api/tra-hang", traHangRoutes);
+app.route("/api/push", pushRoutes);
 
 app.onError((err, c) => {
   console.error(err);

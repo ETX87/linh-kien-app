@@ -165,7 +165,6 @@ function MainApp({
             user={user}
             realIsAdmin={realIsAdmin}
             viewAsRole={viewAsRole}
-            onNavigate={setActive}
             onOpenCommandPalette={() => setCommandOpen(true)}
             mobilePreviewOpen={mobilePreviewOpen}
             onToggleMobilePreview={() => setMobilePreviewOpen((v) => !v)}
