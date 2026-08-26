@@ -441,6 +441,50 @@ function VanPhongTab() {
   );
 }
 
+// Header dung chung cho ca 3 cho xuat/nhap Excel KTV (tai trang hien tai, tai toan bo, file mau) -
+// PHAI khop dung ten cot ma pickKtvField() trong lib/ktvImport.ts nhan dien luc doc lai file.
+const KTV_HEADER_LABELS: Record<string, string> = {
+  ma_ktv: "Mã KTV",
+  ten_hien_thi: "Tên hiển thị",
+  sdt: "SĐT",
+  vai_tro_ktv: "Vai trò",
+  email_dang_nhap: "Email đăng nhập",
+  giam_sat_quan_ly: "Email Giám sát quản lý (chỉ tham khảo)",
+  khu_vuc_ma: "Khu vực",
+  ktv_cap1_phu_trach: "KTV cấp 1 phụ trách (chỉ Vệ tinh)",
+  cong_no: "Công nợ",
+  gmail: "Gmail",
+  ghi_chu: "Ghi chú",
+  nguoi_cap_nhat: "Người cập nhật",
+  ngay_cap_nhat: "Ngày cập nhật",
+};
+
+// File mau cho "Nhap danh sach hang loat" - chi liet ke cac cot parseKtvImportFile() thuc su doc
+// duoc (lib/ktvImport.ts pickKtvField) - KHONG gom ktv_cap1_phu_trach/nguoi_cap_nhat/ngay_cap_nhat vi
+// bulk-import khong nhan may cot nay (ktv_cap1_phu_trach chi sua duoc tay tung dong, xem PATCH
+// /:ma/dat-mua-lk). SDT mau ghi san dang co so 0 dau de nguoi dung thay dung dinh dang mong doi.
+async function downloadKtvImportTemplate() {
+  await exportRowsToExcel(
+    [
+      {
+        ma_ktv: "vidu.ktv01",
+        ten_hien_thi: "Nguyễn Văn A",
+        sdt: "0912345678",
+        vai_tro_ktv: "KTV",
+        email_dang_nhap: "nguyenvana@gmail.com",
+        gmail: "nguyenvana@gmail.com",
+        giam_sat_quan_ly: "",
+        khu_vuc_ma: "MB1",
+        cong_no: 0,
+        ghi_chu: "",
+      },
+    ],
+    "mau_import_ktv.xlsx",
+    "KTV",
+    KTV_HEADER_LABELS,
+  );
+}
+
 // "KTV hiện trường" (chuyen tu SettingsModule.tsx sang day 2026-08-26) - danh ba KTV/CTV/Trạm/Vệ
 // tinh, nay la the QUAN LY TAI KHOAN chinh cho nhom nay (truoc day chi la danh ba chon "nguoi nhan
 // hang"). Them tim kiem/loc cap 1-2/khu vuc + phan trang (truoc day tra het khong loc gi).
@@ -479,6 +523,28 @@ function KtvTab() {
   const [bulkProcessed, setBulkProcessed] = useState(0);
   const [bulkSummary, setBulkSummary] = useState<{ success: number; errorCount: number } | null>(null);
   const [bulkFailDetails, setBulkFailDetails] = useState<{ ma_ktv: string; status: string }[]>([]);
+  const [downloadingFull, setDownloadingFull] = useState(false);
+
+  // "Tai toan bo danh sach" - nut export cu ("Tai danh sach (trang hien tai)") chi xuat data.rows cua
+  // TRANG dang xem (bi gioi han pageSize=50) - nut nay goi lai API KHONG truyen "page" (backend tra
+  // het khong phan trang, xem GET / o settingsKtv.ts) de xuat DUNG toan bo KTV khop bo loc hien tai.
+  async function handleDownloadFullList() {
+    setDownloadingFull(true);
+    try {
+      const fullQuery = buildQuery({ search: search || undefined, cap: cap || undefined, khu_vuc_ma: khuVuc || undefined });
+      const res = await api.get<{ rows: KtvLienHeRow[] }>(`/settings/ktv-lien-he${fullQuery}`);
+      await exportRowsToExcel(
+        res.rows.map((r) => ({ ...r, giam_sat_quan_ly: r.giam_sat_quan_ly_hien_tai ?? r.giam_sat_quan_ly })),
+        "danh_sach_ktv_full.xlsx",
+        "KTV",
+        KTV_HEADER_LABELS,
+      );
+    } catch (err) {
+      addToast("Không tải được toàn bộ danh sách: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setDownloadingFull(false);
+    }
+  }
 
   async function handleBulkImportKtv(file: File) {
     setBulkRunning(true);
@@ -624,25 +690,14 @@ function KtvTab() {
               (data?.rows ?? []).map((r) => ({ ...r, giam_sat_quan_ly: r.giam_sat_quan_ly_hien_tai ?? r.giam_sat_quan_ly })),
               "danh_sach_ktv.xlsx",
               "KTV",
-              {
-                ma_ktv: "Mã KTV",
-                ten_hien_thi: "Tên hiển thị",
-                sdt: "SĐT",
-                vai_tro_ktv: "Vai trò",
-                email_dang_nhap: "Email đăng nhập",
-                giam_sat_quan_ly: "Email Giám sát quản lý (chỉ tham khảo)",
-                khu_vuc_ma: "Khu vực",
-                ktv_cap1_phu_trach: "KTV cấp 1 phụ trách (chỉ Vệ tinh)",
-                cong_no: "Công nợ",
-                gmail: "Gmail",
-                ghi_chu: "Ghi chú",
-                nguoi_cap_nhat: "Người cập nhật",
-                ngay_cap_nhat: "Ngày cập nhật",
-              },
+              KTV_HEADER_LABELS,
             )
           }
         >
           ⬇ Tải danh sách (trang hiện tại)
+        </Btn>
+        <Btn variant="ghost" size="sm" onClick={() => void handleDownloadFullList()} disabled={downloadingFull} loading={downloadingFull}>
+          ⬇ Tải toàn bộ danh sách
         </Btn>
         <input
           value={search}
@@ -745,12 +800,17 @@ function KtvTab() {
             <Tooltip text={`Các cột khác (Tên hiển thị, SĐT, Ghi chú, Vai trò, Gmail, Email đăng nhập, Email Giám sát quản lý, Khu vực, Công nợ) là tuỳ chọn. Mã đã tồn tại sẽ được cập nhật đè, mã chưa có sẽ được thêm mới. Nếu có "Email đăng nhập", hệ thống tự cấp tài khoản (đã duyệt sẵn) cho email đó — giống hệt khi ghép thủ công 1 dòng.`} />
           </div>
           {!bulkRunning && !bulkSummary && (
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleBulkImportKtv(f); e.target.value = ""; }}
-              className="text-sm"
-            />
+            <>
+              <Btn variant="ghost" size="sm" onClick={() => void downloadKtvImportTemplate()}>
+                ⬇ Tải file mẫu
+              </Btn>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleBulkImportKtv(f); e.target.value = ""; }}
+                className="text-sm"
+              />
+            </>
           )}
           {bulkRunning && (
             <div className="text-sm">
