@@ -2,25 +2,32 @@ import { useState, useEffect } from "react";
 import { api, buildQuery } from "../../api/client";
 import { shortKhuVuc } from "../../lib/khuVucShortLabel";
 import type { MaYeuCauSuCoPreview } from "./types";
+import { CaseDetailModal } from "./CaseDetailModal";
 
 // Canh bao mem khi nhap "Ma yeu cau su co lien quan" (tieu chi UX phan hoi 2026-08-15, muc 5) - debounce
 // 500ms sau khi ngung go, goi GET /dat-mua-lk/kiem-tra-ma-yeu-cau (KHONG dung GET /api/cases/:id vi
 // route do chan theo scopeByKhuVuc - 1 GS nhap dung ma nhung case ngoai khu vuc phu trach se nhan 403
-// va hien SAI thanh "khong tim thay"). Chi nhac nho, KHONG chan submit.
+// va hien SAI thanh "khong tim thay").
 //
 // CHOT 2026-08-16 (phan hoi: "hien thong tin co ban de nguoi tao tu doi chieu"): khi tim thay, hien
 // them 1 the nho tom tat ca (khach hang/serial/hang+san pham/khu vuc/KTV xu ly/tien do) de nguoi go
 // mã tu xac nhan day dung la ca minh can - khong chi 1 dong bao "co/khong tim thay" nhu truoc.
+//
+// CHOT 2026-08-26 (phan hoi: "KTV/Tram/CTV go ma case khong phai cua minh xu ly thi bao loi, khong
+// gui thong tin ve"): backend (xem GET /kiem-tra-ma-yeu-cau) tra `blocked: true, preview: null` cho
+// dung truong hop nay - khac voi truoc day (chi canh bao mem `khopKtv: false` nhung van gui preview).
 export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; nguoiNhanHang: string }) {
-  const [result, setResult] = useState<{ found: boolean; khopKtv: boolean | null; preview: MaYeuCauSuCoPreview | null } | null>(null);
+  const [result, setResult] = useState<{ found: boolean; khopKtv: boolean | null; preview: MaYeuCauSuCoPreview | null; blocked?: boolean } | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
   const id = value.trim();
 
   useEffect(() => {
     setResult(null);
+    setShowDetail(false);
     if (!id) return;
     const t = setTimeout(() => {
       api
-        .get<{ found: boolean; khopKtv: boolean | null; preview: MaYeuCauSuCoPreview | null }>(
+        .get<{ found: boolean; khopKtv: boolean | null; preview: MaYeuCauSuCoPreview | null; blocked?: boolean }>(
           `/dat-mua-lk/kiem-tra-ma-yeu-cau${buildQuery({ id, nguoi_nhan_hang: nguoiNhanHang || undefined })}`,
         )
         .then(setResult)
@@ -39,6 +46,14 @@ export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; ngu
     );
   }
 
+  if (result.blocked) {
+    return (
+      <div className="mt-1.5 rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-[11px] font-bold text-[var(--coral-700)]">
+        ✕ ID case này không thuộc về bạn — case do KTV khác xử lý, kiểm tra lại mã đã nhập.
+      </div>
+    );
+  }
+
   const toneCls =
     result.khopKtv === true
       ? { border: "border-[var(--teal-500)]/35", bg: "bg-[var(--teal-100)]/45", head: "text-[var(--teal-600)]" }
@@ -49,10 +64,15 @@ export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; ngu
   const p = result.preview;
   return (
     <div className={`mt-1.5 rounded-lg border ${toneCls.border} ${toneCls.bg} px-2.5 py-2`}>
-      <div className={`text-[11px] font-bold mb-1.5 ${toneCls.head}`}>
-        {result.khopKtv === true && "✓ Đúng KTV xử lý — đối chiếu ca dưới đây trước khi gửi"}
-        {result.khopKtv === false && "⚠ Mã này không do bạn/KTV này xử lý — kiểm tra lại"}
-        {result.khopKtv === null && "Đã tìm thấy ca — đối chiếu thông tin dưới đây"}
+      <div className={`flex items-center justify-between gap-2 text-[11px] font-bold mb-1.5 ${toneCls.head}`}>
+        <span>
+          {result.khopKtv === true && "✓ Đúng KTV xử lý — đối chiếu ca dưới đây trước khi gửi"}
+          {result.khopKtv === false && "⚠ Mã này không do bạn/KTV này xử lý — kiểm tra lại"}
+          {result.khopKtv === null && "Đã tìm thấy ca — đối chiếu thông tin dưới đây"}
+        </span>
+        <button type="button" onClick={() => setShowDetail(true)} className="focus-ring shrink-0 font-semibold underline decoration-dotted underline-offset-2">
+          Xem chi tiết
+        </button>
       </div>
       {p && (
         <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-[var(--ink-700)]">
@@ -85,6 +105,7 @@ export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; ngu
           </div>
         </div>
       )}
+      {showDetail && <CaseDetailModal caseId={id} onClose={() => setShowDetail(false)} />}
     </div>
   );
 }

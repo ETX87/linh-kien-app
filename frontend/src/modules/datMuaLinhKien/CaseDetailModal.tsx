@@ -1,0 +1,155 @@
+import { useEffect, useState, type ReactNode } from "react";
+import { Modal } from "../../components/ui/Modal";
+import { api, ApiError } from "../../api/client";
+import { fmtDateTime, fmtDate, fmtVND } from "../../types";
+import { shortKhuVuc } from "../../lib/khuVucShortLabel";
+import type { CaseDetailData } from "./types";
+
+// Man "Xem chi tiet case" doc lap (phan hoi 2026-08-26) - mo tu icon canh o kiem tra ma yeu cau su co
+// luc tao don, hoac bam vao 1 ID case bat ky dang hien trong don hang (MaYcscCell/danh sach case cua
+// DonCuaToiTab). KHONG chan them theo quyen so huu case o day - ID case chi lo ra tu 1 don hang nguoi
+// dung DA duoc phep xem, xem GET /case-detail/:id o backend. Du lieu chi keo API doi tac 1 LAN dau
+// (cache server), man nay chi hien lai + cho bam "Dong bo lai" (server gioi han toi thieu 5s/lan).
+type DetailResp = { found: boolean; data: CaseDetailData | null; syncedAt: string | null; syncFailed?: boolean };
+
+function Field({ label, value, mono }: { label: string; value: string | null | undefined; mono?: boolean }) {
+  return (
+    <div>
+      <div className="text-[11px] text-[var(--ink-500)]">{label}</div>
+      <div className={`text-[13px] font-medium text-[var(--ink-800)] ${mono ? "font-mono" : ""}`}>{value?.trim() ? value : "—"}</div>
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="rounded-xl border border-[var(--line)] p-3">
+      <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-500)] mb-2">{title}</div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2">{children}</div>
+    </div>
+  );
+}
+
+export function CaseDetailModal({ caseId, onClose }: { caseId: string; onClose: () => void }) {
+  const [resp, setResp] = useState<DetailResp | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [, forceTick] = useState(0);
+
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    api
+      .get<DetailResp>(`/dat-mua-lk/case-detail/${encodeURIComponent(caseId)}`)
+      .then(setResp)
+      .catch(() => setError("Không tải được thông tin case — thử lại sau."))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, [caseId]);
+
+  // Dem nguoc cooldown 5s hien tren nut - chi tren UI, gioi han that nam o server (msSinceVN/
+  // CASE_DETAIL_MIN_SYNC_MS o datMuaLinhKien.ts).
+  useEffect(() => {
+    if (cooldownUntil <= Date.now()) return;
+    const t = setInterval(() => forceTick((n) => n + 1), 250);
+    return () => clearInterval(t);
+  }, [cooldownUntil]);
+
+  const handleSync = () => {
+    setSyncing(true);
+    setError(null);
+    api
+      .post<DetailResp>(`/dat-mua-lk/case-detail/${encodeURIComponent(caseId)}/sync`)
+      .then((r) => {
+        setResp(r);
+        setCooldownUntil(Date.now() + 5000);
+        // syncFailed = API doi tac loi/timeout luc dong bo, backend van giu nguyen du lieu cache CU
+        // (khong xoa sach) - chi bao loi de nguoi dung biet du lieu dang xem chua phai ban moi nhat.
+        if (r.syncFailed) setError("Đồng bộ thất bại — vẫn đang hiển thị dữ liệu đã lưu trước đó.");
+      })
+      .catch((e: unknown) =>
+        setError(e instanceof ApiError && e.code === "TOO_SOON" ? "Vừa đồng bộ xong, đợi vài giây rồi thử lại." : "Đồng bộ thất bại — thử lại sau."),
+      )
+      .finally(() => setSyncing(false));
+  };
+
+  const d = resp?.data;
+  const remainingS = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
+
+  return (
+    <Modal open onClose={onClose} title={`Chi tiết case ${caseId}`} width="max-w-2xl">
+      {loading && <div className="text-sm text-[var(--ink-500)] py-6 text-center">Đang tải...</div>}
+      {!loading && error && !d && <div className="text-sm text-[var(--coral-600)] py-6 text-center">{error}</div>}
+      {!loading && resp && !resp.found && (
+        <div className="text-sm text-[var(--coral-600)] py-6 text-center">Không tìm thấy case với ID này.</div>
+      )}
+      {!loading && d && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2 text-[11px] text-[var(--ink-500)]">
+            <span>Đã lưu về server lúc {fmtDateTime(resp?.syncedAt)}</span>
+            <button
+              onClick={handleSync}
+              disabled={syncing || remainingS > 0}
+              className="focus-ring rounded-lg border border-[var(--line)] px-2.5 py-1 font-semibold text-[var(--ocean-700)] hover:bg-[var(--ocean-100)]/40 disabled:opacity-50"
+            >
+              {syncing ? "Đang đồng bộ..." : remainingS > 0 ? `Đồng bộ lại (${remainingS}s)` : "Đồng bộ lại"}
+            </button>
+          </div>
+          {error && <div className="text-[11px] text-[var(--coral-600)]">{error}</div>}
+
+          <Section title="Thông tin chung">
+            <Field label="Khách hàng" value={d.khach_hang} />
+            <Field label="KTV xử lý" value={d.ky_thuat_vien} />
+            <Field label="Serial sản phẩm" value={d.seri_san_pham} mono />
+            <Field label="Đối tác ghi nhận" value={d.doi_tac} />
+            <Field label="Khu vực" value={`${shortKhuVuc(d.khu_vuc)}${d.tinh ? " · " + d.tinh : ""}${d.quan_huyen ? " · " + d.quan_huyen : ""}`} />
+            <Field label="Tiến độ hoàn thành" value={d.tien_do_hoan_thanh} />
+          </Section>
+
+          <Section title="Sản phẩm">
+            <Field label="Hãng" value={d.hang} />
+            <Field label="Sản phẩm bảo hành" value={d.san_pham_bao_hanh} />
+            <Field label="Ngành / loại ngành" value={[d.nganh, d.loai_nganh].filter(Boolean).join(" · ") || null} />
+            <Field label="Nhóm sản phẩm" value={d.nhom_san_pham} />
+            <Field label="Nhóm khách hàng" value={d.nhom_kh} />
+            <Field label="Ngày mua" value={fmtDate(d.ngay_mua)} />
+            <Field label="Hình thức bảo hành" value={d.hinh_thuc_bao_hanh} />
+          </Section>
+
+          <Section title="Yêu cầu & xử lý">
+            <Field label="Nhóm yêu cầu" value={d.nhom_yeu_cau} />
+            <Field label="Loại yêu cầu" value={d.loai_yeu_cau} />
+            <Field label="Mô tả lỗi" value={d.mo_ta_loi} />
+            <Field label="Lưu ý lỗi linh kiện" value={d.luu_y_loi_linh_kien} />
+            <Field label="Cách thức xử lý" value={d.cach_thuc_xu_ly} />
+            <Field label="Lý do quá hạn" value={d.ly_do_qua_han} />
+            <div className="col-span-2">
+              <Field label="Nội dung đã xử lý" value={d.noi_dung_xu_ly} />
+            </div>
+          </Section>
+
+          <Section title="Thời gian">
+            <Field label="CSKH tiếp nhận" value={fmtDateTime(d.thoi_gian_cskh_tiep_nhan)} />
+            <Field label="Hẹn xử lý" value={fmtDateTime(d.thoi_gian_hen_xu_ly)} />
+            <Field label="Hoàn thành" value={fmtDateTime(d.thoi_gian_hoan_thanh)} />
+          </Section>
+
+          <Section title="Tài chính">
+            <Field label="Định giá sản phẩm" value={fmtVND(d.dt_san_pham)} />
+            <Field label="Định giá linh kiện" value={fmtVND(d.dt_linh_kien)} />
+            <Field label="Định giá dịch vụ" value={fmtVND(d.dt_dich_vu)} />
+          </Section>
+
+          {d.link_crm && (
+            <a href={d.link_crm} target="_blank" rel="noreferrer" className="block text-center text-[12px] font-semibold text-[var(--ocean-700)] hover:underline">
+              Mở case trên CRM nội bộ ↗
+            </a>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}

@@ -244,10 +244,10 @@ export function TraHangAnhPicker({
   );
 }
 
-// Cot "Ma yeu cau su co lien quan" - bam mo popup chi tiet ca (App.tsx openCase) CHI khi
-// canXemChiTietCa (khong phai KTV/CTV/Tram, xem comment canXemChiTietCa o DatMuaLinhKienModule) VA
-// co openCase - nguoc lai van hien gia tri dang text thuong (khong an du lieu, chi khong bam mo
-// duoc). Dung chung cho bang dong con o DonCuaToiTab va bang dong trong PhieuDatDetailModal.
+// Cot "Ma yeu cau su co lien quan" - bam mo modal "Xem chi tiet case" (CaseDetailModal.tsx, qua
+// openCase o DatMuaLinhKienModule) khi co canXemChiTietCa VA openCase - tu 2026-08-26 canXemChiTietCa
+// LUON true (xem comment o DatMuaLinhKienModule), KHONG con loai KTV/CTV/Tram nhu truoc. Dung chung
+// cho bang dong con o DonCuaToiTab va bang dong trong PhieuDatDetailModal.
 export function MaYcscCell({ value, canXemChiTietCa, openCase }: { value: string | null; canXemChiTietCa: boolean; openCase?: (id: string, tab?: string) => void }) {
   if (!value?.trim()) return <span className="text-[var(--ink-400)]">—</span>;
   if (canXemChiTietCa && openCase) {

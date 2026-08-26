@@ -13,7 +13,7 @@ import { getDatMuaLkBadge } from "./notifications";
 import { csvTemplateResponse } from "../lib/csvTemplate";
 import { getOrCompute } from "../lib/precomputedCache";
 import { extractMaKtv } from "../lib/ktvCode";
-import { lookupCase, lookupCases } from "../lib/caseLookupClient";
+import { lookupCase, lookupCases, type CaseLookupPreview } from "../lib/caseLookupClient";
 import { sendPushToUser } from "../lib/webPush";
 
 // Luong chinh "Dat mua linh kien" - phieu dat (header, chi de tong hop hien thi) + dong don hang -
@@ -618,6 +618,15 @@ datMuaLinhKien.get("/xep-hang-linh-kien", async (c) => {
 // tien_do_hoan_thanh/ky_thuat_vien) khi tim thay - CO Y CHON tap nho, KHONG tra nguyen dong case
 // (bo qua mo_ta_loi, dia chi chi tiet, so tien...) de nguoi tao doi chieu dung ca ma khong lo du
 // lieu nhay cam/tai chinh cua case.
+// SUA 2026-08-26: truoc day route nay "tra nguyen" ca object tu lookupCase() lam `preview` - vo hai
+// luc CaseLookupPreview chi khai 9 field, nhung tu khi mo rong interface do len du 29 field (phuc vu
+// GET /case-detail/:id ben duoi) thi phai LOC TAY lai dung 9 field da CHOT 2026-08-16, neu khong se
+// vo tinh gui ca du lieu tai chinh (dt_san_pham/dt_linh_kien/dt_dich_vu) ve trinh duyet luc go ma.
+function miniCasePreview(p: CaseLookupPreview) {
+  const { khach_hang, seri_san_pham, khu_vuc, tinh, quan_huyen, hang, san_pham_bao_hanh, tien_do_hoan_thanh, ky_thuat_vien } = p;
+  return { khach_hang, seri_san_pham, khu_vuc, tinh, quan_huyen, hang, san_pham_bao_hanh, tien_do_hoan_thanh, ky_thuat_vien };
+}
+
 datMuaLinhKien.get("/kiem-tra-ma-yeu-cau", async (c) => {
   const id = c.req.query("id")?.trim();
   const nguoiNhanHang = c.req.query("nguoi_nhan_hang")?.trim();
@@ -625,10 +634,11 @@ datMuaLinhKien.get("/kiem-tra-ma-yeu-cau", async (c) => {
 
   // SUA (tach he doc lap): case_dvbh khong con trong DB cuc bo - tra cuu qua API he cu, xem
   // lib/caseLookupClient.ts + CLAUDE.md muc "Nguon goc tach he thong".
-  const preview = await lookupCase(id, c.env);
-  if (!preview) return c.json({ found: false, khopKtv: null, preview: null });
+  const full = await lookupCase(id, c.env);
+  if (!full) return c.json({ found: false, khopKtv: null, preview: null });
 
-  const maKtvCase = extractMaKtv(preview.ky_thuat_vien);
+  const maKtvCase = extractMaKtv(full.ky_thuat_vien);
+  const preview = miniCasePreview(full);
   if (!maKtvCase || !nguoiNhanHang) return c.json({ found: true, khopKtv: null, preview });
 
   const ktvRow = await c.env.DB.prepare("SELECT ma_ktv FROM ktv_lien_he WHERE email_dang_nhap = ?")
@@ -636,7 +646,84 @@ datMuaLinhKien.get("/kiem-tra-ma-yeu-cau", async (c) => {
     .first<{ ma_ktv: string }>();
   if (!ktvRow) return c.json({ found: true, khopKtv: null, preview });
 
-  return c.json({ found: true, khopKtv: ktvRow.ma_ktv === maKtvCase, preview });
+  const khopKtv = ktvRow.ma_ktv === maKtvCase;
+
+  // CHOT 2026-08-26 (phan hoi: "KTV/Tram/CTV go ma case khong phai cua minh xu ly thi bao loi, khong
+  // gui thong tin ve"): CHI chan khi chinh nguoi dang nhap la KTV/Tram/CTV (la_ktv_dvbh) VA dang tu
+  // chon MINH la nguoi nhan hang - Ve tinh/TN/Admin/Ke toan/QC/GS tao don HO 1 KTV khac (chon
+  // nguoi_nhan_hang khac chinh minh) van xem duoc preview binh thuong, vi ho co the hop le biet/xu ly
+  // case thay nguoi do. Khong chan khi khopKtv=null (khong tach duoc ma KTV tu chuoi case, hoac nguoi
+  // dang nhap chua co dong ktv_lien_he) - du lieu khong du de ket luan chac chan la "khong phai cua
+  // ho", chan nham se can tro luong hop le.
+  const user = c.get("user");
+  const tuChonMinhNhanHang = user.la_ktv_dvbh && nguoiNhanHang === user.email;
+  if (tuChonMinhNhanHang && khopKtv === false) {
+    return c.json({ found: true, khopKtv: false, preview: null, blocked: true });
+  }
+
+  return c.json({ found: true, khopKtv, preview });
+});
+
+// Khoang cach toi thieu giua 2 lan bam "Dong bo lai" tren 1 case (phan hoi 2026-08-26) - tranh spam
+// API doi tac khi nguoi dung bam lien tuc; kiem tra dua tren cot synced_at da luu (nowVN(), giay).
+const CASE_DETAIL_MIN_SYNC_MS = 5000;
+
+function msSinceVN(ts: string): number {
+  return Date.now() - Date.parse(ts.replace(" ", "T") + "Z");
+}
+
+// GET /api/dat-mua-lk/case-detail/:id - man "Xem chi tiet case" moi (mo tu icon canh o kiem tra ma
+// yeu cau su co luc tao don, hoac bam vao 1 ID case bat ky dang hien trong don hang - xem migration
+// 0008). CHOT 2026-08-26: KHONG chan them theo quyen so huu case o day (khac GET /kiem-tra-ma-yeu-cau
+// o tren) - ID case chi lo ra duoc tu 1 don hang nguoi dung DA duoc phep xem (scopeDatMuaNguoiTao),
+// nen phan quyen xem don hang hien co la du. Chi keo API doi tac 1 LAN dau (cache vao
+// case_lookup_snapshot), nhung lan mo sau doc lai cache - nguoi dung tu bam dong bo lai khi can moi.
+datMuaLinhKien.get("/case-detail/:id", async (c) => {
+  const id = c.req.param("id").trim();
+  const cached = await c.env.DB.prepare("SELECT data, synced_at FROM case_lookup_snapshot WHERE case_id = ?")
+    .bind(id)
+    .first<{ data: string; synced_at: string }>();
+  if (cached) return c.json({ found: true, data: JSON.parse(cached.data) as CaseLookupPreview, syncedAt: cached.synced_at });
+
+  const full = await lookupCase(id, c.env);
+  if (!full) return c.json({ found: false, data: null, syncedAt: null });
+
+  const syncedAt = nowVN();
+  await c.env.DB.prepare(
+    "INSERT INTO case_lookup_snapshot (case_id, data, synced_at) VALUES (?, ?, ?) ON CONFLICT(case_id) DO UPDATE SET data = excluded.data, synced_at = excluded.synced_at",
+  )
+    .bind(id, JSON.stringify(full), syncedAt)
+    .run();
+  return c.json({ found: true, data: full, syncedAt });
+});
+
+// POST /api/dat-mua-lk/case-detail/:id/sync - lam moi cache tren, gioi han CASE_DETAIL_MIN_SYNC_MS
+// giua 2 lan (theo case_id, khong theo nguoi bam - nhieu nguoi cung xem 1 case dung chung 1 dong ho).
+datMuaLinhKien.post("/case-detail/:id/sync", async (c) => {
+  const id = c.req.param("id").trim();
+  const cached = await c.env.DB.prepare("SELECT data, synced_at FROM case_lookup_snapshot WHERE case_id = ?")
+    .bind(id)
+    .first<{ data: string; synced_at: string }>();
+  if (cached && msSinceVN(cached.synced_at) < CASE_DETAIL_MIN_SYNC_MS) {
+    return c.json({ error: "TOO_SOON", retryAfterMs: CASE_DETAIL_MIN_SYNC_MS - msSinceVN(cached.synced_at) }, 429);
+  }
+
+  const full = await lookupCase(id, c.env);
+  if (!full) {
+    // Dong bo that bai (API doi tac loi/timeout) KHAC voi "case khong ton tai" - id nay DA tung tim
+    // thay truoc do (co dong cache) nen giu nguyen du lieu cu + co `syncFailed`, KHONG xoa sach thanh
+    // "khong tim thay" (se lam mat du lieu dang xem chi vi 1 loi tam thoi cua API doi tac).
+    if (cached) return c.json({ found: true, data: JSON.parse(cached.data) as CaseLookupPreview, syncedAt: cached.synced_at, syncFailed: true });
+    return c.json({ found: false, data: null, syncedAt: null });
+  }
+
+  const syncedAt = nowVN();
+  await c.env.DB.prepare(
+    "INSERT INTO case_lookup_snapshot (case_id, data, synced_at) VALUES (?, ?, ?) ON CONFLICT(case_id) DO UPDATE SET data = excluded.data, synced_at = excluded.synced_at",
+  )
+    .bind(id, JSON.stringify(full), syncedAt)
+    .run();
+  return c.json({ found: true, data: full, syncedAt });
 });
 
 // GET /api/dat-mua-lk/don-hang?trang_thai=&nguoi_tao=&nguoi_nhan_hang=&tu_ngay=&den_ngay=&page=&pageSize

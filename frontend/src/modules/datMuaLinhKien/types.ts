@@ -256,6 +256,42 @@ export interface MaYeuCauSuCoPreview {
   ky_thuat_vien: string | null;
 }
 
+// Khop CaseLookupPreview day du (29 field) ben backend/src/lib/caseLookupClient.ts, dung cho man
+// "Xem chi tiet case" (CaseDetailModal.tsx, them 2026-08-26) - khac MaYeuCauSuCoPreview o tren (chi 9
+// field, dung cho o kiem tra nhanh luc tao don).
+export interface CaseDetailData {
+  ky_thuat_vien: string | null;
+  khach_hang: string | null;
+  seri_san_pham: string | null;
+  khu_vuc: string | null;
+  tinh: string | null;
+  quan_huyen: string | null;
+  hang: string | null;
+  san_pham_bao_hanh: string | null;
+  tien_do_hoan_thanh: string | null;
+  mo_ta_loi: string | null;
+  nhom_san_pham: string | null;
+  nhom_yeu_cau: string | null;
+  loai_yeu_cau: string | null;
+  hinh_thuc_bao_hanh: string | null;
+  ngay_mua: string | null;
+  thoi_gian_cskh_tiep_nhan: string | null;
+  thoi_gian_hen_xu_ly: string | null;
+  thoi_gian_hoan_thanh: string | null;
+  doi_tac: string | null;
+  link_crm: string | null;
+  noi_dung_xu_ly: string | null;
+  luu_y_loi_linh_kien: string | null;
+  cach_thuc_xu_ly: string | null;
+  nganh: string | null;
+  loai_nganh: string | null;
+  nhom_kh: string | null;
+  dt_san_pham: number | null;
+  dt_linh_kien: number | null;
+  dt_dich_vu: number | null;
+  ly_do_qua_han: string | null;
+}
+
 // Muc tieu chung cho panel "can nhap truoc khi xac nhan" (tu choi CAN chon Ly do cham, huy CAN nhap
 // ly do tu do - phan hoi UX muc 1, 2026-08-15) - dung chung cho PhieuDatDetailModal va
 // DonCuaToiTab/PhieuDongBang. id = "bulk" khi ap dung cho ca tap `selected` dang chon.

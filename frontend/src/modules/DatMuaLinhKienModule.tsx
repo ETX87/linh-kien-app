@@ -10,6 +10,7 @@ import { useIsMobile } from "../hooks/useMediaQuery";
 import type { LuongQuyTrinhStep, JumpTarget } from "./datMuaLinhKien/types";
 import { PipelineFlow, MyWorkloadStrip } from "./datMuaLinhKien/PipelineFlow";
 import { NotificationBell } from "./datMuaLinhKien/NotificationBell";
+import { CaseDetailModal } from "./datMuaLinhKien/CaseDetailModal";
 
 // Module "Dat mua linh kien" (Phase 2) - thay the quy trinh dat hang linh kien tren Google
 // Sheets/AppSheet, xem plan "Module Dat Mua Linh Kien". Tabs hien theo co vai tro (la_ktv_dvbh/
@@ -66,6 +67,11 @@ export function DatMuaLinhKienModule({
   const user = auth.status === "authenticated" ? auth.user : null;
   const addToast = useToast();
   const qc = useQueryClient();
+  // "Xem chi tiet case" moi (them 2026-08-26) - man rieng cua chinh he nay (CaseDetailModal.tsx),
+  // KHONG con la openCase(id, tab) cu tro toi CRM giai-trinh (khong ton tai o he da tach). Dung state
+  // cuc bo o day thay vi nhan qua prop `openCase` (prop do luon undefined o App.tsx that su, xem
+  // comment o khai bao ben duoi) - fallback khi khong co ai truyen openCase tu ngoai vao.
+  const [openCaseId, setOpenCaseId] = useState<string | null>(null);
 
   // CHOT 2026-08-16 (migration 0081): Tac nghiep DOC LAP khoi vai_tro="TBP DVBH" - truoc day dong
   // cung vai tro nen check thang vai_tro, gio phai doc flag rieng (khop dung canTacNghiep() backend
@@ -74,10 +80,13 @@ export function DatMuaLinhKienModule({
   // Xac nhan "linh kien dac thu" truoc buoc Tac nghiep - CHOT 2026-08-17, xem migration 0082.
   const canTPDvbhXacNhan = !!user?.la_tp_dvbh || user?.vai_tro === "Admin";
   const isGiamSat = user?.vai_tro === "Giam sat";
-  // UI xem chi tiet ca (case_dvbh, du lieu CRM noi bo) khong danh cho KTV/CTV/Tram (deu la co
-  // la_ktv_dvbh/la_ve_tinh) - chot voi chu he thong 2026-08-15: cot "Ma yeu cau su co" van hien gia
-  // tri cho nhom nay, chi khong bam mo duoc. Kho/Ke toan/QC/GS/TN/Admin van xem duoc binh thuong.
-  const canXemChiTietCa = !(user?.la_ktv_dvbh || user?.la_ve_tinh);
+  // SUA 2026-08-26 (phan hoi: "man xem chi tiet case moi khong can chan them theo quyen so huu - ID
+  // case chi lo qua 1 don hang nguoi dung DA duoc xem"): truoc day KTV/CTV/Tram/Ve tinh bi loai khoi
+  // quyen bam mo (chot 2026-08-15) vi luc do "xem chi tiet ca" tro toi du lieu CRM case_dvbh cuc bo da
+  // khong con tu khi tach he - gio GET /case-detail/:id la endpoint moi cua chinh he nay
+  // (case_lookup_snapshot, xem CaseDetailModal.tsx), khong con han che do nua - moi vai tro deu xem
+  // duoc chi tiet case gan voi 1 don hang minh da duoc phep xem.
+  const canXemChiTietCa = true;
   // "canDatHo" (tao ho, xem "nguoi nhan hang") = KTV/Ve tinh tu tao + TN/GS tao ho - khop dung
   // canQuanLyDonHo() backend. Tach rieng khoi "canBulkTram" (quyen bulk-duyet o "Don cua toi"):
   // truoc day 2 quyen nay dung CHUNG 1 bien canCreatePhieuDat nen khi them Giam sat vao de mo tab
@@ -489,7 +498,7 @@ export function DatMuaLinhKienModule({
             // nhu luon null nen truoc day TN cung luon lot qua dieu kien nay).
             canBulkTram={canTacNghiep || !!user?.la_tram}
             canXemChiTietCa={canXemChiTietCa}
-            openCase={openCase}
+            openCase={openCase ?? ((id) => setOpenCaseId(id))}
             initialFilterOverride={filterFor("don-cua-toi")}
             initialNguoiNhanHangOverride={nguoiNhanHangFor("don-cua-toi")}
             initialLoaiDonOverride={loaiDonFor("don-cua-toi")}
@@ -526,6 +535,7 @@ export function DatMuaLinhKienModule({
           />
         )}
       </Suspense>
+      {openCaseId && <CaseDetailModal caseId={openCaseId} onClose={() => setOpenCaseId(null)} />}
     </div>
   );
 }
