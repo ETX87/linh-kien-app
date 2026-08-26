@@ -23,11 +23,14 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Vận hành",
     items: [
+      // "Trang chủ"/"Thiếu linh kiện" tach thanh muc menu RIENG (phan hoi 2026-08-26: "không gộp
+      // chung vào 1 thẻ Đặt mua linh kiện như hiện tại") - truoc day chi la 2 tab NOI BO cua "Đặt mua
+      // linh kiện" (xem DatMuaLinhKienModule.tsx). Vao qua forceView="trang-chu"/"thieu-lk" o App.tsx,
+      // dung y het pattern "tra-hang" da co san (route forceView rieng, khong con la tab noi bo).
+      // "Trang chủ" dat DAU TIEN (phan hoi 2026-08-26) - lam diem vao dashboard cho MOI vai tro.
+      { key: "trang-chu", label: "Trang chủ", icon: "🏠" },
       { key: "dat-mua-lk", label: "Đặt mua linh kiện", icon: "◈", countKey: "datMuaLk" },
-      // "Đơn trả hàng" bo khoi menu (phan hoi 2026-08-20) - da co san 3 buoc bam thang qua pipeline
-      // chevron (Trả·KT/Trả·Kho/Trả·QC) trong module "Dat mua linh kien" (xem PipelineFlow.tsx),
-      // muc menu rieng nay thanh dư thua. Route forceView="tra-hang" o App.tsx GIU NGUYEN (khong
-      // xoa) vi khong con duong nao tro toi no nua sau khi bo dong nay.
+      { key: "thieu-lk", label: "Thiếu linh kiện", icon: "📦" },
       { key: "danh-muc-lk", label: "Danh mục linh kiện", icon: "🔧" },
       // Lien ket ra ngoai (them 2026-08-25) - xem giai thich day du o NavItem.href phia tren.
       { key: "sua-chua-bao-hanh", label: "Sửa chữa bảo hành", icon: "🛠", href: "https://suachua.dichvu3t.workers.dev" },
@@ -47,12 +50,17 @@ export const NAV_GROUPS: NavGroup[] = [
 // vao duoc 3 muc do neu co co phu hop. ROLE_MODULES chi con dung cho 2 muc He thong (Admin-only).
 export const ROLE_MODULES: Record<VaiTro, string[]> = {
   Admin: NAV_GROUPS.flatMap((g) => g.items.map((i) => i.key)),
-  QC: ["dat-mua-lk", "danh-muc-lk"],
-  "Giam sat": ["dat-mua-lk", "danh-muc-lk"],
+  // "trang-chu"/"thieu-lk" them vao day (phan hoi 2026-08-26) - QC/Giam sat truoc day van xem duoc 2
+  // man nay qua tab noi bo cua "dat-mua-lk" (tabs[] khong loc theo canQC/isGiamSat cho 2 key nay),
+  // nen gio phai duoc cap quyen tuong duong o cap muc menu moi de khong mat quyen truy cap.
+  QC: ["trang-chu", "dat-mua-lk", "thieu-lk", "danh-muc-lk"],
+  "Giam sat": ["trang-chu", "dat-mua-lk", "thieu-lk", "danh-muc-lk"],
 };
 
 export const MODULE_TITLES: Record<string, string> = {
+  "trang-chu": "Trang chủ",
   "dat-mua-lk": "Đặt mua linh kiện",
+  "thieu-lk": "Thiếu linh kiện",
   "tra-hang": "Đơn trả hàng",
   "danh-muc-lk": "Danh mục linh kiện",
   settings: "Settings",

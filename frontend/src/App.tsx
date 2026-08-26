@@ -58,7 +58,10 @@ function MainApp({
   // backend/src/middleware/requireDatMuaLkArea.ts + requireQuanLyDanhMucLk.ts (khong co co che dung
   // chung giua 2 codebase Workers/Vite nen phai tu dong bo tay khi doi 1 ben).
   if (role !== "Admin" && (user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh)) {
-    allowedModules = [...new Set([...allowedModules, "dat-mua-lk", "tra-hang"])];
+    // "trang-chu"/"thieu-lk" them vao day (phan hoi 2026-08-26: tach thanh muc menu rieng, truoc day
+    // la 2 tab NOI BO cua "dat-mua-lk" hien khong dieu kien theo flag nao - gio phai duoc cap o day de
+    // giu dung pham vi truy cap cu). "trang-chu" dat DAU TIEN de lam allowedModules[0] (tab mac dinh).
+    allowedModules = [...new Set([...allowedModules, "trang-chu", "dat-mua-lk", "thieu-lk", "tra-hang"])];
   }
   if (role !== "Admin" && (user.xem_danh_muc_lk || user.quan_ly_danh_muc_lk)) {
     allowedModules = [...new Set([...allowedModules, "danh-muc-lk"])];
@@ -169,7 +172,11 @@ function MainApp({
               <div ref={setHeaderExtraEl} className="flex items-center gap-2 flex-wrap min-w-0" />
             </div>
           </div>
+          {/* "trang-chu"/"thieu-lk" tach thanh muc menu rieng (phan hoi 2026-08-26) - dung LAI pattern
+              forceView da co san cho "tra-hang", khong tao co che dieu huong moi. */}
+          {active === "trang-chu" && <DatMuaLinhKienModule forceView="trang-chu" headerExtra={headerExtraEl} />}
           {active === "dat-mua-lk" && <DatMuaLinhKienModule headerExtra={headerExtraEl} />}
+          {active === "thieu-lk" && <DatMuaLinhKienModule forceView="thieu-lk" headerExtra={headerExtraEl} />}
           {active === "tra-hang" && <DatMuaLinhKienModule forceView="tra-hang" headerExtra={headerExtraEl} />}
           {active === "danh-muc-lk" && <DanhMucLinhKienModule />}
           {active === "settings" && <SettingsModule />}

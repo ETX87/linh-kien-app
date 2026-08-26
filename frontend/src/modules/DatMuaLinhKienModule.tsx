@@ -108,20 +108,16 @@ export function DatMuaLinhKienModule({
   // cua Kho (duyet Tra hang + dong hang gui KTV qua PXK, van con nguyen o "Trả hàng"/"Phiếu xuất kho"/
   // "Thiếu linh kiện" ben duoi, khong bi anh huong).
   const canXemDonMuaCongNo = canDatHo || !!user?.la_tram || canTPDvbhXacNhan || user?.vai_tro === "Admin";
-  // Tab "Trang chu" (them 2026-08-24) - LUON hien cho MOI vai tro, khong dieu kien theo flag nao ca
-  // (khop dung MODULES.home cua concept 1: `m.key==="home" || ...` - "home" khong nam trong dieu kien
-  // flag). Dat DAU TIEN trong mang "tabs" (view that) de lam defaultView moi ben duoi.
+  // FIX (phan hoi 2026-08-26: "tách riêng thẻ Trang chủ và Thiếu linh kiện thành 1 thẻ riêng trong
+  // menu, không gộp chung vào Đặt mua linh kiện") - "trang-chu"/"thieu-lk" KHONG con la phan tu cua
+  // mang "tabs" (thanh tab noi bo) nua - gio la 2 muc menu CAP CAO RIENG o Sidebar/BottomTabBar, vao
+  // qua forceView="trang-chu"/"thieu-lk" (dung y het pattern "tra-hang" cu, xem App.tsx). "Đặt mua
+  // linh kiện" gio CHI con "Mua hàng/Công nợ/Trả hàng/Phiếu xuất kho" trong thanh tab cua no.
   const tabs = [
-    { key: "trang-chu", label: "Trang chủ" },
     ...(canXemDonMuaCongNo ? [{ key: "don-cua-toi", label: "Đơn của tôi / Danh sách" }] : []),
     // Giam sat them vao tab duoi - CHI de theo doi (khong co canTacNghiep/canKho/canKeToan rieng nen
     // khong nut hanh dong nao hien ra, xem PxkDetailModal).
     ...(canTacNghiep || canKho || canKeToan || isGiamSat ? [{ key: "phieu-xuat-kho", label: "Phiếu xuất kho" }] : []),
-    { key: "thieu-lk", label: "Thiếu linh kiện" },
-    // Tab "Báo cáo" rieng DA BO (phan hoi chu he thong 2026-08-24: "Trang chủ với báo cáo gộp làm 1")
-    // - noi dung (12 chi so tong quan, phan hoi UX muc 6) gio nam NGAY TRONG "Trang chủ" (xem
-    // TrangChuTab.tsx), van chi hien cho vai tro KHAC QC (showBaoCaoTrongTrangChu ben duoi, giu dung
-    // Fix Van de #1: QC khong duoc xem bao cao pivot toan he thong).
   ];
   // "Đơn trả hàng" KHONG con la tab rieng tren thanh menu (CHOT vong 7: "thừa" - thanh luong quy trinh
   // da co san 3 buoc bam thang vao dung day: Trả hàng KT/Kho/QC). Van GIU render/activeView cho key
@@ -134,15 +130,39 @@ export function DatMuaLinhKienModule({
   // toi" - tab khong lien quan gi den viec cua ho (viec that o "Thieu linh kien"/"Phieu xuat kho"/
   // "Don tra hang"). Chi anh huong LAN DAU vao module (useLocalStorageState chi doc default nay khi
   // chua co gia tri luu san), nhung tu do khong bao gio tu doi lai (dung y muon).
-  // SUA (them Trang chu 2026-08-24): defaultView gio LUON la "trang-chu" (khop concept 1 - moi vai
-  // tro deu vao Trang chu truoc tien) thay cho logic re nhanh theo canKho/canKeToan/canQC cu. Vi
-  // useLocalStorageState CHI doc gia tri default nay khi nguoi dung CHUA TUNG luu view nao truoc do
-  // (xem comment goc cua hook), thay doi nay CHI anh huong nguoi dung MOI - ai da tung vao module va
-  // co gia tri luu san (vd "thieu-lk" cua Kho) se KHONG bi doi ve Trang chu, giu nguyen trai nghiem cu.
-  const defaultView = "trang-chu";
+  // FIX (phan hoi 2026-08-26): "trang-chu" bo khoi defaultView - "Đặt mua linh kiện" (khong forceView)
+  // gio mac dinh vao "don-cua-toi" (Mua hang), vi Trang chu da co duong vao rieng o menu. Nguoi dung
+  // CU co the van con gia tri "trang-chu" luu san trong localStorage (tu truoc doi nay) - isValidView
+  // ben duoi se coi gia tri do la KHONG HOP LE (khong con trong tabs[]) nen tu dong fallback ve
+  // tabs[0], khong can migrate du lieu thu cong.
+  const defaultView = "don-cua-toi";
   const [view, setView] = useLocalStorageState("filters:dat-mua-lk-view", defaultView);
-  const isValidView = (v: string) => tabs.some((t) => t.key === v) || (v === "tra-hang" && canTraHangView);
-  const activeView = forceView && isValidView(forceView) ? forceView : isValidView(view) ? view : (tabs[0]?.key ?? "don-cua-toi");
+  // FIX (phan hoi 2026-08-26): "thieu-lk" van phai la view HOP LE du da bo khoi tabs[]/displayTabs
+  // (khong con nut tab de bam) - PipelineFlow/MyWorkloadStrip van goi onJump({tab:"thieu-lk", filter,
+  // nguoiNhanHang}) de nhay CO KEM BO LOC tu bat ky man nao (Trang chu/Dat mua linh kien/Tra hang),
+  // dung setView noi bo (KHONG doi active o App.tsx) - neu isValidView tu choi gia tri nay, cu nhay se
+  // AM THAM that bai (activeView roi ve tabs[0], mat het bo loc dang mang theo). "trang-chu" KHONG can
+  // them vao day vi khong noi nao trong app goi onJump({tab:"trang-chu"}) ca - chi vao duoc qua muc
+  // menu rieng (forceView) o duoi.
+  const isValidView = (v: string) => tabs.some((t) => t.key === v) || (v === "tra-hang" && canTraHangView) || v === "thieu-lk";
+  // FIX (phan hoi 2026-08-26): forceView TRUOC DAY thang tay de len activeView MOI LAN RENDER (ke ca
+  // sau khi nguoi dung da tu dieu huong noi bo) - voi "tra-hang" khong sao vi TraHangTab khong co jump
+  // chuyen tab nao ca, nhung "trang-chu" (TrangChuTab/BaoCaoTab ben trong) co RAT NHIEU StatCard/o so
+  // goi onJump({tab:"don-cua-toi",...}) de nhay sang tab khac - neu forceView de "thang" mai mai,
+  // MOI cu bam se AM THAM khong lam gi (activeView van bi ghim = "trang-chu"). `navigatedAway` danh
+  // dau: 1 khi nguoi dung DA tu dieu huong (bam tab hoac jump) it nhat 1 lan trong phien mount nay -
+  // tu do activeView tra ve dung `view` state binh thuong, thoat han khoi forceView.
+  const [navigatedAway, setNavigatedAway] = useState(false);
+  // "trang-chu"/"thieu-lk" BO QUA isValidView khi den tu forceView (khong nam trong tabs[] nen
+  // isValidView("trang-chu") luon false - neu doi qua isValidView o day forceView se bi lo, roi thang
+  // ve view/tabs[0], y het bug da bat gap khi tu kiem thu 2026-08-26). Quyen truy cap 2 route nay da
+  // duoc gac o App.tsx (allowedModules) roi, khong can gac lai lan nua tai day.
+  const activeView =
+    !navigatedAway && forceView && (forceView === "trang-chu" || forceView === "thieu-lk" || isValidView(forceView))
+      ? forceView
+      : isValidView(view)
+        ? view
+        : (tabs[0]?.key ?? "don-cua-toi");
 
   // Sub-loc "Mua hang | Cong no | Tra hang" cua tab "Don cua toi" - NANG LEN module (phan hoi
   // 2026-08-19: hien thanh 3 tab thuc su o thanh tab tren cung, thay vi 1 hang nut rieng ben trong
@@ -171,11 +191,9 @@ export function DatMuaLinhKienModule({
   // PHAN TU DIEU KIEN trong `tabs` (co the vang mat), tach rieng "Mua hàng"/"Công nợ" (theo
   // canXemDonMuaCongNo) khoi phan con lai cua tabs de tranh cat nham phan tu dau tien khi "don-cua-toi"
   // khong ton tai (vd Kho-thuan).
-  // "trang-chu" dat DAU TIEN (khop yeu cau UX "Trang chu la view mac dinh moi") - tach rieng khoi
-  // tabs.filter() ben duoi (giong "don-cua-toi") de khong bi xen giua cac muc "Mua hang/Cong no/Tra
-  // hang".
+  // FIX (phan hoi 2026-08-26): bo han "Trang chủ" khoi displayTabs - da co duong vao rieng o menu
+  // (forceView="trang-chu", xem App.tsx), khong con la 1 lua chon trong thanh tab noi bo nay nua.
   const displayTabs = [
-    { key: "trang-chu", label: "Trang chủ" },
     ...(canXemDonMuaCongNo
       ? [
           { key: "don-cua-toi:mua", label: "Mua hàng", count: loaiDonCounts.mua },
@@ -184,7 +202,7 @@ export function DatMuaLinhKienModule({
       : []),
     { key: "don-cua-toi:tra_hang", label: "Trả hàng", count: loaiDonCounts.tra_hang },
     ...tabs
-      .filter((t) => t.key !== "don-cua-toi" && t.key !== "trang-chu")
+      .filter((t) => t.key !== "don-cua-toi")
       .map((t) => (t.key === "phieu-xuat-kho" ? { ...t, count: pxkMoCountData?.count ?? 0 } : t)),
   ];
   // SUA (phan hoi 2026-08-21: "bấm vào tab 'Trả hàng' thì giao diện danh sách lại khác giao diện khi
@@ -206,6 +224,7 @@ export function DatMuaLinhKienModule({
   // thu 2026-08-21). Bo dem tang o MOI lan bam (ke ca bam lai cung sub-tab) la tin hieu dang tin cay.
   const [loaiDonTabClickSeq, setLoaiDonTabClickSeq] = useState(0);
   function handleTabChange(key: string) {
+    setNavigatedAway(true);
     if (key === "don-cua-toi:tra_hang" && canTraHangView) {
       setView("tra-hang");
       setLoaiDonTabClickSeq((n) => n + 1);
@@ -233,6 +252,7 @@ export function DatMuaLinhKienModule({
     return () => clearTimeout(t);
   }, [jumpTarget]);
   function jumpTo(target: JumpTarget) {
+    setNavigatedAway(true);
     setJumpTarget(target);
     setView(target.tab);
   }
@@ -375,9 +395,22 @@ export function DatMuaLinhKienModule({
           SUA (phan hoi 2026-08-19): khi vao qua "dat-mua-lk" (co nut tieu de "Việc của tôi: N" o
           tren), chi tiet tung buoc nay mac dinh AN, bam nut tieu de moi mo - giam chrong mac dinh.
           Khi vao qua forceView="tra-hang" (khong co nut tieu de) van hien san nhu truoc, tranh mat
-          tinh nang. */}
-      {(forceView || showWorkloadDetail) && <MyWorkloadStrip steps={luongQuyTrinh?.steps ?? []} myRoleKeys={myRoleKeys} onJump={jumpTo} />}
-      <Tabs active={displayActive} onChange={handleTabChange} tabs={displayTabs} />
+          tinh nang. FIX (phan hoi 2026-08-26): forceView="trang-chu" KHONG hien strip nay LUC MOI VAO
+          (TrangChuTab da tu ve lai dung du lieu nay thanh luoi StatCard rieng ben duoi, hien them se
+          trung lap) - nhung SAU KHI nguoi dung da jump/doi tab (navigatedAway=true, activeView khong
+          con la "trang-chu" nua), coi nhu forceView khac binh thuong, hien lai theo dung tinh than cu. */}
+      {((forceView && (navigatedAway || forceView !== "trang-chu")) || showWorkloadDetail) && (
+        <MyWorkloadStrip steps={luongQuyTrinh?.steps ?? []} myRoleKeys={myRoleKeys} onJump={jumpTo} />
+      )}
+      {/* FIX (phan hoi 2026-08-26): an han thanh tab noi bo khi vao qua 2 duong rieng moi
+          forceView="trang-chu"/"thieu-lk" - 2 man nay gio la TRANG DOC LAP thuc su LUC MOI VAO, khong
+          con hien thi cac tab con lai (Mua hang/Cong no/Tra hang/PXK) de tranh nham lan "day van la
+          Dat mua linh kien". Ngay khi nguoi dung bam 1 StatCard/o so de nhay sang tab khac
+          (navigatedAway=true), thanh tab HIEN LAI binh thuong de ho co duong di tiep - khong bi ket o
+          1 trang cut khong co cach quay lai. forceView="tra-hang" GIU NGUYEN hanh vi cu (luon hien). */}
+      {(navigatedAway || (forceView !== "trang-chu" && forceView !== "thieu-lk")) && (
+        <Tabs active={displayActive} onChange={handleTabChange} tabs={displayTabs} />
+      )}
       <Suspense fallback={<TabFallback />}>
         {activeView === "trang-chu" && (
           <TrangChuTab
