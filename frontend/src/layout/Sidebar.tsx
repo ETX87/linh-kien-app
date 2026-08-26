@@ -5,6 +5,7 @@ import { APP_VERSION } from "../version";
 import { api } from "../api/client";
 import { TopBarActions } from "./TopBarActions";
 import { InstallAppButton } from "./InstallAppButton";
+import { ThemeMenuButton } from "../theme/ThemeMenuButton";
 import type { AppUser } from "../auth/AuthContext";
 import type { ViewAsRole } from "../auth/viewAsRoles";
 
@@ -70,10 +71,13 @@ export function Sidebar({
         </div>
       )}
       {/* Nut "Cai dat vao man hinh chinh" (hang muc #1, phan hoi 2026-08-26: "chỉ hiện trên mobile") -
-          dat ngay duoi khoi TopBarActions, tren nav chinh. */}
+          dat ngay duoi khoi TopBarActions, tren nav chinh. "Giao diện" (them 2026-08-26, phan hoi "ấn
+          vào menu sẽ hiện ra") dat CANH ben - hien NGAY khi mo menu off-canvas, khong bat bam them vao
+          avatar/dropdown cua TopBarActions moi thay (van con giu o do, dung cho desktop). */}
       {isMobile && (
         <div className="px-2.5 pt-2 border-b border-[var(--sidebar-highlight)] shrink-0 pb-1">
           <InstallAppButton onNavigateAway={onMobileClose} />
+          <ThemeMenuButton />
         </div>
       )}
       <nav className="flex-1 overflow-y-auto sidebar-scroll py-3 px-2.5">
