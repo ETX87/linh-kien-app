@@ -1009,7 +1009,7 @@ export function PxkDetailModal({
                     title={!ghiChu.trim() ? "Cần nhập ghi chú/lý do huỷ trước" : "Kế toán huỷ"}
                     aria-label="Kế toán huỷ"
                   >
-                    🚫
+                    🗑
                   </Btn>
                 )}
                 {canKeToan && trangThai === "Cho ke toan" && (

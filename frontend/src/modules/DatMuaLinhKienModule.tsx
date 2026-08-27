@@ -396,7 +396,12 @@ export function DatMuaLinhKienModule({
   // định ẩn ở lần mở sau") - doi tu useState (mat het moi lan tai lai trang) sang useLocalStorageState
   // (cung pattern voi filters:dat-mua-lk-view/filters:dmlk-th-tt... da dung khap module nay) - luu cuc
   // bo tren trinh duyet cua tung nguoi dung, khong dong bo len server.
-  const [pipelineCollapsed, setPipelineCollapsed] = useLocalStorageState("filters:dmlk-pipeline-collapsed", false);
+  // FIX (ra soat UI 2026-08-27, hang muc #1): mac dinh "luon mo" (chot 2026-08-19) van dung cho da so
+  // vai tro, nhung KTV/Ve tinh THUAN (khong mang bat ky co quan ly nao) chi lien quan 2/17 buoc nen 17
+  // so mac dinh mo gay nhieu that su - thu gon SAN cho nhanh nay. CHI anh huong NGUOI DUNG MOI/chua tung
+  // luu lua chon (useLocalStorageState uu tien doc localStorage neu da co, khong ghi de lua chon cu).
+  const defaultPipelineCollapsed = !canTacNghiep && !canKho && !canKeToan && !isGiamSat && user?.vai_tro !== "Admin" && user?.vai_tro !== "QC";
+  const [pipelineCollapsed, setPipelineCollapsed] = useLocalStorageState("filters:dmlk-pipeline-collapsed", defaultPipelineCollapsed);
   // Mobile: khong render thanh pipeline (steps rong vi query da enabled:false o tren) - chi giu lai
   // duy nhat loi tat "+ Tao don" (hanh dong, khong phai bao cao) de khong mat tinh nang tao don, vi
   // day la CACH DUY NHAT tao don tren "Don cua toi" (nut rieng da bo, xem DonCuaToiTab.tsx dong 887).

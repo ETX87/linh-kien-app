@@ -1575,8 +1575,10 @@ export function DonHangGroupedList({
             </Btn>
           )}
           {row.actions.huy && (
+            // FIX (ra soat UI 2026-08-27, hang muc #1): doi 🚫 -> 🗑 de tach ro khoi ✕ (Tu choi) dung
+            // ngay canh - 2 icon truoc day qua giong nghia, de bam nham giua "Tu choi" va "Huy".
             <Btn size="sm" variant="ghost" className="px-2" title="Hủy" aria-label="Hủy" onClick={() => setActionTarget({ id: row.d.id, action: "huy" })} disabled={bulkMutation.isPending}>
-              🚫
+              🗑
             </Btn>
           )}
         </div>
@@ -1845,7 +1847,7 @@ export function DonHangGroupedList({
                               )}
                               {actions.huy && (
                                 <Btn size="sm" variant="ghost" className="px-2" title="Hủy" aria-label="Hủy" onClick={() => setActionTarget({ id: d.id, action: "huy" })} disabled={bulkMutation.isPending}>
-                                  🚫
+                                  🗑
                                 </Btn>
                               )}
                             </div>
