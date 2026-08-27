@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useEffect } from "react";
+import { lazy, Suspense, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs } from "../components/ui/Tabs";
@@ -279,6 +279,35 @@ export function DatMuaLinhKienModule({
     }
   }
 
+  // Muc 1 (yeu cau UI mobile 2026-08-27): vuot ngang de doi giua 3 tab hien thi "Mua hang/Cong
+  // no/Tra hang" (displayTabs co key "don-cua-toi:*") - tu viet tay bang touch event, KHONG them thu
+  // vien gesture nao. Chi tinh delta luc touchend (khong can theo doi lien tuc trong touchmove) -
+  // nguong 50px + phai lon hon 1.5 lan bien do doc de tranh nham voi cuon doc. Chi doi trong pham vi
+  // cac tab dang HIEN THI thuc su (displayTabs), khong bao gio "nhay qua" sang Phieu xuat kho/Thieu
+  // LK dhu displayActive dang la 1 trong 3 sub-tab do.
+  const swipeTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+  function handleSwipeTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    if (!t) return;
+    swipeTouchStartRef.current = { x: t.clientX, y: t.clientY };
+  }
+  function handleSwipeTouchEnd(e: React.TouchEvent) {
+    const start = swipeTouchStartRef.current;
+    swipeTouchStartRef.current = null;
+    if (!start) return;
+    const t = e.changedTouches[0];
+    if (!t) return;
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    const swipeKeys = displayTabs.map((tb) => tb.key).filter((k) => k.startsWith("don-cua-toi:"));
+    const idx = swipeKeys.indexOf(displayActive);
+    if (idx === -1) return;
+    const nextIdx = idx + (dx < 0 ? 1 : -1);
+    if (nextIdx < 0 || nextIdx >= swipeKeys.length) return;
+    handleTabChange(swipeKeys[nextIdx]);
+  }
+
   // Thanh tom tat + nhay dung tab/filter (tieu chi UX #1/#2) - jumpTarget tieu thu 1 lan roi tu xoa
   // (setTimeout 0 chay sau khi effect cua tab con da doc prop initialFilterOverride trong cung 1 luot
   // flush), tranh ap lai gia tri cu moi lan re-render.
@@ -469,6 +498,7 @@ export function DatMuaLinhKienModule({
       {(navigatedAway || (forceView !== "trang-chu" && forceView !== "thieu-lk")) && (
         <Tabs active={displayActive} onChange={handleTabChange} tabs={displayTabs} />
       )}
+      <div {...(isMobile ? { onTouchStart: handleSwipeTouchStart, onTouchEnd: handleSwipeTouchEnd } : {})}>
       <Suspense fallback={<TabFallback />}>
         {activeView === "trang-chu" && (
           <TrangChuTab
@@ -497,6 +527,9 @@ export function DatMuaLinhKienModule({
             // (canTacNghiep) van giu quyen nay khong dieu kien, khop dung y cu (tram_cha cua TN gan
             // nhu luon null nen truoc day TN cung luon lot qua dieu kien nay).
             canBulkTram={canTacNghiep || !!user?.la_tram}
+            canKho={canKho}
+            canKeToan={canKeToan}
+            isGiamSat={isGiamSat}
             canXemChiTietCa={canXemChiTietCa}
             openCase={openCase ?? ((id) => setOpenCaseId(id))}
             initialFilterOverride={filterFor("don-cua-toi")}
@@ -535,6 +568,7 @@ export function DatMuaLinhKienModule({
           />
         )}
       </Suspense>
+      </div>
       {openCaseId && <CaseDetailModal caseId={openCaseId} onClose={() => setOpenCaseId(null)} />}
     </div>
   );

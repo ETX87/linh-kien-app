@@ -198,6 +198,33 @@ datMuaLinhKien.get("/nguoi-nhan-hang-kha-dung", async (c) => {
   return c.json({ rows: results });
 });
 
+// GET /api/dat-mua-lk/khu-vuc-cua-toi (them 2026-08-27, phan hoi "GS test không thấy đơn của KTV khu
+// vực mình" + yeu cau "filter theo khu vực... GS tự lọc mặc định theo khu vực mình được set") - tra
+// danh sach Khu vuc GAN VOI CHINH tai khoan dang goi, dung lam gia tri MAC DINH cho bo loc Khu vuc o
+// DonCuaToiTab + khoi "KTV khu vực của tôi" o TrangChuTab. GS: qua khu_vuc.gs_email (nguon that phan
+// cong GS - Settings > Khu vực). TN/Kho/Ke toan: qua user_khu_vuc (Admin gan o UsersModule, xem
+// CLAUDE.md - bang nay truoc gio la "MEM" chi phuc vu tim kiem/thong ke, nay THEM 1 cong dung nua la
+// gia tri mac dinh cho bo loc nay, KHONG doi thanh gioi han cung nhu la_view). Vai tro khac (KTV/Ve
+// tinh/Admin thuan/QC) tra mang rong - khong co khai niem "khu vuc cua toi" o day.
+datMuaLinhKien.get("/khu-vuc-cua-toi", async (c) => {
+  const user = c.get("user");
+  if (user.vai_tro === "Giam sat") {
+    const { results } = await c.env.DB.prepare("SELECT ma, ten FROM khu_vuc WHERE gs_email = ? ORDER BY stt, ma")
+      .bind(user.email)
+      .all<{ ma: string; ten: string }>();
+    return c.json({ rows: results });
+  }
+  if (user.la_tac_nghiep || user.la_kho || user.la_ke_toan) {
+    const { results } = await c.env.DB.prepare(
+      `SELECT kv.ma, kv.ten FROM user_khu_vuc uk JOIN khu_vuc kv ON kv.ma = uk.khu_vuc_ma WHERE uk.user_email = ? ORDER BY kv.stt, kv.ma`,
+    )
+      .bind(user.email)
+      .all<{ ma: string; ten: string }>();
+    return c.json({ rows: results });
+  }
+  return c.json({ rows: [] });
+});
+
 // GET/PUT /api/dat-mua-lk/phu-trach-gs - quan ly "khu vuc phu trach" (Giam sat) cho 1 nguoi TN/Kho/Ke
 // toan (Admin gan tay) - CHOT 2026-08-15: scope MEM, chi anh huong badge/thong ke (xem
 // phuTrachGsSet/autoClaimGs trong scopeDatMua.ts, migration 0073), KHONG gioi han danh sach/tim
@@ -744,6 +771,12 @@ datMuaLinhKien.get("/don-hang", async (c) => {
   const tuNgay = c.req.query("tu_ngay");
   const denNgay = c.req.query("den_ngay");
   const loaiDon = c.req.query("loai_don");
+  // "khu_vuc" (them 2026-08-27, filter Khu vuc cho nhan vien van phong - xem GET /khu-vuc-cua-toi) -
+  // danh sach ma Khu vuc cach nhau boi dau phay, khop don co NGUOI TAO hoac NGUOI NHAN HANG la 1 KTV
+  // thuoc 1 trong cac Khu vuc do (giong cau truc OR cua khuVucViewEmailInSql nhung nhan NHIEU khu vuc
+  // tuong minh tu FE thay vi tu tra cuu user_khu_vuc cua chinh nguoi goi - bo loc UI thuan, KHONG phai
+  // gioi han bao mat nhu la_view).
+  const khuVuc = c.req.query("khu_vuc")?.trim();
   // CHOT (ra soat module "Dat Mua Linh Kien 2.0" #8): tim theo ma LK/ten LK/ma dong - ap TRUOC khi
   // phan trang (server-side), khac voi lam client-side chi loc duoc trong 20 dong dang tai cua 1
   // trang - tranh cam giac "tim khong ra" du du lieu ton tai o trang khac.
@@ -758,7 +791,15 @@ datMuaLinhKien.get("/don-hang", async (c) => {
     whereSql += " AND ddh.loai_don = ?";
     binds.push(loaiDon);
   }
-  if (trangThai) {
+  if (trangThai === "__OPEN__") {
+    // Sentinel "con ton" (them 2026-08-27, phan hoi UI mobile "mặc định lọc các đơn còn tồn") - tai
+    // dung DUNG 2 dinh nghia "dong" da co san cho GET /loai-don-counts o tren (khong bia tieu chi
+    // moi): mua/cong no dung DON_HANG_TRANG_THAI_DONG (gom ca "Cho hang" - da duyet xong, chi con
+    // cho hang ve, khong can ai xu ly them), tra_hang dung TRA_HANG_TRANG_THAI_DONG_COUNTS.
+    const dongSet = loaiDon === "tra_hang" ? TRA_HANG_TRANG_THAI_DONG_COUNTS : DON_HANG_TRANG_THAI_DONG;
+    whereSql += ` AND ddh.trang_thai_hien_tai NOT IN (${dongSet.map(() => "?").join(",")})`;
+    binds.push(...dongSet);
+  } else if (trangThai) {
     // RA SOAT CHI PHI D1 2026-08-18 (phan hoi Codex #11/#13, migration 0087+0088): doc truc tiep cot
     // trang_thai_hien_tai (co index idx_ddh_loai_don_trang_thai) thay vi correlated subquery - cot
     // nay LUON dung/moi (moi write site da duoc cap nhat dong bo, ke ca dong loai_don='tra_hang'
@@ -775,6 +816,14 @@ datMuaLinhKien.get("/don-hang", async (c) => {
   if (nguoiNhanHang) {
     whereSql += " AND ddh.nguoi_nhan_hang = ?";
     binds.push(nguoiNhanHang);
+  }
+  if (khuVuc) {
+    const khuVucList = khuVuc.split(",").map((s) => s.trim()).filter(Boolean);
+    if (khuVucList.length > 0) {
+      const emailInKhuVuc = `(SELECT email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND khu_vuc_ma IN (${khuVucList.map(() => "?").join(",")}))`;
+      whereSql += ` AND (ddh.nguoi_tao IN ${emailInKhuVuc} OR ddh.nguoi_nhan_hang IN ${emailInKhuVuc})`;
+      binds.push(...khuVucList, ...khuVucList);
+    }
   }
   if (tuNgay) {
     whereSql += " AND ddh.ngay_tao >= ?";

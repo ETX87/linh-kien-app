@@ -53,8 +53,16 @@ settingsKtv.get("/", async (c) => {
     conditions.push("k.vai_tro_ktv = 'Ve tinh'");
   }
   if (khuVucMa) {
-    conditions.push("k.khu_vuc_ma = ?");
-    binds.push(khuVucMa);
+    // Ho tro nhieu ma cach nhau boi dau phay (them 2026-08-27, khoi "KTV khu vực của tôi" o
+    // TrangChuTab.tsx - 1 GS/TN/Kho/Ke toan co the phu trach NHIEU Khu vuc cung luc).
+    const khuVucList = khuVucMa.split(",").map((s) => s.trim()).filter(Boolean);
+    if (khuVucList.length === 1) {
+      conditions.push("k.khu_vuc_ma = ?");
+      binds.push(khuVucList[0]);
+    } else if (khuVucList.length > 1) {
+      conditions.push(`k.khu_vuc_ma IN (${khuVucList.map(() => "?").join(",")})`);
+      binds.push(...khuVucList);
+    }
   }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 

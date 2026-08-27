@@ -137,6 +137,56 @@ export function TrangThaiChipFilter({ value, onChange, options }: { value: strin
   );
 }
 
+// Bo loc Khu vuc DA CHON NHIEU (them 2026-08-27, phan hoi "bổ sung filter theo khu vực... GS tự lọc
+// mặc định theo khu vực mình được set") - khac TrangThaiChipFilter (chon 1), 1 GS/TN/Kho/Ke toan co
+// the phu trach NHIEU Khu vuc cung luc nen can toggle duoc tung khu vuc doc lap. `value` rong (Set
+// size 0) = "Tất cả" (khong loc gi, dung y nghia voi cac bo loc khac trong module nay - CHI la bo loc
+// UI, KHONG phai gioi han bao mat nhu View - xem GET /khu-vuc-cua-toi backend).
+export function KhuVucChipFilter({
+  value,
+  onChange,
+  options,
+}: {
+  value: Set<string>;
+  onChange: (next: Set<string>) => void;
+  options: { value: string; label: string }[];
+}) {
+  function toggle(ma: string) {
+    const next = new Set(value);
+    if (next.has(ma)) next.delete(ma);
+    else next.add(ma);
+    onChange(next);
+  }
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      <button
+        type="button"
+        onClick={() => onChange(new Set())}
+        className={`focus-ring rounded-full px-[13px] py-[5.5px] text-xs font-medium transition-colors ${
+          value.size === 0 ? "bg-[var(--ocean-800)] border border-[var(--ocean-800)] text-white font-semibold" : "bg-white text-[var(--ink-700)] border border-[var(--line)] hover:border-[var(--ocean-800)]"
+        }`}
+      >
+        Tất cả
+      </button>
+      {options.map((o) => {
+        const active = value.has(o.value);
+        return (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => toggle(o.value)}
+            className={`focus-ring rounded-full px-[13px] py-[5.5px] text-xs font-medium transition-colors ${
+              active ? "bg-[var(--ocean-800)] border border-[var(--ocean-800)] text-white font-semibold" : "bg-white text-[var(--ink-700)] border border-[var(--line)] hover:border-[var(--ocean-800)]"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Preview truoc bulk action"): bam LAN 2 moi thuc su
 // chay (giong pattern "Bam lan nua de xac nhan huy" da co san o DonHangDetailModal - confirmCancelPending)
 // thay vi chay NGAY LAP TUC khi bam 1 lan nhu truoc - tranh bam nham duyet/tu choi hang loat khong co

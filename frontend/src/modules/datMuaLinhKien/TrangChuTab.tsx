@@ -1,8 +1,74 @@
+import { useQuery } from "@tanstack/react-query";
 import { StatCard } from "../../components/ui/StatCard";
 import { SectionTitle } from "../../components/ui/SectionTitle";
+import { Badge } from "../../components/ui/Badge";
+import { api, buildQuery } from "../../api/client";
 import { STEP_SHORT_LABEL } from "./constants";
 import { BaoCaoTab } from "./BaoCaoTab";
 import type { JumpTarget, LuongQuyTrinhStep } from "./types";
+
+// Khoi "KTV khu vực của tôi" (them 2026-08-27, phan hoi "bổ sung... danh sách KTV khu vực của mình
+// cho nhân viên văn phòng") - TU AN neu tai khoan dang xem khong co Khu vuc nao gan (KTV/Ve tinh/Admin
+// thuan/QC deu roi vao truong hop nay, xem GET /dat-mua-lk/khu-vuc-cua-toi) nen KHONG can prop
+// vai-tro rieng truyen tu component cha - tu no goi API va tu quyet dinh an/hien.
+function KtvKhuVucCuaToiCard() {
+  const { data: khuVucCuaToi } = useQuery({
+    queryKey: ["dat-mua-lk-khu-vuc-cua-toi"],
+    queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/dat-mua-lk/khu-vuc-cua-toi"),
+  });
+  const khuVucMaList = (khuVucCuaToi?.rows ?? []).map((r) => r.ma);
+  const { data: ktvData } = useQuery({
+    queryKey: ["settings-ktv", "khu-vuc-cua-toi", khuVucMaList.join(",")],
+    queryFn: () => api.get<{ rows: { ma_ktv: string; ten_hien_thi: string | null; sdt: string | null; vai_tro_ktv: string | null; khu_vuc_ma: string | null }[] }>(
+      "/settings/ktv-lien-he" + buildQuery({ khu_vuc_ma: khuVucMaList.join(",") }),
+    ),
+    enabled: khuVucMaList.length > 0,
+  });
+  if (khuVucMaList.length === 0) return null;
+  const khuVucTenByMa = new Map((khuVucCuaToi?.rows ?? []).map((r) => [r.ma, r.ten]));
+  const rows = ktvData?.rows ?? [];
+
+  return (
+    <div>
+      <SectionTitle className="mt-6">
+        KTV khu vực của tôi{" "}
+        <span className="normal-case font-normal text-[var(--ink-400)]">
+          ({khuVucMaList.map((ma) => khuVucTenByMa.get(ma) ?? ma).join(", ")})
+        </span>
+      </SectionTitle>
+      {rows.length === 0 ? (
+        <div className="text-sm text-[var(--ink-400)] py-3 text-center rounded-xl border border-dashed border-[var(--line)]">
+          Chưa có KTV nào thuộc khu vực này.
+        </div>
+      ) : (
+        <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
+          <div className="overflow-x-auto max-h-72 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)] sticky top-0">
+                  <th className="px-3 py-2">Tên</th>
+                  <th className="px-3 py-2">SĐT</th>
+                  <th className="px-3 py-2">Vai trò</th>
+                  {khuVucMaList.length > 1 && <th className="px-3 py-2">Khu vực</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.ma_ktv} className="border-b border-[var(--line)] last:border-0">
+                    <td className="px-3 py-2">{r.ten_hien_thi ?? r.ma_ktv}</td>
+                    <td className="px-3 py-2">{r.sdt ?? "—"}</td>
+                    <td className="px-3 py-2"><Badge tone="ocean">{r.vai_tro_ktv ?? "KTV"}</Badge></td>
+                    {khuVucMaList.length > 1 && <td className="px-3 py-2">{r.khu_vuc_ma ? khuVucTenByMa.get(r.khu_vuc_ma) ?? r.khu_vuc_ma : "—"}</td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Tab "Trang chủ" (them 2026-08-24, khop bo cuc renderHome()/kpiCard() cua
 // ui-concepts/concept-1-structured-neutral.html) - man mac dinh moi khi vao module, gom 1 luoi
@@ -93,6 +159,8 @@ export function TrangChuTab({
         <span className="text-[var(--line)]">·</span>
         <span>Trả hàng {jumpNum("tra_hang")} đơn</span>
       </div>
+
+      <KtvKhuVucCuaToiCard />
 
       {showBaoCao && (
         <div>

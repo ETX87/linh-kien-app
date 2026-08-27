@@ -21,14 +21,14 @@ import type { DonHangRow, DonHangLogRow, LyDoChamRow, ActionTarget, DonHangDraft
 import {
   DON_HANG_TRANG_THAI_TONE_ALL, DON_HANG_ROW_STYLE, TRANG_THAI_DOT_TONE, DON_CUA_TOI_TRANG_THAI_OPTIONS,
   DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, DON_HANG_DANG_MO, BULK_LOG_ERROR_MESSAGES, YEU_CAU_HOA_DON_OPTIONS,
-  CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABELS,
+  CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABELS, TRA_HANG_TRANG_THAI_OPTIONS,
 } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   LOAI_DON_TONE, deriveLoaiDon, actionsFor, trangThaiLabel, canNoRequired, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo,
 } from "./helpers";
-import { StatusBadge, ActiveFiltersBar, TrangThaiChipFilter, BulkConfirmButton, MaYcscCell } from "./SharedUi";
+import { StatusBadge, ActiveFiltersBar, TrangThaiChipFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { LinhKienPicker, LinhKienDetailModal } from "./LinhKienPicker";
 
@@ -514,7 +514,10 @@ export function DonHangDetailModal({
                 {d.loai_don === "tra_hang" && (
                   <span className="text-[var(--ink-400)] text-xs">(xử lý ở luồng quy trình phía trên)</span>
                 )}
-                {d.qua_han_ly_do_cham && <Badge tone="coral">Quá hạn - cần lý do chậm</Badge>}
+                {/* DOI MAU (2026-08-27, "5 nhóm màu trạng thái"): "Quá hạn" la 1 khai niem RIENG voi
+                    "tu choi" (violet)/"da huy" (coral) - doi sang tone "orange" (cam, gia tri khong
+                    doi) de khong bi trung mau voi 2 khai niem do sau khi gan lai tone theo constants.ts. */}
+                {d.qua_han_ly_do_cham && <Badge tone="orange">Quá hạn - cần lý do chậm</Badge>}
                 {/* SUA (phan hoi 2026-08-19): amber trung mau voi loai_don "Cong no" gay nham lan "vien
                     vang" - doi ca Badge nay lan ring/bg cua dong bang sang cam THAT (token --orange-*
                     rieng, khac amber), dong bo voi TaoDonTab. */}
@@ -781,6 +784,9 @@ export function DonCuaToiTab({
   canTacNghiep,
   canTPDvbhXacNhan,
   canBulkTram,
+  canKho,
+  canKeToan,
+  isGiamSat,
   canXemChiTietCa,
   openCase,
   initialFilterOverride,
@@ -799,6 +805,12 @@ export function DonCuaToiTab({
   canTacNghiep: boolean;
   canTPDvbhXacNhan: boolean;
   canBulkTram: boolean;
+  // 3 co them 2026-08-27 (bo loc Khu vuc "nhan vien van phong") - dung de quyet dinh HIEN bo loc Khu
+  // vuc (showKhuVucFilter = canTacNghiep || canKho || canKeToan || isGiamSat), khong lien quan cac
+  // nhanh quyen khac da co san trong file (vd canBulkTram).
+  canKho: boolean;
+  canKeToan: boolean;
+  isGiamSat: boolean;
   canXemChiTietCa: boolean;
   openCase?: (id: string, tab?: string) => void;
   initialFilterOverride?: string;
@@ -814,8 +826,10 @@ export function DonCuaToiTab({
   const personDir = usePersonDirectory();
   // Mac dinh loc thang vao bucket "can xu ly" cua vai tro dang xem (chi anh huong lan dau, xem
   // comment defaultView o component cha) - TN thay "Cho TN duyet", Tram thay "Cho Tram duyet", con
-  // lai (KTV/Ve tinh xem don cua chinh minh, GS theo doi) giu "Tat ca" vi ho can thay CA lich su, khong
-  // chi phan cho duyet.
+  // lai (KTV/Ve tinh xem don cua chinh minh, GS theo doi) mac dinh "__OPEN__" (sentinel "con ton",
+  // them 2026-08-27, phan hoi UI mobile "mặc định lọc các đơn còn tồn" - truoc day la "" tuc "Tất cả",
+  // khien man hinh lan man lich su lan don dang mo). "__OPEN__" khop dung backend GET /don-hang (loc
+  // NOT IN tap trang thai "dong" da co san, xem DON_HANG_TRANG_THAI_DONG o datMuaLinhKien.ts).
   // FIX (ra soat bug mua hang 2026-08-26, BUG-002): filterTrangThai TRUOC DAY la 1 bien localStorage
   // DUY NHAT - jump tu Home/Pipeline (initialFilterOverride) goi thang setter cua no, nen 1 lan bam
   // KPI tu Trang chu se GHI DE VINH VIEN filter da luu, du nguoi dung khong chu dong chon. Tach lam 2
@@ -825,7 +839,7 @@ export function DonCuaToiTab({
   // (khong qua jump) van "giữ filter đã lưu gần nhất" nhu hanh vi cu.
   const [savedFilterTrangThai, setSavedFilterTrangThai] = useLocalStorageState(
     "filters:dmlk-trang-thai",
-    canTacNghiep ? "Cho TN duyet" : canTPDvbhXacNhan ? "Cho TBP xac nhan" : canBulkTram ? "Cho Tram duyet" : "",
+    canTacNghiep ? "Cho TN duyet" : canTPDvbhXacNhan ? "Cho TBP xac nhan" : canBulkTram ? "Cho Tram duyet" : "__OPEN__",
   );
   const [filterTrangThai, setFilterTrangThaiDisplay] = useState(savedFilterTrangThai);
   function setFilterTrangThai(v: string) {
@@ -843,6 +857,35 @@ export function DonCuaToiTab({
   }, [initialNguoiNhanHangOverride]);
   const [filterTuNgay, setFilterTuNgay] = useState("");
   const [filterDenNgay, setFilterDenNgay] = useState("");
+  // Bo loc Khu vuc (them 2026-08-27, phan hoi "GS test không thấy đơn của KTV khu vực mình" + yeu cau
+  // "bổ sung thêm filter theo khu vực... nếu giám sát sẽ tự lọc filter mặc định theo khu vực mình
+  // được set") - showKhuVucFilter khop dung nhom "nhan vien van phong" (GS/TN/Kho/Ke toan, GIONG
+  // showKhuVucAssign o UsersModule.tsx). options la TOAN BO Khu vuc (khong chi khu vuc cua minh) - TN/
+  // Kho/Ke toan van xem duoc "toàn quốc" (chi mac dinh CHON SAN khu vuc cua ho, khong bi GIOI HAN nhu
+  // La_view - khac ban chat voi khu_vuc_ma trong scopeDatMua.ts).
+  const showKhuVucFilter = canTacNghiep || canKho || canKeToan || isGiamSat;
+  const [filterKhuVuc, setFilterKhuVuc] = useState<Set<string>>(new Set());
+  const khuVucDefaultAppliedRef = useRef(false);
+  const { data: khuVucAllData } = useQuery({
+    queryKey: ["settings-khu-vuc"],
+    queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/settings/khu-vuc"),
+    enabled: showKhuVucFilter,
+  });
+  const { data: khuVucCuaToiData } = useQuery({
+    queryKey: ["dat-mua-lk-khu-vuc-cua-toi"],
+    queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/dat-mua-lk/khu-vuc-cua-toi"),
+    enabled: showKhuVucFilter,
+  });
+  // Mac dinh CHON SAN khu vuc cua chinh nguoi dang xem (yeu cau "GS tự lọc filter mặc định theo khu
+  // vực mình được set") - CHI 1 LAN dau tien khi du lieu ve, khong ghi de lua chon nguoi dung da tu
+  // doi sau do (khop dung tinh than cua savedFilterTrangThai/khuVucDefaultAppliedRef).
+  useEffect(() => {
+    if (khuVucDefaultAppliedRef.current) return;
+    if (!khuVucCuaToiData) return;
+    khuVucDefaultAppliedRef.current = true;
+    if (khuVucCuaToiData.rows.length > 0) setFilterKhuVuc(new Set(khuVucCuaToiData.rows.map((r) => r.ma)));
+  }, [khuVucCuaToiData]);
+  const khuVucOptions = (khuVucAllData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ten }));
   // CHOT #8 (ra soat module "Dat Mua Linh Kien 2.0"): tim theo ma LK/ten LK/ma dong - gui len SERVER
   // (khong loc client-side, danh sach da phan trang server-side that su nen loc client chi tim duoc
   // trong 20 dong dang tai). Debounce 500ms giong pattern MaYeuCauSuCoCheck da co san trong file.
@@ -865,10 +908,12 @@ export function DonCuaToiTab({
   const [showFilters, setShowFilters] = useState(false);
   // xemLoaiDon gio la PROP (nang len DatMuaLinhKienModule, hien thanh 3 tab that "Mua hang/Cong no/
   // Tra hang" o thanh tab tren cung - xem comment o chu ky ham). Doi sang "Tra hang" thi filterTrangThai
-  // phai reset ve rong - bo loc trang thai dang dung gia tri cua dat_don_hang_log (vd "Cho TN duyet"),
-  // khong khop trang thai cua tra_hang_log nen se ra rong neu giu nguyen.
+  // phai reset - bo loc trang thai dang dung gia tri cua dat_don_hang_log (vd "Cho TN duyet"), khong
+  // khop trang thai cua tra_hang_log nen se ra rong neu giu nguyen. SUA (2026-08-27): reset ve
+  // "__OPEN__" (con ton) thay vi "" (Tat ca) - khop dung mac dinh moi, va "__OPEN__" hop le cho CA 2
+  // loai_don (backend tu chon dung tap trang thai "dong" theo loaiDon, xem GET /don-hang).
   useEffect(() => {
-    if (xemLoaiDon === "tra_hang") setFilterTrangThai("");
+    if (xemLoaiDon === "tra_hang") setFilterTrangThai("__OPEN__");
   }, [xemLoaiDon]);
   // SUA BUG (phan hoi 2026-08-21: "ấn TN 2 chỉ hiện 1... ấn TBP 1 lúc thì hiện 1 dòng, lúc lại báo
   // không có dữ liệu") - cac buoc Tram/TBP/TN tren pipeline dem GOP ca "mua" lan "cong_no" (xem
@@ -918,8 +963,9 @@ export function DonCuaToiTab({
   // CHOT 2026-08-15 (bo khai niem "phieu dat"): danh sach gio la DONG PHANG (GET /don-hang), phan
   // trang server-side that su (truoc day page/pageSize khong duoc gui len backend - bug tiem an, chi
   // luon lay trang 1 roi slice() client-side - sua luon vi dang viet lai dung doan code nay).
+  const khuVucParam = filterKhuVuc.size > 0 ? [...filterKhuVuc].sort().join(",") : "";
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["dat-mua-lk-don-hang", filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, effectiveLoaiDon, debouncedQ, page],
+    queryKey: ["dat-mua-lk-don-hang", filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, effectiveLoaiDon, debouncedQ, khuVucParam, page],
     queryFn: () =>
       api.get<{ rows: DonHangRow[]; page: number; pageSize: number; total: number }>(
         "/dat-mua-lk/don-hang" +
@@ -931,6 +977,7 @@ export function DonCuaToiTab({
             den_ngay: filterDenNgay || undefined,
             loai_don: effectiveLoaiDon || undefined,
             q: debouncedQ || undefined,
+            khu_vuc: khuVucParam || undefined,
             page,
             pageSize,
           }),
@@ -944,7 +991,7 @@ export function DonCuaToiTab({
   useEffect(() => {
     setPage(1);
     setSelected(new Set());
-  }, [filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, effectiveLoaiDon, debouncedQ]);
+  }, [filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, effectiveLoaiDon, debouncedQ, khuVucParam]);
 
   const { data: veTinhData } = useQuery({
     queryKey: ["dat-mua-lk-ve-tinh-cua-toi"],
@@ -1061,7 +1108,7 @@ export function DonCuaToiTab({
     });
   }
 
-  const activeFilterCount = [filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, filterQ].filter(Boolean).length;
+  const activeFilterCount = [filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, filterQ, khuVucParam].filter(Boolean).length;
 
   return (
     <div className="mt-4">
@@ -1085,10 +1132,23 @@ export function DonCuaToiTab({
       </div>
       {showFilters && (
         <div className="mb-3 bg-[var(--surface-100)] border border-[var(--line)] rounded-xl p-3 flex flex-col gap-3">
-          {/* Bo loc trang thai chi ap dung cho dat_don_hang_log (mua/cong no) - dong tra_hang dung
-              trang_thai cua tra_hang_log rieng, khong khop danh sach option ben duoi nen an di. */}
-          {xemLoaiDon !== "tra_hang" && (
-            <TrangThaiChipFilter value={filterTrangThai} onChange={setFilterTrangThai} options={DON_CUA_TOI_TRANG_THAI_OPTIONS} />
+          {/* SUA (2026-08-27, phan hoi "tab trả hàng filter không có gì hiện"): truoc day dong
+              tra_hang bi AN HAN bo loc trang thai vi options cua DON_CUA_TOI_TRANG_THAI_OPTIONS khong
+              khop trang thai cua tra_hang_log, khien khoi loc mo rong hien RONG (chi con o tim kiem o
+              ngoai) - gio doi SANG BO OPTIONS KHAC (TRA_HANG_TRANG_THAI_OPTIONS) thay vi an han, danh
+              sach trang thai van dung dung tra_hang_log qua trang_thai_hien_tai (xem GET /don-hang). */}
+          <TrangThaiChipFilter
+            value={filterTrangThai}
+            onChange={setFilterTrangThai}
+            options={xemLoaiDon === "tra_hang" ? TRA_HANG_TRANG_THAI_OPTIONS : DON_CUA_TOI_TRANG_THAI_OPTIONS}
+          />
+          {/* Bo loc Khu vuc (them 2026-08-27) - chi GS/TN/Kho/Ke toan (showKhuVucFilter), chi hien khi
+              he thong da co >=1 Khu vuc de chon (khuVucOptions rong o he moi tinh chua cau hinh gi). */}
+          {showKhuVucFilter && khuVucOptions.length > 0 && (
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Khu vực</div>
+              <KhuVucChipFilter value={filterKhuVuc} onChange={setFilterKhuVuc} options={khuVucOptions} />
+            </div>
           )}
           {(canBulkTram || (canTacNghiep && (nguoiNhanHangData?.rows.length ?? 0) > 0)) && (
             <div className="flex gap-2 flex-wrap items-center">
@@ -1135,14 +1195,22 @@ export function DonCuaToiTab({
           )}
         </div>
       )}
-      {/* SUA (ra soat #3): bo chip "Trạng thái: ..." khoi day - da hien TRUNG voi chip dang to sang
-          (highlighted) ngay trong TrangThaiChipFilter o tren, gay cam giac "2 noi cung bao 1 thu". Cac
-          chip con lai (nguoi tao/nguoi nhan hang/ngay/tim kiem) khong co hien thi truc quan nao khac
-          nen GIU nguyen. */}
+      {/* SUA (2026-08-27, phan hoi "bên cạnh nút filter có hiện text đang filter gì... có thể tắt đi
+          để reset về filter tất cả"): DAO LAI quyet dinh cu (comment ra soat #3 truoc day co tinh
+          KHONG them chip trang thai vi "trung voi chip to sang trong TrangThaiChipFilter") - luc do
+          bang loc chi tiet MAC DINH AN nen chip to sang cung an theo, nguoi dung khong biet dang loc
+          gi neu khong bam mo bang loc. Chip nay hien DOC LAP voi trang thai an/hien cua bang loc, dat
+          NGAY DAU mang (canh nut "☰ Bộ lọc") de de thay nhat. onClear tra ve "" (Tất cả) dung yeu cau. */}
       <ActiveFiltersBar
         chips={[
+          ...(filterTrangThai
+            ? [{ label: trangThaiLabel(xemLoaiDon === "tra_hang" ? TRA_HANG_TRANG_THAI_OPTIONS : DON_CUA_TOI_TRANG_THAI_OPTIONS, filterTrangThai), onClear: () => setFilterTrangThai("") }]
+            : []),
           ...(filterNguoiTao ? [{ label: "Người tạo đã lọc", onClear: () => setFilterNguoiTao("") }] : []),
           ...(filterNguoiNhanHang ? [{ label: "Người nhận hàng đã lọc", onClear: () => setFilterNguoiNhanHang("") }] : []),
+          ...(khuVucParam
+            ? [{ label: `Khu vực: ${[...filterKhuVuc].map((ma) => khuVucOptions.find((o) => o.value === ma)?.label ?? ma).join(", ")}`, onClear: () => setFilterKhuVuc(new Set()) }]
+            : []),
           ...(filterTuNgay ? [{ label: `Từ ngày ${filterTuNgay}`, onClear: () => setFilterTuNgay("") }] : []),
           ...(filterDenNgay ? [{ label: `Đến ngày ${filterDenNgay}`, onClear: () => setFilterDenNgay("") }] : []),
           ...(filterQ ? [{ label: `Tìm: "${filterQ}"`, onClear: () => setFilterQ("") }] : []),
@@ -1448,7 +1516,7 @@ export function DonHangGroupedList({
       render: (row) => (
         <div className="flex flex-col gap-0.5 items-start">
           <StatusBadge value={row.d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} options={DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL} />
-          {row.d.qua_han_ly_do_cham && <Badge tone="coral">Quá hạn - cần lý do</Badge>}
+          {row.d.qua_han_ly_do_cham && <Badge tone="orange">Quá hạn - cần lý do</Badge>}
         </div>
       ),
     },
@@ -1551,10 +1619,17 @@ export function DonHangGroupedList({
                 nhan chinh, TU DOI theo tung bo "Giao diện" ca nhan dang chon - xem theme/presets.ts),
                 tao tuong phan ro voi noi dung ban dong --surface trang o duoi. */}
             <div className="flex items-center justify-between gap-3 flex-wrap bg-[var(--ocean-100)] px-3 py-2">
-              <div className="flex items-center gap-3 flex-wrap text-sm">
-                <span className="font-bold text-[var(--ink-900)]">{formatNguoiDisplay(nguoiNhan, ktvDisplayMap)}</span>
-                <span className="text-[var(--ink-400)] text-xs">{dongCon.length} dòng</span>
-                <span className="font-semibold text-[var(--green-700)]">{fmtVND(tongTien)}</span>
+              <div className="flex items-center gap-3 flex-wrap text-sm min-w-0">
+                {/* SUA (2026-08-27, phan hoi "tiêu đề gắn tên KTV thu nhỏ lại, tối đa 2 dòng"): ten/
+                    email nguoi nhan hang co the rat dai tren mobile (man hep) - gioi han toi da 2 dong
+                    qua "line-clamp-2" (Tailwind co san tu v3.3, khong can plugin), phan du bi cat kem
+                    "..." tu dong o cuoi dong 2. Thu nho font (text-xs) + gioi han max-w tren mobile,
+                    desktop (man rong, ko can gon) giu nguyen 1 dong truncate nhu cu qua sm:. */}
+                <span className="font-bold text-[var(--ink-900)] text-xs sm:text-sm line-clamp-2 sm:line-clamp-none sm:truncate max-w-[62vw] sm:max-w-none break-words">
+                  {formatNguoiDisplay(nguoiNhan, ktvDisplayMap)}
+                </span>
+                <span className="text-[var(--ink-400)] text-xs shrink-0">{dongCon.length} dòng</span>
+                <span className="font-semibold text-[var(--green-700)] shrink-0">{fmtVND(tongTien)}</span>
               </div>
               <div className="flex items-center gap-1 flex-wrap">
                 {choDuyet > 0 && <Badge tone="amber">{choDuyet} chờ duyệt</Badge>}
@@ -1645,7 +1720,24 @@ export function DonHangGroupedList({
                     </table>
                   </div>
                   <div className="sm:hidden border-t border-[var(--line)] divide-y divide-[var(--line)]">
-                    {rowsEnriched.map(({ d, actions, tone, rowStyle, chonDuoc }) => (
+                    {rowsEnriched.map(({ d, actions, tone, rowStyle, chonDuoc }) => {
+                      // RUT GON THE MOBILE (2026-08-27, phan hoi "thẻ chi tiết linh kiện rút gọn lại
+                      // tối đa 3 dòng... chuyển các card trạng thái lên góc trên bên phải... nếu hiện
+                      // không hết thì hiện (N)... ấn vào chi tiết để xem đầy đủ"): bo dong ma LK rieng
+                      // (chi con trong Drawer chi tiet, xem DonHangDetailModal), don CA badge loai don
+                      // (tone.label) LAN StatusBadge LAN badge "Qua han" thanh 1 mang, chi hien toi da
+                      // 2 cai + "+N" khi con lai - bam vao the (onClick co san o div ngoai) mo Drawer
+                      // xem du. Nut hanh dong (✓/⏳/✕/🚫) giu nguyen, KHONG tinh vao "3 dong" (hang
+                      // thao tac rieng, theo dung xac nhan cua nguoi dung qua AskUserQuestion).
+                      const badges: { tone: BadgeTone; label: string }[] = [
+                        { tone: tone.tone, label: tone.label },
+                        { tone: DON_HANG_TRANG_THAI_TONE_ALL[d.trang_thai ?? ""] ?? "gray", label: trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, d.trang_thai ?? "") },
+                        ...(d.qua_han_ly_do_cham ? [{ tone: "orange" as BadgeTone, label: "Quá hạn" }] : []),
+                      ];
+                      const MAX_BADGE = 2;
+                      const shownBadges = badges.slice(0, MAX_BADGE);
+                      const extraBadgeCount = badges.length - shownBadges.length;
+                      return (
                       <div
                         key={d.id}
                         onClick={() => onDetail(d.id)}
@@ -1666,25 +1758,37 @@ export function DonHangGroupedList({
                             />
                           )}
                           <div className="flex-1 min-w-0">
-                            <div className="font-mono text-[10px] text-[var(--ink-400)] truncate">{d.ma_lk}</div>
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); openLkDetail(d.ma_lk); }}
-                              title="Xem chi tiết linh kiện"
-                              className={`block w-full truncate text-left font-medium text-sm hover:underline hover:text-[var(--ocean-600)] ${rowStyle}`}
-                            >
-                              {d.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
-                              {d.ten_lk_snapshot ?? d.ma_lk}
-                              {!!d.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
-                            </button>
-                            <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                              <Badge tone={tone.tone}>{tone.label}</Badge>
-                              <StatusBadge value={d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} options={DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL} />
-                              {d.qua_han_ly_do_cham && <Badge tone="coral">Quá hạn - cần lý do</Badge>}
+                            {/* Dong 1: ten LK (trai, 1 dong truncate) + cum badge don goc phai. */}
+                            <div className="flex items-start justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); openLkDetail(d.ma_lk); }}
+                                title="Xem chi tiết linh kiện"
+                                className={`min-w-0 flex-1 truncate text-left font-medium text-sm hover:underline hover:text-[var(--ocean-600)] ${rowStyle}`}
+                              >
+                                {d.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
+                                {d.ten_lk_snapshot ?? d.ma_lk}
+                                {!!d.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
+                              </button>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {shownBadges.map((b, i) => (
+                                  <Badge key={i} tone={b.tone}>{b.label}</Badge>
+                                ))}
+                                {extraBadgeCount > 0 && (
+                                  <span
+                                    title="Xem đầy đủ trạng thái trong chi tiết"
+                                    className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--ink-500)] text-white text-[10px] font-bold leading-none"
+                                  >
+                                    +{extraBadgeCount}
+                                  </span>
+                                )}
+                              </div>
                             </div>
+                            {/* Dong 2: SL · gia. */}
                             <div className="text-xs text-[var(--ink-500)] mt-1">
                               SL {d.so_luong_de_xuat} · {d.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold">{fmtVND(d.gia_de_xuat)}</span> : "—"}
                             </div>
+                            {/* Dong 3: ma yeu cau su co (neu co). */}
                             {d.ma_yeu_cau_su_co && (
                               <div className="text-xs mt-1" onClick={(e) => e.stopPropagation()}>
                                 <MaYcscCell value={d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />
@@ -1737,7 +1841,8 @@ export function DonHangGroupedList({
                           </div>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </>
               );
