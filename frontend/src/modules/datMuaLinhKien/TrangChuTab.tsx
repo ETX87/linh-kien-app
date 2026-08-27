@@ -144,7 +144,7 @@ function TonDongTheoKtvReport({ onJump }: { onJump: (t: JumpTarget) => void }) {
     <div>
       <SectionTitle className="mt-6">
         Đơn hàng đang tồn theo KTV{" "}
-        <span className="normal-case font-normal text-[var(--ink-400)]">
+        <span className="hidden sm:inline normal-case font-normal text-[var(--ink-400)]">
           (sắp xếp theo số ngày tồn lâu nhất — bấm vào 1 KTV để xem chi tiết từng đơn.)
         </span>
       </SectionTitle>
@@ -325,7 +325,7 @@ export function TrangChuTab({
     <div className="mt-4 space-y-4">
       <div>
         <h2 className="font-display text-base font-bold text-[var(--ink-900)]">Việc cần làm hôm nay</h2>
-        <div className="text-xs text-[var(--ink-500)] mt-0.5">Số liệu tồn đọng đúng theo vai trò của bạn — bấm vào ô số để nhảy thẳng tới danh sách xử lý.</div>
+        <div className="hidden sm:block text-xs text-[var(--ink-500)] mt-0.5">Số liệu tồn đọng đúng theo vai trò của bạn — bấm vào ô số để nhảy thẳng tới danh sách xử lý.</div>
       </div>
 
       {mySteps.length > 0 ? (
@@ -367,7 +367,7 @@ export function TrangChuTab({
               dong <div> rieng ben tren, tiet kiem 1 dong chieu cao man hinh. */}
           <SectionTitle className="mt-6">
             Báo cáo tổng thể{" "}
-            <span className="normal-case font-normal text-[var(--ink-400)]">
+            <span className="hidden sm:inline normal-case font-normal text-[var(--ink-400)]">
               (① Số liệu "Việc cần làm" luôn tô đúng theo vai trò của bạn · ② Bấm vào số bất kỳ để nhảy thẳng tới đúng tab/bộ lọc tương ứng.)
             </span>
           </SectionTitle>

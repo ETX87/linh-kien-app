@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
 import { Badge, type BadgeTone } from "../../components/ui/Badge";
@@ -907,6 +908,14 @@ export function DonCuaToiTab({
   // rieng ("Loc them ▾" long trong hang toolbar chinh) truoc day - muc tieu ngay sau thanh tab tren
   // cung la den thang bang danh sach, khong con hang loc chiem san dien tich.
   const [showFilters, setShowFilters] = useState(false);
+  // FIX (ra soat UI 2026-08-27, hang muc #2 dot 2): nut "⚙ Tuỳ chỉnh cột" rat it dung, chuyen vao
+  // CHUNG bang loc (mac dinh an theo showFilters) thay vi 1 hang rieng luon hien phia tren danh sach.
+  // Nut/panel that su duoc DonHangGroupedList tu ve (can effectiveColumns/toggleColumn cua chinh no),
+  // nen dung Portal (createPortal) render VAO 1 "o trong" dat trong bang loc o day - dung callback ref
+  // (setColumnSettingsSlot, KHONG phai useRef thuong) vi o trong chi ton tai sau khi showFilters=true
+  // mount xong; callback ref moi kich hoat re-render dung luc DOM node san sang, useRef thuong se bi
+  // "cham 1 nhip" (ref doi gia tri nhung khong tu gay re-render).
+  const [columnSettingsSlot, setColumnSettingsSlot] = useState<HTMLDivElement | null>(null);
   // xemLoaiDon gio la PROP (nang len DatMuaLinhKienModule, hien thanh 3 tab that "Mua hang/Cong no/
   // Tra hang" o thanh tab tren cung - xem comment o chu ky ham). Doi sang "Tra hang" thi filterTrangThai
   // phai reset - bo loc trang thai dang dung gia tri cua dat_don_hang_log (vd "Cho TN duyet"), khong
@@ -1120,6 +1129,10 @@ export function DonCuaToiTab({
           kiem/trang thai/nguoi tao-ngay/nguoi nhan hang) gom CHUNG 1 nut thu gon/mo rong duy nhat -
           muc tieu "ngay sau tab tren cung la den bang danh sach", khong con hang loc chiem san dien
           tich khi chua can dung den. */}
+      {/* FIX (ra soat UI 2026-08-27, hang muc #3 dot 2, "Trạng thái đang filter chuyển lên cùng dòng
+          với nút filter"): ActiveFiltersBar gop VAO CHUNG hang voi nut "Bộ lọc"/o tim kiem (truoc day
+          nam rieng 1 hang duoi) - flex-wrap cua hang ngoai tu xuong dong khi khong du cho (man hep),
+          ActiveFiltersBar tu return null khi khong co bo loc nao dang bat nen khong chiem cho thua. */}
       <div className="flex items-center gap-2 mb-2 flex-wrap">
         <Btn size="sm" variant="ghost" onClick={() => setShowFilters((v) => !v)}>
           {showFilters ? "▲ Ẩn bộ lọc" : `☰ Bộ lọc${activeFilterCount > 0 ? ` (${activeFilterCount})` : ""} ▾`}
@@ -1138,6 +1151,21 @@ export function DonCuaToiTab({
             <Tooltip text="Tìm theo: mã LK, tên LK, mã đơn, người tạo, người nhận, mã yêu cầu sự cố." />
           </span>
         </span>
+        <ActiveFiltersBar
+          chips={[
+            ...(filterTrangThai
+              ? [{ label: trangThaiLabel(xemLoaiDon === "tra_hang" ? TRA_HANG_TRANG_THAI_OPTIONS : DON_CUA_TOI_TRANG_THAI_OPTIONS, filterTrangThai), onClear: () => setFilterTrangThai("") }]
+              : []),
+            ...(filterNguoiTao ? [{ label: "Người tạo đã lọc", onClear: () => setFilterNguoiTao("") }] : []),
+            ...(filterNguoiNhanHang ? [{ label: "Người nhận hàng đã lọc", onClear: () => setFilterNguoiNhanHang("") }] : []),
+            ...(khuVucParam
+              ? [{ label: `Khu vực: ${[...filterKhuVuc].map((ma) => khuVucOptions.find((o) => o.value === ma)?.label ?? ma).join(", ")}`, onClear: () => setFilterKhuVuc(new Set()) }]
+              : []),
+            ...(filterTuNgay ? [{ label: `Từ ngày ${filterTuNgay}`, onClear: () => setFilterTuNgay("") }] : []),
+            ...(filterDenNgay ? [{ label: `Đến ngày ${filterDenNgay}`, onClear: () => setFilterDenNgay("") }] : []),
+            ...(filterQ ? [{ label: `Tìm: "${filterQ}"`, onClear: () => setFilterQ("") }] : []),
+          ]}
+        />
       </div>
       {showFilters && (
         <div className="mb-3 bg-[var(--surface-100)] border border-[var(--line)] rounded-xl p-3 flex flex-col gap-3">
@@ -1202,29 +1230,16 @@ export function DonCuaToiTab({
               )}
             </div>
           )}
+          {/* FIX (ra soat UI 2026-08-27, hang muc #2 dot 2): "⚙ Tuỳ chỉnh cột" chuyen vao day (mac
+              dinh an theo showFilters, truoc day 1 hang rieng luon hien tren dau danh sach - it dung
+              nen khong dang chiem cho co dinh). O trong (div ref) la dich Portal - DonHangGroupedList
+              tu render nut/panel that su vao day, xem prop columnSettingsSlot truyen xuong duoi. */}
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Cột hiển thị</div>
+            <div ref={setColumnSettingsSlot} />
+          </div>
         </div>
       )}
-      {/* SUA (2026-08-27, phan hoi "bên cạnh nút filter có hiện text đang filter gì... có thể tắt đi
-          để reset về filter tất cả"): DAO LAI quyet dinh cu (comment ra soat #3 truoc day co tinh
-          KHONG them chip trang thai vi "trung voi chip to sang trong TrangThaiChipFilter") - luc do
-          bang loc chi tiet MAC DINH AN nen chip to sang cung an theo, nguoi dung khong biet dang loc
-          gi neu khong bam mo bang loc. Chip nay hien DOC LAP voi trang thai an/hien cua bang loc, dat
-          NGAY DAU mang (canh nut "☰ Bộ lọc") de de thay nhat. onClear tra ve "" (Tất cả) dung yeu cau. */}
-      <ActiveFiltersBar
-        chips={[
-          ...(filterTrangThai
-            ? [{ label: trangThaiLabel(xemLoaiDon === "tra_hang" ? TRA_HANG_TRANG_THAI_OPTIONS : DON_CUA_TOI_TRANG_THAI_OPTIONS, filterTrangThai), onClear: () => setFilterTrangThai("") }]
-            : []),
-          ...(filterNguoiTao ? [{ label: "Người tạo đã lọc", onClear: () => setFilterNguoiTao("") }] : []),
-          ...(filterNguoiNhanHang ? [{ label: "Người nhận hàng đã lọc", onClear: () => setFilterNguoiNhanHang("") }] : []),
-          ...(khuVucParam
-            ? [{ label: `Khu vực: ${[...filterKhuVuc].map((ma) => khuVucOptions.find((o) => o.value === ma)?.label ?? ma).join(", ")}`, onClear: () => setFilterKhuVuc(new Set()) }]
-            : []),
-          ...(filterTuNgay ? [{ label: `Từ ngày ${filterTuNgay}`, onClear: () => setFilterTuNgay("") }] : []),
-          ...(filterDenNgay ? [{ label: `Đến ngày ${filterDenNgay}`, onClear: () => setFilterDenNgay("") }] : []),
-          ...(filterQ ? [{ label: `Tìm: "${filterQ}"`, onClear: () => setFilterQ("") }] : []),
-        ]}
-      />
       {/* CHOT #17: doi cau chu ro pham vi ap dung - truoc day "...tren trang nay" de hieu nham la chi
           ap dung cho 1 nhom KTV dang nhin thay gan checkbox nay, trong khi thuc te DonHangGroupedList
           gom nhieu nhom KTV/trang khac nhau va "Chon tat ca" ap dung xuyen suot MOI nhom. */}
@@ -1351,6 +1366,7 @@ export function DonCuaToiTab({
         selected={selected}
         toggleSelectOne={toggleSelectOne}
         showCheckbox={canActAsTram || canTacNghiep}
+        columnSettingsSlot={columnSettingsSlot}
       />
       {detailId && (
         <DonHangDetailModal
@@ -1414,6 +1430,7 @@ export function DonHangGroupedList({
   selected,
   toggleSelectOne,
   showCheckbox,
+  columnSettingsSlot,
 }: {
   rows: DonHangRow[];
   isLoading: boolean;
@@ -1445,6 +1462,9 @@ export function DonHangGroupedList({
   selected: Set<string>;
   toggleSelectOne: (id: string) => void;
   showCheckbox: boolean;
+  // Dich Portal cho nut/panel "⚙ Tuỳ chỉnh cột" (xem comment o DonCuaToiTab, cho goi component nay) -
+  // null khi bang loc dang an (showFilters=false o component cha), portal tu khong render gi ca.
+  columnSettingsSlot: HTMLDivElement | null;
 }) {
   const ktvDisplayMap = useKtvDisplayMap();
   // Xem chi tiet linh kien (phan hoi 2026-08-19: "Click vào tên linh kiện sẽ mở UI xem thông tin chi
@@ -1611,129 +1631,153 @@ export function DonHangGroupedList({
     groups.get(key)!.push(d);
   }
 
+  // FIX (ra soat UI 2026-08-27, hang muc #1 dot 2, "chuyển cột tiêu đề chung lên trên cùng tạo thành
+  // tiêu đề chung cho toàn bộ đơn hàng"): tinh san banner-stats + rowsEnriched cho MOI nhom 1 LAN
+  // DUY NHAT (truoc day tinh lai ben trong closure cua tung nhom) - dung CHUNG cho ca 2 kieu hien thi
+  // (bang desktop hop nhat + the mobile), tranh trung lap logic/tinh 2 lan.
+  const groupEntries = [...groups.entries()].map(([nguoiNhan, dongCon]) => {
+    const choDuyet = dongCon.filter((d) => d.trang_thai === "Cho Tram duyet" || d.trang_thai === "Cho TBP xac nhan" || d.trang_thai === "Cho TN duyet").length;
+    const dongY = dongCon.filter((d) => d.trang_thai === "TN da duyet").length;
+    const tuChoi = dongCon.filter((d) => d.trang_thai === "TN tu choi").length;
+    const choHang = dongCon.filter((d) => d.trang_thai === "Cho hang").length;
+    const tongTien = dongCon.reduce((s, d) => s + (d.gia_de_xuat ?? 0) * d.so_luong_de_xuat, 0);
+    const rowsEnriched: EnrichedRow[] = dongCon.map((d) => {
+      const actions = actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail });
+      const tone = LOAI_DON_TONE[d.loai_don];
+      const rowStyle = DON_HANG_ROW_STYLE[d.trang_thai ?? ""] ?? "";
+      const chonDuoc = showCheckbox && (d.trang_thai === "Cho Tram duyet" || d.trang_thai === "Cho TN duyet") && (actions.duyet || actions.tuChoi);
+      return { d, actions, tone, rowStyle, chonDuoc };
+    });
+    return { nguoiNhan, dongCon, choDuyet, dongY, tuChoi, choHang, tongTien, rowsEnriched };
+  });
+
   return (
     <div className="space-y-2">
-      {/* "⚙ Tuy chinh cot" dat rieng 1 hang o day (them 2026-08-21) - khac PaginatedTable (nut nam
-          NGAY TRONG header cot ghim, vi chi co 1 <table> duy nhat), o day co NHIEU <table> doc lap
-          (1/nhom KTV) nen dat NGOAI, ap dung chung cho toan bo danh sach - chi hien tren desktop
-          (sm:block) vi mobile dung the doc rieng, khong doc effectiveColumns. */}
-      <div className="hidden sm:flex justify-end">{settingsButtonEl}</div>
-      {[...groups.entries()].map(([nguoiNhan, dongCon]) => {
-        const choDuyet = dongCon.filter((d) => d.trang_thai === "Cho Tram duyet" || d.trang_thai === "Cho TBP xac nhan" || d.trang_thai === "Cho TN duyet").length;
-        const dongY = dongCon.filter((d) => d.trang_thai === "TN da duyet").length;
-        const tuChoi = dongCon.filter((d) => d.trang_thai === "TN tu choi").length;
-        const choHang = dongCon.filter((d) => d.trang_thai === "Cho hang").length;
-        const tongTien = dongCon.reduce((s, d) => s + (d.gia_de_xuat ?? 0) * d.so_luong_de_xuat, 0);
-        return (
-          <div key={nguoiNhan} className="border border-[var(--line)] rounded-xl overflow-hidden">
-            {/* Phan hoi 2026-08-26: "tô màu cho top banner này khác hẳn màu nền bên dưới (theo màu
-                được setup của giao diện)" - truoc day dung --surface-100 (xam trung tinh, giong het
-                nen bang phia duoi, nhin "phang" khong ro ranh gioi nhom). Doi sang --ocean-100 (mau
-                nhan chinh, TU DOI theo tung bo "Giao diện" ca nhan dang chon - xem theme/presets.ts),
-                tao tuong phan ro voi noi dung ban dong --surface trang o duoi. */}
+      {/* FIX (ra soat UI 2026-08-27, hang muc #2 dot 2): "⚙ Tuỳ chỉnh cột" rat it dung, khong con 1
+          hang rieng luon hien - Portal vao o "Cột hiển thị" trong bang loc cua component cha (mac
+          dinh AN theo showFilters, xem DonCuaToiTab). null khi bang loc dang dong -> khong render gi. */}
+      {columnSettingsSlot && createPortal(settingsButtonEl, columnSettingsSlot)}
+      {/* FIX (hang muc #3 dot 2, "chuyển cột tiêu đề chung lên trên cùng"): truoc day MOI nhom KTV la
+          1 <table> doc lap kem <thead> rieng (lap lai header N lan). Gio GOP thanh 1 <table> DUY NHAT
+          cho toan bo danh sach - 1 <thead> chung tren cung, <tbody> noi tiep tung nhom (1 hang banner
+          <td colSpan> + cac hang du lieu). Cung 1 <table> nen trinh duyet TU CAN CHINH do rong cot
+          khop tuyet doi giua cac nhom, khong con phu thuoc effectiveColumns/colWidths phai "giong het
+          nhau" giua nhieu <table> rieng biet nhu truoc (rui ro lech neu 1 cot chua co colWidths
+          explicit - kich thuoc tu dong theo NOI DUNG rieng cua tung table). */}
+      <div className="hidden sm:block overflow-x-auto border-t border-[var(--line)]">
+        <table className="w-full min-w-[720px] text-xs border-collapse">
+          <thead>
+            {/* Khop dung header ".tbl th" concept 1 (chu hoa nho, xam, nen #FBFBFB) - dong
+                bo voi header cua PaginatedTable.tsx (xem tr className tuong tu o do). */}
+            <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+              {effectiveColumns.map((col, idx) => (
+                <ResizableHeaderCell
+                  key={col.key}
+                  col={col}
+                  idx={idx}
+                  isPinned={idx === 0}
+                  width={colWidths[col.key]}
+                  storageKey="dmlk-don-hang-list"
+                  dragOverKey={dragOverKey}
+                  setDragOverKey={setDragOverKey}
+                  draggedColKey={draggedColKey}
+                  handleColumnDrop={handleColumnDrop}
+                  handleResizeStart={handleResizeStart}
+                  sortable={false}
+                  isActive={false}
+                />
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {groupEntries.map((g) => (
+              <Fragment key={g.nguoiNhan}>
+                {/* Hang banner nhom KTV (them 2026-08-27, thay cho div rieng ngoai bang truoc day) -
+                    Phan hoi 2026-08-26: "tô màu cho top banner này khác hẳn màu nền bên dưới" - dung
+                    --ocean-100 (mau nhan chinh, tu doi theo "Giao diện" ca nhan - xem theme/presets.ts). */}
+                <tr className="bg-[var(--ocean-100)]">
+                  <td colSpan={effectiveColumns.length} className="px-3 py-2">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-3 flex-wrap text-sm min-w-0">
+                        <span className="font-bold text-[var(--ink-900)] text-sm truncate">
+                          {formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}
+                        </span>
+                        <span className="text-[var(--ink-400)] text-xs shrink-0">{g.dongCon.length} dòng</span>
+                        <span className="font-semibold text-[var(--green-700)] shrink-0">{fmtVND(g.tongTien)}</span>
+                      </div>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {g.choDuyet > 0 && <Badge tone="amber">{g.choDuyet} chờ duyệt</Badge>}
+                        {g.dongY > 0 && <Badge tone="teal">{g.dongY} đồng ý</Badge>}
+                        {g.tuChoi > 0 && <Badge tone="coral">{g.tuChoi} từ chối</Badge>}
+                        {g.choHang > 0 && <Badge tone="amber">{g.choHang} chờ hàng</Badge>}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                {/* SUA (phan hoi 2026-08-18): dong uu_tien noi bat HAN LEN thay vi mau tint
+                    30% mo nhat truoc day (de lan voi hover:bg-slate-50) - nen dam mau + vien
+                    bao quanh (ring-inset, khong dung border-l vi cham vien loai_don da chiem o
+                    do). SUA (phan hoi 2026-08-19): doi tu amber sang teal - amber trung voi
+                    loai_don "Cong no" (border-l-4 cung amber-500) khien nguoi dung nham dong
+                    moi "tu dong uu tien" khi thuc ra chi la ke thua loai don Cong no. */}
+                {/* SUA (phan hoi 2026-08-19: "danh sách chi tiết đang bị tự xuống dòng quá
+                    rộng") - ca hang gio bam duoc (mo chi tiet don hang) - moi Column.render da
+                    tu stopPropagation cho vung con onClick rieng (checkbox/ma YCSC/nut hanh
+                    dong), xem dinh nghia cols o tren. */}
+                {g.rowsEnriched.map((row) => (
+                  <tr
+                    key={row.d.id}
+                    onClick={() => onDetail(row.d.id)}
+                    className={`cursor-pointer transition-colors border-b border-[var(--line)] last:border-0 ${row.tone.border} border-l-4 ${
+                      row.d.uu_tien === 1
+                        ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)] hover:brightness-95"
+                        : "hover:bg-slate-50"
+                    }`}
+                  >
+                    {effectiveColumns.map((col) => {
+                      const width = colWidths[col.key];
+                      return (
+                        <td key={col.key} style={width ? { width, maxWidth: width, overflow: "hidden" } : undefined} className={`px-3 py-2 ${col.className ?? ""}`}>
+                          {col.render(row)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {/* CHOT #6 (ra soat module "Dat Mua Linh Kien 2.0"): the doc rieng cho mobile (<640px) - truoc
+          day moi nhom KTV la 1 bang 7-8 cot rieng phai cuon ngang, TN/GS xem hang chuc nhom phai cuon
+          ngang lap lai N lan; the doc cuon DOC xuyen suot nhu moi danh sach khac trong app. Banner
+          nhom VAN lap lai o day (khac desktop) - tren mobile nguoi dung cuon doc qua nhieu nhom, can
+          moc "dang xem nhom nao" ngay truoc mat thay vi phai cuon nguoc len dau trang. */}
+      <div className="sm:hidden space-y-2">
+        {groupEntries.map((g) => (
+          <div key={g.nguoiNhan} className="border border-[var(--line)] rounded-xl overflow-hidden">
             <div className="flex items-center justify-between gap-3 flex-wrap bg-[var(--ocean-100)] px-3 py-2">
               <div className="flex items-center gap-3 flex-wrap text-sm min-w-0">
                 {/* SUA (2026-08-27, phan hoi "tiêu đề gắn tên KTV thu nhỏ lại, tối đa 2 dòng"): ten/
                     email nguoi nhan hang co the rat dai tren mobile (man hep) - gioi han toi da 2 dong
                     qua "line-clamp-2" (Tailwind co san tu v3.3, khong can plugin), phan du bi cat kem
-                    "..." tu dong o cuoi dong 2. Thu nho font (text-xs) + gioi han max-w tren mobile,
-                    desktop (man rong, ko can gon) giu nguyen 1 dong truncate nhu cu qua sm:. */}
-                <span className="font-bold text-[var(--ink-900)] text-xs sm:text-sm line-clamp-2 sm:line-clamp-none sm:truncate max-w-[62vw] sm:max-w-none break-words">
-                  {formatNguoiDisplay(nguoiNhan, ktvDisplayMap)}
+                    "..." tu dong o cuoi dong 2. */}
+                <span className="font-bold text-[var(--ink-900)] text-xs line-clamp-2 max-w-[62vw] break-words">
+                  {formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}
                 </span>
-                <span className="text-[var(--ink-400)] text-xs shrink-0">{dongCon.length} dòng</span>
-                <span className="font-semibold text-[var(--green-700)] shrink-0">{fmtVND(tongTien)}</span>
+                <span className="text-[var(--ink-400)] text-xs shrink-0">{g.dongCon.length} dòng</span>
+                <span className="font-semibold text-[var(--green-700)] shrink-0">{fmtVND(g.tongTien)}</span>
               </div>
               <div className="flex items-center gap-1 flex-wrap">
-                {choDuyet > 0 && <Badge tone="amber">{choDuyet} chờ duyệt</Badge>}
-                {dongY > 0 && <Badge tone="teal">{dongY} đồng ý</Badge>}
-                {tuChoi > 0 && <Badge tone="coral">{tuChoi} từ chối</Badge>}
-                {choHang > 0 && <Badge tone="amber">{choHang} chờ hàng</Badge>}
+                {g.choDuyet > 0 && <Badge tone="amber">{g.choDuyet} chờ duyệt</Badge>}
+                {g.dongY > 0 && <Badge tone="teal">{g.dongY} đồng ý</Badge>}
+                {g.tuChoi > 0 && <Badge tone="coral">{g.tuChoi} từ chối</Badge>}
+                {g.choHang > 0 && <Badge tone="amber">{g.choHang} chờ hàng</Badge>}
               </div>
             </div>
-            {/* CHOT #6 (ra soat module "Dat Mua Linh Kien 2.0"): bang ngang van giu cho tablet/desktop
-                (sm:block), nhung tren mobile (<640px) doi sang danh sach THE DOC - truoc day moi nhom
-                KTV la 1 bang 7-8 cot rieng phai cuon ngang, TN/GS xem hang chuc nhom phai cuon ngang
-                lap lai N lan; the doc cuon DOC xuyen suot nhu moi danh sach khac trong app. Tinh
-                actions/tone 1 lan dung chung cho ca 2 kieu hien thi, tranh trung lap logic. */}
-            {(() => {
-              const rowsEnriched = dongCon.map((d) => {
-                const actions = actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail });
-                const tone = LOAI_DON_TONE[d.loai_don];
-                const rowStyle = DON_HANG_ROW_STYLE[d.trang_thai ?? ""] ?? "";
-                const chonDuoc = showCheckbox && (d.trang_thai === "Cho Tram duyet" || d.trang_thai === "Cho TN duyet") && (actions.duyet || actions.tuChoi);
-                return { d, actions, tone, rowStyle, chonDuoc };
-              });
-              return (
-                <>
-                  <div className="hidden sm:block overflow-x-auto border-t border-[var(--line)]">
-                    {/* SUA LECH COT (phan hoi 2026-08-18): moi nhom KTV render 1 <table> RIENG (mot
-                        group = mot table). Truoc day co dinh % do rong qua <colgroup> GIONG HET NHAU o
-                        MOI table de tranh lech cot giua cac nhom; gio (2026-08-21, "hợp nhất phong
-                        cách giao diện") dung effectiveColumns/colWidths TU 1 useColumnConfig() DUY
-                        NHAT o component cha (khong goi trong tung nhom) nen MOI table van nhan CUNG 1
-                        bo cot/do rong - khong con lech, dong thoi co them "⚙ Tuy chinh cot" (xem nut o
-                        dau danh sach). */}
-                    <table className="w-full min-w-[720px] text-xs border-collapse">
-                      <thead>
-                        {/* Khop dung header ".tbl th" concept 1 (chu hoa nho, xam, nen #FBFBFB) - dong
-                            bo voi header cua PaginatedTable.tsx (xem tr className tuong tu o do). */}
-                        <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
-                          {effectiveColumns.map((col, idx) => (
-                            <ResizableHeaderCell
-                              key={col.key}
-                              col={col}
-                              idx={idx}
-                              isPinned={idx === 0}
-                              width={colWidths[col.key]}
-                              storageKey="dmlk-don-hang-list"
-                              dragOverKey={dragOverKey}
-                              setDragOverKey={setDragOverKey}
-                              draggedColKey={draggedColKey}
-                              handleColumnDrop={handleColumnDrop}
-                              handleResizeStart={handleResizeStart}
-                              sortable={false}
-                              isActive={false}
-                            />
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {/* SUA (phan hoi 2026-08-18): dong uu_tien noi bat HAN LEN thay vi mau tint
-                            30% mo nhat truoc day (de lan voi hover:bg-slate-50) - nen dam mau + vien
-                            bao quanh (ring-inset, khong dung border-l vi cham vien loai_don da chiem o
-                            do). SUA (phan hoi 2026-08-19): doi tu amber sang teal - amber trung voi
-                            loai_don "Cong no" (border-l-4 cung amber-500) khien nguoi dung nham dong
-                            moi "tu dong uu tien" khi thuc ra chi la ke thua loai don Cong no. */}
-                        {/* SUA (phan hoi 2026-08-19: "danh sách chi tiết đang bị tự xuống dòng quá
-                            rộng") - ca hang gio bam duoc (mo chi tiet don hang) - moi Column.render da
-                            tu stopPropagation cho vung con onClick rieng (checkbox/ma YCSC/nut hanh
-                            dong), xem dinh nghia cols o tren. */}
-                        {rowsEnriched.map((row) => (
-                          <tr
-                            key={row.d.id}
-                            onClick={() => onDetail(row.d.id)}
-                            className={`cursor-pointer transition-colors border-b border-[var(--line)] last:border-0 ${row.tone.border} border-l-4 ${
-                              row.d.uu_tien === 1
-                                ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)] hover:brightness-95"
-                                : "hover:bg-slate-50"
-                            }`}
-                          >
-                            {effectiveColumns.map((col) => {
-                              const width = colWidths[col.key];
-                              return (
-                                <td key={col.key} style={width ? { width, maxWidth: width, overflow: "hidden" } : undefined} className={`px-3 py-2 ${col.className ?? ""}`}>
-                                  {col.render(row)}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="sm:hidden border-t border-[var(--line)] divide-y divide-[var(--line)]">
-                    {rowsEnriched.map(({ d, actions, tone, rowStyle, chonDuoc }) => {
+            <div className="border-t border-[var(--line)] divide-y divide-[var(--line)]">
+              {g.rowsEnriched.map(({ d, actions, tone, rowStyle, chonDuoc }) => {
                       // RUT GON THE MOBILE (2026-08-27, phan hoi "thẻ chi tiết linh kiện rút gọn lại
                       // tối đa 3 dòng... chuyển các card trạng thái lên góc trên bên phải... nếu hiện
                       // không hết thì hiện (N)... ấn vào chi tiết để xem đầy đủ"): bo dong ma LK rieng
@@ -1855,14 +1899,11 @@ export function DonHangGroupedList({
                         </div>
                       </div>
                       );
-                    })}
-                  </div>
-                </>
-              );
-            })()}
+              })}
+            </div>
           </div>
-        );
-      })}
+        ))}
+      </div>
       {/* CHOT #7 (ra soat module): panel Tu choi/Huy 1 DONG gio la 1 THANH CHUNG dinh vi sticky day
           man hinh (dung pattern footer co dinh da chot o TaoDonTab) thay vi chen NGAY DUOI group dang
           thao tac - truoc day bam Tu choi o group thu 3 se day cac group 4,5,6... xuong dot ngot, de
