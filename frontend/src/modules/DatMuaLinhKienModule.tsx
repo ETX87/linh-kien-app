@@ -498,7 +498,15 @@ export function DatMuaLinhKienModule({
       {(navigatedAway || (forceView !== "trang-chu" && forceView !== "thieu-lk")) && (
         <Tabs active={displayActive} onChange={handleTabChange} tabs={displayTabs} />
       )}
-      <div {...(isMobile ? { onTouchStart: handleSwipeTouchStart, onTouchEnd: handleSwipeTouchEnd } : {})}>
+      {/* FIX (phan hoi 2026-08-27: "chỉ vuốt sang phải, không vuốt ngược sang trái được") - thieu
+          touch-action khien trinh duyet mobile tu quyet dinh xu ly cu chi ngang (vd cu chi "vuot canh
+          man hinh de quay lai" cua Android Chrome/iOS Safari PWA), nuot mat touchend 1 chieu truoc khi
+          handler nay kip chay. "pan-y" bao trinh duyet CHI tu xu ly cuon doc, nhuong toan bo cu chi
+          ngang cho JS o day, ca 2 chieu deu on dinh. */}
+      <div
+        {...(isMobile ? { onTouchStart: handleSwipeTouchStart, onTouchEnd: handleSwipeTouchEnd } : {})}
+        style={isMobile ? { touchAction: "pan-y" } : undefined}
+      >
       <Suspense fallback={<TabFallback />}>
         {activeView === "trang-chu" && (
           <TrangChuTab
@@ -510,6 +518,10 @@ export function DatMuaLinhKienModule({
             canTraHangView={canTraHangView}
             isManagerView={isManagerView}
             showBaoCao={!isQCOnly}
+            canTacNghiep={canTacNghiep}
+            canKho={canKho}
+            canKeToan={canKeToan}
+            isGiamSat={isGiamSat}
           />
         )}
         {activeView === "don-cua-toi" && (

@@ -225,6 +225,74 @@ datMuaLinhKien.get("/khu-vuc-cua-toi", async (c) => {
   return c.json({ rows: [] });
 });
 
+// GET /api/dat-mua-lk/ton-dong-theo-ktv (them 2026-08-27, phan hoi "cái tôi cần là 1 báo cáo nhanh để
+// xem còn bao nhiêu đơn đặt hàng đang tồn theo từng ktv... để nhắc nhở ktv/tn/kế toán/kho hỗ trợ đáp
+// ứng... cái nhìn nhanh trong 5s") - thay the khoi "KTV khu vực của tôi" (chi liet ke danh ba, khong
+// tra loi duoc "con ton bao nhieu don"). Chi rieng Giam sat/TN/Kho/Ke toan/Admin duoc goi (giong dieu
+// kien isManagerView o frontend) - KTV/Ve tinh xem TIEN DO CUA HO qua StatCard/pipeline san co, khong
+// can bao cao "theo tung KTV" nay.
+//
+// "Con ton" = 1 dong dat_don_hang (mua/cong_no, GIONG dung bien loai_don != 'tra_hang' cua moi bao cao
+// khac trong file nay) CHUA cham 1 trong cac trang thai KET THUC that su - dung LAI chinh xac dieu
+// kien "ket_thuc_luc" da chot voi nguoi dung o GET /bao-cao-tong-the (CTE ddh_kt phia tren) thay vi
+// tu nghi dieu kien moi: dong huy ('TN tu choi'/'Da huy') HOAC PXK da toi 1 trong 4 trang thai dong
+// ('Ke toan huy','Kho da ket thuc','Hang tru kho','KTV da nhan'). "Cho hang" KHONG nam trong dieu kien
+// dong (dung y: con cho hang ve la con ton that, day chinh la thu GS/TN can thay).
+//
+// KHONG ap dung scope cung theo email_gs/phuTrachGsSet (khac bao-cao-tong-the) - day la 1 bao cao MO,
+// nguoi xem tu chon Khu vuc/KTV muon kiem soat qua 2 query param duoi day (khop dung mo hinh "bo loc
+// Khu vuc" vua them o GET /don-hang: mac dinh FE tu dien theo GET /khu-vuc-cua-toi nhung nguoi dung co
+// the tu mo rong "Toan quoc" - xem CLAUDE.md "TN/Kho/Ke toan xem duoc toan quoc").
+datMuaLinhKien.get("/ton-dong-theo-ktv", async (c) => {
+  const user = c.get("user");
+  if (!(user.vai_tro === "Giam sat" || user.vai_tro === "Admin" || canTacNghiep(c) || user.la_kho || user.la_ke_toan)) {
+    return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  }
+  const khuVucMa = c.req.query("khu_vuc")?.trim();
+  const nguoiNhanHang = c.req.query("nguoi_nhan_hang")?.trim();
+  const khuVucList = khuVucMa ? khuVucMa.split(",").map((s) => s.trim()).filter(Boolean) : [];
+
+  const conditions: string[] = [];
+  const binds: unknown[] = [];
+  if (khuVucList.length > 0) {
+    conditions.push(`k.khu_vuc_ma IN (${khuVucList.map(() => "?").join(",")})`);
+    binds.push(...khuVucList);
+  }
+  if (nguoiNhanHang) {
+    conditions.push("o.nguoi_nhan_hang = ?");
+    binds.push(nguoiNhanHang);
+  }
+  const whereExtra = conditions.length > 0 ? ` AND ${conditions.join(" AND ")}` : "";
+
+  const { results } = await c.env.DB.prepare(
+    `WITH ddh_open AS (
+       SELECT ddh.id, ddh.loai_don, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat,
+         ddh.nguoi_nhan_hang, ddh.ngay_tao, ddh.trang_thai_hien_tai as ddh_trang_thai,
+         pxk.trang_thai_hien_tai as pxk_trang_thai,
+         pxk.so_tien_can_chuyen, pxk.trang_thai_chuyen_tien
+       FROM dat_don_hang ddh
+       LEFT JOIN phieu_xuat_kho_dong pxkd ON pxkd.dat_don_hang_id = ddh.id
+       LEFT JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
+       WHERE ddh.loai_don != 'tra_hang'
+         AND ddh.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')
+         AND (pxk.trang_thai_hien_tai IS NULL OR pxk.trang_thai_hien_tai NOT IN ('Ke toan huy', 'Kho da ket thuc', 'Hang tru kho', 'KTV da nhan'))
+     )
+     SELECT o.id, o.loai_don, o.ma_lk, o.ten_lk_snapshot, o.so_luong_de_xuat, o.nguoi_nhan_hang,
+       o.ngay_tao, o.ddh_trang_thai, o.pxk_trang_thai, o.so_tien_can_chuyen, o.trang_thai_chuyen_tien,
+       k.ten_hien_thi, k.khu_vuc_ma, k.vai_tro_ktv, kv.ten as khu_vuc_ten,
+       (SELECT ngay_du_kien_co_hang FROM thieu_lk WHERE dat_don_hang_id = o.id ORDER BY ngay_tao DESC LIMIT 1) as ngay_du_kien_co_hang
+     FROM ddh_open o
+     LEFT JOIN ktv_lien_he k ON k.email_dang_nhap = o.nguoi_nhan_hang
+     LEFT JOIN khu_vuc kv ON kv.ma = k.khu_vuc_ma
+     WHERE 1=1${whereExtra}
+     ORDER BY o.ngay_tao ASC`,
+  )
+    .bind(...binds)
+    .all();
+
+  return c.json({ rows: results, now: nowVN() });
+});
+
 // GET/PUT /api/dat-mua-lk/phu-trach-gs - quan ly "khu vuc phu trach" (Giam sat) cho 1 nguoi TN/Kho/Ke
 // toan (Admin gan tay) - CHOT 2026-08-15: scope MEM, chi anh huong badge/thong ke (xem
 // phuTrachGsSet/autoClaimGs trong scopeDatMua.ts, migration 0073), KHONG gioi han danh sach/tim

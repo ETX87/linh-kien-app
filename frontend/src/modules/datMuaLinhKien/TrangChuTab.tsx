@@ -1,69 +1,257 @@
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { StatCard } from "../../components/ui/StatCard";
 import { SectionTitle } from "../../components/ui/SectionTitle";
-import { Badge } from "../../components/ui/Badge";
+import { Badge, type BadgeTone } from "../../components/ui/Badge";
+import { Select } from "../../components/ui/Select";
 import { api, buildQuery } from "../../api/client";
+import { parseDbDateTime, fmtDate } from "../../types";
 import { STEP_SHORT_LABEL } from "./constants";
+import { KhuVucChipFilter } from "./SharedUi";
 import { BaoCaoTab } from "./BaoCaoTab";
 import type { JumpTarget, LuongQuyTrinhStep } from "./types";
 
-// Khoi "KTV khu vực của tôi" (them 2026-08-27, phan hoi "bổ sung... danh sách KTV khu vực của mình
-// cho nhân viên văn phòng") - TU AN neu tai khoan dang xem khong co Khu vuc nao gan (KTV/Ve tinh/Admin
-// thuan/QC deu roi vao truong hop nay, xem GET /dat-mua-lk/khu-vuc-cua-toi) nen KHONG can prop
-// vai-tro rieng truyen tu component cha - tu no goi API va tu quyet dinh an/hien.
-function KtvKhuVucCuaToiCard() {
-  const { data: khuVucCuaToi } = useQuery({
+interface TonDongRow {
+  id: string;
+  loai_don: "mua" | "cong_no";
+  ma_lk: string;
+  ten_lk_snapshot: string | null;
+  so_luong_de_xuat: number;
+  nguoi_nhan_hang: string | null;
+  ngay_tao: string;
+  ddh_trang_thai: string | null;
+  pxk_trang_thai: string | null;
+  so_tien_can_chuyen: number | null;
+  trang_thai_chuyen_tien: string | null;
+  ten_hien_thi: string | null;
+  khu_vuc_ma: string | null;
+  vai_tro_ktv: string | null;
+  khu_vuc_ten: string | null;
+  ngay_du_kien_co_hang: string | null;
+}
+
+// Dich trang thai tho (ddh_trang_thai/pxk_trang_thai) thanh 1 cau ngan de nguoi xem hieu NGAY "vi sao
+// con tồn" + "ai đang cầm bóng" (phan hoi 2026-08-27: "phải gặp ai để yêu cầu hỗ trợ") - thuan hien
+// thi FE, backend chi tra RAW status (giu dung quy uoc chung ca module: cac endpoint khac cung KHONG
+// dich san label o BE, tu FE tu ve badge - vd DonCuaToiTab hien thang chuoi trang_thai).
+function moTaTonDong(r: TonDongRow): { label: string; nguoiCanGap: string; tone: BadgeTone } {
+  const choTien = r.so_tien_can_chuyen != null && r.trang_thai_chuyen_tien !== "TN da duyet";
+  if (r.pxk_trang_thai) {
+    if (r.pxk_trang_thai === "Dang tao phieu" && choTien) return { label: "Chờ chuyển tiền cho KTV", nguoiCanGap: "KTV / Tác nghiệp", tone: "amber" };
+    switch (r.pxk_trang_thai) {
+      case "Dang tao phieu":
+        return { label: "Tác nghiệp đang tạo phiếu xuất kho", nguoiCanGap: "Tác nghiệp", tone: "ocean" };
+      case "Cho ke toan":
+        return { label: "Chờ Kế toán duyệt phiếu xuất kho", nguoiCanGap: "Kế toán", tone: "amber" };
+      case "Da chot xong don xuat":
+        return { label: "Chờ Kho gửi hàng cho KTV", nguoiCanGap: "Kho", tone: "amber" };
+      case "Dang gui KTV":
+        return { label: "Đã gửi hàng, chờ KTV xác nhận đã nhận", nguoiCanGap: "KTV", tone: "ocean" };
+      default:
+        return { label: r.pxk_trang_thai, nguoiCanGap: "—", tone: "gray" };
+    }
+  }
+  switch (r.ddh_trang_thai) {
+    case "Cho Tram duyet":
+      return { label: "Chờ Trạm duyệt", nguoiCanGap: "Trạm", tone: "amber" };
+    case "Cho TBP xac nhan":
+      return { label: "Chờ TBP ĐVBH duyệt LK đặc thù", nguoiCanGap: "TBP ĐVBH", tone: "amber" };
+    case "Cho TN duyet":
+      return { label: "Chờ Tác nghiệp duyệt", nguoiCanGap: "Tác nghiệp", tone: "amber" };
+    case "TN da duyet":
+      return { label: "Đã duyệt, chờ Tác nghiệp tạo phiếu xuất kho", nguoiCanGap: "Tác nghiệp", tone: "ocean" };
+    case "Cho hang":
+      return {
+        label: r.ngay_du_kien_co_hang ? `Thiếu hàng, Kho dự kiến có hàng ${fmtDate(r.ngay_du_kien_co_hang)}` : "Thiếu hàng, Kho đang tìm nguồn",
+        nguoiCanGap: "Kho",
+        tone: "coral",
+      };
+    default:
+      return { label: r.ddh_trang_thai ?? "—", nguoiCanGap: "—", tone: "gray" };
+  }
+}
+
+function soNgayTonTone(soNgay: number): BadgeTone {
+  if (soNgay >= 7) return "coral";
+  if (soNgay >= 3) return "amber";
+  return "gray";
+}
+
+// Bao cao "Đơn hàng đang tồn theo KTV" (them 2026-08-27, thay cho khoi "KTV khu vực của tôi" cu - chi
+// liet ke danh ba, KHONG tra loi duoc cau hoi that su cua Giam sat/TN/Kho/Ke toan la "còn bao nhiêu
+// đơn đang tồn, tồn bao lâu, kẹt ở đâu, phải gặp ai" (phan hoi: "cái nhìn nhanh trong 5s"). Nhom theo
+// nguoi_nhan_hang (KTV), sap xep KTV tồn LAU NHAT len dau; bam mo rong 1 KTV de xem tung don kem ly do
+// + nguoi can lien he. CHI hien voi Giam sat/TN/Kho/Ke toan (goi la "quan ly" giong isManagerView o
+// component cha) - KTV/Ve tinh tu xem tien do CA NHAN qua StatCard/pipeline san co o tren, khong can
+// bao cao "theo tung nguoi" nay.
+function TonDongTheoKtvReport({ onJump }: { onJump: (t: JumpTarget) => void }) {
+  const { data: khuVucAllData } = useQuery({
+    queryKey: ["settings-khu-vuc"],
+    queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/settings/khu-vuc"),
+  });
+  const { data: khuVucCuaToiData } = useQuery({
     queryKey: ["dat-mua-lk-khu-vuc-cua-toi"],
     queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/dat-mua-lk/khu-vuc-cua-toi"),
   });
-  const khuVucMaList = (khuVucCuaToi?.rows ?? []).map((r) => r.ma);
-  const { data: ktvData } = useQuery({
-    queryKey: ["settings-ktv", "khu-vuc-cua-toi", khuVucMaList.join(",")],
-    queryFn: () => api.get<{ rows: { ma_ktv: string; ten_hien_thi: string | null; sdt: string | null; vai_tro_ktv: string | null; khu_vuc_ma: string | null }[] }>(
-      "/settings/ktv-lien-he" + buildQuery({ khu_vuc_ma: khuVucMaList.join(",") }),
-    ),
-    enabled: khuVucMaList.length > 0,
+  const [filterKhuVuc, setFilterKhuVuc] = useState<Set<string>>(new Set());
+  const defaultAppliedRef = useRef(false);
+  useEffect(() => {
+    if (defaultAppliedRef.current) return;
+    if (!khuVucCuaToiData) return;
+    defaultAppliedRef.current = true;
+    if (khuVucCuaToiData.rows.length > 0) setFilterKhuVuc(new Set(khuVucCuaToiData.rows.map((r) => r.ma)));
+  }, [khuVucCuaToiData]);
+  const khuVucParam = [...filterKhuVuc].join(",");
+  const khuVucOptions = (khuVucAllData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ten }));
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["dat-mua-lk-ton-dong-theo-ktv", khuVucParam],
+    queryFn: () => api.get<{ rows: TonDongRow[]; now: string }>("/dat-mua-lk/ton-dong-theo-ktv" + buildQuery({ khu_vuc: khuVucParam || undefined })),
   });
-  if (khuVucMaList.length === 0) return null;
-  const khuVucTenByMa = new Map((khuVucCuaToi?.rows ?? []).map((r) => [r.ma, r.ten]));
-  const rows = ktvData?.rows ?? [];
+
+  const [filterKtv, setFilterKtv] = useState("");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  function toggleExpand(email: string) {
+    const next = new Set(expanded);
+    if (next.has(email)) next.delete(email);
+    else next.add(email);
+    setExpanded(next);
+  }
+
+  const allRows = data?.rows ?? [];
+  const nowMs = data ? parseDbDateTime(data.now).getTime() : Date.now();
+  const rows = filterKtv ? allRows.filter((r) => r.nguoi_nhan_hang === filterKtv) : allRows;
+
+  const ktvOptions = [...new Map(allRows.filter((r) => r.nguoi_nhan_hang).map((r) => [r.nguoi_nhan_hang as string, r.ten_hien_thi ?? r.nguoi_nhan_hang!])).entries()]
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  const groups = [...new Map(rows.map((r) => [r.nguoi_nhan_hang ?? "", r])).keys()].map((email) => {
+    const rowsOfKtv = rows.filter((r) => (r.nguoi_nhan_hang ?? "") === email);
+    const soNgayList = rowsOfKtv.map((r) => Math.floor((nowMs - parseDbDateTime(r.ngay_tao).getTime()) / 86400000));
+    return {
+      email,
+      ten: rowsOfKtv[0]?.ten_hien_thi ?? email ?? "(chưa gán người nhận)",
+      khuVucTen: rowsOfKtv[0]?.khu_vuc_ten ?? null,
+      rows: rowsOfKtv,
+      soNgayList,
+      maxNgay: Math.max(...soNgayList, 0),
+    };
+  });
+  groups.sort((a, b) => b.maxNgay - a.maxNgay || b.rows.length - a.rows.length);
 
   return (
     <div>
       <SectionTitle className="mt-6">
-        KTV khu vực của tôi{" "}
+        Đơn hàng đang tồn theo KTV{" "}
         <span className="normal-case font-normal text-[var(--ink-400)]">
-          ({khuVucMaList.map((ma) => khuVucTenByMa.get(ma) ?? ma).join(", ")})
+          (sắp xếp theo số ngày tồn lâu nhất — bấm vào 1 KTV để xem chi tiết từng đơn.)
         </span>
       </SectionTitle>
-      {rows.length === 0 ? (
-        <div className="text-sm text-[var(--ink-400)] py-3 text-center rounded-xl border border-dashed border-[var(--line)]">
-          Chưa có KTV nào thuộc khu vực này.
+      <div className="flex flex-wrap items-center gap-3 mb-2.5">
+        {khuVucOptions.length > 0 && <KhuVucChipFilter value={filterKhuVuc} onChange={setFilterKhuVuc} options={khuVucOptions} />}
+        {ktvOptions.length > 0 && (
+          <div className="w-56">
+            <Select value={filterKtv} onChange={setFilterKtv} options={[{ value: "", label: "— Tất cả KTV —" }, ...ktvOptions]} />
+          </div>
+        )}
+      </div>
+      {isLoading ? (
+        <div className="text-sm text-[var(--ink-400)] py-4 text-center">Đang tải…</div>
+      ) : groups.length === 0 ? (
+        <div className="text-sm text-[var(--ink-400)] py-4 text-center rounded-xl border border-dashed border-[var(--line)]">
+          Không có đơn hàng nào đang tồn trong phạm vi này.
         </div>
       ) : (
-        <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
-          <div className="overflow-x-auto max-h-72 overflow-y-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)] sticky top-0">
-                  <th className="px-3 py-2">Tên</th>
-                  <th className="px-3 py-2">SĐT</th>
-                  <th className="px-3 py-2">Vai trò</th>
-                  {khuVucMaList.length > 1 && <th className="px-3 py-2">Khu vực</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.ma_ktv} className="border-b border-[var(--line)] last:border-0">
-                    <td className="px-3 py-2">{r.ten_hien_thi ?? r.ma_ktv}</td>
-                    <td className="px-3 py-2">{r.sdt ?? "—"}</td>
-                    <td className="px-3 py-2"><Badge tone="ocean">{r.vai_tro_ktv ?? "KTV"}</Badge></td>
-                    {khuVucMaList.length > 1 && <td className="px-3 py-2">{r.khu_vuc_ma ? khuVucTenByMa.get(r.khu_vuc_ma) ?? r.khu_vuc_ma : "—"}</td>}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)] divide-y divide-[var(--line)]">
+          {groups.map((g) => (
+            <div key={g.email}>
+              <button
+                type="button"
+                onClick={() => toggleExpand(g.email)}
+                className="focus-ring w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[var(--surface-100)]/60"
+              >
+                <span className="text-[var(--ink-400)] text-xs w-3">{expanded.has(g.email) ? "▾" : "▸"}</span>
+                <span className="font-medium text-sm flex-1 truncate">
+                  {g.ten}
+                  {g.khuVucTen && <span className="text-[var(--ink-400)] font-normal"> · {g.khuVucTen}</span>}
+                </span>
+                <Badge tone="ocean">{g.rows.length} đơn tồn</Badge>
+                <Badge tone={soNgayTonTone(g.maxNgay)}>Lâu nhất {g.maxNgay} ngày</Badge>
+                {g.email && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onJump({ tab: "don-cua-toi", filter: "", nguoiNhanHang: g.email });
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && onJump({ tab: "don-cua-toi", filter: "", nguoiNhanHang: g.email })}
+                    className="focus-ring text-xs font-semibold text-[var(--ocean-700)] hover:underline whitespace-nowrap"
+                  >
+                    Xem danh sách →
+                  </span>
+                )}
+              </button>
+              {expanded.has(g.email) && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-left text-[var(--ink-400)] text-[10px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-y border-[var(--line)]">
+                        <th className="px-3 py-1.5">Mã đơn</th>
+                        <th className="px-3 py-1.5">Linh kiện</th>
+                        <th className="px-3 py-1.5">Ngày tạo</th>
+                        <th className="px-3 py-1.5">Tồn</th>
+                        <th className="px-3 py-1.5">Lý do / Đang chờ ai</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {g.rows.map((r, i) => {
+                        const soNgay = g.soNgayList[i];
+                        const mota = moTaTonDong(r);
+                        return (
+                          <tr key={r.id} className="border-b border-[var(--line)] last:border-0">
+                            <td className="px-3 py-1.5 font-mono whitespace-nowrap">
+                              <button
+                                type="button"
+                                className="focus-ring hover:underline text-[var(--ocean-700)]"
+                                onClick={() =>
+                                  onJump(
+                                    r.pxk_trang_thai
+                                      ? { tab: "phieu-xuat-kho", filter: r.pxk_trang_thai, nguoiNhanHang: r.nguoi_nhan_hang ?? undefined }
+                                      : { tab: "don-cua-toi", filter: r.ddh_trang_thai ?? "", nguoiNhanHang: r.nguoi_nhan_hang ?? undefined },
+                                  )
+                                }
+                              >
+                                {r.id}
+                              </button>
+                              <span className="ml-1 text-[var(--ink-400)]">({r.loai_don === "cong_no" ? "Công nợ" : "Mua"})</span>
+                            </td>
+                            <td className="px-3 py-1.5">
+                              {r.ten_lk_snapshot ?? r.ma_lk} × {r.so_luong_de_xuat}
+                            </td>
+                            <td className="px-3 py-1.5 whitespace-nowrap">{fmtDate(r.ngay_tao)}</td>
+                            <td className="px-3 py-1.5">
+                              <Badge tone={soNgayTonTone(soNgay)}>{soNgay} ngày</Badge>
+                            </td>
+                            <td className="px-3 py-1.5">
+                              <span className="text-[var(--ink-700)]">{mota.label}</span>
+                              {mota.nguoiCanGap !== "—" && (
+                                <>
+                                  {" "}
+                                  <Badge tone={mota.tone}>{mota.nguoiCanGap}</Badge>
+                                </>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -87,6 +275,10 @@ export function TrangChuTab({
   canTraHangView,
   isManagerView,
   showBaoCao,
+  canTacNghiep,
+  canKho,
+  canKeToan,
+  isGiamSat,
 }: {
   steps: LuongQuyTrinhStep[];
   myRoleKeys: Set<string>;
@@ -108,6 +300,12 @@ export function TrangChuTab({
   // KHONG PHAI tab:"don-cua-toi" + loaiDon:"tra_hang" (to hop nay chua tung duoc dung/kiem thu o dau
   // khac trong app, gay nhay sai sang danh sach "Mua hang" khi thu nghiem).
   canTraHangView: boolean;
+  // Them (2026-08-27) - gate hien thi TonDongTheoKtvReport (chi Giam sat/TN/Kho/Ke toan, khop dieu
+  // kien FORBIDDEN_ROLE o backend GET /ton-dong-theo-ktv).
+  canTacNghiep: boolean;
+  canKho: boolean;
+  canKeToan: boolean;
+  isGiamSat: boolean;
 }) {
   const mySteps = steps.filter((s) => s.count > 0 && s.roleKeys.some((r) => myRoleKeys.has(r))).sort((a, b) => b.count - a.count);
 
@@ -160,7 +358,7 @@ export function TrangChuTab({
         <span>Trả hàng {jumpNum("tra_hang")} đơn</span>
       </div>
 
-      <KtvKhuVucCuaToiCard />
+      {(canTacNghiep || canKho || canKeToan || isGiamSat) && <TonDongTheoKtvReport onJump={onJump} />}
 
       {showBaoCao && (
         <div>

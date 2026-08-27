@@ -49,7 +49,10 @@ export function formatNguoiDisplay(email: string, map: KtvDisplayMap): string {
   // RA SOAT 2026-08-18: GS tu nhan hang khong co ma_ktv that (backend tra chuoi rong) - bo phan
   // "(ma_ktv)" thay vi hien "() Ten" xau.
   const ten = entry.ten_hien_thi ?? email;
-  const base = entry.ma_ktv ? `(${entry.ma_ktv}) ${ten}` : ten;
+  // FIX (phan hoi 2026-08-27): 1 so KTV "mo coi" duoc tao ma_ktv = chinh email luc sua du lieu (chua
+  // co ma that) - neu ghep nguyen se ra "(email) Ten (email)" lap 2 lan xau. Bo phan "(ma_ktv)" khi no
+  // trung voi email.
+  const base = entry.ma_ktv && entry.ma_ktv !== email ? `(${entry.ma_ktv}) ${ten}` : ten;
   // FIX (phan hoi 2026-08-26, hang muc #16): ghep them "(email)" o cuoi de dong nhat voi
   // formatPersonDisplay toan he thong - bo qua neu ten hien thi CHINH LA email (tranh lap
   // "user@x.com (user@x.com)").
@@ -65,7 +68,9 @@ export function formatNguoiDisplay(email: string, map: KtvDisplayMap): string {
 // TU chua san ma_ktv trong chuoi, ghep them "ma_ktv - " truoc do khien ma hien LAP 2 LAN thua thai.
 export function ktvOptionLabel(r: NguoiNhanHangKhaDungRow, allRows: NguoiNhanHangKhaDungRow[]): string {
   const ten = r.ten_hien_thi ?? r.email_dang_nhap;
-  const base = r.ma_ktv && !ten.toLowerCase().includes(r.ma_ktv.toLowerCase()) ? `${r.ma_ktv} - ${ten}` : ten;
+  // FIX (phan hoi 2026-08-27): ma_ktv "mo coi" = chinh email (xem formatNguoiDisplay) khong phai ma
+  // that, khong nen hien nhu 1 tien to ma.
+  const base = r.ma_ktv && r.ma_ktv !== r.email_dang_nhap && !ten.toLowerCase().includes(r.ma_ktv.toLowerCase()) ? `${r.ma_ktv} - ${ten}` : ten;
   const distinctGs = new Set(allRows.map((x) => x.ten_gs).filter((x): x is string => !!x));
   return distinctGs.size > 1 && r.ten_gs ? `${base} (GS: ${r.ten_gs})` : base;
 }
@@ -116,9 +121,12 @@ export function deriveLoaiDon(v: string): "mua" | "cong_no" | "tra_hang" {
 
 // Mau/nhan theo loai don - dung lai 3 tone san co cua Badge.tsx (khong them token mau moi), giup
 // phan biet nhanh cac dong trong 1 phieu (phan hoi UX 2026-08-15 dot 2: giao diem qua nhat nhoa).
+// DOI (2026-08-27): "cong_no" chuyen tu "amber" sang "orange" - amber vua doi ngu nghia thanh mau
+// TRANG THAI "dang cho" (xem constants.ts/tokens.css, yeu cau "5 nhóm màu trạng thái" toan he thong),
+// badge LOAI DON nay khong lien quan trang thai nen phai tach rieng de tranh bi doi mau lay theo.
 export const LOAI_DON_TONE: Record<ReturnType<typeof deriveLoaiDon>, { tone: BadgeTone; label: string; border: string }> = {
   mua: { tone: "ocean", label: "Mua hàng", border: "border-l-[var(--ocean-400)]" },
-  cong_no: { tone: "amber", label: "Công nợ", border: "border-l-[var(--amber-500)]" },
+  cong_no: { tone: "orange", label: "Công nợ", border: "border-l-[var(--orange-500)]" },
   tra_hang: { tone: "coral", label: "Trả hàng", border: "border-l-[var(--coral-500)]" },
 };
 
