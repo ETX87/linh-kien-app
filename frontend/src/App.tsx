@@ -13,7 +13,10 @@ import { SettingsModule } from "./modules/SettingsModule";
 import { UsersModule } from "./modules/UsersModule";
 import { api } from "./api/client";
 import { useIsMobile } from "./hooks/useMediaQuery";
+import { useExitConfirm } from "./hooks/useExitConfirm";
 import { CommandPalette, type CommandItem } from "./components/ui/CommandPalette";
+import { Modal } from "./components/ui/Modal";
+import { Btn } from "./components/ui/Btn";
 import { useThemeSettings } from "./theme/useThemeSettings";
 
 // Shell RUT GON tu frontend/src/App.tsx cua he DVBH goc - he doc lap nay CHI phuc vu 1 mien nghiep
@@ -82,6 +85,9 @@ function MainApp({
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const isMobile = useIsMobile();
+  // Phan hoi nguoi dung 2026-08-27: "ấn nhầm đang thoát luôn rất bất tiện" - bay nut/vuot "Quay lai"
+  // cua he dieu hanh tren mobile, hoi xac nhan truoc khi thoat that (xem useExitConfirm.ts).
+  const { confirmOpen: exitConfirmOpen, stay: stayInApp, leave: exitApp } = useExitConfirm(isMobile);
   // "Xem truoc Mobile" cho Admin (them 2026-08-24, yeu cau "nút chuyển đổi giữa giao diện mobile và
   // web để test cho nhanh") - CHI Admin that duoc bat (gate o TopBar). Dung IFRAME that (khong phai
   // CSS gia lap) vi Tailwind sm:/md:/useIsMobile() (window.matchMedia) deu doc theo VIEWPORT THAT cua
@@ -213,6 +219,17 @@ function MainApp({
         </main>
       </div>
       {isMobile && <BottomTabBar active={active} setActive={setActive} allowedModules={allowedModules} onOpenMore={() => setMobileOpen(true)} />}
+      {isMobile && exitConfirmOpen && (
+        <Modal open onClose={stayInApp} title="Thoát ứng dụng?">
+          <div className="space-y-4 text-sm">
+            <div className="text-[var(--ink-700)]">Bạn có chắc muốn thoát khỏi ứng dụng không?</div>
+            <div className="flex justify-end gap-2">
+              <Btn variant="ghost" onClick={stayInApp}>Ở lại</Btn>
+              <Btn variant="danger" onClick={exitApp}>Thoát</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
       <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} items={commandItems} onSelect={setActive} />
       {realIsAdmin && mobilePreviewOpen && (
         <div className="fixed inset-0 z-[100] bg-[rgba(24,24,27,0.65)] flex items-center justify-center p-4 sm:p-8 overflow-auto">
