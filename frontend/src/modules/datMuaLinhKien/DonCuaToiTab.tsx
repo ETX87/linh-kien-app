@@ -7,6 +7,7 @@ import { Drawer, DrawerNavButtons, useDrawerArrowNav } from "../../components/ui
 import { Select } from "../../components/ui/Select";
 import { KvRow } from "../../components/ui/KvRow";
 import { SectionTitle } from "../../components/ui/SectionTitle";
+import { Tooltip } from "../../components/ui/Tooltip";
 import { Timeline } from "../../components/ui/Timeline";
 import type { Column } from "../../components/ui/PaginatedTable";
 import { useColumnConfig } from "../../components/ui/useColumnConfig";
@@ -1123,12 +1124,20 @@ export function DonCuaToiTab({
         <Btn size="sm" variant="ghost" onClick={() => setShowFilters((v) => !v)}>
           {showFilters ? "▲ Ẩn bộ lọc" : `☰ Bộ lọc${activeFilterCount > 0 ? ` (${activeFilterCount})` : ""} ▾`}
         </Btn>
-        <input
-          value={filterQ}
-          onChange={(e) => setFilterQ(e.target.value)}
-          placeholder="Tìm theo mã LK, tên LK, mã đơn, người tạo, người nhận, mã YCSC..."
-          className="focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-64"
-        />
+        <span className="relative inline-flex items-center">
+          <input
+            value={filterQ}
+            onChange={(e) => setFilterQ(e.target.value)}
+            placeholder="Tìm theo mã LK, mã đơn, người tạo/nhận…"
+            className="focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg pl-2.5 pr-7 py-1.5 text-sm w-64"
+          />
+          {/* FIX (ra soat UI 2026-08-27, hang muc #3): placeholder cu liet ke du 6 tieu chi, qua dai so
+              voi be rong o input - rut gon con vai tu khoa chinh, chuyen phan liet ke DAY DU sang
+              tooltip (dung lai component Tooltip da chot 2026-08-25 cho dung tinh huong nay). */}
+          <span className="absolute right-1.5">
+            <Tooltip text="Tìm theo: mã LK, tên LK, mã đơn, người tạo, người nhận, mã yêu cầu sự cố." />
+          </span>
+        </span>
       </div>
       {showFilters && (
         <div className="mb-3 bg-[var(--surface-100)] border border-[var(--line)] rounded-xl p-3 flex flex-col gap-3">
@@ -1219,7 +1228,9 @@ export function DonCuaToiTab({
       {/* CHOT #17: doi cau chu ro pham vi ap dung - truoc day "...tren trang nay" de hieu nham la chi
           ap dung cho 1 nhom KTV dang nhin thay gan checkbox nay, trong khi thuc te DonHangGroupedList
           gom nhieu nhom KTV/trang khac nhau va "Chon tat ca" ap dung xuyen suot MOI nhom. */}
-      {(canActAsTram || canTacNghiep) && rowsCoTheChon.length > 0 && (
+      {/* FIX (ra soat UI 2026-08-27, hang muc #4): an khi chi co 0-1 dong co the chon - "Chon tat ca"
+          vo nghia khi khong co gi ngoai 1 dong de chon gop, chi chiem cho vo ich. */}
+      {(canActAsTram || canTacNghiep) && rowsCoTheChon.length > 1 && (
         <div className="flex items-center gap-2 mb-2 text-xs">
           <input type="checkbox" checked={rowsCoTheChon.length > 0 && selected.size === rowsCoTheChon.length} onChange={toggleSelectAll} />
           {/* Phan hoi 2026-08-19: mo rong bulk cho dong "Cho TN duyet" - danh sach chon co the gom

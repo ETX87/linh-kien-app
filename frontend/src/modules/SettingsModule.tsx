@@ -316,6 +316,15 @@ function KhuVucTab() {
         Danh sách khu vực - gán 1 Giám sát phụ trách cho mỗi khu vực (1 khu vực chỉ 1 GS, 1 GS có thể phụ trách nhiều khu vực).
         <Tooltip text={`Khu vực của KTV/Vệ tinh gán ở thẻ "KTV hiện trường" (Quản lý User). Khu vực của Tác nghiệp/Kho/Kế toán gán ở modal sửa từng người trong thẻ "Nhân viên văn phòng".`} />
       </div>
+      {/* Them (ra soat UI 2026-08-27, hang muc #4): canh bao khu vuc BAT nhung chua gan GS - day chinh
+          la nguyen nhan goc cua bug "GS khong thay don cua KTV khu vuc minh" da fix truoc do (email_gs
+          suy tu khu_vuc.gs_email, khu vuc rong thi KHONG GS nao thay duoc don cua KTV trong do). Giup
+          Admin chu dong phat hien som thay vi cho nguoi dung bao loi roi moi tra nguoc lai. */}
+      {data && data.rows.filter((r) => r.bat_tat && !r.gs_email).length > 0 && (
+        <div className="rounded-lg border border-[var(--coral-500)] bg-[var(--coral-100)] px-3 py-2 text-xs text-[var(--coral-600)]">
+          ⚠ {data.rows.filter((r) => r.bat_tat && !r.gs_email).length} khu vực đang bật nhưng chưa gán Giám sát phụ trách — KTV thuộc các khu vực này sẽ không có GS nào theo dõi đơn của họ.
+        </div>
+      )}
       <Btn size="sm" onClick={() => openEdit("new")}>+ Thêm khu vực</Btn>
       <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
         <div className="overflow-x-auto">

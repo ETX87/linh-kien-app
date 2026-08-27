@@ -11,7 +11,7 @@ import { SectionTitle } from "../components/ui/SectionTitle";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { api } from "../api/client";
 import { useToast } from "../components/ui/Toast";
-import { fmtVND, type LinhKienRow } from "../types";
+import { fmtVND, fmtDateTime, type LinhKienRow } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { fetchWithHashCache } from "../lib/staticListCache";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
@@ -356,7 +356,7 @@ function PartDetailDrawer({ part, onClose, onEdit, canEdit }: { part: LinhKienRo
           </div>
 
           <div className="text-xs text-[var(--ink-400)] pt-1">
-            Cập nhật lần cuối bởi <span className="font-medium text-[var(--ink-500)]">{part.nguoi_cap_nhat ? formatPersonDisplay(part.nguoi_cap_nhat, personDir) : "—"}</span> lúc {part.ngay_cap_nhat}
+            Cập nhật lần cuối bởi <span className="font-medium text-[var(--ink-500)]">{part.nguoi_cap_nhat ? formatPersonDisplay(part.nguoi_cap_nhat, personDir) : "—"}</span> lúc {fmtDateTime(part.ngay_cap_nhat)}
           </div>
         </div>
 
@@ -389,6 +389,18 @@ export function DanhMucLinhKienModule() {
   const authUser = auth.status === "authenticated" ? auth.user : null;
   const canWrite = !!authUser?.quan_ly_danh_muc_lk || authUser?.vai_tro === "Admin";
   const personDir = usePersonDirectory();
+  // Them (ra soat UI 2026-08-27, hang muc #5): cot "Lượt dùng 30 ngày" - tai dung DU LIEU DA CO SAN
+  // (GET /dat-mua-lk/xep-hang-linh-kien, tinh 1 lan/ngay o backend, dang dung cho goi y trong
+  // LinhKienPicker luc tao don) de Admin quan ly danh muc biet linh kiện nao dang "hot" ma khong can
+  // query moi. `retry: false` + bo qua loi (KHONG throwOnError) - endpoint nam duoi requireDatMuaLkArea
+  // nen 1 tai khoan CHI co quyen xem_danh_muc_lk (khong co co nghiep vu nao) co the bi 403; man Bang
+  // Gia van phai hien thi binh thuong, chi rieng cot nay am tham rong.
+  const { data: xepHangData } = useQuery({
+    queryKey: ["dat-mua-lk-xep-hang-linh-kien"],
+    queryFn: () => api.get<{ rows: { ma_lk: string; so_lan: number }[] }>("/dat-mua-lk/xep-hang-linh-kien"),
+    retry: false,
+  });
+  const luotDungByMa = useMemo(() => new Map((xepHangData?.rows ?? []).map((r) => [r.ma_lk, r.so_lan])), [xepHangData]);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [filterDacThu, setFilterDacThu] = useState("");
@@ -654,6 +666,14 @@ export function DanhMucLinhKienModule() {
     { key: "ma_linh_kien", header: "Mã", render: (p) => <span className="font-mono text-xs">{p.ma_linh_kien}</span> },
     { key: "ten_linh_kien", header: "Tên linh kiện", render: (p) => <span className="font-semibold text-[var(--ocean-800)]">{p.ten_linh_kien}</span> },
     { key: "gia_ban", header: "Giá bán", render: (p) => <span className="font-mono font-semibold text-[var(--green-700)]">{fmtVND(p.gia_ban)}</span> },
+    {
+      key: "luot_dung_30_ngay",
+      header: "Lượt dùng 30 ngày",
+      render: (p) => {
+        const soLan = luotDungByMa.get(p.ma_linh_kien);
+        return soLan ? <span className="font-mono text-xs">{soLan}</span> : <span className="text-xs text-[var(--ink-400)]">—</span>;
+      },
+    },
     { key: "don_vi", header: "Phân loại", render: (p) => <span className="text-xs">{p.don_vi ?? "—"}</span> },
     { key: "anh_demo", header: "Ảnh minh hoạ", render: (p) => <AnhThumbnail url={p.anh_demo} active={!!p.bat_tat} /> },
     { key: "ghi_chu", header: "Ghi chú", render: (p) => <span className="text-xs text-[var(--ink-600)]">{p.ghi_chu ?? "—"}</span> },
@@ -673,7 +693,10 @@ export function DanhMucLinhKienModule() {
       render: (p) => (!!p.chi_sua_chua ? <span className="text-xs font-semibold text-[var(--coral-600)]">Only sửa chữa</span> : <span className="text-xs text-[var(--ink-400)]">—</span>),
     },
     { key: "nguoi_cap_nhat", header: "Người cập nhật", render: (p) => (p.nguoi_cap_nhat ? formatPersonDisplay(p.nguoi_cap_nhat, personDir) : p.nguoi_cap_nhat) },
-    { key: "ngay_cap_nhat", header: "Ngày cập nhật", render: (p) => <span className="text-xs">{p.ngay_cap_nhat}</span> },
+    // FIX (ra soat UI 2026-08-27): truoc day hien nguyen chuoi gio VN "tho" tu DB (khac dinh dang
+    // dd/mm/yyyy dung khap noi khac) - doi qua fmtDateTime cho nhat quan (xem memory
+    // feedback_vn_timezone).
+    { key: "ngay_cap_nhat", header: "Ngày cập nhật", render: (p) => <span className="text-xs">{fmtDateTime(p.ngay_cap_nhat)}</span> },
     {
       key: "bat_tat",
       header: "Hiển thị",
@@ -752,7 +775,7 @@ export function DanhMucLinhKienModule() {
                   setBulkImportProcessed(0);
                 }}
               >
-                📥 Nhập ảnh demo hàng loạt
+                📥 Nhập ảnh minh hoạ hàng loạt
               </Btn>
               <Btn
                 variant="ghost"
@@ -974,7 +997,7 @@ export function DanhMucLinhKienModule() {
         </div>
       </Modal>
 
-      <Modal open={bulkImportOpen} onClose={() => { if (!bulkImportRunning) setBulkImportOpen(false); }} title="Nhập ảnh demo hàng loạt">
+      <Modal open={bulkImportOpen} onClose={() => { if (!bulkImportRunning) setBulkImportOpen(false); }} title="Nhập ảnh minh hoạ hàng loạt">
         <div className="space-y-3">
           <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">
             File Excel 2 cột <span className="font-mono">Mã linh kiện</span> + <span className="font-mono">ẢNH DEMO</span>.

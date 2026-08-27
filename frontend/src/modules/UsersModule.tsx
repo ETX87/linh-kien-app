@@ -13,7 +13,7 @@ import { useAuth } from "../auth/AuthContext";
 import { formatPersonDisplay, usePersonDirectory } from "../lib/personDisplay";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { parseKtvImportFile, type BulkImportKtvChunkResult } from "../lib/ktvImport";
-import { fmtVND } from "../types";
+import { fmtVND, fmtDateTime } from "../types";
 import type { UserRow, KtvLienHeRow, KhuVucRow, Paged } from "../types";
 
 // Trang quan tri nguoi dung - xay lai 2026-08-26 (yeu cau "tach rieng 2 the quan ly" cho 2 nhom doi
@@ -491,7 +491,6 @@ async function downloadKtvImportTemplate() {
 function KtvTab() {
   const qc = useQueryClient();
   const addToast = useToast();
-  const personDir = usePersonDirectory();
   const [search, setSearch] = useState("");
   const [cap, setCap] = useState("");
   const [khuVuc, setKhuVuc] = useState("");
@@ -632,22 +631,34 @@ function KtvTab() {
     { key: "sdt", header: "SĐT", render: (r) => r.sdt ?? "—" },
     { key: "vai_tro_ktv", header: "Vai trò", render: (r) => r.vai_tro_ktv ?? "—" },
     { key: "khu_vuc", header: "Khu vực", render: (r) => (r.khu_vuc_ma ? khuVucTenByMa.get(r.khu_vuc_ma) ?? r.khu_vuc_ma : "—") },
-    {
-      key: "cap1_phu_trach",
-      header: "KTV cấp 1 phụ trách",
-      render: (r) => (r.vai_tro_ktv === "Ve tinh" && r.ktv_cap1_phu_trach ? `${r.ktv_cap1_phu_trach} — ${tenByMaKtv.get(r.ktv_cap1_phu_trach) ?? "?"}` : "—"),
-    },
+    // FIX (ra soat UI 2026-08-27, hang muc #3): an han cot nay khi filter "cap" dang loc dung Cap 1 -
+    // field CHI co nghia cho Ve tinh (vai_tro_ktv==='Ve tinh') nen luon rong khi dang xem rieng Cap 1,
+    // chiem cho ngang vo ich tren bang 8 cot.
+    ...(cap !== "1"
+      ? [
+          {
+            key: "cap1_phu_trach",
+            header: "KTV cấp 1 phụ trách",
+            render: (r: KtvLienHeRow) => (r.vai_tro_ktv === "Ve tinh" && r.ktv_cap1_phu_trach ? `${r.ktv_cap1_phu_trach} — ${tenByMaKtv.get(r.ktv_cap1_phu_trach) ?? "?"}` : "—"),
+          },
+        ]
+      : []),
     {
       key: "cong_no",
       header: "Công nợ",
       render: (r) =>
         r.cong_no != null ? (
-          <span title={r.cong_no_cap_nhat_luc ? `Cập nhật lúc ${r.cong_no_cap_nhat_luc}` : undefined}>{fmtVND(r.cong_no)}</span>
+          // FIX (ra soat UI 2026-08-27): tooltip truoc day hien nguyen chuoi gio VN "tho" tu DB, khong
+          // qua fmtDateTime - dung quy uoc chung "moi cot thoi gian hien theo gio VN qua helper co san"
+          // (xem CLAUDE.md/memory feedback_vn_timezone).
+          <span title={r.cong_no_cap_nhat_luc ? `Cập nhật lúc ${fmtDateTime(r.cong_no_cap_nhat_luc)}` : undefined}>{fmtVND(r.cong_no)}</span>
         ) : (
           "—"
         ),
     },
-    { key: "email_dang_nhap", header: "Email đăng nhập", render: (r) => (r.email_dang_nhap ? formatPersonDisplay(r.email_dang_nhap, personDir) : "—") },
+    // FIX (ra soat UI 2026-08-27, hang muc #1): bo "(mã) Tên" lap lai truoc email - cot "Tên hiển thị"
+    // da o ngay dau bang, khong can nhac lai o cot cuoi (giam ~50% do dai dong tren bang 25+ dong).
+    { key: "email_dang_nhap", header: "Email đăng nhập", render: (r) => r.email_dang_nhap ?? "—" },
     {
       key: "actions",
       header: "",
@@ -655,7 +666,20 @@ function KtvTab() {
       render: (r) => (
         <div className="flex gap-2">
           <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openEdit(r)}>Sửa</button>
-          <button className="text-[var(--coral-500)] hover:underline text-xs" onClick={() => remove.mutate(r.ma_ktv)}>Xoá</button>
+          {/* FIX (ra soat UI 2026-08-27, hang muc #5): Xoa truoc day khong co xac nhan nao - DELETE
+              backend la hard delete, khong chan du KTV con don hang lich su (ktv_lien_he KHONG phai
+              FK cua dat_don_hang, chi rieng users.email moi la FK) nen bam nham se am tham tao lai
+              dung tinh trang "tai khoan mo coi" da phai sua tay o dau phien lam viec nay. */}
+          <button
+            className="text-[var(--coral-500)] hover:underline text-xs"
+            onClick={() => {
+              if (window.confirm(`Xoá KTV "${r.ma_ktv}" (${r.ten_hien_thi ?? "chưa đặt tên"})?\n\nĐơn hàng cũ của người này sẽ KHÔNG bị xoá, nhưng sẽ mất liên kết danh bạ (mã KTV/khu vực/tên hiển thị) - có thể gây khó tra cứu sau này.`)) {
+                remove.mutate(r.ma_ktv);
+              }
+            }}
+          >
+            Xoá
+          </button>
         </div>
       ),
     },
