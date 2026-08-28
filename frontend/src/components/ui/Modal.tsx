@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
+import { pushOverlayClose } from "../../lib/overlayStack";
 
 export function Modal({
   open,
@@ -26,6 +27,15 @@ export function Modal({
   // "Dat Mua Linh Kien 2.0" #18). Mac dinh undefined = khong doi giao dien cac noi goi Modal khac.
   headerExtra?: ReactNode;
 }) {
+  // FIX (phan hoi 2026-08-28: "popup thoát app lúc hỏi lúc không") - Modal (dung o ~40 noi, khac
+  // Drawer.tsx) truoc day KHONG dang ky voi ngan xep overlay dung chung, nen nut Back tren mobile
+  // BO QUA Modal dang mo va nhay thang toi hoi "Thoát ứng dụng?" - hanh vi khac nhau tuy dang mo
+  // Drawer hay Modal la nguyen nhan "lúc hỏi lúc không". Them dung 1 effect giong het Drawer.tsx.
+  useEffect(() => {
+    if (!open) return;
+    return pushOverlayClose(onClose);
+  }, [open, onClose]);
+
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(6,32,51,0.45)] backdrop-blur-[2px] p-4">

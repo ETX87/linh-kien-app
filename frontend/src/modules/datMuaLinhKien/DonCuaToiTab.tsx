@@ -1862,16 +1862,28 @@ export function DonHangGroupedList({
                                 su (overflow-hidden + MAX_BADGE=2 phoi hop nhau tranh badge bi cat dut
                                 giua chung). */}
                             <div className="flex items-start gap-2">
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); openLkDetail(d.ma_lk); }}
-                                title="Xem chi tiết linh kiện"
-                                className={`min-w-0 flex-[3] truncate text-left font-medium text-sm hover:underline hover:text-[var(--ocean-600)] ${rowStyle}`}
-                              >
-                                {d.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
-                                {d.ten_lk_snapshot ?? d.ma_lk}
-                                {!!d.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
-                              </button>
+                              {/* FIX (phan hoi 2026-08-28: "click vào vùng không có chữ không mở UI chi
+                                  tiết, bắt buộc phải click vùng có chữ") - truoc day <button> ten LK
+                                  dat flex-[3] TRUC TIEP nen vung bam cua no LUON rong het 60% cot (flex-
+                                  basis:0% khong co "shrink-to-fit" theo noi dung), du ten ngan cung
+                                  chiem het khoang trong ben phai - bam vao khoang trong "khong chu" do
+                                  bi <button> nay nuot (stopPropagation, mo chi tiet LINH KIEN) thay vi
+                                  lot qua the de mo chi tiet DON HANG nhu mong doi. Sua: bao button trong
+                                  1 div flex-[3] (giu ty le 60%), rieng <button> doi sang inline-block +
+                                  max-w-full de tu CO LAI dung do rong noi dung that su - khoang trong
+                                  con lai trong div bao (khong co onClick) se lot qua cho the ben ngoai. */}
+                              <div className="min-w-0 flex-[3]">
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); openLkDetail(d.ma_lk); }}
+                                  title="Xem chi tiết linh kiện"
+                                  className={`inline-block align-top max-w-full min-w-0 truncate text-left font-medium text-sm hover:underline hover:text-[var(--ocean-600)] ${rowStyle}`}
+                                >
+                                  {d.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
+                                  {d.ten_lk_snapshot ?? d.ma_lk}
+                                  {!!d.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
+                                </button>
+                              </div>
                               {/* SUA (phan hoi 2026-08-28, lan 2: "ẩn cả thẻ nếu không đủ diện tích,
                                   không xuống dòng") - quay lai 1 dong DUY NHAT (overflow-hidden, khong
                                   con flex-wrap) - Badge component gio da shrink-0/whitespace-nowrap nen
