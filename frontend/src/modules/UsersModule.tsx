@@ -98,7 +98,11 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
               </thead>
               <tbody>
                 {rows.map((u) => (
-                  <tr key={u.email} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                  // FIX (phan hoi 2026-08-28: "table danh sách tài khoản cho phép ấn vào để mở giao
+                  // diện xem và sửa luôn, không cần phải ấn vào nút Sửa") - ca dong mo Sua, giu nut
+                  // "Sửa" lam diem bam ro rang (nhat la tren dien thoai) nhung tu stopPropagation de
+                  // khong mo modal 2 lan lien tiep.
+                  <tr key={u.email} onClick={() => setEditing(u)} className="cursor-pointer border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
                     {/* Quy uoc "Ten (email)" toan he thong (phan hoi 2026-08-25, hang muc #16). */}
                     <td className="px-3 py-2">{formatPersonDisplay(u.email, personDir)}</td>
                     <td className="px-3 py-2">{u.vai_tro ?? "—"}</td>
@@ -116,7 +120,7 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
                       {!!u.bi_khoa && <Badge tone="coral">Đã khoá</Badge>}
                     </td>
                     <td className="px-3 py-2">
-                      <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => setEditing(u)}>
+                      <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={(e) => { e.stopPropagation(); setEditing(u); }}>
                         Sửa
                       </button>
                     </td>
@@ -400,7 +404,16 @@ function VanPhongTab() {
         </>
       ),
     },
-    { key: "actions", header: "", mobileHint: "actions", render: (u) => <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => setEditing(u)}>Sửa</button> },
+    {
+      key: "actions",
+      header: "",
+      mobileHint: "actions",
+      render: (u) => (
+        <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={(e) => { e.stopPropagation(); setEditing(u); }}>
+          Sửa
+        </button>
+      ),
+    },
   ];
 
   return (
@@ -437,6 +450,7 @@ function VanPhongTab() {
         onPageChange={setPage}
         rowKey={(u) => u.email}
         emptyText="Không có tài khoản nào."
+        onRowClick={(u) => setEditing(u)}
       />
       {editing && (
         <EditUserModal
@@ -682,7 +696,9 @@ function KtvTab() {
       header: "",
       mobileHint: "actions",
       render: (r) => (
-        <div className="flex gap-2">
+        // stopPropagation - dong da co onRowClick (bam dong mo Sua, xem duoi) nen 2 nut nay phai tu
+        // chan bubble, khong thi bam "Xoá" se vua xoa vua mo modal Sua dong (da bi xoa) cung luc.
+        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
           <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openEdit(r)}>Sửa</button>
           {/* FIX (ra soat UI 2026-08-27, hang muc #5): Xoa truoc day khong co xac nhan nao - DELETE
               backend la hard delete, khong chan du KTV con don hang lich su (ktv_lien_he KHONG phai
@@ -762,6 +778,7 @@ function KtvTab() {
         onPageChange={setPage}
         rowKey={(r) => r.ma_ktv}
         emptyText="Không có KTV nào."
+        onRowClick={(r) => openEdit(r)}
       />
       {editing && (
         <Modal open onClose={() => setEditing(null)} title={editing === "new" ? "Thêm KTV" : "Sửa KTV"} width="max-w-md">
@@ -945,13 +962,13 @@ function PhuTrachGsTab() {
             </thead>
             <tbody>
               {tnKhoKeToan.map((u) => (
-                <tr key={u.email} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                <tr key={u.email} onClick={() => openFor(u.email)} className="cursor-pointer border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
                   <td className="px-3 py-2">{formatPersonDisplay(u.email, personDir)}</td>
                   <td className="px-3 py-2">
                     {[u.la_tac_nghiep && "TN", u.la_kho && "Kho", u.la_ke_toan && "Kế toán"].filter(Boolean).join(", ")}
                   </td>
                   <td className="px-3 py-2">
-                    <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openFor(u.email)}>
+                    <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={(e) => { e.stopPropagation(); openFor(u.email); }}>
                       Gán Giám sát
                     </button>
                   </td>
