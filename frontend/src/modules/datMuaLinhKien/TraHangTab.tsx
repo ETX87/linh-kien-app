@@ -685,7 +685,10 @@ function TraHangGroupedList({
                   const badges: { tone: BadgeTone; label: string }[] = [
                     { tone: TRA_HANG_TRANG_THAI_TONE[r.trang_thai_tra_hang] ?? "gray", label: trangThaiLabel(TRA_HANG_TRANG_THAI_OPTIONS, r.trang_thai_tra_hang) },
                   ];
-                  const MAX_BADGE = 2;
+                  // SUA (phan hoi 2026-08-28, dong bo voi DonCuaToiTab.tsx): giam ve 1 - xem giai thich
+                  // day du o DonCuaToiTab.tsx (MAX_BADGE gan voi comment "ẩn cả thẻ nếu không đủ diện
+                  // tích, không xuống dòng").
+                  const MAX_BADGE = 1;
                   const shownBadges = badges.slice(0, MAX_BADGE);
                   const extraBadgeCount = badges.length - shownBadges.length;
                   return (
@@ -704,7 +707,9 @@ function TraHangGroupedList({
                               {r.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
                               {r.ten_lk_snapshot ?? r.ma_lk}
                             </span>
-                            <div className="flex-[2] flex items-center justify-end gap-1 min-w-0 overflow-hidden shrink-0">
+                            {/* SUA (phan hoi 2026-08-28, lan 2, dong bo voi DonCuaToiTab.tsx): 1 dong
+                                DUY NHAT (overflow-hidden) - badge thua gop vao "+N" thay vi xuong dong. */}
+                            <div className="flex-[2] flex items-center justify-end gap-1 min-w-0 overflow-hidden">
                               {shownBadges.map((b, i) => (
                                 <Badge key={i} tone={b.tone}>{b.label}</Badge>
                               ))}

@@ -4,6 +4,7 @@ import { api, buildQuery } from "../../api/client";
 import { fmtVND } from "../../types";
 import { Btn } from "../../components/ui/Btn";
 import { formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay";
+import { useIsMobile } from "../../hooks/useMediaQuery";
 import type { BaoCaoRow, JumpTarget } from "./types";
 
 // Nhan "Tháng N/N-1/N-2" (them 2026-08-25, phan hoi "hạn chế theo tháng") - tinh CLIENT-SIDE bang gio
@@ -36,6 +37,7 @@ function thangLabel(offset: number): string {
 // /dat-mua-lk/bao-cao-tong-the backend.
 export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (t: JumpTarget) => void; isManagerView: boolean; canTraHangView: boolean }) {
   const personDir = usePersonDirectory();
+  const isMobile = useIsMobile();
   const [thang, setThang] = useState(0);
   const [full, setFull] = useState(false);
   const { data, isLoading } = useQuery({
@@ -43,8 +45,26 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
     queryFn: () => api.get<{ rows: BaoCaoRow[] }>("/dat-mua-lk/bao-cao-tong-the" + buildQuery({ thang, full: full ? 1 : undefined })),
   });
   const [search, setSearch] = useState("");
+  // State mo/dong tung dong nguoi tren the mobile (muc A) - dat o COMPONENT CHA (khong phai trong
+  // MobileTable) vi MobileTable la 1 ham dinh nghia lai MOI LAN BaoCaoTab render (giong Table/Num co
+  // san) - neu useState nam TRONG do, React se coi no la 1 component type MOI moi lan cha render lai
+  // (identity ham doi), gay unmount/remount mat het trang thai mo/dong ngay khi go chu vao o tim kiem.
+  // Key dang "title:email" de phan biet cung 1 nguoi o 3 bang khac nhau (Don hang/Xuat kho/Tien).
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  function toggleExpandRow(key: string) {
+    setExpandedRows((s) => {
+      const next = new Set(s);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+  // SUA (phan hoi 2026-08-28, muc B "thu gọn bộ lọc") - tren mobile, bo loc Thang/Xem toan he thong an
+  // sau nut "☰ Bộ lọc" (mac dinh dong) thay vi luon hien 1 hang rieng; desktop giu nguyen hien san
+  // (khong ton dien tich dang ke tren man rong).
+  const [showThangFilter, setShowThangFilter] = useState(false);
 
-  const thangFilterEl = (
+  const thangFilterRow = (
     <div className="flex items-center gap-1.5 flex-wrap">
       {[0, 1, 2].map((o) => (
         <Btn key={o} size="sm" variant={thang === o ? "primary" : "ghost"} onClick={() => setThang(o)}>
@@ -59,6 +79,21 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
         </label>
       )}
     </div>
+  );
+  const thangFilterEl = isMobile ? (
+    <div>
+      <button
+        type="button"
+        onClick={() => setShowThangFilter((v) => !v)}
+        className="focus-ring text-xs font-semibold text-[var(--ink-500)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 bg-[var(--surface)]"
+      >
+        {thangLabel(thang)}
+        {thang === 0 ? " (đang xử lý)" : ""} · {showThangFilter ? "▲" : "☰ Đổi tháng ▾"}
+      </button>
+      {showThangFilter && <div className="mt-2">{thangFilterRow}</div>}
+    </div>
+  ) : (
+    thangFilterRow
   );
 
   const rows = data?.rows ?? [];
@@ -98,6 +133,12 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
       tongPxk: 0, slChoKeToan: 0, slChoKhoGui: 0, slDaGui: 0, slDaXacNhan: 0, slKhoKetThuc: 0,
       tongTienThucTe: 0, tongTienDatMua: 0, tienChoDuyet: 0, tongChoChuyen: 0 },
   );
+  // Muc A (phan hoi 2026-08-28 - "3 bảng chiếm quá nhiều diện tích/khó đọc trên mobile") - "tong" o
+  // tren chi phuc vu dong Σ cua BANG DESKTOP (JSX <td> dung tay); tai su dung LAI dung cac ham
+  // cols[].cell() cho MobileTable ben duoi can 1 BaoCaoRow day du - email="" khien cell.onClick nhay
+  // KHONG kem nguoi_nhan_hang, dung y "tổng toàn hệ thống" (giong het jumpDon("", undefined) khong
+  // truyen email cua tongRow desktop). slDeXuat/slThucDuyet khong duoc cols nao dung toi nen dien 0.
+  const tongAsRow: BaoCaoRow = { ...tong, email: "", ten: null, slDeXuat: 0, slThucDuyet: 0 };
 
   function jumpDon(filter: string, loaiDon: "mua" | "cong_no" | undefined, email?: string) {
     onJump({ tab: "don-cua-toi", filter, loaiDon, nguoiNhanHang: email });
@@ -163,6 +204,99 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
     );
   }
 
+  // Muc A (phan hoi 2026-08-28) - luoi 2 cot "nhan/so" cho 1 nguoi, dung chung cho ca truong hop 1
+  // dong (xem cua chinh minh) lan luc mo rong 1 dong trong danh sach nhieu nguoi. Thay the hoan toan
+  // cho <table> cuon ngang tren mobile - moi con so van la 1 nut bam nhay dung (tai su dung y het
+  // cols[].cell da co, khong viet lai logic jump).
+  function MobileStatGrid({ cols, row }: { cols: { label: string; title?: string; cell: (r: BaoCaoRow) => React.ReactNode }[]; row: BaoCaoRow }) {
+    return (
+      <div className="grid grid-cols-2 gap-1.5">
+        {cols.map((c) => (
+          <div key={c.label} className="rounded-lg bg-[var(--surface-100)] px-2.5 py-1.5" title={c.title}>
+            <div className="text-[9.5px] uppercase tracking-wide text-[var(--ink-400)] font-bold leading-tight">{c.label}</div>
+            <div className="text-sm mt-0.5">{c.cell(row)}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  function MobileTable({
+    title, cols, rowsOf, tongRow,
+  }: { title: string; cols: { label: string; title?: string; cell: (r: BaoCaoRow) => React.ReactNode }[]; rowsOf: BaoCaoRow[]; tongRow: BaoCaoRow }) {
+    const single = rowsOf.length <= 1;
+    return (
+      <div>
+        <div className="text-xs font-semibold text-[var(--ink-500)] uppercase tracking-wide mb-1.5">{title}</div>
+        {single ? (
+          <div className="rounded-xl border border-[var(--line)] p-2.5">
+            <MobileStatGrid cols={cols} row={rowsOf[0] ?? tongRow} />
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="rounded-xl border border-[var(--ocean-500)]/40 bg-[var(--ocean-100)]/50 p-2.5">
+              <div className="text-[10px] font-extrabold uppercase tracking-wide text-[var(--ocean-700)] mb-1.5">Σ Tổng cộng</div>
+              <MobileStatGrid cols={cols} row={tongRow} />
+            </div>
+            <div className="border border-[var(--line)] rounded-xl divide-y divide-[var(--line)] overflow-hidden bg-[var(--surface)]">
+              {rowsOf.map((r) => {
+                const key = `${title}:${r.email}`;
+                const isOpen = expandedRows.has(key);
+                return (
+                  <div key={r.email}>
+                    <button
+                      type="button"
+                      onClick={() => toggleExpandRow(key)}
+                      className="focus-ring w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[var(--surface-100)]/60"
+                    >
+                      <span className="text-[var(--ink-400)] text-xs w-3">{isOpen ? "▾" : "▸"}</span>
+                      <span className="flex-1 truncate font-medium text-sm">{formatPersonDisplay(r.email, personDir)}</span>
+                    </button>
+                    {isOpen && (
+                      <div className="px-3 pb-2.5">
+                        <MobileStatGrid cols={cols} row={r} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Tach cols[] ra bien rieng (truoc day khai bao INLINE trong tung <Table>) - dung CHUNG cho ca
+  // <Table> desktop lan <MobileTable> mobile, tranh khai bao trung 2 lan cung 1 danh sach cot.
+  const donHangCols = [
+    { label: "Tổng đơn", cell: (r: BaoCaoRow) => <Num value={r.slDon} onClick={() => jumpDon("", undefined, r.email)} /> },
+    { label: "Đơn mua", cell: (r: BaoCaoRow) => <Num value={r.slDonMua} onClick={() => jumpDon("", "mua", r.email)} /> },
+    { label: "Đơn CN", cell: (r: BaoCaoRow) => <Num value={r.slDonCongNo} onClick={() => jumpDon("", "cong_no", r.email)} /> },
+    { label: "Đơn trả", cell: (r: BaoCaoRow) => <Num value={r.slDonTraHang} onClick={() => jumpTraHang("", r.email)} /> },
+    { label: "Đơn đang chờ", title: "3-4 bước chờ duyệt đầu tiên, chưa tính 'Chờ hàng' (đã duyệt xong, đang chờ Kho tìm nguồn)", cell: (r: BaoCaoRow) => <Num value={r.slDangCho} onClick={() => jumpDon("__OPEN__", undefined, r.email)} /> },
+    { label: "Bị từ chối/huỷ", cell: (r: BaoCaoRow) => <Num value={r.slTuChoi} alert={r.slTuChoi > 0} onClick={() => jumpDon("TN tu choi", undefined, r.email)} /> },
+    { label: "Tổng duyệt", cell: (r: BaoCaoRow) => <Num value={r.slDuyet} onClick={() => jumpDon("TN da duyet", undefined, r.email)} /> },
+    { label: "Duyệt mua", cell: (r: BaoCaoRow) => <Num value={r.slDuyetMua} onClick={() => jumpDon("TN da duyet", "mua", r.email)} /> },
+    { label: "Duyệt CN", cell: (r: BaoCaoRow) => <Num value={r.slDuyetCongNo} onClick={() => jumpDon("TN da duyet", "cong_no", r.email)} /> },
+    { label: "Duyệt trả", cell: (r: BaoCaoRow) => <Num value={r.slDuyetTraHang} onClick={() => jumpTraHang("TN da duyet", r.email)} /> },
+  ];
+  const xuatKhoCols = [
+    { label: "Tổng PXK", cell: (r: BaoCaoRow) => <Num value={r.tongPxk} onClick={() => jumpPxk("", r.email)} /> },
+    { label: "Tổng đang tồn", title: "Chờ kế toán + Chờ kho gửi + Chờ KTV nhận", cell: (r: BaoCaoRow) => <Num value={r.slChoKeToan + r.slChoKhoGui + r.slDaGui} onClick={() => jumpPxk("", r.email)} /> },
+    { label: "Chờ kế toán", cell: (r: BaoCaoRow) => <Num value={r.slChoKeToan} onClick={() => jumpPxk("Cho ke toan", r.email)} /> },
+    { label: "Chờ kho gửi", cell: (r: BaoCaoRow) => <Num value={r.slChoKhoGui} onClick={() => jumpPxk("Da chot xong don xuat", r.email)} /> },
+    { label: "Chờ KTV nhận", cell: (r: BaoCaoRow) => <Num value={r.slDaGui} onClick={() => jumpPxk("Dang gui KTV", r.email)} /> },
+    { label: "KTV đã nhận", cell: (r: BaoCaoRow) => <Num value={r.slDaXacNhan} onClick={() => jumpPxk("KTV da nhan", r.email)} /> },
+    { label: "Kho kết thúc", title: "Kho đã kết thúc + Hàng trừ kho", cell: (r: BaoCaoRow) => <Num value={r.slKhoKetThuc} onClick={() => jumpPxk("Kho da ket thuc", r.email)} /> },
+  ];
+  const tienCols = [
+    { label: "Tiền đang đặt mua (dự kiến)", cell: (r: BaoCaoRow) => <Num value={fmtVND(r.tongTienDatMua)} onClick={() => jumpDon("", undefined, r.email)} /> },
+    { label: "Tiền chờ duyệt", cell: (r: BaoCaoRow) => <Num value={fmtVND(r.tienChoDuyet)} onClick={() => jumpDon("__OPEN__", undefined, r.email)} /> },
+    { label: "Tổng thực tế đã mua", cell: (r: BaoCaoRow) => <Num value={fmtVND(r.tongTienThucTe)} onClick={() => jumpDon("TN da duyet", undefined, r.email)} /> },
+    { label: "Tiền chờ chuyển", title: "PXK có yêu cầu chuyển khoản nhưng KTV/TN chưa xác nhận xong", cell: (r: BaoCaoRow) => <Num value={fmtVND(r.tongChoChuyen)} onClick={() => jumpPxk("", r.email)} /> },
+  ];
+
   return (
     <div className="mt-4 space-y-4">
       {thangFilterEl}
@@ -175,80 +309,68 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
         />
       )}
 
-      <Table
-        title="Đơn hàng"
-        rowsOf={sorted}
-        cols={[
-          { label: "Tổng đơn", cell: (r) => <Num value={r.slDon} onClick={() => jumpDon("", undefined, r.email)} /> },
-          { label: "Đơn mua", cell: (r) => <Num value={r.slDonMua} onClick={() => jumpDon("", "mua", r.email)} /> },
-          { label: "Đơn CN", cell: (r) => <Num value={r.slDonCongNo} onClick={() => jumpDon("", "cong_no", r.email)} /> },
-          { label: "Đơn trả", cell: (r) => <Num value={r.slDonTraHang} onClick={() => jumpTraHang("", r.email)} /> },
-          { label: "Đơn đang chờ", title: "3-4 bước chờ duyệt đầu tiên, chưa tính 'Chờ hàng' (đã duyệt xong, đang chờ Kho tìm nguồn)", cell: (r) => <Num value={r.slDangCho} onClick={() => jumpDon("__OPEN__", undefined, r.email)} /> },
-          { label: "Bị từ chối/huỷ", cell: (r) => <Num value={r.slTuChoi} alert={r.slTuChoi > 0} onClick={() => jumpDon("TN tu choi", undefined, r.email)} /> },
-          { label: "Tổng duyệt", cell: (r) => <Num value={r.slDuyet} onClick={() => jumpDon("TN da duyet", undefined, r.email)} /> },
-          { label: "Duyệt mua", cell: (r) => <Num value={r.slDuyetMua} onClick={() => jumpDon("TN da duyet", "mua", r.email)} /> },
-          { label: "Duyệt CN", cell: (r) => <Num value={r.slDuyetCongNo} onClick={() => jumpDon("TN da duyet", "cong_no", r.email)} /> },
-          { label: "Duyệt trả", cell: (r) => <Num value={r.slDuyetTraHang} onClick={() => jumpTraHang("TN da duyet", r.email)} /> },
-        ]}
-        tongRow={
-          <>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDon} onClick={() => jumpDon("", undefined)} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDonMua} onClick={() => jumpDon("", "mua")} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDonCongNo} onClick={() => jumpDon("", "cong_no")} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDonTraHang} onClick={() => jumpTraHang("")} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDangCho} onClick={() => jumpDon("__OPEN__", undefined)} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slTuChoi} alert={tong.slTuChoi > 0} onClick={() => jumpDon("TN tu choi", undefined)} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDuyet} onClick={() => jumpDon("TN da duyet", undefined)} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDuyetMua} onClick={() => jumpDon("TN da duyet", "mua")} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDuyetCongNo} onClick={() => jumpDon("TN da duyet", "cong_no")} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDuyetTraHang} onClick={() => jumpTraHang("TN da duyet")} /></td>
-          </>
-        }
-      />
+      {isMobile ? (
+        <MobileTable title="Đơn hàng" rowsOf={sorted} tongRow={tongAsRow} cols={donHangCols} />
+      ) : (
+        <Table
+          title="Đơn hàng"
+          rowsOf={sorted}
+          cols={donHangCols}
+          tongRow={
+            <>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDon} onClick={() => jumpDon("", undefined)} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDonMua} onClick={() => jumpDon("", "mua")} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDonCongNo} onClick={() => jumpDon("", "cong_no")} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDonTraHang} onClick={() => jumpTraHang("")} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDangCho} onClick={() => jumpDon("__OPEN__", undefined)} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slTuChoi} alert={tong.slTuChoi > 0} onClick={() => jumpDon("TN tu choi", undefined)} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDuyet} onClick={() => jumpDon("TN da duyet", undefined)} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDuyetMua} onClick={() => jumpDon("TN da duyet", "mua")} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDuyetCongNo} onClick={() => jumpDon("TN da duyet", "cong_no")} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDuyetTraHang} onClick={() => jumpTraHang("TN da duyet")} /></td>
+            </>
+          }
+        />
+      )}
 
-      <Table
-        title="Xuất kho"
-        rowsOf={sorted}
-        cols={[
-          { label: "Tổng PXK", cell: (r) => <Num value={r.tongPxk} onClick={() => jumpPxk("", r.email)} /> },
-          { label: "Tổng đang tồn", title: "Chờ kế toán + Chờ kho gửi + Chờ KTV nhận", cell: (r) => <Num value={r.slChoKeToan + r.slChoKhoGui + r.slDaGui} onClick={() => jumpPxk("", r.email)} /> },
-          { label: "Chờ kế toán", cell: (r) => <Num value={r.slChoKeToan} onClick={() => jumpPxk("Cho ke toan", r.email)} /> },
-          { label: "Chờ kho gửi", cell: (r) => <Num value={r.slChoKhoGui} onClick={() => jumpPxk("Da chot xong don xuat", r.email)} /> },
-          { label: "Chờ KTV nhận", cell: (r) => <Num value={r.slDaGui} onClick={() => jumpPxk("Dang gui KTV", r.email)} /> },
-          { label: "KTV đã nhận", cell: (r) => <Num value={r.slDaXacNhan} onClick={() => jumpPxk("KTV da nhan", r.email)} /> },
-          { label: "Kho kết thúc", title: "Kho đã kết thúc + Hàng trừ kho", cell: (r) => <Num value={r.slKhoKetThuc} onClick={() => jumpPxk("Kho da ket thuc", r.email)} /> },
-        ]}
-        tongRow={
-          <>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.tongPxk} onClick={() => jumpPxk("")} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slChoKeToan + tong.slChoKhoGui + tong.slDaGui} onClick={() => jumpPxk("")} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slChoKeToan} onClick={() => jumpPxk("Cho ke toan")} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slChoKhoGui} onClick={() => jumpPxk("Da chot xong don xuat")} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDaGui} onClick={() => jumpPxk("Dang gui KTV")} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDaXacNhan} onClick={() => jumpPxk("KTV da nhan")} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slKhoKetThuc} onClick={() => jumpPxk("Kho da ket thuc")} /></td>
-          </>
-        }
-      />
+      {isMobile ? (
+        <MobileTable title="Xuất kho" rowsOf={sorted} tongRow={tongAsRow} cols={xuatKhoCols} />
+      ) : (
+        <Table
+          title="Xuất kho"
+          rowsOf={sorted}
+          cols={xuatKhoCols}
+          tongRow={
+            <>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.tongPxk} onClick={() => jumpPxk("")} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slChoKeToan + tong.slChoKhoGui + tong.slDaGui} onClick={() => jumpPxk("")} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slChoKeToan} onClick={() => jumpPxk("Cho ke toan")} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slChoKhoGui} onClick={() => jumpPxk("Da chot xong don xuat")} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDaGui} onClick={() => jumpPxk("Dang gui KTV")} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDaXacNhan} onClick={() => jumpPxk("KTV da nhan")} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slKhoKetThuc} onClick={() => jumpPxk("Kho da ket thuc")} /></td>
+            </>
+          }
+        />
+      )}
 
-      <Table
-        title="Tiền"
-        rowsOf={sorted}
-        cols={[
-          { label: "Tiền đang đặt mua (dự kiến)", cell: (r) => <Num value={fmtVND(r.tongTienDatMua)} onClick={() => jumpDon("", undefined, r.email)} /> },
-          { label: "Tiền chờ duyệt", cell: (r) => <Num value={fmtVND(r.tienChoDuyet)} onClick={() => jumpDon("__OPEN__", undefined, r.email)} /> },
-          { label: "Tổng thực tế đã mua", cell: (r) => <Num value={fmtVND(r.tongTienThucTe)} onClick={() => jumpDon("TN da duyet", undefined, r.email)} /> },
-          { label: "Tiền chờ chuyển", title: "PXK có yêu cầu chuyển khoản nhưng KTV/TN chưa xác nhận xong", cell: (r) => <Num value={fmtVND(r.tongChoChuyen)} onClick={() => jumpPxk("", r.email)} /> },
-        ]}
-        tongRow={
-          <>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={fmtVND(tong.tongTienDatMua)} onClick={() => jumpDon("", undefined)} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={fmtVND(tong.tienChoDuyet)} onClick={() => jumpDon("__OPEN__", undefined)} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={fmtVND(tong.tongTienThucTe)} onClick={() => jumpDon("TN da duyet", undefined)} /></td>
-            <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={fmtVND(tong.tongChoChuyen)} onClick={() => jumpPxk("")} /></td>
-          </>
-        }
-      />
+      {isMobile ? (
+        <MobileTable title="Tiền" rowsOf={sorted} tongRow={tongAsRow} cols={tienCols} />
+      ) : (
+        <Table
+          title="Tiền"
+          rowsOf={sorted}
+          cols={tienCols}
+          tongRow={
+            <>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={fmtVND(tong.tongTienDatMua)} onClick={() => jumpDon("", undefined)} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={fmtVND(tong.tienChoDuyet)} onClick={() => jumpDon("__OPEN__", undefined)} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={fmtVND(tong.tongTienThucTe)} onClick={() => jumpDon("TN da duyet", undefined)} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={fmtVND(tong.tongChoChuyen)} onClick={() => jumpPxk("")} /></td>
+            </>
+          }
+        />
+      )}
     </div>
   );
 }

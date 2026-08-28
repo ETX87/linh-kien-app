@@ -20,7 +20,11 @@ const TONE_MAP: Record<BadgeTone, [string, string]> = {
 
 export function Badge({ children, tone = "ocean", solid = false }: { children: ReactNode; tone?: BadgeTone; solid?: boolean }) {
   const cls = TONE_MAP[tone][solid ? 1 : 0];
-  return <span className={`inline-flex items-center gap-1 px-[7px] py-[1.5px] rounded text-[10.5px] font-bold tracking-wide ${cls}`}>{children}</span>;
+  // whitespace-nowrap + shrink-0 (phan hoi 2026-08-28: "thẻ trạng thái tự ý xuống dòng") - trong 1
+  // flex container hep (vd cum badge tren the mobile), Badge truoc day khong co gi ngan text TU VO
+  // CHU khi bi ep hep (vd "Công nợ" -> "Công"/"nợ") - 1 badge/pill khong bao gio nen tu xuong dong
+  // ben trong, luon giu nguyen 1 dong du container co phai wrap ca badge sang dong khac.
+  return <span className={`inline-flex items-center gap-1 px-[7px] py-[1.5px] rounded text-[10.5px] font-bold tracking-wide whitespace-nowrap shrink-0 ${cls}`}>{children}</span>;
 }
 
 /** Suy ra tong mau tu chuoi trang thai vi pham (khop voi mockup statusTone). */

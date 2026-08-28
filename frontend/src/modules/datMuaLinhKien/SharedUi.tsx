@@ -76,6 +76,34 @@ export function QuickStat({ label, value, tone }: { label: string; value: ReactN
   );
 }
 
+// Muc C (phan hoi 2026-08-28: "Home mobile lỗi giao diện nặng" - danh sach 10 van de + de xuat da gui
+// nguoi dung chot) - khoi 1 section co the thu gon/mo rong, dung cho "Báo cáo tổng thể"/"Đơn hàng đang
+// tồn theo KTV" tren TrangChuTab.tsx: mac dinh MO tren desktop (hanh vi cu, khong doi), mac dinh DONG
+// tren mobile (giam do dai trang khi moi vao Home - nguoi dung tu bam mo khi can xem sau). Chi doc
+// `defaultOpen` 1 LAN luc mount (useState lazy) - xoay man hinh/resize sau do khong tu dong dong lai
+// section nguoi dung da chu dong mo, tranh mat trang thai bat ngo.
+export function CollapsibleSection({ title, note, defaultOpen, children }: { title: ReactNode; note?: ReactNode; defaultOpen: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2 mt-6 mb-2">
+        <div className="text-[11px] uppercase tracking-wider text-[var(--ink-400)] font-extrabold">
+          {title}
+          {note}
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="focus-ring shrink-0 text-[11px] font-semibold text-[var(--ocean-700)] hover:underline"
+        >
+          {open ? "▲ Thu gọn" : "▼ Mở rộng"}
+        </button>
+      </div>
+      {open && children}
+    </div>
+  );
+}
+
 // Thanh loc THU GON (nut "☰ Bộ lọc ▾" + o tim kiem tu do, an mac dinh phan loc chi tiet phia duoi) -
 // tach tu DonCuaToiTab.tsx (UI redesign 2026-08-21, "hợp nhất phong cách giao diện": Trả hàng/Phiếu
 // xuất kho/Thiếu linh kiện truoc day luon hien san chip loc + KHONG co o tim kiem, khac voi Mua hang/
@@ -336,8 +364,12 @@ export function TraHangAnhPicker({
 export function MaYcscCell({ value, canXemChiTietCa, openCase }: { value: string | null; canXemChiTietCa: boolean; openCase?: (id: string, tab?: string) => void }) {
   if (!value?.trim()) return <span className="text-[var(--ink-400)]">—</span>;
   if (canXemChiTietCa && openCase) {
+    // SUA (phan hoi 2026-08-28: "sửa màu và tô đậm lên để người dùng biết có thể click vào") - truoc
+    // day chi doi mau + gach chan luc hover, nhung hover KHONG BAO GIO kich hoat tren cam ung (mobile)
+    // nen nhin giong text thuong, khong ai biet bam duoc. Gach chan LUON HIEN (khong doi hover nua) +
+    // dam mau/dam chu hon de ro rang la 1 link bam duoc ngay ca tren mobile.
     return (
-      <span className="font-mono text-[var(--ocean-800)] font-semibold cursor-pointer hover:underline" onClick={() => openCase(value.trim(), "giai-trinh")}>
+      <span className="font-mono text-[var(--ocean-700)] font-bold underline decoration-[var(--ocean-700)]/40 underline-offset-2 cursor-pointer active:opacity-70" onClick={() => openCase(value.trim(), "giai-trinh")}>
         {value}
       </span>
     );

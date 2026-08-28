@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { StatCard } from "../../components/ui/StatCard";
-import { SectionTitle } from "../../components/ui/SectionTitle";
 import { Badge, type BadgeTone } from "../../components/ui/Badge";
 import { Select } from "../../components/ui/Select";
 import { api, buildQuery } from "../../api/client";
 import { parseDbDateTime, fmtDate } from "../../types";
+import { useIsMobile } from "../../hooks/useMediaQuery";
 import { STEP_SHORT_LABEL } from "./constants";
-import { KhuVucChipFilter } from "./SharedUi";
+import { KhuVucChipFilter, CollapsibleSection } from "./SharedUi";
 import { BaoCaoTab } from "./BaoCaoTab";
 import type { JumpTarget, LuongQuyTrinhStep } from "./types";
 
@@ -85,6 +85,10 @@ function soNgayTonTone(soNgay: number): BadgeTone {
 // component cha) - KTV/Ve tinh tu xem tien do CA NHAN qua StatCard/pipeline san co o tren, khong can
 // bao cao "theo tung nguoi" nay.
 function TonDongTheoKtvReport({ onJump }: { onJump: (t: JumpTarget) => void }) {
+  const isMobile = useIsMobile();
+  // Muc B (phan hoi 2026-08-28) - tren mobile, an bo loc Khu vuc/KTV sau nut "☰ Bộ lọc" (mac dinh
+  // dong) thay vi luon hien 2 hang pill+dropdown ngay duoi tieu de; desktop giu nguyen hien san.
+  const [showFilter, setShowFilter] = useState(false);
   const { data: khuVucAllData } = useQuery({
     queryKey: ["settings-khu-vuc"],
     queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/settings/khu-vuc"),
@@ -140,22 +144,42 @@ function TonDongTheoKtvReport({ onJump }: { onJump: (t: JumpTarget) => void }) {
   });
   groups.sort((a, b) => b.maxNgay - a.maxNgay || b.rows.length - a.rows.length);
 
+  const hasFilterOptions = khuVucOptions.length > 0 || ktvOptions.length > 0;
+  const filterRow = (
+    <div className="flex flex-wrap items-center gap-3 mb-2.5">
+      {khuVucOptions.length > 0 && <KhuVucChipFilter value={filterKhuVuc} onChange={setFilterKhuVuc} options={khuVucOptions} />}
+      {ktvOptions.length > 0 && (
+        <div className="w-56">
+          <Select value={filterKtv} onChange={setFilterKtv} options={[{ value: "", label: "— Tất cả KTV —" }, ...ktvOptions]} />
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <div>
-      <SectionTitle className="mt-6">
-        Đơn hàng đang tồn theo KTV{" "}
+    <CollapsibleSection
+      defaultOpen={!isMobile}
+      title="Đơn hàng đang tồn theo KTV"
+      note={
         <span className="hidden sm:inline normal-case font-normal text-[var(--ink-400)]">
-          (sắp xếp theo số ngày tồn lâu nhất — bấm vào 1 KTV để xem chi tiết từng đơn.)
+          {" "}(sắp xếp theo số ngày tồn lâu nhất — bấm vào 1 KTV để xem chi tiết từng đơn.)
         </span>
-      </SectionTitle>
-      <div className="flex flex-wrap items-center gap-3 mb-2.5">
-        {khuVucOptions.length > 0 && <KhuVucChipFilter value={filterKhuVuc} onChange={setFilterKhuVuc} options={khuVucOptions} />}
-        {ktvOptions.length > 0 && (
-          <div className="w-56">
-            <Select value={filterKtv} onChange={setFilterKtv} options={[{ value: "", label: "— Tất cả KTV —" }, ...ktvOptions]} />
-          </div>
-        )}
-      </div>
+      }
+    >
+      {isMobile && hasFilterOptions ? (
+        <div className="mb-2.5">
+          <button
+            type="button"
+            onClick={() => setShowFilter((v) => !v)}
+            className="focus-ring text-xs font-semibold text-[var(--ink-500)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 bg-[var(--surface)]"
+          >
+            {showFilter ? "▲ Ẩn bộ lọc" : "☰ Bộ lọc Khu vực/KTV ▾"}
+          </button>
+          {showFilter && <div className="mt-2">{filterRow}</div>}
+        </div>
+      ) : (
+        filterRow
+      )}
       {isLoading ? (
         <div className="text-sm text-[var(--ink-400)] py-4 text-center">Đang tải…</div>
       ) : groups.length === 0 ? (
@@ -254,7 +278,7 @@ function TonDongTheoKtvReport({ onJump }: { onJump: (t: JumpTarget) => void }) {
           ))}
         </div>
       )}
-    </div>
+    </CollapsibleSection>
   );
 }
 
@@ -307,6 +331,7 @@ export function TrangChuTab({
   canKeToan: boolean;
   isGiamSat: boolean;
 }) {
+  const isMobile = useIsMobile();
   const mySteps = steps.filter((s) => s.count > 0 && s.roleKeys.some((r) => myRoleKeys.has(r))).sort((a, b) => b.count - a.count);
 
   function jumpNum(loaiDon: "mua" | "cong_no" | "tra_hang") {
@@ -340,10 +365,17 @@ export function TrangChuTab({
             />
           ))}
         </div>
-      ) : (
-        <div className="text-sm text-[var(--ink-400)] py-4 text-center rounded-xl border border-dashed border-[var(--line)]">
-          {tongViecCuaToi > 0 ? `Có ${tongViecCuaToi} việc cần làm — mở "Việc của tôi" ở tiêu đề trang để xem chi tiết.` : "Không có việc gì đang chờ bạn xử lý."}
+      ) : tongViecCuaToi > 0 ? (
+        // SUA (muc D, phan hoi 2026-08-28) - truoc day chi la 1 dong text tinh, khong bam duoc, buoc
+        // nguoi dung phai tu tim nut "Cần làm: N" o tieu de trang (o TREN cung, de bi bo qua tren
+        // mobile vi phai cuon nguoc len). Doi thanh StatCard bam duoc GIONG cac the ben tren, nhay
+        // thang toi danh sach don con ton cua chinh minh - it nhat co 1 diem den cu the thay vi chi
+        // mo ta suong.
+        <div className="flex gap-2 sm:gap-3 flex-wrap">
+          <StatCard label="Việc cần làm" value={tongViecCuaToi} tone="coral" onClick={() => onJump({ tab: "don-cua-toi", filter: "__OPEN__", nguoiNhanHang: "" })} />
         </div>
+      ) : (
+        <div className="text-sm text-[var(--ink-400)] py-4 text-center rounded-xl border border-dashed border-[var(--line)]">Không có việc gì đang chờ bạn xử lý.</div>
       )}
 
       {/* SUA (phan hoi 2026-08-25: "3 cái này trên giao diện web đang chiếm quá nhiều diện tích
@@ -361,18 +393,20 @@ export function TrangChuTab({
       {(canTacNghiep || canKho || canKeToan || isGiamSat) && <TonDongTheoKtvReport onJump={onJump} />}
 
       {showBaoCao && (
-        <div>
-          {/* SUA (phan hoi 2026-08-25: "rút gọn nó lại 1 dòng là được") - gop dong ghi chu doc lap
-              ("① Số liệu... ② Bấm vào số...") vao NGAY trong tieu de "Báo cáo tổng thể" thay vi 1
-              dong <div> rieng ben tren, tiet kiem 1 dong chieu cao man hinh. */}
-          <SectionTitle className="mt-6">
-            Báo cáo tổng thể{" "}
+        // Muc C (phan hoi 2026-08-28: "Home mobile lỗi giao diện nặng") - mac dinh THU GON tren mobile
+        // (nguoi dung tu bam "▼ Mở rộng" khi can xem sau), giu MO SAN tren desktop nhu hanh vi cu -
+        // giam dang ke do dai trang luc moi vao Home, uu tien StatCard "viec can lam" len truoc.
+        <CollapsibleSection
+          defaultOpen={!isMobile}
+          title="Báo cáo tổng thể"
+          note={
             <span className="hidden sm:inline normal-case font-normal text-[var(--ink-400)]">
-              (① Số liệu "Việc cần làm" luôn tô đúng theo vai trò của bạn · ② Bấm vào số bất kỳ để nhảy thẳng tới đúng tab/bộ lọc tương ứng.)
+              {" "}(① Số liệu "Việc cần làm" luôn tô đúng theo vai trò của bạn · ② Bấm vào số bất kỳ để nhảy thẳng tới đúng tab/bộ lọc tương ứng.)
             </span>
-          </SectionTitle>
+          }
+        >
           <BaoCaoTab onJump={onJump} isManagerView={isManagerView} canTraHangView={canTraHangView} />
-        </div>
+        </CollapsibleSection>
       )}
     </div>
   );

@@ -1822,12 +1822,14 @@ export function DonHangGroupedList({
                         ...(isDonTaoHo(d) ? [{ tone: "gray" as BadgeTone, label: "Đơn tạo hộ" }] : []),
                       ];
                       // SUA (phan hoi 2026-08-28: "dòng 1 60% diện tích cho tên linh kiện, 40% còn lại
-                      // cho card trạng thái, không đủ thì ẩn bớt và hiện (N)") - giam tu 3 xuong 2 de
-                      // thuc su vua trong ~40% chieu rong 1 the mobile (badge dai nhu "Chờ TBP DVBH xác
-                      // nhận" van co the vuot neu giu 3), phoi hop voi flex-[3]/flex-[2] o JSX ben duoi
-                      // (60/40) - ten LK gio LUON co toi thieu 60% dam bao doc duoc, khong con bi cum
-                      // badge chiem het truoc nhu MAX_BADGE=3 + shrink-0 truoc day.
-                      const MAX_BADGE = 2;
+                      // cho card trạng thái, không đủ thì ẩn bớt và hiện (N)") - giam tu 3 xuong 1 de
+                      // thuc su vua trong ~40% chieu rong 1 the mobile TREN DUNG 1 DONG (khong do JS do
+                      // be rong that de quyet dinh - phoi hop voi flex-[3]/flex-[2] o JSX ben duoi, 60/
+                      // 40) - 2 badge tro len (vd "Công nợ" + "Chờ TN duyệt") van thuong khong vua 1
+                      // dong 40% rong tren man 375px (phan hoi 2026-08-28 lan 2: "ẩn cả thẻ nếu không
+                      // đủ diện tích, KHÔNG xuống dòng") - chi hien badge DAU TIEN (uu tien nhat), badge
+                      // con lai gop vao "+N" thay vi xuong dong 2 nhu ban thu truoc.
+                      const MAX_BADGE = 1;
                       const shownBadges = badges.slice(0, MAX_BADGE);
                       const extraBadgeCount = badges.length - shownBadges.length;
                       return (
@@ -1870,7 +1872,12 @@ export function DonHangGroupedList({
                                 {d.ten_lk_snapshot ?? d.ma_lk}
                                 {!!d.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
                               </button>
-                              <div className="flex-[2] flex items-center justify-end gap-1 min-w-0 overflow-hidden shrink-0">
+                              {/* SUA (phan hoi 2026-08-28, lan 2: "ẩn cả thẻ nếu không đủ diện tích,
+                                  không xuống dòng") - quay lai 1 dong DUY NHAT (overflow-hidden, khong
+                                  con flex-wrap) - Badge component gio da shrink-0/whitespace-nowrap nen
+                                  it nhat KHONG con tu vo chu ben trong nhu bug cu; MAX_BADGE=1 o tren
+                                  dam bao badge con lai luon gop vao "+N" thay vi day xuong dong 2. */}
+                              <div className="flex-[2] flex items-center justify-end gap-1 min-w-0 overflow-hidden">
                                 {shownBadges.map((b, i) => (
                                   <Badge key={i} tone={b.tone}>{b.label}</Badge>
                                 ))}
@@ -1891,8 +1898,10 @@ export function DonHangGroupedList({
                                 qua the de mo Drawer nhu binh thuong. */}
                             <div className="flex items-center gap-1.5 text-xs text-[var(--ink-500)] mt-1">
                               {d.ma_yeu_cau_su_co?.trim() && (
+                                // SUA (phan hoi 2026-08-28: "mã (123456) => ID: 123456") - doi dang tu
+                                // dau ngoac (de lan voi text thuong) sang tien to "ID:" ro rang hon.
                                 <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                                  (<MaYcscCell value={d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />)
+                                  ID: <MaYcscCell value={d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />
                                 </span>
                               )}
                               {d.tt_khach_hang?.trim() && <span className="truncate min-w-0">{d.tt_khach_hang.trim()}</span>}
