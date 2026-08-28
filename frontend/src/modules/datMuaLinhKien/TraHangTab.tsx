@@ -332,7 +332,15 @@ export function TraHangTab({
         const coTheXuLy = canXuLy(r.trang_thai_tra_hang);
         const coTheDayLui = (canKeToan || canKho) && CO_THE_DAY_LUI.includes(r.trang_thai_tra_hang);
         return (
-          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          // FIX (phan hoi 2026-08-28: "ấn vào vùng trống trên thẻ vẫn không mở UI chi tiết") -
+          // stopPropagation ca hang truoc day nuot ca khoang trong quanh cac nut, giong loi da sua o
+          // DonCuaToiTab.tsx/ThieuLkTab.tsx - chi chan bubble khi click trung 1 nut con that su.
+          <div
+            className="flex gap-1"
+            onClick={(e) => {
+              if (e.target !== e.currentTarget) e.stopPropagation();
+            }}
+          >
             {coTheXuLy && (
               <Btn size="sm" disabled={logMutation.isPending} loading={logMutation.isPending} onClick={() => logMutation.mutate({ id: r.id, hanhDong: "duyet" })}>Duyệt</Btn>
             )}

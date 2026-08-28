@@ -15,6 +15,7 @@ import { UsersModule } from "./modules/UsersModule";
 import { api } from "./api/client";
 import { useIsMobile } from "./hooks/useMediaQuery";
 import { useExitConfirm } from "./hooks/useExitConfirm";
+import { pushOverlayClose } from "./lib/overlayStack";
 import { CommandPalette, type CommandItem } from "./components/ui/CommandPalette";
 import { Modal } from "./components/ui/Modal";
 import { Btn } from "./components/ui/Btn";
@@ -125,6 +126,21 @@ function MainApp({
   useEffect(() => {
     localStorage.setItem(ACTIVE_MODULE_KEY, active);
   }, [active]);
+
+  // FIX (phan hoi 2026-08-28: "Rà lại toàn bộ các màn hình UI, khi ấn lùi sẽ quay lại màn hình gốc
+  // chứ không hỏi có thoát không. chỉ khi ở màn hình gốc đầu tiên mới hỏi có thoát không") - dang ky
+  // muc/module top-level (Settings/Users/Danh muc lk/...) vao CHUNG ngan xep overlay voi
+  // Drawer/Modal (xem overlayStack.ts). "dat-mua-lk" la mot module DUY NHAT bao trum ca trang-chu/
+  // thieu-lk/tra-hang/dieu huong noi bo (tab/jump) - `active` KHONG doi trong suot qua trinh dieu
+  // huong noi bo do (xem forceView/navigatedAway trong DatMuaLinhKienModule.tsx), nen 1 dang ky DUY
+  // NHAT o day la du: bam Back tu bat ky do sau noi bo nao cung quay thang ve module goc (rootModule)
+  // trong 1 lan bam, chi khi DA o dung module goc (active === rootModule) nut Back moi roi xuong
+  // hoi xac nhan thoat app (useExitConfirm.ts).
+  const rootModule = allowedModules[0] ?? "dat-mua-lk";
+  useEffect(() => {
+    if (active === rootModule) return;
+    return pushOverlayClose(() => setActive(rootModule));
+  }, [active, rootModule]);
 
   if (!role && !laTaiKhoanMuaHangThuanTuy) {
     return <LoginScreen variant="pending" />;

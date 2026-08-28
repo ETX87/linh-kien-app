@@ -581,7 +581,16 @@ function ThieuLkGroupedList({
                           TN báo {formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap)} · {fmtDateTime(r.ngay_tao)}
                         </div>
                         {nexts.length > 0 && (
-                          <div className="flex gap-1 flex-wrap mt-1.5" onClick={(e) => e.stopPropagation()}>
+                          // FIX (phan hoi 2026-08-28: "ấn vào vùng trống trên thẻ vẫn không mở UI chi
+                          // tiết") - stopPropagation ca hang truoc day nuot ca khoang trong quanh cac
+                          // nut nho, giong loi da sua o DonCuaToiTab.tsx - chi chan bubble khi click
+                          // trung 1 nut con that su.
+                          <div
+                            className="flex gap-1 flex-wrap mt-1.5"
+                            onClick={(e) => {
+                              if (e.target !== e.currentTarget) e.stopPropagation();
+                            }}
+                          >
                             {nexts.map((s) => (
                               <Btn
                                 key={s.trangThai}

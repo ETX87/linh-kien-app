@@ -1,8 +1,10 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NAV_GROUPS } from "./navConfig";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { APP_VERSION } from "../version";
 import { api } from "../api/client";
+import { pushOverlayClose } from "../lib/overlayStack";
 import { TopBarActions } from "./TopBarActions";
 import { InstallAppButton } from "./InstallAppButton";
 import { ThemeMenuButton } from "../theme/ThemeMenuButton";
@@ -44,6 +46,14 @@ export function Sidebar({
   viewAsRole: ViewAsRole | null;
 }) {
   const isMobile = useIsMobile();
+  // FIX (phan hoi 2026-08-28, ra soat toan bo man hinh cho nut Back): menu off-canvas "Thêm" tren
+  // mobile tu dung markup fixed inset-0 rieng (khong qua Drawer.tsx/Modal.tsx) nen truoc day khong
+  // dang ky voi ngan xep overlay dung chung - nut Back bo qua menu dang mo va nhay thang toi hoi
+  // "Thoát ứng dụng?" thay vi chi dong menu.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    return pushOverlayClose(onMobileClose);
+  }, [mobileOpen, onMobileClose]);
   const { data: counts } = useQuery({
     queryKey: ["notifications-count"],
     queryFn: () => api.get<NotificationCounts>("/notifications/count"),

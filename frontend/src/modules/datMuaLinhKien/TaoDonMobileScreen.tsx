@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
 import { Badge } from "../../components/ui/Badge";
 import { Select } from "../../components/ui/Select";
 import { fmtVND } from "../../types";
+import { pushOverlayClose } from "../../lib/overlayStack";
 import { YEU_CAU_HOA_DON_OPTIONS, CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABELS } from "./constants";
 import { deriveLoaiDon, reqLabelClass, pickLdeQuick, LOAI_DON_TONE, ktvOptionLabel, canNoRequired, formatLkLabel } from "./helpers";
 import { LinhKienPicker, ThayTheGoiY, ThayTheGoiYTuSheet } from "./LinhKienPicker";
@@ -51,6 +52,12 @@ export function TaoDonMobileScreen({
     justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
     updateDraft, isLineComplete, canSubmit, themDong, deleteDraft, tongGiaUocTinh, tongSoLuong,
   } = form;
+
+  // FIX (phan hoi 2026-08-28: "ở giao diện tạo đơn ấn lùi vẫn báo thoát app") - man hinh nay la
+  // fixed inset-0 full-man-hinh nhung KHONG dung Modal.tsx (xem giai thich dau file) nen truoc day
+  // khong dang ky voi ngan xep overlay dung chung (overlayStack.ts) - nut Back tren mobile bo qua
+  // man hinh nay va nhay thang toi hoi "Thoát ứng dụng?". Dang ky dung 1 effect giong Modal.tsx.
+  useEffect(() => pushOverlayClose(onClose), [onClose]);
 
   const [confirmOldUi, setConfirmOldUi] = useState(false);
   // "Co du lieu dang nhap" = it nhat 1 dong khac trang mac dinh (rong) - dung de quyet dinh co can

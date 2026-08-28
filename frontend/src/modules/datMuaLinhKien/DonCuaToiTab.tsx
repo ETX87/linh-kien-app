@@ -1921,7 +1921,20 @@ export function DonHangGroupedList({
                                 SL:{d.so_luong_de_xuat} · {d.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold">{fmtVND(d.gia_de_xuat)}</span> : "—"}
                               </span>
                             </div>
-                            <div className="flex gap-1 flex-wrap mt-1.5" onClick={(e) => e.stopPropagation()}>
+                            {/* FIX (phan hoi 2026-08-28, lan 2: "ấn vào vùng trống trên thẻ vẫn không mở
+                                UI chi tiết") - truoc day CA HANG nut hanh dong nay stopPropagation, kha
+                                ca khoang trong quanh cac nut icon nho (hang luon rong het chieu ngang
+                                the du nut chi chiem 1 phan nho) - moi cu bam vao khoang trong do bi nuot
+                                ma khong lam gi (khong mo chi tiet, khong kich hoat nut nao). Chi
+                                stopPropagation khi click THAT SU trung 1 nut con (target != currentTarget
+                                cua chinh hang), con click vao khoang trong cua hang (target ===
+                                currentTarget) cho lot qua de the mo chi tiet don nhu binh thuong. */}
+                            <div
+                              className="flex gap-1 flex-wrap mt-1.5"
+                              onClick={(e) => {
+                                if (e.target !== e.currentTarget) e.stopPropagation();
+                              }}
+                            >
                               {actions.duyet && (
                                 <Btn
                                   size="sm"
