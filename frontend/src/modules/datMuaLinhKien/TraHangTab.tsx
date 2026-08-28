@@ -138,7 +138,9 @@ export function TraHangTab({
     "filters:dmlk-th-tt",
     canQC ? "Cho QC xac nhan" : canKeToan ? "Cho ke toan duyet mem" : canKho ? "Cho kho xac nhan" : canTacNghiep ? "Cho TN duyet tong" : "",
   );
-  const [filterTrangThai, setFilterTrangThaiDisplay] = useState(savedFilterTrangThai);
+  // FIX (phan hoi 2026-08-28: nhay tu Trang chu lan dau hien danh sach trong, bam lai moi dung) - khoi
+  // tao TRUC TIEP tu initialFilterOverride khi co, xem giai thich day du o PhieuXuatKhoTab.tsx.
+  const [filterTrangThai, setFilterTrangThaiDisplay] = useState(initialFilterOverride ?? savedFilterTrangThai);
   function setFilterTrangThai(v: string) {
     setFilterTrangThaiDisplay(v);
     setSavedFilterTrangThai(v);

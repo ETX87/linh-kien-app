@@ -856,7 +856,11 @@ export function DonCuaToiTab({
     "filters:dmlk-trang-thai",
     canTacNghiep ? "Cho TN duyet" : canTPDvbhXacNhan ? "Cho TBP xac nhan" : canBulkTram ? "Cho Tram duyet" : "__OPEN__",
   );
-  const [filterTrangThai, setFilterTrangThaiDisplay] = useState(savedFilterTrangThai);
+  // FIX (phan hoi 2026-08-28: "click vào 1 số liệu Trang chủ => danh sách trống, quay lại bấm lại =>
+  // hiện đúng đơn") - khoi tao TRUC TIEP tu initialFilterOverride khi co, tranh lan render dau tien
+  // fetch nham filter cu (savedFilterTrangThai) truoc khi effect ben duoi kip sua - xem giai thich day
+  // du o PhieuXuatKhoTab.tsx (cung 1 class bug, sua dong loat ca 4 tab dung pattern nay).
+  const [filterTrangThai, setFilterTrangThaiDisplay] = useState(initialFilterOverride ?? savedFilterTrangThai);
   function setFilterTrangThai(v: string) {
     setFilterTrangThaiDisplay(v);
     setSavedFilterTrangThai(v);
@@ -866,7 +870,7 @@ export function DonCuaToiTab({
     if (initialFilterOverride !== undefined) setFilterTrangThaiDisplay(initialFilterOverride);
   }, [initialFilterOverride]);
   const [filterNguoiTao, setFilterNguoiTao] = useState("");
-  const [filterNguoiNhanHang, setFilterNguoiNhanHang] = useState("");
+  const [filterNguoiNhanHang, setFilterNguoiNhanHang] = useState(initialNguoiNhanHangOverride ?? "");
   useEffect(() => {
     if (initialNguoiNhanHangOverride !== undefined) setFilterNguoiNhanHang(initialNguoiNhanHangOverride);
   }, [initialNguoiNhanHangOverride]);

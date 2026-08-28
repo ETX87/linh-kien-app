@@ -46,7 +46,13 @@ export function PhieuXuatKhoTab({
     "filters:dmlk-pxk-tt",
     canKeToan ? "Cho ke toan" : canKho ? "Da chot xong don xuat" : "",
   );
-  const [filterTrangThai, setFilterTrangThaiDisplay] = useState(savedFilterTrangThai);
+  // FIX (phan hoi 2026-08-28: "click vào Chờ tiền (x1) => danh sách trống, quay lại bấm lại => hiện 1
+  // đơn") - khoi tao TRUC TIEP tu initialFilterOverride khi co (thay vi luon khoi tao tu
+  // savedFilterTrangThai roi doi lai qua effect o duoi): truoc day lan render DAU TIEN van fetch voi
+  // filter CU (sai) truoc khi effect kip sua, tao 1 cache React Query rong/sai cho key do - nguoi dung
+  // thay "trong" ngay lan bam dau, chi tu sua khi bam lai (lan nay key dung da duoc cache tu request
+  // nen tro lai) chu khong sua ngay lap tuc trong lan xem dau.
+  const [filterTrangThai, setFilterTrangThaiDisplay] = useState(initialFilterOverride ?? savedFilterTrangThai);
   function setFilterTrangThai(v: string) {
     setFilterTrangThaiDisplay(v);
     setSavedFilterTrangThai(v);
@@ -56,7 +62,7 @@ export function PhieuXuatKhoTab({
   }, [initialFilterOverride]);
   // Loc theo "Nguoi nhan hang" (KTV) - them cung dot voi chot nghiep vu "1 PXK = 1 KTV" (migration
   // 0074), phuc vu drill-down tu tab "Bao cao" (nhay toi dung KTV + trang thai).
-  const [filterNguoiNhanHang, setFilterNguoiNhanHang] = useState("");
+  const [filterNguoiNhanHang, setFilterNguoiNhanHang] = useState(initialNguoiNhanHangOverride ?? "");
   useEffect(() => {
     if (initialNguoiNhanHangOverride !== undefined) setFilterNguoiNhanHang(initialNguoiNhanHangOverride);
   }, [initialNguoiNhanHangOverride]);
@@ -73,7 +79,9 @@ export function PhieuXuatKhoTab({
   // tra hang da qua buoc "TN duyet tong" nen co PXK that voi loai_don='tra_hang', GET /phieu-xuat-kho
   // da ho tro loc loai_don nay san, khong can sua backend) - danh sach chinh loc theo dung loai dang
   // xem, mac dinh "Mua hang".
-  const [xemLoaiDon, setXemLoaiDon] = useState<"mua" | "cong_no" | "tra_hang">("mua");
+  const [xemLoaiDon, setXemLoaiDon] = useState<"mua" | "cong_no" | "tra_hang">(
+    initialLoaiDonOverride === "mua" || initialLoaiDonOverride === "cong_no" || initialLoaiDonOverride === "tra_hang" ? initialLoaiDonOverride : "mua",
+  );
   useEffect(() => {
     if (initialLoaiDonOverride === "mua" || initialLoaiDonOverride === "cong_no" || initialLoaiDonOverride === "tra_hang") setXemLoaiDon(initialLoaiDonOverride);
   }, [initialLoaiDonOverride]);
