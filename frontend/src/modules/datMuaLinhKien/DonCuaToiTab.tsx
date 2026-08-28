@@ -1765,23 +1765,21 @@ export function DonHangGroupedList({
       <div className="sm:hidden space-y-2">
         {groupEntries.map((g) => (
           <div key={g.nguoiNhan} className="border border-[var(--line)] rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between gap-3 flex-wrap bg-[var(--ocean-100)] px-3 py-2">
-              <div className="flex items-center gap-3 flex-wrap text-sm min-w-0">
-                {/* SUA (2026-08-27, phan hoi "tiêu đề gắn tên KTV thu nhỏ lại, tối đa 2 dòng"): ten/
-                    email nguoi nhan hang co the rat dai tren mobile (man hep) - gioi han toi da 2 dong
-                    qua "line-clamp-2" (Tailwind co san tu v3.3, khong can plugin), phan du bi cat kem
-                    "..." tu dong o cuoi dong 2. */}
-                <span className="font-bold text-[var(--ink-900)] text-xs line-clamp-2 max-w-[62vw] break-words">
-                  {formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}
-                </span>
-                <span className="text-[var(--ink-400)] text-xs shrink-0">{g.dongCon.length} dòng</span>
-                <span className="font-semibold text-[var(--green-700)] shrink-0">{fmtVND(g.tongTien)}</span>
-              </div>
-              <div className="flex items-center gap-1 flex-wrap">
-                {g.choDuyet > 0 && <Badge tone="amber">{g.choDuyet} chờ duyệt</Badge>}
-                {g.dongY > 0 && <Badge tone="teal">{g.dongY} đồng ý</Badge>}
-                {g.tuChoi > 0 && <Badge tone="coral">{g.tuChoi} từ chối</Badge>}
-                {g.choHang > 0 && <Badge tone="amber">{g.choHang} chờ hàng</Badge>}
+            {/* RUT GON CARD NHOM (phan hoi 2026-08-27: "các thẻ card này đang quá rộng, gộp lại thành
+                2 dòng") - dong 1 CHI ten (1 dong truncate, bo "tối đa 2 dòng" cu vi gio khong con chia
+                se cho voi "N dòng"/tong tien nua); dong 2 gop "N dòng"+4 badge rieng (chờ duyệt/đồng
+                ý/từ chối/chờ hàng) thanh 1 badge DUY NHAT "Chờ X/Y đơn" (X = con cho xu ly = chờ duyệt
+                + chờ hàng, Y = tong so dong) doi voi tong tien canh phai - mat granularity dong y/tu
+                choi rieng le, dung y don gian hoa da xac nhan. */}
+            <div className="bg-[var(--ocean-100)] px-3 py-2">
+              <div className="font-bold text-[var(--ink-900)] text-xs truncate">{formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}</div>
+              <div className="flex items-center justify-between gap-2 mt-1">
+                {g.choDuyet + g.choHang > 0 ? (
+                  <Badge tone="amber">Chờ {g.choDuyet + g.choHang}/{g.dongCon.length} đơn</Badge>
+                ) : (
+                  <Badge tone="teal">Đã xong {g.dongCon.length} đơn</Badge>
+                )}
+                <span className="font-semibold text-[var(--green-700)] text-sm shrink-0">{fmtVND(g.tongTien)}</span>
               </div>
             </div>
             <div className="border-t border-[var(--line)] divide-y divide-[var(--line)]">
@@ -1802,7 +1800,10 @@ export function DonHangGroupedList({
                         // "Trạng thái" cua Drawer chi tiet phia tren (isDonTaoHo, helpers.ts).
                         ...(isDonTaoHo(d) ? [{ tone: "gray" as BadgeTone, label: "Đơn tạo hộ" }] : []),
                       ];
-                      const MAX_BADGE = 2;
+                      // Tang len 3 (2026-08-27, cung dot rut gon the) - "card trang thai (3)" theo
+                      // dung yeu cau, gio dong 2 (SL/gia/YCSC/KH) da gop lai CHI CON 1 dong nen du cho
+                      // hien 3 badge tren dong 1 ma khong bi day qua dai.
+                      const MAX_BADGE = 3;
                       const shownBadges = badges.slice(0, MAX_BADGE);
                       const extraBadgeCount = badges.length - shownBadges.length;
                       return (
@@ -1852,16 +1853,22 @@ export function DonHangGroupedList({
                                 )}
                               </div>
                             </div>
-                            {/* Dong 2: SL · gia. */}
-                            <div className="text-xs text-[var(--ink-500)] mt-1">
-                              SL {d.so_luong_de_xuat} · {d.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold">{fmtVND(d.gia_de_xuat)}</span> : "—"}
+                            {/* Dong 2 (phan hoi 2026-08-27: gop "SL/gia" + "mã YCSC" + "TT khách hàng"
+                                thanh 1 DONG DUY NHAT thay vi 2 dong rieng truoc day) - "(mã YCSC) TT
+                                khách hàng    SL:x · giá", mã YCSC giu rieng vung stopPropagation (van
+                                bam mo popup case duoc, xem MaYcscCell) con SL/gia van cho bam xuyen
+                                qua the de mo Drawer nhu binh thuong. */}
+                            <div className="flex items-center gap-1.5 text-xs text-[var(--ink-500)] mt-1">
+                              {d.ma_yeu_cau_su_co?.trim() && (
+                                <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                                  (<MaYcscCell value={d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />)
+                                </span>
+                              )}
+                              {d.tt_khach_hang?.trim() && <span className="truncate min-w-0">{d.tt_khach_hang.trim()}</span>}
+                              <span className="shrink-0 ml-auto whitespace-nowrap">
+                                SL:{d.so_luong_de_xuat} · {d.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold">{fmtVND(d.gia_de_xuat)}</span> : "—"}
+                              </span>
                             </div>
-                            {/* Dong 3: ma yeu cau su co (neu co). */}
-                            {d.ma_yeu_cau_su_co && (
-                              <div className="text-xs mt-1" onClick={(e) => e.stopPropagation()}>
-                                <MaYcscCell value={d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />
-                              </div>
-                            )}
                             <div className="flex gap-1 flex-wrap mt-1.5" onClick={(e) => e.stopPropagation()}>
                               {actions.duyet && (
                                 <Btn
