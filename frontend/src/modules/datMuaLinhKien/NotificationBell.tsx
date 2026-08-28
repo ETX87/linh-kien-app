@@ -4,8 +4,10 @@ import { api } from "../../api/client";
 import { Drawer } from "../../components/ui/Drawer";
 import { Tabs } from "../../components/ui/Tabs";
 import { Badge, type BadgeTone } from "../../components/ui/Badge";
+import { useToast } from "../../components/ui/Toast";
 import { fmtDateTime } from "../../types";
 import { usePushNotifications } from "../../hooks/usePushNotifications";
+import { describeApiError } from "./helpers";
 
 // Chuong thong bao KTV (them 2026-08-26, phan hoi "thêm 1 trạng danh sách thông báo cho KTV với log
 // các trạng thái của đơn thay đổi... để trong màn hình Home, tạo icon góc trên cùng bên phải") - chi
@@ -47,6 +49,7 @@ export function NotificationBell({ unreadCount, onOpenDonHang }: { unreadCount: 
   const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
   const qc = useQueryClient();
   const push = usePushNotifications();
+  const addToast = useToast();
   const { data, isLoading } = useQuery({
     queryKey: ["ktv-log", filter],
     queryFn: () => api.get<{ rows: ThongBaoKtvRow[]; total: number }>(`/notifications/ktv-log?filter=${filter}&pageSize=50`),
@@ -58,19 +61,41 @@ export function NotificationBell({ unreadCount, onOpenDonHang }: { unreadCount: 
     qc.invalidateQueries({ queryKey: ["notifications-count"] });
   }
 
+  // FIX (audit "check bug tinh nang push" 2026-08-27): 3 ham nay truoc day khong bat loi - that bai
+  // mang/API (vd mat mang giua chung) chi im lang khong lam gi, nguoi dung tuong da danh dau doc/bam
+  // khong an thua ma khong ro vi sao. Bao toast khi that bai, giong quy uoc addToast+describeApiError
+  // dung khap noi khac trong module.
   async function markAllRead() {
-    await api.post("/notifications/ktv-log/mark-all-read");
-    invalidate();
+    try {
+      await api.post("/notifications/ktv-log/mark-all-read");
+      invalidate();
+    } catch (err) {
+      addToast("Lỗi: " + describeApiError(err));
+    }
   }
 
   async function handleRowClick(row: ThongBaoKtvRow) {
     if (!row.da_doc) {
-      await api.post(`/notifications/ktv-log/${row.id}/read`);
-      invalidate();
+      try {
+        await api.post(`/notifications/ktv-log/${row.id}/read`);
+        invalidate();
+      } catch (err) {
+        addToast("Lỗi: " + describeApiError(err));
+      }
     }
     if (row.link_type === "don_hang" && row.link_id) {
       setOpen(false);
       onOpenDonHang(row.link_id);
+    }
+  }
+
+  async function handleTogglePush() {
+    const wasSubscribed = push.subscribed;
+    try {
+      await (wasSubscribed ? push.unsubscribe() : push.subscribe());
+      addToast(wasSubscribed ? "Đã tắt thông báo đẩy trên thiết bị này" : "Đã bật thông báo đẩy trên thiết bị này");
+    } catch (err) {
+      addToast("Lỗi: " + describeApiError(err));
     }
   }
 
@@ -103,7 +128,7 @@ export function NotificationBell({ unreadCount, onOpenDonHang }: { unreadCount: 
             {push.checked && push.supported && (
               <button
                 type="button"
-                onClick={push.subscribed ? push.unsubscribe : push.subscribe}
+                onClick={handleTogglePush}
                 disabled={push.busy}
                 className={`focus-ring w-full text-center text-sm font-semibold py-1.5 rounded-lg border disabled:opacity-60 ${
                   push.subscribed

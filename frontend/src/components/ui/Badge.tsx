@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type BadgeTone = "ocean" | "teal" | "amber" | "coral" | "orange" | "gray";
+export type BadgeTone = "ocean" | "teal" | "amber" | "coral" | "orange" | "violet" | "gray";
 
 // Doi sang dang VIEN MONG + chu mau (khong to nen dac) - concept 1 "Structured Neutral" da duyet
 // (2026-08-24). `solid` (da co san truoc do) van la loi thoat cho cho nao thuc su can nhan manh dang
@@ -11,6 +11,10 @@ const TONE_MAP: Record<BadgeTone, [string, string]> = {
   amber: ["border border-[var(--amber-500)]/50 text-[var(--amber-700)]", "bg-[var(--amber-500)] text-white"],
   coral: ["border border-[var(--coral-500)]/50 text-[var(--coral-600)]", "bg-[var(--coral-500)] text-white"],
   orange: ["border border-[var(--orange-500)]/50 text-[var(--orange-700)]", "bg-[var(--orange-500)] text-white"],
+  // Them (2026-08-27, yeu cau "5 nhom mau trang thai: ... bị từ chối tô màu tím") - tai dung
+  // --violet-* co san (truoc chi dung cho vien input noi bat rieng module Dat mua linh kien), danh
+  // RIENG cho trang thai "tu choi" (xem constants.ts) de tach khoi "coral" (gio danh cho "da huy").
+  violet: ["border border-[var(--violet-500)]/50 text-[var(--violet-700)]", "bg-[var(--violet-500)] text-white"],
   gray: ["border border-[var(--line)] text-[var(--ink-600)]", "bg-[var(--ink-500)] text-white"],
 };
 

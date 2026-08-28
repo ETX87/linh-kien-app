@@ -110,6 +110,14 @@ export function isCongNoTaoHo(d: { loai_don: string; nguoi_tao: string; nguoi_nh
   return d.loai_don === "cong_no" && !!d.nguoi_nhan_hang && d.nguoi_tao !== d.nguoi_nhan_hang;
 }
 
+// Badge "Đơn tạo hộ" (yeu cau nguoi dung 2026-08-27) - MO RONG tu isCongNoTaoHo() o tren sang MOI
+// loai_don (khong rieng cong_no): chi la 1 nhan hien thi thuan tuy gan chung voi cac badge trang
+// thai/loai don khac ("Công nợ", "Chờ TN duyệt"...), KHONG kem popup canh bao nao (isCongNoTaoHo van
+// giu nguyen rieng cho luong duyet cong_no o DonCuaToiTab.tsx, khong gop chung logic).
+export function isDonTaoHo(d: { nguoi_tao: string; nguoi_nhan_hang: string | null }): boolean {
+  return !!d.nguoi_nhan_hang && d.nguoi_tao !== d.nguoi_nhan_hang;
+}
+
 // ---------- Tab "Tao don" ----------
 
 export function deriveLoaiDon(v: string): "mua" | "cong_no" | "tra_hang" {

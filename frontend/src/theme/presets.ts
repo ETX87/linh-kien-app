@@ -20,6 +20,9 @@ export const DEFAULT_PRESET_ID = "mac-dinh";
 // nguoi dung mo tab "Tuy chinh" lan dau (chua tung luu customSeed). KHONG dung seed nay de AP DUNG
 // bo "Mac dinh" thuc su - luc ap dung phai dung DEFAULT_THEME_VARS (hex y nguyen tokens.css) de dam
 // bao khong lech 1 pixel nao so voi giao dien hien tai cho nguoi chua bao gio mo thẻ cai dat.
+// amber/teal (2026-08-27): seed doi theo dung gia tri "600" moi cua tokens.css sau khi doi ngu nghia
+// mau trang thai toan he thong ("amber" = dang cho buoc dau -> xanh duong nhat, "teal" = hoan thanh ->
+// xanh la, xem constants.ts + tokens.css) - truoc la #b3730f (vang hoi phach)/#0f7d74 (xanh-lam-ngoc).
 export const DEFAULT_ROLE_SEED: RoleSeed = {
   bg: "#fafafa",
   surface: "#ffffff",
@@ -29,8 +32,8 @@ export const DEFAULT_ROLE_SEED: RoleSeed = {
   line: "#e4e4e7",
   priority: "#c2410c",
   ocean: "#1176a6",
-  teal: "#0f7d74",
-  amber: "#b3730f",
+  teal: "#059669",
+  amber: "#2563eb",
   coral: "#b23a3a",
 };
 
@@ -45,14 +48,14 @@ export const DEFAULT_THEME_VARS: Record<string, string> = {
   "ocean-500": "#1591c9",
   "ocean-400": "#3fb0e0",
   "ocean-100": "#ddf1fb",
-  "teal-700": "#0a5a52",
-  "teal-600": "#0f7d74",
-  "teal-500": "#159c93",
-  "teal-100": "#dcf5f2",
-  "amber-700": "#8a5810",
-  "amber-600": "#b3730f",
-  "amber-500": "#d98a1f",
-  "amber-100": "#fbebd1",
+  "teal-700": "#047857",
+  "teal-600": "#059669",
+  "teal-500": "#10b981",
+  "teal-100": "#d1fae5",
+  "amber-700": "#1d4ed8",
+  "amber-600": "#2563eb",
+  "amber-500": "#3b82f6",
+  "amber-100": "#dbeafe",
   "coral-700": "#7a2424",
   "coral-600": "#b23a3a",
   "coral-500": "#d84c4c",
@@ -113,8 +116,11 @@ export const PRESETS: ThemePreset[] = [
       line: "#EEE6D9",
       priority: "#EA580C",
       ocean: "#2563EB",
-      teal: "#059669",
-      amber: "#D97706",
+      // amber/teal (2026-08-27): doi theo ngu nghia trang thai moi (xanh duong nhat/xanh la, xem
+      // tokens.css) - amber dung sky-400 (nhat/khac hue ro voi ocean=blue-600 o tren de van phan
+      // biet duoc 2 giai doan "dang cho"), teal dung green-500 (khac priority=cam, khong trung mau).
+      teal: "#22C55E",
+      amber: "#38BDF8",
       coral: "#E11D48",
     },
   },
@@ -131,8 +137,10 @@ export const PRESETS: ThemePreset[] = [
       line: "#E2E8F0",
       priority: "#4F46E5",
       ocean: "#0284C7",
-      teal: "#059669",
-      amber: "#D97706",
+      // amber dung blue-500 (hue khac ro voi ocean=sky-600 o tren) - xem giai thich chung o preset
+      // "Ấm áp".
+      teal: "#22C55E",
+      amber: "#3B82F6",
       coral: "#DC2626",
     },
   },
@@ -148,9 +156,12 @@ export const PRESETS: ThemePreset[] = [
       inkSoft: "#78716C",
       line: "#E7E5E4",
       priority: "#059669",
+      // amber dung sky-400 (nhat, khac ocean=blue-600). teal dung green-600 - khac sac voi
+      // priority=emerald-600 o tren du cung ho xanh la (chap nhan duoc, "Rừng xanh" von da nhieu sac
+      // xanh la lam chu dao).
       ocean: "#2563EB",
-      teal: "#0D9488",
-      amber: "#D97706",
+      teal: "#16A34A",
+      amber: "#38BDF8",
       coral: "#DC2626",
     },
   },
@@ -167,8 +178,9 @@ export const PRESETS: ThemePreset[] = [
       line: "#D3ECF2",
       priority: "#0D9488",
       ocean: "#0284C7",
-      teal: "#16A34A",
-      amber: "#D97706",
+      // amber dung blue-500 (khac ocean=sky-600). teal dung green-500 (khac priority=teal-cyan).
+      teal: "#22C55E",
+      amber: "#3B82F6",
       coral: "#DC2626",
     },
   },

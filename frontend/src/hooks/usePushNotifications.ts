@@ -40,7 +40,10 @@ export function usePushNotifications() {
     setBusy(true);
     try {
       const permission = await Notification.requestPermission();
-      if (permission !== "granted") return;
+      // FIX (audit "check bug tinh nang push" 2026-08-27): truoc day return im lang khi nguoi dung tu
+      // choi quyen thong bao - nut van hien "Bật thông báo đẩy" nhu chua bam gi, khong giai thich vi
+      // sao khong co gi xay ra. Nem loi de noi goi (NotificationBell.tsx) bat duoc va bao qua toast.
+      if (permission !== "granted") throw new Error("Bạn chưa cấp quyền thông báo cho trình duyệt/thiết bị này.");
       const reg = await navigator.serviceWorker.ready;
       const { publicKey } = await api.get<{ publicKey: string }>("/push/vapid-public-key");
       const sub = await reg.pushManager.subscribe({

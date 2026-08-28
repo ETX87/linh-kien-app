@@ -162,6 +162,11 @@ function LoaiDeXuatTab() {
   const { data: optData } = useQuery({ queryKey: ["settings-lde-options"], queryFn: () => api.get<{ rows: LoaiDeXuatOptionRow[] }>("/settings/loai-de-xuat") });
   const [newOption, setNewOption] = useState<{ nhom_id: number; ten_option: string } | null>(null);
   const [newNhom, setNewNhom] = useState<{ ten_nhom: string; roles: Set<string> } | null>(null);
+  // Sua nhom (bo sung theo audit "Ma trận kiểm soát hệ thống", muc A2/6: PATCH /loai-de-xuat/nhom/:id
+  // da co san o backend nhung UI truoc day chi co "+ Thêm nhóm", khong sua duoc ten/vai_tro_json/
+  // bat_tat cua nhom da tao - gio them nut "Sửa" mo lai dung form nhu "+ Thêm nhóm", chi khac la PATCH
+  // thay vi POST.
+  const [editingNhom, setEditingNhom] = useState<{ id: number; ten_nhom: string; roles: Set<string>; bat_tat: boolean } | null>(null);
 
   const addOption = useMutation({
     mutationFn: () => api.post("/settings/loai-de-xuat", newOption),
@@ -175,12 +180,34 @@ function LoaiDeXuatTab() {
     mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/loai-de-xuat/${id}`, { bat_tat }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["settings-lde-options"] }),
   });
+  // Xoa 1 lua chon (bo sung theo audit, muc A2/7: DELETE /loai-de-xuat/:id da co san o backend nhung
+  // UI truoc day chi bat/tat duoc (khong xoa han) - gio them nut xoa canh moi chip lua chon.
+  const deleteOption = useMutation({
+    mutationFn: (id: number) => api.delete(`/settings/loai-de-xuat/${id}`),
+    onSuccess: async () => {
+      addToast("Đã xoá lựa chọn");
+      await qc.invalidateQueries({ queryKey: ["settings-lde-options"] });
+    },
+  });
   const addNhom = useMutation({
     mutationFn: () => api.post("/settings/loai-de-xuat/nhom", { ten_nhom: newNhom!.ten_nhom, vai_tro_json: JSON.stringify(Array.from(newNhom!.roles)) }),
     onSuccess: async () => {
       addToast("Đã thêm nhóm");
       await qc.invalidateQueries({ queryKey: ["settings-lde-nhom"] });
       setNewNhom(null);
+    },
+  });
+  const saveNhom = useMutation({
+    mutationFn: () =>
+      api.patch(`/settings/loai-de-xuat/nhom/${editingNhom!.id}`, {
+        ten_nhom: editingNhom!.ten_nhom,
+        vai_tro_json: JSON.stringify(Array.from(editingNhom!.roles)),
+        bat_tat: editingNhom!.bat_tat,
+      }),
+    onSuccess: async () => {
+      addToast("Đã lưu nhóm");
+      await qc.invalidateQueries({ queryKey: ["settings-lde-nhom"] });
+      setEditingNhom(null);
     },
   });
 
@@ -226,20 +253,83 @@ function LoaiDeXuatTab() {
       )}
       {nhoms.map((n) => (
         <div key={n.id} className="border border-[var(--line)] rounded-xl bg-[var(--surface)] p-3">
-          <div className="font-semibold text-sm mb-2">{n.ten_nhom}</div>
+          {editingNhom?.id === n.id ? (
+            <div className="space-y-2 mb-2">
+              <input
+                autoFocus
+                value={editingNhom.ten_nhom}
+                onChange={(e) => setEditingNhom({ ...editingNhom, ten_nhom: e.target.value })}
+                className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                placeholder="Tên nhóm (vd: Mua hàng, Công nợ...)"
+              />
+              <div className="flex flex-wrap gap-3 text-xs">
+                {VAI_TRO_TOKENS.map((t) => (
+                  <label key={t.value} className="flex items-center gap-1.5">
+                    <input
+                      type="checkbox"
+                      checked={editingNhom.roles.has(t.value)}
+                      onChange={(e) => {
+                        const roles = new Set(editingNhom.roles);
+                        if (e.target.checked) roles.add(t.value);
+                        else roles.delete(t.value);
+                        setEditingNhom({ ...editingNhom, roles });
+                      }}
+                    />
+                    {t.label}
+                  </label>
+                ))}
+              </div>
+              <label className="flex items-center gap-1.5 text-xs">
+                <input type="checkbox" checked={editingNhom.bat_tat} onChange={(e) => setEditingNhom({ ...editingNhom, bat_tat: e.target.checked })} />
+                Hiển thị nhóm này khi tạo đơn
+              </label>
+              <div className="flex justify-end gap-2">
+                <Btn size="sm" variant="ghost" onClick={() => setEditingNhom(null)}>Huỷ</Btn>
+                <Btn size="sm" onClick={() => saveNhom.mutate()} disabled={!editingNhom.ten_nhom.trim() || saveNhom.isPending} loading={saveNhom.isPending}>Lưu</Btn>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-semibold text-sm flex items-center gap-2">
+                {n.ten_nhom}
+                {!n.bat_tat && <Badge tone="gray">Đang ẩn</Badge>}
+              </div>
+              <button
+                className="text-xs text-[var(--ocean-600)] hover:underline shrink-0"
+                onClick={() => setEditingNhom({ id: n.id, ten_nhom: n.ten_nhom, roles: new Set(JSON.parse(n.vai_tro_json || "[]")), bat_tat: !!n.bat_tat })}
+              >
+                Sửa
+              </button>
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
             {options.filter((o) => o.nhom_id === n.id).map((o) => (
-              <label
+              <span
                 key={o.id}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium cursor-pointer border transition-colors ${
+                className={`inline-flex items-center gap-1.5 rounded-full pl-3 pr-1.5 py-1.5 text-xs font-medium border transition-colors ${
                   o.bat_tat
                     ? "bg-[var(--ocean-800)] border-[var(--ocean-800)] text-white"
                     : "bg-white border-[var(--line)] text-[var(--ink-700)] hover:border-[var(--ocean-800)]"
                 }`}
               >
-                <input type="checkbox" className="sr-only" checked={!!o.bat_tat} onChange={(e) => toggleOption.mutate({ id: o.id, bat_tat: e.target.checked })} />
-                {o.ten_option}
-              </label>
+                <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" className="sr-only" checked={!!o.bat_tat} onChange={(e) => toggleOption.mutate({ id: o.id, bat_tat: e.target.checked })} />
+                  {o.ten_option}
+                </label>
+                {/* Xoa lua chon (bo sung theo audit, muc A2/7) - confirm truoc vi xoa han (DELETE that,
+                    khong phai bat_tat=false) - dat CANH nhan thay vi de nguoi dung nham lan voi toggle
+                    bat/tat o phia truoc. */}
+                <button
+                  type="button"
+                  title="Xoá lựa chọn này"
+                  className={`w-4 h-4 rounded-full flex items-center justify-center leading-none shrink-0 ${o.bat_tat ? "hover:bg-white/20" : "hover:bg-[var(--coral-100)] hover:text-[var(--coral-600)]"}`}
+                  onClick={() => {
+                    if (window.confirm(`Xoá lựa chọn "${o.ten_option}"? Không thể hoàn tác.`)) deleteOption.mutate(o.id);
+                  }}
+                >
+                  ✕
+                </button>
+              </span>
             ))}
           </div>
           {newOption?.nhom_id === n.id ? (

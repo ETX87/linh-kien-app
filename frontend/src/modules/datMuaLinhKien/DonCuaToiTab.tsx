@@ -28,7 +28,7 @@ import {
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   LOAI_DON_TONE, deriveLoaiDon, actionsFor, trangThaiLabel, canNoRequired, pickLdeQuick, emptyDraft,
-  useLkAndLdeCache, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo,
+  useLkAndLdeCache, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
 } from "./helpers";
 import { StatusBadge, ActiveFiltersBar, TrangThaiChipFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
@@ -524,6 +524,11 @@ export function DonHangDetailModal({
                     vang" - doi ca Badge nay lan ring/bg cua dong bang sang cam THAT (token --orange-*
                     rieng, khac amber), dong bo voi TaoDonTab. */}
                 {d.uu_tien === 1 && <Badge tone="orange">⭐ Ưu tiên</Badge>}
+                {/* "Đơn tạo hộ" (yeu cau nguoi dung 2026-08-27) - nguoi tao khac nguoi nhan hang, ap
+                    dung cho MOI loai_don (khong rieng cong_no, xem isDonTaoHo o helpers.ts). Tone
+                    "gray" (trung tinh) - day la nhan METADATA, khong phai 1 trong "5 nhom mau trang
+                    thai" (ocean/teal/amber/coral/orange/violet) da quy uoc cho trang_thai. */}
+                {isDonTaoHo(d) && <Badge tone="gray">Đơn tạo hộ</Badge>}
               </div>
             </KvRow>
           </div>
@@ -1548,6 +1553,9 @@ export function DonHangGroupedList({
         <div className="flex flex-col gap-0.5 items-start">
           <StatusBadge value={row.d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} options={DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL} />
           {row.d.qua_han_ly_do_cham && <Badge tone="orange">Quá hạn - cần lý do</Badge>}
+          {/* "Đơn tạo hộ" (yeu cau nguoi dung 2026-08-27) - xem giai thich o KvRow "Trạng thái" cua
+              Drawer chi tiet (isDonTaoHo, helpers.ts). */}
+          {isDonTaoHo(row.d) && <Badge tone="gray">Đơn tạo hộ</Badge>}
         </div>
       ),
     },
@@ -1790,6 +1798,9 @@ export function DonHangGroupedList({
                         { tone: tone.tone, label: tone.label },
                         { tone: DON_HANG_TRANG_THAI_TONE_ALL[d.trang_thai ?? ""] ?? "gray", label: trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, d.trang_thai ?? "") },
                         ...(d.qua_han_ly_do_cham ? [{ tone: "orange" as BadgeTone, label: "Quá hạn" }] : []),
+                        // "Đơn tạo hộ" (yeu cau nguoi dung 2026-08-27) - xem giai thich day du o KvRow
+                        // "Trạng thái" cua Drawer chi tiet phia tren (isDonTaoHo, helpers.ts).
+                        ...(isDonTaoHo(d) ? [{ tone: "gray" as BadgeTone, label: "Đơn tạo hộ" }] : []),
                       ];
                       const MAX_BADGE = 2;
                       const shownBadges = badges.slice(0, MAX_BADGE);

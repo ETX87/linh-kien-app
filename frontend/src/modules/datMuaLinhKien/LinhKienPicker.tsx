@@ -10,6 +10,7 @@ import { api } from "../../api/client";
 import { fmtVND } from "../../types";
 import { useToast } from "../../components/ui/Toast";
 import { useAuth } from "../../auth/AuthContext";
+import { usePublicSheetCache } from "../../lib/publicSheetCache";
 import type { LkDanhMucRow } from "./types";
 import { describeApiError, useLinhKienRankMap, formatLkLabel } from "./helpers";
 
@@ -85,6 +86,52 @@ export function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQu
 // khi chuyen trang thai), toggle opacity qua CSS thay vi mount/unmount, skeleton nhap nhay luc dang
 // tai, icon rieng khi loi/khong co anh. Viec tai anh & viec hien danh sach hoan toan DOC LAP - danh
 // sach da render xong text/gia ngay lap tuc, <img> tu no tai ngam ben duoi, khong lam cham hien thi.
+const THAY_THE_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ02aMyUHGYZC59csU07jfbzDX0M3vRPipKCN1ZAwhGU6p6JWElulY1GFn5aAAJuAJ3VegHivyEKsfN/pub?gid=1488773788&single=true&output=tsv";
+const THAY_THE_SHEET_STORAGE_KEY = "dat-mua-lk-linh-kien-thay-the-cache-v1";
+
+// Goi y linh kien thay the cho nhau TU GOOGLE SHEET CONG KHAI (yeu cau nguoi dung 2026-08-27) - nguon
+// HOAN TOAN DOC LAP voi ThayTheGoiY o tren (doc tu bang lk_nhom_thay_the qua backend): rieng he thong
+// nay CHUA TUNG co man Settings de tao/sua nhom trong DB (chi co nut "+ Thêm vào nhóm thay thế" gan
+// vao nhom DA CO SAN, khong co cach nao tao nhom dau tien qua UI - xac nhan qua AskUserQuestion cung
+// ngay: "dùng Google Sheet mới, không đụng DB cũ"), nen ThayTheGoiY thuc te gan nhu luon rong. Component
+// nay dung publicSheetCache.ts (cache IndexedDB tren may, tu dong bo 1 lan/ngay, KHONG goi backend) -
+// CHI hien thi thuan tuy, khong co nut ghi nao (du lieu nguon la Sheet, khong phai bang DB he thong).
+export function ThayTheGoiYTuSheet({ maLk }: { maLk: string }) {
+  const { rows } = usePublicSheetCache(THAY_THE_SHEET_STORAGE_KEY, THAY_THE_SHEET_URL);
+  const suggestions = useMemo(() => {
+    const q = maLk.trim();
+    if (!q) return [];
+    const nhoms = new Set(rows.filter((r) => (r["MÃ"] ?? "").trim() === q).map((r) => r["NHÓM"]));
+    if (nhoms.size === 0) return [];
+    const seen = new Set<string>([q]);
+    const result: { ma: string; ten: string }[] = [];
+    for (const r of rows) {
+      if (!nhoms.has(r["NHÓM"])) continue;
+      const ma = (r["MÃ"] ?? "").trim();
+      if (!ma || seen.has(ma)) continue;
+      seen.add(ma);
+      result.push({ ma, ten: (r["TÊN"] ?? "").trim() });
+    }
+    return result;
+  }, [rows, maLk]);
+
+  if (suggestions.length === 0) return null;
+  return (
+    <div className="col-span-2 sm:col-span-6 -mt-1 text-xs flex items-center gap-2 flex-wrap">
+      <span className="text-[var(--ink-500)]">Có thể đặt thay thế bằng:</span>
+      {suggestions.map((s) => (
+        <span
+          key={s.ma}
+          className="inline-flex items-center gap-1 border border-[var(--ocean-800)] text-[var(--ocean-800)] bg-[var(--ocean-100)] rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
+        >
+          ↔ {formatLkLabel(s.ma, s.ten)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function LinhKienThumbMini({ url, size = 28 }: { url: string | null; size?: number }) {
   const [status, setStatus] = useState<"loading" | "loaded" | "error">(url ? "loading" : "error");
   useEffect(() => setStatus(url ? "loading" : "error"), [url]);
@@ -325,6 +372,14 @@ export function LinhKienPicker({
       <div className="mt-1.5 rounded-lg border border-[var(--amber-500)] bg-[var(--amber-100)] px-2.5 py-1.5 text-xs text-[var(--amber-700)] space-y-0.5">
         {selected.phan_loai_dac_thu?.trim() && <div className="font-semibold">🔖 Phân loại đặc thù: {selected.phan_loai_dac_thu.trim()}</div>}
         <div>⚠ Linh kiện đặc thù — đơn sẽ cần chờ TP DVBH xác nhận trước khi Tác nghiệp duyệt.</div>
+      </div>
+    ) : selected?.phan_loai_dac_thu?.trim() ? (
+      // Them (yeu cau nguoi dung 2026-08-27): mot so linh kien dac_thu=0 (KHONG can TP DVBH xac nhan,
+      // luong duyet giu nguyen binh thuong) nhung van co gan phan_loai_dac_thu - chi hien note NHAC
+      // NHO nhe hon (khong co cau "cần chờ TP DVBH xác nhận"), KHONG dung selected.dac_thu de tranh
+      // dung nham logic cho luong duyet o backend.
+      <div className="mt-1.5 rounded-lg border border-[var(--amber-500)] bg-[var(--amber-100)] px-2.5 py-1.5 text-xs text-[var(--amber-700)]">
+        (!) Linh kiện thuộc diện "{selected.phan_loai_dac_thu.trim()}"
       </div>
     ) : null}
     {showDetail && selected && (

@@ -6,7 +6,7 @@ import { Select } from "../../components/ui/Select";
 import { fmtVND } from "../../types";
 import { YEU_CAU_HOA_DON_OPTIONS, CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABELS } from "./constants";
 import { deriveLoaiDon, reqLabelClass, pickLdeQuick, LOAI_DON_TONE, ktvOptionLabel, canNoRequired, formatLkLabel } from "./helpers";
-import { LinhKienPicker, ThayTheGoiY } from "./LinhKienPicker";
+import { LinhKienPicker, ThayTheGoiY, ThayTheGoiYTuSheet } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { TraHangAnhPicker } from "./SharedUi";
 import type { TaoDonForm } from "./useTaoDonForm";
@@ -266,6 +266,7 @@ export function TaoDonMobileScreen({
         )}
 
         {d.ma_lk.trim() && <ThayTheGoiY maLk={d.ma_lk.trim()} canQuanLy={canQuanLy} addToast={addToast} />}
+        {d.ma_lk.trim() && <ThayTheGoiYTuSheet maLk={d.ma_lk.trim()} />}
 
         {showInfoBoSung ? (
           <>

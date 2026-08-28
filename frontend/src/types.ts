@@ -93,6 +93,17 @@ export interface Paged<T> {
   total: number;
 }
 
+// GET /users/login-log (bo sung theo audit "Ma trận kiểm soát hệ thống" 2026-08-27, muc A1) - bang
+// login_log da duoc ghi day du tu luc dang nhap (routes/auth.ts) nhung truoc day khong co man nao
+// hien thi ca.
+export interface LoginLogRow {
+  id: number;
+  email: string;
+  thoi_gian: string;
+  ip: string | null;
+  user_agent: string | null;
+}
+
 export function fmtVND(n: number | null | undefined): string {
   return (n ?? 0).toLocaleString("vi-VN") + "đ";
 }

@@ -4,6 +4,7 @@ import type { ViewAsRole } from "./auth/viewAsRoles";
 import { VIEW_AS_LABELS } from "./auth/viewAsRoles";
 import { LoginScreen } from "./login/LoginScreen";
 import { Sidebar } from "./layout/Sidebar";
+import { TopBarActions } from "./layout/TopBarActions";
 import { TopBar } from "./layout/TopBar";
 import { BottomTabBar } from "./layout/BottomTabBar";
 import { ROLE_MODULES, MODULE_TITLES, NAV_GROUPS } from "./layout/navConfig";
@@ -184,6 +185,16 @@ function MainApp({
               {active !== "dat-mua-lk" && <h1 className="font-display text-lg sm:text-xl font-extrabold text-[var(--ink-900)]">{MODULE_TITLES[active]}</h1>}
               <div ref={setHeaderExtraEl} className="flex items-center gap-2 flex-wrap min-w-0" />
             </div>
+            {/* Muc 7 (yeu cau UI mobile 2026-08-27): "icon cai dat giao dien va muc dang xuat o goc
+                phai" - tai dung NGUYEN VEN TopBarActions (da co san "🎨 Giao diện"/"Đăng xuất" trong
+                dropdown avatar, dung o Sidebar mobile off-canvas) thay vi viet component moi, dung
+                lua chon da chot qua AskUserQuestion. Chi hien tren mobile (desktop da co TopBar rieng
+                o tren cung, xem TopBar.tsx) - chap nhan trung diem truy cap voi Sidebar off-canvas. */}
+            {isMobile && (
+              <div className="shrink-0">
+                <TopBarActions role={role ?? "Đặt mua linh kiện"} user={user} realIsAdmin={realIsAdmin} viewAsRole={viewAsRole} />
+              </div>
+            )}
           </div>
           {/* "trang-chu"/"dat-mua-lk"/"thieu-lk"/"tra-hang" GOP thanh 1 LAN GOI <DatMuaLinhKienModule>
               duy nhat (phan hoi 2026-08-26: "click vào thẻ trang chủ, kích để xem đơn hàng, mà vẫn ở

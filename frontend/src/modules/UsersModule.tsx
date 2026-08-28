@@ -14,7 +14,7 @@ import { formatPersonDisplay, usePersonDirectory } from "../lib/personDisplay";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { parseKtvImportFile, type BulkImportKtvChunkResult } from "../lib/ktvImport";
 import { fmtVND, fmtDateTime } from "../types";
-import type { UserRow, KtvLienHeRow, KhuVucRow, Paged } from "../types";
+import type { UserRow, KtvLienHeRow, KhuVucRow, Paged, LoginLogRow } from "../types";
 
 // Trang quan tri nguoi dung - xay lai 2026-08-26 (yeu cau "tach rieng 2 the quan ly" cho 2 nhom doi
 // tuong dang nhap Gmail: KTV hien truong vs Nhan vien van phong, xem CLAUDE.md). "KTV hien truong"
@@ -43,12 +43,14 @@ export function UsersModule() {
           { key: "ktv", label: "KTV hiện trường" },
           { key: "van-phong", label: "Nhân viên văn phòng" },
           { key: "phu-trach-gs", label: "Giám sát phụ trách" },
+          { key: "login-log", label: "Lịch sử đăng nhập" },
         ]}
       />
       {tab === "cho-duyet" && <UserListTab tabValue="cho-duyet" />}
       {tab === "ktv" && <KtvTab />}
       {tab === "van-phong" && <VanPhongTab />}
       {tab === "phu-trach-gs" && <PhuTrachGsTab />}
+      {tab === "login-log" && <LoginLogTab />}
     </div>
   );
 }
@@ -968,6 +970,57 @@ function PhuTrachGsTab() {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+// The "Lịch sử đăng nhập" (bo sung theo audit "Ma trận kiểm soát hệ thống" 2026-08-27, muc A1) - bang
+// login_log da duoc ghi day du moi lan dang nhap that (routes/auth.ts, GET /users/login-log co san)
+// nhung truoc day khong co man nao hien thi - chi doc/tra cuu (khong sua/xoa gi), chi Admin vao duoc
+// module nay nen khong can gate rieng.
+function LoginLogTab() {
+  const personDir = usePersonDirectory();
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
+  const query = buildQuery({ email: search.trim() || undefined, page, pageSize });
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["login-log", search, page],
+    queryFn: () => api.get<Paged<LoginLogRow>>(`/users/login-log${query}`),
+  });
+
+  const columns: Column<LoginLogRow>[] = [
+    { key: "email", header: "Người dùng", render: (r) => formatPersonDisplay(r.email, personDir) },
+    { key: "thoi_gian", header: "Thời gian", render: (r) => fmtDateTime(r.thoi_gian) },
+    { key: "ip", header: "IP", render: (r) => r.ip ?? "—" },
+    { key: "user_agent", header: "Trình duyệt/Thiết bị", render: (r) => <span className="text-xs text-[var(--ink-500)] line-clamp-1" title={r.user_agent ?? ""}>{r.user_agent ?? "—"}</span> },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">
+        Nhật ký mỗi lần đăng nhập Google thành công (bảo mật nội bộ - tra cứu ai đăng nhập lúc nào từ đâu).
+        <Tooltip text={`Để trống ô tìm kiếm sẽ hiện đăng nhập của MỌI người trong 90 ngày gần nhất. Gõ đúng email để xem toàn bộ lịch sử của riêng người đó (không giới hạn 90 ngày).`} />
+      </div>
+      <input
+        value={search}
+        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+        placeholder="Lọc theo đúng email…"
+        className="focus-ring w-full max-w-xs border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+      />
+      <PaginatedTable
+        columns={columns}
+        rows={data?.rows ?? []}
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={() => refetch()}
+        page={data?.page ?? page}
+        pageSize={data?.pageSize ?? pageSize}
+        total={data?.total ?? 0}
+        onPageChange={setPage}
+        rowKey={(r) => r.id}
+        emptyText="Không có lượt đăng nhập nào."
+      />
     </div>
   );
 }

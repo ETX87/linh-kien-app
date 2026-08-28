@@ -28,13 +28,26 @@
   --ocean-500: #1591c9;
   --ocean-400: #3fb0e0;
   --ocean-100: #ddf1fb;
-  --teal-600: #0f7d74;
-  --teal-500: #159c93;
-  --teal-100: #dcf5f2;
-  --amber-700: #8a5810;
-  --amber-600: #b3730f;
-  --amber-500: #d98a1f;
-  --amber-100: #fbebd1;
+  /* DOI MAU (2026-08-27, yeu cau "màu badge trạng thái theo 5 nhóm: chờ/hoàn thành/từ chối/quá hạn/
+     huỷ", xac nhan ap dung TOAN HE THONG qua AskUserQuestion) - teal tu tong xanh-lam-ngoc (cyan-teal)
+     doi sang XANH LA that (Tailwind emerald) vi teal duoc dung XUYEN SUOT code de bieu thi "hoan
+     thanh/thanh cong" (TN da duyet, Da ket thuc, KTV da nhan...) - xem constants.ts. Gia tri cu:
+     600 #0f7d74, 500 #159c93, 100 #dcf5f2, 700 #0a5a52 (van con trong git history neu can doi chieu). */
+  --teal-700: #047857;
+  --teal-600: #059669;
+  --teal-500: #10b981;
+  --teal-100: #d1fae5;
+  /* DOI MAU (2026-08-27, cung dot voi teal o tren): amber tu tong vang-nau (hoi phach) doi sang XANH
+     DUONG NHAT (Tailwind blue - hue ro rang khac --ocean-* cyan-blue de van phan biet duoc 2 giai
+     doan "dang cho" - amber = moi cho duyet buoc dau, ocean = da chuyen len xu ly sau hon, theo dung
+     xac nhan cua nguoi dung: giu 2 sac rieng cung gam xanh duong, khong gop lam 1). LUU Y:
+     LOAI_DON_TONE.cong_no (helpers.ts) truoc day tai dung amber lam badge LOAI DON (khong lien quan
+     trang thai) - da doi rieng badge do sang "orange" de tranh bi anh huong lay theo (xem helpers.ts).
+     Gia tri cu: 700 #8a5810, 600 #b3730f, 500 #d98a1f, 100 #fbebd1. */
+  --amber-700: #1d4ed8;
+  --amber-600: #2563eb;
+  --amber-500: #3b82f6;
+  --amber-100: #dbeafe;
   --coral-600: #b23a3a;
   --coral-500: #d84c4c;
   --coral-400: #e78888;
@@ -92,7 +105,6 @@
   */
   --violet-100: #ede9fe;
   --violet-700: #4c1d95;
-  --teal-700: #0a5a52;
   --coral-700: #7a2424;
   /* Xanh la THAT (them 2026-08-25, hang muc #13) - chua co truoc do (teal mang nghia rieng "trang
      thai tich cuc/hoan thanh", khong tai dung de tranh lan y nghia) - danh rieng cho gia tien/tien te

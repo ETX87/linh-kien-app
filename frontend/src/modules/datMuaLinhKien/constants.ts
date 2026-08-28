@@ -102,22 +102,29 @@ export const TRA_HANG_BULK_ERROR_MESSAGES: Record<string, string> = {
 };
 
 // Trang thai cua 1 DONG don hang (dat_don_hang_log) - khong con o cap phieu.
+// DOI MAU (2026-08-27, "5 nhóm màu trạng thái" ap dung toan he thong, xac nhan qua AskUserQuestion):
+// "Da huy"/"huy bo" -> coral (do, truoc la gray), "tu choi" -> violet (tim, truoc dung chung coral
+// voi "da huy" nen khong phan biet duoc 2 khai niem khac nhau). "amber"/"ocean" (dang cho) va "teal"
+// (hoan thanh) GIU NGUYEN gan tone - tu doi mau qua gia tri hex moi trong tokens.css, khong can sua
+// o day.
 export const DON_HANG_TRANG_THAI_TONE: Record<string, BadgeTone> = {
   "Cho Tram duyet": "amber",
   "Cho TBP xac nhan": "amber",
   "Cho TN duyet": "ocean",
   "TN da duyet": "teal",
-  "TN tu choi": "coral",
+  "TN tu choi": "violet",
   "Cho hang": "amber",
-  "Da huy": "gray",
+  "Da huy": "coral",
 };
 
 // Phan hoi UX muc 2 (2026-08-15): to mau/gach ngang TEN LINH KIEN theo trang thai dong don hang -
 // chi ap dung len phan ten (khong toan hang, tranh roi mat), StatusBadge canh ben van la diem neo
-// chinh. Dung lai cac token mau san co (--coral-*/--amber-*/--teal-*), khong them mau moi.
+// chinh. Dung lai cac token mau san co (--coral-*/--violet-*/--amber-*/--teal-*), khong them mau moi
+// ngoai violet (xem Badge.tsx). "TN tu choi" doi rieng sang violet-600 (2026-08-27) de khop dung
+// DON_HANG_TRANG_THAI_TONE o tren - truoc day dung chung coral-600 voi "Da huy".
 export const DON_HANG_ROW_STYLE: Record<string, string> = {
   "Da huy": "line-through text-[var(--coral-600)]",
-  "TN tu choi": "line-through text-[var(--coral-600)]",
+  "TN tu choi": "line-through text-[var(--violet-600)]",
   "Cho Tram duyet": "text-[var(--amber-600)]",
   "Cho TBP xac nhan": "text-[var(--amber-600)]",
   "Cho TN duyet": "text-[var(--amber-600)]",
@@ -131,7 +138,7 @@ export const PXK_TRANG_THAI_TONE: Record<string, BadgeTone> = {
   "Da chot xong don xuat": "amber",
   "Dang gui KTV": "amber",
   "KTV da nhan": "teal",
-  "Ke toan huy": "gray",
+  "Ke toan huy": "coral",
   "Hang tru kho": "teal",
   "Kho da ket thuc": "teal",
   // Them (migration 0002_tra_hang_pxk.sql) - buoc CUOI rieng cho PXK loai_don='tra_hang' (Kho xac
@@ -160,8 +167,8 @@ export const TRA_HANG_TRANG_THAI_TONE: Record<string, BadgeTone> = {
   "Cho QC xac nhan": "ocean",
   "Cho TN duyet tong": "ocean",
   "TN da duyet": "teal",
-  "Tu choi": "coral",
-  "Da huy": "gray",
+  "Tu choi": "violet",
+  "Da huy": "coral",
 };
 
 // CHOT vong 7 (2026-08-17): dong dat_don_hang loai_don='tra_hang' gio hien chung trong "Don cua
@@ -173,8 +180,8 @@ export const THIEU_LK_TRANG_THAI_TONE: Record<string, BadgeTone> = {
   "Cho kho xu ly": "amber",
   "Kho da tiep nhan": "ocean",
   "Kho xac nhan hang da ve": "teal",
-  "Kho tu choi sai TT": "coral",
-  "Da huy bo": "gray",
+  "Kho tu choi sai TT": "violet",
+  "Da huy bo": "coral",
   "Da ket thuc": "teal",
 };
 
@@ -186,6 +193,7 @@ export const TRANG_THAI_DOT_TONE: Record<BadgeTone, string> = {
   amber: "bg-[var(--amber-500)]",
   coral: "bg-[var(--coral-500)]",
   orange: "bg-[var(--orange-500)]",
+  violet: "bg-[var(--violet-500)]",
   gray: "bg-slate-400",
 };
 
@@ -248,6 +256,11 @@ export const STEP_DESCRIPTION: Record<string, string> = {
 // hien khi test qua localhost:5173 that (khong phai chi doc code).
 export const DON_CUA_TOI_TRANG_THAI_OPTIONS = [
   { value: "", label: "Tất cả trạng thái" },
+  // Sentinel "con ton" (them 2026-08-27, phan hoi UI mobile "mặc định lọc các đơn còn tồn") - khop
+  // dung GET /don-hang?trang_thai=__OPEN__ (loc NOT IN tap trang thai "dong", xem
+  // DON_HANG_TRANG_THAI_DONG trong datMuaLinhKien.ts). Dat SAU "Tất cả" nhung la GIA TRI MAC DINH
+  // thuc te (xem savedFilterTrangThai trong DonCuaToiTab.tsx).
+  { value: "__OPEN__", label: "Còn tồn" },
   { value: "Cho Tram duyet", label: "Chờ Trạm duyệt" },
   { value: "Cho TBP xac nhan", label: "Chờ TBP DVBH xác nhận" },
   { value: "Cho TN duyet", label: "Chờ TN duyệt" },
@@ -288,6 +301,9 @@ export const THIEU_LK_TRANG_THAI_OPTIONS = [
 ];
 export const TRA_HANG_TRANG_THAI_OPTIONS = [
   { value: "", label: "Tất cả" },
+  // Sentinel "con ton" (them 2026-08-27) - xem giai thich o DON_CUA_TOI_TRANG_THAI_OPTIONS, backend
+  // tu doi sang dung TRA_HANG_TRANG_THAI_DONG_COUNTS khi loai_don=tra_hang.
+  { value: "__OPEN__", label: "Còn tồn" },
   { value: "Cho ke toan duyet mem", label: "Chờ kế toán duyệt mềm" },
   { value: "Cho kho xac nhan", label: "Chờ kho xác nhận" },
   { value: "Cho QC xac nhan", label: "Chờ QC xác nhận" },

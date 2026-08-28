@@ -8,6 +8,7 @@ import { ToggleSwitch } from "../components/ui/ToggleSwitch";
 import { Badge } from "../components/ui/Badge";
 import { KvRow } from "../components/ui/KvRow";
 import { SectionTitle } from "../components/ui/SectionTitle";
+import { Tabs } from "../components/ui/Tabs";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { api } from "../api/client";
 import { useToast } from "../components/ui/Toast";
@@ -16,6 +17,8 @@ import { exportRowsToExcel } from "../lib/exportExcel";
 import { fetchWithHashCache } from "../lib/staticListCache";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 import { useAuth } from "../auth/AuthContext";
+import { BomHangTab } from "./danhMucLinhKien/BomHangTab";
+import { ThayTheTab } from "./danhMucLinhKien/ThayTheTab";
 
 const PAGE_SIZE = 20;
 const BOOL_FILTER_OPTIONS = [
@@ -372,11 +375,35 @@ function PartDetailDrawer({ part, onClose, onEdit, canEdit }: { part: LinhKienRo
   );
 }
 
+const TABS = [
+  { key: "danh-muc", label: "Danh mục" },
+  { key: "bom-hang", label: "Tra cứu Bảng kê vật tư (BOM)" },
+  { key: "thay-the", label: "Linh kiện thay thế" },
+];
+
 // Tach ra khoi SettingsModule.tsx (truoc la 1 tab trong trang Settings Admin-only) thanh module
 // rieng tren sidebar - CHOT 2026-08-17: nguoi co quan_ly_danh_muc_lk (hoac Admin) can vao thang,
 // khong phai qua trang Settings. Truoc day co 2 section trung lap (1 cho "giai trinh thieu linh
 // kien", 1 cho "dat mua linh kien") cung doc/ghi 1 bang linh_kien - gop lai con 1 o day.
+// Them 2 tab "Tra cuu Bang ke vat tu (BOM)"/"Linh kien thay the" (yeu cau nguoi dung 2026-08-27) -
+// doc du lieu TRUC TIEP tu Google Sheet cong khai qua lib/publicSheetCache.ts, KHONG di qua backend
+// cua he thong (xem comment dau file do). Dat CHUNG module nay (theo xac nhan nguoi dung: "ghep chung
+// voi co duoc gan") thay vi tach menu rieng mo cho moi nguoi - nghia la pham vi truy cap 2 tab moi
+// VAN theo dung co xem_danh_muc_lk/quan_ly_danh_muc_lk hien co cua module "Bang Gia", KHONG mo rong
+// cho MOI tai khoan dang nhap nhu de xuat ban dau.
 export function DanhMucLinhKienModule() {
+  const [tab, setTab] = useState("danh-muc");
+  return (
+    <div className="anim-in">
+      <Tabs active={tab} onChange={setTab} tabs={TABS} />
+      {tab === "danh-muc" && <DanhMucTab />}
+      {tab === "bom-hang" && <BomHangTab />}
+      {tab === "thay-the" && <ThayTheTab />}
+    </div>
+  );
+}
+
+function DanhMucTab() {
   const addToast = useToast();
   const qc = useQueryClient();
   // FIX (ma tran kiem soat he thong, Van de #3 sheet "5. Van de phat hien", xac nhan 2026-08-24): file
@@ -725,7 +752,7 @@ export function DanhMucLinhKienModule() {
   ];
 
   return (
-    <div className="anim-in">
+    <div>
       <div className="flex items-center justify-between mb-3">
         <div className="text-sm text-[var(--ink-600)] flex items-center gap-1.5">
           Danh mục linh kiện dùng cho module "Đặt mua linh kiện".
