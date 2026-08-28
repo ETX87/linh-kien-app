@@ -201,17 +201,27 @@ export interface BaoCaoRow {
   email: string;
   ten: string | null;
   slDon: number;
+  slDonMua: number;
+  slDonCongNo: number;
+  slDonTraHang: number;
   slDeXuat: number;
   slTuChoi: number;
+  slDangCho: number;
   slDuyet: number;
+  slDuyetMua: number;
+  slDuyetCongNo: number;
+  slDuyetTraHang: number;
   slThucDuyet: number;
   tongTienThucTe: number;
   tongTienDatMua: number;
+  tienChoDuyet: number;
   tongChoChuyen: number;
+  tongPxk: number;
   slChoKeToan: number;
   slChoKhoGui: number;
   slDaGui: number;
   slDaXacNhan: number;
+  slKhoKetThuc: number;
 }
 
 export interface DonHangDraft {

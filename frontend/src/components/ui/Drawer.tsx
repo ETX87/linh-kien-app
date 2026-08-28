@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { pushOverlayClose } from "../../lib/overlayStack";
 
 // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Doi Detail Modal sang Drawer"): component RIENG
 // (khong sua Modal.tsx dung chung 40 noi trong 12 file) - copy dung pattern PartDetailDrawer da co san
@@ -34,6 +35,13 @@ export function Drawer({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
+  // Nut Back cua he dieu hanh (mobile) dong Drawer nay truoc, thay vi thoat thang app (phan hoi
+  // 2026-08-28) - dang ky/go dang ky voi ngan xep dung chung, xem overlayStack.ts + useExitConfirm.ts.
+  useEffect(() => {
+    if (!open) return;
+    return pushOverlayClose(onClose);
   }, [open, onClose]);
 
   if (!open) return null;

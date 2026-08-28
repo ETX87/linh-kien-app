@@ -371,7 +371,7 @@ export function TrangChuTab({
               (① Số liệu "Việc cần làm" luôn tô đúng theo vai trò của bạn · ② Bấm vào số bất kỳ để nhảy thẳng tới đúng tab/bộ lọc tương ứng.)
             </span>
           </SectionTitle>
-          <BaoCaoTab onJump={onJump} isManagerView={isManagerView} />
+          <BaoCaoTab onJump={onJump} isManagerView={isManagerView} canTraHangView={canTraHangView} />
         </div>
       )}
     </div>

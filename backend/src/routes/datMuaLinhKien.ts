@@ -459,18 +459,42 @@ interface BaoCaoRow {
   email: string;
   ten: string | null;
   slDon: number;
+  slDonMua: number;
+  slDonCongNo: number;
+  slDonTraHang: number;
   slDeXuat: number;
   slTuChoi: number;
+  slDangCho: number;
   slDuyet: number;
+  slDuyetMua: number;
+  slDuyetCongNo: number;
+  slDuyetTraHang: number;
   slThucDuyet: number;
   tongTienThucTe: number;
   tongTienDatMua: number;
+  tienChoDuyet: number;
   tongChoChuyen: number;
+  tongPxk: number;
   slChoKeToan: number;
   slChoKhoGui: number;
   slDaGui: number;
   slDaXacNhan: number;
+  slKhoKetThuc: number;
 }
+
+// Tap trang thai "dang cho duyet" dung chung cho ca 3 loai_don (them 2026-08-28, phan hoi "Đơn đang
+// chờ/Tiền chờ duyệt" trong redesign man Trang chu tu card sang table) - mua/cong_no la 3 buoc dau
+// (Cho Tram duyet/Cho TBP xac nhan/Cho TN duyet, KHONG gom "Cho hang" - da chot voi nguoi dung la buoc
+// do la "da duyet xong, dang thieu hang" chu khong phai "dang cho duyet"), tra_hang la 4 buoc dau cua
+// THU_TU_BUOC trong traHang.ts (Cho ke toan duyet mem/Cho kho xac nhan/Cho QC xac nhan/Cho TN duyet
+// tong) - mo rong TRUC TIEP tu dinh nghia da chot cho mua/cong_no sang tra_hang (cung 1 khai niem "cac
+// buoc duyet truoc khi dong dat_don_hang cham toi trang thai dong"), khong phai 1 quyet dinh nghiep vu
+// moi rieng biet.
+const DANG_CHO_DUYET_STATES = [
+  "Cho Tram duyet", "Cho TBP xac nhan", "Cho TN duyet",
+  "Cho ke toan duyet mem", "Cho kho xac nhan", "Cho QC xac nhan", "Cho TN duyet tong",
+] as const;
+const DANG_CHO_DUYET_SQL_IN = DANG_CHO_DUYET_STATES.map(() => "?").join(",");
 
 // "Thang lech N thang so voi thang hien tai (VN local)" - dung nowVN() (gio VN da luu san tren MOI
 // cot timestamp he thong, xem lib/vnTime.ts) lam moc, KHONG dung SQLite 'now' (UTC, se lech mui gio
@@ -548,12 +572,18 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
   // truoc day (dong "Da huy" bi AN VINH VIEN khoi MOI chi so) - gio dong huy la 1 nhanh "ket_thuc_luc"
   // that su (xem CTE ddh_kt), chi hien khi dung thang no bi huy duoc chon, khop dung yeu cau "đơn hủy"
   // la 1 trong 4 diem ket thuc can loc duoc.
+  // SUA (2026-08-28, redesign man Trang chu "cards -> table"): bo han loai tru "ddh.loai_don !=
+  // 'tra_hang'" - tra hang gio duoc GOM VAO cung bang nay (cot "Đơn trả"/"Duyệt trả" rieng) thay vi bi
+  // an hoan toan khoi bao cao tong the nhu truoc. dat_don_hang.trang_thai_hien_tai cua tra_hang dung
+  // CHUNG chuoi "TN da duyet" lam trang thai dong voi mua/cong_no (xem TRANG_THAI_DONG trong
+  // traHang.ts) nen "sl_duyet"/join qua phieu_xuat_kho ben duoi tu dong dung, chi can them "Tu choi"
+  // (tra hang) canh "TN tu choi" (mua/cong_no) o nhanh ket_thuc_luc dau tien.
   const { results: donRows } = await c.env.DB.prepare(
     `WITH ddh_kt AS (
-       SELECT ddh.id, ddh.nguoi_nhan_hang, ddh.so_luong_de_xuat, ddh.gia_de_xuat, ddh.gia_chot,
+       SELECT ddh.id, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.so_luong_de_xuat, ddh.gia_de_xuat, ddh.gia_chot,
          ddh.so_luong_thuc_xuat, ddh.trang_thai_hien_tai,
          CASE
-           WHEN ddh.trang_thai_hien_tai IN ('TN tu choi', 'Da huy') THEN ddh.updated_at
+           WHEN ddh.trang_thai_hien_tai IN ('TN tu choi', 'Tu choi', 'Da huy') THEN ddh.updated_at
            WHEN pxk.trang_thai_hien_tai IN ('Ke toan huy', 'Kho da ket thuc', 'Hang tru kho', 'KTV da nhan')
              THEN (SELECT ngay_xu_ly FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = pxk.id AND trang_thai = pxk.trang_thai_hien_tai ORDER BY id DESC LIMIT 1)
            ELSE NULL
@@ -561,24 +591,33 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
        FROM dat_don_hang ddh
        LEFT JOIN phieu_xuat_kho_dong pxkd ON pxkd.dat_don_hang_id = ddh.id
        LEFT JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
-       WHERE ddh.loai_don != 'tra_hang'${scopeCond ? scopeCond("ddh") : ""}
+       WHERE 1=1${scopeCond ? scopeCond("ddh") : ""}
      )
      SELECT ddh.nguoi_nhan_hang as email, u.ten as ten,
        COUNT(*) as sl_don,
+       COALESCE(SUM(CASE WHEN ddh.loai_don = 'mua' THEN 1 ELSE 0 END), 0) as sl_don_mua,
+       COALESCE(SUM(CASE WHEN ddh.loai_don = 'cong_no' THEN 1 ELSE 0 END), 0) as sl_don_cong_no,
+       COALESCE(SUM(CASE WHEN ddh.loai_don = 'tra_hang' THEN 1 ELSE 0 END), 0) as sl_don_tra_hang,
        COALESCE(SUM(ddh.so_luong_de_xuat), 0) as sl_de_xuat,
-       COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai = 'TN tu choi' THEN 1 ELSE 0 END), 0) as sl_tu_choi,
+       COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai IN ('TN tu choi', 'Tu choi', 'Da huy') THEN 1 ELSE 0 END), 0) as sl_tu_choi,
+       COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai IN (${DANG_CHO_DUYET_SQL_IN}) THEN 1 ELSE 0 END), 0) as sl_dang_cho,
        COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai = 'TN da duyet' THEN 1 ELSE 0 END), 0) as sl_duyet,
+       COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.loai_don = 'mua' THEN 1 ELSE 0 END), 0) as sl_duyet_mua,
+       COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.loai_don = 'cong_no' THEN 1 ELSE 0 END), 0) as sl_duyet_cong_no,
+       COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.loai_don = 'tra_hang' THEN 1 ELSE 0 END), 0) as sl_duyet_tra_hang,
        COALESCE(SUM(CASE WHEN ddh.so_luong_thuc_xuat IS NOT NULL THEN ddh.so_luong_thuc_xuat ELSE 0 END), 0) as sl_thuc_duyet,
        COALESCE(SUM(CASE WHEN ddh.gia_chot IS NOT NULL AND ddh.so_luong_thuc_xuat IS NOT NULL THEN ddh.gia_chot * ddh.so_luong_thuc_xuat ELSE 0 END), 0) as tong_tien_thuc_te,
-       COALESCE(SUM(ddh.gia_de_xuat * ddh.so_luong_de_xuat), 0) as tong_tien_dat_mua
+       COALESCE(SUM(ddh.gia_de_xuat * ddh.so_luong_de_xuat), 0) as tong_tien_dat_mua,
+       COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai IN (${DANG_CHO_DUYET_SQL_IN}) THEN ddh.gia_de_xuat * ddh.so_luong_de_xuat ELSE 0 END), 0) as tien_cho_duyet
      FROM ddh_kt ddh LEFT JOIN users u ON u.email = ddh.nguoi_nhan_hang
      WHERE ${thangWhere}
      GROUP BY ddh.nguoi_nhan_hang`,
   )
-    .bind(...scopeBinds, thangBind)
+    .bind(...scopeBinds, ...DANG_CHO_DUYET_STATES, ...DANG_CHO_DUYET_STATES, thangBind)
     .all<{
-      email: string; ten: string | null; sl_don: number; sl_de_xuat: number; sl_tu_choi: number; sl_duyet: number;
-      sl_thuc_duyet: number; tong_tien_thuc_te: number; tong_tien_dat_mua: number;
+      email: string; ten: string | null; sl_don: number; sl_don_mua: number; sl_don_cong_no: number; sl_don_tra_hang: number;
+      sl_de_xuat: number; sl_tu_choi: number; sl_dang_cho: number; sl_duyet: number; sl_duyet_mua: number; sl_duyet_cong_no: number; sl_duyet_tra_hang: number;
+      sl_thuc_duyet: number; tong_tien_thuc_te: number; tong_tien_dat_mua: number; tien_cho_duyet: number;
     }>();
 
   const pxkScopeExists = scopeCond
@@ -594,13 +633,23 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
   // thang giong het cach ddh_kt lam, KHONG the giu nguyen dang "snapshot khong doi theo thang" nhu 4
   // cot con lai - neu khong se tiep tuc cong don TOAN BO lich su "KTV da nhan" tu truoc toi gio vao
   // MOI lan xem thang hien tai, di nguoc lai chinh muc dich "hạn chế hao tốn dữ liệu theo tháng".
+  // "tong_pxk" (them 2026-08-28) - dung PATTERN snapshot giong 4 cot con lai (chi co nghia thang hien
+  // tai, "tổng PXK" cho thang qua khong ro nghia vi PXK khong co 1 moc "tao luc nao" duoc bucket rieng
+  // - danh cho thang qua trong truong hop nay).
   const pxkSnapshotCols =
     thangParam === 0
-      ? `COALESCE(SUM(CASE WHEN pxk.so_tien_can_chuyen IS NOT NULL AND (pxk.trang_thai_chuyen_tien IS NULL OR pxk.trang_thai_chuyen_tien != 'TN da duyet') THEN pxk.so_tien_can_chuyen ELSE 0 END), 0) as tong_cho_chuyen,
+      ? `COUNT(*) as tong_pxk,
+         COALESCE(SUM(CASE WHEN pxk.so_tien_can_chuyen IS NOT NULL AND (pxk.trang_thai_chuyen_tien IS NULL OR pxk.trang_thai_chuyen_tien != 'TN da duyet') THEN pxk.so_tien_can_chuyen ELSE 0 END), 0) as tong_cho_chuyen,
          COALESCE(SUM(CASE WHEN pxk.trang_thai_hien_tai = 'Cho ke toan' THEN 1 ELSE 0 END), 0) as sl_cho_ke_toan,
          COALESCE(SUM(CASE WHEN pxk.trang_thai_hien_tai = 'Da chot xong don xuat' THEN 1 ELSE 0 END), 0) as sl_cho_kho_gui,
          COALESCE(SUM(CASE WHEN pxk.trang_thai_hien_tai = 'Dang gui KTV' THEN 1 ELSE 0 END), 0) as sl_da_gui,`
-      : `0 as tong_cho_chuyen, 0 as sl_cho_ke_toan, 0 as sl_cho_kho_gui, 0 as sl_da_gui,`;
+      : `0 as tong_pxk, 0 as tong_cho_chuyen, 0 as sl_cho_ke_toan, 0 as sl_cho_kho_gui, 0 as sl_da_gui,`;
+  // "sl_kho_ket_thuc" (them 2026-08-28, dinh nghia da chot voi nguoi dung: "Kho da ket thuc" +
+  // "Hang tru kho") - bucket theo thang giong het "sl_da_xac_nhan" (KTV da nhan) o duoi, vi day cung la
+  // 1 trong "4 điểm kết thúc" da chot (xem CTE ddh_kt) chu khong phai snapshot "dang cho" nhu 4 cot
+  // tren. Dung pxk.trang_thai_hien_tai lam dieu kien loc CHO CHINH subquery log (khop dung trang thai
+  // hien tai, khong lay nham log cu cua 1 trong 2 trang thai neu PXK da di qua ca 2 - vi du khong xay
+  // ra thuc te nhung giu an toan).
   const { results: pxkRows } = await c.env.DB
     .prepare(
       `SELECT pxk.nguoi_nhan_hang as email,
@@ -609,36 +658,58 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
            CASE WHEN pxk.trang_thai_hien_tai = 'KTV da nhan'
              AND strftime('%Y-%m', (SELECT ngay_xu_ly FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = pxk.id AND trang_thai = 'KTV da nhan' ORDER BY id DESC LIMIT 1)) = ?
            THEN 1 ELSE 0 END
-         ), 0) as sl_da_xac_nhan
+         ), 0) as sl_da_xac_nhan,
+         COALESCE(SUM(
+           CASE WHEN pxk.trang_thai_hien_tai IN ('Kho da ket thuc', 'Hang tru kho')
+             AND strftime('%Y-%m', (SELECT ngay_xu_ly FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = pxk.id AND trang_thai = pxk.trang_thai_hien_tai ORDER BY id DESC LIMIT 1)) = ?
+           THEN 1 ELSE 0 END
+         ), 0) as sl_kho_ket_thuc
        FROM phieu_xuat_kho pxk
        WHERE pxk.nguoi_nhan_hang IS NOT NULL${pxkScopeExists}
        GROUP BY pxk.nguoi_nhan_hang`,
     )
-    .bind(thangBind, ...scopeBinds)
-    .all<{ email: string; tong_cho_chuyen: number; sl_cho_ke_toan: number; sl_cho_kho_gui: number; sl_da_gui: number; sl_da_xac_nhan: number }>();
+    .bind(thangBind, thangBind, ...scopeBinds)
+    .all<{
+      email: string; tong_pxk: number; tong_cho_chuyen: number; sl_cho_ke_toan: number; sl_cho_kho_gui: number; sl_da_gui: number;
+      sl_da_xac_nhan: number; sl_kho_ket_thuc: number;
+    }>();
 
   const byEmail = new Map<string, BaoCaoRow>();
-  for (const d of donRows as { email: string; ten: string | null; sl_don: number; sl_de_xuat: number; sl_tu_choi: number; sl_duyet: number; sl_thuc_duyet: number; tong_tien_thuc_te: number; tong_tien_dat_mua: number }[]) {
+  for (const d of donRows as {
+    email: string; ten: string | null; sl_don: number; sl_don_mua: number; sl_don_cong_no: number; sl_don_tra_hang: number;
+    sl_de_xuat: number; sl_tu_choi: number; sl_dang_cho: number; sl_duyet: number; sl_duyet_mua: number; sl_duyet_cong_no: number; sl_duyet_tra_hang: number;
+    sl_thuc_duyet: number; tong_tien_thuc_te: number; tong_tien_dat_mua: number; tien_cho_duyet: number;
+  }[]) {
     byEmail.set(d.email, {
       email: d.email, ten: d.ten,
-      slDon: d.sl_don, slDeXuat: d.sl_de_xuat, slTuChoi: d.sl_tu_choi, slDuyet: d.sl_duyet, slThucDuyet: d.sl_thuc_duyet,
-      tongTienThucTe: d.tong_tien_thuc_te, tongTienDatMua: d.tong_tien_dat_mua,
-      tongChoChuyen: 0, slChoKeToan: 0, slChoKhoGui: 0, slDaGui: 0, slDaXacNhan: 0,
+      slDon: d.sl_don, slDonMua: d.sl_don_mua, slDonCongNo: d.sl_don_cong_no, slDonTraHang: d.sl_don_tra_hang,
+      slDeXuat: d.sl_de_xuat, slTuChoi: d.sl_tu_choi, slDangCho: d.sl_dang_cho,
+      slDuyet: d.sl_duyet, slDuyetMua: d.sl_duyet_mua, slDuyetCongNo: d.sl_duyet_cong_no, slDuyetTraHang: d.sl_duyet_tra_hang,
+      slThucDuyet: d.sl_thuc_duyet, tongTienThucTe: d.tong_tien_thuc_te, tongTienDatMua: d.tong_tien_dat_mua, tienChoDuyet: d.tien_cho_duyet,
+      tongChoChuyen: 0, tongPxk: 0, slChoKeToan: 0, slChoKhoGui: 0, slDaGui: 0, slDaXacNhan: 0, slKhoKetThuc: 0,
     });
   }
-  for (const p of pxkRows as { email: string; tong_cho_chuyen: number; sl_cho_ke_toan: number; sl_cho_kho_gui: number; sl_da_gui: number; sl_da_xac_nhan: number }[]) {
+  for (const p of pxkRows as {
+    email: string; tong_pxk: number; tong_cho_chuyen: number; sl_cho_ke_toan: number; sl_cho_kho_gui: number; sl_da_gui: number;
+    sl_da_xac_nhan: number; sl_kho_ket_thuc: number;
+  }[]) {
     const existing = byEmail.get(p.email);
     if (existing) {
+      existing.tongPxk = p.tong_pxk;
       existing.tongChoChuyen = p.tong_cho_chuyen;
       existing.slChoKeToan = p.sl_cho_ke_toan;
       existing.slChoKhoGui = p.sl_cho_kho_gui;
       existing.slDaGui = p.sl_da_gui;
       existing.slDaXacNhan = p.sl_da_xac_nhan;
+      existing.slKhoKetThuc = p.sl_kho_ket_thuc;
     } else {
       byEmail.set(p.email, {
         email: p.email, ten: null,
-        slDon: 0, slDeXuat: 0, slTuChoi: 0, slDuyet: 0, slThucDuyet: 0, tongTienThucTe: 0, tongTienDatMua: 0,
-        tongChoChuyen: p.tong_cho_chuyen, slChoKeToan: p.sl_cho_ke_toan, slChoKhoGui: p.sl_cho_kho_gui, slDaGui: p.sl_da_gui, slDaXacNhan: p.sl_da_xac_nhan,
+        slDon: 0, slDonMua: 0, slDonCongNo: 0, slDonTraHang: 0, slDeXuat: 0, slTuChoi: 0, slDangCho: 0,
+        slDuyet: 0, slDuyetMua: 0, slDuyetCongNo: 0, slDuyetTraHang: 0, slThucDuyet: 0,
+        tongTienThucTe: 0, tongTienDatMua: 0, tienChoDuyet: 0,
+        tongPxk: p.tong_pxk, tongChoChuyen: p.tong_cho_chuyen, slChoKeToan: p.sl_cho_ke_toan,
+        slChoKhoGui: p.sl_cho_kho_gui, slDaGui: p.sl_da_gui, slDaXacNhan: p.sl_da_xac_nhan, slKhoKetThuc: p.sl_kho_ket_thuc,
       });
     }
   }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { popTopOverlay } from "../lib/overlayStack";
 
 // Nut/vuot "Quay lai" cua he dieu hanh (Android, ke ca khi cai dat PWA standalone) khong duoc SPA nay
 // dieu khien (khong dung React Router, khong tung pushState o dau ca - xem App.tsx) nen mac dinh
@@ -19,6 +20,13 @@ export function useExitConfirm(enabled: boolean) {
 
     function onPopState() {
       if (leavingRef.current) return;
+      // FIX (phan hoi 2026-08-28: "khi đang xem đơn chi tiết mà ấn back lại thì quay lại màn hình
+      // trước chứ không phải thoát app") - neu co Drawer/Modal dang mo (xem overlayStack.ts), nut Back
+      // chi DONG lop do + day lai trap de bay tiep, KHONG hien hop thoai xac nhan thoat.
+      if (popTopOverlay()) {
+        window.history.pushState({ exitTrap: true }, "");
+        return;
+      }
       setConfirmOpen(true);
       window.history.pushState({ exitTrap: true }, "");
     }

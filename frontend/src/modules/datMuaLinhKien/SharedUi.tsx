@@ -49,6 +49,33 @@ export function ActiveFiltersBar({ chips }: { chips: { label: string; onClear: (
   );
 }
 
+// Khoi "vùng dữ liệu" co vien+nen rieng trong Drawer chi tiet (them 2026-08-28, phan hoi ra soat UI/UX
+// "chia thành các vùng dữ liệu" + "sửa chung cho 1 màn rồi áp dụng ra") - boc 1 nhom KvRow lien quan
+// vao 1 khung THAT SU co ranh gioi thi giac (border+nen nhe), khac SectionTitle don thuan (chi 1 dong
+// chu nho, khong co khung) - dung CHUNG cho ca DonHangDetailModal (DonCuaToiTab.tsx) lan
+// TraHangDetailModal (TraHangTab.tsx), vi 2 man dung chung 1 nguon du lieu (dat_don_hang) nen chung 1
+// bo cuc hop ly cho ca 2.
+export function DetailZone({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
+  return (
+    <div className={`rounded-xl border border-[var(--line)] bg-[var(--surface-100)]/50 p-3 ${className}`}>
+      <div className="text-[10.5px] uppercase tracking-wider text-[var(--ink-400)] font-extrabold mb-1.5">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+// Dai "chỉ số nhanh" ngay duoi tieu de Drawer (cung dot 2026-08-28) - vai chi so quan trong nhat (SL/
+// tien/trang thai) noi bat NGAY LAP TUC thay vi phai cuon vao than Drawer moi thay (van de #11 trong
+// ra soat UX). Dung CHUNG cho ca 2 man chi tiet, dat truoc moi DetailZone.
+export function QuickStat({ label, value, tone }: { label: string; value: ReactNode; tone?: "green" | "default" }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wide text-[var(--ink-400)] font-bold">{label}</div>
+      <div className={`font-bold text-base ${tone === "green" ? "text-[var(--green-700)]" : "text-[var(--ink-900)]"}`}>{value}</div>
+    </div>
+  );
+}
+
 // Thanh loc THU GON (nut "☰ Bộ lọc ▾" + o tim kiem tu do, an mac dinh phan loc chi tiet phia duoi) -
 // tach tu DonCuaToiTab.tsx (UI redesign 2026-08-21, "hợp nhất phong cách giao diện": Trả hàng/Phiếu
 // xuất kho/Thiếu linh kiện truoc day luon hien san chip loc + KHONG co o tim kiem, khac voi Mua hang/
@@ -63,6 +90,7 @@ export function FilterSearchBar({
   onSearchChange,
   searchPlaceholder,
   trailing,
+  activeFilters,
   children,
 }: {
   showFilters: boolean;
@@ -77,6 +105,12 @@ export function FilterSearchBar({
    * cuc neu chen thang JSX ben ngoai (component nay tra ve Fragment 2 khoi, dat lam sibling flex se
    * lam nut hanh dong bi day xuong duoi khoi loc mo rong thay vi nam yen tren cung hang nut). */
   trailing?: ReactNode;
+  /** FIX (phan hoi 2026-08-28: "'Đang lọc: (còn tồn X)' chuyển lên cùng dòng với nút bộ lọc") - truyen
+   * thang <ActiveFiltersBar/> vao day thay vi render no nhu 1 sibling RIENG ben duoi FilterSearchBar.
+   * Dat NGAY SAU nut "Bộ lọc" va TRUOC o tim kiem trong CUNG 1 flex-wrap - tren man hep, o tim kiem
+   * (rong co dinh) la phan tu it uu tien nhat nen se tu wrap xuong dong duoi TRUOC, giu nut+chip dang
+   * loc luon dung 1 hang voi nhau. */
+  activeFilters?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -93,6 +127,7 @@ export function FilterSearchBar({
           >
             {showFilters ? "▲ Ẩn bộ lọc" : `☰ Bộ lọc${activeFilterCount > 0 ? ` (${activeFilterCount})` : ""} ▾`}
           </button>
+          {activeFilters}
           {onSearchChange && (
             <input
               value={searchValue ?? ""}

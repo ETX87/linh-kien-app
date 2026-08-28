@@ -30,7 +30,7 @@ import {
   LOAI_DON_TONE, deriveLoaiDon, actionsFor, trangThaiLabel, canNoRequired, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
 } from "./helpers";
-import { StatusBadge, ActiveFiltersBar, TrangThaiChipFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell } from "./SharedUi";
+import { StatusBadge, ActiveFiltersBar, TrangThaiChipFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { LinhKienPicker, LinhKienDetailModal } from "./LinhKienPicker";
 
@@ -470,7 +470,10 @@ export function DonHangDetailModal({
     )}
     <Drawer
       open
-      title={`Đơn hàng ${id}`}
+      // SUA (phan hoi ra soat UI/UX 2026-08-28, van de #1: "tên linh kiện tạo thành tiêu đề trên
+      // cùng") - truoc day la ID tho (`Đơn hàng ${id}`), nguoi xem phai cuon vao than Drawer moi biet
+      // dang xem linh kien gi. Fallback ve ID trong luc dang tai (d chua co).
+      title={d ? (d.ten_lk_snapshot ?? d.ma_lk) : `Đơn hàng ${id}`}
       onClose={onClose}
       width="max-w-2xl"
       footer={footer}
@@ -497,20 +500,19 @@ export function DonHangDetailModal({
         <div className="text-sm text-[var(--ink-500)] py-4 text-center">Đang tải...</div>
       ) : !d ? null : (
         <div className="space-y-4 text-sm">
-          {/* Khoi thong tin dau Drawer doi sang KvRow/SectionTitle (concept 1 "Structured Neutral",
-              pattern ".kv"/".section-title") - thay cho luoi <div> label/value tu viet tay truoc day. */}
-          <div>
-            <SectionTitle>Thông tin đơn</SectionTitle>
-            <KvRow label="Người tạo">{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</KvRow>
-            {/* Luon hien (phan hoi 2026-08-25, hang muc #9) - truoc chi hien khi khac nguoi tao, gay
-                cam giac "thieu thong tin nguoi nhan hang" khi 2 gia tri trung nhau. */}
-            <KvRow label="Người nhận hàng">{d.nguoi_nhan_hang ? formatNguoiDisplay(d.nguoi_nhan_hang, ktvDisplayMap) : "—"}</KvRow>
-            <KvRow label="Ngày tạo">{fmtDateTime(d.ngay_tao)}</KvRow>
-            <KvRow label="Tổng tiền đề xuất">
-              <span className="font-bold text-[var(--green-700)]">{fmtVND((d.gia_de_xuat ?? 0) * d.so_luong_de_xuat)}</span>
-            </KvRow>
-            <KvRow label="Trạng thái">
-              <div className="flex items-center gap-2 flex-wrap">
+          {/* SUA (ra soat UI/UX 2026-08-28, van de #2/#3/#4/#11: "chia thành các vùng dữ liệu" + tien
+              gom 1 cho + badge trang thai qua tai): thay khoi KvRow phang truoc day bang 1 dai "chỉ số
+              nhanh" ngay duoi tieu de (SL/gia/trang thai noi bat NGAY, khong phai cuon vao than moi
+              thay) roi den cac DetailZone co ranh gioi ro rang (xem SharedUi.tsx). Ap dung CHUNG cau
+              truc nay cho ca TraHangDetailModal (phan hoi "sửa chung cho 1 màn rồi áp dụng ra"). */}
+          <div className="flex items-start gap-4 flex-wrap pb-3 border-b border-[var(--line)]">
+            <QuickStat label="SL đề xuất" value={d.so_luong_de_xuat} />
+            <QuickStat label="Giá đề xuất" value={d.gia_de_xuat != null ? fmtVND(d.gia_de_xuat) : "—"} tone="green" />
+            <QuickStat label="Tổng tiền đề xuất" value={fmtVND((d.gia_de_xuat ?? 0) * d.so_luong_de_xuat)} tone="green" />
+            {d.gia_chot != null && <QuickStat label="Giá chốt" value={fmtVND(d.gia_chot)} tone="green" />}
+            <div className="flex-1 min-w-[160px]">
+              <div className="text-[10px] uppercase tracking-wide text-[var(--ink-400)] font-bold mb-1">Trạng thái</div>
+              <div className="flex items-center gap-1.5 flex-wrap">
                 {tone && <Badge tone={tone.tone}>{tone.label}</Badge>}
                 <StatusBadge value={d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} options={DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL} />
                 {d.loai_don === "tra_hang" && (
@@ -529,40 +531,75 @@ export function DonHangDetailModal({
                     "gray" (trung tinh) - day la nhan METADATA, khong phai 1 trong "5 nhom mau trang
                     thai" (ocean/teal/amber/coral/orange/violet) da quy uoc cho trang_thai. */}
                 {isDonTaoHo(d) && <Badge tone="gray">Đơn tạo hộ</Badge>}
+                {/* Chuyen vao day (truoc kem ben canh tieu de LK cu, gio tieu de Drawer chi con la ten
+                    LK thuan - xem prop `title` cua Drawer o tren) - van la 1 trang thai dang chu y nen
+                    hop ly nam canh cum badge trang thai. */}
+                {!!d.dac_thu && <Badge tone="amber">🔒 Đặc thù</Badge>}
               </div>
-            </KvRow>
+            </div>
           </div>
 
+          <DetailZone title="Thông tin đơn">
+            <KvRow label="Người tạo">{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</KvRow>
+            {/* Luon hien (phan hoi 2026-08-25, hang muc #9) - truoc chi hien khi khac nguoi tao, gay
+                cam giac "thieu thong tin nguoi nhan hang" khi 2 gia tri trung nhau. */}
+            <KvRow label="Người nhận hàng">{d.nguoi_nhan_hang ? formatNguoiDisplay(d.nguoi_nhan_hang, ktvDisplayMap) : "—"}</KvRow>
+            <KvRow label="Ngày tạo">{fmtDateTime(d.ngay_tao)}</KvRow>
+          </DetailZone>
+
+          {/* SUA (ra soat UI/UX 2026-08-28, van de #8: "Ca liên kết bị chôn cuối") - chuyen len ngay
+              sau "Thông tin đơn" (truoc day nam duoi cung, sau ca Lich su xu ly, phai cuon het moi
+              thay) + boc DetailZone cho dong bo voi cac khoi khac. CHOT (ra soat module #18): chip 2
+              dong (ma case + ten khach hang) thay vi chi ma thuan chu - bam duoc tren MOI thiet bi. */}
+          {d.cases && d.cases.length > 0 && (
+            <DetailZone title="Ca liên kết">
+              <div className="flex gap-1.5 flex-wrap">
+                {d.cases.map((cRow) => (
+                  <span
+                    key={cRow.id}
+                    className={`inline-flex flex-col rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2 py-1 leading-tight ${canXemChiTietCa && openCase ? "cursor-pointer hover:border-[var(--ocean-400)] hover:bg-[var(--ocean-100)]/30" : ""}`}
+                    onClick={canXemChiTietCa && openCase ? () => openCase(cRow.id, "giai-trinh") : undefined}
+                  >
+                    <span className="font-mono text-[11px] font-semibold text-[var(--ocean-600)]">{cRow.id}</span>
+                    {cRow.khach_hang && <span className="text-[10px] text-[var(--ink-500)] truncate max-w-[160px]">{cRow.khach_hang}</span>}
+                  </span>
+                ))}
+              </div>
+            </DetailZone>
+          )}
+
           {d.ly_do_cham ? (
-            <KvRow label="Lý do chậm">{d.ly_do_cham}</KvRow>
+            <DetailZone title="Lý do chậm">{d.ly_do_cham}</DetailZone>
           ) : canTacNghiep && d.trang_thai === "Cho TN duyet" ? (
-            <div className="flex flex-col gap-1">
+            <DetailZone title="Lý do chậm">
               {/* CHOT (phan hoi 2026-08-24: "đổi hẳn thành dropdown bắt buộc, bỏ ô nhập tay") - Select
                   BAT BUOC chon tu danh muc "Mua hàng" (settings_ly_do_cham), khong con o nhap tu do -
                   neu Settings CHUA co ly do nao, TN se khong nhap duoc cho toi khi Admin bo sung
                   (dung y da chot voi nguoi dung). Dung lai lyDoData da fetch san o tren cho luong "Từ
                   chối" (cung queryKey/endpoint), khong goi API moi.*/}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <Select
-                  value={lyDoChamDraft}
-                  onChange={setLyDoChamDraft}
-                  options={[{ value: "", label: "-- Chọn lý do chậm --" }, ...(lyDoData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
-                  disabled={(lyDoData?.rows.length ?? 0) === 0}
-                  className="flex-1 min-w-[200px]"
-                />
-                <Btn
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => lyDoChamMutation.mutate(lyDoChamDraft.trim())}
-                  disabled={!lyDoChamDraft.trim() || lyDoChamMutation.isPending}
-                >
-                  Lưu
-                </Btn>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Select
+                    value={lyDoChamDraft}
+                    onChange={setLyDoChamDraft}
+                    options={[{ value: "", label: "-- Chọn lý do chậm --" }, ...(lyDoData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
+                    disabled={(lyDoData?.rows.length ?? 0) === 0}
+                    className="flex-1 min-w-[200px]"
+                  />
+                  <Btn
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => lyDoChamMutation.mutate(lyDoChamDraft.trim())}
+                    disabled={!lyDoChamDraft.trim() || lyDoChamMutation.isPending}
+                  >
+                    Lưu
+                  </Btn>
+                </div>
+                {(lyDoData?.rows.length ?? 0) === 0 && (
+                  <div className="text-[11px] text-[var(--coral-600)]">Chưa có lý do chậm nào được cấu hình cho "Mua hàng" — vào Settings › Lý do chậm để thêm.</div>
+                )}
               </div>
-              {(lyDoData?.rows.length ?? 0) === 0 && (
-                <div className="text-[11px] text-[var(--coral-600)]">Chưa có lý do chậm nào được cấu hình cho "Mua hàng" — vào Settings › Lý do chậm để thêm.</div>
-              )}
-            </div>
+            </DetailZone>
           ) : null}
 
           {isEditMode && editDraft ? (
@@ -702,25 +739,17 @@ export function DonHangDetailModal({
             </div>
           ) : (
             <>
-              <div>
-                <div className={`font-semibold text-base ${DON_HANG_ROW_STYLE[d.trang_thai ?? ""] ?? ""}`}>
-                  {d.ten_lk_snapshot ?? d.ma_lk}
-                  {!!d.dac_thu && (
-                    <span className="ml-2 align-middle"><Badge tone="amber">🔒 Đặc thù</Badge></span>
-                  )}
-                </div>
-              </div>
-
-              <div>
+              {/* SUA (ra soat UI/UX 2026-08-28): ten LK khong con lap lai o day - da la TIEU DE Drawer
+                  (prop `title` o tren, dung y van de #1). Con lai gom vao 1 DetailZone rieng cho cac
+                  ma tham chieu (Mã LK/Mã YCSC/Mã xuất kho) - Giá đề xuất/Giá chốt/Tổng tiền đa chuyen
+                  len dai "chỉ số nhanh" unconditional o dau (khong lap lai o day nua). */}
+              <DetailZone title="Mã tham chiếu">
                 <KvRow label="Mã LK"><span className="font-mono text-xs">{d.ma_lk}</span></KvRow>
-                <KvRow label="SL đề xuất">{d.so_luong_de_xuat}</KvRow>
-                <KvRow label="Giá đề xuất">{d.gia_de_xuat != null ? <span className="font-semibold text-[var(--green-700)]">{fmtVND(d.gia_de_xuat)}</span> : "—"}</KvRow>
-                <KvRow label="Giá chốt">{d.gia_chot != null ? <span className="font-semibold text-[var(--green-700)]">{fmtVND(d.gia_chot)}</span> : "—"}</KvRow>
                 <KvRow label="Mã YCSC">
                   <MaYcscCell value={d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />
                 </KvRow>
                 <KvRow label="Mã xuất kho">{d.ma_xuat_kho ?? "—"}</KvRow>
-              </div>
+              </DetailZone>
 
               {d.ghi_chu && <div className="text-[var(--ink-500)]">{d.ghi_chu}</div>}
               {/* Ly do chon luc "tu choi"/"cho hang" luu trong ghi_chu cua log moi nhat (xem
@@ -729,27 +758,6 @@ export function DonHangDetailModal({
                 <div className="text-xs text-[var(--ink-500)]">{d.logs[0].ghi_chu}</div>
               )}
             </>
-          )}
-
-          {/* CHOT (ra soat module #18): chip 2 dong (ma case + ten khach hang) thay vi chi ma thuan
-              chu - bam duoc tren MOI thiet bi (khong dua vao hover, vo dung tren mobile - phan lon
-              thao tac trong app nay dien ra tren dien thoai KTV ngoai hien truong). */}
-          {d.cases && d.cases.length > 0 && (
-            <div>
-              <SectionTitle>Ca liên kết</SectionTitle>
-              <div className="flex gap-1.5 flex-wrap">
-                {d.cases.map((cRow) => (
-                  <span
-                    key={cRow.id}
-                    className={`inline-flex flex-col rounded-lg border border-[var(--line)] px-2 py-1 leading-tight ${canXemChiTietCa && openCase ? "cursor-pointer hover:border-[var(--ocean-400)] hover:bg-[var(--ocean-100)]/30" : ""}`}
-                    onClick={canXemChiTietCa && openCase ? () => openCase(cRow.id, "giai-trinh") : undefined}
-                  >
-                    <span className="font-mono text-[11px] font-semibold text-[var(--ocean-600)]">{cRow.id}</span>
-                    {cRow.khach_hang && <span className="text-[10px] text-[var(--ink-500)] truncate max-w-[160px]">{cRow.khach_hang}</span>}
-                  </span>
-                ))}
-              </div>
-            </div>
           )}
 
           {/* CHOT (ra soat module #18): them 1 cham tron nho dau moi dong theo dung tone trang thai
@@ -1015,10 +1023,15 @@ export function DonCuaToiTab({
   });
 
   // Giai doan 4b - TN nhom/loc hang doi theo nguoi nhan hang (diem 5 yeu cau).
+  // FIX (phan hoi 2026-08-28: "Thiếu công cụ filter theo KTV") - truoc day CHI enabled cho canTacNghiep,
+  // trong khi endpoint GET /nguoi-nhan-hang-kha-dung da MO cho moi vai tro tu truoc (tu scope dung theo
+  // nguoi goi - xem comment o backend) nen GS/Kho/Ke toan hoan toan dung duoc, chi bi chan oan o FE. Mo
+  // rong theo dung dieu kien showKhuVucFilter da co san cho bo loc Khu vuc (cung nhom "nhan vien van
+  // phong" can loc theo KTV).
   const { data: nguoiNhanHangData } = useQuery({
     queryKey: ["dat-mua-lk-nguoi-nhan-hang-kha-dung"],
     queryFn: () => api.get<{ rows: NguoiNhanHangKhaDungRow[] }>("/dat-mua-lk/nguoi-nhan-hang-kha-dung"),
-    enabled: canTacNghiep,
+    enabled: showKhuVucFilter,
   });
   // loaiDonCounts (so dong dang mo theo loai don) da chuyen len DatMuaLinhKienModule.tsx lam badge
   // do tren 3 tab "Mua hang/Cong no/Tra hang" (phan hoi 2026-08-19) - khong con dung o day.
@@ -1142,20 +1155,10 @@ export function DonCuaToiTab({
         <Btn size="sm" variant="ghost" onClick={() => setShowFilters((v) => !v)}>
           {showFilters ? "▲ Ẩn bộ lọc" : `☰ Bộ lọc${activeFilterCount > 0 ? ` (${activeFilterCount})` : ""} ▾`}
         </Btn>
-        <span className="relative inline-flex items-center">
-          <input
-            value={filterQ}
-            onChange={(e) => setFilterQ(e.target.value)}
-            placeholder="Tìm theo mã LK, mã đơn, người tạo/nhận…"
-            className="focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg pl-2.5 pr-7 py-1.5 text-sm w-64"
-          />
-          {/* FIX (ra soat UI 2026-08-27, hang muc #3): placeholder cu liet ke du 6 tieu chi, qua dai so
-              voi be rong o input - rut gon con vai tu khoa chinh, chuyen phan liet ke DAY DU sang
-              tooltip (dung lai component Tooltip da chot 2026-08-25 cho dung tinh huong nay). */}
-          <span className="absolute right-1.5">
-            <Tooltip text="Tìm theo: mã LK, tên LK, mã đơn, người tạo, người nhận, mã yêu cầu sự cố." />
-          </span>
-        </span>
+        {/* FIX (phan hoi 2026-08-28: "'Đang lọc: (còn tồn X)' chuyển lên cùng dòng với nút bộ lọc") -
+            dat NGAY SAU nut "Bộ lọc", TRUOC o tim kiem (rong co dinh w-64) - tren man hep, flex-wrap uu
+            tien giu cac phan tu DAU hang o line 1, o tim kiem la phan tu it uu tien nhat nen se tu wrap
+            xuong duoi truoc thay vi day chip loc xuong cung no nhu truoc day. */}
         <ActiveFiltersBar
           chips={[
             ...(filterTrangThai
@@ -1171,6 +1174,20 @@ export function DonCuaToiTab({
             ...(filterQ ? [{ label: `Tìm: "${filterQ}"`, onClear: () => setFilterQ("") }] : []),
           ]}
         />
+        <span className="relative inline-flex items-center">
+          <input
+            value={filterQ}
+            onChange={(e) => setFilterQ(e.target.value)}
+            placeholder="Tìm theo mã LK, mã đơn, người tạo/nhận…"
+            className="focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg pl-2.5 pr-7 py-1.5 text-sm w-64"
+          />
+          {/* FIX (ra soat UI 2026-08-27, hang muc #3): placeholder cu liet ke du 6 tieu chi, qua dai so
+              voi be rong o input - rut gon con vai tu khoa chinh, chuyen phan liet ke DAY DU sang
+              tooltip (dung lai component Tooltip da chot 2026-08-25 cho dung tinh huong nay). */}
+          <span className="absolute right-1.5">
+            <Tooltip text="Tìm theo: mã LK, tên LK, mã đơn, người tạo, người nhận, mã yêu cầu sự cố." />
+          </span>
+        </span>
       </div>
       {showFilters && (
         <div className="mb-3 bg-[var(--surface-100)] border border-[var(--line)] rounded-xl p-3 flex flex-col gap-3">
@@ -1192,7 +1209,7 @@ export function DonCuaToiTab({
               <KhuVucChipFilter value={filterKhuVuc} onChange={setFilterKhuVuc} options={khuVucOptions} />
             </div>
           )}
-          {(canBulkTram || (canTacNghiep && (nguoiNhanHangData?.rows.length ?? 0) > 0)) && (
+          {(canBulkTram || (showKhuVucFilter && (nguoiNhanHangData?.rows.length ?? 0) > 0)) && (
             <div className="flex gap-2 flex-wrap items-center">
               {canBulkTram && (
                 <div
@@ -1223,12 +1240,12 @@ export function DonCuaToiTab({
                   />
                 </div>
               )}
-              {canTacNghiep && (nguoiNhanHangData?.rows.length ?? 0) > 0 && (
+              {showKhuVucFilter && (nguoiNhanHangData?.rows.length ?? 0) > 0 && (
                 <Select
                   value={filterNguoiNhanHang}
                   onChange={setFilterNguoiNhanHang}
                   options={[
-                    { value: "", label: "Tất cả người nhận hàng" },
+                    { value: "", label: "Tất cả KTV (người nhận hàng)" },
                     ...(nguoiNhanHangData?.rows ?? []).map((r) => ({ value: r.email_dang_nhap, label: ktvOptionLabel(r, nguoiNhanHangData?.rows ?? []) })),
                   ]}
                 />
@@ -1800,10 +1817,13 @@ export function DonHangGroupedList({
                         // "Trạng thái" cua Drawer chi tiet phia tren (isDonTaoHo, helpers.ts).
                         ...(isDonTaoHo(d) ? [{ tone: "gray" as BadgeTone, label: "Đơn tạo hộ" }] : []),
                       ];
-                      // Tang len 3 (2026-08-27, cung dot rut gon the) - "card trang thai (3)" theo
-                      // dung yeu cau, gio dong 2 (SL/gia/YCSC/KH) da gop lai CHI CON 1 dong nen du cho
-                      // hien 3 badge tren dong 1 ma khong bi day qua dai.
-                      const MAX_BADGE = 3;
+                      // SUA (phan hoi 2026-08-28: "dòng 1 60% diện tích cho tên linh kiện, 40% còn lại
+                      // cho card trạng thái, không đủ thì ẩn bớt và hiện (N)") - giam tu 3 xuong 2 de
+                      // thuc su vua trong ~40% chieu rong 1 the mobile (badge dai nhu "Chờ TBP DVBH xác
+                      // nhận" van co the vuot neu giu 3), phoi hop voi flex-[3]/flex-[2] o JSX ben duoi
+                      // (60/40) - ten LK gio LUON co toi thieu 60% dam bao doc duoc, khong con bi cum
+                      // badge chiem het truoc nhu MAX_BADGE=3 + shrink-0 truoc day.
+                      const MAX_BADGE = 2;
                       const shownBadges = badges.slice(0, MAX_BADGE);
                       const extraBadgeCount = badges.length - shownBadges.length;
                       return (
@@ -1827,26 +1847,33 @@ export function DonHangGroupedList({
                             />
                           )}
                           <div className="flex-1 min-w-0">
-                            {/* Dong 1: ten LK (trai, 1 dong truncate) + cum badge don goc phai. */}
-                            <div className="flex items-start justify-between gap-2">
+                            {/* Dong 1: ten LK (trai, ~60% rong, 1 dong truncate) + cum badge trang thai
+                                (phai, ~40% rong toi da) - SUA (phan hoi 2026-08-28: "60% tên linh
+                                kiện, 40% card trạng thái, không đủ thì ẩn bớt và hiện (N)"): truoc day
+                                ten dung flex-1 (chi la "phan con lai") + badge dung shrink-0 (LUON du
+                                cho, co the lan at ten neu badge dai) - doi lai thanh flex-[3]/flex-[2]
+                                RO RANG de ten LUON co toi thieu ~60%, cum badge bi ep toi da ~40% that
+                                su (overflow-hidden + MAX_BADGE=2 phoi hop nhau tranh badge bi cat dut
+                                giua chung). */}
+                            <div className="flex items-start gap-2">
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); openLkDetail(d.ma_lk); }}
                                 title="Xem chi tiết linh kiện"
-                                className={`min-w-0 flex-1 truncate text-left font-medium text-sm hover:underline hover:text-[var(--ocean-600)] ${rowStyle}`}
+                                className={`min-w-0 flex-[3] truncate text-left font-medium text-sm hover:underline hover:text-[var(--ocean-600)] ${rowStyle}`}
                               >
                                 {d.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
                                 {d.ten_lk_snapshot ?? d.ma_lk}
                                 {!!d.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
                               </button>
-                              <div className="flex items-center gap-1 shrink-0">
+                              <div className="flex-[2] flex items-center justify-end gap-1 min-w-0 overflow-hidden shrink-0">
                                 {shownBadges.map((b, i) => (
                                   <Badge key={i} tone={b.tone}>{b.label}</Badge>
                                 ))}
                                 {extraBadgeCount > 0 && (
                                   <span
                                     title="Xem đầy đủ trạng thái trong chi tiết"
-                                    className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--ink-500)] text-white text-[10px] font-bold leading-none"
+                                    className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--ink-500)] text-white text-[10px] font-bold leading-none shrink-0"
                                   >
                                     +{extraBadgeCount}
                                   </span>

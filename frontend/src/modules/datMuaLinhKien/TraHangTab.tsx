@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
-import { Badge } from "../../components/ui/Badge";
+import { Badge, type BadgeTone } from "../../components/ui/Badge";
 import { Modal } from "../../components/ui/Modal";
 import { Drawer, DrawerNavButtons, useDrawerArrowNav } from "../../components/ui/Drawer";
 import { Select } from "../../components/ui/Select";
-import { PaginatedTable, type Column } from "../../components/ui/PaginatedTable";
-import { useColumnConfig } from "../../components/ui/useColumnConfig";
-import { ColumnSettingsButton } from "../../components/ui/ColumnHeader";
+import { type Column } from "../../components/ui/PaginatedTable";
+import { useColumnConfig, type ColumnConfig } from "../../components/ui/useColumnConfig";
+import { ColumnSettingsButton, ResizableHeaderCell } from "../../components/ui/ColumnHeader";
 import { KvRow } from "../../components/ui/KvRow";
 import { SectionTitle } from "../../components/ui/SectionTitle";
 import { Timeline } from "../../components/ui/Timeline";
@@ -18,7 +18,7 @@ import { compressImage } from "../../lib/imageCompress";
 import type { TraHangRow } from "./types";
 import { TRA_HANG_TRANG_THAI_TONE, TRA_HANG_TRANG_THAI_OPTIONS, TRA_HANG_BULK_ERROR_MESSAGES } from "./constants";
 import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, useNenAnhTraHangEnabled } from "./helpers";
-import { ActiveFiltersBar, TrangThaiChipFilter, BulkConfirmButton, FilterSearchBar, StatusBadge } from "./SharedUi";
+import { ActiveFiltersBar, TrangThaiChipFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, DetailZone, QuickStat } from "./SharedUi";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -283,8 +283,13 @@ export function TraHangTab({
 
   const cols: Column<TraHangRow>[] = [
     {
+      // SUA (2026-08-28, doi tu PaginatedTable phang sang TraHangGroupedList nhom-theo-KTV, khop kien
+      // truc DonHangGroupedList/ThieuLkGroupedList): "chọn tất cả" khong con nam trong header cot nay
+      // nua (1 bang PHANG duy nhat truoc day chi co 1 header; gio moi nhom KTV la 1 bang RIENG nen
+      // header rieng khong the dai dien "chọn tất cả" XUYEN SUOT moi nhom) - chuyen thanh 1 hang rieng
+      // phia tren danh sach (xem "rowsCoTheChon.length > 1" ben duoi), dung pattern voi 2 tab kia.
       key: "chon",
-      header: <input type="checkbox" checked={rowsCoTheChon.length > 0 && selected.size === rowsCoTheChon.length} onChange={toggleSelectAll} />,
+      header: "",
       render: (r: TraHangRow) =>
         canXuLy(r.trang_thai_tra_hang) ? (
           <span onClick={(e) => e.stopPropagation()}>
@@ -387,26 +392,42 @@ export function TraHangTab({
         onSearchChange={setFilterQ}
         searchPlaceholder="Tìm theo mã đơn, mã LK, tên LK, người tạo..."
         trailing={settingsButtonEl}
+        activeFilters={
+          // SUA (ra soat #3): bo chip "Trạng thái: ..." - da hien TRUNG voi chip dang to sang trong
+          // TrangThaiChipFilter ngay ben tren.
+          <ActiveFiltersBar
+            chips={[
+              ...(filterNguoiTao ? [{ label: `KTV: ${formatNguoiDisplay(filterNguoiTao, ktvDisplayMap)}`, onClear: () => setFilterNguoiTao("") }] : []),
+              ...(filterQ ? [{ label: `Tìm: "${filterQ}"`, onClear: () => setFilterQ("") }] : []),
+            ]}
+          />
+        }
       >
         <TrangThaiChipFilter value={filterTrangThai} onChange={setFilterTrangThai} options={TRA_HANG_TRANG_THAI_OPTIONS} />
-        {nguoiTaoOptions.length > 1 && (
+        {/* FIX (phan hoi 2026-08-28: "Thiếu công cụ filter theo KTV") - bo dieu kien "> 1" (truoc day
+            an han Select khi trang hien tai chi co 1 nguoi tao, khien bo loc bien mat that thuong tuy
+            trang dang xem) - hien LUON khi co it nhat 1 lua chon, dung nguon KHONG phan trang
+            (nguoiTaoOptionsData, xem query rieng o tren) nen danh sach KTV luon day du bat ke dang o
+            trang nao/loc gi. */}
+        {nguoiTaoOptions.length > 0 && (
           <div className="flex gap-2 flex-wrap">
             <Select
               value={filterNguoiTao}
               onChange={(v) => { setFilterNguoiTao(v); setPage(1); }}
-              options={[{ value: "", label: "Tất cả người tạo" }, ...nguoiTaoOptions.map((email) => ({ value: email, label: formatNguoiDisplay(email, ktvDisplayMap) }))]}
+              options={[{ value: "", label: "Tất cả KTV (người tạo)" }, ...nguoiTaoOptions.map((email) => ({ value: email, label: formatNguoiDisplay(email, ktvDisplayMap) }))]}
             />
           </div>
         )}
       </FilterSearchBar>
-      {/* SUA (ra soat #3): bo chip "Trạng thái: ..." - da hien TRUNG voi chip dang to sang trong
-          TrangThaiChipFilter ngay ben tren. */}
-      <ActiveFiltersBar
-        chips={[
-          ...(filterNguoiTao ? [{ label: "Người tạo đã lọc", onClear: () => setFilterNguoiTao("") }] : []),
-          ...(filterQ ? [{ label: `Tìm: "${filterQ}"`, onClear: () => setFilterQ("") }] : []),
-        ]}
-      />
+      {/* Dong bo pattern "Chọn tất cả" voi ThieuLkTab.tsx/DonHangGroupedList (2026-08-28, cung dot
+          chuyen sang TraHangGroupedList) - dat O DAY (thanh phan cha), ap dung xuyen suot MOI nhom KTV
+          tren trang, khong rieng 1 nhom. */}
+      {rowsCoTheChon.length > 1 && (
+        <div className="flex items-center gap-2 mb-2 text-xs">
+          <input type="checkbox" checked={selected.size === rowsCoTheChon.length} onChange={toggleSelectAll} />
+          <span className="text-[var(--ink-500)]">Chọn tất cả {rowsCoTheChon.length} dòng có thể xử lý (trên mọi nhóm KTV ở trang này)</span>
+        </div>
+      )}
       {selected.size > 0 && (
         <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--ocean-100)] border border-[var(--ocean-800)]/30 rounded-lg px-3 py-2">
           <span className="text-sm font-bold text-[var(--ocean-900)]">Đã chọn {selected.size} dòng</span>
@@ -427,7 +448,7 @@ export function TraHangTab({
           </Btn>
         </div>
       )}
-      <PaginatedTable
+      <TraHangGroupedList
         columns={cols}
         rows={data?.rows ?? []}
         isLoading={isLoading}
@@ -436,10 +457,9 @@ export function TraHangTab({
         pageSize={20}
         total={data?.total ?? 0}
         onPageChange={setPage}
-        rowKey={(r) => r.id}
         columnConfig={columnConfig}
-        onRowClick={(r) => setDetailId(r.id)}
-        rowClassName={(r) => (r.uu_tien === 1 ? "bg-[var(--orange-100)] hover:brightness-95" : "")}
+        onDetail={(id) => setDetailId(id)}
+        ktvDisplayMap={ktvDisplayMap}
       />
       {detailId && (
         <TraHangDetailModal
@@ -553,6 +573,175 @@ export function TraHangTab({
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+// SUA (2026-08-28, phan hoi ra soat UI "màn Trả hàng vẫn dùng bảng/card mặc định (chưa redesign)"):
+// doi tu PaginatedTable (1 bang PHANG + the mobile TU DONG dang "nhãn: giá trị") sang danh sach NHOM
+// THEO KTV (nguoi_tao), dung KIEN TRUC GIONG HET ThieuLkGroupedList/DonHangGroupedList - 1 <table>
+// rieng/nhom tren desktop, the doc 2-DONG tren mobile (dong 1: ten LK ~60% + badge trang thai ~40%,
+// dong 2: SL + ngay tao), khop dung chuan da ap dung cho "Đơn của tôi". Nhan `columns`/`columnConfig`
+// tu component cha (TraHangTab da goi useColumnConfig o do de dat nut "⚙" trong FilterSearchBar, xem
+// comment goc 2026-08-21) - KHONG tu goi lai hook o day, tranh 2 nguon state cot lech nhau.
+function TraHangGroupedList({
+  columns, rows, isLoading, isError, page, pageSize, total, onPageChange, onDetail, ktvDisplayMap, columnConfig,
+}: {
+  columns: Column<TraHangRow>[];
+  rows: TraHangRow[];
+  isLoading: boolean;
+  isError: boolean;
+  page: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (p: number) => void;
+  onDetail: (id: string) => void;
+  ktvDisplayMap: ReturnType<typeof useKtvDisplayMap>;
+  columnConfig: ColumnConfig<TraHangRow>;
+}) {
+  const { effectiveColumns, colWidths, dragOverKey, setDragOverKey, draggedColKey, handleColumnDrop, handleResizeStart } = columnConfig;
+  const chonCol = columns.find((c) => c.key === "chon");
+  const actionsCol = columns.find((c) => c.key === "actions");
+
+  if (isLoading) return <div className="text-sm text-[var(--ink-500)] py-6 text-center">Đang tải...</div>;
+  if (isError) return <div className="text-sm text-[var(--coral-500)] py-6 text-center">Lỗi tải dữ liệu.</div>;
+  if (rows.length === 0) return <div className="text-sm text-[var(--ink-400)] py-6 text-center">Không có dữ liệu.</div>;
+
+  const groups = new Map<string, TraHangRow[]>();
+  for (const r of rows) {
+    if (!groups.has(r.nguoi_tao)) groups.set(r.nguoi_tao, []);
+    groups.get(r.nguoi_tao)!.push(r);
+  }
+
+  return (
+    <div className="space-y-2">
+      {[...groups.entries()].map(([nguoiTao, dongCon]) => {
+        const dangCho = dongCon.filter((r) => !DA_DONG.includes(r.trang_thai_tra_hang)).length;
+        const daDong = dongCon.length - dangCho;
+        return (
+          <div key={nguoiTao} className="mb-4">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <SectionTitle>
+                KTV: {formatNguoiDisplay(nguoiTao, ktvDisplayMap)}
+                <span className="ml-1.5 font-normal normal-case tracking-normal text-[var(--ink-400)]">({dongCon.length} dòng)</span>
+              </SectionTitle>
+              <div className="flex items-center gap-1 flex-wrap mb-2">
+                {dangCho > 0 && <Badge tone="amber">{dangCho} đang chờ</Badge>}
+                {daDong > 0 && <Badge tone="teal">{daDong} đã xong</Badge>}
+              </div>
+            </div>
+            <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full min-w-[720px] text-xs border-collapse">
+                  <thead>
+                    <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+                      {effectiveColumns.map((col, idx) => (
+                        <ResizableHeaderCell
+                          key={col.key}
+                          col={col}
+                          idx={idx}
+                          isPinned={idx === 0}
+                          width={colWidths[col.key]}
+                          storageKey="dmlk-tra-hang-list"
+                          dragOverKey={dragOverKey}
+                          setDragOverKey={setDragOverKey}
+                          draggedColKey={draggedColKey}
+                          handleColumnDrop={handleColumnDrop}
+                          handleResizeStart={handleResizeStart}
+                          sortable={false}
+                          isActive={false}
+                        />
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dongCon.map((r) => (
+                      <tr
+                        key={r.id}
+                        onClick={() => onDetail(r.id)}
+                        className={`cursor-pointer transition-colors border-b border-[var(--line)] last:border-0 ${
+                          r.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)] hover:brightness-95" : "hover:bg-slate-50"
+                        }`}
+                      >
+                        {effectiveColumns.map((col) => {
+                          const width = colWidths[col.key];
+                          return (
+                            <td key={col.key} style={width ? { width, maxWidth: width, overflow: "hidden" } : undefined} className={`px-3 py-1.5 ${col.className ?? ""}`}>
+                              {col.render(r)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="sm:hidden divide-y divide-[var(--line)]">
+                {dongCon.map((r) => {
+                  // Dong 1: ten LK (~60%) + badge trang thai (~40%, cat bot + "+N" neu khong du cho) -
+                  // khop dung quy uoc "60/40 + (N) ẩn bớt" da ap dung cho DonCuaToiTab.tsx cung dot.
+                  const badges: { tone: BadgeTone; label: string }[] = [
+                    { tone: TRA_HANG_TRANG_THAI_TONE[r.trang_thai_tra_hang] ?? "gray", label: trangThaiLabel(TRA_HANG_TRANG_THAI_OPTIONS, r.trang_thai_tra_hang) },
+                  ];
+                  const MAX_BADGE = 2;
+                  const shownBadges = badges.slice(0, MAX_BADGE);
+                  const extraBadgeCount = badges.length - shownBadges.length;
+                  return (
+                    <div
+                      key={r.id}
+                      onClick={() => onDetail(r.id)}
+                      className={`cursor-pointer px-3 py-2.5 ${r.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)] active:brightness-95" : "active:bg-slate-50"}`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {chonCol && (
+                          <span className="mt-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>{chonCol.render(r)}</span>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start gap-2">
+                            <span className="min-w-0 flex-[3] truncate text-sm font-medium">
+                              {r.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
+                              {r.ten_lk_snapshot ?? r.ma_lk}
+                            </span>
+                            <div className="flex-[2] flex items-center justify-end gap-1 min-w-0 overflow-hidden shrink-0">
+                              {shownBadges.map((b, i) => (
+                                <Badge key={i} tone={b.tone}>{b.label}</Badge>
+                              ))}
+                              {extraBadgeCount > 0 && (
+                                <span
+                                  title="Xem đầy đủ trạng thái trong chi tiết"
+                                  className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--ink-500)] text-white text-[10px] font-bold leading-none shrink-0"
+                                >
+                                  +{extraBadgeCount}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-[var(--ink-500)] mt-1">
+                            <span>Mã đơn {r.id}</span>
+                            <span>·</span>
+                            <span>SL:{r.so_luong_de_xuat}</span>
+                            <span>·</span>
+                            <span>{fmtDateTime(r.ngay_tao)}</span>
+                          </div>
+                          {actionsCol && <div className="mt-1.5">{actionsCol.render(r)}</div>}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+      <div className="flex items-center justify-between px-1 py-2 text-xs text-[var(--ink-400)]">
+        <span>{total} dòng</span>
+        <div className="flex gap-1">
+          <Btn variant="ghost" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>‹</Btn>
+          <span className="px-2 py-1.5">{page}/{Math.max(1, Math.ceil(total / pageSize))}</span>
+          <Btn variant="ghost" size="sm" disabled={page * pageSize >= total} onClick={() => onPageChange(page + 1)}>›</Btn>
+        </div>
+      </div>
     </div>
   );
 }
@@ -746,7 +935,10 @@ function TraHangDetailModal({
     )}
     <Drawer
       open
-      title={`Đơn trả hàng ${id}`}
+      // SUA (ra soat UI/UX 2026-08-28, van de #1: "tên linh kiện tạo thành tiêu đề trên cùng",
+      // "sửa chung cho 1 màn rồi áp dụng ra") - khop dung cau truc da doi cho DonHangDetailModal
+      // (DonCuaToiTab.tsx): tieu de la ID truoc day, gio la ten LK.
+      title={d ? (d.ten_lk_snapshot ?? d.ma_lk) : `Đơn trả hàng ${id}`}
       onClose={onClose}
       footer={footer}
       headerExtra={
@@ -763,24 +955,27 @@ function TraHangDetailModal({
       {isLoading ? (
         <div className="text-sm text-[var(--ink-500)] py-4 text-center">Đang tải...</div>
       ) : !d ? null : (
-        <div className="text-sm">
-          {/* Khoi thong tin don + lich su xu ly doi sang KvRow/SectionTitle/Timeline (concept 1
-              "Structured Neutral" da duyet, 2026-08-24, pattern .kv/.section-title/.timeline). */}
-          <SectionTitle>Thông tin đơn</SectionTitle>
-          <KvRow label="Người tạo">{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</KvRow>
-          <KvRow label="Ngày tạo">{fmtDateTime(d.ngay_tao)}</KvRow>
-          <KvRow label="Trạng thái">
-            <div className="flex items-center gap-2 flex-wrap">
-              <StatusBadge value={trangThai} tones={TRA_HANG_TRANG_THAI_TONE} options={TRA_HANG_TRANG_THAI_OPTIONS} />
-              {d.uu_tien === 1 && <PriorityTag />}
+        <div className="text-sm space-y-4">
+          {/* SUA (ra soat UI/UX 2026-08-28, "sửa chung cho 1 màn rồi áp dụng ra") - khop dung cau truc
+              da doi cho DonHangDetailModal (DonCuaToiTab.tsx): dai "chỉ số nhanh" + DetailZone thay
+              cho khoi KvRow/SectionTitle phang truoc day. */}
+          <div className="flex items-start gap-4 flex-wrap pb-3 border-b border-[var(--line)]">
+            <QuickStat label="SL" value={d.so_luong_de_xuat} />
+            <div className="flex-1 min-w-[160px]">
+              <div className="text-[10px] uppercase tracking-wide text-[var(--ink-400)] font-bold mb-1">Trạng thái</div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <StatusBadge value={trangThai} tones={TRA_HANG_TRANG_THAI_TONE} options={TRA_HANG_TRANG_THAI_OPTIONS} />
+                {d.uu_tien === 1 && <PriorityTag />}
+              </div>
             </div>
-          </KvRow>
-          <KvRow label="Mã LK">
-            <span className="font-mono text-xs text-[var(--ink-500)] mr-1.5">{d.ma_lk}</span>
-            <span className="font-semibold">{d.ten_lk_snapshot ?? d.ma_lk}</span>
-          </KvRow>
-          <KvRow label="SL">{d.so_luong_de_xuat}</KvRow>
-          {d.ghi_chu && <KvRow label="Ghi chú">{d.ghi_chu}</KvRow>}
+          </div>
+
+          <DetailZone title="Thông tin đơn">
+            <KvRow label="Người tạo">{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</KvRow>
+            <KvRow label="Ngày tạo">{fmtDateTime(d.ngay_tao)}</KvRow>
+            <KvRow label="Mã LK"><span className="font-mono text-xs">{d.ma_lk}</span></KvRow>
+            {d.ghi_chu && <KvRow label="Ghi chú">{d.ghi_chu}</KvRow>}
+          </DetailZone>
 
           {/* Anh tra hang (them 2026-08-24, muc 3: "các ảnh này các vai trò liên quan đến có thể xem
               được") - moi vai tro xem duoc chi tiet don nay deu xem duoc ca 2 nhom anh. */}
@@ -789,8 +984,7 @@ function TraHangDetailModal({
             const anhQc = (data?.anh ?? []).filter((a) => a.loai === "qc_tu_choi");
             if (anhTaoMoi.length === 0 && anhQc.length === 0) return null;
             return (
-              <>
-                <SectionTitle>Ảnh</SectionTitle>
+              <DetailZone title="Ảnh">
                 {anhTaoMoi.length > 0 && (
                   <KvRow label="Ảnh LK cần trả">
                     <div className="flex gap-1.5 flex-wrap">
@@ -809,11 +1003,11 @@ function TraHangDetailModal({
                     </div>
                   </KvRow>
                 )}
-              </>
+              </DetailZone>
             );
           })()}
 
-          <SectionTitle>Lịch sử xử lý</SectionTitle>
+          <SectionTitle className="mt-0">Lịch sử xử lý</SectionTitle>
           <Timeline
             items={(data?.logs ?? []).map((l) => ({
               title: (
