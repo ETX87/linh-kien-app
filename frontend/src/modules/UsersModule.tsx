@@ -164,6 +164,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
     la_view: !!user.la_view,
     quan_ly_danh_muc_lk: !!user.quan_ly_danh_muc_lk,
     xem_danh_muc_lk: !!user.xem_danh_muc_lk,
+    ma_misa: user.ma_misa ?? "",
   });
 
   const save = useMutation({
@@ -181,6 +182,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
         la_view: form.la_view,
         quan_ly_danh_muc_lk: form.quan_ly_danh_muc_lk,
         xem_danh_muc_lk: form.xem_danh_muc_lk,
+        ma_misa: form.ma_misa.trim() || null,
       }),
     onSuccess: onSaved,
   });
@@ -334,6 +336,14 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
             <div className="col-span-2 text-[11px] text-[var(--ink-400)] -mt-2">Sửa ở thẻ "KTV hiện trường" (Khu vực / KTV cấp 1 phụ trách).</div>
           </div>
         )}
+        <div>
+          <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Mã tài khoản MISA</label>
+          <input
+            value={form.ma_misa}
+            onChange={(e) => setForm({ ...form, ma_misa: e.target.value })}
+            className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1"
+          />
+        </div>
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={form.bi_khoa} onChange={(e) => setForm({ ...form, bi_khoa: e.target.checked })} />
           Khoá tài khoản
@@ -370,6 +380,7 @@ function VanPhongTab() {
   const columns: Column<UserRow>[] = [
     { key: "nguoi_dung", header: "Người dùng", render: (u) => formatPersonDisplay(u.email, personDir) },
     { key: "vai_tro", header: "Vai trò", render: (u) => u.vai_tro ?? "—" },
+    { key: "ma_misa", header: "Mã MISA", render: (u) => u.ma_misa ?? "—" },
     {
       key: "co_nghiep_vu",
       header: "Cờ nghiệp vụ",
@@ -455,6 +466,7 @@ const KTV_HEADER_LABELS: Record<string, string> = {
   khu_vuc_ma: "Khu vực",
   ktv_cap1_phu_trach: "KTV cấp 1 phụ trách (chỉ Vệ tinh)",
   cong_no: "Công nợ",
+  ma_misa: "Mã MISA",
   gmail: "Gmail",
   ghi_chu: "Ghi chú",
   nguoi_cap_nhat: "Người cập nhật",
@@ -478,6 +490,7 @@ async function downloadKtvImportTemplate() {
         giam_sat_quan_ly: "",
         khu_vuc_ma: "MB1",
         cong_no: 0,
+        ma_misa: "",
         ghi_chu: "",
       },
     ],
@@ -516,7 +529,7 @@ function KtvTab() {
   const [editing, setEditing] = useState<KtvLienHeRow | "new" | null>(null);
   const [form, setForm] = useState({
     ma_ktv: "", ten_hien_thi: "", sdt: "", vai_tro_ktv: "KTV" as KtvLienHeRow["vai_tro_ktv"], email_dang_nhap: "",
-    khu_vuc_ma: "", ktv_cap1_phu_trach: "", cong_no: "",
+    khu_vuc_ma: "", ktv_cap1_phu_trach: "", cong_no: "", ma_misa: "",
   });
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkRunning, setBulkRunning] = useState(false);
@@ -583,7 +596,7 @@ function KtvTab() {
 
   function openEdit(row: KtvLienHeRow | "new") {
     setEditing(row);
-    if (row === "new") setForm({ ma_ktv: "", ten_hien_thi: "", sdt: "", vai_tro_ktv: "KTV", email_dang_nhap: "", khu_vuc_ma: "", ktv_cap1_phu_trach: "", cong_no: "" });
+    if (row === "new") setForm({ ma_ktv: "", ten_hien_thi: "", sdt: "", vai_tro_ktv: "KTV", email_dang_nhap: "", khu_vuc_ma: "", ktv_cap1_phu_trach: "", cong_no: "", ma_misa: "" });
     else
       setForm({
         ma_ktv: row.ma_ktv,
@@ -594,6 +607,7 @@ function KtvTab() {
         khu_vuc_ma: row.khu_vuc_ma ?? "",
         ktv_cap1_phu_trach: row.ktv_cap1_phu_trach ?? "",
         cong_no: row.cong_no != null ? String(row.cong_no) : "",
+        ma_misa: row.ma_misa ?? "",
       });
   }
 
@@ -606,6 +620,7 @@ function KtvTab() {
         khu_vuc_ma: form.khu_vuc_ma || null,
         ktv_cap1_phu_trach: form.vai_tro_ktv === "Ve tinh" ? form.ktv_cap1_phu_trach || null : null,
         cong_no: form.cong_no !== "" ? Number(form.cong_no) : null,
+        ma_misa: form.ma_misa.trim() || null,
       });
     },
     onSuccess: async () => {
@@ -661,6 +676,7 @@ function KtvTab() {
     // FIX (ra soat UI 2026-08-27, hang muc #1): bo "(mã) Tên" lap lai truoc email - cot "Tên hiển thị"
     // da o ngay dau bang, khong can nhac lai o cot cuoi (giam ~50% do dai dong tren bang 25+ dong).
     { key: "email_dang_nhap", header: "Email đăng nhập", render: (r) => r.email_dang_nhap ?? "—" },
+    { key: "ma_misa", header: "Mã MISA", render: (r) => r.ma_misa ?? "—" },
     {
       key: "actions",
       header: "",
@@ -802,6 +818,10 @@ function KtvTab() {
               <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Email đăng nhập (Google)</label>
               <input value={form.email_dang_nhap} onChange={(e) => setForm({ ...form, email_dang_nhap: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
             </div>
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Mã tài khoản MISA</label>
+              <input value={form.ma_misa} onChange={(e) => setForm({ ...form, ma_misa: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
+            </div>
             {editing !== "new" && (
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Giám sát quản lý (tự động theo Khu vực)</label>
@@ -823,7 +843,7 @@ function KtvTab() {
         <div className="space-y-3">
           <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">
             File Excel có ít nhất cột <span className="font-mono">Mã KTV</span>.
-            <Tooltip text={`Các cột khác (Tên hiển thị, SĐT, Ghi chú, Vai trò, Gmail, Email đăng nhập, Email Giám sát quản lý, Khu vực, Công nợ) là tuỳ chọn. Mã đã tồn tại sẽ được cập nhật đè, mã chưa có sẽ được thêm mới. Nếu có "Email đăng nhập", hệ thống tự cấp tài khoản (đã duyệt sẵn) cho email đó — giống hệt khi ghép thủ công 1 dòng.`} />
+            <Tooltip text={`Các cột khác (Tên hiển thị, SĐT, Ghi chú, Vai trò, Gmail, Email đăng nhập, Email Giám sát quản lý, Khu vực, Công nợ, Mã MISA) là tuỳ chọn - có thể chỉ đưa vào file đúng cột nào muốn cập nhật (vd chỉ "Mã KTV" + "Tên hiển thị"), cột không có trong file sẽ giữ nguyên giá trị cũ, không bị xoá trắng. Mã đã tồn tại sẽ được cập nhật đè theo đúng các cột có mặt, mã chưa có sẽ được thêm mới. Nếu có "Email đăng nhập", hệ thống tự cấp tài khoản (đã duyệt sẵn) cho email đó — giống hệt khi ghép thủ công 1 dòng.`} />
           </div>
           {!bulkRunning && !bulkSummary && (
             <>

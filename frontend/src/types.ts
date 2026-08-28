@@ -41,6 +41,9 @@ export interface KtvLienHeRow {
   ktv_cap1_phu_trach: string | null;
   cong_no: number | null;
   cong_no_cap_nhat_luc: string | null;
+  // Them 2026-08-28 (phan hoi "thêm 1 cột tài khoản MISA cho admin bổ sung, có thể import") - truong
+  // tham chieu tu do, dung doi soat cheo voi phan mem ke toan MISA, khong FK/rang buoc gi.
+  ma_misa: string | null;
 }
 
 // Them 2026-08-26 (migration 0009) - 1 khu vuc chi 1 GS tai 1 thoi diem (gs_email), 1 GS duoc phep
@@ -84,6 +87,7 @@ export interface UserRow {
   xem_danh_muc_lk: number;
   tram_cha: string | null;
   giam_sat_quan_ly: string | null;
+  ma_misa: string | null;
 }
 
 export interface Paged<T> {

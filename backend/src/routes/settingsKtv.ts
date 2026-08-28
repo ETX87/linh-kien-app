@@ -147,17 +147,28 @@ async function provisionPlaceholderUser(
 }
 
 // POST /api/settings/ktv-lien-he/bulk-import - { rows: [{ma_ktv, ten_hien_thi?, sdt?, ghi_chu?,
-// vai_tro_ktv?, gmail?, giam_sat_quan_ly?, email_dang_nhap?}], offset } - nhap/cap nhat HANG LOAT
-// danh ba KTV tu file Excel (vd export tu he bao hanh goc), UPSERT theo ma_ktv (chay lai nhieu lan
-// an toan). Neu co email_dang_nhap, cap luon "users" placeholder qua provisionPlaceholderUser -
-// GIONG HET logic PATCH /:ma/dat-mua-lk o tren, chi khac o cho lam theo tung chunk. Chunk 25 dong/
+// vai_tro_ktv?, gmail?, giam_sat_quan_ly?, email_dang_nhap?, ma_misa?}], offset } - nhap/cap nhat
+// HANG LOAT danh ba KTV tu file Excel (vd export tu he bao hanh goc), UPSERT theo ma_ktv (chay lai
+// nhieu lan an toan). Neu co email_dang_nhap, cap luon "users" placeholder qua provisionPlaceholderUser
+// - GIONG HET logic PATCH /:ma/dat-mua-lk o tren, chi khac o cho lam theo tung chunk. Chunk 25 dong/
 // lan (thuan ghi DB, khong goi ngoai).
+//
+// FIX (phan hoi 2026-08-28: "import theo số cột trong file, cột không có trong file để nguyên") -
+// TRUOC DAY chi khu_vuc_ma/cong_no moi "giu nguyen neu khong truyen" (COALESCE/CASE WHEN), moi truong
+// con lai (ten_hien_thi, sdt, ghi_chu, gmail, vai_tro_ktv, giam_sat_quan_ly, email_dang_nhap) OVERWRITE
+// THANG bang excluded.X - neu file import chi co cot "Mã KTV"+"Tên hiển thị" (khong co cot SĐT/Ghi
+// chú/...), pickKtvField() o frontend tra ve undefined cho cac cot thieu -> gui len day thanh
+// null -> XOA MAT du lieu cu cua CA CAC TRUONG KHONG CO Y DINH SUA. Doi TOAN BO cac truong con lai
+// sang cung 1 pattern COALESCE(excluded.X, ktv_lien_he.X) - dong bo voi khu_vuc_ma/cong_no da co san,
+// dam bao "cot khong co trong file = giu nguyen gia tri cu" cho MOI truong, dung nhu yeu cau. Danh
+// doi CHAP NHAN DUOC: khong the dung import de XOA TRANG 1 truong da co gia tri (vd muon xoa Ghi chú
+// cu) - phai sua tay tung dong o Modal "Sửa KTV", giong han che da co san voi khu_vuc_ma/cong_no.
 settingsKtv.post("/bulk-import", adminOnly, async (c) => {
   const body = await c.req.json<{
     rows: {
       ma_ktv: string; ten_hien_thi?: string; sdt?: string; ghi_chu?: string;
       vai_tro_ktv?: string; gmail?: string; giam_sat_quan_ly?: string; email_dang_nhap?: string;
-      khu_vuc_ma?: string; cong_no?: number;
+      khu_vuc_ma?: string; cong_no?: number; ma_misa?: string;
     }[];
     offset: number;
   }>();
@@ -194,22 +205,28 @@ settingsKtv.post("/bulk-import", adminOnly, async (c) => {
     // giu nguyen gia tri cu, khac cac truong khac o tren vi day la 2 truong MOI, file import cu chua
     // co cot nay se khong vo tinh xoa mat du lieu da gan tay truoc do qua PATCH /:ma/dat-mua-lk).
     const khuVucMa = row.khu_vuc_ma?.trim() || null;
+    const maMisa = row.ma_misa?.trim() || null;
     try {
       await c.env.DB.prepare(
-        `INSERT INTO ktv_lien_he (ma_ktv, ten_hien_thi, sdt, ghi_chu, gmail, vai_tro_ktv, giam_sat_quan_ly, email_dang_nhap, khu_vuc_ma, cong_no, cong_no_cap_nhat_luc, nguoi_cap_nhat, ngay_cap_nhat)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO ktv_lien_he (ma_ktv, ten_hien_thi, sdt, ghi_chu, gmail, vai_tro_ktv, giam_sat_quan_ly, email_dang_nhap, khu_vuc_ma, cong_no, cong_no_cap_nhat_luc, ma_misa, nguoi_cap_nhat, ngay_cap_nhat)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(ma_ktv) DO UPDATE SET
-           ten_hien_thi = excluded.ten_hien_thi, sdt = excluded.sdt, ghi_chu = excluded.ghi_chu,
-           gmail = excluded.gmail, vai_tro_ktv = excluded.vai_tro_ktv,
-           giam_sat_quan_ly = excluded.giam_sat_quan_ly, email_dang_nhap = excluded.email_dang_nhap,
+           ten_hien_thi = COALESCE(excluded.ten_hien_thi, ktv_lien_he.ten_hien_thi),
+           sdt = COALESCE(excluded.sdt, ktv_lien_he.sdt),
+           ghi_chu = COALESCE(excluded.ghi_chu, ktv_lien_he.ghi_chu),
+           gmail = COALESCE(excluded.gmail, ktv_lien_he.gmail),
+           vai_tro_ktv = COALESCE(excluded.vai_tro_ktv, ktv_lien_he.vai_tro_ktv),
+           giam_sat_quan_ly = COALESCE(excluded.giam_sat_quan_ly, ktv_lien_he.giam_sat_quan_ly),
+           email_dang_nhap = COALESCE(excluded.email_dang_nhap, ktv_lien_he.email_dang_nhap),
            khu_vuc_ma = COALESCE(excluded.khu_vuc_ma, ktv_lien_he.khu_vuc_ma),
            cong_no = CASE WHEN excluded.cong_no IS NOT NULL THEN excluded.cong_no ELSE ktv_lien_he.cong_no END,
            cong_no_cap_nhat_luc = CASE WHEN excluded.cong_no IS NOT NULL THEN excluded.cong_no_cap_nhat_luc ELSE ktv_lien_he.cong_no_cap_nhat_luc END,
+           ma_misa = COALESCE(excluded.ma_misa, ktv_lien_he.ma_misa),
            nguoi_cap_nhat = excluded.nguoi_cap_nhat, ngay_cap_nhat = excluded.ngay_cap_nhat`,
       )
         .bind(
           ma, tenHienThi, row.sdt?.trim() || null, row.ghi_chu?.trim() || null, row.gmail?.trim() || null, vaiTroKtv, giamSatQuanLy, emailDangNhap,
-          khuVucMa, row.cong_no ?? null, row.cong_no !== undefined ? now : null, user.email, now,
+          khuVucMa, row.cong_no ?? null, row.cong_no !== undefined ? now : null, maMisa, user.email, now,
         )
         .run();
 
@@ -243,15 +260,15 @@ settingsKtv.patch("/:ma/dat-mua-lk", adminOnly, async (c) => {
   const ma = c.req.param("ma");
   const body = await c.req.json<{
     gmail?: string | null; vai_tro_ktv?: string | null; giam_sat_quan_ly?: string | null; email_dang_nhap?: string | null;
-    khu_vuc_ma?: string | null; ktv_cap1_phu_trach?: string | null; cong_no?: number | null;
+    khu_vuc_ma?: string | null; ktv_cap1_phu_trach?: string | null; cong_no?: number | null; ma_misa?: string | null;
   }>();
   const existing = await c.env.DB.prepare(
-    "SELECT ten_hien_thi, gmail, vai_tro_ktv, giam_sat_quan_ly, email_dang_nhap, khu_vuc_ma, ktv_cap1_phu_trach, cong_no FROM ktv_lien_he WHERE ma_ktv = ?",
+    "SELECT ten_hien_thi, gmail, vai_tro_ktv, giam_sat_quan_ly, email_dang_nhap, khu_vuc_ma, ktv_cap1_phu_trach, cong_no, ma_misa FROM ktv_lien_he WHERE ma_ktv = ?",
   )
     .bind(ma)
     .first<{
       ten_hien_thi: string | null; gmail: string | null; vai_tro_ktv: string | null; giam_sat_quan_ly: string | null; email_dang_nhap: string | null;
-      khu_vuc_ma: string | null; ktv_cap1_phu_trach: string | null; cong_no: number | null;
+      khu_vuc_ma: string | null; ktv_cap1_phu_trach: string | null; cong_no: number | null; ma_misa: string | null;
     }>();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
 
@@ -267,6 +284,7 @@ settingsKtv.patch("/:ma/dat-mua-lk", adminOnly, async (c) => {
     khu_vuc_ma: body.khu_vuc_ma !== undefined ? body.khu_vuc_ma?.trim() || null : existing.khu_vuc_ma,
     ktv_cap1_phu_trach: body.ktv_cap1_phu_trach !== undefined ? body.ktv_cap1_phu_trach?.trim() || null : existing.ktv_cap1_phu_trach,
     cong_no: body.cong_no !== undefined ? body.cong_no : existing.cong_no,
+    ma_misa: body.ma_misa !== undefined ? body.ma_misa?.trim() || null : existing.ma_misa,
   };
 
   if (next.khu_vuc_ma) {
@@ -284,10 +302,10 @@ settingsKtv.patch("/:ma/dat-mua-lk", adminOnly, async (c) => {
   const congNoCapNhatLuc = congNoChanged ? nowVN() : undefined;
 
   await c.env.DB.prepare(
-    `UPDATE ktv_lien_he SET gmail = ?, vai_tro_ktv = ?, giam_sat_quan_ly = ?, email_dang_nhap = ?, khu_vuc_ma = ?, ktv_cap1_phu_trach = ?, cong_no = ?${congNoChanged ? ", cong_no_cap_nhat_luc = ?" : ""} WHERE ma_ktv = ?`,
+    `UPDATE ktv_lien_he SET gmail = ?, vai_tro_ktv = ?, giam_sat_quan_ly = ?, email_dang_nhap = ?, khu_vuc_ma = ?, ktv_cap1_phu_trach = ?, cong_no = ?, ma_misa = ?${congNoChanged ? ", cong_no_cap_nhat_luc = ?" : ""} WHERE ma_ktv = ?`,
   )
     .bind(
-      ...[next.gmail, next.vai_tro_ktv, next.giam_sat_quan_ly, next.email_dang_nhap, next.khu_vuc_ma, next.ktv_cap1_phu_trach, next.cong_no ?? null],
+      ...[next.gmail, next.vai_tro_ktv, next.giam_sat_quan_ly, next.email_dang_nhap, next.khu_vuc_ma, next.ktv_cap1_phu_trach, next.cong_no ?? null, next.ma_misa],
       ...(congNoChanged ? [congNoCapNhatLuc] : []),
       ma,
     )

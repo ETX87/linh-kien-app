@@ -5,7 +5,7 @@
 export interface BulkImportKtvRow {
   ma_ktv: string; ten_hien_thi?: string; sdt?: string; ghi_chu?: string;
   vai_tro_ktv?: string; gmail?: string; giam_sat_quan_ly?: string; email_dang_nhap?: string;
-  khu_vuc_ma?: string; cong_no?: number;
+  khu_vuc_ma?: string; cong_no?: number; ma_misa?: string;
 }
 export interface BulkImportKtvChunkResult {
   done: boolean; nextOffset: number; success: number; errorCount: number;
@@ -61,6 +61,7 @@ export async function parseKtvImportFile(file: File): Promise<BulkImportKtvRow[]
       email_dang_nhap: pickKtvField(raw, ["Email đăng nhập", "Email dang nhap", "email_dang_nhap"]),
       khu_vuc_ma: pickKtvField(raw, ["Khu vực", "Khu vuc", "khu_vuc_ma"]),
       cong_no: congNoRaw ? Number(congNoRaw.replace(/[^\d.-]/g, "")) || undefined : undefined,
+      ma_misa: pickKtvField(raw, ["Mã MISA", "Ma MISA", "ma_misa"]),
     });
   }
   return rows;
