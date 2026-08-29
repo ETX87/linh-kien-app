@@ -34,6 +34,12 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: "dat-mua-lk", label: "Đơn hàng", icon: "◈", countKey: "datMuaLk" },
       { key: "thieu-lk", label: "Chờ LK", icon: "📦" },
       { key: "danh-muc-lk", label: "Bảng Giá", icon: "🔧" },
+      // "Tồn kho công nợ KTV" (chuyen ra khoi Settings 2026-08-29, phan hoi nguoi dung: "Đẩy thẻ
+      // 'Tồn kho công nợ KTV' ra ngoài menu" - truoc day chi la 1 tab Settings nen CHI Admin vao
+      // duoc, gio la muc Sidebar rieng mo cho KTV/Ve tinh (chi xem chinh minh)/Giam sat (theo Khu
+      // vuc)/la_view (theo Khu vuc)/cac vai tro con lai (xem toan bo) - xem TonKhoKtvModule.tsx +
+      // scopeKtvTonKho() o backend/src/routes/ktvTonKho.ts.
+      { key: "ton-kho-ktv", label: "Tồn kho công nợ KTV", icon: "🧾" },
       // Lien ket ra ngoai (them 2026-08-25) - xem giai thich day du o NavItem.href phia tren.
       { key: "sua-chua-bao-hanh", label: "Sửa chữa", icon: "🛠", href: "https://suachua.dichvu3t.workers.dev" },
     ],
@@ -55,8 +61,8 @@ export const ROLE_MODULES: Record<VaiTro, string[]> = {
   // "trang-chu"/"thieu-lk" them vao day (phan hoi 2026-08-26) - QC/Giam sat truoc day van xem duoc 2
   // man nay qua tab noi bo cua "dat-mua-lk" (tabs[] khong loc theo canQC/isGiamSat cho 2 key nay),
   // nen gio phai duoc cap quyen tuong duong o cap muc menu moi de khong mat quyen truy cap.
-  QC: ["trang-chu", "dat-mua-lk", "thieu-lk", "danh-muc-lk"],
-  "Giam sat": ["trang-chu", "dat-mua-lk", "thieu-lk", "danh-muc-lk"],
+  QC: ["trang-chu", "dat-mua-lk", "thieu-lk", "danh-muc-lk", "ton-kho-ktv"],
+  "Giam sat": ["trang-chu", "dat-mua-lk", "thieu-lk", "danh-muc-lk", "ton-kho-ktv"],
 };
 
 export const MODULE_TITLES: Record<string, string> = {
@@ -65,6 +71,7 @@ export const MODULE_TITLES: Record<string, string> = {
   "thieu-lk": "Chờ LK",
   "tra-hang": "Đơn trả hàng",
   "danh-muc-lk": "Bảng Giá",
+  "ton-kho-ktv": "Tồn kho công nợ KTV",
   settings: "Settings",
   users: "Quản lý User",
 };

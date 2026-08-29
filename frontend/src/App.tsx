@@ -10,6 +10,7 @@ import { BottomTabBar } from "./layout/BottomTabBar";
 import { ROLE_MODULES, MODULE_TITLES, NAV_GROUPS } from "./layout/navConfig";
 import { DatMuaLinhKienModule } from "./modules/DatMuaLinhKienModule";
 import { DanhMucLinhKienModule } from "./modules/DanhMucLinhKienModule";
+import { TonKhoKtvModule } from "./modules/TonKhoKtvModule";
 import { SettingsModule } from "./modules/SettingsModule";
 import { UsersModule } from "./modules/UsersModule";
 import { api } from "./api/client";
@@ -74,7 +75,10 @@ function MainApp({
     // "trang-chu"/"thieu-lk" them vao day (phan hoi 2026-08-26: tach thanh muc menu rieng, truoc day
     // la 2 tab NOI BO cua "dat-mua-lk" hien khong dieu kien theo flag nao - gio phai duoc cap o day de
     // giu dung pham vi truy cap cu). "trang-chu" dat DAU TIEN de lam allowedModules[0] (tab mac dinh).
-    allowedModules = [...new Set([...allowedModules, "trang-chu", "dat-mua-lk", "thieu-lk", "tra-hang"])];
+    // "ton-kho-ktv" them 2026-08-29 (chuyen ra khoi Settings) - CA 7 co deu duoc cap muc menu, du lieu
+    // XEM DUOC loc rieng theo tung co o backend (scopeKtvTonKho() trong routes/ktvTonKho.ts) - PHAI
+    // khop voi requireDatMuaLkArea.ts (dung lai lam module gate cho ca router ktvTonKho.ts).
+    allowedModules = [...new Set([...allowedModules, "trang-chu", "dat-mua-lk", "thieu-lk", "tra-hang", "ton-kho-ktv"])];
   }
   if (role !== "Admin" && (user.xem_danh_muc_lk || user.quan_ly_danh_muc_lk)) {
     allowedModules = [...new Set([...allowedModules, "danh-muc-lk"])];
@@ -241,6 +245,7 @@ function MainApp({
             />
           )}
           {active === "danh-muc-lk" && <DanhMucLinhKienModule />}
+          {active === "ton-kho-ktv" && <TonKhoKtvModule />}
           {active === "settings" && <SettingsModule />}
           {active === "users" && <UsersModule />}
         </main>

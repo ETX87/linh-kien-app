@@ -693,7 +693,7 @@ function KtvTab() {
       : []),
     {
       key: "cong_no",
-      header: "Công nợ",
+      header: "Trần công nợ",
       render: (r) =>
         r.cong_no != null ? (
           // FIX (ra soat UI 2026-08-27): tooltip truoc day hien nguyen chuoi gio VN "tho" tu DB, khong
@@ -740,8 +740,8 @@ function KtvTab() {
   return (
     <div className="space-y-3">
       <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">
-        Danh bạ + tài khoản KTV/CTV/Trạm/Vệ tinh - dùng để chọn "người nhận hàng" khi tạo đơn, đồng thời là nơi gán Khu vực/KTV cấp 1 phụ trách/Công nợ.
-        <Tooltip text={`Ghép "Email đăng nhập" để hệ thống tự cấp tài khoản (đã duyệt sẵn) khi người đó đăng nhập Google lần đầu. "KTV cấp 1 phụ trách" chỉ áp dụng cho Vệ tinh. Công nợ nhập tay/import Excel định kỳ, không đồng bộ tự động.`} />
+        Danh bạ + tài khoản KTV/CTV/Trạm/Vệ tinh - dùng để chọn "người nhận hàng" khi tạo đơn, đồng thời là nơi gán Khu vực/KTV cấp 1 phụ trách/Trần công nợ.
+        <Tooltip text={`Ghép "Email đăng nhập" để hệ thống tự cấp tài khoản (đã duyệt sẵn) khi người đó đăng nhập Google lần đầu. "KTV cấp 1 phụ trách" chỉ áp dụng cho Vệ tinh. Trần công nợ nhập tay/import Excel định kỳ, không đồng bộ tự động.`} />
       </div>
       <div className="flex flex-wrap gap-2 items-center">
         <Btn size="sm" onClick={() => openEdit("new")}>+ Thêm KTV</Btn>
@@ -839,7 +839,7 @@ function KtvTab() {
             )}
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] flex items-center gap-1.5">
-                Công nợ
+                Trần công nợ
                 <Tooltip text="Nhập tay hoặc import Excel định kỳ - không có đồng bộ tự động." />
               </label>
               <input

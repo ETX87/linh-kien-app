@@ -1,8 +1,10 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
+import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
+import { khuVucViewEmailInSql } from "../lib/scopeDatMua";
 import { nowVN } from "../lib/vnTime";
 
 // "Tồn kho KTV" (them 2026-08-29, phan hoi nguoi dung) - import hang ngay file "Tổng hợp tồn kho"
@@ -12,8 +14,41 @@ import { nowVN } from "../lib/vnTime";
 // migration 0011). Moi lan import GHI DE toan bo bang ktv_ton_kho (khong giu lich su - xac nhan nguoi
 // dung, giong quy uoc "cong no" hien co).
 const ktvTonKho = new Hono<{ Bindings: Env }>();
-ktvTonKho.use("*", verifySessionMiddleware, loadUser);
+// requireDatMuaLkArea (them 2026-08-29, chuyen module ra khoi Settings) - tai su dung DUNG middleware
+// gate module "Dat mua linh kien" (Admin/QC/Giam sat/7 co nghiep vu) lam dieu kien vao module nay,
+// vi day gio la 1 muc Sidebar rieng mo cho CUNG tap tai khoan do (xem App.tsx/navConfig.ts). Middleware
+// nay CUNG tu chan moi request khong phai GET neu la_view la con duong DUY NHAT dua tai khoan vao -
+// dung y, vi POST /import van rieng adminOnly ben duoi.
+ktvTonKho.use("*", verifySessionMiddleware, loadUser, requireDatMuaLkArea);
 const adminOnly = requireRole("Admin");
+
+// Pham vi XEM (them 2026-08-29, phan hoi nguoi dung: "Cấp quyền cho KTV tự xem công nợ bản thân.
+// Giám sát xem được KTV theo khu vực của mình. Các vai trò còn lại có thể xem toàn bộ."):
+// - Admin/QC/la_kho/la_ke_toan/la_tac_nghiep/la_tp_dvbh: khong gioi han (null).
+// - Giam sat (vai_tro): CHI cac KTV ma users.giam_sat_quan_ly = email GS do - cot nay tu dong bo tu
+//   khu_vuc.gs_email (xem lib/khuVucSync.ts va CLAUDE.md muc "Khu vuc"), dung y het nhanh Giam sat
+//   cua scopePxkNguoiNhanHang() trong lib/scopeDatMua.ts.
+// - KTV/Ve tinh (la_ktv_dvbh/la_ve_tinh): CHI dong cua chinh minh (khop qua ktv_lien_he.email_dang_nhap).
+// - la_view: theo Khu vuc duoc gan (khuVucViewEmailInSql(), giong moi luong khac cua la_view trong
+//   module Dat mua linh kien - KHONG mac dinh xem het).
+// - Khac (khong thuoc nhom nao o tren, tuc chua co co/vai_tro hop le) -> khong thay gi (1=0), tuy
+//   thuc te se khong xay ra vi requireDatMuaLkArea da chan tu truoc.
+function scopeKtvTonKho(c: Context<{ Bindings: Env }>): { whereSql: string; binds: string[] } | null {
+  const user = c.get("user");
+  if (user.vai_tro === "Admin" || user.vai_tro === "QC" || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh) {
+    return null;
+  }
+  if (user.vai_tro === "Giam sat") {
+    return { whereSql: "k.email_dang_nhap IN (SELECT email FROM users WHERE giam_sat_quan_ly = ?)", binds: [user.email] };
+  }
+  if (user.la_ktv_dvbh || user.la_ve_tinh) {
+    return { whereSql: "k.email_dang_nhap = ?", binds: [user.email] };
+  }
+  if (user.la_view) {
+    return { whereSql: `k.email_dang_nhap IN ${khuVucViewEmailInSql()}`, binds: [user.email] };
+  }
+  return { whereSql: "1=0", binds: [] };
+}
 
 // GET /?search= - danh sach tong hop theo KTV (chi KTV DANG co du lieu ton kho, INNER JOIN) - kem
 // Cong no/Ma MISA de doi chieu chung 1 man hinh (dung y "Tồn kho công nợ KTV" cua nguoi dung).
@@ -24,6 +59,11 @@ ktvTonKho.get("/", async (c) => {
   if (search) {
     conditions.push("(LOWER(k.ma_ktv) LIKE LOWER(?) OR LOWER(COALESCE(k.ten_hien_thi,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.ma_misa,'')) LIKE LOWER(?))");
     binds.push(`%${search}%`, `%${search}%`, `%${search}%`);
+  }
+  const scope = scopeKtvTonKho(c);
+  if (scope) {
+    conditions.push(scope.whereSql);
+    binds.push(...scope.binds);
   }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const { results } = await c.env.DB.prepare(
@@ -47,9 +87,18 @@ ktvTonKho.get("/import-meta", async (c) => {
   return c.json(row ? JSON.parse(row.value) : null);
 });
 
-// GET /:ma_ktv/chi-tiet - danh sach tung ma hang ton kho cua 1 KTV.
+// GET /:ma_ktv/chi-tiet - danh sach tung ma hang ton kho cua 1 KTV - kiem tra ma_ktv yeu cau nam
+// trong pham vi scopeKtvTonKho() truoc khi tra du lieu (chi-tiet khong tu join ktv_lien_he nhu GET /,
+// nen phai truy van rieng 1 lan qua bang ktv_lien_he de ap dung dung dieu kien).
 ktvTonKho.get("/:ma_ktv/chi-tiet", async (c) => {
   const maKtv = c.req.param("ma_ktv");
+  const scope = scopeKtvTonKho(c);
+  if (scope) {
+    const allowed = await c.env.DB.prepare(`SELECT 1 FROM ktv_lien_he k WHERE k.ma_ktv = ? AND ${scope.whereSql}`)
+      .bind(maKtv, ...scope.binds)
+      .first();
+    if (!allowed) return c.json({ error: "FORBIDDEN" }, 403);
+  }
   const { results } = await c.env.DB.prepare(
     "SELECT ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky FROM ktv_ton_kho WHERE ma_ktv = ? ORDER BY ten_hang",
   )
