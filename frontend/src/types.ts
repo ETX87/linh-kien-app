@@ -49,6 +49,33 @@ export interface KtvLienHeRow {
   ten_misa: string | null;
 }
 
+// Them 2026-08-29 (phan hoi "xây dựng settings quản lý Tồn kho công nợ KTV", import hang ngay tu
+// bao cao MISA - xem lib/tonKhoImport.ts) - dong tong hop 1 KTV (GROUP BY ma_ktv o backend).
+export interface KtvTonKhoSummaryRow {
+  ma_ktv: string;
+  ten_hien_thi: string | null;
+  ma_misa: string | null;
+  ten_misa: string | null;
+  cong_no: number | null;
+  cong_no_cap_nhat_luc: string | null;
+  so_ma_hang: number;
+  tong_cuoi_ky: number | null;
+}
+export interface KtvTonKhoChiTietRow {
+  ma_hang: string;
+  ten_hang: string | null;
+  dvt: string | null;
+  dau_ky: number | null;
+  nhap_kho: number | null;
+  xuat_kho: number | null;
+  cuoi_ky: number | null;
+}
+export interface KtvTonKhoImportMeta {
+  ky_tu_ngay: string | null;
+  ky_den_ngay: string | null;
+  so_dong: number;
+}
+
 // Them 2026-08-26 (migration 0009) - 1 khu vuc chi 1 GS tai 1 thoi diem (gs_email), 1 GS duoc phep
 // phu trach nhieu khu vuc. gs_ten la LEFT JOIN users.ten, chi de hien thi.
 export interface KhuVucRow {
