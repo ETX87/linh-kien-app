@@ -116,6 +116,7 @@ users.patch("/:email", async (c) => {
     quan_ly_danh_muc_lk?: boolean;
     xem_danh_muc_lk?: boolean;
     ma_misa?: string | null;
+    ten_misa?: string | null;
   }>();
 
   if (body.vai_tro !== undefined && body.vai_tro !== null && !(VAI_TRO_VALUES as readonly string[]).includes(body.vai_tro)) {
@@ -139,10 +140,11 @@ users.patch("/:email", async (c) => {
     quan_ly_danh_muc_lk: body.quan_ly_danh_muc_lk !== undefined ? (body.quan_ly_danh_muc_lk ? 1 : 0) : existing.quan_ly_danh_muc_lk,
     xem_danh_muc_lk: body.xem_danh_muc_lk !== undefined ? (body.xem_danh_muc_lk ? 1 : 0) : existing.xem_danh_muc_lk,
     ma_misa: body.ma_misa !== undefined ? body.ma_misa?.trim() || null : existing.ma_misa,
+    ten_misa: body.ten_misa !== undefined ? body.ten_misa?.trim() || null : existing.ten_misa,
   };
 
   await c.env.DB.prepare(
-    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, bi_khoa = ?, la_ktv_dvbh = ?, la_ve_tinh = ?, la_kho = ?, la_ke_toan = ?, la_tac_nghiep = ?, la_tp_dvbh = ?, la_view = ?, quan_ly_danh_muc_lk = ?, xem_danh_muc_lk = ?, ma_misa = ?, updated_at = ? WHERE email = ?",
+    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, bi_khoa = ?, la_ktv_dvbh = ?, la_ve_tinh = ?, la_kho = ?, la_ke_toan = ?, la_tac_nghiep = ?, la_tp_dvbh = ?, la_view = ?, quan_ly_danh_muc_lk = ?, xem_danh_muc_lk = ?, ma_misa = ?, ten_misa = ?, updated_at = ? WHERE email = ?",
   )
     .bind(
       next.trang_thai_duyet,
@@ -158,6 +160,7 @@ users.patch("/:email", async (c) => {
       next.quan_ly_danh_muc_lk,
       next.xem_danh_muc_lk,
       next.ma_misa,
+      next.ten_misa,
       nowVN(),
       email,
     )
