@@ -1070,25 +1070,55 @@ datMuaLinhKien.get("/don-hang", async (c) => {
 // con so khop dung pham vi nguoi dang xem thay vi luon la toan he thong. "Dang mo" tai dung dung 2
 // dinh nghia "dong" da co san trong code (DON_HANG_TRANG_THAI_DONG cho mua/cong_no, cung bo trang
 // thai dong cua tra_hang.ts cho tra_hang), khong tu dat rieng 1 tieu chi moi.
+//
+// SUA (phan hoi QA 2026-08-31, "TN dang hien Tra hang (x2) mac du don can xu ly cua TN = 0") - cung 1
+// loai bug voi muc #11 (GET /phieu-xuat-kho/mo-count): truoc day dem TAT CA dong dang mo trong pham
+// vi nhin thay, bat ke da toi luot ai xu ly tiep - TN nhin thay ca dong dang o buoc Ke toan/Kho/QC (vi
+// scopeDatMuaNguoiTao tra null = KHONG GIOI HAN cho TN/Kho/Ke toan/QC/TBP/Admin, ho thay TOAN BO). CHI
+// ap dung loc theo luot vai tro (giong FORBIDDEN_ROLE cua applyDonHangLog/applyTraHangLog) khi scope
+// la null (cac vai tro NHAN VIEN xem toan he thong) - KTV/Ve tinh/Giam sat/View van giu nguyen "dem
+// het dong dang mo trong pham vi cua ho" (theo doi don CUA HO/nhom ho quan ly, khong phai "den luot
+// xu ly", nen KHONG ap dung loc nay).
 datMuaLinhKien.get("/loai-don-counts", async (c) => {
+  const user = c.get("user");
   const scope = scopeDatMuaNguoiTao(c);
   const scopeSql = scope?.whereSql ?? "";
   const scopeBinds = scope?.binds ?? [];
   const donHangDongPlaceholders = DON_HANG_TRANG_THAI_DONG.map(() => "?").join(",");
   const traHangDongPlaceholders = TRA_HANG_TRANG_THAI_DONG_COUNTS.map(() => "?").join(",");
 
+  let muaCongNoSql = `ddh.trang_thai_hien_tai NOT IN (${donHangDongPlaceholders})`;
+  let muaCongNoBinds: unknown[] = [...DON_HANG_TRANG_THAI_DONG];
+  let traHangSql = `ddh.trang_thai_hien_tai NOT IN (${traHangDongPlaceholders})`;
+  let traHangBinds: unknown[] = [...TRA_HANG_TRANG_THAI_DONG_COUNTS];
+  if (scope === null) {
+    const muaCongNoStates: string[] = [];
+    if (canTPDvbhXacNhan(c)) muaCongNoStates.push("Cho TBP xac nhan");
+    if (canTacNghiep(c)) muaCongNoStates.push("Cho TN duyet");
+    const traHangStates: string[] = [];
+    if (user.la_ke_toan || user.vai_tro === "Admin") traHangStates.push("Cho ke toan duyet mem");
+    if (canKho(c)) traHangStates.push("Cho kho xac nhan");
+    if (user.vai_tro === "QC" || user.vai_tro === "Admin") traHangStates.push("Cho QC xac nhan");
+    if (canTacNghiep(c)) traHangStates.push("Cho TN duyet tong");
+
+    muaCongNoSql = muaCongNoStates.length > 0 ? `ddh.trang_thai_hien_tai IN (${muaCongNoStates.map(() => "?").join(",")})` : "1=0";
+    muaCongNoBinds = muaCongNoStates;
+    traHangSql = traHangStates.length > 0 ? `ddh.trang_thai_hien_tai IN (${traHangStates.map(() => "?").join(",")})` : "1=0";
+    traHangBinds = traHangStates;
+  }
+
   // RA SOAT CHI PHI D1 2026-08-18 (phan hoi Codex #11, migration 0087+0088) - doc thang cot
   // trang_thai_hien_tai thay vi correlated subquery, xem giai thich o GET /luong-quy-trinh.
   const row = await c.env.DB.prepare(
     `SELECT
-       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'mua' AND ddh.trang_thai_hien_tai NOT IN (${donHangDongPlaceholders})${scopeSql}) as mua,
-       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'cong_no' AND ddh.trang_thai_hien_tai NOT IN (${donHangDongPlaceholders})${scopeSql}) as cong_no,
-       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai NOT IN (${traHangDongPlaceholders})${scopeSql}) as tra_hang`,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'mua' AND ${muaCongNoSql}${scopeSql}) as mua,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'cong_no' AND ${muaCongNoSql}${scopeSql}) as cong_no,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ${traHangSql}${scopeSql}) as tra_hang`,
   )
     .bind(
-      ...DON_HANG_TRANG_THAI_DONG, ...scopeBinds,
-      ...DON_HANG_TRANG_THAI_DONG, ...scopeBinds,
-      ...TRA_HANG_TRANG_THAI_DONG_COUNTS, ...scopeBinds,
+      ...muaCongNoBinds, ...scopeBinds,
+      ...muaCongNoBinds, ...scopeBinds,
+      ...traHangBinds, ...scopeBinds,
     )
     .first<{ mua: number; cong_no: number; tra_hang: number }>();
 
