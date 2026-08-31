@@ -356,7 +356,7 @@ export function DatMuaLinhKienModule({
   // lieu nang tren mobile", chi doi NGUON tinh tongViecCuaToi khi o mobile.
   const { data: notifCounts } = useQuery({
     queryKey: ["notifications-count"],
-    queryFn: () => api.get<{ datMuaLk: { total: number }; ktvLogChuaDoc: number }>("/notifications/count"),
+    queryFn: () => api.get<{ datMuaLk: { total: number; choDonBiTuChoi: number }; ktvLogChuaDoc: number }>("/notifications/count"),
     refetchInterval: 5 * 60_000,
     // enabled: true (bo dieu kien isMobile cu, them 2026-08-26) - can ktvLogChuaDoc cho badge chuong
     // thong bao tren CA desktop (khong chi mobile nhu tongViecCuaToi truoc day). Sidebar.tsx/
@@ -372,17 +372,36 @@ export function DatMuaLinhKienModule({
   if (canKho) myRoleKeys.add("kho");
   if (canQC) myRoleKeys.add("qc");
   if (canTacNghiep) myRoleKeys.add("tac_nghiep");
-  if (user?.la_ktv_dvbh) myRoleKeys.add("ktv");
+  // FIX (ra soat "logic sai theo vai tro" 2026-08-29): truoc day CHI check la_ktv_dvbh - Ve tinh co
+  // la_ktv_dvbh=0/la_ve_tinh=1 (2 co loai tru nhau, xem provisionPlaceholderUser trong
+  // settingsKtv.ts) nen KHONG BAO GIO duoc tinh la "ktv", mat het highlight/dem "viec cua toi" cho
+  // buoc "Cho tien"/"KTV" du ho la nguoi thuc su phai xu ly. Giam sat tu dat don cho ban than
+  // ("triển khai như ktv", xem Yeu_cau_tong_hop_du_an.md Phan E#2) cung bi thieu tuong tu.
+  if (user?.la_ktv_dvbh || user?.la_ve_tinh || isGiamSat) myRoleKeys.add("ktv");
   // GD4 (phan hoi Codex #16/#17): dung truc tiep user.la_tram (tinh that o backend, GET
   // /api/auth/me) thay vi heuristic cu "la_ktv_dvbh && khong co tram_cha" - heuristic do nham moi
   // KTV thuong (khong quan ly Ve tinh nao) thanh Tram, vi tram_cha=null cung dung cho ho.
   if (user?.la_tram) myRoleKeys.add("tram");
 
+  // FIX (ra soat 2026-08-29, cung dot voi fix myRoleKeys "ktv" o tren): s.count cua 2 buoc
+  // "cho_tien"/"ktv" la SO TOAN HE THONG (dung cho bang dieu hanh chung/Tac nghiep) - nguoi xem co
+  // roleKey "ktv" phai thay countCuaToi (rieng cua chinh ho, backend loc theo nguoi_nhan_hang), khong
+  // phai s.count, neu khong MOI KTV/Ve tinh se thay CUNG 1 con so gom ca PXK cua nguoi khac. Tinh 1
+  // lan duy nhat o day, dung chung cho moi noi tieu thu luongQuyTrinh.steps ben duoi.
+  const steps = (luongQuyTrinh?.steps ?? []).map((s) =>
+    myRoleKeys.has("ktv") && s.countCuaToi !== undefined ? { ...s, count: s.countCuaToi } : s,
+  );
+
   // Tong so "viec cua toi" (phan hoi 2026-08-19: "Bỏ tiêu đề module... thay vào đó là button 'Việc
   // của tôi: N'") - tinh o CAP MODULE (khong chi trong MyWorkloadStrip) de dung cho nut thay the h1.
   // Cung logic loc "isMine && count>0" nhu MyWorkloadStrip, khong them nguon du lieu moi.
-  const mySteps = (luongQuyTrinh?.steps ?? []).filter((s) => s.count > 0 && s.roleKeys.some((r) => myRoleKeys.has(r)));
-  const tongViecCuaToi = isMobile ? (notifCounts?.datMuaLk.total ?? 0) : mySteps.reduce((sum, s) => sum + s.count, 0);
+  const mySteps = steps.filter((s) => s.count > 0 && s.roleKeys.some((r) => myRoleKeys.has(r)));
+  // FIX (ra soat 2026-08-29, Bug A "don bi tu choi"): tren desktop, tongViecCuaToi truoc day CHI cong
+  // tu mySteps (nguon luong-quy-trinh, khong co khai niem "don bi tu choi" - do la du lieu dang thong
+  // bao/da_doc, khac han "trang thai hien tai" ma pipeline dang dem) - phai cong them rieng tu
+  // notifCounts de khop voi nhanh mobile (da cong san trong out.total o backend).
+  const choDonBiTuChoi = notifCounts?.datMuaLk.choDonBiTuChoi ?? 0;
+  const tongViecCuaToi = isMobile ? (notifCounts?.datMuaLk.total ?? 0) : mySteps.reduce((sum, s) => sum + s.count, 0) + choDonBiTuChoi;
   // Nut tieu de bam de mo/dong bang chi tiet tung buoc (MyWorkloadStrip) - mac dinh AN (giam chrome
   // mac dinh, tiep tuc dung tinh than "gọn diện tích" da chot o cac fix truoc). CHI ap dung cho
   // duong vao "dat-mua-lk" that su (khong phai forceView="tra-hang", entry rieng van giu tieu de +
@@ -417,7 +436,7 @@ export function DatMuaLinhKienModule({
     )
   ) : (
     <PipelineFlow
-      steps={luongQuyTrinh?.steps ?? []}
+      steps={steps}
       myRoleKeys={myRoleKeys}
       onJump={jumpTo}
       onCreateDon={() => setShowCreateFromPipeline(true)}
@@ -492,7 +511,7 @@ export function DatMuaLinhKienModule({
           trung lap) - nhung SAU KHI nguoi dung da jump/doi tab (navigatedAway=true, activeView khong
           con la "trang-chu" nua), coi nhu forceView khac binh thuong, hien lai theo dung tinh than cu. */}
       {((forceView && (navigatedAway || forceView !== "trang-chu")) || showWorkloadDetail) && (
-        <MyWorkloadStrip steps={luongQuyTrinh?.steps ?? []} myRoleKeys={myRoleKeys} onJump={jumpTo} />
+        <MyWorkloadStrip steps={steps} myRoleKeys={myRoleKeys} onJump={jumpTo} />
       )}
       {/* FIX (phan hoi 2026-08-26): an han thanh tab noi bo khi vao qua 2 duong rieng moi
           forceView="trang-chu"/"thieu-lk" - 2 man nay gio la TRANG DOC LAP thuc su LUC MOI VAO, khong
@@ -515,11 +534,12 @@ export function DatMuaLinhKienModule({
       <Suspense fallback={<TabFallback />}>
         {activeView === "trang-chu" && (
           <TrangChuTab
-            steps={luongQuyTrinh?.steps ?? []}
+            steps={steps}
             myRoleKeys={myRoleKeys}
             onJump={jumpTo}
             loaiDonCounts={loaiDonCounts}
             tongViecCuaToi={tongViecCuaToi}
+            choDonBiTuChoi={choDonBiTuChoi}
             canTraHangView={canTraHangView}
             isManagerView={isManagerView}
             showBaoCao={!isQCOnly}

@@ -24,6 +24,7 @@ import {
   DON_HANG_TRANG_THAI_TONE_ALL, DON_HANG_ROW_STYLE, TRANG_THAI_DOT_TONE, DON_CUA_TOI_TRANG_THAI_OPTIONS,
   DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, DON_HANG_DANG_MO, BULK_LOG_ERROR_MESSAGES, YEU_CAU_HOA_DON_OPTIONS,
   CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABELS, TRA_HANG_TRANG_THAI_OPTIONS,
+  CHUYEN_TIEN_TONE, CHUYEN_TIEN_OPTIONS, PXK_TRANG_THAI_TONE, PXK_TRANG_THAI_OPTIONS,
 } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
@@ -33,6 +34,22 @@ import {
 import { StatusBadge, ActiveFiltersBar, TrangThaiChipFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { LinhKienPicker, LinhKienDetailModal } from "./LinhKienPicker";
+
+// FIX (ra soat "logic sai theo vai tro" 2026-08-31): KTV/Ve tinh khong co tab "Phieu xuat kho" rieng
+// (chi Tac nghiep/Kho/Ke toan/Giam sat moi thay, xem canXemPxkTab o DatMuaLinhKienModule.tsx) - theo
+// xac nhan nguoi dung "Vệ tinh không cần quan tâm đến PXK... toàn bộ thông tin PXK có thể xem được ở
+// đơn chi tiết", PXK cua dong dang xem gio nhung SAU DAY trong chinh Drawer nay thay vi mo them 1 man
+// hinh rieng. Field lay tu GET /dat-mua-lk/don-hang/:id (them cung dot).
+interface PxkInfo {
+  id: string;
+  trang_thai: string | null;
+  so_tien_can_chuyen: number | null;
+  trang_thai_chuyen_tien: string | null;
+  bang_chung_chuyen_tien_url: string | null;
+  bang_chung_chuyen_tien_ghi_chu: string | null;
+  nguoi_nhan_hang: string | null;
+  ma_xuat_kho: string | null;
+}
 
 export function DonHangDetailModal({
   id,
@@ -75,7 +92,7 @@ export function DonHangDetailModal({
   const [lyDoChamId, setLyDoChamId] = useState("");
   const { data, isLoading } = useQuery({
     queryKey: ["dat-mua-lk-don-hang-detail", id],
-    queryFn: () => api.get<{ donHang: DonHangRow }>(`/dat-mua-lk/don-hang/${id}`),
+    queryFn: () => api.get<{ donHang: DonHangRow; pxk: PxkInfo | null }>(`/dat-mua-lk/don-hang/${id}`),
   });
   const { data: lyDoData } = useQuery({
     queryKey: ["dat-mua-lk-ly-do-cham"],
@@ -126,6 +143,49 @@ export function DonHangDetailModal({
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
   });
 
+  // Khoi PXK cua dong (xem PxkInfo o dau file) - reuse dung endpoint/logic da co san o
+  // PhieuXuatKhoTab.tsx (POST bang-chung-chuyen-tien, PATCH chuyen-tien, POST log "KTV da nhan"), chi
+  // khac noi hien thi (ngay trong Drawer nay thay vi 1 man PXK rieng KTV khong vao duoc).
+  const [uploadingBangChung, setUploadingBangChung] = useState(false);
+  const [bangChungUrl, setBangChungUrl] = useState("");
+  const [bangChungGhiChuDraft, setBangChungGhiChuDraft] = useState("");
+  function invalidatePxk() {
+    qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-detail", id] });
+    invalidatePipelineCounts(qc);
+  }
+  async function handleUploadBangChungChuyenTien(pxkId: string, file: File) {
+    setUploadingBangChung(true);
+    try {
+      const bytes = await file.arrayBuffer();
+      const res = await api.postBinary<{ ok: true; url: string }>(`/phieu-xuat-kho/${pxkId}/bang-chung-chuyen-tien`, bytes, file.type || "image/jpeg");
+      setBangChungUrl(res.url);
+      addToast("Đã tải ảnh chuyển tiền - bấm \"Đã chuyển\" để xác nhận");
+    } catch (err) {
+      addToast("Lỗi tải ảnh: " + describeApiError(err));
+    } finally {
+      setUploadingBangChung(false);
+    }
+  }
+  const chuyenTienMutation = useMutation({
+    mutationFn: ({ pxkId, body }: { pxkId: string; body: { trang_thai: string; bang_chung_chuyen_tien_url?: string; bang_chung_chuyen_tien_ghi_chu?: string } }) =>
+      api.patch(`/phieu-xuat-kho/${pxkId}/chuyen-tien`, body),
+    onSuccess: () => {
+      setBangChungUrl("");
+      setBangChungGhiChuDraft("");
+      invalidatePxk();
+      addToast("Đã cập nhật chuyển tiền");
+    },
+    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+  });
+  const pxkLogMutation = useMutation({
+    mutationFn: ({ pxkId, trang_thai }: { pxkId: string; trang_thai: string }) => api.post(`/phieu-xuat-kho/${pxkId}/log`, { trang_thai }),
+    onSuccess: () => {
+      invalidatePxk();
+      addToast("Đã cập nhật trạng thái phiếu xuất kho");
+    },
+    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+  });
+
   function confirmTuChoi() {
     if (actionTarget !== "tu_choi" && actionTarget !== "cho_hang") return;
     // "Cho TBP xac nhan"/"Cho Tram duyet" tu choi don gian - khong can chon Ly do cham, chi ghi chu
@@ -154,6 +214,7 @@ export function DonHangDetailModal({
   }
 
   const d = data?.donHang;
+  const pxk = data?.pxk;
   const actions = d ? actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail }) : { duyet: false, tuChoi: false, choHang: false, huy: false };
   // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Drawer + Next/Previous"): chi so cua dong dang
   // xem trong navRows (trang hien tai o danh sach cha) - undefined navRows (chua truyen) = an het nut
@@ -758,6 +819,75 @@ export function DonHangDetailModal({
                 <div className="text-xs text-[var(--ink-500)]">{d.logs[0].ghi_chu}</div>
               )}
             </>
+          )}
+
+          {/* FIX (ra soat "logic sai theo vai tro" 2026-08-31): KTV/Ve tinh khong co tab "Phieu xuat
+              kho" rieng - day la CHO DUY NHAT ho xem trang thai PXK cua dong nay + tu chuyen tien/xac
+              nhan nhan hang (chinh minh, xem PxkInfo dau file). Chi hien khi dong DA duoc gom vao 1
+              PXK (pxk != null). */}
+          {pxk && (
+            <DetailZone title="Phiếu xuất kho">
+              <KvRow label="Trạng thái">
+                <StatusBadge value={pxk.trang_thai ?? ""} tones={PXK_TRANG_THAI_TONE} options={PXK_TRANG_THAI_OPTIONS} />
+              </KvRow>
+              {pxk.so_tien_can_chuyen != null && (
+                <>
+                  <KvRow label="Số tiền cần chuyển"><span className="font-semibold text-[var(--green-700)]">{fmtVND(pxk.so_tien_can_chuyen)}</span></KvRow>
+                  <KvRow label="Trạng thái chuyển tiền">
+                    <StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} />
+                  </KvRow>
+                  {pxk.bang_chung_chuyen_tien_url && (
+                    <KvRow label="Bằng chứng"><a href={pxk.bang_chung_chuyen_tien_url} target="_blank" rel="noreferrer" className="text-[var(--ocean-800)] underline text-xs">Xem bằng chứng</a></KvRow>
+                  )}
+                  {pxk.bang_chung_chuyen_tien_ghi_chu && (
+                    <KvRow label="Ghi chú"><span className="text-xs text-[var(--ink-600)]">{pxk.bang_chung_chuyen_tien_ghi_chu}</span></KvRow>
+                  )}
+                  {/* CHI nguoi_nhan_hang that su cua PXK moi thay 2 hanh dong nay (khop dung quyen
+                      backend PATCH /phieu-xuat-kho/:id/chuyen-tien - xem comment "FORBIDDEN_ROLE"). */}
+                  {currentEmail === pxk.nguoi_nhan_hang && pxk.trang_thai_chuyen_tien === "Cho KTV chuyen" && (
+                    <div className="space-y-1.5 mt-2">
+                      <div className="flex gap-2 items-center flex-wrap">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          disabled={uploadingBangChung}
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleUploadBangChungChuyenTien(pxk.id, f); }}
+                          className="text-xs"
+                        />
+                        {uploadingBangChung && <span className="text-xs text-[var(--ink-500)]">Đang tải ảnh...</span>}
+                        {bangChungUrl && !uploadingBangChung && <span className="text-xs text-[var(--teal-600)]">✓ Đã tải ảnh, sẵn sàng xác nhận</span>}
+                      </div>
+                      <div className="flex gap-2 items-center flex-wrap">
+                        <input
+                          value={bangChungGhiChuDraft}
+                          onChange={(e) => setBangChungGhiChuDraft(e.target.value)}
+                          placeholder="Hoặc ghi chú thông tin chuyển khoản (vd: đã chuyển qua Momo, mã GD...)"
+                          className="focus-ring flex-1 min-w-[200px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                        />
+                      </div>
+                      <Btn
+                        size="sm"
+                        onClick={() =>
+                          chuyenTienMutation.mutate({
+                            pxkId: pxk.id,
+                            body: { trang_thai: "KTV da chuyen", bang_chung_chuyen_tien_url: bangChungUrl || undefined, bang_chung_chuyen_tien_ghi_chu: bangChungGhiChuDraft || undefined },
+                          })
+                        }
+                        disabled={(!bangChungUrl.trim() && !bangChungGhiChuDraft.trim()) || chuyenTienMutation.isPending}
+                      >
+                        Đã chuyển
+                      </Btn>
+                    </div>
+                  )}
+                </>
+              )}
+              {currentEmail === pxk.nguoi_nhan_hang && pxk.trang_thai === "Dang gui KTV" && (
+                <Btn size="sm" className="mt-2" onClick={() => pxkLogMutation.mutate({ pxkId: pxk.id, trang_thai: "KTV da nhan" })} disabled={pxkLogMutation.isPending} loading={pxkLogMutation.isPending}>
+                  Đã nhận hàng
+                </Btn>
+              )}
+            </DetailZone>
           )}
 
           {/* CHOT (ra soat module #18): them 1 cham tron nho dau moi dong theo dung tone trang thai

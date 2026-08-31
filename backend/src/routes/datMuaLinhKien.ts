@@ -353,6 +353,12 @@ export interface LuongQuyTrinhStep {
   key: string;
   label: string;
   count: number;
+  // FIX (ra soat 2026-08-29): so RIENG cua nguoi dang goi API (loc nguoi_nhan_hang = user.email) - CHI
+  // co o 2 buoc "cho_tien"/"ktv" (von la viec CA NHAN cua tung KTV, khac han "kho"/"ke_toan"/
+  // "tac_nghiep" la hang cho CHUNG toan he thong). FE phai dung field nay thay cho `count` khi hien thi
+  // "viec cua toi" cho nguoi xem co roleKey "ktv", vi `count` van la so TOAN HE THONG (dung cho bang
+  // dieu hanh chung/Tac nghiep, KHONG duoc doi y nghia).
+  countCuaToi?: number;
   // Vai tro nao thi buoc nay la "viec cua ho" - FE dung de to mau/phong to khi nguoi xem thuoc 1
   // trong cac vai tro nay. Mang rong ([]) = buoc mang tinh thong tin chung, khong gan rieng ai.
   roleKeys: string[];
@@ -369,6 +375,7 @@ export interface LuongQuyTrinhStep {
 }
 
 datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
+  const user = c.get("user");
   // RA SOAT CHI PHI D1 2026-08-18 (phan hoi Codex #10, migration 0087+0088): 16 SELECT COUNT(*) nay
   // chay refetchInterval 5 phut/client + sau MOI mutation (xem invalidatePipelineCounts o frontend) -
   // truoc day moi dong deu can 1 correlated subquery rieng (khong index duoc) de suy trang thai. Gio
@@ -405,8 +412,18 @@ datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Dang tao phieu' AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')) as tao_pxk,
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Cho ke toan') as ke_toan,
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Da chot xong don xuat') as kho,
-       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Dang gui KTV') as ktv`,
-  ).first<Record<string, number>>();
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Dang gui KTV') as ktv,
+       -- FIX (ra soat "logic sai theo vai tro" 2026-08-29): "cho_tien"/"ktv" o tren la SO TOAN HE THONG
+       -- (dung lam so cho Tac nghiep/bang dieu hanh chung), KHONG duoc dung lam "viec cua toi" cho TUNG
+       -- KTV/Ve tinh ca nhan - truoc day FE lay thang s.count nen MOI KTV deu thay CUNG 1 so voi TOAN BO
+       -- PXK dang cho tien/dang gui cua TAT CA KTV khac, khong rieng cua minh. Them 2 cot rieng loc theo
+       -- dung nguoi_nhan_hang = nguoi dang goi de FE tu chon nguon hien thi phu hop tung doi tuong xem
+       -- (xem countCuaToi o types.ts / DatMuaLinhKienModule.tsx).
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.nguoi_nhan_hang = ? AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet') as cho_tien_cua_toi,
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.nguoi_nhan_hang = ? AND pxk.trang_thai_hien_tai = 'Dang gui KTV') as ktv_cua_toi`,
+  )
+    .bind(user.email, user.email)
+    .first<Record<string, number>>();
   const n = (key: string) => row?.[key] ?? 0;
 
   // "all" (sentinel rieng, xem comment tren LuongQuyTrinhStep.loaiDon o types.ts) - 4 buoc duoi day
@@ -431,11 +448,11 @@ datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
     // voi "tao_pxk" ben duoi ("Dang tao phieu") vi khong co cach loc rieng dieu kien "cho tien" (xem
     // comment dieu kien cho_tien o dau file GET /luong-quy-trinh). Gio dung sentinel "CHO_TIEN" duoc
     // GET /phieu-xuat-kho nhan dien rieng (xem routes/phieuXuatKho.ts).
-    { key: "cho_tien", label: "Chờ tiền", count: n("cho_tien"), roleKeys: ["ktv", "tac_nghiep"], tab: "phieu-xuat-kho", filter: "CHO_TIEN" },
+    { key: "cho_tien", label: "Chờ tiền", count: n("cho_tien"), countCuaToi: n("cho_tien_cua_toi"), roleKeys: ["ktv", "tac_nghiep"], tab: "phieu-xuat-kho", filter: "CHO_TIEN" },
     { key: "tao_pxk", label: "Tạo PXK", count: n("tao_pxk"), roleKeys: ["tac_nghiep"], tab: "phieu-xuat-kho", filter: "Dang tao phieu" },
     { key: "ke_toan", label: "Kế toán", count: n("ke_toan"), roleKeys: ["ke_toan"], tab: "phieu-xuat-kho", filter: "Cho ke toan" },
     { key: "kho", label: "Kho", count: n("kho"), roleKeys: ["kho"], tab: "phieu-xuat-kho", filter: "Da chot xong don xuat" },
-    { key: "ktv", label: "KTV", count: n("ktv"), roleKeys: ["ktv"], tab: "phieu-xuat-kho", filter: "Dang gui KTV" },
+    { key: "ktv", label: "KTV", count: n("ktv"), countCuaToi: n("ktv_cua_toi"), roleKeys: ["ktv"], tab: "phieu-xuat-kho", filter: "Dang gui KTV" },
   ];
 
   return c.json({ steps });
@@ -1498,6 +1515,7 @@ datMuaLinhKien.post("/don-hang/import/commit", async (c) => {
 // (lay dong con theo danh sach phieu) - khong con khai niem "phieu" nua, moi dong tu dung doc lap
 // (xem migration 0075). Ap dung scopeDatMuaNguoiTao (alias ddh) de khong lo du lieu ngoai pham vi.
 datMuaLinhKien.get("/don-hang/:id", async (c) => {
+  const user = c.get("user");
   const id = c.req.param("id");
   const scope = scopeDatMuaNguoiTao(c);
   const whereSql = "ddh.id = ?" + (scope?.whereSql ?? "");
@@ -1510,8 +1528,25 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
      WHERE ${whereSql}`,
   )
     .bind(...binds)
-    .first<{ id: string; ly_do_cham: string | null; dac_thu: number | null }>();
+    .first<{ id: string; ly_do_cham: string | null; dac_thu: number | null; nguoi_tao: string; trang_thai: string }>();
   if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
+
+  // FIX (ra soat "logic sai theo vai tro" 2026-08-29, cung dot voi choDonBiTuChoi o notifications.ts):
+  // "hien den khi da xem chi tiet" - mo chi tiet don bi tu choi BANG BAT KY DUONG NAO (khong chi qua
+  // chuong thong bao, xem NotificationBell.tsx) deu tu danh dau thong_bao_ktv da_doc=1, dong bo voi
+  // dem choDonBiTuChoi. Fire-and-forget (waitUntil) - khong lam cham response chinh.
+  if (ddh.trang_thai === "TN tu choi" && ddh.nguoi_tao === user.email) {
+    c.executionCtx.waitUntil(
+      (async () => {
+        await c.env.DB.prepare(
+          "UPDATE thong_bao_ktv SET da_doc = 1 WHERE nguoi_nhan = ? AND link_type = 'don_hang' AND link_id = ? AND loai = 'tu_choi' AND da_doc = 0",
+        )
+          .bind(user.email, id)
+          .run();
+        await bumpVersions(c.env.DB, ["dat_mua_lk"]);
+      })(),
+    );
+  }
 
   // SUA (tach he doc lap): dat_don_case chi con luu case_id dang text (khong FK sang case_dvbh nua -
   // bang do khong con trong DB cuc bo), phai tra cuu khach_hang/khu_vuc qua API he cu cho tung ID.
@@ -1538,7 +1573,23 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
   const choTnDuyetLog = (logs as { trang_thai: string; ngay_xu_ly: string }[]).find((l) => l.trang_thai === "Cho TN duyet");
   const quaHan = !ddh.ly_do_cham && !!choTnDuyetLog && quaHanLyDoCham(choTnDuyetLog.ngay_xu_ly, now);
 
-  return c.json({ donHang: { ...ddh, cases, logs, qua_han_ly_do_cham: quaHan } });
+  // FIX (ra soat "logic sai theo vai tro" 2026-08-31, phan hoi "Vệ tinh không cần quan tâm đến PXK...
+  // toàn bộ thông tin PXK có thể xem được ở đơn chi tiết"): KTV/Ve tinh KHONG co tab "Phieu xuat kho"
+  // rieng (xem canXemPxkTab o DatMuaLinhKienModule.tsx - chi Tac nghiep/Kho/Ke toan/Giam sat moi thay
+  // tab do) nen day la NOI DUY NHAT ho xem duoc trang thai PXK cua chinh dong minh + hanh dong "da
+  // chuyen tien"/"da nhan hang" (backend GET/PATCH /phieu-xuat-kho/:id da cho phep nguoi_nhan_hang tu
+  // lam tu truoc, chi thieu duong dan o FE). 1 dong chi thuoc toi da 1 PXK (migration 0074 "1 PXK = 1
+  // KTV").
+  const pxk = await c.env.DB.prepare(
+    `SELECT pxk.id, pxk.trang_thai_hien_tai as trang_thai, pxk.so_tien_can_chuyen, pxk.trang_thai_chuyen_tien,
+            pxk.bang_chung_chuyen_tien_url, pxk.bang_chung_chuyen_tien_ghi_chu, pxk.nguoi_nhan_hang, pxk.ma_xuat_kho
+     FROM phieu_xuat_kho_dong pxkd JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
+     WHERE pxkd.dat_don_hang_id = ?`,
+  )
+    .bind(id)
+    .first();
+
+  return c.json({ donHang: { ...ddh, cases, logs, qua_han_ly_do_cham: quaHan }, pxk: pxk ?? null });
 });
 
 // Mo 1 ca thieu_lk cho 1 DONG don hang khi TN tu choi bang 1 "Ly do cham" co co

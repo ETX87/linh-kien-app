@@ -30,6 +30,12 @@ export interface DatMuaLkBreakdown {
   // tao, dang o 1 trong 3 buoc cho duyet dau (Tram/TBP/TN), de badge co y nghia voi CA nhom nguoi
   // dung nay.
   choDonCuaToi: number;
+  // FIX (ra soat "logic sai theo vai tro" 2026-08-29): don bi TN tu choi TRUOC DAY khong co mat o BAT
+  // KY dem dai lau nao (chi co 1 thong bao chuong dung 1 lan, thong_bao_ktv) - neu KTV bo lo/xoa
+  // thong bao, don bi tu choi bien mat khoi tam nhin hoan toan. Dem lai unread thong_bao_ktv loai
+  // "tu_choi" cua CHINH nguoi dang dang nhap - tu het khi ho mo chi tiet don (xem GET
+  // /dat-mua-lk/don-hang/:id, tu danh dau da_doc=1), dung y "hien den khi da xem chi tiet".
+  choDonBiTuChoi: number;
 }
 
 const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
@@ -45,6 +51,7 @@ const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
   choTramDuyet: 0,
   choTpXacNhan: 0,
   choDonCuaToi: 0,
+  choDonBiTuChoi: 0,
 };
 
 export interface NotificationsCountPayload {
@@ -193,23 +200,35 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
     .first<{ n: number }>();
   out.choDonCuaToi = rowOwn?.n ?? 0;
 
+  const rowTuChoi = await db
+    .prepare("SELECT COUNT(*) as n FROM thong_bao_ktv WHERE nguoi_nhan = ? AND loai = 'tu_choi' AND da_doc = 0")
+    .bind(user.email)
+    .first<{ n: number }>();
+  out.choDonBiTuChoi = rowTuChoi?.n ?? 0;
+
   out.total =
     out.choTnDuyet + out.choTnTraHang + out.choKhoThieuLk + out.choKhoPxk + out.choKhoTraHang +
     out.choKeToanPxk + out.choKeToanTraHang + out.choQcTraHang + out.choTramDuyet + out.choTpXacNhan +
-    out.choDonCuaToi;
+    out.choDonCuaToi + out.choDonBiTuChoi;
 
   return out;
 }
 
 export async function getDatMuaLkBadge(db: D1Database, user: AppUser): Promise<DatMuaLkBreakdown> {
+  // FIX (ra soat "logic sai theo vai tro" 2026-08-29): thieu la_ve_tinh/"Giam sat" - 2 nhom nay CO
+  // choDonCuaToi/choDonBiTuChoi cua rieng ho (tu tao don, xem canDatHo o DatMuaLinhKienModule.tsx) nhung
+  // truoc day capDung=false nen luon nhan EMPTY_DAT_MUA_LK_BREAKDOWN (badge sidebar/bottom-tab VA tong
+  // "viec cua toi" tren mobile luon = 0 du co don dang cho/bi tu choi that).
   const capDung = !!(
     user.la_ktv_dvbh ||
+    user.la_ve_tinh ||
     user.la_kho ||
     user.la_ke_toan ||
     user.la_tac_nghiep ||
     user.la_tp_dvbh ||
     user.vai_tro === "Admin" ||
-    user.vai_tro === "QC"
+    user.vai_tro === "QC" ||
+    user.vai_tro === "Giam sat"
   );
   if (!capDung) return EMPTY_DAT_MUA_LK_BREAKDOWN;
 

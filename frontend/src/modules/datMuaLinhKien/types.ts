@@ -176,6 +176,10 @@ export interface LuongQuyTrinhStep {
   key: string;
   label: string;
   count: number;
+  // FIX (ra soat 2026-08-29): so rieng cua nguoi dang xem (chi co o "cho_tien"/"ktv") - xem giai thich
+  // day du o LuongQuyTrinhStep backend (datMuaLinhKien.ts). Dung thay `count` khi hien thi "viec cua
+  // toi" cho KTV/Ve tinh, KHONG dung cho bang dieu hanh chung.
+  countCuaToi?: number;
   roleKeys: string[];
   tab: string;
   filter: string;

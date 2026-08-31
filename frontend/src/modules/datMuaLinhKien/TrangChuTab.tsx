@@ -296,6 +296,7 @@ export function TrangChuTab({
   onJump,
   loaiDonCounts,
   tongViecCuaToi,
+  choDonBiTuChoi,
   canTraHangView,
   isManagerView,
   showBaoCao,
@@ -309,6 +310,11 @@ export function TrangChuTab({
   onJump: (t: JumpTarget) => void;
   loaiDonCounts: { mua: number; cong_no: number; tra_hang: number };
   tongViecCuaToi: number;
+  // FIX (ra soat "logic sai theo vai tro" 2026-08-29, Bug A): so don CUA CHINH nguoi dang xem dang o
+  // trang thai "TN tu choi" VA CHUA xem chi tiet (thong_bao_ktv.da_doc=0, loai='tu_choi') - da CONG
+  // SAN vao tongViecCuaToi o component cha, truyen rieng them de ve 1 the rieng ("khong bi troi mat"
+  // giua cac buoc dang cho khac, vi day la tin xau can chu y ngay chu khong phai hang doi binh thuong).
+  choDonBiTuChoi: number;
   // Them (phan hoi chu he thong 2026-08-24: "Trang chủ với báo cáo gộp làm 1") - BaoCaoTab (12 chi so
   // tong quan) gio render NGAY DUOI trong man nay thay vi 1 tab rieng. `isManagerView` truyen thang cho
   // BaoCaoTab quyet dinh the ca nhan hay bang pivot (dung y cu, khong doi). `showBaoCao` = false CHI
@@ -352,6 +358,23 @@ export function TrangChuTab({
         <h2 className="font-display text-base font-bold text-[var(--ink-900)]">Việc cần làm hôm nay</h2>
         <div className="hidden sm:block text-xs text-[var(--ink-500)] mt-0.5">Số liệu tồn đọng đúng theo vai trò của bạn — bấm vào ô số để nhảy thẳng tới danh sách xử lý.</div>
       </div>
+
+      {/* FIX (ra soat "logic sai theo vai tro" 2026-08-29, Bug A): "don bi tu choi" truoc day CHI co
+          1 thong bao chuong dung 1 lan (NotificationBell.tsx) - neu bo lo/xoa thi mat dau hoan toan,
+          khong co mat trong "Viec can lam" nhu cac buoc cho duyet khac. Rieng the nay tach khoi
+          mySteps (nguon du lieu khac nhau - thong_bao_ktv.da_doc, khong phai trang_thai_hien_tai cua
+          pipeline) nen luon hien DOC LAP ben tren khi con chua xem, tu bien mat khi da mo chi tiet don
+          (xem GET /dat-mua-lk/don-hang/:id o backend). */}
+      {choDonBiTuChoi > 0 && (
+        <div className="flex gap-2 sm:gap-3 flex-wrap">
+          <StatCard
+            label="Đơn bị từ chối"
+            value={choDonBiTuChoi}
+            tone="coral"
+            onClick={() => onJump({ tab: "don-cua-toi", filter: "TN tu choi", nguoiNhanHang: "" })}
+          />
+        </div>
+      )}
 
       {mySteps.length > 0 ? (
         <div className="flex gap-2 sm:gap-3 flex-wrap">
