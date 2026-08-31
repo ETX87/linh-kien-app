@@ -48,6 +48,17 @@ export interface DonHangLogRow {
   ghi_chu: string | null;
 }
 
+// Lich su "giai trinh ly do cham" (migration 0014, phan hoi QA 2026-08-31, muc #5) - 1 dong don hang
+// co the co NHIEU lan giai trinh (moi lan qua han 24h lai can 1 lan moi), khac han ly_do_cham (cot cu
+// tren DonHangRow, gio chi con la MIRROR noi dung lan giai trinh GAN NHAT, dung de hien nhanh).
+export interface GiaiTrinhRow {
+  id: number;
+  dat_don_hang_id: string;
+  noi_dung: string;
+  nguoi_tao: string;
+  ngay_tao: string;
+}
+
 export interface DonHangRow {
   id: string;
   phieu_dat_id: string;
@@ -83,8 +94,12 @@ export interface DonHangRow {
   logs?: DonHangLogRow[];
   cases?: { id: string; khach_hang: string | null; khu_vuc: string | null }[];
   // Chi co tren GET /phieu-dat/:id va GET /phieu-xuat-kho/:id (tinh server-side, khong luu DB) - true
-  // khi dong ton qua 24h ke tu "Cho TN duyet" ma chua duoc dien ly_do_cham (xem lib/hanLyDoCham.ts).
+  // khi dong ton qua 24h ke tu lan giai trinh GAN NHAT (hoac "Cho TN duyet" neu chua tung giai trinh
+  // lan nao) ma chua giai trinh lai (xem lib/hanLyDoCham.ts).
   qua_han_ly_do_cham?: boolean;
+  // Chi co tren GET /don-hang/:id va GET /phieu-xuat-kho/:id (migration 0014, muc #5) - toan bo lich
+  // su giai trinh cua dong nay, moi nhat truoc.
+  giaiTrinh?: GiaiTrinhRow[];
 }
 
 // PXK - "chuyen tien" la 1 dieu kien chan rieng tren chinh PXK (thay the bang phieu_so_tien cu, xem

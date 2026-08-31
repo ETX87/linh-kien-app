@@ -64,6 +64,13 @@ function choTnDuyetAtExpr(donHangIdCol: string): string {
   return `(SELECT ngay_xu_ly FROM dat_don_hang_log WHERE dat_don_hang_id = ${donHangIdCol} AND trang_thai = 'Cho TN duyet' ORDER BY id DESC LIMIT 1)`;
 }
 
+// FIX (phan hoi QA 2026-08-31, muc #5): moc "gan nhat" de tinh han qua_han_ly_do_cham GIO LA lan giai
+// trinh gan nhat (migration 0014) neu co, KHONG con dua vao cho_tn_duyet_at co dinh mai mai sau lan
+// giai trinh dau tien - xem cach dung ket hop 2 ham nay o GET /don-hang, /don-hang/:id, applyDonHangLog.
+function lastGiaiTrinhAtExpr(donHangIdCol: string): string {
+  return `(SELECT MAX(ngay_tao) FROM dat_don_hang_giai_trinh WHERE dat_don_hang_id = ${donHangIdCol})`;
+}
+
 function canCreatePhieuDat(c: Context<{ Bindings: Env }>): boolean {
   const user = c.get("user");
   return !!(user.la_ktv_dvbh || user.la_ve_tinh || canTacNghiep(c) || user.vai_tro === "Giam sat");
@@ -325,12 +332,16 @@ datMuaLinhKien.put("/phu-trach-gs", async (c) => {
 });
 
 // GET /api/dat-mua-lk/luong-quy-trinh - 13 buoc CHOT 2026-08-17 theo yeu cau "thanh dieu huong dang
-// pipeline" thay cho SummaryStrip cu (danh sach pill dai dong loi). KHAC HAN computeDatMuaLkBreakdown
-// (badge/notifications.ts): so nay LUON tinh TOAN BO he thong (khong scope theo phuTrachGsSet/vai tro
-// nguoi goi) vi muc dich la "ai cung thay CA luong quy trinh" (chu he thong chot: "hiện toàn bộ
-// pipeline cho mọi người, chỉ tô màu/phóng to bước của riêng mình") - FE tu quyet dinh to mau buoc nao
+// pipeline" thay cho SummaryStrip cu (danh sach pill dai dong loi). FE tu quyet dinh to mau buoc nao
 // theo vai tro cua nguoi dang xem qua field "roleKeys" tra ve, khong an/hien buoc nao ca. Khong cache
 // (giong /bao-cao-tong-the canh no - du lieu nho, chi chay luc mo module).
+//
+// SUA (phan hoi QA 2026-08-31, muc #3): TRUOC DAY so nay LUON tinh TOAN BO he thong (khong scope theo
+// phuTrachGsSet/vai tro nguoi goi), chu dich ban dau la "ai cung thay CA luong quy trinh, chi to mau/
+// phong to buoc cua rieng minh" - DA DAO NGUOC theo xac nhan moi cua nguoi dung (AskUserQuestion
+// 2026-08-31): TN/Kho/Ke toan chi duoc thay dung so viec cua khu vuc minh phu trach (xem scopeCond/
+// phuTrachGsSet ngay duoi). Cac cot khong gan rieng vai tro nao (tram/tp_dvbh/tra_hang_qc/cho_hang/
+// ktv) VAN giu nguyen khong scope.
 //
 // 4 buoc KHONG co san truoc do (cho_hang/cho_tien/tao_pxk/ktv) - da hoi ro nguon du lieu voi chu he
 // thong truoc khi viet (2026-08-17):
@@ -376,6 +387,33 @@ export interface LuongQuyTrinhStep {
 
 datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
   const user = c.get("user");
+  // SUA (phan hoi QA 2026-08-31, muc #3: "KTV cua khu vuc MB1 tao don, nhung TN cua cac khu vuc <>
+  // MB1 van thay so 'Viec can lam hom nay' cua khu vuc khac") - DAO NGUOC quyet dinh cu ("LUON tinh
+  // TOAN BO he thong, khong scope" - xem ly do cu da xoa). Nguoi dung xac nhan (AskUserQuestion
+  // 2026-08-31) muon TN/Kho/Ke toan CHI thay dung so viec cua khu vuc minh phu trach, dung LAI CHINH
+  // co che phuTrachGsSet + "full=1" override da chung minh o GET /bao-cao-tong-the (xem comment o do,
+  // cung 1 dinh nghia). CHI scope cac cot roleKeys gan cho tac_nghiep/ke_toan/kho (thuoc "viec cua ho"
+  // that su) - tram/tp_dvbh/tra_hang_qc/cho_hang/ktv GIU NGUYEN khong scope (khong gan rieng vai tro
+  // nao, hoac ngoai pham vi yeu cau lan nay - QC/KTV khong nam trong quyet dinh #3).
+  const wantFull = c.req.query("full") === "1";
+  let scopeCond: ((alias: string) => string) | null = null;
+  let scopeBinds: string[] = [];
+  if ((canTacNghiep(c) || user.la_kho || user.la_ke_toan) && !wantFull) {
+    const gsSet = await phuTrachGsSet(c.env.DB, user.email);
+    if (gsSet) {
+      scopeCond = (alias) => ` AND ${alias}.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;
+      scopeBinds = [...gsSet];
+    }
+  }
+  const ddhScope = scopeCond ? scopeCond("ddh") : "";
+  // Pattern EXISTS giong het pxkScopeExists o GET /bao-cao-tong-the - phieu_xuat_kho khong co cot
+  // email_gs truc tiep, phai noi nguoc qua phieu_xuat_kho_dong -> dat_don_hang de biet GS phu trach.
+  const pxkScope = scopeCond
+    ? ` AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id${scopeCond("ddh2")})`
+    : "";
+  const thieuLkScope = scopeCond ? ` AND EXISTS (SELECT 1 FROM dat_don_hang ddh3 WHERE ddh3.id = tlk.dat_don_hang_id${scopeCond("ddh3")})` : "";
+  const sb = () => (scopeCond ? [...scopeBinds] : []);
+
   // RA SOAT CHI PHI D1 2026-08-18 (phan hoi Codex #10, migration 0087+0088): 16 SELECT COUNT(*) nay
   // chay refetchInterval 5 phut/client + sau MOI mutation (xem invalidatePipelineCounts o frontend) -
   // truoc day moi dong deu can 1 correlated subquery rieng (khong index duoc) de suy trang thai. Gio
@@ -385,33 +423,33 @@ datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
     `SELECT
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho Tram duyet') as tram,
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TBP xac nhan') as tp_dvbh,
-       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho ke toan duyet mem') as tra_hang_kt,
-       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho kho xac nhan') as tra_hang_kho,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho ke toan duyet mem'${ddhScope}) as tra_hang_kt,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho kho xac nhan'${ddhScope}) as tra_hang_kho,
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho QC xac nhan') as tra_hang_qc,
-       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TN duyet') as tac_nghiep,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TN duyet'${ddhScope}) as tac_nghiep,
        -- CHOT (ra soat module "Dat Mua Linh Kien 2.0" #12): tach rieng 3 buoc con thieu cua luong tra
        -- hang (truoc day "Cho TN duyet tong" bi GOP CHUNG vao dem cua "tac_nghiep" nhung KHONG co
        -- buoc rieng de bam vao dung tab "tra-hang" - bam vao "Tac nghiep" se nhay sai sang "don-cua-toi"
        -- khong khop dong tra_hang; "Cho ke toan xac nhan nhap kho"/"Cho kho xac nhan nhap kho" truoc do
        -- hoan toan khong co mat trong pipeline). Du 6/6 trang thai cua luong tra hang gio co bam duoc.
-       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TN duyet tong') as tra_hang_tn,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TN duyet tong'${ddhScope}) as tra_hang_tn,
        -- SUA (migration 0002_tra_hang_pxk.sql): thay 2 buoc "nhap kho" cu (khong con dat toi duoc, da
        -- xoa khoi tra_hang_log CHECK) bang 3 buoc PXK tra hang that (loai_don='tra_hang') - dung dung
        -- pattern tach rieng PXK tra hang khoi PXK mua/cong_no chung, giong het tra_hang_kt/kho/qc/tn
        -- o tren dang tach rieng khoi buoc mua/cong_no chung.
-       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don = 'tra_hang' AND pxk.trang_thai_hien_tai = 'Dang tao phieu') as tra_hang_tao_pxk,
-       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don = 'tra_hang' AND pxk.trang_thai_hien_tai = 'Cho ke toan') as tra_hang_pxk_kt,
-       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don = 'tra_hang' AND pxk.trang_thai_hien_tai = 'Da chot xong don xuat') as tra_hang_pxk_kho,
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don = 'tra_hang' AND pxk.trang_thai_hien_tai = 'Dang tao phieu'${pxkScope}) as tra_hang_tao_pxk,
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don = 'tra_hang' AND pxk.trang_thai_hien_tai = 'Cho ke toan'${pxkScope}) as tra_hang_pxk_kt,
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don = 'tra_hang' AND pxk.trang_thai_hien_tai = 'Da chot xong don xuat'${pxkScope}) as tra_hang_pxk_kho,
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho hang') as cho_hang,
-       (SELECT COUNT(*) FROM thieu_lk tlk WHERE (SELECT trang_thai FROM thieu_lk_log WHERE thieu_lk_id = tlk.id ORDER BY id DESC LIMIT 1) = 'Cho kho xu ly') as thieu_lk,
-       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet') as cho_tien,
+       (SELECT COUNT(*) FROM thieu_lk tlk WHERE (SELECT trang_thai FROM thieu_lk_log WHERE thieu_lk_id = tlk.id ORDER BY id DESC LIMIT 1) = 'Cho kho xu ly'${thieuLkScope}) as thieu_lk,
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'${pxkScope}) as cho_tien,
        -- CHOT (phan hoi 2026-08-24: "khi pxk đang chờ tiền thì tính nó thành chờ tiền, khi cập nhật
        -- tiền xong thì mới chuyển thành pxk") - loai tru PXK dang thoa dieu kien cho_tien o tren, khop
        -- dung exclusion o GET /phieu-xuat-kho (routes/phieuXuatKho.ts) de badge/danh sach nhay toi
        -- luon khop so.
-       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Dang tao phieu' AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')) as tao_pxk,
-       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Cho ke toan') as ke_toan,
-       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Da chot xong don xuat') as kho,
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Dang tao phieu' AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')${pxkScope}) as tao_pxk,
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Cho ke toan'${pxkScope}) as ke_toan,
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Da chot xong don xuat'${pxkScope}) as kho,
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Dang gui KTV') as ktv,
        -- FIX (ra soat "logic sai theo vai tro" 2026-08-29): "cho_tien"/"ktv" o tren la SO TOAN HE THONG
        -- (dung lam so cho Tac nghiep/bang dieu hanh chung), KHONG duoc dung lam "viec cua toi" cho TUNG
@@ -422,7 +460,7 @@ datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.nguoi_nhan_hang = ? AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet') as cho_tien_cua_toi,
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.nguoi_nhan_hang = ? AND pxk.trang_thai_hien_tai = 'Dang gui KTV') as ktv_cua_toi`,
   )
-    .bind(user.email, user.email)
+    .bind(...sb(), ...sb(), ...sb(), ...sb(), ...sb(), ...sb(), ...sb(), ...sb(), ...sb(), ...sb(), ...sb(), ...sb(), user.email, user.email)
     .first<Record<string, number>>();
   const n = (key: string) => row?.[key] ?? 0;
 
@@ -1001,7 +1039,8 @@ datMuaLinhKien.get("/don-hang", async (c) => {
     .bind(...binds)
     .first<{ total: number }>();
   const { results } = await c.env.DB.prepare(
-    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, lk.dac_thu, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at
+    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, lk.dac_thu, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
+       ${lastGiaiTrinhAtExpr("ddh.id")} as last_giai_trinh_at
      FROM dat_don_hang ddh
      LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
      WHERE ${whereSql}
@@ -1009,16 +1048,18 @@ datMuaLinhKien.get("/don-hang", async (c) => {
      LIMIT ? OFFSET ?`,
   )
     .bind(...binds, pageSize, offset)
-    .all<{ ly_do_cham: string | null; cho_tn_duyet_at: string | null }>();
+    .all<{ ly_do_cham: string | null; cho_tn_duyet_at: string | null; last_giai_trinh_at: string | null }>();
 
   // "Quá hạn - cần lý do chậm" (cung cong thuc voi GET /don-hang/:id, xem hanLyDoCham.ts) - truoc day
   // CHI tinh duoc o man chi tiet tung dong, danh sach hoan toan khong co canh bao (phan hoi chu he
   // thong: "danh sách chờ TN duyệt đang không có nơi để nhập lý do quá hạn... thiếu cảnh báo").
+  // SUA (muc #5): moc tinh han GIO LA last_giai_trinh_at (lan giai trinh gan nhat) neu co, khong con
+  // dua vao "co ly_do_cham hay khong" (khoa vinh vien) - xem lastGiaiTrinhAtExpr.
   const now = nowVN();
-  const rows = results.map(({ cho_tn_duyet_at, ...row }) => ({
-    ...row,
-    qua_han_ly_do_cham: !row.ly_do_cham && !!cho_tn_duyet_at && quaHanLyDoCham(cho_tn_duyet_at, now),
-  }));
+  const rows = results.map(({ cho_tn_duyet_at, last_giai_trinh_at, ...row }) => {
+    const mocThoiGian = last_giai_trinh_at ?? cho_tn_duyet_at;
+    return { ...row, qua_han_ly_do_cham: !!mocThoiGian && quaHanLyDoCham(mocThoiGian, now) };
+  });
 
   return c.json({ rows, page, pageSize, total: countRow?.total ?? 0 });
 });
@@ -1550,11 +1591,17 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
 
   // SUA (tach he doc lap): dat_don_case chi con luu case_id dang text (khong FK sang case_dvbh nua -
   // bang do khong con trong DB cuc bo), phai tra cuu khach_hang/khu_vuc qua API he cu cho tung ID.
-  const [{ results: caseLinks }, { results: logs }] = await Promise.all([
+  const [{ results: caseLinks }, { results: logs }, { results: giaiTrinh }] = await Promise.all([
     c.env.DB.prepare("SELECT dat_don_hang_id, case_id FROM dat_don_case WHERE dat_don_hang_id = ?")
       .bind(id)
       .all<{ dat_don_hang_id: string; case_id: string }>(),
     c.env.DB.prepare("SELECT * FROM dat_don_hang_log WHERE dat_don_hang_id = ? ORDER BY id DESC").bind(id).all<{ trang_thai: string; ngay_xu_ly: string }>(),
+    // Muc #5: lich su giai trinh (migration 0014) - moi vao dot nay, PXK/detail Drawer deu doc CHUNG
+    // danh sach nay de hien "hien tai dang khong the xem duoc ly do giai trinh cham cua don trong PXK"
+    // (phan hoi QA) khong con dung nua.
+    c.env.DB.prepare("SELECT id, noi_dung, nguoi_tao, ngay_tao FROM dat_don_hang_giai_trinh WHERE dat_don_hang_id = ? ORDER BY id DESC").bind(id).all<{
+      id: number; noi_dung: string; nguoi_tao: string; ngay_tao: string;
+    }>(),
   ]);
   const casePreviews = await lookupCases(
     (caseLinks as { dat_don_hang_id: string; case_id: string }[]).map((r) => r.case_id),
@@ -1567,11 +1614,14 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
     khu_vuc: casePreviews.get(r.case_id)?.khu_vuc ?? null,
   }));
 
-  // Co "qua han Ly do cham" (xem lib/hanLyDoCham.ts) - tinh tu ban ghi log "Cho TN duyet" MOI NHAT,
-  // chi bao dong khi dong CHUA duoc TN dien ly_do_cham.
+  // Co "qua han Ly do cham" (xem lib/hanLyDoCham.ts) - SUA (muc #5): moc tinh han GIO LA lan giai
+  // trinh GAN NHAT (migration 0014) neu co, khong con "khoa vinh vien" sau lan giai trinh dau tien -
+  // chua tung giai trinh lan nao thi fallback ve ban ghi log "Cho TN duyet" MOI NHAT nhu truoc.
   const now = nowVN();
   const choTnDuyetLog = (logs as { trang_thai: string; ngay_xu_ly: string }[]).find((l) => l.trang_thai === "Cho TN duyet");
-  const quaHan = !ddh.ly_do_cham && !!choTnDuyetLog && quaHanLyDoCham(choTnDuyetLog.ngay_xu_ly, now);
+  const lastGiaiTrinh = (giaiTrinh as { ngay_tao: string }[])[0];
+  const mocThoiGian = lastGiaiTrinh?.ngay_tao ?? choTnDuyetLog?.ngay_xu_ly;
+  const quaHan = !!mocThoiGian && quaHanLyDoCham(mocThoiGian, now);
 
   // FIX (ra soat "logic sai theo vai tro" 2026-08-31, phan hoi "Vệ tinh không cần quan tâm đến PXK...
   // toàn bộ thông tin PXK có thể xem được ở đơn chi tiết"): KTV/Ve tinh KHONG co tab "Phieu xuat kho"
@@ -1589,7 +1639,7 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
     .bind(id)
     .first();
 
-  return c.json({ donHang: { ...ddh, cases, logs, qua_han_ly_do_cham: quaHan }, pxk: pxk ?? null });
+  return c.json({ donHang: { ...ddh, cases, logs, giaiTrinh, qua_han_ly_do_cham: quaHan }, pxk: pxk ?? null });
 });
 
 // Mo 1 ca thieu_lk cho 1 DONG don hang khi TN tu choi bang 1 "Ly do cham" co co
@@ -1667,16 +1717,23 @@ async function applyDonHangLog(
   hanhDong: "duyet" | "tu_choi" | "huy",
   lyDoChamId: number | undefined,
   ghiChu: string | undefined,
+  // FIX (phan hoi QA 2026-08-31, muc #4): TN sua "SL thuc xuat" NGAY LUC DUYET (khong phai qua PATCH
+  // /don-hang/:id tuy y truoc do, von khong bat buoc ghi chu/khong ghi log) - 2 tham so MOI, CHI co
+  // nghia khi hanhDong==="duyet" (xem kiem tra ben duoi).
+  soLuongThucXuat: number | undefined,
+  ghiChuSoLuong: string | undefined,
 ): Promise<{ error: string; status: 404 | 409 | 403 | 400 } | { nextTrangThai: string }> {
   const ddh = await c.env.DB.prepare(
     `SELECT ddh.loai_don, ddh.nguoi_tao, ddh.email_gs, ddh.version, ddh.ly_do_cham, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat,
-            lk.dac_thu, ${latestDonHangStatusExpr("ddh.id")} as trang_thai, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at
+            lk.dac_thu, ${latestDonHangStatusExpr("ddh.id")} as trang_thai, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
+            ${lastGiaiTrinhAtExpr("ddh.id")} as last_giai_trinh_at
      FROM dat_don_hang ddh LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk WHERE ddh.id = ?`,
   )
     .bind(donHangId)
     .first<{
       loai_don: string; nguoi_tao: string; email_gs: string | null; version: number; ly_do_cham: string | null;
       ten_lk_snapshot: string; so_luong_de_xuat: number; dac_thu: number | null; trang_thai: string | null; cho_tn_duyet_at: string | null;
+      last_giai_trinh_at: string | null;
     }>();
   if (!ddh) return { error: "NOT_FOUND", status: 404 };
   if (ddh.loai_don === "tra_hang") return { error: "USE_TRA_HANG_ROUTE", status: 400 };
@@ -1719,11 +1776,13 @@ async function applyDonHangLog(
       // ly_do_cham) bat buoc chon 1 ly do (dung LAI danh sach settings_ly_do_cham dang dung cho
       // "Tu choi/Cho hang" - khong tao khai niem "ly do qua han" rieng) truoc khi duoc Duyet. Don
       // chua qua han giu hanh vi cu: Duyet ngay, khong hoi gi.
-      // FIX (audit 2026-08-26): PHAI check them "!ddh.ly_do_cham" giong het field qua_han_ly_do_cham
-      // o danh sach (dong 727) - thieu dieu kien nay se lech voi FE: don da tung co ly_do_cham (vd tu
-      // 1 lan "Cho hang" truoc do) roi quay lai "Cho TN duyet" va qua han LAN NUA se bi FE coi la
-      // "khong qua han" (khong mo modal) nhung BE van tu choi -> ket, khong co duong nhap ly do.
-      if (!ddh.ly_do_cham && ddh.cho_tn_duyet_at && quaHanLyDoCham(ddh.cho_tn_duyet_at, nowVN())) {
+      // SUA (phan hoi QA 2026-08-31, muc #5): moc tinh han GIO LA lan giai trinh GAN NHAT (migration
+      // 0014, dat_don_hang_giai_trinh) neu co, thay vi "co ly_do_cham hay khong" (khoa vinh vien sau
+      // lan giai trinh dau tien - dao nguoc quyet dinh cu da xoa). Fallback ve cho_tn_duyet_at khi
+      // chua tung giai trinh lan nao - PHAI khop CHINH XAC cong thuc dung o GET /don-hang (danh sach)
+      // va GET /don-hang/:id, tranh FE/BE lech nhau (bai hoc tu doan audit 2026-08-26 truoc do).
+      const mocThoiGianTn = ddh.last_giai_trinh_at ?? ddh.cho_tn_duyet_at;
+      if (mocThoiGianTn && quaHanLyDoCham(mocThoiGianTn, nowVN())) {
         if (!lyDoChamId) return { error: "MISSING_LY_DO_CHAM", status: 400 };
         const lyDo = await c.env.DB.prepare(
           "SELECT id, ten_ly_do FROM settings_ly_do_cham WHERE id = ? AND bat_tat = 1 AND he_thong_su_dung LIKE '%Mua hàng%'",
@@ -1732,6 +1791,15 @@ async function applyDonHangLog(
           .first<{ id: number; ten_ly_do: string }>();
         if (!lyDo) return { error: "LY_DO_CHAM_KHONG_HOP_LE", status: 400 };
         ghiChu = lyDo.ten_ly_do + (ghiChu?.trim() ? ` - ${ghiChu.trim()}` : "");
+      }
+      // FIX (phan hoi QA 2026-08-31, muc #4): "SL thuc xuat" khac "SL de xuat" luc duyet bat buoc
+      // ghi_chu_so_luong (chan o day, khong tin FE) - noi vao CUNG dong log "TN da duyet" (thay vi
+      // tao 1 dong log rieng - trang_thai cua dat_don_hang_log la CHECK constraint co dinh, khong the
+      // them gia tri moi, xem migration 0001_init.sql).
+      if (soLuongThucXuat != null && soLuongThucXuat !== ddh.so_luong_de_xuat) {
+        if (!ghiChuSoLuong?.trim()) return { error: "MISSING_GHI_CHU_SO_LUONG", status: 400 };
+        const ghiChuDoiSl = `Đổi SL thực xuất ${ddh.so_luong_de_xuat} → ${soLuongThucXuat}: ${ghiChuSoLuong.trim()}`;
+        ghiChu = ghiChu?.trim() ? `${ghiChu.trim()} | ${ghiChuDoiSl}` : ghiChuDoiSl;
       }
       nextTrangThai = "TN da duyet";
     } else if (hanhDong === "tu_choi") {
@@ -1764,10 +1832,15 @@ async function applyDonHangLog(
   // subquery) va deu ghi duoc 1 dong log, co the tao 2 quyet dinh mau thuan. Gio chi request nao
   // "thang" duoc UPDATE (khop dung version da doc luc dau ham) moi duoc ghi log; request thua nhan
   // 409 STATE_CHANGED, KHONG ghi log (tranh log rac/mau thuan).
+  // Muc #4: chi ghi so_luong_thuc_xuat KEM trong CUNG 1 UPDATE khi thuc su o nhanh "duyet" va co gia
+  // tri truyen len - tranh ghi de NULL len dong khong lien quan (tu_choi/huy khong co khai niem nay).
+  const capNhatSoLuong = nextTrangThai === "TN da duyet" && soLuongThucXuat != null;
   const casResult = await c.env.DB.prepare(
-    "UPDATE dat_don_hang SET trang_thai_hien_tai = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?",
+    capNhatSoLuong
+      ? "UPDATE dat_don_hang SET trang_thai_hien_tai = ?, so_luong_thuc_xuat = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?"
+      : "UPDATE dat_don_hang SET trang_thai_hien_tai = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?",
   )
-    .bind(nextTrangThai, nowVN(), donHangId, ddh.version)
+    .bind(...(capNhatSoLuong ? [nextTrangThai, soLuongThucXuat, nowVN(), donHangId, ddh.version] : [nextTrangThai, nowVN(), donHangId, ddh.version]))
     .run();
   if (!casResult.meta.changes) return { error: "STATE_CHANGED", status: 409 };
 
@@ -1819,8 +1892,11 @@ async function applyDonHangLog(
 //  - Nguoi tao (hoac Tram cua nguoi tao): huy dong khi con dang mo (chua vao trang thai dong).
 datMuaLinhKien.post("/don-hang/:id/log", async (c) => {
   const id = c.req.param("id");
-  const body = await c.req.json<{ hanh_dong: "duyet" | "tu_choi" | "huy"; ly_do_cham_id?: number; ghi_chu?: string }>();
-  const result = await applyDonHangLog(c, id, body.hanh_dong, body.ly_do_cham_id, body.ghi_chu);
+  const body = await c.req.json<{
+    hanh_dong: "duyet" | "tu_choi" | "huy"; ly_do_cham_id?: number; ghi_chu?: string;
+    so_luong_thuc_xuat?: number; ghi_chu_so_luong?: string;
+  }>();
+  const result = await applyDonHangLog(c, id, body.hanh_dong, body.ly_do_cham_id, body.ghi_chu, body.so_luong_thuc_xuat, body.ghi_chu_so_luong);
   if ("error" in result) return c.json({ error: result.error }, result.status);
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
@@ -1841,7 +1917,9 @@ datMuaLinhKien.post("/don-hang/bulk-log", async (c) => {
   const results: Record<string, string> = {};
   let coThanhCong = false;
   for (const donHangId of ids) {
-    const result = await applyDonHangLog(c, donHangId, body.hanh_dong, body.ly_do_cham_id, body.ghi_chu);
+    // Muc #4: SL thuc xuat KHONG ap dung o day - 1 gia tri chung cho nhieu dong khac nhau la vo nghia,
+    // UI sua SL chi co o Drawer 1 dong rieng (DonHangDetailModal), khong co o thao tac hang loat.
+    const result = await applyDonHangLog(c, donHangId, body.hanh_dong, body.ly_do_cham_id, body.ghi_chu, undefined, undefined);
     results[donHangId] = "error" in result ? result.error : result.nextTrangThai;
     if (!("error" in result)) coThanhCong = true;
   }
@@ -1857,22 +1935,23 @@ datMuaLinhKien.post("/don-hang/bulk-log", async (c) => {
 //    yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang, chinh_sach, ma_yeu_cau_su_co, uu_tien). Doi
 //    ma_lk thi re-snapshot ten_lk_snapshot/gia_de_xuat (gia lay tu gia_ban, khop POST /phieu-dat).
 //    Ap lai dung validate canNoRequired tren gia tri SAU khi sua.
-//  - TN (canTacNghiep): giu nguyen 5 truong cu (so_luong_thuc_xuat/gia_chot/ma_xuat_kho/ma_misa/
-//    ly_do_cham - gan ma_xuat_kho CHINH THUC van la qua POST /phieu-xuat-kho, o day chi de TN sua
-//    lai 1 dong rieng le), THEM 4 truong phu (ma_yeu_cau_su_co/yeu_cau_hoa_don/tt_khach_hang/
-//    tt_mail_duyet) de TN ho tro nguoi tao sua khi dang xu ly, khong gioi han trang thai.
+//  - TN (canTacNghiep): giu nguyen 4 truong cu (so_luong_thuc_xuat/gia_chot/ma_xuat_kho/ma_misa - gan
+//    ma_xuat_kho CHINH THUC van la qua POST /phieu-xuat-kho, o day chi de TN sua lai 1 dong rieng
+//    le), THEM 4 truong phu (ma_yeu_cau_su_co/yeu_cau_hoa_don/tt_khach_hang/tt_mail_duyet) de TN ho
+//    tro nguoi tao sua khi dang xu ly, khong gioi han trang thai.
 //
-// ly_do_cham (CHOT 2026-08-14, xem migration 0070): TN giai trinh khi dong ton qua 24h ke tu "Cho TN
-// duyet" ma chua duoc dua vao PXK "Cho ke toan" - bat buoc dien TRUOC khi POST
-// /phieu-xuat-kho/:id/log chan chuyen sang "Cho ke toan" (xem phieuXuatKho.ts). TN co the dien truoc
-// han (chu dong giai trinh som) - khong gate o day, chi gate o buoc chuyen trang thai PXK.
+// SUA (phan hoi QA 2026-08-31, muc #5): "ly_do_cham" DA BO khoi endpoint nay (truoc day la 1 truong
+// PATCH tuy y, khong bat buoc trang thai/khong ghi log/khoa vinh vien sau lan dau) - thay bang
+// POST /don-hang/:id/giai-trinh rieng (migration 0014, dat_don_hang_giai_trinh) cho phep NHIEU lan
+// giai trinh lap lai, moi lan RESET han 24h - xem comment endpoint do.
 datMuaLinhKien.patch("/don-hang/:id", async (c) => {
   const id = c.req.param("id");
   const user = c.get("user");
   const body = await c.req.json<{
-    so_luong_thuc_xuat?: number; gia_chot?: number; ma_xuat_kho?: string; ma_misa?: string; ly_do_cham?: string;
+    so_luong_thuc_xuat?: number; gia_chot?: number; ma_xuat_kho?: string; ma_misa?: string;
     ma_yeu_cau_su_co?: string; yeu_cau_hoa_don?: string; tt_khach_hang?: string; tt_mail_duyet?: string;
     ma_lk?: string; loai_de_xuat?: string; so_luong_de_xuat?: number; ghi_chu?: string; chinh_sach?: string; uu_tien?: boolean;
+    ghi_chu_so_luong?: string;
   }>();
   // BUG THAT (phat hien 2026-08-18 cung dot voi ma-misa PXK): "id" khong qualify bi cot "id" cua
   // CHINH dat_don_hang_log (PK) SHADOW trong subquery tuong quan -> trang_thai luon ra NULL ->
@@ -1939,27 +2018,39 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
       chinh_sach: nextChinhSach,
       ma_yeu_cau_su_co: nextMaYeuCauSuCo,
       uu_tien: body.uu_tien !== undefined ? (body.uu_tien ? 1 : 0) : existing.uu_tien,
-      // BUG THAT (phat hien 2026-08-19 luc kiem thu tinh nang "nhap ly do cham cho dong Cho TN
-      // duyet"): nhanh isCreatorEditWindow/canTacNghiep la if/else LOAI TRU nhau - 1 nguoi VUA la
-      // nguoi tao VUA la TN (vd TN tu tao don cho chinh minh, canCreatePhieuDat cho phep dieu nay)
-      // luon roi vao nhanh nay truoc, PATCH { ly_do_cham } cua ho bi am tham bo qua khong luu. Chi
-      // cho phep sua ly_do_cham O DAY khi nguoi goi THUC SU la TN (canTacNghiep) - tranh nguoi tao
-      // thuong (khong phai TN) smuggle gia tri qua nhanh nay.
-      ly_do_cham: canTacNghiep(c) && body.ly_do_cham !== undefined ? body.ly_do_cham?.trim() || null : existing.ly_do_cham,
     };
 
-    await c.env.DB.prepare(
-      `UPDATE dat_don_hang SET ma_lk = ?, ten_lk_snapshot = ?, gia_de_xuat = ?, loai_don = ?, loai_de_xuat = ?,
-         so_luong_de_xuat = ?, ghi_chu = ?, yeu_cau_hoa_don = ?, tt_khach_hang = ?, tt_mail_duyet = ?,
-         chinh_sach = ?, ma_yeu_cau_su_co = ?, uu_tien = ?, ly_do_cham = ?, updated_at = ?
-       WHERE id = ?`,
-    )
-      .bind(
+    // FIX (phan hoi QA 2026-08-31, muc #14): truoc day khong ghi log khi nguoi tao sua lai dong trong
+    // "cua so" con mo - reuse dung trang_thai HIEN TAI (chac chan la 1 trong 3 gia tri hop le CHECK
+    // constraint vi isCreatorEditWindow chi true o 3 trang thai do) lam gia tri trang_thai, mo ta thay
+    // doi qua ghi_chu (cung pattern voi nhanh TN ben duoi).
+    const thayDoiTao: string[] = [];
+    if (next.ma_lk !== existing.ma_lk) thayDoiTao.push(`Mã LK ${existing.ma_lk} → ${next.ma_lk}`);
+    if (next.so_luong_de_xuat !== existing.so_luong_de_xuat) thayDoiTao.push(`SL đề xuất ${existing.so_luong_de_xuat} → ${next.so_luong_de_xuat}`);
+    if (next.loai_de_xuat !== existing.loai_de_xuat) thayDoiTao.push(`Loại đề xuất ${existing.loai_de_xuat ?? "—"} → ${next.loai_de_xuat}`);
+    if (next.uu_tien !== existing.uu_tien) thayDoiTao.push(next.uu_tien ? "Đánh dấu ưu tiên" : "Bỏ đánh dấu ưu tiên");
+
+    const nowSua = nowVN();
+    const statementsSua = [
+      c.env.DB.prepare(
+        `UPDATE dat_don_hang SET ma_lk = ?, ten_lk_snapshot = ?, gia_de_xuat = ?, loai_don = ?, loai_de_xuat = ?,
+           so_luong_de_xuat = ?, ghi_chu = ?, yeu_cau_hoa_don = ?, tt_khach_hang = ?, tt_mail_duyet = ?,
+           chinh_sach = ?, ma_yeu_cau_su_co = ?, uu_tien = ?, updated_at = ?
+         WHERE id = ?`,
+      ).bind(
         next.ma_lk, next.ten_lk_snapshot, next.gia_de_xuat, next.loai_don, next.loai_de_xuat,
         next.so_luong_de_xuat, next.ghi_chu, next.yeu_cau_hoa_don, next.tt_khach_hang, next.tt_mail_duyet,
-        next.chinh_sach, next.ma_yeu_cau_su_co, next.uu_tien, next.ly_do_cham, nowVN(), id,
-      )
-      .run();
+        next.chinh_sach, next.ma_yeu_cau_su_co, next.uu_tien, nowSua, id,
+      ),
+    ];
+    if (thayDoiTao.length > 0) {
+      statementsSua.push(
+        c.env.DB.prepare("INSERT INTO dat_don_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+          id, existing.trang_thai, user.email, nowSua, `Sửa: ${thayDoiTao.join(" | ")}`,
+        ),
+      );
+    }
+    await c.env.DB.batch(statementsSua);
   } else if (canTacNghiep(c)) {
     const newMaXuatKho = body.ma_xuat_kho !== undefined ? body.ma_xuat_kho?.trim() || null : existing.ma_xuat_kho;
 
@@ -1968,27 +2059,92 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
       gia_chot: body.gia_chot !== undefined ? body.gia_chot : existing.gia_chot,
       ma_xuat_kho: newMaXuatKho,
       ma_misa: body.ma_misa !== undefined ? body.ma_misa?.trim() || null : existing.ma_misa,
-      ly_do_cham: body.ly_do_cham !== undefined ? body.ly_do_cham?.trim() || null : existing.ly_do_cham,
       ma_yeu_cau_su_co: body.ma_yeu_cau_su_co !== undefined ? body.ma_yeu_cau_su_co?.trim() || null : existing.ma_yeu_cau_su_co,
       yeu_cau_hoa_don: body.yeu_cau_hoa_don !== undefined ? body.yeu_cau_hoa_don?.trim() || null : existing.yeu_cau_hoa_don,
       tt_khach_hang: body.tt_khach_hang !== undefined ? body.tt_khach_hang?.trim() || null : existing.tt_khach_hang,
       tt_mail_duyet: body.tt_mail_duyet !== undefined ? body.tt_mail_duyet?.trim() || null : existing.tt_mail_duyet,
     };
 
-    await c.env.DB.prepare(
-      `UPDATE dat_don_hang SET so_luong_thuc_xuat = ?, gia_chot = ?, ma_xuat_kho = ?, ma_misa = ?, ly_do_cham = ?,
-         ma_yeu_cau_su_co = ?, yeu_cau_hoa_don = ?, tt_khach_hang = ?, tt_mail_duyet = ?, updated_at = ?
-       WHERE id = ?`,
-    )
-      .bind(
-        next.so_luong_thuc_xuat, next.gia_chot, next.ma_xuat_kho, next.ma_misa, next.ly_do_cham,
-        next.ma_yeu_cau_su_co, next.yeu_cau_hoa_don, next.tt_khach_hang, next.tt_mail_duyet, nowVN(), id,
-      )
-      .run();
+    // FIX (phan hoi QA 2026-08-31, muc #4): dong nay TRUOC KIA cho phep sua so_luong_thuc_xuat qua
+    // day BAT KY LUC NAO khong can ghi chu/khong ghi log - lam vo hieu gate bat buoc ghi chu da them
+    // o buoc "duyet" (applyDonHangLog). Chan CUNG o day: doi khac gia tri cu bat buoc ghi_chu_so_luong.
+    if (next.so_luong_thuc_xuat !== existing.so_luong_thuc_xuat && !body.ghi_chu_so_luong?.trim()) {
+      return c.json({ error: "MISSING_GHI_CHU_SO_LUONG" }, 400);
+    }
+
+    // FIX (phan hoi QA 2026-08-31, muc #14 - "rà soát ghi log đủ thao tác từng vai trò"): truoc day
+    // KHONG ghi dat_don_hang_log khi TN sua 1 dong qua nhanh nay (so_luong_thuc_xuat/gia_chot/
+    // ma_xuat_kho/ma_misa/...) - hoan toan khong co dau vet. Reuse dung trang_thai HIEN TAI cua dong
+    // (CHECK constraint dat_don_hang_log co dinh, xem migration 0001) lam gia tri trang_thai, mo ta
+    // that su qua ghi_chu (cung pattern da dung cho phieu_xuat_kho_log/tra_hang_log trong dot nay).
+    const thayDoi: string[] = [];
+    if (next.so_luong_thuc_xuat !== existing.so_luong_thuc_xuat) {
+      thayDoi.push(`SL thực xuất ${existing.so_luong_thuc_xuat ?? "—"} → ${next.so_luong_thuc_xuat ?? "—"}: ${body.ghi_chu_so_luong?.trim()}`);
+    }
+    if (next.gia_chot !== existing.gia_chot) thayDoi.push(`Giá chốt ${existing.gia_chot ?? "—"} → ${next.gia_chot ?? "—"}`);
+    if (next.ma_xuat_kho !== existing.ma_xuat_kho) thayDoi.push(`Mã đơn hàng ${existing.ma_xuat_kho ?? "—"} → ${next.ma_xuat_kho ?? "—"}`);
+    if (next.ma_misa !== existing.ma_misa) thayDoi.push(`Mã MISA ${existing.ma_misa ?? "—"} → ${next.ma_misa ?? "—"}`);
+    if (next.ma_yeu_cau_su_co !== existing.ma_yeu_cau_su_co) thayDoi.push(`Mã YCSC ${existing.ma_yeu_cau_su_co ?? "—"} → ${next.ma_yeu_cau_su_co ?? "—"}`);
+    if (next.yeu_cau_hoa_don !== existing.yeu_cau_hoa_don) thayDoi.push(`Yêu cầu hoá đơn ${existing.yeu_cau_hoa_don ?? "—"} → ${next.yeu_cau_hoa_don ?? "—"}`);
+    if (next.tt_khach_hang !== existing.tt_khach_hang) thayDoi.push("Đổi TT khách hàng");
+    if (next.tt_mail_duyet !== existing.tt_mail_duyet) thayDoi.push("Đổi TT mail duyệt");
+
+    const now = nowVN();
+    const statements = [
+      c.env.DB.prepare(
+        `UPDATE dat_don_hang SET so_luong_thuc_xuat = ?, gia_chot = ?, ma_xuat_kho = ?, ma_misa = ?,
+           ma_yeu_cau_su_co = ?, yeu_cau_hoa_don = ?, tt_khach_hang = ?, tt_mail_duyet = ?, updated_at = ?
+         WHERE id = ?`,
+      ).bind(
+        next.so_luong_thuc_xuat, next.gia_chot, next.ma_xuat_kho, next.ma_misa,
+        next.ma_yeu_cau_su_co, next.yeu_cau_hoa_don, next.tt_khach_hang, next.tt_mail_duyet, now, id,
+      ),
+    ];
+    if (thayDoi.length > 0) {
+      statements.push(
+        c.env.DB.prepare("INSERT INTO dat_don_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+          id, existing.trang_thai ?? "Cho Tram duyet", user.email, now, thayDoi.join(" | "),
+        ),
+      );
+    }
+    await c.env.DB.batch(statements);
   } else {
     return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   }
 
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true });
+});
+
+// POST /api/dat-mua-lk/don-hang/:id/giai-trinh - { noi_dung } TN nop 1 LAN GIAI TRINH ly do cham moi
+// (phan hoi QA 2026-08-31, muc #5, migration 0014 dat_don_hang_giai_trinh) - thay the co che PATCH
+// { ly_do_cham } cu (1 cot duy nhat, khoa vinh vien sau lan dau). Co the nop TRUOC han (chu dong giai
+// trinh som, giu dung hanh vi cu "khong gate o day, chi gate luc chuyen trang thai") hoac SAU khi qua
+// han - MOI lan nop deu la 1 dong LICH SU moi (khong ghi de), va RESET dong ho 24h ke tu chinh thoi
+// diem nop nay (xem lastGiaiTrinhAtExpr dung o GET /don-hang, /don-hang/:id, applyDonHangLog). Chi TN
+// (canTacNghiep) nop duoc, chi khi dong con dang "Cho TN duyet" (het y nghia sau khi da duyet/tu
+// choi/huy - luc do khai niem "qua han cho TN duyet" khong con ap dung).
+datMuaLinhKien.post("/don-hang/:id/giai-trinh", async (c) => {
+  if (!canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const id = c.req.param("id");
+  const body = await c.req.json<{ noi_dung: string }>();
+  if (!body.noi_dung?.trim()) return c.json({ error: "MISSING_NOI_DUNG" }, 400);
+
+  const ddh = await c.env.DB.prepare(`SELECT ${latestDonHangStatusExpr("id")} as trang_thai FROM dat_don_hang WHERE id = ?`)
+    .bind(id)
+    .first<{ trang_thai: string | null }>();
+  if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
+  if (ddh.trang_thai !== "Cho TN duyet") return c.json({ error: "INVALID_STATE" }, 409);
+
+  const user = c.get("user");
+  const now = nowVN();
+  const noiDung = body.noi_dung.trim();
+  // ly_do_cham (cot cu tren dat_don_hang) GIU LAM MIRROR noi dung LAN GIAI TRINH GAN NHAT - cho cac
+  // noi con hien thi nhanh khong can join sang bang lich su (xem migration 0014).
+  await c.env.DB.batch([
+    c.env.DB.prepare("INSERT INTO dat_don_hang_giai_trinh (dat_don_hang_id, noi_dung, nguoi_tao, ngay_tao) VALUES (?, ?, ?, ?)").bind(id, noiDung, user.email, now),
+    c.env.DB.prepare("UPDATE dat_don_hang SET ly_do_cham = ?, updated_at = ? WHERE id = ?").bind(noiDung, now, id),
+  ]);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ ok: true });
 });

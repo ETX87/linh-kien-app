@@ -355,7 +355,7 @@ export function TrangChuTab({
   return (
     <div className="mt-4 space-y-4">
       <div>
-        <h2 className="font-display text-base font-bold text-[var(--ink-900)]">Việc cần làm hôm nay</h2>
+        <h2 className="font-display text-base font-bold text-[var(--ink-900)]">Đang chờ hôm nay</h2>
         <div className="hidden sm:block text-xs text-[var(--ink-500)] mt-0.5">Số liệu tồn đọng đúng theo vai trò của bạn — bấm vào ô số để nhảy thẳng tới danh sách xử lý.</div>
       </div>
 

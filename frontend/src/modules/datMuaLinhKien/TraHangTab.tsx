@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
 import { Badge, type BadgeTone } from "../../components/ui/Badge";
@@ -125,10 +125,11 @@ const DA_DONG = ["TN da duyet", "Tu choi", "Da huy"];
 const CO_THE_DAY_LUI = ["Cho kho xac nhan", "Cho QC xac nhan", "Cho TN duyet tong"];
 
 export function TraHangTab({
-  addToast, qc, canKeToan, canKho, canQC, canTacNghiep, initialFilterOverride,
+  addToast, qc, canKeToan, canKho, canQC, canTacNghiep, currentEmail, isAdmin, initialFilterOverride,
 }: {
   addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>;
-  canKeToan: boolean; canKho: boolean; canQC: boolean; canTacNghiep: boolean; initialFilterOverride?: string;
+  canKeToan: boolean; canKho: boolean; canQC: boolean; canTacNghiep: boolean;
+  currentEmail: string; isAdmin: boolean; initialFilterOverride?: string;
 }) {
   // Uu tien QC > Ke toan > Kho > TN cho mac dinh (chi anh huong lan dau) - 1 nguoi hiem khi giu qua
   // 1 trong 4 flag nay cung luc (ngoai Admin, da tu roi tabs[0] khac o component cha).
@@ -480,6 +481,8 @@ export function TraHangTab({
           canXuLy={canXuLy}
           canKeToan={canKeToan}
           canKho={canKho}
+          currentEmail={currentEmail}
+          isAdmin={isAdmin}
           navRows={data?.rows}
           onNavigate={setDetailId}
         />
@@ -623,71 +626,98 @@ function TraHangGroupedList({
     groups.get(r.nguoi_tao)!.push(r);
   }
 
+  // FIX (phan hoi QA 2026-08-31, muc #13): truoc day MOI nhom KTV la 1 <table> doc lap kem <thead>
+  // rieng (lap lai header nhieu lan, nhin nhu nhieu bang tach biet) - gop thanh 1 <table> DUY NHAT cho
+  // toan bo danh sach (1 <thead> chung tren cung, <tbody> noi tiep tung nhom qua 1 hang banner
+  // <td colSpan>), dung CHUNG pattern da ap dung cho Mua hang/Cong no o DonCuaToiTab.tsx.
+  const groupEntries = [...groups.entries()].map(([nguoiTao, dongCon]) => {
+    const dangCho = dongCon.filter((r) => !DA_DONG.includes(r.trang_thai_tra_hang)).length;
+    const daDong = dongCon.length - dangCho;
+    return { nguoiTao, dongCon, dangCho, daDong };
+  });
+
   return (
     <div className="space-y-2">
-      {[...groups.entries()].map(([nguoiTao, dongCon]) => {
-        const dangCho = dongCon.filter((r) => !DA_DONG.includes(r.trang_thai_tra_hang)).length;
-        const daDong = dongCon.length - dangCho;
-        return (
-          <div key={nguoiTao} className="mb-4">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <SectionTitle>
-                KTV: {formatNguoiDisplay(nguoiTao, ktvDisplayMap)}
-                <span className="ml-1.5 font-normal normal-case tracking-normal text-[var(--ink-400)]">({dongCon.length} dòng)</span>
-              </SectionTitle>
-              <div className="flex items-center gap-1 flex-wrap mb-2">
-                {dangCho > 0 && <Badge tone="amber">{dangCho} đang chờ</Badge>}
-                {daDong > 0 && <Badge tone="teal">{daDong} đã xong</Badge>}
-              </div>
+      <div className="hidden sm:block overflow-x-auto border-t border-[var(--line)]">
+        <table className="w-full min-w-[720px] text-xs border-collapse">
+          <thead>
+            <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+              {effectiveColumns.map((col, idx) => (
+                <ResizableHeaderCell
+                  key={col.key}
+                  col={col}
+                  idx={idx}
+                  isPinned={idx === 0}
+                  width={colWidths[col.key]}
+                  storageKey="dmlk-tra-hang-list"
+                  dragOverKey={dragOverKey}
+                  setDragOverKey={setDragOverKey}
+                  draggedColKey={draggedColKey}
+                  handleColumnDrop={handleColumnDrop}
+                  handleResizeStart={handleResizeStart}
+                  sortable={false}
+                  isActive={false}
+                />
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {groupEntries.map((g) => (
+              <Fragment key={g.nguoiTao}>
+                <tr className="bg-[var(--ocean-100)]">
+                  <td colSpan={effectiveColumns.length} className="px-3 py-2">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-3 flex-wrap text-sm min-w-0">
+                        <span className="font-bold text-[var(--ink-900)] text-sm truncate">
+                          {formatNguoiDisplay(g.nguoiTao, ktvDisplayMap)}
+                        </span>
+                        <span className="text-[var(--ink-500)] text-xs">({g.dongCon.length} dòng)</span>
+                      </div>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {g.dangCho > 0 && <Badge tone="amber">{g.dangCho} đang chờ</Badge>}
+                        {g.daDong > 0 && <Badge tone="teal">{g.daDong} đã xong</Badge>}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                {g.dongCon.map((r) => (
+                  <tr
+                    key={r.id}
+                    onClick={() => onDetail(r.id)}
+                    className={`cursor-pointer transition-colors border-b border-[var(--line)] last:border-0 ${
+                      r.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)] hover:brightness-95" : "hover:bg-slate-50"
+                    }`}
+                  >
+                    {effectiveColumns.map((col) => {
+                      const width = colWidths[col.key];
+                      return (
+                        <td key={col.key} style={width ? { width, maxWidth: width, overflow: "hidden" } : undefined} className={`px-3 py-1.5 ${col.className ?? ""}`}>
+                          {col.render(r)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {groupEntries.map((g) => (
+        <div key={g.nguoiTao} className="mb-4">
+          <div className="sm:hidden flex items-center justify-between gap-2 flex-wrap">
+            <SectionTitle>
+              KTV: {formatNguoiDisplay(g.nguoiTao, ktvDisplayMap)}
+              <span className="ml-1.5 font-normal normal-case tracking-normal text-[var(--ink-400)]">({g.dongCon.length} dòng)</span>
+            </SectionTitle>
+            <div className="flex items-center gap-1 flex-wrap mb-2">
+              {g.dangCho > 0 && <Badge tone="amber">{g.dangCho} đang chờ</Badge>}
+              {g.daDong > 0 && <Badge tone="teal">{g.daDong} đã xong</Badge>}
             </div>
-            <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full min-w-[720px] text-xs border-collapse">
-                  <thead>
-                    <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
-                      {effectiveColumns.map((col, idx) => (
-                        <ResizableHeaderCell
-                          key={col.key}
-                          col={col}
-                          idx={idx}
-                          isPinned={idx === 0}
-                          width={colWidths[col.key]}
-                          storageKey="dmlk-tra-hang-list"
-                          dragOverKey={dragOverKey}
-                          setDragOverKey={setDragOverKey}
-                          draggedColKey={draggedColKey}
-                          handleColumnDrop={handleColumnDrop}
-                          handleResizeStart={handleResizeStart}
-                          sortable={false}
-                          isActive={false}
-                        />
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dongCon.map((r) => (
-                      <tr
-                        key={r.id}
-                        onClick={() => onDetail(r.id)}
-                        className={`cursor-pointer transition-colors border-b border-[var(--line)] last:border-0 ${
-                          r.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)] hover:brightness-95" : "hover:bg-slate-50"
-                        }`}
-                      >
-                        {effectiveColumns.map((col) => {
-                          const width = colWidths[col.key];
-                          return (
-                            <td key={col.key} style={width ? { width, maxWidth: width, overflow: "hidden" } : undefined} className={`px-3 py-1.5 ${col.className ?? ""}`}>
-                              {col.render(r)}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="sm:hidden divide-y divide-[var(--line)]">
-                {dongCon.map((r) => {
+          </div>
+          <div className="sm:hidden border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
+              <div className="divide-y divide-[var(--line)]">
+                {g.dongCon.map((r) => {
                   // Dong 1: ten LK (~60%) + badge trang thai (~40%, cat bot + "+N" neu khong du cho) -
                   // khop dung quy uoc "60/40 + (N) ẩn bớt" da ap dung cho DonCuaToiTab.tsx cung dot.
                   const badges: { tone: BadgeTone; label: string }[] = [
@@ -745,10 +775,9 @@ function TraHangGroupedList({
                   );
                 })}
               </div>
-            </div>
           </div>
-        );
-      })}
+        </div>
+      ))}
       <div className="flex items-center justify-between px-1 py-2 text-xs text-[var(--ink-400)]">
         <span>{total} dòng</span>
         <div className="flex gap-1">
@@ -768,7 +797,7 @@ function TraHangGroupedList({
 // don gian hon truyen 3-4 mutation object qua props, doi gia la invalidate rieng (khong lech du lieu
 // vi CUNG 1 react-query queryKey "tra-hang" duoc invalidate).
 function TraHangDetailModal({
-  id, onClose, addToast, qc, canXuLy, canKeToan, canKho, navRows, onNavigate,
+  id, onClose, addToast, qc, canXuLy, canKeToan, canKho, currentEmail, isAdmin, navRows, onNavigate,
 }: {
   id: string;
   onClose: () => void;
@@ -777,11 +806,13 @@ function TraHangDetailModal({
   canXuLy: (trangThai: string) => boolean;
   canKeToan: boolean;
   canKho: boolean;
+  currentEmail: string;
+  isAdmin: boolean;
   navRows?: TraHangRow[];
   onNavigate?: (id: string) => void;
 }) {
   const [ghiChu, setGhiChu] = useState("");
-  const [actionMode, setActionMode] = useState<"tu_choi_tn" | "tu_choi_qc" | "tu_choi_simple" | "day_lui" | null>(null);
+  const [actionMode, setActionMode] = useState<"tu_choi_tn" | "tu_choi_qc" | "tu_choi_simple" | "day_lui" | "huy" | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["tra-hang-detail", id],
     queryFn: () =>
@@ -834,6 +865,10 @@ function TraHangDetailModal({
   const daDong = DA_DONG.includes(trangThai);
   const coTheXuLy = !!d && !daDong && canXuLy(trangThai);
   const coTheDayLui = !!d && (canKeToan || canKho) && CO_THE_DAY_LUI.includes(trangThai);
+  // FIX (phan hoi QA 2026-08-31, muc #2): backend da cho phep chinh nguoi tao (hoac Admin) tu huy don
+  // tra hang cua minh o bat ky buoc nao con mo (xem traHang.ts, hanhDong "huy") nhung frontend truoc
+  // day khong co duong nao goi toi hanh dong nay - chi co Duyet/Tu choi cho cac vai tro xu ly.
+  const coTheHuy = !!d && !daDong && (currentEmail === d.nguoi_tao || isAdmin);
   const ktvDisplayMap = useKtvDisplayMap();
 
   const navIndex = navRows?.findIndex((r) => r.id === id) ?? -1;
@@ -914,7 +949,23 @@ function TraHangDetailModal({
             <Btn size="sm" onClick={() => layLuiMutation.mutate()} disabled={!ghiChu.trim() || layLuiMutation.isPending}>Xác nhận</Btn>
           </div>
         </div>
-      ) : coTheXuLy || coTheDayLui ? (
+      ) : actionMode === "huy" ? (
+        <div className="space-y-2">
+          <div className="font-semibold text-xs">Hủy đơn trả hàng — lý do (bắt buộc)</div>
+          <div className="flex gap-2 flex-wrap items-center">
+            <input
+              value={ghiChu}
+              onChange={(e) => setGhiChu(e.target.value)}
+              placeholder="Lý do hủy (bắt buộc)"
+              className="focus-ring flex-1 min-w-[160px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+            <Btn variant="ghost" size="sm" onClick={() => { setActionMode(null); setGhiChu(""); }}>Đóng</Btn>
+            <Btn size="sm" variant="danger" onClick={() => logMutation.mutate({ hanhDong: "huy", ghiChu })} disabled={!ghiChu.trim() || logMutation.isPending}>
+              Xác nhận hủy
+            </Btn>
+          </div>
+        </div>
+      ) : coTheXuLy || coTheDayLui || coTheHuy ? (
         // Sap xep nut theo dung nhom concept 1 (renderTraHangDrawer(): primary D1-D4 truoc, ghost
         // "Lùi bước" (D5) giua, danger "Từ chối" cuoi cung) - CHI doi THU TU hien thi, dieu kien/
         // handler cua tung nut giu nguyen 100%.
@@ -931,6 +982,9 @@ function TraHangDetailModal({
           )}
           {coTheXuLy && (
             <Btn size="sm" variant="danger" onClick={handleTuChoi} disabled={logMutation.isPending}>Từ chối</Btn>
+          )}
+          {coTheHuy && (
+            <Btn size="sm" variant="danger" onClick={() => { setActionMode("huy"); setGhiChu(""); }} disabled={logMutation.isPending}>Hủy</Btn>
           )}
         </div>
       ) : null
@@ -1000,11 +1054,16 @@ function TraHangDetailModal({
             if (anhTaoMoi.length === 0 && anhQc.length === 0) return null;
             return (
               <DetailZone title="Ảnh">
+                {/* FIX (phan hoi QA 2026-08-31, muc #12): truoc day chi hien link chu "📷 Ảnh N" - phai
+                    bam moi biet anh chup gi, doi thanh thumbnail xem truoc ngay tai cho, bam vao moi
+                    mo anh goc kich thuoc that o tab moi. */}
                 {anhTaoMoi.length > 0 && (
                   <KvRow label="Ảnh LK cần trả">
                     <div className="flex gap-1.5 flex-wrap">
-                      {anhTaoMoi.map((a, i) => (
-                        <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className="text-[var(--ocean-800)] underline underline-offset-2 text-xs">📷 Ảnh {i + 1}</a>
+                      {anhTaoMoi.map((a) => (
+                        <a key={a.id} href={a.url} target="_blank" rel="noreferrer">
+                          <img src={a.url} alt="Ảnh linh kiện cần trả" className="w-16 h-16 object-cover rounded-lg border border-[var(--line)] hover:opacity-80 transition-opacity" />
+                        </a>
                       ))}
                     </div>
                   </KvRow>
@@ -1012,8 +1071,10 @@ function TraHangDetailModal({
                 {anhQc.length > 0 && (
                   <KvRow label="Ảnh bằng chứng QC">
                     <div className="flex gap-1.5 flex-wrap">
-                      {anhQc.map((a, i) => (
-                        <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className="text-[var(--ocean-800)] underline underline-offset-2 text-xs">📷 Ảnh {i + 1}</a>
+                      {anhQc.map((a) => (
+                        <a key={a.id} href={a.url} target="_blank" rel="noreferrer">
+                          <img src={a.url} alt="Ảnh bằng chứng QC" className="w-16 h-16 object-cover rounded-lg border border-[var(--line)] hover:opacity-80 transition-opacity" />
+                        </a>
                       ))}
                     </div>
                   </KvRow>

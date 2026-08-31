@@ -205,11 +205,17 @@ traHang.post("/:donHangId/anh", async (c) => {
   }
 
   const user = c.get("user");
-  await c.env.DB.prepare(
-    "INSERT INTO tra_hang_anh (dat_don_hang_id, loai, drive_file_id, url, nguoi_upload) VALUES (?, 'qc_tu_choi', ?, ?, ?)",
-  )
-    .bind(donHangId, uploaded.id, uploaded.thumbnailUrl, user.email)
-    .run();
+  // FIX (phan hoi QA 2026-08-31, muc #6/#14): truoc day khong ghi log khi QC tai anh bang chung -
+  // trang_thai giu nguyen "Cho QC xac nhan" (dung trang_thai hien tai cua don, xem guard tren), mo ta
+  // that o ghi_chu (giong cach xu ly CHECK constraint co dinh cua phieu_xuat_kho_log).
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      "INSERT INTO tra_hang_anh (dat_don_hang_id, loai, drive_file_id, url, nguoi_upload) VALUES (?, 'qc_tu_choi', ?, ?, ?)",
+    ).bind(donHangId, uploaded.id, uploaded.thumbnailUrl, user.email),
+    c.env.DB.prepare(
+      "INSERT INTO tra_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)",
+    ).bind(donHangId, "Cho QC xac nhan", user.email, nowVN(), "Đã tải ảnh bằng chứng từ chối"),
+  ]);
   return c.json({ ok: true, url: uploaded.thumbnailUrl });
 });
 

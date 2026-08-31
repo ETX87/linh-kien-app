@@ -90,10 +90,22 @@ export function DonHangDetailModal({
   // that su, xem isCongNoTaoHo o helpers.ts.
   const [confirmDuyetTaoHo, setConfirmDuyetTaoHo] = useState(false);
   const [lyDoChamId, setLyDoChamId] = useState("");
+  // FIX (phan hoi QA 2026-08-31, muc #4: "khi duyệt đơn, nếu SL đặt > 1, TN có thể sửa SL thực xuất,
+  // nếu đổi thì bắt buộc ghi chú lý do") - 2 state rieng, dong bo lai tu du lieu MOI moi khi id doi
+  // (dieu huong "Duyet va tiep theo" tai su dung CUNG 1 component instance, khong remount - xem
+  // useEffect duoi).
+  const [soLuongThucXuat, setSoLuongThucXuat] = useState("");
+  const [lyDoSoLuong, setLyDoSoLuong] = useState("");
   const { data, isLoading } = useQuery({
     queryKey: ["dat-mua-lk-don-hang-detail", id],
     queryFn: () => api.get<{ donHang: DonHangRow; pxk: PxkInfo | null }>(`/dat-mua-lk/don-hang/${id}`),
   });
+  useEffect(() => {
+    if (data?.donHang && data.donHang.id === id) {
+      setSoLuongThucXuat(String(data.donHang.so_luong_thuc_xuat ?? data.donHang.so_luong_de_xuat));
+      setLyDoSoLuong("");
+    }
+  }, [data?.donHang, id]);
   const { data: lyDoData } = useQuery({
     queryKey: ["dat-mua-lk-ly-do-cham"],
     queryFn: () => api.get<{ rows: LyDoChamRow[] }>("/dat-mua-lk/ly-do-cham?he_thong=" + encodeURIComponent("Mua hàng")),
@@ -110,8 +122,8 @@ export function DonHangDetailModal({
   }
 
   const logMutation = useMutation({
-    mutationFn: ({ hanh_dong, ly_do_cham_id }: { hanh_dong: string; ly_do_cham_id?: number }) =>
-      api.post(`/dat-mua-lk/don-hang/${id}/log`, { hanh_dong, ly_do_cham_id, ghi_chu: ghiChu.trim() || undefined }),
+    mutationFn: ({ hanh_dong, ly_do_cham_id, so_luong_thuc_xuat, ghi_chu_so_luong }: { hanh_dong: string; ly_do_cham_id?: number; so_luong_thuc_xuat?: number; ghi_chu_so_luong?: string }) =>
+      api.post(`/dat-mua-lk/don-hang/${id}/log`, { hanh_dong, ly_do_cham_id, ghi_chu: ghiChu.trim() || undefined, so_luong_thuc_xuat, ghi_chu_so_luong }),
     onSuccess: (_res, variables) => {
       invalidate();
       // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Duyet va tiep"): sau khi Duyet, tu dong nhay
@@ -129,11 +141,12 @@ export function DonHangDetailModal({
   });
 
   // "Lý do chậm" khi dòng còn "Cho TN duyệt" quá hạn (phản hồi: "danh sách chờ TN duyệt đang không có
-  // nơi để nhập lý do quá hạn") - cùng pattern/endpoint với PhieuXuatKhoTab.tsx (input tự do, PATCH
-  // /don-hang/:id), chỉ khác phạm vi hiển thị (ở đây là khi CÒN "Cho TN duyệt", PXK là "Dang tao phieu").
+  // nơi để nhập lý do quá hạn") - cùng pattern/endpoint với PhieuXuatKhoTab.tsx. SUA (phan hoi QA
+  // 2026-08-31, muc #5): doi tu PATCH /don-hang/:id { ly_do_cham } (1 lan duy nhat, khoa vinh vien) ->
+  // POST /don-hang/:id/giai-trinh (migration 0014) - cho phep giai trinh LAP LAI moi khi qua han lai.
   const [lyDoChamDraft, setLyDoChamDraft] = useState("");
   const lyDoChamMutation = useMutation({
-    mutationFn: (ly_do_cham: string) => api.patch(`/dat-mua-lk/don-hang/${id}`, { ly_do_cham }),
+    mutationFn: (noi_dung: string) => api.post(`/dat-mua-lk/don-hang/${id}/giai-trinh`, { noi_dung }),
     onSuccess: () => {
       setLyDoChamDraft("");
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-detail", id] });
@@ -210,12 +223,20 @@ export function DonHangDetailModal({
   // choi/mo ticket thieu hang).
   function confirmDuyetQuaHan() {
     if (actionTarget !== "duyet_qua_han" || !lyDoChamId) return;
-    logMutation.mutate({ hanh_dong: "duyet", ly_do_cham_id: Number(lyDoChamId) });
+    if (soLuongThucXuatDaDoi && !lyDoSoLuong.trim()) return;
+    logMutation.mutate({ ...duyetPayload(), ly_do_cham_id: Number(lyDoChamId) });
   }
 
   const d = data?.donHang;
   const pxk = data?.pxk;
   const actions = d ? actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail }) : { duyet: false, tuChoi: false, choHang: false, huy: false };
+  // Muc #4: SL thuc xuat CHI cho sua khi dong dang "Cho TN duyet" va SL de xuat > 1 (dung dieu kien
+  // nguoi dung neu ra). "Da doi" so voi SL de xuat (khong phai so voi gia tri cu da luu - dong nay
+  // chua tung duoc duyet nen chua co "gia tri cu" nao khac SL de xuat) la dieu kien bat buoc ghi chu.
+  const soLuongThucXuatDaDoi = !!d && d.so_luong_de_xuat > 1 && Number(soLuongThucXuat) !== d.so_luong_de_xuat;
+  function duyetPayload(): { hanh_dong: "duyet"; so_luong_thuc_xuat?: number; ghi_chu_so_luong?: string } {
+    return soLuongThucXuatDaDoi ? { hanh_dong: "duyet", so_luong_thuc_xuat: Number(soLuongThucXuat), ghi_chu_so_luong: lyDoSoLuong.trim() } : { hanh_dong: "duyet" };
+  }
   // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Drawer + Next/Previous"): chi so cua dong dang
   // xem trong navRows (trang hien tai o danh sach cha) - undefined navRows (chua truyen) = an het nut
   // dieu huong, KHONG throw loi (xem DrawerNavButtons duoc render co dieu kien ben duoi). DUA LEN DAY
@@ -447,9 +468,22 @@ export function DonHangDetailModal({
               />
             </div>
           </div>
+          {soLuongThucXuatDaDoi && (
+            <div>
+              <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">
+                Lý do đổi SL thực xuất ({d.so_luong_de_xuat} → {soLuongThucXuat}) — bắt buộc
+              </label>
+              <input
+                value={lyDoSoLuong}
+                onChange={(e) => setLyDoSoLuong(e.target.value)}
+                placeholder="Lý do đổi số lượng thực xuất (bắt buộc)"
+                className="focus-ring w-full bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              />
+            </div>
+          )}
           <div className="flex gap-2 justify-end">
             <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setLyDoChamId(""); }}>Hủy</Btn>
-            <Btn size="sm" onClick={confirmDuyetQuaHan} disabled={!lyDoChamId || logMutation.isPending}>Xác nhận duyệt</Btn>
+            <Btn size="sm" onClick={confirmDuyetQuaHan} disabled={!lyDoChamId || logMutation.isPending || (soLuongThucXuatDaDoi && !lyDoSoLuong.trim())}>Xác nhận duyệt</Btn>
           </div>
         </div>
       ) : actionTarget === "huy" ? (
@@ -470,7 +504,21 @@ export function DonHangDetailModal({
           </div>
         </div>
       ) : actions.duyet || actions.tuChoi || actions.choHang || actions.huy ? (
-        <div className="flex items-center gap-2 flex-wrap justify-end">
+        <div className="w-full space-y-2">
+          {soLuongThucXuatDaDoi && (
+            <div className="bg-[var(--surface-100)] border border-dashed border-[var(--orange-500)] rounded-lg p-2.5">
+              <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">
+                Lý do đổi SL thực xuất ({d.so_luong_de_xuat} → {soLuongThucXuat}) — bắt buộc
+              </label>
+              <input
+                value={lyDoSoLuong}
+                onChange={(e) => setLyDoSoLuong(e.target.value)}
+                placeholder="Lý do đổi số lượng thực xuất (bắt buộc)"
+                className="focus-ring w-full bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              />
+            </div>
+          )}
+          <div className="flex items-center gap-2 flex-wrap justify-end">
           {actions.duyet && (
             <Btn
               size="sm"
@@ -479,9 +527,9 @@ export function DonHangDetailModal({
                   ? setConfirmDuyetTaoHo(true)
                   : d.qua_han_ly_do_cham
                     ? setActionTarget("duyet_qua_han")
-                    : logMutation.mutate({ hanh_dong: "duyet" })
+                    : logMutation.mutate(duyetPayload())
               }
-              disabled={logMutation.isPending}
+              disabled={logMutation.isPending || (soLuongThucXuatDaDoi && !lyDoSoLuong.trim())}
               loading={logMutation.isPending}
             >
               {navNextId && onNavigate ? "Duyệt và tiếp theo →" : "Duyệt"}
@@ -503,6 +551,7 @@ export function DonHangDetailModal({
             </Btn>
           )}
           {actions.huy && <Btn size="sm" variant="ghost" onClick={() => setActionTarget("huy")} disabled={logMutation.isPending}>Hủy</Btn>}
+          </div>
         </div>
       ) : null
     ) : null;
@@ -524,7 +573,13 @@ export function DonHangDetailModal({
           <div className="font-semibold text-[var(--coral-600)]">(!!!) Đơn công nợ này được tạo hộ! Bạn có chắc đồng ý phê duyệt không?</div>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" size="sm" onClick={() => setConfirmDuyetTaoHo(false)}>Huỷ</Btn>
-            <Btn size="sm" onClick={() => { setConfirmDuyetTaoHo(false); logMutation.mutate({ hanh_dong: "duyet" }); }}>Đồng ý phê duyệt</Btn>
+            <Btn
+              size="sm"
+              disabled={soLuongThucXuatDaDoi && !lyDoSoLuong.trim()}
+              onClick={() => { setConfirmDuyetTaoHo(false); logMutation.mutate(duyetPayload()); }}
+            >
+              Đồng ý phê duyệt
+            </Btn>
           </div>
         </div>
       </Modal>
@@ -568,6 +623,25 @@ export function DonHangDetailModal({
               truc nay cho ca TraHangDetailModal (phan hoi "sửa chung cho 1 màn rồi áp dụng ra"). */}
           <div className="flex items-start gap-4 flex-wrap pb-3 border-b border-[var(--line)]">
             <QuickStat label="SL đề xuất" value={d.so_luong_de_xuat} />
+            {/* Muc #4 (phan hoi QA 2026-08-31): TN sua SL thuc xuat NGAY LUC DUYET (khong phai qua PATCH
+                tuy y truoc do) - chi hien khi con "Cho TN duyet" (dang o buoc duyet) VA SL de xuat > 1
+                (dung dieu kien nguoi dung neu). Doi gia tri thi bat buoc nhap ly do (xem
+                soLuongThucXuatDaDoi/disabled cua nut Duyet ben duoi). */}
+            {canTacNghiep && d.trang_thai === "Cho TN duyet" && d.so_luong_de_xuat > 1 && (
+              <QuickStat
+                label="SL thực xuất"
+                value={
+                  <input
+                    type="number"
+                    min={0}
+                    value={soLuongThucXuat}
+                    onChange={(e) => setSoLuongThucXuat(e.target.value)}
+                    className="focus-ring w-20 bg-white border border-[var(--line)] rounded-lg px-1.5 py-0.5 text-sm font-bold"
+                  />
+                }
+                tone={soLuongThucXuatDaDoi ? undefined : "green"}
+              />
+            )}
             <QuickStat label="Giá đề xuất" value={d.gia_de_xuat != null ? fmtVND(d.gia_de_xuat) : "—"} tone="green" />
             <QuickStat label="Tổng tiền đề xuất" value={fmtVND((d.gia_de_xuat ?? 0) * d.so_luong_de_xuat)} tone="green" />
             {d.gia_chot != null && <QuickStat label="Giá chốt" value={fmtVND(d.gia_chot)} tone="green" />}
@@ -629,35 +703,52 @@ export function DonHangDetailModal({
             </DetailZone>
           )}
 
-          {d.ly_do_cham ? (
-            <DetailZone title="Lý do chậm">{d.ly_do_cham}</DetailZone>
-          ) : canTacNghiep && d.trang_thai === "Cho TN duyet" ? (
+          {/* SUA (phan hoi QA 2026-08-31, muc #5): truoc day "co ly_do_cham" la khoa VINH VIEN (chi
+              hien text, khong bao gio nhap lai duoc). Gio la LICH SU (migration 0014) - luon hien du
+              cac lan da giai trinh (moi nhat truoc), VA them o nhap MOI moi khi dong dang qua han
+              (qua_han_ly_do_cham=true, ke ca khi da tung giai trinh truoc do). */}
+          {(d.giaiTrinh && d.giaiTrinh.length > 0) || (canTacNghiep && d.trang_thai === "Cho TN duyet" && d.qua_han_ly_do_cham) ? (
             <DetailZone title="Lý do chậm">
-              {/* CHOT (phan hoi 2026-08-24: "đổi hẳn thành dropdown bắt buộc, bỏ ô nhập tay") - Select
-                  BAT BUOC chon tu danh muc "Mua hàng" (settings_ly_do_cham), khong con o nhap tu do -
-                  neu Settings CHUA co ly do nao, TN se khong nhap duoc cho toi khi Admin bo sung
-                  (dung y da chot voi nguoi dung). Dung lai lyDoData da fetch san o tren cho luong "Từ
-                  chối" (cung queryKey/endpoint), khong goi API moi.*/}
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <Select
-                    value={lyDoChamDraft}
-                    onChange={setLyDoChamDraft}
-                    options={[{ value: "", label: "-- Chọn lý do chậm --" }, ...(lyDoData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
-                    disabled={(lyDoData?.rows.length ?? 0) === 0}
-                    className="flex-1 min-w-[200px]"
-                  />
-                  <Btn
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => lyDoChamMutation.mutate(lyDoChamDraft.trim())}
-                    disabled={!lyDoChamDraft.trim() || lyDoChamMutation.isPending}
-                  >
-                    Lưu
-                  </Btn>
-                </div>
-                {(lyDoData?.rows.length ?? 0) === 0 && (
-                  <div className="text-[11px] text-[var(--coral-600)]">Chưa có lý do chậm nào được cấu hình cho "Mua hàng" — vào Settings › Lý do chậm để thêm.</div>
+              <div className="flex flex-col gap-2">
+                {d.giaiTrinh && d.giaiTrinh.length > 0 && (
+                  <ul className="space-y-1">
+                    {d.giaiTrinh.map((g) => (
+                      <li key={g.id} className="text-sm">
+                        <span>{g.noi_dung}</span>
+                        <span className="text-[11px] text-[var(--ink-400)]"> — {formatNguoiDisplay(g.nguoi_tao, ktvDisplayMap)}, {fmtDateTime(g.ngay_tao)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {canTacNghiep && d.trang_thai === "Cho TN duyet" && d.qua_han_ly_do_cham && (
+                  // CHOT (phan hoi 2026-08-24: "đổi hẳn thành dropdown bắt buộc, bỏ ô nhập tay") - Select
+                  // BAT BUOC chon tu danh muc "Mua hàng" (settings_ly_do_cham), khong con o nhap tu do -
+                  // neu Settings CHUA co ly do nao, TN se khong nhap duoc cho toi khi Admin bo sung
+                  // (dung y da chot voi nguoi dung). Dung lai lyDoData da fetch san o tren cho luong "Từ
+                  // chối" (cung queryKey/endpoint), khong goi API moi. CHI hien khi dang qua han (muc
+                  // #5: khong can nhap "phong ngua" khi con moi, giu giao dien gon).
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Select
+                        value={lyDoChamDraft}
+                        onChange={setLyDoChamDraft}
+                        options={[{ value: "", label: "-- Chọn lý do chậm --" }, ...(lyDoData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
+                        disabled={(lyDoData?.rows.length ?? 0) === 0}
+                        className="flex-1 min-w-[200px]"
+                      />
+                      <Btn
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => lyDoChamMutation.mutate(lyDoChamDraft.trim())}
+                        disabled={!lyDoChamDraft.trim() || lyDoChamMutation.isPending}
+                      >
+                        Lưu
+                      </Btn>
+                    </div>
+                    {(lyDoData?.rows.length ?? 0) === 0 && (
+                      <div className="text-[11px] text-[var(--coral-600)]">Chưa có lý do chậm nào được cấu hình cho "Mua hàng" — vào Settings › Lý do chậm để thêm.</div>
+                    )}
+                  </div>
                 )}
               </div>
             </DetailZone>

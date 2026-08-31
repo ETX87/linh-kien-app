@@ -41,6 +41,14 @@ export function useKtvDisplayMap(): KtvDisplayMap {
 export function invalidatePipelineCounts(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ["dat-mua-lk-luong-quy-trinh"] });
   qc.invalidateQueries({ queryKey: ["dat-mua-lk-loai-don-counts"] });
+  // FIX (phan hoi QA 2026-08-31, muc #10): thieu key nay khien so "(x1)" canh 3 nut sub-tab Mua
+  // hang/Cong no/Tra hang trong PhieuXuatKhoTab.tsx khong cap nhat ngay sau khi tao/doi trang thai 1
+  // PXK - phai doi tab di roi quay lai (remount) moi thay dung.
+  qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-loai-counts"] });
+  // FIX (phan hoi QA 2026-08-31, muc #8): so "(x123)" canh 3 nut chon Loai phieu trong modal "Tao
+  // phieu xuat kho" cung phai cap nhat ngay khi 1 don duoc duyet xong ("TN da duyet" - moi tro nen kha
+  // dung tao PXK) hoac khi 1 PXK moi vua duoc tao (dong da chon khong con kha dung nua).
+  qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung-counts"] });
 }
 
 export function formatNguoiDisplay(email: string, map: KtvDisplayMap): string {

@@ -594,7 +594,7 @@ export function DatMuaLinhKienModule({
           <ThieuLkTab addToast={addToast} qc={qc} canKho={canKho} canTacNghiep={canTacNghiep} currentEmail={user?.email ?? ""} initialFilterOverride={filterFor("thieu-lk")} />
         )}
         {activeView === "tra-hang" && (
-          <TraHangTab addToast={addToast} qc={qc} canKeToan={canKeToan} canKho={canKho} canQC={canQC} canTacNghiep={canTacNghiep} initialFilterOverride={filterFor("tra-hang")} />
+          <TraHangTab addToast={addToast} qc={qc} canKeToan={canKeToan} canKho={canKho} canQC={canQC} canTacNghiep={canTacNghiep} currentEmail={user?.email ?? ""} isAdmin={user?.vai_tro === "Admin"} initialFilterOverride={filterFor("tra-hang")} />
         )}
         {showCreateFromPipeline && (
           <TaoDonTab

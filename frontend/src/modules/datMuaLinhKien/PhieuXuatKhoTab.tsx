@@ -134,6 +134,15 @@ export function PhieuXuatKhoTab({
     queryFn: () => api.get<{ rows: DonHangKhaDungRow[] }>("/phieu-xuat-kho/don-hang-kha-dung" + buildQuery({ loai_don: chonLoaiDon })),
     enabled: showCreate,
   });
+  // So dong kha dung THEO tung loai_don (phan hoi QA 2026-08-31, muc #8) - hien "(x123)" canh 3 nut
+  // chon Loai phieu de TN biet truoc co bao nhieu KTV dang cho len PXK o moi loai, khong phai bam thu
+  // tung nut moi biet co dong hay khong.
+  const { data: khaDungCountsData } = useQuery({
+    queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung-counts"],
+    queryFn: () => api.get<{ counts: Record<"mua" | "cong_no" | "tra_hang", number> }>("/phieu-xuat-kho/don-hang-kha-dung-counts"),
+    enabled: showCreate,
+  });
+  const khaDungCounts = khaDungCountsData?.counts ?? { mua: 0, cong_no: 0, tra_hang: 0 };
 
   // Danh sach KTV co ten hien thi dep, dung cho ca bo loc VA buoc "chon KTV" bat buoc luc tao PXK
   // (chot nghiep vu 2026-08-15: 1 PXK chi gan cho 1 KTV) - tai dung dung endpoint DonCuaToiTab da
@@ -202,6 +211,7 @@ export function PhieuXuatKhoTab({
       setChonLoaiDon("mua");
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk"] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung"] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung-counts"] });
       invalidatePipelineCounts(qc);
     },
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
@@ -397,7 +407,7 @@ export function PhieuXuatKhoTab({
                     variant={chonLoaiDon === l ? "primary" : "ghost"}
                     onClick={() => { setChonLoaiDon(l); setChonKtv(""); setSelectedDonHang(new Set()); }}
                   >
-                    {LOAI_DON_TONE[l].label}
+                    {LOAI_DON_TONE[l].label} (x{khaDungCounts[l]})
                   </Btn>
                 ))}
               </div>
@@ -469,7 +479,7 @@ export function PhieuXuatKhoTab({
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-[var(--ink-600)]">Số tiền cần KTV chuyển (bỏ trống nếu không cần)</label>
+                <label className="block text-xs font-semibold text-[var(--ink-600)]">Số tiền cần KTV chuyển * (nhập 0 nếu không cần chuyển tiền)</label>
                 {/* Tu dien tien uoc tinh (phan hoi 2026-08-26) - dien = tong tien cac dong DA CHON o
                     tren (tongTienDaChon), nguoi dung van sua tay duoc sau khi bam neu can khac di. */}
                 <button
@@ -510,7 +520,14 @@ export function PhieuXuatKhoTab({
               >
                 Hủy
               </Btn>
-              <Btn size="sm" onClick={() => createMutation.mutate()} disabled={!chonKtv || selectedDonHang.size === 0 || createMutation.isPending} loading={createMutation.isPending}>Tạo</Btn>
+              <Btn
+                size="sm"
+                onClick={() => createMutation.mutate()}
+                disabled={!chonKtv || selectedDonHang.size === 0 || createData.so_tien_can_chuyen.trim() === "" || createMutation.isPending}
+                loading={createMutation.isPending}
+              >
+                Tạo
+              </Btn>
             </div>
           </div>
         </Modal>
@@ -657,9 +674,12 @@ export function PxkDetailModal({
     }
   }
 
+  // SUA (phan hoi QA 2026-08-31, muc #5): doi tu PATCH /don-hang/:id { ly_do_cham } (1 lan duy nhat,
+  // khoa vinh vien) -> POST /don-hang/:id/giai-trinh (migration 0014) - cho phep giai trinh LAP LAI
+  // moi khi qua han lai, va lich su hien day du (xem giaiTrinh tren tung dong o duoi).
   const lyDoChamMutation = useMutation({
     mutationFn: ({ donHangId, ly_do_cham }: { donHangId: string; ly_do_cham: string }) =>
-      api.patch(`/dat-mua-lk/don-hang/${donHangId}`, { ly_do_cham }),
+      api.post(`/dat-mua-lk/don-hang/${donHangId}/giai-trinh`, { noi_dung: ly_do_cham }),
     onSuccess: (_res, { donHangId }) => {
       setLyDoChamDraft((p) => { const n = { ...p }; delete n[donHangId]; return n; });
       qc.invalidateQueries({ queryKey: ["pxk-detail", id] });
@@ -909,39 +929,53 @@ export function PxkDetailModal({
                       </td>
                       <td className="px-2.5 py-2 text-right">{d.so_luong_de_xuat}</td>
                       <td className="px-2.5 py-2">
-                        {d.ly_do_cham ? (
-                          <span>{d.ly_do_cham}</span>
-                        ) : canTacNghiep && trangThai === "Dang tao phieu" ? (
-                          <div className="flex flex-col gap-1">
-                            {/* CHOT (phan hoi 2026-08-24: "đổi hẳn thành dropdown bắt buộc, bỏ ô nhập
-                                tay") - Select BAT BUOC chon tu danh muc "Mua hàng" (settings_ly_do_cham),
-                                khong con o nhap tu do - neu Settings CHUA co ly do nao, TN se khong
-                                nhap duoc cho toi khi Admin bo sung (dung y da chot voi nguoi dung). */}
-                            <div className="flex gap-1 items-center">
-                              {d.qua_han_ly_do_cham && <Badge tone="coral">Quá hạn</Badge>}
-                              <Select
-                                value={lyDoChamDraft[d.id] ?? ""}
-                                onChange={(v) => setLyDoChamDraft((p) => ({ ...p, [d.id]: v }))}
-                                options={[{ value: "", label: "-- Chọn lý do chậm --" }, ...(lyDoChamGoiYData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
-                                disabled={(lyDoChamGoiYData?.rows.length ?? 0) === 0}
-                                className="flex-1"
-                              />
-                              <Btn
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => lyDoChamMutation.mutate({ donHangId: d.id, ly_do_cham: lyDoChamDraft[d.id] ?? "" })}
-                                disabled={!lyDoChamDraft[d.id]?.trim() || lyDoChamMutation.isPending}
-                              >
-                                Lưu
-                              </Btn>
+                        {/* SUA (phan hoi QA 2026-08-31, muc #5: "hiện tại đang không thể xem được lý
+                            do giải trình chậm của đơn trong PXK") - truoc day chi hien 1 gia tri
+                            ly_do_cham DUY NHAT (khoa vinh vien sau lan dau). Gio hien DAY DU lich su
+                            (migration 0014, giaiTrinh) + cho nhap lai moi khi qua han LAN NUA. */}
+                        <div className="flex flex-col gap-1">
+                          {d.giaiTrinh && d.giaiTrinh.length > 0 && (
+                            <ul className="space-y-0.5">
+                              {d.giaiTrinh.map((g) => (
+                                <li key={g.id} className="text-xs">
+                                  {g.noi_dung}
+                                  <span className="text-[10.5px] text-[var(--ink-400)]"> — {fmtDateTime(g.ngay_tao)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {canTacNghiep && trangThai === "Dang tao phieu" && d.qua_han_ly_do_cham ? (
+                            <div className="flex flex-col gap-1">
+                              {/* CHOT (phan hoi 2026-08-24: "đổi hẳn thành dropdown bắt buộc, bỏ ô nhập
+                                  tay") - Select BAT BUOC chon tu danh muc "Mua hàng" (settings_ly_do_cham),
+                                  khong con o nhap tu do - neu Settings CHUA co ly do nao, TN se khong
+                                  nhap duoc cho toi khi Admin bo sung (dung y da chot voi nguoi dung). */}
+                              <div className="flex gap-1 items-center">
+                                <Badge tone="coral">Quá hạn</Badge>
+                                <Select
+                                  value={lyDoChamDraft[d.id] ?? ""}
+                                  onChange={(v) => setLyDoChamDraft((p) => ({ ...p, [d.id]: v }))}
+                                  options={[{ value: "", label: "-- Chọn lý do chậm --" }, ...(lyDoChamGoiYData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
+                                  disabled={(lyDoChamGoiYData?.rows.length ?? 0) === 0}
+                                  className="flex-1"
+                                />
+                                <Btn
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => lyDoChamMutation.mutate({ donHangId: d.id, ly_do_cham: lyDoChamDraft[d.id] ?? "" })}
+                                  disabled={!lyDoChamDraft[d.id]?.trim() || lyDoChamMutation.isPending}
+                                >
+                                  Lưu
+                                </Btn>
+                              </div>
+                              {(lyDoChamGoiYData?.rows.length ?? 0) === 0 && (
+                                <div className="text-[10.5px] text-[var(--coral-600)]">Chưa có lý do chậm nào được cấu hình cho "Mua hàng" — vào Settings › Lý do chậm để thêm.</div>
+                              )}
                             </div>
-                            {(lyDoChamGoiYData?.rows.length ?? 0) === 0 && (
-                              <div className="text-[10.5px] text-[var(--coral-600)]">Chưa có lý do chậm nào được cấu hình cho "Mua hàng" — vào Settings › Lý do chậm để thêm.</div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-[var(--ink-400)]">—</span>
-                        )}
+                          ) : (!d.giaiTrinh || d.giaiTrinh.length === 0) ? (
+                            <span className="text-[var(--ink-400)]">—</span>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1002,7 +1036,7 @@ export function PxkDetailModal({
                     title={!chuyenTienOk ? "Cần TN duyệt bằng chứng chuyển tiền trước" : !pxk.ma_xuat_kho_xac_nhan ? "Cần nhập Mã đơn hàng trước" : "Gửi kế toán"}
                     aria-label="Gửi kế toán"
                   >
-                    📤
+                    📤 Gửi kế toán
                   </Btn>
                 )}
                 {(canTacNghiep || canKeToan) && ["Dang tao phieu", "Cho ke toan"].includes(trangThai) && (
