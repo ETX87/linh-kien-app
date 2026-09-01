@@ -38,13 +38,16 @@ export function PhieuXuatKhoTab({
   // PXK tra hang tren pipeline (xem loaiDonFor trong DatMuaLinhKienModule.tsx).
   initialLoaiDonOverride?: string;
 }) {
-  // Ke toan/Kho mac dinh loc dung buoc cua ho, TN giu "Tat ca" (theo doi xuyen suot toan bo vong doi
-  // PXK minh tao) - xem comment defaultView o component cha ve pham vi anh huong.
+  // FIX (2026-08-31, phan hoi "Phiếu xuất kho (x2) nhưng ấn vào lại...hiện 3 đơn (1 đơn đang chờ kế
+  // toán)"): truoc day TN mac dinh giu "Tat ca" (y dinh ban dau: theo doi xuyen suot vong doi PXK minh
+  // tao), nhung badge mo-count cho TN chi dem trang_thai "Dang tao phieu" (buoc TN thuc su can xu ly
+  // tiep, xem GET /phieu-xuat-kho/mo-count) nen mac dinh "Tat ca" gay lech y het bug da sua o
+  // DonCuaToiTab.tsx/TraHangTab.tsx - doi TN sang mac dinh dung buoc cua minh cho khop badge.
   // FIX (ra soat bug mua hang 2026-08-26, BUG-002): tach lop luu-lau-dai khoi lop hien-thi/query,
-  // xem giai thich day du o DonCuaToiTab.tsx.
+  // xem giai thich day du o DonCuaToiTab.tsx. Doi key -v2 (2026-08-31) de reset gia tri "Tat ca" cu.
   const [savedFilterTrangThai, setSavedFilterTrangThai] = useLocalStorageState(
-    "filters:dmlk-pxk-tt",
-    canKeToan ? "Cho ke toan" : canKho ? "Da chot xong don xuat" : "",
+    "filters:dmlk-pxk-tt-v2",
+    canKeToan ? "Cho ke toan" : canKho ? "Da chot xong don xuat" : canTacNghiep ? "Dang tao phieu" : "",
   );
   // FIX (phan hoi 2026-08-28: "click vào Chờ tiền (x1) => danh sách trống, quay lại bấm lại => hiện 1
   // đơn") - khoi tao TRUC TIEP tu initialFilterOverride khi co (thay vi luon khoi tao tu
