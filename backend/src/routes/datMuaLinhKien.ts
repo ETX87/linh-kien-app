@@ -539,6 +539,167 @@ datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
   return c.json({ steps });
 });
 
+// PXK "dong" (toan bo, khong phan biet loai_don) - PHAI KHOP voi TRANG_THAI_DONG rieng trong
+// phieuXuatKho.ts (duplicate co chu dich, cung quy uoc voi TRA_HANG_TRANG_THAI_DONG_COUNTS o tren).
+const PXK_TRANG_THAI_DONG_ALL = ["KTV da nhan", "Ke toan huy", "Hang tru kho", "Kho da ket thuc", "Kho da nhan hang tra"] as const;
+
+// GET /api/dat-mua-lk/home-summary - phan hoi 2026-08-31 "trên app cho ktv, việc cần làm đang không
+// đúng việc chờ ktv... tách ra Cần làm và Đang tồn" + "tương tự tách ra cho tất cả các vai trò" + "TN,
+// KT, Kho thêm 1 ô tồn đọng chung toàn hệ thống". Nguon DUY NHAT, NHE (an toan dung tren ca mobile,
+// khong nhu luong-quy-trinh 16 subquery dang bi tat tren mobile) cho man Home:
+// - canLam: dung DUNG dinh nghia "den luot xu ly" da dung o loai-don-counts/mo-count (TN/Kho/Ke
+//   toan/TBP/QC, scope theo Khu vuc/Khu vuc phu trach), rieng KTV/Ve tinh/Giam sat ("dat ho don nhu
+//   ktv") la chi tien + xac nhan da nhan hang cua CHINH ho + Tram duyet (neu la Tram) + don bi tu choi
+//   chua xem - truoc day cac muc nay CHI hien tren desktop (mySteps), mobile dung nham choDonCuaToi
+//   (khong phai viec can lam that) lam "Viec can lam", nay dong nhat 1 nguon cho ca 2.
+// - dangTon: dong/PXK/thieu_lk con "ton" (chua dong ho so that su - dinh nghia RONG HON "mo" o tren,
+//   KHONG coi "Cho hang" la dong, khac DON_HANG_TRANG_THAI_DONG) NHUNG khong phai luot cua nguoi dang
+//   xem - vd don TN dang o buoc Kho, hoac don cua chinh KTV dang cho Tram/TBP/TN duyet hoac cho hang
+//   ve.
+// - tonDongToanHeThong: CHI tra cho TN/Kho/Ke toan/Admin - tong so dong con ton TREN TOAN HE THONG
+//   (khong loc Khu vuc/Khu vuc phu trach cua rieng ho) - con so "suc khoe" chung, giong nhau du dang
+//   xem tu Khu vuc nao.
+datMuaLinhKien.get("/home-summary", async (c) => {
+  const user = c.get("user");
+  const isKtvLike = user.la_ktv_dvbh || user.la_ve_tinh || user.vai_tro === "Giam sat";
+  const isStaff = canTacNghiep(c) || canKho(c) || user.la_ke_toan || canTPDvbhXacNhan(c) || user.vai_tro === "QC" || user.vai_tro === "Admin";
+
+  let canLam = 0;
+  let dangTon = 0;
+  let tonDongToanHeThong: number | null = null;
+
+  if (isKtvLike) {
+    const scope = scopeDatMuaNguoiTao(c); // KTV/Ve tinh: quan he (nguoi_tao/nguoi_nhan_hang/Ve tinh); GS: email_gs = minh
+    const row = await c.env.DB.prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.nguoi_nhan_hang = ? AND pxk.loai_don != 'tra_hang' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet') as cho_tien,
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.nguoi_nhan_hang = ? AND pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Dang gui KTV') as xac_nhan_nhan,
+         (SELECT COUNT(*) FROM dat_don_hang ddh JOIN users u ON u.email = ddh.nguoi_tao WHERE u.tram_cha = ? AND ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho Tram duyet') as cho_tram_duyet,
+         (SELECT COUNT(*) FROM thong_bao_ktv WHERE nguoi_nhan = ? AND loai = 'tu_choi' AND da_doc = 0) as tu_choi,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai IN ('Cho Tram duyet','Cho TBP xac nhan','Cho TN duyet')${scope?.whereSql ?? ""}) as dang_xu_ly,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho hang'${scope?.whereSql ?? ""}) as cho_hang`,
+    )
+      .bind(user.email, user.email, user.email, user.email, ...(scope?.binds ?? []), ...(scope?.binds ?? []))
+      .first<Record<string, number>>();
+    canLam += (row?.cho_tien ?? 0) + (row?.xac_nhan_nhan ?? 0) + (row?.cho_tram_duyet ?? 0) + (row?.tu_choi ?? 0);
+    dangTon += (row?.dang_xu_ly ?? 0) + (row?.cho_hang ?? 0);
+  }
+
+  if (isStaff) {
+    const khuVucSet = await khuVucCuaToiSet(c.env.DB, user);
+    const gsSet = (canTacNghiep(c) || user.la_kho || user.la_ke_toan) ? await phuTrachGsSet(c.env.DB, user.email) : null;
+
+    const muaCongNoStates: string[] = [];
+    if (canTPDvbhXacNhan(c)) muaCongNoStates.push("Cho TBP xac nhan");
+    if (canTacNghiep(c)) muaCongNoStates.push("Cho TN duyet");
+    const traHangStates: string[] = [];
+    if (user.la_ke_toan || user.vai_tro === "Admin") traHangStates.push("Cho ke toan duyet mem");
+    if (canKho(c)) traHangStates.push("Cho kho xac nhan");
+    if (user.vai_tro === "QC" || user.vai_tro === "Admin") traHangStates.push("Cho QC xac nhan");
+    if (canTacNghiep(c)) traHangStates.push("Cho TN duyet tong");
+    const pxkSimpleStates: string[] = [];
+    if (user.la_ke_toan || user.vai_tro === "Admin") pxkSimpleStates.push("Cho ke toan");
+    if (canKho(c)) pxkSimpleStates.push("Da chot xong don xuat", "Dang gui KTV");
+    // "Dang tao phieu" (TN) - loai tru dieu kien "cho tien" de 1 PXK CHI thuoc 1 trong 2 nhom (giong
+    // het GET /phieu-xuat-kho): TN co ca 2 muc "Tao PXK" (tao_pxk) va "Cho tien" (cho_tien) rieng.
+    const pxkOtherConds: string[] = [];
+    if (canTacNghiep(c)) {
+      pxkOtherConds.push("(pxk.trang_thai_hien_tai = 'Dang tao phieu' AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'))");
+      pxkOtherConds.push("(pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')");
+    }
+
+    // Builder an toan: moi ham vua TRA VE doan SQL vua PUSH dung binds tuong ung ngay luc goi - goi
+    // lai LAN 2 (vd o dong "dang_ton" tai su dung dieu kien "can_lam" de loai tru) se push lai dung 1
+    // lan nua, tranh loi dem sai vi tri bind thu cong khi 1 dieu kien xuat hien NHIEU LAN trong SQL.
+    const binds: unknown[] = [];
+    const inCond = (col: string, values: string[]): string => {
+      if (values.length === 0) return "1=0";
+      binds.push(...values);
+      return `${col} IN (${values.map(() => "?").join(",")})`;
+    };
+    const notInCond = (col: string, values: readonly string[]): string => {
+      binds.push(...values);
+      return `${col} NOT IN (${values.map(() => "?").join(",")})`;
+    };
+    const orCond = (conds: string[]): string => (conds.length > 0 ? `(${conds.join(" OR ")})` : "1=0");
+    const ddhScope = (): string => {
+      let s = "";
+      if (khuVucSet) {
+        const { sql, binds: b } = khuVucSetWhereSql(khuVucSet, ["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
+        s += sql;
+        binds.push(...b);
+      }
+      if (gsSet) {
+        s += ` AND ddh.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;
+        binds.push(...gsSet);
+      }
+      return s;
+    };
+    const pxkScope = (): string => {
+      let s = "";
+      if (khuVucSet) {
+        const { sql, binds: b } = khuVucSetWhereSql(khuVucSet, ["pxk.nguoi_nhan_hang"]);
+        s += sql;
+        binds.push(...b);
+      }
+      if (gsSet) {
+        s += ` AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh2.email_gs IN (${[...gsSet].map(() => "?").join(",")}))`;
+        binds.push(...gsSet);
+      }
+      return s;
+    };
+    const thieuLkScope = (): string => {
+      let inner = "";
+      if (khuVucSet) {
+        const { sql, binds: b } = khuVucSetWhereSql(khuVucSet, ["ddh3.nguoi_tao", "ddh3.nguoi_nhan_hang"]);
+        inner += sql;
+        binds.push(...b);
+      }
+      if (gsSet) {
+        inner += ` AND ddh3.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;
+        binds.push(...gsSet);
+      }
+      return inner ? ` AND EXISTS (SELECT 1 FROM dat_don_hang ddh3 WHERE ddh3.id = tlk.dat_don_hang_id${inner})` : "";
+    };
+    const thieuLkTrangThaiExpr = "(SELECT trang_thai FROM thieu_lk_log WHERE thieu_lk_id = tlk.id ORDER BY id DESC LIMIT 1)";
+
+    const row = await c.env.DB.prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ${inCond("ddh.trang_thai_hien_tai", muaCongNoStates)}${ddhScope()}) as mua_cong_no_can_lam,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ${notInCond("ddh.trang_thai_hien_tai", ["TN da duyet", "TN tu choi", "Da huy"])} AND NOT ${inCond("ddh.trang_thai_hien_tai", muaCongNoStates)}${ddhScope()}) as mua_cong_no_dang_ton,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ${inCond("ddh.trang_thai_hien_tai", traHangStates)}${ddhScope()}) as tra_hang_can_lam,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ${notInCond("ddh.trang_thai_hien_tai", TRA_HANG_TRANG_THAI_DONG_COUNTS)} AND NOT ${inCond("ddh.trang_thai_hien_tai", traHangStates)}${ddhScope()}) as tra_hang_dang_ton,
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${orCond([inCond("pxk.trang_thai_hien_tai", pxkSimpleStates), ...pxkOtherConds])}${pxkScope()}) as pxk_can_lam,
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${notInCond("pxk.trang_thai_hien_tai", PXK_TRANG_THAI_DONG_ALL)} AND NOT ${orCond([inCond("pxk.trang_thai_hien_tai", pxkSimpleStates), ...pxkOtherConds])}${pxkScope()}) as pxk_dang_ton,
+         (SELECT COUNT(*) FROM thieu_lk tlk WHERE ${canKho(c) ? `${thieuLkTrangThaiExpr} = 'Cho kho xu ly'` : "1=0"}${thieuLkScope()}) as thieu_lk_can_lam,
+         (SELECT COUNT(*) FROM thieu_lk tlk WHERE ${notInCond(thieuLkTrangThaiExpr, THIEU_LK_TRANG_THAI_DONG)} AND NOT ${canKho(c) ? `(${thieuLkTrangThaiExpr} = 'Cho kho xu ly')` : "1=0"}${thieuLkScope()}) as thieu_lk_dang_ton`,
+    )
+      .bind(...binds)
+      .first<Record<string, number>>();
+    canLam += (row?.mua_cong_no_can_lam ?? 0) + (row?.tra_hang_can_lam ?? 0) + (row?.pxk_can_lam ?? 0) + (row?.thieu_lk_can_lam ?? 0);
+    dangTon += (row?.mua_cong_no_dang_ton ?? 0) + (row?.tra_hang_dang_ton ?? 0) + (row?.pxk_dang_ton ?? 0) + (row?.thieu_lk_dang_ton ?? 0);
+
+    const toanHeThongBinds: unknown[] = [];
+    const notInCondToanHeThong = (col: string, values: readonly string[]): string => {
+      toanHeThongBinds.push(...values);
+      return `${col} NOT IN (${values.map(() => "?").join(",")})`;
+    };
+    const rowToanHeThong = await c.env.DB.prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ${notInCondToanHeThong("ddh.trang_thai_hien_tai", ["TN da duyet", "TN tu choi", "Da huy"])}) as mua_cong_no,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ${notInCondToanHeThong("ddh.trang_thai_hien_tai", TRA_HANG_TRANG_THAI_DONG_COUNTS)}) as tra_hang,
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${notInCondToanHeThong("pxk.trang_thai_hien_tai", PXK_TRANG_THAI_DONG_ALL)}) as pxk,
+         (SELECT COUNT(*) FROM thieu_lk tlk WHERE ${notInCondToanHeThong(thieuLkTrangThaiExpr, THIEU_LK_TRANG_THAI_DONG)}) as thieu_lk`,
+    )
+      .bind(...toanHeThongBinds)
+      .first<Record<string, number>>();
+    tonDongToanHeThong =
+      (rowToanHeThong?.mua_cong_no ?? 0) + (rowToanHeThong?.tra_hang ?? 0) + (rowToanHeThong?.pxk ?? 0) + (rowToanHeThong?.thieu_lk ?? 0);
+  }
+
+  return c.json({ canLam, dangTon, tonDongToanHeThong });
+});
+
 // GET /api/dat-mua-lk/bao-cao-tong-the - 12 chi so, TRA VE DANH SACH THEO TUNG KTV (phan hoi UX muc
 // 6, nang cap 2026-08-15: truoc la 1 object tong hop, gio tach theo nguoi_nhan_hang de Giam
 // sat/TN/Kho/Ke toan xem duoc tung KTV rieng, KTV/Ve tinh tu xem chi co 1 dong = chinh minh). Scope

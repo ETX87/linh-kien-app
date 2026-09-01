@@ -347,13 +347,17 @@ export function DatMuaLinhKienModule({
     refetchInterval: 5 * 60_000,
     enabled: !isMobile,
   });
-  // SUA BUG (phan hoi 2026-08-22: "test vai trò TBP trên điện thoại thì việc cần làm = 0 trong khi có
-  // 1 việc chờ xác nhận") - tongViecCuaToi truoc day CHI tinh tu luongQuyTrinh (bi tat han tren mobile,
-  // xem comment o tren), nen luon = 0 bat ke vai tro. Dung LAI query "notifications-count" (cung
-  // queryKey/queryFn voi TopBar.tsx - TopBar luon mount song song nen react-query CHIA SE 1 ket qua
-  // duy nhat, khong ton them luot doc D1 nao) - endpoint nay CHI tra 1 tong so da loc theo vai tro
-  // (khong tra breakdown tung buoc nhu luong-quy-trinh) nen van giu dung tinh than "khong tai them du
-  // lieu nang tren mobile", chi doi NGUON tinh tongViecCuaToi khi o mobile.
+  // FIX (phan hoi 2026-08-31: "trên app cho ktv, việc cần làm đang không đúng việc chờ ktv... tách ra
+  // Cần làm và Đang tồn" + "tương tự tách ra cho tất cả các vai trò" + "TN, KT, Kho thêm 1 ô tồn đọng
+  // chung toàn hệ thống") - endpoint rieng, NHE (an toan tren mobile, khac han luong-quy-trinh 16
+  // subquery), la NGUON DUY NHAT cho canLam/dangTon/tonDongToanHeThong tren CA desktop lan mobile. Truoc
+  // day mobile dung tam notifCounts.datMuaLk.total (gom ca don "dang tồn" cua KTV, KHONG phai viec can
+  // lam that) lam "Cần làm" - day chinh la bug duoc bao cao, nay thay han bang nguon dung.
+  const { data: homeSummary } = useQuery({
+    queryKey: ["dat-mua-lk-home-summary"],
+    queryFn: () => api.get<{ canLam: number; dangTon: number; tonDongToanHeThong: number | null }>("/dat-mua-lk/home-summary"),
+    refetchInterval: 5 * 60_000,
+  });
   const { data: notifCounts } = useQuery({
     queryKey: ["notifications-count"],
     queryFn: () => api.get<{ datMuaLk: { total: number; choDonBiTuChoi: number }; ktvLogChuaDoc: number }>("/notifications/count"),
@@ -396,12 +400,13 @@ export function DatMuaLinhKienModule({
   // của tôi: N'") - tinh o CAP MODULE (khong chi trong MyWorkloadStrip) de dung cho nut thay the h1.
   // Cung logic loc "isMine && count>0" nhu MyWorkloadStrip, khong them nguon du lieu moi.
   const mySteps = steps.filter((s) => s.count > 0 && s.roleKeys.some((r) => myRoleKeys.has(r)));
-  // FIX (ra soat 2026-08-29, Bug A "don bi tu choi"): tren desktop, tongViecCuaToi truoc day CHI cong
-  // tu mySteps (nguon luong-quy-trinh, khong co khai niem "don bi tu choi" - do la du lieu dang thong
-  // bao/da_doc, khac han "trang thai hien tai" ma pipeline dang dem) - phai cong them rieng tu
-  // notifCounts de khop voi nhanh mobile (da cong san trong out.total o backend).
+  // "Đơn bị từ chối" van hien rieng 1 StatCard o TrangChuTab.tsx (thong tin, khong phai "viec can lam"
+  // theo nghia hang doi xu ly) - KTV-like da duoc cong vao homeSummary.canLam o backend, gia tri nay
+  // chi de HIEN THI tach rieng, khong cong them lan nua vao tongViecCuaToi.
   const choDonBiTuChoi = notifCounts?.datMuaLk.choDonBiTuChoi ?? 0;
-  const tongViecCuaToi = isMobile ? (notifCounts?.datMuaLk.total ?? 0) : mySteps.reduce((sum, s) => sum + s.count, 0) + choDonBiTuChoi;
+  const tongViecCuaToi = homeSummary?.canLam ?? 0;
+  const dangTon = homeSummary?.dangTon ?? 0;
+  const tonDongToanHeThong = homeSummary?.tonDongToanHeThong ?? null;
   // Nut tieu de bam de mo/dong bang chi tiet tung buoc (MyWorkloadStrip) - mac dinh AN (giam chrome
   // mac dinh, tiep tuc dung tinh than "gọn diện tích" da chot o cac fix truoc). CHI ap dung cho
   // duong vao "dat-mua-lk" that su (khong phai forceView="tra-hang", entry rieng van giu tieu de +
@@ -539,6 +544,8 @@ export function DatMuaLinhKienModule({
             onJump={jumpTo}
             loaiDonCounts={loaiDonCounts}
             tongViecCuaToi={tongViecCuaToi}
+            dangTon={dangTon}
+            tonDongToanHeThong={tonDongToanHeThong}
             choDonBiTuChoi={choDonBiTuChoi}
             canTraHangView={canTraHangView}
             isManagerView={isManagerView}

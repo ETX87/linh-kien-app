@@ -296,6 +296,8 @@ export function TrangChuTab({
   onJump,
   loaiDonCounts,
   tongViecCuaToi,
+  dangTon,
+  tonDongToanHeThong,
   choDonBiTuChoi,
   canTraHangView,
   isManagerView,
@@ -310,6 +312,13 @@ export function TrangChuTab({
   onJump: (t: JumpTarget) => void;
   loaiDonCounts: { mua: number; cong_no: number; tra_hang: number };
   tongViecCuaToi: number;
+  // Them (phan hoi 2026-08-31: "tách ra là 'Cần làm' và 'Đang tồn'") - dangTon la don/PXK/thieu_lk cua
+  // CHINH nguoi dang xem (hoac trong pham vi Khu vuc/Khu vuc phu trach cua ho neu la TN/Kho/Ke toan/
+  // TBP/QC) van con "tồn" (chua dong ho so) NHUNG khong phai luot xu ly cua ho ngay luc nay - phan
+  // biet ro voi tongViecCuaToi (viec CAN LAM thuc su). tonDongToanHeThong = null cho vai tro khong duoc
+  // xem (KTV/Ve tinh/Giam sat/QC/TBP) - CHI TN/Kho/Ke toan (+Admin) moi thay con so toan he thong nay.
+  dangTon: number;
+  tonDongToanHeThong: number | null;
   // FIX (ra soat "logic sai theo vai tro" 2026-08-29, Bug A): so don CUA CHINH nguoi dang xem dang o
   // trang thai "TN tu choi" VA CHUA xem chi tiet (thong_bao_ktv.da_doc=0, loai='tu_choi') - da CONG
   // SAN vao tongViecCuaToi o component cha, truyen rieng them de ve 1 the rieng ("khong bi troi mat"
@@ -376,6 +385,7 @@ export function TrangChuTab({
         </div>
       )}
 
+      <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)]">Cần làm</div>
       {mySteps.length > 0 ? (
         <div className="flex gap-2 sm:gap-3 flex-wrap">
           {mySteps.map((s) => (
@@ -400,6 +410,24 @@ export function TrangChuTab({
       ) : (
         <div className="text-sm text-[var(--ink-400)] py-4 text-center rounded-xl border border-dashed border-[var(--line)]">Không có việc gì đang chờ bạn xử lý.</div>
       )}
+
+      {/* Them (phan hoi 2026-08-31: "'Đang tồn' là đơn của ktv vẫn đang xử lý chưa xong") - tach rieng
+          khoi "Cần làm" o tren: day la don/PXK/thieu_lk van con mo NHUNG khong phai luot cua nguoi dang
+          xem ngay luc nay (vd don cua chinh KTV dang cho Tram/TN duyet, hoac don TN dang o buoc Kho xu
+          ly) - khong the bam-nhay thang toi 1 tab/filter duy nhat (gom nhieu bang/trang thai khac
+          nhau) nen la the THONG TIN, khong co onClick. */}
+      <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)]">Đang tồn</div>
+      <div className="flex gap-2 sm:gap-3 flex-wrap">
+        <StatCard label="Đang tồn" value={dangTon} tone="amber" muted={dangTon === 0} />
+        {tonDongToanHeThong !== null && (canTacNghiep || canKho || canKeToan) && (
+          <StatCard
+            label="Tồn đọng toàn hệ thống"
+            value={tonDongToanHeThong}
+            tone="violet"
+            sub="Toàn quốc, không lọc theo Khu vực của bạn"
+          />
+        )}
+      </div>
 
       {/* SUA (phan hoi 2026-08-25: "3 cái này trên giao diện web đang chiếm quá nhiều diện tích
           không cần thiết") - doi tu Card+table 3 hang (~130px cao) sang 1 hang inline duy nhat, giu
