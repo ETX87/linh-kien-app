@@ -8,7 +8,7 @@ import { nextSequentialId } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
 import { bumpVersions } from "../lib/dataVersions";
 import { quaHanLyDoCham } from "../lib/hanLyDoCham";
-import { autoClaimGs, scopePxkNguoiNhanHang } from "../lib/scopeDatMua";
+import { autoClaimGs, scopePxkNguoiNhanHang, phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql } from "../lib/scopeDatMua";
 import { uploadPublicImage } from "../lib/googleDrive";
 import { sendPushToUser } from "../lib/webPush";
 
@@ -93,10 +93,33 @@ phieuXuatKho.get("/mo-count", async (c) => {
 
   const states = [...trangThaiActionable];
   const placeholders = states.map(() => "?").join(",");
+  // KIEM TRA DONG BO TOAN HE THONG (2026-08-31, xem giai thich day du o GET /loai-don-counts trong
+  // datMuaLinhKien.ts) - cung 2 lop scope THEM cho TN/Kho/Ke toan khi scope===null: (1) Khu vuc dia ly
+  // qua pxk.nguoi_nhan_hang (phieu_xuat_kho khong co nguoi_tao la KTV nen chi 1 cot); (2) "Khu vuc phu
+  // trach" GS qua EXISTS noi nguoc phieu_xuat_kho_dong -> dat_don_hang (pxk khong co email_gs truc
+  // tiep, dung LAI dung pattern pxkScope cua GET /luong-quy-trinh).
+  let extraScopeSql = "";
+  const extraScopeBinds: string[] = [];
+  if (scope === null) {
+    const khuVucSet = await khuVucCuaToiSet(c.env.DB, user);
+    if (khuVucSet) {
+      const { sql, binds } = khuVucSetWhereSql(khuVucSet, ["pxk.nguoi_nhan_hang"]);
+      extraScopeSql += sql;
+      extraScopeBinds.push(...binds);
+    }
+    if (canTacNghiep(c) || canKho(c) || canKeToan(c)) {
+      const gsSet = await phuTrachGsSet(c.env.DB, user.email);
+      if (gsSet) {
+        const placeholders2 = [...gsSet].map(() => "?").join(",");
+        extraScopeSql += ` AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh2.email_gs IN (${placeholders2}))`;
+        extraScopeBinds.push(...gsSet);
+      }
+    }
+  }
   const row = await c.env.DB.prepare(
-    `SELECT COUNT(*) as n FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai IN (${placeholders})${scope?.whereSql ?? ""}`,
+    `SELECT COUNT(*) as n FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai IN (${placeholders})${scope?.whereSql ?? ""}${extraScopeSql}`,
   )
-    .bind(...states, ...(scope?.binds ?? []))
+    .bind(...states, ...(scope?.binds ?? []), ...extraScopeBinds)
     .first<{ n: number }>();
   return c.json({ count: row?.n ?? 0 });
 });
@@ -110,6 +133,11 @@ phieuXuatKho.get("/", async (c) => {
   const trangThai = c.req.query("trang_thai");
   const nguoiNhanHang = c.req.query("nguoi_nhan_hang");
   const loaiDon = c.req.query("loai_don");
+  // "khu_vuc" (them 2026-08-31, dong bo voi GET /dat-mua-lk/don-hang - xem CLAUDE.md muc kiem tra
+  // toan he thong) - danh sach ma Khu vuc cach nhau boi dau phay, khop PXK co nguoi_nhan_hang (KTV
+  // nhan PXK, "1 PXK = 1 KTV") thuoc 1 trong cac Khu vuc do. pxk.nguoi_tao la TN tao phieu, KHONG
+  // phai KTV nen KHONG dua vao dieu kien nay (khac ddh.nguoi_tao/nguoi_nhan_hang cua GET /don-hang).
+  const khuVuc = c.req.query("khu_vuc")?.trim();
   // Them 2026-08-21 (dong bo UI voi GET /dat-mua-lk/don-hang) - tim theo ma PXK/ma don hang/ma
   // MISA/ma van don/nguoi tao/nguoi nhan hang.
   const q = c.req.query("q")?.trim();
@@ -151,6 +179,14 @@ phieuXuatKho.get("/", async (c) => {
   if (loaiDon) {
     whereSql += " AND pxk.loai_don = ?";
     binds.push(loaiDon);
+  }
+  if (khuVuc) {
+    const khuVucList = khuVuc.split(",").map((s) => s.trim()).filter(Boolean);
+    if (khuVucList.length > 0) {
+      const { sql, binds: khuVucBinds } = khuVucSetWhereSql(new Set(khuVucList), ["pxk.nguoi_nhan_hang"]);
+      whereSql += sql;
+      binds.push(...khuVucBinds);
+    }
   }
   if (q) {
     whereSql += " AND (pxk.id LIKE ? OR pxk.ma_xuat_kho LIKE ? OR pxk.ma_misa LIKE ? OR pxk.ma_van_don LIKE ? OR pxk.nguoi_tao LIKE ? OR pxk.nguoi_nhan_hang LIKE ?)";

@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import type { Env } from "../types";
+import type { Env, AppUser } from "../types";
 
 /**
  * "View" (them 2026-08-26, xac nhan cua nguoi dung: "view thấy theo khu vực được set") - CHI doc,
@@ -118,4 +118,48 @@ export async function autoClaimGs(db: D1Database, nguoiPhuTrach: string, emailGs
     )
     .bind(nguoiPhuTrach, emailGs)
     .run();
+}
+
+/**
+ * "Khu vuc cua toi" (dia ly, bang khu_vuc/user_khu_vuc) cho GS/TN/Kho/Ke toan - tra Set ma Khu vuc gan
+ * cho CHINH tai khoan dang goi. KHAC phuTrachGsSet o tren (chi anh huong badge, KHONG anh huong
+ * list/search) - Khu vuc dia ly nay ANH HUONG CA HAI: dung lam (1) gia tri MAC DINH cho bo loc Khu vuc
+ * UI (xem GET /khu-vuc-cua-toi, tai su dung DUNG query o day) va (2) dieu kien loc them cho cac badge
+ * dem theo vai tro (GET /loai-don-counts, GET /phieu-xuat-kho/mo-count) - de badge/danh sach mac dinh
+ * luon khop nhau (xac nhan nguoi dung 2026-08-31, phan hoi "Mua hang (1) nhung danh sach rong"/kiem tra
+ * dong bo toan he thong). Tra null neu vai tro khac hoac chua duoc gan Khu vuc nao (= khong gioi han,
+ * giu hanh vi "toan quoc" nhu truoc).
+ */
+export async function khuVucCuaToiSet(db: D1Database, user: Pick<AppUser, "email" | "vai_tro" | "la_tac_nghiep" | "la_kho" | "la_ke_toan">): Promise<Set<string> | null> {
+  if (user.vai_tro === "Giam sat") {
+    const rows = await db.prepare("SELECT ma FROM khu_vuc WHERE gs_email = ?").bind(user.email).all<{ ma: string }>();
+    if (!rows.results || rows.results.length === 0) return null;
+    return new Set(rows.results.map((r) => r.ma));
+  }
+  if (user.la_tac_nghiep || user.la_kho || user.la_ke_toan) {
+    const rows = await db
+      .prepare("SELECT kv.ma FROM user_khu_vuc uk JOIN khu_vuc kv ON kv.ma = uk.khu_vuc_ma WHERE uk.user_email = ?")
+      .bind(user.email)
+      .all<{ ma: string }>();
+    if (!rows.results || rows.results.length === 0) return null;
+    return new Set(rows.results.map((r) => r.ma));
+  }
+  return null;
+}
+
+/**
+ * Sinh dieu kien " AND (col1 IN (email thuoc Khu vuc) OR col2 IN (...))" tu 1 Set ma Khu vuc (khac
+ * rong) - tra ve email cac KTV/Ve tinh thuoc cac Khu vuc do (join qua ktv_lien_he.khu_vuc_ma). Dung
+ * chung cho moi noi can ap dung khuVucCuaToiSet len 1 hoac nhieu cot email (vd ddh.nguoi_tao +
+ * ddh.nguoi_nhan_hang, hoac chi pxk.nguoi_nhan_hang).
+ */
+export function khuVucSetWhereSql(khuVucSet: Set<string>, emailCols: string[]): { sql: string; binds: string[] } {
+  const list = [...khuVucSet];
+  const emailInKhuVuc = `(SELECT email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND khu_vuc_ma IN (${list.map(() => "?").join(",")}))`;
+  const binds: string[] = [];
+  const conds = emailCols.map((col) => {
+    binds.push(...list);
+    return `${col} IN ${emailInKhuVuc}`;
+  });
+  return { sql: ` AND (${conds.join(" OR ")})`, binds };
 }

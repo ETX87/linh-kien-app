@@ -1121,19 +1121,22 @@ export function DonCuaToiTab({
   // Mac dinh CHON SAN khu vuc cua chinh nguoi dang xem (yeu cau "GS tự lọc filter mặc định theo khu
   // vực mình được set") - CHI 1 LAN dau tien khi du lieu ve, khong ghi de lua chon nguoi dung da tu
   // doi sau do (khop dung tinh than cua savedFilterTrangThai/khuVucDefaultAppliedRef).
-  // FIX (2026-08-31, phan hoi "vai trò TN: danh sách mua hàng có 3 đơn mà bên trên đếm (X1)"): CHI
-  // ap dung mac dinh nay cho GS - badge "loai-don-counts" cho TN/Kho/Ke toan dem TOAN QUOC (scope null,
-  // khong loc theo khu_vuc, xem GET /loai-don-counts), neu list tu dong chon san khu vuc cua ho thi
-  // se hep hon badge, gay lech dung nhu bao cao. GS khong bi anh huong vi scope cua GS da gioi han
-  // theo giam_sat_quan_ly san co, khong lien quan Khu vuc.
+  // FIX (2026-08-31, phan hoi "vai trò TN: danh sách mua hàng có 3 đơn mà bên trên đếm (X1)" roi "check
+  // lại toàn bộ hệ thống"): TAM THOI chi ap dung cho GS (badge lech vi TN/Kho/Ke toan chua loc theo Khu
+  // vuc), sau do nguoi dung xac nhan MUON badge/list DONG BO ca 2 chieu (auto-chon cho TAT CA vai tro) -
+  // GET /loai-don-counts nay da them dieu kien loc theo khuVucCuaToiSet khi scope===null (xem file do),
+  // nen mo lai auto-chon cho TN/Kho/Ke toan, khop dung badge moi.
+  // FIX (phat hien qua test 2026-08-31, xem PhieuXuatKhoTab.tsx/TraHangTab.tsx) - chan tuong minh
+  // bang showKhuVucFilter thay vi chi dua vao du lieu query da ve (React Query dung chung cache theo
+  // queryKey, khong tu dong ton trong "enabled" cua rieng component nay).
   useEffect(() => {
-    if (!isGiamSat) return;
+    if (!showKhuVucFilter) return;
     if (khuVucDefaultAppliedRef.current) return;
     if (!khuVucCuaToiData) return;
     khuVucDefaultAppliedRef.current = true;
     if (khuVucCuaToiData.rows.length > 0) setFilterKhuVuc(new Set(khuVucCuaToiData.rows.map((r) => r.ma)));
-  }, [khuVucCuaToiData, isGiamSat]);
-  const khuVucOptions = (khuVucAllData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ten }));
+  }, [khuVucCuaToiData, showKhuVucFilter]);
+  const khuVucOptions = showKhuVucFilter ? (khuVucAllData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ten })) : [];
   // CHOT #8 (ra soat module "Dat Mua Linh Kien 2.0"): tim theo ma LK/ten LK/ma dong - gui len SERVER
   // (khong loc client-side, danh sach da phan trang server-side that su nen loc client chi tim duoc
   // trong 20 dong dang tai). Debounce 500ms giong pattern MaYeuCauSuCoCheck da co san trong file.

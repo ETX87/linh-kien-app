@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
 import { Badge } from "../../components/ui/Badge";
@@ -16,7 +16,7 @@ import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import type { ThieuLkRow, LyDoChamRow } from "./types";
 import { THIEU_LK_TRANG_THAI_TONE, THIEU_LK_TRANG_THAI_OPTIONS } from "./constants";
 import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, LOAI_DON_TONE } from "./helpers";
-import { StatusBadge, TrangThaiChipFilter, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar } from "./SharedUi";
+import { StatusBadge, TrangThaiChipFilter, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar, KhuVucChipFilter } from "./SharedUi";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -102,20 +102,50 @@ export function ThieuLkTab({
   }, [filterQ]);
   const [showFilters, setShowFilters] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  // Bo loc Khu vuc (them 2026-08-31, dong bo voi DonCuaToiTab.tsx - xem CLAUDE.md muc kiem tra toan
+  // he thong) - chi Kho (canKho) can, tab nay chi nhan prop canKho/canTacNghiep, TN giu "Tat ca" nhu
+  // truoc (khong co badge rieng cho TN o day de can khop).
+  const [filterKhuVuc, setFilterKhuVuc] = useState<Set<string>>(new Set());
+  const khuVucDefaultAppliedRef = useRef(false);
+  const { data: khuVucAllData } = useQuery({
+    queryKey: ["settings-khu-vuc"],
+    queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/settings/khu-vuc"),
+    enabled: canKho,
+  });
+  const { data: khuVucCuaToiData } = useQuery({
+    queryKey: ["dat-mua-lk-khu-vuc-cua-toi"],
+    queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/dat-mua-lk/khu-vuc-cua-toi"),
+    enabled: canKho,
+  });
+  // FIX (phat hien qua test 2026-08-31): "enabled: canKho" o 2 query tren KHONG du de chan du lieu -
+  // React Query dung CHUNG cache theo queryKey xuyen suot app, ["dat-mua-lk-khu-vuc-cua-toi"] da duoc
+  // DonCuaToiTab.tsx/PhieuXuatKhoTab.tsx/TraHangTab.tsx fetch san (enabled rong hon, gom ca TN) nen
+  // component nay van "thay" duoc du lieu cache du chinh no khong tu fetch - phai chan tuong minh
+  // bang canKho ngay trong effect/bien duoi, khong dua vao enabled/query rong hay co du lieu hay chua.
+  useEffect(() => {
+    if (!canKho) return;
+    if (khuVucDefaultAppliedRef.current) return;
+    if (!khuVucCuaToiData) return;
+    khuVucDefaultAppliedRef.current = true;
+    if (khuVucCuaToiData.rows.length > 0) setFilterKhuVuc(new Set(khuVucCuaToiData.rows.map((r) => r.ma)));
+  }, [khuVucCuaToiData, canKho]);
+  const khuVucOptions = canKho ? (khuVucAllData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ten })) : [];
+  const khuVucParam = canKho && filterKhuVuc.size > 0 ? [...filterKhuVuc].sort().join(",") : "";
 
   // GD4 (phan hoi Codex #16): ve trang 1 + xoa selection dang chon khi doi bo loc trang thai.
   useEffect(() => {
     setPage(1);
     setSelected(new Set());
-  }, [filterTrangThai, debouncedQ]);
+  }, [filterTrangThai, debouncedQ, khuVucParam]);
 
   // GD4 (phan hoi Codex #17): phan trang server-side - truoc day tai het toan bo dong khop bo loc
   // roi tu slice o client, moi lan doi trang van doc lai het du lieu tu D1.
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["dat-mua-lk-thieu-lk", filterTrangThai, debouncedQ, page],
+    queryKey: ["dat-mua-lk-thieu-lk", filterTrangThai, debouncedQ, khuVucParam, page],
     queryFn: () =>
       api.get<{ rows: ThieuLkRow[]; total: number }>(
-        "/dat-mua-lk/thieu-lk" + buildQuery({ trang_thai: filterTrangThai || undefined, q: debouncedQ || undefined, page, pageSize: 20 }),
+        "/dat-mua-lk/thieu-lk" +
+          buildQuery({ trang_thai: filterTrangThai || undefined, q: debouncedQ || undefined, khu_vuc: khuVucParam || undefined, page, pageSize: 20 }),
       ),
   });
 
@@ -208,7 +238,7 @@ export function ThieuLkTab({
   // dung pattern da co san o DonCuaToiTab.tsx (activeFilterCount co filterTrangThai). KHONG them chip
   // rieng vao ActiveFiltersBar - da co TrangThaiChipFilter to sang chip dang chon, them chip nua se
   // TRUNG LAP (xem comment tuong tu o DonCuaToiTab.tsx/PhieuXuatKhoTab.tsx).
-  const activeFilterCount = [filterTrangThai, filterQ].filter(Boolean).length;
+  const activeFilterCount = [filterTrangThai, filterQ, khuVucParam].filter(Boolean).length;
 
   return (
     <div className="mt-4">
@@ -221,8 +251,20 @@ export function ThieuLkTab({
         searchPlaceholder="Tìm theo mã TLK, mã LK, tên LK, người báo..."
       >
         <TrangThaiChipFilter value={filterTrangThai} onChange={setFilterTrangThai} options={THIEU_LK_TRANG_THAI_OPTIONS} />
+        {/* Bo loc Khu vuc (them 2026-08-31, dong bo voi DonCuaToiTab.tsx) - chi Kho. */}
+        {canKho && khuVucOptions.length > 0 && (
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Khu vực</div>
+            <KhuVucChipFilter value={filterKhuVuc} onChange={setFilterKhuVuc} options={khuVucOptions} />
+          </div>
+        )}
       </FilterSearchBar>
-      <ActiveFiltersBar chips={[...(filterQ ? [{ label: `Tìm: "${filterQ}"`, onClear: () => setFilterQ("") }] : [])]} />
+      <ActiveFiltersBar
+        chips={[
+          ...(khuVucParam ? [{ label: `Khu vực: ${[...filterKhuVuc].map((ma) => khuVucOptions.find((o) => o.value === ma)?.label ?? ma).join(", ")}`, onClear: () => setFilterKhuVuc(new Set()) }] : []),
+          ...(filterQ ? [{ label: `Tìm: "${filterQ}"`, onClear: () => setFilterQ("") }] : []),
+        ]}
+      />
       {/* Dong bo pattern "Chọn tất cả" voi DonHangGroupedList (DonCuaToiTab.tsx) - dat O DAY (thanh phan
           cha), KHONG trong ThieuLkGroupedList, vi ap dung xuyen suot MOI nhom KTV tren trang, khong
           rieng 1 nhom. */}

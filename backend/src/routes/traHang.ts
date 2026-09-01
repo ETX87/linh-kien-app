@@ -6,7 +6,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nowVN } from "../lib/vnTime";
 import { bumpVersions } from "../lib/dataVersions";
-import { scopeDatMuaNguoiTao } from "../lib/scopeDatMua";
+import { scopeDatMuaNguoiTao, khuVucSetWhereSql } from "../lib/scopeDatMua";
 import { uploadPublicImage } from "../lib/googleDrive";
 
 // Luong "Don tra hang" - tach hoan toan khoi state machine mua/cong no, xem migration
@@ -66,6 +66,10 @@ traHang.get("/", async (c) => {
   const scope = scopeDatMuaNguoiTao(c);
   const trangThai = c.req.query("trang_thai");
   const nguoiTao = c.req.query("nguoi_tao");
+  // "khu_vuc" (them 2026-08-31, dong bo voi GET /dat-mua-lk/don-hang - xem CLAUDE.md muc kiem tra
+  // toan he thong) - cung dinh nghia/cach dung: danh sach ma Khu vuc cach nhau boi dau phay, khop don
+  // co nguoi_tao HOAC nguoi_nhan_hang la 1 KTV thuoc 1 trong cac Khu vuc do.
+  const khuVuc = c.req.query("khu_vuc")?.trim();
   // Them 2026-08-21 (dong bo UI voi GET /dat-mua-lk/don-hang - man "Tra hang" thieu o tim kiem tu do
   // so voi "Mua hang/Cong no") - cung 4 cot tim (ma_lk/ten_lk_snapshot/id/nguoi_tao), tra_hang khong
   // co ma_yeu_cau_su_co/nguoi_nhan_hang rieng biet nen bo 2 cot do so voi ban goc.
@@ -85,6 +89,14 @@ traHang.get("/", async (c) => {
   if (nguoiTao) {
     whereSql += " AND ddh.nguoi_tao = ?";
     binds.push(nguoiTao);
+  }
+  if (khuVuc) {
+    const khuVucList = khuVuc.split(",").map((s) => s.trim()).filter(Boolean);
+    if (khuVucList.length > 0) {
+      const { sql, binds: khuVucBinds } = khuVucSetWhereSql(new Set(khuVucList), ["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
+      whereSql += sql;
+      binds.push(...khuVucBinds);
+    }
   }
   if (q) {
     whereSql += " AND (ddh.ma_lk LIKE ? OR ddh.ten_lk_snapshot LIKE ? OR ddh.id LIKE ? OR ddh.nguoi_tao LIKE ?)";

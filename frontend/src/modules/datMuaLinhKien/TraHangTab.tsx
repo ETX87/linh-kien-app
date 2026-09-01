@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
 import { Badge, type BadgeTone } from "../../components/ui/Badge";
@@ -18,7 +18,7 @@ import { compressImage } from "../../lib/imageCompress";
 import type { TraHangRow } from "./types";
 import { TRA_HANG_TRANG_THAI_TONE, TRA_HANG_TRANG_THAI_OPTIONS, TRA_HANG_BULK_ERROR_MESSAGES } from "./constants";
 import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, useNenAnhTraHangEnabled } from "./helpers";
-import { ActiveFiltersBar, TrangThaiChipFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, DetailZone, QuickStat } from "./SharedUi";
+import { ActiveFiltersBar, TrangThaiChipFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, DetailZone, QuickStat, KhuVucChipFilter } from "./SharedUi";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -178,22 +178,58 @@ export function TraHangTab({
   }, [filterQ]);
   const [showFilters, setShowFilters] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  // Bo loc Khu vuc (them 2026-08-31, dong bo voi DonCuaToiTab.tsx - xem CLAUDE.md muc kiem tra toan
+  // he thong). showKhuVucFilter khong gom canQC (giong DonCuaToiTab.tsx khong ap dung cho QC).
+  const showKhuVucFilter = canTacNghiep || canKho || canKeToan;
+  const [filterKhuVuc, setFilterKhuVuc] = useState<Set<string>>(new Set());
+  const khuVucDefaultAppliedRef = useRef(false);
+  const { data: khuVucAllData } = useQuery({
+    queryKey: ["settings-khu-vuc"],
+    queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/settings/khu-vuc"),
+    enabled: showKhuVucFilter,
+  });
+  const { data: khuVucCuaToiData } = useQuery({
+    queryKey: ["dat-mua-lk-khu-vuc-cua-toi"],
+    queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/dat-mua-lk/khu-vuc-cua-toi"),
+    enabled: showKhuVucFilter,
+  });
+  // FIX (phat hien qua test 2026-08-31): "enabled: showKhuVucFilter" o 2 query tren KHONG du de chan
+  // du lieu cho GS - React Query dung CHUNG cache theo queryKey xuyen suot app, DonCuaToiTab.tsx fetch
+  // truoc voi dieu kien RONG HON (co them isGiamSat) nen tab nay van "thay" duoc du lieu cache du
+  // showKhuVucFilter cua chinh no la false - phai chan tuong minh bang showKhuVucFilter.
+  useEffect(() => {
+    if (!showKhuVucFilter) return;
+    if (khuVucDefaultAppliedRef.current) return;
+    if (!khuVucCuaToiData) return;
+    khuVucDefaultAppliedRef.current = true;
+    if (khuVucCuaToiData.rows.length > 0) setFilterKhuVuc(new Set(khuVucCuaToiData.rows.map((r) => r.ma)));
+  }, [khuVucCuaToiData, showKhuVucFilter]);
+  const khuVucOptions = showKhuVucFilter ? (khuVucAllData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ten })) : [];
+  const khuVucParam = showKhuVucFilter && filterKhuVuc.size > 0 ? [...filterKhuVuc].sort().join(",") : "";
 
   // GD4 (phan hoi Codex #16): ve trang 1 + xoa selection dang chon khi doi bo loc.
   useEffect(() => {
     setPage(1);
     setSelected(new Set());
-  }, [filterTrangThai, filterNguoiTao, debouncedQ]);
+  }, [filterTrangThai, filterNguoiTao, debouncedQ, khuVucParam]);
 
   // GD4 (phan hoi Codex #17): phan trang server-side that su - truoc day tai TOAN BO dong khop
   // trang_thai roi loc/slice o client, "nguoi_tao" gio cung loc server-side (xem GET /tra-hang) de
   // total/trang khop dung sau khi loc, khong con lech nhu khi loc them 1 lop o client tren du lieu
   // da phan trang.
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["tra-hang", filterTrangThai, filterNguoiTao, debouncedQ, page],
+    queryKey: ["tra-hang", filterTrangThai, filterNguoiTao, debouncedQ, khuVucParam, page],
     queryFn: () =>
       api.get<{ rows: TraHangRow[]; total: number }>(
-        "/tra-hang" + buildQuery({ trang_thai: filterTrangThai || undefined, nguoi_tao: filterNguoiTao || undefined, q: debouncedQ || undefined, page, pageSize: 20 }),
+        "/tra-hang" +
+          buildQuery({
+            trang_thai: filterTrangThai || undefined,
+            nguoi_tao: filterNguoiTao || undefined,
+            q: debouncedQ || undefined,
+            khu_vuc: khuVucParam || undefined,
+            page,
+            pageSize: 20,
+          }),
       ),
   });
   // Nguon rieng cho dropdown "Nguoi tao" - can danh sach KHONG bi gioi han boi trang hien tai cua
@@ -377,7 +413,7 @@ export function TraHangTab({
   ];
 
   // FIX (ra soat bug mua hang 2026-08-26, BUG-003): thieu filterTrangThai, khop pattern DonCuaToiTab.tsx.
-  const activeFilterCount = [filterTrangThai, filterNguoiTao, filterQ].filter(Boolean).length;
+  const activeFilterCount = [filterTrangThai, filterNguoiTao, filterQ, khuVucParam].filter(Boolean).length;
 
   // Nang len goi useColumnConfig O DAY (2026-08-21, sua loi UX "nút Tùy chỉnh cột khiến table bị
   // trống ra 1 khoảng trông rất xấu") - truoc day PaginatedTable tu goi hook nay noi bo VA tu ve nut
@@ -411,12 +447,20 @@ export function TraHangTab({
           <ActiveFiltersBar
             chips={[
               ...(filterNguoiTao ? [{ label: `KTV: ${formatNguoiDisplay(filterNguoiTao, ktvDisplayMap)}`, onClear: () => setFilterNguoiTao("") }] : []),
+              ...(khuVucParam ? [{ label: `Khu vực: ${[...filterKhuVuc].map((ma) => khuVucOptions.find((o) => o.value === ma)?.label ?? ma).join(", ")}`, onClear: () => setFilterKhuVuc(new Set()) }] : []),
               ...(filterQ ? [{ label: `Tìm: "${filterQ}"`, onClear: () => setFilterQ("") }] : []),
             ]}
           />
         }
       >
         <TrangThaiChipFilter value={filterTrangThai} onChange={setFilterTrangThai} options={TRA_HANG_TRANG_THAI_OPTIONS} />
+        {/* Bo loc Khu vuc (them 2026-08-31, dong bo voi DonCuaToiTab.tsx). */}
+        {showKhuVucFilter && khuVucOptions.length > 0 && (
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Khu vực</div>
+            <KhuVucChipFilter value={filterKhuVuc} onChange={setFilterKhuVuc} options={khuVucOptions} />
+          </div>
+        )}
         {/* FIX (phan hoi 2026-08-28: "Thiếu công cụ filter theo KTV") - bo dieu kien "> 1" (truoc day
             an han Select khi trang hien tai chi co 1 nguoi tao, khien bo loc bien mat that thuong tuy
             trang dang xem) - hien LUON khi co it nhat 1 lua chon, dung nguon KHONG phan trang

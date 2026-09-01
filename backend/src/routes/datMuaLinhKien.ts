@@ -6,7 +6,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nextSequentialId } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
-import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, khuVucViewEmailInSql } from "../lib/scopeDatMua";
+import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, khuVucViewEmailInSql, khuVucCuaToiSet, khuVucSetWhereSql } from "../lib/scopeDatMua";
 import { bumpVersions } from "../lib/dataVersions";
 import { quaHanLyDoCham } from "../lib/hanLyDoCham";
 import { getDatMuaLkBadge } from "./notifications";
@@ -1091,7 +1091,30 @@ datMuaLinhKien.get("/loai-don-counts", async (c) => {
   let muaCongNoBinds: unknown[] = [...DON_HANG_TRANG_THAI_DONG];
   let traHangSql = `ddh.trang_thai_hien_tai NOT IN (${traHangDongPlaceholders})`;
   let traHangBinds: unknown[] = [...TRA_HANG_TRANG_THAI_DONG_COUNTS];
+  // KIEM TRA DONG BO TOAN HE THONG (2026-08-31, phan hoi "check lại toàn bộ hệ thống đã bổ sung filter
+  // mặc định theo khu vực cho các vai trò chưa?") - 2 lop scope THEM cho TN/Kho/Ke toan/TBP/QC/Admin
+  // (scope===null), CA HAI deu tuy chon (Set null = khong gioi han, giu "toan quoc" nhu truoc):
+  // (1) Khu vuc dia ly cua chinh tai khoan (khuVucCuaToiSet, ANH HUONG CA badge lan list mac dinh -
+  //     xac nhan nguoi dung "auto-chọn cho tất cả vai trò"); (2) "Khu vuc phu trach" = nhom GS
+  //     (phuTrachGsSet, CHI anh huong badge/thong ke, KHONG anh huong list - CHOT 2026-08-15, dung
+  //     LAI dung co che da ap dung cho GET /luong-quy-trinh). Ca 2 ket hop AND neu ca 2 cung duoc gan.
+  let extraScopeSql = "";
+  const extraScopeBinds: string[] = [];
   if (scope === null) {
+    const khuVucSet = await khuVucCuaToiSet(c.env.DB, user);
+    if (khuVucSet) {
+      const { sql, binds } = khuVucSetWhereSql(khuVucSet, ["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
+      extraScopeSql += sql;
+      extraScopeBinds.push(...binds);
+    }
+    if (canTacNghiep(c) || user.la_kho || user.la_ke_toan) {
+      const gsSet = await phuTrachGsSet(c.env.DB, user.email);
+      if (gsSet) {
+        extraScopeSql += ` AND ddh.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;
+        extraScopeBinds.push(...gsSet);
+      }
+    }
+
     const muaCongNoStates: string[] = [];
     if (canTPDvbhXacNhan(c)) muaCongNoStates.push("Cho TBP xac nhan");
     if (canTacNghiep(c)) muaCongNoStates.push("Cho TN duyet");
@@ -1111,14 +1134,14 @@ datMuaLinhKien.get("/loai-don-counts", async (c) => {
   // trang_thai_hien_tai thay vi correlated subquery, xem giai thich o GET /luong-quy-trinh.
   const row = await c.env.DB.prepare(
     `SELECT
-       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'mua' AND ${muaCongNoSql}${scopeSql}) as mua,
-       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'cong_no' AND ${muaCongNoSql}${scopeSql}) as cong_no,
-       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ${traHangSql}${scopeSql}) as tra_hang`,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'mua' AND ${muaCongNoSql}${scopeSql}${extraScopeSql}) as mua,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'cong_no' AND ${muaCongNoSql}${scopeSql}${extraScopeSql}) as cong_no,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ${traHangSql}${scopeSql}${extraScopeSql}) as tra_hang`,
   )
     .bind(
-      ...muaCongNoBinds, ...scopeBinds,
-      ...muaCongNoBinds, ...scopeBinds,
-      ...traHangBinds, ...scopeBinds,
+      ...muaCongNoBinds, ...scopeBinds, ...extraScopeBinds,
+      ...muaCongNoBinds, ...scopeBinds, ...extraScopeBinds,
+      ...traHangBinds, ...scopeBinds, ...extraScopeBinds,
     )
     .first<{ mua: number; cong_no: number; tra_hang: number }>();
 
@@ -2284,6 +2307,9 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
   const user = c.get("user");
   const donHangId = c.req.query("dat_don_hang_id");
   const trangThai = c.req.query("trang_thai");
+  // "khu_vuc" (them 2026-08-31, dong bo voi GET /don-hang - xem CLAUDE.md muc kiem tra toan he
+  // thong) - ddh da duoc LEFT JOIN san o ca 2 query duoi nen dung lai duoc dung dieu kien.
+  const khuVuc = c.req.query("khu_vuc")?.trim();
   // Them 2026-08-21 (dong bo UI voi GET /don-hang) - tim theo ma LK/ten LK/ma TLK/nguoi bao.
   const q = c.req.query("q")?.trim();
   // GD4 (phan hoi Codex #17): truoc day tra ve TOAN BO dong khop bo loc, frontend tu slice o client.
@@ -2323,6 +2349,14 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
   if (trangThai) {
     whereSql += ` AND ${latestThieuLkStatusExpr("tlk.id")} = ?`;
     binds.push(trangThai);
+  }
+  if (khuVuc) {
+    const khuVucList = khuVuc.split(",").map((s) => s.trim()).filter(Boolean);
+    if (khuVucList.length > 0) {
+      const { sql, binds: khuVucBinds } = khuVucSetWhereSql(new Set(khuVucList), ["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
+      whereSql += sql;
+      binds.push(...khuVucBinds);
+    }
   }
   if (q) {
     whereSql += " AND (ddh.ma_lk LIKE ? OR ddh.ten_lk_snapshot LIKE ? OR tlk.id LIKE ? OR tlk.nguoi_tao LIKE ?)";
