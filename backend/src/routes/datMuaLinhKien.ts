@@ -384,6 +384,19 @@ export interface LuongQuyTrinhStep {
   // initialLoaiDonOverride trong DonCuaToiTab.tsx.
   loaiDon?: string;
 }
+// Them (2026-09-01, phan hoi "ấn vào đơn đang tồn 6... làm sao tôi biết 6 đơn này hiện ở đâu") -
+// breakdown chi tiet cua "Đang tồn"/"Tồn đọng toàn hệ thống" o GET /home-summary, cung hinh dang voi
+// LuongQuyTrinhStep (tru countCuaToi, khong can vi day da la so RIENG cua tung buoc, khong phai dem
+// gop toan he thong nhu luong-quy-trinh) de tai su dung dung tab/filter/loaiDon o FE.
+export interface DangTonStep {
+  key: string;
+  label: string;
+  count: number;
+  roleKeys: string[];
+  tab: string;
+  filter: string;
+  loaiDon?: string;
+}
 
 datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
   const user = c.get("user");
@@ -572,6 +585,8 @@ datMuaLinhKien.get("/home-summary", async (c) => {
   let canLam = 0;
   let dangTon = 0;
   let tonDongToanHeThong: number | null = null;
+  const dangTonSteps: DangTonStep[] = [];
+  let tonDongToanHeThongSteps: DangTonStep[] | null = null;
 
   if (isKtvLike) {
     const scope = scopeDatMuaNguoiTao(c); // KTV/Ve tinh: quan he (nguoi_tao/nguoi_nhan_hang/Ve tinh); GS: email_gs = minh
@@ -600,6 +615,17 @@ datMuaLinhKien.get("/home-summary", async (c) => {
     // cong THANG toan bo cac thanh phan canLam vao day (dam bao dungTon >= canLam bang phep cong, khong
     // dua vao gia dinh 2 scope trung khop) roi cong them "dang_xu_ly"/"cho_hang" (rong hon, don khac).
     dangTon += (row?.cho_tien ?? 0) + (row?.xac_nhan_nhan ?? 0) + choTramDuyet + (row?.tu_choi ?? 0) + (row?.dang_xu_ly ?? 0) + (row?.cho_hang ?? 0);
+    // Breakdown (phan hoi 2026-09-01, xem giai thich o dinh nghia DangTonStep) - nguoiNhanHang: "" vi
+    // GET /don-hang da TU SCOPE ve dung don cua nguoi xem cho vai tro KTV/Ve tinh/Tram (khong phai
+    // "quan ly"), khong can truyen them dieu kien nao khac.
+    dangTonSteps.push(
+      { key: "s_cho_tien", label: "Chờ tiền", count: row?.cho_tien ?? 0, roleKeys: ["ktv"], tab: "phieu-xuat-kho", filter: "CHO_TIEN" },
+      { key: "s_xac_nhan_nhan", label: "Chờ xác nhận đã nhận hàng", count: row?.xac_nhan_nhan ?? 0, roleKeys: ["ktv"], tab: "phieu-xuat-kho", filter: "Dang gui KTV" },
+      { key: "s_cho_tram_duyet", label: "Chờ Trạm duyệt", count: choTramDuyet, roleKeys: ["tram"], tab: "don-cua-toi", filter: "Cho Tram duyet", loaiDon: "all" },
+      { key: "s_tu_choi", label: "Đơn bị từ chối chưa xem", count: row?.tu_choi ?? 0, roleKeys: ["ktv"], tab: "don-cua-toi", filter: "TN tu choi" },
+      { key: "s_dang_xu_ly", label: "Đơn đang xử lý (Trạm/TBP/TN)", count: row?.dang_xu_ly ?? 0, roleKeys: ["ktv"], tab: "don-cua-toi", filter: "__OPEN__" },
+      { key: "s_cho_hang_ktv", label: "Chờ hàng", count: row?.cho_hang ?? 0, roleKeys: ["ktv"], tab: "don-cua-toi", filter: "Cho hang" },
+    );
   }
 
   if (isStaff) {
@@ -706,6 +732,10 @@ datMuaLinhKien.get("/home-summary", async (c) => {
     };
     const thieuLkTrangThaiExpr = "(SELECT trang_thai FROM thieu_lk_log WHERE thieu_lk_id = tlk.id ORDER BY id DESC LIMIT 1)";
 
+    // Cot rieng cho TUNG trang thai (phan hoi 2026-09-01: "ấn vào đơn đang tồn 6... làm sao tôi biết 6
+    // đơn này hiện ở đâu để click vào xem") - dung CHUNG 1 round-trip voi cac cot tong hop o tren, tra
+    // KHONG DIEU KIEN theo vai tro (giong dung tinh than GET /luong-quy-trinh tra ca 16 buoc cho MOI
+    // nguoi roi FE tu loc theo roleKeys) de dung lam nguon cho dangTonSteps duoi day.
     const row = await c.env.DB.prepare(
       `SELECT
          (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ${inCond("ddh.trang_thai_hien_tai", muaCongNoStates)}${ddhScope()}) as mua_cong_no_can_lam,
@@ -715,12 +745,48 @@ datMuaLinhKien.get("/home-summary", async (c) => {
          (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${orCond([inCond("pxk.trang_thai_hien_tai", pxkSimpleStates), ...pxkOtherConds])}${pxkScope()}) as pxk_can_lam,
          (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${orCond([inCond("pxk.trang_thai_hien_tai", pxkSimpleStates), ...pxkOtherConds])}${pxkScope()}) as pxk_dang_ton,
          (SELECT COUNT(*) FROM thieu_lk tlk WHERE ${canKho(c) ? `${thieuLkTrangThaiExpr} = 'Cho kho xu ly'` : "1=0"}${thieuLkScope()}) as thieu_lk_can_lam,
-         (SELECT COUNT(*) FROM thieu_lk tlk WHERE ${canKho(c) ? `${thieuLkTrangThaiExpr} = 'Cho kho xu ly'` : "1=0"}${thieuLkScope()}) as thieu_lk_dang_ton`,
+         (SELECT COUNT(*) FROM thieu_lk tlk WHERE ${canKho(c) ? `${thieuLkTrangThaiExpr} = 'Cho kho xu ly'` : "1=0"}${thieuLkScope()}) as thieu_lk_dang_ton,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TBP xac nhan'${ddhScope()}) as g_tbp,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TN duyet'${ddhScope()}) as g_tn_cho_duyet,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.ma_xuat_kho IS NULL${ddhScope()}) as g_tn_da_duyet_chua_pxk,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho hang'${ddhScope()}) as g_cho_hang,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho ke toan duyet mem'${ddhScope()}) as g_tra_hang_kt,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho kho xac nhan'${ddhScope()}) as g_tra_hang_kho,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho QC xac nhan'${ddhScope()}) as g_tra_hang_qc,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TN duyet tong'${ddhScope()}) as g_tra_hang_tn,
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Dang tao phieu' AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')${pxkScope()}) as g_pxk_tao_pxk,
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'${pxkScope()}) as g_pxk_cho_tien,
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Cho ke toan'${pxkScope()}) as g_pxk_ke_toan,
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Da chot xong don xuat'${pxkScope()}) as g_pxk_kho,
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Dang gui KTV'${pxkScope()}) as g_pxk_ktv,
+         (SELECT COUNT(*) FROM thieu_lk tlk WHERE ${thieuLkTrangThaiExpr} = 'Cho kho xu ly'${thieuLkScope()}) as g_thieu_lk`,
     )
       .bind(...binds)
       .first<Record<string, number>>();
     canLam += (row?.mua_cong_no_can_lam ?? 0) + (row?.tra_hang_can_lam ?? 0) + (row?.pxk_can_lam ?? 0) + (row?.thieu_lk_can_lam ?? 0);
     dangTon += (row?.mua_cong_no_dang_ton ?? 0) + (row?.tra_hang_dang_ton ?? 0) + (row?.pxk_dang_ton ?? 0) + (row?.thieu_lk_dang_ton ?? 0);
+
+    const g = (key: string) => row?.[key] ?? 0;
+    dangTonSteps.push(
+      { key: "s_tbp", label: "TBP duyệt LK đặc thù", count: g("g_tbp"), roleKeys: ["tp_dvbh"], tab: "don-cua-toi", filter: "Cho TBP xac nhan", loaiDon: "all" },
+      { key: "s_tn_cho_duyet", label: "Chờ TN duyệt", count: g("g_tn_cho_duyet"), roleKeys: ["tac_nghiep"], tab: "don-cua-toi", filter: "Cho TN duyet", loaiDon: "all" },
+      { key: "s_tn_da_duyet_chua_pxk", label: "TN đã duyệt (chưa tạo PXK)", count: g("g_tn_da_duyet_chua_pxk"), roleKeys: ["tac_nghiep"], tab: "don-cua-toi", filter: "TN da duyet", loaiDon: "all" },
+      // "Cho hang" tinh CA TN lan Kho (phan hoi 2026-09-01 truoc do, xem comment "diem 3" o tren).
+      { key: "s_cho_hang", label: "Chờ hàng", count: g("g_cho_hang"), roleKeys: ["tac_nghiep", "kho"], tab: "don-cua-toi", filter: "Cho hang", loaiDon: "all" },
+      // 4 dong tra hang: THEM "tac_nghiep" vao roleKeys cua CA 3 dong KT/Kho/QC (khong chi dong TN cua
+      // chinh no) - vi dangTon(TN) o tra hang BAO GOM CA 4 buoc (xem comment "diem ngoai le" o tren),
+      // tai su dung DUNG 4 dong nay thay vi tao 1 dong gop rieng can sentinel filter moi.
+      { key: "s_tra_hang_kt", label: "Trả hàng · KT", count: g("g_tra_hang_kt"), roleKeys: ["ke_toan", "tac_nghiep"], tab: "tra-hang", filter: "Cho ke toan duyet mem" },
+      { key: "s_tra_hang_kho", label: "Trả hàng · Kho", count: g("g_tra_hang_kho"), roleKeys: ["kho", "tac_nghiep"], tab: "tra-hang", filter: "Cho kho xac nhan" },
+      { key: "s_tra_hang_qc", label: "Trả hàng · QC", count: g("g_tra_hang_qc"), roleKeys: ["qc", "tac_nghiep"], tab: "tra-hang", filter: "Cho QC xac nhan" },
+      { key: "s_tra_hang_tn", label: "Trả hàng · TN", count: g("g_tra_hang_tn"), roleKeys: ["tac_nghiep"], tab: "tra-hang", filter: "Cho TN duyet tong" },
+      { key: "s_pxk_tao_pxk", label: "Tạo PXK", count: g("g_pxk_tao_pxk"), roleKeys: ["tac_nghiep"], tab: "phieu-xuat-kho", filter: "Dang tao phieu" },
+      { key: "s_pxk_cho_tien", label: "Chờ tiền", count: g("g_pxk_cho_tien"), roleKeys: ["tac_nghiep"], tab: "phieu-xuat-kho", filter: "CHO_TIEN" },
+      { key: "s_pxk_ke_toan", label: "Kế toán duyệt PXK", count: g("g_pxk_ke_toan"), roleKeys: ["ke_toan"], tab: "phieu-xuat-kho", filter: "Cho ke toan" },
+      { key: "s_pxk_kho", label: "Kho chốt đơn xuất", count: g("g_pxk_kho"), roleKeys: ["kho"], tab: "phieu-xuat-kho", filter: "Da chot xong don xuat" },
+      { key: "s_pxk_ktv", label: "Chờ KTV xác nhận nhận", count: g("g_pxk_ktv"), roleKeys: ["kho"], tab: "phieu-xuat-kho", filter: "Dang gui KTV" },
+      { key: "s_thieu_lk", label: "Thiếu LK", count: g("g_thieu_lk"), roleKeys: ["kho"], tab: "thieu-lk", filter: "Cho kho xu ly" },
+    );
 
     const toanHeThongBinds: unknown[] = [];
     const notInCondToanHeThong = (col: string, values: readonly string[]): string => {
@@ -732,15 +798,51 @@ datMuaLinhKien.get("/home-summary", async (c) => {
          (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ${notInCondToanHeThong("ddh.trang_thai_hien_tai", ["TN da duyet", "TN tu choi", "Da huy"])}) as mua_cong_no,
          (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ${notInCondToanHeThong("ddh.trang_thai_hien_tai", TRA_HANG_TRANG_THAI_DONG_COUNTS)}) as tra_hang,
          (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${notInCondToanHeThong("pxk.trang_thai_hien_tai", PXK_TRANG_THAI_DONG_ALL)}) as pxk,
-         (SELECT COUNT(*) FROM thieu_lk tlk WHERE ${notInCondToanHeThong(thieuLkTrangThaiExpr, THIEU_LK_TRANG_THAI_DONG)}) as thieu_lk`,
+         (SELECT COUNT(*) FROM thieu_lk tlk WHERE ${notInCondToanHeThong(thieuLkTrangThaiExpr, THIEU_LK_TRANG_THAI_DONG)}) as thieu_lk,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho Tram duyet') as g_tram,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TBP xac nhan') as g_tbp,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TN duyet') as g_tn_cho_duyet,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.ma_xuat_kho IS NULL) as g_tn_da_duyet_chua_pxk,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho hang') as g_cho_hang,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho ke toan duyet mem') as g_tra_hang_kt,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho kho xac nhan') as g_tra_hang_kho,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho QC xac nhan') as g_tra_hang_qc,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TN duyet tong') as g_tra_hang_tn,
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Dang tao phieu' AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')) as g_pxk_tao_pxk,
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet') as g_pxk_cho_tien,
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Cho ke toan') as g_pxk_ke_toan,
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Da chot xong don xuat') as g_pxk_kho,
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Dang gui KTV') as g_pxk_ktv,
+         (SELECT COUNT(*) FROM thieu_lk tlk WHERE ${thieuLkTrangThaiExpr} = 'Cho kho xu ly') as g_thieu_lk`,
     )
       .bind(...toanHeThongBinds)
       .first<Record<string, number>>();
     tonDongToanHeThong =
       (rowToanHeThong?.mua_cong_no ?? 0) + (rowToanHeThong?.tra_hang ?? 0) + (rowToanHeThong?.pxk ?? 0) + (rowToanHeThong?.thieu_lk ?? 0);
+
+    const gt = (key: string) => rowToanHeThong?.[key] ?? 0;
+    // Khong loc theo roleKeys (khac dangTonSteps o tren) - "toan he thong" nghia la moi nguoi xem CUNG
+    // thay HET cac dong nay, khong rieng theo vai tro cua nguoi dang xem.
+    tonDongToanHeThongSteps = [
+      { key: "t_tram", label: "Trạm duyệt", count: gt("g_tram"), roleKeys: [], tab: "don-cua-toi", filter: "Cho Tram duyet", loaiDon: "all" },
+      { key: "t_tbp", label: "TBP duyệt LK đặc thù", count: gt("g_tbp"), roleKeys: [], tab: "don-cua-toi", filter: "Cho TBP xac nhan", loaiDon: "all" },
+      { key: "t_tn_cho_duyet", label: "Chờ TN duyệt", count: gt("g_tn_cho_duyet"), roleKeys: [], tab: "don-cua-toi", filter: "Cho TN duyet", loaiDon: "all" },
+      { key: "t_tn_da_duyet_chua_pxk", label: "TN đã duyệt (chưa tạo PXK)", count: gt("g_tn_da_duyet_chua_pxk"), roleKeys: [], tab: "don-cua-toi", filter: "TN da duyet", loaiDon: "all" },
+      { key: "t_cho_hang", label: "Chờ hàng", count: gt("g_cho_hang"), roleKeys: [], tab: "don-cua-toi", filter: "Cho hang", loaiDon: "all" },
+      { key: "t_tra_hang_kt", label: "Trả hàng · KT", count: gt("g_tra_hang_kt"), roleKeys: [], tab: "tra-hang", filter: "Cho ke toan duyet mem" },
+      { key: "t_tra_hang_kho", label: "Trả hàng · Kho", count: gt("g_tra_hang_kho"), roleKeys: [], tab: "tra-hang", filter: "Cho kho xac nhan" },
+      { key: "t_tra_hang_qc", label: "Trả hàng · QC", count: gt("g_tra_hang_qc"), roleKeys: [], tab: "tra-hang", filter: "Cho QC xac nhan" },
+      { key: "t_tra_hang_tn", label: "Trả hàng · TN", count: gt("g_tra_hang_tn"), roleKeys: [], tab: "tra-hang", filter: "Cho TN duyet tong" },
+      { key: "t_pxk_tao_pxk", label: "Tạo PXK", count: gt("g_pxk_tao_pxk"), roleKeys: [], tab: "phieu-xuat-kho", filter: "Dang tao phieu" },
+      { key: "t_pxk_cho_tien", label: "Chờ tiền", count: gt("g_pxk_cho_tien"), roleKeys: [], tab: "phieu-xuat-kho", filter: "CHO_TIEN" },
+      { key: "t_pxk_ke_toan", label: "Kế toán duyệt PXK", count: gt("g_pxk_ke_toan"), roleKeys: [], tab: "phieu-xuat-kho", filter: "Cho ke toan" },
+      { key: "t_pxk_kho", label: "Kho chốt đơn xuất", count: gt("g_pxk_kho"), roleKeys: [], tab: "phieu-xuat-kho", filter: "Da chot xong don xuat" },
+      { key: "t_pxk_ktv", label: "Chờ KTV xác nhận nhận", count: gt("g_pxk_ktv"), roleKeys: [], tab: "phieu-xuat-kho", filter: "Dang gui KTV" },
+      { key: "t_thieu_lk", label: "Thiếu LK", count: gt("g_thieu_lk"), roleKeys: [], tab: "thieu-lk", filter: "Cho kho xu ly" },
+    ];
   }
 
-  return c.json({ canLam, dangTon, tonDongToanHeThong });
+  return c.json({ canLam, dangTon, tonDongToanHeThong, dangTonSteps, tonDongToanHeThongSteps });
 });
 
 // GET /api/dat-mua-lk/bao-cao-tong-the - 12 chi so, TRA VE DANH SACH THEO TUNG KTV (phan hoi UX muc

@@ -9,7 +9,7 @@ import { useIsMobile } from "../../hooks/useMediaQuery";
 import { STEP_SHORT_LABEL } from "./constants";
 import { KhuVucChipFilter, CollapsibleSection } from "./SharedUi";
 import { BaoCaoTab } from "./BaoCaoTab";
-import type { JumpTarget, LuongQuyTrinhStep } from "./types";
+import type { JumpTarget, LuongQuyTrinhStep, DangTonStep } from "./types";
 
 interface TonDongRow {
   id: string;
@@ -319,7 +319,9 @@ export function TrangChuTab({
   loaiDonCounts,
   tongViecCuaToi,
   dangTon,
+  dangTonSteps,
   tonDongToanHeThong,
+  tonDongToanHeThongSteps,
   choDonBiTuChoi,
   canTraHangView,
   isManagerView,
@@ -340,7 +342,12 @@ export function TrangChuTab({
   // biet ro voi tongViecCuaToi (viec CAN LAM thuc su). tonDongToanHeThong = null cho vai tro khong duoc
   // xem (KTV/Ve tinh/Giam sat/QC/TBP) - CHI TN/Kho/Ke toan (+Admin) moi thay con so toan he thong nay.
   dangTon: number;
+  // Them (2026-09-01, phan hoi "ấn vào đơn đang tồn 6... làm sao tôi biết 6 đơn này hiện ở đâu để
+  // click vào xem") - breakdown chi tiet theo TUNG trang thai (moi dong bam-nhay duoc rieng), hien khi
+  // bam mo rong the "Đang tồn"/"Tồn đọng toàn hệ thống" - xem DangTonStep o types.ts.
+  dangTonSteps: DangTonStep[];
   tonDongToanHeThong: number | null;
+  tonDongToanHeThongSteps: DangTonStep[] | null;
   // FIX (ra soat "logic sai theo vai tro" 2026-08-29, Bug A): so don CUA CHINH nguoi dang xem dang o
   // trang thai "TN tu choi" VA CHUA xem chi tiet (thong_bao_ktv.da_doc=0, loai='tu_choi') - da CONG
   // SAN vao tongViecCuaToi o component cha, truyen rieng them de ve 1 the rieng ("khong bi troi mat"
@@ -371,17 +378,15 @@ export function TrangChuTab({
   const isMobile = useIsMobile();
   const mySteps = steps.filter((s) => s.count > 0 && s.roleKeys.some((r) => myRoleKeys.has(r))).sort((a, b) => b.count - a.count);
   const isManagerish = canTacNghiep || canKho || canKeToan || isGiamSat;
-  // Them (2026-09-01, phan hoi "đang tồn/tồn đọng toàn hệ thống không click để xem danh sách được") -
-  // "Đang tồn"/"Tồn đọng toàn hệ thống" gop tu NHIEU bang (don mua/cong no/tra hang + PXK + thieu LK),
-  // khong co 1 tab/filter don le nao hien DUNG 100% cac dong do - da hoi va chot: mo RONG + cuon toi
-  // report "Đơn hàng đang tồn theo KTV" co san (chi hien voi isManagerish, dung du lieu mua/cong no).
-  // KTV/Ve tinh/Tram (khong isManagerish, report khong duoc mount nen ref se rong) fallback ve tab
-  // "Đơn hàng" cua chinh ho (da la dung "backlog ca nhan", khong can bam gi them de loc).
   const ktvReportRef = useRef<TonDongTheoKtvReportHandle>(null);
-  function jumpDangTon(resetKhuVuc: boolean) {
-    if (ktvReportRef.current) ktvReportRef.current.expand({ resetKhuVuc });
-    else onJump({ tab: "don-cua-toi", filter: "", nguoiNhanHang: "" });
-  }
+  // Them (2026-09-01, phan hoi "ấn vào đơn đang tồn 6... làm sao tôi biết 6 đơn này hiện ở đâu để click
+  // vào xem") - THAY vi mo report "Đơn hàng đang tồn theo KTV" (chi khop Mua/Cong no, gay nham lan vi
+  // so khong trung khop nhu phan hoi truoc do), bam "Đang tồn"/"Tồn đọng toàn hệ thống" gio MO RONG 1
+  // luoi StatCard chi tiet NGAY DUOI (dangTonSteps/tonDongToanHeThongSteps, moi dong = 1 trang thai cu
+  // the, bam duoc thang toi dung tab/filter) - giong het co che mySteps ben tren.
+  const [showToanHeThongDetail, setShowToanHeThongDetail] = useState(false);
+  const dangTonRows = dangTonSteps.filter((s) => s.count > 0 && s.roleKeys.some((r) => myRoleKeys.has(r))).sort((a, b) => b.count - a.count);
+  const toanHeThongRows = (tonDongToanHeThongSteps ?? []).filter((s) => s.count > 0).sort((a, b) => b.count - a.count);
 
   function jumpNum(loaiDon: "mua" | "cong_no" | "tra_hang") {
     function handleClick() {
@@ -447,24 +452,59 @@ export function TrangChuTab({
 
       {/* Them (phan hoi 2026-08-31: "'Đang tồn' là đơn của ktv vẫn đang xử lý chưa xong") - tach rieng
           khoi "Cần làm" o tren: day la don/PXK/thieu_lk van con mo NHUNG khong phai luot cua nguoi dang
-          xem ngay luc nay (vd don cua chinh KTV dang cho Tram/TN duyet, hoac don TN dang o buoc Kho xu
-          ly). SUA (phan hoi 2026-09-01: "không click vào để xem danh sách theo filter được") - bam mo
-          rong + cuon toi report "Đơn hàng đang tồn theo KTV" (jumpDangTon, xem dinh nghia o tren) - CHI
-          chinh xac 100% cho phan Mua/Cong no (report chua gom Tra hang/Thieu LK/PXK rieng le), da xac
-          nhan voi nguoi dung day la muc chap nhan duoc. */}
+          xem ngay luc nay. SUA (phan hoi 2026-09-01: "ấn vào đơn đang tồn 6... làm sao tôi biết 6 đơn
+          này hiện ở đâu để click vào xem") - THAY the rieng, quyet dinh RIENG "mo report Đơn hàng đang
+          tồn theo KTV" (khong khop so, gay nham lan) bang 1 luoi StatCard chi tiet LUON HIEN SAN, GIONG
+          HET co che mySteps o tren - moi dong = 1 trang thai cu the, bam thang toi dung tab/filter. */}
       <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)]">Đang tồn</div>
-      <div className="flex gap-2 sm:gap-3 flex-wrap">
-        <StatCard label="Đang tồn" value={dangTon} tone="amber" muted={dangTon === 0} onClick={dangTon > 0 ? () => jumpDangTon(false) : undefined} />
-        {tonDongToanHeThong !== null && (canTacNghiep || canKho || canKeToan) && (
-          <StatCard
-            label="Tồn đọng toàn hệ thống"
-            value={tonDongToanHeThong}
-            tone="violet"
-            sub="Toàn quốc, không lọc theo Khu vực của bạn"
-            onClick={tonDongToanHeThong > 0 ? () => jumpDangTon(true) : undefined}
-          />
-        )}
-      </div>
+      {dangTonRows.length > 0 ? (
+        <div className="flex gap-2 sm:gap-3 flex-wrap">
+          {dangTonRows.map((s) => (
+            <StatCard
+              key={s.key}
+              label={s.label}
+              value={s.count}
+              tone="amber"
+              onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
+            />
+          ))}
+        </div>
+      ) : dangTon > 0 ? (
+        <div className="flex gap-2 sm:gap-3 flex-wrap">
+          <StatCard label="Đang tồn" value={dangTon} tone="amber" />
+        </div>
+      ) : (
+        <div className="text-sm text-[var(--ink-400)] py-4 text-center rounded-xl border border-dashed border-[var(--line)]">Không có đơn nào đang tồn.</div>
+      )}
+
+      {tonDongToanHeThong !== null && (canTacNghiep || canKho || canKeToan) && (
+        <>
+          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)]">Tồn đọng toàn hệ thống</div>
+          <div className="flex gap-2 sm:gap-3 flex-wrap">
+            <StatCard
+              label="Tồn đọng toàn hệ thống"
+              value={tonDongToanHeThong}
+              tone="violet"
+              sub="Toàn quốc, không lọc theo Khu vực của bạn"
+              onClick={toanHeThongRows.length > 0 ? () => setShowToanHeThongDetail((v) => !v) : undefined}
+            />
+          </div>
+          {showToanHeThongDetail && toanHeThongRows.length > 0 && (
+            <div className="flex gap-2 sm:gap-3 flex-wrap">
+              {toanHeThongRows.map((s) => (
+                <StatCard
+                  key={s.key}
+                  label={s.label}
+                  value={s.count}
+                  tone="violet"
+                  size="sm"
+                  onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
       {/* SUA (phan hoi 2026-08-25: "3 cái này trên giao diện web đang chiếm quá nhiều diện tích
           không cần thiết") - doi tu Card+table 3 hang (~130px cao) sang 1 hang inline duy nhat, giu

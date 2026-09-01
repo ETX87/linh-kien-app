@@ -7,7 +7,7 @@ import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { useIsMobile } from "../hooks/useMediaQuery";
-import type { LuongQuyTrinhStep, JumpTarget } from "./datMuaLinhKien/types";
+import type { LuongQuyTrinhStep, JumpTarget, DangTonStep } from "./datMuaLinhKien/types";
 import { PipelineFlow, MyWorkloadStrip } from "./datMuaLinhKien/PipelineFlow";
 import { NotificationBell } from "./datMuaLinhKien/NotificationBell";
 import { CaseDetailModal } from "./datMuaLinhKien/CaseDetailModal";
@@ -355,7 +355,10 @@ export function DatMuaLinhKienModule({
   // lam that) lam "Cần làm" - day chinh la bug duoc bao cao, nay thay han bang nguon dung.
   const { data: homeSummary } = useQuery({
     queryKey: ["dat-mua-lk-home-summary"],
-    queryFn: () => api.get<{ canLam: number; dangTon: number; tonDongToanHeThong: number | null }>("/dat-mua-lk/home-summary"),
+    queryFn: () =>
+      api.get<{ canLam: number; dangTon: number; tonDongToanHeThong: number | null; dangTonSteps: DangTonStep[]; tonDongToanHeThongSteps: DangTonStep[] | null }>(
+        "/dat-mua-lk/home-summary",
+      ),
     refetchInterval: 5 * 60_000,
   });
   const { data: notifCounts } = useQuery({
@@ -407,6 +410,8 @@ export function DatMuaLinhKienModule({
   const tongViecCuaToi = homeSummary?.canLam ?? 0;
   const dangTon = homeSummary?.dangTon ?? 0;
   const tonDongToanHeThong = homeSummary?.tonDongToanHeThong ?? null;
+  const dangTonSteps = homeSummary?.dangTonSteps ?? [];
+  const tonDongToanHeThongSteps = homeSummary?.tonDongToanHeThongSteps ?? null;
   // Nut tieu de bam de mo/dong bang chi tiet tung buoc (MyWorkloadStrip) - mac dinh AN (giam chrome
   // mac dinh, tiep tuc dung tinh than "gọn diện tích" da chot o cac fix truoc). CHI ap dung cho
   // duong vao "dat-mua-lk" that su (khong phai forceView="tra-hang", entry rieng van giu tieu de +
@@ -545,7 +550,9 @@ export function DatMuaLinhKienModule({
             loaiDonCounts={loaiDonCounts}
             tongViecCuaToi={tongViecCuaToi}
             dangTon={dangTon}
+            dangTonSteps={dangTonSteps}
             tonDongToanHeThong={tonDongToanHeThong}
+            tonDongToanHeThongSteps={tonDongToanHeThongSteps}
             choDonBiTuChoi={choDonBiTuChoi}
             canTraHangView={canTraHangView}
             isManagerView={isManagerView}

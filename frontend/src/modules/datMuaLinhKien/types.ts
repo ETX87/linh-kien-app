@@ -202,6 +202,20 @@ export interface LuongQuyTrinhStep {
   // backend datMuaLinhKien.ts.
   loaiDon?: string;
 }
+// Them (2026-09-01, phan hoi "ấn vào đơn đang tồn 6... làm sao tôi biết 6 đơn này hiện ở đâu") -
+// breakdown chi tiet cua "Đang tồn"/"Tồn đọng toàn hệ thống" (home-summary), moi dong la 1 trang thai
+// cu the co the bam-nhay thang, GIONG HET LuongQuyTrinhStep nhung nguon so lieu la dinh nghia dangTon
+// (rong hon canLam) thay vi "den luot xu ly".
+export interface DangTonStep {
+  key: string;
+  label: string;
+  count: number;
+  roleKeys: string[];
+  tab: string;
+  filter: string;
+  loaiDon?: string;
+  nguoiNhanHang?: string;
+}
 export interface JumpTarget {
   tab: string;
   filter: string;
