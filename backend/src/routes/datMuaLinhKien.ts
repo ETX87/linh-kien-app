@@ -398,21 +398,58 @@ datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
   const wantFull = c.req.query("full") === "1";
   let scopeCond: ((alias: string) => string) | null = null;
   let scopeBinds: string[] = [];
+  // KIEM TRA DONG BO TOAN HE THONG (2026-08-31, xem giai thich day du o GET /loai-don-counts) - them
+  // LOP THU 2 (Khu vuc dia ly, khuVucCuaToiSet) canh lop GS phu trach co san o tren, cung 1 dieu kien
+  // kich hoat (canTacNghiep/kho/ke_toan, khong ap dung khi "full=1"). Truoc day thieu lop nay khien
+  // StatCard "Viec can lam hom nay" (dung so tu day) khong khop voi danh sach that (da bi loc them
+  // theo Khu vuc o GET /don-hang, /phieu-xuat-kho, /thieu-lk) - vd hien "6 don/2 PXK" nhung danh sach
+  // that chi con 3 don/1 PXK sau khi loc Khu vuc.
+  let khuVucSet: Set<string> | null = null;
   if ((canTacNghiep(c) || user.la_kho || user.la_ke_toan) && !wantFull) {
     const gsSet = await phuTrachGsSet(c.env.DB, user.email);
     if (gsSet) {
       scopeCond = (alias) => ` AND ${alias}.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;
       scopeBinds = [...gsSet];
     }
+    khuVucSet = await khuVucCuaToiSet(c.env.DB, user);
   }
-  const ddhScope = scopeCond ? scopeCond("ddh") : "";
-  // Pattern EXISTS giong het pxkScopeExists o GET /bao-cao-tong-the - phieu_xuat_kho khong co cot
-  // email_gs truc tiep, phai noi nguoc qua phieu_xuat_kho_dong -> dat_don_hang de biet GS phu trach.
-  const pxkScope = scopeCond
+  // ddh: cong dieu kien Khu vuc TRUC TIEP tren chinh dong dang dem (khong can EXISTS join).
+  let ddhScope = scopeCond ? scopeCond("ddh") : "";
+  let ddhScopeBinds = scopeCond ? [...scopeBinds] : [];
+  if (khuVucSet) {
+    const { sql, binds } = khuVucSetWhereSql(khuVucSet, ["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
+    ddhScope += sql;
+    ddhScopeBinds.push(...binds);
+  }
+  // pxk: GS phai EXISTS join qua phieu_xuat_kho_dong -> dat_don_hang (khong co email_gs truc tiep,
+  // pattern giong het pxkScopeExists o GET /bao-cao-tong-the); Khu vuc dung TRUC TIEP pxk.nguoi_nhan_hang
+  // (da la KTV that, khong can join gi them).
+  let pxkScope = scopeCond
     ? ` AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id${scopeCond("ddh2")})`
     : "";
-  const thieuLkScope = scopeCond ? ` AND EXISTS (SELECT 1 FROM dat_don_hang ddh3 WHERE ddh3.id = tlk.dat_don_hang_id${scopeCond("ddh3")})` : "";
-  const sb = () => (scopeCond ? [...scopeBinds] : []);
+  let pxkScopeBinds = scopeCond ? [...scopeBinds] : [];
+  if (khuVucSet) {
+    const { sql, binds } = khuVucSetWhereSql(khuVucSet, ["pxk.nguoi_nhan_hang"]);
+    pxkScope += sql;
+    pxkScopeBinds.push(...binds);
+  }
+  // thieu_lk: ca 2 lop deu can EXISTS join qua dat_don_hang (thieu_lk khong co email_gs/nguoi_tao/
+  // nguoi_nhan_hang truc tiep) - gop chung 1 EXISTS, khong tao 2 EXISTS rieng cho tung lop.
+  let thieuLkInnerConds = "";
+  const thieuLkScopeBinds: string[] = [];
+  if (scopeCond) {
+    thieuLkInnerConds += scopeCond("ddh3");
+    thieuLkScopeBinds.push(...scopeBinds);
+  }
+  if (khuVucSet) {
+    const { sql, binds } = khuVucSetWhereSql(khuVucSet, ["ddh3.nguoi_tao", "ddh3.nguoi_nhan_hang"]);
+    thieuLkInnerConds += sql;
+    thieuLkScopeBinds.push(...binds);
+  }
+  const thieuLkScope = thieuLkInnerConds ? ` AND EXISTS (SELECT 1 FROM dat_don_hang ddh3 WHERE ddh3.id = tlk.dat_don_hang_id${thieuLkInnerConds})` : "";
+  const sbDdh = () => [...ddhScopeBinds];
+  const sbPxk = () => [...pxkScopeBinds];
+  const sbThieuLk = () => [...thieuLkScopeBinds];
 
   // RA SOAT CHI PHI D1 2026-08-18 (phan hoi Codex #10, migration 0087+0088): 16 SELECT COUNT(*) nay
   // chay refetchInterval 5 phut/client + sau MOI mutation (xem invalidatePipelineCounts o frontend) -
@@ -460,7 +497,13 @@ datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.nguoi_nhan_hang = ? AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet') as cho_tien_cua_toi,
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.nguoi_nhan_hang = ? AND pxk.trang_thai_hien_tai = 'Dang gui KTV') as ktv_cua_toi`,
   )
-    .bind(...sb(), ...sb(), ...sb(), ...sb(), ...sb(), ...sb(), ...sb(), ...sb(), ...sb(), ...sb(), ...sb(), ...sb(), user.email, user.email)
+    .bind(
+      ...sbDdh(), ...sbDdh(), ...sbDdh(), ...sbDdh(),
+      ...sbPxk(), ...sbPxk(), ...sbPxk(),
+      ...sbThieuLk(),
+      ...sbPxk(), ...sbPxk(), ...sbPxk(), ...sbPxk(),
+      user.email, user.email,
+    )
     .first<Record<string, number>>();
   const n = (key: string) => row?.[key] ?? 0;
 
