@@ -136,7 +136,9 @@ export function TraHangTab({
   // FIX (ra soat bug mua hang 2026-08-26, BUG-002): tach lop luu-lau-dai khoi lop hien-thi/query,
   // xem giai thich day du o DonCuaToiTab.tsx.
   const [savedFilterTrangThai, setSavedFilterTrangThai] = useLocalStorageState(
-    "filters:dmlk-th-tt",
+    // v2 (2026-08-31): doi key de reset gia tri cu bi ket ("Tat ca") ve dung default theo
+    // vai tro, khop voi badge "loai-don-counts" moi (dem theo luot xu ly) - xem DonCuaToiTab.tsx
+    "filters:dmlk-th-tt-v2",
     canQC ? "Cho QC xac nhan" : canKeToan ? "Cho ke toan duyet mem" : canKho ? "Cho kho xac nhan" : canTacNghiep ? "Cho TN duyet tong" : "",
   );
   // FIX (phan hoi 2026-08-28: nhay tu Trang chu lan dau hien danh sach trong, bam lai moi dung) - khoi

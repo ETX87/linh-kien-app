@@ -1074,7 +1074,9 @@ export function DonCuaToiTab({
   // chi doi lop hien thi nay, KHONG dong vao localStorage. Chot voi chu he thong: mo tab binh thuong
   // (khong qua jump) van "giữ filter đã lưu gần nhất" nhu hanh vi cu.
   const [savedFilterTrangThai, setSavedFilterTrangThai] = useLocalStorageState(
-    "filters:dmlk-trang-thai",
+    // v2 (2026-08-31): doi key de reset gia tri cu bi ket ("Con ton"/"Tat ca") ve dung
+    // default theo vai tro, khop voi badge "loai-don-counts" moi (dem theo luot xu ly)
+    "filters:dmlk-trang-thai-v2",
     canTacNghiep ? "Cho TN duyet" : canTPDvbhXacNhan ? "Cho TBP xac nhan" : canBulkTram ? "Cho Tram duyet" : "__OPEN__",
   );
   // FIX (phan hoi 2026-08-28: "click vào 1 số liệu Trang chủ => danh sách trống, quay lại bấm lại =>
