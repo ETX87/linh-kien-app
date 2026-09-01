@@ -82,8 +82,31 @@ export function QuickStat({ label, value, tone }: { label: string; value: ReactN
 // tren mobile (giam do dai trang khi moi vao Home - nguoi dung tu bam mo khi can xem sau). Chi doc
 // `defaultOpen` 1 LAN luc mount (useState lazy) - xoay man hinh/resize sau do khong tu dong dong lai
 // section nguoi dung da chu dong mo, tranh mat trang thai bat ngo.
-export function CollapsibleSection({ title, note, defaultOpen, children }: { title: ReactNode; note?: ReactNode; defaultOpen: boolean; children: ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen);
+// `open`/`onOpenChange` (them 2026-09-01, phan hoi "đang tồn/tồn đọng toàn hệ thống không click để
+// xem danh sách được") - CHO PHEP component cha dieu khien trang thai mo/dong tu ben ngoai (vd bam 1
+// StatCard o TrangChuTab de tu mo rong + cuon toi report nay), MAC DINH van khong truyen (uncontrolled,
+// dung internal useState nhu cu) - khong doi hanh vi cac noi dang goi component nay.
+export function CollapsibleSection({
+  title,
+  note,
+  defaultOpen,
+  open: openProp,
+  onOpenChange,
+  children,
+}: {
+  title: ReactNode;
+  note?: ReactNode;
+  defaultOpen: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  children: ReactNode;
+}) {
+  const [openState, setOpenState] = useState(defaultOpen);
+  const open = openProp ?? openState;
+  const setOpen = (updater: (v: boolean) => boolean) => {
+    if (onOpenChange) onOpenChange(updater(open));
+    else setOpenState(updater);
+  };
   return (
     <div>
       <div className="flex items-center justify-between gap-2 mt-6 mb-2">

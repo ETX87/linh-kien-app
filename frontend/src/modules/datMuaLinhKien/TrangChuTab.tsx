@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { StatCard } from "../../components/ui/StatCard";
 import { Badge, type BadgeTone } from "../../components/ui/Badge";
@@ -84,11 +84,20 @@ function soNgayTonTone(soNgay: number): BadgeTone {
 // + nguoi can lien he. CHI hien voi Giam sat/TN/Kho/Ke toan (goi la "quan ly" giong isManagerView o
 // component cha) - KTV/Ve tinh tu xem tien do CA NHAN qua StatCard/pipeline san co o tren, khong can
 // bao cao "theo tung nguoi" nay.
-function TonDongTheoKtvReport({ onJump }: { onJump: (t: JumpTarget) => void }) {
+// forwardRef + useImperativeHandle (them 2026-09-01, phan hoi "đang tồn/tồn đọng toàn hệ thống không
+// click để xem danh sách được") - lo "open" cua CollapsibleSection VA "filterKhuVuc" ra thanh dieu
+// khien duoc TU BEN NGOAI (component cha TrangChuTab goi ref.current.expand() khi bam StatCard "Đang
+// tồn"/"Tồn đọng toàn hệ thống"), thay vi 2 state noi bo an hoan toan nhu truoc.
+export interface TonDongTheoKtvReportHandle {
+  expand: (opts?: { resetKhuVuc?: boolean }) => void;
+}
+const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t: JumpTarget) => void }>(function TonDongTheoKtvReport({ onJump }, ref) {
   const isMobile = useIsMobile();
+  const containerRef = useRef<HTMLDivElement>(null);
   // Muc B (phan hoi 2026-08-28) - tren mobile, an bo loc Khu vuc/KTV sau nut "☰ Bộ lọc" (mac dinh
   // dong) thay vi luon hien 2 hang pill+dropdown ngay duoi tieu de; desktop giu nguyen hien san.
   const [showFilter, setShowFilter] = useState(false);
+  const [sectionOpen, setSectionOpen] = useState(!isMobile);
   const { data: khuVucAllData } = useQuery({
     queryKey: ["settings-khu-vuc"],
     queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/settings/khu-vuc"),
@@ -105,6 +114,15 @@ function TonDongTheoKtvReport({ onJump }: { onJump: (t: JumpTarget) => void }) {
     defaultAppliedRef.current = true;
     if (khuVucCuaToiData.rows.length > 0) setFilterKhuVuc(new Set(khuVucCuaToiData.rows.map((r) => r.ma)));
   }, [khuVucCuaToiData]);
+  useImperativeHandle(ref, () => ({
+    expand(opts) {
+      setSectionOpen(true);
+      if (opts?.resetKhuVuc) setFilterKhuVuc(new Set());
+      // Cuon SAU 1 tick de doi CollapsibleSection render xong noi dung (sectionOpen=true) truoc khi do
+      // vi tri, tranh cuon toi 1 khung con thu gon (chua co chieu cao that).
+      requestAnimationFrame(() => containerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    },
+  }));
   const khuVucParam = [...filterKhuVuc].join(",");
   const khuVucOptions = (khuVucAllData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ten }));
 
@@ -157,8 +175,11 @@ function TonDongTheoKtvReport({ onJump }: { onJump: (t: JumpTarget) => void }) {
   );
 
   return (
+    <div ref={containerRef}>
     <CollapsibleSection
       defaultOpen={!isMobile}
+      open={sectionOpen}
+      onOpenChange={setSectionOpen}
       title="Đơn hàng đang tồn theo KTV"
       note={
         <span className="hidden sm:inline normal-case font-normal text-[var(--ink-400)]">
@@ -279,8 +300,9 @@ function TonDongTheoKtvReport({ onJump }: { onJump: (t: JumpTarget) => void }) {
         </div>
       )}
     </CollapsibleSection>
+    </div>
   );
-}
+});
 
 // Tab "Trang chủ" (them 2026-08-24, khop bo cuc renderHome()/kpiCard() cua
 // ui-concepts/concept-1-structured-neutral.html) - man mac dinh moi khi vao module, gom 1 luoi
@@ -348,6 +370,18 @@ export function TrangChuTab({
 }) {
   const isMobile = useIsMobile();
   const mySteps = steps.filter((s) => s.count > 0 && s.roleKeys.some((r) => myRoleKeys.has(r))).sort((a, b) => b.count - a.count);
+  const isManagerish = canTacNghiep || canKho || canKeToan || isGiamSat;
+  // Them (2026-09-01, phan hoi "đang tồn/tồn đọng toàn hệ thống không click để xem danh sách được") -
+  // "Đang tồn"/"Tồn đọng toàn hệ thống" gop tu NHIEU bang (don mua/cong no/tra hang + PXK + thieu LK),
+  // khong co 1 tab/filter don le nao hien DUNG 100% cac dong do - da hoi va chot: mo RONG + cuon toi
+  // report "Đơn hàng đang tồn theo KTV" co san (chi hien voi isManagerish, dung du lieu mua/cong no).
+  // KTV/Ve tinh/Tram (khong isManagerish, report khong duoc mount nen ref se rong) fallback ve tab
+  // "Đơn hàng" cua chinh ho (da la dung "backlog ca nhan", khong can bam gi them de loc).
+  const ktvReportRef = useRef<TonDongTheoKtvReportHandle>(null);
+  function jumpDangTon(resetKhuVuc: boolean) {
+    if (ktvReportRef.current) ktvReportRef.current.expand({ resetKhuVuc });
+    else onJump({ tab: "don-cua-toi", filter: "", nguoiNhanHang: "" });
+  }
 
   function jumpNum(loaiDon: "mua" | "cong_no" | "tra_hang") {
     function handleClick() {
@@ -414,17 +448,20 @@ export function TrangChuTab({
       {/* Them (phan hoi 2026-08-31: "'Đang tồn' là đơn của ktv vẫn đang xử lý chưa xong") - tach rieng
           khoi "Cần làm" o tren: day la don/PXK/thieu_lk van con mo NHUNG khong phai luot cua nguoi dang
           xem ngay luc nay (vd don cua chinh KTV dang cho Tram/TN duyet, hoac don TN dang o buoc Kho xu
-          ly) - khong the bam-nhay thang toi 1 tab/filter duy nhat (gom nhieu bang/trang thai khac
-          nhau) nen la the THONG TIN, khong co onClick. */}
+          ly). SUA (phan hoi 2026-09-01: "không click vào để xem danh sách theo filter được") - bam mo
+          rong + cuon toi report "Đơn hàng đang tồn theo KTV" (jumpDangTon, xem dinh nghia o tren) - CHI
+          chinh xac 100% cho phan Mua/Cong no (report chua gom Tra hang/Thieu LK/PXK rieng le), da xac
+          nhan voi nguoi dung day la muc chap nhan duoc. */}
       <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)]">Đang tồn</div>
       <div className="flex gap-2 sm:gap-3 flex-wrap">
-        <StatCard label="Đang tồn" value={dangTon} tone="amber" muted={dangTon === 0} />
+        <StatCard label="Đang tồn" value={dangTon} tone="amber" muted={dangTon === 0} onClick={dangTon > 0 ? () => jumpDangTon(false) : undefined} />
         {tonDongToanHeThong !== null && (canTacNghiep || canKho || canKeToan) && (
           <StatCard
             label="Tồn đọng toàn hệ thống"
             value={tonDongToanHeThong}
             tone="violet"
             sub="Toàn quốc, không lọc theo Khu vực của bạn"
+            onClick={tonDongToanHeThong > 0 ? () => jumpDangTon(true) : undefined}
           />
         )}
       </div>
@@ -441,7 +478,7 @@ export function TrangChuTab({
         <span>Trả hàng {jumpNum("tra_hang")} đơn</span>
       </div>
 
-      {(canTacNghiep || canKho || canKeToan || isGiamSat) && <TonDongTheoKtvReport onJump={onJump} />}
+      {isManagerish && <TonDongTheoKtvReport ref={ktvReportRef} onJump={onJump} />}
 
       {showBaoCao && (
         // Muc C (phan hoi 2026-08-28: "Home mobile lỗi giao diện nặng") - mac dinh THU GON tren mobile
