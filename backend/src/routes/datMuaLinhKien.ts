@@ -680,10 +680,32 @@ datMuaLinhKien.get("/home-summary", async (c) => {
     if (user.vai_tro === "QC" || user.vai_tro === "Admin") traHangDangTonConds.push("ddh.trang_thai_hien_tai = 'Cho QC xac nhan'");
     if (canTacNghiep(c)) traHangDangTonConds.push(`ddh.trang_thai_hien_tai IN (${TRA_HANG_MO_STATES.map((s) => `'${s}'`).join(",")})`);
 
-    // Builder an toan: moi ham vua TRA VE doan SQL vua PUSH dung binds tuong ung ngay luc goi - goi
-    // lai LAN 2 (vd pxk_dang_ton tai su dung DUNG bieu thuc cua pxk_can_lam - xem comment "diem 4" o
-    // tren) se push lai dung 1 lan nua, tranh loi dem sai vi tri bind thu cong khi 1 dieu kien xuat
-    // hien NHIEU LAN trong SQL.
+    // FIX (2026-09-01, phan hoi "sao bây giờ đang tồn lại trông rỗng rồi") - ban truoc goi
+    // ddhScope()/pxkScope()/thieuLkScope() rieng biet o MOI cot (22 cot tong hop + granular), MOI lan
+    // goi PUSH LAI dung 1 bo binds khuVucSet/gsSet (kieu "builder an toan" cu). Voi 1 TN/Kho/Ke toan
+    // duoc gan NHIEU Khu vuc (vd 3 Khu vuc), tong so bind cua 1 cau query nay vuot 100 (D1 gioi han
+    // "too many SQL variables") -> ca query LOI 500, FE fallback dangTon=0/dangTonSteps=[] hien "Không
+    // có đơn nào đang tồn" DU DU LIEU THAT KHONG RONG (da xac minh true bang wrangler d1 execute
+    // --remote tren du lieu that cua 1 TN co gan 3 Khu vuc: dangTon dung ra phai la 6, khong phai 0).
+    // Sua bang 2 CTE (kv_email/gs_list) dinh nghia DUNG 1 LAN o dau cau lenh - cac ham scope() gio CHI
+    // THAM CHIEU ten CTE (khong con push them bind nao), giam tong bind cua ca query tu ~113 xuong con
+    // vai chuc, khong con phu thuoc so luong cot granular.
+    const cteParts: string[] = [];
+    const cteBinds: unknown[] = [];
+    if (khuVucSet) {
+      const list = [...khuVucSet];
+      cteParts.push(
+        `kv_email(email) AS (SELECT email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND khu_vuc_ma IN (${list.map(() => "?").join(",")}))`,
+      );
+      cteBinds.push(...list);
+    }
+    if (gsSet) {
+      const list = [...gsSet];
+      cteParts.push(`gs_list(email) AS (${list.map(() => "SELECT ?").join(" UNION ALL ")})`);
+      cteBinds.push(...list);
+    }
+    const withClause = cteParts.length > 0 ? `WITH ${cteParts.join(", ")} ` : "";
+
     const binds: unknown[] = [];
     const inCond = (col: string, values: string[]): string => {
       if (values.length === 0) return "1=0";
@@ -693,41 +715,22 @@ datMuaLinhKien.get("/home-summary", async (c) => {
     const orCond = (conds: string[]): string => (conds.length > 0 ? `(${conds.join(" OR ")})` : "1=0");
     const ddhScope = (): string => {
       let s = "";
-      if (khuVucSet) {
-        const { sql, binds: b } = khuVucSetWhereSql(khuVucSet, ["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
-        s += sql;
-        binds.push(...b);
-      }
-      if (gsSet) {
-        s += ` AND ddh.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;
-        binds.push(...gsSet);
-      }
+      if (khuVucSet) s += ` AND (ddh.nguoi_tao IN (SELECT email FROM kv_email) OR ddh.nguoi_nhan_hang IN (SELECT email FROM kv_email))`;
+      if (gsSet) s += ` AND ddh.email_gs IN (SELECT email FROM gs_list)`;
       return s;
     };
     const pxkScope = (): string => {
       let s = "";
-      if (khuVucSet) {
-        const { sql, binds: b } = khuVucSetWhereSql(khuVucSet, ["pxk.nguoi_nhan_hang"]);
-        s += sql;
-        binds.push(...b);
-      }
+      if (khuVucSet) s += ` AND pxk.nguoi_nhan_hang IN (SELECT email FROM kv_email)`;
       if (gsSet) {
-        s += ` AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh2.email_gs IN (${[...gsSet].map(() => "?").join(",")}))`;
-        binds.push(...gsSet);
+        s += ` AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh2.email_gs IN (SELECT email FROM gs_list))`;
       }
       return s;
     };
     const thieuLkScope = (): string => {
       let inner = "";
-      if (khuVucSet) {
-        const { sql, binds: b } = khuVucSetWhereSql(khuVucSet, ["ddh3.nguoi_tao", "ddh3.nguoi_nhan_hang"]);
-        inner += sql;
-        binds.push(...b);
-      }
-      if (gsSet) {
-        inner += ` AND ddh3.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;
-        binds.push(...gsSet);
-      }
+      if (khuVucSet) inner += ` AND (ddh3.nguoi_tao IN (SELECT email FROM kv_email) OR ddh3.nguoi_nhan_hang IN (SELECT email FROM kv_email))`;
+      if (gsSet) inner += ` AND ddh3.email_gs IN (SELECT email FROM gs_list)`;
       return inner ? ` AND EXISTS (SELECT 1 FROM dat_don_hang ddh3 WHERE ddh3.id = tlk.dat_don_hang_id${inner})` : "";
     };
     const thieuLkTrangThaiExpr = "(SELECT trang_thai FROM thieu_lk_log WHERE thieu_lk_id = tlk.id ORDER BY id DESC LIMIT 1)";
@@ -737,7 +740,7 @@ datMuaLinhKien.get("/home-summary", async (c) => {
     // KHONG DIEU KIEN theo vai tro (giong dung tinh than GET /luong-quy-trinh tra ca 16 buoc cho MOI
     // nguoi roi FE tu loc theo roleKeys) de dung lam nguon cho dangTonSteps duoi day.
     const row = await c.env.DB.prepare(
-      `SELECT
+      `${withClause}SELECT
          (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ${inCond("ddh.trang_thai_hien_tai", muaCongNoStates)}${ddhScope()}) as mua_cong_no_can_lam,
          (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ${orCond(muaCongNoDangTonConds)}${ddhScope()}) as mua_cong_no_dang_ton,
          (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ${inCond("ddh.trang_thai_hien_tai", traHangStates)}${ddhScope()}) as tra_hang_can_lam,
@@ -761,7 +764,7 @@ datMuaLinhKien.get("/home-summary", async (c) => {
          (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Dang gui KTV'${pxkScope()}) as g_pxk_ktv,
          (SELECT COUNT(*) FROM thieu_lk tlk WHERE ${thieuLkTrangThaiExpr} = 'Cho kho xu ly'${thieuLkScope()}) as g_thieu_lk`,
     )
-      .bind(...binds)
+      .bind(...cteBinds, ...binds)
       .first<Record<string, number>>();
     canLam += (row?.mua_cong_no_can_lam ?? 0) + (row?.tra_hang_can_lam ?? 0) + (row?.pxk_can_lam ?? 0) + (row?.thieu_lk_can_lam ?? 0);
     dangTon += (row?.mua_cong_no_dang_ton ?? 0) + (row?.tra_hang_dang_ton ?? 0) + (row?.pxk_dang_ton ?? 0) + (row?.thieu_lk_dang_ton ?? 0);
