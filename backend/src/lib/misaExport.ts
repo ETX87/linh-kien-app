@@ -10,9 +10,16 @@
 // doc tu dau ra vi he thong khong co khai niem tai khoan ke toan rieng cho tung dong.
 // Mien Bac/Nam suy tu ktv_lien_he.khu_vuc_ma cua nguoi_nhan_hang (chua "MB"=Bac, chua "MN"=Nam) de
 // chon Ma kho/Ten kho mac dinh (settings admin tu dien, xem app_settings misa_ma_kho_mien_*).
+//
+// SUA (phan hoi 2026-09-02 "mỗi pxk cho phép chọn cả 3 mẫu để tải về được không?"): ngoai template
+// tu dong (resolveTemplate), them tham so forceTemplate cho buildMisaExportSheets - khi TN/Ke toan
+// bam 1 trong 3 nut "Xuất kho/Chuyển kho/Bán hàng" o UI, TOAN BO dong cua PXK duoc EP vao DUNG 1
+// mau da chon (bo qua resolveTemplate), theo dung xac nhan cua nguoi dung ("ép toàn bộ dòng theo
+// mẫu đã chọn"). Khong truyen forceTemplate (vd goi truc tiep API) van giu hanh vi tu dong cu.
 import type { Env } from "../types";
 
-export type MisaTemplate = "xuat_kho" | "chuyen_kho" | "ban_hang";
+export const MISA_TEMPLATES = ["xuat_kho", "chuyen_kho", "ban_hang"] as const;
+export type MisaTemplate = (typeof MISA_TEMPLATES)[number];
 
 export interface XuatKhoRow {
   stt: number;
@@ -140,8 +147,9 @@ async function loadKhoSettings(db: Env["DB"]): Promise<Record<"bac" | "nam", { m
 
 // Doc TAT CA dong dat_don_hang thuoc danh sach PXK (pxkIds) kem thong tin can de xuat MISA. Dung
 // chung cho ca xuat 1 PXK va xuat gop nhieu PXK (bulk) - caller tu kiem tra quyen xem PXK truoc khi
-// goi ham nay (khong tu kiem tra scope o day).
-export async function buildMisaExportSheets(db: Env["DB"], pxkIds: string[]): Promise<MisaExportSheets> {
+// goi ham nay (khong tu kiem tra scope o day). forceTemplate: neu co, EP TOAN BO dong vao dung 1
+// mau nay (bo qua resolveTemplate) - xem giai thich o comment dau file.
+export async function buildMisaExportSheets(db: Env["DB"], pxkIds: string[], forceTemplate?: MisaTemplate): Promise<MisaExportSheets> {
   const sheets: MisaExportSheets = { xuat_kho: [], chuyen_kho: [], ban_hang: [] };
   if (pxkIds.length === 0) return sheets;
 
@@ -171,7 +179,7 @@ export async function buildMisaExportSheets(db: Env["DB"], pxkIds: string[]): Pr
 
   let sttXuatKho = 0;
   for (const line of results) {
-    const template = resolveTemplate(line.pxk_loai_don, line.loai_file_xuat_misa);
+    const template = forceTemplate ?? resolveTemplate(line.pxk_loai_don, line.loai_file_xuat_misa);
     const mien = mienFromKhuVuc(line.ktv_khu_vuc_ma);
     const kho = mien ? khoSettings[mien] : { ma: "", ten: "" };
     const ngayHachToan = fmtDateVN(line.pxk_ngay_tao);

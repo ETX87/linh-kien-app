@@ -23,7 +23,9 @@ import {
 } from "./helpers";
 import { StatusBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar, KhuVucChipFilter } from "./SharedUi";
 import { PxkMiniPipeline } from "./PipelineFlow";
-import { downloadMisaExport, type MisaExportSheets } from "../../lib/misaExportTemplates";
+import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportSheets, type MisaTemplate } from "../../lib/misaExportTemplates";
+
+const MISA_TEMPLATE_ORDER: MisaTemplate[] = ["xuat_kho", "chuyen_kho", "ban_hang"];
 
 // ---------- Tab "Phieu xuat kho" (TN/Ke toan/Kho) ----------
 // "Chuyen tien" (thay phieu_so_tien cu) la dieu kien chan rieng tren chinh PXK, khong con tab/bang
@@ -271,9 +273,11 @@ export function PhieuXuatKhoTab({
 
   // Tai gop file MISA cho TOAN BO PXK dang khop bo loc hien tai cua thẻ nay (them 2026-09-02) - dung
   // LAI dung whereSql cua GET / (sub-tab loai_don + trang thai + nguoi nhan hang + khu vuc + tim
-  // kiem), BO QUA phan trang - xuat het cac dong khop, khong chi rieng trang dang xem.
+  // kiem), BO QUA phan trang - xuat het cac dong khop, khong chi rieng trang dang xem. SUA (phan hoi
+  // "tạo 3 button, TN muốn tải mẫu nào thì tải"): nhan template tu UI, EP toan bo dong vao dung mau
+  // do (server bo qua phan loai tu dong khi co ?template=).
   const misaExportBulkMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (template: MisaTemplate) =>
       api.get<MisaExportSheets>(
         "/phieu-xuat-kho/misa-export" +
           buildQuery({
@@ -282,6 +286,7 @@ export function PhieuXuatKhoTab({
             loai_don: xemLoaiDon,
             q: debouncedQ || undefined,
             khu_vuc: khuVucParam || undefined,
+            template,
           }),
       ),
     onSuccess: async (sheets) => {
@@ -413,10 +418,20 @@ export function PhieuXuatKhoTab({
         trailing={
           <div className="flex items-center gap-2">
             {settingsButtonEl}
-            {/* Tai gop file MISA cho danh sach PXK dang hien theo bo loc (them 2026-09-02). */}
-            <Btn size="sm" variant="ghost" onClick={() => misaExportBulkMutation.mutate()} disabled={misaExportBulkMutation.isPending} loading={misaExportBulkMutation.isPending}>
-              ⬇ Tải MISA (danh sách)
-            </Btn>
+            {/* Tai gop file MISA cho danh sach PXK dang hien theo bo loc (them 2026-09-02) - 3 nut
+                rieng cho 3 mau, TN/Ke toan tu chon mau nao thi tai mau do (khong con tu dong 1 nut). */}
+            {MISA_TEMPLATE_ORDER.map((tpl) => (
+              <Btn
+                key={tpl}
+                size="sm"
+                variant="ghost"
+                onClick={() => misaExportBulkMutation.mutate(tpl)}
+                disabled={misaExportBulkMutation.isPending}
+                loading={misaExportBulkMutation.isPending && misaExportBulkMutation.variables === tpl}
+              >
+                ⬇ MISA {MISA_TEMPLATE_LABELS[tpl]}
+              </Btn>
+            ))}
             {canTacNghiep && (
               <Btn size="sm" onClick={() => { setChonLoaiDon(xemLoaiDon); setShowCreate(true); }}>
                 + Tạo phiếu xuất kho
@@ -735,9 +750,10 @@ export function PxkDetailModal({
 
   // Tai file import MISA CHO DUNG PXK nay (them 2026-09-02, xem lib/misaExport.ts o backend +
   // lib/misaExportTemplates.ts o frontend). Chi can "Mã đơn hàng" da xac nhan (dung lam "Số chứng
-  // từ") - nut dat canh gia tri Mã đơn hàng, khong bat buoc phieu da xong.
+  // từ") - nut dat canh gia tri Mã đơn hàng, khong bat buoc phieu da xong. SUA (phan hoi "tạo 3
+  // button, TN muốn tải mẫu nào thì tải"): nhan template tu UI, EP toan bo dong vao dung mau do.
   const misaExportMutation = useMutation({
-    mutationFn: () => api.get<MisaExportSheets>(`/phieu-xuat-kho/${id}/misa-export`),
+    mutationFn: (template: MisaTemplate) => api.get<MisaExportSheets>(`/phieu-xuat-kho/${id}/misa-export` + buildQuery({ template })),
     onSuccess: async (sheets) => {
       const ok = await downloadMisaExport(sheets, `MISA_${pxk?.ma_xuat_kho || id}.xlsx`);
       if (!ok) addToast("Không có dòng nào để xuất");
@@ -864,11 +880,19 @@ export function PxkDetailModal({
             ) : (
               <span className="text-[var(--ink-400)] italic text-xs">Chưa có mã đơn hàng (đang chờ KTV chuyển tiền)</span>
             )}
-            {pxk.ma_xuat_kho_xac_nhan && (
-              <Btn size="sm" variant="ghost" onClick={() => misaExportMutation.mutate()} disabled={misaExportMutation.isPending} loading={misaExportMutation.isPending}>
-                ⬇ Tải file MISA
-              </Btn>
-            )}
+            {pxk.ma_xuat_kho_xac_nhan &&
+              MISA_TEMPLATE_ORDER.map((tpl) => (
+                <Btn
+                  key={tpl}
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => misaExportMutation.mutate(tpl)}
+                  disabled={misaExportMutation.isPending}
+                  loading={misaExportMutation.isPending && misaExportMutation.variables === tpl}
+                >
+                  ⬇ MISA {MISA_TEMPLATE_LABELS[tpl]}
+                </Btn>
+              ))}
             <StatusBadge value={trangThai} tones={PXK_TRANG_THAI_TONE} options={PXK_TRANG_THAI_OPTIONS} />
             {pxk.nguoi_nhan_hang && (
               <span className="text-[var(--ink-500)] text-xs">{formatNguoiDisplay(pxk.nguoi_nhan_hang, ktvDisplayMap)}</span>
@@ -1088,21 +1112,6 @@ export function PxkDetailModal({
             </div>
           </div>
 
-          <div>
-            <SectionTitle>Lịch sử xử lý</SectionTitle>
-            <Timeline
-              items={data.logs.map((l) => ({
-                title: (
-                  <>
-                    {trangThaiLabel(PXK_TRANG_THAI_OPTIONS, l.trang_thai)}
-                    {l.ghi_chu && <span className="font-normal text-[var(--ink-400)]"> ({l.ghi_chu})</span>}
-                  </>
-                ),
-                time: `${l.nguoi_xu_ly} · ${fmtDateTime(l.ngay_xu_ly)}`,
-              }))}
-            />
-          </div>
-
           {!isDong && (
             <div className="border-t border-[var(--line)] pt-3 space-y-2">
               {/* Muc E (Dot 2): Kho tach rieng "Ma van don" khoi ghi chu chung, chi ap dung luc chuyen
@@ -1208,6 +1217,25 @@ export function PxkDetailModal({
               </div>
             </div>
           )}
+
+          {/* SUA (phan hoi 2026-09-02: "log đang chèn ở giữa... nếu sau này log dài ra thì sẽ ảnh
+              hưởng đến vị trí các button thao tác") - chuyen "Lịch sử xử lý" xuong DUOI CUNG, tach
+              biet voi khoi ghi chu/nut thao tac chinh phia tren, de log dai bao nhieu cung khong day
+              vi tri cac nut xuong. */}
+          <div>
+            <SectionTitle>Lịch sử xử lý</SectionTitle>
+            <Timeline
+              items={data.logs.map((l) => ({
+                title: (
+                  <>
+                    {trangThaiLabel(PXK_TRANG_THAI_OPTIONS, l.trang_thai)}
+                    {l.ghi_chu && <span className="font-normal text-[var(--ink-400)]"> ({l.ghi_chu})</span>}
+                  </>
+                ),
+                time: `${l.nguoi_xu_ly} · ${fmtDateTime(l.ngay_xu_ly)}`,
+              }))}
+            />
+          </div>
         </div>
       )}
     </Drawer>

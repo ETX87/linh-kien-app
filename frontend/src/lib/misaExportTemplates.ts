@@ -2,6 +2,16 @@
 // phan tinh toan du lieu - file nay CHI lo phan dung XLSX.utils.aoa_to_sheet de dung LAI DUNG khung
 // (title/huong dan/hang header o dung vi tri) cua 3 file mau nguoi dung gui ("Mau xuat nhap kho.xls"),
 // tranh MISA tu choi import vi lech vi tri cot/hang so voi mau chuan cua ho.
+export type MisaTemplate = "xuat_kho" | "chuyen_kho" | "ban_hang";
+
+// 3 nut chon mau rieng (them 2026-09-02, phan hoi "tạo 3 button, TN muốn tải mẫu nào thì tải") - TN/
+// Ke toan tu quyet dinh mau nao, khong phu thuoc phan loai tu dong o backend.
+export const MISA_TEMPLATE_LABELS: Record<MisaTemplate, string> = {
+  xuat_kho: "Xuất kho",
+  chuyen_kho: "Chuyển kho",
+  ban_hang: "Bán hàng",
+};
+
 export interface XuatKhoRow {
   stt: number;
   loaiXuatKho: string;

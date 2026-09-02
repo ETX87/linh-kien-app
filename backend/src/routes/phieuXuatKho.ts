@@ -11,7 +11,7 @@ import { quaHanLyDoCham } from "../lib/hanLyDoCham";
 import { autoClaimGs, scopePxkNguoiNhanHang, phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql } from "../lib/scopeDatMua";
 import { uploadPublicImage } from "../lib/googleDrive";
 import { sendPushToUser } from "../lib/webPush";
-import { buildMisaExportSheets } from "../lib/misaExport";
+import { buildMisaExportSheets, MISA_TEMPLATES, type MisaTemplate } from "../lib/misaExport";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
 // Pattern header+log giong phieu_dat. TN tao (gom nhieu dong don hang da "TN da duyet" vao 1
@@ -261,7 +261,7 @@ phieuXuatKho.get("/misa-export", async (c) => {
   const { results } = await c.env.DB.prepare(`SELECT pxk.id FROM phieu_xuat_kho pxk WHERE ${whereSql} ORDER BY pxk.ngay_tao`)
     .bind(...binds)
     .all<{ id: string }>();
-  const sheets = await buildMisaExportSheets(c.env.DB, results.map((r) => r.id));
+  const sheets = await buildMisaExportSheets(c.env.DB, results.map((r) => r.id), parseMisaTemplate(c));
   return c.json(sheets);
 });
 
@@ -507,6 +507,16 @@ phieuXuatKho.get("/:id", async (c) => {
   return c.json({ phieuXuatKho: pxk, donHang: donHangWithFlag, logs });
 });
 
+// "template" query param dung chung cho ca 2 endpoint misa-export ben duoi (them 2026-09-02, phan
+// hoi "tạo 3 button, TN muốn tải mẫu nào thì tải") - TN/Ke toan bam 1 trong 3 nut mau tren UI, EP
+// TOAN BO dong duoc xuat vao dung mau da chon (xem forceTemplate o lib/misaExport.ts). Khong truyen
+// (hoac gia tri la) -> giu hanh vi tu dong resolveTemplate cu.
+function parseMisaTemplate(c: Context<{ Bindings: Env }>): MisaTemplate | undefined {
+  const raw = c.req.query("template");
+  if (!raw) return undefined;
+  return (MISA_TEMPLATES as readonly string[]).includes(raw) ? (raw as MisaTemplate) : undefined;
+}
+
 // GET /api/phieu-xuat-kho/:id/misa-export - du lieu de FE dung xay 1-3 sheet Excel (Xuat kho/Chuyen
 // kho/Ban hang) import MISA CHO DUNG 1 PXK nay (nut o modal chi tiet PXK, canh o "Mã đơn hàng" - xem
 // lib/misaExport.ts). Scope giong GET /:id (tra 404 khi ngoai pham vi).
@@ -518,7 +528,7 @@ phieuXuatKho.get("/:id/misa-export", async (c) => {
   const pxk = await c.env.DB.prepare(`SELECT pxk.id FROM phieu_xuat_kho pxk WHERE ${whereSql}`).bind(...binds).first<{ id: string }>();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
 
-  const sheets = await buildMisaExportSheets(c.env.DB, [pxk.id]);
+  const sheets = await buildMisaExportSheets(c.env.DB, [pxk.id], parseMisaTemplate(c));
   return c.json(sheets);
 });
 
