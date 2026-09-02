@@ -32,7 +32,18 @@ interface LoaiDeXuatOptionRow {
   bat_tat: number;
   stt: number;
   ten_nhom: string;
+  loai_file_xuat_misa: string | null;
 }
+
+// 3 gia tri hop le cho "mau file xuat MISA" khi tao PXK (xem lib/misaExport.ts o backend) - rong =
+// mac dinh "Bán hàng" (KHONG bat buoc Admin phai dien, chi dung khi loai_don='mua'; loai_don='cong_no'/
+// 'tra_hang' LUON dung "Chuyển kho" bat ke gia tri nay, xac nhan qua AskUserQuestion 2026-09-02).
+const MISA_TEMPLATE_OPTIONS = [
+  { value: "", label: "(mặc định: Bán hàng)" },
+  { value: "ban_hang", label: "Bán hàng" },
+  { value: "chuyen_kho", label: "Chuyển kho" },
+  { value: "xuat_kho", label: "Xuất kho" },
+];
 
 const TABS = [
   { key: "ly-do-cham", label: "Lý do chậm" },
@@ -180,6 +191,14 @@ function LoaiDeXuatTab() {
     mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/loai-de-xuat/${id}`, { bat_tat }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["settings-lde-options"] }),
   });
+  // Chon mau file xuat MISA cho tung lua chon "loai de xuat" (them 2026-09-02, xem CLAUDE.md muc xuat
+  // MISA) - CHI anh huong don co loai_don='mua' luc xuat file (xem lib/misaExport.ts), khong anh huong
+  // gi den luong duyet don binh thuong.
+  const setMisaTemplate = useMutation({
+    mutationFn: ({ id, loai_file_xuat_misa }: { id: number; loai_file_xuat_misa: string | null }) =>
+      api.patch(`/settings/loai-de-xuat/${id}`, { loai_file_xuat_misa }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["settings-lde-options"] }),
+  });
   // Xoa 1 lua chon (bo sung theo audit, muc A2/7: DELETE /loai-de-xuat/:id da co san o backend nhung
   // UI truoc day chi bat/tat duoc (khong xoa han) - gio them nut xoa canh moi chip lua chon.
   const deleteOption = useMutation({
@@ -217,6 +236,7 @@ function LoaiDeXuatTab() {
   return (
     <div className="space-y-4">
       <div className="text-xs text-[var(--ink-500)]">Danh sách "Loại đề xuất" khi tạo đơn hàng (theo từng nhóm, lọc theo vai trò người tạo).</div>
+      <MisaKhoSettings />
       {newNhom ? (
         <div className="border border-[var(--line)] rounded-xl p-3 space-y-2">
           <input
@@ -332,6 +352,25 @@ function LoaiDeXuatTab() {
               </span>
             ))}
           </div>
+          {/* Mau file xuat MISA theo tung lua chon (them 2026-09-02) - chi hien khi nhom co it nhat 1
+              lua chon, dat rieng ben duoi hang chip vi Select can rong hon 1 pill. */}
+          {options.filter((o) => o.nhom_id === n.id).length > 0 && (
+            <div className="mt-2 space-y-1">
+              {options.filter((o) => o.nhom_id === n.id).map((o) => (
+                <div key={o.id} className="flex items-center gap-2 text-xs">
+                  <span className="text-[var(--ink-500)] min-w-0 truncate flex-1">{o.ten_option}</span>
+                  <span className="text-[var(--ink-400)] shrink-0">Mẫu MISA (khi loại đơn = mua):</span>
+                  <div className="w-40 shrink-0">
+                    <Select
+                      value={o.loai_file_xuat_misa ?? ""}
+                      onChange={(v) => setMisaTemplate.mutate({ id: o.id, loai_file_xuat_misa: v || null })}
+                      options={MISA_TEMPLATE_OPTIONS}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {newOption?.nhom_id === n.id ? (
             <div className="flex items-center gap-2 mt-2">
               <input
@@ -351,6 +390,91 @@ function LoaiDeXuatTab() {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+interface MisaKhoSettingsData {
+  misa_ma_kho_mien_bac: string;
+  misa_ten_kho_mien_bac: string;
+  misa_ma_kho_mien_nam: string;
+  misa_ten_kho_mien_nam: string;
+}
+
+// Ma/Ten kho mac dinh theo mien Bac/Nam (them 2026-09-02, xem CLAUDE.md muc xuat MISA) - dung de dien
+// cot "Mã kho" khi xuat file import MISA tu Phieu xuat kho (lib/misaExport.ts). Mien suy tu
+// ktv_lien_he.khu_vuc_ma cua nguoi nhan hang (chua "MB"=Bac, chua "MN"=Nam) - Admin CHUA dien thi cot
+// "Mã kho" trong file xuat se de trong (khong chan xuat file).
+function MisaKhoSettings() {
+  const qc = useQueryClient();
+  const addToast = useToast();
+  const { data, isLoading } = useQuery({
+    queryKey: ["app-settings"],
+    queryFn: () => api.get<MisaKhoSettingsData & { nen_anh_tra_hang: boolean }>("/settings/app-settings"),
+  });
+  const [form, setForm] = useState<MisaKhoSettingsData | null>(null);
+  const current = form ?? data ?? { misa_ma_kho_mien_bac: "", misa_ten_kho_mien_bac: "", misa_ma_kho_mien_nam: "", misa_ten_kho_mien_nam: "" };
+
+  const save = useMutation({
+    mutationFn: () => api.patch("/settings/app-settings", current),
+    onSuccess: async () => {
+      addToast("Đã lưu");
+      await qc.invalidateQueries({ queryKey: ["app-settings"] });
+      setForm(null);
+    },
+    onError: () => addToast("Không thể lưu, thử lại sau."),
+  });
+
+  return (
+    <div className="border border-[var(--line)] rounded-xl bg-[var(--surface)] p-4">
+      <div className="font-semibold text-sm mb-1">Mã kho mặc định (xuất file MISA)</div>
+      <div className="text-xs text-[var(--ink-500)] mb-3">
+        Dùng để điền cột "Mã kho" khi tải file import MISA từ Phiếu xuất kho, theo miền của KTV nhận hàng.
+      </div>
+      {isLoading ? (
+        <div className="text-sm text-[var(--ink-400)]">Đang tải…</div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 max-w-lg">
+          <label className="text-xs space-y-1">
+            <div className="text-[var(--ink-500)]">Mã kho — Miền Bắc</div>
+            <input
+              value={current.misa_ma_kho_mien_bac}
+              onChange={(e) => setForm({ ...current, misa_ma_kho_mien_bac: e.target.value })}
+              className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </label>
+          <label className="text-xs space-y-1">
+            <div className="text-[var(--ink-500)]">Tên kho — Miền Bắc</div>
+            <input
+              value={current.misa_ten_kho_mien_bac}
+              onChange={(e) => setForm({ ...current, misa_ten_kho_mien_bac: e.target.value })}
+              className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </label>
+          <label className="text-xs space-y-1">
+            <div className="text-[var(--ink-500)]">Mã kho — Miền Nam</div>
+            <input
+              value={current.misa_ma_kho_mien_nam}
+              onChange={(e) => setForm({ ...current, misa_ma_kho_mien_nam: e.target.value })}
+              className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </label>
+          <label className="text-xs space-y-1">
+            <div className="text-[var(--ink-500)]">Tên kho — Miền Nam</div>
+            <input
+              value={current.misa_ten_kho_mien_nam}
+              onChange={(e) => setForm({ ...current, misa_ten_kho_mien_nam: e.target.value })}
+              className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </label>
+        </div>
+      )}
+      {form && (
+        <div className="flex justify-end gap-2 mt-3">
+          <Btn size="sm" variant="ghost" onClick={() => setForm(null)}>Huỷ</Btn>
+          <Btn size="sm" onClick={() => save.mutate()} disabled={save.isPending} loading={save.isPending}>Lưu</Btn>
+        </div>
+      )}
     </div>
   );
 }

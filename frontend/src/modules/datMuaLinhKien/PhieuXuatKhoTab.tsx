@@ -23,6 +23,7 @@ import {
 } from "./helpers";
 import { StatusBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar, KhuVucChipFilter } from "./SharedUi";
 import { PxkMiniPipeline } from "./PipelineFlow";
+import { downloadMisaExport, type MisaExportSheets } from "../../lib/misaExportTemplates";
 
 // ---------- Tab "Phieu xuat kho" (TN/Ke toan/Kho) ----------
 // "Chuyen tien" (thay phieu_so_tien cu) la dieu kien chan rieng tren chinh PXK, khong con tab/bang
@@ -268,6 +269,28 @@ export function PhieuXuatKhoTab({
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
   });
 
+  // Tai gop file MISA cho TOAN BO PXK dang khop bo loc hien tai cua thẻ nay (them 2026-09-02) - dung
+  // LAI dung whereSql cua GET / (sub-tab loai_don + trang thai + nguoi nhan hang + khu vuc + tim
+  // kiem), BO QUA phan trang - xuat het cac dong khop, khong chi rieng trang dang xem.
+  const misaExportBulkMutation = useMutation({
+    mutationFn: () =>
+      api.get<MisaExportSheets>(
+        "/phieu-xuat-kho/misa-export" +
+          buildQuery({
+            trang_thai: filterTrangThai || undefined,
+            nguoi_nhan_hang: filterNguoiNhanHang || undefined,
+            loai_don: xemLoaiDon,
+            q: debouncedQ || undefined,
+            khu_vuc: khuVucParam || undefined,
+          }),
+      ),
+    onSuccess: async (sheets) => {
+      const ok = await downloadMisaExport(sheets, `MISA_${LOAI_DON_TONE[xemLoaiDon].label}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      if (!ok) addToast("Không có dòng nào để xuất");
+    },
+    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+  });
+
   // CHOT (ra soat module "Dat Mua Linh Kien 2.0" #19): bang danh sach chi de XEM (khong thao tac
   // nhanh duoc vi moi trang thai can nhap lieu khac nhau - xem #6) - them 1 cot tom tat NGAN "viec
   // can lam tiep" de biet TRUOC KHI bam "Chi tiet" co dang cho minh lam gi khong, hanh dong that van
@@ -390,6 +413,10 @@ export function PhieuXuatKhoTab({
         trailing={
           <div className="flex items-center gap-2">
             {settingsButtonEl}
+            {/* Tai gop file MISA cho danh sach PXK dang hien theo bo loc (them 2026-09-02). */}
+            <Btn size="sm" variant="ghost" onClick={() => misaExportBulkMutation.mutate()} disabled={misaExportBulkMutation.isPending} loading={misaExportBulkMutation.isPending}>
+              ⬇ Tải MISA (danh sách)
+            </Btn>
             {canTacNghiep && (
               <Btn size="sm" onClick={() => { setChonLoaiDon(xemLoaiDon); setShowCreate(true); }}>
                 + Tạo phiếu xuất kho
@@ -706,6 +733,18 @@ export function PxkDetailModal({
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
   });
 
+  // Tai file import MISA CHO DUNG PXK nay (them 2026-09-02, xem lib/misaExport.ts o backend +
+  // lib/misaExportTemplates.ts o frontend). Chi can "Mã đơn hàng" da xac nhan (dung lam "Số chứng
+  // từ") - nut dat canh gia tri Mã đơn hàng, khong bat buoc phieu da xong.
+  const misaExportMutation = useMutation({
+    mutationFn: () => api.get<MisaExportSheets>(`/phieu-xuat-kho/${id}/misa-export`),
+    onSuccess: async (sheets) => {
+      const ok = await downloadMisaExport(sheets, `MISA_${pxk?.ma_xuat_kho || id}.xlsx`);
+      if (!ok) addToast("Không có dòng nào để xuất");
+    },
+    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+  });
+
   async function handleUploadAnhBienBan(file: File) {
     setUploadingAnh(true);
     try {
@@ -824,6 +863,11 @@ export function PxkDetailModal({
               <span className="font-mono font-bold">{pxk.ma_xuat_kho}</span>
             ) : (
               <span className="text-[var(--ink-400)] italic text-xs">Chưa có mã đơn hàng (đang chờ KTV chuyển tiền)</span>
+            )}
+            {pxk.ma_xuat_kho_xac_nhan && (
+              <Btn size="sm" variant="ghost" onClick={() => misaExportMutation.mutate()} disabled={misaExportMutation.isPending} loading={misaExportMutation.isPending}>
+                ⬇ Tải file MISA
+              </Btn>
             )}
             <StatusBadge value={trangThai} tones={PXK_TRANG_THAI_TONE} options={PXK_TRANG_THAI_OPTIONS} />
             {pxk.nguoi_nhan_hang && (

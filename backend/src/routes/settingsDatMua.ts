@@ -464,7 +464,7 @@ settingsDatMua.patch("/loai-de-xuat/nhom/:id", adminOnly, async (c) => {
 settingsDatMua.get("/loai-de-xuat", async (c) => {
   const since = c.req.query("since")?.trim();
   let query =
-    "SELECT o.id, o.nhom_id, o.ten_option, o.bat_tat, o.stt, o.ngay_cap_nhat, n.ten_nhom, n.vai_tro_json " +
+    "SELECT o.id, o.nhom_id, o.ten_option, o.bat_tat, o.stt, o.ngay_cap_nhat, o.loai_file_xuat_misa, n.ten_nhom, n.vai_tro_json " +
     "FROM settings_loai_de_xuat o JOIN settings_loai_de_xuat_nhom n ON n.id = o.nhom_id " +
     "WHERE n.bat_tat = 1";
   const binds: string[] = [];
@@ -473,6 +473,11 @@ settingsDatMua.get("/loai-de-xuat", async (c) => {
   const { results } = await c.env.DB.prepare(query).bind(...binds).all();
   return c.json({ rows: results });
 });
+
+// "loai_file_xuat_misa" (them migration 0015_misa_export.sql) - null|'chuyen_kho'|'ban_hang'|'xuat_kho',
+// validate o day (khong CHECK constraint duoc vi la ALTER TABLE ADD COLUMN) - CHI dung khi don
+// dat_don_hang.loai_don='mua' luc xuat file MISA (xem lib/misaExport.ts), null = mac dinh 'ban_hang'.
+const MISA_LOAI_FILE_XUAT_VALUES = ["chuyen_kho", "ban_hang", "xuat_kho"] as const;
 
 settingsDatMua.post("/loai-de-xuat", adminOnly, async (c) => {
   const body = await c.req.json<{ nhom_id: number; ten_option: string; stt?: number }>();
@@ -488,19 +493,23 @@ settingsDatMua.post("/loai-de-xuat", adminOnly, async (c) => {
 
 settingsDatMua.patch("/loai-de-xuat/:id", adminOnly, async (c) => {
   const id = Number(c.req.param("id"));
-  const body = await c.req.json<{ ten_option?: string; bat_tat?: boolean; stt?: number }>();
-  const existing = await c.env.DB.prepare("SELECT * FROM settings_loai_de_xuat WHERE id = ?").bind(id).first<{ ten_option: string; bat_tat: number; stt: number }>();
+  const body = await c.req.json<{ ten_option?: string; bat_tat?: boolean; stt?: number; loai_file_xuat_misa?: string | null }>();
+  if (body.loai_file_xuat_misa !== undefined && body.loai_file_xuat_misa !== null && !MISA_LOAI_FILE_XUAT_VALUES.includes(body.loai_file_xuat_misa as (typeof MISA_LOAI_FILE_XUAT_VALUES)[number])) {
+    return c.json({ error: "INVALID_LOAI_FILE_XUAT_MISA" }, 400);
+  }
+  const existing = await c.env.DB.prepare("SELECT * FROM settings_loai_de_xuat WHERE id = ?").bind(id).first<{ ten_option: string; bat_tat: number; stt: number; loai_file_xuat_misa: string | null }>();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
   const user = c.get("user");
   const next = {
     ten_option: body.ten_option !== undefined ? body.ten_option.trim() : existing.ten_option,
     bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat,
     stt: body.stt !== undefined ? body.stt : existing.stt,
+    loai_file_xuat_misa: body.loai_file_xuat_misa !== undefined ? body.loai_file_xuat_misa : existing.loai_file_xuat_misa,
   };
   await c.env.DB.prepare(
-    "UPDATE settings_loai_de_xuat SET ten_option = ?, bat_tat = ?, stt = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE id = ?",
+    "UPDATE settings_loai_de_xuat SET ten_option = ?, bat_tat = ?, stt = ?, loai_file_xuat_misa = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE id = ?",
   )
-    .bind(next.ten_option, next.bat_tat, next.stt, user.email, nowVN(), id)
+    .bind(next.ten_option, next.bat_tat, next.stt, next.loai_file_xuat_misa, user.email, nowVN(), id)
     .run();
   return c.json({ ok: true });
 });
@@ -586,23 +595,46 @@ settingsDatMua.patch("/khu-vuc/:ma/gs", adminOnly, async (c) => {
 // ---------- App settings (key-value chung, migration 0004_app_settings.sql) ----------
 // GET mo cho MOI nguoi dung da dang nhap (khong rieng Admin) - "nen_anh_tra_hang" duoc doc boi client
 // luc chon anh tai TraHangAnhPicker/QcTuChoiModal (module Dat mua linh kien), khong phai man quan tri.
+// 4 khoa "Ma kho/Ten kho mac dinh theo mien" (them migration 0015_misa_export.sql) - dung de dien cot
+// "Mã kho" khi xuat file MISA (xem lib/misaExport.ts), doc CHUNG 1 lan voi nen_anh_tra_hang de khong
+// them round-trip rieng.
+const MISA_KHO_KEYS = ["misa_ma_kho_mien_bac", "misa_ten_kho_mien_bac", "misa_ma_kho_mien_nam", "misa_ten_kho_mien_nam"] as const;
+
 settingsDatMua.get("/app-settings", async (c) => {
-  const row = await c.env.DB.prepare("SELECT value FROM app_settings WHERE key = 'nen_anh_tra_hang'").first<{ value: string }>();
-  return c.json({ nen_anh_tra_hang: row ? row.value === "1" : true });
+  const { results } = await c.env.DB.prepare(
+    `SELECT key, value FROM app_settings WHERE key IN ('nen_anh_tra_hang', ${MISA_KHO_KEYS.map(() => "?").join(",")})`,
+  )
+    .bind(...MISA_KHO_KEYS)
+    .all<{ key: string; value: string }>();
+  const byKey = new Map(results.map((r) => [r.key, r.value]));
+  return c.json({
+    nen_anh_tra_hang: byKey.has("nen_anh_tra_hang") ? byKey.get("nen_anh_tra_hang") === "1" : true,
+    misa_ma_kho_mien_bac: byKey.get("misa_ma_kho_mien_bac") ?? "",
+    misa_ten_kho_mien_bac: byKey.get("misa_ten_kho_mien_bac") ?? "",
+    misa_ma_kho_mien_nam: byKey.get("misa_ma_kho_mien_nam") ?? "",
+    misa_ten_kho_mien_nam: byKey.get("misa_ten_kho_mien_nam") ?? "",
+  });
 });
 
-// PATCH /api/settings/app-settings - { nen_anh_tra_hang?: boolean } - CHI Admin duoc doi (phan hoi
-// 2026-08-24: "cơ chế nén ảnh này cho tôi bật tắt tuỳ chỉnh trong settings").
+// PATCH /api/settings/app-settings - { nen_anh_tra_hang?: boolean, misa_*?: string } - CHI Admin duoc
+// doi (phan hoi 2026-08-24 cho nen_anh_tra_hang; 4 khoa misa_* them 2026-09-02).
 settingsDatMua.patch("/app-settings", adminOnly, async (c) => {
-  const body = await c.req.json<{ nen_anh_tra_hang?: boolean }>();
-  if (body.nen_anh_tra_hang === undefined) return c.json({ error: "INVALID_BODY" }, 400);
+  const body = await c.req.json<{ nen_anh_tra_hang?: boolean; misa_ma_kho_mien_bac?: string; misa_ten_kho_mien_bac?: string; misa_ma_kho_mien_nam?: string; misa_ten_kho_mien_nam?: string }>();
   const user = c.get("user");
-  await c.env.DB.prepare(
-    `INSERT INTO app_settings (key, value, updated_by, updated_at) VALUES ('nen_anh_tra_hang', ?, ?, ?)
-     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
-  )
-    .bind(body.nen_anh_tra_hang ? "1" : "0", user.email, nowVN())
-    .run();
+  const updates: Array<[string, string]> = [];
+  if (body.nen_anh_tra_hang !== undefined) updates.push(["nen_anh_tra_hang", body.nen_anh_tra_hang ? "1" : "0"]);
+  for (const key of MISA_KHO_KEYS) {
+    if (body[key] !== undefined) updates.push([key, body[key]!.trim()]);
+  }
+  if (updates.length === 0) return c.json({ error: "INVALID_BODY" }, 400);
+  for (const [key, value] of updates) {
+    await c.env.DB.prepare(
+      `INSERT INTO app_settings (key, value, updated_by, updated_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
+    )
+      .bind(key, value, user.email, nowVN())
+      .run();
+  }
   return c.json({ ok: true });
 });
 

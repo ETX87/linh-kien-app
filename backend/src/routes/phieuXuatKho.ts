@@ -11,6 +11,7 @@ import { quaHanLyDoCham } from "../lib/hanLyDoCham";
 import { autoClaimGs, scopePxkNguoiNhanHang, phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql } from "../lib/scopeDatMua";
 import { uploadPublicImage } from "../lib/googleDrive";
 import { sendPushToUser } from "../lib/webPush";
+import { buildMisaExportSheets } from "../lib/misaExport";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
 // Pattern header+log giong phieu_dat. TN tao (gom nhieu dong don hang da "TN da duyet" vao 1
@@ -212,6 +213,56 @@ phieuXuatKho.get("/", async (c) => {
     .bind(...binds, pageSize, offset)
     .all();
   return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
+});
+
+// GET /api/phieu-xuat-kho/misa-export?<cung bo loc voi GET /> - ban gop, xuat TOAN BO PXK dang khop
+// bo loc hien tai cua thẻ "Phiếu xuất kho" (bo qua phan trang - khac GET / tra ve du lieu list). Sao
+// chep dung logic dung whereSql/binds cua GET / (khong tach ham chung - dung quy uoc san co cua file
+// nay, xem GET /status-counts cung lam vay) de tranh lech bo loc giua "xem" va "xuat".
+phieuXuatKho.get("/misa-export", async (c) => {
+  const scope = scopePxkNguoiNhanHang(c);
+  const trangThai = c.req.query("trang_thai");
+  const nguoiNhanHang = c.req.query("nguoi_nhan_hang");
+  const loaiDon = c.req.query("loai_don");
+  const khuVuc = c.req.query("khu_vuc")?.trim();
+  const q = c.req.query("q")?.trim();
+  let whereSql = "1=1" + (scope?.whereSql ?? "");
+  const binds: unknown[] = [...(scope?.binds ?? [])];
+  if (trangThai === "CHO_TIEN") {
+    whereSql += " AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'";
+  } else if (trangThai === "Dang tao phieu") {
+    whereSql += " AND pxk.trang_thai_hien_tai = ? AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')";
+    binds.push(trangThai);
+  } else if (trangThai) {
+    whereSql += " AND pxk.trang_thai_hien_tai = ?";
+    binds.push(trangThai);
+  }
+  if (nguoiNhanHang) {
+    whereSql += " AND pxk.nguoi_nhan_hang = ?";
+    binds.push(nguoiNhanHang);
+  }
+  if (loaiDon) {
+    whereSql += " AND pxk.loai_don = ?";
+    binds.push(loaiDon);
+  }
+  if (khuVuc) {
+    const khuVucList = khuVuc.split(",").map((s) => s.trim()).filter(Boolean);
+    if (khuVucList.length > 0) {
+      const { sql, binds: khuVucBinds } = khuVucSetWhereSql(new Set(khuVucList), ["pxk.nguoi_nhan_hang"]);
+      whereSql += sql;
+      binds.push(...khuVucBinds);
+    }
+  }
+  if (q) {
+    whereSql += " AND (pxk.id LIKE ? OR pxk.ma_xuat_kho LIKE ? OR pxk.ma_misa LIKE ? OR pxk.ma_van_don LIKE ? OR pxk.nguoi_tao LIKE ? OR pxk.nguoi_nhan_hang LIKE ?)";
+    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+  }
+
+  const { results } = await c.env.DB.prepare(`SELECT pxk.id FROM phieu_xuat_kho pxk WHERE ${whereSql} ORDER BY pxk.ngay_tao`)
+    .bind(...binds)
+    .all<{ id: string }>();
+  const sheets = await buildMisaExportSheets(c.env.DB, results.map((r) => r.id));
+  return c.json(sheets);
 });
 
 // GET /api/phieu-xuat-kho/status-counts?loai_don= - dem tinh theo tung trang_thai (dropdown loc, xem
@@ -454,6 +505,21 @@ phieuXuatKho.get("/:id", async (c) => {
   );
 
   return c.json({ phieuXuatKho: pxk, donHang: donHangWithFlag, logs });
+});
+
+// GET /api/phieu-xuat-kho/:id/misa-export - du lieu de FE dung xay 1-3 sheet Excel (Xuat kho/Chuyen
+// kho/Ban hang) import MISA CHO DUNG 1 PXK nay (nut o modal chi tiet PXK, canh o "Mã đơn hàng" - xem
+// lib/misaExport.ts). Scope giong GET /:id (tra 404 khi ngoai pham vi).
+phieuXuatKho.get("/:id/misa-export", async (c) => {
+  const id = c.req.param("id");
+  const scope = scopePxkNguoiNhanHang(c);
+  const whereSql = "pxk.id = ?" + (scope?.whereSql ?? "");
+  const binds = [id, ...(scope?.binds ?? [])];
+  const pxk = await c.env.DB.prepare(`SELECT pxk.id FROM phieu_xuat_kho pxk WHERE ${whereSql}`).bind(...binds).first<{ id: string }>();
+  if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const sheets = await buildMisaExportSheets(c.env.DB, [pxk.id]);
+  return c.json(sheets);
 });
 
 // PATCH /api/phieu-xuat-kho/:id/ma-xuat-kho - { ma_xuat_kho } TN nhap MA DON HANG THAT sau khi KTV
