@@ -74,13 +74,6 @@ export interface MisaExportSheets {
   ban_hang: BanHangRow[];
 }
 
-const HUONG_DAN = [
-  "Hướng dẫn:",
-  "- Điền dữ liệu vào các cột tương ứng trên file này",
-  "- Các cột có dấu (*) là những cột bắt buộc",
-  "- Nếu muốn nhập nhiều thông tin hơn người dùng có thể tải mẫu đầy đủ/hoặc tự thêm cột trên mẫu cơ bản",
-];
-
 const XUAT_KHO_HEADER = [
   "STT chứng từ", "Loại xuất kho", "Ngày hạch toán (*)", "Ngày chứng từ (*)", "Số chứng từ (*)",
   "Mã đối tượng", "Tên đối tượng", "Địa chỉ/Bộ phận", "Người nhận", "Lý do xuất",
@@ -159,10 +152,11 @@ function banHangToRow(r: BanHangRow): unknown[] {
   ];
 }
 
-function buildSheetAoa(title: string, header: string[], chiTietHangTienCol: number, rows: unknown[][]): unknown[][] {
-  const groupHeaderRow = new Array(header.length).fill("");
-  groupHeaderRow[chiTietHangTienCol] = "Chi tiết hàng tiền";
-  return [[title], ...HUONG_DAN.map((line) => [line]), [], groupHeaderRow, header, ...rows];
+// FIX (phan hoi 2026-09-02: "filter import tải về bỏ tiêu đề mẫu, bắt đầu lấy từ dòng thứ 8 trở
+// xuống") - file mau goc co 7 dong tieu de/huong dan/nhom cot phia truoc dong header (dong 8), file
+// import MISA thuc te KHONG can cac dong nay - bo het, header la dong dau tien cua sheet xuat ra.
+function buildSheetAoa(header: string[], rows: unknown[][]): unknown[][] {
+  return [header, ...rows];
 }
 
 // Tai ve 1 file .xlsx (co the co 1-3 sheet, chi tao sheet nao co du lieu) tu ket qua GET
@@ -173,32 +167,17 @@ export async function downloadMisaExport(sheets: MisaExportSheets, filename: str
   let hasAny = false;
 
   if (sheets.xuat_kho.length > 0) {
-    const aoa = buildSheetAoa(
-      "FILE MẪU PHIẾU XUẤT KHO ĐỂ NHẬP VÀO PHẦN MỀM AMIS ACCOUNTING",
-      XUAT_KHO_HEADER,
-      19,
-      sheets.xuat_kho.map(xuatKhoToRow),
-    );
+    const aoa = buildSheetAoa(XUAT_KHO_HEADER, sheets.xuat_kho.map(xuatKhoToRow));
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(aoa), "Xuất kho");
     hasAny = true;
   }
   if (sheets.chuyen_kho.length > 0) {
-    const aoa = buildSheetAoa(
-      "FILE MẪU CHUYỂN KHO ĐỂ NHẬP VÀO PHẦN MỀM AMIS ACCOUNTING",
-      CHUYEN_KHO_HEADER,
-      17,
-      sheets.chuyen_kho.map(chuyenKhoToRow),
-    );
+    const aoa = buildSheetAoa(CHUYEN_KHO_HEADER, sheets.chuyen_kho.map(chuyenKhoToRow));
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(aoa), "Chuyển kho");
     hasAny = true;
   }
   if (sheets.ban_hang.length > 0) {
-    const aoa = buildSheetAoa(
-      "FILE MẪU CHỨNG TỪ BÁN HÀNG ĐỂ NHẬP VÀO PHẦN MỀM AMIS ACCOUNTING",
-      BAN_HANG_HEADER,
-      23,
-      sheets.ban_hang.map(banHangToRow),
-    );
+    const aoa = buildSheetAoa(BAN_HANG_HEADER, sheets.ban_hang.map(banHangToRow));
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(aoa), "Bán hàng");
     hasAny = true;
   }
