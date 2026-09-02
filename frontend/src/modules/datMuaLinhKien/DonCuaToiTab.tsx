@@ -31,7 +31,7 @@ import {
   LOAI_DON_TONE, deriveLoaiDon, actionsFor, trangThaiLabel, canNoRequired, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
 } from "./helpers";
-import { StatusBadge, ActiveFiltersBar, TrangThaiChipFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat } from "./SharedUi";
+import { StatusBadge, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { LinhKienPicker, LinhKienDetailModal } from "./LinhKienPicker";
 
@@ -1223,6 +1223,17 @@ export function DonCuaToiTab({
   // trang server-side that su (truoc day page/pageSize khong duoc gui len backend - bug tiem an, chi
   // luon lay trang 1 roi slice() client-side - sua luon vi dang viet lai dung doan code nay).
   const khuVucParam = filterKhuVuc.size > 0 ? [...filterKhuVuc].sort().join(",") : "";
+  // So "(N)" canh moi trang thai trong TrangThaiDropdownFilter (them 2026-09-01) - dem TINH theo dung
+  // sub-tab dang mo (xemLoaiDon, KHONG phai effectiveLoaiDon co the bi override), bo qua cac bo loc
+  // phu khac (nguoi_tao/khu_vuc/ngay/q) - xem GET /don-hang-status-counts.
+  const donHangStatusCountsLoaiDon = xemLoaiDon === "tra_hang" ? "tra_hang" : undefined;
+  const { data: donHangStatusCountsData } = useQuery({
+    queryKey: ["dat-mua-lk-don-hang-status-counts", donHangStatusCountsLoaiDon],
+    queryFn: () =>
+      api.get<{ counts: Record<string, number> }>(
+        "/dat-mua-lk/don-hang-status-counts" + buildQuery({ loai_don: donHangStatusCountsLoaiDon }),
+      ),
+  });
   const { data, isLoading, isError } = useQuery({
     queryKey: ["dat-mua-lk-don-hang", filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, effectiveLoaiDon, debouncedQ, khuVucParam, page],
     queryFn: () =>
@@ -1432,10 +1443,11 @@ export function DonCuaToiTab({
               khop trang thai cua tra_hang_log, khien khoi loc mo rong hien RONG (chi con o tim kiem o
               ngoai) - gio doi SANG BO OPTIONS KHAC (TRA_HANG_TRANG_THAI_OPTIONS) thay vi an han, danh
               sach trang thai van dung dung tra_hang_log qua trang_thai_hien_tai (xem GET /don-hang). */}
-          <TrangThaiChipFilter
+          <TrangThaiDropdownFilter
             value={filterTrangThai}
             onChange={setFilterTrangThai}
             options={xemLoaiDon === "tra_hang" ? TRA_HANG_TRANG_THAI_OPTIONS : DON_CUA_TOI_TRANG_THAI_OPTIONS}
+            counts={donHangStatusCountsData?.counts}
           />
           {/* Bo loc Khu vuc (them 2026-08-27) - chi GS/TN/Kho/Ke toan (showKhuVucFilter), chi hien khi
               he thong da co >=1 Khu vuc de chon (khuVucOptions rong o he moi tinh chua cau hinh gi). */}

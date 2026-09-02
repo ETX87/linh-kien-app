@@ -16,7 +16,7 @@ import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import type { ThieuLkRow, LyDoChamRow } from "./types";
 import { THIEU_LK_TRANG_THAI_TONE, THIEU_LK_TRANG_THAI_OPTIONS } from "./constants";
 import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, LOAI_DON_TONE } from "./helpers";
-import { StatusBadge, TrangThaiChipFilter, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar, KhuVucChipFilter } from "./SharedUi";
+import { StatusBadge, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar, KhuVucChipFilter } from "./SharedUi";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -148,6 +148,12 @@ export function ThieuLkTab({
           buildQuery({ trang_thai: filterTrangThai || undefined, q: debouncedQ || undefined, khu_vuc: khuVucParam || undefined, page, pageSize: 20 }),
       ),
   });
+  // So "(N)" canh moi trang thai trong TrangThaiDropdownFilter (them 2026-09-01) - dem TINH theo dung
+  // scope cua tab, bo qua cac bo loc phu (khu_vuc/q) - xem GET /dat-mua-lk/thieu-lk-status-counts.
+  const { data: statusCountsData } = useQuery({
+    queryKey: ["dat-mua-lk-thieu-lk-status-counts"],
+    queryFn: () => api.get<{ counts: Record<string, number> }>("/dat-mua-lk/thieu-lk-status-counts"),
+  });
 
   // "Kho da tiep nhan" = buoc Kho giai trinh ly do thieu hang that su + bao ngay du kien co hang
   // (dung cot trong Excel goc) - bat buoc ghi_chu, khong nhu cac buoc khac chi tuy chon.
@@ -236,8 +242,9 @@ export function ThieuLkTab({
   // lọc" khong bao gio hien "(N)" du dang loc theo trang thai (mac dinh Kho la "Cho kho xu ly"), va
   // panel loc mac dinh THU GON (showFilters=false) nen nguoi dung khong thay duoc dang loc gi ca. Khop
   // dung pattern da co san o DonCuaToiTab.tsx (activeFilterCount co filterTrangThai). KHONG them chip
-  // rieng vao ActiveFiltersBar - da co TrangThaiChipFilter to sang chip dang chon, them chip nua se
-  // TRUNG LAP (xem comment tuong tu o DonCuaToiTab.tsx/PhieuXuatKhoTab.tsx).
+  // rieng vao ActiveFiltersBar - gia tri dang chon da hien SAN trong o TrangThaiDropdownFilter (doi tu
+  // chip/nut sang dropdown 2026-09-01), them chip nua se TRUNG LAP (xem comment tuong tu o
+  // DonCuaToiTab.tsx/PhieuXuatKhoTab.tsx).
   const activeFilterCount = [filterTrangThai, filterQ, khuVucParam].filter(Boolean).length;
 
   return (
@@ -250,7 +257,7 @@ export function ThieuLkTab({
         onSearchChange={setFilterQ}
         searchPlaceholder="Tìm theo mã TLK, mã LK, tên LK, người báo..."
       >
-        <TrangThaiChipFilter value={filterTrangThai} onChange={setFilterTrangThai} options={THIEU_LK_TRANG_THAI_OPTIONS} />
+        <TrangThaiDropdownFilter value={filterTrangThai} onChange={setFilterTrangThai} options={THIEU_LK_TRANG_THAI_OPTIONS} counts={statusCountsData?.counts} />
         {/* Bo loc Khu vuc (them 2026-08-31, dong bo voi DonCuaToiTab.tsx) - chi Kho. */}
         {canKho && khuVucOptions.length > 0 && (
           <div>

@@ -1416,6 +1416,42 @@ datMuaLinhKien.get("/don-hang", async (c) => {
   return c.json({ rows, page, pageSize, total: countRow?.total ?? 0 });
 });
 
+// GET /api/dat-mua-lk/don-hang-status-counts?loai_don= - dem SO DONG THEO TUNG trang_thai_hien_tai
+// (phan hoi 2026-09-01: "danh sách nút filter quá nhiều... đổi thành filter dropdown, hiện số cạnh
+// mỗi trạng thái") - dung cho TrangThaiDropdownFilter o CA DonCuaToiTab (mua/cong_no/tra_hang) LAN
+// TraHangTab (loai_don=tra_hang cho ra CUNG whereSql/scope voi GET /tra-hang trong traHang.ts - ca 2
+// deu dung scopeDatMuaNguoiTao() + "ddh.loai_don = 'tra_hang'", chi khac cach viet literal-vs-bind,
+// nen KHONG can 1 endpoint rieng cho TraHangTab). "Dem tinh" (da xac nhan voi nguoi dung: bo qua cac
+// bo loc PHU dang bat - nguoi_tao/nguoi_nhan_hang/khu_vuc/ngay/q - CHI ap dung scope + loai_don, giong
+// het GET /don-hang/GET /tra-hang khi chua ai bam them bo loc nao).
+datMuaLinhKien.get("/don-hang-status-counts", async (c) => {
+  const scope = scopeDatMuaNguoiTao(c);
+  const loaiDon = c.req.query("loai_don");
+  let whereSql = (loaiDon ? "1=1" : "ddh.loai_don != 'tra_hang'") + (scope?.whereSql ?? "");
+  const binds: unknown[] = [...(scope?.binds ?? [])];
+  if (loaiDon) {
+    whereSql += " AND ddh.loai_don = ?";
+    binds.push(loaiDon);
+  }
+  // "__OPEN__" (sentinel "con ton") - dung DUNG 2 dinh nghia "dong" da co san (xem GET /don-hang).
+  const dongSet = loaiDon === "tra_hang" ? TRA_HANG_TRANG_THAI_DONG_COUNTS : DON_HANG_TRANG_THAI_DONG;
+  const scalarRow = await c.env.DB.prepare(
+    `SELECT
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ${whereSql}) as total,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ${whereSql} AND ddh.trang_thai_hien_tai NOT IN (${dongSet.map(() => "?").join(",")})) as mo`,
+  )
+    .bind(...binds, ...binds, ...dongSet)
+    .first<{ total: number; mo: number }>();
+  const { results } = await c.env.DB.prepare(
+    `SELECT ddh.trang_thai_hien_tai as trang_thai, COUNT(*) as n FROM dat_don_hang ddh WHERE ${whereSql} GROUP BY ddh.trang_thai_hien_tai`,
+  )
+    .bind(...binds)
+    .all<{ trang_thai: string; n: number }>();
+  const counts: Record<string, number> = { "": scalarRow?.total ?? 0, __OPEN__: scalarRow?.mo ?? 0 };
+  for (const r of results) counts[r.trang_thai ?? ""] = r.n;
+  return c.json({ counts });
+});
+
 // GET /api/dat-mua-lk/loai-don-counts - so dong DANG MO (chua xu ly xong) theo tung loai_don (mua/
 // cong_no/tra_hang) - theo yeu cau bo sung sau ra soat: "3 nut filter Mua hang/Cong no/Tra hang thêm
 // bộ đếm số lượng đơn theo từng thẻ", dung dung 1 SCOPE voi danh sach chinh (scopeDatMuaNguoiTao) de
@@ -2741,6 +2777,43 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
     .bind(...binds, pageSize, offset)
     .all();
   return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
+});
+
+// GET /api/dat-mua-lk/thieu-lk-status-counts - dem tinh theo tung trang_thai (dropdown loc, xem
+// comment tai GET /don-hang-status-counts) - scope GIONG HET GET /thieu-lk (khong cong them
+// dat_don_hang_id/khu_vuc/q dang loc phu).
+datMuaLinhKien.get("/thieu-lk-status-counts", async (c) => {
+  const user = c.get("user");
+  let whereSql = "1=1";
+  const binds: unknown[] = [];
+  if (canKho(c) || canTacNghiep(c)) {
+    // khong gioi han - giu nguyen
+  } else if (user.vai_tro === "Giam sat") {
+    whereSql += " AND ddh.email_gs = ?";
+    binds.push(user.email);
+  } else if (user.la_view) {
+    const emailIn = khuVucViewEmailInSql();
+    whereSql += ` AND (ddh.nguoi_tao IN ${emailIn} OR ddh.nguoi_nhan_hang IN ${emailIn})`;
+    binds.push(user.email, user.email);
+  } else {
+    whereSql += " AND tlk.nguoi_tao = ?";
+    binds.push(user.email);
+  }
+  const totalRow = await c.env.DB.prepare(
+    `SELECT COUNT(*) as total FROM thieu_lk tlk LEFT JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id WHERE ${whereSql}`,
+  )
+    .bind(...binds)
+    .first<{ total: number }>();
+  const { results } = await c.env.DB.prepare(
+    `SELECT ${latestThieuLkStatusExpr("tlk.id")} as trang_thai, COUNT(*) as n
+     FROM thieu_lk tlk LEFT JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id WHERE ${whereSql}
+     GROUP BY ${latestThieuLkStatusExpr("tlk.id")}`,
+  )
+    .bind(...binds)
+    .all<{ trang_thai: string; n: number }>();
+  const counts: Record<string, number> = { "": totalRow?.total ?? 0 };
+  for (const r of results) counts[r.trang_thai ?? ""] = r.n;
+  return c.json({ counts });
 });
 
 // GET /api/dat-mua-lk/thieu-lk/:id - chi tiet 1 ticket + lich su xu ly (them 2026-08-21, phan hoi

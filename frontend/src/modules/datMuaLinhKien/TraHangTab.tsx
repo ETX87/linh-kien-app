@@ -18,7 +18,7 @@ import { compressImage } from "../../lib/imageCompress";
 import type { TraHangRow } from "./types";
 import { TRA_HANG_TRANG_THAI_TONE, TRA_HANG_TRANG_THAI_OPTIONS, TRA_HANG_BULK_ERROR_MESSAGES } from "./constants";
 import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, useNenAnhTraHangEnabled } from "./helpers";
-import { ActiveFiltersBar, TrangThaiChipFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, DetailZone, QuickStat, KhuVucChipFilter } from "./SharedUi";
+import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, DetailZone, QuickStat, KhuVucChipFilter } from "./SharedUi";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -232,6 +232,14 @@ export function TraHangTab({
           }),
       ),
   });
+  // So "(N)" canh moi trang thai trong TrangThaiDropdownFilter (them 2026-09-01) - dung LAI DUNG
+  // endpoint/key voi sub-tab "tra_hang" cua DonCuaToiTab.tsx (GET /dat-mua-lk/don-hang-status-counts
+  // co cung scope/WHERE voi GET /tra-hang khi loai_don=tra_hang - xem comment goc tai endpoint do),
+  // an theo cache dung 1 lan neu ca 2 tab cung mo.
+  const { data: statusCountsData } = useQuery({
+    queryKey: ["dat-mua-lk-don-hang-status-counts", "tra_hang"],
+    queryFn: () => api.get<{ counts: Record<string, number> }>("/dat-mua-lk/don-hang-status-counts?loai_don=tra_hang"),
+  });
   // Nguon rieng cho dropdown "Nguoi tao" - can danh sach KHONG bi gioi han boi trang hien tai cua
   // danh sach chinh, nen goi 1 truy van rong hon (pageSize lon) chi loc theo trang_thai, cung pattern
   // da dung o MissingPartsModule cho nhu cau tuong tu.
@@ -442,8 +450,8 @@ export function TraHangTab({
         searchPlaceholder="Tìm theo mã đơn, mã LK, tên LK, người tạo..."
         trailing={settingsButtonEl}
         activeFilters={
-          // SUA (ra soat #3): bo chip "Trạng thái: ..." - da hien TRUNG voi chip dang to sang trong
-          // TrangThaiChipFilter ngay ben tren.
+          // SUA (ra soat #3): bo chip "Trạng thái: ..." - gia tri dang chon da hien SAN trong o
+          // TrangThaiDropdownFilter ngay ben tren (doi tu chip/nut sang dropdown 2026-09-01).
           <ActiveFiltersBar
             chips={[
               ...(filterNguoiTao ? [{ label: `KTV: ${formatNguoiDisplay(filterNguoiTao, ktvDisplayMap)}`, onClear: () => setFilterNguoiTao("") }] : []),
@@ -453,7 +461,7 @@ export function TraHangTab({
           />
         }
       >
-        <TrangThaiChipFilter value={filterTrangThai} onChange={setFilterTrangThai} options={TRA_HANG_TRANG_THAI_OPTIONS} />
+        <TrangThaiDropdownFilter value={filterTrangThai} onChange={setFilterTrangThai} options={TRA_HANG_TRANG_THAI_OPTIONS} counts={statusCountsData?.counts} />
         {/* Bo loc Khu vuc (them 2026-08-31, dong bo voi DonCuaToiTab.tsx). */}
         {showKhuVucFilter && khuVucOptions.length > 0 && (
           <div>

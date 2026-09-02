@@ -21,7 +21,7 @@ import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   trangThaiLabel, LOAI_DON_TONE,
 } from "./helpers";
-import { StatusBadge, ActiveFiltersBar, TrangThaiChipFilter, FilterSearchBar, KhuVucChipFilter } from "./SharedUi";
+import { StatusBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar, KhuVucChipFilter } from "./SharedUi";
 import { PxkMiniPipeline } from "./PipelineFlow";
 
 // ---------- Tab "Phieu xuat kho" (TN/Ke toan/Kho) ----------
@@ -149,6 +149,14 @@ export function PhieuXuatKhoTab({
             pageSize: 20,
           }),
       ),
+  });
+
+  // So "(N)" canh moi trang thai trong TrangThaiDropdownFilter (them 2026-09-01) - dem TINH theo dung
+  // sub-tab loai_don dang mo (xemLoaiDon LUON co gia tri o tab nay, khac DonCuaToiTab), bo qua cac bo
+  // loc phu khac (nguoi_nhan_hang/khu_vuc/q) - xem GET /phieu-xuat-kho/status-counts.
+  const { data: statusCountsData } = useQuery({
+    queryKey: ["dat-mua-lk-pxk-status-counts", xemLoaiDon],
+    queryFn: () => api.get<{ counts: Record<string, number> }>("/phieu-xuat-kho/status-counts" + buildQuery({ loai_don: xemLoaiDon })),
   });
 
   // So luong "can xu ly" (chua o 4 trang thai da xong) theo tung loai_don, hien canh nhan cua 3 nut
@@ -390,7 +398,7 @@ export function PhieuXuatKhoTab({
           </div>
         }
       >
-        <TrangThaiChipFilter value={filterTrangThai} onChange={setFilterTrangThai} options={PXK_TRANG_THAI_OPTIONS} />
+        <TrangThaiDropdownFilter value={filterTrangThai} onChange={setFilterTrangThai} options={PXK_TRANG_THAI_OPTIONS} counts={statusCountsData?.counts} />
         {/* Bo loc Khu vuc (them 2026-08-31, dong bo voi DonCuaToiTab.tsx). */}
         {showKhuVucFilter && khuVucOptions.length > 0 && (
           <div>
@@ -406,8 +414,9 @@ export function PhieuXuatKhoTab({
           />
         )}
       </FilterSearchBar>
-      {/* SUA (ra soat #3): bo chip "Trạng thái: ..." - da hien TRUNG voi chip dang to sang trong
-          TrangThaiChipFilter ngay ben tren. */}
+      {/* SUA (ra soat #3): bo chip "Trạng thái: ..." - gia tri dang chon da hien SAN trong o
+          TrangThaiDropdownFilter ngay ben tren (doi tu chip/nut sang dropdown 2026-09-01), khong can
+          lap lai o day. */}
       <ActiveFiltersBar
         chips={[
           ...(filterNguoiNhanHang ? [{ label: "Người nhận hàng đã lọc", onClear: () => setFilterNguoiNhanHang("") }] : []),

@@ -1,6 +1,7 @@
 import { useState, useEffect, type ReactNode } from "react";
 import { Btn, type BtnVariant } from "../../components/ui/Btn";
 import { Badge, type BadgeTone } from "../../components/ui/Badge";
+import { Select } from "../../components/ui/Select";
 import { api } from "../../api/client";
 import { compressImage } from "../../lib/imageCompress";
 import { trangThaiLabel, describeApiError, useNenAnhTraHangEnabled } from "./helpers";
@@ -197,30 +198,32 @@ export function FilterSearchBar({
   );
 }
 
-// Quick filter dang chip/segmented thay cho Select lon (UI redesign phan hoi Codex 2026-08-19, muc
-// P2#1) - CUNG danh sach option nhu Select cu (khong doi bo trang thai/logic), chi doi CACH HIEN THI
-// de thay duoc ca trang thai dang chon VA cac lua chon khac cung luc, khong can mo dropdown. Dung
-// dung pattern nut sub-tab "Mua hang | Cong no | Tra hang" da co san trong file.
-export function TrangThaiChipFilter({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map((o) => {
-        const active = value === o.value;
-        return (
-          <button
-            key={o.value || "__all__"}
-            type="button"
-            onClick={() => onChange(o.value)}
-            className={`focus-ring rounded-full px-[13px] py-[5.5px] text-xs font-medium transition-colors ${
-              active ? "bg-[var(--ocean-800)] border border-[var(--ocean-800)] text-white font-semibold" : "bg-white text-[var(--ink-700)] border border-[var(--line)] hover:border-[var(--ocean-800)]"
-            }`}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
+// Doi tu chip/segmented (1 loat nut) sang dropdown thuc su (phan hoi 2026-09-01: "danh sách các nút
+// filter quá nhiều, tạo thành filter listdown thay vì hiện 1 loạt button") - 4 tab dung chung
+// component nay (DonCuaToiTab/TraHangTab/PhieuXuatKhoTab/ThieuLkTab) deu co 7-10 trang thai, chiem
+// nhieu dong khi hien het thanh nut. Tai su dung Select (component san co, tu chuyen sang o tim kiem
+// khi > 10 option - PXK dung dung 10 nen van la <select> thuan, khong bi doi hanh vi ngoai y muon).
+// `counts` (tuy chon, undefined = dang tai/chua co du lieu) - hien "(N)" canh nhan MOI trang thai,
+// ke ca N=0 (khong an option nao, giu du "khong gian trang thai" de nguoi dung tu chon xem trang thai
+// dang rong). "Dem TINH" (xac nhan voi nguoi dung 2026-09-01) - server tra ve dung theo scope/loai_don
+// cua tab, KHONG cong them cac bo loc PHU khac (nguoi_tao/khu_vuc/ngay/q) dang bat cung luc - xem GET
+// /don-hang-status-counts, /phieu-xuat-kho/status-counts, /thieu-lk-status-counts.
+export function TrangThaiDropdownFilter({
+  value,
+  onChange,
+  options,
+  counts,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  counts?: Record<string, number>;
+}) {
+  const decorated = options.map((o) => ({
+    value: o.value,
+    label: counts ? `${o.label} (${counts[o.value] ?? 0})` : o.label,
+  }));
+  return <Select value={value} onChange={onChange} options={decorated} className="w-full max-w-[280px]" />;
 }
 
 // Bo loc Khu vuc DA CHON NHIEU (them 2026-08-27, phan hoi "bổ sung filter theo khu vực... GS tự lọc

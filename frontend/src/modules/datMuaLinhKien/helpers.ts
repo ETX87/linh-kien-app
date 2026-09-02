@@ -49,6 +49,13 @@ export function invalidatePipelineCounts(qc: ReturnType<typeof useQueryClient>) 
   // phieu xuat kho" cung phai cap nhat ngay khi 1 don duoc duyet xong ("TN da duyet" - moi tro nen kha
   // dung tao PXK) hoac khi 1 PXK moi vua duoc tao (dong da chon khong con kha dung nua).
   qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung-counts"] });
+  // Them (2026-09-01, doi TrangThaiChipFilter -> TrangThaiDropdownFilter co hien so "(N)" canh moi
+  // trang thai) - 3 key nay dung prefix chung cho CA HO query (vd
+  // ["dat-mua-lk-don-hang-status-counts", loaiDon] cho tung sub-tab), invalidateQueries voi CHI phan
+  // dau mang se khop MOI bien the tham so, khong can liet ke tung loaiDon rieng.
+  qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-status-counts"] });
+  qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-status-counts"] });
+  qc.invalidateQueries({ queryKey: ["dat-mua-lk-thieu-lk-status-counts"] });
 }
 
 export function formatNguoiDisplay(email: string, map: KtvDisplayMap): string {

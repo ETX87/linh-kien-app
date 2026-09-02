@@ -214,6 +214,42 @@ phieuXuatKho.get("/", async (c) => {
   return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
 });
 
+// GET /api/phieu-xuat-kho/status-counts?loai_don= - dem tinh theo tung trang_thai (dropdown loc, xem
+// comment tai GET /api/dat-mua-lk/don-hang-status-counts) - scope GIONG HET GET / (scopePxkNguoiNhanHang),
+// khong cong them nguoi_nhan_hang/khu_vuc/q dang loc phu. RIENG "loai_don" VAN nhan (khac cac tab kia)
+// vi PhieuXuatKhoTab.tsx LUON truyen xemLoaiDon khi goi GET / (khong co gia tri "rong/gop" nhu
+// DonCuaToiTab) - day la truc dieu huong sub-tab, khong phai bo loc phu, bo qua se ra so SAI (dem gop
+// ca mua/cong_no/tra_hang trong khi dang xem 1 sub-tab rieng). "CHO_TIEN" la 1 DIEU KIEN CHAN (khong
+// phai gia tri trang_thai_hien_tai that, xem comment goc tai GET /) nen tach rieng - PXK dang thoa dieu
+// kien nay LUON co trang_thai_hien_tai='Dang tao phieu' nen loai truoc khoi GROUP BY de "Dang tao
+// phieu" khong bi dem trung voi "Chờ chuyển tiền".
+phieuXuatKho.get("/status-counts", async (c) => {
+  const scope = scopePxkNguoiNhanHang(c);
+  const loaiDon = c.req.query("loai_don");
+  let whereSql = "1=1" + (scope?.whereSql ?? "");
+  const binds: unknown[] = [...(scope?.binds ?? [])];
+  if (loaiDon) {
+    whereSql += " AND pxk.loai_don = ?";
+    binds.push(loaiDon);
+  }
+  const choTienCond = "pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'";
+  const scalarRow = await c.env.DB.prepare(
+    `SELECT
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${whereSql}) as total,
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${whereSql} AND ${choTienCond}) as cho_tien`,
+  )
+    .bind(...binds, ...binds)
+    .first<{ total: number; cho_tien: number }>();
+  const { results } = await c.env.DB.prepare(
+    `SELECT pxk.trang_thai_hien_tai as trang_thai, COUNT(*) as n FROM phieu_xuat_kho pxk WHERE ${whereSql} AND NOT (${choTienCond}) GROUP BY pxk.trang_thai_hien_tai`,
+  )
+    .bind(...binds)
+    .all<{ trang_thai: string; n: number }>();
+  const counts: Record<string, number> = { "": scalarRow?.total ?? 0, CHO_TIEN: scalarRow?.cho_tien ?? 0 };
+  for (const r of results) counts[r.trang_thai ?? ""] = r.n;
+  return c.json({ counts });
+});
+
 // GET /api/phieu-xuat-kho/don-hang-kha-dung - danh sach dong dat_don_hang DA "TN da duyet" VA CHUA
 // gan vao PXK nao (ma_xuat_kho IS NULL) - nguon cho picker chon dong luc "Tao phieu xuat kho".
 // CHOT 2026-08-14 (ra soat UX toan dien): truoc day o nay la 1 o nhap tay/dan chuoi ID tu do, nhung

@@ -249,7 +249,7 @@ export const STEP_DESCRIPTION: Record<string, string> = {
   ktv: "Phiếu xuất kho đang chờ KTV xác nhận đã nhận hàng.",
 };
 
-// Danh sach option trang thai dung CHUNG cho TrangThaiChipFilter (hien thi) VA ActiveFiltersBar (chip
+// Danh sach option trang thai dung CHUNG cho TrangThaiDropdownFilter (hien thi) VA ActiveFiltersBar (chip
 // "Dang loc" - tra cuu label dep tu gia tri raw dang luu trong filterTrangThai, xem trangThaiLabel).
 // SUA (kiem thu qua dev-login local 2026-08-19): truoc day 4 noi goi ActiveFiltersBar hien THANG gia
 // tri raw filterTrangThai (vd "Cho kho xu ly" khong dau) lam nhan chip thay vi nhan dep co dau - phat
