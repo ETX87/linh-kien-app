@@ -10,6 +10,7 @@ import { useToast } from "../components/ui/Toast";
 import { Badge } from "../components/ui/Badge";
 import { KvRow } from "../components/ui/KvRow";
 import type { LyDoChamMuaLkRow, KhuVucRow, UserRow } from "../types";
+import { fmtDateTime } from "../types";
 import { formatPersonDisplay, usePersonDirectory } from "../lib/personDisplay";
 
 // Trang quan tri RUT GON tu frontend/src/modules/SettingsModule.tsx cua he DVBH goc - CHI giu cac
@@ -50,6 +51,7 @@ const TABS = [
   { key: "loai-de-xuat", label: "Loại đề xuất" },
   { key: "khu-vuc", label: "Khu vực" },
   { key: "google-drive", label: "Google Drive" },
+  { key: "dong-bo-dvbh", label: "Đồng bộ DVBH" },
 ];
 
 export function SettingsModule() {
@@ -62,6 +64,7 @@ export function SettingsModule() {
         {tab === "loai-de-xuat" && <LoaiDeXuatTab />}
         {tab === "khu-vuc" && <KhuVucTab />}
         {tab === "google-drive" && <GoogleDriveTab />}
+        {tab === "dong-bo-dvbh" && <DongBoDvbhTab />}
       </div>
     </div>
   );
@@ -697,6 +700,79 @@ function NenAnhTraHangToggle() {
           {data?.nen_anh_tra_hang ?? true ? "Đang bật" : "Đang tắt"}
         </label>
       )}
+    </div>
+  );
+}
+
+interface DvbhSyncStatus {
+  ktvPending: number;
+  linhKienPending: number;
+  lastSyncKtv: string | null;
+  lastSyncLinhKien: string | null;
+}
+interface DvbhSyncResult {
+  ktvSynced: number;
+  linhKienSynced: number;
+  errors: string[];
+}
+
+// "Đồng bộ DVBH" (them 2026-08-28, phan hoi "khi cập nhật danh sách ktv hoặc cập nhật danh sách
+// linh kiện, sẽ bắn API về web dvbh để cập nhật bổ sung dữ liệu mới nhất") - linh-kien-app la nguon
+// su that cho ktv_lien_he/linh_kien tu sau khi tach he, cron 1h/lan (backend `scheduled()`) tu day
+// thay doi sang, tab nay chi hien trang thai + cho Admin bam dong bo ngay khi can gap (xem
+// backend/src/lib/dvbhSyncClient.ts + routes/dvbhSync.ts).
+function DongBoDvbhTab() {
+  const qc = useQueryClient();
+  const addToast = useToast();
+  const { data, isLoading } = useQuery({
+    queryKey: ["dvbh-sync-status"],
+    queryFn: () => api.get<DvbhSyncStatus>("/dvbh-sync"),
+    refetchInterval: 60_000,
+  });
+
+  const run = useMutation({
+    mutationFn: () => api.post<DvbhSyncResult>("/dvbh-sync/run", {}),
+    onSuccess: async (res) => {
+      if (res.errors.length > 0) {
+        addToast(`Đồng bộ có lỗi: ${res.errors.join("; ")}`);
+      } else {
+        addToast(`Đã đồng bộ ${res.ktvSynced} KTV, ${res.linhKienSynced} linh kiện sang DVBH`);
+      }
+      await qc.invalidateQueries({ queryKey: ["dvbh-sync-status"] });
+    },
+    onError: (err) => addToast("Không thể đồng bộ: " + (err instanceof Error ? err.message : String(err))),
+  });
+
+  const tongDangCho = (data?.ktvPending ?? 0) + (data?.linhKienPending ?? 0);
+
+  return (
+    <div className="max-w-md space-y-4">
+      <div className="text-xs text-[var(--ink-500)]">
+        Đẩy danh bạ KTV/danh mục linh kiện mới nhất sang hệ DVBH gốc (ghi đè - hệ này là nguồn dữ
+        liệu chính từ sau khi tách hệ). Tự động chạy mỗi giờ, hoặc bấm "Đồng bộ ngay" để đẩy ngay lập
+        tức khi cần gấp.
+      </div>
+      <div className="border border-[var(--line)] rounded-xl bg-[var(--surface)] p-4">
+        {isLoading ? (
+          <div className="text-sm text-[var(--ink-400)]">Đang tải…</div>
+        ) : (
+          <>
+            <KvRow label="KTV đang chờ đồng bộ">
+              {(data?.ktvPending ?? 0) > 0 ? <Badge tone="amber">{data?.ktvPending}</Badge> : <Badge tone="teal">0</Badge>}
+            </KvRow>
+            <KvRow label="Linh kiện đang chờ đồng bộ">
+              {(data?.linhKienPending ?? 0) > 0 ? <Badge tone="amber">{data?.linhKienPending}</Badge> : <Badge tone="teal">0</Badge>}
+            </KvRow>
+            <KvRow label="Lần đồng bộ KTV gần nhất">{data?.lastSyncKtv ? fmtDateTime(data.lastSyncKtv) : "— (chưa từng)"}</KvRow>
+            <KvRow label="Lần đồng bộ linh kiện gần nhất">{data?.lastSyncLinhKien ? fmtDateTime(data.lastSyncLinhKien) : "— (chưa từng)"}</KvRow>
+            <div className="mt-3">
+              <Btn size="sm" onClick={() => run.mutate()} loading={run.isPending} disabled={tongDangCho === 0 && !run.isPending}>
+                🔄 Đồng bộ ngay
+              </Btn>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

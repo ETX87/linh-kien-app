@@ -25,7 +25,9 @@
     }
   ],
 
-  // Khong co "triggers.crons" - he nay khong co cron job nao (xem index.ts).
+  // Them 2026-08-28 - dong bo danh ba KTV/danh muc linh kien sang he DVBH goc moi dau gio (xem
+  // backend/src/lib/dvbhSyncClient.ts, index.ts `scheduled()`). Day la cron DUY NHAT cua he nay.
+  "triggers": { "crons": ["0 * * * *"] },
   // Khong co "r2_buckets" - khong dung R2 (xem CLAUDE.md).
 
   // Them 2026-08-26 (debug production case-lookup): fetch() thang toi URL "*.workers.dev" cua 1
@@ -54,7 +56,7 @@
 
   // Cac gia tri NHAY CAM (khong dat trong "vars" - dat qua "wrangler secret put", xem DEPLOY.md):
   // GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET, CASE_LOOKUP_API_KEY,
-  // VAPID_SERVER_PRIVATE_KEY.
+  // DVBH_SYNC_API_KEY, VAPID_SERVER_PRIVATE_KEY.
   // Google Drive (anh linh kien/PXK/tra hang) KHONG can them bien env nao - dung chung
   // GOOGLE_CLIENT_ID/SECRET o tren qua co che OAuth uy quyen 1 tai khoan that, luu refresh token
   // trong bang google_drive_oauth (xem lib/googleDrive.ts) - da bo Service Account 2026-08-25.
