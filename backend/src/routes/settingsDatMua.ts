@@ -216,24 +216,28 @@ settingsDatMua.post("/linh-kien/bulk-import-anh", linhKienWriteRoles, async (c) 
   return c.json({ done, nextOffset, success, notFound, fetchFailed, errorCount, details });
 });
 
-// POST /api/settings/linh-kien/bulk-import - { rows: [{ma_linh_kien, ten_linh_kien, gia_ban?,
-// gia_tham_chieu?, don_vi?, ghi_chu?, dac_thu?, chi_sua_chua?, anh_url?}], offset } - nhap/cap nhat
-// HANG LOAT ca dong danh muc - dung khi mang danh sach linh kien tu he khac sang (vd he bao hanh
-// goc) qua file Excel/CSV. UPSERT theo ma_linh_kien (ON CONFLICT DO UPDATE) - chay lai nhieu lan an
-// toan, KHONG dong vao bat_tat (giu trang thai an/hien da chinh tay truoc do). "anh_url" (phan hoi
-// 2026-08-20: "import danh sách linh kiện có link ảnh, nhưng không hiện trên web" - truoc day
-// endpoint nay KHONG doc cot anh nao ca) la TUY CHON - neu co, tai anh tu URL nguon roi upload lai
-// len Google Drive CUA HE THONG (uploadPublicImage, GIONG HET co che /bulk-import-anh) truoc khi ghi
-// anh_demo, KHONG luu thang URL nguon (tranh hotlink chet/CORS/het han khi nguon la he khac). Loi
-// tai anh KHONG lam hong dong (van tinh "thanh_cong" cho phan danh muc, chi rieng anh bao "loi_anh"
-// trong details). Chunk giam tu 25 xuong 10 (giong bulk-import-anh) vi moi dong CO THE ton them 1
-// fetch + 1 upload Drive khi co anh_url, khac chi ghi DB thuan truoc day.
+// POST /api/settings/linh-kien/bulk-import - { rows: [{ma_linh_kien, ten_linh_kien?, gia_ban?,
+// gia_tham_chieu?, don_vi?, ghi_chu?, dac_thu?, chi_sua_chua?, anh_url?, phan_loai_dac_thu?,
+// gia_tri_cong_no?}], offset } - nhap/cap nhat HANG LOAT ca dong danh muc - dung khi mang danh sach
+// linh kien tu he khac sang (vd he bao hanh goc) qua file Excel/CSV. UPSERT theo ma_linh_kien (ON
+// CONFLICT DO UPDATE) - chay lai nhieu lan an toan, KHONG dong vao bat_tat (giu trang thai an/hien
+// da chinh tay truoc do).
+//
+// FIX (phan hoi 2026-09-04: "nếu tôi chỉ import 1 cột Mã + 1 cột Giá trị công nợ thì có được không?
+// các cột không có sẽ mặc định giữ nguyên giá trị") - TRUOC DAY moi truong (tru anh_demo) OVERWRITE
+// THANG bang excluded.X, va ten_linh_kien la BAT BUOC cho MOI dong (kem ca dong chi muon sua 1 truong)
+// - doi sang CUNG 1 pattern COALESCE(excluded.X, linh_kien.X) da dung cho ktv_lien_he/bulk-import: cot
+// khong co trong file (hoac o cache trong dong Excel) = giu nguyen gia tri cu, KHONG bi xoa trang. Ten
+// linh kien gio la TUY CHON trong body - CHI thuc su bat buoc khi ma_linh_kien la ma MOI (chua ton tai
+// trong linh_kien, can Ten de INSERT vi cot NOT NULL) - kiem tra rieng bang 1 truy van SELECT cac ma
+// da co san trong chunk truoc khi xu ly tung dong, de bao loi ro rang ("ma_moi_thieu_ten") thay vi de
+// INSERT tu nhien that bai voi thong bao chung chung "loi_ghi_db".
 settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
   const body = await c.req.json<{
     rows: {
-      ma_linh_kien: string; ten_linh_kien: string; gia_ban?: number; gia_tham_chieu?: number;
+      ma_linh_kien: string; ten_linh_kien?: string; gia_ban?: number; gia_tham_chieu?: number;
       don_vi?: string; ghi_chu?: string; dac_thu?: boolean; chi_sua_chua?: boolean; anh_url?: string;
-      phan_loai_dac_thu?: string;
+      phan_loai_dac_thu?: string; gia_tri_cong_no?: number;
     }[];
     offset: number;
   }>();
@@ -249,14 +253,39 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
   let errorCount = 0;
   const details: { ma_linh_kien: string; status: string }[] = [];
 
+  // Doc san 3 cot NOT NULL (ten_linh_kien, dac_thu, chi_sua_chua) cua cac ma DA CO trong chunk - CAN
+  // THIET vi SQLite kiem tra rang buoc NOT NULL ngay tren "VALUES" cua INSERT du dang dung UPSERT (da
+  // xac minh truc tiep: ON CONFLICT DO UPDATE SET x = COALESCE(excluded.x, table.x) VAN bao loi NOT
+  // NULL neu excluded.x = NULL, COALESCE trong SET khong "cuu" duoc vi rang buoc bi kiem tra TRUOC khi
+  // conflict resolution ap dung nhanh UPDATE) - khac hoan toan voi cong_no o ktv_lien_he/bulk-import
+  // (cot đó nullable nen khong dinh loi nay). Vi vay 3 cot nay PHAI duoc "giu nguyen" bang cach tu doc
+  // gia tri cu roi bind THANG gia tri that (khong con NULL) - khong the dua het cho COALESCE trong SQL.
+  const masInChunk = [...new Set(chunk.map((r) => r.ma_linh_kien?.trim()).filter((m): m is string => !!m))];
+  const existingMap = new Map<string, { ten_linh_kien: string; dac_thu: number; chi_sua_chua: number }>();
+  if (masInChunk.length > 0) {
+    const { results } = await c.env.DB.prepare(
+      `SELECT ma_linh_kien, ten_linh_kien, dac_thu, chi_sua_chua FROM linh_kien WHERE ma_linh_kien IN (${masInChunk.map(() => "?").join(",")})`,
+    )
+      .bind(...masInChunk)
+      .all<{ ma_linh_kien: string; ten_linh_kien: string; dac_thu: number; chi_sua_chua: number }>();
+    for (const r of results) existingMap.set(r.ma_linh_kien, r);
+  }
+
   for (const row of chunk) {
     const ma = row.ma_linh_kien?.trim();
-    const ten = row.ten_linh_kien?.trim();
-    if (!ma || !ten) {
+    if (!ma) {
       errorCount++;
-      details.push({ ma_linh_kien: ma || "(rỗng)", status: "thieu_ma_hoac_ten" });
+      details.push({ ma_linh_kien: "(rỗng)", status: "thieu_ma" });
       continue;
     }
+    const existingRow = existingMap.get(ma);
+    const tenMoi = row.ten_linh_kien?.trim() || null;
+    if (!tenMoi && !existingRow) {
+      errorCount++;
+      details.push({ ma_linh_kien: ma, status: "ma_moi_thieu_ten" });
+      continue;
+    }
+    const ten = tenMoi ?? existingRow!.ten_linh_kien;
 
     let anhDemo: string | null = null;
     let anhLoi = false;
@@ -274,26 +303,34 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
       }
     }
 
+    // dac_thu/chi_sua_chua la NOT NULL DEFAULT 0 - cung ly do nhu ten_linh_kien o tren, khong the bind
+    // NULL roi cho COALESCE trong SET "cuu" - dong nao khong truyen thi lay lai gia tri cu (ma da co)
+    // hoac mac dinh 0 (ma moi).
+    const dacThuVal = row.dac_thu !== undefined ? (row.dac_thu ? 1 : 0) : (existingRow?.dac_thu ?? 0);
+    const chiSuaChuaVal = row.chi_sua_chua !== undefined ? (row.chi_sua_chua ? 1 : 0) : (existingRow?.chi_sua_chua ?? 0);
+
     try {
       await c.env.DB.prepare(
-        `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, nguoi_cap_nhat, ngay_cap_nhat)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, gia_tri_cong_no, nguoi_cap_nhat, ngay_cap_nhat)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(ma_linh_kien) DO UPDATE SET
            ten_linh_kien = excluded.ten_linh_kien,
-           gia_ban = excluded.gia_ban,
-           gia_tham_chieu = excluded.gia_tham_chieu,
-           don_vi = excluded.don_vi,
-           ghi_chu = excluded.ghi_chu,
+           gia_ban = COALESCE(excluded.gia_ban, linh_kien.gia_ban),
+           gia_tham_chieu = COALESCE(excluded.gia_tham_chieu, linh_kien.gia_tham_chieu),
+           don_vi = COALESCE(excluded.don_vi, linh_kien.don_vi),
+           ghi_chu = COALESCE(excluded.ghi_chu, linh_kien.ghi_chu),
            anh_demo = COALESCE(excluded.anh_demo, linh_kien.anh_demo),
            dac_thu = excluded.dac_thu,
            chi_sua_chua = excluded.chi_sua_chua,
-           phan_loai_dac_thu = excluded.phan_loai_dac_thu,
+           phan_loai_dac_thu = COALESCE(excluded.phan_loai_dac_thu, linh_kien.phan_loai_dac_thu),
+           gia_tri_cong_no = COALESCE(excluded.gia_tri_cong_no, linh_kien.gia_tri_cong_no),
            nguoi_cap_nhat = excluded.nguoi_cap_nhat,
            ngay_cap_nhat = excluded.ngay_cap_nhat`,
       )
         .bind(
           ma, ten, row.gia_ban ?? null, row.gia_tham_chieu ?? null, row.don_vi?.trim() || null, row.ghi_chu?.trim() || null,
-          anhDemo, row.dac_thu ? 1 : 0, row.chi_sua_chua ? 1 : 0, row.dac_thu ? row.phan_loai_dac_thu?.trim() || null : null,
+          anhDemo, dacThuVal, chiSuaChuaVal,
+          row.phan_loai_dac_thu?.trim() || null, row.gia_tri_cong_no ?? null,
           user.email, now,
         )
         .run();

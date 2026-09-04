@@ -70,10 +70,16 @@ async function parseBulkImportFile(file: File): Promise<BulkImportRow[]> {
 // duoc, dung duong file Excel trung lap). Header linh hoat: uu tien khop dung ten cot ma chinh
 // exportRowsToExcel() cua module nay xuat ra ("Mã"/"Tên linh kiện"/...) de export-roi-sua-roi-nhap-
 // lai hoat dong xuoi, kem vai bien the pho bien tu he khac ("Mã linh kiện"/"Ma linh kien"/"Gia ban").
+// ten_linh_kien la TUY CHON (them 2026-09-04, phan hoi "chỉ import Mã + Giá trị công nợ, cột khác giữ
+// nguyên") - CHI bat buoc khi ma_linh_kien la ma MOI (backend tu kiem tra, INSERT can NOT NULL); voi
+// ma da co san, thieu ten_linh_kien = giu nguyen ten cu (COALESCE o backend, cung 1 pattern voi
+// ktv_lien_he/bulk-import). dac_thu/chi_sua_chua cung doi sang boolean|undefined (thay vi luon la
+// boolean) de phan biet DUOC "cot khong co trong file" (undefined, giu nguyen) voi "co cot nhung gia
+// tri la Khong/0" (false, ghi de).
 interface BulkImportCatalogRow {
-  ma_linh_kien: string; ten_linh_kien: string; gia_ban?: number; gia_tham_chieu?: number;
+  ma_linh_kien: string; ten_linh_kien?: string; gia_ban?: number; gia_tham_chieu?: number;
   don_vi?: string; ghi_chu?: string; dac_thu?: boolean; chi_sua_chua?: boolean; anh_url?: string;
-  phan_loai_dac_thu?: string;
+  phan_loai_dac_thu?: string; gia_tri_cong_no?: number;
 }
 interface BulkImportCatalogChunkResult {
   done: boolean; nextOffset: number; success: number; errorCount: number;
@@ -113,6 +119,9 @@ function toBoolField(v: unknown): boolean {
   const s = String(v ?? "").trim().toLowerCase();
   return s === "1" || s === "true" || s === "có" || s === "co" || s === "x" || s === "yes";
 }
+function toBoolFieldOptional(v: unknown): boolean | undefined {
+  return v == null ? undefined : toBoolField(v);
+}
 function toNumberField(v: unknown): number | undefined {
   if (v == null || v === "") return undefined;
   const n = typeof v === "number" ? v : Number(String(v).replace(/[.,](?=\d{3}\b)/g, "").replace(",", "."));
@@ -127,23 +136,23 @@ async function parseCatalogImportFile(file: File): Promise<BulkImportCatalogRow[
   const rows: BulkImportCatalogRow[] = [];
   for (const raw of rawRows) {
     const maRaw = pickField(raw, ["Mã", "Mã linh kiện", "Ma linh kien", "ma_linh_kien"]);
-    const tenRaw = pickField(raw, ["Tên linh kiện", "Ten linh kien", "ten_linh_kien"]);
-    if (maRaw == null || tenRaw == null) continue;
+    if (maRaw == null) continue;
     const ma = String(maRaw).trim().replace(/^\[(.*)\]$/, "$1");
-    const ten = String(tenRaw).trim();
-    if (!ma || !ten) continue;
+    if (!ma) continue;
+    const tenRaw = pickField(raw, ["Tên linh kiện", "Ten linh kien", "ten_linh_kien"]);
     rows.push({
       ma_linh_kien: ma,
-      ten_linh_kien: ten,
+      ten_linh_kien: tenRaw != null ? String(tenRaw).trim() : undefined,
       gia_ban: toNumberField(pickField(raw, ["Giá bán", "Gia ban", "gia_ban"])),
       gia_tham_chieu: toNumberField(pickField(raw, ["Giá tham chiếu", "Gia tham chieu", "gia_tham_chieu"])),
       don_vi: pickField(raw, ["Phân loại", "Phan loai", "Đơn vị", "Don vi", "don_vi"]) != null ? String(pickField(raw, ["Phân loại", "Phan loai", "Đơn vị", "Don vi", "don_vi"])).trim() : undefined,
       ghi_chu: pickField(raw, ["Ghi chú", "Ghi chu", "ghi_chu"]) != null ? String(pickField(raw, ["Ghi chú", "Ghi chu", "ghi_chu"])).trim() : undefined,
-      dac_thu: toBoolField(pickField(raw, ["Đặc thù", "Dac thu", "dac_thu"])),
-      chi_sua_chua: toBoolField(pickField(raw, ["Only sửa chữa", "Chỉ sửa chữa", "chi_sua_chua"])),
+      dac_thu: toBoolFieldOptional(pickField(raw, ["Đặc thù", "Dac thu", "dac_thu"])),
+      chi_sua_chua: toBoolFieldOptional(pickField(raw, ["Only sửa chữa", "Chỉ sửa chữa", "chi_sua_chua"])),
       phan_loai_dac_thu: pickField(raw, ["Phân loại đặc thù", "Phan loai dac thu", "phan_loai_dac_thu"]) != null
         ? String(pickField(raw, ["Phân loại đặc thù", "Phan loai dac thu", "phan_loai_dac_thu"])).trim()
         : undefined,
+      gia_tri_cong_no: toNumberField(pickField(raw, ["Giá trị công nợ", "Gia tri cong no", "gia_tri_cong_no"])),
       anh_url: (() => {
         const v = pickField(raw, ["Ảnh", "ẢNH DEMO", "Anh demo", "Ảnh minh hoạ", "anh_url", "anh_demo"]) ?? findColumnByImageKeyword(raw);
         return v != null ? String(v).trim() : undefined;
@@ -168,7 +177,7 @@ async function downloadCatalogImportTemplate() {
       {
         "Mã": "LK001", "Tên linh kiện": "Bo nguon 65W", "Giá bán": 250000, "Giá tham chiếu": 230000,
         "Phân loại": "Nguồn/Sạc", "Ghi chú": "", "Đặc thù": "", "Phân loại đặc thù": "",
-        "Only sửa chữa": "", "Ảnh": "",
+        "Only sửa chữa": "", "Giá trị công nợ": 200000, "Ảnh": "",
       },
     ],
     "mau_import_danh_muc_linh_kien.xlsx",
@@ -692,7 +701,7 @@ function DanhMucTab() {
     try {
       const rows = await parseCatalogImportFile(file);
       if (rows.length === 0) {
-        addToast('Không đọc được dòng nào hợp lệ (kiểm tra lại tiêu đề cột "Mã"/"Tên linh kiện")');
+        addToast('Không đọc được dòng nào hợp lệ (kiểm tra lại tiêu đề cột "Mã")');
         return;
       }
       setCatalogImportTotal(rows.length);
@@ -849,6 +858,7 @@ function DanhMucTab() {
                 dac_thu: "Đặc thù",
                 phan_loai_dac_thu: "Phân loại đặc thù",
                 chi_sua_chua: "Only sửa chữa",
+                gia_tri_cong_no: "Giá trị công nợ",
                 bat_tat: "Hiển thị",
                 nguoi_cap_nhat: "Người cập nhật",
                 ngay_cap_nhat: "Ngày cập nhật",
@@ -1148,9 +1158,9 @@ function DanhMucTab() {
       <Modal open={catalogImportOpen} onClose={() => { if (!catalogImportRunning) setCatalogImportOpen(false); }} title="Nhập danh mục linh kiện hàng loạt">
         <div className="space-y-3">
           <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">
-            File Excel có ít nhất 2 cột <span className="font-mono">Mã</span> + <span className="font-mono">Tên linh kiện</span> — dùng được luôn file xuất từ nút "⬇ Xuất Excel".
+            File Excel chỉ cần cột <span className="font-mono">Mã</span> — dùng được luôn file xuất từ nút "⬇ Xuất Excel".
             <Tooltip
-              text={`Dùng được file xuất từ nút "⬇ Xuất Excel" ở trên, hoặc file từ hệ khác (vd hệ bảo hành gốc) có tên cột tương tự. Các cột khác (Giá bán, Giá tham chiếu, Phân loại, Ghi chú, Đặc thù, Only sửa chữa) là tuỳ chọn. Có thể thêm cột Ảnh (link ảnh nguồn) — hệ thống sẽ tự tải về và lưu lên Google Drive của hệ thống (cần đã kết nối ở Settings > Google Drive). Mã đã tồn tại sẽ được CẬP NHẬT đè (trừ trạng thái hiển thị; ảnh chỉ đè khi có link ảnh mới), mã chưa có sẽ được thêm mới.`}
+              text={`Dùng được file xuất từ nút "⬇ Xuất Excel" ở trên, hoặc file từ hệ khác (vd hệ bảo hành gốc) có tên cột tương tự. Chỉ bắt buộc cột "Mã" — mọi cột khác (Tên linh kiện, Giá bán, Giá tham chiếu, Phân loại, Ghi chú, Đặc thù, Phân loại đặc thù, Only sửa chữa, Giá trị công nợ, Ảnh) đều tuỳ chọn: cột nào KHÔNG có trong file (hoặc để trống) sẽ GIỮ NGUYÊN giá trị cũ, không bị xoá trắng — có thể chỉ dùng 2 cột "Mã" + "Giá trị công nợ" để chỉ cập nhật riêng công nợ. Ảnh (link ảnh nguồn) sẽ được hệ thống tự tải về và lưu lên Google Drive của hệ thống (cần đã kết nối ở Settings > Google Drive). Mã đã tồn tại sẽ được CẬP NHẬT theo các cột có mặt trong file, mã CHƯA CÓ sẽ được thêm mới nhưng bắt buộc phải kèm "Tên linh kiện" (mã mới thiếu tên sẽ báo lỗi riêng dòng đó).`}
             />
           </div>
           {!catalogImportRunning && !catalogImportSummary && (
