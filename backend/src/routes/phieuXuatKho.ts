@@ -656,7 +656,10 @@ phieuXuatKho.post("/:id/bang-chung-chuyen-tien", async (c) => {
   // anh chuyen khoan qua Zalo/tin nhan roi TN (nguoi xu ly PXK) up HO len he thong, khong tu dang
   // nhap upload. Them dieu kien canTacNghiep(c) (la_tac_nghiep hoac Admin, dung cung dinh nghia voi
   // moi noi khac trong file nay) vao truong hop duoc phep.
-  if (user.email !== pxk.nguoi_nhan_hang && user.vai_tro !== "Admin" && !canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  // SUA (phan hoi nguoi dung 04/09/2026: "bước 1: KTV xác nhận thông tin chuyển tiền (hoặc TN/Kế
+  // toán xác nhận hộ)") - them canKeToan(c) vao danh sach duoc phep xac nhan ho, giu nguyen TN/Admin/
+  // chinh KTV nhu cu.
+  if (user.email !== pxk.nguoi_nhan_hang && user.vai_tro !== "Admin" && !canTacNghiep(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   if (pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen") return c.json({ error: "INVALID_STATE" }, 409);
 
   const contentType = c.req.header("Content-Type") || "image/jpeg";
@@ -704,14 +707,20 @@ phieuXuatKho.post("/:id/chuyen-tien", async (c) => {
       id, pxk.trang_thai ?? "Dang tao phieu", user.email, now, `Yêu cầu KTV chuyển ${body.so_tien.toLocaleString("vi-VN")}đ`,
     ),
   ]);
+  // FIX (phat hien 04/09/2026 khi kiem thu bao cao Toc do xu ly): thieu bump version domain
+  // "dat_mua_lk" - GET /bao-cao-toc-do/xep-hang (cachedReport) khong bao gio thay du lieu chuyen tien
+  // moi neu khong co 1 ghi khac (vd duyet don) tinh co xay ra gan do de tu bump ho. Them dung pattern
+  // 3 endpoint khac trong file nay da lam (POST /, PATCH /:id/ma-xuat-kho, POST /:id/log).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ ok: true }, 201);
 });
 
 // PATCH /api/phieu-xuat-kho/:id/chuyen-tien - { trang_thai: "KTV da chuyen" | "TN da duyet",
 // bang_chung_chuyen_tien_url? } - KTV dinh bang chung (CHI DUNG nguoi_nhan_hang cua chinh PXK do,
-// hoac Admin xac nhan thay - RA SOAT BAO MAT 2026-08-18 phan hoi Codex: truoc day KHONG check gi ca,
-// bat ky tai khoan da duyet nao cung PATCH duoc trang thai "da chuyen tien" kem link bang chung tuy
-// y cho PXK cua nguoi khac), hoac TN duyet lai bang chung da dinh.
+// hoac Admin/TN/Ke toan xac nhan thay - RA SOAT BAO MAT 2026-08-18 phan hoi Codex: truoc day KHONG
+// check gi ca, bat ky tai khoan da duyet nao cung PATCH duoc trang thai "da chuyen tien" kem link
+// bang chung tuy y cho PXK cua nguoi khac), hoac Ke toan duyet lai bang chung da dinh (buoc nay CHUYEN
+// TU TN SANG KE TOAN 04/09/2026 - xem nhanh "TN da duyet" ben duoi, gia tri DB giu nguyen ten cu).
 phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json<{ trang_thai: string; bang_chung_chuyen_tien_url?: string; bang_chung_chuyen_tien_ghi_chu?: string }>();
@@ -729,7 +738,9 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
     // FIX (bao cao 2026-08-26, cung ly do voi POST /:id/bang-chung-chuyen-tien o duoi): cho phep TN
     // (canTacNghiep) xac nhan ho buoc nay - KTV thuong gui anh/tin nhan qua kenh khac, TN la nguoi
     // thao tac tren he thong thay vi tu KTV dang nhap.
-    if (user.email !== pxk.nguoi_nhan_hang && user.vai_tro !== "Admin" && !canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+    // SUA (phan hoi nguoi dung 04/09/2026): them canKeToan(c) - xem giai thich o POST
+    // /:id/bang-chung-chuyen-tien phia tren.
+    if (user.email !== pxk.nguoi_nhan_hang && user.vai_tro !== "Admin" && !canTacNghiep(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
     if (pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen") return c.json({ error: "INVALID_STATE" }, 409);
     // migration 0091 (phan hoi 2026-08-19: "cho phép upload ảnh hoặc ghi chú thông tin chuyển
     // tiền") - bat buoc CO IT NHAT 1 trong 2 (anh that qua Drive HOAC ghi chu van ban), khong con
@@ -746,19 +757,26 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
       ),
     ]);
   } else if (body.trang_thai === "TN da duyet") {
-    if (!canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+    // SUA (phan hoi nguoi dung 04/09/2026: "Bước 2: 'Kế toán duyệt chuyển tiền'") - nguoi duyet buoc
+    // cuoi chuyen tu TN sang Ke toan (gate doi canTacNghiep -> canKeToan). GIU NGUYEN gia tri DB
+    // "TN da duyet" (khong doi CHECK constraint/khong migration - xem cac noi doc gia tri nay:
+    // MISSING_CHUYEN_TIEN_APPROVED phia tren, misaExport.ts phuong_thuc_thanh_toan, GET /bao-cao-tong-the),
+    // chi doi AI duoc phep thuc hien hanh dong nay.
+    if (!canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
     if (pxk.trang_thai_chuyen_tien !== "KTV da chuyen") return c.json({ error: "INVALID_STATE" }, 409);
     const user = c.get("user");
     await c.env.DB.batch([
       c.env.DB.prepare("UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = 'TN da duyet' WHERE id = ?").bind(id),
       c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
-        id, logTrangThai, user.email, now, "TN đã duyệt bằng chứng chuyển tiền",
+        id, logTrangThai, user.email, now, "Kế toán đã duyệt bằng chứng chuyển tiền",
       ),
     ]);
   } else {
     return c.json({ error: "INVALID_TRANG_THAI" }, 400);
   }
 
+  // FIX (xem giai thich o POST /:id/chuyen-tien phia tren) - cung thieu bump version domain "dat_mua_lk".
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ ok: true });
 });
 

@@ -12,8 +12,8 @@
  * thanh 1 "khoang cho da dong" (tu luc vao trang_thai A den luc roi sang trang_thai B, quy cho
  * nguoi_xu_ly cua dong B). Buoc 3 doi chieu cap (A,B) voi STAGE_DEFS de biet no thuoc giai doan nao.
  *
- * NGOAI LE: "chuyen tien" trong luong phieu_xuat_kho (giai doan cho_ktv_chuyen_tien/
- * tn_duyet_chuyen_tien) KHONG doi cot trang_thai chinh cua phieu_xuat_kho_log (van ghi nguyen
+ * NGOAI LE: "chuyen tien" trong luong phieu_xuat_kho (giai doan cho_chuyen_tien/
+ * ke_toan_duyet_chuyen_tien) KHONG doi cot trang_thai chinh cua phieu_xuat_kho_log (van ghi nguyen
  * trang_thai_hien_tai hien co, chi doi ghi_chu - xem POST /:id/bang-chung-chuyen-tien, PATCH
  * /:id/chuyen-tien trong routes/phieuXuatKho.ts) nen thuat toan gop-dong o tren KHONG bat duoc -
  * phai xu ly rieng bang cach doi chieu 3 mau ghi_chu co dinh (xem computePxkChuyenTienInstances).
@@ -121,8 +121,8 @@ export const STAGE_DEFS: StageDef[] = [
     noiBo: true,
   },
   {
-    key: "cho_ktv_chuyen_tien",
-    label: "Chờ KTV chuyển tiền",
+    key: "cho_chuyen_tien",
+    label: "Chờ chuyển tiền",
     luong: "cho_ktv",
     logTable: "pxk_chuyen_tien",
     fromStates: [],
@@ -131,8 +131,13 @@ export const STAGE_DEFS: StageDef[] = [
     noiBo: false,
   },
   {
-    key: "tn_duyet_chuyen_tien",
-    label: "TN duyệt chuyển tiền",
+    // SUA (phan hoi nguoi dung 04/09/2026: "bước 'TN duyệt chuyển tiền' chuyển thành 2 bước") - buoc
+    // duyet cuoi cung CHUYEN TU TN SANG KE TOAN (xem PATCH /:id/chuyen-tien nhanh "TN da duyet" trong
+    // routes/phieuXuatKho.ts, gate doi tu canTacNghiep sang canKeToan) - GIU NGUYEN gia tri DB
+    // "TN da duyet" (khong doi CHECK constraint, tranh migration/anh huong cac noi doc gia tri nay nhu
+    // misaExport.ts/bao-cao-tong-the), chi doi ten khoa/nhan hien thi cho dung nghiep vu moi.
+    key: "ke_toan_duyet_chuyen_tien",
+    label: "Kế toán duyệt chuyển tiền",
     luong: "pxk",
     logTable: "pxk_chuyen_tien",
     fromStates: [],
@@ -253,17 +258,20 @@ function collapseAndMatch(rows: RawLogRow[], logTable: LogTable, stageDefs: Stag
   return instances;
 }
 
-// 3 mau ghi_chu CO DINH ghi tu routes/phieuXuatKho.ts - COUPLING: doi chu trong file do (dong
-// 704/745/755) phai sua lai CA o day, khong co co che nao khac de doi chieu 2 noi tu dong.
+// 3 mau ghi_chu CO DINH ghi tu routes/phieuXuatKho.ts - COUPLING: doi chu trong file do (nhanh "KTV
+// da chuyen"/"TN da duyet" cua PATCH /:id/chuyen-tien, va POST /:id/chuyen-tien) phai sua lai CA o
+// day, khong co co che nao khac de doi chieu 2 noi tu dong.
 const CHUYEN_TIEN_REQUEST_PREFIX = "Yêu cầu KTV chuyển";
 const CHUYEN_TIEN_CONFIRM_GHICHU = "Đã đính bằng chứng/ghi chú chuyển tiền";
-const CHUYEN_TIEN_APPROVE_GHICHU = "TN đã duyệt bằng chứng chuyển tiền";
+// SUA (phan hoi nguoi dung 04/09/2026): nguoi duyet buoc cuoi doi tu TN sang Ke toan - chu ghi_chu
+// cap nhat theo dung (xem routes/phieuXuatKho.ts).
+const CHUYEN_TIEN_APPROVE_GHICHU = "Kế toán đã duyệt bằng chứng chuyển tiền";
 
 /**
  * "Chuyen tien" KHONG doi cot trang_thai chinh cua phieu_xuat_kho_log (xem giai thich dau file) nen
  * khong the dung collapseAndMatch - doi chieu truc tiep 3 mau ghi_chu theo THU TU trong tung thuc
- * the (fk_id) de tim 2 khoang: "cho_ktv_chuyen_tien" (yeu cau -> KTV dinh bang chung) va
- * "tn_duyet_chuyen_tien" (KTV dinh bang chung -> TN duyet). Dong "Dang tao phieu" DAU TIEN cua moi
+ * the (fk_id) de tim 2 khoang: "cho_chuyen_tien" (yeu cau -> KTV/TN/Ke toan dinh bang chung) va
+ * "ke_toan_duyet_chuyen_tien" (dinh bang chung -> Ke toan duyet). Dong "Dang tao phieu" DAU TIEN cua moi
  * PXK duoc coi la 1 "yeu cau" ngam dinh (PXK co the duoc tao voi so_tien_can_chuyen ngay tu dau,
  * KHONG co dong ghi_chu "Yêu cầu KTV chuyển" rieng cho lan dau - xem POST / tao PXK) - neu PXK do
  * khong thuc su can chuyen tien thi "yeu cau ngam dinh" nay khong bao gio duoc tieu thu (khong co
@@ -288,7 +296,7 @@ function computePxkChuyenTienInstances(rows: RawLogRow[]): StageInstance[] {
     } else if (ghiChu === CHUYEN_TIEN_CONFIRM_GHICHU) {
       if (pendingRequest) {
         instances.push({
-          stageKey: "cho_ktv_chuyen_tien",
+          stageKey: "cho_chuyen_tien",
           fromState: "Cho KTV chuyen",
           toState: "KTV da chuyen",
           nguoiXuLy: row.nguoi_xu_ly,
@@ -303,7 +311,7 @@ function computePxkChuyenTienInstances(rows: RawLogRow[]): StageInstance[] {
     } else if (ghiChu === CHUYEN_TIEN_APPROVE_GHICHU) {
       if (pendingConfirm) {
         instances.push({
-          stageKey: "tn_duyet_chuyen_tien",
+          stageKey: "ke_toan_duyet_chuyen_tien",
           fromState: "KTV da chuyen",
           toState: "TN da duyet",
           nguoiXuLy: row.nguoi_xu_ly,
@@ -570,7 +578,7 @@ export async function countDangCho(db: D1Database, stageKey: string, filter: Sta
   // pxk_chuyen_tien: "dang cho" = pxk.trang_thai_chuyen_tien dang o dung trang thai bat dau giai
   // doan nay (khong doc tu log vi khong co cot rieng cho "dang o giai doan nao" - trang_thai_chuyen_tien
   // CHINH LA trang thai hien tai, khong can gop qua log).
-  const chuyenTienTrangThai = stageKey === "cho_ktv_chuyen_tien" ? "Cho KTV chuyen" : "KTV da chuyen";
+  const chuyenTienTrangThai = stageKey === "cho_chuyen_tien" ? "Cho KTV chuyen" : "KTV da chuyen";
   const scope = scopeClause("pxk.nguoi_nhan_hang");
   const loai = loaiDeXuatClause(
     "(SELECT ddh.loai_de_xuat FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id LIMIT 1)",

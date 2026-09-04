@@ -154,7 +154,9 @@ export const CHUYEN_TIEN_TONE: Record<string, BadgeTone> = {
 export const CHUYEN_TIEN_OPTIONS = [
   { value: "Cho KTV chuyen", label: "Chờ KTV chuyển" },
   { value: "KTV da chuyen", label: "KTV đã chuyển" },
-  { value: "TN da duyet", label: "TN đã duyệt" },
+  // Nhan hien thi doi tu "TN đã duyệt" -> "Kế toán đã duyệt" (phan hoi 04/09/2026: buoc duyet cuoi
+  // chuyen tu TN sang Ke toan) - GIU NGUYEN gia tri "TN da duyet" (khop dung CHECK constraint DB).
+  { value: "TN da duyet", label: "Kế toán đã duyệt" },
 ];
 
 // SUA (migration 0002_tra_hang_pxk.sql, phan hoi "thiếu bước Tác nghiệp nhặt linh kiện vào PXK"):

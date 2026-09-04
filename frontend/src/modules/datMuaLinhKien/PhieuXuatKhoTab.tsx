@@ -883,7 +883,7 @@ export function PxkDetailModal({
               className="px-2"
               onClick={() => logMutation.mutate("Cho ke toan")}
               disabled={logMutation.isPending || !chuyenTienOk || !pxk.ma_xuat_kho_xac_nhan}
-              title={!chuyenTienOk ? "Cần TN duyệt bằng chứng chuyển tiền trước" : !pxk.ma_xuat_kho_xac_nhan ? "Cần nhập Mã đơn hàng trước" : "Gửi kế toán"}
+              title={!chuyenTienOk ? "Cần Kế toán duyệt bằng chứng chuyển tiền trước" : !pxk.ma_xuat_kho_xac_nhan ? "Cần nhập Mã đơn hàng trước" : "Gửi kế toán"}
               aria-label="Gửi kế toán"
             >
               📤 Gửi kế toán
@@ -1152,7 +1152,10 @@ export function PxkDetailModal({
                     </Btn>
                   </div>
                 )}
-                {canTacNghiep && pxk.trang_thai_chuyen_tien === "KTV da chuyen" && (
+                {/* SUA (phan hoi 04/09/2026: "Bước 2: 'Kế toán duyệt chuyển tiền'") - nguoi duyet
+                    buoc cuoi chuyen tu TN sang Ke toan, khop dung gate canKeToan o backend PATCH
+                    /:id/chuyen-tien nhanh "TN da duyet" (gia tri DB giu nguyen ten cu). */}
+                {canKeToan && pxk.trang_thai_chuyen_tien === "KTV da chuyen" && (
                   <Btn size="sm" className="mt-2" onClick={() => chuyenTienMutation.mutate({ trang_thai: "TN da duyet" })} disabled={chuyenTienMutation.isPending}>Duyệt bằng chứng</Btn>
                 )}
               </>
