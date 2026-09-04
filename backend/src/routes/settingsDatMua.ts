@@ -218,20 +218,22 @@ settingsDatMua.post("/linh-kien/bulk-import-anh", linhKienWriteRoles, async (c) 
 
 // POST /api/settings/linh-kien/bulk-import - { rows: [{ma_linh_kien, ten_linh_kien?, gia_ban?,
 // gia_tham_chieu?, don_vi?, ghi_chu?, dac_thu?, chi_sua_chua?, anh_url?, phan_loai_dac_thu?,
-// gia_tri_cong_no?}], offset } - nhap/cap nhat HANG LOAT ca dong danh muc - dung khi mang danh sach
+// gia_tri_cong_no?}], isLast? } - nhap/cap nhat HANG LOAT ca dong danh muc - dung khi mang danh sach
 // linh kien tu he khac sang (vd he bao hanh goc) qua file Excel/CSV. UPSERT theo ma_linh_kien (ON
 // CONFLICT DO UPDATE) - chay lai nhieu lan an toan, KHONG dong vao bat_tat (giu trang thai an/hien
-// da chinh tay truoc do).
+// da chinh tay truoc do). Frontend tu chia "rows" thanh tung lo (chunk) TRUOC khi goi - moi request
+// CHI mang dung 1 lo, xu ly HET tất ca dong nhan duoc (khong tu chia nho them o day).
 //
-// FIX (phan hoi 2026-09-04: "nếu tôi chỉ import 1 cột Mã + 1 cột Giá trị công nợ thì có được không?
-// các cột không có sẽ mặc định giữ nguyên giá trị") - TRUOC DAY moi truong (tru anh_demo) OVERWRITE
-// THANG bang excluded.X, va ten_linh_kien la BAT BUOC cho MOI dong (kem ca dong chi muon sua 1 truong)
-// - doi sang CUNG 1 pattern COALESCE(excluded.X, linh_kien.X) da dung cho ktv_lien_he/bulk-import: cot
-// khong co trong file (hoac o cache trong dong Excel) = giu nguyen gia tri cu, KHONG bi xoa trang. Ten
-// linh kien gio la TUY CHON trong body - CHI thuc su bat buoc khi ma_linh_kien la ma MOI (chua ton tai
-// trong linh_kien, can Ten de INSERT vi cot NOT NULL) - kiem tra rieng bang 1 truy van SELECT cac ma
-// da co san trong chunk truoc khi xu ly tung dong, de bao loi ro rang ("ma_moi_thieu_ten") thay vi de
-// INSERT tu nhien that bai voi thong bao chung chung "loi_ghi_db".
+// FIX (phan hoi 2026-09-04: "tốc độ import rất chậm") - TRUOC DAY frontend gui NGUYEN CA MANG "rows"
+// (toan bo file) O MOI LAN goi, kem "offset" de backend tu cat 10 dong/lan roi lap lai - voi N dong
+// va lo 10 dong/lan, tong du lieu truyen qua mang la O(N^2/10) (vd file 2000 dong = 200 request, MOI
+// request mang lai nguyen 2000 dong) thay vi O(N). Voi dong CO anh (fetch+upload Drive, cham von di)
+// chi phi nay bi che khuat, nhung voi import chi co Ma + Gia tri cong no (thuan ghi DB, nhanh von di)
+// phan tram thoi gian ton vao viec gui thua nay ap dao hoan toan - day la nguyen nhan that su gay
+// "chậm không hợp lý", KHONG PHAI do CHUNK_SIZE nho (dieu do van dung, tranh 1 request qua nhieu dong
+// co anh vuot gioi han thoi gian xu ly cua Worker). Doi sang mo hinh dung: FRONTEND tu cat rows thanh
+// tung lo (xem handleBulkImportCatalog), moi request CHI gui 1 lo (khong gui lai toan bo file), bao
+// "isLast" de backend biet khi nao lam refreshHash() (1 lan duy nhat, khong lap lai moi lo).
 settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
   const body = await c.req.json<{
     rows: {
@@ -239,13 +241,11 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
       don_vi?: string; ghi_chu?: string; dac_thu?: boolean; chi_sua_chua?: boolean; anh_url?: string;
       phan_loai_dac_thu?: string; gia_tri_cong_no?: number;
     }[];
-    offset: number;
+    isLast?: boolean;
   }>();
   if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
 
-  const CHUNK_SIZE = 10;
-  const offset = Math.max(0, body.offset ?? 0);
-  const chunk = body.rows.slice(offset, offset + CHUNK_SIZE);
+  const chunk = body.rows;
   const user = c.get("user");
   const now = nowVN();
 
@@ -342,10 +342,8 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
     }
   }
 
-  const nextOffset = offset + CHUNK_SIZE;
-  const done = nextOffset >= body.rows.length;
-  if (done) await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
-  return c.json({ done, nextOffset, success, errorCount, details });
+  if (body.isLast) await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
+  return c.json({ success, errorCount, details });
 });
 
 // ---------- Google Drive OAuth (uy quyen 1 tai khoan Google THAT de upload anh linh kien) ----------

@@ -82,7 +82,7 @@ interface BulkImportCatalogRow {
   phan_loai_dac_thu?: string; gia_tri_cong_no?: number;
 }
 interface BulkImportCatalogChunkResult {
-  done: boolean; nextOffset: number; success: number; errorCount: number;
+  success: number; errorCount: number;
   details: { ma_linh_kien: string; status: string }[];
 }
 function pickField(raw: Record<string, unknown>, keys: string[]): unknown {
@@ -710,18 +710,26 @@ function DanhMucTab() {
       // tranh lap lai chinh tinh huong hom nay: import "khong bao loi gi" nhung thuc ra la vi khong
       // he doc duoc cot anh nao ca (ten cot trong file khac tat ca bien the da liet ke san).
       const coAnh = rows.filter((r) => r.anh_url).length;
+      // FIX (phan hoi 2026-09-04: "tốc độ import rất chậm") - TRUOC DAY moi request gui NGUYEN CA
+      // MANG "rows" kem "offset" de backend tu cat 10 dong/lan - voi file lon, tong du lieu truyen
+      // qua mang tang theo O(N^2) (vd 2000 dong = 200 request, MOI request lai mang lai ca 2000
+      // dong). Doi sang tu CAT rows thanh tung lo NGAY O FRONTEND, moi request CHI gui dung 1 lo -
+      // O(N) thay vi O(N^2), giam dang ke thoi gian cho voi file nhieu dong (dac biet ro khi import
+      // khong co cot Anh, vi luc do chi phi ghi DB von da rat nhanh, gui thua moi la chi phi chinh).
+      const CHUNK = 25;
       let offset = 0;
       let success = 0, errorCount = 0, anhLoi = 0;
       const failDetails: { ma_linh_kien: string; status: string }[] = [];
       while (offset < rows.length) {
-        const res = await api.post<BulkImportCatalogChunkResult>("/settings/linh-kien/bulk-import", { rows, offset });
+        const slice = rows.slice(offset, offset + CHUNK);
+        offset += slice.length;
+        const isLast = offset >= rows.length;
+        const res = await api.post<BulkImportCatalogChunkResult>("/settings/linh-kien/bulk-import", { rows: slice, isLast });
         success += res.success;
         errorCount += res.errorCount;
         anhLoi += res.details.filter((d) => d.status === "thanh_cong_loi_anh").length;
         failDetails.push(...res.details.filter((d) => d.status !== "thanh_cong"));
-        offset = res.nextOffset;
-        setCatalogImportProcessed(Math.min(offset, rows.length));
-        if (res.done) break;
+        setCatalogImportProcessed(offset);
       }
       setCatalogImportSummary({ success, errorCount, anhLoi, coAnh });
       setCatalogImportFailDetails(failDetails);
