@@ -261,8 +261,8 @@ phieuXuatKho.get("/misa-export", async (c) => {
   const { results } = await c.env.DB.prepare(`SELECT pxk.id FROM phieu_xuat_kho pxk WHERE ${whereSql} ORDER BY pxk.ngay_tao`)
     .bind(...binds)
     .all<{ id: string }>();
-  const sheets = await buildMisaExportSheets(c.env.DB, results.map((r) => r.id), parseMisaTemplate(c));
-  return c.json(sheets);
+  const result = await buildMisaExportSheets(c.env, results.map((r) => r.id), parseMisaTemplate(c));
+  return c.json(result);
 });
 
 // GET /api/phieu-xuat-kho/status-counts?loai_don= - dem tinh theo tung trang_thai (dropdown loc, xem
@@ -528,8 +528,8 @@ phieuXuatKho.get("/:id/misa-export", async (c) => {
   const pxk = await c.env.DB.prepare(`SELECT pxk.id FROM phieu_xuat_kho pxk WHERE ${whereSql}`).bind(...binds).first<{ id: string }>();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
 
-  const sheets = await buildMisaExportSheets(c.env.DB, [pxk.id], parseMisaTemplate(c));
-  return c.json(sheets);
+  const result = await buildMisaExportSheets(c.env, [pxk.id], parseMisaTemplate(c));
+  return c.json(result);
 });
 
 // PATCH /api/phieu-xuat-kho/:id/ma-xuat-kho - { ma_xuat_kho } TN nhap MA DON HANG THAT sau khi KTV

@@ -23,9 +23,19 @@ import {
 } from "./helpers";
 import { StatusBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar, KhuVucChipFilter } from "./SharedUi";
 import { PxkMiniPipeline } from "./PipelineFlow";
-import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportSheets, type MisaTemplate } from "../../lib/misaExportTemplates";
+import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportResult, type MisaTemplate } from "../../lib/misaExportTemplates";
 
 const MISA_TEMPLATE_ORDER: MisaTemplate[] = ["xuat_kho", "chuyen_kho", "ban_hang"];
+
+// Canh bao KTV thieu ma_misa/ten_misa (them 2026-09-04, xem giai thich o backend/src/lib/misaExport.ts
+// MisaExportResult) - hien 1 toast RIENG (khong chan file .xlsx da tai, chi canh bao them) liet ke toi
+// da vai KTV dau tien tranh toast qua dai.
+function toastCanhBaoThieuMisa(result: MisaExportResult, addToast: (msg: string) => void) {
+  if (result.canhBaoThieuMisa.length === 0) return;
+  const ten = result.canhBaoThieuMisa.slice(0, 5).map((w) => w.ten_hien_thi || w.ma_ktv).join(", ");
+  const more = result.canhBaoThieuMisa.length > 5 ? ` và ${result.canhBaoThieuMisa.length - 5} người khác` : "";
+  addToast(`⚠ ${result.canhBaoThieuMisa.length} KTV thiếu Mã MISA/Tên MISA (file thiếu dữ liệu): ${ten}${more}`);
+}
 
 // ---------- Tab "Phieu xuat kho" (TN/Ke toan/Kho) ----------
 // "Chuyen tien" (thay phieu_so_tien cu) la dieu kien chan rieng tren chinh PXK, khong con tab/bang
@@ -278,7 +288,7 @@ export function PhieuXuatKhoTab({
   // do (server bo qua phan loai tu dong khi co ?template=).
   const misaExportBulkMutation = useMutation({
     mutationFn: (template: MisaTemplate) =>
-      api.get<MisaExportSheets>(
+      api.get<MisaExportResult>(
         "/phieu-xuat-kho/misa-export" +
           buildQuery({
             trang_thai: filterTrangThai || undefined,
@@ -289,9 +299,10 @@ export function PhieuXuatKhoTab({
             template,
           }),
       ),
-    onSuccess: async (sheets) => {
-      const ok = await downloadMisaExport(sheets, `MISA_${LOAI_DON_TONE[xemLoaiDon].label}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    onSuccess: async (result) => {
+      const ok = await downloadMisaExport(result.sheets, `MISA_${LOAI_DON_TONE[xemLoaiDon].label}_${new Date().toISOString().slice(0, 10)}.xlsx`);
       if (!ok) addToast("Không có dòng nào để xuất");
+      else toastCanhBaoThieuMisa(result, addToast);
     },
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
   });
@@ -753,10 +764,11 @@ export function PxkDetailModal({
   // từ") - nut dat canh gia tri Mã đơn hàng, khong bat buoc phieu da xong. SUA (phan hoi "tạo 3
   // button, TN muốn tải mẫu nào thì tải"): nhan template tu UI, EP toan bo dong vao dung mau do.
   const misaExportMutation = useMutation({
-    mutationFn: (template: MisaTemplate) => api.get<MisaExportSheets>(`/phieu-xuat-kho/${id}/misa-export` + buildQuery({ template })),
-    onSuccess: async (sheets) => {
-      const ok = await downloadMisaExport(sheets, `MISA_${pxk?.ma_xuat_kho || id}.xlsx`);
+    mutationFn: (template: MisaTemplate) => api.get<MisaExportResult>(`/phieu-xuat-kho/${id}/misa-export` + buildQuery({ template })),
+    onSuccess: async (result) => {
+      const ok = await downloadMisaExport(result.sheets, `MISA_${pxk?.ma_xuat_kho || id}.xlsx`);
       if (!ok) addToast("Không có dòng nào để xuất");
+      else toastCanhBaoThieuMisa(result, addToast);
     },
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
   });

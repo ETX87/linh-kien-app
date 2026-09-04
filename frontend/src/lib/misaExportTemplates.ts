@@ -23,6 +23,7 @@ export interface XuatKhoRow {
   nguoiNhan: string;
   lyDoXuat: string;
   maNhanVienBanHang: string;
+  soChungTuKemTheo: number;
   maHang: string;
   tenHang: string;
   maKho: string;
@@ -32,6 +33,7 @@ export interface XuatKhoRow {
   soLuong: number | null;
   donGia: number | null;
   thanhTien: number | null;
+  truongMoRong: string;
 }
 
 export interface ChuyenKhoRow {
@@ -42,6 +44,8 @@ export interface ChuyenKhoRow {
   veViecDienGiai: string;
   voiDaiLyMaDonViNhan: string;
   tenDaiLyTenDonViNhan: string;
+  maNguoiVanChuyen: string;
+  tenNguoiVanChuyen: string;
   maHang: string;
   tenHang: string;
   xuatTaiKho: string;
@@ -52,6 +56,7 @@ export interface ChuyenKhoRow {
   soLuong: number | null;
   donGiaBan: number | null;
   thanhTien: number | null;
+  truongMoRong: string;
 }
 
 export interface BanHangRow {
@@ -59,11 +64,13 @@ export interface BanHangRow {
   phuongThucThanhToan: string;
   kiemPhieuXuatKho: string;
   lapKemHoaDon: string;
+  daLapHoaDon: string;
   ngayHachToan: string;
   ngayChungTu: string;
   soChungTu: string;
   maKhachHang: string;
   tenKhachHang: string;
+  dienGiaiLyDoNop: string;
   lyDoXuat: string;
   maHang: string;
   tenHang: string;
@@ -82,6 +89,18 @@ export interface MisaExportSheets {
   xuat_kho: XuatKhoRow[];
   chuyen_kho: ChuyenKhoRow[];
   ban_hang: BanHangRow[];
+}
+
+// KTV xuat hien trong file nhung thieu ma_misa/ten_misa (them 2026-09-04) - xem giai thich day du o
+// backend/src/lib/misaExport.ts MisaExportResult.
+export interface MisaExportWarning {
+  ma_ktv: string;
+  ten_hien_thi: string | null;
+}
+
+export interface MisaExportResult {
+  sheets: MisaExportSheets;
+  canhBaoThieuMisa: MisaExportWarning[];
 }
 
 const XUAT_KHO_HEADER = [
@@ -125,12 +144,12 @@ function xuatKhoToRow(r: XuatKhoRow): unknown[] {
     r.stt, r.loaiXuatKho, r.ngayHachToan, r.ngayChungTu, r.soChungTu,
     r.maDoiTuong, r.tenDoiTuong, "", r.nguoiNhan, r.lyDoXuat,
     "", "", "", "", "",
-    "", "", r.maNhanVienBanHang, "", r.maHang,
+    "", "", r.maNhanVienBanHang, r.soChungTuKemTheo, r.maHang,
     "", r.tenHang, "", "", r.maKho,
     "", r.tkNo, r.tkCo, r.dvt, "",
     r.soLuong, r.donGia, r.thanhTien, "", "",
     "", "", "", "", "",
-    "", "", "", "",
+    "", "", "", r.truongMoRong,
   ];
 }
 
@@ -139,20 +158,20 @@ function chuyenKhoToRow(r: ChuyenKhoRow): unknown[] {
     r.hinhThucChuyenKho, r.ngayHachToan, r.ngayChungTu, r.soChungTu, "",
     "", "", "", "", r.veViecDienGiai,
     r.voiDaiLyMaDonViNhan, r.tenDaiLyTenDonViNhan, "", "", "",
-    "", "", r.maHang, r.tenHang, "",
+    r.maNguoiVanChuyen, r.tenNguoiVanChuyen, r.maHang, r.tenHang, "",
     r.xuatTaiKho, r.nhapTaiKho, r.tkNo, r.tkCo, r.dvt,
     r.soLuong, r.donGiaBan, r.thanhTien, "", "",
-    "",
+    r.truongMoRong,
   ];
 }
 
 function banHangToRow(r: BanHangRow): unknown[] {
   return [
-    r.hinhThucBanHang, r.phuongThucThanhToan, r.kiemPhieuXuatKho, r.lapKemHoaDon, "",
+    r.hinhThucBanHang, r.phuongThucThanhToan, r.kiemPhieuXuatKho, r.lapKemHoaDon, r.daLapHoaDon,
     r.ngayHachToan, r.ngayChungTu, r.soChungTu, "", "",
     "", "", "", r.maKhachHang, r.tenKhachHang,
     "", "", "", "", "",
-    "", "", r.lyDoXuat, r.maHang, r.tenHang,
+    "", r.dienGiaiLyDoNop, r.lyDoXuat, r.maHang, r.tenHang,
     "", "", "", r.tkNo, r.tkCo,
     r.dvt, r.soLuong, r.donGia, r.thanhTien, "",
     "", "", "", "", "",

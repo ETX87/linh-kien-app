@@ -683,9 +683,14 @@ settingsDatMua.patch("/khu-vuc/:ma/gs", adminOnly, async (c) => {
 // GET mo cho MOI nguoi dung da dang nhap (khong rieng Admin) - "nen_anh_tra_hang" duoc doc boi client
 // luc chon anh tai TraHangAnhPicker/QcTuChoiModal (module Dat mua linh kien), khong phai man quan tri.
 // 4 khoa "Ma kho/Ten kho mac dinh theo mien" (them migration 0015_misa_export.sql) - dung de dien cot
-// "Mã kho" khi xuat file MISA (xem lib/misaExport.ts), doc CHUNG 1 lan voi nen_anh_tra_hang de khong
-// them round-trip rieng.
-const MISA_KHO_KEYS = ["misa_ma_kho_mien_bac", "misa_ten_kho_mien_bac", "misa_ma_kho_mien_nam", "misa_ten_kho_mien_nam"] as const;
+// "Mã kho" khi xuat file MISA mau Ban hang/Chuyen kho (xem lib/misaExport.ts), doc CHUNG 1 lan voi
+// nen_anh_tra_hang de khong them round-trip rieng. 2 khoa "misa_ma_kho_xk_*" (them 2026-09-04, ra soat
+// chi tiet cot "Mã kho" - phat hien mau Xuat kho dung 1 he ma KHAC han, vd "LKKGMB"/"LKKGMN", voi Ban
+// hang/Chuyen kho vd "6803"/"6804" - truoc day ca 3 mau dung CHUNG SAI 1 cap key).
+const MISA_KHO_KEYS = [
+  "misa_ma_kho_mien_bac", "misa_ten_kho_mien_bac", "misa_ma_kho_mien_nam", "misa_ten_kho_mien_nam",
+  "misa_ma_kho_xk_mien_bac", "misa_ma_kho_xk_mien_nam",
+] as const;
 
 settingsDatMua.get("/app-settings", async (c) => {
   const { results } = await c.env.DB.prepare(
@@ -700,13 +705,20 @@ settingsDatMua.get("/app-settings", async (c) => {
     misa_ten_kho_mien_bac: byKey.get("misa_ten_kho_mien_bac") ?? "",
     misa_ma_kho_mien_nam: byKey.get("misa_ma_kho_mien_nam") ?? "",
     misa_ten_kho_mien_nam: byKey.get("misa_ten_kho_mien_nam") ?? "",
+    misa_ma_kho_xk_mien_bac: byKey.get("misa_ma_kho_xk_mien_bac") ?? "",
+    misa_ma_kho_xk_mien_nam: byKey.get("misa_ma_kho_xk_mien_nam") ?? "",
   });
 });
 
 // PATCH /api/settings/app-settings - { nen_anh_tra_hang?: boolean, misa_*?: string } - CHI Admin duoc
-// doi (phan hoi 2026-08-24 cho nen_anh_tra_hang; 4 khoa misa_* them 2026-09-02).
+// doi (phan hoi 2026-08-24 cho nen_anh_tra_hang; 4 khoa misa_* them 2026-09-02; 2 khoa misa_ma_kho_xk_*
+// them 2026-09-04).
 settingsDatMua.patch("/app-settings", adminOnly, async (c) => {
-  const body = await c.req.json<{ nen_anh_tra_hang?: boolean; misa_ma_kho_mien_bac?: string; misa_ten_kho_mien_bac?: string; misa_ma_kho_mien_nam?: string; misa_ten_kho_mien_nam?: string }>();
+  const body = await c.req.json<{
+    nen_anh_tra_hang?: boolean; misa_ma_kho_mien_bac?: string; misa_ten_kho_mien_bac?: string;
+    misa_ma_kho_mien_nam?: string; misa_ten_kho_mien_nam?: string;
+    misa_ma_kho_xk_mien_bac?: string; misa_ma_kho_xk_mien_nam?: string;
+  }>();
   const user = c.get("user");
   const updates: Array<[string, string]> = [];
   if (body.nen_anh_tra_hang !== undefined) updates.push(["nen_anh_tra_hang", body.nen_anh_tra_hang ? "1" : "0"]);

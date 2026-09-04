@@ -402,7 +402,17 @@ interface MisaKhoSettingsData {
   misa_ten_kho_mien_bac: string;
   misa_ma_kho_mien_nam: string;
   misa_ten_kho_mien_nam: string;
+  // "Mã kho" RIÊNG cho mẫu Xuất kho (them 2026-09-04) - khac han he ma cua mau Ban hang/Chuyen kho o
+  // tren (vd "LKKGMB"/"LKKGMN" so voi "6803"/"6804") - xem giai thich day du o backend/src/lib/
+  // misaExport.ts loadKhoSettings().
+  misa_ma_kho_xk_mien_bac: string;
+  misa_ma_kho_xk_mien_nam: string;
 }
+
+const EMPTY_MISA_KHO_SETTINGS: MisaKhoSettingsData = {
+  misa_ma_kho_mien_bac: "", misa_ten_kho_mien_bac: "", misa_ma_kho_mien_nam: "", misa_ten_kho_mien_nam: "",
+  misa_ma_kho_xk_mien_bac: "", misa_ma_kho_xk_mien_nam: "",
+};
 
 // Ma/Ten kho mac dinh theo mien Bac/Nam (them 2026-09-02, xem CLAUDE.md muc xuat MISA) - dung de dien
 // cot "Mã kho" khi xuat file import MISA tu Phieu xuat kho (lib/misaExport.ts). Mien suy tu
@@ -416,7 +426,7 @@ function MisaKhoSettings() {
     queryFn: () => api.get<MisaKhoSettingsData & { nen_anh_tra_hang: boolean }>("/settings/app-settings"),
   });
   const [form, setForm] = useState<MisaKhoSettingsData | null>(null);
-  const current = form ?? data ?? { misa_ma_kho_mien_bac: "", misa_ten_kho_mien_bac: "", misa_ma_kho_mien_nam: "", misa_ten_kho_mien_nam: "" };
+  const current = form ?? data ?? EMPTY_MISA_KHO_SETTINGS;
 
   const save = useMutation({
     mutationFn: () => api.patch("/settings/app-settings", current),
@@ -439,7 +449,7 @@ function MisaKhoSettings() {
       ) : (
         <div className="grid grid-cols-2 gap-3 max-w-lg">
           <label className="text-xs space-y-1">
-            <div className="text-[var(--ink-500)]">Mã kho — Miền Bắc</div>
+            <div className="text-[var(--ink-500)]">Mã kho — Miền Bắc (Bán hàng/Chuyển kho)</div>
             <input
               value={current.misa_ma_kho_mien_bac}
               onChange={(e) => setForm({ ...current, misa_ma_kho_mien_bac: e.target.value })}
@@ -455,7 +465,7 @@ function MisaKhoSettings() {
             />
           </label>
           <label className="text-xs space-y-1">
-            <div className="text-[var(--ink-500)]">Mã kho — Miền Nam</div>
+            <div className="text-[var(--ink-500)]">Mã kho — Miền Nam (Bán hàng/Chuyển kho)</div>
             <input
               value={current.misa_ma_kho_mien_nam}
               onChange={(e) => setForm({ ...current, misa_ma_kho_mien_nam: e.target.value })}
@@ -467,6 +477,22 @@ function MisaKhoSettings() {
             <input
               value={current.misa_ten_kho_mien_nam}
               onChange={(e) => setForm({ ...current, misa_ten_kho_mien_nam: e.target.value })}
+              className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </label>
+          <label className="text-xs space-y-1">
+            <div className="text-[var(--ink-500)]">Mã kho — Miền Bắc (riêng mẫu Xuất kho)</div>
+            <input
+              value={current.misa_ma_kho_xk_mien_bac}
+              onChange={(e) => setForm({ ...current, misa_ma_kho_xk_mien_bac: e.target.value })}
+              className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </label>
+          <label className="text-xs space-y-1">
+            <div className="text-[var(--ink-500)]">Mã kho — Miền Nam (riêng mẫu Xuất kho)</div>
+            <input
+              value={current.misa_ma_kho_xk_mien_nam}
+              onChange={(e) => setForm({ ...current, misa_ma_kho_xk_mien_nam: e.target.value })}
               className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
           </label>
