@@ -710,13 +710,13 @@ function DanhMucTab() {
       // tranh lap lai chinh tinh huong hom nay: import "khong bao loi gi" nhung thuc ra la vi khong
       // he doc duoc cot anh nao ca (ten cot trong file khac tat ca bien the da liet ke san).
       const coAnh = rows.filter((r) => r.anh_url).length;
-      // FIX (phan hoi 2026-09-04: "tốc độ import rất chậm") - TRUOC DAY moi request gui NGUYEN CA
-      // MANG "rows" kem "offset" de backend tu cat 10 dong/lan - voi file lon, tong du lieu truyen
-      // qua mang tang theo O(N^2) (vd 2000 dong = 200 request, MOI request lai mang lai ca 2000
-      // dong). Doi sang tu CAT rows thanh tung lo NGAY O FRONTEND, moi request CHI gui dung 1 lo -
-      // O(N) thay vi O(N^2), giam dang ke thoi gian cho voi file nhieu dong (dac biet ro khi import
-      // khong co cot Anh, vi luc do chi phi ghi DB von da rat nhanh, gui thua moi la chi phi chinh).
-      const CHUNK = 25;
+      // FIX (phan hoi 2026-09-04: "tốc độ import rất chậm") - 2 phan: (1) TRUOC DAY moi request gui
+      // NGUYEN CA MANG "rows" kem "offset" de backend tu cat 10 dong/lan - gay O(N^2) du lieu qua
+      // mang, da doi sang tu CAT rows thanh tung lo O DAY, moi request chi gui 1 lo; (2) nguyen nhan
+      // LON HON: backend truoc do await TUNG dong INSERT rieng (moi dong 1 round-trip D1) - da doi
+      // sang D1Database.batch() (gom ca lo thanh 1 round-trip), nen lo co the lon hon nhieu ma van
+      // nhanh - tang CHUNK tu 25 len 100 (giam so request HTTP them 4 lan nua).
+      const CHUNK = 100;
       let offset = 0;
       let success = 0, errorCount = 0, anhLoi = 0;
       const failDetails: { ma_linh_kien: string; status: string }[] = [];

@@ -224,16 +224,22 @@ settingsDatMua.post("/linh-kien/bulk-import-anh", linhKienWriteRoles, async (c) 
 // da chinh tay truoc do). Frontend tu chia "rows" thanh tung lo (chunk) TRUOC khi goi - moi request
 // CHI mang dung 1 lo, xu ly HET tất ca dong nhan duoc (khong tu chia nho them o day).
 //
-// FIX (phan hoi 2026-09-04: "tốc độ import rất chậm") - TRUOC DAY frontend gui NGUYEN CA MANG "rows"
-// (toan bo file) O MOI LAN goi, kem "offset" de backend tu cat 10 dong/lan roi lap lai - voi N dong
-// va lo 10 dong/lan, tong du lieu truyen qua mang la O(N^2/10) (vd file 2000 dong = 200 request, MOI
-// request mang lai nguyen 2000 dong) thay vi O(N). Voi dong CO anh (fetch+upload Drive, cham von di)
-// chi phi nay bi che khuat, nhung voi import chi co Ma + Gia tri cong no (thuan ghi DB, nhanh von di)
-// phan tram thoi gian ton vao viec gui thua nay ap dao hoan toan - day la nguyen nhan that su gay
-// "chậm không hợp lý", KHONG PHAI do CHUNK_SIZE nho (dieu do van dung, tranh 1 request qua nhieu dong
-// co anh vuot gioi han thoi gian xu ly cua Worker). Doi sang mo hinh dung: FRONTEND tu cat rows thanh
-// tung lo (xem handleBulkImportCatalog), moi request CHI gui 1 lo (khong gui lai toan bo file), bao
-// "isLast" de backend biet khi nao lam refreshHash() (1 lan duy nhat, khong lap lai moi lo).
+// FIX #1 (phan hoi 2026-09-04: "tốc độ import rất chậm") - TRUOC DAY frontend gui NGUYEN CA MANG
+// "rows" (toan bo file) O MOI LAN goi, kem "offset" de backend tu cat 10 dong/lan roi lap lai - da doi
+// sang frontend tu cat lo (xem handleBulkImportCatalog), moi request chi gui 1 lo.
+//
+// FIX #2 (phan hoi tiep theo: "test lại tốc độ còn chậm hơn ban đầu") - FIX #1 KHONG du, vi nguyen
+// nhan CHINH khong phai o kich thuoc payload ma o SO LAN GOI D1: vong for cu await TUNG dong 1 (moi
+// .prepare().bind().run() la 1 round-trip rieng toi D1, ~vai chuc ms/lan du ban than cau lenh rat
+// don gian) - 1 lo 25 dong = 25 round-trip TUAN TU + 1 round-trip SELECT ton tai = 26 lan cho D1/lo,
+// CHUA KE FIX #1 lam CHUNK tang tu 10 len 25 (van giu nguyen so dong/giay nhung it request HTTP hon -
+// khong sai nhung khong cham vao nguyen nhan that). Doi sang dung D1Database.batch(): gom TOAN BO cau
+// lenh INSERT cua ca lo thanh 1 mang, gui bang 1 LAN GOI DUY NHAT (D1 tu chay tuan tu trong 1
+// transaction o phia server, khong qua lai network nhieu lan) - giam tu ~26 round-trip/lo xuong con 2
+// (1 SELECT ton tai + 1 batch INSERT). Danh doi: batch() la all-or-nothing (1 dong loi se rollback CA
+// LO) - da co fallback: neu batch() nem loi, chay lai lo do THEO TUNG DONG (cach cu) de van cach ly
+// dung dong loi thay vi mat ca lo, chi cham hon o truong hop hiem gap loi thuc su (khong phai duong
+// di thuong).
 settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
   const body = await c.req.json<{
     rows: {
@@ -270,6 +276,25 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
       .all<{ ma_linh_kien: string; ten_linh_kien: string; dac_thu: number; chi_sua_chua: number }>();
     for (const r of results) existingMap.set(r.ma_linh_kien, r);
   }
+
+  const UPSERT_SQL = `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, gia_tri_cong_no, nguoi_cap_nhat, ngay_cap_nhat)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(ma_linh_kien) DO UPDATE SET
+       ten_linh_kien = excluded.ten_linh_kien,
+       gia_ban = COALESCE(excluded.gia_ban, linh_kien.gia_ban),
+       gia_tham_chieu = COALESCE(excluded.gia_tham_chieu, linh_kien.gia_tham_chieu),
+       don_vi = COALESCE(excluded.don_vi, linh_kien.don_vi),
+       ghi_chu = COALESCE(excluded.ghi_chu, linh_kien.ghi_chu),
+       anh_demo = COALESCE(excluded.anh_demo, linh_kien.anh_demo),
+       dac_thu = excluded.dac_thu,
+       chi_sua_chua = excluded.chi_sua_chua,
+       phan_loai_dac_thu = COALESCE(excluded.phan_loai_dac_thu, linh_kien.phan_loai_dac_thu),
+       gia_tri_cong_no = COALESCE(excluded.gia_tri_cong_no, linh_kien.gia_tri_cong_no),
+       nguoi_cap_nhat = excluded.nguoi_cap_nhat,
+       ngay_cap_nhat = excluded.ngay_cap_nhat`;
+
+  const statements: D1PreparedStatement[] = [];
+  const rowMetas: { ma: string; anhLoi: boolean }[] = [];
 
   for (const row of chunk) {
     const ma = row.ma_linh_kien?.trim();
@@ -309,36 +334,37 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
     const dacThuVal = row.dac_thu !== undefined ? (row.dac_thu ? 1 : 0) : (existingRow?.dac_thu ?? 0);
     const chiSuaChuaVal = row.chi_sua_chua !== undefined ? (row.chi_sua_chua ? 1 : 0) : (existingRow?.chi_sua_chua ?? 0);
 
+    statements.push(
+      c.env.DB.prepare(UPSERT_SQL).bind(
+        ma, ten, row.gia_ban ?? null, row.gia_tham_chieu ?? null, row.don_vi?.trim() || null, row.ghi_chu?.trim() || null,
+        anhDemo, dacThuVal, chiSuaChuaVal,
+        row.phan_loai_dac_thu?.trim() || null, row.gia_tri_cong_no ?? null,
+        user.email, now,
+      ),
+    );
+    rowMetas.push({ ma, anhLoi });
+  }
+
+  if (statements.length > 0) {
     try {
-      await c.env.DB.prepare(
-        `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, gia_tri_cong_no, nguoi_cap_nhat, ngay_cap_nhat)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(ma_linh_kien) DO UPDATE SET
-           ten_linh_kien = excluded.ten_linh_kien,
-           gia_ban = COALESCE(excluded.gia_ban, linh_kien.gia_ban),
-           gia_tham_chieu = COALESCE(excluded.gia_tham_chieu, linh_kien.gia_tham_chieu),
-           don_vi = COALESCE(excluded.don_vi, linh_kien.don_vi),
-           ghi_chu = COALESCE(excluded.ghi_chu, linh_kien.ghi_chu),
-           anh_demo = COALESCE(excluded.anh_demo, linh_kien.anh_demo),
-           dac_thu = excluded.dac_thu,
-           chi_sua_chua = excluded.chi_sua_chua,
-           phan_loai_dac_thu = COALESCE(excluded.phan_loai_dac_thu, linh_kien.phan_loai_dac_thu),
-           gia_tri_cong_no = COALESCE(excluded.gia_tri_cong_no, linh_kien.gia_tri_cong_no),
-           nguoi_cap_nhat = excluded.nguoi_cap_nhat,
-           ngay_cap_nhat = excluded.ngay_cap_nhat`,
-      )
-        .bind(
-          ma, ten, row.gia_ban ?? null, row.gia_tham_chieu ?? null, row.don_vi?.trim() || null, row.ghi_chu?.trim() || null,
-          anhDemo, dacThuVal, chiSuaChuaVal,
-          row.phan_loai_dac_thu?.trim() || null, row.gia_tri_cong_no ?? null,
-          user.email, now,
-        )
-        .run();
-      success++;
-      details.push({ ma_linh_kien: ma, status: anhLoi ? "thanh_cong_loi_anh" : "thanh_cong" });
+      await c.env.DB.batch(statements);
+      for (const meta of rowMetas) {
+        success++;
+        details.push({ ma_linh_kien: meta.ma, status: meta.anhLoi ? "thanh_cong_loi_anh" : "thanh_cong" });
+      }
     } catch {
-      errorCount++;
-      details.push({ ma_linh_kien: ma, status: "loi_ghi_db" });
+      // batch() la all-or-nothing - neu that bai, chay lai TUNG dong (cach cu) de cach ly dung dong
+      // loi thay vi mat trang ca lo chi vi 1 dong.
+      for (let i = 0; i < statements.length; i++) {
+        try {
+          await statements[i].run();
+          success++;
+          details.push({ ma_linh_kien: rowMetas[i].ma, status: rowMetas[i].anhLoi ? "thanh_cong_loi_anh" : "thanh_cong" });
+        } catch {
+          errorCount++;
+          details.push({ ma_linh_kien: rowMetas[i].ma, status: "loi_ghi_db" });
+        }
+      }
     }
   }
 
