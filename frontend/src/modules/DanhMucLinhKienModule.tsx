@@ -153,6 +153,29 @@ async function parseCatalogImportFile(file: File): Promise<BulkImportCatalogRow[
   return rows;
 }
 
+// File mau cho 2 modal "Nhap hang loat" phia duoi - truoc day khong co, nguoi dung phai tu doan ten
+// cot dung dinh dang tu tooltip.
+async function downloadAnhImportTemplate() {
+  await exportRowsToExcel(
+    [{ "Mã linh kiện": "LK001", "ẢNH DEMO": "https://drive.google.com/file/d/vidu/view" }],
+    "mau_import_anh_linh_kien.xlsx",
+    "Data",
+  );
+}
+async function downloadCatalogImportTemplate() {
+  await exportRowsToExcel(
+    [
+      {
+        "Mã": "LK001", "Tên linh kiện": "Bo nguon 65W", "Giá bán": 250000, "Giá tham chiếu": 230000,
+        "Phân loại": "Nguồn/Sạc", "Ghi chú": "", "Đặc thù": "", "Phân loại đặc thù": "",
+        "Only sửa chữa": "", "Ảnh": "",
+      },
+    ],
+    "mau_import_danh_muc_linh_kien.xlsx",
+    "Data",
+  );
+}
+
 function IconImageOff({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -1077,12 +1100,17 @@ function DanhMucTab() {
             <Tooltip text="Hệ thống sẽ tải từng ảnh về và lưu lên Google Drive của hệ thống, khớp theo mã linh kiện đã có sẵn trong danh mục — mã chưa tồn tại sẽ bị bỏ qua." />
           </div>
           {!bulkImportRunning && !bulkImportSummary && (
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleBulkImportAnh(f); e.target.value = ""; }}
-              className="text-sm"
-            />
+            <>
+              <Btn variant="ghost" size="sm" onClick={() => void downloadAnhImportTemplate()}>
+                ⬇ Tải file mẫu
+              </Btn>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleBulkImportAnh(f); e.target.value = ""; }}
+                className="text-sm"
+              />
+            </>
           )}
           {bulkImportRunning && (
             <div className="text-sm">
@@ -1126,12 +1154,17 @@ function DanhMucTab() {
             />
           </div>
           {!catalogImportRunning && !catalogImportSummary && (
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleBulkImportCatalog(f); e.target.value = ""; }}
-              className="text-sm"
-            />
+            <>
+              <Btn variant="ghost" size="sm" onClick={() => void downloadCatalogImportTemplate()}>
+                ⬇ Tải file mẫu
+              </Btn>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleBulkImportCatalog(f); e.target.value = ""; }}
+                className="text-sm"
+              />
+            </>
           )}
           {catalogImportRunning && (
             <div className="text-sm">
