@@ -542,6 +542,19 @@ function DanhMucTab() {
     },
   });
 
+  // "Giá trị công nợ" (them 04/09/2026) - route RIENG (khong dung PATCH /:ma o tren), cot noi bo
+  // KHONG dong bo DVBH/suachua - xem backend/src/routes/settingsDatMua.ts.
+  const updateGiaTriCongNo = useMutation({
+    mutationFn: ({ ma, gia_tri_cong_no }: { ma: string; gia_tri_cong_no: number | null }) =>
+      api.patch(`/settings/linh-kien/${ma}/gia-tri-cong-no`, { gia_tri_cong_no }),
+    onSuccess: () => {
+      addToast("Đã cập nhật giá trị công nợ");
+      qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
+    },
+    onError: () => addToast("Không thể cập nhật giá trị công nợ."),
+  });
+  const [editingGiaTriCongNo, setEditingGiaTriCongNo] = useState<{ ma: string; value: string } | null>(null);
+
   // Upload anh dung 1 ma cu the - tach rieng khoi handleUploadAnh() ben duoi (truoc chi dung
   // editingMa co san trong closure) de dung lai duoc cho CA 2 luong: sua (ma da co san tu truoc) VA
   // them moi (ma vua duoc tao xong, chi biet duoc SAU KHI addMutation thanh cong - xem duoi).
@@ -693,6 +706,39 @@ function DanhMucTab() {
     { key: "ma_linh_kien", header: "Mã", render: (p) => <span className="font-mono text-xs">{p.ma_linh_kien}</span> },
     { key: "ten_linh_kien", header: "Tên linh kiện", render: (p) => <span className="font-semibold text-[var(--ocean-800)]">{p.ten_linh_kien}</span> },
     { key: "gia_ban", header: "Giá bán", render: (p) => <span className="font-mono font-semibold text-[var(--green-700)]">{fmtVND(p.gia_ban)}</span> },
+    {
+      key: "gia_tri_cong_no",
+      header: "Giá trị công nợ",
+      // Sua RIENG qua PATCH .../gia-tri-cong-no (khong dong bo DVBH/suachua, xem CLAUDE.md) - inline
+      // click-de-sua ngay trong bang, khong qua Modal "Sửa linh kiện" chung (cot noi bo, tach biet
+      // co y voi cac truong con lai).
+      render: (p) =>
+        editingGiaTriCongNo?.ma === p.ma_linh_kien ? (
+          <input
+            autoFocus
+            type="number"
+            value={editingGiaTriCongNo.value}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => setEditingGiaTriCongNo({ ma: p.ma_linh_kien, value: e.target.value })}
+            onBlur={() => {
+              const v = editingGiaTriCongNo.value.trim();
+              updateGiaTriCongNo.mutate({ ma: p.ma_linh_kien, gia_tri_cong_no: v ? Number(v) : null });
+              setEditingGiaTriCongNo(null);
+            }}
+            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditingGiaTriCongNo(null); }}
+            className="focus-ring w-24 border border-[var(--line)] rounded-lg px-1.5 py-0.5 text-xs font-mono"
+          />
+        ) : canWrite ? (
+          <button
+            className="font-mono text-xs hover:underline text-left"
+            onClick={(e) => { e.stopPropagation(); setEditingGiaTriCongNo({ ma: p.ma_linh_kien, value: p.gia_tri_cong_no != null ? String(p.gia_tri_cong_no) : "" }); }}
+          >
+            {p.gia_tri_cong_no != null ? fmtVND(p.gia_tri_cong_no) : "— (bấm để nhập)"}
+          </button>
+        ) : (
+          <span className="font-mono text-xs">{p.gia_tri_cong_no != null ? fmtVND(p.gia_tri_cong_no) : "—"}</span>
+        ),
+    },
     {
       key: "luot_dung_30_ngay",
       header: "Lượt dùng 30 ngày",

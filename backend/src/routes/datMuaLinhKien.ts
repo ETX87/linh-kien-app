@@ -15,6 +15,7 @@ import { getOrCompute } from "../lib/precomputedCache";
 import { extractMaKtv } from "../lib/ktvCode";
 import { lookupCase, lookupCases, type CaseLookupPreview } from "../lib/caseLookupClient";
 import { sendPushToUser } from "../lib/webPush";
+import { computeCongNoChot } from "../lib/congNoKtv";
 
 // Luong chinh "Dat mua linh kien" - phieu dat (header, chi de tong hop hien thi) + dong don hang -
 // xem migration 0056_phieu_dat.sql + 0063_dat_don_hang_trang_thai_theo_dong.sql.
@@ -1553,7 +1554,10 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
     ghi_chu?: string;
     nguoi_nhan_hang?: string;
     don_hang: {
-      ma_lk: string; loai_de_xuat: string; so_luong_de_xuat: number; so_tien_cong_no?: number;
+      // KHONG con nhan so_tien_cong_no tu client (them 04/09/2026) - server tu tinh
+      // gia_tri_cong_no x so_luong_de_xuat (xem duoi), tranh KTV/client tu y sua sai lech voi Gia
+      // tri cong no that cua linh kien.
+      ma_lk: string; loai_de_xuat: string; so_luong_de_xuat: number;
       // 6 cot bo sung 2026-08-14 (doi chieu Excel goc) - deu do nguoi tao dien luc tao, khong sua
       // duoc sau do (xem migration 0070). KHONG con ly_do_cham o day - cot do doi y nghia sang
       // TAC NGHIEP giai trinh SLA, dien qua PATCH /don-hang/:id (xem duoi).
@@ -1625,11 +1629,37 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   const maLkList = [...new Set(body.don_hang.map((dh) => dh.ma_lk.trim()))];
   const lkPlaceholders = maLkList.map(() => "?").join(",");
   const { results: lkRows } = await c.env.DB.prepare(
-    `SELECT ma_linh_kien, ten_linh_kien as ten_lk, gia_ban, dac_thu FROM linh_kien WHERE ma_linh_kien IN (${lkPlaceholders})`,
-  ).bind(...maLkList).all<{ ma_linh_kien: string; ten_lk: string; gia_ban: number | null; dac_thu: number }>();
+    `SELECT ma_linh_kien, ten_linh_kien as ten_lk, gia_ban, dac_thu, gia_tri_cong_no FROM linh_kien WHERE ma_linh_kien IN (${lkPlaceholders})`,
+  ).bind(...maLkList).all<{ ma_linh_kien: string; ten_lk: string; gia_ban: number | null; dac_thu: number; gia_tri_cong_no: number | null }>();
   const lkMap = new Map(lkRows.map((r) => [r.ma_linh_kien, r]));
   for (const dh of body.don_hang) {
     if (!lkMap.has(dh.ma_lk.trim())) return c.json({ error: "MA_LK_NOT_FOUND", ma_lk: dh.ma_lk }, 400);
+  }
+
+  // "Cong no tam tinh" + "danh gia cong no" (them 04/09/2026, xem lib/congNoKtv.ts) - CHI tinh khi
+  // phieu nay co it nhat 1 dong loai_don='cong_no'. Cong no tam tinh tung dong = gia_tri_cong_no x
+  // so_luong_de_xuat (CHOT nguoi dung - khong con nhan tu client, KHONG con dung dh.so_tien_cong_no
+  // gui len). danh_gia_cong_no CHOT 1 LAN cho CA phieu (so sanh Cong no chot HIEN TAI cua nguoi nhan
+  // hang + TONG cong no tam tinh ca phieu voi Tran cong no) - ap dung CHUNG cho moi dong cong_no
+  // trong phieu nay, khong tinh rieng tung dong.
+  const soTienCongNoPerDong = new Map<number, number>();
+  let tongMoiCongNo = 0;
+  body.don_hang.forEach((dh, i) => {
+    if (deriveLoaiDon(dh.loai_de_xuat.trim()) !== "cong_no") return;
+    const lk = lkMap.get(dh.ma_lk.trim())!;
+    const soTien = (lk.gia_tri_cong_no ?? 0) * dh.so_luong_de_xuat;
+    soTienCongNoPerDong.set(i, soTien);
+    tongMoiCongNo += soTien;
+  });
+  let danhGiaCongNoPhieu: "Du" | "Khong du" | null = null;
+  if (soTienCongNoPerDong.size > 0) {
+    const ktvRow = await c.env.DB.prepare("SELECT ma_ktv, cong_no FROM ktv_lien_he WHERE email_dang_nhap = ?")
+      .bind(nguoiNhanHang)
+      .first<{ ma_ktv: string; cong_no: number | null }>();
+    if (ktvRow && ktvRow.cong_no != null && ktvRow.cong_no > 0) {
+      const congNoChotHienTai = await computeCongNoChot(c.env.DB, ktvRow.ma_ktv);
+      danhGiaCongNoPhieu = congNoChotHienTai + tongMoiCongNo <= ktvRow.cong_no ? "Du" : "Khong du";
+    }
   }
 
   const now = nowVN();
@@ -1647,7 +1677,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
     ),
   ];
 
-  for (const dh of body.don_hang) {
+  for (const [i, dh] of body.don_hang.entries()) {
     const lde = dh.loai_de_xuat.trim();
     const loai_don = deriveLoaiDon(lde);
     const lk = lkMap.get(dh.ma_lk.trim())!;
@@ -1661,9 +1691,9 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
       c.env.DB.prepare(
         `INSERT INTO dat_don_hang
            (id, phieu_dat_id, loai_don, ma_lk, ten_lk_snapshot, loai_de_xuat, so_luong_de_xuat, gia_de_xuat,
-            so_tien_cong_no, ghi_chu, yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang, chinh_sach, ma_yeu_cau_su_co,
+            so_tien_cong_no, danh_gia_cong_no, ghi_chu, yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang, chinh_sach, ma_yeu_cau_su_co,
             nguoi_tao, ngay_tao, updated_at, email_gs, nguoi_nhan_hang, uu_tien, trang_thai_hien_tai)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         donHangId,
         phieuDatId,
@@ -1673,7 +1703,8 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
         lde,
         dh.so_luong_de_xuat,
         lk.gia_ban,
-        loai_don === "cong_no" ? dh.so_tien_cong_no ?? null : null,
+        loai_don === "cong_no" ? (soTienCongNoPerDong.get(i) ?? 0) : null,
+        loai_don === "cong_no" ? danhGiaCongNoPhieu : null,
         dh.ghi_chu?.trim() || null,
         dh.yeu_cau_hoa_don?.trim() || null,
         dh.tt_mail_duyet?.trim() || null,
@@ -1756,6 +1787,9 @@ interface DatDonHangImportValidRow {
   chinhSach: string | null;
   maYeuCauSuCo: string | null;
   dacThu: number;
+  // "Cong no tam tinh" cua dong nay (them 04/09/2026, xem lib/congNoKtv.ts) - gia_tri_cong_no cua LK
+  // x soLuong, chi > 0 khi loaiDon==='cong_no'. danhGiaCongNo chot cho CA nhom (1 KTV) sau khi gom.
+  soTienCongNo: number;
 }
 
 async function processDatDonHangImportRows(
@@ -1775,7 +1809,7 @@ async function processDatDonHangImportRows(
   // ktvCache: email da RESOLVE (Ve tinh -> tram_cha, xem resolveNguoiNhanHang o tren - gop chung 1
   // query o day thay vi goi lai ham do vi chay trong vong lap nhieu dong).
   const ktvCache = new Map<string, { email: string } | { error: string }>();
-  const lkCache = new Map<string, { ten: string; gia: number | null; dacThu: number } | null>();
+  const lkCache = new Map<string, { ten: string; gia: number | null; dacThu: number; giaTriCongNo: number | null } | null>();
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -1840,8 +1874,8 @@ async function processDatDonHangImportRows(
     if (!lkCache.has(maLk)) {
       // CHOT 2026-08-16: gia lay tu linh_kien.gia_ban (khong con gia_tham_chieu), khop dung
       // POST /phieu-dat o tren.
-      const lkRow = await db.prepare("SELECT ten_linh_kien as ten, gia_ban as gia, dac_thu FROM linh_kien WHERE ma_linh_kien = ?").bind(maLk).first<{ ten: string; gia: number | null; dac_thu: number }>();
-      lkCache.set(maLk, lkRow ? { ten: lkRow.ten, gia: lkRow.gia, dacThu: lkRow.dac_thu } : null);
+      const lkRow = await db.prepare("SELECT ten_linh_kien as ten, gia_ban as gia, dac_thu, gia_tri_cong_no FROM linh_kien WHERE ma_linh_kien = ?").bind(maLk).first<{ ten: string; gia: number | null; dac_thu: number; gia_tri_cong_no: number | null }>();
+      lkCache.set(maLk, lkRow ? { ten: lkRow.ten, gia: lkRow.gia, dacThu: lkRow.dac_thu, giaTriCongNo: lkRow.gia_tri_cong_no } : null);
     }
     const lk = lkCache.get(maLk);
     if (!lk) {
@@ -1860,6 +1894,7 @@ async function processDatDonHangImportRows(
       continue;
     }
 
+    const loaiDonRow = deriveLoaiDon(loaiDeXuat);
     valid.push({
       maKtv,
       emailNhanHang: ktv.email,
@@ -1867,7 +1902,7 @@ async function processDatDonHangImportRows(
       tenLk: lk.ten,
       giaBan: lk.gia,
       loaiDeXuat,
-      loaiDon: deriveLoaiDon(loaiDeXuat),
+      loaiDon: loaiDonRow,
       soLuong,
       ghiChu: row.ghi_chu?.trim() || null,
       yeuCauHoaDon: row.yeu_cau_hoa_don?.trim() || null,
@@ -1876,6 +1911,7 @@ async function processDatDonHangImportRows(
       chinhSach: row.chinh_sach?.trim() || null,
       maYeuCauSuCo: row.ma_yeu_cau_su_co?.trim() || null,
       dacThu: lk.dacThu,
+      soTienCongNo: loaiDonRow === "cong_no" ? (lk.giaTriCongNo ?? 0) * soLuong : 0,
     });
   }
 
@@ -1892,6 +1928,21 @@ async function processDatDonHangImportRows(
     for (const [emailNhanHang, groupRows] of groups) {
       const phieuDatId = await nextSequentialId(db, "phieu_dat", phieuDatPrefix(c), 6);
       const giamSatRow = await db.prepare("SELECT giam_sat_quan_ly FROM users WHERE email = ?").bind(emailNhanHang).first<{ giam_sat_quan_ly: string | null }>();
+
+      // "danh_gia_cong_no" chot 1 LAN cho CA nhom (1 KTV = 1 phieu_dat) - khop dung logic
+      // POST /phieu-dat (xem lib/congNoKtv.ts).
+      const tongMoiCongNoGroup = groupRows.reduce((sum, v) => sum + (v.loaiDon === "cong_no" ? v.soTienCongNo : 0), 0);
+      let danhGiaCongNoGroup: "Du" | "Khong du" | null = null;
+      if (tongMoiCongNoGroup > 0) {
+        const ktvRow = await db.prepare("SELECT ma_ktv, cong_no FROM ktv_lien_he WHERE email_dang_nhap = ?")
+          .bind(emailNhanHang)
+          .first<{ ma_ktv: string; cong_no: number | null }>();
+        if (ktvRow && ktvRow.cong_no != null && ktvRow.cong_no > 0) {
+          const congNoChotHienTai = await computeCongNoChot(db, ktvRow.ma_ktv);
+          danhGiaCongNoGroup = congNoChotHienTai + tongMoiCongNoGroup <= ktvRow.cong_no ? "Du" : "Khong du";
+        }
+      }
+
       const statements = [
         db.prepare("INSERT INTO phieu_dat (id, nguoi_tao, ngay_tao, email_gs, ghi_chu, nguoi_nhan_hang, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(
           phieuDatId,
@@ -1912,9 +1963,9 @@ async function processDatDonHangImportRows(
             .prepare(
               `INSERT INTO dat_don_hang
                  (id, phieu_dat_id, loai_don, ma_lk, ten_lk_snapshot, loai_de_xuat, so_luong_de_xuat, gia_de_xuat,
-                  so_tien_cong_no, ghi_chu, yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang, chinh_sach, ma_yeu_cau_su_co,
+                  so_tien_cong_no, danh_gia_cong_no, ghi_chu, yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang, chinh_sach, ma_yeu_cau_su_co,
                   nguoi_tao, ngay_tao, updated_at, email_gs, nguoi_nhan_hang, trang_thai_hien_tai)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             )
             .bind(
               donHangId,
@@ -1925,7 +1976,8 @@ async function processDatDonHangImportRows(
               v.loaiDeXuat,
               v.soLuong,
               v.giaBan,
-              null,
+              v.loaiDon === "cong_no" ? v.soTienCongNo : null,
+              v.loaiDon === "cong_no" ? danhGiaCongNoGroup : null,
               v.ghiChu,
               v.yeuCauHoaDon,
               v.ttMailDuyet,

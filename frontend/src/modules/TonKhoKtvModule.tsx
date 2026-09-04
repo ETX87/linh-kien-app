@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { Btn } from "../components/ui/Btn";
+import { Badge } from "../components/ui/Badge";
 import { Tooltip } from "../components/ui/Tooltip";
 import { Modal } from "../components/ui/Modal";
 import { useToast } from "../components/ui/Toast";
@@ -28,6 +29,15 @@ export function TonKhoKtvModule() {
       <TonKhoKtvContent />
     </div>
   );
+}
+
+// "Đánh giá công nợ" 3 mức (them 04/09/2026, xem backend/src/lib/congNoKtv.ts) - null khi Tran cong
+// no chua duoc dat (khong the danh gia, KHAC "Binh thuong" de tranh hieu nham la an toan).
+function DanhGiaCongNoBadge({ value }: { value: "Vuot tran" | "Canh bao" | "Binh thuong" | null }) {
+  if (value === "Vuot tran") return <Badge tone="coral">Vượt trần</Badge>;
+  if (value === "Canh bao") return <Badge tone="amber">Cảnh báo</Badge>;
+  if (value === "Binh thuong") return <Badge tone="teal">Bình thường</Badge>;
+  return <span className="text-xs text-[var(--ink-400)]">—</span>;
 }
 
 function TonKhoKtvContent() {
@@ -125,6 +135,10 @@ function TonKhoKtvContent() {
                 <th className="px-3 py-2">Tên hiển thị</th>
                 <th className="px-3 py-2">Mã MISA</th>
                 <th className="px-3 py-2">Trần công nợ</th>
+                <th className="px-3 py-2">Công nợ thực tế</th>
+                <th className="px-3 py-2">Công nợ phát sinh</th>
+                <th className="px-3 py-2">Công nợ chốt</th>
+                <th className="px-3 py-2">Đánh giá công nợ</th>
                 <th className="px-3 py-2">Số mã hàng tồn</th>
                 <th className="px-3 py-2">Tổng SL tồn</th>
                 <th className="px-3 py-2" />
@@ -133,12 +147,12 @@ function TonKhoKtvContent() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-[var(--ink-400)]">Đang tải…</td>
+                  <td colSpan={10} className="px-3 py-6 text-center text-[var(--ink-400)]">Đang tải…</td>
                 </tr>
               )}
               {!isLoading && (data?.rows.length ?? 0) === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có dữ liệu tồn kho{isAdmin ? ' - bấm "Import tồn kho MISA" để nhập.' : "."}</td>
+                  <td colSpan={10} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có dữ liệu tồn kho{isAdmin ? ' - bấm "Import tồn kho MISA" để nhập.' : "."}</td>
                 </tr>
               )}
               {(data?.rows ?? []).map((r) => (
@@ -150,6 +164,12 @@ function TonKhoKtvContent() {
                     <span title={r.cong_no_cap_nhat_luc ? `Cập nhật lúc ${fmtDateTime(r.cong_no_cap_nhat_luc)}` : undefined}>
                       {r.cong_no != null ? fmtVND(r.cong_no) : "—"}
                     </span>
+                  </td>
+                  <td className="px-3 py-2 font-mono text-xs">{fmtVND(r.cong_no_thuc_te)}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{fmtVND(r.cong_no_phat_sinh)}</td>
+                  <td className="px-3 py-2 font-mono text-xs font-semibold">{fmtVND(r.cong_no_chot)}</td>
+                  <td className="px-3 py-2">
+                    <DanhGiaCongNoBadge value={r.danh_gia_cong_no} />
                   </td>
                   <td className="px-3 py-2">{r.so_ma_hang}</td>
                   <td className="px-3 py-2">{r.tong_cuoi_ky?.toLocaleString("vi-VN") ?? 0}</td>
@@ -228,6 +248,13 @@ function TonKhoChiTietModal({ row, onClose }: { row: KtvTonKhoSummaryRow; onClos
   return (
     <Modal open onClose={onClose} title={`Tồn kho - ${row.ten_hien_thi ?? row.ma_ktv}`} width="max-w-2xl">
       <div className="space-y-3 text-sm">
+        <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs border border-[var(--line)] rounded-xl bg-[var(--surface-soft)] px-3 py-2">
+          <div><span className="text-[var(--ink-400)]">Trần công nợ: </span><span className="font-semibold">{row.cong_no != null ? fmtVND(row.cong_no) : "—"}</span></div>
+          <div><span className="text-[var(--ink-400)]">Công nợ thực tế: </span><span className="font-mono font-semibold">{fmtVND(row.cong_no_thuc_te)}</span></div>
+          <div><span className="text-[var(--ink-400)]">Công nợ phát sinh: </span><span className="font-mono font-semibold">{fmtVND(row.cong_no_phat_sinh)}</span></div>
+          <div><span className="text-[var(--ink-400)]">Công nợ chốt: </span><span className="font-mono font-semibold">{fmtVND(row.cong_no_chot)}</span></div>
+          <div className="flex items-center gap-1"><span className="text-[var(--ink-400)]">Đánh giá: </span><DanhGiaCongNoBadge value={row.danh_gia_cong_no} /></div>
+        </div>
         <div className="border border-[var(--line)] rounded-xl overflow-hidden">
           <div className="overflow-x-auto max-h-[60vh]">
             <table className="w-full text-xs">

@@ -645,6 +645,11 @@ export function DonHangDetailModal({
             <QuickStat label="Giá đề xuất" value={d.gia_de_xuat != null ? fmtVND(d.gia_de_xuat) : "—"} tone="green" />
             <QuickStat label="Tổng tiền đề xuất" value={fmtVND((d.gia_de_xuat ?? 0) * d.so_luong_de_xuat)} tone="green" />
             {d.gia_chot != null && <QuickStat label="Giá chốt" value={fmtVND(d.gia_chot)} tone="green" />}
+            {/* "Cong no tam tinh" + danh gia (them 04/09/2026) - chi co y nghia voi dong loai_don=
+                'cong_no', chot 1 LAN luc tao don (xem lib/congNoKtv.ts o backend, khong tinh lai). */}
+            {d.loai_don === "cong_no" && d.so_tien_cong_no != null && (
+              <QuickStat label="Công nợ tạm tính" value={fmtVND(d.so_tien_cong_no)} />
+            )}
             <div className="flex-1 min-w-[160px]">
               <div className="text-[10px] uppercase tracking-wide text-[var(--ink-400)] font-bold mb-1">Trạng thái</div>
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -670,6 +675,10 @@ export function DonHangDetailModal({
                     LK thuan - xem prop `title` cua Drawer o tren) - van la 1 trang thai dang chu y nen
                     hop ly nam canh cum badge trang thai. */}
                 {!!d.dac_thu && <Badge tone="amber">🔒 Đặc thù</Badge>}
+                {/* "Đủ/Không đủ công nợ" (them 04/09/2026) - chot 1 LAN luc tao don, xem QuickStat
+                    "Công nợ tạm tính" o tren + lib/congNoKtv.ts o backend. */}
+                {d.loai_don === "cong_no" && d.danh_gia_cong_no === "Du" && <Badge tone="teal">Đủ công nợ</Badge>}
+                {d.loai_don === "cong_no" && d.danh_gia_cong_no === "Khong du" && <Badge tone="coral">Không đủ công nợ</Badge>}
               </div>
             </div>
           </div>

@@ -74,6 +74,10 @@ export interface DonHangRow {
   ma_xuat_kho: string | null;
   ma_misa: string | null;
   so_tien_cong_no: number | null;
+  // "Cong no tam tinh" da CHOT (them 04/09/2026) - "Du"/"Khong du" so voi Tran cong no cua nguoi nhan
+  // hang tai thoi diem TAO don (khong tinh lai sau do) - null neu khong phai dong cong_no, hoac Tran
+  // cong no chua duoc dat luc tao (khong the danh gia) - xem lib/congNoKtv.ts.
+  danh_gia_cong_no: "Du" | "Khong du" | null;
   nguoi_tao: string;
   // Denormalize xuong tan dong (CHOT 2026-08-15, bo khai niem "phieu dat" - migration 0075).
   nguoi_nhan_hang: string | null;

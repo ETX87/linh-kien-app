@@ -6,6 +6,7 @@ import { requireRole } from "../middleware/requireRole";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { khuVucViewEmailInSql } from "../lib/scopeDatMua";
 import { nowVN } from "../lib/vnTime";
+import { getMocTinhCongNo, danhGiaCongNo3Muc } from "../lib/congNoKtv";
 
 // "Tồn kho KTV" (them 2026-08-29, phan hoi nguoi dung) - import hang ngay file "Tổng hợp tồn kho"
 // xuat tu MISA (mot bao cao gom NHIEU khoi "Kho: ..." xep lien tiep, moi khoi la 1 KTV/tram - xem
@@ -66,18 +67,45 @@ ktvTonKho.get("/", async (c) => {
     binds.push(...scope.binds);
   }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  // "Cong no thuc te"/"phat sinh"/"chot"/"danh gia" (them 04/09/2026, xem lib/congNoKtv.ts) - tinh
+  // gop qua 2 CTE thay vi N+1 query rieng tung KTV (bang co the toi vai tram KTV). "phat_sinh" loc
+  // theo moc tinh cong no (tham so ?3/?4, bind 2 lan cho dieu kien "IS NULL OR >") - giong dung logic
+  // computeCongNoPhatSinh() nhung viet lai o day de gop 1 lan truy van duy nhat.
+  const mocTinhCongNo = await getMocTinhCongNo(c.env.DB);
   const { results } = await c.env.DB.prepare(
-    `SELECT k.ma_ktv, k.ten_hien_thi, k.ma_misa, k.ten_misa, k.cong_no, k.cong_no_cap_nhat_luc,
-       COUNT(t.id) as so_ma_hang, SUM(t.cuoi_ky) as tong_cuoi_ky
+    `WITH thuc_te AS (
+       SELECT t2.ma_ktv, SUM(t2.cuoi_ky * COALESCE(lk.gia_tri_cong_no, 0)) as gia_tri
+       FROM ktv_ton_kho t2
+       LEFT JOIN linh_kien lk ON lk.ma_linh_kien = t2.ma_hang
+       GROUP BY t2.ma_ktv
+     ),
+     phat_sinh AS (
+       SELECT k2.ma_ktv, SUM(ddh.so_tien_cong_no) as gia_tri
+       FROM dat_don_hang ddh
+       JOIN ktv_lien_he k2 ON k2.email_dang_nhap = ddh.nguoi_nhan_hang
+       WHERE ddh.loai_don = 'cong_no' AND ddh.trang_thai_hien_tai = 'TN da duyet'
+         AND (? IS NULL OR ddh.updated_at > ?)
+       GROUP BY k2.ma_ktv
+     )
+     SELECT k.ma_ktv, k.ten_hien_thi, k.ma_misa, k.ten_misa, k.cong_no, k.cong_no_cap_nhat_luc,
+       COUNT(t.id) as so_ma_hang, SUM(t.cuoi_ky) as tong_cuoi_ky,
+       COALESCE(tt.gia_tri, 0) as cong_no_thuc_te, COALESCE(ps.gia_tri, 0) as cong_no_phat_sinh
      FROM ktv_ton_kho t
      JOIN ktv_lien_he k ON k.ma_ktv = t.ma_ktv
+     LEFT JOIN thuc_te tt ON tt.ma_ktv = k.ma_ktv
+     LEFT JOIN phat_sinh ps ON ps.ma_ktv = k.ma_ktv
      ${where}
      GROUP BY k.ma_ktv
      ORDER BY tong_cuoi_ky DESC`,
   )
-    .bind(...binds)
-    .all();
-  return c.json({ rows: results });
+    .bind(mocTinhCongNo, mocTinhCongNo, ...binds)
+    .all<{ cong_no: number | null; cong_no_thuc_te: number; cong_no_phat_sinh: number }>();
+
+  const rows = results.map((r) => {
+    const congNoChot = r.cong_no_thuc_te + r.cong_no_phat_sinh;
+    return { ...r, cong_no_chot: congNoChot, danh_gia_cong_no: danhGiaCongNo3Muc(congNoChot, r.cong_no) };
+  });
+  return c.json({ rows });
 });
 
 // GET /import-meta - thong tin lan import gan nhat (ky bao cao/nguoi import/luc nao) - luu trong

@@ -48,18 +48,22 @@ settingsDatMua.post("/linh-kien", linhKienWriteRoles, async (c) => {
     // "Phân loại đặc thù" (them 2026-08-25) - listdown tu do (dung y het "don_vi"), chi co y nghia khi
     // dac_thu=true, frontend tu an o nhap khi chua tick dac_thu.
     phan_loai_dac_thu?: string;
+    // "Giá trị công nợ" (them 04/09/2026, xem migration 0017) - noi bo, dung tinh Cong no thuc te
+    // KTV/cong no tam tinh don moi (lib/congNoKtv.ts), KHONG dong bo DVBH/suachua.
+    gia_tri_cong_no?: number;
   }>();
   if (!body.ma_linh_kien?.trim() || !body.ten_linh_kien?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
 
   const user = c.get("user");
   const row = await c.env.DB.prepare(
-    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, nguoi_cap_nhat, ngay_cap_nhat)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, gia_tri_cong_no, nguoi_cap_nhat, ngay_cap_nhat)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
   )
     .bind(
       body.ma_linh_kien.trim(), body.ten_linh_kien.trim(), body.gia_ban ?? null, body.gia_tham_chieu ?? null,
       body.don_vi?.trim() || null, body.ghi_chu?.trim() || null, body.anh_demo?.trim() || null,
       body.dac_thu ? 1 : 0, body.chi_sua_chua ? 1 : 0, body.dac_thu ? body.phan_loai_dac_thu?.trim() || null : null,
+      body.gia_tri_cong_no ?? null,
       user.email, nowVN(),
     )
     .first();
@@ -100,6 +104,27 @@ settingsDatMua.patch("/linh-kien/:ma", linhKienWriteRoles, async (c) => {
     .bind(next.ten_linh_kien, next.bat_tat, next.gia_ban, next.gia_tham_chieu, next.don_vi, next.ghi_chu, next.anh_demo, next.dac_thu, next.chi_sua_chua, next.phan_loai_dac_thu, user.email, nowVN(), ma)
     .run();
 
+  await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
+  return c.json({ ok: true });
+});
+
+// PATCH /linh-kien/:ma/gia-tri-cong-no - { gia_tri_cong_no: number|null } - route RIENG (khong dung
+// chung PATCH /linh-kien/:ma o tren) vi truong nay CO CHU DICH KHONG dong cham ngay_cap_nhat/
+// nguoi_cap_nhat - theo yeu cau nguoi dung "cột này nội bộ app linh kiện, khi chỉnh sửa thay đổi
+// không cần báo API cho các hệ thống liên kết" (dvbhSyncClient.ts coi ngay_cap_nhat > con tro la "co
+// thay doi can day sang DVBH/suachua" - sua truong nay KHONG duoc lam dong linh_kien do bi coi la
+// "thay doi" o lan dong bo ke tiep). VAN goi refreshHash() - do la content-hash CUC BO cua chinh app
+// nay (xem lib/contentHash.ts, dung boi fetchWithHashCache o frontend de biet luc nao can tai lai
+// danh muc) - KHAC HOAN TOAN voi ngay_cap_nhat/dvbh sync, bo qua se lam frontend ket qua cu vinh
+// vien (IndexedDB cache khong bao gio thay doi vi hash server khong doi).
+settingsDatMua.patch("/linh-kien/:ma/gia-tri-cong-no", linhKienWriteRoles, async (c) => {
+  const ma = c.req.param("ma");
+  if (!ma) return c.json({ error: "INVALID_PARAM" }, 400);
+  const body = await c.req.json<{ gia_tri_cong_no: number | null }>();
+  const result = await c.env.DB.prepare("UPDATE linh_kien SET gia_tri_cong_no = ? WHERE ma_linh_kien = ?")
+    .bind(body.gia_tri_cong_no ?? null, ma)
+    .run();
+  if ((result.meta.changes ?? 0) === 0) return c.json({ error: "NOT_FOUND" }, 404);
   await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
   return c.json({ ok: true });
 });

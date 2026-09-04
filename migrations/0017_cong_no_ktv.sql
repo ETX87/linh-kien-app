@@ -1,0 +1,22 @@
+-- Migration 0017: he thong "Cong no KTV" (phan hoi nguoi dung 04/09/2026) - 4 phan:
+--   1. linh_kien.gia_tri_cong_no - gia tri cong no tinh cho 1 don vi linh kien, dung tinh "Cong no
+--      thuc te" cua KTV tu ton kho (gia_tri_cong_no x so_luong ton kho, khop qua ktv_ton_kho.ma_hang =
+--      linh_kien.ma_linh_kien - xac nhan nguoi dung 2 ma nay LUON giong nhau) VA "cong no tam tinh"
+--      khi tao 1 dong don moi loai "Cong no" (gia_tri_cong_no x so_luong_de_xuat). Cot NOI BO, KHONG
+--      dong bo sang DVBH/suachua (xem backend/src/lib/dvbhSyncClient.ts - khong co trong
+--      LINH_KIEN_SYNC_COLUMNS/ENTITIES.linh_kien.columns, va PATCH rieng khong dong cham
+--      ngay_cap_nhat - xem routes/settingsDatMua.ts PATCH /linh-kien/:ma/gia-tri-cong-no).
+--   2. dat_don_hang.danh_gia_cong_no - chot 1 LAN tai thoi diem tao 1 phieu co dong "Cong no" ("Du"/
+--      "Khong du", so sanh Cong no chot HIEN TAI cua KTV (truoc phieu nay) + tong cong no tam tinh
+--      CA phieu voi Tran cong no (ktv_lien_he.cong_no, da co san - hien la "Trần công nợ" trong UI) -
+--      khong tinh lai sau do du du lieu KTV thay doi (xac nhan nguoi dung: chot ngay luc tao don).
+--      Chi co y nghia voi dong loai_don='cong_no', NULL cho dong khac hoac khi Tran cong no chua duoc
+--      dat (khong the danh gia).
+--
+-- "Cong no thuc te"/"Cong no phat sinh"/"Cong no chot"/"Danh gia cong no" (3 muc Vuot tran/Canh bao/
+-- Binh thuong) cua TUNG KTV la GIA TRI TINH TOAN, khong luu cot rieng - xem
+-- backend/src/lib/congNoKtv.ts (tinh tu ktv_ton_kho + linh_kien.gia_tri_cong_no + dat_don_hang da
+-- duyet ke tu "moc tinh cong no" = lan import ton kho MISA gan nhat, da co san trong
+-- app_settings key='ktv_ton_kho_import_meta'.updated_at, khong can them cot/bang moi).
+ALTER TABLE linh_kien ADD COLUMN gia_tri_cong_no REAL;
+ALTER TABLE dat_don_hang ADD COLUMN danh_gia_cong_no TEXT;

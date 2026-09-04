@@ -18,6 +18,10 @@ export interface LinhKienRow {
   // thuoc dang dac thu gi (vd "Hàng nhập riêng"/"Độc quyền hãng X"...), listdown tu do (dung y het
   // don_vi/"Phân loại" - khong phai bang settings rieng, tu goi y tu cac gia tri da co san).
   phan_loai_dac_thu: string | null;
+  // "Giá trị công nợ" (them 04/09/2026) - gia tri cong no cho 1 don vi linh kien, dung tinh "Cong no
+  // thuc te" cua KTV tu ton kho + "cong no tam tinh" khi tao don cong no moi (xem TonKhoKtvModule.tsx/
+  // DonCuaToiTab.tsx). Sua qua endpoint RIENG (PATCH .../gia-tri-cong-no) - khong dong bo DVBH/suachua.
+  gia_tri_cong_no: number | null;
 }
 
 export interface KtvLienHeRow {
@@ -60,6 +64,15 @@ export interface KtvTonKhoSummaryRow {
   cong_no_cap_nhat_luc: string | null;
   so_ma_hang: number;
   tong_cuoi_ky: number | null;
+  // He thong "Cong no KTV" (them 04/09/2026) - tinh server-side (khong luu cot rieng, xem
+  // backend/src/lib/congNoKtv.ts): cong_no_thuc_te = ton kho x Gia tri cong no tung linh kien;
+  // cong_no_phat_sinh = tong don Cong no da TN duyet ke tu moc tinh cong no (lan import ton kho gan
+  // nhat); cong_no_chot = thuc_te + phat_sinh; danh_gia_cong_no so sanh cong_no_chot voi Tran cong no
+  // (cot "cong_no" o tren) - null neu Tran chua duoc dat (khong the danh gia).
+  cong_no_thuc_te: number;
+  cong_no_phat_sinh: number;
+  cong_no_chot: number;
+  danh_gia_cong_no: "Vuot tran" | "Canh bao" | "Binh thuong" | null;
 }
 export interface KtvTonKhoChiTietRow {
   ma_hang: string;
