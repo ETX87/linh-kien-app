@@ -117,3 +117,20 @@ export async function clearLinhKienCache(): Promise<void> {
     req.onerror = () => reject(req.error);
   });
 }
+
+// "Schema version" cua cache (them 2026-09-04, phat hien khi kiem thu canh bao cong no song: "gia_
+// tri_cong_no" du da whitelist dung nhung TRINH DUYET DA CO CACHE TU TRUOC (ghi truoc luc them cot
+// nay vao whitelist) se KHONG BAO GIO tu sua - dong bo incremental theo "since" chi lay dong co
+// ngay_cap_nhat MOI HON, nen 1 dong linh kien lau khong ai sua van giu nguyen ban cache thieu cot MAI
+// MAI). Moi lan them cot moi vao CacheEntry can BUMP so nay 1 lan - buoc TOAN BO trinh duyet dang co
+// cache cu tu dong xoa sach + fetch lai FULL (khong "since") DUY NHAT 1 LAN, tu heal moi truong hop
+// thieu cot tu truoc do (ke ca bug "dac_thu" cu hon, khong chi gia_tri_cong_no). Dung localStorage
+// (khong phai IndexedDB) vi can doc duoc TRUOC khi mo DB.
+const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION_KEY = "dvbh_lk_cache_schema_version";
+
+export async function ensureCacheSchemaVersion(): Promise<void> {
+  if (localStorage.getItem(SCHEMA_VERSION_KEY) === String(SCHEMA_VERSION)) return;
+  await clearLinhKienCache();
+  localStorage.setItem(SCHEMA_VERSION_KEY, String(SCHEMA_VERSION));
+}

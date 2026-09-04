@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../../api/client";
-import { getAllFromCache, getLastCacheTimestamp, mergeLinhKienToCache } from "../../lib/linhKienCache";
+import { getAllFromCache, getLastCacheTimestamp, mergeLinhKienToCache, ensureCacheSchemaVersion } from "../../lib/linhKienCache";
 import { getAllLdeFromCache, clearLdeCache, mergeLdeToCache, type LdeEntry } from "../../lib/loaiDeXuatCache";
 import type { BadgeTone } from "../../components/ui/Badge";
 import type { LkDanhMucRow, NguoiNhanHangKhaDungRow, DonHangDraft, DonHangRow, KtvDisplayMap, XepHangLinhKienRow } from "./types";
@@ -195,6 +195,8 @@ export function useLkAndLdeCache(enabled: boolean) {
     syncedRef.current = true;
 
     (async () => {
+      // Ep 1 lan full-refetch neu cache cu thieu cot moi them (xem giai thich o linhKienCache.ts).
+      await ensureCacheSchemaVersion();
       // LK cache - "chi_sua_chua" (Only sua chua) loai khoi picker tao don, xem migration 0083.
       const cached = await getAllFromCache();
       if (cached.length > 0) {
