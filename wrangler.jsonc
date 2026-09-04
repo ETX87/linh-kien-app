@@ -38,7 +38,17 @@
   // dung dinh dang "<ten-script>.<subdomain-tai-khoan>.workers.dev" cua Cloudflare).
   // "remote": true - BAT BUOC de "npm run dev:worker" (local) cung dispatch toi ban DA DEPLOY that cua
   // dvbh thay vi tim 1 "wrangler dev" khac dang chay local cho service "dvbh" (khong ton tai, se loi).
-  "services": [{ "binding": "CASE_LOOKUP_SERVICE", "service": "dvbh", "remote": true }],
+  //
+  // Them 04/09/2026: "SUACHUA_SYNC_SERVICE" - dich day THU 2 cho dvbhSyncClient.ts (Worker doc lap
+  // "suachua", module Sua chua bao hanh - xem CLAUDE.md repo "gui-bao-hanh-linh-kien" muc "Chot 5 cau
+  // hoi mo..."). Cung ly do Service Binding nhu CASE_LOOKUP_SERVICE o tren (cung 1 tai khoan
+  // Cloudflare, fetch() thang bi chan loi 1042). "suachua" da online that (xac nhan 04/09/2026) nhung
+  // hien la ban rong/placeholder - binding nay AN TOAN khai bao truoc, chi thuc su co tac dung sau khi
+  // repo "gui-bao-hanh-linh-kien" duoc deploy that len dung Worker "suachua".
+  "services": [
+    { "binding": "CASE_LOOKUP_SERVICE", "service": "dvbh", "remote": true },
+    { "binding": "SUACHUA_SYNC_SERVICE", "service": "suachua", "remote": true }
+  ],
 
   "vars": {
     "BOOTSTRAP_ADMIN_EMAIL": "smarttrade.vp@gmail.com",
@@ -47,6 +57,9 @@
     // Diem noi DUY NHAT toi he DVBH goc (chi tra cuu case theo ID, khong ghi) - xem
     // lib/caseLookupClient.ts + backend/src/routes/partnerApi.ts cua he goc.
     "CASE_LOOKUP_BASE_URL": "https://dvbh.dichvu3t.workers.dev",
+    // Diem noi toi Worker "suachua" (module Sua chua bao hanh, doc lap - xem SUACHUA_SYNC_SERVICE o
+    // tren). Chi dung de GHI (dong bo day KTV/linh kien/Khu vuc), khong doc gi tu day.
+    "SUACHUA_SYNC_BASE_URL": "https://suachua.dichvu3t.workers.dev",
     // Web Push (them 2026-08-26, xem backend/src/lib/webPush.ts) - VAPID_SERVER_PUBLIC_KEY KHONG
     // nhay cam (day la khoa cong khai frontend can de subscribe), an toan de trong "vars". Rieng
     // VAPID_SERVER_PRIVATE_KEY dat qua "wrangler secret put" (xem duoi).
@@ -57,6 +70,10 @@
   // Cac gia tri NHAY CAM (khong dat trong "vars" - dat qua "wrangler secret put", xem DEPLOY.md):
   // GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET, CASE_LOOKUP_API_KEY,
   // DVBH_SYNC_API_KEY, VAPID_SERVER_PRIVATE_KEY.
+  // Them 04/09/2026: SUACHUA_SYNC_API_KEY - PHAI dat gia tri GIONG HET secret
+  // "LINHKIEN_SYNC_API_KEY" ben repo "gui-bao-hanh-linh-kien" (Worker "suachua"), vi day la quan he
+  // xac thuc 1-1 dung 1 secret dung chung (khong phai bang partner_api_keys nhieu-key) - xem
+  // backend/src/routes/sync.ts cua repo do.
   // Google Drive (anh linh kien/PXK/tra hang) KHONG can them bien env nao - dung chung
   // GOOGLE_CLIENT_ID/SECRET o tren qua co che OAuth uy quyen 1 tai khoan that, luu refresh token
   // trong bang google_drive_oauth (xem lib/googleDrive.ts) - da bo Service Account 2026-08-25.

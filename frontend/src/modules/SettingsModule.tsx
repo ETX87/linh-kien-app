@@ -707,20 +707,24 @@ function NenAnhTraHangToggle() {
 interface DvbhSyncStatus {
   ktvPending: number;
   linhKienPending: number;
+  khuVucPending: number;
   lastSyncKtv: string | null;
   lastSyncLinhKien: string | null;
+  lastSyncKhuVuc: string | null;
 }
 interface DvbhSyncResult {
   ktvSynced: number;
   linhKienSynced: number;
+  khuVucSynced: number;
   errors: string[];
 }
 
 // "Đồng bộ DVBH" (them 2026-08-28, phan hoi "khi cập nhật danh sách ktv hoặc cập nhật danh sách
-// linh kiện, sẽ bắn API về web dvbh để cập nhật bổ sung dữ liệu mới nhất") - linh-kien-app la nguon
-// su that cho ktv_lien_he/linh_kien tu sau khi tach he, cron 1h/lan (backend `scheduled()`) tu day
-// thay doi sang, tab nay chi hien trang thai + cho Admin bam dong bo ngay khi can gap (xem
-// backend/src/lib/dvbhSyncClient.ts + routes/dvbhSync.ts).
+// linh kiện, sẽ bắn API về web dvbh để cập nhật bổ sung dữ liệu mới nhất" + 04/09/2026: them dich thu
+// 2 "suachua" + entity "Khu vực") - linh-kien-app la nguon su that cho ktv_lien_he/linh_kien/khu_vuc
+// tu sau khi tach he, cron 1h/lan (backend `scheduled()`) tu day thay doi sang CA 2 dich, tab nay chi
+// hien trang thai (gop ca 2 dich - "đang chờ" nghia la con IT NHAT 1 dich chua nhan, xem
+// backend/src/lib/dvbhSyncClient.ts) + cho Admin bam dong bo ngay khi can gap.
 function DongBoDvbhTab() {
   const qc = useQueryClient();
   const addToast = useToast();
@@ -736,21 +740,21 @@ function DongBoDvbhTab() {
       if (res.errors.length > 0) {
         addToast(`Đồng bộ có lỗi: ${res.errors.join("; ")}`);
       } else {
-        addToast(`Đã đồng bộ ${res.ktvSynced} KTV, ${res.linhKienSynced} linh kiện sang DVBH`);
+        addToast(`Đã đồng bộ ${res.ktvSynced} KTV, ${res.linhKienSynced} linh kiện, ${res.khuVucSynced} Khu vực`);
       }
       await qc.invalidateQueries({ queryKey: ["dvbh-sync-status"] });
     },
     onError: (err) => addToast("Không thể đồng bộ: " + (err instanceof Error ? err.message : String(err))),
   });
 
-  const tongDangCho = (data?.ktvPending ?? 0) + (data?.linhKienPending ?? 0);
+  const tongDangCho = (data?.ktvPending ?? 0) + (data?.linhKienPending ?? 0) + (data?.khuVucPending ?? 0);
 
   return (
     <div className="max-w-md space-y-4">
       <div className="text-xs text-[var(--ink-500)]">
-        Đẩy danh bạ KTV/danh mục linh kiện mới nhất sang hệ DVBH gốc (ghi đè - hệ này là nguồn dữ
-        liệu chính từ sau khi tách hệ). Tự động chạy mỗi giờ, hoặc bấm "Đồng bộ ngay" để đẩy ngay lập
-        tức khi cần gấp.
+        Đẩy danh bạ KTV/danh mục linh kiện/Khu vực mới nhất sang hệ DVBH gốc và Worker "Sửa chữa bảo
+        hành" (ghi đè - hệ này là nguồn dữ liệu chính từ sau khi tách hệ). Tự động chạy mỗi giờ, hoặc
+        bấm "Đồng bộ ngay" để đẩy ngay lập tức khi cần gấp.
       </div>
       <div className="border border-[var(--line)] rounded-xl bg-[var(--surface)] p-4">
         {isLoading ? (
@@ -763,8 +767,12 @@ function DongBoDvbhTab() {
             <KvRow label="Linh kiện đang chờ đồng bộ">
               {(data?.linhKienPending ?? 0) > 0 ? <Badge tone="amber">{data?.linhKienPending}</Badge> : <Badge tone="teal">0</Badge>}
             </KvRow>
+            <KvRow label="Khu vực đang chờ đồng bộ">
+              {(data?.khuVucPending ?? 0) > 0 ? <Badge tone="amber">{data?.khuVucPending}</Badge> : <Badge tone="teal">0</Badge>}
+            </KvRow>
             <KvRow label="Lần đồng bộ KTV gần nhất">{data?.lastSyncKtv ? fmtDateTime(data.lastSyncKtv) : "— (chưa từng)"}</KvRow>
             <KvRow label="Lần đồng bộ linh kiện gần nhất">{data?.lastSyncLinhKien ? fmtDateTime(data.lastSyncLinhKien) : "— (chưa từng)"}</KvRow>
+            <KvRow label="Lần đồng bộ Khu vực gần nhất">{data?.lastSyncKhuVuc ? fmtDateTime(data.lastSyncKhuVuc) : "— (chưa từng)"}</KvRow>
             <div className="mt-3">
               <Btn size="sm" onClick={() => run.mutate()} loading={run.isPending} disabled={tongDangCho === 0 && !run.isPending}>
                 🔄 Đồng bộ ngay

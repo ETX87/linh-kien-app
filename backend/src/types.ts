@@ -57,6 +57,15 @@ export interface Env {
   // cao hon key chi doc, tach ra de co the thu hoi doc lap. Cung dung CASE_LOOKUP_SERVICE/
   // CASE_LOOKUP_BASE_URL de goi (cung 1 Worker dvbh, khac route).
   DVBH_SYNC_API_KEY: string;
+  // Them 04/09/2026: dich day THU 2, Worker doc lap "suachua" (module Sua chua bao hanh - xem
+  // CLAUDE.md repo "gui-bao-hanh-linh-kien" muc "Chot 5 cau hoi mo..."/"Cau hoi #6 chot xong...") -
+  // nhan cung 1 dang du lieu KTV/linh kien nhu "dvbh" o tren, CONG THEM entity "khu_vuc" rieng ma
+  // "dvbh" khong co. Dung Service Binding (KHONG fetch() thang URL - cung 1 tai khoan Cloudflare se bi
+  // chan loi 1042, ly do giong het CASE_LOOKUP_SERVICE o tren). Key RIENG voi DVBH_SYNC_API_KEY (khac
+  // Worker nhan, khong dung chung).
+  SUACHUA_SYNC_BASE_URL: string;
+  SUACHUA_SYNC_SERVICE: Fetcher;
+  SUACHUA_SYNC_API_KEY: string;
   // Cua sau dang nhap CHI danh cho local dev (xem routes/auth.ts GET /dev-login), giong co che he goc.
   LOCAL_DEV_BYPASS_AUTH?: string;
   // Web Push (phan hoi 2026-08-26: day thong bao ngay khi co "tin nhan thong bao" moi trong
