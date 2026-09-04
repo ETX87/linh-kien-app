@@ -10,6 +10,22 @@ import { useAuth } from "../auth/AuthContext";
 import type { KtvTonKhoSummaryRow, KtvTonKhoChiTietRow, KtvTonKhoImportMeta } from "../types";
 import { fmtVND, fmtDateTime } from "../types";
 import { parseTonKhoImportFile } from "../lib/tonKhoImport";
+import { exportRowsToExcel } from "../lib/exportExcel";
+
+// File mau cho "Import tồn kho MISA" - chi can dung dong tieu de cot (parser tim theo TEN cot, xem
+// HEADER_ALIASES o lib/tonKhoImport.ts) + vai dong vi du, KHONG can dung dinh dang goc phuc tap cua
+// MISA (nhieu khoi "Kho: ...", dong "Tổng cộng"...) vi parser da bo qua nhung dong khong co ca "Mã
+// hàng" lan "Mã kho".
+async function downloadTonKhoImportTemplate() {
+  await exportRowsToExcel(
+    [
+      { "Mã kho": "vidu.ktv01", "Mã hàng": "LK001", "Tên hàng": "Bo nguon 65W", "ĐVT": "Cai", "Đầu kỳ": 2, "Nhập kho": 3, "Xuất kho": 1, "Cuối kỳ": 4 },
+      { "Mã kho": "vidu.ktv01", "Mã hàng": "LK002", "Tên hàng": "Cap sac Type-C", "ĐVT": "Cai", "Đầu kỳ": 0, "Nhập kho": 5, "Xuất kho": 2, "Cuối kỳ": 3 },
+    ],
+    "mau_import_ton_kho_misa.xlsx",
+    "Data",
+  );
+}
 
 // Module RIENG (tach ra khoi Settings 2026-08-29, phan hoi nguoi dung: "Đẩy thẻ 'Tồn kho công nợ
 // KTV' ra ngoài menu" - truoc day chi la 1 tab trong SettingsModule.tsx nen CHI Admin vao duoc, gio
@@ -194,12 +210,17 @@ function TonKhoKtvContent() {
               Chọn file Excel "Tổng hợp tồn kho" xuất từ MISA (báo cáo gồm tất cả kho/KTV trong 1 file). Import sẽ <b>GHI ĐÈ toàn bộ</b> dữ liệu tồn kho hiện có bằng dữ liệu trong file.
             </div>
             {!importRunning && !importSummary && (
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImport(f); e.target.value = ""; }}
-                className="text-sm"
-              />
+              <>
+                <Btn variant="ghost" size="sm" onClick={() => void downloadTonKhoImportTemplate()}>
+                  ⬇ Tải file mẫu
+                </Btn>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImport(f); e.target.value = ""; }}
+                  className="text-sm"
+                />
+              </>
             )}
             {importRunning && (
               <div className="text-sm">
