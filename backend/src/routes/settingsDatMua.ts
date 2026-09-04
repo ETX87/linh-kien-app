@@ -72,7 +72,7 @@ settingsDatMua.patch("/linh-kien/:ma", linhKienWriteRoles, async (c) => {
   const ma = c.req.param("ma");
   if (!ma) return c.json({ error: "INVALID_PARAM" }, 400);
   const body = await c.req.json<{
-    bat_tat?: boolean; gia_ban?: number; gia_tham_chieu?: number; don_vi?: string; ghi_chu?: string;
+    ten_linh_kien?: string; bat_tat?: boolean; gia_ban?: number; gia_tham_chieu?: number; don_vi?: string; ghi_chu?: string;
     anh_demo?: string; dac_thu?: boolean; chi_sua_chua?: boolean; phan_loai_dac_thu?: string;
   }>();
   const existing = await c.env.DB.prepare("SELECT * FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
@@ -81,6 +81,7 @@ settingsDatMua.patch("/linh-kien/:ma", linhKienWriteRoles, async (c) => {
   const user = c.get("user");
   const dacThuNext = body.dac_thu !== undefined ? (body.dac_thu ? 1 : 0) : existing.dac_thu;
   const next = {
+    ten_linh_kien: body.ten_linh_kien !== undefined ? body.ten_linh_kien.trim() || existing.ten_linh_kien : existing.ten_linh_kien,
     bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat,
     gia_ban: body.gia_ban !== undefined ? body.gia_ban : existing.gia_ban,
     gia_tham_chieu: body.gia_tham_chieu !== undefined ? body.gia_tham_chieu : existing.gia_tham_chieu,
@@ -94,9 +95,9 @@ settingsDatMua.patch("/linh-kien/:ma", linhKienWriteRoles, async (c) => {
     phan_loai_dac_thu: !dacThuNext ? null : body.phan_loai_dac_thu !== undefined ? body.phan_loai_dac_thu?.trim() || null : existing.phan_loai_dac_thu,
   };
   await c.env.DB.prepare(
-    "UPDATE linh_kien SET bat_tat = ?, gia_ban = ?, gia_tham_chieu = ?, don_vi = ?, ghi_chu = ?, anh_demo = ?, dac_thu = ?, chi_sua_chua = ?, phan_loai_dac_thu = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?",
+    "UPDATE linh_kien SET ten_linh_kien = ?, bat_tat = ?, gia_ban = ?, gia_tham_chieu = ?, don_vi = ?, ghi_chu = ?, anh_demo = ?, dac_thu = ?, chi_sua_chua = ?, phan_loai_dac_thu = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?",
   )
-    .bind(next.bat_tat, next.gia_ban, next.gia_tham_chieu, next.don_vi, next.ghi_chu, next.anh_demo, next.dac_thu, next.chi_sua_chua, next.phan_loai_dac_thu, user.email, nowVN(), ma)
+    .bind(next.ten_linh_kien, next.bat_tat, next.gia_ban, next.gia_tham_chieu, next.don_vi, next.ghi_chu, next.anh_demo, next.dac_thu, next.chi_sua_chua, next.phan_loai_dac_thu, user.email, nowVN(), ma)
     .run();
 
   await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
