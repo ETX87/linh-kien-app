@@ -66,7 +66,7 @@ export function Sidebar({
       style={{ background: "linear-gradient(180deg, var(--sidebar-from), var(--sidebar-to) 60%)" }}
     >
       <div className="flex items-center gap-2.5 px-4 h-16 shrink-0 border-b border-[var(--sidebar-highlight)]">
-        <img src="/logo-37.png" alt="Đặt mua linh kiện" width={30} height={30} className="shrink-0 rounded-md" />
+        <img src="/icon-192.png" alt="Đặt mua linh kiện" width={30} height={30} className="shrink-0 rounded-md" />
         {(!collapsed || isMobile) && (
           <div className="leading-tight">
             <div className="font-display font-extrabold text-[var(--sidebar-ink)] text-sm tracking-tight">ĐẶT MUA LINH KIỆN</div>
