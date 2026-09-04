@@ -1830,6 +1830,12 @@ export function DonHangGroupedList({
           {/* "Đơn tạo hộ" (yeu cau nguoi dung 2026-08-27) - xem giai thich o KvRow "Trạng thái" cua
               Drawer chi tiet (isDonTaoHo, helpers.ts). */}
           {isDonTaoHo(row.d) && <Badge tone="gray">Đơn tạo hộ</Badge>}
+          {/* FIX (phan hoi 2026-09-04: "đặt đơn công nợ vượt trần nhưng không thấy cảnh báo") - badge
+              nay TRUOC DAY chi duoc them o Drawer chi tiet (dong ~680), KHONG co trong bang danh sach
+              chinh (cot "Trạng thái" nay, dung cho ca "Đơn hàng"/"Công nợ" tab) nen nguoi dung phai bam
+              vao tung dong moi thay - gio hien NGAY o day, cung 1 cho voi cac badge trang thai khac. */}
+          {row.d.loai_don === "cong_no" && row.d.danh_gia_cong_no === "Du" && <Badge tone="teal">Đủ công nợ</Badge>}
+          {row.d.loai_don === "cong_no" && row.d.danh_gia_cong_no === "Khong du" && <Badge tone="coral">Không đủ công nợ</Badge>}
         </div>
       ),
     },
@@ -2067,12 +2073,17 @@ export function DonHangGroupedList({
                       // xem du. Nut hanh dong (✓/⏳/✕/🚫) giu nguyen, KHONG tinh vao "3 dong" (hang
                       // thao tac rieng, theo dung xac nhan cua nguoi dung qua AskUserQuestion).
                       const badges: { tone: BadgeTone; label: string }[] = [
+                        // FIX (phan hoi 2026-09-04: "đặt đơn công nợ vượt trần nhưng không thấy cảnh
+                        // báo") - dat LEN DAU MANG (uu tien cao nhat) vi MAX_BADGE=1 phia duoi CHI hien
+                        // badges[0], badge canh bao nay se bi "+N" nuot mat neu de sau cac badge khac.
+                        ...(d.loai_don === "cong_no" && d.danh_gia_cong_no === "Khong du" ? [{ tone: "coral" as BadgeTone, label: "Không đủ công nợ" }] : []),
                         { tone: tone.tone, label: tone.label },
                         { tone: DON_HANG_TRANG_THAI_TONE_ALL[d.trang_thai ?? ""] ?? "gray", label: trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, d.trang_thai ?? "") },
                         ...(d.qua_han_ly_do_cham ? [{ tone: "orange" as BadgeTone, label: "Quá hạn" }] : []),
                         // "Đơn tạo hộ" (yeu cau nguoi dung 2026-08-27) - xem giai thich day du o KvRow
                         // "Trạng thái" cua Drawer chi tiet phia tren (isDonTaoHo, helpers.ts).
                         ...(isDonTaoHo(d) ? [{ tone: "gray" as BadgeTone, label: "Đơn tạo hộ" }] : []),
+                        ...(d.loai_don === "cong_no" && d.danh_gia_cong_no === "Du" ? [{ tone: "teal" as BadgeTone, label: "Đủ công nợ" }] : []),
                       ];
                       // SUA (phan hoi 2026-08-28: "dòng 1 60% diện tích cho tên linh kiện, 40% còn lại
                       // cho card trạng thái, không đủ thì ẩn bớt và hiện (N)") - giam tu 3 xuong 1 de
