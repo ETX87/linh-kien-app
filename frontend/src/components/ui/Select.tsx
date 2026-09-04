@@ -113,12 +113,19 @@ function SearchableSelect({
         {filtered.length === 0 ? (
           <div className="px-3 py-2 text-xs text-[var(--ink-400)] italic">Không tìm thấy.</div>
         ) : (
-          filtered.map((o) => {
+          filtered.map((o, i) => {
             const v = optValue(o);
             return (
               // onMouseDown (khong phai onClick) de chay TRUOC su kien blur cua input.
+              // key = "value::index" (SUA BUG 2026-09-04, phan hoi "filter ktv bị trùng tên, nhập
+              // tìm kiếm không phản hồi"): nhieu noi goi Select nay dung email_dang_nhap lam value
+              // (vd nguoiNhanHangData) - NHIEU ma_ktv (Ve tinh khac nhau) co the CUNG dung 1 email
+              // dang nhap chung voi Tram cha, khien 2 option khac nhau co CUNG value -> key trung
+              // lam React nham lan DOM node giua 2 hang khi danh sach loc doi theo tung ky tu go -
+              // hien trung/sai noi dung va nhu "khong phan hoi". Ghep them index de LUON duy nhat,
+              // khong doi "value" dung cho onChange.
               <button
-                key={v}
+                key={`${v}::${i}`}
                 type="button"
                 title={optLabel(o)}
                 onMouseDown={(e) => {
