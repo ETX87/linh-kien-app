@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { api, buildQuery } from "../api/client";
 import { Card } from "../components/ui/Card";
 import { Tabs } from "../components/ui/Tabs";
+import { Btn } from "../components/ui/Btn";
+import { useToast } from "../components/ui/Toast";
 import { KhuVucChipFilter } from "./datMuaLinhKien/SharedUi";
 
 // Bao cao "Toc do xu ly" (SLA theo tai khoan x giai doan quy trinh) - them 04/09/2026, xem
@@ -77,18 +79,86 @@ interface Filters {
 }
 
 function useXepHang(giaiDoan: string, filters: Filters) {
-  const query = buildQuery({
+  return useQuery({
+    queryKey: ["bao-cao-toc-do-xep-hang", giaiDoan, filters.kyLoai, filters.ky, [...filters.khuVuc].join(","), filters.nhomId],
+    queryFn: () => api.get<XepHangResult>(`/bao-cao-toc-do/xep-hang${xepHangQuery(giaiDoan, filters)}`),
+    enabled: !!giaiDoan,
+  });
+}
+
+function xepHangQuery(giaiDoan: string, filters: Filters): string {
+  return buildQuery({
     giai_doan: giaiDoan,
     ky_loai: filters.kyLoai,
     ky: filters.ky,
     khu_vuc: [...filters.khuVuc].join(",") || undefined,
     nhom_id: filters.nhomId || undefined,
   });
-  return useQuery({
-    queryKey: ["bao-cao-toc-do-xep-hang", giaiDoan, filters.kyLoai, filters.ky, [...filters.khuVuc].join(","), filters.nhomId],
-    queryFn: () => api.get<XepHangResult>(`/bao-cao-toc-do/xep-hang${query}`),
-    enabled: !!giaiDoan,
-  });
+}
+
+// Ten sheet Excel: toi da 31 ky tu, khong chua : \ / ? * [ ], phai duy nhat trong 1 workbook - cac
+// nhan giai doan hien tai deu da nam trong gioi han nay (kiem tra tay), nhung van xu ly phong khi co
+// giai doan moi dai hon sau nay.
+function sanitizeSheetName(label: string, used: Set<string>): string {
+  let name = label.replace(/[:\\/?*[\]]/g, " ").trim().slice(0, 31) || "Sheet";
+  let i = 2;
+  while (used.has(name)) {
+    const suffix = ` (${i})`;
+    name = name.slice(0, 31 - suffix.length) + suffix;
+    i += 1;
+  }
+  used.add(name);
+  return name;
+}
+
+function round1(n: number | null): number | null {
+  return n == null ? null : Math.round(n * 10) / 10;
+}
+
+// "Tai bao cao" (them 04/09/2026, phan hoi nguoi dung) - xuat 1 file .xlsx nhieu sheet cho TOAN BO
+// giai doan cung luc (theo dung ky/bo loc dang chon tren man hinh), khong chi rieng tab dang mo -
+// 1 sheet "Tong quan" (giong het so lieu tab Tong quan tren man hinh) + 1 sheet/giai doan (bang xep
+// hang day du, ke ca "TB gio ky truoc" khong hien tren UI de doi chieu tay khi can).
+async function downloadBaoCaoTocDo(stages: GiaiDoanMeta[], filters: Filters) {
+  const XLSX = await import("xlsx");
+  const workbook = XLSX.utils.book_new();
+
+  const results = await Promise.all(
+    stages.map(async (stage) => ({ stage, data: await api.get<XepHangResult>(`/bao-cao-toc-do/xep-hang${xepHangQuery(stage.key, filters)}`) })),
+  );
+
+  const tongQuanRows = results
+    .filter(({ stage }) => stage.noi_bo)
+    .map(({ stage, data }) => {
+      const totalCount = data.rows.reduce((s, r) => s + r.da_xu_ly + r.tu_choi, 0);
+      const totalHours = data.rows.reduce((s, r) => s + (r.tb_gio ?? 0) * (r.da_xu_ly + r.tu_choi), 0);
+      return {
+        "Luồng": LUONG_LABELS[stage.luong],
+        "Giai đoạn": stage.label,
+        "TB giờ (toàn hệ thống)": totalCount > 0 ? round1(totalHours / totalCount) : null,
+        "Đang chờ": data.dang_cho,
+        "Tổng đã xử lý": totalCount,
+      };
+    });
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(tongQuanRows), "Tong quan");
+
+  const usedNames = new Set<string>(["Tong quan"]);
+  for (const { stage, data } of results) {
+    const rows = data.rows.map((r) => ({
+      "Tài khoản": r.ten ?? r.email,
+      "Email": r.email,
+      "Đã xử lý": r.da_xu_ly,
+      "Từ chối": r.tu_choi,
+      "TB giờ xử lý": round1(r.tb_gio),
+      "TB giờ kỳ trước": round1(r.tb_gio_ky_truoc),
+      "Xu hướng (%)": round1(r.xu_huong_phan_tram),
+    }));
+    const sheet = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(workbook, sheet, sanitizeSheetName(stage.label, usedNames));
+  }
+
+  const kyLabel = filters.ky.replace(/[^0-9A-Za-z-]/g, "_");
+  XLSX.writeFile(workbook, `bao_cao_toc_do_xu_ly_${kyLabel}.xlsx`);
 }
 
 function StageLeaderboard({ stage, filters }: { stage: GiaiDoanMeta; filters: Filters }) {
@@ -274,6 +344,7 @@ function FilterBar({ filters, setFilters }: { filters: Filters; setFilters: (f: 
 }
 
 export function BaoCaoTocDoXuLyModule() {
+  const addToast = useToast();
   const { data: giaiDoanData, isLoading } = useQuery({
     queryKey: ["bao-cao-toc-do-giai-doan"],
     queryFn: () => api.get<{ giai_doan: GiaiDoanMeta[] }>("/bao-cao-toc-do/giai-doan"),
@@ -288,6 +359,18 @@ export function BaoCaoTocDoXuLyModule() {
   const [filters, setFilters] = useState<Filters>({ kyLoai: "thang", ky: defaultMonth(), khuVuc: new Set(), nhomId: "" });
   const [level1, setLevel1] = useState<"tong-quan" | GiaiDoanMeta["luong"]>("tong-quan");
   const [stageKeyByLuong, setStageKeyByLuong] = useState<Partial<Record<GiaiDoanMeta["luong"], string>>>({});
+  const [downloading, setDownloading] = useState(false);
+
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      await downloadBaoCaoTocDo(stages, filters);
+    } catch (err) {
+      addToast("Lỗi tải báo cáo: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   function jumpToStage(luong: GiaiDoanMeta["luong"], key: string) {
     setLevel1(luong);
@@ -306,8 +389,13 @@ export function BaoCaoTocDoXuLyModule() {
 
   return (
     <div className="anim-in space-y-3">
-      <div className="text-xs text-[var(--ink-500)]">
-        Tốc độ xử lý trung bình theo từng tài khoản ở từng giai đoạn của quy trình - thời gian tính cho các khoảng chờ nhân viên nội bộ thao tác (không tính khoảng chờ KTV hành động, xem tab riêng).
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="text-xs text-[var(--ink-500)] max-w-3xl">
+          Tốc độ xử lý trung bình theo từng tài khoản ở từng giai đoạn của quy trình - thời gian tính cho các khoảng chờ nhân viên nội bộ thao tác (không tính khoảng chờ KTV hành động, xem tab riêng).
+        </div>
+        <Btn size="sm" variant="ghost" onClick={() => void handleDownload()} loading={downloading} disabled={stages.length === 0}>
+          ⬇ Tải báo cáo
+        </Btn>
       </div>
       <FilterBar filters={filters} setFilters={setFilters} />
       <Tabs tabs={level1Tabs} active={level1} onChange={(k) => setLevel1(k as "tong-quan" | GiaiDoanMeta["luong"])} />
