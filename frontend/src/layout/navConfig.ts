@@ -47,6 +47,10 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Hệ thống",
     items: [
+      // "Tốc độ xử lý" (them 04/09/2026) - CHI Admin + la_view (xem App.tsx) - anh huong danh gia
+      // nhan su nen KHONG mo cho TN/Kho/Ke toan/QC/GS tu xem lan nhau (xac nhan nguoi dung), khac cach
+      // cap quyen tu dong theo 7 co nghiep vu cua cac muc "Van hanh" o tren.
+      { key: "bao-cao-toc-do", label: "Tốc độ xử lý", icon: "📈" },
       { key: "settings", label: "Settings", icon: "⚙" },
       { key: "users", label: "Quản lý User", icon: "⚉" },
     ],
@@ -72,6 +76,7 @@ export const MODULE_TITLES: Record<string, string> = {
   "tra-hang": "Đơn trả hàng",
   "danh-muc-lk": "Bảng Giá",
   "ton-kho-ktv": "Tồn kho công nợ KTV",
+  "bao-cao-toc-do": "Tốc độ xử lý",
   settings: "Settings",
   users: "Quản lý User",
 };

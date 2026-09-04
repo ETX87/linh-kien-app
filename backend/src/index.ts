@@ -10,6 +10,7 @@ import ktvTonKhoRoutes from "./routes/ktvTonKho";
 import datMuaLinhKienRoutes from "./routes/datMuaLinhKien";
 import phieuXuatKhoRoutes from "./routes/phieuXuatKho";
 import traHangRoutes from "./routes/traHang";
+import baoCaoTocDoXuLyRoutes from "./routes/baoCaoTocDoXuLy";
 import pushRoutes from "./routes/push";
 import dvbhSyncRoutes from "./routes/dvbhSync";
 import { runDvbhSync } from "./lib/dvbhSyncClient";
@@ -31,6 +32,7 @@ app.route("/api/settings", settingsDatMuaRoutes);
 app.route("/api/dat-mua-lk", datMuaLinhKienRoutes);
 app.route("/api/phieu-xuat-kho", phieuXuatKhoRoutes);
 app.route("/api/tra-hang", traHangRoutes);
+app.route("/api/bao-cao-toc-do", baoCaoTocDoXuLyRoutes);
 app.route("/api/push", pushRoutes);
 app.route("/api/dvbh-sync", dvbhSyncRoutes);
 

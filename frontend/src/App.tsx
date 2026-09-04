@@ -11,6 +11,7 @@ import { ROLE_MODULES, MODULE_TITLES, NAV_GROUPS } from "./layout/navConfig";
 import { DatMuaLinhKienModule } from "./modules/DatMuaLinhKienModule";
 import { DanhMucLinhKienModule } from "./modules/DanhMucLinhKienModule";
 import { TonKhoKtvModule } from "./modules/TonKhoKtvModule";
+import { BaoCaoTocDoXuLyModule } from "./modules/BaoCaoTocDoXuLyModule";
 import { SettingsModule } from "./modules/SettingsModule";
 import { UsersModule } from "./modules/UsersModule";
 import { api } from "./api/client";
@@ -82,6 +83,12 @@ function MainApp({
   }
   if (role !== "Admin" && (user.xem_danh_muc_lk || user.quan_ly_danh_muc_lk)) {
     allowedModules = [...new Set([...allowedModules, "danh-muc-lk"])];
+  }
+  // "Tốc độ xử lý" (them 04/09/2026) - RIENG cho la_view (KHONG gop vao khoi 7 co "Dat mua linh kien"
+  // o tren, vi 6 co con lai - la_kho/la_ke_toan/la_tac_nghiep/.../vai_tro Giam sat - KHONG duoc xem
+  // bao cao nay, du co quyen vao module dat-mua-lk) - xem backend/src/routes/baoCaoTocDoXuLy.ts gate.
+  if (role !== "Admin" && user.la_view) {
+    allowedModules = [...new Set([...allowedModules, "bao-cao-toc-do"])];
   }
 
   const [active, setActive] = useState(() => {
@@ -246,6 +253,7 @@ function MainApp({
           )}
           {active === "danh-muc-lk" && <DanhMucLinhKienModule />}
           {active === "ton-kho-ktv" && <TonKhoKtvModule />}
+          {active === "bao-cao-toc-do" && <BaoCaoTocDoXuLyModule />}
           {active === "settings" && <SettingsModule />}
           {active === "users" && <UsersModule />}
         </main>
