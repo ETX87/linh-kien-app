@@ -47,8 +47,9 @@ export function TonKhoKtvModule() {
   );
 }
 
-// "Đánh giá công nợ" 3 mức (them 04/09/2026, xem backend/src/lib/congNoKtv.ts) - null khi Tran cong
-// no chua duoc dat (khong the danh gia, KHAC "Binh thuong" de tranh hieu nham la an toan).
+// "Đánh giá công nợ" 3 mức (them 04/09/2026, xem backend/src/lib/congNoKtv.ts). SUA 2026-09-04: Tran
+// cong no chua duoc dat gio coi NHU tran = 0 (KTV chua duoc cap phep no gi ca) - backend khong con tra
+// ve null cho truong hop nay nua, chi con "null" trong type de tuong thich nguoc (an toan neu gap).
 function DanhGiaCongNoBadge({ value }: { value: "Vuot tran" | "Canh bao" | "Binh thuong" | null }) {
   if (value === "Vuot tran") return <Badge tone="coral">Vượt trần</Badge>;
   if (value === "Canh bao") return <Badge tone="amber">Cảnh báo</Badge>;

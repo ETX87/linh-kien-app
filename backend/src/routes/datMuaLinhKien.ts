@@ -1699,9 +1699,11 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
     const ktvRow = await c.env.DB.prepare("SELECT ma_ktv, cong_no FROM ktv_lien_he WHERE email_dang_nhap = ?")
       .bind(nguoiNhanHang)
       .first<{ ma_ktv: string; cong_no: number | null }>();
-    if (ktvRow && ktvRow.cong_no != null && ktvRow.cong_no > 0) {
+    if (ktvRow) {
       const congNoChotHienTai = await computeCongNoChot(c.env.DB, ktvRow.ma_ktv);
-      danhGiaCongNoPhieu = congNoChotHienTai + tongMoiCongNo <= ktvRow.cong_no ? "Du" : "Khong du";
+      // SUA 2026-09-04: KTV chua gan tran (cong_no null) coi nhu tran = 0 - xem giai thich o
+      // lib/congNoKtv.ts danhGiaCongNo3Muc.
+      danhGiaCongNoPhieu = congNoChotHienTai + tongMoiCongNo <= (ktvRow.cong_no ?? 0) ? "Du" : "Khong du";
     }
   }
 
@@ -1980,9 +1982,11 @@ async function processDatDonHangImportRows(
         const ktvRow = await db.prepare("SELECT ma_ktv, cong_no FROM ktv_lien_he WHERE email_dang_nhap = ?")
           .bind(emailNhanHang)
           .first<{ ma_ktv: string; cong_no: number | null }>();
-        if (ktvRow && ktvRow.cong_no != null && ktvRow.cong_no > 0) {
+        if (ktvRow) {
           const congNoChotHienTai = await computeCongNoChot(db, ktvRow.ma_ktv);
-          danhGiaCongNoGroup = congNoChotHienTai + tongMoiCongNoGroup <= ktvRow.cong_no ? "Du" : "Khong du";
+          // SUA 2026-09-04: KTV chua gan tran (cong_no null) coi nhu tran = 0 - xem giai thich o
+          // lib/congNoKtv.ts danhGiaCongNo3Muc.
+          danhGiaCongNoGroup = congNoChotHienTai + tongMoiCongNoGroup <= (ktvRow.cong_no ?? 0) ? "Du" : "Khong du";
         }
       }
 

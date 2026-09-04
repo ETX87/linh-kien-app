@@ -145,11 +145,14 @@ export function useTaoDonForm({
     const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
     return sum + (lk?.gia_tri_cong_no ?? 0) * d.so_luong_de_xuat;
   }, 0);
-  // null = khong the danh gia (chua co dong cong_no nao, HOAC Tran cong no chua duoc dat cho nguoi
-  // nhan hang nay) - KHAC voi false ("Khong du"), giong quy uoc danhGiaCongNo3Muc o backend.
+  // null = khong the danh gia (chua co dong cong_no nao trong luc soan, HOAC chua tai xong du lieu
+  // congNoDuKien) - KHAC voi false ("Khong du"). SUA 2026-09-04 (phan hoi "trường hợp ktv không có
+  // trần công nợ, tạo cảnh báo tương tự với trần công nợ = 0"): nguoi nhan hang CHUA duoc gan tran
+  // (congNoDuKien.tran === null) gio coi NHU tran = 0 (KHAC truoc day la bo qua/khong danh gia) -
+  // khop dung quy uoc moi cua danhGiaCongNo3Muc o backend.
   const sePhepDuCongNo: boolean | null =
-    tongCongNoTamTinh > 0 && congNoDuKien?.tran != null
-      ? congNoDuKien.cong_no_chot + tongCongNoTamTinh <= congNoDuKien.tran
+    tongCongNoTamTinh > 0 && congNoDuKien != null
+      ? congNoDuKien.cong_no_chot + tongCongNoTamTinh <= (congNoDuKien.tran ?? 0)
       : null;
 
   return {

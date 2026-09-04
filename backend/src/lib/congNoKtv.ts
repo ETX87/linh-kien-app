@@ -56,11 +56,15 @@ export async function computeCongNoChot(db: D1Database, maKtv: string): Promise<
 
 export type DanhGiaCongNo3Muc = "Vuot tran" | "Canh bao" | "Binh thuong" | null;
 
-// 3 muc (CHOT nguoi dung): "Vuot tran" > tran; "Canh bao" > 0.7*tran; con lai "Binh thuong". Tran
-// null/0 (chua dat) -> null (khong the danh gia, KHAC "Binh thuong" de tranh hieu nham la an toan).
+// 3 muc (CHOT nguoi dung, SUA 2026-09-04 - phan hoi "trường hợp ktv không có trần công nợ, tạo cảnh
+// báo tương tự với trần công nợ = 0"): Tran chua dat (null) duoc coi NHU tran = 0, KHONG con tra ve
+// null/bo qua danh gia nhu truoc - 1 KTV chua duoc gan tran nghia la CHUA duoc cap phep no gi ca, nen
+// bat ky cong no chot > 0 nao cung la "Vuot tran" ngay. "null" van con trong type de tuong thich nguoc
+// (khong con duong nao thuc su tra ve null nua, nhung cac noi goi/hien thi (vd DanhGiaCongNoBadge) van
+// an toan neu gap gia tri null cu).
 export function danhGiaCongNo3Muc(congNoChot: number, tranCongNo: number | null): DanhGiaCongNo3Muc {
-  if (tranCongNo == null || tranCongNo <= 0) return null;
-  if (congNoChot > tranCongNo) return "Vuot tran";
-  if (congNoChot > 0.7 * tranCongNo) return "Canh bao";
+  const tran = tranCongNo ?? 0;
+  if (congNoChot > tran) return "Vuot tran";
+  if (tran > 0 && congNoChot > 0.7 * tran) return "Canh bao";
   return "Binh thuong";
 }
