@@ -53,6 +53,19 @@ export function useTaoDonForm({
     enabled: canQuanLy,
   });
 
+  // Canh bao SONG vuot tran cong no ngay luc soan don (them 2026-09-04, phan hoi "ngay thời điểm
+  // người dùng tạo đơn linh kiện chứa công nợ đã phải hiện cảnh báo rồi") - KHAC voi danh_gia_cong_no
+  // (chot 1 LAN o backend SAU KHI da tao don, xem POST /phieu-dat): o day tinh LAI moi lan drafts/
+  // nguoiNhanHang doi, dua tren du lieu "tran + cong no chot HIEN TAI" tu server (GET /dat-mua-lk/
+  // cong-no-du-kien) + "cong no tam tinh" cua CHINH cac dong dang soan (tinh o client tu
+  // danhMuc.gia_tri_cong_no, khong can goi server rieng cho phan nay).
+  const targetNguoiNhanHang = nguoiNhanHang || currentEmail;
+  const { data: congNoDuKien } = useQuery({
+    queryKey: ["dat-mua-lk-cong-no-du-kien", targetNguoiNhanHang],
+    queryFn: () => api.get<{ tran: number | null; cong_no_chot: number }>(`/dat-mua-lk/cong-no-du-kien?nguoi_nhan_hang=${encodeURIComponent(targetNguoiNhanHang)}`),
+    enabled: !!targetNguoiNhanHang,
+  });
+
   const create = useMutation({
     mutationFn: () =>
       api.post<{ id: string }>("/dat-mua-lk/phieu-dat", {
@@ -124,12 +137,27 @@ export function useTaoDonForm({
   }, 0);
   const tongSoLuong = drafts.reduce((sum, d) => sum + (d.so_luong_de_xuat || 0), 0);
 
+  // "Cong no tam tinh" cua RIENG cac dong loai_don='cong_no' dang soan - CUNG cong thuc voi backend
+  // (gia_tri_cong_no x so_luong_de_xuat, xem POST /phieu-dat) nhung tinh tai client de canh bao SONG
+  // (khong doi submit xong moi biet).
+  const tongCongNoTamTinh = drafts.reduce((sum, d) => {
+    if (deriveLoaiDon(d.loai_de_xuat.trim()) !== "cong_no") return sum;
+    const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
+    return sum + (lk?.gia_tri_cong_no ?? 0) * d.so_luong_de_xuat;
+  }, 0);
+  // null = khong the danh gia (chua co dong cong_no nao, HOAC Tran cong no chua duoc dat cho nguoi
+  // nhan hang nay) - KHAC voi false ("Khong du"), giong quy uoc danhGiaCongNo3Muc o backend.
+  const sePhepDuCongNo: boolean | null =
+    tongCongNoTamTinh > 0 && congNoDuKien?.tran != null
+      ? congNoDuKien.cong_no_chot + tongCongNoTamTinh <= congNoDuKien.tran
+      : null;
+
   return {
     danhMuc, nguoiNhanHang, setNguoiNhanHang, drafts, infoExpandedIdx, setInfoExpandedIdx,
     activeIdx, setActiveIdx, otherLdeIdx, setOtherLdeIdx, addBlockedHint, setAddBlockedHint,
     activeRowRef, justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
     updateDraft, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
-    tongGiaUocTinh, tongSoLuong,
+    tongGiaUocTinh, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
   };
 }
 

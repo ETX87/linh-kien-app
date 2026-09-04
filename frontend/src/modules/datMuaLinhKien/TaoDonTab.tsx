@@ -45,7 +45,7 @@ export function TaoDonTab({
     activeIdx, setActiveIdx, otherLdeIdx, setOtherLdeIdx, addBlockedHint, setAddBlockedHint,
     activeRowRef, justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
     updateDraft, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
-    tongGiaUocTinh, tongSoLuong,
+    tongGiaUocTinh, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
   } = form;
 
   return (
@@ -75,6 +75,14 @@ export function TaoDonTab({
       // chon quay lai, khong phai loi moi).
       footer={
         <div className="flex flex-col gap-1.5 -mx-5 -my-3 px-5 py-3 bg-[var(--ocean-100)]/35">
+          {/* Canh bao SONG vuot tran cong no (them 2026-09-04) - chi hien khi da co du lieu de ket luan
+              "Khong du" (sePhepDuCongNo === false), tranh nhieu khi chua co dong cong_no nao/chua co
+              tran. Xem giai thich cong thuc o useTaoDonForm.ts. */}
+          {sePhepDuCongNo === false && congNoDuKien && (
+            <div className="rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-[11px] font-bold text-[var(--coral-700)]">
+              ⚠ Vượt trần công nợ dự kiến: {fmtVND(congNoDuKien.cong_no_chot + tongCongNoTamTinh)} / {fmtVND(congNoDuKien.tran ?? 0)}
+            </div>
+          )}
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm">
               <span className="text-[var(--ink-500)]">{drafts.length} dòng · {tongSoLuong} cái</span>

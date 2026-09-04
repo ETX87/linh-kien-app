@@ -206,6 +206,49 @@ datMuaLinhKien.get("/nguoi-nhan-hang-kha-dung", async (c) => {
   return c.json({ rows: results });
 });
 
+// GET /api/dat-mua-lk/cong-no-du-kien?nguoi_nhan_hang=<email> - tra { tran, cong_no_chot } cua 1 KTV -
+// dung de CANH BAO SONG ngay trong luc dang soan don (them 2026-09-04, phan hoi "ngay thời điểm người
+// dùng tạo đơn linh kiện chứa công nợ đã phải hiện cảnh báo rồi", khac voi danh_gia_cong_no da co san
+// - cai do CHOT 1 LAN SAU KHI da tao don, khong giup nguoi dung biet TRUOC luc dang gop dong). Khong
+// nhan tu client "tong cong no tam tinh" (frontend tu tinh lay tu danhMuc.gia_tri_cong_no da co san,
+// endpoint nay chi tra 2 con so nen tang: tran + cong no chot HIEN TAI, frontend tu cong them tam tinh
+// cua cac dong dang soan de so sanh - xem useTaoDonForm.ts). Quyen han/logic resolve nguoi_nhan_hang
+// GIONG HET POST /phieu-dat (chi TN/GS duoc xem KTV khac, GS chi xem KTV minh phu trach) - COPY co
+// chu y (khong tach ham dung chung) vi 2 noi khac nhau ve output (route nay chi doc, khong tao don).
+datMuaLinhKien.get("/cong-no-du-kien", async (c) => {
+  if (!canCreatePhieuDat(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const user = c.get("user");
+  const q = c.req.query("nguoi_nhan_hang")?.trim();
+  let targetUser: { email: string; la_ve_tinh: number | boolean };
+  if (q && q !== user.email) {
+    if (!canQuanLyDonHo(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+    const target = await c.env.DB.prepare("SELECT email, la_ktv_dvbh, la_ve_tinh FROM users WHERE email = ?")
+      .bind(q)
+      .first<{ email: string; la_ktv_dvbh: number; la_ve_tinh: number }>();
+    if (!target || !(target.la_ktv_dvbh || target.la_ve_tinh)) return c.json({ error: "NGUOI_NHAN_HANG_KHONG_HOP_LE" }, 400);
+    targetUser = target;
+  } else {
+    targetUser = { email: user.email, la_ve_tinh: user.la_ve_tinh };
+  }
+  const resolved = await resolveNguoiNhanHang(c.env.DB, targetUser);
+  if ("error" in resolved) return c.json({ error: resolved.error }, 400);
+  const nguoiNhanHang = resolved.email;
+
+  if (user.vai_tro === "Giam sat" && !canTacNghiep(c) && nguoiNhanHang !== user.email) {
+    const recipientRow = await c.env.DB.prepare("SELECT giam_sat_quan_ly FROM users WHERE email = ?")
+      .bind(nguoiNhanHang)
+      .first<{ giam_sat_quan_ly: string | null }>();
+    if (recipientRow?.giam_sat_quan_ly !== user.email) return c.json({ error: "NGUOI_NHAN_HANG_NGOAI_PHAM_VI" }, 403);
+  }
+
+  const ktvRow = await c.env.DB.prepare("SELECT ma_ktv, cong_no FROM ktv_lien_he WHERE email_dang_nhap = ?")
+    .bind(nguoiNhanHang)
+    .first<{ ma_ktv: string; cong_no: number | null }>();
+  if (!ktvRow) return c.json({ tran: null, cong_no_chot: 0 });
+  const congNoChot = await computeCongNoChot(c.env.DB, ktvRow.ma_ktv);
+  return c.json({ tran: ktvRow.cong_no, cong_no_chot: congNoChot });
+});
+
 // GET /api/dat-mua-lk/khu-vuc-cua-toi (them 2026-08-27, phan hoi "GS test không thấy đơn của KTV khu
 // vực mình" + yeu cau "filter theo khu vực... GS tự lọc mặc định theo khu vực mình được set") - tra
 // danh sach Khu vuc GAN VOI CHINH tai khoan dang goi, dung lam gia tri MAC DINH cho bo loc Khu vuc o

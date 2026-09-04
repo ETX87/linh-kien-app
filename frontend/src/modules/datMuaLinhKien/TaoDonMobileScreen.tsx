@@ -51,6 +51,7 @@ export function TaoDonMobileScreen({
     activeIdx, setActiveIdx, otherLdeIdx, setOtherLdeIdx, addBlockedHint, setAddBlockedHint,
     justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
     updateDraft, isLineComplete, canSubmit, themDong, deleteDraft, tongGiaUocTinh, tongSoLuong,
+    tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
   } = form;
 
   // FIX (phan hoi 2026-08-28: "ở giao diện tạo đơn ấn lùi vẫn báo thoát app") - man hinh nay la
@@ -358,6 +359,13 @@ export function TaoDonMobileScreen({
         className="shrink-0 flex flex-col gap-2 border-t border-[var(--line)] bg-[var(--ocean-100)]/35 px-3.5 pt-2.5"
         style={{ paddingBottom: "max(0.625rem, env(safe-area-inset-bottom))" }}
       >
+        {/* Canh bao SONG vuot tran cong no (them 2026-09-04) - xem giai thich o TaoDonTab.tsx (ban
+            desktop, cung dieu kien). */}
+        {sePhepDuCongNo === false && congNoDuKien && (
+          <div className="rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-[11px] font-bold text-[var(--coral-700)]">
+            ⚠ Vượt trần công nợ dự kiến: {fmtVND(congNoDuKien.cong_no_chot + tongCongNoTamTinh)} / {fmtVND(congNoDuKien.tran ?? 0)}
+          </div>
+        )}
         <div className="flex items-center justify-between text-sm">
           <span className="text-[var(--ink-500)]">{drafts.length} dòng · {tongSoLuong} cái</span>
           {tongGiaUocTinh > 0 && <span className="font-bold text-[var(--green-700)]">{fmtVND(tongGiaUocTinh)}</span>}

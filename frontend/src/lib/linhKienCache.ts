@@ -26,6 +26,11 @@ interface CacheEntry {
   dac_thu: number;
   // "phan_loai_dac_thu" (them 2026-08-25) - xem giai thich o types.ts LinhKienRow.
   phan_loai_dac_thu: string | null;
+  // "gia_tri_cong_no" (them 2026-09-04) - CUNG loai bug voi "dac_thu" o comment tren: whitelist nay
+  // phai duoc cap nhat MOI LAN them cot moi vao LinhKienRow can dung o cac man dua vao cache nay
+  // (TaoDonTab/DonCuaToiTab qua useLkAndLdeCache) - de sot se khien truong bi am tham mat khi doc lai
+  // tu IndexedDB, du API/DB co du lieu dung.
+  gia_tri_cong_no: number | null;
   nguoi_cap_nhat: string | null;
   ngay_cap_nhat: string | null; // ISO timestamp
 }
@@ -91,6 +96,7 @@ export async function mergeLinhKienToCache(rows: LinhKienRow[]): Promise<void> {
         chi_sua_chua: row.chi_sua_chua,
         dac_thu: row.dac_thu,
         phan_loai_dac_thu: row.phan_loai_dac_thu,
+        gia_tri_cong_no: row.gia_tri_cong_no,
         nguoi_cap_nhat: row.nguoi_cap_nhat,
         ngay_cap_nhat: row.ngay_cap_nhat,
       });

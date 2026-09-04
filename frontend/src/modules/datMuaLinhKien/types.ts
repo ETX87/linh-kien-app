@@ -35,6 +35,10 @@ export interface LkDanhMucRow {
   // chi thieu trong TYPE nay. Dung o LinhKienPicker.tsx de hien canh bao TBP duyet.
   dac_thu?: number | null;
   phan_loai_dac_thu?: string | null;
+  // "gia_tri_cong_no" (them 04/09/2026) - CUNG ly do voi anh_demo/ghi_chu o tren: du lieu da co san tu
+  // SELECT * o backend, chi thieu trong TYPE nay. Dung o useTaoDonForm.ts tinh "Cong no tam tinh" song
+  // ngay luc soan don (xem GET /dat-mua-lk/cong-no-du-kien).
+  gia_tri_cong_no?: number | null;
 }
 
 // Trang thai 1 DONG don hang - null cho dong loai_don='tra_hang' (dung tra_hang_log rieng, xem
