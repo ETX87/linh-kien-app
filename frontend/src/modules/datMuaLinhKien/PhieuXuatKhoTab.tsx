@@ -358,7 +358,15 @@ export function PhieuXuatKhoTab({
     {
       key: "ma_xuat_kho",
       header: "Mã đơn hàng",
-      render: (r) => (r.ma_xuat_kho_xac_nhan ? r.ma_xuat_kho : <span className="text-[var(--ink-400)] italic">Chưa có (đang chờ KTV chuyển tiền)</span>),
+      // FIX (phan hoi 2026-09-05, giong het comment o Drawer chi tiet ben duoi): chi ghi "(đang chờ KTV
+      // chuyển tiền)" khi THAT SU con cho (co so_tien_can_chuyen VA chua "TN da duyet") - PXK khong can
+      // chuyen tien hoac da chuyen+duyet xong thi chi con thieu buoc TN tu nhap ma, khong con "cho" ai.
+      render: (r) => {
+        const chuyenTienOk = r.so_tien_can_chuyen == null || r.trang_thai_chuyen_tien === "TN da duyet";
+        return r.ma_xuat_kho_xac_nhan ? r.ma_xuat_kho : (
+          <span className="text-[var(--ink-400)] italic">{chuyenTienOk ? "Chưa có" : "Chưa có (đang chờ KTV chuyển tiền)"}</span>
+        );
+      },
     },
     { key: "nguoi_tao", header: "Người tạo", render: (r) => labelKtv(r.nguoi_tao) },
     { key: "nguoi_nhan_hang", header: "Người nhận hàng", render: (r) => (r.nguoi_nhan_hang ? labelKtv(r.nguoi_nhan_hang) : <span className="text-[var(--ink-400)]">—</span>) },
@@ -1014,7 +1022,15 @@ export function PxkDetailModal({
             {pxk.ma_xuat_kho_xac_nhan ? (
               <span className="font-mono font-bold">{pxk.ma_xuat_kho}</span>
             ) : (
-              <span className="text-[var(--ink-400)] italic text-xs">Chưa có mã đơn hàng (đang chờ KTV chuyển tiền)</span>
+              // FIX (phan hoi 2026-09-05: "đã xác nhận chuyển tiền nhưng vẫn báo đang chờ ktv chuyển
+              // tiền") - truoc day LUON ghi cung "(đang chờ KTV chuyển tiền)" moi khi chua co ma_xuat_kho
+              // (chua nhap "Mã đơn hàng"), du chuyenTienOk (dong 844, PXK khong can chuyen tien HOAC KTV
+              // da chuyen + Ke toan da duyet xong) - 2 buoc nay DOC LAP, khong con blocking gi nhau nua
+              // sau khi chuyen tien xong (backend van cho TN tu nhap ma bat ky luc nao trong "Dang tao
+              // phieu"), nen nhan phai PHAN ANH DUNG ly do dang cho: chi neu THAT SU con cho chuyen tien.
+              <span className="text-[var(--ink-400)] italic text-xs">
+                {chuyenTienOk ? "Chưa có mã đơn hàng" : "Chưa có mã đơn hàng (đang chờ KTV chuyển tiền)"}
+              </span>
             )}
             {pxk.ma_xuat_kho_xac_nhan &&
               MISA_TEMPLATE_ORDER.map((tpl) => (
