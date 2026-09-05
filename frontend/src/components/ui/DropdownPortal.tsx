@@ -17,6 +17,7 @@ export function DropdownPortal({
   open,
   children,
   matchWidth = true,
+  minWidth,
   maxHeight = 320,
   className = "",
 }: {
@@ -28,6 +29,13 @@ export function DropdownPortal({
   open: boolean;
   children: ReactNode;
   matchWidth?: boolean;
+  // FIX (phan hoi 2026-09-05: "phiếu xuất kho, nhập lý do quá hạn cho đơn hàng, listdown lỗi hiện
+  // thị") - matchWidth=true truoc day LUON khoa dropdown DUNG BANG be rong anchor, du anchor rat hep
+  // (vd o Select "Lý do chậm" trong 1 <td> chat hep cua PhieuXuatKhoTab.tsx) khien nhan dai (vd "Do
+  // Kho hàng lỗi...") bi cat cut khong doc duoc (truncate trong Select.tsx). minWidth (tuy chon) dam
+  // bao dropdown KHONG BAO GIO hep hon gia tri nay du anchor hep hon, van giu matchWidth cho cac
+  // truong hop anchor da du rong (Math.max, khong ep buoc rong hon can thiet).
+  minWidth?: number;
   maxHeight?: number;
   className?: string;
 }) {
@@ -46,7 +54,7 @@ export function DropdownPortal({
       const openUpward = spaceBelow < Math.min(maxHeight, 160) && r.top > spaceBelow;
       setPos({
         left: r.left,
-        width: r.width,
+        width: minWidth ? Math.max(r.width, minWidth) : r.width,
         top: openUpward ? undefined : r.bottom + 4,
         bottom: openUpward ? window.innerHeight - r.top + 4 : undefined,
       });
@@ -60,7 +68,7 @@ export function DropdownPortal({
       window.removeEventListener("scroll", reposition, true);
       window.removeEventListener("resize", reposition);
     };
-  }, [open, anchorRef, maxHeight]);
+  }, [open, anchorRef, maxHeight, minWidth]);
 
   if (!open || !pos) return null;
 

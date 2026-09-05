@@ -39,7 +39,13 @@ export function Select({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
-      className={`focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm text-[var(--ink-900)] disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
+      // FIX (phan hoi 2026-09-05: "nút filter listdown đang không nổi bật, khó nhìn") - truoc day dung
+      // bg-surface-100 (#f4f4f5), CUNG MAU HET voi panel bo loc bao quanh no (vd DonCuaToiTab.tsx dong
+      // "showFilters &&" dung chinh bg-surface-100 cho ca khoi) nen o filter lan vao nen, chi con thay
+      // border rat nhat - doi sang bg-surface (trang) + border dam hon (ink-400) de noi bat, khop dung
+      // border-2 cac input ngay thang ("Từ ngày"/"Đến ngày") dat CANH no trong CUNG panel dang dung
+      // bg-white san.
+      className={`focus-ring bg-[var(--surface)] border border-[var(--ink-400)] rounded-lg px-2.5 py-1.5 text-sm text-[var(--ink-900)] disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
     >
       {options.map((o) =>
         typeof o === "string" ? (
@@ -107,9 +113,13 @@ function SearchableSelect({
         }}
         disabled={disabled}
         placeholder="Gõ để tìm…"
-        className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm text-[var(--ink-900)] disabled:opacity-40 disabled:cursor-not-allowed"
+        // FIX (phan hoi 2026-09-05, giong het comment o <select> thuan phia tren): cung doi bg-surface-100
+        // -> bg-surface + border dam hon de khong lan vao panel bo loc bao quanh.
+        className="focus-ring w-full bg-[var(--surface)] border border-[var(--ink-400)] rounded-lg px-2.5 py-1.5 text-sm text-[var(--ink-900)] disabled:opacity-40 disabled:cursor-not-allowed"
       />
-      <DropdownPortal anchorRef={containerRef} contentRef={dropdownRef} open={open} maxHeight={224} className="rounded-lg py-1">
+      {/* minWidth (phan hoi 2026-09-05: "listdown lỗi hiện thị" - nhan dai bi cat cut khi anchor hep,
+          vd o trong 1 <td> chat hep) - xem giai thich day du o DropdownPortal.tsx. */}
+      <DropdownPortal anchorRef={containerRef} contentRef={dropdownRef} open={open} maxHeight={224} minWidth={220} className="rounded-lg py-1">
         {filtered.length === 0 ? (
           <div className="px-3 py-2 text-xs text-[var(--ink-400)] italic">Không tìm thấy.</div>
         ) : (
