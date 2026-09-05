@@ -330,6 +330,40 @@ settingsKtv.patch("/:ma/dat-mua-lk", adminOnly, async (c) => {
   return c.json({ ok: true });
 });
 
+// PATCH /:ma/cong-no-misa (them 2026-09-05, phan hoi "đẩy ra menu để các vai trò nhân viên văn phòng
+// có thể xem được thông tin (cấp quyền cho kế toán quyền sửa trần công nợ, mã misa, tên misa của
+// KTV)") - uy quyen RIENG cho Ke toan sua DUNG 3 truong nay, KHONG dung chung PATCH /:ma/dat-mua-lk o
+// tren (route do van Admin-only, giu nguyen khong doi de tranh rui ro cho luong da chay that). Replicate
+// dung cach stamp cong_no_cap_nhat_luc chi khi gia tri THAY DOI (giong het logic /:ma/dat-mua-lk).
+settingsKtv.patch("/:ma/cong-no-misa", async (c) => {
+  const user = c.get("user");
+  if (!user.la_ke_toan && user.vai_tro !== "Admin") return c.json({ error: "FORBIDDEN" }, 403);
+
+  const ma = c.req.param("ma");
+  const body = await c.req.json<{ cong_no?: number | null; ma_misa?: string | null; ten_misa?: string | null }>();
+  const existing = await c.env.DB.prepare("SELECT cong_no, ma_misa, ten_misa FROM ktv_lien_he WHERE ma_ktv = ?")
+    .bind(ma)
+    .first<{ cong_no: number | null; ma_misa: string | null; ten_misa: string | null }>();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const next = {
+    cong_no: body.cong_no !== undefined ? body.cong_no : existing.cong_no,
+    ma_misa: body.ma_misa !== undefined ? body.ma_misa?.trim() || null : existing.ma_misa,
+    ten_misa: body.ten_misa !== undefined ? body.ten_misa?.trim() || null : existing.ten_misa,
+  };
+  const congNoChanged = next.cong_no !== existing.cong_no;
+  const congNoCapNhatLuc = congNoChanged ? nowVN() : undefined;
+
+  await c.env.DB.prepare(
+    `UPDATE ktv_lien_he SET cong_no = ?, ma_misa = ?, ten_misa = ?${congNoChanged ? ", cong_no_cap_nhat_luc = ?" : ""} WHERE ma_ktv = ?`,
+  )
+    .bind(...[next.cong_no ?? null, next.ma_misa, next.ten_misa], ...(congNoChanged ? [congNoCapNhatLuc] : []), ma)
+    .run();
+
+  await refreshHash(c.env.DB);
+  return c.json({ ok: true });
+});
+
 settingsKtv.post("/backfill-users", adminOnly, async (c) => {
   const { results } = await c.env.DB.prepare(
     "SELECT ten_hien_thi, vai_tro_ktv, email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL",

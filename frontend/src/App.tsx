@@ -11,6 +11,7 @@ import { ROLE_MODULES, MODULE_TITLES, NAV_GROUPS } from "./layout/navConfig";
 import { DatMuaLinhKienModule } from "./modules/DatMuaLinhKienModule";
 import { DanhMucLinhKienModule } from "./modules/DanhMucLinhKienModule";
 import { TonKhoKtvModule } from "./modules/TonKhoKtvModule";
+import { DanhSachKtvModule } from "./modules/DanhSachKtvModule";
 import { BaoCaoTocDoXuLyModule } from "./modules/BaoCaoTocDoXuLyModule";
 import { SettingsModule } from "./modules/SettingsModule";
 import { UsersModule } from "./modules/UsersModule";
@@ -89,6 +90,14 @@ function MainApp({
   // bao cao nay, du co quyen vao module dat-mua-lk) - xem backend/src/routes/baoCaoTocDoXuLy.ts gate.
   if (role !== "Admin" && user.la_view) {
     allowedModules = [...new Set([...allowedModules, "bao-cao-toc-do"])];
+  }
+  // "Danh sách KTV" (them 2026-09-05, phan hoi "đẩy ra menu để các vai trò nhân viên văn phòng có thể
+  // xem được thông tin") - MOI vai tro KHONG PHAI ban than KTV/CTV/Tram/Ve tinh deu xem duoc (TN/Kho/
+  // Ke toan/TBP/QC/Giam sat/View...) - backend GET /settings/ktv-lien-he da khong gioi han gi them
+  // ngoai dang nhap+duyet nen chi can mo them muc menu o day. Ke toan duoc uy quyen sua rieng 3 truong
+  // (xem DanhSachKtvModule.tsx -> KtvTab mode="ke-toan" + PATCH /:ma/cong-no-misa).
+  if (role !== "Admin" && !user.la_ktv_dvbh && !user.la_ve_tinh) {
+    allowedModules = [...new Set([...allowedModules, "danh-sach-ktv"])];
   }
 
   const [active, setActive] = useState(() => {
@@ -253,6 +262,7 @@ function MainApp({
           )}
           {active === "danh-muc-lk" && <DanhMucLinhKienModule />}
           {active === "ton-kho-ktv" && <TonKhoKtvModule />}
+          {active === "danh-sach-ktv" && <DanhSachKtvModule />}
           {active === "bao-cao-toc-do" && <BaoCaoTocDoXuLyModule />}
           {active === "settings" && <SettingsModule />}
           {active === "users" && <UsersModule />}

@@ -40,6 +40,12 @@ export const NAV_GROUPS: NavGroup[] = [
       // vuc)/la_view (theo Khu vuc)/cac vai tro con lai (xem toan bo) - xem TonKhoKtvModule.tsx +
       // scopeKtvTonKho() o backend/src/routes/ktvTonKho.ts.
       { key: "ton-kho-ktv", label: "Tồn kho công nợ KTV", icon: "🧾" },
+      // "Danh sách KTV" (them 2026-09-05, phan hoi "danh sách KTV trong quản lý tài khoản => đẩy ra
+      // menu để các vai trò nhân viên văn phòng có thể xem được thông tin") - muc menu RIENG (khac
+      // "Quản lý User" > "KTV hiện trường" cua Admin, van giu nguyen khong doi) cho cac vai tro KHONG
+      // PHAI ban than KTV/CTV/Tram/Ve tinh - xem dieu kien allowedModules o App.tsx va
+      // DanhSachKtvModule.tsx.
+      { key: "danh-sach-ktv", label: "Danh sách KTV", icon: "👥" },
       // Lien ket ra ngoai (them 2026-08-25) - xem giai thich day du o NavItem.href phia tren.
       { key: "sua-chua-bao-hanh", label: "Sửa chữa", icon: "🛠", href: "https://suachua.dichvu3t.workers.dev" },
     ],
@@ -76,6 +82,7 @@ export const MODULE_TITLES: Record<string, string> = {
   "tra-hang": "Đơn trả hàng",
   "danh-muc-lk": "Bảng Giá",
   "ton-kho-ktv": "Tồn kho công nợ KTV",
+  "danh-sach-ktv": "Danh sách KTV",
   "bao-cao-toc-do": "Tốc độ xử lý",
   settings: "Settings",
   users: "Quản lý User",

@@ -532,7 +532,16 @@ async function downloadKtvImportTemplate() {
 // "KTV hiện trường" (chuyen tu SettingsModule.tsx sang day 2026-08-26) - danh ba KTV/CTV/Trạm/Vệ
 // tinh, nay la the QUAN LY TAI KHOAN chinh cho nhom nay (truoc day chi la danh ba chon "nguoi nhan
 // hang"). Them tim kiem/loc cap 1-2/khu vuc + phan trang (truoc day tra het khong loc gi).
-function KtvTab() {
+// mode (them 2026-09-05, phan hoi "đẩy ra menu để các vai trò nhân viên văn phòng có thể xem được
+// thông tin (cấp quyền cho kế toán quyền sửa trần công nợ, mã misa, tên misa của KTV)") - export
+// component nay de DanhSachKtvModule.tsx dung lai CHINH logic/bang nay cho nhom van phong, khong nhan
+// doi ~400 dong. "admin" (mac dinh, dung o UsersModule nay) giu NGUYEN VEN hanh vi cu. "ke-toan": an
+// Them/Nhap hang loat/Xoa, modal Sua CHI cho sua Tran cong no/Ma MISA/Ten MISA (cac truong con lai
+// disabled de doi chieu), luu qua PATCH /:ma/cong-no-misa rieng (KHONG dung PATCH /:ma/dat-mua-lk).
+// "readonly": nhu "ke-toan" nhung khong co truong nao sua duoc, khong co nut Luu.
+export type KtvTabMode = "admin" | "ke-toan" | "readonly";
+
+export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
   const qc = useQueryClient();
   const addToast = useToast();
   const [search, setSearch] = useState("");
@@ -641,7 +650,14 @@ function KtvTab() {
       });
   }
 
-  const save = useMutation({
+  const onSaveSuccess = async () => {
+    addToast("Đã lưu");
+    await qc.invalidateQueries({ queryKey: ["settings-ktv"] });
+    setEditing(null);
+  };
+  const onSaveError = () => addToast("Không thể lưu, thử lại sau.");
+
+  const saveAdmin = useMutation({
     mutationFn: async () => {
       await api.post("/settings/ktv-lien-he", { ma_ktv: form.ma_ktv, ten_hien_thi: form.ten_hien_thi, sdt: form.sdt });
       await api.patch(`/settings/ktv-lien-he/${encodeURIComponent(form.ma_ktv)}/dat-mua-lk`, {
@@ -654,13 +670,22 @@ function KtvTab() {
         ten_misa: form.ten_misa.trim() || null,
       });
     },
-    onSuccess: async () => {
-      addToast("Đã lưu");
-      await qc.invalidateQueries({ queryKey: ["settings-ktv"] });
-      setEditing(null);
-    },
-    onError: () => addToast("Không thể lưu, thử lại sau."),
+    onSuccess: onSaveSuccess,
+    onError: onSaveError,
   });
+  // mode="ke-toan" (them 2026-09-05): CHI goi 1 PATCH rieng voi dung 3 truong duoc uy quyen, khong
+  // dung POST tao moi (khong the tao KTV moi tu the nay) va khong dung PATCH /:ma/dat-mua-lk day du.
+  const saveKeToan = useMutation({
+    mutationFn: () =>
+      api.patch(`/settings/ktv-lien-he/${encodeURIComponent(form.ma_ktv)}/cong-no-misa`, {
+        cong_no: form.cong_no !== "" ? Number(form.cong_no) : null,
+        ma_misa: form.ma_misa.trim() || null,
+        ten_misa: form.ten_misa.trim() || null,
+      }),
+    onSuccess: onSaveSuccess,
+    onError: onSaveError,
+  });
+  const save = mode === "ke-toan" ? saveKeToan : saveAdmin;
 
   const remove = useMutation({
     mutationFn: (ma: string) => api.delete(`/settings/ktv-lien-he/${encodeURIComponent(ma)}`),
@@ -717,21 +742,25 @@ function KtvTab() {
         // stopPropagation - dong da co onRowClick (bam dong mo Sua, xem duoi) nen 2 nut nay phai tu
         // chan bubble, khong thi bam "Xoá" se vua xoa vua mo modal Sua dong (da bi xoa) cung luc.
         <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-          <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openEdit(r)}>Sửa</button>
+          <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openEdit(r)}>
+            {mode === "admin" ? "Sửa" : mode === "ke-toan" ? "Sửa công nợ/MISA" : "Xem"}
+          </button>
           {/* FIX (ra soat UI 2026-08-27, hang muc #5): Xoa truoc day khong co xac nhan nao - DELETE
               backend la hard delete, khong chan du KTV con don hang lich su (ktv_lien_he KHONG phai
               FK cua dat_don_hang, chi rieng users.email moi la FK) nen bam nham se am tham tao lai
               dung tinh trang "tai khoan mo coi" da phai sua tay o dau phien lam viec nay. */}
-          <button
-            className="text-[var(--coral-500)] hover:underline text-xs"
-            onClick={() => {
-              if (window.confirm(`Xoá KTV "${r.ma_ktv}" (${r.ten_hien_thi ?? "chưa đặt tên"})?\n\nĐơn hàng cũ của người này sẽ KHÔNG bị xoá, nhưng sẽ mất liên kết danh bạ (mã KTV/khu vực/tên hiển thị) - có thể gây khó tra cứu sau này.`)) {
-                remove.mutate(r.ma_ktv);
-              }
-            }}
-          >
-            Xoá
-          </button>
+          {mode === "admin" && (
+            <button
+              className="text-[var(--coral-500)] hover:underline text-xs"
+              onClick={() => {
+                if (window.confirm(`Xoá KTV "${r.ma_ktv}" (${r.ten_hien_thi ?? "chưa đặt tên"})?\n\nĐơn hàng cũ của người này sẽ KHÔNG bị xoá, nhưng sẽ mất liên kết danh bạ (mã KTV/khu vực/tên hiển thị) - có thể gây khó tra cứu sau này.`)) {
+                  remove.mutate(r.ma_ktv);
+                }
+              }}
+            >
+              Xoá
+            </button>
+          )}
         </div>
       ),
     },
@@ -744,20 +773,22 @@ function KtvTab() {
         <Tooltip text={`Ghép "Email đăng nhập" để hệ thống tự cấp tài khoản (đã duyệt sẵn) khi người đó đăng nhập Google lần đầu. "KTV cấp 1 phụ trách" chỉ áp dụng cho Vệ tinh. Trần công nợ nhập tay/import Excel định kỳ, không đồng bộ tự động.`} />
       </div>
       <div className="flex flex-wrap gap-2 items-center">
-        <Btn size="sm" onClick={() => openEdit("new")}>+ Thêm KTV</Btn>
-        <Btn
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            setBulkOpen(true);
-            setBulkSummary(null);
-            setBulkFailDetails([]);
-            setBulkTotal(0);
-            setBulkProcessed(0);
-          }}
-        >
-          📋 Nhập danh sách hàng loạt
-        </Btn>
+        {mode === "admin" && <Btn size="sm" onClick={() => openEdit("new")}>+ Thêm KTV</Btn>}
+        {mode === "admin" && (
+          <Btn
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setBulkOpen(true);
+              setBulkSummary(null);
+              setBulkFailDetails([]);
+              setBulkTotal(0);
+              setBulkProcessed(0);
+            }}
+          >
+            📋 Nhập danh sách hàng loạt
+          </Btn>
+        )}
         <Btn
           variant="ghost"
           size="sm"
@@ -799,23 +830,29 @@ function KtvTab() {
         onRowClick={(r) => openEdit(r)}
       />
       {editing && (
-        <Modal open onClose={() => setEditing(null)} title={editing === "new" ? "Thêm KTV" : "Sửa KTV"} width="max-w-md">
+        <Modal
+          open
+          onClose={() => setEditing(null)}
+          title={editing === "new" ? "Thêm KTV" : mode === "ke-toan" ? "Sửa công nợ / MISA" : mode === "readonly" ? "Chi tiết KTV" : "Sửa KTV"}
+          width="max-w-md"
+        >
           <div className="space-y-3 text-sm">
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Mã KTV</label>
-              <input value={form.ma_ktv} disabled={editing !== "new"} onChange={(e) => setForm({ ...form, ma_ktv: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60" />
+              <input value={form.ma_ktv} disabled={editing !== "new" || mode !== "admin"} onChange={(e) => setForm({ ...form, ma_ktv: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60" />
             </div>
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Tên hiển thị</label>
-              <input value={form.ten_hien_thi} onChange={(e) => setForm({ ...form, ten_hien_thi: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
+              <input disabled={mode !== "admin"} value={form.ten_hien_thi} onChange={(e) => setForm({ ...form, ten_hien_thi: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60" />
             </div>
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Số điện thoại</label>
-              <input value={form.sdt} onChange={(e) => setForm({ ...form, sdt: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
+              <input disabled={mode !== "admin"} value={form.sdt} onChange={(e) => setForm({ ...form, sdt: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60" />
             </div>
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Vai trò</label>
               <Select
+                disabled={mode !== "admin"}
                 value={form.vai_tro_ktv ?? "KTV"}
                 onChange={(v) => setForm({ ...form, vai_tro_ktv: v as KtvLienHeRow["vai_tro_ktv"], ktv_cap1_phu_trach: v === "Ve tinh" ? form.ktv_cap1_phu_trach : "" })}
                 options={[
@@ -825,12 +862,13 @@ function KtvTab() {
             </div>
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Khu vực</label>
-              <Select value={form.khu_vuc_ma} onChange={(v) => setForm({ ...form, khu_vuc_ma: v })} options={[{ value: "", label: "— Chưa gán —" }, ...khuVucOptions]} />
+              <Select disabled={mode !== "admin"} value={form.khu_vuc_ma} onChange={(v) => setForm({ ...form, khu_vuc_ma: v })} options={[{ value: "", label: "— Chưa gán —" }, ...khuVucOptions]} />
             </div>
             {form.vai_tro_ktv === "Ve tinh" && (
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">KTV cấp 1 phụ trách</label>
                 <Select
+                  disabled={mode !== "admin"}
                   value={form.ktv_cap1_phu_trach}
                   onChange={(v) => setForm({ ...form, ktv_cap1_phu_trach: v })}
                   options={[{ value: "", label: "— Chưa gán —" }, ...cap1Options.filter((o) => o.value !== form.ma_ktv)]}
@@ -844,23 +882,24 @@ function KtvTab() {
               </label>
               <input
                 type="number"
+                disabled={mode === "readonly"}
                 value={form.cong_no}
                 onChange={(e) => setForm({ ...form, cong_no: e.target.value })}
-                className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1"
+                className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60"
               />
             </div>
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Email đăng nhập (Google)</label>
-              <input value={form.email_dang_nhap} onChange={(e) => setForm({ ...form, email_dang_nhap: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
+              <input disabled={mode !== "admin"} value={form.email_dang_nhap} onChange={(e) => setForm({ ...form, email_dang_nhap: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Mã tài khoản MISA</label>
-                <input value={form.ma_misa} onChange={(e) => setForm({ ...form, ma_misa: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
+                <input disabled={mode === "readonly"} value={form.ma_misa} onChange={(e) => setForm({ ...form, ma_misa: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60" />
               </div>
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Tên trên MISA</label>
-                <input value={form.ten_misa} onChange={(e) => setForm({ ...form, ten_misa: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
+                <input disabled={mode === "readonly"} value={form.ten_misa} onChange={(e) => setForm({ ...form, ten_misa: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60" />
               </div>
             </div>
             {editing !== "new" && (
@@ -873,8 +912,10 @@ function KtvTab() {
               </div>
             )}
             <div className="flex justify-end gap-2 pt-2">
-              <Btn variant="ghost" size="sm" onClick={() => setEditing(null)}>Huỷ</Btn>
-              <Btn size="sm" onClick={() => save.mutate()} disabled={!form.ma_ktv.trim() || save.isPending} loading={save.isPending}>Lưu</Btn>
+              <Btn variant="ghost" size="sm" onClick={() => setEditing(null)}>{mode === "readonly" ? "Đóng" : "Huỷ"}</Btn>
+              {mode !== "readonly" && (
+                <Btn size="sm" onClick={() => save.mutate()} disabled={!form.ma_ktv.trim() || save.isPending} loading={save.isPending}>Lưu</Btn>
+              )}
             </div>
           </div>
         </Modal>
