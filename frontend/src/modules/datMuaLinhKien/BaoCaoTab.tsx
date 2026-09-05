@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, buildQuery } from "../../api/client";
 import { fmtVND } from "../../types";
@@ -6,6 +6,32 @@ import { Btn } from "../../components/ui/Btn";
 import { formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import type { BaoCaoRow, JumpTarget } from "./types";
+
+// Cot co "value" (them 2026-09-05, phan hoi "phân trang + tùy chọn sort" cho Home > Báo cáo tổng
+// thể): truoc day cols[] chi co cell() tra ve ReactNode (nut bam nhay, khong sort duoc truc tiep) -
+// them value() tra ve so THAT de sap xep, doc lap voi cell() hien thi.
+interface BaoCaoColDef {
+  label: string;
+  title?: string;
+  cell: (r: BaoCaoRow) => ReactNode;
+  value: (r: BaoCaoRow) => number;
+}
+
+// Sort DOC LAP cho MOI bang (bam tieu de 1 cot CHI doi thu tu bang DO, khong anh huong 2 bang con
+// lai) - chua bam gi thi giu nguyen thu tu mac dinh (defaultSort, "Tồn đọng nhiều nhất" nhu truoc gio).
+// Bam lai CUNG 1 cot dao chieu asc/desc, bam cot KHAC luon bat dau tu desc (so lieu lon nhat len dau,
+// thoi quen pho bien nhat voi cac cot dem/tien trong bang nay).
+function useSortableTable(rows: BaoCaoRow[], cols: BaoCaoColDef[], defaultSort: (a: BaoCaoRow, b: BaoCaoRow) => number) {
+  const [sort, setSort] = useState<{ label: string; dir: "asc" | "desc" } | null>(null);
+  const activeCol = sort ? cols.find((c) => c.label === sort.label) : undefined;
+  const sortedRows = activeCol
+    ? [...rows].sort((a, b) => (sort!.dir === "asc" ? activeCol.value(a) - activeCol.value(b) : activeCol.value(b) - activeCol.value(a)))
+    : [...rows].sort(defaultSort);
+  function onHeaderClick(label: string) {
+    setSort((s) => (s?.label === label ? { label, dir: s.dir === "desc" ? "asc" : "desc" } : { label, dir: "desc" }));
+  }
+  return { sortedRows, sort, onHeaderClick };
+}
 
 // Nhan "Tháng N/N-1/N-2" (them 2026-08-25, phan hoi "hạn chế theo tháng") - tinh CLIENT-SIDE bang gio
 // trinh duyet (khong can round-trip server chi de lay nhan hien thi cho ca 3 tab, chi tab dang chon
@@ -45,6 +71,12 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
     queryFn: () => api.get<{ rows: BaoCaoRow[] }>("/dat-mua-lk/bao-cao-tong-the" + buildQuery({ thang, full: full ? 1 : undefined })),
   });
   const [search, setSearch] = useState("");
+  // Phan trang (them 2026-09-05, phan hoi "danh sách KTV sẽ rất nhiều hơn 250 KTV... các bảng báo cáo
+  // cũng sẽ phân trang") - 1 trang chung cho ca 3 bang (cung tap nguoi filtered, chi khac THU TU tuy
+  // sort rieng cua tung bang) - ve trang 1 moi khi doi thang/pham vi/tu khoa tim kiem.
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
+  useEffect(() => setPage(1), [thang, full, search]);
   // State mo/dong tung dong nguoi tren the mobile (muc A) - dat o COMPONENT CHA (khong phai trong
   // MobileTable) vi MobileTable la 1 ham dinh nghia lai MOI LAN BaoCaoTab render (giong Table/Num co
   // san) - neu useState nam TRONG do, React se coi no la 1 component type MOI moi lan cha render lai
@@ -97,13 +129,19 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
   );
 
   const rows = data?.rows ?? [];
-  if (isLoading) return (
+  // FIX (phan hoi 2026-09-05: man Home trang trang, console bao "Rendered more hooks than during the
+  // previous render") - 2 return SOM nay TRUOC DAY nam TRUOC 3 loi goi useSortableTable() them o duoi
+  // (moi loi goi co useState() rieng) - luc isLoading/rows rong thi ham return SOM, bo qua 3 useState
+  // do hoan toan, con luc co du lieu thi CHAY het -> SO LUONG hook thuc thi lech nhau giua 2 lan render,
+  // vi pham Rules of Hooks. Doi thanh bien JSX tinh san, CHI return o CUOI (sau khi moi hook, ke ca
+  // useSortableTable, da chay du) de so hook luon co dinh moi lan render.
+  const loadingEl = (
     <div className="mt-4 space-y-3">
       {thangFilterEl}
       <div className="text-sm text-[var(--ink-500)] py-6 text-center">Đang tải...</div>
     </div>
   );
-  if (rows.length === 0) return (
+  const emptyEl = (
     <div className="mt-4 space-y-3">
       {thangFilterEl}
       <div className="text-sm text-[var(--ink-400)] py-6 text-center">Chưa có dữ liệu.</div>
@@ -117,7 +155,6 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
   }
   const q = search.trim().toLowerCase();
   const filtered = rows.filter((r) => !q || (r.ten ?? "").toLowerCase().includes(q) || r.email.toLowerCase().includes(q));
-  const sorted = rows.length > 1 ? [...filtered].sort((a, b) => tonDong(b) - tonDong(a) || (a.ten ?? a.email).localeCompare(b.ten ?? b.email)) : filtered;
 
   const tong = rows.reduce(
     (acc, r) => ({
@@ -168,7 +205,18 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
     );
   }
 
-  function Table({ title, cols, rowsOf, tongRow }: { title: string; cols: { label: string; title?: string; cell: (r: BaoCaoRow) => React.ReactNode }[]; rowsOf: BaoCaoRow[]; tongRow?: React.ReactNode }) {
+  function Table({
+    title, cols, rowsOf, tongRow, sort, onHeaderClick,
+  }: {
+    title: string;
+    cols: BaoCaoColDef[];
+    rowsOf: BaoCaoRow[];
+    tongRow?: React.ReactNode;
+    // Sort bam-tieu-de-cot (them 2026-09-05) - tuy chon, chi truyen o 3 loi goi <Table> chinh ben duoi
+    // (khong bat buoc de tongRow/cac noi goi khac khong lien quan khong phai doi).
+    sort?: { label: string; dir: "asc" | "desc" } | null;
+    onHeaderClick?: (label: string) => void;
+  }) {
     return (
       <div>
         <div className="text-xs font-semibold text-[var(--ink-500)] uppercase tracking-wide mb-1.5">{title}</div>
@@ -178,7 +226,15 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
               <tr className="bg-[var(--surface-100)] text-[var(--ink-600)]">
                 <th className="sticky left-0 z-10 bg-[var(--surface-100)] px-3 py-2 text-left">Tên</th>
                 {cols.map((c) => (
-                  <th key={c.label} className="px-2 py-1.5 text-right border-l border-[var(--line)]" title={c.title}>{c.label}</th>
+                  <th
+                    key={c.label}
+                    className={`px-2 py-1.5 text-right border-l border-[var(--line)] select-none ${onHeaderClick ? "cursor-pointer hover:bg-[var(--surface-200)]" : ""}`}
+                    title={c.title}
+                    onClick={() => onHeaderClick?.(c.label)}
+                  >
+                    {c.label}
+                    {sort?.label === c.label && <span className="ml-0.5">{sort.dir === "desc" ? "▼" : "▲"}</span>}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -269,33 +325,56 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
 
   // Tach cols[] ra bien rieng (truoc day khai bao INLINE trong tung <Table>) - dung CHUNG cho ca
   // <Table> desktop lan <MobileTable> mobile, tranh khai bao trung 2 lan cung 1 danh sach cot.
-  const donHangCols = [
-    { label: "Tổng đơn", cell: (r: BaoCaoRow) => <Num value={r.slDon} onClick={() => jumpDon("", undefined, r.email)} /> },
-    { label: "Đơn mua", cell: (r: BaoCaoRow) => <Num value={r.slDonMua} onClick={() => jumpDon("", "mua", r.email)} /> },
-    { label: "Đơn CN", cell: (r: BaoCaoRow) => <Num value={r.slDonCongNo} onClick={() => jumpDon("", "cong_no", r.email)} /> },
-    { label: "Đơn trả", cell: (r: BaoCaoRow) => <Num value={r.slDonTraHang} onClick={() => jumpTraHang("", r.email)} /> },
-    { label: "Đơn đang chờ", title: "3-4 bước chờ duyệt đầu tiên, chưa tính 'Chờ hàng' (đã duyệt xong, đang chờ Kho tìm nguồn)", cell: (r: BaoCaoRow) => <Num value={r.slDangCho} onClick={() => jumpDon("__OPEN__", undefined, r.email)} /> },
-    { label: "Bị từ chối/huỷ", cell: (r: BaoCaoRow) => <Num value={r.slTuChoi} alert={r.slTuChoi > 0} onClick={() => jumpDon("TN tu choi", undefined, r.email)} /> },
-    { label: "Tổng duyệt", cell: (r: BaoCaoRow) => <Num value={r.slDuyet} onClick={() => jumpDon("TN da duyet", undefined, r.email)} /> },
-    { label: "Duyệt mua", cell: (r: BaoCaoRow) => <Num value={r.slDuyetMua} onClick={() => jumpDon("TN da duyet", "mua", r.email)} /> },
-    { label: "Duyệt CN", cell: (r: BaoCaoRow) => <Num value={r.slDuyetCongNo} onClick={() => jumpDon("TN da duyet", "cong_no", r.email)} /> },
-    { label: "Duyệt trả", cell: (r: BaoCaoRow) => <Num value={r.slDuyetTraHang} onClick={() => jumpTraHang("TN da duyet", r.email)} /> },
+  const donHangCols: BaoCaoColDef[] = [
+    { label: "Tổng đơn", value: (r) => r.slDon, cell: (r: BaoCaoRow) => <Num value={r.slDon} onClick={() => jumpDon("", undefined, r.email)} /> },
+    { label: "Đơn mua", value: (r) => r.slDonMua, cell: (r: BaoCaoRow) => <Num value={r.slDonMua} onClick={() => jumpDon("", "mua", r.email)} /> },
+    { label: "Đơn CN", value: (r) => r.slDonCongNo, cell: (r: BaoCaoRow) => <Num value={r.slDonCongNo} onClick={() => jumpDon("", "cong_no", r.email)} /> },
+    { label: "Đơn trả", value: (r) => r.slDonTraHang, cell: (r: BaoCaoRow) => <Num value={r.slDonTraHang} onClick={() => jumpTraHang("", r.email)} /> },
+    { label: "Đơn đang chờ", title: "3-4 bước chờ duyệt đầu tiên, chưa tính 'Chờ hàng' (đã duyệt xong, đang chờ Kho tìm nguồn)", value: (r) => r.slDangCho, cell: (r: BaoCaoRow) => <Num value={r.slDangCho} onClick={() => jumpDon("__OPEN__", undefined, r.email)} /> },
+    { label: "Bị từ chối/huỷ", value: (r) => r.slTuChoi, cell: (r: BaoCaoRow) => <Num value={r.slTuChoi} alert={r.slTuChoi > 0} onClick={() => jumpDon("TN tu choi", undefined, r.email)} /> },
+    { label: "Tổng duyệt", value: (r) => r.slDuyet, cell: (r: BaoCaoRow) => <Num value={r.slDuyet} onClick={() => jumpDon("TN da duyet", undefined, r.email)} /> },
+    { label: "Duyệt mua", value: (r) => r.slDuyetMua, cell: (r: BaoCaoRow) => <Num value={r.slDuyetMua} onClick={() => jumpDon("TN da duyet", "mua", r.email)} /> },
+    { label: "Duyệt CN", value: (r) => r.slDuyetCongNo, cell: (r: BaoCaoRow) => <Num value={r.slDuyetCongNo} onClick={() => jumpDon("TN da duyet", "cong_no", r.email)} /> },
+    { label: "Duyệt trả", value: (r) => r.slDuyetTraHang, cell: (r: BaoCaoRow) => <Num value={r.slDuyetTraHang} onClick={() => jumpTraHang("TN da duyet", r.email)} /> },
   ];
-  const xuatKhoCols = [
-    { label: "Tổng PXK", cell: (r: BaoCaoRow) => <Num value={r.tongPxk} onClick={() => jumpPxk("", r.email)} /> },
-    { label: "Tổng đang tồn", title: "Chờ kế toán + Chờ kho gửi + Chờ KTV nhận", cell: (r: BaoCaoRow) => <Num value={r.slChoKeToan + r.slChoKhoGui + r.slDaGui} onClick={() => jumpPxk("", r.email)} /> },
-    { label: "Chờ kế toán", cell: (r: BaoCaoRow) => <Num value={r.slChoKeToan} onClick={() => jumpPxk("Cho ke toan", r.email)} /> },
-    { label: "Chờ kho gửi", cell: (r: BaoCaoRow) => <Num value={r.slChoKhoGui} onClick={() => jumpPxk("Da chot xong don xuat", r.email)} /> },
-    { label: "Chờ KTV nhận", cell: (r: BaoCaoRow) => <Num value={r.slDaGui} onClick={() => jumpPxk("Dang gui KTV", r.email)} /> },
-    { label: "KTV đã nhận", cell: (r: BaoCaoRow) => <Num value={r.slDaXacNhan} onClick={() => jumpPxk("KTV da nhan", r.email)} /> },
-    { label: "Kho kết thúc", title: "Kho đã kết thúc + Hàng trừ kho", cell: (r: BaoCaoRow) => <Num value={r.slKhoKetThuc} onClick={() => jumpPxk("Kho da ket thuc", r.email)} /> },
+  const xuatKhoCols: BaoCaoColDef[] = [
+    { label: "Tổng PXK", value: (r) => r.tongPxk, cell: (r: BaoCaoRow) => <Num value={r.tongPxk} onClick={() => jumpPxk("", r.email)} /> },
+    { label: "Tổng đang tồn", title: "Chờ kế toán + Chờ kho gửi + Chờ KTV nhận", value: (r) => r.slChoKeToan + r.slChoKhoGui + r.slDaGui, cell: (r: BaoCaoRow) => <Num value={r.slChoKeToan + r.slChoKhoGui + r.slDaGui} onClick={() => jumpPxk("", r.email)} /> },
+    { label: "Chờ kế toán", value: (r) => r.slChoKeToan, cell: (r: BaoCaoRow) => <Num value={r.slChoKeToan} onClick={() => jumpPxk("Cho ke toan", r.email)} /> },
+    { label: "Chờ kho gửi", value: (r) => r.slChoKhoGui, cell: (r: BaoCaoRow) => <Num value={r.slChoKhoGui} onClick={() => jumpPxk("Da chot xong don xuat", r.email)} /> },
+    { label: "Chờ KTV nhận", value: (r) => r.slDaGui, cell: (r: BaoCaoRow) => <Num value={r.slDaGui} onClick={() => jumpPxk("Dang gui KTV", r.email)} /> },
+    { label: "KTV đã nhận", value: (r) => r.slDaXacNhan, cell: (r: BaoCaoRow) => <Num value={r.slDaXacNhan} onClick={() => jumpPxk("KTV da nhan", r.email)} /> },
+    { label: "Kho kết thúc", title: "Kho đã kết thúc + Hàng trừ kho", value: (r) => r.slKhoKetThuc, cell: (r: BaoCaoRow) => <Num value={r.slKhoKetThuc} onClick={() => jumpPxk("Kho da ket thuc", r.email)} /> },
   ];
-  const tienCols = [
-    { label: "Tiền đang đặt mua (dự kiến)", cell: (r: BaoCaoRow) => <Num value={fmtVND(r.tongTienDatMua)} onClick={() => jumpDon("", undefined, r.email)} /> },
-    { label: "Tiền chờ duyệt", cell: (r: BaoCaoRow) => <Num value={fmtVND(r.tienChoDuyet)} onClick={() => jumpDon("__OPEN__", undefined, r.email)} /> },
-    { label: "Tổng thực tế đã mua", cell: (r: BaoCaoRow) => <Num value={fmtVND(r.tongTienThucTe)} onClick={() => jumpDon("TN da duyet", undefined, r.email)} /> },
-    { label: "Tiền chờ chuyển", title: "PXK có yêu cầu chuyển khoản nhưng KTV/TN chưa xác nhận xong", cell: (r: BaoCaoRow) => <Num value={fmtVND(r.tongChoChuyen)} onClick={() => jumpPxk("", r.email)} /> },
+  const tienCols: BaoCaoColDef[] = [
+    { label: "Tiền đang đặt mua (dự kiến)", value: (r) => r.tongTienDatMua, cell: (r: BaoCaoRow) => <Num value={fmtVND(r.tongTienDatMua)} onClick={() => jumpDon("", undefined, r.email)} /> },
+    { label: "Tiền chờ duyệt", value: (r) => r.tienChoDuyet, cell: (r: BaoCaoRow) => <Num value={fmtVND(r.tienChoDuyet)} onClick={() => jumpDon("__OPEN__", undefined, r.email)} /> },
+    { label: "Tổng thực tế đã mua", value: (r) => r.tongTienThucTe, cell: (r: BaoCaoRow) => <Num value={fmtVND(r.tongTienThucTe)} onClick={() => jumpDon("TN da duyet", undefined, r.email)} /> },
+    { label: "Tiền chờ chuyển", title: "PXK có yêu cầu chuyển khoản nhưng KTV/TN chưa xác nhận xong", value: (r) => r.tongChoChuyen, cell: (r: BaoCaoRow) => <Num value={fmtVND(r.tongChoChuyen)} onClick={() => jumpPxk("", r.email)} /> },
   ];
+
+  // Sort DOC LAP + phan trang CHUNG cho 3 bang (them 2026-09-05) - xem giai thich day du o
+  // useSortableTable() dau file. defaultCompare giu NGUYEN dung logic "tonDong" cu lam thu tu mac
+  // dinh khi chua bam tieu de cot nao.
+  const defaultCompare = (a: BaoCaoRow, b: BaoCaoRow) => tonDong(b) - tonDong(a) || (a.ten ?? a.email).localeCompare(b.ten ?? b.email);
+  const donHangSort = useSortableTable(filtered, donHangCols, defaultCompare);
+  const xuatKhoSort = useSortableTable(filtered, xuatKhoCols, defaultCompare);
+  const tienSort = useSortableTable(filtered, tienCols, defaultCompare);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageSlice = (arr: BaoCaoRow[]) => arr.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pagerEl = filtered.length > PAGE_SIZE ? (
+    <div className="flex items-center justify-between px-1 py-1 text-xs text-[var(--ink-400)]">
+      <span>{filtered.length} người</span>
+      <div className="flex gap-1">
+        <Btn variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>‹</Btn>
+        <span className="px-2 py-1.5">{page}/{totalPages}</span>
+        <Btn variant="ghost" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>›</Btn>
+      </div>
+    </div>
+  ) : null;
+
+  if (isLoading) return loadingEl;
+  if (rows.length === 0) return emptyEl;
 
   return (
     <div className="mt-4 space-y-4">
@@ -310,12 +389,14 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
       )}
 
       {isMobile ? (
-        <MobileTable title="Đơn hàng" rowsOf={sorted} tongRow={tongAsRow} cols={donHangCols} />
+        <MobileTable title="Đơn hàng" rowsOf={pageSlice(donHangSort.sortedRows)} tongRow={tongAsRow} cols={donHangCols} />
       ) : (
         <Table
           title="Đơn hàng"
-          rowsOf={sorted}
+          rowsOf={pageSlice(donHangSort.sortedRows)}
           cols={donHangCols}
+          sort={donHangSort.sort}
+          onHeaderClick={donHangSort.onHeaderClick}
           tongRow={
             <>
               <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.slDon} onClick={() => jumpDon("", undefined)} /></td>
@@ -334,12 +415,14 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
       )}
 
       {isMobile ? (
-        <MobileTable title="Xuất kho" rowsOf={sorted} tongRow={tongAsRow} cols={xuatKhoCols} />
+        <MobileTable title="Xuất kho" rowsOf={pageSlice(xuatKhoSort.sortedRows)} tongRow={tongAsRow} cols={xuatKhoCols} />
       ) : (
         <Table
           title="Xuất kho"
-          rowsOf={sorted}
+          rowsOf={pageSlice(xuatKhoSort.sortedRows)}
           cols={xuatKhoCols}
+          sort={xuatKhoSort.sort}
+          onHeaderClick={xuatKhoSort.onHeaderClick}
           tongRow={
             <>
               <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={tong.tongPxk} onClick={() => jumpPxk("")} /></td>
@@ -355,12 +438,14 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
       )}
 
       {isMobile ? (
-        <MobileTable title="Tiền" rowsOf={sorted} tongRow={tongAsRow} cols={tienCols} />
+        <MobileTable title="Tiền" rowsOf={pageSlice(tienSort.sortedRows)} tongRow={tongAsRow} cols={tienCols} />
       ) : (
         <Table
           title="Tiền"
-          rowsOf={sorted}
+          rowsOf={pageSlice(tienSort.sortedRows)}
           cols={tienCols}
+          sort={tienSort.sort}
+          onHeaderClick={tienSort.onHeaderClick}
           tongRow={
             <>
               <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={fmtVND(tong.tongTienDatMua)} onClick={() => jumpDon("", undefined)} /></td>
@@ -371,6 +456,7 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
           }
         />
       )}
+      {pagerEl}
     </div>
   );
 }
