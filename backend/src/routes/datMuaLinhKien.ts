@@ -2352,9 +2352,10 @@ async function applyDonHangLog(
   let tnDaXuLy = false; // TN vua xu ly dong nay - dung de auto-claim khu vuc phu trach (xem duoi)
 
   if (hanhDong === "huy") {
-    const nguoiTaoRow = await c.env.DB.prepare("SELECT tram_cha FROM users WHERE email = ?").bind(ddh.nguoi_tao).first<{ tram_cha: string | null }>();
-    const isOwnerOrTram = ddh.nguoi_tao === user.email || nguoiTaoRow?.tram_cha === user.email;
-    if (!isOwnerOrTram && user.vai_tro !== "Admin") return { error: "FORBIDDEN_ROLE", status: 403 };
+    // FIX (phan hoi 2026-09-05, muc #4: "Ngoài người tạo và admin hệ thống không ai có quyền hủy đơn
+    // hàng (TN chỉ có quyền từ chối)") - truoc day CHO PHEP CA Tram cua nguoi tao huy don, gio CHI
+    // dung nguoi tao that su hoac Admin (khop dung actionsFor() o frontend, xem helpers.ts).
+    if (ddh.nguoi_tao !== user.email && user.vai_tro !== "Admin") return { error: "FORBIDDEN_ROLE", status: 403 };
     // Chot phan hoi UX 2026-08-15 (muc 1): bat buoc nguoi huy nhap ly do (tu do, khong dung danh muc
     // Ly do cham cua TN vi khong hop nghia voi tu huy).
     if (!ghiChu?.trim()) return { error: "THIEU_LY_DO_HUY", status: 400 };

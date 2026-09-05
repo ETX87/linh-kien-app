@@ -393,6 +393,17 @@ function VanPhongTab() {
   });
   const [editing, setEditing] = useState<UserRow | null>(null);
 
+  // "Chuyển nhóm vai trò" chieu nguoc lai (them 2026-09-05, xem giai thich day du o KtvTab cung file)
+  // - tat het co van phong + bat la_ktv_dvbh. KHONG tu mo modal tiep theo nhu chieu KTV->van phong vi
+  // chua co ho so ktv_lien_he nao de sua (can Admin tu tao qua the "KTV hiện trường" > "+ Thêm KTV").
+  const chuyenSangKtv = useMutation({
+    mutationFn: (email: string) => api.post(`/users/${encodeURIComponent(email)}/chuyen-nhom-vai-tro`, { to: "ktv" }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["users"] });
+      addToast('Đã chuyển sang nhóm KTV hiện trường - qua thẻ "KTV hiện trường" > "+ Thêm KTV" để tạo hồ sơ (nhập đúng email này ở mục "Email đăng nhập")');
+    },
+  });
+
   const columns: Column<UserRow>[] = [
     { key: "nguoi_dung", header: "Người dùng", render: (u) => formatPersonDisplay(u.email, personDir) },
     { key: "vai_tro", header: "Vai trò", render: (u) => u.vai_tro ?? "—" },
@@ -422,9 +433,25 @@ function VanPhongTab() {
       header: "",
       mobileHint: "actions",
       render: (u) => (
-        <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={(e) => { e.stopPropagation(); setEditing(u); }}>
-          Sửa
-        </button>
+        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+          <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => setEditing(u)}>
+            Sửa
+          </button>
+          <button
+            className="text-[var(--violet-600)] hover:underline text-xs"
+            onClick={() => {
+              if (
+                window.confirm(
+                  `Chuyển tài khoản "${u.email}" sang nhóm KTV hiện trường?\n\nSẽ tắt toàn bộ cờ văn phòng (Kho/Kế toán/TN/TP DVBH/View) và bật cờ KTV DVBH. Bạn cần tạo hồ sơ KTV (mã KTV, tên hiển thị...) riêng ở thẻ "KTV hiện trường" ngay sau đó.`,
+                )
+              ) {
+                chuyenSangKtv.mutate(u.email);
+              }
+            }}
+          >
+            Chuyển KTV
+          </button>
+        </div>
       ),
     },
   ];
@@ -695,6 +722,26 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
     },
   });
 
+  // "Chuyển nhóm vai trò" (them 2026-09-05, phan hoi "có trường hợp setup nhầm tài khoản gmail thành
+  // ktv, giờ cần chuyển thành tài khoản văn phòng" -> tong quat hoa "chuyển đổi giữa 2 nhóm vai trò").
+  // Chi mode="admin", chi ap dung cho dong DA co email_dang_nhap (khong co gi de chuyen neu chua tung
+  // gan tai khoan dang nhap). Sau khi goi POST /users/:email/chuyen-nhom-vai-tro (tat co KTV, huy lien
+  // ket ktv_lien_he.email_dang_nhap), mo LUON EditUserModal cho dong users tuong ung de Admin chon
+  // ngay vai tro van phong cu the (Kho/Ke toan/TN/...) - khong bat phai tu di tim lai o the "Nhân viên
+  // văn phòng".
+  const [editingUser, setEditingUser] = useState<UserRow | null>(null);
+  const chuyenSangVanPhong = useMutation({
+    mutationFn: (email: string) => api.post(`/users/${encodeURIComponent(email)}/chuyen-nhom-vai-tro`, { to: "van_phong" }),
+    onSuccess: async (_res, email) => {
+      await qc.invalidateQueries({ queryKey: ["settings-ktv"] });
+      await qc.invalidateQueries({ queryKey: ["users"] });
+      addToast("Đã chuyển sang nhóm văn phòng - chọn vai trò cụ thể bên dưới");
+      const res = await api.get<{ rows: UserRow[] }>(`/users?tab=da-duyet&search=${encodeURIComponent(email)}`);
+      const u = res.rows.find((r) => r.email === email);
+      if (u) setEditingUser(u);
+    },
+  });
+
   const khuVucTenByMa = useMemo(() => new Map((khuVucData?.rows ?? []).map((k) => [k.ma, k.ten])), [khuVucData]);
   const tenByMaKtv = useMemo(() => new Map((cap1Data?.rows ?? []).map((r) => [r.ma_ktv, r.ten_hien_thi])), [cap1Data]);
 
@@ -749,6 +796,22 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
               backend la hard delete, khong chan du KTV con don hang lich su (ktv_lien_he KHONG phai
               FK cua dat_don_hang, chi rieng users.email moi la FK) nen bam nham se am tham tao lai
               dung tinh trang "tai khoan mo coi" da phai sua tay o dau phien lam viec nay. */}
+          {mode === "admin" && r.email_dang_nhap && (
+            <button
+              className="text-[var(--violet-600)] hover:underline text-xs"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Chuyển tài khoản "${r.email_dang_nhap}" sang nhóm Nhân viên văn phòng?\n\nSẽ tắt cờ KTV DVBH/Vệ tinh và huỷ liên kết với hồ sơ KTV "${r.ma_ktv}" (danh bạ vẫn giữ nguyên, chỉ mất "người đăng nhập"). Bạn cần chọn vai trò văn phòng cụ thể (Kho/Kế toán/TN/...) ngay sau đó.`,
+                  )
+                ) {
+                  chuyenSangVanPhong.mutate(r.email_dang_nhap!);
+                }
+              }}
+            >
+              Chuyển văn phòng
+            </button>
+          )}
           {mode === "admin" && (
             <button
               className="text-[var(--coral-500)] hover:underline text-xs"
@@ -972,6 +1035,17 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
           </div>
         </div>
       </Modal>
+      {editingUser && (
+        <EditUserModal
+          user={editingUser}
+          onClose={() => setEditingUser(null)}
+          onSaved={async () => {
+            addToast("Đã lưu");
+            await qc.invalidateQueries({ queryKey: ["users"] });
+            setEditingUser(null);
+          }}
+        />
+      )}
     </div>
   );
 }

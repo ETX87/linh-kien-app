@@ -260,20 +260,25 @@ export function useLinhKienRankMap(): Map<string, number> {
 // nhat co the ra "Cho hang" - xem applyDonHangLog backend), Tram/TBP khong co.
 export function actionsFor(
   d: DonHangRow,
-  ctx: { canTacNghiep: boolean; canTPDvbhXacNhan?: boolean; canActAsTram: boolean; currentEmail: string },
+  ctx: { canTacNghiep: boolean; canTPDvbhXacNhan?: boolean; canActAsTram: boolean; currentEmail: string; isAdmin?: boolean },
 ): { duyet: boolean; tuChoi: boolean; choHang: boolean; huy: boolean } {
   if (d.loai_don === "tra_hang" || !d.trang_thai) return { duyet: false, tuChoi: false, choHang: false, huy: false };
-  const isOwnerOrTram = ctx.currentEmail === d.nguoi_tao || ctx.canActAsTram;
+  // FIX (phan hoi 2026-09-05, muc #4: "Ngoài người tạo và admin hệ thống không ai có quyền hủy đơn
+  // hàng (TN chỉ có quyền từ chối)") - truoc day "isOwnerOrTram" (currentEmail===nguoi_tao HOAC
+  // canActAsTram) cho phep CA Tram huy don cua Ve tinh minh quan ly, khong chi nguoi tao/Admin. Tach
+  // rieng dieu kien huy khoi canActAsTram (canActAsTram VAN dung cho duyet/tu choi o buoc "Cho Tram
+  // duyet" nhu cu, khong doi).
+  const canHuy = ctx.currentEmail === d.nguoi_tao || !!ctx.isAdmin;
   if (d.trang_thai === "Cho Tram duyet") {
-    return { duyet: ctx.canActAsTram, tuChoi: ctx.canActAsTram, choHang: false, huy: isOwnerOrTram };
+    return { duyet: ctx.canActAsTram, tuChoi: ctx.canActAsTram, choHang: false, huy: canHuy };
   }
   // CHOT 2026-08-17 (migration 0082): buoc "TP DVBH xac nhan linh kien dac thu" - ngay truoc Tac
   // nghiep, chi ap dung khi ma LK cua dong dang duoc tao/duyet thuoc nhom "dac thu".
   if (d.trang_thai === "Cho TBP xac nhan") {
-    return { duyet: !!ctx.canTPDvbhXacNhan, tuChoi: !!ctx.canTPDvbhXacNhan, choHang: false, huy: isOwnerOrTram };
+    return { duyet: !!ctx.canTPDvbhXacNhan, tuChoi: !!ctx.canTPDvbhXacNhan, choHang: false, huy: canHuy };
   }
   if (d.trang_thai === "Cho TN duyet") {
-    return { duyet: ctx.canTacNghiep, tuChoi: ctx.canTacNghiep, choHang: ctx.canTacNghiep, huy: isOwnerOrTram };
+    return { duyet: ctx.canTacNghiep, tuChoi: ctx.canTacNghiep, choHang: ctx.canTacNghiep, huy: canHuy };
   }
   return { duyet: false, tuChoi: false, choHang: false, huy: false };
 }

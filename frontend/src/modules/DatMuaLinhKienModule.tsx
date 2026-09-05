@@ -9,7 +9,6 @@ import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import type { LuongQuyTrinhStep, JumpTarget, DangTonStep } from "./datMuaLinhKien/types";
 import { PipelineFlow, MyWorkloadStrip } from "./datMuaLinhKien/PipelineFlow";
-import { NotificationBell } from "./datMuaLinhKien/NotificationBell";
 import { CaseDetailModal } from "./datMuaLinhKien/CaseDetailModal";
 
 // Module "Dat mua linh kien" (Phase 2) - thay the quy trinh dat hang linh kien tren Google
@@ -45,9 +44,18 @@ export function DatMuaLinhKienModule({
   openCase,
   headerExtra,
   onLeaveForceView,
+  externalDetailOpen,
+  onExternalDetailOpenConsumed,
 }: {
   forceView?: string;
   openCase?: (id: string, tab?: string) => void;
+  // Chuong thong bao (them 2026-09-05, phan hoi "chuyển vị trí chuông thông báo lên top giao diện") -
+  // NotificationBell da CHUYEN RA App.tsx (hien o MOI tab thay vi chi rieng man Home) - 2 prop nay la
+  // "cong vao" duy nhat de bam 1 dong thong bao tu ben ngoai module van mo dung Drawer chi tiet don
+  // hang/PXK NAM BEN TRONG module nay. `nonce` (Date.now() luc bam) bat buoc phai DOI moi lan de effect
+  // duoi day chac chan chay lai ke ca bam lai DUNG 1 dong thong bao vua xem xong.
+  externalDetailOpen?: { tab: "don-cua-toi" | "phieu-xuat-kho"; id: string; nonce: number } | null;
+  onExternalDetailOpenConsumed?: () => void;
   // FIX (phan hoi 2026-08-26: "click vào thẻ trang chủ, kích để xem đơn hàng, mà vẫn ở thẻ trang chủ
   // là sao?") - khi vao qua forceView="trang-chu"/"thieu-lk" (muc menu rieng cap App.tsx) roi nhay
   // NOI BO sang view khac (vd bam so lieu StatCard -> "don-cua-toi"), Sidebar/tieu de h1 (dieu khien
@@ -322,19 +330,45 @@ export function DatMuaLinhKienModule({
     const t = setTimeout(() => setJumpTarget(null), 0);
     return () => clearTimeout(t);
   }, [jumpTarget]);
+  // FIX (phan hoi 2026-09-05: chuong thong bao nang len App.tsx, bam 1 dong thong bao tu tab KHAC co
+  // the can COLD-MOUNT ca DatMuaLinhKienModule LAN tab con lazy ben trong no cung luc - openDetailId
+  // truoc day dung CHUNG co che tu-xoa qua setTimeout(0) voi jumpTarget (danh cho filter/nguoiNhanHang/
+  // loaiDon, nhung 3 cai do khong tao van de vi luon co san gia tri hop le ngay ca khi bi xoa som).
+  // openDetailId rieng: neu tab dich la 1 lazy chunk CHUA TUNG tai (vd nguoi dung dang o Settings, chua
+  // bao gio vao "Đơn hàng"/"Phiếu xuất kho" trong phien nay), dynamic import() phai cho tai xong (bat
+  // dong bo, co the lau hon setTimeout(0)) roi tab con moi mount va doc duoc prop - luc do jumpTarget
+  // DA bi xoa mat, Drawer khong bao gio mo (bug that, phat hien khi kiem thu tinh nang nang chuong len
+  // top). Tach rieng thanh `pendingOpenDetailId`, KHONG tu xoa qua timer - chi xoa khi CHINH tab con da
+  // ap dung xong (goi lai onDetailIdConsumed, xem DonCuaToiTab.tsx/PhieuXuatKhoTab.tsx), an toan bat ke
+  // tab con mount ngay (warm) hay phai cho lazy-load xong (cold).
+  const [pendingOpenDetailId, setPendingOpenDetailId] = useState<{ tab: string; id: string } | null>(null);
   function jumpTo(target: JumpTarget) {
     markNavigatedAway(target.tab);
     setJumpTarget(target);
+    setPendingOpenDetailId(target.openDetailId ? { tab: target.tab, id: target.openDetailId } : null);
     setView(target.tab);
   }
+  function consumeOpenDetailId() {
+    setPendingOpenDetailId(null);
+  }
+  // Nhan tin hieu tu chuong thong bao O NGOAI module (App.tsx, xem giai thich o khai bao prop
+  // externalDetailOpen phia tren) - tai dung jumpTo() y het cach StatCard/pipeline noi bo van goi, chi
+  // khac nguon kich hoat. Dependency la `nonce` (khong phai ca object) de bam lai DUNG 1 dong thong bao
+  // vua xem van kich hoat lai effect nay ke ca id khong doi.
+  useEffect(() => {
+    if (!externalDetailOpen) return;
+    jumpTo({ tab: externalDetailOpen.tab, filter: "", openDetailId: externalDetailOpen.id });
+    onExternalDetailOpenConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalDetailOpen?.nonce]);
   const filterFor = (tab: string) => (jumpTarget?.tab === tab ? jumpTarget.filter : undefined);
   const nguoiNhanHangFor = (tab: string) => (jumpTarget?.tab === tab ? jumpTarget.nguoiNhanHang : undefined);
   // Them (migration 0002_tra_hang_pxk.sql) - dat truoc sub-tab loai_don cua PhieuXuatKhoTab khi bam
   // vao 1 trong 3 buoc PXK tra hang tren pipeline, cung pattern voi filterFor/nguoiNhanHangFor.
   const loaiDonFor = (tab: string) => (jumpTarget?.tab === tab ? jumpTarget.loaiDon : undefined);
-  // Them (thong bao KTV, 2026-08-26) - mo thang Drawer chi tiet 1 dong khi bam "xem chi tiet" tu 1
-  // dong thong bao, cung pattern voi filterFor/nguoiNhanHangFor.
-  const openDetailIdFor = (tab: string) => (jumpTarget?.tab === tab ? jumpTarget.openDetailId : undefined);
+  // Them (thong bao KTV, 2026-08-26; tach khoi jumpTarget 2026-09-05, xem comment o pendingOpenDetailId
+  // phia tren) - mo thang Drawer chi tiet 1 dong khi bam "xem chi tiet" tu 1 dong thong bao.
+  const openDetailIdFor = (tab: string) => (pendingOpenDetailId?.tab === tab ? pendingOpenDetailId.id : undefined);
 
   // Tren mobile bo han thanh "luong quy trinh" (phan hoi 2026-08-19: "bỏ tính năng này, không load,
   // không đọc, tránh tốn lượt đọc D1") - man hinh hep khong du cho hien huu ich, va day la 1 API rieng
@@ -484,21 +518,13 @@ export function DatMuaLinhKienModule({
       </span>
     </button>
   ) : null;
-  // Chuong thong bao KTV (them 2026-08-26) - CHI hien tren man Home ("trong màn hình Home, tạo icon
-  // góc trên cùng bên phải"), dat SAU pipeline de nam o dau NGOAI CUNG ben phai khu vuc tieu de.
-  const notificationBellEl =
-    forceView === "trang-chu" ? (
-      <NotificationBell
-        unreadCount={notifCounts?.ktvLogChuaDoc ?? 0}
-        onOpenDonHang={(donHangId) => jumpTo({ tab: "don-cua-toi", filter: "", openDetailId: donHangId })}
-        onOpenPxk={(pxkId) => jumpTo({ tab: "phieu-xuat-kho", filter: "", openDetailId: pxkId })}
-      />
-    ) : null;
+  // Chuong thong bao KTV: CHUYEN RA App.tsx (them 2026-09-05, phan hoi "chuyển vị trí chuông thông
+  // báo lên top giao diện" - truoc day chi hien tren man Home, gio hien o header chung MOI tab) - xem
+  // externalDetailOpen prop + useEffect xu ly no o tren.
   const headerContentEl = (
     <>
       {titleButtonEl}
       {pipelineEl}
-      {notificationBellEl}
     </>
   );
 
@@ -588,6 +614,7 @@ export function DatMuaLinhKienModule({
             initialNguoiNhanHangOverride={nguoiNhanHangFor("don-cua-toi")}
             initialLoaiDonOverride={loaiDonFor("don-cua-toi")}
             initialDetailIdOverride={openDetailIdFor("don-cua-toi")}
+            onDetailIdConsumed={consumeOpenDetailId}
             loaiDonTabClickSeq={loaiDonTabClickSeq}
           />
         )}
@@ -604,6 +631,7 @@ export function DatMuaLinhKienModule({
             initialNguoiNhanHangOverride={nguoiNhanHangFor("phieu-xuat-kho")}
             initialLoaiDonOverride={loaiDonFor("phieu-xuat-kho")}
             initialDetailIdOverride={openDetailIdFor("phieu-xuat-kho")}
+            onDetailIdConsumed={consumeOpenDetailId}
           />
         )}
         {activeView === "thieu-lk" && (

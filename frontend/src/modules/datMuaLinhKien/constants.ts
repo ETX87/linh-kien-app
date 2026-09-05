@@ -107,13 +107,19 @@ export const TRA_HANG_BULK_ERROR_MESSAGES: Record<string, string> = {
 // voi "da huy" nen khong phan biet duoc 2 khai niem khac nhau). "amber"/"ocean" (dang cho) va "teal"
 // (hoan thanh) GIU NGUYEN gan tone - tu doi mau qua gia tri hex moi trong tokens.css, khong can sua
 // o day.
+// SUA (phan hoi 2026-09-05, muc #3: "mỗi trạng thái 1 màu để dễ phân biệt") - truoc day "Cho Tram
+// duyet"/"Cho TBP xac nhan"/"Cho hang" deu chung "amber", kho phan biet tren table/card du la 3 khai
+// niem khac nhau (2 buoc duyet noi bo khac nhau + 1 trang thai "da duyet xong, cho ve hang" hoan toan
+// khac). Tach rieng: "Cho hang" -> "orange" (cho vat ly, khac voi "cho duyet"), "Cho TBP xac nhan" ->
+// "gray" (buoc kiem tra dac thu, it gap). Vua du 7 trang thai khop 7 tone co san (BadgeTone), khong
+// con 2 trang thai nao chung mau.
 export const DON_HANG_TRANG_THAI_TONE: Record<string, BadgeTone> = {
   "Cho Tram duyet": "amber",
-  "Cho TBP xac nhan": "amber",
+  "Cho TBP xac nhan": "gray",
   "Cho TN duyet": "ocean",
   "TN da duyet": "teal",
   "TN tu choi": "violet",
-  "Cho hang": "amber",
+  "Cho hang": "orange",
   "Da huy": "coral",
 };
 
@@ -126,9 +132,11 @@ export const DON_HANG_ROW_STYLE: Record<string, string> = {
   "Da huy": "line-through text-[var(--coral-600)]",
   "TN tu choi": "line-through text-[var(--violet-600)]",
   "Cho Tram duyet": "text-[var(--amber-600)]",
-  "Cho TBP xac nhan": "text-[var(--amber-600)]",
+  // SUA (phan hoi 2026-09-05, muc #3) - khop lai voi DON_HANG_TRANG_THAI_TONE o tren (gray/orange
+  // rieng, khong con dung chung amber voi "Cho Tram duyet"/"Cho TN duyet").
+  "Cho TBP xac nhan": "text-[var(--ink-600)]",
   "Cho TN duyet": "text-[var(--amber-600)]",
-  "Cho hang": "text-[var(--amber-700)] font-medium",
+  "Cho hang": "text-[var(--orange-700)] font-medium",
   "TN da duyet": "text-[var(--teal-600)]",
 };
 

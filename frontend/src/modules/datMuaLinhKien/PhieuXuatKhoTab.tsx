@@ -43,7 +43,7 @@ function toastCanhBaoThieuMisa(result: MisaExportResult, addToast: (msg: string)
 
 export function PhieuXuatKhoTab({
   addToast, qc, canTacNghiep, canKho, canKeToan, currentEmail, isAdmin, initialFilterOverride, initialNguoiNhanHangOverride, initialLoaiDonOverride,
-  initialDetailIdOverride,
+  initialDetailIdOverride, onDetailIdConsumed,
 }: {
   addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>;
   canTacNghiep: boolean; canKho: boolean; canKeToan: boolean; currentEmail: string; isAdmin: boolean;
@@ -55,6 +55,9 @@ export function PhieuXuatKhoTab({
   // - cung pattern voi DonCuaToiTab.initialDetailIdOverride (xem openDetailIdFor trong
   // DatMuaLinhKienModule.tsx).
   initialDetailIdOverride?: string;
+  // FIX (phan hoi 2026-09-05, giong het DonCuaToiTab.tsx) - bao cho cha da doc/ap dung xong de cha xoa
+  // dung 1 lan, khong con dung timer mu.
+  onDetailIdConsumed?: () => void;
 }) {
   // FIX (2026-08-31, phan hoi "Phiếu xuất kho (x2) nhưng ấn vào lại...hiện 3 đơn (1 đơn đang chờ kế
   // toán)"): truoc day TN mac dinh giu "Tat ca" (y dinh ban dau: theo doi xuyen suot vong doi PXK minh

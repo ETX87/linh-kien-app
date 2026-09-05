@@ -19,6 +19,7 @@ export function TopBar({
   onOpenCommandPalette,
   mobilePreviewOpen,
   onToggleMobilePreview,
+  notificationBell,
 }: {
   role: string;
   user: AppUser;
@@ -35,6 +36,11 @@ export function TopBar({
   // 1 khung dien thoai that (iframe, xem App.tsx) thay vi tu resize cua so trinh duyet.
   mobilePreviewOpen: boolean;
   onToggleMobilePreview: () => void;
+  // Chuong thong bao (them 2026-09-05, phan hoi "chuyển vị trí chuông thông báo lên top giao diện") -
+  // render O DAY (header rieng, luon o TREN CUNG, khong bao gio bi anh huong boi do rong cua pipeline
+  // flow trong <main>) thay vi chung 1 hang flex-wrap voi tieu de/pipeline trong App.tsx - dat truoc do
+  // gay bug pipeline rong se day chuong xuong dong duoi, mat cam giac "luon o top".
+  notificationBell?: React.ReactNode;
 }) {
   return (
     <header className="h-16 bg-[var(--topbar-bg)] border-b border-[var(--line)] flex items-center gap-4 px-5 sticky top-0 z-30">
@@ -47,7 +53,8 @@ export function TopBar({
         <span className="flex-1 text-left">Tìm kiếm hoặc gõ lệnh...</span>
         <kbd className="text-[10px] font-semibold border border-[var(--line)] rounded px-1.5 py-0.5">Ctrl K</kbd>
       </button>
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center gap-2">
+        {notificationBell}
         <TopBarActions
           role={role}
           user={user}

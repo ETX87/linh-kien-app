@@ -20,6 +20,7 @@ export function TopBarActions({
   viewAsRole,
   mobilePreviewOpen,
   onToggleMobilePreview,
+  dropdownAlign = "left",
 }: {
   role: string;
   user: AppUser;
@@ -29,6 +30,13 @@ export function TopBarActions({
   // an het (dung khi render ben trong Sidebar mobile off-canvas, xem Sidebar.tsx).
   mobilePreviewOpen?: boolean;
   onToggleMobilePreview?: () => void;
+  // FIX (phan hoi 2026-09-05: "trên giao diện mobile, ấn vào thông tin tài khoản, UI hiện lỗi") -
+  // component nay duoc mount o 2 CHO khac nhau tren mobile voi trigger nam o 2 MEP doi nhau: (1)
+  // Sidebar.tsx (off-canvas drawer hep w-64, trigger sat mep TRAI) - "left" (mac dinh, giu dung hanh
+  // vi FIX 2026-08-26 truoc do), (2) App.tsx (header chinh full-width, trigger sat mep PHAI man hinh,
+  // them 2026-08-27 "muc 7" nhung QUEN doi CSS cho dung context moi) - phai truyen "right" o do, neu
+  // khong dropdown w-56 se neo theo "left-0" tu trigger sat mep phai va tran han ra ngoai man hinh.
+  dropdownAlign?: "left" | "right";
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -95,18 +103,23 @@ export function TopBarActions({
           </div>
         </button>
         {menuOpen && (
-          // FIX (loi hien thi mobile, phat hien qua kiem thu 2026-08-26): dropdown nay TRUOC DAY luon
-          // "right-0" - dung tren desktop (TopBar.tsx dat trigger o SAT MEP PHAI 1 header rong, xem
-          // "ml-auto" o do), nhung SAI tren mobile tu khi component nay duoc nhung vao Sidebar off-canvas
-          // (hang muc #15) - trigger (avatar, ten bi an qua "hidden sm:block") gio nam SAT MEP TRAI 1
-          // drawer hep w-64 (256px), "right-0" neo canh phai dropdown vao canh phai cua trigger nho hep
-          // do khien dropdown w-64 tran GAN HET ra ngoai mep trai man hinh - hien thanh 1 khoi trang vo
-          // hinh de cat, chong len noi dung ben duoi. "left-0 md:left-auto md:right-0" (nguong md=768px
-          // khop dung useIsMobile()) neo dropdown theo dung huong mo con lai KHONG GIAN tren tung boi
-          // canh: trai tren mobile (mo ve phia phai, con cho trong drawer), phai tren desktop (nhu cu).
-          // w-56 (thay vi w-64 co dinh) tren mobile de dropdown khong tran qua canh phai cua chinh
-          // drawer 256px (trigger da chiem ~12-50px tu trai).
-          <div className="absolute left-0 md:left-auto md:right-0 mt-2 w-56 md:w-64 bg-[var(--surface)] border border-[var(--line)] rounded-xl shadow-lg py-1.5 anim-in">
+          // FIX (loi hien thi mobile, phat hien qua kiem thu 2026-08-26, mo rong 2026-09-05): dropdown
+          // nay TRUOC DAY luon "right-0" - dung tren desktop (TopBar.tsx dat trigger o SAT MEP PHAI 1
+          // header rong, xem "ml-auto" o do), nhung SAI khi component nay duoc nhung vao Sidebar
+          // off-canvas (hang muc #15) - trigger (avatar, ten bi an qua "hidden sm:block") nam SAT MEP
+          // TRAI 1 drawer hep w-64 (256px), "right-0" neo canh phai dropdown vao canh phai cua trigger
+          // nho hep do khien dropdown tran GAN HET ra ngoai mep trai man hinh. Doi sang "left-0" cho
+          // context do (dropdownAlign="left", mac dinh). NHUNG khi component nay lai duoc mount THEM 1
+          // cho nua o App.tsx (header chinh full-width tren mobile, them 2026-08-27 "muc 7") thi trigger
+          // nam SAT MEP PHAI man hinh - "left-0" o day khien dropdown w-56 tran han ra ngoai mep PHAI
+          // (dung bug trong anh chup 2026-09-05: dropdown bi cat, chi thay 1 dai hep sat mep phai) - App.tsx
+          // phai truyen dropdownAlign="right" de dung "right-0" giong desktop. md:left-auto md:right-0
+          // luon giu nguyen cho desktop (nguong md=768px khop dung useIsMobile()), khong phu thuoc prop.
+          <div
+            className={`absolute mt-2 w-56 md:w-64 bg-[var(--surface)] border border-[var(--line)] rounded-xl shadow-lg py-1.5 anim-in ${
+              dropdownAlign === "right" ? "right-0" : "left-0 md:left-auto"
+            } md:right-0`}
+          >
             <div className="px-3.5 py-2 text-xs text-[var(--ink-400)] border-b border-[var(--line)] truncate">{user.email}</div>
             {realIsAdmin && (
               <div className="px-3.5 py-2.5 border-b border-[var(--line)]" onClick={(e) => e.stopPropagation()}>

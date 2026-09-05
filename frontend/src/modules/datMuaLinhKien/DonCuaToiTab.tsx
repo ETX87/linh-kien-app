@@ -60,6 +60,7 @@ export function DonHangDetailModal({
   canTPDvbhXacNhan,
   canActAsTram,
   currentEmail,
+  isAdmin,
   canXemChiTietCa,
   openCase,
   navRows,
@@ -73,6 +74,9 @@ export function DonHangDetailModal({
   canTPDvbhXacNhan: boolean;
   canActAsTram: boolean;
   currentEmail: string;
+  // "Hủy" (phan hoi 2026-09-05, muc #4) - CHI nguoi tao hoac Admin duoc huy, xem canHuy trong
+  // helpers.ts actionsFor(). Optional = mac dinh false (khong phai Admin) o noi goi chua kip cap nhat.
+  isAdmin?: boolean;
   canXemChiTietCa: boolean;
   openCase?: (id: string, tab?: string) => void;
   // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Drawer + Next/Previous"): danh sach DONG PHANG
@@ -229,7 +233,7 @@ export function DonHangDetailModal({
 
   const d = data?.donHang;
   const pxk = data?.pxk;
-  const actions = d ? actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail }) : { duyet: false, tuChoi: false, choHang: false, huy: false };
+  const actions = d ? actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, isAdmin }) : { duyet: false, tuChoi: false, choHang: false, huy: false };
   // Muc #4: SL thuc xuat CHI cho sua khi dong dang "Cho TN duyet" va SL de xuat > 1 (dung dieu kien
   // nguoi dung neu ra). "Da doi" so voi SL de xuat (khong phai so voi gia tri cu da luu - dong nay
   // chua tung duoc duyet nen chua co "gia tri cu" nao khac SL de xuat) la dieu kien bat buoc ghi chu.
@@ -567,23 +571,6 @@ export function DonHangDetailModal({
 
   return (
     <>
-    {confirmDuyetTaoHo && (
-      <Modal open title="Cảnh báo" onClose={() => setConfirmDuyetTaoHo(false)}>
-        <div className="space-y-3 text-sm">
-          <div className="font-semibold text-[var(--coral-600)]">(!!!) Đơn công nợ này được tạo hộ! Bạn có chắc đồng ý phê duyệt không?</div>
-          <div className="flex justify-end gap-2">
-            <Btn variant="ghost" size="sm" onClick={() => setConfirmDuyetTaoHo(false)}>Huỷ</Btn>
-            <Btn
-              size="sm"
-              disabled={soLuongThucXuatDaDoi && !lyDoSoLuong.trim()}
-              onClick={() => { setConfirmDuyetTaoHo(false); logMutation.mutate(duyetPayload()); }}
-            >
-              Đồng ý phê duyệt
-            </Btn>
-          </div>
-        </div>
-      </Modal>
-    )}
     <Drawer
       open
       // SUA (phan hoi ra soat UI/UX 2026-08-28, van de #1: "tên linh kiện tạo thành tiêu đề trên
@@ -684,6 +671,10 @@ export function DonHangDetailModal({
           </div>
 
           <DetailZone title="Thông tin đơn">
+            {/* "ID hệ thống" (phan hoi 2026-09-05, muc #6: "cần nhìn thấy ID hệ thống của đơn hàng để
+                dễ tra cứu hoặc kiểm soát") - d.id la ID that cua dong dat_don_hang, dung tra cuu truc
+                tiep qua wrangler d1/API khi can doi chieu voi nguoi dung. */}
+            <KvRow label="ID hệ thống"><span className="font-mono text-xs">{d.id}</span></KvRow>
             <KvRow label="Người tạo">{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</KvRow>
             {/* Luon hien (phan hoi 2026-08-25, hang muc #9) - truoc chi hien khi khac nguoi tao, gay
                 cam giac "thieu thong tin nguoi nhan hang" khi 2 gia tri trung nhau. */}
@@ -1014,6 +1005,27 @@ export function DonHangDetailModal({
         </div>
       )}
     </Drawer>
+    {/* FIX (phan hoi 2026-09-05, muc #5: "popup cảnh báo đơn tạo hộ hiện phía sau UI chi tiết không
+        click được") - Modal nay dung z-50 GIONG Drawer o tren; ca hai la fixed sibling trong CUNG 1
+        Fragment nen thu tu DOM (khong phai z-index) quyet dinh ai ve TREN - phai dat SAU </Drawer> de
+        ve tren, truoc day dat TRUOC nen bi Drawer de len, khong bam duoc. */}
+    {confirmDuyetTaoHo && (
+      <Modal open title="Cảnh báo" onClose={() => setConfirmDuyetTaoHo(false)}>
+        <div className="space-y-3 text-sm">
+          <div className="font-semibold text-[var(--coral-600)]">(!!!) Đơn công nợ này được tạo hộ! Bạn có chắc đồng ý phê duyệt không?</div>
+          <div className="flex justify-end gap-2">
+            <Btn variant="ghost" size="sm" onClick={() => setConfirmDuyetTaoHo(false)}>Huỷ</Btn>
+            <Btn
+              size="sm"
+              disabled={soLuongThucXuatDaDoi && !lyDoSoLuong.trim()}
+              onClick={() => { setConfirmDuyetTaoHo(false); logMutation.mutate(duyetPayload()); }}
+            >
+              Đồng ý phê duyệt
+            </Btn>
+          </div>
+        </div>
+      </Modal>
+    )}
     </>
   );
 }
@@ -1038,6 +1050,7 @@ export function DonCuaToiTab({
   initialNguoiNhanHangOverride,
   initialLoaiDonOverride,
   initialDetailIdOverride,
+  onDetailIdConsumed,
   loaiDonTabClickSeq,
 }: {
   user: { email: string; vai_tro: string | null } | null;
@@ -1066,6 +1079,11 @@ export function DonCuaToiTab({
   // ngay khi nhay toi, cung co che "tieu thu 1 lan" voi jumpTarget o component cha (xem
   // DatMuaLinhKienModule.tsx/openDetailIdFor).
   initialDetailIdOverride?: string;
+  // FIX (phan hoi 2026-09-05: chuong thong bao nang len App.tsx, xem comment day du o
+  // pendingOpenDetailId trong DatMuaLinhKienModule.tsx) - bao cho component cha DA doc/ap dung xong
+  // initialDetailIdOverride de cha xoa dung 1 lan, KHONG con dung timer mu (setTimeout(0)) de tu xoa -
+  // an toan ke ca tab nay phai cho xong dynamic import() (lan dau mount trong phien) roi moi doc duoc.
+  onDetailIdConsumed?: () => void;
   loaiDonTabClickSeq?: number;
 }) {
   const personDir = usePersonDirectory();
@@ -1157,7 +1175,11 @@ export function DonCuaToiTab({
   }, [filterQ]);
   const [detailId, setDetailId] = useState<string | null>(null);
   useEffect(() => {
-    if (initialDetailIdOverride) setDetailId(initialDetailIdOverride);
+    if (initialDetailIdOverride) {
+      setDetailId(initialDetailIdOverride);
+      onDetailIdConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialDetailIdOverride]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
@@ -1657,6 +1679,7 @@ export function DonCuaToiTab({
           canTPDvbhXacNhan={canTPDvbhXacNhan}
           canActAsTram={canActAsTram}
           currentEmail={user?.email ?? ""}
+          isAdmin={isAdmin}
           canXemChiTietCa={canXemChiTietCa}
           openCase={openCase}
           navRows={pageRows}
@@ -1882,13 +1905,11 @@ export function DonHangGroupedList({
               ✕
             </Btn>
           )}
-          {row.actions.huy && (
-            // FIX (ra soat UI 2026-08-27, hang muc #1): doi 🚫 -> 🗑 de tach ro khoi ✕ (Tu choi) dung
-            // ngay canh - 2 icon truoc day qua giong nghia, de bam nham giua "Tu choi" va "Huy".
-            <Btn size="sm" variant="ghost" className="px-2" title="Hủy" aria-label="Hủy" onClick={() => setActionTarget({ id: row.d.id, action: "huy" })} disabled={bulkMutation.isPending}>
-              🗑
-            </Btn>
-          )}
+          {/* FIX (phan hoi 2026-09-05: "nút hủy đơn của tất cả các giao diện đều bỏ ở màn hình ngoài,
+              chỉ hiện ở màn hình UI chi tiết để tránh bấm nhầm") - nut "Hủy" (row.actions.huy) truoc day
+              hien CA o day (danh sach ngoai) LAN trong DonHangDetailModal - bo han o day, chi giu lai
+              trong Modal chi tiet (setActionTarget/actions.huy o dong ~553) de tranh bam nham tren
+              danh sach. Duyet/Cho hang/Tu choi VAN giu nguyen o day (khong doi). */}
         </div>
       ),
     },
@@ -2236,11 +2257,9 @@ export function DonHangGroupedList({
                                   ✕
                                 </Btn>
                               )}
-                              {actions.huy && (
-                                <Btn size="sm" variant="ghost" className="px-2" title="Hủy" aria-label="Hủy" onClick={() => setActionTarget({ id: d.id, action: "huy" })} disabled={bulkMutation.isPending}>
-                                  🗑
-                                </Btn>
-                              )}
+                              {/* FIX (phan hoi 2026-09-05: "nút hủy đơn ... bỏ ở màn hình ngoài, chỉ
+                                  hiện ở màn hình UI chi tiết") - bo nut Hủy o danh sach nhom-theo-KTV
+                                  nay, giu nguyen trong DonHangDetailModal (dong ~553). */}
                             </div>
                           </div>
                         </div>

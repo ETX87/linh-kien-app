@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "./auth/AuthContext";
 import type { ViewAsRole } from "./auth/viewAsRoles";
 import { VIEW_AS_LABELS } from "./auth/viewAsRoles";
@@ -13,6 +14,7 @@ import { DanhMucLinhKienModule } from "./modules/DanhMucLinhKienModule";
 import { TonKhoKtvModule } from "./modules/TonKhoKtvModule";
 import { DanhSachKtvModule } from "./modules/DanhSachKtvModule";
 import { BaoCaoTocDoXuLyModule } from "./modules/BaoCaoTocDoXuLyModule";
+import { NotificationBell } from "./modules/datMuaLinhKien/NotificationBell";
 import { SettingsModule } from "./modules/SettingsModule";
 import { UsersModule } from "./modules/UsersModule";
 import { api } from "./api/client";
@@ -29,6 +31,25 @@ import { useThemeSettings } from "./theme/useThemeSettings";
 // CaseDetail/caseStack/openCase (khong co case_dvbh cuc bo - xem CLAUDE.md), khong con GreetingPopup/
 // bao cao 08:00/tim kiem case (thuoc mien nghiep vu khac o he goc, khong tach sang day).
 const ACTIVE_MODULE_KEY = "dat_mua_lk_active_module";
+
+// FIX (phan hoi 2026-09-05: "dưới tên người dùng đang không hiện vai trò của họ") - truoc day moi
+// noi (Sidebar/TopBar/TopBarActions) chi nhan dung `role ?? "Đặt mua linh kiện"`: voi tai khoan
+// vai_tro=NULL (KTV/CTV/Tram/Ve tinh/Kho/Ke toan/TN/TBP/View - dung 7 co nghiep vu thay vi vai_tro),
+// dong subtitle luon hien ten UNG DUNG chung "Đặt mua linh kiện" thay vi vai tro THAT cua ho. Ham nay
+// tra ve dung (cac) co dang bat, join bang " · " neu vo tinh bat nhieu co cung luc - chi fallback ve
+// ten ung dung khi KHONG co vai_tro lan co nao (khong nen xay ra, xem laTaiKhoanMuaHangThuanTuy).
+function roleDisplayLabel(user: { vai_tro: string | null; la_kho: boolean; la_ke_toan: boolean; la_tac_nghiep: boolean; la_tp_dvbh: boolean; la_ktv_dvbh: boolean; la_ve_tinh: boolean; la_view: boolean }): string {
+  if (user.vai_tro) return user.vai_tro;
+  const labels: string[] = [];
+  if (user.la_kho) labels.push("Kho");
+  if (user.la_ke_toan) labels.push("Kế toán");
+  if (user.la_tac_nghiep) labels.push("Tác nghiệp (TN)");
+  if (user.la_tp_dvbh) labels.push("TP DVBH");
+  if (user.la_ktv_dvbh) labels.push("KTV DVBH");
+  if (user.la_ve_tinh) labels.push("Vệ tinh");
+  if (user.la_view) labels.push("View");
+  return labels.length ? labels.join(" · ") : "Đặt mua linh kiện";
+}
 
 export function App() {
   const auth = useAuth();
@@ -104,6 +125,28 @@ function MainApp({
     const saved = localStorage.getItem(ACTIVE_MODULE_KEY);
     return saved && allowedModules.includes(saved) ? saved : (allowedModules[0] ?? "dat-mua-lk");
   });
+  // Chuong thong bao (them 2026-09-05, phan hoi "chuyển vị trí chuông thông báo lên top giao diện") -
+  // truoc day NotificationBell la 1 phan noi bo cua DatMuaLinhKienModule, CHI hien khi active==="trang-
+  // chu" (man Home) - gio nang len render o day, hien tren MOI tab. queryKey "notifications-count"
+  // dung CHUNG voi Sidebar.tsx/BottomTabBar.tsx/DatMuaLinhKienModule.tsx (react-query chia se cache
+  // theo key, khong ton them request that). `pendingDetailOpen` la "cong vao" duy nhat de bam 1 dong
+  // thong bao mo dung Drawer chi tiet don hang/PXK nam BEN TRONG DatMuaLinhKienModule - neu dang o tab
+  // khac (Settings/Users/Bảng giá/...), phai setActive("dat-mua-lk") TRUOC de module do mount, roi
+  // truyen target xuong qua prop externalDetailOpen (xem useEffect xu ly no trong DatMuaLinhKienModule.tsx).
+  const { data: notifCounts } = useQuery({
+    queryKey: ["notifications-count"],
+    queryFn: () => api.get<{ ktvLogChuaDoc: number }>("/notifications/count"),
+    refetchInterval: 5 * 60_000,
+  });
+  const [pendingDetailOpen, setPendingDetailOpen] = useState<{ tab: "don-cua-toi" | "phieu-xuat-kho"; id: string; nonce: number } | null>(null);
+  function openDonHangFromBell(donHangId: string) {
+    setActive("dat-mua-lk");
+    setPendingDetailOpen({ tab: "don-cua-toi", id: donHangId, nonce: Date.now() });
+  }
+  function openPxkFromBell(pxkId: string) {
+    setActive("dat-mua-lk");
+    setPendingDetailOpen({ tab: "phieu-xuat-kho", id: pxkId, nonce: Date.now() });
+  }
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -176,7 +219,7 @@ function MainApp({
         setCollapsed={setCollapsed}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
-        role={role ?? "Đặt mua linh kiện"}
+        role={roleDisplayLabel(user)}
         user={user}
         realIsAdmin={realIsAdmin}
         viewAsRole={viewAsRole}
@@ -206,13 +249,14 @@ function MainApp({
             bao/avatar chuyen vao Sidebar (mo qua nut "Thêm" cuoi BottomTabBar), xem TopBar.tsx. */}
         {!isMobile && (
           <TopBar
-            role={role ?? "Đặt mua linh kiện"}
+            role={roleDisplayLabel(user)}
             user={user}
             realIsAdmin={realIsAdmin}
             viewAsRole={viewAsRole}
             onOpenCommandPalette={() => setCommandOpen(true)}
             mobilePreviewOpen={mobilePreviewOpen}
             onToggleMobilePreview={() => setMobilePreviewOpen((v) => !v)}
+            notificationBell={<NotificationBell unreadCount={notifCounts?.ktvLogChuaDoc ?? 0} onOpenDonHang={openDonHangFromBell} onOpenPxk={openPxkFromBell} />}
           />
         )}
         <main className={`p-3 sm:p-5 flex-1 ${isMobile ? "pb-20" : ""}`}>
@@ -225,10 +269,20 @@ function MainApp({
                 phai" - tai dung NGUYEN VEN TopBarActions (da co san "🎨 Giao diện"/"Đăng xuất" trong
                 dropdown avatar, dung o Sidebar mobile off-canvas) thay vi viet component moi, dung
                 lua chon da chot qua AskUserQuestion. Chi hien tren mobile (desktop da co TopBar rieng
-                o tren cung, xem TopBar.tsx) - chap nhan trung diem truy cap voi Sidebar off-canvas. */}
+                o tren cung, xem TopBar.tsx) - chap nhan trung diem truy cap voi Sidebar off-canvas.
+                FIX (phan hoi 2026-09-05: "ấn vào thông tin tài khoản, UI hiện lỗi"): trigger o day nam
+                SAT MEP PHAI man hinh (khac Sidebar off-canvas, trigger sat mep trai 1 drawer hep) -
+                phai truyen dropdownAlign="right" de dropdown neo dung huong, khong tran ra ngoai man
+                hinh (xem giai thich day du trong TopBarActions.tsx).
+                Chuong thong bao (them 2026-09-05): CHI render o day tren MOBILE - tren desktop da nam
+                trong TopBar.tsx rieng (header luon o top, khong bao gio bi pipeline flow day xuong
+                dong duoi nhu khi dat chung 1 hang flex-wrap voi headerExtraEl o day). Tren mobile
+                pipeline chi la 1 nut "+ Tạo đơn" hep (xem DatMuaLinhKienModule.tsx) nen khong tran dong
+                nhu ban desktop. */}
             {isMobile && (
-              <div className="shrink-0">
-                <TopBarActions role={role ?? "Đặt mua linh kiện"} user={user} realIsAdmin={realIsAdmin} viewAsRole={viewAsRole} />
+              <div className="flex items-center gap-2 shrink-0">
+                <NotificationBell unreadCount={notifCounts?.ktvLogChuaDoc ?? 0} onOpenDonHang={openDonHangFromBell} onOpenPxk={openPxkFromBell} />
+                <TopBarActions role={roleDisplayLabel(user)} user={user} realIsAdmin={realIsAdmin} viewAsRole={viewAsRole} dropdownAlign="right" />
               </div>
             )}
           </div>
@@ -245,6 +299,8 @@ function MainApp({
             <DatMuaLinhKienModule
               forceView={active === "dat-mua-lk" ? undefined : active}
               headerExtra={headerExtraEl}
+              externalDetailOpen={pendingDetailOpen}
+              onExternalDetailOpenConsumed={() => setPendingDetailOpen(null)}
               // FIX (phan hoi 2026-08-26, cung van de tren): khi nguoi dung bam so lieu/StatCard nhay
               // sang noi dung khac tu "Trang chủ"/"Thiếu linh kiện" (vd "Đơn của tôi"), noi dung thuc
               // te da chuyen sang "Đặt mua linh kiện" - goi callback nay de Sidebar/tieu de h1 (dieu

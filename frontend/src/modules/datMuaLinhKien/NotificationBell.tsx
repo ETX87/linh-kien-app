@@ -72,10 +72,16 @@ export function NotificationBell({
   const authState = useAuth();
   const refreshUser = useRefreshUser();
   const authUser = authState.status === "authenticated" ? authState.user : null;
+  // FIX (phan hoi 2026-09-05: "web đẩy thông báo mới, nhưng người dùng ấn vào chuông vẫn không load
+  // thông báo mới") - staleTime MAC DINH toan app la 2 phut (main.tsx), nen mo lai chuong trong vong 2
+  // phut ke tu lan mo truoc chi hien du lieu CACHE cu, bo lo thong bao vua day toi. Chuong la noi PHAI
+  // luon dung nhat khi nguoi dung chu dong mo de kiem tra - ghi de staleTime: 0 rieng cho query nay de
+  // MOI lan mo (enabled: false -> true) deu coi du lieu cu la stale va tu fetch lai.
   const { data, isLoading } = useQuery({
     queryKey: ["ktv-log", filter],
     queryFn: () => api.get<{ rows: ThongBaoKtvRow[]; total: number }>(`/notifications/ktv-log?filter=${filter}&pageSize=50`),
     enabled: open,
+    staleTime: 0,
   });
 
   function invalidate() {

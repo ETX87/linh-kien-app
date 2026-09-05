@@ -471,7 +471,12 @@ function ThieuLkGroupedList({
     {
       key: "hanh_dong", header: "", mobileHint: "actions",
       render: (r) => {
-        const nexts = nextStates(r).filter((s) => s.canDo);
+        // FIX (phan hoi 2026-09-05: "nút hủy đơn của tất cả các giao diện đều bỏ ở màn hình ngoài, chỉ
+        // hiện ở màn hình UI chi tiết để tránh bấm nhầm") - loai "Da huy bo" khoi danh sach quick-action
+        // o day (danh sach ngoai), chi giu lai trong ThieuLkDetailModal (nexts o do tinh RIENG, khong
+        // dung chung bien nay) de tranh bam nham. Cac trang thai khac (Kho da tiep nhan/Tu choi sai TT/
+        // Kho xac nhan hang da ve/Da ket thuc) VAN giu nguyen o day.
+        const nexts = nextStates(r).filter((s) => s.canDo && s.trangThai !== "Da huy bo");
         if (nexts.length === 0) return null;
         return (
           <div className="flex gap-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
@@ -598,7 +603,9 @@ function ThieuLkGroupedList({
               </div>
               <div className="sm:hidden divide-y divide-[var(--line)]">
               {dongCon.map((r) => {
-                const nexts = nextStates(r).filter((s) => s.canDo);
+                // FIX (phan hoi 2026-09-05, giong het comment o cot "hanh_dong" ben tren): loai "Da huy
+                // bo" khoi danh sach ngoai, chi giu lai trong ThieuLkDetailModal.
+                const nexts = nextStates(r).filter((s) => s.canDo && s.trangThai !== "Da huy bo");
                 const t = LOAI_DON_TONE[(r.loai_don as keyof typeof LOAI_DON_TONE) ?? "mua"] ?? LOAI_DON_TONE.mua;
                 return (
                   <div

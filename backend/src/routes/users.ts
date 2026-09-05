@@ -6,6 +6,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { bumpVersions } from "../lib/dataVersions";
 import { nowVN } from "../lib/vnTime";
+import { resyncKhuVucDerivedFieldsForEmail } from "../lib/khuVucSync";
 
 // Port rut gon tu backend/src/routes/users.ts cua he DVBH goc - bo cac truong khong con ton tai o
 // he nay (khu_vuc_phu_trach, la_ksnb_doi_tac, modules, co_the_import_tranh_chap - xem types.ts).
@@ -165,6 +166,52 @@ users.patch("/:email", async (c) => {
       email,
     )
     .run();
+
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["users"]));
+  return c.json({ ok: true });
+});
+
+// POST /api/users/:email/chuyen-nhom-vai-tro - { to: "ktv" | "van_phong" } (them 2026-09-05, phan hoi
+// "có trường hợp setup nhầm tài khoản gmail thành ktv, giờ cần chuyển thành tài khoản văn phòng" ->
+// tong quat hoa thanh "xây dựng chức năng để admin hệ thống có thể chuyển đổi giữa 2 nhóm vai trò
+// này"). "2 nhom" khop DUNG bo loc cua GET /users?nhom=ktv|van-phong o tren (la_ktv_dvbh/la_ve_tinh
+// vs 5 co van phong). Gop nhieu buoc rieng le (truoc day phai tu PATCH /:email + PATCH
+// /settings/ktv-lien-he/:ma/dat-mua-lk, de sot lien ket "mo coi" neu quen 1 buoc) thanh 1 hanh dong
+// nguyen tu:
+//  - "van_phong": tat la_ktv_dvbh/la_ve_tinh, HUY LIEN KET moi dong ktv_lien_he dang tro toi email
+//    nay (email_dang_nhap = NULL - danh ba KTV van giu nguyen, chi mat "nguoi dang nhap"), dong bo lai
+//    giam_sat_quan_ly/tram_cha ve NULL (khong con la KTV, xem lib/khuVucSync.ts). Admin tu chon co van
+//    phong phu hop O BUOC SAU qua PATCH /:email thong thuong (mo lai EditUserModal - tai khoan gio da
+//    hien trong "Nhân viên văn phòng" vi khong con thoa dieu kien nhom=ktv nua).
+//  - "ktv": tat toan bo 5 co van phong, bat la_ktv_dvbh (KTV thuong, Admin tu doi thanh Ve tinh sau
+//    neu can qua the "KTV hiện trường"), xoa moi Khu vuc phu trach van phong cu (user_khu_vuc - khong
+//    con y nghia). KHONG tu tao dong ktv_lien_he (can them ma_ktv/ten... Admin tu lam qua "+ Thêm
+//    KTV", dien Email đăng nhập = email nay).
+// KHONG dong toi vai_tro (Admin/QC/Giam sat la khai niem doc lap, khong thuoc "2 nhom" nay) hay 2 co
+// danh muc LK (quan_ly_danh_muc_lk/xem_danh_muc_lk).
+users.post("/:email/chuyen-nhom-vai-tro", async (c) => {
+  const email = decodeURIComponent(c.req.param("email"));
+  const body = await c.req.json<{ to?: "ktv" | "van_phong" }>();
+  if (body.to !== "ktv" && body.to !== "van_phong") return c.json({ error: "INVALID_TO" }, 400);
+
+  const existing = await c.env.DB.prepare("SELECT email FROM users WHERE email = ?").bind(email).first();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const now = nowVN();
+  if (body.to === "van_phong") {
+    await c.env.DB.batch([
+      c.env.DB.prepare("UPDATE users SET la_ktv_dvbh = 0, la_ve_tinh = 0, updated_at = ? WHERE email = ?").bind(now, email),
+      c.env.DB.prepare("UPDATE ktv_lien_he SET email_dang_nhap = NULL WHERE email_dang_nhap = ?").bind(email),
+    ]);
+    await resyncKhuVucDerivedFieldsForEmail(c.env.DB, email);
+  } else {
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        "UPDATE users SET la_ktv_dvbh = 1, la_kho = 0, la_ke_toan = 0, la_tac_nghiep = 0, la_tp_dvbh = 0, la_view = 0, updated_at = ? WHERE email = ?",
+      ).bind(now, email),
+      c.env.DB.prepare("DELETE FROM user_khu_vuc WHERE user_email = ?").bind(email),
+    ]);
+  }
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["users"]));
   return c.json({ ok: true });
