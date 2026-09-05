@@ -491,6 +491,7 @@ export function DatMuaLinhKienModule({
       <NotificationBell
         unreadCount={notifCounts?.ktvLogChuaDoc ?? 0}
         onOpenDonHang={(donHangId) => jumpTo({ tab: "don-cua-toi", filter: "", openDetailId: donHangId })}
+        onOpenPxk={(pxkId) => jumpTo({ tab: "phieu-xuat-kho", filter: "", openDetailId: pxkId })}
       />
     ) : null;
   const headerContentEl = (
@@ -602,6 +603,7 @@ export function DatMuaLinhKienModule({
             initialFilterOverride={filterFor("phieu-xuat-kho")}
             initialNguoiNhanHangOverride={nguoiNhanHangFor("phieu-xuat-kho")}
             initialLoaiDonOverride={loaiDonFor("phieu-xuat-kho")}
+            initialDetailIdOverride={openDetailIdFor("phieu-xuat-kho")}
           />
         )}
         {activeView === "thieu-lk" && (

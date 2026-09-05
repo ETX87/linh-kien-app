@@ -12,6 +12,7 @@ import { autoClaimGs, scopePxkNguoiNhanHang, phuTrachGsSet, khuVucCuaToiSet, khu
 import { uploadPublicImage } from "../lib/googleDrive";
 import { sendPushToUser } from "../lib/webPush";
 import { buildMisaExportSheets, MISA_TEMPLATES, type MisaTemplate } from "../lib/misaExport";
+import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, emailGsListForPxk, PXK_ROLES } from "../lib/taskNotify";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
 // Pattern header+log giong phieu_dat. TN tao (gom nhieu dong don hang da "TN da duyet" vao 1
@@ -446,6 +447,25 @@ phieuXuatKho.post("/", async (c) => {
 
   await c.env.DB.batch(statements);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  // Bao KTV "co tien can chuyen" (phan hoi 2026-09-05) - chi khi PXK nay THAT SU can chuyen tien luc
+  // tao (coChuyenTien), nguoi phai xu ly la dung 1 KTV = nguoiNhanHang.
+  if (coChuyenTien) {
+    c.executionCtx.waitUntil(
+      (async () => {
+        const emailGsList = await emailGsListForPxk(c.env.DB, id);
+        await notifyWorkflowTask(c.env, c.env.DB, {
+          cat1Emails: [nguoiNhanHang],
+          otherRoles: PXK_ROLES,
+          emailGsList,
+          pastActors: [],
+          title: "Phiếu xuất kho",
+          body: `PXK ${id} cần bạn xác nhận thông tin chuyển tiền ${body.so_tien_can_chuyen!.toLocaleString("vi-VN")}đ`,
+          linkType: "phieu_xuat_kho",
+          linkId: id,
+        });
+      })(),
+    );
+  }
   return c.json({ id }, 201);
 });
 
@@ -756,6 +776,27 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
         id, logTrangThai, user.email, now, "Đã đính bằng chứng/ghi chú chuyển tiền",
       ),
     ]);
+    // Bao Ke toan "cho duyet chuyen tien" (phan hoi 2026-09-05) - buoc 2 gio la Ke toan duyet (xem
+    // nhanh "TN da duyet" ben duoi, ten bien giu nguyen theo gia tri DB cu).
+    c.executionCtx.waitUntil(
+      (async () => {
+        const emailGsList = await emailGsListForPxk(c.env.DB, id);
+        const [cat1Emails, pastActors] = await Promise.all([
+          emailsForRoleOrQC(c.env.DB, "la_ke_toan", emailGsList),
+          pastActorsFor(c.env.DB, "phieu_xuat_kho_log", "phieu_xuat_kho_id", id, user.email),
+        ]);
+        await notifyWorkflowTask(c.env, c.env.DB, {
+          cat1Emails,
+          otherRoles: PXK_ROLES.filter((r) => r !== "la_ke_toan"),
+          emailGsList,
+          pastActors,
+          title: "Phiếu xuất kho",
+          body: `PXK ${id} đang chờ bạn duyệt chuyển tiền`,
+          linkType: "phieu_xuat_kho",
+          linkId: id,
+        });
+      })(),
+    );
   } else if (body.trang_thai === "TN da duyet") {
     // SUA (phan hoi nguoi dung 04/09/2026: "Bước 2: 'Kế toán duyệt chuyển tiền'") - nguoi duyet buoc
     // cuoi chuyen tu TN sang Ke toan (gate doi canTacNghiep -> canKeToan). GIU NGUYEN gia tri DB
@@ -886,6 +927,32 @@ phieuXuatKho.post("/:id/log", async (c) => {
   await c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)")
     .bind(id, target, user.email, nowVN(), body.ghi_chu?.trim() || null)
     .run();
+
+  // Bao "viec moi" cho vai tro SAP xu ly buoc tiep theo (phan hoi 2026-09-05) - PXK khong co
+  // email_gs rieng, suy tu cac dat_don_hang da gop vao (xem emailGsListForPxk).
+  if (target === "Cho ke toan" || target === "Da chot xong don xuat") {
+    const role = target === "Cho ke toan" ? "la_ke_toan" : "la_kho";
+    const body_ = target === "Cho ke toan" ? `PXK ${id} đang chờ bạn chốt kế toán` : `PXK ${id} đã chốt kế toán, chờ bạn xử lý`;
+    c.executionCtx.waitUntil(
+      (async () => {
+        const emailGsList = await emailGsListForPxk(c.env.DB, id);
+        const [cat1Emails, pastActors] = await Promise.all([
+          emailsForRoleOrQC(c.env.DB, role, emailGsList),
+          pastActorsFor(c.env.DB, "phieu_xuat_kho_log", "phieu_xuat_kho_id", id, user.email),
+        ]);
+        await notifyWorkflowTask(c.env, c.env.DB, {
+          cat1Emails,
+          otherRoles: PXK_ROLES.filter((r) => r !== role),
+          emailGsList,
+          pastActors,
+          title: "Phiếu xuất kho",
+          body: body_,
+          linkType: "phieu_xuat_kho",
+          linkId: id,
+        });
+      })(),
+    );
+  }
 
   // Muc E (Dot 2): Kho tach rieng "Ma van don" khoi ghi_chu chung, chi ap dung luc chuyen "Dang gui KTV".
   if (target === "Dang gui KTV" && body.ma_van_don?.trim()) {

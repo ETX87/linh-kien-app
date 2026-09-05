@@ -8,6 +8,19 @@ import { nowVN } from "../lib/vnTime";
 import { bumpVersions } from "../lib/dataVersions";
 import { scopeDatMuaNguoiTao, khuVucSetWhereSql } from "../lib/scopeDatMua";
 import { uploadPublicImage } from "../lib/googleDrive";
+import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
+
+// Vai tro can bao "viec moi" khi 1 dong tra hang toi trang thai nay (phan hoi 2026-09-05) - dung
+// chung cho ca applyTraHangLog (di xuoi) va POST /:donHangId/log-lui (di lui), vi 2 chieu deu ha
+// canh vao dung 1 trong 4 trang thai cho-xu-ly nay. "Cho ke toan duyet mem" o day CHI phuc vu
+// log-lui (luc tao moi da duoc bao rieng o datMuaLinhKien.ts).
+function roleForTraHangState(trangThai: string): ViecMoiRoleCol | "qc" | null {
+  if (trangThai === "Cho ke toan duyet mem") return "la_ke_toan";
+  if (trangThai === "Cho kho xac nhan") return "la_kho";
+  if (trangThai === "Cho QC xac nhan") return "qc";
+  if (trangThai === "Cho TN duyet tong") return "la_tac_nghiep";
+  return null;
+}
 
 // Luong "Don tra hang" - tach hoan toan khoi state machine mua/cong no, xem migration
 // 0059_tra_hang_log.sql + 0064_tra_hang_log_du_6_buoc.sql. 1 dong dat_don_hang (loai_don='tra_hang')
@@ -245,10 +258,13 @@ async function applyTraHangLog(
   // trang_thai_hien_tai (LUON dong bo qua CAS ngay ben duoi), vua don gian hon vua tranh dung ca lop
   // "dong tra_hang vua tao chua co log dau tien" (xem giai thich o GET / ben tren).
   const ddh = await c.env.DB.prepare(
-    "SELECT id, nguoi_tao, version, trang_thai_hien_tai as trang_thai FROM dat_don_hang WHERE id = ? AND loai_don = 'tra_hang'",
+    "SELECT id, nguoi_tao, version, trang_thai_hien_tai as trang_thai, email_gs, ten_lk_snapshot, so_luong_de_xuat FROM dat_don_hang WHERE id = ? AND loai_don = 'tra_hang'",
   )
     .bind(donHangId)
-    .first<{ id: string; nguoi_tao: string; version: number; trang_thai: string | null }>();
+    .first<{
+      id: string; nguoi_tao: string; version: number; trang_thai: string | null;
+      email_gs: string | null; ten_lk_snapshot: string; so_luong_de_xuat: number;
+    }>();
   if (!ddh) return { error: "NOT_FOUND", status: 404 };
 
   const trangThaiHienTai = ddh.trang_thai ?? "Cho ke toan duyet mem";
@@ -311,6 +327,30 @@ async function applyTraHangLog(
     .bind(donHangId, nextTrangThai, user.email, nowVN(), ghiChu?.trim() || null)
     .run();
 
+  // Bao "viec moi" cho vai tro SAP xu ly buoc tiep theo (phan hoi 2026-09-05).
+  const role = roleForTraHangState(nextTrangThai);
+  if (role) {
+    const emailGsList = ddh.email_gs ? [ddh.email_gs] : [];
+    c.executionCtx.waitUntil(
+      (async () => {
+        const [cat1Emails, pastActors] = await Promise.all([
+          emailsForRoleOrQC(c.env.DB, role, emailGsList),
+          pastActorsFor(c.env.DB, "tra_hang_log", "dat_don_hang_id", donHangId, user.email),
+        ]);
+        await notifyWorkflowTask(c.env, c.env.DB, {
+          cat1Emails,
+          otherRoles: TRA_HANG_ROLES.filter((r) => r !== role),
+          emailGsList,
+          pastActors,
+          title: "Trả hàng",
+          body: `Đơn trả hàng "${ddh.ten_lk_snapshot} (x${ddh.so_luong_de_xuat})" đang chờ bạn xử lý`,
+          linkType: "don_hang",
+          linkId: donHangId,
+        });
+      })(),
+    );
+  }
+
   return { nextTrangThai };
 }
 
@@ -357,9 +397,10 @@ traHang.post("/:donHangId/log-lui", async (c) => {
   if (!body.ghi_chu?.trim()) return c.json({ error: "MISSING_GHI_CHU" }, 400);
 
   // SUA 2026-08-21: doc thang cot mirror trang_thai_hien_tai, xem giai thich o applyTraHangLog.
-  const ddh = await c.env.DB.prepare("SELECT trang_thai_hien_tai as trang_thai FROM dat_don_hang WHERE id = ? AND loai_don = 'tra_hang'")
+  const ddh = await c.env.DB
+    .prepare("SELECT trang_thai_hien_tai as trang_thai, email_gs, ten_lk_snapshot, so_luong_de_xuat FROM dat_don_hang WHERE id = ? AND loai_don = 'tra_hang'")
     .bind(donHangId)
-    .first<{ trang_thai: string | null }>();
+    .first<{ trang_thai: string | null; email_gs: string | null; ten_lk_snapshot: string; so_luong_de_xuat: number }>();
   if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
 
   const trangThaiHienTai = ddh.trang_thai ?? "Cho ke toan duyet mem";
@@ -384,6 +425,29 @@ traHang.post("/:donHangId/log-lui", async (c) => {
   ]);
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  // Bao "viec moi" cho vai tro cua buoc VUA bi day lui ve (phan hoi 2026-09-05).
+  const role = roleForTraHangState(prevTrangThai);
+  if (role) {
+    const emailGsList = ddh.email_gs ? [ddh.email_gs] : [];
+    c.executionCtx.waitUntil(
+      (async () => {
+        const [cat1Emails, pastActors] = await Promise.all([
+          emailsForRoleOrQC(c.env.DB, role, emailGsList),
+          pastActorsFor(c.env.DB, "tra_hang_log", "dat_don_hang_id", donHangId, user.email),
+        ]);
+        await notifyWorkflowTask(c.env, c.env.DB, {
+          cat1Emails,
+          otherRoles: TRA_HANG_ROLES.filter((r) => r !== role),
+          emailGsList,
+          pastActors,
+          title: "Trả hàng",
+          body: `Đơn trả hàng "${ddh.ten_lk_snapshot} (x${ddh.so_luong_de_xuat})" bị đẩy lùi, đang chờ bạn xử lý`,
+          linkType: "don_hang",
+          linkId: donHangId,
+        });
+      })(),
+    );
+  }
   return c.json({ ok: true, trang_thai: prevTrangThai });
 });
 

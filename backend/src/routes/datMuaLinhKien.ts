@@ -16,6 +16,7 @@ import { extractMaKtv } from "../lib/ktvCode";
 import { lookupCase, lookupCases, type CaseLookupPreview } from "../lib/caseLookupClient";
 import { sendPushToUser } from "../lib/webPush";
 import { computeCongNoChot } from "../lib/congNoKtv";
+import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, MUA_CONG_NO_ROLES, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
 
 // Luong chinh "Dat mua linh kien" - phieu dat (header, chi de tong hop hien thi) + dong don hang -
 // xem migration 0056_phieu_dat.sql + 0063_dat_don_hang_trang_thai_theo_dong.sql.
@@ -1722,6 +1723,10 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
     ),
   ];
 
+  // Bao "viec moi" cho vai tro se xu ly buoc DAU TIEN cua tung dong (phan hoi 2026-09-05) - gom vao
+  // 1 hang doi, chi ban sau khi batch() thanh cong (tranh bao nham neu insert that bai).
+  const notifyQueue: { donHangId: string; trangThai: string; tenLkNoiDung: string }[] = [];
+
   for (const [i, dh] of body.don_hang.entries()) {
     const lde = dh.loai_de_xuat.trim();
     const loai_don = deriveLoaiDon(lde);
@@ -1732,6 +1737,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
     // ngay tren dong cha, dung lam token CAS cho applyDonHangLog/applyTraHangLog ve sau (version mac
     // dinh 1 theo schema).
     const trangThaiKhoiTao = loai_don !== "tra_hang" ? initialDonHangTrangThai(user.la_ve_tinh, lk.dac_thu) : "Cho ke toan duyet mem";
+    notifyQueue.push({ donHangId, trangThai: trangThaiKhoiTao, tenLkNoiDung: `"${lk.ten_lk} (x${dh.so_luong_de_xuat})"` });
     statements.push(
       c.env.DB.prepare(
         `INSERT INTO dat_don_hang
@@ -1793,6 +1799,68 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
 
   await c.env.DB.batch(statements);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  const emailGsList = recipientRow?.giam_sat_quan_ly ? [recipientRow.giam_sat_quan_ly] : [];
+  for (const item of notifyQueue) {
+    if (item.trangThai === "Cho Tram duyet") {
+      c.executionCtx.waitUntil(
+        notifyWorkflowTask(c.env, c.env.DB, {
+          cat1Emails: user.tram_cha ? [user.tram_cha] : [],
+          otherRoles: MUA_CONG_NO_ROLES,
+          emailGsList,
+          pastActors: [],
+          title: "Đặt mua linh kiện",
+          body: `Đơn ${item.tenLkNoiDung} của ${user.ten ?? user.email} đang chờ bạn duyệt`,
+          linkType: "don_hang",
+          linkId: item.donHangId,
+        }),
+      );
+    } else if (item.trangThai === "Cho TBP xac nhan") {
+      c.executionCtx.waitUntil(
+        (async () => {
+          await notifyWorkflowTask(c.env, c.env.DB, {
+            cat1Emails: await emailsForRoleOrQC(c.env.DB, "la_tp_dvbh", emailGsList),
+            otherRoles: MUA_CONG_NO_ROLES.filter((r) => r !== "la_tp_dvbh"),
+            emailGsList,
+            pastActors: [],
+            title: "Đặt mua linh kiện",
+            body: `Đơn ${item.tenLkNoiDung} cần bạn xác nhận linh kiện đặc thù`,
+            linkType: "don_hang",
+            linkId: item.donHangId,
+          });
+        })(),
+      );
+    } else if (item.trangThai === "Cho TN duyet") {
+      c.executionCtx.waitUntil(
+        (async () => {
+          await notifyWorkflowTask(c.env, c.env.DB, {
+            cat1Emails: await emailsForRoleOrQC(c.env.DB, "la_tac_nghiep", emailGsList),
+            otherRoles: MUA_CONG_NO_ROLES.filter((r) => r !== "la_tac_nghiep"),
+            emailGsList,
+            pastActors: [],
+            title: "Đặt mua linh kiện",
+            body: `Đơn ${item.tenLkNoiDung} đang chờ bạn duyệt`,
+            linkType: "don_hang",
+            linkId: item.donHangId,
+          });
+        })(),
+      );
+    } else if (item.trangThai === "Cho ke toan duyet mem") {
+      c.executionCtx.waitUntil(
+        (async () => {
+          await notifyWorkflowTask(c.env, c.env.DB, {
+            cat1Emails: await emailsForRoleOrQC(c.env.DB, "la_ke_toan", emailGsList),
+            otherRoles: TRA_HANG_ROLES.filter((r) => r !== "la_ke_toan"),
+            emailGsList,
+            pastActors: [],
+            title: "Trả hàng",
+            body: `Đơn trả hàng ${item.tenLkNoiDung} đang chờ bạn duyệt`,
+            linkType: "don_hang",
+            linkId: item.donHangId,
+          });
+        })(),
+      );
+    }
+  }
   return c.json({ id: phieuDatId }, 201);
 });
 
@@ -2413,6 +2481,42 @@ async function applyDonHangLog(
     c.executionCtx.waitUntil(autoClaimGs(c.env.DB, user.email, ddh.email_gs));
   }
 
+  // Bao "viec moi" cho vai tro SAP xu ly buoc tiep theo (phan hoi 2026-09-05) - dat SAU khi CAS UPDATE
+  // + log da ghi thanh cong (tranh bao nham khi thua race CAS o dau ham).
+  const tenLkNoiDung = `"${ddh.ten_lk_snapshot} (x${ddh.so_luong_de_xuat})"`;
+  const emailGsList = ddh.email_gs ? [ddh.email_gs] : [];
+  let cat1Role: ViecMoiRoleCol | null = null;
+  if (nextTrangThai === "Cho hang") cat1Role = "la_kho";
+  else if (nextTrangThai === "Cho TBP xac nhan") cat1Role = "la_tp_dvbh";
+  else if (nextTrangThai === "Cho TN duyet") cat1Role = "la_tac_nghiep";
+  if (cat1Role) {
+    const role = cat1Role;
+    const body =
+      role === "la_kho"
+        ? `Đơn ${tenLkNoiDung} báo thiếu hàng, cần bạn xử lý`
+        : role === "la_tp_dvbh"
+          ? `Đơn ${tenLkNoiDung} cần bạn xác nhận linh kiện đặc thù`
+          : `Đơn ${tenLkNoiDung} đang chờ bạn duyệt`;
+    c.executionCtx.waitUntil(
+      (async () => {
+        const [cat1Emails, pastActors] = await Promise.all([
+          emailsForRoleOrQC(c.env.DB, role, emailGsList),
+          pastActorsFor(c.env.DB, "dat_don_hang_log", "dat_don_hang_id", donHangId, user.email),
+        ]);
+        await notifyWorkflowTask(c.env, c.env.DB, {
+          cat1Emails,
+          otherRoles: MUA_CONG_NO_ROLES.filter((r) => r !== role),
+          emailGsList,
+          pastActors,
+          title: "Đặt mua linh kiện",
+          body,
+          linkType: "don_hang",
+          linkId: donHangId,
+        });
+      })(),
+    );
+  }
+
   return { nextTrangThai };
 }
 
@@ -3007,9 +3111,16 @@ async function applyThieuLkLog(
   // thuc su o "Cho hang" (tranh ghi trung neu vi ly do nao do da khong con o "Cho hang" nua). Cung
   // bump trang_thai_hien_tai/version (migration 0087) de giu cot mirror dung - khong CAS vi day la
   // luong he thong tu dong noi tiep, khong co actor thu 2 tranh chap.
+  let reopenedForTn: { donHangId: string; emailGs: string | null; tenLkNoiDung: string } | null = null;
   if ((THIEU_LK_TIEP_TUC_LUONG as readonly string[]).includes(trangThai)) {
-    const donHangTrangThai = await c.env.DB.prepare(`SELECT ${latestDonHangStatusExpr("?")} as trang_thai`).bind(tlk.dat_don_hang_id).first<{ trang_thai: string | null }>();
-    if (donHangTrangThai?.trang_thai === "Cho hang") {
+    const donHang = await c.env.DB
+      .prepare(
+        `SELECT ${latestDonHangStatusExpr("?")} as trang_thai, email_gs, ten_lk_snapshot, so_luong_de_xuat
+           FROM dat_don_hang WHERE id = ?`,
+      )
+      .bind(tlk.dat_don_hang_id, tlk.dat_don_hang_id)
+      .first<{ trang_thai: string | null; email_gs: string | null; ten_lk_snapshot: string; so_luong_de_xuat: number }>();
+    if (donHang?.trang_thai === "Cho hang") {
       statements.push(
         c.env.DB.prepare("UPDATE dat_don_hang SET trang_thai_hien_tai = ?, version = version + 1, updated_at = ? WHERE id = ?").bind(
           "TN da duyet",
@@ -3024,10 +3135,39 @@ async function applyThieuLkLog(
           `Tu dong: tiep tuc luong sau khi xu ly thieu LK (${trangThai})`,
         ),
       );
+      reopenedForTn = {
+        donHangId: tlk.dat_don_hang_id,
+        emailGs: donHang.email_gs,
+        tenLkNoiDung: `"${donHang.ten_lk_snapshot} (x${donHang.so_luong_de_xuat})"`,
+      };
     }
   }
 
   await c.env.DB.batch(statements);
+  // Bao TN "don da du hang, lap PXK duoc" (phan hoi 2026-09-05) - chi khi thuc su vua tu dong quay ve
+  // "TN da duyet" o tren.
+  if (reopenedForTn) {
+    const emailGsList = reopenedForTn.emailGs ? [reopenedForTn.emailGs] : [];
+    const donHangId = reopenedForTn.donHangId;
+    c.executionCtx.waitUntil(
+      (async () => {
+        const [cat1Emails, pastActors] = await Promise.all([
+          emailsForRoleOrQC(c.env.DB, "la_tac_nghiep", emailGsList),
+          pastActorsFor(c.env.DB, "dat_don_hang_log", "dat_don_hang_id", donHangId, user.email),
+        ]);
+        await notifyWorkflowTask(c.env, c.env.DB, {
+          cat1Emails,
+          otherRoles: MUA_CONG_NO_ROLES.filter((r) => r !== "la_tac_nghiep"),
+          emailGsList,
+          pastActors,
+          title: "Đặt mua linh kiện",
+          body: `Đơn ${reopenedForTn.tenLkNoiDung} đã đủ hàng, có thể lập phiếu xuất kho`,
+          linkType: "don_hang",
+          linkId: donHangId,
+        });
+      })(),
+    );
+  }
   return { ok: true };
 }
 

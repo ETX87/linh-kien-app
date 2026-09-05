@@ -30,6 +30,11 @@ export interface AppUser {
   giam_sat_quan_ly: string | null;
   // Tinh o backend (GET /api/auth/me, khong phai cot DB) - xem routes/auth.ts.
   la_tram: boolean;
+  // Bat/tat rieng 3 loai thong bao "viec moi theo vai tro + khu vuc" (them 2026-09-05, migration
+  // 0019) - so thich CA NHAN, KHONG bi applyViewAsOverride() dung vao (xem viewAsPresets.ts).
+  nhan_tb_nhiem_vu: boolean; // Loai 1: nhiem vu TRUC TIEP toi phai xu ly (mac dinh BAT)
+  nhan_tb_lien_quan: boolean; // Loai 2: viec lien quan cung khu vuc, chua den luot (mac dinh TAT)
+  nhan_tb_theo_doi: boolean; // Loai 3: viec toi tung xu ly, van con nhiem vu (mac dinh TAT)
 }
 
 export interface Env {

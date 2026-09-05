@@ -24,6 +24,11 @@ export interface AppUser {
   giam_sat_quan_ly: string | null;
   // Tinh o backend (GET /api/auth/me) - co it nhat 1 Ve tinh voi tram_cha = email minh.
   la_tram: boolean;
+  // Bat/tat rieng 3 loai thong bao "viec moi theo vai tro + khu vuc" (them 2026-09-05) - xem
+  // NotificationBell.tsx.
+  nhan_tb_nhiem_vu: boolean;
+  nhan_tb_lien_quan: boolean;
+  nhan_tb_theo_doi: boolean;
 }
 
 type AuthState =
@@ -37,41 +42,56 @@ type AuthState =
   // (null = dang la chinh Admin that, khong "xem thu" gi).
   | { status: "authenticated"; user: AppUser; realIsAdmin: boolean; viewAsRole: ViewAsRole | null };
 
-const AuthContext = createContext<AuthState | null>(null);
+interface AuthContextValue {
+  state: AuthState;
+  // Goi lai GET /auth/me va cap nhat state (them 2026-09-05: dung sau khi doi 1 toggle thong bao o
+  // NotificationBell.tsx de UI phan anh ngay, khong can reload trang).
+  refreshUser: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: "loading" });
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/auth/me", { credentials: "include" });
-        if (cancelled) return;
-        if (res.ok) {
-          const { user, realIsAdmin, viewAsRole } = (await res.json()) as { user: AppUser; realIsAdmin: boolean; viewAsRole: ViewAsRole | null };
-          setState({ status: "authenticated", user, realIsAdmin, viewAsRole });
-          return;
-        }
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        if (body.error === "PENDING_APPROVAL") setState({ status: "pending" });
-        else if (body.error === "REJECTED") setState({ status: "rejected" });
-        else if (body.error === "DISABLED") setState({ status: "disabled" });
-        else setState({ status: "anonymous" });
-      } catch {
-        if (!cancelled) setState({ status: "anonymous" });
+  async function load(cancelledRef?: { current: boolean }) {
+    try {
+      const res = await fetch("/api/auth/me", { credentials: "include" });
+      if (cancelledRef?.current) return;
+      if (res.ok) {
+        const { user, realIsAdmin, viewAsRole } = (await res.json()) as { user: AppUser; realIsAdmin: boolean; viewAsRole: ViewAsRole | null };
+        setState({ status: "authenticated", user, realIsAdmin, viewAsRole });
+        return;
       }
-    })();
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (body.error === "PENDING_APPROVAL") setState({ status: "pending" });
+      else if (body.error === "REJECTED") setState({ status: "rejected" });
+      else if (body.error === "DISABLED") setState({ status: "disabled" });
+      else setState({ status: "anonymous" });
+    } catch {
+      if (!cancelledRef?.current) setState({ status: "anonymous" });
+    }
+  }
+
+  useEffect(() => {
+    const cancelledRef = { current: false };
+    load(cancelledRef);
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
     };
   }, []);
 
-  return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ state, refreshUser: () => load() }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth phai dung trong AuthProvider");
-  return ctx;
+  return ctx.state;
+}
+
+export function useRefreshUser() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useRefreshUser phai dung trong AuthProvider");
+  return ctx.refreshUser;
 }

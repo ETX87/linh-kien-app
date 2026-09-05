@@ -43,6 +43,7 @@ function toastCanhBaoThieuMisa(result: MisaExportResult, addToast: (msg: string)
 
 export function PhieuXuatKhoTab({
   addToast, qc, canTacNghiep, canKho, canKeToan, currentEmail, isAdmin, initialFilterOverride, initialNguoiNhanHangOverride, initialLoaiDonOverride,
+  initialDetailIdOverride,
 }: {
   addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>;
   canTacNghiep: boolean; canKho: boolean; canKeToan: boolean; currentEmail: string; isAdmin: boolean;
@@ -50,6 +51,10 @@ export function PhieuXuatKhoTab({
   // Them (migration 0002_tra_hang_pxk.sql) - dat truoc sub-tab loai_don khi bam vao 1 trong 3 buoc
   // PXK tra hang tren pipeline (xem loaiDonFor trong DatMuaLinhKienModule.tsx).
   initialLoaiDonOverride?: string;
+  // Mo THANG Drawer chi tiet 1 PXK (them 2026-09-05, thong bao "viec moi" link_type='phieu_xuat_kho')
+  // - cung pattern voi DonCuaToiTab.initialDetailIdOverride (xem openDetailIdFor trong
+  // DatMuaLinhKienModule.tsx).
+  initialDetailIdOverride?: string;
 }) {
   // FIX (2026-08-31, phan hoi "Phiếu xuất kho (x2) nhưng ấn vào lại...hiện 3 đơn (1 đơn đang chờ kế
   // toán)"): truoc day TN mac dinh giu "Tat ca" (y dinh ban dau: theo doi xuyen suot vong doi PXK minh
@@ -83,6 +88,9 @@ export function PhieuXuatKhoTab({
     if (initialNguoiNhanHangOverride !== undefined) setFilterNguoiNhanHang(initialNguoiNhanHangOverride);
   }, [initialNguoiNhanHangOverride]);
   const [detailId, setDetailId] = useState<string | null>(null);
+  useEffect(() => {
+    if (initialDetailIdOverride) setDetailId(initialDetailIdOverride);
+  }, [initialDetailIdOverride]);
   const [showCreate, setShowCreate] = useState(false);
   const [createData, setCreateData] = useState({ ghi_chu: "", so_tien_can_chuyen: "" });
   const [chonKtv, setChonKtv] = useState("");

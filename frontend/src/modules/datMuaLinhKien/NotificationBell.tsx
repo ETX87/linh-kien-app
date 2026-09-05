@@ -7,6 +7,7 @@ import { Badge, type BadgeTone } from "../../components/ui/Badge";
 import { useToast } from "../../components/ui/Toast";
 import { fmtDateTime } from "../../types";
 import { usePushNotifications } from "../../hooks/usePushNotifications";
+import { useAuth, useRefreshUser } from "../../auth/AuthContext";
 import { describeApiError } from "./helpers";
 
 // Chuong thong bao KTV (them 2026-08-26, phan hoi "thêm 1 trạng danh sách thông báo cho KTV với log
@@ -34,6 +35,13 @@ const LOAI_TONE: Record<string, BadgeTone> = {
   da_duyet: "teal",
   pxk_da_duyet: "teal",
   kho_da_gui: "ocean",
+  // Them (phan hoi 2026-09-05: "khi đến các nhiệm vụ của mỗi vai trò + khu vực sẽ có thông báo đẩy về
+  // cho người xử lý") - 3 loai DOC LAP nguoi dung tu bat/tat (xem cong tac o footer Drawer ben duoi):
+  // "viec_moi" = nhiem vu TRUC TIEP phai xu ly, "lien_quan" = viec cung quy trinh/khu vuc nhung chua
+  // den luot, "theo_doi" = viec minh tung xu ly nay cap nhat tiep.
+  viec_moi: "amber",
+  lien_quan: "violet",
+  theo_doi: "gray",
 };
 const LOAI_LABEL: Record<string, string> = {
   tu_choi: "Từ chối",
@@ -42,14 +50,28 @@ const LOAI_LABEL: Record<string, string> = {
   da_duyet: "Đã duyệt",
   pxk_da_duyet: "PXK đã duyệt",
   kho_da_gui: "Kho đã gửi",
+  viec_moi: "Việc mới",
+  lien_quan: "Liên quan",
+  theo_doi: "Theo dõi",
 };
 
-export function NotificationBell({ unreadCount, onOpenDonHang }: { unreadCount: number; onOpenDonHang: (donHangId: string) => void }) {
+export function NotificationBell({
+  unreadCount,
+  onOpenDonHang,
+  onOpenPxk,
+}: {
+  unreadCount: number;
+  onOpenDonHang: (donHangId: string) => void;
+  onOpenPxk: (pxkId: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
   const qc = useQueryClient();
   const push = usePushNotifications();
   const addToast = useToast();
+  const authState = useAuth();
+  const refreshUser = useRefreshUser();
+  const authUser = authState.status === "authenticated" ? authState.user : null;
   const { data, isLoading } = useQuery({
     queryKey: ["ktv-log", filter],
     queryFn: () => api.get<{ rows: ThongBaoKtvRow[]; total: number }>(`/notifications/ktv-log?filter=${filter}&pageSize=50`),
@@ -86,6 +108,9 @@ export function NotificationBell({ unreadCount, onOpenDonHang }: { unreadCount: 
     if (row.link_type === "don_hang" && row.link_id) {
       setOpen(false);
       onOpenDonHang(row.link_id);
+    } else if (row.link_type === "phieu_xuat_kho" && row.link_id) {
+      setOpen(false);
+      onOpenPxk(row.link_id);
     }
   }
 
@@ -94,6 +119,19 @@ export function NotificationBell({ unreadCount, onOpenDonHang }: { unreadCount: 
     try {
       await (wasSubscribed ? push.unsubscribe() : push.subscribe());
       addToast(wasSubscribed ? "Đã tắt thông báo đẩy trên thiết bị này" : "Đã bật thông báo đẩy trên thiết bị này");
+    } catch (err) {
+      addToast("Lỗi: " + describeApiError(err));
+    }
+  }
+
+  // Bat/tat rieng 3 loai thong bao "viec moi theo vai tro + khu vuc" (them 2026-09-05) - khac
+  // handleTogglePush o tren (do la BAT/TAT PUSH cap THIET BI, con day la CHON LOAI thong bao cap TAI
+  // KHOAN, van luon ghi vao chuong du tat - xem lib/taskNotify.ts). PATCH xong goi refreshUser() de
+  // UI phan anh ngay, khong can reload trang.
+  async function handleTogglePref(field: "nhan_tb_nhiem_vu" | "nhan_tb_lien_quan" | "nhan_tb_theo_doi", next: boolean) {
+    try {
+      await api.patch("/auth/me/thong-bao-prefs", { [field]: next });
+      await refreshUser();
     } catch (err) {
       addToast("Lỗi: " + describeApiError(err));
     }
@@ -122,6 +160,40 @@ export function NotificationBell({ unreadCount, onOpenDonHang }: { unreadCount: 
         title="Thông báo"
         footer={
           <div className="flex flex-col gap-1.5">
+            {/* Chon loai thong bao muon NHAN (them 2026-09-05) - 3 loai doc lap, xem lib/taskNotify.ts.
+                Tat 1 loai KHONG mat du lieu, chi khong day push cho loai do (van ghi vao chuong o tren). */}
+            {authUser && (
+              <div className="flex flex-col gap-1 text-xs text-[var(--ink-600)] pb-1 mb-1 border-b border-[var(--line)]">
+                <span className="font-semibold text-[var(--ink-500)]">Nhận thông báo</span>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 accent-[var(--ocean-600)]"
+                    checked={authUser.nhan_tb_nhiem_vu}
+                    onChange={(e) => handleTogglePref("nhan_tb_nhiem_vu", e.target.checked)}
+                  />
+                  Nhiệm vụ cần làm của tôi
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 accent-[var(--ocean-600)]"
+                    checked={authUser.nhan_tb_lien_quan}
+                    onChange={(e) => handleTogglePref("nhan_tb_lien_quan", e.target.checked)}
+                  />
+                  Công việc liên quan (chưa đến lượt)
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 accent-[var(--ocean-600)]"
+                    checked={authUser.nhan_tb_theo_doi}
+                    onChange={(e) => handleTogglePref("nhan_tb_theo_doi", e.target.checked)}
+                  />
+                  Công việc tôi từng làm (theo dõi)
+                </label>
+              </div>
+            )}
             {/* Bat/tat Web Push tren THIET BI NAY (phan hoi 2026-08-26) - an han neu trinh duyet
                 khong ho tro (vd Safari iOS chua "Cài đặt vào màn hình chính", xem
                 usePushNotifications.ts) thay vi hien nut roi bao loi kho hieu. */}

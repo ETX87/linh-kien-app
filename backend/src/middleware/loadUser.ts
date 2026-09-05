@@ -25,10 +25,13 @@ interface UserRow {
   xem_danh_muc_lk: number;
   tram_cha: string | null;
   giam_sat_quan_ly: string | null;
+  nhan_tb_nhiem_vu: number;
+  nhan_tb_lien_quan: number;
+  nhan_tb_theo_doi: number;
 }
 
 const USER_COLUMNS =
-  "email, ten, vai_tro, trang_thai_duyet, bi_khoa, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, la_tac_nghiep, la_tp_dvbh, la_view, quan_ly_danh_muc_lk, xem_danh_muc_lk, tram_cha, giam_sat_quan_ly";
+  "email, ten, vai_tro, trang_thai_duyet, bi_khoa, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, la_tac_nghiep, la_tp_dvbh, la_view, quan_ly_danh_muc_lk, xem_danh_muc_lk, tram_cha, giam_sat_quan_ly, nhan_tb_nhiem_vu, nhan_tb_lien_quan, nhan_tb_theo_doi";
 
 export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
   const email = c.get("email");
@@ -77,6 +80,9 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
     tram_cha: row.tram_cha ?? null,
     giam_sat_quan_ly: row.giam_sat_quan_ly ?? null,
     la_tram: false,
+    nhan_tb_nhiem_vu: !!row.nhan_tb_nhiem_vu,
+    nhan_tb_lien_quan: !!row.nhan_tb_lien_quan,
+    nhan_tb_theo_doi: !!row.nhan_tb_theo_doi,
   };
 
   // "Xem thu vai tro" - CHI ap dung khi DB row THAT (chua bi override) la Admin, doc lai tu `user`

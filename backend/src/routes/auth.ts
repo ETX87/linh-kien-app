@@ -219,6 +219,25 @@ auth.get("/me", verifySessionMiddleware, loadUser, async (c) => {
   return c.json({ user: { ...user, la_tram }, realIsAdmin, viewAsRole });
 });
 
+// PATCH /api/auth/me/thong-bao-prefs - tu bat/tat 3 loai thong bao "viec moi theo vai tro + khu vuc"
+// (phan hoi 2026-09-05, xem lib/taskNotify.ts) - CHI sua duoc CHINH minh (doc c.get("user").email,
+// khong nhan email trong body/param) nen KHONG dat trong routes/users.ts (router do khoa ca tuyen
+// bang requireRole("Admin"), khong hop de 1 tai khoan thuong tu sua). Partial update - field nao
+// khong gui thi giu nguyen.
+auth.patch("/me/thong-bao-prefs", verifySessionMiddleware, loadUser, async (c) => {
+  const user = c.get("user");
+  const body = await c.req.json<{ nhan_tb_nhiem_vu?: boolean; nhan_tb_lien_quan?: boolean; nhan_tb_theo_doi?: boolean }>();
+  const next = {
+    nhan_tb_nhiem_vu: body.nhan_tb_nhiem_vu !== undefined ? (body.nhan_tb_nhiem_vu ? 1 : 0) : user.nhan_tb_nhiem_vu ? 1 : 0,
+    nhan_tb_lien_quan: body.nhan_tb_lien_quan !== undefined ? (body.nhan_tb_lien_quan ? 1 : 0) : user.nhan_tb_lien_quan ? 1 : 0,
+    nhan_tb_theo_doi: body.nhan_tb_theo_doi !== undefined ? (body.nhan_tb_theo_doi ? 1 : 0) : user.nhan_tb_theo_doi ? 1 : 0,
+  };
+  await c.env.DB.prepare("UPDATE users SET nhan_tb_nhiem_vu = ?, nhan_tb_lien_quan = ?, nhan_tb_theo_doi = ? WHERE email = ?")
+    .bind(next.nhan_tb_nhiem_vu, next.nhan_tb_lien_quan, next.nhan_tb_theo_doi, user.email)
+    .run();
+  return c.json({ ok: true });
+});
+
 // POST /api/auth/view-as - Admin-only "xem thu vai tro" (phan hoi 2026-08-20: test nhanh theo tung
 // man hinh dung nhu 1 vai tro nghiep vu that, khong can tao tai khoan rac). body { role } la 1 trong
 // VIEW_AS_ROLE_KEYS, hoac null/rong de thoat ve chinh Admin that. Chi doi 1 cookie httpOnly rieng -
