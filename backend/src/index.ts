@@ -23,6 +23,15 @@ import { runDvbhSync } from "./lib/dvbhSyncClient";
 // cachedReport() compute-on-miss, khong can luoi an toan rieng.
 const app = new Hono<{ Bindings: Env }>();
 
+// Request ID nhe (phan hoi audit AUD-007: loi generic khong the truy vet) - gan 1 id ngau nhien cho
+// MOI request, dinh kem vao ca log server (console.error) lan response loi generic, de doi chieu 2
+// ben khi nguoi dung bao loi. KHONG dung cho cac response loi da co ma ro nghia rieng (NOT_FOUND,
+// FORBIDDEN_ROLE...) - chi bo sung cho nhanh catch-all onError ben duoi.
+app.use("*", async (c, next) => {
+  c.set("requestId", crypto.randomUUID());
+  await next();
+});
+
 app.route("/api/auth", authRoutes);
 app.route("/api/users", usersRoutes);
 app.route("/api/notifications", notificationsRoutes);
@@ -39,8 +48,9 @@ app.route("/api/dvbh-sync", dvbhSyncRoutes);
 app.route("/api/partner", partnerApiRoutes);
 
 app.onError((err, c) => {
-  console.error(err);
-  return c.json({ error: "INTERNAL_ERROR" }, 500);
+  const requestId = c.get("requestId") ?? "unknown";
+  console.error(`[${requestId}]`, err);
+  return c.json({ error: "INTERNAL_ERROR", requestId }, 500);
 });
 
 app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));

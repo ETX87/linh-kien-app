@@ -85,6 +85,8 @@ declare module "hono" {
   interface ContextVariableMap {
     email: string;
     user: AppUser;
+    // Gan o middleware dau tien trong index.ts, dung cho onError (AUD-007) - moi request 1 id.
+    requestId: string;
     // "Xem thu vai tro" (Admin-only) - xem lib/viewAsPresets.ts. realIsAdmin phan anh DB row THAT
     // (truoc override), viewAsRole la gia tri cookie dang ap dung (null = khong "xem thu", dang la
     // chinh Admin that). Dung "string" thay vi import ViewAsRole de tranh vong lap import voi
