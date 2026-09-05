@@ -1,8 +1,10 @@
 import { Fragment, useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
 import { Badge } from "../../components/ui/Badge";
 import { Modal } from "../../components/ui/Modal";
+import { Select } from "../../components/ui/Select";
 import { Drawer, DrawerNavButtons, useDrawerArrowNav } from "../../components/ui/Drawer";
 import type { Column } from "../../components/ui/PaginatedTable";
 import { useColumnConfig } from "../../components/ui/useColumnConfig";
@@ -13,9 +15,9 @@ import { Timeline } from "../../components/ui/Timeline";
 import { api, buildQuery } from "../../api/client";
 import { fmtDateTime } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
-import type { ThieuLkRow, LyDoChamRow } from "./types";
+import type { ThieuLkRow, LyDoChamRow, NguoiNhanHangKhaDungRow } from "./types";
 import { THIEU_LK_TRANG_THAI_TONE, THIEU_LK_TRANG_THAI_OPTIONS } from "./constants";
-import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, LOAI_DON_TONE } from "./helpers";
+import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts, trangThaiLabel, LOAI_DON_TONE } from "./helpers";
 import { StatusBadge, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar, KhuVucChipFilter } from "./SharedUi";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
@@ -65,10 +67,17 @@ function actionLabel(trangThai: string): string {
 }
 
 export function ThieuLkTab({
-  addToast, qc, canKho, canTacNghiep, currentEmail, initialFilterOverride,
+  addToast, qc, canKho, canTacNghiep, canKeToan, isGiamSat, currentEmail, initialFilterOverride, initialNguoiNhanHangOverride,
 }: {
-  addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>; canKho: boolean; canTacNghiep: boolean; currentEmail: string;
+  addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>; canKho: boolean; canTacNghiep: boolean;
+  // Them 2026-09-05 (phan hoi "'Chờ LK' chức năng filter vẫn thiếu bộ lọc theo khu vực, theo người
+  // nhận hàng") - chi dung de MO RONG dieu kien hien bo loc Khu vuc/Nguoi nhan hang (showKhuVucFilter
+  // ben duoi, khop dung cong thuc DonCuaToiTab.tsx), KHONG dung cho quyen hanh dong (nextStatesForThieuLk
+  // khong doi, Ke toan/GS van khong co nut xu ly nao o tab nay).
+  canKeToan: boolean; isGiamSat: boolean;
+  currentEmail: string;
   initialFilterOverride?: string;
+  initialNguoiNhanHangOverride?: string;
 }) {
   // FIX (ra soat bug mua hang 2026-08-26, BUG-002): tach lop luu-lau-dai (localStorage) khoi lop
   // hien-thi/query - jump tu Home/Pipeline CHI doi lop hien thi, khong ghi de vinh vien filter da luu
@@ -102,50 +111,75 @@ export function ThieuLkTab({
   }, [filterQ]);
   const [showFilters, setShowFilters] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
-  // Bo loc Khu vuc (them 2026-08-31, dong bo voi DonCuaToiTab.tsx - xem CLAUDE.md muc kiem tra toan
-  // he thong) - chi Kho (canKho) can, tab nay chi nhan prop canKho/canTacNghiep, TN giu "Tat ca" nhu
-  // truoc (khong co badge rieng cho TN o day de can khop).
+  // Bo loc Khu vuc (them 2026-08-31, MO RONG 2026-09-05 phan hoi "'Chờ LK' chức năng filter vẫn thiếu
+  // bộ lọc theo khu vực, theo người nhận hàng" - truoc chi Kho (canKho) can, gio khop dung cong thuc
+  // showKhuVucFilter cua DonCuaToiTab.tsx: moi "nhan vien van phong" lien quan xem toan canh theo Khu
+  // vuc, khong chi rieng Kho hanh dong duoc).
+  const showKhuVucFilter = canTacNghiep || canKho || canKeToan || isGiamSat;
   const [filterKhuVuc, setFilterKhuVuc] = useState<Set<string>>(new Set());
   const khuVucDefaultAppliedRef = useRef(false);
   const { data: khuVucAllData } = useQuery({
     queryKey: ["settings-khu-vuc"],
     queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/settings/khu-vuc"),
-    enabled: canKho,
+    enabled: showKhuVucFilter,
   });
   const { data: khuVucCuaToiData } = useQuery({
     queryKey: ["dat-mua-lk-khu-vuc-cua-toi"],
     queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/dat-mua-lk/khu-vuc-cua-toi"),
-    enabled: canKho,
+    enabled: showKhuVucFilter,
   });
-  // FIX (phat hien qua test 2026-08-31): "enabled: canKho" o 2 query tren KHONG du de chan du lieu -
-  // React Query dung CHUNG cache theo queryKey xuyen suot app, ["dat-mua-lk-khu-vuc-cua-toi"] da duoc
-  // DonCuaToiTab.tsx/PhieuXuatKhoTab.tsx/TraHangTab.tsx fetch san (enabled rong hon, gom ca TN) nen
+  // FIX (phat hien qua test 2026-08-31): "enabled: showKhuVucFilter" o 2 query tren KHONG du de chan
+  // du lieu - React Query dung CHUNG cache theo queryKey xuyen suot app, ["dat-mua-lk-khu-vuc-cua-toi"]
+  // da duoc DonCuaToiTab.tsx/PhieuXuatKhoTab.tsx/TraHangTab.tsx fetch san (enabled rong hon) nen
   // component nay van "thay" duoc du lieu cache du chinh no khong tu fetch - phai chan tuong minh
-  // bang canKho ngay trong effect/bien duoi, khong dua vao enabled/query rong hay co du lieu hay chua.
+  // bang showKhuVucFilter ngay trong effect/bien duoi, khong dua vao enabled/query rong hay co du lieu.
   useEffect(() => {
-    if (!canKho) return;
+    if (!showKhuVucFilter) return;
     if (khuVucDefaultAppliedRef.current) return;
     if (!khuVucCuaToiData) return;
     khuVucDefaultAppliedRef.current = true;
     if (khuVucCuaToiData.rows.length > 0) setFilterKhuVuc(new Set(khuVucCuaToiData.rows.map((r) => r.ma)));
-  }, [khuVucCuaToiData, canKho]);
-  const khuVucOptions = canKho ? (khuVucAllData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ten })) : [];
-  const khuVucParam = canKho && filterKhuVuc.size > 0 ? [...filterKhuVuc].sort().join(",") : "";
+  }, [khuVucCuaToiData, showKhuVucFilter]);
+  const khuVucOptions = showKhuVucFilter ? (khuVucAllData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ten })) : [];
+  const khuVucParam = showKhuVucFilter && filterKhuVuc.size > 0 ? [...filterKhuVuc].sort().join(",") : "";
+
+  // Bo loc "Nguoi nhan hang" (KTV chu don goc sinh ra ticket) - them 2026-09-05, cung phan hoi tren.
+  // Tai dung dung endpoint/component da co san o DonCuaToiTab.tsx/PhieuXuatKhoTab.tsx (React Query
+  // cache chung theo queryKey nen khong ton them request neu tab kia da fetch).
+  const [filterNguoiNhanHang, setFilterNguoiNhanHangDisplay] = useState(initialNguoiNhanHangOverride ?? "");
+  function setFilterNguoiNhanHang(v: string) {
+    setFilterNguoiNhanHangDisplay(v);
+  }
+  useEffect(() => {
+    if (initialNguoiNhanHangOverride !== undefined) setFilterNguoiNhanHangDisplay(initialNguoiNhanHangOverride);
+  }, [initialNguoiNhanHangOverride]);
+  const { data: nguoiNhanHangData } = useQuery({
+    queryKey: ["dat-mua-lk-nguoi-nhan-hang-kha-dung"],
+    queryFn: () => api.get<{ rows: NguoiNhanHangKhaDungRow[] }>("/dat-mua-lk/nguoi-nhan-hang-kha-dung"),
+    enabled: showKhuVucFilter,
+  });
 
   // GD4 (phan hoi Codex #16): ve trang 1 + xoa selection dang chon khi doi bo loc trang thai.
   useEffect(() => {
     setPage(1);
     setSelected(new Set());
-  }, [filterTrangThai, debouncedQ, khuVucParam]);
+  }, [filterTrangThai, debouncedQ, khuVucParam, filterNguoiNhanHang]);
 
   // GD4 (phan hoi Codex #17): phan trang server-side - truoc day tai het toan bo dong khop bo loc
   // roi tu slice o client, moi lan doi trang van doc lai het du lieu tu D1.
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["dat-mua-lk-thieu-lk", filterTrangThai, debouncedQ, khuVucParam, page],
+    queryKey: ["dat-mua-lk-thieu-lk", filterTrangThai, debouncedQ, khuVucParam, filterNguoiNhanHang, page],
     queryFn: () =>
       api.get<{ rows: ThieuLkRow[]; total: number }>(
         "/dat-mua-lk/thieu-lk" +
-          buildQuery({ trang_thai: filterTrangThai || undefined, q: debouncedQ || undefined, khu_vuc: khuVucParam || undefined, page, pageSize: 20 }),
+          buildQuery({
+            trang_thai: filterTrangThai || undefined,
+            q: debouncedQ || undefined,
+            khu_vuc: khuVucParam || undefined,
+            nguoi_nhan_hang: filterNguoiNhanHang || undefined,
+            page,
+            pageSize: 20,
+          }),
       ),
   });
   // So "(N)" canh moi trang thai trong TrangThaiDropdownFilter (them 2026-09-01) - dem TINH theo dung
@@ -245,7 +279,13 @@ export function ThieuLkTab({
   // rieng vao ActiveFiltersBar - gia tri dang chon da hien SAN trong o TrangThaiDropdownFilter (doi tu
   // chip/nut sang dropdown 2026-09-01), them chip nua se TRUNG LAP (xem comment tuong tu o
   // DonCuaToiTab.tsx/PhieuXuatKhoTab.tsx).
-  const activeFilterCount = [filterTrangThai, filterQ, khuVucParam].filter(Boolean).length;
+  const activeFilterCount = [filterTrangThai, filterQ, khuVucParam, filterNguoiNhanHang].filter(Boolean).length;
+  // "⚙ Tuỳ chỉnh cột" (phan hoi 2026-09-05: "button 'Tùy chỉnh cột' vẫn đang ở bên ngoài" so voi Mua
+  // hàng/Công nợ) - truoc day 1 hang rieng LUON hien phia tren danh sach (xem ThieuLkGroupedList).
+  // Doi sang Portal vao trong bang loc (mac dinh AN theo showFilters), khop DUNG pattern DonCuaToiTab.tsx
+  // (xem comment "hang muc #2 dot 2" o do) - nut/panel that su van do ThieuLkGroupedList tu ve (can
+  // effectiveColumns/toggleColumn cua chinh no), o trong (callback ref) chi la dich portal.
+  const [columnSettingsSlot, setColumnSettingsSlot] = useState<HTMLDivElement | null>(null);
 
   return (
     <div className="mt-4">
@@ -258,17 +298,31 @@ export function ThieuLkTab({
         searchPlaceholder="Tìm theo mã TLK, mã LK, tên LK, người báo..."
       >
         <TrangThaiDropdownFilter value={filterTrangThai} onChange={setFilterTrangThai} options={THIEU_LK_TRANG_THAI_OPTIONS} counts={statusCountsData?.counts} />
-        {/* Bo loc Khu vuc (them 2026-08-31, dong bo voi DonCuaToiTab.tsx) - chi Kho. */}
-        {canKho && khuVucOptions.length > 0 && (
+        {/* Bo loc Khu vuc (them 2026-08-31, MO RONG 2026-09-05 dong bo voi DonCuaToiTab.tsx - xem
+            showKhuVucFilter phia tren, khong chi rieng Kho nua). */}
+        {showKhuVucFilter && khuVucOptions.length > 0 && (
           <div>
             <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Khu vực</div>
             <KhuVucChipFilter value={filterKhuVuc} onChange={setFilterKhuVuc} options={khuVucOptions} />
           </div>
         )}
+        {/* Bo loc "Nguoi nhan hang" (them 2026-09-05, cung phan hoi tren). */}
+        {(nguoiNhanHangData?.rows.length ?? 0) > 0 && (
+          <Select
+            value={filterNguoiNhanHang}
+            onChange={setFilterNguoiNhanHang}
+            options={[{ value: "", label: "Tất cả người nhận hàng" }, ...(nguoiNhanHangData?.rows ?? []).map((r) => ({ value: r.email_dang_nhap, label: ktvOptionLabel(r, nguoiNhanHangData?.rows ?? []) }))]}
+          />
+        )}
+        <div>
+          <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Cột hiển thị</div>
+          <div ref={setColumnSettingsSlot} />
+        </div>
       </FilterSearchBar>
       <ActiveFiltersBar
         chips={[
           ...(khuVucParam ? [{ label: `Khu vực: ${[...filterKhuVuc].map((ma) => khuVucOptions.find((o) => o.value === ma)?.label ?? ma).join(", ")}`, onClear: () => setFilterKhuVuc(new Set()) }] : []),
+          ...(filterNguoiNhanHang ? [{ label: "Người nhận hàng đã lọc", onClear: () => setFilterNguoiNhanHang("") }] : []),
           ...(filterQ ? [{ label: `Tìm: "${filterQ}"`, onClear: () => setFilterQ("") }] : []),
         ]}
       />
@@ -321,6 +375,7 @@ export function ThieuLkTab({
         selected={selected}
         toggleSelectOne={toggleSelectOne}
         rowsCoTheChon={rowsCoTheChon}
+        columnSettingsSlot={columnSettingsSlot}
       />
       {actionId && (
         <Modal open title={`Chuyển sang: ${actionLabel(actionTrangThai)}`} onClose={() => setActionId(null)}>
@@ -398,7 +453,7 @@ export function ThieuLkTab({
 // nhan nhom.
 function ThieuLkGroupedList({
   rows, isLoading, isError, page, pageSize, total, onPageChange, onDetail, ktvDisplayMap,
-  nextStates, onGiaiTrinh, onQuickAction, quickActionPending, selected, toggleSelectOne, rowsCoTheChon,
+  nextStates, onGiaiTrinh, onQuickAction, quickActionPending, selected, toggleSelectOne, rowsCoTheChon, columnSettingsSlot,
 }: {
   rows: ThieuLkRow[];
   isLoading: boolean;
@@ -416,6 +471,10 @@ function ThieuLkGroupedList({
   selected: Set<string>;
   toggleSelectOne: (id: string) => void;
   rowsCoTheChon: ThieuLkRow[];
+  // Dich Portal cho nut/panel "⚙ Tuỳ chỉnh cột" (phan hoi 2026-09-05, khop dung
+  // DonHangGroupedList/DonCuaToiTab.tsx) - null khi bang loc dang an (showFilters=false o component
+  // cha), portal tu khong render gi ca.
+  columnSettingsSlot: HTMLDivElement | null;
 }) {
   // Icon rieng cho tung trang thai dich (thay the nhan chu "Kho đã tiếp nhận…"/"Hủy bỏ"... o dang
   // PaginatedTable cu) - giu title/aria-label bang dung actionLabel() de khong mat thong tin cho
@@ -543,7 +602,10 @@ function ThieuLkGroupedList({
 
   return (
     <div className="space-y-2">
-      <div className="hidden sm:flex justify-end">{settingsButtonEl}</div>
+      {/* FIX (phan hoi 2026-09-05: "button 'Tùy chỉnh cột' vẫn đang ở bên ngoài") - truoc day 1 hang
+          rieng LUON hien (`hidden sm:flex justify-end`), gio Portal vao trong bang loc cua component
+          cha (xem columnSettingsSlot/ThieuLkTab.tsx), khop dung DonHangGroupedList. */}
+      {columnSettingsSlot && createPortal(settingsButtonEl, columnSettingsSlot)}
       {/* FIX (phan hoi 2026-09-05, xem comment groupEntries o tren): truoc day MOI nhom KTV la 1
           <table> doc lap kem <thead> rieng (lap lai header N lan) - gio GOP thanh 1 <table> DUY NHAT
           cho toan bo danh sach, giong het DonHangGroupedList (DonCuaToiTab.tsx): 1 <thead> chung tren

@@ -635,7 +635,17 @@ export function DatMuaLinhKienModule({
           />
         )}
         {activeView === "thieu-lk" && (
-          <ThieuLkTab addToast={addToast} qc={qc} canKho={canKho} canTacNghiep={canTacNghiep} currentEmail={user?.email ?? ""} initialFilterOverride={filterFor("thieu-lk")} />
+          <ThieuLkTab
+            addToast={addToast}
+            qc={qc}
+            canKho={canKho}
+            canTacNghiep={canTacNghiep}
+            canKeToan={canKeToan}
+            isGiamSat={isGiamSat}
+            currentEmail={user?.email ?? ""}
+            initialFilterOverride={filterFor("thieu-lk")}
+            initialNguoiNhanHangOverride={nguoiNhanHangFor("thieu-lk")}
+          />
         )}
         {activeView === "tra-hang" && (
           <TraHangTab addToast={addToast} qc={qc} canKeToan={canKeToan} canKho={canKho} canQC={canQC} canTacNghiep={canTacNghiep} currentEmail={user?.email ?? ""} isAdmin={user?.vai_tro === "Admin"} initialFilterOverride={filterFor("tra-hang")} />

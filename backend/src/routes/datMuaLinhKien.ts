@@ -2908,6 +2908,10 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
   // "khu_vuc" (them 2026-08-31, dong bo voi GET /don-hang - xem CLAUDE.md muc kiem tra toan he
   // thong) - ddh da duoc LEFT JOIN san o ca 2 query duoi nen dung lai duoc dung dieu kien.
   const khuVuc = c.req.query("khu_vuc")?.trim();
+  // "nguoi_nhan_hang" (them 2026-09-05, phan hoi "'Chờ LK' chức năng filter vẫn thiếu bộ lọc theo khu
+  // vực, theo người nhận hàng") - loc theo dung KTV nhan hang cua DON HANG GOC (ddh.nguoi_nhan_hang),
+  // khop dung cot da dung san cho khu_vuc o tren, dong bo voi GET /don-hang/GET /phieu-xuat-kho.
+  const nguoiNhanHang = c.req.query("nguoi_nhan_hang")?.trim();
   // Them 2026-08-21 (dong bo UI voi GET /don-hang) - tim theo ma LK/ten LK/ma TLK/nguoi bao.
   const q = c.req.query("q")?.trim();
   // GD4 (phan hoi Codex #17): truoc day tra ve TOAN BO dong khop bo loc, frontend tu slice o client.
@@ -2955,6 +2959,10 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
       whereSql += sql;
       binds.push(...khuVucBinds);
     }
+  }
+  if (nguoiNhanHang) {
+    whereSql += " AND ddh.nguoi_nhan_hang = ?";
+    binds.push(nguoiNhanHang);
   }
   if (q) {
     whereSql += " AND (ddh.ma_lk LIKE ? OR ddh.ten_lk_snapshot LIKE ? OR tlk.id LIKE ? OR tlk.nguoi_tao LIKE ?)";
