@@ -2098,8 +2098,12 @@ export function DonHangGroupedList({
                         // báo") - dat LEN DAU MANG (uu tien cao nhat) vi MAX_BADGE=1 phia duoi CHI hien
                         // badges[0], badge canh bao nay se bi "+N" nuot mat neu de sau cac badge khac.
                         ...(d.loai_don === "cong_no" && d.danh_gia_cong_no === "Khong du" ? [{ tone: "coral" as BadgeTone, label: "Không đủ công nợ" }] : []),
-                        { tone: tone.tone, label: tone.label },
+                        // SUA (phan hoi 2026-09-05: "thẻ Trạng thái ưu tiên hiện đầu tiên thay vì loại đề
+                        // xuất (mua hàng, công nợ...) - giao diện mobile") - dao Trang thai LEN TRUOC loai
+                        // don, vi MAX_BADGE=1 phia duoi CHI hien badges[0] (tru truong hop canh bao cong no
+                        // o tren van uu tien tuyet doi, khong doi).
                         { tone: DON_HANG_TRANG_THAI_TONE_ALL[d.trang_thai ?? ""] ?? "gray", label: trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, d.trang_thai ?? "") },
+                        { tone: tone.tone, label: tone.label },
                         ...(d.qua_han_ly_do_cham ? [{ tone: "orange" as BadgeTone, label: "Quá hạn" }] : []),
                         // "Đơn tạo hộ" (yeu cau nguoi dung 2026-08-27) - xem giai thich day du o KvRow
                         // "Trạng thái" cua Drawer chi tiet phia tren (isDonTaoHo, helpers.ts).
