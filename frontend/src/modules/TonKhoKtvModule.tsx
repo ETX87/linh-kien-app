@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { Btn } from "../components/ui/Btn";
@@ -68,6 +68,15 @@ function TonKhoKtvContent() {
     queryKey: ["ktv-ton-kho", search],
     queryFn: () => api.get<{ rows: KtvTonKhoSummaryRow[] }>(`/settings/ktv-ton-kho${query}`),
   });
+  // FIX (phan hoi 2026-09-05: "phân theo trang, tối đa 10 dòng 1 trang") - GET / khong phan trang o
+  // backend (tra ve toan bo KTV khop bo loc/search 1 lan), nen phan trang CLIENT-SIDE bang slice() la
+  // du (tong so KTV bi chan boi scopeKtvTonKho(), thuc te toi da vai tram dong - khong can doi sang
+  // server-side pagination nhu ThieuLkTab/DonCuaToiTab). Ve trang 1 moi khi doi tu khoa tim kiem.
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  useEffect(() => setPage(1), [search]);
+  const allRows = data?.rows ?? [];
+  const pageRows = allRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const { data: meta } = useQuery({
     queryKey: ["ktv-ton-kho-meta"],
     queryFn: () => api.get<KtvTonKhoImportMeta | null>("/settings/ktv-ton-kho/import-meta"),
@@ -167,12 +176,12 @@ function TonKhoKtvContent() {
                   <td colSpan={10} className="px-3 py-6 text-center text-[var(--ink-400)]">Đang tải…</td>
                 </tr>
               )}
-              {!isLoading && (data?.rows.length ?? 0) === 0 && (
+              {!isLoading && allRows.length === 0 && (
                 <tr>
                   <td colSpan={10} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có dữ liệu tồn kho{isAdmin ? ' - bấm "Import tồn kho MISA" để nhập.' : "."}</td>
                 </tr>
               )}
-              {(data?.rows ?? []).map((r) => (
+              {pageRows.map((r) => (
                 <tr key={r.ma_ktv} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => setDetailKtv(r)}>
                   <td className="px-3 py-2 font-mono text-xs">{r.ma_ktv}</td>
                   <td className="px-3 py-2">{r.ten_hien_thi ?? "—"}</td>
@@ -201,6 +210,16 @@ function TonKhoKtvContent() {
           </table>
         </div>
       </div>
+      {allRows.length > 0 && (
+        <div className="flex items-center justify-between px-1 py-1 text-xs text-[var(--ink-400)]">
+          <span>{allRows.length} KTV</span>
+          <div className="flex gap-1">
+            <Btn variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>‹</Btn>
+            <span className="px-2 py-1.5">{page}/{Math.max(1, Math.ceil(allRows.length / PAGE_SIZE))}</span>
+            <Btn variant="ghost" size="sm" disabled={page * PAGE_SIZE >= allRows.length} onClick={() => setPage((p) => p + 1)}>›</Btn>
+          </div>
+        </div>
+      )}
 
       {detailKtv && <TonKhoChiTietModal row={detailKtv} onClose={() => setDetailKtv(null)} />}
 
