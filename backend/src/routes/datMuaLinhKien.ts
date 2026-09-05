@@ -2775,7 +2775,13 @@ datMuaLinhKien.post("/don-hang/:id/giai-trinh", async (c) => {
   const body = await c.req.json<{ noi_dung: string }>();
   if (!body.noi_dung?.trim()) return c.json({ error: "MISSING_NOI_DUNG" }, 400);
 
-  const ddh = await c.env.DB.prepare(`SELECT ${latestDonHangStatusExpr("id")} as trang_thai FROM dat_don_hang WHERE id = ?`)
+  // BUG THAT (phat hien 2026-09-05, phan hoi "vẫn bug không cho lưu lý do quá hạn DDH-000018") - cung
+  // dang bug voi PATCH /don-hang/:id da sua truoc do (xem comment "BUG THAT" o duoi): truyen "id"
+  // KHONG qualify cho latestDonHangStatusExpr() trong khi bang goc la "dat_don_hang" khong alias - cot
+  // "id" trong subquery tuong quan bi cot "id" cua CHINH dat_don_hang_log (PK) SHADOW, luon ra trang
+  // thai NULL -> INVALID_STATE gia (dong VAN DANG "Cho TN duyet" that, chi la truy van doc sai). Phai
+  // qualify "dat_don_hang.id".
+  const ddh = await c.env.DB.prepare(`SELECT ${latestDonHangStatusExpr("dat_don_hang.id")} as trang_thai FROM dat_don_hang WHERE id = ?`)
     .bind(id)
     .first<{ trang_thai: string | null }>();
   if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
