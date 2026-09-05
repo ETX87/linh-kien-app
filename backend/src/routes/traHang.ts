@@ -378,11 +378,15 @@ traHang.post("/bulk-log", async (c) => {
 
   const results: Record<string, string> = {};
   let coThanhCong = false;
+  // Do thoi gian ca batch (giam sat AUD-002, cung ly do nhu datMuaLinhKien.ts - xem
+  // docs/audit/RESPONSE_PLAN.md).
+  const bulkStartedAt = Date.now();
   for (const donHangId of ids) {
     const result = await applyTraHangLog(c, donHangId, body.hanh_dong, body.ghi_chu);
     results[donHangId] = "error" in result ? result.error : result.nextTrangThai;
     if (!("error" in result)) coThanhCong = true;
   }
+  console.log("[bulk-log]", { route: "tra-hang/bulk-log", count: ids.length, durationMs: Date.now() - bulkStartedAt });
 
   if (coThanhCong) c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ results });

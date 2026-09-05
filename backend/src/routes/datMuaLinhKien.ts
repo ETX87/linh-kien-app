@@ -2561,6 +2561,9 @@ datMuaLinhKien.post("/don-hang/bulk-log", async (c) => {
 
   const results: Record<string, string> = {};
   let coThanhCong = false;
+  // Do thoi gian ca batch (giam sat AUD-002 - xu ly tuan tu tung ID, xem docs/audit/RESPONSE_PLAN.md
+  // de biet nguong/phuong an xu ly khi log nay cho thay cham that).
+  const bulkStartedAt = Date.now();
   for (const donHangId of ids) {
     // Muc #4: SL thuc xuat KHONG ap dung o day - 1 gia tri chung cho nhieu dong khac nhau la vo nghia,
     // UI sua SL chi co o Drawer 1 dong rieng (DonHangDetailModal), khong co o thao tac hang loat.
@@ -2568,6 +2571,7 @@ datMuaLinhKien.post("/don-hang/bulk-log", async (c) => {
     results[donHangId] = "error" in result ? result.error : result.nextTrangThai;
     if (!("error" in result)) coThanhCong = true;
   }
+  console.log("[bulk-log]", { route: "don-hang/bulk-log", count: ids.length, durationMs: Date.now() - bulkStartedAt });
 
   if (coThanhCong) c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ results });
@@ -2984,6 +2988,9 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
   // nợ") - dung nhom danh sach theo KTV (nguoi_nhan_hang || nguoi_tao cua DON HANG, KHONG PHAI
   // tlk.nguoi_tao la nguoi BAO thieu, thuong la Kho chu khong phai KTV) va hien Badge "Loại" giong
   // DonHangGroupedList, dong bo dung kien truc voi Mua hang/Cong no.
+  // Do thoi gian query chinh (giam sat AUD-005 - dung correlated subquery latestThieuLkStatusExpr,
+  // xem docs/audit/RESPONSE_PLAN.md de biet nguong/phuong an xu ly khi log nay cho thay cham that).
+  const queryStartedAt = Date.now();
   const { results } = await c.env.DB.prepare(
     `SELECT tlk.*, sldc.ten_ly_do, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.uu_tien, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.nguoi_tao as ddh_nguoi_tao, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai
      FROM thieu_lk tlk
@@ -2994,6 +3001,7 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
   )
     .bind(...binds, pageSize, offset)
     .all();
+  console.log("[thieu-lk-query]", { durationMs: Date.now() - queryStartedAt, rowCount: results.length });
   return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
 });
 
