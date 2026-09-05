@@ -10,6 +10,7 @@ import { encryptSecret } from "../lib/secretBox";
 import { computeAndStoreHash, getOrComputeHash } from "../lib/contentHash";
 import { nowVN } from "../lib/vnTime";
 import { resyncKhuVucDerivedFieldsForAll } from "../lib/khuVucSync";
+import { generateApiKey, hashApiKey } from "../lib/partnerApiAuth";
 
 // Port rut gon tu backend/src/routes/settings.ts cua he DVBH goc - CHI giu 4 khoi thuc su can cho
 // mien nghiep vu "Dat mua linh kien" (xem CLAUDE.md muc "Nguon goc tach he thong"): danh muc linh
@@ -734,6 +735,43 @@ settingsDatMua.patch("/app-settings", adminOnly, async (c) => {
       .bind(key, value, user.email, nowVN())
       .run();
   }
+  return c.json({ ok: true });
+});
+
+// ---------- Partner API keys (them 2026-09-05, "cơ chế sẵn sàng cho các hệ thống gọi API tra cứu") -
+// quan ly key cho router /api/partner (xem routes/partnerApi.ts, lib/partnerApiAuth.ts). Khong bao
+// gio tra ve key_hash hay plaintext sau lan tao dau (chi luc POST moi thay 1 lan duy nhat) - dung
+// nguyen tac "chi hien plaintext 1 lan" giong moi he thong quan ly secret khac.
+
+settingsDatMua.get("/partner-api-keys", adminOnly, async (c) => {
+  const { results } = await c.env.DB.prepare(
+    "SELECT id, ten_he_thong, bat_tat, ghi_chu, tao_luc, lan_dung_cuoi FROM partner_api_keys ORDER BY tao_luc DESC",
+  ).all();
+  return c.json({ rows: results });
+});
+
+settingsDatMua.post("/partner-api-keys", adminOnly, async (c) => {
+  const body = await c.req.json<{ ten_he_thong?: string; ghi_chu?: string }>();
+  const tenHeThong = body.ten_he_thong?.trim();
+  if (!tenHeThong) return c.json({ error: "MISSING_TEN_HE_THONG" }, 400);
+
+  const apiKey = generateApiKey();
+  const hash = await hashApiKey(apiKey);
+  const row = await c.env.DB.prepare(
+    "INSERT INTO partner_api_keys (ten_he_thong, key_hash, ghi_chu, tao_luc) VALUES (?, ?, ?, ?) RETURNING id",
+  )
+    .bind(tenHeThong, hash, body.ghi_chu?.trim() || null, nowVN())
+    .first<{ id: number }>();
+
+  // CHI lan nay tra plaintext - khong luu lai, khong the xem lai qua GET sau nay.
+  return c.json({ id: row?.id, ten_he_thong: tenHeThong, api_key: apiKey });
+});
+
+settingsDatMua.patch("/partner-api-keys/:id", adminOnly, async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<{ bat_tat?: boolean }>();
+  if (body.bat_tat === undefined) return c.json({ error: "INVALID_BODY" }, 400);
+  await c.env.DB.prepare("UPDATE partner_api_keys SET bat_tat = ? WHERE id = ?").bind(body.bat_tat ? 1 : 0, id).run();
   return c.json({ ok: true });
 });
 

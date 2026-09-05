@@ -52,6 +52,7 @@ const TABS = [
   { key: "khu-vuc", label: "Khu vực" },
   { key: "google-drive", label: "Google Drive" },
   { key: "dong-bo-dvbh", label: "Đồng bộ DVBH" },
+  { key: "api-doi-tac", label: "API đối tác" },
 ];
 
 export function SettingsModule() {
@@ -65,6 +66,7 @@ export function SettingsModule() {
         {tab === "khu-vuc" && <KhuVucTab />}
         {tab === "google-drive" && <GoogleDriveTab />}
         {tab === "dong-bo-dvbh" && <DongBoDvbhTab />}
+        {tab === "api-doi-tac" && <PartnerApiTab />}
       </div>
     </div>
   );
@@ -807,6 +809,161 @@ function DongBoDvbhTab() {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+interface PartnerApiKeyRow {
+  id: number;
+  ten_he_thong: string;
+  bat_tat: number;
+  ghi_chu: string | null;
+  tao_luc: string;
+  lan_dung_cuoi: string | null;
+}
+
+// "API đối tác" (them 2026-09-05, phan hoi "xây dựng cơ chế sẵn sàng cho các hệ thống gọi API tra
+// cứu") - quan ly key cho GET /api/partner/v1/case-timeline (backend/src/routes/partnerApi.ts). Xac
+// thuc rieng qua header "X-API-Key" (KHAC HOAN TOAN cookie session dung cho nguoi dung Google that) -
+// key chi hien PLAINTEXT DUY NHAT 1 LAN luc tao (server chi luu hash), khong the xem lai sau.
+function PartnerApiTab() {
+  const qc = useQueryClient();
+  const addToast = useToast();
+  const { data } = useQuery({ queryKey: ["partner-api-keys"], queryFn: () => api.get<{ rows: PartnerApiKeyRow[] }>("/settings/partner-api-keys") });
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({ ten_he_thong: "", ghi_chu: "" });
+  // Key vua tao - CHI giu trong state phia client, khong bao gio doc lai duoc tu server sau khi dong
+  // modal nay.
+  const [newKey, setNewKey] = useState<{ ten_he_thong: string; api_key: string } | null>(null);
+
+  const create = useMutation({
+    mutationFn: () => api.post<{ id: number; ten_he_thong: string; api_key: string }>("/settings/partner-api-keys", form),
+    onSuccess: async (res) => {
+      await qc.invalidateQueries({ queryKey: ["partner-api-keys"] });
+      setCreating(false);
+      setForm({ ten_he_thong: "", ghi_chu: "" });
+      setNewKey({ ten_he_thong: res.ten_he_thong, api_key: res.api_key });
+    },
+    onError: () => addToast("Không thể tạo key, thử lại sau."),
+  });
+
+  const toggle = useMutation({
+    mutationFn: ({ id, bat_tat }: { id: number; bat_tat: boolean }) => api.patch(`/settings/partner-api-keys/${id}`, { bat_tat }),
+    onSuccess: async () => {
+      addToast("Đã lưu");
+      await qc.invalidateQueries({ queryKey: ["partner-api-keys"] });
+    },
+  });
+
+  return (
+    <div className="space-y-3">
+      <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">
+        Key cho các hệ thống đối tác bên ngoài gọi <span className="font-mono">GET /api/partner/v1/case-timeline?id=&lt;case_id&gt;</span> tra cứu đơn hàng + lịch sử xử lý theo mã yêu cầu sự cố.
+        <Tooltip text={`Xác thực qua header "X-API-Key" (không liên quan tài khoản Google/đăng nhập). Mỗi key đại diện 1 hệ thống đối tác - khoá 1 key không ảnh hưởng các key khác, dùng khi 1 hệ thống ngừng hợp tác hoặc nghi lộ key.`} />
+      </div>
+      <Btn size="sm" onClick={() => setCreating(true)}>+ Tạo key mới</Btn>
+      <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+                <th className="px-3 py-2">Hệ thống</th>
+                <th className="px-3 py-2">Ghi chú</th>
+                <th className="px-3 py-2">Trạng thái</th>
+                <th className="px-3 py-2">Tạo lúc</th>
+                <th className="px-3 py-2">Lần dùng cuối</th>
+                <th className="px-3 py-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {(data?.rows ?? []).length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có key nào.</td>
+                </tr>
+              ) : (
+                (data?.rows ?? []).map((r) => (
+                  <tr key={r.id} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                    <td className="px-3 py-2">{r.ten_he_thong}</td>
+                    <td className="px-3 py-2 text-[var(--ink-500)]">{r.ghi_chu ?? "—"}</td>
+                    <td className="px-3 py-2">
+                      <Badge tone={r.bat_tat ? "teal" : "coral"}>{r.bat_tat ? "Đang bật" : "Đã khoá"}</Badge>
+                    </td>
+                    <td className="px-3 py-2">{fmtDateTime(r.tao_luc)}</td>
+                    <td className="px-3 py-2">{r.lan_dung_cuoi ? fmtDateTime(r.lan_dung_cuoi) : "— (chưa từng)"}</td>
+                    <td className="px-3 py-2">
+                      <button
+                        className={`hover:underline text-xs ${r.bat_tat ? "text-[var(--coral-500)]" : "text-[var(--ocean-600)]"}`}
+                        onClick={() => toggle.mutate({ id: r.id, bat_tat: !r.bat_tat })}
+                      >
+                        {r.bat_tat ? "Khoá" : "Mở khoá"}
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {creating && (
+        <Modal open onClose={() => setCreating(false)} title="Tạo key API mới" width="max-w-md">
+          <div className="space-y-3 text-sm">
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Tên hệ thống đối tác</label>
+              <input
+                value={form.ten_he_thong}
+                onChange={(e) => setForm({ ...form, ten_he_thong: e.target.value })}
+                placeholder="Vd: Hệ thống DVBH gốc, CRM đối tác X"
+                className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Ghi chú (tuỳ chọn)</label>
+              <input
+                value={form.ghi_chu}
+                onChange={(e) => setForm({ ...form, ghi_chu: e.target.value })}
+                className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn variant="ghost" size="sm" onClick={() => setCreating(false)}>Huỷ</Btn>
+              <Btn size="sm" onClick={() => create.mutate()} disabled={!form.ten_he_thong.trim() || create.isPending} loading={create.isPending}>
+                Tạo key
+              </Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {newKey && (
+        <Modal open onClose={() => setNewKey(null)} title={`Key mới cho "${newKey.ten_he_thong}"`} width="max-w-lg">
+          <div className="space-y-3 text-sm">
+            <div className="rounded-lg border border-[var(--coral-500)] bg-[var(--coral-100)] px-3 py-2.5 text-[12.5px] leading-relaxed text-[var(--coral-600)] font-semibold">
+              ⚠ Đây là LẦN DUY NHẤT bạn thấy được key này - hệ thống chỉ lưu bản mã hoá, không thể xem lại sau khi đóng. Sao chép và gửi cho hệ thống đối tác ngay bây giờ.
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-xs break-all">{newKey.api_key}</code>
+              <Btn
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  navigator.clipboard.writeText(newKey.api_key);
+                  addToast("Đã sao chép");
+                }}
+              >
+                Sao chép
+              </Btn>
+            </div>
+            <div className="text-[var(--ink-500)] text-xs">
+              Truyền qua header <span className="font-mono">X-API-Key</span> khi gọi <span className="font-mono">GET /api/partner/v1/case-timeline?id=&lt;case_id&gt;</span>.
+            </div>
+            <div className="flex justify-end pt-2">
+              <Btn size="sm" onClick={() => setNewKey(null)}>Đã lưu, đóng lại</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

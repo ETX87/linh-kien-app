@@ -13,6 +13,7 @@ import traHangRoutes from "./routes/traHang";
 import baoCaoTocDoXuLyRoutes from "./routes/baoCaoTocDoXuLy";
 import pushRoutes from "./routes/push";
 import dvbhSyncRoutes from "./routes/dvbhSync";
+import partnerApiRoutes from "./routes/partnerApi";
 import { runDvbhSync } from "./lib/dvbhSyncClient";
 
 // He doc lap "Dat mua linh kien" - tach tu he DVBH goc (xem CLAUDE.md muc "Nguon goc tach he
@@ -35,6 +36,7 @@ app.route("/api/tra-hang", traHangRoutes);
 app.route("/api/bao-cao-toc-do", baoCaoTocDoXuLyRoutes);
 app.route("/api/push", pushRoutes);
 app.route("/api/dvbh-sync", dvbhSyncRoutes);
+app.route("/api/partner", partnerApiRoutes);
 
 app.onError((err, c) => {
   console.error(err);

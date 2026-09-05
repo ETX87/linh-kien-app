@@ -91,5 +91,8 @@ declare module "hono" {
     // viewAsPresets.ts (file do da import AppUser tu day).
     realIsAdmin: boolean;
     viewAsRole: string | null;
+    // Xac thuc router /api/partner (xem middleware/lib/partnerApiAuth.ts) - he thong doi tac dang
+    // goi API, khac hoan toan "user" (khong co tai khoan Google/session o day).
+    partnerKey: { id: number; ten_he_thong: string };
   }
 }
