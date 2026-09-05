@@ -195,7 +195,9 @@ settingsDatMua.post("/linh-kien/bulk-import-anh", linhKienWriteRoles, async (c) 
       continue;
     }
     try {
-      const imgRes = await fetch(sourceUrl);
+      // Gioi han 5s/anh (phan hoi audit AUD-003: 1 URL treo khong duoc phep keo dai ca Worker
+      // request) - AbortSignal.timeout tu nem TimeoutError, roi dung vao nhanh catch da co san.
+      const imgRes = await fetch(sourceUrl, { signal: AbortSignal.timeout(5000) });
       if (!imgRes.ok) throw new Error(`fetch ${imgRes.status}`);
       const bytes = await imgRes.arrayBuffer();
       const contentType = imgRes.headers.get("Content-Type") || "image/jpeg";
@@ -318,7 +320,8 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
     const anhUrl = row.anh_url?.trim();
     if (anhUrl) {
       try {
-        const imgRes = await fetch(anhUrl);
+        // Cung ly do AUD-003 nhu bulk-import-anh o tren.
+        const imgRes = await fetch(anhUrl, { signal: AbortSignal.timeout(5000) });
         if (!imgRes.ok) throw new Error(`fetch ${imgRes.status}`);
         const bytes = await imgRes.arrayBuffer();
         const contentType = imgRes.headers.get("Content-Type") || "image/jpeg";
