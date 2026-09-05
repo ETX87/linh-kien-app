@@ -22,9 +22,9 @@ users.use("*", verifySessionMiddleware, loadUser, requireRole("Admin"));
 // khoan moi CHUA duoc Admin xac dinh thuoc nhom nao - xem PATCH /:email).
 // "khu_vuc" - loc nhan vien van phong dang phu trach 1 khu vuc cu the: GS qua khu_vuc.gs_email, TN/
 // Kho/Ke toan qua bang user_khu_vuc (xem migration 0009).
-// "page"/"pageSize" (them 2026-08-26 - GET truoc day tra het khong phan trang, se cham khi so luong
-// tang) - KHONG truyen page -> giu nguyen hanh vi cu (tra het) de khong pha frontend truoc khi Phase 3
-// cap nhat UI dung phan trang.
+// "page"/"pageSize" (them 2026-08-26, LUON phan trang tu 2026-09-05 - phan hoi audit AUD-001: nhanh
+// "tra het khong phan trang" da bi xoa sau khi ca 3 noi render danh sach o UsersModule.tsx deu chuyen
+// sang dung PaginatedTable + truyen page/pageSize, xem VanPhongTab lam mau).
 users.get("/", async (c) => {
   const tab = c.req.query("tab") ?? "cho-duyet";
   const search = c.req.query("search")?.trim();
@@ -64,11 +64,6 @@ users.get("/", async (c) => {
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-
-  if (!pageParam) {
-    const { results } = await c.env.DB.prepare(`SELECT * FROM users ${where} ORDER BY created_at DESC`).bind(...binds).all();
-    return c.json({ rows: results });
-  }
 
   const page = Math.max(1, Number(pageParam) || 1);
   const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 50)));

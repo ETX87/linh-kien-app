@@ -59,14 +59,55 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
   const qc = useQueryClient();
   const addToast = useToast();
   const [search, setSearch] = useState("");
-  const { data, isLoading } = useQuery({
-    queryKey: ["users", tabValue, search],
-    queryFn: () => api.get<{ rows: UserRow[] }>(`/users?tab=${tabValue}${search ? `&search=${encodeURIComponent(search)}` : ""}`),
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
+  const query = buildQuery({ tab: tabValue, search: search || undefined, page, pageSize });
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["users", tabValue, search, page],
+    queryFn: () => api.get<Paged<UserRow>>(`/users${query}`),
   });
   const [editing, setEditing] = useState<UserRow | null>(null);
   const personDir = usePersonDirectory();
 
-  const rows = data?.rows ?? [];
+  // FIX (phan hoi 2026-09-05, audit AUD-001): endpoint /users gio LUON phan trang (khong con nhanh
+  // tra het khi thieu page) - chuyen sang PaginatedTable giong VanPhongTab, thay vi <table> tu tay
+  // khong co phan trang nhu truoc.
+  const columns: Column<UserRow>[] = [
+    // Quy uoc "Ten (email)" toan he thong (phan hoi 2026-08-25, hang muc #16).
+    { key: "nguoi_dung", header: "Người dùng", render: (u) => formatPersonDisplay(u.email, personDir) },
+    { key: "vai_tro", header: "Vai trò", render: (u) => u.vai_tro ?? "—" },
+    {
+      key: "co_nghiep_vu",
+      header: "Cờ nghiệp vụ",
+      render: (u) => (
+        <div className="flex flex-wrap gap-1">
+          {ROLE_FLAGS.filter((f) => u[f.key]).map((f) => <Badge key={f.key} tone="ocean">{f.label}</Badge>)}
+        </div>
+      ),
+    },
+    {
+      key: "trang_thai",
+      header: "Trạng thái",
+      render: (u) => (
+        <>
+          <Badge tone={u.trang_thai_duyet === "Da duyet" ? "teal" : u.trang_thai_duyet === "Cho duyet" ? "amber" : "coral"}>
+            {u.trang_thai_duyet}
+          </Badge>
+          {!!u.bi_khoa && <Badge tone="coral">Đã khoá</Badge>}
+        </>
+      ),
+    },
+    {
+      key: "actions",
+      header: "",
+      mobileHint: "actions",
+      render: (u) => (
+        <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={(e) => { e.stopPropagation(); setEditing(u); }}>
+          Sửa
+        </button>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-3">
@@ -75,62 +116,24 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
       </div>
       <input
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
         placeholder="Tìm theo email/tên…"
         className="focus-ring w-full max-w-xs border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
       />
-      {isLoading ? (
-        <div className="text-sm text-[var(--ink-400)]">Đang tải…</div>
-      ) : rows.length === 0 ? (
-        <div className="text-sm text-[var(--ink-400)]">Không có tài khoản nào.</div>
-      ) : (
-        <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
-                  <th className="px-3 py-2">Người dùng</th>
-                  <th className="px-3 py-2">Vai trò</th>
-                  <th className="px-3 py-2">Cờ nghiệp vụ</th>
-                  <th className="px-3 py-2">Trạng thái</th>
-                  <th className="px-3 py-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((u) => (
-                  // FIX (phan hoi 2026-08-28: "table danh sách tài khoản cho phép ấn vào để mở giao
-                  // diện xem và sửa luôn, không cần phải ấn vào nút Sửa") - ca dong mo Sua, giu nut
-                  // "Sửa" lam diem bam ro rang (nhat la tren dien thoai) nhung tu stopPropagation de
-                  // khong mo modal 2 lan lien tiep.
-                  <tr key={u.email} onClick={() => setEditing(u)} className="cursor-pointer border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
-                    {/* Quy uoc "Ten (email)" toan he thong (phan hoi 2026-08-25, hang muc #16). */}
-                    <td className="px-3 py-2">{formatPersonDisplay(u.email, personDir)}</td>
-                    <td className="px-3 py-2">{u.vai_tro ?? "—"}</td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-wrap gap-1">
-                        {ROLE_FLAGS.filter((f) => u[f.key]).map((f) => (
-                          <Badge key={f.key} tone="ocean">{f.label}</Badge>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <Badge tone={u.trang_thai_duyet === "Da duyet" ? "teal" : u.trang_thai_duyet === "Cho duyet" ? "amber" : "coral"}>
-                        {u.trang_thai_duyet}
-                      </Badge>
-                      {!!u.bi_khoa && <Badge tone="coral">Đã khoá</Badge>}
-                    </td>
-                    <td className="px-3 py-2">
-                      <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={(e) => { e.stopPropagation(); setEditing(u); }}>
-                        Sửa
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      <PaginatedTable
+        columns={columns}
+        rows={data?.rows ?? []}
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={() => refetch()}
+        page={data?.page ?? page}
+        pageSize={data?.pageSize ?? pageSize}
+        total={data?.total ?? 0}
+        onPageChange={setPage}
+        rowKey={(u) => u.email}
+        emptyText="Không có tài khoản nào."
+        onRowClick={(u) => setEditing(u)}
+      />
       {editing && (
         <EditUserModal
           user={editing}
@@ -1053,7 +1056,15 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
 function PhuTrachGsTab() {
   const addToast = useToast();
   const personDir = usePersonDirectory();
-  const { data: usersData } = useQuery({ queryKey: ["users", "da-duyet", ""], queryFn: () => api.get<{ rows: UserRow[] }>("/users?tab=da-duyet") });
+  // FIX (phan hoi 2026-09-05, audit AUD-001): truoc day goi /users?tab=da-duyet KHONG loc nhom, keo
+  // theo ca tai khoan KTV/Ve tinh (co the rat nhieu, xem CLAUDE.md - vai tro se >250 KTV) chi de loc
+  // client-side xuong con TN/Kho/Ke toan/Giam sat. Them nhom=van-phong (loai KTV/Ve tinh ngay tu SQL)
+  // + pageSize=200 (cap toi da cua endpoint) - man hinh nay la danh sach gan Giam sat phu trach, chi
+  // can bao trum nhan vien van phong, khong can UI phan trang (so luong nho, on dinh).
+  const { data: usersData } = useQuery({
+    queryKey: ["users", "van-phong-lookup"],
+    queryFn: () => api.get<Paged<UserRow>>(`/users${buildQuery({ tab: "da-duyet", nhom: "van-phong", page: 1, pageSize: 200 })}`),
+  });
   const rows = usersData?.rows ?? [];
   const tnKhoKeToan = useMemo(
     () => rows.filter((u) => u.la_tac_nghiep || u.la_kho || u.la_ke_toan),
