@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
 import { Badge } from "../../components/ui/Badge";
@@ -528,81 +528,112 @@ function ThieuLkGroupedList({
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(r);
   }
+  // FIX (phan hoi 2026-09-05: "danh sách đơn chờ linh kiện giao diện UI đang không gộp chung 1 table
+  // tiêu đề" + "xây dựng lại giao diện theo mẫu giao diện đơn mua") - tinh san banner-stats cho MOI
+  // nhom 1 LAN (khop dung pattern groupEntries cua DonHangGroupedList, DonCuaToiTab.tsx), dung CHUNG
+  // cho ca bang desktop hop nhat lan the mobile ben duoi, tranh tinh lai 2 lan.
+  const groupEntries = [...groups.entries()].map(([nguoiNhan, dongCon]) => ({
+    nguoiNhan,
+    dongCon,
+    choXuLy: dongCon.filter((r) => r.trang_thai === "Cho kho xu ly").length,
+    dangXuLy: dongCon.filter((r) => r.trang_thai === "Kho da tiep nhan").length,
+    hoanTat: dongCon.filter((r) => r.trang_thai === "Kho xac nhan hang da ve" || r.trang_thai === "Da ket thuc").length,
+    huyBo: dongCon.filter((r) => r.trang_thai === "Da huy bo" || r.trang_thai === "Kho tu choi sai TT").length,
+  }));
 
   return (
     <div className="space-y-2">
       <div className="hidden sm:flex justify-end">{settingsButtonEl}</div>
-      {[...groups.entries()].map(([nguoiNhan, dongCon]) => {
-        const choXuLy = dongCon.filter((r) => r.trang_thai === "Cho kho xu ly").length;
-        const dangXuLy = dongCon.filter((r) => r.trang_thai === "Kho da tiep nhan").length;
-        const hoanTat = dongCon.filter((r) => r.trang_thai === "Kho xac nhan hang da ve" || r.trang_thai === "Da ket thuc").length;
-        const huyBo = dongCon.filter((r) => r.trang_thai === "Da huy bo" || r.trang_thai === "Kho tu choi sai TT").length;
-        return (
-          <div key={nguoiNhan} className="mb-4">
-            {/* SectionTitle + bang rieng ben duoi (concept 1 "Structured Neutral", pattern .section-title
-                + .tblwrap doc lap - khong long bang vao trong 1 the co vien mau nhu truoc). */}
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <SectionTitle>
-                KTV/Người tạo đơn gốc: {formatNguoiDisplay(nguoiNhan, ktvDisplayMap)}
-                <span className="ml-1.5 font-normal normal-case tracking-normal text-[var(--ink-400)]">({dongCon.length} dòng)</span>
-              </SectionTitle>
-              <div className="flex items-center gap-1 flex-wrap mb-2">
-                {choXuLy > 0 && <Badge tone="amber">{choXuLy} chờ xử lý</Badge>}
-                {dangXuLy > 0 && <Badge tone="ocean">{dangXuLy} đang xử lý</Badge>}
-                {hoanTat > 0 && <Badge tone="teal">{hoanTat} hoàn tất</Badge>}
-                {huyBo > 0 && <Badge tone="coral">{huyBo} huỷ/từ chối</Badge>}
+      {/* FIX (phan hoi 2026-09-05, xem comment groupEntries o tren): truoc day MOI nhom KTV la 1
+          <table> doc lap kem <thead> rieng (lap lai header N lan) - gio GOP thanh 1 <table> DUY NHAT
+          cho toan bo danh sach, giong het DonHangGroupedList (DonCuaToiTab.tsx): 1 <thead> chung tren
+          cung, <tbody> noi tiep tung nhom (1 hang banner <td colSpan> + cac hang du lieu). */}
+      <div className="hidden sm:block overflow-x-auto border-t border-[var(--line)]">
+        <table className="w-full min-w-[720px] text-xs border-collapse">
+          <thead>
+            <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+              {effectiveColumns.map((col, idx) => (
+                <ResizableHeaderCell
+                  key={col.key}
+                  col={col}
+                  idx={idx}
+                  isPinned={idx === 0}
+                  width={colWidths[col.key]}
+                  storageKey="dmlk-thieu-lk-list"
+                  dragOverKey={dragOverKey}
+                  setDragOverKey={setDragOverKey}
+                  draggedColKey={draggedColKey}
+                  handleColumnDrop={handleColumnDrop}
+                  handleResizeStart={handleResizeStart}
+                  sortable={false}
+                  isActive={false}
+                />
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {groupEntries.map((g) => (
+              <Fragment key={g.nguoiNhan}>
+                <tr className="bg-[var(--ocean-100)]">
+                  <td colSpan={effectiveColumns.length} className="px-3 py-2">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-3 flex-wrap text-sm min-w-0">
+                        <span className="font-bold text-[var(--ink-900)] text-sm truncate">
+                          {formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}
+                        </span>
+                        <span className="text-[var(--ink-400)] text-xs shrink-0">{g.dongCon.length} dòng</span>
+                      </div>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {g.choXuLy > 0 && <Badge tone="amber">{g.choXuLy} chờ xử lý</Badge>}
+                        {g.dangXuLy > 0 && <Badge tone="ocean">{g.dangXuLy} đang xử lý</Badge>}
+                        {g.hoanTat > 0 && <Badge tone="teal">{g.hoanTat} hoàn tất</Badge>}
+                        {g.huyBo > 0 && <Badge tone="coral">{g.huyBo} huỷ/từ chối</Badge>}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                {g.dongCon.map((r) => (
+                  <tr
+                    key={r.id}
+                    onClick={() => onDetail(r.id)}
+                    className={`cursor-pointer transition-colors border-b border-[var(--line)] last:border-0 ${
+                      r.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)] hover:brightness-95" : "hover:bg-slate-50"
+                    }`}
+                  >
+                    {effectiveColumns.map((col) => {
+                      const width = colWidths[col.key];
+                      return (
+                        <td key={col.key} style={width ? { width, maxWidth: width, overflow: "hidden" } : undefined} className={`px-3 py-1.5 ${col.className ?? ""}`}>
+                          {col.render(r)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {/* The doc rieng cho mobile (<640px, giu nguyen tung khoi 1 nhom KTV - khac desktop, mobile
+          cuon DOC xuyen suot nen khong can gop thanh 1 khoi lien tuc nhu <table>). */}
+      <div className="sm:hidden space-y-2">
+        {groupEntries.map((g) => (
+          <div key={g.nguoiNhan} className="border border-[var(--line)] rounded-xl overflow-hidden">
+            <div className="bg-[var(--ocean-100)] px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold text-[var(--ink-900)] text-xs truncate">{formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}</span>
+                <Badge tone="ocean">{g.dongCon.length} dòng</Badge>
+              </div>
+              <div className="flex items-center gap-1 flex-wrap mt-1">
+                {g.choXuLy > 0 && <Badge tone="amber">{g.choXuLy} chờ xử lý</Badge>}
+                {g.dangXuLy > 0 && <Badge tone="ocean">{g.dangXuLy} đang xử lý</Badge>}
+                {g.hoanTat > 0 && <Badge tone="teal">{g.hoanTat} hoàn tất</Badge>}
+                {g.huyBo > 0 && <Badge tone="coral">{g.huyBo} huỷ/từ chối</Badge>}
               </div>
             </div>
-            <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full min-w-[720px] text-xs border-collapse">
-                  <thead>
-                    {/* Khop dung header PaginatedTable.tsx (bg #FBFBFB, chu ink-400 uppercase 10.5px) - truoc
-                        day dung bg-white text-ink-500, khac chuan da co san. */}
-                    <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
-                      {effectiveColumns.map((col, idx) => (
-                        <ResizableHeaderCell
-                          key={col.key}
-                          col={col}
-                          idx={idx}
-                          isPinned={idx === 0}
-                          width={colWidths[col.key]}
-                          storageKey="dmlk-thieu-lk-list"
-                          dragOverKey={dragOverKey}
-                          setDragOverKey={setDragOverKey}
-                          draggedColKey={draggedColKey}
-                          handleColumnDrop={handleColumnDrop}
-                          handleResizeStart={handleResizeStart}
-                          sortable={false}
-                          isActive={false}
-                        />
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dongCon.map((r) => (
-                      <tr
-                        key={r.id}
-                        onClick={() => onDetail(r.id)}
-                        className={`cursor-pointer transition-colors border-b border-[var(--line)] last:border-0 ${
-                          r.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)] hover:brightness-95" : "hover:bg-slate-50"
-                        }`}
-                      >
-                        {effectiveColumns.map((col) => {
-                          const width = colWidths[col.key];
-                          return (
-                            <td key={col.key} style={width ? { width, maxWidth: width, overflow: "hidden" } : undefined} className={`px-3 py-1.5 ${col.className ?? ""}`}>
-                              {col.render(r)}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="sm:hidden divide-y divide-[var(--line)]">
-              {dongCon.map((r) => {
+            <div className="border-t border-[var(--line)] divide-y divide-[var(--line)]">
+              {g.dongCon.map((r) => {
                 // FIX (phan hoi 2026-09-05, giong het comment o cot "hanh_dong" ben tren): loai "Da huy
                 // bo" khoi danh sach ngoai, chi giu lai trong ThieuLkDetailModal.
                 const nexts = nextStates(r).filter((s) => s.canDo && s.trangThai !== "Da huy bo");
@@ -669,10 +700,9 @@ function ThieuLkGroupedList({
                 );
               })}
             </div>
-            </div>
           </div>
-        );
-      })}
+        ))}
+      </div>
       <div className="flex items-center justify-between px-1 py-2 text-xs text-[var(--ink-400)]">
         <span>{total} dòng</span>
         <div className="flex gap-1">
