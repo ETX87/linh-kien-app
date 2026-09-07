@@ -27,7 +27,7 @@ import { nowVN } from "./vnTime";
 const SYNC_BATCH_SIZE = 200;
 
 type EntityKey = "ktv" | "linh_kien" | "khu_vuc";
-type TargetKey = "dvbh" | "suachua";
+type TargetKey = "dvbh" | "suachua" | "khovan";
 
 interface TargetConfig {
   label: string;
@@ -42,6 +42,10 @@ const TARGETS: Record<TargetKey, TargetConfig> = {
   // "suachua" dung khuon xac thuc rieng cua no (X-Sync-Key, xem routes/sync.ts ben do) - khac
   // "X-API-Key" cua dvbh vi 2 he goc khac nhau, khong dung chung 1 quy uoc partnerApi.ts.
   suachua: { label: "Sửa chữa bảo hành", baseUrl: (env) => env.SUACHUA_SYNC_BASE_URL, service: (env) => env.SUACHUA_SYNC_SERVICE, apiKey: (env) => env.SUACHUA_SYNC_API_KEY, authHeader: "X-Sync-Key" },
+  // Them 2026-09-07 - dich THU 3, Worker "khovan" (Quan ly hang ve kho). Dung khuon
+  // "external_systems" + header "X-Api-Key" san co cua khovan (giong "dvbh"), KHONG
+  // phai tu tao khuon xac thuc rieng.
+  khovan: { label: "Kho vận", baseUrl: (env) => env.KHOVAN_SYNC_BASE_URL, service: (env) => env.KHOVAN_SYNC_SERVICE, apiKey: (env) => env.KHOVAN_SYNC_API_KEY, authHeader: "X-Api-Key" },
 };
 
 interface EntityConfig {
@@ -61,7 +65,9 @@ const ENTITIES: Record<EntityKey, EntityConfig> = {
     table: "ktv_lien_he",
     columns: "ma_ktv, ten_hien_thi, sdt, ghi_chu, gmail, vai_tro_ktv, giam_sat_quan_ly, email_dang_nhap, khu_vuc_ma, ktv_cap1_phu_trach",
     syncPath: "/api/partner/sync/ktv",
-    targets: ["dvbh", "suachua"],
+    // khovan chi dung ma_ktv/ten_hien_thi (lam danh sach "Nguoi gui hang"), bo qua
+    // cac cot con lai - dung chung 1 payload voi dvbh/suachua nhu thuong le.
+    targets: ["dvbh", "suachua", "khovan"],
   },
   linh_kien: {
     table: "linh_kien",

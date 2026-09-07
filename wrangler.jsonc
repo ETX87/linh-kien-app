@@ -45,9 +45,13 @@
   // Cloudflare, fetch() thang bi chan loi 1042). "suachua" da online that (xac nhan 04/09/2026) nhung
   // hien la ban rong/placeholder - binding nay AN TOAN khai bao truoc, chi thuc su co tac dung sau khi
   // repo "gui-bao-hanh-linh-kien" duoc deploy that len dung Worker "suachua".
+  // Them 2026-09-07: "KHOVAN_SYNC_SERVICE" - dich day THU 3 cho dvbhSyncClient.ts (Worker doc lap
+  // "khovan", he Quan ly hang ve kho). Cung 1 tai khoan Cloudflare nen dung Service Binding, ly do
+  // giong het 2 dich tren.
   "services": [
     { "binding": "CASE_LOOKUP_SERVICE", "service": "dvbh", "remote": true },
-    { "binding": "SUACHUA_SYNC_SERVICE", "service": "suachua", "remote": true }
+    { "binding": "SUACHUA_SYNC_SERVICE", "service": "suachua", "remote": true },
+    { "binding": "KHOVAN_SYNC_SERVICE", "service": "khovan", "remote": true }
   ],
 
   "vars": {
@@ -60,6 +64,9 @@
     // Diem noi toi Worker "suachua" (module Sua chua bao hanh, doc lap - xem SUACHUA_SYNC_SERVICE o
     // tren). Chi dung de GHI (dong bo day KTV/linh kien/Khu vuc), khong doc gi tu day.
     "SUACHUA_SYNC_BASE_URL": "https://suachua.dichvu3t.workers.dev",
+    // Diem noi toi Worker "khovan" (he Quan ly hang ve kho, doc lap - xem KHOVAN_SYNC_SERVICE o tren).
+    // Chi dung de GHI (dong bo day danh sach KTV lam "Nguoi gui hang"), khong doc gi tu day.
+    "KHOVAN_SYNC_BASE_URL": "https://khovan.dichvu3t.workers.dev",
     // Web Push (them 2026-08-26, xem backend/src/lib/webPush.ts) - VAPID_SERVER_PUBLIC_KEY KHONG
     // nhay cam (day la khoa cong khai frontend can de subscribe), an toan de trong "vars". Rieng
     // VAPID_SERVER_PRIVATE_KEY dat qua "wrangler secret put" (xem duoi).
@@ -74,6 +81,9 @@
   // "LINHKIEN_SYNC_API_KEY" ben repo "gui-bao-hanh-linh-kien" (Worker "suachua"), vi day la quan he
   // xac thuc 1-1 dung 1 secret dung chung (khong phai bang partner_api_keys nhieu-key) - xem
   // backend/src/routes/sync.ts cua repo do.
+  // Them 2026-09-07: KHOVAN_SYNC_API_KEY - gia tri = api_key cua dong external_systems da tao san
+  // trong khovan cho "linh-kien-app" (Settings > He thong lien quan ben khovan, code=linh_kien_app),
+  // dung header "X-Api-Key" (khac quan he 1-1 nhu suachua - khovan dung bang external_systems nhieu-key).
   // Google Drive (anh linh kien/PXK/tra hang) KHONG can them bien env nao - dung chung
   // GOOGLE_CLIENT_ID/SECRET o tren qua co che OAuth uy quyen 1 tai khoan that, luu refresh token
   // trong bang google_drive_oauth (xem lib/googleDrive.ts) - da bo Service Account 2026-08-25.

@@ -71,6 +71,12 @@ export interface Env {
   SUACHUA_SYNC_BASE_URL: string;
   SUACHUA_SYNC_SERVICE: Fetcher;
   SUACHUA_SYNC_API_KEY: string;
+  // Them 2026-09-07: dich day THU 3, Worker "khovan" (Quan ly hang ve kho) - chi nhan
+  // entity "ktv" (lam danh sach "Nguoi gui hang"), dung khuon external_systems +
+  // header X-Api-Key san co cua khovan. Service Binding cung ly do nhu 2 dich tren.
+  KHOVAN_SYNC_BASE_URL: string;
+  KHOVAN_SYNC_SERVICE: Fetcher;
+  KHOVAN_SYNC_API_KEY: string;
   // Cua sau dang nhap CHI danh cho local dev (xem routes/auth.ts GET /dev-login), giong co che he goc.
   LOCAL_DEV_BYPASS_AUTH?: string;
   // Web Push (phan hoi 2026-08-26: day thong bao ngay khi co "tin nhan thong bao" moi trong
