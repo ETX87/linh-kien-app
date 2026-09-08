@@ -84,6 +84,10 @@
   // Them 2026-09-07: KHOVAN_SYNC_API_KEY - gia tri = api_key cua dong external_systems da tao san
   // trong khovan cho "linh-kien-app" (Settings > He thong lien quan ben khovan, code=linh_kien_app),
   // dung header "X-Api-Key" (khac quan he 1-1 nhu suachua - khovan dung bang external_systems nhieu-key).
+  // Them 2026-09-07 (nguyen tac "Kho chi thao tac qua app kho van"): KHOVAN_LOOKUP_API_KEY va
+  // KHOVAN_PARTNER_API_KEY - CHIEU NGUOC LAI (khovan GOI VAO), moi cai la 1 secret dung chung 1-1,
+  // PHAI dat gia tri GIONG HET truong lookup_api_key/action_api_key tuong ung cua dong external_systems
+  // code=linh_kien_app ben khovan (xem routes/khovanLookup.ts + routes/partnerKho.ts).
   // Google Drive (anh linh kien/PXK/tra hang) KHONG can them bien env nao - dung chung
   // GOOGLE_CLIENT_ID/SECRET o tren qua co che OAuth uy quyen 1 tai khoan that, luu refresh token
   // trong bang google_drive_oauth (xem lib/googleDrive.ts) - da bo Service Account 2026-08-25.

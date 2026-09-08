@@ -14,6 +14,8 @@ import baoCaoTocDoXuLyRoutes from "./routes/baoCaoTocDoXuLy";
 import pushRoutes from "./routes/push";
 import dvbhSyncRoutes from "./routes/dvbhSync";
 import partnerApiRoutes from "./routes/partnerApi";
+import khovanLookupRoutes from "./routes/khovanLookup";
+import partnerKhoRoutes from "./routes/partnerKho";
 import { runDvbhSync } from "./lib/dvbhSyncClient";
 
 // He doc lap "Dat mua linh kien" - tach tu he DVBH goc (xem CLAUDE.md muc "Nguon goc tach he
@@ -46,6 +48,8 @@ app.route("/api/bao-cao-toc-do", baoCaoTocDoXuLyRoutes);
 app.route("/api/push", pushRoutes);
 app.route("/api/dvbh-sync", dvbhSyncRoutes);
 app.route("/api/partner", partnerApiRoutes);
+app.route("/api/partner/box-lookup", khovanLookupRoutes);
+app.route("/api/partner/kho-action", partnerKhoRoutes);
 
 app.onError((err, c) => {
   const requestId = c.get("requestId") ?? "unknown";

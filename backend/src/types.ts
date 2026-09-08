@@ -77,6 +77,13 @@ export interface Env {
   KHOVAN_SYNC_BASE_URL: string;
   KHOVAN_SYNC_SERVICE: Fetcher;
   KHOVAN_SYNC_API_KEY: string;
+  // Them 2026-09-07 (nguyen tac "Kho chi thao tac qua app kho van"): CHIEU NGUOC LAI -
+  // khovan GOI VAO day. KHOVAN_LOOKUP_API_KEY (routes/khovanLookup.ts, chi doc) va
+  // KHOVAN_PARTNER_API_KEY (routes/partnerKho.ts, GHI - doi trang thai PXK) la 2 secret
+  // TACH RIENG (least-privilege), moi cai dung chung 1-1 voi truong tuong ung ben
+  // external_systems (code=linh_kien_app) cua khovan (lookup_api_key/action_api_key).
+  KHOVAN_LOOKUP_API_KEY?: string;
+  KHOVAN_PARTNER_API_KEY?: string;
   // Cua sau dang nhap CHI danh cho local dev (xem routes/auth.ts GET /dev-login), giong co che he goc.
   LOCAL_DEV_BYPASS_AUTH?: string;
   // Web Push (phan hoi 2026-08-26: day thong bao ngay khi co "tin nhan thong bao" moi trong

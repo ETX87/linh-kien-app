@@ -13,6 +13,7 @@ import { uploadPublicImage } from "../lib/googleDrive";
 import { sendPushToUser } from "../lib/webPush";
 import { buildMisaExportSheets, MISA_TEMPLATES, type MisaTemplate } from "../lib/misaExport";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, emailGsListForPxk, PXK_ROLES } from "../lib/taskNotify";
+import { pushPxkToKhovan } from "../lib/khovanPushClient";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
 // Pattern header+log giong phieu_dat. TN tao (gom nhieu dong don hang da "TN da duyet" vao 1
@@ -927,6 +928,15 @@ phieuXuatKho.post("/:id/log", async (c) => {
   await c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)")
     .bind(id, target, user.email, nowVN(), body.ghi_chu?.trim() || null)
     .run();
+
+  // "Da chot xong don xuat" la moc "san sang cho Kho xu ly" (nguyen tac "Kho chi thao
+  // tac qua app kho van", chot 2026-09-07) - day "cho xu ly" sang khovan O DAY, ap dung
+  // CA loai_don thuong (mua/cong_no) LAN 'tra_hang' (xem lib/khovanPushClient.ts).
+  if (target === "Da chot xong don xuat") {
+    const senderLabel = `Xuất kho ${id}` + (pxk.nguoi_nhan_hang ? ` (giao ${pxk.nguoi_nhan_hang})` : "");
+    const note = pxk.loai_don === "tra_hang" ? "Trả hàng - chờ Kho xác nhận nhận hàng" : "Xuất kho - chờ Kho gửi/hàng trữ kho";
+    await pushPxkToKhovan(c.env, id, senderLabel, pxk.loai_don, note);
+  }
 
   // Bao "viec moi" cho vai tro SAP xu ly buoc tiep theo (phan hoi 2026-09-05) - PXK khong co
   // email_gs rieng, suy tu cac dat_don_hang da gop vao (xem emailGsListForPxk).
