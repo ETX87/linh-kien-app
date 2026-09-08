@@ -14,7 +14,7 @@ import { formatPersonDisplay, usePersonDirectory } from "../lib/personDisplay";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { parseKtvImportFile, type BulkImportKtvChunkResult } from "../lib/ktvImport";
 import { fmtVND, fmtDateTime } from "../types";
-import type { UserRow, KtvLienHeRow, KhuVucRow, Paged, LoginLogRow } from "../types";
+import type { UserRow, KtvLienHeRow, KhuVucRow, Paged, LoginLogRow, MaKhoChuaKhopRow } from "../types";
 
 // Trang quan tri nguoi dung - xay lai 2026-08-26 (yeu cau "tach rieng 2 the quan ly" cho 2 nhom doi
 // tuong dang nhap Gmail: KTV hien truong vs Nhan vien van phong, xem CLAUDE.md). "KTV hien truong"
@@ -594,6 +594,19 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
   });
   const cap1Options = (cap1Data?.rows ?? []).map((r) => ({ value: r.ma_ktv, label: `${r.ma_ktv} — ${r.ten_hien_thi ?? "?"}` }));
 
+  // "Chọn bổ sung Mã MISA từ danh sách chưa khớp" (them 2026-09-08, phan hoi import tồn kho) - cac ma
+  // kho tung import nhung chua tim duoc KTV khop (ma_ktv IS NULL, xem backend GET
+  // /ktv-ton-kho/ma-kho-chua-khop) - chi Admin/Ke toan goi duoc (dung nhom sua ma_misa), an o readonly.
+  const { data: chuaKhopData } = useQuery({
+    queryKey: ["ktv-ton-kho-ma-kho-chua-khop"],
+    queryFn: () => api.get<{ rows: MaKhoChuaKhopRow[] }>("/settings/ktv-ton-kho/ma-kho-chua-khop"),
+    enabled: mode !== "readonly",
+  });
+  const chuaKhopOptions = (chuaKhopData?.rows ?? []).map((r) => ({
+    value: r.ma_kho,
+    label: `${r.ma_kho} — ${r.ten_kho ?? "?"} (${r.so_ma_hang} mặt hàng)`,
+  }));
+
   const [editing, setEditing] = useState<KtvLienHeRow | "new" | null>(null);
   const [form, setForm] = useState({
     ma_ktv: "", ten_hien_thi: "", sdt: "", vai_tro_ktv: "KTV" as KtvLienHeRow["vai_tro_ktv"], email_dang_nhap: "",
@@ -960,8 +973,23 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Mã tài khoản MISA</label>
+                <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] flex items-center gap-1.5">
+                  Mã tài khoản MISA
+                  <Tooltip text={`Gõ tay trực tiếp, hoặc chọn từ danh sách "mã kho" từng import từ MISA nhưng chưa khớp được KTV nào bên dưới - chọn xong bấm Lưu sẽ khớp lại NGAY toàn bộ tồn kho của mã đó cho KTV này, không cần đợi import lại.`} />
+                </label>
                 <input disabled={mode === "readonly"} value={form.ma_misa} onChange={(e) => setForm({ ...form, ma_misa: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60" />
+                {mode !== "readonly" && chuaKhopOptions.length > 0 && (
+                  <Select
+                    value=""
+                    onChange={(v) => {
+                      if (!v) return;
+                      const picked = chuaKhopData?.rows.find((r) => r.ma_kho === v);
+                      setForm({ ...form, ma_misa: v, ten_misa: form.ten_misa.trim() ? form.ten_misa : picked?.ten_kho ?? form.ten_misa });
+                    }}
+                    options={[{ value: "", label: "— hoặc chọn mã kho chưa khớp KTV —" }, ...chuaKhopOptions]}
+                    className="mt-1"
+                  />
+                )}
               </div>
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Tên trên MISA</label>

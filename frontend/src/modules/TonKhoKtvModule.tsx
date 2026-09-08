@@ -136,7 +136,15 @@ function TonKhoKtvContent() {
       </div>
       {meta && (
         <div className="text-xs text-[var(--ink-500)]">
-          Cập nhật lần cuối theo kỳ báo cáo MISA: <b>{meta.ky_tu_ngay ?? "?"} → {meta.ky_den_ngay ?? "?"}</b> ({meta.so_dong} dòng đọc được)
+          {/* File "toan quoc" (them 2026-09-08) chi co 1 moc ngay (bao cao chup nhanh), khong phai
+          khoang - ky_tu_ngay===ky_den_ngay thi hien 1 lan, tranh lap "X -> X" gay hieu lam. */}
+          Cập nhật lần cuối theo kỳ báo cáo MISA:{" "}
+          <b>
+            {meta.ky_tu_ngay && meta.ky_tu_ngay === meta.ky_den_ngay
+              ? meta.ky_tu_ngay
+              : `${meta.ky_tu_ngay ?? "?"} → ${meta.ky_den_ngay ?? "?"}`}
+          </b>{" "}
+          ({meta.so_dong} dòng đọc được)
         </div>
       )}
       <div className="flex flex-wrap gap-2 items-center">
@@ -261,9 +269,13 @@ function TonKhoKtvContent() {
                 </div>
                 {importSummary.unmatched.length > 0 && (
                   <div className="rounded-lg border border-[var(--coral-500)] bg-[var(--coral-100)] px-3 py-2 text-xs text-[var(--coral-600)]">
-                    <div className="font-semibold mb-1">Các mã kho sau không khớp Mã MISA của KTV nào (chưa được nhập):</div>
+                    {/* SUA (phan hoi 2026-09-08): truoc day cac ma nay bi BO HAN (khong luu), phai gan
+                    Mã MISA roi IMPORT LAI moi thay - gio da luu san (ma_ktv de trong), Admin/Ke toan chi
+                    can vao "KTV hiện trường" chọn bổ sung Mã MISA (co dropdown chọn tu danh sách nay) la
+                    khop lai NGAY, khong can import lai. */}
+                    <div className="font-semibold mb-1">Các mã kho sau không khớp Mã MISA của KTV nào (đã lưu tồn kho, chưa hiện trong danh sách KTV):</div>
                     <div className="font-mono max-h-32 overflow-y-auto">{importSummary.unmatched.join(", ")}</div>
-                    <div className="mt-1">Vào thẻ "KTV hiện trường" (Quản lý User) gán đúng "Mã tài khoản MISA" rồi import lại.</div>
+                    <div className="mt-1">Vào thẻ "KTV hiện trường" (Quản lý User) mở Sửa 1 KTV, chọn bổ sung "Mã tài khoản MISA" từ danh sách gợi ý - khớp lại ngay, không cần import lại.</div>
                   </div>
                 )}
               </div>

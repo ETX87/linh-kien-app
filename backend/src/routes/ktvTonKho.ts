@@ -115,6 +115,19 @@ ktvTonKho.get("/import-meta", async (c) => {
   return c.json(row ? JSON.parse(row.value) : null);
 });
 
+// GET /ma-kho-chua-khop (them 2026-09-08) - danh sach ma kho da import nhung CHUA khop KTV nao
+// (ma_ktv IS NULL, xem migration 0021), dung cho picker "chọn bổ sung Mã MISA" o UsersModule.tsx
+// KtvTab - gate dung nhom duoc sua ma_misa (Admin/Ke toan, xem settingsKtv.ts PATCH /:ma/dat-mua-lk
+// va /:ma/cong-no-misa), khong dung requireRole("Admin") vi Ke toan cung can goi duoc.
+ktvTonKho.get("/ma-kho-chua-khop", async (c) => {
+  const user = c.get("user");
+  if (user.vai_tro !== "Admin" && !user.la_ke_toan) return c.json({ error: "FORBIDDEN" }, 403);
+  const { results } = await c.env.DB.prepare(
+    "SELECT ma_kho, MAX(ten_kho) as ten_kho, COUNT(*) as so_ma_hang FROM ktv_ton_kho WHERE ma_ktv IS NULL GROUP BY ma_kho ORDER BY ma_kho",
+  ).all();
+  return c.json({ rows: results });
+});
+
 // GET /:ma_ktv/chi-tiet - danh sach tung ma hang ton kho cua 1 KTV - kiem tra ma_ktv yeu cau nam
 // trong pham vi scopeKtvTonKho() truoc khi tra du lieu (chi-tiet khong tu join ktv_lien_he nhu GET /,
 // nen phai truy van rieng 1 lan qua bang ktv_lien_he de ap dung dung dieu kien).
@@ -135,16 +148,20 @@ ktvTonKho.get("/:ma_ktv/chi-tiet", async (c) => {
   return c.json({ rows: results });
 });
 
-// POST /import - { rows: [{ma_kho, ma_hang, ten_hang?, dvt?, dau_ky?, nhap_kho?, xuat_kho?,
+// POST /import - { rows: [{ma_kho, ten_kho?, ma_hang, ten_hang?, dvt?, dau_ky?, nhap_kho?, xuat_kho?,
 // cuoi_ky?}], offset, ky_tu_ngay?, ky_den_ngay? } - nhap hang loat theo chunk (giong pattern
 // settingsKtv.ts /bulk-import). offset=0 XOA TRANG toan bo bang truoc (file import luon la "tổng
-// hợp" day du, xem chu thich dau file) roi nhap lai tu dau. "Mã kho" khong khop ma_misa nao duoc tra
-// ve trong "unmatched" de FE gom lai bao cho Admin (khong luu server-side - chi co y nghia ngay sau
-// lan import, khong can ton tai qua lan sau).
+// hợp" day du, xem chu thich dau file) roi nhap lai tu dau.
+// SUA (phan hoi 2026-09-08: "trường hợp không khớp mã KTV vẫn import vào, phần mã bỏ trống") - truoc
+// day "Mã kho" khong khop ma_misa nao bi BO HAN (chi tra ve "unmatched" tam thoi trong response, khong
+// luu server-side). Gio LUON insert (ma_ktv=null neu chua khop) - xem migration 0021 (them
+// ma_kho/ten_kho, doi khoa duy nhat sang (ma_kho, ma_hang), ma_ktv nullable) va
+// GET /ma-kho-chua-khop + lib/ktvTonKhoRelink.ts (Admin/Ke toan chon bo sung Mã MISA sau, khop lai
+// ngay khong can doi import lai).
 ktvTonKho.post("/import", adminOnly, async (c) => {
   const body = await c.req.json<{
     rows: {
-      ma_kho: string; ma_hang: string; ten_hang?: string; dvt?: string;
+      ma_kho: string; ten_kho?: string; ma_hang: string; ten_hang?: string; dvt?: string;
       dau_ky?: number; nhap_kho?: number; xuat_kho?: number; cuoi_ky?: number;
     }[];
     offset: number;
@@ -173,21 +190,18 @@ ktvTonKho.post("/import", adminOnly, async (c) => {
     const maKho = row.ma_kho?.trim();
     const maHang = row.ma_hang?.trim();
     if (!maKho || !maHang) continue;
-    const maKtv = maMisaToKtv.get(maKho.toLowerCase());
-    if (!maKtv) {
-      unmatched.add(maKho);
-      continue;
-    }
-    matched++;
+    const maKtv = maMisaToKtv.get(maKho.toLowerCase()) ?? null;
+    if (maKtv) matched++;
+    else unmatched.add(maKho);
     statements.push(
       c.env.DB.prepare(
-        `INSERT INTO ktv_ton_kho (ma_ktv, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(ma_ktv, ma_hang) DO UPDATE SET
-           ten_hang = excluded.ten_hang, dvt = excluded.dvt, dau_ky = excluded.dau_ky,
-           nhap_kho = excluded.nhap_kho, xuat_kho = excluded.xuat_kho, cuoi_ky = excluded.cuoi_ky`,
+        `INSERT INTO ktv_ton_kho (ma_ktv, ma_kho, ten_kho, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(ma_kho, ma_hang) DO UPDATE SET
+           ma_ktv = excluded.ma_ktv, ten_kho = excluded.ten_kho, ten_hang = excluded.ten_hang, dvt = excluded.dvt,
+           dau_ky = excluded.dau_ky, nhap_kho = excluded.nhap_kho, xuat_kho = excluded.xuat_kho, cuoi_ky = excluded.cuoi_ky`,
       ).bind(
-        maKtv, maHang, row.ten_hang?.trim() || null, row.dvt?.trim() || null,
+        maKtv, maKho, row.ten_kho?.trim() || null, maHang, row.ten_hang?.trim() || null, row.dvt?.trim() || null,
         row.dau_ky ?? null, row.nhap_kho ?? null, row.xuat_kho ?? null, row.cuoi_ky ?? null,
       ),
     );

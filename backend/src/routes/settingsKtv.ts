@@ -6,6 +6,7 @@ import { requireRole } from "../middleware/requireRole";
 import { computeAndStoreHash, getOrComputeHash } from "../lib/contentHash";
 import { nowVN } from "../lib/vnTime";
 import { resyncKhuVucDerivedFieldsForAll, resyncKhuVucDerivedFieldsForEmail } from "../lib/khuVucSync";
+import { relinkTonKhoForMaMisa } from "../lib/ktvTonKhoRelink";
 
 // Port rut gon tu backend/src/routes/settings.ts cua he DVBH goc (phan "Danh sach KTV") - danh ba
 // ky thuat vien/Tram/CTV/Ve tinh dung de chon "nguoi nhan hang" trong module Dat mua linh kien.
@@ -235,6 +236,7 @@ settingsKtv.post("/bulk-import", adminOnly, async (c) => {
       if (emailDangNhap) {
         await provisionPlaceholderUser(c.env.DB, { email: emailDangNhap, ten: tenHienThi, vaiTroKtv }).then((stmt) => stmt.run());
       }
+      if (maMisa) await relinkTonKhoForMaMisa(c.env.DB, ma, maMisa);
       success++;
       details.push({ ma_ktv: ma, status: "thanh_cong" });
     } catch {
@@ -325,6 +327,7 @@ settingsKtv.patch("/:ma/dat-mua-lk", adminOnly, async (c) => {
   if (existing.email_dang_nhap && existing.email_dang_nhap !== next.email_dang_nhap) {
     await resyncKhuVucDerivedFieldsForEmail(c.env.DB, existing.email_dang_nhap);
   }
+  if (next.ma_misa) await relinkTonKhoForMaMisa(c.env.DB, ma, next.ma_misa);
 
   await refreshHash(c.env.DB);
   return c.json({ ok: true });
@@ -359,6 +362,7 @@ settingsKtv.patch("/:ma/cong-no-misa", async (c) => {
   )
     .bind(...[next.cong_no ?? null, next.ma_misa, next.ten_misa], ...(congNoChanged ? [congNoCapNhatLuc] : []), ma)
     .run();
+  if (next.ma_misa) await relinkTonKhoForMaMisa(c.env.DB, ma, next.ma_misa);
 
   await refreshHash(c.env.DB);
   return c.json({ ok: true });

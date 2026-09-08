@@ -88,6 +88,13 @@ export interface KtvTonKhoImportMeta {
   ky_den_ngay: string | null;
   so_dong: number;
 }
+// Them 2026-09-08 - danh sach ma kho da import nhung chua khop KTV nao (ma_ktv IS NULL), dung cho
+// picker "chọn bổ sung Mã MISA" o UsersModule.tsx KtvTab (xem GET /settings/ktv-ton-kho/ma-kho-chua-khop).
+export interface MaKhoChuaKhopRow {
+  ma_kho: string;
+  ten_kho: string | null;
+  so_ma_hang: number;
+}
 
 // Them 2026-08-26 (migration 0009) - 1 khu vuc chi 1 GS tai 1 thoi diem (gs_email), 1 GS duoc phep
 // phu trach nhieu khu vuc. gs_ten la LEFT JOIN users.ten, chi de hien thi.

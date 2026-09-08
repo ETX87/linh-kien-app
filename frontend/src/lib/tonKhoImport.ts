@@ -1,13 +1,25 @@
 // Parser cho file "Tổng hợp tồn kho" xuat tu MISA (them 2026-08-29, phan hoi nguoi dung: "import file
-// này lên hàng ngày" de xay Settings "Tồn kho công nợ KTV"). File MISA gom NHIEU khoi "Kho: <tên
-// kho>, Từ ngày dd/mm/yyyy đến ngày dd/mm/yyyy" xep lien tiep - moi khoi la ton kho cua 1 KTV/tram,
-// ket bang 1 dong "Tổng cộng" phu (con ca file ket 1 dong "Tổng cộng" toan bo). KHONG can tach block
-// theo dong "Kho: ..." - chi can tim 1 LAN dong tieu de cot (chua "Mã hàng") de xac dinh vi tri cac
-// cot theo TEN (chong chiu thay doi thu tu cot), sau do loc MOI dong co ca "Mã hàng" lan "Mã kho"
-// khac rong lam dong du lieu that su - tu dong bo qua dong "Kho: ...", dong trong, dong "Tổng cộng"
-// (deu co "Mã hàng" rong).
+// này lên hàng ngày" de xay Settings "Tồn kho công nợ KTV"). Ho tro 2 bien the da xac nhan thuc te
+// (them bien the 2 vao 2026-09-08, phan hoi file mau "ton kho ton quoc - demo.xlsx"):
+//  1. Bien the "theo tung KTV": gom NHIEU khoi "Kho: <tên kho>, Từ ngày dd/mm/yyyy đến ngày
+//     dd/mm/yyyy" xep lien tiep - moi khoi la ton kho cua 1 KTV/tram, ket bang 1 dong "Tổng cộng" phu
+//     (con ca file ket 1 dong "Tổng cộng" toan bo).
+//  2. Bien the "toan quoc" (1 bang phang, MOI dong da co san cot "Mã kho" rieng, khong chia khoi):
+//     2 dong tieu de + 1 dong trong TRUOC dong tieu de cot (dong tieu de cot vi vay "lui xuong duoi"
+//     thay vi o dong 1), dong tieu de 2 la moc "Ngày dd tháng mm năm yyyy" (1 thoi diem, khong phai
+//     khoang Từ ngày...đến ngày...), va co THEM 1 dong phu "Số lượng" ngay duoi dong tieu de cot
+//     (dong con cua tieu de gop Đầu kỳ/Nhập kho/Xuất kho/Cuối kỳ, merge cell 2 tang).
+// KHONG can tach block hay dem so dong tieu de - chi can tim 1 LAN dong tieu de cot (chua "Mã hàng")
+// O BAT KY VI TRI NAO (khong gia dinh la dong 1) de xac dinh vi tri cac cot theo TEN (chong chiu thay
+// doi thu tu cot), sau do loc MOI dong co ca "Mã hàng" lan "Mã kho" khac rong lam dong du lieu that
+// su - tu dong bo qua dong "Kho: ...", dong trong, dong "Tổng cộng", dong phu "Số lượng" (deu co "Mã
+// hàng" rong).
 export interface TonKhoImportRow {
   ma_kho: string;
+  // "Tên kho" (them 2026-09-08) - ten nguoi trong file MISA, KHONG dung de khop (van khop qua ma_kho
+  // <-> ma_misa nhu cu) - chi luu lai lam goi y nhan dien khi Admin/Ke toan chon bo sung Mã MISA tu
+  // danh sach "chưa khớp" (xem backend/src/routes/ktvTonKho.ts GET /ma-kho-chua-khop).
+  ten_kho?: string;
   ma_hang: string;
   ten_hang?: string;
   dvt?: string;
@@ -24,6 +36,7 @@ export interface TonKhoParseResult {
 
 const HEADER_ALIASES: Record<string, string[]> = {
   ma_kho: ["Mã kho"],
+  ten_kho: ["Tên kho"],
   ma_hang: ["Mã hàng"],
   ten_hang: ["Tên hàng"],
   dvt: ["ĐVT"],
@@ -185,15 +198,28 @@ export async function parseTonKhoImportFile(file: File): Promise<TonKhoParseResu
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const raw = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: null, raw: true });
 
-  let periodText = "";
+  // Tim dong tieu de ky bao cao - 2 dinh dang da xac nhan (xem comment dau file): khoang "Từ ngày...
+  // đến ngày..." (bien the theo tung KTV) hoac 1 moc "Ngày dd tháng mm năm yyyy" (bien the toan
+  // quoc, dung CHUNG lam ca ky_tu_ngay lan ky_den_ngay vi day la bao cao chup nhanh 1 thoi diem).
+  let kyTuNgay: string | null = null;
+  let kyDenNgay: string | null = null;
   for (const row of raw) {
     const cell = row?.[0];
-    if (typeof cell === "string" && cell.includes("Từ ngày")) {
-      periodText = cell;
+    if (typeof cell !== "string") continue;
+    const rangeMatch = cell.match(/Từ ngày (\d{2}\/\d{2}\/\d{4}) đến ngày (\d{2}\/\d{2}\/\d{4})/);
+    if (rangeMatch) {
+      kyTuNgay = rangeMatch[1];
+      kyDenNgay = rangeMatch[2];
+      break;
+    }
+    const asOfMatch = cell.match(/Ngày (\d{1,2}) tháng (\d{1,2}) năm (\d{4})/);
+    if (asOfMatch) {
+      const asOf = `${asOfMatch[1].padStart(2, "0")}/${asOfMatch[2].padStart(2, "0")}/${asOfMatch[3]}`;
+      kyTuNgay = asOf;
+      kyDenNgay = asOf;
       break;
     }
   }
-  const periodMatch = periodText.match(/Từ ngày (\d{2}\/\d{2}\/\d{4}) đến ngày (\d{2}\/\d{2}\/\d{4})/);
 
   let headerRowIdx = -1;
   const colIndex: Record<string, number> = {};
@@ -211,7 +237,7 @@ export async function parseTonKhoImportFile(file: File): Promise<TonKhoParseResu
     }
   }
   if (headerRowIdx < 0 || colIndex.ma_kho == null || colIndex.ma_hang == null) {
-    return { rows: [], ky_tu_ngay: periodMatch?.[1] ?? null, ky_den_ngay: periodMatch?.[2] ?? null };
+    return { rows: [], ky_tu_ngay: kyTuNgay, ky_den_ngay: kyDenNgay };
   }
 
   const rows: TonKhoImportRow[] = [];
@@ -225,6 +251,7 @@ export async function parseTonKhoImportFile(file: File): Promise<TonKhoParseResu
     if (!maHang || !maKho || maHang === "Mã hàng" || maKho === "Mã kho") continue;
     rows.push({
       ma_kho: maKho,
+      ten_kho: colIndex.ten_kho != null ? cellText(row[colIndex.ten_kho]) : undefined,
       ma_hang: maHang,
       ten_hang: colIndex.ten_hang != null ? cellText(row[colIndex.ten_hang]) : undefined,
       dvt: colIndex.dvt != null ? cellText(row[colIndex.dvt]) : undefined,
@@ -234,5 +261,5 @@ export async function parseTonKhoImportFile(file: File): Promise<TonKhoParseResu
       cuoi_ky: colIndex.cuoi_ky != null ? toNumber(row[colIndex.cuoi_ky]) : undefined,
     });
   }
-  return { rows, ky_tu_ngay: periodMatch?.[1] ?? null, ky_den_ngay: periodMatch?.[2] ?? null };
+  return { rows, ky_tu_ngay: kyTuNgay, ky_den_ngay: kyDenNgay };
 }
