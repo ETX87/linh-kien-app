@@ -18,6 +18,22 @@ khovanLookup.use("*", async (c, next) => {
 
 khovanLookup.get("/:id", async (c) => {
   const id = c.req.param("id");
+
+  // Luong C moi (chot 08/09/2026) - ma "TRA-xxxxxx" tra ve dat_don_hang (loai_don='tra_hang'),
+  // tim theo cot ma_thung_tra (KHAC id cua chinh dat_don_hang, xem migrations/0023_tra_hang_box.sql).
+  if (id.toUpperCase().startsWith("TRA-")) {
+    const ddh = await c.env.DB.prepare(
+      "SELECT nguoi_tao, ten_lk_snapshot, so_luong_de_xuat FROM dat_don_hang WHERE ma_thung_tra = ? AND loai_don = 'tra_hang'",
+    )
+      .bind(id)
+      .first<{ nguoi_tao: string; ten_lk_snapshot: string; so_luong_de_xuat: number }>();
+    if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
+    return c.json({
+      sender_name: `KTV ${ddh.nguoi_tao} trả hàng (${ddh.ten_lk_snapshot} x${ddh.so_luong_de_xuat})`,
+      loai_don: "tra_hang_qc",
+    });
+  }
+
   const pxk = await c.env.DB.prepare("SELECT loai_don, nguoi_nhan_hang FROM phieu_xuat_kho WHERE id = ?")
     .bind(id)
     .first<{ loai_don: string | null; nguoi_nhan_hang: string | null }>();

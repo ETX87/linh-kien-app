@@ -29,6 +29,75 @@ function latestStatusExpr(idCol: string): string {
   return `(SELECT trang_thai FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = ${idCol} ORDER BY id DESC LIMIT 1)`;
 }
 
+// Mirror POST /:id/dong-goi cua phieuXuatKho.ts (chi luu anh, khong doi trang_thai_hien_tai) -
+// them 2026-09-08 de PXK- khop dung 4 hanh dong Kho chuan hoa voi TR- (xem Artifact "Ma tran
+// luong Kho van"). actor_label la EMAIL nguoi xu ly ben khovan, cung quy uoc voi /log ben duoi -
+// tao placeholder users truoc de tranh FOREIGN KEY constraint (xem giai thich chi tiet duoi).
+partnerKho.post("/phieu-xuat-kho/:id/dong-goi", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json<{ anh?: string[]; actor_label?: string }>().catch(() => ({}) as { anh?: string[]; actor_label?: string });
+  const actor = body.actor_label?.trim() || "khovan-system@internal.local";
+  await c.env.DB.prepare("INSERT INTO users (email, ten) VALUES (?, ?) ON CONFLICT(email) DO NOTHING")
+    .bind(actor, body.actor_label?.trim() ? null : "Kho (qua khovan, chưa rõ người)")
+    .run();
+
+  const pxk = await c.env.DB.prepare(
+    `SELECT ${latestStatusExpr("phieu_xuat_kho.id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`,
+  )
+    .bind(id)
+    .first<{ trang_thai: string | null }>();
+  if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
+  if (pxk.trang_thai !== "Da chot xong don xuat") return c.json({ error: "INVALID_STATE" }, 409);
+
+  const statements = (body.anh || []).map((url) =>
+    c.env.DB.prepare("INSERT INTO phieu_xuat_kho_anh (phieu_xuat_kho_id, anh_url, nguoi_upload) VALUES (?, ?, ?)").bind(id, url, actor),
+  );
+  if (statements.length) await c.env.DB.batch(statements);
+  return c.json({ ok: true });
+});
+
+// Luong C moi (chot 08/09/2026, xem Artifact "Ma tran luong Kho van"): khovan goi vao day khi
+// Kho quet ma thung "TRA-xxxxxx" va bam "Nhan hang" (dung khuon Luong A - 1 nut duy nhat, khovan
+// tu nhan dien tien to). Tim theo ma_thung_tra (KHAC voi /phieu-xuat-kho/:id/log o duoi - id o do
+// la chinh phieu_xuat_kho.id, con dat_don_hang.id ("DDH-xxxxxx") khac voi ma_thung_tra ("TRA-
+// xxxxxx") vi day la 2 cot rieng, xem migrations/0023_tra_hang_box.sql). Chi chuyen dung 1 buoc
+// "Cho kho xac nhan" -> "Cho QC xac nhan" - KHONG con qua nut bam noi bo (xem guard trong
+// traHang.ts::applyTraHangLog).
+partnerKho.post("/tra-hang/:maThung/kho-xac-nhan", async (c) => {
+  const maThung = c.req.param("maThung");
+  const body = await c.req.json<{ actor_label?: string }>().catch(() => ({}) as { actor_label?: string });
+  const actor = body.actor_label?.trim() || "khovan-system@internal.local";
+  await c.env.DB.prepare("INSERT INTO users (email, ten) VALUES (?, ?) ON CONFLICT(email) DO NOTHING")
+    .bind(actor, body.actor_label?.trim() ? null : "Kho (qua khovan, chưa rõ người)")
+    .run();
+
+  const ddh = await c.env.DB.prepare(
+    "SELECT id, version, trang_thai_hien_tai as trang_thai FROM dat_don_hang WHERE ma_thung_tra = ? AND loai_don = 'tra_hang'",
+  )
+    .bind(maThung)
+    .first<{ id: string; version: number; trang_thai: string | null }>();
+  if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
+  if (ddh.trang_thai !== "Cho kho xac nhan") return c.json({ error: "WRONG_STATE" }, 400);
+
+  const casResult = await c.env.DB.prepare(
+    "UPDATE dat_don_hang SET trang_thai_hien_tai = 'Cho QC xac nhan', version = version + 1, updated_at = ? WHERE id = ? AND version = ?",
+  )
+    .bind(nowVN(), ddh.id, ddh.version)
+    .run();
+  if (!casResult.meta.changes) return c.json({ error: "STATE_CHANGED" }, 409);
+
+  await c.env.DB.prepare("INSERT INTO tra_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)")
+    .bind(ddh.id, "Cho QC xac nhan", actor, nowVN(), "Kho xac nhan da nhan hang (qua khovan)")
+    .run();
+
+  // CHUA bao "viec moi" cho QC o day (roleForTraHangState/notifyWorkflowTask hien noi trong
+  // traHang.ts, khong export) - QC van thay don trong GET /api/tra-hang?trang_thai=Cho QC xac
+  // nhan binh thuong, chi thieu push chu dong. Co the bo sung sau neu can (tach 2 ham do ra 1
+  // module dung chung).
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true });
+});
+
 partnerKho.post("/phieu-xuat-kho/:id/log", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json<{ trang_thai?: string; ghi_chu?: string; ma_van_don?: string; actor_label?: string }>().catch(

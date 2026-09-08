@@ -271,7 +271,11 @@ export function TraHangTab({
           ? "Cần nhập lý do khi từ chối/huỷ"
           : code === "MISSING_ANH_QC"
             ? "Cần tải ít nhất 1 ảnh bằng chứng trước khi từ chối"
-            : "Lỗi: " + describeApiError(err),
+            : code === "KHOVAN_PUSH_FAILED"
+              ? "Không báo được sang Kho vận (khovan) — thử duyệt lại. Đơn CHƯA được duyệt."
+              : code === "PHAI_XAC_NHAN_QUA_KHOVAN"
+                ? "Thùng này đã được gửi sang Kho vận (khovan) — Kho phải quét mã nhận trong khovan, không xác nhận được ở đây nữa."
+                : "Lỗi: " + describeApiError(err),
       );
     },
   });
@@ -903,7 +907,11 @@ function TraHangDetailModal({
           ? "Cần nhập lý do khi từ chối/huỷ"
           : code === "MISSING_ANH_QC"
             ? "Cần tải ít nhất 1 ảnh bằng chứng trước khi từ chối"
-            : "Lỗi: " + describeApiError(err),
+            : code === "KHOVAN_PUSH_FAILED"
+              ? "Không báo được sang Kho vận (khovan) — thử duyệt lại. Đơn CHƯA được duyệt."
+              : code === "PHAI_XAC_NHAN_QUA_KHOVAN"
+                ? "Thùng này đã được gửi sang Kho vận (khovan) — Kho phải quét mã nhận trong khovan, không xác nhận được ở đây nữa."
+                : "Lỗi: " + describeApiError(err),
       );
     },
   });

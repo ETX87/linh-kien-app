@@ -9,6 +9,8 @@ import { bumpVersions } from "../lib/dataVersions";
 import { scopeDatMuaNguoiTao, khuVucSetWhereSql } from "../lib/scopeDatMua";
 import { uploadPublicImage } from "../lib/googleDrive";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
+import { nextSequentialId } from "../lib/idCounter";
+import { pushTraHangToKhovan, notifyTraHangQcRejected } from "../lib/khovanPushClient";
 
 // Vai tro can bao "viec moi" khi 1 dong tra hang toi trang thai nay (phan hoi 2026-09-05) - dung
 // chung cho ca applyTraHangLog (di xuoi) va POST /:donHangId/log-lui (di lui), vi 2 chieu deu ha
@@ -258,12 +260,12 @@ async function applyTraHangLog(
   // trang_thai_hien_tai (LUON dong bo qua CAS ngay ben duoi), vua don gian hon vua tranh dung ca lop
   // "dong tra_hang vua tao chua co log dau tien" (xem giai thich o GET / ben tren).
   const ddh = await c.env.DB.prepare(
-    "SELECT id, nguoi_tao, version, trang_thai_hien_tai as trang_thai, email_gs, ten_lk_snapshot, so_luong_de_xuat FROM dat_don_hang WHERE id = ? AND loai_don = 'tra_hang'",
+    "SELECT id, nguoi_tao, version, trang_thai_hien_tai as trang_thai, email_gs, ten_lk_snapshot, so_luong_de_xuat, ma_thung_tra FROM dat_don_hang WHERE id = ? AND loai_don = 'tra_hang'",
   )
     .bind(donHangId)
     .first<{
       id: string; nguoi_tao: string; version: number; trang_thai: string | null;
-      email_gs: string | null; ten_lk_snapshot: string; so_luong_de_xuat: number;
+      email_gs: string | null; ten_lk_snapshot: string; so_luong_de_xuat: number; ma_thung_tra: string | null;
     }>();
   if (!ddh) return { error: "NOT_FOUND", status: 404 };
 
@@ -287,6 +289,12 @@ async function applyTraHangLog(
   } else if (trangThaiHienTai === "Cho kho xac nhan") {
     if (!canKho(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
     if (hanhDong === "tu_choi" && !ghiChu?.trim()) return { error: "MISSING_GHI_CHU", status: 409 };
+    // Luong C moi (chot 08/09/2026): dong da co ma_thung_tra (da day khovan) chi duoc xac nhan
+    // NHAN qua khovan (Kho quet ma that, xem routes/partnerKho.ts::/tra-hang/:id/kho-xac-nhan),
+    // KHONG con qua nut bam noi bo nay nua - dung nguyen tac "Kho chi thao tac qua app kho van".
+    // Van cho phep "tu_choi" qua day (Ke toan/Kho huy truoc khi hang thuc su ve, khong lien quan
+    // hanh dong nhan vat ly).
+    if (hanhDong === "duyet" && ddh.ma_thung_tra) return { error: "PHAI_XAC_NHAN_QUA_KHOVAN", status: 409 };
     nextTrangThai = hanhDong === "duyet" ? "Cho QC xac nhan" : "Tu choi";
   } else if (trangThaiHienTai === "Cho QC xac nhan") {
     if (!canQC(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
@@ -314,18 +322,49 @@ async function applyTraHangLog(
     return { error: "INVALID_STATE", status: 409 };
   }
 
+  // Luong C moi (chot 08/09/2026, xem Artifact "Ma tran luong Kho van"): dung LUC chuyen "Cho ke
+  // toan duyet mem" -> "Cho kho xac nhan" (Ke toan vua duyet mem xong) - day 1 thung vat ly moi
+  // sang khovan de Kho nhan that qua khovan (thay vi bam nut noi bo nhu truoc day, dung nguyen tac
+  // "Kho chi thao tac qua app kho van"). CHAN thao tac (khong best-effort nhu pushPxkToKhovan/
+  // pushBoxToKhovan o 2 luong cu) - da thong nhat voi nguoi dung 2026-09-08: day la moc kich hoat
+  // vat ly DUY NHAT cua ca luong, push loi ma van cho qua thi thung "mat tich" khong co trong
+  // khovan de Kho quet nhan. Sinh ma truoc CAS - neu push loi, KHONG chay CAS, tra loi ngay de Ke
+  // toan thu lai (ma thung sinh ra bi bo qua, khong ton hao gi vi id_counters chi dung de KHONG
+  // trung, khong can lien tuc tuyet doi).
+  let maThungTraMoi: string | null = null;
+  if (trangThaiHienTai === "Cho ke toan duyet mem" && nextTrangThai === "Cho kho xac nhan") {
+    maThungTraMoi = await nextSequentialId(c.env.DB, "tra_hang_box", "TRA", 6);
+    const pushResult = await pushTraHangToKhovan(
+      c.env,
+      maThungTraMoi,
+      `KTV ${ddh.nguoi_tao} trả hàng`,
+      `Trả hàng "${ddh.ten_lk_snapshot} (x${ddh.so_luong_de_xuat})" - chờ Kho nhận, bàn giao QC`,
+    );
+    if (!pushResult.ok) return { error: "KHOVAN_PUSH_FAILED", status: 409 };
+  }
+
   // RA SOAT BAO MAT 2026-08-18 (phan hoi Codex #8, migration 0087) - CAS giong applyDonHangLog, xem
   // comment o do.
   const casResult = await c.env.DB.prepare(
-    "UPDATE dat_don_hang SET trang_thai_hien_tai = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?",
+    maThungTraMoi
+      ? "UPDATE dat_don_hang SET trang_thai_hien_tai = ?, ma_thung_tra = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?"
+      : "UPDATE dat_don_hang SET trang_thai_hien_tai = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?",
   )
-    .bind(nextTrangThai, nowVN(), donHangId, ddh.version)
+    .bind(...(maThungTraMoi ? [nextTrangThai, maThungTraMoi, nowVN(), donHangId, ddh.version] : [nextTrangThai, nowVN(), donHangId, ddh.version]))
     .run();
   if (!casResult.meta.changes) return { error: "STATE_CHANGED", status: 409 };
 
   await c.env.DB.prepare("INSERT INTO tra_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)")
     .bind(donHangId, nextTrangThai, user.email, nowVN(), ghiChu?.trim() || null)
     .run();
+
+  // Don dong ("Tu choi"/"Da huy") SAU KHI da co thung ve kho that (ma_thung_tra) - hang van dang
+  // nam vat ly o kho, bao nguoc khovan de hien dung trang thai cuoi thay vi de nguyen "Da nhan"
+  // gay hieu nham da xong viec (chot 08/09/2026: xu ly thu cong ngoai he thong, khong tu tao luot
+  // xuat tra lai KTV). Best-effort, khong chan hanh dong dong don.
+  if ((nextTrangThai === "Tu choi" || nextTrangThai === "Da huy") && ddh.ma_thung_tra) {
+    c.executionCtx.waitUntil(notifyTraHangQcRejected(c.env, ddh.ma_thung_tra, ghiChu?.trim() || "Đơn trả hàng bị đóng sau khi hàng đã về kho"));
+  }
 
   // Bao "viec moi" cho vai tro SAP xu ly buoc tiep theo (phan hoi 2026-09-05).
   const role = roleForTraHangState(nextTrangThai);

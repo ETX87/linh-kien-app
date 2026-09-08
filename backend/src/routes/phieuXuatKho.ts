@@ -822,6 +822,30 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
   return c.json({ ok: true });
 });
 
+// POST /api/phieu-xuat-kho/:id/dong-goi - { anh?: string[] } (chot 2026-09-08: chuan hoa hanh
+// dong Kho "Dong goi" giua PXK-/TR- - mirror DUNG khuon phieuTra.ts::/:id/dong-goi ben suachua,
+// chi luu anh bien ban vao phieu_xuat_kho_anh, KHONG doi trang_thai_hien_tai. Khac
+// "/:id/anh-bien-ban" o tren (do la anh giao nhan CUA KTV nhan hang, sau khi da gui).
+phieuXuatKho.post("/:id/dong-goi", async (c) => {
+  if (!canKho(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const pxk = await c.env.DB.prepare(
+    `SELECT ${latestStatusExpr("phieu_xuat_kho.id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`,
+  )
+    .bind(id)
+    .first<{ trang_thai: string | null }>();
+  if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
+  if (pxk.trang_thai !== "Da chot xong don xuat") return c.json({ error: "INVALID_STATE" }, 409);
+
+  const body = await c.req.json<{ anh?: string[] }>().catch(() => ({}) as { anh?: string[] });
+  const statements = (body.anh || []).map((url) =>
+    c.env.DB.prepare("INSERT INTO phieu_xuat_kho_anh (phieu_xuat_kho_id, anh_url, nguoi_upload) VALUES (?, ?, ?)").bind(id, url, user.email),
+  );
+  if (statements.length) await c.env.DB.batch(statements);
+  return c.json({ ok: true });
+});
+
 // POST /api/phieu-xuat-kho/:id/log - { trang_thai, ghi_chu? } chuyen trang thai tiep theo, dung 8
 // trang thai chuan (xem comment dau file):
 //  - TN: "Dang tao phieu" -> "Cho ke toan" (chan boi chuyen tien neu co_tien_can_chuyen != null),
@@ -933,9 +957,36 @@ phieuXuatKho.post("/:id/log", async (c) => {
   // tac qua app kho van", chot 2026-09-07) - day "cho xu ly" sang khovan O DAY, ap dung
   // CA loai_don thuong (mua/cong_no) LAN 'tra_hang' (xem lib/khovanPushClient.ts).
   if (target === "Da chot xong don xuat") {
-    const senderLabel = `Xuất kho ${id}` + (pxk.nguoi_nhan_hang ? ` (giao ${pxk.nguoi_nhan_hang})` : "");
-    const note = pxk.loai_don === "tra_hang" ? "Trả hàng - chờ Kho xác nhận nhận hàng" : "Xuất kho - chờ Kho gửi/hàng trữ kho";
-    await pushPxkToKhovan(c.env, id, senderLabel, pxk.loai_don, note);
+    // Luong C moi (chot 08/09/2026, xem Artifact "Ma tran luong Kho van"): neu PXK nay gom cac
+    // dong tra_hang DA ve kho that qua ma "TRA-" (Kho da nhan vat ly, QC da kiem xong - xem
+    // routes/traHang.ts), day CHI la thu tuc ke toan/MISA cho lo hang DA co san tai kho - KHONG
+    // duoc day 1 luot "cho nhan" MOI sang khovan (se tao hieu lam co 1 lo hang thu 2 dang tren
+    // duong ve, trong khi thuc te khong co lan vat ly thu 2 nao - da thong nhat voi nguoi dung
+    // 2026-09-08). Thay vao do, tu dong xac nhan "Kho da nhan hang tra" ngay, khong qua khovan.
+    let daNhanQuaTraHangBox = false;
+    if (pxk.loai_don === "tra_hang") {
+      const rows = await c.env.DB.prepare(
+        `SELECT COUNT(*) as total, SUM(CASE WHEN ddh.ma_thung_tra IS NOT NULL THEN 1 ELSE 0 END) as with_box
+         FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id
+         WHERE pxkd.phieu_xuat_kho_id = ?`,
+      )
+        .bind(id)
+        .first<{ total: number; with_box: number }>();
+      daNhanQuaTraHangBox = !!rows && rows.total > 0 && rows.with_box === rows.total;
+    }
+
+    if (daNhanQuaTraHangBox) {
+      await c.env.DB.batch([
+        c.env.DB.prepare("UPDATE phieu_xuat_kho SET trang_thai_hien_tai = 'Kho da nhan hang tra' WHERE id = ?").bind(id),
+        c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+          id, "Kho da nhan hang tra", user.email, nowVN(), "Tự động — hàng đã về kho qua mã trả hàng (TRA-), không cần Kho xác nhận lại",
+        ),
+      ]);
+    } else {
+      const senderLabel = `Xuất kho ${id}` + (pxk.nguoi_nhan_hang ? ` (giao ${pxk.nguoi_nhan_hang})` : "");
+      const note = pxk.loai_don === "tra_hang" ? "Trả hàng - chờ Kho xác nhận nhận hàng" : "Xuất kho - chờ Kho gửi/hàng trữ kho";
+      await pushPxkToKhovan(c.env, id, senderLabel, pxk.loai_don, note);
+    }
   }
 
   // Bao "viec moi" cho vai tro SAP xu ly buoc tiep theo (phan hoi 2026-09-05) - PXK khong co
