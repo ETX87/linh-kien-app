@@ -48,8 +48,13 @@ app.route("/api/bao-cao-toc-do", baoCaoTocDoXuLyRoutes);
 app.route("/api/push", pushRoutes);
 app.route("/api/dvbh-sync", dvbhSyncRoutes);
 app.route("/api/partner", partnerApiRoutes);
-app.route("/api/partner/box-lookup", khovanLookupRoutes);
-app.route("/api/partner/kho-action", partnerKhoRoutes);
+// KHONG mount duoi "/api/partner/*" - partnerApiRoutes o tren da co san 1 middleware
+// "*" xac thuc rieng (X-API-Key, xem lib/partnerApiAuth.ts) khop CA cac duong dan con
+// nay (Hono chay middleware theo pattern, khong quan tam sub-app nao dinh nghia route
+// cuoi cung) - phat hien qua smoke test that (401 "MISSING_API_KEY" du dung dung
+// "X-Khovan-Key" va key hop le). Dung tien to rieng de tranh dung do.
+app.route("/api/khovan-partner/box-lookup", khovanLookupRoutes);
+app.route("/api/khovan-partner/kho-action", partnerKhoRoutes);
 
 app.onError((err, c) => {
   const requestId = c.get("requestId") ?? "unknown";
