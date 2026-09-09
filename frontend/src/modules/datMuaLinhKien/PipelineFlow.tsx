@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Btn } from "../../components/ui/Btn";
 import type { LuongQuyTrinhStep, JumpTarget } from "./types";
-import { STEP_SHORT_LABEL, STEP_DESCRIPTION, PIPELINE_NOTCH, PXK_TRANG_THAI_TONE, PXK_MINI_STEPS, PXK_MINI_LABEL, PXK_MINI_NHANH_RE, PXK_MINI_SEG_WIDTH } from "./constants";
+import { STEP_SHORT_LABEL, STEP_DESCRIPTION, PIPELINE_NOTCH, PXK_TRANG_THAI_TONE, PXK_MINI_STEPS, PXK_MINI_LABEL, PXK_MINI_NHANH_RE } from "./constants";
 
 // "Luong quy trinh" pipeline UI (thanh chevron so dem theo buoc) dung chung boi DatMuaLinhKienModule
 // (tab tong quan) va PhieuXuatKhoTab (mini-pipeline PXK) - tach tu DatMuaLinhKienModule.tsx (UI
@@ -214,56 +214,73 @@ export function PipelineFlow({
   );
 }
 
+// DOI GIAO DIEN (phan hoi ra soat "demo giao diện" 2026-09-09: "Giao diện demo 2 (bước PXK)" - stepper
+// tron so + nhan duoi, khop concept-1-structured-neutral.html pattern ".stepper" phien ban tron) - THAY
+// THE hoan toan dang pill/chevron cu (rounded-full + clip-path). Truoc day co 1 <Stepper> rieng (underline
+// tab, xem git history) bi GO 2026-09-08 vi KHONG hien duoc 3 trang thai nhanh re (Ke toan huy/Hang tru
+// kho/Kho da ket thuc) - LAN NAY giu nguyen dung y stepper tron cua demo CHO 5 buoc chinh, VA THEM 1 nut
+// tron rieng o cuoi (mau/icon khac han, ✕/⏹) cho nhanh re thay vi bo qua kha nang hien thi nhu <Stepper>
+// cu - khong danh doi thong tin nghiep vu de lay dung hinh thuc demo (da xac nhan huong nay voi nguoi
+// dung truoc khi doi).
 export function PxkMiniPipeline({ trangThai }: { trangThai: string }) {
   const idxHienTai = PXK_MINI_STEPS.indexOf(trangThai as (typeof PXK_MINI_STEPS)[number]);
   const isNhanhRe = PXK_MINI_NHANH_RE.has(trangThai);
+  const nhanhReTone = PXK_TRANG_THAI_TONE[trangThai] === "teal" ? "var(--teal-500)" : "var(--ink-400)";
+  const nhanhReLabel = trangThai === "Ke toan huy" ? "KT huỷ" : trangThai === "Hang tru kho" ? "Trừ kho" : "Kết thúc";
+  const nhanhReIcon = trangThai === "Ke toan huy" ? "✕" : "⏹";
   return (
     <div className="mb-3 overflow-x-auto pb-0.5">
-      <div className="flex w-max items-stretch overflow-hidden rounded-full border border-[var(--line)] bg-[var(--surface)] py-0.5 shadow-sm">
+      <div className="flex w-max min-w-full">
         {PXK_MINI_STEPS.map((s, i) => {
-          const isFirst = i === 0;
-          // "Da qua" chi co y nghia khi con dang di tren truc chinh (idxHienTai>=0) - neu da re nhanh,
-          // ca 5 buoc chinh deu coi la nen/trung tinh, khong to dam buoc nao tren truc nua.
+          const isLastCol = i === PXK_MINI_STEPS.length - 1 && !isNhanhRe;
+          // "Da qua"/"dang o" chi co y nghia khi con dang di tren truc chinh (idxHienTai>=0) - neu da
+          // re nhanh, ca 5 buoc chinh deu coi la nen/trung tinh (khong node nao to dam), dung mau rieng
+          // cho nut nhanh re o cuoi thay vi to sai 1 trong 5 buoc chinh.
           const daQua = idxHienTai >= 0 && i < idxHienTai;
           const dangO = idxHienTai >= 0 && i === idxHienTai;
-          // DOI MAU (2026-08-25, hang muc #10/#20): "dang o" quay lai tong ocean (bo indigo) - dong bo
-          // voi huong "Navy dam + Cam ruc", CHI doi mau nen/chu, khong doi hinh hoc/logic dangO/daQua.
-          const toneStyle = dangO
-            ? { background: "var(--ocean-800)", color: "white" }
-            : daQua
-              ? { background: "var(--teal-100)", color: "var(--teal-700)" }
-              : { background: "var(--surface-100)", color: "var(--ink-400)" };
           return (
-            <div key={s} className="shrink-0" style={{ marginLeft: isFirst ? 0 : -PIPELINE_NOTCH }}>
+            <div key={s} className="relative flex flex-col items-center shrink-0" style={{ width: 76 }}>
+              {/* Duong noi sang node KE TIEP - ve bang absolute (tu tam node nay sang tam node ke,
+                  dung do rong cot co dinh) thay vi border giua cac the roi ghep hinh hoc nhu ban
+                  chevron cu, don gian hoa dang ke voi dang tron nay. */}
+              {!isLastCol && (
+                <div
+                  className="absolute top-4 h-0.5"
+                  style={{ left: "50%", width: "100%", background: daQua ? "var(--teal-500)" : "var(--line)" }}
+                />
+              )}
               <div
-                style={{
-                  width: PXK_MINI_SEG_WIDTH,
-                  clipPath: pipelineChevronClip(!isFirst, true),
-                  paddingLeft: isFirst ? 12 : PIPELINE_NOTCH + 5,
-                  paddingRight: PIPELINE_NOTCH + 5,
-                  ...toneStyle,
-                }}
-                className="flex h-full items-center justify-center py-1.5 text-center"
+                className="relative z-10 w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0"
+                style={
+                  dangO
+                    ? { background: "var(--ocean-800)", borderColor: "var(--ocean-800)", color: "white" }
+                    : daQua
+                      ? { background: "var(--teal-500)", borderColor: "var(--teal-500)", color: "white" }
+                      : { background: "var(--surface)", borderColor: "var(--line)", color: "var(--ink-400)" }
+                }
               >
-                <span className="text-[9.5px] font-semibold leading-tight">{PXK_MINI_LABEL[s]}</span>
+                {daQua ? "✓" : i + 1}
               </div>
+              <span
+                className="mt-1.5 text-[10px] font-semibold text-center leading-tight px-0.5"
+                style={{ color: dangO ? "var(--ink-900)" : daQua ? "var(--teal-700)" : "var(--ink-400)" }}
+              >
+                {PXK_MINI_LABEL[s]}
+              </span>
             </div>
           );
         })}
         {isNhanhRe && (
-          <div className="shrink-0" style={{ marginLeft: -PIPELINE_NOTCH }}>
+          <div className="relative flex flex-col items-center shrink-0" style={{ width: 76 }}>
             <div
-              style={{
-                width: PXK_MINI_SEG_WIDTH + 10,
-                clipPath: pipelineChevronClip(true, false),
-                paddingLeft: PIPELINE_NOTCH + 5,
-                paddingRight: 12,
-                background: PXK_TRANG_THAI_TONE[trangThai] === "teal" ? "var(--teal-500)" : "var(--ink-400)",
-              }}
-              className="flex h-full items-center justify-center py-1.5 text-center text-white"
+              className="relative z-10 w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 text-white"
+              style={{ background: nhanhReTone, borderColor: nhanhReTone }}
             >
-              <span className="text-[9.5px] font-semibold leading-tight">{trangThai === "Ke toan huy" ? "KT huỷ" : trangThai === "Hang tru kho" ? "Trừ kho" : "Kết thúc"}</span>
+              {nhanhReIcon}
             </div>
+            <span className="mt-1.5 text-[10px] font-semibold text-center leading-tight px-0.5" style={{ color: "var(--ink-600)" }}>
+              {nhanhReLabel}
+            </span>
           </div>
         )}
       </div>

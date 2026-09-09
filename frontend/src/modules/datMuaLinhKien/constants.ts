@@ -41,6 +41,7 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   MISSING_CHUYEN_TIEN_APPROVED: "Cần Tác nghiệp xác nhận chuyển tiền trước",
   QUA_NHIEU_ID: "Chọn quá nhiều dòng cùng lúc, vui lòng chia nhỏ đợt xử lý",
   THIEU_CHINH_SACH_HOAC_MA_YCSC: "Thiếu Chính sách hoặc Mã yêu cầu sự cố",
+  THIEU_MA_YCSC: "Cần nhập Mã yêu cầu sự cố liên quan",
   THIEU_LY_DO_HUY: "Cần nhập lý do huỷ",
   THIEU_LY_DO_CHAM: "Cần chọn lý do chậm",
   LY_DO_CHAM_KHONG_HOP_LE: "Lý do chậm không hợp lệ",
@@ -343,7 +344,6 @@ export const PXK_MINI_LABEL: Record<string, string> = {
   "KTV da nhan": "KTV nhận",
 };
 export const PXK_MINI_NHANH_RE = new Set(["Ke toan huy", "Hang tru kho", "Kho da ket thuc"]);
-export const PXK_MINI_SEG_WIDTH = 62;
 
 // YEU_CAU_HOA_DON_OPTIONS/CHINH_SACH_OPTIONS: gia tri co dinh theo sheet "Settings" file Excel goc
 // (khong doi duoc qua Settings module - khac loai_de_xuat, danh sach nay it thay doi va gan chat voi
