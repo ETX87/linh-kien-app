@@ -20,14 +20,22 @@
 @tailwind utilities;
 
 :root {
-  --ocean-950: #052033;
-  --ocean-900: #06304a;
-  --ocean-800: #0a4666;
-  --ocean-700: #0e5d85;
-  --ocean-600: #1176a6;
-  --ocean-500: #1591c9;
-  --ocean-400: #3fb0e0;
-  --ocean-100: #ddf1fb;
+  /* FIX (phan hoi 2026-09-09: "màu mặc định set theo gam màu icon") - doi tu #1176a6 (h198 s81 l36)
+     sang seed #0c72b6 (h204 s88 l38, lay tu mau trung binh gradient icon-512.png #2363e0->#0be3f2) -
+     giu nguyen do sang (l38, gan y het l36 cu) de KHONG giam ty le tuong phan voi nen trang (van
+     >=5:1, an toan cho text-[var(--ocean-600)] dung lam mau chu o nhieu noi), chi doi hue/saturation
+     cho gan voi icon that hon. Toan bo 8 tier tinh lai qua buildRampTiers() (theme/colorRamp.ts) voi
+     seed nay - dong bo CHINH XAC voi DEFAULT_ROLE_SEED.ocean/DEFAULT_THEME_VARS (theme/presets.ts),
+     KHONG duoc lech nhau (xem giai thich o presets.ts). --indigo-* va --sidebar-highlight KHONG doi -
+     day la accent doc lap, khong lien quan brand/icon (xem comment rieng o duoi). */
+  --ocean-950: #031826;
+  --ocean-900: #031e30;
+  --ocean-800: #042a43;
+  --ocean-700: #07456e;
+  --ocean-600: #0c72b6;
+  --ocean-500: #0f8adc;
+  --ocean-400: #40abf2;
+  --ocean-100: #e6eff4;
   /* DOI MAU (2026-08-27, yeu cau "màu badge trạng thái theo 5 nhóm: chờ/hoàn thành/từ chối/quá hạn/
      huỷ", xac nhan ap dung TOAN HE THONG qua AskUserQuestion) - teal tu tong xanh-lam-ngoc (cyan-teal)
      doi sang XANH LA that (Tailwind emerald) vi teal duoc dung XUYEN SUOT code de bieu thi "hoan

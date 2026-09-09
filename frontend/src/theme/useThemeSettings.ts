@@ -59,7 +59,7 @@ export function applyThemeToDocument(vars: Record<string, string>, fontCssValue:
   const root = document.documentElement.style;
   for (const [name, value] of Object.entries(vars)) root.setProperty(`--${name}`, value);
   root.setProperty("--font-body", fontCssValue);
-  // PWA/status-bar theme-color (index.html hien hardcode #06304a = --ocean-900 mac dinh) - doi theo
+  // PWA/status-bar theme-color (index.html hien hardcode #031e30 = --ocean-900 mac dinh) - doi theo
   // luon de khop tong mau dang chon, tranh lech mau khi doi sang bo khac ocean.
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta && vars["ocean-900"]) meta.setAttribute("content", vars["ocean-900"]);

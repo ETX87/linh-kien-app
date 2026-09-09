@@ -410,7 +410,7 @@ function PartDetailDrawer({ part, onClose, onEdit, canEdit }: { part: LinhKienRo
 
 const TABS = [
   { key: "danh-muc", label: "Danh mục" },
-  { key: "bom-hang", label: "Tra cứu Bảng kê vật tư (BOM)" },
+  { key: "bom-hang", label: "BOM" },
   { key: "thay-the", label: "Linh kiện thay thế" },
 ];
 

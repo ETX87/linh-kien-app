@@ -23,6 +23,10 @@ export const DEFAULT_PRESET_ID = "mac-dinh";
 // amber/teal (2026-08-27): seed doi theo dung gia tri "600" moi cua tokens.css sau khi doi ngu nghia
 // mau trang thai toan he thong ("amber" = dang cho buoc dau -> xanh duong nhat, "teal" = hoan thanh ->
 // xanh la, xem constants.ts + tokens.css) - truoc la #b3730f (vang hoi phach)/#0f7d74 (xanh-lam-ngoc).
+// FIX (phan hoi 2026-09-09: "màu mặc định set theo gam màu icon") - ocean doi tu #1176a6 sang
+// #0c72b6 (khop seed moi trong tokens.css :root, xem giai thich day du o do) - CHI doi ocean, cac
+// seed con lai (priority/teal/amber/coral) giu nguyen vi la mau NGU NGHIA (CTA/trang thai) da chot
+// rieng truoc do, khong thuoc "gam mau icon".
 export const DEFAULT_ROLE_SEED: RoleSeed = {
   bg: "#fafafa",
   surface: "#ffffff",
@@ -31,7 +35,7 @@ export const DEFAULT_ROLE_SEED: RoleSeed = {
   inkSoft: "#71717a",
   line: "#e4e4e7",
   priority: "#c2410c",
-  ocean: "#1176a6",
+  ocean: "#0c72b6",
   teal: "#059669",
   amber: "#2563eb",
   coral: "#b23a3a",
@@ -40,14 +44,14 @@ export const DEFAULT_ROLE_SEED: RoleSeed = {
 // Hex Y NGUYEN cua tokens.css hien tai - dung lam gia tri ap dung that cho preset "Mac dinh" (khong
 // di qua resolveTheme, xem giai thich o DEFAULT_ROLE_SEED phia tren).
 export const DEFAULT_THEME_VARS: Record<string, string> = {
-  "ocean-950": "#052033",
-  "ocean-900": "#06304a",
-  "ocean-800": "#0a4666",
-  "ocean-700": "#0e5d85",
-  "ocean-600": "#1176a6",
-  "ocean-500": "#1591c9",
-  "ocean-400": "#3fb0e0",
-  "ocean-100": "#ddf1fb",
+  "ocean-950": "#031826",
+  "ocean-900": "#031e30",
+  "ocean-800": "#042a43",
+  "ocean-700": "#07456e",
+  "ocean-600": "#0c72b6",
+  "ocean-500": "#0f8adc",
+  "ocean-400": "#40abf2",
+  "ocean-100": "#e6eff4",
   "teal-700": "#047857",
   "teal-600": "#059669",
   "teal-500": "#10b981",
