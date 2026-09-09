@@ -1,7 +1,11 @@
 // Xuat file import MISA AMIS Accounting tu Phieu xuat kho (xem backend/src/lib/misaExport.ts cho
 // phan tinh toan du lieu - file nay CHI lo phan dung XLSX.utils.aoa_to_sheet de dung LAI DUNG khung
-// (title/huong dan/hang header o dung vi tri) cua 3 file mau nguoi dung gui ("Mau xuat nhap kho.xls"),
+// (header dung vi tri, khong con 6-7 dong huong dan/tieu de nhu file mau) cua file mau nguoi dung gui,
 // tranh MISA tu choi import vi lech vi tri cot/hang so voi mau chuan cua ho.
+// SUA LON 2026-09-09 (file mau moi "File đẩy hàng lên amis - CHỐT CUỐI.xls", 12 sheet) - xem giai
+// thich day du o backend/src/lib/misaExport.ts dau file: "xuat_kho"/"ban_hang" gio DUNG CHUNG 1 bo cot
+// "Don dat hang" (38 cot) thay vi 2 bo cot rieng 44/51 cot nhu truoc; "chuyen_kho" GIU NGUYEN header cu
+// (da khop san voi file mau moi), chi them 3 cot truoc do chua duoc dien gia tri.
 export type MisaTemplate = "xuat_kho" | "chuyen_kho" | "ban_hang";
 
 // 3 nut chon mau rieng (them 2026-09-02, phan hoi "tạo 3 button, TN muốn tải mẫu nào thì tải") - TN/
@@ -12,28 +16,27 @@ export const MISA_TEMPLATE_LABELS: Record<MisaTemplate, string> = {
   ban_hang: "Bán hàng",
 };
 
-export interface XuatKhoRow {
-  stt: number;
-  loaiXuatKho: string;
-  ngayHachToan: string;
-  ngayChungTu: string;
-  soChungTu: string;
-  maDoiTuong: string;
-  tenDoiTuong: string;
-  nguoiNhan: string;
-  lyDoXuat: string;
+// Dung chung cho ca "xuat_kho" va "ban_hang" - xem giai thich o backend/src/lib/misaExport.ts.
+export interface DonDatHangRow {
+  ngayDonHang: string;
+  soDonHang: string;
+  tinhGiaThanh: "Có" | "Không";
+  maKhachHang: string;
+  tenKhachHang: string;
+  nguoiNhanHang: string;
+  dienGiai: string;
   maNhanVienBanHang: string;
-  soChungTuKemTheo: number;
   maHang: string;
   tenHang: string;
   maKho: string;
-  tkNo: string;
-  tkCo: string;
   dvt: string;
   soLuong: number | null;
   donGia: number | null;
   thanhTien: number | null;
-  truongMoRong: string;
+  phanTramThueGTGT: number;
+  tienThueGTGT: number | null;
+  truongMoRong1: string;
+  truongMoRong2: string;
 }
 
 export interface ChuyenKhoRow {
@@ -48,6 +51,7 @@ export interface ChuyenKhoRow {
   tenNguoiVanChuyen: string;
   maHang: string;
   tenHang: string;
+  laDongGhiChu: string;
   xuatTaiKho: string;
   nhapTaiKho: string;
   tkNo: string;
@@ -56,39 +60,15 @@ export interface ChuyenKhoRow {
   soLuong: number | null;
   donGiaBan: number | null;
   thanhTien: number | null;
+  donGiaVon: number | null;
+  tienVon: number | null;
   truongMoRong: string;
 }
 
-export interface BanHangRow {
-  hinhThucBanHang: string;
-  phuongThucThanhToan: string;
-  kiemPhieuXuatKho: string;
-  lapKemHoaDon: string;
-  daLapHoaDon: string;
-  ngayHachToan: string;
-  ngayChungTu: string;
-  soChungTu: string;
-  maKhachHang: string;
-  tenKhachHang: string;
-  dienGiaiLyDoNop: string;
-  lyDoXuat: string;
-  maHang: string;
-  tenHang: string;
-  tkNo: string;
-  tkCo: string;
-  dvt: string;
-  soLuong: number | null;
-  donGia: number | null;
-  thanhTien: number | null;
-  maKho: string;
-  tkGiaVon: string;
-  tkKho: string;
-}
-
 export interface MisaExportSheets {
-  xuat_kho: XuatKhoRow[];
+  xuat_kho: DonDatHangRow[];
   chuyen_kho: ChuyenKhoRow[];
-  ban_hang: BanHangRow[];
+  ban_hang: DonDatHangRow[];
 }
 
 // KTV xuat hien trong file nhung thieu ma_misa/ten_misa (them 2026-09-04) - xem giai thich day du o
@@ -103,16 +83,17 @@ export interface MisaExportResult {
   canhBaoThieuMisa: MisaExportWarning[];
 }
 
-const XUAT_KHO_HEADER = [
-  "STT chứng từ", "Loại xuất kho", "Ngày hạch toán (*)", "Ngày chứng từ (*)", "Số chứng từ (*)",
-  "Mã đối tượng", "Tên đối tượng", "Địa chỉ/Bộ phận", "Người nhận", "Lý do xuất",
-  "Xuất đến chi nhánh", "Lệnh điều động số", "Phương tiện", "Xuất tại kho", "Địa chỉ kho xuất",
-  "Nhập tại kho", "Địa chỉ kho nhập", "Mã nhân viên bán hàng", "Số chứng từ kèm theo", "Mã hàng (*)",
+// Dung CHUNG cho ca sheet "Xuất kho" va "Bán hàng" khi xuat .xlsx (cung 1 bo cot AMIS "Đơn đặt hàng" -
+// xem giai thich dau file) - 38 cot dung theo file mau "CHỐT CUỐI".
+const DON_DAT_HANG_HEADER = [
+  "Ngày đơn hàng (*)", "Số đơn hàng (*)", "Trạng thái", "Ngày giao hàng", "Địa điểm giao hàng",
+  "Tính giá thành", "Mã khách hàng", "Tên khách hàng", "Địa chỉ", "Mã số thuế",
+  "Người nhận hàng", "Diễn giải", "Mã nhân viên bán hàng", "Là đơn đặt hàng phát sinh trước khi sử dụng phần mềm", "Mã hàng (*)",
   "Thuộc combo", "Tên hàng", "Là dòng ghi chú", "Hàng khuyến mại", "Mã kho",
-  "Hàng hóa giữ hộ/bán hộ", "TK Nợ (*)", "TK Có (*)", "ĐVT", "Vị trí",
-  "Số lượng", "Đơn giá", "Thành tiền", "Số lệnh sản xuất", "Mã khoản mục chi phí",
-  "Mã đơn vị", "Mã đối tượng THCP", "Mã công trình", "Số đơn đặt hàng", "Số hợp đồng mua",
-  "Số hợp đồng bán", "Mã thống kê", "CP không hợp lý", "Trường mở rộng",
+  "ĐVT", "Số lượng", "Đơn giá", "Thành tiền", "Tỷ lệ CK (%)",
+  "Tiền chiết khấu", "% thuế GTGT", "% thuế suất KHAC", "Tiền thuế GTGT", "Mã khoản mục chi phí",
+  "Mã đơn vị", "Mã đối tượng THCP", "Mã công trình", "Số hợp đồng bán", "Mã thống kê",
+  "Biển kiểm soát", "Trường mở rộng 1", "Trường mở rộng 2",
 ];
 
 const CHUYEN_KHO_HEADER = [
@@ -125,31 +106,16 @@ const CHUYEN_KHO_HEADER = [
   "Trường mở rộng",
 ];
 
-const BAN_HANG_HEADER = [
-  "Hình thức bán hàng", "Phương thức thanh toán", "Kiêm phiếu xuất kho", "Lập kèm hóa đơn", "Đã lập hóa đơn",
-  "Ngày hạch toán (*)", "Ngày chứng từ (*)", "Số chứng từ (*)", "Số phiếu xuất", "Mẫu số HĐ",
-  "Ký hiệu HĐ", "Số hóa đơn", "Ngày hóa đơn", "Mã khách hàng", "Tên khách hàng",
-  "Địa chỉ", "Mã số thuế", "Đơn vị giao đại lý", "Người nộp", "Nộp vào TK",
-  "Tên ngân hàng", "Diễn giải/Lý do nộp", "Lý do xuất", "Mã hàng (*)", "Tên hàng",
-  "Là dòng ghi chú", "Hàng khuyến mại", "Chiết khấu thương mại", "TK Tiền/Chi phí/Nợ (*)", "TK Doanh thu/Có (*)",
-  "ĐVT", "Số lượng", "Đơn giá", "Thành tiền", "Tỷ lệ CK (%)",
-  "Tiền chiết khấu", "TK chiết khấu", "Giá tính thuế XK", "% thuế xuất khẩu", "Tiền thuế xuất khẩu",
-  "TK thuế xuất khẩu", "% thuế GTGT", "% thuế suất KHAC", "Tiền thuế GTGT", "TK thuế GTGT",
-  "HH không TH trên tờ khai thuế GTGT", "Mã kho", "TK giá vốn", "TK Kho", "Đơn giá vốn",
-  "Tiền vốn", "Hàng hóa giữ hộ/bán hộ",
-];
-
-function xuatKhoToRow(r: XuatKhoRow): unknown[] {
+function donDatHangToRow(r: DonDatHangRow): unknown[] {
   return [
-    r.stt, r.loaiXuatKho, r.ngayHachToan, r.ngayChungTu, r.soChungTu,
-    r.maDoiTuong, r.tenDoiTuong, "", r.nguoiNhan, r.lyDoXuat,
-    "", "", "", "", "",
-    "", "", r.maNhanVienBanHang, r.soChungTuKemTheo, r.maHang,
-    "", r.tenHang, "", "", r.maKho,
-    "", r.tkNo, r.tkCo, r.dvt, "",
-    r.soLuong, r.donGia, r.thanhTien, "", "",
-    "", "", "", "", "",
-    "", "", "", r.truongMoRong,
+    r.ngayDonHang, r.soDonHang, "Đang thực hiện", "", "",
+    r.tinhGiaThanh, r.maKhachHang, r.tenKhachHang, "", "",
+    r.nguoiNhanHang, r.dienGiai, r.maNhanVienBanHang, "Không", r.maHang,
+    "", r.tenHang, "Không", "Không", r.maKho,
+    r.dvt, r.soLuong, r.donGia, r.thanhTien, "",
+    "", r.phanTramThueGTGT, "", r.tienThueGTGT, "",
+    "PKD", "", "", "", "",
+    "", r.truongMoRong1, r.truongMoRong2,
   ];
 }
 
@@ -158,32 +124,13 @@ function chuyenKhoToRow(r: ChuyenKhoRow): unknown[] {
     r.hinhThucChuyenKho, r.ngayHachToan, r.ngayChungTu, r.soChungTu, "",
     "", "", "", "", r.veViecDienGiai,
     r.voiDaiLyMaDonViNhan, r.tenDaiLyTenDonViNhan, "", "", "",
-    r.maNguoiVanChuyen, r.tenNguoiVanChuyen, r.maHang, r.tenHang, "",
+    r.maNguoiVanChuyen, r.tenNguoiVanChuyen, r.maHang, r.tenHang, r.laDongGhiChu,
     r.xuatTaiKho, r.nhapTaiKho, r.tkNo, r.tkCo, r.dvt,
-    r.soLuong, r.donGiaBan, r.thanhTien, "", "",
+    r.soLuong, r.donGiaBan, r.thanhTien, r.donGiaVon, r.tienVon,
     r.truongMoRong,
   ];
 }
 
-function banHangToRow(r: BanHangRow): unknown[] {
-  return [
-    r.hinhThucBanHang, r.phuongThucThanhToan, r.kiemPhieuXuatKho, r.lapKemHoaDon, r.daLapHoaDon,
-    r.ngayHachToan, r.ngayChungTu, r.soChungTu, "", "",
-    "", "", "", r.maKhachHang, r.tenKhachHang,
-    "", "", "", "", "",
-    "", r.dienGiaiLyDoNop, r.lyDoXuat, r.maHang, r.tenHang,
-    "", "", "", r.tkNo, r.tkCo,
-    r.dvt, r.soLuong, r.donGia, r.thanhTien, "",
-    "", "", "", "", "",
-    "", "", "", "", "",
-    "", r.maKho, r.tkGiaVon, r.tkKho, "",
-    "", "",
-  ];
-}
-
-// FIX (phan hoi 2026-09-02: "filter import tải về bỏ tiêu đề mẫu, bắt đầu lấy từ dòng thứ 8 trở
-// xuống") - file mau goc co 7 dong tieu de/huong dan/nhom cot phia truoc dong header (dong 8), file
-// import MISA thuc te KHONG can cac dong nay - bo het, header la dong dau tien cua sheet xuat ra.
 function buildSheetAoa(header: string[], rows: unknown[][]): unknown[][] {
   return [header, ...rows];
 }
@@ -196,7 +143,7 @@ export async function downloadMisaExport(sheets: MisaExportSheets, filename: str
   let hasAny = false;
 
   if (sheets.xuat_kho.length > 0) {
-    const aoa = buildSheetAoa(XUAT_KHO_HEADER, sheets.xuat_kho.map(xuatKhoToRow));
+    const aoa = buildSheetAoa(DON_DAT_HANG_HEADER, sheets.xuat_kho.map(donDatHangToRow));
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(aoa), "Xuất kho");
     hasAny = true;
   }
@@ -206,7 +153,7 @@ export async function downloadMisaExport(sheets: MisaExportSheets, filename: str
     hasAny = true;
   }
   if (sheets.ban_hang.length > 0) {
-    const aoa = buildSheetAoa(BAN_HANG_HEADER, sheets.ban_hang.map(banHangToRow));
+    const aoa = buildSheetAoa(DON_DAT_HANG_HEADER, sheets.ban_hang.map(donDatHangToRow));
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(aoa), "Bán hàng");
     hasAny = true;
   }

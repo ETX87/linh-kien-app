@@ -11,7 +11,14 @@ import type { Env } from "../types";
 // cho dong bo KTV) - cung 1 Worker khovan, cung 1 external_systems.api_key, chi khac
 // duong dan goi (inbound/orders thay vi partner/sync/ktv), khong can secret rieng.
 // Best-effort: loi/khovan down KHONG duoc chan thao tac cua nguoi dung (chi log).
-export async function pushPxkToKhovan(env: Env, orderCode: string, senderName: string, loaiDon: string | null, note: string): Promise<void> {
+export async function pushPxkToKhovan(
+  env: Env,
+  orderCode: string,
+  senderName: string,
+  loaiDon: string | null,
+  note: string,
+  exportSlipCode?: string | null
+): Promise<void> {
   const url = `${env.KHOVAN_SYNC_BASE_URL.replace(/\/$/, "")}/api/v1/inbound/orders`;
   try {
     const res = await env.KHOVAN_SYNC_SERVICE.fetch(url, {
@@ -19,6 +26,7 @@ export async function pushPxkToKhovan(env: Env, orderCode: string, senderName: s
       headers: { "Content-Type": "application/json", "X-Api-Key": env.KHOVAN_SYNC_API_KEY },
       body: JSON.stringify({
         order_code: orderCode,
+        export_slip_code: exportSlipCode ?? undefined,
         sender_name: senderName,
         sender_info: { loai_don: loaiDon },
         note,

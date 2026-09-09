@@ -25,6 +25,7 @@ import { CommandPalette, type CommandItem } from "./components/ui/CommandPalette
 import { Modal } from "./components/ui/Modal";
 import { Btn } from "./components/ui/Btn";
 import { useThemeSettings } from "./theme/useThemeSettings";
+import { consumePendingPxkDeepLinkId } from "./lib/pxkDeepLink";
 
 // Shell RUT GON tu frontend/src/App.tsx cua he DVBH goc - he doc lap nay CHI phuc vu 1 mien nghiep
 // vu (Dat mua linh kien + Tra hang + Danh muc linh kien + Settings/Users quan tri), nen KHONG con
@@ -147,6 +148,19 @@ function MainApp({
     setActive("dat-mua-lk");
     setPendingDetailOpen({ tab: "phieu-xuat-kho", id: pxkId, nonce: Date.now() });
   }
+  // Link truy cap truc tiep 1 PXK theo ID (them 2026-09-09, xem lib/pxkDeepLink.ts) - luc component
+  // nay mount la luc nguoi dung CHAC CHAN da dang nhap xong (App() chi render MainApp sau khi
+  // auth.status === "authenticated"), nen day la diem doc lai an toan duy nhat, dung LAI het co che
+  // "bam thong bao mo PXK" da co (openPxkFromBell o tren) thay vi tu xay routing rieng. Sua lai URL
+  // ve dung dang "/<id>/" (co the dang la "/" neu vua di qua vong Google OAuth, xem giai thich trong
+  // pxkDeepLink.ts) de giu URL lam permalink dung y nghia.
+  useEffect(() => {
+    const id = consumePendingPxkDeepLinkId();
+    if (id) {
+      window.history.replaceState(null, "", "/" + id + "/");
+      openPxkFromBell(id);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const isMobile = useIsMobile();

@@ -1,15 +1,33 @@
-// Xuat du lieu Phieu xuat kho (PXK) sang 3 mau import MISA AMIS Accounting (Xuat kho bao hanh/
-// Chuyen kho/Ban hang - xem file mau nguoi dung gui "Mau xuat nhap kho.xls"). Quyet dinh thiet ke
-// (xac nhan qua 2 vong AskUserQuestion 2026-09-02, KHONG tu doan):
-//   - loai_don='cong_no' HOAC 'tra_hang' -> LUON mau "Chuyen kho".
-//   - loai_don='mua' -> tra cuu settings_loai_de_xuat.loai_file_xuat_misa theo dung dong loai_de_xuat
-//     cua TUNG DONG dat_don_hang (KHONG phai theo ca PXK - 1 PXK van co the gom nhieu dong khac
-//     loai_de_xuat nhau nen co the phai tach ra nhieu sheet/mau trong CUNG 1 lan xuat) - null/chua cau
-//     hinh -> mac dinh 'ban_hang'.
+// Xuat du lieu Phieu xuat kho (PXK) sang cac mau import MISA AMIS Accounting.
+// LICH SU: ban dau (2026-09-02) port tu 3 mau "Xuat kho bao hanh/Chuyen kho/Ban hang" trong file nguoi
+// dung gui "Mau xuat nhap kho.xls" (44/31/51 cot rieng biet - van con trong lich su git). SUA LON
+// 2026-09-09 (nguoi dung gui file THAT nguoi dung dang dung de nhap AMIS "File đẩy hàng lên amis - CHỐT
+// CUỐI.xls", 12 sheet, xac nhan qua nhieu vong AskUserQuestion "File Excel moi la dung, DB can sua
+// lai"): phat hien 12 sheet do THUC RA chi la 2 bo cot that (khong phai 3):
+//   - "xuat_kho" VA "ban_hang" DUNG CHUNG 1 bo cot AMIS "Don dat hang" (38 cot: Ngay don hang/So don
+//     hang/Trang thai/Tinh gia thanh/Ma khach hang/.../Truong mo rong 1-2) - phan biet nhau CHI boi cot
+//     "Tinh gia thanh" trong file mau that (Khong = xuat kho bao hanh theo MYC/case, khong tinh tien;
+//     Co = KTV mua that/tru cong no, co gia+thue GTGT 8%) - xem resolveTemplate() + DonDatHangRow.
+//   - "chuyen_kho" GIU NGUYEN bo cot rieng (31 cot: TK No/TK Co, Don gia von...) - header FE
+//     (misaExportTemplates.ts) da dung KHOP GAN NHU HOAN HAO voi file mau moi tu truoc (khong doi
+//     header), CHI sua vai gia tri/them 3 truong con thieu (laDongGhiChu, donGiaVon, tienVon) - xem
+//     ChuyenKhoRow.
+// settings_loai_de_xuat.loai_file_xuat_misa (da sua lai gia tri qua migration 0024 cho khop dung bo cot
+// that o tren) VAN quyet dinh template MAC DINH/uu tien cho tung loai de xuat - forceTemplate van cho
+// phep TN/Ke toan ep sang mau khac neu muon (giu nguyen co che cu, xem resolveTemplate()).
 // TK No/TK Co MOI mau CO DINH theo dung file mau (xac nhan "Cố định theo mẫu như file mẫu"), khong
 // doc tu dau ra vi he thong khong co khai niem tai khoan ke toan rieng cho tung dong.
 // Mien Bac/Nam suy tu ktv_lien_he.khu_vuc_ma cua nguoi_nhan_hang (chua "MB"=Bac, chua "MN"=Nam) de
-// chon Ma kho/Ten kho mac dinh (settings admin tu dien, xem app_settings misa_ma_kho_mien_*).
+// chon Ma kho/Ten kho mac dinh (settings admin tu dien, xem app_settings misa_ma_kho_mien_*). CHU Y:
+// bo cot "Don dat hang" moi dung CHUNG 1 kho theo mien (misa_ma_kho_mien_*, giong ban_hang/chuyen_kho
+// cu) cho CA xuat_kho lan ban_hang - KHONG con dung rieng misa_ma_kho_xk_mien_* nhu truoc (gia tri mau
+// "Ma kho" trong file that ("6804-MB"/"6803") khop dung dinh dang misa_ma_kho_mien_*, KHONG khop dinh
+// dang cu cua misa_ma_kho_xk_mien_* ("LKKGMB"/"LKKGMN") - xem loadKhoSettings, truong xuatKho GIU LAI
+// trong ham nay vi Settings UI (SettingsModule.tsx) van con cho nhap, nhung KHONG con duoc doc o day).
+// GHI CHU CHUA GIAI QUYET DUOC (can xac nhan sau, KHONG tu doan): 1 vai dong mau "Ma kho" trong file
+// that la SNKMB/MMMB (khac han pattern mien Bac/Nam thuong thay) - co the phu thuoc nhom hang linh_kien,
+// KHONG chi mien - CHUA co du du lieu de suy ra quy tac, dang FALLBACK ve dung 1 ma kho theo mien nhu
+// truoc (co the SAI cho vai dong).
 //
 // SUA (phan hoi 2026-09-02 "mỗi pxk cho phép chọn cả 3 mẫu để tải về được không?"): ngoai template
 // tu dong (resolveTemplate), them tham so forceTemplate cho buildMisaExportSheets - khi TN/Ke toan
@@ -17,43 +35,45 @@
 // mau da chon (bo qua resolveTemplate), theo dung xac nhan cua nguoi dung ("ép toàn bộ dòng theo
 // mẫu đã chọn"). Khong truyen forceTemplate (vd goi truc tiep API) van giu hanh vi tu dong cu.
 //
-// SUA LON (phan hoi 2026-09-04, ra soat chi tiet tung cot ca 3 mau): nhieu cot truoc day dien SAI/de
-// trong - xem tung diem sua ben duoi tai noi dung. Diem chung quan trong nhat: "Ma doi tuong/Ma nguoi
-// van chuyen/Ma khach hang/Ma nhan vien ban hang" PHAI la ktv.ma_misa (ma so MISA that), "Ten doi
-// tuong/Ten nguoi van chuyen/Ten khach hang/Nguoi nhan" PHAI la ktv.ten_misa (ten tren MISA) - KHONG
-// con fallback ve ten_hien_thi/email nhu truoc (fallback che mat truong hop KTV chua khai bao ma_misa/
-// ten_misa, ke toan se import nham "chinh email tho"/"ten noi bo" vao MISA ma khong biet). Thay vao
-// do buildMisaExportSheets tra THEM danh sach "canhBaoThieuMisa" (cac KTV dang xuat hien trong file
-// nhung thieu ma_misa hoac ten_misa) de FE hien canh bao ro rang luc tai file (xem
-// routes/phieuXuatKho.ts + frontend PhieuXuatKhoTab.tsx).
+// "Mã đối tượng/Ma nguoi van chuyen/Ma khach hang/Ma nhan vien ban hang" PHAI la ktv.ma_misa (ma so
+// MISA that, xac nhan lai 2026-09-09 khi doi chieu file moi - gia tri mau dang "TRAM0011"/"KTV0012" chi
+// TRUNG dinh dang voi ma_ktv noi bo do quy uoc dat ma, KHONG duoc doc thang tu ma_ktv), "Ten doi
+// tuong/Ten nguoi van chuyen/Ten khach hang/Nguoi nhan" PHAI la ktv.ten_misa - KHONG fallback ve
+// ten_hien_thi/email (fallback che mat truong hop KTV chua khai bao ma_misa/ten_misa). buildMisaExportSheets
+// tra THEM danh sach "canhBaoThieuMisa" (cac KTV dang xuat hien trong file nhung thieu ma_misa hoac
+// ten_misa) de FE hien canh bao ro rang luc tai file.
 import type { Env } from "../types";
-import { lookupCases } from "./caseLookupClient";
 
 export const MISA_TEMPLATES = ["xuat_kho", "chuyen_kho", "ban_hang"] as const;
 export type MisaTemplate = (typeof MISA_TEMPLATES)[number];
 
-export interface XuatKhoRow {
-  stt: number;
-  loaiXuatKho: string;
-  ngayHachToan: string;
-  ngayChungTu: string;
-  soChungTu: string;
-  maDoiTuong: string;
-  tenDoiTuong: string;
-  nguoiNhan: string;
-  lyDoXuat: string;
+// Dung CHUNG cho ca "xuat_kho" (Tinh gia thanh=Khong, xuat bao hanh theo MYC/case) va "ban_hang"
+// (Tinh gia thanh=Co, KTV mua that/tru cong no) - 2 mau nay CHI khac gia tri cac truong ben duoi, KHONG
+// khac cau truoc cot (xem giai thich dau file). Dung 38 cot dung theo file mau "CHỐT CUỐI" (mot so
+// loai de xuat trong file mau chi co 1 cot "Trường mở rộng" thay vi 2 - chuan hoa ve 2 cot cho tat ca,
+// dong nao khong can thi de trong).
+export interface DonDatHangRow {
+  ngayDonHang: string;
+  soDonHang: string;
+  tinhGiaThanh: "Có" | "Không";
+  maKhachHang: string;
+  tenKhachHang: string;
+  nguoiNhanHang: string;
+  dienGiai: string;
   maNhanVienBanHang: string;
-  soChungTuKemTheo: number;
   maHang: string;
   tenHang: string;
   maKho: string;
-  tkNo: string;
-  tkCo: string;
   dvt: string;
   soLuong: number | null;
   donGia: number | null;
   thanhTien: number | null;
-  truongMoRong: string;
+  phanTramThueGTGT: number;
+  tienThueGTGT: number | null;
+  // "Trường mở rộng 1"/"2" = Ma YCSC lien quan / TT+Mail duyet (xac nhan nguoi dung 2026-09-09 cho
+  // cac o truoc day tuong nham la text placeholder "mã phê duyệt"/"mã PD/ MYC" trong file mau).
+  truongMoRong1: string;
+  truongMoRong2: string;
 }
 
 export interface ChuyenKhoRow {
@@ -68,6 +88,8 @@ export interface ChuyenKhoRow {
   tenNguoiVanChuyen: string;
   maHang: string;
   tenHang: string;
+  // them 2026-09-09 (co trong header FE tu truoc nhung chua duoc dien) - luon "Không".
+  laDongGhiChu: string;
   xuatTaiKho: string;
   nhapTaiKho: string;
   tkNo: string;
@@ -76,39 +98,17 @@ export interface ChuyenKhoRow {
   soLuong: number | null;
   donGiaBan: number | null;
   thanhTien: number | null;
+  // them 2026-09-09 (co trong header FE tu truoc nhung chua duoc dien) - he thong khong theo doi gia
+  // von rieng cho tung dong dat_don_hang nen de trong, KHONG tu tinh.
+  donGiaVon: number | null;
+  tienVon: number | null;
   truongMoRong: string;
 }
 
-export interface BanHangRow {
-  hinhThucBanHang: string;
-  phuongThucThanhToan: string;
-  kiemPhieuXuatKho: string;
-  lapKemHoaDon: string;
-  daLapHoaDon: string;
-  ngayHachToan: string;
-  ngayChungTu: string;
-  soChungTu: string;
-  maKhachHang: string;
-  tenKhachHang: string;
-  dienGiaiLyDoNop: string;
-  lyDoXuat: string;
-  maHang: string;
-  tenHang: string;
-  tkNo: string;
-  tkCo: string;
-  dvt: string;
-  soLuong: number | null;
-  donGia: number | null;
-  thanhTien: number | null;
-  maKho: string;
-  tkGiaVon: string;
-  tkKho: string;
-}
-
 export interface MisaExportSheets {
-  xuat_kho: XuatKhoRow[];
+  xuat_kho: DonDatHangRow[];
   chuyen_kho: ChuyenKhoRow[];
-  ban_hang: BanHangRow[];
+  ban_hang: DonDatHangRow[];
 }
 
 export interface MisaExportResult {
@@ -123,18 +123,14 @@ interface RawLine {
   pxk_ma_xuat_kho: string;
   pxk_ngay_tao: string;
   pxk_loai_don: "mua" | "cong_no" | "tra_hang";
-  // "trang_thai_chuyen_tien" (them 2026-09-04) - dung de suy ra "Phuong thuc thanh toan" cua mau
-  // Ban hang: 'TN da duyet' nghia la TN da xac nhan KTV chuyen tien xong (xem CLAUDE.md/PhieuXuatKhoTab).
-  pxk_trang_thai_chuyen_tien: string | null;
   ma_lk: string;
   ten_lk: string | null;
   don_vi: string | null;
   loai_de_xuat: string | null;
-  // "yeu_cau_hoa_don" (them 2026-09-04) - dung cho "Lap kem hoa don"/"Da lap hoa don" cua mau Ban hang.
-  yeu_cau_hoa_don: string | null;
   so_luong: number | null;
   don_gia: number | null;
   ma_yeu_cau_su_co: string | null;
+  tt_mail_duyet: string | null;
   loai_file_xuat_misa: string | null;
   ktv_ma_ktv: string | null;
   ktv_ten: string | null;
@@ -165,40 +161,16 @@ function mienFromKhuVuc(khuVucMa: string | null): "bac" | "nam" | null {
   return null;
 }
 
-// SUA 2026-09-04: "Ma kho" cua mau Xuat kho la 1 he ma KHAC han (vd "LKKGMB"/"LKKGMN") voi "Ma kho"
-// cua Ban hang/Chuyen kho (vd "6803"/"6804", dung chung 1 cap key cu) - tach rieng 2 cap key trong
-// app_settings, KHONG dung chung nhu truoc (truoc day 1 cap key bi dung sai cho ca 3 mau).
-async function loadKhoSettings(db: Env["DB"]): Promise<{
-  banHang: Record<"bac" | "nam", { ma: string; ten: string }>;
-  xuatKho: Record<"bac" | "nam", { ma: string }>;
-}> {
+async function loadKhoSettings(db: Env["DB"]): Promise<Record<"bac" | "nam", { ma: string; ten: string }>> {
   const { results } = await db
-    .prepare("SELECT key, value FROM app_settings WHERE key IN (?, ?, ?, ?, ?, ?)")
-    .bind(
-      "misa_ma_kho_mien_bac", "misa_ten_kho_mien_bac", "misa_ma_kho_mien_nam", "misa_ten_kho_mien_nam",
-      "misa_ma_kho_xk_mien_bac", "misa_ma_kho_xk_mien_nam",
-    )
+    .prepare("SELECT key, value FROM app_settings WHERE key IN (?, ?, ?, ?)")
+    .bind("misa_ma_kho_mien_bac", "misa_ten_kho_mien_bac", "misa_ma_kho_mien_nam", "misa_ten_kho_mien_nam")
     .all<{ key: string; value: string }>();
   const map = new Map(results.map((r) => [r.key, r.value]));
   return {
-    banHang: {
-      bac: { ma: map.get("misa_ma_kho_mien_bac") || "", ten: map.get("misa_ten_kho_mien_bac") || "" },
-      nam: { ma: map.get("misa_ma_kho_mien_nam") || "", ten: map.get("misa_ten_kho_mien_nam") || "" },
-    },
-    xuatKho: {
-      bac: { ma: map.get("misa_ma_kho_xk_mien_bac") || "" },
-      nam: { ma: map.get("misa_ma_kho_xk_mien_nam") || "" },
-    },
+    bac: { ma: map.get("misa_ma_kho_mien_bac") || "", ten: map.get("misa_ten_kho_mien_bac") || "" },
+    nam: { ma: map.get("misa_ma_kho_mien_nam") || "", ten: map.get("misa_ten_kho_mien_nam") || "" },
   };
-}
-
-// "Kiem phieu xuat kho" = "Khong" khi dong la Tra hang/Tru cong no (cung kieu kiem tra substring voi
-// deriveLoaiDon o frontend/backend datMuaLinhKien.ts) - chi co the xay ra khi TN dung forceTemplate ep
-// nguyen PXK ve mau Ban hang du co dong tra_hang/cong_no (binh thuong resolveTemplate da tu chuyen
-// nhung dong nay sang Chuyen kho).
-function laTraHangHoacTruCongNo(loaiDeXuat: string | null): boolean {
-  const s = (loaiDeXuat ?? "").toUpperCase();
-  return s.includes("TRẢ HÀNG") || s.includes("TRỪ CÔNG NỢ");
 }
 
 // Doc TAT CA dong dat_don_hang thuoc danh sach PXK (pxkIds) kem thong tin can de xuat MISA. Dung
@@ -211,16 +183,15 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
   if (pxkIds.length === 0) return { sheets, canhBaoThieuMisa: [] };
 
   const db = env.DB;
-  const khoSettings = await loadKhoSettings(db);
+  const khoBanHang = await loadKhoSettings(db);
   const placeholders = pxkIds.map(() => "?").join(",");
   const { results } = await db
     .prepare(
       `SELECT
          pxk.ma_xuat_kho as pxk_ma_xuat_kho, pxk.ngay_tao as pxk_ngay_tao, pxk.loai_don as pxk_loai_don,
-         pxk.trang_thai_chuyen_tien as pxk_trang_thai_chuyen_tien,
          ddh.ma_lk, COALESCE(ddh.ten_lk_snapshot, lk.ten_linh_kien) as ten_lk, lk.don_vi,
-         ddh.loai_de_xuat, ddh.yeu_cau_hoa_don, COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) as so_luong,
-         COALESCE(ddh.gia_chot, ddh.gia_de_xuat) as don_gia, ddh.ma_yeu_cau_su_co,
+         ddh.loai_de_xuat, COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) as so_luong,
+         COALESCE(ddh.gia_chot, ddh.gia_de_xuat) as don_gia, ddh.ma_yeu_cau_su_co, ddh.tt_mail_duyet,
          sld.loai_file_xuat_misa,
          ktv.ma_ktv as ktv_ma_ktv, ktv.ten_hien_thi as ktv_ten, ktv.ma_misa as ktv_ma_misa, ktv.ten_misa as ktv_ten_misa, ktv.khu_vuc_ma as ktv_khu_vuc_ma,
          pxk.nguoi_nhan_hang
@@ -236,23 +207,16 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
     .bind(...pxkIds)
     .all<RawLine>();
 
-  // Xac dinh template cho TUNG dong TRUOC (can biet dong nao roi vao "xuat_kho" de gom ma_yeu_cau_su_co
-  // can tra Serial - xem lib/caseLookupClient.ts) - tranh goi lookupCases() thua cho cac dong khong
-  // dung sheet Xuat kho.
+  // Xac dinh template cho TUNG dong TRUOC (bo cot "Don dat hang" moi khong co cot Serial rieng nhu mau
+  // "Xuat kho" cu - xem DonDatHangRow - nen KHONG con can goi lookupCases() o day).
   const lines = results.map((line) => ({
     line,
     template: forceTemplate ?? resolveTemplate(line.pxk_loai_don, line.loai_file_xuat_misa),
   }));
-  const caseIdsCanTraSerial = [...new Set(
-    lines.filter((x) => x.template === "xuat_kho" && x.line.ma_yeu_cau_su_co).map((x) => x.line.ma_yeu_cau_su_co!),
-  )];
-  const serialMap = caseIdsCanTraSerial.length > 0 ? await lookupCases(caseIdsCanTraSerial, env) : new Map();
 
-  let sttXuatKho = 0;
   for (const { line, template } of lines) {
     const mien = mienFromKhuVuc(line.ktv_khu_vuc_ma);
-    const khoBanHang = mien ? khoSettings.banHang[mien] : { ma: "", ten: "" };
-    const khoXuatKho = mien ? khoSettings.xuatKho[mien] : { ma: "" };
+    const kho = mien ? khoBanHang[mien] : { ma: "", ten: "" };
     const ngayHachToan = fmtDateVN(line.pxk_ngay_tao);
     // KHONG con fallback ve ten_hien_thi/email (xem giai thich dau file) - de trong + canh bao neu thieu.
     const tenMisa = line.ktv_ten_misa || "";
@@ -269,103 +233,76 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
       }
     }
 
-    if (template === "xuat_kho") {
-      sttXuatKho += 1;
-      const serial = line.ma_yeu_cau_su_co ? serialMap.get(line.ma_yeu_cau_su_co)?.seri_san_pham || "" : "";
-      // "Ly do xuat" mau Xuat kho (SUA 2026-09-04, cong thuc RIENG khac han Chuyen kho/Ban hang):
-      // "Ma kho" + "xuất kho bảo hành" + "Tên hàng" + "cho KTV" + "tên misa ktv" + Serial (tu case).
-      const lyDoXuatKho = [khoXuatKho.ma, "xuất kho bảo hành", tenHang, "cho KTV", tenMisa, serial]
-        .filter((s) => s)
-        .join(" ");
-      sheets.xuat_kho.push({
-        stt: sttXuatKho,
-        loaiXuatKho: "Xuất kho bán hàng",
-        ngayHachToan,
-        ngayChungTu: ngayHachToan,
-        soChungTu: line.pxk_ma_xuat_kho,
-        maDoiTuong: maMisa,
-        tenDoiTuong: tenMisa,
-        nguoiNhan: tenMisa,
-        lyDoXuat: lyDoXuatKho,
-        maNhanVienBanHang: maMisa,
-        soChungTuKemTheo: 1,
-        maHang: line.ma_lk,
-        tenHang,
-        maKho: khoXuatKho.ma,
-        tkNo: "1541.02",
-        tkCo: "157",
-        dvt: line.don_vi || "",
-        soLuong,
-        donGia,
-        thanhTien,
-        truongMoRong: serial,
-      });
-    } else if (template === "chuyen_kho") {
-      // "Ve viec/Dien giai" mau Chuyen kho: GIU NGUYEN cong thuc cu (chua co yeu cau doi rieng) -
-      // khac "Ly do xuat" cua Xuat kho o tren.
+    if (template === "chuyen_kho") {
+      // "Ve viec/Dien giai": giu nguyen cong thuc cu (chua co yeu cau doi rieng).
       const veViecDienGiai = `${tenHang} xuất ${line.loai_de_xuat ?? ""} cho KTV ${tenMisa || line.nguoi_nhan_hang || ""}${
         line.ma_yeu_cau_su_co ? ` - case ${line.ma_yeu_cau_su_co}` : ""
       }`.trim();
       sheets.chuyen_kho.push({
-        hinhThucChuyenKho: "Xuất kho kiêm vận chuyển nội bộ",
+        // SUA 2026-09-09: gia tri that trong file mau la "Xuất chuyển kho nội bộ" (truoc day sai thanh
+        // "Xuất kho kiêm vận chuyển nội bộ").
+        hinhThucChuyenKho: "Xuất chuyển kho nội bộ",
         ngayHachToan,
         ngayChungTu: ngayHachToan,
         soChungTu: line.pxk_ma_xuat_kho,
         veViecDienGiai,
-        voiDaiLyMaDonViNhan: maMisa,
-        // "Ten dai ly/ Ten don vi nhan" = "" (SUA 2026-09-04, truoc day dien nham tenMisa).
+        // SUA 2026-09-09: file mau de trong ca 2 cot nay (truoc day dien nham maMisa vao "Voi dai
+        // ly/Ma don vi nhan").
+        voiDaiLyMaDonViNhan: "",
         tenDaiLyTenDonViNhan: "",
         maNguoiVanChuyen: maMisa,
         tenNguoiVanChuyen: tenMisa,
         maHang: line.ma_lk,
         tenHang,
-        xuatTaiKho: khoBanHang.ma,
-        nhapTaiKho: maMisa,
+        laDongGhiChu: "Không",
+        // SUA 2026-09-09 (dao lai huong, xac nhan nguoi dung "Đảo lại đúng theo mẫu"): "Xuất tại kho" =
+        // kho ca nhan cua KTV/dai ly dang giu hang truoc khi tra (dung ma_misa lam proxy - he thong
+        // KHONG theo doi ma kho vat ly rieng cho tung don vi ben ngoai nhu "NTMN" trong file mau that,
+        // day la GAN DUNG TOT NHAT co the voi du lieu hien co), "Nhap tai kho" = kho cong ty theo mien.
+        xuatTaiKho: maMisa,
+        nhapTaiKho: kho.ma,
         tkNo: "157",
         tkCo: "156",
         dvt: line.don_vi || "",
         soLuong,
         donGiaBan: donGia,
         thanhTien,
+        donGiaVon: null,
+        tienVon: null,
         truongMoRong: line.ma_yeu_cau_su_co || "",
       });
     } else {
-      // "Phuong thuc thanh toan" (SUA 2026-09-04): 'TN da duyet' = TN da xac nhan KTV chuyen tien xong.
-      const phuongThucThanhToan = line.pxk_trang_thai_chuyen_tien === "TN da duyet" ? "Thu tiền ngay - Chuyển khoản" : "Chưa thu tiền";
-      // "Kiem phieu xuat kho" (SUA 2026-09-04): "Khong" cho dong Tra hang/Tru cong no (chi xay ra khi
-      // TN ep template Ban hang cho ca PXK - xem laTraHangHoacTruCongNo).
-      const kiemPhieuXuatKho = laTraHangHoacTruCongNo(line.loai_de_xuat) ? "Không" : "Có";
-      // "Lap kem hoa don"/"Da lap hoa don" (SUA 2026-09-04): dua theo "Yeu cau hoa don" KTV chon luc
-      // tao don (xem YEU_CAU_HOA_DON_OPTIONS[0] = "Không" o frontend).
-      const coHoaDon = !!line.yeu_cau_hoa_don && line.yeu_cau_hoa_don !== "Không";
-      // "Dien giai/Ly do nop" VA "Ly do xuat" cua Ban hang (SUA 2026-09-04, xac nhan nguoi dung: CA 2
-      // cot cung 1 gia tri moi, thay the hoan toan cong thuc cu) = "Ma kho" + "bán hàng cho" + tenMisa.
-      const lyDoBanHang = [khoBanHang.ma, "bán hàng cho", tenMisa].filter((s) => s).join(" ");
-      sheets.ban_hang.push({
-        hinhThucBanHang: "Bán hàng hóa trong nước",
-        phuongThucThanhToan,
-        kiemPhieuXuatKho,
-        lapKemHoaDon: coHoaDon ? "Có" : "Không",
-        daLapHoaDon: coHoaDon ? "Đã lập" : "Chưa lập",
-        ngayHachToan,
-        ngayChungTu: ngayHachToan,
-        soChungTu: line.pxk_ma_xuat_kho,
+      // template === "xuat_kho" | "ban_hang" - dung chung 1 bo cot "Don dat hang" (xem giai thich dau
+      // file), chi khac cong thuc theo "Tinh gia thanh".
+      const tinhGiaThanhCo = template === "ban_hang";
+      const dienGiai = tinhGiaThanhCo
+        ? `${kho.ma} bán hàng ${tenMisa || line.nguoi_nhan_hang || ""}`.trim()
+        : `${kho.ma} xuất ${line.loai_de_xuat ?? ""} cho ${tenMisa || line.nguoi_nhan_hang || ""}${
+            line.ma_yeu_cau_su_co ? ` theo MYC ${line.ma_yeu_cau_su_co}` : ""
+          }`.replace(/\s+/g, " ").trim();
+      const phanTramThueGTGT = tinhGiaThanhCo ? 8 : 0;
+      const row: DonDatHangRow = {
+        ngayDonHang: ngayHachToan,
+        soDonHang: line.pxk_ma_xuat_kho,
+        tinhGiaThanh: tinhGiaThanhCo ? "Có" : "Không",
         maKhachHang: maMisa,
         tenKhachHang: tenMisa,
-        dienGiaiLyDoNop: lyDoBanHang,
-        lyDoXuat: lyDoBanHang,
+        nguoiNhanHang: tenMisa,
+        dienGiai,
+        maNhanVienBanHang: maMisa,
         maHang: line.ma_lk,
         tenHang,
-        tkNo: "131",
-        tkCo: "5111.01",
+        maKho: kho.ma,
         dvt: line.don_vi || "",
         soLuong,
-        donGia,
-        thanhTien,
-        maKho: khoBanHang.ma,
-        tkGiaVon: "632",
-        tkKho: "1561",
-      });
+        donGia: tinhGiaThanhCo ? donGia : null,
+        thanhTien: tinhGiaThanhCo ? thanhTien : null,
+        phanTramThueGTGT,
+        tienThueGTGT: tinhGiaThanhCo && thanhTien != null ? Math.round(thanhTien * 0.08 * 100) / 100 : 0,
+        truongMoRong1: line.ma_yeu_cau_su_co || "",
+        truongMoRong2: line.tt_mail_duyet || "",
+      };
+      sheets[template].push(row);
     }
   }
 

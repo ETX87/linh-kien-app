@@ -41,6 +41,18 @@ phieuXuatKho.use("*", verifySessionMiddleware, loadUser, requireDatMuaLkArea);
 
 const TRANG_THAI_DONG = ["KTV da nhan", "Ke toan huy", "Hang tru kho", "Kho da ket thuc", "Kho da nhan hang tra"] as const;
 
+// Tien to ID theo loai_don (phan hoi 2026-09-09: "ID tự sinh của PXK-000005 đang gây nhầm lẫn với mã
+// PXK của misa") - truoc day CA 3 loai_don deu dung chung tien to "PXK", trung voi tien to ma MISA hay
+// dung khi TN tu dat ma_xuat_kho dang "PXK-xxx" (2 nguon ID de lan nhau khi doi chieu). Dung LAI CHUNG
+// 1 counter "phieu_xuat_kho" (giong cach phieu_dat dung chung 1 counter cho ca XH-/TN-/AD-, xem
+// phieuDatPrefix trong datMuaLinhKien.ts) - CHI doi chu tien to hien thi, khong tach rieng tung day so
+// theo loai (khong can migration them dong id_counters moi, so tiep tuc noi dai lien tuc tu PXK cu).
+function pxkIdPrefix(loaiDon: "mua" | "cong_no" | "tra_hang"): "PMH" | "PCN" | "PTL" {
+  if (loaiDon === "mua") return "PMH";
+  if (loaiDon === "cong_no") return "PCN";
+  return "PTL";
+}
+
 function latestStatusExpr(idCol: string): string {
   return `(SELECT trang_thai FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = ${idCol} ORDER BY id DESC LIMIT 1)`;
 }
@@ -424,7 +436,7 @@ phieuXuatKho.post("/", async (c) => {
 
   const user = c.get("user");
   const now = nowVN();
-  const id = await nextSequentialId(c.env.DB, "phieu_xuat_kho", "PXK", 6);
+  const id = await nextSequentialId(c.env.DB, "phieu_xuat_kho", pxkIdPrefix(body.loai_don), 6);
   const coChuyenTien = !!body.so_tien_can_chuyen && body.so_tien_can_chuyen > 0;
   const maXuatKhoNhap = body.ma_xuat_kho?.trim();
   const maXuatKho = maXuatKhoNhap || id;
@@ -983,9 +995,12 @@ phieuXuatKho.post("/:id/log", async (c) => {
         ),
       ]);
     } else {
-      const senderLabel = `Xuất kho ${id}` + (pxk.nguoi_nhan_hang ? ` (giao ${pxk.nguoi_nhan_hang})` : "");
+      // Hien thi ben khovan phai dung ma MISA (nguoi dung nhap, doi chieu ke toan) - KHONG
+      // dung `id` (chi la ID tu sinh de quan ly noi bo, khong co nghia gi voi Ke toan/Kho).
+      const displayCode = pxk.ma_misa?.trim() || id;
+      const senderLabel = `Xuất kho ${displayCode}` + (pxk.nguoi_nhan_hang ? ` (giao ${pxk.nguoi_nhan_hang})` : "");
       const note = pxk.loai_don === "tra_hang" ? "Trả hàng - chờ Kho xác nhận nhận hàng" : "Xuất kho - chờ Kho gửi/hàng trữ kho";
-      await pushPxkToKhovan(c.env, id, senderLabel, pxk.loai_don, note);
+      await pushPxkToKhovan(c.env, id, senderLabel, pxk.loai_don, note, pxk.ma_misa);
     }
   }
 

@@ -297,6 +297,15 @@ export function PhieuXuatKhoTab({
       setSelectedDonHang(new Set());
       setTimKiemDonHang("");
       setChonKtv("");
+      // FIX (phan hoi 2026-09-09: "tạo xong pxk, danh sách filter lại không hiện phiếu vừa tạo gây khó
+      // khăn chọn người thao tác") - PXK vua tao luon nam o sub-tab loai_don + trang thai dung buoc cua
+      // nguoi tao (TN, nguoi duy nhat thay nut "+ Tạo phiếu xuất kho"), chuyen THANG bo loc danh sach
+      // sang do + xoa cac bo loc phu (nguoi nhan hang/tim kiem) co the dang che khuat dong vua tao,
+      // thay vi bat nguoi dung tu di doi trang thai/sub-tab de tim lai chinh dong minh vua tao.
+      setXemLoaiDon(chonLoaiDon);
+      setFilterTrangThai(pendingTrangThaiForRole());
+      setFilterNguoiNhanHang("");
+      setFilterQ("");
       setChonLoaiDon("mua");
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk"] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung"] });
@@ -459,6 +468,40 @@ export function PhieuXuatKhoTab({
         searchValue={filterQ}
         onSearchChange={setFilterQ}
         searchPlaceholder="Tìm theo mã PXK, mã đơn hàng, mã MISA, mã vận đơn..."
+        activeFilters={
+          <>
+            {/* Nut bam nhanh "Đơn chờ xử lý" (them 2026-09-09, phan hoi "thêm 1 nút ấn nhanh...tự
+                filter ra danh sách cần làm theo vai trò bản thân") - chi hien khi vai tro dang xem
+                THAT SU co 1 buoc rieng trong pipeline PXK (pendingTrangThaiForRole khac rong), nhay
+                thang bo loc trang thai ve dung buoc do, khong dong cham cac bo loc phu khac. */}
+            {pendingTrangThaiForRole() && (
+              <Btn size="sm" variant="ghost" onClick={() => setFilterTrangThai(pendingTrangThaiForRole())}>
+                📋 Đơn chờ xử lý
+              </Btn>
+            )}
+            {/* Nut "Xóa bộ lọc" (them 2026-09-09, phan hoi "tab pxk thiếu nút xóa filter") - khac
+                "Xoá tất cả bộ lọc" trong ActiveFiltersBar ben duoi (chi xoa cac chip dang hien: nguoi
+                nhan hang/khu vuc/tim kiem, CO Y khong dong cham trang thai - xem comment "SUA (ra soat
+                #3)"), nut nay xoa THAT SU toan bo ke ca trang thai ve "Tất cả" - dat gan nut bam nhanh
+                o tren cho ro day la cap doi "nhay toi viec cua minh" / "xem het khong loc gi". Chi
+                hien khi co it nhat 1 bo loc dang ap dung, tranh chiem cho khi khong can.
+            */}
+            {(filterTrangThai || filterNguoiNhanHang || filterQ || khuVucParam) && (
+              <Btn
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setFilterTrangThai("");
+                  setFilterNguoiNhanHang("");
+                  setFilterQ("");
+                  setFilterKhuVuc(new Set());
+                }}
+              >
+                ✕ Xóa bộ lọc
+              </Btn>
+            )}
+          </>
+        }
         trailing={
           <div className="flex items-center gap-2">
             {settingsButtonEl}
