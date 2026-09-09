@@ -6,9 +6,10 @@ import { FileButton } from "../components/ui/FileButton";
 import { Badge } from "../components/ui/Badge";
 import { Tooltip } from "../components/ui/Tooltip";
 import { Modal } from "../components/ui/Modal";
+import { Tabs } from "../components/ui/Tabs";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
-import type { KtvTonKhoSummaryRow, KtvTonKhoChiTietRow, KtvTonKhoImportMeta } from "../types";
+import type { KtvTonKhoSummaryRow, KtvTonKhoChiTietRow, KtvTonKhoImportMeta, MaKhoChuaKhopRow } from "../types";
 import { fmtVND, fmtDateTime } from "../types";
 import { parseTonKhoImportFile } from "../lib/tonKhoImport";
 import { exportRowsToExcel } from "../lib/exportExcel";
@@ -61,6 +62,11 @@ function DanhGiaCongNoBadge({ value }: { value: "Vuot tran" | "Canh bao" | "Binh
 function TonKhoKtvContent() {
   const auth = useAuth();
   const isAdmin = auth.status === "authenticated" && auth.user.vai_tro === "Admin";
+  // "Chưa khớp mã kho" (them 2026-09-09, tach tab theo phan hoi nguoi dung) - dung LAI dung nhom duoc
+  // phep goi GET /ma-kho-chua-khop o backend (Admin/Ke toan, xem ktvTonKho.ts) - vai tro khac khong
+  // thay tab nay, tranh goi API se bi 403.
+  const canSeeChuaKhop = isAdmin || (auth.status === "authenticated" && auth.user.la_ke_toan);
+  const [tab, setTab] = useState<"da-khop" | "chua-khop">("da-khop");
   const qc = useQueryClient();
   const addToast = useToast();
   const [search, setSearch] = useState("");
@@ -82,6 +88,12 @@ function TonKhoKtvContent() {
     queryKey: ["ktv-ton-kho-meta"],
     queryFn: () => api.get<KtvTonKhoImportMeta | null>("/settings/ktv-ton-kho/import-meta"),
   });
+  const { data: chuaKhopData } = useQuery({
+    queryKey: ["ktv-ton-kho-ma-kho-chua-khop"],
+    queryFn: () => api.get<{ rows: MaKhoChuaKhopRow[] }>("/settings/ktv-ton-kho/ma-kho-chua-khop"),
+    enabled: canSeeChuaKhop,
+  });
+  const chuaKhopRows = chuaKhopData?.rows ?? [];
 
   const [detailKtv, setDetailKtv] = useState<KtvTonKhoSummaryRow | null>(null);
 
@@ -121,6 +133,7 @@ function TonKhoKtvContent() {
       setImportSummary({ matched, unmatched: Array.from(unmatched) });
       await qc.invalidateQueries({ queryKey: ["ktv-ton-kho"] });
       await qc.invalidateQueries({ queryKey: ["ktv-ton-kho-meta"] });
+      await qc.invalidateQueries({ queryKey: ["ktv-ton-kho-ma-kho-chua-khop"] });
       addToast(`Đã nhập xong: ${matched} dòng khớp KTV / ${parsed.rows.length} dòng đọc được`);
     } catch (err) {
       addToast("Lỗi nhập tồn kho: " + (err instanceof Error ? err.message : String(err)));
@@ -154,6 +167,22 @@ function TonKhoKtvContent() {
             📥 Import tồn kho MISA
           </Btn>
         )}
+      </div>
+      {canSeeChuaKhop && (
+        <Tabs
+          tabs={[
+            { key: "da-khop", label: "Đã khớp mã kho" },
+            { key: "chua-khop", label: "Chưa khớp mã kho", count: chuaKhopRows.length },
+          ]}
+          active={tab}
+          onChange={(k) => setTab(k as "da-khop" | "chua-khop")}
+        />
+      )}
+      {tab === "chua-khop" && canSeeChuaKhop ? (
+        <ChuaKhopPanel rows={chuaKhopRows} />
+      ) : (
+        <>
+      <div className="flex flex-wrap gap-2 items-center">
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -236,6 +265,8 @@ function TonKhoKtvContent() {
           </div>
         </div>
       )}
+        </>
+      )}
 
       {detailKtv && <TonKhoChiTietModal row={detailKtv} onClose={() => setDetailKtv(null)} />}
 
@@ -292,6 +323,78 @@ function TonKhoKtvContent() {
             </div>
           </div>
         </Modal>
+      )}
+    </div>
+  );
+}
+
+// "Chưa khớp mã kho" (them 2026-09-09) - danh sach cac "Mã kho" da import (ktv_ton_kho.ma_ktv IS
+// NULL) nhung khong khop "Mã MISA" cua KTV nao, xem GET /ma-kho-chua-khop o backend/src/routes/ktvTonKho.ts.
+// Tim kiem/phan trang lam CLIENT-SIDE (giong TonKhoKtvContent) vi backend khong phan trang endpoint nay
+// va so dong thuc te chi vai tram.
+function ChuaKhopPanel({ rows }: { rows: MaKhoChuaKhopRow[] }) {
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
+  const filtered = search
+    ? rows.filter((r) => {
+        const q = search.toLowerCase();
+        return r.ma_kho.toLowerCase().includes(q) || (r.ten_kho ?? "").toLowerCase().includes(q);
+      })
+    : rows;
+  useEffect(() => setPage(1), [search]);
+  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  return (
+    <div className="space-y-3">
+      <div className="text-xs text-[var(--ink-500)]">
+        Các "Mã kho" đã import nhưng chưa khớp "Mã MISA" của KTV nào - dữ liệu tồn kho vẫn được lưu nhưng chưa hiện trong danh sách "Đã khớp mã kho". Vào thẻ "KTV hiện trường" (Quản lý User) mở Sửa 1 KTV, chọn bổ sung "Mã tài khoản MISA" từ danh sách gợi ý để khớp lại.
+      </div>
+      <div className="flex flex-wrap gap-2 items-center">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Tìm theo mã/tên kho…"
+          className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-64"
+        />
+      </div>
+      <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+                <th className="px-3 py-2">Mã kho</th>
+                <th className="px-3 py-2">Tên kho</th>
+                <th className="px-3 py-2">Số mã hàng tồn</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-3 py-6 text-center text-[var(--ink-400)]">
+                    {rows.length === 0 ? "Không có mã kho nào chưa khớp." : "Không tìm thấy mã kho phù hợp."}
+                  </td>
+                </tr>
+              )}
+              {pageRows.map((r) => (
+                <tr key={r.ma_kho} className="border-b border-[var(--line)] last:border-0">
+                  <td className="px-3 py-2 font-mono text-xs">{r.ma_kho}</td>
+                  <td className="px-3 py-2">{r.ten_kho ?? "—"}</td>
+                  <td className="px-3 py-2">{r.so_ma_hang}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {filtered.length > 0 && (
+        <div className="flex items-center justify-between px-1 py-1 text-xs text-[var(--ink-400)]">
+          <span>{filtered.length} mã kho</span>
+          <div className="flex gap-1">
+            <Btn variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>‹</Btn>
+            <span className="px-2 py-1.5">{page}/{Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))}</span>
+            <Btn variant="ghost" size="sm" disabled={page * PAGE_SIZE >= filtered.length} onClick={() => setPage((p) => p + 1)}>›</Btn>
+          </div>
+        </div>
       )}
     </div>
   );
