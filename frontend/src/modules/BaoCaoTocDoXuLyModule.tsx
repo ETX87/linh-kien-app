@@ -180,12 +180,17 @@ function StageLeaderboard({ stage, filters }: { stage: GiaiDoanMeta; filters: Fi
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
+              {/* FIX (UX audit 2026-09-08, van de #6): them whitespace-nowrap cho header - truoc day
+                  o man hinh mobile (375px), overflow-x-auto khong kich hoat cuon ngang vi <table w-full>
+                  co the co lai bang cach cho chu header xuong 4-5 dong (vd "TB gio xu ly") thay vi
+                  vuot qua be rong container. nowrap buoc bang phai rong hon container that su, luc do
+                  overflow-x-auto moi cuon ngang dung nhu ky vong. */}
               <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
-                <th className="px-3 py-2">Tài khoản</th>
-                <th className="px-3 py-2 text-right">Đã xử lý</th>
-                <th className="px-3 py-2 text-right">Từ chối</th>
-                <th className="px-3 py-2 text-right">TB giờ xử lý</th>
-                <th className="px-3 py-2 text-right">Xu hướng</th>
+                <th className="px-3 py-2 whitespace-nowrap">Tài khoản</th>
+                <th className="px-3 py-2 text-right whitespace-nowrap">Đã xử lý</th>
+                <th className="px-3 py-2 text-right whitespace-nowrap">Từ chối</th>
+                <th className="px-3 py-2 text-right whitespace-nowrap">TB giờ xử lý</th>
+                <th className="px-3 py-2 text-right whitespace-nowrap">Xu hướng</th>
               </tr>
             </thead>
             <tbody>
@@ -235,7 +240,13 @@ function TongQuanRow({ stage, filters, onJump }: { stage: GiaiDoanMeta; filters:
   const avgTrend = withTrend.length > 0 ? withTrend.reduce((s, r) => s + r.xu_huong_phan_tram!, 0) / withTrend.length : null;
 
   return (
-    <tr className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => onJump(stage.luong, stage.key)}>
+    <tr
+      className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer focus-ring"
+      onClick={() => onJump(stage.luong, stage.key)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onJump(stage.luong, stage.key); } }}
+    >
       <td className="px-3 py-2">
         <div className="font-medium">{stage.label}</div>
         <div className="text-xs text-[var(--ink-400)]">{LUONG_LABELS[stage.luong]}</div>
@@ -257,12 +268,12 @@ function TongQuanTab({ stages, filters, onJump }: { stages: GiaiDoanMeta[]; filt
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
-              <th className="px-3 py-2">Giai đoạn</th>
-              <th className="px-3 py-2 text-right">TB giờ (toàn hệ thống)</th>
-              <th className="px-3 py-2 text-right">Đang chờ</th>
-              <th className="px-3 py-2">Chậm nhất</th>
-              <th className="px-3 py-2">Nhanh nhất</th>
-              <th className="px-3 py-2 text-right">Xu hướng</th>
+              <th className="px-3 py-2 whitespace-nowrap">Giai đoạn</th>
+              <th className="px-3 py-2 text-right whitespace-nowrap">TB giờ (toàn hệ thống)</th>
+              <th className="px-3 py-2 text-right whitespace-nowrap">Đang chờ</th>
+              <th className="px-3 py-2 whitespace-nowrap">Chậm nhất</th>
+              <th className="px-3 py-2 whitespace-nowrap">Nhanh nhất</th>
+              <th className="px-3 py-2 text-right whitespace-nowrap">Xu hướng</th>
             </tr>
           </thead>
           <tbody>

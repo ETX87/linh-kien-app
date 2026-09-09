@@ -199,12 +199,19 @@ export function DatMuaLinhKienModule({
   // isValidView("trang-chu") luon false - neu doi qua isValidView o day forceView se bi lo, roi thang
   // ve view/tabs[0], y het bug da bat gap khi tu kiem thu 2026-08-26). Quyen truy cap 2 route nay da
   // duoc gac o App.tsx (allowedModules) roi, khong can gac lai lan nua tai day.
+  // FIX (UX audit 2026-09-08): fallback cu la `tabs[0]?.key ?? "don-cua-toi"` - voi QC "thuan" (khong
+  // canTacNghiep/canKho/canKeToan/isGiamSat), tabs[] RONG (khong co "don-cua-toi" lan "phieu-xuat-kho")
+  // nen luon roi ve "don-cua-toi" cung, du day KHONG PHAI 1 view hop le cho ho (canXemDonMuaCongNo
+  // false). Hau qua: lan dau vao "Đơn hàng", thanh tab chi hien "Trả hàng" nhung noi dung lai am tham
+  // render DonCuaToiTab voi xemLoaiDon mac dinh "mua" (khong tab nao duoc danh dau active) - man hinh
+  // vo dung "Việc của bạn" thuc su. Uu tien "tra-hang" (hop le qua isValidView) truoc khi roi ve
+  // "don-cua-toi" lam phao cuu cuoi cung.
   const activeView =
     !navigatedAway && forceView && (forceView === "trang-chu" || forceView === "thieu-lk" || isValidView(forceView))
       ? forceView
       : isValidView(view)
         ? view
-        : (tabs[0]?.key ?? "don-cua-toi");
+        : (tabs[0]?.key ?? (canTraHangView ? "tra-hang" : "don-cua-toi"));
 
   // Sub-loc "Mua hang | Cong no | Tra hang" cua tab "Don cua toi" - NANG LEN module (phan hoi
   // 2026-08-19: hien thanh 3 tab thuc su o thanh tab tren cung, thay vi 1 hang nut rieng ben trong

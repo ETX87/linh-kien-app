@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../components/ui/Btn";
+import { FileButton } from "../components/ui/FileButton";
 import { Tooltip } from "../components/ui/Tooltip";
 import { Modal } from "../components/ui/Modal";
 import { Select } from "../components/ui/Select";
@@ -948,7 +949,14 @@ function DanhMucTab() {
             // FIX (phan hoi 2026-08-26, hang muc #7): rut con DUNG 2 dong thong tin co ban (ten + gia/
             // trang thai) - bo ma_linh_kien/Dac thu khoi mat card (van xem day du trong
             // PartDetailDrawer khi bam vao card), tranh card qua dai/roi mat tren man hinh hep.
-            <div key={p.ma_linh_kien} onClick={() => setViewingMa(p.ma_linh_kien)} className="flex items-center gap-3 px-3 py-2.5 active:bg-slate-50 cursor-pointer">
+            <div
+              key={p.ma_linh_kien}
+              onClick={() => setViewingMa(p.ma_linh_kien)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setViewingMa(p.ma_linh_kien); } }}
+              className="flex items-center gap-3 px-3 py-2.5 active:bg-slate-50 cursor-pointer focus-ring"
+            >
               <AnhThumbnail url={p.anh_demo} active={!!p.bat_tat} size={56} />
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-[var(--ocean-800)] truncate">{p.ten_linh_kien}</div>
@@ -1036,21 +1044,17 @@ function DanhMucTab() {
             <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Ảnh minh hoạ</label>
             <div className="flex items-center gap-3 mt-1">
               <AnhThumbnail url={formMode === "add" ? stagedImagePreview : editingRow?.anh_demo ?? null} cacheBust={formMode === "edit" ? imgCacheBust || undefined : undefined} size={64} />
-              <div className="flex flex-col gap-1">
-                <input
-                  type="file"
+              <div className="flex flex-col gap-1 items-start">
+                <FileButton
                   accept="image/*"
                   disabled={uploadingAnh}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) {
-                      if (formMode === "add") onPickStagedImage(f);
-                      else void handleUploadAnh(f);
-                    }
-                    e.target.value = "";
+                  onFileSelected={(f) => {
+                    if (formMode === "add") onPickStagedImage(f);
+                    else void handleUploadAnh(f);
                   }}
-                  className="text-xs"
-                />
+                >
+                  {uploadingAnh ? "Đang tải..." : "⬆ Chọn ảnh"}
+                </FileButton>
                 {formMode === "edit" && editingRow?.anh_demo && (
                   <button type="button" className="text-xs text-[var(--ocean-600)] hover:underline self-start" onClick={() => setImgCacheBust((n) => n + 1)}>
                     🔄 Đồng bộ lại ảnh
@@ -1122,12 +1126,9 @@ function DanhMucTab() {
               <Btn variant="ghost" size="sm" onClick={() => void downloadAnhImportTemplate()}>
                 ⬇ Tải file mẫu
               </Btn>
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleBulkImportAnh(f); e.target.value = ""; }}
-                className="text-sm"
-              />
+              <FileButton accept=".xlsx,.xls" onFileSelected={(f) => void handleBulkImportAnh(f)}>
+                ⬆ Chọn file Excel
+              </FileButton>
             </>
           )}
           {bulkImportRunning && (
@@ -1176,12 +1177,9 @@ function DanhMucTab() {
               <Btn variant="ghost" size="sm" onClick={() => void downloadCatalogImportTemplate()}>
                 ⬇ Tải file mẫu
               </Btn>
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleBulkImportCatalog(f); e.target.value = ""; }}
-                className="text-sm"
-              />
+              <FileButton accept=".xlsx,.xls" onFileSelected={(f) => void handleBulkImportCatalog(f)}>
+                ⬆ Chọn file Excel
+              </FileButton>
             </>
           )}
           {catalogImportRunning && (

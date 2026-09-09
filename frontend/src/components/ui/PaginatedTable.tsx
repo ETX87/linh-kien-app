@@ -158,7 +158,23 @@ export function PaginatedTable<T>({
               <div
                 key={rowKey(row)}
                 onClick={() => onRowClick?.(row)}
-                className={`relative px-3 py-2.5 ${onRowClick ? "cursor-pointer active:bg-slate-50" : ""} ${rowClassName?.(row) ?? ""}`}
+                // FIX (UX audit 2026-09-08, van de #7): dong bam duoc CHI la <div onClick>, khong
+                // the Tab toi hay kich hoat bang ban phim, va trinh doc man hinh khong bao day la 1
+                // dieu khien co the bam - them role/tabIndex/onKeyDown de dong bam duoc coi nhu 1
+                // button that su. Cac o con (checkbox/nut hanh dong) van stopPropagation binh thuong.
+                role={onRowClick ? "button" : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
+                onKeyDown={
+                  onRowClick
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onRowClick(row);
+                        }
+                      }
+                    : undefined
+                }
+                className={`relative px-3 py-2.5 ${onRowClick ? "cursor-pointer active:bg-slate-50 focus-ring" : ""} ${rowClassName?.(row) ?? ""}`}
               >
                 <div className={`flex items-start gap-2 ${selectCol ? "pl-6" : ""}`}>
                   {selectCol && <div className="absolute left-3 top-3" onClick={(e) => e.stopPropagation()}>{selectCol.render(row)}</div>}
@@ -256,8 +272,20 @@ export function PaginatedTable<T>({
               rows.map((row) => (
                 <tr
                   key={rowKey(row)}
-                  className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 ${onRowClick ? "cursor-pointer" : ""} ${rowClassName?.(row) ?? ""}`}
+                  className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 ${onRowClick ? "cursor-pointer focus-ring" : ""} ${rowClassName?.(row) ?? ""}`}
                   onClick={() => onRowClick?.(row)}
+                  role={onRowClick ? "button" : undefined}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  onKeyDown={
+                    onRowClick
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onRowClick(row);
+                          }
+                        }
+                      : undefined
+                  }
                 >
                   {effectiveColumns.map((col) => {
                     const width = colWidths[col.key];

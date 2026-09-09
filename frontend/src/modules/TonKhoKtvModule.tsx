@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { Btn } from "../components/ui/Btn";
+import { FileButton } from "../components/ui/FileButton";
 import { Badge } from "../components/ui/Badge";
 import { Tooltip } from "../components/ui/Tooltip";
 import { Modal } from "../components/ui/Modal";
@@ -190,7 +191,14 @@ function TonKhoKtvContent() {
                 </tr>
               )}
               {pageRows.map((r) => (
-                <tr key={r.ma_ktv} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => setDetailKtv(r)}>
+                <tr
+                  key={r.ma_ktv}
+                  className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer focus-ring"
+                  onClick={() => setDetailKtv(r)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDetailKtv(r); } }}
+                >
                   <td className="px-3 py-2 font-mono text-xs">{r.ma_ktv}</td>
                   <td className="px-3 py-2">{r.ten_hien_thi ?? "—"}</td>
                   <td className="px-3 py-2">{r.ma_misa ?? "—"}</td>
@@ -242,12 +250,9 @@ function TonKhoKtvContent() {
                 <Btn variant="ghost" size="sm" onClick={() => void downloadTonKhoImportTemplate()}>
                   ⬇ Tải file mẫu
                 </Btn>
-                <input
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImport(f); e.target.value = ""; }}
-                  className="text-sm"
-                />
+                <FileButton accept=".xlsx,.xls" onFileSelected={(f) => void handleImport(f)}>
+                  ⬆ Chọn file Excel
+                </FileButton>
               </>
             )}
             {importRunning && (

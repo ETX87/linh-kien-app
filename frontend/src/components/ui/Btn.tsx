@@ -20,6 +20,12 @@ const VARIANTS: Record<BtnVariant, string> = {
   success: "bg-[var(--teal-500)] text-white hover:opacity-90",
 };
 
+// Tach rieng (UX audit 2026-09-08, van de #5 "input file tho pha vo design system") de FileButton.tsx
+// dung chung dung 1 bo class voi Btn thay vi copy tay 2 noi - doi 1 cho la du.
+export function btnClasses(variant: BtnVariant = "primary", size: BtnSize = "md", className = "") {
+  return `focus-ring inline-flex items-center gap-1.5 rounded-lg font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${SIZES[size]} ${VARIANTS[variant]} ${className}`;
+}
+
 interface BtnProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "size"> {
   children: ReactNode;
   variant?: BtnVariant;
@@ -35,7 +41,7 @@ export function Btn({ children, variant = "primary", size = "md", className = ""
     <button
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={`focus-ring inline-flex items-center gap-1.5 rounded-lg font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${SIZES[size]} ${VARIANTS[variant]} ${className}`}
+      className={btnClasses(variant, size, className)}
       {...rest}
     >
       {loading && (

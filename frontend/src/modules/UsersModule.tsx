@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, buildQuery } from "../api/client";
 import { Btn } from "../components/ui/Btn";
+import { FileButton } from "../components/ui/FileButton";
 import { Badge } from "../components/ui/Badge";
 import { Modal } from "../components/ui/Modal";
 import { Select } from "../components/ui/Select";
@@ -1026,12 +1027,9 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
               <Btn variant="ghost" size="sm" onClick={() => void downloadKtvImportTemplate()}>
                 ⬇ Tải file mẫu
               </Btn>
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleBulkImportKtv(f); e.target.value = ""; }}
-                className="text-sm"
-              />
+              <FileButton accept=".xlsx,.xls" onFileSelected={(f) => void handleBulkImportKtv(f)}>
+                ⬆ Chọn file Excel
+              </FileButton>
             </>
           )}
           {bulkRunning && (
@@ -1140,7 +1138,14 @@ function PhuTrachGsTab() {
             </thead>
             <tbody>
               {tnKhoKeToan.map((u) => (
-                <tr key={u.email} onClick={() => openFor(u.email)} className="cursor-pointer border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                <tr
+                  key={u.email}
+                  onClick={() => openFor(u.email)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openFor(u.email); } }}
+                  className="cursor-pointer focus-ring border-b border-[var(--line)] last:border-0 hover:bg-slate-50"
+                >
                   <td className="px-3 py-2">{formatPersonDisplay(u.email, personDir)}</td>
                   <td className="px-3 py-2">
                     {[u.la_tac_nghiep && "TN", u.la_kho && "Kho", u.la_ke_toan && "Kế toán"].filter(Boolean).join(", ")}

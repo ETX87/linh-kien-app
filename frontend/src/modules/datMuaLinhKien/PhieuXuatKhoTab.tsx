@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
+import { FileButton } from "../../components/ui/FileButton";
 import { Badge } from "../../components/ui/Badge";
 import { Modal } from "../../components/ui/Modal";
 import { Drawer, DrawerNavButtons, useDrawerArrowNav } from "../../components/ui/Drawer";
@@ -11,12 +12,11 @@ import { ColumnSettingsButton } from "../../components/ui/ColumnHeader";
 import { KvRow } from "../../components/ui/KvRow";
 import { SectionTitle } from "../../components/ui/SectionTitle";
 import { Timeline } from "../../components/ui/Timeline";
-import { Stepper } from "../../components/ui/Stepper";
 import { api, buildQuery, ApiError } from "../../api/client";
 import { fmtDateTime, fmtVND } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import type { DonHangRow, PhieuXuatKhoRow, DonHangKhaDungRow, NguoiNhanHangKhaDungRow, LyDoChamRow, KtvDisplayMap } from "./types";
-import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_TIEN_OPTIONS, PXK_MINI_STEPS, PXK_MINI_LABEL } from "./constants";
+import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_TIEN_OPTIONS } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   trangThaiLabel, LOAI_DON_TONE,
@@ -1003,20 +1003,12 @@ export function PxkDetailModal({
         <div className="text-sm text-[var(--ink-500)] py-4 text-center">Đang tải...</div>
       ) : !data || !pxk ? null : (
         <div className="space-y-4 text-sm">
-          {/* MOI (concept 1 "Structured Neutral", pattern .stepper): dai buoc tuyen tinh cho luong
-              chinh cua PXK (5 buoc chinh trong PXK_MINI_STEPS) - bo sung canh PxkMiniPipeline hien co
-              (chevron, van GIU NGUYEN khong doi), khong thay the. Trang thai nhanh re (Ke toan huy/
-              Hang tru kho/Kho da ket thuc/Kho da nhan hang tra) khong nam trong truc chinh -> khong
-              buoc nao duoc danh dau "done"/"cur", giong dung cach PxkMiniPipeline xu ly re nhanh. */}
-          <Stepper
-            steps={PXK_MINI_STEPS.map((s, i) => {
-              const idxHienTai = PXK_MINI_STEPS.indexOf(trangThai as (typeof PXK_MINI_STEPS)[number]);
-              return { label: PXK_MINI_LABEL[s], state: idxHienTai < 0 ? "todo" : i < idxHienTai ? "done" : i === idxHienTai ? "cur" : "todo" };
-            })}
-          />
           {/* CHOT (ra soat module "Dat Mua Linh Kien 2.0" #19): mini pipeline dau modal - truoc day
               chi co 1 StatusBadge dong dau, khong biet dang o buoc may trong bao nhieu buoc cua vong
-              doi PXK (9 trang thai). */}
+              doi PXK (9 trang thai). FIX (UX audit 2026-09-08): tung co them 1 <Stepper> (5 buoc,
+              khong hien duoc trang thai nhanh re) NGAY TREN day, lap thong tin voi chinh mini pipeline
+              nay ma khong bo sung gi (PxkMiniPipeline da xu ly du ca 5 buoc chinh lan 4 trang thai
+              nhanh re) - bo han <Stepper>, chi giu 1 chi bao duy nhat. */}
           <PxkMiniPipeline trangThai={trangThai} />
           <div className="flex gap-3 items-center flex-wrap">
             {pxk.ma_xuat_kho_xac_nhan ? (
@@ -1097,15 +1089,9 @@ export function PxkDetailModal({
           {trangThai === "Dang gui KTV" && currentEmail === pxk.nguoi_nhan_hang && (
             <div className="border border-[var(--line)] rounded-lg p-3">
               <SectionTitle>Ảnh biên bản tiếp nhận (không bắt buộc)</SectionTitle>
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                disabled={uploadingAnh}
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleUploadAnhBienBan(f); }}
-                className="text-xs"
-              />
-              {uploadingAnh && <div className="text-xs text-[var(--ink-500)] mt-2">Đang tải ảnh...</div>}
+              <FileButton accept="image/*" capture="environment" disabled={uploadingAnh} onFileSelected={(f) => void handleUploadAnhBienBan(f)}>
+                {uploadingAnh ? "Đang tải..." : "⬆ Chọn ảnh"}
+              </FileButton>
             </div>
           )}
 
@@ -1143,15 +1129,9 @@ export function PxkDetailModal({
                 {pxk.trang_thai_chuyen_tien === "Cho KTV chuyen" && (
                   <div className="space-y-1.5 mt-2">
                     <div className="flex gap-2 items-center flex-wrap">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        disabled={uploadingBangChung}
-                        onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleUploadBangChungChuyenTien(f); }}
-                        className="text-xs"
-                      />
-                      {uploadingBangChung && <span className="text-xs text-[var(--ink-500)]">Đang tải ảnh...</span>}
+                      <FileButton accept="image/*" capture="environment" disabled={uploadingBangChung} onFileSelected={(f) => void handleUploadBangChungChuyenTien(f)}>
+                        {uploadingBangChung ? "Đang tải..." : "⬆ Chọn ảnh"}
+                      </FileButton>
                       {bangChungUrl && !uploadingBangChung && <span className="text-xs text-[var(--teal-600)]">✓ Đã tải ảnh, sẵn sàng xác nhận</span>}
                     </div>
                     <div className="flex gap-2 items-center flex-wrap">

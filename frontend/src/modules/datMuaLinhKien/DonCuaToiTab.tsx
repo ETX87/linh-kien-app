@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
+import { FileButton } from "../../components/ui/FileButton";
 import { Badge, type BadgeTone } from "../../components/ui/Badge";
 import { Modal } from "../../components/ui/Modal";
 import { Drawer, DrawerNavButtons, useDrawerArrowNav } from "../../components/ui/Drawer";
@@ -938,15 +939,9 @@ export function DonHangDetailModal({
                   {currentEmail === pxk.nguoi_nhan_hang && pxk.trang_thai_chuyen_tien === "Cho KTV chuyen" && (
                     <div className="space-y-1.5 mt-2">
                       <div className="flex gap-2 items-center flex-wrap">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          disabled={uploadingBangChung}
-                          onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleUploadBangChungChuyenTien(pxk.id, f); }}
-                          className="text-xs"
-                        />
-                        {uploadingBangChung && <span className="text-xs text-[var(--ink-500)]">Đang tải ảnh...</span>}
+                        <FileButton accept="image/*" capture="environment" disabled={uploadingBangChung} onFileSelected={(f) => void handleUploadBangChungChuyenTien(pxk.id, f)}>
+                          {uploadingBangChung ? "Đang tải..." : "⬆ Chọn ảnh"}
+                        </FileButton>
                         {bangChungUrl && !uploadingBangChung && <span className="text-xs text-[var(--teal-600)]">✓ Đã tải ảnh, sẵn sàng xác nhận</span>}
                       </div>
                       <div className="flex gap-2 items-center flex-wrap">
