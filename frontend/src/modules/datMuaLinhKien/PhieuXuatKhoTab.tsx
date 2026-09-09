@@ -95,7 +95,7 @@ export function PhieuXuatKhoTab({
     if (initialDetailIdOverride) setDetailId(initialDetailIdOverride);
   }, [initialDetailIdOverride]);
   const [showCreate, setShowCreate] = useState(false);
-  const [createData, setCreateData] = useState({ ghi_chu: "", so_tien_can_chuyen: "" });
+  const [createData, setCreateData] = useState({ ghi_chu: "", so_tien_can_chuyen: "", ma_xuat_kho: "" });
   const [chonKtv, setChonKtv] = useState("");
   const [chonLoaiDon, setChonLoaiDon] = useState<"mua" | "cong_no" | "tra_hang">("mua");
   const [selectedDonHang, setSelectedDonHang] = useState<Set<string>>(new Set());
@@ -271,6 +271,12 @@ export function PhieuXuatKhoTab({
     mutationFn: () =>
       api.post<{ id: string }>("/phieu-xuat-kho", {
         ghi_chu: createData.ghi_chu.trim() || undefined,
+        // FIX (phan hoi 2026-09-09: "bổ sung thêm 1 cột mã đơn hàng nhập cùng lúc với PXK") - truoc
+        // day form tao PXK khong co o nhap "Mã đơn hàng" du backend da ho tro tuy chon truong nay
+        // tu Dot 2 (xem comment POST /phieu-xuat-kho o backend) - TN buoc phai tao PXK truoc, roi
+        // quay lai Drawer nhap rieng qua PATCH /:id/ma-xuat-kho. Them o nhap ngay tai day de nhap
+        // 1 lan, cung luc voi cac truong con lai (khi da biet ma tu luc tao, khong can round-trip).
+        ma_xuat_kho: createData.ma_xuat_kho.trim() || undefined,
         dat_don_hang_ids: [...selectedDonHang],
         so_tien_can_chuyen: createData.so_tien_can_chuyen ? Number(createData.so_tien_can_chuyen) : undefined,
         nguoi_nhan_hang: chonKtv,
@@ -279,7 +285,7 @@ export function PhieuXuatKhoTab({
     onSuccess: (res) => {
       addToast(`Đã tạo phiếu xuất kho ${res.id}`);
       setShowCreate(false);
-      setCreateData({ ghi_chu: "", so_tien_can_chuyen: "" });
+      setCreateData({ ghi_chu: "", so_tien_can_chuyen: "", ma_xuat_kho: "" });
       setSelectedDonHang(new Set());
       setTimKiemDonHang("");
       setChonKtv("");
@@ -610,6 +616,15 @@ export function PhieuXuatKhoTab({
               </div>
             </div>
             <div>
+              <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Mã đơn hàng (tuỳ chọn, có thể nhập sau nếu chưa biết)</label>
+              <input
+                value={createData.ma_xuat_kho}
+                onChange={(e) => setCreateData((p) => ({ ...p, ma_xuat_kho: e.target.value }))}
+                placeholder="Nhập nếu đã biết mã đơn hàng ngay lúc tạo"
+                className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              />
+            </div>
+            <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-semibold text-[var(--ink-600)]">Số tiền cần KTV chuyển * (nhập 0 nếu không cần chuyển tiền)</label>
                 {/* Tu dien tien uoc tinh (phan hoi 2026-08-26) - dien = tong tien cac dong DA CHON o
@@ -890,16 +905,16 @@ export function PxkDetailModal({
           }
           className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
         />
-        {/* Icon hoa (phan hoi 2026-08-19: "PXK được tạo ra đang bị tràn vùng xem... dựa theo
-            cách xử ở table TN để làm chuẩn") - cung mau pattern icon+tooltip da ap dung cho 4
-            nut Duyet/Cho hang/Tu choi/Huy trong DonCuaToiTab.tsx (title/aria-label giu nguyen
-            ten day du, className="px-2" thu hep padding ngang) - chi khac o day la hang nut
-            WORKFLOW cua CA PXK (khong phai tung dong), van giu nguyen dieu kien hien/disabled cu. */}
-        <div className="flex gap-1 flex-wrap">
+        {/* FIX (phan hoi 2026-09-09: "button trong drawer qua nho, lam to va co chu - chi icon
+            tren table moi can nho") - truoc day hang nut WORKFLOW nay dung chung 1 pattern voi
+            action icon o TABLE (size="sm" + className="px-2" thu hep, nhieu nut chi con 1 icon
+            khong chu). Trong DRAWER (khong bi gioi han be rong 1 dong nhu table) khong con ly do
+            nen giu nho/an chu - doi sang size="md" + luon hien chu, bo "px-2". Cac nut trong TABLE
+            (DonCuaToiTab.tsx/ThieuLkTab.tsx cot "hanh dong") KHONG doi, van giu icon nho vi phai
+            gon trong 1 dong danh sach. */}
+        <div className="flex gap-2 flex-wrap">
           {canTacNghiep && trangThai === "Dang tao phieu" && (
             <Btn
-              size="sm"
-              className="px-2"
               onClick={() => logMutation.mutate("Cho ke toan")}
               disabled={logMutation.isPending || !chuyenTienOk || !pxk.ma_xuat_kho_xac_nhan}
               title={!chuyenTienOk ? "Cần Kế toán duyệt bằng chứng chuyển tiền trước" : !pxk.ma_xuat_kho_xac_nhan ? "Cần nhập Mã đơn hàng trước" : "Gửi kế toán"}
@@ -912,62 +927,58 @@ export function PxkDetailModal({
             // FIX (phan hoi 2026-08-25, hang muc #19): ghi_chu nay BAT BUOC o backend - disable
             // nut khi chua nhap (truoc day khong bat buoc gi).
             <Btn
-              size="sm"
               variant="danger"
-              className="px-2"
               onClick={() => logMutation.mutate("Ke toan huy")}
               disabled={logMutation.isPending || !ghiChu.trim()}
               title={!ghiChu.trim() ? "Cần nhập ghi chú/lý do huỷ trước" : "Kế toán huỷ"}
               aria-label="Kế toán huỷ"
             >
-              🗑
+              🗑 Kế toán huỷ
             </Btn>
           )}
           {canKeToan && trangThai === "Cho ke toan" && (
             <Btn
-              size="sm"
-              className="px-2"
               onClick={() => logMutation.mutate("Da chot xong don xuat")}
               disabled={logMutation.isPending || !pxk.ma_misa}
               loading={logMutation.isPending}
               title={!pxk.ma_misa ? "Cần nhập Mã MISA trước" : "Đã chốt xong đơn xuất"}
               aria-label="Đã chốt xong đơn xuất"
             >
-              ✅
+              ✅ Đã chốt xong đơn xuất
             </Btn>
           )}
           {/* SUA (migration 0002_tra_hang_pxk.sql): PXK tra hang KHONG co buoc "dang gui" trung
               gian (hang khong phai ship di dau) - chi 1 nut Kho xac nhan da nhan hang VE kho. */}
           {canKho && trangThai === "Da chot xong don xuat" && pxk.loai_don === "tra_hang" && (
-            <Btn size="sm" className="px-2" onClick={() => logMutation.mutate("Kho da nhan hang tra")} disabled={logMutation.isPending} loading={logMutation.isPending} title="Kho đã nhận hàng trả" aria-label="Kho đã nhận hàng trả">
-              📥
+            <Btn onClick={() => logMutation.mutate("Kho da nhan hang tra")} disabled={logMutation.isPending} loading={logMutation.isPending} title="Kho đã nhận hàng trả" aria-label="Kho đã nhận hàng trả">
+              📥 Kho đã nhận hàng trả
             </Btn>
           )}
           {canKho && trangThai === "Da chot xong don xuat" && pxk.loai_don !== "tra_hang" && (
             <>
-              <Btn size="sm" className="px-2" onClick={() => logMutation.mutate("Dang gui KTV")} disabled={logMutation.isPending} loading={logMutation.isPending} title="Đang gửi KTV" aria-label="Đang gửi KTV">
-                🚚
+              <Btn onClick={() => logMutation.mutate("Dang gui KTV")} disabled={logMutation.isPending} loading={logMutation.isPending} title="Đang gửi KTV" aria-label="Đang gửi KTV">
+                🚚 Đang gửi KTV
               </Btn>
-              <Btn size="sm" variant="ghost" className="px-2" onClick={() => logMutation.mutate("Hang tru kho")} disabled={logMutation.isPending} title="Hàng trừ kho" aria-label="Hàng trừ kho">
-                📦
+              <Btn variant="ghost" onClick={() => logMutation.mutate("Hang tru kho")} disabled={logMutation.isPending} title="Hàng trừ kho" aria-label="Hàng trừ kho">
+                📦 Hàng trừ kho
               </Btn>
             </>
           )}
           {/* Muc F (Dot 2): CHOT bat buoc DUNG nguoi nhan hang xac nhan - an nut voi moi nguoi
               khac (ke ca Admin/TN xem, du backend van cho Admin bam duoc de xu ly su co). */}
           {trangThai === "Dang gui KTV" && currentEmail === pxk.nguoi_nhan_hang && (
-            <Btn size="sm" className="px-2" onClick={() => logMutation.mutate("KTV da nhan")} disabled={logMutation.isPending} loading={logMutation.isPending} title="KTV đã nhận" aria-label="KTV đã nhận">
-              📥
+            <Btn onClick={() => logMutation.mutate("KTV da nhan")} disabled={logMutation.isPending} loading={logMutation.isPending} title="KTV đã nhận" aria-label="KTV đã nhận">
+              📥 KTV đã nhận
             </Btn>
           )}
           {trangThai === "Dang gui KTV" && currentEmail !== pxk.nguoi_nhan_hang && isAdmin && (
-            <Btn size="sm" variant="ghost" className="px-2" onClick={() => logMutation.mutate("KTV da nhan")} disabled={logMutation.isPending} title="KTV đã nhận (Admin xác nhận thay - trường hợp đặc biệt)" aria-label="KTV đã nhận (Admin xác nhận thay)">
-              🛡️📥
+            <Btn variant="ghost" onClick={() => logMutation.mutate("KTV da nhan")} disabled={logMutation.isPending} title="KTV đã nhận (Admin xác nhận thay - trường hợp đặc biệt)" aria-label="KTV đã nhận (Admin xác nhận thay)">
+              🛡️📥 KTV đã nhận (thay)
             </Btn>
           )}
           {canKho && trangThai === "Dang gui KTV" && (
-            <Btn size="sm" variant="ghost" className="px-2" onClick={() => logMutation.mutate("Kho da ket thuc")} disabled={logMutation.isPending} title="Kho đã kết thúc (KTV không phản hồi)" aria-label="Kho đã kết thúc (KTV không phản hồi)">
-              ⏹️
+            <Btn variant="ghost" onClick={() => logMutation.mutate("Kho da ket thuc")} disabled={logMutation.isPending} title="Kho đã kết thúc (KTV không phản hồi)" aria-label="Kho đã kết thúc (KTV không phản hồi)">
+              ⏹️ Kho đã kết thúc
             </Btn>
           )}
         </div>
@@ -1024,6 +1035,16 @@ export function PxkDetailModal({
                 {chuyenTienOk ? "Chưa có mã đơn hàng" : "Chưa có mã đơn hàng (đang chờ KTV chuyển tiền)"}
               </span>
             )}
+            {/* FIX (phan hoi 2026-09-09: "mã MISA đã nhập là thông tin quan trọng, làm to và tô màu
+                lên + song song với mã đơn hàng/PXK") - truoc day Mã MISA chi la 1 <span> nho mau xam
+                lan trong hang metadata cuoi (ngang hang ngay tao/mã vận đơn), de bi bo qua du la du
+                lieu Ke toan da doi chieu that su voi MISA. Doi sang badge noi bat (nen mau, chu dam,
+                to hon text-xs binh thuong) dat NGAY CANH ma don hang/PXK dau hang thay vi cuoi hang.*/}
+            {pxk.ma_misa && (
+              <span className="inline-flex items-center gap-1 rounded-lg bg-[var(--ocean-100)] text-[var(--ocean-800)] font-mono font-bold text-sm px-2.5 py-1">
+                MISA: {pxk.ma_misa}
+              </span>
+            )}
             {pxk.ma_xuat_kho_xac_nhan &&
               MISA_TEMPLATE_ORDER.map((tpl) => (
                 <Btn
@@ -1042,7 +1063,6 @@ export function PxkDetailModal({
               <span className="text-[var(--ink-500)] text-xs">{formatNguoiDisplay(pxk.nguoi_nhan_hang, ktvDisplayMap)}</span>
             )}
             <span className="text-[var(--ink-500)] text-xs">{fmtDateTime(pxk.ngay_tao)}</span>
-            {pxk.ma_misa && <span className="text-xs text-[var(--ink-500)]">Mã MISA: <span className="font-mono">{pxk.ma_misa}</span></span>}
             {pxk.ma_van_don && <span className="text-xs text-[var(--ink-500)]">Mã vận đơn: <span className="font-mono">{pxk.ma_van_don}</span></span>}
             {pxk.anh_bien_ban_url && (
               <a href={pxk.anh_bien_ban_url} target="_blank" rel="noreferrer" className="text-[var(--ocean-800)] underline text-xs">Xem ảnh biên bản</a>
