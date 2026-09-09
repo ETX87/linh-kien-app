@@ -59,7 +59,10 @@ export function ActiveFiltersBar({ chips }: { chips: { label: string; onClear: (
 export function DetailZone({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
   return (
     <div className={`rounded-xl border border-[var(--line)] bg-[var(--surface-100)]/50 p-3 ${className}`}>
-      <div className="text-[10.5px] uppercase tracking-wider text-[var(--ink-400)] font-extrabold mb-1.5">{title}</div>
+      {/* SUA (ra soat "giao diện demo không hề giống" 2026-09-09) - mau chu doi tu --ink-400 (xam nhat)
+          sang --ocean-800 (navy dam), do mau pixel truc tiep tren anh demo (vung "THÔNG TIN ĐƠN") xac
+          nhan la navy chu khong phai xam nhu truoc, dong bo voi SectionTitle.tsx cung dot sua. */}
+      <div className="text-[10.5px] uppercase tracking-wider text-[var(--ocean-800)] font-extrabold mb-1.5">{title}</div>
       {children}
     </div>
   );

@@ -11,12 +11,13 @@ import { useColumnConfig } from "../../components/ui/useColumnConfig";
 import { ColumnSettingsButton } from "../../components/ui/ColumnHeader";
 import { KvRow } from "../../components/ui/KvRow";
 import { SectionTitle } from "../../components/ui/SectionTitle";
+import { IconChip } from "../../components/ui/IconChip";
 import { Timeline } from "../../components/ui/Timeline";
 import { api, buildQuery, ApiError } from "../../api/client";
 import { fmtDateTime, fmtVND } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import type { DonHangRow, PhieuXuatKhoRow, DonHangKhaDungRow, NguoiNhanHangKhaDungRow, LyDoChamRow, KtvDisplayMap } from "./types";
-import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_TIEN_OPTIONS } from "./constants";
+import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_TIEN_OPTIONS, TRANG_THAI_DOT_TONE } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   trangThaiLabel, LOAI_DON_TONE,
@@ -59,6 +60,13 @@ export function PhieuXuatKhoTab({
   // dung 1 lan, khong con dung timer mu.
   onDetailIdConsumed?: () => void;
 }) {
+  // Trang thai "cho xu ly" theo dung buoc cua vai tro dang xem (them 2026-09-09, phan hoi "thêm 1 nút
+  // ấn nhanh 'Đơn chờ xử lý'") - tach ham rieng de dung LAI o ca 3 noi: gia tri mac dinh luc mo tab
+  // (savedFilterTrangThai ben duoi), luc tao xong 1 PXK moi (xem createMutation.onSuccess), va nut bam
+  // nhanh "Đơn chờ xử lý" trong FilterSearchBar - tranh 3 noi tu tinh rieng roi lech nhau.
+  function pendingTrangThaiForRole(): string {
+    return canKeToan ? "Cho ke toan" : canKho ? "Da chot xong don xuat" : canTacNghiep ? "Dang tao phieu" : "";
+  }
   // FIX (2026-08-31, phan hoi "Phiếu xuất kho (x2) nhưng ấn vào lại...hiện 3 đơn (1 đơn đang chờ kế
   // toán)"): truoc day TN mac dinh giu "Tat ca" (y dinh ban dau: theo doi xuyen suot vong doi PXK minh
   // tao), nhung badge mo-count cho TN chi dem trang_thai "Dang tao phieu" (buoc TN thuc su can xu ly
@@ -68,7 +76,7 @@ export function PhieuXuatKhoTab({
   // xem giai thich day du o DonCuaToiTab.tsx. Doi key -v2 (2026-08-31) de reset gia tri "Tat ca" cu.
   const [savedFilterTrangThai, setSavedFilterTrangThai] = useLocalStorageState(
     "filters:dmlk-pxk-tt-v2",
-    canKeToan ? "Cho ke toan" : canKho ? "Da chot xong don xuat" : canTacNghiep ? "Dang tao phieu" : "",
+    pendingTrangThaiForRole(),
   );
   // FIX (phan hoi 2026-08-28: "click vào Chờ tiền (x1) => danh sách trống, quay lại bấm lại => hiện 1
   // đơn") - khoi tao TRUC TIEP tu initialFilterOverride khi co (thay vi luon khoi tao tu
@@ -995,7 +1003,12 @@ export function PxkDetailModal({
     // moi vua mo rong; bang "Dong don hang" va lich su van giu FULL WIDTH vi can nhieu cot ngang.
     <Drawer
       open
-      title={`Phiếu xuất kho ${id}`}
+      title={
+        <span className="flex items-center gap-2.5">
+          <IconChip icon="📄" size="md" />
+          {`Phiếu xuất kho ${id}`}
+        </span>
+      }
       onClose={onClose}
       width="max-w-2xl"
       footer={footer}
@@ -1076,7 +1089,7 @@ export function PxkDetailModal({
               chi hien luc con "Dang tao phieu", bat buoc truoc khi duoc gui ke toan (chan o backend). */}
           {canTacNghiep && trangThai === "Dang tao phieu" && (
             <div className="border border-[var(--line)] rounded-lg p-3">
-              <SectionTitle>Mã đơn hàng {!pxk.ma_xuat_kho_xac_nhan && <span className="text-[var(--coral-600)] normal-case tracking-normal">*</span>}</SectionTitle>
+              <SectionTitle icon="📦">Mã đơn hàng {!pxk.ma_xuat_kho_xac_nhan && <span className="text-[var(--coral-600)] normal-case tracking-normal">*</span>}</SectionTitle>
               <div className="flex gap-2 items-end">
                 <input
                   value={maXuatKhoDraft}
@@ -1092,7 +1105,7 @@ export function PxkDetailModal({
           {/* Muc D (Dot 2): Ke toan dien "Ma MISA" tren chinh PXK, bat buoc truoc khi chot xong don xuat. */}
           {canKeToan && trangThai === "Cho ke toan" && (
             <div className="border border-[var(--line)] rounded-lg p-3">
-              <SectionTitle>Mã MISA {!pxk.ma_misa && <span className="text-[var(--coral-600)] normal-case tracking-normal">*</span>}</SectionTitle>
+              <SectionTitle icon="📄">Mã MISA {!pxk.ma_misa && <span className="text-[var(--coral-600)] normal-case tracking-normal">*</span>}</SectionTitle>
               <div className="flex gap-2 items-end">
                 <input
                   value={maMisaDraft}
@@ -1108,7 +1121,7 @@ export function PxkDetailModal({
           {/* Muc F (Dot 2): CHI dung nguoi nhan hang duoc tai anh bien ban + xac nhan da nhan. */}
           {trangThai === "Dang gui KTV" && currentEmail === pxk.nguoi_nhan_hang && (
             <div className="border border-[var(--line)] rounded-lg p-3">
-              <SectionTitle>Ảnh biên bản tiếp nhận (không bắt buộc)</SectionTitle>
+              <SectionTitle icon="📷">Ảnh biên bản tiếp nhận (không bắt buộc)</SectionTitle>
               <FileButton accept="image/*" capture="environment" disabled={uploadingAnh} onFileSelected={(f) => void handleUploadAnhBienBan(f)}>
                 {uploadingAnh ? "Đang tải..." : "⬆ Chọn ảnh"}
               </FileButton>
@@ -1116,7 +1129,7 @@ export function PxkDetailModal({
           )}
 
           <div className="border border-[var(--line)] rounded-lg p-3">
-            <SectionTitle>Chuyển tiền</SectionTitle>
+            <SectionTitle icon="💲" iconTone="teal">Chuyển tiền</SectionTitle>
             {pxk.so_tien_can_chuyen == null ? (
               canTacNghiep && trangThai === "Dang tao phieu" ? (
                 <div className="flex gap-2 items-end">
@@ -1191,7 +1204,7 @@ export function PxkDetailModal({
           </div>
 
           <div>
-            <SectionTitle>Dòng đơn hàng</SectionTitle>
+            <SectionTitle icon="📋">Dòng đơn hàng</SectionTitle>
             <div className="overflow-x-auto rounded-xl border border-[var(--line)]">
               <table className="min-w-full text-xs border-collapse">
                 <thead>
@@ -1270,9 +1283,10 @@ export function PxkDetailModal({
           {/* "Lịch sử xử lý" - noi dung SAU CUNG trong vung cuon (footer ghi chu/nut thao tac da
               chuyen ra ngoai vao Drawer footer, xem bien `footer` phia tren). */}
           <div>
-            <SectionTitle>Lịch sử xử lý</SectionTitle>
+            <SectionTitle icon="🕐">Lịch sử xử lý</SectionTitle>
             <Timeline
               items={data.logs.map((l) => ({
+                dotClassName: TRANG_THAI_DOT_TONE[PXK_TRANG_THAI_TONE[l.trang_thai] ?? "gray"],
                 title: (
                   <>
                     {trangThaiLabel(PXK_TRANG_THAI_OPTIONS, l.trang_thai)}

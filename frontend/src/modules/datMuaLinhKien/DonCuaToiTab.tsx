@@ -9,6 +9,7 @@ import { Drawer, DrawerNavButtons, useDrawerArrowNav } from "../../components/ui
 import { Select } from "../../components/ui/Select";
 import { KvRow } from "../../components/ui/KvRow";
 import { SectionTitle } from "../../components/ui/SectionTitle";
+import { IconChip } from "../../components/ui/IconChip";
 import { Tooltip } from "../../components/ui/Tooltip";
 import { Timeline } from "../../components/ui/Timeline";
 import type { Column } from "../../components/ui/PaginatedTable";
@@ -578,7 +579,12 @@ export function DonHangDetailModal({
       // SUA (phan hoi ra soat UI/UX 2026-08-28, van de #1: "tên linh kiện tạo thành tiêu đề trên
       // cùng") - truoc day la ID tho (`Đơn hàng ${id}`), nguoi xem phai cuon vao than Drawer moi biet
       // dang xem linh kien gi. Fallback ve ID trong luc dang tai (d chua co).
-      title={d ? (d.ten_lk_snapshot ?? d.ma_lk) : `Đơn hàng ${id}`}
+      title={
+        <span className="flex items-center gap-2.5">
+          <IconChip icon={<img src="/icon-192.png" alt="" width={22} height={22} className="rounded" />} size="md" />
+          {d ? (d.ten_lk_snapshot ?? d.ma_lk) : `Đơn hàng ${id}`}
+        </span>
+      }
       onClose={onClose}
       width="max-w-2xl"
       footer={footer}
@@ -639,8 +645,10 @@ export function DonHangDetailModal({
             {d.loai_don === "cong_no" && d.so_tien_cong_no != null && (
               <QuickStat label="Công nợ tạm tính" value={fmtVND(d.so_tien_cong_no)} />
             )}
-            <div className="flex-1 min-w-[160px]">
-              <div className="text-[10px] uppercase tracking-wide text-[var(--ink-400)] font-bold mb-1">Trạng thái</div>
+            {/* SUA (ra soat "giao diện demo không hề giống" 2026-09-09): bo caption "Trạng thái" - doi
+                chieu truc tiep voi anh demo (crop + do mau pixel) xac nhan cum badge noi day KHONG co
+                nhan chu thich rieng, chi noi (self-center) giua chieu cao dai QuickStat ben canh. */}
+            <div className="flex-1 min-w-[160px] self-center">
               <div className="flex items-center gap-1.5 flex-wrap">
                 {tone && <Badge tone={tone.tone}>{tone.label}</Badge>}
                 <StatusBadge value={d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} options={DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL} />
@@ -984,9 +992,10 @@ export function DonHangDetailModal({
             <div>
               {/* Doi sang Timeline (concept 1, pattern ".timeline") - thay cho danh sach cham tron mau
                   theo tone trang thai truoc day. TRANG_THAI_DOT_TONE khong con dung o day. */}
-              <SectionTitle>Lịch sử xử lý</SectionTitle>
+              <SectionTitle icon="🕐">Lịch sử xử lý</SectionTitle>
               <Timeline
                 items={d.logs!.map((l) => ({
+                  dotClassName: TRANG_THAI_DOT_TONE[DON_HANG_TRANG_THAI_TONE_ALL[l.trang_thai] ?? "gray"],
                   title: (
                     <>
                       {trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, l.trang_thai)}
