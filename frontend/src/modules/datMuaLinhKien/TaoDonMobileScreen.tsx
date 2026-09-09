@@ -6,7 +6,7 @@ import { Select } from "../../components/ui/Select";
 import { fmtVND } from "../../types";
 import { pushOverlayClose } from "../../lib/overlayStack";
 import { YEU_CAU_HOA_DON_OPTIONS, CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABELS } from "./constants";
-import { deriveLoaiDon, reqLabelClass, pickLdeQuick, LOAI_DON_TONE, ktvOptionLabel, canNoRequired, formatLkLabel } from "./helpers";
+import { deriveLoaiDon, reqLabelClass, pickLdeQuick, LOAI_DON_TONE, ktvOptionLabel, canNoRequired, maYcscRequired, formatLkLabel } from "./helpers";
 import { LinhKienPicker, ThayTheGoiY, ThayTheGoiYTuSheet } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { TraHangAnhPicker } from "./SharedUi";
@@ -76,10 +76,13 @@ export function TaoDonMobileScreen({
   const d = drafts[activeIdx];
   const loaiDon = deriveLoaiDon(d.loai_de_xuat);
   const batBuoc = canNoRequired(d.loai_de_xuat);
+  // Xem giai thich o TaoDonTab.tsx - batBuocYcsc rieng cho Mã YCSC ("MUA HÀNG CÓ ID"), batBuoc giu
+  // nguyen rieng cho Chính sách (chi cong no).
+  const batBuocYcsc = maYcscRequired(d.loai_de_xuat);
   const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
   const giaUocTinh = lk?.gia_ban != null ? lk.gia_ban * d.so_luong_de_xuat : null;
   const tone = LOAI_DON_TONE[loaiDon];
-  const quickValues = (["MUA HÀNG", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const)
+  const quickValues = (["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const)
     .map((kw) => pickLdeQuick(loaiDeXuatOptions, kw))
     .filter((v): v is string => !!v);
   const isOtherValue = d.loai_de_xuat.trim() !== "" && !quickValues.includes(d.loai_de_xuat);
@@ -91,7 +94,7 @@ export function TaoDonMobileScreen({
     d.tt_mail_duyet.trim() ||
     d.tt_khach_hang.trim()
   );
-  const showInfoBoSung = batBuoc || infoHasData || infoExpandedIdx.has(activeIdx);
+  const showInfoBoSung = batBuoc || batBuocYcsc || infoHasData || infoExpandedIdx.has(activeIdx);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[var(--surface)] anim-in" style={{ height: "100dvh" }}>
@@ -196,7 +199,7 @@ export function TaoDonMobileScreen({
         <div>
           <label className={reqLabelClass(!d.loai_de_xuat.trim())}>Loại đề xuất *</label>
           <div className="flex gap-1.5 flex-wrap">
-            {(["MUA HÀNG", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const).map((kw) => {
+            {(["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const).map((kw) => {
               const matched = pickLdeQuick(loaiDeXuatOptions, kw);
               if (!matched) return null;
               return (
@@ -295,12 +298,12 @@ export function TaoDonMobileScreen({
               </div>
             </div>
             <div>
-              <label className={reqLabelClass(batBuoc && !d.ma_yeu_cau_su_co.trim())}>Mã YCSC liên quan{batBuoc ? " *" : ""}</label>
+              <label className={reqLabelClass(batBuocYcsc && !d.ma_yeu_cau_su_co.trim())}>Mã YCSC liên quan{batBuocYcsc ? " *" : ""}</label>
               <input
                 value={d.ma_yeu_cau_su_co}
                 onChange={(e) => updateDraft(activeIdx, { ma_yeu_cau_su_co: e.target.value })}
                 maxLength={20}
-                className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 h-11 text-sm ${batBuoc && !d.ma_yeu_cau_su_co.trim() ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
+                className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 h-11 text-sm ${batBuocYcsc && !d.ma_yeu_cau_su_co.trim() ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
               />
             </div>
             <MaYeuCauSuCoCheck value={d.ma_yeu_cau_su_co} nguoiNhanHang={nguoiNhanHang || currentEmail} />

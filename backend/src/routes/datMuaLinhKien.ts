@@ -122,6 +122,14 @@ function canNoRequired(loaiDeXuat: string): boolean {
   return loaiDeXuat.includes("CÔNG NỢ") && !loaiDeXuat.includes("TRẢ HÀNG");
 }
 
+// Them 2026-09-09 (phan hoi "loại đề xuất MUA HÀNG CÓ ID bắt buộc Mã YCSC liên quan") - RIENG voi
+// canNoRequired: loai nay CHI bat buoc Mã yêu cầu sự cố, KHONG bat buoc Chính sách (khac cong no bat
+// buoc CA 2 truong). 2 tap loai_de_xuat nay khong giao nhau (1 ben chua "CÔNG NỢ", ben kia chua "MUA
+// HÀNG") nen validate tach rieng khong bi chong cheo - xem 3 noi goi ben duoi.
+function maYcscRequired(loaiDeXuat: string): boolean {
+  return canNoRequired(loaiDeXuat) || loaiDeXuat.includes("MUA HÀNG CÓ ID");
+}
+
 // CHOT 2026-08-15: Ve tinh CHI la nguoi tao/de xuat don, KHONG phai nguoi nhan hang that su - Tram
 // (tram_cha) moi la nguoi chiu trach nhiem nhan hang (vi luc tao Phieu xuat kho phai chon giao cho
 // DUNG 1 nguoi). Dung ham nay o CA 2 noi resolve nguoi_nhan_hang: tao tay (POST /phieu-dat) va import
@@ -1245,10 +1253,39 @@ function miniCasePreview(p: CaseLookupPreview) {
   return { khach_hang, seri_san_pham, khu_vuc, tinh, quan_huyen, hang, san_pham_bao_hanh, tien_do_hoan_thanh, ky_thuat_vien };
 }
 
+// Dinh dang ID hop le de dang xin tra cuu (phan hoi 2026-09-09: "chỉ khi ID có số ký tự >5, format
+// 100% là số hoặc T + số thì mới gửi API xin thông tin sang bên web dvbh, để tránh spam API") - ID
+// case DVBH goc luon la 1 trong 2 dang nay, ID ngan hon hoac khac dang gan nhu chac chan la chuoi
+// dang go do (chua go xong) - loc som TRUOC khi goi lookupCase() de khong ton 1 request sang he ngoai
+// cho moi ky tu go dot ngot khop 500ms debounce cua FE (xem MaYeuCauSuCoCheck.tsx).
+function isLikelyCaseId(id: string): boolean {
+  return id.length > 5 && (/^\d+$/.test(id) || /^T\d+$/i.test(id));
+}
+
+// Gian cach toi thieu giua 2 lan tra cuu "Mã yêu cầu sự cố" tren CUNG 1 tai khoan (phan hoi 2026-09-09:
+// "tránh lỗi ddos liên tục" - truoc do CHUA co gioi han nao o phia server, chi co debounce 500ms O
+// PHIA CLIENT khong chan duoc client loi/co y goi thang API). Dung Cache API lam bo dem NHE (khong
+// can migration D1 rieng, KHAC CASE_DETAIL_MIN_SYNC_MS o /case-detail/:id/sync dung cot DB vi do la
+// khoa theo case_id dung CHUNG nhieu nguoi xem cung luc - o day khoa theo TUNG TAI KHOAN, ghi D1 moi
+// lan go phim se qua tai khong can thiet).
+const KIEM_TRA_MA_YCSC_MIN_INTERVAL_MS = 2000;
+async function isThrottledKiemTraMaYcsc(email: string): Promise<boolean> {
+  const cache = caches.default;
+  const key = new Request(`https://ratelimit.internal/kiem-tra-ma-yeu-cau?email=${encodeURIComponent(email)}`);
+  if (await cache.match(key)) return true;
+  await cache.put(key, new Response("1", { headers: { "Cache-Control": `max-age=${Math.ceil(KIEM_TRA_MA_YCSC_MIN_INTERVAL_MS / 1000)}` } }));
+  return false;
+}
+
 datMuaLinhKien.get("/kiem-tra-ma-yeu-cau", async (c) => {
   const id = c.req.query("id")?.trim();
   const nguoiNhanHang = c.req.query("nguoi_nhan_hang")?.trim();
-  if (!id) return c.json({ found: false, khopKtv: null, preview: null });
+  if (!id || !isLikelyCaseId(id)) return c.json({ found: false, khopKtv: null, preview: null });
+
+  const user = c.get("user");
+  if (await isThrottledKiemTraMaYcsc(user.email)) {
+    return c.json({ error: "TOO_SOON", retryAfterMs: KIEM_TRA_MA_YCSC_MIN_INTERVAL_MS }, 429);
+  }
 
   // SUA (tach he doc lap): case_dvbh khong con trong DB cuc bo - tra cuu qua API he cu, xem
   // lib/caseLookupClient.ts + CLAUDE.md muc "Nguon goc tach he thong".
@@ -1273,7 +1310,6 @@ datMuaLinhKien.get("/kiem-tra-ma-yeu-cau", async (c) => {
   // case thay nguoi do. Khong chan khi khopKtv=null (khong tach duoc ma KTV tu chuoi case, hoac nguoi
   // dang nhap chua co dong ktv_lien_he) - du lieu khong du de ket luan chac chan la "khong phai cua
   // ho", chan nham se can tro luong hop le.
-  const user = c.get("user");
   const tuChonMinhNhanHang = user.la_ktv_dvbh && nguoiNhanHang === user.email;
   if (tuChonMinhNhanHang && khopKtv === false) {
     return c.json({ found: true, khopKtv: false, preview: null, blocked: true });
@@ -1659,6 +1695,8 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
     const lde = dh.loai_de_xuat.trim();
     if (canNoRequired(lde) && (!dh.chinh_sach?.trim() || !dh.ma_yeu_cau_su_co?.trim()))
       return c.json({ error: "THIEU_CHINH_SACH_HOAC_MA_YCSC", ma_lk: dh.ma_lk }, 400);
+    if (!canNoRequired(lde) && maYcscRequired(lde) && !dh.ma_yeu_cau_su_co?.trim())
+      return c.json({ error: "THIEU_MA_YCSC", ma_lk: dh.ma_lk }, 400);
     // CHOT (phan hoi 2026-08-24, muc 1): dong tra hang BAT BUOC 1-3 anh linh kien can tra, da upload
     // truoc qua POST /tra-hang/upload-anh (xem khai bao "anh" o tren).
     if (deriveLoaiDon(lde) === "tra_hang") {
@@ -1998,6 +2036,10 @@ async function processDatDonHangImportRows(
 
     if (canNoRequired(loaiDeXuat) && (!row.chinh_sach?.trim() || !row.ma_yeu_cau_su_co?.trim())) {
       errors.push(`Dòng ${dong}: Loại đề xuất "${loaiDeXuat}" yêu cầu điền CHÍNH SÁCH và MÃ YÊU CẦU SỰ CỐ`);
+      continue;
+    }
+    if (!canNoRequired(loaiDeXuat) && maYcscRequired(loaiDeXuat) && !row.ma_yeu_cau_su_co?.trim()) {
+      errors.push(`Dòng ${dong}: Loại đề xuất "${loaiDeXuat}" yêu cầu điền MÃ YÊU CẦU SỰ CỐ`);
       continue;
     }
     // CHOT (phan hoi 2026-08-24): don Tra hang bat buoc anh linh kien can tra - Excel khong the kem
@@ -2635,6 +2677,9 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
     const nextMaYeuCauSuCo = body.ma_yeu_cau_su_co !== undefined ? body.ma_yeu_cau_su_co?.trim() || null : existing.ma_yeu_cau_su_co;
     if (canNoRequired(nextLde) && (!nextChinhSach || !nextMaYeuCauSuCo)) {
       return c.json({ error: "THIEU_CHINH_SACH_HOAC_MA_YCSC" }, 400);
+    }
+    if (!canNoRequired(nextLde) && maYcscRequired(nextLde) && !nextMaYeuCauSuCo) {
+      return c.json({ error: "THIEU_MA_YCSC" }, 400);
     }
 
     let tenLkSnapshot = existing.ten_lk_snapshot;

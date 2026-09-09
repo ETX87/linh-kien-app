@@ -29,7 +29,7 @@ import {
 } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
-  LOAI_DON_TONE, deriveLoaiDon, actionsFor, trangThaiLabel, canNoRequired, pickLdeQuick, emptyDraft,
+  LOAI_DON_TONE, deriveLoaiDon, actionsFor, trangThaiLabel, canNoRequired, maYcscRequired, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
 } from "./helpers";
 import { StatusBadge, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat } from "./SharedUi";
@@ -357,7 +357,8 @@ export function DonHangDetailModal({
     editDraft.ma_lk.trim() !== "" &&
     editDraft.loai_de_xuat.trim() !== "" &&
     editDraft.so_luong_de_xuat > 0 &&
-    (!canNoRequired(editDraft.loai_de_xuat) || (editDraft.chinh_sach.trim() !== "" && editDraft.ma_yeu_cau_su_co.trim() !== ""));
+    (!canNoRequired(editDraft.loai_de_xuat) || editDraft.chinh_sach.trim() !== "") &&
+    (!maYcscRequired(editDraft.loai_de_xuat) || editDraft.ma_yeu_cau_su_co.trim() !== "");
 
   const footer =
     !isLoading && d ? (
@@ -772,7 +773,7 @@ export function DonHangDetailModal({
                 <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Loại đề xuất · Số lượng *</label>
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="flex gap-1 flex-wrap flex-1 min-w-[160px]">
-                    {(["MUA HÀNG", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const).map((kw) => {
+                    {(["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const).map((kw) => {
                       const matched = pickLdeQuick(loaiDeXuatOptions, kw);
                       if (!matched) return null;
                       return (
@@ -825,13 +826,13 @@ export function DonHangDetailModal({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">
-                    Mã yêu cầu sự cố liên quan{canNoRequired(editDraft.loai_de_xuat) ? " *" : ""}
+                    Mã yêu cầu sự cố liên quan{maYcscRequired(editDraft.loai_de_xuat) ? " *" : ""}
                   </label>
                   <input
                     value={editDraft.ma_yeu_cau_su_co}
                     onChange={(e) => updateEditDraft({ ma_yeu_cau_su_co: e.target.value })}
                     maxLength={20}
-                    className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 py-1.5 text-sm disabled:opacity-40 ${canNoRequired(editDraft.loai_de_xuat) && !editDraft.ma_yeu_cau_su_co.trim() ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
+                    className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 py-1.5 text-sm disabled:opacity-40 ${maYcscRequired(editDraft.loai_de_xuat) && !editDraft.ma_yeu_cau_su_co.trim() ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
                   />
                 </div>
                 <div>

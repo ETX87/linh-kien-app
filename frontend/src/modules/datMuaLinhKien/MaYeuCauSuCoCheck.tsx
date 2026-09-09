@@ -16,6 +16,14 @@ import { CaseDetailModal } from "./CaseDetailModal";
 // CHOT 2026-08-26 (phan hoi: "KTV/Tram/CTV go ma case khong phai cua minh xu ly thi bao loi, khong
 // gui thong tin ve"): backend (xem GET /kiem-tra-ma-yeu-cau) tra `blocked: true, preview: null` cho
 // dung truong hop nay - khac voi truoc day (chi canh bao mem `khopKtv: false` nhung van gui preview).
+// Dinh dang ID hop le de goi tra cuu (phan hoi 2026-09-09: "chỉ khi ID có số ký tự >5, format 100%
+// là số hoặc T + số thì mới gửi API... để tránh spam API") - copy CHINH XAC dieu kien server-side
+// (xem isLikelyCaseId trong datMuaLinhKien.ts, day la nguon that) de tranh goi debounce roi bi
+// server tra rong ngay lap tuc trong luc go do (vd "12", "case001").
+function isLikelyCaseId(id: string): boolean {
+  return id.length > 5 && (/^\d+$/.test(id) || /^T\d+$/i.test(id));
+}
+
 export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; nguoiNhanHang: string }) {
   const [result, setResult] = useState<{ found: boolean; khopKtv: boolean | null; preview: MaYeuCauSuCoPreview | null; blocked?: boolean } | null>(null);
   const [showDetail, setShowDetail] = useState(false);
@@ -24,7 +32,7 @@ export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; ngu
   useEffect(() => {
     setResult(null);
     setShowDetail(false);
-    if (!id) return;
+    if (!id || !isLikelyCaseId(id)) return;
     const t = setTimeout(() => {
       api
         .get<{ found: boolean; khopKtv: boolean | null; preview: MaYeuCauSuCoPreview | null; blocked?: boolean }>(

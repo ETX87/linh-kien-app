@@ -219,12 +219,16 @@ export function TaoDonTab({
 
           const loaiDon = deriveLoaiDon(d.loai_de_xuat);
           const batBuoc = canNoRequired(d.loai_de_xuat);
+          // Them 2026-09-09 ("MUA HÀNG CÓ ID" bat buoc rieng Mã YCSC, khong bat buoc Chính sách nhu
+          // cong no - xem maYcscRequired o helpers.ts) - batBuoc (canNoRequired) VAN giu nguyen dung
+          // rieng cho label/border Chính sách.
+          const batBuocYcsc = maYcscRequired(d.loai_de_xuat);
           const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
           const giaUocTinh = lk?.gia_ban != null ? lk.gia_ban * d.so_luong_de_xuat : null;
           const tone = LOAI_DON_TONE[loaiDon];
           // "khac..." mo Select day du - tu dong mo neu gia tri hien tai KHONG khop 1 trong 3 nut
           // nhanh (vd sua tu don cu / import co san loai it dung), khong chi khi nguoi dung tu bam.
-          const quickValues = (["MUA HÀNG", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const)
+          const quickValues = (["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const)
             .map((kw) => pickLdeQuick(loaiDeXuatOptions, kw))
             .filter((v): v is string => !!v);
           const isOtherValue = d.loai_de_xuat.trim() !== "" && !quickValues.includes(d.loai_de_xuat);
@@ -239,7 +243,7 @@ export function TaoDonTab({
             d.tt_mail_duyet.trim() ||
             d.tt_khach_hang.trim()
           );
-          const showInfoBoSung = batBuoc || infoHasData || infoExpandedIdx.has(idx);
+          const showInfoBoSung = batBuoc || batBuocYcsc || infoHasData || infoExpandedIdx.has(idx);
           return (
             <div
               key={idx}
@@ -302,7 +306,7 @@ export function TaoDonTab({
                   <label className={reqLabelClass(!d.loai_de_xuat.trim() || !(d.so_luong_de_xuat > 0))}>Loại đề xuất · Số lượng · Giá ước tính *</label>
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="flex gap-1 flex-wrap flex-1 min-w-[160px]">
-                      {(["MUA HÀNG", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const).map((kw) => {
+                      {(["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const).map((kw) => {
                         const matched = pickLdeQuick(loaiDeXuatOptions, kw);
                         if (!matched) return null;
                         return (
@@ -429,12 +433,12 @@ export function TaoDonTab({
                         </div>
                       </div>
                       <div>
-                        <label className={reqLabelClass(batBuoc && !d.ma_yeu_cau_su_co.trim())}>Mã YCSC liên quan{batBuoc ? " *" : ""}</label>
+                        <label className={reqLabelClass(batBuocYcsc && !d.ma_yeu_cau_su_co.trim())}>Mã YCSC liên quan{batBuocYcsc ? " *" : ""}</label>
                         <input
                           value={d.ma_yeu_cau_su_co}
                           onChange={(e) => updateDraft(idx, { ma_yeu_cau_su_co: e.target.value })}
                           maxLength={20}
-                          className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 py-1.5 text-sm ${batBuoc && !d.ma_yeu_cau_su_co.trim() ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
+                          className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 py-1.5 text-sm ${batBuocYcsc && !d.ma_yeu_cau_su_co.trim() ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
                         />
                       </div>
                       <div>
@@ -497,7 +501,7 @@ export function TaoDonTab({
   );
 }
 
-// canNoRequired duoc dung lai o day (import truc tiep, khong qua form) vi la ham thuan tuy (khong
-// dinh state) - chi import 1 lan o dau file, khong lap trong useTaoDonForm.ts (ham do da import rieng
-// cho chinh no dung trong isLineComplete).
-import { canNoRequired } from "./helpers";
+// canNoRequired/maYcscRequired duoc dung lai o day (import truc tiep, khong qua form) vi la ham thuan
+// tuy (khong dinh state) - chi import 1 lan o dau file, khong lap trong useTaoDonForm.ts (ham do da
+// import rieng cho chinh no dung trong isLineComplete).
+import { canNoRequired, maYcscRequired } from "./helpers";
