@@ -13,7 +13,7 @@ import { uploadPublicImage } from "../lib/googleDrive";
 import { sendPushToUser } from "../lib/webPush";
 import { buildMisaExportSheets, MISA_TEMPLATES, type MisaTemplate } from "../lib/misaExport";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, emailGsListForPxk, PXK_ROLES } from "../lib/taskNotify";
-import { pushPxkToKhovan } from "../lib/khovanPushClient";
+import { pushPxkToKhovan, notifyPxkAdvancedViaApp, buildWorkUrl } from "../lib/khovanPushClient";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
 // Pattern header+log giong phieu_dat. TN tao (gom nhieu dong don hang da "TN da duyet" vao 1
@@ -965,6 +965,15 @@ phieuXuatKho.post("/:id/log", async (c) => {
     .bind(id, target, user.email, nowVN(), body.ghi_chu?.trim() || null)
     .run();
 
+  // Bao NGUOC cho khovan khi 1 buoc Kho duoc xac nhan THANG tren linh-kien-app qua link (them
+  // 2026-09-09, phan hoi "khi xác nhận bên hệ thống linh kiện xong => tự bắn api trạng thái mới về
+  // cho app khovan") - route nay la duong session (Google OAuth) DUY NHAT xu ly 4 trang thai Kho nay,
+  // khac han routes/partnerKho.ts (khovan tu goi vao, khong can bao nguoc vi chinh no la nguon). Best-
+  // effort, khong chan thao tac cua Kho neu khovan dang loi/down.
+  if (target === "Dang gui KTV" || target === "Hang tru kho" || target === "Kho da ket thuc" || target === "Kho da nhan hang tra") {
+    c.executionCtx.waitUntil(notifyPxkAdvancedViaApp(c.env, id, `Đã xác nhận "${target}" trực tiếp trên hệ thống Đặt mua linh kiện`));
+  }
+
   // "Da chot xong don xuat" la moc "san sang cho Kho xu ly" (nguyen tac "Kho chi thao
   // tac qua app kho van", chot 2026-09-07) - day "cho xu ly" sang khovan O DAY, ap dung
   // CA loai_don thuong (mua/cong_no) LAN 'tra_hang' (xem lib/khovanPushClient.ts).
@@ -1000,7 +1009,7 @@ phieuXuatKho.post("/:id/log", async (c) => {
       const displayCode = pxk.ma_misa?.trim() || id;
       const senderLabel = `Xuất kho ${displayCode}` + (pxk.nguoi_nhan_hang ? ` (giao ${pxk.nguoi_nhan_hang})` : "");
       const note = pxk.loai_don === "tra_hang" ? "Trả hàng - chờ Kho xác nhận nhận hàng" : "Xuất kho - chờ Kho gửi/hàng trữ kho";
-      await pushPxkToKhovan(c.env, id, senderLabel, pxk.loai_don, note, pxk.ma_misa);
+      await pushPxkToKhovan(c.env, id, senderLabel, pxk.loai_don, note, pxk.ma_misa, buildWorkUrl(c.env, id));
     }
   }
 

@@ -54,7 +54,7 @@ export function DatMuaLinhKienModule({
   // "cong vao" duy nhat de bam 1 dong thong bao tu ben ngoai module van mo dung Drawer chi tiet don
   // hang/PXK NAM BEN TRONG module nay. `nonce` (Date.now() luc bam) bat buoc phai DOI moi lan de effect
   // duoi day chac chan chay lai ke ca bam lai DUNG 1 dong thong bao vua xem xong.
-  externalDetailOpen?: { tab: "don-cua-toi" | "phieu-xuat-kho"; id: string; nonce: number } | null;
+  externalDetailOpen?: { tab: "don-cua-toi" | "phieu-xuat-kho" | "tra-hang"; id: string; nonce: number } | null;
   onExternalDetailOpenConsumed?: () => void;
   // FIX (phan hoi 2026-08-26: "click vào thẻ trang chủ, kích để xem đơn hàng, mà vẫn ở thẻ trang chủ
   // là sao?") - khi vao qua forceView="trang-chu"/"thieu-lk" (muc menu rieng cap App.tsx) roi nhay
@@ -655,7 +655,19 @@ export function DatMuaLinhKienModule({
           />
         )}
         {activeView === "tra-hang" && (
-          <TraHangTab addToast={addToast} qc={qc} canKeToan={canKeToan} canKho={canKho} canQC={canQC} canTacNghiep={canTacNghiep} currentEmail={user?.email ?? ""} isAdmin={user?.vai_tro === "Admin"} initialFilterOverride={filterFor("tra-hang")} />
+          <TraHangTab
+            addToast={addToast}
+            qc={qc}
+            canKeToan={canKeToan}
+            canKho={canKho}
+            canQC={canQC}
+            canTacNghiep={canTacNghiep}
+            currentEmail={user?.email ?? ""}
+            isAdmin={user?.vai_tro === "Admin"}
+            initialFilterOverride={filterFor("tra-hang")}
+            initialDetailIdOverride={openDetailIdFor("tra-hang")}
+            onDetailIdConsumed={consumeOpenDetailId}
+          />
         )}
         {showCreateFromPipeline && (
           <TaoDonTab

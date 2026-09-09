@@ -126,10 +126,15 @@ const CO_THE_DAY_LUI = ["Cho kho xac nhan", "Cho QC xac nhan", "Cho TN duyet ton
 
 export function TraHangTab({
   addToast, qc, canKeToan, canKho, canQC, canTacNghiep, currentEmail, isAdmin, initialFilterOverride,
+  initialDetailIdOverride, onDetailIdConsumed,
 }: {
   addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>;
   canKeToan: boolean; canKho: boolean; canQC: boolean; canTacNghiep: boolean;
   currentEmail: string; isAdmin: boolean; initialFilterOverride?: string;
+  // Mo THANG Drawer chi tiet 1 dong tra hang (them 2026-09-09, link truy cap truc tiep theo ma thung
+  // tra "TRA-xxxxxx" - xem lib/pxkDeepLink.ts) - cung pattern voi PhieuXuatKhoTab.initialDetailIdOverride.
+  initialDetailIdOverride?: string;
+  onDetailIdConsumed?: () => void;
 }) {
   // Uu tien QC > Ke toan > Kho > TN cho mac dinh (chi anh huong lan dau) - 1 nguoi hiem khi giu qua
   // 1 trong 4 flag nay cung luc (ngoai Admin, da tu roi tabs[0] khac o component cha).
@@ -178,6 +183,13 @@ export function TraHangTab({
   }, [filterQ]);
   const [showFilters, setShowFilters] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  useEffect(() => {
+    if (initialDetailIdOverride) {
+      setDetailId(initialDetailIdOverride);
+      onDetailIdConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDetailIdOverride]);
   // Bo loc Khu vuc (them 2026-08-31, dong bo voi DonCuaToiTab.tsx - xem CLAUDE.md muc kiem tra toan
   // he thong). showKhuVucFilter khong gom canQC (giong DonCuaToiTab.tsx khong ap dung cho QC).
   const showKhuVucFilter = canTacNghiep || canKho || canKeToan;
@@ -273,9 +285,7 @@ export function TraHangTab({
             ? "Cần tải ít nhất 1 ảnh bằng chứng trước khi từ chối"
             : code === "KHOVAN_PUSH_FAILED"
               ? "Không báo được sang Kho vận (khovan) — thử duyệt lại. Đơn CHƯA được duyệt."
-              : code === "PHAI_XAC_NHAN_QUA_KHOVAN"
-                ? "Thùng này đã được gửi sang Kho vận (khovan) — Kho phải quét mã nhận trong khovan, không xác nhận được ở đây nữa."
-                : "Lỗi: " + describeApiError(err),
+              : "Lỗi: " + describeApiError(err),
       );
     },
   });
@@ -909,9 +919,7 @@ function TraHangDetailModal({
             ? "Cần tải ít nhất 1 ảnh bằng chứng trước khi từ chối"
             : code === "KHOVAN_PUSH_FAILED"
               ? "Không báo được sang Kho vận (khovan) — thử duyệt lại. Đơn CHƯA được duyệt."
-              : code === "PHAI_XAC_NHAN_QUA_KHOVAN"
-                ? "Thùng này đã được gửi sang Kho vận (khovan) — Kho phải quét mã nhận trong khovan, không xác nhận được ở đây nữa."
-                : "Lỗi: " + describeApiError(err),
+              : "Lỗi: " + describeApiError(err),
       );
     },
   });

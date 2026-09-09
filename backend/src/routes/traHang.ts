@@ -10,7 +10,7 @@ import { scopeDatMuaNguoiTao, khuVucSetWhereSql } from "../lib/scopeDatMua";
 import { uploadPublicImage } from "../lib/googleDrive";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
 import { nextSequentialId } from "../lib/idCounter";
-import { pushTraHangToKhovan, notifyTraHangQcRejected } from "../lib/khovanPushClient";
+import { pushTraHangToKhovan, notifyTraHangQcRejected, notifyTraHangReceivedViaApp, buildWorkUrl } from "../lib/khovanPushClient";
 
 // Vai tro can bao "viec moi" khi 1 dong tra hang toi trang thai nay (phan hoi 2026-09-05) - dung
 // chung cho ca applyTraHangLog (di xuoi) va POST /:donHangId/log-lui (di lui), vi 2 chieu deu ha
@@ -165,6 +165,23 @@ traHang.get("/:donHangId", async (c) => {
   return c.json({ donHang: ddh, logs, anh });
 });
 
+// GET /api/tra-hang/resolve-ma-thung/:maThung - tra ve dat_don_hang.id tuong ung voi 1 ma thung tra
+// (TRA-xxxxxx) - dung cho link truy cap truc tiep theo ma thung (them 2026-09-09, xem frontend/src/
+// lib/pxkDeepLink.ts). ma_thung_tra la 1-1 voi dat_don_hang.id (moi dong tra hang rieng duoc sinh 1
+// ma thung rieng luc "Cho ke toan duyet mem" -> "Cho kho xac nhan", xem applyTraHangLog ben duoi) nen
+// chi can tra dung 1 id, khong phai danh sach.
+traHang.get("/resolve-ma-thung/:maThung", async (c) => {
+  const maThung = c.req.param("maThung");
+  const scope = scopeDatMuaNguoiTao(c);
+  const whereSql = "ddh.ma_thung_tra = ? AND ddh.loai_don = 'tra_hang'" + (scope?.whereSql ?? "");
+  const binds = [maThung, ...(scope?.binds ?? [])];
+  const row = await c.env.DB.prepare(`SELECT ddh.id FROM dat_don_hang ddh WHERE ${whereSql}`)
+    .bind(...binds)
+    .first<{ id: string }>();
+  if (!row) return c.json({ error: "NOT_FOUND" }, 404);
+  return c.json({ id: row.id });
+});
+
 // POST /api/tra-hang/upload-anh - upload BINARY THO 1 anh len Drive qua OAuth uy quyen tai khoan
 // Google THAT (phan hoi 2026-08-24: "hủy bỏ hoàn toàn cách lưu ảnh bằng google service [account]...
 // chuyển sang OAuth vì tôi chỉ có tài khoản gmail cá nhân" - CUNG co che voi anh minh hoa linh kien,
@@ -289,12 +306,12 @@ async function applyTraHangLog(
   } else if (trangThaiHienTai === "Cho kho xac nhan") {
     if (!canKho(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
     if (hanhDong === "tu_choi" && !ghiChu?.trim()) return { error: "MISSING_GHI_CHU", status: 409 };
-    // Luong C moi (chot 08/09/2026): dong da co ma_thung_tra (da day khovan) chi duoc xac nhan
-    // NHAN qua khovan (Kho quet ma that, xem routes/partnerKho.ts::/tra-hang/:id/kho-xac-nhan),
-    // KHONG con qua nut bam noi bo nay nua - dung nguyen tac "Kho chi thao tac qua app kho van".
-    // Van cho phep "tu_choi" qua day (Ke toan/Kho huy truoc khi hang thuc su ve, khong lien quan
-    // hanh dong nhan vat ly).
-    if (hanhDong === "duyet" && ddh.ma_thung_tra) return { error: "PHAI_XAC_NHAN_QUA_KHOVAN", status: 409 };
+    // SUA (phan hoi 2026-09-09: "cho Kho xác nhận trực tiếp qua link mở linh-kien-app, chấp nhận mất
+    // bước quét mã vật lý qua khovan") - truoc day (chot 08/09/2026) buoc nay CHAN CUNG khi da co
+    // ma_thung_tra, bat Kho phai quet ma that qua khovan (xem routes/partnerKho.ts::/tra-hang/:id/
+    // kho-xac-nhan). Nguoi dung xac nhan RO da danh doi mat lop xac minh vat ly do de doi lay duong
+    // xac nhan THANG qua link (xem lib/pxkDeepLink.ts phia FE) - khovan van duoc bao lai trang thai
+    // moi ngay sau khi CAS thanh cong (xem duoi), khong con la nguon xac nhan duy nhat nua.
     nextTrangThai = hanhDong === "duyet" ? "Cho QC xac nhan" : "Tu choi";
   } else if (trangThaiHienTai === "Cho QC xac nhan") {
     if (!canQC(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
@@ -339,6 +356,7 @@ async function applyTraHangLog(
       maThungTraMoi,
       `KTV ${ddh.nguoi_tao} trả hàng`,
       `Trả hàng "${ddh.ten_lk_snapshot} (x${ddh.so_luong_de_xuat})" - chờ Kho nhận, bàn giao QC`,
+      buildWorkUrl(c.env, maThungTraMoi),
     );
     if (!pushResult.ok) return { error: "KHOVAN_PUSH_FAILED", status: 409 };
   }
@@ -364,6 +382,13 @@ async function applyTraHangLog(
   // xuat tra lai KTV). Best-effort, khong chan hanh dong dong don.
   if ((nextTrangThai === "Tu choi" || nextTrangThai === "Da huy") && ddh.ma_thung_tra) {
     c.executionCtx.waitUntil(notifyTraHangQcRejected(c.env, ddh.ma_thung_tra, ghiChu?.trim() || "Đơn trả hàng bị đóng sau khi hàng đã về kho"));
+  }
+
+  // Kho xac nhan da NHAN thung hang tra THANG tren linh-kien-app qua link (them 2026-09-09, thay the
+  // cho chan cung PHAI_XAC_NHAN_QUA_KHOVAN da bo o tren) - bao nguoc khovan cap nhat dung trang thai,
+  // khong de nguyen "pending" gay hieu nham chua ai xu ly. Best-effort.
+  if (trangThaiHienTai === "Cho kho xac nhan" && nextTrangThai === "Cho QC xac nhan" && ddh.ma_thung_tra) {
+    c.executionCtx.waitUntil(notifyTraHangReceivedViaApp(c.env, ddh.ma_thung_tra, `Kho đã xác nhận nhận hàng trực tiếp trên hệ thống Đặt mua linh kiện`));
   }
 
   // Bao "viec moi" cho vai tro SAP xu ly buoc tiep theo (phan hoi 2026-09-05).

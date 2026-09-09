@@ -139,7 +139,7 @@ function MainApp({
     queryFn: () => api.get<{ ktvLogChuaDoc: number }>("/notifications/count"),
     refetchInterval: 5 * 60_000,
   });
-  const [pendingDetailOpen, setPendingDetailOpen] = useState<{ tab: "don-cua-toi" | "phieu-xuat-kho"; id: string; nonce: number } | null>(null);
+  const [pendingDetailOpen, setPendingDetailOpen] = useState<{ tab: "don-cua-toi" | "phieu-xuat-kho" | "tra-hang"; id: string; nonce: number } | null>(null);
   function openDonHangFromBell(donHangId: string) {
     setActive("dat-mua-lk");
     setPendingDetailOpen({ tab: "don-cua-toi", id: donHangId, nonce: Date.now() });
@@ -148,16 +148,34 @@ function MainApp({
     setActive("dat-mua-lk");
     setPendingDetailOpen({ tab: "phieu-xuat-kho", id: pxkId, nonce: Date.now() });
   }
-  // Link truy cap truc tiep 1 PXK theo ID (them 2026-09-09, xem lib/pxkDeepLink.ts) - luc component
-  // nay mount la luc nguoi dung CHAC CHAN da dang nhap xong (App() chi render MainApp sau khi
-  // auth.status === "authenticated"), nen day la diem doc lai an toan duy nhat, dung LAI het co che
-  // "bam thong bao mo PXK" da co (openPxkFromBell o tren) thay vi tu xay routing rieng. Sua lai URL
-  // ve dung dang "/<id>/" (co the dang la "/" neu vua di qua vong Google OAuth, xem giai thich trong
-  // pxkDeepLink.ts) de giu URL lam permalink dung y nghia.
+  // Mo Drawer chi tiet 1 dong tra hang theo dung dat_don_hang.id (them 2026-09-09, xem
+  // lib/pxkDeepLink.ts) - khac openPxkFromBell, id truyen vao day PHAI la dat_don_hang.id that
+  // ("DDH-xxxxxx"), khong phai ma thung tra ("TRA-xxxxxx") - xem resolve o duoi.
+  function openTraHangFromBell(donHangId: string) {
+    setActive("dat-mua-lk");
+    setPendingDetailOpen({ tab: "tra-hang", id: donHangId, nonce: Date.now() });
+  }
+  // Link truy cap truc tiep 1 PXK/dong tra hang theo ID (them 2026-09-09, xem lib/pxkDeepLink.ts) -
+  // luc component nay mount la luc nguoi dung CHAC CHAN da dang nhap xong (App() chi render MainApp
+  // sau khi auth.status === "authenticated"), nen day la diem doc lai an toan duy nhat, dung LAI het
+  // co che "bam thong bao mo PXK/don hang" da co (openPxkFromBell/openTraHangFromBell o tren) thay vi
+  // tu xay routing rieng. Sua lai URL ve dung dang "/<id>/" (co the dang la "/" neu vua di qua vong
+  // Google OAuth, xem giai thich trong pxkDeepLink.ts) de giu URL lam permalink dung y nghia.
+  // "TRA-" (ma thung hang tra, KHONG phai id PXK) can 1 buoc RESOLVE qua API truoc khi mo duoc Drawer
+  // (backend GET /tra-hang/resolve-ma-thung/:maThung tra ve dung dat_don_hang.id) - cac tien to con
+  // lai (PMH/PCN/PTL/PXK) CHINH LA id PXK nen mo thang duoc, khong can resolve.
   useEffect(() => {
     const id = consumePendingPxkDeepLinkId();
-    if (id) {
-      window.history.replaceState(null, "", "/" + id + "/");
+    if (!id) return;
+    window.history.replaceState(null, "", "/" + id + "/");
+    if (id.startsWith("TRA-")) {
+      api
+        .get<{ id: string }>(`/tra-hang/resolve-ma-thung/${encodeURIComponent(id)}`)
+        .then((r) => openTraHangFromBell(r.id))
+        .catch(() => {
+          /* khong tim thay/khong co quyen xem - im lang, nguoi dung van vao duoc app binh thuong */
+        });
+    } else {
       openPxkFromBell(id);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

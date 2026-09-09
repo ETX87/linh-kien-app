@@ -1,5 +1,13 @@
 import type { Env } from "../types";
 
+// Link truy cap truc tiep 1 PXK/dong tra hang tren linh-kien-app theo ID (them 2026-09-09, xem
+// frontend/src/lib/pxkDeepLink.ts - dung LAI dung mau duong dan da lam cho PXK "/PMH-000001/"). Ham
+// nay chi ghep chuoi, khong validate id - noi goi (pushPxkToKhovan/pushTraHangToKhovan) da biet chac
+// id hop le vi vua tu sinh/doc tu DB.
+export function buildWorkUrl(env: Env, id: string): string {
+  return `${env.FRONTEND_URL.replace(/\/$/, "")}/${id}/`;
+}
+
 // Day phieu xuat kho (phieu_xuat_kho) sang khovan (he Quan ly hang ve kho) - danh dau
 // "cho xu ly" (pending) ben do - de Kho biet truoc hang sap can xu ly, nhan dien duoc
 // khi quet ma (nguyen tac "Kho chi thao tac qua app kho van", chot 2026-09-07). Goi LUC
@@ -11,13 +19,18 @@ import type { Env } from "../types";
 // cho dong bo KTV) - cung 1 Worker khovan, cung 1 external_systems.api_key, chi khac
 // duong dan goi (inbound/orders thay vi partner/sync/ktv), khong can secret rieng.
 // Best-effort: loi/khovan down KHONG duoc chan thao tac cua nguoi dung (chi log).
+// workUrl (them 2026-09-09, phan hoi "các API bắn sang kho vận bh đều kèm URL công việc... kho vận
+// sẽ vào link và xác nhận công việc xong") - link truc tiep toi dung PXK/dong tra hang tren
+// linh-kien-app (xem frontend/src/lib/pxkDeepLink.ts), dat trong sender_info (JSON tu do, khovan
+// khong can doi schema van luu duoc) de FE khovan tu doc va hien thanh nut/link bam qua.
 export async function pushPxkToKhovan(
   env: Env,
   orderCode: string,
   senderName: string,
   loaiDon: string | null,
   note: string,
-  exportSlipCode?: string | null
+  exportSlipCode?: string | null,
+  workUrl?: string | null,
 ): Promise<void> {
   const url = `${env.KHOVAN_SYNC_BASE_URL.replace(/\/$/, "")}/api/v1/inbound/orders`;
   try {
@@ -28,7 +41,7 @@ export async function pushPxkToKhovan(
         order_code: orderCode,
         export_slip_code: exportSlipCode ?? undefined,
         sender_name: senderName,
-        sender_info: { loai_don: loaiDon },
+        sender_info: { loai_don: loaiDon, work_url: workUrl ?? undefined },
         note,
       }),
     });
@@ -52,7 +65,8 @@ export async function pushTraHangToKhovan(
   env: Env,
   orderCode: string,
   senderName: string,
-  note: string
+  note: string,
+  workUrl?: string | null,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const url = `${env.KHOVAN_SYNC_BASE_URL.replace(/\/$/, "")}/api/v1/inbound/orders`;
   try {
@@ -62,7 +76,7 @@ export async function pushTraHangToKhovan(
       body: JSON.stringify({
         order_code: orderCode,
         sender_name: senderName,
-        sender_info: { loai_don: "tra_hang_qc" },
+        sender_info: { loai_don: "tra_hang_qc", work_url: workUrl ?? undefined },
         note,
       }),
     });
@@ -76,17 +90,20 @@ export async function pushTraHangToKhovan(
   }
 }
 
-// QC tu choi 1 thung "TRA-" da ve kho (chot 08/09/2026: hang o lai kho, xu ly thu cong, khong
-// tu tao luot xuat tra lai KTV) - bao NGUOC cho khovan biet de hien dung trang thai cuoi, tranh
-// de nguyen "Da nhan" gay hieu nham da xong viec. Best-effort (khac pushTraHangToKhovan o tren) -
-// day chi la cap nhat hien thi, khong phai moc kich hoat vat ly, loi o day khong nen chan QC.
-export async function notifyTraHangQcRejected(env: Env, orderCode: string, note: string): Promise<void> {
+// Bao NGUOC cho khovan biet trang thai moi cua 1 "shipment" ben do - dung chung cho 3 truong hop:
+// QC tu choi 1 thung "TRA-" da ve kho (chot 08/09/2026), VA (them 2026-09-09, phan hoi "khi xác nhận
+// bên hệ thống linh kiện xong => tự bắn api trạng thái mới về cho app khovan") khi mot buoc Kho
+// duoc xac nhan THANG tren linh-kien-app (qua link, khong qua khovan nua) - "received" cho buoc Kho
+// nhan thung hang tra vat ly, "handed_over" cho cac buoc Kho gui/ket thuc 1 PXK. Best-effort (khac
+// pushPxkToKhovan/pushTraHangToKhovan - day chi la cap nhat hien thi cho khop thuc te, khong phai
+// moc kich hoat vat ly nao, loi o day khong nen chan thao tac cua nguoi dung).
+async function updateKhovanBoxStatus(env: Env, orderCode: string, boxStatus: "qc_rejected" | "received" | "handed_over", note: string): Promise<void> {
   const url = `${env.KHOVAN_SYNC_BASE_URL.replace(/\/$/, "")}/api/v1/inbound/orders/${encodeURIComponent(orderCode)}/status`;
   try {
     const res = await env.KHOVAN_SYNC_SERVICE.fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Api-Key": env.KHOVAN_SYNC_API_KEY },
-      body: JSON.stringify({ box_status: "qc_rejected", note }),
+      body: JSON.stringify({ box_status: boxStatus, note }),
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
@@ -95,4 +112,23 @@ export async function notifyTraHangQcRejected(env: Env, orderCode: string, note:
   } catch (err) {
     console.error("[khovanPush] status-update exception", err instanceof Error ? err.message : err);
   }
+}
+
+export function notifyTraHangQcRejected(env: Env, orderCode: string, note: string): Promise<void> {
+  return updateKhovanBoxStatus(env, orderCode, "qc_rejected", note);
+}
+
+// Kho xac nhan da NHAN thung hang tra (TRA-xxxxxx) THANG tren linh-kien-app qua link (bo qua buoc
+// quet ma vat ly qua khovan - chot nguoi dung 2026-09-09) - bao khovan cap nhat box_status='received'
+// giong het nhu khi chinh khovan goi vao /tra-hang/:maThung/kho-xac-nhan, de danh sach cong viec ben
+// khovan het hien "cho xu ly" cho dung thung nay.
+export function notifyTraHangReceivedViaApp(env: Env, maThungTra: string, note: string): Promise<void> {
+  return updateKhovanBoxStatus(env, maThungTra, "received", note);
+}
+
+// 1 buoc Kho (gui KTV/hang tru kho/ket thuc/nhan hang tra) cua 1 PXK duoc xac nhan THANG tren
+// linh-kien-app qua link thay vi qua nut trong khovan - bao khovan cap nhat box_status='handed_over'
+// de khong con hien "cho xu ly" sai cho PXK nay nua.
+export function notifyPxkAdvancedViaApp(env: Env, orderCode: string, note: string): Promise<void> {
+  return updateKhovanBoxStatus(env, orderCode, "handed_over", note);
 }
