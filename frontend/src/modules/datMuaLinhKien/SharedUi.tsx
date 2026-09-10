@@ -9,6 +9,66 @@ import { trangThaiLabel, describeApiError, useNenAnhTraHangEnabled } from "./hel
 // Cac component UI dung chung nhieu tab cua module "Dat mua linh kien" (tach tu
 // DatMuaLinhKienModule.tsx - UI redesign Phase 3, phan hoi Codex 2026-08-19).
 
+// Xem anh phong to ngay tren man hinh hien tai (phan hoi 2026-09-10: "bây giờ đang mở ra 1 link khác
+// rất phiền") - THAY the cho pattern cu <a href={url} target="_blank"> dung rai rac o cac man chi tiet
+// don hang/PXK/tra hang (mo tab moi, mat ngu canh dang xem). Port tu ImageLightbox cuc bo cua
+// DanhMucLinhKienModule.tsx (giu nguyen hanh vi: Escape/bam ra ngoai de dong, van co link "Mo anh goc"
+// cho ai muon tai/mo tab that) - chuyen thanh dung CHUNG o day vi can dung o nhieu tab khac trong module
+// nay (PhieuXuatKhoTab/TraHangTab/DonCuaToiTab), khong chi rieng danh muc linh kien.
+export function ImageLightbox({ url, onClose }: { url: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-sm p-8 anim-in" onClick={onClose}>
+      <button onClick={onClose} className="focus-ring absolute top-4 right-4 w-9 h-9 rounded-lg bg-white/10 text-white hover:bg-white/20 text-lg">
+        ✕
+      </button>
+      <img src={url} alt="Ảnh phóng to" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="absolute bottom-5 text-xs text-white/70 hover:text-white hover:underline"
+      >
+        Mở ảnh gốc trên Google Drive ↗
+      </a>
+    </div>
+  );
+}
+
+// Thumbnail <img> co the bam de phong to (thay cho <a target="_blank"><img/></a>) - dung cho cac o
+// hien danh sach anh dang thumbnail (vd "Ảnh LK cần trả"/"Ảnh bằng chứng QC" trong TraHangTab).
+export function ImageThumb({ url, alt, className }: { url: string; alt: string; className?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="focus-ring rounded-lg">
+        <img src={url} alt={alt} className={className} />
+      </button>
+      {open && <ImageLightbox url={url} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+// Link dang chu ("Xem ảnh biên bản"/"📷 Ảnh 1"...) co the bam de phong to (thay cho <a target="_blank">)
+// - dung cho cac cho hien anh dang link chu thay vi thumbnail.
+export function ImageLink({ url, className, children }: { url: string; className?: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className={className}>
+        {children}
+      </button>
+      {open && <ImageLightbox url={url} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
 // SUA BUG (phan hoi 2026-08-21: "các trạng thái đang không có tiếng việt") - `value` la gia tri THO
 // luu trong DB (khong dau, vd "Cho kho xac nhan"), truoc day hien THANG khong qua dictionary nhan dep
 // nao - CHI dung dung de tra cuu mau (`tones`). Them `options` (danh sach { value, label } co san moi
@@ -352,9 +412,9 @@ export function TraHangAnhPicker({
       <div className="flex items-center gap-2 flex-wrap">
         {photos.map((p, i) => (
           <span key={p.driveFileId} className="inline-flex items-center gap-1.5 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2 py-1 text-xs">
-            <a href={p.url} target="_blank" rel="noreferrer" className="text-[var(--ocean-800)] underline underline-offset-2">
+            <ImageLink url={p.url} className="text-[var(--ocean-800)] underline underline-offset-2">
               📷 Ảnh {i + 1}
-            </a>
+            </ImageLink>
             <button type="button" onClick={() => onChange(photos.filter((_, j) => j !== i))} className="text-[var(--coral-600)] font-bold leading-none" title="Xoá ảnh này">
               ✕
             </button>

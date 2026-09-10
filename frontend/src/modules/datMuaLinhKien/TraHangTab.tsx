@@ -18,7 +18,7 @@ import { compressImage } from "../../lib/imageCompress";
 import type { TraHangRow } from "./types";
 import { TRA_HANG_TRANG_THAI_TONE, TRA_HANG_TRANG_THAI_OPTIONS, TRA_HANG_BULK_ERROR_MESSAGES } from "./constants";
 import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, useNenAnhTraHangEnabled } from "./helpers";
-import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, DetailZone, QuickStat, KhuVucChipFilter } from "./SharedUi";
+import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, DetailZone, QuickStat, KhuVucChipFilter, ImageLink, ImageThumb } from "./SharedUi";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -72,9 +72,9 @@ function QcTuChoiModal({
       <div className="space-y-3 text-sm">
         <div className="flex items-center gap-2 flex-wrap">
           {anh.map((a, i) => (
-            <a key={i} href={a.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2 py-1 text-xs text-[var(--ocean-800)] underline underline-offset-2">
+            <ImageLink key={i} url={a.url} className="inline-flex items-center gap-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2 py-1 text-xs text-[var(--ocean-800)] underline underline-offset-2">
               📷 Ảnh {i + 1}
-            </a>
+            </ImageLink>
           ))}
           {anh.length < 3 && (
             <label
@@ -1131,9 +1131,7 @@ function TraHangDetailModal({
                   <KvRow label="Ảnh LK cần trả">
                     <div className="flex gap-1.5 flex-wrap">
                       {anhTaoMoi.map((a) => (
-                        <a key={a.id} href={a.url} target="_blank" rel="noreferrer">
-                          <img src={a.url} alt="Ảnh linh kiện cần trả" className="w-16 h-16 object-cover rounded-lg border border-[var(--line)] hover:opacity-80 transition-opacity" />
-                        </a>
+                        <ImageThumb key={a.id} url={a.url} alt="Ảnh linh kiện cần trả" className="w-16 h-16 object-cover rounded-lg border border-[var(--line)] hover:opacity-80 transition-opacity" />
                       ))}
                     </div>
                   </KvRow>
@@ -1142,9 +1140,7 @@ function TraHangDetailModal({
                   <KvRow label="Ảnh bằng chứng QC">
                     <div className="flex gap-1.5 flex-wrap">
                       {anhQc.map((a) => (
-                        <a key={a.id} href={a.url} target="_blank" rel="noreferrer">
-                          <img src={a.url} alt="Ảnh bằng chứng QC" className="w-16 h-16 object-cover rounded-lg border border-[var(--line)] hover:opacity-80 transition-opacity" />
-                        </a>
+                        <ImageThumb key={a.id} url={a.url} alt="Ảnh bằng chứng QC" className="w-16 h-16 object-cover rounded-lg border border-[var(--line)] hover:opacity-80 transition-opacity" />
                       ))}
                     </div>
                   </KvRow>

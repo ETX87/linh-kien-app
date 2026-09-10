@@ -148,7 +148,9 @@ function fmtDateVN(dt: string | null): string {
   return `${d}/${m}/${y}`;
 }
 
-function resolveTemplate(loaiDon: RawLine["pxk_loai_don"], loaiFileXuatMisa: string | null): MisaTemplate {
+// Xuat rieng (2026-09-10, phan hoi "nút tải nào được đề xuất sẽ tô màu nổi bật") de routes/phieuXuatKho.ts
+// GET /:id dung LAI DUNG 1 cong thuc nay tinh "mau de xuat" hien thi cho PXK, tranh code trung logic.
+export function resolveTemplate(loaiDon: RawLine["pxk_loai_don"], loaiFileXuatMisa: string | null): MisaTemplate {
   if (loaiDon === "cong_no" || loaiDon === "tra_hang") return "chuyen_kho";
   if (loaiFileXuatMisa === "chuyen_kho" || loaiFileXuatMisa === "xuat_kho") return loaiFileXuatMisa;
   return "ban_hang";
@@ -307,4 +309,39 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
   }
 
   return { sheets, canhBaoThieuMisa: [...canhBaoThieuMisaMap.values()] };
+}
+
+// Tinh "mau MISA de xuat" cho 1 PXK de FE to mau noi bat dung 1 trong 3 nut tai (phan hoi 2026-09-10
+// "nút tải nào được đề xuất sẽ tô màu nổi bật lên để người dùng biết nên tải file nào") - dung
+// resolveTemplate() cho TUNG dong dat_don_hang trong PXK (giong dung logic buildMisaExportSheets dung
+// khi KHONG forceTemplate), roi lay mau xuat hien NHIEU NHAT (1 PXK thuong chi gom cac dong CUNG loai
+// de xuat/loai don nen hiem khi lech nhau, nhung van xu ly truong hop hiem gap mixed). Tra null neu PXK
+// khong co dong nao (khong nen xay ra trong thuc te).
+export async function resolveMisaTemplateDeXuat(env: Env, pxkId: string): Promise<MisaTemplate | null> {
+  const { results } = await env.DB.prepare(
+    `SELECT pxk.loai_don as pxk_loai_don, sld.loai_file_xuat_misa
+       FROM phieu_xuat_kho pxk
+       JOIN phieu_xuat_kho_dong pxkd ON pxkd.phieu_xuat_kho_id = pxk.id
+       JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id
+       LEFT JOIN settings_loai_de_xuat sld ON sld.ten_option = ddh.loai_de_xuat
+      WHERE pxk.id = ?`,
+  )
+    .bind(pxkId)
+    .all<{ pxk_loai_don: RawLine["pxk_loai_don"]; loai_file_xuat_misa: string | null }>();
+  if (results.length === 0) return null;
+
+  const counts = new Map<MisaTemplate, number>();
+  for (const r of results) {
+    const tpl = resolveTemplate(r.pxk_loai_don, r.loai_file_xuat_misa);
+    counts.set(tpl, (counts.get(tpl) ?? 0) + 1);
+  }
+  let best: MisaTemplate = "ban_hang";
+  let bestCount = -1;
+  for (const [tpl, count] of counts) {
+    if (count > bestCount) {
+      best = tpl;
+      bestCount = count;
+    }
+  }
+  return best;
 }

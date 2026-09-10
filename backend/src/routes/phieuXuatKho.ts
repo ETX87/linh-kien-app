@@ -11,7 +11,7 @@ import { quaHanLyDoCham } from "../lib/hanLyDoCham";
 import { autoClaimGs, scopePxkNguoiNhanHang, phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql } from "../lib/scopeDatMua";
 import { uploadPublicImage } from "../lib/googleDrive";
 import { sendPushToUser } from "../lib/webPush";
-import { buildMisaExportSheets, MISA_TEMPLATES, type MisaTemplate } from "../lib/misaExport";
+import { buildMisaExportSheets, resolveMisaTemplateDeXuat, MISA_TEMPLATES, type MisaTemplate } from "../lib/misaExport";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, emailGsListForPxk, PXK_ROLES } from "../lib/taskNotify";
 import { pushPxkToKhovan, notifyPxkAdvancedViaApp, buildWorkUrl } from "../lib/khovanPushClient";
 
@@ -524,6 +524,9 @@ phieuXuatKho.get("/:id", async (c) => {
         ).results
       : [];
   const { results: logs } = await c.env.DB.prepare("SELECT * FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = ? ORDER BY id DESC").bind(id).all();
+  // "Mau MISA de xuat" (them 2026-09-10) - de FE to mau noi bat 1 trong 3 nut tai MISA - xem
+  // lib/misaExport.ts resolveMisaTemplateDeXuat.
+  const misaTemplateDeXuat = await resolveMisaTemplateDeXuat(c.env, id);
 
   const now = nowVN();
   const donHangWithFlag = (donHang as { id: string; ly_do_cham: string | null; cho_tn_duyet_at: string | null; last_giai_trinh_at: string | null }[]).map(
@@ -537,7 +540,7 @@ phieuXuatKho.get("/:id", async (c) => {
     },
   );
 
-  return c.json({ phieuXuatKho: pxk, donHang: donHangWithFlag, logs });
+  return c.json({ phieuXuatKho: pxk, donHang: donHangWithFlag, logs, misaTemplateDeXuat });
 });
 
 // "template" query param dung chung cho ca 2 endpoint misa-export ben duoi (them 2026-09-02, phan

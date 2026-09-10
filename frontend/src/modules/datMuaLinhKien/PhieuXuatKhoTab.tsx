@@ -22,7 +22,7 @@ import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   trangThaiLabel, LOAI_DON_TONE,
 } from "./helpers";
-import { StatusBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar, KhuVucChipFilter } from "./SharedUi";
+import { StatusBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar, KhuVucChipFilter, ImageLink } from "./SharedUi";
 import { PxkMiniPipeline } from "./PipelineFlow";
 import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportResult, type MisaTemplate } from "../../lib/misaExportTemplates";
 
@@ -794,6 +794,9 @@ export function PxkDetailModal({
         phieuXuatKho: PhieuXuatKhoRow & { trang_thai: string };
         donHang: DonHangRow[];
         logs: Array<{ id: number; trang_thai: string; nguoi_xu_ly: string; ngay_xu_ly: string; ghi_chu: string | null }>;
+        // Mau MISA duoc de xuat theo settings_loai_de_xuat cua cac dong trong phieu (them 2026-09-10) -
+        // dung de to mau noi bat 1 trong 3 nut tai MISA ben duoi, xem MISA_TEMPLATE_ORDER.map.
+        misaTemplateDeXuat: MisaTemplate | null;
       }>(`/phieu-xuat-kho/${id}`),
   });
 
@@ -1106,7 +1109,11 @@ export function PxkDetailModal({
                 <Btn
                   key={tpl}
                   size="sm"
-                  variant="ghost"
+                  // To mau noi bat nut trung mau MISA de xuat theo settings_loai_de_xuat cua cac dong
+                  // trong phieu (phan hoi 2026-09-10 "nút tải nào được đề xuất sẽ tô màu nổi bật lên")
+                  // - "subtle" (nen cam nhat) thay vi "ghost" (trang) cho 2 nut con lai.
+                  variant={data.misaTemplateDeXuat === tpl ? "subtle" : "ghost"}
+                  title={data.misaTemplateDeXuat === tpl ? "Mẫu được đề xuất theo Loại đề xuất của phiếu này" : undefined}
                   onClick={() => misaExportMutation.mutate(tpl)}
                   disabled={misaExportMutation.isPending}
                   loading={misaExportMutation.isPending && misaExportMutation.variables === tpl}
@@ -1121,7 +1128,7 @@ export function PxkDetailModal({
             <span className="text-[var(--ink-500)] text-xs">{fmtDateTime(pxk.ngay_tao)}</span>
             {pxk.ma_van_don && <span className="text-xs text-[var(--ink-500)]">Mã vận đơn: <span className="font-mono">{pxk.ma_van_don}</span></span>}
             {pxk.anh_bien_ban_url && (
-              <a href={pxk.anh_bien_ban_url} target="_blank" rel="noreferrer" className="text-[var(--ocean-800)] underline text-xs">Xem ảnh biên bản</a>
+              <ImageLink url={pxk.anh_bien_ban_url} className="text-[var(--ocean-800)] underline text-xs">Xem ảnh biên bản</ImageLink>
             )}
           </div>
 
@@ -1193,7 +1200,7 @@ export function PxkDetailModal({
                 <KvRow label="Số tiền"><span className="font-semibold text-[var(--green-700)]">{fmtVND(pxk.so_tien_can_chuyen)}</span></KvRow>
                 <KvRow label="Trạng thái"><StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /></KvRow>
                 {pxk.bang_chung_chuyen_tien_url && (
-                  <KvRow label="Bằng chứng"><a href={pxk.bang_chung_chuyen_tien_url} target="_blank" rel="noreferrer" className="text-[var(--ocean-800)] underline text-xs">Xem bằng chứng</a></KvRow>
+                  <KvRow label="Bằng chứng"><ImageLink url={pxk.bang_chung_chuyen_tien_url} className="text-[var(--ocean-800)] underline text-xs">Xem bằng chứng</ImageLink></KvRow>
                 )}
                 {pxk.bang_chung_chuyen_tien_ghi_chu && (
                   <KvRow label="Ghi chú"><span className="text-xs text-[var(--ink-600)]">{pxk.bang_chung_chuyen_tien_ghi_chu}</span></KvRow>
