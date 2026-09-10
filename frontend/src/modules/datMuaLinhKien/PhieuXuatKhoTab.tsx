@@ -367,8 +367,13 @@ export function PhieuXuatKhoTab({
   // hien cot) khong bi anh huong - PaginatedTable giu nguyen lua chon da luu cua ho.
   const cols: Column<PhieuXuatKhoRow>[] = [
     {
+      // SUA (phan hoi 2026-09-10: "cột này sai tên, nó chỉ là ID hệ thống tự sinh, không phải mã pxk,
+      // mã misa mới chính là pxk") - `id` la ID tuan tu tu dong sinh (nextSequentialId(), xem
+      // lib/idCounter.ts), CHI dung de tham chieu/tim kiem noi bo, KHONG phai "mã PXK" that su theo
+      // nghiep vu - doi nhan "Mã PXK" -> "ID" cho dung ban chat, mã PXK thuc su la ma_misa (cot rieng
+      // ben duoi, Ke toan nhap luc "chốt xong đơn xuất").
       key: "id",
-      header: "Mã PXK",
+      header: "ID",
       render: (r) => (
         <span className="font-mono text-xs">
           {/* !! bat buoc - D1 tra EXISTS(...) ve 0/1 (khong phai boolean that), "0 && <X/>" trong
@@ -377,6 +382,11 @@ export function PhieuXuatKhoTab({
           {r.id}
         </span>
       ),
+    },
+    {
+      key: "ma_misa",
+      header: "Mã PXK",
+      render: (r) => (r.ma_misa ? <span className="font-mono text-xs font-bold text-[var(--ocean-800)]">{r.ma_misa}</span> : <span className="text-[var(--ink-400)] italic text-xs">Chưa có</span>),
     },
     {
       key: "ma_xuat_kho",
