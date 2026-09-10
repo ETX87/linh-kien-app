@@ -103,6 +103,14 @@ export function DatMuaLinhKienModule({
   // khong phai tram_cha cua ai, nhung nut se luon that bai - trai UX). canBulkTram GIU NGUYEN tap
   // vai tro cu (KTV/Ve tinh/TN/Admin, khong Giam sat).
   const canDatHo = !!(user?.la_ktv_dvbh || user?.la_ve_tinh || canTacNghiep || isGiamSat);
+  // Them (phan hoi 2026-09-10: "KTV không thấy PXK ở đâu để check khi Kho gửi hàng") - KTV/Ve tinh
+  // truoc day KHONG co lich su hien tab "Phiếu xuất kho" nao, chi vao duoc PHAN UNG (Trang chu "Cần
+  // làm" hoac chuong thong bao khi CO 1 PXK dang cho ho xac nhan) - khong browse duoc danh sach/lich
+  // su cac PXK cua chinh minh. Backend da san sang tu truoc (scopePxkNguoiNhanHang trong
+  // scopeDatMua.ts da loc dung PXK theo nguoi_nhan_hang=minh hoac ve tinh cap duoi cho ca 2 nhom nay,
+  // nut "KTV đã nhận" trong PhieuXuatKhoTab.tsx cung da gate theo currentEmail===nguoi_nhan_hang chu
+  // khong theo co vai tro) - chi can MO tab o FE, khong sua gi backend/PhieuXuatKhoTab.
+  const isFieldKtv = !!(user?.la_ktv_dvbh || user?.la_ve_tinh);
   const canKho = !!user?.la_kho || user?.vai_tro === "Admin";
   const canKeToan = !!user?.la_ke_toan || user?.vai_tro === "Admin";
   const canQC = user?.vai_tro === "QC" || user?.vai_tro === "Admin";
@@ -144,9 +152,9 @@ export function DatMuaLinhKienModule({
   // linh kiện" gio CHI con "Mua hàng/Công nợ/Trả hàng/Phiếu xuất kho" trong thanh tab cua no.
   const tabs = [
     ...(canXemDonMuaCongNo ? [{ key: "don-cua-toi", label: "Đơn của tôi / Danh sách" }] : []),
-    // Giam sat them vao tab duoi - CHI de theo doi (khong co canTacNghiep/canKho/canKeToan rieng nen
-    // khong nut hanh dong nao hien ra, xem PxkDetailModal).
-    ...(canTacNghiep || canKho || canKeToan || isGiamSat ? [{ key: "phieu-xuat-kho", label: "Phiếu xuất kho" }] : []),
+    // Giam sat/KTV/Ve tinh them vao tab duoi - CHI de theo doi + tu xac nhan "KTV đã nhận" (khong co
+    // canTacNghiep/canKho/canKeToan rieng nen khong nut hanh dong quan ly nao hien ra, xem PxkDetailModal).
+    ...(canTacNghiep || canKho || canKeToan || isGiamSat || isFieldKtv ? [{ key: "phieu-xuat-kho", label: "Phiếu xuất kho" }] : []),
   ];
   // "Đơn trả hàng" KHONG con la tab rieng tren thanh menu (CHOT vong 7: "thừa" - thanh luong quy trinh
   // da co san 3 buoc bam thang vao dung day: Trả hàng KT/Kho/QC). Van GIU render/activeView cho key
@@ -227,7 +235,7 @@ export function DatMuaLinhKienModule({
   // không hiện (1) ở tên thẻ như thẻ trả hàng") - tong so PXK dang mo (chua xu ly xong), cung tinh
   // than voi loaiDonCounts.tra_hang o tren. CHI fetch khi tab nay thuc su hien (khop dung dieu kien o
   // mang "tabs" ben duoi) - tranh goi API thua cho KTV/Ve tinh (khong co tab nay).
-  const canXemPxkTab = canTacNghiep || canKho || canKeToan || isGiamSat;
+  const canXemPxkTab = canTacNghiep || canKho || canKeToan || isGiamSat || isFieldKtv;
   const { data: pxkMoCountData } = useQuery({
     queryKey: ["dat-mua-lk-pxk-mo-count"],
     queryFn: () => api.get<{ count: number }>("/phieu-xuat-kho/mo-count"),

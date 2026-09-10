@@ -62,9 +62,7 @@ export function Sidebar({
       style={{ background: "linear-gradient(180deg, var(--sidebar-bg-from), var(--sidebar-bg-to) 55%)" }}
     >
       <div className="flex items-center gap-2.5 px-4 h-16 shrink-0 border-b border-[var(--sidebar-border)]">
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-[#2b74f0] to-[#12d3e6] text-[13px] font-extrabold text-white">
-          3T
-        </span>
+        <img src="/icon-192.png" alt="Đặt mua linh kiện" width={32} height={32} className="shrink-0 rounded-lg" />
         {showText && (
           <div className="leading-tight">
             <div className="text-[13px] font-extrabold tracking-tight text-white">Đặt hàng linh kiện</div>
