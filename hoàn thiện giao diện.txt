@@ -1,0 +1,4 @@
+khám phá toàn bộ dự án này => với vai trò 1 nhà thiết kế giao diện chuyên nghiệp => liệt kê ma trận các vai trò trên hệ thống theo từng phân quyền xử lý, từng màn hình UI phải làm việc => tự đưa mình vào vai trò đó => tự nhận thủ công test từng nghiệp vụ công việc => thao tác thủ công như 1 người nhân viên bình thường => đánh giá điều bất hợp lý, chưa đạt => đưa ra vấn đề cần cải tiến => một AI khác phản biện => chốt lại vấn đề => đưa ra đề xuất cải tiến phù hợp
+Tiêu chí: Giao diện đầy đủ thông tin, hiện thị sạch, minh bạch, phong cách hiện đại, nhập liệu thuận tiện, vị trí bố cục các ô nhập liệu liền kề liên hệ với nhau. Thao tác nhập liệu liên tục hạn chế ngắt quãng (ấn tab nhập thông tin, ấn tab nhập). Các giao diện tận dụng tối đa diện tích của giao diện web hoặc mobile.
+=> không hiểu thì hỏi, không tự ý quyết.
+=> đánh giá đến khi nào đưa cho 1 người cực kỳ khó tính, mắc hội chứng hoàn hảo hài lòng thì thôi
