@@ -1290,7 +1290,7 @@ export function PxkDetailModal({
                               ))}
                             </ul>
                           )}
-                          {canTacNghiep && trangThai === "Dang tao phieu" && d.qua_han_ly_do_cham ? (
+                          {canTacNghiep && d.trang_thai_hien_tai === "Cho TN duyet" && d.qua_han_ly_do_cham ? (
                             <div className="flex flex-col gap-1">
                               {/* CHOT (phan hoi 2026-08-24: "đổi hẳn thành dropdown bắt buộc, bỏ ô nhập
                                   tay") - Select BAT BUOC chon tu danh muc "Mua hàng" (settings_ly_do_cham),
@@ -1318,6 +1318,17 @@ export function PxkDetailModal({
                                 <div className="text-[10.5px] text-[var(--coral-600)]">Chưa có lý do chậm nào được cấu hình cho "Mua hàng" — vào Settings › Lý do chậm để thêm.</div>
                               )}
                             </div>
+                          ) : d.qua_han_ly_do_cham ? (
+                            // FIX (phan hoi 2026-09-10: bam Luu bao loi 409 "Trạng thái hiện tại không
+                            // cho phép thao tác này") - dong DA VAO PXK luon co trang_thai_hien_tai=
+                            // "TN da duyet" (khong con "Cho TN duyet"), trong khi backend POST
+                            // /don-hang/:id/giai-trinh CHI cho nop khi con "Cho TN duyet" (het y nghia
+                            // sau khi da duyet - xem comment route datMuaLinhKien.ts). Truoc day dieu
+                            // kien gate nham theo trang_thai cua PXK (trangThai) thay vi cua CHINH dong
+                            // (d.trang_thai_hien_tai) nen luon hien o nhap + nut Luu du KHONG BAO GIO
+                            // luu duoc - gio chi hien badge THONG TIN (khong con hanh dong nao lam
+                            // duoc o day, dung y "hết ý nghĩa sau khi đã duyệt" cua backend).
+                            <Badge tone="coral">Quá hạn</Badge>
                           ) : (!d.giaiTrinh || d.giaiTrinh.length === 0) ? (
                             <span className="text-[var(--ink-400)]">—</span>
                           ) : null}

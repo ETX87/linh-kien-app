@@ -96,6 +96,10 @@ export interface DonHangRow {
   ma_yeu_cau_su_co: string | null;
   uu_tien: number;
   trang_thai?: string | null;
+  // Cot goc "dat_don_hang.trang_thai_hien_tai" (khac "trang_thai" o tren - vai noi API tra ve qua
+  // ddh.* thay vi alias) - dung de gate dung dieu kien "con dang Cho TN duyet" cho nut Luu ly do cham
+  // trong PhieuXuatKhoTab.tsx (xem GET /phieu-xuat-kho/:id o backend).
+  trang_thai_hien_tai?: string | null;
   // Tu linh_kien.dac_thu qua LEFT JOIN (khong luu tren dat_don_hang) - true khi can qua buoc "Cho TBP
   // xac nhan" truoc TN, xem migration 0082.
   dac_thu?: number | null;
