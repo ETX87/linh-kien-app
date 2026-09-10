@@ -19,6 +19,12 @@ import type { ThieuLkRow, LyDoChamRow, NguoiNhanHangKhaDungRow } from "./types";
 import { THIEU_LK_TRANG_THAI_TONE, THIEU_LK_TRANG_THAI_OPTIONS } from "./constants";
 import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts, trangThaiLabel, LOAI_DON_TONE } from "./helpers";
 import { StatusBadge, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar, KhuVucChipFilter } from "./SharedUi";
+// Lien ket 2 chieu voi don goc (phan hoi 2026-09-10: "đơn gốc cũng không có truy vấn đến đơn ticket
+// đơn thiếu linh kiện") - import truc tiep component Drawer chi tiet don hang, tu quan ly state mo/dong
+// CUC BO trong ThieuLkDetailModal (khong lifting len ThieuLkTab), tranh phai xuyen them props qua
+// nhieu lop. Import vong (DonCuaToiTab.tsx cung import nguoc lai ThieuLkDetailModal tu file nay) an
+// toan trong ESM vi ca 2 chi dung ben trong than ham component (luc render), khong dung o top-level.
+import { DonHangDetailModal } from "./DonCuaToiTab";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -68,6 +74,7 @@ function actionLabel(trangThai: string): string {
 
 export function ThieuLkTab({
   addToast, qc, canKho, canTacNghiep, canKeToan, isGiamSat, currentEmail, initialFilterOverride, initialNguoiNhanHangOverride,
+  initialDetailIdOverride, onDetailIdConsumed,
 }: {
   addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>; canKho: boolean; canTacNghiep: boolean;
   // Them 2026-09-05 (phan hoi "'Chờ LK' chức năng filter vẫn thiếu bộ lọc theo khu vực, theo người
@@ -78,6 +85,11 @@ export function ThieuLkTab({
   currentEmail: string;
   initialFilterOverride?: string;
   initialNguoiNhanHangOverride?: string;
+  // Them (phan hoi 2026-09-10, tim kiem that o CommandPalette) - mo thang Drawer chi tiet 1 ticket TLK
+  // khi nhay toi, cung pattern voi DonCuaToiTab.initialDetailIdOverride (xem openDetailIdFor trong
+  // DatMuaLinhKienModule.tsx).
+  initialDetailIdOverride?: string;
+  onDetailIdConsumed?: () => void;
 }) {
   // FIX (ra soat bug mua hang 2026-08-26, BUG-002): tach lop luu-lau-dai (localStorage) khoi lop
   // hien-thi/query - jump tu Home/Pipeline CHI doi lop hien thi, khong ghi de vinh vien filter da luu
@@ -111,6 +123,13 @@ export function ThieuLkTab({
   }, [filterQ]);
   const [showFilters, setShowFilters] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  useEffect(() => {
+    if (initialDetailIdOverride) {
+      setDetailId(initialDetailIdOverride);
+      onDetailIdConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDetailIdOverride]);
   // Bo loc Khu vuc (them 2026-08-31, MO RONG 2026-09-05 phan hoi "'Chờ LK' chức năng filter vẫn thiếu
   // bộ lọc theo khu vực, theo người nhận hàng" - truoc chi Kho (canKho) can, gio khop dung cong thuc
   // showKhuVucFilter cua DonCuaToiTab.tsx: moi "nhan vien van phong" lien quan xem toan canh theo Khu
@@ -785,7 +804,7 @@ function ThieuLkGroupedList({
 // xem (dung y CHOT #19: tranh 2 noi cung sua trang thai). Doi lai theo dung pattern TraHangDetailModal
 // (da co san nut hanh dong LAN nut o dong bang, khong lech - ca 2 cung goi CHUNG 1 mutation/API, CUNG
 // 1 react-query queryKey duoc invalidate nen khong co rui ro lech UI/CAS nhu lo ngai ban dau).
-function ThieuLkDetailModal({
+export function ThieuLkDetailModal({
   id, onClose, addToast, qc, canKho, canTacNghiep, currentEmail, navRows, onNavigate,
 }: {
   id: string;
@@ -801,6 +820,7 @@ function ThieuLkDetailModal({
   const [actionTrangThai, setActionTrangThai] = useState<string | null>(null);
   const [ghiChu, setGhiChu] = useState("");
   const [ngayDuKien, setNgayDuKien] = useState("");
+  const [showDonGoc, setShowDonGoc] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["thieu-lk-detail", id],
     queryFn: () =>
@@ -961,7 +981,11 @@ function ThieuLkDetailModal({
               <span className="font-semibold">{t.ten_lk_snapshot ?? t.ma_lk}</span>
             </KvRow>
           )}
-          <KvRow label="Đơn hàng"><span className="font-mono text-xs">{t.dat_don_hang_id}</span></KvRow>
+          <KvRow label="Đơn hàng">
+            <button type="button" onClick={() => setShowDonGoc(true)} className="font-mono text-xs text-[var(--ocean-700)] hover:underline">
+              {t.dat_don_hang_id} ↗
+            </button>
+          </KvRow>
           <KvRow label="Ngày dự kiến có hàng">{t.ngay_du_kien_co_hang ?? "—"}</KvRow>
           {t.ten_ly_do && <KvRow label="Lý do TN báo">{t.ten_ly_do}</KvRow>}
 
@@ -979,6 +1003,21 @@ function ThieuLkDetailModal({
             }))}
           />
         </div>
+      )}
+      {showDonGoc && t && (
+        <DonHangDetailModal
+          id={t.dat_don_hang_id}
+          onClose={() => setShowDonGoc(false)}
+          addToast={addToast}
+          qc={qc}
+          canTacNghiep={canTacNghiep}
+          canTPDvbhXacNhan={false}
+          canActAsTram={false}
+          currentEmail={currentEmail}
+          isAdmin={false}
+          canXemChiTietCa={false}
+          canKho={canKho}
+        />
       )}
     </Drawer>
   );

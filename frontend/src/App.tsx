@@ -139,7 +139,7 @@ function MainApp({
     queryFn: () => api.get<{ ktvLogChuaDoc: number }>("/notifications/count"),
     refetchInterval: 5 * 60_000,
   });
-  const [pendingDetailOpen, setPendingDetailOpen] = useState<{ tab: "don-cua-toi" | "phieu-xuat-kho" | "tra-hang"; id: string; nonce: number } | null>(null);
+  const [pendingDetailOpen, setPendingDetailOpen] = useState<{ tab: "don-cua-toi" | "phieu-xuat-kho" | "tra-hang" | "thieu-lk"; id: string; nonce: number } | null>(null);
   function openDonHangFromBell(donHangId: string) {
     setActive("dat-mua-lk");
     setPendingDetailOpen({ tab: "don-cua-toi", id: donHangId, nonce: Date.now() });
@@ -147,6 +147,17 @@ function MainApp({
   function openPxkFromBell(pxkId: string) {
     setActive("dat-mua-lk");
     setPendingDetailOpen({ tab: "phieu-xuat-kho", id: pxkId, nonce: Date.now() });
+  }
+  // Ket qua tim kiem that o CommandPalette (them 2026-09-10, xem GET /dat-mua-lk/search) - dung LAI
+  // dung 1 "cong vao" pendingDetailOpen voi chuong thong bao/deep link o tren, chi khac nguon kich hoat.
+  function openSearchResult(action: { type: "don_hang" | "phieu_xuat_kho" | "thieu_lk"; id: string }) {
+    setActive("dat-mua-lk");
+    const tab = action.type === "don_hang" ? "don-cua-toi" : action.type === "phieu_xuat_kho" ? "phieu-xuat-kho" : "thieu-lk";
+    setPendingDetailOpen({ tab, id: action.id, nonce: Date.now() });
+  }
+  function handleCommandSelect(item: CommandItem) {
+    if (item.action) openSearchResult(item.action);
+    else setActive(item.key);
   }
   // Mo Drawer chi tiet 1 dong tra hang theo dung dat_don_hang.id (them 2026-09-09, xem
   // lib/pxkDeepLink.ts) - khac openPxkFromBell, id truyen vao day PHAI la dat_don_hang.id that
@@ -175,6 +186,8 @@ function MainApp({
         .catch(() => {
           /* khong tim thay/khong co quyen xem - im lang, nguoi dung van vao duoc app binh thuong */
         });
+    } else if (id.startsWith("TLK-")) {
+      openSearchResult({ type: "thieu_lk", id });
     } else {
       openPxkFromBell(id);
     }
@@ -368,7 +381,7 @@ function MainApp({
           </div>
         </Modal>
       )}
-      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} items={commandItems} onSelect={setActive} />
+      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} items={commandItems} onSelect={handleCommandSelect} />
       {realIsAdmin && mobilePreviewOpen && (
         <div className="fixed inset-0 z-[100] bg-[rgba(24,24,27,0.65)] flex items-center justify-center p-4 sm:p-8 overflow-auto">
           <div className="relative shrink-0">

@@ -53,7 +53,8 @@ export function TaoDonTab({
       open
       title="🧾 Tạo đơn đặt linh kiện"
       onClose={onClose}
-      width="max-w-4xl"
+      width="max-w-[95vw] sm:max-w-[1200px]"
+      height="max-h-[92vh]"
       // SUA BUG (phan hoi 2026-08-22: "vai trò ktv khi ấn chuyển về giao diện nhập liệu cũ, lại không
       // có nút để chuyển về giao diện mới") - truoc day chi co 1 chieu (moi -> cu), khong co duong quay
       // lai tru xoa localStorage thu cong. Chi hien khi isMobile (desktop khong co "giao dien moi" nao

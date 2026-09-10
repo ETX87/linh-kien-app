@@ -67,7 +67,13 @@ export function formatNguoiDisplay(email: string, map: KtvDisplayMap): string {
   // FIX (phan hoi 2026-08-27): 1 so KTV "mo coi" duoc tao ma_ktv = chinh email luc sua du lieu (chua
   // co ma that) - neu ghep nguyen se ra "(email) Ten (email)" lap 2 lan xau. Bo phan "(ma_ktv)" khi no
   // trung voi email.
-  const base = entry.ma_ktv && entry.ma_ktv !== email ? `(${entry.ma_ktv}) ${ten}` : ten;
+  // FIX (phan hoi 2026-09-10: "tên người dùng đang bị lặp" - vd "(Minhqdl.mb1) (Minhqdl.mb1) CTV...")
+  // - thieu cung 1 dieu kien voi ktvOptionLabel() ben duoi: nhieu ten_hien_thi da TU chua san ma_ktv
+  // trong chuoi (nguoi dung tu go luc sua), ghep them tien to "(ma_ktv)" truoc do khien ma hien LAP 2
+  // LAN. Kiem tra chuoi con (khong phan biet hoa/thuong) truoc khi ghep, giong ktvOptionLabel.
+  const base = entry.ma_ktv && entry.ma_ktv !== email && !ten.toLowerCase().includes(entry.ma_ktv.toLowerCase())
+    ? `(${entry.ma_ktv}) ${ten}`
+    : ten;
   // FIX (phan hoi 2026-08-26, hang muc #16): ghep them "(email)" o cuoi de dong nhat voi
   // formatPersonDisplay toan he thong - bo qua neu ten hien thi CHINH LA email (tranh lap
   // "user@x.com (user@x.com)").

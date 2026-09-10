@@ -27,6 +27,7 @@ import {
   DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, DON_HANG_DANG_MO, BULK_LOG_ERROR_MESSAGES, YEU_CAU_HOA_DON_OPTIONS,
   CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABELS, TRA_HANG_TRANG_THAI_OPTIONS,
   CHUYEN_TIEN_TONE, CHUYEN_TIEN_OPTIONS, PXK_TRANG_THAI_TONE, PXK_TRANG_THAI_OPTIONS,
+  THIEU_LK_TRANG_THAI_TONE, THIEU_LK_TRANG_THAI_OPTIONS,
 } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
@@ -36,6 +37,9 @@ import {
 import { StatusBadge, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { LinhKienPicker, LinhKienDetailModal } from "./LinhKienPicker";
+// Lien ket 2 chieu voi ticket thieu LK (phan hoi 2026-09-10) - xem giai thich import vong o
+// ThieuLkTab.tsx (file do cung import nguoc lai DonHangDetailModal tu day).
+import { ThieuLkDetailModal } from "./ThieuLkTab";
 
 // FIX (ra soat "logic sai theo vai tro" 2026-08-31): KTV/Ve tinh khong co tab "Phieu xuat kho" rieng
 // (chi Tac nghiep/Kho/Ke toan/Giam sat moi thay, xem canXemPxkTab o DatMuaLinhKienModule.tsx) - theo
@@ -53,6 +57,13 @@ interface PxkInfo {
   ma_xuat_kho: string | null;
 }
 
+// Them (phan hoi 2026-09-10: "đơn gốc cũng không có truy vấn đến đơn ticket đơn thiếu linh kiện") -
+// ban ghi thieu_lk MOI NHAT cua dong nay (neu co), tra ve tu GET /dat-mua-lk/don-hang/:id.
+interface ThieuLkRefInfo {
+  id: string;
+  trang_thai: string | null;
+}
+
 export function DonHangDetailModal({
   id,
   onClose,
@@ -64,6 +75,7 @@ export function DonHangDetailModal({
   currentEmail,
   isAdmin,
   canXemChiTietCa,
+  canKho,
   openCase,
   navRows,
   onNavigate,
@@ -80,6 +92,10 @@ export function DonHangDetailModal({
   // helpers.ts actionsFor(). Optional = mac dinh false (khong phai Admin) o noi goi chua kip cap nhat.
   isAdmin?: boolean;
   canXemChiTietCa: boolean;
+  // Them (phan hoi 2026-09-10, lien ket 2 chieu voi ticket thieu LK) - chi de truyen tiep sang
+  // ThieuLkDetailModal khi mo tu day (quyet dinh nut hanh dong Kho co hien hay khong). Optional = mac
+  // dinh false o noi goi chua co san context nay (vd mo tu ThieuLkTab, xem canKho o do).
+  canKho?: boolean;
   openCase?: (id: string, tab?: string) => void;
   // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Drawer + Next/Previous"): danh sach DONG PHANG
   // cua TRANG dang xem (component cha da fetch san, khong goi API moi) de duyet qua tung dong lien
@@ -102,9 +118,10 @@ export function DonHangDetailModal({
   // useEffect duoi).
   const [soLuongThucXuat, setSoLuongThucXuat] = useState("");
   const [lyDoSoLuong, setLyDoSoLuong] = useState("");
+  const [showThieuLk, setShowThieuLk] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["dat-mua-lk-don-hang-detail", id],
-    queryFn: () => api.get<{ donHang: DonHangRow; pxk: PxkInfo | null }>(`/dat-mua-lk/don-hang/${id}`),
+    queryFn: () => api.get<{ donHang: DonHangRow; pxk: PxkInfo | null; thieuLk: ThieuLkRefInfo | null }>(`/dat-mua-lk/don-hang/${id}`),
   });
   useEffect(() => {
     if (data?.donHang && data.donHang.id === id) {
@@ -235,6 +252,7 @@ export function DonHangDetailModal({
 
   const d = data?.donHang;
   const pxk = data?.pxk;
+  const thieuLk = data?.thieuLk;
   const actions = d ? actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, isAdmin }) : { duyet: false, tuChoi: false, choHang: false, huy: false };
   // Muc #4: SL thuc xuat CHI cho sua khi dong dang "Cho TN duyet" va SL de xuat > 1 (dung dieu kien
   // nguoi dung neu ra). "Da doi" so voi SL de xuat (khong phai so voi gia tri cu da luu - dong nay
@@ -985,6 +1003,21 @@ export function DonHangDetailModal({
             </DetailZone>
           )}
 
+          {/* Them (phan hoi 2026-09-10: "đơn gốc cũng không có truy vấn đến đơn ticket đơn thiếu linh
+              kiện") - chi hien khi dong nay tung mo 1 ca thieu_lk (xem openThieuLkForDonHang o backend),
+              cho phep bam thang sang Drawer chi tiet ticket do thay vi phai tu chuyen qua tab "Thiếu LK"
+              roi tim lai bang tay. */}
+          {thieuLk && (
+            <DetailZone title="Thiếu linh kiện">
+              <KvRow label="Trạng thái">
+                <StatusBadge value={thieuLk.trang_thai ?? ""} tones={THIEU_LK_TRANG_THAI_TONE} options={THIEU_LK_TRANG_THAI_OPTIONS} />
+              </KvRow>
+              <Btn size="sm" variant="ghost" className="mt-1" onClick={() => setShowThieuLk(true)}>
+                Xem ticket {thieuLk.id} ↗
+              </Btn>
+            </DetailZone>
+          )}
+
           {/* CHOT (ra soat module #18): them 1 cham tron nho dau moi dong theo dung tone trang thai
               (khong to mau ca dong chu) - du quet nhanh "chuoi mau" cua hanh trinh xu ly ma khong
               canh tranh voi StatusBadge chinh o dau modal (van la diem neo cho trang thai HIEN TAI). */}
@@ -1030,6 +1063,17 @@ export function DonHangDetailModal({
           </div>
         </div>
       </Modal>
+    )}
+    {showThieuLk && thieuLk && (
+      <ThieuLkDetailModal
+        id={thieuLk.id}
+        onClose={() => setShowThieuLk(false)}
+        addToast={addToast}
+        qc={qc}
+        canKho={canKho ?? false}
+        canTacNghiep={canTacNghiep}
+        currentEmail={currentEmail}
+      />
     )}
     </>
   );
@@ -1686,6 +1730,7 @@ export function DonCuaToiTab({
           currentEmail={user?.email ?? ""}
           isAdmin={isAdmin}
           canXemChiTietCa={canXemChiTietCa}
+          canKho={canKho}
           openCase={openCase}
           navRows={pageRows}
           onNavigate={setDetailId}

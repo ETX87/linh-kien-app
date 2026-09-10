@@ -6,7 +6,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nextSequentialId } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
-import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, khuVucViewEmailInSql, khuVucCuaToiSet, khuVucSetWhereSql } from "../lib/scopeDatMua";
+import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, khuVucViewEmailInSql, khuVucCuaToiSet, khuVucSetWhereSql, scopePxkNguoiNhanHang } from "../lib/scopeDatMua";
 import { bumpVersions } from "../lib/dataVersions";
 import { quaHanLyDoCham } from "../lib/hanLyDoCham";
 import { getDatMuaLkBadge } from "./notifications";
@@ -17,6 +17,7 @@ import { lookupCase, lookupCases, type CaseLookupPreview } from "../lib/caseLook
 import { sendPushToUser } from "../lib/webPush";
 import { computeCongNoChot } from "../lib/congNoKtv";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, MUA_CONG_NO_ROLES, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
+import { pushThieuLkToKhovan, buildWorkUrl } from "../lib/khovanPushClient";
 
 // Luong chinh "Dat mua linh kien" - phieu dat (header, chi de tong hop hien thi) + dong don hang -
 // xem migration 0056_phieu_dat.sql + 0063_dat_don_hang_trang_thai_theo_dong.sql.
@@ -2205,6 +2206,71 @@ datMuaLinhKien.post("/don-hang/import/commit", async (c) => {
 // lien ket. CHOT 2026-08-15: thay the GET /phieu-dat/:id (chi tiet ca phieu) va GET /don-hang/by-phieu
 // (lay dong con theo danh sach phieu) - khong con khai niem "phieu" nua, moi dong tu dung doc lap
 // (xem migration 0075). Ap dung scopeDatMuaNguoiTao (alias ddh) de khong lo du lieu ngoai pham vi.
+// Tim kiem thuc su theo ma (phan hoi 2026-09-10: "mục tìm kiếm tổng đang bug không tìm được ví dụ
+// DDH-000004") - truoc day o Ctrl+K (CommandPalette.tsx) CHI dieu huong module, KHONG tra cuu du lieu
+// don hang that (thiet ke co y luc tach he). Endpoint nay tim theo TIEN TO ma (DDH.../PMH.../TLK...)
+// tren CA 3 bang chinh cua module, MOI bang ap dung DUNG scope xem cua nguoi goi (giong het GET/:id
+// tuong ung) de khong lo du lieu ngoai quyen - khong tim rong hon (vd theo ten linh kien) de tranh
+// ro ri thong tin qua 1 o goi la "command palette".
+datMuaLinhKien.get("/search", async (c) => {
+  const user = c.get("user");
+  const q = (c.req.query("q") ?? "").trim().toUpperCase();
+  if (q.length < 3) return c.json({ results: [] });
+  const results: { type: "don_hang" | "phieu_xuat_kho" | "thieu_lk"; id: string; label: string }[] = [];
+
+  {
+    const scope = scopeDatMuaNguoiTao(c);
+    const whereSql = "UPPER(ddh.id) LIKE ? || '%'" + (scope?.whereSql ?? "");
+    const binds = [q, ...(scope?.binds ?? [])];
+    const { results: rows } = await c.env.DB.prepare(
+      `SELECT ddh.id, ddh.ma_lk, ddh.ten_lk_snapshot FROM dat_don_hang ddh WHERE ${whereSql} ORDER BY ddh.id LIMIT 5`,
+    )
+      .bind(...binds)
+      .all<{ id: string; ma_lk: string | null; ten_lk_snapshot: string | null }>();
+    for (const r of rows) results.push({ type: "don_hang", id: r.id, label: `${r.id} — ${r.ten_lk_snapshot ?? r.ma_lk ?? ""}` });
+  }
+
+  {
+    const scope = scopePxkNguoiNhanHang(c);
+    const whereSql = "UPPER(pxk.id) LIKE ? || '%'" + (scope?.whereSql ?? "");
+    const binds = [q, ...(scope?.binds ?? [])];
+    const { results: rows } = await c.env.DB.prepare(
+      `SELECT pxk.id, pxk.ma_xuat_kho FROM phieu_xuat_kho pxk WHERE ${whereSql} ORDER BY pxk.id LIMIT 5`,
+    )
+      .bind(...binds)
+      .all<{ id: string; ma_xuat_kho: string | null }>();
+    for (const r of rows) results.push({ type: "phieu_xuat_kho", id: r.id, label: r.ma_xuat_kho ? `${r.id} (${r.ma_xuat_kho})` : r.id });
+  }
+
+  {
+    // Scope GIONG HET GET /thieu-lk/:id ben duoi (khong tach ham dung chung vi 1 ben la WHERE tren id
+    // that, 1 ben la LIKE tien to - de nguyen inline cho de doi chieu).
+    let whereSql = "UPPER(tlk.id) LIKE ? || '%'";
+    const binds: unknown[] = [q];
+    if (canKho(c) || canTacNghiep(c)) {
+      // khong gioi han
+    } else if (user.vai_tro === "Giam sat") {
+      whereSql += " AND ddh.email_gs = ?";
+      binds.push(user.email);
+    } else if (user.la_view) {
+      const emailIn = khuVucViewEmailInSql();
+      whereSql += ` AND (ddh.nguoi_tao IN ${emailIn} OR ddh.nguoi_nhan_hang IN ${emailIn})`;
+      binds.push(user.email, user.email);
+    } else {
+      whereSql += " AND tlk.nguoi_tao = ?";
+      binds.push(user.email);
+    }
+    const { results: rows } = await c.env.DB.prepare(
+      `SELECT tlk.id, ddh.ma_lk, ddh.ten_lk_snapshot FROM thieu_lk tlk LEFT JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id WHERE ${whereSql} ORDER BY tlk.id LIMIT 5`,
+    )
+      .bind(...binds)
+      .all<{ id: string; ma_lk: string | null; ten_lk_snapshot: string | null }>();
+    for (const r of rows) results.push({ type: "thieu_lk", id: r.id, label: `${r.id} — ${r.ten_lk_snapshot ?? r.ma_lk ?? ""}` });
+  }
+
+  return c.json({ results: results.slice(0, 8) });
+});
+
 datMuaLinhKien.get("/don-hang/:id", async (c) => {
   const user = c.get("user");
   const id = c.req.param("id");
@@ -2289,7 +2355,17 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
     .bind(id)
     .first();
 
-  return c.json({ donHang: { ...ddh, cases, logs, giaiTrinh, qua_han_ly_do_cham: quaHan }, pxk: pxk ?? null });
+  // Them (phan hoi 2026-09-10: "đơn gốc cũng không có truy vấn đến đơn ticket đơn thiếu linh kiện") -
+  // dat_don_hang khong the co qua 1 ticket thieu_lk dang mo cung luc (xem openThieuLkForDonHang), nen
+  // chi lay ban ghi MOI NHAT la du de dan link 2 chieu; frontend dung id nay de mo Drawer ThieuLkTab.
+  const thieuLk = await c.env.DB.prepare(
+    `SELECT tlk.id, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai
+     FROM thieu_lk tlk WHERE tlk.dat_don_hang_id = ? ORDER BY tlk.ngay_tao DESC LIMIT 1`,
+  )
+    .bind(id)
+    .first<{ id: string; trang_thai: string }>();
+
+  return c.json({ donHang: { ...ddh, cases, logs, giaiTrinh, qua_han_ly_do_cham: quaHan }, pxk: pxk ?? null, thieuLk: thieuLk ?? null });
 });
 
 // Mo 1 ca thieu_lk cho 1 DONG don hang khi TN tu choi bang 1 "Ly do cham" co co
@@ -2330,6 +2406,17 @@ async function openThieuLkForDonHang(
       now,
     ),
   ]);
+
+  // Bao khovan (he Quan ly hang ve kho) biet ngay - xem giai thich day du o pushThieuLkToKhovan()
+  // trong lib/khovanPushClient.ts. Best-effort (waitUntil), khong chan tao ticket neu khovan loi/down.
+  const ddhRow = await c.env.DB.prepare("SELECT ma_lk, ten_lk_snapshot, nguoi_tao FROM dat_don_hang WHERE id = ?")
+    .bind(donHangId)
+    .first<{ ma_lk: string; ten_lk_snapshot: string | null; nguoi_tao: string }>();
+  if (ddhRow) {
+    const senderLabel = `Thiếu LK ${ddhRow.ten_lk_snapshot ?? ddhRow.ma_lk} (báo bởi ${user.email}, của ${ddhRow.nguoi_tao})`;
+    c.executionCtx.waitUntil(pushThieuLkToKhovan(c.env, thieuLkId, senderLabel, "Thiếu linh kiện - chờ Kho tìm nguồn hàng", buildWorkUrl(c.env, thieuLkId)));
+  }
+
   return { id: thieuLkId };
 }
 

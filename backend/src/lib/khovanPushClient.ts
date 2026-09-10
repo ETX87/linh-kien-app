@@ -90,6 +90,33 @@ export async function pushTraHangToKhovan(
   }
 }
 
+// Bao khovan biet co 1 dong hang dang THIEU can tim nguon (them 2026-09-10, phan hoi "Ticket đơn
+// thiếu linh kiện này cần có kho xử lý => thiếu API bắn sang Kho xử lý... api đã có sẵn và đang hoạt
+// động sẵn" - nguoi dung xac nhan "he thong quan ly kho" chinh la khovan, tai dung nguyen ha tang nay
+// thay vi tich hop moi). Goi tu openThieuLkForDonHang() ngay luc tao ticket (trang thai dau tien luon
+// la "Cho kho xu ly") - best-effort giong pushPxkToKhovan (loi/khovan down KHONG duoc chan tao ticket).
+export async function pushThieuLkToKhovan(env: Env, thieuLkId: string, senderName: string, note: string, workUrl?: string | null): Promise<void> {
+  const url = `${env.KHOVAN_SYNC_BASE_URL.replace(/\/$/, "")}/api/v1/inbound/orders`;
+  try {
+    const res = await env.KHOVAN_SYNC_SERVICE.fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Api-Key": env.KHOVAN_SYNC_API_KEY },
+      body: JSON.stringify({
+        order_code: thieuLkId,
+        sender_name: senderName,
+        sender_info: { loai_don: "thieu_lk", work_url: workUrl ?? undefined },
+        note,
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error("[khovanPush] thieu-lk fetch that bai", res.status, text.slice(0, 200));
+    }
+  } catch (err) {
+    console.error("[khovanPush] thieu-lk exception", err instanceof Error ? err.message : err);
+  }
+}
+
 // Bao NGUOC cho khovan biet trang thai moi cua 1 "shipment" ben do - dung chung cho 3 truong hop:
 // QC tu choi 1 thung "TRA-" da ve kho (chot 08/09/2026), VA (them 2026-09-09, phan hoi "khi xác nhận
 // bên hệ thống linh kiện xong => tự bắn api trạng thái mới về cho app khovan") khi mot buoc Kho

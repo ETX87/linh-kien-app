@@ -54,7 +54,7 @@ export function DatMuaLinhKienModule({
   // "cong vao" duy nhat de bam 1 dong thong bao tu ben ngoai module van mo dung Drawer chi tiet don
   // hang/PXK NAM BEN TRONG module nay. `nonce` (Date.now() luc bam) bat buoc phai DOI moi lan de effect
   // duoi day chac chan chay lai ke ca bam lai DUNG 1 dong thong bao vua xem xong.
-  externalDetailOpen?: { tab: "don-cua-toi" | "phieu-xuat-kho" | "tra-hang"; id: string; nonce: number } | null;
+  externalDetailOpen?: { tab: "don-cua-toi" | "phieu-xuat-kho" | "tra-hang" | "thieu-lk"; id: string; nonce: number } | null;
   onExternalDetailOpenConsumed?: () => void;
   // FIX (phan hoi 2026-08-26: "click vào thẻ trang chủ, kích để xem đơn hàng, mà vẫn ở thẻ trang chủ
   // là sao?") - khi vao qua forceView="trang-chu"/"thieu-lk" (muc menu rieng cap App.tsx) roi nhay
@@ -652,6 +652,8 @@ export function DatMuaLinhKienModule({
             currentEmail={user?.email ?? ""}
             initialFilterOverride={filterFor("thieu-lk")}
             initialNguoiNhanHangOverride={nguoiNhanHangFor("thieu-lk")}
+            initialDetailIdOverride={openDetailIdFor("thieu-lk")}
+            onDetailIdConsumed={consumeOpenDetailId}
           />
         )}
         {activeView === "tra-hang" && (

@@ -577,6 +577,8 @@ export function PhieuXuatKhoTab({
         <Modal
           open
           title="Tạo phiếu xuất kho"
+          width="max-w-[95vw] sm:max-w-[1100px]"
+          height="max-h-[92vh]"
           onClose={() => {
             setShowCreate(false);
             setSelectedDonHang(new Set());
