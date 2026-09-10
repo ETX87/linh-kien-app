@@ -13,6 +13,13 @@
       "runtimeArgs": ["run", "dev:frontend"],
       "port": 5174,
       "autoPort": true
+    },
+    {
+      "name": "ui-prototype",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "ui-prototype", "run", "dev"],
+      "port": 5175,
+      "autoPort": true
     }
   ]
 }

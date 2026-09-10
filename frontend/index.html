@@ -11,35 +11,9 @@
          "fullscreen" vi se an ca status bar he dieu hanh, qua aggressive so voi y "full man hinh app"
          thong thuong) - xem frontend/public/icon-*.png. -->
     <link rel="manifest" href="/manifest.webmanifest" />
-    <!-- Khop dung --ocean-900 mac dinh (theme/presets.ts DEFAULT_THEME_VARS) - doi 2026-09-09 cung
-         luc voi seed ocean moi, xem giai thich day du o tokens.css :root. -->
-    <meta name="theme-color" content="#031e30" />
+    <meta name="theme-color" content="#0b2149" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <title>Đặt mua linh kiện - Dịch Vụ 3T</title>
-    <!-- Chong nhay mau mac dinh (FOUC) cho tinh nang "Giao diện" ca nhan (xem
-         frontend/src/theme/useThemeSettings.ts) - doc thang "resolvedVars"/"fontCssValue" da tinh
-         san trong localStorage (KHONG nhung lai logic HSL/resolveTheme sang JS thuan o day) va set
-         truoc khi React mount. Neu chua tung mo thẻ cai dat (localStorage rong) thi khong lam gi ca -
-         giao dien giu nguyen y het tokens.css mac dinh. Boc try/catch vi localStorage co the bi chan
-         (che do rieng tu/policy trinh duyet). -->
-    <script>
-      (function () {
-        try {
-          var raw = localStorage.getItem("theme-settings-v1");
-          if (!raw) return;
-          var s = JSON.parse(raw);
-          var root = document.documentElement.style;
-          if (s.resolvedVars) {
-            for (var k in s.resolvedVars) root.setProperty("--" + k, s.resolvedVars[k]);
-          }
-          if (s.fontCssValue) root.setProperty("--font-body", s.fontCssValue);
-          if (s.resolvedVars && s.resolvedVars["ocean-900"]) {
-            var meta = document.querySelector('meta[name="theme-color"]');
-            if (meta) meta.setAttribute("content", s.resolvedVars["ocean-900"]);
-          }
-        } catch (e) {}
-      })();
-    </script>
+    <title>Đặt hàng linh kiện 3T</title>
   </head>
   <body>
     <div id="root"></div>

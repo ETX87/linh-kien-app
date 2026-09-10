@@ -8,8 +8,6 @@
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
 @import "@fontsource/ibm-plex-mono/600.css";
-/* Font tuy chon rieng cho tinh nang "Giao diện" ca nhan (--font-body, xem theme/fonts.ts) - Inter/
-   Manrope da co san o tren, chi them Be Vietnam Pro (day du dau tieng Viet). */
 @import "@fontsource/be-vietnam-pro/400.css";
 @import "@fontsource/be-vietnam-pro/500.css";
 @import "@fontsource/be-vietnam-pro/600.css";
@@ -19,106 +17,157 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================================
+   DESIGN SYSTEM "Đặt hàng linh kiện 3T" — hợp đồng: ui-prototype/UI_SPEC.md
+   (Port đợt P0 — 2026-09-10. Tính năng đổi Theme đã bỏ; chỉ còn 1 bộ màu.)
+   ============================================================================ */
 :root {
-  /* FIX (phan hoi 2026-09-09: "màu mặc định set theo gam màu icon") - doi tu #1176a6 (h198 s81 l36)
-     sang seed #0c72b6 (h204 s88 l38, lay tu mau trung binh gradient icon-512.png #2363e0->#0be3f2) -
-     giu nguyen do sang (l38, gan y het l36 cu) de KHONG giam ty le tuong phan voi nen trang (van
-     >=5:1, an toan cho text-[var(--ocean-600)] dung lam mau chu o nhieu noi), chi doi hue/saturation
-     cho gan voi icon that hon. Toan bo 8 tier tinh lai qua buildRampTiers() (theme/colorRamp.ts) voi
-     seed nay - dong bo CHINH XAC voi DEFAULT_ROLE_SEED.ocean/DEFAULT_THEME_VARS (theme/presets.ts),
-     KHONG duoc lech nhau (xem giai thich o presets.ts). --indigo-* va --sidebar-highlight KHONG doi -
-     day la accent doc lap, khong lien quan brand/icon (xem comment rieng o duoi). */
-  --ocean-950: #031826;
-  --ocean-900: #031e30;
-  --ocean-800: #042a43;
-  --ocean-700: #07456e;
-  --ocean-600: #0c72b6;
-  --ocean-500: #0f8adc;
-  --ocean-400: #40abf2;
-  --ocean-100: #e6eff4;
-  /* DOI MAU (2026-08-27, yeu cau "màu badge trạng thái theo 5 nhóm: chờ/hoàn thành/từ chối/quá hạn/
-     huỷ", xac nhan ap dung TOAN HE THONG qua AskUserQuestion) - teal tu tong xanh-lam-ngoc (cyan-teal)
-     doi sang XANH LA that (Tailwind emerald) vi teal duoc dung XUYEN SUOT code de bieu thi "hoan
-     thanh/thanh cong" (TN da duyet, Da ket thuc, KTV da nhan...) - xem constants.ts. Gia tri cu:
-     600 #0f7d74, 500 #159c93, 100 #dcf5f2, 700 #0a5a52 (van con trong git history neu can doi chieu). */
+  --color-primary: #1467e8;
+  --color-primary-hover: #0f56c4;
+  --color-primary-dark: #071b3a;
+  --color-primary-soft: #eaf2ff;
+
+  --color-background: #f4f7fb;
+  --color-surface: #ffffff;
+  --color-surface-soft: #fbfcfe;
+  --color-surface-hover: #f2f6fc;
+
+  --color-text: #17243a;
+  --color-text-secondary: #70809a;
+  --color-text-faint: #9aa8bd;
+
+  --color-border: #dce5f1;
+  --color-border-strong: #c3d0e2;
+
+  --color-success: #0ca678;
+  --color-success-soft: #e3f7f0;
+  --color-info: #1467e8;
+  --color-info-soft: #eaf2ff;
+  --color-warning: #f59f00;
+  --color-warning-soft: #fef4e0;
+  --color-danger: #ef476f;
+  --color-danger-soft: #fde8ee;
+  --color-purple: #7357d9;
+  --color-purple-soft: #efeafb;
+  --color-neutral: #70809a;
+  --color-neutral-soft: #eef1f6;
+  --color-star: #f5a524;
+
+  --role-tn: #0e9f8f;
+  --role-tn-soft: #dbf4f0;
+  --role-kho: #16a34a;
+  --role-kho-soft: #e2f6e9;
+  --role-ketoan: #1467e8;
+  --role-ketoan-soft: #e6f0ff;
+  --role-qc: #6366f1;
+  --role-qc-soft: #ecebfe;
+  --role-gs: #db2777;
+  --role-gs-soft: #fce7f1;
+
+  --chip-bg: #e2f2f6;
+  --chip-fg: #0f6f86;
+
+  /* Sidebar + Topbar — DARK NAVY */
+  --sidebar-bg-from: #0d2a54;
+  --sidebar-bg-to: #0a1c3b;
+  --sidebar-fg: #e6edf8;
+  --sidebar-fg-dim: #93a6c6;
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.06);
+  --sidebar-active-bg: #1668e3;
+  --sidebar-active-fg: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-tag-bg: #1d3a63;
+  --sidebar-tag-fg: #b6c8e6;
+  --topbar-bg: #0b2149;
+  --topbar-fg: #e6edf8;
+  --topbar-fg-dim: #93a6c6;
+  --topbar-field-bg: rgba(255, 255, 255, 0.08);
+  --topbar-field-border: rgba(255, 255, 255, 0.16);
+  --topbar-border: rgba(255, 255, 255, 0.1);
+
+  --sidebar-w: 240px;
+  --sidebar-w-collapsed: 68px;
+  --topbar-h: 56px;
+  --content-pad: 24px;
+  --drawer-w: 500px;
+  --row-h: 54px;
+
+  --radius-card: 10px;
+  --radius-btn: 8px;
+
+  --shadow-drawer: 0 8px 30px rgba(9, 30, 66, 0.12);
+  --shadow-pop: 0 4px 16px rgba(9, 30, 66, 0.1);
+
+  --font-body: "Inter", "Segoe UI", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+/* ---- Alias tương thích ngược: token cũ (--ocean/--ink/--line/...) trỏ về palette mới.
+   Giữ để các module CHƯA port (P2-P4) vẫn hiển thị hợp lý. Sẽ gỡ ở P5. ---- */
+:root {
+  --bg: var(--color-background);
+  --surface: var(--color-surface);
+  --surface-soft: var(--color-surface-soft);
+  --surface-100: #eef2f8;
+  --surface-200: #dce5f1;
+  --surface-2: #eef2f8;
+  --line: var(--color-border);
+
+  --ink-900: var(--color-text);
+  --ink-700: #3f4a5f;
+  --ink-600: var(--color-text-secondary);
+  --ink-500: #8493a8;
+  --ink-400: var(--color-text-faint);
+
+  --ocean-950: #071b3a;
+  --ocean-900: #0a1c3b;
+  --ocean-800: #0b2149;
+  --ocean-700: #0f56c4;
+  --ocean-600: #1467e8;
+  --ocean-500: #3b82f6;
+  --ocean-400: #7ab0f2;
+  --ocean-100: #eaf2ff;
+
   --teal-700: #047857;
-  --teal-600: #059669;
+  --teal-600: #0ca678;
   --teal-500: #10b981;
-  --teal-100: #d1fae5;
-  /* DOI MAU (2026-08-27, cung dot voi teal o tren): amber tu tong vang-nau (hoi phach) doi sang XANH
-     DUONG NHAT (Tailwind blue - hue ro rang khac --ocean-* cyan-blue de van phan biet duoc 2 giai
-     doan "dang cho" - amber = moi cho duyet buoc dau, ocean = da chuyen len xu ly sau hon, theo dung
-     xac nhan cua nguoi dung: giu 2 sac rieng cung gam xanh duong, khong gop lam 1). LUU Y:
-     LOAI_DON_TONE.cong_no (helpers.ts) truoc day tai dung amber lam badge LOAI DON (khong lien quan
-     trang thai) - da doi rieng badge do sang "orange" de tranh bi anh huong lay theo (xem helpers.ts).
-     Gia tri cu: 700 #8a5810, 600 #b3730f, 500 #d98a1f, 100 #fbebd1. */
-  --amber-700: #1d4ed8;
-  --amber-600: #2563eb;
-  --amber-500: #3b82f6;
-  --amber-100: #dbeafe;
-  --coral-600: #b23a3a;
-  --coral-500: #d84c4c;
-  --coral-400: #e78888;
-  --coral-100: #fbe1e1;
-  /* Cam "that" (khac amber - amber da dung cho loai don "Cong no" + VIP) - danh rieng cho danh dau
-     "Uu tien" (phan hoi 2026-08-19: doi tu teal sang cam, dam len khi hover). */
+  --teal-100: #e3f7f0;
+
+  --amber-700: #b9770e;
+  --amber-600: #f59f00;
+  --amber-500: #f5a524;
+  --amber-100: #fef4e0;
+
+  --coral-700: #b23a4f;
+  --coral-600: #ef476f;
+  --coral-500: #ef476f;
+  --coral-400: #f2889d;
+  --coral-100: #fde8ee;
+
   --orange-700: #9a3412;
   --orange-600: #c2410c;
-  --orange-500: #ea580c;
+  --orange-500: #f5a524;
   --orange-100: #ffedd5;
-  /* Chuyen sang bang mau neutral + 1 accent indigo (concept 1 "Structured Neutral" da duyet,
-     2026-08-24) - thay toan bo token "nen/chu/vien khung" tu tong xanh nhat sang xam trung tinh (zinc),
-     GIU NGUYEN het cac tong mau ocean/teal/amber/coral/orange ben tren vi chung van dung lam mau NGU
-     NGHIA trang thai (Badge tone, StatCard tone...) - khong lien quan brand/nen. --indigo-600 (da co
-     san, dung rieng cho 1 cho truoc do) nay la accent chinh xuyen suot he thong. */
-  --bg: #fafafa;
-  --surface: #ffffff;
-  /* Nen "mem" cho header bang/hover (them 2026-08-26, khop dung ten --surface-soft cua "mau css.txt")
-     - thay the 7 cho truoc do hardcode thang bg-[#FBFBFB] trong component (UsersModule.tsx,
-     SettingsModule.tsx, PaginatedTable.tsx, DonCuaToiTab.tsx, PhieuXuatKhoTab.tsx, ThieuLkTab.tsx) de
-     header bang doi mau theo tung bo giao dien (xem theme/) thay vi luon xam lanh co dinh. */
-  --surface-soft: #fbfbfb;
-  --surface-100: #f4f4f5;
-  --surface-200: #e4e4e7;
-  --surface-2: #f4f4f5;
-  --topbar-bg: #ffffff;
-  --sidebar-from: #ffffff;
-  --sidebar-to: #fafafa;
-  --sidebar-ink: #18181b;
-  --sidebar-ink-mid: #3f3f46;
-  --sidebar-ink-dim: #71717a;
-  --sidebar-highlight: rgba(79, 70, 229, 0.08);
-  --line: #e4e4e7;
-  --ink-900: #18181b;
-  --ink-700: #3f3f46;
-  --ink-600: #52525b;
-  --ink-500: #71717a;
-  --ink-400: #a1a1aa;
-  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
-  /* Accent "chu ky" cho giao dien "modern clean v2" (Quan ly ton / Ca thieu linh kien) - thuan them
-     moi, khong doi bat ky token cu nao, dung co chon loc (nhan nhom cot chinh trong bang pivot). */
+
+  --violet-700: #4c1d95;
+  --violet-600: #7357d9;
+  --violet-500: #8b5cf6;
+  --violet-100: #efeafb;
+
   --indigo-700: #3730a3;
   --indigo-600: #4f46e5;
   --indigo-500: #6366f1;
   --indigo-100: #eef2ff;
-  /* Vien o nhap lieu "noi bat" rieng module Dat mua linh kien (yeu cau UX 2026-08-19 diem 3) - chua
-     dung o dau khac trong he thong. */
-  --violet-600: #7c3aed;
-  --violet-500: #8b5cf6;
-  /* Them (2026-08-24) - "PipelineFlow" doi tu chevron sang dai the theo luong, moi luong 1 mau rieng
-     (yeu cau chu he thong). violet dung lam mau luong "Tra hang" nhung truoc do chi co 500/600, thieu
-     sac nhat (nen the)/dam (chu so khi >0) - bo sung cho DU bo 3 sac giong ocean/teal/coral da co san,
-     KHONG doi cac gia tri 500/600 cu (dang dung cho vien input noi bat trong module). Tuong tu them
-     teal-700/coral-700 (truoc chi co toi 600) lam mau chu so ">0" du dam de doc tren nen -100 nhat.
-  */
-  --violet-100: #ede9fe;
-  --violet-700: #4c1d95;
-  --coral-700: #7a2424;
-  /* Xanh la THAT (them 2026-08-25, hang muc #13) - chua co truoc do (teal mang nghia rieng "trang
-     thai tich cuc/hoan thanh", khong tai dung de tranh lan y nghia) - danh rieng cho gia tien/tien te
-     xuyen suot he thong (ten linh kien dung --ocean-800, xem hang muc #12). */
+
   --green-700: #15803d;
   --green-600: #16a34a;
+
+  --sidebar-from: var(--sidebar-bg-from);
+  --sidebar-to: var(--sidebar-bg-to);
+  --sidebar-ink: var(--sidebar-fg);
+  --sidebar-ink-mid: var(--sidebar-fg);
+  --sidebar-ink-dim: var(--sidebar-fg-dim);
+  --sidebar-highlight: var(--sidebar-hover-bg);
 }
 
 * {
@@ -131,45 +180,70 @@ body,
 }
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--ink-900);
+  background: var(--color-background);
+  color: var(--color-text);
   font-family: var(--font-body);
+  font-size: 14px;
   -webkit-font-smoothing: antialiased;
 }
 .font-display {
   font-family: "Manrope", sans-serif;
 }
 .font-mono {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  /* Truoc la hex cung #c6d6e0 (khong doi theo bo mau) - doi sang tron giua vien/mau info bang
-     color-mix() de vua doi theo theme dang chon (xem thu muc theme/) vua khong qua rue nhu dung
-     thang --ocean-400 (mau dam, danh cho icon/chu, khong hop lam thanh cuon mo nhat). */
-  background: color-mix(in srgb, var(--ocean-400) 55%, var(--surface-200));
+  background: #d3ddea;
   border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
-}
-.ripple-bg {
-  /* Truoc la rgba(...) hardcode dung DUNG BANG --ocean-400/--teal-500 - doi sang color-mix() de doi
-     mau theo bo giao dien dang chon (xem theme/) thay vi luon co dinh tong ocean/teal. */
-  background-image: radial-gradient(circle at 15% 25%, color-mix(in srgb, var(--ocean-400) 16%, transparent) 0, transparent 42%),
-    radial-gradient(circle at 85% 15%, color-mix(in srgb, var(--teal-500) 12%, transparent) 0, transparent 38%);
 }
 .scrollbar-thin::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-@keyframes fadeSlide {
+.sidebar-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+}
+
+.ripple-bg {
+  background-image: radial-gradient(circle at 15% 25%, color-mix(in srgb, var(--color-primary) 10%, transparent) 0, transparent 42%),
+    radial-gradient(circle at 85% 15%, color-mix(in srgb, var(--color-success) 8%, transparent) 0, transparent 38%);
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+input[type="checkbox"] {
+  accent-color: var(--color-primary);
+}
+table.dense th,
+table.dense td {
+  white-space: nowrap;
+}
+
+/* ---- Animations (dùng chung cả module cũ lẫn component mới) ---- */
+@keyframes fadeUp {
   from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -177,21 +251,70 @@ body {
   }
 }
 .anim-in {
-  animation: fadeSlide 0.22s ease-out;
+  animation: fadeUp 0.2s ease-out;
+}
+@keyframes drawerIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.drawer-in {
+  animation: drawerIn 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes sheetIn {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.sheet-in {
+  animation: sheetIn 0.26s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes toastIn {
   from {
     opacity: 0;
-    transform: translateX(12px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0);
   }
 }
 .toast-in {
-  animation: toastIn 0.25s ease-out;
+  animation: toastIn 0.2s ease-out;
 }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: spin 0.7s linear infinite;
+}
+@keyframes skeletonPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.skeleton {
+  background: var(--color-neutral-soft);
+  border-radius: 6px;
+  animation: skeletonPulse 1.3s ease-in-out infinite;
+}
+.img-skeleton {
+  animation: skeletonPulse 1.4s ease-in-out infinite;
+}
+
+/* ---- Class riêng còn dùng ở module cũ (giữ tới khi port hết) ---- */
 @keyframes greetingPopIn {
   from {
     opacity: 0;
@@ -218,29 +341,19 @@ body {
 .greeting-pop-out {
   animation: greetingPopOut 0.2s ease-in forwards;
 }
-.sidebar-scroll::-webkit-scrollbar {
-  width: 5px;
+@keyframes greeting-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
 }
-.sidebar-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
+.greeting-marquee {
+  display: inline-block;
+  padding-left: 100%;
+  animation: greeting-marquee 20s linear infinite;
 }
-table.dense th,
-table.dense td {
-  white-space: nowrap;
-}
-/* Accent cau truc doi sang Navy dam (hang muc #10/#20, 2026-08-25 - xem giai thich day du o
-   Btn.tsx VARIANTS.primary) - indigo truoc day nhat/khong du tuong phan tren nen zinc nhat. */
-input[type="checkbox"] {
-  accent-color: var(--ocean-800);
-}
-.focus-ring:focus-visible {
-  outline: 2px solid var(--ocean-800);
-  outline-offset: 2px;
-}
-
-/* Chuong thong bao rung moi 10s (khoang lang chiem phan lon chu ky, rung o cuoi) - doan rung keo
-   dai dung 3s (70%-100% cua chu ky 10s) va phinh to dan theo tung nhip lac de de nhan biet hon. */
 @keyframes bell-shake {
   0%,
   70%,
@@ -280,38 +393,13 @@ input[type="checkbox"] {
   transform-origin: 50% 0%;
   animation: bell-shake 10s ease-in-out infinite;
 }
-
-/* Loi chao chay ngang kieu bang tin khi dai hon khung hien co (xem Greeting.tsx). "padding-left:
-   100%" day noi dung sang het chieu rong KHUNG CHA truoc (percentage cua padding tinh theo khung
-   cha, khac transform), roi "translateX(-100%)" keo lui dung do rong CHINH NO (percentage cua
-   transform tinh theo chinh phan tu) - cong lai vua du de chay tu ngoai le phai vao het ben trai,
-   dung voi moi ty le do dai cau chu / khung hien co ma khong can do bang JS. */
-@keyframes greeting-marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-100%);
-  }
-}
-.greeting-marquee {
-  display: inline-block;
-  padding-left: 100%;
-  animation: greeting-marquee 20s linear infinite;
-}
-
-/* Vien nhap nhay cho o "luong quy trinh" dang can nguoi dung xu ly (DatMuaLinhKienModule.tsx
-   PipelineFlow) - dung box-shadow (KHONG bi clip-path cua o cat mat, khac voi border thuong se bi
-   cat vo tai cac canh cheo cua hinh chevron) phinh to dan roi mo di, kieu "ping" bao hieu chu y ma
-   khong lam mo/nhap nhay CA NEN mau ben trong (da bi chu he thong che "kho nhin" o ban truoc). Chi
-   bat khi he dieu hanh khong bat "giam chuyen dong" (tuong duong Tailwind motion-safe:). */
 @keyframes pipeline-urgent-ring {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(216, 76, 76, 0.55);
+    box-shadow: 0 0 0 0 rgba(239, 71, 111, 0.55);
   }
   50% {
-    box-shadow: 0 0 0 4px rgba(216, 76, 76, 0);
+    box-shadow: 0 0 0 4px rgba(239, 71, 111, 0);
   }
 }
 @media (prefers-reduced-motion: no-preference) {
@@ -319,45 +407,13 @@ input[type="checkbox"] {
     animation: pipeline-urgent-ring 1.6s ease-in-out infinite;
   }
 }
-
-/* Drawer truot vao tu phai (xem PartDetailDrawer, DanhMucLinhKienModule.tsx) - dung rieng voi
-   .anim-in (fadeSlide truc doc, danh cho Modal giua man hinh) vi drawer bam canh phai nen truot
-   theo truc ngang moi dung huong nhin. */
-@keyframes drawerSlideIn {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-.drawer-in {
-  animation: drawerSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@keyframes imgSkeletonPulse {
-  0%,
-  100% {
-    opacity: 0.6;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-.img-skeleton {
-  animation: imgSkeletonPulse 1.4s ease-in-out infinite;
-}
-
-/* O nhap lieu "noi bat" rieng module Dat mua linh kien (yeu cau UX 2026-08-19 diem 3: "tất cả các ô
-   cần nhập liệu phải nổi bật hẳn lên") - chi ap dung trong .dat-mua-lk-module (KHONG doi --line toan
-   he thong), tru checkbox/radio/file/hidden/disabled/readonly (khong phai o "co the nhap"). Chi doi
-   mau vien - khong doi bo/kich thuoc - de khong xao tron layout hien co. */
 .dat-mua-lk-module input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not(:disabled):not([readonly]),
 .dat-mua-lk-module textarea:not(:disabled):not([readonly]),
 .dat-mua-lk-module select:not(:disabled) {
-  border-color: var(--violet-500);
+  border-color: var(--color-border-strong);
 }
 .dat-mua-lk-module input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not(:disabled):not([readonly]):focus,
 .dat-mua-lk-module textarea:not(:disabled):not([readonly]):focus,
 .dat-mua-lk-module select:not(:disabled):focus {
-  border-color: var(--violet-600);
+  border-color: var(--color-primary);
 }

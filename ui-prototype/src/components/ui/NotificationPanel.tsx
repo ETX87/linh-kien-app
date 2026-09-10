@@ -1,0 +1,71 @@
+import { useEffect, useRef, useState } from "react";
+import { Icon } from "./Icon";
+import { useNotifications } from "../../hooks/useStore";
+import { store } from "../../services/store";
+
+export function NotificationPanel({ onOpenTarget, onDark }: { onOpenTarget?: (t: { tab: string; id: string }) => void; onDark?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const notifs = useNotifications();
+  const unread = notifs.filter((n) => n.chuaDoc).length;
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener("mousedown", h);
+    return () => window.removeEventListener("mousedown", h);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`focus-ring relative grid h-9 w-9 place-items-center rounded-lg ${
+          onDark ? "text-[var(--topbar-fg-dim)] hover:bg-white/10 hover:text-white" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
+        }`}
+        aria-label="Thông báo"
+      >
+        <Icon.bell size={18} />
+        {unread > 0 && (
+          <span className="tabular absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-[var(--color-danger)] px-1 text-[10px] font-bold text-white">
+            {unread}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="anim-in absolute right-0 top-11 z-50 w-[340px] overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-drawer">
+          <div className="flex items-center justify-between border-b border-[var(--color-border)] px-3 py-2">
+            <span className="text-[13px] font-bold">Thông báo</span>
+            <button onClick={() => store.markAllNotifRead()} className="focus-ring text-[12px] font-semibold text-[var(--color-primary)] hover:underline">
+              Đánh dấu đã đọc hết
+            </button>
+          </div>
+          <ul className="max-h-[360px] overflow-y-auto">
+            {notifs.map((n) => (
+              <li key={n.id}>
+                <button
+                  onClick={() => {
+                    store.markNotifRead(n.id);
+                    if (n.target) onOpenTarget?.(n.target);
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-start gap-2.5 border-b border-[var(--color-border)] px-3 py-2.5 text-left last:border-0 hover:bg-[var(--color-surface-hover)]"
+                >
+                  <span className="mt-0.5 text-[15px]">{n.icon}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[13px] text-[var(--color-text)]">{n.noiDung}</span>
+                    <span className="text-[11px] text-[var(--color-text-faint)]">{n.thoiGian}</span>
+                  </span>
+                  {n.chuaDoc && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[var(--color-primary)]" />}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}

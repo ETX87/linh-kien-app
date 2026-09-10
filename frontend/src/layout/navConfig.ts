@@ -1,15 +1,14 @@
 import type { VaiTro } from "../auth/AuthContext";
+import { Icon } from "../components/ui/Icon";
 
 export interface NavItem {
   key: string;
   label: string;
-  icon: string;
+  // Tên khoá trong `Icon` (components/ui/Icon.tsx) — hoặc 1 emoji (fallback cho link ngoài).
+  icon: keyof typeof Icon | string;
   countKey?: "datMuaLk" | "ktvLogChuaDoc";
-  // "href" (them 2026-08-25, phan hoi "chuyển mượt sang trang suachua.dichvu3t.workers.dev") - danh
-  // dau 1 muc menu la LIEN KET RA NGOAI (he Worker/app khac hoan toan, khong phai 1 view noi bo cua
-  // app nay), KHONG tham gia co che allowedModules/setActive binh thuong - Sidebar.tsx render <a
-  // href> that thay vi <button onClick={setActive}>, va LUON hien cho MOI nguoi dang nhap (khong loc
-  // theo allowedModules) vi day chi la 1 duong dan ra ngoai, khong lo du lieu gi cua app nay.
+  // "href" — mục menu là LIÊN KẾT RA NGOÀI (Worker/app khác), KHÔNG tham gia allowedModules/setActive;
+  // Sidebar render <a href> thật, LUÔN hiện cho mọi người đăng nhập.
   href?: string;
 }
 export interface NavGroup {
@@ -17,73 +16,54 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-// Rut gon tu frontend/src/layout/navConfig.ts cua he DVBH goc - he nay CHI co 1 mien nghiep vu nen
-// khong con nhieu nhom/module nhu he goc.
+// Nhãn ĐẦY ĐỦ tiếng Việt + icon outline SVG (port P0 — theo ui-prototype/UI_SPEC.md + ảnh sidebar
+// người dùng gửi). Cấu trúc/khoá/href/countKey/ROLE_MODULES GIỮ NGUYÊN như bản cũ để không đụng
+// logic phân quyền `allowedModules` trong App.tsx.
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Vận hành",
     items: [
-      // "Trang chủ"/"Thiếu linh kiện" tach thanh muc menu RIENG (phan hoi 2026-08-26: "không gộp
-      // chung vào 1 thẻ Đặt mua linh kiện như hiện tại") - truoc day chi la 2 tab NOI BO cua "Đặt mua
-      // linh kiện" (xem DatMuaLinhKienModule.tsx). Vao qua forceView="trang-chu"/"thieu-lk" o App.tsx,
-      // dung y het pattern "tra-hang" da co san (route forceView rieng, khong con la tab noi bo).
-      // "Trang chủ" dat DAU TIEN (phan hoi 2026-08-26) - lam diem vao dashboard cho MOI vai tro.
-      // countKey rieng (them 2026-08-26, thong bao KTV) - khac "datMuaLk" (viec can lam theo vai tro
-      // xu ly), day la so thong_bao_ktv CHUA DOC cua CHINH nguoi dang dang nhap (nguoi tao don).
-      { key: "trang-chu", label: "Home", icon: "🏠", countKey: "ktvLogChuaDoc" },
-      { key: "dat-mua-lk", label: "Đơn hàng", icon: "◈", countKey: "datMuaLk" },
-      { key: "thieu-lk", label: "Chờ LK", icon: "📦" },
-      { key: "danh-muc-lk", label: "Bảng Giá", icon: "🔧" },
-      // "Tồn kho công nợ KTV" (chuyen ra khoi Settings 2026-08-29, phan hoi nguoi dung: "Đẩy thẻ
-      // 'Tồn kho công nợ KTV' ra ngoài menu" - truoc day chi la 1 tab Settings nen CHI Admin vao
-      // duoc, gio la muc Sidebar rieng mo cho KTV/Ve tinh (chi xem chinh minh)/Giam sat (theo Khu
-      // vuc)/la_view (theo Khu vuc)/cac vai tro con lai (xem toan bo) - xem TonKhoKtvModule.tsx +
-      // scopeKtvTonKho() o backend/src/routes/ktvTonKho.ts.
-      { key: "ton-kho-ktv", label: "Tồn kho công nợ KTV", icon: "🧾" },
-      // "Danh sách KTV" (them 2026-09-05, phan hoi "danh sách KTV trong quản lý tài khoản => đẩy ra
-      // menu để các vai trò nhân viên văn phòng có thể xem được thông tin") - muc menu RIENG (khac
-      // "Quản lý User" > "KTV hiện trường" cua Admin, van giu nguyen khong doi) cho cac vai tro KHONG
-      // PHAI ban than KTV/CTV/Tram/Ve tinh - xem dieu kien allowedModules o App.tsx va
-      // DanhSachKtvModule.tsx.
-      { key: "danh-sach-ktv", label: "Danh sách KTV", icon: "👥" },
-      // Lien ket ra ngoai (them 2026-08-25) - xem giai thich day du o NavItem.href phia tren.
+      { key: "trang-chu", label: "Trang chủ", icon: "home", countKey: "ktvLogChuaDoc" },
+      { key: "dat-mua-lk", label: "Đặt mua linh kiện", icon: "cart", countKey: "datMuaLk" },
+      { key: "thieu-lk", label: "Thiếu linh kiện", icon: "package" },
+      { key: "danh-muc-lk", label: "Danh mục linh kiện", icon: "catalog" },
+      { key: "ton-kho-ktv", label: "Tồn kho công nợ KTV", icon: "stock" },
+      { key: "danh-sach-ktv", label: "Danh sách KTV", icon: "users" },
       { key: "sua-chua-bao-hanh", label: "Sửa chữa", icon: "🛠", href: "https://suachua.dichvu3t.workers.dev" },
     ],
   },
   {
     label: "Hệ thống",
     items: [
-      // "Tốc độ xử lý" (them 04/09/2026) - CHI Admin + la_view (xem App.tsx) - anh huong danh gia
-      // nhan su nen KHONG mo cho TN/Kho/Ke toan/QC/GS tu xem lan nhau (xac nhan nguoi dung), khac cach
-      // cap quyen tu dong theo 7 co nghiep vu cua cac muc "Van hanh" o tren.
-      { key: "bao-cao-toc-do", label: "Tốc độ xử lý", icon: "📈" },
-      { key: "settings", label: "Settings", icon: "⚙" },
-      { key: "users", label: "Quản lý User", icon: "⚉" },
+      { key: "bao-cao-toc-do", label: "Báo cáo tốc độ xử lý", icon: "chart" },
+      { key: "settings", label: "Cài đặt", icon: "settings" },
+      { key: "users", label: "Quản lý người dùng", icon: "users" },
     ],
   },
 ];
 
-// dat-mua-lk/tra-hang/danh-muc-lk duoc cap TU DONG theo role-flag (xem App.tsx), khong hardcode theo
-// vai_tro nhu he goc - o he nay MOI tai khoan (ke ca vai_tro=NULL "chi Dat mua linh kien") deu co the
-// vao duoc 3 muc do neu co co phu hop. ROLE_MODULES chi con dung cho 2 muc He thong (Admin-only).
 export const ROLE_MODULES: Record<VaiTro, string[]> = {
   Admin: NAV_GROUPS.flatMap((g) => g.items.map((i) => i.key)),
-  // "trang-chu"/"thieu-lk" them vao day (phan hoi 2026-08-26) - QC/Giam sat truoc day van xem duoc 2
-  // man nay qua tab noi bo cua "dat-mua-lk" (tabs[] khong loc theo canQC/isGiamSat cho 2 key nay),
-  // nen gio phai duoc cap quyen tuong duong o cap muc menu moi de khong mat quyen truy cap.
   QC: ["trang-chu", "dat-mua-lk", "thieu-lk", "danh-muc-lk", "ton-kho-ktv"],
   "Giam sat": ["trang-chu", "dat-mua-lk", "thieu-lk", "danh-muc-lk", "ton-kho-ktv"],
 };
 
 export const MODULE_TITLES: Record<string, string> = {
-  "trang-chu": "Home",
-  "dat-mua-lk": "Đơn hàng",
-  "thieu-lk": "Chờ LK",
-  "tra-hang": "Đơn trả hàng",
-  "danh-muc-lk": "Bảng Giá",
+  "trang-chu": "Trang chủ",
+  "dat-mua-lk": "Đặt mua linh kiện",
+  "thieu-lk": "Thiếu linh kiện",
+  "tra-hang": "Trả hàng",
+  "danh-muc-lk": "Danh mục linh kiện",
   "ton-kho-ktv": "Tồn kho công nợ KTV",
   "danh-sach-ktv": "Danh sách KTV",
-  "bao-cao-toc-do": "Tốc độ xử lý",
-  settings: "Settings",
-  users: "Quản lý User",
+  "bao-cao-toc-do": "Báo cáo tốc độ xử lý",
+  settings: "Cài đặt",
+  users: "Quản lý người dùng",
+};
+
+// Gốc breadcrumb — module thuộc "Đặt mua linh kiện" thì gốc là tên đó; còn lại gốc "Trang chủ".
+export const BREADCRUMB_ROOT: Record<string, string> = {
+  "dat-mua-lk": "Đặt mua linh kiện",
+  "thieu-lk": "Đặt mua linh kiện",
+  "tra-hang": "Đặt mua linh kiện",
 };

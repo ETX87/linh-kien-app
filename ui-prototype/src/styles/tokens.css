@@ -1,0 +1,220 @@
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design system prototype "QLBH 3T - Linh kien" - seed tu prompt sec.3 + do tren 3 screenshot
+   260910. Moi component chi dung var(--...), khong hardcode mau. */
+:root {
+  --color-primary: #1467e8;
+  --color-primary-hover: #0f56c4;
+  --color-primary-dark: #071b3a;
+  --color-primary-soft: #eaf2ff;
+
+  --color-background: #f4f7fb;
+  --color-surface: #ffffff;
+  --color-surface-soft: #fbfcfe;
+  --color-surface-hover: #f2f6fc;
+
+  --color-text: #17243a;
+  --color-text-secondary: #70809a;
+  --color-text-faint: #9aa8bd;
+
+  --color-border: #dce5f1;
+  --color-border-strong: #c3d0e2;
+
+  /* Trang thai ngu nghia */
+  --color-success: #0ca678;
+  --color-success-soft: #e3f7f0;
+  --color-info: #1467e8;
+  --color-info-soft: #eaf2ff;
+  --color-warning: #f59f00;
+  --color-warning-soft: #fef4e0;
+  --color-danger: #ef476f;
+  --color-danger-soft: #fde8ee;
+  --color-purple: #7357d9;
+  --color-purple-soft: #efeafb;
+  --color-neutral: #70809a;
+  --color-neutral-soft: #eef1f6;
+  --color-star: #f5a524;
+
+  /* Mau nhan theo vai tro - dung cho header nhom KPI tren Trang chu (khop screenshot 2) */
+  --role-tn: #0e9f8f;
+  --role-tn-soft: #dbf4f0;
+  --role-kho: #16a34a;
+  --role-kho-soft: #e2f6e9;
+  --role-ketoan: #1467e8;
+  --role-ketoan-soft: #e6f0ff;
+  --role-qc: #6366f1;
+  --role-qc-soft: #ecebfe;
+  --role-gs: #db2777;
+  --role-gs-soft: #fce7f1;
+
+  /* Chip vai tro tren topbar - tong xanh ngoc nhat (khop screenshot) */
+  --chip-bg: #e2f2f6;
+  --chip-fg: #0f6f86;
+
+  /* Sidebar + Topbar - DARK NAVY (khop anh nguoi dung gui 2026-09-10, "top banner cũng thế") */
+  --sidebar-bg-from: #0d2a54;
+  --sidebar-bg-to: #0a1c3b;
+  --sidebar-fg: #e6edf8;
+  --sidebar-fg-dim: #93a6c6;
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.06);
+  --sidebar-active-bg: #1668e3;
+  --sidebar-active-fg: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-tag-bg: #1d3a63;
+  --sidebar-tag-fg: #b6c8e6;
+
+  --topbar-bg: #0b2149;
+  --topbar-fg: #e6edf8;
+  --topbar-fg-dim: #93a6c6;
+  --topbar-field-bg: rgba(255, 255, 255, 0.08);
+  --topbar-field-border: rgba(255, 255, 255, 0.16);
+  --topbar-border: rgba(255, 255, 255, 0.1);
+
+  /* Kich thuoc mocanh do tu screenshot */
+  --sidebar-w: 240px;
+  --sidebar-w-collapsed: 68px;
+  --topbar-h: 56px;
+  --content-pad: 24px;
+  --drawer-w: 500px;
+  --row-h: 54px;
+
+  --radius-card: 10px;
+  --radius-btn: 8px;
+
+  --shadow-drawer: 0 8px 30px rgba(9, 30, 66, 0.12);
+  --shadow-pop: 0 4px 16px rgba(9, 30, 66, 0.1);
+
+  --font-body: "Inter", "Segoe UI", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+.font-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Scrollbar mảnh, trung tính */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d3ddea;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Focus ring nhat quan (accessibility - prompt sec.23) */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.anim-in {
+  animation: fadeUp 0.2s ease-out;
+}
+
+@keyframes drawerIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.drawer-in {
+  animation: drawerIn 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes sheetIn {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.sheet-in {
+  animation: sheetIn 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.toast-in {
+  animation: toastIn 0.2s ease-out;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes skeleton {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.skeleton {
+  background: var(--color-neutral-soft);
+  border-radius: 6px;
+  animation: skeleton 1.3s ease-in-out infinite;
+}

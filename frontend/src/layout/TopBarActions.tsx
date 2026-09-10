@@ -3,7 +3,6 @@ import type { AppUser } from "../auth/AuthContext";
 import { VIEW_AS_ROLES, type ViewAsRole } from "../auth/viewAsRoles";
 import { api } from "../api/client";
 import { formatPersonDisplay, usePersonDirectory } from "../lib/personDisplay";
-import { ThemeSettingsModal } from "../theme/ThemeSettingsModal";
 
 // Tach tu TopBar.tsx (hang muc #15, 2026-08-25: "mobile mặc định bỏ top, ấn menu ở bottom mới hiện")
 // - avatar/tai khoan gio dung CHUNG duoc o CA TopBar (desktop) lan Sidebar (mobile off-canvas, mo qua
@@ -40,7 +39,6 @@ export function TopBarActions({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
-  const [themeModalOpen, setThemeModalOpen] = useState(false);
   const personDir = usePersonDirectory();
 
   useEffect(() => {
@@ -85,21 +83,20 @@ export function TopBarActions({
           onClick={onToggleMobilePreview}
           title={mobilePreviewOpen ? "Đóng xem trước Mobile" : "Xem trước giao diện Mobile (test nhanh, không cần thu nhỏ cửa sổ)"}
           className={`focus-ring w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-            mobilePreviewOpen ? "bg-[var(--ocean-100)] text-[var(--ocean-800)]" : "hover:bg-slate-100 text-[var(--ink-600)]"
+            mobilePreviewOpen ? "bg-white/15 text-white" : "hover:bg-white/10 text-[var(--topbar-fg-dim)]"
           }`}
         >
           📱
         </button>
       )}
       <div className="relative" onClick={(e) => e.stopPropagation()}>
-        <button onClick={() => setMenuOpen(!menuOpen)} className="focus-ring flex items-center gap-2 pl-1 pr-2 py-1 rounded-lg hover:bg-slate-100">
-          <div className="w-8 h-8 rounded-full bg-[var(--ocean-800)] text-white flex items-center justify-center text-xs font-bold">
+        <button onClick={() => setMenuOpen(!menuOpen)} className="focus-ring flex items-center gap-2 pl-1 pr-2 py-1 rounded-lg hover:bg-white/10">
+          <div className="w-8 h-8 rounded-full bg-white/15 text-white flex items-center justify-center text-xs font-bold">
             {displayName.trim().split(" ").slice(-1)[0]?.[0]?.toUpperCase() ?? "?"}
           </div>
           <div className="text-left hidden sm:block">
-            {/* Quy uoc "Ten (email)" toan he thong (phan hoi 2026-08-25, hang muc #16). */}
-            <div className="text-xs font-semibold leading-tight">{formatPersonDisplay(user.email, personDir)}</div>
-            <div className="text-[10px] text-[var(--ink-400)] leading-tight">{role}</div>
+            <div className="text-xs font-semibold leading-tight text-white">{formatPersonDisplay(user.email, personDir)}</div>
+            <div className="text-[10px] text-[var(--topbar-fg-dim)] leading-tight">{role}</div>
           </div>
         </button>
         {menuOpen && (
@@ -139,25 +136,12 @@ export function TopBarActions({
                 </select>
               </div>
             )}
-            {/* "Giao diện" (them 2026-08-26) - so thich CA NHAN (chi luu localStorage, xem
-                useThemeSettings.ts), nen dat o day (hien cho MOI vai tro) thay vi trong SettingsModule
-                von chi Admin vao duoc qua ROLE_MODULES. */}
-            <button
-              onClick={() => {
-                setMenuOpen(false);
-                setThemeModalOpen(true);
-              }}
-              className="w-full text-left px-3.5 py-2 text-sm hover:bg-slate-50 text-[var(--ink-700)]"
-            >
-              🎨 Giao diện
-            </button>
             <button onClick={logout} className="w-full text-left px-3.5 py-2 text-sm hover:bg-slate-50 text-[var(--coral-500)]">
               Đăng xuất
             </button>
           </div>
         )}
       </div>
-      <ThemeSettingsModal open={themeModalOpen} onClose={() => setThemeModalOpen(false)} />
     </div>
   );
 }

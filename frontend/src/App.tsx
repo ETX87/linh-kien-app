@@ -24,7 +24,6 @@ import { pushOverlayClose } from "./lib/overlayStack";
 import { CommandPalette, type CommandItem } from "./components/ui/CommandPalette";
 import { Modal } from "./components/ui/Modal";
 import { Btn } from "./components/ui/Btn";
-import { useThemeSettings } from "./theme/useThemeSettings";
 import { consumePendingPxkDeepLinkId } from "./lib/pxkDeepLink";
 
 // Shell RUT GON tu frontend/src/App.tsx cua he DVBH goc - he doc lap nay CHI phuc vu 1 mien nghiep
@@ -54,11 +53,6 @@ function roleDisplayLabel(user: { vai_tro: string | null; la_kho: boolean; la_ke
 
 export function App() {
   const auth = useAuth();
-  // Ap dung theme ca nhan (mau + font, luu localStorage - xem useThemeSettings.ts) ngay tu shell
-  // ngoai cung, khong phu thuoc trang thai dang nhap/module dang mo. index.html co san 1 script inline
-  // lam viec nay TRUOC khi React mount (chong nhay mau mac dinh) - goi lai o day de dong bo lai sau
-  // khi React hydrate va de ThemeSettingsModal (mo tu menu tai khoan) doc/ghi cung 1 nguon.
-  useThemeSettings();
 
   if (auth.status === "loading") {
     return (
@@ -294,17 +288,19 @@ function MainApp({
             bao/avatar chuyen vao Sidebar (mo qua nut "Thêm" cuoi BottomTabBar), xem TopBar.tsx. */}
         {!isMobile && (
           <TopBar
+            active={active}
             role={roleDisplayLabel(user)}
             user={user}
             realIsAdmin={realIsAdmin}
             viewAsRole={viewAsRole}
+            onToggleSidebar={() => setCollapsed((v) => !v)}
             onOpenCommandPalette={() => setCommandOpen(true)}
             mobilePreviewOpen={mobilePreviewOpen}
             onToggleMobilePreview={() => setMobilePreviewOpen((v) => !v)}
             notificationBell={<NotificationBell unreadCount={notifCounts?.ktvLogChuaDoc ?? 0} onOpenDonHang={openDonHangFromBell} onOpenPxk={openPxkFromBell} />}
           />
         )}
-        <main className={`p-3 sm:p-5 flex-1 ${isMobile ? "pb-20" : ""}`}>
+        <main className={`p-4 sm:p-6 flex-1 min-w-0 ${isMobile ? "pb-20" : ""}`}>
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <div className="flex items-center gap-3 flex-wrap min-w-0">
               {active !== "dat-mua-lk" && <h1 className="font-display text-lg sm:text-xl font-extrabold text-[var(--ink-900)]">{MODULE_TITLES[active]}</h1>}
