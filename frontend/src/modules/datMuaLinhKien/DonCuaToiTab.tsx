@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
 import { FileButton } from "../../components/ui/FileButton";
-import { Badge, type BadgeTone } from "../../components/ui/Badge";
+import { Badge, type Tone } from "../../components/x/Badge";
 import { Modal } from "../../components/ui/Modal";
 import { Drawer, DrawerNavButtons, useDrawerArrowNav } from "../../components/ui/Drawer";
 import { Select } from "../../components/ui/Select";
@@ -676,24 +676,24 @@ export function DonHangDetailModal({
                 {/* DOI MAU (2026-08-27, "5 nhóm màu trạng thái"): "Quá hạn" la 1 khai niem RIENG voi
                     "tu choi" (violet)/"da huy" (coral) - doi sang tone "orange" (cam, gia tri khong
                     doi) de khong bi trung mau voi 2 khai niem do sau khi gan lai tone theo constants.ts. */}
-                {d.qua_han_ly_do_cham && <Badge tone="orange">Quá hạn - cần lý do chậm</Badge>}
+                {d.qua_han_ly_do_cham && <Badge tone="danger">Quá hạn - cần lý do chậm</Badge>}
                 {/* SUA (phan hoi 2026-08-19): amber trung mau voi loai_don "Cong no" gay nham lan "vien
                     vang" - doi ca Badge nay lan ring/bg cua dong bang sang cam THAT (token --orange-*
                     rieng, khac amber), dong bo voi TaoDonTab. */}
-                {d.uu_tien === 1 && <Badge tone="orange">⭐ Ưu tiên</Badge>}
+                {d.uu_tien === 1 && <Badge tone="warning">⭐ Ưu tiên</Badge>}
                 {/* "Đơn tạo hộ" (yeu cau nguoi dung 2026-08-27) - nguoi tao khac nguoi nhan hang, ap
                     dung cho MOI loai_don (khong rieng cong_no, xem isDonTaoHo o helpers.ts). Tone
-                    "gray" (trung tinh) - day la nhan METADATA, khong phai 1 trong "5 nhom mau trang
-                    thai" (ocean/teal/amber/coral/orange/violet) da quy uoc cho trang_thai. */}
-                {isDonTaoHo(d) && <Badge tone="gray">Đơn tạo hộ</Badge>}
+                    "neutral" (trung tinh) - day la nhan METADATA, khong phai 1 trong 6 tone ngu nghia
+                    (info/success/warning/danger/purple/neutral) da quy uoc cho trang_thai. */}
+                {isDonTaoHo(d) && <Badge tone="neutral">Đơn tạo hộ</Badge>}
                 {/* Chuyen vao day (truoc kem ben canh tieu de LK cu, gio tieu de Drawer chi con la ten
                     LK thuan - xem prop `title` cua Drawer o tren) - van la 1 trang thai dang chu y nen
                     hop ly nam canh cum badge trang thai. */}
-                {!!d.dac_thu && <Badge tone="amber">🔒 Đặc thù</Badge>}
+                {!!d.dac_thu && <Badge tone="warning">🔒 Đặc thù</Badge>}
                 {/* "Đủ/Không đủ công nợ" (them 04/09/2026) - chot 1 LAN luc tao don, xem QuickStat
                     "Công nợ tạm tính" o tren + lib/congNoKtv.ts o backend. */}
-                {d.loai_don === "cong_no" && d.danh_gia_cong_no === "Du" && <Badge tone="teal">Đủ công nợ</Badge>}
-                {d.loai_don === "cong_no" && d.danh_gia_cong_no === "Khong du" && <Badge tone="coral">Không đủ công nợ</Badge>}
+                {d.loai_don === "cong_no" && d.danh_gia_cong_no === "Du" && <Badge tone="success">Đủ công nợ</Badge>}
+                {d.loai_don === "cong_no" && d.danh_gia_cong_no === "Khong du" && <Badge tone="danger">Không đủ công nợ</Badge>}
               </div>
             </div>
           </div>
@@ -1028,7 +1028,7 @@ export function DonHangDetailModal({
               <SectionTitle icon="🕐">Lịch sử xử lý</SectionTitle>
               <Timeline
                 items={d.logs!.map((l) => ({
-                  dotClassName: TRANG_THAI_DOT_TONE[DON_HANG_TRANG_THAI_TONE_ALL[l.trang_thai] ?? "gray"],
+                  dotClassName: TRANG_THAI_DOT_TONE[DON_HANG_TRANG_THAI_TONE_ALL[l.trang_thai] ?? "neutral"],
                   title: (
                     <>
                       {trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, l.trang_thai)}
@@ -1746,7 +1746,7 @@ export function DonCuaToiTab({
 interface EnrichedRow {
   d: DonHangRow;
   actions: { duyet: boolean; tuChoi: boolean; choHang: boolean; huy: boolean };
-  tone: { tone: BadgeTone; label: string; border: string };
+  tone: { tone: Tone; label: string; border: string };
   rowStyle: string;
   chonDuoc: boolean;
 }
@@ -1899,16 +1899,16 @@ export function DonHangGroupedList({
       render: (row) => (
         <div className="flex flex-col gap-0.5 items-start">
           <StatusBadge value={row.d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} options={DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL} />
-          {row.d.qua_han_ly_do_cham && <Badge tone="orange">Quá hạn - cần lý do</Badge>}
+          {row.d.qua_han_ly_do_cham && <Badge tone="danger">Quá hạn - cần lý do</Badge>}
           {/* "Đơn tạo hộ" (yeu cau nguoi dung 2026-08-27) - xem giai thich o KvRow "Trạng thái" cua
               Drawer chi tiet (isDonTaoHo, helpers.ts). */}
-          {isDonTaoHo(row.d) && <Badge tone="gray">Đơn tạo hộ</Badge>}
+          {isDonTaoHo(row.d) && <Badge tone="neutral">Đơn tạo hộ</Badge>}
           {/* FIX (phan hoi 2026-09-04: "đặt đơn công nợ vượt trần nhưng không thấy cảnh báo") - badge
               nay TRUOC DAY chi duoc them o Drawer chi tiet (dong ~680), KHONG co trong bang danh sach
               chinh (cot "Trạng thái" nay, dung cho ca "Đơn hàng"/"Công nợ" tab) nen nguoi dung phai bam
               vao tung dong moi thay - gio hien NGAY o day, cung 1 cho voi cac badge trang thai khac. */}
-          {row.d.loai_don === "cong_no" && row.d.danh_gia_cong_no === "Du" && <Badge tone="teal">Đủ công nợ</Badge>}
-          {row.d.loai_don === "cong_no" && row.d.danh_gia_cong_no === "Khong du" && <Badge tone="coral">Không đủ công nợ</Badge>}
+          {row.d.loai_don === "cong_no" && row.d.danh_gia_cong_no === "Du" && <Badge tone="success">Đủ công nợ</Badge>}
+          {row.d.loai_don === "cong_no" && row.d.danh_gia_cong_no === "Khong du" && <Badge tone="danger">Không đủ công nợ</Badge>}
         </div>
       ),
     },
@@ -2065,10 +2065,10 @@ export function DonHangGroupedList({
                         <span className="font-semibold text-[var(--green-700)] shrink-0">{fmtVND(g.tongTien)}</span>
                       </div>
                       <div className="flex items-center gap-1 flex-wrap">
-                        {g.choDuyet > 0 && <Badge tone="amber">{g.choDuyet} chờ duyệt</Badge>}
-                        {g.dongY > 0 && <Badge tone="teal">{g.dongY} đồng ý</Badge>}
-                        {g.tuChoi > 0 && <Badge tone="coral">{g.tuChoi} từ chối</Badge>}
-                        {g.choHang > 0 && <Badge tone="amber">{g.choHang} chờ hàng</Badge>}
+                        {g.choDuyet > 0 && <Badge tone="warning">{g.choDuyet} chờ duyệt</Badge>}
+                        {g.dongY > 0 && <Badge tone="success">{g.dongY} đồng ý</Badge>}
+                        {g.tuChoi > 0 && <Badge tone="danger">{g.tuChoi} từ chối</Badge>}
+                        {g.choHang > 0 && <Badge tone="warning">{g.choHang} chờ hàng</Badge>}
                       </div>
                     </div>
                   </td>
@@ -2126,9 +2126,9 @@ export function DonHangGroupedList({
               <div className="font-bold text-[var(--ink-900)] text-xs truncate">{formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}</div>
               <div className="flex items-center justify-between gap-2 mt-1">
                 {g.choDuyet + g.choHang > 0 ? (
-                  <Badge tone="amber">Chờ {g.choDuyet + g.choHang}/{g.dongCon.length} đơn</Badge>
+                  <Badge tone="warning">Chờ {g.choDuyet + g.choHang}/{g.dongCon.length} đơn</Badge>
                 ) : (
-                  <Badge tone="teal">Đã xong {g.dongCon.length} đơn</Badge>
+                  <Badge tone="success">Đã xong {g.dongCon.length} đơn</Badge>
                 )}
                 <span className="font-semibold text-[var(--green-700)] text-sm shrink-0">{fmtVND(g.tongTien)}</span>
               </div>
@@ -2143,22 +2143,22 @@ export function DonHangGroupedList({
                       // 2 cai + "+N" khi con lai - bam vao the (onClick co san o div ngoai) mo Drawer
                       // xem du. Nut hanh dong (✓/⏳/✕/🚫) giu nguyen, KHONG tinh vao "3 dong" (hang
                       // thao tac rieng, theo dung xac nhan cua nguoi dung qua AskUserQuestion).
-                      const badges: { tone: BadgeTone; label: string }[] = [
+                      const badges: { tone: Tone; label: string }[] = [
                         // FIX (phan hoi 2026-09-04: "đặt đơn công nợ vượt trần nhưng không thấy cảnh
                         // báo") - dat LEN DAU MANG (uu tien cao nhat) vi MAX_BADGE=1 phia duoi CHI hien
                         // badges[0], badge canh bao nay se bi "+N" nuot mat neu de sau cac badge khac.
-                        ...(d.loai_don === "cong_no" && d.danh_gia_cong_no === "Khong du" ? [{ tone: "coral" as BadgeTone, label: "Không đủ công nợ" }] : []),
+                        ...(d.loai_don === "cong_no" && d.danh_gia_cong_no === "Khong du" ? [{ tone: "danger" as Tone, label: "Không đủ công nợ" }] : []),
                         // SUA (phan hoi 2026-09-05: "thẻ Trạng thái ưu tiên hiện đầu tiên thay vì loại đề
                         // xuất (mua hàng, công nợ...) - giao diện mobile") - dao Trang thai LEN TRUOC loai
                         // don, vi MAX_BADGE=1 phia duoi CHI hien badges[0] (tru truong hop canh bao cong no
                         // o tren van uu tien tuyet doi, khong doi).
-                        { tone: DON_HANG_TRANG_THAI_TONE_ALL[d.trang_thai ?? ""] ?? "gray", label: trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, d.trang_thai ?? "") },
+                        { tone: DON_HANG_TRANG_THAI_TONE_ALL[d.trang_thai ?? ""] ?? "neutral", label: trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, d.trang_thai ?? "") },
                         { tone: tone.tone, label: tone.label },
-                        ...(d.qua_han_ly_do_cham ? [{ tone: "orange" as BadgeTone, label: "Quá hạn" }] : []),
+                        ...(d.qua_han_ly_do_cham ? [{ tone: "danger" as Tone, label: "Quá hạn" }] : []),
                         // "Đơn tạo hộ" (yeu cau nguoi dung 2026-08-27) - xem giai thich day du o KvRow
                         // "Trạng thái" cua Drawer chi tiet phia tren (isDonTaoHo, helpers.ts).
-                        ...(isDonTaoHo(d) ? [{ tone: "gray" as BadgeTone, label: "Đơn tạo hộ" }] : []),
-                        ...(d.loai_don === "cong_no" && d.danh_gia_cong_no === "Du" ? [{ tone: "teal" as BadgeTone, label: "Đủ công nợ" }] : []),
+                        ...(isDonTaoHo(d) ? [{ tone: "neutral" as Tone, label: "Đơn tạo hộ" }] : []),
+                        ...(d.loai_don === "cong_no" && d.danh_gia_cong_no === "Du" ? [{ tone: "success" as Tone, label: "Đủ công nợ" }] : []),
                       ];
                       // SUA (phan hoi 2026-08-28: "dòng 1 60% diện tích cho tên linh kiện, 40% còn lại
                       // cho card trạng thái, không đủ thì ẩn bớt và hiện (N)") - giam tu 3 xuong 1 de

@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
-import { Badge } from "../../components/ui/Badge";
+import { Badge } from "../../components/x/Badge";
 import { Modal } from "../../components/ui/Modal";
 import { Select } from "../../components/ui/Select";
 import { ImportUploader } from "../../components/ImportUploader";
@@ -213,7 +213,7 @@ export function TaoDonTab({
                 {d.yeu_cau_hoa_don.trim() !== YEU_CAU_HOA_DON_OPTIONS[0] && (
                   <span className="shrink-0" title={YEU_CAU_HOA_DON_SHORT_LABELS[d.yeu_cau_hoa_don] ?? d.yeu_cau_hoa_don}>🧾</span>
                 )}
-                <span className="shrink-0"><Badge tone={completeThu ? "teal" : "coral"}>{completeThu ? "✓" : "⚠ Chưa xong"}</Badge></span>
+                <span className="shrink-0"><Badge tone={completeThu ? "success" : "warning"}>{completeThu ? "✓" : "⚠ Chưa xong"}</Badge></span>
               </button>
             );
           }

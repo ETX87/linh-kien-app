@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { Drawer } from "../../components/ui/Drawer";
 import { Tabs } from "../../components/ui/Tabs";
-import { Badge, type BadgeTone } from "../../components/ui/Badge";
+import { Badge, type Tone } from "../../components/x/Badge";
 import { useToast } from "../../components/ui/Toast";
 import { fmtDateTime } from "../../types";
 import { usePushNotifications } from "../../hooks/usePushNotifications";
@@ -24,24 +24,24 @@ interface ThongBaoKtvRow {
   ngay_tao: string;
 }
 
-// Mau rieng tung loai trang thai (phan hoi "Mỗi trạng thái lịch sử tô 1 màu khác nhau") - khop tinh
-// than mau da dung cho trang_thai dat_don_hang o noi khac trong module (tu_choi/huy = coral vi la ket
-// qua TIEU CUC, cho_hang = amber vi la CHO chu khong dut khoat, da_duyet/pxk_da_duyet/kho_da_gui =
-// teal/ocean vi la tien trien TICH CUC).
-const LOAI_TONE: Record<string, BadgeTone> = {
-  tu_choi: "coral",
-  huy: "coral",
-  cho_hang: "amber",
-  da_duyet: "teal",
-  pxk_da_duyet: "teal",
-  kho_da_gui: "ocean",
+// Mau rieng tung loai trang thai (phan hoi "Mỗi trạng thái lịch sử tô 1 màu khác nhau") - khop UI_SPEC
+// §1.2 (2026-09-10): "Từ chối"=danger (tach rieng khoi "Đã huỷ"=neutral, khac voi truoc day dung chung
+// coral cho ca 2), cho_hang=warning (CHO chu khong dut khoat), da_duyet/pxk_da_duyet=success (tien
+// trien TICH CUC), kho_da_gui=info (dang xu ly).
+const LOAI_TONE: Record<string, Tone> = {
+  tu_choi: "danger",
+  huy: "neutral",
+  cho_hang: "warning",
+  da_duyet: "success",
+  pxk_da_duyet: "success",
+  kho_da_gui: "info",
   // Them (phan hoi 2026-09-05: "khi đến các nhiệm vụ của mỗi vai trò + khu vực sẽ có thông báo đẩy về
   // cho người xử lý") - 3 loai DOC LAP nguoi dung tu bat/tat (xem cong tac o footer Drawer ben duoi):
   // "viec_moi" = nhiem vu TRUC TIEP phai xu ly, "lien_quan" = viec cung quy trinh/khu vuc nhung chua
   // den luot, "theo_doi" = viec minh tung xu ly nay cap nhat tiep.
-  viec_moi: "amber",
-  lien_quan: "violet",
-  theo_doi: "gray",
+  viec_moi: "warning",
+  lien_quan: "info",
+  theo_doi: "neutral",
 };
 const LOAI_LABEL: Record<string, string> = {
   tu_choi: "Từ chối",

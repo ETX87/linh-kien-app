@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
 import { FileButton } from "../../components/ui/FileButton";
-import { Badge } from "../../components/ui/Badge";
+import { Badge } from "../../components/x/Badge";
 import { Modal } from "../../components/ui/Modal";
 import { Drawer, DrawerNavButtons, useDrawerArrowNav } from "../../components/ui/Drawer";
 import { Select } from "../../components/ui/Select";
@@ -1299,7 +1299,7 @@ export function PxkDetailModal({
                                   khong con o nhap tu do - neu Settings CHUA co ly do nao, TN se khong
                                   nhap duoc cho toi khi Admin bo sung (dung y da chot voi nguoi dung). */}
                               <div className="flex gap-1 items-center">
-                                <Badge tone="coral">Quá hạn</Badge>
+                                <Badge tone="danger">Quá hạn</Badge>
                                 <Select
                                   value={lyDoChamDraft[d.id] ?? ""}
                                   onChange={(v) => setLyDoChamDraft((p) => ({ ...p, [d.id]: v }))}
@@ -1330,7 +1330,7 @@ export function PxkDetailModal({
                             // (d.trang_thai_hien_tai) nen luon hien o nhap + nut Luu du KHONG BAO GIO
                             // luu duoc - gio chi hien badge THONG TIN (khong con hanh dong nao lam
                             // duoc o day, dung y "hết ý nghĩa sau khi đã duyệt" cua backend).
-                            <Badge tone="coral">Quá hạn</Badge>
+                            <Badge tone="danger">Quá hạn</Badge>
                           ) : (!d.giaiTrinh || d.giaiTrinh.length === 0) ? (
                             <span className="text-[var(--ink-400)]">—</span>
                           ) : null}

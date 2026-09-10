@@ -2,7 +2,7 @@ import { Fragment, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
-import { Badge } from "../../components/ui/Badge";
+import { Badge } from "../../components/x/Badge";
 import { Modal } from "../../components/ui/Modal";
 import { Select } from "../../components/ui/Select";
 import { Drawer, DrawerNavButtons, useDrawerArrowNav } from "../../components/ui/Drawer";
@@ -665,10 +665,10 @@ function ThieuLkGroupedList({
                         <span className="text-[var(--ink-400)] text-xs shrink-0">{g.dongCon.length} dòng</span>
                       </div>
                       <div className="flex items-center gap-1 flex-wrap">
-                        {g.choXuLy > 0 && <Badge tone="amber">{g.choXuLy} chờ xử lý</Badge>}
-                        {g.dangXuLy > 0 && <Badge tone="ocean">{g.dangXuLy} đang xử lý</Badge>}
-                        {g.hoanTat > 0 && <Badge tone="teal">{g.hoanTat} hoàn tất</Badge>}
-                        {g.huyBo > 0 && <Badge tone="coral">{g.huyBo} huỷ/từ chối</Badge>}
+                        {g.choXuLy > 0 && <Badge tone="warning">{g.choXuLy} chờ xử lý</Badge>}
+                        {g.dangXuLy > 0 && <Badge tone="info">{g.dangXuLy} đang xử lý</Badge>}
+                        {g.hoanTat > 0 && <Badge tone="success">{g.hoanTat} hoàn tất</Badge>}
+                        {g.huyBo > 0 && <Badge tone="danger">{g.huyBo} huỷ/từ chối</Badge>}
                       </div>
                     </div>
                   </td>
@@ -704,13 +704,13 @@ function ThieuLkGroupedList({
             <div className="bg-[var(--ocean-100)] px-3 py-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-bold text-[var(--ink-900)] text-xs truncate">{formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}</span>
-                <Badge tone="ocean">{g.dongCon.length} dòng</Badge>
+                <Badge tone="info">{g.dongCon.length} dòng</Badge>
               </div>
               <div className="flex items-center gap-1 flex-wrap mt-1">
-                {g.choXuLy > 0 && <Badge tone="amber">{g.choXuLy} chờ xử lý</Badge>}
-                {g.dangXuLy > 0 && <Badge tone="ocean">{g.dangXuLy} đang xử lý</Badge>}
-                {g.hoanTat > 0 && <Badge tone="teal">{g.hoanTat} hoàn tất</Badge>}
-                {g.huyBo > 0 && <Badge tone="coral">{g.huyBo} huỷ/từ chối</Badge>}
+                {g.choXuLy > 0 && <Badge tone="warning">{g.choXuLy} chờ xử lý</Badge>}
+                {g.dangXuLy > 0 && <Badge tone="info">{g.dangXuLy} đang xử lý</Badge>}
+                {g.hoanTat > 0 && <Badge tone="success">{g.hoanTat} hoàn tất</Badge>}
+                {g.huyBo > 0 && <Badge tone="danger">{g.huyBo} huỷ/từ chối</Badge>}
               </div>
             </div>
             <div className="border-t border-[var(--line)] divide-y divide-[var(--line)]">

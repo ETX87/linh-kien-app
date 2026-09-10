@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../../api/client";
 import { getAllFromCache, getLastCacheTimestamp, mergeLinhKienToCache, ensureCacheSchemaVersion } from "../../lib/linhKienCache";
 import { getAllLdeFromCache, clearLdeCache, mergeLdeToCache, type LdeEntry } from "../../lib/loaiDeXuatCache";
-import type { BadgeTone } from "../../components/ui/Badge";
+import type { Tone } from "../../components/x/Badge";
 import type { LkDanhMucRow, NguoiNhanHangKhaDungRow, DonHangDraft, DonHangRow, KtvDisplayMap, XepHangLinhKienRow } from "./types";
 import { YEU_CAU_HOA_DON_OPTIONS, GENERIC_ERROR_MESSAGES } from "./constants";
 
@@ -148,15 +148,12 @@ export function deriveLoaiDon(v: string): "mua" | "cong_no" | "tra_hang" {
   return "mua";
 }
 
-// Mau/nhan theo loai don - dung lai 3 tone san co cua Badge.tsx (khong them token mau moi), giup
-// phan biet nhanh cac dong trong 1 phieu (phan hoi UX 2026-08-15 dot 2: giao diem qua nhat nhoa).
-// DOI (2026-08-27): "cong_no" chuyen tu "amber" sang "orange" - amber vua doi ngu nghia thanh mau
-// TRANG THAI "dang cho" (xem constants.ts/tokens.css, yeu cau "5 nhóm màu trạng thái" toan he thong),
-// badge LOAI DON nay khong lien quan trang thai nen phai tach rieng de tranh bi doi mau lay theo.
-export const LOAI_DON_TONE: Record<ReturnType<typeof deriveLoaiDon>, { tone: BadgeTone; label: string; border: string }> = {
-  mua: { tone: "ocean", label: "Mua hàng", border: "border-l-[var(--ocean-400)]" },
-  cong_no: { tone: "orange", label: "Công nợ", border: "border-l-[var(--orange-500)]" },
-  tra_hang: { tone: "coral", label: "Trả hàng", border: "border-l-[var(--coral-500)]" },
+// Mau/nhan theo loai don - khop DUNG UI_SPEC.md §2.8 (DataTable, 2026-09-10): "Loại (Badge Mua=info /
+// Công nợ=purple)" o cot Mua hang, "Loại (Badge 'Trả hàng'=warning)" o cot Tra hang.
+export const LOAI_DON_TONE: Record<ReturnType<typeof deriveLoaiDon>, { tone: Tone; label: string; border: string }> = {
+  mua: { tone: "info", label: "Mua hàng", border: "border-l-[var(--color-info)]" },
+  cong_no: { tone: "purple", label: "Công nợ", border: "border-l-[var(--color-purple)]" },
+  tra_hang: { tone: "warning", label: "Trả hàng", border: "border-l-[var(--color-warning)]" },
 };
 
 // Chinh sach + Ma yeu cau su co bat buoc khi Loai de xuat la cong no THAT (chua "CONG NO") nhung

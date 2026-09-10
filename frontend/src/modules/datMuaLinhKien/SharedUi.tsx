@@ -1,7 +1,7 @@
 import { useState, useEffect, type ReactNode } from "react";
-import { Btn, type BtnVariant } from "../../components/ui/Btn";
-import { Badge, type BadgeTone } from "../../components/ui/Badge";
-import { Select } from "../../components/ui/Select";
+import { Btn, type BtnVariant } from "../../components/x/Btn";
+import { Badge, type Tone } from "../../components/x/Badge";
+import { Select } from "../../components/x/Form";
 import { api } from "../../api/client";
 import { compressImage } from "../../lib/imageCompress";
 import { trangThaiLabel, describeApiError, useNenAnhTraHangEnabled } from "./helpers";
@@ -74,8 +74,8 @@ export function ImageLink({ url, className, children }: { url: string; className
 // nao - CHI dung dung de tra cuu mau (`tones`). Them `options` (danh sach { value, label } co san moi
 // noi goi, dung chung voi TrangThaiChipFilter/ActiveFiltersBar) de dich sang nhan tieng Viet co dau
 // truoc khi hien, qua trangThaiLabel (fallback ve chinh value neu khong khop - khong an du lieu).
-export function StatusBadge({ value, tones, options }: { value: string; tones: Record<string, BadgeTone>; options: { value: string; label: string }[] }) {
-  return <Badge tone={tones[value] ?? "gray"}>{trangThaiLabel(options, value)}</Badge>;
+export function StatusBadge({ value, tones, options }: { value: string; tones: Record<string, Tone>; options: { value: string; label: string }[] }) {
+  return <Badge tone={tones[value] ?? "neutral"}>{trangThaiLabel(options, value)}</Badge>;
 }
 
 // Thanh hien thi bo loc dang ap dung + nut xoa tung cai/xoa het (UI redesign phan hoi Codex
@@ -92,7 +92,7 @@ export function ActiveFiltersBar({ chips }: { chips: { label: string; onClear: (
           key={i}
           type="button"
           onClick={c.onClear}
-          className="focus-ring inline-flex items-center gap-1 rounded-full bg-[var(--ocean-100)] px-2 py-0.5 text-xs font-medium text-[var(--ocean-900)] hover:brightness-95"
+          className="focus-ring inline-flex items-center gap-1 rounded-full bg-[var(--color-primary-soft)] px-2 py-0.5 text-xs font-medium text-[var(--color-primary)] hover:brightness-95"
         >
           {c.label} <span aria-hidden="true">✕</span>
         </button>
@@ -122,7 +122,7 @@ export function DetailZone({ title, children, className = "" }: { title: string;
       {/* SUA (ra soat "giao diện demo không hề giống" 2026-09-09) - mau chu doi tu --ink-400 (xam nhat)
           sang --ocean-800 (navy dam), do mau pixel truc tiep tren anh demo (vung "THÔNG TIN ĐƠN") xac
           nhan la navy chu khong phai xam nhu truoc, dong bo voi SectionTitle.tsx cung dot sua. */}
-      <div className="text-[10.5px] uppercase tracking-wider text-[var(--ocean-800)] font-extrabold mb-1.5">{title}</div>
+      <div className="text-[10.5px] uppercase tracking-wider text-[var(--color-primary)] font-extrabold mb-1.5">{title}</div>
       {children}
     </div>
   );
@@ -135,7 +135,7 @@ export function QuickStat({ label, value, tone }: { label: string; value: ReactN
   return (
     <div>
       <div className="text-[10px] uppercase tracking-wide text-[var(--ink-400)] font-bold">{label}</div>
-      <div className={`font-bold text-base ${tone === "green" ? "text-[var(--green-700)]" : "text-[var(--ink-900)]"}`}>{value}</div>
+      <div className={`font-bold text-base ${tone === "green" ? "text-[var(--color-success)]" : "text-[var(--color-text)]"}`}>{value}</div>
     </div>
   );
 }
@@ -181,7 +181,7 @@ export function CollapsibleSection({
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="focus-ring shrink-0 text-[11px] font-semibold text-[var(--ocean-700)] hover:underline"
+          className="focus-ring shrink-0 text-[11px] font-semibold text-[var(--color-primary)] hover:underline"
         >
           {open ? "▲ Thu gọn" : "▼ Mở rộng"}
         </button>
@@ -315,7 +315,9 @@ export function KhuVucChipFilter({
         type="button"
         onClick={() => onChange(new Set())}
         className={`focus-ring rounded-full px-[13px] py-[5.5px] text-xs font-medium transition-colors ${
-          value.size === 0 ? "bg-[var(--ocean-800)] border border-[var(--ocean-800)] text-white font-semibold" : "bg-white text-[var(--ink-700)] border border-[var(--line)] hover:border-[var(--ocean-800)]"
+          value.size === 0
+            ? "bg-[var(--color-primary)] border border-[var(--color-primary)] text-white font-semibold"
+            : "bg-[var(--color-surface)] text-[var(--color-text)] border border-[var(--color-border)] hover:border-[var(--color-primary)]"
         }`}
       >
         Tất cả
@@ -328,7 +330,9 @@ export function KhuVucChipFilter({
             type="button"
             onClick={() => toggle(o.value)}
             className={`focus-ring rounded-full px-[13px] py-[5.5px] text-xs font-medium transition-colors ${
-              active ? "bg-[var(--ocean-800)] border border-[var(--ocean-800)] text-white font-semibold" : "bg-white text-[var(--ink-700)] border border-[var(--line)] hover:border-[var(--ocean-800)]"
+              active
+                ? "bg-[var(--color-primary)] border border-[var(--color-primary)] text-white font-semibold"
+                : "bg-[var(--color-surface)] text-[var(--color-text)] border border-[var(--color-border)] hover:border-[var(--color-primary)]"
             }`}
           >
             {o.label}
@@ -412,10 +416,10 @@ export function TraHangAnhPicker({
       <div className="flex items-center gap-2 flex-wrap">
         {photos.map((p, i) => (
           <span key={p.driveFileId} className="inline-flex items-center gap-1.5 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2 py-1 text-xs">
-            <ImageLink url={p.url} className="text-[var(--ocean-800)] underline underline-offset-2">
+            <ImageLink url={p.url} className="text-[var(--color-primary)] underline underline-offset-2">
               📷 Ảnh {i + 1}
             </ImageLink>
-            <button type="button" onClick={() => onChange(photos.filter((_, j) => j !== i))} className="text-[var(--coral-600)] font-bold leading-none" title="Xoá ảnh này">
+            <button type="button" onClick={() => onChange(photos.filter((_, j) => j !== i))} className="text-[var(--color-danger)] font-bold leading-none" title="Xoá ảnh này">
               ✕
             </button>
           </span>
@@ -423,7 +427,7 @@ export function TraHangAnhPicker({
         {photos.length < max && (
           <label
             className={`text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed cursor-pointer ${
-              uploading ? "opacity-50 pointer-events-none" : "border-[var(--line)] text-[var(--ink-500)] hover:border-[var(--ocean-400)] hover:text-[var(--ocean-600)]"
+              uploading ? "opacity-50 pointer-events-none" : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
             }`}
           >
             {uploading ? "Đang tải..." : "+ Thêm ảnh"}
@@ -441,7 +445,7 @@ export function TraHangAnhPicker({
           </label>
         )}
       </div>
-      <div className={`text-[11px] mt-1 ${photos.length === 0 ? "text-[var(--coral-600)]" : "text-[var(--ink-400)]"}`}>{photos.length}/{max} ảnh (bắt buộc tối thiểu 1)</div>
+      <div className={`text-[11px] mt-1 ${photos.length === 0 ? "text-[var(--color-danger)]" : "text-[var(--color-text-faint)]"}`}>{photos.length}/{max} ảnh (bắt buộc tối thiểu 1)</div>
     </div>
   );
 }
@@ -451,14 +455,14 @@ export function TraHangAnhPicker({
 // LUON true (xem comment o DatMuaLinhKienModule), KHONG con loai KTV/CTV/Tram nhu truoc. Dung chung
 // cho bang dong con o DonCuaToiTab va bang dong trong PhieuDatDetailModal.
 export function MaYcscCell({ value, canXemChiTietCa, openCase }: { value: string | null; canXemChiTietCa: boolean; openCase?: (id: string, tab?: string) => void }) {
-  if (!value?.trim()) return <span className="text-[var(--ink-400)]">—</span>;
+  if (!value?.trim()) return <span className="text-[var(--color-text-faint)]">—</span>;
   if (canXemChiTietCa && openCase) {
     // SUA (phan hoi 2026-08-28: "sửa màu và tô đậm lên để người dùng biết có thể click vào") - truoc
     // day chi doi mau + gach chan luc hover, nhung hover KHONG BAO GIO kich hoat tren cam ung (mobile)
     // nen nhin giong text thuong, khong ai biet bam duoc. Gach chan LUON HIEN (khong doi hover nua) +
     // dam mau/dam chu hon de ro rang la 1 link bam duoc ngay ca tren mobile.
     return (
-      <span className="font-mono text-[var(--ocean-700)] font-bold underline decoration-[var(--ocean-700)]/40 underline-offset-2 cursor-pointer active:opacity-70" onClick={() => openCase(value.trim(), "giai-trinh")}>
+      <span className="font-mono text-[var(--color-primary)] font-bold underline decoration-[var(--color-primary)]/40 underline-offset-2 cursor-pointer active:opacity-70" onClick={() => openCase(value.trim(), "giai-trinh")}>
         {value}
       </span>
     );

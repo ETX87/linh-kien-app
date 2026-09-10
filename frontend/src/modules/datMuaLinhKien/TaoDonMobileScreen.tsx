@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
-import { Badge } from "../../components/ui/Badge";
+import { Badge } from "../../components/x/Badge";
 import { Select } from "../../components/ui/Select";
 import { fmtVND } from "../../types";
 import { pushOverlayClose } from "../../lib/overlayStack";

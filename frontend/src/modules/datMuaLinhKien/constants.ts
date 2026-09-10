@@ -1,4 +1,4 @@
-import type { BadgeTone } from "../../components/ui/Badge";
+import type { Tone } from "../../components/x/Badge";
 
 // Hang so/dictionary dung chung cho module "Dat mua linh kien" (tach tu DatMuaLinhKienModule.tsx
 // khi chia nho file - UI redesign Phase 3, phan hoi Codex 2026-08-19).
@@ -103,62 +103,57 @@ export const TRA_HANG_BULK_ERROR_MESSAGES: Record<string, string> = {
 };
 
 // Trang thai cua 1 DONG don hang (dat_don_hang_log) - khong con o cap phieu.
-// DOI MAU (2026-08-27, "5 nhóm màu trạng thái" ap dung toan he thong, xac nhan qua AskUserQuestion):
-// "Da huy"/"huy bo" -> coral (do, truoc la gray), "tu choi" -> violet (tim, truoc dung chung coral
-// voi "da huy" nen khong phan biet duoc 2 khai niem khac nhau). "amber"/"ocean" (dang cho) va "teal"
-// (hoan thanh) GIU NGUYEN gan tone - tu doi mau qua gia tri hex moi trong tokens.css, khong can sua
-// o day.
-// SUA (phan hoi 2026-09-05, muc #3: "mỗi trạng thái 1 màu để dễ phân biệt") - truoc day "Cho Tram
-// duyet"/"Cho TBP xac nhan"/"Cho hang" deu chung "amber", kho phan biet tren table/card du la 3 khai
-// niem khac nhau (2 buoc duyet noi bo khac nhau + 1 trang thai "da duyet xong, cho ve hang" hoan toan
-// khac). Tach rieng: "Cho hang" -> "orange" (cho vat ly, khac voi "cho duyet"), "Cho TBP xac nhan" ->
-// "gray" (buoc kiem tra dac thu, it gap). Vua du 7 trang thai khop 7 tone co san (BadgeTone), khong
-// con 2 trang thai nao chung mau.
-export const DON_HANG_TRANG_THAI_TONE: Record<string, BadgeTone> = {
-  "Cho Tram duyet": "amber",
-  "Cho TBP xac nhan": "gray",
-  "Cho TN duyet": "ocean",
-  "TN da duyet": "teal",
-  "TN tu choi": "violet",
-  "Cho hang": "orange",
-  "Da huy": "coral",
+// DOI SANG HE MAU UI_SPEC.md §1.2 (port giao dien "Dat hang linh kien 3T", 2026-09-10) - truoc day
+// tung co giai doan gan 7 tone rieng biet cho 7 trang thai (phan hoi 2026-09-05 "mỗi trạng thái 1 màu
+// để dễ phân biệt"), nhung UI_SPEC chi dinh nghia 6 tone ngu nghia (info/success/warning/danger/
+// purple/neutral) va DA GOI DICH DANH "Chờ Trạm duyệt" = success (xanh la) - chap nhan "Cho Tram
+// duyet" va "TN da duyet" cung mau success (ca 2 deu thuoc nhom "duyet/hoan thanh"), phan biet bang
+// CHU trong badge (dung nguyen tac accessibility cua chinh UI_SPEC §6: "trạng thái không chỉ dựa
+// màu"), khong tu y them tone thu 7 ngoai spec.
+export const DON_HANG_TRANG_THAI_TONE: Record<string, Tone> = {
+  "Cho Tram duyet": "success",
+  "Cho TBP xac nhan": "warning",
+  "Cho TN duyet": "info",
+  "TN da duyet": "success",
+  "TN tu choi": "danger",
+  "Cho hang": "warning",
+  "Da huy": "neutral",
 };
 
 // Phan hoi UX muc 2 (2026-08-15): to mau/gach ngang TEN LINH KIEN theo trang thai dong don hang -
 // chi ap dung len phan ten (khong toan hang, tranh roi mat), StatusBadge canh ben van la diem neo
-// chinh. Dung lai cac token mau san co (--coral-*/--violet-*/--amber-*/--teal-*), khong them mau moi
-// ngoai violet (xem Badge.tsx). "TN tu choi" doi rieng sang violet-600 (2026-08-27) de khop dung
-// DON_HANG_TRANG_THAI_TONE o tren - truoc day dung chung coral-600 voi "Da huy".
+// chinh. DOI SANG token UI_SPEC (--color-danger/--color-warning/--color-text-secondary/--color-
+// success), khop dung DON_HANG_TRANG_THAI_TONE o tren (2026-09-10).
 export const DON_HANG_ROW_STYLE: Record<string, string> = {
-  "Da huy": "line-through text-[var(--coral-600)]",
-  "TN tu choi": "line-through text-[var(--violet-600)]",
-  "Cho Tram duyet": "text-[var(--amber-600)]",
-  // SUA (phan hoi 2026-09-05, muc #3) - khop lai voi DON_HANG_TRANG_THAI_TONE o tren (gray/orange
-  // rieng, khong con dung chung amber voi "Cho Tram duyet"/"Cho TN duyet").
-  "Cho TBP xac nhan": "text-[var(--ink-600)]",
-  "Cho TN duyet": "text-[var(--amber-600)]",
-  "Cho hang": "text-[var(--orange-700)] font-medium",
-  "TN da duyet": "text-[var(--teal-600)]",
+  "Da huy": "line-through text-[var(--color-text-secondary)]",
+  "TN tu choi": "line-through text-[var(--color-danger)]",
+  "Cho Tram duyet": "text-[var(--color-success)]",
+  "Cho TBP xac nhan": "text-[#b9770e]",
+  "Cho TN duyet": "text-[var(--color-info)]",
+  "Cho hang": "text-[#b9770e] font-medium",
+  "TN da duyet": "text-[var(--color-success)]",
 };
 
-export const PXK_TRANG_THAI_TONE: Record<string, BadgeTone> = {
-  "Dang tao phieu": "ocean",
-  "Cho ke toan": "amber",
-  "Da chot xong don xuat": "amber",
-  "Dang gui KTV": "amber",
-  "KTV da nhan": "teal",
-  "Ke toan huy": "coral",
-  "Hang tru kho": "teal",
-  "Kho da ket thuc": "teal",
+// UI_SPEC §1.2: "Chờ kho"/"Chờ QC"/"Đang xử lý" -> info, cac buoc "cho ke toan xu ly/chot" -> warning
+// (cung nhom voi "Chờ kế toán duyệt mềm" cua Tra hang), buoc hoan thanh/da nhan -> success, huy -> neutral.
+export const PXK_TRANG_THAI_TONE: Record<string, Tone> = {
+  "Dang tao phieu": "info",
+  "Cho ke toan": "warning",
+  "Da chot xong don xuat": "warning",
+  "Dang gui KTV": "warning",
+  "KTV da nhan": "success",
+  "Ke toan huy": "neutral",
+  "Hang tru kho": "success",
+  "Kho da ket thuc": "success",
   // Them (migration 0002_tra_hang_pxk.sql) - buoc CUOI rieng cho PXK loai_don='tra_hang' (Kho xac
   // nhan da nhan hang VE kho), xem giai thich o phieuXuatKho.ts.
-  "Kho da nhan hang tra": "teal",
+  "Kho da nhan hang tra": "success",
 };
 
-export const CHUYEN_TIEN_TONE: Record<string, BadgeTone> = {
-  "Cho KTV chuyen": "amber",
-  "KTV da chuyen": "ocean",
-  "TN da duyet": "teal",
+export const CHUYEN_TIEN_TONE: Record<string, Tone> = {
+  "Cho KTV chuyen": "warning",
+  "KTV da chuyen": "info",
+  "TN da duyet": "success",
 };
 export const CHUYEN_TIEN_OPTIONS = [
   { value: "Cho KTV chuyen", label: "Chờ KTV chuyển" },
@@ -172,40 +167,42 @@ export const CHUYEN_TIEN_OPTIONS = [
 // 2 buoc "nhap kho" cu ("Cho ke toan xac nhan nhap kho"/"Cho kho xac nhan nhap kho") bi xoa - dong
 // dat_don_hang dung o "TN da duyet" (giong het "TN da duyet" cua mua/cong_no), TN sang tao PXK that
 // (loai_don='tra_hang', xem PhieuXuatKhoTab.tsx) de di tiep phan con lai.
-export const TRA_HANG_TRANG_THAI_TONE: Record<string, BadgeTone> = {
-  "Cho ke toan duyet mem": "amber",
-  "Cho kho xac nhan": "amber",
-  "Cho QC xac nhan": "ocean",
-  "Cho TN duyet tong": "ocean",
-  "TN da duyet": "teal",
-  "Tu choi": "violet",
-  "Da huy": "coral",
+// Khop dung UI_SPEC §1.2 (spec neu ten tung trang thai nay lam vi du): "Chờ kế toán duyệt mềm" ->
+// warning, "Chờ kho"/"Chờ QC"/"Chờ TN duyệt" -> info, hoan thanh -> success, tu choi -> danger, huy ->
+// neutral.
+export const TRA_HANG_TRANG_THAI_TONE: Record<string, Tone> = {
+  "Cho ke toan duyet mem": "warning",
+  "Cho kho xac nhan": "info",
+  "Cho QC xac nhan": "info",
+  "Cho TN duyet tong": "info",
+  "TN da duyet": "success",
+  "Tu choi": "danger",
+  "Da huy": "neutral",
 };
 
 // CHOT vong 7 (2026-08-17): dong dat_don_hang loai_don='tra_hang' gio hien chung trong "Don cua
 // toi/Danh sach" (truoc chi xem duoc qua tab rieng "Don tra hang" da bo, hoac luong quy trinh) - can
 // map ca 2 bo trang thai (dat_don_hang_log + tra_hang_log) vao 1 tones dung chung cho StatusBadge.
-export const DON_HANG_TRANG_THAI_TONE_ALL: Record<string, BadgeTone> = { ...DON_HANG_TRANG_THAI_TONE, ...TRA_HANG_TRANG_THAI_TONE };
+export const DON_HANG_TRANG_THAI_TONE_ALL: Record<string, Tone> = { ...DON_HANG_TRANG_THAI_TONE, ...TRA_HANG_TRANG_THAI_TONE };
 
-export const THIEU_LK_TRANG_THAI_TONE: Record<string, BadgeTone> = {
-  "Cho kho xu ly": "amber",
-  "Kho da tiep nhan": "ocean",
-  "Kho xac nhan hang da ve": "teal",
-  "Kho tu choi sai TT": "violet",
-  "Da huy bo": "coral",
-  "Da ket thuc": "teal",
+export const THIEU_LK_TRANG_THAI_TONE: Record<string, Tone> = {
+  "Cho kho xu ly": "info",
+  "Kho da tiep nhan": "info",
+  "Kho xac nhan hang da ve": "success",
+  "Kho tu choi sai TT": "danger",
+  "Da huy bo": "neutral",
+  "Da ket thuc": "success",
 };
 
 // Mau cham tron nho cho lich su xu ly (DonHangDetailModal, CHOT ra soat module #18) - dung dung
-// bang mau da co (BadgeTone), khong them token mau moi.
-export const TRANG_THAI_DOT_TONE: Record<BadgeTone, string> = {
-  ocean: "bg-[var(--ocean-500)]",
-  teal: "bg-[var(--teal-500)]",
-  amber: "bg-[var(--amber-500)]",
-  coral: "bg-[var(--coral-500)]",
-  orange: "bg-[var(--orange-500)]",
-  violet: "bg-[var(--violet-500)]",
-  gray: "bg-slate-400",
+// bang mau UI_SPEC (Tone), khong them token mau moi.
+export const TRANG_THAI_DOT_TONE: Record<Tone, string> = {
+  info: "bg-[var(--color-info)]",
+  success: "bg-[var(--color-success)]",
+  warning: "bg-[var(--color-warning)]",
+  danger: "bg-[var(--color-danger)]",
+  purple: "bg-[var(--color-purple)]",
+  neutral: "bg-[var(--color-text-secondary)]",
 };
 
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Btn } from "../../components/ui/Btn";
+import { Btn } from "../../components/x/Btn";
 import type { LuongQuyTrinhStep, JumpTarget } from "./types";
 import { STEP_SHORT_LABEL, STEP_DESCRIPTION, PIPELINE_NOTCH, PXK_TRANG_THAI_TONE, PXK_MINI_STEPS, PXK_MINI_LABEL, PXK_MINI_NHANH_RE } from "./constants";
 
@@ -32,10 +32,10 @@ export function MyWorkloadStrip({
           key={s.key}
           type="button"
           onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
-          className="focus-ring inline-flex items-center gap-1.5 rounded-full bg-[var(--coral-100)] hover:brightness-95 text-[var(--coral-700)] pl-2.5 pr-1.5 py-1 text-xs font-semibold transition-all"
+          className="focus-ring inline-flex items-center gap-1.5 rounded-full bg-[var(--color-warning-soft)] hover:brightness-95 text-[#b9770e] pl-2.5 pr-1.5 py-1 text-xs font-semibold transition-all"
         >
           {STEP_SHORT_LABEL[s.key] ?? s.label}
-          <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--coral-500)] text-white text-[10px] font-bold leading-none">
+          <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--color-warning)] text-white text-[10px] font-bold leading-none">
             {s.count > 99 ? "99+" : s.count}
           </span>
         </button>
@@ -78,14 +78,15 @@ export function pipelineChevronClip(hasLeftNotch: boolean, hasRightPoint: boolea
 type LaneKey = "mua_cong_no" | "thieu_lk" | "pxk" | "tra_hang";
 const LANE_ORDER: LaneKey[] = ["mua_cong_no", "thieu_lk", "pxk", "tra_hang"];
 const LANE_META: Record<LaneKey, { label: string; bg: string; border: string; labelColor: string; numColor: string }> = {
-  mua_cong_no: { label: "Mua hàng / Công nợ", bg: "var(--ocean-100)", border: "var(--ocean-500)", labelColor: "var(--ocean-700)", numColor: "var(--ocean-800)" },
-  thieu_lk: { label: "Thiếu LK", bg: "var(--coral-100)", border: "var(--coral-500)", labelColor: "var(--coral-600)", numColor: "var(--coral-700)" },
-  pxk: { label: "Phiếu xuất kho", bg: "var(--teal-100)", border: "var(--teal-500)", labelColor: "var(--teal-600)", numColor: "var(--teal-700)" },
+  mua_cong_no: { label: "Mua hàng / Công nợ", bg: "var(--color-info-soft)", border: "var(--color-info)", labelColor: "var(--color-info)", numColor: "var(--color-info)" },
+  thieu_lk: { label: "Thiếu LK", bg: "var(--color-danger-soft)", border: "var(--color-danger)", labelColor: "var(--color-danger)", numColor: "var(--color-danger)" },
+  pxk: { label: "Phiếu xuất kho", bg: "var(--color-success-soft)", border: "var(--color-success)", labelColor: "var(--color-success)", numColor: "var(--color-success)" },
   // "Tra hang" gom CA 3 buoc PXK rieng cua luong tra hang (tra_hang_tao_pxk/pxk_kt/pxk_kho, tab that
   // su la "phieu-xuat-kho") lan 4 buoc D1-D4 (tab "tra-hang") - phan biet theo TIEN TO key
   // "tra_hang_" (xem laneOf), KHONG theo field `tab`, vi 2 nhom nay khac tab nhung cung 1 luong nghiep
   // vu tra hang nen phai gom chung 1 mau (khop dung STEP_SHORT_LABEL da dat tien to "Trả·" cho ca 7).
-  tra_hang: { label: "Trả hàng", bg: "var(--violet-100)", border: "var(--violet-500)", labelColor: "var(--violet-600)", numColor: "var(--violet-700)" },
+  // Dung --color-purple (UI_SPEC §1.2: "bước 'Lên PXK'" cung thuoc nhom mau nay).
+  tra_hang: { label: "Trả hàng", bg: "var(--color-purple-soft)", border: "var(--color-purple)", labelColor: "var(--color-purple)", numColor: "var(--color-purple)" },
 };
 function laneOf(s: LuongQuyTrinhStep): LaneKey {
   if (s.key.startsWith("tra_hang_")) return "tra_hang";
@@ -173,15 +174,15 @@ export function PipelineFlow({
                           title={STEP_DESCRIPTION[s.key] ?? s.label}
                         >
                           {isMine && hasCount && (
-                            <span className="absolute top-0.5 right-0.5 h-1 w-1 rounded-full bg-[var(--ocean-800)]" title="Việc của bạn" />
+                            <span className="absolute top-0.5 right-0.5 h-1 w-1 rounded-full bg-[var(--color-primary)]" title="Việc của bạn" />
                           )}
                           <span
                             className="text-[11px] font-extrabold leading-none tabular-nums"
-                            style={{ color: hasCount ? lane.meta.numColor : "var(--ink-400)" }}
+                            style={{ color: hasCount ? lane.meta.numColor : "var(--color-text-faint)" }}
                           >
                             {s.count}
                           </span>
-                          <span className="text-[7px] font-semibold leading-none mt-0.5 whitespace-nowrap" style={{ color: hasCount ? lane.meta.labelColor : "var(--ink-400)" }}>
+                          <span className="text-[7px] font-semibold leading-none mt-0.5 whitespace-nowrap" style={{ color: hasCount ? lane.meta.labelColor : "var(--color-text-faint)" }}>
                             {STEP_SHORT_LABEL[s.key] ?? s.label}
                           </span>
                         </button>
@@ -225,7 +226,7 @@ export function PipelineFlow({
 export function PxkMiniPipeline({ trangThai }: { trangThai: string }) {
   const idxHienTai = PXK_MINI_STEPS.indexOf(trangThai as (typeof PXK_MINI_STEPS)[number]);
   const isNhanhRe = PXK_MINI_NHANH_RE.has(trangThai);
-  const nhanhReTone = PXK_TRANG_THAI_TONE[trangThai] === "teal" ? "var(--teal-500)" : "var(--ink-400)";
+  const nhanhReTone = PXK_TRANG_THAI_TONE[trangThai] === "success" ? "var(--color-success)" : "var(--color-text-faint)";
   const nhanhReLabel = trangThai === "Ke toan huy" ? "KT huỷ" : trangThai === "Hang tru kho" ? "Trừ kho" : "Kết thúc";
   const nhanhReIcon = trangThai === "Ke toan huy" ? "✕" : "⏹";
   return (
@@ -246,24 +247,24 @@ export function PxkMiniPipeline({ trangThai }: { trangThai: string }) {
               {!isLastCol && (
                 <div
                   className="absolute top-4 h-0.5"
-                  style={{ left: "50%", width: "100%", background: daQua ? "var(--teal-500)" : "var(--line)" }}
+                  style={{ left: "50%", width: "100%", background: daQua ? "var(--color-success)" : "var(--color-border)" }}
                 />
               )}
               <div
                 className="relative z-10 w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0"
                 style={
                   dangO
-                    ? { background: "var(--ocean-800)", borderColor: "var(--ocean-800)", color: "white" }
+                    ? { background: "var(--color-primary)", borderColor: "var(--color-primary)", color: "white" }
                     : daQua
-                      ? { background: "var(--teal-500)", borderColor: "var(--teal-500)", color: "white" }
-                      : { background: "var(--surface)", borderColor: "var(--line)", color: "var(--ink-400)" }
+                      ? { background: "var(--color-success)", borderColor: "var(--color-success)", color: "white" }
+                      : { background: "var(--color-surface)", borderColor: "var(--color-border)", color: "var(--color-text-faint)" }
                 }
               >
                 {daQua ? "✓" : i + 1}
               </div>
               <span
                 className="mt-1.5 text-[10px] font-semibold text-center leading-tight px-0.5"
-                style={{ color: dangO ? "var(--ink-900)" : daQua ? "var(--teal-700)" : "var(--ink-400)" }}
+                style={{ color: dangO ? "var(--color-text)" : daQua ? "var(--color-success)" : "var(--color-text-faint)" }}
               >
                 {PXK_MINI_LABEL[s]}
               </span>
@@ -278,7 +279,7 @@ export function PxkMiniPipeline({ trangThai }: { trangThai: string }) {
             >
               {nhanhReIcon}
             </div>
-            <span className="mt-1.5 text-[10px] font-semibold text-center leading-tight px-0.5" style={{ color: "var(--ink-600)" }}>
+            <span className="mt-1.5 text-[10px] font-semibold text-center leading-tight px-0.5" style={{ color: "var(--color-text-secondary)" }}>
               {nhanhReLabel}
             </span>
           </div>

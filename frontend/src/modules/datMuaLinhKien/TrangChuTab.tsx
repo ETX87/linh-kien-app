@@ -1,8 +1,8 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { StatCard } from "../../components/ui/StatCard";
-import { Badge, type BadgeTone } from "../../components/ui/Badge";
-import { Select } from "../../components/ui/Select";
+import { StatCard } from "../../components/x/StatCard";
+import { Badge, type Tone } from "../../components/x/Badge";
+import { Select } from "../../components/x/Form";
 import { api, buildQuery } from "../../api/client";
 import { parseDbDateTime, fmtDate } from "../../types";
 import { useIsMobile } from "../../hooks/useMediaQuery";
@@ -34,47 +34,52 @@ interface TonDongRow {
 // con tồn" + "ai đang cầm bóng" (phan hoi 2026-08-27: "phải gặp ai để yêu cầu hỗ trợ") - thuan hien
 // thi FE, backend chi tra RAW status (giu dung quy uoc chung ca module: cac endpoint khac cung KHONG
 // dich san label o BE, tu FE tu ve badge - vd DonCuaToiTab hien thang chuoi trang_thai).
-function moTaTonDong(r: TonDongRow): { label: string; nguoiCanGap: string; tone: BadgeTone } {
+// DOI MAU (2026-09-10, port UI_SPEC.md §1.2): "Chờ Trạm duyệt"->success, "Chờ TN/Tác nghiệp duyệt"->
+// info, cac buoc cho khac (Ke toan/Kho/TBP xac nhan, cho hang)->warning, khong xac dinh->neutral - GIU
+// NGUYEN toan bo nhan/logic re nhanh, chi doi gia tri tone.
+function moTaTonDong(r: TonDongRow): { label: string; nguoiCanGap: string; tone: Tone } {
   const choTien = r.so_tien_can_chuyen != null && r.trang_thai_chuyen_tien !== "TN da duyet";
   if (r.pxk_trang_thai) {
-    if (r.pxk_trang_thai === "Dang tao phieu" && choTien) return { label: "Chờ chuyển tiền cho KTV", nguoiCanGap: "KTV / Tác nghiệp", tone: "amber" };
+    if (r.pxk_trang_thai === "Dang tao phieu" && choTien) return { label: "Chờ chuyển tiền cho KTV", nguoiCanGap: "KTV / Tác nghiệp", tone: "warning" };
     switch (r.pxk_trang_thai) {
       case "Dang tao phieu":
-        return { label: "Tác nghiệp đang tạo phiếu xuất kho", nguoiCanGap: "Tác nghiệp", tone: "ocean" };
+        return { label: "Tác nghiệp đang tạo phiếu xuất kho", nguoiCanGap: "Tác nghiệp", tone: "info" };
       case "Cho ke toan":
-        return { label: "Chờ Kế toán duyệt phiếu xuất kho", nguoiCanGap: "Kế toán", tone: "amber" };
+        return { label: "Chờ Kế toán duyệt phiếu xuất kho", nguoiCanGap: "Kế toán", tone: "warning" };
       case "Da chot xong don xuat":
-        return { label: "Chờ Kho gửi hàng cho KTV", nguoiCanGap: "Kho", tone: "amber" };
+        return { label: "Chờ Kho gửi hàng cho KTV", nguoiCanGap: "Kho", tone: "warning" };
       case "Dang gui KTV":
-        return { label: "Đã gửi hàng, chờ KTV xác nhận đã nhận", nguoiCanGap: "KTV", tone: "ocean" };
+        return { label: "Đã gửi hàng, chờ KTV xác nhận đã nhận", nguoiCanGap: "KTV", tone: "info" };
       default:
-        return { label: r.pxk_trang_thai, nguoiCanGap: "—", tone: "gray" };
+        return { label: r.pxk_trang_thai, nguoiCanGap: "—", tone: "neutral" };
     }
   }
   switch (r.ddh_trang_thai) {
     case "Cho Tram duyet":
-      return { label: "Chờ Trạm duyệt", nguoiCanGap: "Trạm", tone: "amber" };
+      return { label: "Chờ Trạm duyệt", nguoiCanGap: "Trạm", tone: "success" };
     case "Cho TBP xac nhan":
-      return { label: "Chờ TBP ĐVBH duyệt LK đặc thù", nguoiCanGap: "TBP ĐVBH", tone: "amber" };
+      return { label: "Chờ TBP ĐVBH duyệt LK đặc thù", nguoiCanGap: "TBP ĐVBH", tone: "warning" };
     case "Cho TN duyet":
-      return { label: "Chờ Tác nghiệp duyệt", nguoiCanGap: "Tác nghiệp", tone: "amber" };
+      return { label: "Chờ Tác nghiệp duyệt", nguoiCanGap: "Tác nghiệp", tone: "info" };
     case "TN da duyet":
-      return { label: "Đã duyệt, chờ Tác nghiệp tạo phiếu xuất kho", nguoiCanGap: "Tác nghiệp", tone: "ocean" };
+      return { label: "Đã duyệt, chờ Tác nghiệp tạo phiếu xuất kho", nguoiCanGap: "Tác nghiệp", tone: "info" };
     case "Cho hang":
       return {
         label: r.ngay_du_kien_co_hang ? `Thiếu hàng, Kho dự kiến có hàng ${fmtDate(r.ngay_du_kien_co_hang)}` : "Thiếu hàng, Kho đang tìm nguồn",
         nguoiCanGap: "Kho",
-        tone: "coral",
+        tone: "warning",
       };
     default:
-      return { label: r.ddh_trang_thai ?? "—", nguoiCanGap: "—", tone: "gray" };
+      return { label: r.ddh_trang_thai ?? "—", nguoiCanGap: "—", tone: "neutral" };
   }
 }
 
-function soNgayTonTone(soNgay: number): BadgeTone {
-  if (soNgay >= 7) return "coral";
-  if (soNgay >= 3) return "amber";
-  return "gray";
+// Tone canh bao theo so ngay ton (khong con thang "coral/amber/gray" cu - danger tu 7 ngay, warning tu
+// 3 ngay, neutral con lai).
+function soNgayTonTone(soNgay: number): Tone {
+  if (soNgay >= 7) return "danger";
+  if (soNgay >= 3) return "warning";
+  return "neutral";
 }
 
 // Bao cao "Đơn hàng đang tồn theo KTV" (them 2026-08-27, thay cho khoi "KTV khu vực của tôi" cu - chi
@@ -221,7 +226,7 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
                   {g.ten}
                   {g.khuVucTen && <span className="text-[var(--ink-400)] font-normal"> · {g.khuVucTen}</span>}
                 </span>
-                <Badge tone="ocean">{g.rows.length} đơn tồn</Badge>
+                <Badge tone="info">{g.rows.length} đơn tồn</Badge>
                 <Badge tone={soNgayTonTone(g.maxNgay)}>Lâu nhất {g.maxNgay} ngày</Badge>
                 {g.email && (
                   <span
@@ -232,7 +237,7 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
                       onJump({ tab: "don-cua-toi", filter: "", nguoiNhanHang: g.email });
                     }}
                     onKeyDown={(e) => e.key === "Enter" && onJump({ tab: "don-cua-toi", filter: "", nguoiNhanHang: g.email })}
-                    className="focus-ring text-xs font-semibold text-[var(--ocean-700)] hover:underline whitespace-nowrap"
+                    className="focus-ring text-xs font-semibold text-[var(--color-primary)] hover:underline whitespace-nowrap"
                   >
                     Xem danh sách →
                   </span>
@@ -259,7 +264,7 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
                             <td className="px-3 py-1.5 font-mono whitespace-nowrap">
                               <button
                                 type="button"
-                                className="focus-ring hover:underline text-[var(--ocean-700)]"
+                                className="focus-ring hover:underline text-[var(--color-primary)]"
                                 onClick={() =>
                                   onJump(
                                     r.pxk_trang_thai
@@ -309,9 +314,11 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
 // StatCard "viec cua toi" (dung LAI du lieu luong-quy-trinh da co san, cung nguon voi
 // MyWorkloadStrip/PipelineFlow - KHONG goi API moi) + 1 bang tom tat pham vi du lieu hien tai (dung
 // loai-don-counts da co san, SCOPE dung theo nguoi dang xem qua scopeDatMuaNguoiTao o backend).
-// Tone "coral" cho cac the KPI (khac voi warn/amber cua concept goc) de dong bo mau voi
-// MyWorkloadStrip/PipelineFlow dang dung san cho "buoc cua chinh minh" (isMine && count>0 = coral),
-// tranh 1 man hinh dung 2 quy uoc mau khac nhau cho CUNG 1 khai niem "viec cua toi".
+// Tone "warning" cho cac the KPI "viec cua toi" (2026-09-10, khop UI_SPEC.md §1.2 vi du "Đơn của tôi
+// đang chờ duyệt"=warning) - dong bo voi MyWorkloadStrip/PipelineFlow (cung doi sang warning cung dot),
+// tranh 1 man hinh dung 2 quy uoc mau khac nhau cho CUNG 1 khai niem "viec cua toi". "Đơn bị từ chối"
+// tach rieng = danger (UI_SPEC neu dich danh), "Đang tồn" (khong phai luot cua minh) = info, "Tồn đọng
+// toàn hệ thống" = purple.
 export function TrangChuTab({
   steps,
   myRoleKeys,
@@ -394,7 +401,7 @@ export function TrangChuTab({
       else onJump({ tab: "don-cua-toi", filter: "", loaiDon });
     }
     return (
-      <button type="button" onClick={handleClick} className="focus-ring font-semibold hover:underline text-[var(--ocean-800)] tabular-nums">
+      <button type="button" onClick={handleClick} className="focus-ring font-semibold hover:underline text-[var(--color-primary)] tabular-nums">
         {loaiDonCounts[loaiDon]}
       </button>
     );
@@ -418,7 +425,7 @@ export function TrangChuTab({
           <StatCard
             label="Đơn bị từ chối"
             value={choDonBiTuChoi}
-            tone="coral"
+            tone="danger"
             onClick={() => onJump({ tab: "don-cua-toi", filter: "TN tu choi", nguoiNhanHang: "" })}
           />
         </div>
@@ -432,7 +439,7 @@ export function TrangChuTab({
               key={s.key}
               label={STEP_SHORT_LABEL[s.key] ?? s.label}
               value={s.count}
-              tone="coral"
+              tone="warning"
               onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
             />
           ))}
@@ -444,7 +451,7 @@ export function TrangChuTab({
         // thang toi danh sach don con ton cua chinh minh - it nhat co 1 diem den cu the thay vi chi
         // mo ta suong.
         <div className="flex gap-2 sm:gap-3 flex-wrap">
-          <StatCard label="Việc cần làm" value={tongViecCuaToi} tone="coral" onClick={() => onJump({ tab: "don-cua-toi", filter: "__OPEN__", nguoiNhanHang: "" })} />
+          <StatCard label="Việc cần làm" value={tongViecCuaToi} tone="warning" onClick={() => onJump({ tab: "don-cua-toi", filter: "__OPEN__", nguoiNhanHang: "" })} />
         </div>
       ) : (
         <div className="text-sm text-[var(--ink-400)] py-4 text-center rounded-xl border border-dashed border-[var(--line)]">Không có việc gì đang chờ bạn xử lý.</div>
@@ -464,14 +471,14 @@ export function TrangChuTab({
               key={s.key}
               label={s.label}
               value={s.count}
-              tone="amber"
+              tone="info"
               onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
             />
           ))}
         </div>
       ) : dangTon > 0 ? (
         <div className="flex gap-2 sm:gap-3 flex-wrap">
-          <StatCard label="Đang tồn" value={dangTon} tone="amber" />
+          <StatCard label="Đang tồn" value={dangTon} tone="info" />
         </div>
       ) : (
         <div className="text-sm text-[var(--ink-400)] py-4 text-center rounded-xl border border-dashed border-[var(--line)]">Không có đơn nào đang tồn.</div>
@@ -484,11 +491,11 @@ export function TrangChuTab({
             <StatCard
               label="Tồn đọng toàn hệ thống"
               value={tonDongToanHeThong}
-              tone="violet"
-              sub="Toàn quốc, không lọc theo Khu vực của bạn"
+              tone="purple"
               onClick={toanHeThongRows.length > 0 ? () => setShowToanHeThongDetail((v) => !v) : undefined}
             />
           </div>
+          <div className="text-[11px] text-[var(--color-text-faint)] -mt-2">Toàn quốc, không lọc theo Khu vực của bạn</div>
           {showToanHeThongDetail && toanHeThongRows.length > 0 && (
             <div className="flex gap-2 sm:gap-3 flex-wrap">
               {toanHeThongRows.map((s) => (
@@ -496,8 +503,7 @@ export function TrangChuTab({
                   key={s.key}
                   label={s.label}
                   value={s.count}
-                  tone="violet"
-                  size="sm"
+                  tone="purple"
                   onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
                 />
               ))}

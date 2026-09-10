@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
-import { Badge } from "../../components/ui/Badge";
+import { Badge } from "../../components/x/Badge";
 import { Modal } from "../../components/ui/Modal";
 import { Select } from "../../components/ui/Select";
 import { DropdownPortal } from "../../components/ui/DropdownPortal";
@@ -493,7 +493,7 @@ export function LinhKienDetailModal({
           <div className="font-mono text-xs font-semibold text-[var(--ocean-600)]">{part.ma_linh_kien}</div>
           <div className="font-display font-bold text-base text-[var(--ocean-800)] leading-snug">{part.ten_linh_kien}</div>
         </div>
-        {rank != null && <Badge tone="amber">🔥 Hạng #{rank} trong 30 ngày gần nhất</Badge>}
+        {rank != null && <Badge tone="warning">🔥 Hạng #{rank} trong 30 ngày gần nhất</Badge>}
 
         {isEdit ? (
           <div className="space-y-3">

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, Fragment } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
-import { Badge, type BadgeTone } from "../../components/ui/Badge";
+import { Badge, type Tone } from "../../components/x/Badge";
 import { Modal } from "../../components/ui/Modal";
 import { Drawer, DrawerNavButtons, useDrawerArrowNav } from "../../components/ui/Drawer";
 import { Select } from "../../components/ui/Select";
@@ -378,7 +378,7 @@ export function TraHangTab({
     {
       key: "trang_thai_tra_hang", header: "Trạng thái",
       render: (r) => (
-        <Badge tone={TRA_HANG_TRANG_THAI_TONE[r.trang_thai_tra_hang] ?? "gray"}>
+        <Badge tone={TRA_HANG_TRANG_THAI_TONE[r.trang_thai_tra_hang] ?? "neutral"}>
           {trangThaiLabel(TRA_HANG_TRANG_THAI_OPTIONS, r.trang_thai_tra_hang)}
         </Badge>
       ),
@@ -742,8 +742,8 @@ function TraHangGroupedList({
                         <span className="text-[var(--ink-500)] text-xs">({g.dongCon.length} dòng)</span>
                       </div>
                       <div className="flex items-center gap-1 flex-wrap">
-                        {g.dangCho > 0 && <Badge tone="amber">{g.dangCho} đang chờ</Badge>}
-                        {g.daDong > 0 && <Badge tone="teal">{g.daDong} đã xong</Badge>}
+                        {g.dangCho > 0 && <Badge tone="warning">{g.dangCho} đang chờ</Badge>}
+                        {g.daDong > 0 && <Badge tone="success">{g.daDong} đã xong</Badge>}
                       </div>
                     </div>
                   </td>
@@ -779,8 +779,8 @@ function TraHangGroupedList({
               <span className="ml-1.5 font-normal normal-case tracking-normal text-[var(--ink-400)]">({g.dongCon.length} dòng)</span>
             </SectionTitle>
             <div className="flex items-center gap-1 flex-wrap mb-2">
-              {g.dangCho > 0 && <Badge tone="amber">{g.dangCho} đang chờ</Badge>}
-              {g.daDong > 0 && <Badge tone="teal">{g.daDong} đã xong</Badge>}
+              {g.dangCho > 0 && <Badge tone="warning">{g.dangCho} đang chờ</Badge>}
+              {g.daDong > 0 && <Badge tone="success">{g.daDong} đã xong</Badge>}
             </div>
           </div>
           <div className="sm:hidden border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
@@ -788,8 +788,8 @@ function TraHangGroupedList({
                 {g.dongCon.map((r) => {
                   // Dong 1: ten LK (~60%) + badge trang thai (~40%, cat bot + "+N" neu khong du cho) -
                   // khop dung quy uoc "60/40 + (N) ẩn bớt" da ap dung cho DonCuaToiTab.tsx cung dot.
-                  const badges: { tone: BadgeTone; label: string }[] = [
-                    { tone: TRA_HANG_TRANG_THAI_TONE[r.trang_thai_tra_hang] ?? "gray", label: trangThaiLabel(TRA_HANG_TRANG_THAI_OPTIONS, r.trang_thai_tra_hang) },
+                  const badges: { tone: Tone; label: string }[] = [
+                    { tone: TRA_HANG_TRANG_THAI_TONE[r.trang_thai_tra_hang] ?? "neutral", label: trangThaiLabel(TRA_HANG_TRANG_THAI_OPTIONS, r.trang_thai_tra_hang) },
                   ];
                   // SUA (phan hoi 2026-08-28, dong bo voi DonCuaToiTab.tsx): giam ve 1 - xem giai thich
                   // day du o DonCuaToiTab.tsx (MAX_BADGE gan voi comment "ẩn cả thẻ nếu không đủ diện
