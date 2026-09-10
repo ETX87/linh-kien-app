@@ -2903,8 +2903,18 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
 // trinh som, giu dung hanh vi cu "khong gate o day, chi gate luc chuyen trang thai") hoac SAU khi qua
 // han - MOI lan nop deu la 1 dong LICH SU moi (khong ghi de), va RESET dong ho 24h ke tu chinh thoi
 // diem nop nay (xem lastGiaiTrinhAtExpr dung o GET /don-hang, /don-hang/:id, applyDonHangLog). Chi TN
-// (canTacNghiep) nop duoc, chi khi dong con dang "Cho TN duyet" (het y nghia sau khi da duyet/tu
-// choi/huy - luc do khai niem "qua han cho TN duyet" khong con ap dung).
+// (canTacNghiep) nop duoc.
+// FIX (phan hoi 2026-09-10: "PXK lỗi không nhập được lý do quá hạn" - PXK bi ket vinh vien) - gate CU
+// chi cho nop khi dong CON "Cho TN duyet" dua tren gia dinh "het y nghia sau khi da duyet", nhung
+// POST /phieu-xuat-kho/:id/log (target "Cho ke toan") lai KIEM TRA LAI qua_han_ly_do_cham cho MOI dong
+// da o trong PXK (da chac chan "TN da duyet" tu truoc) MOI LAN TN co gui len ke toan - quaHanLyDoCham()
+// so sanh "now" voi moc co dinh (lan giai trinh gan nhat hoac cho_tn_duyet_at), nen chi can PXK nam
+// yen (cho KTV chuyen tien, gom them dong...) qua 24h la lai bi coi "qua han" MAI MAI ma khong con cach
+// nao nop giai trinh moi de reset dong ho - PXK ket cung, khong bao gio gui duoc ke toan. Nay MO RONG:
+// van cho nop khi dong da "TN da duyet" NEU dong ho qua_han_ly_do_cham dang thuc su qua han (dung
+// chinh dieu kien ma phieuXuatKho.ts dang doi hoi) - khong cho voi cac trang thai khac (Cho Tram
+// duyet/Cho TBP xac nhan: chua toi luot TN; TN tu choi/Da huy/Cho hang: da ket thuc/tam dung luong TN
+// duyet, khai niem nay khong ap dung).
 datMuaLinhKien.post("/don-hang/:id/giai-trinh", async (c) => {
   if (!canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const id = c.req.param("id");
@@ -2917,14 +2927,22 @@ datMuaLinhKien.post("/don-hang/:id/giai-trinh", async (c) => {
   // "id" trong subquery tuong quan bi cot "id" cua CHINH dat_don_hang_log (PK) SHADOW, luon ra trang
   // thai NULL -> INVALID_STATE gia (dong VAN DANG "Cho TN duyet" that, chi la truy van doc sai). Phai
   // qualify "dat_don_hang.id".
-  const ddh = await c.env.DB.prepare(`SELECT ${latestDonHangStatusExpr("dat_don_hang.id")} as trang_thai FROM dat_don_hang WHERE id = ?`)
+  const ddh = await c.env.DB.prepare(
+    `SELECT ${latestDonHangStatusExpr("dat_don_hang.id")} as trang_thai,
+       ${choTnDuyetAtExpr("dat_don_hang.id")} as cho_tn_duyet_at,
+       ${lastGiaiTrinhAtExpr("dat_don_hang.id")} as last_giai_trinh_at
+     FROM dat_don_hang WHERE id = ?`,
+  )
     .bind(id)
-    .first<{ trang_thai: string | null }>();
+    .first<{ trang_thai: string | null; cho_tn_duyet_at: string | null; last_giai_trinh_at: string | null }>();
   if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
-  if (ddh.trang_thai !== "Cho TN duyet") return c.json({ error: "INVALID_STATE" }, 409);
-
   const user = c.get("user");
   const now = nowVN();
+  const mocThoiGian = ddh.last_giai_trinh_at ?? ddh.cho_tn_duyet_at;
+  const dangQuaHan = !!mocThoiGian && quaHanLyDoCham(mocThoiGian, now);
+  const hopLe = ddh.trang_thai === "Cho TN duyet" || (ddh.trang_thai === "TN da duyet" && dangQuaHan);
+  if (!hopLe) return c.json({ error: "INVALID_STATE" }, 409);
+
   const noiDung = body.noi_dung.trim();
   // ly_do_cham (cot cu tren dat_don_hang) GIU LAM MIRROR noi dung LAN GIAI TRINH GAN NHAT - cho cac
   // noi con hien thi nhanh khong can join sang bang lich su (xem migration 0014).

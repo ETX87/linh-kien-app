@@ -1302,12 +1302,20 @@ export function PxkDetailModal({
                               ))}
                             </ul>
                           )}
-                          {canTacNghiep && d.trang_thai_hien_tai === "Cho TN duyet" && d.qua_han_ly_do_cham ? (
+                          {canTacNghiep && d.qua_han_ly_do_cham && (d.trang_thai_hien_tai === "Cho TN duyet" || d.trang_thai_hien_tai === "TN da duyet") ? (
                             <div className="flex flex-col gap-1">
                               {/* CHOT (phan hoi 2026-08-24: "đổi hẳn thành dropdown bắt buộc, bỏ ô nhập
                                   tay") - Select BAT BUOC chon tu danh muc "Mua hàng" (settings_ly_do_cham),
                                   khong con o nhap tu do - neu Settings CHUA co ly do nao, TN se khong
-                                  nhap duoc cho toi khi Admin bo sung (dung y da chot voi nguoi dung). */}
+                                  nhap duoc cho toi khi Admin bo sung (dung y da chot voi nguoi dung).
+                                  FIX (phan hoi 2026-09-10: "PXK lỗi không nhập được lý do quá hạn?") -
+                                  dong DA VAO PXK luon co trang_thai_hien_tai="TN da duyet" (khong con
+                                  "Cho TN duyet"), nhung qua_han_ly_do_cham la co lai theo thoi gian
+                                  (khong reset vinh vien sau khi duyet 1 lan) nen van co the qua han lai
+                                  trong luc cho o buoc "Cho ke toan" - backend POST /don-hang/:id/giai-
+                                  trinh da noi long gate de cho nop lai khi dang qua han ke ca da duyet
+                                  (xem comment route datMuaLinhKien.ts), nen o day cung phai hien lai
+                                  input thay vi chi hien badge thong tin. */}
                               <div className="flex gap-1 items-center">
                                 <Badge tone="danger">Quá hạn</Badge>
                                 <Select
@@ -1331,15 +1339,6 @@ export function PxkDetailModal({
                               )}
                             </div>
                           ) : d.qua_han_ly_do_cham ? (
-                            // FIX (phan hoi 2026-09-10: bam Luu bao loi 409 "Trạng thái hiện tại không
-                            // cho phép thao tác này") - dong DA VAO PXK luon co trang_thai_hien_tai=
-                            // "TN da duyet" (khong con "Cho TN duyet"), trong khi backend POST
-                            // /don-hang/:id/giai-trinh CHI cho nop khi con "Cho TN duyet" (het y nghia
-                            // sau khi da duyet - xem comment route datMuaLinhKien.ts). Truoc day dieu
-                            // kien gate nham theo trang_thai cua PXK (trangThai) thay vi cua CHINH dong
-                            // (d.trang_thai_hien_tai) nen luon hien o nhap + nut Luu du KHONG BAO GIO
-                            // luu duoc - gio chi hien badge THONG TIN (khong con hanh dong nao lam
-                            // duoc o day, dung y "hết ý nghĩa sau khi đã duyệt" cua backend).
                             <Badge tone="danger">Quá hạn</Badge>
                           ) : (!d.giaiTrinh || d.giaiTrinh.length === 0) ? (
                             <span className="text-[var(--ink-400)]">—</span>
