@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Tabs } from "../components/ui/Tabs";
+import { Tabs } from "../components/x/Tabs";
 import { api } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
@@ -480,7 +480,7 @@ export function DatMuaLinhKienModule({
       <button
         type="button"
         onClick={() => setShowCreateFromPipeline(true)}
-        className="focus-ring inline-flex items-center gap-1 rounded-full bg-[var(--teal-500)] text-white px-3 py-1.5 text-xs font-semibold hover:brightness-95"
+        className="focus-ring inline-flex items-center gap-1 rounded-full bg-[var(--color-primary)] text-white px-3 py-1.5 text-xs font-semibold hover:bg-[var(--color-primary-hover)]"
       >
         ＋ Tạo đơn
       </button>
@@ -513,12 +513,12 @@ export function DatMuaLinhKienModule({
       onClick={() => tongViecCuaToi > 0 && setShowWorkloadDetail((v) => !v)}
       disabled={tongViecCuaToi === 0}
       title={tongViecCuaToi === 0 ? undefined : showWorkloadDetail ? "Ẩn chi tiết việc cần làm" : "Xem chi tiết việc cần làm theo từng bước"}
-      className="focus-ring inline-flex items-center gap-1.5 font-display text-lg sm:text-xl font-extrabold text-[var(--ink-900)] enabled:hover:text-[var(--ocean-800)] transition-colors whitespace-nowrap disabled:cursor-default"
+      className="focus-ring inline-flex items-center gap-1.5 font-display text-lg sm:text-xl font-extrabold text-[var(--color-text)] enabled:hover:text-[var(--color-primary)] transition-colors whitespace-nowrap disabled:cursor-default"
     >
       <span>Cần làm</span>
       <span
         className={`inline-flex items-center justify-center min-w-[22px] h-[22px] rounded-full text-xs font-bold px-1 tabular-nums ${
-          tongViecCuaToi > 0 ? "bg-[var(--coral-500)] text-white" : "bg-[var(--surface-100)] text-[var(--ink-400)]"
+          tongViecCuaToi > 0 ? "bg-[var(--color-warning)] text-white" : "bg-[var(--color-neutral-soft)] text-[var(--color-text-faint)]"
         }`}
       >
         {tongViecCuaToi}
@@ -564,7 +564,7 @@ export function DatMuaLinhKienModule({
           (navigatedAway=true), thanh tab HIEN LAI binh thuong de ho co duong di tiep - khong bi ket o
           1 trang cut khong co cach quay lai. forceView="tra-hang" GIU NGUYEN hanh vi cu (luon hien). */}
       {(navigatedAway || (forceView !== "trang-chu" && forceView !== "thieu-lk")) && (
-        <Tabs active={displayActive} onChange={handleTabChange} tabs={displayTabs} />
+        <Tabs value={displayActive} onChange={handleTabChange} tabs={displayTabs} />
       )}
       {/* FIX (phan hoi 2026-08-27: "chỉ vuốt sang phải, không vuốt ngược sang trái được") - thieu
           touch-action khien trinh duyet mobile tu quyet dinh xu ly cu chi ngang (vd cu chi "vuot canh
