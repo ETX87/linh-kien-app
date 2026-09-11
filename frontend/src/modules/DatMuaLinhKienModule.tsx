@@ -154,7 +154,7 @@ export function DatMuaLinhKienModule({
     ...(canXemDonMuaCongNo ? [{ key: "don-cua-toi", label: "Đơn của tôi / Danh sách" }] : []),
     // Giam sat/KTV/Ve tinh them vao tab duoi - CHI de theo doi + tu xac nhan "KTV đã nhận" (khong co
     // canTacNghiep/canKho/canKeToan rieng nen khong nut hanh dong quan ly nao hien ra, xem PxkDetailModal).
-    ...(canTacNghiep || canKho || canKeToan || isGiamSat || isFieldKtv ? [{ key: "phieu-xuat-kho", label: "Phiếu xuất kho" }] : []),
+    ...(canTacNghiep || canKho || canKeToan || isGiamSat || isFieldKtv ? [{ key: "phieu-xuat-kho", label: "Phiếu xuất kho", shortLabel: "Phiếu" }] : []),
   ];
   // "Đơn trả hàng" KHONG con la tab rieng tren thanh menu (CHOT vong 7: "thừa" - thanh luong quy trinh
   // da co san 3 buoc bam thang vao dung day: Trả hàng KT/Kho/QC). Van GIU render/activeView cho key
@@ -253,11 +253,11 @@ export function DatMuaLinhKienModule({
   const displayTabs = [
     ...(canXemDonMuaCongNo
       ? [
-          { key: "don-cua-toi:mua", label: "Mua hàng", count: loaiDonCounts.mua },
-          { key: "don-cua-toi:cong_no", label: "Công nợ", count: loaiDonCounts.cong_no },
+          { key: "don-cua-toi:mua", label: "Mua hàng", shortLabel: "Mua", count: loaiDonCounts.mua },
+          { key: "don-cua-toi:cong_no", label: "Công nợ", shortLabel: "CN", count: loaiDonCounts.cong_no },
         ]
       : []),
-    { key: "don-cua-toi:tra_hang", label: "Trả hàng", count: loaiDonCounts.tra_hang },
+    { key: "don-cua-toi:tra_hang", label: "Trả hàng", shortLabel: "Trả", count: loaiDonCounts.tra_hang },
     ...tabs
       .filter((t) => t.key !== "don-cua-toi")
       .map((t) => (t.key === "phieu-xuat-kho" ? { ...t, count: pxkMoCountData?.count ?? 0 } : t)),
