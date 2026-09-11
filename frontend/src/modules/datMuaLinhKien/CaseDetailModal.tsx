@@ -147,7 +147,7 @@ export function CaseDetailModal({ caseId, onClose }: { caseId: string; onClose: 
             <Field label="Hoàn thành" value={fmtDateTime(d.thoi_gian_hoan_thanh)} />
           </Section>
 
-          {d.link_hinh_anh.length > 0 && (
+          {(d.link_hinh_anh ?? []).length > 0 && (
             <div className="rounded-xl border border-[var(--line)] p-3">
               <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-500)] mb-2">
                 Hình ảnh báo cáo công việc ({d.link_hinh_anh.length})

@@ -1329,12 +1329,15 @@ function msSinceVN(ts: string): number {
 
 // Cot "data" cua case_lookup_snapshot luu CA preview LAN giaiTrinh gop chung 1 object (them
 // 2026-09-11: "{...preview, giaiTrinh}") de KHONG can migration D1 doi schema bang. Doc lai: cac dong
-// cache TU TRUOC lan doi nay se thieu key "giaiTrinh" (parse ra undefined) - mac dinh ve [] de tuong
-// thich nguoc, khong can xoa cache cu.
+// cache TU TRUOC lan doi nay se thieu CA key "giaiTrinh" LAN "link_hinh_anh" (2 truong moi nhat) -
+// mac dinh ve []/[] de tuong thich nguoc, khong can xoa cache cu.
+// FIX (phan hoi 2026-09-11: "ấn Xem chi tiết web trắng xóa") - thieu dong nay lam `data.link_hinh_anh`
+// = undefined tren cache cu, frontend goi `.length` truc tiep (khong optional chaining) lam crash
+// toan bo React tree (khong co error boundary o day) -> trang trang xoa.
 function parseCachedSnapshot(raw: string): { data: CaseLookupPreview; giaiTrinh: CaseLookupGiaiTrinh[] } {
   const parsed = JSON.parse(raw) as CaseLookupPreview & { giaiTrinh?: CaseLookupGiaiTrinh[] };
   const { giaiTrinh, ...data } = parsed;
-  return { data: data as CaseLookupPreview, giaiTrinh: giaiTrinh ?? [] };
+  return { data: { ...data, link_hinh_anh: data.link_hinh_anh ?? [] } as CaseLookupPreview, giaiTrinh: giaiTrinh ?? [] };
 }
 
 // GET /api/dat-mua-lk/case-detail/:id - man "Xem chi tiet case" moi (mo tu icon canh o kiem tra ma
