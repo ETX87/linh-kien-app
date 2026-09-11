@@ -13,12 +13,17 @@ import { SectionTitle } from "../../components/ui/SectionTitle";
 import { Timeline } from "../../components/ui/Timeline";
 import { api, buildQuery, ApiError } from "../../api/client";
 import { fmtDateTime } from "../../types";
+import { useAuth } from "../../auth/AuthContext";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import { compressImage } from "../../lib/imageCompress";
 import type { TraHangRow } from "./types";
 import { TRA_HANG_TRANG_THAI_TONE, TRA_HANG_TRANG_THAI_OPTIONS, TRA_HANG_BULK_ERROR_MESSAGES } from "./constants";
-import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, useNenAnhTraHangEnabled } from "./helpers";
+import {
+  describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, useNenAnhTraHangEnabled,
+  useLkAndLdeCache, useLinhKienRankMap, isDonTaoHo,
+} from "./helpers";
 import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, DetailZone, QuickStat, KhuVucChipFilter, ImageLink, ImageThumb } from "./SharedUi";
+import { LinhKienDetailModal } from "./LinhKienPicker";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -169,6 +174,17 @@ export function TraHangTab({
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const ktvDisplayMap = useKtvDisplayMap();
+  // Popup "Xem chi tiết linh kiện" tren cot "Linh kiện" (chuan hoa 2026-09-11, dong bo giao dien voi
+  // Mua hang/Cong no - xem DonCuaToiTab.tsx dung y het pattern nay).
+  const { danhMuc } = useLkAndLdeCache(true);
+  const rankMap = useLinhKienRankMap();
+  const auth = useAuth();
+  const canEditDanhMuc = auth.status === "authenticated" && !!(auth.user.quan_ly_danh_muc_lk || auth.user.vai_tro === "Admin");
+  const [detailLk, setDetailLk] = useState<string | null>(null);
+  function openLkDetail(maLk: string) {
+    if (danhMuc.some((m) => m.ma_linh_kien === maLk)) setDetailLk(maLk);
+    else addToast("Không tìm thấy linh kiện này trong danh mục (có thể đã bị ẩn/xoá)");
+  }
   // CHOT (ra soat module "Dat Mua Linh Kien 2.0" #21): loc theo "Nguoi tao", KHONG tai dung API
   // "ve-tinh-cua-toi" (phuc vu dung quan he Tram-Ve tinh, khong khop ngu canh Ke toan/Kho/QC/TN thuc
   // su dung man nay).
@@ -362,13 +378,25 @@ export function TraHangTab({
       mobileHint: "select",
     },
     { key: "id", header: "Mã đơn hàng", render: (r) => <span className="font-mono text-xs">{r.id}</span> },
-    { key: "ma_lk", header: "Mã LK", render: (r) => r.ma_lk },
     {
-      key: "ten_lk_snapshot", header: "Tên LK",
+      // CHUAN HOA (phan hoi 2026-09-11: "giao diện của tab trả hàng đang khác giao diện của tab mua
+      // hàng") - gop "Mã LK"/"Tên LK" thanh 1 cot "Linh kiện" DUY NHAT, dung y het bo cuc/hanh vi cot
+      // "linh_kien" cua DonCuaToiTab.tsx (mono ma_lk nho phia tren + ten LK dam bam-mo-chi-tiet phia
+      // duoi, kem ⭐ uu tien/🔒 dac thu) thay vi 2 cot phang rieng nhu truoc.
+      key: "linh_kien", header: "Linh kiện",
       render: (r) => (
         <>
-          {r.uu_tien === 1 && <PriorityTag />}{" "}
-          {r.ten_lk_snapshot ?? r.ma_lk}
+          <div className="font-mono text-[10px] text-[var(--ink-400)] truncate">{r.ma_lk}</div>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); openLkDetail(r.ma_lk); }}
+            title="Xem chi tiết linh kiện"
+            className="block w-full truncate text-left font-medium hover:underline hover:text-[var(--ocean-600)]"
+          >
+            {r.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
+            {r.ten_lk_snapshot ?? r.ma_lk}
+            {!!r.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
+          </button>
         </>
       ),
     },
@@ -378,9 +406,14 @@ export function TraHangTab({
     {
       key: "trang_thai_tra_hang", header: "Trạng thái",
       render: (r) => (
-        <Badge tone={TRA_HANG_TRANG_THAI_TONE[r.trang_thai_tra_hang] ?? "neutral"}>
-          {trangThaiLabel(TRA_HANG_TRANG_THAI_OPTIONS, r.trang_thai_tra_hang)}
-        </Badge>
+        <div className="flex flex-col gap-0.5 items-start">
+          <Badge tone={TRA_HANG_TRANG_THAI_TONE[r.trang_thai_tra_hang] ?? "neutral"}>
+            {trangThaiLabel(TRA_HANG_TRANG_THAI_OPTIONS, r.trang_thai_tra_hang)}
+          </Badge>
+          {/* CHUAN HOA: them badge "Đơn tạo hộ" khop dung DonCuaToiTab.tsx - isDonTaoHo() la ham DUNG
+              CHUNG cho MOI loai_don (khong rieng mua/cong no), chi la nhan hien thi thuan tuy. */}
+          {isDonTaoHo(r) && <Badge tone="neutral">Đơn tạo hộ</Badge>}
+        </div>
       ),
     },
     {
@@ -402,16 +435,34 @@ export function TraHangTab({
               if (e.target !== e.currentTarget) e.stopPropagation();
             }}
           >
+            {/* CHUAN HOA: nut chu day "Duyệt"/"Đẩy lùi"/"Từ chối" -> nut icon nho (ghost/danger + ký tu
+                ✓/↩/✕), dung y het kieu nut hanh dong cua DonCuaToiTab.tsx ("hanh_dong" column) - chi
+                doi HINH THUC hien thi, dieu kien/handler giu nguyen 100%. */}
             {coTheXuLy && (
-              <Btn size="sm" disabled={logMutation.isPending} loading={logMutation.isPending} onClick={() => logMutation.mutate({ id: r.id, hanhDong: "duyet" })}>Duyệt</Btn>
+              <Btn
+                size="sm"
+                variant="ghost"
+                className="px-2"
+                title="Duyệt"
+                aria-label="Duyệt"
+                disabled={logMutation.isPending}
+                onClick={() => logMutation.mutate({ id: r.id, hanhDong: "duyet" })}
+              >
+                ✓
+              </Btn>
             )}
             {coTheDayLui && (
-              <Btn size="sm" variant="ghost" onClick={() => { setLayLuiId(r.id); setGhiChu(""); }}>Đẩy lùi</Btn>
+              <Btn size="sm" variant="ghost" className="px-2" title="Đẩy lùi 1 bước" aria-label="Đẩy lùi 1 bước" onClick={() => { setLayLuiId(r.id); setGhiChu(""); }}>
+                ↩
+              </Btn>
             )}
             {coTheXuLy && (
               <Btn
                 size="sm"
                 variant="danger"
+                className="px-2"
+                title="Từ chối"
+                aria-label="Từ chối"
                 disabled={logMutation.isPending}
                 onClick={() => {
                   if (r.trang_thai_tra_hang === "Cho TN duyet tong") {
@@ -425,7 +476,7 @@ export function TraHangTab({
                   }
                 }}
               >
-                Từ chối
+                ✕
               </Btn>
             )}
           </div>
@@ -538,6 +589,7 @@ export function TraHangTab({
         onPageChange={setPage}
         columnConfig={columnConfig}
         onDetail={(id) => setDetailId(id)}
+        onLkDetail={openLkDetail}
         ktvDisplayMap={ktvDisplayMap}
       />
       {detailId && (
@@ -654,6 +706,19 @@ export function TraHangTab({
           </div>
         </Modal>
       )}
+      {detailLk && (() => {
+        const part = danhMuc.find((m) => m.ma_linh_kien === detailLk);
+        return part ? (
+          <LinhKienDetailModal
+            part={part}
+            rank={rankMap.get(detailLk)}
+            canEdit={canEditDanhMuc}
+            onClose={() => setDetailLk(null)}
+            addToast={addToast}
+            qc={qc}
+          />
+        ) : null;
+      })()}
     </div>
   );
 }
@@ -666,7 +731,7 @@ export function TraHangTab({
 // tu component cha (TraHangTab da goi useColumnConfig o do de dat nut "⚙" trong FilterSearchBar, xem
 // comment goc 2026-08-21) - KHONG tu goi lai hook o day, tranh 2 nguon state cot lech nhau.
 function TraHangGroupedList({
-  columns, rows, isLoading, isError, page, pageSize, total, onPageChange, onDetail, ktvDisplayMap, columnConfig,
+  columns, rows, isLoading, isError, page, pageSize, total, onPageChange, onDetail, onLkDetail, ktvDisplayMap, columnConfig,
 }: {
   columns: Column<TraHangRow>[];
   rows: TraHangRow[];
@@ -677,6 +742,7 @@ function TraHangGroupedList({
   total: number;
   onPageChange: (p: number) => void;
   onDetail: (id: string) => void;
+  onLkDetail: (maLk: string) => void;
   ktvDisplayMap: ReturnType<typeof useKtvDisplayMap>;
   columnConfig: ColumnConfig<TraHangRow>;
 }) {
@@ -790,6 +856,9 @@ function TraHangGroupedList({
                   // khop dung quy uoc "60/40 + (N) ẩn bớt" da ap dung cho DonCuaToiTab.tsx cung dot.
                   const badges: { tone: Tone; label: string }[] = [
                     { tone: TRA_HANG_TRANG_THAI_TONE[r.trang_thai_tra_hang] ?? "neutral", label: trangThaiLabel(TRA_HANG_TRANG_THAI_OPTIONS, r.trang_thai_tra_hang) },
+                    // CHUAN HOA (dong bo voi DonCuaToiTab.tsx) - them "Đơn tạo hộ" khi co, isDonTaoHo()
+                    // dung chung cho moi loai_don.
+                    ...(isDonTaoHo(r) ? [{ tone: "neutral" as Tone, label: "Đơn tạo hộ" }] : []),
                   ];
                   // SUA (phan hoi 2026-08-28, dong bo voi DonCuaToiTab.tsx): giam ve 1 - xem giai thich
                   // day du o DonCuaToiTab.tsx (MAX_BADGE gan voi comment "ẩn cả thẻ nếu không đủ diện
@@ -809,10 +878,18 @@ function TraHangGroupedList({
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start gap-2">
-                            <span className="min-w-0 flex-[3] truncate text-sm font-medium">
-                              {r.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
-                              {r.ten_lk_snapshot ?? r.ma_lk}
-                            </span>
+                            <div className="min-w-0 flex-[3]">
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); onLkDetail(r.ma_lk); }}
+                                title="Xem chi tiết linh kiện"
+                                className="inline-block align-top max-w-full min-w-0 truncate text-left font-medium text-sm hover:underline hover:text-[var(--ocean-600)]"
+                              >
+                                {r.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
+                                {r.ten_lk_snapshot ?? r.ma_lk}
+                                {!!r.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
+                              </button>
+                            </div>
                             {/* SUA (phan hoi 2026-08-28, lan 2, dong bo voi DonCuaToiTab.tsx): 1 dong
                                 DUY NHAT (overflow-hidden) - badge thua gop vao "+N" thay vi xuong dong. */}
                             <div className="flex-[2] flex items-center justify-end gap-1 min-w-0 overflow-hidden">
