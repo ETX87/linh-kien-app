@@ -162,11 +162,16 @@ function LyDoChamTab() {
 
 // Token nhan dien trong vai_tro_json (xem frontend/src/lib/loaiDeXuatCache.ts getOptionsForUser) -
 // Admin luon bypass loc nay nen KHONG can token rieng cho Admin; nguoi khong co bat ky co/vai_tro nao
-// trong day (vd la_kho/la_ke_toan/la_tac_nghiep thuan tuy) se KHONG thay nhom nay khi tu tao don -
-// dung y thiet ke goc (ho la nguoi XU LY don, khong phai nguoi TAO don).
+// trong day (vd la_kho/la_ke_toan thuan tuy) se KHONG thay nhom nay khi tu tao don - dung y thiet ke
+// goc (ho la nguoi XU LY don, khong phai nguoi TAO don).
+// FIX (phan hoi 2026-09-11: "vai trò TN đang không nhìn thấy các loại đề xuất để chọn") - them token
+// "la_tac_nghiep": TN CO quyen "tạo hộ" (canDatHo o DatMuaLinhKienModule.tsx) nen KHAC voi la_kho/
+// la_ke_toan thuan tuy o tren, truoc day thieu checkbox nay nen khong Admin nao gan duoc cho nhom
+// nao (vd nhom "Tác nghiệp + Giám sát" co san chi gan duoc QC/Giam sat, thieu han Tac nghiep).
 const VAI_TRO_TOKENS = [
   { value: "la_ktv_dvbh", label: "KTV / CTV / Trạm" },
   { value: "la_ve_tinh", label: "Vệ tinh" },
+  { value: "la_tac_nghiep", label: "Tác nghiệp" },
   { value: "vai_tro:QC", label: "QC" },
   { value: "vai_tro:Giam sat", label: "Giám sát" },
 ];

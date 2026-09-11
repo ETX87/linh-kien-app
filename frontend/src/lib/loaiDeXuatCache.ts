@@ -75,7 +75,7 @@ export async function clearLdeCache(): Promise<void> {
 
 // Loc options phu hop voi user hien tai dua tren vai_tro_json cua moi nhom.
 export function getOptionsForUser(
-  user: { la_ktv_dvbh?: boolean; la_ve_tinh?: boolean; vai_tro?: string | null } | null,
+  user: { la_ktv_dvbh?: boolean; la_ve_tinh?: boolean; la_tac_nghiep?: boolean; vai_tro?: string | null } | null,
   entries: LdeEntry[],
 ): string[] {
   const active = entries.filter((e) => e.bat_tat);
@@ -90,6 +90,12 @@ export function getOptionsForUser(
     const userFlags = new Set<string>();
     if (user?.la_ktv_dvbh) userFlags.add("la_ktv_dvbh");
     if (user?.la_ve_tinh) userFlags.add("la_ve_tinh");
+    // FIX (phan hoi 2026-09-11: "vai trò TN đang không nhìn thấy các loại đề xuất để chọn") - TN
+    // (la_tac_nghiep) co quyen "tao ho" (canDatHo o DatMuaLinhKienModule.tsx) nhung token nay truoc
+    // day KHONG duoc tinh vao userFlags (chi co la_ktv_dvbh/la_ve_tinh/vai_tro), va Settings UI cung
+    // khong co checkbox nao de gan cho TN (xem VAI_TRO_TOKENS o SettingsModule.tsx) - dan toi MOI
+    // nhom du duoc dat ten "co TN" van khong bao gio khop duoc voi TN, luon ra danh sach rong.
+    if (user?.la_tac_nghiep) userFlags.add("la_tac_nghiep");
     if (user?.vai_tro) userFlags.add(`vai_tro:${user.vai_tro}`);
 
     const matchedNhomIds = new Set(
