@@ -9,6 +9,7 @@ import { YEU_CAU_HOA_DON_OPTIONS, CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABE
 import { deriveLoaiDon, reqLabelClass, pickLdeQuick, LOAI_DON_TONE, ktvOptionLabel, canNoRequired, maYcscRequired, formatLkLabel } from "./helpers";
 import { LinhKienPicker, ThayTheGoiY, ThayTheGoiYTuSheet } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
+import { DuDoanDuyetHint } from "./DuDoanDuyetHint";
 import { TraHangAnhPicker } from "./SharedUi";
 import type { TaoDonForm } from "./useTaoDonForm";
 
@@ -266,6 +267,14 @@ export function TaoDonMobileScreen({
               {giaUocTinh != null ? <><span className="text-[10px]">Ước tính: </span><b className="text-[var(--green-700)]">{fmtVND(giaUocTinh)}</b></> : <span className="text-[var(--ink-400)]">Giá: —</span>}
             </div>
           </div>
+          <DuDoanDuyetHint
+            maLk={d.ma_lk}
+            soLuong={d.so_luong_de_xuat}
+            loaiDeXuat={d.loai_de_xuat}
+            nguoiNhanHang={nguoiNhanHang || currentEmail}
+            loaiDon={loaiDon}
+            sePhepDuCongNo={sePhepDuCongNo}
+          />
         </div>
 
         {/* Anh linh kien can tra (them 2026-08-24, muc 1) - xem giai thich day du o TaoDonTab.tsx. */}

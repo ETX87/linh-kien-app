@@ -16,6 +16,8 @@ import { extractMaKtv } from "../lib/ktvCode";
 import { lookupCase, lookupCases, lookupCaseFull, type CaseLookupPreview, type CaseLookupGiaiTrinh } from "../lib/caseLookupClient";
 import { sendPushToUser } from "../lib/webPush";
 import { computeCongNoChot } from "../lib/congNoKtv";
+import { computeTonKhoChot } from "../lib/tonKhoCongTy";
+import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, MUA_CONG_NO_ROLES, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
 import { pushThieuLkToKhovan, buildWorkUrl } from "../lib/khovanPushClient";
 
@@ -257,6 +259,67 @@ datMuaLinhKien.get("/cong-no-du-kien", async (c) => {
   if (!ktvRow) return c.json({ tran: null, cong_no_chot: 0 });
   const congNoChot = await computeCongNoChot(c.env.DB, ktvRow.ma_ktv);
   return c.json({ tran: ktvRow.cong_no, cong_no_chot: congNoChot });
+});
+
+// GET /api/dat-mua-lk/du-doan-duyet?ma_lk=&so_luong=&loai_de_xuat=&nguoi_nhan_hang= - canh bao SONG
+// ngay luc soan don (them 2026-09-11, phan hoi "linh kiện này tại khu vực MB đang hết/thiếu hàng...
+// đơn của bạn sẽ cần phê duyệt / kho đủ hàng đơn sẽ tự động duyệt") - du doan dong nay co roi vao nhanh
+// tu dong duyet o POST /phieu-dat hay khong TRUOC khi nguoi dung bam gui. CHI tra ve 2 thanh phan NEN
+// TANG (ap_dung + du_ton/ton_chot theo kho) giong tinh than /cong-no-du-kien: KHONG tu danh gia cong
+// no o day (frontend da co san sePhepDuCongNo tinh tu TONG cac dong cong_no dang soan qua
+// congNoDuKien, dung LAI gia tri do de ket hop - tranh 1 dong don le goi rieng khong phan anh dung
+// tong ca phieu giong cach backend danh gia that o POST /phieu-dat).
+// Quyen han/resolve nguoi_nhan_hang COPY tu /cong-no-du-kien (khong tach ham dung chung, cung ly do -
+// xem comment o do).
+datMuaLinhKien.get("/du-doan-duyet", async (c) => {
+  if (!canCreatePhieuDat(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const user = c.get("user");
+  const maLk = c.req.query("ma_lk")?.trim();
+  const soLuong = Number(c.req.query("so_luong") ?? "0");
+  const loaiDeXuat = c.req.query("loai_de_xuat")?.trim() ?? "";
+  if (!maLk || !soLuong || soLuong <= 0 || !loaiDeXuat) {
+    return c.json({ ap_dung: false, du_ton: null, ton_chot: null, khu_vuc_ma: null });
+  }
+  const q = c.req.query("nguoi_nhan_hang")?.trim();
+  let targetUser: { email: string; la_ve_tinh: number | boolean };
+  if (q && q !== user.email) {
+    if (!canQuanLyDonHo(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+    const target = await c.env.DB.prepare("SELECT email, la_ktv_dvbh, la_ve_tinh FROM users WHERE email = ?")
+      .bind(q)
+      .first<{ email: string; la_ktv_dvbh: number; la_ve_tinh: number }>();
+    if (!target || !(target.la_ktv_dvbh || target.la_ve_tinh)) return c.json({ error: "NGUOI_NHAN_HANG_KHONG_HOP_LE" }, 400);
+    targetUser = target;
+  } else {
+    targetUser = { email: user.email, la_ve_tinh: user.la_ve_tinh };
+  }
+  const resolved = await resolveNguoiNhanHang(c.env.DB, targetUser);
+  if ("error" in resolved) return c.json({ error: resolved.error }, 400);
+  const nguoiNhanHang = resolved.email;
+
+  if (user.vai_tro === "Giam sat" && !canTacNghiep(c) && nguoiNhanHang !== user.email) {
+    const recipientRow = await c.env.DB.prepare("SELECT giam_sat_quan_ly FROM users WHERE email = ?")
+      .bind(nguoiNhanHang)
+      .first<{ giam_sat_quan_ly: string | null }>();
+    if (recipientRow?.giam_sat_quan_ly !== user.email) return c.json({ error: "NGUOI_NHAN_HANG_NGOAI_PHAM_VI" }, 403);
+  }
+
+  const loaiDon = deriveLoaiDon(loaiDeXuat);
+  if (loaiDon === "tra_hang") return c.json({ ap_dung: false, du_ton: null, ton_chot: null, khu_vuc_ma: null });
+
+  const lkRow = await c.env.DB.prepare("SELECT dac_thu FROM linh_kien WHERE ma_linh_kien = ?").bind(maLk).first<{ dac_thu: number }>();
+  if (!lkRow) return c.json({ ap_dung: false, du_ton: null, ton_chot: null, khu_vuc_ma: null });
+  // CHOT giong het POST /phieu-dat: dung la_ve_tinh cua nguoi GOI (khong phai nguoi nhan hang) - xem
+  // comment initialDonHangTrangThai.
+  const trangThaiKhoiTao = initialDonHangTrangThai(user.la_ve_tinh, lkRow.dac_thu);
+  if (trangThaiKhoiTao !== "Cho TN duyet") return c.json({ ap_dung: false, du_ton: null, ton_chot: null, khu_vuc_ma: null });
+
+  const ktvRow = await c.env.DB.prepare("SELECT khu_vuc_ma FROM ktv_lien_he WHERE email_dang_nhap = ?")
+    .bind(nguoiNhanHang)
+    .first<{ khu_vuc_ma: string | null }>();
+  if (!ktvRow?.khu_vuc_ma) return c.json({ ap_dung: true, du_ton: null, ton_chot: null, khu_vuc_ma: null });
+
+  const tonChot = await computeTonKhoChot(c.env.DB, ktvRow.khu_vuc_ma, maLk);
+  return c.json({ ap_dung: true, du_ton: tonChot >= soLuong, ton_chot: tonChot, khu_vuc_ma: ktvRow.khu_vuc_ma });
 });
 
 // GET /api/dat-mua-lk/khu-vuc-cua-toi (them 2026-08-27, phan hoi "GS test không thấy đơn của KTV khu
@@ -1753,17 +1816,19 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
     soTienCongNoPerDong.set(i, soTien);
     tongMoiCongNo += soTien;
   });
+  // Them 2026-09-11 (phan hoi nguoi dung: tu dong duyet don mua/cong no khi kho con du hang) - can
+  // khu_vuc_ma cua nguoi nhan hang de tinh ton kho Kho cong ty (xem lib/tonKhoCongTy.ts) BAT KE phieu
+  // co dong cong_no hay khong, nen tach rieng khoi nhanh "chi truy van khi co dong cong_no" nhu cu.
+  const ktvRow = await c.env.DB.prepare("SELECT ma_ktv, khu_vuc_ma, cong_no FROM ktv_lien_he WHERE email_dang_nhap = ?")
+    .bind(nguoiNhanHang)
+    .first<{ ma_ktv: string; khu_vuc_ma: string | null; cong_no: number | null }>();
+
   let danhGiaCongNoPhieu: "Du" | "Khong du" | null = null;
-  if (soTienCongNoPerDong.size > 0) {
-    const ktvRow = await c.env.DB.prepare("SELECT ma_ktv, cong_no FROM ktv_lien_he WHERE email_dang_nhap = ?")
-      .bind(nguoiNhanHang)
-      .first<{ ma_ktv: string; cong_no: number | null }>();
-    if (ktvRow) {
-      const congNoChotHienTai = await computeCongNoChot(c.env.DB, ktvRow.ma_ktv);
-      // SUA 2026-09-04: KTV chua gan tran (cong_no null) coi nhu tran = 0 - xem giai thich o
-      // lib/congNoKtv.ts danhGiaCongNo3Muc.
-      danhGiaCongNoPhieu = congNoChotHienTai + tongMoiCongNo <= (ktvRow.cong_no ?? 0) ? "Du" : "Khong du";
-    }
+  if (soTienCongNoPerDong.size > 0 && ktvRow) {
+    const congNoChotHienTai = await computeCongNoChot(c.env.DB, ktvRow.ma_ktv);
+    // SUA 2026-09-04: KTV chua gan tran (cong_no null) coi nhu tran = 0 - xem giai thich o
+    // lib/congNoKtv.ts danhGiaCongNo3Muc.
+    danhGiaCongNoPhieu = congNoChotHienTai + tongMoiCongNo <= (ktvRow.cong_no ?? 0) ? "Du" : "Khong du";
   }
 
   const now = nowVN();
@@ -1784,6 +1849,11 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   // Bao "viec moi" cho vai tro se xu ly buoc DAU TIEN cua tung dong (phan hoi 2026-09-05) - gom vao
   // 1 hang doi, chi ban sau khi batch() thanh cong (tranh bao nham neu insert that bai).
   const notifyQueue: { donHangId: string; trangThai: string; tenLkNoiDung: string }[] = [];
+  // Them 2026-09-11 (phan hoi nguoi dung: "các đơn được duyệt tự động được add vào ID phiếu và tính
+  // toán khoản tiền cần chuyển - bước TN add đơn đã duyệt vào phiếu") - gom rieng cac dong VUA duoc
+  // tu dong duyet (xem nhanh trangThaiKhoiTao === "TN da duyet" ben duoi) de sau khi tao xong đơn,
+  // gop luon vao 1 PXK (tao moi hoac gop tiep vao PXK dang mo) qua lib/pxkAutoBundle.ts.
+  const autoApprovedByLoai: Record<"mua" | "cong_no", { donHangId: string; soTien: number }[]> = { mua: [], cong_no: [] };
 
   for (const [i, dh] of body.don_hang.entries()) {
     const lde = dh.loai_de_xuat.trim();
@@ -1794,7 +1864,21 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
     // trang_thai_hien_tai (migration 0087, phan hoi Codex #8) - mirror TRUC TIEP trang thai khoi tao
     // ngay tren dong cha, dung lam token CAS cho applyDonHangLog/applyTraHangLog ve sau (version mac
     // dinh 1 theo schema).
-    const trangThaiKhoiTao = loai_don !== "tra_hang" ? initialDonHangTrangThai(user.la_ve_tinh, lk.dac_thu) : "Cho ke toan duyet mem";
+    let trangThaiKhoiTao = loai_don !== "tra_hang" ? initialDonHangTrangThai(user.la_ve_tinh, lk.dac_thu) : "Cho ke toan duyet mem";
+    // Them 2026-09-11 (phan hoi nguoi dung: tu dong duyet don mua/cong no khi kho con du hang) - CHI
+    // ap dung khi dong SE tung buoc dau la "Cho TN duyet" (khong dung cho Ve tinh "Cho Tram duyet"
+    // hay linh kien dac thu "Cho TBP xac nhan" - CHOT nguoi dung "chỉ bỏ bước Chờ TN duyệt"). Du
+    // dieu kien ton kho (+ cong no neu la dong cong_no) -> nhay thang "TN da duyet", bo qua hang doi.
+    // Khong du -> giu nguyen "Cho TN duyet" nhu cu, KHONG lam gi them (CHOT nguoi dung).
+    if (trangThaiKhoiTao === "Cho TN duyet" && ktvRow?.khu_vuc_ma) {
+      const tonChot = await computeTonKhoChot(c.env.DB, ktvRow.khu_vuc_ma, dh.ma_lk.trim());
+      const duTon = tonChot >= dh.so_luong_de_xuat;
+      const duCongNo = loai_don !== "cong_no" || danhGiaCongNoPhieu === "Du";
+      if (duTon && duCongNo) trangThaiKhoiTao = "TN da duyet";
+    }
+    if (trangThaiKhoiTao === "TN da duyet" && (loai_don === "mua" || loai_don === "cong_no")) {
+      autoApprovedByLoai[loai_don].push({ donHangId, soTien: (lk.gia_ban ?? 0) * dh.so_luong_de_xuat });
+    }
     notifyQueue.push({ donHangId, trangThai: trangThaiKhoiTao, tenLkNoiDung: `"${lk.ten_lk} (x${dh.so_luong_de_xuat})"` });
     statements.push(
       c.env.DB.prepare(
@@ -1834,7 +1918,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
       statements.push(
         c.env.DB.prepare("INSERT INTO dat_don_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly) VALUES (?, ?, ?, ?)").bind(
           donHangId,
-          initialDonHangTrangThai(user.la_ve_tinh, lk.dac_thu),
+          trangThaiKhoiTao,
           user.email,
           now,
         ),
@@ -1856,6 +1940,14 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   }
 
   await c.env.DB.batch(statements);
+  // Gop cac dong VUA tu dong duyet vao 1 PXK ngay (dong bo, TRUOC khi tra ve response) - dam bao
+  // KTV/TN mo lai chi tiet don/PXK ngay sau khi tao la thay du lieu nhat quan, khong phai cho 1 vong
+  // waitUntil chay xong. loai_don != 'tra_hang' nen an toan bo qua nhanh "tra_hang" cua record type.
+  for (const loaiDon of ["mua", "cong_no"] as const) {
+    if (autoApprovedByLoai[loaiDon].length > 0) {
+      await bundleAutoApprovedIntoPxk(c.env, c.env.DB, user.email, nguoiNhanHang, loaiDon, autoApprovedByLoai[loaiDon]);
+    }
+  }
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   const emailGsList = recipientRow?.giam_sat_quan_ly ? [recipientRow.giam_sat_quan_ly] : [];
   for (const item of notifyQueue) {

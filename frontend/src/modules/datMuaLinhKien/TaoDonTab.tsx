@@ -13,6 +13,7 @@ import { YEU_CAU_HOA_DON_OPTIONS, CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABE
 import { deriveLoaiDon, reqLabelClass, pickLdeQuick, LOAI_DON_TONE, ktvOptionLabel, formatLkLabel } from "./helpers";
 import { LinhKienPicker, ThayTheGoiY, ThayTheGoiYTuSheet } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
+import { DuDoanDuyetHint } from "./DuDoanDuyetHint";
 import { TraHangAnhPicker } from "./SharedUi";
 import { useTaoDonForm } from "./useTaoDonForm";
 import { TaoDonMobileScreen } from "./TaoDonMobileScreen";
@@ -387,6 +388,16 @@ export function TaoDonTab({
                       {giaUocTinh != null ? <b className="text-[var(--green-700)]">{fmtVND(giaUocTinh)}</b> : <span className="text-[var(--ink-400)]">Giá: —</span>}
                     </div>
                   </div>
+                  {/* Canh bao "don nay se tu dong duyet hay khong" (them 2026-09-11) - chi co y nghia
+                      khi da chon du Ma LK + Loai de xuat + So luong, xem dieu kien ben trong component. */}
+                  <DuDoanDuyetHint
+                    maLk={d.ma_lk}
+                    soLuong={d.so_luong_de_xuat}
+                    loaiDeXuat={d.loai_de_xuat}
+                    nguoiNhanHang={nguoiNhanHang || currentEmail}
+                    loaiDon={loaiDon}
+                    sePhepDuCongNo={sePhepDuCongNo}
+                  />
                 </div>
 
                 {/* Tickbox Uu tien da chuyen len HEADER (phan hoi 2026-08-18 lan 3) - bo khoi day, xem

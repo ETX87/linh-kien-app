@@ -96,6 +96,34 @@ export interface MaKhoChuaKhopRow {
   so_ma_hang: number;
 }
 
+// Them 2026-09-11 ("Kho công ty" - phan hoi tu dong duyet don khi kho con du hang, xem migration
+// 0025 + backend/src/lib/tonKhoCongTy.ts). KHAC voi KtvTonKhoSummaryRow - day la kho VAT LY cua cong
+// ty (6803, 6804-MB...), khong phai kho ao ca nhan tung KTV.
+export interface KhoCongTyRow {
+  ma: string;
+  ten: string;
+  bat_tat: number;
+  nguoi_cap_nhat: string | null;
+  ngay_cap_nhat: string;
+  khu_vuc_ma: string[];
+}
+export interface KhoCongTyTonKhoSummaryRow {
+  ma: string;
+  ten: string;
+  bat_tat: number;
+  so_ma_hang: number;
+  tong_cuoi_ky: number;
+}
+export interface KhoCongTyTonKhoChiTietRow {
+  ma_hang: string;
+  ten_hang: string | null;
+  dvt: string | null;
+  dau_ky: number | null;
+  nhap_kho: number | null;
+  xuat_kho: number | null;
+  cuoi_ky: number | null;
+}
+
 // Them 2026-08-26 (migration 0009) - 1 khu vuc chi 1 GS tai 1 thoi diem (gs_email), 1 GS duoc phep
 // phu trach nhieu khu vuc. gs_ten la LEFT JOIN users.ten, chi de hien thi.
 export interface KhuVucRow {

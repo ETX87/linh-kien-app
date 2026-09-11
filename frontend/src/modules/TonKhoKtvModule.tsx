@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { Btn } from "../components/ui/Btn";
 import { FileButton } from "../components/ui/FileButton";
@@ -9,7 +9,10 @@ import { Modal } from "../components/ui/Modal";
 import { Tabs } from "../components/ui/Tabs";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
-import type { KtvTonKhoSummaryRow, KtvTonKhoChiTietRow, KtvTonKhoImportMeta, MaKhoChuaKhopRow } from "../types";
+import type {
+  KtvTonKhoSummaryRow, KtvTonKhoChiTietRow, KtvTonKhoImportMeta, MaKhoChuaKhopRow,
+  KhoCongTyRow, KhoCongTyTonKhoSummaryRow, KhoCongTyTonKhoChiTietRow,
+} from "../types";
 import { fmtVND, fmtDateTime } from "../types";
 import { parseTonKhoImportFile } from "../lib/tonKhoImport";
 import { exportRowsToExcel } from "../lib/exportExcel";
@@ -41,10 +44,23 @@ async function downloadTonKhoImportTemplate() {
 //   - Cac vai tro/co con lai (Admin/QC/la_kho/la_ke_toan/la_tac_nghiep/la_tp_dvbh): xem toan bo.
 // Import (ghi) VAN CHI Admin (adminOnly o backend, khong doi) - nut "Import tồn kho MISA" o day chi
 // hien khi user.vai_tro === "Admin".
+// Them 2026-09-11 (phan hoi "Kho công ty" - tu dong duyet don mua/cong no khi kho con du hang, xem
+// migration 0025 + backend/src/lib/tonKhoCongTy.ts) - tab cap CAO NHAT gop chung voi "Tồn kho KTV"
+// (cung nhom nghiep vu "ton kho tham chieu", tranh phan manh them 1 muc Sidebar rieng). Import van
+// dung CHUNG 1 nut/1 file MISA cho ca 2 tab (xem chu thich trong TonKhoKtvContent).
 export function TonKhoKtvModule() {
+  const [topTab, setTopTab] = useState<"ktv" | "kho-cong-ty">("ktv");
   return (
-    <div className="anim-in">
-      <TonKhoKtvContent />
+    <div className="anim-in space-y-3">
+      <Tabs
+        tabs={[
+          { key: "ktv", label: "Tồn kho KTV" },
+          { key: "kho-cong-ty", label: "Kho công ty" },
+        ]}
+        active={topTab}
+        onChange={(k) => setTopTab(k as "ktv" | "kho-cong-ty")}
+      />
+      {topTab === "ktv" ? <TonKhoKtvContent /> : <KhoCongTyContent />}
     </div>
   );
 }
@@ -416,6 +432,277 @@ function TonKhoChiTietModal({ row, onClose }: { row: KtvTonKhoSummaryRow; onClos
           <div><span className="text-[var(--ink-400)]">Công nợ chốt: </span><span className="font-mono font-semibold">{fmtVND(row.cong_no_chot)}</span></div>
           <div className="flex items-center gap-1"><span className="text-[var(--ink-400)]">Đánh giá: </span><DanhGiaCongNoBadge value={row.danh_gia_cong_no} /></div>
         </div>
+        <div className="border border-[var(--line)] rounded-xl overflow-hidden">
+          <div className="overflow-x-auto max-h-[60vh]">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-[var(--surface-soft)]">
+                <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider border-b border-[var(--line)]">
+                  <th className="px-3 py-2">Mã hàng</th>
+                  <th className="px-3 py-2">Tên hàng</th>
+                  <th className="px-3 py-2">ĐVT</th>
+                  <th className="px-3 py-2 text-right">Đầu kỳ</th>
+                  <th className="px-3 py-2 text-right">Nhập kho</th>
+                  <th className="px-3 py-2 text-right">Xuất kho</th>
+                  <th className="px-3 py-2 text-right">Cuối kỳ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading && (
+                  <tr><td colSpan={7} className="px-3 py-6 text-center text-[var(--ink-400)]">Đang tải…</td></tr>
+                )}
+                {(data?.rows ?? []).map((p) => (
+                  <tr key={p.ma_hang} className="border-b border-[var(--line)] last:border-0">
+                    <td className="px-3 py-2 font-mono">{p.ma_hang}</td>
+                    <td className="px-3 py-2">{p.ten_hang ?? "—"}</td>
+                    <td className="px-3 py-2">{p.dvt ?? "—"}</td>
+                    <td className="px-3 py-2 text-right">{p.dau_ky ?? 0}</td>
+                    <td className="px-3 py-2 text-right">{p.nhap_kho ?? 0}</td>
+                    <td className="px-3 py-2 text-right">{p.xuat_kho ?? 0}</td>
+                    <td className="px-3 py-2 text-right font-semibold">{p.cuoi_ky ?? 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <Btn variant="ghost" size="sm" onClick={onClose}>Đóng</Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ---------- Tab "Kho công ty" (them 2026-09-11) ----------
+
+function KhoCongTyContent() {
+  const auth = useAuth();
+  const isAdmin = auth.status === "authenticated" && auth.user.vai_tro === "Admin";
+  const qc = useQueryClient();
+  const addToast = useToast();
+
+  const { data: khoData, isLoading } = useQuery({
+    queryKey: ["kho-cong-ty"],
+    queryFn: () => api.get<{ rows: KhoCongTyRow[] }>("/settings/ktv-ton-kho/kho-cong-ty"),
+  });
+  const { data: tonData } = useQuery({
+    queryKey: ["kho-cong-ty-ton-kho"],
+    queryFn: () => api.get<{ rows: KhoCongTyTonKhoSummaryRow[] }>("/settings/ktv-ton-kho/kho-cong-ty-ton-kho"),
+  });
+  const { data: khuVucData } = useQuery({
+    queryKey: ["settings-khu-vuc"],
+    queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/settings/khu-vuc"),
+  });
+  const khuVucOptions = khuVucData?.rows ?? [];
+  const khuVucTenByMa = new Map(khuVucOptions.map((k) => [k.ma, k.ten]));
+  const tonByMa = new Map((tonData?.rows ?? []).map((r) => [r.ma, r]));
+  const rows = khoData?.rows ?? [];
+
+  const [formTarget, setFormTarget] = useState<KhoCongTyRow | "new" | null>(null);
+  const [detailRow, setDetailRow] = useState<{ ma: string; ten: string } | null>(null);
+
+  return (
+    <div className="space-y-3">
+      <div className="text-xs text-[var(--ink-500)]">
+        Danh sách kho vật lý của công ty - dùng để tự động duyệt (bỏ qua bước chờ TN duyệt) đơn mua/công nợ khi khu vực của KTV còn đủ tồn. Tồn kho gốc nhập <b>chung 1 file</b> với tab "Tồn kho KTV" (cùng nút "Import tồn kho MISA").
+        <Tooltip text={`Tồn chốt = Tồn gốc (lần import gần nhất) trừ Tồn phát sinh (tổng SL các đơn cùng mã hàng, cùng khu vực, tạo sau lần import đó, chưa bị huỷ/từ chối) - cộng gộp mọi kho đang bật cùng phục vụ 1 khu vực.`} />
+      </div>
+      {isAdmin && (
+        <Btn size="sm" onClick={() => setFormTarget("new")}>
+          + Thêm kho
+        </Btn>
+      )}
+      <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+                <th className="px-3 py-2">Mã kho</th>
+                <th className="px-3 py-2">Tên kho</th>
+                <th className="px-3 py-2">Khu vực phục vụ</th>
+                <th className="px-3 py-2">Trạng thái</th>
+                <th className="px-3 py-2">Số mã hàng</th>
+                <th className="px-3 py-2">Tổng SL tồn</th>
+                <th className="px-3 py-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading && (
+                <tr>
+                  <td colSpan={7} className="px-3 py-6 text-center text-[var(--ink-400)]">Đang tải…</td>
+                </tr>
+              )}
+              {!isLoading && rows.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có kho nào{isAdmin ? ' - bấm "+ Thêm kho" để tạo.' : "."}</td>
+                </tr>
+              )}
+              {rows.map((r) => {
+                const ton = tonByMa.get(r.ma);
+                return (
+                  <tr
+                    key={r.ma}
+                    className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer focus-ring"
+                    onClick={() => setDetailRow({ ma: r.ma, ten: r.ten })}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDetailRow({ ma: r.ma, ten: r.ten }); } }}
+                  >
+                    <td className="px-3 py-2 font-mono text-xs">{r.ma}</td>
+                    <td className="px-3 py-2">{r.ten}</td>
+                    <td className="px-3 py-2 text-xs">{r.khu_vuc_ma.length > 0 ? r.khu_vuc_ma.map((m) => khuVucTenByMa.get(m) ?? m).join(", ") : "—"}</td>
+                    <td className="px-3 py-2">
+                      {r.bat_tat ? <Badge tone="teal">Đang dùng</Badge> : <Badge tone="gray">Đã tắt</Badge>}
+                    </td>
+                    <td className="px-3 py-2">{ton?.so_ma_hang ?? 0}</td>
+                    <td className="px-3 py-2">{(ton?.tong_cuoi_ky ?? 0).toLocaleString("vi-VN")}</td>
+                    <td className="px-3 py-2">
+                      {isAdmin && (
+                        <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={(e) => { e.stopPropagation(); setFormTarget(r); }}>
+                          Sửa
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {formTarget && (
+        <KhoCongTyFormModal
+          existing={formTarget === "new" ? null : formTarget}
+          khuVucOptions={khuVucOptions}
+          onClose={() => setFormTarget(null)}
+          addToast={addToast}
+          onSaved={() => {
+            setFormTarget(null);
+            qc.invalidateQueries({ queryKey: ["kho-cong-ty"] });
+            qc.invalidateQueries({ queryKey: ["kho-cong-ty-ton-kho"] });
+          }}
+        />
+      )}
+      {detailRow && <KhoCongTyChiTietModal ma={detailRow.ma} ten={detailRow.ten} onClose={() => setDetailRow(null)} />}
+    </div>
+  );
+}
+
+function KhoCongTyFormModal({
+  existing, khuVucOptions, onClose, addToast, onSaved,
+}: {
+  existing: KhoCongTyRow | null;
+  khuVucOptions: { ma: string; ten: string }[];
+  onClose: () => void;
+  addToast: (msg: string) => void;
+  onSaved: () => void;
+}) {
+  const [ma, setMa] = useState(existing?.ma ?? "");
+  const [ten, setTen] = useState(existing?.ten ?? "");
+  const [batTat, setBatTat] = useState(existing?.bat_tat !== 0);
+  const [khuVucMa, setKhuVucMa] = useState<Set<string>>(new Set(existing?.khu_vuc_ma ?? []));
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (existing) {
+        await api.patch(`/settings/ktv-ton-kho/kho-cong-ty/${encodeURIComponent(existing.ma)}`, { ten: ten.trim(), bat_tat: batTat });
+      } else {
+        await api.post("/settings/ktv-ton-kho/kho-cong-ty", { ma: ma.trim(), ten: ten.trim() });
+      }
+      const targetMa = existing?.ma ?? ma.trim();
+      await api.patch(`/settings/ktv-ton-kho/kho-cong-ty/${encodeURIComponent(targetMa)}/khu-vuc`, { khu_vuc_ma: [...khuVucMa] });
+    },
+    onSuccess: () => {
+      addToast(existing ? "Đã lưu thay đổi" : "Đã thêm kho mới");
+      onSaved();
+    },
+    onError: (err) => addToast("Lỗi: " + (err instanceof Error ? err.message : String(err))),
+  });
+
+  function toggleKhuVuc(m: string) {
+    setKhuVucMa((prev) => {
+      const next = new Set(prev);
+      if (next.has(m)) next.delete(m);
+      else next.add(m);
+      return next;
+    });
+  }
+
+  return (
+    <Modal open onClose={onClose} title={existing ? `Sửa kho ${existing.ma}` : "Thêm kho công ty"}>
+      <div className="space-y-3 text-sm">
+        <div>
+          <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Mã kho *</label>
+          <input
+            value={ma}
+            onChange={(e) => setMa(e.target.value)}
+            disabled={!!existing}
+            placeholder="Vd: 6803, 6804-MB"
+            className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm disabled:bg-[var(--surface-200)] disabled:text-[var(--ink-400)]"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Tên kho *</label>
+          <input
+            value={ten}
+            onChange={(e) => setTen(e.target.value)}
+            className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+          />
+        </div>
+        {existing && (
+          <label className="flex items-center gap-2 text-xs font-semibold text-[var(--ink-600)]">
+            <input type="checkbox" checked={batTat} onChange={(e) => setBatTat(e.target.checked)} />
+            Đang dùng (tính vào tồn kho tự động duyệt)
+          </label>
+        )}
+        <div>
+          <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Khu vực phục vụ</label>
+          <div className="flex flex-wrap gap-1.5">
+            {khuVucOptions.map((k) => {
+              const active = khuVucMa.has(k.ma);
+              return (
+                <button
+                  key={k.ma}
+                  type="button"
+                  onClick={() => toggleKhuVuc(k.ma)}
+                  className={`focus-ring rounded-full px-2.5 py-1 text-xs font-medium border transition-colors ${
+                    active
+                      ? "bg-[var(--ocean-800)] border-[var(--ocean-800)] text-white font-semibold"
+                      : "bg-white border-[var(--line)] text-[var(--ink-600)] hover:border-[var(--ocean-400)]"
+                  }`}
+                >
+                  {k.ten}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Btn variant="ghost" size="sm" onClick={onClose}>Huỷ</Btn>
+          <Btn
+            size="sm"
+            onClick={() => saveMutation.mutate()}
+            disabled={!ma.trim() || !ten.trim() || saveMutation.isPending}
+            loading={saveMutation.isPending}
+          >
+            Lưu
+          </Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function KhoCongTyChiTietModal({ ma, ten, onClose }: { ma: string; ten: string; onClose: () => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["kho-cong-ty-ton-kho-chi-tiet", ma],
+    queryFn: () => api.get<{ rows: KhoCongTyTonKhoChiTietRow[] }>(`/settings/ktv-ton-kho/kho-cong-ty-ton-kho/${encodeURIComponent(ma)}/chi-tiet`),
+  });
+
+  return (
+    <Modal open onClose={onClose} title={`Tồn kho - ${ten}`} width="max-w-2xl">
+      <div className="space-y-3 text-sm">
         <div className="border border-[var(--line)] rounded-xl overflow-hidden">
           <div className="overflow-x-auto max-h-[60vh]">
             <table className="w-full text-xs">
