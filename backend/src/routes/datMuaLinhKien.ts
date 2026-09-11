@@ -1516,6 +1516,15 @@ datMuaLinhKien.get("/don-hang", async (c) => {
     // tai qua nowVN() - cot nay LUON luu gio VN (khong phai UTC, xem CLAUDE.md/memory mui gio VN).
     whereSql += " AND substr(ddh.updated_at, 1, 10) = ?";
     binds.push(nowVN().slice(0, 10));
+  } else if (trangThai === "__CHO_TAO_PXK__") {
+    // Sentinel "Đơn chờ tạo xuất" (them 2026-09-11, phan hoi "không phải tự động mở UI tạo phiếu...
+    // hiện danh sách đơn mua hoặc công nợ, trả hàng đang chờ tạo phiếu") - dong da "TN da duyet" VA
+    // CHUA duoc gan vao PXK nao (ma_xuat_kho IS NULL). Dung DUNG dieu kien voi GET
+    // /phieu-xuat-kho/don-hang-kha-dung (nguon cho picker chon dong trong Modal tao PXK) nhung doc
+    // truc tiep ddh.trang_thai_hien_tai (khong can phan biet mua/cong_no dung log-based expr vs
+    // tra_hang dung cot thang nhu o do - cot nay da LUON dong bo cho MOI loai_don, xem comment nhanh
+    // "RA SOAT CHI PHI D1" o duoi).
+    whereSql += " AND ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.ma_xuat_kho IS NULL";
   } else if (trangThai) {
     // RA SOAT CHI PHI D1 2026-08-18 (phan hoi Codex #11/#13, migration 0087+0088): doc truc tiep cot
     // trang_thai_hien_tai (co index idx_ddh_loai_don_trang_thai) thay vi correlated subquery - cot
@@ -1610,16 +1619,22 @@ datMuaLinhKien.get("/don-hang-status-counts", async (c) => {
   const scalarRow = await c.env.DB.prepare(
     `SELECT
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ${whereSql}) as total,
-       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ${whereSql} AND ddh.trang_thai_hien_tai NOT IN (${dongSet.map(() => "?").join(",")})) as mo`,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ${whereSql} AND ddh.trang_thai_hien_tai NOT IN (${dongSet.map(() => "?").join(",")})) as mo,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ${whereSql} AND ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.ma_xuat_kho IS NULL) as cho_tao_pxk`,
   )
-    .bind(...binds, ...binds, ...dongSet)
-    .first<{ total: number; mo: number }>();
+    // Thu tu bind PHAI khop dung thu tu "?" xuat hien trong SQL: total (chi whereSql) -> mo (whereSql
+    // + dongSet) -> cho_tao_pxk (chi whereSql, khong them dieu kien dang bind).
+    .bind(...binds, ...binds, ...dongSet, ...binds)
+    .first<{ total: number; mo: number; cho_tao_pxk: number }>();
   const { results } = await c.env.DB.prepare(
     `SELECT ddh.trang_thai_hien_tai as trang_thai, COUNT(*) as n FROM dat_don_hang ddh WHERE ${whereSql} GROUP BY ddh.trang_thai_hien_tai`,
   )
     .bind(...binds)
     .all<{ trang_thai: string; n: number }>();
-  const counts: Record<string, number> = { "": scalarRow?.total ?? 0, __OPEN__: scalarRow?.mo ?? 0 };
+  // __CHO_TAO_PXK__ (them 2026-09-11, dung cho badge StageMenu "Đơn chờ tạo xuất") - KHAC voi
+  // counts["TN da duyet"] o duoi (GROUP BY thuong, gom CA dong DA gan PXK) - sentinel nay chi tinh
+  // dong CHUA gan PXK, khop dung dieu kien loc that su cua GET /don-hang?trang_thai=__CHO_TAO_PXK__.
+  const counts: Record<string, number> = { "": scalarRow?.total ?? 0, __OPEN__: scalarRow?.mo ?? 0, __CHO_TAO_PXK__: scalarRow?.cho_tao_pxk ?? 0 };
   for (const r of results) counts[r.trang_thai ?? ""] = r.n;
   return c.json({ counts });
 });

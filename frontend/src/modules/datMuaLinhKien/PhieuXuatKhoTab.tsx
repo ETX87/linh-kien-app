@@ -44,7 +44,7 @@ function toastCanhBaoThieuMisa(result: MisaExportResult, addToast: (msg: string)
 
 export function PhieuXuatKhoTab({
   addToast, qc, canTacNghiep, canKho, canKeToan, currentEmail, isAdmin, initialFilterOverride, initialNguoiNhanHangOverride, initialLoaiDonOverride,
-  initialDetailIdOverride, onDetailIdConsumed, autoOpenCreateNonce,
+  initialDetailIdOverride, onDetailIdConsumed,
 }: {
   addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>;
   canTacNghiep: boolean; canKho: boolean; canKeToan: boolean; currentEmail: string; isAdmin: boolean;
@@ -59,11 +59,6 @@ export function PhieuXuatKhoTab({
   // FIX (phan hoi 2026-09-05, giong het DonCuaToiTab.tsx) - bao cho cha da doc/ap dung xong de cha xoa
   // dung 1 lan, khong con dung timer mu.
   onDetailIdConsumed?: () => void;
-  // Mo THANG Modal "Tạo phiếu xuất kho" (them 2026-09-11, muc menu StageMenu "Chờ tạo xuất"/"Tạo mã
-  // xuất kho") - nonce (Date.now() luc bam o StageMenu) BAT BUOC phai DOI moi lan de effect duoi day
-  // chac chan chay lai ke ca bam lai DUNG 1 muc menu (cung pattern voi externalDetailOpen.nonce o
-  // DatMuaLinhKienModule.tsx).
-  autoOpenCreateNonce?: number;
 }) {
   // Trang thai "cho xu ly" theo dung buoc cua vai tro dang xem (them 2026-09-09, phan hoi "thêm 1 nút
   // ấn nhanh 'Đơn chờ xử lý'") - tach ham rieng de dung LAI o ca 3 noi: gia tri mac dinh luc mo tab
@@ -111,14 +106,6 @@ export function PhieuXuatKhoTab({
   const [createData, setCreateData] = useState({ ghi_chu: "", so_tien_can_chuyen: "", ma_xuat_kho: "" });
   const [chonKtv, setChonKtv] = useState("");
   const [chonLoaiDon, setChonLoaiDon] = useState<"mua" | "cong_no" | "tra_hang">("mua");
-  // "Chờ tạo xuất"/"Tạo mã xuất kho" tren StageMenu - nhay THANG vao Modal tao PXK, mac dinh "Mua
-  // hàng" (nguoi dung tu doi Loai phieu ben trong Modal neu can, xem Select "Loại phiếu" duoi day).
-  useEffect(() => {
-    if (!autoOpenCreateNonce) return;
-    setChonLoaiDon("mua");
-    setShowCreate(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoOpenCreateNonce]);
   const [selectedDonHang, setSelectedDonHang] = useState<Set<string>>(new Set());
   const [timKiemDonHang, setTimKiemDonHang] = useState("");
   const [page, setPage] = useState(1);

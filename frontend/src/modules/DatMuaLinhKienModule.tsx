@@ -242,17 +242,6 @@ export function DatMuaLinhKienModule({
   });
   const loaiDonCounts = loaiDonCountsData ?? { mua: 0, cong_no: 0, tra_hang: 0 };
   const canXemPxkTab = canTacNghiep || canKho || canKeToan || isGiamSat || isFieldKtv;
-  // Badge so dem cho muc "Đơn chờ tạo xuất" (phan hoi 2026-09-11: "'Chờ tạo xuất' là danh sách đơn đã
-  // duyệt nhưng chưa add vào phiếu") - dung CHUNG queryKey voi PhieuXuatKhoTab.tsx (query nay o do CHI
-  // enabled khi Modal "Tạo phiếu xuất kho" dang mo - o day fetch LUON cho TN de co so hien tren menu du
-  // Modal chua mo, react-query dedupe theo key nen khong ton them request khi ca 2 cung fetch).
-  const { data: khaDungCountsForBadge } = useQuery({
-    queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung-counts"],
-    queryFn: () => api.get<{ counts: Record<"mua" | "cong_no" | "tra_hang", number> }>("/phieu-xuat-kho/don-hang-kha-dung-counts"),
-    enabled: canTacNghiep,
-    refetchInterval: 5 * 60_000,
-  });
-  const donHangKhaDungTotal = khaDungCountsForBadge ? Object.values(khaDungCountsForBadge.counts).reduce((s, n) => s + n, 0) : 0;
   // Badge "so luong ton" cho MOI muc StageMenu con lai (phan hoi 2026-09-11: "giống như tiêu đề
   // module 'Đặt mua linh kiện (19)' tất cả các menu đều có đếm số lượng tồn") - XAC NHAN voi nguoi
   // dung: dung dung 2 API dem-theo-trang-thai DA CO SAN cho dropdown loc cua tung tab (GET
@@ -376,23 +365,6 @@ export function DatMuaLinhKienModule({
     jumpTo(target);
     if (target.tab === "don-cua-toi") setLoaiDonTabClickSeq((n) => n + 1);
   }
-  // "Đơn chờ tạo xuất" - mo Modal "Tạo phiếu xuất kho" ben trong PhieuXuatKhoTab, noi DUY NHAT hien
-  // danh sach dong da duyet chua gan PXK qua GET /don-hang-kha-dung - khong co man rieng "chi de xem
-  // danh sach" nay trong kien truc hien tai, tach rieng se trung lap logic chon dong/gom PXK. nonce
-  // (Date.now()) ep effect trong PhieuXuatKhoTab chay lai ke ca bam lai DUNG 1 muc menu. SUA (phan hoi
-  // 2026-09-11): TRUOC DAY "Tạo mã xuất kho" cung goi ham nay (trung dich voi "Chờ tạo xuất") - gio
-  // "Phiếu chờ mã HĐ" (doi ten tu do) chuyen sang stageJump() thuong (filter="Dang tao phieu" tren PXK
-  // that) thay vi mo modal, nen ham nay chi con 1 nguoi goi.
-  const [pendingOpenCreatePxk, setPendingOpenCreatePxk] = useState(0);
-  function openCreatePxk(key: string) {
-    setStageMenuActiveKey(key);
-    markNavigatedAway("phieu-xuat-kho");
-    setPendingOpenCreatePxk(Date.now());
-    setView("phieu-xuat-kho");
-    // Cung 1 ly do voi jumpTo() o tren - lam moi badge dem truoc khi nguoi dung thay danh sach dich.
-    qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung-counts"] });
-    qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-status-counts"] });
-  }
   const stageMenuGroups: StageMenuGroup[] = [
     ...(canDatHo ? [{ items: [{ key: "tao-don", label: "＋ Tạo đơn", variant: "action" as const, onClick: () => setShowCreateFromPipeline(true) }] }] : []),
     {
@@ -447,11 +419,21 @@ export function DatMuaLinhKienModule({
             title: "Xuất kho",
             items: [
               // "Đơn chờ tạo xuất" (doi ten tu "Chờ tạo xuất", phan hoi 2026-09-11) - danh sach dat_don_hang
-              // DA "TN da duyet" nhung CHUA gan vao PXK nao (chua co ma_xuat_kho) - dung dung khai niem
-              // GET /phieu-xuat-kho/don-hang-kha-dung, hien qua Modal "Tạo phiếu xuất kho" (noi DUY NHAT
-              // xem duoc danh sach nay, xem giai thich o openCreatePxk).
+              // DA "TN da duyet" nhung CHUA gan vao PXK nao (chua co ma_xuat_kho). SUA (phan hoi 2026-09-11
+              // lan 2: "không cho mở trực tiếp modal 'Tạo phiếu xuất kho'...hiện danh sách đơn mua hoặc
+              // công nợ, trả hàng đang chờ tạo phiếu chứ không phải tự động mở UI tạo phiếu") - truoc day
+              // nhay thang vao Modal tao PXK (openCreatePxk, da bo), gio dung sentinel trang_thai
+              // "__CHO_TAO_PXK__" (them o GET /don-hang + /don-hang-status-counts) de hien DANH SACH don
+              // qua DonCuaToiTab (loaiDon:"" = gop ca mua/cong no/tra hang), giong het cac muc khac.
               ...(canTacNghiep
-                ? [{ key: "cho-tao-xuat", label: "Đơn chờ tạo xuất", count: donHangKhaDungTotal, onClick: () => openCreatePxk("cho-tao-xuat") }]
+                ? [
+                    {
+                      key: "cho-tao-xuat",
+                      label: "Đơn chờ tạo xuất",
+                      count: donHangStatusCounts.__CHO_TAO_PXK__,
+                      onClick: () => stageJump("cho-tao-xuat", { tab: "don-cua-toi", filter: "__CHO_TAO_PXK__", loaiDon: "" }),
+                    },
+                  ]
                 : []),
               {
                 key: "cho-ktv-chuyen-tien",
@@ -792,7 +774,6 @@ export function DatMuaLinhKienModule({
             initialLoaiDonOverride={loaiDonFor("phieu-xuat-kho")}
             initialDetailIdOverride={openDetailIdFor("phieu-xuat-kho")}
             onDetailIdConsumed={consumeOpenDetailId}
-            autoOpenCreateNonce={pendingOpenCreatePxk}
           />
         )}
         {activeView === "thieu-lk" && (

@@ -276,6 +276,10 @@ export const DON_CUA_TOI_TRANG_THAI_OPTIONS = [
   { value: "Cho TBP xac nhan", label: "Chờ TBP DVBH xác nhận" },
   { value: "Cho TN duyet", label: "Chờ TN duyệt" },
   { value: "TN da duyet", label: "TN đã duyệt" },
+  // Sentinel "Đơn chờ tạo xuất" (them 2026-09-11, muc menu StageMenu) - khac "TN da duyet" o tren (gom
+  // CA dong da gan PXK) - sentinel nay CHI dong chua gan PXK nao (ma_xuat_kho IS NULL), xem GET
+  // /don-hang?trang_thai=__CHO_TAO_PXK__.
+  { value: "__CHO_TAO_PXK__", label: "Chờ tạo phiếu xuất" },
   { value: "TN tu choi", label: "TN từ chối" },
   { value: "Cho hang", label: "Chờ hàng" },
   { value: "Da huy", label: "Đã hủy" },
