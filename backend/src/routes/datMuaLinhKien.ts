@@ -13,7 +13,7 @@ import { getDatMuaLkBadge } from "./notifications";
 import { csvTemplateResponse } from "../lib/csvTemplate";
 import { getOrCompute } from "../lib/precomputedCache";
 import { extractMaKtv } from "../lib/ktvCode";
-import { lookupCase, lookupCases, type CaseLookupPreview } from "../lib/caseLookupClient";
+import { lookupCase, lookupCases, lookupCaseFull, type CaseLookupPreview, type CaseLookupGiaiTrinh } from "../lib/caseLookupClient";
 import { sendPushToUser } from "../lib/webPush";
 import { computeCongNoChot } from "../lib/congNoKtv";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, MUA_CONG_NO_ROLES, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
@@ -1327,6 +1327,16 @@ function msSinceVN(ts: string): number {
   return Date.now() - Date.parse(ts.replace(" ", "T") + "Z");
 }
 
+// Cot "data" cua case_lookup_snapshot luu CA preview LAN giaiTrinh gop chung 1 object (them
+// 2026-09-11: "{...preview, giaiTrinh}") de KHONG can migration D1 doi schema bang. Doc lai: cac dong
+// cache TU TRUOC lan doi nay se thieu key "giaiTrinh" (parse ra undefined) - mac dinh ve [] de tuong
+// thich nguoc, khong can xoa cache cu.
+function parseCachedSnapshot(raw: string): { data: CaseLookupPreview; giaiTrinh: CaseLookupGiaiTrinh[] } {
+  const parsed = JSON.parse(raw) as CaseLookupPreview & { giaiTrinh?: CaseLookupGiaiTrinh[] };
+  const { giaiTrinh, ...data } = parsed;
+  return { data: data as CaseLookupPreview, giaiTrinh: giaiTrinh ?? [] };
+}
+
 // GET /api/dat-mua-lk/case-detail/:id - man "Xem chi tiet case" moi (mo tu icon canh o kiem tra ma
 // yeu cau su co luc tao don, hoac bam vao 1 ID case bat ky dang hien trong don hang - xem migration
 // 0008). CHOT 2026-08-26: KHONG chan them theo quyen so huu case o day (khac GET /kiem-tra-ma-yeu-cau
@@ -1338,18 +1348,21 @@ datMuaLinhKien.get("/case-detail/:id", async (c) => {
   const cached = await c.env.DB.prepare("SELECT data, synced_at FROM case_lookup_snapshot WHERE case_id = ?")
     .bind(id)
     .first<{ data: string; synced_at: string }>();
-  if (cached) return c.json({ found: true, data: JSON.parse(cached.data) as CaseLookupPreview, syncedAt: cached.synced_at });
+  if (cached) {
+    const { data, giaiTrinh } = parseCachedSnapshot(cached.data);
+    return c.json({ found: true, data, giaiTrinh, syncedAt: cached.synced_at });
+  }
 
-  const full = await lookupCase(id, c.env);
-  if (!full) return c.json({ found: false, data: null, syncedAt: null });
+  const full = await lookupCaseFull(id, c.env);
+  if (!full) return c.json({ found: false, data: null, giaiTrinh: [], syncedAt: null });
 
   const syncedAt = nowVN();
   await c.env.DB.prepare(
     "INSERT INTO case_lookup_snapshot (case_id, data, synced_at) VALUES (?, ?, ?) ON CONFLICT(case_id) DO UPDATE SET data = excluded.data, synced_at = excluded.synced_at",
   )
-    .bind(id, JSON.stringify(full), syncedAt)
+    .bind(id, JSON.stringify({ ...full.preview, giaiTrinh: full.giaiTrinh }), syncedAt)
     .run();
-  return c.json({ found: true, data: full, syncedAt });
+  return c.json({ found: true, data: full.preview, giaiTrinh: full.giaiTrinh, syncedAt });
 });
 
 // POST /api/dat-mua-lk/case-detail/:id/sync - lam moi cache tren, gioi han CASE_DETAIL_MIN_SYNC_MS
@@ -1363,22 +1376,25 @@ datMuaLinhKien.post("/case-detail/:id/sync", async (c) => {
     return c.json({ error: "TOO_SOON", retryAfterMs: CASE_DETAIL_MIN_SYNC_MS - msSinceVN(cached.synced_at) }, 429);
   }
 
-  const full = await lookupCase(id, c.env);
+  const full = await lookupCaseFull(id, c.env);
   if (!full) {
     // Dong bo that bai (API doi tac loi/timeout) KHAC voi "case khong ton tai" - id nay DA tung tim
     // thay truoc do (co dong cache) nen giu nguyen du lieu cu + co `syncFailed`, KHONG xoa sach thanh
     // "khong tim thay" (se lam mat du lieu dang xem chi vi 1 loi tam thoi cua API doi tac).
-    if (cached) return c.json({ found: true, data: JSON.parse(cached.data) as CaseLookupPreview, syncedAt: cached.synced_at, syncFailed: true });
-    return c.json({ found: false, data: null, syncedAt: null });
+    if (cached) {
+      const { data, giaiTrinh } = parseCachedSnapshot(cached.data);
+      return c.json({ found: true, data, giaiTrinh, syncedAt: cached.synced_at, syncFailed: true });
+    }
+    return c.json({ found: false, data: null, giaiTrinh: [], syncedAt: null });
   }
 
   const syncedAt = nowVN();
   await c.env.DB.prepare(
     "INSERT INTO case_lookup_snapshot (case_id, data, synced_at) VALUES (?, ?, ?) ON CONFLICT(case_id) DO UPDATE SET data = excluded.data, synced_at = excluded.synced_at",
   )
-    .bind(id, JSON.stringify(full), syncedAt)
+    .bind(id, JSON.stringify({ ...full.preview, giaiTrinh: full.giaiTrinh }), syncedAt)
     .run();
-  return c.json({ found: true, data: full, syncedAt });
+  return c.json({ found: true, data: full.preview, giaiTrinh: full.giaiTrinh, syncedAt });
 });
 
 // GET /api/dat-mua-lk/don-hang?trang_thai=&nguoi_tao=&nguoi_nhan_hang=&tu_ngay=&den_ngay=&page=&pageSize

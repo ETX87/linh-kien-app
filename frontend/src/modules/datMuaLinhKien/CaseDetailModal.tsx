@@ -3,14 +3,19 @@ import { Modal } from "../../components/ui/Modal";
 import { api, ApiError } from "../../api/client";
 import { fmtDateTime, fmtDate, fmtVND } from "../../types";
 import { shortKhuVuc } from "../../lib/khuVucShortLabel";
-import type { CaseDetailData } from "./types";
+import { ImageThumb } from "./SharedUi";
+import type { CaseDetailData, CaseGiaiTrinh } from "./types";
 
 // Man "Xem chi tiet case" doc lap (phan hoi 2026-08-26) - mo tu icon canh o kiem tra ma yeu cau su co
 // luc tao don, hoac bam vao 1 ID case bat ky dang hien trong don hang (MaYcscCell/danh sach case cua
 // DonCuaToiTab). KHONG chan them theo quyen so huu case o day - ID case chi lo ra tu 1 don hang nguoi
 // dung DA duoc phep xem, xem GET /case-detail/:id o backend. Du lieu chi keo API doi tac 1 LAN dau
 // (cache server), man nay chi hien lai + cho bam "Dong bo lai" (server gioi han toi thieu 5s/lan).
-type DetailResp = { found: boolean; data: CaseDetailData | null; syncedAt: string | null; syncFailed?: boolean };
+// Bo cuc doi chieu theo "renderCaseFieldsGrid" cua he DVBH goc (frontend/src/modules/CaseDetail.tsx) -
+// cung nhom Thong tin chung/Thong tin xu ly/Hinh anh/Doanh thu/Phan loai, mo rong 2026-09-11 them
+// giaiTrinh + 6 field moi (ngay_import/ngay_cap_nhat_gan_nhat/dung_han/xu_ly_24h_bucket/ly_do_huy/
+// link_hinh_anh) theo PARTNER_API_GUIDE.md.
+type DetailResp = { found: boolean; data: CaseDetailData | null; giaiTrinh?: CaseGiaiTrinh[]; syncedAt: string | null; syncFailed?: boolean };
 
 function Field({ label, value, mono }: { label: string; value: string | null | undefined; mono?: boolean }) {
   return (
@@ -77,6 +82,7 @@ export function CaseDetailModal({ caseId, onClose }: { caseId: string; onClose: 
   };
 
   const d = resp?.data;
+  const giaiTrinh = resp?.giaiTrinh ?? [];
   const remainingS = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
 
   return (
@@ -107,6 +113,9 @@ export function CaseDetailModal({ caseId, onClose }: { caseId: string; onClose: 
             <Field label="Đối tác ghi nhận" value={d.doi_tac} />
             <Field label="Khu vực" value={`${shortKhuVuc(d.khu_vuc)}${d.tinh ? " · " + d.tinh : ""}${d.quan_huyen ? " · " + d.quan_huyen : ""}`} />
             <Field label="Tiến độ hoàn thành" value={d.tien_do_hoan_thanh} />
+            <Field label="Ngày import" value={fmtDateTime(d.ngay_import)} />
+            <Field label="Cập nhật gần nhất" value={fmtDateTime(d.ngay_cap_nhat_gan_nhat)} />
+            <Field label="Đúng hạn / Xử lý 24h" value={[d.dung_han, d.xu_ly_24h_bucket].filter(Boolean).join(" · ") || null} />
           </Section>
 
           <Section title="Sản phẩm">
@@ -126,6 +135,7 @@ export function CaseDetailModal({ caseId, onClose }: { caseId: string; onClose: 
             <Field label="Lưu ý lỗi linh kiện" value={d.luu_y_loi_linh_kien} />
             <Field label="Cách thức xử lý" value={d.cach_thuc_xu_ly} />
             <Field label="Lý do quá hạn" value={d.ly_do_qua_han} />
+            <Field label="Lý do hủy" value={d.ly_do_huy} />
             <div className="col-span-2">
               <Field label="Nội dung đã xử lý" value={d.noi_dung_xu_ly} />
             </div>
@@ -136,6 +146,34 @@ export function CaseDetailModal({ caseId, onClose }: { caseId: string; onClose: 
             <Field label="Hẹn xử lý" value={fmtDateTime(d.thoi_gian_hen_xu_ly)} />
             <Field label="Hoàn thành" value={fmtDateTime(d.thoi_gian_hoan_thanh)} />
           </Section>
+
+          {d.link_hinh_anh.length > 0 && (
+            <div className="rounded-xl border border-[var(--line)] p-3">
+              <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-500)] mb-2">
+                Hình ảnh báo cáo công việc ({d.link_hinh_anh.length})
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {d.link_hinh_anh.map((url, i) => (
+                  <ImageThumb key={url + i} url={url} alt={`Ảnh báo cáo ${i + 1}`} className="w-20 h-20 object-cover rounded-lg border border-[var(--line)]" />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {giaiTrinh.length > 0 && (
+            <div className="rounded-xl border border-[var(--line)] p-3">
+              <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-500)] mb-2">Lịch sử giải trình chậm trễ</div>
+              <ul className="space-y-1.5">
+                {giaiTrinh.map((g, i) => (
+                  <li key={i} className="text-[12px] text-[var(--ink-700)]">
+                    <span className="font-semibold">{g.ly_do_cham}</span>
+                    {g.noi_dung ? `: ${g.noi_dung}` : ""}
+                    <span className="text-[var(--ink-400)]"> — {fmtDateTime(g.ngay_giai_trinh)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <Section title="Tài chính">
             <Field label="Định giá sản phẩm" value={fmtVND(d.dt_san_pham)} />

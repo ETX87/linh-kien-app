@@ -345,6 +345,21 @@ export interface CaseDetailData {
   dt_linh_kien: number | null;
   dt_dich_vu: number | null;
   ly_do_qua_han: string | null;
+  ngay_import: string | null;
+  ngay_cap_nhat_gan_nhat: string | null;
+  dung_han: string | null;
+  xu_ly_24h_bucket: string | null;
+  ly_do_huy: string | null;
+  link_hinh_anh: string[];
+}
+
+// Lich su giai trinh cham tre cua case (them 2026-09-11, khop CaseLookupGiaiTrinh o backend) - dung
+// trong CaseDetailModal, KHONG lien quan giai trinh "ly do cham" cua don hang mua linh kien.
+export interface CaseGiaiTrinh {
+  case_id: string;
+  ly_do_cham: string;
+  noi_dung: string | null;
+  ngay_giai_trinh: string;
 }
 
 // Muc tieu chung cho panel "can nhap truoc khi xac nhan" (tu choi CAN chon Ly do cham, huy CAN nhap

@@ -3,9 +3,11 @@ import type { Env } from "../types";
 // Diem noi DUY NHAT toi he DVBH goc (xem CLAUDE.md muc "Nguon goc tach he thong") - tra cuu 1 case
 // su co THEO ID, chi doc, khong ghi gi ca. Goi sang route `/api/partner/case-lookup` cua he goc (xem
 // DEPLOY.md muc "Thiet lap ket noi he cu" - Admin he goc tao 1 API key rieng cho he nay qua UI
-// Settings > API doi tac co san). Khai bao DAY DU 29 field theo PARTNER_API_GUIDE.md (kha nang doi
-// tac tra ve) - GET /kiem-tra-ma-yeu-cau (canh bao mem luc tao don) chi CHON 9 field de hien, con
-// GET /case-detail/:id (man "Xem chi tiet case", xem migration 0008) tra nguyen ca object nay.
+// Settings > API doi tac co san). Khai bao DAY DU 35 field theo PARTNER_API_GUIDE.md (kha nang doi
+// tac tra ve, mo rong 2026-09-11: +ngay_import/ngay_cap_nhat_gan_nhat/dung_han/xu_ly_24h_bucket/
+// ly_do_huy/link_hinh_anh) - GET /kiem-tra-ma-yeu-cau (canh bao mem luc tao don) chi CHON 9 field de
+// hien, con GET /case-detail/:id (man "Xem chi tiet case", xem migration 0008) tra nguyen ca object
+// nay (qua lookupCaseFull, kem lich su giai trinh).
 export interface CaseLookupPreview {
   ky_thuat_vien: string | null;
   khach_hang: string | null;
@@ -37,9 +39,31 @@ export interface CaseLookupPreview {
   dt_linh_kien: number | null;
   dt_dich_vu: number | null;
   ly_do_qua_han: string | null;
+  ngay_import: string | null;
+  ngay_cap_nhat_gan_nhat: string | null;
+  dung_han: string | null;
+  xu_ly_24h_bucket: string | null;
+  ly_do_huy: string | null;
+  link_hinh_anh: string[];
 }
 
-export async function lookupCase(id: string, env: Env): Promise<CaseLookupPreview | null> {
+// Lich su giai trinh cham tre cua case (them 2026-09-07, xem PARTNER_API_GUIDE.md muc 3.3) - mang
+// rieng, khong nam trong `preview`, chi lay khi can hien day du (GET /case-detail/:id) qua
+// lookupCaseFull(); lookupCase()/lookupCases() (dung o cac cho chi can preview nhanh) bo qua field nay.
+export interface CaseLookupGiaiTrinh {
+  case_id: string;
+  ly_do_cham: string;
+  noi_dung: string | null;
+  ngay_giai_trinh: string;
+}
+
+interface CaseLookupRawResponse {
+  found: boolean;
+  preview: CaseLookupPreview | null;
+  giaiTrinh?: CaseLookupGiaiTrinh[];
+}
+
+async function fetchCaseLookupRaw(id: string, env: Env): Promise<CaseLookupRawResponse | null> {
   const url = `${env.CASE_LOOKUP_BASE_URL.replace(/\/$/, "")}/api/partner/case-lookup?id=${encodeURIComponent(id)}`;
   try {
     // SUA 2026-08-26 (debug production): fetch() thang toi URL nay tu 1 Worker khac (chinh he nay) bi
@@ -57,12 +81,24 @@ export async function lookupCase(id: string, env: Env): Promise<CaseLookupPrevie
       console.error("[caseLookup] fetch that bai", res.status, res.headers.get("Content-Type"));
       return null;
     }
-    const body = await res.json<{ found: boolean; preview: CaseLookupPreview | null }>();
-    return body.found ? body.preview : null;
+    return await res.json<CaseLookupRawResponse>();
   } catch (err) {
     console.error("[caseLookup] exception", err instanceof Error ? err.message : err);
     return null;
   }
+}
+
+export async function lookupCase(id: string, env: Env): Promise<CaseLookupPreview | null> {
+  const body = await fetchCaseLookupRaw(id, env);
+  return body?.found ? body.preview : null;
+}
+
+// Ban day du cho GET /case-detail/:id (man "Xem chi tiet case") - kem lich su giai trinh cham tre
+// cua case, khac lookupCase() (chi tra preview, dung cho cac canh bao/doi chieu nhanh khong can lich su).
+export async function lookupCaseFull(id: string, env: Env): Promise<{ preview: CaseLookupPreview; giaiTrinh: CaseLookupGiaiTrinh[] } | null> {
+  const body = await fetchCaseLookupRaw(id, env);
+  if (!body?.found || !body.preview) return null;
+  return { preview: body.preview, giaiTrinh: body.giaiTrinh ?? [] };
 }
 
 /** Tra cuu nhieu ID cung luc (vd danh sach case lien ket 1 don hang) - song song, boc loi tung cai
