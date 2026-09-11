@@ -48,10 +48,14 @@
   // Them 2026-09-07: "KHOVAN_SYNC_SERVICE" - dich day THU 3 cho dvbhSyncClient.ts (Worker doc lap
   // "khovan", he Quan ly hang ve kho). Cung 1 tai khoan Cloudflare nen dung Service Binding, ly do
   // giong het 2 dich tren.
+  // Them 2026-09-11: "VIPHAM_SYNC_SERVICE" - dich day THU 4 cho dvbhSyncClient.ts (Worker doc lap
+  // "vipham", module Giai trinh vi pham - xem migrations/0026_dvbh_sync_state_vipham.sql). Cung ly
+  // do Service Binding nhu 3 dich tren (cung 1 tai khoan Cloudflare, fetch() thang bi chan loi 1042).
   "services": [
     { "binding": "CASE_LOOKUP_SERVICE", "service": "dvbh", "remote": true },
     { "binding": "SUACHUA_SYNC_SERVICE", "service": "suachua", "remote": true },
-    { "binding": "KHOVAN_SYNC_SERVICE", "service": "khovan", "remote": true }
+    { "binding": "KHOVAN_SYNC_SERVICE", "service": "khovan", "remote": true },
+    { "binding": "VIPHAM_SYNC_SERVICE", "service": "vipham", "remote": true }
   ],
 
   "vars": {
@@ -67,6 +71,9 @@
     // Diem noi toi Worker "khovan" (he Quan ly hang ve kho, doc lap - xem KHOVAN_SYNC_SERVICE o tren).
     // Chi dung de GHI (dong bo day danh sach KTV lam "Nguoi gui hang"), khong doc gi tu day.
     "KHOVAN_SYNC_BASE_URL": "https://khovan.dichvu3t.workers.dev",
+    // Diem noi toi Worker "vipham" (module Giai trinh vi pham, doc lap - xem VIPHAM_SYNC_SERVICE o
+    // tren). Chi dung de GHI (dong bo danh ba KTV), khong doc gi tu day.
+    "VIPHAM_SYNC_BASE_URL": "https://vipham.dichvu3t.workers.dev",
     // Web Push (them 2026-08-26, xem backend/src/lib/webPush.ts) - VAPID_SERVER_PUBLIC_KEY KHONG
     // nhay cam (day la khoa cong khai frontend can de subscribe), an toan de trong "vars". Rieng
     // VAPID_SERVER_PRIVATE_KEY dat qua "wrangler secret put" (xem duoi).
@@ -91,4 +98,7 @@
   // Google Drive (anh linh kien/PXK/tra hang) KHONG can them bien env nao - dung chung
   // GOOGLE_CLIENT_ID/SECRET o tren qua co che OAuth uy quyen 1 tai khoan that, luu refresh token
   // trong bang google_drive_oauth (xem lib/googleDrive.ts) - da bo Service Account 2026-08-25.
+  // Them 2026-09-11: VIPHAM_SYNC_API_KEY - PHAI dat gia tri GIONG HET secret "KTV_SYNC_API_KEY" ben
+  // repo "vi pham app" (Worker "vipham"), quan he 1-1 dung 1 secret dung chung (giong suachua, khong
+  // phai bang partner_api_keys nhieu-key) - xem backend/src/routes/syncKtv.ts cua repo do.
 }

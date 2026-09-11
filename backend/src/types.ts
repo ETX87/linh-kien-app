@@ -77,6 +77,11 @@ export interface Env {
   KHOVAN_SYNC_BASE_URL: string;
   KHOVAN_SYNC_SERVICE: Fetcher;
   KHOVAN_SYNC_API_KEY: string;
+  // Them 2026-09-11: dich day THU 4, Worker "vipham" (Giai trinh vi pham) - chi nhan entity "ktv"
+  // (khop ten KTV vi pham). Service Binding cung ly do nhu 3 dich tren.
+  VIPHAM_SYNC_BASE_URL: string;
+  VIPHAM_SYNC_SERVICE: Fetcher;
+  VIPHAM_SYNC_API_KEY: string;
   // Them 2026-09-07 (nguyen tac "Kho chi thao tac qua app kho van"): CHIEU NGUOC LAI -
   // khovan GOI VAO day. KHOVAN_LOOKUP_API_KEY (routes/khovanLookup.ts, chi doc) va
   // KHOVAN_PARTNER_API_KEY (routes/partnerKho.ts, GHI - doi trang thai PXK) la 2 secret
