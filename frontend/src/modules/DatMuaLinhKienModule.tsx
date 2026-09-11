@@ -253,6 +253,36 @@ export function DatMuaLinhKienModule({
     refetchInterval: 5 * 60_000,
   });
   const donHangKhaDungTotal = khaDungCountsForBadge ? Object.values(khaDungCountsForBadge.counts).reduce((s, n) => s + n, 0) : 0;
+  // Badge "so luong ton" cho MOI muc StageMenu con lai (phan hoi 2026-09-11: "giống như tiêu đề
+  // module 'Đặt mua linh kiện (19)' tất cả các menu đều có đếm số lượng tồn") - XAC NHAN voi nguoi
+  // dung: dung dung 2 API dem-theo-trang-thai DA CO SAN cho dropdown loc cua tung tab (GET
+  // /don-hang-status-counts, /phieu-xuat-kho/status-counts), KHONG tu viet cong thuc "thu hep theo
+  // GS phu trach mem" nhu badge tieu de module (datMuaLk.total/computeDatMuaLkBreakdown) - so tren
+  // menu PHAI khop dung so dong se thay khi bam vao (kha nang View chi thay trong Khu vuc duoc gan la
+  // DUNG Y, khong phai thieu sot - 2 ham scope nay da tu ap dung dung gioi han do). queryKey/cach goi
+  // GIONG HET DonCuaToiTab.tsx/TraHangTab.tsx/PhieuXuatKhoTab.tsx de dung chung cache react-query,
+  // khong ton them request khi nguoi dung sau do mo dung tab tuong ung.
+  const { data: donHangStatusCountsData } = useQuery({
+    queryKey: ["dat-mua-lk-don-hang-status-counts", undefined],
+    queryFn: () => api.get<{ counts: Record<string, number> }>("/dat-mua-lk/don-hang-status-counts"),
+    enabled: canXemDonMuaCongNo,
+    refetchInterval: 5 * 60_000,
+  });
+  const donHangStatusCounts = donHangStatusCountsData?.counts ?? {};
+  const { data: traHangStatusCountsData } = useQuery({
+    queryKey: ["dat-mua-lk-don-hang-status-counts", "tra_hang"],
+    queryFn: () => api.get<{ counts: Record<string, number> }>("/dat-mua-lk/don-hang-status-counts?loai_don=tra_hang"),
+    enabled: canTraHangView,
+    refetchInterval: 5 * 60_000,
+  });
+  const traHangStatusCounts = traHangStatusCountsData?.counts ?? {};
+  const { data: pxkStatusCountsData } = useQuery({
+    queryKey: ["dat-mua-lk-pxk-status-counts", ""],
+    queryFn: () => api.get<{ counts: Record<string, number> }>("/phieu-xuat-kho/status-counts"),
+    enabled: canXemPxkTab,
+    refetchInterval: 5 * 60_000,
+  });
+  const pxkStatusCounts = pxkStatusCountsData?.counts ?? {};
   // Dem so lan nguoi dung TU BAM 1 muc StageMenu thuoc "Đơn đặt hàng" (loaiDon:"" - che do "gop ca
   // loai") - dung lam "tin hieu" rieng cho DonCuaToiTab biet khi nao can XOA override cu (xem
   // loaiDonOverride trong DonCuaToiTab.tsx). KHONG the dung truc tiep gia tri loaiDonFor() vi React se
@@ -360,17 +390,40 @@ export function DatMuaLinhKienModule({
               {
                 key: "tra-hang-cho",
                 label: "Trả hàng chờ các bên",
-                count: loaiDonCounts.tra_hang,
+                count: traHangStatusCounts.__OPEN__,
                 onClick: () => stageJump("tra-hang-cho", { tab: "tra-hang", filter: "__OPEN__" }),
               },
             ]
           : []),
         ...(canXemDonMuaCongNo
           ? [
-              { key: "cho-tbp", label: "Chờ TBP DVBH xác nhận", onClick: () => stageJump("cho-tbp", { tab: "don-cua-toi", filter: "Cho TBP xac nhan", loaiDon: "" }) },
-              { key: "cho-tn-duyet", label: "Chờ TN duyệt", onClick: () => stageJump("cho-tn-duyet", { tab: "don-cua-toi", filter: "Cho TN duyet", loaiDon: "" }) },
-              { key: "cho-hang", label: "Chờ hàng", onClick: () => stageJump("cho-hang", { tab: "don-cua-toi", filter: "Cho hang", loaiDon: "" }) },
-              { key: "tu-choi", label: "Từ chối", onClick: () => stageJump("tu-choi", { tab: "don-cua-toi", filter: "TN tu choi", loaiDon: "" }) },
+              {
+                key: "cho-tbp",
+                label: "Chờ TBP DVBH xác nhận",
+                count: donHangStatusCounts["Cho TBP xac nhan"],
+                onClick: () => stageJump("cho-tbp", { tab: "don-cua-toi", filter: "Cho TBP xac nhan", loaiDon: "" }),
+              },
+              {
+                key: "cho-tn-duyet",
+                label: "Chờ TN duyệt",
+                count: donHangStatusCounts["Cho TN duyet"],
+                onClick: () => stageJump("cho-tn-duyet", { tab: "don-cua-toi", filter: "Cho TN duyet", loaiDon: "" }),
+              },
+              {
+                key: "cho-hang",
+                label: "Chờ hàng",
+                count: donHangStatusCounts["Cho hang"],
+                onClick: () => stageJump("cho-hang", { tab: "don-cua-toi", filter: "Cho hang", loaiDon: "" }),
+              },
+              {
+                key: "tu-choi",
+                label: "Từ chối",
+                count: donHangStatusCounts["TN tu choi"],
+                onClick: () => stageJump("tu-choi", { tab: "don-cua-toi", filter: "TN tu choi", loaiDon: "" }),
+              },
+              // "Duyệt trong ngày" KHONG gan count (phan hoi 2026-09-11: dem "so luong TON" - muc nay
+              // la so da XU LY XONG trong ngay, khong phai backlog dang cho, nen khong khop tinh than
+              // "ton" cua yeu cau, co gan so cung de gay hieu nham day la hang cho).
               { key: "duyet-trong-ngay", label: "Duyệt trong ngày", onClick: () => stageJump("duyet-trong-ngay", { tab: "don-cua-toi", filter: "__TODAY__", loaiDon: "" }) },
             ]
           : []),
@@ -391,6 +444,7 @@ export function DatMuaLinhKienModule({
               {
                 key: "cho-ktv-chuyen-tien",
                 label: "Chờ KTV chuyển tiền",
+                count: pxkStatusCounts.CHO_TIEN,
                 onClick: () => stageJump("cho-ktv-chuyen-tien", { tab: "phieu-xuat-kho", filter: "CHO_TIEN", loaiDon: "" }),
               },
               // "Phiếu chờ mã HĐ" (doi ten tu "Tạo mã xuất kho" + DOI DICH, phan hoi 2026-09-11) - TRUOC
@@ -405,6 +459,7 @@ export function DatMuaLinhKienModule({
                     {
                       key: "phieu-cho-ma-hd",
                       label: "Phiếu chờ mã HĐ",
+                      count: pxkStatusCounts["Dang tao phieu"],
                       onClick: () => stageJump("phieu-cho-ma-hd", { tab: "phieu-xuat-kho", filter: "Dang tao phieu", loaiDon: "" }),
                     },
                   ]
@@ -417,6 +472,7 @@ export function DatMuaLinhKienModule({
                     {
                       key: "phieu-cho-ma-misa",
                       label: "Phiếu chờ mã MISA",
+                      count: pxkStatusCounts["Cho ke toan"],
                       onClick: () => stageJump("phieu-cho-ma-misa", { tab: "phieu-xuat-kho", filter: "Cho ke toan", loaiDon: "" }),
                     },
                   ]
@@ -424,20 +480,33 @@ export function DatMuaLinhKienModule({
               {
                 key: "pxk-da-duyet",
                 label: "Phiếu xuất kho đã duyệt",
+                count: pxkStatusCounts["Dang gui KTV"],
                 onClick: () => stageJump("pxk-da-duyet", { tab: "phieu-xuat-kho", filter: "Dang gui KTV", loaiDon: "" }),
               },
               {
                 key: "da-chot-xong",
                 label: "Đã chốt xong đơn xuất",
+                count: pxkStatusCounts["Da chot xong don xuat"],
                 onClick: () => stageJump("da-chot-xong", { tab: "phieu-xuat-kho", filter: "Da chot xong don xuat", loaiDon: "" }),
               },
-              { key: "hang-tru-kho", label: "Hàng trừ kho", onClick: () => stageJump("hang-tru-kho", { tab: "phieu-xuat-kho", filter: "Hang tru kho", loaiDon: "" }) },
+              {
+                key: "hang-tru-kho",
+                label: "Hàng trừ kho",
+                count: pxkStatusCounts["Hang tru kho"],
+                onClick: () => stageJump("hang-tru-kho", { tab: "phieu-xuat-kho", filter: "Hang tru kho", loaiDon: "" }),
+              },
               {
                 key: "kho-ket-thuc",
                 label: "Kho xác nhận kết thúc quy trình",
+                count: pxkStatusCounts["Kho da ket thuc"],
                 onClick: () => stageJump("kho-ket-thuc", { tab: "phieu-xuat-kho", filter: "Kho da ket thuc", loaiDon: "" }),
               },
-              { key: "ktv-da-nhan", label: "KTV nhận đủ hàng", onClick: () => stageJump("ktv-da-nhan", { tab: "phieu-xuat-kho", filter: "KTV da nhan", loaiDon: "" }) },
+              {
+                key: "ktv-da-nhan",
+                label: "KTV nhận đủ hàng",
+                count: pxkStatusCounts["KTV da nhan"],
+                onClick: () => stageJump("ktv-da-nhan", { tab: "phieu-xuat-kho", filter: "KTV da nhan", loaiDon: "" }),
+              },
             ],
           },
         ]
