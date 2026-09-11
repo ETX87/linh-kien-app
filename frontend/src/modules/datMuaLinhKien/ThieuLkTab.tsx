@@ -658,18 +658,17 @@ function ThieuLkGroupedList({
                 <tr className="bg-[var(--ocean-100)]">
                   <td colSpan={effectiveColumns.length} className="px-3 py-2">
                     <div className="flex items-center justify-between gap-3 flex-wrap">
-                      <div className="flex items-center gap-3 flex-wrap text-sm min-w-0">
-                        <span className="font-bold text-[var(--ink-900)] text-sm truncate">
-                          {formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}
-                        </span>
-                        <span className="text-[var(--ink-400)] text-xs shrink-0">{g.dongCon.length} dòng</span>
-                      </div>
-                      <div className="flex items-center gap-1 flex-wrap">
-                        {g.choXuLy > 0 && <Badge tone="warning">{g.choXuLy} chờ xử lý</Badge>}
-                        {g.dangXuLy > 0 && <Badge tone="info">{g.dangXuLy} đang xử lý</Badge>}
-                        {g.hoanTat > 0 && <Badge tone="success">{g.hoanTat} hoàn tất</Badge>}
-                        {g.huyBo > 0 && <Badge tone="danger">{g.huyBo} huỷ/từ chối</Badge>}
-                      </div>
+                      <span className="font-bold text-[var(--ink-900)] text-sm truncate">
+                        {formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}
+                      </span>
+                      {/* Rut gon banner nhom (Phase 4 StageMenu, them 2026-09-11) - gop 4 badge rieng
+                          (chờ xử lý/đang xử lý/hoàn tất/huỷ) thanh 1 dong toi thieu "tên + so luong",
+                          khop dung tinh than da ap dung o DonHangGroupedList (DonCuaToiTab.tsx). */}
+                      {g.choXuLy + g.dangXuLy > 0 ? (
+                        <Badge tone="warning">Chờ {g.choXuLy + g.dangXuLy}/{g.dongCon.length} đơn</Badge>
+                      ) : (
+                        <Badge tone="success">Đã xong {g.dongCon.length} đơn</Badge>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -704,13 +703,13 @@ function ThieuLkGroupedList({
             <div className="bg-[var(--ocean-100)] px-3 py-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-bold text-[var(--ink-900)] text-xs truncate">{formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}</span>
-                <Badge tone="info">{g.dongCon.length} dòng</Badge>
-              </div>
-              <div className="flex items-center gap-1 flex-wrap mt-1">
-                {g.choXuLy > 0 && <Badge tone="warning">{g.choXuLy} chờ xử lý</Badge>}
-                {g.dangXuLy > 0 && <Badge tone="info">{g.dangXuLy} đang xử lý</Badge>}
-                {g.hoanTat > 0 && <Badge tone="success">{g.hoanTat} hoàn tất</Badge>}
-                {g.huyBo > 0 && <Badge tone="danger">{g.huyBo} huỷ/từ chối</Badge>}
+                {/* Rut gon banner nhom (Phase 4 StageMenu, them 2026-09-11) - xem giai thich o ban
+                    desktop phia tren, gop 4 badge rieng thanh 1 "tên + so luong" duy nhat. */}
+                {g.choXuLy + g.dangXuLy > 0 ? (
+                  <Badge tone="warning">Chờ {g.choXuLy + g.dangXuLy}/{g.dongCon.length} đơn</Badge>
+                ) : (
+                  <Badge tone="success">Đã xong {g.dongCon.length} đơn</Badge>
+                )}
               </div>
             </div>
             <div className="border-t border-[var(--line)] divide-y divide-[var(--line)]">

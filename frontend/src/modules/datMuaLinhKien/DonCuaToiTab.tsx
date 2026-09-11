@@ -2077,15 +2077,17 @@ export function DonHangGroupedList({
                         <span className="font-bold text-[var(--ink-900)] text-sm truncate">
                           {formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}
                         </span>
-                        <span className="text-[var(--ink-400)] text-xs shrink-0">{g.dongCon.length} dòng</span>
                         <span className="font-semibold text-[var(--green-700)] shrink-0">{fmtVND(g.tongTien)}</span>
                       </div>
-                      <div className="flex items-center gap-1 flex-wrap">
-                        {g.choDuyet > 0 && <Badge tone="warning">{g.choDuyet} chờ duyệt</Badge>}
-                        {g.dongY > 0 && <Badge tone="success">{g.dongY} đồng ý</Badge>}
-                        {g.tuChoi > 0 && <Badge tone="danger">{g.tuChoi} từ chối</Badge>}
-                        {g.choHang > 0 && <Badge tone="warning">{g.choHang} chờ hàng</Badge>}
-                      </div>
+                      {/* Rut gon banner nhom (Phase 4 StageMenu, them 2026-09-11, phan hoi "banner nhóm
+                          KTV đang quá nhiều badge rời rạc") - truoc day hien RIENG 4 badge (chờ duyệt/
+                          đồng ý/từ chối/chờ hàng) cung luc, gio gop lai thanh 1 dong toi thieu "tên +
+                          số lượng" giong HET logic da co san (va da xac nhan) o the mobile ben duoi. */}
+                      {g.choDuyet + g.choHang > 0 ? (
+                        <Badge tone="warning">Chờ {g.choDuyet + g.choHang}/{g.dongCon.length} đơn</Badge>
+                      ) : (
+                        <Badge tone="success">Đã xong {g.dongCon.length} đơn</Badge>
+                      )}
                     </div>
                   </td>
                 </tr>
