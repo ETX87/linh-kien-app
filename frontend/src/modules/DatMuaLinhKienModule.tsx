@@ -330,6 +330,16 @@ export function DatMuaLinhKienModule({
     setJumpTarget(target);
     setPendingOpenDetailId(target.openDetailId ? { tab: target.tab, id: target.openDetailId } : null);
     setView(target.tab);
+    // FIX (phan hoi 2026-09-11: "số lượng đếm đang không khớp, ví dụ chỉ có 3 dòng nhưng đang đếm 4")
+    // - 2 API dem-theo-trang-thai dung cho badge StageMenu (donHangStatusCounts/pxkStatusCounts) chi
+    // refetchInterval 5 phut (giong quy uoc chung ca app) - trong he nhieu nguoi dung cung luc, 1
+    // nguoi khac vua xu ly xong 1 dong la du lam so tren badge (cache rieng cua TRINH DUYET nguoi dang
+    // xem) lech voi danh sach that. invalidatePipelineCounts() da goi dung sau MOI mutation cua CHINH
+    // nguoi dung do, nhung khong giup ich khi lech đến tu NGUOI KHAC - invalidate lai o DAY (moi lan
+    // dieu huong that su qua 1 muc StageMenu/StatCard/pipeline) de badge tu lam moi ngay truoc khi
+    // nguoi dung nhin thay danh sach dich, giam toi da khoang cach giua badge va danh sach that.
+    qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-status-counts"] });
+    qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-status-counts"] });
   }
   function consumeOpenDetailId() {
     setPendingOpenDetailId(null);
@@ -379,6 +389,9 @@ export function DatMuaLinhKienModule({
     markNavigatedAway("phieu-xuat-kho");
     setPendingOpenCreatePxk(Date.now());
     setView("phieu-xuat-kho");
+    // Cung 1 ly do voi jumpTo() o tren - lam moi badge dem truoc khi nguoi dung thay danh sach dich.
+    qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung-counts"] });
+    qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-status-counts"] });
   }
   const stageMenuGroups: StageMenuGroup[] = [
     ...(canDatHo ? [{ items: [{ key: "tao-don", label: "＋ Tạo đơn", variant: "action" as const, onClick: () => setShowCreateFromPipeline(true) }] }] : []),

@@ -45,7 +45,11 @@ function StageMenuButton({ item, active, sidebar }: { item: StageMenuItem; activ
       >
         <span className="truncate">{item.label}</span>
         {item.count != null && item.count > 0 && (
-          <span className="shrink-0 tabular rounded-full bg-white/20 px-1.5 text-[10px] font-bold text-white">{item.count}</span>
+          // Mau do trung voi badge muc "Đặt mua linh kiện" tren no (Sidebar.tsx, --color-danger) -
+          // phan hoi 2026-09-11: "số chuyển thành màu đỏ giống số ở mục đặt mua linh kiện".
+          <span className="shrink-0 tabular grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[var(--color-danger)] px-1 text-[10px] font-bold text-white">
+            {item.count > 99 ? "99+" : item.count}
+          </span>
         )}
       </button>
     );

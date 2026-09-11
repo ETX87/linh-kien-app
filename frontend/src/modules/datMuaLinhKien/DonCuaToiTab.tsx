@@ -1264,13 +1264,18 @@ export function DonCuaToiTab({
   // dung xemLoaiDon nhu binh thuong). Override tu xoa khi nguoi dung tu tay doi sub-tab (xemLoaiDon
   // that su doi gia tri) - tranh giu mai trang thai "gop" sau khi da roi khoi luong nhay tu pipeline.
   const [loaiDonOverride, setLoaiDonOverride] = useState<string | undefined>(undefined);
-  useEffect(() => {
-    if (initialLoaiDonOverride !== undefined) setLoaiDonOverride(initialLoaiDonOverride === "all" ? "" : initialLoaiDonOverride);
-  }, [initialLoaiDonOverride]);
-  // Xoa override khi nguoi dung TU BAM 1 sub-tab (dem qua loaiDonTabClickSeq tu component cha, xem
-  // giai thich chi tiet o handleTabChange trong DatMuaLinhKienModule.tsx) - KHONG dung effect
-  // [xemLoaiDon] truc tiep vi neu nguoi dung bam lai DUNG sub-tab dang mo san (gia tri khong doi),
-  // React se bo qua effect, override "gop 2 loai" bi ket lai mai du nguoi dung da ro rang muon roi.
+  // FIX (phan hoi 2026-09-11: "số lượng đếm đang không khớp... chỉ có 3 dòng nhưng đang đếm 4") - 2
+  // effect nay PHAI dung dung THU TU khai bao nay (hieu ung "clear" o TREN, "set" o DUOI). Moi lan
+  // StageMenu bam 1 muc "Đơn đặt hàng" (loaiDon:"") deu bump CA HAI prop cung luc trong CUNG 1 lan
+  // re-render (jumpTarget.loaiDon VA loaiDonTabClickSeq, xem stageJump() trong
+  // DatMuaLinhKienModule.tsx) - React chay effect theo dung thu tu khai bao trong CUNG 1 lan flush,
+  // nen neu effect "clear" (phu thuoc loaiDonTabClickSeq) dung SAU effect "set" (phu thuoc
+  // initialLoaiDonOverride) nhu truoc day, no se GHI DE setLoaiDonOverride(undefined) NGAY SAU khi
+  // effect kia vua set "" - ket qua la override "gop ca loai" KHONG BAO GIO thuc su co hieu luc, danh
+  // sach am tham loc rieng theo xemLoaiDon da luu (vd "mua") thay vi gop dung ca mua+cong_no+tra_hang
+  // nhu jumpTarget yeu cau - gay dung ca dem tren StageMenu/pipeline (tinh KHONG loc loai_don) LON HON
+  // so dong danh sach thuc su hien ra (co loc loai_don sai). Dat effect "set" o DUOI de no chay SAU va
+  // thang trong truong hop ca 2 cung bump 1 luot.
   const isFirstLoaiDonSeqRef = useRef(true);
   useEffect(() => {
     if (isFirstLoaiDonSeqRef.current) {
@@ -1279,6 +1284,9 @@ export function DonCuaToiTab({
     }
     setLoaiDonOverride(undefined);
   }, [loaiDonTabClickSeq]);
+  useEffect(() => {
+    if (initialLoaiDonOverride !== undefined) setLoaiDonOverride(initialLoaiDonOverride === "all" ? "" : initialLoaiDonOverride);
+  }, [initialLoaiDonOverride]);
   const effectiveLoaiDon = loaiDonOverride !== undefined ? loaiDonOverride : xemLoaiDon;
   const isAdmin = user?.vai_tro === "Admin";
   const canActAsTram = canBulkTram || isAdmin;
