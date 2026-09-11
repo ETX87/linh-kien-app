@@ -1964,11 +1964,27 @@ export function DonHangGroupedList({
       ),
     },
   ];
+  // Cot tuy chon (Phase 2 StageMenu, them 2026-09-11, phan hoi "man hình chỉ có sẵn vài cột, cần thêm
+  // lựa chọn ẩn/hiện giống các tab khác") - man nay truoc day la MAN DUY NHAT trong module goi
+  // useColumnConfig voi optionalColumns=[] (khong co gi de bat them), khac PhieuXuatKhoTab/TraHangTab/
+  // ThieuLkTab deu da co san bo cot tuy chon rieng. AN MAC DINH (defaultVisibleOptionalKeys=[]) - chi
+  // hien khi nguoi dung tu bat qua "⚙ Tuỳ chỉnh cột", tranh lam chat bang mac dinh cho da so nguoi dung
+  // khong can toi.
+  const optionalCols: Column<EnrichedRow>[] = [
+    { key: "sl_thuc_xuat", header: "SL thực xuất", className: "text-right", render: (row) => row.d.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
+    { key: "yeu_cau_hoa_don", header: "Yêu cầu hóa đơn", render: (row) => row.d.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
+    { key: "ly_do_cham", header: "Lý do từ chối/chờ hàng", render: (row) => row.d.ly_do_cham || <span className="text-[var(--ink-400)]">—</span> },
+    { key: "ghi_chu", header: "Ghi chú người đặt hàng", render: (row) => row.d.ghi_chu || <span className="text-[var(--ink-400)]">—</span> },
+    // "Ghi chú Admin" - xem giai thich mapping (dong dat_don_hang_log MOI NHAT) o comment tren
+    // DonHangRow.ghi_chu_xu_ly_gan_nhat trong types.ts.
+    { key: "ghi_chu_admin", header: "Ghi chú Admin", render: (row) => row.d.ghi_chu_xu_ly_gan_nhat || <span className="text-[var(--ink-400)]">—</span> },
+    { key: "phan_loai_lk", header: "Phân loại linh kiện", render: (row) => row.d.loai_de_xuat || <span className="text-[var(--ink-400)]">—</span> },
+  ];
   const {
     effectiveColumns, toggleableColumns, resolvedOrder, colWidths,
     settingsOpen, setSettingsOpen, dragOverKey, setDragOverKey, draggedColKey,
     toggleColumn, handleColumnDrop, handleResizeStart,
-  } = useColumnConfig(cols, [], [], "dmlk-don-hang-list");
+  } = useColumnConfig(cols, optionalCols, [], "dmlk-don-hang-list");
   const settingsButtonEl = (
     <ColumnSettingsButton
       toggleableColumns={toggleableColumns}

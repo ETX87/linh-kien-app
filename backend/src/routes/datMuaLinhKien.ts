@@ -1563,7 +1563,8 @@ datMuaLinhKien.get("/don-hang", async (c) => {
     .first<{ total: number }>();
   const { results } = await c.env.DB.prepare(
     `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, lk.dac_thu, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
-       ${lastGiaiTrinhAtExpr("ddh.id")} as last_giai_trinh_at
+       ${lastGiaiTrinhAtExpr("ddh.id")} as last_giai_trinh_at,
+       (SELECT ghi_chu FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) as ghi_chu_xu_ly_gan_nhat
      FROM dat_don_hang ddh
      LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
      WHERE ${whereSql}
@@ -1571,7 +1572,7 @@ datMuaLinhKien.get("/don-hang", async (c) => {
      LIMIT ? OFFSET ?`,
   )
     .bind(...binds, pageSize, offset)
-    .all<{ ly_do_cham: string | null; cho_tn_duyet_at: string | null; last_giai_trinh_at: string | null }>();
+    .all<{ ly_do_cham: string | null; cho_tn_duyet_at: string | null; last_giai_trinh_at: string | null; ghi_chu_xu_ly_gan_nhat: string | null }>();
 
   // "Quá hạn - cần lý do chậm" (cung cong thuc voi GET /don-hang/:id, xem hanLyDoCham.ts) - truoc day
   // CHI tinh duoc o man chi tiet tung dong, danh sach hoan toan khong co canh bao (phan hoi chu he

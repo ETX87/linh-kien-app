@@ -112,6 +112,11 @@ export interface DonHangRow {
   // Chi co tren GET /don-hang/:id va GET /phieu-xuat-kho/:id (migration 0014, muc #5) - toan bo lich
   // su giai trinh cua dong nay, moi nhat truoc.
   giaiTrinh?: GiaiTrinhRow[];
+  // Cot "Ghi chú Admin" (Phase 2 StageMenu, them 2026-09-11) - dat_don_hang KHONG co cot ghi chu noi
+  // bo rieng, lay tam ghi_chu cua dong dat_don_hang_log MOI NHAT (thuong la ly do TN/Kho/QC vua duyet/
+  // tu choi/cho hang) lam gia tri hien thi gan nhat voi y nghia "ghi chu xu ly" - xem scalar subquery
+  // trong GET /don-hang.
+  ghi_chu_xu_ly_gan_nhat?: string | null;
 }
 
 // PXK - "chuyen tien" la 1 dieu kien chan rieng tren chinh PXK (thay the bang phieu_so_tien cu, xem
