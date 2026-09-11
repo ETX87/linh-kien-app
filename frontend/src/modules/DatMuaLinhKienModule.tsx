@@ -43,6 +43,7 @@ export function DatMuaLinhKienModule({
   forceView,
   openCase,
   headerExtra,
+  stageMenuSlot,
   onLeaveForceView,
   externalDetailOpen,
   onExternalDetailOpenConsumed,
@@ -70,6 +71,15 @@ export function DatMuaLinhKienModule({
   // thay vi render 1 hang rieng ben duoi (theo yeu cau bo sung sau ra soat: "đẩy luồng thẻ quy trình
   // lên cùng dòng với tiêu đề, tiết kiệm diện tích") - dung dung pattern da co san o BacklogModule.
   headerExtra?: HTMLElement | null;
+  // Node DOM cua slot long trong Sidebar dieu huong chung, ngay duoi muc "Đặt mua linh kiện" (them
+  // 2026-09-11, phan hoi "không đúng tôi muốn các button này ra menu" + "đẩy nó ra sidebar" - StageMenu
+  // Phase 1 TRUOC DAY la 1 rail doc rieng dat CANH noi dung, nhin nhu 2 sidebar chong nhau). Dung LAI
+  // dung pattern portal voi headerExtra o tren - App.tsx giu state DOM node nay (Sidebar.tsx render ra
+  // slot, App.tsx doc lai qua ref callback) vi Sidebar/Module la 2 anh em cung cap voi MainApp, khong
+  // component nao la cha cua component kia. CHI dung tren desktop (xem isMobile ben duoi) - tren
+  // mobile Sidebar la off-canvas (phai bam "Thêm" moi thay), giu nguyen rail ngang cu render NGAY
+  // trong noi dung de khong mat kha nang nhay nhanh.
+  stageMenuSlot?: HTMLElement | null;
 } = {}) {
   const auth = useAuth();
   const user = auth.status === "authenticated" ? auth.user : null;
@@ -584,11 +594,14 @@ export function DatMuaLinhKienModule({
           Dat mua linh kien". Ngay khi nguoi dung bam 1 StatCard/o so de nhay sang tab khac
           (navigatedAway=true), thanh tab HIEN LAI binh thuong de ho co duong di tiep - khong bi ket o
           1 trang cut khong co cach quay lai. forceView="tra-hang" GIU NGUYEN hanh vi cu (luon hien). */}
-      <div className={isMobile ? "" : "flex items-start"}>
-        {(navigatedAway || (forceView !== "trang-chu" && forceView !== "thieu-lk")) && (
-          <StageMenu groups={stageMenuGroups} activeKey={stageMenuActiveKey} isMobile={isMobile} />
-        )}
-        <div className="flex-1 min-w-0">
+      {(() => {
+        const showStageMenu = navigatedAway || (forceView !== "trang-chu" && forceView !== "thieu-lk");
+        if (!showStageMenu) return null;
+        if (isMobile) return <StageMenu groups={stageMenuGroups} activeKey={stageMenuActiveKey} isMobile />;
+        if (!stageMenuSlot) return null;
+        return createPortal(<StageMenu groups={stageMenuGroups} activeKey={stageMenuActiveKey} isMobile={false} />, stageMenuSlot);
+      })()}
+      <div className="min-w-0">
       <Suspense fallback={<TabFallback />}>
         {activeView === "trang-chu" && (
           <TrangChuTab
@@ -695,7 +708,6 @@ export function DatMuaLinhKienModule({
           />
         )}
       </Suspense>
-        </div>
       </div>
       {openCaseId && <CaseDetailModal caseId={openCaseId} onClose={() => setOpenCaseId(null)} />}
     </div>

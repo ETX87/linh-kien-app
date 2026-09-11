@@ -24,15 +24,37 @@ export interface StageMenuGroup {
   items: StageMenuItem[];
 }
 
-function StageMenuButton({ item, active, vertical }: { item: StageMenuItem; active: boolean; vertical?: boolean }) {
+function StageMenuButton({ item, active, sidebar }: { item: StageMenuItem; active: boolean; sidebar?: boolean }) {
   const isAction = item.variant === "action";
+  if (sidebar) {
+    // Nhung trong Sidebar dieu huong chung (them 2026-09-11, phan hoi "đẩy nó ra sidebar" - truoc do
+    // la 1 rail doc rieng NAM CANH noi dung, nhin nhu "2 sidebar chong nhau") - dung mau token cua
+    // chinh Sidebar.tsx (--sidebar-*) thay vi theme "ocean" cua content, de hoa lam 1 khoi voi menu
+    // dieu huong chung chu khong phai 1 mang mau khac dat canh nhau.
+    return (
+      <button
+        type="button"
+        onClick={item.onClick}
+        className={`focus-ring w-full flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-[12.5px] font-semibold text-left transition-colors ${
+          isAction
+            ? "bg-[var(--sidebar-tag-bg)] text-[var(--sidebar-tag-fg)] hover:bg-[var(--sidebar-hover-bg)]"
+            : active
+              ? "bg-[var(--sidebar-active-bg)] text-[var(--sidebar-active-fg)]"
+              : "text-[var(--sidebar-fg)] hover:bg-[var(--sidebar-hover-bg)]"
+        }`}
+      >
+        <span className="truncate">{item.label}</span>
+        {item.count != null && item.count > 0 && (
+          <span className="shrink-0 tabular rounded-full bg-white/20 px-1.5 text-[10px] font-bold text-white">{item.count}</span>
+        )}
+      </button>
+    );
+  }
   return (
     <button
       type="button"
       onClick={item.onClick}
-      className={`focus-ring rounded-lg font-semibold transition-colors whitespace-nowrap ${
-        vertical ? "flex items-center justify-between gap-2 px-2.5 py-1.5 text-[13px] text-left" : "px-2.5 py-1.5 text-xs"
-      } ${
+      className={`focus-ring rounded-lg font-semibold transition-colors whitespace-nowrap px-2.5 py-1.5 text-xs ${
         isAction
           ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)]"
           : active
@@ -54,6 +76,11 @@ function StageMenuButton({ item, active, vertical }: { item: StageMenuItem; acti
   );
 }
 
+// SUA (phan hoi 2026-09-11: "không đúng tôi muốn các button này ra menu" + "đẩy nó ra sidebar") - bo
+// han nhanh "rail doc rieng" tung dat canh noi dung tren desktop (nhin nhu 2 thanh dieu huong chong
+// nhau). isMobile=false gio LUON duoc portal thang vao trong Sidebar dieu huong chung (xem
+// DatMuaLinhKienModule.tsx `stageMenuSlot` + Sidebar.tsx `stageMenuSlotRef`), nen chi con 2 nhanh:
+// hang ngang tren mobile (khong doi) va danh sach long trong Sidebar tren desktop (moi).
 export function StageMenu({ groups, activeKey, isMobile }: { groups: StageMenuGroup[]; activeKey: string; isMobile: boolean }) {
   // Mobile: khong du rong cho 1 rail doc (danh sach ~15 muc) - giu dang 1 hang vuot ngang, gom nhom
   // bang 1 vach doc mong giua cac nhom thay vi tieu de (tiet kiem chieu cao, tranh xuong 2 hang).
@@ -72,17 +99,17 @@ export function StageMenu({ groups, activeKey, isMobile }: { groups: StageMenuGr
     );
   }
   return (
-    <nav className="w-60 shrink-0 border-r border-[var(--color-border)] pr-3 mr-4">
+    <div className="flex flex-col gap-3">
       {groups.map((g, gi) => (
-        <div key={gi} className={gi > 0 ? "mt-4" : ""}>
-          {g.title && <div className="px-2 mb-1 text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">{g.title}</div>}
+        <div key={gi}>
+          {g.title && <div className="px-2 mb-1 text-[10px] font-bold uppercase tracking-wider text-[var(--sidebar-fg-dim)]">{g.title}</div>}
           <div className="flex flex-col gap-0.5">
             {g.items.map((it) => (
-              <StageMenuButton key={it.key} item={it} active={it.key === activeKey} vertical />
+              <StageMenuButton key={it.key} item={it} active={it.key === activeKey} sidebar />
             ))}
           </div>
         </div>
       ))}
-    </nav>
+    </div>
   );
 }

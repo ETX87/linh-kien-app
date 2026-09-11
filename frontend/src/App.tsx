@@ -220,6 +220,10 @@ function MainApp({
   // Slot dung chung de DatMuaLinhKienModule "portal" luong quy trinh + nut "Việc của tôi: N" len canh
   // tieu de trang thay vi 1 hang rieng ben duoi - dung y giong he goc.
   const [headerExtraEl, setHeaderExtraEl] = useState<HTMLDivElement | null>(null);
+  // Slot long trong Sidebar (them 2026-09-11, phan hoi "đẩy nó ra sidebar") - Sidebar render ra <div>
+  // rong ngay duoi muc "Đặt mua linh kiện", DatMuaLinhKienModule portal menu giai doan hoa vao day.
+  // Dung pattern portal y het headerExtraEl o tren - Sidebar/Module la 2 anh em cung cap voi MainApp.
+  const [stageMenuSlotEl, setStageMenuSlotEl] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!allowedModules.includes(active)) setActive(allowedModules[0] ?? "dat-mua-lk");
@@ -262,6 +266,7 @@ function MainApp({
         user={user}
         realIsAdmin={realIsAdmin}
         viewAsRole={viewAsRole}
+        stageMenuSlotRef={setStageMenuSlotEl}
       />
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Banner "xem thu vai tro" (phan hoi 2026-08-20) - LUON hien khi viewAsRole != null, ke ca
@@ -340,6 +345,7 @@ function MainApp({
             <DatMuaLinhKienModule
               forceView={active === "dat-mua-lk" ? undefined : active}
               headerExtra={headerExtraEl}
+              stageMenuSlot={stageMenuSlotEl}
               externalDetailOpen={pendingDetailOpen}
               onExternalDetailOpenConsumed={() => setPendingDetailOpen(null)}
               // FIX (phan hoi 2026-08-26, cung van de tren): khi nguoi dung bam so lieu/StatCard nhay

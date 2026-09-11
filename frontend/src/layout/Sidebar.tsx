@@ -30,6 +30,7 @@ export function Sidebar({
   user,
   realIsAdmin,
   viewAsRole,
+  stageMenuSlotRef,
 }: {
   active: string;
   setActive: (key: string) => void;
@@ -42,6 +43,10 @@ export function Sidebar({
   user: AppUser;
   realIsAdmin: boolean;
   viewAsRole: ViewAsRole | null;
+  // Slot long duoi muc "Đặt mua linh kiện" de DatMuaLinhKienModule.tsx "portal" menu giai doan hoa vao
+  // (them 2026-09-11, xem giai thich day du o prop `stageMenuSlot` cua module do) - chi 1 <div> rong,
+  // Sidebar KHONG biet/khong can biet noi dung ben trong no la gi.
+  stageMenuSlotRef?: (el: HTMLDivElement | null) => void;
 }) {
   const isMobile = useIsMobile();
   useEffect(() => {
@@ -113,16 +118,12 @@ export function Sidebar({
                     )}
                   </>
                 );
-                if (it.href) {
-                  return (
-                    <a key={it.key} href={it.href} className={cls} title={collapsed ? it.label : undefined}>
-                      {inner}
-                    </a>
-                  );
-                }
-                return (
+                const itemEl = it.href ? (
+                  <a href={it.href} className={cls} title={collapsed ? it.label : undefined}>
+                    {inner}
+                  </a>
+                ) : (
                   <button
-                    key={it.key}
                     onClick={() => {
                       setActive(it.key);
                       if (isMobile) onMobileClose();
@@ -132,6 +133,18 @@ export function Sidebar({
                   >
                     {inner}
                   </button>
+                );
+                // Slot menu giai doan hoa (them 2026-09-11) - long NGAY DUOI muc "Đặt mua linh kiện",
+                // rong (empty:hidden) khi khong co gi portal vao (VD dang o module khac, hoac Sidebar
+                // dang thu gon icon-only nen an luon showText). Xem stageMenuSlot o DatMuaLinhKienModule.tsx.
+                if (it.key !== "dat-mua-lk") return <div key={it.key}>{itemEl}</div>;
+                return (
+                  <div key={it.key}>
+                    {itemEl}
+                    {showText && (
+                      <div ref={stageMenuSlotRef} className="empty:hidden pl-[30px] pr-1 pb-1.5" />
+                    )}
+                  </div>
                 );
               })}
             </div>
