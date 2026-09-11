@@ -1,7 +1,8 @@
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { Btn, type BtnVariant } from "../../components/x/Btn";
 import { Badge, type Tone } from "../../components/x/Badge";
 import { Select } from "../../components/x/Form";
+import { DropdownPortal } from "../../components/ui/DropdownPortal";
 import { api } from "../../api/client";
 import { compressImage } from "../../lib/imageCompress";
 import { trangThaiLabel, describeApiError, useNenAnhTraHangEnabled } from "./helpers";
@@ -294,6 +295,13 @@ export function TrangThaiDropdownFilter({
 // the phu trach NHIEU Khu vuc cung luc nen can toggle duoc tung khu vuc doc lap. `value` rong (Set
 // size 0) = "Tất cả" (khong loc gi, dung y nghia voi cac bo loc khac trong module nay - CHI la bo loc
 // UI, KHONG phai gioi han bao mat nhu View - xem GET /khu-vuc-cua-toi backend).
+// SUA (phan hoi 2026-09-11: "Bộ lọc Khu vực -> chuyển sang listdown nhiều tùy chọn + 1 tùy chọn tất
+// cả") - TRUOC DAY la 1 hang chip rieng biet (moi khu vuc 1 nut tron), voi he thong co hang chuc Khu
+// vuc se choan het chieu ngang/xuong nhieu hang. Doi thanh 1 nut trigger + dropdown checkbox (dung lai
+// DropdownPortal, cung pattern voi ColumnSettingsButton o ColumnHeader.tsx) - GIU NGUYEN chu ky prop
+// (value/onChange/options) de ca 5 noi goi (DonCuaToiTab/PhieuXuatKhoTab/ThieuLkTab/TraHangTab/
+// TrangChuTab) khong phai doi gi. Ten export giu nguyen "KhuVucChipFilter" du khong con la "chip" nua,
+// tranh doi 5 dong import chi vi doi UI trinh bay.
 export function KhuVucChipFilter({
   value,
   onChange,
@@ -303,42 +311,57 @@ export function KhuVucChipFilter({
   onChange: (next: Set<string>) => void;
   options: { value: string; label: string }[];
 }) {
+  const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      const t = e.target as Node;
+      if (anchorRef.current?.contains(t) || contentRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [open]);
+
   function toggle(ma: string) {
     const next = new Set(value);
     if (next.has(ma)) next.delete(ma);
     else next.add(ma);
     onChange(next);
   }
+
+  const selectedLabels = [...value].map((ma) => options.find((o) => o.value === ma)?.label ?? ma);
+  const triggerLabel = value.size === 0 ? "Tất cả" : value.size <= 2 ? selectedLabels.join(", ") : `${value.size} khu vực`;
+
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="relative inline-block">
       <button
         type="button"
-        onClick={() => onChange(new Set())}
-        className={`focus-ring rounded-full px-[13px] py-[5.5px] text-xs font-medium transition-colors ${
-          value.size === 0
-            ? "bg-[var(--color-primary)] border border-[var(--color-primary)] text-white font-semibold"
-            : "bg-[var(--color-surface)] text-[var(--color-text)] border border-[var(--color-border)] hover:border-[var(--color-primary)]"
+        ref={anchorRef}
+        onClick={() => setOpen((v) => !v)}
+        className={`focus-ring inline-flex items-center gap-1.5 max-w-[240px] rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
+          value.size > 0
+            ? "bg-[var(--color-primary)] border-[var(--color-primary)] text-white font-semibold"
+            : "bg-[var(--color-surface)] text-[var(--color-text)] border-[var(--color-border)] hover:border-[var(--color-primary)]"
         }`}
       >
-        Tất cả
+        <span className="truncate">{triggerLabel}</span>
+        <span className="shrink-0 text-[10px] opacity-70">▾</span>
       </button>
-      {options.map((o) => {
-        const active = value.has(o.value);
-        return (
-          <button
-            key={o.value}
-            type="button"
-            onClick={() => toggle(o.value)}
-            className={`focus-ring rounded-full px-[13px] py-[5.5px] text-xs font-medium transition-colors ${
-              active
-                ? "bg-[var(--color-primary)] border border-[var(--color-primary)] text-white font-semibold"
-                : "bg-[var(--color-surface)] text-[var(--color-text)] border border-[var(--color-border)] hover:border-[var(--color-primary)]"
-            }`}
-          >
+      <DropdownPortal anchorRef={anchorRef} contentRef={contentRef} open={open} matchWidth={false} minWidth={200} maxHeight={320} className="rounded-xl py-1.5">
+        <label className="flex items-center gap-2 px-3 py-1.5 mb-1 border-b border-[var(--line)] text-xs font-semibold text-[var(--ink-700)] hover:bg-slate-50 cursor-pointer">
+          <input type="checkbox" checked={value.size === 0} onChange={() => onChange(new Set())} className="w-3.5 h-3.5" />
+          Tất cả
+        </label>
+        {options.map((o) => (
+          <label key={o.value} className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-700)] hover:bg-slate-50 cursor-pointer">
+            <input type="checkbox" checked={value.has(o.value)} onChange={() => toggle(o.value)} className="w-3.5 h-3.5" />
             {o.label}
-          </button>
-        );
-      })}
+          </label>
+        ))}
+      </DropdownPortal>
     </div>
   );
 }

@@ -241,15 +241,18 @@ export function DatMuaLinhKienModule({
     queryFn: () => api.get<{ mua: number; cong_no: number; tra_hang: number }>("/dat-mua-lk/loai-don-counts"),
   });
   const loaiDonCounts = loaiDonCountsData ?? { mua: 0, cong_no: 0, tra_hang: 0 };
-  // Badge so dem cho muc "Chờ tạo xuất" (phan hoi 2026-08-24 goc: "Thẻ phiếu xuất kho có đơn nhưng
-  // đang không hiện (1) ở tên thẻ") - tong so PXK dang mo (chua xu ly xong). CHI fetch khi group "Xuất
-  // kho" thuc su hien (khop dung dieu kien canXemPxkTab ben duoi) - tranh goi API thua cho KTV/Ve tinh.
   const canXemPxkTab = canTacNghiep || canKho || canKeToan || isGiamSat || isFieldKtv;
-  const { data: pxkMoCountData } = useQuery({
-    queryKey: ["dat-mua-lk-pxk-mo-count"],
-    queryFn: () => api.get<{ count: number }>("/phieu-xuat-kho/mo-count"),
-    enabled: canXemPxkTab,
+  // Badge so dem cho muc "Đơn chờ tạo xuất" (phan hoi 2026-09-11: "'Chờ tạo xuất' là danh sách đơn đã
+  // duyệt nhưng chưa add vào phiếu") - dung CHUNG queryKey voi PhieuXuatKhoTab.tsx (query nay o do CHI
+  // enabled khi Modal "Tạo phiếu xuất kho" dang mo - o day fetch LUON cho TN de co so hien tren menu du
+  // Modal chua mo, react-query dedupe theo key nen khong ton them request khi ca 2 cung fetch).
+  const { data: khaDungCountsForBadge } = useQuery({
+    queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung-counts"],
+    queryFn: () => api.get<{ counts: Record<"mua" | "cong_no" | "tra_hang", number> }>("/phieu-xuat-kho/don-hang-kha-dung-counts"),
+    enabled: canTacNghiep,
+    refetchInterval: 5 * 60_000,
   });
+  const donHangKhaDungTotal = khaDungCountsForBadge ? Object.values(khaDungCountsForBadge.counts).reduce((s, n) => s + n, 0) : 0;
   // Dem so lan nguoi dung TU BAM 1 muc StageMenu thuoc "Đơn đặt hàng" (loaiDon:"" - che do "gop ca
   // loai") - dung lam "tin hieu" rieng cho DonCuaToiTab biet khi nao can XOA override cu (xem
   // loaiDonOverride trong DonCuaToiTab.tsx). KHONG the dung truc tiep gia tri loaiDonFor() vi React se
@@ -333,11 +336,13 @@ export function DatMuaLinhKienModule({
     jumpTo(target);
     if (target.tab === "don-cua-toi") setLoaiDonTabClickSeq((n) => n + 1);
   }
-  // "Chờ tạo xuất"/"Tạo mã xuất kho" - 2 nhan rieng cung tro toi 1 man hinh thuc su (Modal "Tạo phiếu
-  // xuất kho" ben trong PhieuXuatKhoTab, noi DUY NHAT hien danh sach dong da duyet chua gan PXK qua GET
-  // /don-hang-kha-dung) - khong co man rieng "chi de xem danh sach" nay trong kien truc hien tai, tach
-  // rieng se trung lap logic chon dong/gom PXK. nonce (Date.now()) ep effect trong PhieuXuatKhoTab chay
-  // lai ke ca bam lai DUNG 1 muc menu.
+  // "Đơn chờ tạo xuất" - mo Modal "Tạo phiếu xuất kho" ben trong PhieuXuatKhoTab, noi DUY NHAT hien
+  // danh sach dong da duyet chua gan PXK qua GET /don-hang-kha-dung - khong co man rieng "chi de xem
+  // danh sach" nay trong kien truc hien tai, tach rieng se trung lap logic chon dong/gom PXK. nonce
+  // (Date.now()) ep effect trong PhieuXuatKhoTab chay lai ke ca bam lai DUNG 1 muc menu. SUA (phan hoi
+  // 2026-09-11): TRUOC DAY "Tạo mã xuất kho" cung goi ham nay (trung dich voi "Chờ tạo xuất") - gio
+  // "Phiếu chờ mã HĐ" (doi ten tu do) chuyen sang stageJump() thuong (filter="Dang tao phieu" tren PXK
+  // that) thay vi mo modal, nen ham nay chi con 1 nguoi goi.
   const [pendingOpenCreatePxk, setPendingOpenCreatePxk] = useState(0);
   function openCreatePxk(key: string) {
     setStageMenuActiveKey(key);
@@ -376,14 +381,45 @@ export function DatMuaLinhKienModule({
           {
             title: "Xuất kho",
             items: [
-              ...(canTacNghiep ? [{ key: "cho-tao-xuat", label: "Chờ tạo xuất", onClick: () => openCreatePxk("cho-tao-xuat") }] : []),
+              // "Đơn chờ tạo xuất" (doi ten tu "Chờ tạo xuất", phan hoi 2026-09-11) - danh sach dat_don_hang
+              // DA "TN da duyet" nhung CHUA gan vao PXK nao (chua co ma_xuat_kho) - dung dung khai niem
+              // GET /phieu-xuat-kho/don-hang-kha-dung, hien qua Modal "Tạo phiếu xuất kho" (noi DUY NHAT
+              // xem duoc danh sach nay, xem giai thich o openCreatePxk).
+              ...(canTacNghiep
+                ? [{ key: "cho-tao-xuat", label: "Đơn chờ tạo xuất", count: donHangKhaDungTotal, onClick: () => openCreatePxk("cho-tao-xuat") }]
+                : []),
               {
                 key: "cho-ktv-chuyen-tien",
                 label: "Chờ KTV chuyển tiền",
                 onClick: () => stageJump("cho-ktv-chuyen-tien", { tab: "phieu-xuat-kho", filter: "CHO_TIEN", loaiDon: "" }),
               },
+              // "Phiếu chờ mã HĐ" (doi ten tu "Tạo mã xuất kho" + DOI DICH, phan hoi 2026-09-11) - TRUOC
+              // DAY trung dich voi "Chờ tạo xuất" (ca 2 cung mo Modal tao PXK, gay nham "2 nut lam 1
+              // viec"). Danh sach PXK da "Dang tao phieu" VA da qua dieu kien chuyen tien (da chuyen
+              // xong hoac khong can chuyen - filter="Dang tao phieu" o backend TU LOAI TRU nhanh CHO_TIEN,
+              // xem comment backend/src/routes/phieuXuatKho.ts dong 175-179) = dung y "chờ TN điền hoặc
+              // TN đã điền mã đơn hàng nhưng chưa ấn gửi sang kế toán". Nut "+ Tạo phiếu xuất kho" trong
+              // toolbar cua PhieuXuatKhoTab van la duong vao THAT su de tao PXK moi (khong mat tinh nang).
               ...(canTacNghiep
-                ? [{ key: "tao-ma-xuat-kho", label: "Tạo mã xuất kho", variant: "action" as const, onClick: () => openCreatePxk("tao-ma-xuat-kho") }]
+                ? [
+                    {
+                      key: "phieu-cho-ma-hd",
+                      label: "Phiếu chờ mã HĐ",
+                      onClick: () => stageJump("phieu-cho-ma-hd", { tab: "phieu-xuat-kho", filter: "Dang tao phieu", loaiDon: "" }),
+                    },
+                  ]
+                : []),
+              // "Phiếu chờ mã MISA" (moi, phan hoi 2026-09-11) - PXK dang "Cho ke toan" (da chot mã HĐ,
+              // cho Ke toan dien ma_misa) - filter "Cho ke toan" da co san tu truoc (PXK_TRANG_THAI_OPTIONS
+              // trong constants.ts), khong can sua backend.
+              ...(canKeToan || canTacNghiep
+                ? [
+                    {
+                      key: "phieu-cho-ma-misa",
+                      label: "Phiếu chờ mã MISA",
+                      onClick: () => stageJump("phieu-cho-ma-misa", { tab: "phieu-xuat-kho", filter: "Cho ke toan", loaiDon: "" }),
+                    },
+                  ]
                 : []),
               {
                 key: "pxk-da-duyet",
