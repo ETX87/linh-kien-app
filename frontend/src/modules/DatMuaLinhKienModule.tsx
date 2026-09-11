@@ -428,12 +428,11 @@ export function DatMuaLinhKienModule({
                 count: donHangStatusCounts["Cho hang"],
                 onClick: () => stageJump("cho-hang", { tab: "don-cua-toi", filter: "Cho hang", loaiDon: "" }),
               },
-              {
-                key: "tu-choi",
-                label: "Từ chối",
-                count: donHangStatusCounts["TN tu choi"],
-                onClick: () => stageJump("tu-choi", { tab: "don-cua-toi", filter: "TN tu choi", loaiDon: "" }),
-              },
+              // "Từ chối" KHONG gan count (phan hoi 2026-09-11: "không cần đếm vì nó sẽ tăng lũy kế
+              // liên tục") - khac cac trang thai cho xu ly khac (giam dan ve 0 khi xu ly xong), "TN tu
+              // choi" la trang thai DONG vinh vien (khong ai "xu ly tiep" de giam so nay), so cang lon
+              // theo thoi gian khong mang y nghia "backlog can lam" nhu cac badge khac.
+              { key: "tu-choi", label: "Từ chối", onClick: () => stageJump("tu-choi", { tab: "don-cua-toi", filter: "TN tu choi", loaiDon: "" }) },
               // "Duyệt trong ngày" KHONG gan count (phan hoi 2026-09-11: dem "so luong TON" - muc nay
               // la so da XU LY XONG trong ngay, khong phai backlog dang cho, nen khong khop tinh than
               // "ton" cua yeu cau, co gan so cung de gay hieu nham day la hang cho).
@@ -490,17 +489,26 @@ export function DatMuaLinhKienModule({
                     },
                   ]
                 : []),
-              {
-                key: "pxk-da-duyet",
-                label: "Phiếu xuất kho đã duyệt",
-                count: pxkStatusCounts["Dang gui KTV"],
-                onClick: () => stageJump("pxk-da-duyet", { tab: "phieu-xuat-kho", filter: "Dang gui KTV", loaiDon: "" }),
-              },
+              // Thu tu 5 muc con lai KHOP DUNG trinh tu that (Da chot xong don xuat -> [Dang gui KTV ->
+              // KTV da nhan] hoac [Hang tru kho] hoac [Kho da ket thuc], xem comment dau
+              // backend/src/routes/phieuXuatKho.ts) - TRUOC DAY "pxk-da-duyet" (Dang gui KTV) dat LEN
+              // TRUOC "Đã chốt xong đơn xuất" du xay ra SAU no trong thuc te, dong thoi nhan "Phiếu
+              // xuất kho đã duyệt" khong khop dung y nghia trang thai (KHONG phai "da duyet", ma la
+              // "da gui hang cho KTV, dang cho KTV xac nhan da nhan" - dung y tooltip
+              // "Phiếu xuất kho đang chờ KTV xác nhận đã nhận hàng." cua chinh buoc "KTV" tren luong
+              // quy trinh) - phan hoi 2026-09-11: "Thiếu giai đoạn 'Đã gửi chờ KTV xác nhận'" thuc ra
+              // la do nhan cu gay hieu nham day la 1 buoc khac, khong phai thieu that.
               {
                 key: "da-chot-xong",
                 label: "Đã chốt xong đơn xuất",
                 count: pxkStatusCounts["Da chot xong don xuat"],
                 onClick: () => stageJump("da-chot-xong", { tab: "phieu-xuat-kho", filter: "Da chot xong don xuat", loaiDon: "" }),
+              },
+              {
+                key: "dang-gui-ktv",
+                label: "Đã gửi chờ KTV xác nhận",
+                count: pxkStatusCounts["Dang gui KTV"],
+                onClick: () => stageJump("dang-gui-ktv", { tab: "phieu-xuat-kho", filter: "Dang gui KTV", loaiDon: "" }),
               },
               {
                 key: "hang-tru-kho",
