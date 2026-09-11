@@ -227,7 +227,6 @@ export function TaoDonTab({
           const batBuocYcsc = maYcscRequired(d.loai_de_xuat);
           const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
           const giaUocTinh = lk?.gia_ban != null ? lk.gia_ban * d.so_luong_de_xuat : null;
-          const tone = LOAI_DON_TONE[loaiDon];
           // "khac..." mo Select day du - tu dong mo neu gia tri hien tai KHONG khop 1 trong 3 nut
           // nhanh (vd sua tu don cu / import co san loai it dung), khong chi khi nguoi dung tu bam.
           const quickValues = (["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const)
@@ -250,49 +249,36 @@ export function TaoDonTab({
             <div
               key={idx}
               ref={activeRowRef}
-              // SUA (phan hoi 2026-08-18 lan 2): dong uu_tien them ring-2 bao QUANH CA THE (ve ngoai
-              // border-box, khong dung do voi border-l-4 mau loai_don) - "toan bo o chua linh kien do"
-              // gio noi bat het muc ngay ca khi dang mo rong xem/sua, khong chi luc thu gon. KHONG doi
-              // bg cua chinh div nay (van bg-white) - vung noi dung o duoi (p-3, cac o nhap) ke thua
-              // bg-white nay nguyen ven, chi header strip ben duoi doi mau. SUA (phan hoi 2026-08-19:
-              // "màu viền vàng bị lẫn" khi dòng mới kế thừa loại "Công nợ" cũng amber-500) - đổi hẳn
-              // sang cam THAT (token --orange-* rieng, khac amber) de 2 khai niem "loại đơn" và
-              // "ưu tiên" KHONG con dung chung 1 mau nua.
-              className={`bg-white border border-[var(--line)] ${tone.border} border-l-4 rounded-xl overflow-hidden shadow-sm transition-shadow ${justAdded ? "shadow-[0_0_0_3px_var(--teal-100)]" : ""} ${d.uu_tien ? "ring-2 ring-[var(--orange-500)]" : ""}`}
+              // RESTYLE (Phase 5 StageMenu, phan hoi 2026-09-11: "đơn giản hoá giống ảnh minh hoạ" -
+              // tham khao form "NEW ĐƠN" AppSheet cua cong ty, dang khung trang phang, khong con vien
+              // mau/ring theo loai_don/uu_tien nhu truoc - CHI doi hinh thuc, KHONG doi hanh vi/du lieu
+              // (uu_tien van luu binh thuong qua checkbox o duoi).
+              className={`bg-white border border-[var(--line)] rounded-xl overflow-hidden shadow-sm transition-shadow ${justAdded ? "shadow-[0_0_0_3px_var(--teal-100)]" : ""}`}
             >
-              {/* Header dong: so thu tu + loai don (mau phan biet) + xoa dong - dua nut xoa len dau
-                  de luon de thay, khong chen vao giua luong tab cua cac o nhap (phan hoi UX dot 2).
-                  Phan hoi thiet ke: doi nen tu --bg (trung voi nen TRANG - lam header lan vao khung
-                  modal) sang --surface-100 that su phan tang; "Xoa dong" doi tu link chu suong sang
-                  nut that (Btn danger) cho ro trong luong hanh dong xoa. Tickbox Uu tien CHINH LA o o
-                  day, bam tich TRUC TIEP ngay tren tieu de - khong con la 1 badge chi-doc + 1 checkbox
-                  rieng o duoi nua, gio CHI 1 o duy nhat lam ca 2 viec: vua la cong tac tich vua la dau
-                  hieu hien thi (mau cam, xem giai thich o className cua the ben tren). */}
-              <div className={`flex items-center justify-between gap-2 px-3 py-2 border-b border-[var(--line)] ${d.uu_tien ? "bg-[var(--orange-100)]" : "bg-[var(--surface-100)]"}`}>
-                <div className="flex items-center gap-2 flex-wrap min-w-0">
-                  <span className="font-mono text-[11px] text-[var(--ink-400)] shrink-0">Dòng {idx + 1}{drafts.length > 1 ? ` / ${drafts.length}` : ""}</span>
-                  <Badge tone={tone.tone}>{tone.label}</Badge>
-                  <label
-                    className={`flex items-center gap-1.5 text-xs font-semibold rounded-full pl-1.5 pr-2.5 py-1 cursor-pointer transition-colors select-none ${
-                      d.uu_tien ? "bg-[var(--orange-600)] text-white" : "bg-white border border-[var(--line)] text-[var(--ink-500)] hover:border-[var(--orange-500)]/60"
-                    }`}
-                    title="Đánh dấu dòng này là ưu tiên"
-                  >
+              {/* Header dong: so thu tu + xoa dong - RUT GON (Phase 5): bo Badge loai_don (trung lap
+                  thong tin voi o "Loại đề xuất" ben duoi) va pill mau cam cho Ưu tiên, dua ve 1 hang
+                  phang trung tinh + 1 checkbox thuong. */}
+              <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[var(--line)] bg-[var(--surface-100)]">
+                <div className="flex items-center gap-3 flex-wrap min-w-0">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-400)] shrink-0">
+                    Dòng {idx + 1}{drafts.length > 1 ? ` / ${drafts.length}` : ""}
+                  </span>
+                  <label className="flex items-center gap-1.5 text-xs font-medium text-[var(--ink-600)] cursor-pointer select-none" title="Đánh dấu dòng này là ưu tiên">
                     <input
                       type="checkbox"
                       checked={d.uu_tien}
                       onChange={(e) => updateDraft(idx, { uu_tien: e.target.checked })}
                       className="w-3.5 h-3.5 accent-[var(--orange-600)]"
                     />
-                    ⭐ Ưu tiên
+                    Ưu tiên
                   </label>
                 </div>
                 <Btn size="sm" variant="danger" onClick={() => deleteDraft(idx)} disabled={drafts.length === 1}>
-                  ✕ Xóa dòng
+                  Xóa dòng
                 </Btn>
               </div>
 
-              <div className="p-3 flex flex-col gap-3">
+              <div className="p-3.5 flex flex-col gap-3.5">
                 {/* 1) Ma linh kien - luon full-width MOI breakpoint (truoc day bi ket 33% tren
                     tablet/desktop khien ten linh kien dai bi cat - phan hoi UX dot 2 diem chinh).
                     autoFocus CHI khi day la dong VUA duoc them (justAdded) va dang la dong active -
@@ -302,10 +288,11 @@ export function TaoDonTab({
                   <LinhKienPicker value={d.ma_lk} onChange={(v) => updateDraft(idx, { ma_lk: v })} options={danhMuc} autoFocus={justAdded} />
                 </div>
 
-                {/* 2+3+4) Loai de xuat + So luong + Gia uoc tinh GOP 1 HANG (phan hoi 2026-08-19: "sắp
-                    xếp thành 1 dòng") - truoc day gia uoc tinh nam rieng 1 dong phu ben duoi. */}
+                {/* RESTYLE (Phase 5, phan hoi "đơn giản hoá giống ảnh minh hoạ") - tach lai thanh 3
+                    khoi rieng "Loại đề xuất/Số lượng/Giá ước tính" (truoc day gop 1 hang) de khop dung
+                    nhip "1 nhan - 1 o" cua form tham khao, thay vi don het vao 1 dong dai. */}
                 <div>
-                  <label className={reqLabelClass(!d.loai_de_xuat.trim() || !(d.so_luong_de_xuat > 0))}>Loại đề xuất · Số lượng · Giá ước tính *</label>
+                  <label className={reqLabelClass(!d.loai_de_xuat.trim())}>Loại đề xuất *</label>
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="flex gap-1 flex-wrap flex-1 min-w-[160px]">
                       {(["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const).map((kw) => {
@@ -343,11 +330,6 @@ export function TaoDonTab({
                         khác…
                       </Btn>
                     </div>
-                    {/* SUA (phan hoi 2026-08-21: "ô nhập loại yêu cầu này dài quá mức cần thiết, cho
-                        nó về cùng dòng với button bấm bên trên") - truoc day Select nay nam NGOAI hang
-                        flex chinh (w-full mt-1, tu xuong dong rieng, chiem het chieu rong). Doi thanh 1
-                        item TRONG CUNG hang flex-wrap voi nhom nut nhanh/o so luong/gia - tu nam cung
-                        dong khi du cho, chi xuong dong khi man hinh hep (hanh vi flex-wrap co san). */}
                     {showOtherSelect && (
                       <Select
                         value={d.loai_de_xuat}
@@ -356,37 +338,38 @@ export function TaoDonTab({
                         className="min-w-[180px] max-w-[260px] flex-1"
                       />
                     )}
-                    {/* SUA (phan hoi 2026-08-18): nen chim bg-surface-100 (dong bo voi moi o nhap lieu
-                        khac trong module) thay vi bg-white - card cha da la bg-white nen truoc day o
-                        nhap "an" luon vao nen, chi phan biet duoc qua 1 duong vien mong. Hover cua nut
-                        +/- doi sang surface-200 (dam hon 1 nac) de van con phan biet duoc trang thai
-                        hover so voi nen tinh surface-100. */}
-                    <div className="flex items-center border border-[var(--line)] rounded-lg overflow-hidden shrink-0 bg-[var(--surface-100)]">
-                      <button
-                        type="button"
-                        onClick={() => updateDraft(idx, { so_luong_de_xuat: Math.max(1, d.so_luong_de_xuat - 1) })}
-                        className="focus-ring w-7 h-8 flex items-center justify-center text-[var(--ink-600)] font-bold bg-[var(--surface-100)] hover:bg-[var(--surface-200)]"
-                      >
-                        −
-                      </button>
-                      <input
-                        type="number"
-                        min={1}
-                        value={d.so_luong_de_xuat}
-                        onChange={(e) => updateDraft(idx, { so_luong_de_xuat: Number(e.target.value) })}
-                        className="focus-ring w-11 text-center text-sm bg-[var(--surface-100)] border-x border-[var(--line)] py-1.5"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => updateDraft(idx, { so_luong_de_xuat: d.so_luong_de_xuat + 1 })}
-                        className="focus-ring w-7 h-8 flex items-center justify-center text-[var(--ink-600)] font-bold bg-[var(--surface-100)] hover:bg-[var(--surface-200)]"
-                      >
-                        +
-                      </button>
-                    </div>
-                    <div className="text-[11px] text-[var(--ink-500)] shrink-0 whitespace-nowrap">
-                      {giaUocTinh != null ? <b className="text-[var(--green-700)]">{fmtVND(giaUocTinh)}</b> : <span className="text-[var(--ink-400)]">Giá: —</span>}
-                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className={reqLabelClass(!(d.so_luong_de_xuat > 0))}>Số lượng *</label>
+                  {/* SUA (phan hoi 2026-08-18): nen chim bg-surface-100 (dong bo voi moi o nhap lieu
+                      khac trong module) thay vi bg-white - card cha da la bg-white nen truoc day o
+                      nhap "an" luon vao nen, chi phan biet duoc qua 1 duong vien mong. Hover cua nut
+                      +/- doi sang surface-200 (dam hon 1 nac) de van con phan biet duoc trang thai
+                      hover so voi nen tinh surface-100. */}
+                  <div className="flex items-center border border-[var(--line)] rounded-lg overflow-hidden w-fit bg-[var(--surface-100)]">
+                    <button
+                      type="button"
+                      onClick={() => updateDraft(idx, { so_luong_de_xuat: Math.max(1, d.so_luong_de_xuat - 1) })}
+                      className="focus-ring w-8 h-9 flex items-center justify-center text-[var(--ink-600)] font-bold bg-[var(--surface-100)] hover:bg-[var(--surface-200)]"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      min={1}
+                      value={d.so_luong_de_xuat}
+                      onChange={(e) => updateDraft(idx, { so_luong_de_xuat: Number(e.target.value) })}
+                      className="focus-ring w-14 text-center text-sm bg-[var(--surface-100)] border-x border-[var(--line)] py-2"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => updateDraft(idx, { so_luong_de_xuat: d.so_luong_de_xuat + 1 })}
+                      className="focus-ring w-8 h-9 flex items-center justify-center text-[var(--ink-600)] font-bold bg-[var(--surface-100)] hover:bg-[var(--surface-200)]"
+                    >
+                      +
+                    </button>
                   </div>
                   {/* Canh bao "don nay se tu dong duyet hay khong" (them 2026-09-11) - chi co y nghia
                       khi da chon du Ma LK + Loai de xuat + So luong, xem dieu kien ben trong component. */}
@@ -398,6 +381,13 @@ export function TaoDonTab({
                     loaiDon={loaiDon}
                     sePhepDuCongNo={sePhepDuCongNo}
                   />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold mb-1 text-[var(--ink-600)]">Giá ước tính</label>
+                  <div className="flex items-center border border-[var(--line)] rounded-lg px-2.5 py-2 text-sm bg-[var(--surface-100)] w-fit min-w-[140px]">
+                    {giaUocTinh != null ? <b className="text-[var(--green-700)]">{fmtVND(giaUocTinh)}</b> : <span className="text-[var(--ink-400)]">Chưa rõ giá</span>}
+                  </div>
                 </div>
 
                 {/* Tickbox Uu tien da chuyen len HEADER (phan hoi 2026-08-18 lan 3) - bo khoi day, xem
@@ -427,62 +417,59 @@ export function TaoDonTab({
                       <div className="h-px flex-1 bg-[var(--line)]" />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <div>
-                        <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Yêu cầu hóa đơn</label>
-                        <div className="flex gap-1 flex-wrap">
-                          {YEU_CAU_HOA_DON_OPTIONS.map((o) => (
-                            <Btn
-                              key={o}
-                              type="button"
-                              size="sm"
-                              variant={d.yeu_cau_hoa_don === o ? "primary" : "ghost"}
-                              onClick={() => updateDraft(idx, { yeu_cau_hoa_don: o })}
-                            >
-                              {YEU_CAU_HOA_DON_SHORT_LABELS[o] ?? o}
-                            </Btn>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <label className={reqLabelClass(batBuocYcsc && !d.ma_yeu_cau_su_co.trim())}>Mã YCSC liên quan{batBuocYcsc ? " *" : ""}</label>
-                        <input
-                          value={d.ma_yeu_cau_su_co}
-                          onChange={(e) => updateDraft(idx, { ma_yeu_cau_su_co: e.target.value })}
-                          maxLength={20}
-                          className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 py-1.5 text-sm ${batBuocYcsc && !d.ma_yeu_cau_su_co.trim() ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
-                        />
-                      </div>
-                      <div>
-                        <label className={reqLabelClass(batBuoc && !d.chinh_sach.trim())}>Chính sách{batBuoc ? " *" : ""}</label>
-                        <Select
-                          value={d.chinh_sach}
-                          onChange={(v) => updateDraft(idx, { chinh_sach: v })}
-                          options={[{ value: "", label: "-- Không chọn --" }, ...CHINH_SACH_OPTIONS.map((o) => ({ value: o, label: o }))]}
-                        />
+                    {/* RESTYLE (Phase 5) - tach thanh cac khoi rieng xep doc, thay vi grid nhieu cot,
+                        khop dung nhip "1 nhan - 1 o" cua form tham khao. */}
+                    <div>
+                      <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Yêu cầu hóa đơn</label>
+                      <div className="flex gap-1 flex-wrap">
+                        {YEU_CAU_HOA_DON_OPTIONS.map((o) => (
+                          <Btn
+                            key={o}
+                            type="button"
+                            size="sm"
+                            variant={d.yeu_cau_hoa_don === o ? "primary" : "ghost"}
+                            onClick={() => updateDraft(idx, { yeu_cau_hoa_don: o })}
+                          >
+                            {YEU_CAU_HOA_DON_SHORT_LABELS[o] ?? o}
+                          </Btn>
+                        ))}
                       </div>
                     </div>
-                    <MaYeuCauSuCoCheck value={d.ma_yeu_cau_su_co} nguoiNhanHang={nguoiNhanHang || currentEmail} />
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">TT khách hàng</label>
-                        <input
-                          value={d.tt_khach_hang}
-                          onChange={(e) => updateDraft(idx, { tt_khach_hang: e.target.value })}
-                          placeholder="Tên/SĐT/địa chỉ khách hàng liên quan"
-                          className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">TT+Mail duyệt</label>
-                        <input
-                          value={d.tt_mail_duyet}
-                          onChange={(e) => updateDraft(idx, { tt_mail_duyet: e.target.value })}
-                          placeholder="Mã/nội dung email phê duyệt đặc biệt (nếu có)"
-                          className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
-                        />
-                      </div>
+                    <div>
+                      <label className={reqLabelClass(batBuocYcsc && !d.ma_yeu_cau_su_co.trim())}>Mã YCSC liên quan{batBuocYcsc ? " *" : ""}</label>
+                      <input
+                        value={d.ma_yeu_cau_su_co}
+                        onChange={(e) => updateDraft(idx, { ma_yeu_cau_su_co: e.target.value })}
+                        maxLength={20}
+                        className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 py-1.5 text-sm ${batBuocYcsc && !d.ma_yeu_cau_su_co.trim() ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
+                      />
+                      <MaYeuCauSuCoCheck value={d.ma_yeu_cau_su_co} nguoiNhanHang={nguoiNhanHang || currentEmail} />
+                    </div>
+                    <div>
+                      <label className={reqLabelClass(batBuoc && !d.chinh_sach.trim())}>Chính sách{batBuoc ? " *" : ""}</label>
+                      <Select
+                        value={d.chinh_sach}
+                        onChange={(v) => updateDraft(idx, { chinh_sach: v })}
+                        options={[{ value: "", label: "-- Không chọn --" }, ...CHINH_SACH_OPTIONS.map((o) => ({ value: o, label: o }))]}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">TT khách hàng</label>
+                      <input
+                        value={d.tt_khach_hang}
+                        onChange={(e) => updateDraft(idx, { tt_khach_hang: e.target.value })}
+                        placeholder="Tên/SĐT/địa chỉ khách hàng liên quan"
+                        className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">TT+Mail duyệt</label>
+                      <input
+                        value={d.tt_mail_duyet}
+                        onChange={(e) => updateDraft(idx, { tt_mail_duyet: e.target.value })}
+                        placeholder="Mã/nội dung email phê duyệt đặc biệt (nếu có)"
+                        className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                      />
                     </div>
                   </>
                 ) : (

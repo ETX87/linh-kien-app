@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import type { useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
-import { Badge } from "../../components/x/Badge";
 import { Select } from "../../components/ui/Select";
 import { fmtVND } from "../../types";
 import { pushOverlayClose } from "../../lib/overlayStack";
 import { YEU_CAU_HOA_DON_OPTIONS, CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABELS } from "./constants";
-import { deriveLoaiDon, reqLabelClass, pickLdeQuick, LOAI_DON_TONE, ktvOptionLabel, canNoRequired, maYcscRequired, formatLkLabel } from "./helpers";
+import { deriveLoaiDon, reqLabelClass, pickLdeQuick, ktvOptionLabel, canNoRequired, maYcscRequired } from "./helpers";
 import { LinhKienPicker, ThayTheGoiY, ThayTheGoiYTuSheet } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { DuDoanDuyetHint } from "./DuDoanDuyetHint";
@@ -82,7 +81,6 @@ export function TaoDonMobileScreen({
   const batBuocYcsc = maYcscRequired(d.loai_de_xuat);
   const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
   const giaUocTinh = lk?.gia_ban != null ? lk.gia_ban * d.so_luong_de_xuat : null;
-  const tone = LOAI_DON_TONE[loaiDon];
   const quickValues = (["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const)
     .map((kw) => pickLdeQuick(loaiDeXuatOptions, kw))
     .filter((v): v is string => !!v);
@@ -180,17 +178,12 @@ export function TaoDonMobileScreen({
           bat len - doi chieu pattern .m-card cua concept 1 cho "card dong dang active". */}
       <div className="flex-1 overflow-y-auto px-3.5 py-3 bg-[var(--bg)]">
       <div className="bg-white border border-[var(--line)] rounded-xl p-3.5 flex flex-col gap-3.5">
-        <div className={`flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 ${d.uu_tien ? "bg-[var(--orange-100)]" : "bg-[var(--surface-100)]"}`}>
-          <Badge tone={tone.tone}>{tone.label}</Badge>
-          <label
-            className={`flex items-center gap-1.5 text-xs font-semibold rounded-full pl-1.5 pr-2.5 py-1.5 cursor-pointer select-none ${
-              d.uu_tien ? "bg-[var(--orange-600)] text-white" : "bg-white border border-[var(--line)] text-[var(--ink-500)]"
-            }`}
-          >
-            <input type="checkbox" checked={d.uu_tien} onChange={(e) => updateDraft(activeIdx, { uu_tien: e.target.checked })} className="w-4 h-4 accent-[var(--orange-600)]" />
-            ⭐ Ưu tiên
-          </label>
-        </div>
+        {/* RESTYLE (Phase 5, "đơn giản hoá giống ảnh minh hoạ") - bo Badge loai_don (trung lap voi o
+            "Loại đề xuất" ben duoi) va pill mau cam cho Ưu tiên, dua ve 1 checkbox thuong. */}
+        <label className="flex items-center gap-1.5 text-xs font-medium text-[var(--ink-600)] cursor-pointer select-none self-start">
+          <input type="checkbox" checked={d.uu_tien} onChange={(e) => updateDraft(activeIdx, { uu_tien: e.target.checked })} className="w-4 h-4 accent-[var(--orange-600)]" />
+          Ưu tiên
+        </label>
 
         <div>
           <label className={reqLabelClass(!d.ma_lk.trim())}>Mã linh kiện *</label>
