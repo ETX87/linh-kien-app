@@ -1,7 +1,6 @@
-import { lazy, Suspense, useState, useEffect, useRef } from "react";
+import { lazy, Suspense, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Tabs } from "../components/x/Tabs";
 import { api } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
@@ -10,6 +9,7 @@ import { useIsMobile } from "../hooks/useMediaQuery";
 import type { LuongQuyTrinhStep, JumpTarget, DangTonStep } from "./datMuaLinhKien/types";
 import { PipelineFlow, MyWorkloadStrip } from "./datMuaLinhKien/PipelineFlow";
 import { CaseDetailModal } from "./datMuaLinhKien/CaseDetailModal";
+import { StageMenu, type StageMenuGroup } from "./datMuaLinhKien/StageMenu";
 
 // Module "Dat mua linh kien" (Phase 2) - thay the quy trinh dat hang linh kien tren Google
 // Sheets/AppSheet, xem plan "Module Dat Mua Linh Kien". Tabs hien theo co vai tro (la_ktv_dvbh/
@@ -225,60 +225,27 @@ export function DatMuaLinhKienModule({
   // 2026-08-19: hien thanh 3 tab thuc su o thanh tab tren cung, thay vi 1 hang nut rieng ben trong
   // DonCuaToiTab nhu truoc). So dem dong dang mo theo loai don dung CHUNG 1 query voi DonCuaToiTab
   // truoc day (react-query dedupe theo queryKey, khong ton them request).
-  const [xemLoaiDon, setXemLoaiDon] = useLocalStorageState<"mua" | "cong_no" | "tra_hang">("filters:dmlk-xem-loai-don", "mua");
+  const [xemLoaiDon] = useLocalStorageState<"mua" | "cong_no" | "tra_hang">("filters:dmlk-xem-loai-don", "mua");
   const { data: loaiDonCountsData } = useQuery({
     queryKey: ["dat-mua-lk-loai-don-counts"],
     queryFn: () => api.get<{ mua: number; cong_no: number; tra_hang: number }>("/dat-mua-lk/loai-don-counts"),
   });
   const loaiDonCounts = loaiDonCountsData ?? { mua: 0, cong_no: 0, tra_hang: 0 };
-  // Badge "(N)" cho tab "Phiếu xuất kho" (phan hoi 2026-08-24: "Thẻ phiếu xuất kho có đơn nhưng đang
-  // không hiện (1) ở tên thẻ như thẻ trả hàng") - tong so PXK dang mo (chua xu ly xong), cung tinh
-  // than voi loaiDonCounts.tra_hang o tren. CHI fetch khi tab nay thuc su hien (khop dung dieu kien o
-  // mang "tabs" ben duoi) - tranh goi API thua cho KTV/Ve tinh (khong co tab nay).
+  // Badge so dem cho muc "Chờ tạo xuất" (phan hoi 2026-08-24 goc: "Thẻ phiếu xuất kho có đơn nhưng
+  // đang không hiện (1) ở tên thẻ") - tong so PXK dang mo (chua xu ly xong). CHI fetch khi group "Xuất
+  // kho" thuc su hien (khop dung dieu kien canXemPxkTab ben duoi) - tranh goi API thua cho KTV/Ve tinh.
   const canXemPxkTab = canTacNghiep || canKho || canKeToan || isGiamSat || isFieldKtv;
   const { data: pxkMoCountData } = useQuery({
     queryKey: ["dat-mua-lk-pxk-mo-count"],
     queryFn: () => api.get<{ count: number }>("/phieu-xuat-kho/mo-count"),
     enabled: canXemPxkTab,
   });
-  // Thanh tab HIEN THI: thay muc "don-cua-toi" bang 3 muc "don-cua-toi:<loai>" mang so dem do (badge
-  // tron mau do co san trong Tabs.tsx, dung "nhu thong bao tin nhan" dung y yeu cau). Cac muc con lai
-  // (phieu-xuat-kho/thieu-lk/bao-cao) giu nguyen key that.
-  // SUA (cung bug canXemDonMuaCongNo o tren): KHONG con dung tabs.slice(1) - "don-cua-toi" gio la
-  // PHAN TU DIEU KIEN trong `tabs` (co the vang mat), tach rieng "Mua hàng"/"Công nợ" (theo
-  // canXemDonMuaCongNo) khoi phan con lai cua tabs de tranh cat nham phan tu dau tien khi "don-cua-toi"
-  // khong ton tai (vd Kho-thuan).
-  // FIX (phan hoi 2026-08-26): bo han "Trang chủ" khoi displayTabs - da co duong vao rieng o menu
-  // (forceView="trang-chu", xem App.tsx), khong con la 1 lua chon trong thanh tab noi bo nay nua.
-  const displayTabs = [
-    ...(canXemDonMuaCongNo
-      ? [
-          { key: "don-cua-toi:mua", label: "Mua hàng", shortLabel: "Mua", count: loaiDonCounts.mua },
-          { key: "don-cua-toi:cong_no", label: "Công nợ", shortLabel: "CN", count: loaiDonCounts.cong_no },
-        ]
-      : []),
-    { key: "don-cua-toi:tra_hang", label: "Trả hàng", shortLabel: "Trả", count: loaiDonCounts.tra_hang },
-    ...tabs
-      .filter((t) => t.key !== "don-cua-toi")
-      .map((t) => (t.key === "phieu-xuat-kho" ? { ...t, count: pxkMoCountData?.count ?? 0 } : t)),
-  ];
-  // SUA (phan hoi 2026-08-21: "bấm vào tab 'Trả hàng' thì giao diện danh sách lại khác giao diện khi
-  // bấm trên pipeline... sao lại có 2 màn giao diện khác nhau cho cùng 1 chức năng?") - voi nguoi CO
-  // quyen xu ly (canTraHangView: KT/Kho/QC/TN/GS), tab "Trả hàng" tren thanh tab gio tro THANG vao
-  // view "tra-hang" (TraHangTab, man hinh day du co nut duyet/tu choi tung buoc) - GIONG HET duong vao
-  // qua pipeline chevron, thay vi DonCuaToiTab loc theo loai_don='tra_hang' (chi liet ke, KHONG co nut
-  // xu ly vi component do dung cho state machine dat_don_hang_log khac, khong doc/ghi tra_hang_log).
-  // Nguoi TAO don (KTV/Ve tinh/Tram, khong canTraHangView) van vao DonCuaToiTab nhu cu de theo doi don
-  // minh da gui - ho khong co hanh dong duyet nao nen khong can man TraHangTab.
-  const displayActive =
-    activeView === "don-cua-toi" ? `don-cua-toi:${xemLoaiDon}` : activeView === "tra-hang" && canTraHangView ? "don-cua-toi:tra_hang" : activeView;
-  // Dem so lan nguoi dung TU BAM 1 trong 3 sub-tab Mua hang/Cong no/Tra hang (khac voi jump tu
-  // pipeline) - dung lam "tin hieu" rieng cho DonCuaToiTab biet khi nao can XOA override "gop ca 2
-  // loai" (xem loaiDonOverride trong DonCuaToiTab.tsx). KHONG the dung truc tiep gia tri xemLoaiDon vi
-  // React se KHONG re-fire effect neu nguoi dung bam lai DUNG sub-tab dang mo san (vd dang o "Mua
-  // hang" tu truoc, jump vao che do gop, roi bam lai "Mua hang" - gia tri xemLoaiDon khong doi nen 1
-  // effect [xemLoaiDon] o con se bo qua, override "gop" bi ket lai mai - bug da bat gap khi tu kiem
-  // thu 2026-08-21). Bo dem tang o MOI lan bam (ke ca bam lai cung sub-tab) la tin hieu dang tin cay.
+  // Dem so lan nguoi dung TU BAM 1 muc StageMenu thuoc "Đơn đặt hàng" (loaiDon:"" - che do "gop ca
+  // loai") - dung lam "tin hieu" rieng cho DonCuaToiTab biet khi nao can XOA override cu (xem
+  // loaiDonOverride trong DonCuaToiTab.tsx). KHONG the dung truc tiep gia tri loaiDonFor() vi React se
+  // KHONG re-fire effect neu nguoi dung bam lai DUNG 1 muc menu dang mo san (gia tri "" khong doi) -
+  // bug da bat gap khi tu kiem thu 2026-08-21 luc con la 3 sub-tab Tabs, van giu nguyen co che nay cho
+  // StageMenu. Tang o MOI lan stageJump() toi "don-cua-toi" (xem duoi).
   const [loaiDonTabClickSeq, setLoaiDonTabClickSeq] = useState(0);
   // FIX (phan hoi 2026-08-26): goi onLeaveForceView DUNG 1 LAN, ngay truoc khi navigatedAway chuyen
   // false -> true (dung gia tri navigatedAway HIEN TAI trong closure, KHONG doc lai sau setState vi
@@ -287,48 +254,6 @@ export function DatMuaLinhKienModule({
   function markNavigatedAway(view: string) {
     if (forceView && !navigatedAway) onLeaveForceView?.(view);
     setNavigatedAway(true);
-  }
-  function handleTabChange(key: string) {
-    markNavigatedAway(key === "don-cua-toi:tra_hang" && canTraHangView ? "tra-hang" : key.startsWith("don-cua-toi:") ? "don-cua-toi" : key);
-    if (key === "don-cua-toi:tra_hang" && canTraHangView) {
-      setView("tra-hang");
-      setLoaiDonTabClickSeq((n) => n + 1);
-    } else if (key.startsWith("don-cua-toi:")) {
-      setXemLoaiDon(key.slice("don-cua-toi:".length) as "mua" | "cong_no" | "tra_hang");
-      setView("don-cua-toi");
-      setLoaiDonTabClickSeq((n) => n + 1);
-    } else {
-      setView(key);
-    }
-  }
-
-  // Muc 1 (yeu cau UI mobile 2026-08-27): vuot ngang de doi giua 3 tab hien thi "Mua hang/Cong
-  // no/Tra hang" (displayTabs co key "don-cua-toi:*") - tu viet tay bang touch event, KHONG them thu
-  // vien gesture nao. Chi tinh delta luc touchend (khong can theo doi lien tuc trong touchmove) -
-  // nguong 50px + phai lon hon 1.5 lan bien do doc de tranh nham voi cuon doc. Chi doi trong pham vi
-  // cac tab dang HIEN THI thuc su (displayTabs), khong bao gio "nhay qua" sang Phieu xuat kho/Thieu
-  // LK dhu displayActive dang la 1 trong 3 sub-tab do.
-  const swipeTouchStartRef = useRef<{ x: number; y: number } | null>(null);
-  function handleSwipeTouchStart(e: React.TouchEvent) {
-    const t = e.touches[0];
-    if (!t) return;
-    swipeTouchStartRef.current = { x: t.clientX, y: t.clientY };
-  }
-  function handleSwipeTouchEnd(e: React.TouchEvent) {
-    const start = swipeTouchStartRef.current;
-    swipeTouchStartRef.current = null;
-    if (!start) return;
-    const t = e.changedTouches[0];
-    if (!t) return;
-    const dx = t.clientX - start.x;
-    const dy = t.clientY - start.y;
-    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    const swipeKeys = displayTabs.map((tb) => tb.key).filter((k) => k.startsWith("don-cua-toi:"));
-    const idx = swipeKeys.indexOf(displayActive);
-    if (idx === -1) return;
-    const nextIdx = idx + (dx < 0 ? 1 : -1);
-    if (nextIdx < 0 || nextIdx >= swipeKeys.length) return;
-    handleTabChange(swipeKeys[nextIdx]);
   }
 
   // Thanh tom tat + nhay dung tab/filter (tieu chi UX #1/#2) - jumpTarget tieu thu 1 lan roi tu xoa
@@ -384,6 +309,94 @@ export function DatMuaLinhKienModule({
   // Them (thong bao KTV, 2026-08-26; tach khoi jumpTarget 2026-09-05, xem comment o pendingOpenDetailId
   // phia tren) - mo thang Drawer chi tiet 1 dong khi bam "xem chi tiet" tu 1 dong thong bao.
   const openDetailIdFor = (tab: string) => (pendingOpenDetailId?.tab === tab ? pendingOpenDetailId.id : undefined);
+
+  // StageMenu (Phase 1, them 2026-09-11) - thay the Tabs "Mua hang/Cong no/Tra hang/Phieu xuat kho" cu
+  // bang danh sach nhieu muc, moi muc = DUNG 1 trang thai/buoc xu ly that (menu "giai doan hoa" theo
+  // yeu cau tham khao he AppSheet cua cong ty). "stageMenuActiveKey" chi la GOI Y hien thi (nho lai muc
+  // VUA bam) - xem giai thich day du o StageMenu.tsx. Cac muc dieu huong (khong phai hanh dong) tai
+  // dung HOAN TOAN jumpTo() da co san (dung y het pipeline chevron/StatCard) - loaiDon:"" o day dung
+  // co che "gop ca 2/3 loai" da co san trong DonCuaToiTab/PhieuXuatKhoTab (xem loaiDonOverride), KHONG
+  // phai gia tri moi.
+  const [stageMenuActiveKey, setStageMenuActiveKey] = useState("");
+  function stageJump(key: string, target: JumpTarget) {
+    setStageMenuActiveKey(key);
+    jumpTo(target);
+    if (target.tab === "don-cua-toi") setLoaiDonTabClickSeq((n) => n + 1);
+  }
+  // "Chờ tạo xuất"/"Tạo mã xuất kho" - 2 nhan rieng cung tro toi 1 man hinh thuc su (Modal "Tạo phiếu
+  // xuất kho" ben trong PhieuXuatKhoTab, noi DUY NHAT hien danh sach dong da duyet chua gan PXK qua GET
+  // /don-hang-kha-dung) - khong co man rieng "chi de xem danh sach" nay trong kien truc hien tai, tach
+  // rieng se trung lap logic chon dong/gom PXK. nonce (Date.now()) ep effect trong PhieuXuatKhoTab chay
+  // lai ke ca bam lai DUNG 1 muc menu.
+  const [pendingOpenCreatePxk, setPendingOpenCreatePxk] = useState(0);
+  function openCreatePxk(key: string) {
+    setStageMenuActiveKey(key);
+    markNavigatedAway("phieu-xuat-kho");
+    setPendingOpenCreatePxk(Date.now());
+    setView("phieu-xuat-kho");
+  }
+  const stageMenuGroups: StageMenuGroup[] = [
+    ...(canDatHo ? [{ items: [{ key: "tao-don", label: "＋ Tạo đơn", variant: "action" as const, onClick: () => setShowCreateFromPipeline(true) }] }] : []),
+    {
+      title: "Đơn đặt hàng",
+      items: [
+        ...(canTraHangView
+          ? [
+              {
+                key: "tra-hang-cho",
+                label: "Trả hàng chờ các bên",
+                count: loaiDonCounts.tra_hang,
+                onClick: () => stageJump("tra-hang-cho", { tab: "tra-hang", filter: "__OPEN__" }),
+              },
+            ]
+          : []),
+        ...(canXemDonMuaCongNo
+          ? [
+              { key: "cho-tbp", label: "Chờ TBP DVBH xác nhận", onClick: () => stageJump("cho-tbp", { tab: "don-cua-toi", filter: "Cho TBP xac nhan", loaiDon: "" }) },
+              { key: "cho-tn-duyet", label: "Chờ TN duyệt", onClick: () => stageJump("cho-tn-duyet", { tab: "don-cua-toi", filter: "Cho TN duyet", loaiDon: "" }) },
+              { key: "cho-hang", label: "Chờ hàng", onClick: () => stageJump("cho-hang", { tab: "don-cua-toi", filter: "Cho hang", loaiDon: "" }) },
+              { key: "tu-choi", label: "Từ chối", onClick: () => stageJump("tu-choi", { tab: "don-cua-toi", filter: "TN tu choi", loaiDon: "" }) },
+              { key: "duyet-trong-ngay", label: "Duyệt trong ngày", onClick: () => stageJump("duyet-trong-ngay", { tab: "don-cua-toi", filter: "__TODAY__", loaiDon: "" }) },
+            ]
+          : []),
+      ],
+    },
+    ...(canXemPxkTab
+      ? [
+          {
+            title: "Xuất kho",
+            items: [
+              ...(canTacNghiep ? [{ key: "cho-tao-xuat", label: "Chờ tạo xuất", onClick: () => openCreatePxk("cho-tao-xuat") }] : []),
+              {
+                key: "cho-ktv-chuyen-tien",
+                label: "Chờ KTV chuyển tiền",
+                onClick: () => stageJump("cho-ktv-chuyen-tien", { tab: "phieu-xuat-kho", filter: "CHO_TIEN", loaiDon: "" }),
+              },
+              ...(canTacNghiep
+                ? [{ key: "tao-ma-xuat-kho", label: "Tạo mã xuất kho", variant: "action" as const, onClick: () => openCreatePxk("tao-ma-xuat-kho") }]
+                : []),
+              {
+                key: "pxk-da-duyet",
+                label: "Phiếu xuất kho đã duyệt",
+                onClick: () => stageJump("pxk-da-duyet", { tab: "phieu-xuat-kho", filter: "Dang gui KTV", loaiDon: "" }),
+              },
+              {
+                key: "da-chot-xong",
+                label: "Đã chốt xong đơn xuất",
+                onClick: () => stageJump("da-chot-xong", { tab: "phieu-xuat-kho", filter: "Da chot xong don xuat", loaiDon: "" }),
+              },
+              { key: "hang-tru-kho", label: "Hàng trừ kho", onClick: () => stageJump("hang-tru-kho", { tab: "phieu-xuat-kho", filter: "Hang tru kho", loaiDon: "" }) },
+              {
+                key: "kho-ket-thuc",
+                label: "Kho xác nhận kết thúc quy trình",
+                onClick: () => stageJump("kho-ket-thuc", { tab: "phieu-xuat-kho", filter: "Kho da ket thuc", loaiDon: "" }),
+              },
+              { key: "ktv-da-nhan", label: "KTV nhận đủ hàng", onClick: () => stageJump("ktv-da-nhan", { tab: "phieu-xuat-kho", filter: "KTV da nhan", loaiDon: "" }) },
+            ],
+          },
+        ]
+      : []),
+  ];
 
   // Tren mobile bo han thanh "luong quy trinh" (phan hoi 2026-08-19: "bỏ tính năng này, không load,
   // không đọc, tránh tốn lượt đọc D1") - man hinh hep khong du cho hien huu ich, va day la 1 API rieng
@@ -571,18 +584,11 @@ export function DatMuaLinhKienModule({
           Dat mua linh kien". Ngay khi nguoi dung bam 1 StatCard/o so de nhay sang tab khac
           (navigatedAway=true), thanh tab HIEN LAI binh thuong de ho co duong di tiep - khong bi ket o
           1 trang cut khong co cach quay lai. forceView="tra-hang" GIU NGUYEN hanh vi cu (luon hien). */}
-      {(navigatedAway || (forceView !== "trang-chu" && forceView !== "thieu-lk")) && (
-        <Tabs value={displayActive} onChange={handleTabChange} tabs={displayTabs} />
-      )}
-      {/* FIX (phan hoi 2026-08-27: "chỉ vuốt sang phải, không vuốt ngược sang trái được") - thieu
-          touch-action khien trinh duyet mobile tu quyet dinh xu ly cu chi ngang (vd cu chi "vuot canh
-          man hinh de quay lai" cua Android Chrome/iOS Safari PWA), nuot mat touchend 1 chieu truoc khi
-          handler nay kip chay. "pan-y" bao trinh duyet CHI tu xu ly cuon doc, nhuong toan bo cu chi
-          ngang cho JS o day, ca 2 chieu deu on dinh. */}
-      <div
-        {...(isMobile ? { onTouchStart: handleSwipeTouchStart, onTouchEnd: handleSwipeTouchEnd } : {})}
-        style={isMobile ? { touchAction: "pan-y" } : undefined}
-      >
+      <div className={isMobile ? "" : "flex items-start"}>
+        {(navigatedAway || (forceView !== "trang-chu" && forceView !== "thieu-lk")) && (
+          <StageMenu groups={stageMenuGroups} activeKey={stageMenuActiveKey} isMobile={isMobile} />
+        )}
+        <div className="flex-1 min-w-0">
       <Suspense fallback={<TabFallback />}>
         {activeView === "trang-chu" && (
           <TrangChuTab
@@ -647,6 +653,7 @@ export function DatMuaLinhKienModule({
             initialLoaiDonOverride={loaiDonFor("phieu-xuat-kho")}
             initialDetailIdOverride={openDetailIdFor("phieu-xuat-kho")}
             onDetailIdConsumed={consumeOpenDetailId}
+            autoOpenCreateNonce={pendingOpenCreatePxk}
           />
         )}
         {activeView === "thieu-lk" && (
@@ -688,6 +695,7 @@ export function DatMuaLinhKienModule({
           />
         )}
       </Suspense>
+        </div>
       </div>
       {openCaseId && <CaseDetailModal caseId={openCaseId} onClose={() => setOpenCaseId(null)} />}
     </div>

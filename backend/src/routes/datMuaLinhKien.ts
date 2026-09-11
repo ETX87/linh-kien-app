@@ -1509,6 +1509,13 @@ datMuaLinhKien.get("/don-hang", async (c) => {
     const dongSet = loaiDon === "tra_hang" ? TRA_HANG_TRANG_THAI_DONG_COUNTS : DON_HANG_TRANG_THAI_DONG;
     whereSql += ` AND ddh.trang_thai_hien_tai NOT IN (${dongSet.map(() => "?").join(",")})`;
     binds.push(...dongSet);
+  } else if (trangThai === "__TODAY__") {
+    // Sentinel "duyet trong ngay" (them 2026-09-11, muc menu giai doan hoa) - "cac don duoc xu ly
+    // trong ngay hom nay": loc theo ddh.updated_at (cot nay duoc cap nhat MOI LAN trang_thai_hien_tai
+    // doi, xem cac UPDATE dat_don_hang o duoi file), so sanh phan ngay (10 ky tu dau) voi ngay VN hien
+    // tai qua nowVN() - cot nay LUON luu gio VN (khong phai UTC, xem CLAUDE.md/memory mui gio VN).
+    whereSql += " AND substr(ddh.updated_at, 1, 10) = ?";
+    binds.push(nowVN().slice(0, 10));
   } else if (trangThai) {
     // RA SOAT CHI PHI D1 2026-08-18 (phan hoi Codex #11/#13, migration 0087+0088): doc truc tiep cot
     // trang_thai_hien_tai (co index idx_ddh_loai_don_trang_thai) thay vi correlated subquery - cot

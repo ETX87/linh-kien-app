@@ -97,7 +97,15 @@ traHang.get("/", async (c) => {
   const offset = (page - 1) * pageSize;
   let whereSql = "ddh.loai_don = 'tra_hang'" + (scope?.whereSql ?? "");
   const binds: unknown[] = [...(scope?.binds ?? [])];
-  if (trangThai) {
+  if (trangThai === "__OPEN__") {
+    // Sentinel "con ton" (them 2026-09-11, phuc vu muc menu "Trả hàng chờ các bên" - gop 4 buoc duyet
+    // dau cua luong nay thanh 1 muc bam duy nhat) - TRA_HANG_TRANG_THAI_OPTIONS da co san gia tri nay
+    // tu 2026-08-27 (dropdown filter cua chinh tab nay) nhung route nay chua tung xu ly, khien chon
+    // "Còn tồn" tren dropdown truoc day luon ra danh sach rong (trang_thai_hien_tai='__OPEN__' khong
+    // khop dong nao that).
+    whereSql += ` AND ddh.trang_thai_hien_tai NOT IN (${TRANG_THAI_DONG.map(() => "?").join(",")})`;
+    binds.push(...TRANG_THAI_DONG);
+  } else if (trangThai) {
     whereSql += " AND ddh.trang_thai_hien_tai = ?";
     binds.push(trangThai);
   }

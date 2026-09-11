@@ -269,6 +269,9 @@ export const DON_CUA_TOI_TRANG_THAI_OPTIONS = [
   // DON_HANG_TRANG_THAI_DONG trong datMuaLinhKien.ts). Dat SAU "Tất cả" nhung la GIA TRI MAC DINH
   // thuc te (xem savedFilterTrangThai trong DonCuaToiTab.tsx).
   { value: "__OPEN__", label: "Còn tồn" },
+  // Sentinel "duyet trong ngay" (them 2026-09-11, muc menu "StageMenu" giai doan hoa) - khop dung GET
+  // /don-hang?trang_thai=__TODAY__ (loc theo ddh.updated_at = ngay VN hom nay).
+  { value: "__TODAY__", label: "Duyệt trong ngày" },
   { value: "Cho Tram duyet", label: "Chờ Trạm duyệt" },
   { value: "Cho TBP xac nhan", label: "Chờ TBP DVBH xác nhận" },
   { value: "Cho TN duyet", label: "Chờ TN duyệt" },

@@ -44,7 +44,7 @@ function toastCanhBaoThieuMisa(result: MisaExportResult, addToast: (msg: string)
 
 export function PhieuXuatKhoTab({
   addToast, qc, canTacNghiep, canKho, canKeToan, currentEmail, isAdmin, initialFilterOverride, initialNguoiNhanHangOverride, initialLoaiDonOverride,
-  initialDetailIdOverride, onDetailIdConsumed,
+  initialDetailIdOverride, onDetailIdConsumed, autoOpenCreateNonce,
 }: {
   addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>;
   canTacNghiep: boolean; canKho: boolean; canKeToan: boolean; currentEmail: string; isAdmin: boolean;
@@ -59,6 +59,11 @@ export function PhieuXuatKhoTab({
   // FIX (phan hoi 2026-09-05, giong het DonCuaToiTab.tsx) - bao cho cha da doc/ap dung xong de cha xoa
   // dung 1 lan, khong con dung timer mu.
   onDetailIdConsumed?: () => void;
+  // Mo THANG Modal "Tạo phiếu xuất kho" (them 2026-09-11, muc menu StageMenu "Chờ tạo xuất"/"Tạo mã
+  // xuất kho") - nonce (Date.now() luc bam o StageMenu) BAT BUOC phai DOI moi lan de effect duoi day
+  // chac chan chay lai ke ca bam lai DUNG 1 muc menu (cung pattern voi externalDetailOpen.nonce o
+  // DatMuaLinhKienModule.tsx).
+  autoOpenCreateNonce?: number;
 }) {
   // Trang thai "cho xu ly" theo dung buoc cua vai tro dang xem (them 2026-09-09, phan hoi "thêm 1 nút
   // ấn nhanh 'Đơn chờ xử lý'") - tach ham rieng de dung LAI o ca 3 noi: gia tri mac dinh luc mo tab
@@ -106,6 +111,14 @@ export function PhieuXuatKhoTab({
   const [createData, setCreateData] = useState({ ghi_chu: "", so_tien_can_chuyen: "", ma_xuat_kho: "" });
   const [chonKtv, setChonKtv] = useState("");
   const [chonLoaiDon, setChonLoaiDon] = useState<"mua" | "cong_no" | "tra_hang">("mua");
+  // "Chờ tạo xuất"/"Tạo mã xuất kho" tren StageMenu - nhay THANG vao Modal tao PXK, mac dinh "Mua
+  // hàng" (nguoi dung tu doi Loai phieu ben trong Modal neu can, xem Select "Loại phiếu" duoi day).
+  useEffect(() => {
+    if (!autoOpenCreateNonce) return;
+    setChonLoaiDon("mua");
+    setShowCreate(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenCreateNonce]);
   const [selectedDonHang, setSelectedDonHang] = useState<Set<string>>(new Set());
   const [timKiemDonHang, setTimKiemDonHang] = useState("");
   const [page, setPage] = useState(1);
@@ -114,11 +127,18 @@ export function PhieuXuatKhoTab({
   // tra hang da qua buoc "TN duyet tong" nen co PXK that voi loai_don='tra_hang', GET /phieu-xuat-kho
   // da ho tro loc loai_don nay san, khong can sua backend) - danh sach chinh loc theo dung loai dang
   // xem, mac dinh "Mua hang".
-  const [xemLoaiDon, setXemLoaiDon] = useState<"mua" | "cong_no" | "tra_hang">(
-    initialLoaiDonOverride === "mua" || initialLoaiDonOverride === "cong_no" || initialLoaiDonOverride === "tra_hang" ? initialLoaiDonOverride : "mua",
+  // "" (them 2026-09-11, muc menu StageMenu giai doan hoa) = "Tất cả" - cac trang thai PXK nhu "Hàng
+  // trừ kho"/"Kho đã kết thúc"/... khong gan voi 1 loai_don cu the nao trong tam thuc nguoi dung (menu
+  // muon 1 lan bam thay HET, khong bat chon lai Mua hang/Cong no/Tra hang truoc). Backend GET
+  // /phieu-xuat-kho da san sang (loai_don la optional filter, xem routes/phieuXuatKho.ts).
+  const [xemLoaiDon, setXemLoaiDon] = useState<"mua" | "cong_no" | "tra_hang" | "">(
+    initialLoaiDonOverride === "mua" || initialLoaiDonOverride === "cong_no" || initialLoaiDonOverride === "tra_hang" || initialLoaiDonOverride === ""
+      ? initialLoaiDonOverride
+      : "mua",
   );
   useEffect(() => {
-    if (initialLoaiDonOverride === "mua" || initialLoaiDonOverride === "cong_no" || initialLoaiDonOverride === "tra_hang") setXemLoaiDon(initialLoaiDonOverride);
+    if (initialLoaiDonOverride === "mua" || initialLoaiDonOverride === "cong_no" || initialLoaiDonOverride === "tra_hang" || initialLoaiDonOverride === "")
+      setXemLoaiDon(initialLoaiDonOverride);
   }, [initialLoaiDonOverride]);
   // Them 2026-08-21 (dong bo giao dien voi Mua hang/Cong no - "hợp nhất phong cách giao diện"): o
   // tim kiem tu do + nut thu gon "☰ Bộ lọc ▾".
@@ -334,7 +354,7 @@ export function PhieuXuatKhoTab({
           }),
       ),
     onSuccess: async (result) => {
-      const ok = await downloadMisaExport(result.sheets, `MISA_${LOAI_DON_TONE[xemLoaiDon].label}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      const ok = await downloadMisaExport(result.sheets, `MISA_${LOAI_DON_TONE[xemLoaiDon || "mua"].label}_${new Date().toISOString().slice(0, 10)}.xlsx`);
       if (!ok) addToast("Không có dòng nào để xuất");
       else toastCanhBaoThieuMisa(result, addToast);
     },
@@ -444,6 +464,19 @@ export function PhieuXuatKhoTab({
           1 PXK, tach han danh sach xem theo tung mang, mac dinh Mua hang. So (x{n}) canh nhan la so
           don dang can xu ly (chua o 4 trang thai da xong) cua tung loai. */}
       <div className="flex gap-1 mb-3">
+        {/* "Tất cả" (them 2026-09-11) - cho phep StageMenu nhay thang toi 1 trang thai PXK khong phan
+            biet loai don (vd "Hàng trừ kho"/"Kho đã kết thúc") ma khong ep nguoi dung phai tu chon lai
+            1 trong 3 sub-tab con lai. Nguoi dung van bam lai "Mua hàng"/"Công nợ"/"Trả hàng" binh
+            thuong de thu hep khi can. */}
+        <button
+          type="button"
+          onClick={() => setXemLoaiDon("")}
+          className={`focus-ring rounded-lg font-semibold transition-colors px-2.5 py-1.5 text-xs ${
+            xemLoaiDon === "" ? "bg-[var(--ocean-800)] text-white shadow-sm" : "bg-white text-[var(--ink-600)] border border-[var(--line)] hover:bg-slate-50"
+          }`}
+        >
+          Tất cả
+        </button>
         {/* SUA (phan hoi 2026-08-18) - xem giai thich chi tiet o cung mau nut nay trong DonCuaToiTab. */}
         {(["mua", "cong_no", "tra_hang"] as const).map((l) => {
           const active = xemLoaiDon === l;
@@ -530,7 +563,7 @@ export function PhieuXuatKhoTab({
               </Btn>
             ))}
             {canTacNghiep && (
-              <Btn size="sm" onClick={() => { setChonLoaiDon(xemLoaiDon); setShowCreate(true); }}>
+              <Btn size="sm" onClick={() => { setChonLoaiDon(xemLoaiDon || "mua"); setShowCreate(true); }}>
                 + Tạo phiếu xuất kho
               </Btn>
             )}
