@@ -4,8 +4,8 @@
 export interface LinhKienRow {
   ma_linh_kien: string;
   ten_linh_kien: string;
+  // "Giá NY" - gia_tham_chieu XOA HAN 2026-09-12 (migration 0027, tich hop gia88 lam nguon chinh).
   gia_ban: number | null;
-  gia_tham_chieu: number | null;
   don_vi: string | null;
   ghi_chu: string | null;
   anh_demo: string | null;
@@ -18,10 +18,22 @@ export interface LinhKienRow {
   // thuoc dang dac thu gi (vd "Hàng nhập riêng"/"Độc quyền hãng X"...), listdown tu do (dung y het
   // don_vi/"Phân loại" - khong phai bang settings rieng, tu goi y tu cac gia tri da co san).
   phan_loai_dac_thu: string | null;
-  // "Giá trị công nợ" (them 04/09/2026) - gia tri cong no cho 1 don vi linh kien, dung tinh "Cong no
-  // thuc te" cua KTV tu ton kho + "cong no tam tinh" khi tao don cong no moi (xem TonKhoKtvModule.tsx/
-  // DonCuaToiTab.tsx). Sua qua endpoint RIENG (PATCH .../gia-tri-cong-no) - khong dong bo DVBH/suachua.
+  // "Giá trị công nợ" = "Giá KTV" (them 04/09/2026, tu 2026-09-12 do gia88Sync.ts tu dong ghi - xem
+  // migration 0027) - gia tri cong no cho 1 don vi linh kien, dung tinh "Cong no thuc te" cua KTV tu
+  // ton kho + "cong no tam tinh" khi tao don cong no moi (xem TonKhoKtvModule.tsx/DonCuaToiTab.tsx).
   gia_tri_cong_no: number | null;
+  // Cac truong moi tu API doi tac gia88 (them 2026-09-12, xem api-lk-prices_gia88.md +
+  // lib/gia88Sync.ts) - TAT CA la "chi xem" trong UI quan tri, KHONG sua tay duoc.
+  gia_du_phong: number | null;
+  gia_eu: number | null;
+  don_vi_nhap: string | null; // thong tin phu, khac "don_vi" (dang dung nhu "Phan loai" tu nhap tay)
+  nhan_hang: string | null; // thong tin phu, KHONG phai khoa - 1 ma_linh_kien van chi 1 dong duy nhat
+  thiet_bi: string | null; // thong tin phu
+  don_vi_tinh: string | null; // thong tin phu, khac "don_vi"
+  ghi_chu_doi_tac: string | null; // thong tin phu, khac "ghi_chu" (van tu nhap tay binh thuong)
+  // "Cấm bán" - van tim/xem duoc, chi bi loai khoi picker chon linh kien khi tao don (xem
+  // modules/datMuaLinhKien/helpers.ts) - KHONG chan o backend, nhat quan voi cach "bat_tat" hien co.
+  cam_ban: number;
 }
 
 export interface KtvLienHeRow {

@@ -209,9 +209,11 @@ export function useLkAndLdeCache(enabled: boolean) {
       // Ep 1 lan full-refetch neu cache cu thieu cot moi them (xem giai thich o linhKienCache.ts).
       await ensureCacheSchemaVersion();
       // LK cache - "chi_sua_chua" (Only sua chua) loai khoi picker tao don, xem migration 0083.
+      // "cam_ban" (them 2026-09-12, tich hop gia88) loai TUONG TU - van xem/tim duoc o noi khac, chi
+      // khong duoc chon de tao dong don moi (CHOT nguoi dung: chi an o UI, khong chan them o backend).
       const cached = await getAllFromCache();
       if (cached.length > 0) {
-        setDanhMuc(cached.filter((r) => r.bat_tat && !r.chi_sua_chua) as unknown as LkDanhMucRow[]);
+        setDanhMuc(cached.filter((r) => r.bat_tat && !r.chi_sua_chua && !r.cam_ban) as unknown as LkDanhMucRow[]);
       }
       const since = await getLastCacheTimestamp();
       const url = since ? `/lk-settings/danh-muc?since=${encodeURIComponent(since)}` : "/lk-settings/danh-muc";
@@ -221,7 +223,7 @@ export function useLkAndLdeCache(enabled: boolean) {
         setDanhMuc((prev) => {
           const map = new Map(prev.map((r) => [r.ma_linh_kien, r]));
           for (const r of rows) map.set(r.ma_linh_kien, r);
-          return Array.from(map.values()).filter((r) => r.bat_tat && !r.chi_sua_chua);
+          return Array.from(map.values()).filter((r) => r.bat_tat && !r.chi_sua_chua && !r.cam_ban);
         });
       }
 

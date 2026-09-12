@@ -74,6 +74,10 @@
     // Diem noi toi Worker "vipham" (module Giai trinh vi pham, doc lap - xem VIPHAM_SYNC_SERVICE o
     // tren). Chi dung de GHI (dong bo danh ba KTV), khong doc gi tu day.
     "VIPHAM_SYNC_BASE_URL": "https://vipham.dichvu3t.workers.dev",
+    // Them 2026-09-12: nguon chinh cap nhat danh muc linh_kien - API doi tac "gia88" (xem
+    // api-lk-prices_gia88.md o goc repo + lib/gia88Client.ts). KHONG phai Worker cung tai khoan
+    // Cloudflare (Google Cloud Function that) nen KHONG can khai bao "services" nhu CASE_LOOKUP_SERVICE.
+    "GIA88_BASE_URL": "https://asia-southeast1-b2b-quanlyphidv.cloudfunctions.net",
     // Web Push (them 2026-08-26, xem backend/src/lib/webPush.ts) - VAPID_SERVER_PUBLIC_KEY KHONG
     // nhay cam (day la khoa cong khai frontend can de subscribe), an toan de trong "vars". Rieng
     // VAPID_SERVER_PRIVATE_KEY dat qua "wrangler secret put" (xem duoi).
@@ -101,4 +105,6 @@
   // Them 2026-09-11: VIPHAM_SYNC_API_KEY - PHAI dat gia tri GIONG HET secret "KTV_SYNC_API_KEY" ben
   // repo "vi pham app" (Worker "vipham"), quan he 1-1 dung 1 secret dung chung (giong suachua, khong
   // phai bang partner_api_keys nhieu-key) - xem backend/src/routes/syncKtv.ts cua repo do.
+  // Them 2026-09-12: GIA88_API_KEY - key doi tac "gia88" cap rieng cho he nay qua kenh an toan (xem
+  // api-lk-prices_gia88.md), dat qua "wrangler secret put GIA88_API_KEY".
 }

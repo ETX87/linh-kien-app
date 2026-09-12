@@ -78,10 +78,13 @@ async function parseBulkImportFile(file: File): Promise<BulkImportRow[]> {
 // ktv_lien_he/bulk-import). dac_thu/chi_sua_chua cung doi sang boolean|undefined (thay vi luon la
 // boolean) de phan biet DUOC "cot khong co trong file" (undefined, giu nguyen) voi "co cot nhung gia
 // tri la Khong/0" (false, ghi de).
+// CHOT 2026-09-12 (tich hop gia88 lam nguon chinh gia): bo han "gia_ban"/"gia_tham_chieu"/
+// "gia_tri_cong_no" khoi import nay - backend khong con nhan 3 truong gia qua duong nay nua (xem
+// routes/settingsDatMua.ts POST /linh-kien/bulk-import).
 interface BulkImportCatalogRow {
-  ma_linh_kien: string; ten_linh_kien?: string; gia_ban?: number; gia_tham_chieu?: number;
+  ma_linh_kien: string; ten_linh_kien?: string;
   don_vi?: string; ghi_chu?: string; dac_thu?: boolean; chi_sua_chua?: boolean; anh_url?: string;
-  phan_loai_dac_thu?: string; gia_tri_cong_no?: number;
+  phan_loai_dac_thu?: string;
 }
 interface BulkImportCatalogChunkResult {
   success: number; errorCount: number;
@@ -124,11 +127,6 @@ function toBoolField(v: unknown): boolean {
 function toBoolFieldOptional(v: unknown): boolean | undefined {
   return v == null ? undefined : toBoolField(v);
 }
-function toNumberField(v: unknown): number | undefined {
-  if (v == null || v === "") return undefined;
-  const n = typeof v === "number" ? v : Number(String(v).replace(/[.,](?=\d{3}\b)/g, "").replace(",", "."));
-  return Number.isFinite(n) ? n : undefined;
-}
 async function parseCatalogImportFile(file: File): Promise<BulkImportCatalogRow[]> {
   const XLSX = await import("xlsx");
   const data = await file.arrayBuffer();
@@ -145,8 +143,6 @@ async function parseCatalogImportFile(file: File): Promise<BulkImportCatalogRow[
     rows.push({
       ma_linh_kien: ma,
       ten_linh_kien: tenRaw != null ? String(tenRaw).trim() : undefined,
-      gia_ban: toNumberField(pickField(raw, ["Giá bán", "Gia ban", "gia_ban"])),
-      gia_tham_chieu: toNumberField(pickField(raw, ["Giá tham chiếu", "Gia tham chieu", "gia_tham_chieu"])),
       don_vi: pickField(raw, ["Phân loại", "Phan loai", "Đơn vị", "Don vi", "don_vi"]) != null ? String(pickField(raw, ["Phân loại", "Phan loai", "Đơn vị", "Don vi", "don_vi"])).trim() : undefined,
       ghi_chu: pickField(raw, ["Ghi chú", "Ghi chu", "ghi_chu"]) != null ? String(pickField(raw, ["Ghi chú", "Ghi chu", "ghi_chu"])).trim() : undefined,
       dac_thu: toBoolFieldOptional(pickField(raw, ["Đặc thù", "Dac thu", "dac_thu"])),
@@ -154,7 +150,6 @@ async function parseCatalogImportFile(file: File): Promise<BulkImportCatalogRow[
       phan_loai_dac_thu: pickField(raw, ["Phân loại đặc thù", "Phan loai dac thu", "phan_loai_dac_thu"]) != null
         ? String(pickField(raw, ["Phân loại đặc thù", "Phan loai dac thu", "phan_loai_dac_thu"])).trim()
         : undefined,
-      gia_tri_cong_no: toNumberField(pickField(raw, ["Giá trị công nợ", "Gia tri cong no", "gia_tri_cong_no"])),
       anh_url: (() => {
         const v = pickField(raw, ["Ảnh", "ẢNH DEMO", "Anh demo", "Ảnh minh hoạ", "anh_url", "anh_demo"]) ?? findColumnByImageKeyword(raw);
         return v != null ? String(v).trim() : undefined;
@@ -177,9 +172,9 @@ async function downloadCatalogImportTemplate() {
   await exportRowsToExcel(
     [
       {
-        "Mã": "LK001", "Tên linh kiện": "Bo nguon 65W", "Giá bán": 250000, "Giá tham chiếu": 230000,
+        "Mã": "LK001", "Tên linh kiện": "Bo nguon 65W",
         "Phân loại": "Nguồn/Sạc", "Ghi chú": "", "Đặc thù": "", "Phân loại đặc thù": "",
-        "Only sửa chữa": "", "Giá trị công nợ": 200000, "Ảnh": "",
+        "Only sửa chữa": "", "Ảnh": "",
       },
     ],
     "mau_import_danh_muc_linh_kien.xlsx",
@@ -341,10 +336,18 @@ function PartDetailDrawer({ part, onClose, onEdit, canEdit }: { part: LinhKienRo
 
   if (!part) return null;
 
+  // Cac gia + thong tin phu (them 2026-09-12, tich hop gia88) - TAT CA la "chi xem", dong bo tu doi
+  // tac moi dem, xem CLAUDE.md/lib/gia88Sync.ts. gia_tham_chieu XOA HAN, thay bang gia_ban ("Gia NY").
   const specs: { label: string; value: ReactNode }[] = [
-    { label: "Giá bán", value: <span className="font-mono font-semibold text-[var(--green-700)]">{fmtVND(part.gia_ban)}</span> },
-    { label: "Giá tham chiếu", value: <span className="font-mono font-semibold text-[var(--green-700)]">{fmtVND(part.gia_tham_chieu)}</span> },
+    { label: "Giá NY", value: <span className="font-mono font-semibold text-[var(--green-700)]">{fmtVND(part.gia_ban)}</span> },
+    { label: "Giá KTV", value: <span className="font-mono font-semibold text-[var(--green-700)]">{fmtVND(part.gia_tri_cong_no)}</span> },
+    { label: "Giá dự phòng", value: <span className="font-mono text-[var(--ink-600)]">{fmtVND(part.gia_du_phong)}</span> },
+    { label: "Giá EU", value: <span className="font-mono text-[var(--ink-600)]">{fmtVND(part.gia_eu)}</span> },
     { label: "Phân loại", value: part.don_vi ?? "—" },
+    ...(part.nhan_hang?.trim() ? [{ label: "Nhãn hàng", value: part.nhan_hang.trim() }] : []),
+    ...(part.thiet_bi?.trim() ? [{ label: "Thiết bị", value: part.thiet_bi.trim() }] : []),
+    ...(part.don_vi_nhap?.trim() ? [{ label: "Đơn vị nhập", value: part.don_vi_nhap.trim() }] : []),
+    ...(part.ghi_chu_doi_tac?.trim() ? [{ label: "Ghi chú đối tác", value: part.ghi_chu_doi_tac.trim() }] : []),
     ...(part.dac_thu ? [{ label: "Phân loại đặc thù", value: part.phan_loai_dac_thu?.trim() || "—" }] : []),
   ];
 
@@ -370,6 +373,7 @@ function PartDetailDrawer({ part, onClose, onEdit, canEdit }: { part: LinhKienRo
 
           <div className="flex flex-wrap gap-1.5">
             {!!part.bat_tat === false && <Badge tone="gray">Đang ẩn</Badge>}
+            {!!part.cam_ban && <Badge tone="coral">Cấm bán (đối tác)</Badge>}
             {!!part.dac_thu && (
               <Badge tone="amber">
                 Đặc thù{part.phan_loai_dac_thu?.trim() ? `: ${part.phan_loai_dac_thu.trim()}` : ""} — cần TP DVBH xác nhận
@@ -470,6 +474,8 @@ function DanhMucTab() {
   const [filterDacThu, setFilterDacThu] = useState("");
   const [filterChiSuaChua, setFilterChiSuaChua] = useState("");
   const [filterBatTat, setFilterBatTat] = useState("");
+  // "Cấm bán" (them 2026-09-12, tich hop gia88) - loc rieng, cung kieu voi filterBatTat.
+  const [filterCamBan, setFilterCamBan] = useState("");
   // SUA (phan hoi 2026-08-20: "giao diện tạo mới đang khác giao diện chỉnh sửa, chuyển về chung 1
   // giao diện chuẩn (có thêm ảnh)") - gop addOpen/editOpen thanh 1 formMode duy nhat, dung chung 1
   // Modal ben duoi cho ca 2 che do (khac KtvTab.editing van dung union type row|"new"|null vi can
@@ -497,7 +503,7 @@ function DanhMucTab() {
   const [catalogImportSummary, setCatalogImportSummary] = useState<{ success: number; errorCount: number; anhLoi: number; coAnh: number } | null>(null);
   const [catalogImportFailDetails, setCatalogImportFailDetails] = useState<{ ma_linh_kien: string; status: string }[]>([]);
   const [form, setForm] = useState({
-    ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "",
+    ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "",
   });
 
   const { data: parts } = useQuery({
@@ -513,8 +519,9 @@ function DanhMucTab() {
     if (filterDacThu) rows = rows.filter((p) => (filterDacThu === "true" ? !!p.dac_thu : !p.dac_thu));
     if (filterChiSuaChua) rows = rows.filter((p) => (filterChiSuaChua === "true" ? !!p.chi_sua_chua : !p.chi_sua_chua));
     if (filterBatTat) rows = rows.filter((p) => (filterBatTat === "true" ? !!p.bat_tat : !p.bat_tat));
+    if (filterCamBan) rows = rows.filter((p) => (filterCamBan === "true" ? !!p.cam_ban : !p.cam_ban));
     return rows;
-  }, [parts?.rows, search, filterDacThu, filterChiSuaChua, filterBatTat]);
+  }, [parts?.rows, search, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan]);
 
   // "Phân loại" (doi ten tu "Đơn vị", phan hoi 2026-08-20) dang listdown NHUNG van cho go gia tri
   // moi (chon "tu dong gom tu du lieu hien co", khong phai danh sach co dinh quan ly rieng) - gop
@@ -532,7 +539,7 @@ function DanhMucTab() {
   const viewingRow = viewingMa ? parts?.rows.find((p) => p.ma_linh_kien === viewingMa) ?? null : null;
 
   function openAdd() {
-    setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "" });
+    setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "" });
     setStagedImageFile(null);
     setStagedImagePreview(null);
     setFormMode("add");
@@ -545,10 +552,11 @@ function DanhMucTab() {
     setStagedImageFile(null);
     setStagedImagePreview(null);
     setForm({
+      // ten_linh_kien/gia_ban chi con dung de HIEN THI tinh trong form Sua (chi xem, dong bo tu
+      // gia88) - khong gui len khi Luu (xem editMutation ben duoi).
       ma_linh_kien: p.ma_linh_kien,
       ten_linh_kien: p.ten_linh_kien,
       gia_ban: p.gia_ban?.toString() ?? "",
-      gia_tham_chieu: p.gia_tham_chieu?.toString() ?? "",
       don_vi: p.don_vi ?? "",
       ghi_chu: p.ghi_chu ?? "",
       dac_thu: !!p.dac_thu,
@@ -580,18 +588,9 @@ function DanhMucTab() {
     },
   });
 
-  // "Giá trị công nợ" (them 04/09/2026) - route RIENG (khong dung PATCH /:ma o tren), cot noi bo
-  // KHONG dong bo DVBH/suachua - xem backend/src/routes/settingsDatMua.ts.
-  const updateGiaTriCongNo = useMutation({
-    mutationFn: ({ ma, gia_tri_cong_no }: { ma: string; gia_tri_cong_no: number | null }) =>
-      api.patch(`/settings/linh-kien/${ma}/gia-tri-cong-no`, { gia_tri_cong_no }),
-    onSuccess: () => {
-      addToast("Đã cập nhật giá trị công nợ");
-      qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
-    },
-    onError: () => addToast("Không thể cập nhật giá trị công nợ."),
-  });
-  const [editingGiaTriCongNo, setEditingGiaTriCongNo] = useState<{ ma: string; value: string } | null>(null);
+  // "Giá trị công nợ" = "Giá KTV" - CHOT 2026-09-12 (tich hop gia88): chuyen "chi xem", khong con sua
+  // tay qua inline-edit trong bang nua (dong bo tu doi tac moi dem, xem lib/gia88Sync.ts). Route PATCH
+  // .../gia-tri-cong-no o backend van con (khong ai goi tu UI nua) - xem comment tai do.
 
   // Upload anh dung 1 ma cu the - tach rieng khoi handleUploadAnh() ben duoi (truoc chi dung
   // editingMa co san trong closure) de dung lai duoc cho CA 2 luong: sua (ma da co san tu truoc) VA
@@ -615,7 +614,6 @@ function DanhMucTab() {
         ma_linh_kien: form.ma_linh_kien.trim(),
         ten_linh_kien: form.ten_linh_kien.trim(),
         gia_ban: form.gia_ban ? Number(form.gia_ban) : undefined,
-        gia_tham_chieu: form.gia_tham_chieu ? Number(form.gia_tham_chieu) : undefined,
         don_vi: form.don_vi.trim() || undefined,
         ghi_chu: form.ghi_chu.trim() || undefined,
         dac_thu: form.dac_thu,
@@ -627,19 +625,20 @@ function DanhMucTab() {
       // POST .../anh doi hoi dong da ton tai (xem backend/src/routes/settingsDatMua.ts).
       if (stagedImageFile) await uploadAnhForMa(form.ma_linh_kien.trim(), stagedImageFile);
       addToast("Đã thêm linh kiện mới");
-      setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", gia_tham_chieu: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "" });
+      setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "" });
       closeForm();
       qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
     },
     onError: () => addToast("Không thể thêm linh kiện (mã có thể đã tồn tại)."),
   });
 
+  // CHOT 2026-09-12 (tich hop gia88 lam nguon chinh gia): "ten_linh_kien"/"gia_ban" KHONG con gui len
+  // qua PATCH nay - backend gio bo qua 2 truong nay (chi xem, dong bo tu gia88Sync.ts), gui len cung
+  // vo tac dung. Form Sua van HIEN 2 truong nay (tinh, khong phai input) de nguoi dung biet gia tri
+  // hien tai, xem JSX ben duoi.
   const editMutation = useMutation({
     mutationFn: () =>
       api.patch(`/settings/linh-kien/${editingMa}`, {
-        ten_linh_kien: form.ten_linh_kien.trim(),
-        gia_ban: form.gia_ban ? Number(form.gia_ban) : null,
-        gia_tham_chieu: form.gia_tham_chieu ? Number(form.gia_tham_chieu) : null,
         don_vi: form.don_vi.trim() || null,
         ghi_chu: form.ghi_chu.trim() || null,
         dac_thu: form.dac_thu,
@@ -751,39 +750,14 @@ function DanhMucTab() {
   const columns: Column<LinhKienRow>[] = [
     { key: "ma_linh_kien", header: "Mã", render: (p) => <span className="font-mono text-xs">{p.ma_linh_kien}</span> },
     { key: "ten_linh_kien", header: "Tên linh kiện", render: (p) => <span className="font-semibold text-[var(--ocean-800)]">{p.ten_linh_kien}</span> },
-    { key: "gia_ban", header: "Giá bán", render: (p) => <span className="font-mono font-semibold text-[var(--green-700)]">{fmtVND(p.gia_ban)}</span> },
+    { key: "gia_ban", header: "Giá NY", render: (p) => <span className="font-mono font-semibold text-[var(--green-700)]">{fmtVND(p.gia_ban)}</span> },
+    { key: "gia_tri_cong_no", header: "Giá KTV", render: (p) => <span className="font-mono text-xs">{p.gia_tri_cong_no != null ? fmtVND(p.gia_tri_cong_no) : "—"}</span> },
+    { key: "gia_du_phong", header: "Giá dự phòng", render: (p) => <span className="font-mono text-xs">{p.gia_du_phong != null ? fmtVND(p.gia_du_phong) : "—"}</span> },
+    { key: "gia_eu", header: "Giá EU", render: (p) => <span className="font-mono text-xs">{p.gia_eu != null ? fmtVND(p.gia_eu) : "—"}</span> },
     {
-      key: "gia_tri_cong_no",
-      header: "Giá trị công nợ",
-      // Sua RIENG qua PATCH .../gia-tri-cong-no (khong dong bo DVBH/suachua, xem CLAUDE.md) - inline
-      // click-de-sua ngay trong bang, khong qua Modal "Sửa linh kiện" chung (cot noi bo, tach biet
-      // co y voi cac truong con lai).
-      render: (p) =>
-        editingGiaTriCongNo?.ma === p.ma_linh_kien ? (
-          <input
-            autoFocus
-            type="number"
-            value={editingGiaTriCongNo.value}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => setEditingGiaTriCongNo({ ma: p.ma_linh_kien, value: e.target.value })}
-            onBlur={() => {
-              const v = editingGiaTriCongNo.value.trim();
-              updateGiaTriCongNo.mutate({ ma: p.ma_linh_kien, gia_tri_cong_no: v ? Number(v) : null });
-              setEditingGiaTriCongNo(null);
-            }}
-            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditingGiaTriCongNo(null); }}
-            className="focus-ring w-24 border border-[var(--line)] rounded-lg px-1.5 py-0.5 text-xs font-mono"
-          />
-        ) : canWrite ? (
-          <button
-            className="font-mono text-xs hover:underline text-left"
-            onClick={(e) => { e.stopPropagation(); setEditingGiaTriCongNo({ ma: p.ma_linh_kien, value: p.gia_tri_cong_no != null ? String(p.gia_tri_cong_no) : "" }); }}
-          >
-            {p.gia_tri_cong_no != null ? fmtVND(p.gia_tri_cong_no) : "— (bấm để nhập)"}
-          </button>
-        ) : (
-          <span className="font-mono text-xs">{p.gia_tri_cong_no != null ? fmtVND(p.gia_tri_cong_no) : "—"}</span>
-        ),
+      key: "cam_ban",
+      header: "Cấm bán",
+      render: (p) => (!!p.cam_ban ? <Badge tone="coral">Cấm bán</Badge> : <span className="text-xs text-[var(--ink-400)]">—</span>),
     },
     {
       key: "luot_dung_30_ngay",
@@ -865,14 +839,20 @@ function DanhMucTab() {
               exportRowsToExcel(filteredRows, "danh_muc_linh_kien.xlsx", "Data", {
                 ma_linh_kien: "Mã",
                 ten_linh_kien: "Tên linh kiện",
-                gia_ban: "Giá bán",
-                gia_tham_chieu: "Giá tham chiếu",
+                gia_ban: "Giá NY",
+                gia_tri_cong_no: "Giá KTV",
+                gia_du_phong: "Giá dự phòng",
+                gia_eu: "Giá EU",
                 don_vi: "Phân loại",
+                nhan_hang: "Nhãn hàng",
+                thiet_bi: "Thiết bị",
+                don_vi_nhap: "Đơn vị nhập",
+                cam_ban: "Cấm bán",
                 ghi_chu: "Ghi chú",
+                ghi_chu_doi_tac: "Ghi chú đối tác",
                 dac_thu: "Đặc thù",
                 phan_loai_dac_thu: "Phân loại đặc thù",
                 chi_sua_chua: "Only sửa chữa",
-                gia_tri_cong_no: "Giá trị công nợ",
                 bat_tat: "Hiển thị",
                 nguoi_cap_nhat: "Người cập nhật",
                 ngay_cap_nhat: "Ngày cập nhật",
@@ -938,6 +918,10 @@ function DanhMucTab() {
         <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
           <span>Hiển thị:</span>
           <Select value={filterBatTat} onChange={(v) => { setFilterBatTat(v); setPage(1); }} options={BOOL_FILTER_OPTIONS} />
+        </div>
+        <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
+          <span>Cấm bán:</span>
+          <Select value={filterCamBan} onChange={(v) => { setFilterCamBan(v); setPage(1); }} options={BOOL_FILTER_OPTIONS} />
         </div>
       </div>
 
@@ -1016,20 +1000,39 @@ function DanhMucTab() {
               <input value={form.ma_linh_kien} onChange={(e) => setForm({ ...form, ma_linh_kien: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
             </div>
           )}
-          <div>
-            <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Tên linh kiện</label>
-            <input value={form.ten_linh_kien} onChange={(e) => setForm({ ...form, ten_linh_kien: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Giá bán</label>
-              <input type="number" value={form.gia_ban} onChange={(e) => setForm({ ...form, gia_ban: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+          {/* CHOT 2026-09-12 (tich hop gia88 lam nguon chinh gia): che do THEM MOI van cho nhap "Tên
+              linh kiện"/"Giá bán" tay (ma chua tung xuat hien ben gia88, chua co gi de "chi xem") - che
+              do SUA (ma DA CO) hien 2 truong nay + cac truong dong bo khac o dang TINH, khong sua duoc,
+              vi gia88Sync.ts se tu dong ghi de moi dem (xem lib/gia88Sync.ts). */}
+          {formMode === "add" ? (
+            <>
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Tên linh kiện</label>
+                <input value={form.ten_linh_kien} onChange={(e) => setForm({ ...form, ten_linh_kien: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Giá bán (Giá NY)</label>
+                <input type="number" value={form.gia_ban} onChange={(e) => setForm({ ...form, gia_ban: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
+              </div>
+            </>
+          ) : (
+            <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-100)] px-3.5 py-3 space-y-2">
+              <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] flex items-center gap-1.5">
+                Đồng bộ tự động từ đối tác — không sửa tay được
+                <Tooltip text={`Các trường này do API giá linh kiện đối tác (gia88) tự động cập nhật mỗi đêm, xem lib/gia88Sync.ts. Muốn sửa, liên hệ đối tác cập nhật dữ liệu gốc.`} />
+              </div>
+              <KvRow label="Tên linh kiện">{editingRow?.ten_linh_kien}</KvRow>
+              <KvRow label="Giá NY">{fmtVND(editingRow?.gia_ban ?? null)}</KvRow>
+              <KvRow label="Giá KTV">{fmtVND(editingRow?.gia_tri_cong_no ?? null)}</KvRow>
+              <KvRow label="Giá dự phòng">{fmtVND(editingRow?.gia_du_phong ?? null)}</KvRow>
+              <KvRow label="Giá EU">{fmtVND(editingRow?.gia_eu ?? null)}</KvRow>
+              {editingRow?.nhan_hang?.trim() && <KvRow label="Nhãn hàng">{editingRow.nhan_hang}</KvRow>}
+              {editingRow?.thiet_bi?.trim() && <KvRow label="Thiết bị">{editingRow.thiet_bi}</KvRow>}
+              {editingRow?.don_vi_nhap?.trim() && <KvRow label="Đơn vị nhập">{editingRow.don_vi_nhap}</KvRow>}
+              {editingRow?.ghi_chu_doi_tac?.trim() && <KvRow label="Ghi chú đối tác">{editingRow.ghi_chu_doi_tac}</KvRow>}
+              <KvRow label="Cấm bán">{editingRow?.cam_ban ? "Có" : "Không"}</KvRow>
             </div>
-            <div>
-              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Giá tham chiếu</label>
-              <input type="number" value={form.gia_tham_chieu} onChange={(e) => setForm({ ...form, gia_tham_chieu: e.target.value })} className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-            </div>
-          </div>
+          )}
           <div>
             <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Phân loại</label>
             <input
@@ -1174,7 +1177,7 @@ function DanhMucTab() {
           <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">
             File Excel chỉ cần cột <span className="font-mono">Mã</span> — dùng được luôn file xuất từ nút "⬇ Xuất Excel".
             <Tooltip
-              text={`Dùng được file xuất từ nút "⬇ Xuất Excel" ở trên, hoặc file từ hệ khác (vd hệ bảo hành gốc) có tên cột tương tự. Chỉ bắt buộc cột "Mã" — mọi cột khác (Tên linh kiện, Giá bán, Giá tham chiếu, Phân loại, Ghi chú, Đặc thù, Phân loại đặc thù, Only sửa chữa, Giá trị công nợ, Ảnh) đều tuỳ chọn: cột nào KHÔNG có trong file (hoặc để trống) sẽ GIỮ NGUYÊN giá trị cũ, không bị xoá trắng — có thể chỉ dùng 2 cột "Mã" + "Giá trị công nợ" để chỉ cập nhật riêng công nợ. Ảnh (link ảnh nguồn) sẽ được hệ thống tự tải về và lưu lên Google Drive của hệ thống (cần đã kết nối ở Settings > Google Drive). Mã đã tồn tại sẽ được CẬP NHẬT theo các cột có mặt trong file, mã CHƯA CÓ sẽ được thêm mới nhưng bắt buộc phải kèm "Tên linh kiện" (mã mới thiếu tên sẽ báo lỗi riêng dòng đó).`}
+              text={`Dùng được file xuất từ nút "⬇ Xuất Excel" ở trên, hoặc file từ hệ khác (vd hệ bảo hành gốc) có tên cột tương tự. Chỉ bắt buộc cột "Mã" — mọi cột khác (Tên linh kiện, Phân loại, Ghi chú, Đặc thù, Phân loại đặc thù, Only sửa chữa, Ảnh) đều tuỳ chọn: cột nào KHÔNG có trong file (hoặc để trống) sẽ GIỮ NGUYÊN giá trị cũ, không bị xoá trắng. Ảnh (link ảnh nguồn) sẽ được hệ thống tự tải về và lưu lên Google Drive của hệ thống (cần đã kết nối ở Settings > Google Drive). Mã đã tồn tại sẽ được CẬP NHẬT theo các cột có mặt trong file, mã CHƯA CÓ sẽ được thêm mới nhưng bắt buộc phải kèm "Tên linh kiện" (mã mới thiếu tên sẽ báo lỗi riêng dòng đó). Lưu ý: Giá NY/Giá KTV/Giá dự phòng/Giá EU KHÔNG import được qua đây nữa — các giá này giờ đồng bộ tự động từ đối tác gia88 mỗi đêm.`}
             />
           </div>
           {!catalogImportRunning && !catalogImportSummary && (

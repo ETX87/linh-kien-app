@@ -13,7 +13,6 @@ import { SectionTitle } from "../../components/ui/SectionTitle";
 import { Timeline } from "../../components/ui/Timeline";
 import { api, buildQuery, ApiError } from "../../api/client";
 import { fmtDate, fmtDateTime, fmtVND } from "../../types";
-import { useAuth } from "../../auth/AuthContext";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import { compressImage } from "../../lib/imageCompress";
 import type { TraHangRow } from "./types";
@@ -178,8 +177,6 @@ export function TraHangTab({
   // Mua hang/Cong no - xem DonCuaToiTab.tsx dung y het pattern nay).
   const { danhMuc } = useLkAndLdeCache(true);
   const rankMap = useLinhKienRankMap();
-  const auth = useAuth();
-  const canEditDanhMuc = auth.status === "authenticated" && !!(auth.user.quan_ly_danh_muc_lk || auth.user.vai_tro === "Admin");
   const [detailLk, setDetailLk] = useState<string | null>(null);
   function openLkDetail(maLk: string) {
     if (danhMuc.some((m) => m.ma_linh_kien === maLk)) setDetailLk(maLk);
@@ -726,10 +723,7 @@ export function TraHangTab({
           <LinhKienDetailModal
             part={part}
             rank={rankMap.get(detailLk)}
-            canEdit={canEditDanhMuc}
             onClose={() => setDetailLk(null)}
-            addToast={addToast}
-            qc={qc}
           />
         ) : null;
       })()}

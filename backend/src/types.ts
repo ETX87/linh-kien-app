@@ -89,6 +89,13 @@ export interface Env {
   // external_systems (code=linh_kien_app) cua khovan (lookup_api_key/action_api_key).
   KHOVAN_LOOKUP_API_KEY?: string;
   KHOVAN_PARTNER_API_KEY?: string;
+  // Them 2026-09-12: nguon chinh cap nhat danh muc linh_kien - API doi tac "gia88" tra ve JSON bang
+  // gia (xem api-lk-prices_gia88.md o goc repo + lib/gia88Client.ts/gia88Sync.ts). KHAC CASE_LOOKUP_*/
+  // *_SYNC_* o tren: gia88 la Google Cloud Function (asia-southeast1-...cloudfunctions.net), KHONG
+  // phai Worker cung tai khoan Cloudflare, nen fetch() thang binh thuong la du - KHONG can Fetcher
+  // Service Binding (loi 1042 chi xay ra giua 2 Worker cung tai khoan).
+  GIA88_BASE_URL: string;
+  GIA88_API_KEY: string;
   // Cua sau dang nhap CHI danh cho local dev (xem routes/auth.ts GET /dev-login), giong co che he goc.
   LOCAL_DEV_BYPASS_AUTH?: string;
   // Web Push (phan hoi 2026-08-26: day thong bao ngay khi co "tin nhan thong bao" moi trong

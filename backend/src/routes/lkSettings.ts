@@ -40,21 +40,24 @@ lkSettings.get("/danh-muc", async (c) => {
   return c.json({ rows: results });
 });
 
+// CHOT 2026-09-12 (tich hop gia88 lam nguon chinh danh muc): bo han "gia_ban"/"gia_tham_chieu" khoi
+// POST/PATCH cua route nay - gia_ban tro thanh "chi xem" (do gia88Sync.ts quan ly, xem
+// routes/settingsDatMua.ts PATCH /linh-kien/:ma), gia_tham_chieu bi xoa cot (migration 0027).
 lkSettings.post("/danh-muc", quanLyDanhMuc, async (c) => {
-  const body = await c.req.json<{ ma_linh_kien: string; ten_linh_kien: string; gia_ban?: number | null; gia_tham_chieu?: number | null; don_vi?: string | null; ghi_chu?: string | null; anh_demo?: string | null; dac_thu?: boolean; chi_sua_chua?: boolean }>();
+  const body = await c.req.json<{ ma_linh_kien: string; ten_linh_kien: string; don_vi?: string | null; ghi_chu?: string | null; anh_demo?: string | null; dac_thu?: boolean; chi_sua_chua?: boolean }>();
   if (!body.ma_linh_kien?.trim() || !body.ten_linh_kien?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
 
   const user = c.get("user");
   const row = await c.env.DB.prepare(
-    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, nguoi_cap_nhat, ngay_cap_nhat)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, nguoi_cap_nhat, ngay_cap_nhat)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(ma_linh_kien) DO UPDATE SET
-       ten_linh_kien = excluded.ten_linh_kien, gia_ban = excluded.gia_ban, gia_tham_chieu = excluded.gia_tham_chieu,
+       ten_linh_kien = excluded.ten_linh_kien,
        don_vi = excluded.don_vi, ghi_chu = excluded.ghi_chu, anh_demo = excluded.anh_demo, dac_thu = excluded.dac_thu,
        chi_sua_chua = excluded.chi_sua_chua, nguoi_cap_nhat = excluded.nguoi_cap_nhat, ngay_cap_nhat = excluded.ngay_cap_nhat
      RETURNING *`,
   )
-    .bind(body.ma_linh_kien.trim(), body.ten_linh_kien.trim(), body.gia_ban ?? null, body.gia_tham_chieu ?? null, body.don_vi?.trim() || null, body.ghi_chu?.trim() || null, body.anh_demo?.trim() || null, body.dac_thu ? 1 : 0, body.chi_sua_chua ? 1 : 0, user.email, nowVN())
+    .bind(body.ma_linh_kien.trim(), body.ten_linh_kien.trim(), body.don_vi?.trim() || null, body.ghi_chu?.trim() || null, body.anh_demo?.trim() || null, body.dac_thu ? 1 : 0, body.chi_sua_chua ? 1 : 0, user.email, nowVN())
     .first();
 
   return c.json(row, 201);
@@ -62,15 +65,14 @@ lkSettings.post("/danh-muc", quanLyDanhMuc, async (c) => {
 
 lkSettings.patch("/danh-muc/:ma", quanLyDanhMuc, async (c) => {
   const ma = c.req.param("ma");
-  const body = await c.req.json<{ ten_linh_kien?: string; gia_ban?: number | null; gia_tham_chieu?: number | null; don_vi?: string | null; ghi_chu?: string | null; anh_demo?: string | null; bat_tat?: boolean; dac_thu?: boolean; chi_sua_chua?: boolean }>();
+  // "ten_linh_kien" cung chuyen "chi xem" tu 2026-09-12 (dong bo tu gia88) - route nay khong con nhan
+  // truong do, giong het PATCH /settings/linh-kien/:ma.
+  const body = await c.req.json<{ don_vi?: string | null; ghi_chu?: string | null; anh_demo?: string | null; bat_tat?: boolean; dac_thu?: boolean; chi_sua_chua?: boolean }>();
   const existing = await c.env.DB.prepare("SELECT * FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
 
   const user = c.get("user");
   const next = {
-    ten_linh_kien: body.ten_linh_kien !== undefined ? body.ten_linh_kien.trim() : existing.ten_linh_kien,
-    gia_ban: body.gia_ban !== undefined ? body.gia_ban : existing.gia_ban,
-    gia_tham_chieu: body.gia_tham_chieu !== undefined ? body.gia_tham_chieu : existing.gia_tham_chieu,
     don_vi: body.don_vi !== undefined ? body.don_vi?.trim() || null : existing.don_vi,
     ghi_chu: body.ghi_chu !== undefined ? body.ghi_chu?.trim() || null : existing.ghi_chu,
     anh_demo: body.anh_demo !== undefined ? body.anh_demo?.trim() || null : existing.anh_demo,
@@ -80,9 +82,9 @@ lkSettings.patch("/danh-muc/:ma", quanLyDanhMuc, async (c) => {
   };
 
   await c.env.DB.prepare(
-    "UPDATE linh_kien SET ten_linh_kien = ?, gia_ban = ?, gia_tham_chieu = ?, don_vi = ?, ghi_chu = ?, anh_demo = ?, bat_tat = ?, dac_thu = ?, chi_sua_chua = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?",
+    "UPDATE linh_kien SET don_vi = ?, ghi_chu = ?, anh_demo = ?, bat_tat = ?, dac_thu = ?, chi_sua_chua = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?",
   )
-    .bind(next.ten_linh_kien, next.gia_ban, next.gia_tham_chieu, next.don_vi, next.ghi_chu, next.anh_demo, next.bat_tat, next.dac_thu, next.chi_sua_chua, user.email, nowVN(), ma)
+    .bind(next.don_vi, next.ghi_chu, next.anh_demo, next.bat_tat, next.dac_thu, next.chi_sua_chua, user.email, nowVN(), ma)
     .run();
 
   return c.json({ ok: true });
@@ -161,7 +163,7 @@ lkSettings.patch("/nhom-thay-the/:id", quanLyDanhMuc, async (c) => {
 lkSettings.get("/thay-the/:ma_lk", async (c) => {
   const maLk = c.req.param("ma_lk").trim();
   const { results } = await c.env.DB.prepare(
-    `SELECT DISTINCT dm.ma_linh_kien, dm.ten_linh_kien, dm.gia_tham_chieu
+    `SELECT DISTINCT dm.ma_linh_kien, dm.ten_linh_kien, dm.gia_ban
      FROM lk_nhom_thay_the_ct ct
      JOIN linh_kien dm ON dm.ma_linh_kien = ct.ma_lk
      WHERE ct.nhom_id IN (SELECT nhom_id FROM lk_nhom_thay_the_ct WHERE ma_lk = ?)

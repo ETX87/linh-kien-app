@@ -52,6 +52,7 @@ const TABS = [
   { key: "khu-vuc", label: "Khu vực" },
   { key: "google-drive", label: "Google Drive" },
   { key: "dong-bo-dvbh", label: "Đồng bộ DVBH" },
+  { key: "dong-bo-gia88", label: "Đồng bộ Gia88" },
   { key: "api-doi-tac", label: "API đối tác" },
 ];
 
@@ -66,6 +67,7 @@ export function SettingsModule() {
         {tab === "khu-vuc" && <KhuVucTab />}
         {tab === "google-drive" && <GoogleDriveTab />}
         {tab === "dong-bo-dvbh" && <DongBoDvbhTab />}
+        {tab === "dong-bo-gia88" && <DongBoGia88Tab />}
         {tab === "api-doi-tac" && <PartnerApiTab />}
       </div>
     </div>
@@ -808,6 +810,71 @@ function DongBoDvbhTab() {
             <KvRow label="Lần đồng bộ Khu vực gần nhất">{data?.lastSyncKhuVuc ? fmtDateTime(data.lastSyncKhuVuc) : "— (chưa từng)"}</KvRow>
             <div className="mt-3">
               <Btn size="sm" onClick={() => run.mutate()} loading={run.isPending} disabled={tongDangCho === 0 && !run.isPending}>
+                🔄 Đồng bộ ngay
+              </Btn>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface Gia88SyncStatus {
+  last_run_at: string | null;
+  last_status: string | null;
+  changed_count: number;
+  last_error: string | null;
+}
+
+// "Đồng bộ Gia88" (them 2026-09-12, tich hop API bang gia doi tac "gia88" lam nguon chinh danh muc
+// linh_kien - xem api-lk-prices_gia88.md + backend/src/lib/gia88Sync.ts). Cron tu chay 1 lan/dem luc
+// 0h gio VN (backend `scheduled()`, gate theo gio UTC=17) - tab nay CHI hien trang thai lan chay gan
+// nhat + cho Admin bam dong bo ngay khi can gap, mo phong dung khuon DongBoDvbhTab o tren.
+function DongBoGia88Tab() {
+  const qc = useQueryClient();
+  const addToast = useToast();
+  const { data, isLoading } = useQuery({
+    queryKey: ["gia88-sync-status"],
+    queryFn: () => api.get<Gia88SyncStatus>("/gia88-sync"),
+    refetchInterval: 60_000,
+  });
+
+  const run = useMutation({
+    mutationFn: () => api.post<Gia88SyncStatus>("/gia88-sync/run", {}),
+    onSuccess: async (res) => {
+      if (res.last_status === "error") {
+        addToast(`Đồng bộ lỗi: ${res.last_error}`);
+      } else {
+        addToast(`Đã đồng bộ xong, ${res.changed_count} dòng thay đổi`);
+      }
+      await qc.invalidateQueries({ queryKey: ["gia88-sync-status"] });
+    },
+    onError: (err) => addToast("Không thể đồng bộ: " + (err instanceof Error ? err.message : String(err))),
+  });
+
+  return (
+    <div className="max-w-md space-y-4">
+      <div className="text-xs text-[var(--ink-500)]">
+        Kéo bảng giá linh kiện mới nhất từ đối tác "gia88" về danh mục (Giá NY/KTV/dự phòng/EU, nhãn
+        hàng, thiết bị, cấm bán...) — nguồn chính từ 2026-09-12, các trường đồng bộ chuyển "chỉ xem"
+        trong Danh mục linh kiện. Tự động chạy 1 lần/đêm lúc 0h, hoặc bấm "Đồng bộ ngay" khi cần gấp.
+      </div>
+      <div className="border border-[var(--line)] rounded-xl bg-[var(--surface)] p-4">
+        {isLoading ? (
+          <div className="text-sm text-[var(--ink-400)]">Đang tải…</div>
+        ) : (
+          <>
+            <KvRow label="Lần đồng bộ gần nhất">{data?.last_run_at ? fmtDateTime(data.last_run_at) : "— (chưa từng)"}</KvRow>
+            <KvRow label="Trạng thái">
+              {data?.last_status === "error" ? <Badge tone="coral">Lỗi</Badge> : data?.last_status === "ok" ? <Badge tone="teal">OK</Badge> : "—"}
+            </KvRow>
+            <KvRow label="Số dòng thay đổi lần gần nhất">{data?.changed_count ?? 0}</KvRow>
+            {data?.last_status === "error" && data.last_error && (
+              <KvRow label="Chi tiết lỗi"><span className="text-[var(--coral-600)]">{data.last_error}</span></KvRow>
+            )}
+            <div className="mt-3">
+              <Btn size="sm" onClick={() => run.mutate()} loading={run.isPending}>
                 🔄 Đồng bộ ngay
               </Btn>
             </div>

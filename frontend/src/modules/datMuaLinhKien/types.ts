@@ -29,7 +29,6 @@ export interface LkDanhMucRow {
   // Them cho LinhKienDetailModal (nut "xem chi tiet linh kien") - cung ly do nhu anh_demo, du lieu
   // da co san tu SELECT *, chi bo sung TYPE.
   ghi_chu?: string | null;
-  gia_tham_chieu?: number | null;
   // "dac_thu"/"phan_loai_dac_thu" (them 2026-08-25, phan hoi "khi chọn 1 lk thuộc diện đặc thù...
   // hiện 1 note") - CUNG ly do voi anh_demo/ghi_chu o tren: du lieu da co san tu SELECT * o backend,
   // chi thieu trong TYPE nay. Dung o LinhKienPicker.tsx de hien canh bao TBP duyet.
@@ -39,6 +38,17 @@ export interface LkDanhMucRow {
   // SELECT * o backend, chi thieu trong TYPE nay. Dung o useTaoDonForm.ts tinh "Cong no tam tinh" song
   // ngay luc soan don (xem GET /dat-mua-lk/cong-no-du-kien).
   gia_tri_cong_no?: number | null;
+  // Cac truong moi tu gia88 (them 2026-09-12, xem types.ts LinhKienRow) - "cam_ban" BAT BUOC (dung
+  // loc khoi picker o helpers.ts useLkAndLdeCache), cac truong con lai chi hien thi tham khao khi mo
+  // LinhKienDetailModal.
+  cam_ban?: number | null;
+  gia_du_phong?: number | null;
+  gia_eu?: number | null;
+  don_vi_nhap?: string | null;
+  nhan_hang?: string | null;
+  thiet_bi?: string | null;
+  don_vi_tinh?: string | null;
+  ghi_chu_doi_tac?: string | null;
 }
 
 // Trang thai 1 DONG don hang - null cho dong loai_don='tra_hang' (dung tra_hang_log rieng, xem

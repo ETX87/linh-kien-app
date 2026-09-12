@@ -1830,12 +1830,10 @@ export function DonHangGroupedList({
   const ktvDisplayMap = useKtvDisplayMap();
   // Xem chi tiet linh kien (phan hoi 2026-08-19: "Click vào tên linh kiện sẽ mở UI xem thông tin chi
   // tiết của linh kiện đó") - tai dung LinhKienDetailModal da co san (LinhKienPicker.tsx, dung boi
-  // TaoDonTab). danhMuc/rankMap/canEditDanhMuc can THEM o day vi component nay truoc gio khong doc
-  // danh muc (chi hien snapshot ten/ma da luu san tren dong don hang).
+  // TaoDonTab). danhMuc/rankMap can THEM o day vi component nay truoc gio khong doc danh muc (chi hien
+  // snapshot ten/ma da luu san tren dong don hang).
   const { danhMuc } = useLkAndLdeCache(true);
   const rankMap = useLinhKienRankMap();
-  const auth = useAuth();
-  const canEditDanhMuc = auth.status === "authenticated" && !!(auth.user.quan_ly_danh_muc_lk || auth.user.vai_tro === "Admin");
   // Tach 2 nhom Ly do cham theo quan_ly_don_thieu_linh_kien (xem comment actionsFor.choHang o
   // helpers.ts) - dung cho ca nut "Chờ hàng" rieng tren tung dong.
   const choHangReasons = (bulkLyDoData?.rows ?? []).filter((l) => l.quan_ly_don_thieu_linh_kien);
@@ -2504,10 +2502,7 @@ export function DonHangGroupedList({
           <LinhKienDetailModal
             part={part}
             rank={rankMap.get(detailLk)}
-            canEdit={canEditDanhMuc}
             onClose={() => setDetailLk(null)}
-            addToast={addToast}
-            qc={qc}
           />
         ) : null;
       })()}

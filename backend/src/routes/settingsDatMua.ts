@@ -42,29 +42,29 @@ settingsDatMua.get("/linh-kien/version", async (c) => {
   return c.json({ hash });
 });
 
+// POST /linh-kien - CHI dung de tao MA HOAN TOAN MOI (chua tung xuat hien tren gia88) - Admin/quan ly
+// danh muc van duoc tu dien gia_ban tam thoi cho ma moi nay; 1 khi gia88 biet den ma nay (dem sau),
+// gia_ban se chuyen sang do gia88Sync.ts quan ly, sua tay qua PATCH /linh-kien/:ma se KHONG con tac
+// dung (xem comment PATCH ben duoi - "chi xem", CHOT nguoi dung 2026-09-12).
 settingsDatMua.post("/linh-kien", linhKienWriteRoles, async (c) => {
   const body = await c.req.json<{
-    ma_linh_kien: string; ten_linh_kien: string; gia_ban?: number; gia_tham_chieu?: number;
+    ma_linh_kien: string; ten_linh_kien: string; gia_ban?: number;
     don_vi?: string; ghi_chu?: string; anh_demo?: string; dac_thu?: boolean; chi_sua_chua?: boolean;
     // "Phân loại đặc thù" (them 2026-08-25) - listdown tu do (dung y het "don_vi"), chi co y nghia khi
     // dac_thu=true, frontend tu an o nhap khi chua tick dac_thu.
     phan_loai_dac_thu?: string;
-    // "Giá trị công nợ" (them 04/09/2026, xem migration 0017) - noi bo, dung tinh Cong no thuc te
-    // KTV/cong no tam tinh don moi (lib/congNoKtv.ts), KHONG dong bo DVBH/suachua.
-    gia_tri_cong_no?: number;
   }>();
   if (!body.ma_linh_kien?.trim() || !body.ten_linh_kien?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
 
   const user = c.get("user");
   const row = await c.env.DB.prepare(
-    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, gia_tri_cong_no, nguoi_cap_nhat, ngay_cap_nhat)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, nguoi_cap_nhat, ngay_cap_nhat)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
   )
     .bind(
-      body.ma_linh_kien.trim(), body.ten_linh_kien.trim(), body.gia_ban ?? null, body.gia_tham_chieu ?? null,
+      body.ma_linh_kien.trim(), body.ten_linh_kien.trim(), body.gia_ban ?? null,
       body.don_vi?.trim() || null, body.ghi_chu?.trim() || null, body.anh_demo?.trim() || null,
       body.dac_thu ? 1 : 0, body.chi_sua_chua ? 1 : 0, body.dac_thu ? body.phan_loai_dac_thu?.trim() || null : null,
-      body.gia_tri_cong_no ?? null,
       user.email, nowVN(),
     )
     .first();
@@ -73,11 +73,18 @@ settingsDatMua.post("/linh-kien", linhKienWriteRoles, async (c) => {
   return c.json(row, 201);
 });
 
+// PATCH /linh-kien/:ma - CHOT nguoi dung 2026-09-12 (tich hop gia88 lam nguon chinh danh muc): cac
+// cot do gia88Sync.ts quan ly (ten_linh_kien, gia_ban, gia_tri_cong_no, gia_du_phong, gia_eu,
+// don_vi_nhap, nhan_hang, thiet_bi, don_vi_tinh, ghi_chu_doi_tac, cam_ban) chuyen "chi xem" - route
+// nay KHONG con nhan cac truong do trong body nua (frontend an luon input, o day chan them 1 lop -
+// gui len cung khong co tac dung, PATCH khac se ghi de dung gia tri that vao dem tiep theo). Cac cot
+// KHONG dong bo (bat_tat, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu) van sua
+// tay binh thuong.
 settingsDatMua.patch("/linh-kien/:ma", linhKienWriteRoles, async (c) => {
   const ma = c.req.param("ma");
   if (!ma) return c.json({ error: "INVALID_PARAM" }, 400);
   const body = await c.req.json<{
-    ten_linh_kien?: string; bat_tat?: boolean; gia_ban?: number; gia_tham_chieu?: number; don_vi?: string; ghi_chu?: string;
+    bat_tat?: boolean; don_vi?: string; ghi_chu?: string;
     anh_demo?: string; dac_thu?: boolean; chi_sua_chua?: boolean; phan_loai_dac_thu?: string;
   }>();
   const existing = await c.env.DB.prepare("SELECT * FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
@@ -86,10 +93,7 @@ settingsDatMua.patch("/linh-kien/:ma", linhKienWriteRoles, async (c) => {
   const user = c.get("user");
   const dacThuNext = body.dac_thu !== undefined ? (body.dac_thu ? 1 : 0) : existing.dac_thu;
   const next = {
-    ten_linh_kien: body.ten_linh_kien !== undefined ? body.ten_linh_kien.trim() || existing.ten_linh_kien : existing.ten_linh_kien,
     bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat,
-    gia_ban: body.gia_ban !== undefined ? body.gia_ban : existing.gia_ban,
-    gia_tham_chieu: body.gia_tham_chieu !== undefined ? body.gia_tham_chieu : existing.gia_tham_chieu,
     don_vi: body.don_vi !== undefined ? body.don_vi?.trim() || null : existing.don_vi,
     ghi_chu: body.ghi_chu !== undefined ? body.ghi_chu?.trim() || null : existing.ghi_chu,
     anh_demo: body.anh_demo !== undefined ? body.anh_demo?.trim() || null : existing.anh_demo,
@@ -100,9 +104,9 @@ settingsDatMua.patch("/linh-kien/:ma", linhKienWriteRoles, async (c) => {
     phan_loai_dac_thu: !dacThuNext ? null : body.phan_loai_dac_thu !== undefined ? body.phan_loai_dac_thu?.trim() || null : existing.phan_loai_dac_thu,
   };
   await c.env.DB.prepare(
-    "UPDATE linh_kien SET ten_linh_kien = ?, bat_tat = ?, gia_ban = ?, gia_tham_chieu = ?, don_vi = ?, ghi_chu = ?, anh_demo = ?, dac_thu = ?, chi_sua_chua = ?, phan_loai_dac_thu = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?",
+    "UPDATE linh_kien SET bat_tat = ?, don_vi = ?, ghi_chu = ?, anh_demo = ?, dac_thu = ?, chi_sua_chua = ?, phan_loai_dac_thu = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?",
   )
-    .bind(next.ten_linh_kien, next.bat_tat, next.gia_ban, next.gia_tham_chieu, next.don_vi, next.ghi_chu, next.anh_demo, next.dac_thu, next.chi_sua_chua, next.phan_loai_dac_thu, user.email, nowVN(), ma)
+    .bind(next.bat_tat, next.don_vi, next.ghi_chu, next.anh_demo, next.dac_thu, next.chi_sua_chua, next.phan_loai_dac_thu, user.email, nowVN(), ma)
     .run();
 
   await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
@@ -219,13 +223,18 @@ settingsDatMua.post("/linh-kien/bulk-import-anh", linhKienWriteRoles, async (c) 
   return c.json({ done, nextOffset, success, notFound, fetchFailed, errorCount, details });
 });
 
-// POST /api/settings/linh-kien/bulk-import - { rows: [{ma_linh_kien, ten_linh_kien?, gia_ban?,
-// gia_tham_chieu?, don_vi?, ghi_chu?, dac_thu?, chi_sua_chua?, anh_url?, phan_loai_dac_thu?,
-// gia_tri_cong_no?}], isLast? } - nhap/cap nhat HANG LOAT ca dong danh muc - dung khi mang danh sach
-// linh kien tu he khac sang (vd he bao hanh goc) qua file Excel/CSV. UPSERT theo ma_linh_kien (ON
-// CONFLICT DO UPDATE) - chay lai nhieu lan an toan, KHONG dong vao bat_tat (giu trang thai an/hien
-// da chinh tay truoc do). Frontend tu chia "rows" thanh tung lo (chunk) TRUOC khi goi - moi request
-// CHI mang dung 1 lo, xu ly HET tất ca dong nhan duoc (khong tu chia nho them o day).
+// POST /api/settings/linh-kien/bulk-import - { rows: [{ma_linh_kien, ten_linh_kien?, don_vi?,
+// ghi_chu?, dac_thu?, chi_sua_chua?, anh_url?, phan_loai_dac_thu?}], isLast? } - nhap/cap nhat HANG
+// LOAT ca dong danh muc - dung khi mang danh sach linh kien tu he khac sang (vd he bao hanh goc) qua
+// file Excel/CSV. UPSERT theo ma_linh_kien (ON CONFLICT DO UPDATE) - chay lai nhieu lan an toan,
+// KHONG dong vao bat_tat (giu trang thai an/hien da chinh tay truoc do). Frontend tu chia "rows"
+// thanh tung lo (chunk) TRUOC khi goi - moi request CHI mang dung 1 lo, xu ly HET tất ca dong nhan
+// duoc (khong tu chia nho them o day).
+//
+// CHOT 2026-09-12 (tich hop gia88 lam nguon chinh gia): bo han "gia_ban"/"gia_tham_chieu"/
+// "gia_tri_cong_no" khoi danh sach cot import nay - 3 cot gia do gia88Sync.ts quan ly, KHONG con
+// duong nao khac (ke ca import file) duoc phep ghi de nua, tranh thanh 1 "cua sau" quanh quyet dinh
+// "chi xem" o PATCH /linh-kien/:ma.
 //
 // FIX #1 (phan hoi 2026-09-04: "tốc độ import rất chậm") - TRUOC DAY frontend gui NGUYEN CA MANG
 // "rows" (toan bo file) O MOI LAN goi, kem "offset" de backend tu cat 10 dong/lan roi lap lai - da doi
@@ -246,9 +255,9 @@ settingsDatMua.post("/linh-kien/bulk-import-anh", linhKienWriteRoles, async (c) 
 settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
   const body = await c.req.json<{
     rows: {
-      ma_linh_kien: string; ten_linh_kien?: string; gia_ban?: number; gia_tham_chieu?: number;
+      ma_linh_kien: string; ten_linh_kien?: string;
       don_vi?: string; ghi_chu?: string; dac_thu?: boolean; chi_sua_chua?: boolean; anh_url?: string;
-      phan_loai_dac_thu?: string; gia_tri_cong_no?: number;
+      phan_loai_dac_thu?: string;
     }[];
     isLast?: boolean;
   }>();
@@ -280,19 +289,16 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
     for (const r of results) existingMap.set(r.ma_linh_kien, r);
   }
 
-  const UPSERT_SQL = `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, gia_tri_cong_no, nguoi_cap_nhat, ngay_cap_nhat)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  const UPSERT_SQL = `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, nguoi_cap_nhat, ngay_cap_nhat)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(ma_linh_kien) DO UPDATE SET
        ten_linh_kien = excluded.ten_linh_kien,
-       gia_ban = COALESCE(excluded.gia_ban, linh_kien.gia_ban),
-       gia_tham_chieu = COALESCE(excluded.gia_tham_chieu, linh_kien.gia_tham_chieu),
        don_vi = COALESCE(excluded.don_vi, linh_kien.don_vi),
        ghi_chu = COALESCE(excluded.ghi_chu, linh_kien.ghi_chu),
        anh_demo = COALESCE(excluded.anh_demo, linh_kien.anh_demo),
        dac_thu = excluded.dac_thu,
        chi_sua_chua = excluded.chi_sua_chua,
        phan_loai_dac_thu = COALESCE(excluded.phan_loai_dac_thu, linh_kien.phan_loai_dac_thu),
-       gia_tri_cong_no = COALESCE(excluded.gia_tri_cong_no, linh_kien.gia_tri_cong_no),
        nguoi_cap_nhat = excluded.nguoi_cap_nhat,
        ngay_cap_nhat = excluded.ngay_cap_nhat`;
 
@@ -340,9 +346,9 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
 
     statements.push(
       c.env.DB.prepare(UPSERT_SQL).bind(
-        ma, ten, row.gia_ban ?? null, row.gia_tham_chieu ?? null, row.don_vi?.trim() || null, row.ghi_chu?.trim() || null,
+        ma, ten, row.don_vi?.trim() || null, row.ghi_chu?.trim() || null,
         anhDemo, dacThuVal, chiSuaChuaVal,
-        row.phan_loai_dac_thu?.trim() || null, row.gia_tri_cong_no ?? null,
+        row.phan_loai_dac_thu?.trim() || null,
         user.email, now,
       ),
     );

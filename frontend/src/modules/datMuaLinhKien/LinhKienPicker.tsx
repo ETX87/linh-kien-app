@@ -8,8 +8,6 @@ import { DropdownPortal } from "../../components/ui/DropdownPortal";
 import { KvRow } from "../../components/ui/KvRow";
 import { api } from "../../api/client";
 import { fmtVND } from "../../types";
-import { useToast } from "../../components/ui/Toast";
-import { useAuth } from "../../auth/AuthContext";
 import { usePublicSheetCache } from "../../lib/publicSheetCache";
 import type { LkDanhMucRow } from "./types";
 import { describeApiError, useLinhKienRankMap, formatLkLabel } from "./helpers";
@@ -212,10 +210,6 @@ export function LinhKienPicker({
   const [showDetail, setShowDetail] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const addToast = useToast();
-  const qc = useQueryClient();
-  const auth = useAuth();
-  const canEditDanhMuc = auth.status === "authenticated" && !!(auth.user.quan_ly_danh_muc_lk || auth.user.vai_tro === "Admin");
 
   const selected = options.find((o) => o.ma_linh_kien === value);
 
@@ -389,10 +383,7 @@ export function LinhKienPicker({
       <LinhKienDetailModal
         part={selected}
         rank={rankMap.get(selected.ma_linh_kien)}
-        canEdit={canEditDanhMuc}
         onClose={() => setShowDetail(false)}
-        addToast={addToast}
-        qc={qc}
       />
     )}
     </div>
@@ -431,30 +422,17 @@ export function LinhKienHeroImage({ url, alt }: { url: string | null; alt: strin
   );
 }
 
-// Modal xem + sua gon cho 1 linh kien, mo tu LinhKienPicker (phan hoi 2026-08-18: "bổ sung nút xem
-// chi tiết"). CO Y XAY MOI thay vi tai dung PartDetailDrawer cua DanhMucLinhKienModule.tsx - component
-// do gan chat voi state/mutation rieng cua module quan ly danh muc (form them/sua, upload anh hang
-// loat...), khong tach roi duoc ma khong keo theo ca mo hinh du lieu cua module do (dung tinh than
-// "tranh ghep noi cheo 2 module khong lien quan" da chot khi viet LinhKienThumbMini). Modal nay gon
-// hon nhieu (khong drawer/lightbox/upload hang loat) vi ngu canh la "tra cuu nhanh luc dang tao don",
-// khong phai man hinh quan tri danh muc. Doc du lieu tu CHINH `options` da co san trong bo nho (khong
-// goi API moi), chi ghi qua dung API PATCH /lk-settings/danh-muc/:ma ma DanhMucLinhKienModule dang
-// dung, gioi han sua theo dung quyen quan_ly_danh_muc_lk.
+// Modal XEM (chi doc) gon cho 1 linh kien, mo tu LinhKienPicker (phan hoi 2026-08-18: "bổ sung nút
+// xem chi tiết"). CO Y XAY MOI thay vi tai dung PartDetailDrawer cua DanhMucLinhKienModule.tsx - xem
+// comment cu (tranh ghep noi cheo 2 module khong lien quan). CHOT 2026-09-12 (tich hop gia88 lam
+// nguon chinh gia): BO HAN nut "Sửa thông tin" - moi truong modal nay tung cho sua (ten_linh_kien/
+// gia_ban/gia_tham_chieu) deu chuyen "chi xem" (dong bo tu doi tac), sua don_vi/ghi_chu (khong dong
+// bo) gio lam qua DanhMucLinhKienModule.tsx nhu binh thuong, khong can 1 form rieng o day nua.
 export function LinhKienDetailModal({
-  part, rank, canEdit, onClose, addToast, qc,
+  part, rank, onClose,
 }: {
-  part: LkDanhMucRow; rank: number | undefined; canEdit: boolean;
-  onClose: () => void; addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>;
+  part: LkDanhMucRow; rank: number | undefined; onClose: () => void;
 }) {
-  const [isEdit, setIsEdit] = useState(false);
-  const [draft, setDraft] = useState({
-    ten_linh_kien: part.ten_linh_kien,
-    gia_ban: part.gia_ban != null ? String(part.gia_ban) : "",
-    gia_tham_chieu: part.gia_tham_chieu != null ? String(part.gia_tham_chieu) : "",
-    don_vi: part.don_vi ?? "",
-    ghi_chu: part.ghi_chu ?? "",
-  });
-
   // QA 2026-08-19 (phat hien khi ra soat sau Phase 4): modal nay co the mo TREN 1 Drawer dang sua don
   // (DonHangDetailModal -> LinhKienPicker -> nut "i" -> modal nay). Modal.tsx KHONG tu dong Esc (co
   // chu dinh, xem Modal.tsx), nen neu khong chan o day, Esc se xuyen thang qua toi Drawer.tsx ben
@@ -467,26 +445,6 @@ export function LinhKienDetailModal({
     window.addEventListener("keydown", onKeyDownCapture, { capture: true });
     return () => window.removeEventListener("keydown", onKeyDownCapture, { capture: true });
   }, []);
-
-  const saveMutation = useMutation({
-    mutationFn: () =>
-      api.patch(`/lk-settings/danh-muc/${part.ma_linh_kien}`, {
-        ten_linh_kien: draft.ten_linh_kien.trim(),
-        gia_ban: draft.gia_ban.trim() ? Number(draft.gia_ban) : null,
-        gia_tham_chieu: draft.gia_tham_chieu.trim() ? Number(draft.gia_tham_chieu) : null,
-        don_vi: draft.don_vi.trim() || null,
-        ghi_chu: draft.ghi_chu.trim() || null,
-      }),
-    onSuccess: () => {
-      addToast("Đã cập nhật thông tin linh kiện");
-      setIsEdit(false);
-      // Cache rieng cua module "Dat mua linh kien" (linhKienCache.ts, IndexedDB) tu cap nhat o lan
-      // dong bo incremental ke tiep (useLkAndLdeCache doc theo ngay_cap_nhat) - khong force refetch
-      // toan bo danh muc o day de tranh 1 lan doc lai ~vai nghin dong chi vi sua 1 linh kien.
-      qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
-    },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
-  });
 
   return (
     <Modal open title="🔍 Chi tiết linh kiện" onClose={onClose} width="max-w-md">
@@ -503,68 +461,34 @@ export function LinhKienDetailModal({
         </div>
         {rank != null && <Badge tone="warning">🔥 Hạng #{rank} trong 30 ngày gần nhất</Badge>}
 
-        {isEdit ? (
-          <div className="space-y-3">
-            <div>
-              <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Tên linh kiện</label>
-              <input value={draft.ten_linh_kien} onChange={(e) => setDraft((d) => ({ ...d, ten_linh_kien: e.target.value }))} className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Giá bán</label>
-                <input type="number" value={draft.gia_ban} onChange={(e) => setDraft((d) => ({ ...d, gia_ban: e.target.value }))} className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-              </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Giá tham chiếu</label>
-                <input type="number" value={draft.gia_tham_chieu} onChange={(e) => setDraft((d) => ({ ...d, gia_tham_chieu: e.target.value }))} className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-              </div>
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Phân loại</label>
-              <input value={draft.don_vi} onChange={(e) => setDraft((d) => ({ ...d, don_vi: e.target.value }))} className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Ghi chú</label>
-              <input value={draft.ghi_chu} onChange={(e) => setDraft((d) => ({ ...d, ghi_chu: e.target.value }))} className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm" />
-            </div>
-          </div>
-        ) : (
-          <>
-            <div>
-              <KvRow label="Giá bán">
-                <span className="font-semibold font-mono text-[var(--green-700)]">{fmtVND(part.gia_ban)}</span>
-              </KvRow>
-              <KvRow label="Giá tham chiếu">
-                <span className="font-semibold font-mono text-[var(--green-700)]">{fmtVND(part.gia_tham_chieu ?? null)}</span>
-              </KvRow>
-              <KvRow label="Phân loại">
-                <span className="font-semibold">{part.don_vi ?? "—"}</span>
-              </KvRow>
-              {!!part.dac_thu && (
-                <KvRow label="Phân loại đặc thù">
-                  <span className="font-semibold">{part.phan_loai_dac_thu?.trim() || "—"}</span>
-                </KvRow>
-              )}
-            </div>
-            <div>
-              <div className="text-[10px] font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1">Ghi chú</div>
-              <div className="text-[var(--ink-700)] whitespace-pre-wrap">{part.ghi_chu?.trim() || <span className="text-[var(--ink-400)]">Không có ghi chú.</span>}</div>
-            </div>
-          </>
-        )}
+        <div>
+          <KvRow label="Giá NY">
+            <span className="font-semibold font-mono text-[var(--green-700)]">{fmtVND(part.gia_ban)}</span>
+          </KvRow>
+          <KvRow label="Giá KTV">
+            <span className="font-semibold font-mono text-[var(--green-700)]">{fmtVND(part.gia_tri_cong_no ?? null)}</span>
+          </KvRow>
+          <KvRow label="Phân loại">
+            <span className="font-semibold">{part.don_vi ?? "—"}</span>
+          </KvRow>
+          {!!part.cam_ban && (
+            <KvRow label="Cấm bán">
+              <Badge tone="danger">Cấm bán (đối tác)</Badge>
+            </KvRow>
+          )}
+          {!!part.dac_thu && (
+            <KvRow label="Phân loại đặc thù">
+              <span className="font-semibold">{part.phan_loai_dac_thu?.trim() || "—"}</span>
+            </KvRow>
+          )}
+        </div>
+        <div>
+          <div className="text-[10px] font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1">Ghi chú</div>
+          <div className="text-[var(--ink-700)] whitespace-pre-wrap">{part.ghi_chu?.trim() || <span className="text-[var(--ink-400)]">Không có ghi chú.</span>}</div>
+        </div>
       </div>
       <div className="flex justify-end gap-2 mt-5">
-        {isEdit ? (
-          <>
-            <Btn variant="ghost" size="sm" onClick={() => setIsEdit(false)} disabled={saveMutation.isPending}>Huỷ</Btn>
-            <Btn size="sm" onClick={() => saveMutation.mutate()} disabled={!draft.ten_linh_kien.trim() || saveMutation.isPending}>Lưu</Btn>
-          </>
-        ) : (
-          <>
-            <Btn variant="ghost" size="sm" onClick={onClose}>Đóng</Btn>
-            {canEdit && <Btn size="sm" onClick={() => setIsEdit(true)}>✎ Sửa thông tin</Btn>}
-          </>
-        )}
+        <Btn variant="ghost" size="sm" onClick={onClose}>Đóng</Btn>
       </div>
     </Modal>
   );

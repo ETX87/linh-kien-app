@@ -12,7 +12,6 @@ interface CacheEntry {
   ma_linh_kien: string; // PK
   ten_linh_kien: string;
   gia_ban: number | null;
-  gia_tham_chieu: number | null;
   don_vi: string | null;
   ghi_chu: string | null;
   anh_demo: string | null;
@@ -31,6 +30,9 @@ interface CacheEntry {
   // (TaoDonTab/DonCuaToiTab qua useLkAndLdeCache) - de sot se khien truong bi am tham mat khi doc lai
   // tu IndexedDB, du API/DB co du lieu dung.
   gia_tri_cong_no: number | null;
+  // "cam_ban" (them 2026-09-12, tich hop gia88) - BAT BUOC whitelist, dung loc khoi picker tao don o
+  // helpers.ts useLkAndLdeCache (cung loai bug voi dac_thu/gia_tri_cong_no o tren).
+  cam_ban: number;
   nguoi_cap_nhat: string | null;
   ngay_cap_nhat: string | null; // ISO timestamp
 }
@@ -88,7 +90,6 @@ export async function mergeLinhKienToCache(rows: LinhKienRow[]): Promise<void> {
         ma_linh_kien: row.ma_linh_kien,
         ten_linh_kien: row.ten_linh_kien,
         gia_ban: row.gia_ban,
-        gia_tham_chieu: row.gia_tham_chieu,
         don_vi: row.don_vi,
         ghi_chu: row.ghi_chu,
         anh_demo: row.anh_demo,
@@ -97,6 +98,7 @@ export async function mergeLinhKienToCache(rows: LinhKienRow[]): Promise<void> {
         dac_thu: row.dac_thu,
         phan_loai_dac_thu: row.phan_loai_dac_thu,
         gia_tri_cong_no: row.gia_tri_cong_no,
+        cam_ban: row.cam_ban,
         nguoi_cap_nhat: row.nguoi_cap_nhat,
         ngay_cap_nhat: row.ngay_cap_nhat,
       });
@@ -126,7 +128,10 @@ export async function clearLinhKienCache(): Promise<void> {
 // cache cu tu dong xoa sach + fetch lai FULL (khong "since") DUY NHAT 1 LAN, tu heal moi truong hop
 // thieu cot tu truoc do (ke ca bug "dac_thu" cu hon, khong chi gia_tri_cong_no). Dung localStorage
 // (khong phai IndexedDB) vi can doc duoc TRUOC khi mo DB.
-const SCHEMA_VERSION = 2;
+// BUMP len 3 (2026-09-12): them "cam_ban" vao whitelist (tich hop gia88) - cung ly do bump 1->2 o
+// tren, bat buoc de trinh duyet dang co cache cu tu heal, khong thi picker tao don se KHONG BAO GIO
+// loc duoc "cam_ban" cho cac ma lau khong ai sua (field luon undefined trong cache cu).
+const SCHEMA_VERSION = 3;
 const SCHEMA_VERSION_KEY = "dvbh_lk_cache_schema_version";
 
 export async function ensureCacheSchemaVersion(): Promise<void> {

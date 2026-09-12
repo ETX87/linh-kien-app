@@ -76,7 +76,11 @@ const ENTITIES: Record<EntityKey, EntityConfig> = {
   },
   linh_kien: {
     table: "linh_kien",
-    columns: "ma_linh_kien, ten_linh_kien, gia_ban, gia_tham_chieu, don_vi, ghi_chu, anh_demo, bat_tat, dac_thu, chi_sua_chua",
+    // "gia_tham_chieu" XOA khoi day tu 2026-09-12 (migration 0027 xoa han cot, xem
+    // api-lk-prices_gia88.md/gia88Sync.ts) - CHOT nguoi dung: "form day cho noi bo la co dinh", KHONG
+    // them cac cot moi tu gia88 (gia_du_phong/gia_eu/cam_ban/nhan_hang/don_vi_nhap...) vao day, dvbh/
+    // suachua khong can sua gi ca.
+    columns: "ma_linh_kien, ten_linh_kien, gia_ban, don_vi, ghi_chu, anh_demo, bat_tat, dac_thu, chi_sua_chua",
     syncPath: "/api/partner/sync/linh-kien",
     targets: ["dvbh", "suachua"],
   },

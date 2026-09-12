@@ -13,10 +13,12 @@ import traHangRoutes from "./routes/traHang";
 import baoCaoTocDoXuLyRoutes from "./routes/baoCaoTocDoXuLy";
 import pushRoutes from "./routes/push";
 import dvbhSyncRoutes from "./routes/dvbhSync";
+import gia88SyncRoutes from "./routes/gia88Sync";
 import partnerApiRoutes from "./routes/partnerApi";
 import khovanLookupRoutes from "./routes/khovanLookup";
 import partnerKhoRoutes from "./routes/partnerKho";
 import { runDvbhSync } from "./lib/dvbhSyncClient";
+import { runGia88SyncWithState } from "./lib/gia88Sync";
 
 // He doc lap "Dat mua linh kien" - tach tu he DVBH goc (xem CLAUDE.md muc "Nguon goc tach he
 // thong"). CO 1 cron job DUY NHAT (them 2026-08-28, xem `scheduled` o duoi) - dong bo danh ba KTV/
@@ -47,6 +49,7 @@ app.route("/api/tra-hang", traHangRoutes);
 app.route("/api/bao-cao-toc-do", baoCaoTocDoXuLyRoutes);
 app.route("/api/push", pushRoutes);
 app.route("/api/dvbh-sync", dvbhSyncRoutes);
+app.route("/api/gia88-sync", gia88SyncRoutes);
 app.route("/api/partner", partnerApiRoutes);
 // KHONG mount duoi "/api/partner/*" - partnerApiRoutes o tren da co san 1 middleware
 // "*" xac thuc rieng (X-API-Key, xem lib/partnerApiAuth.ts) khop CA cac duong dan con
@@ -69,7 +72,13 @@ export default {
   // Cron Trigger (wrangler.jsonc "triggers.crons": "0 * * * *", moi dau gio) - day danh ba KTV/danh
   // muc linh kien thay doi tu lan dong bo truoc sang he DVBH goc. waitUntil() de Cloudflare khong
   // cat request truoc khi cac lenh goi HTTP (qua CASE_LOOKUP_SERVICE) hoan tat.
-  scheduled: async (_event: ScheduledEvent, env: Env, ctx: ExecutionContext) => {
+  scheduled: async (event: ScheduledEvent, env: Env, ctx: ExecutionContext) => {
     ctx.waitUntil(runDvbhSync(env, env.DB));
+    // Them 2026-09-12: PULL bang gia tu doi tac gia88 1 lan/dem luc 0h GIO VN = 17h UTC (xem
+    // lib/gia88Sync.ts) - tai dung DUNG cron hang gio co san thay vi them 1 entry cron rieng, chi gate
+    // theo gio de tranh chay 24 lan/ngay khong can thiet (doi tac chi khuyen nghi "moi ngay/moi ca").
+    if (new Date(event.scheduledTime).getUTCHours() === 17) {
+      ctx.waitUntil(runGia88SyncWithState(env, env.DB));
+    }
   },
 };
