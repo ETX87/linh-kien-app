@@ -456,6 +456,11 @@ function DanhMucTab() {
   const auth = useAuth();
   const authUser = auth.status === "authenticated" ? auth.user : null;
   const canWrite = !!authUser?.quan_ly_danh_muc_lk || authUser?.vai_tro === "Admin";
+  // "Đồng bộ Gia88" thủ công (them 2026-09-12, phan hoi "thêm nút đồng bộ thủ công cho admin trong
+  // danh mục linh kiện") - GATE RIENG theo Admin (khac canWrite o tren dung quan_ly_danh_muc_lk) vi
+  // backend routes/gia88Sync.ts CHI cho Admin (requireRole("Admin"), khong nhan quan_ly_danh_muc_lk) -
+  // an nut voi nguoi khong phai Admin de tranh "bam thi bao loi" (cung tinh than voi canWrite o tren).
+  const isAdmin = authUser?.vai_tro === "Admin";
   const personDir = usePersonDirectory();
   // Them (ra soat UI 2026-08-27, hang muc #5): cot "Lượt dùng 30 ngày" - tai dung DU LIEU DA CO SAN
   // (GET /dat-mua-lk/xep-hang-linh-kien, tinh 1 lan/ngay o backend, dang dung cho goi y trong
@@ -586,6 +591,26 @@ function DanhMucTab() {
       addToast("Đã cập nhật danh mục linh kiện");
       qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
     },
+  });
+
+  // "Đồng bộ Gia88" thủ công - CUNG queryKey ["gia88-sync-status"] voi tab "Đồng bộ Gia88" trong
+  // SettingsModule.tsx (React Query tu dung chung cache, khong goi API 2 lan) de nut o day + tab kia
+  // luon nhat quan trang thai, khong can them state rieng.
+  const { data: gia88Status } = useQuery({
+    queryKey: ["gia88-sync-status"],
+    queryFn: () => api.get<{ last_run_at: string | null; last_status: string | null; changed_count: number; last_error: string | null }>("/gia88-sync"),
+    enabled: isAdmin,
+  });
+  const runGia88Sync = useMutation({
+    mutationFn: () =>
+      api.post<{ last_run_at: string | null; last_status: string | null; changed_count: number; last_error: string | null }>("/gia88-sync/run", {}),
+    onSuccess: (res) => {
+      if (res.last_status === "error") addToast(`Đồng bộ Gia88 lỗi: ${res.last_error}`);
+      else addToast(`Đã đồng bộ Gia88 xong, ${res.changed_count} dòng thay đổi`);
+      qc.invalidateQueries({ queryKey: ["gia88-sync-status"] });
+      qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
+    },
+    onError: (err) => addToast("Không thể đồng bộ Gia88: " + (err instanceof Error ? err.message : String(err))),
   });
 
   // "Giá trị công nợ" = "Giá KTV" - CHOT 2026-09-12 (tich hop gia88): chuyen "chi xem", khong con sua
@@ -894,6 +919,17 @@ function DanhMucTab() {
                 + Thêm linh kiện
               </Btn>
             </>
+          )}
+          {isAdmin && (
+            <Btn
+              variant="ghost"
+              size="sm"
+              onClick={() => runGia88Sync.mutate()}
+              loading={runGia88Sync.isPending}
+              title={gia88Status?.last_run_at ? `Lần đồng bộ gần nhất: ${fmtDateTime(gia88Status.last_run_at)}` : "Chưa đồng bộ lần nào"}
+            >
+              🔄 Đồng bộ Gia88
+            </Btn>
           )}
         </div>
       </div>
