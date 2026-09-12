@@ -1871,20 +1871,20 @@ export function DonHangGroupedList({
     {
       key: "linh_kien",
       header: "Linh kiện",
+      // SUA BUG GIAO DIEN (phan hoi 2026-09-12, kem anh chup ma LK lap 2 lan trong cung 1 dong don) -
+      // truoc day hien ma_lk RIENG 1 dong tren, gay lap voi ten_lk_snapshot da TU chua san ma trong
+      // chuoi - gop ve DUNG 1 dong bang formatLkLabel() (dong bo voi LinhKienPicker.tsx).
       render: (row) => (
-        <>
-          <div className="font-mono text-[10px] text-[var(--ink-400)] truncate">{row.d.ma_lk}</div>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); openLkDetail(row.d.ma_lk); }}
-            title="Xem chi tiết linh kiện"
-            className={`block w-full truncate text-left font-medium hover:underline hover:text-[var(--ocean-600)] ${row.rowStyle}`}
-          >
-            {row.d.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
-            {row.d.ten_lk_snapshot ?? row.d.ma_lk}
-            {!!row.d.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
-          </button>
-        </>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); openLkDetail(row.d.ma_lk); }}
+          title="Xem chi tiết linh kiện"
+          className={`block w-full truncate text-left font-medium hover:underline hover:text-[var(--ocean-600)] ${row.rowStyle}`}
+        >
+          {row.d.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
+          {formatLkLabel(row.d.ma_lk, row.d.ten_lk_snapshot ?? row.d.ma_lk)}
+          {!!row.d.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
+        </button>
       ),
     },
     { key: "loai", header: "Loại", render: (row) => <Badge tone={row.tone.tone}>{row.tone.label}</Badge> },

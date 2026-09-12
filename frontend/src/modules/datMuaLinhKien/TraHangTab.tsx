@@ -20,7 +20,7 @@ import type { TraHangRow } from "./types";
 import { TRA_HANG_TRANG_THAI_TONE, TRA_HANG_TRANG_THAI_OPTIONS, TRA_HANG_BULK_ERROR_MESSAGES } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, useNenAnhTraHangEnabled,
-  useLkAndLdeCache, useLinhKienRankMap, isDonTaoHo,
+  useLkAndLdeCache, useLinhKienRankMap, isDonTaoHo, formatLkLabel,
 } from "./helpers";
 import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, DetailZone, QuickStat, KhuVucChipFilter, ImageLink, ImageThumb } from "./SharedUi";
 import { LinhKienDetailModal } from "./LinhKienPicker";
@@ -384,20 +384,20 @@ export function TraHangTab({
       // "linh_kien" cua DonCuaToiTab.tsx (mono ma_lk nho phia tren + ten LK dam bam-mo-chi-tiet phia
       // duoi, kem ⭐ uu tien/🔒 dac thu) thay vi 2 cot phang rieng nhu truoc.
       key: "linh_kien", header: "Linh kiện",
+      // SUA BUG GIAO DIEN (phan hoi 2026-09-12, kem anh chup ma LK lap 2 lan trong cung 1 dong don) -
+      // truoc day hien ma_lk RIENG 1 dong tren, gay lap voi ten_lk_snapshot da TU chua san ma trong
+      // chuoi - gop ve DUNG 1 dong bang formatLkLabel() (dong bo voi LinhKienPicker.tsx/DonCuaToiTab.tsx).
       render: (r) => (
-        <>
-          <div className="font-mono text-[10px] text-[var(--ink-400)] truncate">{r.ma_lk}</div>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); openLkDetail(r.ma_lk); }}
-            title="Xem chi tiết linh kiện"
-            className="block w-full truncate text-left font-medium hover:underline hover:text-[var(--ocean-600)]"
-          >
-            {r.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
-            {r.ten_lk_snapshot ?? r.ma_lk}
-            {!!r.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
-          </button>
-        </>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); openLkDetail(r.ma_lk); }}
+          title="Xem chi tiết linh kiện"
+          className="block w-full truncate text-left font-medium hover:underline hover:text-[var(--ocean-600)]"
+        >
+          {r.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
+          {formatLkLabel(r.ma_lk, r.ten_lk_snapshot ?? r.ma_lk)}
+          {!!r.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
+        </button>
       ),
     },
     { key: "so_luong_de_xuat", header: "SL", render: (r) => r.so_luong_de_xuat },

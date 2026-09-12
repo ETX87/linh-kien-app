@@ -17,7 +17,7 @@ import { fmtDateTime } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import type { ThieuLkRow, LyDoChamRow, NguoiNhanHangKhaDungRow } from "./types";
 import { THIEU_LK_TRANG_THAI_TONE, THIEU_LK_TRANG_THAI_OPTIONS } from "./constants";
-import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts, trangThaiLabel, LOAI_DON_TONE } from "./helpers";
+import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts, trangThaiLabel, formatLkLabel, LOAI_DON_TONE } from "./helpers";
 import { StatusBadge, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar, KhuVucChipFilter } from "./SharedUi";
 // Lien ket 2 chieu voi don goc (phan hoi 2026-09-10: "đơn gốc cũng không có truy vấn đến đơn ticket
 // đơn thiếu linh kiện") - import truc tiep component Drawer chi tiet don hang, tu quan ly state mo/dong
@@ -521,14 +521,14 @@ function ThieuLkGroupedList({
       : []),
     {
       key: "linh_kien", header: "Linh kiện",
+      // SUA BUG GIAO DIEN (phan hoi 2026-09-12, kem anh chup ma LK lap 2 lan trong cung 1 dong don) -
+      // truoc day hien ma_lk RIENG 1 dong tren, gay lap voi ten_lk_snapshot da TU chua san ma trong
+      // chuoi - gop ve DUNG 1 dong bang formatLkLabel() (dong bo voi LinhKienPicker.tsx).
       render: (r) => (
-        <>
-          <div className="font-mono text-[10px] text-[var(--ink-400)] truncate">{r.ma_lk ?? r.id}</div>
-          <div className="font-medium truncate">
-            {r.uu_tien === 1 && <PriorityTag />}{" "}
-            {r.ten_lk_snapshot ?? r.ma_lk ?? "—"}
-          </div>
-        </>
+        <div className="font-medium truncate">
+          {r.uu_tien === 1 && <PriorityTag />}{" "}
+          {r.ma_lk ? formatLkLabel(r.ma_lk, r.ten_lk_snapshot ?? r.ma_lk) : (r.ten_lk_snapshot ?? r.id)}
+        </div>
       ),
     },
     { key: "loai", header: "Loại", render: (r) => { const t = LOAI_DON_TONE[(r.loai_don as keyof typeof LOAI_DON_TONE) ?? "mua"] ?? LOAI_DON_TONE.mua; return <Badge tone={t.tone}>{t.label}</Badge>; } },
@@ -732,10 +732,11 @@ function ThieuLkGroupedList({
                         />
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="font-mono text-[10px] text-[var(--ink-400)] truncate">{r.ma_lk ?? r.id}</div>
+                        {/* SUA BUG GIAO DIEN (phan hoi 2026-09-12), dong bo voi cot "Linh kiện" ban
+                            desktop ben tren - gop ma+ten ve DUNG 1 dong bang formatLkLabel(). */}
                         <div className="font-medium text-sm truncate">
                           {r.uu_tien === 1 && <PriorityTag />}{" "}
-                          {r.ten_lk_snapshot ?? r.ma_lk ?? "—"}
+                          {r.ma_lk ? formatLkLabel(r.ma_lk, r.ten_lk_snapshot ?? r.ma_lk) : (r.ten_lk_snapshot ?? r.id)}
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap mt-1">
                           <Badge tone={t.tone}>{t.label}</Badge>
