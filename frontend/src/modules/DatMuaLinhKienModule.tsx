@@ -366,7 +366,6 @@ export function DatMuaLinhKienModule({
     if (target.tab === "don-cua-toi") setLoaiDonTabClickSeq((n) => n + 1);
   }
   const stageMenuGroups: StageMenuGroup[] = [
-    ...(canDatHo ? [{ items: [{ key: "tao-don", label: "＋ Tạo đơn", variant: "action" as const, onClick: () => setShowCreateFromPipeline(true) }] }] : []),
     {
       title: "Đơn đặt hàng",
       items: [

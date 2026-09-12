@@ -318,13 +318,10 @@ export function ThieuLkTab({
       >
         <TrangThaiDropdownFilter value={filterTrangThai} onChange={setFilterTrangThai} options={THIEU_LK_TRANG_THAI_OPTIONS} counts={statusCountsData?.counts} />
         {/* Bo loc Khu vuc (them 2026-08-31, MO RONG 2026-09-05 dong bo voi DonCuaToiTab.tsx - xem
-            showKhuVucFilter phia tren, khong chi rieng Kho nua). */}
-        {showKhuVucFilter && khuVucOptions.length > 0 && (
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Khu vực</div>
-            <KhuVucChipFilter value={filterKhuVuc} onChange={setFilterKhuVuc} options={khuVucOptions} />
-          </div>
-        )}
+            showKhuVucFilter phia tren, khong chi rieng Kho nua). SUA BUG GIAO DIEN (phan hoi 2026-09-12):
+            bo nhan "Khu vực" rieng ben ngoai (gay lech chieu cao so voi cac o loc khac cung hang) -
+            nhan da gop vao THANG nut trigger (xem triggerLabel trong SharedUi.tsx). */}
+        {showKhuVucFilter && khuVucOptions.length > 0 && <KhuVucChipFilter value={filterKhuVuc} onChange={setFilterKhuVuc} options={khuVucOptions} />}
         {/* Bo loc "Nguoi nhan hang" (them 2026-09-05, cung phan hoi tren). */}
         {(nguoiNhanHangData?.rows.length ?? 0) > 0 && (
           <Select

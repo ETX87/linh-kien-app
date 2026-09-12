@@ -18,6 +18,7 @@ import { exportRowsToExcel } from "../lib/exportExcel";
 import { fetchWithHashCache } from "../lib/staticListCache";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 import { useAuth } from "../auth/AuthContext";
+import { formatLkLabel } from "./datMuaLinhKien/helpers";
 import { BomHangTab } from "./danhMucLinhKien/BomHangTab";
 import { ThayTheTab } from "./danhMucLinhKien/ThayTheTab";
 
@@ -352,9 +353,12 @@ function PartDetailDrawer({ part, onClose, onEdit, canEdit }: { part: LinhKienRo
       <div className="fixed inset-0 z-50 bg-[rgba(6,32,51,0.45)] backdrop-blur-[2px]" onClick={onClose} />
       <div className="drawer-in fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[var(--surface)] shadow-2xl flex flex-col">
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-[var(--line)] shrink-0">
+          {/* SUA BUG GIAO DIEN (phan hoi 2026-09-12, dong bo voi LinhKienPicker.tsx trong module "Dat
+              mua linh kien" - cung 1 danh muc linh_kien): truoc day hien rieng ma_linh_kien o dong
+              tren, gay lap 2 lan voi nhung ten_linh_kien DA TU chua san ma trong chuoi (vd "...
+              [2014010043]") - doi sang formatLkLabel() dung chung, ma chi con xuat hien 1 LAN. */}
           <div className="min-w-0">
-            <div className="font-mono text-xs font-semibold text-[var(--ocean-800)] tracking-wide">{part.ma_linh_kien}</div>
-            <h3 className="font-display font-bold text-lg text-[var(--ocean-800)] leading-snug mt-0.5 truncate">{part.ten_linh_kien}</h3>
+            <h3 className="font-display font-bold text-lg text-[var(--ocean-800)] leading-snug truncate">{formatLkLabel(part.ma_linh_kien, part.ten_linh_kien)}</h3>
           </div>
           <button onClick={onClose} className="focus-ring shrink-0 w-8 h-8 rounded-lg hover:bg-slate-100 text-[var(--ink-400)]">
             ✕

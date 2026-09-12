@@ -341,7 +341,14 @@ export function KhuVucChipFilter({
   }
 
   const selectedLabels = [...value].map((ma) => options.find((o) => o.value === ma)?.label ?? ma);
-  const triggerLabel = value.size === 0 ? "Tất cả" : value.size <= 2 ? selectedLabels.join(", ") : `${value.size} khu vực`;
+  // SUA BUG GIAO DIEN (phan hoi 2026-09-12, kem anh chup "KHU VỰC" bi lech dong so voi cac o loc khac
+  // cung hang) - truoc day nhan "Khu vực" nam RIENG 1 dong tren, khien khoi nay cao hon cac o loc khac
+  // (vd "Còn tồn (2)") trong CUNG 1 hang flex-wrap (xem doi flex-col->flex-wrap o FilterSearchBar), gay
+  // lech thang dung. Gop nhan "Khu vực: " VAO THANG nut trigger (giong cach "Còn tồn (2)" tu mo ta
+  // trong chinh no) - bo nhan rieng ben ngoai o CA 4 noi goi (DonCuaToiTab/PhieuXuatKhoTab/ThieuLkTab/
+  // TraHangTab), gio chi con 1 dong cao bang cac o loc khac.
+  const triggerLabel =
+    value.size === 0 ? "Khu vực: Tất cả" : value.size <= 2 ? `Khu vực: ${selectedLabels.join(", ")}` : `Khu vực (${value.size})`;
 
   return (
     <div className="relative inline-block">

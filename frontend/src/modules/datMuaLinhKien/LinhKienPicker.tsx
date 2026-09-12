@@ -489,9 +489,14 @@ export function LinhKienDetailModal({
     <Modal open title="🔍 Chi tiết linh kiện" onClose={onClose} width="max-w-md">
       <div className="space-y-4 text-sm">
         <LinhKienHeroImage url={part.anh_demo ?? null} alt={part.ten_linh_kien} />
+        {/* SUA BUG GIAO DIEN (phan hoi 2026-09-12, kem anh chup "2014010043" hien 2 lan - 1 lan rieng o
+            day, 1 lan lap lai trong chinh ten_linh_kien dang "[2014010043]") - truoc day hien rieng
+            ma_linh_kien o dong tren, KHONG dung formatLkLabel() nhu moi noi khac trong CUNG file nay
+            (option rows/o tim kiem, xem cac dong goi formatLkLabel ben tren) - doi ve dung 1 ham chung,
+            ma chi con xuat hien 1 LAN duy nhat: ghep sau ten (neu ten CHUA chua san ma) hoac giu
+            nguyen ten (neu ten DA chua san ma, tranh lap 2 lan). */}
         <div className="min-w-0">
-          <div className="font-mono text-xs font-semibold text-[var(--ocean-600)]">{part.ma_linh_kien}</div>
-          <div className="font-display font-bold text-base text-[var(--ocean-800)] leading-snug">{part.ten_linh_kien}</div>
+          <div className="font-display font-bold text-base text-[var(--ocean-800)] leading-snug">{formatLkLabel(part.ma_linh_kien, part.ten_linh_kien)}</div>
         </div>
         {rank != null && <Badge tone="warning">🔥 Hạng #{rank} trong 30 ngày gần nhất</Badge>}
 

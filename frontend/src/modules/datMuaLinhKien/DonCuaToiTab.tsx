@@ -1542,12 +1542,10 @@ export function DonCuaToiTab({
           />
           {/* Bo loc Khu vuc (them 2026-08-27) - chi GS/TN/Kho/Ke toan (showKhuVucFilter), chi hien khi
               he thong da co >=1 Khu vuc de chon (khuVucOptions rong o he moi tinh chua cau hinh gi). */}
-          {showKhuVucFilter && khuVucOptions.length > 0 && (
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Khu vực</div>
-              <KhuVucChipFilter value={filterKhuVuc} onChange={setFilterKhuVuc} options={khuVucOptions} />
-            </div>
-          )}
+          {/* SUA BUG GIAO DIEN (phan hoi 2026-09-12): bo the <div> nhan "Khu vực" rieng ben ngoai (gay
+              lech chieu cao so voi cac o loc khac cung hang flex-wrap) - nhan da gop vao THANG nut
+              trigger cua KhuVucChipFilter (xem triggerLabel trong SharedUi.tsx). */}
+          {showKhuVucFilter && khuVucOptions.length > 0 && <KhuVucChipFilter value={filterKhuVuc} onChange={setFilterKhuVuc} options={khuVucOptions} />}
           {(canBulkTram || (showKhuVucFilter && (nguoiNhanHangData?.rows.length ?? 0) > 0)) && (
             <div className="flex gap-2 flex-wrap items-center">
               {canBulkTram && (
