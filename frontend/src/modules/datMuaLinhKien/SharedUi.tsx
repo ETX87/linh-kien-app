@@ -256,7 +256,11 @@ export function FilterSearchBar({
         {trailing}
       </div>
       {showFilters && children && (
-        <div className="mb-3 bg-[var(--surface-100)] border border-[var(--line)] rounded-xl p-3 flex flex-col gap-3">{children}</div>
+        // SUA (phan hoi 2026-09-12: "chuyển tất cả các nút filter lên cùng dòng") - truoc day flex-col
+        // xep MOI khoi loc (trang thai/khu vuc/KTV/...) thanh 1 cot doc rieng bat ke con man rong, gio
+        // flex-wrap de cac khoi nam CHUNG 1 hang khi du cho, tu xuong dong khi man hep - moi tab van tu
+        // quyet dinh so khoi/thu tu qua children, component nay chi doi huong bo cuc.
+        <div className="mb-3 bg-[var(--surface-100)] border border-[var(--line)] rounded-xl p-3 flex flex-wrap items-start gap-3">{children}</div>
       )}
     </>
   );
@@ -287,7 +291,11 @@ export function TrangThaiDropdownFilter({
     value: o.value,
     label: counts ? `${o.label} (${counts[o.value] ?? 0})` : o.label,
   }));
-  return <Select value={value} onChange={onChange} options={decorated} className="w-full max-w-[280px]" />;
+  // FIX (phan hoi 2026-09-12, dong bo voi doi flex-col -> flex-wrap o FilterSearchBar/DonCuaToiTab):
+  // bo "w-full" - trong hang flex-wrap, width:100% khien <select> nay chiem TRON 1 hang, day moi khoi
+  // loc khac xuong dong duoi du con nhieu cho trong. Khong con w-full, <select> tu co rong theo noi
+  // dung (hanh vi mac dinh trinh duyet), van gioi han max-width de nhan dai khong tran qua rong.
+  return <Select value={value} onChange={onChange} options={decorated} className="max-w-[280px]" />;
 }
 
 // Bo loc Khu vuc DA CHON NHIEU (them 2026-08-27, phan hoi "bổ sung filter theo khu vực... GS tự lọc

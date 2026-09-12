@@ -74,10 +74,11 @@ export function formatNguoiDisplay(email: string, map: KtvDisplayMap): string {
   const base = entry.ma_ktv && entry.ma_ktv !== email && !ten.toLowerCase().includes(entry.ma_ktv.toLowerCase())
     ? `(${entry.ma_ktv}) ${ten}`
     : ten;
-  // FIX (phan hoi 2026-08-26, hang muc #16): ghep them "(email)" o cuoi de dong nhat voi
-  // formatPersonDisplay toan he thong - bo qua neu ten hien thi CHINH LA email (tranh lap
-  // "user@x.com (user@x.com)").
-  return ten === email ? `👤 ${base}` : `👤 ${base} (${email})`;
+  // SUA (phan hoi 2026-09-12: "Tên user bỏ gmail phía sau (trường hợp không có tên mới hiện theo
+  // mail)") - truoc day ghep them "(email)" o cuoi de dong nhat voi formatPersonDisplay toan he
+  // thong, gio ca 2 ham cung doi sang KHONG ghep email sau ten that (base da tu fallback ve email khi
+  // khong co ten_hien_thi, xem 2 dong tren).
+  return `👤 ${base}`;
 }
 
 // CHOT (ra soat "Tao Don Linh Kien 2.0" #2): hien them "(GS: Ten GS)" sau ten KTV trong cac Select

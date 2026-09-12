@@ -1525,7 +1525,10 @@ export function DonCuaToiTab({
         </span>
       </div>
       {showFilters && (
-        <div className="mb-3 bg-[var(--surface-100)] border border-[var(--line)] rounded-xl p-3 flex flex-col gap-3">
+        // SUA (phan hoi 2026-09-12: "chuyển tất cả các nút filter lên cùng dòng") - dong bo voi
+        // FilterSearchBar (SharedUi.tsx): flex-col -> flex-wrap, cac khoi loc nam CHUNG 1 hang khi du
+        // cho, tu xuong dong khi man hep thay vi luon xep thanh 1 cot doc.
+        <div className="mb-3 bg-[var(--surface-100)] border border-[var(--line)] rounded-xl p-3 flex flex-wrap items-start gap-3">
           {/* SUA (2026-08-27, phan hoi "tab trả hàng filter không có gì hiện"): truoc day dong
               tra_hang bi AN HAN bo loc trang thai vi options cua DON_CUA_TOI_TRANG_THAI_OPTIONS khong
               khop trang thai cua tra_hang_log, khien khoi loc mo rong hien RONG (chi con o tim kiem o

@@ -27,8 +27,11 @@ export function usePersonDirectory(): PersonDirectory {
 // Uu tien ten KTV (do CSKH/Admin bien tap rieng trong "Danh sách KTV đã khai báo", thuong sat thuc
 // te hon ten Google) truoc ten users.ten (tu dong dien tu profile Google luc dang nhap) - CHOT theo
 // dung yeu cau "Riêng với KTV/Trạm/CTV sẽ hiện tên KTV". Khong tim thay o ca 2 -> tra nguyen email.
+// SUA (phan hoi 2026-09-12: "Tên user bỏ gmail phía sau (trường hợp không có tên mới hiện theo
+// mail)") - truoc day LUON ghep "(email)" sau ten (ke ca khi da co ten that), gio CHI hien email khi
+// khong tim duoc ten nao (fallback), khong con ghep kem sau ten that.
 export function formatPersonDisplay(email: string | null | undefined, dir: PersonDirectory): string {
   if (!email) return "—";
   const ten = dir.ktv.get(email) ?? dir.users.get(email);
-  return ten ? `${ten} (${email})` : email;
+  return ten ?? email;
 }
