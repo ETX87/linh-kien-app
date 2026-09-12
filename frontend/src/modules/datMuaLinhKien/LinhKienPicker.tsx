@@ -231,11 +231,14 @@ export function LinhKienPicker({
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [open]);
 
-  const q = query.trim().toLowerCase();
+  // .normalize("NFC") (fix bug 2026-09-12, cung goc voi Select.tsx: "tìm 'khách h' ra, 'khách hà'
+  // không ra" - ky tu co dau go tu ban phim/IME co the o dang to hop NFD, khac dang NFC luu san trong
+  // du lieu, khien .includes() khong khop du nhin giong het nhau).
+  const q = query.trim().toLowerCase().normalize("NFC");
   // SUA LAG: useMemo - chi tinh lai loc/sap xep/cap so dong khi options, tu khoa, hoac rankMap
   // THUC SU doi, khong phai moi lan component cha re-render vi ly do khac.
   const { ranked, unranked, totalMatched } = useMemo(() => {
-    const matched = q ? options.filter((o) => `${o.ma_linh_kien} ${o.ten_linh_kien}`.toLowerCase().includes(q)) : options;
+    const matched = q ? options.filter((o) => `${o.ma_linh_kien} ${o.ten_linh_kien}`.toLowerCase().normalize("NFC").includes(q)) : options;
     const rankedFull = matched.filter((o) => rankMap.has(o.ma_linh_kien)).sort((a, b) => rankMap.get(a.ma_linh_kien)! - rankMap.get(b.ma_linh_kien)!);
     const unrankedFull = matched.filter((o) => !rankMap.has(o.ma_linh_kien)).sort((a, b) => a.ten_linh_kien.localeCompare(b.ten_linh_kien));
     const rankedShown = rankedFull.slice(0, LINH_KIEN_PICKER_MAX_RESULTS);

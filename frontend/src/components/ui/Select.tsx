@@ -94,8 +94,12 @@ function SearchableSelect({
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [open]);
 
-  const q = query.trim().toLowerCase();
-  const filtered = q ? options.filter((o) => optLabel(o).toLowerCase().includes(q)) : options;
+  // .normalize("NFC") (fix bug 2026-09-12: "tìm 'khách h' ra, 'khách hà' không ra") - ky tu co dau go
+  // tu ban phim/IME co the o dang to hop (NFD, vd "h" + dau huyen rieng) khac voi dang dung san trong
+  // option (NFC, 1 ky tu "à" duy nhat) - 2 chuoi nhin GIONG HET nhau nhung .includes() so sanh byte
+  // nen khong khop. Chuan hoa CA HAI ve cung 1 dang truoc khi so sanh, khong doi hanh vi loc con lai.
+  const q = query.trim().toLowerCase().normalize("NFC");
+  const filtered = q ? options.filter((o) => optLabel(o).toLowerCase().normalize("NFC").includes(q)) : options;
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
