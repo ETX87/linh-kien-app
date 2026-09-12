@@ -3,7 +3,7 @@ import type { Env, AppUser } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
-import { phuTrachGsSet } from "../lib/scopeDatMua";
+import { phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql } from "../lib/scopeDatMua";
 
 // Port gan nguyen ban tu backend/src/routes/notifications.ts cua he DVBH goc - CHI giu phan
 // "DatMuaLkBreakdown"/computeDatMuaLkBreakdown()/getDatMuaLkBadge() (badge rieng cho module "Dat
@@ -76,6 +76,11 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
 
   const out: DatMuaLkBreakdown = { ...EMPTY_DAT_MUA_LK_BREAKDOWN };
   const gsSet = await phuTrachGsSet(db, user.email);
+  // Them 2026-09-12 (fix lech badge sidebar 18 vs "Can lam" 19): lop Khu vuc moi (user_khu_vuc),
+  // ap dung SONG SONG voi lop GS cu (dat_mua_lk_phu_trach_gs) - dung y het cach GET /luong-quy-trinh
+  // (datMuaLinhKien.ts) da lam tu 2026-08-31. Khong thay the gsSet, chi la dieu kien AND bo sung.
+  const khuVucSet = await khuVucCuaToiSet(db, user);
+  const kvClauseFor = (emailCols: string[]) => (khuVucSet ? khuVucSetWhereSql(khuVucSet, emailCols) : null);
 
   // SUA 2026-08-21: 4 dong "tra_hang" ben duoi (cho_tn_tra_hang/cho_kho_tra_hang/cho_ke_toan_tra_hang/
   // QC) doi tu subquery tuong quan tra_hang_log sang doc thang ddh.trang_thai_hien_tai - dong tra_hang
@@ -84,16 +89,17 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
   // Giai thich day du o backend/src/routes/traHang.ts (GET /).
   if (isTacNghiep) {
     const clause = gsInClause(gsSet, "ddh");
+    const kvClause = kvClauseFor(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
     const row = await db
       .prepare(
         `SELECT
            (SELECT COUNT(*) FROM dat_don_hang ddh
               WHERE ddh.loai_don != 'tra_hang'
-              AND (SELECT trang_thai FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) = 'Cho TN duyet'${clause?.sql ?? ""}) as cho_tn_duyet,
+              AND (SELECT trang_thai FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) = 'Cho TN duyet'${clause?.sql ?? ""}${kvClause?.sql ?? ""}) as cho_tn_duyet,
            (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang'
               AND ddh.trang_thai_hien_tai = 'Cho TN duyet tong') as cho_tn_tra_hang`,
       )
-      .bind(...(clause?.binds ?? []))
+      .bind(...(clause?.binds ?? []), ...(kvClause?.binds ?? []))
       .first<{ cho_tn_duyet: number; cho_tn_tra_hang: number }>();
     out.choTnDuyet = row?.cho_tn_duyet ?? 0;
     out.choTnTraHang = row?.cho_tn_tra_hang ?? 0;
@@ -103,23 +109,33 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
     const thieuLkClause = gsInClause(gsSet, "ddh");
     const pxkClause = gsInClause(gsSet, "ddh2");
     const traHangClause = gsInClause(gsSet, "ddh");
+    const thieuLkKvClause = kvClauseFor(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
+    const pxkKvClause = kvClauseFor(["pxk.nguoi_nhan_hang"]);
+    const traHangKvClause = kvClauseFor(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
     const row = await db
       .prepare(
         `SELECT
            (SELECT COUNT(*) FROM thieu_lk tlk JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id
-              WHERE (SELECT trang_thai FROM thieu_lk_log WHERE thieu_lk_id = tlk.id ORDER BY id DESC LIMIT 1) = 'Cho kho xu ly'${thieuLkClause?.sql ?? ""}) as cho_kho_thieu_lk,
+              WHERE (SELECT trang_thai FROM thieu_lk_log WHERE thieu_lk_id = tlk.id ORDER BY id DESC LIMIT 1) = 'Cho kho xu ly'${thieuLkClause?.sql ?? ""}${thieuLkKvClause?.sql ?? ""}) as cho_kho_thieu_lk,
            (SELECT COUNT(*) FROM phieu_xuat_kho pxk
               WHERE (SELECT trang_thai FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = pxk.id ORDER BY id DESC LIMIT 1) = 'Da chot xong don xuat'
-              ${pxkClause ? `AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id${pxkClause.sql})` : ""}) as cho_kho_pxk,
+              ${pxkClause ? `AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id${pxkClause.sql})` : ""}${pxkKvClause?.sql ?? ""}) as cho_kho_pxk,
            -- SUA (migration 0002_tra_hang_pxk.sql): "Cho kho xac nhan nhap kho" khong con dat toi
            -- duoc (da xoa khoi tra_hang_log CHECK) - viec Kho lien quan tra hang o giai doan PXK gio
            -- da nam SAN trong cho_kho_pxk o tren (query do khong loc loai_don nen tu dong gom ca PXK
            -- tra_hang, khong can dem lai o day tranh trung).
            (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang'
               AND ddh.trang_thai_hien_tai = 'Cho kho xac nhan'
-              ${traHangClause?.sql ?? ""}) as cho_kho_tra_hang`,
+              ${traHangClause?.sql ?? ""}${traHangKvClause?.sql ?? ""}) as cho_kho_tra_hang`,
       )
-      .bind(...(thieuLkClause?.binds ?? []), ...(pxkClause?.binds ?? []), ...(traHangClause?.binds ?? []))
+      .bind(
+        ...(thieuLkClause?.binds ?? []),
+        ...(thieuLkKvClause?.binds ?? []),
+        ...(pxkClause?.binds ?? []),
+        ...(pxkKvClause?.binds ?? []),
+        ...(traHangClause?.binds ?? []),
+        ...(traHangKvClause?.binds ?? []),
+      )
       .first<{ cho_kho_thieu_lk: number; cho_kho_pxk: number; cho_kho_tra_hang: number }>();
     out.choKhoThieuLk = row?.cho_kho_thieu_lk ?? 0;
     out.choKhoPxk = row?.cho_kho_pxk ?? 0;
@@ -129,20 +145,27 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
   if (isKeToan) {
     const pxkClause = gsInClause(gsSet, "ddh2");
     const traHangClause = gsInClause(gsSet, "ddh");
+    const pxkKvClause = kvClauseFor(["pxk.nguoi_nhan_hang"]);
+    const traHangKvClause = kvClauseFor(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
     const row = await db
       .prepare(
         `SELECT
            (SELECT COUNT(*) FROM phieu_xuat_kho pxk
               WHERE (SELECT trang_thai FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = pxk.id ORDER BY id DESC LIMIT 1) = 'Cho ke toan'
-              ${pxkClause ? `AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id${pxkClause.sql})` : ""}) as cho_ke_toan_pxk,
+              ${pxkClause ? `AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id${pxkClause.sql})` : ""}${pxkKvClause?.sql ?? ""}) as cho_ke_toan_pxk,
            -- SUA (migration 0002_tra_hang_pxk.sql): "Cho ke toan xac nhan nhap kho" khong con dat toi
            -- duoc - viec KT lien quan tra hang o giai doan PXK gio da nam SAN trong cho_ke_toan_pxk o
            -- tren (query do khong loc loai_don nen tu dong gom ca PXK tra_hang).
            (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang'
               AND ddh.trang_thai_hien_tai = 'Cho ke toan duyet mem'
-              ${traHangClause?.sql ?? ""}) as cho_ke_toan_tra_hang`,
+              ${traHangClause?.sql ?? ""}${traHangKvClause?.sql ?? ""}) as cho_ke_toan_tra_hang`,
       )
-      .bind(...(pxkClause?.binds ?? []), ...(traHangClause?.binds ?? []))
+      .bind(
+        ...(pxkClause?.binds ?? []),
+        ...(pxkKvClause?.binds ?? []),
+        ...(traHangClause?.binds ?? []),
+        ...(traHangKvClause?.binds ?? []),
+      )
       .first<{ cho_ke_toan_pxk: number; cho_ke_toan_tra_hang: number }>();
     out.choKeToanPxk = row?.cho_ke_toan_pxk ?? 0;
     out.choKeToanTraHang = row?.cho_ke_toan_tra_hang ?? 0;

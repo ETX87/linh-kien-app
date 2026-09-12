@@ -399,6 +399,22 @@ export function DatMuaLinhKienModule({
                 count: donHangStatusCounts["Cho hang"],
                 onClick: () => stageJump("cho-hang", { tab: "don-cua-toi", filter: "Cho hang", loaiDon: "" }),
               },
+              // "Đơn chờ tạo xuất" (chuyen tu nhom "Xuất kho" sang day, phan hoi 2026-09-12: dat ngay
+              // duoi "Chờ hàng" vi cung la 1 buoc trong luong xu ly don dat hang, truoc khi re nhanh
+              // sang PXK) - danh sach dat_don_hang DA "TN da duyet" nhung CHUA gan vao PXK nao (chua co
+              // ma_xuat_kho). Dung sentinel trang_thai "__CHO_TAO_PXK__" (them o GET /don-hang +
+              // /don-hang-status-counts) de hien DANH SACH don qua DonCuaToiTab (loaiDon:"" = gop ca
+              // mua/cong no/tra hang), giong het cac muc khac.
+              ...(canTacNghiep
+                ? [
+                    {
+                      key: "cho-tao-xuat",
+                      label: "Đơn chờ tạo xuất",
+                      count: donHangStatusCounts.__CHO_TAO_PXK__,
+                      onClick: () => stageJump("cho-tao-xuat", { tab: "don-cua-toi", filter: "__CHO_TAO_PXK__", loaiDon: "" }),
+                    },
+                  ]
+                : []),
               // "Từ chối" KHONG gan count (phan hoi 2026-09-11: "không cần đếm vì nó sẽ tăng lũy kế
               // liên tục") - khac cac trang thai cho xu ly khac (giam dan ve 0 khi xu ly xong), "TN tu
               // choi" la trang thai DONG vinh vien (khong ai "xu ly tiep" de giam so nay), so cang lon
@@ -417,23 +433,21 @@ export function DatMuaLinhKienModule({
           {
             title: "Xuất kho",
             items: [
-              // "Đơn chờ tạo xuất" (doi ten tu "Chờ tạo xuất", phan hoi 2026-09-11) - danh sach dat_don_hang
-              // DA "TN da duyet" nhung CHUA gan vao PXK nao (chua co ma_xuat_kho). SUA (phan hoi 2026-09-11
-              // lan 2: "không cho mở trực tiếp modal 'Tạo phiếu xuất kho'...hiện danh sách đơn mua hoặc
-              // công nợ, trả hàng đang chờ tạo phiếu chứ không phải tự động mở UI tạo phiếu") - truoc day
-              // nhay thang vao Modal tao PXK (openCreatePxk, da bo), gio dung sentinel trang_thai
-              // "__CHO_TAO_PXK__" (them o GET /don-hang + /don-hang-status-counts) de hien DANH SACH don
-              // qua DonCuaToiTab (loaiDon:"" = gop ca mua/cong no/tra hang), giong het cac muc khac.
-              ...(canTacNghiep
-                ? [
-                    {
-                      key: "cho-tao-xuat",
-                      label: "Đơn chờ tạo xuất",
-                      count: donHangStatusCounts.__CHO_TAO_PXK__,
-                      onClick: () => stageJump("cho-tao-xuat", { tab: "don-cua-toi", filter: "__CHO_TAO_PXK__", loaiDon: "" }),
-                    },
-                  ]
-                : []),
+              // "Tổng phiếu xuất" (them 2026-09-12, phan hoi "thêm mục con 'Tổng phiếu xuất' ngay bên
+              // dưới") - dem so PXK "con ton" = tong so PXK trong scope TRU 3 trang thai KET THUC song
+              // song cua quy trinh (KTV da nhan / Hang tru kho / Kho da ket thuc - xem comment thu tu 5
+              // muc cuoi ben duoi). pxkStatusCounts[""] la tong TAT CA PXK khong loc trang thai (tra ve
+              // tu GET /phieu-xuat-kho/status-counts, xem backend/src/routes/phieuXuatKho.ts).
+              {
+                key: "tong-phieu-xuat",
+                label: "Tổng phiếu xuất",
+                count:
+                  (pxkStatusCounts[""] ?? 0) -
+                  (pxkStatusCounts["KTV da nhan"] ?? 0) -
+                  (pxkStatusCounts["Hang tru kho"] ?? 0) -
+                  (pxkStatusCounts["Kho da ket thuc"] ?? 0),
+                onClick: () => stageJump("tong-phieu-xuat", { tab: "phieu-xuat-kho", filter: "", loaiDon: "" }),
+              },
               {
                 key: "cho-ktv-chuyen-tien",
                 label: "Chờ KTV chuyển tiền",
