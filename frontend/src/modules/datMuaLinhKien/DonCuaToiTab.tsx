@@ -16,7 +16,7 @@ import type { Column } from "../../components/ui/PaginatedTable";
 import { useColumnConfig } from "../../components/ui/useColumnConfig";
 import { ColumnSettingsButton, ResizableHeaderCell } from "../../components/ui/ColumnHeader";
 import { api, buildQuery } from "../../api/client";
-import { fmtDateTime, fmtVND } from "../../types";
+import { fmtDate, fmtDateTime, fmtVND } from "../../types";
 import { useAuth } from "../../auth/AuthContext";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
@@ -1887,21 +1887,20 @@ export function DonHangGroupedList({
         </button>
       ),
     },
-    { key: "loai", header: "Loại", render: (row) => <Badge tone={row.tone.tone}>{row.tone.label}</Badge> },
-    { key: "sl", header: "SL", className: "text-right", render: (row) => row.d.so_luong_de_xuat },
+    // SUA (phan hoi 2026-09-12: "sắp xếp các cột trong table danh sách đơn giống" file tham chiếu
+    // AppSheet "ADMIN XUAT HANG MN v3" - doi ca THU TU LAN gop toan bo cot "Tuỳ chỉnh cột" (truoc day
+    // an mac dinh) thanh cot chinh LUON hien, khop dung thu tu: Linh kien -> Ngay de xuat -> SL de
+    // xuat -> SL thuc xuat -> Gia de xuat -> Loai don -> Yeu cau hoa don -> Trang thai duyet -> Nguoi
+    // nhan hang -> Ly do tu choi/cho hang -> Khu vuc -> Ghi chu nguoi dat hang -> Ghi chu Admin ->
+    // Nguoi tao yeu cau -> Ma yeu cau su co (2 cot UI-only "chon"/"hanh_dong" khong co trong file tham
+    // chieu, giu nguyen vi tri dau/cuoi). "Cảnh báo linh kiện đặc thù"/"Đơn ưu tiên" GIU dang icon
+    // 🔒/⭐ trong cot Linh kien (khong tach cot rieng, theo xac nhan nguoi dung).
+    { key: "ngay_de_xuat", header: "Ngày đề xuất", render: (row) => fmtDate(row.d.ngay_tao) },
+    { key: "sl", header: "SL đề xuất", className: "text-right", render: (row) => row.d.so_luong_de_xuat },
+    { key: "sl_thuc_xuat", header: "SL thực xuất", className: "text-right", render: (row) => row.d.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
     { key: "gia", header: "Giá đề xuất", className: "text-right", render: (row) => (row.d.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold">{fmtVND(row.d.gia_de_xuat)}</span> : "—") },
-    {
-      key: "ma_ycsc",
-      header: "Mã yêu cầu sự cố",
-      render: (row) =>
-        row.d.ma_yeu_cau_su_co ? (
-          <span onClick={(e) => e.stopPropagation()}>
-            <MaYcscCell value={row.d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />
-          </span>
-        ) : (
-          <span className="text-[var(--ink-400)]">—</span>
-        ),
-    },
+    { key: "loai", header: "Loại", render: (row) => <Badge tone={row.tone.tone}>{row.tone.label}</Badge> },
+    { key: "yeu_cau_hoa_don", header: "Yêu cầu hóa đơn", render: (row) => row.d.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
     {
       key: "trang_thai",
       header: "Trạng thái",
@@ -1920,6 +1919,28 @@ export function DonHangGroupedList({
           {row.d.loai_don === "cong_no" && row.d.danh_gia_cong_no === "Khong du" && <Badge tone="danger">Không đủ công nợ</Badge>}
         </div>
       ),
+    },
+    { key: "nguoi_nhan_hang", header: "Người nhận hàng", render: (row) => (row.d.nguoi_nhan_hang ? formatNguoiDisplay(row.d.nguoi_nhan_hang, ktvDisplayMap) : <span className="text-[var(--ink-400)]">—</span>) },
+    { key: "ly_do_cham", header: "Lý do từ chối/chờ hàng", render: (row) => row.d.ly_do_cham || <span className="text-[var(--ink-400)]">—</span> },
+    // "Khu vực" cua NGUOI NHAN HANG (khong phai cot that tren dat_don_hang - server LEFT JOIN qua
+    // ktv_lien_he.khu_vuc_ma, xem GET /don-hang + DonHangRow.khu_vuc_ten trong types.ts).
+    { key: "khu_vuc", header: "Khu vực", render: (row) => row.d.khu_vuc_ten || <span className="text-[var(--ink-400)]">—</span> },
+    { key: "ghi_chu", header: "Ghi chú người đặt hàng", render: (row) => row.d.ghi_chu || <span className="text-[var(--ink-400)]">—</span> },
+    // "Ghi chú Admin" - xem giai thich mapping (dong dat_don_hang_log MOI NHAT) o comment tren
+    // DonHangRow.ghi_chu_xu_ly_gan_nhat trong types.ts.
+    { key: "ghi_chu_admin", header: "Ghi chú Admin", render: (row) => row.d.ghi_chu_xu_ly_gan_nhat || <span className="text-[var(--ink-400)]">—</span> },
+    { key: "nguoi_tao_yc", header: "Người tạo yêu cầu", render: (row) => formatNguoiDisplay(row.d.nguoi_tao, ktvDisplayMap) },
+    {
+      key: "ma_ycsc",
+      header: "Mã yêu cầu sự cố",
+      render: (row) =>
+        row.d.ma_yeu_cau_su_co ? (
+          <span onClick={(e) => e.stopPropagation()}>
+            <MaYcscCell value={row.d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />
+          </span>
+        ) : (
+          <span className="text-[var(--ink-400)]">—</span>
+        ),
     },
     {
       key: "hanh_dong",
@@ -1974,19 +1995,12 @@ export function DonHangGroupedList({
     },
   ];
   // Cot tuy chon (Phase 2 StageMenu, them 2026-09-11, phan hoi "man hình chỉ có sẵn vài cột, cần thêm
-  // lựa chọn ẩn/hiện giống các tab khác") - man nay truoc day la MAN DUY NHAT trong module goi
-  // useColumnConfig voi optionalColumns=[] (khong co gi de bat them), khac PhieuXuatKhoTab/TraHangTab/
-  // ThieuLkTab deu da co san bo cot tuy chon rieng. AN MAC DINH (defaultVisibleOptionalKeys=[]) - chi
-  // hien khi nguoi dung tu bat qua "⚙ Tuỳ chỉnh cột", tranh lam chat bang mac dinh cho da so nguoi dung
-  // khong can toi.
+  // lựa chọn ẩn/hiện giống các tab khác"). SUA (phan hoi 2026-09-12: "sắp xếp cột bảng danh sách đơn
+  // giống" file tham chiếu, xac nhan "hiện sẵn tất cả" 5 cot truoc day o day - sl_thuc_xuat/
+  // yeu_cau_hoa_don/ly_do_cham/ghi_chu/ghi_chu_admin) - da CHUYEN het 5 cot do sang `cols` chinh (luon
+  // hien) de khop 100% file tham chiếu, chi con "Phân loại linh kiện" (khong co trong file tham chieu)
+  // o day, van AN MAC DINH nhu truoc.
   const optionalCols: Column<EnrichedRow>[] = [
-    { key: "sl_thuc_xuat", header: "SL thực xuất", className: "text-right", render: (row) => row.d.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
-    { key: "yeu_cau_hoa_don", header: "Yêu cầu hóa đơn", render: (row) => row.d.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
-    { key: "ly_do_cham", header: "Lý do từ chối/chờ hàng", render: (row) => row.d.ly_do_cham || <span className="text-[var(--ink-400)]">—</span> },
-    { key: "ghi_chu", header: "Ghi chú người đặt hàng", render: (row) => row.d.ghi_chu || <span className="text-[var(--ink-400)]">—</span> },
-    // "Ghi chú Admin" - xem giai thich mapping (dong dat_don_hang_log MOI NHAT) o comment tren
-    // DonHangRow.ghi_chu_xu_ly_gan_nhat trong types.ts.
-    { key: "ghi_chu_admin", header: "Ghi chú Admin", render: (row) => row.d.ghi_chu_xu_ly_gan_nhat || <span className="text-[var(--ink-400)]">—</span> },
     { key: "phan_loai_lk", header: "Phân loại linh kiện", render: (row) => row.d.loai_de_xuat || <span className="text-[var(--ink-400)]">—</span> },
   ];
   const {

@@ -1573,9 +1573,15 @@ datMuaLinhKien.get("/don-hang", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, lk.dac_thu, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
        ${lastGiaiTrinhAtExpr("ddh.id")} as last_giai_trinh_at,
-       (SELECT ghi_chu FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) as ghi_chu_xu_ly_gan_nhat
+       (SELECT ghi_chu FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) as ghi_chu_xu_ly_gan_nhat,
+       kv.ten as khu_vuc_ten
      FROM dat_don_hang ddh
      LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
+     -- "Khu vực" (them 2026-09-12, phan hoi "sắp xếp cột bảng danh sách đơn giống file tham chiếu") -
+     -- KHONG phai cot that tren dat_don_hang, lay tu Khu vuc cua CHINH nguoi_nhan_hang (KTV nhan don
+     -- nay) qua ktv_lien_he.khu_vuc_ma - dung y nguoi dung xac nhan "khu vực sẽ theo người nhận hàng".
+     LEFT JOIN ktv_lien_he dsk ON dsk.email_dang_nhap = ddh.nguoi_nhan_hang
+     LEFT JOIN khu_vuc kv ON kv.ma = dsk.khu_vuc_ma
      WHERE ${whereSql}
      ORDER BY ddh.nguoi_nhan_hang, ddh.ngay_tao DESC
      LIMIT ? OFFSET ?`,

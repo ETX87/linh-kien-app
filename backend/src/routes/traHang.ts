@@ -138,8 +138,15 @@ traHang.get("/", async (c) => {
   // pipeline vi luong-quy-trinh doc thang trang_thai_hien_tai). trang_thai_hien_tai la mirror LUON
   // dong bo qua CAS (xem applyTraHangLog ben duoi) nen doc thang cot nay, khong qua tra_hang_log nua.
   const { results } = await c.env.DB.prepare(
-    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai_tra_hang
-     FROM dat_don_hang ddh WHERE ${whereSql} ORDER BY ddh.ngay_tao DESC
+    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai_tra_hang,
+       (SELECT ghi_chu FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) as ghi_chu_xu_ly_gan_nhat,
+       kv.ten as khu_vuc_ten
+     FROM dat_don_hang ddh
+     -- "Khu vực" (them 2026-09-12, dong bo voi GET /don-hang - phan hoi "sắp xếp cột bảng danh sách
+     -- đơn giống" file tham chieu) - lay tu Khu vuc cua CHINH nguoi_nhan_hang qua ktv_lien_he.khu_vuc_ma.
+     LEFT JOIN ktv_lien_he dsk ON dsk.email_dang_nhap = ddh.nguoi_nhan_hang
+     LEFT JOIN khu_vuc kv ON kv.ma = dsk.khu_vuc_ma
+     WHERE ${whereSql} ORDER BY ddh.ngay_tao DESC
      LIMIT ? OFFSET ?`,
   )
     .bind(...binds, pageSize, offset)

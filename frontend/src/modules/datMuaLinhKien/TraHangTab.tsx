@@ -12,7 +12,7 @@ import { KvRow } from "../../components/ui/KvRow";
 import { SectionTitle } from "../../components/ui/SectionTitle";
 import { Timeline } from "../../components/ui/Timeline";
 import { api, buildQuery, ApiError } from "../../api/client";
-import { fmtDateTime } from "../../types";
+import { fmtDate, fmtDateTime, fmtVND } from "../../types";
 import { useAuth } from "../../auth/AuthContext";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import { compressImage } from "../../lib/imageCompress";
@@ -20,9 +20,9 @@ import type { TraHangRow } from "./types";
 import { TRA_HANG_TRANG_THAI_TONE, TRA_HANG_TRANG_THAI_OPTIONS, TRA_HANG_BULK_ERROR_MESSAGES } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, useNenAnhTraHangEnabled,
-  useLkAndLdeCache, useLinhKienRankMap, isDonTaoHo, formatLkLabel,
+  useLkAndLdeCache, useLinhKienRankMap, isDonTaoHo, formatLkLabel, LOAI_DON_TONE,
 } from "./helpers";
-import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, DetailZone, QuickStat, KhuVucChipFilter, ImageLink, ImageThumb } from "./SharedUi";
+import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, DetailZone, QuickStat, KhuVucChipFilter, ImageLink, ImageThumb, MaYcscCell } from "./SharedUi";
 import { LinhKienDetailModal } from "./LinhKienPicker";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
@@ -400,9 +400,17 @@ export function TraHangTab({
         </button>
       ),
     },
-    { key: "so_luong_de_xuat", header: "SL", render: (r) => r.so_luong_de_xuat },
-    { key: "nguoi_tao", header: "Người tạo", render: (r) => formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap) },
-    { key: "ngay_tao", header: "Ngày tạo", render: (r) => fmtDateTime(r.ngay_tao) },
+    // SUA (phan hoi 2026-09-12: "sắp xếp các cột trong table danh sách đơn giống" file tham chiếu -
+    // ap dung cho CA 3 loai don, xac nhan "áp đủ bộ cột như Mua/Công nợ") - dong bo THU TU + BO CUC
+    // voi cols cua DonCuaToiTab.tsx (cung 1 khuon dat_don_hang nen moi truong deu co san du lieu, ke
+    // ca cac truong TraHangTab truoc day chua tung hien nhu gia_de_xuat/yeu_cau_hoa_don/ghi_chu...).
+    // Giu rieng cot "id" (Mã đơn hàng, khong co trong file tham chieu) theo xac nhan nguoi dung.
+    { key: "ngay_de_xuat", header: "Ngày đề xuất", render: (r) => fmtDate(r.ngay_tao) },
+    { key: "so_luong_de_xuat", header: "SL đề xuất", render: (r) => r.so_luong_de_xuat },
+    { key: "sl_thuc_xuat", header: "SL thực xuất", render: (r) => r.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
+    { key: "gia", header: "Giá đề xuất", render: (r) => (r.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold">{fmtVND(r.gia_de_xuat)}</span> : "—") },
+    { key: "loai", header: "Loại", render: (r) => { const t = LOAI_DON_TONE[(r.loai_don as keyof typeof LOAI_DON_TONE) ?? "tra_hang"] ?? LOAI_DON_TONE.tra_hang; return <Badge tone={t.tone}>{t.label}</Badge>; } },
+    { key: "yeu_cau_hoa_don", header: "Yêu cầu hóa đơn", render: (r) => r.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
     {
       key: "trang_thai_tra_hang", header: "Trạng thái",
       render: (r) => (
@@ -416,6 +424,15 @@ export function TraHangTab({
         </div>
       ),
     },
+    { key: "nguoi_nhan_hang", header: "Người nhận hàng", render: (r) => (r.nguoi_nhan_hang ? formatNguoiDisplay(r.nguoi_nhan_hang, ktvDisplayMap) : <span className="text-[var(--ink-400)]">—</span>) },
+    { key: "ly_do_cham", header: "Lý do từ chối/chờ hàng", render: (r) => r.ly_do_cham || <span className="text-[var(--ink-400)]">—</span> },
+    // "Khu vực" cua NGUOI NHAN HANG - khong phai cot that tren dat_don_hang, server LEFT JOIN qua
+    // ktv_lien_he.khu_vuc_ma (xem GET /tra-hang backend + DonHangRow.khu_vuc_ten trong types.ts).
+    { key: "khu_vuc", header: "Khu vực", render: (r) => r.khu_vuc_ten || <span className="text-[var(--ink-400)]">—</span> },
+    { key: "ghi_chu", header: "Ghi chú người đặt hàng", render: (r) => r.ghi_chu || <span className="text-[var(--ink-400)]">—</span> },
+    { key: "ghi_chu_admin", header: "Ghi chú Admin", render: (r) => r.ghi_chu_xu_ly_gan_nhat || <span className="text-[var(--ink-400)]">—</span> },
+    { key: "nguoi_tao_yc", header: "Người tạo yêu cầu", render: (r) => formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap) },
+    { key: "ma_ycsc", header: "Mã yêu cầu sự cố", render: (r) => <MaYcscCell value={r.ma_yeu_cau_su_co} canXemChiTietCa={false} /> },
     {
       key: "actions", header: "", mobileHint: "actions",
       render: (r) => {

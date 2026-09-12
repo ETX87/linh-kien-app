@@ -117,6 +117,11 @@ export interface DonHangRow {
   // tu choi/cho hang) lam gia tri hien thi gan nhat voi y nghia "ghi chu xu ly" - xem scalar subquery
   // trong GET /don-hang.
   ghi_chu_xu_ly_gan_nhat?: string | null;
+  // Khu vuc CUA NGUOI NHAN HANG (them 2026-09-12, phan hoi "sắp xếp cột bảng danh sách đơn giống file
+  // tham chiếu") - khong phai cot that tren dat_don_hang, server LEFT JOIN qua ktv_lien_he.khu_vuc_ma
+  // cua chinh nguoi_nhan_hang (xem GET /don-hang) - null neu chua co nguoi_nhan_hang hoac KTV do chua
+  // duoc gan Khu vuc.
+  khu_vuc_ten?: string | null;
 }
 
 // PXK - "chuyen tien" la 1 dieu kien chan rieng tren chinh PXK (thay the bang phieu_so_tien cu, xem
