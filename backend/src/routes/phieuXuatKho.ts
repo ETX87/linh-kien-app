@@ -155,7 +155,8 @@ phieuXuatKho.get("/", async (c) => {
   const khuVuc = c.req.query("khu_vuc")?.trim();
   // Them 2026-08-21 (dong bo UI voi GET /dat-mua-lk/don-hang) - tim theo ma PXK/ma don hang/ma
   // MISA/ma van don/nguoi tao/nguoi nhan hang.
-  const q = c.req.query("q")?.trim();
+  // .normalize("NFC") - xem giai thich day du o settingsKtv.ts GET / (cung fix, cung ngay).
+  const q = c.req.query("q")?.trim().normalize("NFC");
   // GD4 (phan hoi Codex #17): endpoint nay truoc day tra VE TOAN BO dong khop bo loc, frontend tu
   // slice 20 dong/trang o client - moi lan doi trang van tai lai het du lieu tu D1. Them phan trang
   // server-side, cung pattern voi GET /dat-mua-lk/don-hang.
@@ -239,7 +240,8 @@ phieuXuatKho.get("/misa-export", async (c) => {
   const nguoiNhanHang = c.req.query("nguoi_nhan_hang");
   const loaiDon = c.req.query("loai_don");
   const khuVuc = c.req.query("khu_vuc")?.trim();
-  const q = c.req.query("q")?.trim();
+  // .normalize("NFC") - xem giai thich day du o settingsKtv.ts GET / (cung fix, cung ngay).
+  const q = c.req.query("q")?.trim().normalize("NFC");
   let whereSql = "1=1" + (scope?.whereSql ?? "");
   const binds: unknown[] = [...(scope?.binds ?? [])];
   if (trangThai === "CHO_TIEN") {

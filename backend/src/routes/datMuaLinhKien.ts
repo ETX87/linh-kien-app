@@ -1490,7 +1490,8 @@ datMuaLinhKien.get("/don-hang", async (c) => {
   // CHOT (ra soat module "Dat Mua Linh Kien 2.0" #8): tim theo ma LK/ten LK/ma dong - ap TRUOC khi
   // phan trang (server-side), khac voi lam client-side chi loc duoc trong 20 dong dang tai cua 1
   // trang - tranh cam giac "tim khong ra" du du lieu ton tai o trang khac.
-  const q = c.req.query("q")?.trim();
+  // .normalize("NFC") - xem giai thich day du o settingsKtv.ts GET / (cung fix, cung ngay).
+  const q = c.req.query("q")?.trim().normalize("NFC");
   const page = Math.max(1, Number(c.req.query("page") ?? 1));
   const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
   const offset = (page - 1) * pageSize;
@@ -3207,7 +3208,8 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
   // khop dung cot da dung san cho khu_vuc o tren, dong bo voi GET /don-hang/GET /phieu-xuat-kho.
   const nguoiNhanHang = c.req.query("nguoi_nhan_hang")?.trim();
   // Them 2026-08-21 (dong bo UI voi GET /don-hang) - tim theo ma LK/ten LK/ma TLK/nguoi bao.
-  const q = c.req.query("q")?.trim();
+  // .normalize("NFC") - xem giai thich day du o settingsKtv.ts GET / (cung fix, cung ngay).
+  const q = c.req.query("q")?.trim().normalize("NFC");
   // GD4 (phan hoi Codex #17): truoc day tra ve TOAN BO dong khop bo loc, frontend tu slice o client.
   // Them phan trang server-side, cung pattern voi GET /don-hang.
   const page = Math.max(1, Number(c.req.query("page") ?? 1));

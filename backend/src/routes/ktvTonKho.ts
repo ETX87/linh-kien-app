@@ -54,7 +54,8 @@ function scopeKtvTonKho(c: Context<{ Bindings: Env }>): { whereSql: string; bind
 // GET /?search= - danh sach tong hop theo KTV (chi KTV DANG co du lieu ton kho, INNER JOIN) - kem
 // Cong no/Ma MISA de doi chieu chung 1 man hinh (dung y "Tồn kho công nợ KTV" cua nguoi dung).
 ktvTonKho.get("/", async (c) => {
-  const search = c.req.query("search")?.trim();
+  // .normalize("NFC") - xem giai thich day du o settingsKtv.ts GET / (cung fix, cung ngay).
+  const search = c.req.query("search")?.trim().normalize("NFC");
   const conditions: string[] = [];
   const binds: unknown[] = [];
   if (search) {

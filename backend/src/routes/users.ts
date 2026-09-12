@@ -27,7 +27,8 @@ users.use("*", verifySessionMiddleware, loadUser, requireRole("Admin"));
 // sang dung PaginatedTable + truyen page/pageSize, xem VanPhongTab lam mau).
 users.get("/", async (c) => {
   const tab = c.req.query("tab") ?? "cho-duyet";
-  const search = c.req.query("search")?.trim();
+  // .normalize("NFC") - xem giai thich day du o settingsKtv.ts GET / (cung fix, cung ngay).
+  const search = c.req.query("search")?.trim().normalize("NFC");
   const vaiTro = c.req.query("vai_tro")?.trim();
   const nhom = c.req.query("nhom")?.trim();
   const khuVuc = c.req.query("khu_vuc")?.trim();

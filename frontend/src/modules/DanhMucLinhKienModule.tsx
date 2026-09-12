@@ -507,8 +507,9 @@ function DanhMucTab() {
 
   const filteredRows = useMemo(() => {
     let rows = parts?.rows ?? [];
-    const q = search.trim().toLowerCase();
-    if (q) rows = rows.filter((p) => p.ma_linh_kien.toLowerCase().includes(q) || p.ten_linh_kien.toLowerCase().includes(q));
+    // .normalize("NFC") - xem giai thich day du o components/ui/Select.tsx (cung fix, cung ngay).
+    const q = search.trim().toLowerCase().normalize("NFC");
+    if (q) rows = rows.filter((p) => p.ma_linh_kien.toLowerCase().normalize("NFC").includes(q) || p.ten_linh_kien.toLowerCase().normalize("NFC").includes(q));
     if (filterDacThu) rows = rows.filter((p) => (filterDacThu === "true" ? !!p.dac_thu : !p.dac_thu));
     if (filterChiSuaChua) rows = rows.filter((p) => (filterChiSuaChua === "true" ? !!p.chi_sua_chua : !p.chi_sua_chua));
     if (filterBatTat) rows = rows.filter((p) => (filterBatTat === "true" ? !!p.bat_tat : !p.bat_tat));

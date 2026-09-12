@@ -54,8 +54,9 @@ export function CommandPalette({ open, onClose, items, onSelect }: { open: boole
   }, [q]);
 
   const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    const staticMatches = !needle ? items : items.filter((it) => it.label.toLowerCase().includes(needle) || it.group.toLowerCase().includes(needle));
+    // .normalize("NFC") - xem giai thich day du o components/ui/Select.tsx (cung fix, cung ngay).
+    const needle = q.trim().toLowerCase().normalize("NFC");
+    const staticMatches = !needle ? items : items.filter((it) => it.label.toLowerCase().normalize("NFC").includes(needle) || it.group.toLowerCase().normalize("NFC").includes(needle));
     return [...staticMatches, ...searchResults];
   }, [items, q, searchResults]);
 

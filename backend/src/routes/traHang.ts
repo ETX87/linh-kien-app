@@ -88,7 +88,8 @@ traHang.get("/", async (c) => {
   // Them 2026-08-21 (dong bo UI voi GET /dat-mua-lk/don-hang - man "Tra hang" thieu o tim kiem tu do
   // so voi "Mua hang/Cong no") - cung 4 cot tim (ma_lk/ten_lk_snapshot/id/nguoi_tao), tra_hang khong
   // co ma_yeu_cau_su_co/nguoi_nhan_hang rieng biet nen bo 2 cot do so voi ban goc.
-  const q = c.req.query("q")?.trim();
+  // .normalize("NFC") - xem giai thich day du o settingsKtv.ts GET / (cung fix, cung ngay).
+  const q = c.req.query("q")?.trim().normalize("NFC");
   // GD4 (phan hoi Codex #17): truoc day tra ve TOAN BO dong khop bo loc, frontend tu slice o client.
   // Them phan trang server-side, cung pattern voi GET /dat-mua-lk/don-hang. "nguoi_tao" chuyen tu loc
   // client-side (tren data.rows) sang server-side de khop dung tong so sau khi phan trang that su.

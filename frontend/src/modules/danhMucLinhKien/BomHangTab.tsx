@@ -34,19 +34,20 @@ export function BomHangTab() {
   const { rows: rawRows, syncedAt, syncing, error, sync } = usePublicSheetCache(STORAGE_KEY, SHEET_URL);
   const [query, setQuery] = useState("");
   const rows = useMemo(() => rawRows.map(toBomRow), [rawRows]);
-  const q = query.trim().toLowerCase();
+  // .normalize("NFC") - xem giai thich day du o components/ui/Select.tsx (cung fix, cung ngay).
+  const q = query.trim().toLowerCase().normalize("NFC");
 
   const modelMatches = useMemo(() => {
     if (!q) return [];
     const set = new Set<string>();
-    for (const r of rows) if (r.maModel.toLowerCase().includes(q) || r.model.toLowerCase().includes(q)) set.add(r.maModel);
+    for (const r of rows) if (r.maModel.toLowerCase().normalize("NFC").includes(q) || r.model.toLowerCase().normalize("NFC").includes(q)) set.add(r.maModel);
     return Array.from(set);
   }, [rows, q]);
 
   const partMatches = useMemo(() => {
     if (!q || modelMatches.length > 0) return [];
     const set = new Set<string>();
-    for (const r of rows) if (r.maLinhKien.toLowerCase().includes(q) || r.tenLinhKien.toLowerCase().includes(q)) set.add(r.maLinhKien);
+    for (const r of rows) if (r.maLinhKien.toLowerCase().normalize("NFC").includes(q) || r.tenLinhKien.toLowerCase().normalize("NFC").includes(q)) set.add(r.maLinhKien);
     return Array.from(set);
   }, [rows, q, modelMatches.length]);
 

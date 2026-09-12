@@ -153,8 +153,9 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
   function tonDong(r: BaoCaoRow) {
     return Math.max(0, r.slDon - r.slDuyet - r.slTuChoi) + r.slChoKeToan + r.slChoKhoGui + r.slDaGui;
   }
-  const q = search.trim().toLowerCase();
-  const filtered = rows.filter((r) => !q || (r.ten ?? "").toLowerCase().includes(q) || r.email.toLowerCase().includes(q));
+  // .normalize("NFC") - xem giai thich day du o components/ui/Select.tsx (cung fix, cung ngay).
+  const q = search.trim().toLowerCase().normalize("NFC");
+  const filtered = rows.filter((r) => !q || (r.ten ?? "").toLowerCase().normalize("NFC").includes(q) || r.email.toLowerCase().normalize("NFC").includes(q));
 
   const tong = rows.reduce(
     (acc, r) => ({

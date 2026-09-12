@@ -26,12 +26,13 @@ export function ThayTheTab() {
   const { rows: rawRows, syncedAt, syncing, error, sync } = usePublicSheetCache(STORAGE_KEY, SHEET_URL);
   const [query, setQuery] = useState("");
   const rows = useMemo(() => rawRows.map(toRow), [rawRows]);
-  const q = query.trim().toLowerCase();
+  // .normalize("NFC") - xem giai thich day du o components/ui/Select.tsx (cung fix, cung ngay).
+  const q = query.trim().toLowerCase().normalize("NFC");
 
   const matchedGroups = useMemo(() => {
     const groups = new Set<string>();
     for (const r of rows) {
-      if (!q || r.nhom.toLowerCase().includes(q) || r.ma.toLowerCase().includes(q) || r.ten.toLowerCase().includes(q)) groups.add(r.nhom);
+      if (!q || r.nhom.toLowerCase().normalize("NFC").includes(q) || r.ma.toLowerCase().normalize("NFC").includes(q) || r.ten.toLowerCase().normalize("NFC").includes(q)) groups.add(r.nhom);
     }
     return Array.from(groups);
   }, [rows, q]);

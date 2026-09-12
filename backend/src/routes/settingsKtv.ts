@@ -35,7 +35,10 @@ async function refreshHash(db: D1Database) {
 // gi ca). "cap=1" = KTV/CTV/Tram, "cap=2" = Ve tinh (dung dung tinh than "KTV cap 1 tuong duong
 // nhau"/"Ve tinh la KTV cap 2" cua yeu cau). KHONG truyen page -> giu nguyen hanh vi cu (tra het).
 settingsKtv.get("/", async (c) => {
-  const search = c.req.query("search")?.trim();
+  // .normalize("NFC") (fix bug 2026-09-12, cung goc voi Select.tsx frontend: "tìm 'khách hà' không
+  // ra") - ky tu co dau go tu ban phim/IME co the toi server o dang to hop (NFD), khac dang NFC luu
+  // san trong DB, khien LIKE so sanh BYTE khong khop du nhin giong het nhau.
+  const search = c.req.query("search")?.trim().normalize("NFC");
   const cap = c.req.query("cap")?.trim();
   const khuVucMa = c.req.query("khu_vuc_ma")?.trim();
   const pageParam = c.req.query("page");

@@ -247,11 +247,14 @@ export function PhieuXuatKhoTab({
     return formatNguoiDisplay(email, ktvDisplayMap);
   }
 
-  const q = timKiemDonHang.trim().toLowerCase();
+  // .normalize("NFC") - xem giai thich day du o components/ui/Select.tsx (cung fix, cung ngay).
+  const q = timKiemDonHang.trim().toLowerCase().normalize("NFC");
   // Chi hien dong cua KTV DA CHON (chot nghiep vu 1 PXK = 1 KTV) - rong neu chua chon KTV.
   const donHangLoc = chonKtv
     ? (khaDungData?.rows ?? []).filter(
-        (r) => r.nguoi_nhan_hang === chonKtv && (!q || r.ma_lk.toLowerCase().includes(q) || (r.ten_lk_snapshot ?? "").toLowerCase().includes(q)),
+        (r) =>
+          r.nguoi_nhan_hang === chonKtv &&
+          (!q || r.ma_lk.toLowerCase().normalize("NFC").includes(q) || (r.ten_lk_snapshot ?? "").toLowerCase().normalize("NFC").includes(q)),
       )
     : [];
   // Danh sach KTV thuc su co dong kha dung (de dung lam options Select "Chon KTV") - chi liet ke

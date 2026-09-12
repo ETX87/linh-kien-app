@@ -354,8 +354,9 @@ function ChuaKhopPanel({ rows }: { rows: MaKhoChuaKhopRow[] }) {
   const PAGE_SIZE = 10;
   const filtered = search
     ? rows.filter((r) => {
-        const q = search.toLowerCase();
-        return r.ma_kho.toLowerCase().includes(q) || (r.ten_kho ?? "").toLowerCase().includes(q);
+        // .normalize("NFC") - xem giai thich day du o components/ui/Select.tsx (cung fix, cung ngay).
+        const q = search.toLowerCase().normalize("NFC");
+        return r.ma_kho.toLowerCase().normalize("NFC").includes(q) || (r.ten_kho ?? "").toLowerCase().normalize("NFC").includes(q);
       })
     : rows;
   useEffect(() => setPage(1), [search]);
