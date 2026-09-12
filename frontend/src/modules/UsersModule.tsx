@@ -572,6 +572,26 @@ async function downloadKtvImportTemplate() {
 // "readonly": nhu "ke-toan" nhung khong co truong nao sua duoc, khong co nut Luu.
 export type KtvTabMode = "admin" | "ke-toan" | "readonly";
 
+// Sinh "email dang nhap" NOI BO cho KTV khong co Gmail that (them 2026-09-12, phan hoi bug "khách
+// hàng lẻ MN không chọn được làm người nhận hàng" - goc re: KH_LE_MN chua tung duoc gan
+// email_dang_nhap nen khong co dong users tuong ung, bi INNER JOIN o GET /nguoi-nhan-hang-kha-dung
+// loai bo AM THAM, khong co canh bao gi). email nay KHONG dung de dang nhap Google that (khong ai so
+// huu hop thu @noreply.local) - chi la 1 gia tri duy nhat de provisionPlaceholderUser() (goi san trong
+// PATCH /:ma/dat-mua-lk luc Luu) tao dong users placeholder, du dieu kien lam FK cho
+// dat_don_hang.nguoi_nhan_hang. Sinh tu ma_ktv (da la PRIMARY KEY, dam bao duy nhat) thay vi de Admin
+// tu nghi 1 dia chi gia tuy y (de nham/trung/quen dat).
+function generateInternalEmail(maKtv: string): string {
+  const slug = maKtv
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `${slug || "ktv"}@noreply.local`;
+}
+
 export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
   const qc = useQueryClient();
   const addToast = useToast();
@@ -969,8 +989,20 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
               />
             </div>
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Email đăng nhập (Google)</label>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] flex items-center gap-1.5">
+                Email đăng nhập (Google)
+                <Tooltip text="Bắt buộc phải có giá trị thì KTV mới chọn được làm 'Người nhận hàng' (dat_don_hang.nguoi_nhan_hang là khoá ngoại thật tới users.email) - KTV chưa gán email sẽ biến mất khỏi danh sách đó mà không có cảnh báo gì. Nếu KTV không có Gmail thật (vd đầu mối 'Khách hàng lẻ'), dùng nút bên dưới để tự tạo 1 mã đăng nhập nội bộ, không dùng để đăng nhập được." />
+              </label>
               <input disabled={mode !== "admin"} value={form.email_dang_nhap} onChange={(e) => setForm({ ...form, email_dang_nhap: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60" />
+              {mode === "admin" && !form.email_dang_nhap.trim() && form.ma_ktv.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, email_dang_nhap: generateInternalEmail(form.ma_ktv) })}
+                  className="focus-ring mt-1 text-[11px] font-semibold text-[var(--ocean-700)] underline underline-offset-2"
+                >
+                  Không có Gmail thật? Tự tạo mã đăng nhập nội bộ
+                </button>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
