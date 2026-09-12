@@ -16,6 +16,15 @@ export interface DatMuaLkBreakdown {
   total: number;
   choTnDuyet: number;
   choTnTraHang: number;
+  // Them 2026-09-12 (fix "sao Đặt mua linh kiện = 15 trong khi Cần làm = 19") - phat hien qua doi
+  // chieu SQL truc tiep voi GET /home-summay (canLam): truoc day breakdown nay KHONG CO truong nao
+  // cho viec PXK cua CHINH TN (Dang tao phieu/Cho tien/Dang gui KTV cho xac nhan) - choKhoPxk/
+  // choKeToanPxk chi cover 2/5 trang thai PXK con mo (Da chot xong don xuat/Cho ke toan), 3 trang
+  // thai con lai la san choi rieng cua TN nhung khong co slot nao de cong vao total, khien badge
+  // sidebar LUON thap hon "Cần làm" dung bang tong 3 trang thai nay (vd Admin: 8 PXK dang mo nhung
+  // sidebar tinh dung 4). Dinh nghia GIONG HET cach GET /home-summay tinh "pxk_can_lam" (tru phan da
+  // thuoc choKhoPxk/choKeToanPxk) de 2 con so khop nhau.
+  choTnPxk: number;
   choKhoThieuLk: number;
   choKhoPxk: number;
   choKhoTraHang: number;
@@ -42,6 +51,7 @@ const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
   total: 0,
   choTnDuyet: 0,
   choTnTraHang: 0,
+  choTnPxk: 0,
   choKhoThieuLk: 0,
   choKhoPxk: 0,
   choKhoTraHang: 0,
@@ -90,6 +100,12 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
   if (isTacNghiep) {
     const clause = gsInClause(gsSet, "ddh");
     const kvClause = kvClauseFor(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
+    // PXK con "mo" thuoc rieng san choi cua TN (khong dam nhiem boi Kho/Ke toan) - Dang tao phieu
+    // (tru dieu kien cho tien, xem comment goc o phieuXuatKho.ts GET /status-counts), cho tien, va
+    // Dang gui KTV (cho KTV xac nhan da nhan). Scope GIONG HET pattern cho_kho_pxk ben duoi (GS qua
+    // EXISTS join phieu_xuat_kho_dong/dat_don_hang, Khu vuc THANG tren pxk.nguoi_nhan_hang).
+    const pxkClause = gsInClause(gsSet, "ddh2");
+    const pxkKvClause = kvClauseFor(["pxk.nguoi_nhan_hang"]);
     const row = await db
       .prepare(
         `SELECT
@@ -97,12 +113,20 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
               WHERE ddh.loai_don != 'tra_hang'
               AND (SELECT trang_thai FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) = 'Cho TN duyet'${clause?.sql ?? ""}${kvClause?.sql ?? ""}) as cho_tn_duyet,
            (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang'
-              AND ddh.trang_thai_hien_tai = 'Cho TN duyet tong') as cho_tn_tra_hang`,
+              AND ddh.trang_thai_hien_tai = 'Cho TN duyet tong') as cho_tn_tra_hang,
+           (SELECT COUNT(*) FROM phieu_xuat_kho pxk
+              WHERE (
+                pxk.trang_thai_hien_tai = 'Dang gui KTV'
+                OR (pxk.trang_thai_hien_tai = 'Dang tao phieu' AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'))
+                OR (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')
+              )
+              ${pxkClause ? `AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id${pxkClause.sql})` : ""}${pxkKvClause?.sql ?? ""}) as cho_tn_pxk`,
       )
-      .bind(...(clause?.binds ?? []), ...(kvClause?.binds ?? []))
-      .first<{ cho_tn_duyet: number; cho_tn_tra_hang: number }>();
+      .bind(...(clause?.binds ?? []), ...(kvClause?.binds ?? []), ...(pxkClause?.binds ?? []), ...(pxkKvClause?.binds ?? []))
+      .first<{ cho_tn_duyet: number; cho_tn_tra_hang: number; cho_tn_pxk: number }>();
     out.choTnDuyet = row?.cho_tn_duyet ?? 0;
     out.choTnTraHang = row?.cho_tn_tra_hang ?? 0;
+    out.choTnPxk = row?.cho_tn_pxk ?? 0;
   }
 
   if (isKho) {
@@ -230,7 +254,7 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
   out.choDonBiTuChoi = rowTuChoi?.n ?? 0;
 
   out.total =
-    out.choTnDuyet + out.choTnTraHang + out.choKhoThieuLk + out.choKhoPxk + out.choKhoTraHang +
+    out.choTnDuyet + out.choTnTraHang + out.choTnPxk + out.choKhoThieuLk + out.choKhoPxk + out.choKhoTraHang +
     out.choKeToanPxk + out.choKeToanTraHang + out.choQcTraHang + out.choTramDuyet + out.choTpXacNhan +
     out.choDonCuaToi + out.choDonBiTuChoi;
 
