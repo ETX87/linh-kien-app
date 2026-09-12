@@ -339,6 +339,10 @@ function PartDetailDrawer({ part, onClose, onEdit, canEdit }: { part: LinhKienRo
   // Cac gia + thong tin phu (them 2026-09-12, tich hop gia88) - TAT CA la "chi xem", dong bo tu doi
   // tac moi dem, xem CLAUDE.md/lib/gia88Sync.ts. gia_tham_chieu XOA HAN, thay bang gia_ban ("Gia NY").
   const specs: { label: string; value: ReactNode }[] = [
+    // Them 2026-09-12 (phan hoi "bổ sung hiện mã linh kiện") - tieu de dau drawer dung formatLkLabel()
+    // NEN co the AN mã neu ten_linh_kien da tu chua san (tranh lap, xem comment o <h3> ben duoi), luon
+    // hien rieng 1 dong "Mã linh kiện" o day de tra cuu/copy nhanh du ten co chua ma hay khong.
+    { label: "Mã linh kiện", value: <span className="font-mono font-semibold text-[var(--ocean-700)]">{part.ma_linh_kien}</span> },
     { label: "Giá NY", value: <span className="font-mono font-semibold text-[var(--green-700)]">{fmtVND(part.gia_ban)}</span> },
     { label: "Giá KTV", value: <span className="font-mono font-semibold text-[var(--green-700)]">{fmtVND(part.gia_tri_cong_no)}</span> },
     { label: "Giá dự phòng", value: <span className="font-mono text-[var(--ink-600)]">{fmtVND(part.gia_du_phong)}</span> },
