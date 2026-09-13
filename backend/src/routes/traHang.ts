@@ -93,7 +93,9 @@ traHang.get("/", async (c) => {
   // GD4 (phan hoi Codex #17): truoc day tra ve TOAN BO dong khop bo loc, frontend tu slice o client.
   // Them phan trang server-side, cung pattern voi GET /dat-mua-lk/don-hang. "nguoi_tao" chuyen tu loc
   // client-side (tren data.rows) sang server-side de khop dung tong so sau khi phan trang that su.
-  const page = Math.max(1, Number(c.req.query("page") ?? 1));
+  // KHONG truyen page -> tra HET (nut "Tải danh sách chi tiết", them 2026-09-13, mirror settingsKtv.ts).
+  const pageParam = c.req.query("page");
+  const page = Math.max(1, Number(pageParam ?? 1));
   const pageSize = Math.min(1000, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
   const offset = (page - 1) * pageSize;
   let whereSql = "ddh.loai_don = 'tra_hang'" + (scope?.whereSql ?? "");
@@ -148,9 +150,9 @@ traHang.get("/", async (c) => {
      LEFT JOIN ktv_lien_he dsk ON dsk.email_dang_nhap = ddh.nguoi_nhan_hang
      LEFT JOIN khu_vuc kv ON kv.ma = dsk.khu_vuc_ma
      WHERE ${whereSql} ORDER BY ddh.ngay_tao DESC
-     LIMIT ? OFFSET ?`,
+     ${pageParam ? "LIMIT ? OFFSET ?" : ""}`,
   )
-    .bind(...binds, pageSize, offset)
+    .bind(...binds, ...(pageParam ? [pageSize, offset] : []))
     .all();
   return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
 });

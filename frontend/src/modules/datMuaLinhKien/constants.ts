@@ -150,6 +150,29 @@ export const PXK_TRANG_THAI_TONE: Record<string, Tone> = {
   "Kho da nhan hang tra": "success",
 };
 
+// Cac trang_thai LOG-ONLY moi (migration 0028, phan hoi nguoi dung 2026-09-13 "log đang bị trùng tên
+// của các giai đoạn") - KHONG phai gia tri trang_thai_hien_tai THAT cua PXK (chi xuat hien trong
+// phieu_xuat_kho_log de phan biet cac sub-action xay ra TRONG CUNG 1 giai doan chinh, vd "Dang tao
+// phieu"/"Cho ke toan") - CO Y khong dua vao PXK_TRANG_THAI_OPTIONS/PXK_TRANG_THAI_TONE o duoi (se lam
+// sai danh sach loc trang thai chinh cua TrangThaiDropdownFilter) - chi dung rieng cho nhan/mau cham
+// tron Timeline "Lịch sử xử lý" (xem PhieuXuatKhoTab.tsx).
+export const PXK_LOG_ONLY_OPTIONS = [
+  { value: "Da luu ma don hang", label: "Đã lưu mã đơn hàng" },
+  { value: "Da luu ma MISA", label: "Đã lưu Mã MISA" },
+  { value: "Da tai anh bien ban", label: "Đã tải ảnh biên bản" },
+  { value: "Da yeu cau KTV chuyen tien", label: "Yêu cầu KTV chuyển tiền" },
+  { value: "Da dinh bang chung chuyen tien", label: "Đã đính bằng chứng chuyển tiền" },
+  { value: "Ke toan da duyet bang chung chuyen tien", label: "Kế toán đã duyệt bằng chứng chuyển tiền" },
+];
+export const PXK_LOG_ONLY_TONE: Record<string, Tone> = {
+  "Da luu ma don hang": "info",
+  "Da luu ma MISA": "info",
+  "Da tai anh bien ban": "info",
+  "Da yeu cau KTV chuyen tien": "warning",
+  "Da dinh bang chung chuyen tien": "info",
+  "Ke toan da duyet bang chung chuyen tien": "success",
+};
+
 export const CHUYEN_TIEN_TONE: Record<string, Tone> = {
   "Cho KTV chuyen": "warning",
   "KTV da chuyen": "info",

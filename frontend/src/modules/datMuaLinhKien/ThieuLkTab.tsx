@@ -13,6 +13,7 @@ import { KvRow } from "../../components/ui/KvRow";
 import { SectionTitle } from "../../components/ui/SectionTitle";
 import { Timeline } from "../../components/ui/Timeline";
 import { api, buildQuery } from "../../api/client";
+import { exportRowsToExcel } from "../../lib/exportExcel";
 import { fmtDateTime } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import type { ThieuLkRow, LyDoChamRow, NguoiNhanHangKhaDungRow } from "./types";
@@ -208,6 +209,29 @@ export function ThieuLkTab({
     queryFn: () => api.get<{ counts: Record<string, number> }>("/dat-mua-lk/thieu-lk-status-counts"),
   });
 
+  // "Tải danh sách chi tiết" (them 2026-09-13) - mirror handleDownloadFullList() cua UsersModule.tsx,
+  // goi lai GET /dat-mua-lk/thieu-lk VOI CUNG bo loc dang xem nhung KHONG truyen page (BE tra HET).
+  const [downloadingFull, setDownloadingFull] = useState(false);
+  async function handleDownloadFullList() {
+    setDownloadingFull(true);
+    try {
+      const res = await api.get<{ rows: ThieuLkRow[] }>(
+        "/dat-mua-lk/thieu-lk" +
+          buildQuery({
+            trang_thai: filterTrangThai || undefined,
+            q: debouncedQ || undefined,
+            khu_vuc: khuVucParam || undefined,
+            nguoi_nhan_hang: filterNguoiNhanHang || undefined,
+          }),
+      );
+      await exportRowsToExcel(res.rows, "thieu_lk_chi_tiet.xlsx", "Thiếu LK");
+    } catch (err) {
+      addToast("Không tải được danh sách chi tiết: " + describeApiError(err));
+    } finally {
+      setDownloadingFull(false);
+    }
+  }
+
   // "Kho da tiep nhan" = buoc Kho giai trinh ly do thieu hang that su + bao ngay du kien co hang
   // (dung cot trong Excel goc) - bat buoc ghi_chu, khong nhu cac buoc khac chi tuy chon.
   const isGiaiTrinh = actionTrangThai === "Kho da tiep nhan";
@@ -334,6 +358,9 @@ export function ThieuLkTab({
           <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Cột hiển thị</div>
           <div ref={setColumnSettingsSlot} />
         </div>
+        <Btn size="sm" variant="ghost" onClick={handleDownloadFullList} disabled={downloadingFull}>
+          {downloadingFull ? "Đang tải..." : "⬇ Tải danh sách chi tiết"}
+        </Btn>
       </FilterSearchBar>
       <ActiveFiltersBar
         chips={[

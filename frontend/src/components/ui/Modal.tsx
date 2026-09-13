@@ -38,7 +38,13 @@ export function Modal({
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(6,32,51,0.45)] backdrop-blur-[2px] p-4">
+    // FIX (phan hoi nguoi dung 2026-09-13: "sửa thông tin linh kiện => Phân loại, đang không hiện
+    // listdown để chọn") - bo backdrop-blur-[2px]: Chromium co bug lau nam (vd crbug 1450640) khien
+    // popup goi y <datalist> KHONG hien ra khi 1 ancestor co backdrop-filter/filter (tao "containing
+    // block" moi lam sai lech vi tri popup native) - <select> thuong (dung nhieu noi khac trong app)
+    // KHONG bi anh huong vi dung co che popup khac ben trong Chromium, nen truoc gio khong ai phat
+    // hien. Chi bo hieu ung mo nen (thuan tuy tham my, van giu lop phu toi bg-[rgba(...)] ben duoi).
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(6,32,51,0.45)] p-4">
       <div className={`bg-[var(--surface)] rounded-2xl w-full ${width} ${height} overflow-hidden flex flex-col anim-in shadow-2xl`}>
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--line)]">
           <h3 className="font-display font-bold text-[var(--ink-900)]">{title}</h3>

@@ -63,6 +63,15 @@ export interface KtvLienHeRow {
   // Them 2026-08-29 (phan hoi "thêm 1 cột Tên trên MISA ngay bên cạnh Mã tài khoản MISA") - cung 1
   // kieu truong tham chieu tu do, khong FK/rang buoc gi.
   ten_misa: string | null;
+  // He thong "Han muc du phong KTV" (them 2026-09-13, xem migration 0028 + backend/src/lib/duPhongKtv.ts):
+  // han_muc_du_phong/han_muc_du_phong_hien_tai nhap tay/import (giong het cap cong_no/cong_no_cap_nhat_luc
+  // o tren). han_muc_du_phong_phat_sinh/moc_du_phong_hien_tai la GIA TRI TINH TOAN server-side, tra
+  // kem theo tung dong tu GET /settings/ktv-lien-he (khong sua tay duoc).
+  han_muc_du_phong: number | null;
+  han_muc_du_phong_hien_tai: number | null;
+  han_muc_du_phong_cap_nhat_luc: string | null;
+  han_muc_du_phong_phat_sinh: number;
+  moc_du_phong_hien_tai: number;
 }
 
 // Them 2026-08-29 (phan hoi "xây dựng settings quản lý Tồn kho công nợ KTV", import hang ngay tu

@@ -14,10 +14,11 @@ import { SectionTitle } from "../../components/ui/SectionTitle";
 import { IconChip } from "../../components/ui/IconChip";
 import { Timeline } from "../../components/ui/Timeline";
 import { api, buildQuery, ApiError } from "../../api/client";
+import { exportRowsToExcel } from "../../lib/exportExcel";
 import { fmtDateTime, fmtVND } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import type { DonHangRow, PhieuXuatKhoRow, DonHangKhaDungRow, NguoiNhanHangKhaDungRow, LyDoChamRow, KtvDisplayMap } from "./types";
-import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_TIEN_OPTIONS, TRANG_THAI_DOT_TONE } from "./constants";
+import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_TIEN_OPTIONS, TRANG_THAI_DOT_TONE, PXK_LOG_ONLY_OPTIONS, PXK_LOG_ONLY_TONE } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   trangThaiLabel, LOAI_DON_TONE,
@@ -189,6 +190,30 @@ export function PhieuXuatKhoTab({
           }),
       ),
   });
+
+  // "Tải danh sách chi tiết" (them 2026-09-13) - mirror handleDownloadFullList() cua UsersModule.tsx,
+  // goi lai GET /phieu-xuat-kho VOI CUNG bo loc dang xem nhung KHONG truyen page (BE tra HET).
+  const [downloadingFull, setDownloadingFull] = useState(false);
+  async function handleDownloadFullList() {
+    setDownloadingFull(true);
+    try {
+      const res = await api.get<{ rows: PhieuXuatKhoRow[] }>(
+        "/phieu-xuat-kho" +
+          buildQuery({
+            trang_thai: filterTrangThai || undefined,
+            nguoi_nhan_hang: filterNguoiNhanHang || undefined,
+            loai_don: xemLoaiDon,
+            q: debouncedQ || undefined,
+            khu_vuc: khuVucParam || undefined,
+          }),
+      );
+      await exportRowsToExcel(res.rows, "phieu_xuat_kho_chi_tiet.xlsx", "PXK");
+    } catch (err) {
+      addToast("Không tải được danh sách chi tiết: " + describeApiError(err));
+    } finally {
+      setDownloadingFull(false);
+    }
+  }
 
   // So "(N)" canh moi trang thai trong TrangThaiDropdownFilter (them 2026-09-01) - dem TINH theo dung
   // sub-tab loai_don dang mo (xemLoaiDon LUON co gia tri o tab nay, khac DonCuaToiTab), bo qua cac bo
@@ -538,6 +563,9 @@ export function PhieuXuatKhoTab({
         trailing={
           <div className="flex items-center gap-2">
             {settingsButtonEl}
+            <Btn size="sm" variant="ghost" onClick={handleDownloadFullList} disabled={downloadingFull}>
+              {downloadingFull ? "Đang tải..." : "⬇ Tải danh sách chi tiết"}
+            </Btn>
             {/* Tai gop file MISA cho danh sach PXK dang hien theo bo loc (them 2026-09-02) - 3 nut
                 rieng cho 3 mau, TN/Ke toan tu chon mau nao thi tai mau do (khong con tu dong 1 nut). */}
             {MISA_TEMPLATE_ORDER.map((tpl) => (
@@ -1378,10 +1406,10 @@ export function PxkDetailModal({
             <SectionTitle icon="🕐">Lịch sử xử lý</SectionTitle>
             <Timeline
               items={data.logs.map((l) => ({
-                dotClassName: TRANG_THAI_DOT_TONE[PXK_TRANG_THAI_TONE[l.trang_thai] ?? "gray"],
+                dotClassName: TRANG_THAI_DOT_TONE[PXK_TRANG_THAI_TONE[l.trang_thai] ?? PXK_LOG_ONLY_TONE[l.trang_thai] ?? "gray"],
                 title: (
                   <>
-                    {trangThaiLabel(PXK_TRANG_THAI_OPTIONS, l.trang_thai)}
+                    {trangThaiLabel([...PXK_TRANG_THAI_OPTIONS, ...PXK_LOG_ONLY_OPTIONS], l.trang_thai)}
                     {l.ghi_chu && <span className="font-normal text-[var(--ink-400)]"> ({l.ghi_chu})</span>}
                   </>
                 ),

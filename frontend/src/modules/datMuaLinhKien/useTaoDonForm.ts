@@ -66,6 +66,16 @@ export function useTaoDonForm({
     enabled: !!targetNguoiNhanHang,
   });
 
+  // Canh bao SONG "mốc dự phòng còn khả dụng" ngay luc soan don MUA DỰ TRỮ (them 2026-09-13, phan hoi
+  // "Nếu ktv chọn 'MUA DỰ TRỮ' hệ thống sẽ tự hiện cảnh báo số tiền chốt dữ trữ còn khả dụng, giống
+  // như hiện tại đang cảnh báo đơn công nợ") - mirror DUNG cap query congNoDuKien o tren, chi doi
+  // endpoint. CHI mang tinh THONG TIN (khong chan tao don/khong gan vao auto-duyet - khac cong no).
+  const { data: duPhongDuKien } = useQuery({
+    queryKey: ["dat-mua-lk-du-phong-du-kien", targetNguoiNhanHang],
+    queryFn: () => api.get<{ tran: number | null; moc_hien_tai: number }>(`/dat-mua-lk/du-phong-du-kien?nguoi_nhan_hang=${encodeURIComponent(targetNguoiNhanHang)}`),
+    enabled: !!targetNguoiNhanHang,
+  });
+
   const create = useMutation({
     mutationFn: () =>
       api.post<{ id: string }>("/dat-mua-lk/phieu-dat", {
@@ -156,12 +166,17 @@ export function useTaoDonForm({
       ? congNoDuKien.cong_no_chot + tongCongNoTamTinh <= (congNoDuKien.tran ?? 0)
       : null;
 
+  // "Co dong MUA DỰ TRỮ dang soan" - dieu kien hien banner thong tin du phong (khac cong no: khong co
+  // khai niem "du/khong du", chi hien SO CON KHA DUNG de KTV/TN tu can nhac, xem TaoDonTab.tsx).
+  const coDongMuaDuTru = drafts.some((d) => d.loai_de_xuat.trim().toUpperCase() === "MUA DỰ TRỮ");
+
   return {
     danhMuc, nguoiNhanHang, setNguoiNhanHang, drafts, infoExpandedIdx, setInfoExpandedIdx,
     activeIdx, setActiveIdx, otherLdeIdx, setOtherLdeIdx, addBlockedHint, setAddBlockedHint,
     activeRowRef, justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
     updateDraft, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
     tongGiaUocTinh, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
+    duPhongDuKien, coDongMuaDuTru,
   };
 }
 

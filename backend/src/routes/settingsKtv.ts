@@ -7,6 +7,7 @@ import { computeAndStoreHash, getOrComputeHash } from "../lib/contentHash";
 import { nowVN } from "../lib/vnTime";
 import { resyncKhuVucDerivedFieldsForAll, resyncKhuVucDerivedFieldsForEmail } from "../lib/khuVucSync";
 import { relinkTonKhoForMaMisa } from "../lib/ktvTonKhoRelink";
+import { setMocTinhDuPhong, getMocTinhDuPhong } from "../lib/duPhongKtv";
 
 // Port rut gon tu backend/src/routes/settings.ts cua he DVBH goc (phan "Danh sach KTV") - danh ba
 // ky thuat vien/Tram/CTV/Ve tinh dung de chon "nguoi nhan hang" trong module Dat mua linh kien.
@@ -70,26 +71,43 @@ settingsKtv.get("/", async (c) => {
   }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  const baseSql = `FROM ktv_lien_he k LEFT JOIN users u ON u.email = k.email_dang_nhap ${where}`;
+  // "Han muc du phong phat sinh"/"Moc du phong hien tai" (them 2026-09-13, xem lib/duPhongKtv.ts) -
+  // tinh gop qua 1 CTE thay vi N+1 query rieng tung KTV, giong dung pattern "phat_sinh" cua
+  // ktvTonKho.ts GET / (cong no). KHAC cong no: khong loc theo trang_thai_hien_tai cu the (tinh CA
+  // don dang cho xu ly), chi loai Tu choi/Da huy - xem computeDuPhongPhatSinh().
+  const mocTinhDuPhong = await getMocTinhDuPhong(c.env.DB);
+  const duPhongJoin = `LEFT JOIN (
+       SELECT k3.ma_ktv, SUM(ddh.so_luong_de_xuat * COALESCE(lk.gia_du_phong, 0)) as gia_tri
+       FROM dat_don_hang ddh
+       JOIN ktv_lien_he k3 ON k3.email_dang_nhap = ddh.nguoi_nhan_hang
+       LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
+       WHERE ddh.loai_de_xuat = 'MUA DỰ TRỮ' AND ddh.trang_thai_hien_tai NOT IN ('Tu choi', 'Da huy')
+         AND (? IS NULL OR ddh.updated_at > ?)
+       GROUP BY k3.ma_ktv
+     ) dp ON dp.ma_ktv = k.ma_ktv`;
+  const selectCols = `k.*, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai, COALESCE(dp.gia_tri, 0) as han_muc_du_phong_phat_sinh`;
+  const baseSql = `FROM ktv_lien_he k LEFT JOIN users u ON u.email = k.email_dang_nhap ${duPhongJoin} ${where}`;
+  const duPhongBinds = [mocTinhDuPhong, mocTinhDuPhong];
+  const withMocHienTai = (rows: Record<string, unknown>[]) =>
+    rows.map((r) => ({
+      ...r,
+      moc_du_phong_hien_tai: (Number(r.han_muc_du_phong) || 0) - (Number(r.han_muc_du_phong_hien_tai) || 0) - (Number(r.han_muc_du_phong_phat_sinh) || 0),
+    }));
   if (!pageParam) {
-    const { results } = await c.env.DB.prepare(
-      `SELECT k.*, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai ${baseSql} ORDER BY k.ma_ktv`,
-    )
-      .bind(...binds)
+    const { results } = await c.env.DB.prepare(`SELECT ${selectCols} ${baseSql} ORDER BY k.ma_ktv`)
+      .bind(...duPhongBinds, ...binds)
       .all();
-    return c.json({ rows: results });
+    return c.json({ rows: withMocHienTai(results as Record<string, unknown>[]) });
   }
 
   const page = Math.max(1, Number(pageParam) || 1);
   const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 50)));
   const offset = (page - 1) * pageSize;
-  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total ${baseSql}`).bind(...binds).first<{ total: number }>();
-  const { results } = await c.env.DB.prepare(
-    `SELECT k.*, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai ${baseSql} ORDER BY k.ma_ktv LIMIT ? OFFSET ?`,
-  )
-    .bind(...binds, pageSize, offset)
+  const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total ${baseSql}`).bind(...duPhongBinds, ...binds).first<{ total: number }>();
+  const { results } = await c.env.DB.prepare(`SELECT ${selectCols} ${baseSql} ORDER BY k.ma_ktv LIMIT ? OFFSET ?`)
+    .bind(...duPhongBinds, ...binds, pageSize, offset)
     .all();
-  return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
+  return c.json({ rows: withMocHienTai(results as Record<string, unknown>[]), page, pageSize, total: countRow?.total ?? 0 });
 });
 
 settingsKtv.get("/version", async (c) => {
@@ -173,6 +191,7 @@ settingsKtv.post("/bulk-import", adminOnly, async (c) => {
       ma_ktv: string; ten_hien_thi?: string; sdt?: string; ghi_chu?: string;
       vai_tro_ktv?: string; gmail?: string; giam_sat_quan_ly?: string; email_dang_nhap?: string;
       khu_vuc_ma?: string; cong_no?: number; ma_misa?: string; ten_misa?: string;
+      han_muc_du_phong?: number; han_muc_du_phong_hien_tai?: number;
     }[];
     offset: number;
   }>();
@@ -188,6 +207,10 @@ settingsKtv.post("/bulk-import", adminOnly, async (c) => {
   let success = 0;
   let errorCount = 0;
   const details: { ma_ktv: string; status: string }[] = [];
+  // (them 2026-09-13) true neu BAT KY dong nao trong CHUNK NAY co truyen han_muc_du_phong_hien_tai -
+  // dung de biet co can bump moc dung chung "du_phong_ktv_import_meta" sau khi xong CHUNK nay khong
+  // (giong tinh than ktv_ton_kho_import_meta - moi lan du lieu du phong THAT SU duoc cap nhat).
+  let anyDuPhongHienTaiChanged = false;
 
   for (const row of chunk) {
     const ma = row.ma_ktv?.trim();
@@ -211,10 +234,11 @@ settingsKtv.post("/bulk-import", adminOnly, async (c) => {
     const khuVucMa = row.khu_vuc_ma?.trim() || null;
     const maMisa = row.ma_misa?.trim() || null;
     const tenMisa = row.ten_misa?.trim() || null;
+    if (row.han_muc_du_phong_hien_tai !== undefined) anyDuPhongHienTaiChanged = true;
     try {
       await c.env.DB.prepare(
-        `INSERT INTO ktv_lien_he (ma_ktv, ten_hien_thi, sdt, ghi_chu, gmail, vai_tro_ktv, giam_sat_quan_ly, email_dang_nhap, khu_vuc_ma, cong_no, cong_no_cap_nhat_luc, ma_misa, ten_misa, nguoi_cap_nhat, ngay_cap_nhat)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO ktv_lien_he (ma_ktv, ten_hien_thi, sdt, ghi_chu, gmail, vai_tro_ktv, giam_sat_quan_ly, email_dang_nhap, khu_vuc_ma, cong_no, cong_no_cap_nhat_luc, ma_misa, ten_misa, han_muc_du_phong, han_muc_du_phong_hien_tai, han_muc_du_phong_cap_nhat_luc, nguoi_cap_nhat, ngay_cap_nhat)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(ma_ktv) DO UPDATE SET
            ten_hien_thi = COALESCE(excluded.ten_hien_thi, ktv_lien_he.ten_hien_thi),
            sdt = COALESCE(excluded.sdt, ktv_lien_he.sdt),
@@ -228,11 +252,16 @@ settingsKtv.post("/bulk-import", adminOnly, async (c) => {
            cong_no_cap_nhat_luc = CASE WHEN excluded.cong_no IS NOT NULL THEN excluded.cong_no_cap_nhat_luc ELSE ktv_lien_he.cong_no_cap_nhat_luc END,
            ma_misa = COALESCE(excluded.ma_misa, ktv_lien_he.ma_misa),
            ten_misa = COALESCE(excluded.ten_misa, ktv_lien_he.ten_misa),
+           han_muc_du_phong = CASE WHEN excluded.han_muc_du_phong IS NOT NULL THEN excluded.han_muc_du_phong ELSE ktv_lien_he.han_muc_du_phong END,
+           han_muc_du_phong_hien_tai = CASE WHEN excluded.han_muc_du_phong_hien_tai IS NOT NULL THEN excluded.han_muc_du_phong_hien_tai ELSE ktv_lien_he.han_muc_du_phong_hien_tai END,
+           han_muc_du_phong_cap_nhat_luc = CASE WHEN excluded.han_muc_du_phong_hien_tai IS NOT NULL THEN excluded.han_muc_du_phong_cap_nhat_luc ELSE ktv_lien_he.han_muc_du_phong_cap_nhat_luc END,
            nguoi_cap_nhat = excluded.nguoi_cap_nhat, ngay_cap_nhat = excluded.ngay_cap_nhat`,
       )
         .bind(
           ma, tenHienThi, row.sdt?.trim() || null, row.ghi_chu?.trim() || null, row.gmail?.trim() || null, vaiTroKtv, giamSatQuanLy, emailDangNhap,
-          khuVucMa, row.cong_no ?? null, row.cong_no !== undefined ? now : null, maMisa, tenMisa, user.email, now,
+          khuVucMa, row.cong_no ?? null, row.cong_no !== undefined ? now : null, maMisa, tenMisa,
+          row.han_muc_du_phong ?? null, row.han_muc_du_phong_hien_tai ?? null, row.han_muc_du_phong_hien_tai !== undefined ? now : null,
+          user.email, now,
         )
         .run();
 
@@ -250,6 +279,7 @@ settingsKtv.post("/bulk-import", adminOnly, async (c) => {
 
   const nextOffset = offset + CHUNK_SIZE;
   const done = nextOffset >= body.rows.length;
+  if (anyDuPhongHienTaiChanged) await setMocTinhDuPhong(c.env.DB, user.email, now);
   if (done) {
     await refreshHash(c.env.DB);
     // Phase 4: 1 lan duy nhat sau khi CA file import xong (khong phai tung chunk) - du lieu khu_vuc_ma
@@ -268,14 +298,16 @@ settingsKtv.patch("/:ma/dat-mua-lk", adminOnly, async (c) => {
   const body = await c.req.json<{
     gmail?: string | null; vai_tro_ktv?: string | null; giam_sat_quan_ly?: string | null; email_dang_nhap?: string | null;
     khu_vuc_ma?: string | null; ktv_cap1_phu_trach?: string | null; cong_no?: number | null; ma_misa?: string | null; ten_misa?: string | null;
+    han_muc_du_phong?: number | null; han_muc_du_phong_hien_tai?: number | null;
   }>();
   const existing = await c.env.DB.prepare(
-    "SELECT ten_hien_thi, gmail, vai_tro_ktv, giam_sat_quan_ly, email_dang_nhap, khu_vuc_ma, ktv_cap1_phu_trach, cong_no, ma_misa, ten_misa FROM ktv_lien_he WHERE ma_ktv = ?",
+    "SELECT ten_hien_thi, gmail, vai_tro_ktv, giam_sat_quan_ly, email_dang_nhap, khu_vuc_ma, ktv_cap1_phu_trach, cong_no, ma_misa, ten_misa, han_muc_du_phong, han_muc_du_phong_hien_tai FROM ktv_lien_he WHERE ma_ktv = ?",
   )
     .bind(ma)
     .first<{
       ten_hien_thi: string | null; gmail: string | null; vai_tro_ktv: string | null; giam_sat_quan_ly: string | null; email_dang_nhap: string | null;
       khu_vuc_ma: string | null; ktv_cap1_phu_trach: string | null; cong_no: number | null; ma_misa: string | null; ten_misa: string | null;
+      han_muc_du_phong: number | null; han_muc_du_phong_hien_tai: number | null;
     }>();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
 
@@ -293,6 +325,8 @@ settingsKtv.patch("/:ma/dat-mua-lk", adminOnly, async (c) => {
     cong_no: body.cong_no !== undefined ? body.cong_no : existing.cong_no,
     ma_misa: body.ma_misa !== undefined ? body.ma_misa?.trim() || null : existing.ma_misa,
     ten_misa: body.ten_misa !== undefined ? body.ten_misa?.trim() || null : existing.ten_misa,
+    han_muc_du_phong: body.han_muc_du_phong !== undefined ? body.han_muc_du_phong : existing.han_muc_du_phong,
+    han_muc_du_phong_hien_tai: body.han_muc_du_phong_hien_tai !== undefined ? body.han_muc_du_phong_hien_tai : existing.han_muc_du_phong_hien_tai,
   };
 
   if (next.khu_vuc_ma) {
@@ -308,16 +342,23 @@ settingsKtv.patch("/:ma/dat-mua-lk", adminOnly, async (c) => {
   }
   const congNoChanged = next.cong_no !== existing.cong_no;
   const congNoCapNhatLuc = congNoChanged ? nowVN() : undefined;
+  const duPhongHienTaiChanged = next.han_muc_du_phong_hien_tai !== existing.han_muc_du_phong_hien_tai;
+  const duPhongCapNhatLuc = duPhongHienTaiChanged ? nowVN() : undefined;
 
   await c.env.DB.prepare(
-    `UPDATE ktv_lien_he SET gmail = ?, vai_tro_ktv = ?, giam_sat_quan_ly = ?, email_dang_nhap = ?, khu_vuc_ma = ?, ktv_cap1_phu_trach = ?, cong_no = ?, ma_misa = ?, ten_misa = ?${congNoChanged ? ", cong_no_cap_nhat_luc = ?" : ""} WHERE ma_ktv = ?`,
+    `UPDATE ktv_lien_he SET gmail = ?, vai_tro_ktv = ?, giam_sat_quan_ly = ?, email_dang_nhap = ?, khu_vuc_ma = ?, ktv_cap1_phu_trach = ?, cong_no = ?, ma_misa = ?, ten_misa = ?, han_muc_du_phong = ?, han_muc_du_phong_hien_tai = ?${congNoChanged ? ", cong_no_cap_nhat_luc = ?" : ""}${duPhongHienTaiChanged ? ", han_muc_du_phong_cap_nhat_luc = ?" : ""} WHERE ma_ktv = ?`,
   )
     .bind(
-      ...[next.gmail, next.vai_tro_ktv, next.giam_sat_quan_ly, next.email_dang_nhap, next.khu_vuc_ma, next.ktv_cap1_phu_trach, next.cong_no ?? null, next.ma_misa, next.ten_misa],
+      ...[
+        next.gmail, next.vai_tro_ktv, next.giam_sat_quan_ly, next.email_dang_nhap, next.khu_vuc_ma, next.ktv_cap1_phu_trach,
+        next.cong_no ?? null, next.ma_misa, next.ten_misa, next.han_muc_du_phong ?? null, next.han_muc_du_phong_hien_tai ?? null,
+      ],
       ...(congNoChanged ? [congNoCapNhatLuc] : []),
+      ...(duPhongHienTaiChanged ? [duPhongCapNhatLuc] : []),
       ma,
     )
     .run();
+  if (duPhongHienTaiChanged) await setMocTinhDuPhong(c.env.DB, c.get("user").email, duPhongCapNhatLuc!);
 
   if (next.email_dang_nhap) {
     await provisionPlaceholderUser(c.env.DB, { email: next.email_dang_nhap, ten: existing.ten_hien_thi, vaiTroKtv: next.vai_tro_ktv }).then((stmt) => stmt.run());
@@ -346,26 +387,39 @@ settingsKtv.patch("/:ma/cong-no-misa", async (c) => {
   if (!user.la_ke_toan && user.vai_tro !== "Admin") return c.json({ error: "FORBIDDEN" }, 403);
 
   const ma = c.req.param("ma");
-  const body = await c.req.json<{ cong_no?: number | null; ma_misa?: string | null; ten_misa?: string | null }>();
-  const existing = await c.env.DB.prepare("SELECT cong_no, ma_misa, ten_misa FROM ktv_lien_he WHERE ma_ktv = ?")
+  const body = await c.req.json<{
+    cong_no?: number | null; ma_misa?: string | null; ten_misa?: string | null;
+    han_muc_du_phong?: number | null; han_muc_du_phong_hien_tai?: number | null;
+  }>();
+  const existing = await c.env.DB.prepare("SELECT cong_no, ma_misa, ten_misa, han_muc_du_phong, han_muc_du_phong_hien_tai FROM ktv_lien_he WHERE ma_ktv = ?")
     .bind(ma)
-    .first<{ cong_no: number | null; ma_misa: string | null; ten_misa: string | null }>();
+    .first<{ cong_no: number | null; ma_misa: string | null; ten_misa: string | null; han_muc_du_phong: number | null; han_muc_du_phong_hien_tai: number | null }>();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
 
   const next = {
     cong_no: body.cong_no !== undefined ? body.cong_no : existing.cong_no,
     ma_misa: body.ma_misa !== undefined ? body.ma_misa?.trim() || null : existing.ma_misa,
     ten_misa: body.ten_misa !== undefined ? body.ten_misa?.trim() || null : existing.ten_misa,
+    han_muc_du_phong: body.han_muc_du_phong !== undefined ? body.han_muc_du_phong : existing.han_muc_du_phong,
+    han_muc_du_phong_hien_tai: body.han_muc_du_phong_hien_tai !== undefined ? body.han_muc_du_phong_hien_tai : existing.han_muc_du_phong_hien_tai,
   };
   const congNoChanged = next.cong_no !== existing.cong_no;
   const congNoCapNhatLuc = congNoChanged ? nowVN() : undefined;
+  const duPhongHienTaiChanged = next.han_muc_du_phong_hien_tai !== existing.han_muc_du_phong_hien_tai;
+  const duPhongCapNhatLuc = duPhongHienTaiChanged ? nowVN() : undefined;
 
   await c.env.DB.prepare(
-    `UPDATE ktv_lien_he SET cong_no = ?, ma_misa = ?, ten_misa = ?${congNoChanged ? ", cong_no_cap_nhat_luc = ?" : ""} WHERE ma_ktv = ?`,
+    `UPDATE ktv_lien_he SET cong_no = ?, ma_misa = ?, ten_misa = ?, han_muc_du_phong = ?, han_muc_du_phong_hien_tai = ?${congNoChanged ? ", cong_no_cap_nhat_luc = ?" : ""}${duPhongHienTaiChanged ? ", han_muc_du_phong_cap_nhat_luc = ?" : ""} WHERE ma_ktv = ?`,
   )
-    .bind(...[next.cong_no ?? null, next.ma_misa, next.ten_misa], ...(congNoChanged ? [congNoCapNhatLuc] : []), ma)
+    .bind(
+      ...[next.cong_no ?? null, next.ma_misa, next.ten_misa, next.han_muc_du_phong ?? null, next.han_muc_du_phong_hien_tai ?? null],
+      ...(congNoChanged ? [congNoCapNhatLuc] : []),
+      ...(duPhongHienTaiChanged ? [duPhongCapNhatLuc] : []),
+      ma,
+    )
     .run();
   if (next.ma_misa) await relinkTonKhoForMaMisa(c.env.DB, ma, next.ma_misa);
+  if (duPhongHienTaiChanged) await setMocTinhDuPhong(c.env.DB, c.get("user").email, duPhongCapNhatLuc!);
 
   await refreshHash(c.env.DB);
   return c.json({ ok: true });

@@ -6,6 +6,7 @@ export interface BulkImportKtvRow {
   ma_ktv: string; ten_hien_thi?: string; sdt?: string; ghi_chu?: string;
   vai_tro_ktv?: string; gmail?: string; giam_sat_quan_ly?: string; email_dang_nhap?: string;
   khu_vuc_ma?: string; cong_no?: number; ma_misa?: string; ten_misa?: string;
+  han_muc_du_phong?: number; han_muc_du_phong_hien_tai?: number;
 }
 export interface BulkImportKtvChunkResult {
   done: boolean; nextOffset: number; success: number; errorCount: number;
@@ -47,6 +48,8 @@ export async function parseKtvImportFile(file: File): Promise<BulkImportKtvRow[]
     const vaiTroRaw = pickKtvField(raw, ["Vai trò", "Vai tro", "vai_tro_ktv"]);
     const vaiTro = vaiTroRaw ? (VAI_TRO_KTV_ALIASES[vaiTroRaw.toLowerCase()] ?? vaiTroRaw) : undefined;
     const congNoRaw = pickKtvField(raw, ["Công nợ", "Cong no", "cong_no"]);
+    const hanMucDuPhongRaw = pickKtvField(raw, ["Hạn mức dự phòng", "Han muc du phong", "han_muc_du_phong"]);
+    const hanMucDuPhongHienTaiRaw = pickKtvField(raw, ["Hạn mức dự phòng hiện tại", "Han muc du phong hien tai", "han_muc_du_phong_hien_tai"]);
     rows.push({
       ma_ktv: ma,
       ten_hien_thi: pickKtvField(raw, ["Tên hiển thị", "Ten hien thi", "ten_hien_thi"]),
@@ -61,6 +64,8 @@ export async function parseKtvImportFile(file: File): Promise<BulkImportKtvRow[]
       email_dang_nhap: pickKtvField(raw, ["Email đăng nhập", "Email dang nhap", "email_dang_nhap"]),
       khu_vuc_ma: pickKtvField(raw, ["Khu vực", "Khu vuc", "khu_vuc_ma"]),
       cong_no: congNoRaw ? Number(congNoRaw.replace(/[^\d.-]/g, "")) || undefined : undefined,
+      han_muc_du_phong: hanMucDuPhongRaw ? Number(hanMucDuPhongRaw.replace(/[^\d.-]/g, "")) || undefined : undefined,
+      han_muc_du_phong_hien_tai: hanMucDuPhongHienTaiRaw ? Number(hanMucDuPhongHienTaiRaw.replace(/[^\d.-]/g, "")) || undefined : undefined,
       ma_misa: pickKtvField(raw, ["Mã MISA", "Ma MISA", "ma_misa"]),
       ten_misa: pickKtvField(raw, ["Tên trên MISA", "Ten tren MISA", "ten_misa"]),
     });

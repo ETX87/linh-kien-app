@@ -12,6 +12,7 @@ import { KvRow } from "../../components/ui/KvRow";
 import { SectionTitle } from "../../components/ui/SectionTitle";
 import { Timeline } from "../../components/ui/Timeline";
 import { api, buildQuery, ApiError } from "../../api/client";
+import { exportRowsToExcel } from "../../lib/exportExcel";
 import { fmtDate, fmtDateTime, fmtVND } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import { compressImage } from "../../lib/imageCompress";
@@ -257,6 +258,29 @@ export function TraHangTab({
           }),
       ),
   });
+  // "Tải danh sách chi tiết" (them 2026-09-13) - mirror handleDownloadFullList() cua UsersModule.tsx,
+  // goi lai GET /tra-hang VOI CUNG bo loc dang xem nhung KHONG truyen page (BE tra HET).
+  const [downloadingFull, setDownloadingFull] = useState(false);
+  async function handleDownloadFullList() {
+    setDownloadingFull(true);
+    try {
+      const res = await api.get<{ rows: TraHangRow[] }>(
+        "/tra-hang" +
+          buildQuery({
+            trang_thai: filterTrangThai || undefined,
+            nguoi_tao: filterNguoiTao || undefined,
+            q: debouncedQ || undefined,
+            khu_vuc: khuVucParam || undefined,
+          }),
+      );
+      await exportRowsToExcel(res.rows, "tra_hang_chi_tiet.xlsx", "Trả hàng");
+    } catch (err) {
+      addToast("Không tải được danh sách chi tiết: " + describeApiError(err));
+    } finally {
+      setDownloadingFull(false);
+    }
+  }
+
   // So "(N)" canh moi trang thai trong TrangThaiDropdownFilter (them 2026-09-01) - dung LAI DUNG
   // endpoint/key voi sub-tab "tra_hang" cua DonCuaToiTab.tsx (GET /dat-mua-lk/don-hang-status-counts
   // co cung scope/WHERE voi GET /tra-hang khi loai_don=tra_hang - xem comment goc tai endpoint do),
@@ -527,7 +551,14 @@ export function TraHangTab({
         searchValue={filterQ}
         onSearchChange={setFilterQ}
         searchPlaceholder="Tìm theo mã đơn, mã LK, tên LK, người tạo..."
-        trailing={settingsButtonEl}
+        trailing={
+          <div className="flex items-center gap-2">
+            {settingsButtonEl}
+            <Btn size="sm" variant="ghost" onClick={handleDownloadFullList} disabled={downloadingFull}>
+              {downloadingFull ? "Đang tải..." : "⬇ Tải danh sách chi tiết"}
+            </Btn>
+          </div>
+        }
         activeFilters={
           // SUA (ra soat #3): bo chip "Trạng thái: ..." - gia tri dang chon da hien SAN trong o
           // TrangThaiDropdownFilter ngay ben tren (doi tu chip/nut sang dropdown 2026-09-01).

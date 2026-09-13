@@ -51,7 +51,7 @@ export function TaoDonMobileScreen({
     activeIdx, setActiveIdx, otherLdeIdx, setOtherLdeIdx, addBlockedHint, setAddBlockedHint,
     justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
     updateDraft, isLineComplete, canSubmit, themDong, deleteDraft, tongGiaUocTinh, tongSoLuong,
-    tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
+    tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien, duPhongDuKien, coDongMuaDuTru,
   } = form;
 
   // FIX (phan hoi 2026-08-28: "ở giao diện tạo đơn ấn lùi vẫn báo thoát app") - man hinh nay la
@@ -369,6 +369,13 @@ export function TaoDonMobileScreen({
         {sePhepDuCongNo === false && congNoDuKien && (
           <div className="rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-[11px] font-bold text-[var(--coral-700)]">
             ⚠ Vượt trần công nợ dự kiến: {fmtVND(congNoDuKien.cong_no_chot + tongCongNoTamTinh)} / {fmtVND(congNoDuKien.tran ?? 0)}
+          </div>
+        )}
+        {/* Canh bao THONG TIN mốc dự phòng (them 2026-09-13) - xem giai thich o TaoDonTab.tsx (ban
+            desktop, cung dieu kien). */}
+        {coDongMuaDuTru && duPhongDuKien && (
+          <div className="rounded-lg border border-[var(--ocean-500)]/30 bg-[var(--ocean-100)]/50 px-2.5 py-1.5 text-[11px] font-medium text-[var(--ocean-700)]">
+            ℹ Mốc dự phòng hiện tại còn khả dụng: {fmtVND(duPhongDuKien.moc_hien_tai)} / {fmtVND(duPhongDuKien.tran ?? 0)}
           </div>
         )}
         <div className="flex items-center justify-between text-sm">

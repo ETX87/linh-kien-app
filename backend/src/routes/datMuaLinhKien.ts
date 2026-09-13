@@ -16,6 +16,7 @@ import { extractMaKtv } from "../lib/ktvCode";
 import { lookupCase, lookupCases, lookupCaseFull, type CaseLookupPreview, type CaseLookupGiaiTrinh } from "../lib/caseLookupClient";
 import { sendPushToUser } from "../lib/webPush";
 import { computeCongNoChot } from "../lib/congNoKtv";
+import { computeMocDuPhongHienTai } from "../lib/duPhongKtv";
 import { computeTonKhoChot } from "../lib/tonKhoCongTy";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, MUA_CONG_NO_ROLES, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
@@ -94,12 +95,20 @@ function canTPDvbhXacNhan(c: Context<{ Bindings: Env }>): boolean {
   return !!user.la_tp_dvbh || user.vai_tro === "Admin";
 }
 
+// CHOT (phan hoi nguoi dung 2026-09-13, muc 4: "đơn có chứa từ 'MUA' hoặc 'HỖ TRỢ' thì không cần TBP
+// duyệt") - don gian hoa luong duyet: don thuoc 2 nhom nay bo qua buoc TBP DU CO dac_thu=1.
+function boQuaTbpChoDacThu(loaiDeXuat: string): boolean {
+  const upper = loaiDeXuat.toUpperCase();
+  return upper.includes("MUA") || upper.includes("HỖ TRỢ");
+}
+
 // Trang thai KHOI TAO cua 1 dong don hang moi (dung o CA POST /phieu-dat va import Excel hang loat)
 // - CHOT 2026-08-17: chen them "Cho TBP xac nhan" ngay TRUOC "Cho TN duyet" khi ma LK thuoc nhom
 // "dac thu" (linh_kien.dac_thu=1), sau buoc Tram (neu nguoi tao la Ve tinh) - xem migration 0082.
-function initialDonHangTrangThai(laVeTinh: boolean | number, dacThu: boolean | number | null | undefined): string {
+// SUA 2026-09-13: bo qua buoc TBP nay neu loaiDeXuat chua "MUA"/"HỖ TRỢ" (xem boQuaTbpChoDacThu o tren).
+function initialDonHangTrangThai(laVeTinh: boolean | number, dacThu: boolean | number | null | undefined, loaiDeXuat: string): string {
   if (laVeTinh) return "Cho Tram duyet";
-  if (dacThu) return "Cho TBP xac nhan";
+  if (dacThu && !boQuaTbpChoDacThu(loaiDeXuat)) return "Cho TBP xac nhan";
   return "Cho TN duyet";
 }
 
@@ -261,6 +270,45 @@ datMuaLinhKien.get("/cong-no-du-kien", async (c) => {
   return c.json({ tran: ktvRow.cong_no, cong_no_chot: congNoChot });
 });
 
+// GET /api/dat-mua-lk/du-phong-du-kien?nguoi_nhan_hang=<email> - tra { tran, moc_hien_tai} cua 1 KTV -
+// mirror DUNG /cong-no-du-kien o tren (them 2026-09-13, phan hoi "Nếu ktv chọn 'MUA DỰ TRỮ' hệ thống
+// sẽ tự hiện cảnh báo số tiền chốt dữ trữ còn khả dụng, giống như hiện tại đang cảnh báo đơn công nợ")
+// - CHI dung de HIEN THI banner thong tin luc soan don MUA DỰ TRỮ (khong chan tao don/khong gan vao
+// auto-duyet - xem DuDoanDuyetHint.tsx/useTaoDonForm.ts frontend).
+datMuaLinhKien.get("/du-phong-du-kien", async (c) => {
+  if (!canCreatePhieuDat(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const user = c.get("user");
+  const q = c.req.query("nguoi_nhan_hang")?.trim();
+  let targetUser: { email: string; la_ve_tinh: number | boolean };
+  if (q && q !== user.email) {
+    if (!canQuanLyDonHo(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+    const target = await c.env.DB.prepare("SELECT email, la_ktv_dvbh, la_ve_tinh FROM users WHERE email = ?")
+      .bind(q)
+      .first<{ email: string; la_ktv_dvbh: number; la_ve_tinh: number }>();
+    if (!target || !(target.la_ktv_dvbh || target.la_ve_tinh)) return c.json({ error: "NGUOI_NHAN_HANG_KHONG_HOP_LE" }, 400);
+    targetUser = target;
+  } else {
+    targetUser = { email: user.email, la_ve_tinh: user.la_ve_tinh };
+  }
+  const resolved = await resolveNguoiNhanHang(c.env.DB, targetUser);
+  if ("error" in resolved) return c.json({ error: resolved.error }, 400);
+  const nguoiNhanHang = resolved.email;
+
+  if (user.vai_tro === "Giam sat" && !canTacNghiep(c) && nguoiNhanHang !== user.email) {
+    const recipientRow = await c.env.DB.prepare("SELECT giam_sat_quan_ly FROM users WHERE email = ?")
+      .bind(nguoiNhanHang)
+      .first<{ giam_sat_quan_ly: string | null }>();
+    if (recipientRow?.giam_sat_quan_ly !== user.email) return c.json({ error: "NGUOI_NHAN_HANG_NGOAI_PHAM_VI" }, 403);
+  }
+
+  const ktvRow = await c.env.DB.prepare("SELECT ma_ktv, han_muc_du_phong FROM ktv_lien_he WHERE email_dang_nhap = ?")
+    .bind(nguoiNhanHang)
+    .first<{ ma_ktv: string; han_muc_du_phong: number | null }>();
+  if (!ktvRow) return c.json({ tran: null, moc_hien_tai: 0 });
+  const mocHienTai = await computeMocDuPhongHienTai(c.env.DB, ktvRow.ma_ktv);
+  return c.json({ tran: ktvRow.han_muc_du_phong, moc_hien_tai: mocHienTai });
+});
+
 // GET /api/dat-mua-lk/du-doan-duyet?ma_lk=&so_luong=&loai_de_xuat=&nguoi_nhan_hang= - canh bao SONG
 // ngay luc soan don (them 2026-09-11, phan hoi "linh kiện này tại khu vực MB đang hết/thiếu hàng...
 // đơn của bạn sẽ cần phê duyệt / kho đủ hàng đơn sẽ tự động duyệt") - du doan dong nay co roi vao nhanh
@@ -310,7 +358,7 @@ datMuaLinhKien.get("/du-doan-duyet", async (c) => {
   if (!lkRow) return c.json({ ap_dung: false, du_ton: null, ton_chot: null, khu_vuc_ma: null });
   // CHOT giong het POST /phieu-dat: dung la_ve_tinh cua nguoi GOI (khong phai nguoi nhan hang) - xem
   // comment initialDonHangTrangThai.
-  const trangThaiKhoiTao = initialDonHangTrangThai(user.la_ve_tinh, lkRow.dac_thu);
+  const trangThaiKhoiTao = initialDonHangTrangThai(user.la_ve_tinh, lkRow.dac_thu, loaiDeXuat);
   if (trangThaiKhoiTao !== "Cho TN duyet") return c.json({ ap_dung: false, du_ton: null, ton_chot: null, khu_vuc_ma: null });
 
   const ktvRow = await c.env.DB.prepare("SELECT khu_vuc_ma FROM ktv_lien_he WHERE email_dang_nhap = ?")
@@ -1492,7 +1540,10 @@ datMuaLinhKien.get("/don-hang", async (c) => {
   // trang - tranh cam giac "tim khong ra" du du lieu ton tai o trang khac.
   // .normalize("NFC") - xem giai thich day du o settingsKtv.ts GET / (cung fix, cung ngay).
   const q = c.req.query("q")?.trim().normalize("NFC");
-  const page = Math.max(1, Number(c.req.query("page") ?? 1));
+  // KHONG truyen page -> tra HET (khong phan trang) - dung cho nut "Tải danh sách chi tiết" (them
+  // 2026-09-13, mirror pattern settingsKtv.ts GET / "KHÔNG truyền page -> giữ nguyên hành vi cũ").
+  const pageParam = c.req.query("page");
+  const page = Math.max(1, Number(pageParam ?? 1));
   const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
   const offset = (page - 1) * pageSize;
 
@@ -1585,9 +1636,9 @@ datMuaLinhKien.get("/don-hang", async (c) => {
      LEFT JOIN khu_vuc kv ON kv.ma = dsk.khu_vuc_ma
      WHERE ${whereSql}
      ORDER BY ddh.nguoi_nhan_hang, ddh.ngay_tao DESC
-     LIMIT ? OFFSET ?`,
+     ${pageParam ? "LIMIT ? OFFSET ?" : ""}`,
   )
-    .bind(...binds, pageSize, offset)
+    .bind(...binds, ...(pageParam ? [pageSize, offset] : []))
     .all<{ ly_do_cham: string | null; cho_tn_duyet_at: string | null; last_giai_trinh_at: string | null; ghi_chu_xu_ly_gan_nhat: string | null }>();
 
   // "Quá hạn - cần lý do chậm" (cung cong thuc voi GET /don-hang/:id, xem hanLyDoCham.ts) - truoc day
@@ -1894,7 +1945,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
     // trang_thai_hien_tai (migration 0087, phan hoi Codex #8) - mirror TRUC TIEP trang thai khoi tao
     // ngay tren dong cha, dung lam token CAS cho applyDonHangLog/applyTraHangLog ve sau (version mac
     // dinh 1 theo schema).
-    let trangThaiKhoiTao = loai_don !== "tra_hang" ? initialDonHangTrangThai(user.la_ve_tinh, lk.dac_thu) : "Cho ke toan duyet mem";
+    let trangThaiKhoiTao = loai_don !== "tra_hang" ? initialDonHangTrangThai(user.la_ve_tinh, lk.dac_thu, lde) : "Cho ke toan duyet mem";
     // Them 2026-09-11 (phan hoi nguoi dung: tu dong duyet don mua/cong no khi kho con du hang) - CHI
     // ap dung khi dong SE tung buoc dau la "Cho TN duyet" (khong dung cho Ve tinh "Cho Tram duyet"
     // hay linh kien dac thu "Cho TBP xac nhan" - CHOT nguoi dung "chỉ bỏ bước Chờ TN duyệt"). Du
@@ -2256,7 +2307,7 @@ async function processDatDonHangImportRows(
       for (const v of groupRows) {
         const donHangId = await nextSequentialId(db, "dat_don_hang", "DDH", 6);
         // trang_thai_hien_tai (migration 0087) - khop dung nhanh tao tay o POST /phieu-dat phia tren.
-        const trangThaiKhoiTao = v.loaiDon !== "tra_hang" ? initialDonHangTrangThai(user.la_ve_tinh, v.dacThu) : "Cho ke toan duyet mem";
+        const trangThaiKhoiTao = v.loaiDon !== "tra_hang" ? initialDonHangTrangThai(user.la_ve_tinh, v.dacThu, v.loaiDeXuat) : "Cho ke toan duyet mem";
         statements.push(
           db
             .prepare(
@@ -2295,7 +2346,7 @@ async function processDatDonHangImportRows(
           statements.push(
             db.prepare("INSERT INTO dat_don_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly) VALUES (?, ?, ?, ?)").bind(
               donHangId,
-              initialDonHangTrangThai(user.la_ve_tinh, v.dacThu),
+              initialDonHangTrangThai(user.la_ve_tinh, v.dacThu, v.loaiDeXuat),
               user.email,
               now,
             ),
@@ -2602,14 +2653,14 @@ async function applyDonHangLog(
   ghiChuSoLuong: string | undefined,
 ): Promise<{ error: string; status: 404 | 409 | 403 | 400 } | { nextTrangThai: string }> {
   const ddh = await c.env.DB.prepare(
-    `SELECT ddh.loai_don, ddh.nguoi_tao, ddh.email_gs, ddh.version, ddh.ly_do_cham, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat,
+    `SELECT ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao, ddh.email_gs, ddh.version, ddh.ly_do_cham, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat,
             lk.dac_thu, ${latestDonHangStatusExpr("ddh.id")} as trang_thai, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
             ${lastGiaiTrinhAtExpr("ddh.id")} as last_giai_trinh_at
      FROM dat_don_hang ddh LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk WHERE ddh.id = ?`,
   )
     .bind(donHangId)
     .first<{
-      loai_don: string; nguoi_tao: string; email_gs: string | null; version: number; ly_do_cham: string | null;
+      loai_don: string; loai_de_xuat: string | null; nguoi_tao: string; email_gs: string | null; version: number; ly_do_cham: string | null;
       ten_lk_snapshot: string; so_luong_de_xuat: number; dac_thu: number | null; trang_thai: string | null; cho_tn_duyet_at: string | null;
       last_giai_trinh_at: string | null;
     }>();
@@ -2639,7 +2690,8 @@ async function applyDonHangLog(
     // FIX (phan hoi 2026-08-25, hang muc #19): bat buoc ghi_chu khi tu choi - dao nguoc quyet dinh cu
     // "ghi chu tuy chon" (moi buoc huy/tu choi deu phai nhap ly do, khong chi buoc cuoi cung).
     if (hanhDong !== "duyet" && !ghiChu?.trim()) return { error: "MISSING_GHI_CHU", status: 400 };
-    nextTrangThai = hanhDong === "duyet" ? (ddh.dac_thu ? "Cho TBP xac nhan" : "Cho TN duyet") : "Da huy";
+    nextTrangThai =
+      hanhDong === "duyet" ? (ddh.dac_thu && !boQuaTbpChoDacThu(ddh.loai_de_xuat ?? "") ? "Cho TBP xac nhan" : "Cho TN duyet") : "Da huy";
   } else if (ddh.trang_thai === "Cho TBP xac nhan") {
     if (!canTPDvbhXacNhan(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
     nextTrangThai = hanhDong === "duyet" ? "Cho TN duyet" : hanhDong === "tu_choi" ? "Da huy" : "";
@@ -3212,7 +3264,9 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
   const q = c.req.query("q")?.trim().normalize("NFC");
   // GD4 (phan hoi Codex #17): truoc day tra ve TOAN BO dong khop bo loc, frontend tu slice o client.
   // Them phan trang server-side, cung pattern voi GET /don-hang.
-  const page = Math.max(1, Number(c.req.query("page") ?? 1));
+  // KHONG truyen page -> tra HET (nut "Tải danh sách chi tiết", them 2026-09-13, mirror settingsKtv.ts).
+  const pageParam = c.req.query("page");
+  const page = Math.max(1, Number(pageParam ?? 1));
   const pageSize = Math.min(1000, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
   const offset = (page - 1) * pageSize;
 
@@ -3289,9 +3343,9 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
      LEFT JOIN settings_ly_do_cham sldc ON sldc.id = tlk.ly_do_cham_id
      LEFT JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id
      WHERE ${whereSql} ORDER BY tlk.ngay_tao DESC
-     LIMIT ? OFFSET ?`,
+     ${pageParam ? "LIMIT ? OFFSET ?" : ""}`,
   )
-    .bind(...binds, pageSize, offset)
+    .bind(...binds, ...(pageParam ? [pageSize, offset] : []))
     .all();
   console.log("[thieu-lk-query]", { durationMs: Date.now() - queryStartedAt, rowCount: results.length });
   return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });

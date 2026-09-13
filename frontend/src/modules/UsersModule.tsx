@@ -524,6 +524,8 @@ const KTV_HEADER_LABELS: Record<string, string> = {
   khu_vuc_ma: "Khu vực",
   ktv_cap1_phu_trach: "KTV cấp 1 phụ trách (chỉ Vệ tinh)",
   cong_no: "Công nợ",
+  han_muc_du_phong: "Hạn mức dự phòng",
+  han_muc_du_phong_hien_tai: "Hạn mức dự phòng hiện tại",
   ma_misa: "Mã MISA",
   ten_misa: "Tên trên MISA",
   gmail: "Gmail",
@@ -549,6 +551,8 @@ async function downloadKtvImportTemplate() {
         giam_sat_quan_ly: "",
         khu_vuc_ma: "MB1",
         cong_no: 0,
+        han_muc_du_phong: 0,
+        han_muc_du_phong_hien_tai: 0,
         ma_misa: "",
         ten_misa: "",
         ghi_chu: "",
@@ -632,6 +636,7 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
   const [form, setForm] = useState({
     ma_ktv: "", ten_hien_thi: "", sdt: "", vai_tro_ktv: "KTV" as KtvLienHeRow["vai_tro_ktv"], email_dang_nhap: "",
     khu_vuc_ma: "", ktv_cap1_phu_trach: "", cong_no: "", ma_misa: "", ten_misa: "",
+    han_muc_du_phong: "", han_muc_du_phong_hien_tai: "",
   });
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkRunning, setBulkRunning] = useState(false);
@@ -698,7 +703,11 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
 
   function openEdit(row: KtvLienHeRow | "new") {
     setEditing(row);
-    if (row === "new") setForm({ ma_ktv: "", ten_hien_thi: "", sdt: "", vai_tro_ktv: "KTV", email_dang_nhap: "", khu_vuc_ma: "", ktv_cap1_phu_trach: "", cong_no: "", ma_misa: "", ten_misa: "" });
+    if (row === "new")
+      setForm({
+        ma_ktv: "", ten_hien_thi: "", sdt: "", vai_tro_ktv: "KTV", email_dang_nhap: "", khu_vuc_ma: "", ktv_cap1_phu_trach: "", cong_no: "", ma_misa: "", ten_misa: "",
+        han_muc_du_phong: "", han_muc_du_phong_hien_tai: "",
+      });
     else
       setForm({
         ma_ktv: row.ma_ktv,
@@ -711,6 +720,8 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
         cong_no: row.cong_no != null ? String(row.cong_no) : "",
         ma_misa: row.ma_misa ?? "",
         ten_misa: row.ten_misa ?? "",
+        han_muc_du_phong: row.han_muc_du_phong != null ? String(row.han_muc_du_phong) : "",
+        han_muc_du_phong_hien_tai: row.han_muc_du_phong_hien_tai != null ? String(row.han_muc_du_phong_hien_tai) : "",
       });
   }
 
@@ -732,6 +743,8 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
         cong_no: form.cong_no !== "" ? Number(form.cong_no) : null,
         ma_misa: form.ma_misa.trim() || null,
         ten_misa: form.ten_misa.trim() || null,
+        han_muc_du_phong: form.han_muc_du_phong !== "" ? Number(form.han_muc_du_phong) : null,
+        han_muc_du_phong_hien_tai: form.han_muc_du_phong_hien_tai !== "" ? Number(form.han_muc_du_phong_hien_tai) : null,
       });
     },
     onSuccess: onSaveSuccess,
@@ -739,12 +752,16 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
   });
   // mode="ke-toan" (them 2026-09-05): CHI goi 1 PATCH rieng voi dung 3 truong duoc uy quyen, khong
   // dung POST tao moi (khong the tao KTV moi tu the nay) va khong dung PATCH /:ma/dat-mua-lk day du.
+  // SUA 2026-09-13: them 2 truong Han muc du phong vao cung uy quyen nay (Ke toan cung la nguoi quan
+  // ly cac muc tien du tru cho KTV, giong tinh than cong_no/ma_misa/ten_misa da co san).
   const saveKeToan = useMutation({
     mutationFn: () =>
       api.patch(`/settings/ktv-lien-he/${encodeURIComponent(form.ma_ktv)}/cong-no-misa`, {
         cong_no: form.cong_no !== "" ? Number(form.cong_no) : null,
         ma_misa: form.ma_misa.trim() || null,
         ten_misa: form.ten_misa.trim() || null,
+        han_muc_du_phong: form.han_muc_du_phong !== "" ? Number(form.han_muc_du_phong) : null,
+        han_muc_du_phong_hien_tai: form.han_muc_du_phong_hien_tai !== "" ? Number(form.han_muc_du_phong_hien_tai) : null,
       }),
     onSuccess: onSaveSuccess,
     onError: onSaveError,
@@ -813,6 +830,31 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
           "—"
         ),
     },
+    // He thong "Han muc du phong KTV" (them 2026-09-13) - 4 cot mirror dung tinh than cot "Trần công
+    // nợ" o tren: 2 cot dau nhap tay/import (co tooltip "Cập nhật lúc"), 2 cot sau la GIA TRI TINH
+    // TOAN server-side (GET /settings/ktv-lien-he tra kem, xem duPhongKtv.ts), khong sua tay duoc.
+    {
+      key: "han_muc_du_phong",
+      header: "Hạn mức dự phòng",
+      render: (r) =>
+        r.han_muc_du_phong != null ? (
+          <span title={r.han_muc_du_phong_cap_nhat_luc ? `Cập nhật lúc ${fmtDateTime(r.han_muc_du_phong_cap_nhat_luc)}` : undefined}>{fmtVND(r.han_muc_du_phong)}</span>
+        ) : (
+          "—"
+        ),
+    },
+    {
+      key: "han_muc_du_phong_hien_tai",
+      header: "Hạn mức dự phòng hiện tại",
+      render: (r) =>
+        r.han_muc_du_phong_hien_tai != null ? (
+          <span title={r.han_muc_du_phong_cap_nhat_luc ? `Cập nhật lúc ${fmtDateTime(r.han_muc_du_phong_cap_nhat_luc)}` : undefined}>{fmtVND(r.han_muc_du_phong_hien_tai)}</span>
+        ) : (
+          "—"
+        ),
+    },
+    { key: "han_muc_du_phong_phat_sinh", header: "Hạn mức dự phòng phát sinh", render: (r) => fmtVND(r.han_muc_du_phong_phat_sinh) },
+    { key: "moc_du_phong_hien_tai", header: "Mốc dự phòng hiện tại", render: (r) => fmtVND(r.moc_du_phong_hien_tai) },
     // FIX (ra soat UI 2026-08-27, hang muc #1): bo "(mã) Tên" lap lai truoc email - cot "Tên hiển thị"
     // da o ngay dau bang, khong can nhac lai o cot cuoi (giam ~50% do dai dong tren bang 25+ dong).
     { key: "email_dang_nhap", header: "Email đăng nhập", render: (r) => r.email_dang_nhap ?? "—" },
@@ -985,6 +1027,35 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
                 disabled={mode === "readonly"}
                 value={form.cong_no}
                 onChange={(e) => setForm({ ...form, cong_no: e.target.value })}
+                className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60"
+              />
+            </div>
+            {/* He thong "Han muc du phong KTV" (them 2026-09-13) - mirror dung cap input Tran cong no
+                o tren, du dieu kien cho ca mode="admin" (PATCH /:ma/dat-mua-lk) lan "ke-toan" (PATCH
+                /:ma/cong-no-misa) vi ca 2 route deu da duoc mo rong nhan 2 truong nay. */}
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] flex items-center gap-1.5">
+                Hạn mức dự phòng
+                <Tooltip text="Nhập tay hoặc import Excel định kỳ - trần được cấp cho KTV mua dự trữ theo giá dự phòng." />
+              </label>
+              <input
+                type="number"
+                disabled={mode === "readonly"}
+                value={form.han_muc_du_phong}
+                onChange={(e) => setForm({ ...form, han_muc_du_phong: e.target.value })}
+                className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] flex items-center gap-1.5">
+                Hạn mức dự phòng hiện tại
+                <Tooltip text="Nhập tay hoặc import Excel định kỳ - số dư còn lại theo lần cập nhật gần nhất (không tự tính)." />
+              </label>
+              <input
+                type="number"
+                disabled={mode === "readonly"}
+                value={form.han_muc_du_phong_hien_tai}
+                onChange={(e) => setForm({ ...form, han_muc_du_phong_hien_tai: e.target.value })}
                 className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60"
               />
             </div>

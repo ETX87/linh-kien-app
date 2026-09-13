@@ -16,6 +16,7 @@ import type { Column } from "../../components/ui/PaginatedTable";
 import { useColumnConfig } from "../../components/ui/useColumnConfig";
 import { ColumnSettingsButton, ResizableHeaderCell } from "../../components/ui/ColumnHeader";
 import { api, buildQuery } from "../../api/client";
+import { exportRowsToExcel } from "../../lib/exportExcel";
 import { fmtDate, fmtDateTime, fmtVND } from "../../types";
 import { useAuth } from "../../auth/AuthContext";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
@@ -1322,6 +1323,34 @@ export function DonCuaToiTab({
         "/dat-mua-lk/don-hang-status-counts" + buildQuery({ loai_don: donHangStatusCountsLoaiDon }),
       ),
   });
+  // "Tải danh sách chi tiết" (them 2026-09-13, phan hoi "Các danh sách đều có phím bấm tải danh sách
+  // chi tiết") - goi lai GET /dat-mua-lk/don-hang VOI CUNG bo loc dang xem nhung KHONG truyen page (BE
+  // tra HET, xem GET /don-hang trong datMuaLinhKien.ts), mirror handleDownloadFullList() cua UsersModule.tsx.
+  const [downloadingFull, setDownloadingFull] = useState(false);
+  async function handleDownloadFullList() {
+    setDownloadingFull(true);
+    try {
+      const res = await api.get<{ rows: DonHangRow[] }>(
+        "/dat-mua-lk/don-hang" +
+          buildQuery({
+            trang_thai: filterTrangThai || undefined,
+            nguoi_tao: filterNguoiTao || undefined,
+            nguoi_nhan_hang: filterNguoiNhanHang || undefined,
+            tu_ngay: filterTuNgay || undefined,
+            den_ngay: filterDenNgay || undefined,
+            loai_don: effectiveLoaiDon || undefined,
+            q: debouncedQ || undefined,
+            khu_vuc: khuVucParam || undefined,
+          }),
+      );
+      await exportRowsToExcel(res.rows, "don_hang_chi_tiet.xlsx", "Đơn hàng");
+    } catch (err) {
+      addToast("Không tải được danh sách chi tiết: " + describeApiError(err));
+    } finally {
+      setDownloadingFull(false);
+    }
+  }
+
   const { data, isLoading, isError } = useQuery({
     queryKey: ["dat-mua-lk-don-hang", filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, effectiveLoaiDon, debouncedQ, khuVucParam, page],
     queryFn: () =>
@@ -1489,6 +1518,9 @@ export function DonCuaToiTab({
       <div className="flex items-center gap-2 mb-2 flex-wrap">
         <Btn size="sm" variant="ghost" onClick={() => setShowFilters((v) => !v)}>
           {showFilters ? "▲ Ẩn bộ lọc" : `☰ Bộ lọc${activeFilterCount > 0 ? ` (${activeFilterCount})` : ""} ▾`}
+        </Btn>
+        <Btn size="sm" variant="ghost" onClick={handleDownloadFullList} disabled={downloadingFull}>
+          {downloadingFull ? "Đang tải..." : "⬇ Tải danh sách chi tiết"}
         </Btn>
         {/* FIX (phan hoi 2026-08-28: "'Đang lọc: (còn tồn X)' chuyển lên cùng dòng với nút bộ lọc") -
             dat NGAY SAU nut "Bộ lọc", TRUOC o tim kiem (rong co dinh w-64) - tren man hep, flex-wrap uu

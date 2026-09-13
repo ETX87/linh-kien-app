@@ -47,6 +47,7 @@ export function TaoDonTab({
     activeRowRef, justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
     updateDraft, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
     tongGiaUocTinh, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
+    duPhongDuKien, coDongMuaDuTru,
   } = form;
 
   return (
@@ -83,6 +84,14 @@ export function TaoDonTab({
           {sePhepDuCongNo === false && congNoDuKien && (
             <div className="rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-[11px] font-bold text-[var(--coral-700)]">
               ⚠ Vượt trần công nợ dự kiến: {fmtVND(congNoDuKien.cong_no_chot + tongCongNoTamTinh)} / {fmtVND(congNoDuKien.tran ?? 0)}
+            </div>
+          )}
+          {/* Canh bao THONG TIN mốc dự phòng còn khả dụng (them 2026-09-13, phan hoi "Nếu ktv chọn
+              'MUA DỰ TRỮ' hệ thống sẽ tự hiện cảnh báo số tiền chốt dữ trữ còn khả dụng") - CHI hien
+              khi co it nhat 1 dong MUA DỰ TRỮ dang soan, KHONG chan tao don (khac banner cong no o trên). */}
+          {coDongMuaDuTru && duPhongDuKien && (
+            <div className="rounded-lg border border-[var(--ocean-500)]/30 bg-[var(--ocean-100)]/50 px-2.5 py-1.5 text-[11px] font-medium text-[var(--ocean-700)]">
+              ℹ Mốc dự phòng hiện tại còn khả dụng: {fmtVND(duPhongDuKien.moc_hien_tai)} / {fmtVND(duPhongDuKien.tran ?? 0)}
             </div>
           )}
           <div className="flex items-center justify-between gap-3">
