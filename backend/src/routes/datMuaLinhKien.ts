@@ -639,9 +639,16 @@ datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
   // truoc day moi dong deu can 1 correlated subquery rieng (khong index duoc) de suy trang thai. Gio
   // doc thang cot trang_thai_hien_tai (co index idx_ddh_loai_don_trang_thai/idx_pxk_trang_thai_nhan_hang)
   // - giu nguyen thieu_lk (ngoai pham vi ra soat, van dung correlated subquery nhu cu).
+  // FIX (phat hien qua ra soat QA "số hiển thị phải là số thực họ cần xử lý") - "tram" (duoi day)
+  // TRUOC DAY dem TOAN HE THONG (moi Tram deu thay CUNG 1 so gom ca don cua Tram khac), trong khi
+  // GET /don-hang (danh sach that khi bam vao) lai loc theo QUAN HE tram_cha (scopeDatMuaNguoiTao,
+  // xem scopeDatMua.ts) - Tram bam vao "Chờ Trạm duyệt" chi thay don cua CHINH Ve tinh minh, khong
+  // khop voi so hien tren the. Them dieu kien tram_cha = nguoi dang goi, dung DUNG 1 quan he voi
+  // scopeDatMuaNguoiTao (khong dung khuVucCuaToiSet/phuTrachGsSet - 2 co che do CHI danh cho
+  // TN/Kho/Ke toan, Tram dung quan he tram_cha rieng).
   const row = await c.env.DB.prepare(
     `SELECT
-       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho Tram duyet') as tram,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho Tram duyet' AND ddh.nguoi_tao IN (SELECT email FROM users WHERE tram_cha = ?)) as tram,
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TBP xac nhan') as tp_dvbh,
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho ke toan duyet mem'${ddhScope}) as tra_hang_kt,
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho kho xac nhan'${ddhScope}) as tra_hang_kho,
@@ -681,6 +688,7 @@ datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.nguoi_nhan_hang = ? AND pxk.trang_thai_hien_tai = 'Dang gui KTV') as ktv_cua_toi`,
   )
     .bind(
+      user.email,
       ...sbDdh(), ...sbDdh(), ...sbDdh(), ...sbDdh(),
       ...sbPxk(), ...sbPxk(), ...sbPxk(),
       ...sbThieuLk(),
@@ -779,10 +787,16 @@ datMuaLinhKien.get("/home-summary", async (c) => {
     // voi 1 Giam sat/KTV thuong (khong phai Tram that), gia tri nay VAN co the ra >0 (du lieu
     // tram_cha trung ngau nhien) nhung lai KHONG nam trong scope cua "dang_xu_ly" (scopeDatMuaNguoiTao
     // cua Giam sat la email_gs=minh, khac han quan he tram_cha) -> canLam > dangTon. Chi tinh
-    // cho_tram_duyet khi user.la_tram THAT (GD4, GET /api/auth/me) - dung dung ngu nghia "day la viec
-    // cua 1 Tram", khop voi nhanh muaCongNoDangTonConds da fix ben duoi (Tram/TBP khong ap dung cho
-    // nhanh nay vi khong bao gio la isKtvLike + Tram cung luc, nhung nguyen tac giu nhat quan).
-    const choTramDuyet = user.la_tram ? (row?.cho_tram_duyet ?? 0) : 0;
+    // cho_tram_duyet khi la Tram THAT.
+    // SUA (phat hien qua ra soat QA "số hiển thị phải là số thực họ cần xử lý") - fix tren dua vao
+    // user.la_tram, NHUNG loadUser.ts (middleware chay cho MOI request, xem middleware/loadUser.ts)
+    // LUON gan cung "la_tram: false" (gia tri THAT chi duoc GET /api/auth/me tinh rieng qua 1 query
+    // EXISTS, khong lan sang cac route khac vi ly do hieu nang - khong muon them 1 query cho MOI
+    // request). Ket qua: dieu kien tren LUON false, "Chờ Trạm duyệt" LUON hien 0 cho MOI Tram that tu
+    // luc fix 2026-09-01 duoc viet toi gio. Tinh THAT o day (dung 1 query EXISTS re, CHI o nhanh
+    // isKtvLike, khong anh huong cac request khac) - mirror dung cach GET /api/auth/me lam.
+    const laTramRow = await c.env.DB.prepare("SELECT 1 as x FROM users WHERE tram_cha = ? LIMIT 1").bind(user.email).first();
+    const choTramDuyet = laTramRow ? (row?.cho_tram_duyet ?? 0) : 0;
     canLam += (row?.cho_tien ?? 0) + (row?.xac_nhan_nhan ?? 0) + choTramDuyet + (row?.tu_choi ?? 0);
     // dangTon PHAI la TAP CHA cua canLam (phan hoi 2026-09-01: "sao cần làm lại > đang tồn được?") -
     // cong THANG toan bo cac thanh phan canLam vao day (dam bao dungTon >= canLam bang phep cong, khong
