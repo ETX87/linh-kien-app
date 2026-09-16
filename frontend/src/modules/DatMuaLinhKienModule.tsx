@@ -319,6 +319,13 @@ export function DatMuaLinhKienModule({
     setJumpTarget(target);
     setPendingOpenDetailId(target.openDetailId ? { tab: target.tab, id: target.openDetailId } : null);
     setView(target.tab);
+    // FIX (phan hoi "bấm vào thẻ thì tab trên cùng lại không ở trạng thái đang lựa chọn") - dong bo
+    // stageMenuActiveKey voi MOI jumpTo(), khong chi rieng stageJump() (StageMenu tu bam). target.stageKey
+    // undefined (da so cac noi goi cu - PipelineFlow/BaoCaoTab/cac StatCard khac trong TrangChuTab.tsx
+    // chua khop key) se TAT het StageMenu thay vi giu sang muc CU tu lan bam StageMenu truoc do - "tắt"
+    // van dung hon "sang sai muc" (StageMenu.tsx da ghi ro activeKey chi la goi y hien thi, khong phai
+    // nguon chan ly).
+    setStageMenuActiveKey(target.stageKey ?? "");
     // FIX (phan hoi 2026-09-11: "số lượng đếm đang không khớp, ví dụ chỉ có 3 dòng nhưng đang đếm 4")
     // - 2 API dem-theo-trang-thai dung cho badge StageMenu (donHangStatusCounts/pxkStatusCounts) chi
     // refetchInterval 5 phut (giong quy uoc chung ca app) - trong he nhieu nguoi dung cung luc, 1
@@ -361,8 +368,10 @@ export function DatMuaLinhKienModule({
   // phai gia tri moi.
   const [stageMenuActiveKey, setStageMenuActiveKey] = useState("");
   function stageJump(key: string, target: JumpTarget) {
-    setStageMenuActiveKey(key);
-    jumpTo(target);
+    // stageKey: key (thay vi tu goi setStageMenuActiveKey(key) o day roi jumpTo() lai ghi de bang
+    // target.stageKey ?? "" ngay sau - xem comment trong jumpTo()) - jumpTo() gio la NOI DUY NHAT
+    // quyet dinh stageMenuActiveKey, tranh 2 nguon ghi cung 1 state chay dua nhau trong cung 1 lan bam.
+    jumpTo({ ...target, stageKey: key });
     if (target.tab === "don-cua-toi") setLoaiDonTabClickSeq((n) => n + 1);
   }
   const stageMenuGroups: StageMenuGroup[] = [

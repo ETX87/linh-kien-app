@@ -265,6 +265,13 @@ export interface JumpTarget {
   // Mo thang Drawer chi tiet 1 dong (them 2026-08-26, tu danh sach thong bao KTV bam "xem chi tiet") -
   // chi co y nghia khi tab === "don-cua-toi", xem openDetailIdFor/DonCuaToiTab.initialDetailIdOverride.
   openDetailId?: string;
+  // Them (phan hoi "bấm vào thẻ thì tab trên cùng lại không ở trạng thái đang lựa chọn") - StageMenu
+  // (thanh "giai doan hoa" tren cung) chi to sang muc VUA duoc TU BAM qua chinh no (stageJump() trong
+  // DatMuaLinhKienModule.tsx), khong biet gi ve cac jumpTo() khac (StatCard/pipeline/Bao cao...) nen
+  // khi nhay tu noi khac toi DUNG 1 trang thai co mat trong StageMenu, muc do van khong sang - khop
+  // key voi 1 muc trong stageMenuGroups (DatMuaLinhKienModule.tsx) de jumpTo() tu dong sang dung muc,
+  // undefined = khong khop muc nao (StageMenu se tat het, khong giu sang muc CU tu lan bam truoc).
+  stageKey?: string;
 }
 export interface BaoCaoRow {
   email: string;
