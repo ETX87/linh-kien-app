@@ -1562,6 +1562,7 @@ datMuaLinhKien.post("/case-detail/:id/sync", async (c) => {
 // Sap xep theo nguoi_nhan_hang TRUOC de Frontend gom cum hien thi theo KTV ngay tren 1 trang (giong
 // dung pattern da dung o GET /phieu-xuat-kho/don-hang-kha-dung).
 datMuaLinhKien.get("/don-hang", async (c) => {
+  const user = c.get("user");
   const scope = scopeDatMuaNguoiTao(c);
   const trangThai = c.req.query("trang_thai");
   const nguoiTao = c.req.query("nguoi_tao");
@@ -1589,6 +1590,19 @@ datMuaLinhKien.get("/don-hang", async (c) => {
 
   let whereSql = (loaiDon ? "1=1" : "ddh.loai_don != 'tra_hang'") + (scope?.whereSql ?? "");
   const binds: unknown[] = [...(scope?.binds ?? [])];
+  // FIX (phan hoi nguoi dung: "đồng bộ danh sách theo badge" cho Khu vuc phu trach GS) - truoc day
+  // phuTrachGsSet CHI anh huong badge (/loai-don-counts, /don-hang-status-counts, dangTonSteps...),
+  // KHONG anh huong danh sach nay - TN/Kho/Ke toan da duoc gan "phụ trách" 1 vai GS cu the (bang
+  // dat_mua_lk_phu_trach_gs) van thay TOAN BO don he thong khi bam vao danh sach, du badge da bao dung
+  // so nho hon. Them dieu kien CUNG mot Set, ap dung THANG len danh sach - khop hoan toan voi badge,
+  // dung tinh than "không thuộc phạm vi của họ thì họ không cần quan tâm".
+  if (scope === null && (canTacNghiep(c) || user.la_kho || user.la_ke_toan)) {
+    const gsSet = await phuTrachGsSet(c.env.DB, user.email);
+    if (gsSet) {
+      whereSql += ` AND ddh.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;
+      binds.push(...gsSet);
+    }
+  }
   if (loaiDon) {
     whereSql += " AND ddh.loai_don = ?";
     binds.push(loaiDon);
@@ -3345,6 +3359,14 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
   // khac (KTV/Ve tinh/Tram/Ke toan/TP DVBH...) GIU NGUYEN hanh vi cu (chi thay ticket tu tao).
   if (canKho(c) || canTacNghiep(c)) {
     // khong gioi han - giu nguyen
+    // FIX (phan hoi nguoi dung: "đồng bộ danh sách theo badge" cho Khu vuc phu trach GS) - xem giai
+    // thich day du o GET /dat-mua-lk/don-hang (cung 1 fix, cung ngay) - truoc day chi anh huong
+    // /thieu-lk-status-counts, KHONG anh huong chinh danh sach nay.
+    const gsSet = await phuTrachGsSet(c.env.DB, user.email);
+    if (gsSet) {
+      whereSql += ` AND ddh.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;
+      binds.push(...gsSet);
+    }
   } else if (user.vai_tro === "Giam sat") {
     whereSql += " AND ddh.email_gs = ?";
     binds.push(user.email);

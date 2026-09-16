@@ -6,7 +6,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nowVN } from "../lib/vnTime";
 import { bumpVersions } from "../lib/dataVersions";
-import { scopeDatMuaNguoiTao, khuVucSetWhereSql } from "../lib/scopeDatMua";
+import { scopeDatMuaNguoiTao, khuVucSetWhereSql, phuTrachGsSet } from "../lib/scopeDatMua";
 import { uploadPublicImage } from "../lib/googleDrive";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
 import { nextSequentialId } from "../lib/idCounter";
@@ -78,6 +78,7 @@ function canTacNghiep(c: Context<{ Bindings: Env }>): boolean {
 // (phan hoi Codex): truoc day KHONG scope cho AI ca, du comment cu noi "KTV xem qua tab Don cua toi"
 // nhung endpoint nay van goi truc tiep duoc va tra ve TOAN BO du lieu tra hang he thong.
 traHang.get("/", async (c) => {
+  const user = c.get("user");
   const scope = scopeDatMuaNguoiTao(c);
   const trangThai = c.req.query("trang_thai");
   const nguoiTao = c.req.query("nguoi_tao");
@@ -100,6 +101,16 @@ traHang.get("/", async (c) => {
   const offset = (page - 1) * pageSize;
   let whereSql = "ddh.loai_don = 'tra_hang'" + (scope?.whereSql ?? "");
   const binds: unknown[] = [...(scope?.binds ?? [])];
+  // FIX (phan hoi nguoi dung: "đồng bộ danh sách theo badge" cho Khu vuc phu trach GS) - xem giai
+  // thich day du o GET /dat-mua-lk/don-hang (cung 1 fix, cung ngay) - truoc day phuTrachGsSet chi
+  // anh huong badge (qua /don-hang-status-counts?loai_don=tra_hang), KHONG anh huong chinh danh sach nay.
+  if (scope === null && (canTacNghiep(c) || canKho(c) || canKeToan(c))) {
+    const gsSet = await phuTrachGsSet(c.env.DB, user.email);
+    if (gsSet) {
+      whereSql += ` AND ddh.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;
+      binds.push(...gsSet);
+    }
+  }
   if (trangThai === "__OPEN__") {
     // Sentinel "con ton" (them 2026-09-11, phuc vu muc menu "Trả hàng chờ các bên" - gop 4 buoc duyet
     // dau cua luong nay thanh 1 muc bam duy nhat) - TRA_HANG_TRANG_THAI_OPTIONS da co san gia tri nay

@@ -164,6 +164,7 @@ phieuXuatKho.get("/mo-count", async (c) => {
 // MAT 2026-08-18, phan hoi Codex: truoc day KHONG gioi han cho AI ca, lo gia/cong no/ma MISA/bang
 // chung chuyen tien toan he thong cho moi tai khoan trong module).
 phieuXuatKho.get("/", async (c) => {
+  const user = c.get("user");
   const scope = scopePxkNguoiNhanHang(c);
   const trangThai = c.req.query("trang_thai");
   const nguoiNhanHang = c.req.query("nguoi_nhan_hang");
@@ -187,6 +188,16 @@ phieuXuatKho.get("/", async (c) => {
   const offset = (page - 1) * pageSize;
   let whereSql = "1=1" + (scope?.whereSql ?? "");
   const binds: unknown[] = [...(scope?.binds ?? [])];
+  // FIX (phan hoi nguoi dung: "đồng bộ danh sách theo badge" cho Khu vuc phu trach GS) - xem giai
+  // thich day du o GET /dat-mua-lk/don-hang (cung 1 fix, cung ngay) - truoc day chi anh huong
+  // /mo-count/status-counts, KHONG anh huong chinh danh sach nay.
+  if (scope === null && (canTacNghiep(c) || canKho(c) || canKeToan(c))) {
+    const gsSet = await phuTrachGsSet(c.env.DB, user.email);
+    if (gsSet) {
+      whereSql += ` AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh2.email_gs IN (${[...gsSet].map(() => "?").join(",")}))`;
+      binds.push(...gsSet);
+    }
+  }
   if (trangThai === "CHO_TIEN") {
     // Sentinel rieng (phan hoi 2026-08-24: "2 thẻ chờ tiền và pxk hình như đang là 1... ấn giữa 2
     // button này không có phản hồi") - "cho tien" la 1 DIEU KIEN CHAN tren so_tien_can_chuyen/
@@ -258,6 +269,7 @@ phieuXuatKho.get("/", async (c) => {
 // nay, xem GET /status-counts cung lam vay) de tranh lech bo loc giua "xem" va "xuat".
 phieuXuatKho.get("/misa-export", async (c) => {
   if (!canDownloadMisa(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const user = c.get("user");
   const scope = scopePxkNguoiNhanHang(c);
   const trangThai = c.req.query("trang_thai");
   const nguoiNhanHang = c.req.query("nguoi_nhan_hang");
@@ -267,6 +279,16 @@ phieuXuatKho.get("/misa-export", async (c) => {
   const q = c.req.query("q")?.trim().normalize("NFC");
   let whereSql = "1=1" + (scope?.whereSql ?? "");
   const binds: unknown[] = [...(scope?.binds ?? [])];
+  // FIX (phan hoi nguoi dung: "đồng bộ danh sách theo badge" cho Khu vuc phu trach GS) - xem GET /
+  // (cung 1 fix, cung ngay) - ap dung o day de tranh xuat MISA nhieu hon nhung gi GET / that su cho
+  // xem (khong lech "xem" vs "xuat" nhu comment dau file da noi ro).
+  if (scope === null && (canTacNghiep(c) || canKho(c) || canKeToan(c))) {
+    const gsSet = await phuTrachGsSet(c.env.DB, user.email);
+    if (gsSet) {
+      whereSql += ` AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh2.email_gs IN (${[...gsSet].map(() => "?").join(",")}))`;
+      binds.push(...gsSet);
+    }
+  }
   if (trangThai === "CHO_TIEN") {
     whereSql += " AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'";
   } else if (trangThai === "Dang tao phieu") {
