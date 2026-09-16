@@ -11,6 +11,45 @@ import { PipelineFlow, MyWorkloadStrip } from "./datMuaLinhKien/PipelineFlow";
 import { CaseDetailModal } from "./datMuaLinhKien/CaseDetailModal";
 import { StageMenu, type StageMenuGroup } from "./datMuaLinhKien/StageMenu";
 
+// FIX (phan hoi "click vào đơn chờ hàng, thẻ tab vẫn đang không được chọn" - da xay ra 2 lan lien tiep
+// voi 2 muc khac nhau, "Đã gửi chờ KTV xác nhận" lan truoc va "Chờ hàng" lan nay - xac nhan day la LOI
+// HE THONG chu khong phai 1 muc rieng le): DANH SACH PHANG (key, tab, filter, loaiDon) khop 1-1 voi 16
+// muc trong stageMenuGroups ben duoi - dung de jumpTo() TU DONG suy ra stageKey cho MOI cach nhay toi
+// (StatCard trong TrangChuTab.tsx, PipelineFlow.tsx, BaoCaoTab.tsx...), khong chi rieng StageMenu tu
+// bam. Lan sua truoc (v1.125) chi vien tay stageKey cho 4 nguon StatCard cua rieng tab "phieu-xuat-kho"
+// trong TrangChuTab.tsx - qua hep, "Chờ hàng" (tab "don-cua-toi") van bi bo sot. Sua tan goc: BAT KY
+// jumpTo() nao co (tab,filter,loaiDon) KHOP DUNG 1 dong duoi day deu tu dong sang dung muc, khong can
+// tung noi goi jumpTo() tu khai bao stageKey rieng. loaiDon: undefined nghia la KHONG so sanh cot nay
+// (JumpTarget goc co the thieu loaiDon o cac tab khong dung sub-tab loai_don, vd "tra-hang"/
+// "__CHO_TAO_PXK__"/"__TODAY__"/"TN tu choi" deu la "don-cua-toi" nen VAN can loaiDon:"" khop dung).
+// CANH BAO: sua 1 muc trong stageMenuGroups (them/doi key/tab/filter/loaiDon) PHAI sua dong tuong ung
+// o day, khong co co che tu dong dong bo 2 danh sach.
+const STAGE_MENU_TARGETS: { key: string; tab: string; filter: string; loaiDon?: string }[] = [
+  { key: "tra-hang-cho", tab: "tra-hang", filter: "__OPEN__" },
+  { key: "cho-tbp", tab: "don-cua-toi", filter: "Cho TBP xac nhan", loaiDon: "" },
+  { key: "cho-tn-duyet", tab: "don-cua-toi", filter: "Cho TN duyet", loaiDon: "" },
+  { key: "cho-hang", tab: "don-cua-toi", filter: "Cho hang", loaiDon: "" },
+  { key: "cho-tao-xuat", tab: "don-cua-toi", filter: "__CHO_TAO_PXK__", loaiDon: "" },
+  { key: "tu-choi", tab: "don-cua-toi", filter: "TN tu choi", loaiDon: "" },
+  { key: "duyet-trong-ngay", tab: "don-cua-toi", filter: "__TODAY__", loaiDon: "" },
+  { key: "tong-phieu-xuat", tab: "phieu-xuat-kho", filter: "", loaiDon: "" },
+  { key: "cho-ktv-chuyen-tien", tab: "phieu-xuat-kho", filter: "CHO_TIEN", loaiDon: "" },
+  { key: "phieu-cho-ma-hd", tab: "phieu-xuat-kho", filter: "Dang tao phieu", loaiDon: "" },
+  { key: "phieu-cho-ma-misa", tab: "phieu-xuat-kho", filter: "Cho ke toan", loaiDon: "" },
+  { key: "da-chot-xong", tab: "phieu-xuat-kho", filter: "Da chot xong don xuat", loaiDon: "" },
+  { key: "dang-gui-ktv", tab: "phieu-xuat-kho", filter: "Dang gui KTV", loaiDon: "" },
+  { key: "hang-tru-kho", tab: "phieu-xuat-kho", filter: "Hang tru kho", loaiDon: "" },
+  { key: "kho-ket-thuc", tab: "phieu-xuat-kho", filter: "Kho da ket thuc", loaiDon: "" },
+  { key: "ktv-da-nhan", tab: "phieu-xuat-kho", filter: "KTV da nhan", loaiDon: "" },
+];
+function matchStageKey(target: JumpTarget): string {
+  if (target.stageKey !== undefined) return target.stageKey;
+  const found = STAGE_MENU_TARGETS.find(
+    (t) => t.tab === target.tab && t.filter === target.filter && (t.loaiDon ?? "") === (target.loaiDon ?? ""),
+  );
+  return found?.key ?? "";
+}
+
 // Module "Dat mua linh kien" (Phase 2) - thay the quy trinh dat hang linh kien tren Google
 // Sheets/AppSheet, xem plan "Module Dat Mua Linh Kien". Tabs hien theo co vai tro (la_ktv_dvbh/
 // la_ve_tinh/la_kho/la_ke_toan) + vai_tro chuan (Giam sat theo doi, TBP DVBH/Admin = TN tac nghiep).
@@ -319,13 +358,13 @@ export function DatMuaLinhKienModule({
     setJumpTarget(target);
     setPendingOpenDetailId(target.openDetailId ? { tab: target.tab, id: target.openDetailId } : null);
     setView(target.tab);
-    // FIX (phan hoi "bấm vào thẻ thì tab trên cùng lại không ở trạng thái đang lựa chọn") - dong bo
-    // stageMenuActiveKey voi MOI jumpTo(), khong chi rieng stageJump() (StageMenu tu bam). target.stageKey
-    // undefined (da so cac noi goi cu - PipelineFlow/BaoCaoTab/cac StatCard khac trong TrangChuTab.tsx
-    // chua khop key) se TAT het StageMenu thay vi giu sang muc CU tu lan bam StageMenu truoc do - "tắt"
-    // van dung hon "sang sai muc" (StageMenu.tsx da ghi ro activeKey chi la goi y hien thi, khong phai
-    // nguon chan ly).
-    setStageMenuActiveKey(target.stageKey ?? "");
+    // FIX (phan hoi "bấm vào thẻ thì tab trên cùng lại không ở trạng thái đang lựa chọn", lap lai 2 lan
+    // voi 2 muc khac nhau) - dong bo stageMenuActiveKey voi MOI jumpTo() qua matchStageKey() (tu suy ra
+    // tu tab/filter/loaiDon khop STAGE_MENU_TARGETS o dau file), khong chi rieng stageJump() (StageMenu
+    // tu bam) hay cac noi goi TU KHAI BAO stageKey rieng (qua het, de sot) - AP DUNG CHUNG cho MOI
+    // jumpTo() tren toan module (PipelineFlow/BaoCaoTab/TrangChuTab...). Khong khop muc nao -> "" (tat
+    // StageMenu) thay vi giu sang muc CU tu lan bam truoc - "tắt" van dung hon "sang sai muc".
+    setStageMenuActiveKey(matchStageKey(target));
     // FIX (phan hoi 2026-09-11: "số lượng đếm đang không khớp, ví dụ chỉ có 3 dòng nhưng đang đếm 4")
     // - 2 API dem-theo-trang-thai dung cho badge StageMenu (donHangStatusCounts/pxkStatusCounts) chi
     // refetchInterval 5 phut (giong quy uoc chung ca app) - trong he nhieu nguoi dung cung luc, 1

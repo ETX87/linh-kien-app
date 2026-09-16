@@ -11,26 +11,6 @@ import { KhuVucChipFilter, CollapsibleSection } from "./SharedUi";
 import { BaoCaoTab } from "./BaoCaoTab";
 import type { JumpTarget, LuongQuyTrinhStep, DangTonStep } from "./types";
 
-// Khop trang_thai_hien_tai/sentinel PXK (dung CHUNG boi LuongQuyTrinhStep.filter, DangTonStep.filter,
-// tonDongToanHeThongSteps.filter - ca 3 cung doc thang tu backend, xem datMuaLinhKien.ts) sang key cua
-// nhom "Xuất kho" trong stageMenuGroups (DatMuaLinhKienModule.tsx) - dung de dien JumpTarget.stageKey,
-// giup StageMenu (thanh "giai doan hoa" tren cung) sang dung muc khi nhay toi tu cac StatCard trong
-// trang nay (truoc do StageMenu chi sang khi nguoi dung TU BAM thang vao no). Khong co muc trong day
-// (vd tab khac "phieu-xuat-kho") -> tra undefined, jumpTo() se tu tat StageMenu thay vi giu muc CU.
-const PXK_STAGE_KEY: Record<string, string> = {
-  CHO_TIEN: "cho-ktv-chuyen-tien",
-  "Dang tao phieu": "phieu-cho-ma-hd",
-  "Cho ke toan": "phieu-cho-ma-misa",
-  "Da chot xong don xuat": "da-chot-xong",
-  "Dang gui KTV": "dang-gui-ktv",
-  "Hang tru kho": "hang-tru-kho",
-  "Kho da ket thuc": "kho-ket-thuc",
-  "KTV da nhan": "ktv-da-nhan",
-};
-function stageKeyFor(s: { tab: string; filter: string }): string | undefined {
-  return s.tab === "phieu-xuat-kho" ? PXK_STAGE_KEY[s.filter] : undefined;
-}
-
 interface TonDongRow {
   id: string;
   loai_don: "mua" | "cong_no";
@@ -468,7 +448,7 @@ export function TrangChuTab({
               label={STEP_SHORT_LABEL[s.key] ?? s.label}
               value={s.count}
               tone="warning"
-              onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon, stageKey: stageKeyFor(s) })}
+              onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
             />
           ))}
         </div>
@@ -483,7 +463,7 @@ export function TrangChuTab({
               label={s.label}
               value={s.count}
               tone="warning"
-              onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon, stageKey: stageKeyFor(s) })}
+              onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
             />
           ))}
         </div>
@@ -513,7 +493,7 @@ export function TrangChuTab({
               label={s.label}
               value={s.count}
               tone="info"
-              onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon, stageKey: stageKeyFor(s) })}
+              onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
             />
           ))}
         </div>
@@ -545,7 +525,7 @@ export function TrangChuTab({
                   label={s.label}
                   value={s.count}
                   tone="purple"
-                  onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon, stageKey: stageKeyFor(s) })}
+                  onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
                 />
               ))}
             </div>
