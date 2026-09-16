@@ -314,6 +314,7 @@ phieuXuatKho.get("/misa-export", async (c) => {
 // kien nay LUON co trang_thai_hien_tai='Dang tao phieu' nen loai truoc khoi GROUP BY de "Dang tao
 // phieu" khong bi dem trung voi "Chờ chuyển tiền".
 phieuXuatKho.get("/status-counts", async (c) => {
+  const user = c.get("user");
   const scope = scopePxkNguoiNhanHang(c);
   const loaiDon = c.req.query("loai_don");
   let whereSql = "1=1" + (scope?.whereSql ?? "");
@@ -321,6 +322,29 @@ phieuXuatKho.get("/status-counts", async (c) => {
   if (loaiDon) {
     whereSql += " AND pxk.loai_don = ?";
     binds.push(loaiDon);
+  }
+  // FIX (phat hien qua ra soat QA "click StageMenu/StatCard hien it phieu hon so tren the") - comment
+  // goc o tren ("khong cong them nguoi_nhan_hang/khu_vuc/q dang loc phu") gia dinh khu_vuc la 1 bo loc
+  // PHU nguoi dung phai tu bam, nhung PhieuXuatKhoTab.tsx thuc te TU DONG ap dung Khu vuc cua chinh tai
+  // khoan lam gia tri MAC DINH tu lan tai dau (khuVucDefaultAppliedRef) - voi TN/Kho/Ke toan DA duoc
+  // gan Khu vuc rieng (user_khu_vuc, xac nhan co that tren production), so o day (khong loc khu_vuc)
+  // LON HON so phieu thuc su hien ra o danh sach mac dinh. /mo-count (badge "(N)" tren tab, sua
+  // 2026-08-31) DA co dung fix nay - /status-counts (them sau, 2026-09-11) bi sot, tai su dung LAI y het
+  // pattern cua /mo-count o tren.
+  if (scope === null) {
+    const khuVucSet = await khuVucCuaToiSet(c.env.DB, user);
+    if (khuVucSet) {
+      const { sql, binds: kvBinds } = khuVucSetWhereSql(khuVucSet, ["pxk.nguoi_nhan_hang"]);
+      whereSql += sql;
+      binds.push(...kvBinds);
+    }
+    if (canTacNghiep(c) || canKho(c) || canKeToan(c)) {
+      const gsSet = await phuTrachGsSet(c.env.DB, user.email);
+      if (gsSet) {
+        whereSql += ` AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh2.email_gs IN (${[...gsSet].map(() => "?").join(",")}))`;
+        binds.push(...gsSet);
+      }
+    }
   }
   const choTienCond = "pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'";
   const scalarRow = await c.env.DB.prepare(

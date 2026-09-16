@@ -1690,6 +1690,7 @@ datMuaLinhKien.get("/don-hang", async (c) => {
 // bo loc PHU dang bat - nguoi_tao/nguoi_nhan_hang/khu_vuc/ngay/q - CHI ap dung scope + loai_don, giong
 // het GET /don-hang/GET /tra-hang khi chua ai bam them bo loc nao).
 datMuaLinhKien.get("/don-hang-status-counts", async (c) => {
+  const user = c.get("user");
   const scope = scopeDatMuaNguoiTao(c);
   const loaiDon = c.req.query("loai_don");
   let whereSql = (loaiDon ? "1=1" : "ddh.loai_don != 'tra_hang'") + (scope?.whereSql ?? "");
@@ -1697,6 +1698,29 @@ datMuaLinhKien.get("/don-hang-status-counts", async (c) => {
   if (loaiDon) {
     whereSql += " AND ddh.loai_don = ?";
     binds.push(loaiDon);
+  }
+  // FIX (phat hien qua ra soat QA "click StatCard hien it don hon so tren the" - cung loi voi
+  // /loai-don-counts, dangTonSteps isStaff) - comment goc o tren gia dinh GET /don-hang "khi chua ai
+  // bam them bo loc nao" KHONG bi loc khu_vuc, nhung DonCuaToiTab.tsx/PhieuXuatKhoTab.tsx thuc te TU
+  // DONG ap dung Khu vuc cua chinh tai khoan lam gia tri MAC DINH ngay tu lan tai dau (khuVucDefaultAppliedRef),
+  // khong doi nguoi dung tu bam - voi TN/Kho/Ke toan DA duoc gan Khu vuc rieng (bang user_khu_vuc, xac
+  // nhan co that tren production: ngatran12302@gmail.com/vuhongthai3101@gmail.com), so o day (dem
+  // KHONG loc khu_vuc) LON HON so dong thuc su hien ra o danh sach mac dinh (co loc). Them dung
+  // khuVucCuaToiSet/phuTrachGsSet, dung 1 pattern voi /loai-don-counts (xem giai thich day du o do).
+  if (scope === null) {
+    const khuVucSet = await khuVucCuaToiSet(c.env.DB, user);
+    if (khuVucSet) {
+      const { sql, binds: kvBinds } = khuVucSetWhereSql(khuVucSet, ["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
+      whereSql += sql;
+      binds.push(...kvBinds);
+    }
+    if (canTacNghiep(c) || user.la_kho || user.la_ke_toan) {
+      const gsSet = await phuTrachGsSet(c.env.DB, user.email);
+      if (gsSet) {
+        whereSql += ` AND ddh.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;
+        binds.push(...gsSet);
+      }
+    }
   }
   // "__OPEN__" (sentinel "con ton") - dung DUNG 2 dinh nghia "dong" da co san (xem GET /don-hang).
   const dongSet = loaiDon === "tra_hang" ? TRA_HANG_TRANG_THAI_DONG_COUNTS : DON_HANG_TRANG_THAI_DONG;
@@ -3385,7 +3409,23 @@ datMuaLinhKien.get("/thieu-lk-status-counts", async (c) => {
   let whereSql = "1=1";
   const binds: unknown[] = [];
   if (canKho(c) || canTacNghiep(c)) {
-    // khong gioi han - giu nguyen
+    // FIX (phat hien qua ra soat QA "click StatCard hien it ticket hon so tren the") - cung loi voi
+    // /don-hang-status-counts/phieu-xuat-kho/status-counts (xem giai thich day du o do): comment goc
+    // "khong cong them khu_vuc" gia dinh sai vi ThieuLkTab.tsx TU DONG ap dung Khu vuc cua chinh tai
+    // khoan lam gia tri MAC DINH (khuVucDefaultAppliedRef) - voi TN/Kho DA duoc gan Khu vuc rieng
+    // (user_khu_vuc), so o day lon hon danh sach mac dinh. ddh da LEFT JOIN san nen dung thang cot
+    // ddh.email_gs (khong can EXISTS nhu pxkScope).
+    const khuVucSet = await khuVucCuaToiSet(c.env.DB, user);
+    if (khuVucSet) {
+      const { sql, binds: kvBinds } = khuVucSetWhereSql(khuVucSet, ["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
+      whereSql += sql;
+      binds.push(...kvBinds);
+    }
+    const gsSet = await phuTrachGsSet(c.env.DB, user.email);
+    if (gsSet) {
+      whereSql += ` AND ddh.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;
+      binds.push(...gsSet);
+    }
   } else if (user.vai_tro === "Giam sat") {
     whereSql += " AND ddh.email_gs = ?";
     binds.push(user.email);
