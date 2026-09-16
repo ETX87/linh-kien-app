@@ -25,9 +25,11 @@ const TRANG_THAI_DONG = ["KTV da nhan", "Ke toan huy", "Hang tru kho", "Kho da k
 const KHO_TARGETS = ["Dang gui KTV", "Hang tru kho", "Kho da ket thuc", "Kho da nhan hang tra"] as const;
 type KhoTarget = (typeof KHO_TARGETS)[number];
 
-function latestStatusExpr(idCol: string): string {
-  return `(SELECT trang_thai FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = ${idCol} ORDER BY id DESC LIMIT 1)`;
-}
+// SUA 2026-09-14 (xem giai thich day du trong phieuXuatKho.ts, comment "SUA 2026-09-14" dau file):
+// latestStatusExpr() (doc dong log CUOI CUNG lam proxy trang thai that) bi migration 0028 (2026-09-13)
+// lam sai lech - cac gia tri "log-only" moi (Da luu ma don hang/Da tai anh bien ban/...) do
+// phieuXuatKho.ts ghi vao CHUNG bang phieu_xuat_kho_log khien 2 diem duoi day (dung chung bang do) gate
+// sai theo. Bo ham nay, doc thang cot mirror trang_thai_hien_tai (luon dung, chi doi qua UPDATE CAS).
 
 // Mirror POST /:id/dong-goi cua phieuXuatKho.ts (chi luu anh, khong doi trang_thai_hien_tai) -
 // them 2026-09-08 de PXK- khop dung 4 hanh dong Kho chuan hoa voi TR- (xem Artifact "Ma tran
@@ -42,7 +44,7 @@ partnerKho.post("/phieu-xuat-kho/:id/dong-goi", async (c) => {
     .run();
 
   const pxk = await c.env.DB.prepare(
-    `SELECT ${latestStatusExpr("phieu_xuat_kho.id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`,
+    "SELECT trang_thai_hien_tai as trang_thai FROM phieu_xuat_kho WHERE id = ?",
   )
     .bind(id)
     .first<{ trang_thai: string | null }>();
@@ -121,7 +123,7 @@ partnerKho.post("/phieu-xuat-kho/:id/log", async (c) => {
     .run();
 
   const pxk = await c.env.DB.prepare(
-    `SELECT loai_don, nguoi_nhan_hang, version, ${latestStatusExpr("phieu_xuat_kho.id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`,
+    "SELECT loai_don, nguoi_nhan_hang, version, trang_thai_hien_tai as trang_thai FROM phieu_xuat_kho WHERE id = ?",
   )
     .bind(id)
     .first<{ loai_don: string | null; nguoi_nhan_hang: string | null; version: number; trang_thai: string | null }>();

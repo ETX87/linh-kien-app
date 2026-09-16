@@ -54,9 +54,19 @@ function pxkIdPrefix(loaiDon: "mua" | "cong_no" | "tra_hang"): "PMH" | "PCN" | "
   return "PTL";
 }
 
-function latestStatusExpr(idCol: string): string {
-  return `(SELECT trang_thai FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = ${idCol} ORDER BY id DESC LIMIT 1)`;
-}
+// SUA 2026-09-14 (phat hien khi thu tao PXK that de lam tai lieu huong dan TN): TRUOC DAY moi cho can
+// biet "trang thai hien tai" cua 1 PXK de GATE chuyen buoc (PATCH /ma-xuat-kho, /ma-misa, /anh-bien-
+// ban, /dong-goi, POST /log...) doc qua ham latestStatusExpr() - lay dong CUOI CUNG trong bang
+// phieu_xuat_kho_log lam proxy, AN TOAN cho toi khi migration 0028 (2026-09-13) them 6 gia tri
+// "log-only" (Da luu ma don hang/Da luu ma MISA/Da tai anh bien ban/Da yeu cau KTV chuyen tien/Da dinh
+// bang chung chuyen tien/Ke toan da duyet bang chung chuyen tien) de "Lich su xu ly" tren UI khong con
+// trung ten voi cac giai doan chinh. Migration do chi xac nhan notifications.ts an toan (so khop CHUOI
+// DUNG voi 2 gia tri workflow) roi QUEN mat dung CHINH cac gate o file nay (va partnerKho.ts) van doc
+// "dong log cuoi cung" lam trang thai that - ket qua: bat ky PXK nao da tung luu Ma don hang/Ma MISA/
+// tai anh bien ban/yeu cau chuyen tien... deu VINH VIEN khong the chuyen buoc tiep (vd TN khong bao
+// gio "Gui ke toan" duoc) DU trang_thai_hien_tai THAT van dung, vi dong log cuoi cung luc do la 1 gia
+// tri log-only chu khong phai gia tri workflow. Fix: doc THANG cot trang_thai_hien_tai (mirror luon
+// dung, chi doi qua UPDATE CAS o POST /:id/log) - bo han latestStatusExpr().
 
 // Trang thai 1 DONG dat_don_hang (khac PXK o tren) - dung khi loc dong "TN da duyet" cho picker tao
 // PXK. Cung cong thuc voi latestDonHangStatusExpr trong datMuaLinhKien.ts (khong dung chung 1 ham
@@ -80,6 +90,15 @@ function canKeToan(c: Context<{ Bindings: Env }>): boolean {
 function canKho(c: Context<{ Bindings: Env }>): boolean {
   const user = c.get("user");
   return !!user.la_kho || user.vai_tro === "Admin";
+}
+
+// CHOT (phan hoi nguoi dung: "bỏ quyền tải file form misa" cho KTV/Trạm/CTV/Vệ tinh) - MISA la form
+// ke toan noi bo, khong lien quan nghiep vu hien truong. KTV/Trạm/CTV (la_ktv_dvbh) va Vệ tinh
+// (la_ve_tinh) KHONG con tai duoc, du van xem duoc tab "Phiếu xuất kho" cua chinh minh binh thuong.
+// Giam sat van giu quyen nay (khong nam trong yeu cau thu hep).
+function canDownloadMisa(c: Context<{ Bindings: Env }>): boolean {
+  const user = c.get("user");
+  return canTacNghiep(c) || canKho(c) || canKeToan(c) || user.vai_tro === "Giam sat";
 }
 
 // GET /api/phieu-xuat-kho/mo-count - dung cho badge "(N)" o tab "Phiếu xuất kho" tren thanh tab.
@@ -238,6 +257,7 @@ phieuXuatKho.get("/", async (c) => {
 // chep dung logic dung whereSql/binds cua GET / (khong tach ham chung - dung quy uoc san co cua file
 // nay, xem GET /status-counts cung lam vay) de tranh lech bo loc giua "xem" va "xuat".
 phieuXuatKho.get("/misa-export", async (c) => {
+  if (!canDownloadMisa(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const scope = scopePxkNguoiNhanHang(c);
   const trangThai = c.req.query("trang_thai");
   const nguoiNhanHang = c.req.query("nguoi_nhan_hang");
@@ -650,6 +670,7 @@ function parseMisaTemplate(c: Context<{ Bindings: Env }>): MisaTemplate | undefi
 // kho/Ban hang) import MISA CHO DUNG 1 PXK nay (nut o modal chi tiet PXK, canh o "Mã đơn hàng" - xem
 // lib/misaExport.ts). Scope giong GET /:id (tra 404 khi ngoai pham vi).
 phieuXuatKho.get("/:id/misa-export", async (c) => {
+  if (!canDownloadMisa(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const id = c.req.param("id");
   const scope = scopePxkNguoiNhanHang(c);
   const whereSql = "pxk.id = ?" + (scope?.whereSql ?? "");
@@ -671,14 +692,9 @@ phieuXuatKho.patch("/:id/ma-xuat-kho", async (c) => {
   const maXuatKho = body.ma_xuat_kho?.trim();
   if (!maXuatKho) return c.json({ error: "MISSING_MA_XUAT_KHO" }, 400);
 
-  // BUG THAT (phat hien 2026-08-18 tu bao cao "khong luu duoc Ma MISA"): latestStatusExpr("id") -
-  // "id" khong qualify se bi SHADOW boi CHINH cot "id" cua phieu_xuat_kho_log (PK cua bang do) trong
-  // subquery tuong quan, thay vi tro toi id cua bang ngoai phieu_xuat_kho - pha vo tuong quan, luon
-  // tra NULL (WHERE phieu_xuat_kho_id = phieu_xuat_kho_log.id gan nhu khong bao gio dung). Cho nay
-  // "may man" khong lo vi co fallback `?? "Dang tao phieu"` khop dung trang thai that cua 1 PXK MOI
-  // TAO - phai qualify ro "phieu_xuat_kho.id" moi dung cho MOI truong hop (xem cung loi o ma-misa/
-  // anh-bien-ban/log ben duoi, cac cho KHONG co fallback nen loi lo ro hon).
-  const pxk = await c.env.DB.prepare(`SELECT ${latestStatusExpr("phieu_xuat_kho.id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`).bind(id).first<{ trang_thai: string | null }>();
+  // Doc thang cot mirror trang_thai_hien_tai - xem giai thich o comment "SUA 2026-09-14" dau file
+  // (latestStatusExpr() da bi bo vi bi "log-only" pollution tu migration 0028 lam sai lech).
+  const pxk = await c.env.DB.prepare("SELECT trang_thai_hien_tai as trang_thai FROM phieu_xuat_kho WHERE id = ?").bind(id).first<{ trang_thai: string | null }>();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
   if ((pxk.trang_thai ?? "Dang tao phieu") !== "Dang tao phieu") return c.json({ error: "INVALID_STATE" }, 409);
 
@@ -713,7 +729,7 @@ phieuXuatKho.patch("/:id/ma-misa", async (c) => {
   const maMisa = body.ma_misa?.trim();
   if (!maMisa) return c.json({ error: "MISSING_MA_MISA" }, 400);
 
-  const pxk = await c.env.DB.prepare(`SELECT ${latestStatusExpr("phieu_xuat_kho.id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`).bind(id).first<{ trang_thai: string | null }>();
+  const pxk = await c.env.DB.prepare("SELECT trang_thai_hien_tai as trang_thai FROM phieu_xuat_kho WHERE id = ?").bind(id).first<{ trang_thai: string | null }>();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
   if (pxk.trang_thai !== "Cho ke toan") return c.json({ error: "INVALID_STATE" }, 409);
 
@@ -737,7 +753,7 @@ phieuXuatKho.post("/:id/anh-bien-ban", async (c) => {
   const id = c.req.param("id");
   const user = c.get("user");
   const pxk = await c.env.DB.prepare(
-    `SELECT nguoi_nhan_hang, ${latestStatusExpr("phieu_xuat_kho.id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`,
+    "SELECT nguoi_nhan_hang, trang_thai_hien_tai as trang_thai FROM phieu_xuat_kho WHERE id = ?",
   )
     .bind(id)
     .first<{ nguoi_nhan_hang: string | null; trang_thai: string | null }>();
@@ -826,7 +842,7 @@ phieuXuatKho.post("/:id/chuyen-tien", async (c) => {
   const body = await c.req.json<{ so_tien: number }>();
   if (!body.so_tien || body.so_tien <= 0) return c.json({ error: "MISSING_SO_TIEN" }, 400);
 
-  const pxk = await c.env.DB.prepare(`SELECT ${latestStatusExpr("phieu_xuat_kho.id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`).bind(id).first<{ trang_thai: string | null }>();
+  const pxk = await c.env.DB.prepare("SELECT id FROM phieu_xuat_kho WHERE id = ?").bind(id).first<{ id: string }>();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
 
   // FIX (phan hoi QA 2026-08-31, muc #6): truoc day chi UPDATE, khong ghi log - "Lich su xu ly"
@@ -863,8 +879,8 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json<{ trang_thai: string; bang_chung_chuyen_tien_url?: string; bang_chung_chuyen_tien_ghi_chu?: string }>();
   const pxk = await c.env.DB.prepare(
-    `SELECT trang_thai_chuyen_tien, nguoi_nhan_hang, ${latestStatusExpr("phieu_xuat_kho.id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`,
-  ).bind(id).first<{ trang_thai_chuyen_tien: string | null; nguoi_nhan_hang: string | null; trang_thai: string | null }>();
+    "SELECT trang_thai_chuyen_tien, nguoi_nhan_hang FROM phieu_xuat_kho WHERE id = ?",
+  ).bind(id).first<{ trang_thai_chuyen_tien: string | null; nguoi_nhan_hang: string | null }>();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
   const now = nowVN();
   // FIX (phan hoi QA 2026-08-31, muc #6): 2 nhanh duoi day truoc chi UPDATE, khong ghi
@@ -951,7 +967,7 @@ phieuXuatKho.post("/:id/dong-goi", async (c) => {
   const id = c.req.param("id");
   const user = c.get("user");
   const pxk = await c.env.DB.prepare(
-    `SELECT ${latestStatusExpr("phieu_xuat_kho.id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`,
+    "SELECT trang_thai_hien_tai as trang_thai FROM phieu_xuat_kho WHERE id = ?",
   )
     .bind(id)
     .first<{ trang_thai: string | null }>();
@@ -979,7 +995,7 @@ phieuXuatKho.post("/:id/log", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json<{ trang_thai: string; ghi_chu?: string; ma_van_don?: string }>();
   const pxk = await c.env.DB.prepare(
-    `SELECT so_tien_can_chuyen, trang_thai_chuyen_tien, ma_xuat_kho_xac_nhan, ma_misa, nguoi_nhan_hang, loai_don, version, ${latestStatusExpr("phieu_xuat_kho.id")} as trang_thai FROM phieu_xuat_kho WHERE id = ?`,
+    "SELECT so_tien_can_chuyen, trang_thai_chuyen_tien, ma_xuat_kho_xac_nhan, ma_misa, nguoi_nhan_hang, loai_don, version, trang_thai_hien_tai as trang_thai FROM phieu_xuat_kho WHERE id = ?",
   )
     .bind(id)
     .first<{

@@ -247,6 +247,10 @@ export interface DangTonStep {
   filter: string;
   loaiDon?: string;
   nguoiNhanHang?: string;
+  // Danh dau dong nao THAT SU nam trong tong canLam (subset cua dangTon) - xem giai thich o backend
+  // DangTonStep (datMuaLinhKien.ts), dung o TrangChuTab.tsx lam nguon "Cần làm" thay the mySteps khi
+  // luong-quy-trinh bi tat tren mobile.
+  isCanLam?: boolean;
 }
 export interface JumpTarget {
   tab: string;

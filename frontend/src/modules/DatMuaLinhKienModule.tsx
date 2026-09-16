@@ -780,6 +780,11 @@ export function DatMuaLinhKienModule({
             canTacNghiep={canTacNghiep}
             canKho={canKho}
             canKeToan={canKeToan}
+            // CHOT (phan hoi nguoi dung: "bỏ quyền tải file form misa" cho KTV/Trạm/CTV/Vệ tinh) - dung
+            // lai isManagerView da co san (canTacNghiep||canKho||canKeToan||isGiamSat||Admin), KHONG
+            // tinh rieng bien moi, khop dung gate FORBIDDEN_ROLE da them o backend (canDownloadMisa
+            // trong phieuXuatKho.ts).
+            canDownloadMisa={isManagerView}
             currentEmail={user?.email ?? ""}
             isAdmin={user?.vai_tro === "Admin"}
             initialFilterOverride={filterFor("phieu-xuat-kho")}

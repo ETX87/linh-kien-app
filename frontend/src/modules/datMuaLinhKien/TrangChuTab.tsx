@@ -394,6 +394,14 @@ export function TrangChuTab({
   const [showToanHeThongDetail, setShowToanHeThongDetail] = useState(false);
   const dangTonRows = dangTonSteps.filter((s) => s.count > 0 && s.roleKeys.some((r) => myRoleKeys.has(r))).sort((a, b) => b.count - a.count);
   const toanHeThongRows = (tonDongToanHeThongSteps ?? []).filter((s) => s.count > 0).sort((a, b) => b.count - a.count);
+  // FIX ("bấm 'Việc cần làm' trên mobile nhảy sang màn 4 đơn không liên quan") - mySteps o duoi dung
+  // luong-quy-trinh, bi TAT han tren mobile (enabled: !isMobile o DatMuaLinhKienModule.tsx) nen luon
+  // rong, khien "Cần làm" roi vao 1 the gop chung bam-nhay CUNG 1 diem den cung ("don-cua-toi"/
+  // "__OPEN__") du con so thuc su den tu buoc nao (vd PXK "Chờ xác nhận đã nhận hàng" lai bi dan sang
+  // tab don hang). dangTonSteps (home-summary, NHE, chay ca tren mobile) da co san field isCanLam danh
+  // dau dung subset dong gop vao canLam - dung lam nguon thay the, tai su dung CACH loc/sap xep GIONG
+  // HET dangTonRows o tren de moi dong bam-nhay dung tab/filter cua chinh no.
+  const canLamRows = dangTonSteps.filter((s) => s.isCanLam && s.count > 0 && s.roleKeys.some((r) => myRoleKeys.has(r))).sort((a, b) => b.count - a.count);
 
   function jumpNum(loaiDon: "mua" | "cong_no" | "tra_hang") {
     function handleClick() {
@@ -444,12 +452,25 @@ export function TrangChuTab({
             />
           ))}
         </div>
+      ) : canLamRows.length > 0 ? (
+        // FIX (mobile: luong-quy-trinh bi tat nen mySteps luon rong) - dung tung dong canLamRows (xem
+        // dinh nghia o tren) thay vi 1 the gop chung, GIONG HET pattern dangTonRows ngay ben duoi, de
+        // moi dong bam-nhay dung tab/filter cua chinh no thay vi luon dan ve "don-cua-toi"/"__OPEN__".
+        <div className="flex gap-2 sm:gap-3 flex-wrap">
+          {canLamRows.map((s) => (
+            <StatCard
+              key={s.key}
+              label={s.label}
+              value={s.count}
+              tone="warning"
+              onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
+            />
+          ))}
+        </div>
       ) : tongViecCuaToi > 0 ? (
-        // SUA (muc D, phan hoi 2026-08-28) - truoc day chi la 1 dong text tinh, khong bam duoc, buoc
-        // nguoi dung phai tu tim nut "Cần làm: N" o tieu de trang (o TREN cung, de bi bo qua tren
-        // mobile vi phai cuon nguoc len). Doi thanh StatCard bam duoc GIONG cac the ben tren, nhay
-        // thang toi danh sach don con ton cua chinh minh - it nhat co 1 diem den cu the thay vi chi
-        // mo ta suong.
+        // Fallback CUOI CUNG (giu lai lam luoi an toan) - chi con dung khi canLam>0 nhung khong dong
+        // nao trong dangTonSteps duoc danh dau isCanLam khop voi myRoleKeys (vd vai tro chua co mat
+        // trong danh sach dangTonSteps ben backend) - tranh man hinh trong khong co gi de bam.
         <div className="flex gap-2 sm:gap-3 flex-wrap">
           <StatCard label="Việc cần làm" value={tongViecCuaToi} tone="warning" onClick={() => onJump({ tab: "don-cua-toi", filter: "__OPEN__", nguoiNhanHang: "" })} />
         </div>

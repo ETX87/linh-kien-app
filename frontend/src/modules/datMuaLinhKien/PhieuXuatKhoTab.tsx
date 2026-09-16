@@ -44,11 +44,16 @@ function toastCanhBaoThieuMisa(result: MisaExportResult, addToast: (msg: string)
 // rieng - xem chi tiet trong PxkDetailModal.
 
 export function PhieuXuatKhoTab({
-  addToast, qc, canTacNghiep, canKho, canKeToan, currentEmail, isAdmin, initialFilterOverride, initialNguoiNhanHangOverride, initialLoaiDonOverride,
+  addToast, qc, canTacNghiep, canKho, canKeToan, canDownloadMisa, currentEmail, isAdmin, initialFilterOverride, initialNguoiNhanHangOverride, initialLoaiDonOverride,
   initialDetailIdOverride, onDetailIdConsumed,
 }: {
   addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>;
-  canTacNghiep: boolean; canKho: boolean; canKeToan: boolean; currentEmail: string; isAdmin: boolean;
+  canTacNghiep: boolean; canKho: boolean; canKeToan: boolean;
+  // CHOT (phan hoi nguoi dung: "bỏ quyền tải file form misa" cho KTV/Trạm/CTV/Vệ tinh) - MISA la form
+  // ke toan noi bo, an het nut tai o ca toolbar danh sach lan Drawer chi tiet khi false. Backend gate
+  // tuong ung: canDownloadMisa() trong phieuXuatKho.ts.
+  canDownloadMisa: boolean;
+  currentEmail: string; isAdmin: boolean;
   initialFilterOverride?: string; initialNguoiNhanHangOverride?: string;
   // Them (migration 0002_tra_hang_pxk.sql) - dat truoc sub-tab loai_don khi bam vao 1 trong 3 buoc
   // PXK tra hang tren pipeline (xem loaiDonFor trong DatMuaLinhKienModule.tsx).
@@ -567,8 +572,9 @@ export function PhieuXuatKhoTab({
               {downloadingFull ? "Đang tải..." : "⬇ Tải danh sách chi tiết"}
             </Btn>
             {/* Tai gop file MISA cho danh sach PXK dang hien theo bo loc (them 2026-09-02) - 3 nut
-                rieng cho 3 mau, TN/Ke toan tu chon mau nao thi tai mau do (khong con tu dong 1 nut). */}
-            {MISA_TEMPLATE_ORDER.map((tpl) => (
+                rieng cho 3 mau, TN/Ke toan tu chon mau nao thi tai mau do (khong con tu dong 1 nut).
+                An het voi KTV/Trạm/CTV/Vệ tinh (canDownloadMisa=false, xem giai thich o khai bao prop). */}
+            {canDownloadMisa && MISA_TEMPLATE_ORDER.map((tpl) => (
               <Btn
                 key={tpl}
                 size="sm"
@@ -799,6 +805,7 @@ export function PhieuXuatKhoTab({
           canTacNghiep={canTacNghiep}
           canKho={canKho}
           canKeToan={canKeToan}
+          canDownloadMisa={canDownloadMisa}
           currentEmail={currentEmail}
           isAdmin={isAdmin}
           navRows={data?.rows}
@@ -811,10 +818,11 @@ export function PhieuXuatKhoTab({
 
 
 export function PxkDetailModal({
-  id, onClose, addToast, qc, canTacNghiep, canKho, canKeToan, currentEmail, isAdmin, navRows, onNavigate,
+  id, onClose, addToast, qc, canTacNghiep, canKho, canKeToan, canDownloadMisa, currentEmail, isAdmin, navRows, onNavigate,
 }: {
   id: string; onClose: () => void; addToast: (msg: string) => void;
   qc: ReturnType<typeof useQueryClient>; canTacNghiep: boolean; canKho: boolean; canKeToan: boolean;
+  canDownloadMisa: boolean;
   currentEmail: string; isAdmin: boolean;
   // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Drawer + Next/Previous") - xem comment day du o
   // DonHangDetailModal (cung pattern).
@@ -1164,7 +1172,7 @@ export function PxkDetailModal({
                 MISA: {pxk.ma_misa}
               </span>
             )}
-            {pxk.ma_xuat_kho_xac_nhan &&
+            {canDownloadMisa && pxk.ma_xuat_kho_xac_nhan &&
               MISA_TEMPLATE_ORDER.map((tpl) => (
                 <Btn
                   key={tpl}
