@@ -497,10 +497,17 @@ export function PhieuXuatKhoTab({
         >
           Tất cả
         </button>
-        {/* SUA (phan hoi 2026-08-18) - xem giai thich chi tiet o cung mau nut nay trong DonCuaToiTab. */}
+        {/* SUA (phan hoi 2026-08-18) - xem giai thich chi tiet o cung mau nut nay trong DonCuaToiTab.
+            SUA (phan hoi nguoi dung: "tab đang xem tô đen, tab còn tồn tô cam => không biết tab nào
+            đang xem") - truoc day active dung mau ocean-800 (xanh/den, khong lien quan he mau
+            cam="con tồn" dung o cac nut khac), khien 2 khai niem "dang xem" va "con tồn" tach roi
+            nhau, de nham "cam = dang chon". Doi active CO dem (attention) sang amber-600 dam (van la
+            1 sac cam, DAM hon amber-100 cua nut chi co dem KHONG active) - "cam = con tồn" nhat quan
+            xuyen suot, chi khac do dam/nhat theo dang xem hay khong; active KHONG dem giu nguyen
+            ocean-800 (khong co gi can canh bao). */}
         {(["mua", "cong_no", "tra_hang"] as const).map((l) => {
           const active = xemLoaiDon === l;
-          const attention = !active && loaiDonCounts[l] > 0;
+          const conTon = loaiDonCounts[l] > 0;
           return (
             <button
               key={l}
@@ -508,8 +515,10 @@ export function PhieuXuatKhoTab({
               onClick={() => setXemLoaiDon(l)}
               className={`focus-ring rounded-lg font-semibold transition-colors px-2.5 py-1.5 text-xs ${
                 active
-                  ? "bg-[var(--ocean-800)] text-white shadow-sm"
-                  : attention
+                  ? conTon
+                    ? "bg-[var(--amber-600)] text-white shadow-sm"
+                    : "bg-[var(--ocean-800)] text-white shadow-sm"
+                  : conTon
                     ? "bg-[var(--amber-100)] text-[var(--amber-700)] border border-[var(--amber-500)]"
                     : "bg-white text-[var(--ink-600)] border border-[var(--line)] hover:bg-slate-50"
               }`}
