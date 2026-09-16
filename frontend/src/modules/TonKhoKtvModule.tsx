@@ -49,18 +49,28 @@ async function downloadTonKhoImportTemplate() {
 // (cung nhom nghiep vu "ton kho tham chieu", tranh phan manh them 1 muc Sidebar rieng). Import van
 // dung CHUNG 1 nut/1 file MISA cho ca 2 tab (xem chu thich trong TonKhoKtvContent).
 export function TonKhoKtvModule() {
+  const auth = useAuth();
+  // FIX (phan hoi "với vai trò KTV, ẩn tab tồn 'kho công ty'"): tab "Kho công ty" la cau hinh NOI BO
+  // (danh sach kho vat ly + khu vuc phuc vu, dung cho logic tu dong duyet don - xem comment
+  // KhoCongTyContent o duoi), KHONG phai thong tin lien quan truc tiep toi ban than 1 KTV/Ve tinh (khac
+  // tab "Tồn kho KTV" - luon loc CHI dong cua chinh ho qua scopeKtvTonKho()). An han tab nay cho
+  // la_ktv_dvbh/la_ve_tinh, giu nguyen cho moi vai tro con lai (Giam sat/la_view/Admin/Kho/Ke toan/Tac
+  // nghiep/TBP - xem scopeKtvTonKho() o backend/src/routes/ktvTonKho.ts).
+  const isKtvLike = auth.status === "authenticated" && (auth.user.la_ktv_dvbh || auth.user.la_ve_tinh);
   const [topTab, setTopTab] = useState<"ktv" | "kho-cong-ty">("ktv");
   return (
     <div className="anim-in space-y-3">
-      <Tabs
-        tabs={[
-          { key: "ktv", label: "Tồn kho KTV" },
-          { key: "kho-cong-ty", label: "Kho công ty" },
-        ]}
-        active={topTab}
-        onChange={(k) => setTopTab(k as "ktv" | "kho-cong-ty")}
-      />
-      {topTab === "ktv" ? <TonKhoKtvContent /> : <KhoCongTyContent />}
+      {!isKtvLike && (
+        <Tabs
+          tabs={[
+            { key: "ktv", label: "Tồn kho KTV" },
+            { key: "kho-cong-ty", label: "Kho công ty" },
+          ]}
+          active={topTab}
+          onChange={(k) => setTopTab(k as "ktv" | "kho-cong-ty")}
+        />
+      )}
+      {topTab === "ktv" || isKtvLike ? <TonKhoKtvContent /> : <KhoCongTyContent />}
     </div>
   );
 }
