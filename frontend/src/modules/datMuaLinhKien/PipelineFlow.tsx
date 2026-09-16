@@ -13,10 +13,21 @@ import { STEP_SHORT_LABEL, STEP_DESCRIPTION, PIPELINE_NOTCH, PXK_TRANG_THAI_TONE
 // trang thay vi phai bam sang tab "Bao cao" moi thay (truoc do StatCard tuong tu chi nam trong
 // BaoCaoTab). Tai su dung StatCard (size sm) de dong bo hinh anh voi BaoCaoTab, khong tao pattern
 // chip moi rieng.
+// FIX (phan hoi "Cần làm 19 nhưng Việc của tôi cộng lại chỉ 17"): truoc day nhan `steps` KIEU
+// LuongQuyTrinhStep[] (nguon /luong-quy-trinh, 16 subquery, TAT tren mobile) - lech voi con so tieu de
+// "Cần làm [N]" o DatMuaLinhKienModule.tsx (lay tu /home-summary.canLam, nguon DUNG duy nhat theo
+// comment dau file backend). Rong hon: 2 nguon con GAN roleKeys KHAC NHAU cho cung 1 trang thai (vd PXK
+// "Dang gui KTV" - luong-quy-trinh gan roleKeys:["ktv"], home-summary gan roleKeys:["kho"] vi day la
+// buoc Kho theo doi cho KTV xac nhan) khien Kho thay so trong tieu de nhung KHONG thay dong tuong ung o
+// day. Sua: nhan truc tiep cac dong dangTonSteps.isCanLam (home-summary) tu component cha - dung
+// SHAPE toi thieu (khong con phu thuoc LuongQuyTrinhStep/countCuaToi) de nhan duoc CA LuongQuyTrinhStep
+// LAN DangTonStep, tong luon khop DUNG canLam.
 export function MyWorkloadStrip({
   steps, myRoleKeys, onJump,
 }: {
-  steps: LuongQuyTrinhStep[]; myRoleKeys: Set<string>; onJump: (t: JumpTarget) => void;
+  steps: { key: string; label: string; count: number; roleKeys: string[]; tab: string; filter: string; loaiDon?: string }[];
+  myRoleKeys: Set<string>;
+  onJump: (t: JumpTarget) => void;
 }) {
   const mine = steps.filter((s) => s.count > 0 && s.roleKeys.some((r) => myRoleKeys.has(r))).sort((a, b) => b.count - a.count);
   if (mine.length === 0) return null;

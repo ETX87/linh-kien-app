@@ -24,8 +24,22 @@ import { StageMenu, type StageMenuGroup } from "./datMuaLinhKien/StageMenu";
 // "__CHO_TAO_PXK__"/"__TODAY__"/"TN tu choi" deu la "don-cua-toi" nen VAN can loaiDon:"" khop dung).
 // CANH BAO: sua 1 muc trong stageMenuGroups (them/doi key/tab/filter/loaiDon) PHAI sua dong tuong ung
 // o day, khong co co che tu dong dong bo 2 danh sach.
+// FIX (phan hoi "click Trả·KT (từ 'Việc của tôi')... sidebar phải chọn là 'Trả hàng chờ các bên'"): 7
+// buoc rieng cua rieng luong tra hang (tra_hang_kt/kho/qc/tn tren tab "tra-hang" + tra_hang_tao_pxk/
+// pxk_kt/pxk_kho tren tab "phieu-xuat-kho" loaiDon:"tra_hang", xem LuongQuyTrinhStep/DangTonStep o
+// backend datMuaLinhKien.ts) TRUOC DAY khong khop dong nao o day (StageMenu chi co DUY NHAT 1 muc rollup
+// "tra-hang-cho" ung voi filter "__OPEN__") - moi lan bam mot trong 7 the "Trả·XX" thi StageMenu tat het,
+// khong sang muc nao. Ca 7 to hop NAY DEU thuoc CUNG 1 giai doan nghiep vu "tra hang" nen deu tro ve
+// chung 1 key "tra-hang-cho", khong phai quan he 1-1 nhu cac dong con lai.
 const STAGE_MENU_TARGETS: { key: string; tab: string; filter: string; loaiDon?: string }[] = [
   { key: "tra-hang-cho", tab: "tra-hang", filter: "__OPEN__" },
+  { key: "tra-hang-cho", tab: "tra-hang", filter: "Cho ke toan duyet mem" },
+  { key: "tra-hang-cho", tab: "tra-hang", filter: "Cho kho xac nhan" },
+  { key: "tra-hang-cho", tab: "tra-hang", filter: "Cho QC xac nhan" },
+  { key: "tra-hang-cho", tab: "tra-hang", filter: "Cho TN duyet tong" },
+  { key: "tra-hang-cho", tab: "phieu-xuat-kho", filter: "Dang tao phieu", loaiDon: "tra_hang" },
+  { key: "tra-hang-cho", tab: "phieu-xuat-kho", filter: "Cho ke toan", loaiDon: "tra_hang" },
+  { key: "tra-hang-cho", tab: "phieu-xuat-kho", filter: "Da chot xong don xuat", loaiDon: "tra_hang" },
   { key: "cho-tbp", tab: "don-cua-toi", filter: "Cho TBP xac nhan", loaiDon: "" },
   { key: "cho-tn-duyet", tab: "don-cua-toi", filter: "Cho TN duyet", loaiDon: "" },
   { key: "cho-hang", tab: "don-cua-toi", filter: "Cho hang", loaiDon: "" },
@@ -640,10 +654,6 @@ export function DatMuaLinhKienModule({
     myRoleKeys.has("ktv") && s.countCuaToi !== undefined ? { ...s, count: s.countCuaToi } : s,
   );
 
-  // Tong so "viec cua toi" (phan hoi 2026-08-19: "Bỏ tiêu đề module... thay vào đó là button 'Việc
-  // của tôi: N'") - tinh o CAP MODULE (khong chi trong MyWorkloadStrip) de dung cho nut thay the h1.
-  // Cung logic loc "isMine && count>0" nhu MyWorkloadStrip, khong them nguon du lieu moi.
-  const mySteps = steps.filter((s) => s.count > 0 && s.roleKeys.some((r) => myRoleKeys.has(r)));
   // "Đơn bị từ chối" van hien rieng 1 StatCard o TrangChuTab.tsx (thong tin, khong phai "viec can lam"
   // theo nghia hang doi xu ly) - KTV-like da duoc cong vao homeSummary.canLam o backend, gia tri nay
   // chi de HIEN THI tach rieng, khong cong them lan nua vao tongViecCuaToi.
@@ -652,6 +662,15 @@ export function DatMuaLinhKienModule({
   const dangTon = homeSummary?.dangTon ?? 0;
   const tonDongToanHeThong = homeSummary?.tonDongToanHeThong ?? null;
   const dangTonSteps = homeSummary?.dangTonSteps ?? [];
+  // FIX (phan hoi "Cần làm 19 nhưng bấm mở ra Việc của tôi cộng lại chỉ 17, và Kho không thấy dòng nào
+  // dù canLam có tính phần của Kho"): MyWorkloadStrip TRUOC DAY nhan thang `steps` (luong-quy-trinh) -
+  // NGUON KHAC voi tongViecCuaToi (homeSummary.canLam, "nguon DUNG duy nhat" theo comment dau file
+  // backend GET /home-summary). 2 nguon con GAN roleKeys KHAC NHAU cho CUNG 1 trang thai (vd PXK "Dang
+  // gui KTV" - luong-quy-trinh gan roleKeys:["ktv"], home-summary gan roleKeys:["kho"] vi day la buoc
+  // Kho theo doi cho KTV xac nhan) khien nut tieu de dem ca dong nay cho Kho nhung strip chi tiet lai
+  // khong hien dong nao tuong ung. Doi sang dung dangTonSteps.isCanLam (CHINH nguon da cong ra
+  // tongViecCuaToi) - tong theo vai tro cua nguoi xem LUON khop CHINH XAC voi con so tren tieu de.
+  const canLamSteps = dangTonSteps.filter((s) => s.isCanLam);
   const tonDongToanHeThongSteps = homeSummary?.tonDongToanHeThongSteps ?? null;
   // Nut tieu de bam de mo/dong bang chi tiet tung buoc (MyWorkloadStrip) - mac dinh AN (giam chrome
   // mac dinh, tiep tuc dung tinh than "gọn diện tích" da chot o cac fix truoc). CHI ap dung cho
@@ -755,7 +774,7 @@ export function DatMuaLinhKienModule({
           trung lap) - nhung SAU KHI nguoi dung da jump/doi tab (navigatedAway=true, activeView khong
           con la "trang-chu" nua), coi nhu forceView khac binh thuong, hien lai theo dung tinh than cu. */}
       {((forceView && (navigatedAway || forceView !== "trang-chu")) || showWorkloadDetail) && (
-        <MyWorkloadStrip steps={steps} myRoleKeys={myRoleKeys} onJump={jumpTo} />
+        <MyWorkloadStrip steps={canLamSteps} myRoleKeys={myRoleKeys} onJump={jumpTo} />
       )}
       {/* FIX (phan hoi 2026-08-26): an han thanh tab noi bo khi vao qua 2 duong rieng moi
           forceView="trang-chu"/"thieu-lk" - 2 man nay gio la TRANG DOC LAP thuc su LUC MOI VAO, khong
