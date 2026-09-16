@@ -712,11 +712,14 @@ datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
     // voi "tao_pxk" ben duoi ("Dang tao phieu") vi khong co cach loc rieng dieu kien "cho tien" (xem
     // comment dieu kien cho_tien o dau file GET /luong-quy-trinh). Gio dung sentinel "CHO_TIEN" duoc
     // GET /phieu-xuat-kho nhan dien rieng (xem routes/phieuXuatKho.ts).
-    { key: "cho_tien", label: "Chờ tiền", count: n("cho_tien"), countCuaToi: n("cho_tien_cua_toi"), roleKeys: ["ktv", "tac_nghiep"], tab: "phieu-xuat-kho", filter: "CHO_TIEN" },
-    { key: "tao_pxk", label: "Tạo PXK", count: n("tao_pxk"), roleKeys: ["tac_nghiep"], tab: "phieu-xuat-kho", filter: "Dang tao phieu" },
-    { key: "ke_toan", label: "Kế toán", count: n("ke_toan"), roleKeys: ["ke_toan"], tab: "phieu-xuat-kho", filter: "Cho ke toan" },
-    { key: "kho", label: "Kho", count: n("kho"), roleKeys: ["kho"], tab: "phieu-xuat-kho", filter: "Da chot xong don xuat" },
-    { key: "ktv", label: "KTV", count: n("ktv"), countCuaToi: n("ktv_cua_toi"), roleKeys: ["ktv"], tab: "phieu-xuat-kho", filter: "Dang gui KTV" },
+    // loaiDon: "" o ca 5 dong PXK duoi (cung loi "ấn TN 2 chỉ hiện 1" nhu 4 dong tren, chi khac tab
+    // dich - PhieuXuatKhoTab.tsx mac dinh sub-tab "mua" khi thieu loaiDon, xem comment isCanLam o duoi
+    // file) - dieu kien dem deu "pxk.loai_don != 'tra_hang'" (gom ca mua/cong_no), khong ep 1 loai.
+    { key: "cho_tien", label: "Chờ tiền", count: n("cho_tien"), countCuaToi: n("cho_tien_cua_toi"), roleKeys: ["ktv", "tac_nghiep"], tab: "phieu-xuat-kho", filter: "CHO_TIEN", loaiDon: "" },
+    { key: "tao_pxk", label: "Tạo PXK", count: n("tao_pxk"), roleKeys: ["tac_nghiep"], tab: "phieu-xuat-kho", filter: "Dang tao phieu", loaiDon: "" },
+    { key: "ke_toan", label: "Kế toán", count: n("ke_toan"), roleKeys: ["ke_toan"], tab: "phieu-xuat-kho", filter: "Cho ke toan", loaiDon: "" },
+    { key: "kho", label: "Kho", count: n("kho"), roleKeys: ["kho"], tab: "phieu-xuat-kho", filter: "Da chot xong don xuat", loaiDon: "" },
+    { key: "ktv", label: "KTV", count: n("ktv"), countCuaToi: n("ktv_cua_toi"), roleKeys: ["ktv"], tab: "phieu-xuat-kho", filter: "Dang gui KTV", loaiDon: "" },
   ];
 
   return c.json({ steps });
@@ -797,9 +800,16 @@ datMuaLinhKien.get("/home-summary", async (c) => {
       { key: "s_cho_tien", label: "Chờ tiền", count: row?.cho_tien ?? 0, roleKeys: ["ktv"], tab: "phieu-xuat-kho", filter: "CHO_TIEN", loaiDon: "", isCanLam: true },
       { key: "s_xac_nhan_nhan", label: "Chờ xác nhận đã nhận hàng", count: row?.xac_nhan_nhan ?? 0, roleKeys: ["ktv"], tab: "phieu-xuat-kho", filter: "Dang gui KTV", loaiDon: "", isCanLam: true },
       { key: "s_cho_tram_duyet", label: "Chờ Trạm duyệt", count: choTramDuyet, roleKeys: ["tram"], tab: "don-cua-toi", filter: "Cho Tram duyet", loaiDon: "all", isCanLam: true },
-      { key: "s_tu_choi", label: "Đơn bị từ chối chưa xem", count: row?.tu_choi ?? 0, roleKeys: ["ktv"], tab: "don-cua-toi", filter: "TN tu choi", isCanLam: true },
-      { key: "s_dang_xu_ly", label: "Đơn đang xử lý (Trạm/TBP/TN)", count: row?.dang_xu_ly ?? 0, roleKeys: ["ktv"], tab: "don-cua-toi", filter: "__OPEN__" },
-      { key: "s_cho_hang_ktv", label: "Chờ hàng", count: row?.cho_hang ?? 0, roleKeys: ["ktv"], tab: "don-cua-toi", filter: "Cho hang" },
+      // loaiDon: "all" o ca 3 dong duoi (them sau bao cao "Đơn đang xử lý (2) => click vào chỉ hiện 1
+      // đơn" - cung loi voi "Chờ tiền"/"Đang gửi KTV" o tren, khac tab don-cua-toi thay vi phieu-xuat-
+      // kho): "dang_xu_ly"/"cho_hang" tren deu gom CA mua/cong_no (chi loai tru tra_hang, xem SQL
+      // "ddh.loai_don != 'tra_hang'" o dau file), "tu_choi" (thong_bao_ktv) cung khong phan biet loai
+      // don - thieu loaiDon khien DonCuaToiTab.tsx mac dinh sub-tab "mua" (xemLoaiDon luu localStorage,
+      // xem DatMuaLinhKienModule.tsx) khi nhay toi, loc mat don thuoc loai khac (vd cong_no) khoi danh
+      // sach hien ra du count o the van dung.
+      { key: "s_tu_choi", label: "Đơn bị từ chối chưa xem", count: row?.tu_choi ?? 0, roleKeys: ["ktv"], tab: "don-cua-toi", filter: "TN tu choi", loaiDon: "all", isCanLam: true },
+      { key: "s_dang_xu_ly", label: "Đơn đang xử lý (Trạm/TBP/TN)", count: row?.dang_xu_ly ?? 0, roleKeys: ["ktv"], tab: "don-cua-toi", filter: "__OPEN__", loaiDon: "all" },
+      { key: "s_cho_hang_ktv", label: "Chờ hàng", count: row?.cho_hang ?? 0, roleKeys: ["ktv"], tab: "don-cua-toi", filter: "Cho hang", loaiDon: "all" },
     );
   }
 
@@ -1014,11 +1024,14 @@ datMuaLinhKien.get("/home-summary", async (c) => {
       { key: "t_tra_hang_kho", label: "Trả hàng · Kho", count: gt("g_tra_hang_kho"), roleKeys: [], tab: "tra-hang", filter: "Cho kho xac nhan" },
       { key: "t_tra_hang_qc", label: "Trả hàng · QC", count: gt("g_tra_hang_qc"), roleKeys: [], tab: "tra-hang", filter: "Cho QC xac nhan" },
       { key: "t_tra_hang_tn", label: "Trả hàng · TN", count: gt("g_tra_hang_tn"), roleKeys: [], tab: "tra-hang", filter: "Cho TN duyet tong" },
-      { key: "t_pxk_tao_pxk", label: "Tạo PXK", count: gt("g_pxk_tao_pxk"), roleKeys: [], tab: "phieu-xuat-kho", filter: "Dang tao phieu" },
-      { key: "t_pxk_cho_tien", label: "Chờ tiền", count: gt("g_pxk_cho_tien"), roleKeys: [], tab: "phieu-xuat-kho", filter: "CHO_TIEN" },
-      { key: "t_pxk_ke_toan", label: "Kế toán duyệt PXK", count: gt("g_pxk_ke_toan"), roleKeys: [], tab: "phieu-xuat-kho", filter: "Cho ke toan" },
-      { key: "t_pxk_kho", label: "Kho chốt đơn xuất", count: gt("g_pxk_kho"), roleKeys: [], tab: "phieu-xuat-kho", filter: "Da chot xong don xuat" },
-      { key: "t_pxk_ktv", label: "Chờ KTV xác nhận nhận", count: gt("g_pxk_ktv"), roleKeys: [], tab: "phieu-xuat-kho", filter: "Dang gui KTV" },
+      // loaiDon: "" o ca 5 dong duoi (cung loi "ấn TN 2 chỉ hiện 1", xem comment day du o LuongQuyTrinhStep
+      // "cho_tien"/"ktv"... phia tren) - truy van g_pxk_* o day (dong 1002-1006) KHONG loc loai_don gi
+      // ca (ke ca tra_hang), khong duoc de PhieuXuatKhoTab.tsx tu mac dinh sub-tab "mua".
+      { key: "t_pxk_tao_pxk", label: "Tạo PXK", count: gt("g_pxk_tao_pxk"), roleKeys: [], tab: "phieu-xuat-kho", filter: "Dang tao phieu", loaiDon: "" },
+      { key: "t_pxk_cho_tien", label: "Chờ tiền", count: gt("g_pxk_cho_tien"), roleKeys: [], tab: "phieu-xuat-kho", filter: "CHO_TIEN", loaiDon: "" },
+      { key: "t_pxk_ke_toan", label: "Kế toán duyệt PXK", count: gt("g_pxk_ke_toan"), roleKeys: [], tab: "phieu-xuat-kho", filter: "Cho ke toan", loaiDon: "" },
+      { key: "t_pxk_kho", label: "Kho chốt đơn xuất", count: gt("g_pxk_kho"), roleKeys: [], tab: "phieu-xuat-kho", filter: "Da chot xong don xuat", loaiDon: "" },
+      { key: "t_pxk_ktv", label: "Chờ KTV xác nhận nhận", count: gt("g_pxk_ktv"), roleKeys: [], tab: "phieu-xuat-kho", filter: "Dang gui KTV", loaiDon: "" },
       { key: "t_thieu_lk", label: "Thiếu LK", count: gt("g_thieu_lk"), roleKeys: [], tab: "thieu-lk", filter: "Cho kho xu ly" },
     ];
   }
