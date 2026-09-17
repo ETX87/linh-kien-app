@@ -850,7 +850,6 @@ function DanhMucTab() {
     <div>
       <div className="flex items-center justify-between mb-3">
         <div className="text-sm text-[var(--ink-600)] flex items-center gap-1.5">
-          Danh mục linh kiện dùng cho module "Đặt mua linh kiện".
           <Tooltip text={`Đánh dấu "Đặc thù" để chèn thêm bước TP DVBH xác nhận trước khi Tác nghiệp duyệt khi tạo phiếu đặt. Đánh dấu "Only sửa chữa" để ẩn mã này khỏi danh sách chọn khi tạo đơn mua hàng.`} />
         </div>
         <div className="flex gap-2 shrink-0">
