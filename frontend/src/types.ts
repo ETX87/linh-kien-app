@@ -197,6 +197,34 @@ export interface Paged<T> {
   total: number;
 }
 
+// Them 2026-09-17 - "ETX nhan su" (danh ba nhan su dong bo tu he ETX ngoai, xem
+// backend/src/lib/etxNhanSuSync.ts). ma_chuc_danh/quan_ly_truc_tiep la JSON TEXT (mang/object tu API,
+// khong query quan he tren cac truong con). ma_ktv la cot Admin tu go tay de lien ket toi
+// ktv_lien_he.ma_ktv (khong FK) - dung de he thong tu khoa/mo khoa users.bi_khoa khi
+// trang_thai_lam_viec doi. lien_ket_email/lien_ket_bi_khoa la LEFT JOIN chi de hien thi tham khao.
+export interface EtxNhanSuRow {
+  ma_nhan_su: string;
+  ho_ten: string;
+  chuc_danh: string | null;
+  ma_chuc_danh: string | null;
+  gmail: string | null;
+  trang_thai_lam_viec: "on" | "off";
+  tai_khoan_lada_ma: string | null;
+  tai_khoan_lada_ten: string | null;
+  quan_ly_truc_tiep: string | null;
+  ma_ktv: string | null;
+  created_at: string;
+  updated_at: string;
+  lien_ket_email: string | null;
+  lien_ket_bi_khoa: number | null;
+}
+export interface EtxNhanSuSyncStatus {
+  last_run_at: string | null;
+  last_status: string | null;
+  changed_count: number;
+  last_error: string | null;
+}
+
 // GET /users/login-log (bo sung theo audit "Ma trận kiểm soát hệ thống" 2026-08-27, muc A1) - bang
 // login_log da duoc ghi day du tu luc dang nhap (routes/auth.ts) nhung truoc day khong co man nao
 // hien thi ca.

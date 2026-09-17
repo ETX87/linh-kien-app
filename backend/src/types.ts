@@ -104,6 +104,11 @@ export interface Env {
   VAPID_SUBJECT: string;
   VAPID_SERVER_PUBLIC_KEY: string;
   VAPID_SERVER_PRIVATE_KEY: string;
+  // Them 2026-09-17: "ETX nhan su" - danh ba nhan su dong bo tu he ETX (xem lib/etxNhanSuClient.ts +
+  // lib/etxNhanSuSync.ts). ETX_HR_BASE_URL KHONG nhay cam (dat trong "vars"), rieng ETX_HR_API_KEY
+  // la khoa doi tac cap rieng cho he nay, PHAI dat qua "wrangler secret put" (xem wrangler.jsonc).
+  ETX_HR_BASE_URL: string;
+  ETX_HR_API_KEY: string;
 }
 
 declare module "hono" {

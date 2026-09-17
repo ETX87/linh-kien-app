@@ -14,11 +14,13 @@ import baoCaoTocDoXuLyRoutes from "./routes/baoCaoTocDoXuLy";
 import pushRoutes from "./routes/push";
 import dvbhSyncRoutes from "./routes/dvbhSync";
 import gia88SyncRoutes from "./routes/gia88Sync";
+import etxNhanSuSyncRoutes from "./routes/etxNhanSuSync";
 import partnerApiRoutes from "./routes/partnerApi";
 import khovanLookupRoutes from "./routes/khovanLookup";
 import partnerKhoRoutes from "./routes/partnerKho";
 import { runDvbhSync } from "./lib/dvbhSyncClient";
 import { runGia88SyncWithState } from "./lib/gia88Sync";
+import { runEtxNhanSuSyncWithState } from "./lib/etxNhanSuSync";
 
 // He doc lap "Dat mua linh kien" - tach tu he DVBH goc (xem CLAUDE.md muc "Nguon goc tach he
 // thong"). CO 1 cron job DUY NHAT (them 2026-08-28, xem `scheduled` o duoi) - dong bo danh ba KTV/
@@ -50,6 +52,7 @@ app.route("/api/bao-cao-toc-do", baoCaoTocDoXuLyRoutes);
 app.route("/api/push", pushRoutes);
 app.route("/api/dvbh-sync", dvbhSyncRoutes);
 app.route("/api/gia88-sync", gia88SyncRoutes);
+app.route("/api/etx-nhan-su", etxNhanSuSyncRoutes);
 app.route("/api/partner", partnerApiRoutes);
 // KHONG mount duoi "/api/partner/*" - partnerApiRoutes o tren da co san 1 middleware
 // "*" xac thuc rieng (X-API-Key, xem lib/partnerApiAuth.ts) khop CA cac duong dan con
@@ -79,6 +82,12 @@ export default {
     // theo gio de tranh chay 24 lan/ngay khong can thiet (doi tac chi khuyen nghi "moi ngay/moi ca").
     if (new Date(event.scheduledTime).getUTCHours() === 17) {
       ctx.waitUntil(runGia88SyncWithState(env, env.DB));
+    }
+    // Them 2026-09-17: PULL danh ba "ETX nhan su" 1 lan/7 ngay luc 0h thu Hai GIO VN = 17h UTC thu
+    // Chu nhat (getUTCDay()===0) - tai dung DUNG cron hang gio co san, gate them theo thu de chi chay
+    // 1 lan/tuan (xem lib/etxNhanSuSync.ts).
+    if (new Date(event.scheduledTime).getUTCDay() === 0 && new Date(event.scheduledTime).getUTCHours() === 17) {
+      ctx.waitUntil(runEtxNhanSuSyncWithState(env, env.DB));
     }
   },
 };

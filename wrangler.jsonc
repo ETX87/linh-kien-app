@@ -78,6 +78,9 @@
     // api-lk-prices_gia88.md o goc repo + lib/gia88Client.ts). KHONG phai Worker cung tai khoan
     // Cloudflare (Google Cloud Function that) nen KHONG can khai bao "services" nhu CASE_LOOKUP_SERVICE.
     "GIA88_BASE_URL": "https://asia-southeast1-b2b-quanlyphidv.cloudfunctions.net",
+    // Them 2026-09-17: nguon danh ba "ETX nhan su" (xem lib/etxNhanSuClient.ts). Google Cloud Function
+    // rieng, KHONG phai Worker cung tai khoan Cloudflare nen KHONG can khai bao "services".
+    "ETX_HR_BASE_URL": "https://asia-southeast1-etx-nhan-su.cloudfunctions.net",
     // Web Push (them 2026-08-26, xem backend/src/lib/webPush.ts) - VAPID_SERVER_PUBLIC_KEY KHONG
     // nhay cam (day la khoa cong khai frontend can de subscribe), an toan de trong "vars". Rieng
     // VAPID_SERVER_PRIVATE_KEY dat qua "wrangler secret put" (xem duoi).
@@ -107,4 +110,6 @@
   // phai bang partner_api_keys nhieu-key) - xem backend/src/routes/syncKtv.ts cua repo do.
   // Them 2026-09-12: GIA88_API_KEY - key doi tac "gia88" cap rieng cho he nay qua kenh an toan (xem
   // api-lk-prices_gia88.md), dat qua "wrangler secret put GIA88_API_KEY".
+  // Them 2026-09-17: ETX_HR_API_KEY - key doi tac "ETX nhan su" cap rieng cho he nay (doi tac "Thai
+  // 3T"), dat qua "wrangler secret put ETX_HR_API_KEY".
 }

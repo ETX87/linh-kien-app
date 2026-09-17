@@ -4,6 +4,7 @@ import { api, buildQuery } from "../api/client";
 import { Btn } from "../components/ui/Btn";
 import { FileButton } from "../components/ui/FileButton";
 import { Badge } from "../components/ui/Badge";
+import { KvRow } from "../components/ui/KvRow";
 import { Modal } from "../components/ui/Modal";
 import { Select } from "../components/ui/Select";
 import { Tabs } from "../components/ui/Tabs";
@@ -15,7 +16,7 @@ import { formatPersonDisplay, usePersonDirectory } from "../lib/personDisplay";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { parseKtvImportFile, type BulkImportKtvChunkResult } from "../lib/ktvImport";
 import { fmtVND, fmtDateTime } from "../types";
-import type { UserRow, KtvLienHeRow, KhuVucRow, Paged, LoginLogRow, MaKhoChuaKhopRow } from "../types";
+import type { UserRow, KtvLienHeRow, KhuVucRow, Paged, LoginLogRow, MaKhoChuaKhopRow, EtxNhanSuRow, EtxNhanSuSyncStatus } from "../types";
 
 // Trang quan tri nguoi dung - xay lai 2026-08-26 (yeu cau "tach rieng 2 the quan ly" cho 2 nhom doi
 // tuong dang nhap Gmail: KTV hien truong vs Nhan vien van phong, xem CLAUDE.md). "KTV hien truong"
@@ -34,6 +35,8 @@ const ROLE_FLAGS: { key: keyof UserRow; label: string }[] = [
 
 export function UsersModule() {
   const [tab, setTab] = useState("cho-duyet");
+  const auth = useAuth();
+  const isAdmin = auth.status === "authenticated" && auth.user.vai_tro === "Admin";
   return (
     <div className="anim-in space-y-4">
       <Tabs
@@ -45,6 +48,9 @@ export function UsersModule() {
           { key: "van-phong", label: "Nhân viên văn phòng" },
           { key: "phu-trach-gs", label: "Giám sát phụ trách" },
           { key: "login-log", label: "Lịch sử đăng nhập" },
+          // Du lieu nhan su nhay cam hon KTV hien truong - chi Admin thay tab nay (khac cac tab con
+          // lai, mo cho ca QC/Giam sat truy cap module Users).
+          ...(isAdmin ? [{ key: "etx-nhan-su", label: "ETX nhân sự" }] : []),
         ]}
       />
       {tab === "cho-duyet" && <UserListTab tabValue="cho-duyet" />}
@@ -52,6 +58,7 @@ export function UsersModule() {
       {tab === "van-phong" && <VanPhongTab />}
       {tab === "phu-trach-gs" && <PhuTrachGsTab />}
       {tab === "login-log" && <LoginLogTab />}
+      {tab === "etx-nhan-su" && isAdmin && <EtxNhanSuTab />}
     </div>
   );
 }
@@ -1344,6 +1351,169 @@ function LoginLogTab() {
         rowKey={(r) => r.id}
         emptyText="Không có lượt đăng nhập nào."
       />
+    </div>
+  );
+}
+
+// Danh ba "ETX nhan su" (them 2026-09-17, xem CLAUDE.md + backend/src/lib/etxNhanSuSync.ts) - dong bo
+// PULL 1 chieu tu he ETX ngoai, Admin-only. Card trang thai dong bo mo phong dung khuon
+// DongBoGia88Tab() (SettingsModule.tsx). "Mã KTV" la cot duy nhat Admin sua truc tiep tai day (sua
+// inline trong bang, khong can Modal rieng vi chi co 1 truong) - dung de he thong tu khoa/mo khoa tai
+// khoan lien ket khi trang_thai_lam_viec doi (xem cascade o backend).
+function EtxNhanSuTab() {
+  const qc = useQueryClient();
+  const addToast = useToast();
+  const [search, setSearch] = useState("");
+  const [trangThai, setTrangThai] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
+  const query = buildQuery({ search: search || undefined, trang_thai: trangThai || undefined, page, pageSize });
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["etx-nhan-su", search, trangThai, page],
+    queryFn: () => api.get<Paged<EtxNhanSuRow>>(`/etx-nhan-su${query}`),
+  });
+
+  const { data: syncStatus, isLoading: syncLoading } = useQuery({
+    queryKey: ["etx-nhan-su-sync-status"],
+    queryFn: () => api.get<EtxNhanSuSyncStatus>("/etx-nhan-su/sync-status"),
+    refetchInterval: 60_000,
+  });
+  const runSync = useMutation({
+    mutationFn: () => api.post<EtxNhanSuSyncStatus>("/etx-nhan-su/sync/run", {}),
+    onSuccess: async (res) => {
+      if (res.last_status === "error") addToast(`Đồng bộ lỗi: ${res.last_error}`);
+      else addToast(`Đã đồng bộ xong, ${res.changed_count} dòng thay đổi`);
+      await qc.invalidateQueries({ queryKey: ["etx-nhan-su-sync-status"] });
+      await qc.invalidateQueries({ queryKey: ["etx-nhan-su"] });
+    },
+    onError: (err) => addToast("Không thể đồng bộ: " + (err instanceof Error ? err.message : String(err))),
+  });
+
+  const saveMaKtv = useMutation({
+    mutationFn: ({ maNhanSu, maKtv }: { maNhanSu: string; maKtv: string | null }) =>
+      api.patch(`/etx-nhan-su/${encodeURIComponent(maNhanSu)}/ma-ktv`, { ma_ktv: maKtv }),
+    onSuccess: async () => {
+      addToast("Đã lưu Mã KTV");
+      await qc.invalidateQueries({ queryKey: ["etx-nhan-su"] });
+    },
+    onError: (err) => addToast("Không lưu được: " + (err instanceof Error ? err.message : String(err))),
+  });
+
+  const columns: Column<EtxNhanSuRow>[] = [
+    { key: "ma_nhan_su", header: "Mã NV", render: (r) => r.ma_nhan_su },
+    { key: "ho_ten", header: "Họ tên", render: (r) => r.ho_ten },
+    { key: "chuc_danh", header: "Chức danh", render: (r) => r.chuc_danh ?? "—" },
+    {
+      key: "trang_thai_lam_viec",
+      header: "Trạng thái",
+      render: (r) => (r.trang_thai_lam_viec === "on" ? <Badge tone="teal">Đang làm</Badge> : <Badge tone="coral">Đã nghỉ</Badge>),
+    },
+    { key: "gmail", header: "Gmail", render: (r) => r.gmail ?? "—" },
+    { key: "tai_khoan_lada_ten", header: "Tài khoản Lada", render: (r) => r.tai_khoan_lada_ten ?? "—" },
+    {
+      key: "ma_ktv",
+      header: "Mã KTV",
+      render: (r) => <MaKtvCell row={r} onSave={(maKtv) => saveMaKtv.mutate({ maNhanSu: r.ma_nhan_su, maKtv })} />,
+    },
+    {
+      key: "lien_ket",
+      header: "Tài khoản liên kết",
+      render: (r) =>
+        r.lien_ket_email ? (
+          <span className="flex items-center gap-1.5">
+            {r.lien_ket_email}
+            {r.lien_ket_bi_khoa ? <Badge tone="coral">Đã khoá</Badge> : <Badge tone="teal">Đang mở</Badge>}
+          </span>
+        ) : (
+          "—"
+        ),
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="max-w-md space-y-4">
+        <div className="text-xs text-[var(--ink-500)]">
+          Kéo danh bạ nhân sự từ hệ ETX về (chỉ bảng tham chiếu, không tự tạo tài khoản đăng nhập). Gán
+          "Mã KTV" để liên kết với danh sách "KTV hiện trường" — khi trạng thái làm việc chuyển
+          ON/OFF, tài khoản liên kết tự động mở/khoá. Tự động chạy 1 lần/7 ngày, hoặc bấm "Đồng bộ
+          ngay" khi cần gấp.
+        </div>
+        <div className="border border-[var(--line)] rounded-xl bg-[var(--surface)] p-4">
+          {syncLoading ? (
+            <div className="text-sm text-[var(--ink-400)]">Đang tải…</div>
+          ) : (
+            <>
+              <KvRow label="Lần đồng bộ gần nhất">{syncStatus?.last_run_at ? fmtDateTime(syncStatus.last_run_at) : "— (chưa từng)"}</KvRow>
+              <KvRow label="Trạng thái">
+                {syncStatus?.last_status === "error" ? <Badge tone="coral">Lỗi</Badge> : syncStatus?.last_status === "ok" ? <Badge tone="teal">OK</Badge> : "—"}
+              </KvRow>
+              <KvRow label="Số dòng thay đổi lần gần nhất">{syncStatus?.changed_count ?? 0}</KvRow>
+              {syncStatus?.last_status === "error" && syncStatus.last_error && (
+                <KvRow label="Chi tiết lỗi"><span className="text-[var(--coral-600)]">{syncStatus.last_error}</span></KvRow>
+              )}
+              <div className="mt-3">
+                <Btn size="sm" onClick={() => runSync.mutate()} loading={runSync.isPending}>
+                  🔄 Đồng bộ ngay
+                </Btn>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          placeholder="Tìm theo mã NV/tên/gmail/Mã KTV…"
+          className="focus-ring w-full max-w-xs border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+        />
+        <Select
+          value={trangThai}
+          onChange={(v) => { setTrangThai(v); setPage(1); }}
+          options={[{ value: "", label: "Tất cả trạng thái" }, { value: "on", label: "Đang làm" }, { value: "off", label: "Đã nghỉ" }]}
+        />
+      </div>
+
+      <PaginatedTable
+        columns={columns}
+        rows={data?.rows ?? []}
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={() => refetch()}
+        page={data?.page ?? page}
+        pageSize={data?.pageSize ?? pageSize}
+        total={data?.total ?? 0}
+        onPageChange={setPage}
+        rowKey={(r) => r.ma_nhan_su}
+        emptyText="Chưa có dữ liệu — bấm 'Đồng bộ ngay' để kéo về."
+      />
+    </div>
+  );
+}
+
+function MaKtvCell({ row, onSave }: { row: EtxNhanSuRow; onSave: (maKtv: string | null) => void }) {
+  const [value, setValue] = useState(row.ma_ktv ?? "");
+  const dirty = value.trim() !== (row.ma_ktv ?? "");
+  return (
+    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter" && dirty) onSave(value.trim() || null); }}
+        placeholder="Chưa gán"
+        className="focus-ring w-28 border border-[var(--line)] rounded-lg px-2 py-1 text-sm"
+      />
+      {dirty && (
+        <button
+          type="button"
+          onClick={() => onSave(value.trim() || null)}
+          className="text-xs px-2 py-1 rounded-lg bg-[var(--brand)] text-white"
+        >
+          Lưu
+        </button>
+      )}
     </div>
   );
 }
