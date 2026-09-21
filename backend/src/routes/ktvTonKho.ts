@@ -149,8 +149,16 @@ ktvTonKho.get("/:ma_ktv/chi-tiet", async (c) => {
       .first();
     if (!allowed) return c.json({ error: "FORBIDDEN" }, 403);
   }
+  // cong_no_thuc_te tung dong = cuoi_ky * gia_tri_cong_no cua linh kien (khop ma_hang = ma_linh_kien
+  // TRUC TIEP, dung y het computeCongNoThucTe() o lib/congNoKtv.ts - tong cac dong nay chinh la
+  // "Công nợ thực tế" hien o dau modal).
   const { results } = await c.env.DB.prepare(
-    "SELECT ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky FROM ktv_ton_kho WHERE ma_ktv = ? ORDER BY ten_hang",
+    `SELECT t.ma_hang, t.ten_hang, t.dvt, t.dau_ky, t.nhap_kho, t.xuat_kho, t.cuoi_ky,
+            t.cuoi_ky * COALESCE(lk.gia_tri_cong_no, 0) as cong_no_thuc_te
+     FROM ktv_ton_kho t
+     LEFT JOIN linh_kien lk ON lk.ma_linh_kien = t.ma_hang
+     WHERE t.ma_ktv = ?
+     ORDER BY t.ten_hang`,
   )
     .bind(maKtv)
     .all();

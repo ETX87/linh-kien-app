@@ -103,6 +103,10 @@ export interface KtvTonKhoChiTietRow {
   nhap_kho: number | null;
   xuat_kho: number | null;
   cuoi_ky: number | null;
+  // Them 2026-09-21 - gia tri cong no cua rieng dong nay (cuoi_ky x Gia tri cong no cua linh kien,
+  // xem backend routes/ktvTonKho.ts GET /:ma_ktv/chi-tiet) - tong cac dong nay = "Công nợ thực tế"
+  // hien o dau modal (computeCongNoThucTe() trong lib/congNoKtv.ts).
+  cong_no_thuc_te: number;
 }
 export interface KtvTonKhoImportMeta {
   ky_tu_ngay: string | null;

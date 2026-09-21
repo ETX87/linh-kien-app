@@ -439,7 +439,7 @@ function TonKhoChiTietModal({ row, onClose }: { row: KtvTonKhoSummaryRow; onClos
   });
 
   return (
-    <Modal open onClose={onClose} title={`Tồn kho - ${row.ten_hien_thi ?? row.ma_ktv}`} width="max-w-2xl">
+    <Modal open onClose={onClose} title={`Tồn kho - ${row.ten_hien_thi ?? row.ma_ktv}`} width="max-w-[95vw] sm:max-w-[1100px]">
       <div className="space-y-3 text-sm">
         <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs border border-[var(--line)] rounded-xl bg-[var(--surface-soft)] px-3 py-2">
           <div><span className="text-[var(--ink-400)]">Trần công nợ: </span><span className="font-semibold">{row.cong_no != null ? fmtVND(row.cong_no) : "—"}</span></div>
@@ -460,11 +460,12 @@ function TonKhoChiTietModal({ row, onClose }: { row: KtvTonKhoSummaryRow; onClos
                   <th className="px-3 py-2 text-right">Nhập kho</th>
                   <th className="px-3 py-2 text-right">Xuất kho</th>
                   <th className="px-3 py-2 text-right">Cuối kỳ</th>
+                  <th className="px-3 py-2 text-right">Công nợ thực tế</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading && (
-                  <tr><td colSpan={7} className="px-3 py-6 text-center text-[var(--ink-400)]">Đang tải…</td></tr>
+                  <tr><td colSpan={8} className="px-3 py-6 text-center text-[var(--ink-400)]">Đang tải…</td></tr>
                 )}
                 {(data?.rows ?? []).map((p) => (
                   <tr key={p.ma_hang} className="border-b border-[var(--line)] last:border-0">
@@ -475,6 +476,7 @@ function TonKhoChiTietModal({ row, onClose }: { row: KtvTonKhoSummaryRow; onClos
                     <td className="px-3 py-2 text-right">{p.nhap_kho ?? 0}</td>
                     <td className="px-3 py-2 text-right">{p.xuat_kho ?? 0}</td>
                     <td className="px-3 py-2 text-right font-semibold">{p.cuoi_ky ?? 0}</td>
+                    <td className="px-3 py-2 text-right font-mono">{fmtVND(p.cong_no_thuc_te)}</td>
                   </tr>
                 ))}
               </tbody>
