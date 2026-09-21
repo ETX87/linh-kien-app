@@ -1494,9 +1494,37 @@ export function PxkDetailModal({
                           </span>
                         ) : (
                           <span className="inline-flex gap-1.5 items-center">
-                            {d.so_tien_cong_no != null ? fmtVND(d.so_tien_cong_no) : <span className="text-[var(--ink-400)]">—</span>}
+                            {/* FIX (phan hoi 2026-09-21: "tiền cần chuyển của đơn có mà trong phiếu
+                                không hiện") - so_tien_cong_no la truong MOI (chua tung duoc dien tu
+                                dong cho don loai "mua", xem comment types.ts:307-311), gan nhu LUON
+                                null cho toi khi ai do tu sua qua o nay - hien "—" trong khi PXK-level
+                                so_tien_can_chuyen da co gia tri (thuong = dung tong Gia de xuat*SL cua
+                                cac dong, xem tongTienDaChon luc tao phieu) gay hieu lam la MAT du lieu.
+                                Fallback ve gia_de_xuat*so_luong_de_xuat (uoc tinh, in nghieng + nhan
+                                "(ước tính)") khi chua sua tay - dung con so nay lam gia tri khoi tao
+                                khi bam ✎ thay vi de trong. */}
+                            {d.so_tien_cong_no != null ? (
+                              fmtVND(d.so_tien_cong_no)
+                            ) : d.gia_de_xuat != null ? (
+                              <span className="italic text-[var(--ink-400)]" title="Ước tính = Giá đề xuất × SL, chưa được xác nhận/sửa tay">
+                                {fmtVND(d.gia_de_xuat * d.so_luong_de_xuat)} (ước tính)
+                              </span>
+                            ) : (
+                              <span className="text-[var(--ink-400)]">—</span>
+                            )}
                             {(canTacNghiep || canKeToan) && trangThai === "Dang tao phieu" && (
-                              <button type="button" className="text-[var(--ocean-700)] hover:underline" onClick={() => setSoTienCongNoDraft((p) => ({ ...p, [d.id]: String(d.so_tien_cong_no ?? "") }))}>✎</button>
+                              <button
+                                type="button"
+                                className="text-[var(--ocean-700)] hover:underline"
+                                onClick={() =>
+                                  setSoTienCongNoDraft((p) => ({
+                                    ...p,
+                                    [d.id]: String(d.so_tien_cong_no ?? (d.gia_de_xuat != null ? d.gia_de_xuat * d.so_luong_de_xuat : "")),
+                                  }))
+                                }
+                              >
+                                ✎
+                              </button>
                             )}
                           </span>
                         )}
