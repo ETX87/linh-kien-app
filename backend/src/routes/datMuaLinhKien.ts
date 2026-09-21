@@ -8,6 +8,7 @@ import { nextSequentialId } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
 import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, khuVucViewEmailInSql, khuVucCuaToiSet, khuVucSetWhereSql, scopePxkNguoiNhanHang } from "../lib/scopeDatMua";
 import { bumpVersions } from "../lib/dataVersions";
+import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { quaHanLyDoCham } from "../lib/hanLyDoCham";
 import { getDatMuaLkBadge } from "./notifications";
 import { csvTemplateResponse } from "../lib/csvTemplate";
@@ -436,33 +437,42 @@ datMuaLinhKien.get("/ton-dong-theo-ktv", async (c) => {
   }
   const whereExtra = conditions.length > 0 ? ` AND ${conditions.join(" AND ")}` : "";
 
-  const { results } = await c.env.DB.prepare(
-    `WITH ddh_open AS (
-       SELECT ddh.id, ddh.loai_don, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat,
-         ddh.nguoi_nhan_hang, ddh.ngay_tao, ddh.trang_thai_hien_tai as ddh_trang_thai,
-         pxk.trang_thai_hien_tai as pxk_trang_thai,
-         pxk.so_tien_can_chuyen, pxk.trang_thai_chuyen_tien
-       FROM dat_don_hang ddh
-       LEFT JOIN phieu_xuat_kho_dong pxkd ON pxkd.dat_don_hang_id = ddh.id
-       LEFT JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
-       WHERE ddh.loai_don != 'tra_hang'
-         AND ddh.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')
-         AND (pxk.trang_thai_hien_tai IS NULL OR pxk.trang_thai_hien_tai NOT IN ('Ke toan huy', 'Kho da ket thuc', 'Hang tru kho', 'KTV da nhan'))
-     )
-     SELECT o.id, o.loai_don, o.ma_lk, o.ten_lk_snapshot, o.so_luong_de_xuat, o.nguoi_nhan_hang,
-       o.ngay_tao, o.ddh_trang_thai, o.pxk_trang_thai, o.so_tien_can_chuyen, o.trang_thai_chuyen_tien,
-       k.ten_hien_thi, k.khu_vuc_ma, k.vai_tro_ktv, kv.ten as khu_vuc_ten,
-       (SELECT ngay_du_kien_co_hang FROM thieu_lk WHERE dat_don_hang_id = o.id ORDER BY ngay_tao DESC LIMIT 1) as ngay_du_kien_co_hang
-     FROM ddh_open o
-     LEFT JOIN ktv_lien_he k ON k.email_dang_nhap = o.nguoi_nhan_hang
-     LEFT JOIN khu_vuc kv ON kv.ma = k.khu_vuc_ma
-     WHERE 1=1${whereExtra}
-     ORDER BY o.ngay_tao ASC`,
-  )
-    .bind(...binds)
-    .all();
+  // Cache (them 2026-09-21, phan hoi kiem toan chi phi D1 quy mo 2-3 nam): ket qua CHI phu thuoc 2
+  // query param (khu_vuc/nguoi_nhan_hang), khong phu thuoc danh tinh nguoi goi (dung y "bao cao MO"
+  // da ghi o comment dau route) nen scope truyen null - toi da hoa chia se cache giua nhieu nguoi
+  // dung khac nhau cung xem cung bo loc. "now" PHAI tinh SAU khi lay cache (khong duoc loc vao trong
+  // compute()) de khong bi "dong bang" theo thoi diem tinh cache lan dau.
+  const key = buildReportKey("ton-dong-theo-ktv", { khu_vuc: khuVucMa, nguoi_nhan_hang: nguoiNhanHang }, null);
+  const rows = await cachedReport(c.env.DB, key, ["dat_mua_lk"], async () => {
+    const { results } = await c.env.DB.prepare(
+      `WITH ddh_open AS (
+         SELECT ddh.id, ddh.loai_don, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat,
+           ddh.nguoi_nhan_hang, ddh.ngay_tao, ddh.trang_thai_hien_tai as ddh_trang_thai,
+           pxk.trang_thai_hien_tai as pxk_trang_thai,
+           pxk.so_tien_can_chuyen, pxk.trang_thai_chuyen_tien
+         FROM dat_don_hang ddh
+         LEFT JOIN phieu_xuat_kho_dong pxkd ON pxkd.dat_don_hang_id = ddh.id
+         LEFT JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
+         WHERE ddh.loai_don != 'tra_hang'
+           AND ddh.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')
+           AND (pxk.trang_thai_hien_tai IS NULL OR pxk.trang_thai_hien_tai NOT IN ('Ke toan huy', 'Kho da ket thuc', 'Hang tru kho', 'KTV da nhan'))
+       )
+       SELECT o.id, o.loai_don, o.ma_lk, o.ten_lk_snapshot, o.so_luong_de_xuat, o.nguoi_nhan_hang,
+         o.ngay_tao, o.ddh_trang_thai, o.pxk_trang_thai, o.so_tien_can_chuyen, o.trang_thai_chuyen_tien,
+         k.ten_hien_thi, k.khu_vuc_ma, k.vai_tro_ktv, kv.ten as khu_vuc_ten,
+         (SELECT ngay_du_kien_co_hang FROM thieu_lk WHERE dat_don_hang_id = o.id ORDER BY ngay_tao DESC LIMIT 1) as ngay_du_kien_co_hang
+       FROM ddh_open o
+       LEFT JOIN ktv_lien_he k ON k.email_dang_nhap = o.nguoi_nhan_hang
+       LEFT JOIN khu_vuc kv ON kv.ma = k.khu_vuc_ma
+       WHERE 1=1${whereExtra}
+       ORDER BY o.ngay_tao ASC`,
+    )
+      .bind(...binds)
+      .all();
+    return results;
+  });
 
-  return c.json({ rows: results, now: nowVN() });
+  return c.json({ rows, now: nowVN() });
 });
 
 // GET/PUT /api/dat-mua-lk/phu-trach-gs - quan ly "khu vuc phu trach" (Giam sat) cho 1 nguoi TN/Kho/Ke
@@ -1190,6 +1200,13 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
   // CHUNG chuoi "TN da duyet" lam trang thai dong voi mua/cong_no (xem TRANG_THAI_DONG trong
   // traHang.ts) nen "sl_duyet"/join qua phieu_xuat_kho ben duoi tu dong dung, chi can them "Tu choi"
   // (tra hang) canh "TN tu choi" (mua/cong_no) o nhanh ket_thuc_luc dau tien.
+  // Cache (them 2026-09-21, phan hoi kiem toan chi phi D1 quy mo 2-3 nam): dung thang scopeBinds da
+  // resolve (email GS cu the / tap phuTrachGsSet / email chinh KTV-Ve tinh) lam phan "scope" cua cache
+  // key - dung nguyen tac buildReportKey da ghi: khac pham vi xem ra khac key, khong tra nham du lieu
+  // ngoai pham vi. scopeCond null (Admin, hoac wantFull) => scope null ("khong gioi han").
+  const scopeKeyPart = scopeCond ? scopeBinds : null;
+  const reportKey = buildReportKey("bao-cao-tong-the", { thang: String(thangParam), full: wantFull ? "1" : undefined }, scopeKeyPart);
+  const rows = await cachedReport(c.env.DB, reportKey, ["dat_mua_lk"], async () => {
   const { results: donRows } = await c.env.DB.prepare(
     `WITH ddh_kt AS (
        SELECT ddh.id, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.so_luong_de_xuat, ddh.gia_de_xuat, ddh.gia_chot,
@@ -1326,7 +1343,10 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
     }
   }
 
-  return c.json({ rows: [...byEmail.values()] });
+  return [...byEmail.values()];
+  });
+
+  return c.json({ rows });
 });
 
 // GET /api/dat-mua-lk/tom-tat - breakdown "viec can xu ly" theo tung loai cho nguoi dang nhap (tieu
