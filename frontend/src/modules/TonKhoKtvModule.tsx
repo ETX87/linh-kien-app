@@ -42,8 +42,9 @@ async function downloadTonKhoImportTemplate() {
 //   - la_view: xem theo Khu vuc duoc gan (giong quy uoc la_view o cac luong khac trong module Dat
 //     mua linh kien - KHONG mac dinh xem het).
 //   - Cac vai tro/co con lai (Admin/QC/la_kho/la_ke_toan/la_tac_nghiep/la_tp_dvbh): xem toan bo.
-// Import (ghi) VAN CHI Admin (adminOnly o backend, khong doi) - nut "Import tồn kho MISA" o day chi
-// hien khi user.vai_tro === "Admin".
+// Import (ghi) + toan bo CRUD "Kho công ty": Admin hoac la_ke_toan (adminOrKeToan o backend
+// ktvTonKho.ts, sua 2026-09-21 theo phan hoi "mo modules cong no ktv full quyen cho ke toan") - nut
+// "Import tồn kho MISA"/"+ Thêm kho"/"Sửa" o day chi hien voi 2 nhom nay (bien canManage ben duoi).
 // Them 2026-09-11 (phan hoi "Kho công ty" - tu dong duyet don mua/cong no khi kho con du hang, xem
 // migration 0025 + backend/src/lib/tonKhoCongTy.ts) - tab cap CAO NHAT gop chung voi "Tồn kho KTV"
 // (cung nhom nghiep vu "ton kho tham chieu", tranh phan manh them 1 muc Sidebar rieng). Import van
@@ -88,10 +89,14 @@ function DanhGiaCongNoBadge({ value }: { value: "Vuot tran" | "Canh bao" | "Binh
 function TonKhoKtvContent() {
   const auth = useAuth();
   const isAdmin = auth.status === "authenticated" && auth.user.vai_tro === "Admin";
+  const isKeToan = auth.status === "authenticated" && !!auth.user.la_ke_toan;
   // "Chưa khớp mã kho" (them 2026-09-09, tach tab theo phan hoi nguoi dung) - dung LAI dung nhom duoc
   // phep goi GET /ma-kho-chua-khop o backend (Admin/Ke toan, xem ktvTonKho.ts) - vai tro khac khong
   // thay tab nay, tranh goi API se bi 403.
-  const canSeeChuaKhop = isAdmin || (auth.status === "authenticated" && auth.user.la_ke_toan);
+  const canSeeChuaKhop = isAdmin || isKeToan;
+  // Import tồn kho MISA (ghi) - them 2026-09-21: Ke toan duoc mo them (adminOrKeToan o backend),
+  // giong dung nhom canSeeChuaKhop o tren.
+  const canManage = isAdmin || isKeToan;
   const [tab, setTab] = useState<"da-khop" | "chua-khop">("da-khop");
   const qc = useQueryClient();
   const addToast = useToast();
@@ -188,7 +193,7 @@ function TonKhoKtvContent() {
         </div>
       )}
       <div className="flex flex-wrap gap-2 items-center">
-        {isAdmin && (
+        {canManage && (
           <Btn size="sm" onClick={() => { setImportOpen(true); setImportSummary(null); setImportTotal(0); setImportProcessed(0); }}>
             📥 Import tồn kho MISA
           </Btn>
@@ -242,7 +247,7 @@ function TonKhoKtvContent() {
               )}
               {!isLoading && allRows.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có dữ liệu tồn kho{isAdmin ? ' - bấm "Import tồn kho MISA" để nhập.' : "."}</td>
+                  <td colSpan={10} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có dữ liệu tồn kho{canManage ? ' - bấm "Import tồn kho MISA" để nhập.' : "."}</td>
                 </tr>
               )}
               {pageRows.map((r) => (
@@ -296,7 +301,7 @@ function TonKhoKtvContent() {
 
       {detailKtv && <TonKhoChiTietModal row={detailKtv} onClose={() => setDetailKtv(null)} />}
 
-      {isAdmin && (
+      {canManage && (
         <Modal open={importOpen} onClose={() => { if (!importRunning) setImportOpen(false); }} title="Import tồn kho MISA">
           <div className="space-y-3">
             <div className="text-xs text-[var(--ink-500)]">
@@ -489,6 +494,9 @@ function TonKhoChiTietModal({ row, onClose }: { row: KtvTonKhoSummaryRow; onClos
 function KhoCongTyContent() {
   const auth = useAuth();
   const isAdmin = auth.status === "authenticated" && auth.user.vai_tro === "Admin";
+  // Them 2026-09-21 (phan hoi "mo modules cong no ktv full quyen cho ke toan") - CRUD "Kho công ty"
+  // (Them/Sua kho + gan Khu vuc phuc vu) mo them cho Ke toan, giong dung nhom adminOrKeToan o backend.
+  const canManage = isAdmin || (auth.status === "authenticated" && !!auth.user.la_ke_toan);
   const qc = useQueryClient();
   const addToast = useToast();
 
@@ -518,7 +526,7 @@ function KhoCongTyContent() {
         Danh sách kho vật lý của công ty - dùng để tự động duyệt (bỏ qua bước chờ TN duyệt) đơn mua/công nợ khi khu vực của KTV còn đủ tồn. Tồn kho gốc nhập <b>chung 1 file</b> với tab "Tồn kho KTV" (cùng nút "Import tồn kho MISA").
         <Tooltip text={`Tồn chốt = Tồn gốc (lần import gần nhất) trừ Tồn phát sinh (tổng SL các đơn cùng mã hàng, cùng khu vực, tạo sau lần import đó, chưa bị huỷ/từ chối) - cộng gộp mọi kho đang bật cùng phục vụ 1 khu vực.`} />
       </div>
-      {isAdmin && (
+      {canManage && (
         <Btn size="sm" onClick={() => setFormTarget("new")}>
           + Thêm kho
         </Btn>
@@ -545,7 +553,7 @@ function KhoCongTyContent() {
               )}
               {!isLoading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có kho nào{isAdmin ? ' - bấm "+ Thêm kho" để tạo.' : "."}</td>
+                  <td colSpan={7} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có kho nào{canManage ? ' - bấm "+ Thêm kho" để tạo.' : "."}</td>
                 </tr>
               )}
               {rows.map((r) => {
@@ -568,7 +576,7 @@ function KhoCongTyContent() {
                     <td className="px-3 py-2">{ton?.so_ma_hang ?? 0}</td>
                     <td className="px-3 py-2">{(ton?.tong_cuoi_ky ?? 0).toLocaleString("vi-VN")}</td>
                     <td className="px-3 py-2">
-                      {isAdmin && (
+                      {canManage && (
                         <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={(e) => { e.stopPropagation(); setFormTarget(r); }}>
                           Sửa
                         </button>

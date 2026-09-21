@@ -1,8 +1,7 @@
-import { Hono, type Context } from "hono";
+import { Hono, type Context, type Next } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
-import { requireRole } from "../middleware/requireRole";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { khuVucViewEmailInSql } from "../lib/scopeDatMua";
 import { nowVN } from "../lib/vnTime";
@@ -19,9 +18,18 @@ const ktvTonKho = new Hono<{ Bindings: Env }>();
 // gate module "Dat mua linh kien" (Admin/QC/Giam sat/7 co nghiep vu) lam dieu kien vao module nay,
 // vi day gio la 1 muc Sidebar rieng mo cho CUNG tap tai khoan do (xem App.tsx/navConfig.ts). Middleware
 // nay CUNG tu chan moi request khong phai GET neu la_view la con duong DUY NHAT dua tai khoan vao -
-// dung y, vi POST /import van rieng adminOnly ben duoi.
+// dung y, vi POST /import van rieng adminOrKeToan ben duoi.
 ktvTonKho.use("*", verifySessionMiddleware, loadUser, requireDatMuaLkArea);
-const adminOnly = requireRole("Admin");
+// Them 2026-09-21 (phan hoi "mo modules cong no ktv full quyen cho ke toan") - Import tồn kho MISA +
+// toan bo CRUD "Kho công ty" (truoc day adminOnly) nay mo them cho la_ke_toan, giong dung nhom da
+// duoc phep GET /ma-kho-chua-khop va PATCH /:ma/cong-no-misa (settingsKtv.ts). requireRole() khong
+// dung duoc o day vi chi so sanh users.vai_tro (enum Admin/QC/Giam sat), khong biet ve co boolean
+// la_ke_toan - phai tu kiem tra thang.
+const adminOrKeToan = async (c: Context<{ Bindings: Env }>, next: Next) => {
+  const user = c.get("user");
+  if (user.vai_tro !== "Admin" && !user.la_ke_toan) return c.json({ error: "FORBIDDEN" }, 403);
+  await next();
+};
 
 // Pham vi XEM (them 2026-08-29, phan hoi nguoi dung: "Cấp quyền cho KTV tự xem công nợ bản thân.
 // Giám sát xem được KTV theo khu vực của mình. Các vai trò còn lại có thể xem toàn bộ."):
@@ -159,7 +167,7 @@ ktvTonKho.get("/:ma_ktv/chi-tiet", async (c) => {
 // ma_kho/ten_kho, doi khoa duy nhat sang (ma_kho, ma_hang), ma_ktv nullable) va
 // GET /ma-kho-chua-khop + lib/ktvTonKhoRelink.ts (Admin/Ke toan chon bo sung Mã MISA sau, khop lai
 // ngay khong can doi import lai).
-ktvTonKho.post("/import", adminOnly, async (c) => {
+ktvTonKho.post("/import", adminOrKeToan, async (c) => {
   const body = await c.req.json<{
     rows: {
       ma_kho: string; ten_kho?: string; ma_hang: string; ten_hang?: string; dvt?: string;
@@ -286,7 +294,7 @@ ktvTonKho.get("/kho-cong-ty", async (c) => {
 });
 
 // POST /kho-cong-ty - them/sua 1 kho (upsert theo ma, giong pattern POST /khu-vuc).
-ktvTonKho.post("/kho-cong-ty", adminOnly, async (c) => {
+ktvTonKho.post("/kho-cong-ty", adminOrKeToan, async (c) => {
   const body = await c.req.json<{ ma: string; ten: string }>();
   if (!body.ma?.trim() || !body.ten?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
   const user = c.get("user");
@@ -302,7 +310,7 @@ ktvTonKho.post("/kho-cong-ty", adminOnly, async (c) => {
 });
 
 // PATCH /kho-cong-ty/:ma - sua ten/bat_tat.
-ktvTonKho.patch("/kho-cong-ty/:ma", adminOnly, async (c) => {
+ktvTonKho.patch("/kho-cong-ty/:ma", adminOrKeToan, async (c) => {
   const ma = c.req.param("ma");
   const body = await c.req.json<{ ten?: string; bat_tat?: boolean }>();
   const existing = await c.env.DB.prepare("SELECT * FROM kho_cong_ty WHERE ma = ?").bind(ma).first<{ ten: string; bat_tat: number }>();
@@ -320,7 +328,7 @@ ktvTonKho.patch("/kho-cong-ty/:ma", adminOnly, async (c) => {
 
 // PATCH /kho-cong-ty/:ma/khu-vuc - ghi DE toan bo danh sach Khu vuc kho nay phuc vu (khong phai
 // them/bot tung dong - FE gui nguyen mang moi, don gian hon cho UI dang chip multi-select).
-ktvTonKho.patch("/kho-cong-ty/:ma/khu-vuc", adminOnly, async (c) => {
+ktvTonKho.patch("/kho-cong-ty/:ma/khu-vuc", adminOrKeToan, async (c) => {
   const ma = c.req.param("ma");
   const existing = await c.env.DB.prepare("SELECT ma FROM kho_cong_ty WHERE ma = ?").bind(ma).first();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
