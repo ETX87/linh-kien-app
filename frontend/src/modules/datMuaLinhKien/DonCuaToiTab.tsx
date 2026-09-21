@@ -641,7 +641,7 @@ export function DonHangDetailModal({
                 tuy y truoc do) - chi hien khi con "Cho TN duyet" (dang o buoc duyet) VA SL de xuat > 1
                 (dung dieu kien nguoi dung neu). Doi gia tri thi bat buoc nhap ly do (xem
                 soLuongThucXuatDaDoi/disabled cua nut Duyet ben duoi). */}
-            {canTacNghiep && d.trang_thai === "Cho TN duyet" && d.so_luong_de_xuat > 1 && (
+            {canTacNghiep && d.trang_thai === "Cho TN duyet" && d.so_luong_de_xuat > 1 ? (
               <QuickStat
                 label="SL thực xuất"
                 value={
@@ -655,6 +655,23 @@ export function DonHangDetailModal({
                 }
                 tone={soLuongThucXuatDaDoi ? undefined : "green"}
               />
+            ) : (
+              d.trang_thai !== "Cho TN duyet" && (
+                // FIX (phan hoi 2026-09-21: "các thông tin đơn hàng đang thiếu sl thực xuất") - o tren
+                // chi hien Ô NHẬP luc dang o buoc "Cho TN duyet" - sau khi qua buoc do (don da duoc
+                // duyet) thi khong con hien SL thuc xuat o dau ca, kieu ca khi TN GIU NGUYEN so voi de
+                // xuat (so_luong_thuc_xuat = null trong TH do, xem duyetPayload() o tren - BE chi luu
+                // gia tri khi TN THAT SU doi). Hien CHI-DOC, fallback ve SL de xuat khi null (dung y
+                // het cach khoi tao o nhap o dong 129 "?? d.so_luong_de_xuat") vi null = "giu nguyen
+                // SL de xuat", khong phai "chua co du lieu". QuickStat chi co 2 tone (green/default) -
+                // "green" khi giu nguyen (khop SL de xuat canh no), de trong (default) khi THAT SU
+                // khac de nguoi xem chu y da co dieu chinh.
+                <QuickStat
+                  label="SL thực xuất"
+                  value={d.so_luong_thuc_xuat ?? d.so_luong_de_xuat}
+                  tone={d.so_luong_thuc_xuat != null && d.so_luong_thuc_xuat !== d.so_luong_de_xuat ? undefined : "green"}
+                />
+              )
             )}
             <QuickStat label="Giá đề xuất" value={d.gia_de_xuat != null ? fmtVND(d.gia_de_xuat) : "—"} tone="green" />
             <QuickStat label="Tổng tiền đề xuất" value={fmtVND((d.gia_de_xuat ?? 0) * d.so_luong_de_xuat)} tone="green" />
