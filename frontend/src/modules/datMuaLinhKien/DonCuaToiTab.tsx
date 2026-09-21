@@ -285,12 +285,20 @@ export function DonHangDetailModal({
   // CHOT (ra soat module "Dat Mua Linh Kien 2.0" #9): gop 2 che do sua CHONG CHEO truoc day (nguoi
   // tao sua toan bo qua isEditMode rieng, TN ho tro sua 4 truong phu qua tnEditOpen/tnDraft rieng)
   // thanh 1 nut "Sua" + 1 form DUY NHAT - field nao nguoi bam khong co quyen thi disabled ngay trong
-  // form, khong con 2 khoi UI tach roi cho cung 1 dong. canEditTn (4 truong phu) khong gioi han
-  // trang thai (dung y nghia cu cua tnEditOpen), canEditFull chi trong "cua so dang mo" cua nguoi tao.
-  const canEditFull = isCreatorEditWindow;
-  const canEditTn = canTacNghiep;
+  // form, khong con 2 khoi UI tach roi cho cung 1 dong.
+  // MOI (2026-09-21, phan hoi "cho phep TN sua thong tin don ngay ca khi da len PXK"): TN sua duoc
+  // TOAN BO thong tin don (khong chi 4 truong phu nhu truoc) mien PXK (neu co) con dung buoc "Dang tao
+  // phieu" (= ke toan chua duyet xong chuyen tien) HOAC don chua len PXK nao - khop dung gate backend
+  // moi cua PATCH /don-hang/:id (xem comment tnEditWindow o do). canEditTn cu (khong gioi han trang
+  // thai) da bo - gop chung vao canEditFull, dung luon cho dieu kien hien nut "Sua".
+  const tnEditWindow = canTacNghiep && (!pxk || pxk.trang_thai === "Dang tao phieu");
+  const canEditFull = isCreatorEditWindow || tnEditWindow;
   const [isEditMode, setIsEditMode] = useState(false);
   const [editDraft, setEditDraft] = useState<DonHangDraft | null>(null);
+  // 4 truong loi rieng cua TN (SL thuc xuat/Gia chot/Ma xuat kho/Ma MISA) - state RIENG, KHONG gop vao
+  // DonHangDraft (type do dung chung voi useTaoDonForm.ts/TaoDonTab, khong nen mang field TN-only vao
+  // form tao don). null = khong hien khoi UI nay (ngoai tnEditWindow).
+  const [tnCoreDraft, setTnCoreDraft] = useState<{ so_luong_thuc_xuat: string; gia_chot: string; ma_xuat_kho: string; ma_misa: string; ghi_chu_so_luong: string } | null>(null);
   // CHOT (ra soat module #18): luu lai BAN GOC luc bat dau sua de "Huy sua" chi hoi xac nhan khi
   // draft THUC SU khac ban goc - truoc day xoa draft ngay khong canh bao, du da sua nhieu truong.
   const [editDraftSnapshot, setEditDraftSnapshot] = useState<DonHangDraft | null>(null);
@@ -322,6 +330,19 @@ export function DonHangDetailModal({
     };
     setEditDraft(snap);
     setEditDraftSnapshot(snap);
+    // Khoi 4 truong loi TN (them 2026-09-21) - chi khoi tao khi tnEditWindow, gia tri dau tu chinh
+    // dong dang xem (fallback SL de xuat cho SL thuc xuat, khop pattern QuickStat/duyetPayload da co).
+    setTnCoreDraft(
+      tnEditWindow
+        ? {
+            so_luong_thuc_xuat: String(d.so_luong_thuc_xuat ?? d.so_luong_de_xuat),
+            gia_chot: d.gia_chot != null ? String(d.gia_chot) : "",
+            ma_xuat_kho: d.ma_xuat_kho ?? "",
+            ma_misa: d.ma_misa ?? "",
+            ghi_chu_so_luong: "",
+          }
+        : null,
+    );
     setConfirmCancelPending(false);
     setOtherLdeOpen(false);
     setIsEditMode(true);
@@ -337,10 +358,15 @@ export function DonHangDetailModal({
     setIsEditMode(false);
     setEditDraft(null);
     setEditDraftSnapshot(null);
+    setTnCoreDraft(null);
     setConfirmCancelPending(false);
   }
   function updateEditDraft(patch: Partial<DonHangDraft>) {
     setEditDraft((prev) => (prev ? { ...prev, ...patch } : prev));
+    setConfirmCancelPending(false);
+  }
+  function updateTnCoreDraft(patch: Partial<NonNullable<typeof tnCoreDraft>>) {
+    setTnCoreDraft((prev) => (prev ? { ...prev, ...patch } : prev));
     setConfirmCancelPending(false);
   }
 
@@ -350,6 +376,7 @@ export function DonHangDetailModal({
       setIsEditMode(false);
       setEditDraft(null);
       setEditDraftSnapshot(null);
+      setTnCoreDraft(null);
       invalidate();
       addToast("Đã lưu thay đổi đơn hàng");
     },
@@ -358,7 +385,7 @@ export function DonHangDetailModal({
 
   function saveEdit() {
     if (!editDraft) return;
-    editMutation.mutate({
+    const body: Record<string, unknown> = {
       ma_lk: editDraft.ma_lk,
       loai_de_xuat: editDraft.loai_de_xuat.trim(),
       so_luong_de_xuat: editDraft.so_luong_de_xuat,
@@ -369,16 +396,30 @@ export function DonHangDetailModal({
       chinh_sach: editDraft.chinh_sach.trim() || undefined,
       ma_yeu_cau_su_co: editDraft.ma_yeu_cau_su_co.trim() || undefined,
       uu_tien: editDraft.uu_tien,
-    });
+    };
+    if (tnCoreDraft) {
+      const slThucXuat = Number(tnCoreDraft.so_luong_thuc_xuat);
+      const slGoc = d?.so_luong_thuc_xuat ?? d?.so_luong_de_xuat;
+      body.so_luong_thuc_xuat = slThucXuat;
+      body.gia_chot = tnCoreDraft.gia_chot.trim() === "" ? undefined : Number(tnCoreDraft.gia_chot);
+      body.ma_misa = tnCoreDraft.ma_misa.trim() || undefined;
+      // Ma xuat kho: chi gui khi don CHUA co PXK (khop gate backend - da co PXK thi BE im lang bo qua
+      // gia tri gui len, xem comment tnEditWindow o PATCH /don-hang/:id).
+      if (!pxk) body.ma_xuat_kho = tnCoreDraft.ma_xuat_kho.trim() || undefined;
+      if (slThucXuat !== slGoc) body.ghi_chu_so_luong = tnCoreDraft.ghi_chu_so_luong.trim() || undefined;
+    }
+    editMutation.mutate(body);
   }
 
+  const tnSlThucXuatDaDoi = !!tnCoreDraft && Number(tnCoreDraft.so_luong_thuc_xuat) !== (d?.so_luong_thuc_xuat ?? d?.so_luong_de_xuat);
   const editCanSave =
     !!editDraft &&
     editDraft.ma_lk.trim() !== "" &&
     editDraft.loai_de_xuat.trim() !== "" &&
     editDraft.so_luong_de_xuat > 0 &&
     (!canNoRequired(editDraft.loai_de_xuat) || editDraft.chinh_sach.trim() !== "") &&
-    (!maYcscRequired(editDraft.loai_de_xuat) || editDraft.ma_yeu_cau_su_co.trim() !== "");
+    (!maYcscRequired(editDraft.loai_de_xuat) || editDraft.ma_yeu_cau_su_co.trim() !== "") &&
+    (!tnSlThucXuatDaDoi || !!tnCoreDraft?.ghi_chu_so_luong.trim());
 
   const footer =
     !isLoading && d ? (
@@ -620,7 +661,7 @@ export function DonHangDetailModal({
               onNext={() => navNextId && onNavigate(navNextId)}
             />
           )}
-          {(canEditFull || canEditTn) && !isEditMode ? (
+          {canEditFull && !isEditMode ? (
             <Btn size="sm" variant="ghost" onClick={startEdit}>✎ Sửa</Btn>
           ) : undefined}
         </>
@@ -802,11 +843,6 @@ export function DonHangDetailModal({
 
           {isEditMode && editDraft ? (
             <div className="space-y-3 bg-[var(--surface-100)] rounded-xl p-3">
-              {!canEditFull && (
-                <div className="text-[11px] text-[var(--ink-500)]">
-                  Bạn chỉ có thể sửa các trường phụ bên dưới (Mã yêu cầu sự cố / Yêu cầu hóa đơn / TT khách hàng / TT mail duyệt) — các trường còn lại đã khoá.
-                </div>
-              )}
               <div>
                 <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Mã linh kiện</label>
                 <LinhKienPicker value={editDraft.ma_lk} onChange={(v) => updateEditDraft({ ma_lk: v })} options={danhMuc} disabled={!canEditFull} />
@@ -934,6 +970,69 @@ export function DonHangDetailModal({
                   className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm disabled:opacity-40"
                 />
               </div>
+              {/* Khoi 4 truong loi TN (them 2026-09-21, phan hoi "cho phep TN sua thong tin don ngay
+                  ca khi da len PXK") - chi hien khi tnEditWindow (xem khoi tao o startEdit). Mã xuất
+                  kho CHỈ hiện khi đơn CHƯA có PXK (khớp gate backend - đã có PXK thật quản lý thì field
+                  này chỉ đọc, xem KvRow "Mã xuất kho" ở chế độ xem). */}
+              {tnCoreDraft && (
+                <div className="space-y-3 pt-3 border-t border-[var(--line)]">
+                  <div className="text-[11px] font-semibold text-[var(--ink-600)]">
+                    Thông tin TN (SL thực xuất · Giá chốt · Mã MISA{!pxk ? " · Mã xuất kho" : ""})
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">SL thực xuất</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={tnCoreDraft.so_luong_thuc_xuat}
+                        onChange={(e) => updateTnCoreDraft({ so_luong_thuc_xuat: e.target.value })}
+                        className="focus-ring w-full bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Giá chốt (tuỳ chọn)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={tnCoreDraft.gia_chot}
+                        onChange={(e) => updateTnCoreDraft({ gia_chot: e.target.value })}
+                        className="focus-ring w-full bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                      />
+                    </div>
+                  </div>
+                  {tnSlThucXuatDaDoi && (
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Lý do đổi SL thực xuất *</label>
+                      <input
+                        value={tnCoreDraft.ghi_chu_so_luong}
+                        onChange={(e) => updateTnCoreDraft({ ghi_chu_so_luong: e.target.value })}
+                        className={`focus-ring w-full bg-white border rounded-lg px-2.5 py-1.5 text-sm ${!tnCoreDraft.ghi_chu_so_luong.trim() ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
+                      />
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Mã MISA (tuỳ chọn)</label>
+                      <input
+                        value={tnCoreDraft.ma_misa}
+                        onChange={(e) => updateTnCoreDraft({ ma_misa: e.target.value })}
+                        className="focus-ring w-full bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                      />
+                    </div>
+                    {!pxk && (
+                      <div>
+                        <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Mã xuất kho (tuỳ chọn)</label>
+                        <input
+                          value={tnCoreDraft.ma_xuat_kho}
+                          onChange={(e) => updateTnCoreDraft({ ma_xuat_kho: e.target.value })}
+                          className="focus-ring w-full bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <>
