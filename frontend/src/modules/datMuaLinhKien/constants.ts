@@ -163,6 +163,9 @@ export const PXK_LOG_ONLY_OPTIONS = [
   { value: "Da yeu cau KTV chuyen tien", label: "Yêu cầu KTV chuyển tiền" },
   { value: "Da dinh bang chung chuyen tien", label: "Đã đính bằng chứng chuyển tiền" },
   { value: "Ke toan da duyet bang chung chuyen tien", label: "Kế toán đã duyệt bằng chứng chuyển tiền" },
+  { value: "Da sua tong tien can chuyen", label: "Đã sửa tổng tiền cần chuyển" },
+  { value: "Da them don vao phieu", label: "Đã thêm đơn vào phiếu" },
+  { value: "Da xoa don khoi phieu", label: "Đã xoá đơn khỏi phiếu" },
 ];
 export const PXK_LOG_ONLY_TONE: Record<string, Tone> = {
   "Da luu ma don hang": "info",
@@ -171,6 +174,9 @@ export const PXK_LOG_ONLY_TONE: Record<string, Tone> = {
   "Da yeu cau KTV chuyen tien": "warning",
   "Da dinh bang chung chuyen tien": "info",
   "Ke toan da duyet bang chung chuyen tien": "success",
+  "Da sua tong tien can chuyen": "info",
+  "Da them don vao phieu": "info",
+  "Da xoa don khoi phieu": "info",
 };
 
 export const CHUYEN_TIEN_TONE: Record<string, Tone> = {

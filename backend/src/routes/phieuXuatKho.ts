@@ -1004,6 +1004,138 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
   return c.json({ ok: true });
 });
 
+// PATCH /api/phieu-xuat-kho/:id/so-tien-can-chuyen - them 2026-09-21 (phan hoi "ở bước chờ KTV chuyển
+// tiền, cho phép Kế toán/TN sửa tổng tiền cần chuyển thực tế của cả phiếu") - KHAC HAN
+// POST /:id/chuyen-tien (route do RESET toan bo luong: xoa bang chung, dua trang_thai_chuyen_tien ve
+// lai "Cho KTV chuyen") - route nay CHI sua so tien, giu nguyen bang chung/trang thai da co (vd Ke
+// toan phat hien so sai TRUOC khi duyet, khong muon KTV phai nop lai bang chung tu dau). Gate doc
+// THANG cot trang_thai_hien_tai (xem giai thich dau file, KHONG dung ham doc qua log) - chi cho sua
+// khi phieu con o "Dang tao phieu" VA da co yeu cau chuyen tien (so_tien_can_chuyen khong null) - neu
+// chua co yeu cau nao, dung nut "Yêu cầu chuyển" (POST /:id/chuyen-tien) de khoi tao truoc.
+phieuXuatKho.patch("/:id/so-tien-can-chuyen", async (c) => {
+  if (!canTacNghiep(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const body = await c.req.json<{ so_tien_can_chuyen: number; ghi_chu?: string }>();
+  if (body.so_tien_can_chuyen == null || Number.isNaN(body.so_tien_can_chuyen) || body.so_tien_can_chuyen < 0) {
+    return c.json({ error: "INVALID_SO_TIEN" }, 400);
+  }
+
+  const pxk = await c.env.DB.prepare(
+    "SELECT so_tien_can_chuyen, trang_thai_hien_tai as trang_thai FROM phieu_xuat_kho WHERE id = ?",
+  )
+    .bind(id)
+    .first<{ so_tien_can_chuyen: number | null; trang_thai: string | null }>();
+  if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
+  if (pxk.trang_thai !== "Dang tao phieu") return c.json({ error: "INVALID_STATE" }, 409);
+  if (pxk.so_tien_can_chuyen == null) return c.json({ error: "CHUA_CO_YEU_CAU_CHUYEN_TIEN" }, 400);
+
+  const now = nowVN();
+  const ghiChu = `Số tiền ${pxk.so_tien_can_chuyen.toLocaleString("vi-VN")}đ → ${body.so_tien_can_chuyen.toLocaleString("vi-VN")}đ${body.ghi_chu?.trim() ? " | " + body.ghi_chu.trim() : ""}`;
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE phieu_xuat_kho SET so_tien_can_chuyen = ? WHERE id = ?").bind(body.so_tien_can_chuyen, id),
+    c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+      id, "Da sua tong tien can chuyen", user.email, now, ghiChu,
+    ),
+  ]);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true });
+});
+
+// POST /api/phieu-xuat-kho/:id/dong - them 2026-09-21 (phan hoi "cho phép thêm đơn vào phiếu đang
+// xem") - truoc gio KHONG co route nao gan them 1 dong dat_don_hang vao 1 PXK DA TAO (chi gan luc
+// POST / tao phieu). Dieu kien hop le GIONG HET buoc kiem tra o POST / (bien theo loai_don, xem
+// comment o do) - CONG THEM phai dung nguoi_nhan_hang cua CHINH PXK nay (1 PXK chi 1 KTV, chot
+// 2026-08-15). ma_xuat_kho gan cho don MOI la ma cua PXK (khong phai cua don) - dung chieu nhu POST /.
+phieuXuatKho.post("/:id/dong", async (c) => {
+  if (!canTacNghiep(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const body = await c.req.json<{ dat_don_hang_ids: string[] }>();
+  if (!Array.isArray(body.dat_don_hang_ids) || body.dat_don_hang_ids.length === 0) {
+    return c.json({ error: "MISSING_DON_HANG" }, 400);
+  }
+
+  const pxk = await c.env.DB.prepare(
+    "SELECT ma_xuat_kho, nguoi_nhan_hang, loai_don, trang_thai_hien_tai as trang_thai FROM phieu_xuat_kho WHERE id = ?",
+  )
+    .bind(id)
+    .first<{ ma_xuat_kho: string; nguoi_nhan_hang: string | null; loai_don: string | null; trang_thai: string | null }>();
+  if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
+  if (pxk.trang_thai !== "Dang tao phieu") return c.json({ error: "INVALID_STATE" }, 409);
+
+  const isTraHang = pxk.loai_don === "tra_hang";
+  const placeholders = body.dat_don_hang_ids.map(() => "?").join(", ");
+  const { results: hopLe } = await c.env.DB.prepare(
+    isTraHang
+      ? `SELECT id FROM dat_don_hang ddh WHERE ddh.id IN (${placeholders}) AND ddh.loai_don = 'tra_hang' AND ddh.ma_xuat_kho IS NULL
+           AND ddh.nguoi_nhan_hang = ? AND ddh.trang_thai_hien_tai = 'TN da duyet'`
+      : `SELECT id FROM dat_don_hang ddh WHERE ddh.id IN (${placeholders}) AND ddh.loai_don = ? AND ddh.ma_xuat_kho IS NULL
+           AND ddh.nguoi_nhan_hang = ? AND ${latestDonHangLogStatusExpr("ddh.id")} = 'TN da duyet'`,
+  )
+    .bind(...body.dat_don_hang_ids, isTraHang ? pxk.nguoi_nhan_hang : pxk.loai_don, ...(isTraHang ? [] : [pxk.nguoi_nhan_hang]))
+    .all<{ id: string }>();
+  const hopLeIds = new Set((hopLe as { id: string }[]).map((r) => r.id));
+  const khongHopLe = body.dat_don_hang_ids.filter((did) => !hopLeIds.has(did));
+  if (khongHopLe.length > 0) return c.json({ error: "DON_KHONG_HOP_LE", ids: khongHopLe }, 400);
+
+  const { results: donRows } = await c.env.DB.prepare(
+    `SELECT ma_lk FROM dat_don_hang WHERE id IN (${placeholders})`,
+  )
+    .bind(...body.dat_don_hang_ids)
+    .all<{ ma_lk: string }>();
+  const now = nowVN();
+  const statements = body.dat_don_hang_ids.flatMap((donHangId) => [
+    c.env.DB.prepare("INSERT INTO phieu_xuat_kho_dong (phieu_xuat_kho_id, dat_don_hang_id) VALUES (?, ?)").bind(id, donHangId),
+    c.env.DB.prepare("UPDATE dat_don_hang SET ma_xuat_kho = ?, updated_at = ? WHERE id = ?").bind(pxk.ma_xuat_kho, now, donHangId),
+  ]);
+  statements.push(
+    c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+      id, "Da them don vao phieu", user.email, now, `Đã thêm ${body.dat_don_hang_ids.length} đơn: ${(donRows as { ma_lk: string }[]).map((r) => r.ma_lk).join(", ")}`,
+    ),
+  );
+  await c.env.DB.batch(statements);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, added: body.dat_don_hang_ids.length });
+});
+
+// DELETE /api/phieu-xuat-kho/:id/dong/:donHangId - them 2026-09-21 (phan hoi "cho phép bỏ đơn khỏi
+// phiếu đang xem") - go 1 dong khoi phieu (khong xoa dat_don_hang, chi go lien ket + tra ma_xuat_kho
+// ve NULL de don do quay lai danh sach "khả dụng" cho 1 PXK khac). Chan neu la dong CUOI CUNG con lai
+// (mot PXK khong the rong - dung "Kế toán huỷ" qua POST /:id/log neu muon bo han ca phieu).
+phieuXuatKho.delete("/:id/dong/:donHangId", async (c) => {
+  if (!canTacNghiep(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const id = c.req.param("id");
+  const donHangId = c.req.param("donHangId");
+  const user = c.get("user");
+
+  const pxk = await c.env.DB.prepare("SELECT trang_thai_hien_tai as trang_thai FROM phieu_xuat_kho WHERE id = ?")
+    .bind(id)
+    .first<{ trang_thai: string | null }>();
+  if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
+  if (pxk.trang_thai !== "Dang tao phieu") return c.json({ error: "INVALID_STATE" }, 409);
+
+  const linked = await c.env.DB.prepare("SELECT 1 FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ? AND dat_don_hang_id = ?")
+    .bind(id, donHangId)
+    .first();
+  if (!linked) return c.json({ error: "NOT_FOUND" }, 404);
+
+  const countRow = await c.env.DB.prepare("SELECT COUNT(*) as n FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ?").bind(id).first<{ n: number }>();
+  if ((countRow?.n ?? 0) <= 1) return c.json({ error: "LAST_ORDER" }, 409);
+
+  const donRow = await c.env.DB.prepare("SELECT ma_lk FROM dat_don_hang WHERE id = ?").bind(donHangId).first<{ ma_lk: string }>();
+  const now = nowVN();
+  await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ? AND dat_don_hang_id = ?").bind(id, donHangId),
+    c.env.DB.prepare("UPDATE dat_don_hang SET ma_xuat_kho = NULL, updated_at = ? WHERE id = ?").bind(now, donHangId),
+    c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+      id, "Da xoa don khoi phieu", user.email, now, `Đã bỏ đơn ${donRow?.ma_lk ?? donHangId} khỏi phiếu`,
+    ),
+  ]);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true });
+});
+
 // POST /api/phieu-xuat-kho/:id/dong-goi - { anh?: string[] } (chot 2026-09-08: chuan hoa hanh
 // dong Kho "Dong goi" giua PXK-/TR- - mirror DUNG khuon phieuTra.ts::/:id/dong-goi ben suachua,
 // chi luu anh bien ban vao phieu_xuat_kho_anh, KHONG doi trang_thai_hien_tai. Khac

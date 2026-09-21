@@ -3168,6 +3168,48 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+// PATCH /api/dat-mua-lk/don-hang/:id/so-tien-cong-no - them 2026-09-21 (phan hoi "ở bước chờ KTV
+// chuyển tiền, cho phép Kế toán/TN sửa tiền cần chuyển thủ công từng đơn") - so_tien_cong_no CHI ghi
+// luc tao don (chot 2026-08-15 "bỏ ở nhập tay, thay bằng Gía đề xuất ước tính"), route nay CO CHU Y
+// mo lai kha nang sua tay, nhung GIOI HAN CHAT: chi khi don da nam trong 1 PXK dang o dung buoc "Dang
+// tao phieu" (buoc "chờ KTV chuyển tiền" thuc chat la dieu kien chan tren PXK, PXK khong the vuot qua
+// "Dang tao phieu" khi tien chua duoc Ke toan duyet xong - xem phieuXuatKho.ts). Dung lai dung ky
+// thuat latestDonHangStatusExpr + reuse trang_thai HIEN TAI lam gia tri log (pattern da co o nhanh TN
+// cua PATCH /don-hang/:id ngay tren) - khong can migration moi cho dat_don_hang_log.
+datMuaLinhKien.patch("/don-hang/:id/so-tien-cong-no", async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  if (!canTacNghiep(c) && !user.la_ke_toan && user.vai_tro !== "Admin") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+
+  const body = await c.req.json<{ so_tien_cong_no: number; ghi_chu?: string }>();
+  if (body.so_tien_cong_no == null || Number.isNaN(body.so_tien_cong_no) || body.so_tien_cong_no < 0) {
+    return c.json({ error: "INVALID_SO_TIEN" }, 400);
+  }
+
+  const existing = await c.env.DB.prepare(
+    `SELECT dat_don_hang.so_tien_cong_no, ${latestDonHangStatusExpr("dat_don_hang.id")} as trang_thai,
+       (SELECT pxk.trang_thai_hien_tai FROM phieu_xuat_kho_dong pxkd JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
+        WHERE pxkd.dat_don_hang_id = dat_don_hang.id) as pxk_trang_thai
+     FROM dat_don_hang WHERE id = ?`,
+  )
+    .bind(id)
+    .first<{ so_tien_cong_no: number | null; trang_thai: string | null; pxk_trang_thai: string | null }>();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+  if (existing.pxk_trang_thai == null) return c.json({ error: "KHONG_THUOC_PXK" }, 400);
+  if (existing.pxk_trang_thai !== "Dang tao phieu") return c.json({ error: "INVALID_STATE" }, 409);
+
+  const now = nowVN();
+  const ghiChu = `Công nợ ${existing.so_tien_cong_no ?? "—"} → ${body.so_tien_cong_no}${body.ghi_chu?.trim() ? " | " + body.ghi_chu.trim() : ""}`;
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE dat_don_hang SET so_tien_cong_no = ?, updated_at = ? WHERE id = ?").bind(body.so_tien_cong_no, now, id),
+    c.env.DB.prepare("INSERT INTO dat_don_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+      id, existing.trang_thai ?? "TN da duyet", user.email, now, ghiChu,
+    ),
+  ]);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true });
+});
+
 // POST /api/dat-mua-lk/don-hang/:id/giai-trinh - { noi_dung } TN nop 1 LAN GIAI TRINH ly do cham moi
 // (phan hoi QA 2026-08-31, muc #5, migration 0014 dat_don_hang_giai_trinh) - thay the co che PATCH
 // { ly_do_cham } cu (1 cot duy nhat, khoa vinh vien sau lan dau). Co the nop TRUOC han (chu dong giai

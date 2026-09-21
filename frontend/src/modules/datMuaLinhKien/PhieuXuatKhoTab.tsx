@@ -18,6 +18,10 @@ import { exportRowsToExcel } from "../../lib/exportExcel";
 import { fmtDateTime, fmtVND } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import type { DonHangRow, PhieuXuatKhoRow, DonHangKhaDungRow, NguoiNhanHangKhaDungRow, LyDoChamRow, KtvDisplayMap } from "./types";
+// Lien ket 2 chieu voi don goc trong phieu (them 2026-09-21, phan hoi "cho phép click vào dòng đơn
+// hàng trong phiếu để mở giao diện UI chi tiết") - tai dung nguyen DonHangDetailModal, dung y het cach
+// ThieuLkTab.tsx da lam (xem comment o do ve import vong an toan trong ESM).
+import { DonHangDetailModal } from "./DonCuaToiTab";
 import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_TIEN_OPTIONS, TRANG_THAI_DOT_TONE, PXK_LOG_ONLY_OPTIONS, PXK_LOG_ONLY_TONE } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
@@ -854,6 +858,15 @@ export function PxkDetailModal({
   // dong ton qua 24h ke tu "Cho TN duyet" ma chua duoc dua vao PXK "Cho ke toan", bat buoc truoc khi
   // bam "Gui ke toan" (backend chan cung, xem POST /phieu-xuat-kho/:id/log).
   const [lyDoChamDraft, setLyDoChamDraft] = useState<Record<string, string>>({});
+  // 4 state moi (2026-09-21, phan hoi "cho phép Kế toán/TN sửa lại thông tin đơn ở bước chờ KTV
+  // chuyển tiền") - xem 4 khoi lien quan ben duoi (mutation + JSX).
+  const [donDetailId, setDonDetailId] = useState<string | null>(null);
+  const [soTienCongNoDraft, setSoTienCongNoDraft] = useState<Record<string, string>>({});
+  const [suaTongTien, setSuaTongTien] = useState(false);
+  const [soTienCanChuyenSuaDraft, setSoTienCanChuyenSuaDraft] = useState("");
+  const [showThemDon, setShowThemDon] = useState(false);
+  const [themDonSelected, setThemDonSelected] = useState<Set<string>>(new Set());
+  const [themDonQ, setThemDonQ] = useState("");
   // CHOT (ra soat module "Dat Mua Linh Kien 2.0" #19): goi y nhanh tu CUNG danh muc "Mua hang" da
   // dung o luong TN tu choi (settings_ly_do_cham, migration 0065 - da xac nhan he_thong_su_dung chua
   // toan bo 12 ly do co san deu ap dung duoc cho ca ngu canh "vi sao PXK dong nay bi cham") - chon 1
@@ -990,6 +1003,68 @@ export function PxkDetailModal({
     mutationFn: (body: { trang_thai: string; bang_chung_chuyen_tien_url?: string; bang_chung_chuyen_tien_ghi_chu?: string }) => api.patch(`/phieu-xuat-kho/${id}/chuyen-tien`, body),
     onSuccess: () => { invalidate(); addToast("Đã cập nhật chuyển tiền"); },
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+  });
+
+  // 4 mutation moi (2026-09-21) - xem PATCH /don-hang/:id/so-tien-cong-no (datMuaLinhKien.ts) va
+  // PATCH /:id/so-tien-can-chuyen, POST /:id/dong, DELETE /:id/dong/:donHangId (phieuXuatKho.ts).
+  const soTienCongNoMutation = useMutation({
+    mutationFn: ({ donHangId, so_tien_cong_no }: { donHangId: string; so_tien_cong_no: number }) =>
+      api.patch(`/dat-mua-lk/don-hang/${donHangId}/so-tien-cong-no`, { so_tien_cong_no }),
+    onSuccess: (_res, { donHangId }) => {
+      setSoTienCongNoDraft((p) => { const n = { ...p }; delete n[donHangId]; return n; });
+      qc.invalidateQueries({ queryKey: ["pxk-detail", id] });
+      addToast("Đã lưu tiền cần chuyển của đơn");
+    },
+    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+  });
+
+  const soTienCanChuyenSuaMutation = useMutation({
+    mutationFn: () => api.patch(`/phieu-xuat-kho/${id}/so-tien-can-chuyen`, { so_tien_can_chuyen: Number(soTienCanChuyenSuaDraft) }),
+    onSuccess: () => { setSuaTongTien(false); setSoTienCanChuyenSuaDraft(""); invalidate(); addToast("Đã sửa tổng tiền cần chuyển"); },
+    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+  });
+
+  // Danh sach dong "kha dung" de them vao phieu DANG XEM - tai dung dung endpoint/loai_don nhu luc tao
+  // PXK moi, loc them phia client theo nguoi_nhan_hang cua CHINH pxk nay (backend van validate lai
+  // chat trong POST /:id/dong nen khong rui ro neu loc sot o day).
+  const { data: themDonKhaDungData, isLoading: themDonKhaDungLoading } = useQuery({
+    queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung", data?.phieuXuatKho.loai_don],
+    queryFn: () => api.get<{ rows: DonHangKhaDungRow[] }>("/phieu-xuat-kho/don-hang-kha-dung" + buildQuery({ loai_don: data?.phieuXuatKho.loai_don ?? undefined })),
+    enabled: showThemDon && !!data?.phieuXuatKho.loai_don,
+  });
+  const themDonQNorm = themDonQ.trim().toLowerCase().normalize("NFC");
+  const themDonLoc = (themDonKhaDungData?.rows ?? []).filter(
+    (r) =>
+      r.nguoi_nhan_hang === data?.phieuXuatKho.nguoi_nhan_hang &&
+      (!themDonQNorm || r.ma_lk.toLowerCase().normalize("NFC").includes(themDonQNorm) || (r.ten_lk_snapshot ?? "").toLowerCase().normalize("NFC").includes(themDonQNorm)),
+  );
+
+  const themDonMutation = useMutation({
+    mutationFn: () => api.post<{ ok: true; added: number }>(`/phieu-xuat-kho/${id}/dong`, { dat_don_hang_ids: [...themDonSelected] }),
+    onSuccess: (res) => {
+      setShowThemDon(false);
+      setThemDonSelected(new Set());
+      setThemDonQ("");
+      invalidate();
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung"] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung-counts"] });
+      addToast(`Đã thêm ${res.added} đơn vào phiếu`);
+    },
+    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+  });
+
+  const boDonMutation = useMutation({
+    mutationFn: (donHangId: string) => api.delete(`/phieu-xuat-kho/${id}/dong/${donHangId}`),
+    onSuccess: () => {
+      invalidate();
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung"] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung-counts"] });
+      addToast("Đã bỏ đơn khỏi phiếu");
+    },
+    onError: (err) => {
+      const code = err instanceof ApiError ? err.code : undefined;
+      addToast(code === "LAST_ORDER" ? "Không thể bỏ - đây là đơn cuối cùng trong phiếu (dùng \"Kế toán huỷ\" nếu muốn bỏ cả phiếu)" : "Lỗi: " + describeApiError(err));
+    },
   });
 
   const pxk = data?.phieuXuatKho;
@@ -1274,7 +1349,37 @@ export function PxkDetailModal({
               )
             ) : (
               <>
-                <KvRow label="Số tiền"><span className="font-semibold text-[var(--green-700)]">{fmtVND(pxk.so_tien_can_chuyen)}</span></KvRow>
+                <KvRow label="Số tiền">
+                  {/* Sua tong tien can chuyen (2026-09-21, yeu cau #2) - CHI hien nut sua khi con o
+                      "Dang tao phieu" (khop dung gate backend PATCH /:id/so-tien-can-chuyen), khong
+                      dung nut "Yêu cầu chuyển" o nhanh tren (nut do RESET het bang chung da nop). */}
+                  {(canTacNghiep || canKeToan) && trangThai === "Dang tao phieu" && suaTongTien ? (
+                    <span className="inline-flex gap-1.5 items-center">
+                      <input
+                        type="number"
+                        autoFocus
+                        value={soTienCanChuyenSuaDraft}
+                        onChange={(e) => setSoTienCanChuyenSuaDraft(e.target.value)}
+                        className="focus-ring w-32 bg-[var(--surface-100)] border border-[var(--line)] rounded px-1.5 py-0.5 text-xs"
+                      />
+                      <Btn size="sm" variant="ghost" onClick={() => soTienCanChuyenSuaMutation.mutate()} disabled={!soTienCanChuyenSuaDraft.trim() || soTienCanChuyenSuaMutation.isPending}>Lưu</Btn>
+                      <button type="button" className="text-xs text-[var(--ink-400)] hover:underline" onClick={() => { setSuaTongTien(false); setSoTienCanChuyenSuaDraft(""); }}>Huỷ</button>
+                    </span>
+                  ) : (
+                    <span className="inline-flex gap-1.5 items-center">
+                      <span className="font-semibold text-[var(--green-700)]">{fmtVND(pxk.so_tien_can_chuyen)}</span>
+                      {(canTacNghiep || canKeToan) && trangThai === "Dang tao phieu" && (
+                        <button
+                          type="button"
+                          className="text-xs text-[var(--ocean-700)] hover:underline"
+                          onClick={() => { setSoTienCanChuyenSuaDraft(String(pxk.so_tien_can_chuyen ?? "")); setSuaTongTien(true); }}
+                        >
+                          ✎ Sửa
+                        </button>
+                      )}
+                    </span>
+                  )}
+                </KvRow>
                 <KvRow label="Trạng thái"><StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /></KvRow>
                 {pxk.bang_chung_chuyen_tien_url && (
                   <KvRow label="Bằng chứng"><ImageLink url={pxk.bang_chung_chuyen_tien_url} className="text-[var(--ocean-800)] underline text-xs">Xem bằng chứng</ImageLink></KvRow>
@@ -1331,7 +1436,14 @@ export function PxkDetailModal({
           </div>
 
           <div>
-            <SectionTitle icon="📋">Dòng đơn hàng</SectionTitle>
+            <div className="flex items-center justify-between mb-1">
+              <SectionTitle icon="📋">Dòng đơn hàng</SectionTitle>
+              {/* Them don vao phieu dang xem (2026-09-21, yeu cau #4) - CHI hien khi con "Dang tao
+                  phieu" (khop gate backend POST /:id/dong). */}
+              {(canTacNghiep || canKeToan) && trangThai === "Dang tao phieu" && (
+                <Btn size="sm" variant="ghost" onClick={() => setShowThemDon(true)}>+ Thêm đơn</Btn>
+              )}
+            </div>
             <div className="overflow-x-auto rounded-xl border border-[var(--line)]">
               <table className="min-w-full text-xs border-collapse">
                 <thead>
@@ -1339,18 +1451,56 @@ export function PxkDetailModal({
                     <th className="px-2.5 py-2">Mã</th>
                     <th className="px-2.5 py-2">Tên LK</th>
                     <th className="px-2.5 py-2 text-right">SL</th>
+                    <th className="px-2.5 py-2 text-right">Tiền cần chuyển</th>
                     <th className="px-2.5 py-2">Lý do chậm</th>
+                    {(canTacNghiep || canKeToan) && trangThai === "Dang tao phieu" && <th className="px-2.5 py-2"></th>}
                   </tr>
                 </thead>
                 <tbody>
                   {data.donHang.map((d) => (
-                    <tr key={d.id} className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 ${d.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)]" : ""}`}>
+                    <tr
+                      key={d.id}
+                      onClick={() => setDonDetailId(d.id)}
+                      className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer ${d.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)]" : ""}`}
+                    >
                       <td className="px-2.5 py-2 font-mono">{d.ma_lk}</td>
                       <td className="px-2.5 py-2">
                         {d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
                         {d.ten_lk_snapshot ?? d.ma_lk}
                       </td>
                       <td className="px-2.5 py-2 text-right">{d.so_luong_de_xuat}</td>
+                      <td className="px-2.5 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                        {/* Sua tien cong no tung don (2026-09-21, yeu cau #1) - inline-edit y het pattern
+                            "Mã MISA"/"Mã đơn hàng" o tren (draft rieng tung dong, nut Luu chi hien khi
+                            co draft). stopPropagation de khong kich hoat luon onClick mo chi tiet don. */}
+                        {soTienCongNoDraft[d.id] !== undefined ? (
+                          <span className="inline-flex gap-1 items-center">
+                            <input
+                              type="number"
+                              autoFocus
+                              value={soTienCongNoDraft[d.id]}
+                              onChange={(e) => setSoTienCongNoDraft((p) => ({ ...p, [d.id]: e.target.value }))}
+                              className="focus-ring w-24 bg-[var(--surface-100)] border border-[var(--line)] rounded px-1.5 py-0.5 text-xs text-right"
+                            />
+                            <Btn
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => soTienCongNoMutation.mutate({ donHangId: d.id, so_tien_cong_no: Number(soTienCongNoDraft[d.id]) })}
+                              disabled={!soTienCongNoDraft[d.id]?.trim() || soTienCongNoMutation.isPending}
+                            >
+                              Lưu
+                            </Btn>
+                            <button type="button" className="text-[var(--ink-400)] hover:underline" onClick={() => setSoTienCongNoDraft((p) => { const n = { ...p }; delete n[d.id]; return n; })}>✕</button>
+                          </span>
+                        ) : (
+                          <span className="inline-flex gap-1.5 items-center">
+                            {d.so_tien_cong_no != null ? fmtVND(d.so_tien_cong_no) : <span className="text-[var(--ink-400)]">—</span>}
+                            {(canTacNghiep || canKeToan) && trangThai === "Dang tao phieu" && (
+                              <button type="button" className="text-[var(--ocean-700)] hover:underline" onClick={() => setSoTienCongNoDraft((p) => ({ ...p, [d.id]: String(d.so_tien_cong_no ?? "") }))}>✎</button>
+                            )}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-2.5 py-2">
                         {/* SUA (phan hoi QA 2026-08-31, muc #5: "hiện tại đang không thể xem được lý
                             do giải trình chậm của đơn trong PXK") - truoc day chi hien 1 gia tri
@@ -1410,6 +1560,26 @@ export function PxkDetailModal({
                           ) : null}
                         </div>
                       </td>
+                      {(canTacNghiep || canKeToan) && trangThai === "Dang tao phieu" && (
+                        <td className="px-2.5 py-2" onClick={(e) => e.stopPropagation()}>
+                          {/* Bo don khoi phieu (2026-09-21, yeu cau #4) - an khi chi con 1 don (khop
+                              gate LAST_ORDER cua backend), xac nhan qua window.confirm dung y het cach
+                              UsersModule.tsx dang lam cho cac thao tac pha huy khac. */}
+                          {data.donHang.length > 1 && (
+                            <button
+                              type="button"
+                              className="text-[var(--coral-500)] hover:underline"
+                              onClick={() => {
+                                if (window.confirm(`Bỏ đơn "${d.ma_lk}" khỏi phiếu này?\n\nĐơn sẽ quay lại danh sách "khả dụng" để gán vào 1 phiếu khác.`)) {
+                                  boDonMutation.mutate(d.id);
+                                }
+                              }}
+                            >
+                              ✕ Bỏ
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -1435,6 +1605,94 @@ export function PxkDetailModal({
             />
           </div>
         </div>
+      )}
+      {/* Mo chi tiet 1 don hang ngay trong phieu (2026-09-21, yeu cau #3) - tai dung nguyen
+          DonHangDetailModal, dung y het cach ThieuLkTab.tsx dang lam. */}
+      {donDetailId && (
+        <DonHangDetailModal
+          id={donDetailId}
+          onClose={() => setDonDetailId(null)}
+          addToast={addToast}
+          qc={qc}
+          canTacNghiep={canTacNghiep}
+          canTPDvbhXacNhan={false}
+          canActAsTram={false}
+          currentEmail={currentEmail}
+          isAdmin={isAdmin}
+          canXemChiTietCa={false}
+          canKho={canKho}
+        />
+      )}
+      {/* Them don vao phieu (2026-09-21, yeu cau #4) - tai dung UI checkbox-list y het modal "Tạo
+          phiếu xuất kho" (Chọn tất cả + tim kiem + danh sach checkbox tung dong DonHangKhaDungRow). */}
+      {showThemDon && (
+        <Modal
+          open
+          title="Thêm đơn vào phiếu"
+          width="max-w-lg"
+          onClose={() => { setShowThemDon(false); setThemDonSelected(new Set()); setThemDonQ(""); }}
+        >
+          <div className="space-y-2 text-sm">
+            <input
+              value={themDonQ}
+              onChange={(e) => setThemDonQ(e.target.value)}
+              placeholder="Tìm theo mã LK, tên LK..."
+              className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+            <div className="border border-[var(--line)] rounded-lg max-h-72 overflow-y-auto">
+              {themDonKhaDungLoading ? (
+                <div className="text-xs text-[var(--ink-500)] text-center py-4">Đang tải...</div>
+              ) : themDonLoc.length === 0 ? (
+                <div className="text-xs text-[var(--ink-400)] text-center py-4">Không có dòng nào khả dụng của đúng KTV này.</div>
+              ) : (
+                <>
+                  <label className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[var(--line)] bg-[var(--surface-100)] text-xs font-semibold cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={themDonLoc.every((r) => themDonSelected.has(r.id))}
+                      onChange={() =>
+                        setThemDonSelected((s) => {
+                          const idsLoc = themDonLoc.map((r) => r.id);
+                          const daChonHet = idsLoc.every((id) => s.has(id));
+                          const next = new Set(s);
+                          if (daChonHet) idsLoc.forEach((id) => next.delete(id));
+                          else idsLoc.forEach((id) => next.add(id));
+                          return next;
+                        })
+                      }
+                    />
+                    Chọn tất cả ({themDonLoc.length})
+                  </label>
+                  {themDonLoc.map((r) => (
+                    <label key={r.id} className="flex items-center gap-2 px-2.5 py-1.5 border-b border-[var(--line)] last:border-b-0 hover:bg-[var(--surface-100)] cursor-pointer text-xs">
+                      <input
+                        type="checkbox"
+                        checked={themDonSelected.has(r.id)}
+                        onChange={() =>
+                          setThemDonSelected((s) => {
+                            const next = new Set(s);
+                            if (next.has(r.id)) next.delete(r.id);
+                            else next.add(r.id);
+                            return next;
+                          })
+                        }
+                      />
+                      <span className="font-mono">{r.ma_lk}</span>
+                      <span className="flex-1 truncate">{r.ten_lk_snapshot ?? r.ma_lk}</span>
+                      <span className="text-[var(--ink-500)]">SL {r.so_luong_de_xuat}</span>
+                    </label>
+                  ))}
+                </>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Btn variant="ghost" size="sm" onClick={() => { setShowThemDon(false); setThemDonSelected(new Set()); setThemDonQ(""); }}>Huỷ</Btn>
+              <Btn size="sm" onClick={() => themDonMutation.mutate()} disabled={themDonSelected.size === 0 || themDonMutation.isPending}>
+                Thêm {themDonSelected.size > 0 ? `(${themDonSelected.size})` : ""}
+              </Btn>
+            </div>
+          </div>
+        </Modal>
       )}
     </Drawer>
   );
