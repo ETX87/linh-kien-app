@@ -925,6 +925,25 @@ export function PxkDetailModal({
     },
   });
 
+  // Mutation RIENG cho huy PXK (them 2026-09-22, phan hoi "bổ sung việc cho hủy PXK bị lỗi hoặc không
+  // còn nhu cầu đặt hàng nữa") - khong tai dung logMutation (dung chung string don gian cho 8 nut
+  // trang thai khac) vi can gui kem "ly_do_huy_pxk" de backend biet giai phong hay huy han cac don
+  // dang gom trong phieu (xem POST /:id/log nhanh "Ke toan huy").
+  const huyPxkMutation = useMutation({
+    mutationFn: (lyDoHuyPxk: "loi" | "khong_con_nhu_cau") =>
+      api.post(`/phieu-xuat-kho/${id}/log`, { trang_thai: "Ke toan huy", ghi_chu: ghiChu.trim() || undefined, ly_do_huy_pxk: lyDoHuyPxk }),
+    onSuccess: () => {
+      invalidate();
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung"] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung-counts"] });
+      addToast("Đã huỷ phiếu xuất kho");
+    },
+    onError: (err) => {
+      const code = err instanceof ApiError ? err.code : undefined;
+      addToast(code === "MISSING_GHI_CHU" ? "Cần nhập ghi chú/lý do trước khi huỷ" : "Lỗi: " + describeApiError(err));
+    },
+  });
+
   const maXuatKhoMutation = useMutation({
     mutationFn: () => api.patch(`/phieu-xuat-kho/${id}/ma-xuat-kho`, { ma_xuat_kho: maXuatKhoDraft.trim() }),
     onSuccess: () => { setMaXuatKhoDraft(""); qc.invalidateQueries({ queryKey: ["pxk-detail", id] }); qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk"] }); invalidatePipelineCounts(qc); addToast("Đã lưu mã đơn hàng"); },
@@ -1132,15 +1151,29 @@ export function PxkDetailModal({
           {(canTacNghiep || canKeToan) && ["Dang tao phieu", "Cho ke toan"].includes(trangThai) && (
             // FIX (phan hoi 2026-08-25, hang muc #19): ghi_chu nay BAT BUOC o backend - disable
             // nut khi chua nhap (truoc day khong bat buoc gi).
-            <Btn
-              variant="danger"
-              onClick={() => logMutation.mutate("Ke toan huy")}
-              disabled={logMutation.isPending || !ghiChu.trim()}
-              title={!ghiChu.trim() ? "Cần nhập ghi chú/lý do huỷ trước" : "Kế toán huỷ"}
-              aria-label="Kế toán huỷ"
-            >
-              🗑 Kế toán huỷ
-            </Btn>
+            // SUA (2026-09-22, phan hoi "bổ sung việc cho hủy PXK bị lỗi hoặc không còn nhu cầu đặt
+            // hàng nữa"): tach 1 nut "Kế toán huỷ" cu thanh 2 nut theo ly do, vi 2 ly do dan toi 2 ket
+            // cuc khac han cho cac don dang gom trong phieu (xem POST /:id/log nhanh "Ke toan huy").
+            <>
+              <Btn
+                variant="danger"
+                onClick={() => huyPxkMutation.mutate("loi")}
+                disabled={huyPxkMutation.isPending || !ghiChu.trim()}
+                title={!ghiChu.trim() ? "Cần nhập ghi chú/lý do huỷ trước" : "Huỷ phiếu, các đơn bên trong quay lại khả dụng để gom vào phiếu khác"}
+                aria-label="Huỷ - phiếu bị lỗi"
+              >
+                🗑 Huỷ (phiếu lỗi)
+              </Btn>
+              <Btn
+                variant="danger"
+                onClick={() => huyPxkMutation.mutate("khong_con_nhu_cau")}
+                disabled={huyPxkMutation.isPending || !ghiChu.trim()}
+                title={!ghiChu.trim() ? "Cần nhập ghi chú/lý do huỷ trước" : "Huỷ phiếu VÀ huỷ luôn các đơn bên trong (không hoàn tác được)"}
+                aria-label="Huỷ - không còn nhu cầu"
+              >
+                🗑 Huỷ (không còn nhu cầu)
+              </Btn>
+            </>
           )}
           {canKeToan && trangThai === "Cho ke toan" && (
             <Btn

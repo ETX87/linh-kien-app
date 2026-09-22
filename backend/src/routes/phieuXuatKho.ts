@@ -1171,7 +1171,7 @@ phieuXuatKho.post("/:id/dong-goi", async (c) => {
 //  - KTV (nguoi nhan hang thuc te, khong gioi han vai tro): "Dang gui KTV" -> "KTV da nhan".
 phieuXuatKho.post("/:id/log", async (c) => {
   const id = c.req.param("id");
-  const body = await c.req.json<{ trang_thai: string; ghi_chu?: string; ma_van_don?: string }>();
+  const body = await c.req.json<{ trang_thai: string; ghi_chu?: string; ma_van_don?: string; ly_do_huy_pxk?: "loi" | "khong_con_nhu_cau" }>();
   const pxk = await c.env.DB.prepare(
     "SELECT so_tien_can_chuyen, trang_thai_chuyen_tien, ma_xuat_kho_xac_nhan, ma_misa, nguoi_nhan_hang, loai_don, version, trang_thai_hien_tai as trang_thai FROM phieu_xuat_kho WHERE id = ?",
   )
@@ -1228,6 +1228,14 @@ phieuXuatKho.post("/:id/log", async (c) => {
     // FIX (phan hoi 2026-08-25, hang muc #19): bat buoc ghi_chu khi huy PXK - truoc day khong bat
     // buoc gi.
     if (!body.ghi_chu?.trim()) return c.json({ error: "MISSING_GHI_CHU" }, 400);
+    // MOI (2026-09-22, phan hoi "bổ sung việc cho hủy PXK bị lỗi hoặc không còn nhu cầu đặt hàng
+    // nữa"): truoc day huy PXK KHONG dung gi toi cac don dang gom ben trong - dat_don_hang.ma_xuat_kho
+    // van tro toi PXK da chet, khong bao gio quay lai duoc GET /don-hang-kha-dung (loc ma_xuat_kho IS
+    // NULL) - don bi mac ket vinh vien. Bat buoc chon ro 1 trong 2 huong xu ly (xem khoi xu ly sau CAS
+    // ben duoi): "loi" (giai phong don ve kha dung) hoac "khong_con_nhu_cau" (huy han don).
+    if (body.ly_do_huy_pxk !== "loi" && body.ly_do_huy_pxk !== "khong_con_nhu_cau") {
+      return c.json({ error: "MISSING_LY_DO_HUY_PXK" }, 400);
+    }
   } else if (target === "Da chot xong don xuat") {
     if (hienTai !== "Cho ke toan") return c.json({ error: "INVALID_STATE" }, 409);
     if (!canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
@@ -1266,6 +1274,43 @@ phieuXuatKho.post("/:id/log", async (c) => {
   await c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)")
     .bind(id, target, user.email, nowVN(), body.ghi_chu?.trim() || null)
     .run();
+
+  // MOI (2026-09-22): huy PXK xong thi xu ly tiep cac don dang gom ben trong, theo dung ly_do_huy_pxk
+  // da validate o tren - xem giai thich day du o nhanh "Ke toan huy" phia tren.
+  if (target === "Ke toan huy") {
+    const { results: dongRows } = await c.env.DB.prepare(
+      "SELECT dat_don_hang_id FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ?",
+    )
+      .bind(id)
+      .all<{ dat_don_hang_id: string }>();
+    const donIds = dongRows.map((r) => r.dat_don_hang_id);
+
+    if (donIds.length > 0) {
+      const nowHuy = nowVN();
+      if (body.ly_do_huy_pxk === "loi") {
+        // Giai phong don ve lai "kha dung" - GIU NGUYEN trang_thai_hien_tai ("TN da duyet"), chi xoa
+        // lien ket voi PXK da huy (dung 2 buoc y het DELETE /:id/dong/:donHangId da co o tren).
+        await c.env.DB.batch([
+          c.env.DB.prepare("DELETE FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ?").bind(id),
+          ...donIds.map((donId) =>
+            c.env.DB.prepare("UPDATE dat_don_hang SET ma_xuat_kho = NULL, updated_at = ? WHERE id = ?").bind(nowHuy, donId),
+          ),
+        ]);
+      } else {
+        // Khong con nhu cau - huy han cac don. KHONG qua applyDonHangLog (datMuaLinhKien.ts) vi route
+        // do da khoa DONG_DA_DONG cho don dang "TN da duyet" (dieu kien bat buoc de duoc gom vao PXK
+        // tu dau) - tu lam CAS UPDATE + log truc tiep o day, dich luon la "Da huy" co dinh.
+        await c.env.DB.batch([
+          ...donIds.flatMap((donId) => [
+            c.env.DB.prepare("UPDATE dat_don_hang SET trang_thai_hien_tai = 'Da huy', version = version + 1, updated_at = ? WHERE id = ?").bind(nowHuy, donId),
+            c.env.DB.prepare("INSERT INTO dat_don_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Da huy', ?, ?, ?)").bind(
+              donId, user.email, nowHuy, `Huỷ theo phiếu xuất kho ${id}: ${body.ghi_chu!.trim()}`,
+            ),
+          ]),
+        ]);
+      }
+    }
+  }
 
   // Bao NGUOC cho khovan khi 1 buoc Kho duoc xac nhan THANG tren linh-kien-app qua link (them
   // 2026-09-09, phan hoi "khi xác nhận bên hệ thống linh kiện xong => tự bắn api trạng thái mới về
