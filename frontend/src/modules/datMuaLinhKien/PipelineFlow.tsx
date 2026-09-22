@@ -238,7 +238,9 @@ export function PxkMiniPipeline({ trangThai }: { trangThai: string }) {
   const idxHienTai = PXK_MINI_STEPS.indexOf(trangThai as (typeof PXK_MINI_STEPS)[number]);
   const isNhanhRe = PXK_MINI_NHANH_RE.has(trangThai);
   const nhanhReTone = PXK_TRANG_THAI_TONE[trangThai] === "success" ? "var(--color-success)" : "var(--color-text-faint)";
-  const nhanhReLabel = trangThai === "Ke toan huy" ? "KT huỷ" : trangThai === "Hang tru kho" ? "Trừ kho" : "Kết thúc";
+  // SUA (phan hoi 2026-09-22 "TN hủy phiếu nhưng đang hiện là kế toán hủy") - nhan trung tinh vai tro,
+  // xem giai thich day du o constants.ts PXK_TRANG_THAI_OPTIONS.
+  const nhanhReLabel = trangThai === "Ke toan huy" ? "Đã huỷ" : trangThai === "Hang tru kho" ? "Trừ kho" : "Kết thúc";
   const nhanhReIcon = trangThai === "Ke toan huy" ? "✕" : "⏹";
   return (
     <div className="mb-3 overflow-x-auto pb-0.5">

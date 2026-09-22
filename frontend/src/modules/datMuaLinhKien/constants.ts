@@ -325,7 +325,10 @@ export const PXK_TRANG_THAI_OPTIONS = [
   { value: "Da chot xong don xuat", label: "Đã chốt xong đơn xuất" },
   { value: "Dang gui KTV", label: "Đang gửi KTV" },
   { value: "KTV da nhan", label: "KTV đã nhận" },
-  { value: "Ke toan huy", label: "Kế toán huỷ" },
+  // SUA (phan hoi 2026-09-22 "TN hủy phiếu nhưng đang hiện là kế toán hủy"): nhan HIEN THI doi thanh
+  // trung tinh vai tro - gia tri enum DB "Ke toan huy" giu nguyen (dat ten tu thoi chi co 1 nut, truoc
+  // khi tach 2 ly do huy cho phep CA TN lan Ke toan kich hoat, xem phieuXuatKho.ts POST /:id/log).
+  { value: "Ke toan huy", label: "Đã huỷ" },
   { value: "Hang tru kho", label: "Hàng trừ kho" },
   { value: "Kho da ket thuc", label: "Kho đã kết thúc" },
   { value: "Kho da nhan hang tra", label: "Kho đã nhận hàng trả" },

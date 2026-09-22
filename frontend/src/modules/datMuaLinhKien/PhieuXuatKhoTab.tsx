@@ -935,6 +935,11 @@ export function PxkDetailModal({
       api.post(`/phieu-xuat-kho/${id}/log`, { trang_thai: "Ke toan huy", ghi_chu: ghiChu.trim() || undefined, ly_do_huy_pxk: lyDoHuyPxk }),
     onSuccess: () => {
       invalidate();
+      // FIX (phan hoi 2026-09-22 "đơn hủy vẫn hiện trong ds cần xử lý"): ca 2 ly do huy deu UPDATE
+      // truc tiep N dong dat_don_hang o backend (giai phong ma_xuat_kho hoac chuyen "Da huy") nhung
+      // truoc day khong invalidate danh sach nay - "Đơn của tôi" (DonCuaToiTab.tsx) neu dang mo cung
+      // phien SPA se hien du lieu cu tu cache React Query cho toi khi F5.
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung"] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung-counts"] });
       addToast("Đã huỷ phiếu xuất kho");
@@ -1097,7 +1102,7 @@ export function PxkDetailModal({
     },
     onError: (err) => {
       const code = err instanceof ApiError ? err.code : undefined;
-      addToast(code === "LAST_ORDER" ? "Không thể bỏ - đây là đơn cuối cùng trong phiếu (dùng \"Kế toán huỷ\" nếu muốn bỏ cả phiếu)" : "Lỗi: " + describeApiError(err));
+      addToast(code === "LAST_ORDER" ? "Không thể bỏ - đây là đơn cuối cùng trong phiếu (dùng nút \"Huỷ\" ở dưới nếu muốn bỏ cả phiếu)" : "Lỗi: " + describeApiError(err));
     },
   });
 
@@ -1106,8 +1111,16 @@ export function PxkDetailModal({
   // các đơn => tạm thời tắt khả năng sửa tổng tiền của phiếu đi"): tong CHUNG cho moi loai_don, dung
   // dung cong thuc "(ước tính)" da hien per-dong o bang Dong don hang (Gia chot/de xuat × SL thuc
   // xuat/de xuat) - thay the hoan toan cho viec nhap tay/sua tay so_tien_can_chuyen.
+  // FIX (phan hoi 2026-09-22 "Đơn công nợ, đã sửa tiền ở đơn về 0 nhưng trên phiếu không thay đổi"):
+  // cong thuc SL×gia CHI dung nghia cho mua/tra_hang - don cong_no dung so_tien_cong_no (truong tien
+  // THAT, sua tay rieng o bang Dong don hang ben duoi, nuoi computeCongNoPhatSinh o congNoKtv.ts).
+  // Truoc day tinh CHUNG 1 cong thuc cho MOI loai_don nen PXK cong_no luon hien sai so.
   const tongTienUocTinhPxk = (data?.donHang ?? []).reduce(
-    (s, d) => s + (d.gia_chot ?? d.gia_de_xuat ?? 0) * (d.so_luong_thuc_xuat ?? d.so_luong_de_xuat),
+    (s, d) =>
+      s +
+      (pxk?.loai_don === "cong_no"
+        ? d.so_tien_cong_no ?? 0
+        : (d.gia_chot ?? d.gia_de_xuat ?? 0) * (d.so_luong_thuc_xuat ?? d.so_luong_de_xuat)),
     0,
   );
   const trangThai = pxk?.trang_thai ?? "";
@@ -1148,7 +1161,7 @@ export function PxkDetailModal({
           onChange={(e) => setGhiChu(e.target.value)}
           placeholder={
             (canTacNghiep || canKeToan) && ["Dang tao phieu", "Cho ke toan"].includes(trangThai)
-              ? "Ghi chú (bắt buộc nếu bấm Kế toán huỷ)"
+              ? "Ghi chú (bắt buộc nếu bấm Huỷ)"
               : "Ghi chú (tuỳ chọn)"
           }
           className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
@@ -1523,7 +1536,11 @@ export function PxkDetailModal({
                         {d.ten_lk_snapshot ?? d.ma_lk}
                       </td>
                       <td className="px-2.5 py-2 text-right">
-                        {pxk.loai_don === "mua" ? d.so_luong_thuc_xuat ?? d.so_luong_de_xuat : d.so_luong_de_xuat}
+                        {/* FIX (phan hoi 2026-09-22 "tất cả các dòng hiện thông tin đơn hàng cần hiện
+                            cả sl thực xuất") - truoc day CHI hien SL thuc xuat cho loai_don==='mua',
+                            cong_no/tra_hang luon hien SL de xuat du TN da sua SL thuc xuat qua "Thông
+                            tin TN" (khong gioi han theo loai_don o backend). */}
+                        {d.so_luong_thuc_xuat ?? d.so_luong_de_xuat}
                       </td>
                       <td className="px-2.5 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                         {/* SUA (phan hoi 2026-09-22 "bắt sửa số lượng và đơn giá => tự sinh ra giá đề
