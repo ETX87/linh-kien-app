@@ -179,6 +179,14 @@ async function loadKhoSettings(db: Env["DB"]): Promise<Record<"bac" | "nam", { m
 // chung cho ca xuat 1 PXK va xuat gop nhieu PXK (bulk) - caller tu kiem tra quyen xem PXK truoc khi
 // goi ham nay (khong tu kiem tra scope o day). forceTemplate: neu co, EP TOAN BO dong vao dung 1
 // mau nay (bo qua resolveTemplate) - xem giai thich o comment dau file.
+// FIX (2026-09-22, phan hoi "phiếu xuất tải về bị lỗi x2 dòng"): settings_loai_de_xuat.ten_option
+// KHONG co UNIQUE - cung 1 ten option (vd "MUA HÀNG") ton tai o CA 2 nhom "KTV/CTV/TRẠM" va "Tác
+// nghiệp + Giám sát" (dropdown rieng theo vai tro nguoi tao don, xem settingsDatMua.ts) nen truoc day
+// `LEFT JOIN settings_loai_de_xuat sld ON sld.ten_option = ddh.loai_de_xuat` fan-out ra 2 dong cho MOI
+// dong dat_don_hang co loai_de_xuat trung 1 trong 11 ten option dung chung nay - nhan DOI TOAN BO dong
+// xuat ra file. Doi sang subquery scalar (chi lay loai_file_xuat_misa, KHONG can gi khac tu sld) -
+// an toan vi da xac nhan qua du lieu that: moi cap trung ten_option luon co CUNG 1 gia tri
+// loai_file_xuat_misa, LIMIT 1 chon dong nao cung ra ket qua giong nhau.
 export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTemplate?: MisaTemplate): Promise<MisaExportResult> {
   const sheets: MisaExportSheets = { xuat_kho: [], chuyen_kho: [], ban_hang: [] };
   const canhBaoThieuMisaMap = new Map<string, { ma_ktv: string; ten_hien_thi: string | null }>();
@@ -194,14 +202,13 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
          ddh.ma_lk, COALESCE(ddh.ten_lk_snapshot, lk.ten_linh_kien) as ten_lk, lk.don_vi,
          ddh.loai_de_xuat, COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) as so_luong,
          COALESCE(ddh.gia_chot, ddh.gia_de_xuat) as don_gia, ddh.ma_yeu_cau_su_co, ddh.tt_mail_duyet,
-         sld.loai_file_xuat_misa,
+         (SELECT loai_file_xuat_misa FROM settings_loai_de_xuat WHERE ten_option = ddh.loai_de_xuat LIMIT 1) as loai_file_xuat_misa,
          ktv.ma_ktv as ktv_ma_ktv, ktv.ten_hien_thi as ktv_ten, ktv.ma_misa as ktv_ma_misa, ktv.ten_misa as ktv_ten_misa, ktv.khu_vuc_ma as ktv_khu_vuc_ma,
          pxk.nguoi_nhan_hang
        FROM phieu_xuat_kho pxk
        JOIN phieu_xuat_kho_dong pxkd ON pxkd.phieu_xuat_kho_id = pxk.id
        JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id
        LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
-       LEFT JOIN settings_loai_de_xuat sld ON sld.ten_option = ddh.loai_de_xuat
        LEFT JOIN ktv_lien_he ktv ON ktv.email_dang_nhap = pxk.nguoi_nhan_hang
        WHERE pxk.id IN (${placeholders})
        ORDER BY pxk.ngay_tao, pxk.id, ddh.id`,
@@ -318,12 +325,15 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
 // de xuat/loai don nen hiem khi lech nhau, nhung van xu ly truong hop hiem gap mixed). Tra null neu PXK
 // khong co dong nao (khong nen xay ra trong thuc te).
 export async function resolveMisaTemplateDeXuat(env: Env, pxkId: string): Promise<MisaTemplate | null> {
+  // FIX (2026-09-22): cung 1 fan-out do ten_option khong UNIQUE, xem giai thich day du o
+  // buildMisaExportSheets - o day khong doi ket qua cuoi (dem nhan doi deu nhau khong doi thu tu max),
+  // nhung sua theo cung 1 pattern subquery de tranh lap lai anti-pattern nay noi khac.
   const { results } = await env.DB.prepare(
-    `SELECT pxk.loai_don as pxk_loai_don, sld.loai_file_xuat_misa
+    `SELECT pxk.loai_don as pxk_loai_don,
+       (SELECT loai_file_xuat_misa FROM settings_loai_de_xuat WHERE ten_option = ddh.loai_de_xuat LIMIT 1) as loai_file_xuat_misa
        FROM phieu_xuat_kho pxk
        JOIN phieu_xuat_kho_dong pxkd ON pxkd.phieu_xuat_kho_id = pxk.id
        JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id
-       LEFT JOIN settings_loai_de_xuat sld ON sld.ten_option = ddh.loai_de_xuat
       WHERE pxk.id = ?`,
   )
     .bind(pxkId)
