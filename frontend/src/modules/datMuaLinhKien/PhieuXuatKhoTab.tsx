@@ -861,6 +861,11 @@ export function PxkDetailModal({
   // chuyển tiền") - xem 4 khoi lien quan ben duoi (mutation + JSX).
   const [donDetailId, setDonDetailId] = useState<string | null>(null);
   const [soTienCongNoDraft, setSoTienCongNoDraft] = useState<Record<string, string>>({});
+  // MOI (2026-09-22, phan hoi "Khi ấn vào tiền số tiền ước tính, mở popup UI giao diện sửa tiền gồm
+  // sửa SL thực xuất và đơn giá thực tế") - popup gon rieng cho loai_don "mua", tranh phai mo het
+  // DonHangDetailModal chi de sua 2 truong nay.
+  const [suaTienDonId, setSuaTienDonId] = useState<string | null>(null);
+  const [suaTienDraft, setSuaTienDraft] = useState({ so_luong_thuc_xuat: "", gia_chot: "", ghi_chu_so_luong: "" });
   const [showThemDon, setShowThemDon] = useState(false);
   const [themDonSelected, setThemDonSelected] = useState<Set<string>>(new Set());
   const [themDonQ, setThemDonQ] = useState("");
@@ -1033,6 +1038,24 @@ export function PxkDetailModal({
       addToast("Đã lưu tiền cần chuyển của đơn");
     },
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+  });
+
+  // MOI (2026-09-22) - popup "Sửa SL thực xuất/Đơn giá" tu cot Tien can chuyen (loai_don "mua"), dung
+  // LAI dung PATCH /dat-mua-lk/don-hang/:id (tnEditWindow, da co san tu v1.141) voi body RUT GON chi 3
+  // truong lien quan - cac truong khac (ma_lk, loai_de_xuat...) tu giu nguyen vi khong gui len (xem
+  // pattern "body.X !== undefined ? ... : existing.X" trong route do).
+  const suaTienDongMutation = useMutation({
+    mutationFn: ({ donHangId, body }: { donHangId: string; body: { so_luong_thuc_xuat: number; gia_chot?: number; ghi_chu_so_luong?: string } }) =>
+      api.patch(`/dat-mua-lk/don-hang/${donHangId}`, body),
+    onSuccess: () => {
+      setSuaTienDonId(null);
+      qc.invalidateQueries({ queryKey: ["pxk-detail", id] });
+      addToast("Đã lưu SL thực xuất/Đơn giá");
+    },
+    onError: (err) => {
+      const code = err instanceof ApiError ? err.code : undefined;
+      addToast(code === "MISSING_GHI_CHU_SO_LUONG" ? "Cần nhập lý do đổi SL thực xuất" : "Lỗi: " + describeApiError(err));
+    },
   });
 
   // Danh sach dong "kha dung" de them vao phieu DANG XEM - tai dung dung endpoint/loai_don nhu luc tao
@@ -1506,21 +1529,41 @@ export function PxkDetailModal({
                         {/* SUA (phan hoi 2026-09-22 "bắt sửa số lượng và đơn giá => tự sinh ra giá đề
                             xuất"): voi loai_don === "mua", BO HAN sua tay so_tien_cong_no (doc lap voi
                             SL/don gia that, de gay lech du lieu) - cot nay tro thanh READ-ONLY, luon la
-                            SL thuc xuat (hoac de xuat) × Gia chot (hoac de xuat). Muon doi so tien thi
-                            bam vao dong de mo DonHangDetailModal, sua "SL thuc xuat"/"Giá chốt" o do
-                            (da ho tro san tu v1.141, xem tnCoreDraft o DonCuaToiTab.tsx). Voi cong_no:
-                            GIU NGUYEN 100% co che sua tay so_tien_cong_no cu (nuoi truc tiep cong no
-                            KTV qua computeCongNoPhatSinh, khong duoc dung vao). */}
+                            SL thuc xuat (hoac de xuat) × Gia chot (hoac de xuat). MOI (cung ngay, phan
+                            hoi "ấn vào tiền số tiền ước tính, mở popup sửa SL thực xuất và đơn giá thực
+                            tế"): bam THANG vao so tien de mo popup gon (setSuaTienDonId) thay vi phai mo
+                            ca DonHangDetailModal day du. Voi cong_no: GIU NGUYEN 100% co che sua tay
+                            so_tien_cong_no cu (nuoi truc tiep cong no KTV qua computeCongNoPhatSinh,
+                            khong duoc dung vao). */}
                         {pxk.loai_don === "mua" ? (
                           (() => {
                             const donGia = d.gia_chot ?? d.gia_de_xuat;
                             const sl = d.so_luong_thuc_xuat ?? d.so_luong_de_xuat;
-                            return donGia != null ? (
+                            const noiDung = donGia != null ? (
                               <span className="italic text-[var(--ink-400)]" title="Ước tính = (Giá chốt hoặc Giá đề xuất) × SL thực xuất">
                                 {fmtVND(donGia * sl)} (ước tính)
                               </span>
                             ) : (
                               <span className="text-[var(--ink-400)]">—</span>
+                            );
+                            return canTacNghiep && trangThai === "Dang tao phieu" ? (
+                              <button
+                                type="button"
+                                className="hover:underline decoration-dotted underline-offset-2"
+                                title="Bấm để sửa SL thực xuất/Đơn giá thực tế"
+                                onClick={() => {
+                                  setSuaTienDonId(d.id);
+                                  setSuaTienDraft({
+                                    so_luong_thuc_xuat: String(sl),
+                                    gia_chot: donGia != null ? String(donGia) : "",
+                                    ghi_chu_so_luong: "",
+                                  });
+                                }}
+                              >
+                                {noiDung}
+                              </button>
+                            ) : (
+                              noiDung
                             );
                           })()
                         ) : soTienCongNoDraft[d.id] !== undefined ? (
@@ -1772,6 +1815,76 @@ export function PxkDetailModal({
           </div>
         </Modal>
       )}
+      {/* MOI (2026-09-22, phan hoi "ấn vào tiền số tiền ước tính, mở popup sửa SL thực xuất và đơn giá
+          thực tế") - popup gon, chi 2 truong lien quan truc tiep toi con so hien trong cot "Tiền cần
+          chuyển", dung LAI backend PATCH /dat-mua-lk/don-hang/:id (tnEditWindow) qua suaTienDongMutation. */}
+      {suaTienDonId && (() => {
+        const donSua = data?.donHang.find((x) => x.id === suaTienDonId);
+        if (!donSua) return null;
+        const slGoc = donSua.so_luong_thuc_xuat ?? donSua.so_luong_de_xuat;
+        const slDaDoi = suaTienDraft.so_luong_thuc_xuat.trim() !== "" && Number(suaTienDraft.so_luong_thuc_xuat) !== slGoc;
+        return (
+          <Modal open title={`Sửa SL thực xuất / Đơn giá — ${donSua.ma_lk}`} width="max-w-sm" onClose={() => setSuaTienDonId(null)}>
+            <div className="space-y-3 text-sm">
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">SL thực xuất</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={suaTienDraft.so_luong_thuc_xuat}
+                  onChange={(e) => setSuaTienDraft((p) => ({ ...p, so_luong_thuc_xuat: e.target.value }))}
+                  className="focus-ring w-full bg-[var(--surface)] border border-[var(--ink-400)] rounded-lg px-2.5 py-1.5 text-sm"
+                />
+              </div>
+              {slDaDoi && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Lý do đổi SL thực xuất *</label>
+                  <input
+                    value={suaTienDraft.ghi_chu_so_luong}
+                    onChange={(e) => setSuaTienDraft((p) => ({ ...p, ghi_chu_so_luong: e.target.value }))}
+                    className={`focus-ring w-full bg-[var(--surface)] border rounded-lg px-2.5 py-1.5 text-sm ${!suaTienDraft.ghi_chu_so_luong.trim() ? "border-[var(--coral-400)]" : "border-[var(--ink-400)]"}`}
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">Đơn giá thực tế</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={suaTienDraft.gia_chot}
+                  onChange={(e) => setSuaTienDraft((p) => ({ ...p, gia_chot: e.target.value }))}
+                  className="focus-ring w-full bg-[var(--surface)] border border-[var(--ink-400)] rounded-lg px-2.5 py-1.5 text-sm"
+                />
+              </div>
+              <div className="text-xs text-[var(--ink-500)]">
+                Tiền cần chuyển sau khi lưu:{" "}
+                <span className="font-semibold text-[var(--ink-700)]">
+                  {fmtVND((Number(suaTienDraft.gia_chot) || 0) * (Number(suaTienDraft.so_luong_thuc_xuat) || 0))}
+                </span>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Btn variant="ghost" size="sm" onClick={() => setSuaTienDonId(null)}>Huỷ</Btn>
+                <Btn
+                  size="sm"
+                  onClick={() =>
+                    suaTienDongMutation.mutate({
+                      donHangId: donSua.id,
+                      body: {
+                        so_luong_thuc_xuat: Number(suaTienDraft.so_luong_thuc_xuat),
+                        gia_chot: suaTienDraft.gia_chot.trim() === "" ? undefined : Number(suaTienDraft.gia_chot),
+                        ghi_chu_so_luong: slDaDoi ? suaTienDraft.ghi_chu_so_luong.trim() || undefined : undefined,
+                      },
+                    })
+                  }
+                  disabled={!suaTienDraft.so_luong_thuc_xuat.trim() || (slDaDoi && !suaTienDraft.ghi_chu_so_luong.trim()) || suaTienDongMutation.isPending}
+                >
+                  Lưu
+                </Btn>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
     </Drawer>
   );
 }

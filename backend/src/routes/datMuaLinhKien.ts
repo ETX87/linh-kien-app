@@ -3084,7 +3084,12 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
       };
     }
 
-    const nextLde = body.loai_de_xuat !== undefined ? body.loai_de_xuat.trim() : (existing.loai_de_xuat ?? "");
+    // FIX (phan hoi 2026-09-22 "'Loại đề xuất · Số lượng' không cho sửa khi đã lên phiếu xuất kho, vì
+    // nó liên quan đến các đơn khác chung trong phiếu"): cung nguyen tac voi ma_xuat_kho o tren - da co
+    // PXK quan ly (pxk_trang_thai != null) thi im lang bo qua 2 truong nay du body gui gi, khong dua
+    // hoan toan vao frontend khoa disabled.
+    const daCoPxk = existing.pxk_trang_thai !== null;
+    const nextLde = !daCoPxk && body.loai_de_xuat !== undefined ? body.loai_de_xuat.trim() : (existing.loai_de_xuat ?? "");
     const nextChinhSach = body.chinh_sach !== undefined ? body.chinh_sach?.trim() || null : existing.chinh_sach;
     const nextMaYeuCauSuCo = body.ma_yeu_cau_su_co !== undefined ? body.ma_yeu_cau_su_co?.trim() || null : existing.ma_yeu_cau_su_co;
     if (canNoRequired(nextLde) && (!nextChinhSach || !nextMaYeuCauSuCo)) {
@@ -3107,7 +3112,7 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
       giaDeXuat = lk.gia_ban;
     }
 
-    const nextSoLuong = body.so_luong_de_xuat !== undefined ? body.so_luong_de_xuat : existing.so_luong_de_xuat;
+    const nextSoLuong = !daCoPxk && body.so_luong_de_xuat !== undefined ? body.so_luong_de_xuat : existing.so_luong_de_xuat;
     if (!nextSoLuong || nextSoLuong <= 0) return c.json({ error: "INVALID_DON_HANG" }, 400);
 
     const next = {

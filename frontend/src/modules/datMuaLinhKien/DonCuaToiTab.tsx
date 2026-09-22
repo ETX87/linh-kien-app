@@ -293,6 +293,11 @@ export function DonHangDetailModal({
   // thai) da bo - gop chung vao canEditFull, dung luon cho dieu kien hien nut "Sua".
   const tnEditWindow = canTacNghiep && (!pxk || pxk.trang_thai === "Dang tao phieu");
   const canEditFull = isCreatorEditWindow || tnEditWindow;
+  // MOI (2026-09-22, phan hoi "'Loại đề xuất · Số lượng' không cho sửa khi đã lên phiếu xuất kho, vì
+  // nó liên quan đến các đơn khác chung trong phiếu"): rieng 2 truong nay khoa THEM 1 lop nua ngay ca
+  // trong canEditFull khi don DA thuoc 1 PXK (pxk != null) - cac truong con lai (ma LK, ghi chu, chinh
+  // sach...) VAN sua binh thuong theo canEditFull, chi rieng Loai de xuat/SL de xuat la khoa.
+  const canEditLoaiSoLuong = canEditFull && !pxk;
   const [isEditMode, setIsEditMode] = useState(false);
   const [editDraft, setEditDraft] = useState<DonHangDraft | null>(null);
   // 4 truong loi rieng cua TN (SL thuc xuat/Gia chot/Ma xuat kho/Ma MISA) - state RIENG, KHONG gop vao
@@ -857,19 +862,19 @@ export function DonHangDetailModal({
                       const matched = pickLdeQuick(loaiDeXuatOptions, kw);
                       if (!matched) return null;
                       return (
-                        <Btn key={kw} size="sm" variant={editDraft.loai_de_xuat === matched ? "primary" : "ghost"} disabled={!canEditFull} onClick={() => updateEditDraft({ loai_de_xuat: matched })}>
+                        <Btn key={kw} size="sm" variant={editDraft.loai_de_xuat === matched ? "primary" : "ghost"} disabled={!canEditLoaiSoLuong} onClick={() => updateEditDraft({ loai_de_xuat: matched })}>
                           {kw}
                         </Btn>
                       );
                     })}
-                    <Btn size="sm" variant={otherLdeOpen ? "primary" : "ghost"} disabled={!canEditFull} onClick={() => setOtherLdeOpen(true)}>
+                    <Btn size="sm" variant={otherLdeOpen ? "primary" : "ghost"} disabled={!canEditLoaiSoLuong} onClick={() => setOtherLdeOpen(true)}>
                       khác…
                     </Btn>
                   </div>
                   <div className="flex items-center border border-[var(--line)] rounded-lg overflow-hidden shrink-0">
                     <button
                       type="button"
-                      disabled={!canEditFull}
+                      disabled={!canEditLoaiSoLuong}
                       onClick={() => updateEditDraft({ so_luong_de_xuat: Math.max(1, editDraft.so_luong_de_xuat - 1) })}
                       className="focus-ring w-7 h-8 flex items-center justify-center text-[var(--ink-600)] font-bold hover:bg-[var(--surface-100)] disabled:opacity-40"
                     >
@@ -878,14 +883,14 @@ export function DonHangDetailModal({
                     <input
                       type="number"
                       min={1}
-                      disabled={!canEditFull}
+                      disabled={!canEditLoaiSoLuong}
                       value={editDraft.so_luong_de_xuat}
                       onChange={(e) => updateEditDraft({ so_luong_de_xuat: Number(e.target.value) })}
                       className="focus-ring w-11 text-center text-sm border-x border-[var(--line)] py-1.5 disabled:opacity-40"
                     />
                     <button
                       type="button"
-                      disabled={!canEditFull}
+                      disabled={!canEditLoaiSoLuong}
                       onClick={() => updateEditDraft({ so_luong_de_xuat: editDraft.so_luong_de_xuat + 1 })}
                       className="focus-ring w-7 h-8 flex items-center justify-center text-[var(--ink-600)] font-bold hover:bg-[var(--surface-100)] disabled:opacity-40"
                     >
@@ -898,7 +903,7 @@ export function DonHangDetailModal({
                     value={editDraft.loai_de_xuat}
                     onChange={(v) => updateEditDraft({ loai_de_xuat: v })}
                     options={[{ value: "", label: "-- Chọn --" }, ...loaiDeXuatOptions.map((o) => ({ value: o, label: o }))]}
-                    disabled={!canEditFull}
+                    disabled={!canEditLoaiSoLuong}
                     className="w-full mt-1"
                   />
                 )}
