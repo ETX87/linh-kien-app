@@ -496,10 +496,19 @@ export function DatMuaLinhKienModule({
             title: "Xuất kho",
             items: [
               // "Tổng phiếu xuất" (them 2026-09-12, phan hoi "thêm mục con 'Tổng phiếu xuất' ngay bên
-              // dưới") - dem so PXK "con ton" = tong so PXK trong scope TRU 3 trang thai KET THUC song
-              // song cua quy trinh (KTV da nhan / Hang tru kho / Kho da ket thuc - xem comment thu tu 5
-              // muc cuoi ben duoi). pxkStatusCounts[""] la tong TAT CA PXK khong loc trang thai (tra ve
-              // tu GET /phieu-xuat-kho/status-counts, xem backend/src/routes/phieuXuatKho.ts).
+              // dưới") - dem so PXK "con ton" = tong so PXK trong scope TRU 5 trang thai KET THUC song
+              // song cua quy trinh (KTV da nhan / Hang tru kho / Kho da ket thuc / Kho da nhan hang tra
+              // - xem comment thu tu 5 muc cuoi ben duoi - VA "Ke toan huy"). pxkStatusCounts[""] la
+              // tong TAT CA PXK khong loc trang thai (tra ve tu GET /phieu-xuat-kho/status-counts, xem
+              // backend/src/routes/phieuXuatKho.ts).
+              // FIX (phan hoi 2026-09-23 "bỏ phiếu đã hủy trong danh sách cần xử lý, tổng phiếu = tổng
+              // phiếu đang tồn"): truoc day CHI tru 3/5 trang thai dong (thieu "Ke toan huy" - PXK da
+              // huy qua "Huỷ (phiếu lỗi)"/"Huỷ (không còn nhu cầu)", 2026-09-22 - va "Kho da nhan hang
+              // tra", trang thai dong rieng cua PXK tra_hang) - khien tong "Tổng phiếu xuất" > tong
+              // phieu THAT SU con can xu ly. Danh sach 5 trang thai dong nay khop dung
+              // PXK_TRANG_THAI_DONG_ALL o backend (datMuaLinhKien.ts) va bien `isDong` cuc bo trong
+              // PhieuXuatKhoTab.tsx - khong tach hang chung file duoc (quy uoc san co cua he thong nay,
+              // xem CLAUDE.md).
               {
                 key: "tong-phieu-xuat",
                 label: "Tổng phiếu xuất",
@@ -507,7 +516,9 @@ export function DatMuaLinhKienModule({
                   (pxkStatusCounts[""] ?? 0) -
                   (pxkStatusCounts["KTV da nhan"] ?? 0) -
                   (pxkStatusCounts["Hang tru kho"] ?? 0) -
-                  (pxkStatusCounts["Kho da ket thuc"] ?? 0),
+                  (pxkStatusCounts["Kho da ket thuc"] ?? 0) -
+                  (pxkStatusCounts["Kho da nhan hang tra"] ?? 0) -
+                  (pxkStatusCounts["Ke toan huy"] ?? 0),
                 onClick: () => stageJump("tong-phieu-xuat", { tab: "phieu-xuat-kho", filter: "", loaiDon: "" }),
               },
               {
