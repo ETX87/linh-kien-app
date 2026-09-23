@@ -315,6 +315,13 @@ export const DON_CUA_TOI_TRANG_THAI_OPTIONS = [
 ];
 export const PXK_TRANG_THAI_OPTIONS = [
   { value: "", label: "Tất cả" },
+  // Sentinel "con ton" (them 2026-09-23, phan hoi "tổng phiếu = tổng phiếu đang tồn... ấn vào tổng
+  // phiếu sẽ có sẵn filter, ấn tắt sẽ hiện cả phiếu huỷ") - khop dung GET /phieu-xuat-kho?trang_thai=
+  // __OPEN__ (loc NOT IN 5 trang thai dong TRANG_THAI_DONG), cung 1 pattern voi __OPEN__ cua
+  // DON_CUA_TOI_TRANG_THAI_OPTIONS/TRA_HANG_TRANG_THAI_OPTIONS o duoi. La GIA TRI MAC DINH cua "Tổng
+  // phiếu xuất" (xem DatMuaLinhKienModule.tsx) nhung nguoi dung tu chon lai "Tất cả" tren dropdown de
+  // xem CA phieu da huy/hoan tat - khong phai gioi han cung nhu View.
+  { value: "__OPEN__", label: "Còn tồn" },
   // Sentinel rieng (them 2026-08-24, xem GET /phieu-xuat-kho trong routes/phieuXuatKho.ts) - "Chờ
   // tiền" la 1 DIEU KIEN CHAN (so_tien_can_chuyen/trang_thai_chuyen_tien), khong phai gia tri
   // trang_thai_hien_tai that nen KHONG xuat hien trong StatusBadge cua tung dong (PXK_TRANG_THAI_TONE

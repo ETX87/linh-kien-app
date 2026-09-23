@@ -198,7 +198,16 @@ phieuXuatKho.get("/", async (c) => {
       binds.push(...gsSet);
     }
   }
-  if (trangThai === "CHO_TIEN") {
+  if (trangThai === "__OPEN__") {
+    // Sentinel "con ton" (them 2026-09-23, phan hoi "tổng phiếu sẽ chỉ hiện phiếu tồn... ấn vào tổng
+    // phiếu sẽ có sẵn filter, ấn tắt sẽ hiện cả phiếu huỷ") - dung 1 pattern voi __OPEN__ cua GET
+    // /don-hang va GET /tra-hang (xem DON_HANG_TRANG_THAI_DONG/TRA_HANG_TRANG_THAI_DONG_COUNTS): loc
+    // NOT IN 5 trang thai dong TRANG_THAI_DONG (khai bao dau file). Day la 1 CHIP LOC nguoi dung co the
+    // tu tat (chon lai "Tất cả" tren dropdown) de xem lai CA phieu da huy/hoan tat, khong phai gioi han
+    // cung nhu View.
+    whereSql += ` AND pxk.trang_thai_hien_tai NOT IN (${TRANG_THAI_DONG.map(() => "?").join(",")})`;
+    binds.push(...TRANG_THAI_DONG);
+  } else if (trangThai === "CHO_TIEN") {
     // Sentinel rieng (phan hoi 2026-08-24: "2 thẻ chờ tiền và pxk hình như đang là 1... ấn giữa 2
     // button này không có phản hồi") - "cho tien" la 1 DIEU KIEN CHAN tren so_tien_can_chuyen/
     // trang_thai_chuyen_tien (xem comment dau file), KHONG phai 1 gia tri trang_thai_hien_tai that
@@ -295,7 +304,12 @@ phieuXuatKho.get("/misa-export", async (c) => {
       binds.push(...gsSet);
     }
   }
-  if (trangThai === "CHO_TIEN") {
+  if (trangThai === "__OPEN__") {
+    // Sentinel "con ton" (them 2026-09-23) - xem giai thich day du o GET / (cung 1 fix, cung ngay, giu
+    // dong bo "xem" vs "xuat" theo dung comment dau file).
+    whereSql += ` AND pxk.trang_thai_hien_tai NOT IN (${TRANG_THAI_DONG.map(() => "?").join(",")})`;
+    binds.push(...TRANG_THAI_DONG);
+  } else if (trangThai === "CHO_TIEN") {
     // FIX (phan hoi 2026-09-23 "vẫn đếm cả đơn đã hủy") - xem giai thich day du o GET / (cung 1 fix,
     // cung ngay, giu dong bo "xem" vs "xuat" theo dung comment dau file).
     whereSql += " AND pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'";
@@ -382,19 +396,24 @@ phieuXuatKho.get("/status-counts", async (c) => {
   // khoi GROUP BY ben duoi (WHERE ... AND NOT choTienCond) va "nuot" vao rieng bucket CHO_TIEN thay vi
   // bucket "Ke toan huy" - khien badge dua tren pxkStatusCounts["Ke toan huy"] khong tru dung.
   const choTienCond = "pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'";
+  // "__OPEN__" (them 2026-09-23, phan hoi "tổng phiếu = tổng phiếu đang tồn") - dem PXK KHONG thuoc 5
+  // trang thai dong TRANG_THAI_DONG, khop dung dieu kien cua GET /?trang_thai=__OPEN__ o tren - de
+  // "Tổng phiếu xuất" (frontend) doc THANG tu day thay vi tu tinh bang cach tru tung bucket dong.
+  const openCond = `pxk.trang_thai_hien_tai NOT IN (${TRANG_THAI_DONG.map(() => "?").join(",")})`;
   const scalarRow = await c.env.DB.prepare(
     `SELECT
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${whereSql}) as total,
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${whereSql} AND ${openCond}) as mo,
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${whereSql} AND ${choTienCond}) as cho_tien`,
   )
-    .bind(...binds, ...binds)
-    .first<{ total: number; cho_tien: number }>();
+    .bind(...binds, ...binds, ...TRANG_THAI_DONG, ...binds)
+    .first<{ total: number; mo: number; cho_tien: number }>();
   const { results } = await c.env.DB.prepare(
     `SELECT pxk.trang_thai_hien_tai as trang_thai, COUNT(*) as n FROM phieu_xuat_kho pxk WHERE ${whereSql} AND NOT (${choTienCond}) GROUP BY pxk.trang_thai_hien_tai`,
   )
     .bind(...binds)
     .all<{ trang_thai: string; n: number }>();
-  const counts: Record<string, number> = { "": scalarRow?.total ?? 0, CHO_TIEN: scalarRow?.cho_tien ?? 0 };
+  const counts: Record<string, number> = { "": scalarRow?.total ?? 0, __OPEN__: scalarRow?.mo ?? 0, CHO_TIEN: scalarRow?.cho_tien ?? 0 };
   for (const r of results) counts[r.trang_thai ?? ""] = r.n;
   return c.json({ counts });
 });
