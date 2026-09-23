@@ -205,7 +205,13 @@ phieuXuatKho.get("/", async (c) => {
     // nen KHONG the loc bang so sanh = nhu cac trang thai khac - truoc day nut "Chờ tiền" tren
     // pipeline tro TAM ve filter="Dang tao phieu" (trung voi nut "Tạo PXK" ben canh, khien 2 nut
     // nhu lam 1 viec). Gio loc DUNG dieu kien that, doc lap voi trang_thai_hien_tai.
-    whereSql += " AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'";
+    // FIX (phan hoi 2026-09-23 "vẫn đếm cả đơn đã hủy"): them "trang_thai_hien_tai = 'Dang tao phieu'"
+    // - truoc day dieu kien nay dua vao bat bien "chi Dang tao phieu moi co the co tien chua duyet xong"
+    // (dung khi viet, vi MISSING_CHUYEN_TIEN_APPROVED chan cung viec roi buoc nay khi con tien treo) -
+    // nhung tinh nang "Huỷ (phiếu lỗi)"/"Huỷ (không còn nhu cầu)" (2026-09-22) cho huy PXK tu ca "Dang
+    // tao phieu" lan "Cho ke toan" KHONG qua gate do, nen 1 PXK "Ke toan huy" van co the con mang
+    // so_tien_can_chuyen chua duyet, bi dem nham la "Chờ tiền" that su.
+    whereSql += " AND pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'";
   } else if (trangThai === "Dang tao phieu") {
     // CHOT (phan hoi 2026-08-24: "khi pxk đang chờ tiền, thì tính nó thành chờ tiền, khi cập nhật
     // tiền xong thì mới chuyển thành pxk") - loai tru PXK dang thoa dieu kien CHO_TIEN o tren khoi
@@ -290,7 +296,9 @@ phieuXuatKho.get("/misa-export", async (c) => {
     }
   }
   if (trangThai === "CHO_TIEN") {
-    whereSql += " AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'";
+    // FIX (phan hoi 2026-09-23 "vẫn đếm cả đơn đã hủy") - xem giai thich day du o GET / (cung 1 fix,
+    // cung ngay, giu dong bo "xem" vs "xuat" theo dung comment dau file).
+    whereSql += " AND pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'";
   } else if (trangThai === "Dang tao phieu") {
     whereSql += " AND pxk.trang_thai_hien_tai = ? AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')";
     binds.push(trangThai);
@@ -368,7 +376,12 @@ phieuXuatKho.get("/status-counts", async (c) => {
       }
     }
   }
-  const choTienCond = "pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'";
+  // FIX (phan hoi 2026-09-23 "vẫn đếm cả đơn đã hủy", day chinh la nguon gay lech badge "Tổng phiếu
+  // xuất") - them "trang_thai_hien_tai = 'Dang tao phieu'" - xem giai thich day du o GET / (cung 1 fix,
+  // cung ngay). Neu khong co dieu kien nay, 1 PXK "Ke toan huy" con treo tien chua duyet se bi loai
+  // khoi GROUP BY ben duoi (WHERE ... AND NOT choTienCond) va "nuot" vao rieng bucket CHO_TIEN thay vi
+  // bucket "Ke toan huy" - khien badge dua tren pxkStatusCounts["Ke toan huy"] khong tru dung.
+  const choTienCond = "pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'";
   const scalarRow = await c.env.DB.prepare(
     `SELECT
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${whereSql}) as total,

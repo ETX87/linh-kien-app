@@ -118,7 +118,10 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
               WHERE (
                 pxk.trang_thai_hien_tai = 'Dang gui KTV'
                 OR (pxk.trang_thai_hien_tai = 'Dang tao phieu' AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'))
-                OR (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')
+                -- FIX (phan hoi 2026-09-23 "vẫn đếm cả đơn đã hủy") - them dieu kien trang_thai_hien_tai
+                -- (truoc day thieu) - xem giai thich day du o datMuaLinhKien.ts GET /luong-quy-trinh
+                -- (cung 1 fix, cung ngay).
+                OR (pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')
               )
               ${pxkClause ? `AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id${pxkClause.sql})` : ""}${pxkKvClause?.sql ?? ""}) as cho_tn_pxk`,
       )

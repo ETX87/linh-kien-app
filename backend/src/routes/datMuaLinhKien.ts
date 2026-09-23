@@ -679,7 +679,12 @@ datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don = 'tra_hang' AND pxk.trang_thai_hien_tai = 'Da chot xong don xuat'${pxkScope}) as tra_hang_pxk_kho,
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho hang') as cho_hang,
        (SELECT COUNT(*) FROM thieu_lk tlk WHERE (SELECT trang_thai FROM thieu_lk_log WHERE thieu_lk_id = tlk.id ORDER BY id DESC LIMIT 1) = 'Cho kho xu ly'${thieuLkScope}) as thieu_lk,
-       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'${pxkScope}) as cho_tien,
+       -- FIX (phan hoi 2026-09-23 "vẫn đếm cả đơn đã hủy") - them dieu kien trang_thai_hien_tai='Dang
+       -- tao phieu' vao "cho_tien" (va "cho_tien_cua_toi" ben duoi) - xem giai thich day du o
+       -- phieuXuatKho.ts GET / (cung 1 fix, cung ngay): tinh nang Huy PXK (2026-09-22) pha vo bat bien
+       -- "chi Dang tao phieu moi co tien chua duyet", PXK "Ke toan huy" con treo tien truoc day bi dem
+       -- nham vao day.
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'${pxkScope}) as cho_tien,
        -- CHOT (phan hoi 2026-08-24: "khi pxk đang chờ tiền thì tính nó thành chờ tiền, khi cập nhật
        -- tiền xong thì mới chuyển thành pxk") - loai tru PXK dang thoa dieu kien cho_tien o tren, khop
        -- dung exclusion o GET /phieu-xuat-kho (routes/phieuXuatKho.ts) de badge/danh sach nhay toi
@@ -694,7 +699,7 @@ datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
        -- PXK dang cho tien/dang gui cua TAT CA KTV khac, khong rieng cua minh. Them 2 cot rieng loc theo
        -- dung nguoi_nhan_hang = nguoi dang goi de FE tu chon nguon hien thi phu hop tung doi tuong xem
        -- (xem countCuaToi o types.ts / DatMuaLinhKienModule.tsx).
-       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.nguoi_nhan_hang = ? AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet') as cho_tien_cua_toi,
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.nguoi_nhan_hang = ? AND pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet') as cho_tien_cua_toi,
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.loai_don != 'tra_hang' AND pxk.nguoi_nhan_hang = ? AND pxk.trang_thai_hien_tai = 'Dang gui KTV') as ktv_cua_toi`,
   )
     .bind(
@@ -783,7 +788,9 @@ datMuaLinhKien.get("/home-summary", async (c) => {
     const scope = scopeDatMuaNguoiTao(c); // KTV/Ve tinh: quan he (nguoi_tao/nguoi_nhan_hang/Ve tinh); GS: email_gs = minh
     const row = await c.env.DB.prepare(
       `SELECT
-         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.nguoi_nhan_hang = ? AND pxk.loai_don != 'tra_hang' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet') as cho_tien,
+         -- FIX (phan hoi 2026-09-23 "vẫn đếm cả đơn đã hủy") - them trang_thai_hien_tai='Dang tao
+         -- phieu', xem giai thich day du o GET /luong-quy-trinh phia tren (cung 1 fix, cung ngay).
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.nguoi_nhan_hang = ? AND pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet') as cho_tien,
          (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.nguoi_nhan_hang = ? AND pxk.loai_don != 'tra_hang' AND pxk.trang_thai_hien_tai = 'Dang gui KTV') as xac_nhan_nhan,
          (SELECT COUNT(*) FROM dat_don_hang ddh JOIN users u ON u.email = ddh.nguoi_tao WHERE u.tram_cha = ? AND ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho Tram duyet') as cho_tram_duyet,
          (SELECT COUNT(*) FROM thong_bao_ktv WHERE nguoi_nhan = ? AND loai = 'tu_choi' AND da_doc = 0) as tu_choi,
@@ -857,7 +864,9 @@ datMuaLinhKien.get("/home-summary", async (c) => {
     const pxkOtherConds: string[] = [];
     if (canTacNghiep(c)) {
       pxkOtherConds.push("(pxk.trang_thai_hien_tai = 'Dang tao phieu' AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'))");
-      pxkOtherConds.push("(pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')");
+      // FIX (phan hoi 2026-09-23 "vẫn đếm cả đơn đã hủy") - them dieu kien trang_thai_hien_tai o day
+      // (truoc day thieu, khac nhanh tren) - xem giai thich day du o GET /luong-quy-trinh phia tren.
+      pxkOtherConds.push("(pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')");
     }
 
     // FIX (phan hoi 2026-09-01: "sao cần làm lại > đang tồn được?... đang tồn phải là TAP CHA cua cần
@@ -967,7 +976,9 @@ datMuaLinhKien.get("/home-summary", async (c) => {
          (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho QC xac nhan'${ddhScope()}) as g_tra_hang_qc,
          (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TN duyet tong'${ddhScope()}) as g_tra_hang_tn,
          (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Dang tao phieu' AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')${pxkScope()}) as g_pxk_tao_pxk,
-         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'${pxkScope()}) as g_pxk_cho_tien,
+         -- FIX (phan hoi 2026-09-23 "vẫn đếm cả đơn đã hủy") - them dieu kien trang_thai_hien_tai, xem
+         -- giai thich day du o GET /luong-quy-trinh phia tren (cung 1 fix, cung ngay).
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'${pxkScope()}) as g_pxk_cho_tien,
          (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Cho ke toan'${pxkScope()}) as g_pxk_ke_toan,
          (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Da chot xong don xuat'${pxkScope()}) as g_pxk_kho,
          (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Dang gui KTV'${pxkScope()}) as g_pxk_ktv,
@@ -1024,7 +1035,9 @@ datMuaLinhKien.get("/home-summary", async (c) => {
          (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho QC xac nhan') as g_tra_hang_qc,
          (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TN duyet tong') as g_tra_hang_tn,
          (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Dang tao phieu' AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')) as g_pxk_tao_pxk,
-         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet') as g_pxk_cho_tien,
+         -- FIX (phan hoi 2026-09-23 "vẫn đếm cả đơn đã hủy") - them dieu kien trang_thai_hien_tai, xem
+         -- giai thich day du o GET /luong-quy-trinh phia tren (cung 1 fix, cung ngay).
+         (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet') as g_pxk_cho_tien,
          (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Cho ke toan') as g_pxk_ke_toan,
          (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Da chot xong don xuat') as g_pxk_kho,
          (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Dang gui KTV') as g_pxk_ktv,
@@ -1268,7 +1281,10 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
   const pxkSnapshotCols =
     thangParam === 0
       ? `COUNT(*) as tong_pxk,
-         COALESCE(SUM(CASE WHEN pxk.so_tien_can_chuyen IS NOT NULL AND (pxk.trang_thai_chuyen_tien IS NULL OR pxk.trang_thai_chuyen_tien != 'TN da duyet') THEN pxk.so_tien_can_chuyen ELSE 0 END), 0) as tong_cho_chuyen,
+         -- FIX (phan hoi 2026-09-23 "vẫn đếm cả đơn đã hủy") - them dieu kien trang_thai_hien_tai='Dang
+         -- tao phieu' - xem giai thich day du o GET /luong-quy-trinh phia tren (cung 1 fix, cung ngay):
+         -- neu khong, 1 PXK da "Ke toan huy" con treo tien se cong nham vao "Tiền chờ chuyển" cua KTV.
+         COALESCE(SUM(CASE WHEN pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND (pxk.trang_thai_chuyen_tien IS NULL OR pxk.trang_thai_chuyen_tien != 'TN da duyet') THEN pxk.so_tien_can_chuyen ELSE 0 END), 0) as tong_cho_chuyen,
          COALESCE(SUM(CASE WHEN pxk.trang_thai_hien_tai = 'Cho ke toan' THEN 1 ELSE 0 END), 0) as sl_cho_ke_toan,
          COALESCE(SUM(CASE WHEN pxk.trang_thai_hien_tai = 'Da chot xong don xuat' THEN 1 ELSE 0 END), 0) as sl_cho_kho_gui,
          COALESCE(SUM(CASE WHEN pxk.trang_thai_hien_tai = 'Dang gui KTV' THEN 1 ELSE 0 END), 0) as sl_da_gui,`
