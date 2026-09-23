@@ -1155,39 +1155,50 @@ function TraHangDetailModal({
         // Sap xep nut theo dung nhom concept 1 (renderTraHangDrawer(): primary D1-D4 truoc, ghost
         // "Lùi bước" (D5) giua, danger "Từ chối" cuoi cung) - CHI doi THU TU hien thi, dieu kien/
         // handler cua tung nut giu nguyen 100%.
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          {coTheXuLy && (
-            <Btn size="sm" onClick={() => logMutation.mutate({ hanhDong: "duyet" })} disabled={logMutation.isPending} loading={logMutation.isPending}>
-              {navNextId && onNavigate ? "Duyệt và tiếp theo →" : "Duyệt"}
-            </Btn>
+        <div className="flex flex-col items-end gap-2">
+          {/* MOI (phan hoi 2026-09-23 "khi duyệt trả hàng cho phép Kế toán, Kho, QC thêm ghi chú nếu
+              cần, không bắt buộc") - CHI 3 buoc KT/Kho/QC (loai tru "Cho TN duyet tong" theo dung yeu
+              cau, TN giu nguyen hanh vi cu). Tai su dung THANG state `ghiChu` co san (dang RANH khi
+              actionMode===null - moi nhanh Huy/actionMode khac deu tu clear ve "" luc bam Huy/Dong nen
+              an toan, khong lo dinh gia tri cu). Backend applyTraHangLog() da nhan ghiChu tuy chon cho
+              MOI hanh dong (khong rieng tu_choi/huy) tu truoc - chi can gui len, khong can sua BE. */}
+          {coTheXuLy && trangThai !== "Cho TN duyet tong" && (
+            <input
+              value={ghiChu}
+              onChange={(e) => setGhiChu(e.target.value)}
+              placeholder="Ghi chú khi duyệt (không bắt buộc)"
+              className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
           )}
-          {coTheDayLui && (
-            <Btn size="sm" variant="ghost" onClick={() => { setActionMode("day_lui"); setGhiChu(""); }} disabled={logMutation.isPending}>
-              Đẩy lùi
-            </Btn>
-          )}
-          {coTheXuLy && (
-            <Btn size="sm" variant="danger" onClick={handleTuChoi} disabled={logMutation.isPending}>Từ chối</Btn>
-          )}
-          {coTheHuy && (
-            <Btn size="sm" variant="danger" onClick={() => { setActionMode("huy"); setGhiChu(""); }} disabled={logMutation.isPending}>Hủy</Btn>
-          )}
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {coTheXuLy && (
+              <Btn
+                size="sm"
+                onClick={() => logMutation.mutate({ hanhDong: "duyet", ghiChu: trangThai !== "Cho TN duyet tong" ? ghiChu : undefined })}
+                disabled={logMutation.isPending}
+                loading={logMutation.isPending}
+              >
+                {navNextId && onNavigate ? "Duyệt và tiếp theo →" : "Duyệt"}
+              </Btn>
+            )}
+            {coTheDayLui && (
+              <Btn size="sm" variant="ghost" onClick={() => { setActionMode("day_lui"); setGhiChu(""); }} disabled={logMutation.isPending}>
+                Đẩy lùi
+              </Btn>
+            )}
+            {coTheXuLy && (
+              <Btn size="sm" variant="danger" onClick={handleTuChoi} disabled={logMutation.isPending}>Từ chối</Btn>
+            )}
+            {coTheHuy && (
+              <Btn size="sm" variant="danger" onClick={() => { setActionMode("huy"); setGhiChu(""); }} disabled={logMutation.isPending}>Hủy</Btn>
+            )}
+          </div>
         </div>
       ) : null
     ) : null;
 
   return (
     <>
-    {actionMode === "tu_choi_qc" && (
-      <QcTuChoiModal
-        donHangId={id}
-        onClose={() => setActionMode(null)}
-        onConfirm={(ghiChuQc) => logMutation.mutate({ hanhDong: "tu_choi", ghiChu: ghiChuQc })}
-        confirmDisabled={logMutation.isPending}
-        confirmLoading={logMutation.isPending}
-        addToast={addToast}
-      />
-    )}
     <Drawer
       open
       // SUA (ra soat UI/UX 2026-08-28, van de #1: "tên linh kiện tạo thành tiêu đề trên cùng",
@@ -1281,6 +1292,22 @@ function TraHangDetailModal({
         </div>
       )}
     </Drawer>
+    {/* FIX (phan hoi 2026-09-23, kem anh chup man hinh: "khi QC từ chối, popup từ chối bị ẩn phía sau
+        drawer") - Modal.tsx VA Drawer.tsx deu dung fixed + z-50 KHONG portal, nen khi 2 overlay cung
+        z-index la anh em (sibling) trong DOM, ai render SAU thang o tren (thu tu DOM quyet dinh, khong
+        phai z-index vi bang nhau). QcTuChoiModal truoc day nam TRUOC <Drawer> trong return (render
+        truoc) nen bi chinh Drawer de len tren - doi cho render SAU <Drawer> de no luon o tren cung, KHONG
+        dong cham Modal.tsx/Drawer.tsx dung chung ~40 noi khac. */}
+    {actionMode === "tu_choi_qc" && (
+      <QcTuChoiModal
+        donHangId={id}
+        onClose={() => setActionMode(null)}
+        onConfirm={(ghiChuQc) => logMutation.mutate({ hanhDong: "tu_choi", ghiChu: ghiChuQc })}
+        confirmDisabled={logMutation.isPending}
+        confirmLoading={logMutation.isPending}
+        addToast={addToast}
+      />
+    )}
     </>
   );
 }

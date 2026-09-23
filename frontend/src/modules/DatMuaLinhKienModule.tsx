@@ -427,6 +427,21 @@ export function DatMuaLinhKienModule({
     jumpTo({ ...target, stageKey: key });
     if (target.tab === "don-cua-toi") setLoaiDonTabClickSeq((n) => n + 1);
   }
+  // FIX (phan hoi 2026-09-23 "đối với vai trò nào chỉ đếm số đơn cần xử lý theo vai trò đó"): truoc
+  // day dung THANG traHangStatusCounts.__OPEN__ (tong CA 4 buoc KT/Kho/QC/TN gop lai) cho MOI vai tro
+  // xem - 1 QC/Ke toan/Kho/TN "thuan" (chi co dung 1 cua 4 co) se thay 1 con so bao gom ca viec KHONG
+  // phai cua ho (vd QC thay ca hang doi cua Ke toan), gay hieu nham "co N viec" trong khi thuc te it
+  // hon nhieu. Cong dung cac bucket theo TUNG co vai tro dang co (Admin/nguoi co nhieu co cung luc duoc
+  // cong don, dung tinh chat "toi can xu ly ca 2 hang doi"). Giam sat (isGiamSat, khong co co xu ly nao
+  // trong 4 co nay) giu nguyen tong __OPEN__ - ho khong dung o 1 buoc cu the nao ca, xem "toan bo" moi
+  // dung vai tro giam sat.
+  const traHangChoToiCount =
+    canKeToan || canKho || canQC || canTacNghiep
+      ? (canKeToan ? (traHangStatusCounts["Cho ke toan duyet mem"] ?? 0) : 0) +
+        (canKho ? (traHangStatusCounts["Cho kho xac nhan"] ?? 0) : 0) +
+        (canQC ? (traHangStatusCounts["Cho QC xac nhan"] ?? 0) : 0) +
+        (canTacNghiep ? (traHangStatusCounts["Cho TN duyet tong"] ?? 0) : 0)
+      : traHangStatusCounts.__OPEN__;
   const stageMenuGroups: StageMenuGroup[] = [
     {
       title: "Đơn đặt hàng",
@@ -435,8 +450,9 @@ export function DatMuaLinhKienModule({
           ? [
               {
                 key: "tra-hang-cho",
-                label: "Trả hàng chờ các bên",
-                count: traHangStatusCounts.__OPEN__,
+                // SUA (phan hoi 2026-09-23): "Trả hàng chờ các bên" -> "Đơn trả hàng chờ xác nhận".
+                label: "Đơn trả hàng chờ xác nhận",
+                count: traHangChoToiCount,
                 onClick: () => stageJump("tra-hang-cho", { tab: "tra-hang", filter: "__OPEN__" }),
               },
             ]
@@ -785,7 +801,13 @@ export function DatMuaLinhKienModule({
           (navigatedAway=true), thanh tab HIEN LAI binh thuong de ho co duong di tiep - khong bi ket o
           1 trang cut khong co cach quay lai. forceView="tra-hang" GIU NGUYEN hanh vi cu (luon hien). */}
       {(() => {
-        const showStageMenu = navigatedAway || (forceView !== "trang-chu" && forceView !== "thieu-lk");
+        // FIX (phan hoi 2026-09-23 "starbar đang auto hide khi không click vào => với QC cho auto
+        // show"): QC thuan (isQCOnly, khong phai Admin) hau nhu CHI co 1 viec thuc su o day - muc
+        // "Đơn trả hàng chờ xác nhận" (buoc "Cho QC xac nhan", xem stageMenuGroups) - "màn báo cáo
+        // thật của QC" theo dung CLAUDE.md. Ho KHONG co ly do gi de bam sang tab khac truoc (navigatedAway
+        // van false) nen bi ket o Trang chu trong khi StageMenu (noi duy nhat dan toi viec cua ho) lai
+        // dang an - them isQCOnly vao dieu kien show, bo qua gate navigatedAway rieng cho QC.
+        const showStageMenu = navigatedAway || (forceView !== "trang-chu" && forceView !== "thieu-lk") || isQCOnly;
         if (!showStageMenu) return null;
         if (isMobile) return <StageMenu groups={stageMenuGroups} activeKey={stageMenuActiveKey} isMobile />;
         if (!stageMenuSlot) return null;
