@@ -866,6 +866,14 @@ export function PxkDetailModal({
   // DonHangDetailModal chi de sua 2 truong nay.
   const [suaTienDonId, setSuaTienDonId] = useState<string | null>(null);
   const [suaTienDraft, setSuaTienDraft] = useState({ so_luong_thuc_xuat: "", gia_chot: "", ghi_chu_so_luong: "" });
+  // Sua tong tien can chuyen (2026-09-21, yeu cau #2, TAT lai 2026-09-22 cho MOI loai_don khi "(uoc
+  // tinh)" tu dong thay the - xem tongTienUocTinhPxk. BAT LAI 2026-09-23, phan hoi "các phiếu xk liên
+  // quan đến công nợ cho phép sửa giá trị tiền cần chuyển về") - CHI cho loai_don="cong_no": khac
+  // "mua" (tien tu dong = Gia chot x SL thuc xuat tung dong, sua tung dong qua popup suaTienDonId o
+  // tren), tien cong no dung so_tien_cong_no tung don (co the can dieu chinh CA tong sau khi da "Yêu
+  // cầu chuyển" - vd KTV bao sai/thieu) ma khong co dong SL/don gia nao de sua rieng le nhu "mua".
+  const [suaTongTien, setSuaTongTien] = useState(false);
+  const [soTienCanChuyenSuaDraft, setSoTienCanChuyenSuaDraft] = useState("");
   const [showThemDon, setShowThemDon] = useState(false);
   const [themDonSelected, setThemDonSelected] = useState<Set<string>>(new Set());
   const [themDonQ, setThemDonQ] = useState("");
@@ -1029,6 +1037,14 @@ export function PxkDetailModal({
   const chuyenTienMutation = useMutation({
     mutationFn: (body: { trang_thai: string; bang_chung_chuyen_tien_url?: string; bang_chung_chuyen_tien_ghi_chu?: string }) => api.patch(`/phieu-xuat-kho/${id}/chuyen-tien`, body),
     onSuccess: () => { invalidate(); addToast("Đã cập nhật chuyển tiền"); },
+    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+  });
+
+  // BAT LAI 2026-09-23 (xem giai thich day du canh khai bao suaTongTien o tren) - goi lai dung
+  // endpoint co san PATCH /:id/so-tien-can-chuyen (chua bao gio bi xoa o backend).
+  const soTienCanChuyenSuaMutation = useMutation({
+    mutationFn: () => api.patch(`/phieu-xuat-kho/${id}/so-tien-can-chuyen`, { so_tien_can_chuyen: Number(soTienCanChuyenSuaDraft) }),
+    onSuccess: () => { setSuaTongTien(false); setSoTienCanChuyenSuaDraft(""); invalidate(); addToast("Đã sửa tổng tiền cần chuyển"); },
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
   });
 
@@ -1437,11 +1453,39 @@ export function PxkDetailModal({
             ) : (
               <>
                 <KvRow label="Số tiền">
-                  {/* SUA (2026-09-22, phan hoi "tạm thời tắt khả năng sửa tổng tiền của phiếu đi"):
-                      bo han nut "✎ Sửa" (backend PATCH /:id/so-tien-can-chuyen VAN con, chi khong con
-                      UI nao goi toi - de dang bat lai sau nay neu can, giong tien le GET /goi-y-so-tien
-                      dang orphaned san trong file nay). */}
-                  <span className="font-semibold text-[var(--green-700)]">{fmtVND(pxk.so_tien_can_chuyen)}</span>
+                  {/* SUA (2026-09-22): bo nut "✎ Sửa" cho MOI loai_don khi "(ước tính)" tu dong thay
+                      the (xem tongTienUocTinhPxk) - rieng loai_don="mua" tien tu tinh dung Gia chot x
+                      SL thuc xuat tung dong nen khong can sua tong tay nua.
+                      BAT LAI 2026-09-23 rieng loai_don="cong_no" (phan hoi "các phiếu xk liên quan đến
+                      công nợ cho phép sửa giá trị tiền cần chuyển về") - CHI hien nut sua khi con o
+                      "Dang tao phieu" (khop dung gate backend PATCH /:id/so-tien-can-chuyen), khong
+                      dung nut "Yêu cầu chuyển" o nhanh tren (nut do RESET het bang chung da nop). */}
+                  {pxk.loai_don === "cong_no" && (canTacNghiep || canKeToan) && trangThai === "Dang tao phieu" && suaTongTien ? (
+                    <span className="inline-flex gap-1.5 items-center">
+                      <input
+                        type="number"
+                        autoFocus
+                        value={soTienCanChuyenSuaDraft}
+                        onChange={(e) => setSoTienCanChuyenSuaDraft(e.target.value)}
+                        className="focus-ring w-32 bg-[var(--surface-100)] border border-[var(--line)] rounded px-1.5 py-0.5 text-xs"
+                      />
+                      <Btn size="sm" variant="ghost" onClick={() => soTienCanChuyenSuaMutation.mutate()} disabled={!soTienCanChuyenSuaDraft.trim() || soTienCanChuyenSuaMutation.isPending}>Lưu</Btn>
+                      <button type="button" className="text-xs text-[var(--ink-400)] hover:underline" onClick={() => { setSuaTongTien(false); setSoTienCanChuyenSuaDraft(""); }}>Huỷ</button>
+                    </span>
+                  ) : (
+                    <span className="inline-flex gap-1.5 items-center">
+                      <span className="font-semibold text-[var(--green-700)]">{fmtVND(pxk.so_tien_can_chuyen)}</span>
+                      {pxk.loai_don === "cong_no" && (canTacNghiep || canKeToan) && trangThai === "Dang tao phieu" && (
+                        <button
+                          type="button"
+                          className="text-xs text-[var(--ocean-700)] hover:underline"
+                          onClick={() => { setSoTienCanChuyenSuaDraft(String(pxk.so_tien_can_chuyen ?? "")); setSuaTongTien(true); }}
+                        >
+                          ✎ Sửa
+                        </button>
+                      )}
+                    </span>
+                  )}
                 </KvRow>
                 <KvRow label="Trạng thái"><StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /></KvRow>
                 {pxk.bang_chung_chuyen_tien_url && (
