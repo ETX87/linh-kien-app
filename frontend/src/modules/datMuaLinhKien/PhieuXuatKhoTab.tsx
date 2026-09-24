@@ -242,22 +242,37 @@ export function PhieuXuatKhoTab({
     queryFn: () => api.get<{ counts: Record<string, number> }>("/phieu-xuat-kho/status-counts" + buildQuery({ loai_don: xemLoaiDon })),
   });
 
-  // So luong "can xu ly" (chua o 4 trang thai da xong) theo tung loai_don, hien canh nhan cua 3 nut
-  // sub-tab (CHOT vong 7: "Nút filter 'Mua hàng' 'Công nợ' sẽ hiện thị số lượng cần xử lý") - lay 1
-  // lan MOI loai (khong loc theo trang_thai dang chon, chi theo nguoi_nhan_hang neu co) de con so on
-  // dinh, khong doi theo bo loc trang_thai tam thoi dang xem. pageSize lon (khong phai 20 nhu danh
-  // sach chinh) vi day la truy van rieng chi de DEM theo loai_don, can thay het dong dang mo.
+  // So luong "can xu ly" theo tung loai_don, hien canh nhan cua 3 nut sub-tab (CHOT vong 7: "Nút
+  // filter 'Mua hàng' 'Công nợ' sẽ hiện thị số lượng cần xử lý"). pageSize lon (khong phai 20 nhu danh
+  // sach chinh) vi day la truy van rieng chi de DEM theo loai_don, can thay het dong khop bo loc.
+  // FIX (phan hoi 2026-09-24, kem anh chup "công nợ báo (x1) nhưng ấn vào không có dòng nào") - truoc
+  // day query nay KHONG BAO GIO truyen trang_thai (chu dinh "so on dinh, khong doi theo bo loc trang
+  // thai tam thoi dang xem" - dung khi xem "Tất cả"/"Còn tồn", vi luc do khong huong toi 1 buoc cu the
+  // nao). Nhung khi filterTrangThai DANG la 1 gia tri CU THE (vd nhay tu StageMenu "Đã chốt xong đơn
+  // xuất"), so canh sub-tab van dem TONG CA 4 trang thai mo, lech voi danh sach chinh (chi hien DUNG 1
+  // trang thai dang loc) - bam vao sub-tab bao "(x1)" nhung ra 0 dong. Theo xac nhan nguoi dung ("Đếm
+  // theo đúng bước đang lọc"): khi filterTrangThai cu the, truyen THANG vao query de dem dung trong
+  // buoc do (khop 100% voi danh sach se hien ra); chi giu "tong 4 trang thai mo" (khong doi theo bo loc)
+  // khi dang xem "Tất cả" ("")/"Còn tồn" ("__OPEN__") - 2 gia tri KHONG huong toi 1 buoc cu the.
+  const isSpecificTrangThai = filterTrangThai !== "" && filterTrangThai !== "__OPEN__";
   const { data: pxkCountsData } = useQuery({
-    queryKey: ["dat-mua-lk-pxk-loai-counts", filterNguoiNhanHang, khuVucParam],
+    queryKey: ["dat-mua-lk-pxk-loai-counts", filterNguoiNhanHang, khuVucParam, isSpecificTrangThai ? filterTrangThai : ""],
     queryFn: () =>
       api.get<{ rows: PhieuXuatKhoRow[] }>(
-        "/phieu-xuat-kho" + buildQuery({ nguoi_nhan_hang: filterNguoiNhanHang || undefined, khu_vuc: khuVucParam || undefined, page: 1, pageSize: 1000 }),
+        "/phieu-xuat-kho" +
+          buildQuery({
+            nguoi_nhan_hang: filterNguoiNhanHang || undefined,
+            khu_vuc: khuVucParam || undefined,
+            trang_thai: isSpecificTrangThai ? filterTrangThai : undefined,
+            page: 1,
+            pageSize: 1000,
+          }),
       ),
   });
   const PXK_OPEN_STATES = new Set(["Dang tao phieu", "Cho ke toan", "Da chot xong don xuat", "Dang gui KTV"]);
   const loaiDonCounts: Record<"mua" | "cong_no" | "tra_hang", number> = { mua: 0, cong_no: 0, tra_hang: 0 };
   for (const r of pxkCountsData?.rows ?? []) {
-    if (r.loai_don && PXK_OPEN_STATES.has(r.trang_thai)) loaiDonCounts[r.loai_don]++;
+    if (r.loai_don && (isSpecificTrangThai || PXK_OPEN_STATES.has(r.trang_thai))) loaiDonCounts[r.loai_don]++;
   }
 
   // Danh sach dong "TN da duyet" + chua gan PXK nao - nguon picker chon dong (CHOT 2026-08-14: thay
@@ -671,7 +686,11 @@ export function PhieuXuatKhoTab({
         rowKey={(r) => r.id}
         onRowClick={(r) => setDetailId(r.id)}
         columnConfig={columnConfig}
-        rowClassName={(r) => (r.co_don_uu_tien ? "bg-[var(--orange-100)] hover:brightness-95" : "")}
+        // FIX (phan hoi 2026-09-24: "đơn đã xác nhận in phiếu => cả card list của đơn chuyển sang màu
+        // xanh dương nhạt để phân biệt với các pxk chưa in phiếu") - uu_tien (cam) van uu tien hien thi
+        // truoc (canh bao quan trong hon), da_in_phieu (xanh duong nhat, --ocean-100) chi to khi KHONG
+        // co uu_tien de tranh 2 mau ganh nhau tren cung 1 dong.
+        rowClassName={(r) => (r.co_don_uu_tien ? "bg-[var(--orange-100)] hover:brightness-95" : r.da_in_phieu ? "bg-[var(--ocean-100)] hover:brightness-95" : "")}
       />
       {showCreate && (
         <Modal
