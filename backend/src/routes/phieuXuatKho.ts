@@ -263,7 +263,7 @@ phieuXuatKho.get("/", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT pxk.id, pxk.ma_xuat_kho, pxk.ma_xuat_kho_xac_nhan, pxk.ma_misa, pxk.ma_van_don, pxk.anh_bien_ban_url,
        pxk.nguoi_tao, pxk.ngay_tao, pxk.ghi_chu, pxk.nguoi_nhan_hang, pxk.loai_don,
-       pxk.so_tien_can_chuyen, pxk.trang_thai_chuyen_tien,
+       pxk.so_tien_can_chuyen, pxk.trang_thai_chuyen_tien, pxk.da_in_phieu,
        pxk.trang_thai_hien_tai as trang_thai,
        (SELECT COUNT(*) FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = pxk.id) as so_dong,
        EXISTS(
@@ -821,6 +821,22 @@ phieuXuatKho.patch("/:id/ma-misa", async (c) => {
       id, "Da luu ma MISA", user.email, nowVN(), `Đã lưu Mã MISA: ${maMisa}`,
     ),
   ]);
+  return c.json({ ok: true });
+});
+
+// PATCH /api/phieu-xuat-kho/:id/da-in-phieu - { da_in_phieu } - co PHU rieng cua Kho de theo doi phieu
+// nao da in/chua in luc chuan bi giao hang (phan hoi 2026-09-24: "ở giai đoạn chờ kho gửi hàng cho ktv,
+// thêm 1 trạng thái phụ là đã in phiếu/ chưa in phiếu... chỉ là trạng thái phụ để theo dõi, không thay
+// đổi luồng công việc") - KHONG gate theo trang_thai_hien_tai (chi la co theo doi, khong phai buoc
+// workflow), KHONG ghi phieu_xuat_kho_log (qua nho/co the bam nham lai nhieu lan, khong phai 1 "lich su
+// xu ly" dang luu).
+phieuXuatKho.patch("/:id/da-in-phieu", async (c) => {
+  if (!canKho(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const id = c.req.param("id");
+  const body = await c.req.json<{ da_in_phieu: boolean }>();
+  const pxk = await c.env.DB.prepare("SELECT id FROM phieu_xuat_kho WHERE id = ?").bind(id).first();
+  if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
+  await c.env.DB.prepare("UPDATE phieu_xuat_kho SET da_in_phieu = ? WHERE id = ?").bind(body.da_in_phieu ? 1 : 0, id).run();
   return c.json({ ok: true });
 });
 

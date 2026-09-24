@@ -157,6 +157,9 @@ export interface PhieuXuatKhoRow {
   bang_chung_chuyen_tien_url?: string | null;
   bang_chung_chuyen_tien_ghi_chu?: string | null;
   ngay_ktv_chuyen?: string | null;
+  // Co PHU rieng cua Kho (migration 0032, phan hoi 2026-09-24: "chờ kho gửi hàng cho ktv, thêm 1 trạng
+  // thái phụ là đã in phiếu/ chưa in phiếu") - theo doi thuan tuy, khong anh huong trang_thai_hien_tai.
+  da_in_phieu: number;
   // Co it nhat 1 dong dat_don_hang ben trong dang uu_tien=1 - danh dau ca PXK de nguoi xu ly biet
   // TRUOC KHI mo chi tiet (phan hoi 2026-08-19: "tất cả các phiếu... có liên quan đến đơn ưu tiên
   // bên trong, cũng tự động tô màu").

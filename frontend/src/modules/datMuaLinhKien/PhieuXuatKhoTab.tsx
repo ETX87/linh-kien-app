@@ -464,6 +464,19 @@ export function PhieuXuatKhoTab({
     },
     { key: "trang_thai", header: "Trạng thái", render: (r) => <StatusBadge value={r.trang_thai} tones={PXK_TRANG_THAI_TONE} options={PXK_TRANG_THAI_OPTIONS} /> },
     {
+      // Co phu "Da in phieu" (migration 0032) - CHI co y nghia tu luc "Đã chốt xong đơn xuất" tro di
+      // (loai_don != tra_hang, tra hang khong co buoc "gui KTV"/in phieu giao hang) - cac dong khac
+      // hien "—" thay vi badge "Chưa in" gay nham la CAN in (vd dong dang o "Dang tao phieu"/"Cho ke
+      // toan" chua toi luc Kho can quan tam).
+      key: "da_in_phieu", header: "In phiếu",
+      render: (r) =>
+        r.loai_don !== "tra_hang" && ["Da chot xong don xuat", "Dang gui KTV", "KTV da nhan"].includes(r.trang_thai) ? (
+          r.da_in_phieu ? <Badge tone="success">🖨 Đã in</Badge> : <Badge tone="warning">Chưa in</Badge>
+        ) : (
+          <span className="text-[var(--ink-400)]">—</span>
+        ),
+    },
+    {
       key: "viec_can_lam", header: "Việc cần làm tiếp",
       render: (r) => {
         const viec = pxkViecCanLamTiep(r);
@@ -980,6 +993,14 @@ export function PxkDetailModal({
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
   });
 
+  // Co phu "Da in phieu" (migration 0032, phan hoi 2026-09-24) - CHI cap nhat 1 co theo doi cua Kho,
+  // khong dung logMutation (khong ghi phieu_xuat_kho_log, khong doi trang_thai_hien_tai).
+  const daInPhieuMutation = useMutation({
+    mutationFn: (daInPhieu: boolean) => api.patch(`/phieu-xuat-kho/${id}/da-in-phieu`, { da_in_phieu: daInPhieu }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["pxk-detail", id] }); qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk"] }); },
+    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+  });
+
   // Tai file import MISA CHO DUNG PXK nay (them 2026-09-02, xem lib/misaExport.ts o backend +
   // lib/misaExportTemplates.ts o frontend). Chi can "Mã đơn hàng" da xac nhan (dung lam "Số chứng
   // từ") - nut dat canh gia tri Mã đơn hàng, khong bat buoc phieu da xong. SUA (phan hoi "tạo 3
@@ -1181,6 +1202,20 @@ export function PxkDetailModal({
             placeholder="Mã vận đơn (tuỳ chọn, áp dụng khi bấm Đang gửi KTV)"
             className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
           />
+        )}
+        {/* Co phu "Da in phieu" (migration 0032, phan hoi 2026-09-24: "ở giai đoạn chờ kho gửi hàng
+            cho ktv, thêm 1 trạng thái phụ là đã in phiếu/ chưa in phiếu để kho xác định được phiếu
+            nào đã in") - thuan tuy theo doi, KHONG anh huong nut/luong ben duoi. */}
+        {canKho && ["Da chot xong don xuat", "Dang gui KTV"].includes(trangThai) && pxk.loai_don !== "tra_hang" && (
+          <Btn
+            size="sm"
+            variant={pxk.da_in_phieu ? "primary" : "ghost"}
+            onClick={() => daInPhieuMutation.mutate(!pxk.da_in_phieu)}
+            disabled={daInPhieuMutation.isPending}
+            title="Đánh dấu đã in/chưa in phiếu (chỉ để Kho theo dõi, không ảnh hưởng luồng xử lý)"
+          >
+            {pxk.da_in_phieu ? "🖨 Đã in phiếu (bấm để bỏ đánh dấu)" : "🖨 Đánh dấu đã in phiếu"}
+          </Btn>
         )}
         <input
           value={ghiChu}
