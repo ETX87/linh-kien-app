@@ -32,7 +32,7 @@ import {
 } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
-  LOAI_DON_TONE, deriveLoaiDon, actionsFor, trangThaiLabel, canNoRequired, maYcscRequired, pickLdeQuick, emptyDraft,
+  LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, actionsFor, trangThaiLabel, canNoRequired, maYcscRequired, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
 } from "./helpers";
 import { StatusBadge, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink } from "./SharedUi";
@@ -732,7 +732,7 @@ export function DonHangDetailModal({
                 nhan chu thich rieng, chi noi (self-center) giua chieu cao dai QuickStat ben canh. */}
             <div className="flex-1 min-w-[160px] self-center">
               <div className="flex items-center gap-1.5 flex-wrap">
-                {tone && <Badge tone={tone.tone}>{tone.label}</Badge>}
+                {tone && d && <Badge tone={tone.tone}>{loaiDonLabel(d.loai_don, d.loai_de_xuat)}</Badge>}
                 <StatusBadge value={d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} options={DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL} />
                 {d.loai_don === "tra_hang" && (
                   <span className="text-[var(--ink-400)] text-xs">(xử lý ở luồng quy trình phía trên)</span>
@@ -1222,6 +1222,7 @@ export function DonCuaToiTab({
   initialLoaiDonOverride,
   initialDetailIdOverride,
   onDetailIdConsumed,
+  onJumpConsumed,
   loaiDonTabClickSeq,
 }: {
   user: { email: string; vai_tro: string | null } | null;
@@ -1255,6 +1256,11 @@ export function DonCuaToiTab({
   // initialDetailIdOverride de cha xoa dung 1 lan, KHONG con dung timer mu (setTimeout(0)) de tu xoa -
   // an toan ke ca tab nay phai cho xong dynamic import() (lan dau mount trong phien) roi moi doc duoc.
   onDetailIdConsumed?: () => void;
+  // FIX (phan hoi 2026-09-24: "click vào việc cần làm/starbar thường phải click 2 lần" - xem giai
+  // thich day du o jumpTarget/consumeJumpTarget trong DatMuaLinhKienModule.tsx) - bao cho component cha
+  // DA doc/ap dung xong initialFilterOverride/initialLoaiDonOverride/initialNguoiNhanHangOverride, cung
+  // co che "tu tieu thu" nhu onDetailIdConsumed o tren thay vi timer mu.
+  onJumpConsumed?: () => void;
   loaiDonTabClickSeq?: number;
 }) {
   const personDir = usePersonDirectory();
@@ -1288,12 +1294,14 @@ export function DonCuaToiTab({
   }
   // Nhay tu thanh tom tat cua module cha (tieu chi UX #2) - CHI doi lop hien thi, khong ghi localStorage.
   useEffect(() => {
-    if (initialFilterOverride !== undefined) setFilterTrangThaiDisplay(initialFilterOverride);
+    if (initialFilterOverride !== undefined) { setFilterTrangThaiDisplay(initialFilterOverride); onJumpConsumed?.(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialFilterOverride]);
   const [filterNguoiTao, setFilterNguoiTao] = useState("");
   const [filterNguoiNhanHang, setFilterNguoiNhanHang] = useState(initialNguoiNhanHangOverride ?? "");
   useEffect(() => {
-    if (initialNguoiNhanHangOverride !== undefined) setFilterNguoiNhanHang(initialNguoiNhanHangOverride);
+    if (initialNguoiNhanHangOverride !== undefined) { setFilterNguoiNhanHang(initialNguoiNhanHangOverride); onJumpConsumed?.(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialNguoiNhanHangOverride]);
   const [filterTuNgay, setFilterTuNgay] = useState("");
   const [filterDenNgay, setFilterDenNgay] = useState("");
@@ -1407,7 +1415,8 @@ export function DonCuaToiTab({
     setLoaiDonOverride(undefined);
   }, [loaiDonTabClickSeq]);
   useEffect(() => {
-    if (initialLoaiDonOverride !== undefined) setLoaiDonOverride(initialLoaiDonOverride === "all" ? "" : initialLoaiDonOverride);
+    if (initialLoaiDonOverride !== undefined) { setLoaiDonOverride(initialLoaiDonOverride === "all" ? "" : initialLoaiDonOverride); onJumpConsumed?.(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialLoaiDonOverride]);
   const effectiveLoaiDon = loaiDonOverride !== undefined ? loaiDonOverride : xemLoaiDon;
   const isAdmin = user?.vai_tro === "Admin";
@@ -2050,7 +2059,7 @@ export function DonHangGroupedList({
     { key: "sl", header: "SL đề xuất", className: "text-right", render: (row) => row.d.so_luong_de_xuat },
     { key: "sl_thuc_xuat", header: "SL thực xuất", className: "text-right", render: (row) => row.d.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
     { key: "gia", header: "Giá đề xuất", className: "text-right", render: (row) => (row.d.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold">{fmtVND(row.d.gia_de_xuat)}</span> : "—") },
-    { key: "loai", header: "Loại", render: (row) => <Badge tone={row.tone.tone}>{row.tone.label}</Badge> },
+    { key: "loai", header: "Loại", render: (row) => <Badge tone={row.tone.tone}>{loaiDonLabel(row.d.loai_don, row.d.loai_de_xuat)}</Badge> },
     { key: "yeu_cau_hoa_don", header: "Yêu cầu hóa đơn", render: (row) => row.d.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
     {
       key: "trang_thai",
@@ -2345,7 +2354,7 @@ export function DonHangGroupedList({
                         // don, vi MAX_BADGE=1 phia duoi CHI hien badges[0] (tru truong hop canh bao cong no
                         // o tren van uu tien tuyet doi, khong doi).
                         { tone: DON_HANG_TRANG_THAI_TONE_ALL[d.trang_thai ?? ""] ?? "neutral", label: trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, d.trang_thai ?? "") },
-                        { tone: tone.tone, label: tone.label },
+                        { tone: tone.tone, label: loaiDonLabel(d.loai_don, d.loai_de_xuat) },
                         ...(d.qua_han_ly_do_cham ? [{ tone: "danger" as Tone, label: "Quá hạn" }] : []),
                         // "Đơn tạo hộ" (yeu cau nguoi dung 2026-08-27) - xem giai thich day du o KvRow
                         // "Trạng thái" cua Drawer chi tiet phia tren (isDonTaoHo, helpers.ts).

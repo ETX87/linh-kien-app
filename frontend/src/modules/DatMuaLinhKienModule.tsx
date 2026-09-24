@@ -350,11 +350,21 @@ export function DatMuaLinhKienModule({
   // DonCuaToiTab (khong lift state len de tranh dung cham vao luong da on dinh cua tab do).
   const [showCreateFromPipeline, setShowCreateFromPipeline] = useState(false);
   const [jumpTarget, setJumpTarget] = useState<JumpTarget | null>(null);
-  useEffect(() => {
-    if (!jumpTarget) return;
-    const t = setTimeout(() => setJumpTarget(null), 0);
-    return () => clearTimeout(t);
-  }, [jumpTarget]);
+  // FIX (phan hoi 2026-09-24: "click vào việc cần làm/starbar thường phải click 2 lần thì mới hiện
+  // danh sách theo dạng filter") - truoc day tu XOA jumpTarget qua setTimeout(0) NGAY SAU moi lan bam,
+  // khong quan tam tab dich da mount xong chua. Ca 4 tab dich (DonCuaToiTab/PhieuXuatKhoTab/ThieuLkTab/
+  // TraHangTab) deu la React.lazy() - lan dau vao 1 tab trong phien (cold), import() dong bat dong bo
+  // CHAM HON setTimeout(0) rat nhieu -> luc tab thuc su mount va doc initialFilterOverride/
+  // initialLoaiDonOverride/initialNguoiNhanHangOverride, jumpTarget DA bi xoa mat tu truoc -> danh sach
+  // roi ve filter mac dinh cua tab thay vi dung filter da bam, nguoi dung phai bam LAI lan 2 (luc nay
+  // tab da "warm", mount dong bo trong cung 1 lan flush) moi thay dung danh sach. Doi sang co che "tu
+  // tieu thu" giong het pendingOpenDetailId/onDetailIdConsumed ben duoi: CHI xoa khi chinh tab dich xac
+  // nhan da doc xong (goi consumeJumpTarget(), xem cac tab con) - an toan vi tai 1 thoi diem CHI 1 tab
+  // duoc render (activeView === "..." && <Tab/>), khong co tab nao khac tranh doc nham jumpTarget cua
+  // tab kia.
+  function consumeJumpTarget() {
+    setJumpTarget(null);
+  }
   // FIX (phan hoi 2026-09-05: chuong thong bao nang len App.tsx, bam 1 dong thong bao tu tab KHAC co
   // the can COLD-MOUNT ca DatMuaLinhKienModule LAN tab con lazy ben trong no cung luc - openDetailId
   // truoc day dung CHUNG co che tu-xoa qua setTimeout(0) voi jumpTarget (danh cho filter/nguoiNhanHang/
@@ -861,6 +871,7 @@ export function DatMuaLinhKienModule({
             initialLoaiDonOverride={loaiDonFor("don-cua-toi")}
             initialDetailIdOverride={openDetailIdFor("don-cua-toi")}
             onDetailIdConsumed={consumeOpenDetailId}
+            onJumpConsumed={consumeJumpTarget}
             loaiDonTabClickSeq={loaiDonTabClickSeq}
           />
         )}
@@ -883,6 +894,7 @@ export function DatMuaLinhKienModule({
             initialLoaiDonOverride={loaiDonFor("phieu-xuat-kho")}
             initialDetailIdOverride={openDetailIdFor("phieu-xuat-kho")}
             onDetailIdConsumed={consumeOpenDetailId}
+            onJumpConsumed={consumeJumpTarget}
           />
         )}
         {activeView === "thieu-lk" && (
@@ -898,6 +910,7 @@ export function DatMuaLinhKienModule({
             initialNguoiNhanHangOverride={nguoiNhanHangFor("thieu-lk")}
             initialDetailIdOverride={openDetailIdFor("thieu-lk")}
             onDetailIdConsumed={consumeOpenDetailId}
+            onJumpConsumed={consumeJumpTarget}
           />
         )}
         {activeView === "tra-hang" && (
@@ -913,6 +926,7 @@ export function DatMuaLinhKienModule({
             initialFilterOverride={filterFor("tra-hang")}
             initialDetailIdOverride={openDetailIdFor("tra-hang")}
             onDetailIdConsumed={consumeOpenDetailId}
+            onJumpConsumed={consumeJumpTarget}
           />
         )}
         {showCreateFromPipeline && (

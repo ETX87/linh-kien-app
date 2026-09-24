@@ -29,7 +29,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: "danh-muc-lk", label: "Danh mục linh kiện", icon: "catalog" },
       { key: "ton-kho-ktv", label: "Tồn kho công nợ KTV", icon: "stock" },
       { key: "danh-sach-ktv", label: "Danh sách KTV", icon: "users" },
-      { key: "sua-chua-bao-hanh", label: "Sửa chữa", icon: "🛠", href: "https://suachua.dichvu3t.workers.dev" },
     ],
   },
   {

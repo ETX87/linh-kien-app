@@ -20,7 +20,7 @@ import type { TraHangRow } from "./types";
 import { TRA_HANG_TRANG_THAI_TONE, TRA_HANG_TRANG_THAI_OPTIONS, TRA_HANG_BULK_ERROR_MESSAGES } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, useNenAnhTraHangEnabled,
-  useLkAndLdeCache, useLinhKienRankMap, isDonTaoHo, formatLkLabel, LOAI_DON_TONE,
+  useLkAndLdeCache, useLinhKienRankMap, isDonTaoHo, formatLkLabel, LOAI_DON_TONE, loaiDonLabel,
 } from "./helpers";
 import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, DetailZone, QuickStat, KhuVucChipFilter, ImageLink, ImageThumb, MaYcscCell } from "./SharedUi";
 import { LinhKienDetailModal } from "./LinhKienPicker";
@@ -131,7 +131,7 @@ const CO_THE_DAY_LUI = ["Cho kho xac nhan", "Cho QC xac nhan", "Cho TN duyet ton
 
 export function TraHangTab({
   addToast, qc, canKeToan, canKho, canQC, canTacNghiep, currentEmail, isAdmin, initialFilterOverride,
-  initialDetailIdOverride, onDetailIdConsumed,
+  initialDetailIdOverride, onDetailIdConsumed, onJumpConsumed,
 }: {
   addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>;
   canKeToan: boolean; canKho: boolean; canQC: boolean; canTacNghiep: boolean;
@@ -140,6 +140,10 @@ export function TraHangTab({
   // tra "TRA-xxxxxx" - xem lib/pxkDeepLink.ts) - cung pattern voi PhieuXuatKhoTab.initialDetailIdOverride.
   initialDetailIdOverride?: string;
   onDetailIdConsumed?: () => void;
+  // FIX (phan hoi 2026-09-24: "click vào việc cần làm/starbar thường phải click 2 lần" - xem giai thich
+  // day du o jumpTarget/consumeJumpTarget trong DatMuaLinhKienModule.tsx) - cung co che "tu tieu thu"
+  // nhu onDetailIdConsumed o tren, ap dung cho initialFilterOverride thay vi timer mu.
+  onJumpConsumed?: () => void;
 }) {
   // Uu tien QC > Ke toan > Kho > TN cho mac dinh (chi anh huong lan dau) - 1 nguoi hiem khi giu qua
   // 1 trong 4 flag nay cung luc (ngoai Admin, da tu roi tabs[0] khac o component cha).
@@ -159,7 +163,8 @@ export function TraHangTab({
     setSavedFilterTrangThai(v);
   }
   useEffect(() => {
-    if (initialFilterOverride !== undefined) setFilterTrangThaiDisplay(initialFilterOverride);
+    if (initialFilterOverride !== undefined) { setFilterTrangThaiDisplay(initialFilterOverride); onJumpConsumed?.(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialFilterOverride]);
   const [layLuiId, setLayLuiId] = useState<string | null>(null);
   const [tuChoiTnId, setTuChoiTnId] = useState<string | null>(null);
@@ -430,7 +435,7 @@ export function TraHangTab({
     { key: "so_luong_de_xuat", header: "SL đề xuất", render: (r) => r.so_luong_de_xuat },
     { key: "sl_thuc_xuat", header: "SL thực xuất", render: (r) => r.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
     { key: "gia", header: "Giá đề xuất", render: (r) => (r.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold">{fmtVND(r.gia_de_xuat)}</span> : "—") },
-    { key: "loai", header: "Loại", render: (r) => { const t = LOAI_DON_TONE[(r.loai_don as keyof typeof LOAI_DON_TONE) ?? "tra_hang"] ?? LOAI_DON_TONE.tra_hang; return <Badge tone={t.tone}>{t.label}</Badge>; } },
+    { key: "loai", header: "Loại", render: (r) => { const loaiDon = (r.loai_don as keyof typeof LOAI_DON_TONE) ?? "tra_hang"; const t = LOAI_DON_TONE[loaiDon] ?? LOAI_DON_TONE.tra_hang; return <Badge tone={t.tone}>{loaiDonLabel(loaiDon, r.loai_de_xuat)}</Badge>; } },
     { key: "yeu_cau_hoa_don", header: "Yêu cầu hóa đơn", render: (r) => r.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
     {
       key: "trang_thai_tra_hang", header: "Trạng thái",

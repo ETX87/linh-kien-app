@@ -157,6 +157,16 @@ export const LOAI_DON_TONE: Record<ReturnType<typeof deriveLoaiDon>, { tone: Ton
   tra_hang: { tone: "warning", label: "Trả hàng", border: "border-l-[var(--color-warning)]" },
 };
 
+// SUA (phan hoi 2026-09-24, kem anh chup DonCuaToiTab: "loại trả hàng đang không hiện rõ theo đúng
+// loại đề xuất") - badge "Loại" truoc day CHI hien 1 trong 3 nhan gop chung (Mua hang/Cong no/Tra
+// hang) du he thong co nhieu loai_de_xuat CU THE hon trong cung 1 nhom (vd "TRẢ HÀNG CÔNG NỢ"/"TRẢ
+// HÀNG LK TỈNH"/"TRẢ HÀNG LK ĐẶC THÙ"/"TRẢ HÀNG DỮ TRỮ"/"TRẢ HÀNG LK KHÁC" deu gop chung ve "Trả
+// hàng"). Mau badge (tone) van giu theo nhom (LOAI_DON_TONE), chi doi PHAN CHU sang dung gia tri
+// loai_de_xuat nguoi dung da chon, fallback ve nhan gop khi thieu du lieu (vd dong import cu).
+export function loaiDonLabel(loaiDon: ReturnType<typeof deriveLoaiDon>, loaiDeXuat?: string | null): string {
+  return loaiDeXuat?.trim() || LOAI_DON_TONE[loaiDon].label;
+}
+
 // Chinh sach + Ma yeu cau su co bat buoc khi Loai de xuat la cong no THAT (chua "CONG NO") nhung
 // khong phai luong tra hang (da co "TRA HANG") - chot 2026-08-15, doi xung voi validate phia server
 // (POST /phieu-dat, processDatDonHangImportRows trong datMuaLinhKien.ts).

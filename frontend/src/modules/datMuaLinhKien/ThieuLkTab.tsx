@@ -75,7 +75,7 @@ function actionLabel(trangThai: string): string {
 
 export function ThieuLkTab({
   addToast, qc, canKho, canTacNghiep, canKeToan, isGiamSat, currentEmail, initialFilterOverride, initialNguoiNhanHangOverride,
-  initialDetailIdOverride, onDetailIdConsumed,
+  initialDetailIdOverride, onDetailIdConsumed, onJumpConsumed,
 }: {
   addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>; canKho: boolean; canTacNghiep: boolean;
   // Them 2026-09-05 (phan hoi "'Chờ LK' chức năng filter vẫn thiếu bộ lọc theo khu vực, theo người
@@ -91,6 +91,11 @@ export function ThieuLkTab({
   // DatMuaLinhKienModule.tsx).
   initialDetailIdOverride?: string;
   onDetailIdConsumed?: () => void;
+  // FIX (phan hoi 2026-09-24: "click vào việc cần làm/starbar thường phải click 2 lần" - xem giai thich
+  // day du o jumpTarget/consumeJumpTarget trong DatMuaLinhKienModule.tsx) - cung co che "tu tieu thu"
+  // nhu onDetailIdConsumed o tren, ap dung cho initialFilterOverride/initialNguoiNhanHangOverride thay
+  // vi timer mu.
+  onJumpConsumed?: () => void;
 }) {
   // FIX (ra soat bug mua hang 2026-08-26, BUG-002): tach lop luu-lau-dai (localStorage) khoi lop
   // hien-thi/query - jump tu Home/Pipeline CHI doi lop hien thi, khong ghi de vinh vien filter da luu
@@ -105,7 +110,8 @@ export function ThieuLkTab({
     setSavedFilterTrangThai(v);
   }
   useEffect(() => {
-    if (initialFilterOverride !== undefined) setFilterTrangThaiDisplay(initialFilterOverride);
+    if (initialFilterOverride !== undefined) { setFilterTrangThaiDisplay(initialFilterOverride); onJumpConsumed?.(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialFilterOverride]);
   const [actionId, setActionId] = useState<string | null>(null);
   const [actionTrangThai, setActionTrangThai] = useState("");
@@ -171,7 +177,8 @@ export function ThieuLkTab({
     setFilterNguoiNhanHangDisplay(v);
   }
   useEffect(() => {
-    if (initialNguoiNhanHangOverride !== undefined) setFilterNguoiNhanHangDisplay(initialNguoiNhanHangOverride);
+    if (initialNguoiNhanHangOverride !== undefined) { setFilterNguoiNhanHangDisplay(initialNguoiNhanHangOverride); onJumpConsumed?.(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialNguoiNhanHangOverride]);
   const { data: nguoiNhanHangData } = useQuery({
     queryKey: ["dat-mua-lk-nguoi-nhan-hang-kha-dung"],

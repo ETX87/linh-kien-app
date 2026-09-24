@@ -49,7 +49,7 @@ function toastCanhBaoThieuMisa(result: MisaExportResult, addToast: (msg: string)
 
 export function PhieuXuatKhoTab({
   addToast, qc, canTacNghiep, canKho, canKeToan, canDownloadMisa, currentEmail, isAdmin, initialFilterOverride, initialNguoiNhanHangOverride, initialLoaiDonOverride,
-  initialDetailIdOverride, onDetailIdConsumed,
+  initialDetailIdOverride, onDetailIdConsumed, onJumpConsumed,
 }: {
   addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>;
   canTacNghiep: boolean; canKho: boolean; canKeToan: boolean;
@@ -69,6 +69,11 @@ export function PhieuXuatKhoTab({
   // FIX (phan hoi 2026-09-05, giong het DonCuaToiTab.tsx) - bao cho cha da doc/ap dung xong de cha xoa
   // dung 1 lan, khong con dung timer mu.
   onDetailIdConsumed?: () => void;
+  // FIX (phan hoi 2026-09-24: "click vào việc cần làm/starbar thường phải click 2 lần" - xem giai thich
+  // day du o jumpTarget/consumeJumpTarget trong DatMuaLinhKienModule.tsx) - cung co che "tu tieu thu"
+  // nhu onDetailIdConsumed o tren, ap dung cho initialFilterOverride/initialLoaiDonOverride/
+  // initialNguoiNhanHangOverride thay vi timer mu.
+  onJumpConsumed?: () => void;
 }) {
   // Trang thai "cho xu ly" theo dung buoc cua vai tro dang xem (them 2026-09-09, phan hoi "thêm 1 nút
   // ấn nhanh 'Đơn chờ xử lý'") - tach ham rieng de dung LAI o ca 3 noi: gia tri mac dinh luc mo tab
@@ -100,13 +105,15 @@ export function PhieuXuatKhoTab({
     setSavedFilterTrangThai(v);
   }
   useEffect(() => {
-    if (initialFilterOverride !== undefined) setFilterTrangThaiDisplay(initialFilterOverride);
+    if (initialFilterOverride !== undefined) { setFilterTrangThaiDisplay(initialFilterOverride); onJumpConsumed?.(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialFilterOverride]);
   // Loc theo "Nguoi nhan hang" (KTV) - them cung dot voi chot nghiep vu "1 PXK = 1 KTV" (migration
   // 0074), phuc vu drill-down tu tab "Bao cao" (nhay toi dung KTV + trang thai).
   const [filterNguoiNhanHang, setFilterNguoiNhanHang] = useState(initialNguoiNhanHangOverride ?? "");
   useEffect(() => {
-    if (initialNguoiNhanHangOverride !== undefined) setFilterNguoiNhanHang(initialNguoiNhanHangOverride);
+    if (initialNguoiNhanHangOverride !== undefined) { setFilterNguoiNhanHang(initialNguoiNhanHangOverride); onJumpConsumed?.(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialNguoiNhanHangOverride]);
   const [detailId, setDetailId] = useState<string | null>(null);
   useEffect(() => {
@@ -134,8 +141,11 @@ export function PhieuXuatKhoTab({
       : "mua",
   );
   useEffect(() => {
-    if (initialLoaiDonOverride === "mua" || initialLoaiDonOverride === "cong_no" || initialLoaiDonOverride === "tra_hang" || initialLoaiDonOverride === "")
+    if (initialLoaiDonOverride === "mua" || initialLoaiDonOverride === "cong_no" || initialLoaiDonOverride === "tra_hang" || initialLoaiDonOverride === "") {
       setXemLoaiDon(initialLoaiDonOverride);
+      onJumpConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialLoaiDonOverride]);
   // Them 2026-08-21 (dong bo giao dien voi Mua hang/Cong no - "hợp nhất phong cách giao diện"): o
   // tim kiem tu do + nut thu gon "☰ Bộ lọc ▾".
