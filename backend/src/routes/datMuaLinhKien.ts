@@ -2768,19 +2768,29 @@ async function applyDonHangLog(
 ): Promise<{ error: string; status: 404 | 409 | 403 | 400 } | { nextTrangThai: string }> {
   const ddh = await c.env.DB.prepare(
     `SELECT ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao, ddh.email_gs, ddh.version, ddh.ly_do_cham, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat,
-            lk.dac_thu, ${latestDonHangStatusExpr("ddh.id")} as trang_thai, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
+            ddh.ma_xuat_kho, lk.dac_thu, ${latestDonHangStatusExpr("ddh.id")} as trang_thai, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
             ${lastGiaiTrinhAtExpr("ddh.id")} as last_giai_trinh_at
      FROM dat_don_hang ddh LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk WHERE ddh.id = ?`,
   )
     .bind(donHangId)
     .first<{
       loai_don: string; loai_de_xuat: string | null; nguoi_tao: string; email_gs: string | null; version: number; ly_do_cham: string | null;
-      ten_lk_snapshot: string; so_luong_de_xuat: number; dac_thu: number | null; trang_thai: string | null; cho_tn_duyet_at: string | null;
-      last_giai_trinh_at: string | null;
+      ten_lk_snapshot: string; so_luong_de_xuat: number; ma_xuat_kho: string | null; dac_thu: number | null; trang_thai: string | null;
+      cho_tn_duyet_at: string | null; last_giai_trinh_at: string | null;
     }>();
   if (!ddh) return { error: "NOT_FOUND", status: 404 };
   if (ddh.loai_don === "tra_hang") return { error: "USE_TRA_HANG_ROUTE", status: 400 };
-  if (ddh.trang_thai && (DON_HANG_TRANG_THAI_DONG as readonly string[]).includes(ddh.trang_thai)) return { error: "DONG_DA_DONG", status: 409 };
+  // FIX (phan hoi 2026-09-24: "Đơn đã duyệt chờ tạo xuất bổ sung thêm nút từ chối cho TN") - "TN da
+  // duyet" von la 1 trong 4 trang thai DONG cua state machine nay (khong cho tiep tuc duyet/tu choi/
+  // huy SAU KHI da duyet), nhung TN can 1 duong thoat rieng de HUY QUYET DINH DUYET cua chinh minh
+  // TRUOC KHI dong duoc gom vao 1 PXK nao (ma_xuat_kho con NULL - dong bo gom vao PXK roi thi theo doi
+  // qua chinh PXK do, khong con y nghia "tu choi don" nua). Cho phep NGOAI LE DUY NHAT: hanhDong===
+  // "tu_choi" tu dung "TN da duyet" + chua gan PXK, xu ly o nhanh rieng ben duoi (KHONG dung chung
+  // nhanh "Cho TN duyet" vi khong can chon Ly do cham - xem xac nhan nguoi dung).
+  const laTuChoiSauDuyet = hanhDong === "tu_choi" && ddh.trang_thai === "TN da duyet" && ddh.ma_xuat_kho == null;
+  if (ddh.trang_thai && (DON_HANG_TRANG_THAI_DONG as readonly string[]).includes(ddh.trang_thai) && !laTuChoiSauDuyet) {
+    return { error: "DONG_DA_DONG", status: 409 };
+  }
 
   const user = c.get("user");
   let nextTrangThai: string;
@@ -2867,6 +2877,13 @@ async function applyDonHangLog(
     } else {
       return { error: "INVALID_HANH_DONG", status: 400 };
     }
+  } else if (laTuChoiSauDuyet) {
+    // Tu choi SAU KHI da duyet, truoc khi gom vao PXK (phan hoi 2026-09-24) - CHI TN (khong qua Tram/
+    // TBP, don da qua het 2 buoc do roi), ly do TU DO bat buoc (giong pattern "Huỷ", KHONG chon tu
+    // danh muc settings_ly_do_cham nhu tu_choi thuong - danh muc do gan voi ngu canh TRUOC duyet).
+    if (!canTacNghiep(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
+    if (!ghiChu?.trim()) return { error: "MISSING_GHI_CHU", status: 400 };
+    nextTrangThai = "TN tu choi";
   } else {
     return { error: "INVALID_STATE", status: 409 };
   }

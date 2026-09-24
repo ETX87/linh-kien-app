@@ -226,8 +226,10 @@ export function DonHangDetailModal({
   function confirmTuChoi() {
     if (actionTarget !== "tu_choi" && actionTarget !== "cho_hang") return;
     // "Cho TBP xac nhan"/"Cho Tram duyet" tu choi don gian - khong can chon Ly do cham, chi ghi chu
-    // tu do (nay BAT BUOC, hang muc #19 2026-08-25 - nut xac nhan da disable san khi rong).
-    if (data?.donHang.trang_thai === "Cho TBP xac nhan" || data?.donHang.trang_thai === "Cho Tram duyet") {
+    // tu do (nay BAT BUOC, hang muc #19 2026-08-25 - nut xac nhan da disable san khi rong). "TN da
+    // duyet" (phan hoi 2026-09-24) dung chung nhanh nay - backend (laTuChoiSauDuyet) cung chi doi
+    // ghi_chu tu do, khong nhan ly_do_cham_id.
+    if (data?.donHang.trang_thai === "Cho TBP xac nhan" || data?.donHang.trang_thai === "Cho Tram duyet" || data?.donHang.trang_thai === "TN da duyet") {
       if (!ghiChu.trim()) return;
       logMutation.mutate({ hanh_dong: "tu_choi" });
       return;
@@ -436,7 +438,7 @@ export function DonHangDetailModal({
           </Btn>
           <Btn size="sm" onClick={saveEdit} disabled={!editCanSave || editMutation.isPending}>Lưu thay đổi</Btn>
         </div>
-      ) : actionTarget === "tu_choi" && (d.trang_thai === "Cho TBP xac nhan" || d.trang_thai === "Cho Tram duyet") ? (
+      ) : actionTarget === "tu_choi" && (d.trang_thai === "Cho TBP xac nhan" || d.trang_thai === "Cho Tram duyet" || d.trang_thai === "TN da duyet") ? (
         // Panel tu choi inline (concept 1, pattern ".inline-panel"/".field": nen xam nhat, vien dut
         // net, label chu hoa nho phia tren input) - thay khoi flex ngang tu viet tay truoc day.
         // FIX (phan hoi 2026-08-25, hang muc #19): ghi chu tu "tuy chon" thanh "bat buoc" (dao nguoc
@@ -577,7 +579,10 @@ export function DonHangDetailModal({
         </div>
       ) : actions.duyet || actions.tuChoi || actions.choHang || actions.huy ? (
         <div className="w-full space-y-2">
-          {soLuongThucXuatDaDoi && (
+          {/* FIX (phan hoi 2026-09-24): them dieu kien actions.duyet - neu khong, dong "TN da duyet"
+              (chi con actions.tuChoi, ma_xuat_kho con NULL) co the hien nham o day khi so_luong_thuc_xuat
+              da duyet truoc do khac so_luong_de_xuat, dù hanh dong duy nhat kha dung la Tu choi. */}
+          {soLuongThucXuatDaDoi && actions.duyet && (
             <div className="bg-[var(--surface-100)] border border-dashed border-[var(--orange-500)] rounded-lg p-2.5">
               <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">
                 Lý do đổi SL thực xuất ({d.so_luong_de_xuat} → {soLuongThucXuat}) — bắt buộc
@@ -1562,8 +1567,10 @@ export function DonCuaToiTab({
     const ids = actionTarget.id === "bulk" ? [...selected] : [actionTarget.id];
     const targetRow = actionTarget.id !== "bulk" ? pageRows.find((r) => r.id === actionTarget.id) : undefined;
     // "Cho TBP xac nhan"/"Cho Tram duyet" tu choi don gian (ghi chu tu do, khong chon Ly do cham) -
-    // ghi_chu nay BAT BUOC (hang muc #19 2026-08-25), nut xac nhan da disable san khi rong.
-    if (targetRow?.trang_thai === "Cho TBP xac nhan" || targetRow?.trang_thai === "Cho Tram duyet") {
+    // ghi_chu nay BAT BUOC (hang muc #19 2026-08-25), nut xac nhan da disable san khi rong. "TN da
+    // duyet" (phan hoi 2026-09-24) dung chung nhanh nay - khong the vao bulk (rowsCoTheChon khong gom
+    // trang thai nay) nen chi can xu ly o day, cho thao tac tung dong.
+    if (targetRow?.trang_thai === "Cho TBP xac nhan" || targetRow?.trang_thai === "Cho Tram duyet" || targetRow?.trang_thai === "TN da duyet") {
       if (!actionGhiChu.trim()) return;
       bulkMutation.mutate({ ids, hanh_dong: "tu_choi", ghi_chu: actionGhiChu.trim() });
       return;
@@ -2539,7 +2546,9 @@ export function DonHangGroupedList({
         const targetId = actionTarget && actionTarget.id !== "bulk" ? actionTarget.id : null;
         const rowTarget = targetId ? rows.find((r) => r.id === targetId) : undefined;
         const isTuChoiTBP =
-          !!targetId && actionTarget?.action === "tu_choi" && (rowTarget?.trang_thai === "Cho TBP xac nhan" || rowTarget?.trang_thai === "Cho Tram duyet");
+          !!targetId &&
+          actionTarget?.action === "tu_choi" &&
+          (rowTarget?.trang_thai === "Cho TBP xac nhan" || rowTarget?.trang_thai === "Cho Tram duyet" || rowTarget?.trang_thai === "TN da duyet");
         const isTuChoiTN = !!targetId && actionTarget?.action === "tu_choi" && !isTuChoiTBP;
         const isChoHang = !!targetId && actionTarget?.action === "cho_hang";
         const isDuyetTaoHo = !!targetId && actionTarget?.action === "duyet_tao_ho";

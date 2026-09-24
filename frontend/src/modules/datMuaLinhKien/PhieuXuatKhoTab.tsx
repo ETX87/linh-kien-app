@@ -1116,7 +1116,7 @@ export function PxkDetailModal({
   // truong lien quan - cac truong khac (ma_lk, loai_de_xuat...) tu giu nguyen vi khong gui len (xem
   // pattern "body.X !== undefined ? ... : existing.X" trong route do).
   const suaTienDongMutation = useMutation({
-    mutationFn: ({ donHangId, body }: { donHangId: string; body: { so_luong_thuc_xuat: number; gia_chot?: number; ghi_chu_so_luong?: string } }) =>
+    mutationFn: ({ donHangId, body }: { donHangId: string; body: { so_luong_thuc_xuat?: number; gia_chot?: number; ghi_chu_so_luong?: string } }) =>
       api.patch(`/dat-mua-lk/don-hang/${donHangId}`, body),
     onSuccess: () => {
       setSuaTienDonId(null);
@@ -1997,7 +1997,17 @@ export function PxkDetailModal({
                     suaTienDongMutation.mutate({
                       donHangId: donSua.id,
                       body: {
-                        so_luong_thuc_xuat: Number(suaTienDraft.so_luong_thuc_xuat),
+                        // FIX (phan hoi 2026-09-24: "yêu cầu nhập lý do thay đổi SL thực xuất trong khi
+                        // không hề thay đổi và cũng không có chỗ để nhập lý do") - truoc day LUON gui
+                        // so_luong_thuc_xuat (kem gia tri fallback tu so_luong_de_xuat khi dong nay
+                        // CHUA tung co so_luong_thuc_xuat rieng, con NULL trong DB). Backend so sanh
+                        // THANG voi existing.so_luong_thuc_xuat (KHONG fallback ve so_luong_de_xuat
+                        // nhu FE) - NULL != so gia tri gui len -> luon bi coi la "da doi", doi
+                        // ghi_chu_so_luong du UI (dung slDaDoi so voi slGoc CO fallback) nghi la khong
+                        // doi nen khong hien o nhap. CHI gui so_luong_thuc_xuat khi THAT SU doi (slDaDoi)
+                        // - khong doi thi bo qua field nay, backend tu giu nguyen existing (co the van
+                        // la NULL, cong thuc hien thi noi khac da fallback ve so_luong_de_xuat san).
+                        so_luong_thuc_xuat: slDaDoi ? Number(suaTienDraft.so_luong_thuc_xuat) : undefined,
                         gia_chot: suaTienDraft.gia_chot.trim() === "" ? undefined : Number(suaTienDraft.gia_chot),
                         ghi_chu_so_luong: slDaDoi ? suaTienDraft.ghi_chu_so_luong.trim() || undefined : undefined,
                       },
