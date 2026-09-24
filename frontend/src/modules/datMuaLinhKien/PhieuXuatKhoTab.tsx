@@ -1203,20 +1203,6 @@ export function PxkDetailModal({
             className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
           />
         )}
-        {/* Co phu "Da in phieu" (migration 0032, phan hoi 2026-09-24: "ở giai đoạn chờ kho gửi hàng
-            cho ktv, thêm 1 trạng thái phụ là đã in phiếu/ chưa in phiếu để kho xác định được phiếu
-            nào đã in") - thuan tuy theo doi, KHONG anh huong nut/luong ben duoi. */}
-        {canKho && ["Da chot xong don xuat", "Dang gui KTV"].includes(trangThai) && pxk.loai_don !== "tra_hang" && (
-          <Btn
-            size="sm"
-            variant={pxk.da_in_phieu ? "primary" : "ghost"}
-            onClick={() => daInPhieuMutation.mutate(!pxk.da_in_phieu)}
-            disabled={daInPhieuMutation.isPending}
-            title="Đánh dấu đã in/chưa in phiếu (chỉ để Kho theo dõi, không ảnh hưởng luồng xử lý)"
-          >
-            {pxk.da_in_phieu ? "🖨 Đã in phiếu (bấm để bỏ đánh dấu)" : "🖨 Đánh dấu đã in phiếu"}
-          </Btn>
-        )}
         <input
           value={ghiChu}
           onChange={(e) => setGhiChu(e.target.value)}
@@ -1299,6 +1285,22 @@ export function PxkDetailModal({
                 📦 Hàng trừ kho
               </Btn>
             </>
+          )}
+          {/* Co phu "Da in phieu" (migration 0032, phan hoi 2026-09-24: "ở giai đoạn chờ kho gửi hàng
+              cho ktv, thêm 1 trạng thái phụ là đã in phiếu/ chưa in phiếu để kho xác định được phiếu
+              nào đã in") - thuan tuy theo doi, KHONG anh huong nut/luong khac. SUA (phan hoi 2026-09-24,
+              kem anh chup: "các button cho xuống dưới cùng với nhau cho thống nhất") - gop vao CHUNG 1
+              hang voi cac nut workflow khac (truoc day dung rieng 1 dong giua 2 o nhap, lech voi hang
+              nut). */}
+          {canKho && ["Da chot xong don xuat", "Dang gui KTV"].includes(trangThai) && pxk.loai_don !== "tra_hang" && (
+            <Btn
+              variant={pxk.da_in_phieu ? "primary" : "ghost"}
+              onClick={() => daInPhieuMutation.mutate(!pxk.da_in_phieu)}
+              disabled={daInPhieuMutation.isPending}
+              title="Đánh dấu đã in/chưa in phiếu (chỉ để Kho theo dõi, không ảnh hưởng luồng xử lý)"
+            >
+              {pxk.da_in_phieu ? "🖨 Đã in phiếu (bấm để bỏ đánh dấu)" : "🖨 Đánh dấu đã in phiếu"}
+            </Btn>
           )}
           {/* Muc F (Dot 2): CHOT bat buoc DUNG nguoi nhan hang xac nhan - an nut voi moi nguoi
               khac (ke ca Admin/TN xem, du backend van cho Admin bam duoc de xu ly su co). */}
