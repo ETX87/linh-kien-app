@@ -1786,7 +1786,7 @@ export function DonCuaToiTab({
           indigo mo, chu indigo dam - thay cho khoi surface-100 trung mau voi cac panel loc khac truoc
           day, giup phan biet ro day la thanh HANH DONG (dang co dong duoc chon) chu khong phai bo loc. */}
       {(canActAsTram || canTacNghiep) && selected.size > 0 && (
-        <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--ocean-100)] border border-[#C7D2FE] text-[var(--ocean-900)] rounded-lg px-3 py-2 text-[12.5px]">
+        <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--ocean-100)] border border-[var(--ocean-400)] text-[var(--ocean-900)] rounded-lg px-3 py-2 text-[12.5px]">
           <span><b className="font-extrabold">{selected.size}</b> đơn được chọn{tongTienDaChon > 0 ? ` · ${fmtVND(tongTienDaChon)}` : ""}</span>
           <div className="flex items-center gap-2 flex-wrap ml-auto">
             <BulkConfirmButton
@@ -2230,11 +2230,11 @@ export function DonHangGroupedList({
           nhau" giua nhieu <table> rieng biet nhu truoc (rui ro lech neu 1 cot chua co colWidths
           explicit - kich thuoc tu dong theo NOI DUNG rieng cua tung table). */}
       <div className="hidden sm:block overflow-x-auto border-t border-[var(--line)]">
-        <table className="w-full min-w-[720px] text-xs border-collapse">
+        <table className="tbl w-full min-w-[720px] border-collapse">
           <thead>
             {/* Khop dung header ".tbl th" concept 1 (chu hoa nho, xam, nen #FBFBFB) - dong
                 bo voi header cua PaginatedTable.tsx (xem tr className tuong tu o do). */}
-            <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+            <tr className="tbl-head">
               {effectiveColumns.map((col, idx) => (
                 <ResizableHeaderCell
                   key={col.key}

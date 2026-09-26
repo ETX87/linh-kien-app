@@ -16,6 +16,12 @@ import type {
 import { fmtVND, fmtDateTime } from "../types";
 import { parseTonKhoImportFile } from "../lib/tonKhoImport";
 import { exportRowsToExcel } from "../lib/exportExcel";
+import { StatCard } from "../components/x/StatCard";
+import { Icon } from "../components/ui/Icon";
+import { ChartCard } from "../components/charts/ChartCard";
+import { DonutChart } from "../components/charts/DonutChart";
+import { HBarList } from "../components/charts/BarCharts";
+import { fmtCompactVND, pct } from "../components/charts/chartUtils";
 
 // File mau cho "Import tồn kho MISA" - chi can dung dong tieu de cot (parser tim theo TEN cot, xem
 // HEADER_ALIASES o lib/tonKhoImport.ts) + vai dong vi du, KHONG can dung dinh dang goc phuc tap cua
@@ -84,6 +90,56 @@ function DanhGiaCongNoBadge({ value }: { value: "Vuot tran" | "Canh bao" | "Binh
   if (value === "Canh bao") return <Badge tone="amber">Cảnh báo</Badge>;
   if (value === "Binh thuong") return <Badge tone="teal">Bình thường</Badge>;
   return <span className="text-xs text-[var(--ink-400)]">—</span>;
+}
+
+// Tong quan cong no bang bieu do (them 2026-09-26, yeu cau "bo sung chart"): 4 KPI + donut 3 muc danh
+// gia cong no + Top 5 cong no chot cao nhat. Tinh CLIENT-SIDE tu dung `rows` cua bang (GET / da tra ve
+// toan bo KTV trong pham vi xem, khong phan trang server) nen luon khop so voi bang ben duoi. Mau trang
+// thai (--chart-good/warn/bad, da qua validator) luon di kem icon + chu + so, khong chi dua vao mau.
+function CongNoOverview({ rows, onOpen }: { rows: KtvTonKhoSummaryRow[]; onOpen: (r: KtvTonKhoSummaryRow) => void }) {
+  const vuotTran = rows.filter((r) => r.danh_gia_cong_no === "Vuot tran");
+  const canhBao = rows.filter((r) => r.danh_gia_cong_no === "Canh bao");
+  const binhThuong = rows.filter((r) => r.danh_gia_cong_no === "Binh thuong");
+  const tongChot = rows.reduce((s, r) => s + (r.cong_no_chot ?? 0), 0);
+  const top = [...rows].filter((r) => (r.cong_no_chot ?? 0) > 0).sort((a, b) => b.cong_no_chot - a.cong_no_chot).slice(0, 5);
+  const wrap = "flex min-w-0";
+  return (
+    <div className="space-y-[14px]">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-[14px] lg:grid-cols-4">
+        <div className={wrap}><StatCard label="KTV đang theo dõi" value={rows.length.toLocaleString("vi-VN")} color="blue" iconType={Icon.users} /></div>
+        <div className={wrap}><StatCard label="Tổng công nợ chốt" value={fmtCompactVND(tongChot)} tone="purple" iconType={Icon.chart} /></div>
+        <div className={wrap}><StatCard label="Vượt trần" value={vuotTran.length} tone="danger" muted={vuotTran.length === 0} iconType={Icon.alert} sub={`${pct(vuotTran.length, rows.length)} số KTV`} /></div>
+        <div className={wrap}><StatCard label="Cảnh báo" value={canhBao.length} tone="warning" muted={canhBao.length === 0} iconType={Icon.clock} sub={`${pct(canhBao.length, rows.length)} số KTV`} /></div>
+      </div>
+      <div className="grid gap-[14px] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
+        <ChartCard title="Đánh giá công nợ" subtitle="So công nợ chốt với trần công nợ của từng KTV">
+          <DonutChart
+            centerLabel="KTV"
+            segments={[
+              { key: "ok", label: "Bình thường", value: binhThuong.length, color: "var(--chart-good)", icon: <Icon.check size={13} /> },
+              { key: "warn", label: "Cảnh báo", value: canhBao.length, color: "var(--chart-warn)", icon: <Icon.clock size={13} /> },
+              { key: "bad", label: "Vượt trần", value: vuotTran.length, color: "var(--chart-bad)", icon: <Icon.alert size={13} /> },
+            ]}
+          />
+        </ChartCard>
+        <ChartCard title="Top 5 KTV công nợ chốt cao nhất" subtitle="Bấm để xem chi tiết tồn kho — % là mức dùng so với trần">
+          <HBarList
+            ranked
+            emptyText="Chưa có KTV nào phát sinh công nợ."
+            rows={top.map((r) => ({
+              key: r.ma_ktv,
+              label: r.ten_hien_thi ?? r.ma_ktv,
+              value: r.cong_no_chot,
+              display: fmtCompactVND(r.cong_no_chot),
+              color: r.danh_gia_cong_no === "Vuot tran" ? "var(--chart-bad)" : r.danh_gia_cong_no === "Canh bao" ? "var(--chart-warn)" : "var(--chart-good)",
+              sub: r.cong_no ? `Trần ${fmtCompactVND(r.cong_no)} · dùng ${pct(r.cong_no_chot, r.cong_no)}` : "Chưa đặt trần công nợ",
+              onClick: () => onOpen(r),
+            }))}
+          />
+        </ChartCard>
+      </div>
+    </div>
+  );
 }
 
 function TonKhoKtvContent() {
@@ -213,6 +269,7 @@ function TonKhoKtvContent() {
         <ChuaKhopPanel rows={chuaKhopRows} />
       ) : (
         <>
+      {allRows.length > 1 && <CongNoOverview rows={allRows} onOpen={setDetailKtv} />}
       <div className="flex flex-wrap gap-2 items-center">
         <input
           value={search}
@@ -223,9 +280,9 @@ function TonKhoKtvContent() {
       </div>
       <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="tbl w-full">
             <thead>
-              <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+              <tr className="tbl-head">
                 <th className="px-3 py-2">Mã KTV</th>
                 <th className="px-3 py-2">Tên hiển thị</th>
                 <th className="px-3 py-2">Mã MISA</th>
@@ -391,9 +448,9 @@ function ChuaKhopPanel({ rows }: { rows: MaKhoChuaKhopRow[] }) {
       </div>
       <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="tbl w-full">
             <thead>
-              <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+              <tr className="tbl-head">
                 <th className="px-3 py-2">Mã kho</th>
                 <th className="px-3 py-2">Tên kho</th>
                 <th className="px-3 py-2">Số mã hàng tồn</th>
@@ -450,9 +507,9 @@ function TonKhoChiTietModal({ row, onClose }: { row: KtvTonKhoSummaryRow; onClos
         </div>
         <div className="border border-[var(--line)] rounded-xl overflow-hidden">
           <div className="overflow-x-auto max-h-[60vh]">
-            <table className="w-full text-xs">
+            <table className="tbl w-full">
               <thead className="sticky top-0 bg-[var(--surface-soft)]">
-                <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider border-b border-[var(--line)]">
+                <tr className="tbl-head">
                   <th className="px-3 py-2">Mã hàng</th>
                   <th className="px-3 py-2">Tên hàng</th>
                   <th className="px-3 py-2">ĐVT</th>
@@ -535,9 +592,9 @@ function KhoCongTyContent() {
       )}
       <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="tbl w-full">
             <thead>
-              <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+              <tr className="tbl-head">
                 <th className="px-3 py-2">Mã kho</th>
                 <th className="px-3 py-2">Tên kho</th>
                 <th className="px-3 py-2">Khu vực phục vụ</th>
@@ -726,9 +783,9 @@ function KhoCongTyChiTietModal({ ma, ten, onClose }: { ma: string; ten: string; 
       <div className="space-y-3 text-sm">
         <div className="border border-[var(--line)] rounded-xl overflow-hidden">
           <div className="overflow-x-auto max-h-[60vh]">
-            <table className="w-full text-xs">
+            <table className="tbl w-full">
               <thead className="sticky top-0 bg-[var(--surface-soft)]">
-                <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider border-b border-[var(--line)]">
+                <tr className="tbl-head">
                   <th className="px-3 py-2">Mã hàng</th>
                   <th className="px-3 py-2">Tên hàng</th>
                   <th className="px-3 py-2">ĐVT</th>

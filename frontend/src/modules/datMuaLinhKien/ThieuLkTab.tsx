@@ -661,9 +661,9 @@ function ThieuLkGroupedList({
           cho toan bo danh sach, giong het DonHangGroupedList (DonCuaToiTab.tsx): 1 <thead> chung tren
           cung, <tbody> noi tiep tung nhom (1 hang banner <td colSpan> + cac hang du lieu). */}
       <div className="hidden sm:block overflow-x-auto border-t border-[var(--line)]">
-        <table className="w-full min-w-[720px] text-xs border-collapse">
+        <table className="tbl w-full min-w-[720px] border-collapse">
           <thead>
-            <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+            <tr className="tbl-head">
               {effectiveColumns.map((col, idx) => (
                 <ResizableHeaderCell
                   key={col.key}

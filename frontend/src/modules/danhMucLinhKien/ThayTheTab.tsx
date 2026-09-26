@@ -58,9 +58,9 @@ export function ThayTheTab() {
                 {nhom}
                 <span className="ml-2 text-xs font-normal text-[var(--ink-400)]">({group.length} mã có thể thay thế cho nhau)</span>
               </div>
-              <table className="w-full text-sm">
+              <table className="tbl w-full">
                 <thead>
-                  <tr className="text-left text-xs text-[var(--ink-400)] border-b border-[var(--line)]">
+                  <tr className="tbl-head">
                     <th className="px-3 py-1.5 font-medium">Mã</th>
                     <th className="px-3 py-1.5 font-medium">Tên</th>
                     <th className="px-3 py-1.5 font-medium">Ghi chú</th>

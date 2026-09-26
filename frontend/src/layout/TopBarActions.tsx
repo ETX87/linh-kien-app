@@ -20,6 +20,7 @@ export function TopBarActions({
   mobilePreviewOpen,
   onToggleMobilePreview,
   dropdownAlign = "left",
+  tone = "light",
 }: {
   role: string;
   user: AppUser;
@@ -36,6 +37,9 @@ export function TopBarActions({
   // them 2026-08-27 "muc 7" nhung QUEN doi CSS cho dung context moi) - phai truyen "right" o do, neu
   // khong dropdown w-56 se neo theo "left-0" tu trigger sat mep phai va tran han ra ngoai man hinh.
   dropdownAlign?: "left" | "right";
+  // DESIGN_GUIDELINES.md (chuyen doi 2026-09-26): Topbar desktop va header mobile gio nen SANG (trang),
+  // chi Sidebar mobile off-canvas con nen toi (gradient xanh) - "dark" dung cho cho do, mac dinh "light".
+  tone?: "light" | "dark";
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -74,6 +78,7 @@ export function TopBarActions({
   }
 
   const displayName = user.ten || user.email;
+  const dark = tone === "dark";
 
   return (
     <div className="flex items-center gap-3">
@@ -83,20 +88,20 @@ export function TopBarActions({
           onClick={onToggleMobilePreview}
           title={mobilePreviewOpen ? "Đóng xem trước Mobile" : "Xem trước giao diện Mobile (test nhanh, không cần thu nhỏ cửa sổ)"}
           className={`focus-ring w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
-            mobilePreviewOpen ? "bg-white/15 text-white" : "hover:bg-white/10 text-[var(--topbar-fg-dim)]"
+            mobilePreviewOpen ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]" : "hover:bg-[var(--color-subtle)] text-[var(--topbar-fg-dim)]"
           }`}
         >
           📱
         </button>
       )}
       <div className="relative" onClick={(e) => e.stopPropagation()}>
-        <button onClick={() => setMenuOpen(!menuOpen)} className="focus-ring flex items-center gap-2 pl-1 pr-2 py-1 rounded-lg hover:bg-white/10">
-          <div className="w-8 h-8 rounded-full bg-white/15 text-white flex items-center justify-center text-xs font-bold">
+        <button onClick={() => setMenuOpen(!menuOpen)} className={`focus-ring flex items-center gap-2 pl-1 pr-2 py-1 rounded-[var(--radius-btn)] ${dark ? "hover:bg-white/10" : "hover:bg-[var(--color-subtle)]"}`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${dark ? "bg-white/20 text-white" : "text-white"}`} style={dark ? undefined : { background: "var(--brand-gradient)" }}>
             {displayName.trim().split(" ").slice(-1)[0]?.[0]?.toUpperCase() ?? "?"}
           </div>
           <div className="text-left hidden sm:block">
-            <div className="text-xs font-semibold leading-tight text-white">{formatPersonDisplay(user.email, personDir)}</div>
-            <div className="text-[10px] text-[var(--topbar-fg-dim)] leading-tight">{role}</div>
+            <div className={`text-xs font-semibold leading-tight ${dark ? "text-white" : "text-[var(--color-text)]"}`}>{formatPersonDisplay(user.email, personDir)}</div>
+            <div className={`text-[10.5px] leading-tight ${dark ? "text-[var(--sidebar-fg-dim)]" : "text-[var(--color-text-secondary)]"}`}>{role}</div>
           </div>
         </button>
         {menuOpen && (
@@ -113,7 +118,7 @@ export function TopBarActions({
           // phai truyen dropdownAlign="right" de dung "right-0" giong desktop. md:left-auto md:right-0
           // luon giu nguyen cho desktop (nguong md=768px khop dung useIsMobile()), khong phu thuoc prop.
           <div
-            className={`absolute mt-2 w-56 md:w-64 bg-[var(--surface)] border border-[var(--line)] rounded-xl shadow-lg py-1.5 anim-in ${
+            className={`absolute mt-2 w-56 md:w-64 bg-[var(--surface)] border border-[var(--line)] rounded-[var(--radius-field)] shadow-[var(--shadow-pop)] py-1.5 anim-in ${
               dropdownAlign === "right" ? "right-0" : "left-0 md:left-auto"
             } md:right-0`}
           >
@@ -136,7 +141,7 @@ export function TopBarActions({
                 </select>
               </div>
             )}
-            <button onClick={logout} className="w-full text-left px-3.5 py-2 text-sm hover:bg-slate-50 text-[var(--coral-500)]">
+            <button onClick={logout} className="w-full text-left px-3.5 py-2 text-sm hover:bg-[var(--color-danger-soft)] text-[var(--color-danger-strong)]">
               Đăng xuất
             </button>
           </div>

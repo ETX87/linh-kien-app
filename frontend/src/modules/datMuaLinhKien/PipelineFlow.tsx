@@ -43,7 +43,7 @@ export function MyWorkloadStrip({
           key={s.key}
           type="button"
           onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
-          className="focus-ring inline-flex items-center gap-1.5 rounded-full bg-[var(--color-warning-soft)] hover:brightness-95 text-[#b9770e] pl-2.5 pr-1.5 py-1 text-xs font-semibold transition-all"
+          className="focus-ring inline-flex items-center gap-1.5 rounded-full bg-[var(--color-warning-soft)] hover:brightness-95 text-[var(--color-warning-strong)] pl-2.5 pr-1.5 py-1 text-xs font-semibold transition-all"
         >
           {STEP_SHORT_LABEL[s.key] ?? s.label}
           <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--color-warning)] text-white text-[10px] font-bold leading-none">

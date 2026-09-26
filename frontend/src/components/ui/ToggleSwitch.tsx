@@ -2,7 +2,7 @@ export function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange
   return (
     <button
       onClick={onChange}
-      className={`focus-ring w-10 rounded-full transition-colors relative ${checked ? "bg-[var(--teal-500)]" : "bg-slate-300"}`}
+      className={`focus-ring w-10 rounded-full transition-colors relative ${checked ? "bg-[var(--color-primary)]" : "bg-[var(--color-border-strong)]"}`}
       style={{ height: 22 }}
     >
       <span

@@ -197,9 +197,9 @@ export function PaginatedTable<T>({
           })}
       </div>
       <div className="hidden sm:block overflow-x-auto">
-        <table className="dense w-full text-sm">
+        <table className="tbl dense w-full">
           <thead>
-            <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+            <tr className="tbl-head">
               {effectiveColumns.map((col, idx) => {
                 const isPinned = idx === 0 && col.key === columns[0]?.key;
                 const sortable = !!col.sortKey && !!onSortChange;

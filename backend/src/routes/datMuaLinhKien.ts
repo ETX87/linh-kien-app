@@ -1140,20 +1140,11 @@ function thangYYYYMM(offset: number): string {
   return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`;
 }
 
-datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
+// Scope dung CHUNG cho GET /bao-cao-tong-the va GET /bao-cao-xu-huong (tach ra 2026-09-26 khi them bieu
+// do xu huong - logic GIU NGUYEN 100% nhu truoc, chi doi cho dat) - 2 bao cao phai thay CUNG 1 pham vi
+// du lieu cho cung 1 nguoi xem, neu khong so tren bieu do se lech voi bang ngay ben duoi.
+async function baoCaoScope(c: Context<{ Bindings: Env }>, wantFull: boolean): Promise<{ scopeCond: ((alias: string) => string) | null; scopeBinds: string[] }> {
   const user = c.get("user");
-  // FIX (ma tran kiem soat he thong, Van de #1 sheet "5. Van de phat hien", xac nhan 2026-08-24): QC
-  // khong khop bat ky nhanh scope nao ben duoi (Giam sat / TN|Kho|Ke toan / KTV|Ve tinh) nen scopeCond
-  // giu null = KHONG GIOI HAN - QC goi thang endpoint nay (vd qua devtools) van lay duoc toan bo du
-  // lieu tai chinh toan he thong, du frontend co an tab "Bao cao" hay khong. Chan tuong minh o day
-  // (khong dua vao frontend an nut) - QC dung y chi can xem dung buoc minh xu ly (Tra hang o buoc "Cho
-  // QC xac nhan", da co san man TraHangTab), khong can/khong duoc xem bao cao tong hop toan he thong.
-  if (user.vai_tro === "QC") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
-  // "full=1" (them 2026-08-25, phan hoi "mặc định load theo khu vực phụ trách => thêm lựa chọn để lọc
-  // full") - bo qua scope MEM (phuTrachGsSet/email_gs) khi nguoi xem la Giam sat/TN/Kho/Ke toan. KHONG
-  // ap dung cho nhanh KTV/Ve tinh (co dinh, khong doc query nay - dung y "ngoại trừ KTV/Trạm/CTV/Vệ
-  // tinh" da chot voi nguoi dung) - nhanh do van luon gioi han theo chinh minh du co truyen full=1.
-  const wantFull = c.req.query("full") === "1";
   // CHOT 2026-08-15: bo khai niem phieu_dat (migration 0075) - scope gio la 1 HAM sinh dieu kien
   // theo alias truyen vao (thay vi 1 chuoi co dinh) vi ham nay dung LAI CHINH dieu kien do o 2 noi
   // voi 2 alias khac nhau (ddh cho query don hang, ddh2 cho subquery EXISTS cua query PXK ben duoi).
@@ -1176,6 +1167,24 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
     scopeCond = (alias) => ` AND (${alias}.nguoi_tao = ? OR ${alias}.nguoi_nhan_hang = ?)`;
     scopeBinds = [user.email, user.email];
   }
+  return { scopeCond, scopeBinds };
+}
+
+datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
+  const user = c.get("user");
+  // FIX (ma tran kiem soat he thong, Van de #1 sheet "5. Van de phat hien", xac nhan 2026-08-24): QC
+  // khong khop bat ky nhanh scope nao ben duoi (Giam sat / TN|Kho|Ke toan / KTV|Ve tinh) nen scopeCond
+  // giu null = KHONG GIOI HAN - QC goi thang endpoint nay (vd qua devtools) van lay duoc toan bo du
+  // lieu tai chinh toan he thong, du frontend co an tab "Bao cao" hay khong. Chan tuong minh o day
+  // (khong dua vao frontend an nut) - QC dung y chi can xem dung buoc minh xu ly (Tra hang o buoc "Cho
+  // QC xac nhan", da co san man TraHangTab), khong can/khong duoc xem bao cao tong hop toan he thong.
+  if (user.vai_tro === "QC") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  // "full=1" (them 2026-08-25, phan hoi "mặc định load theo khu vực phụ trách => thêm lựa chọn để lọc
+  // full") - bo qua scope MEM (phuTrachGsSet/email_gs) khi nguoi xem la Giam sat/TN/Kho/Ke toan. KHONG
+  // ap dung cho nhanh KTV/Ve tinh (co dinh, khong doc query nay - dung y "ngoại trừ KTV/Trạm/CTV/Vệ
+  // tinh" da chot voi nguoi dung) - nhanh do van luon gioi han theo chinh minh du co truyen full=1.
+  const wantFull = c.req.query("full") === "1";
+  const { scopeCond, scopeBinds } = await baoCaoScope(c, wantFull);
 
   // Bo loc "Tháng N/N-1/N-2" (them 2026-08-25, phan hoi "hạn chế theo tháng... tính theo thời điểm
   // kết thúc cuối cùng của từng luồng quy trình") - "thang" query param: 0 = thang hien tai + TAT CA
@@ -1363,6 +1372,51 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
   });
 
   return c.json({ rows });
+});
+
+// Bieu do "Xu huong don hang theo ngay" (them 2026-09-26, yeu cau "bo sung chart cho bao cao sinh dong")
+// - CHI DOC, 3 chuoi theo ngay trong 1 thang: tao moi (dat_don_hang.ngay_tao), da duyet (log 'TN da duyet'
+// - DISTINCT don de 1 don duyet lai khong dem 2 lan), bi tu choi/huy (updated_at cua don dang o trang thai
+// dong 'TN tu choi'/'Tu choi'/'Da huy' - CUNG moc thoi gian voi nhanh "don huy" cua ket_thuc_luc o
+// /bao-cao-tong-the). Scope/chan QC/"full" dung CHUNG baoCaoScope() de bieu do khop pham vi voi bang ben
+// duoi. Thang 0 = tu dau thang toi hom nay, 1/2 = tron thang N-1/N-2. Moi moc thoi gian deu la gio VN
+// (ghi qua nowVN()) nen substr(...,1,10) la dung ngay VN.
+datMuaLinhKien.get("/bao-cao-xu-huong", async (c) => {
+  const user = c.get("user");
+  if (user.vai_tro === "QC") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const wantFull = c.req.query("full") === "1";
+  const { scopeCond, scopeBinds } = await baoCaoScope(c, wantFull);
+  const thangParam = Math.max(0, Math.min(2, Number(c.req.query("thang") ?? 0)));
+  const ym = thangYYYYMM(thangParam);
+  const reportKey = buildReportKey("bao-cao-xu-huong", { thang: String(thangParam), full: wantFull ? "1" : undefined }, scopeCond ? scopeBinds : null);
+  const result = await cachedReport(c.env.DB, reportKey, ["dat_mua_lk"], async () => {
+    const scope = scopeCond ? scopeCond("ddh") : "";
+    const [taoMoi, daDuyet, tuChoi] = await Promise.all([
+      c.env.DB.prepare(
+        `SELECT substr(ddh.ngay_tao, 1, 10) as d, COUNT(*) as n FROM dat_don_hang ddh
+         WHERE substr(ddh.ngay_tao, 1, 7) = ?${scope} GROUP BY d`,
+      ).bind(ym, ...scopeBinds).all<{ d: string; n: number }>(),
+      c.env.DB.prepare(
+        `SELECT substr(l.ngay_xu_ly, 1, 10) as d, COUNT(DISTINCT l.dat_don_hang_id) as n
+         FROM dat_don_hang_log l JOIN dat_don_hang ddh ON ddh.id = l.dat_don_hang_id
+         WHERE l.trang_thai = 'TN da duyet' AND substr(l.ngay_xu_ly, 1, 7) = ?${scope} GROUP BY d`,
+      ).bind(ym, ...scopeBinds).all<{ d: string; n: number }>(),
+      c.env.DB.prepare(
+        `SELECT substr(ddh.updated_at, 1, 10) as d, COUNT(*) as n FROM dat_don_hang ddh
+         WHERE ddh.trang_thai_hien_tai IN ('TN tu choi', 'Tu choi', 'Da huy') AND substr(ddh.updated_at, 1, 7) = ?${scope} GROUP BY d`,
+      ).bind(ym, ...scopeBinds).all<{ d: string; n: number }>(),
+    ]);
+    const [y, m] = ym.split("-").map(Number);
+    const soNgayTrongThang = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const soNgay = thangParam === 0 ? Number(nowVN().slice(8, 10)) : soNgayTrongThang;
+    const ngay = Array.from({ length: soNgay }, (_, i) => `${ym}-${String(i + 1).padStart(2, "0")}`);
+    const toSeries = (rows: { d: string; n: number }[]) => {
+      const byDay = new Map(rows.map((r) => [r.d, r.n]));
+      return ngay.map((d) => byDay.get(d) ?? 0);
+    };
+    return { ngay, tao_moi: toSeries(taoMoi.results), da_duyet: toSeries(daDuyet.results), tu_choi: toSeries(tuChoi.results) };
+  });
+  return c.json(result);
 });
 
 // GET /api/dat-mua-lk/tom-tat - breakdown "viec can xu ly" theo tung loai cho nguoi dang nhap (tieu

@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Card } from "./Card";
 import type { BadgeTone } from "./Badge";
 
 export function StatCard({
@@ -28,34 +27,28 @@ export function StatCard({
    * (Quan ly ton), mac dinh "md" giu nguyen kich thuoc cu cho moi noi khac dang dung component nay. */
   size?: "md" | "sm";
 }) {
-  // Doi sang dung "kpi-card" cua concept 1 (2026-08-24): SO LIEU CHINH to mau theo tone (khong con
-  // cham tron rieng) - vien 1px, hover chi doi mau vien + shadow nhe (khong nang/dich chuyen the nua).
-  const numColor = { ocean: "var(--ocean-600)", teal: "var(--teal-600)", amber: "var(--amber-600)", coral: "var(--coral-600)", orange: "var(--orange-600)", violet: "var(--violet-600)", gray: "var(--ink-900)" }[tone];
-  const hoverCls = onClick ? "cursor-pointer transition-colors hover:border-[var(--ocean-800)] hover:shadow-[0_0_0_3px_var(--ocean-100)]" : "";
+  // DESIGN_GUIDELINES.md §2.4/§6.1 (chuyen doi 2026-09-26): cung bo .kpi-card pastel voi x/StatCard -
+  // nen gradient theo tone, so lieu mau chu chinh, nhan 12px/600. Active = vien primary + glow.
+  const kpiCls = muted
+    ? "kpi-gray"
+    : { ocean: "kpi-blue", teal: "kpi-green", amber: "kpi-amber", coral: "kpi-red", orange: "kpi-amber", violet: "kpi-purple", gray: "kpi-gray" }[tone];
+  const hoverCls = onClick ? "cursor-pointer transition-shadow hover:shadow-[var(--shadow-pop)]" : "";
+  const activeCls = active ? "!border-[var(--color-primary)] shadow-[0_0_0_3px_var(--color-primary-ring)]" : "";
+  const numCls = muted ? "text-[var(--color-text-faint)]" : "text-[var(--color-text)]";
   if (size === "sm") {
     return (
-      <Card
-        className={`p-1.5 flex-1 min-w-[110px] ${hoverCls} ${active ? "border-[var(--ocean-800)] shadow-[0_0_0_3px_var(--ocean-100)]" : ""}`}
-        onClick={onClick}
-      >
-        <span className="text-[10px] font-semibold text-[var(--ink-400)] uppercase tracking-wide leading-tight">{label}</span>
-        <div className="font-display text-base sm:text-lg font-extrabold leading-tight mt-0.5" style={{ color: muted ? "var(--ink-400)" : numColor }}>
-          {value}
-        </div>
-        {sub && <div className="text-[10px] text-[var(--ink-400)] leading-tight mt-0.5">{sub}</div>}
-      </Card>
+      <div className={`kpi-card ${kpiCls} p-2 flex-1 min-w-[110px] ${hoverCls} ${activeCls}`} onClick={onClick}>
+        <span className="text-[10.5px] font-semibold text-[var(--color-text-body)] leading-tight">{label}</span>
+        <div className={`tabular text-lg font-extrabold leading-tight mt-0.5 ${numCls}`}>{value}</div>
+        {sub && <div className="text-[10.5px] text-[var(--color-text-secondary)] leading-tight mt-0.5">{sub}</div>}
+      </div>
     );
   }
   return (
-    <Card
-      className={`p-3 sm:p-4 flex-1 min-w-[150px] ${hoverCls} ${active ? "border-[var(--ocean-800)] shadow-[0_0_0_3px_var(--ocean-100)]" : ""}`}
-      onClick={onClick}
-    >
-      <span className="text-xs font-semibold text-[var(--ink-400)] uppercase tracking-wide">{label}</span>
-      <div className="font-display text-xl sm:text-2xl font-extrabold mt-1.5" style={{ color: muted ? "var(--ink-400)" : numColor }}>
-        {value}
-      </div>
-      {sub && <div className="text-xs text-[var(--ink-400)] mt-1">{sub}</div>}
-    </Card>
+    <div className={`kpi-card ${kpiCls} p-3.5 sm:p-4 flex-1 min-w-[150px] ${hoverCls} ${activeCls}`} onClick={onClick}>
+      <span className="text-xs font-semibold text-[var(--color-text-body)]">{label}</span>
+      <div className={`tabular text-[26px] sm:text-[28px] font-extrabold leading-none mt-2 ${numCls}`}>{value}</div>
+      {sub && <div className="text-[11px] text-[var(--color-text-secondary)] mt-1.5">{sub}</div>}
+    </div>
   );
 }

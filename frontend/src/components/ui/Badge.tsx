@@ -2,20 +2,17 @@ import type { ReactNode } from "react";
 
 export type BadgeTone = "ocean" | "teal" | "amber" | "coral" | "orange" | "violet" | "gray";
 
-// Doi sang dang VIEN MONG + chu mau (khong to nen dac) - concept 1 "Structured Neutral" da duyet
-// (2026-08-24). `solid` (da co san truoc do) van la loi thoat cho cho nao thuc su can nhan manh dang
-// to nen dac, khong doi API cua component.
+// DESIGN_GUIDELINES.md §6.2 (chuyen doi 2026-09-26): NEN PASTEL + chu nhan dam, bo 10px (thay dang vien
+// mong cua concept 1). `solid` van la loi thoat cho cho can to nen dac. Y nghia tung tone GIU NGUYEN
+// nhu da chot truoc (vd violet = "tu choi", coral = "da huy" - xem constants.ts), chi doi kieu hien thi.
 const TONE_MAP: Record<BadgeTone, [string, string]> = {
-  ocean: ["border border-[var(--ocean-500)]/50 text-[var(--ocean-700)]", "bg-[var(--ocean-500)] text-white"],
-  teal: ["border border-[var(--teal-500)]/50 text-[var(--teal-600)]", "bg-[var(--teal-500)] text-white"],
-  amber: ["border border-[var(--amber-500)]/50 text-[var(--amber-700)]", "bg-[var(--amber-500)] text-white"],
-  coral: ["border border-[var(--coral-500)]/50 text-[var(--coral-600)]", "bg-[var(--coral-500)] text-white"],
-  orange: ["border border-[var(--orange-500)]/50 text-[var(--orange-700)]", "bg-[var(--orange-500)] text-white"],
-  // Them (2026-08-27, yeu cau "5 nhom mau trang thai: ... bị từ chối tô màu tím") - tai dung
-  // --violet-* co san (truoc chi dung cho vien input noi bat rieng module Dat mua linh kien), danh
-  // RIENG cho trang thai "tu choi" (xem constants.ts) de tach khoi "coral" (gio danh cho "da huy").
-  violet: ["border border-[var(--violet-500)]/50 text-[var(--violet-700)]", "bg-[var(--violet-500)] text-white"],
-  gray: ["border border-[var(--line)] text-[var(--ink-600)]", "bg-[var(--ink-500)] text-white"],
+  ocean: ["bg-[var(--color-primary-soft)] text-[var(--color-primary-dark)]", "bg-[var(--color-primary)] text-white"],
+  teal: ["bg-[var(--color-success-soft)] text-[var(--color-success)]", "bg-[var(--color-success)] text-white"],
+  amber: ["bg-[var(--color-warning-soft)] text-[var(--color-warning-strong)]", "bg-[var(--color-warning)] text-white"],
+  coral: ["bg-[var(--color-danger-soft)] text-[var(--color-danger-strong)]", "bg-[var(--color-danger)] text-white"],
+  orange: ["bg-[var(--orange-100)] text-[var(--orange-700)]", "bg-[var(--orange-600)] text-white"],
+  violet: ["bg-[var(--color-purple-soft)] text-[var(--color-purple-strong)]", "bg-[var(--color-purple)] text-white"],
+  gray: ["bg-[var(--color-neutral-soft)] text-[var(--color-text-secondary)]", "bg-[var(--color-text-secondary)] text-white"],
 };
 
 export function Badge({ children, tone = "ocean", solid = false }: { children: ReactNode; tone?: BadgeTone; solid?: boolean }) {
@@ -24,7 +21,7 @@ export function Badge({ children, tone = "ocean", solid = false }: { children: R
   // flex container hep (vd cum badge tren the mobile), Badge truoc day khong co gi ngan text TU VO
   // CHU khi bi ep hep (vd "Công nợ" -> "Công"/"nợ") - 1 badge/pill khong bao gio nen tu xuong dong
   // ben trong, luon giu nguyen 1 dong du container co phai wrap ca badge sang dong khac.
-  return <span className={`inline-flex items-center gap-1 px-[7px] py-[1.5px] rounded text-[10.5px] font-bold tracking-wide whitespace-nowrap shrink-0 ${cls}`}>{children}</span>;
+  return <span className={`inline-flex items-center gap-1 px-2 py-[3px] rounded-[var(--radius-badge)] text-[11px] font-semibold leading-none whitespace-nowrap shrink-0 ${cls}`}>{children}</span>;
 }
 
 /** Suy ra tong mau tu chuoi trang thai vi pham (khop voi mockup statusTone). */

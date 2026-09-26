@@ -35,7 +35,7 @@ function StageMenuButton({ item, active, sidebar }: { item: StageMenuItem; activ
       <button
         type="button"
         onClick={item.onClick}
-        className={`focus-ring w-full flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-[12.5px] font-semibold text-left transition-colors ${
+        className={`focus-ring w-full flex items-center justify-between gap-2 rounded-[8px] px-2 py-1.5 text-[12.5px] font-semibold text-left transition-colors ${
           isAction
             ? "bg-[var(--sidebar-tag-bg)] text-[var(--sidebar-tag-fg)] hover:bg-[var(--sidebar-hover-bg)]"
             : active
@@ -58,12 +58,12 @@ function StageMenuButton({ item, active, sidebar }: { item: StageMenuItem; activ
     <button
       type="button"
       onClick={item.onClick}
-      className={`focus-ring rounded-lg font-semibold transition-colors whitespace-nowrap px-2.5 py-1.5 text-xs ${
+      className={`focus-ring rounded-[var(--radius-pill)] font-semibold transition-colors whitespace-nowrap px-[11px] py-1 text-xs ${
         isAction
           ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)]"
           : active
-            ? "bg-[var(--ocean-800)] text-white shadow-sm"
-            : "bg-white text-[var(--ink-600)] border border-[var(--line)] hover:bg-slate-50"
+            ? "bg-[var(--color-primary)] text-white"
+            : "bg-[var(--color-subtle)] text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary-dark)]"
       }`}
     >
       <span>{item.label}</span>

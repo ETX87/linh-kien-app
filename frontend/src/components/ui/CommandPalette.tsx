@@ -100,7 +100,7 @@ export function CommandPalette({ open, onClose, items, onSelect }: { open: boole
   if (!open) return null;
   return (
     <>
-      <div className="fixed inset-0 z-[60] bg-[rgba(24,24,27,0.45)]" onClick={onClose} />
+      <div className="fixed inset-0 z-[60] bg-[var(--overlay)]" onClick={onClose} />
       <div className="fixed inset-x-0 top-[12vh] z-[60] mx-auto w-full max-w-lg px-3">
         <div className="anim-in bg-[var(--surface)] border border-[var(--line)] rounded-xl shadow-2xl overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--line)]">

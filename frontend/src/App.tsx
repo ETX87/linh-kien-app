@@ -305,10 +305,10 @@ function MainApp({
             notificationBell={<NotificationBell unreadCount={notifCounts?.ktvLogChuaDoc ?? 0} onOpenDonHang={openDonHangFromBell} onOpenPxk={openPxkFromBell} />}
           />
         )}
-        <main className={`p-4 sm:p-6 flex-1 min-w-0 ${isMobile ? "pb-20" : ""}`}>
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <main className={`px-4 pt-4 pb-5 sm:px-6 sm:pt-4 sm:pb-[22px] flex-1 min-w-0 ${isMobile ? "pb-20" : ""}`}>
+          <div className="flex items-center justify-between mb-[14px] flex-wrap gap-2">
             <div className="flex items-center gap-3 flex-wrap min-w-0">
-              {active !== "dat-mua-lk" && <h1 className="font-display text-lg sm:text-xl font-extrabold text-[var(--ink-900)]">{MODULE_TITLES[active]}</h1>}
+              {active !== "dat-mua-lk" && <h1 className="page-title text-lg sm:text-[21px]">{MODULE_TITLES[active]}</h1>}
               <div ref={setHeaderExtraEl} className="flex items-center gap-2 flex-wrap min-w-0" />
             </div>
             {/* Muc 7 (yeu cau UI mobile 2026-08-27): "icon cai dat giao dien va muc dang xuat o goc

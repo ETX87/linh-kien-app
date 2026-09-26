@@ -44,19 +44,19 @@ export function Modal({
     // block" moi lam sai lech vi tri popup native) - <select> thuong (dung nhieu noi khac trong app)
     // KHONG bi anh huong vi dung co che popup khac ben trong Chromium, nen truoc gio khong ai phat
     // hien. Chi bo hieu ung mo nen (thuan tuy tham my, van giu lop phu toi bg-[rgba(...)] ben duoi).
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(6,32,51,0.45)] p-4">
-      <div className={`bg-[var(--surface)] rounded-2xl w-full ${width} ${height} overflow-hidden flex flex-col anim-in shadow-2xl`}>
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--line)]">
-          <h3 className="font-display font-bold text-[var(--ink-900)]">{title}</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4">
+      <div className={`bg-[var(--surface)] rounded-[14px] w-full ${width} ${height} overflow-hidden flex flex-col anim-in shadow-[var(--shadow-drawer)]`}>
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--color-border-soft)]">
+          <h3 className="text-base font-bold text-[var(--color-text)]">{title}</h3>
           <div className="flex items-center gap-2 shrink-0">
             {headerExtra}
-            <button onClick={onClose} className="focus-ring w-8 h-8 rounded-lg hover:bg-slate-100 text-[var(--ink-400)]">
+            <button onClick={onClose} className="focus-ring w-8 h-8 rounded-[var(--radius-btn)] hover:bg-[var(--color-subtle)] text-[var(--color-text-faint)] hover:text-[var(--color-text-body)]">
               ✕
             </button>
           </div>
         </div>
         <div className="overflow-y-auto p-5">{children}</div>
-        {footer && <div className="border-t border-[var(--line)] bg-[var(--surface)] px-5 py-3">{footer}</div>}
+        {footer && <div className="border-t border-[var(--color-border-soft)] bg-[var(--surface)] px-5 py-3">{footer}</div>}
       </div>
     </div>
   );

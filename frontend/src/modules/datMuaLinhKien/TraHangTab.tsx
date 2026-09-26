@@ -403,7 +403,7 @@ export function TraHangTab({
         ) : null,
       mobileHint: "select",
     },
-    { key: "id", header: "Mã đơn hàng", render: (r) => <span className="font-mono text-xs">{r.id}</span> },
+    { key: "id", header: "Mã đơn hàng", render: (r) => <span className="code-link font-mono text-xs">{r.id}</span> },
     {
       // CHUAN HOA (phan hoi 2026-09-11: "giao diện của tab trả hàng đang khác giao diện của tab mua
       // hàng") - gop "Mã LK"/"Tên LK" thanh 1 cot "Linh kiện" DUY NHAT, dung y het bo cuc/hanh vi cot
@@ -817,9 +817,9 @@ function TraHangGroupedList({
   return (
     <div className="space-y-2">
       <div className="hidden sm:block overflow-x-auto border-t border-[var(--line)]">
-        <table className="w-full min-w-[720px] text-xs border-collapse">
+        <table className="tbl w-full min-w-[720px] border-collapse">
           <thead>
-            <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+            <tr className="tbl-head">
               {effectiveColumns.map((col, idx) => (
                 <ResizableHeaderCell
                   key={col.key}

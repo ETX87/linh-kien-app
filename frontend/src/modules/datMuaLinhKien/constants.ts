@@ -128,9 +128,9 @@ export const DON_HANG_ROW_STYLE: Record<string, string> = {
   "Da huy": "line-through text-[var(--color-text-secondary)]",
   "TN tu choi": "line-through text-[var(--color-danger)]",
   "Cho Tram duyet": "text-[var(--color-success)]",
-  "Cho TBP xac nhan": "text-[#b9770e]",
+  "Cho TBP xac nhan": "text-[var(--color-warning-strong)]",
   "Cho TN duyet": "text-[var(--color-info)]",
-  "Cho hang": "text-[#b9770e] font-medium",
+  "Cho hang": "text-[var(--color-warning-strong)] font-medium",
   "TN da duyet": "text-[var(--color-success)]",
 };
 

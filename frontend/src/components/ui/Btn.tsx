@@ -3,27 +3,27 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 export type BtnVariant = "primary" | "ghost" | "subtle" | "danger" | "success";
 export type BtnSize = "sm" | "md";
 
+// DESIGN_GUIDELINES.md §6.4: nut chuan cao toi thieu 36px (md), ban thu gon 30px (sm) cho hang thao tac trong bang.
 const SIZES: Record<BtnSize, string> = {
-  sm: "px-2.5 py-1.5 text-xs",
-  md: "px-3.5 py-2 text-sm",
+  sm: "min-h-[30px] px-2.5 py-1 text-xs",
+  md: "min-h-9 px-3.5 py-1.5 text-[13px]",
 };
 
-// Accent chinh doi sang Cam ruc (hang muc #10/#20, 2026-08-25: "màu sắc quá đơn điệu... không chọn
-// gam màu nhạt nhòa" - huong "Navy đậm + Cam rực" da chot voi nguoi dung) - nut hanh dong chinh gio
-// tuong phan ro voi nen trang/zinc, thay cho indigo truoc do. Bo shadow (giu nguyen tu concept 1 - uu
-// tien vien mong, gan nhu khong dung do bong).
+// DESIGN_GUIDELINES.md §6.4 (chuyen doi 2026-09-26): nut chinh = xanh primary cua icon app (#1467E8),
+// thay cho huong "Navy dam + Cam ruc" cu - cam gio CHI mang nghia "cho/can xu ly/uu tien" (§7.4), khong
+// con dung cho hanh dong. Moi vung/modal toi da 1 nut primary, con lai dung ghost/subtle.
 const VARIANTS: Record<BtnVariant, string> = {
-  primary: "bg-[var(--orange-600)] text-white hover:bg-[var(--orange-700)]",
-  ghost: "bg-white text-[var(--ink-600)] border border-[var(--line)] hover:bg-[var(--surface-100)]",
-  subtle: "bg-[var(--orange-100)] text-[var(--orange-700)] hover:bg-[var(--orange-100)]/70",
-  danger: "bg-white text-[var(--coral-500)] border border-[var(--coral-100)] hover:bg-[var(--coral-100)]",
-  success: "bg-[var(--teal-500)] text-white hover:opacity-90",
+  primary: "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)]",
+  ghost: "bg-white text-[var(--color-text-body)] border border-[var(--color-border)] hover:bg-[var(--color-surface-hover)]",
+  subtle: "bg-[var(--color-primary-soft)] text-[var(--color-primary-dark)] hover:bg-[var(--kpi-blue-to)]",
+  danger: "bg-white text-[var(--color-danger-strong)] border border-[var(--color-danger-soft)] hover:bg-[var(--color-danger-soft)]",
+  success: "bg-[var(--color-success)] text-white hover:bg-[var(--color-success-strong)]",
 };
 
 // Tach rieng (UX audit 2026-09-08, van de #5 "input file tho pha vo design system") de FileButton.tsx
 // dung chung dung 1 bo class voi Btn thay vi copy tay 2 noi - doi 1 cho la du.
 export function btnClasses(variant: BtnVariant = "primary", size: BtnSize = "md", className = "") {
-  return `focus-ring inline-flex items-center gap-1.5 rounded-lg font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${SIZES[size]} ${VARIANTS[variant]} ${className}`;
+  return `focus-ring inline-flex items-center justify-center gap-1.5 rounded-[var(--radius-btn)] font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${SIZES[size]} ${VARIANTS[variant]} ${className}`;
 }
 
 interface BtnProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "size"> {

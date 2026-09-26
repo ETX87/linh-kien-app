@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { api, buildQuery } from "../api/client";
 import { Card } from "../components/ui/Card";
 import { Tabs } from "../components/ui/Tabs";
 import { Btn } from "../components/ui/Btn";
 import { useToast } from "../components/ui/Toast";
 import { KhuVucChipFilter } from "./datMuaLinhKien/SharedUi";
+import { ChartCard } from "../components/charts/ChartCard";
+import { HBarList } from "../components/charts/BarCharts";
 
 // Bao cao "Toc do xu ly" (SLA theo tai khoan x giai doan quy trinh) - them 04/09/2026, xem
 // backend/src/lib/slaMetrics.ts cho thuat toan tinh gio cho + backend/src/routes/baoCaoTocDoXuLy.ts
@@ -176,16 +178,36 @@ function StageLeaderboard({ stage, filters }: { stage: GiaiDoanMeta; filters: Fi
       <div className="text-sm text-[var(--ink-700)]">
         Đang chờ ở bước này: <b className="font-display text-base">{isLoading ? "…" : (data?.dang_cho ?? 0)}</b>
       </div>
+      {/* Bieu do (them 2026-09-26): gio TB theo tai khoan, cham nhat len dau (toi da 8 nguoi - con lai xem
+          bang). Nguoi cham nhat to cam de noi bat, con lai 1 mau thuong hieu (do lon, khong phai phan loai). */}
+      {!isLoading && (data?.rows.length ?? 0) > 0 && (
+        <ChartCard title="Giờ xử lý trung bình theo tài khoản" subtitle="Chậm nhất ở trên cùng — tối đa 8 tài khoản, xem đủ ở bảng bên dưới">
+          <HBarList
+            rows={[...(data?.rows ?? [])]
+              .filter((r) => r.tb_gio != null)
+              .sort((a, b) => b.tb_gio! - a.tb_gio!)
+              .slice(0, 8)
+              .map((r, i) => ({
+                key: r.email,
+                label: r.ten ?? r.email,
+                value: r.tb_gio!,
+                display: fmtGio(r.tb_gio),
+                color: i === 0 ? "var(--chart-2)" : "var(--chart-1)",
+                sub: `${r.da_xu_ly} đã xử lý · ${r.tu_choi} từ chối`,
+              }))}
+          />
+        </ChartCard>
+      )}
       <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="tbl w-full">
             <thead>
               {/* FIX (UX audit 2026-09-08, van de #6): them whitespace-nowrap cho header - truoc day
                   o man hinh mobile (375px), overflow-x-auto khong kich hoat cuon ngang vi <table w-full>
                   co the co lai bang cach cho chu header xuong 4-5 dong (vd "TB gio xu ly") thay vi
                   vuot qua be rong container. nowrap buoc bang phai rong hon container that su, luc do
                   overflow-x-auto moi cuon ngang dung nhu ky vong. */}
-              <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+              <tr className="tbl-head">
                 <th className="px-3 py-2 whitespace-nowrap">Tài khoản</th>
                 <th className="px-3 py-2 text-right whitespace-nowrap">Đã xử lý</th>
                 <th className="px-3 py-2 text-right whitespace-nowrap">Từ chối</th>
@@ -227,12 +249,52 @@ function StageLeaderboard({ stage, filters }: { stage: GiaiDoanMeta; filters: Fi
 // Tab "Tong quan" - 1 dong / giai doan NOI BO, bam vao 1 dong nhay thang toi tab chi tiet giai doan
 // do (dap ung "nhin 5s"). Tinh TB gio TOAN HE THONG bang binh quan gia quyen theo so lan xu ly cua
 // tung tai khoan (khong phai trung binh cong don gian giua cac tai khoan).
+function tbGioToanHeThong(rows: XepHangRow[]): number | null {
+  const totalCount = rows.reduce((s, r) => s + r.da_xu_ly + r.tu_choi, 0);
+  const totalHours = rows.reduce((s, r) => s + (r.tb_gio ?? 0) * (r.da_xu_ly + r.tu_choi), 0);
+  return totalCount > 0 ? totalHours / totalCount : null;
+}
+
+// Bieu do tong quan (them 2026-09-26): gio TB toan he thong theo giai doan (thanh ngang, 1 mau thuong hieu
+// - do lon, khong phai phan loai) + so dang cho o dong phu. Dung useQueries voi DUNG queryKey cua
+// useXepHang() nen chia se cache voi cac dong bang ben duoi, khong goi API them.
+function TongQuanChart({ stages, filters, onJump }: { stages: GiaiDoanMeta[]; filters: Filters; onJump: (luong: GiaiDoanMeta["luong"], key: string) => void }) {
+  const results = useQueries({
+    queries: stages.map((stage) => ({
+      queryKey: ["bao-cao-toc-do-xep-hang", stage.key, filters.kyLoai, filters.ky, [...filters.khuVuc].join(","), filters.nhomId],
+      queryFn: () => api.get<XepHangResult>(`/bao-cao-toc-do/xep-hang${xepHangQuery(stage.key, filters)}`),
+    })),
+  });
+  const rows = stages
+    .map((stage, i) => {
+      const data = results[i]?.data;
+      const tb = data ? tbGioToanHeThong(data.rows) : null;
+      return { stage, tb, dangCho: data?.dang_cho ?? 0 };
+    })
+    .filter((r) => r.tb != null)
+    .sort((a, b) => b.tb! - a.tb!);
+  return (
+    <ChartCard title="Thời gian xử lý trung bình theo giai đoạn" subtitle="Giờ TB toàn hệ thống (bình quân gia quyền theo số lượt) — giai đoạn chậm nhất ở trên cùng">
+      <HBarList
+        emptyText={results.some((r) => r.isLoading) ? "Đang tải…" : "Chưa có dữ liệu trong kỳ này."}
+        rows={rows.map((r, i) => ({
+          key: r.stage.key,
+          label: r.stage.label,
+          value: r.tb!,
+          display: fmtGio(r.tb),
+          color: i === 0 ? "var(--chart-2)" : "var(--chart-1)",
+          sub: `${LUONG_LABELS[r.stage.luong]} · Đang chờ ${r.dangCho}`,
+          onClick: () => onJump(r.stage.luong, r.stage.key),
+        }))}
+      />
+    </ChartCard>
+  );
+}
+
 function TongQuanRow({ stage, filters, onJump }: { stage: GiaiDoanMeta; filters: Filters; onJump: (luong: GiaiDoanMeta["luong"], key: string) => void }) {
   const { data, isLoading } = useXepHang(stage.key, filters);
   const rows = data?.rows ?? [];
-  const totalCount = rows.reduce((s, r) => s + r.da_xu_ly + r.tu_choi, 0);
-  const totalHours = rows.reduce((s, r) => s + (r.tb_gio ?? 0) * (r.da_xu_ly + r.tu_choi), 0);
-  const tbGio = totalCount > 0 ? totalHours / totalCount : null;
+  const tbGio = tbGioToanHeThong(rows);
   const sorted = [...rows].filter((r) => r.tb_gio != null).sort((a, b) => (b.tb_gio! - a.tb_gio!));
   const cham = sorted[0];
   const nhanh = sorted[sorted.length - 1];
@@ -263,11 +325,13 @@ function TongQuanRow({ stage, filters, onJump }: { stage: GiaiDoanMeta; filters:
 function TongQuanTab({ stages, filters, onJump }: { stages: GiaiDoanMeta[]; filters: Filters; onJump: (luong: GiaiDoanMeta["luong"], key: string) => void }) {
   const noiBoStages = stages.filter((s) => s.noi_bo);
   return (
+    <div className="space-y-[14px]">
+    <TongQuanChart stages={noiBoStages} filters={filters} onJump={onJump} />
     <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="tbl w-full">
           <thead>
-            <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+            <tr className="tbl-head">
               <th className="px-3 py-2 whitespace-nowrap">Giai đoạn</th>
               <th className="px-3 py-2 text-right whitespace-nowrap">TB giờ (toàn hệ thống)</th>
               <th className="px-3 py-2 text-right whitespace-nowrap">Đang chờ</th>
@@ -283,6 +347,7 @@ function TongQuanTab({ stages, filters, onJump }: { stages: GiaiDoanMeta[]; filt
           </tbody>
         </table>
       </div>
+    </div>
     </div>
   );
 }
@@ -302,18 +367,18 @@ function FilterBar({ filters, setFilters }: { filters: Filters; setFilters: (f: 
   return (
     <Card className="p-3 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center rounded-lg border border-[var(--line)] overflow-hidden">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => setFilters({ ...filters, kyLoai: "thang", ky: defaultMonth() })}
-            className={`px-3 py-1.5 text-xs font-semibold ${filters.kyLoai === "thang" ? "bg-[var(--ocean-800)] text-white" : "bg-white text-[var(--ink-700)]"}`}
+            className={`focus-ring filter-tab ${filters.kyLoai === "thang" ? "active" : ""}`}
           >
             Tháng
           </button>
           <button
             type="button"
             onClick={() => setFilters({ ...filters, kyLoai: "tuan", ky: defaultWeek() })}
-            className={`px-3 py-1.5 text-xs font-semibold ${filters.kyLoai === "tuan" ? "bg-[var(--ocean-800)] text-white" : "bg-white text-[var(--ink-700)]"}`}
+            className={`focus-ring filter-tab ${filters.kyLoai === "tuan" ? "active" : ""}`}
           >
             Tuần
           </button>

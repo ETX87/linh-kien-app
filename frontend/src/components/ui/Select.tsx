@@ -45,7 +45,7 @@ export function Select({
       // border rat nhat - doi sang bg-surface (trang) + border dam hon (ink-400) de noi bat, khop dung
       // border-2 cac input ngay thang ("Từ ngày"/"Đến ngày") dat CANH no trong CUNG panel dang dung
       // bg-white san.
-      className={`focus-ring bg-[var(--surface)] border border-[var(--ink-400)] rounded-lg px-2.5 py-1.5 text-sm text-[var(--ink-900)] disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
+      className={`focus-ring h-9 bg-[var(--surface)] border border-[var(--color-border)] rounded-[var(--radius-btn)] px-2.5 text-[13px] text-[var(--color-text-body)] disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
     >
       {options.map((o) =>
         typeof o === "string" ? (
@@ -119,7 +119,7 @@ function SearchableSelect({
         placeholder="Gõ để tìm…"
         // FIX (phan hoi 2026-09-05, giong het comment o <select> thuan phia tren): cung doi bg-surface-100
         // -> bg-surface + border dam hon de khong lan vao panel bo loc bao quanh.
-        className="focus-ring w-full bg-[var(--surface)] border border-[var(--ink-400)] rounded-lg px-2.5 py-1.5 text-sm text-[var(--ink-900)] disabled:opacity-40 disabled:cursor-not-allowed"
+        className="focus-ring w-full h-9 bg-[var(--surface)] border border-[var(--color-border)] rounded-[var(--radius-btn)] px-2.5 text-[13px] text-[var(--color-text-body)] disabled:opacity-40 disabled:cursor-not-allowed"
       />
       {/* minWidth (phan hoi 2026-09-05: "listdown lỗi hiện thị" - nhan dai bi cat cut khi anchor hep,
           vd o trong 1 <td> chat hep) - xem giai thich day du o DropdownPortal.tsx. */}
@@ -148,7 +148,7 @@ function SearchableSelect({
                   setOpen(false);
                   setQuery("");
                 }}
-                className={`w-full text-left px-3 py-1.5 text-sm truncate hover:bg-slate-50 ${v === value ? "bg-[var(--ocean-100)]/40 font-semibold" : ""}`}
+                className={`w-full text-left px-3 py-1.5 text-sm truncate hover:bg-[var(--color-subtle)] ${v === value ? "bg-[var(--color-primary-soft)] text-[var(--color-primary-dark)] font-semibold" : ""}`}
               >
                 {optLabel(o)}
               </button>

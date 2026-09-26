@@ -37,7 +37,7 @@ export function Drawer({
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-[rgba(9,30,66,.4)] backdrop-blur-[1px]" onClick={onClose} />
+      <div className="absolute inset-0 bg-[var(--overlay)] backdrop-blur-[1px]" onClick={onClose} />
       <div
         className={
           mobile

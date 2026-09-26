@@ -8,15 +8,15 @@ export function LoginScreen({ variant = "login" }: { variant?: "login" | "pendin
   const { title, sub } = messages[variant];
 
   return (
-    <div className="min-h-screen ripple-bg flex items-center justify-center" style={{ background: "linear-gradient(160deg, var(--ocean-950), var(--ocean-800))" }}>
-      <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-sm text-center anim-in">
-        <img src="/icon-192.png" alt="Đặt mua linh kiện" width={52} height={52} className="mx-auto mb-3 rounded-xl" />
-        <div className="font-display font-extrabold text-xl mb-1">{title}</div>
+    <div className="min-h-screen ripple-bg flex items-center justify-center" style={{ background: "var(--brand-gradient)" }}>
+      <div className="bg-white rounded-[14px] shadow-[var(--shadow-drawer)] p-10 w-full max-w-sm text-center anim-in">
+        <img src="/icon-192.png" alt="Đặt mua linh kiện" width={52} height={52} className="mx-auto mb-3 rounded-xl shadow-[var(--shadow-raise)]" />
+        <div className="text-[21px] font-bold text-[var(--color-text)] mb-1">{title}</div>
         <div className="text-sm text-[var(--ink-400)] mb-7">{sub}</div>
         {variant === "login" && (
           <a
             href="/api/auth/login"
-            className="focus-ring w-full flex items-center justify-center gap-2.5 border border-[var(--line)] rounded-xl py-2.5 font-semibold text-sm hover:bg-slate-50 transition-colors"
+            className="focus-ring w-full flex items-center justify-center gap-2.5 border border-[var(--color-border)] rounded-[var(--radius-btn)] h-10 font-semibold text-sm text-[var(--color-text-body)] hover:bg-[var(--color-subtle)] transition-colors"
           >
             <svg width="18" height="18" viewBox="0 0 48 48">
               <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.1 5.1 29.3 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.3-.1-2.7-.4-4z" />

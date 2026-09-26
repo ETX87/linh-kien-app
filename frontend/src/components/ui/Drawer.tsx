@@ -47,19 +47,19 @@ export function Drawer({
   if (!open) return null;
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-[rgba(6,32,51,0.45)] backdrop-blur-[2px]" onClick={onClose} />
-      <div className={`drawer-in fixed inset-y-0 right-0 z-50 w-full ${width} bg-[var(--surface)] shadow-2xl flex flex-col`}>
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--line)] shrink-0">
-          <h3 className="font-display font-bold text-[var(--ink-900)] truncate">{title}</h3>
+      <div className="fixed inset-0 z-50 bg-[var(--overlay)] backdrop-blur-[2px]" onClick={onClose} />
+      <div className={`drawer-in fixed inset-y-0 right-0 z-50 w-full ${width} bg-[var(--surface)] shadow-[var(--shadow-drawer)] flex flex-col`}>
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--color-border-soft)] shrink-0">
+          <h3 className="text-base font-bold text-[var(--color-text)] truncate">{title}</h3>
           <div className="flex items-center gap-2 shrink-0">
             {headerExtra}
-            <button onClick={onClose} className="focus-ring w-8 h-8 rounded-lg hover:bg-slate-100 text-[var(--ink-400)]">
+            <button onClick={onClose} className="focus-ring w-8 h-8 rounded-[var(--radius-btn)] hover:bg-[var(--color-subtle)] text-[var(--color-text-faint)] hover:text-[var(--color-text-body)]">
               ✕
             </button>
           </div>
         </div>
         <div className="overflow-y-auto p-5 flex-1">{children}</div>
-        {footer && <div className="border-t border-[var(--line)] bg-[var(--surface)] px-5 py-3 shrink-0">{footer}</div>}
+        {footer && <div className="border-t border-[var(--color-border-soft)] bg-[var(--surface)] px-5 py-3 shrink-0">{footer}</div>}
       </div>
     </>
   );

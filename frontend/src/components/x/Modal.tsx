@@ -30,7 +30,7 @@ export function Modal({
   const full = fullScreenMobile && mobile;
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-8">
-      <div className="fixed inset-0 bg-[rgba(9,30,66,.4)] backdrop-blur-[1px]" onClick={onClose} />
+      <div className="fixed inset-0 bg-[var(--overlay)] backdrop-blur-[1px]" onClick={onClose} />
       <div
         className={`anim-in relative flex max-h-full w-full flex-col rounded-[var(--radius-card)] bg-[var(--color-surface)] shadow-drawer ${full ? "!max-h-none min-h-full !rounded-none" : ""}`}
         style={{ maxWidth: full ? "100%" : width }}

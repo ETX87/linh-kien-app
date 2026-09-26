@@ -1238,9 +1238,9 @@ function PhuTrachGsTab() {
       </div>
       <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="tbl w-full">
             <thead>
-              <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+              <tr className="tbl-head">
                 <th className="px-3 py-2">Người phụ trách</th>
                 <th className="px-3 py-2">Vai trò</th>
                 <th className="px-3 py-2" />

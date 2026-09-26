@@ -1,10 +1,8 @@
-@import "@fontsource/manrope/500.css";
-@import "@fontsource/manrope/700.css";
-@import "@fontsource/manrope/800.css";
-@import "@fontsource/inter/400.css";
-@import "@fontsource/inter/500.css";
-@import "@fontsource/inter/600.css";
-@import "@fontsource/inter/700.css";
+@import "@fontsource/plus-jakarta-sans/400.css";
+@import "@fontsource/plus-jakarta-sans/500.css";
+@import "@fontsource/plus-jakarta-sans/600.css";
+@import "@fontsource/plus-jakarta-sans/700.css";
+@import "@fontsource/plus-jakarta-sans/800.css";
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
 @import "@fontsource/ibm-plex-mono/600.css";
@@ -12,152 +10,248 @@
 @import "@fontsource/be-vietnam-pro/500.css";
 @import "@fontsource/be-vietnam-pro/600.css";
 @import "@fontsource/be-vietnam-pro/700.css";
+@import "@fontsource/be-vietnam-pro/800.css";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ============================================================================
-   DESIGN SYSTEM "Đặt hàng linh kiện 3T" — hợp đồng: ui-prototype/UI_SPEC.md
-   (Port đợt P0 — 2026-09-10. Tính năng đổi Theme đã bỏ; chỉ còn 1 bộ màu.)
+   DESIGN SYSTEM "Đặt hàng linh kiện 3T" — hợp đồng: DESIGN_GUIDELINES.md (gốc repo).
+   Chuyển đổi toàn bộ 2026-09-26: giữ nguyên ngôn ngữ thiết kế DESIGN_SYSTEM.md, gam màu thương hiệu
+   lấy từ icon app (#2466E4 → #1285E7 → #0FC7F0). Mọi màu trong component PHẢI đi qua token ở đây.
    ============================================================================ */
 :root {
+  /* ---- Thương hiệu (§2.1) ---- */
+  --brand-gradient: linear-gradient(135deg, #2466e4 0%, #1285e7 55%, #0fc7f0 100%);
+  --brand-cyan: #0fc7f0;
+  --brand-light: #9ac9fa;
+
   --color-primary: #1467e8;
   --color-primary-hover: #0f56c4;
-  --color-primary-dark: #071b3a;
+  --color-primary-dark: #0f4fb0;
   --color-primary-soft: #eaf2ff;
+  --color-primary-ring: rgba(20, 103, 232, 0.15);
 
-  --color-background: #f4f7fb;
+  /* ---- Nền & bề mặt (§2.2) ---- */
+  --color-background: #f6f9fe;
   --color-surface: #ffffff;
-  --color-surface-soft: #fbfcfe;
-  --color-surface-hover: #f2f6fc;
+  --color-surface-soft: #f8fafc;
+  --color-surface-hover: #f1f5f9;
+  --color-subtle: #f1f5f9;
 
-  --color-text: #17243a;
-  --color-text-secondary: #70809a;
-  --color-text-faint: #9aa8bd;
+  /* ---- Chữ (§2.3, thang slate) ---- */
+  --color-text: #0f172a;
+  --color-text-body: #334155;
+  --color-text-secondary: #64748b;
+  --color-text-faint: #94a3b8;
+  --color-link: #0b63ce;
 
-  --color-border: #dce5f1;
-  --color-border-strong: #c3d0e2;
+  /* ---- Viền (§5.2): soft = thẻ/kẻ hàng bảng, border = input/dropdown ---- */
+  --color-border-soft: #f1f5f9;
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
 
-  --color-success: #0ca678;
-  --color-success-soft: #e3f7f0;
-  --color-info: #1467e8;
-  --color-info-soft: #eaf2ff;
-  --color-warning: #f59f00;
-  --color-warning-soft: #fef4e0;
-  --color-danger: #ef476f;
-  --color-danger-soft: #fde8ee;
-  --color-purple: #7357d9;
-  --color-purple-soft: #efeafb;
-  --color-neutral: #70809a;
-  --color-neutral-soft: #eef1f6;
-  --color-star: #f5a524;
+  /* ---- Ngữ nghĩa (§2.4 / §6.2) — base = icon/nền đậm, strong = chữ nhấn, soft = nền nhạt ---- */
+  --color-success: #16a34a;
+  --color-success-strong: #15803d;
+  --color-success-soft: #dcfce7;
+  --color-info: #0379a8;
+  --color-info-soft: #e3f8fd;
+  --color-warning: #ff9800;
+  --color-warning-strong: #d97706;
+  --color-warning-soft: #fef3c7;
+  --color-danger: #ef4444;
+  --color-danger-strong: #dc2626;
+  --color-danger-soft: #fee2e2;
+  --color-purple: #7e57c2;
+  --color-purple-strong: #6b21a8;
+  --color-purple-soft: #f4edfd;
+  --color-neutral: #64748b;
+  --color-neutral-soft: #f1f5f9;
+  --color-star: #ff9800;
+  --color-trend-up: #10b981;
+  --color-trend-down: #ef4444;
 
-  --role-tn: #0e9f8f;
-  --role-tn-soft: #dbf4f0;
+  /* ---- Bộ pastel thẻ KPI (§2.4): nền from/to, icon, chữ nhấn ---- */
+  --kpi-blue-from: #eaf2ff;
+  --kpi-blue-to: #dae8fe;
+  --kpi-blue-icon: #1467e8;
+  --kpi-blue-fg: #0f4fb0;
+  --kpi-cyan-from: #e3f8fd;
+  --kpi-cyan-to: #cff2fb;
+  --kpi-cyan-icon: #12b5e5;
+  --kpi-cyan-fg: #0379a8;
+  --kpi-indigo-from: #eef0fe;
+  --kpi-indigo-to: #e0e4fd;
+  --kpi-indigo-icon: #4f63e6;
+  --kpi-indigo-fg: #3440b8;
+  --kpi-purple-from: #f4edfd;
+  --kpi-purple-to: #ebe0fb;
+  --kpi-purple-icon: #7e57c2;
+  --kpi-purple-fg: #6b21a8;
+  --kpi-amber-from: #fff9e7;
+  --kpi-amber-to: #fef3ce;
+  --kpi-amber-icon: #ff9800;
+  --kpi-amber-fg: #d97706;
+  --kpi-green-from: #e8faf0;
+  --kpi-green-to: #dcfce7;
+  --kpi-green-icon: #16a34a;
+  --kpi-green-fg: #15803d;
+  --kpi-red-from: #fee2e2;
+  --kpi-red-to: #fee2e2;
+  --kpi-red-icon: #ef4444;
+  --kpi-red-fg: #dc2626;
+
+  /* ---- Biểu đồ (DESIGN_GUIDELINES.md §9) — ĐÃ CHẠY dataviz validate_palette.js, PASS cả 5 check.
+     Categorical: dùng ĐÚNG thứ tự 1→5, không đảo/không sinh thêm màu thứ 6 (gộp "Khác"). ---- */
+  --chart-1: #1467e8;
+  --chart-2: #e5700a;
+  --chart-3: #0a93c4;
+  --chart-4: #7e57c2;
+  --chart-5: #15a04a;
+  /* Xu hướng: tạo mới / đã duyệt / từ chối (tím = từ chối, khớp quy ước badge violet của app) */
+  --chart-new: #1467e8;
+  --chart-ok: #15a04a;
+  --chart-reject: #7e57c2;
+  /* Trạng thái (tốt / cảnh báo / nghiêm trọng) — luôn kèm nhãn chữ + số */
+  --chart-good: #15a04a;
+  --chart-warn: #f0a000;
+  --chart-bad: #c0262d;
+  --chart-grid: #eef2f7;
+  --chart-axis: #94a3b8;
+
+  /* ---- Vai trò (nhãn phân loại, không phải thương hiệu) ---- */
+  --role-tn: #0379a8;
+  --role-tn-soft: #e3f8fd;
   --role-kho: #16a34a;
-  --role-kho-soft: #e2f6e9;
+  --role-kho-soft: #dcfce7;
   --role-ketoan: #1467e8;
-  --role-ketoan-soft: #e6f0ff;
-  --role-qc: #6366f1;
-  --role-qc-soft: #ecebfe;
+  --role-ketoan-soft: #eaf2ff;
+  --role-qc: #4f63e6;
+  --role-qc-soft: #eef0fe;
   --role-gs: #db2777;
-  --role-gs-soft: #fce7f1;
+  --role-gs-soft: #fce7f3;
 
-  --chip-bg: #e2f2f6;
-  --chip-fg: #0f6f86;
+  --chip-bg: #eaf2ff;
+  --chip-fg: #0f4fb0;
 
-  /* Sidebar + Topbar — DARK NAVY */
-  --sidebar-bg-from: #0d2a54;
-  --sidebar-bg-to: #0a1c3b;
-  --sidebar-fg: #e6edf8;
-  --sidebar-fg-dim: #93a6c6;
-  --sidebar-hover-bg: rgba(255, 255, 255, 0.06);
-  --sidebar-active-bg: #1668e3;
+  /* ---- Sidebar (§2.1/§4): gradient xanh hoàng gia, chữ trắng ---- */
+  --sidebar-gradient: linear-gradient(180deg, #0d4fb8 0%, #0b46a6 45%, #093b8f 80%, #0e5cc4 100%);
+  --sidebar-bg-from: #0d4fb8;
+  --sidebar-bg-to: #093b8f;
+  --sidebar-fg: rgba(255, 255, 255, 0.88);
+  --sidebar-fg-dim: rgba(255, 255, 255, 0.62);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.1);
+  --sidebar-active-bg: rgba(255, 255, 255, 0.25);
   --sidebar-active-fg: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-tag-bg: #1d3a63;
-  --sidebar-tag-fg: #b6c8e6;
-  --topbar-bg: #0b2149;
-  --topbar-fg: #e6edf8;
-  --topbar-fg-dim: #93a6c6;
-  --topbar-field-bg: rgba(255, 255, 255, 0.08);
-  --topbar-field-border: rgba(255, 255, 255, 0.16);
-  --topbar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-border: rgba(255, 255, 255, 0.12);
+  --sidebar-tag-bg: rgba(255, 255, 255, 0.14);
+  --sidebar-tag-fg: #dce8ff;
 
-  --sidebar-w: 240px;
+  /* ---- Topbar (§4): nền trắng, viền dưới mờ ---- */
+  --topbar-bg: #ffffff;
+  --topbar-fg: #0f172a;
+  --topbar-fg-dim: #64748b;
+  --topbar-field-bg: #f1f5f9;
+  --topbar-field-border: #f1f5f9;
+  --topbar-border: #f1f5f9;
+
+  /* ---- Kích thước khung (§4) ---- */
+  --sidebar-w: 261px;
   --sidebar-w-collapsed: 68px;
-  --topbar-h: 56px;
+  --topbar-h: 64px;
   --content-pad: 24px;
+  --content-gap: 14px;
   --drawer-w: 500px;
   --row-h: 54px;
 
-  --radius-card: 10px;
+  /* ---- Bo góc (§5.1) ---- */
+  --radius-kpi: 14px;
+  --radius-card: 12px;
+  --radius-field: 10px;
   --radius-btn: 8px;
+  --radius-pill: 12px;
+  --radius-badge: 10px;
 
-  --shadow-drawer: 0 8px 30px rgba(9, 30, 66, 0.12);
-  --shadow-pop: 0 4px 16px rgba(9, 30, 66, 0.1);
+  /* ---- Đổ bóng (§5.3) ---- */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.025);
+  --shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-raise: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-drawer: 0 8px 30px rgba(15, 23, 42, 0.12);
+  --overlay: rgba(15, 23, 42, 0.45);
 
-  --font-body: "Inter", "Segoe UI", Arial, sans-serif;
+  /* ---- Font (§3) — Plus Jakarta Sans (đủ subset tiếng Việt); Be Vietnam Pro chỉ còn là fallback ---- */
+  --font-body: "Plus Jakarta Sans", "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 }
 
-/* ---- Alias tương thích ngược: token cũ (--ocean/--ink/--line/...) trỏ về palette mới.
-   Giữ để các module CHƯA port (P2-P4) vẫn hiển thị hợp lý. Sẽ gỡ ở P5. ---- */
+/* ---- Alias tương thích ngược: token cũ (--ocean/--ink/--line/...) trỏ về palette guideline.
+   Module dùng tên cũ vẫn tự khớp màu mới — code MỚI dùng thẳng --color-* / --kpi-*. ---- */
 :root {
   --bg: var(--color-background);
   --surface: var(--color-surface);
   --surface-soft: var(--color-surface-soft);
-  --surface-100: #eef2f8;
-  --surface-200: #dce5f1;
-  --surface-2: #eef2f8;
+  --surface-100: #f1f5f9;
+  --surface-200: #e2e8f0;
+  --surface-2: #f1f5f9;
   --line: var(--color-border);
+  --line-soft: var(--color-border-soft);
 
   --ink-900: var(--color-text);
-  --ink-700: #3f4a5f;
-  --ink-600: var(--color-text-secondary);
-  --ink-500: #8493a8;
+  --ink-800: #1e293b;
+  --ink-700: var(--color-text-body);
+  --ink-600: #475569;
+  --ink-500: var(--color-text-secondary);
   --ink-400: var(--color-text-faint);
 
-  --ocean-950: #071b3a;
-  --ocean-900: #0a1c3b;
-  --ocean-800: #0b2149;
+  /* ocean = dải xanh thương hiệu */
+  --ocean-950: #093b8f;
+  --ocean-900: #0b46a6;
+  --ocean-800: #0f4fb0;
   --ocean-700: #0f56c4;
   --ocean-600: #1467e8;
-  --ocean-500: #3b82f6;
-  --ocean-400: #7ab0f2;
+  --ocean-500: #1285e7;
+  --ocean-400: #9ac9fa;
   --ocean-100: #eaf2ff;
 
-  --teal-700: #047857;
-  --teal-600: #0ca678;
+  /* teal (tên cũ) = xanh lá "hoàn thành" */
+  --teal-700: #15803d;
+  --teal-600: #16a34a;
   --teal-500: #10b981;
-  --teal-100: #e3f7f0;
+  --teal-100: #dcfce7;
 
-  --amber-700: #b9770e;
-  --amber-600: #f59f00;
-  --amber-500: #f5a524;
-  --amber-100: #fef4e0;
+  --amber-700: #d97706;
+  --amber-600: #f59e0b;
+  --amber-500: #ff9800;
+  --amber-100: #fef3c7;
 
-  --coral-700: #b23a4f;
-  --coral-600: #ef476f;
-  --coral-500: #ef476f;
-  --coral-400: #f2889d;
-  --coral-100: #fde8ee;
+  /* coral (tên cũ) = đỏ "lỗi/từ chối" */
+  --coral-700: #b91c1c;
+  --coral-600: #dc2626;
+  --coral-500: #ef4444;
+  --coral-400: #f87171;
+  --coral-100: #fee2e2;
 
-  --orange-700: #9a3412;
-  --orange-600: #c2410c;
-  --orange-500: #f5a524;
+  /* orange = ưu tiên (ngữ nghĩa "cần xử lý gấp"), cùng họ cam với amber */
+  --orange-700: #c2410c;
+  --orange-600: #ea580c;
+  --orange-500: #ff9800;
   --orange-100: #ffedd5;
 
-  --violet-700: #4c1d95;
-  --violet-600: #7357d9;
-  --violet-500: #8b5cf6;
-  --violet-100: #efeafb;
+  --violet-700: #6b21a8;
+  --violet-600: #7e57c2;
+  --violet-500: #9575cd;
+  --violet-100: #f4edfd;
 
-  --indigo-700: #3730a3;
-  --indigo-600: #4f46e5;
-  --indigo-500: #6366f1;
-  --indigo-100: #eef2ff;
+  --indigo-700: #3440b8;
+  --indigo-600: #4f63e6;
+  --indigo-500: #6b7cf0;
+  --indigo-100: #eef0fe;
+
+  --cyan-700: #0379a8;
+  --cyan-500: #12b5e5;
+  --cyan-100: #e3f8fd;
 
   --green-700: #15803d;
   --green-600: #16a34a;
@@ -181,13 +275,15 @@ body,
 body {
   margin: 0;
   background: var(--color-background);
-  color: var(--color-text);
+  color: var(--color-text-body);
   font-family: var(--font-body);
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
 }
+/* Guideline chỉ dùng 1 họ font — .font-display giữ lại làm alias cho tiêu đề (weight do class quyết định). */
 .font-display {
-  font-family: "Manrope", sans-serif;
+  font-family: var(--font-body);
+  letter-spacing: -0.01em;
 }
 .font-mono {
   font-family: var(--font-mono);
@@ -202,7 +298,7 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #d3ddea;
+  background: var(--color-border-strong);
   border-radius: 8px;
   border: 2px solid transparent;
   background-clip: content-box;
@@ -396,10 +492,10 @@ table.dense td {
 @keyframes pipeline-urgent-ring {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(239, 71, 111, 0.55);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55);
   }
   50% {
-    box-shadow: 0 0 0 4px rgba(239, 71, 111, 0);
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
   }
 }
 @media (prefers-reduced-motion: no-preference) {
@@ -412,8 +508,122 @@ table.dense td {
 .dat-mua-lk-module select:not(:disabled) {
   border-color: var(--color-border-strong);
 }
-.dat-mua-lk-module input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not(:disabled):not([readonly]):focus,
-.dat-mua-lk-module textarea:not(:disabled):not([readonly]):focus,
-.dat-mua-lk-module select:not(:disabled):focus {
+/* Focus ô nhập TOÀN APP (§6.4): viền primary + glow 3px — không chỉ riêng module Đặt mua. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not(:disabled):not([readonly]):focus,
+textarea:not(:disabled):not([readonly]):focus,
+select:not(:disabled):focus {
   border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-ring);
+  outline: none;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-faint);
+}
+
+/* ============================================================================
+   CLASS DÙNG LẠI THEO DESIGN_GUIDELINES.md §6 — ưu tiên dùng các class/component này thay vì tự
+   ghép lại utility, để mọi màn hình ra cùng một kiểu.
+   ============================================================================ */
+.content-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+.card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+.card-header-link {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+.code-link {
+  font-weight: 600;
+  color: var(--color-link);
+}
+.page-title {
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+/* Filter tab dạng pill (§6.3) */
+.filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-pill);
+  padding: 4px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-subtle);
+  color: var(--color-text-secondary);
+  transition: background-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.filter-tab:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-dark);
+}
+.filter-tab.active {
+  background: var(--color-primary);
+  color: #fff;
+}
+/* Thẻ KPI pastel (§2.4/§6.1) — gắn thêm 1 class màu: kpi-blue|cyan|indigo|purple|amber|green|red */
+.kpi-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-kpi);
+  border: 1px solid var(--color-border-soft);
+  box-shadow: var(--shadow-card);
+  background: linear-gradient(135deg, var(--kpi-from), var(--kpi-to));
+}
+.kpi-card .kpi-icon {
+  background: var(--kpi-icon);
+  color: #fff;
+}
+.kpi-card .kpi-watermark {
+  color: var(--kpi-icon);
+  opacity: 0.13;
+}
+.kpi-card .kpi-accent {
+  color: var(--kpi-fg);
+}
+.kpi-blue { --kpi-from: var(--kpi-blue-from); --kpi-to: var(--kpi-blue-to); --kpi-icon: var(--kpi-blue-icon); --kpi-fg: var(--kpi-blue-fg); }
+.kpi-cyan { --kpi-from: var(--kpi-cyan-from); --kpi-to: var(--kpi-cyan-to); --kpi-icon: var(--kpi-cyan-icon); --kpi-fg: var(--kpi-cyan-fg); }
+.kpi-indigo { --kpi-from: var(--kpi-indigo-from); --kpi-to: var(--kpi-indigo-to); --kpi-icon: var(--kpi-indigo-icon); --kpi-fg: var(--kpi-indigo-fg); }
+.kpi-purple { --kpi-from: var(--kpi-purple-from); --kpi-to: var(--kpi-purple-to); --kpi-icon: var(--kpi-purple-icon); --kpi-fg: var(--kpi-purple-fg); }
+.kpi-amber { --kpi-from: var(--kpi-amber-from); --kpi-to: var(--kpi-amber-to); --kpi-icon: var(--kpi-amber-icon); --kpi-fg: var(--kpi-amber-fg); }
+.kpi-green { --kpi-from: var(--kpi-green-from); --kpi-to: var(--kpi-green-to); --kpi-icon: var(--kpi-green-icon); --kpi-fg: var(--kpi-green-fg); }
+.kpi-red { --kpi-from: var(--kpi-red-from); --kpi-to: var(--kpi-red-to); --kpi-icon: var(--kpi-red-icon); --kpi-fg: var(--kpi-red-fg); }
+.kpi-gray { --kpi-from: #ffffff; --kpi-to: #f8fafc; --kpi-icon: var(--color-text-faint); --kpi-fg: var(--color-text-secondary); }
+
+/* Bảng dữ liệu (§6.2): chữ 12px #334155, header 11.5px/600 #64748B nền #F8FAFC, kẻ hàng #F1F5F9.
+   Bảng tự dựng dùng <table className="tbl ..."> + <tr className="tbl-head"> trong <thead>. */
+.tbl {
+  font-size: 12px;
+  color: var(--color-text-body);
+}
+.tbl-head {
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-soft);
+  border-bottom: 1px solid var(--color-border-soft);
+}
+.tbl-head th {
+  white-space: nowrap;
+  font-weight: 600;
+}
+/* Kẻ hàng mờ cho MỌI bảng .tbl — ghi đè màu viền trên/dưới của class border-[var(--line)] ở từng dòng
+   (specificity 0,1,2 > 0,1,0), không động tới viền trái màu (border-l-*) của các dòng được tô nhấn. */
+.tbl tbody > tr,
+.tbl tfoot > tr {
+  border-top-color: var(--color-border-soft);
+  border-bottom-color: var(--color-border-soft);
 }

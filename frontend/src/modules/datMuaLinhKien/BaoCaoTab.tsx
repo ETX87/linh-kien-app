@@ -6,6 +6,7 @@ import { Btn } from "../../components/ui/Btn";
 import { formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import type { BaoCaoRow, JumpTarget } from "./types";
+import { BaoCaoCharts } from "./BaoCaoCharts";
 
 // Cot co "value" (them 2026-09-05, phan hoi "phân trang + tùy chọn sort" cho Home > Báo cáo tổng
 // thể): truoc day cols[] chi co cell() tra ve ReactNode (nut bam nhay, khong sort duoc truc tiep) -
@@ -95,6 +96,10 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
   // sau nut "☰ Bộ lọc" (mac dinh dong) thay vi luon hien 1 hang rieng; desktop giu nguyen hien san
   // (khong ton dien tich dang ke tren man rong).
   const [showThangFilter, setShowThangFilter] = useState(false);
+  // Bang chi tiet theo KTV tren mobile (them 2026-09-26 cung dot bieu do): mac dinh AN sau 1 nut - phan
+  // bieu do ben tren da tra loi "nhin nhanh", bang chi can khi muon tra tung nguoi (giu dung tinh than
+  // phan hoi 2026-08-28 "Home mobile nang"). Desktop luon hien bang.
+  const [showMobileTables, setShowMobileTables] = useState(false);
 
   const thangFilterRow = (
     <div className="flex items-center gap-1.5 flex-wrap">
@@ -222,9 +227,9 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
       <div>
         <div className="text-xs font-semibold text-[var(--ink-500)] uppercase tracking-wide mb-1.5">{title}</div>
         <div className="overflow-x-auto rounded-xl border border-[var(--line)]">
-          <table className="min-w-full text-xs border-collapse">
+          <table className="tbl min-w-full border-collapse">
             <thead>
-              <tr className="bg-[var(--surface-100)] text-[var(--ink-600)]">
+              <tr className="tbl-head">
                 <th className="sticky left-0 z-10 bg-[var(--surface-100)] px-3 py-2 text-left">Tên</th>
                 {cols.map((c) => (
                   <th
@@ -380,6 +385,21 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
   return (
     <div className="mt-4 space-y-4">
       {thangFilterEl}
+      <BaoCaoCharts tong={tong} rows={rows} thang={thang} full={full} tonDong={tonDong} jumpDon={jumpDon} jumpTraHang={jumpTraHang} jumpPxk={jumpPxk} />
+
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <h3 className="card-title">Chi tiết theo KTV</h3>
+        {isMobile && (
+          <button
+            type="button"
+            onClick={() => setShowMobileTables((v) => !v)}
+            className="focus-ring card-header-link rounded-[8px] px-2 py-1 hover:bg-[var(--color-primary-soft)]"
+          >
+            {showMobileTables ? "Ẩn bảng ▲" : "Xem bảng số liệu ▾"}
+          </button>
+        )}
+      </div>
+      {(!isMobile || showMobileTables) && (<>
       {rows.length > 1 && (
         <input
           value={search}
@@ -458,6 +478,7 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
         />
       )}
       {pagerEl}
+      </>)}
     </div>
   );
 }

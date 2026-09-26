@@ -357,7 +357,7 @@ function PartDetailDrawer({ part, onClose, onEdit, canEdit }: { part: LinhKienRo
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-[rgba(6,32,51,0.45)] backdrop-blur-[2px]" onClick={onClose} />
+      <div className="fixed inset-0 z-50 bg-[var(--overlay)] backdrop-blur-[2px]" onClick={onClose} />
       <div className="drawer-in fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[var(--surface)] shadow-2xl flex flex-col">
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-[var(--line)] shrink-0">
           {/* SUA BUG GIAO DIEN (phan hoi 2026-09-12, dong bo voi LinhKienPicker.tsx trong module "Dat

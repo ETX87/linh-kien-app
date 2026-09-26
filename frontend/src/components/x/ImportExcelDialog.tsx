@@ -105,9 +105,9 @@ export function ImportExcelDialog({
             </button>
           </div>
           <div className="overflow-x-auto rounded-[var(--radius-btn)] border border-[var(--color-border)]">
-            <table className="w-full border-collapse text-[12.5px]">
+            <table className="tbl w-full border-collapse">
               <thead>
-                <tr className="bg-[var(--color-surface-soft)] text-left text-[var(--color-text-secondary)]">
+                <tr className="tbl-head">
                   {cols.map((c) => (
                     <th key={c} className="px-2.5 py-2 font-semibold">
                       {c}

@@ -9,6 +9,7 @@ import { useIsMobile } from "../../hooks/useMediaQuery";
 import { STEP_SHORT_LABEL } from "./constants";
 import { KhuVucChipFilter, CollapsibleSection } from "./SharedUi";
 import { BaoCaoTab } from "./BaoCaoTab";
+import { StackedBar } from "../../components/charts/BarCharts";
 import type { JumpTarget, LuongQuyTrinhStep, DangTonStep } from "./types";
 
 interface TonDongRow {
@@ -166,6 +167,14 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
     };
   });
   groups.sort((a, b) => b.maxNgay - a.maxNgay || b.rows.length - a.rows.length);
+  // Phan bo tuoi don (them 2026-09-26) - CUNG nguong voi soNgayTonTone (>=7 do, 3-6 cam, con lai xanh) de
+  // mau thanh tong hop khop dung mau badge "N ngày" cua tung dong ben duoi.
+  const allSoNgay = groups.flatMap((g) => g.soNgayList);
+  const tuoiDon = [
+    { key: "moi", label: "0–2 ngày", value: allSoNgay.filter((d) => d < 3).length, color: "var(--chart-good)" },
+    { key: "vua", label: "3–6 ngày", value: allSoNgay.filter((d) => d >= 3 && d < 7).length, color: "var(--chart-warn)" },
+    { key: "lau", label: "≥ 7 ngày", value: allSoNgay.filter((d) => d >= 7).length, color: "var(--chart-bad)" },
+  ];
 
   const hasFilterOptions = khuVucOptions.length > 0 || ktvOptions.length > 0;
   const filterRow = (
@@ -213,6 +222,14 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
           Không có đơn hàng nào đang tồn trong phạm vi này.
         </div>
       ) : (
+        <div className="space-y-3">
+        <div className="content-card px-4 py-3">
+          <div className="mb-2 flex items-baseline justify-between gap-2">
+            <span className="text-[12px] font-semibold text-[var(--color-text-body)]">Phân bố thời gian tồn</span>
+            <span className="text-[11px] text-[var(--color-text-secondary)]">{allSoNgay.length} đơn · {groups.length} KTV</span>
+          </div>
+          <StackedBar segments={tuoiDon} />
+        </div>
         <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)] divide-y divide-[var(--line)]">
           {groups.map((g) => (
             <div key={g.email}>
@@ -245,9 +262,9 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
               </button>
               {expanded.has(g.email) && (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="tbl w-full">
                     <thead>
-                      <tr className="text-left text-[var(--ink-400)] text-[10px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-y border-[var(--line)]">
+                      <tr className="tbl-head">
                         <th className="px-3 py-1.5">Mã đơn</th>
                         <th className="px-3 py-1.5">Linh kiện</th>
                         <th className="px-3 py-1.5">Ngày tạo</th>
@@ -302,6 +319,7 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
               )}
             </div>
           ))}
+        </div>
         </div>
       )}
     </CollapsibleSection>
@@ -551,8 +569,10 @@ export function TrangChuTab({
         // Muc C (phan hoi 2026-08-28: "Home mobile lỗi giao diện nặng") - mac dinh THU GON tren mobile
         // (nguoi dung tu bam "▼ Mở rộng" khi can xem sau), giu MO SAN tren desktop nhu hanh vi cu -
         // giam dang ke do dai trang luc moi vao Home, uu tien StatCard "viec can lam" len truoc.
+        // SUA 2026-09-26 (them bieu do): MO SAN ca tren mobile - phan nang cu (3 bang theo KTV) gio tu
+        // thu gon rieng ben trong BaoCaoTab, phan hien san chi con KPI + bieu do co gian theo be rong.
         <CollapsibleSection
-          defaultOpen={!isMobile}
+          defaultOpen
           title="Báo cáo tổng thể"
           note={
             <span className="hidden sm:inline normal-case font-normal text-[var(--ink-400)]">

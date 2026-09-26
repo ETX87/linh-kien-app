@@ -455,7 +455,7 @@ export function PhieuXuatKhoTab({
     {
       key: "ma_misa",
       header: "Mã PXK",
-      render: (r) => (r.ma_misa ? <span className="font-mono text-xs font-bold text-[var(--ocean-800)]">{r.ma_misa}</span> : <span className="text-[var(--ink-400)] italic text-xs">Chưa có</span>),
+      render: (r) => (r.ma_misa ? <span className="code-link font-mono text-xs">{r.ma_misa}</span> : <span className="text-[var(--ink-400)] italic text-xs">Chưa có</span>),
     },
     {
       key: "ma_xuat_kho",
@@ -525,7 +525,7 @@ export function PhieuXuatKhoTab({
           tab "Don tra hang" rieng khoi menu) - TN khong bao gio gop cac mang de xuat nay trong cung
           1 PXK, tach han danh sach xem theo tung mang, mac dinh Mua hang. So (x{n}) canh nhan la so
           don dang can xu ly (chua o 4 trang thai da xong) cua tung loai. */}
-      <div className="flex gap-1 mb-3">
+      <div className="flex gap-1.5 mb-3">
         {/* "Tất cả" (them 2026-09-11) - cho phep StageMenu nhay thang toi 1 trang thai PXK khong phan
             biet loai don (vd "Hàng trừ kho"/"Kho đã kết thúc") ma khong ep nguoi dung phai tu chon lai
             1 trong 3 sub-tab con lai. Nguoi dung van bam lai "Mua hàng"/"Công nợ"/"Trả hàng" binh
@@ -533,8 +533,8 @@ export function PhieuXuatKhoTab({
         <button
           type="button"
           onClick={() => setXemLoaiDon("")}
-          className={`focus-ring rounded-lg font-semibold transition-colors px-2.5 py-1.5 text-xs ${
-            xemLoaiDon === "" ? "bg-[var(--ocean-800)] text-white shadow-sm" : "bg-white text-[var(--ink-600)] border border-[var(--line)] hover:bg-slate-50"
+          className={`focus-ring rounded-[var(--radius-pill)] font-semibold transition-colors px-[11px] py-1 text-xs ${
+            xemLoaiDon === "" ? "bg-[var(--color-primary)] text-white" : "bg-[var(--color-subtle)] text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary-dark)]"
           }`}
         >
           Tất cả
@@ -555,14 +555,14 @@ export function PhieuXuatKhoTab({
               key={l}
               type="button"
               onClick={() => setXemLoaiDon(l)}
-              className={`focus-ring rounded-lg font-semibold transition-colors px-2.5 py-1.5 text-xs ${
+              className={`focus-ring rounded-[var(--radius-pill)] font-semibold transition-colors px-[11px] py-1 text-xs ${
                 active
                   ? conTon
-                    ? "bg-[var(--amber-600)] text-white shadow-sm"
-                    : "bg-[var(--ocean-800)] text-white shadow-sm"
+                    ? "bg-[var(--color-warning-strong)] text-white"
+                    : "bg-[var(--color-primary)] text-white"
                   : conTon
-                    ? "bg-[var(--amber-100)] text-[var(--amber-700)] border border-[var(--amber-500)]"
-                    : "bg-white text-[var(--ink-600)] border border-[var(--line)] hover:bg-slate-50"
+                    ? "bg-[var(--color-warning-soft)] text-[var(--color-warning-strong)]"
+                    : "bg-[var(--color-subtle)] text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary-dark)]"
               }`}
             >
               {LOAI_DON_TONE[l].label}
@@ -617,7 +617,7 @@ export function PhieuXuatKhoTab({
           </>
         }
         trailing={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {settingsButtonEl}
             <Btn size="sm" variant="ghost" onClick={handleDownloadFullList} disabled={downloadingFull}>
               {downloadingFull ? "Đang tải..." : "⬇ Tải danh sách chi tiết"}
@@ -1622,9 +1622,9 @@ export function PxkDetailModal({
               )}
             </div>
             <div className="overflow-x-auto rounded-xl border border-[var(--line)]">
-              <table className="min-w-full text-xs border-collapse">
+              <table className="tbl min-w-full border-collapse">
                 <thead>
-                  <tr className="text-left text-[var(--ink-400)] text-[10.5px] font-bold uppercase tracking-wider bg-[var(--surface-soft)] border-b border-[var(--line)]">
+                  <tr className="tbl-head">
                     <th className="px-2.5 py-2">Mã</th>
                     <th className="px-2.5 py-2">Tên LK</th>
                     <th className="px-2.5 py-2 text-right">SL</th>

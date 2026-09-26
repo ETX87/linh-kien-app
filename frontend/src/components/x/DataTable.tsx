@@ -35,9 +35,9 @@ export function DataTable<T extends { id: string }>({
   const allChecked = selectable && rows.length > 0 && rows.every((r) => selected?.has(r.id));
   return (
     <div className="overflow-x-auto rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)]">
-      <table className="w-full border-collapse text-[13px]" style={{ minWidth }}>
+      <table className="tbl w-full border-collapse" style={{ minWidth }}>
         <thead>
-          <tr className="border-b border-[var(--color-border)] bg-[var(--color-surface-soft)] text-left text-[12px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+          <tr className="tbl-head">
             {selectable && (
               <th className="w-9 px-3 py-2.5">
                 <input type="checkbox" checked={!!allChecked} onChange={onToggleAll} className="h-3.5 w-3.5 accent-[var(--color-primary)]" />
@@ -65,7 +65,7 @@ export function DataTable<T extends { id: string }>({
                 key={r.id}
                 onClick={() => onRowClick?.(r)}
                 className={`border-b border-[var(--color-border)] last:border-0 transition-colors hover:bg-[var(--color-surface-hover)] ${onRowClick ? "cursor-pointer" : ""} ${
-                  accent ? "bg-[#fff8ec]" : ""
+                  accent ? "bg-[var(--color-warning-soft)]" : ""
                 }`}
               >
                 {selectable && (

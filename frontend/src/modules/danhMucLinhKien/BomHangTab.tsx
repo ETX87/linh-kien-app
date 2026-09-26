@@ -83,9 +83,9 @@ export function BomHangTab() {
                   {modelName}
                   <span className="ml-2 text-xs font-normal text-[var(--ink-400)]">({group.length} linh kiện)</span>
                 </div>
-                <table className="w-full text-sm">
+                <table className="tbl w-full">
                   <thead>
-                    <tr className="text-left text-xs text-[var(--ink-400)] border-b border-[var(--line)]">
+                    <tr className="tbl-head">
                       <th className="px-3 py-1.5 font-medium">Mã linh kiện</th>
                       <th className="px-3 py-1.5 font-medium">Tên linh kiện</th>
                       <th className="px-3 py-1.5 font-medium">SL</th>
@@ -124,9 +124,9 @@ export function BomHangTab() {
                   {tenLk}
                   <span className="ml-2 text-xs font-normal text-[var(--ink-400)]">(dùng trong {group.length} model)</span>
                 </div>
-                <table className="w-full text-sm">
+                <table className="tbl w-full">
                   <thead>
-                    <tr className="text-left text-xs text-[var(--ink-400)] border-b border-[var(--line)]">
+                    <tr className="tbl-head">
                       <th className="px-3 py-1.5 font-medium">Mã Model</th>
                       <th className="px-3 py-1.5 font-medium">Model</th>
                       <th className="px-3 py-1.5 font-medium">SL</th>
