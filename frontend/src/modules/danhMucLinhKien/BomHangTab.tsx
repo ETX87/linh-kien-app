@@ -83,24 +83,26 @@ export function BomHangTab() {
                   {modelName}
                   <span className="ml-2 text-xs font-normal text-[var(--ink-400)]">({group.length} linh kiện)</span>
                 </div>
-                <table className="tbl w-full">
-                  <thead>
-                    <tr className="tbl-head">
-                      <th className="px-3 py-1.5 font-medium">Mã linh kiện</th>
-                      <th className="px-3 py-1.5 font-medium">Tên linh kiện</th>
-                      <th className="px-3 py-1.5 font-medium">SL</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group.map((r, i) => (
-                      <tr key={i} className="border-b border-[var(--line)] last:border-0">
-                        <td className="px-3 py-1.5 font-mono text-xs">{r.maLinhKien}</td>
-                        <td className="px-3 py-1.5">{r.tenLinhKien}</td>
-                        <td className="px-3 py-1.5">{r.soLuong}</td>
+                <div className="overflow-x-auto">
+                  <table className="tbl w-full">
+                    <thead>
+                      <tr className="tbl-head">
+                        <th className="px-3 py-1.5 font-medium">Mã linh kiện</th>
+                        <th className="px-3 py-1.5 font-medium">Tên linh kiện</th>
+                        <th className="px-3 py-1.5 font-medium">SL</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {group.map((r, i) => (
+                        <tr key={i} className="border-b border-[var(--line)] last:border-0">
+                          <td className="px-3 py-1.5 font-mono text-xs">{r.maLinhKien}</td>
+                          <td className="px-3 py-1.5">{r.tenLinhKien}</td>
+                          <td className="px-3 py-1.5">{r.soLuong}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             );
           })}
@@ -124,24 +126,26 @@ export function BomHangTab() {
                   {tenLk}
                   <span className="ml-2 text-xs font-normal text-[var(--ink-400)]">(dùng trong {group.length} model)</span>
                 </div>
-                <table className="tbl w-full">
-                  <thead>
-                    <tr className="tbl-head">
-                      <th className="px-3 py-1.5 font-medium">Mã Model</th>
-                      <th className="px-3 py-1.5 font-medium">Model</th>
-                      <th className="px-3 py-1.5 font-medium">SL</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group.map((r, i) => (
-                      <tr key={i} className="border-b border-[var(--line)] last:border-0">
-                        <td className="px-3 py-1.5 font-mono text-xs">{r.maModel}</td>
-                        <td className="px-3 py-1.5">{r.model}</td>
-                        <td className="px-3 py-1.5">{r.soLuong}</td>
+                <div className="overflow-x-auto">
+                  <table className="tbl w-full">
+                    <thead>
+                      <tr className="tbl-head">
+                        <th className="px-3 py-1.5 font-medium">Mã Model</th>
+                        <th className="px-3 py-1.5 font-medium">Model</th>
+                        <th className="px-3 py-1.5 font-medium">SL</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {group.map((r, i) => (
+                        <tr key={i} className="border-b border-[var(--line)] last:border-0">
+                          <td className="px-3 py-1.5 font-mono text-xs">{r.maModel}</td>
+                          <td className="px-3 py-1.5">{r.model}</td>
+                          <td className="px-3 py-1.5">{r.soLuong}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             );
           })}

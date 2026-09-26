@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 import { Btn } from "../components/ui/Btn";
 import { Tooltip } from "../components/ui/Tooltip";
 import { Modal } from "../components/ui/Modal";
@@ -12,6 +12,7 @@ import { KvRow } from "../components/ui/KvRow";
 import type { LyDoChamMuaLkRow, KhuVucRow, UserRow } from "../types";
 import { fmtDateTime } from "../types";
 import { formatPersonDisplay, usePersonDirectory } from "../lib/personDisplay";
+import { LOAI_CHIET_KHAU_KEY, useLoaiChietKhauList, type LoaiChietKhauRow } from "./datMuaLinhKien/LoaiChietKhau";
 
 // Trang quan tri RUT GON tu frontend/src/modules/SettingsModule.tsx cua he DVBH goc - CHI giu cac
 // tab thuc su can cho module "Dat mua linh kien" (xem CLAUDE.md muc "Nguon goc tach he thong"): Lý
@@ -49,6 +50,7 @@ const MISA_TEMPLATE_OPTIONS = [
 const TABS = [
   { key: "ly-do-cham", label: "Lý do chậm" },
   { key: "loai-de-xuat", label: "Loại đề xuất" },
+  { key: "loai-chiet-khau", label: "Loại chiết khấu" },
   { key: "khu-vuc", label: "Khu vực" },
   { key: "google-drive", label: "Google Drive" },
   { key: "dong-bo-dvbh", label: "Đồng bộ DVBH" },
@@ -64,6 +66,7 @@ export function SettingsModule() {
       <div className="mt-4">
         {tab === "ly-do-cham" && <LyDoChamTab />}
         {tab === "loai-de-xuat" && <LoaiDeXuatTab />}
+        {tab === "loai-chiet-khau" && <LoaiChietKhauTab />}
         {tab === "khu-vuc" && <KhuVucTab />}
         {tab === "google-drive" && <GoogleDriveTab />}
         {tab === "dong-bo-dvbh" && <DongBoDvbhTab />}
@@ -154,6 +157,104 @@ function LyDoChamTab() {
             <div className="flex justify-end gap-2 pt-2">
               <Btn variant="ghost" size="sm" onClick={() => setEditing(null)}>Huỷ</Btn>
               <Btn size="sm" onClick={() => save.mutate()} disabled={!form.ten_ly_do.trim() || save.isPending} loading={save.isPending}>Lưu</Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// Loai chiet khau (2026-09-26, migration 0033). Loai "Hệ thống" = khop 1 nhanh cua thuat toan tinh tien PXK,
+// duoc gan TU DONG khi tao PXK - chi doi ten/tat (tat = he thong ngung gan loai do). Loai tu them (Admin o
+// day, hoac TN them ngay luc chon lai tren don) chi dung khi TN chon tay. Khong xoa - tat de an khoi danh
+// sach chon ma khong lam mat nhan tren cac don cu.
+function LoaiChietKhauTab() {
+  const qc = useQueryClient();
+  const addToast = useToast();
+  const { data: rows } = useLoaiChietKhauList();
+  const [editing, setEditing] = useState<LoaiChietKhauRow | "new" | null>(null);
+  const [form, setForm] = useState({ ten: "", bat_tat: true });
+
+  function openEdit(row: LoaiChietKhauRow | "new") {
+    setEditing(row);
+    setForm(row === "new" ? { ten: "", bat_tat: true } : { ten: row.ten, bat_tat: !!row.bat_tat });
+  }
+
+  const save = useMutation({
+    mutationFn: () =>
+      editing === "new" ? api.post("/settings/loai-chiet-khau", form) : api.patch(`/settings/loai-chiet-khau/${(editing as LoaiChietKhauRow).id}`, form),
+    onSuccess: async () => {
+      addToast("Đã lưu");
+      await qc.invalidateQueries({ queryKey: LOAI_CHIET_KHAU_KEY });
+      setEditing(null);
+    },
+    onError: (err) => addToast(err instanceof ApiError && err.code === "TEN_DA_TON_TAI" ? "Tên loại chiết khấu đã tồn tại." : "Không thể lưu, thử lại sau."),
+  });
+
+  const ganLai = useMutation({
+    mutationFn: () => api.post<{ so_phieu: number }>("/phieu-xuat-kho/loai-chiet-khau/gan-lai"),
+    onSuccess: (r) => {
+      addToast(r.so_phieu ? `Đã gán loại chiết khấu cho ${r.so_phieu} phiếu xuất kho` : "Không còn phiếu nào cần gán");
+      qc.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).startsWith("dat-mua-lk") || q.queryKey[0] === "pxk-detail" });
+    },
+    onError: () => addToast("Không thể gán, thử lại sau."),
+  });
+
+  return (
+    <div className="space-y-3">
+      <div className="text-xs text-[var(--ink-500)]">
+        Loại chiết khấu được hưởng của từng đơn. Hệ thống tự gán khi tạo phiếu xuất kho (cả phiếu hưởng chung theo tổng các dòng) và
+        tự tính lại khi thêm/bớt đơn trong phiếu; TN chọn lại được nếu sai. Chỉ là nhãn phân loại — không đổi số tiền cần chuyển.
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Btn size="sm" onClick={() => openEdit("new")}>+ Thêm loại chiết khấu</Btn>
+        <Btn size="sm" variant="ghost" loading={ganLai.isPending} disabled={ganLai.isPending} onClick={() => ganLai.mutate()}>
+          Gán cho các phiếu xuất kho cũ
+        </Btn>
+      </div>
+      <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
+        <div className="overflow-x-auto">
+          <table className="tbl w-full">
+            <thead>
+              <tr className="tbl-head">
+                <th className="px-3 py-2">Tên loại chiết khấu</th>
+                <th className="px-3 py-2">Nguồn</th>
+                <th className="px-3 py-2">Bật/tắt</th>
+                <th className="px-3 py-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {(rows ?? []).map((r) => (
+                <tr key={r.id} className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 ${r.bat_tat ? "" : "text-[var(--ink-400)]"}`}>
+                  <td className="px-3 py-2">{r.ten}</td>
+                  <td className="px-3 py-2">{r.ma ? <Badge tone="ocean">Hệ thống tự gán</Badge> : <Badge tone="gray">Tự thêm</Badge>}</td>
+                  <td className="px-3 py-2">{r.bat_tat ? "Bật" : "Tắt"}</td>
+                  <td className="px-3 py-2">
+                    <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openEdit(r)}>
+                      Sửa
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {editing && (
+        <Modal open onClose={() => setEditing(null)} title={editing === "new" ? "Thêm loại chiết khấu" : "Sửa loại chiết khấu"} width="max-w-md">
+          <div className="space-y-3 text-sm">
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Tên loại chiết khấu</label>
+              <input value={form.ten} onChange={(e) => setForm({ ...form, ten: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
+            </div>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={form.bat_tat} onChange={(e) => setForm({ ...form, bat_tat: e.target.checked })} />
+              Đang bật {editing !== "new" && editing.ma ? "(tắt = hệ thống ngừng tự gán loại này)" : "(hiện trong danh sách chọn)"}
+            </label>
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn variant="ghost" size="sm" onClick={() => setEditing(null)}>Huỷ</Btn>
+              <Btn size="sm" onClick={() => save.mutate()} disabled={!form.ten.trim() || save.isPending} loading={save.isPending}>Lưu</Btn>
             </div>
           </div>
         </Modal>

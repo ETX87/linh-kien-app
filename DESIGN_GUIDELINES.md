@@ -241,6 +241,13 @@ chấm), `StatCard` (thẻ KPI pastel), `Tabs` (filter pill), `Card`, `Modal`/`D
    phải khớp tông sidebar `#0D4FB8`.
 7. Khi đổi giao diện 1 màn hình, **rà cả desktop lẫn mobile** (`TaoDonMobileScreen.tsx` và các màn
    KTV) để giữ đúng quy tắc trên cả hai.
+8. **Dữ liệu dạng bảng luôn 1 dòng — không tự xuống dòng** (yêu cầu 2026-09-26, áp dụng TOÀN hệ thống).
+   Đã ép sẵn ở `tokens.css` (`.tbl th, .tbl td { white-space: nowrap }`, cụm `flex-wrap` trong ô cũng bị ép
+   1 hàng) — mọi `<table>` PHẢI dùng class `.tbl` và nằm trong khung `overflow-x-auto` (bảng rộng hơn khung
+   thì cuộn ngang, không bóp cột). Mã đơn/mã phiếu dùng `.code-link` (cũng `nowrap`). Không thêm
+   `whitespace-normal`/`break-words` vào ô bảng. Cột cần giới hạn độ rộng (tên dài, ghi chú) thì dùng
+   `table-layout: fixed` + `useAutoColumnWidths` + cắt `…` kèm `title` (mẫu: `DonCuaToiTab.tsx`) — không
+   cho xuống dòng. Thẻ mobile (không phải bảng) theo quy ước riêng: 1 dòng/ý, `truncate`, badge thừa gộp "+N".
 
 ---
 

@@ -1,4 +1,5 @@
 import { Fragment, useState, useEffect, useRef } from "react";
+import { LoaiChietKhauText } from "./LoaiChietKhau";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
@@ -566,6 +567,7 @@ function ThieuLkGroupedList({
       ),
     },
     { key: "loai", header: "Loại", render: (r) => { const t = LOAI_DON_TONE[(r.loai_don as keyof typeof LOAI_DON_TONE) ?? "mua"] ?? LOAI_DON_TONE.mua; return <Badge tone={t.tone}>{t.label}</Badge>; } },
+    { key: "loai_chiet_khau", header: "Loại chiết khấu", render: (r) => <LoaiChietKhauText id={r.loai_chiet_khau_id} thuCong={r.loai_chiet_khau_thu_cong} /> },
     { key: "nguoi_tao", header: "TN báo", render: (r) => formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap) },
     { key: "ngay_tao", header: "Ngày báo", render: (r) => fmtDateTime(r.ngay_tao) },
     { key: "ngay_du_kien_co_hang", header: "Ngày dự kiến có hàng", render: (r) => r.ngay_du_kien_co_hang ?? "—" },

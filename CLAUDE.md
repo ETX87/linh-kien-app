@@ -79,6 +79,14 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   `loai_don==='tra_hang'` (chọn dòng đủ điều kiện gom PXK, và bước đóng riêng "Kho xác nhận đã nhận
   hàng trả" thay vì "KTV đã nhận" như PXK thường). Sửa 1 trong 2 route này liên quan tới trả hàng
   thường phải đối chiếu route kia.
+- **Loại chiết khấu** (migration `0033_loai_chiet_khau.sql`, 2026-09-26): `dat_don_hang.loai_chiet_khau_id`
+  (+ `loai_chiet_khau_thu_cong` = TN đã chọn tay) → `settings_loai_chiet_khau` (loại có `ma` = hệ thống tự
+  gán, `ma` NULL = tự thêm). Gán tự động bằng `phanTichChietKhau()` trong `phieuXuatKho.ts` — **CÙNG hàm**
+  tính "Tiền cần chuyển" gợi ý (`computeGoiYSoTienChuyen` chỉ là wrapper), nên sửa thuật toán giá là đổi cả
+  nhãn, không có 2 bản logic. Chốt nghiệp vụ: CHỈ LÀ NHÃN (đổi loại không tính lại tiền); gán lúc tạo PXK;
+  thêm/bớt dòng PXK → tính lại TOÀN phiếu kể cả dòng TN đã chọn tay (`ganLoaiChietKhauChoPxk(..., true)`);
+  dòng bị gỡ khỏi PXK → xoá loại. TN chọn lại/thêm loại mới qua `PATCH /api/phieu-xuat-kho/don-hang/:id/
+  loai-chiet-khau`; so trùng tên ở JS (`lib/loaiChietKhau.ts`) vì `lower()` SQLite không hạ chữ có dấu.
 - `routes/settingsDatMua.ts` — CRUD `linh_kien` (danh mục riêng, KHÔNG chung với module "giải trình"
   như hệ gốc), Google Drive OAuth (uỷ quyền tài khoản thật để upload ảnh minh hoạ linh kiện),
   `settings_ly_do_cham`, `settings_loai_de_xuat`/`_nhom`. Mount tại `/api/settings`.

@@ -22,6 +22,7 @@ import type { DonHangRow, PhieuXuatKhoRow, DonHangKhaDungRow, NguoiNhanHangKhaDu
 // hàng trong phiếu để mở giao diện UI chi tiết") - tai dung nguyen DonHangDetailModal, dung y het cach
 // ThieuLkTab.tsx da lam (xem comment o do ve import vong an toan trong ESM).
 import { DonHangDetailModal } from "./DonCuaToiTab";
+import { LoaiChietKhauPicker, LoaiChietKhauText } from "./LoaiChietKhau";
 import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_TIEN_OPTIONS, TRANG_THAI_DOT_TONE, PXK_LOG_ONLY_OPTIONS, PXK_LOG_ONLY_TONE } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
@@ -1675,6 +1676,7 @@ export function PxkDetailModal({
                     <th className="px-2.5 py-2 text-right whitespace-nowrap">SL đề xuất</th>
                     <th className="px-2.5 py-2 text-right whitespace-nowrap">SL thực xuất</th>
                     <th className="px-2.5 py-2 text-right">Tiền cần chuyển</th>
+                    {pxk.loai_don !== "tra_hang" && <th className="px-2.5 py-2">Loại chiết khấu</th>}
                     <th className="px-2.5 py-2">Lý do chậm</th>
                     {(canTacNghiep || canKeToan) && trangThai === "Dang tao phieu" && <th className="px-2.5 py-2"></th>}
                   </tr>
@@ -1806,6 +1808,17 @@ export function PxkDetailModal({
                           </span>
                         )}
                       </td>
+                      {/* Loai chiet khau (2026-09-26) - ca phieu huong chung 1 muc chiet khau theo tong cac
+                          dong trong PXK; TN chon lai/them loai moi ngay tai day. */}
+                      {pxk.loai_don !== "tra_hang" && (
+                        <td className="px-2.5 py-2" onClick={(e) => e.stopPropagation()}>
+                          {canTacNghiep ? (
+                            <LoaiChietKhauPicker donHangId={d.id} value={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
+                          ) : (
+                            <LoaiChietKhauText id={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
+                          )}
+                        </td>
+                      )}
                       <td className="px-2.5 py-2">
                         {/* SUA (phan hoi QA 2026-08-31, muc #5: "hiện tại đang không thể xem được lý
                             do giải trình chậm của đơn trong PXK") - truoc day chi hien 1 gia tri

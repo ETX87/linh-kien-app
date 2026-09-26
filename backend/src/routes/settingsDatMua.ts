@@ -11,6 +11,7 @@ import { computeAndStoreHash, getOrComputeHash } from "../lib/contentHash";
 import { nowVN } from "../lib/vnTime";
 import { resyncKhuVucDerivedFieldsForAll } from "../lib/khuVucSync";
 import { generateApiKey, hashApiKey } from "../lib/partnerApiAuth";
+import { timLoaiChietKhauTheoTen, gonTenLoaiChietKhau } from "../lib/loaiChietKhau";
 
 // Port rut gon tu backend/src/routes/settings.ts cua he DVBH goc - CHI giu 4 khoi thuc su can cho
 // mien nghiep vu "Dat mua linh kien" (xem CLAUDE.md muc "Nguon goc tach he thong"): danh muc linh
@@ -515,6 +516,48 @@ settingsDatMua.patch("/ly-do-cham/:id", adminOnly, async (c) => {
     "UPDATE settings_ly_do_cham SET ten_ly_do = ?, he_thong_su_dung = ?, quan_ly_don_thieu_linh_kien = ?, bat_tat = ?, stt = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE id = ?",
   )
     .bind(next.ten_ly_do, next.he_thong_su_dung, next.quan_ly_don_thieu_linh_kien, next.bat_tat, next.stt, user.email, nowVN(), id)
+    .run();
+  return c.json({ ok: true });
+});
+
+// ---------- Loai chiet khau (migration 0033) ----------
+// Danh sach loai chiet khau gan cho tung dong don hang. Loai co `ma` = he thong sinh ra (khop 1 nhanh cua
+// thuat toan tinh tien PXK) - doi ten/tat duoc, KHONG doi `ma`. GET mo cho moi nguoi (TN can de chon lai,
+// moi danh sach don can de hien ten); ghi CHI Admin - rieng TN tu them loai moi qua
+// PATCH /api/phieu-xuat-kho/don-hang/:id/loai-chiet-khau (ten_moi).
+
+settingsDatMua.get("/loai-chiet-khau", async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT * FROM settings_loai_chiet_khau ORDER BY stt, id").all();
+  return c.json({ rows: results });
+});
+
+settingsDatMua.post("/loai-chiet-khau", adminOnly, async (c) => {
+  const body = await c.req.json<{ ten: string; bat_tat?: boolean }>();
+  const ten = body.ten ? gonTenLoaiChietKhau(body.ten) : "";
+  if (!ten) return c.json({ error: "MISSING_TEN" }, 400);
+  const trung = await timLoaiChietKhauTheoTen(c.env.DB, ten);
+  if (trung) return c.json({ error: "TEN_DA_TON_TAI" }, 409);
+  const row = await c.env.DB.prepare(
+    `INSERT INTO settings_loai_chiet_khau (ten, bat_tat, stt, nguoi_cap_nhat, ngay_cap_nhat)
+     VALUES (?, ?, (SELECT COALESCE(MAX(stt), 0) + 1 FROM settings_loai_chiet_khau), ?, ?) RETURNING *`,
+  )
+    .bind(ten, body.bat_tat === false ? 0 : 1, c.get("user").email, nowVN())
+    .first();
+  return c.json(row, 201);
+});
+
+settingsDatMua.patch("/loai-chiet-khau/:id", adminOnly, async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<{ ten?: string; bat_tat?: boolean; stt?: number }>();
+  const existing = await c.env.DB.prepare("SELECT * FROM settings_loai_chiet_khau WHERE id = ?")
+    .bind(id)
+    .first<{ ten: string; bat_tat: number; stt: number }>();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+  const ten = body.ten !== undefined ? gonTenLoaiChietKhau(body.ten) : existing.ten;
+  if (!ten) return c.json({ error: "MISSING_TEN" }, 400);
+  if (await timLoaiChietKhauTheoTen(c.env.DB, ten, id)) return c.json({ error: "TEN_DA_TON_TAI" }, 409);
+  await c.env.DB.prepare("UPDATE settings_loai_chiet_khau SET ten = ?, bat_tat = ?, stt = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE id = ?")
+    .bind(ten, body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat, body.stt ?? existing.stt, c.get("user").email, nowVN(), id)
     .run();
   return c.json({ ok: true });
 });

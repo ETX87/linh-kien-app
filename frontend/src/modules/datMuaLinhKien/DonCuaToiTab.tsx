@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from "react";
+import { LoaiChietKhauText, LoaiChietKhauPicker, useLoaiChietKhauList, tenLoaiChietKhau } from "./LoaiChietKhau";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
@@ -778,6 +779,17 @@ export function DonHangDetailModal({
                 cam giac "thieu thong tin nguoi nhan hang" khi 2 gia tri trung nhau. */}
             <KvRow label="Người nhận hàng">{d.nguoi_nhan_hang ? formatNguoiDisplay(d.nguoi_nhan_hang, ktvDisplayMap) : "—"}</KvRow>
             <KvRow label="Ngày tạo">{fmtDateTime(d.ngay_tao)}</KvRow>
+            {/* Loai chiet khau (2026-09-26) - he thong gan khi don vao PXK; TN chon lai ngay tai day
+                (ca tren mobile, noi khong co cot bang). Don tra hang khong co chiet khau. */}
+            {d.loai_don !== "tra_hang" && (
+              <KvRow label="Loại chiết khấu">
+                {canTacNghiep && d.ma_xuat_kho ? (
+                  <LoaiChietKhauPicker donHangId={d.id} value={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
+                ) : (
+                  <LoaiChietKhauText id={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
+                )}
+              </KvRow>
+            )}
           </DetailZone>
 
           {/* SUA (ra soat UI/UX 2026-08-28, van de #8: "Ca liên kết bị chôn cuối") - chuyen len ngay
@@ -2080,6 +2092,8 @@ export function DonHangGroupedList({
     { key: "sl_thuc_xuat", header: "SL thực xuất", className: "text-right", render: (row) => row.d.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
     { key: "gia", header: "Giá đề xuất", className: "text-right", render: (row) => (row.d.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold">{fmtVND(row.d.gia_de_xuat)}</span> : "—") },
     { key: "loai", header: "Loại", render: (row) => <Badge tone={row.tone.tone}>{loaiDonLabel(row.d.loai_don, row.d.loai_de_xuat)}</Badge> },
+    // Loai chiet khau (2026-09-26) - he thong gan luc tao PXK, TN sua o chi tiet don/chi tiet PXK.
+    { key: "loai_chiet_khau", header: "Loại chiết khấu", render: (row) => <LoaiChietKhauText id={row.d.loai_chiet_khau_id} thuCong={row.d.loai_chiet_khau_thu_cong} /> },
     { key: "yeu_cau_hoa_don", header: "Yêu cầu hóa đơn", render: (row) => row.d.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
     {
       key: "trang_thai",
@@ -2215,6 +2229,7 @@ export function DonHangGroupedList({
   // (2) Do rong tu tinh theo DO DAI CHU THAT cua dong dang hien (useAutoColumnWidths) - chuoi o day PHAI
   //     giong dinh dang render cua cot tuong ung. "max" = tran cho cot chu dai (vuot tran -> "…" + tooltip).
   const dash = "—";
+  const { data: loaiChietKhauList } = useLoaiChietKhauList();
   const widthSpecs: Record<string, AutoWidthSpec<DonHangRow>> = {
     chon: { fixed: 40 },
     hanh_dong: { fixed: maxActions * 34 + Math.max(0, maxActions - 1) * 4 + 24 },
@@ -2224,6 +2239,7 @@ export function DonHangGroupedList({
     sl_thuc_xuat: { text: (d) => (d.so_luong_thuc_xuat != null ? String(d.so_luong_thuc_xuat) : dash) },
     gia: { text: (d) => (d.gia_de_xuat != null ? fmtVND(d.gia_de_xuat) : dash), font: `600 12px "Plus Jakarta Sans", "Be Vietnam Pro", sans-serif` },
     loai: { text: (d) => loaiDonLabel(d.loai_don, d.loai_de_xuat), font: BADGE_FONT, extra: BADGE_PAD, max: 180 },
+    loai_chiet_khau: { text: (d) => (tenLoaiChietKhau(loaiChietKhauList, d.loai_chiet_khau_id) ?? dash) + (d.loai_chiet_khau_thu_cong ? " ✎" : ""), max: 280 },
     yeu_cau_hoa_don: { text: (d) => d.yeu_cau_hoa_don || dash, max: 220 },
     trang_thai: {
       text: (d) => {

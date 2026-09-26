@@ -132,6 +132,10 @@ export interface DonHangRow {
   // cua chinh nguoi_nhan_hang (xem GET /don-hang) - null neu chua co nguoi_nhan_hang hoac KTV do chua
   // duoc gan Khu vuc.
   khu_vuc_ten?: string | null;
+  // Loai chiet khau duoc huong (migration 0033) - he thong gan luc tao PXK, TN chon lai duoc (thu_cong=1).
+  // Ten lay tu danh sach settings (useLoaiChietKhauList), khong JOIN o tung API.
+  loai_chiet_khau_id?: number | null;
+  loai_chiet_khau_thu_cong?: number | null;
 }
 
 // PXK - "chuyen tien" la 1 dieu kien chan rieng tren chinh PXK (thay the bang phieu_so_tien cu, xem
@@ -198,6 +202,8 @@ export interface ThieuLkRow {
   nguoi_nhan_hang?: string | null;
   loai_don?: string | null;
   ddh_nguoi_tao?: string | null;
+  loai_chiet_khau_id?: number | null;
+  loai_chiet_khau_thu_cong?: number | null;
 }
 
 export interface LyDoChamRow {

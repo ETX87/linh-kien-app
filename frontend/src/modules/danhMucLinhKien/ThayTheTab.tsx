@@ -58,24 +58,26 @@ export function ThayTheTab() {
                 {nhom}
                 <span className="ml-2 text-xs font-normal text-[var(--ink-400)]">({group.length} mã có thể thay thế cho nhau)</span>
               </div>
-              <table className="tbl w-full">
-                <thead>
-                  <tr className="tbl-head">
-                    <th className="px-3 py-1.5 font-medium">Mã</th>
-                    <th className="px-3 py-1.5 font-medium">Tên</th>
-                    <th className="px-3 py-1.5 font-medium">Ghi chú</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {group.map((r, i) => (
-                    <tr key={i} className="border-b border-[var(--line)] last:border-0">
-                      <td className="px-3 py-1.5 font-mono text-xs">{r.ma}</td>
-                      <td className="px-3 py-1.5">{r.ten}</td>
-                      <td className="px-3 py-1.5 text-xs text-[var(--ink-600)]">{r.ghiChu || "—"}</td>
+              <div className="overflow-x-auto">
+                <table className="tbl w-full">
+                  <thead>
+                    <tr className="tbl-head">
+                      <th className="px-3 py-1.5 font-medium">Mã</th>
+                      <th className="px-3 py-1.5 font-medium">Tên</th>
+                      <th className="px-3 py-1.5 font-medium">Ghi chú</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {group.map((r, i) => (
+                      <tr key={i} className="border-b border-[var(--line)] last:border-0">
+                        <td className="px-3 py-1.5 font-mono text-xs">{r.ma}</td>
+                        <td className="px-3 py-1.5">{r.ten}</td>
+                        <td className="px-3 py-1.5 text-xs text-[var(--ink-600)]">{r.ghiChu || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           );
         })}
