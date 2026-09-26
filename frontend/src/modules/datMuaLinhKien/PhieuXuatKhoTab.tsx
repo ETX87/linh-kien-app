@@ -506,6 +506,50 @@ export function PhieuXuatKhoTab({
     { key: "so_dong", header: "Số dòng", render: (r) => r.so_dong },
   ];
 
+  // The PXK rieng cho mobile (phan hoi 2026-09-26: "thẻ thông tin đang quá nhiều thông tin và nhìn rối
+  // mắt") - truoc day PaginatedTable in ~11 dong "nhan: gia tri" (ID, Mã PXK, Mã đơn hàng, Người tạo...,
+  // nut Chi tiết). Rut con 3 dong theo thu tu quet mat: (1) PXK nao + dang o buoc nao, (2) giao cho ai +
+  // khi nao, (3) viec can lam tiep (dong duy nhat to mau amber) + toi da 2 co phu CHI khi can chu y
+  // (chuyen tien chua duyet / chua in phieu). Bo khoi the: Người tạo, Mã đơn hàng, nut Chi tiết (bam ca
+  // the da mo chi tiet) - van xem day du trong Drawer chi tiet va tren bang desktop.
+  const renderPxkMobileCard = (r: PhieuXuatKhoRow) => {
+    const viec = pxkViecCanLamTiep(r);
+    // Co phu chi hien khi con tac dong toi buoc dang mo: chuyen tien chi chan buoc "Dang tao phieu", co in
+    // phieu chi can o 2 buoc Kho/KTV con xu ly - PXK da huy/da dong khong hien co nao (bang desktop van du).
+    const coInPhieu = r.loai_don !== "tra_hang" && ["Da chot xong don xuat", "Dang gui KTV"].includes(r.trang_thai);
+    const chuyenTienCho = r.trang_thai === "Dang tao phieu" && r.so_tien_can_chuyen != null && r.trang_thai_chuyen_tien !== "TN da duyet";
+    return (
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1 truncate">
+            {!!r.co_don_uu_tien && <span title="Có dòng ưu tiên bên trong" className="text-[var(--orange-600)]">⭐ </span>}
+            {r.ma_misa ? (
+              <span className="font-mono text-[13px] font-semibold text-[var(--color-text)]">{r.ma_misa}</span>
+            ) : (
+              <span className="text-[13px] italic text-[var(--ink-400)]">Chưa có mã PXK</span>
+            )}
+            <span className="ml-1.5 font-mono text-[11px] text-[var(--ink-400)]">#{r.id}</span>
+          </div>
+          <div className="shrink-0">
+            <StatusBadge value={r.trang_thai} tones={PXK_TRANG_THAI_TONE} options={PXK_TRANG_THAI_OPTIONS} />
+          </div>
+        </div>
+        <div className="flex items-baseline gap-2 text-xs">
+          <span className="min-w-0 flex-1 truncate text-[var(--color-text-body)]">{r.nguoi_nhan_hang ? labelKtv(r.nguoi_nhan_hang) : "—"}</span>
+          <span className="shrink-0 text-[11px] text-[var(--ink-400)]">{fmtDateTime(r.ngay_tao)}</span>
+        </div>
+        {(viec || chuyenTienCho || coInPhieu) && (
+          <div className="flex items-center gap-1.5 pt-0.5">
+            {viec && <span className="min-w-0 flex-1 truncate text-xs font-medium text-[var(--amber-700)]">→ {viec}</span>}
+            {!viec && <span className="flex-1" />}
+            {chuyenTienCho && <StatusBadge value={r.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} />}
+            {coInPhieu && (r.da_in_phieu ? <span title="Đã in phiếu" className="shrink-0 text-xs text-[var(--ocean-600)]">🖨 Đã in</span> : <Badge tone="warning">Chưa in</Badge>)}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Nang len goi useColumnConfig O DAY (2026-08-21, sua loi UX "nút Tùy chỉnh cột khiến table bị
   // trống ra 1 khoảng trông rất xấu" - xem giai thich day du o TraHangTab.tsx, cung 1 sua).
   const columnConfig = useColumnConfig(cols, optionalCols, [], "dmlk-pxk-list");
@@ -686,6 +730,7 @@ export function PhieuXuatKhoTab({
         rowKey={(r) => r.id}
         onRowClick={(r) => setDetailId(r.id)}
         columnConfig={columnConfig}
+        mobileCard={renderPxkMobileCard}
         // FIX (phan hoi 2026-09-24: "đơn đã xác nhận in phiếu => cả card list của đơn chuyển sang màu
         // xanh dương nhạt để phân biệt với các pxk chưa in phiếu") - uu_tien (cam) van uu tien hien thi
         // truoc (canh bao quan trong hon), da_in_phieu (xanh duong nhat, --ocean-100) chi to khi KHONG
@@ -1627,7 +1672,8 @@ export function PxkDetailModal({
                   <tr className="tbl-head">
                     <th className="px-2.5 py-2">Mã</th>
                     <th className="px-2.5 py-2">Tên LK</th>
-                    <th className="px-2.5 py-2 text-right">SL</th>
+                    <th className="px-2.5 py-2 text-right whitespace-nowrap">SL đề xuất</th>
+                    <th className="px-2.5 py-2 text-right whitespace-nowrap">SL thực xuất</th>
                     <th className="px-2.5 py-2 text-right">Tiền cần chuyển</th>
                     <th className="px-2.5 py-2">Lý do chậm</th>
                     {(canTacNghiep || canKeToan) && trangThai === "Dang tao phieu" && <th className="px-2.5 py-2"></th>}
@@ -1650,7 +1696,18 @@ export function PxkDetailModal({
                             cả sl thực xuất") - truoc day CHI hien SL thuc xuat cho loai_don==='mua',
                             cong_no/tra_hang luon hien SL de xuat du TN da sua SL thuc xuat qua "Thông
                             tin TN" (khong gioi han theo loai_don o backend). */}
-                        {d.so_luong_thuc_xuat ?? d.so_luong_de_xuat}
+                        {/* Tach 2 cot (phan hoi 2026-09-26 "bổ sung thêm cột SL thực xuất") - truoc day
+                            1 cot "SL" gop "thuc xuat ?? de xuat" nen khong biet so dang thay la so nao. */}
+                        {d.so_luong_de_xuat}
+                      </td>
+                      <td className="px-2.5 py-2 text-right">
+                        {d.so_luong_thuc_xuat == null ? (
+                          <span className="text-[var(--ink-400)]">—</span>
+                        ) : d.so_luong_thuc_xuat !== d.so_luong_de_xuat ? (
+                          <span className="font-semibold text-[var(--amber-700)]" title="Khác SL đề xuất">{d.so_luong_thuc_xuat}</span>
+                        ) : (
+                          d.so_luong_thuc_xuat
+                        )}
                       </td>
                       <td className="px-2.5 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                         {/* SUA (phan hoi 2026-09-22 "bắt sửa số lượng và đơn giá => tự sinh ra giá đề

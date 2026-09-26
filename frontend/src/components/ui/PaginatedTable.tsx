@@ -67,6 +67,10 @@ interface PaginatedTableProps<T> {
    * ngay duoi no. Neu KHONG truyen, giu hanh vi cu (tu quan ly + tu ve nut trong header) - dung cho
    * cac bang chua can di chuyen nut ra ngoai (vd DanhMucLinhKienModule). */
   columnConfig?: ColumnConfig<T>;
+  /** Giao dien the rieng tren mobile (< sm) thay cho kieu mac dinh "nhan: gia tri" moi cot 1 dong -
+   * dung khi bang co nhieu cot khien the mobile qua dai/roi (vd PXK). Van giu wrapper bam duoc,
+   * rowClassName va o chon (mobileHint "select") - chi thay phan noi dung. */
+  mobileCard?: (row: T) => ReactNode;
 }
 
 export function PaginatedTable<T>({
@@ -85,6 +89,7 @@ export function PaginatedTable<T>({
   emptyText = "Không có dữ liệu.",
   rowKey,
   rowClassName,
+  mobileCard,
   sortBy,
   sortDir,
   onSortChange,
@@ -178,6 +183,9 @@ export function PaginatedTable<T>({
               >
                 <div className={`flex items-start gap-2 ${selectCol ? "pl-6" : ""}`}>
                   {selectCol && <div className="absolute left-3 top-3" onClick={(e) => e.stopPropagation()}>{selectCol.render(row)}</div>}
+                  {mobileCard ? (
+                    <div className="flex-1 min-w-0">{mobileCard(row)}</div>
+                  ) : (
                   <div className="flex-1 min-w-0 space-y-1">
                     {fieldCols.map((col) => (
                       <div key={col.key} className="flex items-baseline gap-1.5 text-xs">
@@ -186,8 +194,9 @@ export function PaginatedTable<T>({
                       </div>
                     ))}
                   </div>
+                  )}
                 </div>
-                {actionsCol && (
+                {actionsCol && !mobileCard && (
                   <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
                     {actionsCol.render(row)}
                   </div>

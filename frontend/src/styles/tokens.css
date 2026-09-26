@@ -544,6 +544,9 @@ textarea::placeholder {
 .code-link {
   font-weight: 600;
   color: var(--color-link);
+  /* Ma don/ma phieu (vd "DDH-000023") KHONG BAO GIO xuong dong o dau "-" khi cot hep - bang tu gian
+     cot theo ma thay vi be doi ma (phan hoi 2026-09-26). */
+  white-space: nowrap;
 }
 .page-title {
   font-size: 21px;
