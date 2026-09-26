@@ -22,7 +22,7 @@ import type { DonHangRow, PhieuXuatKhoRow, DonHangKhaDungRow, NguoiNhanHangKhaDu
 // hàng trong phiếu để mở giao diện UI chi tiết") - tai dung nguyen DonHangDetailModal, dung y het cach
 // ThieuLkTab.tsx da lam (xem comment o do ve import vong an toan trong ESM).
 import { DonHangDetailModal } from "./DonCuaToiTab";
-import { LoaiChietKhauPicker, LoaiChietKhauText } from "./LoaiChietKhau";
+import { LoaiChietKhauPicker, LoaiChietKhauText, duocDoiLoaiChietKhau } from "./LoaiChietKhau";
 import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_TIEN_OPTIONS, TRANG_THAI_DOT_TONE, PXK_LOG_ONLY_OPTIONS, PXK_LOG_ONLY_TONE } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
@@ -1813,7 +1813,7 @@ export function PxkDetailModal({
                       {pxk.loai_don !== "tra_hang" && (
                         <td className="px-2.5 py-2" onClick={(e) => e.stopPropagation()}>
                           {canTacNghiep ? (
-                            <LoaiChietKhauPicker donHangId={d.id} value={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
+                            <LoaiChietKhauPicker don={d} duocDoi={duocDoiLoaiChietKhau(pxk)} />
                           ) : (
                             <LoaiChietKhauText id={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
                           )}

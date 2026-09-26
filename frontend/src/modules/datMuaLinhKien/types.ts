@@ -136,6 +136,11 @@ export interface DonHangRow {
   // Ten lay tu danh sach settings (useLoaiChietKhauList), khong JOIN o tung API.
   loai_chiet_khau_id?: number | null;
   loai_chiet_khau_thu_cong?: number | null;
+  // Gia danh muc (LEFT JOIN linh_kien) - chi co o GET /don-hang/:id va GET /phieu-xuat-kho/:id, dung goi y
+  // gia thuc te khi TN doi loai chiet khau (LoaiChietKhauPicker).
+  lk_gia_ban?: number | null;
+  lk_gia_tri_cong_no?: number | null;
+  lk_gia_du_phong?: number | null;
 }
 
 // PXK - "chuyen tien" la 1 dieu kien chan rieng tren chinh PXK (thay the bang phieu_so_tien cu, xem

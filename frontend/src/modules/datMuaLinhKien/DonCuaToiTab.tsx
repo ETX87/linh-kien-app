@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, Fragment } from "react";
-import { LoaiChietKhauText, LoaiChietKhauPicker, useLoaiChietKhauList, tenLoaiChietKhau } from "./LoaiChietKhau";
+import { LoaiChietKhauText, LoaiChietKhauPicker, useLoaiChietKhauList, tenLoaiChietKhau, duocDoiLoaiChietKhau } from "./LoaiChietKhau";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
@@ -783,8 +783,8 @@ export function DonHangDetailModal({
                 (ca tren mobile, noi khong co cot bang). Don tra hang khong co chiet khau. */}
             {d.loai_don !== "tra_hang" && (
               <KvRow label="Loại chiết khấu">
-                {canTacNghiep && d.ma_xuat_kho ? (
-                  <LoaiChietKhauPicker donHangId={d.id} value={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
+                {canTacNghiep && pxk ? (
+                  <LoaiChietKhauPicker don={d} duocDoi={duocDoiLoaiChietKhau(pxk)} />
                 ) : (
                   <LoaiChietKhauText id={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
                 )}

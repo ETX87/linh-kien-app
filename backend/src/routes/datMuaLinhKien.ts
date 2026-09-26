@@ -2639,7 +2639,8 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
   const binds = [id, ...(scope?.binds ?? [])];
 
   const ddh = await c.env.DB.prepare(
-    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, lk.dac_thu
+    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, lk.dac_thu,
+       lk.gia_ban as lk_gia_ban, lk.gia_tri_cong_no as lk_gia_tri_cong_no, lk.gia_du_phong as lk_gia_du_phong
      FROM dat_don_hang ddh
      LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
      WHERE ${whereSql}`,

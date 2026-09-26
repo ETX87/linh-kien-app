@@ -15,7 +15,7 @@ import { buildMisaExportSheets, resolveMisaTemplateDeXuat, MISA_TEMPLATES, type 
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, emailGsListForPxk, PXK_ROLES } from "../lib/taskNotify";
 import { pushPxkToKhovan, notifyPxkAdvancedViaApp, buildWorkUrl } from "../lib/khovanPushClient";
 import { computeMocDuPhongHienTai } from "../lib/duPhongKtv";
-import { timLoaiChietKhauTheoTen, gonTenLoaiChietKhau } from "../lib/loaiChietKhau";
+import { timLoaiChietKhauTheoTen, gonTenLoaiChietKhau, choPhepDoiLoaiChietKhau } from "../lib/loaiChietKhau";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
 // Pattern header+log giong phieu_dat. TN tao (gom nhieu dong don hang da "TN da duyet" vao 1
@@ -609,6 +609,14 @@ phieuXuatKho.patch("/don-hang/:donHangId/loai-chiet-khau", async (c) => {
   const don = await c.env.DB.prepare("SELECT loai_don FROM dat_don_hang WHERE id = ?").bind(donHangId).first<{ loai_don: string }>();
   if (!don) return c.json({ error: "NOT_FOUND" }, 404);
   if (don.loai_don === "tra_hang") return c.json({ error: "TRA_HANG_KHONG_CO_CHIET_KHAU" }, 400);
+  const pxkCuaDon = await c.env.DB.prepare(
+    `SELECT pxk.trang_thai_hien_tai as trang_thai, pxk.so_tien_can_chuyen, pxk.trang_thai_chuyen_tien
+     FROM phieu_xuat_kho_dong pxkd JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id WHERE pxkd.dat_don_hang_id = ?`,
+  )
+    .bind(donHangId)
+    .first<{ trang_thai: string | null; so_tien_can_chuyen: number | null; trang_thai_chuyen_tien: string | null }>();
+  if (!pxkCuaDon) return c.json({ error: "KHONG_THUOC_PXK" }, 400);
+  if (!choPhepDoiLoaiChietKhau(pxkCuaDon)) return c.json({ error: "DA_CHOT_CHUYEN_TIEN" }, 409);
 
   let loaiId: number | null = null;
   const tenMoi = body.ten_moi ? gonTenLoaiChietKhau(body.ten_moi) : "";
@@ -814,10 +822,12 @@ phieuXuatKho.get("/:id", async (c) => {
   // POST /:id/log (xem duoi). SUA (phan hoi QA 2026-08-31, muc #5): them lan_giai_trinh_gan_nhat
   // (migration 0014) lam moc tinh han THAY vi "co ly_do_cham hay khong" (khoa vinh vien sau lan dau).
   const { results: donHang } = await c.env.DB.prepare(
-    `SELECT ddh.*,
+    `SELECT ddh.*, lk.gia_ban as lk_gia_ban, lk.gia_tri_cong_no as lk_gia_tri_cong_no, lk.gia_du_phong as lk_gia_du_phong,
        (SELECT ngay_xu_ly FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id AND trang_thai = 'Cho TN duyet' ORDER BY id DESC LIMIT 1) as cho_tn_duyet_at,
        (SELECT MAX(ngay_tao) FROM dat_don_hang_giai_trinh WHERE dat_don_hang_id = ddh.id) as last_giai_trinh_at
-     FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = ?`,
+     FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id
+     LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
+     WHERE pxkd.phieu_xuat_kho_id = ?`,
   )
     .bind(id)
     .all<{ id: string; ly_do_cham: string | null; cho_tn_duyet_at: string | null; last_giai_trinh_at: string | null }>();

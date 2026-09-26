@@ -83,7 +83,10 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   (+ `loai_chiet_khau_thu_cong` = TN đã chọn tay) → `settings_loai_chiet_khau` (loại có `ma` = hệ thống tự
   gán, `ma` NULL = tự thêm). Gán tự động bằng `phanTichChietKhau()` trong `phieuXuatKho.ts` — **CÙNG hàm**
   tính "Tiền cần chuyển" gợi ý (`computeGoiYSoTienChuyen` chỉ là wrapper), nên sửa thuật toán giá là đổi cả
-  nhãn, không có 2 bản logic. Chốt nghiệp vụ: CHỈ LÀ NHÃN (đổi loại không tính lại tiền); gán lúc tạo PXK;
+  nhãn, không có 2 bản logic. Chốt nghiệp vụ: đổi loại KHÔNG tự tính lại tiền — popup hỏi TN "có cập nhật
+  giá thực tế không?" (gợi ý giá theo công thức loại mới; Có = lưu qua endpoint sẵn có `gia_chot`/
+  `so-tien-cong-no`, Không = chỉ đổi nhãn); CHỈ đổi được khi PXK "Dang tao phieu" và chưa chốt chuyển tiền
+  (`choPhepDoiLoaiChietKhau()` — không cần chuyển tiền hoặc còn "Cho KTV chuyen"); gán lúc tạo PXK;
   thêm/bớt dòng PXK → tính lại TOÀN phiếu kể cả dòng TN đã chọn tay (`ganLoaiChietKhauChoPxk(..., true)`);
   dòng bị gỡ khỏi PXK → xoá loại. TN chọn lại/thêm loại mới qua `PATCH /api/phieu-xuat-kho/don-hang/:id/
   loai-chiet-khau`; so trùng tên ở JS (`lib/loaiChietKhau.ts`) vì `lower()` SQLite không hạ chữ có dấu.

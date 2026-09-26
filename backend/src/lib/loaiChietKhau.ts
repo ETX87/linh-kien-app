@@ -15,6 +15,15 @@ export async function timLoaiChietKhauTheoTen(
   return results.find((r) => r.id !== boQuaId && chuanHoaTen(r.ten) === key) ?? null;
 }
 
+/**
+ * Chi duoc doi loai chiet khau TRUOC KHI chot chuyen tien (phan hoi 2026-09-26: "chỉ cho chỉnh sửa loại
+ * chiết khấu trước khi đơn được chốt đã gửi tiền") = PXK con "Dang tao phieu" VA (khong can chuyen tien
+ * HOAC KTV chua chuyen - "Cho KTV chuyen"). KTV da chuyen theo so tien cu -> khoa, tranh gia lech tien.
+ */
+export function choPhepDoiLoaiChietKhau(pxk: { trang_thai: string | null; so_tien_can_chuyen: number | null; trang_thai_chuyen_tien: string | null }): boolean {
+  return pxk.trang_thai === "Dang tao phieu" && (pxk.so_tien_can_chuyen == null || pxk.trang_thai_chuyen_tien === "Cho KTV chuyen");
+}
+
 /** Ten luu vao DB: bo khoang trang thua (giu nguyen hoa/thuong nguoi dung go). */
 export function gonTenLoaiChietKhau(ten: string): string {
   return ten.normalize("NFC").trim().replace(/\s+/g, " ");
