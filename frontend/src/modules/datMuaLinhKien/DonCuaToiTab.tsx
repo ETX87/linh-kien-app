@@ -14,6 +14,7 @@ import { Tooltip } from "../../components/ui/Tooltip";
 import { Timeline } from "../../components/ui/Timeline";
 import type { Column } from "../../components/ui/PaginatedTable";
 import { useColumnConfig } from "../../components/ui/useColumnConfig";
+import { useAutoColumnWidths, BADGE_FONT, BADGE_PAD, MONO_FONT, type AutoWidthSpec } from "../../components/ui/useAutoColumnWidths";
 import { ColumnSettingsButton, ResizableHeaderCell } from "../../components/ui/ColumnHeader";
 import { api, buildQuery } from "../../api/client";
 import { exportRowsToExcel } from "../../lib/exportExcel";
@@ -1921,6 +1922,18 @@ export function DonCuaToiTab({
 // 1 dong don hang da tinh san actions/tone/rowStyle/chonDuoc (dung 1 lan cho ca desktop table VA
 // dinh nghia cot "⚙ Tuy chinh cot", tranh tinh lai trong tung Column.render) - xem cols trong
 // DonHangGroupedList.
+// Co phu canh trang thai chinh (them 2026-09-26, bang danh sach khong con xep doc 4 badge lam cao dong) -
+// thu tu = muc uu tien hien thi: "Không đủ công nợ" (canh bao tien) > "Quá hạn" > "Đơn tạo hộ" > "Đủ công
+// nợ". Bang desktop chi hien co DAU TIEN + "+N" (tooltip liet ke du), dung quy tac MAX_BADGE cua the mobile.
+function trangThaiFlags(d: DonHangRow): { tone: Tone; label: string }[] {
+  return [
+    ...(d.loai_don === "cong_no" && d.danh_gia_cong_no === "Khong du" ? [{ tone: "danger" as Tone, label: "Không đủ công nợ" }] : []),
+    ...(d.qua_han_ly_do_cham ? [{ tone: "danger" as Tone, label: "Quá hạn - cần lý do" }] : []),
+    ...(isDonTaoHo(d) ? [{ tone: "neutral" as Tone, label: "Đơn tạo hộ" }] : []),
+    ...(d.loai_don === "cong_no" && d.danh_gia_cong_no === "Du" ? [{ tone: "success" as Tone, label: "Đủ công nợ" }] : []),
+  ];
+}
+
 interface EnrichedRow {
   d: DonHangRow;
   actions: { duyet: boolean; tuChoi: boolean; choHang: boolean; huy: boolean };
@@ -2071,21 +2084,25 @@ export function DonHangGroupedList({
     {
       key: "trang_thai",
       header: "Trạng thái",
-      render: (row) => (
-        <div className="flex flex-col gap-0.5 items-start">
-          <StatusBadge value={row.d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} options={DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL} />
-          {row.d.qua_han_ly_do_cham && <Badge tone="danger">Quá hạn - cần lý do</Badge>}
-          {/* "Đơn tạo hộ" (yeu cau nguoi dung 2026-08-27) - xem giai thich o KvRow "Trạng thái" cua
-              Drawer chi tiet (isDonTaoHo, helpers.ts). */}
-          {isDonTaoHo(row.d) && <Badge tone="neutral">Đơn tạo hộ</Badge>}
-          {/* FIX (phan hoi 2026-09-04: "đặt đơn công nợ vượt trần nhưng không thấy cảnh báo") - badge
-              nay TRUOC DAY chi duoc them o Drawer chi tiet (dong ~680), KHONG co trong bang danh sach
-              chinh (cot "Trạng thái" nay, dung cho ca "Đơn hàng"/"Công nợ" tab) nen nguoi dung phai bam
-              vao tung dong moi thay - gio hien NGAY o day, cung 1 cho voi cac badge trang thai khac. */}
-          {row.d.loai_don === "cong_no" && row.d.danh_gia_cong_no === "Du" && <Badge tone="success">Đủ công nợ</Badge>}
-          {row.d.loai_don === "cong_no" && row.d.danh_gia_cong_no === "Khong du" && <Badge tone="danger">Không đủ công nợ</Badge>}
-        </div>
-      ),
+      // SUA 2026-09-26 (phan hoi "danh sách đơn hàng bị kéo giãn"): truoc day xep DOC toi 4 badge (Chờ TN
+      // duyệt / Quá hạn / Đơn tạo hộ / Đủ-Không đủ công nợ) lam dong cao gap 3-4 lan - gio 1 HANG: trang
+      // thai chinh + co phu uu tien nhat (trangThaiFlags) + "+N" (tooltip liet ke du, Drawer chi tiet van
+      // hien day du). Thong tin khong mat, chi gon lai.
+      render: (row) => {
+        const flags = trangThaiFlags(row.d);
+        const rest = flags.slice(1);
+        return (
+          <div className="flex items-center gap-1 whitespace-nowrap">
+            <StatusBadge value={row.d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} options={DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL} />
+            {flags[0] && <Badge tone={flags[0].tone}>{flags[0].label}</Badge>}
+            {rest.length > 0 && (
+              <span title={rest.map((f) => f.label).join(" · ")} className="rounded-[var(--radius-badge)] bg-[var(--color-neutral-soft)] px-1.5 py-[3px] text-[10.5px] font-semibold leading-none text-[var(--color-text-secondary)]">
+                +{rest.length}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     { key: "nguoi_nhan_hang", header: "Người nhận hàng", render: (row) => (row.d.nguoi_nhan_hang ? formatNguoiDisplay(row.d.nguoi_nhan_hang, ktvDisplayMap) : <span className="text-[var(--ink-400)]">—</span>) },
     { key: "ly_do_cham", header: "Lý do từ chối/chờ hàng", render: (row) => row.d.ly_do_cham || <span className="text-[var(--ink-400)]">—</span> },
@@ -2114,7 +2131,7 @@ export function DonHangGroupedList({
       header: "",
       mobileHint: "actions",
       render: (row) => (
-        <div className="flex gap-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
+        <div className="flex gap-1 flex-nowrap" onClick={(e) => e.stopPropagation()}>
           {row.actions.duyet && (
             <Btn
               size="sm"
@@ -2174,7 +2191,70 @@ export function DonHangGroupedList({
     effectiveColumns, toggleableColumns, resolvedOrder, colWidths,
     settingsOpen, setSettingsOpen, dragOverKey, setDragOverKey, draggedColKey,
     toggleColumn, handleColumnDrop, handleResizeStart,
-  } = useColumnConfig(cols, optionalCols, [], "dmlk-don-hang-list");
+  } = useColumnConfig(cols, optionalCols, [], "dmlk-don-hang-list", "dmlk-don-hang-list-v2");
+
+  // ===== Bo cuc cot bang desktop (SUA 2026-09-26, phan hoi "danh sách đơn hàng đang bị kéo giãn...
+  // các nút bấm chuyển về góc trái, các cột không tự xuống dòng, dựa vào độ dài các ký tự thật") =====
+  // Nguyen nhan cu (do tren trinh duyet): cot nut Duyệt/Chờ hàng/Từ chối nam CUOI, rong ~62px + flex-wrap
+  // -> 3 nut xep DOC cao ~98px keo MOI dong len ~114px; khong o nao nowrap nen ten dai bi be 3-4 dong;
+  // do rong da keo tay luu localStorage + overflow hidden cat cut so ("930.000(").
+  // (1) Cot nut luon dung NGAY SAU checkbox (bat ke thu tu cot da luu - nguoi dung khong phai keo lai),
+  //     an han neu khong dong nao co nut (vd KTV xem don cua minh).
+  const actionCount = (d: DonHangRow) => {
+    const a = actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail });
+    return (a.duyet ? 1 : 0) + (a.choHang ? 1 : 0) + (a.tuChoi ? 1 : 0);
+  };
+  const maxActions = rows.reduce((m, d) => Math.max(m, actionCount(d)), 0);
+  const actionCol = effectiveColumns.find((c) => c.key === "hanh_dong");
+  const tableColumns = (() => {
+    const rest = effectiveColumns.filter((c) => c.key !== "hanh_dong");
+    if (!actionCol || maxActions === 0) return rest;
+    const at = rest[0]?.key === "chon" ? 1 : 0;
+    return [...rest.slice(0, at), actionCol, ...rest.slice(at)];
+  })();
+  // (2) Do rong tu tinh theo DO DAI CHU THAT cua dong dang hien (useAutoColumnWidths) - chuoi o day PHAI
+  //     giong dinh dang render cua cot tuong ung. "max" = tran cho cot chu dai (vuot tran -> "…" + tooltip).
+  const dash = "—";
+  const widthSpecs: Record<string, AutoWidthSpec<DonHangRow>> = {
+    chon: { fixed: 40 },
+    hanh_dong: { fixed: maxActions * 34 + Math.max(0, maxActions - 1) * 4 + 24 },
+    linh_kien: { text: (d) => `${d.uu_tien === 1 ? "⭐ " : ""}${formatLkLabel(d.ma_lk, d.ten_lk_snapshot ?? d.ma_lk)}${d.dac_thu ? " 🔒" : ""}`, font: `500 12px "Plus Jakarta Sans", "Be Vietnam Pro", sans-serif`, min: 180, max: 340 },
+    ngay_de_xuat: { text: (d) => fmtDate(d.ngay_tao) },
+    sl: { text: (d) => String(d.so_luong_de_xuat) },
+    sl_thuc_xuat: { text: (d) => (d.so_luong_thuc_xuat != null ? String(d.so_luong_thuc_xuat) : dash) },
+    gia: { text: (d) => (d.gia_de_xuat != null ? fmtVND(d.gia_de_xuat) : dash), font: `600 12px "Plus Jakarta Sans", "Be Vietnam Pro", sans-serif` },
+    loai: { text: (d) => loaiDonLabel(d.loai_don, d.loai_de_xuat), font: BADGE_FONT, extra: BADGE_PAD, max: 180 },
+    yeu_cau_hoa_don: { text: (d) => d.yeu_cau_hoa_don || dash, max: 220 },
+    trang_thai: {
+      text: (d) => {
+        const flags = trangThaiFlags(d);
+        return [trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, d.trang_thai ?? ""), ...(flags[0] ? [flags[0].label] : [])];
+      },
+      font: BADGE_FONT,
+      // padding 2 badge + khe 4px + "+N" (~30px) khi co tu 2 co phu tro len
+      extra: BADGE_PAD * 2 + 4 + 30,
+      max: 300,
+    },
+    nguoi_nhan_hang: { text: (d) => (d.nguoi_nhan_hang ? formatNguoiDisplay(d.nguoi_nhan_hang, ktvDisplayMap) : dash), max: 300 },
+    ly_do_cham: { text: (d) => d.ly_do_cham || dash, max: 220 },
+    khu_vuc: { text: (d) => d.khu_vuc_ten || dash, max: 150 },
+    ghi_chu: { text: (d) => d.ghi_chu || dash, max: 220 },
+    ghi_chu_admin: { text: (d) => d.ghi_chu_xu_ly_gan_nhat || dash, max: 220 },
+    nguoi_tao_yc: { text: (d) => formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap), max: 300 },
+    ma_ycsc: { text: (d) => d.ma_yeu_cau_su_co || dash, font: MONO_FONT, max: 180 },
+    phan_loai_lk: { text: (d) => d.loai_de_xuat || dash, max: 180 },
+  };
+  const autoWidths = useAutoColumnWidths(tableColumns, rows, widthSpecs);
+  // Do rong nguoi dung TU KEO (luu localStorage khoa v2) van thang do rong tu tinh cua cot do.
+  const colWidth = (key: string) => colWidths[key] ?? autoWidths[key] ?? 120;
+  const tableWidth = tableColumns.reduce((sum, c) => sum + colWidth(c.key), 0);
+  // Tooltip day du cho o co the bi cat "…" (cot co tran max).
+  const cellTitle = (key: string, d: DonHangRow): string | undefined => {
+    const spec = widthSpecs[key];
+    if (!spec?.max || !spec.text || key === "trang_thai") return undefined;
+    const t = spec.text(d);
+    return Array.isArray(t) ? t.join(" ") : t;
+  };
   const settingsButtonEl = (
     <ColumnSettingsButton
       toggleableColumns={toggleableColumns}
@@ -2230,18 +2310,20 @@ export function DonHangGroupedList({
           nhau" giua nhieu <table> rieng biet nhu truoc (rui ro lech neu 1 cot chua co colWidths
           explicit - kich thuoc tu dong theo NOI DUNG rieng cua tung table). */}
       <div className="hidden sm:block overflow-x-auto border-t border-[var(--line)]">
-        <table className="tbl w-full min-w-[720px] border-collapse">
+        {/* table-layout FIXED + tong do rong = tong cac cot (toi thieu bang khung): moi cot DUNG bang do
+            rong da tinh, o dai hien "…" thay vi be dong hay day cot khac. */}
+        <table className="tbl border-collapse" style={{ tableLayout: "fixed", width: tableWidth, minWidth: "100%" }}>
           <thead>
             {/* Khop dung header ".tbl th" concept 1 (chu hoa nho, xam, nen #FBFBFB) - dong
                 bo voi header cua PaginatedTable.tsx (xem tr className tuong tu o do). */}
             <tr className="tbl-head">
-              {effectiveColumns.map((col, idx) => (
+              {tableColumns.map((col, idx) => (
                 <ResizableHeaderCell
                   key={col.key}
                   col={col}
                   idx={idx}
                   isPinned={idx === 0}
-                  width={colWidths[col.key]}
+                  width={colWidth(col.key)}
                   storageKey="dmlk-don-hang-list"
                   dragOverKey={dragOverKey}
                   setDragOverKey={setDragOverKey}
@@ -2261,7 +2343,7 @@ export function DonHangGroupedList({
                     Phan hoi 2026-08-26: "tô màu cho top banner này khác hẳn màu nền bên dưới" - dung
                     --ocean-100 (mau nhan chinh, tu doi theo "Giao diện" ca nhan - xem theme/presets.ts). */}
                 <tr className="bg-[var(--ocean-100)]">
-                  <td colSpan={effectiveColumns.length} className="px-3 py-2">
+                  <td colSpan={tableColumns.length} className="px-3 py-2">
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <div className="flex items-center gap-3 flex-wrap text-sm min-w-0">
                         <span className="font-bold text-[var(--ink-900)] text-sm truncate">
@@ -2301,10 +2383,15 @@ export function DonHangGroupedList({
                         : "hover:bg-slate-50"
                     }`}
                   >
-                    {effectiveColumns.map((col) => {
-                      const width = colWidths[col.key];
+                    {tableColumns.map((col) => {
+                      const width = colWidth(col.key);
                       return (
-                        <td key={col.key} style={width ? { width, maxWidth: width, overflow: "hidden" } : undefined} className={`px-3 py-2 ${col.className ?? ""}`}>
+                        <td
+                          key={col.key}
+                          title={cellTitle(col.key, row.d)}
+                          style={{ width, maxWidth: width }}
+                          className={`px-3 py-2 overflow-hidden text-ellipsis whitespace-nowrap ${col.className ?? ""}`}
+                        >
                           {col.render(row)}
                         </td>
                       );

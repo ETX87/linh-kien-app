@@ -46,8 +46,11 @@ function saveColumnConfig(storageKey: string, config: ColConfig) {
 
 export type ColumnConfig<T> = ReturnType<typeof useColumnConfig<T>>;
 
-export function useColumnConfig<T>(columns: Column<T>[], optionalColumns: Column<T>[], defaultVisibleOptionalKeys: string[], storageKey: string | undefined) {
-  const [colWidths, setColWidths] = useState<Record<string, number>>(() => loadColWidths(storageKey));
+// `widthsStorageKey` (them 2026-09-26) - khoa luu DO RONG rieng voi khoa thu tu/an-hien cot. Bang nao
+// doi sang co che tu tinh do rong (useAutoColumnWidths) truyen khoa moi (vd "...-v2") de bo do rong cu
+// da keo tay 1 lan ma KHONG mat thu tu/an-hien cot nguoi dung da chinh. Mac dinh = storageKey (khong doi).
+export function useColumnConfig<T>(columns: Column<T>[], optionalColumns: Column<T>[], defaultVisibleOptionalKeys: string[], storageKey: string | undefined, widthsStorageKey: string | undefined = storageKey) {
+  const [colWidths, setColWidths] = useState<Record<string, number>>(() => loadColWidths(widthsStorageKey));
   const [colConfig, setColConfig] = useState<ColConfig>(() => loadColumnConfig(storageKey));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
@@ -55,9 +58,9 @@ export function useColumnConfig<T>(columns: Column<T>[], optionalColumns: Column
   const draggedColKey = useRef<string | null>(null);
 
   useEffect(() => {
-    setColWidths(loadColWidths(storageKey));
+    setColWidths(loadColWidths(widthsStorageKey));
     setColConfig(loadColumnConfig(storageKey));
-  }, [storageKey]);
+  }, [storageKey, widthsStorageKey]);
 
   useEffect(() => {
     function onClickOutside() {
@@ -130,10 +133,10 @@ export function useColumnConfig<T>(columns: Column<T>[], optionalColumns: Column
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
       dragState.current = null;
-      if (!storageKey) return;
+      if (!widthsStorageKey) return;
       setColWidths((prev) => {
         try {
-          window.localStorage.setItem(`col-widths:${storageKey}`, JSON.stringify(prev));
+          window.localStorage.setItem(`col-widths:${widthsStorageKey}`, JSON.stringify(prev));
         } catch {
           /* localStorage day/private mode - tinh nang phu, bo qua loi */
         }
