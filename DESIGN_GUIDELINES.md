@@ -248,6 +248,14 @@ chấm), `StatCard` (thẻ KPI pastel), `Tabs` (filter pill), `Card`, `Modal`/`D
    `whitespace-normal`/`break-words` vào ô bảng. Cột cần giới hạn độ rộng (tên dài, ghi chú) thì dùng
    `table-layout: fixed` + `useAutoColumnWidths` + cắt `…` kèm `title` (mẫu: `DonCuaToiTab.tsx`) — không
    cho xuống dòng. Thẻ mobile (không phải bảng) theo quy ước riêng: 1 dòng/ý, `truncate`, badge thừa gộp "+N".
+9. **Danh sách trên mobile (< 640px) KHÔNG được dùng thẻ "nhãn: giá trị" mặc định cho bảng nhiều cột** (rà soát
+   2026-09-27: Danh sách KTV 15 dòng/thẻ ≈ 400px). Với `PaginatedTable`: gắn `mobile` cho các cột quan trọng —
+   `title` (dòng 1 đậm) · `badge` (góc phải dòng 1) · `sub` (dòng 2 chữ phụ) · `meta` (dòng 3 các cặp ngắn) ·
+   `hide`; cột không gắn tự ẩn trên thẻ (vẫn có ở chi tiết/desktop). Cần bố cục riêng thì dùng `mobileCard`.
+   Bảng tự dựng (`<table>`) nhiều cột: thêm khối thẻ `sm:hidden` + bọc bảng `hidden sm:block` (mẫu:
+   `TonKhoKtvModule.tsx`). Bảng ít cột (Settings) thì ẩn cột phụ bằng `hidden sm:table-cell` + bấm cả dòng để
+   sửa. Thanh công cụ: ô tìm `w-full sm:w-64`, bộ lọc chia đôi hàng `flex-1 sm:flex-none`, nút phụ gom vào menu
+   "⋯" hoặc rút nhãn trên mobile — không để 1 hàng nút `shrink-0` làm trang giãn ngang.
 
 ---
 

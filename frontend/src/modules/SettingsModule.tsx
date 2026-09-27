@@ -111,18 +111,18 @@ function LyDoChamTab() {
             <thead>
               <tr className="tbl-head">
                 <th className="px-3 py-2">Tên lý do</th>
-                <th className="px-3 py-2">Hệ thống sử dụng</th>
-                <th className="px-3 py-2">Quản lý đơn thiếu LK</th>
+                <th className="hidden sm:table-cell px-3 py-2">Hệ thống sử dụng</th>
+                <th className="hidden sm:table-cell px-3 py-2">Quản lý đơn thiếu LK</th>
                 <th className="px-3 py-2">Bật/tắt</th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>
               {(data?.rows ?? []).map((r) => (
-                <tr key={r.id} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                <tr onClick={() => openEdit(r)} key={r.id} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer">
                   <td className="px-3 py-2">{r.ten_ly_do}</td>
-                  <td className="px-3 py-2">{r.he_thong_su_dung}</td>
-                  <td className="px-3 py-2">{r.quan_ly_don_thieu_linh_kien ? "Có" : "—"}</td>
+                  <td className="hidden sm:table-cell px-3 py-2">{r.he_thong_su_dung}</td>
+                  <td className="hidden sm:table-cell px-3 py-2">{r.quan_ly_don_thieu_linh_kien ? "Có" : "—"}</td>
                   <td className="px-3 py-2">{r.bat_tat ? "Bật" : "Tắt"}</td>
                   <td className="px-3 py-2">
                     <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openEdit(r)}>
@@ -219,17 +219,17 @@ function LoaiChietKhauTab() {
             <thead>
               <tr className="tbl-head">
                 <th className="px-3 py-2">Tên loại chiết khấu</th>
-                <th className="px-3 py-2">Nguồn</th>
-                <th className="px-3 py-2">Bật/tắt</th>
+                <th className="hidden sm:table-cell px-3 py-2">Nguồn</th>
+                <th className="hidden sm:table-cell px-3 py-2">Bật/tắt</th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>
               {(rows ?? []).map((r) => (
-                <tr key={r.id} className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 ${r.bat_tat ? "" : "text-[var(--ink-400)]"}`}>
+                <tr onClick={() => openEdit(r)} key={r.id} className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer ${r.bat_tat ? "" : "text-[var(--ink-400)]"}`}>
                   <td className="px-3 py-2">{r.ten}</td>
-                  <td className="px-3 py-2">{r.ma ? <Badge tone="ocean">Hệ thống tự gán</Badge> : <Badge tone="gray">Tự thêm</Badge>}</td>
-                  <td className="px-3 py-2">{r.bat_tat ? "Bật" : "Tắt"}</td>
+                  <td className="hidden sm:table-cell px-3 py-2">{r.ma ? <Badge tone="ocean">Hệ thống tự gán</Badge> : <Badge tone="gray">Tự thêm</Badge>}</td>
+                  <td className="hidden sm:table-cell px-3 py-2">{r.bat_tat ? "Bật" : "Tắt"}</td>
                   <td className="px-3 py-2">
                     <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openEdit(r)}>
                       Sửa
@@ -687,17 +687,17 @@ function KhuVucTab() {
                 <th className="px-3 py-2">Mã</th>
                 <th className="px-3 py-2">Tên</th>
                 <th className="px-3 py-2">Giám sát phụ trách</th>
-                <th className="px-3 py-2">Bật/tắt</th>
+                <th className="hidden sm:table-cell px-3 py-2">Bật/tắt</th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>
               {(data?.rows ?? []).map((r) => (
-                <tr key={r.ma} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
+                <tr onClick={() => openEdit(r)} key={r.ma} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer">
                   <td className="px-3 py-2 font-mono text-xs">{r.ma}</td>
                   <td className="px-3 py-2">{r.ten}</td>
                   <td className="px-3 py-2">{r.gs_email ? formatPersonDisplay(r.gs_email, personDir) : "— (chưa gán)"}</td>
-                  <td className="px-3 py-2">{r.bat_tat ? "Bật" : "Tắt"}</td>
+                  <td className="hidden sm:table-cell px-3 py-2">{r.bat_tat ? "Bật" : "Tắt"}</td>
                   <td className="px-3 py-2">
                     <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openEdit(r)}>Sửa</button>
                   </td>
@@ -1041,10 +1041,10 @@ function PartnerApiTab() {
             <thead>
               <tr className="tbl-head">
                 <th className="px-3 py-2">Hệ thống</th>
-                <th className="px-3 py-2">Ghi chú</th>
+                <th className="hidden sm:table-cell px-3 py-2">Ghi chú</th>
                 <th className="px-3 py-2">Trạng thái</th>
-                <th className="px-3 py-2">Tạo lúc</th>
-                <th className="px-3 py-2">Lần dùng cuối</th>
+                <th className="hidden sm:table-cell px-3 py-2">Tạo lúc</th>
+                <th className="hidden sm:table-cell px-3 py-2">Lần dùng cuối</th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
@@ -1057,12 +1057,12 @@ function PartnerApiTab() {
                 (data?.rows ?? []).map((r) => (
                   <tr key={r.id} className="border-b border-[var(--line)] last:border-0 hover:bg-slate-50">
                     <td className="px-3 py-2">{r.ten_he_thong}</td>
-                    <td className="px-3 py-2 text-[var(--ink-500)]">{r.ghi_chu ?? "—"}</td>
+                    <td className="hidden sm:table-cell px-3 py-2 text-[var(--ink-500)]">{r.ghi_chu ?? "—"}</td>
                     <td className="px-3 py-2">
                       <Badge tone={r.bat_tat ? "teal" : "coral"}>{r.bat_tat ? "Đang bật" : "Đã khoá"}</Badge>
                     </td>
-                    <td className="px-3 py-2">{fmtDateTime(r.tao_luc)}</td>
-                    <td className="px-3 py-2">{r.lan_dung_cuoi ? fmtDateTime(r.lan_dung_cuoi) : "— (chưa từng)"}</td>
+                    <td className="hidden sm:table-cell px-3 py-2">{fmtDateTime(r.tao_luc)}</td>
+                    <td className="hidden sm:table-cell px-3 py-2">{r.lan_dung_cuoi ? fmtDateTime(r.lan_dung_cuoi) : "— (chưa từng)"}</td>
                     <td className="px-3 py-2">
                       <button
                         className={`hover:underline text-xs ${r.bat_tat ? "text-[var(--coral-500)]" : "text-[var(--ocean-600)]"}`}

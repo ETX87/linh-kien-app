@@ -33,6 +33,9 @@ const ROLE_FLAGS: { key: keyof UserRow; label: string }[] = [
   { key: "la_view", label: "View" },
 ];
 
+// Nhan hien thi co dau cho users.trang_thai_duyet (gia tri DB khong dau) - truoc day in tho "Da duyet".
+const TRANG_THAI_DUYET_LABEL: Record<string, string> = { "Cho duyet": "Chờ duyệt", "Da duyet": "Đã duyệt", "Tu choi": "Từ chối" };
+
 export function UsersModule() {
   const [tab, setTab] = useState("cho-duyet");
   const auth = useAuth();
@@ -82,10 +85,10 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
   // khong co phan trang nhu truoc.
   const columns: Column<UserRow>[] = [
     // Quy uoc "Ten (email)" toan he thong (phan hoi 2026-08-25, hang muc #16).
-    { key: "nguoi_dung", header: "Người dùng", render: (u) => formatPersonDisplay(u.email, personDir) },
-    { key: "vai_tro", header: "Vai trò", render: (u) => u.vai_tro ?? "—" },
+    { key: "nguoi_dung", mobile: "title", header: "Người dùng", render: (u) => formatPersonDisplay(u.email, personDir) },
+    { key: "vai_tro", mobile: "meta", header: "Vai trò", render: (u) => u.vai_tro ?? "—" },
     {
-      key: "co_nghiep_vu",
+      key: "co_nghiep_vu", mobile: "meta",
       header: "Cờ nghiệp vụ",
       render: (u) => (
         <div className="flex flex-wrap gap-1">
@@ -94,19 +97,19 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
       ),
     },
     {
-      key: "trang_thai",
+      key: "trang_thai", mobile: "badge",
       header: "Trạng thái",
       render: (u) => (
         <>
           <Badge tone={u.trang_thai_duyet === "Da duyet" ? "teal" : u.trang_thai_duyet === "Cho duyet" ? "amber" : "coral"}>
-            {u.trang_thai_duyet}
+            {TRANG_THAI_DUYET_LABEL[u.trang_thai_duyet ?? ""] ?? u.trang_thai_duyet}
           </Badge>
           {!!u.bi_khoa && <Badge tone="coral">Đã khoá</Badge>}
         </>
       ),
     },
     {
-      key: "actions",
+      key: "actions", mobile: "hide",
       header: "",
       mobileHint: "actions",
       render: (u) => (
@@ -416,12 +419,12 @@ function VanPhongTab() {
   });
 
   const columns: Column<UserRow>[] = [
-    { key: "nguoi_dung", header: "Người dùng", render: (u) => formatPersonDisplay(u.email, personDir) },
-    { key: "vai_tro", header: "Vai trò", render: (u) => u.vai_tro ?? "—" },
+    { key: "nguoi_dung", mobile: "title", header: "Người dùng", render: (u) => formatPersonDisplay(u.email, personDir) },
+    { key: "vai_tro", mobile: "meta", header: "Vai trò", render: (u) => u.vai_tro ?? "—" },
     { key: "ma_misa", header: "Mã MISA", render: (u) => u.ma_misa ?? "—" },
     { key: "ten_misa", header: "Tên trên MISA", render: (u) => u.ten_misa ?? "—" },
     {
-      key: "co_nghiep_vu",
+      key: "co_nghiep_vu", mobile: "meta",
       header: "Cờ nghiệp vụ",
       render: (u) => (
         <div className="flex flex-wrap gap-1">
@@ -430,11 +433,11 @@ function VanPhongTab() {
       ),
     },
     {
-      key: "trang_thai",
+      key: "trang_thai", mobile: "badge",
       header: "Trạng thái",
       render: (u) => (
         <>
-          <Badge tone={u.trang_thai_duyet === "Da duyet" ? "teal" : "amber"}>{u.trang_thai_duyet}</Badge>
+          <Badge tone={u.trang_thai_duyet === "Da duyet" ? "teal" : "amber"}>{TRANG_THAI_DUYET_LABEL[u.trang_thai_duyet ?? ""] ?? u.trang_thai_duyet}</Badge>
           {!!u.bi_khoa && <Badge tone="coral">Đã khoá</Badge>}
         </>
       ),
@@ -474,19 +477,19 @@ function VanPhongTab() {
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           placeholder="Tìm theo email/tên…"
-          className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-64"
+          className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-full sm:w-64"
         />
         <Select
           value={vaiTro}
           onChange={(v) => { setVaiTro(v); setPage(1); }}
           options={[{ value: "", label: "— Mọi vai trò —" }, { value: "Admin", label: "Admin" }, { value: "QC", label: "QC" }, { value: "Giam sat", label: "Giám sát" }]}
-          className="w-40"
+          className="min-w-0 flex-1 sm:flex-none sm:w-40"
         />
         <Select
           value={khuVuc}
           onChange={(v) => { setKhuVuc(v); setPage(1); }}
           options={[{ value: "", label: "— Mọi khu vực —" }, ...(khuVucData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ten }))]}
-          className="w-44"
+          className="min-w-0 flex-1 sm:flex-none sm:w-44"
         />
       </div>
       <PaginatedTable
@@ -807,11 +810,11 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
   const tenByMaKtv = useMemo(() => new Map((cap1Data?.rows ?? []).map((r) => [r.ma_ktv, r.ten_hien_thi])), [cap1Data]);
 
   const columns: Column<KtvLienHeRow>[] = [
-    { key: "ma_ktv", header: "Mã KTV", render: (r) => <span className="font-mono text-xs">{r.ma_ktv}</span> },
-    { key: "ten_hien_thi", header: "Tên hiển thị", render: (r) => r.ten_hien_thi ?? "—" },
-    { key: "sdt", header: "SĐT", render: (r) => r.sdt ?? "—" },
-    { key: "vai_tro_ktv", header: "Vai trò", render: (r) => r.vai_tro_ktv ?? "—" },
-    { key: "khu_vuc", header: "Khu vực", render: (r) => (r.khu_vuc_ma ? khuVucTenByMa.get(r.khu_vuc_ma) ?? r.khu_vuc_ma : "—") },
+    { key: "ma_ktv", mobile: "sub", header: "Mã KTV", render: (r) => <span className="font-mono text-xs">{r.ma_ktv}</span> },
+    { key: "ten_hien_thi", mobile: "title", header: "Tên hiển thị", render: (r) => r.ten_hien_thi ?? "—" },
+    { key: "sdt", mobile: "sub", header: "SĐT", render: (r) => r.sdt ?? "—" },
+    { key: "vai_tro_ktv", mobile: "badge", header: "Vai trò", render: (r) => r.vai_tro_ktv ?? "—" },
+    { key: "khu_vuc", mobile: "meta", header: "Khu vực", render: (r) => (r.khu_vuc_ma ? khuVucTenByMa.get(r.khu_vuc_ma) ?? r.khu_vuc_ma : "—") },
     // FIX (ra soat UI 2026-08-27, hang muc #3): an han cot nay khi filter "cap" dang loc dung Cap 1 -
     // field CHI co nghia cho Ve tinh (vai_tro_ktv==='Ve tinh') nen luon rong khi dang xem rieng Cap 1,
     // chiem cho ngang vo ich tren bang 8 cot.
@@ -825,7 +828,7 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
         ]
       : []),
     {
-      key: "cong_no",
+      key: "cong_no", mobile: "meta",
       header: "Trần công nợ",
       render: (r) =>
         r.cong_no != null ? (
@@ -871,6 +874,8 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
       key: "actions",
       header: "",
       mobileHint: "actions",
+      // Mobile: che do khong phai admin chi co 1 nut trung voi bam the (mo cung form) -> bo cho gon the.
+      mobile: mode === "admin" ? undefined : ("hide" as const),
       render: (r) => (
         // stopPropagation - dong da co onRowClick (bam dong mo Sua, xem duoi) nen 2 nut nay phai tu
         // chan bubble, khong thi bam "Xoá" se vua xoa vua mo modal Sua dong (da bi xoa) cung luc.
@@ -950,19 +955,21 @@ export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
             )
           }
         >
-          ⬇ Tải danh sách (trang hiện tại)
+          <span className="sm:hidden">⬇ Trang này</span>
+          <span className="hidden sm:inline">⬇ Tải danh sách (trang hiện tại)</span>
         </Btn>
         <Btn variant="ghost" size="sm" onClick={() => void handleDownloadFullList()} disabled={downloadingFull} loading={downloadingFull}>
-          ⬇ Tải toàn bộ danh sách
+          <span className="sm:hidden">⬇ Toàn bộ</span>
+          <span className="hidden sm:inline">⬇ Tải toàn bộ danh sách</span>
         </Btn>
         <input
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           placeholder="Tìm theo mã/tên/SĐT/email…"
-          className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-56"
+          className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-full sm:w-56"
         />
-        <Select value={cap} onChange={(v) => { setCap(v); setPage(1); }} options={[{ value: "", label: "— Mọi cấp —" }, { value: "1", label: "Cấp 1 (KTV/CTV/Trạm)" }, { value: "2", label: "Cấp 2 (Vệ tinh)" }]} className="w-52" />
-        <Select value={khuVuc} onChange={(v) => { setKhuVuc(v); setPage(1); }} options={[{ value: "", label: "— Mọi khu vực —" }, ...khuVucOptions]} className="w-44" />
+        <Select value={cap} onChange={(v) => { setCap(v); setPage(1); }} options={[{ value: "", label: "— Mọi cấp —" }, { value: "1", label: "Cấp 1 (KTV/CTV/Trạm)" }, { value: "2", label: "Cấp 2 (Vệ tinh)" }]} className="min-w-0 flex-1 sm:flex-none sm:w-52" />
+        <Select value={khuVuc} onChange={(v) => { setKhuVuc(v); setPage(1); }} options={[{ value: "", label: "— Mọi khu vực —" }, ...khuVucOptions]} className="min-w-0 flex-1 sm:flex-none sm:w-44" />
       </div>
       <PaginatedTable
         columns={columns}
@@ -1320,9 +1327,9 @@ function LoginLogTab() {
   });
 
   const columns: Column<LoginLogRow>[] = [
-    { key: "email", header: "Người dùng", render: (r) => formatPersonDisplay(r.email, personDir) },
-    { key: "thoi_gian", header: "Thời gian", render: (r) => fmtDateTime(r.thoi_gian) },
-    { key: "ip", header: "IP", render: (r) => r.ip ?? "—" },
+    { key: "email", mobile: "title", header: "Người dùng", render: (r) => formatPersonDisplay(r.email, personDir) },
+    { key: "thoi_gian", mobile: "sub", header: "Thời gian", render: (r) => fmtDateTime(r.thoi_gian) },
+    { key: "ip", mobile: "meta", header: "IP", render: (r) => r.ip ?? "—" },
     { key: "user_agent", header: "Trình duyệt/Thiết bị", render: (r) => <span className="text-xs text-[var(--ink-500)] line-clamp-1" title={r.user_agent ?? ""}>{r.user_agent ?? "—"}</span> },
   ];
 
@@ -1400,23 +1407,23 @@ function EtxNhanSuTab() {
   });
 
   const columns: Column<EtxNhanSuRow>[] = [
-    { key: "ma_nhan_su", header: "Mã NV", render: (r) => r.ma_nhan_su },
-    { key: "ho_ten", header: "Họ tên", render: (r) => r.ho_ten },
-    { key: "chuc_danh", header: "Chức danh", render: (r) => r.chuc_danh ?? "—" },
+    { key: "ma_nhan_su", mobile: "sub", header: "Mã NV", render: (r) => r.ma_nhan_su },
+    { key: "ho_ten", mobile: "title", header: "Họ tên", render: (r) => r.ho_ten },
+    { key: "chuc_danh", mobile: "sub", header: "Chức danh", render: (r) => r.chuc_danh ?? "—" },
     {
-      key: "trang_thai_lam_viec",
+      key: "trang_thai_lam_viec", mobile: "badge",
       header: "Trạng thái",
       render: (r) => (r.trang_thai_lam_viec === "on" ? <Badge tone="teal">Đang làm</Badge> : <Badge tone="coral">Đã nghỉ</Badge>),
     },
     { key: "gmail", header: "Gmail", render: (r) => r.gmail ?? "—" },
     { key: "tai_khoan_lada_ten", header: "Tài khoản Lada", render: (r) => r.tai_khoan_lada_ten ?? "—" },
     {
-      key: "ma_ktv",
+      key: "ma_ktv", mobile: "meta",
       header: "Mã KTV",
       render: (r) => <MaKtvCell row={r} onSave={(maKtv) => saveMaKtv.mutate({ maNhanSu: r.ma_nhan_su, maKtv })} />,
     },
     {
-      key: "lien_ket",
+      key: "lien_ket", mobile: "meta",
       header: "Tài khoản liên kết",
       render: (r) =>
         r.lien_ket_email ? (

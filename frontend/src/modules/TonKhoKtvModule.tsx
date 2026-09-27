@@ -275,10 +275,52 @@ function TonKhoKtvContent() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Tìm theo mã/tên KTV, mã MISA…"
-          className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-64"
+          className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-full sm:w-64"
         />
       </div>
-      <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
+      {/* The mobile (ra soat mobile 2026-09-27): bang 10 cot cuon ngang tren dien thoai chi thay "Mã KTV/Tên",
+          so lieu can doc (cong no chot / tran / danh gia) nam khuat ben phai. The: ten + danh gia (goc phai)
+          / ma KTV · MISA / Cong no chot noi bat + Tran + SL ton. Bam the mo chi tiet nhu bam dong bang. */}
+      <div className="sm:hidden divide-y divide-[var(--line)] rounded-xl border border-[var(--line)] bg-[var(--surface)] overflow-hidden">
+        {isLoading && <div className="px-3 py-6 text-center text-sm text-[var(--ink-400)]">Đang tải…</div>}
+        {!isLoading && allRows.length === 0 && (
+          <div className="px-3 py-6 text-center text-sm text-[var(--ink-400)]">Chưa có dữ liệu tồn kho{canManage ? ' - bấm "Import tồn kho MISA" để nhập.' : "."}</div>
+        )}
+        {pageRows.map((r) => (
+          <div
+            key={r.ma_ktv}
+            role="button"
+            tabIndex={0}
+            onClick={() => setDetailKtv(r)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDetailKtv(r); } }}
+            className="space-y-1 px-3 py-2.5 active:bg-slate-50 cursor-pointer focus-ring"
+          >
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-[var(--color-text)]">{r.ten_hien_thi ?? r.ma_ktv}</div>
+              <div className="shrink-0"><DanhGiaCongNoBadge value={r.danh_gia_cong_no} /></div>
+            </div>
+            <div className="truncate text-xs text-[var(--color-text-secondary)]">
+              <span className="font-mono">{r.ma_ktv}</span>
+              {r.ma_misa && <> · MISA {r.ma_misa}</>}
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs">
+              <span>
+                <span className="text-[var(--color-text-muted)]">Công nợ chốt </span>
+                <b className="text-[13px] text-[var(--color-text)]">{fmtVND(r.cong_no_chot)}</b>
+              </span>
+              <span>
+                <span className="text-[var(--color-text-muted)]">Trần </span>
+                {r.cong_no != null ? fmtVND(r.cong_no) : "—"}
+              </span>
+              <span>
+                <span className="text-[var(--color-text-muted)]">Tồn </span>
+                {r.so_ma_hang} mã · {r.tong_cuoi_ky?.toLocaleString("vi-VN") ?? 0} SL
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="hidden sm:block border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
         <div className="overflow-x-auto">
           <table className="tbl w-full">
             <thead>
@@ -590,7 +632,46 @@ function KhoCongTyContent() {
           + Thêm kho
         </Btn>
       )}
-      <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
+      {/* The mobile (ra soat mobile 2026-09-27) - cung du lieu voi bang 7 cot ben duoi. */}
+      <div className="sm:hidden divide-y divide-[var(--line)] rounded-xl border border-[var(--line)] bg-[var(--surface)] overflow-hidden">
+        {isLoading && <div className="px-3 py-6 text-center text-sm text-[var(--ink-400)]">Đang tải…</div>}
+        {!isLoading && rows.length === 0 && (
+          <div className="px-3 py-6 text-center text-sm text-[var(--ink-400)]">Chưa có kho nào{canManage ? ' - bấm "+ Thêm kho" để tạo.' : "."}</div>
+        )}
+        {rows.map((r) => {
+          const ton = tonByMa.get(r.ma);
+          return (
+            <div
+              key={r.ma}
+              role="button"
+              tabIndex={0}
+              onClick={() => setDetailRow({ ma: r.ma, ten: r.ten })}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDetailRow({ ma: r.ma, ten: r.ten }); } }}
+              className="flex items-start gap-2 px-3 py-2.5 active:bg-slate-50 cursor-pointer focus-ring"
+            >
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-[var(--color-text)]">{r.ten}</div>
+                  <div className="shrink-0">{r.bat_tat ? <Badge tone="teal">Đang dùng</Badge> : <Badge tone="gray">Đã tắt</Badge>}</div>
+                </div>
+                <div className="truncate text-xs text-[var(--color-text-secondary)]">
+                  <span className="font-mono">{r.ma}</span> · {r.khu_vuc_ma.length > 0 ? r.khu_vuc_ma.map((m) => khuVucTenByMa.get(m) ?? m).join(", ") : "Chưa gán khu vực"}
+                </div>
+                <div className="text-xs">
+                  <span className="text-[var(--color-text-muted)]">Tồn </span>
+                  {ton?.so_ma_hang ?? 0} mã · {(ton?.tong_cuoi_ky ?? 0).toLocaleString("vi-VN")} SL
+                </div>
+              </div>
+              {canManage && (
+                <button className="shrink-0 pt-0.5 text-xs text-[var(--ocean-600)]" onClick={(e) => { e.stopPropagation(); setFormTarget(r); }}>
+                  Sửa
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="hidden sm:block border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
         <div className="overflow-x-auto">
           <table className="tbl w-full">
             <thead>

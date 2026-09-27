@@ -19,6 +19,13 @@ export interface Column<T> {
    * Khong khai bao (mac dinh) = cot du lieu binh thuong, ve thanh 1 hang "nhan: gia tri". Cot co
    * header rong ("" hoac khong co) tu dong duoc coi la "actions" neu khong khai bao rieng. */
   mobileHint?: "select" | "actions";
+  /** THE MOBILE GON (them 2026-09-27, ra soat mobile toan he thong): chi can 1 cot trong bang khai bao
+   * `mobile` la the chuyen sang bo cuc gon thay cho kieu "nhan: gia tri" moi cot 1 dong (15 cot = the
+   * cao ~400px o Danh sach KTV). "title" = dong 1 dam (nhieu cot noi bang " · "), "badge" = goc phai
+   * dong 1, "sub" = dong 2 chu phu, "meta" = dong 3 cac cap "Nhan gia tri" ngan, "hide" = khong hien tren
+   * the. Cot KHONG khai bao se AN tren the gon (xem day du o chi tiet/ban desktop). Cot select/actions
+   * (mobileHint) giu nguyen vi tri cu tru khi dat "hide". */
+  mobile?: "title" | "sub" | "badge" | "meta" | "hide";
 }
 
 interface PaginatedTableProps<T> {
@@ -156,6 +163,7 @@ export function PaginatedTable<T>({
         {!isLoading &&
           !isError &&
           rows.map((row) => {
+            const compact = columns.some((c) => c.mobile && c.mobile !== "hide");
             const selectCol = effectiveColumns.find((c) => c.mobileHint === "select");
             const actionsCol = effectiveColumns.find((c) => c.mobileHint === "actions" || (!c.mobileHint && !c.header && c.key !== selectCol?.key));
             const fieldCols = effectiveColumns.filter((c) => c.key !== selectCol?.key && c.key !== actionsCol?.key);
@@ -185,6 +193,8 @@ export function PaginatedTable<T>({
                   {selectCol && <div className="absolute left-3 top-3" onClick={(e) => e.stopPropagation()}>{selectCol.render(row)}</div>}
                   {mobileCard ? (
                     <div className="flex-1 min-w-0">{mobileCard(row)}</div>
+                  ) : compact ? (
+                    <div className="flex-1 min-w-0">{renderCompactCard(columns, row)}</div>
                   ) : (
                   <div className="flex-1 min-w-0 space-y-1">
                     {fieldCols.map((col) => (
@@ -196,7 +206,7 @@ export function PaginatedTable<T>({
                   </div>
                   )}
                 </div>
-                {actionsCol && !mobileCard && (
+                {actionsCol && !mobileCard && actionsCol.mobile !== "hide" && (
                   <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
                     {actionsCol.render(row)}
                   </div>
@@ -328,5 +338,42 @@ export function PaginatedTable<T>({
         </div>
       </div>
     </Card>
+  );
+}
+
+function joinDot(nodes: ReactNode[]): ReactNode[] {
+  return nodes.flatMap((n, i) => (i === 0 ? [n] : [<span key={`dot-${i}`} className="text-[var(--color-text-muted)]"> · </span>, n]));
+}
+
+// The mobile gon dung chung (xem Column.mobile) - 3 dong: tieu de + badge / dong phu / cac cap "Nhan gia
+// tri". Moi dong 1 hang, cat "…" thay vi xuong dong (quy tac bang/the gon DESIGN_GUIDELINES.md §8).
+function renderCompactCard<T>(columns: Column<T>[], row: T): ReactNode {
+  const by = (m: Column<T>["mobile"]) => columns.filter((c) => c.mobile === m);
+  const title = by("title");
+  const sub = by("sub");
+  const badge = by("badge");
+  const meta = by("meta");
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-[var(--color-text)]">
+          {joinDot(title.map((c) => <span key={c.key}>{c.render(row)}</span>))}
+        </div>
+        {badge.length > 0 && <div className="flex shrink-0 items-center gap-1">{badge.map((c) => <span key={c.key}>{c.render(row)}</span>)}</div>}
+      </div>
+      {sub.length > 0 && (
+        <div className="truncate text-xs text-[var(--color-text-secondary)]">{joinDot(sub.map((c) => <span key={c.key}>{c.render(row)}</span>))}</div>
+      )}
+      {meta.length > 0 && (
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
+          {meta.map((c) => (
+            <span key={c.key} className="inline-flex min-w-0 max-w-full items-baseline gap-1">
+              <span className="shrink-0 text-[var(--color-text-muted)]">{c.header}</span>
+              <span className="min-w-0 truncate text-[var(--color-text-body)]">{c.render(row)}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
