@@ -480,6 +480,7 @@ function DanhMucTab() {
   const luotDungByMa = useMemo(() => new Map((xepHangData?.rows ?? []).map((r) => [r.ma_lk, r.so_lan])), [xepHangData]);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [moreOpen, setMoreOpen] = useState(false);
   const [filterDacThu, setFilterDacThu] = useState("");
   const [filterChiSuaChua, setFilterChiSuaChua] = useState("");
   const [filterBatTat, setFilterBatTat] = useState("");
@@ -852,7 +853,18 @@ function DanhMucTab() {
         <div className="text-sm text-[var(--ink-600)] flex items-center gap-1.5">
           <Tooltip text={`Đánh dấu "Đặc thù" để chèn thêm bước TP DVBH xác nhận trước khi Tác nghiệp duyệt khi tạo phiếu đặt. Đánh dấu "Only sửa chữa" để ẩn mã này khỏi danh sách chọn khi tạo đơn mua hàng.`} />
         </div>
-        <div className="flex gap-2 shrink-0">
+        {/* SUA mobile (phan hoi 2026-09-27: "danh mục linh kiện chưa tối ưu cho mobile, mất bottom, độ dài vượt
+            diện tích màn hình") - nguyen nhan do tren trinh duyet: hang 5 nut (Xuất Excel/Nhập ảnh/Nhập danh
+            mục/+ Thêm/Đồng bộ Gia88) la "flex shrink-0" KHONG xuong dong, rong 749px tren man 375px -> ca trang
+            gian ra 781px (dien thoai thu nho/cuon ngang, thanh dieu huong day mat khoi tam nhin). Sua: mobile
+            chi hien nut chinh "+ Thêm linh kiện" + nut "⋯" mo menu doc chua cac cong cu con lai; desktop
+            (>= sm) giu nguyen 1 hang nut nhu cu. */}
+        {moreOpen && <div className="fixed inset-0 z-20 sm:hidden" onClick={() => setMoreOpen(false)} />}
+        <div className="relative flex items-center gap-2 shrink-0">
+          <div
+            onClick={() => setMoreOpen(false)}
+            className={`${moreOpen ? "flex" : "hidden"} absolute right-0 top-full z-30 mt-1 min-w-[230px] flex-col items-stretch gap-1 rounded-[10px] border border-[var(--color-border-soft)] bg-[var(--color-surface)] p-1.5 shadow-[var(--shadow-pop)] sm:static sm:z-auto sm:mt-0 sm:flex sm:min-w-0 sm:flex-row sm:items-center sm:gap-2 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none [&>button]:justify-start sm:[&>button]:justify-center`}
+          >
           {/* FIX (phan hoi 2026-08-25, hang muc #6, mo rong 2026-08-26): KTV thuan VA Ve tinh thuan
               (khong co quan_ly_danh_muc_lk/Admin) khong duoc xuat Excel danh muc - truoc day nut nay
               khong gate gi (xem comment dau file), vo tinh lo gia_ban/gia_tham_chieu cho vai tro khong
@@ -918,9 +930,6 @@ function DanhMucTab() {
               >
                 📋 Nhập danh mục hàng loạt
               </Btn>
-              <Btn size="sm" onClick={openAdd}>
-                + Thêm linh kiện
-              </Btn>
             </>
           )}
           {isAdmin && (
@@ -934,6 +943,17 @@ function DanhMucTab() {
               🔄 Đồng bộ Gia88
             </Btn>
           )}
+          </div>
+          {(!((authUser?.la_ktv_dvbh || authUser?.la_ve_tinh) && !canWrite) || canWrite || isAdmin) && (
+            <Btn variant="ghost" size="sm" className="sm:hidden" aria-label="Công cụ khác" aria-expanded={moreOpen} onClick={() => setMoreOpen((v) => !v)}>
+              ⋯
+            </Btn>
+          )}
+          {canWrite && (
+            <Btn size="sm" onClick={openAdd}>
+              + Thêm linh kiện
+            </Btn>
+          )}
         </div>
       </div>
 
@@ -942,7 +962,7 @@ function DanhMucTab() {
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           placeholder="Tìm theo mã hoặc tên linh kiện..."
-          className="focus-ring w-64 bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+          className="focus-ring w-full sm:w-64 bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
         />
         {/* Nhac nho so ket qua (phan hoi 2026-08-25, hang muc #11) - chi hien khi dang go tim kiem. */}
         {search.trim() && <span className="text-xs text-[var(--ink-400)]">{filteredRows.length} kết quả</span>}

@@ -305,7 +305,11 @@ function MainApp({
             notificationBell={<NotificationBell unreadCount={notifCounts?.ktvLogChuaDoc ?? 0} onOpenDonHang={openDonHangFromBell} onOpenPxk={openPxkFromBell} />}
           />
         )}
-        <main className={`px-4 pt-4 pb-5 sm:px-6 sm:pt-4 sm:pb-[22px] flex-1 min-w-0 ${isMobile ? "pb-20" : ""}`}>
+        {/* SUA (phan hoi 2026-09-27 "mất bottom"): truoc day gan CUNG LUC "pb-5" va "pb-20" - trong CSS Tailwind
+            sinh ra pb-5 dung sau nen THANG, chi con 20px -> phan cuoi MOI trang (phan trang, nut cuoi) nam
+            khuat duoi BottomTabBar (h-14 = 56px, fixed). Gio chon 1 trong 2 theo isMobile (< 768px, khop
+            md:hidden cua BottomTabBar): 56px thanh + 16px khoang thoang + safe-area iPhone. */}
+        <main className={`px-4 pt-4 sm:px-6 sm:pt-4 flex-1 min-w-0 ${isMobile ? "pb-[calc(4.5rem+env(safe-area-inset-bottom))]" : "pb-5 sm:pb-[22px]"}`}>
           <div className="flex items-center justify-between mb-[14px] flex-wrap gap-2">
             <div className="flex items-center gap-3 flex-wrap min-w-0">
               {active !== "dat-mua-lk" && <h1 className="page-title text-lg sm:text-[21px]">{MODULE_TITLES[active]}</h1>}
