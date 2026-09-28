@@ -3695,28 +3695,16 @@ datMuaLinhKien.get("/ly-do-cham", async (c) => {
 
 // GET /api/dat-mua-lk/thieu-lk?dat_don_hang_id=&trang_thai= - danh sach, Kho/TN xem toan bo, nguoi
 // khac chi xem thieu-lk cua dong don hang minh tao.
-datMuaLinhKien.get("/thieu-lk", async (c) => {
+// Dieu kien WHERE cua GET /thieu-lk (tach ham 2026-09-28) - dung CHUNG cho /thieu-lk-status-counts de so dem o cot
+// trang thai ben trai man Thieu LK luon KHOP dung danh sach dang xem (cung pham vi + khu vuc + nguoi nhan + tim kiem).
+// boQuaTrangThai = true: bo dieu kien trang thai (dem theo tung trang thai).
+async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = false): Promise<{ whereSql: string; binds: unknown[] }> {
   const user = c.get("user");
   const donHangId = c.req.query("dat_don_hang_id");
-  const trangThai = c.req.query("trang_thai");
-  // "khu_vuc" (them 2026-08-31, dong bo voi GET /don-hang - xem CLAUDE.md muc kiem tra toan he
-  // thong) - ddh da duoc LEFT JOIN san o ca 2 query duoi nen dung lai duoc dung dieu kien.
+  const trangThai = boQuaTrangThai ? undefined : c.req.query("trang_thai");
   const khuVuc = c.req.query("khu_vuc")?.trim();
-  // "nguoi_nhan_hang" (them 2026-09-05, phan hoi "'Chờ LK' chức năng filter vẫn thiếu bộ lọc theo khu
-  // vực, theo người nhận hàng") - loc theo dung KTV nhan hang cua DON HANG GOC (ddh.nguoi_nhan_hang),
-  // khop dung cot da dung san cho khu_vuc o tren, dong bo voi GET /don-hang/GET /phieu-xuat-kho.
   const nguoiNhanHang = c.req.query("nguoi_nhan_hang")?.trim();
-  // Them 2026-08-21 (dong bo UI voi GET /don-hang) - tim theo ma LK/ten LK/ma TLK/nguoi bao.
-  // .normalize("NFC") - xem giai thich day du o settingsKtv.ts GET / (cung fix, cung ngay).
   const q = c.req.query("q")?.trim().normalize("NFC");
-  // GD4 (phan hoi Codex #17): truoc day tra ve TOAN BO dong khop bo loc, frontend tu slice o client.
-  // Them phan trang server-side, cung pattern voi GET /don-hang.
-  // KHONG truyen page -> tra HET (nut "Tải danh sách chi tiết", them 2026-09-13, mirror settingsKtv.ts).
-  const pageParam = c.req.query("page");
-  const page = Math.max(1, Number(pageParam ?? 1));
-  const pageSize = Math.min(1000, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
-  const offset = (page - 1) * pageSize;
-
   let whereSql = "1=1";
   const binds: unknown[] = [];
   // FIX (ma tran kiem soat he thong, Van de #4 sheet "5. Van de phat hien", xac nhan 2026-08-24): truoc
@@ -3757,6 +3745,11 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
     const ds = thieuLkTrangThaiViec(c);
     whereSql += ds.length ? ` AND ${latestThieuLkStatusExpr("tlk.id")} IN (${ds.map(() => "?").join(",")})` : " AND 1=0";
     binds.push(...ds);
+  } else if (trangThai?.includes(",")) {
+    // Nhieu trang thai (bam tieu de nhom o cot trang thai ben trai man Thieu LK, 2026-09-28).
+    const ds = trangThai.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 20);
+    whereSql += ` AND ${latestThieuLkStatusExpr("tlk.id")} IN (${ds.map(() => "?").join(",")})`;
+    binds.push(...ds);
   } else if (trangThai) {
     whereSql += ` AND ${latestThieuLkStatusExpr("tlk.id")} = ?`;
     binds.push(trangThai);
@@ -3778,6 +3771,26 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
     whereSql += ` AND (ddh.ma_lk LIKE ? OR ddh.ten_lk_snapshot LIKE ? OR tlk.id LIKE ? OR tlk.nguoi_tao LIKE ?${theoTen.sql})`;
     binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoTen.binds);
   }
+  return { whereSql, binds };
+}
+
+datMuaLinhKien.get("/thieu-lk", async (c) => {
+  // "khu_vuc" (them 2026-08-31, dong bo voi GET /don-hang - xem CLAUDE.md muc kiem tra toan he
+  // thong) - ddh da duoc LEFT JOIN san o ca 2 query duoi nen dung lai duoc dung dieu kien.
+  // "nguoi_nhan_hang" (them 2026-09-05, phan hoi "'Chờ LK' chức năng filter vẫn thiếu bộ lọc theo khu
+  // vực, theo người nhận hàng") - loc theo dung KTV nhan hang cua DON HANG GOC (ddh.nguoi_nhan_hang),
+  // khop dung cot da dung san cho khu_vuc o tren, dong bo voi GET /don-hang/GET /phieu-xuat-kho.
+  // Them 2026-08-21 (dong bo UI voi GET /don-hang) - tim theo ma LK/ten LK/ma TLK/nguoi bao.
+  // .normalize("NFC") - xem giai thich day du o settingsKtv.ts GET / (cung fix, cung ngay).
+  // GD4 (phan hoi Codex #17): truoc day tra ve TOAN BO dong khop bo loc, frontend tu slice o client.
+  // Them phan trang server-side, cung pattern voi GET /don-hang.
+  // KHONG truyen page -> tra HET (nut "Tải danh sách chi tiết", them 2026-09-13, mirror settingsKtv.ts).
+  const pageParam = c.req.query("page");
+  const page = Math.max(1, Number(pageParam ?? 1));
+  const pageSize = Math.min(1000, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const offset = (page - 1) * pageSize;
+
+  const { whereSql, binds } = await thieuLkListWhere(c);
 
   // SUA 2026-08-21: count query gio can JOIN ddh giong query chinh ben duoi vi whereSql (nhanh "q")
   // co the tham chieu ddh.ma_lk/ddh.ten_lk_snapshot - truoc do count khong JOIN vi whereSql chua bao
@@ -3815,43 +3828,11 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
 // comment tai GET /don-hang-status-counts) - scope GIONG HET GET /thieu-lk (khong cong them
 // dat_don_hang_id/khu_vuc/q dang loc phu).
 datMuaLinhKien.get("/thieu-lk-status-counts", async (c) => {
-  const user = c.get("user");
-  let whereSql = "1=1";
-  const binds: unknown[] = [];
-  if (canKho(c) || canTacNghiep(c)) {
-    // FIX (phat hien qua ra soat QA "click StatCard hien it ticket hon so tren the") - cung loi voi
-    // /don-hang-status-counts/phieu-xuat-kho/status-counts (xem giai thich day du o do): comment goc
-    // "khong cong them khu_vuc" gia dinh sai vi ThieuLkTab.tsx TU DONG ap dung Khu vuc cua chinh tai
-    // khoan lam gia tri MAC DINH (khuVucDefaultAppliedRef) - voi TN/Kho DA duoc gan Khu vuc rieng
-    // (user_khu_vuc), so o day lon hon danh sach mac dinh. ddh da LEFT JOIN san nen dung thang cot
-    // ddh.email_gs (khong can EXISTS nhu pxkScope).
-    const khuVucSet = await khuVucCuaToiSet(c.env.DB, user);
-    if (khuVucSet) {
-      const { sql, binds: kvBinds } = khuVucSetWhereSql(khuVucSet, ["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
-      whereSql += sql;
-      binds.push(...kvBinds);
-    }
-    const gsSet = await phuTrachGsSet(c.env.DB, user.email);
-    if (gsSet) {
-      whereSql += ` AND ddh.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;
-      binds.push(...gsSet);
-    }
-  } else if (user.vai_tro === "Giam sat") {
-    whereSql += " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ?)"; // + don chinh GS tao (2026-09-28)
-    binds.push(user.email, user.email);
-  } else if (user.la_view) {
-    const emailIn = khuVucViewEmailInSql();
-    whereSql += ` AND (ddh.nguoi_tao IN ${emailIn} OR ddh.nguoi_nhan_hang IN ${emailIn})`;
-    binds.push(user.email, user.email);
-  } else {
-    whereSql += " AND tlk.nguoi_tao = ?";
-    binds.push(user.email);
-  }
-  const totalRow = await c.env.DB.prepare(
-    `SELECT COUNT(*) as total FROM thieu_lk tlk LEFT JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id WHERE ${whereSql}`,
-  )
-    .bind(...binds)
-    .first<{ total: number }>();
+  // SUA 2026-09-28: nhan CUNG bo loc voi danh sach (khu_vuc/nguoi_nhan_hang/q) - so o cot trang thai = so dong that.
+  // Cung dieu kien voi danh sach (tru trang thai) - xem thieuLkListWhere().
+  const { whereSql, binds } = await thieuLkListWhere(c, true);
+  // 1 truy van GROUP BY duy nhat (2026-09-28, tiet kiem D1 - truoc day them 1 COUNT(*) rieng quet lai cung tap
+  // dong); tong "" = cong cac nhom. Cot trang thai ben trai man Thieu LK doc so tu CHINH endpoint nay.
   const { results } = await c.env.DB.prepare(
     `SELECT ${latestThieuLkStatusExpr("tlk.id")} as trang_thai, COUNT(*) as n
      FROM thieu_lk tlk LEFT JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id WHERE ${whereSql}
@@ -3859,8 +3840,8 @@ datMuaLinhKien.get("/thieu-lk-status-counts", async (c) => {
   )
     .bind(...binds)
     .all<{ trang_thai: string; n: number }>();
-  const counts: Record<string, number> = { "": totalRow?.total ?? 0 };
-  for (const r of results) counts[r.trang_thai ?? ""] = r.n;
+  const counts: Record<string, number> = { "": results.reduce((s, r) => s + r.n, 0) };
+  for (const r of results) if (r.trang_thai) counts[r.trang_thai] = r.n;
   const viec = thieuLkTrangThaiViec(c);
   counts[THIEU_LK_VIEC] = viec.reduce((s, t) => s + (counts[t] ?? 0), 0);
   return c.json({ counts });
@@ -3934,8 +3915,14 @@ async function applyThieuLkLog(
     return { error: "FORBIDDEN_ROLE", status: 403 };
   }
 
-  const validNext = ["Kho da tiep nhan", "Kho xac nhan hang da ve", "Kho tu choi sai TT", "Da huy bo", "Da ket thuc"];
+  const validNext = ["Kho da tiep nhan", "Kho da cap nhat", "Kho xac nhan hang da ve", "Kho tu choi sai TT", "Da huy bo", "Da ket thuc"];
   if (!validNext.includes(trangThai)) return { error: "INVALID_TRANG_THAI", status: 400 };
+  // "Kho da cap nhat" (2026-09-28): Kho cap nhat lai ngay du kien/ghi chu SAU khi da tiep nhan (lap lai duoc) - phai
+  // co it nhat 1 thong tin moi, khong thi chi la 1 dong log rong.
+  if (trangThai === "Kho da cap nhat") {
+    if (tlk.trang_thai !== "Kho da tiep nhan" && tlk.trang_thai !== "Kho da cap nhat") return { error: "INVALID_TRANG_THAI", status: 400 };
+    if (!ngayDuKienCoHang?.trim() && !ghiChu?.trim()) return { error: "MISSING_THONG_TIN_CAP_NHAT", status: 400 };
+  }
   // "Kho da tiep nhan" = buoc Kho giai trinh ly do thieu hang that su (cot "Giai thich ly do thieu
   // hang" trong Excel goc) - bat buoc ghi_chu, khong duoc de trong.
   if (trangThai === "Kho da tiep nhan" && !ghiChu?.trim()) return { error: "MISSING_GIAI_TRINH", status: 400 };
@@ -3950,8 +3937,12 @@ async function applyThieuLkLog(
       ghiChu?.trim() || null,
     ),
   ];
-  if (ngayDuKienCoHang !== undefined) {
+  if (ngayDuKienCoHang !== undefined && (trangThai !== "Kho da cap nhat" || ngayDuKienCoHang.trim())) {
     statements.push(c.env.DB.prepare("UPDATE thieu_lk SET ngay_du_kien_co_hang = ? WHERE id = ?").bind(ngayDuKienCoHang?.trim() || null, id));
+  }
+  // Ngay hang ve thuc te = ngay Kho bam "Hàng đã về" (gio VN) - tu dien, khong can nhap.
+  if (trangThai === "Kho xac nhan hang da ve") {
+    statements.push(c.env.DB.prepare("UPDATE thieu_lk SET ngay_hang_ve_thuc_te = ? WHERE id = ?").bind(now.slice(0, 10), id));
   }
 
   // 3 nhanh "tiep tuc luong don hang" da chot - dong quay ve "TN da duyet" ngay, chi khi dong dang

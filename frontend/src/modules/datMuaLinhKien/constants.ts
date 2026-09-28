@@ -217,6 +217,7 @@ export const DON_HANG_TRANG_THAI_TONE_ALL: Record<string, Tone> = { ...DON_HANG_
 export const THIEU_LK_TRANG_THAI_TONE: Record<string, Tone> = {
   "Cho kho xu ly": "info",
   "Kho da tiep nhan": "info",
+  "Kho da cap nhat": "info",
   "Kho xac nhan hang da ve": "success",
   "Kho tu choi sai TT": "danger",
   "Da huy bo": "neutral",
@@ -348,6 +349,7 @@ export const THIEU_LK_TRANG_THAI_OPTIONS = [
   { value: "", label: "Tất cả" },
   { value: "Cho kho xu ly", label: "Chờ kho xử lý" },
   { value: "Kho da tiep nhan", label: "Kho đã tiếp nhận" },
+  { value: "Kho da cap nhat", label: "Kho đã cập nhật" },
   { value: "Kho xac nhan hang da ve", label: "Hàng đã về" },
   { value: "Kho tu choi sai TT", label: "Kho từ chối (sai TT)" },
   { value: "Da huy bo", label: "Đã huỷ bỏ" },

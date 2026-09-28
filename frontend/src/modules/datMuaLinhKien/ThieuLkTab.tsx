@@ -20,7 +20,8 @@ import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import type { ThieuLkRow, LyDoChamRow, NguoiNhanHangKhaDungRow } from "./types";
 import { THIEU_LK_TRANG_THAI_TONE, THIEU_LK_TRANG_THAI_OPTIONS } from "./constants";
 import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts, trangThaiLabel, formatLkLabel, LOAI_DON_TONE } from "./helpers";
-import { StatusBadge, LoaiDeXuatBadge, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar, KhuVucChipFilter } from "./SharedUi";
+import { StatusBadge, LoaiDeXuatBadge, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar, KhuVucChipFilter } from "./SharedUi";
+import { ThieuLkStatusRail } from "./ThieuLkStatusRail";
 // Lien ket 2 chieu voi don goc (phan hoi 2026-09-10: "đơn gốc cũng không có truy vấn đến đơn ticket
 // đơn thiếu linh kiện") - import truc tiep component Drawer chi tiet don hang, tu quan ly state mo/dong
 // CUC BO trong ThieuLkDetailModal (khong lifting len ThieuLkTab), tranh phai xuyen them props qua
@@ -55,8 +56,10 @@ function nextStatesForThieuLk(
       { trangThai: "Kho tu choi sai TT", canDo: ctx.canKho },
       { trangThai: "Da huy bo", canDo: isCreator },
     ];
-  if (r.trang_thai === "Kho da tiep nhan")
+  // "Kho da cap nhat" (2026-09-28): sau tiep nhan, Kho cap nhat lai ngay du kien/ghi chu (lap lai duoc).
+  if (r.trang_thai === "Kho da tiep nhan" || r.trang_thai === "Kho da cap nhat")
     return [
+      { trangThai: "Kho da cap nhat", canDo: ctx.canKho },
       { trangThai: "Kho xac nhan hang da ve", canDo: ctx.canKho },
       { trangThai: "Da huy bo", canDo: ctx.canKho || isCreator },
     ];
@@ -70,8 +73,12 @@ function nextStatesForThieuLk(
 // nhan bulk - can THE MENH LENH, khong phai qua khu). Ham nay CHI dung cho nhom hanh dong, tra ve
 // nhan khac trangThaiLabel() dung cho nhom trang thai - hien chi "Da huy bo" can tach, cac gia tri
 // khac giu nguyen (dung chung 1 nhan cho ca 2 vai tro).
+// Buoc can nhap lieu truoc khi chuyen (mo khung nhap thay vi bam la chuyen ngay).
+const CAN_NHAP_LIEU = ["Kho da tiep nhan", "Kho da cap nhat"];
+
 function actionLabel(trangThai: string): string {
   if (trangThai === "Da huy bo") return "Hủy bỏ";
+  if (trangThai === "Kho da cap nhat") return "Cập nhật thông tin";
   return trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, trangThai);
 }
 
@@ -216,9 +223,15 @@ export function ThieuLkTab({
   });
   // So "(N)" canh moi trang thai trong TrangThaiDropdownFilter (them 2026-09-01) - dem TINH theo dung
   // scope cua tab, bo qua cac bo loc phu (khu_vuc/q) - xem GET /dat-mua-lk/thieu-lk-status-counts.
+  // SUA 2026-09-28 (cot trang thai ben trai): gui CUNG bo loc voi danh sach (tru trang thai) de so moi muc = so dong
+  // that khi bam vao. 1 truy van GROUP BY o server; chi tai lai khi doi khu vuc/nguoi nhan/tim kiem hoac sau thao tac.
   const { data: statusCountsData } = useQuery({
-    queryKey: ["dat-mua-lk-thieu-lk-status-counts"],
-    queryFn: () => api.get<{ counts: Record<string, number> }>("/dat-mua-lk/thieu-lk-status-counts"),
+    queryKey: ["dat-mua-lk-thieu-lk-status-counts", khuVucParam, filterNguoiNhanHang, debouncedQ],
+    queryFn: () =>
+      api.get<{ counts: Record<string, number> }>(
+        "/dat-mua-lk/thieu-lk-status-counts" +
+          buildQuery({ khu_vuc: khuVucParam || undefined, nguoi_nhan_hang: filterNguoiNhanHang || undefined, q: debouncedQ || undefined }),
+      ),
   });
 
   // "Tải danh sách chi tiết" (them 2026-09-13) - mirror handleDownloadFullList() cua UsersModule.tsx,
@@ -247,6 +260,7 @@ export function ThieuLkTab({
   // "Kho da tiep nhan" = buoc Kho giai trinh ly do thieu hang that su + bao ngay du kien co hang
   // (dung cot trong Excel goc) - bat buoc ghi_chu, khong nhu cac buoc khac chi tuy chon.
   const isGiaiTrinh = actionTrangThai === "Kho da tiep nhan";
+  const isCapNhat = actionTrangThai === "Kho da cap nhat";
   // CHOT (ra soat module "Dat Mua Linh Kien 2.0" #20): goi y nhanh (chip) cho o giai trinh bat buoc -
   // KHONG bulk hoa buoc nay (moi ticket thuong co ly do thuc te khac nhau, 1 ly do chung ap cho ca
   // loat se lam sai lech dung muc dich giai trinh THAT), thay vao do toi uu luong DON LE nhanh hon
@@ -334,7 +348,8 @@ export function ThieuLkTab({
   // rieng vao ActiveFiltersBar - gia tri dang chon da hien SAN trong o TrangThaiDropdownFilter (doi tu
   // chip/nut sang dropdown 2026-09-01), them chip nua se TRUNG LAP (xem comment tuong tu o
   // DonCuaToiTab.tsx/PhieuXuatKhoTab.tsx).
-  const activeFilterCount = [filterTrangThai, filterQ, khuVucParam, filterNguoiNhanHang].filter(Boolean).length;
+  // Trang thai da hien o cot ben trai (ThieuLkStatusRail) nen khong dem vao "Bộ lọc (N)" nua (2026-09-28).
+  const activeFilterCount = [filterQ, khuVucParam, filterNguoiNhanHang].filter(Boolean).length;
   // "⚙ Tuỳ chỉnh cột" (phan hoi 2026-09-05: "button 'Tùy chỉnh cột' vẫn đang ở bên ngoài" so voi Mua
   // hàng/Công nợ) - truoc day 1 hang rieng LUON hien phia tren danh sach (xem ThieuLkGroupedList).
   // Doi sang Portal vao trong bang loc (mac dinh AN theo showFilters), khop DUNG pattern DonCuaToiTab.tsx
@@ -343,7 +358,9 @@ export function ThieuLkTab({
   const [columnSettingsSlot, setColumnSettingsSlot] = useState<HTMLDivElement | null>(null);
 
   return (
-    <div className="mt-4">
+    <div className="mt-4 md:flex md:items-start md:gap-[14px]">
+      <ThieuLkStatusRail value={filterTrangThai} onChange={setFilterTrangThai} counts={statusCountsData?.counts} canKho={canKho} canTacNghiep={canTacNghiep} />
+      <div className="min-w-0 flex-1">
       <FilterSearchBar
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters((v) => !v)}
@@ -352,12 +369,6 @@ export function ThieuLkTab({
         onSearchChange={setFilterQ}
         searchPlaceholder="Tìm theo mã TLK, mã LK, tên LK, tên KTV/người báo..."
       >
-        <TrangThaiDropdownFilter
-          value={filterTrangThai}
-          onChange={setFilterTrangThai}
-          options={coViec ? [THIEU_LK_TRANG_THAI_OPTIONS[0], { value: "__VIEC__", label: "Việc cần xử lý" }, ...THIEU_LK_TRANG_THAI_OPTIONS.slice(1)] : THIEU_LK_TRANG_THAI_OPTIONS}
-          counts={statusCountsData?.counts}
-        />
         {/* Bo loc Khu vuc (them 2026-08-31, MO RONG 2026-09-05 dong bo voi DonCuaToiTab.tsx - xem
             showKhuVucFilter phia tren, khong chi rieng Kho nua). SUA BUG GIAO DIEN (phan hoi 2026-09-12):
             bo nhan "Khu vực" rieng ben ngoai (gay lech chieu cao so voi cac o loc khac cung hang) -
@@ -429,7 +440,7 @@ export function ThieuLkTab({
         onDetail={(id) => setDetailId(id)}
         ktvDisplayMap={ktvDisplayMap}
         nextStates={NEXT_STATES}
-        onGiaiTrinh={(r) => { setActionId(r.id); setActionTrangThai("Kho da tiep nhan"); setGhiChu(""); setNgayDuKien(""); }}
+        onGiaiTrinh={(r, tt) => { setActionId(r.id); setActionTrangThai(tt); setGhiChu(""); setNgayDuKien(tt === "Kho da cap nhat" ? r.ngay_du_kien_co_hang ?? "" : ""); }}
         onQuickAction={(r, trangThai) => logMutation.mutate({ id: r.id, trangThai })}
         quickActionPending={logMutation.isPending}
         selected={selected}
@@ -440,7 +451,7 @@ export function ThieuLkTab({
       {actionId && (
         <Modal open title={`Chuyển sang: ${actionLabel(actionTrangThai)}`} onClose={() => setActionId(null)}>
           <div className="space-y-3 text-sm">
-            {isGiaiTrinh && (
+            {(isGiaiTrinh || isCapNhat) && (
               <div>
                 <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Ngày dự kiến có hàng</label>
                 <input
@@ -456,9 +467,10 @@ export function ThieuLkTab({
               <input
                 value={ghiChu}
                 onChange={(e) => setGhiChu(e.target.value)}
-                placeholder={isGiaiTrinh ? "Bắt buộc - giải thích thực tế vì sao thiếu hàng" : "Ghi chú (tuỳ chọn)"}
+                placeholder={isGiaiTrinh ? "Bắt buộc - giải thích thực tế vì sao thiếu hàng" : isCapNhat ? "Ghi chú tiến độ (vd: NCC báo lùi ngày giao)" : "Ghi chú (tuỳ chọn)"}
                 className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
               />
+              {isCapNhat && <div className="mt-1 text-[11px] text-[var(--ink-400)]">Cần đổi ngày dự kiến hoặc nhập ghi chú.</div>}
               {isGiaiTrinh && (giaiTrinhGoiYData?.rows.length ?? 0) > 0 && (
                 <div className="flex gap-1.5 flex-wrap mt-1.5">
                   {(giaiTrinhGoiYData?.rows ?? []).map((l) => (
@@ -478,8 +490,8 @@ export function ThieuLkTab({
               <Btn variant="ghost" size="sm" onClick={() => setActionId(null)}>Hủy</Btn>
               <Btn
                 size="sm"
-                onClick={() => actionId && logMutation.mutate({ id: actionId, trangThai: actionTrangThai, ghiChu, ngayDuKien: isGiaiTrinh ? ngayDuKien : undefined })}
-                disabled={logMutation.isPending || (isGiaiTrinh && !ghiChu.trim())}
+                onClick={() => actionId && logMutation.mutate({ id: actionId, trangThai: actionTrangThai, ghiChu, ngayDuKien: isGiaiTrinh || isCapNhat ? ngayDuKien : undefined })}
+                disabled={logMutation.isPending || (isGiaiTrinh && !ghiChu.trim()) || (isCapNhat && !ghiChu.trim() && !ngayDuKien)}
               >
                 Xác nhận
               </Btn>
@@ -500,6 +512,7 @@ export function ThieuLkTab({
           onNavigate={setDetailId}
         />
       )}
+      </div>
     </div>
   );
 }
@@ -525,7 +538,7 @@ function ThieuLkGroupedList({
   onDetail: (id: string) => void;
   ktvDisplayMap: ReturnType<typeof useKtvDisplayMap>;
   nextStates: (r: ThieuLkRow) => { trangThai: string; canDo: boolean }[];
-  onGiaiTrinh: (r: ThieuLkRow) => void;
+  onGiaiTrinh: (r: ThieuLkRow, trangThai: string) => void;
   onQuickAction: (r: ThieuLkRow, trangThai: string) => void;
   quickActionPending: boolean;
   selected: Set<string>;
@@ -541,6 +554,7 @@ function ThieuLkGroupedList({
   // nguoi dung dung trinh doc man hinh/hover, chi phan hien thi la icon.
   const ACTION_ICON: Record<string, string> = {
     "Kho da tiep nhan": "📝",
+    "Kho da cap nhat": "🗓",
     "Kho tu choi sai TT": "✕",
     "Da huy bo": "🚫",
     "Kho xac nhan hang da ve": "✓",
@@ -580,6 +594,7 @@ function ThieuLkGroupedList({
     { key: "nguoi_tao", header: "TN báo", render: (r) => formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap) },
     { key: "ngay_tao", header: "Ngày báo", render: (r) => fmtDateTime(r.ngay_tao) },
     { key: "ngay_du_kien_co_hang", header: "Ngày dự kiến có hàng", render: (r) => r.ngay_du_kien_co_hang ?? "—" },
+    { key: "ngay_hang_ve_thuc_te", header: "Ngày hàng về", render: (r) => r.ngay_hang_ve_thuc_te ?? "—" },
     {
       key: "trang_thai", header: "Trạng thái",
       render: (r) => (
@@ -609,7 +624,7 @@ function ThieuLkGroupedList({
                 title={`${s.trangThai === "Da ket thuc" ? "TN: " : ""}${actionLabel(s.trangThai)}`}
                 aria-label={actionLabel(s.trangThai)}
                 disabled={quickActionPending}
-                onClick={() => (s.trangThai === "Kho da tiep nhan" ? onGiaiTrinh(r) : onQuickAction(r, s.trangThai))}
+                onClick={() => (CAN_NHAP_LIEU.includes(s.trangThai) ? onGiaiTrinh(r, s.trangThai) : onQuickAction(r, s.trangThai))}
               >
                 {ACTION_ICON[s.trangThai] ?? actionLabel(s.trangThai)}
               </Btn>
@@ -656,7 +671,7 @@ function ThieuLkGroupedList({
     nguoiNhan,
     dongCon,
     choXuLy: dongCon.filter((r) => r.trang_thai === "Cho kho xu ly").length,
-    dangXuLy: dongCon.filter((r) => r.trang_thai === "Kho da tiep nhan").length,
+    dangXuLy: dongCon.filter((r) => r.trang_thai === "Kho da tiep nhan" || r.trang_thai === "Kho da cap nhat").length,
     hoanTat: dongCon.filter((r) => r.trang_thai === "Kho xac nhan hang da ve" || r.trang_thai === "Da ket thuc").length,
     huyBo: dongCon.filter((r) => r.trang_thai === "Da huy bo" || r.trang_thai === "Kho tu choi sai TT").length,
   }));
@@ -809,7 +824,7 @@ function ThieuLkGroupedList({
                                 title={`${s.trangThai === "Da ket thuc" ? "TN: " : ""}${actionLabel(s.trangThai)}`}
                                 aria-label={actionLabel(s.trangThai)}
                                 disabled={quickActionPending}
-                                onClick={() => (s.trangThai === "Kho da tiep nhan" ? onGiaiTrinh(r) : onQuickAction(r, s.trangThai))}
+                                onClick={() => (CAN_NHAP_LIEU.includes(s.trangThai) ? onGiaiTrinh(r, s.trangThai) : onQuickAction(r, s.trangThai))}
                               >
                                 {ACTION_ICON[s.trangThai] ?? actionLabel(s.trangThai)}
                               </Btn>
@@ -905,6 +920,7 @@ export function ThieuLkDetailModal({
   const t = data?.thieuLk;
   const nexts = t ? nextStatesForThieuLk(t, { canKho, canTacNghiep, currentEmail }).filter((s) => s.canDo) : [];
   const isGiaiTrinh = actionTrangThai === "Kho da tiep nhan";
+  const isCapNhat = actionTrangThai === "Kho da cap nhat";
 
   const navIndex = navRows?.findIndex((r) => r.id === id) ?? -1;
   const navPrevId = navRows && navIndex > 0 ? navRows[navIndex - 1]?.id : undefined;
@@ -921,7 +937,7 @@ export function ThieuLkDetailModal({
       actionTrangThai ? (
         <div className="space-y-2">
           <div className="font-semibold text-xs">Chuyển sang: {actionLabel(actionTrangThai)}</div>
-          {isGiaiTrinh && (
+          {(isGiaiTrinh || isCapNhat) && (
             <div>
               <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Ngày dự kiến có hàng</label>
               <input
@@ -935,9 +951,10 @@ export function ThieuLkDetailModal({
           <input
             value={ghiChu}
             onChange={(e) => setGhiChu(e.target.value)}
-            placeholder={isGiaiTrinh ? "Bắt buộc - giải thích thực tế vì sao thiếu hàng" : "Ghi chú (tuỳ chọn)"}
+            placeholder={isGiaiTrinh ? "Bắt buộc - giải thích thực tế vì sao thiếu hàng" : isCapNhat ? "Ghi chú tiến độ (vd: NCC báo lùi ngày giao)" : "Ghi chú (tuỳ chọn)"}
             className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
           />
+          {isCapNhat && <div className="text-[11px] text-[var(--ink-400)]">Cần đổi ngày dự kiến hoặc nhập ghi chú.</div>}
           {isGiaiTrinh && (giaiTrinhGoiYData?.rows.length ?? 0) > 0 && (
             <div className="flex gap-1.5 flex-wrap">
               {(giaiTrinhGoiYData?.rows ?? []).map((l) => (
@@ -956,8 +973,8 @@ export function ThieuLkDetailModal({
             <Btn variant="ghost" size="sm" onClick={() => { setActionTrangThai(null); setGhiChu(""); setNgayDuKien(""); }}>Hủy</Btn>
             <Btn
               size="sm"
-              onClick={() => logMutation.mutate({ trangThai: actionTrangThai, ghiChu, ngayDuKien: isGiaiTrinh ? ngayDuKien : undefined })}
-              disabled={logMutation.isPending || (isGiaiTrinh && !ghiChu.trim())}
+              onClick={() => logMutation.mutate({ trangThai: actionTrangThai, ghiChu, ngayDuKien: isGiaiTrinh || isCapNhat ? ngayDuKien : undefined })}
+              disabled={logMutation.isPending || (isGiaiTrinh && !ghiChu.trim()) || (isCapNhat && !ghiChu.trim() && !ngayDuKien)}
             >
               Xác nhận
             </Btn>
@@ -972,12 +989,12 @@ export function ThieuLkDetailModal({
               variant="ghost"
               disabled={logMutation.isPending}
               onClick={() => {
-                if (s.trangThai === "Kho da tiep nhan") { setActionTrangThai(s.trangThai); setGhiChu(""); setNgayDuKien(""); }
+                if (CAN_NHAP_LIEU.includes(s.trangThai)) { setActionTrangThai(s.trangThai); setGhiChu(""); setNgayDuKien(s.trangThai === "Kho da cap nhat" ? t.ngay_du_kien_co_hang ?? "" : ""); }
                 else logMutation.mutate({ trangThai: s.trangThai });
               }}
             >
               {s.trangThai === "Da ket thuc" ? <span className="text-[var(--ink-400)]">TN: </span> : null}
-              {actionLabel(s.trangThai)}{s.trangThai === "Kho da tiep nhan" ? "…" : ""}
+              {actionLabel(s.trangThai)}{CAN_NHAP_LIEU.includes(s.trangThai) ? "…" : ""}
             </Btn>
           ))}
         </div>
@@ -1028,6 +1045,7 @@ export function ThieuLkDetailModal({
             </button>
           </KvRow>
           <KvRow label="Ngày dự kiến có hàng">{t.ngay_du_kien_co_hang ?? "—"}</KvRow>
+          <KvRow label="Ngày hàng về thực tế">{t.ngay_hang_ve_thuc_te ?? "—"}</KvRow>
           {t.ten_ly_do && <KvRow label="Lý do TN báo">{t.ten_ly_do}</KvRow>}
 
           <SectionTitle>Lịch sử xử lý</SectionTitle>

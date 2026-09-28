@@ -64,6 +64,7 @@ const DON_HANG_EVENT: Record<string, string> = {
 const THIEU_LK_EVENT: Record<string, string> = {
   "Cho kho xu ly": "thieu_lk_cho_kho_xu_ly",
   "Kho da tiep nhan": "thieu_lk_kho_da_tiep_nhan",
+  "Kho da cap nhat": "thieu_lk_kho_da_cap_nhat",
   "Kho xac nhan hang da ve": "thieu_lk_kho_xac_nhan_hang_ve",
   "Kho tu choi sai TT": "thieu_lk_kho_tu_choi",
   "Da huy bo": "thieu_lk_huy_bo",

@@ -211,6 +211,8 @@ export interface ThieuLkRow {
   ly_do_cham_id: number | null;
   ten_ly_do: string | null;
   ngay_du_kien_co_hang: string | null;
+  /** Ngay (gio VN) Kho bam "Hàng đã về" - server tu dien (migration 0040). */
+  ngay_hang_ve_thuc_te?: string | null;
   nguoi_tao: string;
   ngay_tao: string;
   trang_thai: string;
