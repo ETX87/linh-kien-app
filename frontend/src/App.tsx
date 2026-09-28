@@ -134,6 +134,18 @@ function MainApp({
     refetchInterval: 5 * 60_000,
   });
   const [pendingDetailOpen, setPendingDetailOpen] = useState<{ tab: "don-cua-toi" | "phieu-xuat-kho" | "tra-hang" | "thieu-lk"; id: string; nonce: number } | null>(null);
+  // Deep link "?ktvSearch=<email hoac ma_ktv>" (them 2026-09-28, phan hoi tu vi-pham-app: Admin gan/doi
+  // lai KTV cho 1 gmail dang nhap chi sua duoc TAI DAY - ktv_lien_he ben vi-pham-app chi la cache doc-
+  // only, bi ghi de moi gio). Nut "Gan lai KTV" ben vi-pham-app mo tab moi toi URL nay de nhay thang
+  // vao tab "KTV hien truong" (UsersModule) voi o tim kiem dien san, khong can Admin tu di tim lai.
+  const [pendingKtvSearch, setPendingKtvSearch] = useState<{ value: string; nonce: number } | null>(null);
+  useEffect(() => {
+    const ktvSearch = new URLSearchParams(window.location.search).get("ktvSearch");
+    if (!ktvSearch) return;
+    window.history.replaceState(null, "", "/");
+    setActive("users");
+    setPendingKtvSearch({ value: ktvSearch, nonce: Date.now() });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   function openDonHangFromBell(donHangId: string) {
     setActive("dat-mua-lk");
     setPendingDetailOpen({ tab: "don-cua-toi", id: donHangId, nonce: Date.now() });
@@ -372,7 +384,7 @@ function MainApp({
           {active === "danh-sach-ktv" && <DanhSachKtvModule />}
           {active === "bao-cao-toc-do" && <BaoCaoTocDoXuLyModule />}
           {active === "settings" && <SettingsModule />}
-          {active === "users" && <UsersModule />}
+          {active === "users" && <UsersModule pendingKtvSearch={pendingKtvSearch} />}
         </main>
       </div>
       {isMobile && <BottomTabBar active={active} setActive={setActive} allowedModules={allowedModules} onOpenMore={() => setMobileOpen(true)} />}

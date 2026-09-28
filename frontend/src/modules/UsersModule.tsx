@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, buildQuery } from "../api/client";
 import { Btn } from "../components/ui/Btn";
@@ -36,10 +36,15 @@ const ROLE_FLAGS: { key: keyof UserRow; label: string }[] = [
 // Nhan hien thi co dau cho users.trang_thai_duyet (gia tri DB khong dau) - truoc day in tho "Da duyet".
 const TRANG_THAI_DUYET_LABEL: Record<string, string> = { "Cho duyet": "Chờ duyệt", "Da duyet": "Đã duyệt", "Tu choi": "Từ chối" };
 
-export function UsersModule() {
+export function UsersModule({ pendingKtvSearch }: { pendingKtvSearch?: { value: string; nonce: number } | null } = {}) {
   const [tab, setTab] = useState("cho-duyet");
   const auth = useAuth();
   const isAdmin = auth.status === "authenticated" && auth.user.vai_tro === "Admin";
+  // Deep link tu vi-pham-app (xem App.tsx) - nhay thang sang tab "KTV hien truong" moi lan nonce doi
+  // (ke ca khi tab nay da mo san tu truoc, vd Admin bam 2 lan lien tiep 2 email khac nhau).
+  useEffect(() => {
+    if (pendingKtvSearch) setTab("ktv");
+  }, [pendingKtvSearch]);
   return (
     <div className="anim-in space-y-4">
       <Tabs
@@ -57,7 +62,7 @@ export function UsersModule() {
         ]}
       />
       {tab === "cho-duyet" && <UserListTab tabValue="cho-duyet" />}
-      {tab === "ktv" && <KtvTab />}
+      {tab === "ktv" && <KtvTab initialSearch={pendingKtvSearch} />}
       {tab === "van-phong" && <VanPhongTab />}
       {tab === "phu-trach-gs" && <PhuTrachGsTab />}
       {tab === "login-log" && <LoginLogTab />}
@@ -606,10 +611,17 @@ function generateInternalEmail(maKtv: string): string {
   return `${slug || "ktv"}@noreply.local`;
 }
 
-export function KtvTab({ mode = "admin" }: { mode?: KtvTabMode } = {}) {
+export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; initialSearch?: { value: string; nonce: number } | null } = {}) {
   const qc = useQueryClient();
   const addToast = useToast();
   const [search, setSearch] = useState("");
+  // Deep link tu vi-pham-app (xem UsersModule() + App.tsx) - dien san o tim kiem theo email/ma_ktv
+  // truyen vao. Khoa theo "nonce" (khong phai "value") de trigger lai duoc ngay ca khi gia tri giong
+  // het lan truoc (vd Admin bam lai cung 1 nut "Gan lai KTV" lan thu 2 sau khi da tu go xoa o tim kiem).
+  useEffect(() => {
+    if (initialSearch) setSearch(initialSearch.value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSearch?.nonce]);
   const [cap, setCap] = useState("");
   const [khuVuc, setKhuVuc] = useState("");
   const [page, setPage] = useState(1);
