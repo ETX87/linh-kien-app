@@ -35,7 +35,9 @@ lkSettings.get("/danh-muc", async (c) => {
     binds.push(since);
   }
 
-  query += " ORDER BY ma_linh_kien";
+  // Co ?since: "+ma_linh_kien" (2026-09-28, migration 0038) de SQLite KHONG di theo khoa chinh cho ORDER BY (quet ca
+  // ~6000 dong) ma SEARCH theo idx_linh_kien_ngay_cap_nhat roi sap vai dong thay doi - FE poll ~900 lan/ngay.
+  query += since ? " ORDER BY +ma_linh_kien" : " ORDER BY ma_linh_kien";
   const { results } = await c.env.DB.prepare(query).bind(...binds).all();
   return c.json({ rows: results });
 });
