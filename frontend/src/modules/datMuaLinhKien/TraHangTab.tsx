@@ -555,7 +555,7 @@ export function TraHangTab({
         activeFilterCount={activeFilterCount}
         searchValue={filterQ}
         onSearchChange={setFilterQ}
-        searchPlaceholder="Tìm theo mã đơn, mã LK, tên LK, người tạo..."
+        searchPlaceholder="Tìm theo mã đơn, mã LK, tên LK, tên KTV/người tạo..."
         trailing={
           <div className="flex items-center gap-2">
             {settingsButtonEl}

@@ -626,7 +626,7 @@ export function PhieuXuatKhoTab({
         activeFilterCount={[filterTrangThai, filterNguoiNhanHang, filterQ, khuVucParam].filter(Boolean).length}
         searchValue={filterQ}
         onSearchChange={setFilterQ}
-        searchPlaceholder="Tìm theo mã PXK, mã đơn hàng, mã MISA, mã vận đơn..."
+        searchPlaceholder="Tìm theo mã PXK, mã đơn hàng, mã MISA, tên KTV..."
         activeFilters={
           <>
             {/* Nut bam nhanh "Đơn chờ xử lý" (them 2026-09-09, phan hoi "thêm 1 nút ấn nhanh...tự

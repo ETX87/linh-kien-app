@@ -6,6 +6,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nextSequentialId } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
+import { emailsTheoTen, orEmailIn } from "../lib/timTheoTen";
 import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, khuVucViewEmailInSql, khuVucCuaToiSet, khuVucSetWhereSql, scopePxkNguoiNhanHang } from "../lib/scopeDatMua";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
@@ -1759,8 +1760,10 @@ datMuaLinhKien.get("/don-hang", async (c) => {
     // UI redesign (phan hoi Codex 2026-08-19, muc P2 "mo rong search") - truoc day chi tim ma_lk/
     // ten_lk_snapshot/id, TN/GS thuong can tim theo nguoi tao/nguoi nhan hang/ma yeu cau su co (deu
     // la cot THAT tren dat_don_hang, khong can JOIN them).
-    whereSql += " AND (ddh.ma_lk LIKE ? OR ddh.ten_lk_snapshot LIKE ? OR ddh.id LIKE ? OR ddh.nguoi_tao LIKE ? OR ddh.nguoi_nhan_hang LIKE ? OR ddh.ma_yeu_cau_su_co LIKE ?)";
-    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+    // + tim theo TEN nguoi tao/nguoi nhan hang (2026-09-28, xem lib/timTheoTen.ts).
+    const theoTen = orEmailIn(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"], await emailsTheoTen(c.env.DB, q));
+    whereSql += ` AND (ddh.ma_lk LIKE ? OR ddh.ten_lk_snapshot LIKE ? OR ddh.id LIKE ? OR ddh.nguoi_tao LIKE ? OR ddh.nguoi_nhan_hang LIKE ? OR ddh.ma_yeu_cau_su_co LIKE ?${theoTen.sql})`;
+    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoTen.binds);
   }
 
   const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM dat_don_hang ddh WHERE ${whereSql}`)
@@ -3550,8 +3553,9 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
     binds.push(nguoiNhanHang);
   }
   if (q) {
-    whereSql += " AND (ddh.ma_lk LIKE ? OR ddh.ten_lk_snapshot LIKE ? OR tlk.id LIKE ? OR tlk.nguoi_tao LIKE ?)";
-    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+    const theoTen = orEmailIn(["tlk.nguoi_tao", "ddh.nguoi_nhan_hang", "ddh.nguoi_tao"], await emailsTheoTen(c.env.DB, q));
+    whereSql += ` AND (ddh.ma_lk LIKE ? OR ddh.ten_lk_snapshot LIKE ? OR tlk.id LIKE ? OR tlk.nguoi_tao LIKE ?${theoTen.sql})`;
+    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoTen.binds);
   }
 
   // SUA 2026-08-21: count query gio can JOIN ddh giong query chinh ben duoi vi whereSql (nhanh "q")

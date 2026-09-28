@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api/client";
+import { Icon } from "./Icon";
 
 // Command palette (Ctrl+K / Cmd+K) - moi (concept 1 "Structured Neutral" da duyet, 2026-08-24). Chi
 // dieu huong giua cac module/man hinh nguoi dung DANG DUOC PHEP xem (danh sach `items` truyen tu App.tsx,
@@ -129,7 +130,12 @@ export function CommandPalette({ open, onClose, items, onSelect }: { open: boole
                   }}
                   className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left ${idx === activeIdx ? "bg-[var(--ocean-100)] text-[var(--ocean-900)]" : "text-[var(--ink-700)]"}`}
                 >
-                  <span className="w-5 text-center shrink-0">{it.icon}</span>
+                  {/* SUA (2026-09-28): item module mang TEN icon ("home"/"cart"... tu navConfig) - truoc day in
+                      thang chuoi nay ra man hinh, de len nhan. Ten co trong bo Icon -> ve SVG; con lai (emoji
+                      cua ket qua tra cuu) giu nguyen. */}
+                  <span className="grid w-5 shrink-0 place-items-center text-[var(--color-text-secondary)]">
+                    {it.icon in Icon ? Icon[it.icon as keyof typeof Icon]({ size: 17 }) : it.icon}
+                  </span>
                   <span className="flex-1 min-w-0 truncate">{it.label}</span>
                   <span className="text-[10px] uppercase tracking-wide text-[var(--ink-400)] shrink-0">{it.group}</span>
                 </button>
