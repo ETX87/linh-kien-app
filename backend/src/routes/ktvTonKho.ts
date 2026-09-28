@@ -82,34 +82,42 @@ ktvTonKho.get("/", async (c) => {
   // theo moc tinh cong no (tham so ?3/?4, bind 2 lan cho dieu kien "IS NULL OR >") - giong dung logic
   // computeCongNoPhatSinh() nhung viet lai o day de gop 1 lan truy van duy nhat.
   const mocTinhCongNo = await getMocTinhCongNo(c.env.DB);
+  // SUA 2026-09-28 (phan hoi "mỗi KTV chỉ load công nợ của bản thân"): truoc day 2 CTE thuc_te/phat_sinh gom TOAN
+  // BO KTV (ca bang ktv_ton_kho + moi don cong no) roi moi loc pham vi o cuoi - KTV xem 1 dong van doc 17-33 nghin
+  // dong. Gio loc pham vi TRUOC (CTE pham_vi, cung dieu kien search + scopeKtvTonKho()) va 2 CTE chi tinh cho
+  // cac KTV trong pham vi (KTV = chi chinh minh). Ket qua giu nguyen: cung cong thuc, cung tap dong.
   const { results } = await c.env.DB.prepare(
-    `WITH thuc_te AS (
+    `WITH pham_vi AS (
+       SELECT k.ma_ktv, k.email_dang_nhap FROM ktv_lien_he k ${where}
+     ),
+     thuc_te AS (
        SELECT t2.ma_ktv, SUM(t2.cuoi_ky * COALESCE(lk.gia_tri_cong_no, 0)) as gia_tri
        FROM ktv_ton_kho t2
        LEFT JOIN linh_kien lk ON lk.ma_linh_kien = t2.ma_hang
+       WHERE t2.ma_ktv IN (SELECT ma_ktv FROM pham_vi)
        GROUP BY t2.ma_ktv
      ),
      phat_sinh AS (
-       SELECT k2.ma_ktv, SUM(ddh.so_tien_cong_no) as gia_tri
-       FROM dat_don_hang ddh
-       JOIN ktv_lien_he k2 ON k2.email_dang_nhap = ddh.nguoi_nhan_hang
+       SELECT pv.ma_ktv, SUM(ddh.so_tien_cong_no) as gia_tri
+       FROM pham_vi pv
+       JOIN dat_don_hang ddh ON ddh.nguoi_nhan_hang = pv.email_dang_nhap
        WHERE ddh.loai_don = 'cong_no' AND ddh.trang_thai_hien_tai = 'TN da duyet'
          AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') = 0 -- "TRỪ CÔNG NỢ" nhu don mua (2026-09-28)
          AND (? IS NULL OR ddh.updated_at > ?)
-       GROUP BY k2.ma_ktv
+       GROUP BY pv.ma_ktv
      )
      SELECT k.ma_ktv, k.ten_hien_thi, k.ma_misa, k.ten_misa, k.cong_no, k.cong_no_cap_nhat_luc,
        COUNT(t.id) as so_ma_hang, SUM(t.cuoi_ky) as tong_cuoi_ky,
        COALESCE(tt.gia_tri, 0) as cong_no_thuc_te, COALESCE(ps.gia_tri, 0) as cong_no_phat_sinh
      FROM ktv_ton_kho t
-     JOIN ktv_lien_he k ON k.ma_ktv = t.ma_ktv
+     JOIN pham_vi pv ON pv.ma_ktv = t.ma_ktv
+     JOIN ktv_lien_he k ON k.ma_ktv = pv.ma_ktv
      LEFT JOIN thuc_te tt ON tt.ma_ktv = k.ma_ktv
      LEFT JOIN phat_sinh ps ON ps.ma_ktv = k.ma_ktv
-     ${where}
      GROUP BY k.ma_ktv
      ORDER BY tong_cuoi_ky DESC`,
   )
-    .bind(mocTinhCongNo, mocTinhCongNo, ...binds)
+    .bind(...binds, mocTinhCongNo, mocTinhCongNo)
     .all<{ cong_no: number | null; cong_no_thuc_te: number; cong_no_phat_sinh: number }>();
 
   const rows = results.map((r) => {

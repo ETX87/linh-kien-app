@@ -282,4 +282,12 @@ auth.get("/nguoi-directory", verifySessionMiddleware, loadUser, async (c) => {
   return c.json({ users, ktv });
 });
 
+// GET /api/auth/data-versions - phien ban cac domain du lieu "tinh" md_* (migration 0039, tang tu dong bang trigger)
+// - frontend (lib/tinhCache.ts) giu du lieu tinh tren may va CHI tai lai khi phien ban doi. 1 truy van ~5 dong.
+auth.get("/data-versions", verifySessionMiddleware, async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT domain, version FROM data_versions WHERE domain LIKE 'md\\_%' ESCAPE '\\'")
+    .all<{ domain: string; version: number }>();
+  return c.json({ versions: Object.fromEntries(results.map((r) => [r.domain, r.version])) });
+});
+
 export default auth;

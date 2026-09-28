@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { khoiDongCacheTinh, theoDoiPhienBan } from "./lib/tinhCache";
 import { useAuth } from "./auth/AuthContext";
 import type { ViewAsRole } from "./auth/viewAsRoles";
 import { VIEW_AS_LABELS } from "./auth/viewAsRoles";
@@ -66,7 +67,37 @@ export function App() {
   if (auth.status === "rejected") return <LoginScreen variant="rejected" />;
   if (auth.status === "disabled") return <LoginScreen variant="disabled" />;
 
-  return <MainApp user={auth.user} realIsAdmin={auth.realIsAdmin} viewAsRole={auth.viewAsRole} />;
+  return (
+    <CacheTinhGate scope={`${auth.user.email}|${auth.viewAsRole ?? ""}`}>
+      <MainApp user={auth.user} realIsAdmin={auth.realIsAdmin} viewAsRole={auth.viewAsRole} />
+    </CacheTinhGate>
+  );
+}
+
+// Nap du lieu tinh (danh ba, khu vuc, ly do cham...) tu cache tren may TRUOC khi render module - xem lib/tinhCache.ts.
+// Cho toi da ~1,5 giay (doc IndexedDB + hoi phien ban server song song) roi render binh thuong.
+function CacheTinhGate({ scope, children }: { scope: string; children: ReactNode }) {
+  const qc = useQueryClient();
+  const [san, setSan] = useState(false);
+  useEffect(() => {
+    let huy = false;
+    void khoiDongCacheTinh(qc, scope).finally(() => {
+      if (!huy) setSan(true);
+    });
+    const boTheoDoi = theoDoiPhienBan(qc);
+    return () => {
+      huy = true;
+      boTheoDoi();
+    };
+  }, [qc, scope]);
+  if (!san) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-[var(--ink-700)] text-xl font-bold">Đang tải…</div>
+      </div>
+    );
+  }
+  return <>{children}</>;
 }
 
 function MainApp({

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { layPhienBan, tagCua } from "../../lib/tinhCache";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../../api/client";
 import { getAllFromCache, getLastCacheTimestamp, mergeLinhKienToCache, ensureCacheSchemaVersion } from "../../lib/linhKienCache";
@@ -238,6 +239,9 @@ export function emptyDraft(): DonHangDraft {
 
 // Dung chung boi TaoDonTab (luon tai) va DonHangDetailModal (chi tai khi nguoi tao mo che do sua -
 // tach thanh hook rieng de khong lap logic dong bo cache 2 noi, tranh lech neu sua sau nay).
+const TAG_LK_KEY = "tinh_tag_linh_kien";
+const TAG_LDE_KEY = "tinh_tag_loai_de_xuat";
+
 export function useLkAndLdeCache(enabled: boolean) {
   const [danhMuc, setDanhMuc] = useState<LkDanhMucRow[]>([]);
   const [ldeEntries, setLdeEntries] = useState<LdeEntry[]>([]);
@@ -257,9 +261,16 @@ export function useLkAndLdeCache(enabled: boolean) {
       if (cached.length > 0) {
         setDanhMuc(cached.filter((r) => r.bat_tat && !r.chi_sua_chua && !r.cam_ban) as unknown as LkDanhMucRow[]);
       }
-      const since = await getLastCacheTimestamp();
+      // Chi goi mang khi phien ban danh muc tren server DOI so voi lan dong bo truoc (2026-09-28, lib/tinhCache.ts -
+      // "chỉ khi hệ thống có thay đổi phiên bản mới load về"). Tag chot TRUOC khi tai (tai xong ma server vua doi
+      // tiep thi lan sau van thay lech -> tai tiep, khong bao gio ket du lieu cu).
+      const pb = await layPhienBan();
+      const tagLk = tagCua(["md_linh_kien"], pb);
+      const lkKhongDoi = cached.length > 0 && tagLk != null && localStorage.getItem(TAG_LK_KEY) === tagLk;
+      const since = lkKhongDoi ? null : await getLastCacheTimestamp();
       const url = since ? `/lk-settings/danh-muc?since=${encodeURIComponent(since)}` : "/lk-settings/danh-muc";
-      const { rows } = await api.get<{ rows: LkDanhMucRow[] }>(url);
+      const { rows } = lkKhongDoi ? { rows: [] as LkDanhMucRow[] } : await api.get<{ rows: LkDanhMucRow[] }>(url);
+      if (!lkKhongDoi && tagLk) localStorage.setItem(TAG_LK_KEY, tagLk);
       if (rows.length > 0) {
         await mergeLinhKienToCache(rows as unknown as import("../../types").LinhKienRow[]);
         setDanhMuc((prev) => {
@@ -273,7 +284,10 @@ export function useLkAndLdeCache(enabled: boolean) {
       // incremental ?since= khong biet den xoa nen cache giu row cu mai mai).
       const ldeCached = await getAllLdeFromCache();
       if (ldeCached.length > 0) setLdeEntries(ldeCached.filter((e) => e.bat_tat));
+      const tagLde = tagCua(["md_loai_de_xuat"], pb);
+      if (ldeCached.length > 0 && tagLde != null && localStorage.getItem(TAG_LDE_KEY) === tagLde) return;
       const { rows: ldeRows } = await api.get<{ rows: LdeEntry[] }>("/settings/loai-de-xuat");
+      if (tagLde) localStorage.setItem(TAG_LDE_KEY, tagLde);
       await clearLdeCache();
       if (ldeRows.length > 0) await mergeLdeToCache(ldeRows);
       setLdeEntries(ldeRows.filter((e) => e.bat_tat));

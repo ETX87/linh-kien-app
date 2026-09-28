@@ -16,7 +16,6 @@ export function usePersonDirectory(): PersonDirectory {
   const { data } = useQuery({
     queryKey: ["nguoi-directory"],
     queryFn: () => api.get<{ users: { email: string; ten: string }[]; ktv: { email: string; ten_hien_thi: string }[] }>("/auth/nguoi-directory"),
-    staleTime: 5 * 60 * 1000,
   });
   return {
     users: new Map((data?.users ?? []).map((r) => [r.email, r.ten])),

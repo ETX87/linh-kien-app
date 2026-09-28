@@ -29,7 +29,6 @@ export function useLoaiChietKhauList() {
   return useQuery({
     queryKey: LOAI_CHIET_KHAU_KEY,
     queryFn: () => api.get<{ rows: LoaiChietKhauRow[] }>("/settings/loai-chiet-khau").then((r) => r.rows),
-    staleTime: 5 * 60_000,
   });
 }
 
