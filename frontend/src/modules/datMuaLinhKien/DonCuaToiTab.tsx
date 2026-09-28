@@ -44,6 +44,7 @@ import { LinhKienPicker, LinhKienDetailModal } from "./LinhKienPicker";
 // ThieuLkTab.tsx (file do cung import nguoc lai DonHangDetailModal tu day).
 import { ThieuLkDetailModal } from "./ThieuLkTab";
 import { Money } from "../../components/ui/Money";
+import { TongNgayKtvInfo } from "./TongNgayKtv";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 
 // FIX (ra soat "logic sai theo vai tro" 2026-08-31): KTV/Ve tinh khong co tab "Phieu xuat kho" rieng
@@ -801,6 +802,12 @@ export function DonHangDetailModal({
                 ) : (
                   <LoaiChietKhauText id={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
                 )}
+              </KvRow>
+            )}
+            {/* Tong dat Mua + TRỪ CÔNG NỢ cua KTV trong NGAY TAO don nay - moc chiet khau (2026-09-28). */}
+            {(d.loai_don === "mua" || laTruCongNo(d.loai_de_xuat)) && d.nguoi_nhan_hang && (
+              <KvRow label="Tổng đặt trong ngày">
+                <TongNgayKtvInfo email={d.nguoi_nhan_hang} ngays={[d.ngay_tao.slice(0, 10)]} />
               </KvRow>
             )}
           </DetailZone>

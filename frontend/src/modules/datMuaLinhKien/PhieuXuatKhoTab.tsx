@@ -18,6 +18,7 @@ import { exportRowsToExcel } from "../../lib/exportExcel";
 import { fmtDateTime, fmtVND } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import type { DonHangRow, PhieuXuatKhoRow, DonHangKhaDungRow, NguoiNhanHangKhaDungRow, LyDoChamRow, KtvDisplayMap } from "./types";
+import { TongNgayKtvInfo } from "./TongNgayKtv";
 // Lien ket 2 chieu voi don goc trong phieu (them 2026-09-21, phan hoi "cho phép click vào dòng đơn
 // hàng trong phiếu để mở giao diện UI chi tiết") - tai dung nguyen DonHangDetailModal, dung y het cach
 // ThieuLkTab.tsx da lam (xem comment o do ve import vong an toan trong ESM).
@@ -833,6 +834,19 @@ export function PhieuXuatKhoTab({
                   )}
                 </span>
               </div>
+              {/* Tong dat Mua + TRỪ CÔNG NỢ cua KTV trong ngay tao cac dong da chon (chua chon = hom nay) - moc
+                  chiet khau (2026-09-28). */}
+              {chonKtv && chonLoaiDon !== "tra_hang" && (
+                <div className="mb-1.5">
+                  <TongNgayKtvInfo
+                    email={chonKtv}
+                    ngays={(khaDungData?.rows ?? [])
+                      .filter((r) => selectedDonHang.has(r.id) && (r.loai_don === "mua" || laTruCongNo(r.loai_de_xuat)))
+                      .map((r) => (r.ngay_tao ?? "").slice(0, 10))
+                      .filter(Boolean)}
+                  />
+                </div>
+              )}
               <input
                 value={timKiemDonHang}
                 onChange={(e) => setTimKiemDonHang(e.target.value)}
@@ -1710,6 +1724,12 @@ export function PxkDetailModal({
                 <Btn size="sm" variant="ghost" onClick={() => setShowThemDon(true)}>+ Thêm đơn</Btn>
               )}
             </div>
+            {/* Tong dat Mua + TRỪ CÔNG NỢ cua KTV theo tung ngay tao cac dong trong phieu - moc chiet khau
+                (2026-09-28). PXK gom don nhieu ngay -> moi ngay 1 dong. */}
+            {pxk.loai_don !== "tra_hang" && pxk.nguoi_nhan_hang && (() => {
+              const ngays = data.donHang.filter((d) => d.loai_don === "mua" || laTruCongNo(d.loai_de_xuat)).map((d) => d.ngay_tao.slice(0, 10));
+              return ngays.length > 0 ? <div className="mb-1.5"><TongNgayKtvInfo email={pxk.nguoi_nhan_hang} ngays={ngays} /></div> : null;
+            })()}
             <div className="overflow-x-auto rounded-xl border border-[var(--line)]">
               <table className="tbl min-w-full border-collapse">
                 <thead>

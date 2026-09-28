@@ -192,6 +192,8 @@ export interface DonHangKhaDungRow {
   loai_de_xuat?: string | null;
   so_luong_thuc_xuat?: number | null;
   so_tien_cong_no?: number | null;
+  // Ngay tao don (gio VN) - hien tong dat trong ngay cua KTV o modal tao PXK (2026-09-28).
+  ngay_tao?: string | null;
 }
 
 export interface ThieuLkRow {

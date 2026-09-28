@@ -176,6 +176,14 @@ export function useTaoDonForm({
     return sum + (lk?.gia_ban != null ? lk.gia_ban * d.so_luong_de_xuat : 0);
   }, 0);
   const tongSoLuong = drafts.reduce((sum, d) => sum + (d.so_luong_de_xuat || 0), 0);
+  // Phan gia tri cac dong dang soan duoc CONG vao tong ngay tinh chiet khau (Mua + TRỪ CÔNG NỢ, gia ban x SL -
+  // khop DON_TINH_TONG_NGAY_SQL o backend) - xem truoc muc chiet khau sau khi tao (TongNgayKtv.tsx).
+  const giaTriTinhChietKhau = drafts.reduce((sum, d) => {
+    const lde = d.loai_de_xuat.trim();
+    if (!lde || (deriveLoaiDon(lde) !== "mua" && !laTruCongNo(lde))) return sum;
+    const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
+    return sum + (lk?.gia_ban != null ? lk.gia_ban * d.so_luong_de_xuat : 0);
+  }, 0);
 
   // "Cong no tam tinh" cua RIENG cac dong loai_don='cong_no' dang soan - CUNG cong thuc voi backend
   // (gia_tri_cong_no x so_luong_de_xuat, xem POST /phieu-dat) nhung tinh tai client de canh bao SONG
@@ -206,7 +214,7 @@ export function useTaoDonForm({
     activeRowRef, justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
     updateDraft, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
     tongGiaUocTinh, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
-    duPhongDuKien, coDongMuaDuTru,
+    duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau,
   };
 }
 

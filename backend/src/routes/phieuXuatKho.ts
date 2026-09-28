@@ -16,7 +16,7 @@ import { buildMisaExportSheets, resolveMisaTemplateDeXuat, MISA_TEMPLATES, type 
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, emailGsListForPxk, PXK_ROLES } from "../lib/taskNotify";
 import { pushPxkToKhovan, notifyPxkAdvancedViaApp, buildWorkUrl } from "../lib/khovanPushClient";
 import { timLoaiChietKhauTheoTen, gonTenLoaiChietKhau, choPhepDoiLoaiChietKhau } from "../lib/loaiChietKhau";
-import { taiTinhPxk, tinhToanPxk, type PxkCalculation } from "../lib/pxkRecalculate";
+import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, type PxkCalculation } from "../lib/pxkRecalculate";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
 // Pattern header+log giong phieu_dat. TN tao (gom nhieu dong don hang da "TN da duyet" vao 1
@@ -455,7 +455,7 @@ phieuXuatKho.get("/don-hang-kha-dung", async (c) => {
   whereSql += isTraHang ? " AND ddh.trang_thai_hien_tai = 'TN da duyet'" : ` AND ${latestDonHangLogStatusExpr("ddh.id")} = 'TN da duyet'`;
   const { results } = await c.env.DB.prepare(
     `SELECT ddh.id, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat, ddh.gia_chot, ddh.gia_de_xuat,
-       ddh.updated_at, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.so_luong_thuc_xuat, ddh.so_tien_cong_no
+       ddh.updated_at, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.so_luong_thuc_xuat, ddh.so_tien_cong_no, ddh.ngay_tao
      FROM dat_don_hang ddh
      WHERE ${whereSql}
      ORDER BY ddh.nguoi_nhan_hang, ddh.updated_at`,
@@ -606,7 +606,8 @@ phieuXuatKho.post("/tinh-lai-tien-dang-mo", async (c) => {
   const user = c.get("user");
   if (user.vai_tro !== "Admin") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const { results } = await c.env.DB.prepare(
-    "SELECT id, so_tien_can_chuyen FROM phieu_xuat_kho WHERE trang_thai_hien_tai = 'Dang tao phieu' AND loai_don != 'tra_hang'",
+    // Bo qua PXK da duoc Ke toan duyet chuyen tien - da khoa (chot 2026-09-28).
+    "SELECT id, so_tien_can_chuyen FROM phieu_xuat_kho WHERE trang_thai_hien_tai = 'Dang tao phieu' AND loai_don != 'tra_hang' AND COALESCE(trang_thai_chuyen_tien, '') != 'TN da duyet'",
   ).all<{ id: string; so_tien_can_chuyen: number | null }>();
   const doi: string[] = [];
   for (const r of results) {
@@ -1237,6 +1238,9 @@ phieuXuatKho.delete("/:id/dong/:donHangId", async (c) => {
     ),
   ]);
   await ganLoaiChietKhauChoPxk(c.env.DB, id, true, true, user.email);
+  // Dong vua go ra thanh "chua vao PXK" -> gan lai loai chiet khau theo tong ngay (chot 2026-09-28).
+  const pxkNhan = await c.env.DB.prepare("SELECT nguoi_nhan_hang FROM phieu_xuat_kho WHERE id = ?").bind(id).first<{ nguoi_nhan_hang: string | null }>();
+  await taiTinhPxkMoCuaKtv(c.env.DB, pxkNhan?.nguoi_nhan_hang, user.email, id);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ ok: true });
 });
@@ -1415,6 +1419,8 @@ phieuXuatKho.post("/:id/log", async (c) => {
           ]),
         ]);
       }
+      // Don duoc giai phong (thanh "chua vao PXK") hoac bi huy -> tong ngay/loai chiet khau cua KTV doi.
+      await taiTinhPxkMoCuaKtv(c.env.DB, pxk.nguoi_nhan_hang, user.email, id);
     }
   }
 

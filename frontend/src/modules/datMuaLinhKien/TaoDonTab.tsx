@@ -47,7 +47,7 @@ export function TaoDonTab({
     activeRowRef, justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
     updateDraft, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
     tongGiaUocTinh, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
-    duPhongDuKien, coDongMuaDuTru,
+    duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau,
   } = form;
 
   return (
@@ -94,6 +94,8 @@ export function TaoDonTab({
               ℹ Mốc dự phòng hiện tại còn khả dụng: <Money>{fmtVND(duPhongDuKien.moc_hien_tai)}</Money> / <Money>{fmtVND(duPhongDuKien.tran ?? 0)}</Money>
             </div>
           )}
+          {/* Tong dat Mua + TRỪ CÔNG NỢ trong ngay cua KTV nhan hang + muc chiet khau sau don nay (2026-09-28). */}
+          <TongNgayKtvInfo email={targetNguoiNhanHang} themGiaTri={giaTriTinhChietKhau} />
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm">
               <span className="text-[var(--ink-500)]">{drafts.length} dòng · {tongSoLuong} cái</span>
@@ -514,3 +516,4 @@ export function TaoDonTab({
 // import rieng cho chinh no dung trong isLineComplete).
 import { canNoRequired, maYcscRequired } from "./helpers";
 import { Money } from "../../components/ui/Money";
+import { TongNgayKtvInfo } from "./TongNgayKtv";

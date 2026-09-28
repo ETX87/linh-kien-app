@@ -12,6 +12,7 @@ import { DuDoanDuyetHint } from "./DuDoanDuyetHint";
 import { TraHangAnhPicker } from "./SharedUi";
 import type { TaoDonForm } from "./useTaoDonForm";
 import { Money } from "../../components/ui/Money";
+import { TongNgayKtvInfo } from "./TongNgayKtv";
 
 // Man hinh "Tao don" rieng cho mobile (them 2026-08-21, phan hoi "giao diện tạo đơn mua hàng cho KTV
 // đang gặp vấn đề trên giao diện mobile. màn hình bị đưa đưa và chỉ ếm diện tích nhỏ so với toàn màn
@@ -53,6 +54,7 @@ export function TaoDonMobileScreen({
     justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
     updateDraft, isLineComplete, canSubmit, themDong, deleteDraft, tongGiaUocTinh, tongSoLuong,
     tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien, duPhongDuKien, coDongMuaDuTru,
+    targetNguoiNhanHang, giaTriTinhChietKhau,
   } = form;
 
   // FIX (phan hoi 2026-08-28: "ở giao diện tạo đơn ấn lùi vẫn báo thoát app") - man hinh nay la
@@ -379,6 +381,7 @@ export function TaoDonMobileScreen({
             ℹ Mốc dự phòng hiện tại còn khả dụng: <Money>{fmtVND(duPhongDuKien.moc_hien_tai)}</Money> / <Money>{fmtVND(duPhongDuKien.tran ?? 0)}</Money>
           </div>
         )}
+        <TongNgayKtvInfo email={targetNguoiNhanHang} themGiaTri={giaTriTinhChietKhau} />
         <div className="flex items-center justify-between text-sm">
           <span className="text-[var(--ink-500)]">{drafts.length} dòng · {tongSoLuong} cái</span>
           {tongGiaUocTinh > 0 && <span className="font-bold text-[var(--green-700)]"><Money>{fmtVND(tongGiaUocTinh)}</Money></span>}

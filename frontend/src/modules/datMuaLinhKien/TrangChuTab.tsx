@@ -12,6 +12,8 @@ import { BaoCaoTab } from "./BaoCaoTab";
 import { StackedBar } from "../../components/charts/BarCharts";
 import type { JumpTarget, LuongQuyTrinhStep, DangTonStep } from "./types";
 import { NguoiNhan } from "../../components/ui/TenNguoi";
+import { useAuth } from "../../auth/AuthContext";
+import { TongNgayKtvInfo } from "./TongNgayKtv";
 
 interface TonDongRow {
   id: string;
@@ -402,6 +404,9 @@ export function TrangChuTab({
   isGiamSat: boolean;
 }) {
   const isMobile = useIsMobile();
+  const auth = useAuth();
+  const me = auth.status === "authenticated" ? auth.user : null;
+  const laKtv = !!(me && (me.la_ktv_dvbh || me.la_ve_tinh));
   const mySteps = steps.filter((s) => s.count > 0 && s.roleKeys.some((r) => myRoleKeys.has(r))).sort((a, b) => b.count - a.count);
   const isManagerish = canTacNghiep || canKho || canKeToan || isGiamSat;
   const ktvReportRef = useRef<TonDongTheoKtvReportHandle>(null);
@@ -440,6 +445,15 @@ export function TrangChuTab({
         <h2 className="font-display text-base font-bold text-[var(--ink-900)]">Đang chờ hôm nay</h2>
         <div className="hidden sm:block text-xs text-[var(--ink-500)] mt-0.5">Số liệu tồn đọng đúng theo vai trò của bạn — bấm vào ô số để nhảy thẳng tới danh sách xử lý.</div>
       </div>
+
+      {/* Tong dat Mua + TRỪ CÔNG NỢ hom nay cua KTV + tien uoc tinh can chuyen + muc chiet khau (2026-09-28).
+          Ve tinh: backend tu quy ve Tram (nguoi nhan hang that). */}
+      {laKtv && me && (
+        <div className="rounded-xl border border-[var(--line)] px-3 py-2.5">
+          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)] mb-1">Đặt hàng hôm nay (Mua + Trừ công nợ)</div>
+          <TongNgayKtvInfo email={me.email} />
+        </div>
+      )}
 
       {/* FIX (ra soat "logic sai theo vai tro" 2026-08-29, Bug A): "don bi tu choi" truoc day CHI co
           1 thong bao chuong dung 1 lan (NotificationBell.tsx) - neu bo lo/xoa thi mat dau hoan toan,

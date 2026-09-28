@@ -21,7 +21,7 @@ import { computeCongNoChot } from "../lib/congNoKtv";
 import { computeMocDuPhongHienTai } from "../lib/duPhongKtv";
 import { computeTonKhoChot } from "../lib/tonKhoCongTy";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
-import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo } from "../lib/pxkRecalculate";
+import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv } from "../lib/pxkRecalculate";
 import { computeTonKtvConLai } from "../lib/tonKhoKtv";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, MUA_CONG_NO_ROLES, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
 import { pushThieuLkToKhovan, buildWorkUrl } from "../lib/khovanPushClient";
@@ -364,6 +364,31 @@ datMuaLinhKien.get("/du-doan-duyet", async (c) => {
 
   const tonChot = await computeTonKhoChot(c.env.DB, ktvRow.khu_vuc_ma, maLk);
   return c.json({ ap_dung: true, du_ton: tonChot >= soLuong, ton_chot: tonChot, khu_vuc_ma: ktvRow.khu_vuc_ma });
+});
+
+// GET /api/dat-mua-lk/tong-ngay-ktv?nguoi_nhan_hang=<email>&ngay=YYYY-MM-DD[,YYYY-MM-DD...] (them 2026-09-28,
+// phan hoi "tổng tiền ktv đặt mua + trừ công nợ trong ngày hiện ở đâu?" + "hiện tổng tiền ước tính cần chuyển
+// khoản bên cạnh") - tong gia tri dat hang (gia ban x SL - nen tinh moc chiet khau 200k/500k) + tong tien uoc
+// tinh can chuyen cua KTV trong tung ngay. Mac dinh: chinh minh, hom nay (gio VN). KTV/Ve tinh chi xem duoc
+// chinh minh hoac Tram cua minh; vai tro van phong/GS/Admin xem moi KTV.
+datMuaLinhKien.get("/tong-ngay-ktv", async (c) => {
+  const user = c.get("user");
+  const email = c.req.query("nguoi_nhan_hang")?.trim() || user.email;
+  const laVanPhong = !!(canTacNghiep(c) || user.la_kho || user.la_ke_toan || user.la_tp_dvbh || user.la_view
+    || user.vai_tro === "Admin" || user.vai_tro === "QC" || user.vai_tro === "Giam sat");
+  if (email !== user.email && email !== user.tram_cha && !laVanPhong) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  // Ve tinh khong phai nguoi nhan hang - don cua Ve tinh ghi nguoi_nhan_hang = Tram (resolveNguoiNhanHang),
+  // nen tong ngay/chiet khau tinh theo Tram. Chua gan Tram -> khong co don nao.
+  const target = await c.env.DB.prepare("SELECT la_ve_tinh FROM users WHERE email = ?").bind(email).first<{ la_ve_tinh: number }>();
+  const resolved = await resolveNguoiNhanHang(c.env.DB, { email, la_ve_tinh: target?.la_ve_tinh ?? 0 });
+  if ("error" in resolved) return c.json({ nguoi_nhan_hang: null, rows: [] });
+  const ngays = (c.req.query("ngay") || nowVN().slice(0, 10))
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s))
+    .slice(0, 31);
+  const rows = await tongNgayKtv(c.env.DB, resolved.email, [...new Set(ngays)]);
+  return c.json({ nguoi_nhan_hang: resolved.email, rows });
 });
 
 // GET /api/dat-mua-lk/khu-vuc-cua-toi (them 2026-08-27, phan hoi "GS test không thấy đơn của KTV khu
