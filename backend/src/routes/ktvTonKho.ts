@@ -93,6 +93,7 @@ ktvTonKho.get("/", async (c) => {
        FROM dat_don_hang ddh
        JOIN ktv_lien_he k2 ON k2.email_dang_nhap = ddh.nguoi_nhan_hang
        WHERE ddh.loai_don = 'cong_no' AND ddh.trang_thai_hien_tai = 'TN da duyet'
+         AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') = 0 -- "TRỪ CÔNG NỢ" nhu don mua (2026-09-28)
          AND (? IS NULL OR ddh.updated_at > ?)
        GROUP BY k2.ma_ktv
      )

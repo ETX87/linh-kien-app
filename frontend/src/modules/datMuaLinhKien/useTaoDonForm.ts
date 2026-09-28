@@ -4,7 +4,7 @@ import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
 import type { DonHangDraft, NguoiNhanHangKhaDungRow } from "./types";
-import { describeApiError, canNoRequired, maYcscRequired, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon } from "./helpers";
+import { describeApiError, canNoRequired, maYcscRequired, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo } from "./helpers";
 
 // Tach tu TaoDonTab.tsx (them 2026-08-21, phan hoi "màn hình tạo đơn mobile bị đưa đưa, chiếm diện
 // tích nhỏ") - toan bo STATE/LOGIC nghiep vu (validate, mutation, quan ly danh sach drafts...) chuyen
@@ -181,7 +181,8 @@ export function useTaoDonForm({
   // (gia_tri_cong_no x so_luong_de_xuat, xem POST /phieu-dat) nhung tinh tai client de canh bao SONG
   // (khong doi submit xong moi biet).
   const tongCongNoTamTinh = drafts.reduce((sum, d) => {
-    if (deriveLoaiDon(d.loai_de_xuat.trim()) !== "cong_no") return sum;
+    // "TRỪ CÔNG NỢ" khong doi chieu cong no (chot 2026-09-28) - khop backend POST /phieu-dat.
+    if (deriveLoaiDon(d.loai_de_xuat.trim()) !== "cong_no" || laTruCongNo(d.loai_de_xuat)) return sum;
     const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
     return sum + (lk?.gia_tri_cong_no ?? 0) * d.so_luong_de_xuat;
   }, 0);

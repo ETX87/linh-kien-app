@@ -21,7 +21,7 @@ import { computeCongNoChot } from "../lib/congNoKtv";
 import { computeMocDuPhongHienTai } from "../lib/duPhongKtv";
 import { computeTonKhoChot } from "../lib/tonKhoCongTy";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
-import { taiTinhPxk } from "../lib/pxkRecalculate";
+import { taiTinhPxk, laTruCongNo } from "../lib/pxkRecalculate";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, MUA_CONG_NO_ROLES, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
 import { pushThieuLkToKhovan, buildWorkUrl } from "../lib/khovanPushClient";
 
@@ -2075,10 +2075,12 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   // gui len). danh_gia_cong_no CHOT 1 LAN cho CA phieu (so sanh Cong no chot HIEN TAI cua nguoi nhan
   // hang + TONG cong no tam tinh ca phieu voi Tran cong no) - ap dung CHUNG cho moi dong cong_no
   // trong phieu nay, khong tinh rieng tung dong.
+  // Chot 2026-09-28: dong "TRỪ CÔNG NỢ" KHONG doi chieu cong no (hoat dong nhu don MUA HÀNG) - khong tinh
+  // cong no tam tinh, khong danh gia Du/Khong du, khong chan tu duyet vi cong no.
   const soTienCongNoPerDong = new Map<number, number>();
   let tongMoiCongNo = 0;
   body.don_hang.forEach((dh, i) => {
-    if (deriveLoaiDon(dh.loai_de_xuat.trim()) !== "cong_no") return;
+    if (deriveLoaiDon(dh.loai_de_xuat.trim()) !== "cong_no" || laTruCongNo(dh.loai_de_xuat)) return;
     const lk = lkMap.get(dh.ma_lk.trim())!;
     const soTien = (lk.gia_tri_cong_no ?? 0) * dh.so_luong_de_xuat;
     soTienCongNoPerDong.set(i, soTien);
@@ -2142,7 +2144,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
     if (trangThaiKhoiTao === "Cho TN duyet" && ktvRow?.khu_vuc_ma) {
       const tonChot = await computeTonKhoChot(c.env.DB, ktvRow.khu_vuc_ma, dh.ma_lk.trim());
       const duTon = tonChot >= dh.so_luong_de_xuat;
-      const duCongNo = loai_don !== "cong_no" || danhGiaCongNoPhieu === "Du";
+      const duCongNo = loai_don !== "cong_no" || laTruCongNo(lde) || danhGiaCongNoPhieu === "Du";
       if (duTon && duCongNo) trangThaiKhoiTao = "TN da duyet";
     }
     if (trangThaiKhoiTao === "TN da duyet" && (loai_don === "mua" || loai_don === "cong_no")) {
@@ -2165,8 +2167,8 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
         lde,
         dh.so_luong_de_xuat,
         lk.gia_ban,
-        loai_don === "cong_no" ? (soTienCongNoPerDong.get(i) ?? 0) : null,
-        loai_don === "cong_no" ? danhGiaCongNoPhieu : null,
+        loai_don === "cong_no" && !laTruCongNo(lde) ? (soTienCongNoPerDong.get(i) ?? 0) : null,
+        loai_don === "cong_no" && !laTruCongNo(lde) ? danhGiaCongNoPhieu : null,
         dh.ghi_chu?.trim() || null,
         dh.yeu_cau_hoa_don?.trim() || null,
         dh.tt_mail_duyet?.trim() || null,
@@ -2448,7 +2450,8 @@ async function processDatDonHangImportRows(
       chinhSach: row.chinh_sach?.trim() || null,
       maYeuCauSuCo: row.ma_yeu_cau_su_co?.trim() || null,
       dacThu: lk.dacThu,
-      soTienCongNo: loaiDonRow === "cong_no" ? (lk.giaTriCongNo ?? 0) * soLuong : 0,
+      // "TRỪ CÔNG NỢ" khong doi chieu cong no (chot 2026-09-28) - soTienCongNo = 0 nhu don mua.
+      soTienCongNo: loaiDonRow === "cong_no" && !laTruCongNo(loaiDeXuat) ? (lk.giaTriCongNo ?? 0) * soLuong : 0,
     });
   }
 
@@ -2515,8 +2518,8 @@ async function processDatDonHangImportRows(
               v.loaiDeXuat,
               v.soLuong,
               v.giaBan,
-              v.loaiDon === "cong_no" ? v.soTienCongNo : null,
-              v.loaiDon === "cong_no" ? danhGiaCongNoGroup : null,
+              v.loaiDon === "cong_no" && !laTruCongNo(v.loaiDeXuat) ? v.soTienCongNo : null,
+              v.loaiDon === "cong_no" && !laTruCongNo(v.loaiDeXuat) ? danhGiaCongNoGroup : null,
               v.ghiChu,
               v.yeuCauHoaDon,
               v.ttMailDuyet,

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { api, buildQuery } from "../../api/client";
 import { shortKhuVuc } from "../../lib/khuVucShortLabel";
+import { laTruCongNo } from "./helpers";
 
 // Canh bao SONG "don nay se tu dong duyet hay khong" ngay luc soan don (them 2026-09-11, phan hoi
 // "linh kiện này tại khu vực MB đang hết/thiếu hàng... đơn của bạn sẽ cần phê duyệt / kho đủ hàng đơn
@@ -40,9 +41,11 @@ export function DuDoanDuyetHint({
   // Dong cong_no ma chua co du lieu tran/cong no chot (sePhepDuCongNo null) - CHUA ket luan duoc, im
   // lang cho thay vi hien nham 1 verdict roi doi lai ngay sau (giong cach footer "vuot tran cong no"
   // cung doi congNoDuKien load xong moi hien).
-  if (loaiDon === "cong_no" && sePhepDuCongNo == null) return null;
+  // "TRỪ CÔNG NỢ" khong doi chieu cong no (chot 2026-09-28) - xu ly nhu don mua.
+  const canDoiChieuCongNo = loaiDon === "cong_no" && !laTruCongNo(loaiDeXuat);
+  if (canDoiChieuCongNo && sePhepDuCongNo == null) return null;
 
-  const duCongNo = loaiDon !== "cong_no" || sePhepDuCongNo === true;
+  const duCongNo = !canDoiChieuCongNo || sePhepDuCongNo === true;
   const seTuDongDuyet = result.du_ton && duCongNo;
 
   if (seTuDongDuyet) {

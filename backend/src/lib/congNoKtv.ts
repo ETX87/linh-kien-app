@@ -40,6 +40,9 @@ export async function computeCongNoPhatSinh(db: D1Database, maKtv: string, mocTi
        FROM dat_don_hang ddh
        JOIN ktv_lien_he k ON k.email_dang_nhap = ddh.nguoi_nhan_hang
        WHERE k.ma_ktv = ? AND ddh.loai_don = 'cong_no' AND ddh.trang_thai_hien_tai = 'TN da duyet'
+         -- Chot 2026-09-28: dong "TRỪ CÔNG NỢ" hoat dong nhu don MUA (KTV chuyen tien) - KHONG cong vao cong
+         -- no phat sinh (khop laTruCongNo o lib/pxkRecalculate.ts; loai_de_xuat luu IN HOA).
+         AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') = 0
          AND (? IS NULL OR ddh.updated_at > ?)`,
     )
     .bind(maKtv, mocTinhCongNo, mocTinhCongNo)

@@ -130,8 +130,9 @@ export function useNenAnhTraHangEnabled(): boolean {
 // CHOT (phan hoi 2026-08-24, muc 4): "Đơn ở thẻ công nợ do người khác tạo hộ (người tạo không phải
 // người nhận) => khi Tác nghiệp duyệt sẽ hiện popup cảnh báo" - dung o DonCuaToiTab.tsx (ca Drawer
 // DonHangDetailModal lan nut nhanh trong DonHangGroupedList) truoc khi goi mutation "duyet" that su.
-export function isCongNoTaoHo(d: { loai_don: string; nguoi_tao: string; nguoi_nhan_hang: string | null }): boolean {
-  return d.loai_don === "cong_no" && !!d.nguoi_nhan_hang && d.nguoi_tao !== d.nguoi_nhan_hang;
+export function isCongNoTaoHo(d: { loai_don: string; loai_de_xuat?: string | null; nguoi_tao: string; nguoi_nhan_hang: string | null }): boolean {
+  // "TRỪ CÔNG NỢ" hoat dong nhu don mua (chot 2026-09-28) - khong canh bao "đơn công nợ tạo hộ".
+  return d.loai_don === "cong_no" && !laTruCongNo(d.loai_de_xuat) && !!d.nguoi_nhan_hang && d.nguoi_tao !== d.nguoi_nhan_hang;
 }
 
 // Badge "Đơn tạo hộ" (yeu cau nguoi dung 2026-08-27) - MO RONG tu isCongNoTaoHo() o tren sang MOI

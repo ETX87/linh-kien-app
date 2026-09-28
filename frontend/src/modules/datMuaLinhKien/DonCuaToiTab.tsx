@@ -34,7 +34,7 @@ import {
 } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
-  LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, actionsFor, trangThaiLabel, canNoRequired, maYcscRequired, pickLdeQuick, emptyDraft,
+  LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, trangThaiLabel, canNoRequired, maYcscRequired, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
 } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink } from "./SharedUi";
@@ -770,8 +770,8 @@ export function DonHangDetailModal({
                 {!!d.dac_thu && <Badge tone="warning">🔒 Đặc thù</Badge>}
                 {/* "Đủ/Không đủ công nợ" (them 04/09/2026) - chot 1 LAN luc tao don, xem QuickStat
                     "Công nợ tạm tính" o tren + lib/congNoKtv.ts o backend. */}
-                {d.loai_don === "cong_no" && d.danh_gia_cong_no === "Du" && <Badge tone="success">Đủ công nợ</Badge>}
-                {d.loai_don === "cong_no" && d.danh_gia_cong_no === "Khong du" && <Badge tone="danger">Không đủ công nợ</Badge>}
+                {d.loai_don === "cong_no" && !laTruCongNo(d.loai_de_xuat) && d.danh_gia_cong_no === "Du" && <Badge tone="success">Đủ công nợ</Badge>}
+                {d.loai_don === "cong_no" && !laTruCongNo(d.loai_de_xuat) && d.danh_gia_cong_no === "Khong du" && <Badge tone="danger">Không đủ công nợ</Badge>}
               </div>
             </div>
           </div>
@@ -1974,10 +1974,10 @@ export function DonCuaToiTab({
 // nợ". Bang desktop chi hien co DAU TIEN + "+N" (tooltip liet ke du), dung quy tac MAX_BADGE cua the mobile.
 function trangThaiFlags(d: DonHangRow): { tone: Tone; label: string }[] {
   return [
-    ...(d.loai_don === "cong_no" && d.danh_gia_cong_no === "Khong du" ? [{ tone: "danger" as Tone, label: "Không đủ công nợ" }] : []),
+    ...(d.loai_don === "cong_no" && !laTruCongNo(d.loai_de_xuat) && d.danh_gia_cong_no === "Khong du" ? [{ tone: "danger" as Tone, label: "Không đủ công nợ" }] : []),
     ...(d.qua_han_ly_do_cham ? [{ tone: "danger" as Tone, label: "Quá hạn - cần lý do" }] : []),
     ...(isDonTaoHo(d) ? [{ tone: "neutral" as Tone, label: "Đơn tạo hộ" }] : []),
-    ...(d.loai_don === "cong_no" && d.danh_gia_cong_no === "Du" ? [{ tone: "success" as Tone, label: "Đủ công nợ" }] : []),
+    ...(d.loai_don === "cong_no" && !laTruCongNo(d.loai_de_xuat) && d.danh_gia_cong_no === "Du" ? [{ tone: "success" as Tone, label: "Đủ công nợ" }] : []),
   ];
 }
 
@@ -2493,7 +2493,7 @@ export function DonHangGroupedList({
                         // FIX (phan hoi 2026-09-04: "đặt đơn công nợ vượt trần nhưng không thấy cảnh
                         // báo") - dat LEN DAU MANG (uu tien cao nhat) vi MAX_BADGE=1 phia duoi CHI hien
                         // badges[0], badge canh bao nay se bi "+N" nuot mat neu de sau cac badge khac.
-                        ...(d.loai_don === "cong_no" && d.danh_gia_cong_no === "Khong du" ? [{ tone: "danger" as Tone, label: "Không đủ công nợ" }] : []),
+                        ...(d.loai_don === "cong_no" && !laTruCongNo(d.loai_de_xuat) && d.danh_gia_cong_no === "Khong du" ? [{ tone: "danger" as Tone, label: "Không đủ công nợ" }] : []),
                         // SUA (phan hoi 2026-09-05: "thẻ Trạng thái ưu tiên hiện đầu tiên thay vì loại đề
                         // xuất (mua hàng, công nợ...) - giao diện mobile") - dao Trang thai LEN TRUOC loai
                         // don, vi MAX_BADGE=1 phia duoi CHI hien badges[0] (tru truong hop canh bao cong no
@@ -2504,7 +2504,7 @@ export function DonHangGroupedList({
                         // "Đơn tạo hộ" (yeu cau nguoi dung 2026-08-27) - xem giai thich day du o KvRow
                         // "Trạng thái" cua Drawer chi tiet phia tren (isDonTaoHo, helpers.ts).
                         ...(isDonTaoHo(d) ? [{ tone: "neutral" as Tone, label: "Đơn tạo hộ" }] : []),
-                        ...(d.loai_don === "cong_no" && d.danh_gia_cong_no === "Du" ? [{ tone: "success" as Tone, label: "Đủ công nợ" }] : []),
+                        ...(d.loai_don === "cong_no" && !laTruCongNo(d.loai_de_xuat) && d.danh_gia_cong_no === "Du" ? [{ tone: "success" as Tone, label: "Đủ công nợ" }] : []),
                       ];
                       // SUA (phan hoi 2026-08-28: "dòng 1 60% diện tích cho tên linh kiện, 40% còn lại
                       // cho card trạng thái, không đủ thì ẩn bớt và hiện (N)") - giam tu 3 xuong 1 de
