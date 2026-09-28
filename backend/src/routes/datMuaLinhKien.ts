@@ -3670,6 +3670,14 @@ function canKho(c: Context<{ Bindings: Env }>): boolean {
   return !!user.la_kho || user.vai_tro === "Admin";
 }
 
+// Bo loc "Việc cần xử lý" cua tab Thieu LK (fix 2026-09-28: badge Sidebar "Thiếu linh kiện (1)" cua Kho dem CA
+// "Kho da tiep nhan" nhung tab mo mac dinh loc "Cho kho xu ly" -> bam vao khong thay don nao). Cung tap trang thai
+// voi thieuLkCanXuLy trong routes/notifications.ts - doi 1 ben phai doi ben kia.
+const THIEU_LK_VIEC = "__VIEC__";
+function thieuLkTrangThaiViec(c: Context<{ Bindings: Env }>): string[] {
+  return [...(canKho(c) ? ["Cho kho xu ly", "Kho da tiep nhan"] : []), ...(canTacNghiep(c) ? ["Kho xac nhan hang da ve"] : [])];
+}
+
 // GET /api/dat-mua-lk/ly-do-cham?he_thong= - danh sach ly do cham dang bat, loc theo he thong su
 // dung (vd "Mua hàng") - dung cho dropdown TN chon luc tu choi 1 dong. Mo cho moi user da dang nhap
 // (chi TN moi thuc su dung duoc luc tu choi, nhung liet ke thi khong nhay cam).
@@ -3745,7 +3753,11 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
     whereSql += " AND tlk.dat_don_hang_id = ?";
     binds.push(donHangId);
   }
-  if (trangThai) {
+  if (trangThai === THIEU_LK_VIEC) {
+    const ds = thieuLkTrangThaiViec(c);
+    whereSql += ds.length ? ` AND ${latestThieuLkStatusExpr("tlk.id")} IN (${ds.map(() => "?").join(",")})` : " AND 1=0";
+    binds.push(...ds);
+  } else if (trangThai) {
     whereSql += ` AND ${latestThieuLkStatusExpr("tlk.id")} = ?`;
     binds.push(trangThai);
   }
@@ -3849,6 +3861,8 @@ datMuaLinhKien.get("/thieu-lk-status-counts", async (c) => {
     .all<{ trang_thai: string; n: number }>();
   const counts: Record<string, number> = { "": totalRow?.total ?? 0 };
   for (const r of results) counts[r.trang_thai ?? ""] = r.n;
+  const viec = thieuLkTrangThaiViec(c);
+  counts[THIEU_LK_VIEC] = viec.reduce((s, t) => s + (counts[t] ?? 0), 0);
   return c.json({ counts });
 });
 

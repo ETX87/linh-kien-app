@@ -102,8 +102,11 @@ export function ThieuLkTab({
   // FIX (ra soat bug mua hang 2026-08-26, BUG-002): tach lop luu-lau-dai (localStorage) khoi lop
   // hien-thi/query - jump tu Home/Pipeline CHI doi lop hien thi, khong ghi de vinh vien filter da luu
   // (dung y "giữ filter đã lưu gần nhất" cua chu he thong). Xem giai thich day du o DonCuaToiTab.tsx.
-  // Kho mac dinh loc dung hang doi cua ho ("Cho kho xu ly"), con lai giu "Tat ca".
-  const [savedFilterTrangThai, setSavedFilterTrangThai] = useLocalStorageState("filters:dmlk-tlk-tt", canKho ? "Cho kho xu ly" : "");
+  // Kho/TN mac dinh loc "Việc cần xử lý" (__VIEC__ - CUNG tap trang thai voi badge Sidebar, fix 2026-09-28: truoc
+  // day Kho mac dinh "Cho kho xu ly" nen badge dem ca "Kho da tiep nhan" ma bam vao khong thay). Doi key localStorage
+  // (-v2) de moi tai khoan dang luu "Cho kho xu ly" tu dong sang mac dinh moi 1 lan.
+  const coViec = canKho || canTacNghiep;
+  const [savedFilterTrangThai, setSavedFilterTrangThai] = useLocalStorageState("filters:dmlk-tlk-tt-v2", coViec ? "__VIEC__" : "");
   // FIX (phan hoi 2026-08-28: nhay tu Trang chu lan dau hien danh sach trong, bam lai moi dung) - khoi
   // tao TRUC TIEP tu initialFilterOverride khi co, xem giai thich day du o PhieuXuatKhoTab.tsx.
   const [filterTrangThai, setFilterTrangThaiDisplay] = useState(initialFilterOverride ?? savedFilterTrangThai);
@@ -349,7 +352,12 @@ export function ThieuLkTab({
         onSearchChange={setFilterQ}
         searchPlaceholder="Tìm theo mã TLK, mã LK, tên LK, tên KTV/người báo..."
       >
-        <TrangThaiDropdownFilter value={filterTrangThai} onChange={setFilterTrangThai} options={THIEU_LK_TRANG_THAI_OPTIONS} counts={statusCountsData?.counts} />
+        <TrangThaiDropdownFilter
+          value={filterTrangThai}
+          onChange={setFilterTrangThai}
+          options={coViec ? [THIEU_LK_TRANG_THAI_OPTIONS[0], { value: "__VIEC__", label: "Việc cần xử lý" }, ...THIEU_LK_TRANG_THAI_OPTIONS.slice(1)] : THIEU_LK_TRANG_THAI_OPTIONS}
+          counts={statusCountsData?.counts}
+        />
         {/* Bo loc Khu vuc (them 2026-08-31, MO RONG 2026-09-05 dong bo voi DonCuaToiTab.tsx - xem
             showKhuVucFilter phia tren, khong chi rieng Kho nua). SUA BUG GIAO DIEN (phan hoi 2026-09-12):
             bo nhan "Khu vực" rieng ben ngoai (gay lech chieu cao so voi cac o loc khac cung hang) -
