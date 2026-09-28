@@ -22,7 +22,7 @@ import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, useNenAnhTraHangEnabled,
   useLkAndLdeCache, useLinhKienRankMap, isDonTaoHo, formatLkLabel, LOAI_DON_TONE, loaiDonLabel,
 } from "./helpers";
-import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, DetailZone, QuickStat, KhuVucChipFilter, ImageLink, ImageThumb, MaYcscCell } from "./SharedUi";
+import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, LoaiDeXuatBadge, DetailZone, QuickStat, KhuVucChipFilter, ImageLink, ImageThumb, MaYcscCell } from "./SharedUi";
 import { LinhKienDetailModal } from "./LinhKienPicker";
 import { Money } from "../../components/ui/Money";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
@@ -437,7 +437,7 @@ export function TraHangTab({
     { key: "so_luong_de_xuat", header: "SL đề xuất", render: (r) => r.so_luong_de_xuat },
     { key: "sl_thuc_xuat", header: "SL thực xuất", render: (r) => r.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
     { key: "gia", header: "Giá đề xuất", render: (r) => (r.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold"><Money>{fmtVND(r.gia_de_xuat)}</Money></span> : "—") },
-    { key: "loai", header: "Loại", render: (r) => { const loaiDon = (r.loai_don as keyof typeof LOAI_DON_TONE) ?? "tra_hang"; const t = LOAI_DON_TONE[loaiDon] ?? LOAI_DON_TONE.tra_hang; return <Badge tone={t.tone}>{loaiDonLabel(loaiDon, r.loai_de_xuat)}</Badge>; } },
+    { key: "loai", header: "Loại", render: (r) => <LoaiDeXuatBadge loaiDon={r.loai_don ?? "tra_hang"} loaiDeXuat={r.loai_de_xuat} /> },
     { key: "yeu_cau_hoa_don", header: "Yêu cầu hóa đơn", render: (r) => r.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
     {
       key: "trang_thai_tra_hang", header: "Trạng thái",

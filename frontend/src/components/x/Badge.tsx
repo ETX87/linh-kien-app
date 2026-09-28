@@ -23,11 +23,15 @@ const SOFT: Record<Tone, string> = {
   neutral: "bg-[var(--color-neutral-soft)] text-[var(--color-text-secondary)]",
 };
 
-export function Badge({ children, tone = "info", variant = "soft" }: { children: ReactNode; tone?: Tone; variant?: "line" | "soft" }) {
+// `dot` (them 2026-09-28): cham tron cua tone warning mang nghia "can xu ly" - CHI hop voi badge TRANG
+// THAI. Badge phan loai (vd LoaiDeXuatBadge) truyen dot={false} de khong bi hieu nham + khong lech kieu.
+export function Badge({
+  children, tone = "info", variant = "soft", dot = true,
+}: { children: ReactNode; tone?: Tone; variant?: "line" | "soft"; dot?: boolean }) {
   const cls = variant === "soft" ? SOFT[tone] : `border ${LINE[tone]}`;
   return (
     <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-[var(--radius-badge)] px-2 py-[3px] text-[11px] font-semibold leading-none ${cls}`}>
-      {tone === "warning" && variant === "soft" && <span aria-hidden className="h-[5px] w-[5px] shrink-0 rounded-full bg-[var(--color-warning)]" />}
+      {dot && tone === "warning" && variant === "soft" && <span aria-hidden className="h-[5px] w-[5px] shrink-0 rounded-full bg-[var(--color-warning)]" />}
       {children}
     </span>
   );

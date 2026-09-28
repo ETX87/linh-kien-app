@@ -20,7 +20,7 @@ import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import type { ThieuLkRow, LyDoChamRow, NguoiNhanHangKhaDungRow } from "./types";
 import { THIEU_LK_TRANG_THAI_TONE, THIEU_LK_TRANG_THAI_OPTIONS } from "./constants";
 import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts, trangThaiLabel, formatLkLabel, LOAI_DON_TONE } from "./helpers";
-import { StatusBadge, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar, KhuVucChipFilter } from "./SharedUi";
+import { StatusBadge, LoaiDeXuatBadge, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar, KhuVucChipFilter } from "./SharedUi";
 // Lien ket 2 chieu voi don goc (phan hoi 2026-09-10: "đơn gốc cũng không có truy vấn đến đơn ticket
 // đơn thiếu linh kiện") - import truc tiep component Drawer chi tiet don hang, tu quan ly state mo/dong
 // CUC BO trong ThieuLkDetailModal (khong lifting len ThieuLkTab), tranh phai xuyen them props qua
@@ -567,7 +567,7 @@ function ThieuLkGroupedList({
         </div>
       ),
     },
-    { key: "loai", header: "Loại", render: (r) => { const t = LOAI_DON_TONE[(r.loai_don as keyof typeof LOAI_DON_TONE) ?? "mua"] ?? LOAI_DON_TONE.mua; return <Badge tone={t.tone}>{t.label}</Badge>; } },
+    { key: "loai", header: "Loại", render: (r) => <LoaiDeXuatBadge loaiDon={r.loai_don} loaiDeXuat={r.loai_de_xuat} /> },
     { key: "loai_chiet_khau", header: "Loại chiết khấu", render: (r) => <LoaiChietKhauText id={r.loai_chiet_khau_id} thuCong={r.loai_chiet_khau_thu_cong} /> },
     { key: "nguoi_tao", header: "TN báo", render: (r) => formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap) },
     { key: "ngay_tao", header: "Ngày báo", render: (r) => fmtDateTime(r.ngay_tao) },
@@ -751,7 +751,6 @@ function ThieuLkGroupedList({
                 // FIX (phan hoi 2026-09-05, giong het comment o cot "hanh_dong" ben tren): loai "Da huy
                 // bo" khoi danh sach ngoai, chi giu lai trong ThieuLkDetailModal.
                 const nexts = nextStates(r).filter((s) => s.canDo && s.trangThai !== "Da huy bo");
-                const t = LOAI_DON_TONE[(r.loai_don as keyof typeof LOAI_DON_TONE) ?? "mua"] ?? LOAI_DON_TONE.mua;
                 return (
                   <div
                     key={r.id}
@@ -776,7 +775,7 @@ function ThieuLkGroupedList({
                           {r.ma_lk ? formatLkLabel(r.ma_lk, r.ten_lk_snapshot ?? r.ma_lk) : (r.ten_lk_snapshot ?? r.id)}
                         </div>
                         <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                          <Badge tone={t.tone}>{t.label}</Badge>
+                          <LoaiDeXuatBadge loaiDon={r.loai_don} loaiDeXuat={r.loai_de_xuat} />
                           <StatusBadge value={r.trang_thai} tones={THIEU_LK_TRANG_THAI_TONE} options={THIEU_LK_TRANG_THAI_OPTIONS} />
                         </div>
                         <div className="text-xs text-[var(--ink-500)] mt-1">

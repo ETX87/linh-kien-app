@@ -208,6 +208,7 @@ export interface ThieuLkRow {
   // nguoi BAO thieu, vd Kho) + hien Badge "Loại", dong bo kien truc voi DonHangGroupedList.
   nguoi_nhan_hang?: string | null;
   loai_don?: string | null;
+  loai_de_xuat?: string | null;
   ddh_nguoi_tao?: string | null;
   loai_chiet_khau_id?: number | null;
   loai_chiet_khau_thu_cong?: number | null;

@@ -5,7 +5,7 @@ import { Select } from "../../components/x/Form";
 import { DropdownPortal } from "../../components/ui/DropdownPortal";
 import { api } from "../../api/client";
 import { compressImage } from "../../lib/imageCompress";
-import { trangThaiLabel, describeApiError, useNenAnhTraHangEnabled } from "./helpers";
+import { trangThaiLabel, describeApiError, useNenAnhTraHangEnabled, LOAI_DON_TONE, loaiDonLabel } from "./helpers";
 
 // Cac component UI dung chung nhieu tab cua module "Dat mua linh kien" (tach tu
 // DatMuaLinhKienModule.tsx - UI redesign Phase 3, phan hoi Codex 2026-08-19).
@@ -83,6 +83,20 @@ export function StatusBadge({ value, tones, options }: { value: string; tones: R
 // 2026-08-19, muc P1 "nut reset filter + hien thi filter dang ap dung") - dung chung cho ca 4 tab
 // danh sach, moi tab tu xay mang `chips` tu state filter rieng cua no. Rong (return null) khi khong
 // co bo loc nao dang ap - khong chiem cho khi khong can.
+// Nhan "Loại"/"Loại đề xuất" THONG NHAT cho moi man (phan hoi 2026-09-28 "thống nhất phong cách giao
+// diện cho loại đề xuất" - truoc day "TRẢ HÀNG…" (tone warning) co them cham tron cua badge trang thai,
+// lech kieu va bi cat chu). Cung 1 kieu pill, KHONG cham, chu IN HOA (khop gia tri loai_de_xuat); mau
+// theo nhom Mua/Cong no/Tra hang (LOAI_DON_TONE). Khong co loai_de_xuat -> nhan nhom.
+export function loaiDeXuatText(loaiDon: string | null | undefined, loaiDeXuat?: string | null): string {
+  const nhom = (loaiDon && loaiDon in LOAI_DON_TONE ? loaiDon : "mua") as keyof typeof LOAI_DON_TONE;
+  return loaiDonLabel(nhom, loaiDeXuat).toUpperCase();
+}
+
+export function LoaiDeXuatBadge({ loaiDon, loaiDeXuat }: { loaiDon: string | null | undefined; loaiDeXuat?: string | null }) {
+  const nhom = (loaiDon && loaiDon in LOAI_DON_TONE ? loaiDon : "mua") as keyof typeof LOAI_DON_TONE;
+  return <Badge tone={LOAI_DON_TONE[nhom].tone} dot={false}>{loaiDeXuatText(loaiDon, loaiDeXuat)}</Badge>;
+}
+
 export function ActiveFiltersBar({ chips }: { chips: { label: string; onClear: () => void }[] }) {
   if (chips.length === 0) return null;
   return (

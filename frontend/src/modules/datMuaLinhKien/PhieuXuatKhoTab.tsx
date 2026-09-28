@@ -28,7 +28,7 @@ import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   trangThaiLabel, LOAI_DON_TONE, laTruCongNo,
 } from "./helpers";
-import { StatusBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar, KhuVucChipFilter, ImageLink } from "./SharedUi";
+import { StatusBadge, LoaiDeXuatBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar, KhuVucChipFilter, ImageLink } from "./SharedUi";
 import { PxkMiniPipeline } from "./PipelineFlow";
 import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportResult, type MisaTemplate } from "../../lib/misaExportTemplates";
 import { Money } from "../../components/ui/Money";
@@ -512,7 +512,7 @@ export function PhieuXuatKhoTab({
     { key: "actions", header: "", mobileHint: "actions", render: (r) => <Btn size="sm" variant="ghost" onClick={() => setDetailId(r.id)}>Chi tiết</Btn> },
   ];
   const optionalCols: Column<PhieuXuatKhoRow>[] = [
-    { key: "loai_don", header: "Loại", render: (r) => (r.loai_don ? <Badge tone={LOAI_DON_TONE[r.loai_don].tone}>{LOAI_DON_TONE[r.loai_don].label}</Badge> : <span className="text-[var(--ink-400)]">—</span>) },
+    { key: "loai_don", header: "Loại", render: (r) => (r.loai_don ? <LoaiDeXuatBadge loaiDon={r.loai_don} /> : <span className="text-[var(--ink-400)]">—</span>) },
     { key: "ma_van_don", header: "Mã vận đơn", render: (r) => r.ma_van_don ?? <span className="text-[var(--ink-400)]">—</span> },
     { key: "so_dong", header: "Số dòng", render: (r) => r.so_dong },
   ];
@@ -1636,7 +1636,7 @@ export function PxkDetailModal({
                       </td>
                       {/* Them 2026-09-28 (phan hoi "bổ sung thêm cột Loại đề xuất phía sau tên linh kiện") -
                           loai de xuat quyet dinh cach tinh tien (vd chi "MUA DỰ TRỮ" moi co chiet khau). */}
-                      <td className="px-2.5 py-2 whitespace-nowrap">{d.loai_de_xuat || "—"}</td>
+                      <td className="px-2.5 py-2 whitespace-nowrap"><LoaiDeXuatBadge loaiDon={d.loai_don ?? pxk.loai_don} loaiDeXuat={d.loai_de_xuat} /></td>
                       <td className="px-2.5 py-2 text-right">
                         {/* FIX (phan hoi 2026-09-22 "tất cả các dòng hiện thông tin đơn hàng cần hiện
                             cả sl thực xuất") - truoc day CHI hien SL thuc xuat cho loai_don==='mua',

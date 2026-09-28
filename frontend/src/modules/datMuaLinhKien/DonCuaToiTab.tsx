@@ -37,7 +37,7 @@ import {
   LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, actionsFor, trangThaiLabel, canNoRequired, maYcscRequired, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
 } from "./helpers";
-import { StatusBadge, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink } from "./SharedUi";
+import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { LinhKienPicker, LinhKienDetailModal } from "./LinhKienPicker";
 // Lien ket 2 chieu voi ticket thieu LK (phan hoi 2026-09-10) - xem giai thich import vong o
@@ -746,7 +746,7 @@ export function DonHangDetailModal({
                 nhan chu thich rieng, chi noi (self-center) giua chieu cao dai QuickStat ben canh. */}
             <div className="flex-1 min-w-[160px] self-center">
               <div className="flex items-center gap-1.5 flex-wrap">
-                {tone && d && <Badge tone={tone.tone}>{loaiDonLabel(d.loai_don, d.loai_de_xuat)}</Badge>}
+                {tone && d && <LoaiDeXuatBadge loaiDon={d.loai_don} loaiDeXuat={d.loai_de_xuat} />}
                 <StatusBadge value={d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} options={DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL} />
                 {d.loai_don === "tra_hang" && (
                   <span className="text-[var(--ink-400)] text-xs">(xử lý ở luồng quy trình phía trên)</span>
@@ -2126,7 +2126,7 @@ export function DonHangGroupedList({
     { key: "sl", header: "SL đề xuất", className: "text-right", render: (row) => row.d.so_luong_de_xuat },
     { key: "sl_thuc_xuat", header: "SL thực xuất", className: "text-right", render: (row) => row.d.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
     { key: "gia", header: "Giá đề xuất", className: "text-right", render: (row) => (row.d.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold"><Money>{fmtVND(row.d.gia_de_xuat)}</Money></span> : "—") },
-    { key: "loai", header: "Loại", render: (row) => <Badge tone={row.tone.tone}>{loaiDonLabel(row.d.loai_don, row.d.loai_de_xuat)}</Badge> },
+    { key: "loai", header: "Loại", render: (row) => <LoaiDeXuatBadge loaiDon={row.d.loai_don} loaiDeXuat={row.d.loai_de_xuat} /> },
     // Loai chiet khau (2026-09-26) - he thong gan luc tao PXK, TN sua o chi tiet don/chi tiet PXK.
     { key: "loai_chiet_khau", header: "Loại chiết khấu", render: (row) => <LoaiChietKhauText id={row.d.loai_chiet_khau_id} thuCong={row.d.loai_chiet_khau_thu_cong} /> },
     { key: "yeu_cau_hoa_don", header: "Yêu cầu hóa đơn", render: (row) => row.d.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
@@ -2273,7 +2273,7 @@ export function DonHangGroupedList({
     sl: { text: (d) => String(d.so_luong_de_xuat) },
     sl_thuc_xuat: { text: (d) => (d.so_luong_thuc_xuat != null ? String(d.so_luong_thuc_xuat) : dash) },
     gia: { text: (d) => (d.gia_de_xuat != null ? fmtVND(d.gia_de_xuat) : dash), font: `700 12px "Plus Jakarta Sans", "Be Vietnam Pro", sans-serif` },
-    loai: { text: (d) => loaiDonLabel(d.loai_don, d.loai_de_xuat), font: BADGE_FONT, extra: BADGE_PAD, max: 180 },
+    loai: { text: (d) => loaiDeXuatText(d.loai_don, d.loai_de_xuat), font: BADGE_FONT, extra: BADGE_PAD, max: 180 },
     loai_chiet_khau: { text: (d) => (tenLoaiChietKhau(loaiChietKhauList, d.loai_chiet_khau_id) ?? dash) + (d.loai_chiet_khau_thu_cong ? " ✎" : ""), max: 280 },
     yeu_cau_hoa_don: { text: (d) => d.yeu_cau_hoa_don || dash, max: 220 },
     trang_thai: {
@@ -2489,7 +2489,7 @@ export function DonHangGroupedList({
                       // 2 cai + "+N" khi con lai - bam vao the (onClick co san o div ngoai) mo Drawer
                       // xem du. Nut hanh dong (✓/⏳/✕/🚫) giu nguyen, KHONG tinh vao "3 dong" (hang
                       // thao tac rieng, theo dung xac nhan cua nguoi dung qua AskUserQuestion).
-                      const badges: { tone: Tone; label: string }[] = [
+                      const badges: { tone: Tone; label: string; dot?: boolean }[] = [
                         // FIX (phan hoi 2026-09-04: "đặt đơn công nợ vượt trần nhưng không thấy cảnh
                         // báo") - dat LEN DAU MANG (uu tien cao nhat) vi MAX_BADGE=1 phia duoi CHI hien
                         // badges[0], badge canh bao nay se bi "+N" nuot mat neu de sau cac badge khac.
@@ -2499,7 +2499,7 @@ export function DonHangGroupedList({
                         // don, vi MAX_BADGE=1 phia duoi CHI hien badges[0] (tru truong hop canh bao cong no
                         // o tren van uu tien tuyet doi, khong doi).
                         { tone: DON_HANG_TRANG_THAI_TONE_ALL[d.trang_thai ?? ""] ?? "neutral", label: trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, d.trang_thai ?? "") },
-                        { tone: tone.tone, label: loaiDonLabel(d.loai_don, d.loai_de_xuat) },
+                        { tone: tone.tone, label: loaiDeXuatText(d.loai_don, d.loai_de_xuat), dot: false },
                         ...(d.qua_han_ly_do_cham ? [{ tone: "danger" as Tone, label: "Quá hạn" }] : []),
                         // "Đơn tạo hộ" (yeu cau nguoi dung 2026-08-27) - xem giai thich day du o KvRow
                         // "Trạng thái" cua Drawer chi tiet phia tren (isDonTaoHo, helpers.ts).
@@ -2576,7 +2576,7 @@ export function DonHangGroupedList({
                                   dam bao badge con lai luon gop vao "+N" thay vi day xuong dong 2. */}
                               <div className="flex-[2] flex items-center justify-end gap-1 min-w-0 overflow-hidden">
                                 {shownBadges.map((b, i) => (
-                                  <Badge key={i} tone={b.tone}>{b.label}</Badge>
+                                  <Badge key={i} tone={b.tone} dot={b.dot}>{b.label}</Badge>
                                 ))}
                                 {extraBadgeCount > 0 && (
                                   <span
