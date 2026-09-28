@@ -480,16 +480,16 @@ phieuXuatKho.get("/don-hang-kha-dung-counts", async (c) => {
 });
 
 // CHOT thuat toan tinh "so_tien_can_chuyen" GOI Y cho PXK (phan hoi nguoi dung 2026-09-13, muc 6a-e) -
-// CHI ap dung cho cac dong loai_de_xuat === 'MUA DỰ TRỮ' (dong khac giu nguyen tinh theo gia_ban nhu
-// truoc gio, KHONG bi thuat toan nay dung toi). 6 buoc (CHOT qua nhieu vong AskUserQuestion, xem plan
+// Ban dau CHI ap dung cho dong 'MUA DỰ TRỮ'; CHOT 2026-09-28: ap dung cho MOI dong mua (+ "TRỪ CÔNG NỢ"),
+// rieng gia du phong (buoc 4-5) van chi cho dong MUA DỰ TRỮ - nguon that o lib/pxkRecalculate.ts. 6 buoc (CHOT qua nhieu vong AskUserQuestion, xem plan
 // Task E):
 //   1) Dong "Đình tủ" (linh_kien.don_vi, dung CHINH XAC chuoi nay - KHONG phai "Đỉnh tủ") luon tinh
 //      gia_ban*0.85 (chiet khau 15% co dinh), doc lap voi cac buoc duoi.
-//   2) D = tong gia_ban CUA TOAN BO dong MUA DỰ TRỮ (ke ca Dinh tu) - nguong xac dinh "gia KTV hieu luc"
+//   2) D = tong gia_ban CUA TOAN BO dong mua cua KTV trong phieu (ke ca Dinh tu) - nguong xac dinh "gia KTV hieu luc"
 //      o buoc 3.
 //   3) Gia KTV hieu luc (cho dong KHONG phai Dinh tu): D<200k -> gia_ban; 200k<=D<500k -> gia_ban*0.7;
 //      D>=500k -> gia_tri_cong_no.
-//   4) G_dp = tong gia_du_phong cac dong KHONG phai Dinh tu.
+//   4) G_dp = tong gia_du_phong cac dong MUA DỰ TRỮ KHONG phai Dinh tu.
 //   5) So sanh G_dp voi "moc du phong con kha dung" cua KTV (computeMocDuPhongHienTai) - TAT CA hoac
 //      KHONG (theo ca PXK, khong chia nho tung dong): moc >= G_dp -> tinh gia_du_phong; nguoc lai ->
 //      tinh gia KTV hieu luc (buoc 3).

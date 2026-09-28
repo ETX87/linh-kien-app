@@ -27,7 +27,7 @@ interface CalculationRow {
 
 // Chot nguoi dung 2026-09-28: PXK cong_no mac dinh tien can chuyen = 0, RIENG dong loai de xuat "TRỪ CÔNG
 // NỢ..." (TRỪ CÔNG NỢ / TG12-NSKX / TG12-NPP) van phai chuyen tien - tinh gia NHU DON MUA (gia chot ->
-// gia de xuat -> gia ban x SL thuc xuat) va di du quy trinh chuyen tien/chan chuyen buoc nhu PXK mua.
+// bac thang, xem tinhToanPxk) va di du quy trinh chuyen tien/chan chuyen buoc nhu PXK mua.
 // Cac dong cong_no con lai (CÔNG NỢ/HỖ TRỢ/THẺ BẢO HÀNH) chi hien so_tien_cong_no, khong cong vao tong.
 export function laTruCongNo(loaiDeXuat: string | null | undefined): boolean {
   return (loaiDeXuat ?? "").toUpperCase().includes("TRỪ CÔNG NỢ");
@@ -55,7 +55,7 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
   ).bind(...datDonHangIds).all<CalculationRow>();
 
   const maTheoLoaiDon = (row: CalculationRow, ma: MaChietKhau): MaChietKhau | null =>
-    row.loai_don === "tra_hang" ? null : row.loai_don === "cong_no" ? "CONG_NO" : ma;
+    row.loai_don === "tra_hang" ? null : row.loai_don === "cong_no" && !laTruCongNo(row.loai_de_xuat) ? "CONG_NO" : ma;
   const setTien = (row: CalculationRow, amount: number): number => {
     const rounded = Math.round(amount);
     tienUocTinhTheoDong.set(row.id, rounded);
@@ -63,70 +63,69 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
   };
 
   let total = 0;
-  const duTruByKtv = new Map<string, CalculationRow[]>();
+  // Chot nguoi dung 2026-09-28 ("Mọi đơn MUA đều tính bậc thang", sau PMH-000025 tong 35tr van tinh gia
+  // ban): truoc day CHI dong "MUA DỰ TRỮ" vao nhom bac thang, moi loai mua khac tinh gia ban (KHONG_CK).
+  // Gio MOI dong mua + dong "TRỪ CÔNG NỢ" (da chot tinh "như đơn mua") gom 1 nhom theo KTV: Dinh tu 85%,
+  // con lai theo moc tong gia ban ca nhom. Gia du phong van CHI danh cho dong MUA DỰ TRỮ.
+  const nhomTheoKtv = new Map<string, CalculationRow[]>();
   for (const row of results) {
     if (row.loai_don === "tra_hang") {
       maTheoDong.set(row.id, null);
       setTien(row, 0);
       continue;
     }
-    if (row.loai_don === "cong_no" && laTruCongNo(row.loai_de_xuat)) {
-      total += setTien(row, (row.gia_chot ?? row.gia_de_xuat ?? row.gia_ban ?? 0) * soLuongTinhTien(row));
-      maTheoDong.set(row.id, "KHONG_CK");
-      continue;
-    }
-    if (row.loai_don === "cong_no") {
+    if (row.loai_don === "cong_no" && !laTruCongNo(row.loai_de_xuat)) {
       maTheoDong.set(row.id, "CONG_NO");
       setTien(row, row.so_tien_cong_no ?? 0);
       continue;
     }
-
-    const isDuTru = (row.loai_de_xuat ?? "").trim().toUpperCase() === "MUA DỰ TRỮ";
-    if (!isDuTru) {
-      const amount = (row.gia_chot ?? row.gia_de_xuat ?? row.gia_ban ?? 0) * soLuongTinhTien(row);
-      total += setTien(row, amount);
-      maTheoDong.set(row.id, maTheoLoaiDon(row, "KHONG_CK"));
-      continue;
-    }
     const email = row.nguoi_nhan_hang ?? "";
-    if (!duTruByKtv.has(email)) duTruByKtv.set(email, []);
-    duTruByKtv.get(email)!.push(row);
+    if (!nhomTheoKtv.has(email)) nhomTheoKtv.set(email, []);
+    nhomTheoKtv.get(email)!.push(row);
   }
 
-  for (const [email, duTruRows] of duTruByKtv) {
-    const dinhTu = duTruRows.filter((row) => row.don_vi === "Đình tủ");
-    const khac = duTruRows.filter((row) => row.don_vi !== "Đình tủ");
-    const giaTriNhom = duTruRows.reduce((sum, row) => sum + (row.gia_ban ?? 0) * soLuongTinhTien(row), 0);
+  // gia_de_xuat = anh chup gia_ban luc tao don - chi dung du phong khi LK khong con trong danh muc.
+  const giaBan = (row: CalculationRow) => row.gia_ban ?? row.gia_de_xuat ?? 0;
+  const laDuTru = (row: CalculationRow) => (row.loai_de_xuat ?? "").trim().toUpperCase() === "MUA DỰ TRỮ";
 
-    for (const row of dinhTu) {
-      const donGia = row.gia_chot ?? (row.gia_ban ?? 0) * 0.85;
-      const amount = donGia * soLuongTinhTien(row);
-      total += setTien(row, amount);
-      maTheoDong.set(row.id, maTheoLoaiDon(row, "DINH_TU"));
+  for (const [email, rows] of nhomTheoKtv) {
+    const giaTriNhom = rows.reduce((sum, row) => sum + giaBan(row) * soLuongTinhTien(row), 0);
+    const giaBacThang = (row: CalculationRow): { donGia: number; ma: MaChietKhau } => {
+      if (giaTriNhom < 200000) return { donGia: giaBan(row), ma: "KHONG_CK" };
+      if (giaTriNhom < 500000) return { donGia: giaBan(row) * 0.7, ma: "TONG_200_500" };
+      // LK chua khai bao gia KTV (NULL/0) -> giu gia ban thay vi tinh 0d (cung loai loi voi gia du phong).
+      if ((row.gia_tri_cong_no ?? 0) > 0) return { donGia: row.gia_tri_cong_no!, ma: "GIA_KTV" };
+      return { donGia: giaBan(row), ma: "KHONG_CK" };
+    };
+
+    // Gia du phong: CHI cac dong MUA DỰ TRỮ (tru Dinh tu), tat-ca-hoac-khong.
+    const duTru = rows.filter((row) => row.don_vi !== "Đình tủ" && laDuTru(row));
+    let dungDuPhong = false;
+    if (duTru.length > 0) {
+      const giaDuPhong = duTru.reduce((sum, row) => sum + (row.gia_du_phong ?? 0) * soLuongTinhTien(row), 0);
+      const ktvRow = email
+        ? await db.prepare("SELECT ma_ktv FROM ktv_lien_he WHERE email_dang_nhap = ?").bind(email).first<{ ma_ktv: string }>()
+        : null;
+      // Loai tru CHINH cac dong dang xet khoi "da dung" (tranh dem trung, xem computeMocDuPhongHienTai).
+      // Dong Dinh tu cua phieu van tinh la "da dung" vi khong nam trong G_dp dem ra so sanh.
+      const mocKhaDung = ktvRow ? await computeMocDuPhongHienTai(db, ktvRow.ma_ktv, duTru.map((row) => row.id)) : 0;
+      // FIX 2026-09-28: truoc day LK chua co gia du phong -> giaDuPhong = 0 <= moc -> "du du phong" -> tinh
+      // 0d. Chi dung gia du phong khi MOI dong du tru deu co gia du phong > 0 VA moc du; thieu 1 dong -> ca
+      // nhom du tru ve gia bac thang (giu nguyen tac "theo ca phieu, khong chia tung dong").
+      const duGiaDuPhong = duTru.every((row) => (row.gia_du_phong ?? 0) > 0);
+      dungDuPhong = duGiaDuPhong && mocKhaDung >= giaDuPhong;
     }
-    if (khac.length === 0) continue;
 
-    const giaKtvHieuLuc = (row: CalculationRow) =>
-      giaTriNhom < 200000 ? (row.gia_ban ?? 0) : giaTriNhom < 500000 ? (row.gia_ban ?? 0) * 0.7 : (row.gia_tri_cong_no ?? 0);
-    const maKtvHieuLuc: MaChietKhau = giaTriNhom < 200000 ? "KHONG_CK" : giaTriNhom < 500000 ? "TONG_200_500" : "GIA_KTV";
-    const giaDuPhong = khac.reduce((sum, row) => sum + (row.gia_du_phong ?? 0) * soLuongTinhTien(row), 0);
-    const ktvRow = email
-      ? await db.prepare("SELECT ma_ktv FROM ktv_lien_he WHERE email_dang_nhap = ?").bind(email).first<{ ma_ktv: string }>()
-      : null;
-    // Loai tru CHINH cac dong dang xet khoi "da dung" (tranh dem trung, xem computeMocDuPhongHienTai).
-    // Dong Dinh tu cua phieu van tinh la "da dung" vi khong nam trong G_dp dem ra so sanh.
-    const mocKhaDung = ktvRow ? await computeMocDuPhongHienTai(db, ktvRow.ma_ktv, khac.map((row) => row.id)) : 0;
-    // FIX 2026-09-28: truoc day LK chua co gia du phong -> giaDuPhong = 0 <= moc -> "du du phong" -> tinh
-    // 0d. Chi dung gia du phong khi MOI dong (tru Dinh tu) deu co gia du phong > 0 VA moc du; thieu 1 dong
-    // -> ca nhom ve gia KTV/nguong 200k-500k (giu nguyen tac "theo ca phieu, khong chia tung dong").
-    const duGiaDuPhong = khac.every((row) => (row.gia_du_phong ?? 0) > 0);
-    const dungDuPhong = duGiaDuPhong && mocKhaDung >= giaDuPhong;
-
-    for (const row of khac) {
-      const donGia = row.gia_chot ?? (dungDuPhong ? (row.gia_du_phong ?? 0) : giaKtvHieuLuc(row));
-      const amount = donGia * soLuongTinhTien(row);
-      total += setTien(row, amount);
-      maTheoDong.set(row.id, maTheoLoaiDon(row, dungDuPhong ? "GIA_DU_PHONG" : maKtvHieuLuc));
+    for (const row of rows) {
+      const { donGia, ma } =
+        row.don_vi === "Đình tủ"
+          ? { donGia: giaBan(row) * 0.85, ma: "DINH_TU" as MaChietKhau }
+          : dungDuPhong && laDuTru(row)
+            ? { donGia: row.gia_du_phong ?? 0, ma: "GIA_DU_PHONG" as MaChietKhau }
+            : giaBacThang(row);
+      // Gia chot LUON thang (chot 2026-09-28); nhan loai chiet khau van theo cong thuc.
+      total += setTien(row, (row.gia_chot ?? donGia) * soLuongTinhTien(row));
+      maTheoDong.set(row.id, maTheoLoaiDon(row, ma));
     }
   }
 
