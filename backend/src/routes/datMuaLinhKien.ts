@@ -207,9 +207,10 @@ datMuaLinhKien.get("/nguoi-nhan-hang-kha-dung", async (c) => {
   const ktvBinds: unknown[] = [];
   let gsWhereSql = "u2.vai_tro = 'Giam sat'";
   const gsBinds: unknown[] = [];
+  // SUA (phan hoi 2026-09-28 "Cho phép GS đặt linh kiện cho cả KTV không thuộc khu vực của mình =>
+  // danh sách KTV sẽ hiện toàn bộ KTV trên hệ thống"): bo loc u.giam_sat_quan_ly = GS - GS thay MOI KTV
+  // (kem ten_gs de biet KTV thuoc GS nao). Van chi thay CHINH MINH trong nhanh tai khoan GS.
   if (user.vai_tro === "Giam sat") {
-    ktvWhereSql += " AND u.giam_sat_quan_ly = ?";
-    ktvBinds.push(user.email);
     gsWhereSql += " AND u2.email = ?";
     gsBinds.push(user.email);
   }
@@ -258,12 +259,7 @@ datMuaLinhKien.get("/cong-no-du-kien", async (c) => {
   if ("error" in resolved) return c.json({ error: resolved.error }, 400);
   const nguoiNhanHang = resolved.email;
 
-  if (user.vai_tro === "Giam sat" && !canTacNghiep(c) && nguoiNhanHang !== user.email) {
-    const recipientRow = await c.env.DB.prepare("SELECT giam_sat_quan_ly FROM users WHERE email = ?")
-      .bind(nguoiNhanHang)
-      .first<{ giam_sat_quan_ly: string | null }>();
-    if (recipientRow?.giam_sat_quan_ly !== user.email) return c.json({ error: "NGUOI_NHAN_HANG_NGOAI_PHAM_VI" }, 403);
-  }
+  // (Bo 2026-09-28) GS duoc dat/tra cuu cho MOI KTV, khong con gioi han KTV minh phu trach.
 
   const ktvRow = await c.env.DB.prepare("SELECT ma_ktv, cong_no FROM ktv_lien_he WHERE email_dang_nhap = ?")
     .bind(nguoiNhanHang)
@@ -297,12 +293,7 @@ datMuaLinhKien.get("/du-phong-du-kien", async (c) => {
   if ("error" in resolved) return c.json({ error: resolved.error }, 400);
   const nguoiNhanHang = resolved.email;
 
-  if (user.vai_tro === "Giam sat" && !canTacNghiep(c) && nguoiNhanHang !== user.email) {
-    const recipientRow = await c.env.DB.prepare("SELECT giam_sat_quan_ly FROM users WHERE email = ?")
-      .bind(nguoiNhanHang)
-      .first<{ giam_sat_quan_ly: string | null }>();
-    if (recipientRow?.giam_sat_quan_ly !== user.email) return c.json({ error: "NGUOI_NHAN_HANG_NGOAI_PHAM_VI" }, 403);
-  }
+  // (Bo 2026-09-28) GS duoc dat/tra cuu cho MOI KTV, khong con gioi han KTV minh phu trach.
 
   const ktvRow = await c.env.DB.prepare("SELECT ma_ktv, han_muc_du_phong FROM ktv_lien_he WHERE email_dang_nhap = ?")
     .bind(nguoiNhanHang)
@@ -347,12 +338,7 @@ datMuaLinhKien.get("/du-doan-duyet", async (c) => {
   if ("error" in resolved) return c.json({ error: resolved.error }, 400);
   const nguoiNhanHang = resolved.email;
 
-  if (user.vai_tro === "Giam sat" && !canTacNghiep(c) && nguoiNhanHang !== user.email) {
-    const recipientRow = await c.env.DB.prepare("SELECT giam_sat_quan_ly FROM users WHERE email = ?")
-      .bind(nguoiNhanHang)
-      .first<{ giam_sat_quan_ly: string | null }>();
-    if (recipientRow?.giam_sat_quan_ly !== user.email) return c.json({ error: "NGUOI_NHAN_HANG_NGOAI_PHAM_VI" }, 403);
-  }
+  // (Bo 2026-09-28) GS duoc dat/tra cuu cho MOI KTV, khong con gioi han KTV minh phu trach.
 
   const loaiDon = deriveLoaiDon(loaiDeXuat);
   if (loaiDon === "tra_hang") return c.json({ ap_dung: false, du_ton: null, ton_chot: null, khu_vuc_ma: null });
@@ -2047,9 +2033,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   // tinh co thuoc Giam sat do khong"). Nhanh GS tu nhan hang cho chinh minh (khong truyen
   // nguoi_nhan_hang) van giu nguyen - chu he thong xac nhan GS duoc phep tu nhan hang/chuyen tien
   // nhu KTV.
-  if (user.vai_tro === "Giam sat" && !canTacNghiep(c) && nguoiNhanHang !== user.email) {
-    if (recipientRow?.giam_sat_quan_ly !== user.email) return c.json({ error: "NGUOI_NHAN_HANG_NGOAI_PHAM_VI" }, 403);
-  }
+  // (Bo 2026-09-28) GS duoc dat/tra cuu cho MOI KTV, khong con gioi han KTV minh phu trach.
 
   // RA SOAT BAO MAT 2026-08-18 (phan hoi Codex #14): validate TOAN BO body.don_hang truoc khi cap
   // BAT KY id nao - nextSequentialId() la UPDATE...RETURNING commit NGAY LAP TUC, doc lap voi
@@ -2357,9 +2341,6 @@ async function processDatDonHangImportRows(
   const db = c.env.DB;
   const errors: string[] = [];
   const valid: DatDonHangImportValidRow[] = [];
-  // RA SOAT BAO MAT 2026-08-18 (phan hoi Codex #6, ap dung tuong tu nhanh tao tay o POST /phieu-dat):
-  // GS thuan (khong dong thoi la Tac nghiep) chi duoc import ho cho KTV thuoc quyen phu trach minh.
-  const isPureGs = user.vai_tro === "Giam sat" && !canTacNghiep(c);
 
   // Cache tra cuu KTV/LK trong 1 lan import - tranh query lap lai cung 1 ma nhieu lan qua nhieu dong.
   // ktvCache: email da RESOLVE (Ve tinh -> tram_cha, xem resolveNguoiNhanHang o tren - gop chung 1
@@ -2407,12 +2388,8 @@ async function processDatDonHangImportRows(
         ktvCache.set(maKtv, { error: "VE_TINH_CHUA_GAN_TRAM" });
       } else {
         const resolvedEmail = ktvRow.la_ve_tinh ? ktvRow.tram_cha! : ktvRow.email;
-        if (isPureGs && resolvedEmail !== user.email) {
-          const gsRow = await db.prepare("SELECT giam_sat_quan_ly FROM users WHERE email = ?").bind(resolvedEmail).first<{ giam_sat_quan_ly: string | null }>();
-          ktvCache.set(maKtv, gsRow?.giam_sat_quan_ly === user.email ? { email: resolvedEmail } : { error: "NGOAI_PHAM_VI_GS" });
-        } else {
-          ktvCache.set(maKtv, { email: resolvedEmail });
-        }
+        // (Bo 2026-09-28) GS import ho duoc cho MOI KTV - khong con chan NGOAI_PHAM_VI_GS.
+        ktvCache.set(maKtv, { email: resolvedEmail });
       }
     }
     const ktv = ktvCache.get(maKtv)!;
@@ -2654,8 +2631,8 @@ datMuaLinhKien.get("/search", async (c) => {
     if (canKho(c) || canTacNghiep(c)) {
       // khong gioi han
     } else if (user.vai_tro === "Giam sat") {
-      whereSql += " AND ddh.email_gs = ?";
-      binds.push(user.email);
+      whereSql += " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ?)"; // + don chinh GS tao (2026-09-28)
+      binds.push(user.email, user.email);
     } else if (user.la_view) {
       const emailIn = khuVucViewEmailInSql();
       whereSql += ` AND (ddh.nguoi_tao IN ${emailIn} OR ddh.nguoi_nhan_hang IN ${emailIn})`;
@@ -3573,8 +3550,8 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
       binds.push(...gsSet);
     }
   } else if (user.vai_tro === "Giam sat") {
-    whereSql += " AND ddh.email_gs = ?";
-    binds.push(user.email);
+    whereSql += " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ?)"; // + don chinh GS tao (2026-09-28)
+    binds.push(user.email, user.email);
   } else if (user.la_view) {
     // "View" (them 2026-08-26) - loc theo Khu vuc gan cho tai khoan nay, giong scopeDatMuaNguoiTao -
     // xem comment khuVucViewEmailInSql() trong scopeDatMua.ts.
@@ -3669,8 +3646,8 @@ datMuaLinhKien.get("/thieu-lk-status-counts", async (c) => {
       binds.push(...gsSet);
     }
   } else if (user.vai_tro === "Giam sat") {
-    whereSql += " AND ddh.email_gs = ?";
-    binds.push(user.email);
+    whereSql += " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ?)"; // + don chinh GS tao (2026-09-28)
+    binds.push(user.email, user.email);
   } else if (user.la_view) {
     const emailIn = khuVucViewEmailInSql();
     whereSql += ` AND (ddh.nguoi_tao IN ${emailIn} OR ddh.nguoi_nhan_hang IN ${emailIn})`;
@@ -3710,8 +3687,8 @@ datMuaLinhKien.get("/thieu-lk/:id", async (c) => {
   if (canKho(c) || canTacNghiep(c)) {
     // khong gioi han - giu nguyen
   } else if (user.vai_tro === "Giam sat") {
-    whereSql += " AND ddh.email_gs = ?";
-    binds.push(user.email);
+    whereSql += " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ?)"; // + don chinh GS tao (2026-09-28)
+    binds.push(user.email, user.email);
   } else if (user.la_view) {
     // "View" (them 2026-08-26) - loc theo Khu vuc gan cho tai khoan nay, giong scopeDatMuaNguoiTao -
     // xem comment khuVucViewEmailInSql() trong scopeDatMua.ts.

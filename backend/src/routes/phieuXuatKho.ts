@@ -455,7 +455,7 @@ phieuXuatKho.get("/don-hang-kha-dung", async (c) => {
   whereSql += isTraHang ? " AND ddh.trang_thai_hien_tai = 'TN da duyet'" : ` AND ${latestDonHangLogStatusExpr("ddh.id")} = 'TN da duyet'`;
   const { results } = await c.env.DB.prepare(
     `SELECT ddh.id, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat, ddh.gia_chot, ddh.gia_de_xuat,
-       ddh.updated_at, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat
+       ddh.updated_at, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.so_luong_thuc_xuat, ddh.so_tien_cong_no
      FROM dat_don_hang ddh
      WHERE ${whereSql}
      ORDER BY ddh.nguoi_nhan_hang, ddh.updated_at`,
@@ -624,8 +624,11 @@ phieuXuatKho.post("/tinh-lai-tien-dang-mo", async (c) => {
 phieuXuatKho.get("/goi-y-so-tien", async (c) => {
   if (!canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const ids = (c.req.query("ids") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-  const goiY = await computeGoiYSoTienChuyen(c.env.DB, ids);
-  return c.json({ goi_y: goiY });
+  // Them 2026-09-28 (modal tao PXK hien bang giong "Dòng đơn hàng"): tra THEM tien uoc tinh + loai chiet
+  // khau DU KIEN tung dong (cung 1 lan tinh voi tong - tinhToanPxk, nguon duy nhat).
+  const tinh = await tinhToanPxk(c.env.DB, ids);
+  const dong = ids.map((id) => ({ id, tien_uoc_tinh: tinh.tienUocTinhTheoDong.get(id) ?? null, ma_chiet_khau: tinh.maTheoDong.get(id) ?? null }));
+  return c.json({ goi_y: tinh.total, dong });
 });
 
 // POST /api/phieu-xuat-kho - TN tao, gan ma_xuat_kho vao tung dong don hang lien quan va tu tinh

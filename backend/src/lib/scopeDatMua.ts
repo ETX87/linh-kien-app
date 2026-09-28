@@ -39,7 +39,8 @@ export function scopeDatMuaNguoiTao(c: Context<{ Bindings: Env }>): { whereSql: 
     return null; // khong gioi han - QC them vao buoc 1 ke hoach "Luong tao don mua hang" (nen tang cho luong tra hang QC xac nhan)
   }
   if (user.vai_tro === "Giam sat") {
-    return { whereSql: " AND ddh.email_gs = ?", binds: [user.email] };
+    // + don CHINH GS tao (2026-09-28: GS dat duoc cho KTV ngoai khu vuc -> email_gs la GS khac).
+    return { whereSql: " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ?)", binds: [user.email, user.email] };
   }
   if (user.la_ktv_dvbh || user.la_ve_tinh) {
     return {

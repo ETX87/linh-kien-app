@@ -188,6 +188,10 @@ export interface DonHangKhaDungRow {
   gia_de_xuat: number | null;
   updated_at: string;
   nguoi_nhan_hang: string | null;
+  loai_don?: string | null;
+  loai_de_xuat?: string | null;
+  so_luong_thuc_xuat?: number | null;
+  so_tien_cong_no?: number | null;
 }
 
 export interface ThieuLkRow {
