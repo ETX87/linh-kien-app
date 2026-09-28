@@ -24,8 +24,9 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Vận hành",
     items: [
       { key: "trang-chu", label: "Trang chủ", icon: "home", countKey: "ktvLogChuaDoc" },
-      { key: "dat-mua-lk", label: "Đặt mua linh kiện", icon: "cart", countKey: "datMuaLk" },
+      // "Thiếu linh kiện" dung thu 2 ngay sau "Trang chủ" (phan hoi 2026-09-28).
       { key: "thieu-lk", label: "Thiếu linh kiện", icon: "package", countKey: "thieuLk" },
+      { key: "dat-mua-lk", label: "Đặt mua linh kiện", icon: "cart", countKey: "datMuaLk" },
       { key: "danh-muc-lk", label: "Danh mục linh kiện", icon: "catalog" },
       { key: "ton-kho-ktv", label: "Tồn kho công nợ KTV", icon: "stock" },
       { key: "danh-sach-ktv", label: "Danh sách KTV", icon: "users" },
