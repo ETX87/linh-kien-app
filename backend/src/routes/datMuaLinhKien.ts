@@ -21,7 +21,7 @@ import { computeCongNoChot } from "../lib/congNoKtv";
 import { computeMocDuPhongHienTai } from "../lib/duPhongKtv";
 import { computeTonKhoChot } from "../lib/tonKhoCongTy";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
-import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv } from "../lib/pxkRecalculate";
+import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon } from "../lib/pxkRecalculate";
 import { computeTonKtvConLai } from "../lib/tonKhoKtv";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, MUA_CONG_NO_ROLES, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
 import { pushThieuLkToKhovan, buildWorkUrl } from "../lib/khovanPushClient";
@@ -1806,7 +1806,7 @@ datMuaLinhKien.get("/don-hang", async (c) => {
     .bind(...binds)
     .first<{ total: number }>();
   const { results } = await c.env.DB.prepare(
-    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, lk.dac_thu, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
+    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, lk.dac_thu, lk.gia_ban as lk_gia_ban, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
        ${lastGiaiTrinhAtExpr("ddh.id")} as last_giai_trinh_at,
        (SELECT ghi_chu FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) as ghi_chu_xu_ly_gan_nhat,
        kv.ten as khu_vuc_ten
@@ -1822,7 +1822,7 @@ datMuaLinhKien.get("/don-hang", async (c) => {
      ${pageParam ? "LIMIT ? OFFSET ?" : ""}`,
   )
     .bind(...binds, ...(pageParam ? [pageSize, offset] : []))
-    .all<{ ly_do_cham: string | null; cho_tn_duyet_at: string | null; last_giai_trinh_at: string | null; ghi_chu_xu_ly_gan_nhat: string | null }>();
+    .all<{ id: string; ly_do_cham: string | null; cho_tn_duyet_at: string | null; last_giai_trinh_at: string | null; ghi_chu_xu_ly_gan_nhat: string | null }>();
 
   // "Quá hạn - cần lý do chậm" (cung cong thuc voi GET /don-hang/:id, xem hanLyDoCham.ts) - truoc day
   // CHI tinh duoc o man chi tiet tung dong, danh sach hoan toan khong co canh bao (phan hoi chu he
@@ -1830,9 +1830,16 @@ datMuaLinhKien.get("/don-hang", async (c) => {
   // SUA (muc #5): moc tinh han GIO LA last_giai_trinh_at (lan giai trinh gan nhat) neu co, khong con
   // dua vao "co ly_do_cham hay khong" (khoa vinh vien) - xem lastGiaiTrinhAtExpr.
   const now = nowVN();
+  // "Giá đề xuất" = gia SAU chiet khau (phan hoi 2026-09-28) - tien uoc tinh tung dong, CHI tinh khi co phan
+  // trang (danh sach UI); "Tải danh sách chi tiết" (khong phan trang) bo qua de tranh vuot gioi han truy van D1.
+  const tienTheoDon = pageParam ? await tienUocTinhChoDon(c.env.DB, results.map((r) => r.id)) : null;
   const rows = results.map(({ cho_tn_duyet_at, last_giai_trinh_at, ...row }) => {
     const mocThoiGian = last_giai_trinh_at ?? cho_tn_duyet_at;
-    return { ...row, qua_han_ly_do_cham: !!mocThoiGian && quaHanLyDoCham(mocThoiGian, now) };
+    return {
+      ...row,
+      qua_han_ly_do_cham: !!mocThoiGian && quaHanLyDoCham(mocThoiGian, now),
+      ...(tienTheoDon ? { tien_uoc_tinh: tienTheoDon.get(row.id) ?? null } : {}),
+    };
   });
 
   return c.json({ rows, page, pageSize, total: countRow?.total ?? 0 });
@@ -2798,7 +2805,9 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
     .bind(id)
     .first<{ id: string; trang_thai: string }>();
 
-  return c.json({ donHang: { ...ddh, cases, logs, giaiTrinh, qua_han_ly_do_cham: quaHan }, pxk: pxk ?? null, thieuLk: thieuLk ?? null });
+  // "Giá đề xuất" sau chiet khau (2026-09-28) - cung nguon voi danh sach (tienUocTinhChoDon).
+  const tienUocTinh = (await tienUocTinhChoDon(c.env.DB, [ddh.id])).get(ddh.id) ?? null;
+  return c.json({ donHang: { ...ddh, cases, logs, giaiTrinh, qua_han_ly_do_cham: quaHan, tien_uoc_tinh: tienUocTinh }, pxk: pxk ?? null, thieuLk: thieuLk ?? null });
 });
 
 // Mo 1 ca thieu_lk cho 1 DONG don hang khi TN tu choi bang 1 "Ly do cham" co co

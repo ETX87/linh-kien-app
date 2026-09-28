@@ -86,8 +86,15 @@ export function useColumnConfig<T>(columns: Column<T>[], optionalColumns: Column
     resolvedOrder = [...defaultRestColumns.map((c) => c.key), ...defaultVisibleOptionalKeys.filter((k) => knownKeys.has(k))];
   } else {
     const savedOrder = colConfig.order.filter((k) => knownKeys.has(k) && !hiddenSet.has(k));
-    const missingDefaultKeys = defaultRestColumns.map((c) => c.key).filter((k) => !savedOrder.includes(k) && !hiddenSet.has(k));
-    resolvedOrder = [...savedOrder, ...missingDefaultKeys];
+    // Cot mac dinh MOI them sau khi nguoi dung da tuy chinh (vd "Giá niêm yết" 2026-09-28) - chen ngay sau
+    // cot mac dinh dung truoc no (neu con hien), khong day xuong cuoi bang.
+    const defaultKeys = defaultRestColumns.map((c) => c.key);
+    resolvedOrder = [...savedOrder];
+    for (const k of defaultKeys) {
+      if (resolvedOrder.includes(k) || hiddenSet.has(k)) continue;
+      const truoc = defaultKeys.slice(0, defaultKeys.indexOf(k)).reverse().find((x) => resolvedOrder.includes(x));
+      resolvedOrder.splice(truoc ? resolvedOrder.indexOf(truoc) + 1 : resolvedOrder.length, 0, k);
+    }
   }
   const visibleRestColumns = resolvedOrder.map((k) => columnMap.get(k)).filter((c): c is Column<T> => !!c);
   const effectiveColumns = pinnedColumn ? [pinnedColumn, ...visibleRestColumns] : visibleRestColumns;

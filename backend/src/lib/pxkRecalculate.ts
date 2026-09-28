@@ -140,6 +140,40 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
 
 const ngayCua = (row: CalculationRow) => (row.ngay_tao ?? "").slice(0, 10);
 
+// Tien uoc tinh SAU CHIET KHAU tung dong cho danh sach/chi tiet don (them 2026-09-28, phan hoi "giá đề xuất
+// là giá thực cần chuyển tiền, giá niêm yết mới là 638k") - CUNG tinhToanPxk voi PXK: dong da vao PXK tinh
+// theo TOAN BO dong cua PXK do (khop "Tiền cần chuyển" o chi tiet PXK), dong chua vao PXK tinh chung 1 nhom.
+// Chia lo 90 id/cau lenh (D1 gioi han 100 tham so).
+export async function tienUocTinhChoDon(db: D1Database, ids: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (ids.length === 0) return out;
+  const idSet = new Set(ids);
+  const lo = <T>(arr: T[]) => Array.from({ length: Math.ceil(arr.length / 90) }, (_, i) => arr.slice(i * 90, i * 90 + 90));
+  const theoPxk = new Map<string, Set<string>>();
+  const coPxk = new Set<string>();
+  for (const chunk of lo(ids)) {
+    const { results } = await db
+      .prepare(
+        `SELECT phieu_xuat_kho_id as pxk_id, dat_don_hang_id as id FROM phieu_xuat_kho_dong
+         WHERE phieu_xuat_kho_id IN (SELECT phieu_xuat_kho_id FROM phieu_xuat_kho_dong WHERE dat_don_hang_id IN (${chunk.map(() => "?").join(",")}))`,
+      )
+      .bind(...chunk)
+      .all<{ pxk_id: string; id: string }>();
+    for (const r of results) {
+      if (!theoPxk.has(r.pxk_id)) theoPxk.set(r.pxk_id, new Set());
+      theoPxk.get(r.pxk_id)!.add(r.id);
+      coPxk.add(r.id);
+    }
+  }
+  const nhom = [...theoPxk.values()].flatMap((set) => lo([...set]));
+  nhom.push(...lo(ids.filter((id) => !coPxk.has(id))));
+  for (const g of nhom) {
+    const tinh = await tinhToanPxk(db, g);
+    for (const [id, tien] of tinh.tienUocTinhTheoDong) if (idSet.has(id)) out.set(id, tien);
+  }
+  return out;
+}
+
 // Dieu kien "don tinh vao tong ngay" (chot 2026-09-28): nhom Mua + TRỪ CÔNG NỢ, chua tu choi/huy.
 const DON_TINH_TONG_NGAY_SQL = `(ddh.loai_don = 'mua' OR (ddh.loai_don = 'cong_no' AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') > 0))
          AND ddh.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')`;

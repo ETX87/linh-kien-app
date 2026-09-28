@@ -170,6 +170,27 @@ export const LOAI_DON_TONE: Record<ReturnType<typeof deriveLoaiDon>, { tone: Ton
 // loai_de_xuat nguoi dung da chon, fallback ve nhan gop khi thieu du lieu (vd dong import cu).
 // Dong cong_no loai "TRỪ CÔNG NỢ..." van phai chuyen tien, tinh gia nhu don mua - khop laTruCongNo o
 // backend (lib/pxkRecalculate.ts, chot 2026-09-28).
+// "Giá đề xuất" = gia SAU chiet khau (phan hoi 2026-09-28: "giá đề xuất là giá thực cần chuyển tiền, giá niêm
+// yết mới là 638k") - don Mua / TRỪ CÔNG NỢ lay tu tien uoc tinh server tinh (tinhToanPxk, gia chot neu co) chia SL
+// tinh tien; don khac (cong no thuong/tra hang) hoac chua co so server giu gia_de_xuat (= gia ban luc tao don).
+type DongTinhGia = {
+  loai_don: string; loai_de_xuat: string | null; gia_de_xuat: number | null; so_luong_de_xuat: number;
+  so_luong_thuc_xuat?: number | null; tien_uoc_tinh?: number | null; lk_gia_ban?: number | null;
+};
+const coGiaSauCk = (d: DongTinhGia) => (d.loai_don === "mua" || laTruCongNo(d.loai_de_xuat)) && d.tien_uoc_tinh != null;
+export function donGiaSauChietKhau(d: DongTinhGia): number | null {
+  const sl = d.so_luong_thuc_xuat ?? d.so_luong_de_xuat;
+  if (coGiaSauCk(d) && sl > 0) return Math.round(d.tien_uoc_tinh! / sl);
+  return d.gia_de_xuat;
+}
+export function tienSauChietKhau(d: DongTinhGia): number {
+  return coGiaSauCk(d) ? d.tien_uoc_tinh! : (d.gia_de_xuat ?? 0) * d.so_luong_de_xuat;
+}
+/** Gia niem yet = gia ban hien tai trong danh muc (LK khong con trong danh muc -> gia_de_xuat luc tao don). */
+export function giaNiemYet(d: DongTinhGia): number | null {
+  return d.lk_gia_ban ?? d.gia_de_xuat;
+}
+
 export function laTruCongNo(loaiDeXuat: string | null | undefined): boolean {
   return (loaiDeXuat ?? "").toUpperCase().includes("TRỪ CÔNG NỢ");
 }

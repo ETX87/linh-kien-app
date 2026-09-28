@@ -36,7 +36,7 @@ import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, trangThaiLabel, canNoRequired, maYcscRequired, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
-} from "./helpers";
+  donGiaSauChietKhau, tienSauChietKhau, giaNiemYet } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { LinhKienPicker, LinhKienDetailModal } from "./LinhKienPicker";
@@ -740,8 +740,10 @@ export function DonHangDetailModal({
                 />
               )
             )}
-            <QuickStat label="Giá đề xuất" value={d.gia_de_xuat != null ? <Money>{fmtVND(d.gia_de_xuat)}</Money> : "—"} tone="green" />
-            <QuickStat label="Tổng tiền đề xuất" value={<Money>{fmtVND((d.gia_de_xuat ?? 0) * d.so_luong_de_xuat)}</Money>} tone="green" />
+            {/* Giá niêm yết (giá bán) + Giá đề xuất = SAU chiet khau (2026-09-28, xem donGiaSauChietKhau). */}
+            <QuickStat label="Giá niêm yết" value={giaNiemYet(d) != null ? <Money>{fmtVND(giaNiemYet(d))}</Money> : "—"} />
+            <QuickStat label="Giá đề xuất" value={donGiaSauChietKhau(d) != null ? <Money>{fmtVND(donGiaSauChietKhau(d))}</Money> : "—"} tone="green" />
+            <QuickStat label="Tổng tiền đề xuất" value={<Money>{fmtVND(tienSauChietKhau(d))}</Money>} tone="green" />
             {d.gia_chot != null && <QuickStat label="Giá chốt" value={<Money>{fmtVND(d.gia_chot)}</Money>} tone="green" />}
             {/* "Cong no tam tinh" + danh gia (them 04/09/2026) - chi co y nghia voi dong loai_don=
                 'cong_no', chot 1 LAN luc tao don (xem lib/congNoKtv.ts o backend, khong tinh lai). */}
@@ -1688,7 +1690,7 @@ export function DonCuaToiTab({
   // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Preview truoc bulk action") - tong tien cua CAC
   // DONG DANG CHON, hien kem so dong trong nut xac nhan bulk de nguoi dung thay ro quy mo truoc khi
   // bam xac nhan lan 2 (xem BulkConfirmButton).
-  const tongTienDaChon = pageRows.filter((r) => selected.has(r.id)).reduce((s, r) => s + (r.gia_de_xuat ?? 0) * r.so_luong_de_xuat, 0);
+  const tongTienDaChon = pageRows.filter((r) => selected.has(r.id)).reduce((s, r) => s + tienSauChietKhau(r), 0);
 
   function toggleSelectAll() {
     setSelected((s) => (s.size === rowsCoTheChon.length ? new Set() : new Set(rowsCoTheChon.map((r) => r.id))));
@@ -2142,7 +2144,9 @@ export function DonHangGroupedList({
     { key: "ngay_de_xuat", header: "Ngày đề xuất", render: (row) => fmtDate(row.d.ngay_tao) },
     { key: "sl", header: "SL đề xuất", className: "text-right", render: (row) => row.d.so_luong_de_xuat },
     { key: "sl_thuc_xuat", header: "SL thực xuất", className: "text-right", render: (row) => row.d.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
-    { key: "gia", header: "Giá đề xuất", className: "text-right", render: (row) => (row.d.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold"><Money>{fmtVND(row.d.gia_de_xuat)}</Money></span> : "—") },
+    // "Giá niêm yết" (giá bán) canh "Giá đề xuất" = don gia SAU chiet khau (phan hoi 2026-09-28).
+    { key: "gia_niem_yet", header: "Giá niêm yết", className: "text-right", render: (row) => (giaNiemYet(row.d) != null ? <Money>{fmtVND(giaNiemYet(row.d))}</Money> : "—") },
+    { key: "gia", header: "Giá đề xuất", className: "text-right", render: (row) => (donGiaSauChietKhau(row.d) != null ? <span className="text-[var(--green-700)] font-semibold" title="Đơn giá sau chiết khấu (giá thực cần chuyển tiền)"><Money>{fmtVND(donGiaSauChietKhau(row.d))}</Money></span> : "—") },
     { key: "loai", header: "Loại", render: (row) => <LoaiDeXuatBadge loaiDon={row.d.loai_don} loaiDeXuat={row.d.loai_de_xuat} /> },
     // Loai chiet khau (2026-09-26) - he thong gan luc tao PXK, TN sua o chi tiet don/chi tiet PXK.
     { key: "loai_chiet_khau", header: "Loại chiết khấu", render: (row) => <LoaiChietKhauText id={row.d.loai_chiet_khau_id} thuCong={row.d.loai_chiet_khau_thu_cong} /> },
@@ -2289,7 +2293,8 @@ export function DonHangGroupedList({
     ngay_de_xuat: { text: (d) => fmtDate(d.ngay_tao) },
     sl: { text: (d) => String(d.so_luong_de_xuat) },
     sl_thuc_xuat: { text: (d) => (d.so_luong_thuc_xuat != null ? String(d.so_luong_thuc_xuat) : dash) },
-    gia: { text: (d) => (d.gia_de_xuat != null ? fmtVND(d.gia_de_xuat) : dash), font: `700 12px "Plus Jakarta Sans", "Be Vietnam Pro", sans-serif` },
+    gia_niem_yet: { text: (d) => (giaNiemYet(d) != null ? fmtVND(giaNiemYet(d)) : dash) },
+    gia: { text: (d) => (donGiaSauChietKhau(d) != null ? fmtVND(donGiaSauChietKhau(d)) : dash), font: `700 12px "Plus Jakarta Sans", "Be Vietnam Pro", sans-serif` },
     loai: { text: (d) => loaiDeXuatText(d.loai_don, d.loai_de_xuat), font: BADGE_FONT, extra: BADGE_PAD, max: 180 },
     loai_chiet_khau: { text: (d) => (tenLoaiChietKhau(loaiChietKhauList, d.loai_chiet_khau_id) ?? dash) + (d.loai_chiet_khau_thu_cong ? " ✎" : ""), font: BADGE_FONT, extra: BADGE_PAD, max: 280 },
     yeu_cau_hoa_don: { text: (d) => d.yeu_cau_hoa_don || dash, max: 220 },
@@ -2353,7 +2358,7 @@ export function DonHangGroupedList({
     const dongY = dongCon.filter((d) => d.trang_thai === "TN da duyet").length;
     const tuChoi = dongCon.filter((d) => d.trang_thai === "TN tu choi").length;
     const choHang = dongCon.filter((d) => d.trang_thai === "Cho hang").length;
-    const tongTien = dongCon.reduce((s, d) => s + (d.gia_de_xuat ?? 0) * d.so_luong_de_xuat, 0);
+    const tongTien = dongCon.reduce((s, d) => s + tienSauChietKhau(d), 0);
     const rowsEnriched: EnrichedRow[] = dongCon.map((d) => {
       const actions = actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail });
       const tone = LOAI_DON_TONE[d.loai_don];
@@ -2620,7 +2625,11 @@ export function DonHangGroupedList({
                               )}
                               {d.tt_khach_hang?.trim() && <span className="truncate min-w-0">{d.tt_khach_hang.trim()}</span>}
                               <span className="shrink-0 ml-auto whitespace-nowrap">
-                                SL:{d.so_luong_de_xuat} · {d.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold"><Money>{fmtVND(d.gia_de_xuat)}</Money></span> : "—"}
+                                SL:{d.so_luong_de_xuat} ·{" "}
+                                {giaNiemYet(d) != null && giaNiemYet(d) !== donGiaSauChietKhau(d) && (
+                                  <span className="text-[var(--ink-400)] line-through mr-1" title="Giá niêm yết"><Money>{fmtVND(giaNiemYet(d))}</Money></span>
+                                )}
+                                {donGiaSauChietKhau(d) != null ? <span className="text-[var(--green-700)] font-semibold"><Money>{fmtVND(donGiaSauChietKhau(d))}</Money></span> : "—"}
                               </span>
                             </div>
                             {/* FIX (phan hoi 2026-08-28, lan 2: "ấn vào vùng trống trên thẻ vẫn không mở

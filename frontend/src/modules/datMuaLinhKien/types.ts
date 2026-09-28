@@ -136,13 +136,15 @@ export interface DonHangRow {
   // Ten lay tu danh sach settings (useLoaiChietKhauList), khong JOIN o tung API.
   loai_chiet_khau_id?: number | null;
   loai_chiet_khau_thu_cong?: number | null;
-  // Gia danh muc (LEFT JOIN linh_kien) - chi co o GET /don-hang/:id va GET /phieu-xuat-kho/:id, dung goi y
-  // gia thuc te khi TN doi loai chiet khau (LoaiChietKhauPicker).
+  // Gia danh muc (LEFT JOIN linh_kien) - GET /don-hang/:id va GET /phieu-xuat-kho/:id (du 3 cot, dung goi y
+  // gia thuc te khi TN doi loai chiet khau - LoaiChietKhauPicker); GET /don-hang chi co lk_gia_ban (cot
+  // "Giá niêm yết", 2026-09-28).
   lk_gia_ban?: number | null;
   lk_gia_tri_cong_no?: number | null;
   lk_gia_du_phong?: number | null;
-  // Gia tri server tinh lai theo loai chiet khau va SL thuc xuat cua toan PXK.
-  tien_uoc_tinh?: number;
+  // Gia tri server tinh lai theo loai chiet khau va SL thuc xuat cua toan PXK. GET /don-hang (co phan trang)
+  // va GET /don-hang/:id cung tra (lib/pxkRecalculate.ts tienUocTinhChoDon) - nguon cot "Giá đề xuất" sau CK.
+  tien_uoc_tinh?: number | null;
 }
 
 // PXK - "chuyen tien" la 1 dieu kien chan rieng tren chinh PXK (thay the bang phieu_so_tien cu, xem
