@@ -25,6 +25,7 @@ import {
 import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, DetailZone, QuickStat, KhuVucChipFilter, ImageLink, ImageThumb, MaYcscCell } from "./SharedUi";
 import { LinhKienDetailModal } from "./LinhKienPicker";
 import { Money } from "../../components/ui/Money";
+import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -451,14 +452,14 @@ export function TraHangTab({
         </div>
       ),
     },
-    { key: "nguoi_nhan_hang", header: "Người nhận hàng", render: (r) => (r.nguoi_nhan_hang ? formatNguoiDisplay(r.nguoi_nhan_hang, ktvDisplayMap) : <span className="text-[var(--ink-400)]">—</span>) },
+    { key: "nguoi_nhan_hang", header: "Người nhận hàng", render: (r) => (r.nguoi_nhan_hang ? <NguoiNhan>{formatNguoiDisplay(r.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>) },
     { key: "ly_do_cham", header: "Lý do từ chối/chờ hàng", render: (r) => r.ly_do_cham || <span className="text-[var(--ink-400)]">—</span> },
     // "Khu vực" cua NGUOI NHAN HANG - khong phai cot that tren dat_don_hang, server LEFT JOIN qua
     // ktv_lien_he.khu_vuc_ma (xem GET /tra-hang backend + DonHangRow.khu_vuc_ten trong types.ts).
     { key: "khu_vuc", header: "Khu vực", render: (r) => r.khu_vuc_ten || <span className="text-[var(--ink-400)]">—</span> },
     { key: "ghi_chu", header: "Ghi chú người đặt hàng", render: (r) => r.ghi_chu || <span className="text-[var(--ink-400)]">—</span> },
     { key: "ghi_chu_admin", header: "Ghi chú Admin", render: (r) => r.ghi_chu_xu_ly_gan_nhat || <span className="text-[var(--ink-400)]">—</span> },
-    { key: "nguoi_tao_yc", header: "Người tạo yêu cầu", render: (r) => formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap) },
+    { key: "nguoi_tao_yc", header: "Người tạo yêu cầu", render: (r) => <NguoiTao>{formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap)}</NguoiTao> },
     { key: "ma_ycsc", header: "Mã yêu cầu sự cố", render: (r) => <MaYcscCell value={r.ma_yeu_cau_su_co} canXemChiTietCa={false} /> },
     {
       key: "actions", header: "", mobileHint: "actions",
@@ -848,7 +849,7 @@ function TraHangGroupedList({
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <div className="flex items-center gap-3 flex-wrap text-sm min-w-0">
                         <span className="font-bold text-[var(--ink-900)] text-sm truncate">
-                          {formatNguoiDisplay(g.nguoiTao, ktvDisplayMap)}
+                          <NguoiTao>{formatNguoiDisplay(g.nguoiTao, ktvDisplayMap)}</NguoiTao>
                         </span>
                         <span className="text-[var(--ink-500)] text-xs">({g.dongCon.length} dòng)</span>
                       </div>
@@ -886,7 +887,7 @@ function TraHangGroupedList({
         <div key={g.nguoiTao} className="mb-4">
           <div className="sm:hidden flex items-center justify-between gap-2 flex-wrap">
             <SectionTitle>
-              KTV: {formatNguoiDisplay(g.nguoiTao, ktvDisplayMap)}
+              KTV: <NguoiTao>{formatNguoiDisplay(g.nguoiTao, ktvDisplayMap)}</NguoiTao>
               <span className="ml-1.5 font-normal normal-case tracking-normal text-[var(--ink-400)]">({g.dongCon.length} dòng)</span>
             </SectionTitle>
             <div className="flex items-center gap-1 flex-wrap mb-2">
@@ -1243,7 +1244,7 @@ function TraHangDetailModal({
           </div>
 
           <DetailZone title="Thông tin đơn">
-            <KvRow label="Người tạo">{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</KvRow>
+            <KvRow label="Người tạo"><NguoiTao>{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</NguoiTao></KvRow>
             <KvRow label="Ngày tạo">{fmtDateTime(d.ngay_tao)}</KvRow>
             <KvRow label="Mã LK"><span className="font-mono text-xs">{d.ma_lk}</span></KvRow>
             {d.ghi_chu && <KvRow label="Ghi chú">{d.ghi_chu}</KvRow>}

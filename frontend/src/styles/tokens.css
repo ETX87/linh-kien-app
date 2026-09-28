@@ -59,6 +59,10 @@
   /* Số tiền (phản hồi 2026-09-28: "tất cả UI số tiền tô màu xanh lá cây đậm để dễ phân biệt") -
      MỌI số tiền hiển thị dùng <Money> (components/ui/Money.tsx) → class .money bên dưới. */
   --color-money: #166534;
+  /* Tên người (phản hồi 2026-09-28: "tên người tạo đơn = màu hồng đậm, người nhận hàng = màu xanh dương
+     đậm") - dùng qua <NguoiTao>/<NguoiNhan> (components/ui/TenNguoi.tsx). Chỉ đổi màu, giữ độ đậm chữ. */
+  --color-nguoi-tao: #be185d;
+  --color-nguoi-nhan: #1e40af;
   --color-info: #0379a8;
   --color-info-soft: #e3f8fd;
   --color-warning: #ff9800;
@@ -549,6 +553,14 @@ textarea::placeholder {
   color: var(--color-money);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* Tên người tạo đơn / người nhận hàng - xem --color-nguoi-tao/--color-nguoi-nhan. */
+.nguoi-tao {
+  color: var(--color-nguoi-tao);
+}
+.nguoi-nhan {
+  color: var(--color-nguoi-nhan);
 }
 
 .code-link {

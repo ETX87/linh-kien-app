@@ -6,7 +6,7 @@ export interface NavItem {
   label: string;
   // Tên khoá trong `Icon` (components/ui/Icon.tsx) — hoặc 1 emoji (fallback cho link ngoài).
   icon: keyof typeof Icon | string;
-  countKey?: "datMuaLk" | "ktvLogChuaDoc";
+  countKey?: "datMuaLk" | "ktvLogChuaDoc" | "thieuLk";
   // "href" — mục menu là LIÊN KẾT RA NGOÀI (Worker/app khác), KHÔNG tham gia allowedModules/setActive;
   // Sidebar render <a href> thật, LUÔN hiện cho mọi người đăng nhập.
   href?: string;
@@ -25,7 +25,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: "trang-chu", label: "Trang chủ", icon: "home", countKey: "ktvLogChuaDoc" },
       { key: "dat-mua-lk", label: "Đặt mua linh kiện", icon: "cart", countKey: "datMuaLk" },
-      { key: "thieu-lk", label: "Thiếu linh kiện", icon: "package" },
+      { key: "thieu-lk", label: "Thiếu linh kiện", icon: "package", countKey: "thieuLk" },
       { key: "danh-muc-lk", label: "Danh mục linh kiện", icon: "catalog" },
       { key: "ton-kho-ktv", label: "Tồn kho công nợ KTV", icon: "stock" },
       { key: "danh-sach-ktv", label: "Danh sách KTV", icon: "users" },

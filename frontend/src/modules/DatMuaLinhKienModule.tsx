@@ -40,6 +40,7 @@ const STAGE_MENU_TARGETS: { key: string; tab: string; filter: string; loaiDon?: 
   { key: "tra-hang-cho", tab: "phieu-xuat-kho", filter: "Dang tao phieu", loaiDon: "tra_hang" },
   { key: "tra-hang-cho", tab: "phieu-xuat-kho", filter: "Cho ke toan", loaiDon: "tra_hang" },
   { key: "tra-hang-cho", tab: "phieu-xuat-kho", filter: "Da chot xong don xuat", loaiDon: "tra_hang" },
+  { key: "tong-don-hang", tab: "don-cua-toi", filter: "__OPEN__", loaiDon: "tat_ca" },
   { key: "cho-tbp", tab: "don-cua-toi", filter: "Cho TBP xac nhan", loaiDon: "" },
   { key: "cho-tn-duyet", tab: "don-cua-toi", filter: "Cho TN duyet", loaiDon: "" },
   { key: "cho-hang", tab: "don-cua-toi", filter: "Cho hang", loaiDon: "" },
@@ -311,6 +312,14 @@ export function DatMuaLinhKienModule({
     refetchInterval: 5 * 60_000,
   });
   const donHangStatusCounts = donHangStatusCountsData?.counts ?? {};
+  // "Tổng đơn hàng" (phan hoi 2026-09-28) - dem GOP CA 3 loai (loai_don=all), cung queryKey voi dropdown
+  // trang thai cua DonCuaToiTab khi dang xem gop 3 loai -> so tren menu = dung so dong "Còn tồn" hien ra.
+  const { data: tatCaLoaiCountsData } = useQuery({
+    queryKey: ["dat-mua-lk-don-hang-status-counts", "all"],
+    queryFn: () => api.get<{ counts: Record<string, number> }>("/dat-mua-lk/don-hang-status-counts?loai_don=all"),
+    enabled: canXemDonMuaCongNo,
+    refetchInterval: 5 * 60_000,
+  });
   const { data: traHangStatusCountsData } = useQuery({
     queryKey: ["dat-mua-lk-don-hang-status-counts", "tra_hang"],
     queryFn: () => api.get<{ counts: Record<string, number> }>("/dat-mua-lk/don-hang-status-counts?loai_don=tra_hang"),
@@ -456,6 +465,20 @@ export function DatMuaLinhKienModule({
     {
       title: "Đơn đặt hàng",
       items: [
+        // "Tổng đơn hàng" (phan hoi 2026-09-28: "hiện tổng đơn hàng đang tồn dưới mọi hình thức theo vai
+        // trò... vẫn có thể bỏ filter để xem tất cả đơn đã xong hoặc đã hủy") - GOP CA 3 loai (ke ca tra
+        // hang, chot nguoi dung), mac dinh loc "Còn tồn"; pham vi theo vai tro do backend tu ap (scope/
+        // khu vuc/GS phu trach giong moi muc khac). Bo loc trang thai ben trong doi duoc sang "Tất cả".
+        ...(canXemDonMuaCongNo
+          ? [
+              {
+                key: "tong-don-hang",
+                label: "Tổng đơn hàng",
+                count: tatCaLoaiCountsData?.counts.__OPEN__,
+                onClick: () => stageJump("tong-don-hang", { tab: "don-cua-toi", filter: "__OPEN__", loaiDon: "tat_ca" }),
+              },
+            ]
+          : []),
         ...(canTraHangView
           ? [
               {

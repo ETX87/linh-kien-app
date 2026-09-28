@@ -12,7 +12,7 @@ import type { AppUser } from "../auth/AuthContext";
 import type { ViewAsRole } from "../auth/viewAsRoles";
 
 interface NotificationCounts {
-  datMuaLk: { total: number };
+  datMuaLk: { total: number; thieuLkCanXuLy?: number };
   ktvLogChuaDoc: number;
 }
 
@@ -95,7 +95,7 @@ export function Sidebar({
             <div key={g.label} className="mb-4">
               {showText && <div className="text-[10px] uppercase tracking-wider font-bold text-[var(--sidebar-fg-dim)] px-2.5 mb-1.5">{g.label}</div>}
               {items.map((it) => {
-                const count = !it.countKey || !counts ? 0 : it.countKey === "ktvLogChuaDoc" ? counts.ktvLogChuaDoc : counts.datMuaLk.total;
+                const count = !it.countKey || !counts ? 0 : it.countKey === "ktvLogChuaDoc" ? counts.ktvLogChuaDoc : it.countKey === "thieuLk" ? (counts.datMuaLk.thieuLkCanXuLy ?? 0) : counts.datMuaLk.total;
                 const on = active === it.key;
                 const IconCmp = (Icon as Record<string, ((p: { size?: number; className?: string }) => JSX.Element) | undefined>)[it.icon as string];
                 const cls = `focus-ring w-full flex items-center gap-3 h-10 px-3.5 rounded-[8px] mb-0.5 text-[13.5px] transition-colors ${

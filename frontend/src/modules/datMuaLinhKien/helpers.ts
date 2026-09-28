@@ -56,6 +56,8 @@ export function invalidatePipelineCounts(qc: ReturnType<typeof useQueryClient>) 
   qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-status-counts"] });
   qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-status-counts"] });
   qc.invalidateQueries({ queryKey: ["dat-mua-lk-thieu-lk-status-counts"] });
+  // Badge Sidebar/BottomTabBar (vd "Thiếu linh kiện (x1)", them 2026-09-28) - cap nhat ngay sau thao tac.
+  qc.invalidateQueries({ queryKey: ["notifications-count"] });
 }
 
 export function formatNguoiDisplay(email: string, map: KtvDisplayMap): string {

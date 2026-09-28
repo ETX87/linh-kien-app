@@ -45,6 +45,12 @@ export interface DatMuaLkBreakdown {
   // "tu_choi" cua CHINH nguoi dang dang nhap - tu het khi ho mo chi tiet don (xem GET
   // /dat-mua-lk/don-hang/:id, tu danh dau da_doc=1), dung y "hien den khi da xem chi tiet".
   choDonBiTuChoi: number;
+  // Them 2026-09-28 (phan hoi "Mục thiếu linh kiện đang không hiện số lượng cần xử lý trên tên trong
+  // menu") - badge RIENG cho muc Sidebar "Thiếu linh kiện" (countKey "thieuLk", navConfig.ts). Dem ve
+  // thieu LK dang cho DUNG vai tro nguoi xem ra tay (khop nextStatesForThieuLk o ThieuLkTab.tsx): Kho =
+  // "Cho kho xu ly" + "Kho da tiep nhan" (cho xac nhan hang ve), TN = "Kho xac nhan hang da ve" (cho
+  // TN ket thuc). KHONG cong vao total (choKhoThieuLk da nam trong total - tranh dem trung).
+  thieuLkCanXuLy: number;
 }
 
 const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
@@ -62,6 +68,7 @@ const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
   choTpXacNhan: 0,
   choDonCuaToi: 0,
   choDonBiTuChoi: 0,
+  thieuLkCanXuLy: 0,
 };
 
 export interface NotificationsCountPayload {
@@ -256,6 +263,25 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
     .first<{ n: number }>();
   out.choDonBiTuChoi = rowTuChoi?.n ?? 0;
 
+  const thieuLkTrangThaiCho = [
+    ...(isKho ? ["Cho kho xu ly", "Kho da tiep nhan"] : []),
+    ...(isTacNghiep ? ["Kho xac nhan hang da ve"] : []),
+  ];
+  if (thieuLkTrangThaiCho.length > 0) {
+    // Scope GIONG HET cho_kho_thieu_lk o tren (GS + Khu vuc tren ddh).
+    const clause = gsInClause(gsSet, "ddh");
+    const kvClause = kvClauseFor(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
+    const row = await db
+      .prepare(
+        `SELECT COUNT(*) as n FROM thieu_lk tlk JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id
+           WHERE (SELECT trang_thai FROM thieu_lk_log WHERE thieu_lk_id = tlk.id ORDER BY id DESC LIMIT 1)
+             IN (${thieuLkTrangThaiCho.map(() => "?").join(",")})${clause?.sql ?? ""}${kvClause?.sql ?? ""}`,
+      )
+      .bind(...thieuLkTrangThaiCho, ...(clause?.binds ?? []), ...(kvClause?.binds ?? []))
+      .first<{ n: number }>();
+    out.thieuLkCanXuLy = row?.n ?? 0;
+  }
+
   out.total =
     out.choTnDuyet + out.choTnTraHang + out.choTnPxk + out.choKhoThieuLk + out.choKhoPxk + out.choKhoTraHang +
     out.choKeToanPxk + out.choKeToanTraHang + out.choQcTraHang + out.choTramDuyet + out.choTpXacNhan +
@@ -283,7 +309,7 @@ export async function getDatMuaLkBadge(db: D1Database, user: AppUser): Promise<D
   if (!capDung) return EMPTY_DAT_MUA_LK_BREAKDOWN;
 
   const key = buildReportKey(
-    "notifications/count-dat-mua-lk",
+    "notifications/count-dat-mua-lk-v2",
     {
       email: user.email,
       vai_tro: user.vai_tro ?? "",

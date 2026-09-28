@@ -11,6 +11,7 @@ import { KhuVucChipFilter, CollapsibleSection } from "./SharedUi";
 import { BaoCaoTab } from "./BaoCaoTab";
 import { StackedBar } from "../../components/charts/BarCharts";
 import type { JumpTarget, LuongQuyTrinhStep, DangTonStep } from "./types";
+import { NguoiNhan } from "../../components/ui/TenNguoi";
 
 interface TonDongRow {
   id: string;
@@ -240,7 +241,7 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
               >
                 <span className="text-[var(--ink-400)] text-xs w-3">{expanded.has(g.email) ? "▾" : "▸"}</span>
                 <span className="font-medium text-sm flex-1 truncate">
-                  {g.ten}
+                  <NguoiNhan>{g.ten}</NguoiNhan>
                   {g.khuVucTen && <span className="text-[var(--ink-400)] font-normal"> · {g.khuVucTen}</span>}
                 </span>
                 <Badge tone="info">{g.rows.length} đơn tồn</Badge>

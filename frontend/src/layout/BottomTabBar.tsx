@@ -8,7 +8,7 @@ import { api } from "../api/client";
 const MAX_TABS = 4;
 
 interface NotificationCounts {
-  datMuaLk: { total: number };
+  datMuaLk: { total: number; thieuLkCanXuLy?: number };
   ktvLogChuaDoc: number;
 }
 
@@ -37,7 +37,7 @@ export function BottomTabBar({
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {shown.map((it) => {
-        const count = !it.countKey || !counts ? 0 : it.countKey === "ktvLogChuaDoc" ? counts.ktvLogChuaDoc : counts.datMuaLk.total;
+        const count = !it.countKey || !counts ? 0 : it.countKey === "ktvLogChuaDoc" ? counts.ktvLogChuaDoc : it.countKey === "thieuLk" ? (counts.datMuaLk.thieuLkCanXuLy ?? 0) : counts.datMuaLk.total;
         const on = active === it.key;
         const IconCmp = (Icon as Record<string, ((p: { size?: number }) => JSX.Element) | undefined>)[it.icon as string];
         return (

@@ -370,6 +370,11 @@ export const TRA_HANG_TRANG_THAI_OPTIONS = [
 // sach - xem DON_HANG_TRANG_THAI_TONE_ALL o tren) - can 1 danh sach { value, label } gop ca 2 nguon
 // de dich dung nhan cho MOI dong, bat ke loai_don.
 export const DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL = [...DON_CUA_TOI_TRANG_THAI_OPTIONS, ...TRA_HANG_TRANG_THAI_OPTIONS];
+// Bo loc trang thai khi xem GOP CA 3 loai don (StageMenu "Tổng đơn hàng", loai_don=all) - hop 2 bo
+// tren, bo trung gia tri (giu nhan xuat hien truoc: "Tất cả trạng thái", "Còn tồn", "TN đã duyệt"...).
+export const TAT_CA_LOAI_TRANG_THAI_OPTIONS = DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL.filter(
+  (o, i, arr) => arr.findIndex((x) => x.value === o.value) === i,
+);
 
 export const PIPELINE_NOTCH = 10;
 // Thu nho tu 80 (phan hoi 2026-08-19: "mặc định bị thu nhỏ, giảm kích thước để luôn mở không tràn

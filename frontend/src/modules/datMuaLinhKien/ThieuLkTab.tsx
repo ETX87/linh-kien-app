@@ -27,6 +27,7 @@ import { StatusBadge, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBa
 // nhieu lop. Import vong (DonCuaToiTab.tsx cung import nguoc lai ThieuLkDetailModal tu file nay) an
 // toan trong ESM vi ca 2 chi dung ben trong than ham component (luc render), khong dung o top-level.
 import { DonHangDetailModal } from "./DonCuaToiTab";
+import { NguoiNhan } from "../../components/ui/TenNguoi";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -692,7 +693,7 @@ function ThieuLkGroupedList({
                   <td colSpan={effectiveColumns.length} className="px-3 py-2">
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <span className="font-bold text-[var(--ink-900)] text-sm truncate">
-                        {formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}
+                        <NguoiNhan>{formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}</NguoiNhan>
                       </span>
                       {/* Rut gon banner nhom (Phase 4 StageMenu, them 2026-09-11) - gop 4 badge rieng
                           (chờ xử lý/đang xử lý/hoàn tất/huỷ) thanh 1 dong toi thieu "tên + so luong",
@@ -735,7 +736,7 @@ function ThieuLkGroupedList({
           <div key={g.nguoiNhan} className="border border-[var(--line)] rounded-xl overflow-hidden">
             <div className="bg-[var(--ocean-100)] px-3 py-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-bold text-[var(--ink-900)] text-xs truncate">{formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}</span>
+                <span className="font-bold text-[var(--ink-900)] text-xs truncate"><NguoiNhan>{formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}</NguoiNhan></span>
                 {/* Rut gon banner nhom (Phase 4 StageMenu, them 2026-09-11) - xem giai thich o ban
                     desktop phia tren, gop 4 badge rieng thanh 1 "tên + so luong" duy nhat. */}
                 {g.choXuLy + g.dangXuLy > 0 ? (

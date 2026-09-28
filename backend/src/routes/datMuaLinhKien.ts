@@ -1653,6 +1653,23 @@ datMuaLinhKien.post("/case-detail/:id/sync", async (c) => {
 // truyen loai_don thi mac dinh loai tru de giu hanh vi cu cho cac noi goi khac (an toan nguoc).
 // Sap xep theo nguoi_nhan_hang TRUOC de Frontend gom cum hien thi theo KTV ngay tren 1 trang (giong
 // dung pattern da dung o GET /phieu-xuat-kho/don-hang-kha-dung).
+// "Tổng đơn hàng" (StageMenu, phan hoi 2026-09-28: "tổng đơn hàng đang tồn dưới mọi hình thức theo vai
+// trò") - loai_don=all = GOP CA 3 loai (mua/cong_no/tra_hang) trong 1 danh sach. "Con ton" khi gop phai
+// dung DUNG tap trang thai dong cua TUNG loai (tra hang co bo trang thai rieng), khong dung chung 1 tap.
+const TAT_CA_LOAI_DON = "all";
+function donConTonSql(loaiDon: string | undefined): { sql: string; binds: string[] } {
+  const ph = (arr: readonly string[]) => arr.map(() => "?").join(",");
+  if (loaiDon === TAT_CA_LOAI_DON) {
+    return {
+      sql: `((ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai NOT IN (${ph(TRA_HANG_TRANG_THAI_DONG_COUNTS)}))
+        OR (ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai NOT IN (${ph(DON_HANG_TRANG_THAI_DONG)})))`,
+      binds: [...TRA_HANG_TRANG_THAI_DONG_COUNTS, ...DON_HANG_TRANG_THAI_DONG],
+    };
+  }
+  const dongSet = loaiDon === "tra_hang" ? TRA_HANG_TRANG_THAI_DONG_COUNTS : DON_HANG_TRANG_THAI_DONG;
+  return { sql: `ddh.trang_thai_hien_tai NOT IN (${ph(dongSet)})`, binds: [...dongSet] };
+}
+
 datMuaLinhKien.get("/don-hang", async (c) => {
   const user = c.get("user");
   const scope = scopeDatMuaNguoiTao(c);
@@ -1695,7 +1712,7 @@ datMuaLinhKien.get("/don-hang", async (c) => {
       binds.push(...gsSet);
     }
   }
-  if (loaiDon) {
+  if (loaiDon && loaiDon !== TAT_CA_LOAI_DON) {
     whereSql += " AND ddh.loai_don = ?";
     binds.push(loaiDon);
   }
@@ -1704,9 +1721,9 @@ datMuaLinhKien.get("/don-hang", async (c) => {
     // dung DUNG 2 dinh nghia "dong" da co san cho GET /loai-don-counts o tren (khong bia tieu chi
     // moi): mua/cong no dung DON_HANG_TRANG_THAI_DONG (gom ca "Cho hang" - da duyet xong, chi con
     // cho hang ve, khong can ai xu ly them), tra_hang dung TRA_HANG_TRANG_THAI_DONG_COUNTS.
-    const dongSet = loaiDon === "tra_hang" ? TRA_HANG_TRANG_THAI_DONG_COUNTS : DON_HANG_TRANG_THAI_DONG;
-    whereSql += ` AND ddh.trang_thai_hien_tai NOT IN (${dongSet.map(() => "?").join(",")})`;
-    binds.push(...dongSet);
+    const conTon = donConTonSql(loaiDon);
+    whereSql += ` AND ${conTon.sql}`;
+    binds.push(...conTon.binds);
   } else if (trangThai === "__TODAY__") {
     // Sentinel "duyet trong ngay" (them 2026-09-11, muc menu giai doan hoa) - "cac don duoc xu ly
     // trong ngay hom nay": loc theo ddh.updated_at (cot nay duoc cap nhat MOI LAN trang_thai_hien_tai
@@ -1817,7 +1834,7 @@ datMuaLinhKien.get("/don-hang-status-counts", async (c) => {
   const loaiDon = c.req.query("loai_don");
   let whereSql = (loaiDon ? "1=1" : "ddh.loai_don != 'tra_hang'") + (scope?.whereSql ?? "");
   const binds: unknown[] = [...(scope?.binds ?? [])];
-  if (loaiDon) {
+  if (loaiDon && loaiDon !== TAT_CA_LOAI_DON) {
     whereSql += " AND ddh.loai_don = ?";
     binds.push(loaiDon);
   }
@@ -1845,16 +1862,16 @@ datMuaLinhKien.get("/don-hang-status-counts", async (c) => {
     }
   }
   // "__OPEN__" (sentinel "con ton") - dung DUNG 2 dinh nghia "dong" da co san (xem GET /don-hang).
-  const dongSet = loaiDon === "tra_hang" ? TRA_HANG_TRANG_THAI_DONG_COUNTS : DON_HANG_TRANG_THAI_DONG;
+  const conTon = donConTonSql(loaiDon);
   const scalarRow = await c.env.DB.prepare(
     `SELECT
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ${whereSql}) as total,
-       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ${whereSql} AND ddh.trang_thai_hien_tai NOT IN (${dongSet.map(() => "?").join(",")})) as mo,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ${whereSql} AND ${conTon.sql}) as mo,
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ${whereSql} AND ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.ma_xuat_kho IS NULL) as cho_tao_pxk`,
   )
     // Thu tu bind PHAI khop dung thu tu "?" xuat hien trong SQL: total (chi whereSql) -> mo (whereSql
     // + dongSet) -> cho_tao_pxk (chi whereSql, khong them dieu kien dang bind).
-    .bind(...binds, ...binds, ...dongSet, ...binds)
+    .bind(...binds, ...binds, ...conTon.binds, ...binds)
     .first<{ total: number; mo: number; cho_tao_pxk: number }>();
   const { results } = await c.env.DB.prepare(
     `SELECT ddh.trang_thai_hien_tai as trang_thai, COUNT(*) as n FROM dat_don_hang ddh WHERE ${whereSql} GROUP BY ddh.trang_thai_hien_tai`,

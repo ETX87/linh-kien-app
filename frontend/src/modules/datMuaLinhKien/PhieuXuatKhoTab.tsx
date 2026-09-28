@@ -32,6 +32,7 @@ import { StatusBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar
 import { PxkMiniPipeline } from "./PipelineFlow";
 import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportResult, type MisaTemplate } from "../../lib/misaExportTemplates";
 import { Money } from "../../components/ui/Money";
+import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 
 const MISA_TEMPLATE_ORDER: MisaTemplate[] = ["xuat_kho", "chuyen_kho", "ban_hang"];
 
@@ -480,8 +481,8 @@ export function PhieuXuatKhoTab({
         );
       },
     },
-    { key: "nguoi_tao", header: "Người tạo", render: (r) => labelKtv(r.nguoi_tao) },
-    { key: "nguoi_nhan_hang", header: "Người nhận hàng", render: (r) => (r.nguoi_nhan_hang ? labelKtv(r.nguoi_nhan_hang) : <span className="text-[var(--ink-400)]">—</span>) },
+    { key: "nguoi_tao", header: "Người tạo", render: (r) => <NguoiTao>{labelKtv(r.nguoi_tao)}</NguoiTao> },
+    { key: "nguoi_nhan_hang", header: "Người nhận hàng", render: (r) => (r.nguoi_nhan_hang ? <NguoiNhan>{labelKtv(r.nguoi_nhan_hang)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>) },
     { key: "ngay_tao", header: "Ngày tạo", render: (r) => fmtDateTime(r.ngay_tao) },
     {
       key: "chuyen_tien", header: "Chuyển tiền",
@@ -545,7 +546,7 @@ export function PhieuXuatKhoTab({
           </div>
         </div>
         <div className="flex items-baseline gap-2 text-xs">
-          <span className="min-w-0 flex-1 truncate text-[var(--color-text-body)]">{r.nguoi_nhan_hang ? labelKtv(r.nguoi_nhan_hang) : "—"}</span>
+          <span className="min-w-0 flex-1 truncate text-[var(--color-text-body)]">{r.nguoi_nhan_hang ? <NguoiNhan>{labelKtv(r.nguoi_nhan_hang)}</NguoiNhan> : "—"}</span>
           <span className="shrink-0 text-[11px] text-[var(--ink-400)]">{fmtDateTime(r.ngay_tao)}</span>
         </div>
         {(viec || chuyenTienCho || coInPhieu) && (
@@ -1445,7 +1446,7 @@ export function PxkDetailModal({
               ))}
             <StatusBadge value={trangThai} tones={PXK_TRANG_THAI_TONE} options={PXK_TRANG_THAI_OPTIONS} />
             {pxk.nguoi_nhan_hang && (
-              <span className="text-[var(--ink-500)] text-xs">{formatNguoiDisplay(pxk.nguoi_nhan_hang, ktvDisplayMap)}</span>
+              <span className="text-[var(--ink-500)] text-xs"><NguoiNhan>{formatNguoiDisplay(pxk.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan></span>
             )}
             <span className="text-[var(--ink-500)] text-xs">{fmtDateTime(pxk.ngay_tao)}</span>
             {pxk.ma_van_don && <span className="text-xs text-[var(--ink-500)]">Mã vận đơn: <span className="font-mono">{pxk.ma_van_don}</span></span>}
