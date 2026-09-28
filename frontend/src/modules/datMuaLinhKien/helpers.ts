@@ -343,13 +343,16 @@ export function actionsFor(
   // (applyDonHangLog, nhanh laTuChoiSauDuyet) chi chap nhan hanh_dong "tu_choi" tu trang thai nay).
   // MO RONG (phan hoi 2026-09-28 "chưa thêm vào phiếu xk => cho phép hủy/từ chối/chờ hàng cho TN"):
   // them Cho hang + Huy (backend applyDonHangLog: chuaVaoPxkSauDuyet).
-  if (d.trang_thai === "TN da duyet" && d.ma_xuat_kho == null) {
-    return { duyet: false, tuChoi: ctx.canTacNghiep, choHang: ctx.canTacNghiep, huy: ctx.canTacNghiep || !!ctx.isAdmin };
-  }
   // Tu huy don TU DUYET da tu gom vao PXK (chot 2026-09-28) - nguoi tao HOAC KTV nhan hang, khi PXK con
   // "Dang tao phieu", Ke toan chua duyet chuyen tien, van phong chua thao tac tay (backend tinh tu_huy_duoc).
-  if (d.trang_thai === "TN da duyet" && d.ma_xuat_kho != null && d.tu_huy_duoc && (ctx.currentEmail === d.nguoi_tao || ctx.currentEmail === d.nguoi_nhan_hang)) {
-    return { duyet: false, tuChoi: false, choHang: false, huy: true };
+  const tuHuy =
+    d.trang_thai === "TN da duyet" && d.ma_xuat_kho != null && !!d.tu_huy_duoc &&
+    (ctx.currentEmail === d.nguoi_tao || ctx.currentEmail === d.nguoi_nhan_hang);
+  // MO RONG (chot 2026-09-28, muc 5): don da vao PXK nhung phieu con "Dang tao phieu" + Ke toan chua duyet chuyen
+  // tien (tn_doi_trong_pxk) -> TN van Huy/Tu choi/Cho hang, don tu go khoi phieu.
+  if (d.trang_thai === "TN da duyet" && (d.ma_xuat_kho == null || !!d.tn_doi_trong_pxk)) {
+    return { duyet: false, tuChoi: ctx.canTacNghiep, choHang: ctx.canTacNghiep, huy: ctx.canTacNghiep || !!ctx.isAdmin || tuHuy };
   }
+  if (tuHuy) return { duyet: false, tuChoi: false, choHang: false, huy: true };
   return { duyet: false, tuChoi: false, choHang: false, huy: false };
 }

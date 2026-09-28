@@ -60,6 +60,8 @@ export interface DonHangLogRow {
   nguoi_xu_ly: string;
   ngay_xu_ly: string;
   ghi_chu: string | null;
+  // 1 = "Tự động duyệt đơn" (he thong tu duyet luc tao, migration 0037) - khac "TN đã duyệt" cua nguoi duyet.
+  tu_dong?: number;
 }
 
 // Lich su "giai trinh ly do cham" (migration 0014, phan hoi QA 2026-08-31, muc #5) - 1 dong don hang
@@ -147,6 +149,9 @@ export interface DonHangRow {
   tien_uoc_tinh?: number | null;
   // 1 = don tu duyet da tu gom vao PXK, nguoi tao/KTV nhan hang con tu huy duoc (backend lib/pxkTuHuy.ts).
   tu_huy_duoc?: number | null;
+  // 1 = don "TN da duyet" trong PXK con "Dang tao phieu", Ke toan chua duyet chuyen tien -> TN van Huy/Tu choi/
+  // Cho hang duoc (don tu go khoi phieu) - backend TN_DOI_TRONG_PXK_SQL.
+  tn_doi_trong_pxk?: number | null;
 }
 
 // PXK - "chuyen tien" la 1 dieu kien chan rieng tren chinh PXK (thay the bang phieu_so_tien cu, xem

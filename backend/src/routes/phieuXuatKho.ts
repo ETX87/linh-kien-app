@@ -17,7 +17,7 @@ import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, emailGsListForPxk
 import { pushPxkToKhovan, notifyPxkAdvancedViaApp, buildWorkUrl } from "../lib/khovanPushClient";
 import { timLoaiChietKhauTheoTen, gonTenLoaiChietKhau, choPhepDoiLoaiChietKhau } from "../lib/loaiChietKhau";
 import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, type PxkCalculation } from "../lib/pxkRecalculate";
-import { laVanPhong, danhDauVanPhongTacDong } from "../lib/pxkTuHuy";
+import { laVanPhong, danhDauVanPhongTacDong, huyPxkNeuTrong } from "../lib/pxkTuHuy";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
 // Pattern header+log giong phieu_dat. TN tao (gom nhieu dong don hang da "TN da duyet" vao 1
@@ -1235,8 +1235,8 @@ phieuXuatKho.delete("/:id/dong/:donHangId", async (c) => {
     .first();
   if (!linked) return c.json({ error: "NOT_FOUND" }, 404);
 
-  const countRow = await c.env.DB.prepare("SELECT COUNT(*) as n FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ?").bind(id).first<{ n: number }>();
-  if ((countRow?.n ?? 0) <= 1) return c.json({ error: "LAST_ORDER" }, 409);
+  // Bo DUOC ca don cuoi cung (chot 2026-09-28, muc 3) - phieu trong, dong man phieu se tu huy (POST
+  // /:id/huy-neu-trong); truoc day chan LAST_ORDER.
 
   const donRow = await c.env.DB.prepare("SELECT ma_lk FROM dat_don_hang WHERE id = ?").bind(donHangId).first<{ ma_lk: string }>();
   const now = nowVN();
@@ -1254,6 +1254,15 @@ phieuXuatKho.delete("/:id/dong/:donHangId", async (c) => {
   await taiTinhPxkMoCuaKtv(c.env.DB, pxkNhan?.nguoi_nhan_hang, user.email, id);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ ok: true });
+});
+
+// POST /api/phieu-xuat-kho/:id/huy-neu-trong - dong man chi tiet 1 PXK "Dang tao phieu" khong con dong nao ->
+// tu huy phieu (chot 2026-09-28, muc 3: "phiếu trống nếu người dùng tắt đi sẽ tự hủy bỏ"). Khong trong -> bo qua.
+phieuXuatKho.post("/:id/huy-neu-trong", async (c) => {
+  if (!canTacNghiep(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const daHuy = await huyPxkNeuTrong(c.env.DB, c.req.param("id"), c.get("user").email);
+  if (daHuy) c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, da_huy: daHuy });
 });
 
 // POST /api/phieu-xuat-kho/:id/dong-goi - { anh?: string[] } (chot 2026-09-08: chuan hoa hanh
@@ -1317,6 +1326,8 @@ phieuXuatKho.post("/:id/log", async (c) => {
     if (hienTai !== "Dang tao phieu") return c.json({ error: "INVALID_STATE" }, 409);
     if (!canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
     if (!pxk.ma_xuat_kho_xac_nhan) return c.json({ error: "MA_XUAT_KHO_CHUA_XAC_NHAN" }, 409);
+    const coDong = await c.env.DB.prepare("SELECT 1 FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ? LIMIT 1").bind(id).first();
+    if (!coDong) return c.json({ error: "PHIEU_TRONG" }, 409);
     if (pxk.so_tien_can_chuyen != null && pxk.trang_thai_chuyen_tien !== "TN da duyet") return c.json({ error: "MISSING_CHUYEN_TIEN_APPROVED" }, 409);
 
     // CHOT 2026-08-14: chan cung neu co dong nao qua han "Ly do cham" (24h tu luc "Cho TN duyet",

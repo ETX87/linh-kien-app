@@ -1333,12 +1333,31 @@ export function PxkDetailModal({
   // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Drawer + Next/Previous") - xem comment day du o
   // DonHangDetailModal (cung pattern, navRows undefined = -1 = an het nut).
   const navIndex = navRows?.findIndex((r) => r.id === id) ?? -1;
+  // Phieu trong (TN bo het don / doi trang thai don cuoi tu man nay) -> dong man hoac chuyen sang phieu khac thi
+  // TU HUY phieu (chot 2026-09-28, muc 3 "phiếu trống nếu người dùng tắt đi sẽ tự hủy bỏ").
+  const phieuTrong = !!pxk && trangThai === "Dang tao phieu" && (data?.donHang.length ?? 0) === 0;
+  async function roiPhieu(tiepTheo: () => void) {
+    if (phieuTrong && (canTacNghiep || canKeToan)) {
+      try {
+        const r = await api.post<{ da_huy: boolean }>(`/phieu-xuat-kho/${id}/huy-neu-trong`, {});
+        if (r.da_huy) {
+          addToast(`Phiếu ${id} không còn đơn nào — đã tự hủy`);
+          invalidate();
+        }
+      } catch (err) {
+        addToast("Không tự hủy được phiếu trống: " + describeApiError(err));
+      }
+    }
+    tiepTheo();
+  }
+  const dongPhieu = () => void roiPhieu(onClose);
+  const sangPhieu = (x: string) => void roiPhieu(() => onNavigate?.(x));
   // Phase 4 (phim tat): ←/→ dieu huong dong truoc/sau giong het DrawerNavButtons ben duoi.
   useDrawerArrowNav({
     hasPrev: !!(onNavigate && navRows && navIndex > 0),
     hasNext: !!(onNavigate && navRows && navIndex >= 0 && navIndex < navRows.length - 1),
-    onPrev: () => navRows && navIndex > 0 && onNavigate?.(navRows[navIndex - 1].id),
-    onNext: () => navRows && navIndex >= 0 && navIndex < navRows.length - 1 && onNavigate?.(navRows[navIndex + 1].id),
+    onPrev: () => navRows && navIndex > 0 && sangPhieu(navRows[navIndex - 1].id),
+    onNext: () => navRows && navIndex >= 0 && navIndex < navRows.length - 1 && sangPhieu(navRows[navIndex + 1].id),
   });
 
   // SUA (phan hoi 2026-09-02: "thống nhất toàn bộ UI theo 1 phong cách... chuyển toàn bộ sang cố
@@ -1495,7 +1514,7 @@ export function PxkDetailModal({
           {`Phiếu xuất kho ${id}`}
         </span>
       }
-      onClose={onClose}
+      onClose={dongPhieu}
       width={DRAWER_WIDTH_CHI_TIET}
       footer={footer}
       headerExtra={
@@ -1503,8 +1522,8 @@ export function PxkDetailModal({
           <DrawerNavButtons
             hasPrev={navIndex > 0}
             hasNext={navIndex >= 0 && navIndex < navRows.length - 1}
-            onPrev={() => navIndex > 0 && onNavigate(navRows[navIndex - 1].id)}
-            onNext={() => navIndex >= 0 && navIndex < navRows.length - 1 && onNavigate(navRows[navIndex + 1].id)}
+            onPrev={() => navIndex > 0 && sangPhieu(navRows[navIndex - 1].id)}
+            onNext={() => navIndex >= 0 && navIndex < navRows.length - 1 && sangPhieu(navRows[navIndex + 1].id)}
           />
         ) : undefined
       }
@@ -1724,6 +1743,11 @@ export function PxkDetailModal({
                 <Btn size="sm" variant="ghost" onClick={() => setShowThemDon(true)}>+ Thêm đơn</Btn>
               )}
             </div>
+            {phieuTrong && (
+              <div className="mb-1.5 rounded-lg border border-[var(--amber-500)]/30 bg-[var(--amber-100)]/60 px-2.5 py-1.5 text-[11px] font-medium text-[var(--amber-700)]">
+                ⚠ Phiếu không còn đơn nào — bấm "+ Thêm đơn" để thêm, hoặc đóng màn này thì phiếu sẽ tự hủy.
+              </div>
+            )}
             {/* Tong dat Mua + TRỪ CÔNG NỢ cua KTV theo tung ngay tao cac dong trong phieu - moc chiet khau
                 (2026-09-28). PXK gom don nhieu ngay -> moi ngay 1 dong. */}
             {pxk.loai_don !== "tra_hang" && pxk.nguoi_nhan_hang && (() => {
@@ -1942,15 +1966,15 @@ export function PxkDetailModal({
                       </td>
                       {(canTacNghiep || canKeToan) && trangThai === "Dang tao phieu" && (
                         <td className="px-2.5 py-2" onClick={(e) => e.stopPropagation()}>
-                          {/* Bo don khoi phieu (2026-09-21, yeu cau #4) - an khi chi con 1 don (khop
-                              gate LAST_ORDER cua backend), xac nhan qua window.confirm dung y het cach
-                              UsersModule.tsx dang lam cho cac thao tac pha huy khac. */}
-                          {data.donHang.length > 1 && (
+                          {/* Bo don khoi phieu (2026-09-21, yeu cau #4), xac nhan qua window.confirm. Bo
+                              DUOC ca don cuoi (chot 2026-09-28, muc 3) - phieu trong tu huy khi dong man. */}
+                          {(
+
                             <button
                               type="button"
                               className="text-[var(--coral-500)] hover:underline"
                               onClick={() => {
-                                if (window.confirm(`Bỏ đơn "${d.ma_lk}" khỏi phiếu này?\n\nĐơn sẽ quay lại danh sách "khả dụng" để gán vào 1 phiếu khác.`)) {
+                                if (window.confirm(`Bỏ đơn "${d.ma_lk}" khỏi phiếu này?\n\nĐơn sẽ quay lại danh sách "khả dụng" để gán vào 1 phiếu khác.${data.donHang.length === 1 ? "\n\nĐây là đơn cuối cùng — phiếu trống sẽ tự hủy khi bạn đóng màn phiếu." : ""}`)) {
                                   boDonMutation.mutate(d.id);
                                 }
                               }}
@@ -2001,6 +2025,7 @@ export function PxkDetailModal({
           isAdmin={isAdmin}
           canXemChiTietCa={false}
           canKho={canKho}
+          giuPhieuTrong
         />
       )}
       {/* Them don vao phieu (2026-09-21, yeu cau #4) - tai dung UI checkbox-list y het modal "Tạo

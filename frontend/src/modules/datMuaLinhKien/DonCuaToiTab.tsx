@@ -85,6 +85,7 @@ export function DonHangDetailModal({
   openCase,
   navRows,
   onNavigate,
+  giuPhieuTrong,
 }: {
   id: string;
   onClose: () => void;
@@ -109,6 +110,9 @@ export function DonHangDetailModal({
   // noi goi tuong lai khac chua can tinh nang nay).
   navRows?: DonHangRow[];
   onNavigate?: (id: string) => void;
+  // true = mo tu man chi tiet PXK (chot 2026-09-28, muc 5): TN doi trang thai don cuoi cua phieu thi GIU phieu
+  // trong (dong man phieu moi tu huy); mac dinh (mo tu danh sach don) = huy phieu ngay.
+  giuPhieuTrong?: boolean;
 }) {
   const [ghiChu, setGhiChu] = useState("");
   // "Tu choi" bat buoc chon 1 Ly do cham, "Huy" bat buoc nhap ghiChu tu do (phan hoi UX muc 1, xem
@@ -147,12 +151,15 @@ export function DonHangDetailModal({
     setLyDoChamId("");
     qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-detail", id] });
     qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
+    // Doi trang thai don trong PXK -> don tu go khoi phieu (chot 2026-09-28) - lam moi man phieu dang mo.
+    qc.invalidateQueries({ queryKey: ["pxk-detail"] });
+    qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk"] });
     invalidatePipelineCounts(qc);
   }
 
   const logMutation = useMutation({
     mutationFn: ({ hanh_dong, ly_do_cham_id, so_luong_thuc_xuat, ghi_chu_so_luong }: { hanh_dong: string; ly_do_cham_id?: number; so_luong_thuc_xuat?: number; ghi_chu_so_luong?: string }) =>
-      api.post(`/dat-mua-lk/don-hang/${id}/log`, { hanh_dong, ly_do_cham_id, ghi_chu: ghiChu.trim() || undefined, so_luong_thuc_xuat, ghi_chu_so_luong }),
+      api.post(`/dat-mua-lk/don-hang/${id}/log`, { hanh_dong, ly_do_cham_id, ghi_chu: ghiChu.trim() || undefined, so_luong_thuc_xuat, ghi_chu_so_luong, giu_phieu_trong: giuPhieuTrong || undefined }),
     onSuccess: (_res, variables) => {
       invalidate();
       // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Duyet va tiep"): sau khi Duyet, tu dong nhay
@@ -462,6 +469,11 @@ export function DonHangDetailModal({
         // qua panel nao ca - bam la huy ngay, khong con hop le sau khi backend bat buoc ghi_chu).
         <div className="w-full space-y-2 bg-[var(--surface-100)] border border-dashed border-[var(--line)] rounded-lg p-2.5">
           <div className="font-semibold text-xs">Từ chối dòng {d.id}</div>
+          {d.trang_thai === "TN da duyet" && d.ma_xuat_kho && (
+            <div className="text-[11px] text-[var(--ink-500)]">
+              Đơn sẽ được gỡ khỏi phiếu xuất kho {d.ma_xuat_kho}; {giuPhieuTrong && canTacNghiep ? "nếu phiếu không còn đơn nào, đóng màn phiếu sẽ tự hủy phiếu." : "nếu là đơn duy nhất của phiếu thì phiếu cũng bị hủy."}
+            </div>
+          )}
           <div>
             <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">Lý do từ chối (bắt buộc)</label>
             <input
@@ -479,6 +491,11 @@ export function DonHangDetailModal({
       ) : actionTarget === "tu_choi" ? (
         <div className="w-full space-y-2 bg-[var(--surface-100)] border border-dashed border-[var(--line)] rounded-lg p-2.5">
           <div className="font-semibold text-xs">Từ chối dòng {d.id} — chọn lý do chậm</div>
+          {d.trang_thai === "TN da duyet" && d.ma_xuat_kho && (
+            <div className="text-[11px] text-[var(--ink-500)]">
+              Đơn sẽ được gỡ khỏi phiếu xuất kho {d.ma_xuat_kho}; {giuPhieuTrong && canTacNghiep ? "nếu phiếu không còn đơn nào, đóng màn phiếu sẽ tự hủy phiếu." : "nếu là đơn duy nhất của phiếu thì phiếu cũng bị hủy."}
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
               <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">Lý do chậm (bắt buộc)</label>
@@ -507,6 +524,11 @@ export function DonHangDetailModal({
       ) : actionTarget === "cho_hang" ? (
         <div className="w-full space-y-2 bg-[var(--surface-100)] border border-dashed border-[var(--line)] rounded-lg p-2.5">
           <div className="font-semibold text-xs">Chuyển dòng {d.id} sang chờ hàng — chọn lý do</div>
+          {d.trang_thai === "TN da duyet" && d.ma_xuat_kho && (
+            <div className="text-[11px] text-[var(--ink-500)]">
+              Đơn sẽ được gỡ khỏi phiếu xuất kho {d.ma_xuat_kho}; {giuPhieuTrong && canTacNghiep ? "nếu phiếu không còn đơn nào, đóng màn phiếu sẽ tự hủy phiếu." : "nếu là đơn duy nhất của phiếu thì phiếu cũng bị hủy."}
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
               <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">Lý do (bắt buộc)</label>
@@ -579,9 +601,9 @@ export function DonHangDetailModal({
       ) : actionTarget === "huy" ? (
         <div className="w-full space-y-2 bg-[var(--surface-100)] border border-dashed border-[var(--line)] rounded-lg p-2.5">
           <div className="font-semibold text-xs">Hủy dòng {d.id} — nhập lý do hủy</div>
-          {d.ma_xuat_kho && (
+          {d.trang_thai === "TN da duyet" && d.ma_xuat_kho && (
             <div className="text-[11px] text-[var(--ink-500)]">
-              Đơn sẽ được gỡ khỏi phiếu xuất kho {d.ma_xuat_kho}; nếu là đơn duy nhất của phiếu thì phiếu cũng bị hủy.
+              Đơn sẽ được gỡ khỏi phiếu xuất kho {d.ma_xuat_kho}; {giuPhieuTrong && canTacNghiep ? "nếu phiếu không còn đơn nào, đóng màn phiếu sẽ tự hủy phiếu." : "nếu là đơn duy nhất của phiếu thì phiếu cũng bị hủy."}
             </div>
           )}
           <div>
@@ -1213,8 +1235,9 @@ export function DonHangDetailModal({
                   dotClassName: TRANG_THAI_DOT_TONE[DON_HANG_TRANG_THAI_TONE_ALL[l.trang_thai] ?? "neutral"],
                   title: (
                     <>
-                      {trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, l.trang_thai)}
-                      <span className="font-normal text-[var(--ink-500)]"> · {l.nguoi_xu_ly}</span>
+                      {/* "Tự động duyệt đơn" (he thong tu duyet luc tao) tach khoi "TN đã duyệt" (chot 2026-09-28). */}
+                      {l.tu_dong ? "Tự động duyệt đơn" : trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, l.trang_thai)}
+                      <span className="font-normal text-[var(--ink-500)]"> · {l.tu_dong ? `Hệ thống (đơn của ${l.nguoi_xu_ly})` : l.nguoi_xu_ly}</span>
                     </>
                   ),
                   time: `${fmtDateTime(l.ngay_xu_ly)}${l.ghi_chu ? ` — ${l.ghi_chu}` : ""}`,
