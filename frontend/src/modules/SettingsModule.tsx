@@ -12,7 +12,7 @@ import { KvRow } from "../components/ui/KvRow";
 import type { LyDoChamMuaLkRow, KhuVucRow, UserRow } from "../types";
 import { fmtDateTime } from "../types";
 import { formatPersonDisplay, usePersonDirectory } from "../lib/personDisplay";
-import { LOAI_CHIET_KHAU_KEY, useLoaiChietKhauList, type LoaiChietKhauRow } from "./datMuaLinhKien/LoaiChietKhau";
+import { LOAI_CHIET_KHAU_KEY, useLoaiChietKhauList, LoaiChietKhauChip, type LoaiChietKhauRow } from "./datMuaLinhKien/LoaiChietKhau";
 
 // Trang quan tri RUT GON tu frontend/src/modules/SettingsModule.tsx cua he DVBH goc - CHI giu cac
 // tab thuc su can cho module "Dat mua linh kien" (xem CLAUDE.md muc "Nguon goc tach he thong"): Lý
@@ -248,7 +248,7 @@ function LoaiChietKhauTab() {
             <tbody>
               {(rows ?? []).map((r) => (
                 <tr onClick={() => openEdit(r)} key={r.id} className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer ${r.bat_tat ? "" : "text-[var(--ink-400)]"}`}>
-                  <td className="px-3 py-2">{r.ten}</td>
+                  <td className="px-3 py-2"><LoaiChietKhauChip loai={r} /></td>
                   <td className="hidden sm:table-cell px-3 py-2">{r.ma ? <Badge tone="ocean">Hệ thống tự gán</Badge> : <Badge tone="gray">Tự thêm</Badge>}</td>
                   <td className="hidden sm:table-cell px-3 py-2">{r.bat_tat ? "Bật" : "Tắt"}</td>
                   <td className="px-3 py-2">

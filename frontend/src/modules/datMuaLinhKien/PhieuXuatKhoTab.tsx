@@ -493,12 +493,11 @@ export function PhieuXuatKhoTab({
     },
     {
       key: "loai_chiet_khau", header: "Loại chiết khấu",
-      render: (r) =>
-        r.loai_chiet_khau_cao_nhat ? (
-          <span className="block max-w-[220px] truncate" title={r.loai_chiet_khau_cao_nhat}>{r.loai_chiet_khau_cao_nhat}</span>
-        ) : (
-          <span className="text-[var(--ink-400)]">—</span>
-        ),
+      render: (r) => (
+        <span className="block max-w-[240px]">
+          <LoaiChietKhauText id={r.loai_chiet_khau_cao_nhat_id} title="Loại chiết khấu cao nhất trong các dòng của phiếu" />
+        </span>
+      ),
     },
     {
       key: "chuyen_tien", header: "Chuyển tiền",

@@ -63,6 +63,31 @@
      đậm") - dùng qua <NguoiTao>/<NguoiNhan> (components/ui/TenNguoi.tsx). Chỉ đổi màu, giữ độ đậm chữ. */
   --color-nguoi-tao: #be185d;
   --color-nguoi-nhan: #1e40af;
+  /* Loại chiết khấu - MỖI loại 1 màu cố định (phản hồi 2026-09-28 "mỗi loại chiết khấu 1 màu khác để dễ
+     phân biệt, áp dụng mọi UI"). Dùng qua <LoaiChietKhauChip>/class .ck-* (LoaiChietKhau.tsx), KHÔNG
+     mang nghĩa ngữ nghĩa (chờ/lỗi/xong) - chỉ là màu phân loại. Loại tự thêm (ma NULL) xoay vòng tu-them-0..4 theo id. */
+  --ck-khong-ck-bg: #f1f5f9;
+  --ck-khong-ck-fg: #475569; /* Không chiết khấu - xám */
+  --ck-dinh-tu-bg: #ccfbf1;
+  --ck-dinh-tu-fg: #0f766e; /* Đình tủ - xanh ngọc */
+  --ck-tong-200-500-bg: #fef3c7;
+  --ck-tong-200-500-fg: #b45309; /* 200k-500k - vàng hổ phách */
+  --ck-gia-ktv-bg: #dbeafe;
+  --ck-gia-ktv-fg: #1d4ed8; /* Giá KTV - xanh dương */
+  --ck-gia-du-phong-bg: #ede9fe;
+  --ck-gia-du-phong-fg: #6d28d9; /* Giá dự phòng - tím */
+  --ck-cong-no-bg: #cffafe;
+  --ck-cong-no-fg: #0e7490; /* Công nợ - xanh lơ */
+  --ck-tu-them-0-bg: #e0e7ff;
+  --ck-tu-them-0-fg: #4338ca; /* loại tự thêm - chàm */
+  --ck-tu-them-1-bg: #ecfccb;
+  --ck-tu-them-1-fg: #4d7c0f; /* loại tự thêm - xanh lá mạ */
+  --ck-tu-them-2-bg: #fae8ff;
+  --ck-tu-them-2-fg: #a21caf; /* loại tự thêm - hồng tím */
+  --ck-tu-them-3-bg: #ffe4e6;
+  --ck-tu-them-3-fg: #be123c; /* loại tự thêm - đỏ hồng */
+  --ck-tu-them-4-bg: #e7e5e4;
+  --ck-tu-them-4-fg: #57534e; /* loại tự thêm - nâu xám */
   --color-info: #0379a8;
   --color-info-soft: #e3f8fd;
   --color-warning: #ff9800;
@@ -553,6 +578,52 @@ textarea::placeholder {
   color: var(--color-money);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* Chip loại chiết khấu - xem --ck-*. */
+.ck-khong-ck {
+  background: var(--ck-khong-ck-bg);
+  color: var(--ck-khong-ck-fg);
+}
+.ck-dinh-tu {
+  background: var(--ck-dinh-tu-bg);
+  color: var(--ck-dinh-tu-fg);
+}
+.ck-tong-200-500 {
+  background: var(--ck-tong-200-500-bg);
+  color: var(--ck-tong-200-500-fg);
+}
+.ck-gia-ktv {
+  background: var(--ck-gia-ktv-bg);
+  color: var(--ck-gia-ktv-fg);
+}
+.ck-gia-du-phong {
+  background: var(--ck-gia-du-phong-bg);
+  color: var(--ck-gia-du-phong-fg);
+}
+.ck-cong-no {
+  background: var(--ck-cong-no-bg);
+  color: var(--ck-cong-no-fg);
+}
+.ck-tu-them-0 {
+  background: var(--ck-tu-them-0-bg);
+  color: var(--ck-tu-them-0-fg);
+}
+.ck-tu-them-1 {
+  background: var(--ck-tu-them-1-bg);
+  color: var(--ck-tu-them-1-fg);
+}
+.ck-tu-them-2 {
+  background: var(--ck-tu-them-2-bg);
+  color: var(--ck-tu-them-2-fg);
+}
+.ck-tu-them-3 {
+  background: var(--ck-tu-them-3-bg);
+  color: var(--ck-tu-them-3-fg);
+}
+.ck-tu-them-4 {
+  background: var(--ck-tu-them-4-bg);
+  color: var(--ck-tu-them-4-fg);
 }
 
 /* Tên người tạo đơn / người nhận hàng - xem --color-nguoi-tao/--color-nguoi-nhan. */

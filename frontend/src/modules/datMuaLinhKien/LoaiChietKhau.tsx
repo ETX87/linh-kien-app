@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../../api/client";
 import { useToast } from "../../components/ui/Toast";
@@ -39,18 +39,46 @@ export function tenLoaiChietKhau(list: LoaiChietKhauRow[] | undefined, id: numbe
   return list?.find((l) => l.id === id)?.ten ?? null;
 }
 
+// Mau rieng cho TUNG loai (phan hoi 2026-09-28 "mỗi loại chiết khấu lại cho tôi 1 màu khác để dễ phân
+// biệt, các màu sắc này theo tất cả các UI") - token --ck-* + class .ck-* o tokens.css. Loai he thong theo
+// `ma`; loai tu them (ma NULL) xoay vong 5 mau phu theo id (on dinh, khong doi khi doi ten/thu tu).
+const CK_CLASS_THEO_MA: Record<string, string> = {
+  KHONG_CK: "ck-khong-ck",
+  DINH_TU: "ck-dinh-tu",
+  TONG_200_500: "ck-tong-200-500",
+  GIA_KTV: "ck-gia-ktv",
+  GIA_DU_PHONG: "ck-gia-du-phong",
+  CONG_NO: "ck-cong-no",
+};
+export function ckClass(loai: Pick<LoaiChietKhauRow, "id" | "ma"> | null | undefined): string {
+  if (!loai) return "";
+  return (loai.ma && CK_CLASS_THEO_MA[loai.ma]) || `ck-tu-them-${Math.abs(loai.id) % 5}`;
+}
+
+/** Chip mau cua 1 loai chiet khau - dung o MOI noi hien loai chiet khau (bang, chi tiet, Settings). */
+export function LoaiChietKhauChip({ loai, title, children }: { loai: Pick<LoaiChietKhauRow, "id" | "ma" | "ten">; title?: string; children?: ReactNode }) {
+  return (
+    <span
+      title={title ?? loai.ten}
+      className={`inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-[var(--radius-badge)] px-2 py-[3px] text-[11px] font-semibold leading-none ${ckClass(loai)}`}
+    >
+      <span className="truncate">{loai.ten}</span>
+      {children}
+    </span>
+  );
+}
+
 const TIP_THU_CONG = "TN đã chọn lại loại chiết khấu này";
 const TIP_TU_DONG = "Hệ thống tự gán theo phiếu xuất kho";
 
-export function LoaiChietKhauText({ id, thuCong }: { id: number | null | undefined; thuCong?: number | null }) {
+export function LoaiChietKhauText({ id, thuCong, title }: { id: number | null | undefined; thuCong?: number | null; title?: string }) {
   const { data } = useLoaiChietKhauList();
-  const ten = tenLoaiChietKhau(data, id);
-  if (!ten) return <span className="text-[var(--color-text-muted)]">—</span>;
+  const loai = id == null ? undefined : data?.find((l) => l.id === id);
+  if (!loai) return <span className="text-[var(--color-text-faint)]">—</span>;
   return (
-    <span title={thuCong ? TIP_THU_CONG : TIP_TU_DONG}>
-      {ten}
-      {!!thuCong && <span className="ml-1 text-[var(--color-text-muted)]">✎</span>}
-    </span>
+    <LoaiChietKhauChip loai={loai} title={title ?? `${loai.ten} — ${thuCong ? TIP_THU_CONG : TIP_TU_DONG}`}>
+      {!!thuCong && <span aria-hidden>✎</span>}
+    </LoaiChietKhauChip>
   );
 }
 
@@ -204,15 +232,16 @@ export function LoaiChietKhauPicker({ don, duocDoi }: { don: DonHangRow; duocDoi
               const l = active.find((x) => String(x.id) === v);
               if (l) moPopup({ id: l.id, ten: l.ten, ma: l.ma });
             }}
-            className="focus-ring h-[30px] max-w-[260px] rounded-lg border border-[var(--line)] bg-[var(--surface)] px-1.5 text-xs"
+            // To mau o chon theo loai DANG chon (cung mau chip) - moi option cung mang mau rieng cua no.
+            className={`focus-ring h-[30px] max-w-[260px] rounded-lg border border-[var(--line)] px-1.5 text-xs font-semibold ${ckClass(active.find((l) => l.id === don.loai_chiet_khau_id)) || "bg-[var(--surface)]"}`}
           >
             {don.loai_chiet_khau_id == null && <option value="">— Chưa có —</option>}
             {active.map((l) => (
-              <option key={l.id} value={l.id}>
+              <option key={l.id} value={l.id} className={ckClass(l)}>
                 {l.ten}
               </option>
             ))}
-            <option value={THEM_MOI}>+ Thêm loại mới…</option>
+            <option value={THEM_MOI} className="bg-[var(--surface)] text-[var(--color-text)]">+ Thêm loại mới…</option>
           </select>
           {!!don.loai_chiet_khau_thu_cong && <span className="text-xs text-[var(--color-text-muted)]" title={TIP_THU_CONG}>✎</span>}
         </>

@@ -273,11 +273,11 @@ phieuXuatKho.get("/", async (c) => {
        -- Loai chiet khau "dang duoc huong" cua CA phieu (phan hoi 2026-09-28 "theo loại chiết khấu cao
        -- nhất") = loai co stt LON NHAT trong cac dong (thu tu Settings > Loai chiet khau: Khong CK < Dinh
        -- tu < 200k-500k < Gia KTV < Gia du phong) - vd phieu co ca dong Dinh tu + Gia KTV -> Gia KTV.
-       (SELECT slck.ten FROM phieu_xuat_kho_dong pxkd
+       (SELECT slck.id FROM phieu_xuat_kho_dong pxkd
           JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id
           JOIN settings_loai_chiet_khau slck ON slck.id = ddh.loai_chiet_khau_id
           WHERE pxkd.phieu_xuat_kho_id = pxk.id
-          ORDER BY slck.stt DESC, slck.id DESC LIMIT 1) as loai_chiet_khau_cao_nhat,
+          ORDER BY slck.stt DESC, slck.id DESC LIMIT 1) as loai_chiet_khau_cao_nhat_id,
        EXISTS(
          SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id
          WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh.uu_tien = 1
