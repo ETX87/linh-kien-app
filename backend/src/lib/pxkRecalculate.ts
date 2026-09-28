@@ -113,7 +113,9 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
     const ktvRow = email
       ? await db.prepare("SELECT ma_ktv FROM ktv_lien_he WHERE email_dang_nhap = ?").bind(email).first<{ ma_ktv: string }>()
       : null;
-    const mocKhaDung = ktvRow ? await computeMocDuPhongHienTai(db, ktvRow.ma_ktv) : 0;
+    // Loai tru CHINH cac dong dang xet khoi "da dung" (tranh dem trung, xem computeMocDuPhongHienTai).
+    // Dong Dinh tu cua phieu van tinh la "da dung" vi khong nam trong G_dp dem ra so sanh.
+    const mocKhaDung = ktvRow ? await computeMocDuPhongHienTai(db, ktvRow.ma_ktv, khac.map((row) => row.id)) : 0;
     // FIX 2026-09-28: truoc day LK chua co gia du phong -> giaDuPhong = 0 <= moc -> "du du phong" -> tinh
     // 0d. Chi dung gia du phong khi MOI dong (tru Dinh tu) deu co gia du phong > 0 VA moc du; thieu 1 dong
     // -> ca nhom ve gia KTV/nguong 200k-500k (giu nguyen tac "theo ca phieu, khong chia tung dong").
