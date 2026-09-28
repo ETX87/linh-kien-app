@@ -22,6 +22,7 @@ import { ChartCard } from "../components/charts/ChartCard";
 import { DonutChart } from "../components/charts/DonutChart";
 import { HBarList } from "../components/charts/BarCharts";
 import { fmtCompactVND, pct } from "../components/charts/chartUtils";
+import { Money } from "../components/ui/Money";
 
 // File mau cho "Import tồn kho MISA" - chi can dung dong tieu de cot (parser tim theo TEN cot, xem
 // HEADER_ALIASES o lib/tonKhoImport.ts) + vai dong vi du, KHONG can dung dinh dang goc phuc tap cua
@@ -306,11 +307,11 @@ function TonKhoKtvContent() {
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs">
               <span>
                 <span className="text-[var(--color-text-muted)]">Công nợ chốt </span>
-                <b className="text-[13px] text-[var(--color-text)]">{fmtVND(r.cong_no_chot)}</b>
+                <b className="text-[13px] text-[var(--color-text)]"><Money>{fmtVND(r.cong_no_chot)}</Money></b>
               </span>
               <span>
                 <span className="text-[var(--color-text-muted)]">Trần </span>
-                {r.cong_no != null ? fmtVND(r.cong_no) : "—"}
+                {r.cong_no != null ? <Money>{fmtVND(r.cong_no)}</Money> : "—"}
               </span>
               <span>
                 <span className="text-[var(--color-text-muted)]">Tồn </span>
@@ -363,12 +364,12 @@ function TonKhoKtvContent() {
                   <td className="px-3 py-2">{r.ma_misa ?? "—"}</td>
                   <td className="px-3 py-2">
                     <span title={r.cong_no_cap_nhat_luc ? `Cập nhật lúc ${fmtDateTime(r.cong_no_cap_nhat_luc)}` : undefined}>
-                      {r.cong_no != null ? fmtVND(r.cong_no) : "—"}
+                      {r.cong_no != null ? <Money>{fmtVND(r.cong_no)}</Money> : "—"}
                     </span>
                   </td>
-                  <td className="px-3 py-2 font-mono text-xs">{fmtVND(r.cong_no_thuc_te)}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{fmtVND(r.cong_no_phat_sinh)}</td>
-                  <td className="px-3 py-2 font-mono text-xs font-semibold">{fmtVND(r.cong_no_chot)}</td>
+                  <td className="px-3 py-2 font-mono text-xs"><Money>{fmtVND(r.cong_no_thuc_te)}</Money></td>
+                  <td className="px-3 py-2 font-mono text-xs"><Money>{fmtVND(r.cong_no_phat_sinh)}</Money></td>
+                  <td className="px-3 py-2 font-mono text-xs font-semibold"><Money>{fmtVND(r.cong_no_chot)}</Money></td>
                   <td className="px-3 py-2">
                     <DanhGiaCongNoBadge value={r.danh_gia_cong_no} />
                   </td>
@@ -541,10 +542,10 @@ function TonKhoChiTietModal({ row, onClose }: { row: KtvTonKhoSummaryRow; onClos
     <Modal open onClose={onClose} title={`Tồn kho - ${row.ten_hien_thi ?? row.ma_ktv}`} width="max-w-[95vw] sm:max-w-[1100px]">
       <div className="space-y-3 text-sm">
         <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs border border-[var(--line)] rounded-xl bg-[var(--surface-soft)] px-3 py-2">
-          <div><span className="text-[var(--ink-400)]">Trần công nợ: </span><span className="font-semibold">{row.cong_no != null ? fmtVND(row.cong_no) : "—"}</span></div>
-          <div><span className="text-[var(--ink-400)]">Công nợ thực tế: </span><span className="font-mono font-semibold">{fmtVND(row.cong_no_thuc_te)}</span></div>
-          <div><span className="text-[var(--ink-400)]">Công nợ phát sinh: </span><span className="font-mono font-semibold">{fmtVND(row.cong_no_phat_sinh)}</span></div>
-          <div><span className="text-[var(--ink-400)]">Công nợ chốt: </span><span className="font-mono font-semibold">{fmtVND(row.cong_no_chot)}</span></div>
+          <div><span className="text-[var(--ink-400)]">Trần công nợ: </span><span className="font-semibold">{row.cong_no != null ? <Money>{fmtVND(row.cong_no)}</Money> : "—"}</span></div>
+          <div><span className="text-[var(--ink-400)]">Công nợ thực tế: </span><span className="font-mono font-semibold"><Money>{fmtVND(row.cong_no_thuc_te)}</Money></span></div>
+          <div><span className="text-[var(--ink-400)]">Công nợ phát sinh: </span><span className="font-mono font-semibold"><Money>{fmtVND(row.cong_no_phat_sinh)}</Money></span></div>
+          <div><span className="text-[var(--ink-400)]">Công nợ chốt: </span><span className="font-mono font-semibold"><Money>{fmtVND(row.cong_no_chot)}</Money></span></div>
           <div className="flex items-center gap-1"><span className="text-[var(--ink-400)]">Đánh giá: </span><DanhGiaCongNoBadge value={row.danh_gia_cong_no} /></div>
         </div>
         <div className="border border-[var(--line)] rounded-xl overflow-hidden">
@@ -575,7 +576,7 @@ function TonKhoChiTietModal({ row, onClose }: { row: KtvTonKhoSummaryRow; onClos
                     <td className="px-3 py-2 text-right">{p.nhap_kho ?? 0}</td>
                     <td className="px-3 py-2 text-right">{p.xuat_kho ?? 0}</td>
                     <td className="px-3 py-2 text-right font-semibold">{p.cuoi_ky ?? 0}</td>
-                    <td className="px-3 py-2 text-right font-mono">{fmtVND(p.cong_no_thuc_te)}</td>
+                    <td className="px-3 py-2 text-right font-mono"><Money>{fmtVND(p.cong_no_thuc_te)}</Money></td>
                   </tr>
                 ))}
               </tbody>

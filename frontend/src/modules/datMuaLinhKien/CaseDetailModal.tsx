@@ -5,6 +5,7 @@ import { fmtDateTime, fmtDate, fmtVND } from "../../types";
 import { shortKhuVuc } from "../../lib/khuVucShortLabel";
 import { ImageThumb } from "./SharedUi";
 import type { CaseDetailData, CaseGiaiTrinh } from "./types";
+import { Money } from "../../components/ui/Money";
 
 // Man "Xem chi tiet case" doc lap (phan hoi 2026-08-26) - mo tu icon canh o kiem tra ma yeu cau su co
 // luc tao don, hoac bam vao 1 ID case bat ky dang hien trong don hang (MaYcscCell/danh sach case cua
@@ -17,11 +18,11 @@ import type { CaseDetailData, CaseGiaiTrinh } from "./types";
 // link_hinh_anh) theo PARTNER_API_GUIDE.md.
 type DetailResp = { found: boolean; data: CaseDetailData | null; giaiTrinh?: CaseGiaiTrinh[]; syncedAt: string | null; syncFailed?: boolean };
 
-function Field({ label, value, mono }: { label: string; value: string | null | undefined; mono?: boolean }) {
+function Field({ label, value, mono }: { label: string; value: ReactNode; mono?: boolean }) {
   return (
     <div>
       <div className="text-[11px] text-[var(--ink-500)]">{label}</div>
-      <div className={`text-[13px] font-medium text-[var(--ink-800)] ${mono ? "font-mono" : ""}`}>{value?.trim() ? value : "—"}</div>
+      <div className={`text-[13px] font-medium text-[var(--ink-800)] ${mono ? "font-mono" : ""}`}>{typeof value === "string" ? (value.trim() ? value : "—") : (value ?? "—")}</div>
     </div>
   );
 }
@@ -176,9 +177,9 @@ export function CaseDetailModal({ caseId, onClose }: { caseId: string; onClose: 
           )}
 
           <Section title="Tài chính">
-            <Field label="Định giá sản phẩm" value={fmtVND(d.dt_san_pham)} />
-            <Field label="Định giá linh kiện" value={fmtVND(d.dt_linh_kien)} />
-            <Field label="Định giá dịch vụ" value={fmtVND(d.dt_dich_vu)} />
+            <Field label="Định giá sản phẩm" value={<Money>{fmtVND(d.dt_san_pham)}</Money>} />
+            <Field label="Định giá linh kiện" value={<Money>{fmtVND(d.dt_linh_kien)}</Money>} />
+            <Field label="Định giá dịch vụ" value={<Money>{fmtVND(d.dt_dich_vu)}</Money>} />
           </Section>
 
           {d.link_crm && (

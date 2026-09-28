@@ -11,6 +11,7 @@ import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { DuDoanDuyetHint } from "./DuDoanDuyetHint";
 import { TraHangAnhPicker } from "./SharedUi";
 import type { TaoDonForm } from "./useTaoDonForm";
+import { Money } from "../../components/ui/Money";
 
 // Man hinh "Tao don" rieng cho mobile (them 2026-08-21, phan hoi "giao diện tạo đơn mua hàng cho KTV
 // đang gặp vấn đề trên giao diện mobile. màn hình bị đưa đưa và chỉ ếm diện tích nhỏ so với toàn màn
@@ -257,7 +258,7 @@ export function TaoDonMobileScreen({
               </button>
             </div>
             <div className="text-xs text-[var(--ink-500)]">
-              {giaUocTinh != null ? <><span className="text-[10px]">Ước tính: </span><b className="text-[var(--green-700)]">{fmtVND(giaUocTinh)}</b></> : <span className="text-[var(--ink-400)]">Giá: —</span>}
+              {giaUocTinh != null ? <><span className="text-[10px]">Ước tính: </span><b className="text-[var(--green-700)]"><Money>{fmtVND(giaUocTinh)}</Money></b></> : <span className="text-[var(--ink-400)]">Giá: —</span>}
             </div>
           </div>
           <DuDoanDuyetHint
@@ -368,19 +369,19 @@ export function TaoDonMobileScreen({
             desktop, cung dieu kien). */}
         {sePhepDuCongNo === false && congNoDuKien && (
           <div className="rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-[11px] font-bold text-[var(--coral-700)]">
-            ⚠ Vượt trần công nợ dự kiến: {fmtVND(congNoDuKien.cong_no_chot + tongCongNoTamTinh)} / {fmtVND(congNoDuKien.tran ?? 0)}
+            ⚠ Vượt trần công nợ dự kiến: <Money>{fmtVND(congNoDuKien.cong_no_chot + tongCongNoTamTinh)}</Money> / <Money>{fmtVND(congNoDuKien.tran ?? 0)}</Money>
           </div>
         )}
         {/* Canh bao THONG TIN mốc dự phòng (them 2026-09-13) - xem giai thich o TaoDonTab.tsx (ban
             desktop, cung dieu kien). */}
         {coDongMuaDuTru && duPhongDuKien && (
           <div className="rounded-lg border border-[var(--ocean-500)]/30 bg-[var(--ocean-100)]/50 px-2.5 py-1.5 text-[11px] font-medium text-[var(--ocean-700)]">
-            ℹ Mốc dự phòng hiện tại còn khả dụng: {fmtVND(duPhongDuKien.moc_hien_tai)} / {fmtVND(duPhongDuKien.tran ?? 0)}
+            ℹ Mốc dự phòng hiện tại còn khả dụng: <Money>{fmtVND(duPhongDuKien.moc_hien_tai)}</Money> / <Money>{fmtVND(duPhongDuKien.tran ?? 0)}</Money>
           </div>
         )}
         <div className="flex items-center justify-between text-sm">
           <span className="text-[var(--ink-500)]">{drafts.length} dòng · {tongSoLuong} cái</span>
-          {tongGiaUocTinh > 0 && <span className="font-bold text-[var(--green-700)]">{fmtVND(tongGiaUocTinh)}</span>}
+          {tongGiaUocTinh > 0 && <span className="font-bold text-[var(--green-700)]"><Money>{fmtVND(tongGiaUocTinh)}</Money></span>}
         </div>
         <div className="flex items-center gap-2">
           <Btn variant="ghost" size="md" className="h-11 shrink-0" onClick={themDong}>

@@ -7,6 +7,7 @@ import { formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import type { BaoCaoRow, JumpTarget } from "./types";
 import { BaoCaoCharts } from "./BaoCaoCharts";
+import { Money } from "../../components/ui/Money";
 
 // Cot co "value" (them 2026-09-05, phan hoi "phân trang + tùy chọn sort" cho Home > Báo cáo tổng
 // thể): truoc day cols[] chi co cell() tra ve ReactNode (nut bam nhay, khong sort duoc truc tiep) -
@@ -200,7 +201,7 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
   // CHOT (ra soat module "Dat Mua Linh Kien 2.0" #22): tham "alert" - to coral CHI khi gia tri > 0
   // (dung tinh than prop `muted` da co o StatCard cho view the ca nhan) - ap dung PER-CELL, khong to
   // ca cot, tranh nhuom coral toan cot du phan lon KTV khong co van de gi.
-  function Num({ value, onClick, alert }: { value: number | string; onClick: () => void; alert?: boolean }) {
+  function Num({ value, onClick, alert }: { value: ReactNode; onClick: () => void; alert?: boolean }) {
     return (
       <button
         onClick={onClick}
@@ -353,10 +354,10 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
     { label: "Kho kết thúc", title: "Kho đã kết thúc + Hàng trừ kho", value: (r) => r.slKhoKetThuc, cell: (r: BaoCaoRow) => <Num value={r.slKhoKetThuc} onClick={() => jumpPxk("Kho da ket thuc", r.email)} /> },
   ];
   const tienCols: BaoCaoColDef[] = [
-    { label: "Tiền đang đặt mua (dự kiến)", value: (r) => r.tongTienDatMua, cell: (r: BaoCaoRow) => <Num value={fmtVND(r.tongTienDatMua)} onClick={() => jumpDon("", undefined, r.email)} /> },
-    { label: "Tiền chờ duyệt", value: (r) => r.tienChoDuyet, cell: (r: BaoCaoRow) => <Num value={fmtVND(r.tienChoDuyet)} onClick={() => jumpDon("__OPEN__", undefined, r.email)} /> },
-    { label: "Tổng thực tế đã mua", value: (r) => r.tongTienThucTe, cell: (r: BaoCaoRow) => <Num value={fmtVND(r.tongTienThucTe)} onClick={() => jumpDon("TN da duyet", undefined, r.email)} /> },
-    { label: "Tiền chờ chuyển", title: "PXK có yêu cầu chuyển khoản nhưng KTV/TN chưa xác nhận xong", value: (r) => r.tongChoChuyen, cell: (r: BaoCaoRow) => <Num value={fmtVND(r.tongChoChuyen)} onClick={() => jumpPxk("", r.email)} /> },
+    { label: "Tiền đang đặt mua (dự kiến)", value: (r) => r.tongTienDatMua, cell: (r: BaoCaoRow) => <Num value={<Money>{fmtVND(r.tongTienDatMua)}</Money>} onClick={() => jumpDon("", undefined, r.email)} /> },
+    { label: "Tiền chờ duyệt", value: (r) => r.tienChoDuyet, cell: (r: BaoCaoRow) => <Num value={<Money>{fmtVND(r.tienChoDuyet)}</Money>} onClick={() => jumpDon("__OPEN__", undefined, r.email)} /> },
+    { label: "Tổng thực tế đã mua", value: (r) => r.tongTienThucTe, cell: (r: BaoCaoRow) => <Num value={<Money>{fmtVND(r.tongTienThucTe)}</Money>} onClick={() => jumpDon("TN da duyet", undefined, r.email)} /> },
+    { label: "Tiền chờ chuyển", title: "PXK có yêu cầu chuyển khoản nhưng KTV/TN chưa xác nhận xong", value: (r) => r.tongChoChuyen, cell: (r: BaoCaoRow) => <Num value={<Money>{fmtVND(r.tongChoChuyen)}</Money>} onClick={() => jumpPxk("", r.email)} /> },
   ];
 
   // Sort DOC LAP + phan trang CHUNG cho 3 bang (them 2026-09-05) - xem giai thich day du o
@@ -469,10 +470,10 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
           onHeaderClick={tienSort.onHeaderClick}
           tongRow={
             <>
-              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={fmtVND(tong.tongTienDatMua)} onClick={() => jumpDon("", undefined)} /></td>
-              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={fmtVND(tong.tienChoDuyet)} onClick={() => jumpDon("__OPEN__", undefined)} /></td>
-              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={fmtVND(tong.tongTienThucTe)} onClick={() => jumpDon("TN da duyet", undefined)} /></td>
-              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={fmtVND(tong.tongChoChuyen)} onClick={() => jumpPxk("")} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={<Money>{fmtVND(tong.tongTienDatMua)}</Money>} onClick={() => jumpDon("", undefined)} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={<Money>{fmtVND(tong.tienChoDuyet)}</Money>} onClick={() => jumpDon("__OPEN__", undefined)} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={<Money>{fmtVND(tong.tongTienThucTe)}</Money>} onClick={() => jumpDon("TN da duyet", undefined)} /></td>
+              <td className="px-2 py-1.5 text-right border-l border-[var(--line)]"><Num value={<Money>{fmtVND(tong.tongChoChuyen)}</Money>} onClick={() => jumpPxk("")} /></td>
             </>
           }
         />

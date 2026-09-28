@@ -43,6 +43,7 @@ import { LinhKienPicker, LinhKienDetailModal } from "./LinhKienPicker";
 // Lien ket 2 chieu voi ticket thieu LK (phan hoi 2026-09-10) - xem giai thich import vong o
 // ThieuLkTab.tsx (file do cung import nguoc lai DonHangDetailModal tu day).
 import { ThieuLkDetailModal } from "./ThieuLkTab";
+import { Money } from "../../components/ui/Money";
 
 // FIX (ra soat "logic sai theo vai tro" 2026-08-31): KTV/Ve tinh khong co tab "Phieu xuat kho" rieng
 // (chi Tac nghiep/Kho/Ke toan/Giam sat moi thay, xem canXemPxkTab o DatMuaLinhKienModule.tsx) - theo
@@ -726,13 +727,13 @@ export function DonHangDetailModal({
                 />
               )
             )}
-            <QuickStat label="Giá đề xuất" value={d.gia_de_xuat != null ? fmtVND(d.gia_de_xuat) : "—"} tone="green" />
-            <QuickStat label="Tổng tiền đề xuất" value={fmtVND((d.gia_de_xuat ?? 0) * d.so_luong_de_xuat)} tone="green" />
-            {d.gia_chot != null && <QuickStat label="Giá chốt" value={fmtVND(d.gia_chot)} tone="green" />}
+            <QuickStat label="Giá đề xuất" value={d.gia_de_xuat != null ? <Money>{fmtVND(d.gia_de_xuat)}</Money> : "—"} tone="green" />
+            <QuickStat label="Tổng tiền đề xuất" value={<Money>{fmtVND((d.gia_de_xuat ?? 0) * d.so_luong_de_xuat)}</Money>} tone="green" />
+            {d.gia_chot != null && <QuickStat label="Giá chốt" value={<Money>{fmtVND(d.gia_chot)}</Money>} tone="green" />}
             {/* "Cong no tam tinh" + danh gia (them 04/09/2026) - chi co y nghia voi dong loai_don=
                 'cong_no', chot 1 LAN luc tao don (xem lib/congNoKtv.ts o backend, khong tinh lai). */}
             {d.loai_don === "cong_no" && d.so_tien_cong_no != null && (
-              <QuickStat label="Công nợ tạm tính" value={fmtVND(d.so_tien_cong_no)} />
+              <QuickStat label="Công nợ tạm tính" value={<Money>{fmtVND(d.so_tien_cong_no)}</Money>} />
             )}
             {/* SUA (ra soat "giao diện demo không hề giống" 2026-09-09): bo caption "Trạng thái" - doi
                 chieu truc tiep voi anh demo (crop + do mau pixel) xac nhan cum badge noi day KHONG co
@@ -1091,7 +1092,7 @@ export function DonHangDetailModal({
               </KvRow>
               {pxk.so_tien_can_chuyen != null && (
                 <>
-                  <KvRow label="Số tiền cần chuyển"><span className="font-semibold text-[var(--green-700)]">{fmtVND(pxk.so_tien_can_chuyen)}</span></KvRow>
+                  <KvRow label="Số tiền cần chuyển"><span className="font-semibold text-[var(--green-700)]"><Money>{fmtVND(pxk.so_tien_can_chuyen)}</Money></span></KvRow>
                   <KvRow label="Trạng thái chuyển tiền">
                     <StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} />
                   </KvRow>
@@ -1800,7 +1801,7 @@ export function DonCuaToiTab({
           day, giup phan biet ro day la thanh HANH DONG (dang co dong duoc chon) chu khong phai bo loc. */}
       {(canActAsTram || canTacNghiep) && selected.size > 0 && (
         <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--ocean-100)] border border-[var(--ocean-400)] text-[var(--ocean-900)] rounded-lg px-3 py-2 text-[12.5px]">
-          <span><b className="font-extrabold">{selected.size}</b> đơn được chọn{tongTienDaChon > 0 ? ` · ${fmtVND(tongTienDaChon)}` : ""}</span>
+          <span><b className="font-extrabold">{selected.size}</b> đơn được chọn{tongTienDaChon > 0 && <> · <Money>{fmtVND(tongTienDaChon)}</Money></>}</span>
           <div className="flex items-center gap-2 flex-wrap ml-auto">
             <BulkConfirmButton
               label="Duyệt tất cả"
@@ -2090,7 +2091,7 @@ export function DonHangGroupedList({
     { key: "ngay_de_xuat", header: "Ngày đề xuất", render: (row) => fmtDate(row.d.ngay_tao) },
     { key: "sl", header: "SL đề xuất", className: "text-right", render: (row) => row.d.so_luong_de_xuat },
     { key: "sl_thuc_xuat", header: "SL thực xuất", className: "text-right", render: (row) => row.d.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
-    { key: "gia", header: "Giá đề xuất", className: "text-right", render: (row) => (row.d.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold">{fmtVND(row.d.gia_de_xuat)}</span> : "—") },
+    { key: "gia", header: "Giá đề xuất", className: "text-right", render: (row) => (row.d.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold"><Money>{fmtVND(row.d.gia_de_xuat)}</Money></span> : "—") },
     { key: "loai", header: "Loại", render: (row) => <Badge tone={row.tone.tone}>{loaiDonLabel(row.d.loai_don, row.d.loai_de_xuat)}</Badge> },
     // Loai chiet khau (2026-09-26) - he thong gan luc tao PXK, TN sua o chi tiet don/chi tiet PXK.
     { key: "loai_chiet_khau", header: "Loại chiết khấu", render: (row) => <LoaiChietKhauText id={row.d.loai_chiet_khau_id} thuCong={row.d.loai_chiet_khau_thu_cong} /> },
@@ -2237,7 +2238,7 @@ export function DonHangGroupedList({
     ngay_de_xuat: { text: (d) => fmtDate(d.ngay_tao) },
     sl: { text: (d) => String(d.so_luong_de_xuat) },
     sl_thuc_xuat: { text: (d) => (d.so_luong_thuc_xuat != null ? String(d.so_luong_thuc_xuat) : dash) },
-    gia: { text: (d) => (d.gia_de_xuat != null ? fmtVND(d.gia_de_xuat) : dash), font: `600 12px "Plus Jakarta Sans", "Be Vietnam Pro", sans-serif` },
+    gia: { text: (d) => (d.gia_de_xuat != null ? fmtVND(d.gia_de_xuat) : dash), font: `700 12px "Plus Jakarta Sans", "Be Vietnam Pro", sans-serif` },
     loai: { text: (d) => loaiDonLabel(d.loai_don, d.loai_de_xuat), font: BADGE_FONT, extra: BADGE_PAD, max: 180 },
     loai_chiet_khau: { text: (d) => (tenLoaiChietKhau(loaiChietKhauList, d.loai_chiet_khau_id) ?? dash) + (d.loai_chiet_khau_thu_cong ? " ✎" : ""), max: 280 },
     yeu_cau_hoa_don: { text: (d) => d.yeu_cau_hoa_don || dash, max: 220 },
@@ -2365,7 +2366,7 @@ export function DonHangGroupedList({
                         <span className="font-bold text-[var(--ink-900)] text-sm truncate">
                           {formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}
                         </span>
-                        <span className="font-semibold text-[var(--green-700)] shrink-0">{fmtVND(g.tongTien)}</span>
+                        <span className="font-semibold text-[var(--green-700)] shrink-0"><Money>{fmtVND(g.tongTien)}</Money></span>
                       </div>
                       {/* Rut gon banner nhom (Phase 4 StageMenu, them 2026-09-11, phan hoi "banner nhóm
                           KTV đang quá nhiều badge rời rạc") - truoc day hien RIENG 4 badge (chờ duyệt/
@@ -2441,7 +2442,7 @@ export function DonHangGroupedList({
                 ) : (
                   <Badge tone="success">Đã xong {g.dongCon.length} đơn</Badge>
                 )}
-                <span className="font-semibold text-[var(--green-700)] text-sm shrink-0">{fmtVND(g.tongTien)}</span>
+                <span className="font-semibold text-[var(--green-700)] text-sm shrink-0"><Money>{fmtVND(g.tongTien)}</Money></span>
               </div>
             </div>
             <div className="border-t border-[var(--line)] divide-y divide-[var(--line)]">
@@ -2568,7 +2569,7 @@ export function DonHangGroupedList({
                               )}
                               {d.tt_khach_hang?.trim() && <span className="truncate min-w-0">{d.tt_khach_hang.trim()}</span>}
                               <span className="shrink-0 ml-auto whitespace-nowrap">
-                                SL:{d.so_luong_de_xuat} · {d.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold">{fmtVND(d.gia_de_xuat)}</span> : "—"}
+                                SL:{d.so_luong_de_xuat} · {d.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold"><Money>{fmtVND(d.gia_de_xuat)}</Money></span> : "—"}
                               </span>
                             </div>
                             {/* FIX (phan hoi 2026-08-28, lan 2: "ấn vào vùng trống trên thẻ vẫn không mở

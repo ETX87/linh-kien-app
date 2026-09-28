@@ -24,6 +24,7 @@ import {
 } from "./helpers";
 import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, DetailZone, QuickStat, KhuVucChipFilter, ImageLink, ImageThumb, MaYcscCell } from "./SharedUi";
 import { LinhKienDetailModal } from "./LinhKienPicker";
+import { Money } from "../../components/ui/Money";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -434,7 +435,7 @@ export function TraHangTab({
     { key: "ngay_de_xuat", header: "Ngày đề xuất", render: (r) => fmtDate(r.ngay_tao) },
     { key: "so_luong_de_xuat", header: "SL đề xuất", render: (r) => r.so_luong_de_xuat },
     { key: "sl_thuc_xuat", header: "SL thực xuất", render: (r) => r.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
-    { key: "gia", header: "Giá đề xuất", render: (r) => (r.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold">{fmtVND(r.gia_de_xuat)}</span> : "—") },
+    { key: "gia", header: "Giá đề xuất", render: (r) => (r.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold"><Money>{fmtVND(r.gia_de_xuat)}</Money></span> : "—") },
     { key: "loai", header: "Loại", render: (r) => { const loaiDon = (r.loai_don as keyof typeof LOAI_DON_TONE) ?? "tra_hang"; const t = LOAI_DON_TONE[loaiDon] ?? LOAI_DON_TONE.tra_hang; return <Badge tone={t.tone}>{loaiDonLabel(loaiDon, r.loai_de_xuat)}</Badge>; } },
     { key: "yeu_cau_hoa_don", header: "Yêu cầu hóa đơn", render: (r) => r.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
     {

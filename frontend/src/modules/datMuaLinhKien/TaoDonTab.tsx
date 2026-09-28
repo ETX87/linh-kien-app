@@ -83,7 +83,7 @@ export function TaoDonTab({
               tran. Xem giai thich cong thuc o useTaoDonForm.ts. */}
           {sePhepDuCongNo === false && congNoDuKien && (
             <div className="rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-[11px] font-bold text-[var(--coral-700)]">
-              ⚠ Vượt trần công nợ dự kiến: {fmtVND(congNoDuKien.cong_no_chot + tongCongNoTamTinh)} / {fmtVND(congNoDuKien.tran ?? 0)}
+              ⚠ Vượt trần công nợ dự kiến: <Money>{fmtVND(congNoDuKien.cong_no_chot + tongCongNoTamTinh)}</Money> / <Money>{fmtVND(congNoDuKien.tran ?? 0)}</Money>
             </div>
           )}
           {/* Canh bao THONG TIN mốc dự phòng còn khả dụng (them 2026-09-13, phan hoi "Nếu ktv chọn
@@ -91,7 +91,7 @@ export function TaoDonTab({
               khi co it nhat 1 dong MUA DỰ TRỮ dang soan, KHONG chan tao don (khac banner cong no o trên). */}
           {coDongMuaDuTru && duPhongDuKien && (
             <div className="rounded-lg border border-[var(--ocean-500)]/30 bg-[var(--ocean-100)]/50 px-2.5 py-1.5 text-[11px] font-medium text-[var(--ocean-700)]">
-              ℹ Mốc dự phòng hiện tại còn khả dụng: {fmtVND(duPhongDuKien.moc_hien_tai)} / {fmtVND(duPhongDuKien.tran ?? 0)}
+              ℹ Mốc dự phòng hiện tại còn khả dụng: <Money>{fmtVND(duPhongDuKien.moc_hien_tai)}</Money> / <Money>{fmtVND(duPhongDuKien.tran ?? 0)}</Money>
             </div>
           )}
           <div className="flex items-center justify-between gap-3">
@@ -100,7 +100,7 @@ export function TaoDonTab({
               {tongGiaUocTinh > 0 && (
                 <>
                   <span className="text-[var(--ink-500)]"> · </span>
-                  <span className="font-bold text-[var(--green-700)]">{fmtVND(tongGiaUocTinh)}</span>
+                  <span className="font-bold text-[var(--green-700)]"><Money>{fmtVND(tongGiaUocTinh)}</Money></span>
                   <span className="ml-1 text-[11px] text-[var(--ink-400)]">(*Giá tham khảo)</span>
                 </>
               )}
@@ -214,7 +214,7 @@ export function TaoDonTab({
                   <span className="truncate">{d.ma_lk ? (lkThu ? formatLkLabel(d.ma_lk, lkThu.ten_linh_kien) : d.ma_lk) : "(Chưa chọn linh kiện)"}</span>
                 </span>
                 <span className="shrink-0 hidden sm:inline text-[var(--ink-500)] font-mono">×{d.so_luong_de_xuat}</span>
-                {giaTongThu != null && <span className="text-[var(--green-700)] font-semibold shrink-0 hidden md:inline">{fmtVND(giaTongThu)}</span>}
+                {giaTongThu != null && <span className="text-[var(--green-700)] font-semibold shrink-0 hidden md:inline"><Money>{fmtVND(giaTongThu)}</Money></span>}
                 {d.ma_yeu_cau_su_co.trim() && (
                   <span className="shrink-0 hidden md:inline text-[10px] font-mono text-[var(--ink-500)] bg-[var(--surface-100)] border border-[var(--line)] rounded px-1.5 py-0.5" title={`Mã yêu cầu sự cố: ${d.ma_yeu_cau_su_co}`}>
                     🎫 {d.ma_yeu_cau_su_co}
@@ -395,7 +395,7 @@ export function TaoDonTab({
                 <div>
                   <label className="block text-[11px] font-semibold mb-1 text-[var(--ink-600)]">Giá ước tính</label>
                   <div className="flex items-center border border-[var(--line)] rounded-lg px-2.5 py-2 text-sm bg-[var(--surface-100)] w-fit min-w-[140px]">
-                    {giaUocTinh != null ? <b className="text-[var(--green-700)]">{fmtVND(giaUocTinh)}</b> : <span className="text-[var(--ink-400)]">Chưa rõ giá</span>}
+                    {giaUocTinh != null ? <b className="text-[var(--green-700)]"><Money>{fmtVND(giaUocTinh)}</Money></b> : <span className="text-[var(--ink-400)]">Chưa rõ giá</span>}
                   </div>
                 </div>
 
@@ -513,3 +513,4 @@ export function TaoDonTab({
 // tuy (khong dinh state) - chi import 1 lan o dau file, khong lap trong useTaoDonForm.ts (ham do da
 // import rieng cho chinh no dung trong isLineComplete).
 import { canNoRequired, maYcscRequired } from "./helpers";
+import { Money } from "../../components/ui/Money";

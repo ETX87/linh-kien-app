@@ -11,6 +11,7 @@ import { fmtVND } from "../../types";
 import { usePublicSheetCache } from "../../lib/publicSheetCache";
 import type { LkDanhMucRow } from "./types";
 import { describeApiError, useLinhKienRankMap, formatLkLabel } from "./helpers";
+import { Money } from "../../components/ui/Money";
 
 // O chon "Ma linh kien" (autocomplete co anh/gia/xep hang) + cac component lien quan (thumbnail,
 // modal xem chi tiet, goi y thay the) - tach tu DatMuaLinhKienModule.tsx (UI redesign Phase 3,
@@ -182,7 +183,7 @@ export function LinhKienPickerRow({
         <span className="block truncate font-medium text-[var(--ocean-800)]">{formatLkLabel(o.ma_linh_kien, o.ten_linh_kien)}</span>
         {rank != null && rank <= 5 && <span className="text-[10px] font-semibold text-[var(--amber-700)]">🔥 #{rank} hay đặt (30 ngày)</span>}
       </span>
-      {o.gia_ban != null && <span className="shrink-0 text-[11px] text-[var(--green-700)] font-mono font-semibold">{fmtVND(o.gia_ban)}</span>}
+      {o.gia_ban != null && <span className="shrink-0 text-[11px] text-[var(--green-700)] font-mono font-semibold"><Money>{fmtVND(o.gia_ban)}</Money></span>}
     </button>
   );
 }
@@ -463,10 +464,10 @@ export function LinhKienDetailModal({
 
         <div>
           <KvRow label="Giá NY">
-            <span className="font-semibold font-mono text-[var(--green-700)]">{fmtVND(part.gia_ban)}</span>
+            <span className="font-semibold font-mono text-[var(--green-700)]"><Money>{fmtVND(part.gia_ban)}</Money></span>
           </KvRow>
           <KvRow label="Giá KTV">
-            <span className="font-semibold font-mono text-[var(--green-700)]">{fmtVND(part.gia_tri_cong_no ?? null)}</span>
+            <span className="font-semibold font-mono text-[var(--green-700)]"><Money>{fmtVND(part.gia_tri_cong_no ?? null)}</Money></span>
           </KvRow>
           <KvRow label="Phân loại">
             <span className="font-semibold">{part.don_vi ?? "—"}</span>

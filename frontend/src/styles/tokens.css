@@ -56,6 +56,9 @@
   --color-success: #16a34a;
   --color-success-strong: #15803d;
   --color-success-soft: #dcfce7;
+  /* Số tiền (phản hồi 2026-09-28: "tất cả UI số tiền tô màu xanh lá cây đậm để dễ phân biệt") -
+     MỌI số tiền hiển thị dùng <Money> (components/ui/Money.tsx) → class .money bên dưới. */
+  --color-money: #166534;
   --color-info: #0379a8;
   --color-info-soft: #e3f8fd;
   --color-warning: #ff9800;
@@ -541,6 +544,13 @@ textarea::placeholder {
   font-weight: 600;
   color: var(--color-primary);
 }
+/* Số tiền - xem --color-money + components/ui/Money.tsx. */
+.money {
+  color: var(--color-money);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .code-link {
   font-weight: 600;
   color: var(--color-link);

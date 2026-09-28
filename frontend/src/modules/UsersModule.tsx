@@ -17,6 +17,7 @@ import { exportRowsToExcel } from "../lib/exportExcel";
 import { parseKtvImportFile, type BulkImportKtvChunkResult } from "../lib/ktvImport";
 import { fmtVND, fmtDateTime } from "../types";
 import type { UserRow, KtvLienHeRow, KhuVucRow, Paged, LoginLogRow, MaKhoChuaKhopRow, EtxNhanSuRow, EtxNhanSuSyncStatus } from "../types";
+import { Money } from "../components/ui/Money";
 
 // Trang quan tri nguoi dung - xay lai 2026-08-26 (yeu cau "tach rieng 2 the quan ly" cho 2 nhom doi
 // tuong dang nhap Gmail: KTV hien truong vs Nhan vien van phong, xem CLAUDE.md). "KTV hien truong"
@@ -847,7 +848,7 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
           // FIX (ra soat UI 2026-08-27): tooltip truoc day hien nguyen chuoi gio VN "tho" tu DB, khong
           // qua fmtDateTime - dung quy uoc chung "moi cot thoi gian hien theo gio VN qua helper co san"
           // (xem CLAUDE.md/memory feedback_vn_timezone).
-          <span title={r.cong_no_cap_nhat_luc ? `Cập nhật lúc ${fmtDateTime(r.cong_no_cap_nhat_luc)}` : undefined}>{fmtVND(r.cong_no)}</span>
+          <span title={r.cong_no_cap_nhat_luc ? `Cập nhật lúc ${fmtDateTime(r.cong_no_cap_nhat_luc)}` : undefined}><Money>{fmtVND(r.cong_no)}</Money></span>
         ) : (
           "—"
         ),
@@ -860,7 +861,7 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
       header: "Hạn mức dự phòng",
       render: (r) =>
         r.han_muc_du_phong != null ? (
-          <span title={r.han_muc_du_phong_cap_nhat_luc ? `Cập nhật lúc ${fmtDateTime(r.han_muc_du_phong_cap_nhat_luc)}` : undefined}>{fmtVND(r.han_muc_du_phong)}</span>
+          <span title={r.han_muc_du_phong_cap_nhat_luc ? `Cập nhật lúc ${fmtDateTime(r.han_muc_du_phong_cap_nhat_luc)}` : undefined}><Money>{fmtVND(r.han_muc_du_phong)}</Money></span>
         ) : (
           "—"
         ),
@@ -870,13 +871,13 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
       header: "Hạn mức dự phòng hiện tại",
       render: (r) =>
         r.han_muc_du_phong_hien_tai != null ? (
-          <span title={r.han_muc_du_phong_cap_nhat_luc ? `Cập nhật lúc ${fmtDateTime(r.han_muc_du_phong_cap_nhat_luc)}` : undefined}>{fmtVND(r.han_muc_du_phong_hien_tai)}</span>
+          <span title={r.han_muc_du_phong_cap_nhat_luc ? `Cập nhật lúc ${fmtDateTime(r.han_muc_du_phong_cap_nhat_luc)}` : undefined}><Money>{fmtVND(r.han_muc_du_phong_hien_tai)}</Money></span>
         ) : (
           "—"
         ),
     },
-    { key: "han_muc_du_phong_phat_sinh", header: "Hạn mức dự phòng phát sinh", render: (r) => fmtVND(r.han_muc_du_phong_phat_sinh) },
-    { key: "moc_du_phong_hien_tai", header: "Mốc dự phòng hiện tại", render: (r) => fmtVND(r.moc_du_phong_hien_tai) },
+    { key: "han_muc_du_phong_phat_sinh", header: "Hạn mức dự phòng phát sinh", render: (r) => <Money>{fmtVND(r.han_muc_du_phong_phat_sinh)}</Money> },
+    { key: "moc_du_phong_hien_tai", header: "Mốc dự phòng hiện tại", render: (r) => <Money>{fmtVND(r.moc_du_phong_hien_tai)}</Money> },
     // FIX (ra soat UI 2026-08-27, hang muc #1): bo "(mã) Tên" lap lai truoc email - cot "Tên hiển thị"
     // da o ngay dau bang, khong can nhac lai o cot cuoi (giam ~50% do dai dong tren bang 25+ dong).
     { key: "email_dang_nhap", header: "Email đăng nhập", render: (r) => r.email_dang_nhap ?? "—" },

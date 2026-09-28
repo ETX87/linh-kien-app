@@ -66,6 +66,7 @@ dùng cho logo, màn đăng nhập, hero/banner nhỏ; **không** dùng cho nút
 | `--text-muted` | `#64748B` | Mô tả phụ, ngày giờ, header bảng |
 | `--text-light` | `#94A3B8` | Trục biểu đồ, placeholder, icon mũi tên |
 | `--text-link` | `#0B63CE` | Mã đơn / mã PXK / mã phiếu bấm được (xanh đậm hơn primary để đạt tương phản ≥ 4.5:1 ở chữ 12px) |
+| `--color-money` | `#166534` | **MỌI số tiền** hiển thị (giá, tiền cần chuyển, công nợ, dự phòng, tổng tiền…) — chữ đậm 700, số canh đều. Bắt buộc render qua `<Money>{fmtVND(x)}</Money>` (`components/ui/Money.tsx`, class `.money`), không tự tô màu tay. Giá trị trống "—" giữ màu chữ nhạt. Chuỗi văn bản (toast, placeholder, tooltip) không áp dụng. *(Chốt người dùng 2026-09-28: "tất cả UI số tiền tô màu xanh lá cây đậm để dễ phân biệt".)* |
 
 ### 2.4. Bảng Pastel cho Thẻ KPI & Nhóm nghiệp vụ
 Mỗi nhóm dữ liệu gắn 1 bộ **[Nền gradient thẻ – Icon tròn nền đậm – Chữ nhấn]**:

@@ -8,6 +8,7 @@ import { Modal } from "../../components/ui/Modal";
 import { KvRow } from "../../components/ui/KvRow";
 import { fmtVND } from "../../types";
 import type { DonHangRow } from "./types";
+import { Money } from "../../components/ui/Money";
 
 // Loai chiet khau duoc huong cua tung dong don hang (2026-09-26, migration 0033_loai_chiet_khau.sql).
 // He thong TU GAN luc tao PXK theo dung nhanh cua thuat toan tinh tien PXK (va tinh lai CA phieu khi
@@ -247,8 +248,8 @@ export function LoaiChietKhauPicker({ don, duocDoi }: { don: DonHangRow; duocDoi
             </div>
             <div>Có cập nhật giá thực tế theo loại chiết khấu mới không?</div>
             <KvRow label={isCongNo ? "Tiền công nợ hiện tại" : "Đơn giá thực tế hiện tại"}>
-              {giaHienTai != null ? fmtVND(giaHienTai) : "—"}
-              {!isCongNo && <span className="text-[var(--color-text-secondary)]"> × {sl} = {giaHienTai != null ? fmtVND(giaHienTai * sl) : "—"}</span>}
+              {giaHienTai != null ? <Money>{fmtVND(giaHienTai)}</Money> : "—"}
+              {!isCongNo && <span className="text-[var(--color-text-secondary)]"> × {sl} = {giaHienTai != null ? <Money>{fmtVND(giaHienTai * sl)}</Money> : "—"}</span>}
             </KvRow>
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">
@@ -265,12 +266,12 @@ export function LoaiChietKhauPicker({ don, duocDoi }: { don: DonHangRow; duocDoi
               <div className="mt-1 text-xs text-[var(--color-text-secondary)]">
                 {goiY ? (
                   <>
-                    Gợi ý theo loại mới: {isCongNo ? `${fmtVND(goiY.gia)} × ${sl} = ${fmtVND(goiY.gia * sl)}` : fmtVND(goiY.gia)} ({goiY.cachTinh})
+                    Gợi ý theo loại mới: {isCongNo ? <><Money>{fmtVND(goiY.gia)}</Money> × {sl} = <Money>{fmtVND(goiY.gia * sl)}</Money></> : <Money>{fmtVND(goiY.gia)}</Money>} ({goiY.cachTinh})
                   </>
                 ) : (
                   "Loại tự thêm không có công thức — nhập giá thực tế nếu cần đổi."
                 )}
-                {!isCongNo && giaHopLe && <> · Thành tiền mới: <b className="text-[var(--color-text)]">{fmtVND(giaSo * sl)}</b></>}
+                {!isCongNo && giaHopLe && <> · Thành tiền mới: <b className="text-[var(--color-text)]"><Money>{fmtVND(giaSo * sl)}</Money></b></>}
               </div>
             </div>
           </div>

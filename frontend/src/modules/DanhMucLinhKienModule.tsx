@@ -21,6 +21,7 @@ import { useAuth } from "../auth/AuthContext";
 import { formatLkLabel } from "./datMuaLinhKien/helpers";
 import { BomHangTab } from "./danhMucLinhKien/BomHangTab";
 import { ThayTheTab } from "./danhMucLinhKien/ThayTheTab";
+import { Money } from "../components/ui/Money";
 
 const PAGE_SIZE = 20;
 const BOOL_FILTER_OPTIONS = [
@@ -343,10 +344,10 @@ function PartDetailDrawer({ part, onClose, onEdit, canEdit }: { part: LinhKienRo
     // NEN co the AN mã neu ten_linh_kien da tu chua san (tranh lap, xem comment o <h3> ben duoi), luon
     // hien rieng 1 dong "Mã linh kiện" o day de tra cuu/copy nhanh du ten co chua ma hay khong.
     { label: "Mã linh kiện", value: <span className="font-mono font-semibold text-[var(--ocean-700)]">{part.ma_linh_kien}</span> },
-    { label: "Giá NY", value: <span className="font-mono font-semibold text-[var(--green-700)]">{fmtVND(part.gia_ban)}</span> },
-    { label: "Giá KTV", value: <span className="font-mono font-semibold text-[var(--green-700)]">{fmtVND(part.gia_tri_cong_no)}</span> },
-    { label: "Giá dự phòng", value: <span className="font-mono text-[var(--ink-600)]">{fmtVND(part.gia_du_phong)}</span> },
-    { label: "Giá EU", value: <span className="font-mono text-[var(--ink-600)]">{fmtVND(part.gia_eu)}</span> },
+    { label: "Giá NY", value: <span className="font-mono font-semibold text-[var(--green-700)]"><Money>{fmtVND(part.gia_ban)}</Money></span> },
+    { label: "Giá KTV", value: <span className="font-mono font-semibold text-[var(--green-700)]"><Money>{fmtVND(part.gia_tri_cong_no)}</Money></span> },
+    { label: "Giá dự phòng", value: <span className="font-mono text-[var(--ink-600)]"><Money>{fmtVND(part.gia_du_phong)}</Money></span> },
+    { label: "Giá EU", value: <span className="font-mono text-[var(--ink-600)]"><Money>{fmtVND(part.gia_eu)}</Money></span> },
     { label: "Phân loại", value: part.don_vi ?? "—" },
     ...(part.nhan_hang?.trim() ? [{ label: "Nhãn hàng", value: part.nhan_hang.trim() }] : []),
     ...(part.thiet_bi?.trim() ? [{ label: "Thiết bị", value: part.thiet_bi.trim() }] : []),
@@ -780,10 +781,10 @@ function DanhMucTab() {
   const columns: Column<LinhKienRow>[] = [
     { key: "ma_linh_kien", header: "Mã", render: (p) => <span className="font-mono text-xs">{p.ma_linh_kien}</span> },
     { key: "ten_linh_kien", header: "Tên linh kiện", render: (p) => <span className="font-semibold text-[var(--ocean-800)]">{p.ten_linh_kien}</span> },
-    { key: "gia_ban", header: "Giá NY", render: (p) => <span className="font-mono font-semibold text-[var(--green-700)]">{fmtVND(p.gia_ban)}</span> },
-    { key: "gia_tri_cong_no", header: "Giá KTV", render: (p) => <span className="font-mono text-xs">{p.gia_tri_cong_no != null ? fmtVND(p.gia_tri_cong_no) : "—"}</span> },
-    { key: "gia_du_phong", header: "Giá dự phòng", render: (p) => <span className="font-mono text-xs">{p.gia_du_phong != null ? fmtVND(p.gia_du_phong) : "—"}</span> },
-    { key: "gia_eu", header: "Giá EU", render: (p) => <span className="font-mono text-xs">{p.gia_eu != null ? fmtVND(p.gia_eu) : "—"}</span> },
+    { key: "gia_ban", header: "Giá NY", render: (p) => <span className="font-mono font-semibold text-[var(--green-700)]"><Money>{fmtVND(p.gia_ban)}</Money></span> },
+    { key: "gia_tri_cong_no", header: "Giá KTV", render: (p) => <span className="font-mono text-xs">{p.gia_tri_cong_no != null ? <Money>{fmtVND(p.gia_tri_cong_no)}</Money> : "—"}</span> },
+    { key: "gia_du_phong", header: "Giá dự phòng", render: (p) => <span className="font-mono text-xs">{p.gia_du_phong != null ? <Money>{fmtVND(p.gia_du_phong)}</Money> : "—"}</span> },
+    { key: "gia_eu", header: "Giá EU", render: (p) => <span className="font-mono text-xs">{p.gia_eu != null ? <Money>{fmtVND(p.gia_eu)}</Money> : "—"}</span> },
     {
       key: "cam_ban",
       header: "Cấm bán",
@@ -1009,7 +1010,7 @@ function DanhMucTab() {
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-[var(--ocean-800)] truncate">{p.ten_linh_kien}</div>
                 <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                  <span className="font-mono text-sm font-semibold text-[var(--green-700)]">{fmtVND(p.gia_ban)}</span>
+                  <span className="font-mono text-sm font-semibold text-[var(--green-700)]"><Money>{fmtVND(p.gia_ban)}</Money></span>
                   <Badge tone={p.bat_tat ? "teal" : "gray"}>{p.bat_tat ? "Bật" : "Tắt"}</Badge>
                 </div>
               </div>
@@ -1081,10 +1082,10 @@ function DanhMucTab() {
                 <Tooltip text={`Các trường này do API giá linh kiện đối tác (gia88) tự động cập nhật mỗi đêm, xem lib/gia88Sync.ts. Muốn sửa, liên hệ đối tác cập nhật dữ liệu gốc.`} />
               </div>
               <KvRow label="Tên linh kiện">{editingRow?.ten_linh_kien}</KvRow>
-              <KvRow label="Giá NY">{fmtVND(editingRow?.gia_ban ?? null)}</KvRow>
-              <KvRow label="Giá KTV">{fmtVND(editingRow?.gia_tri_cong_no ?? null)}</KvRow>
-              <KvRow label="Giá dự phòng">{fmtVND(editingRow?.gia_du_phong ?? null)}</KvRow>
-              <KvRow label="Giá EU">{fmtVND(editingRow?.gia_eu ?? null)}</KvRow>
+              <KvRow label="Giá NY"><Money>{fmtVND(editingRow?.gia_ban ?? null)}</Money></KvRow>
+              <KvRow label="Giá KTV"><Money>{fmtVND(editingRow?.gia_tri_cong_no ?? null)}</Money></KvRow>
+              <KvRow label="Giá dự phòng"><Money>{fmtVND(editingRow?.gia_du_phong ?? null)}</Money></KvRow>
+              <KvRow label="Giá EU"><Money>{fmtVND(editingRow?.gia_eu ?? null)}</Money></KvRow>
               {editingRow?.nhan_hang?.trim() && <KvRow label="Nhãn hàng">{editingRow.nhan_hang}</KvRow>}
               {editingRow?.thiet_bi?.trim() && <KvRow label="Thiết bị">{editingRow.thiet_bi}</KvRow>}
               {editingRow?.don_vi_nhap?.trim() && <KvRow label="Đơn vị nhập">{editingRow.don_vi_nhap}</KvRow>}

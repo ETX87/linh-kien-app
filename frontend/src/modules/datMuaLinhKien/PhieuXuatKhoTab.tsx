@@ -31,6 +31,7 @@ import {
 import { StatusBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar, KhuVucChipFilter, ImageLink } from "./SharedUi";
 import { PxkMiniPipeline } from "./PipelineFlow";
 import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportResult, type MisaTemplate } from "../../lib/misaExportTemplates";
+import { Money } from "../../components/ui/Money";
 
 const MISA_TEMPLATE_ORDER: MisaTemplate[] = ["xuat_kho", "chuyen_kho", "ban_hang"];
 
@@ -802,7 +803,7 @@ export function PhieuXuatKhoTab({
                   {selectedDonHang.size > 0 && (
                     <>
                       {" · "}
-                      <span className="font-semibold text-[var(--green-700)]">{fmtTongTaoPxk}</span>
+                      <Money>{fmtTongTaoPxk}</Money>
                     </>
                   )}
                 </span>
@@ -853,7 +854,7 @@ export function PhieuXuatKhoTab({
             <div>
               <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Số tiền cần chuyển</label>
               <div className="w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm">
-                {fmtTongTaoPxk} <span className="text-[var(--ink-400)]">(tự động)</span>
+                <Money>{fmtTongTaoPxk}</Money> <span className="text-[var(--ink-400)]">(tự động)</span>
               </div>
             </div>
             <div>
@@ -1527,7 +1528,7 @@ export function PxkDetailModal({
                       trong danh sách các đơn"): bo o nhap tu do, chi hien so da tu tinh (read-only) -
                       nut "Yêu cầu chuyển" gui thang tongTienUocTinhPxk, khong con go tay duoc. */}
                   <div className="flex-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm">
-                    {fmtVND(tongTienUocTinhPxk)} <span className="text-[var(--ink-400)]">(tự động)</span>
+                    <Money>{fmtVND(tongTienUocTinhPxk)}</Money> <span className="text-[var(--ink-400)]">(tự động)</span>
                   </div>
                   <Btn size="sm" onClick={() => yeuCauChuyenTienMutation.mutate(tongTienUocTinhPxk)} disabled={tongTienUocTinhPxk <= 0 || yeuCauChuyenTienMutation.isPending}>Yêu cầu chuyển</Btn>
                 </div>
@@ -1536,7 +1537,7 @@ export function PxkDetailModal({
               )
             ) : (
               <>
-                <KvRow label="Số tiền"><span className="font-semibold text-[var(--green-700)]">{fmtVND(pxk.so_tien_can_chuyen)}</span></KvRow>
+                <KvRow label="Số tiền"><span className="font-semibold text-[var(--green-700)]"><Money>{fmtVND(pxk.so_tien_can_chuyen)}</Money></span></KvRow>
                 <KvRow label="Trạng thái"><StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /></KvRow>
                 {pxk.bang_chung_chuyen_tien_url && (
                   <KvRow label="Bằng chứng"><ImageLink url={pxk.bang_chung_chuyen_tien_url} className="text-[var(--ocean-800)] underline text-xs">Xem bằng chứng</ImageLink></KvRow>
@@ -1665,7 +1666,7 @@ export function PxkDetailModal({
                             const sl = d.so_luong_thuc_xuat ?? d.so_luong_de_xuat;
                             const noiDung = d.tien_uoc_tinh != null || donGia != null ? (
                               <span className="italic text-[var(--ink-400)]" title="Ước tính theo loại chiết khấu, giá chốt và SL thực xuất">
-                                {fmtVND(d.tien_uoc_tinh ?? (donGia ?? 0) * sl)} (ước tính)
+                                <Money>{fmtVND(d.tien_uoc_tinh ?? (donGia ?? 0) * sl)}</Money> (ước tính)
                               </span>
                             ) : (
                               <span className="text-[var(--ink-400)]">—</span>
@@ -1724,11 +1725,11 @@ export function PxkDetailModal({
                                 khi bam ✎ thay vi de trong. */}
                             {d.so_tien_cong_no != null ? (
                               <span title="Tiền công nợ ghi nhận cho KTV — không cộng vào tiền cần chuyển của phiếu">
-                                {fmtVND(d.so_tien_cong_no)} <span className="text-[11px] text-[var(--ink-400)]">công nợ</span>
+                                <Money>{fmtVND(d.so_tien_cong_no)}</Money> <span className="text-[11px] text-[var(--ink-400)]">công nợ</span>
                               </span>
                             ) : d.gia_de_xuat != null ? (
                               <span className="italic text-[var(--ink-400)]" title="Ước tính = Giá đề xuất × SL, chưa được xác nhận/sửa tay">
-                                {fmtVND(d.gia_de_xuat * d.so_luong_de_xuat)} (ước tính)
+                                <Money>{fmtVND(d.gia_de_xuat * d.so_luong_de_xuat)}</Money> (ước tính)
                               </span>
                             ) : (
                               <span className="text-[var(--ink-400)]">—</span>
@@ -2003,7 +2004,7 @@ export function PxkDetailModal({
               <div className="text-xs text-[var(--ink-500)]">
                 Tiền cần chuyển sau khi lưu:{" "}
                 <span className="font-semibold text-[var(--ink-700)]">
-                  {fmtVND(donGiaXemTruoc * (Number(suaTienDraft.so_luong_thuc_xuat) || 0))}
+                  <Money>{fmtVND(donGiaXemTruoc * (Number(suaTienDraft.so_luong_thuc_xuat) || 0))}</Money>
                 </span>{" "}
                 <span className="text-[var(--ink-400)]">(ước tính)</span>
               </div>
