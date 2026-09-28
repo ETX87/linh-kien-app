@@ -201,6 +201,16 @@ function LoaiChietKhauTab() {
     onError: () => addToast("Không thể gán, thử lại sau."),
   });
 
+  // Chay 1 lan sau dot doi cong thuc tinh tien PXK (2026-09-28) - xem POST /tinh-lai-tien-dang-mo.
+  const tinhLaiTien = useMutation({
+    mutationFn: () => api.post<{ so_phieu: number; so_phieu_doi: number }>("/phieu-xuat-kho/tinh-lai-tien-dang-mo"),
+    onSuccess: (r) => {
+      addToast(`Đã tính lại ${r.so_phieu} phiếu đang tạo — ${r.so_phieu_doi} phiếu thay đổi tiền cần chuyển`);
+      qc.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).startsWith("dat-mua-lk") || q.queryKey[0] === "pxk-detail" });
+    },
+    onError: () => addToast("Không thể tính lại, thử lại sau."),
+  });
+
   return (
     <div className="space-y-3">
       <div className="text-xs text-[var(--ink-500)]">
@@ -211,6 +221,17 @@ function LoaiChietKhauTab() {
         <Btn size="sm" onClick={() => openEdit("new")}>+ Thêm loại chiết khấu</Btn>
         <Btn size="sm" variant="ghost" loading={ganLai.isPending} disabled={ganLai.isPending} onClick={() => ganLai.mutate()}>
           Gán cho các phiếu xuất kho cũ
+        </Btn>
+        <Btn
+          size="sm"
+          variant="ghost"
+          loading={tinhLaiTien.isPending}
+          disabled={tinhLaiTien.isPending}
+          onClick={() => {
+            if (window.confirm("Tính lại tiền cần chuyển cho MỌI phiếu xuất kho đang tạo? Phiếu nào lệch số sẽ bị đặt lại chuyển tiền về \"Chờ KTV chuyển\" (xoá bằng chứng đã nộp).")) tinhLaiTien.mutate();
+          }}
+        >
+          Tính lại tiền phiếu đang tạo
         </Btn>
       </div>
       <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">

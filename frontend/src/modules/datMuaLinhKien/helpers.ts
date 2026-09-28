@@ -163,6 +163,12 @@ export const LOAI_DON_TONE: Record<ReturnType<typeof deriveLoaiDon>, { tone: Ton
 // HÀNG LK TỈNH"/"TRẢ HÀNG LK ĐẶC THÙ"/"TRẢ HÀNG DỮ TRỮ"/"TRẢ HÀNG LK KHÁC" deu gop chung ve "Trả
 // hàng"). Mau badge (tone) van giu theo nhom (LOAI_DON_TONE), chi doi PHAN CHU sang dung gia tri
 // loai_de_xuat nguoi dung da chon, fallback ve nhan gop khi thieu du lieu (vd dong import cu).
+// Dong cong_no loai "TRỪ CÔNG NỢ..." van phai chuyen tien, tinh gia nhu don mua - khop laTruCongNo o
+// backend (lib/pxkRecalculate.ts, chot 2026-09-28).
+export function laTruCongNo(loaiDeXuat: string | null | undefined): boolean {
+  return (loaiDeXuat ?? "").toUpperCase().includes("TRỪ CÔNG NỢ");
+}
+
 export function loaiDonLabel(loaiDon: ReturnType<typeof deriveLoaiDon>, loaiDeXuat?: string | null): string {
   return loaiDeXuat?.trim() || LOAI_DON_TONE[loaiDon].label;
 }

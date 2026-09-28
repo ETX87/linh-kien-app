@@ -26,7 +26,7 @@ import { LoaiChietKhauPicker, LoaiChietKhauText, duocDoiLoaiChietKhau } from "./
 import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_TIEN_OPTIONS, TRANG_THAI_DOT_TONE, PXK_LOG_ONLY_OPTIONS, PXK_LOG_ONLY_TONE } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
-  trangThaiLabel, LOAI_DON_TONE,
+  trangThaiLabel, LOAI_DON_TONE, laTruCongNo,
 } from "./helpers";
 import { StatusBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar, KhuVucChipFilter, ImageLink } from "./SharedUi";
 import { PxkMiniPipeline } from "./PipelineFlow";
@@ -121,7 +121,7 @@ export function PhieuXuatKhoTab({
     if (initialDetailIdOverride) setDetailId(initialDetailIdOverride);
   }, [initialDetailIdOverride]);
   const [showCreate, setShowCreate] = useState(false);
-  const [createData, setCreateData] = useState({ ghi_chu: "", so_tien_can_chuyen: "", ma_xuat_kho: "" });
+  const [createData, setCreateData] = useState({ ghi_chu: "", ma_xuat_kho: "" });
   const [chonKtv, setChonKtv] = useState("");
   const [chonLoaiDon, setChonLoaiDon] = useState<"mua" | "cong_no" | "tra_hang">("mua");
   const [selectedDonHang, setSelectedDonHang] = useState<Set<string>>(new Set());
@@ -324,7 +324,16 @@ export function PhieuXuatKhoTab({
   // theo danh sách đã chọn") - tach thanh bien dung chung, truoc day chi tinh INLINE 1 lan de HIEN THI
   // o dong "Đã chọn N" (xem JSX ben duoi), gio dung lai CHINH XAC con so nay de tu dien vao o "Số tiền
   // cần KTV chuyển" qua 1 nut bam, tranh 2 noi tinh lai co the lech nhau.
-  const tongTienDaChon = (khaDungData?.rows ?? []).filter((r) => selectedDonHang.has(r.id)).reduce((s, r) => s + (r.gia_de_xuat ?? 0) * r.so_luong_de_xuat, 0);
+  const selectedDonHangKey = [...selectedDonHang].sort().join(",");
+  const { data: goiYSoTienData } = useQuery({
+    queryKey: ["pxk-goi-y-so-tien", selectedDonHangKey],
+    queryFn: () => api.get<{ goi_y: number }>("/phieu-xuat-kho/goi-y-so-tien?ids=" + encodeURIComponent(selectedDonHangKey)),
+    enabled: showCreate && selectedDonHang.size > 0,
+  });
+  // Tien can chuyen do backend tinh (cung ham voi luc luu) - null = dang tinh. Tra hang khong co tien;
+  // cong no chi tinh dong "TRỪ CÔNG NỢ" (backend tu xu ly).
+  const tongTienTaoPxk: number | null = chonLoaiDon === "tra_hang" ? 0 : (goiYSoTienData?.goi_y ?? null);
+  const fmtTongTaoPxk = tongTienTaoPxk == null ? "Đang tính…" : fmtVND(tongTienTaoPxk);
 
   function toggleDonHang(id: string) {
     setSelectedDonHang((s) => {
@@ -356,14 +365,13 @@ export function PhieuXuatKhoTab({
         // 1 lan, cung luc voi cac truong con lai (khi da biet ma tu luc tao, khong can round-trip).
         ma_xuat_kho: createData.ma_xuat_kho.trim() || undefined,
         dat_don_hang_ids: [...selectedDonHang],
-        so_tien_can_chuyen: createData.so_tien_can_chuyen ? Number(createData.so_tien_can_chuyen) : undefined,
         nguoi_nhan_hang: chonKtv,
         loai_don: chonLoaiDon,
       }),
     onSuccess: (res) => {
       addToast(`Đã tạo phiếu xuất kho ${res.id}`);
       setShowCreate(false);
-      setCreateData({ ghi_chu: "", so_tien_can_chuyen: "", ma_xuat_kho: "" });
+      setCreateData({ ghi_chu: "", ma_xuat_kho: "" });
       setSelectedDonHang(new Set());
       setTimKiemDonHang("");
       setChonKtv("");
@@ -794,7 +802,7 @@ export function PhieuXuatKhoTab({
                   {selectedDonHang.size > 0 && (
                     <>
                       {" · "}
-                      <span className="font-semibold text-[var(--green-700)]">{fmtVND(tongTienDaChon)}</span>
+                      <span className="font-semibold text-[var(--green-700)]">{fmtTongTaoPxk}</span>
                     </>
                   )}
                 </span>
@@ -843,25 +851,10 @@ export function PhieuXuatKhoTab({
               />
             </div>
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-[var(--ink-600)]">Số tiền cần KTV chuyển * (nhập 0 nếu không cần chuyển tiền)</label>
-                {/* Tu dien tien uoc tinh (phan hoi 2026-08-26) - dien = tong tien cac dong DA CHON o
-                    tren (tongTienDaChon), nguoi dung van sua tay duoc sau khi bam neu can khac di. */}
-                <button
-                  type="button"
-                  onClick={() => setCreateData((p) => ({ ...p, so_tien_can_chuyen: String(tongTienDaChon) }))}
-                  disabled={selectedDonHang.size === 0}
-                  className="shrink-0 text-[11px] font-semibold text-[var(--ocean-700)] hover:underline disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline disabled:text-[var(--ink-400)]"
-                >
-                  = Tổng đã chọn ({fmtVND(tongTienDaChon)})
-                </button>
+              <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Số tiền cần chuyển</label>
+              <div className="w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm">
+                {fmtTongTaoPxk} <span className="text-[var(--ink-400)]">(tự động)</span>
               </div>
-              <input
-                type="number"
-                value={createData.so_tien_can_chuyen}
-                onChange={(e) => setCreateData((p) => ({ ...p, so_tien_can_chuyen: e.target.value }))}
-                className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
-              />
             </div>
             <div>
               <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Ghi chú</label>
@@ -888,7 +881,7 @@ export function PhieuXuatKhoTab({
               <Btn
                 size="sm"
                 onClick={() => createMutation.mutate()}
-                disabled={!chonKtv || selectedDonHang.size === 0 || createData.so_tien_can_chuyen.trim() === "" || createMutation.isPending}
+                disabled={!chonKtv || selectedDonHang.size === 0 || createMutation.isPending}
                 loading={createMutation.isPending}
               >
                 Tạo
@@ -954,14 +947,6 @@ export function PxkDetailModal({
   // DonHangDetailModal chi de sua 2 truong nay.
   const [suaTienDonId, setSuaTienDonId] = useState<string | null>(null);
   const [suaTienDraft, setSuaTienDraft] = useState({ so_luong_thuc_xuat: "", gia_chot: "", ghi_chu_so_luong: "" });
-  // Sua tong tien can chuyen (2026-09-21, yeu cau #2, TAT lai 2026-09-22 cho MOI loai_don khi "(uoc
-  // tinh)" tu dong thay the - xem tongTienUocTinhPxk. BAT LAI 2026-09-23, phan hoi "các phiếu xk liên
-  // quan đến công nợ cho phép sửa giá trị tiền cần chuyển về") - CHI cho loai_don="cong_no": khac
-  // "mua" (tien tu dong = Gia chot x SL thuc xuat tung dong, sua tung dong qua popup suaTienDonId o
-  // tren), tien cong no dung so_tien_cong_no tung don (co the can dieu chinh CA tong sau khi da "Yêu
-  // cầu chuyển" - vd KTV bao sai/thieu) ma khong co dong SL/don gia nao de sua rieng le nhu "mua".
-  const [suaTongTien, setSuaTongTien] = useState(false);
-  const [soTienCanChuyenSuaDraft, setSoTienCanChuyenSuaDraft] = useState("");
   const [showThemDon, setShowThemDon] = useState(false);
   const [themDonSelected, setThemDonSelected] = useState<Set<string>>(new Set());
   const [themDonQ, setThemDonQ] = useState("");
@@ -981,6 +966,7 @@ export function PxkDetailModal({
       api.get<{
         phieuXuatKho: PhieuXuatKhoRow & { trang_thai: string };
         donHang: DonHangRow[];
+        tongTienUocTinh: number;
         logs: Array<{ id: number; trang_thai: string; nguoi_xu_ly: string; ngay_xu_ly: string; ghi_chu: string | null }>;
         // Mau MISA duoc de xuat theo settings_loai_de_xuat cua cac dong trong phieu (them 2026-09-10) -
         // dung de to mau noi bat 1 trong 3 nut tai MISA ben duoi, xem MISA_TEMPLATE_ORDER.map.
@@ -1136,14 +1122,6 @@ export function PxkDetailModal({
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
   });
 
-  // BAT LAI 2026-09-23 (xem giai thich day du canh khai bao suaTongTien o tren) - goi lai dung
-  // endpoint co san PATCH /:id/so-tien-can-chuyen (chua bao gio bi xoa o backend).
-  const soTienCanChuyenSuaMutation = useMutation({
-    mutationFn: () => api.patch(`/phieu-xuat-kho/${id}/so-tien-can-chuyen`, { so_tien_can_chuyen: Number(soTienCanChuyenSuaDraft) }),
-    onSuccess: () => { setSuaTongTien(false); setSoTienCanChuyenSuaDraft(""); invalidate(); addToast("Đã sửa tổng tiền cần chuyển"); },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
-  });
-
   // 4 mutation moi (2026-09-21) - xem PATCH /don-hang/:id/so-tien-cong-no (datMuaLinhKien.ts) va
   // PATCH /:id/so-tien-can-chuyen, POST /:id/dong, DELETE /:id/dong/:donHangId (phieuXuatKho.ts).
   const soTienCongNoMutation = useMutation({
@@ -1219,15 +1197,9 @@ export function PxkDetailModal({
   });
 
   const pxk = data?.phieuXuatKho;
-  // MOI (2026-09-22, phan hoi "tổng tiền cần chuyển sẽ tự động = tổng tiền ước tính trong danh sách
-  // các đơn => tạm thời tắt khả năng sửa tổng tiền của phiếu đi"): tong CHUNG cho moi loai_don, dung
-  // dung cong thuc "(ước tính)" da hien per-dong o bang Dong don hang (Gia chot/de xuat × SL thuc
-  // xuat/de xuat) - thay the hoan toan cho viec nhap tay/sua tay so_tien_can_chuyen.
-  // FIX (phan hoi 2026-09-22 "Đơn công nợ, đã sửa tiền ở đơn về 0 nhưng trên phiếu không thay đổi"):
-  // cong thuc SL×gia CHI dung nghia cho mua/tra_hang - don cong_no dung so_tien_cong_no (truong tien
-  // THAT, sua tay rieng o bang Dong don hang ben duoi, nuoi computeCongNoPhatSinh o congNoKtv.ts).
-  // Truoc day tinh CHUNG 1 cong thuc cho MOI loai_don nen PXK cong_no luon hien sai so.
-  const tongTienUocTinhPxk = (data?.donHang ?? []).reduce(
+  // Backend la nguon tinh tien duy nhat: tong nay cung ket qua voi loai chiet khau va tien uoc tinh
+  // tung dong; fallback chi de tuong thich trong luc client/server cu moi dang duoc cap nhat.
+  const tongTienUocTinhPxk = data?.tongTienUocTinh ?? (data?.donHang ?? []).reduce(
     (s, d) =>
       s +
       (pxk?.loai_don === "cong_no"
@@ -1564,41 +1536,7 @@ export function PxkDetailModal({
               )
             ) : (
               <>
-                <KvRow label="Số tiền">
-                  {/* SUA (2026-09-22): bo nut "✎ Sửa" cho MOI loai_don khi "(ước tính)" tu dong thay
-                      the (xem tongTienUocTinhPxk) - rieng loai_don="mua" tien tu tinh dung Gia chot x
-                      SL thuc xuat tung dong nen khong can sua tong tay nua.
-                      BAT LAI 2026-09-23 rieng loai_don="cong_no" (phan hoi "các phiếu xk liên quan đến
-                      công nợ cho phép sửa giá trị tiền cần chuyển về") - CHI hien nut sua khi con o
-                      "Dang tao phieu" (khop dung gate backend PATCH /:id/so-tien-can-chuyen), khong
-                      dung nut "Yêu cầu chuyển" o nhanh tren (nut do RESET het bang chung da nop). */}
-                  {pxk.loai_don === "cong_no" && (canTacNghiep || canKeToan) && trangThai === "Dang tao phieu" && suaTongTien ? (
-                    <span className="inline-flex gap-1.5 items-center">
-                      <input
-                        type="number"
-                        autoFocus
-                        value={soTienCanChuyenSuaDraft}
-                        onChange={(e) => setSoTienCanChuyenSuaDraft(e.target.value)}
-                        className="focus-ring w-32 bg-[var(--surface-100)] border border-[var(--line)] rounded px-1.5 py-0.5 text-xs"
-                      />
-                      <Btn size="sm" variant="ghost" onClick={() => soTienCanChuyenSuaMutation.mutate()} disabled={!soTienCanChuyenSuaDraft.trim() || soTienCanChuyenSuaMutation.isPending}>Lưu</Btn>
-                      <button type="button" className="text-xs text-[var(--ink-400)] hover:underline" onClick={() => { setSuaTongTien(false); setSoTienCanChuyenSuaDraft(""); }}>Huỷ</button>
-                    </span>
-                  ) : (
-                    <span className="inline-flex gap-1.5 items-center">
-                      <span className="font-semibold text-[var(--green-700)]">{fmtVND(pxk.so_tien_can_chuyen)}</span>
-                      {pxk.loai_don === "cong_no" && (canTacNghiep || canKeToan) && trangThai === "Dang tao phieu" && (
-                        <button
-                          type="button"
-                          className="text-xs text-[var(--ocean-700)] hover:underline"
-                          onClick={() => { setSoTienCanChuyenSuaDraft(String(pxk.so_tien_can_chuyen ?? "")); setSuaTongTien(true); }}
-                        >
-                          ✎ Sửa
-                        </button>
-                      )}
-                    </span>
-                  )}
-                </KvRow>
+                <KvRow label="Số tiền"><span className="font-semibold text-[var(--green-700)]">{fmtVND(pxk.so_tien_can_chuyen)}</span></KvRow>
                 <KvRow label="Trạng thái"><StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /></KvRow>
                 {pxk.bang_chung_chuyen_tien_url && (
                   <KvRow label="Bằng chứng"><ImageLink url={pxk.bang_chung_chuyen_tien_url} className="text-[var(--ocean-800)] underline text-xs">Xem bằng chứng</ImageLink></KvRow>
@@ -1721,13 +1659,13 @@ export function PxkDetailModal({
                             ca DonHangDetailModal day du. Voi cong_no: GIU NGUYEN 100% co che sua tay
                             so_tien_cong_no cu (nuoi truc tiep cong no KTV qua computeCongNoPhatSinh,
                             khong duoc dung vao). */}
-                        {pxk.loai_don === "mua" ? (
+                        {pxk.loai_don === "mua" || laTruCongNo(d.loai_de_xuat) ? (
                           (() => {
                             const donGia = d.gia_chot ?? d.gia_de_xuat;
                             const sl = d.so_luong_thuc_xuat ?? d.so_luong_de_xuat;
-                            const noiDung = donGia != null ? (
-                              <span className="italic text-[var(--ink-400)]" title="Ước tính = (Giá chốt hoặc Giá đề xuất) × SL thực xuất">
-                                {fmtVND(donGia * sl)} (ước tính)
+                            const noiDung = d.tien_uoc_tinh != null || donGia != null ? (
+                              <span className="italic text-[var(--ink-400)]" title="Ước tính theo loại chiết khấu, giá chốt và SL thực xuất">
+                                {fmtVND(d.tien_uoc_tinh ?? (donGia ?? 0) * sl)} (ước tính)
                               </span>
                             ) : (
                               <span className="text-[var(--ink-400)]">—</span>
@@ -1741,7 +1679,9 @@ export function PxkDetailModal({
                                   setSuaTienDonId(d.id);
                                   setSuaTienDraft({
                                     so_luong_thuc_xuat: String(sl),
-                                    gia_chot: donGia != null ? String(donGia) : "",
+                                    // CHI dien gia chot that - dien san gia de xuat thi bam Luu (chi sua SL)
+                                    // se bien no thanh gia chot, de mat chiet khau (gia chot luon uu tien).
+                                    gia_chot: d.gia_chot != null ? String(d.gia_chot) : "",
                                     ghi_chu_so_luong: "",
                                   });
                                 }}
@@ -1783,7 +1723,9 @@ export function PxkDetailModal({
                                 "(ước tính)") khi chua sua tay - dung con so nay lam gia tri khoi tao
                                 khi bam ✎ thay vi de trong. */}
                             {d.so_tien_cong_no != null ? (
-                              fmtVND(d.so_tien_cong_no)
+                              <span title="Tiền công nợ ghi nhận cho KTV — không cộng vào tiền cần chuyển của phiếu">
+                                {fmtVND(d.so_tien_cong_no)} <span className="text-[11px] text-[var(--ink-400)]">công nợ</span>
+                              </span>
                             ) : d.gia_de_xuat != null ? (
                               <span className="italic text-[var(--ink-400)]" title="Ước tính = Giá đề xuất × SL, chưa được xác nhận/sửa tay">
                                 {fmtVND(d.gia_de_xuat * d.so_luong_de_xuat)} (ước tính)
@@ -2020,6 +1962,9 @@ export function PxkDetailModal({
         if (!donSua) return null;
         const slGoc = donSua.so_luong_thuc_xuat ?? donSua.so_luong_de_xuat;
         const slDaDoi = suaTienDraft.so_luong_thuc_xuat.trim() !== "" && Number(suaTienDraft.so_luong_thuc_xuat) !== slGoc;
+        // Don gia dang ap dung khi CHUA co gia chot = tien uoc tinh (backend, theo loai chiet khau) / SL.
+        const donGiaTheoCk = donSua.tien_uoc_tinh != null && slGoc > 0 ? Math.round(donSua.tien_uoc_tinh / slGoc) : (donSua.gia_de_xuat ?? 0);
+        const donGiaXemTruoc = suaTienDraft.gia_chot.trim() === "" ? donGiaTheoCk : Number(suaTienDraft.gia_chot) || 0;
         return (
           <Modal open title={`Sửa SL thực xuất / Đơn giá — ${donSua.ma_lk}`} width="max-w-sm" onClose={() => setSuaTienDonId(null)}>
             <div className="space-y-3 text-sm">
@@ -2049,15 +1994,18 @@ export function PxkDetailModal({
                   type="number"
                   min={0}
                   value={suaTienDraft.gia_chot}
+                  placeholder={`Để trống = theo loại chiết khấu (${fmtVND(donGiaTheoCk)})`}
                   onChange={(e) => setSuaTienDraft((p) => ({ ...p, gia_chot: e.target.value }))}
                   className="focus-ring w-full bg-[var(--surface)] border border-[var(--ink-400)] rounded-lg px-2.5 py-1.5 text-sm"
                 />
+                <div className="mt-1 text-[11px] text-[var(--ink-400)]">Nhập giá thực tế sẽ thay giá theo loại chiết khấu của dòng này.</div>
               </div>
               <div className="text-xs text-[var(--ink-500)]">
                 Tiền cần chuyển sau khi lưu:{" "}
                 <span className="font-semibold text-[var(--ink-700)]">
-                  {fmtVND((Number(suaTienDraft.gia_chot) || 0) * (Number(suaTienDraft.so_luong_thuc_xuat) || 0))}
-                </span>
+                  {fmtVND(donGiaXemTruoc * (Number(suaTienDraft.so_luong_thuc_xuat) || 0))}
+                </span>{" "}
+                <span className="text-[var(--ink-400)]">(ước tính)</span>
               </div>
               <div className="flex justify-end gap-2">
                 <Btn variant="ghost" size="sm" onClick={() => setSuaTienDonId(null)}>Huỷ</Btn>
@@ -2095,4 +2043,3 @@ export function PxkDetailModal({
     </Drawer>
   );
 }
-

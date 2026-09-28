@@ -9,3 +9,7 @@ secrets.md
 .DS_Store
 Thumbs.db
 *.tsbuildinfo
+
+# Khoa API/sao luu DB - khong bao gio commit
+KHOA-API-*.txt
+backups/

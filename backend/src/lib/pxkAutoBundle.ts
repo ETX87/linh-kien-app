@@ -12,6 +12,7 @@ import type { Env } from "../types";
 import { nowVN } from "./vnTime";
 import { nextSequentialId } from "./idCounter";
 import { notifyWorkflowTask, emailGsListForPxk, PXK_ROLES } from "./taskNotify";
+import { taiTinhPxk } from "./pxkRecalculate";
 
 // Trung voi ham cung ten (khong export) trong routes/phieuXuatKho.ts - giu RIENG o day (khong import
 // tu file routes) de lib/ khong phu thuoc nguoc vao routes/, dung quy uoc lop kien truc san co.
@@ -21,9 +22,8 @@ function pxkIdPrefix(loaiDon: "mua" | "cong_no"): "PMH" | "PCN" {
 
 export interface AutoApprovedLine {
   donHangId: string;
-  // gia_de_xuat x so_luong_de_xuat - CUNG cong thuc voi tongTienDaChon o PhieuXuatKhoTab.tsx (chi la
-  // goi y mac dinh, TN van sua tay duoc khi thao tac thu cong - o day khong co nguoi sua nen dung
-  // thang lam so tien chinh thuc).
+  // Khong con dung de tinh tien (tong PXK do taiTinhPxk tinh lai tu toan bo dong, xem
+  // lib/pxkRecalculate.ts) - giu field de khong phai sua cac cho goi.
   soTien: number;
 }
 
@@ -37,7 +37,6 @@ export async function bundleAutoApprovedIntoPxk(
 ): Promise<void> {
   if (lines.length === 0) return;
   const now = nowVN();
-  const tongTienMoi = lines.reduce((s, l) => s + l.soTien, 0);
 
   const existing = await db
     .prepare(
@@ -56,20 +55,11 @@ export async function bundleAutoApprovedIntoPxk(
   if (existing) {
     pxkId = existing.id;
     maXuatKho = existing.ma_xuat_kho;
-    const soTienMoiTong = soTienTruoc + tongTienMoi;
-    statements.push(
-      db
-        .prepare(
-          `UPDATE phieu_xuat_kho SET so_tien_can_chuyen = ?,
-             trang_thai_chuyen_tien = CASE WHEN ? > 0 THEN COALESCE(trang_thai_chuyen_tien, 'Cho KTV chuyen') ELSE trang_thai_chuyen_tien END
-           WHERE id = ?`,
-        )
-        .bind(soTienMoiTong, soTienMoiTong, pxkId),
-    );
+    // Tong tien KHONG cong don o day - taiTinhPxk ben duoi so tong cu (soTienTruoc) voi tong tinh lai
+    // tu toan bo dong, doi -> reset trang thai chuyen tien giong luong them dong thu cong.
   } else {
     pxkId = await nextSequentialId(db, "phieu_xuat_kho", pxkIdPrefix(loaiDon), 6);
     maXuatKho = pxkId;
-    const coChuyenTien = tongTienMoi > 0;
     statements.push(
       db
         .prepare(
@@ -77,7 +67,7 @@ export async function bundleAutoApprovedIntoPxk(
              (id, ma_xuat_kho, ma_xuat_kho_xac_nhan, nguoi_tao, ngay_tao, ghi_chu, so_tien_can_chuyen, trang_thai_chuyen_tien, nguoi_nhan_hang, loai_don, trang_thai_hien_tai)
            VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .bind(pxkId, maXuatKho, actorEmail, now, "Tự động gom các đơn đủ tồn kho, đã tự động duyệt", tongTienMoi, coChuyenTien ? "Cho KTV chuyen" : null, nguoiNhanHang, loaiDon, "Dang tao phieu"),
+        .bind(pxkId, maXuatKho, actorEmail, now, "Tự động gom các đơn đủ tồn kho, đã tự động duyệt", null, null, nguoiNhanHang, loaiDon, "Dang tao phieu"),
       db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly) VALUES (?, ?, ?, ?)").bind(pxkId, "Dang tao phieu", actorEmail, now),
     );
   }
@@ -90,10 +80,11 @@ export async function bundleAutoApprovedIntoPxk(
   }
 
   await db.batch(statements);
+  const ketQuaTaiTinh = await taiTinhPxk(db, pxkId, true, true, existing ? actorEmail : undefined);
 
   // Chi bao KTV khi PXK vua CHUYEN sang "co tien can chuyen" (tu 0/chua co sang > 0) - tranh spam
   // thong bao lap lai moi lan gop them dong vao 1 PXK dang cho KTV chuyen tu truoc.
-  const vuaCanChuyenTien = soTienTruoc <= 0 && tongTienMoi > 0;
+  const vuaCanChuyenTien = soTienTruoc <= 0 && ketQuaTaiTinh.total > 0;
   if (vuaCanChuyenTien) {
     const emailGsList = await emailGsListForPxk(db, pxkId);
     await notifyWorkflowTask(env, db, {
@@ -102,7 +93,7 @@ export async function bundleAutoApprovedIntoPxk(
       emailGsList,
       pastActors: [],
       title: "Phiếu xuất kho",
-      body: `PXK ${pxkId} (tự động duyệt) cần bạn xác nhận thông tin chuyển tiền ${tongTienMoi.toLocaleString("vi-VN")}đ`,
+      body: `PXK ${pxkId} (tự động duyệt) cần bạn xác nhận thông tin chuyển tiền ${ketQuaTaiTinh.total.toLocaleString("vi-VN")}đ`,
       linkType: "phieu_xuat_kho",
       linkId: pxkId,
     });

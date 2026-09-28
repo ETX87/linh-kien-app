@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../../api/client";
 import { useToast } from "../../components/ui/Toast";
 import { Btn } from "../../components/ui/Btn";
-import { describeApiError } from "./helpers";
+import { describeApiError, laTruCongNo } from "./helpers";
 import { Modal } from "../../components/ui/Modal";
 import { KvRow } from "../../components/ui/KvRow";
 import { fmtVND } from "../../types";
@@ -72,7 +72,7 @@ export function duocDoiLoaiChietKhau(pxk: { trang_thai?: string | null; so_tien_
   return !!pxk && pxk.trang_thai === "Dang tao phieu" && (pxk.so_tien_can_chuyen == null || pxk.trang_thai_chuyen_tien === "Cho KTV chuyen");
 }
 
-/** Don gia goi y theo loai chiet khau HE THONG - cung cong thuc voi thuat toan tien PXK (phieuXuatKho.ts). */
+/** Don gia goi y theo loai chiet khau HE THONG - cung cong thuc voi thuat toan tien PXK (lib/pxkRecalculate.ts). */
 function giaGoiY(ma: string | null | undefined, d: DonHangRow): { gia: number; cachTinh: string } | null {
   const ban = d.lk_gia_ban;
   switch (ma) {
@@ -109,7 +109,8 @@ export function LoaiChietKhauPicker({ don, duocDoi }: { don: DonHangRow; duocDoi
   const [chon, setChon] = useState<LuaChon | null>(null);
   const [giaMoi, setGiaMoi] = useState("");
 
-  const isCongNo = don.loai_don === "cong_no";
+  // Dong "TRỪ CÔNG NỢ" tinh tien nhu don mua (gia chot) - chi dong cong_no con lai luu so_tien_cong_no.
+  const isCongNo = don.loai_don === "cong_no" && !laTruCongNo(don.loai_de_xuat);
   const sl = don.so_luong_thuc_xuat ?? don.so_luong_de_xuat;
   const giaHienTai = isCongNo ? don.so_tien_cong_no : (don.gia_chot ?? don.gia_de_xuat);
   const tenHienTai = tenLoaiChietKhau(list, don.loai_chiet_khau_id) ?? "Chưa có";

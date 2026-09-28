@@ -21,6 +21,7 @@ import { computeCongNoChot } from "../lib/congNoKtv";
 import { computeMocDuPhongHienTai } from "../lib/duPhongKtv";
 import { computeTonKhoChot } from "../lib/tonKhoCongTy";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
+import { taiTinhPxk } from "../lib/pxkRecalculate";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, MUA_CONG_NO_ROLES, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
 import { pushThieuLkToKhovan, buildWorkUrl } from "../lib/khovanPushClient";
 
@@ -3125,7 +3126,9 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
        ma_yeu_cau_su_co, yeu_cau_hoa_don, tt_khach_hang, tt_mail_duyet, uu_tien,
        ${latestDonHangStatusExpr("dat_don_hang.id")} as trang_thai,
        (SELECT pxk.trang_thai_hien_tai FROM phieu_xuat_kho_dong pxkd JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
-        WHERE pxkd.dat_don_hang_id = dat_don_hang.id) as pxk_trang_thai
+        WHERE pxkd.dat_don_hang_id = dat_don_hang.id) as pxk_trang_thai,
+       (SELECT pxkd.phieu_xuat_kho_id FROM phieu_xuat_kho_dong pxkd
+        WHERE pxkd.dat_don_hang_id = dat_don_hang.id) as pxk_id
      FROM dat_don_hang WHERE id = ?`,
   )
     .bind(id)
@@ -3135,7 +3138,7 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
       loai_de_xuat: string | null; so_luong_de_xuat: number; gia_de_xuat: number | null; ghi_chu: string | null;
       chinh_sach: string | null; ma_yeu_cau_su_co: string | null; yeu_cau_hoa_don: string | null;
       tt_khach_hang: string | null; tt_mail_duyet: string | null; uu_tien: number; trang_thai: string | null;
-      pxk_trang_thai: string | null;
+      pxk_trang_thai: string | null; pxk_id: string | null;
     }>();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
 
@@ -3244,6 +3247,12 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
     if (nextTn && next.gia_chot !== existing.gia_chot) thayDoiTao.push(`Giá chốt ${existing.gia_chot ?? "—"} → ${next.gia_chot ?? "—"}`);
     if (nextTn && next.ma_xuat_kho !== existing.ma_xuat_kho) thayDoiTao.push(`Mã đơn hàng ${existing.ma_xuat_kho ?? "—"} → ${next.ma_xuat_kho ?? "—"}`);
     if (nextTn && next.ma_misa !== existing.ma_misa) thayDoiTao.push(`Mã MISA ${existing.ma_misa ?? "—"} → ${next.ma_misa ?? "—"}`);
+    const thayDoiTinhTien =
+      next.ma_lk !== existing.ma_lk ||
+      next.loai_de_xuat !== existing.loai_de_xuat ||
+      next.so_luong_de_xuat !== existing.so_luong_de_xuat ||
+      next.so_luong_thuc_xuat !== existing.so_luong_thuc_xuat ||
+      next.gia_chot !== existing.gia_chot;
 
     const nowSua = nowVN();
     const statementsSua = [
@@ -3268,6 +3277,7 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
       );
     }
     await c.env.DB.batch(statementsSua);
+    if (existing.pxk_id && thayDoiTinhTien) await taiTinhPxk(c.env.DB, existing.pxk_id, false, true, user.email);
   } else if (canTacNghiep(c)) {
     return c.json({ error: "PXK_DA_QUA_BUOC_TAO_PHIEU" }, 409);
   } else {
@@ -3299,11 +3309,13 @@ datMuaLinhKien.patch("/don-hang/:id/so-tien-cong-no", async (c) => {
   const existing = await c.env.DB.prepare(
     `SELECT dat_don_hang.so_tien_cong_no, ${latestDonHangStatusExpr("dat_don_hang.id")} as trang_thai,
        (SELECT pxk.trang_thai_hien_tai FROM phieu_xuat_kho_dong pxkd JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
-        WHERE pxkd.dat_don_hang_id = dat_don_hang.id) as pxk_trang_thai
+        WHERE pxkd.dat_don_hang_id = dat_don_hang.id) as pxk_trang_thai,
+       (SELECT pxkd.phieu_xuat_kho_id FROM phieu_xuat_kho_dong pxkd
+        WHERE pxkd.dat_don_hang_id = dat_don_hang.id) as pxk_id
      FROM dat_don_hang WHERE id = ?`,
   )
     .bind(id)
-    .first<{ so_tien_cong_no: number | null; trang_thai: string | null; pxk_trang_thai: string | null }>();
+    .first<{ so_tien_cong_no: number | null; trang_thai: string | null; pxk_trang_thai: string | null; pxk_id: string | null }>();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
   if (existing.pxk_trang_thai == null) return c.json({ error: "KHONG_THUOC_PXK" }, 400);
   if (existing.pxk_trang_thai !== "Dang tao phieu") return c.json({ error: "INVALID_STATE" }, 409);
@@ -3316,6 +3328,7 @@ datMuaLinhKien.patch("/don-hang/:id/so-tien-cong-no", async (c) => {
       id, existing.trang_thai ?? "TN da duyet", user.email, now, ghiChu,
     ),
   ]);
+  if (existing.pxk_id) await taiTinhPxk(c.env.DB, existing.pxk_id, false, true, user.email);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ ok: true });
 });

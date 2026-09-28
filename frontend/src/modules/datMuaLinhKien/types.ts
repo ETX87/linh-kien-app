@@ -141,6 +141,8 @@ export interface DonHangRow {
   lk_gia_ban?: number | null;
   lk_gia_tri_cong_no?: number | null;
   lk_gia_du_phong?: number | null;
+  // Gia tri server tinh lai theo loai chiet khau va SL thuc xuat cua toan PXK.
+  tien_uoc_tinh?: number;
 }
 
 // PXK - "chuyen tien" la 1 dieu kien chan rieng tren chinh PXK (thay the bang phieu_so_tien cu, xem
