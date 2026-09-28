@@ -52,8 +52,14 @@ users.get("/", async (c) => {
     conditions.push("vai_tro = ?");
     binds.push(vaiTro);
   }
+  // "ktv_lien_he" = da co dong danh ba KTV tro toi email nay - the "KTV hiện trường" liet ke THEO danh ba
+  // (khong theo bang users), nen tai khoan co co KTV/Ve tinh ma chua lien ket danh ba se khong hien o the nao.
+  const CO_KTV_LIEN_HE = "EXISTS (SELECT 1 FROM ktv_lien_he k WHERE k.email_dang_nhap = users.email)";
   if (nhom === "ktv") {
     conditions.push("(la_ktv_dvbh = 1 OR la_ve_tinh = 1)");
+  } else if (nhom === "khong-thuoc-the") {
+    // Them 2026-09-28 (phan hoi "tài khoản phamgiang3104@gmail.com đang không hiện ở bất kỳ đâu để quản lý").
+    conditions.push(`(la_ktv_dvbh = 1 OR la_ve_tinh = 1) AND NOT ${CO_KTV_LIEN_HE}`);
   } else if (nhom === "van-phong") {
     conditions.push("la_ktv_dvbh = 0 AND la_ve_tinh = 0");
   }
@@ -70,7 +76,7 @@ users.get("/", async (c) => {
   const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 50)));
   const offset = (page - 1) * pageSize;
   const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM users ${where}`).bind(...binds).first<{ total: number }>();
-  const { results } = await c.env.DB.prepare(`SELECT * FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+  const { results } = await c.env.DB.prepare(`SELECT users.*, ${CO_KTV_LIEN_HE} as co_ktv_lien_he FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
     .bind(...binds, pageSize, offset)
     .all();
   return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });

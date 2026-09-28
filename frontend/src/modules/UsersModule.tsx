@@ -53,6 +53,9 @@ export function UsersModule({ pendingKtvSearch }: { pendingKtvSearch?: { value: 
         onChange={setTab}
         tabs={[
           { key: "cho-duyet", label: "Chờ duyệt" },
+          // Them 2026-09-28 - TOAN BO tai khoan da xu ly duyet, ke ca tai khoan khong hien o the nao (co KTV/Ve
+          // tinh nhung chua lien ket danh ba KTV), vd phamgiang3104@gmail.com.
+          { key: "da-duyet", label: "Người dùng đã duyệt" },
           { key: "ktv", label: "KTV hiện trường" },
           { key: "van-phong", label: "Nhân viên văn phòng" },
           { key: "phu-trach-gs", label: "Giám sát phụ trách" },
@@ -62,7 +65,8 @@ export function UsersModule({ pendingKtvSearch }: { pendingKtvSearch?: { value: 
           ...(isAdmin ? [{ key: "etx-nhan-su", label: "ETX nhân sự" }] : []),
         ]}
       />
-      {tab === "cho-duyet" && <UserListTab tabValue="cho-duyet" />}
+      {tab === "cho-duyet" && <UserListTab key="cho-duyet" tabValue="cho-duyet" />}
+      {tab === "da-duyet" && <UserListTab key="da-duyet" tabValue="da-duyet" />}
       {tab === "ktv" && <KtvTab initialSearch={pendingKtvSearch} />}
       {tab === "van-phong" && <VanPhongTab />}
       {tab === "phu-trach-gs" && <PhuTrachGsTab />}
@@ -77,10 +81,12 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
   const addToast = useToast();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [chiKhongThuocThe, setChiKhongThuocThe] = useState(false);
   const pageSize = 50;
-  const query = buildQuery({ tab: tabValue, search: search || undefined, page, pageSize });
+  const nhom = tabValue === "da-duyet" && chiKhongThuocThe ? "khong-thuoc-the" : undefined;
+  const query = buildQuery({ tab: tabValue, search: search || undefined, nhom, page, pageSize });
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["users", tabValue, search, page],
+    queryKey: ["users", tabValue, search, nhom ?? "", page],
     queryFn: () => api.get<Paged<UserRow>>(`/users${query}`),
   });
   const [editing, setEditing] = useState<UserRow | null>(null);
@@ -93,6 +99,22 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
     // Quy uoc "Ten (email)" toan he thong (phan hoi 2026-08-25, hang muc #16).
     { key: "nguoi_dung", mobile: "title", header: "Người dùng", render: (u) => formatPersonDisplay(u.email, personDir) },
     { key: "vai_tro", mobile: "meta", header: "Vai trò", render: (u) => u.vai_tro ?? "—" },
+    ...(tabValue === "da-duyet"
+      ? [{
+          key: "the", mobile: "meta" as const,
+          header: "Hiện ở thẻ",
+          render: (u: UserRow) =>
+            !(u.la_ktv_dvbh || u.la_ve_tinh) ? (
+              <span className="whitespace-nowrap">Nhân viên văn phòng</span>
+            ) : u.co_ktv_lien_he ? (
+              <span className="whitespace-nowrap">KTV hiện trường</span>
+            ) : (
+              <span title="Có cờ KTV DVBH/Vệ tinh nhưng chưa có trong danh bạ KTV - vào thẻ &quot;KTV hiện trường&quot; thêm KTV với email đăng nhập này, hoặc bỏ cờ KTV để chuyển sang thẻ &quot;Nhân viên văn phòng&quot;.">
+                <Badge tone="amber">Chưa thuộc thẻ nào</Badge>
+              </span>
+            ),
+        }]
+      : []),
     {
       key: "co_nghiep_vu", mobile: "meta",
       header: "Cờ nghiệp vụ",
@@ -129,14 +151,24 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
   return (
     <div className="space-y-3">
       <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">
-        Tài khoản Gmail đăng nhập lần đầu, chưa xác định thuộc nhóm nào - Admin tự quyết định: tick cờ KTV DVBH/Vệ tinh (đẩy sang thẻ "KTV hiện trường") hoặc tick cờ/vai trò nhân viên văn phòng (đẩy sang thẻ "Nhân viên văn phòng") rồi bấm Duyệt.
+        {tabValue === "cho-duyet"
+          ? 'Tài khoản Gmail đăng nhập lần đầu, chưa xác định thuộc nhóm nào - Admin tự quyết định: tick cờ KTV DVBH/Vệ tinh (đẩy sang thẻ "KTV hiện trường") hoặc tick cờ/vai trò nhân viên văn phòng (đẩy sang thẻ "Nhân viên văn phòng") rồi bấm Duyệt.'
+          : 'Toàn bộ tài khoản đã được xử lý duyệt (gồm cả tài khoản bị từ chối/khoá). Tài khoản "Chưa thuộc thẻ nào" có cờ KTV DVBH/Vệ tinh nhưng chưa có trong danh bạ KTV nên không hiện ở thẻ "KTV hiện trường".'}
       </div>
-      <input
-        value={search}
-        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-        placeholder="Tìm theo email/tên…"
-        className="focus-ring w-full max-w-xs border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          placeholder="Tìm theo email/tên…"
+          className="focus-ring w-full max-w-xs border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+        />
+        {tabValue === "da-duyet" && (
+          <label className="flex items-center gap-1.5 text-xs text-[var(--ink-600)]">
+            <input type="checkbox" checked={chiKhongThuocThe} onChange={(e) => { setChiKhongThuocThe(e.target.checked); setPage(1); }} />
+            Chỉ tài khoản chưa thuộc thẻ nào
+          </label>
+        )}
+      </div>
       <PaginatedTable
         columns={columns}
         rows={data?.rows ?? []}

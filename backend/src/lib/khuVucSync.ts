@@ -1,3 +1,5 @@
+import { bumpVersions } from "./dataVersions";
+
 /**
  * Phase 4 (2026-08-26, "xay lai quan ly tai khoan/vai tro theo Khu vuc" - xem CLAUDE.md): dong bo
  * users.giam_sat_quan_ly/users.tram_cha tu du lieu Khu vuc/KTV cap 1 phu trach.
@@ -30,6 +32,27 @@ const GIAM_SAT_QUAN_LY_SUBQUERY = `(
   WHERE k.email_dang_nhap = {ALIAS}
 )`;
 
+// CHOT 2026-09-28 (phan hoi "GS Ngô Tuấn gán MB1 nhưng báo cáo đang đếm cả đơn của KTV CTV Cần Thơ"):
+// dat_don_hang.email_gs truoc day la anh chup GS luc TAO don, KHONG bao gio doi - KTV doi khu vuc / khu vuc doi
+// GS thi don cu van tinh cho GS cu. Nguoi dung chot "theo khu vực HIỆN TẠI của KTV" (ca don cu) -> moi lan dong
+// bo users.giam_sat_quan_ly, dong bo LUON email_gs cua moi don co nguoi nhan hang la KTV trong danh ba. Nhu vay
+// MOI scope doc email_gs (GS, TN/Kho/Ke toan phu trach GS, PXK, tra hang, badge) tu dung khu vuc hien tai ma
+// khong phai sua logic phan quyen. Don nguoi nhan khong co trong danh ba KTV giu nguyen.
+const DON_EMAIL_GS_MOI = "(SELECT u.giam_sat_quan_ly FROM users u WHERE u.email = dat_don_hang.nguoi_nhan_hang)";
+
+async function dongBoEmailGsDon(db: D1Database, email: string | null): Promise<void> {
+  const res = await db
+    .prepare(
+      `UPDATE dat_don_hang SET email_gs = ${DON_EMAIL_GS_MOI}
+       WHERE nguoi_nhan_hang IN (SELECT email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL)
+         ${email ? "AND nguoi_nhan_hang = ?" : ""}
+         AND COALESCE(email_gs, '') != COALESCE(${DON_EMAIL_GS_MOI}, '')`,
+    )
+    .bind(...(email ? [email] : []))
+    .run();
+  if ((res.meta?.changes ?? 0) > 0) await bumpVersions(db, ["dat_mua_lk"]);
+}
+
 /** Dong bo 1 tai khoan cu the (dung ngay sau dang nhap lan dau/provision 1 KTV) - re hon ban "ALL". */
 export async function resyncKhuVucDerivedFieldsForEmail(db: D1Database, email: string): Promise<void> {
   await db
@@ -41,6 +64,7 @@ export async function resyncKhuVucDerivedFieldsForEmail(db: D1Database, email: s
     )
     .bind(email, email, email)
     .run();
+  await dongBoEmailGsDon(db, email);
 }
 
 /** Dong bo TOAN BO tai khoan KTV (dung sau thao tac anh huong nhieu dong: doi GS 1 khu vuc, bulk-import, backfill). */
@@ -53,4 +77,5 @@ export async function resyncKhuVucDerivedFieldsForAll(db: D1Database): Promise<v
        WHERE email IN (SELECT email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL)`,
     )
     .run();
+  await dongBoEmailGsDon(db, null);
 }

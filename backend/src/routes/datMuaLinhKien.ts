@@ -23,6 +23,7 @@ import { computeTonKhoChot } from "../lib/tonKhoCongTy";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
 import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon } from "../lib/pxkRecalculate";
 import { computeTonKtvConLai } from "../lib/tonKhoKtv";
+import { TU_HUY_DUOC_SQL, pxkDuocTuHuy, goDonTuHuyKhoiPxk, laVanPhong, danhDauVanPhongTacDong } from "../lib/pxkTuHuy";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, MUA_CONG_NO_ROLES, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
 import { pushThieuLkToKhovan, buildWorkUrl } from "../lib/khovanPushClient";
 
@@ -1172,8 +1173,10 @@ async function baoCaoScope(c: Context<{ Bindings: Env }>, wantFull: boolean): Pr
   let scopeBinds: string[] = [];
   if (user.vai_tro === "Giam sat") {
     if (!wantFull) {
-      scopeCond = (alias) => ` AND ${alias}.email_gs = ?`;
-      scopeBinds = [user.email];
+      // email_gs = GS phu trach khu vuc HIEN TAI cua KTV nhan hang (dong bo o lib/khuVucSync.ts) + don CHINH GS
+      // dat ho (chot 2026-09-28 "Có tính", khop scopeDatMuaNguoiTao).
+      scopeCond = (alias) => ` AND (${alias}.email_gs = ? OR ${alias}.nguoi_tao = ?)`;
+      scopeBinds = [user.email, user.email];
     }
   } else if (canTacNghiep(c) || user.la_kho || user.la_ke_toan) {
     if (!wantFull) {
@@ -1806,7 +1809,7 @@ datMuaLinhKien.get("/don-hang", async (c) => {
     .bind(...binds)
     .first<{ total: number }>();
   const { results } = await c.env.DB.prepare(
-    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, lk.dac_thu, lk.gia_ban as lk_gia_ban, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
+    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, lk.dac_thu, lk.gia_ban as lk_gia_ban, ${TU_HUY_DUOC_SQL("ddh")} as tu_huy_duoc, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
        ${lastGiaiTrinhAtExpr("ddh.id")} as last_giai_trinh_at,
        (SELECT ghi_chu FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) as ghi_chu_xu_ly_gan_nhat,
        kv.ten as khu_vuc_ten
@@ -2718,7 +2721,7 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
   const binds = [id, ...(scope?.binds ?? [])];
 
   const ddh = await c.env.DB.prepare(
-    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, lk.dac_thu,
+    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, lk.dac_thu, ${TU_HUY_DUOC_SQL("ddh")} as tu_huy_duoc,
        lk.gia_ban as lk_gia_ban, lk.gia_tri_cong_no as lk_gia_tri_cong_no, lk.gia_du_phong as lk_gia_du_phong
      FROM dat_don_hang ddh
      LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
@@ -2929,11 +2932,18 @@ async function applyDonHangLog(
   const chuaVaoPxkSauDuyet = ddh.trang_thai === "TN da duyet" && ddh.ma_xuat_kho == null;
   const laTuChoiSauDuyet = hanhDong === "tu_choi" && chuaVaoPxkSauDuyet;
   const laHuySauDuyet = hanhDong === "huy" && chuaVaoPxkSauDuyet;
-  if (ddh.trang_thai && (DON_HANG_TRANG_THAI_DONG as readonly string[]).includes(ddh.trang_thai) && !laTuChoiSauDuyet && !laHuySauDuyet) {
+  const user = c.get("user");
+  // KTV/nguoi tao TU HUY don tu duyet da tu gom vao PXK (chot 2026-09-28, lib/pxkTuHuy.ts) - chi khi PXK con
+  // "Dang tao phieu", Ke toan chua duyet chuyen tien, van phong chua thao tac tay. Don duy nhat -> huy ca phieu.
+  const tuHuyPxkId =
+    hanhDong === "huy" && ddh.trang_thai === "TN da duyet" && ddh.ma_xuat_kho != null &&
+    (user.email === ddh.nguoi_tao || user.email === ddh.nguoi_nhan_hang)
+      ? await pxkDuocTuHuy(c.env.DB, donHangId)
+      : null;
+  if (ddh.trang_thai && (DON_HANG_TRANG_THAI_DONG as readonly string[]).includes(ddh.trang_thai) && !laTuChoiSauDuyet && !laHuySauDuyet && !tuHuyPxkId) {
     return { error: "DONG_DA_DONG", status: 409 };
   }
 
-  const user = c.get("user");
   let nextTrangThai: string;
   let tnDaXuLy = false; // TN vua xu ly dong nay - dung de auto-claim khu vuc phu trach (xem duoi)
 
@@ -2945,7 +2955,7 @@ async function applyDonHangLog(
     // CHI TN/Admin huy duoc - nguoi tao khong tu huy sau khi TN da duyet).
     const tnDuocHuy = canTacNghiep(c) && (ddh.trang_thai === "Cho TN duyet" || chuaVaoPxkSauDuyet);
     if (laHuySauDuyet && !tnDuocHuy && user.vai_tro !== "Admin") return { error: "FORBIDDEN_ROLE", status: 403 };
-    if (ddh.nguoi_tao !== user.email && user.vai_tro !== "Admin" && !tnDuocHuy) return { error: "FORBIDDEN_ROLE", status: 403 };
+    if (ddh.nguoi_tao !== user.email && user.vai_tro !== "Admin" && !tnDuocHuy && !tuHuyPxkId) return { error: "FORBIDDEN_ROLE", status: 403 };
     // Chot phan hoi UX 2026-08-15 (muc 1): bat buoc nguoi huy nhap ly do (tu do, khong dung danh muc
     // Ly do cham cua TN vi khong hop nghia voi tu huy).
     if (!ghiChu?.trim()) return { error: "THIEU_LY_DO_HUY", status: 400 };
@@ -3074,6 +3084,10 @@ async function applyDonHangLog(
   await c.env.DB.prepare("INSERT INTO dat_don_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)")
     .bind(donHangId, nextTrangThai, user.email, nowVN(), ghiChu?.trim() || null)
     .run();
+
+  if (tuHuyPxkId && nextTrangThai === "Da huy") {
+    await goDonTuHuyKhoiPxk(c.env.DB, tuHuyPxkId, donHangId, user.email, ghiChu?.trim() ?? "");
+  }
 
   // Don bi tu choi/huy -> ra khoi tong don trong ngay (chiet khau) + tra lai ton kho KTV (TRỪ CÔNG NỢ,
   // tinh dong tu du lieu don) - tinh lai moi PXK "Dang tao phieu" cua KTV nhan hang (chot 2026-09-28).
@@ -3389,6 +3403,8 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
       );
     }
     await c.env.DB.batch(statementsSua);
+    // Van phong sua tay dong trong PXK -> KTV het quyen tu huy don tu duyet cua phieu (lib/pxkTuHuy.ts).
+    if (existing.pxk_id && laVanPhong(user)) await danhDauVanPhongTacDong(c.env.DB, existing.pxk_id, user.email);
     if (existing.pxk_id && thayDoiTinhTien) await taiTinhPxk(c.env.DB, existing.pxk_id, false, true, user.email);
     // Doi ma LK/SL/SL thuc xuat lam doi tong don trong ngay cua KTV (chiet khau, chot 2026-09-28) -> tinh
     // lai CAC PXK dang tao KHAC cua KTV (PXK chua dong nay vua tinh o tren).
@@ -3443,6 +3459,7 @@ datMuaLinhKien.patch("/don-hang/:id/so-tien-cong-no", async (c) => {
       id, existing.trang_thai ?? "TN da duyet", user.email, now, ghiChu,
     ),
   ]);
+  if (existing.pxk_id && laVanPhong(user)) await danhDauVanPhongTacDong(c.env.DB, existing.pxk_id, user.email);
   if (existing.pxk_id) await taiTinhPxk(c.env.DB, existing.pxk_id, false, true, user.email);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ ok: true });

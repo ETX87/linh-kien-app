@@ -145,6 +145,8 @@ export interface DonHangRow {
   // Gia tri server tinh lai theo loai chiet khau va SL thuc xuat cua toan PXK. GET /don-hang (co phan trang)
   // va GET /don-hang/:id cung tra (lib/pxkRecalculate.ts tienUocTinhChoDon) - nguon cot "Giá đề xuất" sau CK.
   tien_uoc_tinh?: number | null;
+  // 1 = don tu duyet da tu gom vao PXK, nguoi tao/KTV nhan hang con tu huy duoc (backend lib/pxkTuHuy.ts).
+  tu_huy_duoc?: number | null;
 }
 
 // PXK - "chuyen tien" la 1 dieu kien chan rieng tren chinh PXK (thay the bang phieu_so_tien cu, xem

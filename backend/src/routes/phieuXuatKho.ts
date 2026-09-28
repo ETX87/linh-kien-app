@@ -17,6 +17,7 @@ import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, emailGsListForPxk
 import { pushPxkToKhovan, notifyPxkAdvancedViaApp, buildWorkUrl } from "../lib/khovanPushClient";
 import { timLoaiChietKhauTheoTen, gonTenLoaiChietKhau, choPhepDoiLoaiChietKhau } from "../lib/loaiChietKhau";
 import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, type PxkCalculation } from "../lib/pxkRecalculate";
+import { laVanPhong, danhDauVanPhongTacDong } from "../lib/pxkTuHuy";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
 // Pattern header+log giong phieu_dat. TN tao (gom nhieu dong don hang da "TN da duyet" vao 1
@@ -41,6 +42,15 @@ import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, type PxkCalculation } from
 // nen khong can chan them - TN chi don gian bo trong luc tao PXK tra hang.
 const phieuXuatKho = new Hono<{ Bindings: Env }>();
 phieuXuatKho.use("*", verifySessionMiddleware, loadUser, requireDatMuaLkArea);
+// Moi thao tac GHI thanh cong cua van phong (TN/Kho/Ke toan/Admin) len 1 PXK cu the (/:id/...) -> danh dau
+// "van phong da thao tac" -> KTV het quyen tu huy don tu duyet trong phieu (chot 2026-09-28, lib/pxkTuHuy.ts).
+// Duong dan khong phai id PXK (vd /don-hang/:donHangId/..., /loai-chiet-khau/gan-lai) -> UPDATE khong khop dong nao.
+phieuXuatKho.use("/:id/*", async (c, next) => {
+  await next();
+  if (c.req.method === "GET" || c.res.status >= 400) return;
+  const user = c.get("user");
+  if (user && laVanPhong(user)) await danhDauVanPhongTacDong(c.env.DB, c.req.param("id"), user.email);
+});
 
 const TRANG_THAI_DONG = ["KTV da nhan", "Ke toan huy", "Hang tru kho", "Kho da ket thuc", "Kho da nhan hang tra"] as const;
 
@@ -740,6 +750,7 @@ phieuXuatKho.post("/", async (c) => {
       })(),
     );
   }
+  await danhDauVanPhongTacDong(c.env.DB, id, user.email);
   return c.json({ id }, 201);
 });
 

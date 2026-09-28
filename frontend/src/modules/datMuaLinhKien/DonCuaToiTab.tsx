@@ -579,6 +579,11 @@ export function DonHangDetailModal({
       ) : actionTarget === "huy" ? (
         <div className="w-full space-y-2 bg-[var(--surface-100)] border border-dashed border-[var(--line)] rounded-lg p-2.5">
           <div className="font-semibold text-xs">Hủy dòng {d.id} — nhập lý do hủy</div>
+          {d.ma_xuat_kho && (
+            <div className="text-[11px] text-[var(--ink-500)]">
+              Đơn sẽ được gỡ khỏi phiếu xuất kho {d.ma_xuat_kho}; nếu là đơn duy nhất của phiếu thì phiếu cũng bị hủy.
+            </div>
+          )}
           <div>
             <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">Lý do hủy (bắt buộc)</label>
             <input
