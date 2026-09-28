@@ -43,6 +43,7 @@
 // tra THEM danh sach "canhBaoThieuMisa" (cac KTV dang xuat hien trong file nhung thieu ma_misa hoac
 // ten_misa) de FE hien canh bao ro rang luc tai file.
 import type { Env } from "../types";
+import { tinhToanPxk } from "./pxkRecalculate";
 
 export const MISA_TEMPLATES = ["xuat_kho", "chuyen_kho", "ban_hang"] as const;
 export type MisaTemplate = (typeof MISA_TEMPLATES)[number];
@@ -120,6 +121,8 @@ export interface MisaExportResult {
 }
 
 interface RawLine {
+  pxk_id: string;
+  ddh_id: string;
   pxk_ma_xuat_kho: string;
   pxk_ngay_tao: string;
   pxk_loai_don: "mua" | "cong_no" | "tra_hang";
@@ -198,6 +201,7 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
   const { results } = await db
     .prepare(
       `SELECT
+         pxk.id as pxk_id, ddh.id as ddh_id,
          pxk.ma_xuat_kho as pxk_ma_xuat_kho, pxk.ngay_tao as pxk_ngay_tao, pxk.loai_don as pxk_loai_don,
          ddh.ma_lk, COALESCE(ddh.ten_lk_snapshot, lk.ten_linh_kien) as ten_lk, lk.don_vi,
          ddh.loai_de_xuat, COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) as so_luong,
@@ -222,6 +226,20 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
     line,
     template: forceTemplate ?? resolveTemplate(line.pxk_loai_don, line.loai_file_xuat_misa),
   }));
+
+  // Mau "Ban hang" (phan hoi 2026-09-28 "cột Đơn giá sẽ điền đơn giá chưa tính 8% => đơn giá = (đơn giá
+  // thực tế/108)*100"): "don gia thuc te" = tien dong do backend tinh (tinhToanPxk - CUNG nguon voi "Tiền
+  // cần chuyển"/tien uoc tinh tung dong o man chi tiet PXK: gia chot neu co, khong thi gia theo loai chiet
+  // khau) / SL. Truoc day lay COALESCE(gia_chot, gia_de_xuat) = GIA BAN GOC khi chua chot gia -> lech voi
+  // tien KTV thuc chuyen. Chi tinh cho PXK co dong di mau ban_hang.
+  const tienTheoDong = new Map<string, number>();
+  const pxkBanHang = new Set(lines.filter((l) => l.template === "ban_hang").map((l) => l.line.pxk_id));
+  for (const pxkId of pxkBanHang) {
+    const dongIds = [...new Set(results.filter((r) => r.pxk_id === pxkId).map((r) => r.ddh_id))];
+    const { tienUocTinhTheoDong } = await tinhToanPxk(db, dongIds);
+    for (const [id, tien] of tienUocTinhTheoDong) tienTheoDong.set(id, tien);
+  }
+  const lam2 = (x: number) => Math.round(x * 100) / 100;
 
   for (const { line, template } of lines) {
     const mien = mienFromKhuVuc(line.ktv_khu_vuc_ma);
@@ -290,6 +308,12 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
             line.ma_yeu_cau_su_co ? ` theo MYC ${line.ma_yeu_cau_su_co}` : ""
           }`.replace(/\s+/g, " ").trim();
       const phanTramThueGTGT = tinhGiaThanhCo ? 8 : 0;
+      // Don gia CHUA thue 8% = don gia thuc te * 100 / 108 (lam tron 2 so le - cung do chinh xac voi Tien
+      // thue GTGT); Thanh tien/Tien thue tinh lai tu don gia nay.
+      const tienDong = tienTheoDong.get(line.ddh_id);
+      const donGiaThucTe = tienDong != null && soLuong ? tienDong / soLuong : donGia;
+      const donGiaChuaThue = donGiaThucTe != null ? lam2((donGiaThucTe * 100) / 108) : null;
+      const thanhTienChuaThue = soLuong != null && donGiaChuaThue != null ? lam2(soLuong * donGiaChuaThue) : null;
       const row: DonDatHangRow = {
         ngayDonHang: ngayHachToan,
         soDonHang: line.pxk_ma_xuat_kho,
@@ -304,10 +328,10 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
         maKho: kho.ma,
         dvt: line.don_vi || "",
         soLuong,
-        donGia: tinhGiaThanhCo ? donGia : null,
-        thanhTien: tinhGiaThanhCo ? thanhTien : null,
+        donGia: tinhGiaThanhCo ? donGiaChuaThue : null,
+        thanhTien: tinhGiaThanhCo ? thanhTienChuaThue : null,
         phanTramThueGTGT,
-        tienThueGTGT: tinhGiaThanhCo && thanhTien != null ? Math.round(thanhTien * 0.08 * 100) / 100 : 0,
+        tienThueGTGT: tinhGiaThanhCo && thanhTienChuaThue != null ? lam2(thanhTienChuaThue * 0.08) : 0,
         truongMoRong1: line.ma_yeu_cau_su_co || "",
         truongMoRong2: line.tt_mail_duyet || "",
       };
