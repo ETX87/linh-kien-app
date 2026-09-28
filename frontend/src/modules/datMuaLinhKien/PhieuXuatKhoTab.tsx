@@ -1613,6 +1613,7 @@ export function PxkDetailModal({
                   <tr className="tbl-head">
                     <th className="px-2.5 py-2">Mã</th>
                     <th className="px-2.5 py-2">Tên LK</th>
+                    <th className="px-2.5 py-2 whitespace-nowrap">Loại đề xuất</th>
                     <th className="px-2.5 py-2 text-right whitespace-nowrap">SL đề xuất</th>
                     <th className="px-2.5 py-2 text-right whitespace-nowrap">SL thực xuất</th>
                     <th className="px-2.5 py-2 text-right">Tiền cần chuyển</th>
@@ -1633,6 +1634,9 @@ export function PxkDetailModal({
                         {d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
                         {d.ten_lk_snapshot ?? d.ma_lk}
                       </td>
+                      {/* Them 2026-09-28 (phan hoi "bổ sung thêm cột Loại đề xuất phía sau tên linh kiện") -
+                          loai de xuat quyet dinh cach tinh tien (vd chi "MUA DỰ TRỮ" moi co chiet khau). */}
+                      <td className="px-2.5 py-2 whitespace-nowrap">{d.loai_de_xuat || "—"}</td>
                       <td className="px-2.5 py-2 text-right">
                         {/* FIX (phan hoi 2026-09-22 "tất cả các dòng hiện thông tin đơn hàng cần hiện
                             cả sl thực xuất") - truoc day CHI hien SL thuc xuat cho loai_don==='mua',
