@@ -484,6 +484,22 @@ export function PhieuXuatKhoTab({
     { key: "nguoi_tao", header: "Người tạo", render: (r) => <NguoiTao>{labelKtv(r.nguoi_tao)}</NguoiTao> },
     { key: "nguoi_nhan_hang", header: "Người nhận hàng", render: (r) => (r.nguoi_nhan_hang ? <NguoiNhan>{labelKtv(r.nguoi_nhan_hang)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>) },
     { key: "ngay_tao", header: "Ngày tạo", render: (r) => fmtDateTime(r.ngay_tao) },
+    // Them 2026-09-28 (phan hoi "hiện thêm cột Tiền cần chuyển + Loại chiết khấu đang được hưởng (theo
+    // loại chiết khấu cao nhất)") - tong do backend tinh (1 nguon, lib/pxkRecalculate.ts); PXK cong no
+    // thuan/tra hang luu NULL -> "—".
+    {
+      key: "so_tien_can_chuyen", header: "Tiền cần chuyển",
+      render: (r) => (r.so_tien_can_chuyen != null ? <Money>{fmtVND(r.so_tien_can_chuyen)}</Money> : <span className="text-[var(--ink-400)]">—</span>),
+    },
+    {
+      key: "loai_chiet_khau", header: "Loại chiết khấu",
+      render: (r) =>
+        r.loai_chiet_khau_cao_nhat ? (
+          <span className="block max-w-[220px] truncate" title={r.loai_chiet_khau_cao_nhat}>{r.loai_chiet_khau_cao_nhat}</span>
+        ) : (
+          <span className="text-[var(--ink-400)]">—</span>
+        ),
+    },
     {
       key: "chuyen_tien", header: "Chuyển tiền",
       render: (r) => (r.so_tien_can_chuyen != null ? <StatusBadge value={r.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /> : <span className="text-[var(--ink-400)] text-xs">Không cần</span>),

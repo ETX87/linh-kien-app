@@ -163,6 +163,8 @@ export interface PhieuXuatKhoRow {
   ghi_chu: string | null;
   trang_thai: string;
   so_dong: number;
+  // Ten loai chiet khau co thu tu cao nhat trong cac dong cua phieu (GET /api/phieu-xuat-kho).
+  loai_chiet_khau_cao_nhat?: string | null;
   so_tien_can_chuyen: number | null;
   trang_thai_chuyen_tien: string | null;
   bang_chung_chuyen_tien_url?: string | null;
