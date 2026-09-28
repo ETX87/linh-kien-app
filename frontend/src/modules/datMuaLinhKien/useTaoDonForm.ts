@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
@@ -76,9 +76,23 @@ export function useTaoDonForm({
     enabled: !!targetNguoiNhanHang,
   });
 
-  const create = useMutation({
+  // Chong tao don trung (fix 2026-09-28, bug "KTV tao 1 don, he thong hien 5 don giong het"): 1 ma
+  // ngau nhien cho MOI noi dung form - bam lai cung noi dung (sau loi mang/timeout ma server thuc ra
+  // da luu) gui LAI dung ma cu -> backend tra ve phieu da tao thay vi tao them (migration 0034). Doi
+  // noi dung (sua dong/them dong/doi nguoi nhan) hoac tao xong (reset form) -> ma moi.
+  const noiDungKey = JSON.stringify({ nguoiNhanHang, drafts });
+  const clientRequestId = useMemo(
+    () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`),
+    [noiDungKey],
+  );
+  // Chot chan dong bo chong bam dup: create.isPending chi co hieu luc SAU lan render ke tiep, 2 cu cham
+  // lien tiep trong cung 1 khung hinh van goi mutate() 2 lan.
+  const dangGuiRef = useRef(false);
+
+  const createMutation = useMutation({
     mutationFn: () =>
-      api.post<{ id: string }>("/dat-mua-lk/phieu-dat", {
+      api.post<{ id: string; trung_lap?: boolean }>("/dat-mua-lk/phieu-dat", {
+        client_request_id: clientRequestId,
         nguoi_nhan_hang: nguoiNhanHang || undefined,
         don_hang: drafts.map((d) => ({
           ma_lk: d.ma_lk,
@@ -95,7 +109,7 @@ export function useTaoDonForm({
         })),
       }),
     onSuccess: (res) => {
-      addToast(`Đã tạo đơn đặt hàng ${res.id}`);
+      addToast(res.trung_lap ? `Đơn đặt hàng ${res.id} đã được tạo từ lần bấm trước — không tạo thêm` : `Đã tạo đơn đặt hàng ${res.id}`);
       setNguoiNhanHang("");
       setDrafts([emptyDraft()]);
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
@@ -103,8 +117,23 @@ export function useTaoDonForm({
       invalidatePipelineCounts(qc);
       onClose();
     },
-    onError: (err) => addToast("Không thể tạo đơn: " + describeApiError(err)),
+    onError: (err) =>
+      addToast(
+        "Không thể tạo đơn: " + describeApiError(err) +
+          (err instanceof TypeError ? " — kiểm tra mạng rồi bấm lại, hệ thống sẽ không tạo trùng đơn." : ""),
+      ),
+    onSettled: () => {
+      dangGuiRef.current = false;
+    },
   });
+  const create = {
+    ...createMutation,
+    mutate: () => {
+      if (dangGuiRef.current) return;
+      dangGuiRef.current = true;
+      createMutation.mutate();
+    },
+  };
 
   function updateDraft(idx: number, patch: Partial<DonHangDraft>) {
     setDrafts((prev) => prev.map((d, i) => (i === idx ? { ...d, ...patch } : d)));

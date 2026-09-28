@@ -4,7 +4,7 @@ import { Btn } from "../../components/ui/Btn";
 import { FileButton } from "../../components/ui/FileButton";
 import { Badge } from "../../components/x/Badge";
 import { Modal } from "../../components/ui/Modal";
-import { Drawer, DrawerNavButtons, useDrawerArrowNav } from "../../components/ui/Drawer";
+import { Drawer, DrawerNavButtons, useDrawerArrowNav, DRAWER_WIDTH_CHI_TIET } from "../../components/ui/Drawer";
 import { Select } from "../../components/ui/Select";
 import { PaginatedTable, type Column } from "../../components/ui/PaginatedTable";
 import { useColumnConfig } from "../../components/ui/useColumnConfig";
@@ -1377,7 +1377,7 @@ export function PxkDetailModal({
         </span>
       }
       onClose={onClose}
-      width="max-w-2xl"
+      width={DRAWER_WIDTH_CHI_TIET}
       footer={footer}
       headerExtra={
         onNavigate && navRows ? (

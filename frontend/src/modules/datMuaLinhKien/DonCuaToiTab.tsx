@@ -6,7 +6,7 @@ import { Btn } from "../../components/ui/Btn";
 import { FileButton } from "../../components/ui/FileButton";
 import { Badge, type Tone } from "../../components/x/Badge";
 import { Modal } from "../../components/ui/Modal";
-import { Drawer, DrawerNavButtons, useDrawerArrowNav } from "../../components/ui/Drawer";
+import { Drawer, DrawerNavButtons, useDrawerArrowNav, DRAWER_WIDTH_CHI_TIET } from "../../components/ui/Drawer";
 import { Select } from "../../components/ui/Select";
 import { KvRow } from "../../components/ui/KvRow";
 import { SectionTitle } from "../../components/ui/SectionTitle";
@@ -658,7 +658,7 @@ export function DonHangDetailModal({
         </span>
       }
       onClose={onClose}
-      width="max-w-2xl"
+      width={DRAWER_WIDTH_CHI_TIET}
       footer={footer}
       // CHOT (ra soat module "Dat Mua Linh Kien 2.0" #18): nut Sua dat canh nut dong ✕ (headerExtra),
       // tach khoi hang badge trang thai ben trong noi dung - truoc day 2 cum "xem" va "sua" cung 1

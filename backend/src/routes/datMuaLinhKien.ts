@@ -1969,6 +1969,8 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   const body = await c.req.json<{
     ghi_chu?: string;
     nguoi_nhan_hang?: string;
+    // Ma chong tao trung (migration 0034) - xem nhanh kiem tra ngay duoi.
+    client_request_id?: string;
     don_hang: {
       // KHONG con nhan so_tien_cong_no tu client (them 04/09/2026) - server tu tinh
       // gia_tri_cong_no x so_luong_de_xuat (xem duoi), tranh KTV/client tu y sua sai lech voi Gia
@@ -1989,6 +1991,18 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   if (!Array.isArray(body.don_hang) || body.don_hang.length === 0) return c.json({ error: "MISSING_DON_HANG" }, 400);
 
   const user = c.get("user");
+  // FIX 2026-09-28 (bug "KTV tao 1 don, he thong hien 5 don giong het"): lan bam truoc da luu thanh
+  // cong nhung phan hoi khong ve toi may (mang di dong chap chon) -> FE bao loi, KTV bam lai -> truoc
+  // day moi lan bam = 1 phieu moi. Gap lai ma cu -> tra ve phieu da tao, KHONG tao them.
+  const clientRequestId = body.client_request_id?.trim().slice(0, 64) || null;
+  const phieuDaTao = async () =>
+    clientRequestId
+      ? await c.env.DB.prepare("SELECT id FROM phieu_dat WHERE client_request_id = ? AND nguoi_tao = ?")
+          .bind(clientRequestId, user.email)
+          .first<{ id: string }>()
+      : null;
+  const trungTruoc = await phieuDaTao();
+  if (trungTruoc) return c.json({ id: trungTruoc.id, trung_lap: true }, 200);
   let targetUser: { email: string; la_ve_tinh: number | boolean };
   if (body.nguoi_nhan_hang?.trim() && body.nguoi_nhan_hang.trim() !== user.email) {
     if (!canQuanLyDonHo(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
@@ -2088,7 +2102,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   const phieuDatId = await nextSequentialId(c.env.DB, "phieu_dat", phieuDatPrefix(c), 6);
 
   const statements = [
-    c.env.DB.prepare("INSERT INTO phieu_dat (id, nguoi_tao, ngay_tao, email_gs, ghi_chu, nguoi_nhan_hang, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(
+    c.env.DB.prepare("INSERT INTO phieu_dat (id, nguoi_tao, ngay_tao, email_gs, ghi_chu, nguoi_nhan_hang, updated_at, client_request_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(
       phieuDatId,
       user.email,
       now,
@@ -2096,6 +2110,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
       body.ghi_chu?.trim() || null,
       nguoiNhanHang,
       now,
+      clientRequestId,
     ),
   ];
 
@@ -2192,7 +2207,15 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
     }
   }
 
-  await c.env.DB.batch(statements);
+  try {
+    await c.env.DB.batch(statements);
+  } catch (err) {
+    // 2 request cung ma chay song song: ca 2 qua kiem tra o dau ham, batch thu 2 vuong unique index
+    // (migration 0034) -> ca batch rollback (khong sinh dong nao) -> tra ve phieu cua request thang.
+    const trungSau = await phieuDaTao();
+    if (trungSau) return c.json({ id: trungSau.id, trung_lap: true }, 200);
+    throw err;
+  }
   // Gop cac dong VUA tu dong duyet vao 1 PXK ngay (dong bo, TRUOC khi tra ve response) - dam bao
   // KTV/TN mo lai chi tiet don/PXK ngay sau khi tao la thay du lieu nhat quan, khong phai cho 1 vong
   // waitUntil chay xong. loai_don != 'tra_hang' nen an toan bo qua nhanh "tra_hang" cua record type.

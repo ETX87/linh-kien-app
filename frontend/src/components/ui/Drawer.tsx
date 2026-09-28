@@ -8,6 +8,11 @@ import { pushOverlayClose } from "../../lib/overlayStack";
 // ten the, khong phai viet lai JSX ben trong. Truot tu canh phai (.drawer-in, xem tokens.css) thay vi
 // mo giua man hinh - phu hop luong "duyet qua nhieu dong lien tiep" (co Next/Previous o header) vi
 // danh sach ben duoi/canh van con nhin thay duoc khi drawer mo, khong che het man hinh nhu Modal giua.
+// Drawer "xem chi tiet" rong (phan hoi 2026-09-28: "kéo rộng diện tích hiển thị của UI xem phiếu và
+// xem đơn, chiếm 2/3 diện tích hiển thị trên web") - desktop (>= lg 1024px) chiem 2/3 chieu ngang man
+// hinh; tablet giu max-w-2xl nhu cu, mobile van full-width (w-full mac dinh cua Drawer).
+export const DRAWER_WIDTH_CHI_TIET = "max-w-2xl lg:max-w-none lg:w-2/3";
+
 export function Drawer({
   open,
   onClose,
