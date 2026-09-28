@@ -107,6 +107,7 @@ export function ResizableHeaderCell<T>({
       <span className="inline-flex items-center gap-1">
         {col.header}
         {isActive && <span>{sortDir === "asc" ? "▲" : "▼"}</span>}
+        {col.filter}
       </span>
       {idx === 0 && isPinned && storageKey && settingsButton}
       {storageKey && (

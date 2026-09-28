@@ -46,6 +46,7 @@ import { ThieuLkDetailModal } from "./ThieuLkTab";
 import { Money } from "../../components/ui/Money";
 import { TongNgayKtvInfo } from "./TongNgayKtv";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
+import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../components/ui/LocCot";
 
 // FIX (ra soat "logic sai theo vai tro" 2026-08-31): KTV/Ve tinh khong co tab "Phieu xuat kho" rieng
 // (chi Tac nghiep/Kho/Ke toan/Giam sat moi thay, xem canXemPxkTab o DatMuaLinhKienModule.tsx) - theo
@@ -430,7 +431,8 @@ export function DonHangDetailModal({
     if (tnCoreDraft) {
       const slThucXuat = Number(tnCoreDraft.so_luong_thuc_xuat);
       const slGoc = d?.so_luong_thuc_xuat ?? d?.so_luong_de_xuat;
-      body.so_luong_thuc_xuat = slThucXuat;
+      // Chi gui khi THAT SU doi (khop backend - xem FIX MISSING_GHI_CHU_SO_LUONG o PATCH /don-hang/:id).
+      if (slThucXuat !== slGoc) body.so_luong_thuc_xuat = slThucXuat;
       body.gia_chot = tnCoreDraft.gia_chot.trim() === "" ? undefined : Number(tnCoreDraft.gia_chot);
       body.ma_misa = tnCoreDraft.ma_misa.trim() || undefined;
       // Ma xuat kho: chi gui khi don CHUA co PXK (khop gate backend - da co PXK thi BE im lang bo qua
@@ -1553,6 +1555,37 @@ export function DonCuaToiTab({
   // chi tiết") - goi lai GET /dat-mua-lk/don-hang VOI CUNG bo loc dang xem nhung KHONG truyen page (BE
   // tra HET, xem GET /don-hang trong datMuaLinhKien.ts), mirror handleDownloadFullList() cua UsersModule.tsx.
   const [downloadingFull, setDownloadingFull] = useState(false);
+  // Loc cot kieu Excel (phan hoi 2026-09-28) - loc/sap xep o server (lib/locCot.ts), sap xep dong TRONG tung nhom
+  // KTV (sap xep cot "Người nhận hàng" = sap xep thu tu nhom). Ap cho ca danh sach lan "Tải danh sách chi tiết".
+  const locCot = useLocCot();
+  const ktvDisplayMapLoc = useKtvDisplayMap();
+  const locCotCfg: LocCotCfg = {
+    ...locCot,
+    endpoint: "/dat-mua-lk/don-hang/gia-tri-loc",
+    params: {
+      trang_thai: filterTrangThai || undefined,
+      nguoi_tao: filterNguoiTao || undefined,
+      nguoi_nhan_hang: filterNguoiNhanHang || undefined,
+      tu_ngay: filterTuNgay || undefined,
+      den_ngay: filterDenNgay || undefined,
+      loai_don: effectiveLoaiDon || undefined,
+      q: debouncedQ || undefined,
+      khu_vuc: khuVucParam || undefined,
+    },
+    tieuDe: {
+      loai_de_xuat: "Loại đề xuất",
+      nguoi_tao: "Người tạo",
+      nguoi_nhan_hang: "Người nhận hàng",
+      trang_thai: "Trạng thái",
+      yeu_cau_hoa_don: "Yêu cầu hóa đơn",
+      khu_vuc: "Khu vực",
+    },
+    nhan: {
+      nguoi_tao: (v) => formatNguoiDisplay(v, ktvDisplayMapLoc),
+      nguoi_nhan_hang: (v) => formatNguoiDisplay(v, ktvDisplayMapLoc),
+      trang_thai: (v) => trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, v),
+    },
+  };
   async function handleDownloadFullList() {
     setDownloadingFull(true);
     try {
@@ -1567,6 +1600,7 @@ export function DonCuaToiTab({
             loai_don: effectiveLoaiDon || undefined,
             q: debouncedQ || undefined,
             khu_vuc: khuVucParam || undefined,
+            ...locCot.queryParams,
           }),
       );
       await exportRowsToExcel(res.rows, "don_hang_chi_tiet.xlsx", "Đơn hàng");
@@ -1578,7 +1612,7 @@ export function DonCuaToiTab({
   }
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["dat-mua-lk-don-hang", filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, effectiveLoaiDon, debouncedQ, khuVucParam, page],
+    queryKey: ["dat-mua-lk-don-hang", filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, effectiveLoaiDon, debouncedQ, khuVucParam, locCot.queryParams, page],
     queryFn: () =>
       api.get<{ rows: DonHangRow[]; page: number; pageSize: number; total: number }>(
         "/dat-mua-lk/don-hang" +
@@ -1591,6 +1625,7 @@ export function DonCuaToiTab({
             loai_don: effectiveLoaiDon || undefined,
             q: debouncedQ || undefined,
             khu_vuc: khuVucParam || undefined,
+            ...locCot.queryParams,
             page,
             pageSize,
           }),
@@ -1604,7 +1639,7 @@ export function DonCuaToiTab({
   useEffect(() => {
     setPage(1);
     setSelected(new Set());
-  }, [filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, effectiveLoaiDon, debouncedQ, khuVucParam]);
+  }, [filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, effectiveLoaiDon, debouncedQ, khuVucParam, locCot.queryParams.cf, locCot.queryParams.cs, locCot.queryParams.cd]);
 
   const { data: veTinhData } = useQuery({
     queryKey: ["dat-mua-lk-ve-tinh-cua-toi"],
@@ -1944,6 +1979,14 @@ export function DonCuaToiTab({
                   Lý do chậm chỉ áp dụng cho các dòng đang chờ tác nghiệp (TN) xử lý trong lựa chọn.
                 </div>
               )}
+              {bulkCoDongTN && !bulkCoDongTram && (
+                <input
+                  value={actionGhiChu}
+                  onChange={(e) => setActionGhiChu(e.target.value)}
+                  placeholder="Ghi chú thêm (tuỳ chọn)"
+                  className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                />
+              )}
               <div className="flex justify-end gap-2">
                 <Btn variant="ghost" onClick={() => { setActionTarget(null); setBulkLyDoChamId(""); setActionGhiChu(""); }}>Huỷ</Btn>
                 <Btn
@@ -1958,7 +2001,14 @@ export function DonCuaToiTab({
           </Modal>
         );
       })()}
+      <div className="sm:hidden">
+        <LocCotBar cfg={locCotCfg} cots={Object.keys(locCotCfg.tieuDe)} hienTatCa />
+      </div>
+      <div className="hidden sm:block">
+        <LocCotBar cfg={locCotCfg} cots={Object.keys(locCotCfg.tieuDe)} hienTatCa={false} />
+      </div>
       <DonHangGroupedList
+        locCot={locCotCfg}
         rows={pageRows}
         isLoading={isLoading}
         isError={isError}
@@ -2068,7 +2118,9 @@ export function DonHangGroupedList({
   toggleSelectOne,
   showCheckbox,
   columnSettingsSlot,
+  locCot,
 }: {
+  locCot?: LocCotCfg;
   rows: DonHangRow[];
   isLoading: boolean;
   isError: boolean;
@@ -2127,6 +2179,8 @@ export function DonHangGroupedList({
   // ben duoi) nhung PHAI dung chung 1 cau hinh cot/do rong, khong the goi hook nay o trong moi nhom.
   // Mobile van GIU nguyen the doc rieng (khong doc effectiveColumns) - tuy chinh cot la khai niem cua
   // BANG desktop, the mobile da gon san khong can an bot truong.
+  // Nut loc cot (Excel) canh tieu de - `cot` = ten cot loc o backend (DON_HANG_COT_LOC, datMuaLinhKien.ts).
+  const loc = (cot: string) => (locCot ? <LocCotButton cfg={locCot} cot={cot} /> : undefined);
   const cols: Column<EnrichedRow>[] = [
     ...(showCheckbox
       ? [
@@ -2175,13 +2229,14 @@ export function DonHangGroupedList({
     // "Giá niêm yết" (giá bán) canh "Giá đề xuất" = don gia SAU chiet khau (phan hoi 2026-09-28).
     { key: "gia_niem_yet", header: "Giá niêm yết", className: "text-right", render: (row) => (giaNiemYet(row.d) != null ? <Money>{fmtVND(giaNiemYet(row.d))}</Money> : "—") },
     { key: "gia", header: "Giá đề xuất", className: "text-right", render: (row) => (donGiaSauChietKhau(row.d) != null ? <span className="text-[var(--green-700)] font-semibold" title="Đơn giá sau chiết khấu (giá thực cần chuyển tiền)"><Money>{fmtVND(donGiaSauChietKhau(row.d))}</Money></span> : "—") },
-    { key: "loai", header: "Loại", render: (row) => <LoaiDeXuatBadge loaiDon={row.d.loai_don} loaiDeXuat={row.d.loai_de_xuat} /> },
+    { key: "loai", header: "Loại", filter: loc("loai_de_xuat"), render: (row) => <LoaiDeXuatBadge loaiDon={row.d.loai_don} loaiDeXuat={row.d.loai_de_xuat} /> },
     // Loai chiet khau (2026-09-26) - he thong gan luc tao PXK, TN sua o chi tiet don/chi tiet PXK.
     { key: "loai_chiet_khau", header: "Loại chiết khấu", render: (row) => <LoaiChietKhauText id={row.d.loai_chiet_khau_id} thuCong={row.d.loai_chiet_khau_thu_cong} /> },
-    { key: "yeu_cau_hoa_don", header: "Yêu cầu hóa đơn", render: (row) => row.d.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
+    { key: "yeu_cau_hoa_don", header: "Yêu cầu hóa đơn", filter: loc("yeu_cau_hoa_don"), render: (row) => row.d.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
     {
       key: "trang_thai",
       header: "Trạng thái",
+      filter: loc("trang_thai"),
       // SUA 2026-09-26 (phan hoi "danh sách đơn hàng bị kéo giãn"): truoc day xep DOC toi 4 badge (Chờ TN
       // duyệt / Quá hạn / Đơn tạo hộ / Đủ-Không đủ công nợ) lam dong cao gap 3-4 lan - gio 1 HANG: trang
       // thai chinh + co phu uu tien nhat (trangThaiFlags) + "+N" (tooltip liet ke du, Drawer chi tiet van
@@ -2202,16 +2257,16 @@ export function DonHangGroupedList({
         );
       },
     },
-    { key: "nguoi_nhan_hang", header: "Người nhận hàng", render: (row) => (row.d.nguoi_nhan_hang ? <NguoiNhan>{formatNguoiDisplay(row.d.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>) },
+    { key: "nguoi_nhan_hang", header: "Người nhận hàng", filter: loc("nguoi_nhan_hang"), render: (row) => (row.d.nguoi_nhan_hang ? <NguoiNhan>{formatNguoiDisplay(row.d.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>) },
     { key: "ly_do_cham", header: "Lý do từ chối/chờ hàng", render: (row) => row.d.ly_do_cham || <span className="text-[var(--ink-400)]">—</span> },
     // "Khu vực" cua NGUOI NHAN HANG (khong phai cot that tren dat_don_hang - server LEFT JOIN qua
     // ktv_lien_he.khu_vuc_ma, xem GET /don-hang + DonHangRow.khu_vuc_ten trong types.ts).
-    { key: "khu_vuc", header: "Khu vực", render: (row) => row.d.khu_vuc_ten || <span className="text-[var(--ink-400)]">—</span> },
+    { key: "khu_vuc", header: "Khu vực", filter: loc("khu_vuc"), render: (row) => row.d.khu_vuc_ten || <span className="text-[var(--ink-400)]">—</span> },
     { key: "ghi_chu", header: "Ghi chú người đặt hàng", render: (row) => row.d.ghi_chu || <span className="text-[var(--ink-400)]">—</span> },
     // "Ghi chú Admin" - xem giai thich mapping (dong dat_don_hang_log MOI NHAT) o comment tren
     // DonHangRow.ghi_chu_xu_ly_gan_nhat trong types.ts.
     { key: "ghi_chu_admin", header: "Ghi chú Admin", render: (row) => row.d.ghi_chu_xu_ly_gan_nhat || <span className="text-[var(--ink-400)]">—</span> },
-    { key: "nguoi_tao_yc", header: "Người tạo yêu cầu", render: (row) => <NguoiTao>{formatNguoiDisplay(row.d.nguoi_tao, ktvDisplayMap)}</NguoiTao> },
+    { key: "nguoi_tao_yc", header: "Người tạo yêu cầu", filter: loc("nguoi_tao"), render: (row) => <NguoiTao>{formatNguoiDisplay(row.d.nguoi_tao, ktvDisplayMap)}</NguoiTao> },
     {
       key: "ma_ycsc",
       header: "Mã yêu cầu sự cố",
@@ -2780,7 +2835,7 @@ export function DonHangGroupedList({
                 </div>
               </div>
             </Modal>
-            <Modal open={isTuChoiTN} onClose={() => { setActionTarget(null); setBulkLyDoChamId(""); }} title={`Từ chối dòng ${targetId} — chọn lý do chậm`}>
+            <Modal open={isTuChoiTN} onClose={() => { setActionTarget(null); setBulkLyDoChamId(""); setActionGhiChu(""); }} title={`Từ chối dòng ${targetId} — chọn lý do chậm`}>
               <div className="space-y-3">
                 <Select
                   value={bulkLyDoChamId}
@@ -2788,13 +2843,20 @@ export function DonHangGroupedList({
                   options={[{ value: "", label: "-- Chọn lý do --" }, ...tuChoiReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
                   className="w-full"
                 />
+                {/* O ghi chu TUY CHON khi tu choi (phan hoi 2026-09-28) - noi sau ly do o log. */}
+                <input
+                  value={actionGhiChu}
+                  onChange={(e) => setActionGhiChu(e.target.value)}
+                  placeholder="Ghi chú thêm (tuỳ chọn)"
+                  className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                />
                 <div className="flex justify-end gap-2">
-                  <Btn variant="ghost" onClick={() => { setActionTarget(null); setBulkLyDoChamId(""); }}>Hủy</Btn>
+                  <Btn variant="ghost" onClick={() => { setActionTarget(null); setBulkLyDoChamId(""); setActionGhiChu(""); }}>Hủy</Btn>
                   <Btn variant="danger" onClick={confirmTuChoiChe} disabled={!bulkLyDoChamId || bulkMutation.isPending}>Xác nhận</Btn>
                 </div>
               </div>
             </Modal>
-            <Modal open={isChoHang} onClose={() => { setActionTarget(null); setBulkLyDoChamId(""); }} title={`Chuyển dòng ${targetId} sang chờ hàng — chọn lý do`}>
+            <Modal open={isChoHang} onClose={() => { setActionTarget(null); setBulkLyDoChamId(""); setActionGhiChu(""); }} title={`Chuyển dòng ${targetId} sang chờ hàng — chọn lý do`}>
               <div className="space-y-3">
                 <Select
                   value={bulkLyDoChamId}
@@ -2802,8 +2864,14 @@ export function DonHangGroupedList({
                   options={[{ value: "", label: "-- Chọn lý do --" }, ...choHangReasons.map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
                   className="w-full"
                 />
+                <input
+                  value={actionGhiChu}
+                  onChange={(e) => setActionGhiChu(e.target.value)}
+                  placeholder="Ghi chú thêm (tuỳ chọn)"
+                  className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                />
                 <div className="flex justify-end gap-2">
-                  <Btn variant="ghost" onClick={() => { setActionTarget(null); setBulkLyDoChamId(""); }}>Hủy</Btn>
+                  <Btn variant="ghost" onClick={() => { setActionTarget(null); setBulkLyDoChamId(""); setActionGhiChu(""); }}>Hủy</Btn>
                   <Btn onClick={confirmTuChoiChe} disabled={!bulkLyDoChamId || bulkMutation.isPending}>Xác nhận chờ hàng</Btn>
                 </div>
               </div>

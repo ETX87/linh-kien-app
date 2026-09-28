@@ -12,6 +12,8 @@ export interface Column<T> {
   className?: string;
   /** Neu co, header cot nay co the bam de sap xep (xem sortBy/sortDir/onSortChange o PaginatedTableProps). */
   sortKey?: string;
+  /** Nut loc cot kieu Excel (LocCotButton, components/ui/LocCot.tsx) ve canh tieu de cot tren bang desktop. */
+  filter?: ReactNode;
   /** Vai tro dac biet cua cot nay tren THE MOBILE (them 2026-08-21, "hợp nhất phong cách giao diện"
    * - PaginatedTable truoc day chi co bang cuon ngang, khong co layout the doc rieng cho man hinh
    * hep giong DonCuaToiTab). "select" = cot checkbox chon dong (ve o goc the, khong chiem 1 hang

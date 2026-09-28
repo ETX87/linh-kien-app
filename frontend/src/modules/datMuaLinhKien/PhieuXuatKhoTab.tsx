@@ -23,7 +23,7 @@ import { TongNgayKtvInfo } from "./TongNgayKtv";
 // hàng trong phiếu để mở giao diện UI chi tiết") - tai dung nguyen DonHangDetailModal, dung y het cach
 // ThieuLkTab.tsx da lam (xem comment o do ve import vong an toan trong ESM).
 import { DonHangDetailModal } from "./DonCuaToiTab";
-import { LoaiChietKhauPicker, LoaiChietKhauText, LoaiChietKhauChip, useLoaiChietKhauList, duocDoiLoaiChietKhau } from "./LoaiChietKhau";
+import { LoaiChietKhauPicker, LoaiChietKhauText, LoaiChietKhauChip, useLoaiChietKhauList, duocDoiLoaiChietKhau, tenLoaiChietKhau } from "./LoaiChietKhau";
 import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_TIEN_OPTIONS, TRANG_THAI_DOT_TONE, PXK_LOG_ONLY_OPTIONS, PXK_LOG_ONLY_TONE } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
@@ -34,6 +34,7 @@ import { PxkMiniPipeline } from "./PipelineFlow";
 import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportResult, type MisaTemplate } from "../../lib/misaExportTemplates";
 import { Money } from "../../components/ui/Money";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
+import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../components/ui/LocCot";
 
 const MISA_TEMPLATE_ORDER: MisaTemplate[] = ["xuat_kho", "chuyen_kho", "ban_hang"];
 
@@ -190,15 +191,18 @@ export function PhieuXuatKhoTab({
   const khuVucOptions = showKhuVucFilter ? (khuVucAllData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ten })) : [];
   const khuVucParam = showKhuVucFilter && filterKhuVuc.size > 0 ? [...filterKhuVuc].sort().join(",") : "";
 
+  // Loc cot kieu Excel (phan hoi 2026-09-28) - loc/sap xep o server (PXK_COT_LOC, phieuXuatKho.ts).
+  const locCot = useLocCot();
+
   // GD4 (phan hoi Codex #16): ve trang 1 moi khi bo loc doi - tranh dung o 1 trang qua so trang moi.
   useEffect(() => {
     setPage(1);
-  }, [filterTrangThai, filterNguoiNhanHang, xemLoaiDon, debouncedQ, khuVucParam]);
+  }, [filterTrangThai, filterNguoiNhanHang, xemLoaiDon, debouncedQ, khuVucParam, locCot.queryParams.cf, locCot.queryParams.cs, locCot.queryParams.cd]);
 
   // GD4 (phan hoi Codex #17): phan trang server-side that su - truoc day tai TOAN BO dong khop bo loc
   // roi tu slice o client.
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["dat-mua-lk-pxk", filterTrangThai, filterNguoiNhanHang, xemLoaiDon, debouncedQ, khuVucParam, page],
+    queryKey: ["dat-mua-lk-pxk", filterTrangThai, filterNguoiNhanHang, xemLoaiDon, debouncedQ, khuVucParam, locCot.queryParams, page],
     queryFn: () =>
       api.get<{ rows: PhieuXuatKhoRow[]; total: number }>(
         "/phieu-xuat-kho" +
@@ -208,6 +212,7 @@ export function PhieuXuatKhoTab({
             loai_don: xemLoaiDon,
             q: debouncedQ || undefined,
             khu_vuc: khuVucParam || undefined,
+            ...locCot.queryParams,
             page,
             pageSize: 20,
           }),
@@ -228,6 +233,7 @@ export function PhieuXuatKhoTab({
             loai_don: xemLoaiDon,
             q: debouncedQ || undefined,
             khu_vuc: khuVucParam || undefined,
+            ...locCot.queryParams,
           }),
       );
       await exportRowsToExcel(res.rows, "phieu_xuat_kho_chi_tiet.xlsx", "PXK");
@@ -455,6 +461,40 @@ export function PhieuXuatKhoTab({
   // thuong rong o cac buoc dau (chi co gia tri tu "Dang gui KTV" tro di), so_dong la thong tin phu chua
   // can thiet de quyet dinh hanh dong tiep theo. Nguoi dung da tung tuy chinh bang nay truoc do (bam an/
   // hien cot) khong bi anh huong - PaginatedTable giu nguyen lua chon da luu cua ho.
+  const locCotCfg: LocCotCfg = {
+    ...locCot,
+    endpoint: "/phieu-xuat-kho/gia-tri-loc",
+    params: {
+      trang_thai: filterTrangThai || undefined,
+      nguoi_nhan_hang: filterNguoiNhanHang || undefined,
+      loai_don: xemLoaiDon,
+      q: debouncedQ || undefined,
+      khu_vuc: khuVucParam || undefined,
+    },
+    tieuDe: {
+      viec_can_lam: "Việc cần làm tiếp",
+      da_in_phieu: "In phiếu",
+      trang_thai: "Trạng thái",
+      chuyen_tien: "Chuyển tiền",
+      nguoi_tao: "Người tạo",
+      nguoi_nhan_hang: "Người nhận hàng",
+      khu_vuc: "Khu vực",
+      loai_de_xuat: "Loại đề xuất",
+      yeu_cau_hoa_don: "Yêu cầu hóa đơn",
+      loai_chiet_khau: "Loại chiết khấu",
+    },
+    nhan: {
+      trang_thai: (v) => trangThaiLabel(PXK_TRANG_THAI_OPTIONS, v),
+      chuyen_tien: (v) => (v === "Khong can" ? "Không cần" : trangThaiLabel(CHUYEN_TIEN_OPTIONS, v)),
+      nguoi_tao: (v) => labelKtv(v),
+      nguoi_nhan_hang: (v) => labelKtv(v),
+      loai_chiet_khau: (v) => tenLoaiChietKhau(loaiChietKhauList, Number(v)) ?? v,
+    },
+  };
+  // 3 cot loc KHONG co cot tuong ung tren bang PXK (gia tri nam o cac dong don ben trong / KTV) -> luon hien chip.
+  const LOC_COT_KHONG_CO_COT = ["khu_vuc", "loai_de_xuat", "yeu_cau_hoa_don"];
+  const locCotDangAp = Object.keys(locCotCfg.tieuDe).filter((c) => !LOC_COT_KHONG_CO_COT.includes(c) && (locCot.loc[c] || locCot.sapXep?.cot === c));
+  const loc = (cot: string) => <LocCotButton cfg={locCotCfg} cot={cot} />;
   const cols: Column<PhieuXuatKhoRow>[] = [
     {
       // SUA (phan hoi 2026-09-10: "cột này sai tên, nó chỉ là ID hệ thống tự sinh, không phải mã pxk,
@@ -491,8 +531,8 @@ export function PhieuXuatKhoTab({
         );
       },
     },
-    { key: "nguoi_tao", header: "Người tạo", render: (r) => <NguoiTao>{labelKtv(r.nguoi_tao)}</NguoiTao> },
-    { key: "nguoi_nhan_hang", header: "Người nhận hàng", render: (r) => (r.nguoi_nhan_hang ? <NguoiNhan>{labelKtv(r.nguoi_nhan_hang)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>) },
+    { key: "nguoi_tao", header: "Người tạo", filter: loc("nguoi_tao"), render: (r) => <NguoiTao>{labelKtv(r.nguoi_tao)}</NguoiTao> },
+    { key: "nguoi_nhan_hang", header: "Người nhận hàng", filter: loc("nguoi_nhan_hang"), render: (r) => (r.nguoi_nhan_hang ? <NguoiNhan>{labelKtv(r.nguoi_nhan_hang)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>) },
     { key: "ngay_tao", header: "Ngày tạo", render: (r) => fmtDateTime(r.ngay_tao) },
     // Them 2026-09-28 (phan hoi "hiện thêm cột Tiền cần chuyển + Loại chiết khấu đang được hưởng (theo
     // loại chiết khấu cao nhất)") - tong do backend tinh (1 nguon, lib/pxkRecalculate.ts); PXK cong no
@@ -502,7 +542,7 @@ export function PhieuXuatKhoTab({
       render: (r) => (r.so_tien_can_chuyen != null ? <Money>{fmtVND(r.so_tien_can_chuyen)}</Money> : <span className="text-[var(--ink-400)]">—</span>),
     },
     {
-      key: "loai_chiet_khau", header: "Loại chiết khấu",
+      key: "loai_chiet_khau", header: "Loại chiết khấu", filter: loc("loai_chiet_khau"),
       render: (r) => (
         <span className="block max-w-[240px]">
           <LoaiChietKhauText id={r.loai_chiet_khau_cao_nhat_id} title="Loại chiết khấu cao nhất trong các dòng của phiếu" />
@@ -510,16 +550,16 @@ export function PhieuXuatKhoTab({
       ),
     },
     {
-      key: "chuyen_tien", header: "Chuyển tiền",
+      key: "chuyen_tien", header: "Chuyển tiền", filter: loc("chuyen_tien"),
       render: (r) => (r.so_tien_can_chuyen != null ? <StatusBadge value={r.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /> : <span className="text-[var(--ink-400)] text-xs">Không cần</span>),
     },
-    { key: "trang_thai", header: "Trạng thái", render: (r) => <StatusBadge value={r.trang_thai} tones={PXK_TRANG_THAI_TONE} options={PXK_TRANG_THAI_OPTIONS} /> },
+    { key: "trang_thai", header: "Trạng thái", filter: loc("trang_thai"), render: (r) => <StatusBadge value={r.trang_thai} tones={PXK_TRANG_THAI_TONE} options={PXK_TRANG_THAI_OPTIONS} /> },
     {
       // Co phu "Da in phieu" (migration 0032) - CHI co y nghia tu luc "Đã chốt xong đơn xuất" tro di
       // (loai_don != tra_hang, tra hang khong co buoc "gui KTV"/in phieu giao hang) - cac dong khac
       // hien "—" thay vi badge "Chưa in" gay nham la CAN in (vd dong dang o "Dang tao phieu"/"Cho ke
       // toan" chua toi luc Kho can quan tam).
-      key: "da_in_phieu", header: "In phiếu",
+      key: "da_in_phieu", header: "In phiếu", filter: loc("da_in_phieu"),
       render: (r) =>
         r.loai_don !== "tra_hang" && ["Da chot xong don xuat", "Dang gui KTV", "KTV da nhan"].includes(r.trang_thai) ? (
           r.da_in_phieu ? <Badge tone="success">🖨 Đã in</Badge> : <Badge tone="warning">Chưa in</Badge>
@@ -528,7 +568,7 @@ export function PhieuXuatKhoTab({
         ),
     },
     {
-      key: "viec_can_lam", header: "Việc cần làm tiếp",
+      key: "viec_can_lam", header: "Việc cần làm tiếp", filter: loc("viec_can_lam"),
       render: (r) => {
         const viec = pxkViecCanLamTiep(r);
         return viec ? <span className="text-xs text-[var(--amber-700)] font-medium">{viec}</span> : <span className="text-[var(--ink-400)]">—</span>;
@@ -753,6 +793,12 @@ export function PhieuXuatKhoTab({
           minh (⚙ Tuy chinh cot, tinh nang co san cua PaginatedTable, chi chua duoc bat o bang nay) -
           giai quyet ca 2 y "tran/qua dai" (an bot cot khong can) va "man hinh to nhung chu nho" (keo
           rong cot can xem ky) ma khong can ve lai toan bo bang. */}
+      <div className="sm:hidden">
+        <LocCotBar cfg={locCotCfg} cots={Object.keys(locCotCfg.tieuDe)} hienTatCa />
+      </div>
+      <div className="hidden sm:block">
+        <LocCotBar cfg={locCotCfg} cots={[...LOC_COT_KHONG_CO_COT, ...locCotDangAp]} hienTatCa />
+      </div>
       <PaginatedTable
         columns={cols}
         optionalColumns={optionalCols}

@@ -18,6 +18,7 @@ import { pushPxkToKhovan, notifyPxkAdvancedViaApp, buildWorkUrl } from "../lib/k
 import { timLoaiChietKhauTheoTen, gonTenLoaiChietKhau, choPhepDoiLoaiChietKhau } from "../lib/loaiChietKhau";
 import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, type PxkCalculation } from "../lib/pxkRecalculate";
 import { laVanPhong, danhDauVanPhongTacDong, huyPxkNeuTrong } from "../lib/pxkTuHuy";
+import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
 // Pattern header+log giong phieu_dat. TN tao (gom nhieu dong don hang da "TN da duyet" vao 1
@@ -175,7 +176,47 @@ phieuXuatKho.get("/mo-count", async (c) => {
 // giao hang toan he thong); KTV/Ve tinh/Giam sat bi gioi han qua scopePxkNguoiNhanHang (RA SOAT BAO
 // MAT 2026-08-18, phan hoi Codex: truoc day KHONG gioi han cho AI ca, lo gia/cong no/ma MISA/bang
 // chung chuyen tien toan he thong cho moi tai khoan trong module).
-phieuXuatKho.get("/", async (c) => {
+// Cot loc kieu Excel cua danh sach PXK (2026-09-28) - khoa = key cot o PhieuXuatKhoTab.tsx. "viec_can_lam"/
+// "da_in_phieu" PHAI khop pxkViecCanLamTiep()/cot "In phiếu" o frontend (cung chuoi hien thi).
+const PXK_DONG_TU = "FROM phieu_xuat_kho_dong lcx JOIN dat_don_hang lcd ON lcd.id = lcx.dat_don_hang_id WHERE lcx.phieu_xuat_kho_id = pxk.id";
+const PXK_DONG_JOIN = "JOIN phieu_xuat_kho_dong lcx ON lcx.phieu_xuat_kho_id = pxk.id JOIN dat_don_hang lcd ON lcd.id = lcx.dat_don_hang_id";
+const PXK_COT_LOC: Record<string, CotLoc> = {
+  viec_can_lam: {
+    kieu: "don",
+    expr: `CASE
+      WHEN pxk.trang_thai_hien_tai = 'Dang tao phieu' THEN
+        CASE WHEN COALESCE(pxk.ma_xuat_kho_xac_nhan, 0) = 0 THEN 'Cần nhập Mã đơn hàng'
+             WHEN pxk.so_tien_can_chuyen IS NOT NULL AND COALESCE(pxk.trang_thai_chuyen_tien, '') != 'TN da duyet' THEN 'Chờ xác nhận chuyển tiền'
+             ELSE 'Sẵn sàng gửi Kế toán' END
+      WHEN pxk.trang_thai_hien_tai = 'Cho ke toan' THEN CASE WHEN COALESCE(pxk.ma_misa, '') != '' THEN 'Sẵn sàng chốt xong' ELSE 'Cần nhập Mã MISA' END
+      WHEN pxk.trang_thai_hien_tai = 'Da chot xong don xuat' THEN CASE WHEN pxk.loai_don = 'tra_hang' THEN 'Chờ Kho xác nhận nhận hàng' ELSE 'Chờ Kho gửi hàng' END
+      WHEN pxk.trang_thai_hien_tai = 'Dang gui KTV' THEN 'Chờ KTV xác nhận đã nhận'
+      ELSE '' END`,
+  },
+  da_in_phieu: {
+    kieu: "don",
+    expr: `CASE WHEN COALESCE(pxk.loai_don, '') != 'tra_hang' AND pxk.trang_thai_hien_tai IN ('Da chot xong don xuat', 'Dang gui KTV', 'KTV da nhan')
+      THEN CASE WHEN pxk.da_in_phieu = 1 THEN 'Đã in' ELSE 'Chưa in' END ELSE '' END`,
+  },
+  trang_thai: { kieu: "don", expr: "pxk.trang_thai_hien_tai" },
+  chuyen_tien: { kieu: "don", expr: "CASE WHEN pxk.so_tien_can_chuyen IS NULL THEN 'Khong can' ELSE pxk.trang_thai_chuyen_tien END" },
+  nguoi_tao: { kieu: "don", expr: "pxk.nguoi_tao", sortExpr: tenNguoiSql("pxk.nguoi_tao") },
+  nguoi_nhan_hang: { kieu: "don", expr: "pxk.nguoi_nhan_hang", sortExpr: tenNguoiSql("pxk.nguoi_nhan_hang") },
+  khu_vuc: { kieu: "don", expr: "(SELECT k.khu_vuc_ma FROM ktv_lien_he k WHERE k.email_dang_nhap = pxk.nguoi_nhan_hang LIMIT 1)", khuVuc: true },
+  loai_de_xuat: { kieu: "nhieu", tu: PXK_DONG_TU, join: PXK_DONG_JOIN, expr: "lcd.loai_de_xuat" },
+  yeu_cau_hoa_don: { kieu: "nhieu", tu: PXK_DONG_TU, join: PXK_DONG_JOIN, expr: "lcd.yeu_cau_hoa_don" },
+  // Loai chiet khau "cao nhat" cua phieu - cung cong thuc cot loai_chiet_khau_cao_nhat_id o SELECT danh sach.
+  loai_chiet_khau: {
+    kieu: "don",
+    expr: `(SELECT lcs.id FROM phieu_xuat_kho_dong lcx2 JOIN dat_don_hang lcd2 ON lcd2.id = lcx2.dat_don_hang_id
+      JOIN settings_loai_chiet_khau lcs ON lcs.id = lcd2.loai_chiet_khau_id
+      WHERE lcx2.phieu_xuat_kho_id = pxk.id ORDER BY lcs.stt DESC, lcs.id DESC LIMIT 1)`,
+  },
+};
+
+// Dieu kien WHERE cua GET /phieu-xuat-kho (tach ham 2026-09-28 de GET /gia-tri-loc dung lai y het).
+
+async function pxkListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string): Promise<{ whereSql: string; binds: unknown[] }> {
   const user = c.get("user");
   const scope = scopePxkNguoiNhanHang(c);
   const trangThai = c.req.query("trang_thai");
@@ -194,10 +235,6 @@ phieuXuatKho.get("/", async (c) => {
   // slice 20 dong/trang o client - moi lan doi trang van tai lai het du lieu tu D1. Them phan trang
   // server-side, cung pattern voi GET /dat-mua-lk/don-hang.
   // KHONG truyen page -> tra HET (nut "Tải danh sách chi tiết", them 2026-09-13, mirror settingsKtv.ts).
-  const pageParam = c.req.query("page");
-  const page = Math.max(1, Number(pageParam ?? 1));
-  const pageSize = Math.min(1000, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
-  const offset = (page - 1) * pageSize;
   let whereSql = "1=1" + (scope?.whereSql ?? "");
   const binds: unknown[] = [...(scope?.binds ?? [])];
   // FIX (phan hoi nguoi dung: "đồng bộ danh sách theo badge" cho Khu vuc phu trach GS) - xem giai
@@ -271,6 +308,32 @@ phieuXuatKho.get("/", async (c) => {
     binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoTen.binds);
   }
 
+  // Loc cot kieu Excel (2026-09-28, lib/locCot.ts).
+  const locCot = sqlLocCot(PXK_COT_LOC, docLocCot(c.req.query("cf"), PXK_COT_LOC), boQuaCot);
+  whereSql += locCot.sql;
+  binds.push(...locCot.binds);
+  return { whereSql, binds };
+}
+
+
+
+// GET /api/phieu-xuat-kho/gia-tri-loc?cot=<cot>&<cung bo loc GET /> - gia tri + so phieu cua 1 cot cho o loc kieu
+// Excel (2026-09-28). Dang ky TRUOC "/:id".
+phieuXuatKho.get("/gia-tri-loc", async (c) => {
+  const cot = c.req.query("cot") ?? "";
+  const def = PXK_COT_LOC[cot];
+  if (!def) return c.json({ error: "COT_KHONG_HOP_LE" }, 400);
+  const { whereSql, binds } = await pxkListWhere(c, cot);
+  return c.json({ rows: await giaTriCot(c.env.DB, def, "FROM phieu_xuat_kho pxk", "pxk.id", whereSql, binds) });
+});
+
+phieuXuatKho.get("/", async (c) => {
+  const pageParam = c.req.query("page");
+  const page = Math.max(1, Number(pageParam ?? 1));
+  const pageSize = Math.min(1000, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const offset = (page - 1) * pageSize;
+  const { whereSql, binds } = await pxkListWhere(c);
+  const sapXep = sqlSapXep(PXK_COT_LOC, c.req.query("cs"), c.req.query("cd"));
   const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM phieu_xuat_kho pxk WHERE ${whereSql}`)
     .bind(...binds)
     .first<{ total: number }>();
@@ -292,7 +355,7 @@ phieuXuatKho.get("/", async (c) => {
          SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id
          WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh.uu_tien = 1
        ) as co_don_uu_tien
-     FROM phieu_xuat_kho pxk WHERE ${whereSql} ORDER BY pxk.ngay_tao DESC
+     FROM phieu_xuat_kho pxk WHERE ${whereSql} ORDER BY ${sapXep ? `${sapXep}, ` : ""}pxk.ngay_tao DESC
      ${pageParam ? "LIMIT ? OFFSET ?" : ""}`,
   )
     .bind(...binds, ...(pageParam ? [pageSize, offset] : []))

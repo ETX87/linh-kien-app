@@ -23,6 +23,7 @@ import { computeTonKhoChot } from "../lib/tonKhoCongTy";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
 import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon } from "../lib/pxkRecalculate";
 import { computeTonKtvConLai } from "../lib/tonKhoKtv";
+import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
 import { TU_HUY_DUOC_SQL, TN_DOI_TRONG_PXK_SQL, pxkDuocTuHuy, pxkTnDoiDuoc, goDonKhoiPxk, laVanPhong, danhDauVanPhongTacDong } from "../lib/pxkTuHuy";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, MUA_CONG_NO_ROLES, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
 import { pushThieuLkToKhovan, buildWorkUrl } from "../lib/khovanPushClient";
@@ -1691,7 +1692,20 @@ function donConTonSql(loaiDon: string | undefined): { sql: string; binds: string
   return { sql: `ddh.trang_thai_hien_tai NOT IN (${ph(dongSet)})`, binds: [...dongSet] };
 }
 
-datMuaLinhKien.get("/don-hang", async (c) => {
+// Cot loc kieu Excel cua danh sach don (2026-09-28) - khoa = key cot o DonCuaToiTab.tsx (LocCotButton).
+const khuVucCuaEmailSql = (email: string) => `(SELECT k.khu_vuc_ma FROM ktv_lien_he k WHERE k.email_dang_nhap = ${email} LIMIT 1)`;
+const DON_HANG_COT_LOC: Record<string, CotLoc> = {
+  loai_de_xuat: { kieu: "don", expr: "ddh.loai_de_xuat" },
+  nguoi_tao: { kieu: "don", expr: "ddh.nguoi_tao", sortExpr: tenNguoiSql("ddh.nguoi_tao") },
+  nguoi_nhan_hang: { kieu: "don", expr: "ddh.nguoi_nhan_hang", sortExpr: tenNguoiSql("ddh.nguoi_nhan_hang") },
+  trang_thai: { kieu: "don", expr: "ddh.trang_thai_hien_tai" },
+  yeu_cau_hoa_don: { kieu: "don", expr: "ddh.yeu_cau_hoa_don" },
+  khu_vuc: { kieu: "don", expr: khuVucCuaEmailSql("ddh.nguoi_nhan_hang"), khuVuc: true },
+};
+
+// Dieu kien WHERE cua GET /don-hang (tach ham 2026-09-28 de GET /don-hang/gia-tri-loc dung lai y het).
+
+async function donHangListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string): Promise<{ whereSql: string; binds: unknown[] }> {
   const user = c.get("user");
   const scope = scopeDatMuaNguoiTao(c);
   const trangThai = c.req.query("trang_thai");
@@ -1713,11 +1727,6 @@ datMuaLinhKien.get("/don-hang", async (c) => {
   const q = c.req.query("q")?.trim().normalize("NFC");
   // KHONG truyen page -> tra HET (khong phan trang) - dung cho nut "Tải danh sách chi tiết" (them
   // 2026-09-13, mirror pattern settingsKtv.ts GET / "KHÔNG truyền page -> giữ nguyên hành vi cũ").
-  const pageParam = c.req.query("page");
-  const page = Math.max(1, Number(pageParam ?? 1));
-  const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
-  const offset = (page - 1) * pageSize;
-
   let whereSql = (loaiDon ? "1=1" : "ddh.loai_don != 'tra_hang'") + (scope?.whereSql ?? "");
   const binds: unknown[] = [...(scope?.binds ?? [])];
   // FIX (phan hoi nguoi dung: "đồng bộ danh sách theo badge" cho Khu vuc phu trach GS) - truoc day
@@ -1805,6 +1814,28 @@ datMuaLinhKien.get("/don-hang", async (c) => {
     binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoTen.binds);
   }
 
+  // Loc cot kieu Excel (2026-09-28, lib/locCot.ts).
+  const locCot = sqlLocCot(DON_HANG_COT_LOC, docLocCot(c.req.query("cf"), DON_HANG_COT_LOC), boQuaCot);
+  whereSql += locCot.sql;
+  binds.push(...locCot.binds);
+  return { whereSql, binds };
+}
+
+datMuaLinhKien.get("/don-hang", async (c) => {
+  const pageParam = c.req.query("page");
+  const page = Math.max(1, Number(pageParam ?? 1));
+  const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const offset = (page - 1) * pageSize;
+  const { whereSql, binds } = await donHangListWhere(c);
+  // Sap xep theo cot (2026-09-28): giu nhom theo KTV nhan hang (UI nhom theo cot nay) - sort TRONG tung nhom; rieng
+  // sort cot "Người nhận hàng" thi xep thu tu CAC nhom.
+  const cotSapXep = c.req.query("cs");
+  const sapXep = sqlSapXep(DON_HANG_COT_LOC, cotSapXep, c.req.query("cd"));
+  const orderSql = !sapXep
+    ? "ddh.nguoi_nhan_hang, ddh.ngay_tao DESC"
+    : cotSapXep === "nguoi_nhan_hang"
+      ? `${sapXep}, ddh.nguoi_nhan_hang, ddh.ngay_tao DESC`
+      : `ddh.nguoi_nhan_hang, ${sapXep}, ddh.ngay_tao DESC`;
   const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM dat_don_hang ddh WHERE ${whereSql}`)
     .bind(...binds)
     .first<{ total: number }>();
@@ -1821,7 +1852,7 @@ datMuaLinhKien.get("/don-hang", async (c) => {
      LEFT JOIN ktv_lien_he dsk ON dsk.email_dang_nhap = ddh.nguoi_nhan_hang
      LEFT JOIN khu_vuc kv ON kv.ma = dsk.khu_vuc_ma
      WHERE ${whereSql}
-     ORDER BY ddh.nguoi_nhan_hang, ddh.ngay_tao DESC
+     ORDER BY ${orderSql}
      ${pageParam ? "LIMIT ? OFFSET ?" : ""}`,
   )
     .bind(...binds, ...(pageParam ? [pageSize, offset] : []))
@@ -1846,6 +1877,16 @@ datMuaLinhKien.get("/don-hang", async (c) => {
   });
 
   return c.json({ rows, page, pageSize, total: countRow?.total ?? 0 });
+});
+
+// GET /api/dat-mua-lk/don-hang/gia-tri-loc?cot=<cot>&<cung bo loc GET /don-hang> - danh sach gia tri + so dong cua 1
+// cot cho o loc kieu Excel (2026-09-28). Dat TRUOC /don-hang/:id (Hono khop theo thu tu dang ky).
+datMuaLinhKien.get("/don-hang/gia-tri-loc", async (c) => {
+  const cot = c.req.query("cot") ?? "";
+  const def = DON_HANG_COT_LOC[cot];
+  if (!def) return c.json({ error: "COT_KHONG_HOP_LE" }, 400);
+  const { whereSql, binds } = await donHangListWhere(c, cot);
+  return c.json({ rows: await giaTriCot(c.env.DB, def, "FROM dat_don_hang ddh", "ddh.id", whereSql, binds) });
 });
 
 // GET /api/dat-mua-lk/don-hang-status-counts?loai_don= - dem SO DONG THEO TUNG trang_thai_hien_tai
@@ -3305,7 +3346,12 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
     // MISSING_GHI_CHU_SO_LUONG da co tu truoc.
     let nextTn: { so_luong_thuc_xuat: number | null; gia_chot: number | null; ma_xuat_kho: string | null; ma_misa: string | null } | null = null;
     if (canTacNghiep(c)) {
-      const nextSlThucXuat = body.so_luong_thuc_xuat !== undefined ? body.so_luong_thuc_xuat : existing.so_luong_thuc_xuat;
+      let nextSlThucXuat = body.so_luong_thuc_xuat !== undefined ? body.so_luong_thuc_xuat : existing.so_luong_thuc_xuat;
+      // FIX 2026-09-28 (bug "TN không thay đổi được linh kiện khác, báo MISSING_GHI_CHU_SO_LUONG"): don CHUA co SL
+      // thuc xuat (NULL = theo SL de xuat) - form TN gui kem SL thuc xuat = SL de xuat cu (khong doi) nhung truoc
+      // day so voi NULL nen bi coi la "doi SL" -> bat ly do. Gia tri gui len = SL dang hieu luc -> coi nhu khong
+      // doi, giu NULL (de SL thuc xuat van theo SL de xuat neu TN sua SL de xuat trong cung lan luu).
+      if (existing.so_luong_thuc_xuat == null && nextSlThucXuat === existing.so_luong_de_xuat) nextSlThucXuat = null;
       if (nextSlThucXuat !== existing.so_luong_thuc_xuat && !body.ghi_chu_so_luong?.trim()) {
         return c.json({ error: "MISSING_GHI_CHU_SO_LUONG" }, 400);
       }
