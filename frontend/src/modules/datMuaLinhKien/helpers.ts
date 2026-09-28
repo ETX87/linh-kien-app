@@ -309,16 +309,19 @@ export function actionsFor(
   if (d.trang_thai === "Cho TBP xac nhan") {
     return { duyet: !!ctx.canTPDvbhXacNhan, tuChoi: !!ctx.canTPDvbhXacNhan, choHang: false, huy: canHuy };
   }
+  // MO RONG (phan hoi 2026-09-28): TN co them quyen Huy o "Cho TN duyet" (truoc chi nguoi tao/Admin).
   if (d.trang_thai === "Cho TN duyet") {
-    return { duyet: ctx.canTacNghiep, tuChoi: ctx.canTacNghiep, choHang: ctx.canTacNghiep, huy: canHuy };
+    return { duyet: ctx.canTacNghiep, tuChoi: ctx.canTacNghiep, choHang: ctx.canTacNghiep, huy: canHuy || ctx.canTacNghiep };
   }
   // FIX (phan hoi 2026-09-24: "Đơn đã duyệt chờ tạo xuất bổ sung thêm nút từ chối cho TN") - cho phep
   // TN tu huy quyet dinh duyet cua chinh minh khi don CHUA duoc gom vao PXK nao (ma_xuat_kho con NULL -
   // dong bo gom vao PXK roi thi theo doi qua chinh PXK do, khong con y nghia "tu choi don"). Khac cac
   // nhanh tu_choi khac o tren (khong co choHang/huy - dung 1 duong thoat duy nhat, backend
   // (applyDonHangLog, nhanh laTuChoiSauDuyet) chi chap nhan hanh_dong "tu_choi" tu trang thai nay).
+  // MO RONG (phan hoi 2026-09-28 "chưa thêm vào phiếu xk => cho phép hủy/từ chối/chờ hàng cho TN"):
+  // them Cho hang + Huy (backend applyDonHangLog: chuaVaoPxkSauDuyet).
   if (d.trang_thai === "TN da duyet" && d.ma_xuat_kho == null) {
-    return { duyet: false, tuChoi: ctx.canTacNghiep, choHang: false, huy: false };
+    return { duyet: false, tuChoi: ctx.canTacNghiep, choHang: ctx.canTacNghiep, huy: ctx.canTacNghiep || !!ctx.isAdmin };
   }
   return { duyet: false, tuChoi: false, choHang: false, huy: false };
 }

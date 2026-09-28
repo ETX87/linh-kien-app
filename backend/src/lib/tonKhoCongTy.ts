@@ -40,6 +40,8 @@ export async function computeTonKhoPhatSinh(db: D1Database, khuVucMa: string, ma
        FROM dat_don_hang ddh
        JOIN ktv_lien_he k ON k.email_dang_nhap = ddh.nguoi_nhan_hang
        WHERE k.khu_vuc_ma = ? AND ddh.ma_lk = ? AND ddh.loai_don IN ('mua', 'cong_no')
+         -- "TRỪ CÔNG NỢ" lay tu ton kho CUA KTV, khong giu hang kho cong ty (chot 2026-09-28, lib/tonKhoKtv.ts)
+         AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') = 0
          AND ddh.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')
          AND (? IS NULL OR ddh.ngay_tao > ?)`,
     )

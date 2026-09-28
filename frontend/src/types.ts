@@ -96,6 +96,9 @@ export interface KtvTonKhoSummaryRow {
   danh_gia_cong_no: "Vuot tran" | "Canh bao" | "Binh thuong" | null;
 }
 export interface KtvTonKhoChiTietRow {
+  // Them 2026-09-28: SL da tru theo don "TRỪ CÔNG NỢ" (sau moc import) + ton con lai = cuoi_ky - da tru.
+  da_tru_theo_don?: number;
+  ton_con_lai?: number;
   ma_hang: string;
   ten_hang: string | null;
   dvt: string | null;

@@ -11,6 +11,7 @@ export interface PxkCalculation {
 
 interface CalculationRow {
   id: string;
+  ngay_tao: string | null;
   so_luong_de_xuat: number;
   so_luong_thuc_xuat: number | null;
   loai_de_xuat: string | null;
@@ -47,7 +48,7 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
 
   const placeholders = datDonHangIds.map(() => "?").join(", ");
   const { results } = await db.prepare(
-    `SELECT ddh.id, ddh.so_luong_de_xuat, ddh.so_luong_thuc_xuat, ddh.loai_de_xuat, ddh.loai_don,
+    `SELECT ddh.id, ddh.ngay_tao, ddh.so_luong_de_xuat, ddh.so_luong_thuc_xuat, ddh.loai_de_xuat, ddh.loai_don,
             ddh.nguoi_nhan_hang, ddh.so_tien_cong_no, ddh.gia_de_xuat, ddh.gia_chot,
             lk.gia_ban, lk.gia_tri_cong_no, lk.gia_du_phong, lk.don_vi
      FROM dat_don_hang ddh LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
@@ -89,8 +90,13 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
   const laDuTru = (row: CalculationRow) => (row.loai_de_xuat ?? "").trim().toUpperCase() === "MUA DỰ TRỮ";
 
   for (const [email, rows] of nhomTheoKtv) {
-    const giaTriNhom = rows.reduce((sum, row) => sum + giaBan(row) * soLuongTinhTien(row), 0);
+    // CHOT 2026-09-28 ("Tổng tiền tính chiết khấu ... dựa vào tổng tiền đặt hàng MUA HÀNG + TRỪ CÔNG NỢ
+    // trong ngày của KTV"): moc 200k/500k cua TUNG dong = tong gia ban x SL thuc xuat (chua co thi de xuat)
+    // cua MOI don nhom Mua + TRỪ CÔNG NỢ ma KTV nay nhan, tao CUNG NGAY (gio VN, ngay_tao) voi dong do, KHONG
+    // tinh don bi tu choi/huy - bat ke don da vao PXK nao. PXK gom don nhieu ngay -> moi dong theo ngay cua no.
+    const tongTheoNgay = await tongDonTrongNgay(db, email, rows);
     const giaBacThang = (row: CalculationRow): { donGia: number; ma: MaChietKhau } => {
+      const giaTriNhom = tongTheoNgay.get(ngayCua(row)) ?? giaBan(row) * soLuongTinhTien(row);
       if (giaTriNhom < 200000) return { donGia: giaBan(row), ma: "KHONG_CK" };
       if (giaTriNhom < 500000) return { donGia: giaBan(row) * 0.7, ma: "TONG_200_500" };
       // LK chua khai bao gia KTV (NULL/0) -> giu gia ban thay vi tinh 0d (cung loai loi voi gia du phong).
@@ -130,6 +136,44 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
   }
 
   return { total, maTheoDong, tienUocTinhTheoDong };
+}
+
+const ngayCua = (row: CalculationRow) => (row.ngay_tao ?? "").slice(0, 10);
+
+// Tong gia tri don trong ngay cua 1 KTV (nguoi nhan hang) cho cac ngay xuat hien trong `rows` - xem CHOT
+// 2026-09-28 o tinhToanPxk. Gia ban = linh_kien.gia_ban (LK khong con trong danh muc -> gia_de_xuat).
+async function tongDonTrongNgay(db: D1Database, email: string, rows: CalculationRow[]): Promise<Map<string, number>> {
+  const ngays = [...new Set(rows.map(ngayCua).filter(Boolean))];
+  if (!email || ngays.length === 0) return new Map();
+  const { results } = await db
+    .prepare(
+      `SELECT substr(ddh.ngay_tao, 1, 10) as ngay,
+              COALESCE(SUM(COALESCE(lk.gia_ban, ddh.gia_de_xuat, 0) * COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat)), 0) as tong
+       FROM dat_don_hang ddh
+       LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
+       WHERE ddh.nguoi_nhan_hang = ? AND substr(ddh.ngay_tao, 1, 10) IN (${ngays.map(() => "?").join(",")})
+         AND (ddh.loai_don = 'mua' OR (ddh.loai_don = 'cong_no' AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') > 0))
+         AND ddh.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')
+       GROUP BY substr(ddh.ngay_tao, 1, 10)`,
+    )
+    .bind(email, ...ngays)
+    .all<{ ngay: string; tong: number }>();
+  return new Map(results.map((r) => [r.ngay, r.tong]));
+}
+
+// Tinh lai MOI PXK "Dang tao phieu" cua 1 KTV (nguoi nhan hang) - goi khi tong don trong ngay cua KTV co the
+// doi (tao don moi, don bi tu choi/huy, doi SL/ma LK) vi moc chiet khau phu thuoc tong ngay, khong chi thanh
+// phan PXK (chot 2026-09-28). PXK da qua buoc tao phieu khong doi tien (taiTinhPxk tu bo qua).
+export async function taiTinhPxkMoCuaKtv(db: D1Database, nguoiNhanHang: string | null | undefined, nguoiXuLy?: string, boQuaPxkId?: string): Promise<void> {
+  if (!nguoiNhanHang) return;
+  const { results } = await db
+    .prepare("SELECT id FROM phieu_xuat_kho WHERE nguoi_nhan_hang = ? AND trang_thai_hien_tai = 'Dang tao phieu'")
+    .bind(nguoiNhanHang)
+    .all<{ id: string }>();
+  for (const { id } of results) {
+    if (id === boQuaPxkId) continue;
+    await taiTinhPxk(db, id, false, true, nguoiXuLy);
+  }
 }
 
 // Tinh lai loai chiet khau + tong tien can chuyen cua 1 PXK tu TOAN BO dong hien co.

@@ -233,7 +233,13 @@ export function DonHangDetailModal({
     // tu do (nay BAT BUOC, hang muc #19 2026-08-25 - nut xac nhan da disable san khi rong). "TN da
     // duyet" (phan hoi 2026-09-24) dung chung nhanh nay - backend (laTuChoiSauDuyet) cung chi doi
     // ghi_chu tu do, khong nhan ly_do_cham_id.
-    if (data?.donHang.trang_thai === "Cho TBP xac nhan" || data?.donHang.trang_thai === "Cho Tram duyet" || data?.donHang.trang_thai === "TN da duyet") {
+    // "Cho hang" tu "TN da duyet" (2026-09-28) di nhanh chon ly do ben duoi (mo ticket thieu LK), CHI
+    // "tu_choi" moi dung ghi chu tu do.
+    if (
+      data?.donHang.trang_thai === "Cho TBP xac nhan" ||
+      data?.donHang.trang_thai === "Cho Tram duyet" ||
+      (data?.donHang.trang_thai === "TN da duyet" && actionTarget === "tu_choi")
+    ) {
       if (!ghiChu.trim()) return;
       logMutation.mutate({ hanh_dong: "tu_choi" });
       return;
@@ -1618,7 +1624,11 @@ export function DonCuaToiTab({
     // ghi_chu nay BAT BUOC (hang muc #19 2026-08-25), nut xac nhan da disable san khi rong. "TN da
     // duyet" (phan hoi 2026-09-24) dung chung nhanh nay - khong the vao bulk (rowsCoTheChon khong gom
     // trang thai nay) nen chi can xu ly o day, cho thao tac tung dong.
-    if (targetRow?.trang_thai === "Cho TBP xac nhan" || targetRow?.trang_thai === "Cho Tram duyet" || targetRow?.trang_thai === "TN da duyet") {
+    if (
+      targetRow?.trang_thai === "Cho TBP xac nhan" ||
+      targetRow?.trang_thai === "Cho Tram duyet" ||
+      (targetRow?.trang_thai === "TN da duyet" && actionTarget.action === "tu_choi")
+    ) {
       if (!actionGhiChu.trim()) return;
       bulkMutation.mutate({ ids, hanh_dong: "tu_choi", ghi_chu: actionGhiChu.trim() });
       return;

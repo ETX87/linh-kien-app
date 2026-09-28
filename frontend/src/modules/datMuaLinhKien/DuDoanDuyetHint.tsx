@@ -19,7 +19,7 @@ export function DuDoanDuyetHint({
   loaiDon: "mua" | "cong_no" | "tra_hang";
   sePhepDuCongNo: boolean | null;
 }) {
-  const [result, setResult] = useState<{ ap_dung: boolean; du_ton: boolean | null; ton_chot: number | null; khu_vuc_ma: string | null } | null>(null);
+  const [result, setResult] = useState<{ ap_dung: boolean; du_ton: boolean | null; ton_chot: number | null; khu_vuc_ma: string | null; nguon?: "ktv" } | null>(null);
   const ma = maLk.trim();
   const lde = loaiDeXuat.trim();
 
@@ -28,7 +28,7 @@ export function DuDoanDuyetHint({
     if (loaiDon === "tra_hang" || !ma || !(soLuong > 0) || !lde) return;
     const t = setTimeout(() => {
       api
-        .get<{ ap_dung: boolean; du_ton: boolean | null; ton_chot: number | null; khu_vuc_ma: string | null }>(
+        .get<{ ap_dung: boolean; du_ton: boolean | null; ton_chot: number | null; khu_vuc_ma: string | null; nguon?: "ktv" }>(
           `/dat-mua-lk/du-doan-duyet${buildQuery({ ma_lk: ma, so_luong: soLuong, loai_de_xuat: lde, nguoi_nhan_hang: nguoiNhanHang || undefined })}`,
         )
         .then(setResult)
@@ -37,7 +37,20 @@ export function DuDoanDuyetHint({
     return () => clearTimeout(t);
   }, [ma, soLuong, lde, nguoiNhanHang, loaiDon]);
 
-  if (!result?.ap_dung || result.khu_vuc_ma == null || result.du_ton == null) return null;
+  if (!result?.ap_dung || result.du_ton == null) return null;
+  // "TRỪ CÔNG NỢ" (chot 2026-09-28): doi chieu ton kho CUA KTV nhan hang, khong phai kho khu vuc.
+  if (result.nguon === "ktv") {
+    return result.du_ton ? (
+      <div className="mt-1.5 rounded-lg border border-[var(--teal-500)]/30 bg-[var(--teal-100)]/50 px-2.5 py-1.5 text-[11px] font-medium text-[var(--teal-700)]">
+        ✅ Tồn kho của KTV nhận hàng còn đủ ({result.ton_chot}) — đơn này sẽ được tự động duyệt.
+      </div>
+    ) : (
+      <div className="mt-1.5 rounded-lg border border-[var(--amber-500)]/30 bg-[var(--amber-100)]/60 px-2.5 py-1.5 text-[11px] font-medium text-[var(--amber-700)]">
+        ⚠ Tồn kho của KTV nhận hàng không đủ (còn {Math.max(0, result.ton_chot ?? 0)}/{soLuong}) — đơn sẽ cần Tác nghiệp phê duyệt.
+      </div>
+    );
+  }
+  if (result.khu_vuc_ma == null) return null;
   // Dong cong_no ma chua co du lieu tran/cong no chot (sePhepDuCongNo null) - CHUA ket luan duoc, im
   // lang cho thay vi hien nham 1 verdict roi doi lai ngay sau (giong cach footer "vuot tran cong no"
   // cung doi congNoDuKien load xong moi hien).

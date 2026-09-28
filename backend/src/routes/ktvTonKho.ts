@@ -6,6 +6,7 @@ import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { khuVucViewEmailInSql } from "../lib/scopeDatMua";
 import { nowVN } from "../lib/vnTime";
 import { getMocTinhCongNo, danhGiaCongNo3Muc } from "../lib/congNoKtv";
+import { daTruTheoMaHang } from "../lib/tonKhoKtv";
 
 // "Tồn kho KTV" (them 2026-08-29, phan hoi nguoi dung) - import hang ngay file "Tổng hợp tồn kho"
 // xuat tu MISA (mot bao cao gom NHIEU khoi "Kho: ..." xep lien tiep, moi khoi la 1 KTV/tram - xem
@@ -162,8 +163,20 @@ ktvTonKho.get("/:ma_ktv/chi-tiet", async (c) => {
      ORDER BY t.ten_hang`,
   )
     .bind(maKtv)
-    .all();
-  return c.json({ rows: results });
+    .all<Record<string, unknown> & { ma_hang: string; cuoi_ky: number | null }>();
+  // Them 2026-09-28 (don "TRỪ CÔNG NỢ" tru ton kho CUA KTV - lib/tonKhoKtv.ts): "Đã trừ theo đơn" + "Tồn còn
+  // lại" tung ma hang. Ma chi co don tru (khong co trong file ton) van hien them 1 dong (cuoi ky 0).
+  const daTru = await daTruTheoMaHang(c.env.DB, maKtv);
+  const rows: Record<string, unknown>[] = results.map((r) => {
+    const tru = daTru.get(r.ma_hang)?.sl ?? 0;
+    return { ...r, da_tru_theo_don: tru, ton_con_lai: (r.cuoi_ky ?? 0) - tru };
+  });
+  const coSan = new Set(results.map((r) => r.ma_hang));
+  for (const [maHang, v] of daTru) {
+    if (coSan.has(maHang)) continue;
+    rows.push({ ma_hang: maHang, ten_hang: v.ten_lk, dvt: null, dau_ky: null, nhap_kho: null, xuat_kho: null, cuoi_ky: 0, cong_no_thuc_te: 0, da_tru_theo_don: v.sl, ton_con_lai: -v.sl });
+  }
+  return c.json({ rows });
 });
 
 // POST /import - { rows: [{ma_kho, ten_kho?, ma_hang, ten_hang?, dvt?, dau_ky?, nhap_kho?, xuat_kho?,
