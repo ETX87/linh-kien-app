@@ -518,6 +518,33 @@ phieuXuatKho.get("/status-counts", async (c) => {
 // nhanh, nhung NGUON DOC KHAC nhau - mua/cong_no qua dat_don_hang_log (latestDonHangLogStatusExpr,
 // LUON co dong log dau tien), tra_hang qua THANG cot trang_thai_hien_tai (dong tra_hang KHONG dam
 // bao co dong log dau tien - xem giai thich bug o traHang.ts GET /).
+// Loc "don kha dung" theo DUNG bo loc TN dang chon o danh sach PXK ben ngoai (2026-09-29: "TN đang nhìn thấy cả danh
+// sách Đơn khả dụng của các ktv khác khu vực phụ trách => chỉ hiện theo đúng filter họ đang chọn bên ngoài"): chip Khu
+// vuc (`khu_vuc`, cung khuVucSetWhereSql voi GET / - theo KTV nhan hang = KTV cua phieu se tao), loc Nguoi nhan hang
+// (`nguoi_nhan_hang`) va loc cot Excel (`cf`) cua 2 cot khu_vuc/nguoi_nhan_hang. Cac bo loc khac cua danh sach PXK (trang
+// thai phieu, tim ma phieu...) la thuoc tinh cua PHIEU, khong ap duoc cho don chua vao phieu.
+const KHA_DUNG_COT_LOC: Record<string, CotLoc> = {
+  nguoi_nhan_hang: { kieu: "don", expr: "ddh.nguoi_nhan_hang" },
+  khu_vuc: { kieu: "don", expr: "ddh.khu_vuc_ma", khuVuc: true },
+};
+function khaDungLocNgoai(c: Context<{ Bindings: Env }>): { sql: string; binds: unknown[] } {
+  let sql = "";
+  const binds: unknown[] = [];
+  const khuVucList = (c.req.query("khu_vuc") ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+  if (khuVucList.length > 0) {
+    const kv = khuVucSetWhereSql(new Set(khuVucList), ["ddh.nguoi_nhan_hang"]);
+    sql += kv.sql;
+    binds.push(...kv.binds);
+  }
+  const nguoiNhanHang = c.req.query("nguoi_nhan_hang")?.trim();
+  if (nguoiNhanHang) {
+    sql += " AND ddh.nguoi_nhan_hang = ?";
+    binds.push(nguoiNhanHang);
+  }
+  const loc = sqlLocCot(KHA_DUNG_COT_LOC, docLocCot(c.req.query("cf"), KHA_DUNG_COT_LOC));
+  return { sql: sql + loc.sql, binds: [...binds, ...loc.binds] };
+}
+
 phieuXuatKho.get("/don-hang-kha-dung", async (c) => {
   if (!canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const loaiDon = c.req.query("loai_don");
@@ -529,6 +556,9 @@ phieuXuatKho.get("/don-hang-kha-dung", async (c) => {
     binds.push(loaiDon);
   }
   whereSql += isTraHang ? " AND ddh.trang_thai_hien_tai = 'TN da duyet'" : ` AND ${latestDonHangLogStatusExpr("ddh.id")} = 'TN da duyet'`;
+  const locNgoai = khaDungLocNgoai(c);
+  whereSql += locNgoai.sql;
+  binds.push(...locNgoai.binds);
   const { results } = await c.env.DB.prepare(
     `SELECT ddh.id, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat, ddh.gia_chot, ddh.gia_de_xuat,
        ddh.updated_at, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.so_luong_thuc_xuat, ddh.so_tien_cong_no, ddh.ngay_tao
@@ -548,14 +578,15 @@ phieuXuatKho.get("/don-hang-kha-dung", async (c) => {
 // cong_no vs tra_hang, xem comment o do) - chi khac la GROUP BY loai_don thay vi tra tung dong.
 phieuXuatKho.get("/don-hang-kha-dung-counts", async (c) => {
   if (!canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const locNgoai = khaDungLocNgoai(c); // cung bo loc ngoai voi GET /don-hang-kha-dung (2026-09-29)
   const muaCongNo = await c.env.DB.prepare(
     `SELECT ddh.loai_don as loai_don, COUNT(*) as n FROM dat_don_hang ddh
-     WHERE ddh.loai_don != 'tra_hang' AND ddh.ma_xuat_kho IS NULL AND ${latestDonHangLogStatusExpr("ddh.id")} = 'TN da duyet'
+     WHERE ddh.loai_don != 'tra_hang' AND ddh.ma_xuat_kho IS NULL AND ${latestDonHangLogStatusExpr("ddh.id")} = 'TN da duyet'${locNgoai.sql}
      GROUP BY ddh.loai_don`,
-  ).all<{ loai_don: string; n: number }>();
+  ).bind(...locNgoai.binds).all<{ loai_don: string; n: number }>();
   const traHang = await c.env.DB.prepare(
-    "SELECT COUNT(*) as n FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.ma_xuat_kho IS NULL AND ddh.trang_thai_hien_tai = 'TN da duyet'",
-  ).first<{ n: number }>();
+    `SELECT COUNT(*) as n FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.ma_xuat_kho IS NULL AND ddh.trang_thai_hien_tai = 'TN da duyet'${locNgoai.sql}`,
+  ).bind(...locNgoai.binds).first<{ n: number }>();
   const counts: Record<"mua" | "cong_no" | "tra_hang", number> = { mua: 0, cong_no: 0, tra_hang: traHang?.n ?? 0 };
   for (const r of muaCongNo.results as { loai_don: string; n: number }[]) {
     if (r.loai_don === "mua" || r.loai_don === "cong_no") counts[r.loai_don] = r.n;

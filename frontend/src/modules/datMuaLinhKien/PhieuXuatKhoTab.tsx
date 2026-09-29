@@ -292,26 +292,36 @@ export function PhieuXuatKhoTab({
   // o nhap tay ID tu do, xem comment GET /phieu-xuat-kho/don-hang-kha-dung backend). Loc san theo
   // chonLoaiDon (dot 3 gop y #8) - doi Loai phieu se lam lai truy van.
   // LUON tai moi khi mo modal (2026-09-29): truoc day staleTime mac dinh 2 phut -> mo lai modal dung ban cu, don da bi
-  // huy/tu choi/gom vao phieu khac (ke ca do nguoi khac/tu dong) van hien KTV trong dropdown cho toi khi F5. Du lieu
-  // tai TRUOC luc mo modal (moModalLuc) coi nhu chua co -> dropdown cho "Đang tải" thay vi hien danh sach cu.
-  const [moModalLuc, setMoModalLuc] = useState(0); // gan ngay luc bam "+ Tạo phiếu xuất kho"
-  const { data: khaDungDataRaw, isLoading: khaDungLoadingRaw, dataUpdatedAt: khaDungLuc, errorUpdatedAt: khaDungLoiLuc } = useQuery({
-    queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung", chonLoaiDon],
-    queryFn: () => api.get<{ rows: DonHangKhaDungRow[] }>("/phieu-xuat-kho/don-hang-kha-dung" + buildQuery({ loai_don: chonLoaiDon })),
+  // huy/tu choi/gom vao phieu khac (ke ca do nguoi khac/tu dong) van hien KTV trong dropdown cho toi khi F5. Nut mo modal
+  // XOA cache danh sach (moModal) -> dropdown "Đang tải" cho toi khi co ban moi, khong bao gio hien ban cu.
+  function moModalTaoPxk() {
+    qc.removeQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung"] });
+    qc.removeQueries({ queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung-counts"] });
+    setChonLoaiDon(xemLoaiDon || "mua");
+    setShowCreate(true);
+  }
+  // Don kha dung chi theo DUNG bo loc dang chon o danh sach ben ngoai (2026-09-29): chip Khu vuc + loc Nguoi nhan hang +
+  // loc cot Excel cua 2 cot Khu vuc/Nguoi nhan hang (backend khaDungLocNgoai() o phieuXuatKho.ts).
+  const cfKhaDung = (() => {
+    const o: Record<string, { v: string[]; not?: boolean }> = {};
+    for (const k of ["khu_vuc", "nguoi_nhan_hang"]) if (locCot.loc[k]) o[k] = locCot.loc[k];
+    return Object.keys(o).length ? JSON.stringify(o) : undefined;
+  })();
+  const locNgoaiKhaDung = { khu_vuc: khuVucParam || undefined, nguoi_nhan_hang: filterNguoiNhanHang || undefined, cf: cfKhaDung };
+  const { data: khaDungData, isLoading: khaDungLoading } = useQuery({
+    queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung", chonLoaiDon, locNgoaiKhaDung],
+    queryFn: () => api.get<{ rows: DonHangKhaDungRow[] }>("/phieu-xuat-kho/don-hang-kha-dung" + buildQuery({ loai_don: chonLoaiDon, ...locNgoaiKhaDung })),
     enabled: showCreate,
     staleTime: 0,
     refetchOnWindowFocus: true,
     refetchInterval: showCreate ? 60_000 : false,
   });
-  const khaDungMoi = khaDungLuc >= moModalLuc || khaDungLoiLuc >= moModalLuc;
-  const khaDungData = khaDungMoi ? khaDungDataRaw : undefined;
-  const khaDungLoading = khaDungLoadingRaw || !khaDungMoi;
   // So dong kha dung THEO tung loai_don (phan hoi QA 2026-08-31, muc #8) - hien "(x123)" canh 3 nut
   // chon Loai phieu de TN biet truoc co bao nhieu KTV dang cho len PXK o moi loai, khong phai bam thu
   // tung nut moi biet co dong hay khong.
   const { data: khaDungCountsData } = useQuery({
-    queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung-counts"],
-    queryFn: () => api.get<{ counts: Record<"mua" | "cong_no" | "tra_hang", number> }>("/phieu-xuat-kho/don-hang-kha-dung-counts"),
+    queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung-counts", locNgoaiKhaDung],
+    queryFn: () => api.get<{ counts: Record<"mua" | "cong_no" | "tra_hang", number> }>("/phieu-xuat-kho/don-hang-kha-dung-counts" + buildQuery(locNgoaiKhaDung)),
     enabled: showCreate,
   });
   const khaDungCounts = khaDungCountsData?.counts ?? { mua: 0, cong_no: 0, tra_hang: 0 };
@@ -779,7 +789,7 @@ export function PhieuXuatKhoTab({
               </Btn>
             ))}
             {canTacNghiep && (
-              <Btn size="sm" onClick={() => { setChonLoaiDon(xemLoaiDon || "mua"); setMoModalLuc(Date.now()); setShowCreate(true); }}>
+              <Btn size="sm" onClick={moModalTaoPxk}>
                 + Tạo phiếu xuất kho
               </Btn>
             )}
@@ -861,6 +871,21 @@ export function PhieuXuatKhoTab({
           }}
         >
           <div className="space-y-3 text-sm">
+            {(khuVucParam || filterNguoiNhanHang || cfKhaDung) && (
+              <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-subtle)] px-2.5 py-1.5 text-[11.5px] text-[var(--color-text-secondary)]">
+                Chỉ hiện đơn theo bộ lọc đang chọn bên ngoài:{" "}
+                <b className="text-[var(--color-text)]">
+                  {[
+                    khuVucParam && `Khu vực ${[...filterKhuVuc].map((ma) => khuVucOptions.find((o) => o.value === ma)?.label ?? ma).join(", ")}`,
+                    filterNguoiNhanHang && `KTV ${labelKtv(filterNguoiNhanHang)}`,
+                    cfKhaDung && "lọc cột Khu vực/Người nhận hàng",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </b>
+                . Muốn thấy KTV khu vực khác, đóng lại và đổi bộ lọc.
+              </div>
+            )}
             <div>
               <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Loại phiếu *</label>
               <div className="flex gap-1">
