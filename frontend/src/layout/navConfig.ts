@@ -25,10 +25,10 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: "trang-chu", label: "Trang chủ", icon: "home", countKey: "ktvLogChuaDoc" },
       // "Thiếu linh kiện" dung thu 2 ngay sau "Trang chủ" (phan hoi 2026-09-28).
-      { key: "thieu-lk", label: "Thiếu linh kiện", icon: "package", countKey: "thieuLk" },
+      { key: "thieu-lk", label: "Thiếu hàng", icon: "package", countKey: "thieuLk" },
       // Tach "Đặt mua linh kiện" thanh 2 muc (2026-09-29): "Đơn đặt hàng" + "Phiếu xuất" - van la CUNG 1
       // DatMuaLinhKienModule (App.tsx), moi muc chi la 1 "khu" rieng (prop section) + menu giai doan rieng.
-      { key: "dat-mua-lk", label: "Đơn đặt hàng", icon: "cart", countKey: "datMuaLk" },
+      { key: "dat-mua-lk", label: "Đơn hàng", icon: "cart", countKey: "datMuaLk" },
       { key: "phieu-xuat", label: "Phiếu xuất", icon: "file", countKey: "phieuXuat" },
       { key: "danh-muc-lk", label: "Bảng giá", icon: "catalog" },
       { key: "ton-kho-ktv", label: "Công nợ", icon: "stock" },
@@ -55,9 +55,9 @@ export const ROLE_MODULES: Record<VaiTro, string[]> = {
 
 export const MODULE_TITLES: Record<string, string> = {
   "trang-chu": "Trang chủ",
-  "dat-mua-lk": "Đơn đặt hàng",
+  "dat-mua-lk": "Đơn hàng",
   "phieu-xuat": "Phiếu xuất",
-  "thieu-lk": "Thiếu linh kiện",
+  "thieu-lk": "Thiếu hàng",
   "tra-hang": "Trả hàng",
   "danh-muc-lk": "Bảng giá",
   "ton-kho-ktv": "Công nợ",

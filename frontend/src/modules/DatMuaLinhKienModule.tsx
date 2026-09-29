@@ -883,9 +883,10 @@ export function DatMuaLinhKienModule({
         }
         return (
           <>
-            {stageMenuSlots?.don && donGroup.items.length > 0 &&
+            {/* Chi xo menu con cua DUNG muc dang chon (2026-09-29: "ấn menu nào thì show danh sách thuộc menu đó thôi"). */}
+            {section !== "phieu-xuat" && stageMenuSlots?.don && donGroup.items.length > 0 &&
               createPortal(<StageMenu groups={[{ items: donGroup.items }]} activeKey={activeKey} isMobile={false} />, stageMenuSlots.don)}
-            {stageMenuSlots?.pxk && pxkGroup &&
+            {section === "phieu-xuat" && stageMenuSlots?.pxk && pxkGroup &&
               createPortal(<StageMenu groups={[{ items: pxkGroup.items }]} activeKey={activeKey} isMobile={false} />, stageMenuSlots.pxk)}
           </>
         );
