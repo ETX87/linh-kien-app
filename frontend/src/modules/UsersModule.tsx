@@ -1443,7 +1443,7 @@ function EtxNhanSuTab() {
     mutationFn: () => api.post<EtxNhanSuSyncStatus>("/etx-nhan-su/sync/run", {}),
     onSuccess: async (res) => {
       if (res.last_status === "error") addToast(`Đồng bộ lỗi: ${res.last_error}`);
-      else addToast(`Đã đồng bộ xong, ${res.changed_count} dòng thay đổi`);
+      else addToast(`Đã đồng bộ xong, ${res.changed_count} dòng thay đổi, tự tạo ${res.ktv_tu_tao ?? 0} KTV`);
       await qc.invalidateQueries({ queryKey: ["etx-nhan-su-sync-status"] });
       await qc.invalidateQueries({ queryKey: ["etx-nhan-su"] });
     },
@@ -1510,6 +1510,14 @@ function EtxNhanSuTab() {
                 {syncStatus?.last_status === "error" ? <Badge tone="coral">Lỗi</Badge> : syncStatus?.last_status === "ok" ? <Badge tone="teal">OK</Badge> : "—"}
               </KvRow>
               <KvRow label="Số dòng thay đổi lần gần nhất">{syncStatus?.changed_count ?? 0}</KvRow>
+              <KvRow label="KTV tự tạo lần gần nhất">
+                {syncStatus?.ktv_tu_tao ?? 0}
+                {(syncStatus?.tk_tu_duyet ?? 0) > 0 && <span className="text-[var(--ink-400)]"> (trong đó {syncStatus?.tk_tu_duyet} tài khoản đang chờ duyệt được duyệt luôn)</span>}
+              </KvRow>
+              <div className="text-[11px] text-[var(--ink-400)] mb-1">
+                Mỗi lần đồng bộ: nhân sự đang làm việc, chức danh có CTV / KTV / Kỹ thuật viên, có Gmail và chưa có trong danh bạ KTV sẽ được tự tạo
+                KTV (mã = Mã NV, tên "(Mã NV) Chức danh - Họ tên", chưa có khu vực) và kích hoạt tài khoản ngay.
+              </div>
               {syncStatus?.last_status === "error" && syncStatus.last_error && (
                 <KvRow label="Chi tiết lỗi"><span className="text-[var(--coral-600)]">{syncStatus.last_error}</span></KvRow>
               )}

@@ -232,6 +232,9 @@ export interface EtxNhanSuSyncStatus {
   last_status: string | null;
   changed_count: number;
   last_error: string | null;
+  // Tu dong tao KTV / duyet tai khoan tu ETX (2026-09-29, migration 0044)
+  ktv_tu_tao?: number;
+  tk_tu_duyet?: number;
 }
 
 // GET /users/login-log (bo sung theo audit "Ma trận kiểm soát hệ thống" 2026-08-27, muc A1) - bang

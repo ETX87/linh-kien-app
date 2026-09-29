@@ -1,6 +1,7 @@
 import type { Env } from "../types";
 import { fetchEtxNhanSuAll, type EtxNhanSuItem } from "./etxNhanSuClient";
 import { nowVN } from "./vnTime";
+import { tuDongTaoKtvTuEtx } from "./etxTuDongKtv";
 
 // Dong bo (PULL, 1 chieu tu ETX ve) danh ba etx_nhan_su - chay 1 lan/7 ngay qua cron (xem index.ts
 // scheduled(), gate theo thu+gio UTC) hoac bam tay qua routes/etxNhanSuSync.ts. Full-refresh moi lan
@@ -25,6 +26,8 @@ export interface EtxNhanSuSyncResult {
   changedCount: number;
   insertedCount: number;
   total: number;
+  ktvTuTao: number;
+  tkTuDuyet: number;
 }
 
 const CHUNK_SIZE = 500;
@@ -128,7 +131,10 @@ export async function runEtxNhanSuSync(env: Env, db: D1Database): Promise<EtxNha
     );
   }
 
-  return { changedCount, insertedCount, total: items.length };
+  // Tu tao KTV + duyet tai khoan cho nhan su CTV/KTV/Kỹ thuật viên dang lam (2026-09-29, lib/etxTuDongKtv.ts) - chay
+  // SAU khi danh ba da ghi xong de bat ca nhan su moi vua kéo ve.
+  const tuDong = await tuDongTaoKtvTuEtx(db);
+  return { changedCount, insertedCount, total: items.length, ...tuDong };
 }
 
 // Wrapper dung boi CA cron (scheduled(), 1 lan/7 ngay) LAN nut "Dong bo ngay" thu cong
@@ -139,8 +145,8 @@ export async function runEtxNhanSuSyncWithState(env: Env, db: D1Database): Promi
   try {
     const result = await runEtxNhanSuSync(env, db);
     await db
-      .prepare("UPDATE etx_nhan_su_sync_state SET last_run_at = ?, last_status = 'ok', changed_count = ?, last_error = NULL WHERE id = 1")
-      .bind(nowVN(), result.changedCount + result.insertedCount)
+      .prepare("UPDATE etx_nhan_su_sync_state SET last_run_at = ?, last_status = 'ok', changed_count = ?, ktv_tu_tao = ?, tk_tu_duyet = ?, last_error = NULL WHERE id = 1")
+      .bind(nowVN(), result.changedCount + result.insertedCount, result.ktvTuTao, result.tkTuDuyet)
       .run();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

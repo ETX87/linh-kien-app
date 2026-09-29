@@ -4,6 +4,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { runEtxNhanSuSyncWithState } from "../lib/etxNhanSuSync";
+import { tuDongTaoKtvTuEtx } from "../lib/etxTuDongKtv";
 import { nowVN } from "../lib/vnTime";
 
 // Quan tri "ETX nhan su" (xem lib/etxNhanSuSync.ts) - danh ba nhan su dong bo tu he ETX, du lieu
@@ -18,6 +19,8 @@ interface EtxNhanSuSyncStateRow {
   last_status: string | null;
   changed_count: number;
   last_error: string | null;
+  ktv_tu_tao?: number;
+  tk_tu_duyet?: number;
 }
 
 // GET /?search=&trang_thai=on|off&page=&pageSize= - danh sach danh ba, LEFT JOIN ktv_lien_he/users
@@ -61,7 +64,7 @@ etxNhanSuSync.get("/", async (c) => {
 
 etxNhanSuSync.get("/sync-status", async (c) => {
   const row = await c.env.DB.prepare(
-    "SELECT last_run_at, last_status, changed_count, last_error FROM etx_nhan_su_sync_state WHERE id = 1",
+    "SELECT last_run_at, last_status, changed_count, last_error, ktv_tu_tao, tk_tu_duyet FROM etx_nhan_su_sync_state WHERE id = 1",
   ).first<EtxNhanSuSyncStateRow>();
   return c.json(row ?? { last_run_at: null, last_status: null, changed_count: 0, last_error: null });
 });
@@ -69,9 +72,16 @@ etxNhanSuSync.get("/sync-status", async (c) => {
 etxNhanSuSync.post("/sync/run", async (c) => {
   await runEtxNhanSuSyncWithState(c.env, c.env.DB);
   const row = await c.env.DB.prepare(
-    "SELECT last_run_at, last_status, changed_count, last_error FROM etx_nhan_su_sync_state WHERE id = 1",
+    "SELECT last_run_at, last_status, changed_count, last_error, ktv_tu_tao, tk_tu_duyet FROM etx_nhan_su_sync_state WHERE id = 1",
   ).first<EtxNhanSuSyncStateRow>();
   return c.json(row);
+});
+
+// POST /tu-dong-ktv/run - CHI chay buoc tu tao KTV + duyet tai khoan (lib/etxTuDongKtv.ts) tren danh ba ETX DANG CO, khong
+// keo lai tu ETX (vd Admin vua sua danh ba KTV, muon chay lai ngay). Dong bo thuong (/sync/run, cron) da tu chay buoc nay.
+etxNhanSuSync.post("/tu-dong-ktv/run", async (c) => {
+  const kq = await tuDongTaoKtvTuEtx(c.env.DB);
+  return c.json(kq);
 });
 
 // PATCH /:maNhanSu/ma-ktv - Admin gan/xoa lien ket toi ktv_lien_he.ma_ktv. Ap dung cascade khoa/mo
