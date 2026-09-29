@@ -31,6 +31,7 @@ import {
   CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABELS, TRA_HANG_TRANG_THAI_OPTIONS, TAT_CA_LOAI_TRANG_THAI_OPTIONS,
   CHUYEN_TIEN_TONE, CHUYEN_TIEN_OPTIONS, PXK_TRANG_THAI_TONE, PXK_TRANG_THAI_OPTIONS,
   THIEU_LK_TRANG_THAI_TONE, THIEU_LK_TRANG_THAI_OPTIONS,
+  TRANG_THAI_PXK_DON_OPTIONS, TRANG_THAI_PXK_DON_TONE, THANH_TOAN_DON_OPTIONS, THANH_TOAN_DON_TONE,
 } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
@@ -1535,6 +1536,8 @@ export function DonCuaToiTab({
       nguoi_tao: "Người tạo",
       nguoi_nhan_hang: "Người nhận hàng",
       trang_thai: "Trạng thái",
+      trang_thai_pxk: "Phiếu xuất kho",
+      thanh_toan: "Chuyển tiền",
       yeu_cau_hoa_don: "Yêu cầu hóa đơn",
       khu_vuc: "Khu vực",
     },
@@ -1542,6 +1545,8 @@ export function DonCuaToiTab({
       nguoi_tao: (v) => formatNguoiDisplay(v, ktvDisplayMapLoc),
       nguoi_nhan_hang: (v) => formatNguoiDisplay(v, ktvDisplayMapLoc),
       trang_thai: (v) => trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, v),
+      trang_thai_pxk: (v) => (v ? trangThaiLabel(TRANG_THAI_PXK_DON_OPTIONS, v) : "— (chưa vào phiếu)"),
+      thanh_toan: (v) => trangThaiLabel(THANH_TOAN_DON_OPTIONS, v),
     },
   };
   async function handleDownloadFullList() {
@@ -2218,6 +2223,27 @@ export function DonHangGroupedList({
         );
       },
     },
+    // Trang thai phieu xuat kho chua don + chuyen tien THEO DON (2026-09-29, phan hoi "bổ sung thêm cột trạng thái 'Phiếu
+    // xuất kho'... vị trí phía sau trạng thái đơn" + "trạng thái chuyển tiền gắn với từng đơn") - backend suy tu PXK
+    // (lib/trangThaiDonPxk.ts), loc cot o server.
+    {
+      key: "trang_thai_pxk",
+      header: "Phiếu xuất kho",
+      filter: loc("trang_thai_pxk"),
+      render: (row) =>
+        row.d.trang_thai_pxk ? (
+          <StatusBadge value={row.d.trang_thai_pxk} tones={TRANG_THAI_PXK_DON_TONE} options={TRANG_THAI_PXK_DON_OPTIONS} />
+        ) : (
+          <span className="text-[var(--ink-400)]">—</span>
+        ),
+    },
+    {
+      key: "thanh_toan",
+      header: "Chuyển tiền",
+      filter: loc("thanh_toan"),
+      render: (row) =>
+        row.d.thanh_toan ? <StatusBadge value={row.d.thanh_toan} tones={THANH_TOAN_DON_TONE} options={THANH_TOAN_DON_OPTIONS} /> : <span className="text-[var(--ink-400)]">—</span>,
+    },
     { key: "nguoi_nhan_hang", header: "Người nhận hàng", filter: loc("nguoi_nhan_hang"), render: (row) => (row.d.nguoi_nhan_hang ? <NguoiNhan>{formatNguoiDisplay(row.d.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>) },
     { key: "ly_do_cham", header: "Lý do từ chối/chờ hàng", render: (row) => row.d.ly_do_cham || <span className="text-[var(--ink-400)]">—</span> },
     // "Khu vực" cua NGUOI NHAN HANG (khong phai cot that tren dat_don_hang - server LEFT JOIN qua
@@ -2352,6 +2378,8 @@ export function DonHangGroupedList({
       extra: BADGE_PAD * 2 + 4 + 30,
       max: 300,
     },
+    trang_thai_pxk: { text: (d) => (d.trang_thai_pxk ? trangThaiLabel(TRANG_THAI_PXK_DON_OPTIONS, d.trang_thai_pxk) : dash), font: BADGE_FONT, extra: BADGE_PAD },
+    thanh_toan: { text: (d) => (d.thanh_toan ? trangThaiLabel(THANH_TOAN_DON_OPTIONS, d.thanh_toan) : dash), font: BADGE_FONT, extra: BADGE_PAD },
     nguoi_nhan_hang: { text: (d) => (d.nguoi_nhan_hang ? formatNguoiDisplay(d.nguoi_nhan_hang, ktvDisplayMap) : dash), max: 300 },
     ly_do_cham: { text: (d) => d.ly_do_cham || dash, max: 220 },
     khu_vuc: { text: (d) => d.khu_vuc_ten || dash, max: 150 },
@@ -2676,6 +2704,24 @@ export function DonHangGroupedList({
                                 {donGiaSauChietKhau(d) != null ? <span className="text-[var(--green-700)] font-semibold"><Money>{fmtVND(donGiaSauChietKhau(d))}</Money></span> : "—"}
                               </span>
                             </div>
+                            {/* Dong 3 (2026-09-29, phan hoi "trên giao diện mobile thêm trạng thái ở card của từng đơn
+                                hàng"): trang thai phieu xuat kho + chuyen tien cua don (cung nguon cot desktop). */}
+                            {(d.trang_thai_pxk || d.thanh_toan) && (
+                              <div className="mt-1 flex items-center gap-1.5 overflow-hidden text-[11px] text-[var(--ink-500)]">
+                                {d.trang_thai_pxk && (
+                                  <span className="inline-flex min-w-0 items-center gap-1" title="Phiếu xuất kho">
+                                    <span className="shrink-0">Phiếu:</span>
+                                    <StatusBadge value={d.trang_thai_pxk} tones={TRANG_THAI_PXK_DON_TONE} options={TRANG_THAI_PXK_DON_OPTIONS} />
+                                  </span>
+                                )}
+                                {d.thanh_toan && (
+                                  <span className="inline-flex min-w-0 items-center gap-1" title="Chuyển tiền">
+                                    <span className="shrink-0">Tiền:</span>
+                                    <StatusBadge value={d.thanh_toan} tones={THANH_TOAN_DON_TONE} options={THANH_TOAN_DON_OPTIONS} />
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             {/* FIX (phan hoi 2026-08-28, lan 2: "ấn vào vùng trống trên thẻ vẫn không mở
                                 UI chi tiết") - truoc day CA HANG nut hanh dong nay stopPropagation, kha
                                 ca khoang trong quanh cac nut icon nho (hang luon rong het chieu ngang

@@ -186,6 +186,54 @@ export const CHUYEN_TIEN_TONE: Record<string, Tone> = {
   "KTV da chuyen": "info",
   "TN da duyet": "success",
 };
+// 2 trang thai SUY RA tren TUNG DON tu phieu xuat kho chua don (2026-09-29) - backend tra MA (lib/trangThaiDonPxk.ts,
+// cot trang_thai_pxk / thanh_toan cua GET /dat-mua-lk/don-hang), them/doi ma phai sua ca 2 noi.
+export const TRANG_THAI_PXK_DON_OPTIONS = [
+  { value: "cho_tao_phieu", label: "Chờ tạo phiếu" },
+  { value: "cho_ktv_chuyen_tien", label: "Chờ KTV chuyển tiền" },
+  { value: "cho_xac_nhan_chuyen_tien", label: "Chờ xác nhận chuyển tiền" },
+  { value: "cho_gui_ke_toan", label: "Chờ TN gửi kế toán" },
+  { value: "cho_ke_toan_chot", label: "Chờ kế toán chốt" },
+  { value: "cho_kho_gui_hang", label: "Chờ kho gửi hàng" },
+  { value: "cho_kho_nhan_hang_tra", label: "Chờ kho nhận hàng trả" },
+  { value: "cho_ktv_xac_nhan", label: "Chờ KTV xác nhận" },
+  { value: "ktv_da_nhan", label: "KTV đã nhận" },
+  { value: "hang_tru_kho", label: "Hàng trừ kho" },
+  { value: "kho_da_ket_thuc", label: "Kho đã kết thúc" },
+  { value: "kho_da_nhan_hang_tra", label: "Kho đã nhận hàng trả" },
+  { value: "phieu_da_huy", label: "Phiếu đã hủy" },
+  { value: "", label: "—" },
+];
+export const TRANG_THAI_PXK_DON_TONE: Record<string, Tone> = {
+  cho_tao_phieu: "info",
+  cho_ktv_chuyen_tien: "warning",
+  cho_xac_nhan_chuyen_tien: "warning",
+  cho_gui_ke_toan: "info",
+  cho_ke_toan_chot: "warning",
+  cho_kho_gui_hang: "warning",
+  cho_kho_nhan_hang_tra: "warning",
+  cho_ktv_xac_nhan: "warning",
+  ktv_da_nhan: "success",
+  hang_tru_kho: "success",
+  kho_da_ket_thuc: "success",
+  kho_da_nhan_hang_tra: "success",
+  phieu_da_huy: "neutral",
+};
+export const THANH_TOAN_DON_OPTIONS = [
+  { value: "khong_can", label: "Không cần chuyển" },
+  { value: "cho_thanh_toan", label: "Chờ thanh toán" },
+  { value: "cho_xac_nhan", label: "Chờ xác nhận tiền" },
+  { value: "da_thanh_toan", label: "Đã thanh toán" },
+  { value: "da_huy_bo", label: "Đã hủy bỏ" },
+];
+export const THANH_TOAN_DON_TONE: Record<string, Tone> = {
+  khong_can: "neutral",
+  cho_thanh_toan: "warning",
+  cho_xac_nhan: "info",
+  da_thanh_toan: "success",
+  da_huy_bo: "neutral",
+};
+
 export const CHUYEN_TIEN_OPTIONS = [
   { value: "Cho KTV chuyen", label: "Chờ KTV chuyển" },
   { value: "KTV da chuyen", label: "KTV đã chuyển" },

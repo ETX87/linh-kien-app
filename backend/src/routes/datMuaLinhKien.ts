@@ -24,6 +24,7 @@ import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
 import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon } from "../lib/pxkRecalculate";
 import { computeTonKtvConLai } from "../lib/tonKhoKtv";
 import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
+import { TRANG_THAI_PXK_DON_SQL, THANH_TOAN_DON_SQL } from "../lib/trangThaiDonPxk";
 import { TU_HUY_DUOC_SQL, TN_DOI_TRONG_PXK_SQL, pxkDuocTuHuy, pxkTnDoiDuoc, goDonKhoiPxk, laVanPhong, danhDauVanPhongTacDong } from "../lib/pxkTuHuy";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, MUA_CONG_NO_ROLES, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
 import { pushThieuLkToKhovan, buildWorkUrl } from "../lib/khovanPushClient";
@@ -1711,6 +1712,9 @@ const DON_HANG_COT_LOC: Record<string, CotLoc> = {
   yeu_cau_hoa_don: { kieu: "don", expr: "ddh.yeu_cau_hoa_don" },
   // Cot luu san (migration 0042) - thay subquery ktv_lien_he: co ca khu vuc GS va "Chưa có khu vực".
   khu_vuc: { kieu: "don", expr: "ddh.khu_vuc_ma", khuVuc: true },
+  // Trang thai phieu xuat kho + chuyen tien THEO DON (2026-09-29, lib/trangThaiDonPxk.ts) - bieu thuc suy tu PXK chua don.
+  trang_thai_pxk: { kieu: "don", expr: TRANG_THAI_PXK_DON_SQL("ddh") },
+  thanh_toan: { kieu: "don", expr: THANH_TOAN_DON_SQL("ddh") },
 };
 
 // Dieu kien WHERE cua GET /don-hang (tach ham 2026-09-28 de GET /don-hang/gia-tri-loc dung lai y het).
@@ -1855,7 +1859,8 @@ datMuaLinhKien.get("/don-hang", async (c) => {
     `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, lk.dac_thu, lk.gia_ban as lk_gia_ban, ${TU_HUY_DUOC_SQL("ddh")} as tu_huy_duoc, ${TN_DOI_TRONG_PXK_SQL("ddh")} as tn_doi_trong_pxk, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
        ${lastGiaiTrinhAtExpr("ddh.id")} as last_giai_trinh_at,
        (SELECT ghi_chu FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) as ghi_chu_xu_ly_gan_nhat,
-       kv.ten as khu_vuc_ten
+       kv.ten as khu_vuc_ten,
+       ${TRANG_THAI_PXK_DON_SQL("ddh")} as trang_thai_pxk, ${THANH_TOAN_DON_SQL("ddh")} as thanh_toan
      FROM dat_don_hang ddh
      LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
      -- "Khu vực" = cot ddh.khu_vuc_ma (migration 0042: KTV nhan hang -> KTV tao -> GS -> "Chưa có khu vực"),

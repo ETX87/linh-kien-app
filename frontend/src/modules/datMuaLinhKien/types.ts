@@ -134,6 +134,10 @@ export interface DonHangRow {
   // cua chinh nguoi_nhan_hang (xem GET /don-hang) - null neu chua co nguoi_nhan_hang hoac KTV do chua
   // duoc gan Khu vuc.
   khu_vuc_ten?: string | null;
+  // Trang thai phieu xuat kho + chuyen tien THEO DON (2026-09-29) - MA do backend suy tu PXK chua don (lib/trangThaiDonPxk.ts),
+  // nhan o TRANG_THAI_PXK_DON_OPTIONS / THANH_TOAN_DON_OPTIONS (constants.ts). Chi co o GET /don-hang (danh sach).
+  trang_thai_pxk?: string | null;
+  thanh_toan?: string | null;
   // Loai chiet khau duoc huong (migration 0033) - he thong gan luc tao PXK, TN chon lai duoc (thu_cong=1).
   // Ten lay tu danh sach settings (useLoaiChietKhauList), khong JOIN o tung API.
   loai_chiet_khau_id?: number | null;
