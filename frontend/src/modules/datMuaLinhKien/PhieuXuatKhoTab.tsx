@@ -291,11 +291,21 @@ export function PhieuXuatKhoTab({
   // Danh sach dong "TN da duyet" + chua gan PXK nao - nguon picker chon dong (CHOT 2026-08-14: thay
   // o nhap tay ID tu do, xem comment GET /phieu-xuat-kho/don-hang-kha-dung backend). Loc san theo
   // chonLoaiDon (dot 3 gop y #8) - doi Loai phieu se lam lai truy van.
-  const { data: khaDungData, isLoading: khaDungLoading } = useQuery({
+  // LUON tai moi khi mo modal (2026-09-29): truoc day staleTime mac dinh 2 phut -> mo lai modal dung ban cu, don da bi
+  // huy/tu choi/gom vao phieu khac (ke ca do nguoi khac/tu dong) van hien KTV trong dropdown cho toi khi F5. Du lieu
+  // tai TRUOC luc mo modal (moModalLuc) coi nhu chua co -> dropdown cho "Đang tải" thay vi hien danh sach cu.
+  const [moModalLuc, setMoModalLuc] = useState(0); // gan ngay luc bam "+ Tạo phiếu xuất kho"
+  const { data: khaDungDataRaw, isLoading: khaDungLoadingRaw, dataUpdatedAt: khaDungLuc, errorUpdatedAt: khaDungLoiLuc } = useQuery({
     queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung", chonLoaiDon],
     queryFn: () => api.get<{ rows: DonHangKhaDungRow[] }>("/phieu-xuat-kho/don-hang-kha-dung" + buildQuery({ loai_don: chonLoaiDon })),
     enabled: showCreate,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: showCreate ? 60_000 : false,
   });
+  const khaDungMoi = khaDungLuc >= moModalLuc || khaDungLoiLuc >= moModalLuc;
+  const khaDungData = khaDungMoi ? khaDungDataRaw : undefined;
+  const khaDungLoading = khaDungLoadingRaw || !khaDungMoi;
   // So dong kha dung THEO tung loai_don (phan hoi QA 2026-08-31, muc #8) - hien "(x123)" canh 3 nut
   // chon Loai phieu de TN biet truoc co bao nhieu KTV dang cho len PXK o moi loai, khong phai bam thu
   // tung nut moi biet co dong hay khong.
@@ -332,6 +342,14 @@ export function PhieuXuatKhoTab({
   // Danh sach KTV thuc su co dong kha dung (de dung lam options Select "Chon KTV") - chi liet ke
   // KTV dang co dong cho tao PXK, tranh chon xong roi thay danh sach rong.
   const ktvKhaDung = [...new Set((khaDungData?.rows ?? []).map((r) => r.nguoi_nhan_hang).filter((x): x is string => !!x))];
+  // KTV dang chon khong con dong kha dung sau khi tai lai -> bo chon (tranh tao phieu cho KTV khong con don).
+  const ktvKhaDungKey = ktvKhaDung.join("|");
+  useEffect(() => {
+    if (khaDungData && chonKtv && !ktvKhaDungKey.split("|").includes(chonKtv)) {
+      setChonKtv("");
+      setSelectedDonHang(new Set());
+    }
+  }, [khaDungData, chonKtv, ktvKhaDungKey]);
   // Tong tien cac dong DA CHON (them 2026-08-26: "1 nút ấn tự điền tiền ước tính... = số tiền tổng
   // theo danh sách đã chọn") - tach thanh bien dung chung, truoc day chi tinh INLINE 1 lan de HIEN THI
   // o dong "Đã chọn N" (xem JSX ben duoi), gio dung lai CHINH XAC con so nay de tu dien vao o "Số tiền
@@ -761,7 +779,7 @@ export function PhieuXuatKhoTab({
               </Btn>
             ))}
             {canTacNghiep && (
-              <Btn size="sm" onClick={() => { setChonLoaiDon(xemLoaiDon || "mua"); setShowCreate(true); }}>
+              <Btn size="sm" onClick={() => { setChonLoaiDon(xemLoaiDon || "mua"); setMoModalLuc(Date.now()); setShowCreate(true); }}>
                 + Tạo phiếu xuất kho
               </Btn>
             )}
@@ -865,7 +883,8 @@ export function PhieuXuatKhoTab({
               <Select
                 value={chonKtv}
                 onChange={(v) => { setChonKtv(v); setSelectedDonHang(new Set()); }}
-                options={[{ value: "", label: "-- Chọn KTV --" }, ...ktvKhaDung.map((email) => ({ value: email, label: labelKtv(email) }))]}
+                options={[{ value: "", label: khaDungLoading ? "Đang tải danh sách KTV…" : "-- Chọn KTV --" }, ...ktvKhaDung.map((email) => ({ value: email, label: labelKtv(email) }))]}
+                disabled={khaDungLoading}
                 className="w-full"
               />
             </div>
@@ -1312,6 +1331,7 @@ export function PxkDetailModal({
     queryKey: ["dat-mua-lk-pxk-don-hang-kha-dung", data?.phieuXuatKho.loai_don],
     queryFn: () => api.get<{ rows: DonHangKhaDungRow[] }>("/phieu-xuat-kho/don-hang-kha-dung" + buildQuery({ loai_don: data?.phieuXuatKho.loai_don ?? undefined })),
     enabled: showThemDon && !!data?.phieuXuatKho.loai_don,
+    staleTime: 0, // luon tai moi khi mo "Thêm đơn" (cung ly do voi modal tao phieu, 2026-09-29)
   });
   const themDonQNorm = themDonQ.trim().toLowerCase().normalize("NFC");
   const themDonLoc = (themDonKhaDungData?.rows ?? []).filter(
