@@ -13,3 +13,8 @@ Thumbs.db
 # Khoa API/sao luu DB - khong bao gio commit
 KHOA-API-*.txt
 backups/
+
+# Tai lieu/ghi chu noi bo - khong dua len GitHub (chot 2026-09-29)
+Huong_dan_*.docx
+hrApi*.js
+*[Cc]odex*.txt
