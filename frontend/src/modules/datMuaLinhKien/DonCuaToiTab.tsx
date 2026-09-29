@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useMemo, useRef, Fragment } from "react";
 import { LoaiChietKhauText, LoaiChietKhauPicker, useLoaiChietKhauList, tenLoaiChietKhau, duocDoiLoaiChietKhau } from "./LoaiChietKhau";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1613,11 +1613,38 @@ export function DonCuaToiTab({
     setSelected(new Set());
   }, [filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, effectiveLoaiDon, debouncedQ, khuVucParam, locCot.queryParams.cf, locCot.queryParams.cs, locCot.queryParams.cd]);
 
-  const { data: veTinhData } = useQuery({
-    queryKey: ["dat-mua-lk-ve-tinh-cua-toi"],
-    queryFn: () => api.get<{ rows: { email: string; ten: string | null }[] }>("/dat-mua-lk/ve-tinh-cua-toi"),
+  // Dropdown "Người tạo" (sua 2026-09-29: truoc day chi lay Ve tinh co tram_cha = minh -> TN khong phai Tram cua ai nen
+  // chi con "Tất cả người tạo"). Gio lay DANH SACH NGUOI TAO THAT trong pham vi dang xem tu CUNG endpoint loc cot
+  // (/don-hang/gia-tri-loc?cot=nguoi_tao, cung WHERE voi danh sach) - BO chinh bo loc nguoi_tao de van chon lai duoc.
+  const { data: nguoiTaoData } = useQuery({
+    queryKey: ["dat-mua-lk-nguoi-tao-options", filterTrangThai, filterNguoiNhanHang, filterTuNgay, filterDenNgay, effectiveLoaiDon, debouncedQ, khuVucParam, locCot.queryParams.cf],
+    queryFn: () =>
+      api.get<{ rows: { v: string; n: number }[] }>(
+        "/dat-mua-lk/don-hang/gia-tri-loc" +
+          buildQuery({
+            cot: "nguoi_tao",
+            trang_thai: filterTrangThai || undefined,
+            nguoi_nhan_hang: filterNguoiNhanHang || undefined,
+            tu_ngay: filterTuNgay || undefined,
+            den_ngay: filterDenNgay || undefined,
+            loai_don: effectiveLoaiDon || undefined,
+            q: debouncedQ || undefined,
+            khu_vuc: khuVucParam || undefined,
+            cf: locCot.queryParams.cf,
+          }),
+      ),
     enabled: canBulkTram,
+    staleTime: 60_000,
   });
+  const nguoiTaoOptions = useMemo(() => {
+    const rows = (nguoiTaoData?.rows ?? []).filter((r) => r.v);
+    const opts = rows
+      .map((r) => ({ value: r.v, label: `${formatPersonDisplay(r.v, personDir)} (${r.n})` }))
+      .sort((a, b) => a.label.localeCompare(b.label, "vi"));
+    // Gia tri dang loc khong con trong danh sach (vd vua doi bo loc khac) -> van hien de biet dang loc ai.
+    if (filterNguoiTao && !rows.some((r) => r.v === filterNguoiTao)) opts.unshift({ value: filterNguoiTao, label: formatPersonDisplay(filterNguoiTao, personDir) });
+    return [{ value: "", label: "Tất cả người tạo" }, ...opts];
+  }, [nguoiTaoData, personDir, filterNguoiTao]);
 
   // Giai doan 4b - TN nhom/loc hang doi theo nguoi nhan hang (diem 5 yeu cau).
   // FIX (phan hoi 2026-08-28: "Thiếu công cụ filter theo KTV") - truoc day CHI enabled cho canTacNghiep,
@@ -1828,10 +1855,7 @@ export function DonCuaToiTab({
                   <Select
                     value={filterNguoiTao}
                     onChange={setFilterNguoiTao}
-                    options={[
-                      { value: "", label: "Tất cả người tạo" },
-                      ...(veTinhData?.rows ?? []).map((v) => ({ value: v.email, label: formatPersonDisplay(v.email, personDir) })),
-                    ]}
+                    options={nguoiTaoOptions}
                   />
                   <span className="text-xs text-[var(--ink-500)]">Từ ngày</span>
                   <input
