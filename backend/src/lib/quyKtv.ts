@@ -112,7 +112,8 @@ export async function canBangPxk(
     const daHuy = pxk.trang_thai_hien_tai === "Ke toan huy";
     const tong = daHuy ? 0 : Math.max(0, pxk.so_tien_can_chuyen ?? 0);
     const daTra = pxk.da_thanh_toan ?? 0;
-    const choTien = !daHuy && pxk.trang_thai_hien_tai === "Dang tao phieu" && pxk.trang_thai_chuyen_tien === "Cho KTV chuyen";
+    // Khong bat buoc "Dang tao phieu": phieu cu da qua buoc (du lieu truoc gate) duoc Ke toan duyet van phai tru quy.
+    const choTien = !daHuy && pxk.trang_thai_chuyen_tien === "Cho KTV chuyen";
     const now = nowVN();
     const nguoiGhi = nguoi || NGUOI_HE_THONG;
 
@@ -156,7 +157,7 @@ export async function canBangPxk(
       if (tru > 0 || thanhToanDu) {
         lenh.push(logLenh(
           "Tru quy du",
-          (tru > 0 ? `Trừ ${tien(tru)} từ quỹ dư` : "Đã thanh toán đủ từ trước") +
+          (tru > 0 ? `Dùng ${tien(tru)} trong quỹ trả phiếu` : "Đã thanh toán đủ từ trước") +
             (thanhToanDu ? " — phiếu đã thanh toán đủ, không cần chuyển thêm" : ` — còn phải chuyển ${tien(tong - sauCung)}`),
         ));
       }
@@ -181,7 +182,7 @@ export async function phanBoQuy(db: D1Database, email: string, nguoi?: string | 
   const { results } = await db
     .prepare(
       `SELECT id FROM phieu_xuat_kho
-       WHERE nguoi_nhan_hang = ? AND trang_thai_hien_tai = 'Dang tao phieu' AND trang_thai_chuyen_tien = 'Cho KTV chuyen'
+       WHERE nguoi_nhan_hang = ? AND trang_thai_hien_tai != 'Ke toan huy' AND trang_thai_chuyen_tien = 'Cho KTV chuyen'
          AND COALESCE(so_tien_can_chuyen, 0) > da_thanh_toan
        ORDER BY ngay_tao, id`,
     )

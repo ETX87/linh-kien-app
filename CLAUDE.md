@@ -354,6 +354,22 @@ chuyen" nhận `bang_chung_chuyen_tien_anh` = DANH SÁCH ĐẦY ĐỦ (cũ + m�
 `PATCH /:id/chuyen-tien` `{trang_thai:"Cho KTV chuyen", ly_do_tu_choi}` (chỉ Kế toán/Admin, từ "KTV da chuyen", phiếu chưa
 hủy, bắt buộc lý do) → lưu `ly_do_tu_choi_chuyen_tien`/`tu_choi_chuyen_tien_luc`, log 'Ke toan tu choi bang chung chuyen
 tien', báo việc mới cho KTV nhận hàng + TN; GIỮ ảnh/ghi chú. Lý do hiện ở form KTV tới khi KTV "Đã chuyển" lại (xoá lý do).
+**Quỹ tiền dư KTV** (chốt 2026-09-29, `lib/quyKtv.ts`, migration `0047`): MỌI tiền chuyển đi qua quỹ của NGƯỜI NHẬN HÀNG
+(Vệ tinh → Trạm). Kế toán duyệt = nhập **số thực nhận** (`PATCH /:id/chuyen-tien` `so_tien_thuc_nhan`, `duyetKhoanChuyen()`):
+quỹ +T (`nop_tien`) → `canBangPxk()` trừ quỹ trả phiếu (`tra_phieu`, tối đa số còn thiếu) → đủ thì "TN da duyet", thiếu thì
+về "Cho KTV chuyen" số còn thiếu; dư nằm lại quỹ và `phanBoQuy()` tự trừ cho phiếu "Cho KTV chuyen" CŨ NHẤT của cùng người.
+Quỹ đủ trả hết → phiếu tự "TN da duyet" (log 'Tru quy du'), không chờ Kế toán. Tổng giảm/phiếu hủy sau khi đã trả → hoàn
+về quỹ (`hoan_phieu`, log 'Hoan tien ve quy'). `so_tien_can_chuyen` GIỮ nghĩa = tổng phiếu; `phieu_xuat_kho.da_thanh_toan` =
+đã trả; còn phải chuyển = hiệu. `canBangPxk()` idempotent, gọi ở `taiTinhPxk` (mọi thay đổi tổng), POST `/:id/chuyen-tien`,
+từ chối, mọi đường hủy PXK (`/:id/log` Ke toan huy, `goDonKhoiPxk`, `huyPxkNeuTrong`) — thêm đường hủy/đổi tiền mới phải
+gọi nó. Sổ quỹ `quy_ktv_giao_dich` chỉ ghi thêm; `quy_ktv.so_du` CHECK ≥ 0; mỗi batch mở đầu bằng CAS (`quy_cas_guard` —
+INSERT vi phạm CHECK khi `da_thanh_toan`/trạng thái đã đổi → rollback cả batch). `khoan_chuyen_tien` = sổ mọi lần Kế toán
+duyệt/từ chối (ảnh, số cần/thực nhận; `lich_su=1` = dữ liệu trước quỹ, coi như trả đủ). Khoá "Kế toán đã chốt tiền"
+(tự hủy, TN đổi đơn trong PXK, tự tính lại tổng ngày) dùng `KE_TOAN_DA_CHOT_TIEN_SQL` = 'TN da duyet' + CÓ khoản đã duyệt
+— phiếu trả HẾT bằng quỹ vẫn mở như chưa chốt (hủy/giảm tự hoàn quỹ). UI: `TienPhieuVaQuy`/`DuyetChuyenTienForm`/
+`LichSuKhoanChuyen` (`BangChungChuyenTien.tsx`), dòng "Quỹ dư hiện tại" trong `TongNgayKtvInfo`; file "Tải danh sách chi
+tiết" PXK thêm Mã HĐ/Người chuyển/cần-thực chuyển/quỹ/link ảnh (`exportRowsToExcel` `linkFields`). Bản 2 (chưa làm): màn
+"Quỹ & chuyển tiền" + điều chỉnh/hoàn tiền KTV (loại `dieu_chinh`/`hoan_tien_ktv` đã có trong CHECK).
 
 **Tìm theo tên KTV** (`lib/timTheoTen.ts`, không dấu, không phân biệt hoa/thường — `LOWER()`/`LIKE` của SQLite không
 làm được): danh sách đơn/PXK/Thiếu LK/Trả hàng (`emailsTheoTen` + `orEmailIn` — danh sách email là 1 bind JSON
