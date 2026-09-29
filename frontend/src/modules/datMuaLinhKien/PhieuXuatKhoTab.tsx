@@ -635,6 +635,15 @@ export function PhieuXuatKhoTab({
       key: "chuyen_tien", header: "Chuyển tiền", filter: loc("chuyen_tien"),
       render: (r) => (r.so_tien_can_chuyen != null ? <StatusBadge value={r.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /> : <span className="text-[var(--ink-400)] text-xs">Không cần</span>),
     },
+    // Anh bang chung chuyen tien xem nhanh ngay tren danh sach (2026-09-29, giong cot "Ảnh" man Quỹ & chuyển tiền) - bam anh
+    // mo lightbox, khong xo dong.
+    {
+      key: "bang_chung", header: "Bằng chứng",
+      render: (r) => {
+        const anh = docAnhBangChung(r);
+        return anh.length > 0 ? <BangChungAnhList urls={anh} nho /> : <span className="text-[var(--ink-400)]">—</span>;
+      },
+    },
     { key: "trang_thai", header: "Trạng thái", filter: loc("trang_thai"), render: (r) => <StatusBadge value={r.trang_thai} tones={PXK_TRANG_THAI_TONE} options={PXK_TRANG_THAI_OPTIONS} /> },
     {
       key: "viec_can_lam", header: "Việc cần làm tiếp", filter: loc("viec_can_lam"),

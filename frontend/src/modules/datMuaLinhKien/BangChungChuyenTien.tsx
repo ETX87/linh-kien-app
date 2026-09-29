@@ -244,11 +244,11 @@ export function docAnhBangChung(pxk: BangChungPxk): string[] {
   return pxk.bang_chung_chuyen_tien_url ? [pxk.bang_chung_chuyen_tien_url] : [];
 }
 
-function AnhThumb({ url, stt, onXoa }: { url: string; stt: number; onXoa?: () => void }) {
+function AnhThumb({ url, stt, onXoa, nho }: { url: string; stt: number; onXoa?: () => void; nho?: boolean }) {
   return (
     <div className="relative">
       <ImageLink url={url} className="focus-ring block overflow-hidden rounded-lg border border-[var(--color-border)]">
-        <img src={url} alt={`Bằng chứng ${stt}`} loading="lazy" className="h-14 w-14 object-cover" />
+        <img src={url} alt={`Bằng chứng ${stt}`} loading="lazy" className={nho ? "h-9 w-9 object-cover" : "h-14 w-14 object-cover"} />
       </ImageLink>
       {onXoa && (
         <button
@@ -264,9 +264,21 @@ function AnhThumb({ url, stt, onXoa }: { url: string; stt: number; onXoa?: () =>
   );
 }
 
-/** Hien anh bang chung da luu (chi xem). */
-export function BangChungAnhList({ urls }: { urls: string[] }) {
+/** Hien anh bang chung da luu (chi xem). `nho` = kieu gon cho o bang (1 hang, anh 36px, toi da 3 anh + "+N"). */
+export function BangChungAnhList({ urls, nho }: { urls: string[]; nho?: boolean }) {
   if (urls.length === 0) return null;
+  if (nho) {
+    const hien = urls.slice(0, 3);
+    return (
+      // Chan click lan len dong bang (dong PXK bam = xo/thu) - bam anh chi mo xem anh.
+      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        {hien.map((u, i) => (
+          <AnhThumb key={u} url={u} stt={i + 1} nho />
+        ))}
+        {urls.length > hien.length && <span className="text-[11px] font-semibold text-[var(--color-text-secondary)]">+{urls.length - hien.length}</span>}
+      </div>
+    );
+  }
   return (
     <div className="flex flex-wrap gap-1.5 pt-0.5">
       {urls.map((u, i) => (
