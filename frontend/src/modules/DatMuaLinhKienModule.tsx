@@ -52,6 +52,9 @@ const STAGE_MENU_TARGETS: { key: string; tab: string; filter: string; loaiDon?: 
   { key: "cho-ktv-chuyen-tien", tab: "phieu-xuat-kho", filter: "CHO_TIEN", loaiDon: "" },
   { key: "phieu-cho-ma-hd", tab: "phieu-xuat-kho", filter: "Dang tao phieu", loaiDon: "" },
   { key: "phieu-cho-ma-misa", tab: "phieu-xuat-kho", filter: "Cho ke toan", loaiDon: "" },
+  { key: "da-chot-xong", tab: "phieu-xuat-kho", filter: "CHOT_CHUA_IN", loaiDon: "" },
+  { key: "phieu-da-in", tab: "phieu-xuat-kho", filter: "DA_IN", loaiDon: "" },
+  // Pipeline "Kho"/the "Kho chốt đơn xuất" nhay toi loc day du (da in + chua in) - van sang muc "Đã chốt xong".
   { key: "da-chot-xong", tab: "phieu-xuat-kho", filter: "Da chot xong don xuat", loaiDon: "" },
   { key: "dang-gui-ktv", tab: "phieu-xuat-kho", filter: "Dang gui KTV", loaiDon: "" },
   { key: "hang-tru-kho", tab: "phieu-xuat-kho", filter: "Hang tru kho", loaiDon: "" },
@@ -607,11 +610,19 @@ export function DatMuaLinhKienModule({
               // "Phiếu xuất kho đang chờ KTV xác nhận đã nhận hàng." cua chinh buoc "KTV" tren luong
               // quy trinh) - phan hoi 2026-09-11: "Thiếu giai đoạn 'Đã gửi chờ KTV xác nhận'" thuc ra
               // la do nhan cu gay hieu nham day la 1 buoc khac, khong phai thieu that.
+              // "Phiếu đã in" tach rieng (chot 2026-09-29): "Đã chốt xong đơn xuất" CHI con phieu chua in (CHOT_CHUA_IN), phieu
+              // da chot + da in sang muc rieng (DA_IN) - moi phieu chi nam o 1 muc.
               {
                 key: "da-chot-xong",
                 label: "Đã chốt xong đơn xuất",
-                count: pxkStatusCounts["Da chot xong don xuat"],
-                onClick: () => stageJump("da-chot-xong", { tab: "phieu-xuat-kho", filter: "Da chot xong don xuat", loaiDon: "" }),
+                count: pxkStatusCounts.CHOT_CHUA_IN,
+                onClick: () => stageJump("da-chot-xong", { tab: "phieu-xuat-kho", filter: "CHOT_CHUA_IN", loaiDon: "" }),
+              },
+              {
+                key: "phieu-da-in",
+                label: "Phiếu đã in",
+                count: pxkStatusCounts.DA_IN,
+                onClick: () => stageJump("phieu-da-in", { tab: "phieu-xuat-kho", filter: "DA_IN", loaiDon: "" }),
               },
               {
                 key: "dang-gui-ktv",

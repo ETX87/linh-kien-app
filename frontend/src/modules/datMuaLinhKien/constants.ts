@@ -383,6 +383,10 @@ export const PXK_TRANG_THAI_OPTIONS = [
   { value: "Dang tao phieu", label: "Đang tạo phiếu" },
   { value: "Cho ke toan", label: "Chờ kế toán" },
   { value: "Da chot xong don xuat", label: "Đã chốt xong đơn xuất" },
+  // 2 sentinel cua menu "Đã chốt xong đơn xuất" (chi phieu CHUA in) / "Phiếu đã in" (2026-09-29, xem DA_IN_COND o
+  // backend/src/routes/phieuXuatKho.ts) - khong phai trang_thai_hien_tai that, chi lam chip loc.
+  { value: "CHOT_CHUA_IN", label: "Đã chốt xong - chưa in" },
+  { value: "DA_IN", label: "Phiếu đã in" },
   { value: "Dang gui KTV", label: "Đang gửi KTV" },
   { value: "KTV da nhan", label: "KTV đã nhận" },
   // SUA (phan hoi 2026-09-22 "TN hủy phiếu nhưng đang hiện là kế toán hủy"): nhan HIEN THI doi thanh

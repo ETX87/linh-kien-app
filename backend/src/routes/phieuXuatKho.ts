@@ -60,6 +60,12 @@ phieuXuatKho.use("/:id/*", async (c, next) => {
 
 const TRANG_THAI_DONG = ["KTV da nhan", "Ke toan huy", "Hang tru kho", "Kho da ket thuc", "Kho da nhan hang tra"] as const;
 
+// Menu "Phiếu đã in" tach khoi "Đã chốt xong đơn xuất" (chot 2026-09-29): 2 sentinel rieng cho menu, 1 phieu "Da chot xong"
+// chi thuoc 1 trong 2. Loc "Da chot xong don xuat" thuong GIU NGUYEN (ca da in + chua in) - pipeline "Kho", the "Kho chốt
+// đơn xuất", bao cao "Chờ kho gửi" van dem + nhay toi tap day du do.
+const DA_IN_COND = "pxk.trang_thai_hien_tai = 'Da chot xong don xuat' AND pxk.da_in_phieu = 1";
+const CHOT_CHUA_IN_COND = "pxk.trang_thai_hien_tai = 'Da chot xong don xuat' AND pxk.da_in_phieu = 0";
+
 // Tien to ID theo loai_don (phan hoi 2026-09-09: "ID tự sinh của PXK-000005 đang gây nhầm lẫn với mã
 // PXK của misa") - truoc day CA 3 loai_don deu dung chung tien to "PXK", trung voi tien to ma MISA hay
 // dung khi TN tu dat ma_xuat_kho dang "PXK-xxx" (2 nguon ID de lan nhau khi doi chieu). Dung LAI CHUNG
@@ -275,6 +281,10 @@ async function pxkListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string): P
     // tao phieu" lan "Cho ke toan" KHONG qua gate do, nen 1 PXK "Ke toan huy" van co the con mang
     // so_tien_can_chuyen chua duyet, bi dem nham la "Chờ tiền" that su.
     whereSql += " AND pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'";
+  } else if (trangThai === "DA_IN") {
+    whereSql += ` AND ${DA_IN_COND}`;
+  } else if (trangThai === "CHOT_CHUA_IN") {
+    whereSql += ` AND ${CHOT_CHUA_IN_COND}`;
   } else if (trangThai === "Dang tao phieu") {
     // CHOT (phan hoi 2026-08-24: "khi pxk đang chờ tiền, thì tính nó thành chờ tiền, khi cập nhật
     // tiền xong thì mới chuyển thành pxk") - loai tru PXK dang thoa dieu kien CHO_TIEN o tren khoi
@@ -404,6 +414,10 @@ phieuXuatKho.get("/misa-export", async (c) => {
     // FIX (phan hoi 2026-09-23 "vẫn đếm cả đơn đã hủy") - xem giai thich day du o GET / (cung 1 fix,
     // cung ngay, giu dong bo "xem" vs "xuat" theo dung comment dau file).
     whereSql += " AND pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'";
+  } else if (trangThai === "DA_IN") {
+    whereSql += ` AND ${DA_IN_COND}`;
+  } else if (trangThai === "CHOT_CHUA_IN") {
+    whereSql += ` AND ${CHOT_CHUA_IN_COND}`;
   } else if (trangThai === "Dang tao phieu") {
     whereSql += " AND pxk.trang_thai_hien_tai = ? AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')";
     binds.push(trangThai);
@@ -498,16 +512,20 @@ phieuXuatKho.get("/status-counts", async (c) => {
     `SELECT
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${whereSql}) as total,
        (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${whereSql} AND ${openCond}) as mo,
-       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${whereSql} AND ${choTienCond}) as cho_tien`,
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${whereSql} AND ${choTienCond}) as cho_tien,
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${whereSql} AND ${DA_IN_COND}) as da_in,
+       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${whereSql} AND ${CHOT_CHUA_IN_COND}) as chot_chua_in`,
   )
-    .bind(...binds, ...binds, ...TRANG_THAI_DONG, ...binds)
-    .first<{ total: number; mo: number; cho_tien: number }>();
+    .bind(...binds, ...binds, ...TRANG_THAI_DONG, ...binds, ...binds, ...binds)
+    .first<{ total: number; mo: number; cho_tien: number; da_in: number; chot_chua_in: number }>();
   const { results } = await c.env.DB.prepare(
     `SELECT pxk.trang_thai_hien_tai as trang_thai, COUNT(*) as n FROM phieu_xuat_kho pxk WHERE ${whereSql} AND NOT (${choTienCond}) GROUP BY pxk.trang_thai_hien_tai`,
   )
     .bind(...binds)
     .all<{ trang_thai: string; n: number }>();
-  const counts: Record<string, number> = { "": scalarRow?.total ?? 0, __OPEN__: scalarRow?.mo ?? 0, CHO_TIEN: scalarRow?.cho_tien ?? 0 };
+  const counts: Record<string, number> = { "": scalarRow?.total ?? 0, __OPEN__: scalarRow?.mo ?? 0, CHO_TIEN: scalarRow?.cho_tien ?? 0,
+    DA_IN: scalarRow?.da_in ?? 0, CHOT_CHUA_IN: scalarRow?.chot_chua_in ?? 0,
+  };
   for (const r of results) counts[r.trang_thai ?? ""] = r.n;
   return c.json({ counts });
 });

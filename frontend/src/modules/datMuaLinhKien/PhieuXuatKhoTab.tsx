@@ -579,6 +579,20 @@ export function PhieuXuatKhoTab({
         );
       },
     },
+    {
+      // Dat TRUOC cot "Người tạo" (phan hoi 2026-09-29).
+      // Co phu "Da in phieu" (migration 0032) - CHI co y nghia tu luc "Đã chốt xong đơn xuất" tro di
+      // (loai_don != tra_hang, tra hang khong co buoc "gui KTV"/in phieu giao hang) - cac dong khac
+      // hien "—" thay vi badge "Chưa in" gay nham la CAN in (vd dong dang o "Dang tao phieu"/"Cho ke
+      // toan" chua toi luc Kho can quan tam).
+      key: "da_in_phieu", header: "In phiếu", filter: loc("da_in_phieu"),
+      render: (r) =>
+        r.loai_don !== "tra_hang" && ["Da chot xong don xuat", "Dang gui KTV", "KTV da nhan"].includes(r.trang_thai) ? (
+          r.da_in_phieu ? <Badge tone="success">🖨 Đã in</Badge> : <Badge tone="warning">Chưa in</Badge>
+        ) : (
+          <span className="text-[var(--ink-400)]">—</span>
+        ),
+    },
     { key: "nguoi_tao", header: "Người tạo", filter: loc("nguoi_tao"), render: (r) => <NguoiTao>{labelKtv(r.nguoi_tao)}</NguoiTao> },
     { key: "nguoi_nhan_hang", header: "Người nhận hàng", filter: loc("nguoi_nhan_hang"), render: (r) => (r.nguoi_nhan_hang ? <NguoiNhan>{labelKtv(r.nguoi_nhan_hang)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>) },
     { key: "ngay_tao", header: "Ngày tạo", render: (r) => fmtDateTime(r.ngay_tao) },
@@ -602,19 +616,6 @@ export function PhieuXuatKhoTab({
       render: (r) => (r.so_tien_can_chuyen != null ? <StatusBadge value={r.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /> : <span className="text-[var(--ink-400)] text-xs">Không cần</span>),
     },
     { key: "trang_thai", header: "Trạng thái", filter: loc("trang_thai"), render: (r) => <StatusBadge value={r.trang_thai} tones={PXK_TRANG_THAI_TONE} options={PXK_TRANG_THAI_OPTIONS} /> },
-    {
-      // Co phu "Da in phieu" (migration 0032) - CHI co y nghia tu luc "Đã chốt xong đơn xuất" tro di
-      // (loai_don != tra_hang, tra hang khong co buoc "gui KTV"/in phieu giao hang) - cac dong khac
-      // hien "—" thay vi badge "Chưa in" gay nham la CAN in (vd dong dang o "Dang tao phieu"/"Cho ke
-      // toan" chua toi luc Kho can quan tam).
-      key: "da_in_phieu", header: "In phiếu", filter: loc("da_in_phieu"),
-      render: (r) =>
-        r.loai_don !== "tra_hang" && ["Da chot xong don xuat", "Dang gui KTV", "KTV da nhan"].includes(r.trang_thai) ? (
-          r.da_in_phieu ? <Badge tone="success">🖨 Đã in</Badge> : <Badge tone="warning">Chưa in</Badge>
-        ) : (
-          <span className="text-[var(--ink-400)]">—</span>
-        ),
-    },
     {
       key: "viec_can_lam", header: "Việc cần làm tiếp", filter: loc("viec_can_lam"),
       render: (r) => {
@@ -669,7 +670,7 @@ export function PhieuXuatKhoTab({
             {viec && <span className="min-w-0 flex-1 truncate text-xs font-medium text-[var(--amber-700)]">→ {viec}</span>}
             {!viec && <span className="flex-1" />}
             {chuyenTienCho && <StatusBadge value={r.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} />}
-            {coInPhieu && (r.da_in_phieu ? <span title="Đã in phiếu" className="shrink-0 text-xs text-[var(--ocean-600)]">🖨 Đã in</span> : <Badge tone="warning">Chưa in</Badge>)}
+            {coInPhieu && (r.da_in_phieu ? <span title="Đã in phiếu" className="shrink-0 text-xs text-[var(--color-success-strong)]">🖨 Đã in</span> : <Badge tone="warning">Chưa in</Badge>)}
           </div>
         )}
       </div>
@@ -891,9 +892,9 @@ export function PhieuXuatKhoTab({
         }
         // FIX (phan hoi 2026-09-24: "đơn đã xác nhận in phiếu => cả card list của đơn chuyển sang màu
         // xanh dương nhạt để phân biệt với các pxk chưa in phiếu") - uu_tien (cam) van uu tien hien thi
-        // truoc (canh bao quan trong hon), da_in_phieu (xanh duong nhat, --ocean-100) chi to khi KHONG
-        // co uu_tien de tranh 2 mau ganh nhau tren cung 1 dong.
-        rowClassName={(r) => (r.co_don_uu_tien ? "bg-[var(--orange-100)] hover:brightness-95" : r.da_in_phieu ? "bg-[var(--ocean-100)] hover:brightness-95" : "")}
+        // truoc (canh bao quan trong hon), da_in_phieu chi to khi KHONG co uu_tien de tranh 2 mau ganh nhau tren cung
+        // 1 dong. Doi xanh duong nhat -> XANH LA nhat --color-success-soft (phan hoi 2026-09-29 "xanh dương nhạt khó nhìn").
+        rowClassName={(r) => (r.co_don_uu_tien ? "bg-[var(--orange-100)] hover:brightness-95" : r.da_in_phieu ? "bg-[var(--color-success-soft)] hover:brightness-95" : "")}
       />
       {showCreate && (
         <Modal
@@ -1384,7 +1385,8 @@ export function PxkDetailModal({
   // khong dung logMutation (khong ghi phieu_xuat_kho_log, khong doi trang_thai_hien_tai).
   const daInPhieuMutation = useMutation({
     mutationFn: (daInPhieu: boolean) => api.patch(`/phieu-xuat-kho/${id}/da-in-phieu`, { da_in_phieu: daInPhieu }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["pxk-detail", id] }); qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk"] }); },
+    // + so dem menu "Đã chốt xong đơn xuất"/"Phiếu đã in" (2026-09-29) - phieu chuyen muc ngay khi danh dau/bo danh dau.
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["pxk-detail", id] }); qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk"] }); qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk-status-counts"] }); },
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
   });
 
