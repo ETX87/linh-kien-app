@@ -3390,7 +3390,7 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
   const existing = await c.env.DB.prepare(
     `SELECT nguoi_tao, nguoi_nhan_hang, ma_xuat_kho, so_luong_thuc_xuat, gia_chot, ma_misa, ly_do_cham,
        ma_lk, ten_lk_snapshot, loai_de_xuat, so_luong_de_xuat, gia_de_xuat, ghi_chu, chinh_sach,
-       ma_yeu_cau_su_co, yeu_cau_hoa_don, tt_khach_hang, tt_mail_duyet, uu_tien,
+       ma_yeu_cau_su_co, yeu_cau_hoa_don, tt_khach_hang, tt_mail_duyet, uu_tien, loai_don, trang_thai_hien_tai, email_gs,
        ${latestDonHangStatusExpr("dat_don_hang.id")} as trang_thai,
        (SELECT pxk.trang_thai_hien_tai FROM phieu_xuat_kho_dong pxkd JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
         WHERE pxkd.dat_don_hang_id = dat_don_hang.id) as pxk_trang_thai,
@@ -3405,12 +3405,15 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
       loai_de_xuat: string | null; so_luong_de_xuat: number; gia_de_xuat: number | null; ghi_chu: string | null;
       chinh_sach: string | null; ma_yeu_cau_su_co: string | null; yeu_cau_hoa_don: string | null;
       tt_khach_hang: string | null; tt_mail_duyet: string | null; uu_tien: number; trang_thai: string | null;
+      loai_don: string; trang_thai_hien_tai: string; email_gs: string | null;
       pxk_trang_thai: string | null; pxk_id: string | null;
     }>();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
 
   const isCreatorEditWindow =
     user.email === existing.nguoi_tao &&
+    // Don tra hang (ke ca don TN vua chuyen tu don mua - log mua cu van la "Cho TN duyet") khong thuoc cua so sua nay.
+    existing.loai_don !== "tra_hang" &&
     (existing.trang_thai === "Cho Tram duyet" || existing.trang_thai === "Cho TBP xac nhan" || existing.trang_thai === "Cho TN duyet");
   // MOI (2026-09-21, phan hoi "cho phep TN sua thong tin don ngay ca khi da len PXK"): TN sua duoc
   // TOAN BO thong tin don BAT KY LUC NAO, mien PXK (neu co) dang dung buoc "Dang tao phieu" (= "ke
@@ -3527,6 +3530,27 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
       next.gia_chot !== existing.gia_chot ||
       next.yeu_cau_hoa_don !== existing.yeu_cau_hoa_don; // co/khong yeu cau hoa don doi gia (chot 2026-09-29)
 
+    // FIX 2026-09-29 (bug "TN chuyển đơn sai loại đề xuất sang loại TRẢ HÀNG, đơn vẫn nằm Chờ TN duyệt"): doi loai de
+    // xuat qua lai giua nhom Mua/Cong no va nhom TRA HANG = doi LUONG quy trinh - truoc day chi doi cot loai_don, giu
+    // nguyen trang_thai_hien_tai cua luong cu nen don ket o trang thai khong ton tai trong luong moi. Gio dat lai
+    // trang thai dau cua luong moi: Mua -> Tra hang = "Cho ke toan duyet mem" (khong bat anh - anh chi bat luc KTV
+    // tao don tra hang); Tra hang -> Mua = "Cho TN duyet" (TN dang sua chinh la nguoi duyet tiep) va CHI khi don tra
+    // hang chua ai xu ly (con "Cho ke toan duyet mem"). Don da dong (tu choi/huy) khong doi luong duoc.
+    const laTraCu = existing.loai_don === "tra_hang";
+    const laTraMoi = next.loai_don === "tra_hang";
+    let trangThaiLuongMoi: string | null = null;
+    if (laTraCu !== laTraMoi) {
+      if (laTraMoi) {
+        if (["TN tu choi", "Da huy"].includes(existing.trang_thai_hien_tai)) return c.json({ error: "DON_DA_DONG_KHONG_DOI_LUONG" }, 409);
+        trangThaiLuongMoi = "Cho ke toan duyet mem";
+        thayDoiTao.push("Chuyển sang luồng Trả hàng (chờ Kế toán duyệt mềm)");
+      } else {
+        if (existing.trang_thai_hien_tai !== "Cho ke toan duyet mem") return c.json({ error: "TRA_HANG_DA_XU_LY_KHONG_DOI_LUONG" }, 409);
+        trangThaiLuongMoi = "Cho TN duyet";
+        thayDoiTao.push("Chuyển từ luồng Trả hàng về đơn đặt hàng (chờ TN duyệt)");
+      }
+    }
+
     const nowSua = nowVN();
     const statementsSua = [
       c.env.DB.prepare(
@@ -3542,20 +3566,84 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
         next.so_luong_thuc_xuat, next.gia_chot, next.ma_xuat_kho, next.ma_misa, nowSua, id,
       ),
     ];
+    if (trangThaiLuongMoi) {
+      // CAS: trang thai da bi nguoi khac doi giua luc doc va luc ghi -> INSERT vi pham CHECK x=0 -> rollback ca batch.
+      statementsSua.unshift(
+        c.env.DB.prepare("INSERT INTO quy_cas_guard (x) SELECT 1 WHERE (SELECT trang_thai_hien_tai FROM dat_don_hang WHERE id = ?) IS NOT ?").bind(
+          id, existing.trang_thai_hien_tai,
+        ),
+      );
+      statementsSua.push(
+        c.env.DB.prepare("UPDATE dat_don_hang SET trang_thai_hien_tai = ?, version = version + 1 WHERE id = ?").bind(trangThaiLuongMoi, id),
+      );
+    }
     if (thayDoiTao.length > 0) {
+      // Tra hang -> Mua: log mang trang thai MOI ("Cho TN duyet") vi trang thai luong mua doc tu log cuoi cung
+      // (latestDonHangStatusExpr) va moc han 24h cua TN tinh tu log "Cho TN duyet" nay.
+      const trangThaiLog = trangThaiLuongMoi && !laTraMoi ? trangThaiLuongMoi : (existing.trang_thai ?? "Cho Tram duyet");
       statementsSua.push(
         c.env.DB.prepare("INSERT INTO dat_don_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
-          id, existing.trang_thai ?? "Cho Tram duyet", user.email, nowSua, `Sửa: ${thayDoiTao.join(" | ")}`,
+          id, trangThaiLog, user.email, nowSua, `Sửa: ${thayDoiTao.join(" | ")}`,
         ),
       );
     }
-    await c.env.DB.batch(statementsSua);
+    if (trangThaiLuongMoi && laTraMoi) {
+      // Lich su man Tra hang doc tra_hang_log - ghi moc vao luong kem ly do.
+      statementsSua.push(
+        c.env.DB.prepare("INSERT INTO tra_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+          id, trangThaiLuongMoi, user.email, nowSua, `Chuyển từ đơn đặt hàng: loại đề xuất ${existing.loai_de_xuat ?? "—"} → ${next.loai_de_xuat}`,
+        ),
+      );
+    }
+    try {
+      await c.env.DB.batch(statementsSua);
+    } catch (e) {
+      if (trangThaiLuongMoi && String(e).includes("CHECK")) return c.json({ error: "STATE_CHANGED" }, 409);
+      throw e;
+    }
+    if (trangThaiLuongMoi) {
+      // Don dang "Cho hang" co ticket Thieu LK mo -> dong ticket (don khong con la don mua).
+      if (laTraMoi && existing.trang_thai_hien_tai === "Cho hang") {
+        await dongThieuLkMoCuaDon(c.env.DB, id, "Da huy bo", user.email, `Đơn chuyển sang luồng Trả hàng (loại đề xuất ${next.loai_de_xuat})`);
+      }
+      const tenLkNoiDung = `"${next.ten_lk_snapshot ?? next.ma_lk} (x${next.so_luong_de_xuat})"`;
+      const emailGsList = existing.email_gs ? [existing.email_gs] : [];
+      c.executionCtx.waitUntil(
+        laTraMoi
+          ? (async () =>
+              notifyWorkflowTask(c.env, c.env.DB, {
+                cat1Emails: await emailsForRoleOrQC(c.env.DB, "la_ke_toan", emailGsList),
+                otherRoles: TRA_HANG_ROLES.filter((r) => r !== "la_ke_toan"),
+                emailGsList,
+                pastActors: [],
+                title: "Trả hàng",
+                body: `Đơn trả hàng ${tenLkNoiDung} (TN chuyển từ đơn đặt hàng) đang chờ bạn duyệt`,
+                linkType: "don_hang",
+                linkId: id,
+              }))()
+          : (async () =>
+              notifyWorkflowTask(c.env, c.env.DB, {
+                cat1Emails: await emailsForRoleOrQC(c.env.DB, "la_tac_nghiep", emailGsList),
+                otherRoles: MUA_CONG_NO_ROLES.filter((r) => r !== "la_tac_nghiep"),
+                emailGsList,
+                pastActors: [],
+                title: "Đặt mua linh kiện",
+                body: `Đơn ${tenLkNoiDung} (chuyển từ trả hàng) đang chờ bạn duyệt`,
+                linkType: "don_hang",
+                linkId: id,
+              }))(),
+      );
+    }
     // Van phong sua tay dong trong PXK -> KTV het quyen tu huy don tu duyet cua phieu (lib/pxkTuHuy.ts).
     if (existing.pxk_id && laVanPhong(user)) await danhDauVanPhongTacDong(c.env.DB, existing.pxk_id, user.email);
     if (existing.pxk_id && thayDoiTinhTien) await taiTinhPxk(c.env.DB, existing.pxk_id, false, true, user.email);
     // Doi ma LK/SL/SL thuc xuat lam doi tong don trong ngay cua KTV (chiet khau, chot 2026-09-28) -> tinh
     // lai CAC PXK dang tao KHAC cua KTV (PXK chua dong nay vua tinh o tren).
     if (thayDoiTinhTien) await taiTinhPxkMoCuaKtv(c.env.DB, existing.nguoi_nhan_hang, user.email, existing.pxk_id ?? undefined);
+    if (trangThaiLuongMoi) {
+      c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+      return c.json({ ok: true, chuyen_luong: laTraMoi ? "tra_hang" : "dat_hang", trang_thai: trangThaiLuongMoi });
+    }
   } else if (canTacNghiep(c)) {
     return c.json({ error: "PXK_DA_QUA_BUOC_TAO_PHIEU" }, 409);
   } else {

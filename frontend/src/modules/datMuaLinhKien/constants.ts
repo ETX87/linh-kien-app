@@ -21,6 +21,8 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   INVALID_STATE: "Trạng thái hiện tại không cho phép thao tác này",
   INVALID_SO_TIEN_THUC_NHAN: "Số tiền thực nhận phải là số nguyên lớn hơn 0",
   QUY_KHONG_DU: "Quỹ không đủ để trừ số tiền này",
+  DON_DA_DONG_KHONG_DOI_LUONG: "Đơn đã từ chối/hủy — không chuyển sang loại Trả hàng được",
+  TRA_HANG_DA_XU_LY_KHONG_DOI_LUONG: "Đơn trả hàng đã được xử lý qua bước Kế toán — không chuyển về loại mua được",
   INVALID_SO_TIEN: "Số tiền không hợp lệ",
   INVALID_LOAI: "Loại điều chỉnh không hợp lệ",
   MISSING_LY_DO: "Cần nhập lý do",

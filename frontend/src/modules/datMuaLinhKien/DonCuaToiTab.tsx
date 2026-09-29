@@ -382,14 +382,28 @@ export function DonHangDetailModal({
   }
 
   const editMutation = useMutation({
-    mutationFn: (body: Record<string, unknown>) => api.patch(`/dat-mua-lk/don-hang/${id}`, body),
-    onSuccess: () => {
+    mutationFn: (body: Record<string, unknown>) =>
+      api.patch<{ ok: boolean; chuyen_luong?: "tra_hang" | "dat_hang" }>(`/dat-mua-lk/don-hang/${id}`, body),
+    onSuccess: (res) => {
       setIsEditMode(false);
       setEditDraft(null);
       setEditDraftSnapshot(null);
       setTnCoreDraft(null);
       invalidate();
-      addToast("Đã lưu thay đổi đơn hàng");
+      // Doi loai de xuat Mua <-> TRA HANG = doi luong quy trinh (backend dat lai trang thai dau cua luong moi) -
+      // don roi khoi danh sach dang xem nen dong chi tiet.
+      if (res?.chuyen_luong) {
+        qc.invalidateQueries({ queryKey: ["tra-hang"] });
+        qc.invalidateQueries({ queryKey: ["tra-hang-detail", id] });
+        addToast(
+          res.chuyen_luong === "tra_hang"
+            ? "Đã chuyển đơn sang luồng Trả hàng — chờ Kế toán duyệt mềm"
+            : "Đã chuyển đơn về luồng Đơn hàng — chờ TN duyệt",
+        );
+        onClose();
+      } else {
+        addToast("Đã lưu thay đổi đơn hàng");
+      }
     },
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
   });
