@@ -1337,7 +1337,7 @@ export function PxkDetailModal({
       } else if (code === "MISSING_MA_MISA") {
         addToast("Cần nhập Mã MISA trước khi chốt xong đơn xuất");
       } else if (code === "MISSING_GHI_CHU") {
-        addToast("Cần nhập ghi chú/lý do trước khi huỷ");
+        addToast("Cần nhập ghi chú/lý do trước");
       } else {
         addToast("Lỗi: " + describeApiError(err));
       }
@@ -1531,9 +1531,11 @@ export function PxkDetailModal({
           value={ghiChu}
           onChange={(e) => setGhiChu(e.target.value)}
           placeholder={
-            (canTacNghiep || canKeToan) && ["Dang tao phieu", "Cho ke toan"].includes(trangThai)
-              ? "Ghi chú (bắt buộc nếu bấm Huỷ)"
-              : "Ghi chú (tuỳ chọn)"
+            canKeToan && trangThai === "Cho ke toan"
+              ? "Ghi chú (bắt buộc nếu bấm Huỷ / Trả về chờ mã HĐ)"
+              : (canTacNghiep || canKeToan) && ["Dang tao phieu", "Cho ke toan"].includes(trangThai)
+                ? "Ghi chú (bắt buộc nếu bấm Huỷ)"
+                : "Ghi chú (tuỳ chọn)"
           }
           className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
         />
@@ -1591,6 +1593,18 @@ export function PxkDetailModal({
               aria-label="Đã chốt xong đơn xuất"
             >
               ✅ Đã chốt xong đơn xuất
+            </Btn>
+          )}
+          {/* Day lui "Chờ mã MISA" -> "Chờ mã HĐ" (2026-09-29) - Ke toan tra phieu ve TN, bat buoc ly do (o ghi chu). */}
+          {canKeToan && trangThai === "Cho ke toan" && (
+            <Btn
+              variant="ghost"
+              onClick={() => logMutation.mutate("Dang tao phieu")}
+              disabled={logMutation.isPending || !ghiChu.trim()}
+              title={!ghiChu.trim() ? "Nhập lý do trả về vào ô Ghi chú trước" : "Trả phiếu về bước Chờ mã HĐ để Tác nghiệp sửa rồi gửi kế toán lại"}
+              aria-label="Trả về chờ mã HĐ"
+            >
+              ↩ Trả về chờ mã HĐ
             </Btn>
           )}
           {/* SUA (migration 0002_tra_hang_pxk.sql): PXK tra hang KHONG co buoc "dang gui" trung

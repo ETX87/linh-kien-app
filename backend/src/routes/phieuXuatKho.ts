@@ -1477,6 +1477,14 @@ phieuXuatKho.post("/:id/log", async (c) => {
     if (body.ly_do_huy_pxk !== "loi" && body.ly_do_huy_pxk !== "khong_con_nhu_cau") {
       return c.json({ error: "MISSING_LY_DO_HUY_PXK" }, 400);
     }
+  } else if (target === "Dang tao phieu") {
+    // DAY LUI "Chờ mã MISA" -> "Chờ mã HĐ" (2026-09-29, phan hoi "bổ sung chức năng đẩy lùi đơn từ trạng thái chờ mã
+    // MISA về chờ mã HĐ cho vai trò kế toán") - Ke toan tra phieu ve TN (sai ma don hang/thong tin...), bat buoc ly do.
+    // Giu nguyen ma don hang/ma MISA/chuyen tien da co - TN sua roi "Gửi kế toán" lai nhu binh thuong.
+    if (hienTai !== "Cho ke toan") return c.json({ error: "INVALID_STATE" }, 409);
+    if (!canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+    if (!body.ghi_chu?.trim()) return c.json({ error: "MISSING_GHI_CHU" }, 400);
+    body.ghi_chu = `Kế toán trả về chờ mã HĐ: ${body.ghi_chu.trim()}`;
   } else if (target === "Da chot xong don xuat") {
     if (hienTai !== "Cho ke toan") return c.json({ error: "INVALID_STATE" }, 409);
     if (!canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
@@ -1606,9 +1614,14 @@ phieuXuatKho.post("/:id/log", async (c) => {
 
   // Bao "viec moi" cho vai tro SAP xu ly buoc tiep theo (phan hoi 2026-09-05) - PXK khong co
   // email_gs rieng, suy tu cac dat_don_hang da gop vao (xem emailGsListForPxk).
-  if (target === "Cho ke toan" || target === "Da chot xong don xuat") {
-    const role = target === "Cho ke toan" ? "la_ke_toan" : "la_kho";
-    const body_ = target === "Cho ke toan" ? `PXK ${id} đang chờ bạn chốt kế toán` : `PXK ${id} đã chốt kế toán, chờ bạn xử lý`;
+  if (target === "Cho ke toan" || target === "Da chot xong don xuat" || target === "Dang tao phieu") {
+    const role = target === "Cho ke toan" ? "la_ke_toan" : target === "Dang tao phieu" ? "la_tac_nghiep" : "la_kho";
+    const body_ =
+      target === "Cho ke toan"
+        ? `PXK ${id} đang chờ bạn chốt kế toán`
+        : target === "Dang tao phieu"
+          ? `PXK ${id} bị kế toán trả về chờ mã HĐ — ${body.ghi_chu}`
+          : `PXK ${id} đã chốt kế toán, chờ bạn xử lý`;
     c.executionCtx.waitUntil(
       (async () => {
         const emailGsList = await emailGsListForPxk(c.env.DB, id);
