@@ -15,6 +15,7 @@ import { nowVN } from "./vnTime";
 import { nextSequentialId } from "./idCounter";
 import { notifyWorkflowTask, emailGsListForPxk, PXK_ROLES } from "./taskNotify";
 import { taiTinhPxk } from "./pxkRecalculate";
+import { moTaCanChuyen, tienPhieuVaQuy } from "./quyKtv";
 
 // Trung voi ham cung ten (khong export) trong routes/phieuXuatKho.ts - giu RIENG o day (khong import
 // tu file routes) de lib/ khong phu thuoc nguoc vao routes/, dung quy uoc lop kien truc san co.
@@ -82,7 +83,7 @@ export async function bundleAutoApprovedIntoPxk(
   }
 
   await db.batch(statements);
-  const ketQuaTaiTinh = await taiTinhPxk(db, pxkId, true, true, existing ? actorEmail : undefined);
+  const ketQuaTaiTinh = await taiTinhPxk(db, pxkId, true, true, existing ? actorEmail : undefined, actorEmail);
 
   // Chi bao KTV khi PXK vua CHUYEN sang "co tien can chuyen" (tu 0/chua co sang > 0) - tranh spam
   // thong bao lap lai moi lan gop them dong vao 1 PXK dang cho KTV chuyen tu truoc.
@@ -95,7 +96,7 @@ export async function bundleAutoApprovedIntoPxk(
       emailGsList,
       pastActors: [],
       title: "Phiếu xuất kho",
-      body: `PXK ${pxkId} (tự động duyệt) cần bạn xác nhận thông tin chuyển tiền ${ketQuaTaiTinh.total.toLocaleString("vi-VN")}đ`,
+      body: `(Tự động duyệt) ${moTaCanChuyen(pxkId, await tienPhieuVaQuy(db, pxkId))}`,
       linkType: "phieu_xuat_kho",
       linkId: pxkId,
     });

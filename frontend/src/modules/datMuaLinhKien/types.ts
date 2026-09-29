@@ -186,6 +186,9 @@ export interface PhieuXuatKhoRow {
   tu_choi_chuyen_tien_luc?: string | null;
   bang_chung_chuyen_tien_ghi_chu?: string | null;
   ngay_ktv_chuyen?: string | null;
+  // Quy du KTV (migration 0047): da tra cho phieu (tien chuyen + quy da tru) va tong tien Ke toan xac nhan thuc nhan.
+  da_thanh_toan?: number;
+  tien_thuc_chuyen?: number;
   // Co PHU rieng cua Kho (migration 0032, phan hoi 2026-09-24: "chờ kho gửi hàng cho ktv, thêm 1 trạng
   // thái phụ là đã in phiếu/ chưa in phiếu") - theo doi thuan tuy, khong anh huong trang_thai_hien_tai.
   da_in_phieu: number;

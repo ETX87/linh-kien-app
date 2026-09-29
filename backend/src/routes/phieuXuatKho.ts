@@ -20,6 +20,7 @@ import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, type PxkCalculation } from
 import { laVanPhong, danhDauVanPhongTacDong, huyPxkNeuTrong } from "../lib/pxkTuHuy";
 import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
 import { docAnhBangChung, MAX_ANH_BANG_CHUNG } from "../lib/bangChungChuyenTien";
+import { canBangPxk, duyetKhoanChuyen, lenhGhiKhoanTuChoi, lenhKhoaTrangThaiChuyenTien, moTaCanChuyen, soDuQuy, tienPhieuVaQuy } from "../lib/quyKtv";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
 // Pattern header+log giong phieu_dat. TN tao (gom nhieu dong don hang da "TN da duyet" vao 1
@@ -356,7 +357,10 @@ phieuXuatKho.get("/", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT pxk.id, pxk.ma_xuat_kho, pxk.ma_xuat_kho_xac_nhan, pxk.ma_misa, pxk.ma_van_don, pxk.anh_bien_ban_url,
        pxk.nguoi_tao, pxk.ngay_tao, pxk.ghi_chu, pxk.nguoi_nhan_hang, pxk.loai_don,
-       pxk.so_tien_can_chuyen, pxk.trang_thai_chuyen_tien, pxk.da_in_phieu,
+       pxk.so_tien_can_chuyen, pxk.trang_thai_chuyen_tien, pxk.da_in_phieu, pxk.da_thanh_toan,
+       pxk.bang_chung_chuyen_tien_anh, pxk.bang_chung_chuyen_tien_url,
+       (SELECT COALESCE(SUM(k.so_tien_thuc_nhan), 0) FROM khoan_chuyen_tien k
+          WHERE k.phieu_xuat_kho_id = pxk.id AND k.trang_thai = 'Da duyet') as tien_thuc_chuyen,
        pxk.trang_thai_hien_tai as trang_thai,
        (SELECT COUNT(*) FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = pxk.id) as so_dong,
        -- Loai chiet khau "dang duoc huong" cua CA phieu (phan hoi 2026-09-28 "theo loại chiết khấu cao
@@ -649,8 +653,9 @@ export async function ganLoaiChietKhauChoPxk(
   datLaiThuCong = false,
   capNhatTongTien = true,
   nguoiXuLy?: string,
+  nguoiCanBangQuy: string | undefined = nguoiXuLy,
 ): Promise<PxkCalculation> {
-  return taiTinhPxk(db, pxkId, datLaiThuCong, capNhatTongTien, nguoiXuLy);
+  return taiTinhPxk(db, pxkId, datLaiThuCong, capNhatTongTien, nguoiXuLy, nguoiCanBangQuy);
 }
 
 /** Dong bi go khoi PXK -> khong con huong chiet khau cua phieu nao -> xoa han (ke ca loai TN da chon). */
@@ -848,7 +853,8 @@ phieuXuatKho.post("/", async (c) => {
   ];
 
   await c.env.DB.batch(statements);
-  const ketQuaTaiTinh = await ganLoaiChietKhauChoPxk(c.env.DB, id);
+  const ketQuaTaiTinh = await ganLoaiChietKhauChoPxk(c.env.DB, id, false, true, undefined, user.email);
+  const tienPhieu = await tienPhieuVaQuy(c.env.DB, id);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   // Bao KTV "co tien can chuyen" (phan hoi 2026-09-05) - chi khi PXK nay THAT SU can chuyen tien luc
   // tao (coChuyenTien), nguoi phai xu ly la dung 1 KTV = nguoiNhanHang.
@@ -862,7 +868,7 @@ phieuXuatKho.post("/", async (c) => {
           emailGsList,
           pastActors: [],
           title: "Phiếu xuất kho",
-          body: `PXK ${id} cần bạn xác nhận thông tin chuyển tiền ${ketQuaTaiTinh.total.toLocaleString("vi-VN")}đ`,
+          body: moTaCanChuyen(id, tienPhieu),
           linkType: "phieu_xuat_kho",
           linkId: id,
         });
@@ -935,7 +941,14 @@ phieuXuatKho.get("/:id", async (c) => {
     },
   );
 
-  return c.json({ phieuXuatKho: pxk, donHang: donHangWithFlag, tongTienUocTinh: tinhTien.total, logs, misaTemplateDeXuat });
+  // Quy du cua nguoi nhan hang + cac lan Ke toan duyet/tu choi khoan chuyen cua phieu (migration 0047).
+  const quyDu = await soDuQuy(c.env.DB, (pxk as { nguoi_nhan_hang?: string | null }).nguoi_nhan_hang);
+  const { results: khoanChuyen } = await c.env.DB.prepare(
+    `SELECT id, trang_thai, tong_phieu, da_thanh_toan_truoc, so_tien_can_chuyen, so_tien_thuc_nhan, ly_do_tu_choi, nguoi_duyet, duyet_luc, lich_su
+     FROM khoan_chuyen_tien WHERE phieu_xuat_kho_id = ? ORDER BY id DESC`,
+  ).bind(id).all();
+
+  return c.json({ phieuXuatKho: pxk, donHang: donHangWithFlag, tongTienUocTinh: tinhTien.total, logs, misaTemplateDeXuat, quyDu, khoanChuyen });
 });
 
 // "template" query param dung chung cho ca 2 endpoint misa-export ben duoi (them 2026-09-02, phan
@@ -1163,6 +1176,7 @@ phieuXuatKho.post("/:id/chuyen-tien", async (c) => {
       id, "Da yeu cau KTV chuyen tien", user.email, now, `Yêu cầu KTV chuyển ${ketQuaTaiTinh.total.toLocaleString("vi-VN")}đ`,
     ),
   ]);
+  await canBangPxk(c.env.DB, id, user.email); // tru quy du (du thi tu thanh toan)
   // FIX (phat hien 04/09/2026 khi kiem thu bao cao Toc do xu ly): thieu bump version domain
   // "dat_mua_lk" - GET /bao-cao-toc-do/xep-hang (cachedReport) khong bao gio thay du lieu chuyen tien
   // moi neu khong co 1 ghi khac (vd duyet don) tinh co xay ra gan do de tu bump ho. Them dung pattern
@@ -1179,7 +1193,7 @@ phieuXuatKho.post("/:id/chuyen-tien", async (c) => {
 // TU TN SANG KE TOAN 04/09/2026 - xem nhanh "TN da duyet" ben duoi, gia tri DB giu nguyen ten cu).
 phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
   const id = c.req.param("id");
-  const body = await c.req.json<{ trang_thai: string; bang_chung_chuyen_tien_url?: string; bang_chung_chuyen_tien_anh?: string[]; bang_chung_chuyen_tien_ghi_chu?: string; ly_do_tu_choi?: string }>();
+  const body = await c.req.json<{ trang_thai: string; bang_chung_chuyen_tien_url?: string; bang_chung_chuyen_tien_anh?: string[]; bang_chung_chuyen_tien_ghi_chu?: string; ly_do_tu_choi?: string; so_tien_thuc_nhan?: number }>();
   const pxk = await c.env.DB.prepare(
     "SELECT trang_thai_hien_tai, trang_thai_chuyen_tien, nguoi_nhan_hang FROM phieu_xuat_kho WHERE id = ?",
   ).bind(id).first<{ trang_thai_hien_tai: string | null; trang_thai_chuyen_tien: string | null; nguoi_nhan_hang: string | null }>();
@@ -1249,15 +1263,43 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
     // chi doi AI duoc phep thuc hien hanh dong nay.
     if (!canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
     if (pxk.trang_thai_chuyen_tien !== "KTV da chuyen") return c.json({ error: "INVALID_STATE" }, 409);
+    // QUY DU (2026-09-29, migration 0047): Ke toan nhap SO TIEN THUC NHAN - du vao quy, thieu thi phieu ve "Cho KTV
+    // chuyen" so con thieu (chot nguoi dung). Client cu khong gui -> coi nhu nhan dung so con phai chuyen.
     const user = c.get("user");
-    await c.env.DB.batch([
-      c.env.DB.prepare("UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = 'TN da duyet' WHERE id = ?").bind(id),
-      // SUA 2026-09-13 (xem giai thich o PATCH /:id/ma-xuat-kho phia tren): trang_thai log-only rieng
-      // thay vi tai su dung logTrangThai.
-      c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
-        id, "Ke toan da duyet bang chung chuyen tien", user.email, now, "Kế toán đã duyệt bằng chứng chuyển tiền",
-      ),
-    ]);
+    let thucNhan = body.so_tien_thuc_nhan;
+    if (thucNhan == null) thucNhan = (await tienPhieuVaQuy(c.env.DB, id)).conPhaiChuyen;
+    if (!Number.isInteger(thucNhan) || thucNhan <= 0 || thucNhan > 10_000_000_000) return c.json({ error: "INVALID_SO_TIEN_THUC_NHAN" }, 400);
+    let ketQua;
+    try {
+      ketQua = await duyetKhoanChuyen(c.env.DB, id, thucNhan, user.email);
+    } catch {
+      return c.json({ error: "STATE_CHANGED" }, 409); // vua co nguoi duyet/tu choi/doi tien phieu nay
+    }
+    if (!ketQua) return c.json({ error: "NOT_FOUND" }, 404);
+    // Bao KTV ket qua (du vao quy / con thieu phai chuyen bo sung).
+    const tienVnd = (n: number) => `${n.toLocaleString("vi-VN")}đ`;
+    const du = Math.max(0, thucNhan - ketQua.canChuyen);
+    const noiDung = ketQua.conThieu > 0
+      ? `PXK ${id}: Kế toán xác nhận nhận ${tienVnd(thucNhan)}, còn thiếu ${tienVnd(ketQua.conThieu)} — vui lòng chuyển bổ sung`
+      : `PXK ${id}: Kế toán đã xác nhận nhận ${tienVnd(thucNhan)}` + (du > 0 ? `, dư ${tienVnd(du)} vào quỹ (quỹ còn ${tienVnd(ketQua.soDuQuy)})` : "");
+    c.executionCtx.waitUntil(
+      (async () => {
+        const emailGsList = await emailGsListForPxk(c.env.DB, id);
+        const pastActors = await pastActorsFor(c.env.DB, "phieu_xuat_kho_log", "phieu_xuat_kho_id", id, user.email);
+        await notifyWorkflowTask(c.env, c.env.DB, {
+          cat1Emails: pxk.nguoi_nhan_hang ? [pxk.nguoi_nhan_hang] : [],
+          otherRoles: [],
+          emailGsList,
+          pastActors,
+          title: "Phiếu xuất kho",
+          body: noiDung,
+          linkType: "phieu_xuat_kho",
+          linkId: id,
+        });
+      })(),
+    );
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+    return c.json({ ok: true, ...ketQua });
   } else if (body.trang_thai === "Cho KTV chuyen") {
     // KE TOAN TU CHOI / DAY LAI (2026-09-29, migration 0046, phan hoi "bổ sung chức năng đẩy lại các trường hợp sai
     // tiền, thiếu bằng chứng... khi đẩy sẽ cho phép tạo ghi chú lý do từ chối") - "KTV da chuyen" -> "Cho KTV chuyen",
@@ -1269,14 +1311,28 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
     const lyDo = body.ly_do_tu_choi?.trim();
     if (!lyDo) return c.json({ error: "MISSING_LY_DO" }, 400);
     const user = c.get("user");
-    await c.env.DB.batch([
-      c.env.DB.prepare(
-        "UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = 'Cho KTV chuyen', ngay_ktv_chuyen = NULL, ly_do_tu_choi_chuyen_tien = ?, tu_choi_chuyen_tien_luc = ? WHERE id = ?",
-      ).bind(lyDo, now, id),
-      c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
-        id, "Ke toan tu choi bang chung chuyen tien", user.email, now, lyDo,
-      ),
-    ]);
+    const pxkDay = await c.env.DB.prepare(
+      "SELECT id, nguoi_nhan_hang, so_tien_can_chuyen, da_thanh_toan, bang_chung_chuyen_tien_anh, bang_chung_chuyen_tien_ghi_chu, ngay_ktv_chuyen FROM phieu_xuat_kho WHERE id = ?",
+    ).bind(id).first<{
+      id: string; nguoi_nhan_hang: string | null; so_tien_can_chuyen: number | null; da_thanh_toan: number;
+      bang_chung_chuyen_tien_anh: string | null; bang_chung_chuyen_tien_ghi_chu: string | null; ngay_ktv_chuyen: string | null;
+    }>();
+    try {
+      await c.env.DB.batch([
+        lenhKhoaTrangThaiChuyenTien(c.env.DB, id, "KTV da chuyen"), // chan bam 2 lan
+        // So quan ly chuyen tien (migration 0047) ghi ca lan tu choi.
+        ...(pxkDay?.nguoi_nhan_hang ? [lenhGhiKhoanTuChoi(c.env.DB, { ...pxkDay, nguoi_nhan_hang: pxkDay.nguoi_nhan_hang }, lyDo, user.email, now)] : []),
+        c.env.DB.prepare(
+          "UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = 'Cho KTV chuyen', ngay_ktv_chuyen = NULL, ly_do_tu_choi_chuyen_tien = ?, tu_choi_chuyen_tien_luc = ? WHERE id = ?",
+        ).bind(lyDo, now, id),
+        c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+          id, "Ke toan tu choi bang chung chuyen tien", user.email, now, lyDo,
+        ),
+      ]);
+    } catch {
+      return c.json({ error: "STATE_CHANGED" }, 409);
+    }
+    await canBangPxk(c.env.DB, id, user.email); // ve "Cho KTV chuyen" -> quy du (neu co) tru tiep
     // Bao KTV nhan hang (nguoi chuyen tien) + TN "viec moi": chuyen lai/bo sung bang chung.
     c.executionCtx.waitUntil(
       (async () => {
@@ -1620,6 +1676,8 @@ phieuXuatKho.post("/:id/log", async (c) => {
       // Don duoc giai phong (thanh "chua vao PXK") hoac bi huy -> tong ngay/loai chiet khau cua KTV doi.
       await taiTinhPxkMoCuaKtv(c.env.DB, pxk.nguoi_nhan_hang, user.email, id);
     }
+    // Phieu da tra tien (du/1 phan) roi bi huy -> hoan ve quy du, tu tru cho phieu dang cho khac (migration 0047).
+    await canBangPxk(c.env.DB, id, user.email);
   }
 
   // Bao NGUOC cho khovan khi 1 buoc Kho duoc xac nhan THANG tren linh-kien-app qua link (them

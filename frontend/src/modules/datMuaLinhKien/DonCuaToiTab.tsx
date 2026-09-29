@@ -48,7 +48,7 @@ import { Money } from "../../components/ui/Money";
 import { TongNgayKtvInfo } from "./TongNgayKtv";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../components/ui/LocCot";
-import { BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung } from "./BangChungChuyenTien";
+import { TienPhieuVaQuy, BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung } from "./BangChungChuyenTien";
 
 // FIX (ra soat "logic sai theo vai tro" 2026-08-31): KTV/Ve tinh khong co tab "Phieu xuat kho" rieng
 // (chi Tac nghiep/Kho/Ke toan/Giam sat moi thay, xem canXemPxkTab o DatMuaLinhKienModule.tsx) - theo
@@ -64,6 +64,8 @@ interface PxkInfo {
   bang_chung_chuyen_tien_anh?: string | null; // JSON array URL (migration 0043)
   ly_do_tu_choi_chuyen_tien?: string | null; // Ke toan tu choi bang chung (migration 0046)
   tu_choi_chuyen_tien_luc?: string | null;
+  da_thanh_toan?: number; // quy du KTV (migration 0047)
+  quy_du?: number | null;
   bang_chung_chuyen_tien_ghi_chu: string | null;
   nguoi_nhan_hang: string | null;
   ma_xuat_kho: string | null;
@@ -1135,7 +1137,12 @@ export function DonHangDetailModal({
               </KvRow>
               {pxk.so_tien_can_chuyen != null && (
                 <>
-                  <KvRow label="Số tiền cần chuyển"><span className="font-semibold text-[var(--green-700)]"><Money>{fmtVND(pxk.so_tien_can_chuyen)}</Money></span></KvRow>
+                  <TienPhieuVaQuy
+                    tong={pxk.so_tien_can_chuyen}
+                    daThanhToan={pxk.da_thanh_toan ?? 0}
+                    daDuyet={pxk.trang_thai_chuyen_tien === "TN da duyet"}
+                    quyDu={pxk.quy_du ?? 0}
+                  />
                   <KvRow label="Trạng thái chuyển tiền">
                     <StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} />
                   </KvRow>

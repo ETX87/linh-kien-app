@@ -19,12 +19,25 @@ export async function exportRowsToExcel<T extends object>(
   filename: string,
   sheetName = "Data",
   headerLabels?: Record<string, string>,
-  options?: { includeFields?: string[] },
+  // linkFields: cot co gia tri la URL -> o Excel bam mo duoc (hyperlink that, khong chi la chu). Ten cot = key GOC
+  // (truoc khi doi nhan bang headerLabels).
+  options?: { includeFields?: string[]; linkFields?: string[] },
 ) {
   const XLSX = await import("xlsx");
   const cleanedRows = rows.map((row) => omitExcludedFields(row, options?.includeFields ?? []));
   const exportRows = headerLabels ? cleanedRows.map((row) => remapKeys(row, headerLabels)) : cleanedRows;
   const worksheet = XLSX.utils.json_to_sheet(exportRows);
+  const linkHeaders = new Set((options?.linkFields ?? []).map((f) => headerLabels?.[f] ?? f));
+  if (linkHeaders.size > 0 && exportRows.length > 0) {
+    const headers = Object.keys(exportRows[0]);
+    headers.forEach((h, col) => {
+      if (!linkHeaders.has(h)) return;
+      for (let r = 0; r < exportRows.length; r++) {
+        const cell = worksheet[XLSX.utils.encode_cell({ r: r + 1, c: col })];
+        if (cell && typeof cell.v === "string" && /^https?:\/\//i.test(cell.v)) cell.l = { Target: cell.v };
+      }
+    });
+  }
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
   XLSX.writeFile(workbook, filename);

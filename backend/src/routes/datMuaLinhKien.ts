@@ -1,3 +1,4 @@
+import { soDuQuy } from "../lib/quyKtv";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { Env } from "../types";
@@ -392,7 +393,8 @@ datMuaLinhKien.get("/tong-ngay-ktv", async (c) => {
     .filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s))
     .slice(0, 31);
   const rows = await tongNgayKtv(c.env.DB, resolved.email, [...new Set(ngays)]);
-  return c.json({ nguoi_nhan_hang: resolved.email, rows });
+  // Quy du (migration 0047) - tien chuyen du tinh cho NGUOI NHAN HANG (Ve tinh -> Tram).
+  return c.json({ nguoi_nhan_hang: resolved.email, rows, quy_du: await soDuQuy(c.env.DB, resolved.email) });
 });
 
 // GET /api/dat-mua-lk/khu-vuc-cua-toi (them 2026-08-27, phan hoi "GS test không thấy đơn của KTV khu
@@ -2898,7 +2900,8 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
   const pxk = await c.env.DB.prepare(
     `SELECT pxk.id, pxk.trang_thai_hien_tai as trang_thai, pxk.so_tien_can_chuyen, pxk.trang_thai_chuyen_tien,
             pxk.bang_chung_chuyen_tien_url, pxk.bang_chung_chuyen_tien_anh, pxk.bang_chung_chuyen_tien_ghi_chu, pxk.nguoi_nhan_hang, pxk.ma_xuat_kho,
-            pxk.ly_do_tu_choi_chuyen_tien, pxk.tu_choi_chuyen_tien_luc
+            pxk.ly_do_tu_choi_chuyen_tien, pxk.tu_choi_chuyen_tien_luc, pxk.da_thanh_toan,
+            (SELECT so_du FROM quy_ktv WHERE email = pxk.nguoi_nhan_hang) as quy_du
      FROM phieu_xuat_kho_dong pxkd JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
      WHERE pxkd.dat_don_hang_id = ?`,
   )

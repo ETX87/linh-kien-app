@@ -1,5 +1,6 @@
 import { computeMocDuPhongHienTai } from "./duPhongKtv";
 import { nowVN } from "./vnTime";
+import { canBangPxk, KE_TOAN_DA_CHOT_TIEN_SQL } from "./quyKtv";
 
 export type MaChietKhau = "KHONG_CK" | "DINH_TU" | "TONG_200_500" | "GIA_KTV" | "GIA_DU_PHONG" | "CONG_NO";
 
@@ -206,8 +207,8 @@ export async function taiTinhPxkMoCuaKtv(db: D1Database, nguoiNhanHang: string |
   // toan duyet chuyen tien ("TN da duyet") KHONG tu tinh lai theo tong ngay nua (ca loai chiet khau lan tien).
   const { results } = await db
     .prepare(
-      `SELECT id FROM phieu_xuat_kho WHERE nguoi_nhan_hang = ? AND trang_thai_hien_tai = 'Dang tao phieu'
-         AND COALESCE(trang_thai_chuyen_tien, '') != 'TN da duyet'`,
+      `SELECT id FROM phieu_xuat_kho p WHERE p.nguoi_nhan_hang = ? AND p.trang_thai_hien_tai = 'Dang tao phieu'
+         AND NOT ${KE_TOAN_DA_CHOT_TIEN_SQL("p")}`, // tra het bang quy du van tinh lai (quy tu hoan/tru)
     )
     .bind(nguoiNhanHang)
     .all<{ id: string }>();
@@ -290,6 +291,7 @@ export async function taiTinhPxk(
   datLaiThuCong = false,
   capNhatTongTien = true,
   nguoiXuLy?: string,
+  nguoiCanBangQuy: string | undefined = nguoiXuLy, // ghi log "Trừ quỹ dư"/"Hoàn tiền về quỹ" (tao phieu moi: co, du khong log sua tong)
 ): Promise<PxkCalculation> {
   const pxk = await db.prepare(
     "SELECT loai_don, so_tien_can_chuyen, trang_thai_chuyen_tien, trang_thai_hien_tai FROM phieu_xuat_kho WHERE id = ?",
@@ -338,6 +340,9 @@ export async function taiTinhPxk(
       ).bind(pxkId, "Da sua tong tien can chuyen", nguoiXuLy, nowVN(), ghiChu).run();
     }
   }
+  // Quy du KTV (migration 0047): tong doi / phieu dang cho tien -> tru quy (du thi tu "Ke toan da duyet"), tong giam
+  // duoi so da tra -> hoan phan thua ve quy. Khong lech thi khong ghi gi.
+  if (capNhatTongTien && pxk.trang_thai_hien_tai === "Dang tao phieu") await canBangPxk(db, pxkId, nguoiCanBangQuy);
 
   return { ...calculation, total: totalCanChuyen };
 }

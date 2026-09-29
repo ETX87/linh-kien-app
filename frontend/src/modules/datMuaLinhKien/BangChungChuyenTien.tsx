@@ -6,7 +6,9 @@ import { FileButton } from "../../components/ui/FileButton";
 import { Select } from "../../components/ui/Select";
 import { ImageLink } from "./SharedUi";
 import { describeApiError } from "./helpers";
-import { fmtDateTime } from "../../types";
+import { fmtDateTime, fmtVND } from "../../types";
+import { KvRow } from "../../components/ui/KvRow";
+import { Money } from "../../components/ui/Money";
 
 // Bang chung chuyen tien PXK NHIEU anh (toi da 5, chot 2026-09-29 - migration 0043, backend
 // lib/bangChungChuyenTien.ts). Dung chung cho chi tiet PXK (PhieuXuatKhoTab) va khoi PXK trong chi tiet don cua KTV
@@ -31,6 +33,139 @@ export function LyDoTuChoiChuyenTien({ pxk }: { pxk: BangChungPxk }) {
       <span className="font-bold">Kế toán từ chối bằng chứng{pxk.tu_choi_chuyen_tien_luc ? ` (${fmtDateTime(pxk.tu_choi_chuyen_tien_luc)})` : ""}:</span>{" "}
       {pxk.ly_do_tu_choi_chuyen_tien}
       <div className="mt-0.5 font-medium">Kiểm tra lại số tiền/bằng chứng, chuyển bổ sung nếu thiếu, thêm ảnh rồi bấm “Đã chuyển”.</div>
+    </div>
+  );
+}
+
+/**
+ * Quy du KTV (2026-09-29, migration 0047): tien cua phieu sau khi tru quy/da tra. `so_tien_can_chuyen` = TONG gia tri
+ * phieu; con phai chuyen = tong - da_thanh_toan. Dung chung chi tiet PXK + khoi PXK trong chi tiet don.
+ */
+export function TienPhieuVaQuy({ tong, daThanhToan, daDuyet, quyDu }: { tong: number; daThanhToan: number; daDuyet: boolean; quyDu?: number | null }) {
+  const con = Math.max(0, tong - daThanhToan);
+  return (
+    <>
+      <KvRow label="Tổng tiền phiếu"><Money>{fmtVND(tong)}</Money></KvRow>
+      {daThanhToan > 0 && (
+        <KvRow label="Đã thanh toán">
+          <Money>{fmtVND(Math.min(daThanhToan, tong))}</Money>
+          <span className="text-[11px] text-[var(--color-text-secondary)]"> (tiền đã chuyển + quỹ dư)</span>
+        </KvRow>
+      )}
+      {!daDuyet && (
+        <KvRow label="Còn phải chuyển">
+          <span className="font-semibold text-[var(--color-success-strong)]"><Money>{fmtVND(con)}</Money></span>
+        </KvRow>
+      )}
+      {quyDu != null && (
+        <KvRow label="Quỹ dư hiện tại">
+          <Money>{fmtVND(quyDu)}</Money>
+          {quyDu > 0 && <span className="text-[11px] text-[var(--color-text-secondary)]"> — tự trừ vào phiếu cần chuyển tiếp theo</span>}
+        </KvRow>
+      )}
+    </>
+  );
+}
+
+/**
+ * Ke toan DUYET khoan chuyen voi SO TIEN THUC NHAN (quy du, migration 0047): mac dinh = so con phai chuyen. Du -> vao quy
+ * cua nguoi nhan hang; thieu -> phieu ve "Chờ KTV chuyển" so con thieu. So khac so can chuyen thi phai xac nhan lan 2.
+ */
+export function DuyetChuyenTienForm({ pxkId, conPhaiChuyen, onDone, addToast }: { pxkId: string; conPhaiChuyen: number; onDone: () => void; addToast: (msg: string) => void }) {
+  const [soTien, setSoTien] = useState(String(conPhaiChuyen));
+  const [xacNhan, setXacNhan] = useState(false);
+  const so = Number(soTien);
+  const hopLe = soTien.trim() !== "" && Number.isInteger(so) && so > 0;
+  const chenh = hopLe ? so - conPhaiChuyen : 0;
+  const duyet = useMutation({
+    mutationFn: () => api.patch<{ conThieu: number; soDuQuy: number }>(`/phieu-xuat-kho/${pxkId}/chuyen-tien`, { trang_thai: "TN da duyet", so_tien_thuc_nhan: so }),
+    onSuccess: (r) => {
+      addToast(r.conThieu > 0 ? `Đã ghi nhận — còn thiếu ${fmtVND(r.conThieu)}, phiếu về Chờ KTV chuyển` : chenh > 0 ? `Đã duyệt — dư ${fmtVND(chenh)} vào quỹ` : "Đã duyệt chuyển tiền");
+      setXacNhan(false);
+      onDone();
+    },
+    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+  });
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="text-[11.5px] font-semibold text-[var(--color-text-secondary)]" htmlFor={`thuc-nhan-${pxkId}`}>Số tiền thực nhận</label>
+        <input
+          id={`thuc-nhan-${pxkId}`}
+          type="number"
+          min={1}
+          inputMode="numeric"
+          value={soTien}
+          onChange={(e) => { setSoTien(e.target.value); setXacNhan(false); }}
+          className="focus-ring w-36 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-base sm:text-sm"
+        />
+        <Btn
+          size="sm"
+          onClick={() => (chenh !== 0 && !xacNhan ? setXacNhan(true) : duyet.mutate())}
+          disabled={!hopLe || duyet.isPending || xacNhan}
+          loading={duyet.isPending}
+        >
+          Duyệt bằng chứng
+        </Btn>
+      </div>
+      {hopLe && chenh !== 0 && (
+        <div className={`rounded-lg border px-2.5 py-1.5 text-[11.5px] ${chenh > 0 ? "border-[var(--color-info)]/30 bg-[var(--color-info-soft)] text-[var(--color-text)]" : "border-[var(--color-warning)]/30 bg-[var(--color-warning-soft)] text-[var(--color-warning-strong)]"}`}>
+          {chenh > 0 ? (
+            <>Cần chuyển <Money>{fmtVND(conPhaiChuyen)}</Money> — nhận <Money>{fmtVND(so)}</Money> → <b>dư <Money>{fmtVND(chenh)}</Money> vào quỹ</b> của người nhận hàng (tự trừ cho phiếu sau).</>
+          ) : (
+            <>Cần chuyển <Money>{fmtVND(conPhaiChuyen)}</Money> — nhận <Money>{fmtVND(so)}</Money> → <b>còn thiếu <Money>{fmtVND(-chenh)}</Money></b> (trừ quỹ dư nếu có), phiếu về “Chờ KTV chuyển” số còn thiếu.</>
+          )}
+          {xacNhan && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <span className="font-semibold">Số thực nhận khác số cần chuyển — kiểm tra lại sao kê trước khi xác nhận.</span>
+              <Btn size="sm" onClick={() => duyet.mutate()} disabled={duyet.isPending} loading={duyet.isPending}>Xác nhận nhận <Money>{fmtVND(so)}</Money></Btn>
+              <Btn size="sm" variant="ghost" onClick={() => setXacNhan(false)} disabled={duyet.isPending}>Sửa lại</Btn>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export interface KhoanChuyenTien {
+  id: number;
+  trang_thai: "Da duyet" | "Tu choi";
+  tong_phieu: number | null;
+  da_thanh_toan_truoc: number;
+  so_tien_can_chuyen: number | null;
+  so_tien_thuc_nhan: number | null;
+  ly_do_tu_choi: string | null;
+  nguoi_duyet: string;
+  duyet_luc: string;
+  lich_su: number;
+}
+
+/** Cac lan Ke toan duyet / tu choi khoan chuyen cua 1 phieu (moi nhat truoc). */
+export function LichSuKhoanChuyen({ rows }: { rows: KhoanChuyenTien[] }) {
+  return (
+    <div className="mt-2 border-t border-[var(--color-border)] pt-2">
+      <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">Các lần Kế toán xác nhận</div>
+      <ul className="space-y-1">
+        {rows.map((k) => {
+          const chenh = (k.so_tien_thuc_nhan ?? 0) - (k.so_tien_can_chuyen ?? 0);
+          return (
+            <li key={k.id} className="text-[11.5px] text-[var(--color-text-body)]">
+              <span className="text-[var(--color-text-secondary)]">{fmtDateTime(k.duyet_luc)}</span>{" "}
+              {k.trang_thai === "Tu choi" ? (
+                <span className="text-[var(--color-danger-strong)]">Từ chối — {k.ly_do_tu_choi}</span>
+              ) : (
+                <>
+                  Nhận <b><Money>{fmtVND(k.so_tien_thuc_nhan)}</Money></b> / cần <Money>{fmtVND(k.so_tien_can_chuyen)}</Money>
+                  {!k.lich_su && chenh > 0 && <span className="text-[var(--color-success-strong)]"> · dư <Money>{fmtVND(chenh)}</Money> vào quỹ</span>}
+                  {!k.lich_su && chenh < 0 && <span className="text-[var(--color-warning-strong)]"> · thiếu <Money>{fmtVND(-chenh)}</Money></span>}
+                  {!!k.lich_su && <span className="text-[var(--color-text-secondary)]"> (trước khi có quỹ)</span>}
+                </>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -200,7 +335,7 @@ export function BangChungChuyenTienForm({
       <LyDoTuChoiChuyenTien pxk={pxk} />
       {xacNhanLai && !pxk.ly_do_tu_choi_chuyen_tien && (
         <div className="rounded-lg border border-[var(--amber-500)]/30 bg-[var(--amber-100)]/60 px-2.5 py-1.5 text-[11.5px] font-medium text-[var(--amber-700)]">
-          Tổng tiền đã thay đổi sau lần xác nhận trước — chuyển bổ sung phần chênh lệch, thêm ảnh rồi bấm “Đã chuyển”.
+          Phiếu còn thiếu tiền sau lần xác nhận trước (tổng tiền đổi hoặc Kế toán nhận chưa đủ) — chuyển bổ sung đúng số “Còn phải chuyển”, thêm ảnh rồi bấm “Đã chuyển”.
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2">

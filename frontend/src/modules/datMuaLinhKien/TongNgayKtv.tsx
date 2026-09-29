@@ -41,7 +41,7 @@ export function useTongNgayKtv(email: string | null | undefined, ngays: string[]
   return useQuery({
     queryKey: [TONG_NGAY_KTV_KEY, email ?? "", key],
     queryFn: () =>
-      api.get<{ nguoi_nhan_hang: string | null; rows: TongNgayKtvRow[] }>(
+      api.get<{ nguoi_nhan_hang: string | null; rows: TongNgayKtvRow[]; quy_du?: number }>(
         `/dat-mua-lk/tong-ngay-ktv?nguoi_nhan_hang=${encodeURIComponent(email ?? "")}${key ? `&ngay=${key}` : ""}`,
       ),
     enabled: !!email,
@@ -83,18 +83,26 @@ export function TongNgayKtvLine({ row, themGiaTri = 0, hienNgay = true }: { row:
   );
 }
 
-/** Tong ngay cua 1 KTV cho 1 hoac nhieu ngay (moi ngay 1 dong). `ngays` rong = hom nay. */
-export function TongNgayKtvInfo({ email, ngays = [], themGiaTri = 0 }: { email: string | null | undefined; ngays?: string[]; themGiaTri?: number }) {
+/** Tong ngay cua 1 KTV cho 1 hoac nhieu ngay (moi ngay 1 dong). `ngays` rong = hom nay. Kem dong "Quỹ dư" (quy tien
+ * chuyen du cua nguoi nhan hang, migration 0047) tru khi `anQuy` (noi da hien quy rieng, vd khoi Chuyển tiền PXK). */
+export function TongNgayKtvInfo({ email, ngays = [], themGiaTri = 0, anQuy = false }: { email: string | null | undefined; ngays?: string[]; themGiaTri?: number; anQuy?: boolean }) {
   const { data, isLoading } = useTongNgayKtv(email, ngays);
   if (!email) return null;
   if (isLoading) return <div className="text-xs text-[var(--color-text-faint)]">Đang tính tổng đặt trong ngày…</div>;
   const rows = data?.rows ?? [];
-  if (rows.length === 0) return null;
+  const quyDu = anQuy || !data?.nguoi_nhan_hang ? null : (data.quy_du ?? 0);
+  if (rows.length === 0 && quyDu == null) return null;
   return (
     <div className="space-y-1">
       {rows.map((r) => (
         <TongNgayKtvLine key={r.ngay} row={r} themGiaTri={themGiaTri} hienNgay={ngays.length > 0} />
       ))}
+      {quyDu != null && (
+        <div className="text-xs text-[var(--color-text-secondary)]">
+          Quỹ dư hiện tại: <Money className="font-semibold text-[var(--color-text)]">{fmtVND(quyDu)}</Money>
+          {quyDu > 0 && <span className="text-[var(--color-text-faint)]"> — tự trừ vào phiếu cần chuyển tiền tiếp theo</span>}
+        </div>
+      )}
     </div>
   );
 }

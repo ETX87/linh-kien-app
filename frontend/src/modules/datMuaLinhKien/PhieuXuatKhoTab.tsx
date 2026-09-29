@@ -36,8 +36,8 @@ import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportResult, type M
 import { Money } from "../../components/ui/Money";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../components/ui/LocCot";
-import { BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung, TuChoiChuyenTienButton } from "./BangChungChuyenTien";
-import { doiNguoiThanhTen, usePersonDirectory } from "../../lib/personDisplay";
+import { BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung, DuyetChuyenTienForm, LichSuKhoanChuyen, TienPhieuVaQuy, TuChoiChuyenTienButton, type KhoanChuyenTien } from "./BangChungChuyenTien";
+import { doiNguoiThanhTen, formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay";
 
 const MISA_TEMPLATE_ORDER: MisaTemplate[] = ["xuat_kho", "chuyen_kho", "ban_hang"];
 
@@ -250,7 +250,27 @@ export function PhieuXuatKhoTab({
             ...locCot.queryParams,
           }),
       );
-      await exportRowsToExcel(doiNguoiThanhTen(res.rows, personDir), "phieu_xuat_kho_chi_tiet.xlsx", "PXK");
+      // Cot chuyen tien dat DAU file (2026-09-29, quy du KTV): Ma HD, nguoi chuyen, can/thuc chuyen, quy, link anh.
+      const rows = res.rows.map(({ bang_chung_chuyen_tien_anh, bang_chung_chuyen_tien_url, da_thanh_toan, tien_thuc_chuyen, ...r }) => {
+        const tong = r.so_tien_can_chuyen ?? 0;
+        const daTra = da_thanh_toan ?? 0;
+        const thucChuyen = tien_thuc_chuyen ?? 0;
+        const anh = docAnhBangChung({ bang_chung_chuyen_tien_anh, bang_chung_chuyen_tien_url });
+        return {
+          "Mã HĐ": r.ma_xuat_kho,
+          "Người chuyển tiền": r.nguoi_nhan_hang ? formatPersonDisplay(r.nguoi_nhan_hang, personDir) : "",
+          "Tiền cần chuyển": r.so_tien_can_chuyen,
+          "Tiền thực chuyển": thucChuyen,
+          "Đã dùng quỹ": Math.max(0, daTra - thucChuyen),
+          "Dư vào quỹ": Math.max(0, thucChuyen - daTra),
+          "Còn phải chuyển": Math.max(0, tong - daTra),
+          ...Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`Ảnh chuyển tiền ${i + 1}`, anh[i] ?? ""])),
+          ...r,
+        };
+      });
+      await exportRowsToExcel(doiNguoiThanhTen(rows, personDir), "phieu_xuat_kho_chi_tiet.xlsx", "PXK", undefined, {
+        linkFields: [0, 1, 2, 3, 4].map((i) => `Ảnh chuyển tiền ${i + 1}`),
+      });
     } catch (err) {
       addToast("Không tải được danh sách chi tiết: " + describeApiError(err));
     } finally {
@@ -1197,6 +1217,9 @@ interface PxkDetailData {
   // Mau MISA duoc de xuat theo settings_loai_de_xuat cua cac dong trong phieu (them 2026-09-10) - dung de to mau noi
   // bat 1 trong 3 nut tai MISA, xem MISA_TEMPLATE_ORDER.map.
   misaTemplateDeXuat: MisaTemplate | null;
+  // Quy du cua nguoi nhan hang + cac lan Ke toan duyet/tu choi khoan chuyen (migration 0047).
+  quyDu?: number;
+  khoanChuyen?: KhoanChuyenTien[];
 }
 function pxkDetailQuery(id: string) {
   return { queryKey: ["pxk-detail", id], queryFn: () => api.get<PxkDetailData>(`/phieu-xuat-kho/${id}`) };
@@ -1427,11 +1450,6 @@ export function PxkDetailModal({
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
   });
 
-  const chuyenTienMutation = useMutation({
-    mutationFn: (body: { trang_thai: string; bang_chung_chuyen_tien_url?: string; bang_chung_chuyen_tien_ghi_chu?: string }) => api.patch(`/phieu-xuat-kho/${id}/chuyen-tien`, body),
-    onSuccess: () => { invalidate(); addToast("Đã cập nhật chuyển tiền"); },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
-  });
 
 
 
@@ -1839,7 +1857,13 @@ export function PxkDetailModal({
               )
             ) : (
               <>
-                <KvRow label="Số tiền"><span className="font-semibold text-[var(--green-700)]"><Money>{fmtVND(pxk.so_tien_can_chuyen)}</Money></span></KvRow>
+                {/* Quy du KTV (2026-09-29, migration 0047): tong / da thanh toan / con phai chuyen / quy du. */}
+                <TienPhieuVaQuy
+                  tong={pxk.so_tien_can_chuyen}
+                  daThanhToan={pxk.da_thanh_toan ?? 0}
+                  daDuyet={pxk.trang_thai_chuyen_tien === "TN da duyet"}
+                  quyDu={data?.quyDu}
+                />
                 <KvRow label="Trạng thái"><StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /></KvRow>
                 {/* Nhieu anh (2026-09-29, BangChungChuyenTien.tsx) - dang "Cho KTV chuyen" thi form ben duoi tu hien anh. */}
                 {pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen" && docAnhBangChung(pxk).length > 0 && (
@@ -1867,11 +1891,19 @@ export function PxkDetailModal({
                     /:id/chuyen-tien nhanh "TN da duyet" (gia tri DB giu nguyen ten cu). */}
                 {canKeToan && pxk.trang_thai_chuyen_tien === "KTV da chuyen" && (
                   // + "Từ chối, đẩy lại" (2026-09-29, migration 0046) - sai tien/thieu bang chung -> ve "Chờ KTV chuyển" kem ly do.
-                  <div className="mt-2 flex flex-wrap items-start gap-2">
-                    <Btn size="sm" onClick={() => chuyenTienMutation.mutate({ trang_thai: "TN da duyet" })} disabled={chuyenTienMutation.isPending}>Duyệt bằng chứng</Btn>
+                  // Quy du (migration 0047): Ke toan nhap so THUC NHAN - du vao quy, thieu thi ve cho chuyen bo sung.
+                  <div className="mt-2 space-y-2">
+                    <DuyetChuyenTienForm
+                      key={`${pxk.id}|${pxk.so_tien_can_chuyen}|${pxk.da_thanh_toan ?? 0}`}
+                      pxkId={pxk.id}
+                      conPhaiChuyen={Math.max(0, pxk.so_tien_can_chuyen - (pxk.da_thanh_toan ?? 0))}
+                      onDone={invalidate}
+                      addToast={addToast}
+                    />
                     <TuChoiChuyenTienButton pxkId={pxk.id} onDone={invalidate} addToast={addToast} />
                   </div>
                 )}
+                {(data?.khoanChuyen?.length ?? 0) > 0 && <LichSuKhoanChuyen rows={data!.khoanChuyen!} />}
               </>
             )}
           </div>
@@ -1895,7 +1927,7 @@ export function PxkDetailModal({
                 (2026-09-28). PXK gom don nhieu ngay -> moi ngay 1 dong. */}
             {pxk.loai_don !== "tra_hang" && pxk.nguoi_nhan_hang && (() => {
               const ngays = data.donHang.filter((d) => d.loai_don === "mua" || laTruCongNo(d.loai_de_xuat)).map((d) => d.ngay_tao.slice(0, 10));
-              return ngays.length > 0 ? <div className="mb-1.5"><TongNgayKtvInfo email={pxk.nguoi_nhan_hang} ngays={ngays} /></div> : null;
+              return ngays.length > 0 ? <div className="mb-1.5"><TongNgayKtvInfo email={pxk.nguoi_nhan_hang} ngays={ngays} anQuy /></div> : null;
             })()}
             <div className="overflow-x-auto rounded-xl border border-[var(--line)]">
               {/* Bang dong don dung CHUNG voi dong xo xuong o danh sach PXK (PxkDongDonHangTable.tsx, 2026-09-29). */}

@@ -1,5 +1,6 @@
 import { nowVN } from "./vnTime";
 import { taiTinhPxk } from "./pxkRecalculate";
+import { canBangPxk, KE_TOAN_DA_CHOT_TIEN_SQL } from "./quyKtv";
 
 // KTV / nguoi tao TU HUY don tu duyet da tu gom vao PXK (chot nguoi dung 2026-09-28):
 //   "cho phép ktv hoặc người tạo đơn tự hủy đơn của bản thân nếu đơn đó được hệ thống tự duyệt, tự đẩy vào
@@ -37,7 +38,7 @@ export const TU_HUY_DUOC_SQL = (alias: string) => `(
   AND EXISTS (
     SELECT 1 FROM phieu_xuat_kho_dong tpd JOIN phieu_xuat_kho tp ON tp.id = tpd.phieu_xuat_kho_id
     WHERE tpd.dat_don_hang_id = ${alias}.id AND tp.trang_thai_hien_tai = 'Dang tao phieu'
-      AND COALESCE(tp.trang_thai_chuyen_tien, '') != 'TN da duyet' AND tp.van_phong_tac_dong_luc IS NULL
+      AND NOT ${KE_TOAN_DA_CHOT_TIEN_SQL("tp")} AND tp.van_phong_tac_dong_luc IS NULL
   )
 )`;
 
@@ -51,7 +52,7 @@ export const TN_DOI_TRONG_PXK_SQL = (alias: string) => `(
   AND EXISTS (
     SELECT 1 FROM phieu_xuat_kho_dong npd JOIN phieu_xuat_kho np ON np.id = npd.phieu_xuat_kho_id
     WHERE npd.dat_don_hang_id = ${alias}.id AND np.trang_thai_hien_tai = 'Dang tao phieu'
-      AND COALESCE(np.trang_thai_chuyen_tien, '') != 'TN da duyet'
+      AND NOT ${KE_TOAN_DA_CHOT_TIEN_SQL("np")}
   )
 )`;
 
@@ -110,6 +111,7 @@ export async function goDonKhoiPxk(
       : []),
   ]);
   if (!huyPhieu) await taiTinhPxk(db, pxkId, true, true, email);
+  else await canBangPxk(db, pxkId, email); // phieu huy -> hoan tien da tra (neu co) ve quy du
   return { huyPhieu };
 }
 
@@ -128,5 +130,6 @@ export async function huyPxkNeuTrong(db: D1Database, pxkId: string, email: strin
     .prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Ke toan huy', ?, ?, ?)")
     .bind(pxkId, email, nowVN(), "Tự hủy phiếu trống (không còn đơn nào) khi đóng màn phiếu")
     .run();
+  await canBangPxk(db, pxkId, email); // hoan tien da tra (neu co) ve quy du
   return true;
 }
