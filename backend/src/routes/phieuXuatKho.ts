@@ -8,7 +8,7 @@ import { nextSequentialId } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
 import { emailsTheoTen, orEmailIn } from "../lib/timTheoTen";
 import { bumpVersions } from "../lib/dataVersions";
-import { quaHanLyDoCham } from "../lib/hanLyDoCham";
+import { quaHanLyDoCham, mocTinhHanTn } from "../lib/hanLyDoCham";
 import { autoClaimGs, scopePxkNguoiNhanHang, phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql } from "../lib/scopeDatMua";
 import { uploadPublicImage } from "../lib/googleDrive";
 import { sendPushToUser } from "../lib/webPush";
@@ -869,7 +869,7 @@ phieuXuatKho.get("/:id", async (c) => {
   const now = nowVN();
   const donHangWithFlag = (donHang as { id: string; ly_do_cham: string | null; cho_tn_duyet_at: string | null; last_giai_trinh_at: string | null }[]).map(
     (d) => {
-      const mocThoiGian = d.last_giai_trinh_at ?? d.cho_tn_duyet_at;
+      const mocThoiGian = mocTinhHanTn(d.last_giai_trinh_at, d.cho_tn_duyet_at);
       return {
         ...d,
         tien_uoc_tinh: tinhTien.tienUocTinhTheoDong.get(d.id) ?? 0,
@@ -1411,7 +1411,7 @@ phieuXuatKho.post("/:id/log", async (c) => {
     const now = nowVN();
     const quaHanIds = (dongTrongPxk as { id: string; cho_tn_duyet_at: string | null; last_giai_trinh_at: string | null }[])
       .filter((d) => {
-        const mocThoiGian = d.last_giai_trinh_at ?? d.cho_tn_duyet_at;
+        const mocThoiGian = mocTinhHanTn(d.last_giai_trinh_at, d.cho_tn_duyet_at);
         return !!mocThoiGian && quaHanLyDoCham(mocThoiGian, now);
       })
       .map((d) => d.id);

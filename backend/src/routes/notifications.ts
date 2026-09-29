@@ -265,7 +265,8 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
 
   const thieuLkTrangThaiCho = [
     ...(isKho ? ["Cho kho xu ly", "Kho da tiep nhan"] : []),
-    ...(isTacNghiep ? ["Kho xac nhan hang da ve"] : []),
+    // TN: ticket Kho da xong phan minh, cho TN duyet (THIEU_LK_CHO_TN o datMuaLinhKien.ts - 2026-09-29 them "Kho tu choi sai TT").
+    ...(isTacNghiep ? ["Kho xac nhan hang da ve", "Kho tu choi sai TT"] : []),
   ];
   if (thieuLkTrangThaiCho.length > 0) {
     // Scope GIONG HET cho_kho_thieu_lk o tren (GS + Khu vuc tren ddh).

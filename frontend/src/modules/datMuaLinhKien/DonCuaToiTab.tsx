@@ -1240,9 +1240,12 @@ export function DonHangDetailModal({
                       {/* "Tự động duyệt đơn" (he thong tu duyet luc tao) tach khoi "TN đã duyệt" (chot 2026-09-28). */}
                       {l.tu_dong ? "Tự động duyệt đơn" : trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, l.trang_thai)}
                       <span className="font-normal text-[var(--ink-500)]"> · {l.tu_dong ? `Hệ thống (đơn của ${l.nguoi_xu_ly})` : l.nguoi_xu_ly}</span>
+                      {/* Ghi chu thanh doan rieng, giu xuong dong (2026-09-29): dong "Chờ TN duyệt" tu ticket thieu LK
+                          chua ca qua trinh Kho xu ly nhieu dong - truoc day dinh vao dong gio 11px. */}
+                      {l.ghi_chu && <span className="mt-0.5 block whitespace-pre-line font-normal text-[var(--color-text-body)]">{l.ghi_chu}</span>}
                     </>
                   ),
-                  time: `${fmtDateTime(l.ngay_xu_ly)}${l.ghi_chu ? ` — ${l.ghi_chu}` : ""}`,
+                  time: fmtDateTime(l.ngay_xu_ly),
                 }))}
               />
             </div>

@@ -62,7 +62,9 @@ function nextStatesForThieuLk(
       { trangThai: "Kho xac nhan hang da ve", canDo: ctx.canKho },
       { trangThai: "Da huy bo", canDo: ctx.canKho || isCreator },
     ];
-  if (r.trang_thai === "Kho xac nhan hang da ve") return [{ trangThai: "Da ket thuc", canDo: ctx.canTacNghiep }];
+  // Kho xong phan minh (hang ve / tu choi sai TT) -> don goc da quay ve "Cho TN duyet"; TN duyet o day = duyet luon
+  // don goc (backend applyThieuLkLog), hoac duyet tren don goc thi ticket tu dong (2026-09-29).
+  if (r.trang_thai === "Kho xac nhan hang da ve" || r.trang_thai === "Kho tu choi sai TT") return [{ trangThai: "Da ket thuc", canDo: ctx.canTacNghiep }];
   return [];
 }
 
@@ -84,7 +86,7 @@ const NHAN_HANH_DONG: Record<string, string> = {
   "Kho tu choi sai TT": "Từ chối (sai TT)",
   "Da huy bo": "Hủy bỏ",
   "Kho xac nhan hang da ve": "Hàng đã về",
-  "Da ket thuc": "Kết thúc",
+  "Da ket thuc": "TN duyệt",
 };
 // Buoc "di tiep" cua luong (nut primary duy nhat o chan Drawer) - cac nut con lai la phu/nguy hiem.
 const HANH_DONG_CHINH = new Set(["Kho da tiep nhan", "Kho xac nhan hang da ve", "Da ket thuc"]);
@@ -363,6 +365,9 @@ export function ThieuLkTab({
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-thieu-lk"] });
+      // Don goc doi trang thai theo ticket (Cho hang -> Cho TN duyet, TN duyet ticket -> duyet don) - 2026-09-29.
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-detail"] });
       invalidatePipelineCounts(qc);
       addToast("Đã cập nhật trạng thái thiếu LK");
     },
@@ -412,6 +417,9 @@ export function ThieuLkTab({
           : `Thành công ${entries.length - failed.length}/${entries.length} dòng — đã giữ lại các dòng lỗi, bấm lại để thử lại`,
       );
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-thieu-lk"] });
+      // Don goc doi trang thai theo ticket (Cho hang -> Cho TN duyet, TN duyet ticket -> duyet don) - 2026-09-29.
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-detail"] });
       invalidatePipelineCounts(qc);
     },
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
@@ -598,7 +606,7 @@ function ThieuLkGroupedList({
     "Kho tu choi sai TT": "✕",
     "Da huy bo": "🚫",
     "Kho xac nhan hang da ve": "✓",
-    "Da ket thuc": "🏁",
+    "Da ket thuc": "✅",
   };
   const ACTION_DANGER = new Set(["Kho tu choi sai TT", "Da huy bo"]);
 
@@ -825,7 +833,7 @@ function ThieuLkGroupedList({
                   .filter((s) => s.canDo && s.trangThai !== "Da huy bo")
                   .sort((a, b) => thuTuNut(a.trangThai) - thuTuNut(b.trangThai));
                 const coChon = rowsCoTheChon.some((x) => x.id === r.id);
-                const dangMo = !["Da ket thuc", "Da huy bo", "Kho tu choi sai TT"].includes(r.trang_thai);
+                const dangMo = !["Da ket thuc", "Da huy bo", "Kho tu choi sai TT", "Kho xac nhan hang da ve"].includes(r.trang_thai);
                 return (
                   <div
                     key={r.id}
@@ -961,6 +969,9 @@ export function ThieuLkDetailModal({
       setNgayDuKien("");
       qc.invalidateQueries({ queryKey: ["thieu-lk-detail", id] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-thieu-lk"] });
+      // Don goc doi trang thai theo ticket (Cho hang -> Cho TN duyet, TN duyet ticket -> duyet don) - 2026-09-29.
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-detail"] });
       invalidatePipelineCounts(qc);
       // "Duyet va tiep theo" (concept 1 da duyet, 2026-08-24): xu ly xong tu nhay sang ticket TIEP THEO trong danh
       // sach dang xem - TRU khi Drawer duoc mo tu nut thao tac nhanh o danh sach (initialAction) thi dong lai.

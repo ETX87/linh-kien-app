@@ -24,3 +24,13 @@ export function tinhHanLyDoCham(choTnDuyetAt: string): Date {
 export function quaHanLyDoCham(choTnDuyetAt: string, nowVnStr: string): boolean {
   return parseVnTime(nowVnStr).getTime() > tinhHanLyDoCham(choTnDuyetAt).getTime();
 }
+
+/** Moc tinh han "Cho TN duyet" = MUON HON trong 2 moc: lan giai trinh gan nhat va lan vao "Cho TN duyet" gan nhat
+ * (2026-09-29). Truoc day `last_giai_trinh_at ?? cho_tn_duyet_at` - don quay lai "Cho TN duyet" (vd sau khi Kho xac nhan
+ * hang ve o ticket thieu LK) ma tung giai trinh tu lan truoc se bi tinh qua han NGAY vi moc giai trinh cu. Chuoi gio VN
+ * "YYYY-MM-DD HH:MM:SS" so sanh duoc bang chu. Dung CHUNG cho moi noi tinh han (danh sach, chi tiet, duyet, PXK). */
+export function mocTinhHanTn(lastGiaiTrinhAt: string | null | undefined, choTnDuyetAt: string | null | undefined): string | null {
+  if (!lastGiaiTrinhAt) return choTnDuyetAt ?? null;
+  if (!choTnDuyetAt) return lastGiaiTrinhAt;
+  return lastGiaiTrinhAt > choTnDuyetAt ? lastGiaiTrinhAt : choTnDuyetAt;
+}

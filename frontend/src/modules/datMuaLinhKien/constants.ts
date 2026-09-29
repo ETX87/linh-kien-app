@@ -36,6 +36,7 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   MISSING_LY_DO_CHAM: "Cần chọn lý do chậm",
   MISSING_GHI_CHU: "Cần nhập ghi chú/lý do",
   MISSING_GIAI_TRINH: "Cần nhập giải trình",
+  DUYET_TREN_DON_GOC: "Đơn gốc đã quá hạn duyệt 24h — hãy duyệt trên đơn gốc để chọn lý do chậm (ticket sẽ tự đóng theo)",
   MISSING_IDS: "Chưa chọn dòng nào để xử lý",
   MISSING_CASE_ID: "Thiếu mã case",
   MISSING_CHUYEN_TIEN_APPROVED: "Cần Tác nghiệp xác nhận chuyển tiền trước",
@@ -353,7 +354,8 @@ export const THIEU_LK_TRANG_THAI_OPTIONS = [
   { value: "Kho xac nhan hang da ve", label: "Hàng đã về" },
   { value: "Kho tu choi sai TT", label: "Kho từ chối (sai TT)" },
   { value: "Da huy bo", label: "Đã huỷ bỏ" },
-  { value: "Da ket thuc", label: "Đã kết thúc" },
+  // Gia tri DB giu "Da ket thuc", nhan doi thanh "TN đã duyệt" (2026-09-29): ticket dong khi TN duyet don goc.
+  { value: "Da ket thuc", label: "TN đã duyệt" },
 ];
 export const TRA_HANG_TRANG_THAI_OPTIONS = [
   { value: "", label: "Tất cả" },

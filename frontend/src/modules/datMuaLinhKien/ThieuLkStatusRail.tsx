@@ -7,8 +7,9 @@ import { trangThaiLabel } from "./helpers";
 // So dem lay tu GET /thieu-lk-status-counts (CUNG bo loc voi danh sach, 1 truy van GROUP BY) - khong ton them truy van.
 // Gia tri loc: 1 trang thai | nhieu trang thai noi bang "," (tieu de nhom) | "__VIEC__" (Can xu ly, khop badge Sidebar).
 
-const DANG_MO = ["Cho kho xu ly", "Kho da tiep nhan", "Kho da cap nhat", "Kho xac nhan hang da ve"];
-const DA_DONG = ["Da ket thuc", "Kho tu choi sai TT", "Da huy bo"];
+// "Kho tu choi sai TT" (2026-09-29) chua dong: don goc quay ve "Cho TN duyet", ticket dong khi TN duyet/tu choi don.
+const DANG_MO = ["Cho kho xu ly", "Kho da tiep nhan", "Kho da cap nhat", "Kho xac nhan hang da ve", "Kho tu choi sai TT"];
+const DA_DONG = ["Da ket thuc", "Da huy bo"];
 
 interface Muc {
   value: string;
@@ -25,12 +26,13 @@ interface Nhom {
 function nhomTrangThai(canKho: boolean, canTacNghiep: boolean): Nhom[] {
   const nhan = (v: string) => trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, v);
   // Cung tap voi thieuLkTrangThaiViec() (backend) + badge Sidebar (routes/notifications.ts).
-  const canXuLy = [...(canKho ? ["Cho kho xu ly", "Kho da tiep nhan"] : []), ...(canTacNghiep ? ["Kho xac nhan hang da ve"] : [])];
+  const canXuLy = [...(canKho ? ["Cho kho xu ly", "Kho da tiep nhan"] : []), ...(canTacNghiep ? ["Kho xac nhan hang da ve", "Kho tu choi sai TT"] : [])];
   const coViec = canXuLy.length > 0;
   const dangCho = DANG_MO.filter((v) => !canXuLy.includes(v));
   const phuDangCho: Record<string, string> = {
     "Kho da cap nhat": "chờ hàng về",
-    "Kho xac nhan hang da ve": "chờ TN kết thúc",
+    "Kho xac nhan hang da ve": "chờ TN duyệt",
+    "Kho tu choi sai TT": "chờ TN duyệt",
     "Cho kho xu ly": "chờ Kho",
     "Kho da tiep nhan": "chờ Kho",
   };
