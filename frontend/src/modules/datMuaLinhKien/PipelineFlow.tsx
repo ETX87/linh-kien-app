@@ -35,15 +35,17 @@ export function MyWorkloadStrip({
   // (moi the min-w-[110px], 2 dong noi dung, co border/shadow rieng) sang 1 HANG PILL GON, nhan +
   // so dem NAM CHUNG 1 dong duy nhat, dung dung ngon ngu badge tron do da co san o Tabs.tsx ("nhu
   // thong bao tin nhan") - tiet kiem dien tich doc dang ke so voi luoi the cu.
+  // Mobile (< sm, 2026-09-29 ra soat giao dien mobile): 1 HANG cuon ngang thay vi wrap - truoc day 8 chip wrap
+  // thanh 4 hang (~150px) day danh sach xuong duoi nua man hinh o MOI tab cua module.
   return (
-    <div className="mb-2 flex items-center gap-2 flex-wrap">
+    <div className="no-scrollbar -mx-4 mb-2 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
       <span className="text-[11px] font-semibold text-[var(--ink-500)] uppercase tracking-wide shrink-0">Việc của tôi</span>
       {mine.map((s) => (
         <button
           key={s.key}
           type="button"
           onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
-          className="focus-ring inline-flex items-center gap-1.5 rounded-full bg-[var(--color-warning-soft)] hover:brightness-95 text-[var(--color-warning-strong)] pl-2.5 pr-1.5 py-1 text-xs font-semibold transition-all"
+          className="focus-ring shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 rounded-full bg-[var(--color-warning-soft)] hover:brightness-95 text-[var(--color-warning-strong)] pl-2.5 pr-1.5 py-1 text-xs font-semibold transition-all"
         >
           {STEP_SHORT_LABEL[s.key] ?? s.label}
           <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--color-warning)] text-white text-[10px] font-bold leading-none">

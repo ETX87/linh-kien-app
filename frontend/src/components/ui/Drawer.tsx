@@ -58,18 +58,20 @@ export function Drawer({
           <h3 className="text-base font-bold text-[var(--color-text)] truncate">{title}</h3>
           <div className="flex items-center gap-2 shrink-0">
             {headerExtra}
-            <button onClick={onClose} className="focus-ring w-8 h-8 rounded-[var(--radius-btn)] hover:bg-[var(--color-subtle)] text-[var(--color-text-faint)] hover:text-[var(--color-text-body)]">
+            <button onClick={onClose} aria-label="Đóng" className="focus-ring w-10 h-10 sm:w-8 sm:h-8 rounded-[var(--radius-btn)] hover:bg-[var(--color-subtle)] text-[var(--color-text-faint)] hover:text-[var(--color-text-body)]">
               ✕
             </button>
           </div>
         </div>
         <div className="overflow-y-auto p-5 flex-1">{children}</div>
-        {footer && <div className="border-t border-[var(--color-border-soft)] bg-[var(--surface)] px-5 py-3 shrink-0">{footer}</div>}
+        {/* pb cong safe-area (2026-09-29): tren iPhone nut o chan Drawer khong bi thanh Home che/de sat. */}
+        {footer && <div className="border-t border-[var(--color-border-soft)] bg-[var(--surface)] px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shrink-0">{footer}</div>}
       </div>
     </>
   );
 }
 
+// Mobile (2026-09-29): nut ‹ › ✕ cao 40px (DESIGN_GUIDELINES §3 vung cham toi thieu 40x40), desktop giu co cu.
 // Nut Next/Previous dung CHUNG cho moi Drawer co danh sach dieu huong (DonHangDetailModal,
 // PxkDetailModal) - disabled khi khong con dong truoc/sau trong TRANG DANG XEM (khong tu dong sang
 // trang ke, giu don gian vi danh sach da phan trang server-side, xem comment goi noi dung).
@@ -81,7 +83,7 @@ export function DrawerNavButtons({ hasPrev, hasNext, onPrev, onNext }: { hasPrev
         onClick={onPrev}
         disabled={!hasPrev}
         title="Dòng trước"
-        className="focus-ring w-7 h-8 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-[var(--ink-500)]"
+        className="focus-ring w-9 h-10 sm:w-7 sm:h-8 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-[var(--ink-500)]"
       >
         ‹
       </button>
@@ -90,7 +92,7 @@ export function DrawerNavButtons({ hasPrev, hasNext, onPrev, onNext }: { hasPrev
         onClick={onNext}
         disabled={!hasNext}
         title="Dòng sau"
-        className="focus-ring w-7 h-8 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-[var(--ink-500)]"
+        className="focus-ring w-9 h-10 sm:w-7 sm:h-8 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-[var(--ink-500)]"
       >
         ›
       </button>

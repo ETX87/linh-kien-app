@@ -342,6 +342,14 @@ body {
   width: 6px;
   height: 6px;
 }
+/* Hang chip cuon ngang tren mobile (2026-09-29): an thanh cuon 10px mac dinh - chip bi cat o mep da du bao
+   hieu "cuon duoc", thanh cuon chi chiem them 1 dai trong. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
 .sidebar-scroll::-webkit-scrollbar {
   width: 5px;
 }

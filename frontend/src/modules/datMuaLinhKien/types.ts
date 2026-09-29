@@ -231,6 +231,8 @@ export interface ThieuLkRow {
   ddh_nguoi_tao?: string | null;
   loai_chiet_khau_id?: number | null;
   loai_chiet_khau_thu_cong?: number | null;
+  /** SL cua dong don goc (JOIN dat_don_hang, 2026-09-29 - hien tren the mobile/Drawer). */
+  so_luong_de_xuat?: number | null;
 }
 
 export interface LyDoChamRow {

@@ -246,7 +246,9 @@ export function FilterSearchBar({
   return (
     <>
       <div className="flex items-center gap-2 mb-2 flex-wrap justify-between">
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Mobile (2026-09-29, DESIGN_GUIDELINES §8.9 "ô tìm w-full sm:w-64"): nut Bo loc + o tim cung 1 hang,
+            o tim gian het phan con lai thay vi rong co dinh 256px roi rot xuong hang rieng. */}
+        <div className="flex w-full items-center gap-2 flex-wrap sm:w-auto">
           {/* DOI STYLE (2026-08-24, khop nut ".btn" cua concept 1 "Structured Neutral" - vien mong 1px,
               KHONG shadow, chu semibold 600, hover doi nen sang token surface-100 thay vi mau slate
               cung "roi" khoi bang mau he thong) - CHI doi className, khong doi hanh vi/logic. */}
@@ -263,7 +265,7 @@ export function FilterSearchBar({
               value={searchValue ?? ""}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={searchPlaceholder ?? "Tìm kiếm..."}
-              className="focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-64"
+              className="focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-base sm:text-sm min-w-0 flex-1 basis-40 sm:flex-none sm:w-64"
             />
           )}
         </div>

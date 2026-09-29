@@ -260,6 +260,12 @@ chấm), `StatCard` (thẻ KPI pastel), `Tabs` (filter pill), `Card`, `Modal`/`D
    `TonKhoKtvModule.tsx`). Bảng ít cột (Settings) thì ẩn cột phụ bằng `hidden sm:table-cell` + bấm cả dòng để
    sửa. Thanh công cụ: ô tìm `w-full sm:w-64`, bộ lọc chia đôi hàng `flex-1 sm:flex-none`, nút phụ gom vào menu
    "⋯" hoặc rút nhãn trên mobile — không để 1 hàng nút `shrink-0` làm trang giãn ngang.
+10. **Mobile — thao tác & nhập liệu** (rà soát màn Thiếu LK 2026-09-29, mẫu: `ThieuLkTab.tsx`): nút hành động trên thẻ
+   PHẢI có chữ (động từ ngắn: "Tiếp nhận", "Hàng đã về"), không dùng icon trơn — màn cảm ứng không có tooltip; cao
+   ≥ 40px; thứ tự nguy hiểm trái → phụ → chính phải. Ô nhập/tìm kiếm dùng `text-base sm:text-sm` (chữ < 16px khiến iOS
+   tự phóng to trang khi chạm). Bộ lọc trạng thái nhiều mục: 2 tầng (nhóm chia đều 1 hàng + chip con của nhóm đang
+   chọn, `ThieuLkStatusRail.tsx`), không trộn nhóm và mục vào 1 hàng cuộn ngang. Hàng chip cuộn ngang dùng
+   `.no-scrollbar`. Thanh thao tác hàng loạt nổi ở đáy (trên bottom-nav) khi đang chọn.
 
 ---
 
