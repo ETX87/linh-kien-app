@@ -124,7 +124,7 @@ export function PhieuXuatKhoTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialNguoiNhanHangOverride]);
   const [detailId, setDetailId] = useState<string | null>(null);
-  // Dong PXK dang xo xuong (2026-09-29) - bam dong phieu = mo/thu cac dong don con ben duoi; "Chi tiết" mo Drawer.
+  // Dong PXK dang xo xuong (2026-09-29) - bam dong phieu = mo/thu cac dong don con ben duoi; bam ID phieu mo Drawer.
   const [moRongPxk, setMoRongPxk] = useState<Set<string>>(new Set());
   function toggleMoRong(pxkId: string) {
     setMoRongPxk((s) => {
@@ -554,7 +554,10 @@ export function PhieuXuatKhoTab({
             {moRongPxk.has(r.id) ? "▾" : "▸"}
           </span>
           {!!r.co_don_uu_tien && <span title="Có dòng ưu tiên bên trong">⭐ </span>}
-          {r.id}
+          {/* Bam ID = mo chi tiet phieu (2026-09-29, thay nut "Chi tiết" cuoi dong) - bam phan con lai cua dong van xo/thu dong don. */}
+          <button type="button" className="code-link underline underline-offset-2 hover:opacity-80" title="Mở chi tiết phiếu" onClick={(e) => { e.stopPropagation(); setDetailId(r.id); }}>
+            {r.id}
+          </button>
         </span>
       ),
     },
@@ -619,7 +622,6 @@ export function PhieuXuatKhoTab({
         return viec ? <span className="text-xs text-[var(--amber-700)] font-medium">{viec}</span> : <span className="text-[var(--ink-400)]">—</span>;
       },
     },
-    { key: "actions", header: "", mobileHint: "actions", render: (r) => <Btn size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setDetailId(r.id); }}>Chi tiết</Btn> },
   ];
   const optionalCols: Column<PhieuXuatKhoRow>[] = [
     { key: "loai_don", header: "Loại", render: (r) => (r.loai_don ? <LoaiDeXuatBadge loaiDon={r.loai_don} /> : <span className="text-[var(--ink-400)]">—</span>) },
@@ -650,7 +652,9 @@ export function PhieuXuatKhoTab({
             ) : (
               <span className="text-[13px] italic text-[var(--ink-400)]">Chưa có mã PXK</span>
             )}
-            <span className="ml-1.5 font-mono text-[11px] text-[var(--ink-400)]">#{r.id}</span>
+            <button type="button" className="code-link ml-1.5 font-mono text-[11px] underline underline-offset-2" title="Mở chi tiết phiếu" onClick={(e) => { e.stopPropagation(); setDetailId(r.id); }}>
+              #{r.id}
+            </button>
           </div>
           <div className="shrink-0">
             <StatusBadge value={r.trang_thai} tones={PXK_TRANG_THAI_TONE} options={PXK_TRANG_THAI_OPTIONS} />
@@ -882,7 +886,6 @@ export function PhieuXuatKhoTab({
               canKeToan={canKeToan}
               currentEmail={currentEmail}
               isAdmin={isAdmin}
-              onOpenPxk={() => setDetailId(r.id)}
             />
           ) : null
         }
@@ -1203,11 +1206,10 @@ function pxkDetailQuery(id: string) {
 // 1 dòng phiếu, và các dòng đơn con bên dưới"). Tai lazy CHI khi mo (dung chung cache "pxk-detail" voi Drawer), bang
 // dong + moi thao tac tung dong = PxkDongDonHangTable (y het "Dòng đơn hàng" trong chi tiet phieu).
 function PxkDongMoRong({
-  pxkId, addToast, qc, canTacNghiep, canKho, canKeToan, currentEmail, isAdmin, onOpenPxk,
+  pxkId, addToast, qc, canTacNghiep, canKho, canKeToan, currentEmail, isAdmin,
 }: {
   pxkId: string; addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>;
   canTacNghiep: boolean; canKho: boolean; canKeToan: boolean; currentEmail: string; isAdmin: boolean;
-  onOpenPxk: () => void;
 }) {
   const [donDetailId, setDonDetailId] = useState<string | null>(null);
   const [suaTienDonId, setSuaTienDonId] = useState<string | null>(null);
@@ -1240,10 +1242,6 @@ function PxkDongMoRong({
           />
         </div>
       )}
-      {/* Mobile: the phieu khong co nut "Chi tiết" (desktop co o cuoi dong phieu) -> 1 link nho duoi cac dong don. */}
-      <div className="px-2 pb-1.5 pt-0.5 sm:hidden">
-        <button type="button" className="text-xs font-semibold text-[var(--color-link)]" onClick={onOpenPxk}>Chi tiết phiếu ›</button>
-      </div>
       {donDetailId && (
         <DonHangDetailModal
           id={donDetailId}
