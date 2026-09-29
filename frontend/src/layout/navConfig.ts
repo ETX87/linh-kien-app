@@ -77,9 +77,10 @@ export const BREADCRUMB_ROOT: Record<string, string> = {
 };
 
 // So tren muc menu (Sidebar + BottomTabBar dung chung). "phieuXuat" = phan viec PXK trong breakdown badge
-// (TN/Kho/Ke toan), "datMuaLk" = phan con lai (don + tra hang) - cong lai dung bang total cu.
+// (TN/Kho/Ke toan), "datMuaLk" = phan con lai (don + tra hang). choKhoThieuLk (ticket thieu hang cho Kho) nam trong total
+// nhung thuoc muc "Thiếu hàng" (da dem o thieuLkCanXuLy) - tru ra khoi "Đơn hàng" (2026-09-29).
 export interface NavCounts {
-  datMuaLk: { total: number; thieuLkCanXuLy?: number; choTnPxk?: number; choKhoPxk?: number; choKeToanPxk?: number };
+  datMuaLk: { total: number; thieuLkCanXuLy?: number; choTnPxk?: number; choKhoPxk?: number; choKeToanPxk?: number; choKhoThieuLk?: number };
   ktvLogChuaDoc: number;
 }
 export function navCount(countKey: NavItem["countKey"], counts: NavCounts | undefined): number {
@@ -88,5 +89,5 @@ export function navCount(countKey: NavItem["countKey"], counts: NavCounts | unde
   if (countKey === "thieuLk") return counts.datMuaLk.thieuLkCanXuLy ?? 0;
   const d = counts.datMuaLk;
   const pxk = (d.choTnPxk ?? 0) + (d.choKhoPxk ?? 0) + (d.choKeToanPxk ?? 0);
-  return countKey === "phieuXuat" ? pxk : Math.max(0, d.total - pxk);
+  return countKey === "phieuXuat" ? pxk : Math.max(0, d.total - pxk - (d.choKhoThieuLk ?? 0));
 }
