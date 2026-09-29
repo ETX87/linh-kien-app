@@ -47,11 +47,15 @@ phieuXuatKho.use("*", verifySessionMiddleware, loadUser, requireDatMuaLkArea);
 // Moi thao tac GHI thanh cong cua van phong (TN/Kho/Ke toan/Admin) len 1 PXK cu the (/:id/...) -> danh dau
 // "van phong da thao tac" -> KTV het quyen tu huy don tu duyet trong phieu (chot 2026-09-28, lib/pxkTuHuy.ts).
 // Duong dan khong phai id PXK (vd /don-hang/:donHangId/..., /loai-chiet-khau/gan-lai) -> UPDATE khong khop dong nao.
+// Doc id TRUOC next(): sau next() Hono tra param cua ROUTE HANDLER da khop - route khong co ":id" (vd
+// /don-hang/:donHangId/loai-chiet-khau) ra undefined -> D1 bind loi -> 500 du handler da ghi xong (bug 2026-09-29:
+// doi loai chiet khau bao INTERNAL_ERROR, gia thuc te khong duoc luu).
 phieuXuatKho.use("/:id/*", async (c, next) => {
+  const pxkId = c.req.param("id");
   await next();
-  if (c.req.method === "GET" || c.res.status >= 400) return;
+  if (!pxkId || c.req.method === "GET" || c.res.status >= 400) return;
   const user = c.get("user");
-  if (user && laVanPhong(user)) await danhDauVanPhongTacDong(c.env.DB, c.req.param("id"), user.email);
+  if (user && laVanPhong(user)) await danhDauVanPhongTacDong(c.env.DB, pxkId, user.email);
 });
 
 const TRANG_THAI_DONG = ["KTV da nhan", "Ke toan huy", "Hang tru kho", "Kho da ket thuc", "Kho da nhan hang tra"] as const;

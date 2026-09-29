@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { pushOverlayClose } from "../../lib/overlayStack";
 
 export function Modal({
@@ -37,7 +38,10 @@ export function Modal({
   }, [open, onClose]);
 
   if (!open) return null;
-  return (
+  // Render qua portal vao document.body (2026-09-29, bug "Đổi loại chiết khấu" chu tran ngang): Modal mo tu TRONG 1 o
+  // bang .tbl (vd LoaiChietKhauPicker) truoc day ke thua white-space: nowrap / flex-wrap: nowrap cua o bang -> chu
+  // khong xuong dong, tran ngang. Su kien React van noi bot theo cay component nhu cu (portal khong doi).
+  return createPortal(
     // FIX (phan hoi nguoi dung 2026-09-13: "sửa thông tin linh kiện => Phân loại, đang không hiện
     // listdown để chọn") - bo backdrop-blur-[2px]: Chromium co bug lau nam (vd crbug 1450640) khien
     // popup goi y <datalist> KHONG hien ra khi 1 ancestor co backdrop-filter/filter (tao "containing
@@ -58,6 +62,7 @@ export function Modal({
         <div className="overflow-y-auto p-5">{children}</div>
         {footer && <div className="border-t border-[var(--color-border-soft)] bg-[var(--surface)] px-5 py-3">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
