@@ -25,6 +25,7 @@ interface CalculationRow {
   gia_tri_cong_no: number | null;
   gia_du_phong: number | null;
   don_vi: string | null;
+  yeu_cau_hoa_don: string | null;
 }
 
 // Chot nguoi dung 2026-09-28: PXK cong_no mac dinh tien can chuyen = 0, RIENG dong loai de xuat "TRỪ CÔNG
@@ -33,6 +34,13 @@ interface CalculationRow {
 // Cac dong cong_no con lai (CÔNG NỢ/HỖ TRỢ/THẺ BẢO HÀNH) chi hien so_tien_cong_no, khong cong vao tong.
 export function laTruCongNo(loaiDeXuat: string | null | undefined): boolean {
   return (loaiDeXuat ?? "").toUpperCase().includes("TRỪ CÔNG NỢ");
+}
+
+// Chot 2026-09-29: don CO yeu cau xuat hoa don (cot "Yêu cầu hóa đơn" khac trong / khac "Không") tinh theo GIA NIEM YET,
+// KHONG huong chinh sach chiet khau nao (Dinh tu/bac thang/gia KTV/du phong) - nhan KHONG_CK. Gia chot TN nhap tay van thang.
+export function coYeuCauHoaDon(v: string | null | undefined): boolean {
+  const t = (v ?? "").trim().normalize("NFC").toLowerCase();
+  return t !== "" && t !== "không" && t !== "khong";
 }
 
 // Nhan hien thi khop CHUYEN_TIEN_OPTIONS (frontend constants.ts) - "TN da duyet" hien la Ke toan da duyet.
@@ -51,7 +59,7 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
   const { results } = await db.prepare(
     `SELECT ddh.id, ddh.ngay_tao, ddh.so_luong_de_xuat, ddh.so_luong_thuc_xuat, ddh.loai_de_xuat, ddh.loai_don,
             ddh.nguoi_nhan_hang, ddh.so_tien_cong_no, ddh.gia_de_xuat, ddh.gia_chot,
-            lk.gia_ban, lk.gia_tri_cong_no, lk.gia_du_phong, lk.don_vi
+            lk.gia_ban, lk.gia_tri_cong_no, lk.gia_du_phong, lk.don_vi, ddh.yeu_cau_hoa_don
      FROM dat_don_hang ddh LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
      WHERE ddh.id IN (${placeholders})`,
   ).bind(...datDonHangIds).all<CalculationRow>();
@@ -106,7 +114,7 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
     };
 
     // Gia du phong: CHI cac dong MUA DỰ TRỮ (tru Dinh tu), tat-ca-hoac-khong.
-    const duTru = rows.filter((row) => row.don_vi !== "Đình tủ" && laDuTru(row));
+    const duTru = rows.filter((row) => row.don_vi !== "Đình tủ" && laDuTru(row) && !coYeuCauHoaDon(row.yeu_cau_hoa_don));
     let dungDuPhong = false;
     if (duTru.length > 0) {
       const giaDuPhong = duTru.reduce((sum, row) => sum + (row.gia_du_phong ?? 0) * soLuongTinhTien(row), 0);
@@ -125,11 +133,13 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
 
     for (const row of rows) {
       const { donGia, ma } =
-        row.don_vi === "Đình tủ"
-          ? { donGia: giaBan(row) * 0.85, ma: "DINH_TU" as MaChietKhau }
-          : dungDuPhong && laDuTru(row)
-            ? { donGia: row.gia_du_phong ?? 0, ma: "GIA_DU_PHONG" as MaChietKhau }
-            : giaBacThang(row);
+        coYeuCauHoaDon(row.yeu_cau_hoa_don)
+          ? { donGia: giaBan(row), ma: "KHONG_CK" as MaChietKhau }
+          : row.don_vi === "Đình tủ"
+            ? { donGia: giaBan(row) * 0.85, ma: "DINH_TU" as MaChietKhau }
+            : dungDuPhong && laDuTru(row)
+              ? { donGia: row.gia_du_phong ?? 0, ma: "GIA_DU_PHONG" as MaChietKhau }
+              : giaBacThang(row);
       // Gia chot LUON thang (chot 2026-09-28); nhan loai chiet khau van theo cong thuc.
       total += setTien(row, (row.gia_chot ?? donGia) * soLuongTinhTien(row));
       maTheoDong.set(row.id, maTheoLoaiDon(row, ma));

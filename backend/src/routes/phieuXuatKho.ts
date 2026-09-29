@@ -16,7 +16,7 @@ import { buildMisaExportSheets, resolveMisaTemplateDeXuat, MISA_TEMPLATES, type 
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, emailGsListForPxk, PXK_ROLES } from "../lib/taskNotify";
 import { pushPxkToKhovan, notifyPxkAdvancedViaApp, buildWorkUrl } from "../lib/khovanPushClient";
 import { timLoaiChietKhauTheoTen, gonTenLoaiChietKhau, choPhepDoiLoaiChietKhau } from "../lib/loaiChietKhau";
-import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, type PxkCalculation } from "../lib/pxkRecalculate";
+import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, laTruCongNo, type PxkCalculation } from "../lib/pxkRecalculate";
 import { laVanPhong, danhDauVanPhongTacDong, huyPxkNeuTrong } from "../lib/pxkTuHuy";
 import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
 import { docAnhBangChung, MAX_ANH_BANG_CHUNG } from "../lib/bangChungChuyenTien";
@@ -1689,6 +1689,18 @@ phieuXuatKho.post("/:id/log", async (c) => {
     c.executionCtx.waitUntil(notifyPxkAdvancedViaApp(c.env, id, `Đã xác nhận "${target}" trực tiếp trên hệ thống Đặt mua linh kiện`));
   }
 
+  // Phieu CHI gom dong "TRỪ CÔNG NỢ" (chot 2026-09-29): hang da o kho CUA KTV, khong co giao vat ly -> Ke toan chot xong
+  // thi he thong tu "Hang tru kho" thay Kho (khong day sang khovan, khong bao viec cho Kho). Phieu lan dong khac: nhu cu.
+  let hangTruKhoTuDong = false;
+  if (target === "Da chot xong don xuat" && pxk.loai_don === "cong_no") {
+    const { results: ldx } = await c.env.DB.prepare(
+      "SELECT ddh.loai_de_xuat FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = ?",
+    )
+      .bind(id)
+      .all<{ loai_de_xuat: string | null }>();
+    hangTruKhoTuDong = ldx.length > 0 && ldx.every((r) => laTruCongNo(r.loai_de_xuat));
+  }
+
   // "Da chot xong don xuat" la moc "san sang cho Kho xu ly" (nguyen tac "Kho chi thao
   // tac qua app kho van", chot 2026-09-07) - day "cho xu ly" sang khovan O DAY, ap dung
   // CA loai_don thuong (mua/cong_no) LAN 'tra_hang' (xem lib/khovanPushClient.ts).
@@ -1718,6 +1730,13 @@ phieuXuatKho.post("/:id/log", async (c) => {
           id, "Kho da nhan hang tra", user.email, nowVN(), "Tự động — hàng đã về kho qua mã trả hàng (TRA-), không cần Kho xác nhận lại",
         ),
       ]);
+    } else if (hangTruKhoTuDong) {
+      await c.env.DB.batch([
+        c.env.DB.prepare("UPDATE phieu_xuat_kho SET trang_thai_hien_tai = 'Hang tru kho', version = version + 1 WHERE id = ?").bind(id),
+        c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+          id, "Hang tru kho", user.email, nowVN(), "Tự động — phiếu TRỪ CÔNG NỢ trừ thẳng kho KTV, không cần Kho xác nhận",
+        ),
+      ]);
     } else {
       // Hien thi ben khovan phai dung ma MISA (nguoi dung nhap, doi chieu ke toan) - KHONG
       // dung `id` (chi la ID tu sinh de quan ly noi bo, khong co nghia gi voi Ke toan/Kho).
@@ -1730,7 +1749,7 @@ phieuXuatKho.post("/:id/log", async (c) => {
 
   // Bao "viec moi" cho vai tro SAP xu ly buoc tiep theo (phan hoi 2026-09-05) - PXK khong co
   // email_gs rieng, suy tu cac dat_don_hang da gop vao (xem emailGsListForPxk).
-  if (target === "Cho ke toan" || target === "Da chot xong don xuat" || target === "Dang tao phieu") {
+  if (target === "Cho ke toan" || (target === "Da chot xong don xuat" && !hangTruKhoTuDong) || target === "Dang tao phieu") {
     const role = target === "Cho ke toan" ? "la_ke_toan" : target === "Dang tao phieu" ? "la_tac_nghiep" : "la_kho";
     const body_ =
       target === "Cho ke toan"

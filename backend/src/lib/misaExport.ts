@@ -43,7 +43,7 @@
 // tra THEM danh sach "canhBaoThieuMisa" (cac KTV dang xuat hien trong file nhung thieu ma_misa hoac
 // ten_misa) de FE hien canh bao ro rang luc tai file.
 import type { Env } from "../types";
-import { tinhToanPxk } from "./pxkRecalculate";
+import { tinhToanPxk, laTruCongNo } from "./pxkRecalculate";
 
 export const MISA_TEMPLATES = ["xuat_kho", "chuyen_kho", "ban_hang"] as const;
 export type MisaTemplate = (typeof MISA_TEMPLATES)[number];
@@ -310,9 +310,12 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
       // template === "xuat_kho" | "ban_hang" - dung chung 1 bo cot "Don dat hang" (xem giai thich dau
       // file), chi khac cong thuc theo "Tinh gia thanh".
       const tinhGiaThanhCo = template === "ban_hang";
+      // Dong "TRỪ CÔNG NỢ" (chot 2026-09-29): hang da nam o KHO CUA KTV -> tru tu kho KTV, khong tru kho cong ty theo
+      // mien. Ma kho KTV tren MISA = ma MISA cua KTV (cung quy uoc "Xuất tại kho" cua mau Chuyen kho + ton kho KTV).
+      const maKhoDong = laTruCongNo(line.loai_de_xuat) ? maMisa : kho.ma;
       const dienGiai = tinhGiaThanhCo
-        ? `${kho.ma} bán hàng ${tenMisa || line.nguoi_nhan_hang || ""}`.trim()
-        : `${kho.ma} xuất ${line.loai_de_xuat ?? ""} cho ${tenMisa || line.nguoi_nhan_hang || ""}${
+        ? `${maKhoDong} bán hàng ${tenMisa || line.nguoi_nhan_hang || ""}`.trim()
+        : `${maKhoDong} xuất ${line.loai_de_xuat ?? ""} cho ${tenMisa || line.nguoi_nhan_hang || ""}${
             line.ma_yeu_cau_su_co ? ` theo MYC ${line.ma_yeu_cau_su_co}` : ""
           }`.replace(/\s+/g, " ").trim();
       const phanTramThueGTGT = tinhGiaThanhCo ? 8 : 0;
@@ -333,7 +336,7 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
         maNhanVienBanHang: maMisa,
         maHang: line.ma_lk,
         tenHang,
-        maKho: kho.ma,
+        maKho: maKhoDong,
         dvt: line.don_vi || "",
         soLuong,
         donGia: tinhGiaThanhCo ? donGiaChuaThue : null,

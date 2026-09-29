@@ -148,7 +148,8 @@ function canNoRequired(loaiDeXuat: string): boolean {
 // buoc CA 2 truong). 2 tap loai_de_xuat nay khong giao nhau (1 ben chua "CÔNG NỢ", ben kia chua "MUA
 // HÀNG") nen validate tach rieng khong bi chong cheo - xem 3 noi goi ben duoi.
 function maYcscRequired(loaiDeXuat: string): boolean {
-  return canNoRequired(loaiDeXuat) || loaiDeXuat.includes("MUA HÀNG CÓ ID");
+  // + moi loai chua "HỖ TRỢ" (chot 2026-09-29) - "HỖ TRỢ CÔNG NỢ" da nam trong canNoRequired (bat buoc ca Chinh sach).
+  return canNoRequired(loaiDeXuat) || loaiDeXuat.includes("MUA HÀNG CÓ ID") || loaiDeXuat.toUpperCase().includes("HỖ TRỢ");
 }
 
 // CHOT 2026-08-15: Ve tinh CHI la nguoi tao/de xuat don, KHONG phai nguoi nhan hang that su - Tram
@@ -3523,7 +3524,8 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
       next.loai_de_xuat !== existing.loai_de_xuat ||
       next.so_luong_de_xuat !== existing.so_luong_de_xuat ||
       next.so_luong_thuc_xuat !== existing.so_luong_thuc_xuat ||
-      next.gia_chot !== existing.gia_chot;
+      next.gia_chot !== existing.gia_chot ||
+      next.yeu_cau_hoa_don !== existing.yeu_cau_hoa_don; // co/khong yeu cau hoa don doi gia (chot 2026-09-29)
 
     const nowSua = nowVN();
     const statementsSua = [
