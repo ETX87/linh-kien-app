@@ -34,3 +34,18 @@ export function formatPersonDisplay(email: string | null | undefined, dir: Perso
   const ten = dir.ktv.get(email) ?? dir.users.get(email);
   return ten ?? email;
 }
+
+// File tai ve (2026-09-29, "dữ liệu tải về đang để người tạo và người nhận hàng = gmail => đổi thành tên (nếu ko có
+// tên thì để gmail)"): doi moi cot NGUOI (khoa bat dau "nguoi_" hoac ket thuc "_nguoi_tao", gia tri la email) sang
+// ten theo danh ba - khong co ten thi giu email. Cot khac giu nguyen.
+export function doiNguoiThanhTen<T extends object>(rows: T[], dir: PersonDirectory): Record<string, unknown>[] {
+  return rows.map((row) => {
+    const out: Record<string, unknown> = { ...(row as unknown as Record<string, unknown>) };
+    for (const [k, v] of Object.entries(out)) {
+      if ((k.startsWith("nguoi_") || k.endsWith("_nguoi_tao")) && typeof v === "string" && v.includes("@")) {
+        out[k] = formatPersonDisplay(v, dir);
+      }
+    }
+    return out;
+  });
+}

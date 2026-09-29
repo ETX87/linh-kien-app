@@ -10,7 +10,7 @@ import { api } from "../../api/client";
 import { fmtVND } from "../../types";
 import { usePublicSheetCache } from "../../lib/publicSheetCache";
 import type { LkDanhMucRow } from "./types";
-import { describeApiError, useLinhKienRankMap, formatLkLabel } from "./helpers";
+import { describeApiError, useLinhKienRankMap, formatLkLabel, boQuaTbpDacThu } from "./helpers";
 import { Money } from "../../components/ui/Money";
 
 // O chon "Ma linh kien" (autocomplete co anh/gia/xep hang) + cac component lien quan (thumbnail,
@@ -200,9 +200,11 @@ const LINH_KIEN_PICKER_MAX_RESULTS = 60;
 // luot dat nao roi xuong duoi 1 dong ke "── Linh kiện khác ──". Khi go tu khoa, van uu tien sap theo
 // hang trong nhom da khop, khong chi loc dung theo chuoi tim.
 export function LinhKienPicker({
-  value, onChange, options, disabled = false, className = "", autoFocus = false,
+  value, onChange, options, disabled = false, className = "", autoFocus = false, loaiDeXuat,
 }: {
   value: string; onChange: (v: string) => void; options: LkDanhMucRow[]; disabled?: boolean; className?: string; autoFocus?: boolean;
+  // Loai de xuat dang chon - MUA/HỖ TRỢ/TRỪ CÔNG NỢ bo qua TBP nen khong hien canh bao "chờ TP DVBH" (2026-09-29).
+  loaiDeXuat?: string;
 }) {
   const rankMap = useLinhKienRankMap();
   const [open, setOpen] = useState(false);
@@ -369,7 +371,7 @@ export function LinhKienPicker({
     {selected?.dac_thu ? (
       <div className="mt-1.5 rounded-lg border border-[var(--amber-500)] bg-[var(--amber-100)] px-2.5 py-1.5 text-xs text-[var(--amber-700)] space-y-0.5">
         {selected.phan_loai_dac_thu?.trim() && <div className="font-semibold">🔖 Phân loại đặc thù: {selected.phan_loai_dac_thu.trim()}</div>}
-        <div>⚠ Linh kiện đặc thù — đơn sẽ cần chờ TP DVBH xác nhận trước khi Tác nghiệp duyệt.</div>
+        {!boQuaTbpDacThu(loaiDeXuat) && <div>⚠ Linh kiện đặc thù — đơn sẽ cần chờ TP DVBH xác nhận trước khi Tác nghiệp duyệt.</div>}
       </div>
     ) : selected?.phan_loai_dac_thu?.trim() ? (
       // Them (yeu cau nguoi dung 2026-08-27): mot so linh kien dac_thu=0 (KHONG can TP DVBH xac nhan,

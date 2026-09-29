@@ -28,6 +28,7 @@ import { ThieuLkStatusRail } from "./ThieuLkStatusRail";
 // toan trong ESM vi ca 2 chi dung ben trong than ham component (luc render), khong dung o top-level.
 import { DonHangDetailModal } from "./DonCuaToiTab";
 import { NguoiNhan } from "../../components/ui/TenNguoi";
+import { doiNguoiThanhTen, usePersonDirectory } from "../../lib/personDisplay";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -333,6 +334,7 @@ export function ThieuLkTab({
 
   // "Tải danh sách chi tiết" (them 2026-09-13) - mirror handleDownloadFullList() cua UsersModule.tsx,
   // goi lai GET /dat-mua-lk/thieu-lk VOI CUNG bo loc dang xem nhung KHONG truyen page (BE tra HET).
+  const personDir = usePersonDirectory(); // ten nguoi trong file tai ve (2026-09-29)
   const [downloadingFull, setDownloadingFull] = useState(false);
   async function handleDownloadFullList() {
     setDownloadingFull(true);
@@ -346,7 +348,7 @@ export function ThieuLkTab({
             nguoi_nhan_hang: filterNguoiNhanHang || undefined,
           }),
       );
-      await exportRowsToExcel(res.rows, "thieu_lk_chi_tiet.xlsx", "Thiếu LK");
+      await exportRowsToExcel(doiNguoiThanhTen(res.rows, personDir), "thieu_lk_chi_tiet.xlsx", "Thiếu LK");
     } catch (err) {
       addToast("Không tải được danh sách chi tiết: " + describeApiError(err));
     } finally {
@@ -451,7 +453,7 @@ export function ThieuLkTab({
         activeFilterCount={activeFilterCount}
         searchValue={filterQ}
         onSearchChange={setFilterQ}
-        searchPlaceholder="Tìm theo mã TLK, mã LK, tên LK, tên KTV/người báo..."
+        searchPlaceholder="Tìm theo mã TLK, mã đơn, mã YCSC, mã LK, tên LK, tên KTV/người báo..."
       >
         {/* Bo loc Khu vuc (them 2026-08-31, MO RONG 2026-09-05 dong bo voi DonCuaToiTab.tsx - xem
             showKhuVucFilter phia tren, khong chi rieng Kho nua). SUA BUG GIAO DIEN (phan hoi 2026-09-12):

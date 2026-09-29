@@ -6,7 +6,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nextSequentialId } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
-import { emailsTheoTen, orEmailIn } from "../lib/timTheoTen";
+import { emailsTheoTen, orDonTrongPxk, orEmailIn } from "../lib/timTheoTen";
 import { bumpVersions } from "../lib/dataVersions";
 import { quaHanLyDoCham, mocTinhHanTn } from "../lib/hanLyDoCham";
 import { autoClaimGs, scopePxkNguoiNhanHang, phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql } from "../lib/scopeDatMua";
@@ -19,6 +19,7 @@ import { timLoaiChietKhauTheoTen, gonTenLoaiChietKhau, choPhepDoiLoaiChietKhau }
 import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, type PxkCalculation } from "../lib/pxkRecalculate";
 import { laVanPhong, danhDauVanPhongTacDong, huyPxkNeuTrong } from "../lib/pxkTuHuy";
 import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
+import { docAnhBangChung, MAX_ANH_BANG_CHUNG } from "../lib/bangChungChuyenTien";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
 // Pattern header+log giong phieu_dat. TN tao (gom nhieu dong don hang da "TN da duyet" vao 1
@@ -304,8 +305,9 @@ async function pxkListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string): P
   if (q) {
     // + tim theo TEN nguoi tao/nguoi nhan hang (2026-09-28, xem lib/timTheoTen.ts).
     const theoTen = orEmailIn(["pxk.nguoi_tao", "pxk.nguoi_nhan_hang"], await emailsTheoTen(c.env.DB, q));
-    whereSql += ` AND (pxk.id LIKE ? OR pxk.ma_xuat_kho LIKE ? OR pxk.ma_misa LIKE ? OR pxk.ma_van_don LIKE ? OR pxk.nguoi_tao LIKE ? OR pxk.nguoi_nhan_hang LIKE ?${theoTen.sql})`;
-    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoTen.binds);
+    const theoDon = orDonTrongPxk(q); // + ma don / ma yeu cau su co chinh-bo sung cua dong trong phieu (2026-09-29)
+    whereSql += ` AND (pxk.id LIKE ? OR pxk.ma_xuat_kho LIKE ? OR pxk.ma_misa LIKE ? OR pxk.ma_van_don LIKE ? OR pxk.nguoi_tao LIKE ? OR pxk.nguoi_nhan_hang LIKE ?${theoDon.sql}${theoTen.sql})`;
+    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoDon.binds, ...theoTen.binds);
   }
 
   // Loc cot kieu Excel (2026-09-28, lib/locCot.ts).
@@ -424,8 +426,9 @@ phieuXuatKho.get("/misa-export", async (c) => {
   if (q) {
     // + tim theo TEN nguoi tao/nguoi nhan hang (2026-09-28, xem lib/timTheoTen.ts).
     const theoTen = orEmailIn(["pxk.nguoi_tao", "pxk.nguoi_nhan_hang"], await emailsTheoTen(c.env.DB, q));
-    whereSql += ` AND (pxk.id LIKE ? OR pxk.ma_xuat_kho LIKE ? OR pxk.ma_misa LIKE ? OR pxk.ma_van_don LIKE ? OR pxk.nguoi_tao LIKE ? OR pxk.nguoi_nhan_hang LIKE ?${theoTen.sql})`;
-    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoTen.binds);
+    const theoDon = orDonTrongPxk(q); // + ma don / ma yeu cau su co chinh-bo sung cua dong trong phieu (2026-09-29)
+    whereSql += ` AND (pxk.id LIKE ? OR pxk.ma_xuat_kho LIKE ? OR pxk.ma_misa LIKE ? OR pxk.ma_van_don LIKE ? OR pxk.nguoi_tao LIKE ? OR pxk.nguoi_nhan_hang LIKE ?${theoDon.sql}${theoTen.sql})`;
+    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoDon.binds, ...theoTen.binds);
   }
 
   const { results } = await c.env.DB.prepare(`SELECT pxk.id FROM phieu_xuat_kho pxk WHERE ${whereSql} ORDER BY pxk.ngay_tao`)
@@ -1041,10 +1044,12 @@ phieuXuatKho.post("/:id/anh-bien-ban", async (c) => {
 phieuXuatKho.post("/:id/bang-chung-chuyen-tien", async (c) => {
   const id = c.req.param("id");
   const user = c.get("user");
-  const pxk = await c.env.DB.prepare("SELECT trang_thai_chuyen_tien, nguoi_nhan_hang FROM phieu_xuat_kho WHERE id = ?")
+  const pxk = await c.env.DB.prepare("SELECT trang_thai_chuyen_tien, nguoi_nhan_hang, bang_chung_chuyen_tien_anh FROM phieu_xuat_kho WHERE id = ?")
     .bind(id)
-    .first<{ trang_thai_chuyen_tien: string | null; nguoi_nhan_hang: string | null }>();
+    .first<{ trang_thai_chuyen_tien: string | null; nguoi_nhan_hang: string | null; bang_chung_chuyen_tien_anh: string | null }>();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
+  // Toi da 5 anh / phieu (2026-09-29) - tinh tren anh DA LUU; anh vua tai chua xac nhan client tu gioi han.
+  if (docAnhBangChung(pxk.bang_chung_chuyen_tien_anh).length >= MAX_ANH_BANG_CHUNG) return c.json({ error: "QUA_SO_ANH_BANG_CHUNG" }, 400);
   // FIX (bao cao 2026-08-26: "Vai trò TN thử up hình ảnh bằng chứng chuyển tiền thì bị báo lỗi") -
   // truoc day CHI KTV (nguoi_nhan_hang that su) hoac Admin upload duoc, nhung thuc te KTV thuong gui
   // anh chuyen khoan qua Zalo/tin nhan roi TN (nguoi xu ly PXK) up HO len he thong, khong tu dang
@@ -1096,7 +1101,8 @@ phieuXuatKho.post("/:id/chuyen-tien", async (c) => {
   const now = nowVN();
   await c.env.DB.batch([
     c.env.DB.prepare(
-      "UPDATE phieu_xuat_kho SET so_tien_can_chuyen = ?, trang_thai_chuyen_tien = 'Cho KTV chuyen', bang_chung_chuyen_tien_url = NULL, bang_chung_chuyen_tien_ghi_chu = NULL, ngay_ktv_chuyen = NULL WHERE id = ?",
+      // GIU bang chung cu (2026-09-29) - KTV bo sung anh neu can roi xac nhan lai.
+      "UPDATE phieu_xuat_kho SET so_tien_can_chuyen = ?, trang_thai_chuyen_tien = 'Cho KTV chuyen', ngay_ktv_chuyen = NULL WHERE id = ?",
     ).bind(ketQuaTaiTinh.total, id),
     // SUA 2026-09-13 (xem giai thich o PATCH /:id/ma-xuat-kho phia tren): trang_thai log-only rieng
     // thay vi tai su dung pxk.trang_thai.
@@ -1120,7 +1126,7 @@ phieuXuatKho.post("/:id/chuyen-tien", async (c) => {
 // TU TN SANG KE TOAN 04/09/2026 - xem nhanh "TN da duyet" ben duoi, gia tri DB giu nguyen ten cu).
 phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
   const id = c.req.param("id");
-  const body = await c.req.json<{ trang_thai: string; bang_chung_chuyen_tien_url?: string; bang_chung_chuyen_tien_ghi_chu?: string }>();
+  const body = await c.req.json<{ trang_thai: string; bang_chung_chuyen_tien_url?: string; bang_chung_chuyen_tien_anh?: string[]; bang_chung_chuyen_tien_ghi_chu?: string }>();
   const pxk = await c.env.DB.prepare(
     "SELECT trang_thai_chuyen_tien, nguoi_nhan_hang FROM phieu_xuat_kho WHERE id = ?",
   ).bind(id).first<{ trang_thai_chuyen_tien: string | null; nguoi_nhan_hang: string | null }>();
@@ -1141,17 +1147,23 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
     // migration 0091 (phan hoi 2026-08-19: "cho phép upload ảnh hoặc ghi chú thông tin chuyển
     // tiền") - bat buoc CO IT NHAT 1 trong 2 (anh that qua Drive HOAC ghi chu van ban), khong con
     // bat buoc rieng URL nhu truoc.
-    if (!body.bang_chung_chuyen_tien_url?.trim() && !body.bang_chung_chuyen_tien_ghi_chu?.trim()) {
+    // Nhieu anh (2026-09-29): `bang_chung_chuyen_tien_anh` = DANH SACH DAY DU sau khi KTV them/bo (anh cu + moi);
+    // client cu chi gui 1 `bang_chung_chuyen_tien_url` -> coi la danh sach 1 anh.
+    const anh = [...new Set((Array.isArray(body.bang_chung_chuyen_tien_anh) ? body.bang_chung_chuyen_tien_anh : [body.bang_chung_chuyen_tien_url ?? ""])
+      .map((u) => (typeof u === "string" ? u.trim() : "")).filter(Boolean))];
+    if (anh.length > MAX_ANH_BANG_CHUNG) return c.json({ error: "QUA_SO_ANH_BANG_CHUNG" }, 400);
+    if (anh.some((u) => !/^https?:\/\//i.test(u))) return c.json({ error: "INVALID_URL" }, 400);
+    if (anh.length === 0 && !body.bang_chung_chuyen_tien_ghi_chu?.trim()) {
       return c.json({ error: "MISSING_BANG_CHUNG" }, 400);
     }
     await c.env.DB.batch([
       c.env.DB.prepare(
-        "UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = 'KTV da chuyen', bang_chung_chuyen_tien_url = ?, bang_chung_chuyen_tien_ghi_chu = ?, ngay_ktv_chuyen = ? WHERE id = ?",
-      ).bind(body.bang_chung_chuyen_tien_url?.trim() || null, body.bang_chung_chuyen_tien_ghi_chu?.trim() || null, now, id),
+        "UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = 'KTV da chuyen', bang_chung_chuyen_tien_url = ?, bang_chung_chuyen_tien_anh = ?, bang_chung_chuyen_tien_ghi_chu = ?, ngay_ktv_chuyen = ? WHERE id = ?",
+      ).bind(anh[0] ?? null, anh.length > 0 ? JSON.stringify(anh) : null, body.bang_chung_chuyen_tien_ghi_chu?.trim() || null, now, id),
       // SUA 2026-09-13 (xem giai thich o PATCH /:id/ma-xuat-kho phia tren): trang_thai log-only rieng
       // thay vi tai su dung logTrangThai (trang_thai chinh hien tai cua phieu).
       c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
-        id, "Da dinh bang chung chuyen tien", user.email, now, "Đã đính bằng chứng/ghi chú chuyển tiền",
+        id, "Da dinh bang chung chuyen tien", user.email, now, anh.length > 0 ? `Đã đính ${anh.length} ảnh bằng chứng${body.bang_chung_chuyen_tien_ghi_chu?.trim() ? " + ghi chú" : ""} chuyển tiền` : "Đã đính ghi chú chuyển tiền",
       ),
     ]);
     // Bao Ke toan "cho duyet chuyen tien" (phan hoi 2026-09-05) - buoc 2 gio la Ke toan duyet (xem

@@ -190,7 +190,7 @@ export function TaoDonMobileScreen({
 
         <div>
           <label className={reqLabelClass(!d.ma_lk.trim())}>Mã linh kiện *</label>
-          <LinhKienPicker value={d.ma_lk} onChange={(v) => updateDraft(activeIdx, { ma_lk: v })} options={danhMuc} autoFocus={justAdded} />
+          <LinhKienPicker value={d.ma_lk} onChange={(v) => updateDraft(activeIdx, { ma_lk: v })} options={danhMuc} autoFocus={justAdded} loaiDeXuat={d.loai_de_xuat} />
         </div>
 
         <div>

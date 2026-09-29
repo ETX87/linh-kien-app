@@ -427,6 +427,106 @@ settingsKtv.patch("/:ma/cong-no-misa", async (c) => {
   return c.json({ ok: true });
 });
 
+// POST /bulk-import-cong-no-misa (2026-09-29, "Bổ sung thêm chức năng import ở Danh sách KTV cho vai trò kế toán,
+// họ có thể import trần công nợ... dựa theo Mã tài khoản MISA") - Ke toan (+ Admin) import HANG LOAT dung cac truong
+// da uy quyen o PATCH /:ma/cong-no-misa (tran cong no, han muc du phong, han muc du phong hien tai, ten tren MISA),
+// KHOP DONG theo `ma_misa` (khong theo ma_ktv nhu /bulk-import cua Admin, khong tao KTV moi). O trong/khong co cot =
+// giu nguyen gia tri cu; 0 la gia tri hop le. Ma MISA khong khop KTV nao / khop >1 KTV -> bo qua dong do, bao loi.
+// Chia chunk 25 dong/lan (offset) giong /bulk-import.
+settingsKtv.post("/bulk-import-cong-no-misa", async (c) => {
+  const user = c.get("user");
+  if (!user.la_ke_toan && user.vai_tro !== "Admin") return c.json({ error: "FORBIDDEN" }, 403);
+  const body = await c.req.json<{
+    rows: { ma_misa: string; cong_no?: number | null; han_muc_du_phong?: number | null; han_muc_du_phong_hien_tai?: number | null; ten_misa?: string | null }[];
+    offset: number;
+  }>();
+  if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
+
+  const CHUNK_SIZE = 25;
+  const offset = Math.max(0, body.offset ?? 0);
+  const chunk = body.rows.slice(offset, offset + CHUNK_SIZE);
+  const now = nowVN();
+  const soHopLe = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+
+  let success = 0;
+  let errorCount = 0;
+  let anyDuPhongHienTaiChanged = false;
+  const details: { ma_misa: string; status: string; ma_ktv?: string }[] = [];
+
+  for (const row of chunk) {
+    const maMisa = typeof row.ma_misa === "string" ? row.ma_misa.trim() : String(row.ma_misa ?? "").trim();
+    if (!maMisa) {
+      errorCount++;
+      details.push({ ma_misa: "(rỗng)", status: "thieu_ma_misa" });
+      continue;
+    }
+    const { results: ktvs } = await c.env.DB.prepare(
+      "SELECT ma_ktv, cong_no, han_muc_du_phong, han_muc_du_phong_hien_tai FROM ktv_lien_he WHERE UPPER(TRIM(ma_misa)) = UPPER(?)",
+    )
+      .bind(maMisa)
+      .all<{ ma_ktv: string; cong_no: number | null; han_muc_du_phong: number | null; han_muc_du_phong_hien_tai: number | null }>();
+    if (ktvs.length === 0) {
+      errorCount++;
+      details.push({ ma_misa: maMisa, status: "khong_tim_thay" });
+      continue;
+    }
+    if (ktvs.length > 1) {
+      errorCount++;
+      details.push({ ma_misa: maMisa, status: "trung_ma_misa", ma_ktv: ktvs.map((k) => k.ma_ktv).join(", ") });
+      continue;
+    }
+    const k = ktvs[0];
+    const sets: string[] = [];
+    const binds: unknown[] = [];
+    if (soHopLe(row.cong_no)) {
+      sets.push("cong_no = ?");
+      binds.push(row.cong_no);
+      if (row.cong_no !== k.cong_no) {
+        sets.push("cong_no_cap_nhat_luc = ?");
+        binds.push(now);
+      }
+    }
+    if (soHopLe(row.han_muc_du_phong)) {
+      sets.push("han_muc_du_phong = ?");
+      binds.push(row.han_muc_du_phong);
+    }
+    if (soHopLe(row.han_muc_du_phong_hien_tai)) {
+      sets.push("han_muc_du_phong_hien_tai = ?");
+      binds.push(row.han_muc_du_phong_hien_tai);
+      if (row.han_muc_du_phong_hien_tai !== k.han_muc_du_phong_hien_tai) {
+        sets.push("han_muc_du_phong_cap_nhat_luc = ?");
+        binds.push(now);
+        anyDuPhongHienTaiChanged = true;
+      }
+    }
+    if (typeof row.ten_misa === "string" && row.ten_misa.trim()) {
+      sets.push("ten_misa = ?");
+      binds.push(row.ten_misa.trim());
+    }
+    if (sets.length === 0) {
+      errorCount++;
+      details.push({ ma_misa: maMisa, status: "khong_co_du_lieu", ma_ktv: k.ma_ktv });
+      continue;
+    }
+    try {
+      await c.env.DB.prepare(`UPDATE ktv_lien_he SET ${sets.join(", ")}, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_ktv = ?`)
+        .bind(...binds, user.email, now, k.ma_ktv)
+        .run();
+      success++;
+      details.push({ ma_misa: maMisa, status: "thanh_cong", ma_ktv: k.ma_ktv });
+    } catch {
+      errorCount++;
+      details.push({ ma_misa: maMisa, status: "loi_ghi_db", ma_ktv: k.ma_ktv });
+    }
+  }
+
+  const nextOffset = offset + CHUNK_SIZE;
+  const done = nextOffset >= body.rows.length;
+  if (anyDuPhongHienTaiChanged) await setMocTinhDuPhong(c.env.DB, user.email, now);
+  if (done) await refreshHash(c.env.DB);
+  return c.json({ done, nextOffset, success, errorCount, details });
+});
+
 settingsKtv.post("/backfill-users", adminOnly, async (c) => {
   const { results } = await c.env.DB.prepare(
     "SELECT ten_hien_thi, vai_tro_ktv, email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL",

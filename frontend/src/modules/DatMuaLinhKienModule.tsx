@@ -10,6 +10,7 @@ import type { LuongQuyTrinhStep, JumpTarget, DangTonStep } from "./datMuaLinhKie
 import { PipelineFlow, MyWorkloadStrip } from "./datMuaLinhKien/PipelineFlow";
 import { CaseDetailModal } from "./datMuaLinhKien/CaseDetailModal";
 import { StageMenu, type StageMenuGroup } from "./datMuaLinhKien/StageMenu";
+import { ErrorBoundary } from "../components/ui/ErrorBoundary";
 
 // FIX (phan hoi "click vào đơn chờ hàng, thẻ tab vẫn đang không được chọn" - da xay ra 2 lan lien tiep
 // voi 2 muc khac nhau, "Đã gửi chờ KTV xác nhận" lan truoc va "Chờ hàng" lan nay - xac nhan day la LOI
@@ -847,6 +848,8 @@ export function DatMuaLinhKienModule({
         return createPortal(<StageMenu groups={stageMenuGroups} activeKey={stageMenuActiveKey} isMobile={false} />, stageMenuSlot);
       })()}
       <div className="min-w-0">
+      {/* key = tab dang xem: doi tab thi go loi cu, khong ket o man bao loi (ErrorBoundary.tsx). */}
+      <ErrorBoundary key={activeView}>
       <Suspense fallback={<TabFallback />}>
         {activeView === "trang-chu" && (
           <TrangChuTab
@@ -961,6 +964,7 @@ export function DatMuaLinhKienModule({
           />
         )}
       </Suspense>
+      </ErrorBoundary>
       </div>
       {openCaseId && <CaseDetailModal caseId={openCaseId} onClose={() => setOpenCaseId(null)} />}
     </div>

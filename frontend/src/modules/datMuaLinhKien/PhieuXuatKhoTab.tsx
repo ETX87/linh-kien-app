@@ -35,6 +35,8 @@ import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportResult, type M
 import { Money } from "../../components/ui/Money";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../components/ui/LocCot";
+import { BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung } from "./BangChungChuyenTien";
+import { doiNguoiThanhTen, usePersonDirectory } from "../../lib/personDisplay";
 
 const MISA_TEMPLATE_ORDER: MisaTemplate[] = ["xuat_kho", "chuyen_kho", "ban_hang"];
 
@@ -221,6 +223,7 @@ export function PhieuXuatKhoTab({
 
   // "Tải danh sách chi tiết" (them 2026-09-13) - mirror handleDownloadFullList() cua UsersModule.tsx,
   // goi lai GET /phieu-xuat-kho VOI CUNG bo loc dang xem nhung KHONG truyen page (BE tra HET).
+  const personDir = usePersonDirectory(); // ten nguoi trong file tai ve (2026-09-29)
   const [downloadingFull, setDownloadingFull] = useState(false);
   async function handleDownloadFullList() {
     setDownloadingFull(true);
@@ -236,7 +239,7 @@ export function PhieuXuatKhoTab({
             ...locCot.queryParams,
           }),
       );
-      await exportRowsToExcel(res.rows, "phieu_xuat_kho_chi_tiet.xlsx", "PXK");
+      await exportRowsToExcel(doiNguoiThanhTen(res.rows, personDir), "phieu_xuat_kho_chi_tiet.xlsx", "PXK");
     } catch (err) {
       addToast("Không tải được danh sách chi tiết: " + describeApiError(err));
     } finally {
@@ -701,7 +704,7 @@ export function PhieuXuatKhoTab({
         activeFilterCount={[filterTrangThai, filterNguoiNhanHang, filterQ, khuVucParam].filter(Boolean).length + Object.keys(locCot.loc).length}
         searchValue={filterQ}
         onSearchChange={setFilterQ}
-        searchPlaceholder="Tìm theo mã PXK, mã đơn hàng, mã MISA, tên KTV..."
+        searchPlaceholder="Tìm theo mã PXK, mã đơn hàng, mã YCSC, mã MISA, tên KTV..."
         activeFilters={
           <>
             {/* Nut bam nhanh "Đơn chờ xử lý" (them 2026-09-09, phan hoi "thêm 1 nút ấn nhanh...tự
@@ -1114,15 +1117,9 @@ export function PxkDetailModal({
 }) {
   const [ghiChu, setGhiChu] = useState("");
   const [maVanDonInput, setMaVanDonInput] = useState("");
-  const [bangChungUrl, setBangChungUrl] = useState("");
-  // Ghi chu thay the/di kem anh (phan hoi 2026-08-19: "cho phép upload ảnh hoặc ghi chú thông tin
-  // chuyển tiền") - bangChungUrl gio duoc DIEN TU DONG qua upload anh that (khong con go tay link),
-  // bangChungGhiChuDraft la lua chon thay the khi khong co anh de upload.
-  const [bangChungGhiChuDraft, setBangChungGhiChuDraft] = useState("");
   const [maXuatKhoDraft, setMaXuatKhoDraft] = useState("");
   const [maMisaDraft, setMaMisaDraft] = useState("");
   const [uploadingAnh, setUploadingAnh] = useState(false);
-  const [uploadingBangChung, setUploadingBangChung] = useState(false);
   // Nhap "Ly do cham" tung dong (CHOT 2026-08-14 - xem lib/hanLyDoCham.ts backend) - TN dien khi
   // dong ton qua 24h ke tu "Cho TN duyet" ma chua duoc dua vao PXK "Cho ke toan", bat buoc truoc khi
   // bam "Gui ke toan" (backend chan cung, xem POST /phieu-xuat-kho/:id/log).
@@ -1165,8 +1162,6 @@ export function PxkDetailModal({
   function invalidate() {
     setGhiChu("");
     setMaVanDonInput("");
-    setBangChungUrl("");
-    setBangChungGhiChuDraft("");
     qc.invalidateQueries({ queryKey: ["pxk-detail", id] });
     qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk"] });
     invalidatePipelineCounts(qc);
@@ -1265,20 +1260,6 @@ export function PxkDetailModal({
       addToast("Lỗi tải ảnh: " + describeApiError(err));
     } finally {
       setUploadingAnh(false);
-    }
-  }
-
-  async function handleUploadBangChungChuyenTien(file: File) {
-    setUploadingBangChung(true);
-    try {
-      const bytes = await file.arrayBuffer();
-      const res = await api.postBinary<{ ok: true; url: string }>(`/phieu-xuat-kho/${id}/bang-chung-chuyen-tien`, bytes, file.type || "image/jpeg");
-      setBangChungUrl(res.url);
-      addToast("Đã tải ảnh chuyển tiền - bấm \"Đã chuyển\" để xác nhận");
-    } catch (err) {
-      addToast("Lỗi tải ảnh: " + describeApiError(err));
-    } finally {
-      setUploadingBangChung(false);
     }
   }
 
@@ -1728,10 +1709,11 @@ export function PxkDetailModal({
               <>
                 <KvRow label="Số tiền"><span className="font-semibold text-[var(--green-700)]"><Money>{fmtVND(pxk.so_tien_can_chuyen)}</Money></span></KvRow>
                 <KvRow label="Trạng thái"><StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /></KvRow>
-                {pxk.bang_chung_chuyen_tien_url && (
-                  <KvRow label="Bằng chứng"><ImageLink url={pxk.bang_chung_chuyen_tien_url} className="text-[var(--ocean-800)] underline text-xs">Xem bằng chứng</ImageLink></KvRow>
+                {/* Nhieu anh (2026-09-29, BangChungChuyenTien.tsx) - dang "Cho KTV chuyen" thi form ben duoi tu hien anh. */}
+                {pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen" && docAnhBangChung(pxk).length > 0 && (
+                  <KvRow label="Bằng chứng"><BangChungAnhList urls={docAnhBangChung(pxk)} /></KvRow>
                 )}
-                {pxk.bang_chung_chuyen_tien_ghi_chu && (
+                {pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen" && pxk.bang_chung_chuyen_tien_ghi_chu && (
                   <KvRow label="Ghi chú"><span className="text-xs text-[var(--ink-600)]">{pxk.bang_chung_chuyen_tien_ghi_chu}</span></KvRow>
                 )}
                 {/* Phan hoi 2026-08-19: "cho phép upload ảnh hoặc ghi chú thông tin chuyển tiền" -
@@ -1739,41 +1721,14 @@ export function PxkDetailModal({
                     upload anh THAT qua Drive (giong "Ảnh biên bản") HOAC go ghi chu van ban, goi y
                     nhanh tu CUNG danh muc "Lý do chậm (Mua hàng)" da dung o cot "Lý do chậm" ben duoi. */}
                 {pxk.trang_thai_chuyen_tien === "Cho KTV chuyen" && (
-                  <div className="space-y-1.5 mt-2">
-                    <div className="flex gap-2 items-center flex-wrap">
-                      {/* SUA (phan hoi 2026-09-22 "Các nút bấm mờ và khó phân biệt => tô màu và làm
-                          rõ ràng"): doi variant mac dinh "ghost" (trang, vien mo) -> "subtle" (nen cam
-                          nhat), dung LAI pattern da dung cho nut MISA "de xuat" cung file (dong ~1300). */}
-                      <FileButton accept="image/*" capture="environment" variant="subtle" disabled={uploadingBangChung} onFileSelected={(f) => void handleUploadBangChungChuyenTien(f)}>
-                        {uploadingBangChung ? "Đang tải..." : "⬆ Chọn ảnh"}
-                      </FileButton>
-                      {bangChungUrl && !uploadingBangChung && <span className="text-xs text-[var(--teal-600)]">✓ Đã tải ảnh, sẵn sàng xác nhận</span>}
-                    </div>
-                    <div className="flex gap-2 items-center flex-wrap">
-                      {/* SUA (phan hoi 2026-09-22, cung van de/fix voi input "Mã đơn hàng" o tren). */}
-                      <input
-                        value={bangChungGhiChuDraft}
-                        onChange={(e) => setBangChungGhiChuDraft(e.target.value)}
-                        placeholder="Hoặc ghi chú thông tin chuyển khoản (vd: đã chuyển qua Momo, mã GD...)"
-                        className="focus-ring flex-1 min-w-[200px] bg-[var(--surface)] border border-[var(--ink-400)] rounded-lg px-2.5 py-1.5 text-sm"
-                      />
-                      {(lyDoChamGoiYData?.rows.length ?? 0) > 0 && (
-                        <Select
-                          value=""
-                          onChange={(v) => v && setBangChungGhiChuDraft(v)}
-                          options={[{ value: "", label: "+ Chọn nhanh lý do" }, ...(lyDoChamGoiYData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
-                          className="text-xs"
-                        />
-                      )}
-                    </div>
-                    <Btn
-                      size="sm"
-                      onClick={() => chuyenTienMutation.mutate({ trang_thai: "KTV da chuyen", bang_chung_chuyen_tien_url: bangChungUrl || undefined, bang_chung_chuyen_tien_ghi_chu: bangChungGhiChuDraft || undefined })}
-                      disabled={(!bangChungUrl.trim() && !bangChungGhiChuDraft.trim()) || chuyenTienMutation.isPending}
-                    >
-                      Đã chuyển
-                    </Btn>
-                  </div>
+                  <BangChungChuyenTienForm
+                    key={`${pxk.id}|${pxk.so_tien_can_chuyen}|${pxk.bang_chung_chuyen_tien_anh ?? ""}`}
+                    pxkId={pxk.id}
+                    pxk={pxk}
+                    goiYGhiChu={(lyDoChamGoiYData?.rows ?? []).map((l) => l.ten_ly_do)}
+                    onDone={invalidate}
+                    addToast={addToast}
+                  />
                 )}
                 {/* SUA (phan hoi 04/09/2026: "Bước 2: 'Kế toán duyệt chuyển tiền'") - nguoi duyet
                     buoc cuoi chuyen tu TN sang Ke toan, khop dung gate canKeToan o backend PATCH

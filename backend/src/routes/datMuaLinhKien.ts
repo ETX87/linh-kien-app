@@ -6,7 +6,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nextSequentialId } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
-import { emailsTheoTen, orEmailIn } from "../lib/timTheoTen";
+import { emailsTheoTen, orEmailIn, orMaYcsc } from "../lib/timTheoTen";
 import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, khuVucViewEmailInSql, khuVucCuaToiSet, khuVucSetWhereSql, scopePxkNguoiNhanHang } from "../lib/scopeDatMua";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
@@ -105,7 +105,8 @@ function canTPDvbhXacNhan(c: Context<{ Bindings: Env }>): boolean {
 // duyệt") - don gian hoa luong duyet: don thuoc 2 nhom nay bo qua buoc TBP DU CO dac_thu=1.
 function boQuaTbpChoDacThu(loaiDeXuat: string): boolean {
   const upper = loaiDeXuat.toUpperCase();
-  return upper.includes("MUA") || upper.includes("HỖ TRỢ");
+  // + "TRỪ CÔNG NỢ…" (chot 2026-09-29: "Đơn trừ công nợ không cần TBP duyệt").
+  return upper.includes("MUA") || upper.includes("HỖ TRỢ") || laTruCongNo(loaiDeXuat);
 }
 
 // Trang thai KHOI TAO cua 1 dong don hang moi (dung o CA POST /phieu-dat va import Excel hang loat)
@@ -1813,8 +1814,9 @@ async function donHangListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string
     // la cot THAT tren dat_don_hang, khong can JOIN them).
     // + tim theo TEN nguoi tao/nguoi nhan hang (2026-09-28, xem lib/timTheoTen.ts).
     const theoTen = orEmailIn(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"], await emailsTheoTen(c.env.DB, q));
-    whereSql += ` AND (ddh.ma_lk LIKE ? OR ddh.ten_lk_snapshot LIKE ? OR ddh.id LIKE ? OR ddh.nguoi_tao LIKE ? OR ddh.nguoi_nhan_hang LIKE ? OR ddh.ma_yeu_cau_su_co LIKE ?${theoTen.sql})`;
-    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoTen.binds);
+    const theoMa = orMaYcsc("ddh", q); // + ma yeu cau su co BO SUNG (2026-09-29)
+    whereSql += ` AND (ddh.ma_lk LIKE ? OR ddh.ten_lk_snapshot LIKE ? OR ddh.id LIKE ? OR ddh.nguoi_tao LIKE ? OR ddh.nguoi_nhan_hang LIKE ?${theoMa.sql}${theoTen.sql})`;
+    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoMa.binds, ...theoTen.binds);
   }
 
   // Loc cot kieu Excel (2026-09-28, lib/locCot.ts).
@@ -2755,6 +2757,20 @@ datMuaLinhKien.get("/search", async (c) => {
     for (const r of rows) results.push({ type: "thieu_lk", id: r.id, label: `${r.id} — ${r.ten_lk_snapshot ?? r.ma_lk ?? ""}` });
   }
 
+  // + tim theo MA YEU CAU SU CO chinh/bo sung (2026-09-29) - cung scope xem don nhu tren.
+  {
+    const scope = scopeDatMuaNguoiTao(c);
+    const daCo = new Set(results.map((r) => r.id));
+    const theoMa = orMaYcsc("ddh", q);
+    const { results: rows } = await c.env.DB.prepare(
+      `SELECT ddh.id, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.ma_yeu_cau_su_co FROM dat_don_hang ddh
+       WHERE (0${theoMa.sql})${scope?.whereSql ?? ""} ORDER BY ddh.ngay_tao DESC LIMIT 5`,
+    )
+      .bind(...theoMa.binds, ...(scope?.binds ?? []))
+      .all<{ id: string; ma_lk: string | null; ten_lk_snapshot: string | null; ma_yeu_cau_su_co: string | null }>();
+    for (const r of rows) if (!daCo.has(r.id)) results.push({ type: "don_hang", id: r.id, label: `${r.id} — YCSC ${r.ma_yeu_cau_su_co ?? q} — ${r.ten_lk_snapshot ?? r.ma_lk ?? ""}` });
+  }
+
   // + tim theo TEN KTV (2026-09-29, "các công cụ tìm kiếm cho phép tìm theo tên ktv"): go ten (khong dau) ->
   // don/PXK gan nhat ma KTV do nhan hang hoac tao, CUNG scope xem nhu tim theo ma o tren (khong rong hon).
   const emails = await emailsTheoTen(c.env.DB, c.req.query("q") ?? "");
@@ -2857,7 +2873,7 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
   const now = nowVN();
   const choTnDuyetLog = (logs as { trang_thai: string; ngay_xu_ly: string }[]).find((l) => l.trang_thai === "Cho TN duyet");
   const lastGiaiTrinh = (giaiTrinh as { ngay_tao: string }[])[0];
-  const mocThoiGian = lastGiaiTrinh?.ngay_tao ?? choTnDuyetLog?.ngay_xu_ly;
+  const mocThoiGian = mocTinhHanTn(lastGiaiTrinh?.ngay_tao, choTnDuyetLog?.ngay_xu_ly); // moc MUON hon (2026-09-29)
   const quaHan = !!mocThoiGian && quaHanLyDoCham(mocThoiGian, now);
 
   // FIX (ra soat "logic sai theo vai tro" 2026-08-31, phan hoi "Vệ tinh không cần quan tâm đến PXK...
@@ -2869,7 +2885,7 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
   // KTV").
   const pxk = await c.env.DB.prepare(
     `SELECT pxk.id, pxk.trang_thai_hien_tai as trang_thai, pxk.so_tien_can_chuyen, pxk.trang_thai_chuyen_tien,
-            pxk.bang_chung_chuyen_tien_url, pxk.bang_chung_chuyen_tien_ghi_chu, pxk.nguoi_nhan_hang, pxk.ma_xuat_kho
+            pxk.bang_chung_chuyen_tien_url, pxk.bang_chung_chuyen_tien_anh, pxk.bang_chung_chuyen_tien_ghi_chu, pxk.nguoi_nhan_hang, pxk.ma_xuat_kho
      FROM phieu_xuat_kho_dong pxkd JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
      WHERE pxkd.dat_don_hang_id = ?`,
   )
@@ -3869,8 +3885,9 @@ async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = 
   }
   if (q) {
     const theoTen = orEmailIn(["tlk.nguoi_tao", "ddh.nguoi_nhan_hang", "ddh.nguoi_tao"], await emailsTheoTen(c.env.DB, q));
-    whereSql += ` AND (ddh.ma_lk LIKE ? OR ddh.ten_lk_snapshot LIKE ? OR tlk.id LIKE ? OR tlk.nguoi_tao LIKE ?${theoTen.sql})`;
-    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoTen.binds);
+    const theoMa = orMaYcsc("ddh", q); // + ma don goc, ma yeu cau su co chinh/bo sung (2026-09-29)
+    whereSql += ` AND (ddh.ma_lk LIKE ? OR ddh.ten_lk_snapshot LIKE ? OR tlk.id LIKE ? OR tlk.nguoi_tao LIKE ? OR ddh.id LIKE ?${theoMa.sql}${theoTen.sql})`;
+    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoMa.binds, ...theoTen.binds);
   }
   return { whereSql, binds };
 }

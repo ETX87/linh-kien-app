@@ -196,6 +196,12 @@ export function laTruCongNo(loaiDeXuat: string | null | undefined): boolean {
   return (loaiDeXuat ?? "").toUpperCase().includes("TRỪ CÔNG NỢ");
 }
 
+/** Ban sao boQuaTbpChoDacThu() (backend datMuaLinhKien.ts): loai MUA / HỖ TRỢ / TRỪ CÔNG NỢ bo qua buoc TBP du LK dac thu. */
+export function boQuaTbpDacThu(loaiDeXuat: string | null | undefined): boolean {
+  const upper = (loaiDeXuat ?? "").toUpperCase();
+  return upper.includes("MUA") || upper.includes("HỖ TRỢ") || laTruCongNo(loaiDeXuat);
+}
+
 export function loaiDonLabel(loaiDon: ReturnType<typeof deriveLoaiDon>, loaiDeXuat?: string | null): string {
   return loaiDeXuat?.trim() || LOAI_DON_TONE[loaiDon].label;
 }

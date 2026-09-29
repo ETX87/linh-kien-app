@@ -18,6 +18,7 @@ import { parseKtvImportFile, type BulkImportKtvChunkResult } from "../lib/ktvImp
 import { fmtVND, fmtDateTime } from "../types";
 import type { UserRow, KtvLienHeRow, KhuVucRow, Paged, LoginLogRow, MaKhoChuaKhopRow, EtxNhanSuRow, EtxNhanSuSyncStatus } from "../types";
 import { Money } from "../components/ui/Money";
+import { ImportCongNoMisaModal } from "./ImportCongNoMisaModal";
 
 // Trang quan tri nguoi dung - xay lai 2026-08-26 (yeu cau "tach rieng 2 the quan ly" cho 2 nhom doi
 // tuong dang nhap Gmail: KTV hien truong vs Nhan vien van phong, xem CLAUDE.md). "KTV hien truong"
@@ -694,6 +695,7 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
     han_muc_du_phong: "", han_muc_du_phong_hien_tai: "",
   });
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [importCongNoOpen, setImportCongNoOpen] = useState(false);
   const [bulkRunning, setBulkRunning] = useState(false);
   const [bulkTotal, setBulkTotal] = useState(0);
   const [bulkProcessed, setBulkProcessed] = useState(0);
@@ -973,6 +975,12 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
       </div>
       <div className="flex flex-wrap gap-2 items-center">
         {mode === "admin" && <Btn size="sm" onClick={() => openEdit("new")}>+ Thêm KTV</Btn>}
+        {/* Ke toan (+ Admin): import tran cong no/han muc du phong theo Ma MISA (2026-09-29, ImportCongNoMisaModal). */}
+        {(mode === "ke-toan" || mode === "admin") && (
+          <Btn variant={mode === "ke-toan" ? "primary" : "ghost"} size="sm" onClick={() => setImportCongNoOpen(true)}>
+            📥 Import công nợ theo Mã MISA
+          </Btn>
+        )}
         {mode === "admin" && (
           <Btn
             variant="ghost"
@@ -1178,6 +1186,7 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
         </Modal>
       )}
 
+      <ImportCongNoMisaModal open={importCongNoOpen} onClose={() => setImportCongNoOpen(false)} addToast={addToast} />
       <Modal open={bulkOpen} onClose={() => { if (!bulkRunning) setBulkOpen(false); }} title="Nhập danh sách KTV hàng loạt">
         <div className="space-y-3">
           <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">

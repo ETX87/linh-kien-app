@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./auth/AuthContext";
 import { ToastProvider } from "./components/ui/Toast";
 import { App } from "./App";
+import { ErrorBoundary, taiLaiDeLayBanMoi } from "./components/ui/ErrorBoundary";
 import { capturePxkDeepLinkFromUrl } from "./lib/pxkDeepLink";
 import "./styles/tokens.css";
 
@@ -11,6 +12,12 @@ import "./styles/tokens.css";
 // xem giai thich day du trong lib/pxkDeepLink.ts (can bat duoc URL truoc khi nguoi dung dieu huong sang
 // Google OAuth neu chua dang nhap, luc do URL goc se mat).
 capturePxkDeepLinkFromUrl();
+
+// Vite bao loi preload chunk (file cua ban cu da bi xoa sau deploy) - tai lai trang lay ban moi thay vi de
+// import() loi -> man trang (xem components/ui/ErrorBoundary.tsx).
+window.addEventListener("vite:preloadError", (e) => {
+  if (taiLaiDeLayBanMoi()) e.preventDefault();
+});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,7 +30,9 @@ createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ToastProvider>
-          <App />
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
         </ToastProvider>
       </AuthProvider>
     </QueryClientProvider>

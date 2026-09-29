@@ -33,6 +33,7 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   MISSING_MA_MISA: "Cần nhập mã MISA",
   MISSING_SO_TIEN: "Cần nhập số tiền",
   MISSING_BANG_CHUNG: "Cần nhập bằng chứng chuyển tiền",
+  QUA_SO_ANH_BANG_CHUNG: "Tối đa 5 ảnh bằng chứng cho 1 phiếu",
   MISSING_LY_DO_CHAM: "Cần chọn lý do chậm",
   MISSING_GHI_CHU: "Cần nhập ghi chú/lý do",
   MISSING_GIAI_TRINH: "Cần nhập giải trình",

@@ -7,10 +7,9 @@
 //
 // Tim PXK dang o trang thai "Dang tao phieu" GAN NHAT cung (nguoi_nhan_hang, loai_don) de gop tiep
 // vao - tranh moi don tu duyet lai tao rieng 1 PXK nho (1 KTV dat nhieu lan/ngay se don thanh 1 PXK
-// duy nhat, dung y "TN gom don" tu nhien). Chua co PXK nao dang mo thi tao moi.
-// SUA 2026-09-29 ("1 phiếu xuất mà ktv đã up ảnh bằng chứng (dù chưa được duyệt) thì ... tạo 1 phiếu khác"):
-// BO QUA phieu KTV da bao chuyen tien/co bang chung ("KTV da chuyen") hoac Ke toan da duyet ("TN da duyet") -
-// truoc day van gop vao, taiTinhPxk thay tong doi -> xoa bang chung + dua ve "Cho KTV chuyen", KTV phai nop lai.
+// duy nhat, dung y "TN gom don" tu nhien). Chua co PXK nao dang mo thi tao moi. Gop ca vao phieu KTV da nop
+// bang chung (chot 2026-09-29: KHONG tach phieu) - tong doi thi bang chung cu duoc GIU, KTV chuyen bo sung +
+// tai them anh (toi da 5, xem PATCH /phieu-xuat-kho/:id/chuyen-tien).
 import type { Env } from "../types";
 import { nowVN } from "./vnTime";
 import { nextSequentialId } from "./idCounter";
@@ -45,8 +44,6 @@ export async function bundleAutoApprovedIntoPxk(
     .prepare(
       `SELECT id, ma_xuat_kho, so_tien_can_chuyen FROM phieu_xuat_kho
        WHERE nguoi_nhan_hang = ? AND loai_don = ? AND trang_thai_hien_tai = 'Dang tao phieu'
-         AND COALESCE(trang_thai_chuyen_tien, '') NOT IN ('KTV da chuyen', 'TN da duyet')
-         AND bang_chung_chuyen_tien_url IS NULL AND bang_chung_chuyen_tien_ghi_chu IS NULL
        ORDER BY ngay_tao DESC LIMIT 1`,
     )
     .bind(nguoiNhanHang, loaiDon)

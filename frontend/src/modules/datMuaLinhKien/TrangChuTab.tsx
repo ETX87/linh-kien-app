@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { StatCard } from "../../components/x/StatCard";
+import { Pagination } from "../../components/x/Misc";
 import { Badge, type Tone } from "../../components/x/Badge";
 import { Select } from "../../components/x/Form";
 import { api, buildQuery } from "../../api/client";
@@ -97,6 +98,7 @@ function soNgayTonTone(soNgay: number): Tone {
 // click để xem danh sách được") - lo "open" cua CollapsibleSection VA "filterKhuVuc" ra thanh dieu
 // khien duoc TU BEN NGOAI (component cha TrangChuTab goi ref.current.expand() khi bam StatCard "Đang
 // tồn"/"Tồn đọng toàn hệ thống"), thay vi 2 state noi bo an hoan toan nhu truoc.
+const DONG_MOI_TRANG = 10;
 export interface TonDongTheoKtvReportHandle {
   expand: (opts?: { resetKhuVuc?: boolean }) => void;
 }
@@ -141,6 +143,9 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
   });
 
   const [filterKtv, setFilterKtv] = useState("");
+  const [trang, setTrang] = useState(1);
+  const [trangDon, setTrangDon] = useState<Record<string, number>>({});
+  useEffect(() => setTrang(1), [khuVucParam, filterKtv]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   function toggleExpand(email: string) {
     const next = new Set(expanded);
@@ -170,6 +175,11 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
     };
   });
   groups.sort((a, b) => b.maxNgay - a.maxNgay || b.rows.length - a.rows.length);
+  // Phan trang 10 dong/trang (2026-09-29, "phân theo trang tối đa 10 dòng 1 trang") - ca danh sach KTV lan bang
+  // don khi mo rong 1 KTV. Doi bo loc -> ve trang 1.
+  const soTrang = Math.max(1, Math.ceil(groups.length / DONG_MOI_TRANG));
+  const trangKtv = Math.min(trang, soTrang);
+  const groupsTrang = groups.slice((trangKtv - 1) * DONG_MOI_TRANG, trangKtv * DONG_MOI_TRANG);
   // Phan bo tuoi don (them 2026-09-26) - CUNG nguong voi soNgayTonTone (>=7 do, 3-6 cam, con lai xanh) de
   // mau thanh tong hop khop dung mau badge "N ngày" cua tung dong ben duoi.
   const allSoNgay = groups.flatMap((g) => g.soNgayList);
@@ -234,7 +244,11 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
           <StackedBar segments={tuoiDon} />
         </div>
         <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)] divide-y divide-[var(--line)]">
-          {groups.map((g) => (
+          {groupsTrang.map((g) => {
+            const soTrangDon = Math.max(1, Math.ceil(g.rows.length / DONG_MOI_TRANG));
+            const trangDonG = Math.min(trangDon[g.email] ?? 1, soTrangDon);
+            const batDau = (trangDonG - 1) * DONG_MOI_TRANG;
+            return (
             <div key={g.email}>
               <button
                 type="button"
@@ -276,8 +290,8 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
                       </tr>
                     </thead>
                     <tbody>
-                      {g.rows.map((r, i) => {
-                        const soNgay = g.soNgayList[i];
+                      {g.rows.slice(batDau, batDau + DONG_MOI_TRANG).map((r, i) => {
+                        const soNgay = g.soNgayList[batDau + i];
                         const mota = moTaTonDong(r);
                         return (
                           <tr key={r.id} className="border-b border-[var(--line)] last:border-0">
@@ -318,11 +332,25 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
                       })}
                     </tbody>
                   </table>
+                  {soTrangDon > 1 && (
+                    <div className="px-3">
+                      <Pagination page={trangDonG} pageCount={soTrangDon} onPage={(p) => setTrangDon((m) => ({ ...m, [g.email]: p }))} />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
+        {soTrang > 1 && (
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] tabular-nums text-[var(--color-text-secondary)]">
+              KTV {(trangKtv - 1) * DONG_MOI_TRANG + 1}–{Math.min(trangKtv * DONG_MOI_TRANG, groups.length)} / {groups.length}
+            </span>
+            <Pagination page={trangKtv} pageCount={soTrang} onPage={setTrang} />
+          </div>
+        )}
         </div>
       )}
     </CollapsibleSection>

@@ -26,6 +26,7 @@ import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSea
 import { LinhKienDetailModal } from "./LinhKienPicker";
 import { Money } from "../../components/ui/Money";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
+import { doiNguoiThanhTen, usePersonDirectory } from "../../lib/personDisplay";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -267,6 +268,7 @@ export function TraHangTab({
   });
   // "Tải danh sách chi tiết" (them 2026-09-13) - mirror handleDownloadFullList() cua UsersModule.tsx,
   // goi lai GET /tra-hang VOI CUNG bo loc dang xem nhung KHONG truyen page (BE tra HET).
+  const personDir = usePersonDirectory(); // ten nguoi trong file tai ve (2026-09-29)
   const [downloadingFull, setDownloadingFull] = useState(false);
   async function handleDownloadFullList() {
     setDownloadingFull(true);
@@ -280,7 +282,7 @@ export function TraHangTab({
             khu_vuc: khuVucParam || undefined,
           }),
       );
-      await exportRowsToExcel(res.rows, "tra_hang_chi_tiet.xlsx", "Trả hàng");
+      await exportRowsToExcel(doiNguoiThanhTen(res.rows, personDir), "tra_hang_chi_tiet.xlsx", "Trả hàng");
     } catch (err) {
       addToast("Không tải được danh sách chi tiết: " + describeApiError(err));
     } finally {
@@ -557,7 +559,7 @@ export function TraHangTab({
         activeFilterCount={activeFilterCount}
         searchValue={filterQ}
         onSearchChange={setFilterQ}
-        searchPlaceholder="Tìm theo mã đơn, mã LK, tên LK, tên KTV/người tạo..."
+        searchPlaceholder="Tìm theo mã đơn, mã YCSC, mã LK, tên LK, tên KTV/người tạo..."
         trailing={
           <div className="flex items-center gap-2">
             {settingsButtonEl}

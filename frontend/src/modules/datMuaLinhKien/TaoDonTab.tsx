@@ -296,7 +296,7 @@ export function TaoDonTab({
                     phan hoi 2026-08-19 #6: chuyen thang toi o nhap ma LK, khoi phai cuon tim. */}
                 <div>
                   <label className={reqLabelClass(!d.ma_lk.trim())}>Mã linh kiện *</label>
-                  <LinhKienPicker value={d.ma_lk} onChange={(v) => updateDraft(idx, { ma_lk: v })} options={danhMuc} autoFocus={justAdded} />
+                  <LinhKienPicker value={d.ma_lk} onChange={(v) => updateDraft(idx, { ma_lk: v })} options={danhMuc} autoFocus={justAdded} loaiDeXuat={d.loai_de_xuat} />
                 </div>
 
                 {/* RESTYLE (Phase 5, phan hoi "đơn giản hoá giống ảnh minh hoạ") - tach lai thanh 3

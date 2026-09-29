@@ -5,7 +5,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nowVN } from "../lib/vnTime";
-import { emailsTheoTen, orEmailIn } from "../lib/timTheoTen";
+import { emailsTheoTen, orEmailIn, orMaYcsc } from "../lib/timTheoTen";
 import { bumpVersions } from "../lib/dataVersions";
 import { scopeDatMuaNguoiTao, khuVucSetWhereSql, phuTrachGsSet } from "../lib/scopeDatMua";
 import { uploadPublicImage } from "../lib/googleDrive";
@@ -138,8 +138,9 @@ traHang.get("/", async (c) => {
   }
   if (q) {
     const theoTen = orEmailIn(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"], await emailsTheoTen(c.env.DB, q));
-    whereSql += ` AND (ddh.ma_lk LIKE ? OR ddh.ten_lk_snapshot LIKE ? OR ddh.id LIKE ? OR ddh.nguoi_tao LIKE ?${theoTen.sql})`;
-    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoTen.binds);
+    const theoMa = orMaYcsc("ddh", q); // + ma yeu cau su co chinh/bo sung (2026-09-29)
+    whereSql += ` AND (ddh.ma_lk LIKE ? OR ddh.ten_lk_snapshot LIKE ? OR ddh.id LIKE ? OR ddh.nguoi_tao LIKE ?${theoMa.sql}${theoTen.sql})`;
+    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoMa.binds, ...theoTen.binds);
   }
 
   const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM dat_don_hang ddh WHERE ${whereSql}`)
