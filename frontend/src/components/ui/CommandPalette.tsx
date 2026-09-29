@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api/client";
 import { Icon } from "./Icon";
+import { khopTim } from "../../lib/boDau";
 
 // Command palette (Ctrl+K / Cmd+K) - moi (concept 1 "Structured Neutral" da duyet, 2026-08-24). Chi
 // dieu huong giua cac module/man hinh nguoi dung DANG DUOC PHEP xem (danh sach `items` truyen tu App.tsx,
@@ -56,8 +57,8 @@ export function CommandPalette({ open, onClose, items, onSelect }: { open: boole
 
   const filtered = useMemo(() => {
     // .normalize("NFC") - xem giai thich day du o components/ui/Select.tsx (cung fix, cung ngay).
-    const needle = q.trim().toLowerCase().normalize("NFC");
-    const staticMatches = !needle ? items : items.filter((it) => it.label.toLowerCase().normalize("NFC").includes(needle) || it.group.toLowerCase().normalize("NFC").includes(needle));
+    const needle = q.trim();
+    const staticMatches = !needle ? items : items.filter((it) => khopTim(it.label, needle) || khopTim(it.group, needle));
     return [...staticMatches, ...searchResults];
   }, [items, q, searchResults]);
 

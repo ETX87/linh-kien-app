@@ -7,6 +7,7 @@ import { requireRole } from "../middleware/requireRole";
 import { bumpVersions } from "../lib/dataVersions";
 import { nowVN } from "../lib/vnTime";
 import { resyncKhuVucDerivedFieldsForEmail } from "../lib/khuVucSync";
+import { emailsTheoTen } from "../lib/timTheoTen";
 
 // Port rut gon tu backend/src/routes/users.ts cua he DVBH goc - bo cac truong khong con ton tai o
 // he nay (khu_vuc_phu_trach, la_ksnb_doi_tac, modules, co_the_import_tranh_chap - xem types.ts).
@@ -45,8 +46,9 @@ users.get("/", async (c) => {
   }
 
   if (search) {
-    conditions.push("(LOWER(email) LIKE LOWER(?) OR LOWER(COALESCE(ten,'')) LIKE LOWER(?))");
-    binds.push(`%${search}%`, `%${search}%`);
+    // + ten KHONG dau (2026-09-29, lib/timTheoTen.ts: users.ten/ten_misa + ten KTV trong danh ba).
+    conditions.push("(LOWER(email) LIKE LOWER(?) OR LOWER(COALESCE(ten,'')) LIKE LOWER(?) OR email IN (SELECT value FROM json_each(?)))");
+    binds.push(`%${search}%`, `%${search}%`, JSON.stringify(await emailsTheoTen(c.env.DB, search)));
   }
   if (vaiTro && (VAI_TRO_VALUES as readonly string[]).includes(vaiTro)) {
     conditions.push("vai_tro = ?");

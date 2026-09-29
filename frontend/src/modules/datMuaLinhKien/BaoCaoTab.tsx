@@ -8,6 +8,7 @@ import { useIsMobile } from "../../hooks/useMediaQuery";
 import type { BaoCaoRow, JumpTarget } from "./types";
 import { BaoCaoCharts } from "./BaoCaoCharts";
 import { Money } from "../../components/ui/Money";
+import { khopTim } from "../../lib/boDau";
 
 // Cot co "value" (them 2026-09-05, phan hoi "phân trang + tùy chọn sort" cho Home > Báo cáo tổng
 // thể): truoc day cols[] chi co cell() tra ve ReactNode (nut bam nhay, khong sort duoc truc tiep) -
@@ -159,9 +160,9 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
   function tonDong(r: BaoCaoRow) {
     return Math.max(0, r.slDon - r.slDuyet - r.slTuChoi) + r.slChoKeToan + r.slChoKhoGui + r.slDaGui;
   }
-  // .normalize("NFC") - xem giai thich day du o components/ui/Select.tsx (cung fix, cung ngay).
-  const q = search.trim().toLowerCase().normalize("NFC");
-  const filtered = rows.filter((r) => !q || (r.ten ?? "").toLowerCase().normalize("NFC").includes(q) || r.email.toLowerCase().normalize("NFC").includes(q));
+  // Khong dau, khong phan biet hoa/thuong (lib/boDau.ts).
+  const q = search.trim();
+  const filtered = rows.filter((r) => !q || khopTim(r.ten, q) || khopTim(r.email, q));
 
   const tong = rows.reduce(
     (acc, r) => ({

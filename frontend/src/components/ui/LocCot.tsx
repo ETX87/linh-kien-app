@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api, buildQuery } from "../../api/client";
 import { Btn } from "./Btn";
+import { khopTim } from "../../lib/boDau";
 
 // Loc cot kieu Excel (phan hoi 2026-09-28: "filter ... giống như chức năng fiter tiêu đề của excel, có tìm kiếm, chọn
 // 1 hoặc nhiều, hoặc tất cả, sort") - dung chung cho danh sach don (DonCuaToiTab) va danh sach PXK (PhieuXuatKhoTab).
@@ -160,7 +161,7 @@ function LocCotPopover({ cfg, cot, anchor, onClose }: { cfg: LocCotCfg; cot: str
     return new Set(hienTai.v);
   }, [chon, cfg.loc, cot, giaTri]);
 
-  const khop = tim.trim() ? giaTri.filter((g) => g.label.toLowerCase().includes(tim.trim().toLowerCase())) : giaTri;
+  const khop = tim.trim() ? giaTri.filter((g) => khopTim(g.label, tim)) : giaTri;
   const tatCaKhopDaChon = khop.length > 0 && khop.every((g) => tapChon.has(g.v));
 
   useLayoutEffect(() => {

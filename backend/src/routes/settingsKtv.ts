@@ -8,6 +8,7 @@ import { nowVN } from "../lib/vnTime";
 import { resyncKhuVucDerivedFieldsForAll, resyncKhuVucDerivedFieldsForEmail } from "../lib/khuVucSync";
 import { relinkTonKhoForMaMisa } from "../lib/ktvTonKhoRelink";
 import { setMocTinhDuPhong, getMocTinhDuPhong } from "../lib/duPhongKtv";
+import { maKtvTheoTen } from "../lib/timTheoTen";
 
 // Port rut gon tu backend/src/routes/settings.ts cua he DVBH goc (phan "Danh sach KTV") - danh ba
 // ky thuat vien/Tram/CTV/Ve tinh dung de chon "nguoi nhan hang" trong module Dat mua linh kien.
@@ -47,10 +48,11 @@ settingsKtv.get("/", async (c) => {
   const conditions: string[] = [];
   const binds: unknown[] = [];
   if (search) {
+    // + ten KHONG dau (2026-09-29, lib/timTheoTen.ts) - LOWER() cua SQLite khong ha chu co dau.
     conditions.push(
-      "(LOWER(k.ma_ktv) LIKE LOWER(?) OR LOWER(COALESCE(k.ten_hien_thi,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.sdt,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.gmail,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.email_dang_nhap,'')) LIKE LOWER(?))",
+      "(LOWER(k.ma_ktv) LIKE LOWER(?) OR LOWER(COALESCE(k.ten_hien_thi,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.sdt,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.gmail,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.email_dang_nhap,'')) LIKE LOWER(?) OR k.ma_ktv IN (SELECT value FROM json_each(?)))",
     );
-    binds.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+    binds.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, JSON.stringify(await maKtvTheoTen(c.env.DB, search)));
   }
   if (cap === "1") {
     conditions.push("COALESCE(k.vai_tro_ktv, 'KTV') != 'Ve tinh'");

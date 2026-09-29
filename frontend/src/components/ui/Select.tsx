@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { DropdownPortal } from "./DropdownPortal";
+import { khopTim } from "../../lib/boDau";
 
 export type SelectOption = string | { value: string; label: string };
 
@@ -98,8 +99,9 @@ function SearchableSelect({
   // tu ban phim/IME co the o dang to hop (NFD, vd "h" + dau huyen rieng) khac voi dang dung san trong
   // option (NFC, 1 ky tu "à" duy nhat) - 2 chuoi nhin GIONG HET nhau nhung .includes() so sanh byte
   // nen khong khop. Chuan hoa CA HAI ve cung 1 dang truoc khi so sanh, khong doi hanh vi loc con lai.
-  const q = query.trim().toLowerCase().normalize("NFC");
-  const filtered = q ? options.filter((o) => optLabel(o).toLowerCase().normalize("NFC").includes(q)) : options;
+  // + KHONG dau (2026-09-29, khopTim - go "nguyen" ra "Nguyễn"); NFD roi bo dau nen van dung voi IME to hop.
+  const q = query.trim();
+  const filtered = q ? options.filter((o) => khopTim(optLabel(o), q)) : options;
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>

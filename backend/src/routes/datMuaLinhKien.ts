@@ -2755,7 +2755,40 @@ datMuaLinhKien.get("/search", async (c) => {
     for (const r of rows) results.push({ type: "thieu_lk", id: r.id, label: `${r.id} — ${r.ten_lk_snapshot ?? r.ma_lk ?? ""}` });
   }
 
-  return c.json({ results: results.slice(0, 8) });
+  // + tim theo TEN KTV (2026-09-29, "các công cụ tìm kiếm cho phép tìm theo tên ktv"): go ten (khong dau) ->
+  // don/PXK gan nhat ma KTV do nhan hang hoac tao, CUNG scope xem nhu tim theo ma o tren (khong rong hon).
+  const emails = await emailsTheoTen(c.env.DB, c.req.query("q") ?? "");
+  if (emails.length > 0) {
+    const json = JSON.stringify(emails);
+    const daCo = new Set(results.map((r) => r.id));
+    const tenSql = (col: string) =>
+      `COALESCE((SELECT ten_hien_thi FROM ktv_lien_he WHERE email_dang_nhap = ${col} LIMIT 1), (SELECT ten FROM users WHERE email = ${col}), ${col})`;
+    {
+      const scope = scopeDatMuaNguoiTao(c);
+      const { results: rows } = await c.env.DB.prepare(
+        `SELECT ddh.id, ddh.ma_lk, ddh.ten_lk_snapshot, ${tenSql("ddh.nguoi_nhan_hang")} AS ten
+         FROM dat_don_hang ddh
+         WHERE (ddh.nguoi_nhan_hang IN (SELECT value FROM json_each(?)) OR ddh.nguoi_tao IN (SELECT value FROM json_each(?)))${scope?.whereSql ?? ""}
+         ORDER BY ddh.ngay_tao DESC LIMIT 5`,
+      )
+        .bind(json, json, ...(scope?.binds ?? []))
+        .all<{ id: string; ma_lk: string | null; ten_lk_snapshot: string | null; ten: string | null }>();
+      for (const r of rows) if (!daCo.has(r.id)) results.push({ type: "don_hang", id: r.id, label: `${r.id} — ${r.ten ?? ""} — ${r.ten_lk_snapshot ?? r.ma_lk ?? ""}` });
+    }
+    {
+      const scope = scopePxkNguoiNhanHang(c);
+      const { results: rows } = await c.env.DB.prepare(
+        `SELECT pxk.id, ${tenSql("pxk.nguoi_nhan_hang")} AS ten FROM phieu_xuat_kho pxk
+         WHERE pxk.nguoi_nhan_hang IN (SELECT value FROM json_each(?))${scope?.whereSql ?? ""}
+         ORDER BY pxk.ngay_tao DESC LIMIT 3`,
+      )
+        .bind(json, ...(scope?.binds ?? []))
+        .all<{ id: string; ten: string | null }>();
+      for (const r of rows) if (!daCo.has(r.id)) results.push({ type: "phieu_xuat_kho", id: r.id, label: `${r.id} — ${r.ten ?? ""}` });
+    }
+  }
+
+  return c.json({ results: results.slice(0, 12) });
 });
 
 datMuaLinhKien.get("/don-hang/:id", async (c) => {

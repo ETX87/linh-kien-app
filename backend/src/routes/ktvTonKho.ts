@@ -7,6 +7,7 @@ import { khuVucViewEmailInSql } from "../lib/scopeDatMua";
 import { nowVN } from "../lib/vnTime";
 import { getMocTinhCongNo, danhGiaCongNo3Muc } from "../lib/congNoKtv";
 import { daTruTheoMaHang } from "../lib/tonKhoKtv";
+import { maKtvTheoTen } from "../lib/timTheoTen";
 
 // "Tồn kho KTV" (them 2026-08-29, phan hoi nguoi dung) - import hang ngay file "Tổng hợp tồn kho"
 // xuat tu MISA (mot bao cao gom NHIEU khoi "Kho: ..." xep lien tiep, moi khoi la 1 KTV/tram - xem
@@ -68,8 +69,9 @@ ktvTonKho.get("/", async (c) => {
   const conditions: string[] = [];
   const binds: unknown[] = [];
   if (search) {
-    conditions.push("(LOWER(k.ma_ktv) LIKE LOWER(?) OR LOWER(COALESCE(k.ten_hien_thi,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.ma_misa,'')) LIKE LOWER(?))");
-    binds.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    // + ten KHONG dau (2026-09-29, lib/timTheoTen.ts).
+    conditions.push("(LOWER(k.ma_ktv) LIKE LOWER(?) OR LOWER(COALESCE(k.ten_hien_thi,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.ma_misa,'')) LIKE LOWER(?) OR k.ma_ktv IN (SELECT value FROM json_each(?)))");
+    binds.push(`%${search}%`, `%${search}%`, `%${search}%`, JSON.stringify(await maKtvTheoTen(c.env.DB, search)));
   }
   const scope = scopeKtvTonKho(c);
   if (scope) {

@@ -29,12 +29,24 @@ export async function emailsTheoTen(db: D1Database, q: string): Promise<string[]
   const out = new Set<string>();
   for (const r of ktv.results) if ([r.ten_hien_thi, r.ma_ktv].some((v) => v && boDau(v).includes(key))) out.add(r.email);
   for (const r of users.results) if ([r.ten, r.ten_misa].some((v) => v && boDau(v).includes(key))) out.add(r.email);
-  return [...out].slice(0, 500);
+  return [...out];
 }
 
-/** Menh de SQL "OR <cot> IN (...)" cho tung cot email - rong neu khong co ai khop. */
+/** Ma KTV (ktv_lien_he.ma_ktv) co ten/ma khop `q` - cho cac danh sach theo KTV (danh ba, ton kho). */
+export async function maKtvTheoTen(db: D1Database, q: string): Promise<string[]> {
+  const key = boDau(q);
+  if (key.length < 2) return [];
+  const { results } = await db.prepare("SELECT ma_ktv, ten_hien_thi FROM ktv_lien_he").all<{ ma_ktv: string; ten_hien_thi: string | null }>();
+  return results.filter((r) => [r.ten_hien_thi, r.ma_ktv].some((v) => v && boDau(v).includes(key))).map((r) => r.ma_ktv);
+}
+
+/**
+ * Menh de SQL "OR <cot> IN (...)" cho tung cot - rong neu khong co ai khop. SUA 2026-09-29: truoc day 1 dau "?"
+ * cho MOI email x MOI cot - go ho pho bien ("nguyen") khop vai chuc nguoi la vuot gioi han 100 tham so cua D1,
+ * truy van loi -> o tim "khong tim duoc theo ten". Gio ca danh sach la 1 bind JSON (json_each), moi cot 1 bind.
+ */
 export function orEmailIn(cols: string[], emails: string[]): { sql: string; binds: string[] } {
   if (emails.length === 0) return { sql: "", binds: [] };
-  const ph = emails.map(() => "?").join(",");
-  return { sql: cols.map((c) => ` OR ${c} IN (${ph})`).join(""), binds: cols.flatMap(() => emails) };
+  const json = JSON.stringify(emails);
+  return { sql: cols.map((c) => ` OR ${c} IN (SELECT value FROM json_each(?))`).join(""), binds: cols.map(() => json) };
 }
