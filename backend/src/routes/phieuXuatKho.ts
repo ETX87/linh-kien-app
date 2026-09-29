@@ -1161,10 +1161,10 @@ phieuXuatKho.post("/:id/chuyen-tien", async (c) => {
 // TU TN SANG KE TOAN 04/09/2026 - xem nhanh "TN da duyet" ben duoi, gia tri DB giu nguyen ten cu).
 phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
   const id = c.req.param("id");
-  const body = await c.req.json<{ trang_thai: string; bang_chung_chuyen_tien_url?: string; bang_chung_chuyen_tien_anh?: string[]; bang_chung_chuyen_tien_ghi_chu?: string }>();
+  const body = await c.req.json<{ trang_thai: string; bang_chung_chuyen_tien_url?: string; bang_chung_chuyen_tien_anh?: string[]; bang_chung_chuyen_tien_ghi_chu?: string; ly_do_tu_choi?: string }>();
   const pxk = await c.env.DB.prepare(
-    "SELECT trang_thai_chuyen_tien, nguoi_nhan_hang FROM phieu_xuat_kho WHERE id = ?",
-  ).bind(id).first<{ trang_thai_chuyen_tien: string | null; nguoi_nhan_hang: string | null }>();
+    "SELECT trang_thai_hien_tai, trang_thai_chuyen_tien, nguoi_nhan_hang FROM phieu_xuat_kho WHERE id = ?",
+  ).bind(id).first<{ trang_thai_hien_tai: string | null; trang_thai_chuyen_tien: string | null; nguoi_nhan_hang: string | null }>();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
   const now = nowVN();
   // FIX (phan hoi QA 2026-08-31, muc #6): 2 nhanh duoi day truoc chi UPDATE, khong ghi
@@ -1193,7 +1193,8 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
     }
     await c.env.DB.batch([
       c.env.DB.prepare(
-        "UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = 'KTV da chuyen', bang_chung_chuyen_tien_url = ?, bang_chung_chuyen_tien_anh = ?, bang_chung_chuyen_tien_ghi_chu = ?, ngay_ktv_chuyen = ? WHERE id = ?",
+        // Xoa ly do Ke toan tu choi (migration 0046) - KTV da xu ly lai, lich su con trong log.
+        "UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = 'KTV da chuyen', bang_chung_chuyen_tien_url = ?, bang_chung_chuyen_tien_anh = ?, bang_chung_chuyen_tien_ghi_chu = ?, ngay_ktv_chuyen = ?, ly_do_tu_choi_chuyen_tien = NULL, tu_choi_chuyen_tien_luc = NULL WHERE id = ?",
       ).bind(anh[0] ?? null, anh.length > 0 ? JSON.stringify(anh) : null, body.bang_chung_chuyen_tien_ghi_chu?.trim() || null, now, id),
       // SUA 2026-09-13 (xem giai thich o PATCH /:id/ma-xuat-kho phia tren): trang_thai log-only rieng
       // thay vi tai su dung logTrangThai (trang_thai chinh hien tai cua phieu).
@@ -1239,6 +1240,45 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
         id, "Ke toan da duyet bang chung chuyen tien", user.email, now, "Kế toán đã duyệt bằng chứng chuyển tiền",
       ),
     ]);
+  } else if (body.trang_thai === "Cho KTV chuyen") {
+    // KE TOAN TU CHOI / DAY LAI (2026-09-29, migration 0046, phan hoi "bổ sung chức năng đẩy lại các trường hợp sai
+    // tiền, thiếu bằng chứng... khi đẩy sẽ cho phép tạo ghi chú lý do từ chối") - "KTV da chuyen" -> "Cho KTV chuyen",
+    // bat buoc ly do. GIU anh + ghi chu KTV da gui (KTV bo/them anh roi xac nhan lai - cung co che khi tong tien doi);
+    // ly do hien cho KTV/TN o khoi "Chuyển tiền" toi khi KTV xac nhan chuyen lai.
+    if (!canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+    // Phieu da huy -> khong day lai (tranh bao KTV chuyen tien cho phieu khong con hieu luc).
+    if (pxk.trang_thai_chuyen_tien !== "KTV da chuyen" || pxk.trang_thai_hien_tai === "Ke toan huy") return c.json({ error: "INVALID_STATE" }, 409);
+    const lyDo = body.ly_do_tu_choi?.trim();
+    if (!lyDo) return c.json({ error: "MISSING_LY_DO" }, 400);
+    const user = c.get("user");
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        "UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = 'Cho KTV chuyen', ngay_ktv_chuyen = NULL, ly_do_tu_choi_chuyen_tien = ?, tu_choi_chuyen_tien_luc = ? WHERE id = ?",
+      ).bind(lyDo, now, id),
+      c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+        id, "Ke toan tu choi bang chung chuyen tien", user.email, now, lyDo,
+      ),
+    ]);
+    // Bao KTV nhan hang (nguoi chuyen tien) + TN "viec moi": chuyen lai/bo sung bang chung.
+    c.executionCtx.waitUntil(
+      (async () => {
+        const emailGsList = await emailGsListForPxk(c.env.DB, id);
+        const [tnEmails, pastActors] = await Promise.all([
+          emailsForRoleOrQC(c.env.DB, "la_tac_nghiep", emailGsList),
+          pastActorsFor(c.env.DB, "phieu_xuat_kho_log", "phieu_xuat_kho_id", id, user.email),
+        ]);
+        await notifyWorkflowTask(c.env, c.env.DB, {
+          cat1Emails: [...(pxk.nguoi_nhan_hang ? [pxk.nguoi_nhan_hang] : []), ...tnEmails],
+          otherRoles: PXK_ROLES.filter((r) => r !== "la_tac_nghiep"),
+          emailGsList,
+          pastActors,
+          title: "Phiếu xuất kho",
+          body: `PXK ${id}: Kế toán từ chối bằng chứng chuyển tiền — ${lyDo}`,
+          linkType: "phieu_xuat_kho",
+          linkId: id,
+        });
+      })(),
+    );
   } else {
     return c.json({ error: "INVALID_TRANG_THAI" }, 400);
   }

@@ -2897,7 +2897,8 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
   // KTV").
   const pxk = await c.env.DB.prepare(
     `SELECT pxk.id, pxk.trang_thai_hien_tai as trang_thai, pxk.so_tien_can_chuyen, pxk.trang_thai_chuyen_tien,
-            pxk.bang_chung_chuyen_tien_url, pxk.bang_chung_chuyen_tien_anh, pxk.bang_chung_chuyen_tien_ghi_chu, pxk.nguoi_nhan_hang, pxk.ma_xuat_kho
+            pxk.bang_chung_chuyen_tien_url, pxk.bang_chung_chuyen_tien_anh, pxk.bang_chung_chuyen_tien_ghi_chu, pxk.nguoi_nhan_hang, pxk.ma_xuat_kho,
+            pxk.ly_do_tu_choi_chuyen_tien, pxk.tu_choi_chuyen_tien_luc
      FROM phieu_xuat_kho_dong pxkd JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
      WHERE pxkd.dat_don_hang_id = ?`,
   )

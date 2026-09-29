@@ -62,6 +62,8 @@ interface PxkInfo {
   trang_thai_chuyen_tien: string | null;
   bang_chung_chuyen_tien_url: string | null;
   bang_chung_chuyen_tien_anh?: string | null; // JSON array URL (migration 0043)
+  ly_do_tu_choi_chuyen_tien?: string | null; // Ke toan tu choi bang chung (migration 0046)
+  tu_choi_chuyen_tien_luc?: string | null;
   bang_chung_chuyen_tien_ghi_chu: string | null;
   nguoi_nhan_hang: string | null;
   ma_xuat_kho: string | null;

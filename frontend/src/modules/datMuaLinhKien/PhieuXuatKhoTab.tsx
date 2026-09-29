@@ -36,7 +36,7 @@ import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportResult, type M
 import { Money } from "../../components/ui/Money";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../components/ui/LocCot";
-import { BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung } from "./BangChungChuyenTien";
+import { BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung, TuChoiChuyenTienButton } from "./BangChungChuyenTien";
 import { doiNguoiThanhTen, usePersonDirectory } from "../../lib/personDisplay";
 
 const MISA_TEMPLATE_ORDER: MisaTemplate[] = ["xuat_kho", "chuyen_kho", "ban_hang"];
@@ -1864,7 +1864,11 @@ export function PxkDetailModal({
                     buoc cuoi chuyen tu TN sang Ke toan, khop dung gate canKeToan o backend PATCH
                     /:id/chuyen-tien nhanh "TN da duyet" (gia tri DB giu nguyen ten cu). */}
                 {canKeToan && pxk.trang_thai_chuyen_tien === "KTV da chuyen" && (
-                  <Btn size="sm" className="mt-2" onClick={() => chuyenTienMutation.mutate({ trang_thai: "TN da duyet" })} disabled={chuyenTienMutation.isPending}>Duyệt bằng chứng</Btn>
+                  // + "Từ chối, đẩy lại" (2026-09-29, migration 0046) - sai tien/thieu bang chung -> ve "Chờ KTV chuyển" kem ly do.
+                  <div className="mt-2 flex flex-wrap items-start gap-2">
+                    <Btn size="sm" onClick={() => chuyenTienMutation.mutate({ trang_thai: "TN da duyet" })} disabled={chuyenTienMutation.isPending}>Duyệt bằng chứng</Btn>
+                    <TuChoiChuyenTienButton pxkId={pxk.id} onDone={invalidate} addToast={addToast} />
+                  </div>
                 )}
               </>
             )}

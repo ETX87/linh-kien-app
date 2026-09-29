@@ -182,6 +182,8 @@ export interface PhieuXuatKhoRow {
   trang_thai_chuyen_tien: string | null;
   bang_chung_chuyen_tien_url?: string | null;
   bang_chung_chuyen_tien_anh?: string | null; // JSON array URL, toi da 5 (migration 0043)
+  ly_do_tu_choi_chuyen_tien?: string | null; // Ke toan tu choi bang chung GAN NHAT (migration 0046)
+  tu_choi_chuyen_tien_luc?: string | null;
   bang_chung_chuyen_tien_ghi_chu?: string | null;
   ngay_ktv_chuyen?: string | null;
   // Co PHU rieng cua Kho (migration 0032, phan hoi 2026-09-24: "chờ kho gửi hàng cho ktv, thêm 1 trạng

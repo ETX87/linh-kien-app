@@ -6,6 +6,7 @@ import { FileButton } from "../../components/ui/FileButton";
 import { Select } from "../../components/ui/Select";
 import { ImageLink } from "./SharedUi";
 import { describeApiError } from "./helpers";
+import { fmtDateTime } from "../../types";
 
 // Bang chung chuyen tien PXK NHIEU anh (toi da 5, chot 2026-09-29 - migration 0043, backend
 // lib/bangChungChuyenTien.ts). Dung chung cho chi tiet PXK (PhieuXuatKhoTab) va khoi PXK trong chi tiet don cua KTV
@@ -17,6 +18,83 @@ export interface BangChungPxk {
   bang_chung_chuyen_tien_url?: string | null;
   bang_chung_chuyen_tien_anh?: string | null;
   bang_chung_chuyen_tien_ghi_chu?: string | null;
+  // Ly do Ke toan tu choi GAN NHAT (migration 0046) - con gia tri toi khi KTV xac nhan chuyen lai.
+  ly_do_tu_choi_chuyen_tien?: string | null;
+  tu_choi_chuyen_tien_luc?: string | null;
+}
+
+/** Thong bao do "Kế toán từ chối bằng chứng" (hien khi phieu da bi day ve "Chờ KTV chuyển"). */
+export function LyDoTuChoiChuyenTien({ pxk }: { pxk: BangChungPxk }) {
+  if (!pxk.ly_do_tu_choi_chuyen_tien) return null;
+  return (
+    <div className="rounded-lg border border-[var(--color-danger)]/30 bg-[var(--color-danger-soft)] px-2.5 py-1.5 text-[11.5px] text-[var(--color-danger-strong)]">
+      <span className="font-bold">Kế toán từ chối bằng chứng{pxk.tu_choi_chuyen_tien_luc ? ` (${fmtDateTime(pxk.tu_choi_chuyen_tien_luc)})` : ""}:</span>{" "}
+      {pxk.ly_do_tu_choi_chuyen_tien}
+      <div className="mt-0.5 font-medium">Kiểm tra lại số tiền/bằng chứng, chuyển bổ sung nếu thiếu, thêm ảnh rồi bấm “Đã chuyển”.</div>
+    </div>
+  );
+}
+
+// Goi y nhanh ly do tu choi (Ke toan van sua/go tu do).
+const GOI_Y_TU_CHOI = ["Sai số tiền chuyển", "Thiếu bằng chứng chuyển tiền", "Ảnh bằng chứng không rõ", "Chưa nhận được tiền trên sao kê"];
+
+/**
+ * Ke toan TU CHOI / DAY LAI bang chung (2026-09-29, migration 0046): "KTV đã chuyển" -> "Chờ KTV chuyển", bat buoc ly do
+ * (PATCH /phieu-xuat-kho/:id/chuyen-tien trang_thai="Cho KTV chuyen"). Dat canh nut "Duyệt bằng chứng".
+ */
+export function TuChoiChuyenTienButton({ pxkId, onDone, addToast }: { pxkId: string; onDone: () => void; addToast: (msg: string) => void }) {
+  const [mo, setMo] = useState(false);
+  const [lyDo, setLyDo] = useState("");
+  const tuChoi = useMutation({
+    mutationFn: () => api.patch(`/phieu-xuat-kho/${pxkId}/chuyen-tien`, { trang_thai: "Cho KTV chuyen", ly_do_tu_choi: lyDo.trim() }),
+    onSuccess: () => {
+      addToast("Đã đẩy lại về Chờ KTV chuyển tiền");
+      setMo(false);
+      setLyDo("");
+      onDone();
+    },
+    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+  });
+  if (!mo) {
+    return (
+      <Btn size="sm" variant="danger" onClick={() => setMo(true)} title="Sai tiền, thiếu bằng chứng... - đẩy về Chờ KTV chuyển kèm lý do">
+        ↩ Từ chối, đẩy lại
+      </Btn>
+    );
+  }
+  return (
+    <div className="mt-2 w-full space-y-1.5 rounded-lg border border-[var(--color-danger)]/30 bg-[var(--color-danger-soft)] p-2">
+      <div className="text-[11.5px] font-semibold text-[var(--color-danger-strong)]">Lý do từ chối (KTV và Tác nghiệp sẽ thấy lý do này)</div>
+      <textarea
+        autoFocus
+        value={lyDo}
+        onChange={(e) => setLyDo(e.target.value)}
+        rows={2}
+        placeholder="Vd: Số tiền chuyển 3.200.000đ, thiếu 39.300đ"
+        className="focus-ring w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-base sm:text-sm"
+      />
+      <div className="flex flex-wrap gap-1">
+        {GOI_Y_TU_CHOI.map((g) => (
+          <button
+            key={g}
+            type="button"
+            onClick={() => setLyDo((v) => (v.trim() ? `${v.trim()}; ${g}` : g))}
+            className="focus-ring rounded-[var(--radius-pill)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-0.5 text-[11px] text-[var(--color-text-secondary)] hover:bg-[var(--color-subtle)]"
+          >
+            + {g}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <Btn size="sm" variant="danger" onClick={() => tuChoi.mutate()} disabled={!lyDo.trim() || tuChoi.isPending} loading={tuChoi.isPending}>
+          Xác nhận đẩy lại
+        </Btn>
+        <Btn size="sm" variant="ghost" onClick={() => { setMo(false); setLyDo(""); }} disabled={tuChoi.isPending}>
+          Huỷ
+        </Btn>
+      </div>
+    </div>
+  );
 }
 
 export function docAnhBangChung(pxk: BangChungPxk): string[] {
@@ -119,7 +197,8 @@ export function BangChungChuyenTienForm({
 
   return (
     <div className="mt-2 space-y-2">
-      {xacNhanLai && (
+      <LyDoTuChoiChuyenTien pxk={pxk} />
+      {xacNhanLai && !pxk.ly_do_tu_choi_chuyen_tien && (
         <div className="rounded-lg border border-[var(--amber-500)]/30 bg-[var(--amber-100)]/60 px-2.5 py-1.5 text-[11.5px] font-medium text-[var(--amber-700)]">
           Tổng tiền đã thay đổi sau lần xác nhận trước — chuyển bổ sung phần chênh lệch, thêm ảnh rồi bấm “Đã chuyển”.
         </div>
