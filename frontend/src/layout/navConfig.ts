@@ -30,6 +30,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: "danh-muc-lk", label: "Danh mục linh kiện", icon: "catalog" },
       { key: "ton-kho-ktv", label: "Tồn kho công nợ KTV", icon: "stock" },
       { key: "danh-sach-ktv", label: "Danh sách KTV", icon: "users" },
+      // Quy du KTV (2026-09-29, migration 0047) - Admin/Ke toan/TN xem tat ca, KTV/Ve tinh xem cua minh (App.tsx).
+      { key: "quy-chuyen-tien", label: "Quỹ & chuyển tiền", icon: "wallet" },
     ],
   },
   {
@@ -56,6 +58,7 @@ export const MODULE_TITLES: Record<string, string> = {
   "danh-muc-lk": "Danh mục linh kiện",
   "ton-kho-ktv": "Tồn kho công nợ KTV",
   "danh-sach-ktv": "Danh sách KTV",
+  "quy-chuyen-tien": "Quỹ & chuyển tiền",
   "bao-cao-toc-do": "Báo cáo tốc độ xử lý",
   settings: "Cài đặt",
   users: "Quản lý người dùng",

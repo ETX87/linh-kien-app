@@ -38,6 +38,13 @@ export const Icon = {
       <path d="M9 7.5h7M9 11h7" />
     </S>
   ),
+  wallet: (p: P) => (
+    <S {...p}>
+      <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3" />
+      <path d="M4 7.5V18a2 2 0 0 0 2 2h14V8H6.5A2.5 2.5 0 0 1 4 5.5" />
+      <path d="M16.5 14h.01" />
+    </S>
+  ),
   stock: (p: P) => (
     <S {...p}>
       <path d="M4 7 12 3l8 4v10l-8 4-8-4z" />

@@ -14,6 +14,7 @@ import { DatMuaLinhKienModule } from "./modules/DatMuaLinhKienModule";
 import { DanhMucLinhKienModule } from "./modules/DanhMucLinhKienModule";
 import { TonKhoKtvModule } from "./modules/TonKhoKtvModule";
 import { DanhSachKtvModule } from "./modules/DanhSachKtvModule";
+import { QuyChuyenTienModule } from "./modules/QuyChuyenTienModule";
 import { BaoCaoTocDoXuLyModule } from "./modules/BaoCaoTocDoXuLyModule";
 import { NotificationBell } from "./modules/datMuaLinhKien/NotificationBell";
 import { SettingsModule } from "./modules/SettingsModule";
@@ -145,6 +146,12 @@ function MainApp({
   // (xem DanhSachKtvModule.tsx -> KtvTab mode="ke-toan" + PATCH /:ma/cong-no-misa).
   if (role !== "Admin" && !user.la_ktv_dvbh && !user.la_ve_tinh) {
     allowedModules = [...new Set([...allowedModules, "danh-sach-ktv"])];
+  }
+
+  // "Quỹ & chuyển tiền" (2026-09-29) - khop phamViXem() o backend routes/quyKtv.ts: Ke toan/TN xem tat ca, KTV/Ve
+  // tinh xem quy cua chinh minh (Ve tinh = quy cua Tram). Admin da co qua ROLE_MODULES.
+  if (role !== "Admin" && (user.la_ke_toan || user.la_tac_nghiep || user.la_ktv_dvbh || user.la_ve_tinh)) {
+    allowedModules = [...new Set([...allowedModules, "quy-chuyen-tien"])];
   }
 
   const [active, setActive] = useState(() => {
@@ -413,6 +420,7 @@ function MainApp({
           {active === "danh-muc-lk" && <DanhMucLinhKienModule />}
           {active === "ton-kho-ktv" && <TonKhoKtvModule />}
           {active === "danh-sach-ktv" && <DanhSachKtvModule />}
+          {active === "quy-chuyen-tien" && <QuyChuyenTienModule />}
           {active === "bao-cao-toc-do" && <BaoCaoTocDoXuLyModule />}
           {active === "settings" && <SettingsModule />}
           {active === "users" && <UsersModule pendingKtvSearch={pendingKtvSearch} />}
