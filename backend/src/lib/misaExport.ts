@@ -207,13 +207,21 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
          ddh.loai_de_xuat, COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) as so_luong,
          COALESCE(ddh.gia_chot, ddh.gia_de_xuat) as don_gia, ddh.ma_yeu_cau_su_co, ddh.tt_mail_duyet,
          (SELECT loai_file_xuat_misa FROM settings_loai_de_xuat WHERE ten_option = ddh.loai_de_xuat LIMIT 1) as loai_file_xuat_misa,
-         ktv.ma_ktv as ktv_ma_ktv, ktv.ten_hien_thi as ktv_ten, ktv.ma_misa as ktv_ma_misa, ktv.ten_misa as ktv_ten_misa, ktv.khu_vuc_ma as ktv_khu_vuc_ma,
+         -- Ma/ten MISA: danh ba KTV truoc, khong co thi lay tu TAI KHOAN (users.ma_misa/ten_misa - GS/van phong tu
+         -- nhan hang khong nam trong danh ba KTV, ma MISA khai o Users; phan hoi 2026-09-29 GS nguyenquantb "có khai báo
+         -- mã misa nhưng khi tải file về lại không điền"). Khu vuc (chon kho theo mien): KTV, khong co thi khu vuc cua
+         -- PHIEU (migration 0042 - GS nhan hang -> khu vuc dau tien GS phu trach).
+         ktv.ma_ktv as ktv_ma_ktv, COALESCE(ktv.ten_hien_thi, u.ten) as ktv_ten,
+         COALESCE(NULLIF(TRIM(ktv.ma_misa), ''), NULLIF(TRIM(u.ma_misa), '')) as ktv_ma_misa,
+         COALESCE(NULLIF(TRIM(ktv.ten_misa), ''), NULLIF(TRIM(u.ten_misa), '')) as ktv_ten_misa,
+         COALESCE(ktv.khu_vuc_ma, pxk.khu_vuc_ma) as ktv_khu_vuc_ma,
          pxk.nguoi_nhan_hang
        FROM phieu_xuat_kho pxk
        JOIN phieu_xuat_kho_dong pxkd ON pxkd.phieu_xuat_kho_id = pxk.id
        JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id
        LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
        LEFT JOIN ktv_lien_he ktv ON ktv.email_dang_nhap = pxk.nguoi_nhan_hang
+       LEFT JOIN users u ON u.email = pxk.nguoi_nhan_hang
        WHERE pxk.id IN (${placeholders})
        ORDER BY pxk.ngay_tao, pxk.id, ddh.id`,
     )
