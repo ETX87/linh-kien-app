@@ -93,11 +93,19 @@ export function scopePxkNguoiNhanHang(c: Context<{ Bindings: Env }>): { whereSql
  * dung de gioi han danh sach/tim kiem (xem migration 0073). Tra null neu nguoi dung chua duoc Admin
  * gan khu vuc nao (0 dong) = che do khong gioi han nhu truoc gio; khac null tra Set email GS ma
  * nguoi dung nay dang phu trach.
+ *
+ * CHOT 2026-09-29 ("Khu vực là chuẩn" - phan hoi TN ngatran12302 khong thay don B2B_MN cua GS phamluong du DA
+ * duoc gan khu vuc B2B_MN, vi danh sach "Giám sát phụ trách" cau hinh rieng thieu GS do): tai khoan DA duoc gan
+ * Khu vuc (user_khu_vuc) thi BO QUA lop GS cu nay (tra null) - chi con Khu vuc quyet dinh (bo loc khu vuc mac dinh
+ * + badge qua khuVucCuaToiSet). Lop cu chi con tac dung voi tai khoan CHUA gan Khu vuc nao. Thong bao viec moi
+ * (lib/taskNotify.ts emailsForRoleOrQC) van doc thang bang cu, chua doi.
  */
 export async function phuTrachGsSet(db: D1Database, email: string): Promise<Set<string> | null> {
   const rows = await db
-    .prepare("SELECT giam_sat_email FROM dat_mua_lk_phu_trach_gs WHERE nguoi_phu_trach = ?")
-    .bind(email)
+    .prepare(
+      "SELECT giam_sat_email FROM dat_mua_lk_phu_trach_gs WHERE nguoi_phu_trach = ? AND NOT EXISTS (SELECT 1 FROM user_khu_vuc WHERE user_email = ?)",
+    )
+    .bind(email, email)
     .all<{ giam_sat_email: string }>();
   if (!rows.results || rows.results.length === 0) return null;
   return new Set(rows.results.map((r) => r.giam_sat_email));

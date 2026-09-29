@@ -1188,6 +1188,13 @@ async function baoCaoScope(c: Context<{ Bindings: Env }>, wantFull: boolean): Pr
       if (gsSet) {
         scopeCond = (alias) => ` AND ${alias}.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;
         scopeBinds = [...gsSet];
+      } else {
+        // Da gan Khu vuc -> phuTrachGsSet bo qua lop GS cu (2026-09-29 "Khu vực là chuẩn") - bao cao theo Khu vuc.
+        const khuVucSet = await khuVucCuaToiSet(c.env.DB, user);
+        if (khuVucSet) {
+          scopeCond = (alias) => khuVucSetWhereSql(khuVucSet, [`${alias}.nguoi_tao`, `${alias}.nguoi_nhan_hang`]).sql;
+          scopeBinds = khuVucSetWhereSql(khuVucSet, ["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]).binds;
+        }
       }
     }
   } else if (user.la_ktv_dvbh || user.la_ve_tinh) {

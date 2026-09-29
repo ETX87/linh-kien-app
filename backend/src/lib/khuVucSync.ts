@@ -37,8 +37,12 @@ const GIAM_SAT_QUAN_LY_SUBQUERY = `(
 // GS thi don cu van tinh cho GS cu. Nguoi dung chot "theo khu vực HIỆN TẠI của KTV" (ca don cu) -> moi lan dong
 // bo users.giam_sat_quan_ly, dong bo LUON email_gs cua moi don co nguoi nhan hang la KTV trong danh ba. Nhu vay
 // MOI scope doc email_gs (GS, TN/Kho/Ke toan phu trach GS, PXK, tra hang, badge) tu dung khu vuc hien tai ma
-// khong phai sua logic phan quyen. Don nguoi nhan khong co trong danh ba KTV giu nguyen.
-const DON_EMAIL_GS_MOI = "(SELECT u.giam_sat_quan_ly FROM users u WHERE u.email = dat_don_hang.nguoi_nhan_hang)";
+// khong phai sua logic phan quyen. Don nguoi nhan khong co trong danh ba KTV: do trigger trg_ddh_email_gs_theo_khu_vuc
+// (migration 0045) lo - email_gs = GS cua khu vuc cua don. KTV chua gan khu vuc cung fallback nhu vay (2026-09-29) -
+// CUNG cong thuc voi trigger do, doi 1 ben phai doi ben kia.
+const DON_EMAIL_GS_MOI = `COALESCE(
+  (SELECT u.giam_sat_quan_ly FROM users u WHERE u.email = dat_don_hang.nguoi_nhan_hang),
+  (SELECT kv.gs_email FROM khu_vuc kv WHERE kv.ma = dat_don_hang.khu_vuc_ma))`;
 
 async function dongBoEmailGsDon(db: D1Database, email: string | null): Promise<void> {
   const res = await db
