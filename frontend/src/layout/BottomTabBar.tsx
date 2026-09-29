@@ -1,16 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { NAV_GROUPS } from "./navConfig";
+import { NAV_GROUPS, navCount, type NavCounts } from "./navConfig";
 import { Icon } from "../components/ui/Icon";
 import { api } from "../api/client";
 
 // Bottom nav mobile (port P0) — tối đa 4 mục + nút "Thêm" (mở Sidebar off-canvas). Nút "Thêm" là
 // đường vào duy nhất tới các module còn lại + tài khoản/đăng xuất (xem Sidebar.tsx mobile).
 const MAX_TABS = 4;
-
-interface NotificationCounts {
-  datMuaLk: { total: number; thieuLkCanXuLy?: number };
-  ktvLogChuaDoc: number;
-}
 
 export function BottomTabBar({
   active,
@@ -27,7 +22,7 @@ export function BottomTabBar({
   const shown = allItems.slice(0, MAX_TABS);
   const { data: counts } = useQuery({
     queryKey: ["notifications-count"],
-    queryFn: () => api.get<NotificationCounts>("/notifications/count"),
+    queryFn: () => api.get<NavCounts>("/notifications/count"),
     refetchInterval: 5 * 60_000,
   });
 
@@ -37,7 +32,7 @@ export function BottomTabBar({
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {shown.map((it) => {
-        const count = !it.countKey || !counts ? 0 : it.countKey === "ktvLogChuaDoc" ? counts.ktvLogChuaDoc : it.countKey === "thieuLk" ? (counts.datMuaLk.thieuLkCanXuLy ?? 0) : counts.datMuaLk.total;
+        const count = navCount(it.countKey, counts);
         const on = active === it.key;
         const IconCmp = (Icon as Record<string, ((p: { size?: number }) => JSX.Element) | undefined>)[it.icon as string];
         return (

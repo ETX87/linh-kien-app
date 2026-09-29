@@ -130,6 +130,11 @@ function MainApp({
     // khop voi requireDatMuaLkArea.ts (dung lai lam module gate cho ca router ktvTonKho.ts).
     allowedModules = [...new Set([...allowedModules, "trang-chu", "dat-mua-lk", "thieu-lk", "tra-hang", "ton-kho-ktv"])];
   }
+  // "Phiếu xuất" (tach khoi "Đặt mua linh kiện" 2026-09-29) - khop canXemPxkTab o DatMuaLinhKienModule.tsx (TN/Kho/Ke
+  // toan/GS/KTV/Ve tinh). Admin + "Giam sat" da co qua ROLE_MODULES.
+  if (role !== "Admin" && (user.la_tac_nghiep || user.la_kho || user.la_ke_toan || user.la_ktv_dvbh || user.la_ve_tinh)) {
+    allowedModules = [...new Set([...allowedModules, "phieu-xuat"])];
+  }
   if (role !== "Admin" && (user.xem_danh_muc_lk || user.quan_ly_danh_muc_lk)) {
     allowedModules = [...new Set([...allowedModules, "danh-muc-lk"])];
   }
@@ -184,19 +189,25 @@ function MainApp({
     setActive("users");
     setPendingKtvSearch({ value: ktvSearch, nonce: Date.now() });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // View noi bo cua DatMuaLinhKienModule -> muc Sidebar tuong ung (2026-09-29 tach "Phiếu xuất" rieng).
+  function mucChoView(view: string): string {
+    if (view === "thieu-lk") return "thieu-lk";
+    if (view === "phieu-xuat-kho" && allowedModules.includes("phieu-xuat")) return "phieu-xuat";
+    return "dat-mua-lk";
+  }
   function openDonHangFromBell(donHangId: string) {
     setActive("dat-mua-lk");
     setPendingDetailOpen({ tab: "don-cua-toi", id: donHangId, nonce: Date.now() });
   }
   function openPxkFromBell(pxkId: string) {
-    setActive("dat-mua-lk");
+    setActive(mucChoView("phieu-xuat-kho"));
     setPendingDetailOpen({ tab: "phieu-xuat-kho", id: pxkId, nonce: Date.now() });
   }
   // Ket qua tim kiem that o CommandPalette (them 2026-09-10, xem GET /dat-mua-lk/search) - dung LAI
   // dung 1 "cong vao" pendingDetailOpen voi chuong thong bao/deep link o tren, chi khac nguon kich hoat.
   function openSearchResult(action: { type: "don_hang" | "phieu_xuat_kho" | "thieu_lk"; id: string }) {
-    setActive("dat-mua-lk");
     const tab = action.type === "don_hang" ? "don-cua-toi" : action.type === "phieu_xuat_kho" ? "phieu-xuat-kho" : "thieu-lk";
+    setActive(mucChoView(tab));
     setPendingDetailOpen({ tab, id: action.id, nonce: Date.now() });
   }
   function handleCommandSelect(item: CommandItem) {
@@ -273,7 +284,9 @@ function MainApp({
   // Slot long trong Sidebar (them 2026-09-11, phan hoi "đẩy nó ra sidebar") - Sidebar render ra <div>
   // rong ngay duoi muc "Đặt mua linh kiện", DatMuaLinhKienModule portal menu giai doan hoa vao day.
   // Dung pattern portal y het headerExtraEl o tren - Sidebar/Module la 2 anh em cung cap voi MainApp.
-  const [stageMenuSlotEl, setStageMenuSlotEl] = useState<HTMLDivElement | null>(null);
+  // Tach 2 slot (2026-09-29): duoi "Đơn đặt hàng" (nhom menu don) va duoi "Phiếu xuất" (nhom menu PXK).
+  const [stageMenuSlotDonEl, setStageMenuSlotDonEl] = useState<HTMLDivElement | null>(null);
+  const [stageMenuSlotPxkEl, setStageMenuSlotPxkEl] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!allowedModules.includes(active)) setActive(allowedModules[0] ?? "dat-mua-lk");
@@ -316,7 +329,7 @@ function MainApp({
         user={user}
         realIsAdmin={realIsAdmin}
         viewAsRole={viewAsRole}
-        stageMenuSlotRef={setStageMenuSlotEl}
+        stageMenuSlotRefs={{ "dat-mua-lk": setStageMenuSlotDonEl, "phieu-xuat": setStageMenuSlotPxkEl }}
       />
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Banner "xem thu vai tro" (phan hoi 2026-08-20) - LUON hien khi viewAsRole != null, ke ca
@@ -362,7 +375,7 @@ function MainApp({
         <main className={`px-4 pt-4 sm:px-6 sm:pt-4 flex-1 min-w-0 ${isMobile ? "pb-[calc(4.5rem+env(safe-area-inset-bottom))]" : "pb-5 sm:pb-[22px]"}`}>
           <div className="flex items-center justify-between mb-[14px] flex-wrap gap-2">
             <div className="flex items-center gap-3 flex-wrap min-w-0">
-              {active !== "dat-mua-lk" && <h1 className="page-title text-lg sm:text-[21px]">{MODULE_TITLES[active]}</h1>}
+              {active !== "dat-mua-lk" && active !== "phieu-xuat" && <h1 className="page-title text-lg sm:text-[21px]">{MODULE_TITLES[active]}</h1>}
               <div ref={setHeaderExtraEl} className="flex items-center gap-2 flex-wrap min-w-0" />
             </div>
             {/* Muc 7 (yeu cau UI mobile 2026-08-27): "icon cai dat giao dien va muc dang xuat o goc
@@ -395,11 +408,12 @@ function MainApp({
               tu BaoCaoTab). Gop thanh 1 dieu kien + 1 component duy nhat: React coi la CUNG 1 instance
               (cung vi tri cay) khi doi `active` giua 4 gia tri nay, chi re-render voi forceView prop
               moi - KHONG unmount, moi state noi bo (jumpTarget, navigatedAway, view) giu nguyen. */}
-          {(active === "trang-chu" || active === "dat-mua-lk" || active === "thieu-lk" || active === "tra-hang") && (
+          {(active === "trang-chu" || active === "dat-mua-lk" || active === "phieu-xuat" || active === "thieu-lk" || active === "tra-hang") && (
             <DatMuaLinhKienModule
-              forceView={active === "dat-mua-lk" ? undefined : active}
+              forceView={active === "dat-mua-lk" || active === "phieu-xuat" ? undefined : active}
+              section={active === "phieu-xuat" ? "phieu-xuat" : "don-dat-hang"}
               headerExtra={headerExtraEl}
-              stageMenuSlot={stageMenuSlotEl}
+              stageMenuSlots={{ don: stageMenuSlotDonEl, pxk: stageMenuSlotPxkEl }}
               externalDetailOpen={pendingDetailOpen}
               onExternalDetailOpenConsumed={() => setPendingDetailOpen(null)}
               // FIX (phan hoi 2026-08-26, cung van de tren): khi nguoi dung bam so lieu/StatCard nhay
@@ -414,7 +428,8 @@ function MainApp({
               // bam nham tab. Nhan them `view` (dich den thuc su, xem markNavigatedAway o
               // DatMuaLinhKienModule.tsx) de chon dung gia tri active: "thieu-lk" giu nguyen muc Sidebar
               // rieng, con lai (don-cua-toi/phieu-xuat-kho) van gop ve "dat-mua-lk" nhu cu.
-              onLeaveForceView={(view) => setActive(view === "thieu-lk" ? "thieu-lk" : "dat-mua-lk")}
+              // 2026-09-29: goi o MOI lan dieu huong noi bo (khong chi luc roi forceView) - PXK thuoc muc "Phiếu xuất".
+              onLeaveForceView={(view) => setActive(mucChoView(view))}
             />
           )}
           {active === "danh-muc-lk" && <DanhMucLinhKienModule />}

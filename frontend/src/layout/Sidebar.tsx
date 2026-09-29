@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { NAV_GROUPS } from "./navConfig";
+import { NAV_GROUPS, navCount, type NavCounts } from "./navConfig";
 import { Icon } from "../components/ui/Icon";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { APP_VERSION } from "../version";
@@ -10,11 +10,6 @@ import { TopBarActions } from "./TopBarActions";
 import { InstallAppButton } from "./InstallAppButton";
 import type { AppUser } from "../auth/AuthContext";
 import type { ViewAsRole } from "../auth/viewAsRoles";
-
-interface NotificationCounts {
-  datMuaLk: { total: number; thieuLkCanXuLy?: number };
-  ktvLogChuaDoc: number;
-}
 
 // Sidebar — DESIGN_GUIDELINES.md §2.1/§4 (chuyển đổi 2026-09-26): rộng 261px, nền gradient xanh hoàng gia
 // (--sidebar-gradient), item cao 40px bo 8px, active = nền trắng 25%. Prop contract giữ nguyên.
@@ -30,7 +25,7 @@ export function Sidebar({
   user,
   realIsAdmin,
   viewAsRole,
-  stageMenuSlotRef,
+  stageMenuSlotRefs,
 }: {
   active: string;
   setActive: (key: string) => void;
@@ -43,10 +38,11 @@ export function Sidebar({
   user: AppUser;
   realIsAdmin: boolean;
   viewAsRole: ViewAsRole | null;
-  // Slot long duoi muc "Đặt mua linh kiện" de DatMuaLinhKienModule.tsx "portal" menu giai doan hoa vao
-  // (them 2026-09-11, xem giai thich day du o prop `stageMenuSlot` cua module do) - chi 1 <div> rong,
-  // Sidebar KHONG biet/khong can biet noi dung ben trong no la gi.
-  stageMenuSlotRef?: (el: HTMLDivElement | null) => void;
+  // Slot long duoi muc "Đơn đặt hàng" (dat-mua-lk) / "Phiếu xuất" (phieu-xuat) de DatMuaLinhKienModule.tsx "portal"
+  // menu giai doan hoa vao (them 2026-09-11, tach 2 slot 2026-09-29 - xem prop `stageMenuSlots` cua module do) - chi
+  // 1 <div> rong, Sidebar KHONG biet/khong can biet noi dung ben trong no la gi.
+  // Ham ref phai ON DINH (setter cua useState o App.tsx) - ref inline doi moi lan render se goi null/el lien tuc.
+  stageMenuSlotRefs?: Partial<Record<"dat-mua-lk" | "phieu-xuat", (el: HTMLDivElement | null) => void>>;
 }) {
   const isMobile = useIsMobile();
   useEffect(() => {
@@ -55,7 +51,7 @@ export function Sidebar({
   }, [mobileOpen, onMobileClose]);
   const { data: counts } = useQuery({
     queryKey: ["notifications-count"],
-    queryFn: () => api.get<NotificationCounts>("/notifications/count"),
+    queryFn: () => api.get<NavCounts>("/notifications/count"),
     refetchInterval: 5 * 60_000,
   });
 
@@ -95,7 +91,7 @@ export function Sidebar({
             <div key={g.label} className="mb-4">
               {showText && <div className="text-[10px] uppercase tracking-wider font-bold text-[var(--sidebar-fg-dim)] px-2.5 mb-1.5">{g.label}</div>}
               {items.map((it) => {
-                const count = !it.countKey || !counts ? 0 : it.countKey === "ktvLogChuaDoc" ? counts.ktvLogChuaDoc : it.countKey === "thieuLk" ? (counts.datMuaLk.thieuLkCanXuLy ?? 0) : counts.datMuaLk.total;
+                const count = navCount(it.countKey, counts);
                 const on = active === it.key;
                 const IconCmp = (Icon as Record<string, ((p: { size?: number; className?: string }) => JSX.Element) | undefined>)[it.icon as string];
                 const cls = `focus-ring w-full flex items-center gap-3 h-10 px-3.5 rounded-[8px] mb-0.5 text-[13.5px] transition-colors ${
@@ -137,12 +133,12 @@ export function Sidebar({
                 // Slot menu giai doan hoa (them 2026-09-11) - long NGAY DUOI muc "Đặt mua linh kiện",
                 // rong (empty:hidden) khi khong co gi portal vao (VD dang o module khac, hoac Sidebar
                 // dang thu gon icon-only nen an luon showText). Xem stageMenuSlot o DatMuaLinhKienModule.tsx.
-                if (it.key !== "dat-mua-lk") return <div key={it.key}>{itemEl}</div>;
+                if (it.key !== "dat-mua-lk" && it.key !== "phieu-xuat") return <div key={it.key}>{itemEl}</div>;
                 return (
                   <div key={it.key}>
                     {itemEl}
                     {showText && (
-                      <div ref={stageMenuSlotRef} className="empty:hidden pl-[30px] pr-1 pb-1.5" />
+                      <div ref={stageMenuSlotRefs?.[it.key]} className="empty:hidden pl-[30px] pr-1 pb-1.5" />
                     )}
                   </div>
                 );

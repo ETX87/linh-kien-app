@@ -101,7 +101,8 @@ export function DatMuaLinhKienModule({
   forceView,
   openCase,
   headerExtra,
-  stageMenuSlot,
+  stageMenuSlots,
+  section = "don-dat-hang",
   onLeaveForceView,
   externalDetailOpen,
   onExternalDetailOpenConsumed,
@@ -137,7 +138,12 @@ export function DatMuaLinhKienModule({
   // component nao la cha cua component kia. CHI dung tren desktop (xem isMobile ben duoi) - tren
   // mobile Sidebar la off-canvas (phai bam "Thêm" moi thay), giu nguyen rail ngang cu render NGAY
   // trong noi dung de khong mat kha nang nhay nhanh.
-  stageMenuSlot?: HTMLElement | null;
+  // Tach 2 slot (2026-09-29, "tách riêng thành 2 phần: đơn đặt hàng + phiếu xuất"): nhom menu don -> slot duoi muc
+  // "Đơn đặt hàng", nhom "Xuất kho" -> slot duoi muc "Phiếu xuất".
+  stageMenuSlots?: { don?: HTMLElement | null; pxk?: HTMLElement | null };
+  // Muc Sidebar dang chon khi KHONG co forceView: "don-dat-hang" (dat-mua-lk) hay "phieu-xuat" - quyet dinh view mac
+  // dinh luc moi vao muc (xem sectionView ben duoi).
+  section?: "don-dat-hang" | "phieu-xuat";
 } = {}) {
   const auth = useAuth();
   const user = auth.status === "authenticated" ? auth.user : null;
@@ -270,7 +276,7 @@ export function DatMuaLinhKienModule({
   // cap cao), thay vi la co vinh vien cho ca vong doi component.
   useEffect(() => {
     setNavigatedAway(false);
-  }, [forceView]);
+  }, [forceView, section]);
   // "trang-chu"/"thieu-lk" BO QUA isValidView khi den tu forceView (khong nam trong tabs[] nen
   // isValidView("trang-chu") luon false - neu doi qua isValidView o day forceView se bi lo, roi thang
   // ve view/tabs[0], y het bug da bat gap khi tu kiem thu 2026-08-26). Quyen truy cap 2 route nay da
@@ -282,10 +288,20 @@ export function DatMuaLinhKienModule({
   // render DonCuaToiTab voi xemLoaiDon mac dinh "mua" (khong tab nao duoc danh dau active) - man hinh
   // vo dung "Việc của bạn" thuc su. Uu tien "tra-hang" (hop le qua isValidView) truoc khi roi ve
   // "don-cua-toi" lam phao cuu cuoi cung.
+  // View mac dinh khi vua bam 1 trong 2 muc Sidebar (2026-09-29): "Phiếu xuất" -> danh sach PXK; "Đơn đặt hàng" -> view
+  // don/tra hang xem lan truoc (KHONG roi vao PXK/Thieu LK con luu trong localStorage tu muc khac).
+  const sectionView =
+    section === "phieu-xuat"
+      ? isValidView("phieu-xuat-kho") ? "phieu-xuat-kho" : null
+      : (view === "don-cua-toi" || view === "tra-hang") && isValidView(view)
+        ? view
+        : canXemDonMuaCongNo ? "don-cua-toi" : canTraHangView ? "tra-hang" : null;
   const activeView =
     !navigatedAway && forceView && (forceView === "trang-chu" || forceView === "thieu-lk" || isValidView(forceView))
       ? forceView
-      : isValidView(view)
+      : !navigatedAway && !forceView && sectionView
+        ? sectionView
+        : isValidView(view)
         ? view
         : (tabs[0]?.key ?? (canTraHangView ? "tra-hang" : "don-cua-toi"));
 
@@ -349,8 +365,10 @@ export function DatMuaLinhKienModule({
   // false -> true (dung gia tri navigatedAway HIEN TAI trong closure, KHONG doc lai sau setState vi
   // setState khong dong bo) - bao App.tsx biet da "thoat" khoi muc menu Trang chu/Thieu linh kien de
   // tu doi active, dong bo lai Sidebar/tieu de h1 voi noi dung dang xem that su.
+  // 2026-09-29: goi o MOI lan dieu huong (khong chi luc roi forceView) - PXK/don gio thuoc 2 muc Sidebar khac nhau,
+  // App.tsx tu bo qua neu muc khong doi.
   function markNavigatedAway(view: string) {
-    if (forceView && !navigatedAway) onLeaveForceView?.(view);
+    onLeaveForceView?.(view);
     setNavigatedAway(true);
   }
 
@@ -854,9 +872,24 @@ export function DatMuaLinhKienModule({
         // dang an - them isQCOnly vao dieu kien show, bo qua gate navigatedAway rieng cho QC.
         const showStageMenu = navigatedAway || (forceView !== "trang-chu" && forceView !== "thieu-lk") || isQCOnly;
         if (!showStageMenu) return null;
-        if (isMobile) return <StageMenu groups={stageMenuGroups} activeKey={stageMenuActiveKey} isMobile />;
-        if (!stageMenuSlot) return null;
-        return createPortal(<StageMenu groups={stageMenuGroups} activeKey={stageMenuActiveKey} isMobile={false} />, stageMenuSlot);
+        // stageMenuGroups[0] = nhom don, [1] = "Xuất kho" (chi khi canXemPxkTab). Moi nhom nam duoi muc Sidebar cua no
+        // (bo tieu de nhom - trung ten muc); mobile chi hien nhom cua muc dang xem.
+        // Muc con chi sang khi thuoc DUNG man dang xem (bam sang muc Sidebar kia thi tat, khong sang nham nhom khac).
+        const activeKey = STAGE_MENU_TARGETS.some((t) => t.key === stageMenuActiveKey && t.tab === activeView) ? stageMenuActiveKey : "";
+        const donGroup = stageMenuGroups[0];
+        const pxkGroup = stageMenuGroups[1];
+        if (isMobile) {
+          const g = activeView === "phieu-xuat-kho" && pxkGroup ? pxkGroup : donGroup;
+          return <StageMenu groups={[{ items: g.items }]} activeKey={activeKey} isMobile />;
+        }
+        return (
+          <>
+            {stageMenuSlots?.don && donGroup.items.length > 0 &&
+              createPortal(<StageMenu groups={[{ items: donGroup.items }]} activeKey={activeKey} isMobile={false} />, stageMenuSlots.don)}
+            {stageMenuSlots?.pxk && pxkGroup &&
+              createPortal(<StageMenu groups={[{ items: pxkGroup.items }]} activeKey={activeKey} isMobile={false} />, stageMenuSlots.pxk)}
+          </>
+        );
       })()}
       <div className="min-w-0">
       {/* key = tab dang xem: doi tab thi go loi cu, khong ket o man bao loi (ErrorBoundary.tsx). */}

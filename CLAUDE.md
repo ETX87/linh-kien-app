@@ -186,6 +186,13 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   chọn "lưới cột chung"): không tiêu đề/khung riêng, dòng ~32px, mọi phiếu chung 1 bộ độ rộng cột cố định (`COT_GON`) nên
   thẳng hàng, nghĩa cột hiện khi rê chuột; Drawer giữ bản đầy đủ có tiêu đề. Bỏ đơn cuối từ danh sách
   (`giuPhieuTrong={false}`) → hủy phiếu ngay qua `/huy-neu-trong`; từ Drawer giữ phiếu trống như cũ.
+- **Tách "Đặt mua linh kiện" thành 2 mục Sidebar** (2026-09-29): **"Đơn đặt hàng"** (key `dat-mua-lk`, nhóm menu đơn +
+  trả hàng) và **"Phiếu xuất"** (key `phieu-xuat`, nhóm "Xuất kho") — vẫn là CÙNG 1 `DatMuaLinhKienModule` (prop `section`
+  chọn view mặc định: Phiếu xuất → `phieu-xuat-kho`, Đơn đặt hàng → đơn/trả hàng xem lần trước), mỗi mục có slot menu giai
+  đoạn riêng (`stageMenuSlots.don/pxk`, Sidebar `stageMenuSlotRefs` — setter ổn định). Mọi lần điều hướng nội bộ gọi
+  `onLeaveForceView(view)` → `mucChoView()` (App.tsx) đổi mục Sidebar theo view (PXK → Phiếu xuất). Quyền mục `phieu-xuat` =
+  `canXemPxkTab` (TN/Kho/Kế toán/GS/KTV/Vệ tinh + Admin). Số trên mục: `navCount()` (navConfig.ts) — Phiếu xuất = choTnPxk +
+  choKhoPxk + choKeToanPxk của badge, Đơn đặt hàng = phần còn lại của `total`.
 - **Menu "Phiếu đã in"** (2026-09-29): nhóm Xuất kho — "Đã chốt xong đơn xuất" = sentinel `CHOT_CHUA_IN` (chốt + chưa in),
   "Phiếu đã in" = `DA_IN` (chốt + đã in) — `DA_IN_COND`/`CHOT_CHUA_IN_COND` ở `phieuXuatKho.ts` (danh sách, xuất MISA,
   `/status-counts`). Lọc thường "Da chot xong don xuat" GIỮ NGUYÊN (cả 2) cho pipeline "Kho"/thẻ "Kho chốt đơn xuất"/báo cáo
