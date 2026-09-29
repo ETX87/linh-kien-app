@@ -1767,7 +1767,8 @@ export function DonCuaToiTab({
     });
   }
 
-  const activeFilterCount = [filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, filterQ, khuVucParam].filter(Boolean).length;
+  // + so cot dang loc kieu Excel (2026-09-29: tren mobile loc cot nam trong bang "Bộ lọc" nen phai dem vao day).
+  const activeFilterCount = [filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, filterQ, khuVucParam].filter(Boolean).length + Object.keys(locCot.loc).length;
 
   return (
     <div className="mt-4">
@@ -1892,6 +1893,12 @@ export function DonCuaToiTab({
               dinh an theo showFilters, truoc day 1 hang rieng luon hien tren dau danh sach - it dung
               nen khong dang chiem cho co dinh). O trong (div ref) la dich Portal - DonHangGroupedList
               tu render nut/panel that su vao day, xem prop columnSettingsSlot truyen xuong duoi. */}
+          {/* Mobile (2026-09-29, phan hoi "lọc cột trên bản mobile cho gọn vào trong bộ lọc"): toan bo chip loc cot nam
+              TRONG bang Bo loc thay vi 1 hang chip luon hien tren danh sach; ngoai bang chi con chip cot DANG loc. */}
+          <div className="w-full sm:hidden">
+            <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Lọc theo cột</div>
+            <LocCotBar cfg={locCotCfg} cots={Object.keys(locCotCfg.tieuDe)} hienTatCa nhan={null} />
+          </div>
           <div>
             <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Cột hiển thị</div>
             <div ref={setColumnSettingsSlot} />
@@ -2001,12 +2008,8 @@ export function DonCuaToiTab({
           </Modal>
         );
       })()}
-      <div className="sm:hidden">
-        <LocCotBar cfg={locCotCfg} cots={Object.keys(locCotCfg.tieuDe)} hienTatCa />
-      </div>
-      <div className="hidden sm:block">
-        <LocCotBar cfg={locCotCfg} cots={Object.keys(locCotCfg.tieuDe)} hienTatCa={false} />
-      </div>
+      {/* Chi cac cot DANG loc/sap xep (ca mobile lan desktop) - danh sach day du: desktop o tieu de cot, mobile trong "Bộ lọc". */}
+      <LocCotBar cfg={locCotCfg} cots={Object.keys(locCotCfg.tieuDe)} hienTatCa={false} />
       <DonHangGroupedList
         locCot={locCotCfg}
         rows={pageRows}

@@ -109,7 +109,7 @@ export function LocCotButton({ cfg, cot, variant = "icon" }: { cfg: LocCotCfg; c
           ref={btnRef}
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className={`focus-ring inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium ${
+          className={`focus-ring inline-flex min-h-9 items-center gap-1 whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium sm:min-h-0 sm:px-2.5 ${
             active
               ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)] text-[var(--color-primary)]"
               : "border-[var(--line)] text-[var(--ink-600)] hover:bg-[var(--surface-100)]"
@@ -297,13 +297,15 @@ function LocCotPopover({ cfg, cot, anchor, onClose }: { cfg: LocCotCfg; cot: str
  * Thanh loc cot: desktop chi hien cac cot DANG loc/sap xep (+ "Xóa tất cả"); mobile (hienTatCa) hien moi cot loc
  * duoc duoi dang chip vi the mobile khong co tieu de cot.
  */
-export function LocCotBar({ cfg, cots, hienTatCa }: { cfg: LocCotCfg; cots: string[]; hienTatCa: boolean }) {
+// `nhan`: nhan dau hang (mac dinh "Lọc cột:"); null = khong ve (khi dat trong khoi co tieu de rieng, vd bang
+// "Bộ lọc" tren mobile - 2026-09-29).
+export function LocCotBar({ cfg, cots, hienTatCa, nhan = "Lọc cột:" }: { cfg: LocCotCfg; cots: string[]; hienTatCa: boolean; nhan?: string | null }) {
   const dangAp = cots.filter((c) => cfg.loc[c] || cfg.sapXep?.cot === c);
   const hien = hienTatCa ? cots : dangAp;
   if (hien.length === 0) return null;
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-400)]">Lọc cột:</span>
+      {nhan && <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-400)]">{nhan}</span>}
       {hien.map((c) => (
         <LocCotButton key={c} cfg={cfg} cot={c} variant="chip" />
       ))}

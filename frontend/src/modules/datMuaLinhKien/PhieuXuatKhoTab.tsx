@@ -698,7 +698,7 @@ export function PhieuXuatKhoTab({
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters((v) => !v)}
         // FIX (ra soat bug mua hang 2026-08-26, BUG-003): thieu filterTrangThai, khop pattern DonCuaToiTab.tsx.
-        activeFilterCount={[filterTrangThai, filterNguoiNhanHang, filterQ, khuVucParam].filter(Boolean).length}
+        activeFilterCount={[filterTrangThai, filterNguoiNhanHang, filterQ, khuVucParam].filter(Boolean).length + Object.keys(locCot.loc).length}
         searchValue={filterQ}
         onSearchChange={setFilterQ}
         searchPlaceholder="Tìm theo mã PXK, mã đơn hàng, mã MISA, tên KTV..."
@@ -777,6 +777,12 @@ export function PhieuXuatKhoTab({
             options={[{ value: "", label: "Tất cả người nhận hàng" }, ...(nguoiNhanHangData?.rows ?? []).map((r) => ({ value: r.email_dang_nhap, label: ktvOptionLabel(r, nguoiNhanHangData?.rows ?? []) }))]}
           />
         )}
+        {/* Mobile (2026-09-29, phan hoi "lọc cột trên bản mobile cho gọn vào trong bộ lọc"): toan bo chip loc cot nam
+              TRONG bang Bo loc thay vi 1 hang chip luon hien tren danh sach; ngoai bang chi con chip cot DANG loc. */}
+          <div className="w-full sm:hidden">
+            <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Lọc theo cột</div>
+            <LocCotBar cfg={locCotCfg} cots={Object.keys(locCotCfg.tieuDe)} hienTatCa nhan={null} />
+          </div>
       </FilterSearchBar>
       {/* SUA (ra soat #3): bo chip "Trạng thái: ..." - gia tri dang chon da hien SAN trong o
           TrangThaiDropdownFilter ngay ben tren (doi tu chip/nut sang dropdown 2026-09-01), khong can
@@ -794,7 +800,7 @@ export function PhieuXuatKhoTab({
           giai quyet ca 2 y "tran/qua dai" (an bot cot khong can) va "man hinh to nhung chu nho" (keo
           rong cot can xem ky) ma khong can ve lai toan bo bang. */}
       <div className="sm:hidden">
-        <LocCotBar cfg={locCotCfg} cots={Object.keys(locCotCfg.tieuDe)} hienTatCa />
+        <LocCotBar cfg={locCotCfg} cots={Object.keys(locCotCfg.tieuDe)} hienTatCa={false} />
       </div>
       <div className="hidden sm:block">
         <LocCotBar cfg={locCotCfg} cots={[...LOC_COT_KHONG_CO_COT, ...locCotDangAp]} hienTatCa />
