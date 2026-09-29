@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
 import { Badge } from "../../components/x/Badge";
@@ -20,8 +20,25 @@ import { LoaiDeXuatBadge } from "./SharedUi";
 // giuPhieuTrong: true = dang o Drawer chi tiet (bo don cuoi -> giu phieu trong, dong Drawer moi tu huy - xem roiPhieu
 // trong PxkDetailModal); false = thao tac tu danh sach (khong co "dong man") -> bo don cuoi thi huy phieu NGAY qua
 // POST /:id/huy-neu-trong (cung quy uoc "thao tác từ ngoài → hủy phiếu ngay" cua CLAUDE.md).
+//
+// gon (2026-09-29, phan hoi "cách hiển thị này đang xấu và chiếm diện tích nhiều quá... bỏ tiêu đề được không? tất cả
+// các đơn chung 1 khoảng cách cột", nguoi dung chon phuong an "Lưới cột chung"): KHONG tieu de cot, dong thap (~32px),
+// chu 12px, cot do rong CO DINH (COT_GON, table-layout fixed) -> dong don cua MOI phieu xo xuong thang hang tu tren
+// xuong; y nghia tung o hien khi re chuot (title). Drawer chi tiet van dung ban day du co tieu de.
+const COT_GON = [
+  { w: 112, tip: "Mã linh kiện" },
+  { w: 250, tip: "Tên linh kiện" },
+  { w: 124, tip: "Loại đề xuất" },
+  { w: 84, tip: "SL đề xuất → SL thực xuất" },
+  { w: 140, tip: "Tiền cần chuyển" },
+  { w: 230, tip: "Loại chiết khấu" },
+  { w: 250, tip: "Lý do chậm" },
+  { w: 40, tip: "" },
+];
+const RONG_GON = COT_GON.reduce((s, c) => s + c.w, 0);
+
 export function PxkDongDonHangTable({
-  pxkId, pxk, donHang, canTacNghiep, canKeToan, addToast, onOpenDon, onSuaTien, giuPhieuTrong,
+  pxkId, pxk, donHang, canTacNghiep, canKeToan, addToast, onOpenDon, onSuaTien, giuPhieuTrong, gon = false,
 }: {
   pxkId: string;
   pxk: { loai_don?: "mua" | "cong_no" | "tra_hang" | null; trang_thai?: string | null; so_tien_can_chuyen?: number | null; trang_thai_chuyen_tien?: string | null };
@@ -32,6 +49,7 @@ export function PxkDongDonHangTable({
   onOpenDon: (donHangId: string) => void;
   onSuaTien: (donHangId: string) => void;
   giuPhieuTrong: boolean;
+  gon?: boolean;
 }) {
   const qc = useQueryClient();
   const trangThai = pxk.trang_thai ?? "";
@@ -99,6 +117,268 @@ export function PxkDongDonHangTable({
   });
 
   const coCotBo = (canTacNghiep || canKeToan) && dangTao;
+  const huyCongNoDraft = (id: string) => setSoTienCongNoDraft((p) => { const n = { ...p }; delete n[id]; return n; });
+
+  // ---- Noi dung tung o - DUNG CHUNG cho 2 kieu hien thi (day du / gon) ----
+
+  // Mua / TRỪ CÔNG NỢ: READ-ONLY = tien uoc tinh backend tinh (loai chiet khau, gia chot, SL thuc xuat) - TN bam vao so
+  // tien de mo popup sua SL thuc xuat/Don gia (2026-09-22). Cong no thuan: GIU co che sua tay so_tien_cong_no (nuoi cong
+  // no KTV qua computeCongNoPhatSinh).
+  function oTien(d: DonHangRow): ReactNode {
+    if (pxk.loai_don === "mua" || laTruCongNo(d.loai_de_xuat)) {
+      const donGia = d.gia_chot ?? d.gia_de_xuat;
+      const sl = d.so_luong_thuc_xuat ?? d.so_luong_de_xuat;
+      const noiDung =
+        d.tien_uoc_tinh != null || donGia != null ? (
+          <span className="italic text-[var(--ink-400)]" title="Ước tính theo loại chiết khấu, giá chốt và SL thực xuất">
+            <Money>{fmtVND(d.tien_uoc_tinh ?? (donGia ?? 0) * sl)}</Money>
+            {!gon && " (ước tính)"}
+          </span>
+        ) : (
+          <span className="text-[var(--ink-400)]">—</span>
+        );
+      return canTacNghiep && dangTao ? (
+        <button type="button" className="hover:underline decoration-dotted underline-offset-2" title="Bấm để sửa SL thực xuất/Đơn giá thực tế" onClick={() => onSuaTien(d.id)}>
+          {noiDung}
+        </button>
+      ) : (
+        noiDung
+      );
+    }
+    if (soTienCongNoDraft[d.id] !== undefined) {
+      return (
+        <span className="inline-flex gap-1 items-center">
+          <input
+            type="number"
+            autoFocus
+            value={soTienCongNoDraft[d.id]}
+            onChange={(e) => setSoTienCongNoDraft((p) => ({ ...p, [d.id]: e.target.value }))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && soTienCongNoDraft[d.id]?.trim()) soTienCongNoMutation.mutate({ donHangId: d.id, so_tien_cong_no: Number(soTienCongNoDraft[d.id]) });
+              if (e.key === "Escape") huyCongNoDraft(d.id);
+            }}
+            className={`focus-ring ${gon ? "w-20 h-[24px]" : "w-24"} bg-[var(--surface-100)] border border-[var(--line)] rounded px-1.5 py-0.5 text-xs text-right`}
+          />
+          <Btn
+            size="sm"
+            variant="ghost"
+            onClick={() => soTienCongNoMutation.mutate({ donHangId: d.id, so_tien_cong_no: Number(soTienCongNoDraft[d.id]) })}
+            disabled={!soTienCongNoDraft[d.id]?.trim() || soTienCongNoMutation.isPending}
+          >
+            Lưu
+          </Btn>
+          <button type="button" className="text-[var(--ink-400)] hover:underline" onClick={() => huyCongNoDraft(d.id)}>✕</button>
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex gap-1.5 items-center">
+        {/* Chua sua tay -> hien uoc tinh Gia de xuat × SL (in nghieng), dung lam gia tri khoi tao khi bam ✎. */}
+        {d.so_tien_cong_no != null ? (
+          <span title="Tiền công nợ ghi nhận cho KTV — không cộng vào tiền cần chuyển của phiếu">
+            <Money>{fmtVND(d.so_tien_cong_no)}</Money> <span className="text-[11px] text-[var(--ink-400)]">công nợ</span>
+          </span>
+        ) : d.gia_de_xuat != null ? (
+          <span className="italic text-[var(--ink-400)]" title="Ước tính = Giá đề xuất × SL, chưa được xác nhận/sửa tay">
+            <Money>{fmtVND(d.gia_de_xuat * d.so_luong_de_xuat)}</Money>
+            {!gon && " (ước tính)"}
+          </span>
+        ) : (
+          <span className="text-[var(--ink-400)]">—</span>
+        )}
+        {(canTacNghiep || canKeToan) && dangTao && (
+          <button
+            type="button"
+            className="text-[var(--ocean-700)] hover:underline"
+            title="Sửa tiền công nợ"
+            onClick={() =>
+              setSoTienCongNoDraft((p) => ({ ...p, [d.id]: String(d.so_tien_cong_no ?? (d.gia_de_xuat != null ? d.gia_de_xuat * d.so_luong_de_xuat : "")) }))
+            }
+          >
+            ✎
+          </button>
+        )}
+      </span>
+    );
+  }
+
+  // Loai chiet khau (2026-09-26) - TN chon lai/them loai moi ngay tai day.
+  function oLoaiChietKhau(d: DonHangRow): ReactNode {
+    return canTacNghiep ? (
+      <LoaiChietKhauPicker don={d} duocDoi={duocDoiLoaiChietKhau(pxk)} />
+    ) : (
+      <LoaiChietKhauText id={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
+    );
+  }
+
+  // Lich su giai trinh + cho nhap lai moi khi qua han LAN NUA (ke ca dong da "TN da duyet" trong PXK - backend POST
+  // /don-hang/:id/giai-trinh da noi long gate). Chon BAT BUOC tu danh muc. Ban gon: chi hien giai trinh MOI NHAT (re
+  // chuot xem het) + o chon thap.
+  function oLyDoCham(d: DonHangRow): ReactNode {
+    const giaiTrinh = d.giaiTrinh ?? [];
+    const choNhap = canTacNghiep && d.qua_han_ly_do_cham && (d.trang_thai_hien_tai === "Cho TN duyet" || d.trang_thai_hien_tai === "TN da duyet");
+    const dsLyDo = lyDoChamGoiYData?.rows ?? [];
+    const luu = () => lyDoChamMutation.mutate({ donHangId: d.id, ly_do_cham: lyDoChamDraft[d.id] ?? "" });
+    if (gon) {
+      const moiNhat = giaiTrinh[giaiTrinh.length - 1];
+      const tatCa = giaiTrinh.map((g) => `${g.noi_dung} — ${fmtDateTime(g.ngay_tao)}`).join("\n");
+      if (choNhap) {
+        return (
+          <span className="inline-flex max-w-full items-center gap-1">
+            <Badge tone="danger">Quá hạn</Badge>
+            <select
+              value={lyDoChamDraft[d.id] ?? ""}
+              onChange={(e) => setLyDoChamDraft((p) => ({ ...p, [d.id]: e.target.value }))}
+              disabled={dsLyDo.length === 0}
+              title={dsLyDo.length === 0 ? 'Chưa có lý do chậm nào cho "Mua hàng" — vào Settings › Lý do chậm để thêm' : tatCa || "Chọn lý do chậm"}
+              className="focus-ring h-[24px] min-w-0 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--surface)] px-1 text-xs disabled:opacity-40"
+            >
+              <option value="">-- Chọn lý do --</option>
+              {dsLyDo.map((l) => (
+                <option key={l.ten_ly_do} value={l.ten_ly_do}>{l.ten_ly_do}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="shrink-0 text-xs font-semibold text-[var(--color-link)] hover:underline disabled:text-[var(--ink-400)] disabled:no-underline"
+              disabled={!lyDoChamDraft[d.id]?.trim() || lyDoChamMutation.isPending}
+              onClick={luu}
+            >
+              Lưu
+            </button>
+          </span>
+        );
+      }
+      if (moiNhat) {
+        return (
+          <span title={tatCa}>
+            {d.qua_han_ly_do_cham && <Badge tone="danger">Quá hạn</Badge>} {moiNhat.noi_dung}
+            {giaiTrinh.length > 1 && <span className="text-[var(--ink-400)]"> (+{giaiTrinh.length - 1})</span>}
+          </span>
+        );
+      }
+      return d.qua_han_ly_do_cham ? <Badge tone="danger">Quá hạn</Badge> : <span className="text-[var(--ink-400)]">—</span>;
+    }
+    return (
+      <div className="flex flex-col gap-1">
+        {giaiTrinh.length > 0 && (
+          <ul className="space-y-0.5">
+            {giaiTrinh.map((g) => (
+              <li key={g.id} className="text-xs">
+                {g.noi_dung}
+                <span className="text-[10.5px] text-[var(--ink-400)]"> — {fmtDateTime(g.ngay_tao)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {choNhap ? (
+          <div className="flex flex-col gap-1">
+            <div className="flex gap-1 items-center">
+              <Badge tone="danger">Quá hạn</Badge>
+              <Select
+                value={lyDoChamDraft[d.id] ?? ""}
+                onChange={(v) => setLyDoChamDraft((p) => ({ ...p, [d.id]: v }))}
+                options={[{ value: "", label: "-- Chọn lý do chậm --" }, ...dsLyDo.map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
+                disabled={dsLyDo.length === 0}
+                className="flex-1"
+              />
+              <Btn size="sm" variant="ghost" onClick={luu} disabled={!lyDoChamDraft[d.id]?.trim() || lyDoChamMutation.isPending}>
+                Lưu
+              </Btn>
+            </div>
+            {dsLyDo.length === 0 && (
+              <div className="text-[10.5px] text-[var(--coral-600)]">Chưa có lý do chậm nào được cấu hình cho "Mua hàng" — vào Settings › Lý do chậm để thêm.</div>
+            )}
+          </div>
+        ) : d.qua_han_ly_do_cham ? (
+          <Badge tone="danger">Quá hạn</Badge>
+        ) : giaiTrinh.length === 0 ? (
+          <span className="text-[var(--ink-400)]">—</span>
+        ) : null}
+      </div>
+    );
+  }
+
+  // Bo don khoi phieu (2026-09-21), bo DUOC ca don cuoi (chot 2026-09-28).
+  function nutBo(d: DonHangRow): ReactNode {
+    return (
+      <button
+        type="button"
+        className="text-[var(--coral-500)] hover:underline disabled:opacity-50"
+        title="Bỏ đơn khỏi phiếu"
+        disabled={boDonMutation.isPending}
+        onClick={() => {
+          const laDonCuoi = donHang.length === 1;
+          const canhBaoCuoi = laDonCuoi
+            ? giuPhieuTrong
+              ? "\n\nĐây là đơn cuối cùng — phiếu trống sẽ tự hủy khi bạn đóng màn phiếu."
+              : "\n\nĐây là đơn cuối cùng — phiếu sẽ bị hủy luôn."
+            : "";
+          if (window.confirm(`Bỏ đơn "${d.ma_lk}" khỏi phiếu này?\n\nĐơn sẽ quay lại danh sách "khả dụng" để gán vào 1 phiếu khác.${canhBaoCuoi}`)) {
+            boDonMutation.mutate({ donHangId: d.id, laDonCuoi });
+          }
+        }}
+      >
+        {gon ? "✕" : "✕ Bỏ"}
+      </button>
+    );
+  }
+
+  const nenUuTien = (d: DonHangRow) => (d.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)]" : "");
+  const slThucXuat = (d: DonHangRow) =>
+    d.so_luong_thuc_xuat == null ? null : d.so_luong_thuc_xuat !== d.so_luong_de_xuat ? (
+      <span className="font-semibold text-[var(--amber-700)]" title="Khác SL đề xuất">{d.so_luong_thuc_xuat}</span>
+    ) : (
+      d.so_luong_thuc_xuat
+    );
+
+  if (gon) {
+    // Moi o: 1 dong, cat "…" (quy tac bang 1 dong); o co nut/o chon (tien, loai CK, ly do cham) khong cat de khong mat nut.
+    const o = "px-2 py-1 align-middle whitespace-nowrap overflow-hidden text-ellipsis";
+    const oNut = "px-2 py-1 align-middle whitespace-nowrap";
+    return (
+      <table className="border-collapse text-[12px] text-[var(--color-text-body)]" style={{ tableLayout: "fixed", width: RONG_GON }}>
+        <colgroup>
+          {COT_GON.map((c, i) => (
+            <col key={i} style={{ width: c.w }} />
+          ))}
+        </colgroup>
+        <tbody>
+          {donHang.length === 0 && (
+            <tr>
+              <td colSpan={COT_GON.length} className="px-2 py-1.5 text-xs text-[var(--ink-400)]">Phiếu không còn đơn nào.</td>
+            </tr>
+          )}
+          {donHang.map((d) => (
+            <tr
+              key={d.id}
+              onClick={() => onOpenDon(d.id)}
+              className={`h-8 cursor-pointer border-b border-[var(--color-border-soft)] last:border-0 hover:bg-[var(--color-surface-hover)] ${nenUuTien(d)}`}
+            >
+              <td className={`${o} font-mono text-[11.5px] text-[var(--color-text-secondary)]`} title={`${COT_GON[0].tip}: ${d.ma_lk}`}>{d.ma_lk}</td>
+              <td className={o} title={d.ten_lk_snapshot ?? d.ma_lk}>
+                {d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
+                {d.ten_lk_snapshot ?? d.ma_lk}
+              </td>
+              <td className={o} title={COT_GON[2].tip}>
+                <LoaiDeXuatBadge loaiDon={d.loai_don ?? pxk.loai_don ?? undefined} loaiDeXuat={d.loai_de_xuat} />
+              </td>
+              <td className={`${o} text-right`} title={COT_GON[3].tip}>
+                SL {d.so_luong_de_xuat}
+                {slThucXuat(d) != null && d.so_luong_thuc_xuat !== d.so_luong_de_xuat && <> → {slThucXuat(d)}</>}
+              </td>
+              <td className={`${oNut} text-right`} title={COT_GON[4].tip} onClick={(e) => e.stopPropagation()}>{oTien(d)}</td>
+              <td className={`${oNut} [&_select]:h-[24px] [&_select]:max-w-[200px]`} onClick={(e) => e.stopPropagation()}>
+                {pxk.loai_don !== "tra_hang" && oLoaiChietKhau(d)}
+              </td>
+              <td className={o} onClick={(e) => e.stopPropagation()}>{oLyDoCham(d)}</td>
+              <td className={`${oNut} text-center`} onClick={(e) => e.stopPropagation()}>{coCotBo && nutBo(d)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
 
   return (
     <table className="tbl min-w-full border-collapse">
@@ -122,11 +402,7 @@ export function PxkDongDonHangTable({
           </tr>
         )}
         {donHang.map((d) => (
-          <tr
-            key={d.id}
-            onClick={() => onOpenDon(d.id)}
-            className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer ${d.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)]" : ""}`}
-          >
+          <tr key={d.id} onClick={() => onOpenDon(d.id)} className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer ${nenUuTien(d)}`}>
             <td className="px-2.5 py-2 font-mono">{d.ma_lk}</td>
             <td className="px-2.5 py-2">
               {d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
@@ -135,170 +411,14 @@ export function PxkDongDonHangTable({
             {/* Loai de xuat quyet dinh cach tinh tien (2026-09-28). */}
             <td className="px-2.5 py-2 whitespace-nowrap"><LoaiDeXuatBadge loaiDon={d.loai_don ?? pxk.loai_don ?? undefined} loaiDeXuat={d.loai_de_xuat} /></td>
             <td className="px-2.5 py-2 text-right">{d.so_luong_de_xuat}</td>
-            <td className="px-2.5 py-2 text-right">
-              {d.so_luong_thuc_xuat == null ? (
-                <span className="text-[var(--ink-400)]">—</span>
-              ) : d.so_luong_thuc_xuat !== d.so_luong_de_xuat ? (
-                <span className="font-semibold text-[var(--amber-700)]" title="Khác SL đề xuất">{d.so_luong_thuc_xuat}</span>
-              ) : (
-                d.so_luong_thuc_xuat
-              )}
-            </td>
-            <td className="px-2.5 py-2 text-right" onClick={(e) => e.stopPropagation()}>
-              {/* Mua / TRỪ CÔNG NỢ: READ-ONLY = tien uoc tinh backend tinh (loai chiet khau, gia chot, SL thuc xuat) - TN bam
-                  vao so tien de mo popup sua SL thuc xuat/Don gia (2026-09-22). Cong no thuan: GIU co che sua tay
-                  so_tien_cong_no (nuoi cong no KTV qua computeCongNoPhatSinh). */}
-              {pxk.loai_don === "mua" || laTruCongNo(d.loai_de_xuat) ? (
-                (() => {
-                  const donGia = d.gia_chot ?? d.gia_de_xuat;
-                  const sl = d.so_luong_thuc_xuat ?? d.so_luong_de_xuat;
-                  const noiDung = d.tien_uoc_tinh != null || donGia != null ? (
-                    <span className="italic text-[var(--ink-400)]" title="Ước tính theo loại chiết khấu, giá chốt và SL thực xuất">
-                      <Money>{fmtVND(d.tien_uoc_tinh ?? (donGia ?? 0) * sl)}</Money> (ước tính)
-                    </span>
-                  ) : (
-                    <span className="text-[var(--ink-400)]">—</span>
-                  );
-                  return canTacNghiep && dangTao ? (
-                    <button
-                      type="button"
-                      className="hover:underline decoration-dotted underline-offset-2"
-                      title="Bấm để sửa SL thực xuất/Đơn giá thực tế"
-                      onClick={() => onSuaTien(d.id)}
-                    >
-                      {noiDung}
-                    </button>
-                  ) : (
-                    noiDung
-                  );
-                })()
-              ) : soTienCongNoDraft[d.id] !== undefined ? (
-                <span className="inline-flex gap-1 items-center">
-                  <input
-                    type="number"
-                    autoFocus
-                    value={soTienCongNoDraft[d.id]}
-                    onChange={(e) => setSoTienCongNoDraft((p) => ({ ...p, [d.id]: e.target.value }))}
-                    className="focus-ring w-24 bg-[var(--surface-100)] border border-[var(--line)] rounded px-1.5 py-0.5 text-xs text-right"
-                  />
-                  <Btn
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => soTienCongNoMutation.mutate({ donHangId: d.id, so_tien_cong_no: Number(soTienCongNoDraft[d.id]) })}
-                    disabled={!soTienCongNoDraft[d.id]?.trim() || soTienCongNoMutation.isPending}
-                  >
-                    Lưu
-                  </Btn>
-                  <button type="button" className="text-[var(--ink-400)] hover:underline" onClick={() => setSoTienCongNoDraft((p) => { const n = { ...p }; delete n[d.id]; return n; })}>✕</button>
-                </span>
-              ) : (
-                <span className="inline-flex gap-1.5 items-center">
-                  {/* Chua sua tay -> hien uoc tinh Gia de xuat × SL (in nghieng), dung lam gia tri khoi tao khi bam ✎. */}
-                  {d.so_tien_cong_no != null ? (
-                    <span title="Tiền công nợ ghi nhận cho KTV — không cộng vào tiền cần chuyển của phiếu">
-                      <Money>{fmtVND(d.so_tien_cong_no)}</Money> <span className="text-[11px] text-[var(--ink-400)]">công nợ</span>
-                    </span>
-                  ) : d.gia_de_xuat != null ? (
-                    <span className="italic text-[var(--ink-400)]" title="Ước tính = Giá đề xuất × SL, chưa được xác nhận/sửa tay">
-                      <Money>{fmtVND(d.gia_de_xuat * d.so_luong_de_xuat)}</Money> (ước tính)
-                    </span>
-                  ) : (
-                    <span className="text-[var(--ink-400)]">—</span>
-                  )}
-                  {(canTacNghiep || canKeToan) && dangTao && (
-                    <button
-                      type="button"
-                      className="text-[var(--ocean-700)] hover:underline"
-                      onClick={() =>
-                        setSoTienCongNoDraft((p) => ({
-                          ...p,
-                          [d.id]: String(d.so_tien_cong_no ?? (d.gia_de_xuat != null ? d.gia_de_xuat * d.so_luong_de_xuat : "")),
-                        }))
-                      }
-                    >
-                      ✎
-                    </button>
-                  )}
-                </span>
-              )}
-            </td>
-            {/* Loai chiet khau (2026-09-26) - TN chon lai/them loai moi ngay tai day. */}
+            <td className="px-2.5 py-2 text-right">{slThucXuat(d) ?? <span className="text-[var(--ink-400)]">—</span>}</td>
+            <td className="px-2.5 py-2 text-right" onClick={(e) => e.stopPropagation()}>{oTien(d)}</td>
             {pxk.loai_don !== "tra_hang" && (
-              <td className="px-2.5 py-2" onClick={(e) => e.stopPropagation()}>
-                {canTacNghiep ? (
-                  <LoaiChietKhauPicker don={d} duocDoi={duocDoiLoaiChietKhau(pxk)} />
-                ) : (
-                  <LoaiChietKhauText id={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
-                )}
-              </td>
+              <td className="px-2.5 py-2" onClick={(e) => e.stopPropagation()}>{oLoaiChietKhau(d)}</td>
             )}
-            <td className="px-2.5 py-2" onClick={(e) => e.stopPropagation()}>
-              {/* Lich su giai trinh day du + cho nhap lai moi khi qua han LAN NUA (ke ca dong da "TN da duyet" trong
-                  PXK - backend POST /don-hang/:id/giai-trinh da noi long gate). Select BAT BUOC tu danh muc. */}
-              <div className="flex flex-col gap-1">
-                {d.giaiTrinh && d.giaiTrinh.length > 0 && (
-                  <ul className="space-y-0.5">
-                    {d.giaiTrinh.map((g) => (
-                      <li key={g.id} className="text-xs">
-                        {g.noi_dung}
-                        <span className="text-[10.5px] text-[var(--ink-400)]"> — {fmtDateTime(g.ngay_tao)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {canTacNghiep && d.qua_han_ly_do_cham && (d.trang_thai_hien_tai === "Cho TN duyet" || d.trang_thai_hien_tai === "TN da duyet") ? (
-                  <div className="flex flex-col gap-1">
-                    <div className="flex gap-1 items-center">
-                      <Badge tone="danger">Quá hạn</Badge>
-                      <Select
-                        value={lyDoChamDraft[d.id] ?? ""}
-                        onChange={(v) => setLyDoChamDraft((p) => ({ ...p, [d.id]: v }))}
-                        options={[{ value: "", label: "-- Chọn lý do chậm --" }, ...(lyDoChamGoiYData?.rows ?? []).map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
-                        disabled={(lyDoChamGoiYData?.rows.length ?? 0) === 0}
-                        className="flex-1"
-                      />
-                      <Btn
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => lyDoChamMutation.mutate({ donHangId: d.id, ly_do_cham: lyDoChamDraft[d.id] ?? "" })}
-                        disabled={!lyDoChamDraft[d.id]?.trim() || lyDoChamMutation.isPending}
-                      >
-                        Lưu
-                      </Btn>
-                    </div>
-                    {(lyDoChamGoiYData?.rows.length ?? 0) === 0 && (
-                      <div className="text-[10.5px] text-[var(--coral-600)]">Chưa có lý do chậm nào được cấu hình cho "Mua hàng" — vào Settings › Lý do chậm để thêm.</div>
-                    )}
-                  </div>
-                ) : d.qua_han_ly_do_cham ? (
-                  <Badge tone="danger">Quá hạn</Badge>
-                ) : (!d.giaiTrinh || d.giaiTrinh.length === 0) ? (
-                  <span className="text-[var(--ink-400)]">—</span>
-                ) : null}
-              </div>
-            </td>
+            <td className="px-2.5 py-2" onClick={(e) => e.stopPropagation()}>{oLyDoCham(d)}</td>
             {coCotBo && (
-              <td className="px-2.5 py-2" onClick={(e) => e.stopPropagation()}>
-                {/* Bo don khoi phieu (2026-09-21), bo DUOC ca don cuoi (chot 2026-09-28). */}
-                <button
-                  type="button"
-                  className="text-[var(--coral-500)] hover:underline disabled:opacity-50"
-                  disabled={boDonMutation.isPending}
-                  onClick={() => {
-                    const laDonCuoi = donHang.length === 1;
-                    const canhBaoCuoi = laDonCuoi
-                      ? giuPhieuTrong
-                        ? "\n\nĐây là đơn cuối cùng — phiếu trống sẽ tự hủy khi bạn đóng màn phiếu."
-                        : "\n\nĐây là đơn cuối cùng — phiếu sẽ bị hủy luôn."
-                      : "";
-                    if (window.confirm(`Bỏ đơn "${d.ma_lk}" khỏi phiếu này?\n\nĐơn sẽ quay lại danh sách "khả dụng" để gán vào 1 phiếu khác.${canhBaoCuoi}`)) {
-                      boDonMutation.mutate({ donHangId: d.id, laDonCuoi });
-                    }
-                  }}
-                >
-                  ✕ Bỏ
-                </button>
-              </td>
+              <td className="px-2.5 py-2" onClick={(e) => e.stopPropagation()}>{nutBo(d)}</td>
             )}
           </tr>
         ))}

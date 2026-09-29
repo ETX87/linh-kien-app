@@ -1214,24 +1214,20 @@ function PxkDongMoRong({
   const { data, isLoading, isError, refetch } = useQuery(pxkDetailQuery(pxkId));
   const donSua = suaTienDonId ? data?.donHang.find((x) => x.id === suaTienDonId) : undefined;
   return (
-    <div className="border-l-4 border-[var(--color-primary)] bg-[var(--color-subtle)] px-3 py-2" onClick={(e) => e.stopPropagation()}>
-      {/* Nut dat NGAY canh tieu de (khong day sang phai) - bang PXK rong hon man hinh, can phai nam ngoai vung nhin. */}
-      <div className="mb-1.5 flex items-center gap-3">
-        <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">
-          Dòng đơn hàng{data ? ` (${data.donHang.length})` : ""}
-        </span>
-        <Btn size="sm" variant="ghost" onClick={onOpenPxk}>Chi tiết phiếu ›</Btn>
-      </div>
+    // Kieu GON (2026-09-29, nguoi dung chon "Lưới cột chung"): KHONG khung tieu de/nut rieng, dong don nam sat duoi dong
+    // phieu - thut le + vach trai mau chinh + nen nhat; moi phieu cung 1 bo do rong cot (COT_GON) nen thang hang.
+    <div className="border-l-2 border-[var(--color-primary)] bg-[var(--color-surface-soft)] pl-6" onClick={(e) => e.stopPropagation()}>
       {isLoading ? (
-        <div className="py-3 text-center text-xs text-[var(--color-text-secondary)]">Đang tải dòng đơn…</div>
+        <div className="px-2 py-1.5 text-xs text-[var(--color-text-secondary)]">Đang tải dòng đơn…</div>
       ) : isError || !data ? (
-        <div className="py-3 text-center text-xs text-[var(--color-danger)]">
+        <div className="px-2 py-1.5 text-xs text-[var(--color-danger)]">
           Không tải được dòng đơn.{" "}
           <button type="button" className="underline" onClick={() => void refetch()}>Thử lại</button>
         </div>
       ) : (
-        <div className="inline-block max-w-full overflow-x-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] align-top">
+        <div className="overflow-x-auto">
           <PxkDongDonHangTable
+            gon
             pxkId={pxkId}
             pxk={data.phieuXuatKho}
             donHang={data.donHang}
@@ -1244,6 +1240,10 @@ function PxkDongMoRong({
           />
         </div>
       )}
+      {/* Mobile: the phieu khong co nut "Chi tiết" (desktop co o cuoi dong phieu) -> 1 link nho duoi cac dong don. */}
+      <div className="px-2 pb-1.5 pt-0.5 sm:hidden">
+        <button type="button" className="text-xs font-semibold text-[var(--color-link)]" onClick={onOpenPxk}>Chi tiết phiếu ›</button>
+      </div>
       {donDetailId && (
         <DonHangDetailModal
           id={donDetailId}
