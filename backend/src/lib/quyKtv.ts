@@ -8,6 +8,8 @@
 // Chong ghi dua (2 thao tac cung luc): moi batch mo dau bang CAS tren phieu_xuat_kho.da_thanh_toan (quy_cas_guard) +
 // CHECK so_du >= 0 -> lech thi CA batch rollback, doc lai va thu lai.
 import { nowVN } from "./vnTime";
+import type { Env } from "../types";
+import { notifyWorkflowTask, emailGsListForPxk } from "./taskNotify";
 
 export type LoaiGiaoDichQuy = "nop_tien" | "tra_phieu" | "hoan_phieu" | "dieu_chinh" | "hoan_tien_ktv";
 export const NGUOI_HE_THONG = "he-thong";
@@ -36,6 +38,7 @@ export function lenhGhiQuy(
     soTien: number;
     pxkId?: string | null;
     khoanChuyenMoiNhatCuaPxk?: boolean;
+    khoanId?: number; // gan voi 1 khoan chuyen tien co san (sua/huy khoan)
     ghiChu?: string | null;
     nguoi: string;
     now: string;
@@ -43,7 +46,9 @@ export function lenhGhiQuy(
 ): D1PreparedStatement[] {
   const khoanSql = g.khoanChuyenMoiNhatCuaPxk
     ? "(SELECT MAX(id) FROM khoan_chuyen_tien WHERE phieu_xuat_kho_id = ?)"
-    : "NULL";
+    : g.khoanId != null
+      ? String(Math.trunc(g.khoanId))
+      : "NULL";
   const insert = db.prepare(
     `INSERT INTO quy_ktv_giao_dich (email, loai, so_tien, so_du_sau, phieu_xuat_kho_id, khoan_chuyen_tien_id, ghi_chu, nguoi_tao, ngay_tao)
      SELECT ?, ?, ?, so_du, ?, ${khoanSql}, ?, ?, ? FROM quy_ktv WHERE email = ?`,
@@ -309,4 +314,237 @@ export async function tienPhieuVaQuy(db: D1Database, pxkId: string): Promise<Tie
 export function moTaCanChuyen(pxkId: string, t: TienPhieuVaQuy): string {
   if (t.tong > 0 && t.conPhaiChuyen === 0) return `PXK ${pxkId} (${tien(t.tong)}) đã được thanh toán bằng quỹ dư của bạn, không cần chuyển tiền`;
   return `PXK ${pxkId} cần bạn chuyển ${tien(t.conPhaiChuyen)}` + (t.daThanhToan > 0 ? ` (tổng ${tien(t.tong)}, đã trừ quỹ/đã trả ${tien(t.daThanhToan)})` : "");
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// KE TOAN SUA TIEN THUC NHAN / HUY KHOAN DA DUYET (2026-09-29, migration 0049). Quy la "gop chung" cua nguoi nhan hang
+// nen sua 1 khoan = bien dong quy (giao dich 'dieu_chinh' gan khoan_chuyen_tien_id), khong sua dong so quy cu.
+
+interface KhoanDoc {
+  id: number;
+  phieu_xuat_kho_id: string;
+  email_nguoi_chuyen: string;
+  trang_thai: string;
+  da_thanh_toan_truoc: number;
+  so_tien_thuc_nhan: number | null;
+  ktv_bao_chuyen_luc: string | null;
+  duyet_luc: string;
+}
+export type LoiQuy = { error: string; status: 400 | 404 | 409; message?: string; so_du?: number };
+
+async function docKhoan(db: D1Database, khoanId: number): Promise<KhoanDoc | null> {
+  return db
+    .prepare(
+      `SELECT id, phieu_xuat_kho_id, email_nguoi_chuyen, trang_thai, da_thanh_toan_truoc, so_tien_thuc_nhan, ktv_bao_chuyen_luc, duyet_luc
+       FROM khoan_chuyen_tien WHERE id = ?`,
+    )
+    .bind(khoanId)
+    .first<KhoanDoc>();
+}
+
+/** CAS: khoan phai con 'Da duyet' voi dung so thuc nhan `mongDoi`. */
+function lenhKhoaKhoan(db: D1Database, khoanId: number, mongDoi: number | null): D1PreparedStatement {
+  return db
+    .prepare(
+      `INSERT INTO quy_cas_guard (x) SELECT 1 WHERE NOT EXISTS (
+         SELECT 1 FROM khoan_chuyen_tien WHERE id = ? AND trang_thai = 'Da duyet' AND so_tien_thuc_nhan IS ?)`,
+    )
+    .bind(khoanId, mongDoi);
+}
+
+/** Cac phieu KHAC da duoc quy nay tra tien ke tu luc duyet khoan - de bao Ke toan vi sao quy khong du. */
+async function phieuDaDungQuy(db: D1Database, email: string, tuLuc: string, boQuaPxkId: string): Promise<string> {
+  const { results } = await db
+    .prepare(
+      `SELECT phieu_xuat_kho_id AS id, -SUM(so_tien) AS tien FROM quy_ktv_giao_dich
+       WHERE email = ? AND loai = 'tra_phieu' AND ngay_tao >= ? AND phieu_xuat_kho_id IS NOT ?
+       GROUP BY phieu_xuat_kho_id ORDER BY MIN(id)`,
+    )
+    .bind(email, tuLuc, boQuaPxkId)
+    .all<{ id: string; tien: number }>();
+  const ds = results.filter((r) => r.tien > 0);
+  return ds.length ? ` Tiền đã dùng trả: ${ds.map((r) => `${r.id} (${tien(r.tien)})`).join(", ")}.` : "";
+}
+
+/** Dieu kien SQL (alias k = khoan_chuyen_tien, p = phieu_xuat_kho) de HUY duoc khoan - co `huy_duoc` o danh sach, khop
+ * cac kiem tra trong huyKhoanChuyen() (tru dieu kien quy du - chi biet luc bam). */
+export const KHOAN_HUY_DUOC_SQL = `(k.trang_thai = 'Da duyet'
+  AND NOT EXISTS (SELECT 1 FROM khoan_chuyen_tien k2 WHERE k2.phieu_xuat_kho_id = k.phieu_xuat_kho_id AND k2.id > k.id AND k2.trang_thai = 'Da duyet')
+  AND (p.trang_thai_hien_tai = 'Ke toan huy'
+       OR (p.trang_thai_hien_tai = 'Dang tao phieu' AND p.trang_thai_chuyen_tien IN ('TN da duyet', 'Cho KTV chuyen'))))`;
+
+/**
+ * Sua so THUC NHAN cua 1 khoan da duyet. Tang -> cong quy phan chenh roi tru tiep cho phieu con thieu (phieu nay truoc,
+ * roi phieu cho cu nhat). Giam -> tru quy, CHI khi quy con du (chot nguoi dung: khong tu rut lai tien da tra phieu -
+ * muon rut thi "Huy khoan" roi duyet lai).
+ */
+export async function suaThucNhanKhoan(
+  db: D1Database,
+  khoanId: number,
+  thucNhanMoi: number,
+  lyDo: string,
+  nguoi: string,
+): Promise<LoiQuy | { cu: number; moi: number; chenh: number; email: string; pxkId: string; soDuQuy: number }> {
+  const k = await docKhoan(db, khoanId);
+  if (!k) return { error: "NOT_FOUND", status: 404 };
+  if (k.trang_thai !== "Da duyet") return { error: "KHOAN_KHONG_SUA_DUOC", status: 409 };
+  const cu = k.so_tien_thuc_nhan ?? 0;
+  const chenh = thucNhanMoi - cu;
+  if (chenh === 0) return { error: "KHONG_DOI", status: 400 };
+  const email = k.email_nguoi_chuyen;
+  if (chenh < 0) {
+    const soDu = await soDuQuy(db, email);
+    if (soDu < -chenh) {
+      return {
+        error: "QUY_KHONG_DU",
+        status: 409,
+        so_du: soDu,
+        message:
+          `Quỹ chỉ còn ${tien(soDu)}, không trừ được ${tien(-chenh)} (tiền đã được dùng trả phiếu).` +
+          (await phieuDaDungQuy(db, email, k.duyet_luc, "")) +
+          " Nếu duyệt nhầm, hãy Hủy khoản rồi duyệt lại với số đúng.",
+      };
+    }
+  }
+  const now = nowVN();
+  const ghiChu = `Sửa thực nhận khoản #${k.id} phiếu ${k.phieu_xuat_kho_id}: ${tien(cu)} → ${tien(thucNhanMoi)} — ${lyDo}`;
+  try {
+    await db.batch([
+      lenhKhoaKhoan(db, k.id, k.so_tien_thuc_nhan),
+      db.prepare(
+        `UPDATE khoan_chuyen_tien SET so_tien_thuc_nhan = ?, thuc_nhan_goc = COALESCE(thuc_nhan_goc, ?), sua_luc = ?, nguoi_sua = ?, ly_do_sua = ?
+         WHERE id = ?`,
+      ).bind(thucNhanMoi, cu, now, nguoi, lyDo, k.id),
+      ...lenhGhiQuy(db, { email, loai: "dieu_chinh", soTien: chenh, pxkId: k.phieu_xuat_kho_id, khoanId: k.id, ghiChu, nguoi, now }),
+      db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+        k.phieu_xuat_kho_id, "Ke toan sua tien thuc nhan", nguoi, now,
+        `Sửa số thực nhận ${tien(cu)} → ${tien(thucNhanMoi)} (${chenh > 0 ? "+" : "−"}${tien(Math.abs(chenh))} quỹ): ${lyDo}`,
+      ),
+    ]);
+  } catch {
+    // CAS (khoan vua bi sua/huy) hoac quy vua bi tru (CHECK so_du >= 0).
+    return { error: "STATE_CHANGED", status: 409 };
+  }
+  if (chenh > 0) {
+    await canBangPxk(db, k.phieu_xuat_kho_id, nguoi, { phanBoTiep: false });
+    await phanBoQuy(db, email, nguoi);
+  }
+  return { cu, moi: thucNhanMoi, chenh, email, pxkId: k.phieu_xuat_kho_id, soDuQuy: await soDuQuy(db, email) };
+}
+
+/**
+ * HUY 1 khoan da duyet (Ke toan duyet nham). Rut lai phan phieu da duoc tra tu lan duyet do (da_thanh_toan ve muc
+ * truoc duyet), tru so thuc nhan khoi quy, phieu ve "KTV da chuyen" (lai hang cho Ke toan, giu anh) de duyet lai so
+ * dung hoac Tu choi. Chi khoan DUYET MOI NHAT cua phieu, phieu con "Dang tao phieu" (chua chot) hoac da huy (khi do
+ * tien da hoan ve quy - chi tru quy). Quy khong du (phan du da tra phieu khac) -> chan, bao phieu da dung.
+ */
+export async function huyKhoanChuyen(
+  db: D1Database,
+  khoanId: number,
+  lyDo: string,
+  nguoi: string,
+): Promise<LoiQuy | { thucNhan: number; rutPhieu: number; email: string; pxkId: string; phieuDaHuy: boolean; soDuQuy: number }> {
+  const k = await docKhoan(db, khoanId);
+  if (!k) return { error: "NOT_FOUND", status: 404 };
+  if (k.trang_thai !== "Da duyet") return { error: "KHOAN_KHONG_HUY_DUOC", status: 409 };
+  const sauDo = await db
+    .prepare("SELECT 1 AS x FROM khoan_chuyen_tien WHERE phieu_xuat_kho_id = ? AND id > ? AND trang_thai = 'Da duyet'")
+    .bind(k.phieu_xuat_kho_id, k.id)
+    .first();
+  if (sauDo) return { error: "KHOAN_KHONG_PHAI_MOI_NHAT", status: 409 };
+  const pxk = await docPxkTien(db, k.phieu_xuat_kho_id);
+  if (!pxk) return { error: "NOT_FOUND", status: 404 };
+  const phieuDaHuy = pxk.trang_thai_hien_tai === "Ke toan huy";
+  if (!phieuDaHuy) {
+    if (pxk.trang_thai_hien_tai !== "Dang tao phieu") return { error: "PXK_DA_QUA_BUOC_TAO_PHIEU", status: 409 };
+    if (pxk.trang_thai_chuyen_tien === "KTV da chuyen") return { error: "KTV_DANG_BAO_CHUYEN", status: 409 };
+    if (pxk.trang_thai_chuyen_tien !== "TN da duyet" && pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen") {
+      return { error: "INVALID_STATE", status: 409 };
+    }
+  }
+  const email = k.email_nguoi_chuyen;
+  const thucNhan = k.so_tien_thuc_nhan ?? 0;
+  const daTra = pxk.da_thanh_toan ?? 0;
+  const daTraSau = phieuDaHuy ? daTra : Math.min(k.da_thanh_toan_truoc ?? 0, daTra);
+  const rutPhieu = daTra - daTraSau;
+  const soDu = await soDuQuy(db, email);
+  if (soDu + rutPhieu < thucNhan) {
+    return {
+      error: "QUY_KHONG_DU",
+      status: 409,
+      so_du: soDu,
+      message:
+        `Không hủy được: cần trừ ${tien(thucNhan)} nhưng quỹ${rutPhieu ? ` (kể cả ${tien(rutPhieu)} rút lại từ phiếu này)` : ""} chỉ có ${tien(soDu + rutPhieu)} — phần dư đã được dùng trả phiếu khác.` +
+        (await phieuDaDungQuy(db, email, k.duyet_luc, k.phieu_xuat_kho_id)) +
+        " Có thể sửa giảm số thực nhận trong phạm vi quỹ còn, hoặc Điều chỉnh quỹ sau khi xử lý các phiếu đó.",
+    };
+  }
+  const now = nowVN();
+  const lenh: D1PreparedStatement[] = [
+    lenhKhoaKhoan(db, k.id, k.so_tien_thuc_nhan),
+    lenhKhoaDaThanhToan(db, pxk.id, daTra),
+    ...(phieuDaHuy ? [] : [lenhKhoaTrangThaiChuyenTien(db, pxk.id, pxk.trang_thai_chuyen_tien ?? "")]),
+  ];
+  // Thu tu: cong (rut lai tu phieu) TRUOC khi tru so thuc nhan - CHECK so_du >= 0 kiem tung cau lenh.
+  if (rutPhieu > 0) {
+    lenh.push(
+      ...lenhGhiQuy(db, {
+        email, loai: "hoan_phieu", soTien: rutPhieu, pxkId: pxk.id, khoanId: k.id, nguoi, now,
+        ghiChu: `Rút lại ${tien(rutPhieu)} đã trả phiếu ${pxk.id} do hủy khoản #${k.id}`,
+      }),
+      db.prepare("UPDATE phieu_xuat_kho SET da_thanh_toan = ? WHERE id = ?").bind(daTraSau, pxk.id),
+    );
+  }
+  if (thucNhan > 0) {
+    lenh.push(
+      ...lenhGhiQuy(db, {
+        email, loai: "dieu_chinh", soTien: -thucNhan, pxkId: pxk.id, khoanId: k.id, nguoi, now,
+        ghiChu: `Hủy khoản #${k.id} phiếu ${pxk.id} (thực nhận ${tien(thucNhan)}) — ${lyDo}`,
+      }),
+    );
+  }
+  lenh.push(
+    db.prepare("UPDATE khoan_chuyen_tien SET trang_thai = 'Da huy', huy_luc = ?, nguoi_huy = ?, ly_do_huy = ? WHERE id = ?").bind(now, nguoi, lyDo, k.id),
+  );
+  if (!phieuDaHuy) {
+    lenh.push(
+      db.prepare(
+        `UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = 'KTV da chuyen', ngay_ktv_chuyen = COALESCE(ngay_ktv_chuyen, ?, ?),
+           ly_do_tu_choi_chuyen_tien = NULL, tu_choi_chuyen_tien_luc = NULL WHERE id = ?`,
+      ).bind(k.ktv_bao_chuyen_luc, now, pxk.id),
+    );
+  }
+  lenh.push(
+    db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+      pxk.id, "Ke toan huy duyet chuyen tien", nguoi, now,
+      `Hủy xác nhận đã nhận ${tien(thucNhan)}: ${lyDo}` +
+        (phieuDaHuy ? " — phiếu đã hủy, trừ khỏi quỹ" : ` — ${rutPhieu ? `rút lại ${tien(rutPhieu)} đã trả, ` : ""}phiếu về chờ Kế toán duyệt lại`),
+    ),
+  );
+  try {
+    await db.batch(lenh);
+  } catch {
+    return { error: "STATE_CHANGED", status: 409 };
+  }
+  // Quy con tien cu (truoc lan duyet) -> tra phieu cho khac (phieu nay dang "KTV da chuyen" nen khong bi tru).
+  await phanBoQuy(db, email, nguoi);
+  return { thucNhan, rutPhieu, email, pxkId: pxk.id, phieuDaHuy, soDuQuy: await soDuQuy(db, email) };
+}
+
+/** Bao KTV nhan hang: phieu bi huy sau khi da tra tien -> tien da hoan ve quy (goi khi canBangPxk tra ve hoan > 0). */
+export async function thongBaoHoanQuyPhieuHuy(env: Env, db: D1Database, pxkId: string, hoan: number): Promise<void> {
+  if (hoan <= 0) return;
+  const pxk = await docPxkTien(db, pxkId);
+  if (!pxk?.nguoi_nhan_hang) return;
+  const soDu = await soDuQuy(db, pxk.nguoi_nhan_hang);
+  await notifyWorkflowTask(env, db, {
+    cat1Emails: [pxk.nguoi_nhan_hang],
+    otherRoles: [],
+    emailGsList: await emailGsListForPxk(db, pxkId),
+    pastActors: [],
+    title: "Quỹ & chuyển tiền",
+    body: `PXK ${pxkId} đã hủy — ${tien(hoan)} đã trả cho phiếu được hoàn về quỹ của bạn (quỹ hiện còn ${tien(soDu)}, tự trừ vào phiếu cần chuyển tiền tiếp theo)`,
+    linkType: "phieu_xuat_kho",
+    linkId: pxkId,
+  });
 }

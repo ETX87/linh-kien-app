@@ -130,7 +130,7 @@ export function DuyetChuyenTienForm({ pxkId, conPhaiChuyen, onDone, addToast }: 
 
 export interface KhoanChuyenTien {
   id: number;
-  trang_thai: "Da duyet" | "Tu choi";
+  trang_thai: "Da duyet" | "Tu choi" | "Da huy";
   tong_phieu: number | null;
   da_thanh_toan_truoc: number;
   so_tien_can_chuyen: number | null;
@@ -139,6 +139,11 @@ export interface KhoanChuyenTien {
   nguoi_duyet: string;
   duyet_luc: string;
   lich_su: number;
+  // Ke toan sua so thuc nhan / huy khoan duyet nham (migration 0049).
+  thuc_nhan_goc?: number | null;
+  ly_do_sua?: string | null;
+  huy_luc?: string | null;
+  ly_do_huy?: string | null;
 }
 
 /** Cac lan Ke toan duyet / tu choi khoan chuyen cua 1 phieu (moi nhat truoc). */
@@ -154,12 +159,19 @@ export function LichSuKhoanChuyen({ rows }: { rows: KhoanChuyenTien[] }) {
               <span className="text-[var(--color-text-secondary)]">{fmtDateTime(k.duyet_luc)}</span>{" "}
               {k.trang_thai === "Tu choi" ? (
                 <span className="text-[var(--color-danger-strong)]">Từ chối — {k.ly_do_tu_choi}</span>
+              ) : k.trang_thai === "Da huy" ? (
+                <span className="text-[var(--color-text-secondary)]">
+                  <s>Nhận <Money>{fmtVND(k.so_tien_thuc_nhan)}</Money></s> — <span className="text-[var(--color-danger-strong)]">Kế toán đã hủy{k.huy_luc ? ` lúc ${fmtDateTime(k.huy_luc)}` : ""}: {k.ly_do_huy}</span>
+                </span>
               ) : (
                 <>
                   Nhận <b><Money>{fmtVND(k.so_tien_thuc_nhan)}</Money></b> / cần <Money>{fmtVND(k.so_tien_can_chuyen)}</Money>
                   {!k.lich_su && chenh > 0 && <span className="text-[var(--color-success-strong)]"> · dư <Money>{fmtVND(chenh)}</Money> vào quỹ</span>}
                   {!k.lich_su && chenh < 0 && <span className="text-[var(--color-warning-strong)]"> · thiếu <Money>{fmtVND(-chenh)}</Money></span>}
                   {!!k.lich_su && <span className="text-[var(--color-text-secondary)]"> (trước khi có quỹ)</span>}
+                  {k.thuc_nhan_goc != null && (
+                    <span className="text-[var(--color-warning-strong)]" title={k.ly_do_sua ?? ""}> · đã sửa từ <Money>{fmtVND(k.thuc_nhan_goc)}</Money></span>
+                  )}
                 </>
               )}
             </li>

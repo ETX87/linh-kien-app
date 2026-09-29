@@ -20,7 +20,7 @@ import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, laTruCongNo, type PxkCalcu
 import { laVanPhong, danhDauVanPhongTacDong, huyPxkNeuTrong } from "../lib/pxkTuHuy";
 import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
 import { docAnhBangChung, MAX_ANH_BANG_CHUNG } from "../lib/bangChungChuyenTien";
-import { canBangPxk, duyetKhoanChuyen, lenhGhiKhoanTuChoi, lenhKhoaTrangThaiChuyenTien, moTaCanChuyen, soDuQuy, tienPhieuVaQuy } from "../lib/quyKtv";
+import { canBangPxk, duyetKhoanChuyen, lenhGhiKhoanTuChoi, lenhKhoaTrangThaiChuyenTien, moTaCanChuyen, soDuQuy, thongBaoHoanQuyPhieuHuy, tienPhieuVaQuy } from "../lib/quyKtv";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
 // Pattern header+log giong phieu_dat. TN tao (gom nhieu dong don hang da "TN da duyet" vao 1
@@ -944,7 +944,8 @@ phieuXuatKho.get("/:id", async (c) => {
   // Quy du cua nguoi nhan hang + cac lan Ke toan duyet/tu choi khoan chuyen cua phieu (migration 0047).
   const quyDu = await soDuQuy(c.env.DB, (pxk as { nguoi_nhan_hang?: string | null }).nguoi_nhan_hang);
   const { results: khoanChuyen } = await c.env.DB.prepare(
-    `SELECT id, trang_thai, tong_phieu, da_thanh_toan_truoc, so_tien_can_chuyen, so_tien_thuc_nhan, ly_do_tu_choi, nguoi_duyet, duyet_luc, lich_su
+    `SELECT id, trang_thai, tong_phieu, da_thanh_toan_truoc, so_tien_can_chuyen, so_tien_thuc_nhan, ly_do_tu_choi, nguoi_duyet, duyet_luc, lich_su,
+       thuc_nhan_goc, sua_luc, ly_do_sua, huy_luc, ly_do_huy
      FROM khoan_chuyen_tien WHERE phieu_xuat_kho_id = ? ORDER BY id DESC`,
   ).bind(id).all();
 
@@ -1484,9 +1485,13 @@ phieuXuatKho.delete("/:id/dong/:donHangId", async (c) => {
 // tu huy phieu (chot 2026-09-28, muc 3: "phiếu trống nếu người dùng tắt đi sẽ tự hủy bỏ"). Khong trong -> bo qua.
 phieuXuatKho.post("/:id/huy-neu-trong", async (c) => {
   if (!canTacNghiep(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
-  const daHuy = await huyPxkNeuTrong(c.env.DB, c.req.param("id"), c.get("user").email);
-  if (daHuy) c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
-  return c.json({ ok: true, da_huy: daHuy });
+  const pxkId = c.req.param("id");
+  const huy = await huyPxkNeuTrong(c.env.DB, pxkId, c.get("user").email);
+  if (huy) {
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+    if (huy.hoanQuy > 0) c.executionCtx.waitUntil(thongBaoHoanQuyPhieuHuy(c.env, c.env.DB, pxkId, huy.hoanQuy));
+  }
+  return c.json({ ok: true, da_huy: !!huy });
 });
 
 // POST /api/phieu-xuat-kho/:id/dong-goi - { anh?: string[] } (chot 2026-09-08: chuan hoa hanh
@@ -1677,7 +1682,8 @@ phieuXuatKho.post("/:id/log", async (c) => {
       await taiTinhPxkMoCuaKtv(c.env.DB, pxk.nguoi_nhan_hang, user.email, id);
     }
     // Phieu da tra tien (du/1 phan) roi bi huy -> hoan ve quy du, tu tru cho phieu dang cho khac (migration 0047).
-    await canBangPxk(c.env.DB, id, user.email);
+    const { hoan } = await canBangPxk(c.env.DB, id, user.email);
+    if (hoan > 0) c.executionCtx.waitUntil(thongBaoHoanQuyPhieuHuy(c.env, c.env.DB, id, hoan));
   }
 
   // Bao NGUOC cho khovan khi 1 buoc Kho duoc xac nhan THANG tren linh-kien-app qua link (them

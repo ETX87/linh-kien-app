@@ -9,7 +9,8 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nowVN } from "../lib/vnTime";
-import { lenhGhiQuy, phanBoQuy, soDuQuy } from "../lib/quyKtv";
+import { lenhGhiQuy, phanBoQuy, soDuQuy, suaThucNhanKhoan, huyKhoanChuyen, KHOAN_HUY_DUOC_SQL } from "../lib/quyKtv";
+import { notifyWorkflowTask, emailGsListForPxk, pastActorsFor } from "../lib/taskNotify";
 import { bumpVersions } from "../lib/dataVersions";
 
 const quyKtv = new Hono<{ Bindings: Env }>();
@@ -85,7 +86,7 @@ quyKtv.get("/khoan-chuyen", async (c) => {
   let where = `1 = 1${loc.sql}`;
   const binds = [...loc.binds];
   const trangThai = c.req.query("trang_thai");
-  if (trangThai === "Da duyet" || trangThai === "Tu choi") {
+  if (trangThai === "Da duyet" || trangThai === "Tu choi" || trangThai === "Da huy") {
     where += " AND k.trang_thai = ?";
     binds.push(trangThai);
   }
@@ -113,7 +114,8 @@ quyKtv.get("/khoan-chuyen", async (c) => {
      ${from} WHERE ${where}`,
   ).bind(...binds).first<{ total: number; tong_thuc_nhan: number; tong_du: number }>();
   const { results } = await c.env.DB.prepare(
-    `SELECT k.*, p.ma_xuat_kho, p.loai_don, p.trang_thai_hien_tai AS trang_thai_phieu
+    `SELECT k.*, p.ma_xuat_kho, p.loai_don, p.trang_thai_hien_tai AS trang_thai_phieu,
+       CASE WHEN ${KHOAN_HUY_DUOC_SQL} THEN 1 ELSE 0 END AS huy_duoc
      ${from} WHERE ${where} ORDER BY k.duyet_luc DESC, k.id DESC ${pageParam ? "LIMIT ? OFFSET ?" : ""}`,
   )
     .bind(...binds, ...(pageParam ? [pageSize, (page - 1) * pageSize] : []))
@@ -175,6 +177,67 @@ quyKtv.post("/dieu-chinh", async (c) => {
   if (bienDong > 0) await phanBoQuy(c.env.DB, email, user.email);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ ok: true, so_du: await soDuQuy(c.env.DB, email) });
+});
+
+const tienVnd = (n: number) => `${n.toLocaleString("vi-VN")}đ`;
+
+/** Bao KTV nhan hang (+ nguoi da xu ly phieu) khi Ke toan sua/huy 1 khoan cua ho. */
+function baoKtv(c: C, email: string, pxkId: string, body: string) {
+  c.executionCtx.waitUntil(
+    (async () => {
+      const user = c.get("user");
+      await notifyWorkflowTask(c.env, c.env.DB, {
+        cat1Emails: [email],
+        otherRoles: [],
+        emailGsList: await emailGsListForPxk(c.env.DB, pxkId),
+        pastActors: (await pastActorsFor(c.env.DB, "phieu_xuat_kho_log", "phieu_xuat_kho_id", pxkId, user.email)).filter((e) => e !== email),
+        title: "Quỹ & chuyển tiền",
+        body,
+        linkType: "phieu_xuat_kho",
+        linkId: pxkId,
+      });
+    })(),
+  );
+}
+
+// POST /api/quy-ktv/khoan-chuyen/:id/sua { so_tien_thuc_nhan, ly_do } - Ke toan/Admin sua so thuc nhan cua 1 khoan DA
+// DUYET (migration 0049, lib/quyKtv.ts suaThucNhanKhoan). Tang = cong quy (tu tru phieu con thieu); giam = tru quy, chi
+// khi quy con du (409 QUY_KHONG_DU kem message giai thich).
+quyKtv.post("/khoan-chuyen/:id/sua", async (c) => {
+  if (!coTheDieuChinh(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const khoanId = Number(c.req.param("id"));
+  const body = await c.req.json<{ so_tien_thuc_nhan?: number; ly_do?: string }>();
+  const lyDo = body.ly_do?.trim();
+  const moi = Number(body.so_tien_thuc_nhan);
+  if (!Number.isInteger(khoanId)) return c.json({ error: "NOT_FOUND" }, 404);
+  if (!lyDo) return c.json({ error: "MISSING_LY_DO" }, 400);
+  if (!Number.isInteger(moi) || moi <= 0 || moi > 10_000_000_000) return c.json({ error: "INVALID_SO_TIEN_THUC_NHAN" }, 400);
+  const user = c.get("user");
+  const kq = await suaThucNhanKhoan(c.env.DB, khoanId, moi, lyDo.slice(0, 500), user.email);
+  if ("error" in kq) return c.json({ error: kq.error, message: kq.message, so_du: kq.so_du }, kq.status);
+  baoKtv(c, kq.email, kq.pxkId,
+    `PXK ${kq.pxkId}: Kế toán sửa số tiền thực nhận ${tienVnd(kq.cu)} → ${tienVnd(kq.moi)} (${lyDo}). Quỹ của bạn hiện còn ${tienVnd(kq.soDuQuy)}`);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, ...kq });
+});
+
+// POST /api/quy-ktv/khoan-chuyen/:id/huy { ly_do } - Ke toan/Admin HUY 1 khoan da duyet (duyet nham). Phieu ve "KTV da
+// chuyen" cho duyet lai (lib/quyKtv.ts huyKhoanChuyen - dieu kien = KHOAN_HUY_DUOC_SQL + quy du).
+quyKtv.post("/khoan-chuyen/:id/huy", async (c) => {
+  if (!coTheDieuChinh(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const khoanId = Number(c.req.param("id"));
+  const body = await c.req.json<{ ly_do?: string }>();
+  const lyDo = body.ly_do?.trim();
+  if (!Number.isInteger(khoanId)) return c.json({ error: "NOT_FOUND" }, 404);
+  if (!lyDo) return c.json({ error: "MISSING_LY_DO" }, 400);
+  const user = c.get("user");
+  const kq = await huyKhoanChuyen(c.env.DB, khoanId, lyDo.slice(0, 500), user.email);
+  if ("error" in kq) return c.json({ error: kq.error, message: kq.message, so_du: kq.so_du }, kq.status);
+  baoKtv(c, kq.email, kq.pxkId,
+    `PXK ${kq.pxkId}: Kế toán hủy xác nhận đã nhận ${tienVnd(kq.thucNhan)} (${lyDo})` +
+      (kq.phieuDaHuy ? "" : " — phiếu chờ Kế toán kiểm tra lại khoản chuyển của bạn"));
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, ...kq });
 });
 
 export default quyKtv;

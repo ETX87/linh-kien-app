@@ -391,7 +391,15 @@ duyệt/từ chối (ảnh, số cần/thực nhận; `lich_su=1` = dữ liệu 
 tiết" PXK thêm Mã HĐ/Người chuyển/cần-thực chuyển/quỹ/link ảnh (`exportRowsToExcel` `linkFields`). Menu **"Quỹ & chuyển
 tiền"** (`modules/QuyChuyenTienModule.tsx` + `routes/quyKtv.ts` tại `/api/quy-ktv`): tab Khoản chuyển tiền (lọc/Excel kèm link
 ảnh), Số dư quỹ, Sổ quỹ; Kế toán/Admin "Điều chỉnh" (+/− `dieu_chinh`) hoặc "Hoàn tiền cho KTV" (`hoan_tien_ktv`), bắt buộc
-lý do, quỹ không đủ → `QUY_KHONG_DU`, cộng quỹ → `phanBoQuy()`. Phạm vi `phamViXem()`: Admin/Kế toán/TN xem tất cả, KTV xem
+lý do, quỹ không đủ → `QUY_KHONG_DU`, cộng quỹ → `phanBoQuy()`. **Sửa / hủy khoản đã duyệt** (2026-09-29, migration `0049`,
+`suaThucNhanKhoan()`/`huyKhoanChuyen()`, `POST /api/quy-ktv/khoan-chuyen/:id/sua|huy`, Kế toán/Admin, bắt buộc lý do): sửa TĂNG = cộng
+quỹ phần chênh (`dieu_chinh` gắn `khoan_chuyen_tien_id`) → trả phiếu còn thiếu; sửa GIẢM chỉ khi quỹ đủ (chốt người dùng — không tự rút
+tiền đã trả phiếu). HỦY (duyệt nhầm) = `trang_thai='Da huy'`: rút lại phần phiếu đã được trả (`da_thanh_toan` về `min(da_thanh_toan_truoc,
+hiện tại)`, `hoan_phieu`) + trừ số thực nhận khỏi quỹ + phiếu về "KTV da chuyen" (giữ ảnh) chờ Kế toán duyệt lại; chỉ khoản duyệt MỚI NHẤT
+của phiếu, phiếu "Dang tao phieu" (tiền "TN da duyet"/"Cho KTV chuyen") hoặc đã hủy (chỉ trừ quỹ) — `KHOAN_HUY_DUOC_SQL` (cờ `huy_duoc`);
+quỹ không đủ (dư đã trả phiếu khác) → chặn kèm danh sách phiếu. Mọi tổng/khóa chỉ đếm `'Da duyet'` nên khoản hủy tự bị loại. Phiếu đã trả
+tiền bị hủy → `thongBaoHoanQuyPhieuHuy()` báo KTV (3 đường hủy: `/:id/log` Ke toan huy, `goDonKhoiPxk`, `huyPxkNeuTrong` — thêm đường hủy
+mới phải gọi); tab Khoản chuyển tiền gắn nhãn "Phiếu đã hủy · tiền về quỹ". Phạm vi `phamViXem()`: Admin/Kế toán/TN xem tất cả, KTV xem
 của mình, Vệ tinh xem quỹ của Trạm — khớp điều kiện cấp menu ở `App.tsx`.
 
 **Tìm theo tên KTV** (`lib/timTheoTen.ts`, không dấu, không phân biệt hoa/thường — `LOWER()`/`LIKE` của SQLite không

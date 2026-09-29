@@ -1,4 +1,4 @@
-import { soDuQuy } from "../lib/quyKtv";
+import { soDuQuy, thongBaoHoanQuyPhieuHuy } from "../lib/quyKtv";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { Env } from "../types";
@@ -3226,7 +3226,8 @@ async function applyDonHangLog(
   if (pxkCanGo && nextTrangThai !== "TN da duyet") {
     const laTn = !tuHuyPxkId;
     const moTa = !laTn ? "KTV tự hủy đơn" : nextTrangThai === "Da huy" ? "TN hủy đơn" : nextTrangThai === "Cho hang" ? "TN chuyển chờ hàng đơn" : "TN từ chối đơn";
-    await goDonKhoiPxk(c.env.DB, pxkCanGo, donHangId, user.email, moTa, ghiChu?.trim() ?? "", laTn ? !giuPhieuTrong : true);
+    const go = await goDonKhoiPxk(c.env.DB, pxkCanGo, donHangId, user.email, moTa, ghiChu?.trim() ?? "", laTn ? !giuPhieuTrong : true);
+    if (go.hoanQuy > 0) c.executionCtx.waitUntil(thongBaoHoanQuyPhieuHuy(c.env, c.env.DB, pxkCanGo, go.hoanQuy));
     if (laTn) await danhDauVanPhongTacDong(c.env.DB, pxkCanGo, user.email);
   }
 
