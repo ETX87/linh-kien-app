@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { Card } from "./Card";
 import { Btn } from "./Btn";
 import { LoadingInline } from "./LoadingInline";
@@ -80,6 +80,10 @@ interface PaginatedTableProps<T> {
    * dung khi bang co nhieu cot khien the mobile qua dai/roi (vd PXK). Van giu wrapper bam duoc,
    * rowClassName va o chon (mobileHint "select") - chi thay phan noi dung. */
   mobileCard?: (row: T) => ReactNode;
+  /** Noi dung XO XUONG ngay duoi 1 dong (2026-09-29, danh sach PXK: dong phieu goc + cac dong don con ben duoi). Tra
+   * null/undefined = dong dang thu gon. Desktop: 1 hang <td colSpan> full bang (noi dung rong KHONG keo gian cot cha);
+   * mobile: khoi ngay duoi the. */
+  expandedContent?: (row: T) => ReactNode;
 }
 
 export function PaginatedTable<T>({
@@ -99,6 +103,7 @@ export function PaginatedTable<T>({
   rowKey,
   rowClassName,
   mobileCard,
+  expandedContent,
   sortBy,
   sortDir,
   onSortChange,
@@ -169,9 +174,10 @@ export function PaginatedTable<T>({
             const selectCol = effectiveColumns.find((c) => c.mobileHint === "select");
             const actionsCol = effectiveColumns.find((c) => c.mobileHint === "actions" || (!c.mobileHint && !c.header && c.key !== selectCol?.key));
             const fieldCols = effectiveColumns.filter((c) => c.key !== selectCol?.key && c.key !== actionsCol?.key);
+            const moRong = expandedContent?.(row);
             return (
+              <Fragment key={rowKey(row)}>
               <div
-                key={rowKey(row)}
                 onClick={() => onRowClick?.(row)}
                 // FIX (UX audit 2026-09-08, van de #7): dong bam duoc CHI la <div onClick>, khong
                 // the Tab toi hay kich hoat bang ban phim, va trinh doc man hinh khong bao day la 1
@@ -214,6 +220,8 @@ export function PaginatedTable<T>({
                   </div>
                 )}
               </div>
+              {moRong != null && moRong !== false && <div>{moRong}</div>}
+              </Fragment>
             );
           })}
       </div>
@@ -290,9 +298,11 @@ export function PaginatedTable<T>({
 
             {!isLoading &&
               !isError &&
-              rows.map((row) => (
+              rows.map((row) => {
+                const moRong = expandedContent?.(row);
+                return (
+                <Fragment key={rowKey(row)}>
                 <tr
-                  key={rowKey(row)}
                   className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 ${onRowClick ? "cursor-pointer focus-ring" : ""} ${rowClassName?.(row) ?? ""}`}
                   onClick={() => onRowClick?.(row)}
                   role={onRowClick ? "button" : undefined}
@@ -321,7 +331,18 @@ export function PaginatedTable<T>({
                     );
                   })}
                 </tr>
-              ))}
+                {moRong != null && moRong !== false && (
+                  <tr className="border-b border-[var(--line)]">
+                    <td colSpan={effectiveColumns.length} className="p-0">
+                      {/* w-0 + min-w-full: noi dung con rong (bang dong don) tu cuon ngang ben trong, khong day do rong
+                          cac cot cua bang cha (table-layout auto tinh min-content cua o colSpan). */}
+                      <div className="w-0 min-w-full">{moRong}</div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
+                );
+              })}
           </tbody>
         </table>
       </div>
