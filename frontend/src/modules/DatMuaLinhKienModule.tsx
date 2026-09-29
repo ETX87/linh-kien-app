@@ -648,22 +648,21 @@ export function DatMuaLinhKienModule({
                 count: pxkStatusCounts["Dang gui KTV"],
                 onClick: () => stageJump("dang-gui-ktv", { tab: "phieu-xuat-kho", filter: "Dang gui KTV", loaiDon: "" }),
               },
+              // 3 muc KET THUC quy trinh (Hàng trừ kho / Kho xác nhận kết thúc / KTV nhận đủ hàng) KHONG gan count (chot
+              // 2026-09-29: "đến đó là kết thúc quy trình") - giong "Từ chối", so chi tang luy ke, khong phai viec can lam.
               {
                 key: "hang-tru-kho",
                 label: "Hàng trừ kho",
-                count: pxkStatusCounts["Hang tru kho"],
                 onClick: () => stageJump("hang-tru-kho", { tab: "phieu-xuat-kho", filter: "Hang tru kho", loaiDon: "" }),
               },
               {
                 key: "kho-ket-thuc",
                 label: "Kho xác nhận kết thúc quy trình",
-                count: pxkStatusCounts["Kho da ket thuc"],
                 onClick: () => stageJump("kho-ket-thuc", { tab: "phieu-xuat-kho", filter: "Kho da ket thuc", loaiDon: "" }),
               },
               {
                 key: "ktv-da-nhan",
                 label: "KTV nhận đủ hàng",
-                count: pxkStatusCounts["KTV da nhan"],
                 onClick: () => stageJump("ktv-da-nhan", { tab: "phieu-xuat-kho", filter: "KTV da nhan", loaiDon: "" }),
               },
             ],
