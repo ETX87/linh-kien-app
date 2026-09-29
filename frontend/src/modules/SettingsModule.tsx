@@ -788,7 +788,7 @@ function GoogleDriveTab() {
     <div className="max-w-md space-y-4">
       <div>
         <div className="text-xs text-[var(--ink-500)] mb-3">
-          Uỷ quyền 1 tài khoản Google thật để upload ảnh trong hệ: "ảnh minh hoạ linh kiện" (Danh mục linh kiện), ảnh trả hàng (Đặt mua linh kiện › Trả hàng), và ảnh biên bản/bằng chứng chuyển tiền (Phiếu xuất kho). Chưa kết nối thì các thao tác upload ảnh này sẽ báo lỗi.
+          Uỷ quyền 1 tài khoản Google thật để upload ảnh trong hệ: "ảnh minh hoạ linh kiện" (Bảng giá), ảnh trả hàng (Đặt mua linh kiện › Trả hàng), và ảnh biên bản/bằng chứng chuyển tiền (Phiếu xuất kho). Chưa kết nối thì các thao tác upload ảnh này sẽ báo lỗi.
         </div>
         <div className="border border-[var(--line)] rounded-xl bg-[var(--surface)] p-4">
           {isLoading ? (
@@ -988,7 +988,7 @@ function DongBoGia88Tab() {
       <div className="text-xs text-[var(--ink-500)]">
         Kéo bảng giá linh kiện mới nhất từ đối tác "gia88" về danh mục (Giá NY/KTV/dự phòng/EU, nhãn
         hàng, thiết bị, cấm bán...) — nguồn chính từ 2026-09-12, các trường đồng bộ chuyển "chỉ xem"
-        trong Danh mục linh kiện. Tự động chạy 1 lần/đêm lúc 0h, hoặc bấm "Đồng bộ ngay" khi cần gấp.
+        trong Bảng giá. Tự động chạy 1 lần/đêm lúc 0h, hoặc bấm "Đồng bộ ngay" khi cần gấp.
       </div>
       <div className="border border-[var(--line)] rounded-xl bg-[var(--surface)] p-4">
         {isLoading ? (

@@ -30,7 +30,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // DatMuaLinhKienModule (App.tsx), moi muc chi la 1 "khu" rieng (prop section) + menu giai doan rieng.
       { key: "dat-mua-lk", label: "Đơn đặt hàng", icon: "cart", countKey: "datMuaLk" },
       { key: "phieu-xuat", label: "Phiếu xuất", icon: "file", countKey: "phieuXuat" },
-      { key: "danh-muc-lk", label: "Danh mục linh kiện", icon: "catalog" },
+      { key: "danh-muc-lk", label: "Bảng giá", icon: "catalog" },
       { key: "ton-kho-ktv", label: "Tồn kho công nợ KTV", icon: "stock" },
       { key: "danh-sach-ktv", label: "Danh sách KTV", icon: "users" },
       // Quy du KTV (2026-09-29, migration 0047) - Admin/Ke toan/TN xem tat ca, KTV/Ve tinh xem cua minh (App.tsx).
@@ -59,7 +59,7 @@ export const MODULE_TITLES: Record<string, string> = {
   "phieu-xuat": "Phiếu xuất",
   "thieu-lk": "Thiếu linh kiện",
   "tra-hang": "Trả hàng",
-  "danh-muc-lk": "Danh mục linh kiện",
+  "danh-muc-lk": "Bảng giá",
   "ton-kho-ktv": "Tồn kho công nợ KTV",
   "danh-sach-ktv": "Danh sách KTV",
   "quy-chuyen-tien": "Quỹ & chuyển tiền",
