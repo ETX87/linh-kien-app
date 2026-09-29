@@ -160,8 +160,7 @@ traHang.get("/", async (c) => {
      FROM dat_don_hang ddh
      -- "Khu vực" (them 2026-09-12, dong bo voi GET /don-hang - phan hoi "sắp xếp cột bảng danh sách
      -- đơn giống" file tham chieu) - lay tu Khu vuc cua CHINH nguoi_nhan_hang qua ktv_lien_he.khu_vuc_ma.
-     LEFT JOIN ktv_lien_he dsk ON dsk.email_dang_nhap = ddh.nguoi_nhan_hang
-     LEFT JOIN khu_vuc kv ON kv.ma = dsk.khu_vuc_ma
+     LEFT JOIN khu_vuc kv ON kv.ma = ddh.khu_vuc_ma -- cot luu san, migration 0042
      WHERE ${whereSql} ORDER BY ddh.ngay_tao DESC
      ${pageParam ? "LIMIT ? OFFSET ?" : ""}`,
   )

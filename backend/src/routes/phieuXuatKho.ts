@@ -202,7 +202,7 @@ const PXK_COT_LOC: Record<string, CotLoc> = {
   chuyen_tien: { kieu: "don", expr: "CASE WHEN pxk.so_tien_can_chuyen IS NULL THEN 'Khong can' ELSE pxk.trang_thai_chuyen_tien END" },
   nguoi_tao: { kieu: "don", expr: "pxk.nguoi_tao", sortExpr: tenNguoiSql("pxk.nguoi_tao") },
   nguoi_nhan_hang: { kieu: "don", expr: "pxk.nguoi_nhan_hang", sortExpr: tenNguoiSql("pxk.nguoi_nhan_hang") },
-  khu_vuc: { kieu: "don", expr: "(SELECT k.khu_vuc_ma FROM ktv_lien_he k WHERE k.email_dang_nhap = pxk.nguoi_nhan_hang LIMIT 1)", khuVuc: true },
+  khu_vuc: { kieu: "don", expr: "pxk.khu_vuc_ma", khuVuc: true }, // cot luu san, migration 0042
   loai_de_xuat: { kieu: "nhieu", tu: PXK_DONG_TU, join: PXK_DONG_JOIN, expr: "lcd.loai_de_xuat" },
   yeu_cau_hoa_don: { kieu: "nhieu", tu: PXK_DONG_TU, join: PXK_DONG_JOIN, expr: "lcd.yeu_cau_hoa_don" },
   // Loai chiet khau "cao nhat" cua phieu - cung cong thuc cot loai_chiet_khau_cao_nhat_id o SELECT danh sach.

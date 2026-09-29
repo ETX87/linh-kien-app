@@ -155,12 +155,19 @@ export async function khuVucCuaToiSet(db: D1Database, user: Pick<AppUser, "email
  * ddh.nguoi_nhan_hang, hoac chi pxk.nguoi_nhan_hang).
  */
 export function khuVucSetWhereSql(khuVucSet: Set<string>, emailCols: string[]): { sql: string; binds: string[] } {
-  const list = [...khuVucSet];
-  const emailInKhuVuc = `(SELECT email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND khu_vuc_ma IN (${list.map(() => "?").join(",")}))`;
+  // Danh sach ma khu vuc truyen 1 bind JSON (json_each) thay vi N dau "?" (2026-09-29): moi menh de toi da
+  // (so cot + 1) bind bat ke so khu vuc - query badge ghep nhieu menh de khong cham gioi han 100 bind cua D1.
+  const json = JSON.stringify([...khuVucSet]);
+  const emailInKhuVuc = `(SELECT email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND khu_vuc_ma IN (SELECT value FROM json_each(?)))`;
   const binds: string[] = [];
   const conds = emailCols.map((col) => {
-    binds.push(...list);
+    binds.push(json);
     return `${col} IN ${emailInKhuVuc}`;
   });
+  // + cot khu_vuc_ma luu san tren CHINH bang do (migration 0042, alias lay tu cot dau: ddh/ddh3/pxk) - bat duoc don
+  // GS tu nhan hang (-> khu vuc dau tien cua GS) va don "Chưa có khu vực" (CHUA_CO) ma dieu kien email KTV bo sot.
+  const alias = emailCols[0].split(".")[0];
+  conds.push(`${alias}.khu_vuc_ma IN (SELECT value FROM json_each(?))`);
+  binds.push(json);
   return { sql: ` AND (${conds.join(" OR ")})`, binds };
 }

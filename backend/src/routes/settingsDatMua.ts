@@ -717,6 +717,8 @@ settingsDatMua.patch("/khu-vuc/:ma/gs", adminOnly, async (c) => {
 
   const body = await c.req.json<{ gs_email?: string | null }>();
   const gsEmail = body.gs_email?.trim() || null;
+  // "Chưa có khu vực" (CHUA_CO, migration 0042) la khu vuc he thong gom don khong xac dinh duoc khu vuc - khong co GS.
+  if (ma === "CHUA_CO" && gsEmail) return c.json({ error: "KHU_VUC_HE_THONG" }, 400);
   if (gsEmail) {
     const gsUser = await c.env.DB.prepare("SELECT vai_tro FROM users WHERE email = ?").bind(gsEmail).first<{ vai_tro: string | null }>();
     if (!gsUser || gsUser.vai_tro !== "Giam sat") return c.json({ error: "NOT_A_GIAM_SAT" }, 400);

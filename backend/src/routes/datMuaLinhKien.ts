@@ -936,8 +936,10 @@ datMuaLinhKien.get("/home-summary", async (c) => {
       const list = [...khuVucSet];
       cteParts.push(
         `kv_email(email) AS (SELECT email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND khu_vuc_ma IN (${list.map(() => "?").join(",")}))`,
+        // Ma khu vuc de so voi cot khu_vuc_ma luu san tren don/PXK (migration 0042).
+        `kv_ma(ma) AS (${list.map(() => "SELECT ?").join(" UNION ALL ")})`,
       );
-      cteBinds.push(...list);
+      cteBinds.push(...list, ...list);
     }
     if (gsSet) {
       const list = [...gsSet];
@@ -955,13 +957,13 @@ datMuaLinhKien.get("/home-summary", async (c) => {
     const orCond = (conds: string[]): string => (conds.length > 0 ? `(${conds.join(" OR ")})` : "1=0");
     const ddhScope = (): string => {
       let s = "";
-      if (khuVucSet) s += ` AND (ddh.nguoi_tao IN (SELECT email FROM kv_email) OR ddh.nguoi_nhan_hang IN (SELECT email FROM kv_email))`;
+      if (khuVucSet) s += ` AND (ddh.nguoi_tao IN (SELECT email FROM kv_email) OR ddh.nguoi_nhan_hang IN (SELECT email FROM kv_email) OR ddh.khu_vuc_ma IN (SELECT ma FROM kv_ma))`;
       if (gsSet) s += ` AND ddh.email_gs IN (SELECT email FROM gs_list)`;
       return s;
     };
     const pxkScope = (): string => {
       let s = "";
-      if (khuVucSet) s += ` AND pxk.nguoi_nhan_hang IN (SELECT email FROM kv_email)`;
+      if (khuVucSet) s += ` AND (pxk.nguoi_nhan_hang IN (SELECT email FROM kv_email) OR pxk.khu_vuc_ma IN (SELECT ma FROM kv_ma))`;
       if (gsSet) {
         s += ` AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh2.email_gs IN (SELECT email FROM gs_list))`;
       }
@@ -969,7 +971,7 @@ datMuaLinhKien.get("/home-summary", async (c) => {
     };
     const thieuLkScope = (): string => {
       let inner = "";
-      if (khuVucSet) inner += ` AND (ddh3.nguoi_tao IN (SELECT email FROM kv_email) OR ddh3.nguoi_nhan_hang IN (SELECT email FROM kv_email))`;
+      if (khuVucSet) inner += ` AND (ddh3.nguoi_tao IN (SELECT email FROM kv_email) OR ddh3.nguoi_nhan_hang IN (SELECT email FROM kv_email) OR ddh3.khu_vuc_ma IN (SELECT ma FROM kv_ma))`;
       if (gsSet) inner += ` AND ddh3.email_gs IN (SELECT email FROM gs_list)`;
       return inner ? ` AND EXISTS (SELECT 1 FROM dat_don_hang ddh3 WHERE ddh3.id = tlk.dat_don_hang_id${inner})` : "";
     };
@@ -1693,14 +1695,14 @@ function donConTonSql(loaiDon: string | undefined): { sql: string; binds: string
 }
 
 // Cot loc kieu Excel cua danh sach don (2026-09-28) - khoa = key cot o DonCuaToiTab.tsx (LocCotButton).
-const khuVucCuaEmailSql = (email: string) => `(SELECT k.khu_vuc_ma FROM ktv_lien_he k WHERE k.email_dang_nhap = ${email} LIMIT 1)`;
 const DON_HANG_COT_LOC: Record<string, CotLoc> = {
   loai_de_xuat: { kieu: "don", expr: "ddh.loai_de_xuat" },
   nguoi_tao: { kieu: "don", expr: "ddh.nguoi_tao", sortExpr: tenNguoiSql("ddh.nguoi_tao") },
   nguoi_nhan_hang: { kieu: "don", expr: "ddh.nguoi_nhan_hang", sortExpr: tenNguoiSql("ddh.nguoi_nhan_hang") },
   trang_thai: { kieu: "don", expr: "ddh.trang_thai_hien_tai" },
   yeu_cau_hoa_don: { kieu: "don", expr: "ddh.yeu_cau_hoa_don" },
-  khu_vuc: { kieu: "don", expr: khuVucCuaEmailSql("ddh.nguoi_nhan_hang"), khuVuc: true },
+  // Cot luu san (migration 0042) - thay subquery ktv_lien_he: co ca khu vuc GS va "Chưa có khu vực".
+  khu_vuc: { kieu: "don", expr: "ddh.khu_vuc_ma", khuVuc: true },
 };
 
 // Dieu kien WHERE cua GET /don-hang (tach ham 2026-09-28 de GET /don-hang/gia-tri-loc dung lai y het).
@@ -1791,9 +1793,10 @@ async function donHangListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string
   if (khuVuc) {
     const khuVucList = khuVuc.split(",").map((s) => s.trim()).filter(Boolean);
     if (khuVucList.length > 0) {
-      const emailInKhuVuc = `(SELECT email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND khu_vuc_ma IN (${khuVucList.map(() => "?").join(",")}))`;
-      whereSql += ` AND (ddh.nguoi_tao IN ${emailInKhuVuc} OR ddh.nguoi_nhan_hang IN ${emailInKhuVuc})`;
-      binds.push(...khuVucList, ...khuVucList);
+      // Cung khuVucSetWhereSql() - gom ca cot ddh.khu_vuc_ma (migration 0042: don GS tu nhan / "Chưa có khu vực").
+      const { sql, binds: khuVucBinds } = khuVucSetWhereSql(new Set(khuVucList), ["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
+      whereSql += sql;
+      binds.push(...khuVucBinds);
     }
   }
   if (tuNgay) {
@@ -1846,11 +1849,9 @@ datMuaLinhKien.get("/don-hang", async (c) => {
        kv.ten as khu_vuc_ten
      FROM dat_don_hang ddh
      LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
-     -- "Khu vực" (them 2026-09-12, phan hoi "sắp xếp cột bảng danh sách đơn giống file tham chiếu") -
-     -- KHONG phai cot that tren dat_don_hang, lay tu Khu vuc cua CHINH nguoi_nhan_hang (KTV nhan don
-     -- nay) qua ktv_lien_he.khu_vuc_ma - dung y nguoi dung xac nhan "khu vực sẽ theo người nhận hàng".
-     LEFT JOIN ktv_lien_he dsk ON dsk.email_dang_nhap = ddh.nguoi_nhan_hang
-     LEFT JOIN khu_vuc kv ON kv.ma = dsk.khu_vuc_ma
+     -- "Khu vực" = cot ddh.khu_vuc_ma (migration 0042: KTV nhan hang -> KTV tao -> GS -> "Chưa có khu vực"),
+     -- truoc day JOIN ktv_lien_he cua nguoi nhan (don GS tu nhan hien trong).
+     LEFT JOIN khu_vuc kv ON kv.ma = ddh.khu_vuc_ma
      WHERE ${whereSql}
      ORDER BY ${orderSql}
      ${pageParam ? "LIMIT ? OFFSET ?" : ""}`,
