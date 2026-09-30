@@ -41,7 +41,8 @@ export function scopeDatMuaNguoiTao(c: Context<{ Bindings: Env }>): { whereSql: 
   }
   if (user.vai_tro === "Giam sat") {
     // + don CHINH GS tao (2026-09-28: GS dat duoc cho KTV ngoai khu vuc -> email_gs la GS khac).
-    return { whereSql: " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ?)", binds: [user.email, user.email] };
+    // + don GS la NGUOI NHAN (2026-09-30, khu vuc dat hang 0055: don GS nhan hang co the thuoc khu vuc cua GS khac).
+    return { whereSql: " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ? OR ddh.nguoi_nhan_hang = ?)", binds: [user.email, user.email, user.email] };
   }
   if (user.la_ktv_dvbh || user.la_ve_tinh) {
     return {

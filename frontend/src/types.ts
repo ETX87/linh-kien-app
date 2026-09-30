@@ -222,6 +222,8 @@ export interface UserRow {
   giam_sat_quan_ly: string | null;
   ma_misa: string | null;
   ten_misa: string | null;
+  // "Khu vuc dat hang" (0055) - tai khoan KHONG phai KTV: don/PXK cua ho thuoc khu vuc nay (thang khu vuc GS phu trach).
+  khu_vuc_dat_hang: string | null;
 }
 
 export interface Paged<T> {

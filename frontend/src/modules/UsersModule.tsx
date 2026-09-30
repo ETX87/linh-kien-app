@@ -225,6 +225,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
     xem_danh_muc_lk: !!user.xem_danh_muc_lk,
     ma_misa: user.ma_misa ?? "",
     ten_misa: user.ten_misa ?? "",
+    khu_vuc_dat_hang: user.khu_vuc_dat_hang ?? "",
   });
 
   const save = useMutation({
@@ -245,6 +246,8 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
         xem_danh_muc_lk: form.xem_danh_muc_lk,
         ma_misa: form.ma_misa.trim() || null,
         ten_misa: form.ten_misa.trim() || null,
+        // KTV/Ve tinh: khu vuc lay tu danh ba KTV -> khong gui (giu nguyen).
+        ...(form.la_ktv_dvbh || form.la_ve_tinh ? {} : { khu_vuc_dat_hang: form.khu_vuc_dat_hang || null }),
       }),
     onSuccess: onSaved,
   });
@@ -334,6 +337,27 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
             Xem danh mục LK
           </label>
         </div>
+        {/* Khu vuc dat hang (2026-09-30, migration 0055) - moi tai khoan KHONG phai KTV: don/PXK nguoi nay tao hoac
+            nhan hang (khi nguoi nhan khong phai KTV) thuoc khu vuc nay, THANG khu vuc GS dang phu trach. Doi = tinh lai
+            khu vuc cua ca don/PXK cu (trigger). */}
+        {!(form.la_ktv_dvbh || form.la_ve_tinh) && (
+          <div>
+            <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] flex items-center gap-1.5">
+              Khu vực đặt hàng
+              <Tooltip text="Đơn/phiếu xuất người này đặt hoặc nhận hàng được xếp vào khu vực này (ưu tiên hơn khu vực đang phụ trách). Đổi khu vực sẽ cập nhật lại cả đơn/phiếu cũ. Để trống: theo khu vực phụ trách, không có thì 'Chưa có khu vực'." />
+            </label>
+            <Select
+              value={form.khu_vuc_dat_hang}
+              onChange={(v) => setForm({ ...form, khu_vuc_dat_hang: v })}
+              options={[
+                { value: "", label: "— Không chọn —" },
+                ...khuVucRows
+                  .filter((k) => k.ma !== "CHUA_CO" && (k.bat_tat || k.ma === form.khu_vuc_dat_hang))
+                  .map((k) => ({ value: k.ma, label: k.ten })),
+              ]}
+            />
+          </div>
+        )}
         {isGiamSat && (
           <div>
             <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Khu vực đang phụ trách</label>
@@ -479,6 +503,10 @@ function VanPhongTab() {
   const columns: Column<UserRow>[] = [
     { key: "nguoi_dung", mobile: "title", header: "Người dùng", render: (u) => formatPersonDisplay(u.email, personDir) },
     { key: "vai_tro", mobile: "meta", header: "Vai trò", render: (u) => u.vai_tro ?? "—" },
+    {
+      key: "khu_vuc_dat_hang", mobile: "meta", header: "Khu vực đặt hàng",
+      render: (u) => (u.khu_vuc_dat_hang ? khuVucData?.rows.find((k) => k.ma === u.khu_vuc_dat_hang)?.ten ?? u.khu_vuc_dat_hang : "—"),
+    },
     { key: "ma_misa", header: "Mã MISA", render: (u) => u.ma_misa ?? "—" },
     { key: "ten_misa", header: "Tên trên MISA", render: (u) => u.ten_misa ?? "—" },
     {

@@ -2807,8 +2807,8 @@ datMuaLinhKien.get("/search", async (c) => {
     if (canKho(c) || canTacNghiep(c)) {
       // khong gioi han
     } else if (user.vai_tro === "Giam sat") {
-      whereSql += " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ?)"; // + don chinh GS tao (2026-09-28)
-      binds.push(user.email, user.email);
+      whereSql += " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ? OR ddh.nguoi_nhan_hang = ?)"; // + don chinh GS tao (2026-09-28) / GS nhan hang (2026-09-30)
+      binds.push(user.email, user.email, user.email);
     } else if (user.la_mua_hang) {
       // "Mua hang" (2026-09-30) - xem toan bo, chi doc.
     } else if (user.la_view) {
@@ -4038,8 +4038,8 @@ async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = 
       binds.push(...gsSet);
     }
   } else if (user.vai_tro === "Giam sat") {
-    whereSql += " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ?)"; // + don chinh GS tao (2026-09-28)
-    binds.push(user.email, user.email);
+    whereSql += " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ? OR ddh.nguoi_nhan_hang = ?)"; // + don chinh GS tao (2026-09-28) / GS nhan hang (2026-09-30)
+    binds.push(user.email, user.email, user.email);
   } else if (user.la_mua_hang) {
     // "Mua hang" (2026-09-30) - xem toan bo, chi doc.
   } else if (user.la_view) {
@@ -4177,8 +4177,8 @@ datMuaLinhKien.get("/thieu-lk/:id", async (c) => {
   if (canKho(c) || canTacNghiep(c)) {
     // khong gioi han - giu nguyen
   } else if (user.vai_tro === "Giam sat") {
-    whereSql += " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ?)"; // + don chinh GS tao (2026-09-28)
-    binds.push(user.email, user.email);
+    whereSql += " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ? OR ddh.nguoi_nhan_hang = ?)"; // + don chinh GS tao (2026-09-28) / GS nhan hang (2026-09-30)
+    binds.push(user.email, user.email, user.email);
   } else if (user.la_mua_hang) {
     // "Mua hang" (2026-09-30) - xem toan bo, chi doc.
   } else if (user.la_view) {

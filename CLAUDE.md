@@ -354,6 +354,11 @@ tôi --" nhận hàng hoặc KTV chưa gán khu vực bị bộ lọc khu vực 
 CHƯA gán khu vực → `CHUA_CO`, không mượn khu vực người tạo — migration `0045`) → [người nhận không phải KTV:] KTV tạo đơn
 → GS (khu vực ĐẦU TIÊN theo `stt, ma` GS đó phụ trách) → `'CHUA_CO'` ("Chưa có khu vực" — 1 dòng THẬT trong
 `khu_vuc`, không gán GS được `KHU_VUC_HE_THONG`; Admin gán TN xử lý qua `user_khu_vuc`). PXK: KTV nhận → GS → CHUA_CO.
+**Khu vực đặt hàng** (chốt 2026-09-30, migration `0055`): `users.khu_vuc_dat_hang` cho MỌI tài khoản KHÔNG phải KTV (GS
+quản trị chung không phụ trách khu vực nào, TN/Kho…) — chọn ở Quản lý người dùng › sửa tài khoản. Chèn vào chuỗi trên, THẮNG
+khu vực GS phụ trách: đơn = KTV nhận → KĐH người nhận → KTV tạo → KĐH người tạo → GS nhận → GS tạo → CHUA_CO; PXK = KTV nhận
+→ KĐH người nhận → GS → CHUA_CO. Đổi KĐH → trigger `trg_users_khu_vuc_dat_hang_u` tính lại đơn/PXK CŨ của người đó. Scope GS
+thêm `OR ddh.nguoi_nhan_hang = GS` (đơn GS nhận có thể thuộc khu vực GS khác). Sửa chuỗi khu vực = sửa bản mới nhất ở `0055`.
 Cập nhật bằng TRIGGER (tạo/đổi người nhận, đổi `ktv_lien_he.khu_vuc_ma/email_dang_nhap`, đổi `khu_vuc.gs_email/stt`) —
 KHÔNG tự set trong code; cột không bao giờ NULL. `email_gs` = `giam_sat_quan_ly` của KTV nhận, fallback GS của khu vực
 của đơn (trigger `trg_ddh_email_gs_theo_khu_vuc` + `DON_EMAIL_GS_MOI` ở `khuVucSync.ts` — cùng công thức) nên đơn GS tự
