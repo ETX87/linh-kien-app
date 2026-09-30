@@ -623,7 +623,9 @@ async function downloadKtvImportTemplate() {
 // Them/Nhap hang loat/Xoa, modal Sua CHI cho sua Tran cong no/Ma MISA/Ten MISA (cac truong con lai
 // disabled de doi chieu), luu qua PATCH /:ma/cong-no-misa rieng (KHONG dung PATCH /:ma/dat-mua-lk).
 // "readonly": nhu "ke-toan" nhung khong co truong nao sua duoc, khong co nut Luu.
-export type KtvTabMode = "admin" | "ke-toan" | "readonly";
+// "tn" (2026-09-30, "cho phép tn sửa mã misa + tên misa của ktv"): nhu "ke-toan" nhung CHI sua Ma/Ten MISA (cong no/
+// han muc disabled, backend cung bo qua), khong co nut Import.
+export type KtvTabMode = "admin" | "ke-toan" | "tn" | "readonly";
 
 // Sinh "email dang nhap" NOI BO cho KTV khong co Gmail that (them 2026-09-12, phan hoi bug "khách
 // hàng lẻ MN không chọn được làm người nhận hàng" - goc re: KH_LE_MN chua tung duoc gan
@@ -814,16 +816,20 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
   const saveKeToan = useMutation({
     mutationFn: () =>
       api.patch(`/settings/ktv-lien-he/${encodeURIComponent(form.ma_ktv)}/cong-no-misa`, {
-        cong_no: form.cong_no !== "" ? Number(form.cong_no) : null,
         ma_misa: form.ma_misa.trim() || null,
         ten_misa: form.ten_misa.trim() || null,
-        han_muc_du_phong: form.han_muc_du_phong !== "" ? Number(form.han_muc_du_phong) : null,
-        han_muc_du_phong_hien_tai: form.han_muc_du_phong_hien_tai !== "" ? Number(form.han_muc_du_phong_hien_tai) : null,
+        ...(mode === "tn"
+          ? {}
+          : {
+              cong_no: form.cong_no !== "" ? Number(form.cong_no) : null,
+              han_muc_du_phong: form.han_muc_du_phong !== "" ? Number(form.han_muc_du_phong) : null,
+              han_muc_du_phong_hien_tai: form.han_muc_du_phong_hien_tai !== "" ? Number(form.han_muc_du_phong_hien_tai) : null,
+            }),
       }),
     onSuccess: onSaveSuccess,
     onError: onSaveError,
   });
-  const save = mode === "ke-toan" ? saveKeToan : saveAdmin;
+  const save = mode === "ke-toan" || mode === "tn" ? saveKeToan : saveAdmin;
 
   const remove = useMutation({
     mutationFn: (ma: string) => api.delete(`/settings/ktv-lien-he/${encodeURIComponent(ma)}`),
@@ -928,7 +934,7 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
         // chan bubble, khong thi bam "Xoá" se vua xoa vua mo modal Sua dong (da bi xoa) cung luc.
         <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
           <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => openEdit(r)}>
-            {mode === "admin" ? "Sửa" : mode === "ke-toan" ? "Sửa công nợ/MISA" : "Xem"}
+            {mode === "admin" ? "Sửa" : mode === "ke-toan" ? "Sửa công nợ/MISA" : mode === "tn" ? "Sửa MISA" : "Xem"}
           </button>
           {/* FIX (ra soat UI 2026-08-27, hang muc #5): Xoa truoc day khong co xac nhan nao - DELETE
               backend la hard delete, khong chan du KTV con don hang lich su (ktv_lien_he KHONG phai
@@ -978,7 +984,7 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
         {/* Ke toan (+ Admin): import tran cong no/han muc du phong theo Ma MISA (2026-09-29, ImportCongNoMisaModal). */}
         {(mode === "ke-toan" || mode === "admin") && (
           <Btn variant={mode === "ke-toan" ? "primary" : "ghost"} size="sm" onClick={() => setImportCongNoOpen(true)}>
-            📥 Import công nợ theo Mã MISA
+            📥 Import công nợ / MISA
           </Btn>
         )}
         {mode === "admin" && (
@@ -1042,7 +1048,7 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
         <Modal
           open
           onClose={() => setEditing(null)}
-          title={editing === "new" ? "Thêm KTV" : mode === "ke-toan" ? "Sửa công nợ / MISA" : mode === "readonly" ? "Chi tiết KTV" : "Sửa KTV"}
+          title={editing === "new" ? "Thêm KTV" : mode === "ke-toan" ? "Sửa công nợ / MISA" : mode === "tn" ? "Sửa mã / tên MISA" : mode === "readonly" ? "Chi tiết KTV" : "Sửa KTV"}
           width="max-w-md"
         >
           <div className="space-y-3 text-sm">
@@ -1091,7 +1097,7 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
               </label>
               <input
                 type="number"
-                disabled={mode === "readonly"}
+                disabled={mode === "readonly" || mode === "tn"}
                 value={form.cong_no}
                 onChange={(e) => setForm({ ...form, cong_no: e.target.value })}
                 className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60"
@@ -1107,7 +1113,7 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
               </label>
               <input
                 type="number"
-                disabled={mode === "readonly"}
+                disabled={mode === "readonly" || mode === "tn"}
                 value={form.han_muc_du_phong}
                 onChange={(e) => setForm({ ...form, han_muc_du_phong: e.target.value })}
                 className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60"
@@ -1120,7 +1126,7 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
               </label>
               <input
                 type="number"
-                disabled={mode === "readonly"}
+                disabled={mode === "readonly" || mode === "tn"}
                 value={form.han_muc_du_phong_hien_tai}
                 onChange={(e) => setForm({ ...form, han_muc_du_phong_hien_tai: e.target.value })}
                 className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60"

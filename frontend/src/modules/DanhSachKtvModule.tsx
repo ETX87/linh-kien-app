@@ -10,9 +10,11 @@ import { useAuth } from "../auth/AuthContext";
 export function DanhSachKtvModule() {
   const auth = useAuth();
   const canEditCongNoMisa = auth.status === "authenticated" && auth.user.la_ke_toan;
+  // TN (2026-09-30): sua Ma/Ten MISA (mode "tn"); vua Ke toan vua TN -> "ke-toan" (rong hon).
+  const canEditMisa = auth.status === "authenticated" && auth.user.la_tac_nghiep;
   return (
     <div className="anim-in">
-      <KtvTab mode={canEditCongNoMisa ? "ke-toan" : "readonly"} />
+      <KtvTab mode={canEditCongNoMisa ? "ke-toan" : canEditMisa ? "tn" : "readonly"} />
     </div>
   );
 }

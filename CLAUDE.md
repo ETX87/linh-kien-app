@@ -451,6 +451,10 @@ hơn giữa giải trình và lúc vào "Cho TN duyet" (`mocTinhHanTn()` trong `
 **Kế toán ở "Danh sách KTV"** (`KtvTab mode="ke-toan"`): sửa tay Trần công nợ/Hạn mức dự phòng (+ hiện tại)/Mã MISA/Tên
 MISA (`PATCH /:ma/cong-no-misa`) + import hàng loạt KHỚP THEO MÃ MISA (`POST /settings/ktv-lien-he/bulk-import-cong-no-misa`,
 `modules/ImportCongNoMisaModal.tsx` — không tạo KTV, ô trống giữ cũ, mã trùng nhiều KTV thì bỏ qua + báo lỗi).
+2026-09-30: đọc file xong có bước **chọn cột** import (chỉ cột có dữ liệu; bỏ chọn = không gửi = giữ cũ); cột tuỳ chọn
+**Mã KTV** → dòng đó khớp theo Mã KTV và GÁN/ĐỔI Mã MISA (mã đang thuộc KTV khác → lỗi `ma_misa_cua_ktv_khac`, gán xong
+`relinkTonKhoForMaMisa`). **TN** (`KtvTab mode="tn"`) sửa được Mã/Tên MISA qua cùng PATCH — backend bỏ qua công nợ/hạn
+mức nếu không phải Kế toán/Admin; TN không có Import. `GET /ktv-ton-kho/ma-kho-chua-khop` mở thêm cho TN.
 
 **Tự tạo KTV + duyệt tài khoản từ ETX nhân sự** (chốt 2026-09-29, `lib/etxTuDongKtv.ts`, migration `0044`): chạy CUỐI mỗi
 lần đồng bộ ETX (cron 0h thứ Hai VN + nút "Đồng bộ ngay"; riêng bước này: `POST /api/etx-nhan-su/tu-dong-ktv/run`). Nhân

@@ -142,7 +142,8 @@ ktvTonKho.get("/import-meta", async (c) => {
 // va /:ma/cong-no-misa), khong dung requireRole("Admin") vi Ke toan cung can goi duoc.
 ktvTonKho.get("/ma-kho-chua-khop", async (c) => {
   const user = c.get("user");
-  if (user.vai_tro !== "Admin" && !user.la_ke_toan) return c.json({ error: "FORBIDDEN" }, 403);
+  // + TN (2026-09-30): TN cung sua duoc ma MISA (PATCH /:ma/cong-no-misa).
+  if (user.vai_tro !== "Admin" && !user.la_ke_toan && !user.la_tac_nghiep) return c.json({ error: "FORBIDDEN" }, 403);
   const { results } = await c.env.DB.prepare(
     "SELECT ma_kho, MAX(ten_kho) as ten_kho, COUNT(*) as so_ma_hang FROM ktv_ton_kho WHERE ma_ktv IS NULL GROUP BY ma_kho ORDER BY ma_kho",
   ).all();
