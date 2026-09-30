@@ -106,7 +106,8 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   phiếu đang tạo" (`POST /api/phieu-xuat-kho/tinh-lai-tien-dang-mo`). Chốt nghiệp vụ: đổi loại KHÔNG tự tính lại tiền — popup hỏi TN "có cập nhật
   giá thực tế không?" (gợi ý giá theo công thức loại mới; Có = lưu qua endpoint sẵn có `gia_chot`/
   `so-tien-cong-no`, Không = chỉ đổi nhãn); CHỈ đổi được khi PXK "Dang tao phieu" và chưa chốt chuyển tiền
-  (`choPhepDoiLoaiChietKhau()` — không cần chuyển tiền hoặc còn "Cho KTV chuyen"); gán lúc tạo PXK;
+  (`choPhepDoiLoaiChietKhau()` — không cần chuyển tiền hoặc Kế toán CHƯA duyệt chuyển tiền, tức khác "TN da duyet"; nới
+2026-09-30, trước chỉ khi còn "Cho KTV chuyen"); gán lúc tạo PXK;
   thêm/bớt dòng PXK → tính lại TOÀN phiếu kể cả dòng TN đã chọn tay (`ganLoaiChietKhauChoPxk(..., true)`);
   dòng bị gỡ khỏi PXK → xoá loại. TN chọn lại/thêm loại mới qua `PATCH /api/phieu-xuat-kho/don-hang/:id/
   loai-chiet-khau`; so trùng tên ở JS (`lib/loaiChietKhau.ts`) vì `lower()` SQLite không hạ chữ có dấu.

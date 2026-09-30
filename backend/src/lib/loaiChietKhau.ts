@@ -16,12 +16,14 @@ export async function timLoaiChietKhauTheoTen(
 }
 
 /**
- * Chi duoc doi loai chiet khau TRUOC KHI chot chuyen tien (phan hoi 2026-09-26: "chỉ cho chỉnh sửa loại
- * chiết khấu trước khi đơn được chốt đã gửi tiền") = PXK con "Dang tao phieu" VA (khong can chuyen tien
- * HOAC KTV chua chuyen - "Cho KTV chuyen"). KTV da chuyen theo so tien cu -> khoa, tranh gia lech tien.
+ * Chi duoc doi loai chiet khau TRUOC KHI Ke toan chot tien = PXK con "Dang tao phieu" VA Ke toan CHUA duyet chuyen tien
+ * (trang_thai_chuyen_tien khac 'TN da duyet'). SUA 2026-09-30 (phan hoi "đơn trong phiếu kế toán chưa chốt tiền thì cho
+ * sửa chiết khấu, sửa giá" - PMH-000144 KTV thuntmctv tra bang quy du dang "KTV da chuyen" cho Ke toan nen bi khoa): truoc
+ * day chi cho khi con "Cho KTV chuyen". Doi loai + cap nhat gia -> tong doi -> taiTinhPxk() dua phieu ve "Cho KTV chuyen"
+ * (giu anh/ghi chu), tru quy / KTV chuyen bo sung roi Ke toan duyet lai - khong lech tien.
  */
 export function choPhepDoiLoaiChietKhau(pxk: { trang_thai: string | null; so_tien_can_chuyen: number | null; trang_thai_chuyen_tien: string | null }): boolean {
-  return pxk.trang_thai === "Dang tao phieu" && (pxk.so_tien_can_chuyen == null || pxk.trang_thai_chuyen_tien === "Cho KTV chuyen");
+  return pxk.trang_thai === "Dang tao phieu" && (pxk.so_tien_can_chuyen == null || pxk.trang_thai_chuyen_tien !== "TN da duyet");
 }
 
 /** Ten luu vao DB: bo khoang trang thua (giu nguyen hoa/thuong nguoi dung go). */

@@ -112,18 +112,18 @@ const LOI: Record<string, string> = {
   LOAI_DANG_TAT: "Loại chiết khấu này đang bị tắt trong Settings.",
   LOAI_KHONG_HOP_LE: "Loại chiết khấu không còn hợp lệ, tải lại trang rồi thử lại.",
   TRA_HANG_KHONG_CO_CHIET_KHAU: "Đơn trả hàng không có chiết khấu.",
-  DA_CHOT_CHUYEN_TIEN: "Phiếu đã chốt chuyển tiền — không đổi được loại chiết khấu nữa.",
+  DA_CHOT_CHUYEN_TIEN: "Kế toán đã chốt tiền phiếu này — không đổi được loại chiết khấu nữa.",
   KHONG_THUOC_PXK: "Đơn chưa nằm trong phiếu xuất kho nào.",
   INVALID_STATE: "Phiếu không còn ở bước Đang tạo phiếu.",
 };
 const loiText = (err: unknown) => (err instanceof ApiError && err.code && LOI[err.code] ? LOI[err.code] : describeApiError(err));
 
 /**
- * Chi duoc doi loai chiet khau TRUOC KHI chot chuyen tien - khop `choPhepDoiLoaiChietKhau` o backend
- * (lib/loaiChietKhau.ts): PXK con "Dang tao phieu" VA (khong can chuyen tien HOAC KTV chua chuyen).
+ * Chi duoc doi loai chiet khau TRUOC KHI Ke toan chot tien - khop `choPhepDoiLoaiChietKhau` o backend
+ * (lib/loaiChietKhau.ts): PXK con "Dang tao phieu" VA Ke toan chua duyet chuyen tien (sua 2026-09-30).
  */
 export function duocDoiLoaiChietKhau(pxk: { trang_thai?: string | null; so_tien_can_chuyen?: number | null; trang_thai_chuyen_tien?: string | null } | null | undefined): boolean {
-  return !!pxk && pxk.trang_thai === "Dang tao phieu" && (pxk.so_tien_can_chuyen == null || pxk.trang_thai_chuyen_tien === "Cho KTV chuyen");
+  return !!pxk && pxk.trang_thai === "Dang tao phieu" && (pxk.so_tien_can_chuyen == null || pxk.trang_thai_chuyen_tien !== "TN da duyet");
 }
 
 /** Don gia goi y theo loai chiet khau HE THONG - cung cong thuc voi thuat toan tien PXK (lib/pxkRecalculate.ts). */

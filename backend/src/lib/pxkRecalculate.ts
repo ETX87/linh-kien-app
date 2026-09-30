@@ -351,7 +351,7 @@ export async function taiTinhPxk(
       ).bind(pxkId, "Da sua tong tien can chuyen", nguoiXuLy, nowVN(), ghiChu).run();
     }
   }
-  // Quy du KTV (migration 0047): tong doi / phieu dang cho tien -> tru quy (du thi tu "Ke toan da duyet"), tong giam
+  // Quy du KTV (migration 0047): tong doi / phieu dang cho tien -> tru quy (du thi "KTV da chuyen" cho Ke toan xac nhan), tong giam
   // duoi so da tra -> hoan phan thua ve quy. Khong lech thi khong ghi gi.
   if (capNhatTongTien && pxk.trang_thai_hien_tai === "Dang tao phieu") await canBangPxk(db, pxkId, nguoiCanBangQuy);
 
