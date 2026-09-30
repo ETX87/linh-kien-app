@@ -337,6 +337,13 @@ export function useLinhKienRankMap(): Map<string, number> {
 // duoi) - KHONG doi API/hanh_dong backend (van la "tu_choi", he thong van tu quyet dinh ket qua dua
 // vao ly_do_cham_id da chon, dung y CHOT 2026-08-14). Chi ap dung o buoc "Cho TN duyet" (buoc duy
 // nhat co the ra "Cho hang" - xem applyDonHangLog backend), Tram/TBP khong co.
+export function laChoHangMoKhoa(d: Pick<DonHangRow, "trang_thai" | "kho_dang_xu_ly_thieu_lk" | "loai_don">): boolean {
+  return d.trang_thai === "Cho hang" && d.loai_don !== "tra_hang" && !d.kho_dang_xu_ly_thieu_lk;
+}
+export function laChoHangBiKhoa(d: Pick<DonHangRow, "trang_thai" | "kho_dang_xu_ly_thieu_lk">): boolean {
+  return d.trang_thai === "Cho hang" && !!d.kho_dang_xu_ly_thieu_lk;
+}
+
 export function actionsFor(
   d: DonHangRow,
   ctx: { canTacNghiep: boolean; canTPDvbhXacNhan?: boolean; canActAsTram: boolean; currentEmail: string; isAdmin?: boolean },
@@ -357,7 +364,9 @@ export function actionsFor(
     return { duyet: !!ctx.canTPDvbhXacNhan, tuChoi: !!ctx.canTPDvbhXacNhan, choHang: false, huy: canHuy };
   }
   // MO RONG (phan hoi 2026-09-28): TN co them quyen Huy o "Cho TN duyet" (truoc chi nguoi tao/Admin).
-  if (d.trang_thai === "Cho TN duyet") {
+  // "Cho hang" (chot 2026-09-30): Kho CHUA tiep nhan ticket (hoac ticket da dong) -> thao tac nhu don "Cho TN duyet",
+  // ticket dang cho tu huy (backend applyDonHangLog); Kho DA tiep nhan -> khoa, cho Kho xu ly (xem laChoHangBiKhoa).
+  if (d.trang_thai === "Cho TN duyet" || laChoHangMoKhoa(d)) {
     return { duyet: ctx.canTacNghiep, tuChoi: ctx.canTacNghiep, choHang: ctx.canTacNghiep, huy: canHuy || ctx.canTacNghiep };
   }
   // FIX (phan hoi 2026-09-24: "Đơn đã duyệt chờ tạo xuất bổ sung thêm nút từ chối cho TN") - cho phep

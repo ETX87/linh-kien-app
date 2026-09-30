@@ -35,7 +35,7 @@ import {
 } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
-  LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, trangThaiLabel, canNoRequired, maYcscRequired, pickLdeQuick, emptyDraft,
+  LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, laChoHangMoKhoa, laChoHangBiKhoa, trangThaiLabel, canNoRequired, maYcscRequired, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
   donGiaSauChietKhau, tienSauChietKhau, giaNiemYet } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink } from "./SharedUi";
@@ -620,6 +620,11 @@ export function DonHangDetailModal({
         </div>
       ) : actions.duyet || actions.tuChoi || actions.choHang || actions.huy ? (
         <div className="w-full space-y-2">
+          {laChoHangMoKhoa(d) && (
+            <div className="text-[11.5px] text-[var(--color-text-secondary)]">
+              Kho chưa tiếp nhận ticket thiếu hàng{thieuLk?.id ? ` ${thieuLk.id}` : ""} — thao tác trên đơn sẽ tự hủy ticket đang chờ.
+            </div>
+          )}
           {/* FIX (phan hoi 2026-09-24): them dieu kien actions.duyet - neu khong, dong "TN da duyet"
               (chi con actions.tuChoi, ma_xuat_kho con NULL) co the hien nham o day khi so_luong_thuc_xuat
               da duyet truoc do khac so_luong_de_xuat, dù hanh dong duy nhat kha dung la Tu choi. */}
@@ -670,6 +675,10 @@ export function DonHangDetailModal({
           )}
           {actions.huy && <Btn size="sm" variant="ghost" onClick={() => setActionTarget("huy")} disabled={logMutation.isPending}>Hủy</Btn>}
           </div>
+        </div>
+      ) : laChoHangBiKhoa(d) ? (
+        <div className="w-full rounded-lg border border-[var(--color-warning)]/30 bg-[var(--color-warning-soft)] px-2.5 py-1.5 text-[11.5px] font-medium text-[var(--color-warning-strong)]">
+          🔒 Kho đã tiếp nhận ticket thiếu hàng{thieuLk?.id ? ` ${thieuLk.id}` : ""} và đang xử lý — chờ Kho xác nhận hàng về hoặc từ chối, đơn sẽ tự về “Chờ TN duyệt” để thao tác tiếp.
         </div>
       ) : null
     ) : null;
@@ -733,7 +742,7 @@ export function DonHangDetailModal({
                 tuy y truoc do) - chi hien khi con "Cho TN duyet" (dang o buoc duyet) VA SL de xuat > 1
                 (dung dieu kien nguoi dung neu). Doi gia tri thi bat buoc nhap ly do (xem
                 soLuongThucXuatDaDoi/disabled cua nut Duyet ben duoi). */}
-            {canTacNghiep && d.trang_thai === "Cho TN duyet" && d.so_luong_de_xuat > 1 ? (
+            {canTacNghiep && (d.trang_thai === "Cho TN duyet" || laChoHangMoKhoa(d)) && d.so_luong_de_xuat > 1 ? (
               <QuickStat
                 label="SL thực xuất"
                 value={
@@ -748,7 +757,7 @@ export function DonHangDetailModal({
                 tone={soLuongThucXuatDaDoi ? undefined : "green"}
               />
             ) : (
-              d.trang_thai !== "Cho TN duyet" && (
+              d.trang_thai !== "Cho TN duyet" && !(canTacNghiep && laChoHangMoKhoa(d)) && (
                 // FIX (phan hoi 2026-09-21: "các thông tin đơn hàng đang thiếu sl thực xuất") - o tren
                 // chi hien Ô NHẬP luc dang o buoc "Cho TN duyet" - sau khi qua buoc do (don da duoc
                 // duyet) thi khong con hien SL thuc xuat o dau ca, kieu ca khi TN GIU NGUYEN so voi de

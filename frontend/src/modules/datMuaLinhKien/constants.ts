@@ -17,6 +17,7 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   STATE_CHANGED: "Trạng thái vừa bị người khác thay đổi — tải lại trang và thử lại",
   DA_DONG: "Dòng này đã đóng, không thể xử lý tiếp",
   DONG_DA_DONG: "Dòng này đã đóng, không thể xử lý tiếp",
+  THIEU_LK_KHO_DANG_XU_LY: "Kho đã tiếp nhận ticket thiếu hàng và đang xử lý — chờ Kho xác nhận hàng về hoặc từ chối rồi mới thay đổi được đơn",
   PHIEU_DA_DONG: "Phiếu này đã đóng, không thể xử lý tiếp",
   INVALID_STATE: "Trạng thái hiện tại không cho phép thao tác này",
   INVALID_SO_TIEN_THUC_NHAN: "Số tiền thực nhận phải là số nguyên lớn hơn 0",
@@ -81,6 +82,7 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
 export const BULK_LOG_ERROR_MESSAGES: Record<string, string> = {
   NOT_FOUND: "không tìm thấy dòng đơn hàng",
   DONG_DA_DONG: "dòng đã đóng",
+  THIEU_LK_KHO_DANG_XU_LY: "Kho đang xử lý ticket thiếu hàng",
   FORBIDDEN_ROLE: "không đủ quyền xử lý",
   INVALID_STATE: "sai trạng thái hiện tại",
   USE_TRA_HANG_ROUTE: "dòng trả hàng dùng tab riêng",
