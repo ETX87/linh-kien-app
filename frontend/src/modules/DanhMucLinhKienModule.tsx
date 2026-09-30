@@ -324,7 +324,7 @@ function PartHeroImage({ url, alt, onZoom }: { url: string | null; alt: string; 
 // Drawer truot tu phai - man hinh "XEM" chi tiet 1 linh kien, tach rieng voi Modal "SUA" (form) o
 // duoi: xem la thao tac tra cuu nhanh (bam vao dong/thumbnail trong bang), khong nen dung chung
 // giao dien voi form chinh sua de tranh nguoi dung tuong nham co the sua ngay tai day.
-function PartDetailDrawer({ part, onClose, onEdit, canEdit }: { part: LinhKienRow | null; onClose: () => void; onEdit: () => void; canEdit: boolean }) {
+function PartDetailDrawer({ part, onClose, onEdit, canEdit, chiGiaNiemYet }: { part: LinhKienRow | null; onClose: () => void; onEdit: () => void; canEdit: boolean; chiGiaNiemYet: boolean }) {
   const personDir = usePersonDirectory();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   useEffect(() => setLightboxOpen(false), [part?.ma_linh_kien]);
@@ -345,9 +345,11 @@ function PartDetailDrawer({ part, onClose, onEdit, canEdit }: { part: LinhKienRo
     // hien rieng 1 dong "Mã linh kiện" o day de tra cuu/copy nhanh du ten co chua ma hay khong.
     { label: "Mã linh kiện", value: <span className="font-mono font-semibold text-[var(--ocean-700)]">{part.ma_linh_kien}</span> },
     { label: "Giá NY", value: <span className="font-mono font-semibold text-[var(--green-700)]"><Money>{fmtVND(part.gia_ban)}</Money></span> },
-    { label: "Giá KTV", value: <span className="font-mono font-semibold text-[var(--green-700)]"><Money>{fmtVND(part.gia_tri_cong_no)}</Money></span> },
-    { label: "Giá dự phòng", value: <span className="font-mono text-[var(--ink-600)]"><Money>{fmtVND(part.gia_du_phong)}</Money></span> },
-    { label: "Giá EU", value: <span className="font-mono text-[var(--ink-600)]"><Money>{fmtVND(part.gia_eu)}</Money></span> },
+    ...(chiGiaNiemYet ? [] : [
+      { label: "Giá KTV", value: <span className="font-mono font-semibold text-[var(--green-700)]"><Money>{fmtVND(part.gia_tri_cong_no)}</Money></span> },
+      { label: "Giá dự phòng", value: <span className="font-mono text-[var(--ink-600)]"><Money>{fmtVND(part.gia_du_phong)}</Money></span> },
+      { label: "Giá EU", value: <span className="font-mono text-[var(--ink-600)]"><Money>{fmtVND(part.gia_eu)}</Money></span> },
+    ]),
     { label: "Phân loại", value: part.don_vi ?? "—" },
     ...(part.nhan_hang?.trim() ? [{ label: "Nhãn hàng", value: part.nhan_hang.trim() }] : []),
     ...(part.thiet_bi?.trim() ? [{ label: "Thiết bị", value: part.thiet_bi.trim() }] : []),
@@ -466,6 +468,11 @@ function DanhMucTab() {
   // backend routes/gia88Sync.ts CHI cho Admin (requireRole("Admin"), khong nhan quan_ly_danh_muc_lk) -
   // an nut voi nguoi khong phai Admin de tranh "bam thi bao loi" (cung tinh than voi canWrite o tren).
   const isAdmin = authUser?.vai_tro === "Admin";
+  // Chot 2026-09-30 ("trong bảng giá: chỉ hiện giá niêm yết cho ktv, ẩn các giá còn lại"): KTV/Ve tinh
+  // (khong quan ly danh muc) chi thay "Giá NY" - an Giá KTV/dự phòng/EU o bang + drawer chi tiet. Cung
+  // dieu kien voi nut Xuat Excel ben duoi. CHI an o Bang gia - man tao don (LinhKienPicker, canh bao
+  // cong no) van dung gia_tri_cong_no nen API khong cat truong nay.
+  const chiGiaNiemYet = !!(authUser?.la_ktv_dvbh || authUser?.la_ve_tinh) && !canWrite;
   const personDir = usePersonDirectory();
   // Them (ra soat UI 2026-08-27, hang muc #5): cot "Lượt dùng 30 ngày" - tai dung DU LIEU DA CO SAN
   // (GET /dat-mua-lk/xep-hang-linh-kien, tinh 1 lan/ngay o backend, dang dung cho goi y trong
@@ -778,7 +785,7 @@ function DanhMucTab() {
     }
   }
 
-  const columns: Column<LinhKienRow>[] = [
+  const tatCaCot: Column<LinhKienRow>[] = [
     { key: "ma_linh_kien", header: "Mã", render: (p) => <span className="font-mono text-xs">{p.ma_linh_kien}</span> },
     { key: "ten_linh_kien", header: "Tên linh kiện", render: (p) => <span className="font-semibold text-[var(--ocean-800)]">{p.ten_linh_kien}</span> },
     { key: "gia_ban", header: "Giá NY", render: (p) => <span className="font-mono font-semibold text-[var(--green-700)]"><Money>{fmtVND(p.gia_ban)}</Money></span> },
@@ -847,6 +854,9 @@ function DanhMucTab() {
         ) : null,
     },
   ];
+  const columns = chiGiaNiemYet
+    ? tatCaCot.filter((c) => c.key !== "gia_tri_cong_no" && c.key !== "gia_du_phong" && c.key !== "gia_eu")
+    : tatCaCot;
 
   return (
     <div>
@@ -1288,7 +1298,7 @@ function DanhMucTab() {
         </div>
       </Modal>
 
-      <PartDetailDrawer part={viewingRow} onClose={() => setViewingMa(null)} onEdit={() => { if (viewingRow) openEdit(viewingRow); }} canEdit={canWrite} />
+      <PartDetailDrawer part={viewingRow} onClose={() => setViewingMa(null)} onEdit={() => { if (viewingRow) openEdit(viewingRow); }} canEdit={canWrite} chiGiaNiemYet={chiGiaNiemYet} />
     </div>
   );
 }

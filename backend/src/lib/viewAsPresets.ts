@@ -33,6 +33,8 @@ export function isViewAsRole(v: unknown): v is ViewAsRole {
  * "tram": la_tram FORCE true (khac cac co con lai deu tu AppUser that) - vi la_tram tinh THAT qua
  * query "co Ve tinh nao tro tram_cha ve email nay" (xem routes/auth.ts /me), Admin that gan nhu
  * chac chan khong co Ve tinh nao ca nen khong the test duoc buoc "Cho Tram duyet" neu khong force. */
+// ktv/ve_tinh/tram bat xem_danh_muc_lk (2026-09-30): moi tai khoan KTV/Ve tinh THAT deu co co nay
+// (Bang gia) - thieu thi Admin "xem thu" khong thay menu Bang gia nhu KTV that.
 export function applyViewAsOverride(user: AppUser, role: ViewAsRole): AppUser {
   const base: AppUser = {
     ...user,
@@ -50,11 +52,11 @@ export function applyViewAsOverride(user: AppUser, role: ViewAsRole): AppUser {
   };
   switch (role) {
     case "ktv":
-      return { ...base, la_ktv_dvbh: true };
+      return { ...base, la_ktv_dvbh: true, xem_danh_muc_lk: true };
     case "ve_tinh":
-      return { ...base, la_ve_tinh: true };
+      return { ...base, la_ve_tinh: true, xem_danh_muc_lk: true };
     case "tram":
-      return { ...base, la_ktv_dvbh: true, la_tram: true };
+      return { ...base, la_ktv_dvbh: true, la_tram: true, xem_danh_muc_lk: true };
     case "kho":
       return { ...base, la_kho: true };
     case "ke_toan":
