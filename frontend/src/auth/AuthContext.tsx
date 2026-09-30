@@ -41,7 +41,8 @@ type AuthState =
   // realIsAdmin/viewAsRole: "xem thu vai tro" (Admin-only, xem TopBar.tsx) - realIsAdmin phan anh
   // tai khoan THAT (khong doi du dang "xem thu" vai tro nao), viewAsRole la preset dang ap dung
   // (null = dang la chinh Admin that, khong "xem thu" gi).
-  | { status: "authenticated"; user: AppUser; realIsAdmin: boolean; viewAsRole: ViewAsRole | null };
+  // viewAsUser (2026-09-30): Admin dang "xem nhu nguoi dung" - user = CHINH tai khoan do, chi doc (layout/XemNhuNguoiDung.tsx).
+  | { status: "authenticated"; user: AppUser; realIsAdmin: boolean; viewAsRole: ViewAsRole | null; viewAsUser: { email: string; ten: string | null } | null };
 
 interface AuthContextValue {
   state: AuthState;
@@ -60,8 +61,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await fetch("/api/auth/me", { credentials: "include" });
       if (cancelledRef?.current) return;
       if (res.ok) {
-        const { user, realIsAdmin, viewAsRole } = (await res.json()) as { user: AppUser; realIsAdmin: boolean; viewAsRole: ViewAsRole | null };
-        setState({ status: "authenticated", user, realIsAdmin, viewAsRole });
+        const { user, realIsAdmin, viewAsRole, viewAsUser } = (await res.json()) as {
+          user: AppUser;
+          realIsAdmin: boolean;
+          viewAsRole: ViewAsRole | null;
+          viewAsUser?: { email: string; ten: string | null } | null;
+        };
+        setState({ status: "authenticated", user, realIsAdmin, viewAsRole, viewAsUser: viewAsUser ?? null });
         return;
       }
       const body = (await res.json().catch(() => ({}))) as { error?: string };

@@ -128,6 +128,10 @@ declare module "hono" {
     // viewAsPresets.ts (file do da import AppUser tu day).
     realIsAdmin: boolean;
     viewAsRole: string | null;
+    // "Xem như người dùng" (2026-09-30, Admin-only, CHI DOC) - xem middleware/loadUser.ts. Khac viewAsRole (chi doi bo
+    // co quyen, giu email Admin): o day `user` la CHINH tai khoan duoc chon (email/co/khu vuc...), moi request ghi bi chan.
+    viewAsUser: { email: string; ten: string | null } | null;
+    realEmail: string;
     // Xac thuc router /api/partner (xem middleware/lib/partnerApiAuth.ts) - he thong doi tac dang
     // goi API, khac hoan toan "user" (khong co tai khoan Google/session o day).
     partnerKey: { id: number; ten_he_thong: string };

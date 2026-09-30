@@ -3,6 +3,8 @@ import type { AppUser } from "../auth/AuthContext";
 import { VIEW_AS_ROLES, type ViewAsRole } from "../auth/viewAsRoles";
 import { api } from "../api/client";
 import { formatPersonDisplay, usePersonDirectory } from "../lib/personDisplay";
+import { useAuth } from "../auth/AuthContext";
+import { XemNhuNguoiDungModal } from "./XemNhuNguoiDung";
 
 // Tach tu TopBar.tsx (hang muc #15, 2026-08-25: "mobile mặc định bỏ top, ấn menu ở bottom mới hiện")
 // - avatar/tai khoan gio dung CHUNG duoc o CA TopBar (desktop) lan Sidebar (mobile off-canvas, mo qua
@@ -43,7 +45,10 @@ export function TopBarActions({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [moXemNhu, setMoXemNhu] = useState(false);
   const personDir = usePersonDirectory();
+  const auth = useAuth();
+  const viewAsUser = auth.status === "authenticated" ? auth.viewAsUser : null;
 
   useEffect(() => {
     function onClickOutside() {
@@ -139,6 +144,16 @@ export function TopBarActions({
                     </option>
                   ))}
                 </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setMoXemNhu(true);
+                  }}
+                  className="focus-ring mt-2 w-full rounded-md border border-[var(--line)] px-2 py-1.5 text-left text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]"
+                >
+                  👤 {viewAsUser ? "Đổi người đang xem như…" : "Xem như người dùng…"}
+                </button>
               </div>
             )}
             <button onClick={logout} className="w-full text-left px-3.5 py-2 text-sm hover:bg-[var(--color-danger-soft)] text-[var(--color-danger-strong)]">
@@ -147,6 +162,7 @@ export function TopBarActions({
           </div>
         )}
       </div>
+      {realIsAdmin && <XemNhuNguoiDungModal open={moXemNhu} onClose={() => setMoXemNhu(false)} dangXem={viewAsUser?.email ?? null} />}
     </div>
   );
 }

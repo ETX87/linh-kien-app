@@ -4,6 +4,7 @@ import { khoiDongCacheTinh, theoDoiPhienBan } from "./lib/tinhCache";
 import { useAuth } from "./auth/AuthContext";
 import type { ViewAsRole } from "./auth/viewAsRoles";
 import { VIEW_AS_LABELS } from "./auth/viewAsRoles";
+import { doiXemNhu } from "./layout/XemNhuNguoiDung";
 import { LoginScreen } from "./login/LoginScreen";
 import { Sidebar } from "./layout/Sidebar";
 import { TopBarActions } from "./layout/TopBarActions";
@@ -70,8 +71,8 @@ export function App() {
   if (auth.status === "disabled") return <LoginScreen variant="disabled" />;
 
   return (
-    <CacheTinhGate scope={`${auth.user.email}|${auth.viewAsRole ?? ""}`}>
-      <MainApp user={auth.user} realIsAdmin={auth.realIsAdmin} viewAsRole={auth.viewAsRole} />
+    <CacheTinhGate scope={`${auth.user.email}|${auth.viewAsRole ?? ""}${auth.viewAsUser ? "|xem-nhu" : ""}`}>
+      <MainApp user={auth.user} realIsAdmin={auth.realIsAdmin} viewAsRole={auth.viewAsRole} viewAsUser={auth.viewAsUser} />
     </CacheTinhGate>
   );
 }
@@ -106,10 +107,12 @@ function MainApp({
   user,
   realIsAdmin,
   viewAsRole,
+  viewAsUser,
 }: {
   user: Extract<ReturnType<typeof useAuth>, { status: "authenticated" }>["user"];
   realIsAdmin: boolean;
   viewAsRole: ViewAsRole | null;
+  viewAsUser: { email: string; ten: string | null } | null;
 }) {
   const role = user.vai_tro;
   // Tai khoan "chi Dat mua linh kien" - vai_tro=NULL CO CHU DICH (KTV/CTV/Tram/Ve tinh/Kho/Ke toan),
@@ -343,6 +346,17 @@ function MainApp({
         {/* Banner "xem thu vai tro" (phan hoi 2026-08-20) - LUON hien khi viewAsRole != null, ke ca
             khi cuon xuong tab khac, de khong bao gio quen minh dang thao tac duoi 1 profile quyen bi
             gioi han (hanh dong ghi that vao DB, khong phai sandbox rieng - xem lib/viewAsPresets.ts). */}
+        {/* "Xem như người dùng" (2026-09-30) - chi doc, xem layout/XemNhuNguoiDung.tsx. */}
+        {viewAsUser && (
+          <div className="bg-[var(--color-primary)] text-white text-xs font-semibold px-4 py-1.5 flex items-center justify-center gap-3 flex-wrap text-center">
+            <span>
+              👤 Đang xem như <strong>{viewAsUser.ten || viewAsUser.email}</strong> ({viewAsUser.email}) — thấy đúng menu, dữ liệu và quyền của người này. Chỉ xem, không thao tác được.
+            </span>
+            <button type="button" onClick={() => doiXemNhu(null)} className="focus-ring underline underline-offset-2 shrink-0">
+              Thoát về Admin
+            </button>
+          </div>
+        )}
         {viewAsRole && (
           <div className="bg-[var(--amber-500)] text-white text-xs font-semibold px-4 py-1.5 flex items-center justify-center gap-3 flex-wrap text-center">
             <span>

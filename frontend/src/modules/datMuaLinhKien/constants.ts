@@ -12,6 +12,7 @@ import type { Tone } from "../../components/x/Badge";
 // ma tho kem tien to giai thich (van giu ma de ho tro/debug doi chieu duoc).
 export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   FORBIDDEN_ROLE: "Bạn không có quyền thực hiện thao tác này",
+  XEM_NHU_CHI_DOC: "Đang xem như người dùng khác (chỉ xem) — thoát chế độ này để thao tác",
   MODULE_NOT_ALLOWED: "Tài khoản của bạn không có quyền truy cập module này",
   NOT_FOUND: "Không tìm thấy dữ liệu (có thể đã bị xoá hoặc thay đổi)",
   STATE_CHANGED: "Trạng thái vừa bị người khác thay đổi — tải lại trang và thử lại",

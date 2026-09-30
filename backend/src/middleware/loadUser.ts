@@ -7,6 +7,11 @@ import { applyViewAsOverride, isViewAsRole } from "../lib/viewAsPresets";
 // routes/auth.ts POST /view-as. Dat const o day (khong phai viewAsPresets.ts) vi day la noi DUY
 // NHAT doc cookie nay, viewAsPresets.ts chi chua logic override thuan tuy khong dung Hono Context.
 export const VIEW_AS_COOKIE = "dvbh_view_as";
+// "Xem như người dùng" (2026-09-30): cookie chua EMAIL tai khoan Admin muon xem nhu - xem cuoi loadUser().
+export const VIEW_AS_USER_COOKIE = "dvbh_view_as_user";
+
+// Request ghi van cho phep khi dang "xem nhu nguoi dung" - chi cac duong doi/thoat che do xem + dang xuat.
+const XEM_NHU_CHO_GHI = new Set(["/api/auth/view-as", "/api/auth/view-as-user", "/api/auth/logout"]);
 
 interface UserRow {
   email: string;
@@ -63,7 +68,49 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
     return c.json({ error: "REJECTED" }, 403);
   }
 
-  const user: AppUser = {
+  const user = toAppUser(row);
+  const realIsAdmin = user.vai_tro === "Admin";
+  c.set("realIsAdmin", realIsAdmin);
+  c.set("realEmail", user.email);
+  c.set("viewAsUser", null);
+
+  // "Xem như người dùng" (2026-09-30, phan hoi "chon nhan vien A -> thay dung nhung gi he thong show va cap quyen cho
+  // A, de test va huong dan nguoi dung"): CHI Admin THAT (doi chieu DB o moi request, khong tin cookie). `user` duoc
+  // THAY HAN bang tai khoan A (email, co quyen, tram_cha, giam_sat_quan_ly...) nen moi scope/badge/menu doc
+  // user.email tu dung nhu A. CHI DOC: moi request khong phai GET/HEAD bi chan (tru doi/thoat che do + dang xuat) -
+  // neu cho ghi, don/log se mang email A du nguoi bam la Admin (gia mao danh tinh trong du lieu). Uu tien hon
+  // viewAsRole. Tai khoan A bi khoa/chua duyet/khong ton tai -> bo qua (ve Admin that).
+  const viewAsEmail = realIsAdmin ? getCookie(c, VIEW_AS_USER_COOKIE) : undefined;
+  if (viewAsEmail && viewAsEmail !== user.email) {
+    const target = await c.env.DB.prepare(`SELECT ${USER_COLUMNS} FROM users WHERE email = ?`).bind(viewAsEmail).first<UserRow>();
+    if (target && !target.bi_khoa && target.trang_thai_duyet === "Da duyet") {
+      const method = c.req.method;
+      if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS" && !XEM_NHU_CHO_GHI.has(c.req.path)) {
+        return c.json({ error: "XEM_NHU_CHI_DOC" }, 403);
+      }
+      c.set("viewAsRole", null);
+      c.set("viewAsUser", { email: target.email, ten: target.ten });
+      c.set("user", toAppUser(target));
+      await next();
+      return;
+    }
+  }
+
+  // "Xem thu vai tro" - CHI ap dung khi DB row THAT (chua bi override) la Admin, doc lai tu `user`
+  // o tren (chua qua override nao) nen khong the chong override lien tuc du cookie con gia tri cu.
+  const viewAsCookie = getCookie(c, VIEW_AS_COOKIE);
+  if (realIsAdmin && isViewAsRole(viewAsCookie)) {
+    c.set("viewAsRole", viewAsCookie);
+    c.set("user", applyViewAsOverride(user, viewAsCookie));
+  } else {
+    c.set("viewAsRole", null);
+    c.set("user", user);
+  }
+  await next();
+}
+
+function toAppUser(row: UserRow): AppUser {
+  return {
     email: row.email,
     ten: row.ten,
     vai_tro: row.vai_tro,
@@ -86,18 +133,4 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
     nhan_tb_lien_quan: !!row.nhan_tb_lien_quan,
     nhan_tb_theo_doi: !!row.nhan_tb_theo_doi,
   };
-
-  // "Xem thu vai tro" - CHI ap dung khi DB row THAT (chua bi override) la Admin, doc lai tu `user`
-  // o tren (chua qua override nao) nen khong the chong override lien tuc du cookie con gia tri cu.
-  const realIsAdmin = user.vai_tro === "Admin";
-  c.set("realIsAdmin", realIsAdmin);
-  const viewAsCookie = getCookie(c, VIEW_AS_COOKIE);
-  if (realIsAdmin && isViewAsRole(viewAsCookie)) {
-    c.set("viewAsRole", viewAsCookie);
-    c.set("user", applyViewAsOverride(user, viewAsCookie));
-  } else {
-    c.set("viewAsRole", null);
-    c.set("user", user);
-  }
-  await next();
 }

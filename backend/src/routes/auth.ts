@@ -3,7 +3,8 @@ import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { Env } from "../types";
 import { signSession } from "../lib/jwt";
 import { verifySessionMiddleware, SESSION_COOKIE, SESSION_TTL_SECONDS } from "../middleware/session";
-import { loadUser, VIEW_AS_COOKIE } from "../middleware/loadUser";
+import { loadUser, VIEW_AS_COOKIE, VIEW_AS_USER_COOKIE } from "../middleware/loadUser";
+import { tenNguoiSql } from "../lib/tenNguoi";
 import { nowVN } from "../lib/vnTime";
 import { isViewAsRole } from "../lib/viewAsPresets";
 import { resyncKhuVucDerivedFieldsForEmail } from "../lib/khuVucSync";
@@ -188,6 +189,7 @@ auth.get("/dev-login", async (c) => {
 
 auth.post("/logout", async (c) => {
   deleteCookie(c, SESSION_COOKIE, { path: "/" });
+  deleteCookie(c, VIEW_AS_USER_COOKIE, { path: "/" });
   return c.json({ ok: true });
 });
 
@@ -199,6 +201,7 @@ auth.get("/me", verifySessionMiddleware, loadUser, async (c) => {
   const user = c.get("user");
   const viewAsRole = c.get("viewAsRole");
   const realIsAdmin = c.get("realIsAdmin");
+  const viewAsUser = c.get("viewAsUser");
 
   // GD4 (phan hoi Codex #16/#17, module Dat mua linh kien): "la_tram" TINH THAT (co it nhat 1 Ve
   // tinh voi tram_cha = email minh), cung dung 1 query voi notifications.ts (routes/notifications.ts
@@ -216,7 +219,8 @@ auth.get("/me", verifySessionMiddleware, loadUser, async (c) => {
     la_tram = !!laTramRow;
   }
 
-  return c.json({ user: { ...user, la_tram }, realIsAdmin, viewAsRole });
+  // viewAsUser (2026-09-30): dang "xem nhu nguoi dung" - user = tai khoan do (la_tram o tren tinh theo email do).
+  return c.json({ user: { ...user, la_tram }, realIsAdmin, viewAsRole, viewAsUser, realEmail: c.get("realEmail") });
 });
 
 // PATCH /api/auth/me/thong-bao-prefs - tu bat/tat 3 loai thong bao "viec moi theo vai tro + khu vuc"
@@ -250,6 +254,8 @@ auth.post("/view-as", verifySessionMiddleware, loadUser, async (c) => {
   const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
   const role = (body as { role?: unknown }).role;
 
+  // Chon vai tro mau -> thoat "xem nhu nguoi dung" (2 che do khong chong nhau).
+  deleteCookie(c, VIEW_AS_USER_COOKIE, { path: "/" });
   if (role === null || role === undefined || role === "") {
     deleteCookie(c, VIEW_AS_COOKIE, { path: "/" });
     return c.json({ ok: true });
@@ -263,6 +269,45 @@ auth.post("/view-as", verifySessionMiddleware, loadUser, async (c) => {
     maxAge: SESSION_TTL_SECONDS,
     path: "/",
   });
+  return c.json({ ok: true });
+});
+
+// "Xem như người dùng" (2026-09-30, Admin-only, CHI DOC - xem middleware/loadUser.ts). Dat o /api/auth (khong phai
+// /api/users) vi router users khoa requireRole("Admin") theo `user` DANG XEM - Admin dang xem nhu 1 KTV van phai doi
+// sang nguoi khac/thoat duoc. Moi check dung realIsAdmin (tai khoan THAT).
+//
+// GET /api/auth/view-as-user/options - MOI tai khoan Da duyet, chua khoa (tru chinh Admin that); FE loc khong dau (khopTim).
+auth.get("/view-as-user/options", verifySessionMiddleware, loadUser, async (c) => {
+  if (!c.get("realIsAdmin")) return c.json({ error: "FORBIDDEN" }, 403);
+  const ten = tenNguoiSql("tk.email"); // alias "tk": tenNguoiSql ben trong da dung alias u/k
+  const { results } = await c.env.DB.prepare(
+    `SELECT tk.email, ${ten} as ten, tk.vai_tro, tk.la_ktv_dvbh, tk.la_ve_tinh, tk.la_kho, tk.la_ke_toan, tk.la_tac_nghiep,
+            tk.la_tp_dvbh, tk.la_view, tk.la_mua_hang
+     FROM users tk
+     WHERE tk.trang_thai_duyet = 'Da duyet' AND COALESCE(tk.bi_khoa, 0) = 0 AND tk.email != ?
+     ORDER BY ${ten} LIMIT 2000`,
+  )
+    .bind(c.get("realEmail"))
+    .all();
+  return c.json({ rows: results });
+});
+
+// POST /api/auth/view-as-user { email | null } - bat/doi/thoat che do xem nhu nguoi dung.
+auth.post("/view-as-user", verifySessionMiddleware, loadUser, async (c) => {
+  if (!c.get("realIsAdmin")) return c.json({ error: "FORBIDDEN" }, 403);
+  const body = await c.req.json<{ email?: string | null }>().catch(() => ({}) as { email?: string | null });
+  const email = body.email?.trim();
+  if (!email || email === c.get("realEmail")) {
+    deleteCookie(c, VIEW_AS_USER_COOKIE, { path: "/" });
+    return c.json({ ok: true });
+  }
+  const target = await c.env.DB.prepare("SELECT trang_thai_duyet, bi_khoa FROM users WHERE email = ?")
+    .bind(email)
+    .first<{ trang_thai_duyet: string; bi_khoa: number }>();
+  if (!target) return c.json({ error: "NOT_FOUND" }, 404);
+  if (target.bi_khoa || target.trang_thai_duyet !== "Da duyet") return c.json({ error: "TAI_KHOAN_KHONG_HOAT_DONG" }, 400);
+  deleteCookie(c, VIEW_AS_COOKIE, { path: "/" });
+  setCookie(c, VIEW_AS_USER_COOKIE, email, { httpOnly: true, secure: true, sameSite: "Lax", maxAge: SESSION_TTL_SECONDS, path: "/" });
   return c.json({ ok: true });
 });
 
