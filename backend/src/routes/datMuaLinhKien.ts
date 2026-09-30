@@ -1,4 +1,4 @@
-import { soDuQuy, thongBaoHoanQuyPhieuHuy } from "../lib/quyKtv";
+import { phanBoQuy, soDuQuy, thongBaoHoanQuyPhieuHuy } from "../lib/quyKtv";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { Env } from "../types";
@@ -3293,6 +3293,11 @@ async function applyDonHangLog(
   } else if (nextTrangThai === "TN tu choi" || nextTrangThai === "Da huy") {
     const lyDo = ghiChu?.trim() ? `: ${ghiChu.trim()}` : "";
     await dongThieuLkMoCuaDon(c.env.DB, donHangId, "Da huy bo", user.email, `Tự động đóng: ${nextTrangThai === "Da huy" ? "đơn gốc bị hủy" : "TN từ chối đơn gốc"}${lyDo}`);
+  }
+  // Don dang mang tien da thanh toan (migration 0056) bi tu choi/huy -> trigger trg_ddh_hoan_tien_da_tra da hoan ve quy
+  // -> phan bo tiep cho phieu "Cho KTV chuyen" cu nhat cua cung nguoi (giu bat bien quy).
+  if ((nextTrangThai === "TN tu choi" || nextTrangThai === "Da huy") && ddh.nguoi_nhan_hang) {
+    await phanBoQuy(c.env.DB, ddh.nguoi_nhan_hang, user.email);
   }
 
   // Roi "TN da duyet" khi dang nam trong PXK -> go khoi phieu (KTV tu huy: luon huy phieu neu trong; TN: theo

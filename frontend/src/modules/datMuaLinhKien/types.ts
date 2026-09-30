@@ -109,6 +109,8 @@ export interface DonHangRow {
   chinh_sach: string | null;
   ma_yeu_cau_su_co: string | null;
   ma_lada?: string | null; // "Mã Lada liên quan" (migration 0054)
+  tien_da_tra?: number; // tien da thanh toan don MANG THEO khi chua vao phieu (migration 0056)
+  tien_da_tra_pxk?: string | null;
   uu_tien: number;
   trang_thai?: string | null;
   // Cot goc "dat_don_hang.trang_thai_hien_tai" (khac "trang_thai" o tren - vai noi API tra ve qua
@@ -215,6 +217,8 @@ export interface DonHangKhaDungRow {
   ma_yeu_cau_su_co?: string | null;
   ma_lada?: string | null;
   yeu_cau_hoa_don?: string | null;
+  tien_da_tra?: number;
+  tien_da_tra_pxk?: string | null;
   ten_lk_snapshot: string | null;
   so_luong_de_xuat: number;
   gia_chot: number | null;

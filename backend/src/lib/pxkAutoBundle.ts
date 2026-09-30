@@ -15,7 +15,7 @@ import { nowVN } from "./vnTime";
 import { nextSequentialId } from "./idCounter";
 import { notifyWorkflowTask, emailGsListForPxk, PXK_ROLES } from "./taskNotify";
 import { taiTinhPxk } from "./pxkRecalculate";
-import { moTaCanChuyen, tienPhieuVaQuy } from "./quyKtv";
+import { lenhNhanTienDaTraDon, moTaCanChuyen, tienPhieuVaQuy } from "./quyKtv";
 
 // Trung voi ham cung ten (khong export) trong routes/phieuXuatKho.ts - giu RIENG o day (khong import
 // tu file routes) de lib/ khong phu thuoc nguoc vao routes/, dung quy uoc lop kien truc san co.
@@ -79,6 +79,7 @@ export async function bundleAutoApprovedIntoPxk(
     statements.push(
       db.prepare("INSERT INTO phieu_xuat_kho_dong (phieu_xuat_kho_id, dat_don_hang_id) VALUES (?, ?)").bind(pxkId, l.donHangId),
       db.prepare("UPDATE dat_don_hang SET ma_xuat_kho = ?, updated_at = ? WHERE id = ?").bind(maXuatKho, now, l.donHangId),
+      ...lenhNhanTienDaTraDon(db, pxkId, l.donHangId, actorEmail, now),
     );
   }
 

@@ -566,3 +566,21 @@ export async function thongBaoHoanQuyPhieuHuy(env: Env, db: D1Database, pxkId: s
     linkId: pxkId,
   });
 }
+
+/** Don dang MANG tien da thanh toan (dat_don_hang.tien_da_tra, migration 0056 - TN bo don khoi phieu da tra tien, chon
+ * "Đã thanh toán") vao 1 phieu -> chuyen tien sang da_thanh_toan cua phieu, xoa o don + ghi log phieu. Them vao CUNG batch
+ * voi INSERT phieu_xuat_kho_dong; taiTinhPxk/canBangPxk chay sau do lo phan thua/thieu (thua -> quy, du -> cho Ke toan). */
+export function lenhNhanTienDaTraDon(db: D1Database, pxkId: string, donHangId: string, nguoi: string, now: string): D1PreparedStatement[] {
+  return [
+    db.prepare(
+      `INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu)
+       SELECT ?, 'Da them don vao phieu', ?, ?, 'Đơn ' || id || ' (' || COALESCE(ma_lk, '') || ') mang theo ' || replace(printf('%,d', tien_da_tra), ',', '.') || 'đ đã thanh toán'
+         || COALESCE(' ở phiếu ' || tien_da_tra_pxk, '') || ' → cộng vào tiền đã trả của phiếu'
+       FROM dat_don_hang WHERE id = ? AND tien_da_tra > 0`,
+    ).bind(pxkId, nguoi, now, donHangId),
+    db.prepare(
+      "UPDATE phieu_xuat_kho SET da_thanh_toan = da_thanh_toan + COALESCE((SELECT tien_da_tra FROM dat_don_hang WHERE id = ?), 0) WHERE id = ?",
+    ).bind(donHangId, pxkId),
+    db.prepare("UPDATE dat_don_hang SET tien_da_tra = 0, tien_da_tra_email = NULL, tien_da_tra_pxk = NULL WHERE id = ? AND tien_da_tra > 0").bind(donHangId),
+  ];
+}

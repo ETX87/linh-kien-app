@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
+import { Modal } from "../../components/ui/Modal";
 import { Badge } from "../../components/x/Badge";
 import { Select } from "../../components/ui/Select";
 import { Money } from "../../components/ui/Money";
@@ -41,7 +42,10 @@ export function PxkDongDonHangTable({
   pxkId, pxk, donHang, canTacNghiep, canKeToan, addToast, onOpenDon, onSuaTien, giuPhieuTrong, gon = false,
 }: {
   pxkId: string;
-  pxk: { loai_don?: "mua" | "cong_no" | "tra_hang" | null; trang_thai?: string | null; so_tien_can_chuyen?: number | null; trang_thai_chuyen_tien?: string | null };
+  pxk: {
+    loai_don?: "mua" | "cong_no" | "tra_hang" | null; trang_thai?: string | null; so_tien_can_chuyen?: number | null;
+    trang_thai_chuyen_tien?: string | null; da_thanh_toan?: number | null; ma_misa?: string | null;
+  };
   donHang: DonHangRow[];
   canTacNghiep: boolean;
   canKeToan: boolean;
@@ -95,9 +99,14 @@ export function PxkDongDonHangTable({
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
   });
 
+  // Phieu DA CO TIEN tra (chot 2026-09-30): bo don -> hoi TN don do "Chưa thanh toán" (tien cua don = 0, phan thua hoan
+  // ve quy) hay "Đã thanh toán" (don mang theo tien cua dong, ve "Chờ tạo phiếu" - vao phieu moi duoc tru tien).
+  const [boDonCho, setBoDonCho] = useState<DonHangRow | null>(null);
+  const daTraPhieu = pxk.da_thanh_toan ?? 0;
+  const coMaMisa = !!pxk.ma_misa?.trim();
   const boDonMutation = useMutation({
-    mutationFn: async ({ donHangId, laDonCuoi }: { donHangId: string; laDonCuoi: boolean }) => {
-      await api.delete(`/phieu-xuat-kho/${pxkId}/dong/${donHangId}`);
+    mutationFn: async ({ donHangId, laDonCuoi, giuTien = false }: { donHangId: string; laDonCuoi: boolean; giuTien?: boolean }) => {
+      await api.delete(`/phieu-xuat-kho/${pxkId}/dong/${donHangId}${giuTien ? "?giu_tien=1" : ""}`);
       if (laDonCuoi && !giuPhieuTrong) {
         const r = await api.post<{ ok: true; da_huy: boolean }>(`/phieu-xuat-kho/${pxkId}/huy-neu-trong`, {});
         return r.da_huy;
@@ -105,6 +114,7 @@ export function PxkDongDonHangTable({
       return false;
     },
     onSuccess: (daHuyPhieu) => {
+      setBoDonCho(null);
       lamMoi();
       invalidatePipelineCounts(qc);
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
@@ -310,10 +320,14 @@ export function PxkDongDonHangTable({
       <button
         type="button"
         className="text-[var(--coral-500)] hover:underline disabled:opacity-50"
-        title="Bỏ đơn khỏi phiếu"
-        disabled={boDonMutation.isPending}
+        title={coMaMisa ? "Kế toán đã bổ sung mã MISA — không bỏ đơn khỏi phiếu được nữa" : "Bỏ đơn khỏi phiếu"}
+        disabled={boDonMutation.isPending || coMaMisa}
         onClick={() => {
           const laDonCuoi = donHang.length === 1;
+          if (daTraPhieu > 0 && pxk.loai_don !== "tra_hang") {
+            setBoDonCho(d);
+            return;
+          }
           const canhBaoCuoi = laDonCuoi
             ? giuPhieuTrong
               ? "\n\nĐây là đơn cuối cùng — phiếu trống sẽ tự hủy khi bạn đóng màn phiếu."
@@ -337,11 +351,61 @@ export function PxkDongDonHangTable({
       d.so_luong_thuc_xuat
     );
 
+  const tienDong = boDonCho?.tien_uoc_tinh ?? 0;
+  const hopThoaiBo = (
+    <Modal
+      open={!!boDonCho}
+      onClose={() => !boDonMutation.isPending && setBoDonCho(null)}
+      title={`Bỏ đơn ${boDonCho?.ma_lk ?? ""} khỏi phiếu đã có tiền`}
+      footer={
+        <div className="flex flex-wrap justify-end gap-2">
+          <Btn variant="ghost" disabled={boDonMutation.isPending} onClick={() => setBoDonCho(null)}>Đóng</Btn>
+          <Btn
+            variant="ghost"
+            disabled={boDonMutation.isPending}
+            onClick={() => boDonCho && boDonMutation.mutate({ donHangId: boDonCho.id, laDonCuoi: donHang.length === 1 })}
+          >
+            Đơn chưa thanh toán
+          </Btn>
+          <Btn
+            loading={boDonMutation.isPending}
+            disabled={boDonMutation.isPending || tienDong <= 0}
+            onClick={() => boDonCho && boDonMutation.mutate({ donHangId: boDonCho.id, laDonCuoi: donHang.length === 1, giuTien: true })}
+          >
+            Đơn đã thanh toán
+          </Btn>
+        </div>
+      }
+    >
+      <div className="space-y-3 text-[13px] text-[var(--color-text-body)]">
+        <p>
+          Phiếu đã được trả <b><Money>{fmtVND(daTraPhieu)}</Money></b>. Tiền của đơn này trong phiếu: <b><Money>{fmtVND(tienDong)}</Money></b>.
+        </p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li>
+            <b>Đơn chưa thanh toán</b> — tiền đã thanh toán của đơn = 0. Tổng phiếu giảm, phần đã trả thừa hoàn về quỹ dư của KTV.
+          </li>
+          <li>
+            <b>Đơn đã thanh toán</b> — đơn giữ <b><Money>{fmtVND(Math.min(tienDong, daTraPhieu))}</Money></b> đã trả và về trạng thái "Chờ tạo
+            phiếu". Khi vào phiếu mới, số tiền này được trừ vào tiền cần chuyển của phiếu đó. Đơn bị từ chối/hủy thì tiền tự về quỹ.
+          </li>
+        </ul>
+        {donHang.length === 1 && (
+          <p className="text-[12px] text-[var(--color-text-secondary)]">
+            {giuPhieuTrong ? "Đây là đơn cuối cùng — phiếu trống sẽ tự hủy khi bạn đóng màn phiếu." : "Đây là đơn cuối cùng — phiếu sẽ bị hủy luôn."}
+          </p>
+        )}
+      </div>
+    </Modal>
+  );
+
   if (gon) {
     // Moi o: 1 dong, cat "…" (quy tac bang 1 dong); o co nut/o chon (tien, loai CK, ly do cham) khong cat de khong mat nut.
     const o = "px-2 py-1 align-middle whitespace-nowrap overflow-hidden text-ellipsis";
     const oNut = "px-2 py-1 align-middle whitespace-nowrap";
     return (
+      <>
+      {hopThoaiBo}
       <table className="border-collapse text-[12px] text-[var(--color-text-body)]" style={{ tableLayout: "fixed", width: RONG_GON }}>
         <colgroup>
           {COT_GON.map((c, i) => (
@@ -382,10 +446,13 @@ export function PxkDongDonHangTable({
           ))}
         </tbody>
       </table>
+      </>
     );
   }
 
   return (
+    <>
+    {hopThoaiBo}
     <table className="tbl min-w-full border-collapse">
       <thead>
         <tr className="tbl-head">
@@ -429,5 +496,6 @@ export function PxkDongDonHangTable({
         ))}
       </tbody>
     </table>
+    </>
   );
 }

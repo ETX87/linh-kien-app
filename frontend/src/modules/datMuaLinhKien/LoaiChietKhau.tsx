@@ -93,6 +93,20 @@ export function HoaDonGiaNiemYet({ don }: {
   );
 }
 
+// Don CHUA vao phieu nhung mang tien da thanh toan (TN bo khoi phieu da tra, chon "Đã thanh toán" - migration 0056):
+// vao phieu moi thi so nay cong vao tien da tra cua phieu do.
+export function TienDaTraDon({ don }: { don: { tien_da_tra?: number | null; tien_da_tra_pxk?: string | null } }) {
+  if (!don.tien_da_tra || don.tien_da_tra <= 0) return null;
+  return (
+    <span
+      title={`Đơn đã thanh toán ${don.tien_da_tra.toLocaleString("vi-VN")}đ${don.tien_da_tra_pxk ? ` ở phiếu ${don.tien_da_tra_pxk}` : ""} — vào phiếu mới sẽ được trừ vào số tiền cần chuyển`}
+      className="inline-flex shrink-0 items-center whitespace-nowrap rounded-[var(--radius-badge)] bg-[var(--color-success-soft)] px-2 py-[3px] text-[11px] font-semibold leading-none text-[var(--color-success-strong)]"
+    >
+      Đã trả {don.tien_da_tra.toLocaleString("vi-VN")}đ
+    </span>
+  );
+}
+
 const TIP_THU_CONG = "TN đã chọn lại loại chiết khấu này";
 const TIP_TU_DONG = "Hệ thống tự gán theo phiếu xuất kho";
 

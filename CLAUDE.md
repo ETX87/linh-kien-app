@@ -439,6 +439,13 @@ quỹ không đủ (dư đã trả phiếu khác) → chặn kèm danh sách phi
 tiền bị hủy → `thongBaoHoanQuyPhieuHuy()` báo KTV (3 đường hủy: `/:id/log` Ke toan huy, `goDonKhoiPxk`, `huyPxkNeuTrong` — thêm đường hủy
 mới phải gọi); tab Khoản chuyển tiền gắn nhãn "Phiếu đã hủy · tiền về quỹ". Phạm vi `phamViXem()`: Admin/Kế toán/TN xem tất cả, KTV xem
 của mình, Vệ tinh xem quỹ của Trạm — khớp điều kiện cấp menu ở `App.tsx`.
+**Bỏ đơn khỏi phiếu đã có tiền — tiền theo đơn** (2026-09-30, migration `0056`): `DELETE /phieu-xuat-kho/:id/dong/:donHangId`
+CHẶN khi phiếu đã có `ma_misa` (`DA_CO_MA_MISA`). Phiếu `da_thanh_toan > 0` → FE (`PxkDongDonHangTable`) hỏi TN: "Đơn chưa
+thanh toán" (như cũ: tổng giảm, trả thừa hoàn quỹ) / "Đơn đã thanh toán" (`?giu_tien=1`): tiền của dòng (`tienUocTinhTheoDong`,
+tối đa phiếu đã trả) RÚT khỏi `da_thanh_toan` của phiếu, nằm ở `dat_don_hang.tien_da_tra` (+ `_email` chủ quỹ, `_pxk`), đơn về
+"Chờ tạo phiếu" (cột chuyển tiền theo đơn = Đã thanh toán). Đơn vào phiếu mới (tạo tay, thêm dòng, tự gom) → `lenhNhanTienDaTraDon()`
+cộng vào `da_thanh_toan` phiếu mới trong CÙNG batch với INSERT dòng — thêm đường đưa đơn vào phiếu mới phải gọi nó. Đơn mang tiền bị
+từ chối/hủy, đổi người nhận hoặc sang Trả hàng → TRIGGER `trg_ddh_hoan_tien_da_tra` hoàn về quỹ (mọi đường ghi).
 **Tự đọc số tiền trên ảnh chuyển khoản** (2026-09-30, migration `0051`): OCR chạy HOÀN TOÀN trên trình duyệt
 (`frontend/src/lib/docTienAnh.ts`, tesseract.js v7 + dữ liệu `vie`, web worker, tải lười khi có ảnh) — file thư viện tự host ở
 `/ocr/*`, do plugin `ocrAssets()` trong `frontend/vite.config.ts` chép từ `node_modules` lúc build (`frontend/public/ocr/` bị

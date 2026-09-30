@@ -46,5 +46,6 @@ export const THANH_TOAN_DON_SQL = (a: string) => `CASE
        WHEN p.trang_thai_chuyen_tien = 'KTV da chuyen' THEN 'cho_xac_nhan'
        ELSE 'cho_thanh_toan' END
      FROM phieu_xuat_kho p WHERE p.id = ${pxkCuaDon(a)}),
-    'cho_thanh_toan')
+    -- chua vao phieu nhung MANG tien da thanh toan (TN bo khoi phieu da tra, chon "Đã thanh toán" - migration 0056)
+    CASE WHEN ${a}.tien_da_tra > 0 THEN 'da_thanh_toan' ELSE 'cho_thanh_toan' END)
 END`;
