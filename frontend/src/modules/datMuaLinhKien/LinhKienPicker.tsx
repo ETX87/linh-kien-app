@@ -12,6 +12,7 @@ import { usePublicSheetCache } from "../../lib/publicSheetCache";
 import type { LkDanhMucRow } from "./types";
 import { describeApiError, useLinhKienRankMap, formatLkLabel, boQuaTbpDacThu } from "./helpers";
 import { Money } from "../../components/ui/Money";
+import { diemTimTheoTu, taoChiMucTim, type ChiMucTim } from "../../lib/boDau";
 
 // O chon "Ma linh kien" (autocomplete co anh/gia/xep hang) + cac component lien quan (thumbnail,
 // modal xem chi tiet, goi y thay the) - tach tu DatMuaLinhKienModule.tsx (UI redesign Phase 3,
@@ -234,14 +235,28 @@ export function LinhKienPicker({
   const q = query.trim().toLowerCase().normalize("NFC");
   // SUA LAG: useMemo - chi tinh lai loc/sap xep/cap so dong khi options, tu khoa, hoac rankMap
   // THUC SU doi, khong phai moi lan component cha re-render vi ly do khac.
+  // Tim theo TU + xep hang (2026-09-30, CUNG cach Bang gia - lib/boDau.ts diemTimTheoTu): "lõi ro" ra "Lõi lọc nước RO".
+  // Co tu khoa: sap theo do sat truoc, cung do sat moi theo luot dung/ten nhu cu. Chi muc tinh 1 lan theo options.
+  const chiMuc = useMemo(() => {
+    const m = new Map<string, ChiMucTim>();
+    for (const o of options) m.set(o.ma_linh_kien, taoChiMucTim(`${o.ten_linh_kien} ${o.ma_linh_kien}`));
+    return m;
+  }, [options]);
   const { ranked, unranked, totalMatched } = useMemo(() => {
-    const matched = q ? options.filter((o) => `${o.ma_linh_kien} ${o.ten_linh_kien}`.toLowerCase().normalize("NFC").includes(q)) : options;
-    const rankedFull = matched.filter((o) => rankMap.has(o.ma_linh_kien)).sort((a, b) => rankMap.get(a.ma_linh_kien)! - rankMap.get(b.ma_linh_kien)!);
-    const unrankedFull = matched.filter((o) => !rankMap.has(o.ma_linh_kien)).sort((a, b) => a.ten_linh_kien.localeCompare(b.ten_linh_kien));
+    const diem = new Map<string, number>();
+    if (q) for (const o of options) {
+      const cm = chiMuc.get(o.ma_linh_kien);
+      const d = cm ? diemTimTheoTu(cm, q) : -1;
+      if (d >= 0) diem.set(o.ma_linh_kien, d);
+    }
+    const matched = q ? options.filter((o) => diem.has(o.ma_linh_kien)) : options;
+    const theoDiem = (a: LkDanhMucRow, b: LkDanhMucRow) => (diem.get(b.ma_linh_kien) ?? 0) - (diem.get(a.ma_linh_kien) ?? 0);
+    const rankedFull = matched.filter((o) => rankMap.has(o.ma_linh_kien)).sort((a, b) => theoDiem(a, b) || rankMap.get(a.ma_linh_kien)! - rankMap.get(b.ma_linh_kien)!);
+    const unrankedFull = matched.filter((o) => !rankMap.has(o.ma_linh_kien)).sort((a, b) => theoDiem(a, b) || a.ten_linh_kien.localeCompare(b.ten_linh_kien));
     const rankedShown = rankedFull.slice(0, LINH_KIEN_PICKER_MAX_RESULTS);
     const unrankedShown = unrankedFull.slice(0, Math.max(0, LINH_KIEN_PICKER_MAX_RESULTS - rankedShown.length));
     return { ranked: rankedShown, unranked: unrankedShown, totalMatched: rankedFull.length + unrankedFull.length };
-  }, [options, q, rankMap]);
+  }, [options, chiMuc, q, rankMap]);
   const flatResults = useMemo(() => [...ranked, ...unranked], [ranked, unranked]);
   const shownCount = flatResults.length;
   const truncatedCount = totalMatched - shownCount;

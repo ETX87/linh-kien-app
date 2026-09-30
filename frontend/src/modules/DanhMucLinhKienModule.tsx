@@ -22,6 +22,7 @@ import { formatLkLabel } from "./datMuaLinhKien/helpers";
 import { BomHangTab } from "./danhMucLinhKien/BomHangTab";
 import { ThayTheTab } from "./danhMucLinhKien/ThayTheTab";
 import { Money } from "../components/ui/Money";
+import { boDau, diemTimTheoTu, taoChiMucTim, type ChiMucTim } from "../lib/boDau";
 
 const PAGE_SIZE = 20;
 const BOOL_FILTER_OPTIONS = [
@@ -529,17 +530,38 @@ function DanhMucTab() {
     queryFn: () => fetchWithHashCache<{ rows: LinhKienRow[] }>("settings-linh-kien", "/settings/linh-kien/version", "/settings/linh-kien"),
   });
 
+  // Tim kiem theo TU + xep hang (2026-09-30, "gõ 'lõi ro' cũng tìm thấy 'lõi lọc nước ro'") - lib/boDau.ts
+  // diemTimTheoTu(). Chi muc (bo dau + tach tu) tinh 1 lan khi danh muc tai xong, khong tinh lai moi lan go phim.
+  // Loc/xep hang hoan toan tren may: danh muc da tai 1 lan (fetchWithHashCache), go tim KHONG goi server.
+  const chiMuc = useMemo(() => {
+    const m = new Map<string, ChiMucTim>();
+    for (const p of parts?.rows ?? []) m.set(p.ma_linh_kien, taoChiMucTim(`${p.ten_linh_kien} ${p.ma_linh_kien}`));
+    return m;
+  }, [parts?.rows]);
   const filteredRows = useMemo(() => {
     let rows = parts?.rows ?? [];
-    // .normalize("NFC") - xem giai thich day du o components/ui/Select.tsx (cung fix, cung ngay).
-    const q = search.trim().toLowerCase().normalize("NFC");
-    if (q) rows = rows.filter((p) => p.ma_linh_kien.toLowerCase().normalize("NFC").includes(q) || p.ten_linh_kien.toLowerCase().normalize("NFC").includes(q));
+    const q = search.trim();
+    if (q) {
+      const qbd = boDau(q);
+      const diem = new Map<string, number>();
+      for (const p of rows) {
+        const cm = chiMuc.get(p.ma_linh_kien);
+        let d = cm ? diemTimTheoTu(cm, q) : -1;
+        if (d < 0) continue;
+        // Go dung/dau ma linh kien -> len dau.
+        const ma = boDau(p.ma_linh_kien);
+        if (ma === qbd) d += 1000;
+        else if (ma.startsWith(qbd)) d += 200;
+        diem.set(p.ma_linh_kien, d);
+      }
+      rows = rows.filter((p) => diem.has(p.ma_linh_kien)).sort((a, b) => diem.get(b.ma_linh_kien)! - diem.get(a.ma_linh_kien)!);
+    }
     if (filterDacThu) rows = rows.filter((p) => (filterDacThu === "true" ? !!p.dac_thu : !p.dac_thu));
     if (filterChiSuaChua) rows = rows.filter((p) => (filterChiSuaChua === "true" ? !!p.chi_sua_chua : !p.chi_sua_chua));
     if (filterBatTat) rows = rows.filter((p) => (filterBatTat === "true" ? !!p.bat_tat : !p.bat_tat));
     if (filterCamBan) rows = rows.filter((p) => (filterCamBan === "true" ? !!p.cam_ban : !p.cam_ban));
     return rows;
-  }, [parts?.rows, search, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan]);
+  }, [parts?.rows, chiMuc, search, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan]);
 
   // "Phân loại" (doi ten tu "Đơn vị", phan hoi 2026-08-20) dang listdown NHUNG van cho go gia tri
   // moi (chon "tu dong gom tu du lieu hien co", khong phai danh sach co dinh quan ly rieng) - gop
@@ -972,7 +994,7 @@ function DanhMucTab() {
         <input
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          placeholder="Tìm theo mã hoặc tên linh kiện..."
+          placeholder="Tìm mã/tên, vd: lõi ro..."
           className="focus-ring w-full sm:w-64 bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
         />
         {/* Nhac nho so ket qua (phan hoi 2026-08-25, hang muc #11) - chi hien khi dang go tim kiem. */}
