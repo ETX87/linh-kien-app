@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from "react";
+import { BangChungAnhPxk } from "./XemAnhNhanh";
 import { LoaiChietKhauText, LoaiChietKhauPicker, HoaDonGiaNiemYet, TienDaTraDon, coYeuCauHoaDon, useLoaiChietKhauList, tenLoaiChietKhau, duocDoiLoaiChietKhau } from "./LoaiChietKhau";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -1234,7 +1235,7 @@ Quỹ của KTV giảm ${fmtVND(d.tra_bang_quy!.can_tra)}.`)) {
                   </KvRow>
                   {/* Nhieu anh (2026-09-29, BangChungChuyenTien.tsx) - form ben duoi tu hien anh khi dang nop. */}
                   {!(currentEmail === pxk.nguoi_nhan_hang && pxk.trang_thai_chuyen_tien === "Cho KTV chuyen") && docAnhBangChung(pxk).length > 0 && (
-                    <KvRow label="Bằng chứng"><BangChungAnhList urls={docAnhBangChung(pxk)} /></KvRow>
+                    <KvRow label="Bằng chứng"><BangChungAnhPxk pxk={pxk} ten={(e) => (e ? formatNguoiDisplay(e, ktvDisplayMap) : "")} /></KvRow>
                   )}
                   {!(currentEmail === pxk.nguoi_nhan_hang && pxk.trang_thai_chuyen_tien === "Cho KTV chuyen") && pxk.bang_chung_chuyen_tien_ghi_chu && (
                     <KvRow label="Ghi chú"><span className="text-xs text-[var(--ink-600)]">{pxk.bang_chung_chuyen_tien_ghi_chu}</span></KvRow>

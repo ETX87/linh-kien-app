@@ -359,6 +359,7 @@ phieuXuatKho.get("/", async (c) => {
        pxk.nguoi_tao, pxk.ngay_tao, pxk.ghi_chu, pxk.nguoi_nhan_hang, pxk.loai_don,
        pxk.so_tien_can_chuyen, pxk.trang_thai_chuyen_tien, pxk.da_in_phieu, pxk.da_thanh_toan,
        pxk.bang_chung_chuyen_tien_anh, pxk.bang_chung_chuyen_tien_url,
+       pxk.bang_chung_tien_doc, pxk.bang_chung_chuyen_tien_ghi_chu, pxk.ly_do_tu_choi_chuyen_tien, pxk.ngay_ktv_chuyen,
        (SELECT COALESCE(SUM(k.so_tien_thuc_nhan), 0) FROM khoan_chuyen_tien k
           WHERE k.phieu_xuat_kho_id = pxk.id AND k.trang_thai = 'Da duyet') as tien_thuc_chuyen,
        pxk.trang_thai_hien_tai as trang_thai,

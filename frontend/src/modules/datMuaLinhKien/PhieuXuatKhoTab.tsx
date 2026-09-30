@@ -26,6 +26,7 @@ import { PxkDongDonHangTable } from "./PxkDongDonHangTable";
 // hàng trong phiếu để mở giao diện UI chi tiết") - tai dung nguyen DonHangDetailModal, dung y het cach
 // ThieuLkTab.tsx da lam (xem comment o do ve import vong an toan trong ESM).
 import { DonHangDetailModal } from "./DonCuaToiTab";
+import { XemAnhNhanh, BangChungAnhPxk, anhXemCuaPxk, type AnhXem } from "./XemAnhNhanh";
 import { LoaiChietKhauPicker, LoaiChietKhauText, LoaiChietKhauChip, HoaDonGiaNiemYet, TienDaTraDon, useLoaiChietKhauList, duocDoiLoaiChietKhau, tenLoaiChietKhau } from "./LoaiChietKhau";
 import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_TIEN_OPTIONS, TRANG_THAI_DOT_TONE, PXK_LOG_ONLY_OPTIONS, PXK_LOG_ONLY_TONE } from "./constants";
 import {
@@ -290,7 +291,9 @@ export function PhieuXuatKhoTab({
           }),
       );
       // Cot chuyen tien dat DAU file (2026-09-29, quy du KTV): Ma HD, nguoi chuyen, can/thuc chuyen, quy, link anh.
-      const rows = res.rows.map(({ bang_chung_chuyen_tien_anh, bang_chung_chuyen_tien_url, da_thanh_toan, tien_thuc_chuyen, ...r }) => {
+      // 4 cot chi dung cho "Xem ảnh nhanh" (XemAnhNhanh.tsx) - bo khoi file.
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const rows = res.rows.map(({ bang_chung_chuyen_tien_anh, bang_chung_chuyen_tien_url, da_thanh_toan, tien_thuc_chuyen, bang_chung_tien_doc, bang_chung_chuyen_tien_ghi_chu, ly_do_tu_choi_chuyen_tien, ngay_ktv_chuyen, ...r }) => {
         const tong = r.so_tien_can_chuyen ?? 0;
         const daTra = da_thanh_toan ?? 0;
         const thucChuyen = tien_thuc_chuyen ?? 0;
@@ -407,6 +410,14 @@ export function PhieuXuatKhoTab({
   const ktvDisplayMap: KtvDisplayMap = new Map((nguoiNhanHangData?.rows ?? []).map((r) => [r.email_dang_nhap, { ma_ktv: r.ma_ktv, ten_hien_thi: r.ten_hien_thi }]));
   function labelKtv(email: string): string {
     return formatNguoiDisplay(email, ktvDisplayMap);
+  }
+  // "Xem ảnh nhanh" (2026-09-30, XemAnhNhanh.tsx) cot Bang chung: chuyen anh chay xuyen MOI phieu tren trang dang xem.
+  const [xemAnhPxk, setXemAnhPxk] = useState<number | null>(null);
+  const anhPxkDs: AnhXem[] = [];
+  const batDauAnhPxk = new Map<string, number>();
+  for (const r of data?.rows ?? []) {
+    batDauAnhPxk.set(r.id, anhPxkDs.length);
+    anhPxkDs.push(...anhXemCuaPxk(r, (e) => (e ? labelKtv(e) : "")));
   }
 
   // .normalize("NFC") - xem giai thich day du o components/ui/Select.tsx (cung fix, cung ngay).
@@ -683,7 +694,11 @@ export function PhieuXuatKhoTab({
       key: "bang_chung", header: "Bằng chứng",
       render: (r) => {
         const anh = docAnhBangChung(r);
-        return anh.length > 0 ? <BangChungAnhList urls={anh} nho /> : <span className="text-[var(--ink-400)]">—</span>;
+        return anh.length > 0 ? (
+          <BangChungAnhList urls={anh} nho onXem={(i) => setXemAnhPxk((batDauAnhPxk.get(r.id) ?? 0) + i)} />
+        ) : (
+          <span className="text-[var(--ink-400)]">—</span>
+        );
       },
     },
     { key: "trang_thai", header: "Trạng thái", filter: loc("trang_thai"), render: (r) => <StatusBadge value={r.trang_thai} tones={PXK_TRANG_THAI_TONE} options={PXK_TRANG_THAI_OPTIONS} /> },
@@ -934,6 +949,7 @@ export function PhieuXuatKhoTab({
       <div className="hidden sm:block">
         <LocCotBar cfg={locCotCfg} cots={[...LOC_COT_KHONG_CO_COT, ...locCotDangAp]} hienTatCa />
       </div>
+      {xemAnhPxk != null && <XemAnhNhanh items={anhPxkDs} batDau={xemAnhPxk} onClose={() => setXemAnhPxk(null)} />}
       <PaginatedTable
         columns={cols}
         optionalColumns={optionalCols}
@@ -2018,7 +2034,7 @@ export function PxkDetailModal({
                 <KvRow label="Trạng thái"><StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /></KvRow>
                 {/* Nhieu anh (2026-09-29, BangChungChuyenTien.tsx) - dang "Cho KTV chuyen" thi form ben duoi tu hien anh. */}
                 {pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen" && docAnhBangChung(pxk).length > 0 && (
-                  <KvRow label="Bằng chứng"><BangChungAnhList urls={docAnhBangChung(pxk)} /></KvRow>
+                  <KvRow label="Bằng chứng"><BangChungAnhPxk pxk={pxk} ten={(e) => (e ? formatNguoiDisplay(e, ktvDisplayMap) : "")} /></KvRow>
                 )}
                 {pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen" && pxk.bang_chung_chuyen_tien_ghi_chu && (
                   <KvRow label="Ghi chú"><span className="text-xs text-[var(--ink-600)]">{pxk.bang_chung_chuyen_tien_ghi_chu}</span></KvRow>

@@ -468,6 +468,10 @@ CHƯA nằm trong khoản đã duyệt trước (`ANH_DA_GHI_NHAN_SQL` → `anh_
 (Tesseract hay đọc sai số to đậm) được cắt riêng đọc lại ở 32px/24px, lấy số khớp 2/3 lần, lệch → null ("kiểm tra bằng mắt").
 Ảnh Drive đọc qua `lh3.googleusercontent.com/d/<id>=w1600` (link thumbnail 302 không có CORS). Đưa ảnh vào tesseract dạng Blob,
 KHÔNG dạng canvas (canvas chậm ~1s/lần). UI chung `datMuaLinhKien/DocTienAnh.tsx` (`useDocTienAnh`/`TienDocTuAnh`).
+**Xem ảnh nhanh** (2026-09-30, `datMuaLinhKien/XemAnhNhanh.tsx`): trình xem dùng chung — ảnh trái, thông tin phải (OCR, mã HĐ, mã PXK,
+người chuyển, ngày, trạng thái xác nhận, tiền), ‹ › / ← → / vuốt, Esc. `BangChungAnhList` prop `onXem`; danh sách (Quỹ › Khoản chuyển
+tiền, cột Bằng chứng PXK) dựng MỌI ảnh của trang đang xem (chuyển xuyên dòng); chi tiết PXK/đơn dùng `BangChungAnhPxk`
+(`anhXemCuaPxk`). `GET /phieu-xuat-kho` trả thêm `bang_chung_tien_doc`/ghi chú/lý do từ chối/`ngay_ktv_chuyen` (bỏ khỏi file tải về).
 
 **Thứ tự tên hiển thị người dùng** (chốt 2026-09-30, `lib/tenNguoi.ts`): Tên hiển thị KTV (danh bạ) → Tên MISA (KTV, rồi
 `users.ten_misa`) → tên Google (`users.ten`) → email. `/api/auth/nguoi-directory` trả sẵn theo thứ tự này (FE
