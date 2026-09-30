@@ -372,6 +372,22 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
                   {k.ten}
                 </label>
               ))}
+              {/* Chon/bo nhanh MOI khu vuc dang bat (2026-09-30) - chi la chon hang loat, khu vuc them sau KHONG tu cong vao */}
+              {(() => {
+                const dangBat = khuVucRows.filter((k) => k.bat_tat);
+                const tatCa = dangBat.length > 0 && dangBat.every((k) => effectiveKhuVuc.has(k.ma));
+                return (
+                  <label className="flex items-center gap-2 font-semibold text-[var(--color-primary)]">
+                    <input
+                      type="checkbox"
+                      checked={tatCa}
+                      disabled={dangBat.length === 0}
+                      onChange={(e) => setKhuVucSelected(e.target.checked ? new Set(dangBat.map((k) => k.ma)) : new Set())}
+                    />
+                    Tất cả khu vực
+                  </label>
+                );
+              })()}
             </div>
           </div>
         )}
