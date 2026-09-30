@@ -18,6 +18,7 @@ export interface AppUser {
   la_tac_nghiep: boolean;
   la_tp_dvbh: boolean;
   la_view: boolean;
+  la_mua_hang: boolean;
   quan_ly_danh_muc_lk: boolean;
   xem_danh_muc_lk: boolean;
   tram_cha: string | null;

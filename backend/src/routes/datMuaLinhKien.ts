@@ -31,6 +31,7 @@ import { TU_HUY_DUOC_SQL, TN_DOI_TRONG_PXK_SQL, pxkDuocTuHuy, pxkTnDoiDuoc, goDo
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, MUA_CONG_NO_ROLES, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
 import { pushThieuLkToKhovan, buildWorkUrl } from "../lib/khovanPushClient";
 import { ANH_DA_GHI_NHAN_SQL } from "../lib/bangChungChuyenTien";
+import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
 
 // Luong chinh "Dat mua linh kien" - phieu dat (header, chi de tong hop hien thi) + dong don hang -
 // xem migration 0056_phieu_dat.sql + 0063_dat_don_hang_trang_thai_theo_dong.sql.
@@ -2163,6 +2164,9 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   // CHOT 2026-08-16 (dot 3 gop y): "Gia de xuat" lay tu linh_kien.gia_ban (gia ban dang duoc quan
   // ly/dong bo chu dong qua lkSettings.ts/linhKienSync.ts), KHONG con lay tu gia_tham_chieu nua -
   // chu he thong khong yeu cau cot gia_tham_chieu, cot do tam thoi bo qua o module nay.
+  // Ma LK da doi/gop sang ma chuan (Mua hang xet duyet, migration 0053) -> quy ve ma chuan (form mo tu truoc luc doi ma).
+  const maChuanMap = await quyVeMaChuan(c.env.DB, body.don_hang.map((dh) => dh.ma_lk));
+  for (const dh of body.don_hang) dh.ma_lk = maChuanMap.get(dh.ma_lk.trim()) ?? dh.ma_lk;
   const maLkList = [...new Set(body.don_hang.map((dh) => dh.ma_lk.trim()))];
   const lkPlaceholders = maLkList.map(() => "?").join(",");
   const { results: lkRows } = await c.env.DB.prepare(
@@ -2473,12 +2477,15 @@ async function processDatDonHangImportRows(
   // query o day thay vi goi lai ham do vi chay trong vong lap nhieu dong).
   const ktvCache = new Map<string, { email: string } | { error: string }>();
   const lkCache = new Map<string, { ten: string; gia: number | null; dacThu: number; giaTriCongNo: number | null } | null>();
+  const maChuanImport = await quyVeMaChuan(db, rows.map((r) => String(r.ma_lk ?? "")));
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const dong = i + 1;
     const maKtv = String(row.nguoi_nhan_hang ?? "").trim();
-    const maLk = String(row.ma_lk ?? "").trim();
+    const maLkGoc = String(row.ma_lk ?? "").trim();
+    // File import cu con ma LK da doi/gop -> quy ve ma chuan (migration 0053).
+    const maLk = maChuanImport.get(maLkGoc) ?? maLkGoc;
     const loaiDeXuat = String(row.loai_de_xuat ?? "").trim();
     const soLuong = Number(row.so_luong_de_xuat);
 
@@ -3492,7 +3499,9 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
 
     let tenLkSnapshot = existing.ten_lk_snapshot;
     let giaDeXuat = existing.gia_de_xuat;
-    const nextMaLk = body.ma_lk !== undefined ? body.ma_lk.trim() : existing.ma_lk;
+    const maLkGui = body.ma_lk !== undefined ? body.ma_lk.trim() : existing.ma_lk;
+    // Ma LK da doi/gop (migration 0053) -> quy ve ma chuan.
+    const nextMaLk = body.ma_lk !== undefined ? (await quyVeMaChuan(c.env.DB, [maLkGui])).get(maLkGui) ?? maLkGui : maLkGui;
     if (!nextMaLk) return c.json({ error: "INVALID_DON_HANG" }, 400);
     if (nextMaLk !== existing.ma_lk) {
       const lk = await c.env.DB.prepare("SELECT ten_linh_kien as ten_lk, gia_ban FROM linh_kien WHERE ma_linh_kien = ?")

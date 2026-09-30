@@ -33,6 +33,7 @@ const ROLE_FLAGS: { key: keyof UserRow; label: string }[] = [
   { key: "la_tac_nghiep", label: "TN (tác nghiệp)" },
   { key: "la_tp_dvbh", label: "TP DVBH" },
   { key: "la_view", label: "View" },
+  { key: "la_mua_hang", label: "Mua hàng" },
 ];
 
 // Nhan hien thi co dau cho users.trang_thai_duyet (gia tri DB khong dau) - truoc day in tho "Da duyet".
@@ -219,6 +220,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
     la_tac_nghiep: !!user.la_tac_nghiep,
     la_tp_dvbh: !!user.la_tp_dvbh,
     la_view: !!user.la_view,
+    la_mua_hang: !!user.la_mua_hang,
     quan_ly_danh_muc_lk: !!user.quan_ly_danh_muc_lk,
     xem_danh_muc_lk: !!user.xem_danh_muc_lk,
     ma_misa: user.ma_misa ?? "",
@@ -238,6 +240,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
         la_tac_nghiep: form.la_tac_nghiep,
         la_tp_dvbh: form.la_tp_dvbh,
         la_view: form.la_view,
+        la_mua_hang: form.la_mua_hang,
         quan_ly_danh_muc_lk: form.quan_ly_danh_muc_lk,
         xem_danh_muc_lk: form.xem_danh_muc_lk,
         ma_misa: form.ma_misa.trim() || null,

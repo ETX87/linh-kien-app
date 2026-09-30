@@ -6,7 +6,7 @@ export interface NavItem {
   label: string;
   // Tên khoá trong `Icon` (components/ui/Icon.tsx) — hoặc 1 emoji (fallback cho link ngoài).
   icon: keyof typeof Icon | string;
-  countKey?: "datMuaLk" | "phieuXuat" | "ktvLogChuaDoc" | "thieuLk";
+  countKey?: "datMuaLk" | "phieuXuat" | "ktvLogChuaDoc" | "thieuLk" | "lkChoXetDuyet";
   // "href" — mục menu là LIÊN KẾT RA NGOÀI (Worker/app khác), KHÔNG tham gia allowedModules/setActive;
   // Sidebar render <a href> thật, LUÔN hiện cho mọi người đăng nhập.
   href?: string;
@@ -30,7 +30,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // DatMuaLinhKienModule (App.tsx), moi muc chi la 1 "khu" rieng (prop section) + menu giai doan rieng.
       { key: "dat-mua-lk", label: "Đơn hàng", icon: "cart", countKey: "datMuaLk" },
       { key: "phieu-xuat", label: "Phiếu xuất", icon: "file", countKey: "phieuXuat" },
-      { key: "danh-muc-lk", label: "Bảng giá", icon: "catalog" },
+      { key: "danh-muc-lk", label: "Bảng giá", icon: "catalog", countKey: "lkChoXetDuyet" },
       { key: "ton-kho-ktv", label: "Công nợ", icon: "stock" },
       { key: "danh-sach-ktv", label: "Danh sách KTV", icon: "users" },
       // Quy du KTV (2026-09-29, migration 0047) - Admin/Ke toan/TN xem tat ca, KTV/Ve tinh xem cua minh (App.tsx).
@@ -82,10 +82,13 @@ export const BREADCRUMB_ROOT: Record<string, string> = {
 export interface NavCounts {
   datMuaLk: { total: number; thieuLkCanXuLy?: number; choTnPxk?: number; choKhoPxk?: number; choKeToanPxk?: number; choKhoThieuLk?: number };
   ktvLogChuaDoc: number;
+  // So LK "Cho xet duyet" ma chuan - backend chi tra > 0 cho Mua hang/Admin (routes/notifications.ts).
+  lkChoXetDuyet?: number;
 }
 export function navCount(countKey: NavItem["countKey"], counts: NavCounts | undefined): number {
   if (!countKey || !counts) return 0;
   if (countKey === "ktvLogChuaDoc") return counts.ktvLogChuaDoc;
+  if (countKey === "lkChoXetDuyet") return counts.lkChoXetDuyet ?? 0;
   if (countKey === "thieuLk") return counts.datMuaLk.thieuLkCanXuLy ?? 0;
   const d = counts.datMuaLk;
   const pxk = (d.choTnPxk ?? 0) + (d.choKhoPxk ?? 0) + (d.choKeToanPxk ?? 0);

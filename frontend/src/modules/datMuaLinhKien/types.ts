@@ -33,6 +33,8 @@ export interface LkDanhMucRow {
   // hiện 1 note") - CUNG ly do voi anh_demo/ghi_chu o tren: du lieu da co san tu SELECT * o backend,
   // chi thieu trong TYPE nay. Dung o LinhKienPicker.tsx de hien canh bao TBP duyet.
   dac_thu?: number | null;
+  // Xet duyet ma chuan (migration 0053) - "Cho xet duyet" hien nhan o LinhKienPicker.
+  trang_thai_ma?: string;
   phan_loai_dac_thu?: string | null;
   // "gia_tri_cong_no" (them 04/09/2026) - CUNG ly do voi anh_demo/ghi_chu o tren: du lieu da co san tu
   // SELECT * o backend, chi thieu trong TYPE nay. Dung o useTaoDonForm.ts tinh "Cong no tam tinh" song

@@ -33,6 +33,8 @@ interface CacheEntry {
   // "cam_ban" (them 2026-09-12, tich hop gia88) - BAT BUOC whitelist, dung loc khoi picker tao don o
   // helpers.ts useLkAndLdeCache (cung loai bug voi dac_thu/gia_tri_cong_no o tren).
   cam_ban: number;
+  // Xet duyet ma chuan (2026-09-30, migration 0053) - o chon tao don hien nhan "Chờ xét duyệt".
+  trang_thai_ma?: string;
   nguoi_cap_nhat: string | null;
   ngay_cap_nhat: string | null; // ISO timestamp
 }
@@ -99,6 +101,7 @@ export async function mergeLinhKienToCache(rows: LinhKienRow[]): Promise<void> {
         phan_loai_dac_thu: row.phan_loai_dac_thu,
         gia_tri_cong_no: row.gia_tri_cong_no,
         cam_ban: row.cam_ban,
+        trang_thai_ma: row.trang_thai_ma,
         nguoi_cap_nhat: row.nguoi_cap_nhat,
         ngay_cap_nhat: row.ngay_cap_nhat,
       });
@@ -131,7 +134,8 @@ export async function clearLinhKienCache(): Promise<void> {
 // BUMP len 3 (2026-09-12): them "cam_ban" vao whitelist (tich hop gia88) - cung ly do bump 1->2 o
 // tren, bat buoc de trinh duyet dang co cache cu tu heal, khong thi picker tao don se KHONG BAO GIO
 // loc duoc "cam_ban" cho cac ma lau khong ai sua (field luon undefined trong cache cu).
-const SCHEMA_VERSION = 3;
+// BUMP len 4 (2026-09-30): them "trang_thai_ma" (xet duyet ma chuan, migration 0053) - cung ly do.
+const SCHEMA_VERSION = 4;
 const SCHEMA_VERSION_KEY = "dvbh_lk_cache_schema_version";
 
 export async function ensureCacheSchemaVersion(): Promise<void> {

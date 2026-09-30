@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../components/ui/Btn";
 import { FileButton } from "../components/ui/FileButton";
@@ -11,7 +11,7 @@ import { KvRow } from "../components/ui/KvRow";
 import { SectionTitle } from "../components/ui/SectionTitle";
 import { Tabs } from "../components/ui/Tabs";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import { fmtVND, fmtDateTime, type LinhKienRow } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
@@ -23,6 +23,7 @@ import { BomHangTab } from "./danhMucLinhKien/BomHangTab";
 import { ThayTheTab } from "./danhMucLinhKien/ThayTheTab";
 import { Money } from "../components/ui/Money";
 import { boDau, diemTimTheoTu, taoChiMucTim, type ChiMucTim } from "../lib/boDau";
+import { TRANG_THAI_MA, TrangThaiMaBadge, XetDuyetMaSection } from "./danhMucLinhKien/XetDuyetMaLk";
 
 const PAGE_SIZE = 20;
 const BOOL_FILTER_OPTIONS = [
@@ -325,7 +326,9 @@ function PartHeroImage({ url, alt, onZoom }: { url: string | null; alt: string; 
 // Drawer truot tu phai - man hinh "XEM" chi tiet 1 linh kien, tach rieng voi Modal "SUA" (form) o
 // duoi: xem la thao tac tra cuu nhanh (bam vao dong/thumbnail trong bang), khong nen dung chung
 // giao dien voi form chinh sua de tranh nguoi dung tuong nham co the sua ngay tai day.
-function PartDetailDrawer({ part, onClose, onEdit, canEdit, chiGiaNiemYet }: { part: LinhKienRow | null; onClose: () => void; onEdit: () => void; canEdit: boolean; chiGiaNiemYet: boolean }) {
+function PartDetailDrawer({
+  part, onClose, onEdit, canEdit, chiGiaNiemYet, parts, canXetDuyet, onDoiMa,
+}: { part: LinhKienRow | null; onClose: () => void; onEdit: () => void; canEdit: boolean; chiGiaNiemYet: boolean; parts: LinhKienRow[]; canXetDuyet: boolean; onDoiMa: (ma: string) => void }) {
   const personDir = usePersonDirectory();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   useEffect(() => setLightboxOpen(false), [part?.ma_linh_kien]);
@@ -380,6 +383,7 @@ function PartDetailDrawer({ part, onClose, onEdit, canEdit, chiGiaNiemYet }: { p
           <PartHeroImage url={part.anh_demo} alt={part.ten_linh_kien} onZoom={() => setLightboxOpen(true)} />
 
           <div className="flex flex-wrap gap-1.5">
+            {part.trang_thai_ma && part.trang_thai_ma !== "Da xac nhan" && <TrangThaiMaBadge tt={part.trang_thai_ma} />}
             {!!part.bat_tat === false && <Badge tone="gray">Đang ẩn</Badge>}
             {!!part.cam_ban && <Badge tone="coral">Cấm bán (đối tác)</Badge>}
             {!!part.dac_thu && (
@@ -399,6 +403,8 @@ function PartDetailDrawer({ part, onClose, onEdit, canEdit, chiGiaNiemYet }: { p
               </KvRow>
             ))}
           </div>
+
+          <XetDuyetMaSection part={part} parts={parts} canXetDuyet={canXetDuyet} onDoiMa={onDoiMa} />
 
           <div>
             <SectionTitle>Ghi chú</SectionTitle>
@@ -464,6 +470,10 @@ function DanhMucTab() {
   const auth = useAuth();
   const authUser = auth.status === "authenticated" ? auth.user : null;
   const canWrite = !!authUser?.quan_ly_danh_muc_lk || authUser?.vai_tro === "Admin";
+  // "Mua hang" (2026-09-30, migration 0053): xet duyet ma LK moi + sua thong tin LK (khong them/nhap hang loat) - khop
+  // backend settingsDatMua.ts muaHangRoles/suaLinhKienRoles.
+  const canXetDuyet = !!authUser?.la_mua_hang || authUser?.vai_tro === "Admin";
+  const canSua = canWrite || canXetDuyet;
   // "Đồng bộ Gia88" thủ công (them 2026-09-12, phan hoi "thêm nút đồng bộ thủ công cho admin trong
   // danh mục linh kiện") - GATE RIENG theo Admin (khac canWrite o tren dung quan_ly_danh_muc_lk) vi
   // backend routes/gia88Sync.ts CHI cho Admin (requireRole("Admin"), khong nhan quan_ly_danh_muc_lk) -
@@ -495,6 +505,9 @@ function DanhMucTab() {
   const [filterBatTat, setFilterBatTat] = useState("");
   // "Cấm bán" (them 2026-09-12, tich hop gia88) - loc rieng, cung kieu voi filterBatTat.
   const [filterCamBan, setFilterCamBan] = useState("");
+  // "Trạng thái mã" (xet duyet ma chuan, migration 0053). Mac dinh "" = an dong chuyen huong "Da doi ma"; Mua hang/Admin
+  // mo Bang gia khi co LK cho duyet -> mac dinh loc "Cho xet duyet" (khop so dem tren Sidebar).
+  const [filterTrangThaiMa, setFilterTrangThaiMa] = useState("");
   // SUA (phan hoi 2026-08-20: "giao diện tạo mới đang khác giao diện chỉnh sửa, chuyển về chung 1
   // giao diện chuẩn (có thêm ảnh)") - gop addOpen/editOpen thanh 1 formMode duy nhat, dung chung 1
   // Modal ben duoi cho ca 2 che do (khac KtvTab.editing van dung union type row|"new"|null vi can
@@ -538,6 +551,14 @@ function DanhMucTab() {
     for (const p of parts?.rows ?? []) m.set(p.ma_linh_kien, taoChiMucTim(`${p.ten_linh_kien} ${p.ma_linh_kien}`));
     return m;
   }, [parts?.rows]);
+  const soChoXetDuyet = useMemo(() => (parts?.rows ?? []).filter((p) => p.trang_thai_ma === "Cho xet duyet").length, [parts?.rows]);
+  // Mua hang/Admin mo Bang gia luc con LK cho duyet -> loc san "Cho xet duyet" (1 lan, nguoi dung doi lai thoai mai).
+  const daLocMacDinh = useRef(false);
+  useEffect(() => {
+    if (daLocMacDinh.current || !parts) return;
+    daLocMacDinh.current = true;
+    if (canXetDuyet && soChoXetDuyet > 0) setFilterTrangThaiMa("Cho xet duyet");
+  }, [parts, canXetDuyet, soChoXetDuyet]);
   const filteredRows = useMemo(() => {
     let rows = parts?.rows ?? [];
     const q = search.trim();
@@ -560,8 +581,9 @@ function DanhMucTab() {
     if (filterChiSuaChua) rows = rows.filter((p) => (filterChiSuaChua === "true" ? !!p.chi_sua_chua : !p.chi_sua_chua));
     if (filterBatTat) rows = rows.filter((p) => (filterBatTat === "true" ? !!p.bat_tat : !p.bat_tat));
     if (filterCamBan) rows = rows.filter((p) => (filterCamBan === "true" ? !!p.cam_ban : !p.cam_ban));
+    rows = filterTrangThaiMa ? rows.filter((p) => (p.trang_thai_ma ?? "Da xac nhan") === filterTrangThaiMa) : rows.filter((p) => p.trang_thai_ma !== "Da doi ma");
     return rows;
-  }, [parts?.rows, chiMuc, search, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan]);
+  }, [parts?.rows, chiMuc, search, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan, filterTrangThaiMa]);
 
   // "Phân loại" (doi ten tu "Đơn vị", phan hoi 2026-08-20) dang listdown NHUNG van cho go gia tri
   // moi (chon "tu dong gom tu du lieu hien co", khong phai danh sach co dinh quan ly rieng) - gop
@@ -684,12 +706,17 @@ function DanhMucTab() {
       // Anh (neu co chon luc them moi) chi upload duoc BAY GIO - dong vua duoc tao that su trong DB,
       // POST .../anh doi hoi dong da ton tai (xem backend/src/routes/settingsDatMua.ts).
       if (stagedImageFile) await uploadAnhForMa(form.ma_linh_kien.trim(), stagedImageFile);
-      addToast("Đã thêm linh kiện mới");
+      addToast("Đã thêm linh kiện mới - chờ Mua hàng xác nhận mã chuẩn");
       setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "" });
       closeForm();
       qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
     },
-    onError: () => addToast("Không thể thêm linh kiện (mã có thể đã tồn tại)."),
+    onError: (err) =>
+      addToast(
+        err instanceof ApiError && err.code === "MA_DA_TON_TAI"
+          ? `Mã ${form.ma_linh_kien.trim()} đã có trong danh mục (kể cả mã đã đổi/gộp sang mã khác) - dùng mã khác.`
+          : "Không thể thêm linh kiện.",
+      ),
   });
 
   // CHOT 2026-09-12 (tich hop gia88 lam nguon chinh gia): "ten_linh_kien"/"gia_ban" KHONG con gui len
@@ -810,6 +837,7 @@ function DanhMucTab() {
   const tatCaCot: Column<LinhKienRow>[] = [
     { key: "ma_linh_kien", header: "Mã", render: (p) => <span className="font-mono text-xs">{p.ma_linh_kien}</span> },
     { key: "ten_linh_kien", header: "Tên linh kiện", render: (p) => <span className="font-semibold text-[var(--ocean-800)]">{p.ten_linh_kien}</span> },
+    { key: "trang_thai_ma", header: "Trạng thái mã", render: (p) => <TrangThaiMaBadge tt={p.trang_thai_ma} /> },
     { key: "gia_ban", header: "Giá NY", render: (p) => <span className="font-mono font-semibold text-[var(--green-700)]"><Money>{fmtVND(p.gia_ban)}</Money></span> },
     { key: "gia_tri_cong_no", header: "Giá KTV", render: (p) => <span className="font-mono text-xs">{p.gia_tri_cong_no != null ? <Money>{fmtVND(p.gia_tri_cong_no)}</Money> : "—"}</span> },
     { key: "gia_du_phong", header: "Giá dự phòng", render: (p) => <span className="font-mono text-xs">{p.gia_du_phong != null ? <Money>{fmtVND(p.gia_du_phong)}</Money> : "—"}</span> },
@@ -856,7 +884,7 @@ function DanhMucTab() {
       // stopPropagation - cot nay nam trong dong da co onRowClick (bam dong mo xem chi tiet), khong
       // muon bam nham vao cong tac lai mo them drawer xem.
       render: (p) =>
-        canWrite ? (
+        canSua ? (
           <span onClick={(e) => e.stopPropagation()} className="inline-block">
             <ToggleSwitch checked={!!p.bat_tat} onChange={() => togglePart.mutate({ ma: p.ma_linh_kien, bat_tat: !p.bat_tat })} />
           </span>
@@ -869,7 +897,7 @@ function DanhMucTab() {
       header: "",
       mobileHint: "actions",
       render: (p) =>
-        canWrite ? (
+        canSua ? (
           <button className="text-xs text-[var(--ocean-800)] hover:underline" onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
             Sửa
           </button>
@@ -909,9 +937,10 @@ function DanhMucTab() {
             variant="ghost"
             size="sm"
             onClick={() =>
-              exportRowsToExcel(filteredRows, "danh_muc_linh_kien.xlsx", "Data", {
+              exportRowsToExcel(filteredRows.map((r) => ({ ...r, trang_thai_ma: TRANG_THAI_MA[r.trang_thai_ma]?.label ?? r.trang_thai_ma })), "danh_muc_linh_kien.xlsx", "Data", {
                 ma_linh_kien: "Mã",
                 ten_linh_kien: "Tên linh kiện",
+                trang_thai_ma: "Trạng thái mã",
                 gia_ban: "Giá NY",
                 gia_tri_cong_no: "Giá KTV",
                 gia_du_phong: "Giá dự phòng",
@@ -1015,6 +1044,20 @@ function DanhMucTab() {
           <span>Cấm bán:</span>
           <Select value={filterCamBan} onChange={(v) => { setFilterCamBan(v); setPage(1); }} options={BOOL_FILTER_OPTIONS} />
         </div>
+        <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
+          <span>Trạng thái mã:</span>
+          <Select
+            value={filterTrangThaiMa}
+            onChange={(v) => { setFilterTrangThaiMa(v); setPage(1); }}
+            options={[
+              { value: "", label: "Tất cả" },
+              ...Object.entries(TRANG_THAI_MA).map(([value, m]) => ({
+                value,
+                label: value === "Cho xet duyet" && soChoXetDuyet ? `${m.label} (${soChoXetDuyet})` : m.label,
+              })),
+            ]}
+          />
+        </div>
       </div>
 
       {/* Card mobile rieng cho module nay (hang muc #7, 2026-08-25) - thay cho fallback the chung cua
@@ -1044,9 +1087,10 @@ function DanhMucTab() {
                 <div className="flex items-center gap-2 flex-wrap mt-0.5">
                   <span className="font-mono text-sm font-semibold text-[var(--green-700)]"><Money>{fmtVND(p.gia_ban)}</Money></span>
                   <Badge tone={p.bat_tat ? "teal" : "gray"}>{p.bat_tat ? "Bật" : "Tắt"}</Badge>
+                  {p.trang_thai_ma && p.trang_thai_ma !== "Da xac nhan" && <TrangThaiMaBadge tt={p.trang_thai_ma} />}
                 </div>
               </div>
-              {canWrite && (
+              {canSua && (
                 <button className="text-xs text-[var(--ocean-800)] shrink-0" onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
                   Sửa
                 </button>
@@ -1320,7 +1364,16 @@ function DanhMucTab() {
         </div>
       </Modal>
 
-      <PartDetailDrawer part={viewingRow} onClose={() => setViewingMa(null)} onEdit={() => { if (viewingRow) openEdit(viewingRow); }} canEdit={canWrite} chiGiaNiemYet={chiGiaNiemYet} />
+      <PartDetailDrawer
+        part={viewingRow}
+        onClose={() => setViewingMa(null)}
+        onEdit={() => { if (viewingRow) openEdit(viewingRow); }}
+        canEdit={canSua}
+        chiGiaNiemYet={chiGiaNiemYet}
+        parts={parts?.rows ?? []}
+        canXetDuyet={canXetDuyet}
+        onDoiMa={setViewingMa}
+      />
     </div>
   );
 }

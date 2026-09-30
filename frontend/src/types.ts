@@ -34,6 +34,27 @@ export interface LinhKienRow {
   // "Cấm bán" - van tim/xem duoc, chi bi loai khoi picker chon linh kien khi tao don (xem
   // modules/datMuaLinhKien/helpers.ts) - KHONG chan o backend, nhat quan voi cach "bat_tat" hien co.
   cam_ban: number;
+  // Xet duyet ma chuan (2026-09-30, migration 0053 - backend lib/linhKienXetDuyet.ts). "Da doi ma" = dong chuyen huong
+  // (an), ma_chuan = ma moi. co_tren_gia88 = 0 -> Mua hang nhap duoc gia tam.
+  trang_thai_ma: TrangThaiMaLk;
+  ma_chuan: string | null;
+  co_tren_gia88: number;
+}
+
+export type TrangThaiMaLk = "Cho xet duyet" | "Da xac nhan" | "Tu dong duyet" | "Tu choi" | "Da doi ma";
+
+export interface LinhKienLogRow {
+  id: number;
+  ma_linh_kien: string;
+  hanh_dong: "Tao moi" | "Xac nhan" | "Doi ma" | "Gop ma" | "Tu choi" | "Gia tam" | "Tu dong duyet";
+  ma_cu: string | null;
+  ma_moi: string | null;
+  ten_cu: string | null;
+  ten_moi: string | null;
+  ghi_chu: string | null;
+  so_don: number | null;
+  nguoi_thuc_hien: string | null;
+  thoi_gian: string;
 }
 
 export interface KtvLienHeRow {
@@ -194,6 +215,7 @@ export interface UserRow {
   la_tac_nghiep: number;
   la_tp_dvbh: number;
   la_view: number;
+  la_mua_hang: number;
   quan_ly_danh_muc_lk: number;
   xem_danh_muc_lk: number;
   tram_cha: string | null;

@@ -24,6 +24,7 @@ export interface AppUser {
   la_tac_nghiep: boolean; // "TN" - nguoi duyet don mua/PXK/tra hang
   la_tp_dvbh: boolean; // Xac nhan "linh kien dac thu" truoc buoc TN
   la_view: boolean; // "View" (them 2026-08-26) - chi doc bao cao/danh sach, khong tao/duyet/sua
+  la_mua_hang: boolean; // "Mua hang" (2026-09-30, migration 0053) - xet duyet/sua ma linh kien moi
   quan_ly_danh_muc_lk: boolean; // Quyen SUA danh muc linh kien
   xem_danh_muc_lk: boolean; // Quyen XEM danh muc linh kien (doc lap voi quyen sua)
   tram_cha: string | null;

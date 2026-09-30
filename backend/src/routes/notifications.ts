@@ -76,6 +76,8 @@ export interface NotificationsCountPayload {
   // Them 2026-08-26 - so thong_bao_ktv CHUA DOC cua nguoi dang dang nhap, dung cho badge "Home (N)"
   // (nav muc trang-chu) - xem navConfig.ts/Sidebar.tsx/BottomTabBar.tsx.
   ktvLogChuaDoc: number;
+  // So LK "Cho xet duyet" ma chuan (migration 0053) - badge muc "Bang gia", CHI cho Mua hang/Admin (nguoi khac = 0).
+  lkChoXetDuyet: number;
 }
 
 function gsInClause(gsSet: Set<string> | null, ddhAlias: string): { sql: string; binds: string[] } | null {
@@ -335,7 +337,10 @@ notifications.get("/count", async (c) => {
   // doi nhu cachedReport - xem bai hoc "badge dung nguyen 0" o computeDatMuaLkBreakdown lien quan cache
   // cu khi vua them field moi).
   const row = await c.env.DB.prepare("SELECT COUNT(*) as n FROM thong_bao_ktv WHERE nguoi_nhan = ? AND da_doc = 0").bind(user.email).first<{ n: number }>();
-  const data: NotificationsCountPayload = { datMuaLk, ktvLogChuaDoc: row?.n ?? 0 };
+  const lkRow = user.la_mua_hang || user.vai_tro === "Admin"
+    ? await c.env.DB.prepare("SELECT COUNT(*) as n FROM linh_kien WHERE trang_thai_ma = 'Cho xet duyet'").first<{ n: number }>()
+    : null;
+  const data: NotificationsCountPayload = { datMuaLk, ktvLogChuaDoc: row?.n ?? 0, lkChoXetDuyet: lkRow?.n ?? 0 };
   return c.json(data);
 });
 

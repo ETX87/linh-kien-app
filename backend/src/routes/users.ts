@@ -118,6 +118,7 @@ users.patch("/:email", async (c) => {
     la_tac_nghiep?: boolean;
     la_tp_dvbh?: boolean;
     la_view?: boolean;
+    la_mua_hang?: boolean;
     quan_ly_danh_muc_lk?: boolean;
     xem_danh_muc_lk?: boolean;
     ma_misa?: string | null;
@@ -142,6 +143,7 @@ users.patch("/:email", async (c) => {
     la_tac_nghiep: body.la_tac_nghiep !== undefined ? (body.la_tac_nghiep ? 1 : 0) : existing.la_tac_nghiep,
     la_tp_dvbh: body.la_tp_dvbh !== undefined ? (body.la_tp_dvbh ? 1 : 0) : existing.la_tp_dvbh,
     la_view: body.la_view !== undefined ? (body.la_view ? 1 : 0) : existing.la_view,
+    la_mua_hang: body.la_mua_hang !== undefined ? (body.la_mua_hang ? 1 : 0) : existing.la_mua_hang,
     quan_ly_danh_muc_lk: body.quan_ly_danh_muc_lk !== undefined ? (body.quan_ly_danh_muc_lk ? 1 : 0) : existing.quan_ly_danh_muc_lk,
     xem_danh_muc_lk: body.xem_danh_muc_lk !== undefined ? (body.xem_danh_muc_lk ? 1 : 0) : existing.xem_danh_muc_lk,
     ma_misa: body.ma_misa !== undefined ? body.ma_misa?.trim() || null : existing.ma_misa,
@@ -149,7 +151,7 @@ users.patch("/:email", async (c) => {
   };
 
   await c.env.DB.prepare(
-    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, bi_khoa = ?, la_ktv_dvbh = ?, la_ve_tinh = ?, la_kho = ?, la_ke_toan = ?, la_tac_nghiep = ?, la_tp_dvbh = ?, la_view = ?, quan_ly_danh_muc_lk = ?, xem_danh_muc_lk = ?, ma_misa = ?, ten_misa = ?, updated_at = ? WHERE email = ?",
+    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, bi_khoa = ?, la_ktv_dvbh = ?, la_ve_tinh = ?, la_kho = ?, la_ke_toan = ?, la_tac_nghiep = ?, la_tp_dvbh = ?, la_view = ?, la_mua_hang = ?, quan_ly_danh_muc_lk = ?, xem_danh_muc_lk = ?, ma_misa = ?, ten_misa = ?, updated_at = ? WHERE email = ?",
   )
     .bind(
       next.trang_thai_duyet,
@@ -162,6 +164,7 @@ users.patch("/:email", async (c) => {
       next.la_tac_nghiep,
       next.la_tp_dvbh,
       next.la_view,
+      next.la_mua_hang,
       next.quan_ly_danh_muc_lk,
       next.xem_danh_muc_lk,
       next.ma_misa,
@@ -211,7 +214,7 @@ users.post("/:email/chuyen-nhom-vai-tro", async (c) => {
   } else {
     await c.env.DB.batch([
       c.env.DB.prepare(
-        "UPDATE users SET la_ktv_dvbh = 1, la_kho = 0, la_ke_toan = 0, la_tac_nghiep = 0, la_tp_dvbh = 0, la_view = 0, updated_at = ? WHERE email = ?",
+        "UPDATE users SET la_ktv_dvbh = 1, la_kho = 0, la_ke_toan = 0, la_tac_nghiep = 0, la_tp_dvbh = 0, la_view = 0, la_mua_hang = 0, updated_at = ? WHERE email = ?",
       ).bind(now, email),
       c.env.DB.prepare("DELETE FROM user_khu_vuc WHERE user_email = ?").bind(email),
     ]);

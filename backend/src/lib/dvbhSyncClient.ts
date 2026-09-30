@@ -1,5 +1,6 @@
 import type { Env } from "../types";
 import { nowVN } from "./vnTime";
+import { LK_DONG_BO_DUOC_SQL } from "./linhKienXetDuyet";
 
 // Day danh ba KTV/danh muc linh kien/danh muc Khu vuc sang cac he ngoai dinh ky (phan hoi
 // 2026-08-28: "khi cập nhật danh sách ktv hoặc cập nhật danh sách linh kiện, sẽ bắn API về web dvbh
@@ -62,6 +63,9 @@ interface EntityConfig {
   columns: string;
   syncPath: string;
   targets: TargetKey[];
+  // Dieu kien loc them (AND) - linh_kien: LK "Cho xet duyet"/"Tu choi"/dong chuyen huong "Da doi ma" KHONG day sang he
+  // khac (migration 0053) - Mua hang xac nhan xong (ngay_cap_nhat moi) moi day ma chuan.
+  where?: string;
 }
 
 const ENTITIES: Record<EntityKey, EntityConfig> = {
@@ -82,6 +86,7 @@ const ENTITIES: Record<EntityKey, EntityConfig> = {
     // suachua khong can sua gi ca.
     columns: "ma_linh_kien, ten_linh_kien, gia_ban, don_vi, ghi_chu, anh_demo, bat_tat, dac_thu, chi_sua_chua",
     syncPath: "/api/partner/sync/linh-kien",
+    where: LK_DONG_BO_DUOC_SQL,
     targets: ["dvbh", "suachua"],
   },
   // MOI 04/09/2026 - CHI "suachua" dung (xem giai thich o dau file). "dvbh" khong nam trong
@@ -123,7 +128,7 @@ export async function getPendingSyncCounts(db: D1Database): Promise<PendingSyncC
   ]);
   const [ktvRow, linhKienRow, khuVucRow] = await Promise.all([
     db.prepare("SELECT COUNT(*) as cnt FROM ktv_lien_he WHERE ngay_cap_nhat > ?").bind(ktvSince).first<{ cnt: number }>(),
-    db.prepare("SELECT COUNT(*) as cnt FROM linh_kien WHERE ngay_cap_nhat > ?").bind(linhKienSince).first<{ cnt: number }>(),
+    db.prepare(`SELECT COUNT(*) as cnt FROM linh_kien WHERE ngay_cap_nhat > ? AND ${LK_DONG_BO_DUOC_SQL}`).bind(linhKienSince).first<{ cnt: number }>(),
     db.prepare("SELECT COUNT(*) as cnt FROM khu_vuc WHERE ngay_cap_nhat > ?").bind(khuVucSince).first<{ cnt: number }>(),
   ]);
   return { ktv: ktvRow?.cnt ?? 0, linhKien: linhKienRow?.cnt ?? 0, khuVuc: khuVucRow?.cnt ?? 0 };
@@ -182,7 +187,7 @@ async function syncEntityToTarget(env: Env, db: D1Database, entity: EntityKey, t
   // SAU khi query xong, 1 dong doi dung luc do se bi lan sau moi bat kip).
   const syncStartedAt = nowVN();
 
-  const { results } = await db.prepare(`SELECT ${cfg.columns} FROM ${cfg.table} WHERE ngay_cap_nhat > ? ORDER BY ngay_cap_nhat`).bind(since).all<Record<string, unknown>>();
+  const { results } = await db.prepare(`SELECT ${cfg.columns} FROM ${cfg.table} WHERE ngay_cap_nhat > ?${cfg.where ? ` AND ${cfg.where}` : ""} ORDER BY ngay_cap_nhat`).bind(since).all<Record<string, unknown>>();
   if (results.length === 0) {
     // Van advance con tro (khong co gi doi tu lan truoc, tranh query lai WHERE ngay_cap_nhat > cu
     // moi lan chay du khong can thiet).

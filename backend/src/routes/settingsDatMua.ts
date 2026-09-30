@@ -12,6 +12,9 @@ import { nowVN } from "../lib/vnTime";
 import { resyncKhuVucDerivedFieldsForAll } from "../lib/khuVucSync";
 import { generateApiKey, hashApiKey } from "../lib/partnerApiAuth";
 import { timLoaiChietKhauTheoTen, gonTenLoaiChietKhau } from "../lib/loaiChietKhau";
+import { TT_MA, docLk, logLk, demDonDungLk, chuyenMaLk, tinhLaiTienTheoLk } from "../lib/linhKienXetDuyet";
+import { bumpVersions } from "../lib/dataVersions";
+import { createMiddleware } from "hono/factory";
 
 // Port rut gon tu backend/src/routes/settings.ts cua he DVBH goc - CHI giu 4 khoi thuc su can cho
 // mien nghiep vu "Dat mua linh kien" (xem CLAUDE.md muc "Nguon goc tach he thong"): danh muc linh
@@ -25,6 +28,18 @@ const settingsDatMua = new Hono<{ Bindings: Env }>();
 settingsDatMua.use("*", verifySessionMiddleware, loadUser);
 const adminOnly = requireRole("Admin");
 const linhKienWriteRoles = requireQuanLyDanhMucLk;
+// "Mua hang" (2026-09-30, migration 0053): xet duyet ma LK moi + sua thong tin LK (khong tao/import LK moi).
+const laMuaHangHoacAdmin = (u: { la_mua_hang: boolean; vai_tro: string | null }) => u.la_mua_hang || u.vai_tro === "Admin";
+const muaHangRoles = createMiddleware<{ Bindings: Env }>(async (c, next) => {
+  if (!laMuaHangHoacAdmin(c.get("user"))) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  await next();
+});
+// Sua thong tin LK (PATCH/anh) = Quan ly danh muc LK HOAC Mua hang.
+const suaLinhKienRoles = createMiddleware<{ Bindings: Env }>(async (c, next) => {
+  const u = c.get("user");
+  if (!u.quan_ly_danh_muc_lk && !laMuaHangHoacAdmin(u)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  await next();
+});
 
 async function refreshHash(db: D1Database, tenBang: string, table: string, orderBy: string) {
   const { results } = await db.prepare(`SELECT * FROM ${table} ORDER BY ${orderBy}`).all();
@@ -56,8 +71,12 @@ settingsDatMua.post("/linh-kien", linhKienWriteRoles, async (c) => {
     phan_loai_dac_thu?: string;
   }>();
   if (!body.ma_linh_kien?.trim() || !body.ten_linh_kien?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
+  // Ma da co (ke ca ma da doi/gop sang ma khac - dong chuyen huong) -> bao ro thay vi loi ghi DB chung chung.
+  const trung = await docLk(c.env.DB, body.ma_linh_kien.trim());
+  if (trung) return c.json({ error: "MA_DA_TON_TAI", ma_linh_kien: trung.ma_linh_kien, ten_linh_kien: trung.ten_linh_kien, trang_thai_ma: trung.trang_thai_ma, ma_chuan: trung.ma_chuan }, 409);
 
   const user = c.get("user");
+  // LK tao trong app vao "Cho xet duyet" (DEFAULT cot trang_thai_ma, migration 0053) - Mua hang xac nhan ma chuan.
   const row = await c.env.DB.prepare(
     `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, nguoi_cap_nhat, ngay_cap_nhat)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
@@ -69,6 +88,7 @@ settingsDatMua.post("/linh-kien", linhKienWriteRoles, async (c) => {
       user.email, nowVN(),
     )
     .first();
+  await logLk(c.env.DB, { ma: body.ma_linh_kien.trim(), hanhDong: "Tao moi", tenMoi: body.ten_linh_kien.trim(), nguoi: user.email }).run();
 
   await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
   return c.json(row, 201);
@@ -81,7 +101,7 @@ settingsDatMua.post("/linh-kien", linhKienWriteRoles, async (c) => {
 // gui len cung khong co tac dung, PATCH khac se ghi de dung gia tri that vao dem tiep theo). Cac cot
 // KHONG dong bo (bat_tat, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu) van sua
 // tay binh thuong.
-settingsDatMua.patch("/linh-kien/:ma", linhKienWriteRoles, async (c) => {
+settingsDatMua.patch("/linh-kien/:ma", suaLinhKienRoles, async (c) => {
   const ma = c.req.param("ma");
   if (!ma) return c.json({ error: "INVALID_PARAM" }, 400);
   const body = await c.req.json<{
@@ -135,7 +155,134 @@ settingsDatMua.patch("/linh-kien/:ma/gia-tri-cong-no", linhKienWriteRoles, async
   return c.json({ ok: true });
 });
 
-settingsDatMua.post("/linh-kien/:ma/anh", linhKienWriteRoles, async (c) => {
+// ---------- Xet duyet ma LK moi (2026-09-30, migration 0053 - lib/linhKienXetDuyet.ts) ----------
+
+// GET /linh-kien/:ma/xet-duyet - lich su xet duyet (log cua chinh ma + log cac ma da doi/gop VAO ma nay) + so don dang
+// dung ma. Mo cho moi nguoi xem duoc Bang gia (chi doc).
+settingsDatMua.get("/linh-kien/:ma/xet-duyet", async (c) => {
+  const ma = c.req.param("ma");
+  const [{ results: log }, soDon] = await Promise.all([
+    c.env.DB.prepare(
+      `SELECT * FROM linh_kien_log WHERE ma_linh_kien = ? OR ma_linh_kien IN (SELECT ma_linh_kien FROM linh_kien WHERE ma_chuan = ?)
+       ORDER BY id DESC LIMIT 100`,
+    ).bind(ma, ma).all(),
+    demDonDungLk(c.env.DB, ma),
+  ]);
+  return c.json({ log, so_don: soDon.tong, so_don_con_hieu_luc: soDon.con_hieu_luc });
+});
+
+// POST /linh-kien/:ma/xac-nhan - { ma_moi?, ten_moi? } - Mua hang xac nhan ma chuan cho LK "Cho xet duyet". ma_moi
+// trong/giong ma cu = giu ma (chi sua ten neu co); ma_moi khac = doi ma A -> B (B CHUA duoc ton tai - co roi thi 409
+// MA_DA_TON_TAI, FE goi y "Gop vao ma nay" qua /gop).
+settingsDatMua.post("/linh-kien/:ma/xac-nhan", muaHangRoles, async (c) => {
+  const ma = c.req.param("ma");
+  const body = await c.req.json<{ ma_moi?: string; ten_moi?: string }>();
+  const user = c.get("user");
+  const lk = await docLk(c.env.DB, ma);
+  if (!lk) return c.json({ error: "NOT_FOUND" }, 404);
+  if (lk.trang_thai_ma !== TT_MA.CHO) return c.json({ error: "KHONG_CON_CHO_DUYET", trang_thai_ma: lk.trang_thai_ma }, 409);
+  const maMoi = body.ma_moi?.trim() || ma;
+  const tenMoi = body.ten_moi?.trim() || lk.ten_linh_kien;
+  if (/\s/.test(maMoi)) return c.json({ error: "MA_KHONG_HOP_LE" }, 400);
+  const soDon = (await demDonDungLk(c.env.DB, ma)).tong;
+
+  if (maMoi === ma) {
+    const now = nowVN();
+    await c.env.DB.batch([
+      c.env.DB.prepare("UPDATE linh_kien SET ten_linh_kien = ?, trang_thai_ma = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?")
+        .bind(tenMoi, TT_MA.DA_XAC_NHAN, user.email, now, ma),
+      ...(tenMoi !== lk.ten_linh_kien ? [c.env.DB.prepare("UPDATE dat_don_hang SET ten_lk_snapshot = ? WHERE ma_lk = ?").bind(tenMoi, ma)] : []),
+      logLk(c.env.DB, { ma, hanhDong: "Xac nhan", tenCu: lk.ten_linh_kien, tenMoi: tenMoi !== lk.ten_linh_kien ? tenMoi : null, soDon, nguoi: user.email }),
+    ]);
+  } else {
+    const trung = await docLk(c.env.DB, maMoi);
+    if (trung) return c.json({ error: "MA_DA_TON_TAI", ma_linh_kien: trung.ma_linh_kien, ten_linh_kien: trung.ten_linh_kien, trang_thai_ma: trung.trang_thai_ma, ma_chuan: trung.ma_chuan }, 409);
+    await chuyenMaLk(c.env.DB, { maNguon: ma, maDich: maMoi, tenNguon: lk.ten_linh_kien, taoMoi: { ten: tenMoi }, hanhDong: "Doi ma", soDon, nguoi: user.email });
+  }
+  await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
+  if (soDon) c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, ma_linh_kien: maMoi, so_don: soDon });
+});
+
+// POST /linh-kien/:ma/gop - { ma_dich, ghi_chu? } - LK cho duyet tao trung 1 LK da co -> chuyen moi don/BOM/nhom thay
+// the sang ma_dich, A thanh dong chuyen huong. Gia theo ma_dich -> tinh lai tien PXK dang tao cua KTV lien quan.
+settingsDatMua.post("/linh-kien/:ma/gop", muaHangRoles, async (c) => {
+  const ma = c.req.param("ma");
+  const body = await c.req.json<{ ma_dich?: string; ghi_chu?: string }>();
+  const user = c.get("user");
+  const maDich = body.ma_dich?.trim();
+  if (!maDich || maDich === ma) return c.json({ error: "MA_DICH_KHONG_HOP_LE" }, 400);
+  const [lk, dich] = await Promise.all([docLk(c.env.DB, ma), docLk(c.env.DB, maDich)]);
+  if (!lk) return c.json({ error: "NOT_FOUND" }, 404);
+  if (lk.trang_thai_ma !== TT_MA.CHO) return c.json({ error: "KHONG_CON_CHO_DUYET", trang_thai_ma: lk.trang_thai_ma }, 409);
+  if (!dich) return c.json({ error: "MA_DICH_KHONG_TON_TAI" }, 400);
+  if (dich.trang_thai_ma === TT_MA.DA_DOI) return c.json({ error: "MA_DICH_DA_DOI_MA", ma_chuan: dich.ma_chuan }, 400);
+  if (dich.trang_thai_ma === TT_MA.TU_CHOI) return c.json({ error: "MA_DICH_DA_TU_CHOI" }, 400);
+  const soDon = (await demDonDungLk(c.env.DB, ma)).tong;
+  await chuyenMaLk(c.env.DB, { maNguon: ma, maDich, tenNguon: lk.ten_linh_kien, taoMoi: null, hanhDong: "Gop ma", ghiChu: body.ghi_chu?.trim() || null, soDon, nguoi: user.email });
+  await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
+  if (soDon) {
+    await tinhLaiTienTheoLk(c.env.DB, maDich, user.email);
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  }
+  return c.json({ ok: true, ma_linh_kien: maDich, so_don: soDon });
+});
+
+// POST /linh-kien/:ma/tu-choi - { ly_do } - chi khi KHONG con don dang hieu luc dung ma (con thi phai Gop). LK bi tu choi
+// an khoi o chon tao don (bat_tat = 0).
+settingsDatMua.post("/linh-kien/:ma/tu-choi", muaHangRoles, async (c) => {
+  const ma = c.req.param("ma");
+  const body = await c.req.json<{ ly_do?: string }>();
+  const user = c.get("user");
+  const lyDo = body.ly_do?.trim();
+  if (!lyDo) return c.json({ error: "THIEU_LY_DO" }, 400);
+  const lk = await docLk(c.env.DB, ma);
+  if (!lk) return c.json({ error: "NOT_FOUND" }, 404);
+  if (lk.trang_thai_ma !== TT_MA.CHO) return c.json({ error: "KHONG_CON_CHO_DUYET", trang_thai_ma: lk.trang_thai_ma }, 409);
+  const soDon = await demDonDungLk(c.env.DB, ma);
+  if (soDon.con_hieu_luc > 0) return c.json({ error: "CON_DON_DANG_DUNG", so_don: soDon.con_hieu_luc }, 409);
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE linh_kien SET trang_thai_ma = ?, bat_tat = 0, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?")
+      .bind(TT_MA.TU_CHOI, user.email, nowVN(), ma),
+    logLk(c.env.DB, { ma, hanhDong: "Tu choi", ghiChu: lyDo, soDon: soDon.tong, nguoi: user.email }),
+  ]);
+  await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
+  return c.json({ ok: true });
+});
+
+// POST /linh-kien/:ma/gia-tam - { gia_ban, gia_tri_cong_no } - Gia NY / Gia KTV tam cho LK CHUA co tren gia88
+// (co_tren_gia88 = 0; gia88 co ma nay thi gia gia88 ghi de moi dem). Doi ngay_cap_nhat de cache o chon tao don nhan gia
+// moi; tinh lai tien PXK dang tao cua KTV co don dung ma.
+settingsDatMua.post("/linh-kien/:ma/gia-tam", muaHangRoles, async (c) => {
+  const ma = c.req.param("ma");
+  const body = await c.req.json<{ gia_ban?: number | null; gia_tri_cong_no?: number | null }>();
+  const user = c.get("user");
+  const lk = await c.env.DB.prepare("SELECT trang_thai_ma, co_tren_gia88, gia_ban, gia_tri_cong_no FROM linh_kien WHERE ma_linh_kien = ?")
+    .bind(ma)
+    .first<{ trang_thai_ma: string; co_tren_gia88: number; gia_ban: number | null; gia_tri_cong_no: number | null }>();
+  if (!lk) return c.json({ error: "NOT_FOUND" }, 404);
+  if (lk.trang_thai_ma === TT_MA.DA_DOI || lk.trang_thai_ma === TT_MA.TU_CHOI) return c.json({ error: "LK_KHONG_CON_HIEU_LUC" }, 409);
+  if (lk.co_tren_gia88) return c.json({ error: "GIA_DO_GIA88_QUAN_LY" }, 409);
+  const so = (v: unknown) => (v === null || v === undefined || v === "" ? null : Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : NaN);
+  const giaBan = so(body.gia_ban);
+  const giaKtv = so(body.gia_tri_cong_no);
+  if (Number.isNaN(giaBan) || Number.isNaN(giaKtv)) return c.json({ error: "GIA_KHONG_HOP_LE" }, 400);
+  const fmt = (v: number | null) => (v == null ? "trống" : v.toLocaleString("vi-VN"));
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE linh_kien SET gia_ban = ?, gia_tri_cong_no = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?")
+      .bind(giaBan, giaKtv, user.email, nowVN(), ma),
+    logLk(c.env.DB, {
+      ma, hanhDong: "Gia tam", nguoi: user.email,
+      ghiChu: `Giá NY ${fmt(lk.gia_ban)} → ${fmt(giaBan)}; Giá KTV ${fmt(lk.gia_tri_cong_no)} → ${fmt(giaKtv)}`,
+    }),
+  ]);
+  await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
+  await tinhLaiTienTheoLk(c.env.DB, ma, user.email);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true });
+});
+
+settingsDatMua.post("/linh-kien/:ma/anh", suaLinhKienRoles, async (c) => {
   const ma = c.req.param("ma");
   const existing = await c.env.DB.prepare("SELECT ma_linh_kien FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
@@ -377,6 +524,13 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
         }
       }
     }
+    // Ma MOI (chua co truoc lo nay) vao "Cho xet duyet" (DEFAULT trang_thai_ma) - ghi log "Tao moi" cho Mua hang biet
+    // ai tao. Chi dong da ghi that (details thanh_cong*); loi log khong lam hong ket qua import.
+    const daGhi = new Set(details.filter((d) => d.status.startsWith("thanh_cong")).map((d) => d.ma_linh_kien));
+    const logMoi = rowMetas
+      .filter((m) => !existingMap.has(m.ma) && daGhi.has(m.ma))
+      .map((m) => logLk(c.env.DB, { ma: m.ma, hanhDong: "Tao moi", ghiChu: "Nhập danh mục hàng loạt", nguoi: user.email }));
+    if (logMoi.length) await c.env.DB.batch(logMoi).catch(() => undefined);
   }
 
   if (body.isLast) await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");

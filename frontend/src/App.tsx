@@ -135,7 +135,8 @@ function MainApp({
   if (role !== "Admin" && (user.la_tac_nghiep || user.la_kho || user.la_ke_toan || user.la_ktv_dvbh || user.la_ve_tinh)) {
     allowedModules = [...new Set([...allowedModules, "phieu-xuat"])];
   }
-  if (role !== "Admin" && (user.xem_danh_muc_lk || user.quan_ly_danh_muc_lk)) {
+  // "Mua hang" (2026-09-30, migration 0053) - xet duyet ma LK moi o Bang gia (dot 1 chi vao Bang gia).
+  if (role !== "Admin" && (user.xem_danh_muc_lk || user.quan_ly_danh_muc_lk || user.la_mua_hang)) {
     allowedModules = [...new Set([...allowedModules, "danh-muc-lk"])];
   }
   // "Tốc độ xử lý" (them 04/09/2026) - RIENG cho la_view (KHONG gop vao khoi 7 co "Dat mua linh kien"
