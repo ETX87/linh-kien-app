@@ -215,6 +215,15 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   choKhoPxk + choKeToanPxk của badge, Đơn hàng = phần còn lại của `total` (= VIỆC CẦN LÀM theo vai trò, KHÁC "Tổng đơn hàng" = mọi
   đơn còn tồn trong phạm vi). Menu con CHỈ xổ dưới mục đang chọn (`section`). Tên menu: "Thiếu hàng" (thieu-lk), "Bảng giá",
   "Công nợ" (ton-kho-ktv).
+- **Mục "Hàng trả" + tên menu rút gọn** (2026-09-30): desktop có mục Sidebar **"Hàng trả"** (key `tra-hang`, `desktopOnly`,
+  sau "Thiếu hàng") = CÙNG `DatMuaLinhKienModule` `section="tra-hang"` (portal `stageMenuSlots.tra`), số = tổng đơn trả hàng chờ
+  Kế toán/Kho/QC (Sidebar tự đếm từ `/don-hang-status-counts?loai_don=tra_hang`), 3 mục con Chờ kế toán/Chờ Kho/Chờ QC; bấm mục mẹ
+  = lọc sentinel `__CHO_XAC_NHAN__` (`traHang.ts`). Mobile: không có mục riêng — cụm "Hàng trả" + 3 mục con nằm trong menu "Đơn
+  hàng"; số "Đơn hàng" desktop trừ phần việc trả hàng KT/Kho/QC (`navCount(..., tachHangTra)`). Bước "Cho TN duyet tong" gộp vào
+  **"Chờ tác nghiệp"** cùng đơn mua (sentinel `__CHO_TN__` ở `donHangListWhere` + counts); DonCuaToiTab mở `TraHangDetailModal` cho
+  dòng trả hàng còn trong 4 bước duyệt riêng. Tên menu: Tổng / Chờ TBP / Chờ tác nghiệp / Chờ hàng / Chờ tạo phiếu / Từ chối /
+  Duyệt trong ngày; Phiếu: Tổng phiếu / Chờ chuyển tiền / Chờ mã đơn hàng / Chờ mã MISA / Chờ kho in / Kho đã in / Chờ KTV nhận /
+  KTV đã nhận / Hàng trừ kho / Kho đã kết thúc.
 - **Tạo phiếu xuất kho trên điện thoại** (2026-09-30, `PhieuXuatKhoTab.tsx`): CÙNG 1 form (`body`) cho 2 vỏ — desktop `Modal` +
   bảng như cũ; mobile `TaoPxkMobileShell` (toàn màn hình `100dvh`, đăng ký `overlayStack` cho nút Back, thanh CTA dính đáy: số dòng
   + "Cần chuyển" + "Tạo phiếu") + dòng đơn dạng THẺ bấm cả thẻ để chọn. Tiền/loại chiết khấu từng dòng dùng chung helper

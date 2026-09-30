@@ -448,6 +448,8 @@ export const TRA_HANG_TRANG_THAI_OPTIONS = [
   // Sentinel "con ton" (them 2026-08-27) - xem giai thich o DON_CUA_TOI_TRANG_THAI_OPTIONS, backend
   // tu doi sang dung TRA_HANG_TRANG_THAI_DONG_COUNTS khi loai_don=tra_hang.
   { value: "__OPEN__", label: "Còn tồn" },
+  // Sentinel muc "Hàng trả" (2026-09-30) - 3 buoc Ke toan/Kho/QC (backend traHang.ts GET /).
+  { value: "__CHO_XAC_NHAN__", label: "Chờ xác nhận (KT/Kho/QC)" },
   { value: "Cho ke toan duyet mem", label: "Chờ kế toán duyệt mềm" },
   { value: "Cho kho xac nhan", label: "Chờ kho xác nhận" },
   { value: "Cho QC xac nhan", label: "Chờ QC xác nhận" },
@@ -462,9 +464,11 @@ export const TRA_HANG_TRANG_THAI_OPTIONS = [
 export const DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL = [...DON_CUA_TOI_TRANG_THAI_OPTIONS, ...TRA_HANG_TRANG_THAI_OPTIONS];
 // Bo loc trang thai khi xem GOP CA 3 loai don (StageMenu "Tổng đơn hàng", loai_don=all) - hop 2 bo
 // tren, bo trung gia tri (giu nhan xuat hien truoc: "Tất cả trạng thái", "Còn tồn", "TN đã duyệt"...).
-export const TAT_CA_LOAI_TRANG_THAI_OPTIONS = DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL.filter(
-  (o, i, arr) => arr.findIndex((x) => x.value === o.value) === i,
-);
+export const TAT_CA_LOAI_TRANG_THAI_OPTIONS = [
+  ...DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL.filter((o, i, arr) => arr.findIndex((x) => x.value === o.value) === i),
+  // Sentinel muc "Chờ tác nghiệp" (2026-09-30) - "Cho TN duyet" + tra hang "Cho TN duyet tong" (backend donHangListWhere).
+  { value: "__CHO_TN__", label: "Chờ tác nghiệp (gồm hàng trả)" },
+];
 
 export const PIPELINE_NOTCH = 10;
 // Thu nho tu 80 (phan hoi 2026-08-19: "mặc định bị thu nhỏ, giảm kích thước để luôn mở không tràn

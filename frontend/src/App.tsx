@@ -204,6 +204,8 @@ function MainApp({
   function mucChoView(view: string): string {
     if (view === "thieu-lk") return "thieu-lk";
     if (view === "phieu-xuat-kho" && allowedModules.includes("phieu-xuat")) return "phieu-xuat";
+    // "Hàng trả" (2026-09-30) chi la muc Sidebar rieng tren desktop - mobile gop trong "Đơn hàng".
+    if (view === "tra-hang" && allowedModules.includes("tra-hang") && !isMobile) return "tra-hang";
     return "dat-mua-lk";
   }
   function openDonHangFromBell(donHangId: string) {
@@ -229,7 +231,7 @@ function MainApp({
   // lib/pxkDeepLink.ts) - khac openPxkFromBell, id truyen vao day PHAI la dat_don_hang.id that
   // ("DDH-xxxxxx"), khong phai ma thung tra ("TRA-xxxxxx") - xem resolve o duoi.
   function openTraHangFromBell(donHangId: string) {
-    setActive("dat-mua-lk");
+    setActive(mucChoView("tra-hang"));
     setPendingDetailOpen({ tab: "tra-hang", id: donHangId, nonce: Date.now() });
   }
   // Link truy cap truc tiep 1 PXK/dong tra hang theo ID (them 2026-09-09, xem lib/pxkDeepLink.ts) -
@@ -297,6 +299,7 @@ function MainApp({
   // Dung pattern portal y het headerExtraEl o tren - Sidebar/Module la 2 anh em cung cap voi MainApp.
   // Tach 2 slot (2026-09-29): duoi "Đơn đặt hàng" (nhom menu don) va duoi "Phiếu xuất" (nhom menu PXK).
   const [stageMenuSlotDonEl, setStageMenuSlotDonEl] = useState<HTMLDivElement | null>(null);
+  const [stageMenuSlotTraEl, setStageMenuSlotTraEl] = useState<HTMLDivElement | null>(null);
   const [stageMenuSlotPxkEl, setStageMenuSlotPxkEl] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -340,7 +343,7 @@ function MainApp({
         user={user}
         realIsAdmin={realIsAdmin}
         viewAsRole={viewAsRole}
-        stageMenuSlotRefs={{ "dat-mua-lk": setStageMenuSlotDonEl, "phieu-xuat": setStageMenuSlotPxkEl }}
+        stageMenuSlotRefs={{ "dat-mua-lk": setStageMenuSlotDonEl, "phieu-xuat": setStageMenuSlotPxkEl, "tra-hang": setStageMenuSlotTraEl }}
       />
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Banner "xem thu vai tro" (phan hoi 2026-08-20) - LUON hien khi viewAsRole != null, ke ca
@@ -397,7 +400,7 @@ function MainApp({
         <main className={`px-4 pt-4 sm:px-6 sm:pt-4 flex-1 min-w-0 ${isMobile ? "pb-[calc(4.5rem+env(safe-area-inset-bottom))]" : "pb-5 sm:pb-[22px]"}`}>
           <div className="flex items-center justify-between mb-[14px] flex-wrap gap-2">
             <div className="flex items-center gap-3 flex-wrap min-w-0">
-              {active !== "dat-mua-lk" && active !== "phieu-xuat" && <h1 className="page-title text-lg sm:text-[21px]">{MODULE_TITLES[active]}</h1>}
+              {active !== "dat-mua-lk" && active !== "phieu-xuat" && active !== "tra-hang" && <h1 className="page-title text-lg sm:text-[21px]">{MODULE_TITLES[active]}</h1>}
               <div ref={setHeaderExtraEl} className="flex items-center gap-2 flex-wrap min-w-0" />
             </div>
             {/* Muc 7 (yeu cau UI mobile 2026-08-27): "icon cai dat giao dien va muc dang xuat o goc
@@ -432,10 +435,10 @@ function MainApp({
               moi - KHONG unmount, moi state noi bo (jumpTarget, navigatedAway, view) giu nguyen. */}
           {(active === "trang-chu" || active === "dat-mua-lk" || active === "phieu-xuat" || active === "thieu-lk" || active === "tra-hang") && (
             <DatMuaLinhKienModule
-              forceView={active === "dat-mua-lk" || active === "phieu-xuat" ? undefined : active}
-              section={active === "phieu-xuat" ? "phieu-xuat" : "don-dat-hang"}
+              forceView={active === "dat-mua-lk" || active === "phieu-xuat" || active === "tra-hang" ? undefined : active}
+              section={active === "phieu-xuat" ? "phieu-xuat" : active === "tra-hang" ? "tra-hang" : "don-dat-hang"}
               headerExtra={headerExtraEl}
-              stageMenuSlots={{ don: stageMenuSlotDonEl, pxk: stageMenuSlotPxkEl }}
+              stageMenuSlots={{ don: stageMenuSlotDonEl, pxk: stageMenuSlotPxkEl, tra: stageMenuSlotTraEl }}
               externalDetailOpen={pendingDetailOpen}
               onExternalDetailOpenConsumed={() => setPendingDetailOpen(null)}
               // FIX (phan hoi 2026-08-26, cung van de tren): khi nguoi dung bam so lieu/StatCard nhay

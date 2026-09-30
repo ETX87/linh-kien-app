@@ -989,7 +989,7 @@ function TraHangGroupedList({
 // toi). Tu chua/goi lai CUNG mutation endpoint voi TraHangTab (khong dung chung state qua props) -
 // don gian hon truyen 3-4 mutation object qua props, doi gia la invalidate rieng (khong lech du lieu
 // vi CUNG 1 react-query queryKey "tra-hang" duoc invalidate).
-function TraHangDetailModal({
+export function TraHangDetailModal({
   id, onClose, addToast, qc, canXuLy, canKeToan, canKho, currentEmail, isAdmin, navRows, onNavigate,
 }: {
   id: string;

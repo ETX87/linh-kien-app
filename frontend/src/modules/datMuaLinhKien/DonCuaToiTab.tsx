@@ -51,6 +51,7 @@ import { TongNgayKtvInfo } from "./TongNgayKtv";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../components/ui/LocCot";
 import { TienPhieuVaQuy, BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung } from "./BangChungChuyenTien";
+import { TraHangDetailModal } from "./TraHangTab";
 
 // FIX (ra soat "logic sai theo vai tro" 2026-08-31): KTV/Ve tinh khong co tab "Phieu xuat kho" rieng
 // (chi Tac nghiep/Kho/Ke toan/Giam sat moi thay, xem canXemPxkTab o DatMuaLinhKienModule.tsx) - theo
@@ -1836,6 +1837,11 @@ export function DonCuaToiTab({
   }
 
   const pageRows = data?.rows ?? [];
+  // Dong tra hang dang o 4 buoc duyet rieng (tra_hang_log) -> chi tiet mo TraHangDetailModal.
+  const detailRowDs = detailId ? pageRows.find((r) => r.id === detailId) : undefined;
+  const detailTraHang =
+    detailRowDs?.loai_don === "tra_hang" &&
+    ["Cho ke toan duyet mem", "Cho kho xac nhan", "Cho QC xac nhan", "Cho TN duyet tong"].includes(detailRowDs.trang_thai ?? "");
   // Chon hang loat gio o CAP DONG (truoc day cap phieu) - dong dang "Cho Tram duyet" ma Tram co the
   // duyet/tu choi, khong phai chinh dong nguoi tao tu tao. Phan hoi 2026-08-19 ("duyệt/từ chối hàng
   // loạt của tác nghiệp đâu rồi?"): mo rong them dong "Cho TN duyet" cho TN - truoc day placeholder
@@ -2140,7 +2146,25 @@ export function DonCuaToiTab({
         showCheckbox={canActAsTram || canTacNghiep}
         columnSettingsSlot={columnSettingsSlot}
       />
-      {detailId && (
+      {detailId && detailTraHang && (
+        // Don tra hang con trong luong duyet rieng (vd "Cho TN duyet tong" hien o muc "Chờ tác nghiệp" cung don mua,
+        // 2026-09-30) -> mo DUNG man duyet tra hang (nut Duyet/Tu choi theo tra_hang_log), khong phai chi tiet don mua.
+        <TraHangDetailModal
+          id={detailId}
+          onClose={() => setDetailId(null)}
+          addToast={addToast}
+          qc={qc}
+          canXuLy={(tt) =>
+            tt === "Cho TN duyet tong" ? canTacNghiep : tt === "Cho ke toan duyet mem" ? canKeToan : tt === "Cho kho xac nhan" ? canKho : false
+          }
+          canKeToan={canKeToan}
+          canKho={canKho}
+          currentEmail={user?.email ?? ""}
+          isAdmin={isAdmin}
+          onNavigate={setDetailId}
+        />
+      )}
+      {detailId && !detailTraHang && (
         <DonHangDetailModal
           id={detailId}
           onClose={() => setDetailId(null)}
@@ -2601,7 +2625,10 @@ export function DonHangGroupedList({
   // DUY NHAT (truoc day tinh lai ben trong closure cua tung nhom) - dung CHUNG cho ca 2 kieu hien thi
   // (bang desktop hop nhat + the mobile), tranh trung lap logic/tinh 2 lan.
   const groupEntries = [...groups.entries()].map(([nguoiNhan, dongCon]) => {
-    const choDuyet = dongCon.filter((d) => d.trang_thai === "Cho Tram duyet" || d.trang_thai === "Cho TBP xac nhan" || d.trang_thai === "Cho TN duyet").length;
+    // + 4 buoc duyet rieng cua don tra hang (hien chung o "Tổng"/"Chờ tác nghiệp" - 2026-09-30).
+    const choDuyet = dongCon.filter((d) =>
+      ["Cho Tram duyet", "Cho TBP xac nhan", "Cho TN duyet", "Cho ke toan duyet mem", "Cho kho xac nhan", "Cho QC xac nhan", "Cho TN duyet tong"].includes(d.trang_thai ?? ""),
+    ).length;
     const dongY = dongCon.filter((d) => d.trang_thai === "TN da duyet").length;
     const tuChoi = dongCon.filter((d) => d.trang_thai === "TN tu choi").length;
     const choHang = dongCon.filter((d) => d.trang_thai === "Cho hang").length;

@@ -1825,6 +1825,10 @@ async function donHangListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string
     // tra_hang dung cot thang nhu o do - cot nay da LUON dong bo cho MOI loai_don, xem comment nhanh
     // "RA SOAT CHI PHI D1" o duoi).
     whereSql += " AND ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.ma_xuat_kho IS NULL";
+  } else if (trangThai === "__CHO_TN__") {
+    // Muc "Chờ tác nghiệp" (2026-09-30, phan hoi "đơn sau khi KT/Kho/QC xác nhận nhảy sang trạng thái chung với
+    // Chờ TN duyệt để TN không bị miss đơn"): don mua/cong no "Cho TN duyet" + don tra hang "Cho TN duyet tong".
+    whereSql += " AND (ddh.trang_thai_hien_tai = 'Cho TN duyet' OR (ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TN duyet tong'))";
   } else if (trangThai) {
     // RA SOAT CHI PHI D1 2026-08-18 (phan hoi Codex #11/#13, migration 0087+0088): doc truc tiep cot
     // trang_thai_hien_tai (co index idx_ddh_loai_don_trang_thai) thay vi correlated subquery - cot
@@ -2009,6 +2013,10 @@ datMuaLinhKien.get("/don-hang-status-counts", async (c) => {
   // dong CHUA gan PXK, khop dung dieu kien loc that su cua GET /don-hang?trang_thai=__CHO_TAO_PXK__.
   const counts: Record<string, number> = { "": scalarRow?.total ?? 0, __OPEN__: scalarRow?.mo ?? 0, __CHO_TAO_PXK__: scalarRow?.cho_tao_pxk ?? 0 };
   for (const r of results) counts[r.trang_thai ?? ""] = r.n;
+  // 2 sentinel 2026-09-30: "Chờ tác nghiệp" (Cho TN duyet + tra hang Cho TN duyet tong - trang thai chi co o tra hang)
+  // va "Hàng trả" chờ KT/Kho/QC (trang thai chi co o tra hang) - cong tu cac nhom tren, khop dung dieu kien loc.
+  counts.__CHO_TN__ = (counts["Cho TN duyet"] ?? 0) + (counts["Cho TN duyet tong"] ?? 0);
+  counts.__CHO_XAC_NHAN__ = (counts["Cho ke toan duyet mem"] ?? 0) + (counts["Cho kho xac nhan"] ?? 0) + (counts["Cho QC xac nhan"] ?? 0);
   return c.json({ counts });
 });
 

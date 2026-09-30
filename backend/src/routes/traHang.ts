@@ -120,6 +120,10 @@ traHang.get("/", async (c) => {
     // khop dong nao that).
     whereSql += ` AND ddh.trang_thai_hien_tai NOT IN (${TRANG_THAI_DONG.map(() => "?").join(",")})`;
     binds.push(...TRANG_THAI_DONG);
+  } else if (trangThai === "__CHO_XAC_NHAN__") {
+    // Muc Sidebar "Hàng trả" (2026-09-30): tong don CHO CAC BEN XAC NHAN (Ke toan/Kho/QC) - buoc TN duyet tong nam o
+    // "Chờ tác nghiệp" cung don mua (GET /dat-mua-lk/don-hang?trang_thai=__CHO_TN__).
+    whereSql += " AND ddh.trang_thai_hien_tai IN ('Cho ke toan duyet mem', 'Cho kho xac nhan', 'Cho QC xac nhan')";
   } else if (trangThai) {
     whereSql += " AND ddh.trang_thai_hien_tai = ?";
     binds.push(trangThai);

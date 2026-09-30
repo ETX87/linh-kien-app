@@ -9,7 +9,7 @@ import { useIsMobile } from "../hooks/useMediaQuery";
 import type { LuongQuyTrinhStep, JumpTarget, DangTonStep } from "./datMuaLinhKien/types";
 import { PipelineFlow, MyWorkloadStrip } from "./datMuaLinhKien/PipelineFlow";
 import { CaseDetailModal } from "./datMuaLinhKien/CaseDetailModal";
-import { StageMenu, type StageMenuGroup } from "./datMuaLinhKien/StageMenu";
+import { StageMenu, type StageMenuGroup, type StageMenuItem } from "./datMuaLinhKien/StageMenu";
 import { ErrorBoundary } from "../components/ui/ErrorBoundary";
 
 // FIX (phan hoi "click vào đơn chờ hàng, thẻ tab vẫn đang không được chọn" - da xay ra 2 lan lien tiep
@@ -32,17 +32,17 @@ import { ErrorBoundary } from "../components/ui/ErrorBoundary";
 // "tra-hang-cho" ung voi filter "__OPEN__") - moi lan bam mot trong 7 the "Trả·XX" thi StageMenu tat het,
 // khong sang muc nao. Ca 7 to hop NAY DEU thuoc CUNG 1 giai doan nghiep vu "tra hang" nen deu tro ve
 // chung 1 key "tra-hang-cho", khong phai quan he 1-1 nhu cac dong con lai.
+// 2026-09-30: muc "Hàng trả" (tong cho KT/Kho/QC + 3 muc con) thay "tra-hang-cho"; buoc TN duyet tong gop vao "Chờ tác nghiệp".
 const STAGE_MENU_TARGETS: { key: string; tab: string; filter: string; loaiDon?: string }[] = [
-  { key: "tra-hang-cho", tab: "tra-hang", filter: "__OPEN__" },
-  { key: "tra-hang-cho", tab: "tra-hang", filter: "Cho ke toan duyet mem" },
-  { key: "tra-hang-cho", tab: "tra-hang", filter: "Cho kho xac nhan" },
-  { key: "tra-hang-cho", tab: "tra-hang", filter: "Cho QC xac nhan" },
-  { key: "tra-hang-cho", tab: "tra-hang", filter: "Cho TN duyet tong" },
-  { key: "tra-hang-cho", tab: "phieu-xuat-kho", filter: "Dang tao phieu", loaiDon: "tra_hang" },
-  { key: "tra-hang-cho", tab: "phieu-xuat-kho", filter: "Cho ke toan", loaiDon: "tra_hang" },
-  { key: "tra-hang-cho", tab: "phieu-xuat-kho", filter: "Da chot xong don xuat", loaiDon: "tra_hang" },
+  { key: "hang-tra", tab: "tra-hang", filter: "__CHO_XAC_NHAN__" },
+  { key: "hang-tra", tab: "tra-hang", filter: "__OPEN__" },
+  { key: "hang-tra-kt", tab: "tra-hang", filter: "Cho ke toan duyet mem" },
+  { key: "hang-tra-kho", tab: "tra-hang", filter: "Cho kho xac nhan" },
+  { key: "hang-tra-qc", tab: "tra-hang", filter: "Cho QC xac nhan" },
+  { key: "cho-tn-duyet", tab: "tra-hang", filter: "Cho TN duyet tong" },
   { key: "tong-don-hang", tab: "don-cua-toi", filter: "__OPEN__", loaiDon: "tat_ca" },
   { key: "cho-tbp", tab: "don-cua-toi", filter: "Cho TBP xac nhan", loaiDon: "" },
+  { key: "cho-tn-duyet", tab: "don-cua-toi", filter: "__CHO_TN__", loaiDon: "tat_ca" },
   { key: "cho-tn-duyet", tab: "don-cua-toi", filter: "Cho TN duyet", loaiDon: "" },
   { key: "cho-hang", tab: "don-cua-toi", filter: "Cho hang", loaiDon: "" },
   { key: "cho-tao-xuat", tab: "don-cua-toi", filter: "__CHO_TAO_PXK__", loaiDon: "" },
@@ -140,10 +140,10 @@ export function DatMuaLinhKienModule({
   // trong noi dung de khong mat kha nang nhay nhanh.
   // Tach 2 slot (2026-09-29, "tách riêng thành 2 phần: đơn đặt hàng + phiếu xuất"): nhom menu don -> slot duoi muc
   // "Đơn đặt hàng", nhom "Xuất kho" -> slot duoi muc "Phiếu xuất".
-  stageMenuSlots?: { don?: HTMLElement | null; pxk?: HTMLElement | null };
+  stageMenuSlots?: { don?: HTMLElement | null; pxk?: HTMLElement | null; tra?: HTMLElement | null };
   // Muc Sidebar dang chon khi KHONG co forceView: "don-dat-hang" (dat-mua-lk) hay "phieu-xuat" - quyet dinh view mac
   // dinh luc moi vao muc (xem sectionView ben duoi).
-  section?: "don-dat-hang" | "phieu-xuat";
+  section?: "don-dat-hang" | "phieu-xuat" | "tra-hang";
 } = {}) {
   const auth = useAuth();
   const user = auth.status === "authenticated" ? auth.user : null;
@@ -296,6 +296,8 @@ export function DatMuaLinhKienModule({
   const sectionView =
     section === "phieu-xuat"
       ? isValidView("phieu-xuat-kho") ? "phieu-xuat-kho" : null
+      : section === "tra-hang"
+        ? isValidView("tra-hang") ? "tra-hang" : null
       : (view === "don-cua-toi" || view === "tra-hang") && isValidView(view)
         ? view
         : canXemDonMuaCongNo ? "don-cua-toi" : canTraHangView ? "tra-hang" : null;
@@ -437,6 +439,13 @@ export function DatMuaLinhKienModule({
   function consumeOpenDetailId() {
     setPendingOpenDetailId(null);
   }
+  // Bam muc Sidebar "Hàng trả" (desktop, 2026-09-30) = mo danh sach TONG cho Ke toan/Kho/QC xac nhan (khong roi vao bo
+  // loc mac dinh theo vai tro cua TraHangTab). Bo qua khi dang mo tu chuong thong bao (effect ben duoi mo dung dong do).
+  useEffect(() => {
+    if (section !== "tra-hang" || externalDetailOpen) return;
+    jumpTo({ tab: "tra-hang", filter: "__CHO_XAC_NHAN__" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section]);
   // Nhan tin hieu tu chuong thong bao O NGOAI module (App.tsx, xem giai thich o khai bao prop
   // externalDetailOpen phia tren) - tai dung jumpTo() y het cach StatCard/pipeline noi bo van goi, chi
   // khac nguon kich hoat. Dependency la `nonce` (khong phai ca object) de bam lai DUNG 1 dong thong bao
@@ -479,55 +488,62 @@ export function DatMuaLinhKienModule({
   // cong don, dung tinh chat "toi can xu ly ca 2 hang doi"). Giam sat (isGiamSat, khong co co xu ly nao
   // trong 4 co nay) giu nguyen tong __OPEN__ - ho khong dung o 1 buoc cu the nao ca, xem "toan bo" moi
   // dung vai tro giam sat.
-  const traHangChoToiCount =
-    canKeToan || canKho || canQC || canTacNghiep
-      ? (canKeToan ? (traHangStatusCounts["Cho ke toan duyet mem"] ?? 0) : 0) +
-        (canKho ? (traHangStatusCounts["Cho kho xac nhan"] ?? 0) : 0) +
-        (canQC ? (traHangStatusCounts["Cho QC xac nhan"] ?? 0) : 0) +
-        (canTacNghiep ? (traHangStatusCounts["Cho TN duyet tong"] ?? 0) : 0)
-      : traHangStatusCounts.__OPEN__;
+  // "Hàng trả" (2026-09-30, phan hoi "tách riêng đơn trả hàng chờ các bên xác nhận... mục mẹ là tổng, mục con cho mỗi
+  // vai trò Kế toán, Kho, QC, đếm đúng số đơn mỗi vai trò cần xử lý"): muc me = tong 3 buoc, moi muc con = so don dang
+  // cho DUNG vai tro do (trong pham vi xem). Desktop: muc Sidebar rieng (section "tra-hang", portal vao stageMenuSlots.tra);
+  // mobile: nam trong menu "Đơn hàng". Buoc TN duyet tong -> "Chờ tác nghiệp" (cung don mua, TN khong bo sot).
+  const isMobile = useIsMobile();
+  const hangTraCon: StageMenuItem[] = canTraHangView
+    ? [
+        { key: "hang-tra-kt", label: "Chờ kế toán", count: traHangStatusCounts["Cho ke toan duyet mem"],
+          onClick: () => stageJump("hang-tra-kt", { tab: "tra-hang", filter: "Cho ke toan duyet mem" }) },
+        { key: "hang-tra-kho", label: "Chờ Kho", count: traHangStatusCounts["Cho kho xac nhan"],
+          onClick: () => stageJump("hang-tra-kho", { tab: "tra-hang", filter: "Cho kho xac nhan" }) },
+        { key: "hang-tra-qc", label: "Chờ QC", count: traHangStatusCounts["Cho QC xac nhan"],
+          onClick: () => stageJump("hang-tra-qc", { tab: "tra-hang", filter: "Cho QC xac nhan" }) },
+      ]
+    : [];
+  const hangTraTong = hangTraCon.reduce((s, it) => s + (it.count ?? 0), 0);
+  // "Chờ tác nghiệp" = don mua/cong no "Cho TN duyet" + don tra hang "Cho TN duyet tong" (sentinel __CHO_TN__).
+  const tatCaCounts = tatCaLoaiCountsData?.counts ?? {};
+  const choTacNghiepCount = (tatCaCounts["Cho TN duyet"] ?? 0) + (tatCaCounts["Cho TN duyet tong"] ?? 0);
   const stageMenuGroups: StageMenuGroup[] = [
     {
       title: "Đơn đặt hàng",
       items: [
-        // "Tổng đơn hàng" (phan hoi 2026-09-28: "hiện tổng đơn hàng đang tồn dưới mọi hình thức theo vai
-        // trò... vẫn có thể bỏ filter để xem tất cả đơn đã xong hoặc đã hủy") - GOP CA 3 loai (ke ca tra
-        // hang, chot nguoi dung), mac dinh loc "Còn tồn"; pham vi theo vai tro do backend tu ap (scope/
-        // khu vuc/GS phu trach giong moi muc khac). Bo loc trang thai ben trong doi duoc sang "Tất cả".
+        // "Tổng" (phan hoi 2026-09-28: tong don dang ton duoi moi hinh thuc theo vai tro, gop ca 3 loai, mac dinh loc
+        // "Còn tồn", bo loc ben trong doi sang "Tất cả" duoc). Ten rut gon 2026-09-30.
         ...(canXemDonMuaCongNo
           ? [
               {
                 key: "tong-don-hang",
-                label: "Tổng đơn hàng",
+                label: "Tổng",
                 count: tatCaLoaiCountsData?.counts.__OPEN__,
                 onClick: () => stageJump("tong-don-hang", { tab: "don-cua-toi", filter: "__OPEN__", loaiDon: "tat_ca" }),
               },
             ]
           : []),
-        ...(canTraHangView
+        // Mobile: cum "Hàng trả" (tong + 3 muc con) nam ngay trong menu Đơn hàng (desktop co muc Sidebar rieng).
+        ...(isMobile && canTraHangView
           ? [
-              {
-                key: "tra-hang-cho",
-                // SUA (phan hoi 2026-09-23): "Trả hàng chờ các bên" -> "Đơn trả hàng chờ xác nhận".
-                label: "Đơn trả hàng chờ xác nhận",
-                count: traHangChoToiCount,
-                onClick: () => stageJump("tra-hang-cho", { tab: "tra-hang", filter: "__OPEN__" }),
-              },
+              { key: "hang-tra", label: "Hàng trả", count: hangTraTong,
+                onClick: () => stageJump("hang-tra", { tab: "tra-hang", filter: "__CHO_XAC_NHAN__" }) },
+              ...hangTraCon.map((it) => ({ ...it, label: `· ${it.label}` })),
             ]
           : []),
         ...(canXemDonMuaCongNo
           ? [
               {
                 key: "cho-tbp",
-                label: "Chờ TBP DVBH xác nhận",
+                label: "Chờ TBP",
                 count: donHangStatusCounts["Cho TBP xac nhan"],
                 onClick: () => stageJump("cho-tbp", { tab: "don-cua-toi", filter: "Cho TBP xac nhan", loaiDon: "" }),
               },
               {
                 key: "cho-tn-duyet",
-                label: "Chờ TN duyệt",
-                count: donHangStatusCounts["Cho TN duyet"],
-                onClick: () => stageJump("cho-tn-duyet", { tab: "don-cua-toi", filter: "Cho TN duyet", loaiDon: "" }),
+                label: "Chờ tác nghiệp",
+                count: choTacNghiepCount,
+                onClick: () => stageJump("cho-tn-duyet", { tab: "don-cua-toi", filter: "__CHO_TN__", loaiDon: "tat_ca" }),
               },
               {
                 key: "cho-hang",
@@ -535,17 +551,12 @@ export function DatMuaLinhKienModule({
                 count: donHangStatusCounts["Cho hang"],
                 onClick: () => stageJump("cho-hang", { tab: "don-cua-toi", filter: "Cho hang", loaiDon: "" }),
               },
-              // "Đơn chờ tạo xuất" (chuyen tu nhom "Xuất kho" sang day, phan hoi 2026-09-12: dat ngay
-              // duoi "Chờ hàng" vi cung la 1 buoc trong luong xu ly don dat hang, truoc khi re nhanh
-              // sang PXK) - danh sach dat_don_hang DA "TN da duyet" nhung CHUA gan vao PXK nao (chua co
-              // ma_xuat_kho). Dung sentinel trang_thai "__CHO_TAO_PXK__" (them o GET /don-hang +
-              // /don-hang-status-counts) de hien DANH SACH don qua DonCuaToiTab (loaiDon:"" = gop ca
-              // mua/cong no/tra hang), giong het cac muc khac.
+              // "Chờ tạo phiếu" (ten cu "Đơn chờ tạo xuất") - don "TN da duyet" CHUA gan PXK (sentinel __CHO_TAO_PXK__).
               ...(canTacNghiep
                 ? [
                     {
                       key: "cho-tao-xuat",
-                      label: "Đơn chờ tạo xuất",
+                      label: "Chờ tạo phiếu",
                       count: donHangStatusCounts.__CHO_TAO_PXK__,
                       onClick: () => stageJump("cho-tao-xuat", { tab: "don-cua-toi", filter: "__CHO_TAO_PXK__", loaiDon: "" }),
                     },
@@ -582,13 +593,13 @@ export function DatMuaLinhKienModule({
               // xem CA phieu da huy/hoan tat - khong an di, chi doi mac dinh.
               {
                 key: "tong-phieu-xuat",
-                label: "Tổng phiếu xuất",
+                label: "Tổng phiếu",
                 count: pxkStatusCounts.__OPEN__,
                 onClick: () => stageJump("tong-phieu-xuat", { tab: "phieu-xuat-kho", filter: "__OPEN__", loaiDon: "" }),
               },
               {
                 key: "cho-ktv-chuyen-tien",
-                label: "Chờ KTV chuyển tiền",
+                label: "Chờ chuyển tiền",
                 count: pxkStatusCounts.CHO_TIEN,
                 onClick: () => stageJump("cho-ktv-chuyen-tien", { tab: "phieu-xuat-kho", filter: "CHO_TIEN", loaiDon: "" }),
               },
@@ -603,7 +614,7 @@ export function DatMuaLinhKienModule({
                 ? [
                     {
                       key: "phieu-cho-ma-hd",
-                      label: "Phiếu chờ mã HĐ",
+                      label: "Chờ mã đơn hàng",
                       count: pxkStatusCounts["Dang tao phieu"],
                       onClick: () => stageJump("phieu-cho-ma-hd", { tab: "phieu-xuat-kho", filter: "Dang tao phieu", loaiDon: "" }),
                     },
@@ -616,7 +627,7 @@ export function DatMuaLinhKienModule({
                 ? [
                     {
                       key: "phieu-cho-ma-misa",
-                      label: "Phiếu chờ mã MISA",
+                      label: "Chờ mã MISA",
                       count: pxkStatusCounts["Cho ke toan"],
                       onClick: () => stageJump("phieu-cho-ma-misa", { tab: "phieu-xuat-kho", filter: "Cho ke toan", loaiDon: "" }),
                     },
@@ -635,24 +646,29 @@ export function DatMuaLinhKienModule({
               // da chot + da in sang muc rieng (DA_IN) - moi phieu chi nam o 1 muc.
               {
                 key: "da-chot-xong",
-                label: "Đã chốt xong đơn xuất",
+                label: "Chờ kho in",
                 count: pxkStatusCounts.CHOT_CHUA_IN,
                 onClick: () => stageJump("da-chot-xong", { tab: "phieu-xuat-kho", filter: "CHOT_CHUA_IN", loaiDon: "" }),
               },
               {
                 key: "phieu-da-in",
-                label: "Phiếu đã in",
+                label: "Kho đã in",
                 count: pxkStatusCounts.DA_IN,
                 onClick: () => stageJump("phieu-da-in", { tab: "phieu-xuat-kho", filter: "DA_IN", loaiDon: "" }),
               },
               {
                 key: "dang-gui-ktv",
-                label: "Đã gửi chờ KTV xác nhận",
+                label: "Chờ KTV nhận",
                 count: pxkStatusCounts["Dang gui KTV"],
                 onClick: () => stageJump("dang-gui-ktv", { tab: "phieu-xuat-kho", filter: "Dang gui KTV", loaiDon: "" }),
               },
-              // 3 muc KET THUC quy trinh (Hàng trừ kho / Kho xác nhận kết thúc / KTV nhận đủ hàng) KHONG gan count (chot
+              // 3 muc KET THUC quy trinh (KTV đã nhận / Hàng trừ kho / Kho đã kết thúc; ten rut gon + thu tu 2026-09-30) KHONG gan count (chot
               // 2026-09-29: "đến đó là kết thúc quy trình") - giong "Từ chối", so chi tang luy ke, khong phai viec can lam.
+              {
+                key: "ktv-da-nhan",
+                label: "KTV đã nhận",
+                onClick: () => stageJump("ktv-da-nhan", { tab: "phieu-xuat-kho", filter: "KTV da nhan", loaiDon: "" }),
+              },
               {
                 key: "hang-tru-kho",
                 label: "Hàng trừ kho",
@@ -660,13 +676,8 @@ export function DatMuaLinhKienModule({
               },
               {
                 key: "kho-ket-thuc",
-                label: "Kho xác nhận kết thúc quy trình",
+                label: "Kho đã kết thúc",
                 onClick: () => stageJump("kho-ket-thuc", { tab: "phieu-xuat-kho", filter: "Kho da ket thuc", loaiDon: "" }),
-              },
-              {
-                key: "ktv-da-nhan",
-                label: "KTV nhận đủ hàng",
-                onClick: () => stageJump("ktv-da-nhan", { tab: "phieu-xuat-kho", filter: "KTV da nhan", loaiDon: "" }),
               },
             ],
           },
@@ -678,7 +689,6 @@ export function DatMuaLinhKienModule({
   // không đọc, tránh tốn lượt đọc D1") - man hinh hep khong du cho hien huu ich, va day la 1 API rieng
   // (goi computeDatMuaLkBreakdown-ke tuong tu, doc nhieu bang) nen bo qua ca query (enabled: !isMobile)
   // thay vi chi an UI, tranh goi API thua tren thiet bi khong dung toi ket qua.
-  const isMobile = useIsMobile();
   const { data: luongQuyTrinh } = useQuery({
     queryKey: ["dat-mua-lk-luong-quy-trinh"],
     queryFn: () => api.get<{ steps: LuongQuyTrinhStep[] }>("/dat-mua-lk/luong-quy-trinh"),
@@ -887,7 +897,9 @@ export function DatMuaLinhKienModule({
         return (
           <>
             {/* Chi xo menu con cua DUNG muc dang chon (2026-09-29: "ấn menu nào thì show danh sách thuộc menu đó thôi"). */}
-            {section !== "phieu-xuat" && stageMenuSlots?.don && donGroup.items.length > 0 &&
+            {section === "tra-hang" && stageMenuSlots?.tra && hangTraCon.length > 0 &&
+              createPortal(<StageMenu groups={[{ items: hangTraCon }]} activeKey={activeKey} isMobile={false} />, stageMenuSlots.tra)}
+            {section === "don-dat-hang" && stageMenuSlots?.don && donGroup.items.length > 0 &&
               createPortal(<StageMenu groups={[{ items: donGroup.items }]} activeKey={activeKey} isMobile={false} />, stageMenuSlots.don)}
             {section === "phieu-xuat" && stageMenuSlots?.pxk && pxkGroup &&
               createPortal(<StageMenu groups={[{ items: pxkGroup.items }]} activeKey={activeKey} isMobile={false} />, stageMenuSlots.pxk)}

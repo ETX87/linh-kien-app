@@ -18,7 +18,7 @@ export function BottomTabBar({
   allowedModules: string[];
   onOpenMore: () => void;
 }) {
-  const allItems = NAV_GROUPS.flatMap((g) => g.items).filter((i) => !i.href && allowedModules.includes(i.key));
+  const allItems = NAV_GROUPS.flatMap((g) => g.items).filter((i) => !i.href && !i.desktopOnly && allowedModules.includes(i.key));
   const shown = allItems.slice(0, MAX_TABS);
   const { data: counts } = useQuery({
     queryKey: ["notifications-count"],

@@ -42,7 +42,7 @@ export function Sidebar({
   // menu giai doan hoa vao (them 2026-09-11, tach 2 slot 2026-09-29 - xem prop `stageMenuSlots` cua module do) - chi
   // 1 <div> rong, Sidebar KHONG biet/khong can biet noi dung ben trong no la gi.
   // Ham ref phai ON DINH (setter cua useState o App.tsx) - ref inline doi moi lan render se goi null/el lien tuc.
-  stageMenuSlotRefs?: Partial<Record<"dat-mua-lk" | "phieu-xuat", (el: HTMLDivElement | null) => void>>;
+  stageMenuSlotRefs?: Partial<Record<"dat-mua-lk" | "phieu-xuat" | "tra-hang", (el: HTMLDivElement | null) => void>>;
 }) {
   const isMobile = useIsMobile();
   useEffect(() => {
@@ -54,6 +54,19 @@ export function Sidebar({
     queryFn: () => api.get<NavCounts>("/notifications/count"),
     refetchInterval: 5 * 60_000,
   });
+  // "Hàng trả" (desktop, 2026-09-30): so = tong don tra hang cho Ke toan/Kho/QC xac nhan trong pham vi xem - CUNG query
+  // (queryKey) voi menu con cua muc nay trong DatMuaLinhKienModule nen khong ton them request khi dang mo module.
+  const coHangTra = !isMobile && allowedModules.includes("tra-hang");
+  const { data: traHangCounts } = useQuery({
+    queryKey: ["dat-mua-lk-don-hang-status-counts", "tra_hang"],
+    queryFn: () => api.get<{ counts: Record<string, number> }>("/dat-mua-lk/don-hang-status-counts?loai_don=tra_hang"),
+    enabled: coHangTra,
+    refetchInterval: 5 * 60_000,
+  });
+  const tc = traHangCounts?.counts ?? {};
+  const countsDu: NavCounts | undefined = counts
+    ? { ...counts, hangTra: (tc["Cho ke toan duyet mem"] ?? 0) + (tc["Cho kho xac nhan"] ?? 0) + (tc["Cho QC xac nhan"] ?? 0) }
+    : undefined;
 
   const showText = !collapsed || isMobile;
 
@@ -85,13 +98,13 @@ export function Sidebar({
 
       <nav className="relative z-[1] flex-1 overflow-y-auto sidebar-scroll py-3 px-2.5">
         {NAV_GROUPS.map((g) => {
-          const items = g.items.filter((i) => i.href || allowedModules.includes(i.key));
+          const items = g.items.filter((i) => (i.href || allowedModules.includes(i.key)) && !(i.desktopOnly && isMobile));
           if (items.length === 0) return null;
           return (
             <div key={g.label} className="mb-4">
               {showText && <div className="text-[10px] uppercase tracking-wider font-bold text-[var(--sidebar-fg-dim)] px-2.5 mb-1.5">{g.label}</div>}
               {items.map((it) => {
-                const count = navCount(it.countKey, counts);
+                const count = navCount(it.countKey, countsDu, coHangTra);
                 const on = active === it.key;
                 const IconCmp = (Icon as Record<string, ((p: { size?: number; className?: string }) => JSX.Element) | undefined>)[it.icon as string];
                 const cls = `focus-ring w-full flex items-center gap-3 h-10 px-3.5 rounded-[8px] mb-0.5 text-[13.5px] transition-colors ${
@@ -133,7 +146,7 @@ export function Sidebar({
                 // Slot menu giai doan hoa (them 2026-09-11) - long NGAY DUOI muc "Đặt mua linh kiện",
                 // rong (empty:hidden) khi khong co gi portal vao (VD dang o module khac, hoac Sidebar
                 // dang thu gon icon-only nen an luon showText). Xem stageMenuSlot o DatMuaLinhKienModule.tsx.
-                if (it.key !== "dat-mua-lk" && it.key !== "phieu-xuat") return <div key={it.key}>{itemEl}</div>;
+                if (it.key !== "dat-mua-lk" && it.key !== "phieu-xuat" && it.key !== "tra-hang") return <div key={it.key}>{itemEl}</div>;
                 return (
                   <div key={it.key}>
                     {itemEl}
