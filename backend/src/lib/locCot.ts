@@ -7,6 +7,7 @@
 //        client tu chon dang ngan hon). Gia tri rong/NULL = "". Truyen qua 1 bind json_each (khong vuong gioi han
 //        100 tham so cua D1 du chon hang tram gia tri).
 //   cs = cot sap xep, cd = asc|desc.
+import { tenNguoiSql as tenNguoiEmailSql } from "./tenNguoi";
 
 export type CotLoc =
   // Cot 1 gia tri/dong: `expr` la bieu thuc SQL tren dong goc.
@@ -66,8 +67,8 @@ export function sqlSapXep(defs: Record<string, CotLoc>, cot: string | undefined,
   return `${expr} ${huong}`;
 }
 
-/** Ten hien thi (users.ten, khong co thi email) cua 1 cot email - dung lam sortExpr cho cot nguoi. */
-export const tenNguoiSql = (emailExpr: string) => `COALESCE((SELECT u.ten FROM users u WHERE u.email = ${emailExpr}), ${emailExpr}, '')`;
+/** Ten hien thi (thu tu chung lib/tenNguoi.ts, khong co thi email) cua 1 cot email - dung lam sortExpr cho cot nguoi. */
+export const tenNguoiSql = (emailExpr: string) => `COALESCE(${tenNguoiEmailSql(emailExpr)}, '')`;
 
 /**
  * Cac gia tri (kem so dong goc) cua 1 cot trong tap dong dang xem (whereSql da ap moi bo loc KHAC, bo qua bo loc cua
@@ -91,3 +92,4 @@ export async function giaTriCot(
   const ten = new Map(kv.map((r) => [r.ma, r.ten ?? r.ma]));
   return results.map((r) => ({ ...r, nhan: r.v ? ten.get(r.v) ?? r.v : undefined }));
 }
+

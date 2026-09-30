@@ -29,6 +29,9 @@ export function usePersonDirectory(): PersonDirectory {
 // SUA (phan hoi 2026-09-12: "Tên user bỏ gmail phía sau (trường hợp không có tên mới hiện theo
 // mail)") - truoc day LUON ghep "(email)" sau ten (ke ca khi da co ten that), gio CHI hien email khi
 // khong tim duoc ten nao (fallback), khong con ghep kem sau ten that.
+// CHOT 2026-09-30 thu tu: ten KTV (danh ba) -> ten MISA -> ten Google -> email. Backend /nguoi-directory da gop san
+// (ktv = ten_hien_thi/ten_misa cua KTV, users = ten_misa/ten cua tai khoan) nen ham nay giu nguyen "ktv ?? users ??
+// email". Ban SQL cung thu tu: backend/src/lib/tenNguoi.ts.
 export function formatPersonDisplay(email: string | null | undefined, dir: PersonDirectory): string {
   if (!email) return "—";
   const ten = dir.ktv.get(email) ?? dir.users.get(email);

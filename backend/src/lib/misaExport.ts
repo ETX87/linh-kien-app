@@ -44,6 +44,7 @@
 // ten_misa) de FE hien canh bao ro rang luc tai file.
 import type { Env } from "../types";
 import { tinhToanPxk, laTruCongNo } from "./pxkRecalculate";
+import { tenNguoiNullSql } from "./tenNguoi";
 
 export const MISA_TEMPLATES = ["xuat_kho", "chuyen_kho", "ban_hang"] as const;
 export type MisaTemplate = (typeof MISA_TEMPLATES)[number];
@@ -211,7 +212,7 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
          -- nhan hang khong nam trong danh ba KTV, ma MISA khai o Users; phan hoi 2026-09-29 GS nguyenquantb "có khai báo
          -- mã misa nhưng khi tải file về lại không điền"). Khu vuc (chon kho theo mien): KTV, khong co thi khu vuc cua
          -- PHIEU (migration 0042 - GS nhan hang -> khu vuc dau tien GS phu trach).
-         ktv.ma_ktv as ktv_ma_ktv, COALESCE(ktv.ten_hien_thi, u.ten) as ktv_ten,
+         ktv.ma_ktv as ktv_ma_ktv, ${tenNguoiNullSql("pxk.nguoi_nhan_hang")} as ktv_ten,
          COALESCE(NULLIF(TRIM(ktv.ma_misa), ''), NULLIF(TRIM(u.ma_misa), '')) as ktv_ma_misa,
          COALESCE(NULLIF(TRIM(ktv.ten_misa), ''), NULLIF(TRIM(u.ten_misa), '')) as ktv_ten_misa,
          COALESCE(ktv.khu_vuc_ma, pxk.khu_vuc_ma) as ktv_khu_vuc_ma,

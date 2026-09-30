@@ -276,8 +276,10 @@ auth.post("/view-as", verifySessionMiddleware, loadUser, async (c) => {
 // KTV (do CSKH/Admin bien tap rieng, thuong sat thuc te hon ten Google) truoc ten cua users.ten.
 auth.get("/nguoi-directory", verifySessionMiddleware, loadUser, async (c) => {
   const [{ results: users }, { results: ktv }] = await Promise.all([
-    c.env.DB.prepare("SELECT email, ten FROM users WHERE trang_thai_duyet = 'Da duyet' AND ten IS NOT NULL").all<{ email: string; ten: string }>(),
-    c.env.DB.prepare("SELECT email_dang_nhap as email, ten_hien_thi FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND ten_hien_thi IS NOT NULL").all<{ email: string; ten_hien_thi: string }>(),
+    // Thu tu ten (chot 2026-09-30, lib/tenNguoi.ts): ten KTV -> ten MISA (KTV, roi tai khoan) -> ten Google -> email.
+    // FE lay ktv truoc users nen: ktv = ten_hien_thi/ten_misa cua KTV, users = ten_misa/ten cua tai khoan.
+    c.env.DB.prepare("SELECT email, COALESCE(NULLIF(TRIM(ten_misa), ''), NULLIF(TRIM(ten), '')) AS ten FROM users WHERE trang_thai_duyet = 'Da duyet' AND COALESCE(NULLIF(TRIM(ten_misa), ''), NULLIF(TRIM(ten), '')) IS NOT NULL").all<{ email: string; ten: string }>(),
+    c.env.DB.prepare("SELECT email_dang_nhap as email, COALESCE(NULLIF(TRIM(ten_hien_thi), ''), NULLIF(TRIM(ten_misa), '')) AS ten_hien_thi FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND COALESCE(NULLIF(TRIM(ten_hien_thi), ''), NULLIF(TRIM(ten_misa), '')) IS NOT NULL").all<{ email: string; ten_hien_thi: string }>(),
   ]);
   return c.json({ users, ktv });
 });

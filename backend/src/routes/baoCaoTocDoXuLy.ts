@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
+import { tenNguoiMap } from "../lib/tenNguoi";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import {
   STAGE_DEFS,
@@ -102,10 +103,8 @@ baoCaoTocDoXuLy.get("/xep-hang", async (c) => {
     const rows = aggregateByAccount(inKy, inPrevKy);
 
     if (rows.length > 0) {
-      const emails = rows.map((r) => r.email);
-      const placeholders = emails.map(() => "?").join(",");
-      const { results } = await c.env.DB.prepare(`SELECT email, ten FROM users WHERE email IN (${placeholders})`).bind(...emails).all<{ email: string; ten: string | null }>();
-      const tenByEmail = new Map((results ?? []).map((u) => [u.email, u.ten]));
+      // Ten theo thu tu chung (lib/tenNguoi.ts); 1 bind JSON thay vi 1 "?" moi nguoi (gioi han 100 tham so D1).
+      const tenByEmail = await tenNguoiMap(c.env.DB, rows.map((r) => r.email));
       for (const r of rows) r.ten = tenByEmail.get(r.email) ?? null;
     }
     rows.sort((a, b) => (b.da_xu_ly + b.tu_choi) - (a.da_xu_ly + a.tu_choi));

@@ -25,6 +25,7 @@ import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
 import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon } from "../lib/pxkRecalculate";
 import { computeTonKtvConLai } from "../lib/tonKhoKtv";
 import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
+import { tenNguoiSql as tenNguoiDaySql, tenNguoiNullSql, tenNguoiMap } from "../lib/tenNguoi";
 import { TRANG_THAI_PXK_DON_SQL, THANH_TOAN_DON_SQL } from "../lib/trangThaiDonPxk";
 import { TU_HUY_DUOC_SQL, TN_DOI_TRONG_PXK_SQL, pxkDuocTuHuy, pxkTnDoiDuoc, goDonKhoiPxk, laVanPhong, danhDauVanPhongTacDong } from "../lib/pxkTuHuy";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, MUA_CONG_NO_ROLES, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
@@ -183,7 +184,7 @@ function phieuDatPrefix(c: Context<{ Bindings: Env }>): "XH" | "TN" | "AD" {
 // co Ve tinh nao thi tra rows rong (khong loi).
 datMuaLinhKien.get("/ve-tinh-cua-toi", async (c) => {
   const user = c.get("user");
-  const { results } = await c.env.DB.prepare("SELECT email, ten FROM users WHERE tram_cha = ? ORDER BY ten").bind(user.email).all();
+  const { results } = await c.env.DB.prepare(`SELECT email, ${tenNguoiDaySql("users.email")} AS ten FROM users WHERE tram_cha = ? ORDER BY ten`).bind(user.email).all();
   return c.json({ rows: results });
 });
 
@@ -222,13 +223,13 @@ datMuaLinhKien.get("/nguoi-nhan-hang-kha-dung", async (c) => {
     gsBinds.push(user.email);
   }
   const { results } = await c.env.DB.prepare(
-    `SELECT dsk.ma_ktv, dsk.ten_hien_thi, dsk.email_dang_nhap, gs.ten AS ten_gs
+    `SELECT dsk.ma_ktv, ${tenNguoiDaySql("dsk.email_dang_nhap")} AS ten_hien_thi, dsk.email_dang_nhap, ${tenNguoiNullSql("gs.email")} AS ten_gs
      FROM ktv_lien_he dsk
      JOIN users u ON u.email = dsk.email_dang_nhap
      LEFT JOIN users gs ON gs.email = u.giam_sat_quan_ly
      WHERE ${ktvWhereSql}
      UNION ALL
-     SELECT '' as ma_ktv, u2.ten as ten_hien_thi, u2.email as email_dang_nhap, NULL as ten_gs
+     SELECT '' as ma_ktv, ${tenNguoiDaySql("u2.email")} as ten_hien_thi, u2.email as email_dang_nhap, NULL as ten_gs
      FROM users u2
      WHERE ${gsWhereSql}
      ORDER BY ten_hien_thi`,
@@ -486,7 +487,7 @@ datMuaLinhKien.get("/ton-dong-theo-ktv", async (c) => {
        )
        SELECT o.id, o.loai_don, o.ma_lk, o.ten_lk_snapshot, o.so_luong_de_xuat, o.nguoi_nhan_hang,
          o.ngay_tao, o.ddh_trang_thai, o.pxk_trang_thai, o.so_tien_can_chuyen, o.trang_thai_chuyen_tien,
-         k.ten_hien_thi, k.khu_vuc_ma, k.vai_tro_ktv, kv.ten as khu_vuc_ten,
+         ${tenNguoiNullSql("o.nguoi_nhan_hang")} AS ten_hien_thi, k.khu_vuc_ma, k.vai_tro_ktv, kv.ten as khu_vuc_ten,
          (SELECT ngay_du_kien_co_hang FROM thieu_lk WHERE dat_don_hang_id = o.id ORDER BY ngay_tao DESC LIMIT 1) as ngay_du_kien_co_hang
        FROM ddh_open o
        LEFT JOIN ktv_lien_he k ON k.email_dang_nhap = o.nguoi_nhan_hang
@@ -1282,7 +1283,7 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
        LEFT JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
        WHERE 1=1${scopeCond ? scopeCond("ddh") : ""}
      )
-     SELECT ddh.nguoi_nhan_hang as email, u.ten as ten,
+     SELECT ddh.nguoi_nhan_hang as email, ${tenNguoiNullSql("ddh.nguoi_nhan_hang")} as ten,
        COUNT(*) as sl_don,
        COALESCE(SUM(CASE WHEN ddh.loai_don = 'mua' THEN 1 ELSE 0 END), 0) as sl_don_mua,
        COALESCE(SUM(CASE WHEN ddh.loai_don = 'cong_no' THEN 1 ELSE 0 END), 0) as sl_don_cong_no,
@@ -1298,7 +1299,7 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
        COALESCE(SUM(CASE WHEN ddh.gia_chot IS NOT NULL AND ddh.so_luong_thuc_xuat IS NOT NULL THEN ddh.gia_chot * ddh.so_luong_thuc_xuat ELSE 0 END), 0) as tong_tien_thuc_te,
        COALESCE(SUM(ddh.gia_de_xuat * ddh.so_luong_de_xuat), 0) as tong_tien_dat_mua,
        COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai IN (${DANG_CHO_DUYET_SQL_IN}) THEN ddh.gia_de_xuat * ddh.so_luong_de_xuat ELSE 0 END), 0) as tien_cho_duyet
-     FROM ddh_kt ddh LEFT JOIN users u ON u.email = ddh.nguoi_nhan_hang
+     FROM ddh_kt ddh
      WHERE ${thangWhere}
      GROUP BY ddh.nguoi_nhan_hang`,
   )
@@ -2347,6 +2348,9 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   await taiTinhPxkMoCuaKtv(c.env.DB, nguoiNhanHang, user.email);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   const emailGsList = recipientRow?.giam_sat_quan_ly ? [recipientRow.giam_sat_quan_ly] : [];
+  const tenNguoiTao = notifyQueue.some((i) => i.trangThai === "Cho Tram duyet")
+    ? (await tenNguoiMap(c.env.DB, [user.email])).get(user.email) ?? user.email
+    : user.email;
   for (const item of notifyQueue) {
     if (item.trangThai === "Cho Tram duyet") {
       c.executionCtx.waitUntil(
@@ -2356,7 +2360,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
           emailGsList,
           pastActors: [],
           title: "Đặt mua linh kiện",
-          body: `Đơn ${item.tenLkNoiDung} của ${user.ten ?? user.email} đang chờ bạn duyệt`,
+          body: `Đơn ${item.tenLkNoiDung} của ${tenNguoiTao} đang chờ bạn duyệt`,
           linkType: "don_hang",
           linkId: item.donHangId,
         }),
@@ -2792,8 +2796,7 @@ datMuaLinhKien.get("/search", async (c) => {
   if (emails.length > 0) {
     const json = JSON.stringify(emails);
     const daCo = new Set(results.map((r) => r.id));
-    const tenSql = (col: string) =>
-      `COALESCE((SELECT ten_hien_thi FROM ktv_lien_he WHERE email_dang_nhap = ${col} LIMIT 1), (SELECT ten FROM users WHERE email = ${col}), ${col})`;
+    const tenSql = tenNguoiDaySql;
     {
       const scope = scopeDatMuaNguoiTao(c);
       const { results: rows } = await c.env.DB.prepare(
@@ -3872,12 +3875,12 @@ async function tomTatThieuLk(
 ): Promise<string> {
   const { results } = await db
     .prepare(
-      `SELECT l.trang_thai, l.ngay_xu_ly, l.ghi_chu, COALESCE(u.ten, l.nguoi_xu_ly) AS ten
-       FROM thieu_lk_log l LEFT JOIN users u ON u.email = l.nguoi_xu_ly WHERE l.thieu_lk_id = ? ORDER BY l.id`,
+      `SELECT l.trang_thai, l.ngay_xu_ly, l.ghi_chu, ${tenNguoiDaySql("l.nguoi_xu_ly")} AS ten
+       FROM thieu_lk_log l WHERE l.thieu_lk_id = ? ORDER BY l.id`,
     )
     .bind(thieuLkId)
     .all<{ trang_thai: string; ngay_xu_ly: string; ghi_chu: string | null; ten: string }>();
-  const nguoiMoi = await db.prepare("SELECT ten FROM users WHERE email = ?").bind(buocMoi.email).first<{ ten: string | null }>();
+  const nguoiMoi = { ten: (await tenNguoiMap(db, [buocMoi.email])).get(buocMoi.email) };
   const dong = [
     ...results.map((r) => ({ ...r })),
     { trang_thai: buocMoi.trangThai, ngay_xu_ly: buocMoi.ngay, ghi_chu: buocMoi.ghiChu, ten: nguoiMoi?.ten || buocMoi.email },

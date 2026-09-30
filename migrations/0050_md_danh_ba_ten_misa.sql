@@ -1,0 +1,7 @@
+-- Thu tu ten hien thi (chot 2026-09-30): ten KTV -> ten MISA -> ten Google -> email. users.ten_misa gio anh huong ten
+-- hien thi (GET /api/auth/nguoi-directory, cache tren may theo domain md_danh_ba) nhung trigger cu cua users (0039)
+-- khong theo doi cot nay -> sua ten MISA o Users khong lam moi cache. Tao lai trigger, them ten_misa.
+DROP TRIGGER IF EXISTS trg_md_users_u;
+CREATE TRIGGER IF NOT EXISTS trg_md_users_u AFTER UPDATE ON users WHEN OLD.ten IS NOT NEW.ten OR OLD.ten_misa IS NOT NEW.ten_misa OR OLD.vai_tro IS NOT NEW.vai_tro OR OLD.trang_thai_duyet IS NOT NEW.trang_thai_duyet OR OLD.bi_khoa IS NOT NEW.bi_khoa OR OLD.la_ktv_dvbh IS NOT NEW.la_ktv_dvbh OR OLD.la_ve_tinh IS NOT NEW.la_ve_tinh OR OLD.la_kho IS NOT NEW.la_kho OR OLD.la_ke_toan IS NOT NEW.la_ke_toan OR OLD.la_tac_nghiep IS NOT NEW.la_tac_nghiep OR OLD.la_tp_dvbh IS NOT NEW.la_tp_dvbh OR OLD.la_view IS NOT NEW.la_view OR OLD.quan_ly_danh_muc_lk IS NOT NEW.quan_ly_danh_muc_lk OR OLD.xem_danh_muc_lk IS NOT NEW.xem_danh_muc_lk OR OLD.tram_cha IS NOT NEW.tram_cha OR OLD.giam_sat_quan_ly IS NOT NEW.giam_sat_quan_ly BEGIN UPDATE data_versions SET version = version + 1, updated_at = datetime('now') WHERE domain = 'md_danh_ba'; END;
+-- Doi thu tu ten -> bo cache danh ba cu tren moi may + cache bao cao (ton dong/tong the/toc do - co cot ten nguoi).
+UPDATE data_versions SET version = version + 1, updated_at = datetime('now') WHERE domain IN ('md_danh_ba', 'dat_mua_lk');
