@@ -115,7 +115,12 @@ quyKtv.get("/khoan-chuyen", async (c) => {
   ).bind(...binds).first<{ total: number; tong_thuc_nhan: number; tong_du: number }>();
   const { results } = await c.env.DB.prepare(
     `SELECT k.*, p.ma_xuat_kho, p.loai_don, p.trang_thai_hien_tai AS trang_thai_phieu,
-       CASE WHEN ${KHOAN_HUY_DUOC_SQL} THEN 1 ELSE 0 END AS huy_duoc
+       CASE WHEN ${KHOAN_HUY_DUOC_SQL} THEN 1 ELSE 0 END AS huy_duoc,
+       -- Anh da duoc ghi nhan o khoan DA DUYET TRUOC cua cung phieu (anh giu qua cac lan chuyen bo sung) - modal "Sửa
+       -- tiền" chi doi chieu tong tien doc tu anh MOI cua khoan nay (migration 0051).
+       (SELECT json_group_array(j.value) FROM khoan_chuyen_tien k2,
+          json_each(CASE WHEN json_valid(k2.anh) THEN k2.anh ELSE '[]' END) j
+        WHERE k2.phieu_xuat_kho_id = k.phieu_xuat_kho_id AND k2.trang_thai = 'Da duyet' AND k2.id < k.id) AS anh_truoc
      ${from} WHERE ${where} ORDER BY k.duyet_luc DESC, k.id DESC ${pageParam ? "LIMIT ? OFFSET ?" : ""}`,
   )
     .bind(...binds, ...(pageParam ? [pageSize, (page - 1) * pageSize] : []))

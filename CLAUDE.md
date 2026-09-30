@@ -409,6 +409,16 @@ quỹ không đủ (dư đã trả phiếu khác) → chặn kèm danh sách phi
 tiền bị hủy → `thongBaoHoanQuyPhieuHuy()` báo KTV (3 đường hủy: `/:id/log` Ke toan huy, `goDonKhoiPxk`, `huyPxkNeuTrong` — thêm đường hủy
 mới phải gọi); tab Khoản chuyển tiền gắn nhãn "Phiếu đã hủy · tiền về quỹ". Phạm vi `phamViXem()`: Admin/Kế toán/TN xem tất cả, KTV xem
 của mình, Vệ tinh xem quỹ của Trạm — khớp điều kiện cấp menu ở `App.tsx`.
+**Tự đọc số tiền trên ảnh chuyển khoản** (2026-09-30, migration `0051`): OCR chạy HOÀN TOÀN trên trình duyệt
+(`frontend/src/lib/docTienAnh.ts`, tesseract.js v7 + dữ liệu `vie`, web worker, tải lười khi có ảnh) — file thư viện tự host ở
+`/ocr/*`, do plugin `ocrAssets()` trong `frontend/vite.config.ts` chép từ `node_modules` lúc build (`frontend/public/ocr/` bị
+gitignore — đừng commit). CHỈ cảnh báo, không bao giờ chặn/tính tiền. KTV tải ảnh → đọc ngay từ file trên máy → gửi kèm
+`bang_chung_tien_doc` (JSON `{url: số|null}`) lúc "Đã chuyển" (`locTienDocAnh()` gộp số cũ, chỉ giữ ảnh còn đính kèm); máy Kế toán
+dùng lại, chỉ đọc bù ảnh chưa có số; lúc duyệt/từ chối chụp vào `khoan_chuyen_tien.tien_doc_anh` cho modal "Sửa tiền". Chỉ cộng ảnh
+CHƯA nằm trong khoản đã duyệt trước (`ANH_DA_GHI_NHAN_SQL` → `anh_da_ghi_nhan`; list Quỹ: `anh_truoc`). Dòng số tiền cao >34px
+(Tesseract hay đọc sai số to đậm) được cắt riêng đọc lại ở 32px/24px, lấy số khớp 2/3 lần, lệch → null ("kiểm tra bằng mắt").
+Ảnh Drive đọc qua `lh3.googleusercontent.com/d/<id>=w1600` (link thumbnail 302 không có CORS). Đưa ảnh vào tesseract dạng Blob,
+KHÔNG dạng canvas (canvas chậm ~1s/lần). UI chung `datMuaLinhKien/DocTienAnh.tsx` (`useDocTienAnh`/`TienDocTuAnh`).
 
 **Thứ tự tên hiển thị người dùng** (chốt 2026-09-30, `lib/tenNguoi.ts`): Tên hiển thị KTV (danh bạ) → Tên MISA (KTV, rồi
 `users.ten_misa`) → tên Google (`users.ten`) → email. `/api/auth/nguoi-directory` trả sẵn theo thứ tự này (FE

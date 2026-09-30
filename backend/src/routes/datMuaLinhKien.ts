@@ -30,6 +30,7 @@ import { TRANG_THAI_PXK_DON_SQL, THANH_TOAN_DON_SQL } from "../lib/trangThaiDonP
 import { TU_HUY_DUOC_SQL, TN_DOI_TRONG_PXK_SQL, pxkDuocTuHuy, pxkTnDoiDuoc, goDonKhoiPxk, laVanPhong, danhDauVanPhongTacDong } from "../lib/pxkTuHuy";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, MUA_CONG_NO_ROLES, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
 import { pushThieuLkToKhovan, buildWorkUrl } from "../lib/khovanPushClient";
+import { ANH_DA_GHI_NHAN_SQL } from "../lib/bangChungChuyenTien";
 
 // Luong chinh "Dat mua linh kien" - phieu dat (header, chi de tong hop hien thi) + dong don hang -
 // xem migration 0056_phieu_dat.sql + 0063_dat_don_hang_trang_thai_theo_dong.sql.
@@ -2904,7 +2905,8 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
   const pxk = await c.env.DB.prepare(
     `SELECT pxk.id, pxk.trang_thai_hien_tai as trang_thai, pxk.so_tien_can_chuyen, pxk.trang_thai_chuyen_tien,
             pxk.bang_chung_chuyen_tien_url, pxk.bang_chung_chuyen_tien_anh, pxk.bang_chung_chuyen_tien_ghi_chu, pxk.nguoi_nhan_hang, pxk.ma_xuat_kho,
-            pxk.ly_do_tu_choi_chuyen_tien, pxk.tu_choi_chuyen_tien_luc, pxk.da_thanh_toan,
+            pxk.ly_do_tu_choi_chuyen_tien, pxk.tu_choi_chuyen_tien_luc, pxk.da_thanh_toan, pxk.bang_chung_tien_doc,
+            ${ANH_DA_GHI_NHAN_SQL("pxk")} as anh_da_ghi_nhan,
             (SELECT so_du FROM quy_ktv WHERE email = pxk.nguoi_nhan_hang) as quy_du
      FROM phieu_xuat_kho_dong pxkd JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
      WHERE pxkd.dat_don_hang_id = ?`,

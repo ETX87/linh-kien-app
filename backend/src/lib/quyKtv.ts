@@ -220,13 +220,13 @@ export async function duyetKhoanChuyen(
   const pxk = await db
     .prepare(
       `SELECT id, nguoi_nhan_hang, so_tien_can_chuyen, da_thanh_toan, bang_chung_chuyen_tien_anh, bang_chung_chuyen_tien_url,
-         bang_chung_chuyen_tien_ghi_chu, ngay_ktv_chuyen FROM phieu_xuat_kho WHERE id = ?`,
+         bang_chung_chuyen_tien_ghi_chu, ngay_ktv_chuyen, bang_chung_tien_doc FROM phieu_xuat_kho WHERE id = ?`,
     )
     .bind(pxkId)
     .first<{
       id: string; nguoi_nhan_hang: string | null; so_tien_can_chuyen: number | null; da_thanh_toan: number;
       bang_chung_chuyen_tien_anh: string | null; bang_chung_chuyen_tien_url: string | null;
-      bang_chung_chuyen_tien_ghi_chu: string | null; ngay_ktv_chuyen: string | null;
+      bang_chung_chuyen_tien_ghi_chu: string | null; ngay_ktv_chuyen: string | null; bang_chung_tien_doc: string | null;
     }>();
   if (!pxk || !pxk.nguoi_nhan_hang) return null;
   const email = pxk.nguoi_nhan_hang;
@@ -245,9 +245,12 @@ export async function duyetKhoanChuyen(
     lenhKhoaTrangThaiChuyenTien(db, pxkId, "KTV da chuyen"),
     db.prepare(
       `INSERT INTO khoan_chuyen_tien (phieu_xuat_kho_id, email_nguoi_chuyen, trang_thai, tong_phieu, da_thanh_toan_truoc,
-         so_tien_can_chuyen, so_tien_thuc_nhan, anh, ghi_chu_ktv, ktv_bao_chuyen_luc, nguoi_duyet, duyet_luc)
-       VALUES (?, ?, 'Da duyet', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).bind(pxkId, email, tong, daTra, canChuyen, thucNhan, anh, pxk.bang_chung_chuyen_tien_ghi_chu, pxk.ngay_ktv_chuyen, nguoiDuyet, now),
+         so_tien_can_chuyen, so_tien_thuc_nhan, anh, ghi_chu_ktv, ktv_bao_chuyen_luc, nguoi_duyet, duyet_luc, tien_doc_anh)
+       VALUES (?, ?, 'Da duyet', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      pxkId, email, tong, daTra, canChuyen, thucNhan, anh, pxk.bang_chung_chuyen_tien_ghi_chu, pxk.ngay_ktv_chuyen, nguoiDuyet, now,
+      pxk.bang_chung_tien_doc,
+    ),
     ...(thucNhan > 0
       ? lenhGhiQuy(db, {
           email, loai: "nop_tien", soTien: thucNhan, pxkId, khoanChuyenMoiNhatCuaPxk: true, nguoi: nguoiDuyet, now,
@@ -278,6 +281,7 @@ export function lenhGhiKhoanTuChoi(
   pxk: {
     id: string; nguoi_nhan_hang: string; so_tien_can_chuyen: number | null; da_thanh_toan: number;
     bang_chung_chuyen_tien_anh: string | null; bang_chung_chuyen_tien_ghi_chu: string | null; ngay_ktv_chuyen: string | null;
+    bang_chung_tien_doc?: string | null;
   },
   lyDo: string,
   nguoi: string,
@@ -287,12 +291,13 @@ export function lenhGhiKhoanTuChoi(
   return db
     .prepare(
       `INSERT INTO khoan_chuyen_tien (phieu_xuat_kho_id, email_nguoi_chuyen, trang_thai, tong_phieu, da_thanh_toan_truoc,
-         so_tien_can_chuyen, so_tien_thuc_nhan, anh, ghi_chu_ktv, ktv_bao_chuyen_luc, ly_do_tu_choi, nguoi_duyet, duyet_luc)
-       VALUES (?, ?, 'Tu choi', ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)`,
+         so_tien_can_chuyen, so_tien_thuc_nhan, anh, ghi_chu_ktv, ktv_bao_chuyen_luc, ly_do_tu_choi, nguoi_duyet, duyet_luc, tien_doc_anh)
+       VALUES (?, ?, 'Tu choi', ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       pxk.id, pxk.nguoi_nhan_hang, tong, pxk.da_thanh_toan ?? 0, Math.max(0, tong - (pxk.da_thanh_toan ?? 0)),
       pxk.bang_chung_chuyen_tien_anh, pxk.bang_chung_chuyen_tien_ghi_chu, pxk.ngay_ktv_chuyen, lyDo, nguoi, now,
+      pxk.bang_chung_tien_doc ?? null,
     );
 }
 

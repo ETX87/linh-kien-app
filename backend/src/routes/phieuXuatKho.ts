@@ -19,7 +19,7 @@ import { timLoaiChietKhauTheoTen, gonTenLoaiChietKhau, choPhepDoiLoaiChietKhau }
 import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, laTruCongNo, type PxkCalculation } from "../lib/pxkRecalculate";
 import { laVanPhong, danhDauVanPhongTacDong, huyPxkNeuTrong } from "../lib/pxkTuHuy";
 import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
-import { docAnhBangChung, MAX_ANH_BANG_CHUNG } from "../lib/bangChungChuyenTien";
+import { ANH_DA_GHI_NHAN_SQL, docAnhBangChung, locTienDocAnh, MAX_ANH_BANG_CHUNG } from "../lib/bangChungChuyenTien";
 import { canBangPxk, duyetKhoanChuyen, lenhGhiKhoanTuChoi, lenhKhoaTrangThaiChuyenTien, moTaCanChuyen, soDuQuy, thongBaoHoanQuyPhieuHuy, tienPhieuVaQuy } from "../lib/quyKtv";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
@@ -887,7 +887,9 @@ phieuXuatKho.get("/:id", async (c) => {
   const scope = scopePxkNguoiNhanHang(c);
   const whereSql = "pxk.id = ?" + (scope?.whereSql ?? "");
   const binds = [id, ...(scope?.binds ?? [])];
-  const pxk = await c.env.DB.prepare(`SELECT pxk.*, pxk.trang_thai_hien_tai as trang_thai FROM phieu_xuat_kho pxk WHERE ${whereSql}`)
+  const pxk = await c.env.DB.prepare(
+    `SELECT pxk.*, pxk.trang_thai_hien_tai as trang_thai, ${ANH_DA_GHI_NHAN_SQL("pxk")} as anh_da_ghi_nhan FROM phieu_xuat_kho pxk WHERE ${whereSql}`,
+  )
     .bind(...binds)
     .first();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
@@ -1194,10 +1196,13 @@ phieuXuatKho.post("/:id/chuyen-tien", async (c) => {
 // TU TN SANG KE TOAN 04/09/2026 - xem nhanh "TN da duyet" ben duoi, gia tri DB giu nguyen ten cu).
 phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
   const id = c.req.param("id");
-  const body = await c.req.json<{ trang_thai: string; bang_chung_chuyen_tien_url?: string; bang_chung_chuyen_tien_anh?: string[]; bang_chung_chuyen_tien_ghi_chu?: string; ly_do_tu_choi?: string; so_tien_thuc_nhan?: number }>();
+  const body = await c.req.json<{
+    trang_thai: string; bang_chung_chuyen_tien_url?: string; bang_chung_chuyen_tien_anh?: string[]; bang_chung_chuyen_tien_ghi_chu?: string;
+    ly_do_tu_choi?: string; so_tien_thuc_nhan?: number; bang_chung_tien_doc?: Record<string, unknown>;
+  }>();
   const pxk = await c.env.DB.prepare(
-    "SELECT trang_thai_hien_tai, trang_thai_chuyen_tien, nguoi_nhan_hang FROM phieu_xuat_kho WHERE id = ?",
-  ).bind(id).first<{ trang_thai_hien_tai: string | null; trang_thai_chuyen_tien: string | null; nguoi_nhan_hang: string | null }>();
+    "SELECT trang_thai_hien_tai, trang_thai_chuyen_tien, nguoi_nhan_hang, bang_chung_tien_doc FROM phieu_xuat_kho WHERE id = ?",
+  ).bind(id).first<{ trang_thai_hien_tai: string | null; trang_thai_chuyen_tien: string | null; nguoi_nhan_hang: string | null; bang_chung_tien_doc: string | null }>();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
   const now = nowVN();
   // FIX (phan hoi QA 2026-08-31, muc #6): 2 nhanh duoi day truoc chi UPDATE, khong ghi
@@ -1224,11 +1229,14 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
     if (anh.length === 0 && !body.bang_chung_chuyen_tien_ghi_chu?.trim()) {
       return c.json({ error: "MISSING_BANG_CHUNG" }, 400);
     }
+    // So tien may KTV tu doc tren tung anh (migration 0051, chi de canh bao Ke toan): giu so cu cua anh con dinh kem,
+    // ghi de bang so client gui (chi nhan anh dang dinh kem, so nguyen 0..5 ty hoac null = khong doc duoc).
+    const tienDoc = locTienDocAnh(pxk.bang_chung_tien_doc, body.bang_chung_tien_doc, anh);
     await c.env.DB.batch([
       c.env.DB.prepare(
         // Xoa ly do Ke toan tu choi (migration 0046) - KTV da xu ly lai, lich su con trong log.
-        "UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = 'KTV da chuyen', bang_chung_chuyen_tien_url = ?, bang_chung_chuyen_tien_anh = ?, bang_chung_chuyen_tien_ghi_chu = ?, ngay_ktv_chuyen = ?, ly_do_tu_choi_chuyen_tien = NULL, tu_choi_chuyen_tien_luc = NULL WHERE id = ?",
-      ).bind(anh[0] ?? null, anh.length > 0 ? JSON.stringify(anh) : null, body.bang_chung_chuyen_tien_ghi_chu?.trim() || null, now, id),
+        "UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = 'KTV da chuyen', bang_chung_chuyen_tien_url = ?, bang_chung_chuyen_tien_anh = ?, bang_chung_chuyen_tien_ghi_chu = ?, bang_chung_tien_doc = ?, ngay_ktv_chuyen = ?, ly_do_tu_choi_chuyen_tien = NULL, tu_choi_chuyen_tien_luc = NULL WHERE id = ?",
+      ).bind(anh[0] ?? null, anh.length > 0 ? JSON.stringify(anh) : null, body.bang_chung_chuyen_tien_ghi_chu?.trim() || null, tienDoc, now, id),
       // SUA 2026-09-13 (xem giai thich o PATCH /:id/ma-xuat-kho phia tren): trang_thai log-only rieng
       // thay vi tai su dung logTrangThai (trang_thai chinh hien tai cua phieu).
       c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
@@ -1313,10 +1321,11 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
     if (!lyDo) return c.json({ error: "MISSING_LY_DO" }, 400);
     const user = c.get("user");
     const pxkDay = await c.env.DB.prepare(
-      "SELECT id, nguoi_nhan_hang, so_tien_can_chuyen, da_thanh_toan, bang_chung_chuyen_tien_anh, bang_chung_chuyen_tien_ghi_chu, ngay_ktv_chuyen FROM phieu_xuat_kho WHERE id = ?",
+      "SELECT id, nguoi_nhan_hang, so_tien_can_chuyen, da_thanh_toan, bang_chung_chuyen_tien_anh, bang_chung_chuyen_tien_ghi_chu, ngay_ktv_chuyen, bang_chung_tien_doc FROM phieu_xuat_kho WHERE id = ?",
     ).bind(id).first<{
       id: string; nguoi_nhan_hang: string | null; so_tien_can_chuyen: number | null; da_thanh_toan: number;
       bang_chung_chuyen_tien_anh: string | null; bang_chung_chuyen_tien_ghi_chu: string | null; ngay_ktv_chuyen: string | null;
+      bang_chung_tien_doc: string | null;
     }>();
     try {
       await c.env.DB.batch([

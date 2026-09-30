@@ -18,3 +18,6 @@ backups/
 Huong_dan_*.docx
 hrApi*.js
 *[Cc]odex*.txt
+
+# Thu vien doc chu tren anh (tesseract.js) - vite.config.ts tu chep tu node_modules moi lan build
+frontend/public/ocr/

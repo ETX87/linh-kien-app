@@ -9,6 +9,8 @@ import { describeApiError } from "./helpers";
 import { fmtDateTime, fmtVND } from "../../types";
 import { KvRow } from "../../components/ui/KvRow";
 import { Money } from "../../components/ui/Money";
+import { ghiNhoAnhCucBo } from "../../lib/docTienAnh";
+import { TienDocTuAnh, docDsAnh, docTienDocMap, useDocTienAnh } from "./DocTienAnh";
 
 // Bang chung chuyen tien PXK NHIEU anh (toi da 5, chot 2026-09-29 - migration 0043, backend
 // lib/bangChungChuyenTien.ts). Dung chung cho chi tiet PXK (PhieuXuatKhoTab) va khoi PXK trong chi tiet don cua KTV
@@ -23,6 +25,18 @@ export interface BangChungPxk {
   // Ly do Ke toan tu choi GAN NHAT (migration 0046) - con gia tri toi khi KTV xac nhan chuyen lai.
   ly_do_tu_choi_chuyen_tien?: string | null;
   tu_choi_chuyen_tien_luc?: string | null;
+  // Doi chieu so tien doc tu anh (migration 0051): so da doc luu kem tung anh + anh da nam trong khoan Ke toan DA DUYET
+  // (anh giu qua cac lan chuyen bo sung - khong cong lai).
+  bang_chung_tien_doc?: string | null;
+  anh_da_ghi_nhan?: string | null;
+  so_tien_can_chuyen?: number | null;
+  da_thanh_toan?: number;
+}
+
+/** Anh cua lan chuyen DANG xet = anh dang dinh kem tru anh da duoc Ke toan duyet o khoan truoc. */
+export function anhChuaGhiNhan(urls: string[], pxk: BangChungPxk): string[] {
+  const da = new Set(docDsAnh(pxk.anh_da_ghi_nhan));
+  return urls.filter((u) => !da.has(u));
 }
 
 /** Thong bao do "Kế toán từ chối bằng chứng" (hien khi phieu da bi day ve "Chờ KTV chuyển"). */
@@ -71,11 +85,20 @@ export function TienPhieuVaQuy({ tong, daThanhToan, daDuyet, quyDu }: { tong: nu
  * Ke toan DUYET khoan chuyen voi SO TIEN THUC NHAN (quy du, migration 0047): mac dinh = so con phai chuyen. Du -> vao quy
  * cua nguoi nhan hang; thieu -> phieu ve "Chờ KTV chuyển" so con thieu. So khac so can chuyen thi phai xac nhan lan 2.
  */
-export function DuyetChuyenTienForm({ pxkId, conPhaiChuyen, onDone, addToast }: { pxkId: string; conPhaiChuyen: number; onDone: () => void; addToast: (msg: string) => void }) {
+export function DuyetChuyenTienForm({ pxkId, conPhaiChuyen, pxk, onDone, addToast }: {
+  pxkId: string;
+  conPhaiChuyen: number;
+  pxk?: BangChungPxk;
+  onDone: () => void;
+  addToast: (msg: string) => void;
+}) {
   const [soTien, setSoTien] = useState(String(conPhaiChuyen));
   const [xacNhan, setXacNhan] = useState(false);
   const so = Number(soTien);
   const hopLe = soTien.trim() !== "" && Number.isInteger(so) && so > 0;
+  // Tu doc so tien tren anh (2026-09-30): dung so KTV da doc luc tai anh, anh chua co so thi doc tren may Ke toan.
+  const tatCaAnh = pxk ? docAnhBangChung(pxk) : [];
+  const doc = useDocTienAnh(pxk ? anhChuaGhiNhan(tatCaAnh, pxk) : [], docTienDocMap(pxk?.bang_chung_tien_doc));
   const chenh = hopLe ? so - conPhaiChuyen : 0;
   const duyet = useMutation({
     mutationFn: () => api.patch<{ conThieu: number; soDuQuy: number }>(`/phieu-xuat-kho/${pxkId}/chuyen-tien`, { trang_thai: "TN da duyet", so_tien_thuc_nhan: so }),
@@ -108,6 +131,7 @@ export function DuyetChuyenTienForm({ pxkId, conPhaiChuyen, onDone, addToast }: 
           Duyệt bằng chứng
         </Btn>
       </div>
+      <TienDocTuAnh doc={doc} soSoSanh={hopLe ? so : null} nhan="số thực nhận" sttCua={(u) => tatCaAnh.indexOf(u) + 1} />
       {hopLe && chenh !== 0 && (
         <div className={`rounded-lg border px-2.5 py-1.5 text-[11.5px] ${chenh > 0 ? "border-[var(--color-info)]/30 bg-[var(--color-info-soft)] text-[var(--color-text)]" : "border-[var(--color-warning)]/30 bg-[var(--color-warning-soft)] text-[var(--color-warning-strong)]"}`}>
           {chenh > 0 ? (
@@ -319,6 +343,11 @@ export function BangChungChuyenTienForm({
 }) {
   const daLuu = docAnhBangChung(pxk);
   const [anh, setAnh] = useState<string[]>(daLuu);
+  // Tu doc so tien anh MOI (chua duoc Ke toan duyet o khoan truoc) ngay tren may KTV - chay nen, KHONG chan "Đã chuyển";
+  // ket qua gui kem de Ke toan khong phai doc lai (migration 0051). Chi canh bao.
+  const tienDaLuu = docTienDocMap(pxk.bang_chung_tien_doc);
+  const doc = useDocTienAnh(anhChuaGhiNhan(anh, pxk), tienDaLuu);
+  const conPhaiChuyen = pxk.so_tien_can_chuyen != null ? Math.max(0, pxk.so_tien_can_chuyen - (pxk.da_thanh_toan ?? 0)) : null;
   const [ghiChu, setGhiChu] = useState(pxk.bang_chung_chuyen_tien_ghi_chu ?? "");
   const [dangTai, setDangTai] = useState(0);
   const conLai = MAX_ANH_BANG_CHUNG - anh.length;
@@ -331,6 +360,7 @@ export function BangChungChuyenTienForm({
       setDangTai((n) => n + 1);
       try {
         const res = await api.postBinary<{ ok: true; url: string }>(`/phieu-xuat-kho/${pxkId}/bang-chung-chuyen-tien`, await f.arrayBuffer(), f.type || "image/jpeg");
+        ghiNhoAnhCucBo(res.url, f); // doc tu file tren may, khong tai lai anh tu Drive
         setAnh((a) => (a.includes(res.url) || a.length >= MAX_ANH_BANG_CHUNG ? a : [...a, res.url]));
       } catch (err) {
         addToast("Lỗi tải ảnh: " + describeApiError(err));
@@ -346,6 +376,7 @@ export function BangChungChuyenTienForm({
         trang_thai: "KTV da chuyen",
         bang_chung_chuyen_tien_anh: anh,
         bang_chung_chuyen_tien_ghi_chu: ghiChu.trim() || undefined,
+        bang_chung_tien_doc: { ...tienDaLuu, ...doc.ketQua },
       }),
     onSuccess: () => {
       addToast("Đã xác nhận chuyển tiền");
@@ -374,6 +405,19 @@ export function BangChungChuyenTienForm({
           {anh.length}/{MAX_ANH_BANG_CHUNG} ảnh
         </span>
       </div>
+      <TienDocTuAnh
+        doc={doc}
+        soSoSanh={conPhaiChuyen}
+        nhan="số còn phải chuyển"
+        sttCua={(u) => anh.indexOf(u) + 1}
+        thongDiepLech={(tong, so) =>
+          tong < so ? (
+            <>⚠ Tổng đọc từ ảnh <Money>{fmtVND(tong)}</Money> ít hơn số còn phải chuyển <Money>{fmtVND(so)}</Money> (thiếu <Money>{fmtVND(so - tong)}</Money>) — kiểm tra lại số tiền đã chuyển / ảnh trước khi bấm “Đã chuyển”.</>
+          ) : (
+            <>Tổng đọc từ ảnh <Money>{fmtVND(tong)}</Money> nhiều hơn số còn phải chuyển <Money>{fmtVND(so)}</Money> — phần dư <Money>{fmtVND(tong - so)}</Money> vào quỹ sau khi Kế toán xác nhận.</>
+          )
+        }
+      />
       <div className="flex flex-wrap items-center gap-2">
         <input
           value={ghiChu}

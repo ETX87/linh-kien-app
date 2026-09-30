@@ -18,6 +18,7 @@ import { formatPersonDisplay, usePersonDirectory } from "../lib/personDisplay";
 import { khopTim } from "../lib/boDau";
 import { describeApiError } from "./datMuaLinhKien/helpers";
 import { BangChungAnhList, docAnhBangChung } from "./datMuaLinhKien/BangChungChuyenTien";
+import { TienDocTuAnh, docDsAnh, docTienDocMap, useDocTienAnh } from "./datMuaLinhKien/DocTienAnh";
 
 // "Quỹ & chuyển tiền" (2026-09-29, ban 2 quy du KTV - backend routes/quyKtv.ts, lib/quyKtv.ts, migration 0047):
 //  - Khoản chuyển tiền: moi lan Ke toan duyet (so can / thuc nhan, du vao quy / thieu) hoac tu choi, kem anh bang chung.
@@ -46,6 +47,9 @@ interface KhoanRow {
   so_tien_can_chuyen: number | null;
   so_tien_thuc_nhan: number | null;
   anh: string | null;
+  // So tien tu doc tren anh luc duyet + anh da ghi nhan o khoan duyet truoc cua cung phieu (migration 0051).
+  tien_doc_anh: string | null;
+  anh_truoc: string | null;
   ghi_chu_ktv: string | null;
   ktv_bao_chuyen_luc: string | null;
   ly_do_tu_choi: string | null;
@@ -413,6 +417,9 @@ function SuaThucNhanModal({ k, soDu, ten, onClose, onDone }: {
   const chenh = moi - cu;
   const hopLe = Number.isInteger(moi) && moi > 0 && chenh !== 0 && !!lyDo.trim();
   const khongDu = chenh < 0 && soDu < -chenh;
+  const tatCaAnh = anhCua(k);
+  const daCo = new Set(docDsAnh(k.anh_truoc));
+  const doc = useDocTienAnh(tatCaAnh.filter((u) => !daCo.has(u)), docTienDocMap(k.tien_doc_anh));
   const mut = useMutation({
     mutationFn: () => api.post<{ soDuQuy: number }>(`/quy-ktv/khoan-chuyen/${k.id}/sua`, { so_tien_thuc_nhan: moi, ly_do: lyDo.trim() }),
     onSuccess: (r) => onDone(r.soDuQuy),
@@ -431,6 +438,9 @@ function SuaThucNhanModal({ k, soDu, ten, onClose, onDone }: {
         <div>
           <label className={nhanO}>Số thực nhận đúng</label>
           <input type="number" min={1} inputMode="numeric" value={soTien} onChange={(e) => setSoTien(e.target.value)} className={oNhap} />
+          <div className="mt-1">
+            <TienDocTuAnh doc={doc} soSoSanh={moi > 0 ? moi : null} nhan="số thực nhận" sttCua={(u) => tatCaAnh.indexOf(u) + 1} />
+          </div>
           {moi > 0 && chenh !== 0 && (
             <div className={`mt-1 text-xs ${khongDu ? "text-[var(--color-danger-strong)]" : "text-[var(--color-text-secondary)]"}`}>
               {chenh > 0 ? (

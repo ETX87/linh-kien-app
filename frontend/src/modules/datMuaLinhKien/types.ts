@@ -182,6 +182,9 @@ export interface PhieuXuatKhoRow {
   trang_thai_chuyen_tien: string | null;
   bang_chung_chuyen_tien_url?: string | null;
   bang_chung_chuyen_tien_anh?: string | null; // JSON array URL, toi da 5 (migration 0043)
+  // So tien tu doc tren anh (migration 0051, JSON {url: so|null}) + anh da nam trong khoan Ke toan da duyet (JSON array).
+  bang_chung_tien_doc?: string | null;
+  anh_da_ghi_nhan?: string | null;
   ly_do_tu_choi_chuyen_tien?: string | null; // Ke toan tu choi bang chung GAN NHAT (migration 0046)
   tu_choi_chuyen_tien_luc?: string | null;
   bang_chung_chuyen_tien_ghi_chu?: string | null;

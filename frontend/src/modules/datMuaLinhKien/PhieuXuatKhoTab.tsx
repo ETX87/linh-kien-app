@@ -2001,6 +2001,7 @@ export function PxkDetailModal({
                       key={`${pxk.id}|${pxk.so_tien_can_chuyen}|${pxk.da_thanh_toan ?? 0}`}
                       pxkId={pxk.id}
                       conPhaiChuyen={Math.max(0, pxk.so_tien_can_chuyen - (pxk.da_thanh_toan ?? 0))}
+                      pxk={pxk}
                       onDone={invalidate}
                       addToast={addToast}
                     />
