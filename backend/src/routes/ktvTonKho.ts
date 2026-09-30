@@ -5,7 +5,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { khuVucViewEmailInSql } from "../lib/scopeDatMua";
 import { nowVN } from "../lib/vnTime";
-import { getMocTinhCongNo, danhGiaCongNo3Muc } from "../lib/congNoKtv";
+import { getMocTinhCongNo, danhGiaCongNo3Muc, CONG_NO_DA_TRU_FROM_SQL, CONG_NO_DA_TRU_WHERE_SQL, CONG_NO_DA_TRU_GIA_TRI_SQL } from "../lib/congNoKtv";
 import { daTruTheoMaHang } from "../lib/tonKhoKtv";
 import { maKtvTheoTen } from "../lib/timTheoTen";
 
@@ -107,23 +107,34 @@ ktvTonKho.get("/", async (c) => {
          AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') = 0 -- "TRỪ CÔNG NỢ" nhu don mua (2026-09-28)
          AND (? IS NULL OR ddh.updated_at > ?)
        GROUP BY pv.ma_ktv
+     ),
+     -- Don "TRỪ CÔNG NỢ" da thanh toan -> giam cong no ngay (2026-09-30, lib/congNoKtv.ts computeCongNoDaTru).
+     da_tru AS (
+       SELECT pv.ma_ktv, SUM(${CONG_NO_DA_TRU_GIA_TRI_SQL}) as gia_tri
+       FROM pham_vi pv
+       JOIN dat_don_hang ddh ON ddh.nguoi_nhan_hang = pv.email_dang_nhap
+       ${CONG_NO_DA_TRU_FROM_SQL}
+       WHERE ${CONG_NO_DA_TRU_WHERE_SQL}
+       GROUP BY pv.ma_ktv
      )
      SELECT k.ma_ktv, k.ten_hien_thi, k.ma_misa, k.ten_misa, k.cong_no, k.cong_no_cap_nhat_luc,
        COUNT(t.id) as so_ma_hang, SUM(t.cuoi_ky) as tong_cuoi_ky,
-       COALESCE(tt.gia_tri, 0) as cong_no_thuc_te, COALESCE(ps.gia_tri, 0) as cong_no_phat_sinh
+       COALESCE(tt.gia_tri, 0) as cong_no_thuc_te, COALESCE(ps.gia_tri, 0) as cong_no_phat_sinh,
+       COALESCE(dt.gia_tri, 0) as cong_no_da_tru
      FROM ktv_ton_kho t
      JOIN pham_vi pv ON pv.ma_ktv = t.ma_ktv
      JOIN ktv_lien_he k ON k.ma_ktv = pv.ma_ktv
      LEFT JOIN thuc_te tt ON tt.ma_ktv = k.ma_ktv
      LEFT JOIN phat_sinh ps ON ps.ma_ktv = k.ma_ktv
+     LEFT JOIN da_tru dt ON dt.ma_ktv = k.ma_ktv
      GROUP BY k.ma_ktv
      ORDER BY tong_cuoi_ky DESC`,
   )
-    .bind(...binds, mocTinhCongNo, mocTinhCongNo)
-    .all<{ cong_no: number | null; cong_no_thuc_te: number; cong_no_phat_sinh: number }>();
+    .bind(...binds, mocTinhCongNo, mocTinhCongNo, mocTinhCongNo, mocTinhCongNo)
+    .all<{ cong_no: number | null; cong_no_thuc_te: number; cong_no_phat_sinh: number; cong_no_da_tru: number }>();
 
   const rows = results.map((r) => {
-    const congNoChot = r.cong_no_thuc_te + r.cong_no_phat_sinh;
+    const congNoChot = r.cong_no_thuc_te + r.cong_no_phat_sinh - r.cong_no_da_tru;
     return { ...r, cong_no_chot: congNoChot, danh_gia_cong_no: danhGiaCongNo3Muc(congNoChot, r.cong_no) };
   });
   return c.json({ rows });

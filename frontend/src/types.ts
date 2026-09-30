@@ -92,6 +92,9 @@ export interface KtvTonKhoSummaryRow {
   // (cot "cong_no" o tren) - null neu Tran chua duoc dat (khong the danh gia).
   cong_no_thuc_te: number;
   cong_no_phat_sinh: number;
+  // Don "TRỪ CÔNG NỢ" da thanh toan (Ke toan duyet / quy tra du) - tru ngay khoi cong no (2026-09-30);
+  // cong_no_chot = thuc_te + phat_sinh - da_tru.
+  cong_no_da_tru: number;
   cong_no_chot: number;
   danh_gia_cong_no: "Vuot tran" | "Canh bao" | "Binh thuong" | null;
 }

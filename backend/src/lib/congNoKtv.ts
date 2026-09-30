@@ -50,11 +50,47 @@ export async function computeCongNoPhatSinh(db: D1Database, maKtv: string, mocTi
   return row?.gia_tri ?? 0;
 }
 
-// "Cong no chot" = Cong no thuc te + Cong no phat sinh (cong thuc CHOT nguoi dung xac nhan).
+// "Cong no da tru" (chot 2026-09-30, nghiep vu "KTV chuyển tiền để đặt linh kiện A, TN và kế toán duyệt => dùng số
+// tiền đó để giảm bớt công nợ của KTV đi linh kiện A"): don "TRỪ CÔNG NỢ" ma phieu da THANH TOAN DU (trang_thai_chuyen_tien
+// 'TN da duyet' - Ke toan duyet hoac quy du tra het; phieu khong bi huy, don khong tu choi/huy) -> tru gia_tri_cong_no x SL
+// thuc xuat cua LK do khoi cong no NGAY, khong cho lan import ton kho MISA sau. Chi tinh don tao SAU moc import (cung
+// quy uoc tru ton kho KTV - lib/tonKhoKtv.ts: don truoc moc coi nhu file MISA da phan anh). Tinh lai moi lan (Ke toan
+// huy khoan -> phieu ve "KTV da chuyen" -> tu het tru). SQL dung chung cho computeCongNoDaTru + CTE o ktvTonKho.ts GET /:
+// alias `ddh` = dat_don_hang, 2 bind (moc, moc).
+export const CONG_NO_DA_TRU_FROM_SQL = `
+  JOIN phieu_xuat_kho_dong ctn_d ON ctn_d.dat_don_hang_id = ddh.id
+  JOIN phieu_xuat_kho ctn_p ON ctn_p.id = ctn_d.phieu_xuat_kho_id
+  LEFT JOIN linh_kien ctn_lk ON ctn_lk.ma_linh_kien = ddh.ma_lk`;
+export const CONG_NO_DA_TRU_WHERE_SQL = `ddh.loai_don = 'cong_no' AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') > 0
+  AND ddh.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')
+  AND ctn_p.trang_thai_hien_tai <> 'Ke toan huy' AND ctn_p.trang_thai_chuyen_tien = 'TN da duyet'
+  AND (? IS NULL OR ddh.ngay_tao > ?)`;
+export const CONG_NO_DA_TRU_GIA_TRI_SQL = "COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) * COALESCE(ctn_lk.gia_tri_cong_no, 0)";
+
+export async function computeCongNoDaTru(db: D1Database, maKtv: string, mocTinhCongNo: string | null): Promise<number> {
+  const row = await db
+    .prepare(
+      `SELECT COALESCE(SUM(${CONG_NO_DA_TRU_GIA_TRI_SQL}), 0) as gia_tri
+       FROM dat_don_hang ddh
+       JOIN ktv_lien_he k ON k.email_dang_nhap = ddh.nguoi_nhan_hang
+       ${CONG_NO_DA_TRU_FROM_SQL}
+       WHERE k.ma_ktv = ? AND ${CONG_NO_DA_TRU_WHERE_SQL}`,
+    )
+    .bind(maKtv, mocTinhCongNo, mocTinhCongNo)
+    .first<{ gia_tri: number }>();
+  return row?.gia_tri ?? 0;
+}
+
+// "Cong no chot" = Cong no thuc te + Cong no phat sinh (cong thuc CHOT nguoi dung xac nhan) - Cong no da tru (don TRỪ
+// CÔNG NỢ da thanh toan, 2026-09-30).
 export async function computeCongNoChot(db: D1Database, maKtv: string): Promise<number> {
   const moc = await getMocTinhCongNo(db);
-  const [thucTe, phatSinh] = await Promise.all([computeCongNoThucTe(db, maKtv), computeCongNoPhatSinh(db, maKtv, moc)]);
-  return thucTe + phatSinh;
+  const [thucTe, phatSinh, daTru] = await Promise.all([
+    computeCongNoThucTe(db, maKtv),
+    computeCongNoPhatSinh(db, maKtv, moc),
+    computeCongNoDaTru(db, maKtv, moc),
+  ]);
+  return thucTe + phatSinh - daTru;
 }
 
 export type DanhGiaCongNo3Muc = "Vuot tran" | "Canh bao" | "Binh thuong" | null;

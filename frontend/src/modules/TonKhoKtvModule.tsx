@@ -332,6 +332,7 @@ function TonKhoKtvContent() {
                 <th className="px-3 py-2">Trần công nợ</th>
                 <th className="px-3 py-2">Công nợ thực tế</th>
                 <th className="px-3 py-2">Công nợ phát sinh</th>
+                <th className="px-3 py-2" title="Đơn TRỪ CÔNG NỢ đã thanh toán (Kế toán duyệt chuyển tiền) — trừ ngay, không chờ lần import tồn kho MISA sau">Đã trừ công nợ</th>
                 <th className="px-3 py-2">Công nợ chốt</th>
                 <th className="px-3 py-2">Đánh giá công nợ</th>
                 <th className="px-3 py-2">Số mã hàng tồn</th>
@@ -342,12 +343,12 @@ function TonKhoKtvContent() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={10} className="px-3 py-6 text-center text-[var(--ink-400)]">Đang tải…</td>
+                  <td colSpan={12} className="px-3 py-6 text-center text-[var(--ink-400)]">Đang tải…</td>
                 </tr>
               )}
               {!isLoading && allRows.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có dữ liệu tồn kho{canManage ? ' - bấm "Import tồn kho MISA" để nhập.' : "."}</td>
+                  <td colSpan={12} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có dữ liệu tồn kho{canManage ? ' - bấm "Import tồn kho MISA" để nhập.' : "."}</td>
                 </tr>
               )}
               {pageRows.map((r) => (
@@ -369,6 +370,7 @@ function TonKhoKtvContent() {
                   </td>
                   <td className="px-3 py-2 font-mono text-xs"><Money>{fmtVND(r.cong_no_thuc_te)}</Money></td>
                   <td className="px-3 py-2 font-mono text-xs"><Money>{fmtVND(r.cong_no_phat_sinh)}</Money></td>
+                  <td className="px-3 py-2 font-mono text-xs">{r.cong_no_da_tru > 0 ? <>−<Money>{fmtVND(r.cong_no_da_tru)}</Money></> : "—"}</td>
                   <td className="px-3 py-2 font-mono text-xs font-semibold"><Money>{fmtVND(r.cong_no_chot)}</Money></td>
                   <td className="px-3 py-2">
                     <DanhGiaCongNoBadge value={r.danh_gia_cong_no} />
@@ -545,6 +547,11 @@ function TonKhoChiTietModal({ row, onClose }: { row: KtvTonKhoSummaryRow; onClos
           <div><span className="text-[var(--ink-400)]">Trần công nợ: </span><span className="font-semibold">{row.cong_no != null ? <Money>{fmtVND(row.cong_no)}</Money> : "—"}</span></div>
           <div><span className="text-[var(--ink-400)]">Công nợ thực tế: </span><span className="font-mono font-semibold"><Money>{fmtVND(row.cong_no_thuc_te)}</Money></span></div>
           <div><span className="text-[var(--ink-400)]">Công nợ phát sinh: </span><span className="font-mono font-semibold"><Money>{fmtVND(row.cong_no_phat_sinh)}</Money></span></div>
+          {row.cong_no_da_tru > 0 && (
+            <div title="Đơn TRỪ CÔNG NỢ đã thanh toán — trừ ngay, không chờ lần import tồn kho MISA sau">
+              <span className="text-[var(--ink-400)]">Đã trừ công nợ: </span><span className="font-mono font-semibold">−<Money>{fmtVND(row.cong_no_da_tru)}</Money></span>
+            </div>
+          )}
           <div><span className="text-[var(--ink-400)]">Công nợ chốt: </span><span className="font-mono font-semibold"><Money>{fmtVND(row.cong_no_chot)}</Money></span></div>
           <div className="flex items-center gap-1"><span className="text-[var(--ink-400)]">Đánh giá: </span><DanhGiaCongNoBadge value={row.danh_gia_cong_no} /></div>
         </div>
