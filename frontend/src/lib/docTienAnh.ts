@@ -80,22 +80,15 @@ export function docSoTienAnh(url: string): Promise<SoTienDoc> {
     const lines: DongChu[] = (data.blocks ?? []).flatMap((b) =>
       b.paragraphs.flatMap((p) => p.lines.map((l: Line) => ({ text: l.text, cao: Math.max(0, l.bbox.y1 - l.bbox.y0), bbox: l.bbox }))),
     );
-    const chon = chonSoTien(lines);
-    if (!chon) return null;
-    const dong = lines[chon.dong];
-    if (dong.cao <= CAO_CAN_DOC_LAI || !dong.bbox) return chon.giaTri;
-    const bmp = await createImageBitmap(anh);
+    const bmp = { v: null as ImageBitmap | null };
     try {
-      const docLai = async (caoMoi: number) => {
-        const cat = await catDong(bmp, dong.bbox!, caoMoi);
+      return await quyetDinhSoTien(lines, async (bbox, caoMoi) => {
+        bmp.v ??= await createImageBitmap(anh);
+        const cat = await catDong(bmp.v, bbox, caoMoi);
         return cat ? cacSoTrong((await worker.recognize(cat, {}, { text: true })).data.text) : [];
-      };
-      const lan2 = await docLai(32);
-      if (lan2.includes(chon.giaTri)) return chon.giaTri;
-      const lan3 = await docLai(24);
-      return [chon.giaTri, ...lan2].find((v) => lan3.includes(v)) ?? null;
+      });
     } finally {
-      bmp.close();
+      bmp.v?.close();
     }
   })) as Promise<SoTienDoc>;
   // Loi (mang/CORS/anh hong) = khong doc duoc; bo khoi cache de lan mo sau thu lai.
@@ -105,6 +98,33 @@ export function docSoTienAnh(url: string): Promise<SoTienDoc> {
   });
   daDoc.set(url, kq);
   return kq;
+}
+
+type DocLai = (bbox: { x0: number; y0: number; x1: number; y1: number }, caoMoi: number) => Promise<number[]>;
+
+/**
+ * Tu cac dong OCR lan 1 ra so tien cuoi (tach khoi tesseract de kiem thu tren node). Dong so tien CAO -> cat rieng doc lai
+ * (xem CAO_CAN_DOC_LAI). Lan 1 KHONG ra so nao nhung co dong chu so TO (so tien kieu VCB "15,617,600" kem chu "VND" nho
+ * phia tren bi dinh vao so -> lan 1 ra rac) -> doc lai dong to nhat do 2 lan, 2 lan KHOP moi nhan (2026-09-30).
+ */
+export async function quyetDinhSoTien(lines: DongChu[], docLai: DocLai): Promise<SoTienDoc> {
+  const chon = chonSoTien(lines);
+  if (chon) {
+    const dong = lines[chon.dong];
+    if (dong.cao <= CAO_CAN_DOC_LAI || !dong.bbox) return chon.giaTri;
+    const lan2 = await docLai(dong.bbox, 32);
+    if (lan2.includes(chon.giaTri)) return chon.giaTri;
+    const lan3 = await docLai(dong.bbox, 24);
+    return [chon.giaTri, ...lan2].find((v) => lan3.includes(v)) ?? null;
+  }
+  const to = lines
+    .filter((d) => d.bbox && d.cao > CAO_CAN_DOC_LAI && (d.text.match(/\d/g)?.length ?? 0) >= 4 && !DONG_LOAI.test(boDau(d.text)))
+    .sort((a, b) => b.cao - a.cao)[0];
+  if (!to) return null;
+  const lan2 = await docLai(to.bbox!, 32);
+  if (!lan2.length) return null;
+  const lan3 = await docLai(to.bbox!, 24);
+  return lan2.find((v) => lan3.includes(v)) ?? null;
 }
 
 export interface DongChu {
@@ -123,7 +143,9 @@ const DONG_LOAI = /(so du|balance|\bphi\b|\bfee\b|tai khoan|account|\bstk\b|\bso
 const NHAN_TIEN = /(so tien|amount|chuyen tien|chuyen khoan thanh cong|chuyen thanh cong|giao dich thanh cong|thanh toan|da chuyen|tong tien)/;
 // Don vi tien dung TRUOC so ("VND 310,000" - Techcombank, 2026-09-30) hoac SAU so ("310.000 VND", "310.000đ"). Truoc so chi
 // nhan "vnd"/"₫" (chu "d" le truoc so de nham). Nhom: 1 dau, 2 don vi truoc, 3 so, 4 don vi sau.
-const SO = /([+\-−–]?)\s*(vnd|vn d|₫)?\s*(\d{1,3}(?:[.,  ]\d{3})+|\d{4,})(?:[.,]\d{1,2}(?!\d))?\s*(vnd|vnđ|vn d|đ|₫|d\b|dong)?/gi;
+// (?!\d) sau nhom so: loi nhan "30 9 2026" truoc day thanh "9 202" = 9.202d (2026-09-30, anh Techcombank that); don vi
+// truoc so chap nhan OCR doc lech "VNO"/"VN0".
+const SO = /([+\-−–]?)\s*(vnd|vn d|vno|vn0|₫)?\s*(\d{1,3}(?:[.,  ]\d{3})+(?!\d)|\d{4,})(?:[.,]\d{1,2}(?!\d))?\s*(vnd|vnđ|vn d|đ|₫|d\b|dong)?/gi;
 
 /**
  * Chon so tien chuyen trong cac dong chu OCR (ham thuan, khong phu thuoc thu vien - de kiem thu). Cham diem: co don vi
@@ -145,7 +167,17 @@ export function chonSoTien(lines: DongChu[]): { giaTri: number; dong: number } |
   lines.forEach((dong, i) => {
     const t = boDau(dong.text);
     if (DONG_LOAI.test(t)) return;
-    const truoc = i > 0 ? boDau(lines[i - 1].text) : "";
+    // Nhan "Chuyển thành công"/"Số tiền" o toi da 3 dong phia tren (Techcombank: nhan -> 2 dong ten nguoi nhan -> so tien),
+    // dung khi gap dong loai (so du, tai khoan...) - nhan do khong con thuoc so nay.
+    let nhanTruoc = false;
+    for (let j = i - 1; j >= Math.max(0, i - 3); j--) {
+      const tj = boDau(lines[j].text);
+      if (DONG_LOAI.test(tj)) break;
+      if (NHAN_TIEN.test(tj)) {
+        nhanTruoc = true;
+        break;
+      }
+    }
     for (const m of t.matchAll(SO)) {
       const [, dau, donViTruoc, so, donViSau] = m;
       const donVi = donViTruoc || donViSau;
@@ -157,7 +189,7 @@ export function chonSoTien(lines: DongChu[]): { giaTri: number; dong: number } |
       let diem = 0;
       if (donVi) diem += 3;
       if (NHAN_TIEN.test(t)) diem += 3;
-      else if (NHAN_TIEN.test(truoc) && !DONG_LOAI.test(truoc)) diem += 2;
+      else if (nhanTruoc) diem += 2;
       if (dau) diem += 1;
       if (coPhanCach) diem += 1;
       if (giaTri % 1000 === 0) diem += 1;

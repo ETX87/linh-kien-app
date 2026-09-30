@@ -36,8 +36,9 @@ export interface KetQuaDocAnh {
 }
 
 /**
- * Doc so tien cac anh `urls`. Anh da co so trong `daLuu` (KTV doc luc tai anh) dung luon, KHONG doc lai; con lai doc tren
- * may nay (chay nen, tuan tu). `ketQua` = cac anh da doc xong (de gui luu kem luc "Đã chuyển").
+ * Doc so tien cac anh `urls` tren may nay (chay nen, tuan tu, 1 lan/anh/phien). So da luu trong `daLuu` chi dung TAM trong
+ * luc doc - may nay doc xong thi so moi thang (2026-09-30: so luu tu bo nhan dang cu co the SAI, vd anh Techcombank luu
+ * 9.202d do doc nham ngay "30 9 2026" trong loi nhan). `ketQua` = cac anh da co so (de gui luu kem luc "Đã chuyển").
  */
 export function useDocTienAnh(urls: string[], daLuu: TienDocMap) {
   const [docDuoc, setDocDuoc] = useState<TienDocMap>({});
@@ -45,9 +46,7 @@ export function useDocTienAnh(urls: string[], daLuu: TienDocMap) {
   useEffect(() => {
     let huy = false;
     for (const u of urls) {
-      // Da luu SO -> dung lai; da luu null ("không đọc được") -> DOC LAI tren may nay (bo nhan dang co the da tot hon, vd
-      // 2026-09-30 them mau "VND 310,000" Techcombank).
-      if (daLuu[u] != null || u in docDuoc) continue;
+      if (u in docDuoc) continue;
       void docSoTienAnh(u).then((so) => {
         if (!huy) setDocDuoc((m) => (u in m ? m : { ...m, [u]: so }));
       });
@@ -58,10 +57,11 @@ export function useDocTienAnh(urls: string[], daLuu: TienDocMap) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   const items: KetQuaDocAnh[] = urls.map((url) =>
-    daLuu[url] != null
-      ? { url, xong: true, soTien: daLuu[url] }
-      : url in docDuoc
-        ? { url, xong: true, soTien: docDuoc[url] }
+    // May nay doc ra null (loi mang/anh hong/khong nhan dang duoc) ma co so da luu -> giu so da luu.
+    url in docDuoc && (docDuoc[url] != null || daLuu[url] == null)
+      ? { url, xong: true, soTien: docDuoc[url] }
+      : daLuu[url] != null
+        ? { url, xong: true, soTien: daLuu[url] }
         : { url, xong: false, soTien: null },
   );
   const ketQua: TienDocMap = {};
