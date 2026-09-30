@@ -193,11 +193,14 @@ export function DatMuaLinhKienModule({
   // hinh dung cho "bao cao" cua QC la Tra hang o buoc "Cho QC xac nhan" (da co san, defaultView ben
   // duoi da tro dung vao "tra-hang" cho canQC).
   const isQCOnly = user?.vai_tro === "QC";
+  // "Mua hang" (2026-09-30, dot 2): xem moi tab (don/PXK/tra hang/thieu LK/bao cao pivot), CHI DOC - khong co co xu ly nao
+  // nen khong nut hanh dong nao hien ra; backend requireDatMuaLkArea chan moi request ghi.
+  const laMuaHang = !!user?.la_mua_hang;
   // CHOT (ra soat module "Dat Mua Linh Kien 2.0" #14): tab Bao cao chon layout (the StatCard ca nhan
   // hay bang pivot nhieu KTV) theo VAI TRO nguoi dang xem, KHONG con theo SO DONG du lieu tra ve nhu
   // truoc - truoc day 1 GS chi quan ly dung 1 KTV se bi rows.length<=1 nen dot ngot thay the ca nhan
   // don gian thay vi bang pivot ma cac GS khac quen dung, doi theo bien dong nhan su la khong on dinh.
-  const isManagerView = canTacNghiep || canKho || canKeToan || isGiamSat || user?.vai_tro === "Admin";
+  const isManagerView = canTacNghiep || canKho || canKeToan || isGiamSat || user?.vai_tro === "Admin" || laMuaHang;
 
   // Tab "Tao phieu dat" rieng da bo (2026-08-15, phan hoi UX #12) - gop thanh nut "+ Tao don" mo
   // Modal ngay trong "Don cua toi/Danh sach" (xem DonCuaToiTab) de toan bo xu ly nam tren 1 man
@@ -218,7 +221,7 @@ export function DatMuaLinhKienModule({
   // xem duoc CHI TIET don ma khong lam gi duoc - dung y hep pham vi lai theo dung 2 chuc nang that su
   // cua Kho (duyet Tra hang + dong hang gui KTV qua PXK, van con nguyen o "Trả hàng"/"Phiếu xuất kho"/
   // "Thiếu linh kiện" ben duoi, khong bi anh huong).
-  const canXemDonMuaCongNo = canDatHo || !!user?.la_tram || canTPDvbhXacNhan || user?.vai_tro === "Admin";
+  const canXemDonMuaCongNo = canDatHo || !!user?.la_tram || canTPDvbhXacNhan || user?.vai_tro === "Admin" || laMuaHang;
   // FIX (phan hoi 2026-08-26: "tách riêng thẻ Trang chủ và Thiếu linh kiện thành 1 thẻ riêng trong
   // menu, không gộp chung vào Đặt mua linh kiện") - "trang-chu"/"thieu-lk" KHONG con la phan tu cua
   // mang "tabs" (thanh tab noi bo) nua - gio la 2 muc menu CAP CAO RIENG o Sidebar/BottomTabBar, vao
@@ -228,7 +231,7 @@ export function DatMuaLinhKienModule({
     ...(canXemDonMuaCongNo ? [{ key: "don-cua-toi", label: "Đơn của tôi / Danh sách" }] : []),
     // Giam sat/KTV/Ve tinh them vao tab duoi - CHI de theo doi + tu xac nhan "KTV đã nhận" (khong co
     // canTacNghiep/canKho/canKeToan rieng nen khong nut hanh dong quan ly nao hien ra, xem PxkDetailModal).
-    ...(canTacNghiep || canKho || canKeToan || isGiamSat || isFieldKtv ? [{ key: "phieu-xuat-kho", label: "Phiếu xuất kho", shortLabel: "Phiếu" }] : []),
+    ...(canTacNghiep || canKho || canKeToan || isGiamSat || isFieldKtv || laMuaHang ? [{ key: "phieu-xuat-kho", label: "Phiếu xuất kho", shortLabel: "Phiếu" }] : []),
   ];
   // "Đơn trả hàng" KHONG con la tab rieng tren thanh menu (CHOT vong 7: "thừa" - thanh luong quy trinh
   // da co san 3 buoc bam thang vao dung day: Trả hàng KT/Kho/QC). Van GIU render/activeView cho key
@@ -236,7 +239,7 @@ export function DatMuaLinhKienModule({
   // (Ke toan duyet mem/Kho xac nhan/QC xac nhan, dung bang tra_hang_log rieng - KHAC voi phieu_xuat_kho
   // nen khong the gop thanh 1 o loc trong "Phieu xuat kho") - chi khong con hien nut trong thanh tab,
   // van vao duoc qua onJump() cua PipelineFlow. canTraHangView tai dung dieu kien cu cua tab nay.
-  const canTraHangView = canTacNghiep || canKho || canKeToan || canQC || isGiamSat;
+  const canTraHangView = canTacNghiep || canKho || canKeToan || canQC || isGiamSat || laMuaHang;
   // Tab "hang cho" mac dinh THEO VAI TRO - Kho/Ke toan/QC "thuan" truoc day luon roi vao "Don cua
   // toi" - tab khong lien quan gi den viec cua ho (viec that o "Thieu linh kien"/"Phieu xuat kho"/
   // "Don tra hang"). Chi anh huong LAN DAU vao module (useLocalStorageState chi doc default nay khi
@@ -315,7 +318,7 @@ export function DatMuaLinhKienModule({
     queryFn: () => api.get<{ mua: number; cong_no: number; tra_hang: number }>("/dat-mua-lk/loai-don-counts"),
   });
   const loaiDonCounts = loaiDonCountsData ?? { mua: 0, cong_no: 0, tra_hang: 0 };
-  const canXemPxkTab = canTacNghiep || canKho || canKeToan || isGiamSat || isFieldKtv;
+  const canXemPxkTab = canTacNghiep || canKho || canKeToan || isGiamSat || isFieldKtv || laMuaHang;
   // Badge "so luong ton" cho MOI muc StageMenu con lai (phan hoi 2026-09-11: "giống như tiêu đề
   // module 'Đặt mua linh kiện (19)' tất cả các menu đều có đếm số lượng tồn") - XAC NHAN voi nguoi
   // dung: dung dung 2 API dem-theo-trang-thai DA CO SAN cho dropdown loc cua tung tab (GET
@@ -956,7 +959,7 @@ export function DatMuaLinhKienModule({
             // lai isManagerView da co san (canTacNghiep||canKho||canKeToan||isGiamSat||Admin), KHONG
             // tinh rieng bien moi, khop dung gate FORBIDDEN_ROLE da them o backend (canDownloadMisa
             // trong phieuXuatKho.ts).
-            canDownloadMisa={isManagerView}
+            canDownloadMisa={isManagerView && (!laMuaHang || canTacNghiep || canKho || canKeToan || isGiamSat)}
             currentEmail={user?.email ?? ""}
             isAdmin={user?.vai_tro === "Admin"}
             initialFilterOverride={filterFor("phieu-xuat-kho")}

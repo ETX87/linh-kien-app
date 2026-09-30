@@ -19,13 +19,16 @@ export async function requireDatMuaLkArea(c: Context<{ Bindings: Env }>, next: N
     user.la_ke_toan ||
     user.la_tac_nghiep ||
     user.la_tp_dvbh;
-  if (!allowedWithoutView && !user.la_view) return c.json({ error: "MODULE_NOT_ALLOWED" }, 403);
+  // "Mua hang" (2026-09-30, migration 0053): xem TOAN BO module (khong gioi han Khu vuc nhu la_view), CHI DOC - ghi
+  // duy nhat o /api/settings/linh-kien (xet duyet ma LK, router rieng khong qua middleware nay).
+  const chiDoc = !allowedWithoutView && (user.la_view || user.la_mua_hang);
+  if (!allowedWithoutView && !chiDoc) return c.json({ error: "MODULE_NOT_ALLOWED" }, 403);
   // "View" (them 2026-08-26, xac nhan nguoi dung: "view thấy theo khu vực được set") - CHI doc, chan
   // NGAY O DAY moi request khong phai GET neu la_view la con duong DUY NHAT dua ho vao module (tranh
   // phai ra soat tung endpoint POST/PATCH/DELETE rieng le trong 3 router dung middleware nay - datMuaLinhKien.ts/
   // phieuXuatKho.ts/traHang.ts). Neu tai khoan co ca la_view LAN 1 co khac (vd la_kho), van duoc ghi
   // binh thuong theo quyen cua co kia.
-  if (!allowedWithoutView && user.la_view && c.req.method !== "GET") {
+  if (chiDoc && c.req.method !== "GET") {
     return c.json({ error: "VIEW_READONLY" }, 403);
   }
   await next();

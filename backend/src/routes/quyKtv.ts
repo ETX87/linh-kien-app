@@ -21,7 +21,7 @@ type C = Context<{ Bindings: Env }>;
 /** null = xem tat ca; mang = chi cac email nay; undefined = khong co quyen. */
 function phamViXem(c: C): string[] | null | undefined {
   const u = c.get("user");
-  if (u.vai_tro === "Admin" || u.la_ke_toan || u.la_tac_nghiep) return null;
+  if (u.vai_tro === "Admin" || u.la_ke_toan || u.la_tac_nghiep || u.la_mua_hang) return null; // Mua hang: xem, khong dieu chinh
   if (u.la_ve_tinh) return u.tram_cha ? [u.tram_cha] : [];
   if (u.la_ktv_dvbh) return [u.email];
   return undefined;

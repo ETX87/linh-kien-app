@@ -383,7 +383,7 @@ datMuaLinhKien.get("/du-doan-duyet", async (c) => {
 datMuaLinhKien.get("/tong-ngay-ktv", async (c) => {
   const user = c.get("user");
   const email = c.req.query("nguoi_nhan_hang")?.trim() || user.email;
-  const laVanPhong = !!(canTacNghiep(c) || user.la_kho || user.la_ke_toan || user.la_tp_dvbh || user.la_view
+  const laVanPhong = !!(canTacNghiep(c) || user.la_kho || user.la_ke_toan || user.la_tp_dvbh || user.la_view || user.la_mua_hang
     || user.vai_tro === "Admin" || user.vai_tro === "QC" || user.vai_tro === "Giam sat");
   if (email !== user.email && email !== user.tram_cha && !laVanPhong) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   // Ve tinh khong phai nguoi nhan hang - don cua Ve tinh ghi nguoi_nhan_hang = Tram (resolveNguoiNhanHang),
@@ -448,7 +448,7 @@ datMuaLinhKien.get("/khu-vuc-cua-toi", async (c) => {
 // the tu mo rong "Toan quoc" - xem CLAUDE.md "TN/Kho/Ke toan xem duoc toan quoc").
 datMuaLinhKien.get("/ton-dong-theo-ktv", async (c) => {
   const user = c.get("user");
-  if (!(user.vai_tro === "Giam sat" || user.vai_tro === "Admin" || canTacNghiep(c) || user.la_kho || user.la_ke_toan)) {
+  if (!(user.vai_tro === "Giam sat" || user.vai_tro === "Admin" || canTacNghiep(c) || user.la_kho || user.la_ke_toan || user.la_mua_hang)) {
     return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   }
   const khuVucMa = c.req.query("khu_vuc")?.trim();
@@ -2769,6 +2769,8 @@ datMuaLinhKien.get("/search", async (c) => {
     } else if (user.vai_tro === "Giam sat") {
       whereSql += " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ?)"; // + don chinh GS tao (2026-09-28)
       binds.push(user.email, user.email);
+    } else if (user.la_mua_hang) {
+      // "Mua hang" (2026-09-30) - xem toan bo, chi doc.
     } else if (user.la_view) {
       const emailIn = khuVucViewEmailInSql();
       whereSql += ` AND (ddh.nguoi_tao IN ${emailIn} OR ddh.nguoi_nhan_hang IN ${emailIn})`;
@@ -3991,6 +3993,8 @@ async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = 
   } else if (user.vai_tro === "Giam sat") {
     whereSql += " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ?)"; // + don chinh GS tao (2026-09-28)
     binds.push(user.email, user.email);
+  } else if (user.la_mua_hang) {
+    // "Mua hang" (2026-09-30) - xem toan bo, chi doc.
   } else if (user.la_view) {
     // "View" (them 2026-08-26) - loc theo Khu vuc gan cho tai khoan nay, giong scopeDatMuaNguoiTao -
     // xem comment khuVucViewEmailInSql() trong scopeDatMua.ts.
@@ -4128,6 +4132,8 @@ datMuaLinhKien.get("/thieu-lk/:id", async (c) => {
   } else if (user.vai_tro === "Giam sat") {
     whereSql += " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ?)"; // + don chinh GS tao (2026-09-28)
     binds.push(user.email, user.email);
+  } else if (user.la_mua_hang) {
+    // "Mua hang" (2026-09-30) - xem toan bo, chi doc.
   } else if (user.la_view) {
     // "View" (them 2026-08-26) - loc theo Khu vuc gan cho tai khoan nay, giong scopeDatMuaNguoiTao -
     // xem comment khuVucViewEmailInSql() trong scopeDatMua.ts.

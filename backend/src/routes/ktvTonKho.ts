@@ -46,7 +46,7 @@ const adminOrKeToan = async (c: Context<{ Bindings: Env }>, next: Next) => {
 //   thuc te se khong xay ra vi requireDatMuaLkArea da chan tu truoc.
 function scopeKtvTonKho(c: Context<{ Bindings: Env }>): { whereSql: string; binds: string[] } | null {
   const user = c.get("user");
-  if (user.vai_tro === "Admin" || user.vai_tro === "QC" || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh) {
+  if (user.vai_tro === "Admin" || user.vai_tro === "QC" || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh || user.la_mua_hang) {
     return null;
   }
   if (user.vai_tro === "Giam sat") {

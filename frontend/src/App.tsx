@@ -40,7 +40,7 @@ const ACTIVE_MODULE_KEY = "dat_mua_lk_active_module";
 // dong subtitle luon hien ten UNG DUNG chung "Đặt mua linh kiện" thay vi vai tro THAT cua ho. Ham nay
 // tra ve dung (cac) co dang bat, join bang " · " neu vo tinh bat nhieu co cung luc - chi fallback ve
 // ten ung dung khi KHONG co vai_tro lan co nao (khong nen xay ra, xem laTaiKhoanMuaHangThuanTuy).
-function roleDisplayLabel(user: { vai_tro: string | null; la_kho: boolean; la_ke_toan: boolean; la_tac_nghiep: boolean; la_tp_dvbh: boolean; la_ktv_dvbh: boolean; la_ve_tinh: boolean; la_view: boolean }): string {
+function roleDisplayLabel(user: { vai_tro: string | null; la_kho: boolean; la_ke_toan: boolean; la_tac_nghiep: boolean; la_tp_dvbh: boolean; la_ktv_dvbh: boolean; la_ve_tinh: boolean; la_view: boolean; la_mua_hang: boolean }): string {
   if (user.vai_tro) return user.vai_tro;
   const labels: string[] = [];
   if (user.la_kho) labels.push("Kho");
@@ -50,6 +50,7 @@ function roleDisplayLabel(user: { vai_tro: string | null; la_kho: boolean; la_ke
   if (user.la_ktv_dvbh) labels.push("KTV DVBH");
   if (user.la_ve_tinh) labels.push("Vệ tinh");
   if (user.la_view) labels.push("View");
+  if (user.la_mua_hang) labels.push("Mua hàng");
   return labels.length ? labels.join(" · ") : "Đặt mua linh kiện";
 }
 
@@ -113,7 +114,8 @@ function MainApp({
   const role = user.vai_tro;
   // Tai khoan "chi Dat mua linh kien" - vai_tro=NULL CO CHU DICH (KTV/CTV/Tram/Ve tinh/Kho/Ke toan),
   // dung y giong he goc: khong tham gia mien nghiep vu nao khac, chi vao duoc qua cac co vai tro rieng.
-  const laTaiKhoanMuaHangThuanTuy = !role && !!(user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh || user.la_view);
+  // + la_mua_hang (2026-09-30): tai khoan CHI co co "Mua hang" truoc day roi vao man "cho duyet" (LoginScreen pending).
+  const laTaiKhoanMuaHangThuanTuy = !role && !!(user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh || user.la_view || user.la_mua_hang);
   let allowedModules = role === "Admin" ? ROLE_MODULES.Admin : role ? (ROLE_MODULES[role] ?? []) : [];
   // Cap them "dat-mua-lk"/"tra-hang" tu dong khi bat 1 trong 7 co "Dat mua linh kien" (la_view them
   // 2026-08-26 - "View" CHI doc, du lieu gioi han theo Khu vuc gan cho tai khoan, xem
@@ -129,6 +131,11 @@ function MainApp({
     // XEM DUOC loc rieng theo tung co o backend (scopeKtvTonKho() trong routes/ktvTonKho.ts) - PHAI
     // khop voi requireDatMuaLkArea.ts (dung lai lam module gate cho ca router ktvTonKho.ts).
     allowedModules = [...new Set([...allowedModules, "trang-chu", "dat-mua-lk", "thieu-lk", "tra-hang", "ton-kho-ktv"])];
+  }
+  // "Mua hang" (2026-09-30, dot 2): xem TOAN BO cac man nghiep vu, CHI DOC (backend requireDatMuaLkArea chan ghi, scope
+  // tra null - lib/scopeDatMua.ts). KHONG gom "Báo cáo tốc độ xử lý" (chi Admin + View, danh gia nhan su).
+  if (role !== "Admin" && user.la_mua_hang) {
+    allowedModules = [...new Set([...allowedModules, "trang-chu", "dat-mua-lk", "phieu-xuat", "thieu-lk", "tra-hang", "ton-kho-ktv", "quy-chuyen-tien"])];
   }
   // "Phiếu xuất" (tach khoi "Đặt mua linh kiện" 2026-09-29) - khop canXemPxkTab o DatMuaLinhKienModule.tsx (TN/Kho/Ke
   // toan/GS/KTV/Ve tinh). Admin + "Giam sat" da co qua ROLE_MODULES.

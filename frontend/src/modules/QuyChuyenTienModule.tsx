@@ -113,7 +113,7 @@ export function QuyChuyenTienModule() {
   const dir = usePersonDirectory();
   const ten = (e: string | null | undefined) => (e ? formatPersonDisplay(e, dir) : "");
   const user = auth.status === "authenticated" ? auth.user : null;
-  const xemTatCa = !!user && (user.vai_tro === "Admin" || !!user.la_ke_toan || !!user.la_tac_nghiep);
+  const xemTatCa = !!user && (user.vai_tro === "Admin" || !!user.la_ke_toan || !!user.la_tac_nghiep || !!user.la_mua_hang); // Mua hang: xem, khong dieu chinh
 
   const [tab, setTab] = useState<"khoan" | "so-du" | "so-quy">("khoan");
   const [emailLoc, setEmailLoc] = useState("");

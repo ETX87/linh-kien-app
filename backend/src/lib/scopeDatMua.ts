@@ -35,7 +35,8 @@ export function khuVucViewEmailInSql(): string {
  */
 export function scopeDatMuaNguoiTao(c: Context<{ Bindings: Env }>): { whereSql: string; binds: string[] } | null {
   const user = c.get("user");
-  if (user.la_tac_nghiep || user.la_tp_dvbh || user.vai_tro === "Admin" || user.vai_tro === "QC" || user.la_kho || user.la_ke_toan) {
+  // + Mua hang (2026-09-30): xem toan bo, chi doc (requireDatMuaLkArea chan ghi).
+  if (user.la_tac_nghiep || user.la_tp_dvbh || user.vai_tro === "Admin" || user.vai_tro === "QC" || user.la_kho || user.la_ke_toan || user.la_mua_hang) {
     return null; // khong gioi han - QC them vao buoc 1 ke hoach "Luong tao don mua hang" (nen tang cho luong tra hang QC xac nhan)
   }
   if (user.vai_tro === "Giam sat") {
@@ -70,7 +71,7 @@ export function scopeDatMuaNguoiTao(c: Context<{ Bindings: Env }>): { whereSql: 
  */
 export function scopePxkNguoiNhanHang(c: Context<{ Bindings: Env }>): { whereSql: string; binds: string[] } | null {
   const user = c.get("user");
-  if (user.la_tac_nghiep || user.la_kho || user.la_ke_toan || user.vai_tro === "Admin" || user.vai_tro === "QC") {
+  if (user.la_tac_nghiep || user.la_kho || user.la_ke_toan || user.vai_tro === "Admin" || user.vai_tro === "QC" || user.la_mua_hang) {
     return null; // khong gioi han
   }
   // + PXK ma CHINH minh la nguoi nhan hang (2026-09-30: GS diepbush tu dat don cho minh, TN tao PMH-000082 nguoi
