@@ -38,9 +38,10 @@ export function laTruCongNo(loaiDeXuat: string | null | undefined): boolean {
 
 // Chot 2026-09-29: don CO yeu cau xuat hoa don (cot "Yêu cầu hóa đơn" khac trong / khac "Không") tinh theo GIA NIEM YET,
 // KHONG huong chinh sach chiet khau nao (Dinh tu/bac thang/gia KTV/du phong) - nhan KHONG_CK. Gia chot TN nhap tay van thang.
+// 2026-09-30: "Yêu cầu hóa đơn (xuất cho Trạm)" (nut "HĐ - Xuất cho trạm") VAN tinh chiet khau nhu binh thuong.
 export function coYeuCauHoaDon(v: string | null | undefined): boolean {
   const t = (v ?? "").trim().normalize("NFC").toLowerCase();
-  return t !== "" && t !== "không" && t !== "khong";
+  return t !== "" && t !== "không" && t !== "khong" && !t.includes("xuất cho trạm") && !t.includes("xuat cho tram");
 }
 
 // Nhan hien thi khop CHUYEN_TIEN_OPTIONS (frontend constants.ts) - "TN da duyet" hien la Ke toan da duyet.

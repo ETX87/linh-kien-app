@@ -479,7 +479,7 @@ export const PXK_MINI_NHANH_RE = new Set(["Ke toan huy", "Hang tru kho", "Kho da
 // YEU_CAU_HOA_DON_OPTIONS/CHINH_SACH_OPTIONS: gia tri co dinh theo sheet "Settings" file Excel goc
 // (khong doi duoc qua Settings module - khac loai_de_xuat, danh sach nay it thay doi va gan chat voi
 // logic nghiep vu chinh_sach/yeu_cau_hoa_don, khong can quan ly dong nhu loai_de_xuat).
-export const YEU_CAU_HOA_DON_OPTIONS = ["Không", "Yêu cầu hóa đơn (KTV không thu phí dịch vụ)", "Yêu cầu hóa đơn (KTV có thu phí dịch vụ)"];
+export const YEU_CAU_HOA_DON_OPTIONS = ["Không", "Yêu cầu hóa đơn (KTV không thu phí dịch vụ)", "Yêu cầu hóa đơn (KTV có thu phí dịch vụ)", "Yêu cầu hóa đơn (xuất cho Trạm)"];
 export const CHINH_SACH_OPTIONS = ["Trong CSBH", "Ngoài CSBH"];
 // Nhan rut gon cho 3 nut tich chon YCHD (dot 3 gop y #4) - gia tri luu DB VAN la chuoi day du o
 // YEU_CAU_HOA_DON_OPTIONS, chi doi nhan HIEN THI cho gon.
@@ -487,6 +487,8 @@ export const YEU_CAU_HOA_DON_SHORT_LABELS: Record<string, string> = {
   "Không": "Không",
   "Yêu cầu hóa đơn (KTV không thu phí dịch vụ)": "HĐ - Không thu phí",
   "Yêu cầu hóa đơn (KTV có thu phí dịch vụ)": "HĐ - Có thu phí",
+  // 2026-09-30: HD xuat cho Tram - VAN tinh chiet khau binh thuong (coYeuCauHoaDon() tra false).
+  "Yêu cầu hóa đơn (xuất cho Trạm)": "HĐ - Xuất cho trạm",
 };
 
 

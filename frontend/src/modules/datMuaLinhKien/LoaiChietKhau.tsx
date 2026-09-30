@@ -69,9 +69,10 @@ export function LoaiChietKhauChip({ loai, title, children }: { loai: Pick<LoaiCh
 
 // Ban sao coYeuCauHoaDon() cua backend lib/pxkRecalculate.ts (nguon that, chot 2026-09-29): "Yêu cầu hóa đơn" khac
 // trong / khac "Không" -> dong tinh GIA NIEM YET, khong huong chiet khau nao.
+// 2026-09-30: "Yêu cầu hóa đơn (xuất cho Trạm)" (nut "HĐ - Xuất cho trạm") VAN tinh chiet khau nhu binh thuong.
 export function coYeuCauHoaDon(v: string | null | undefined): boolean {
   const t = (v ?? "").trim().normalize("NFC").toLowerCase();
-  return t !== "" && t !== "không" && t !== "khong";
+  return t !== "" && t !== "không" && t !== "khong" && !t.includes("xuất cho trạm") && !t.includes("xuat cho tram");
 }
 
 // Ly do dong khong duoc chiet khau (2026-09-30, phan hoi PMH-000106 "sao MUA HÀNG CÓ ID không được tính chiết khấu"):

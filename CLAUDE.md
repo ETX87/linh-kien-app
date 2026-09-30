@@ -377,7 +377,7 @@ Bán hàng; trên app: **Công nợ chốt = thực tế + phát sinh − đã t
 sau mốc import mà PXK đã `trang_thai_chuyen_tien='TN da duyet'`, phiếu không hủy — `computeCongNoDaTru()`/`CONG_NO_DA_TRU_*_SQL`
 ở `lib/congNoKtv.ts`, dùng chung cho `computeCongNoChot` (đánh giá công nợ lúc tạo đơn) + màn Công nợ `ktvTonKho.ts GET /`); PXK mà MỌI dòng đều TRỪ CÔNG NỢ → Kế toán "Đã chốt xong đơn xuất" xong hệ thống TỰ chuyển
 "Hang tru kho" (không đẩy khovan, không báo việc cho Kho — `hangTruKhoTuDong` ở `POST /phieu-xuat-kho/:id/log`); phiếu lẫn dòng
-khác đi như cũ. Đơn **có "Yêu cầu hóa đơn"** (khác trống/"Không" — `coYeuCauHoaDon()` ở `pxkRecalculate.ts`) tính GIÁ NIÊM YẾT,
+khác đi như cũ. Đơn **có "Yêu cầu hóa đơn"** (khác trống/"Không", TRỪ "HĐ - Xuất cho trạm" = `Yêu cầu hóa đơn (xuất cho Trạm)` vẫn chiết khấu bình thường — `coYeuCauHoaDon()` ở `pxkRecalculate.ts`, bản sao FE `LoaiChietKhau.tsx`) tính GIÁ NIÊM YẾT,
 nhãn `KHONG_CK`, không Đình tủ/bậc thang/giá KTV/dự phòng (vẫn cộng vào tổng ngày; giá chốt tay vẫn thắng). Loại đề xuất chứa
 "HỖ TRỢ" bắt buộc Mã YCSC (`maYcscRequired()` — backend + bản sao FE).
 
