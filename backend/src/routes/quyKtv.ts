@@ -43,7 +43,55 @@ function locEmail(cot: string, emails: string[] | null, emailChon?: string): { s
   return { sql: parts.length ? ` AND ${parts.join(" AND ")}` : "", binds };
 }
 
-// GET /api/quy-ktv/tong-quan - so du quy + tong tien da nhan + con phai chuyen cua tung nguoi nhan hang.
+// KET QUA OCR SO TIEN THEO URL ANH (migration 0058) - may nao doc xong thi ghi, may khac lay lai khong doc nua. Chi la so
+// canh bao (khong tinh tien) nen moi tai khoan vao duoc module deu doc/ghi; gioi han so luong + do dai URL.
+const OCR_TOI_DA = 100;
+const urlOcrHopLe = (u: unknown): u is string => typeof u === "string" && u.length <= 500 && /^https:\/\//.test(u);
+
+// GET /api/quy-ktv/ocr-anh?urls=<JSON mang URL>&phien_ban=N -> { ket_qua: {url: so|null} } (chi ket qua dung phien ban).
+quyKtv.get("/ocr-anh", async (c) => {
+  let urls: unknown;
+  try {
+    urls = JSON.parse(c.req.query("urls") ?? "[]");
+  } catch {
+    return c.json({ error: "INVALID_URLS" }, 400);
+  }
+  const pb = Number(c.req.query("phien_ban"));
+  if (!Array.isArray(urls) || !Number.isInteger(pb)) return c.json({ error: "INVALID_URLS" }, 400);
+  const ds = urls.filter(urlOcrHopLe).slice(0, OCR_TOI_DA);
+  if (!ds.length) return c.json({ ket_qua: {} });
+  const { results } = await c.env.DB.prepare(
+    "SELECT url, so_tien FROM ocr_anh_tien WHERE phien_ban = ? AND url IN (SELECT value FROM json_each(?))",
+  ).bind(pb, JSON.stringify(ds)).all<{ url: string; so_tien: number | null }>();
+  const ket_qua: Record<string, number | null> = {};
+  for (const r of results) ket_qua[r.url] = r.so_tien;
+  return c.json({ ket_qua });
+});
+
+// POST /api/quy-ktv/ocr-anh { phien_ban, ket_qua: {url: so|null} } - ghi de ket qua phien ban CU HON hoac bang.
+quyKtv.post("/ocr-anh", async (c) => {
+  const body = await c.req.json<{ phien_ban?: unknown; ket_qua?: unknown }>().catch(() => ({}) as { phien_ban?: unknown; ket_qua?: unknown });
+  const pb = body.phien_ban;
+  if (!Number.isInteger(pb) || !body.ket_qua || typeof body.ket_qua !== "object") return c.json({ error: "INVALID_BODY" }, 400);
+  const email = c.get("user").email;
+  const now = nowVN();
+  const lenh = Object.entries(body.ket_qua as Record<string, unknown>)
+    .filter(([u, so]) => urlOcrHopLe(u) && (so === null || (Number.isInteger(so) && (so as number) >= 0 && (so as number) <= 5_000_000_000)))
+    .slice(0, OCR_TOI_DA)
+    .map(([u, so]) =>
+      c.env.DB.prepare(
+        `INSERT INTO ocr_anh_tien (url, so_tien, phien_ban, nguoi_doc, doc_luc) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(url) DO UPDATE SET so_tien = excluded.so_tien, phien_ban = excluded.phien_ban, nguoi_doc = excluded.nguoi_doc,
+           doc_luc = excluded.doc_luc
+         WHERE excluded.phien_ban > ocr_anh_tien.phien_ban
+            OR (excluded.phien_ban = ocr_anh_tien.phien_ban AND ocr_anh_tien.so_tien IS NULL AND excluded.so_tien IS NOT NULL)`,
+      ).bind(u, so as number | null, pb as number, email, now),
+    );
+  if (lenh.length) await c.env.DB.batch(lenh);
+  return c.json({ ok: true, so_dong: lenh.length });
+});
+
+// GET /api/quy-ktv/tong-quan -so du quy + tong tien da nhan + con phai chuyen cua tung nguoi nhan hang.
 quyKtv.get("/tong-quan", async (c) => {
   const pv = phamViXem(c);
   if (pv === undefined) return c.json({ error: "FORBIDDEN_ROLE" }, 403);

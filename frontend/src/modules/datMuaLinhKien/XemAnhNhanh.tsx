@@ -139,7 +139,7 @@ function DoiSoatTien({ cur }: { cur: AnhXem }) {
           ))}
         </ul>
       )}
-      <div className="px-4 pt-1 text-[11px] text-[var(--color-text-faint)]">OCR đọc trên máy này, chỉ để nhắc — có thể đọc sai, luôn đối chiếu ảnh.</div>
+      <div className="px-4 pt-1 text-[11px] text-[var(--color-text-faint)]">Số OCR tự đọc từ ảnh (đọc 1 lần, lưu dùng chung), chỉ để nhắc — có thể đọc sai, luôn đối chiếu ảnh.</div>
     </>
   );
 }

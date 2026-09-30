@@ -474,7 +474,7 @@ tiền, cột Bằng chứng PXK) dựng MỌI ảnh của trang đang xem (chuy
 (`anhXemCuaPxk`). `GET /phieu-xuat-kho` trả thêm `bang_chung_tien_doc`/ghi chú/lý do từ chối/`ngay_ktv_chuyen` (bỏ khỏi file tải về).
 Khung phải = 3 khối **Đối soát tiền** (OCR ảnh này, tổng OCR ảnh của lần chuyển — bỏ ảnh đã ghi nhận trước, so với "Kế toán xác nhận"
 hoặc "Còn phải chuyển" → Khớp/Lệch + nhắc nhở; đọc lại trên máy qua `useDocTienAnh`, không gọi server) / Chứng từ / Ghi chú.
-`useDocTienAnh` ĐỌC LẠI ảnh đã lưu `null` ("không đọc được"). `lib/docTienAnh.ts` nhận đơn vị TRƯỚC số ("VND 310,000" Techcombank)
+**Kết quả OCR dùng chung mọi máy** (migration `0058`, bảng `ocr_anh_tien` theo URL ảnh + `phien_ban`): `useDocTienAnh` hỏi `GET /api/quy-ktv/ocr-anh` trước (1 request/lô), ảnh chưa có thì đọc trên máy rồi `POST` gộp lô (lỗi mạng/CORS không ghi; phiên bản cũ không ghi đè). **Sửa bộ đọc/chọn số → TĂNG `PHIEN_BAN_OCR`** (`lib/docTienAnh.ts`) để kết quả cũ bị bỏ qua, máy đầu tiên đọc lại + ghi đè. Số kèm PXK/khoản (`bang_chung_tien_doc`/`tien_doc_anh`) chỉ hiện tạm. `lib/docTienAnh.ts` nhận đơn vị TRƯỚC số ("VND 310,000" Techcombank)
 + nhãn "chuyển thành công".
 **TN đẩy lại chuyển tiền** (2026-09-30): `PATCH /phieu-xuat-kho/:id/chuyen-tien` `trang_thai:"Cho KTV chuyen"` mở cho TN khi "KTV da
 chuyen" (KTV xác nhận nhầm/thiếu) — KHÔNG ghi `khoan_chuyen_tien` (sổ của Kế toán), log 'Da yeu cau KTV chuyen tien', lý do lưu tiền tố

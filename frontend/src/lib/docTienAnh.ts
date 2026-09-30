@@ -46,6 +46,16 @@ export function ghiNhoAnhCucBo(url: string, file: Blob) {
 
 // 1 lan doc / 1 anh / 1 phien lam viec. Worker xu ly tuan tu -> xep hang de anh sau khong tranh anh truoc.
 const daDoc = new Map<string, Promise<SoTienDoc>>();
+// Anh doc LOI (mang/CORS/anh hong) - null cua anh nay KHONG phai "khong nhan dang duoc", khong ghi len server.
+const docLoi = new Set<string>();
+export const docBiLoi = (url: string) => docLoi.has(url);
+
+/**
+ * Phien ban bo nhan dang - TANG moi khi sua cach doc/chon so (tachSoTien, quyetDinhSoTien, SO, NHAN_TIEN...). Ket qua luu
+ * server (bang ocr_anh_tien) khac phien ban bi bo qua -> may dau tien mo anh doc lai bang bo moi + ghi de.
+ * 2 = 2026-09-30 v1.249 (bo "30 9 2026" -> 9.202, nhan 3 dong tren, doc lai dong so TO khi lan 1 khong ra so).
+ */
+export const PHIEN_BAN_OCR = 2;
 let hang: Promise<unknown> = Promise.resolve();
 
 // Chu CAO hon muc nay (px) Tesseract hay doc sai so (da thu that: "3.200.000" dam 64px -> "2.200.000") - so tien tren app
@@ -92,8 +102,12 @@ export function docSoTienAnh(url: string): Promise<SoTienDoc> {
     }
   })) as Promise<SoTienDoc>;
   // Loi (mang/CORS/anh hong) = khong doc duoc; bo khoi cache de lan mo sau thu lai.
-  const kq = p.catch(() => {
+  const kq = p.then((v) => {
+    docLoi.delete(url);
+    return v;
+  }).catch(() => {
     daDoc.delete(url);
+    docLoi.add(url);
     return null;
   });
   daDoc.set(url, kq);
