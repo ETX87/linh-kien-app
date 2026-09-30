@@ -73,8 +73,13 @@ export function scopePxkNguoiNhanHang(c: Context<{ Bindings: Env }>): { whereSql
   if (user.la_tac_nghiep || user.la_kho || user.la_ke_toan || user.vai_tro === "Admin" || user.vai_tro === "QC") {
     return null; // khong gioi han
   }
+  // + PXK ma CHINH minh la nguoi nhan hang (2026-09-30: GS diepbush tu dat don cho minh, TN tao PMH-000082 nguoi
+  // nhan = GS -> GS khong thay phieu de chuyen tien). Ap cho MOI nhanh bi gioi han ben duoi.
   if (user.vai_tro === "Giam sat") {
-    return { whereSql: " AND pxk.nguoi_nhan_hang IN (SELECT email FROM users WHERE giam_sat_quan_ly = ?)", binds: [user.email] };
+    return {
+      whereSql: " AND (pxk.nguoi_nhan_hang = ? OR pxk.nguoi_nhan_hang IN (SELECT email FROM users WHERE giam_sat_quan_ly = ?))",
+      binds: [user.email, user.email],
+    };
   }
   if (user.la_ktv_dvbh || user.la_ve_tinh) {
     return {
@@ -83,9 +88,9 @@ export function scopePxkNguoiNhanHang(c: Context<{ Bindings: Env }>): { whereSql
     };
   }
   if (user.la_view) {
-    return { whereSql: ` AND pxk.nguoi_nhan_hang IN ${khuVucViewEmailInSql()}`, binds: [user.email] };
+    return { whereSql: ` AND (pxk.nguoi_nhan_hang = ? OR pxk.nguoi_nhan_hang IN ${khuVucViewEmailInSql()})`, binds: [user.email, user.email] };
   }
-  return { whereSql: " AND 1=0", binds: [] };
+  return { whereSql: " AND pxk.nguoi_nhan_hang = ?", binds: [user.email] };
 }
 
 /**
