@@ -110,6 +110,8 @@ export interface DonHangRow {
   ma_yeu_cau_su_co: string | null;
   ma_lada?: string | null; // "Mã Lada liên quan" (migration 0054)
   tien_da_tra?: number; // tien da thanh toan don MANG THEO khi chua vao phieu (migration 0056)
+  // GET /don-hang/:id (TN/Admin): don chua vao phieu con thieu tien -> so can tra + quy du hien tai cua nguoi nhan hang.
+  tra_bang_quy?: { can_tra: number; quy: number } | null;
   tien_da_tra_pxk?: string | null;
   uu_tien: number;
   trang_thai?: string | null;

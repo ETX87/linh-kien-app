@@ -1,4 +1,4 @@
-import { phanBoQuy, soDuQuy, thongBaoHoanQuyPhieuHuy } from "../lib/quyKtv";
+import { lenhGhiQuy, phanBoQuy, soDuQuy, thongBaoHoanQuyPhieuHuy } from "../lib/quyKtv";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { Env } from "../types";
@@ -2986,7 +2986,13 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
 
   // "Giá đề xuất" sau chiet khau (2026-09-28) - cung nguon voi danh sach (tienUocTinhChoDon).
   const tienUocTinh = (await tienUocTinhChoDon(c.env.DB, [ddh.id])).get(ddh.id) ?? null;
-  return c.json({ donHang: { ...ddh, cases, logs, giaiTrinh, qua_han_ly_do_cham: quaHan, tien_uoc_tinh: tienUocTinh }, pxk: pxk ?? null, thieuLk: thieuLk ?? null });
+  // Nut "Trả bằng quỹ dư" (TN/Admin, don chua vao phieu con thieu tien - chot 2026-09-30).
+  const tq = canTacNghiep(c) && !pxk ? await thongTinTraBangQuy(c.env.DB, id) : null;
+  const traBangQuy = tq && !("error" in tq) ? { can_tra: tq.canTra, quy: tq.quy } : null;
+  return c.json({
+    donHang: { ...ddh, cases, logs, giaiTrinh, qua_han_ly_do_cham: quaHan, tien_uoc_tinh: tienUocTinh, tra_bang_quy: traBangQuy },
+    pxk: pxk ?? null, thieuLk: thieuLk ?? null,
+  });
 });
 
 // Mo 1 ca thieu_lk cho 1 DONG don hang khi TN tu choi bang 1 "Ly do cham" co co
@@ -3823,6 +3829,63 @@ datMuaLinhKien.patch("/don-hang/:id/so-tien-cong-no", async (c) => {
   if (existing.pxk_id) await taiTinhPxk(c.env.DB, existing.pxk_id, false, true, user.email);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ ok: true });
+});
+
+// TRA TIEN DON BANG QUY DU (chot 2026-09-30, phan hoi "nếu quỹ của KTV có tiền >= đơn hàng chưa chuyển tiền, TN xác nhận
+// trực tiếp đơn đó đã chuyển tiền bằng tiền quỹ hiện tại (quỹ giảm bằng số tiền cần chuyển)"). CHI don CHUA nam trong phieu
+// nao (don trong phieu "Cho KTV chuyen" da duoc quy tu tru qua canBangPxk). So can tra = tien uoc tinh cua don (sau chiet
+// khau) - tien don dang mang (tien_da_tra). Tien vao dat_don_hang.tien_da_tra (migration 0056) -> don "Đã thanh toán", vao
+// phieu moi thi cong vao phieu; don bi huy -> trigger hoan lai quy.
+async function thongTinTraBangQuy(
+  db: D1Database, donHangId: string,
+): Promise<{ canTra: number; quy: number; email: string; tienDaTra: number; maLk: string } | { error: string }> {
+  const d = await db.prepare(
+    `SELECT id, ma_lk, loai_don, loai_de_xuat, nguoi_nhan_hang, trang_thai_hien_tai, tien_da_tra,
+            EXISTS (SELECT 1 FROM phieu_xuat_kho_dong WHERE dat_don_hang_id = dat_don_hang.id) as trong_phieu
+     FROM dat_don_hang WHERE id = ?`,
+  ).bind(donHangId).first<{
+    id: string; ma_lk: string; loai_don: string; loai_de_xuat: string | null; nguoi_nhan_hang: string | null;
+    trang_thai_hien_tai: string; tien_da_tra: number; trong_phieu: number;
+  }>();
+  if (!d) return { error: "NOT_FOUND" };
+  if (["TN tu choi", "Tu choi", "Da huy"].includes(d.trang_thai_hien_tai)) return { error: "DONG_DA_DONG" };
+  if (!(d.loai_don === "mua" || laTruCongNo(d.loai_de_xuat ?? ""))) return { error: "DON_KHONG_CAN_CHUYEN_TIEN" };
+  if (d.trong_phieu) return { error: "DON_DANG_TRONG_PHIEU" };
+  if (!d.nguoi_nhan_hang) return { error: "DON_KHONG_CAN_CHUYEN_TIEN" };
+  const tien = (await tienUocTinhChoDon(db, [donHangId])).get(donHangId) ?? 0;
+  const canTra = Math.max(0, tien - (d.tien_da_tra ?? 0));
+  if (canTra <= 0) return { error: "DON_DA_DU_TIEN" };
+  return { canTra, quy: await soDuQuy(db, d.nguoi_nhan_hang), email: d.nguoi_nhan_hang, tienDaTra: d.tien_da_tra ?? 0, maLk: d.ma_lk };
+}
+
+// POST /api/dat-mua-lk/don-hang/:id/tra-bang-quy - TN/Admin xac nhan don da thanh toan bang quy du cua nguoi nhan hang.
+datMuaLinhKien.post("/don-hang/:id/tra-bang-quy", async (c) => {
+  if (!canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const t = await thongTinTraBangQuy(c.env.DB, id);
+  if ("error" in t) return c.json({ error: t.error }, t.error === "NOT_FOUND" ? 404 : 409);
+  if (t.quy < t.canTra) return c.json({ error: "QUY_KHONG_DU", so_du: t.quy }, 409);
+  const now = nowVN();
+  try {
+    await c.env.DB.batch([
+      // CAS: don vua duoc tra/vao phieu boi thao tac khac -> INSERT vi pham CHECK -> rollback ca batch.
+      c.env.DB.prepare(
+        `INSERT INTO quy_cas_guard (x) SELECT 1 WHERE (SELECT tien_da_tra FROM dat_don_hang WHERE id = ?) IS NOT ?
+           OR EXISTS (SELECT 1 FROM phieu_xuat_kho_dong WHERE dat_don_hang_id = ?)`,
+      ).bind(id, t.tienDaTra, id),
+      ...lenhGhiQuy(c.env.DB, {
+        email: t.email, loai: "tra_phieu", soTien: -t.canTra, pxkId: null, nguoi: user.email, now,
+        ghiChu: `TN xác nhận đơn ${id} (${t.maLk}) đã thanh toán bằng quỹ dư`,
+      }),
+      c.env.DB.prepare("UPDATE dat_don_hang SET tien_da_tra = tien_da_tra + ?, tien_da_tra_email = ?, updated_at = ? WHERE id = ?")
+        .bind(t.canTra, t.email, now, id),
+    ]);
+  } catch {
+    return c.json({ error: "DU_LIEU_VUA_DOI" }, 409); // quy vua giam (CHECK so_du >= 0) hoac don vua doi
+  }
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, so_tien: t.canTra });
 });
 
 // POST /api/dat-mua-lk/don-hang/:id/giai-trinh - { noi_dung } TN nop 1 LAN GIAI TRINH ly do cham moi

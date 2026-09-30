@@ -192,6 +192,17 @@ export function DonHangDetailModal({
   // 2026-08-31, muc #5): doi tu PATCH /don-hang/:id { ly_do_cham } (1 lan duy nhat, khoa vinh vien) ->
   // POST /don-hang/:id/giai-trinh (migration 0014) - cho phep giai trinh LAP LAI moi khi qua han lai.
   const [lyDoChamDraft, setLyDoChamDraft] = useState("");
+  // TN xac nhan don da thanh toan bang quy du cua KTV nhan hang (chot 2026-09-30) - POST /don-hang/:id/tra-bang-quy.
+  const traBangQuyMutation = useMutation({
+    mutationFn: () => api.post<{ ok: true; so_tien: number }>(`/dat-mua-lk/don-hang/${id}/tra-bang-quy`, {}),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-detail", id] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
+      addToast(`Đã trừ quỹ ${fmtVND(r.so_tien)} — đơn đã thanh toán`);
+    },
+    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+  });
+
   const lyDoChamMutation = useMutation({
     mutationFn: (noi_dung: string) => api.post(`/dat-mua-lk/don-hang/${id}/giai-trinh`, { noi_dung }),
     onSuccess: () => {
@@ -844,6 +855,34 @@ export function DonHangDetailModal({
                   )}
                   <HoaDonGiaNiemYet don={d} />
                   {!pxk && <TienDaTraDon don={d} />}
+                </span>
+              </KvRow>
+            )}
+            {d.tra_bang_quy && (
+              <KvRow label="Thanh toán">
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  <span className="text-[12px] text-[var(--color-text-secondary)]">
+                    Còn thiếu <b className="text-[var(--color-text)]">{fmtVND(d.tra_bang_quy.can_tra)}</b> · Quỹ dư KTV {fmtVND(d.tra_bang_quy.quy)}
+                  </span>
+                  {d.tra_bang_quy.quy >= d.tra_bang_quy.can_tra ? (
+                    <Btn
+                      size="sm"
+                      variant="subtle"
+                      loading={traBangQuyMutation.isPending}
+                      disabled={traBangQuyMutation.isPending}
+                      onClick={() => {
+                        if (window.confirm(`Xác nhận đơn ${d.id} đã thanh toán bằng quỹ dư?
+
+Quỹ của KTV giảm ${fmtVND(d.tra_bang_quy!.can_tra)}.`)) {
+                          traBangQuyMutation.mutate();
+                        }
+                      }}
+                    >
+                      Trả bằng quỹ dư
+                    </Btn>
+                  ) : (
+                    <span className="text-[12px] text-[var(--color-text-secondary)]">(quỹ không đủ)</span>
+                  )}
                 </span>
               </KvRow>
             )}

@@ -454,6 +454,10 @@ thật. Đơn chưa duyệt trong phiếu bị hủy/từ chối (TN/KTV/Trạm/
 "Chờ hàng" → rời phiếu MANG THEO tiền (`goDonKhoiPxk(..., giuTien)`/`lenhMangTienDon`). Đơn cờ này CHỈ "Chờ hàng" được khi đã
 chuyển tiền = `THANH_TOAN_DON_SQL` 'da_thanh_toan' (Kế toán xác nhận tiền phiếu chứa đơn, hoặc đơn mang tiền) — else
 `CHUA_CHUYEN_TIEN_KHONG_CHO_HANG` (`chuaChuyenTienChoHang`). PATCH đổi `loai_don` khi đơn trong phiếu "Dang tao phieu" → gỡ khỏi phiếu.
+Phiếu Kế toán ĐÃ duyệt tiền mà tổng mới ≤ `da_thanh_toan` (đơn rời phiếu) → GIỮ "Kế toán đã duyệt", thừa hoàn quỹ (`taiTinhPxk`
+`giuDaDuyet` — Kế toán xác nhận = xác nhận bằng chứng khớp số tiền, tiền thật không đổi). TN/Admin **"Trả bằng quỹ dư"** cho đơn
+CHƯA vào phiếu còn thiếu tiền (`POST /dat-mua-lk/don-hang/:id/tra-bang-quy`, `thongTinTraBangQuy`; chi tiết đơn trả `tra_bang_quy`
+{can_tra, quy}): quỹ người nhận − (tiền ước tính − `tien_da_tra`) → cộng vào `tien_da_tra` (giao dịch `tra_phieu`, pxk NULL).
 **Tự đọc số tiền trên ảnh chuyển khoản** (2026-09-30, migration `0051`): OCR chạy HOÀN TOÀN trên trình duyệt
 (`frontend/src/lib/docTienAnh.ts`, tesseract.js v7 + dữ liệu `vie`, web worker, tải lười khi có ảnh) — file thư viện tự host ở
 `/ocr/*`, do plugin `ocrAssets()` trong `frontend/vite.config.ts` chép từ `node_modules` lúc build (`frontend/public/ocr/` bị
