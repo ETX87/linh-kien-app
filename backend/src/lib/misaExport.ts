@@ -119,6 +119,9 @@ export interface MisaExportResult {
   // cot "doi tuong/khach hang/nguoi van chuyen" - xem giai thich dau file) - FE hien canh bao ro rang
   // thay vi de nguoi dung tu phat hien khi mo file MISA that.
   canhBaoThieuMisa: { ma_ktv: string; ten_hien_thi: string | null }[];
+  // Dong "TRỪ CÔNG NỢ" bi BO khoi file khi ep mau Chuyen kho (chot 2026-09-30) - hang da o kho KTV, KTV tra tien de
+  // giam cong no -> chi hach toan bang mau Ban hang (tru kho KTV); Chuyen kho se chuyen nguoc hang KTV ve kho cong ty.
+  boQuaTruCongNo: { so_phieu: string; ma_lk: string }[];
 }
 
 interface RawLine {
@@ -154,7 +157,10 @@ function fmtDateVN(dt: string | null): string {
 
 // Xuat rieng (2026-09-10, phan hoi "nút tải nào được đề xuất sẽ tô màu nổi bật") de routes/phieuXuatKho.ts
 // GET /:id dung LAI DUNG 1 cong thuc nay tinh "mau de xuat" hien thi cho PXK, tranh code trung logic.
-export function resolveTemplate(loaiDon: RawLine["pxk_loai_don"], loaiFileXuatMisa: string | null): MisaTemplate {
+// Dong "TRỪ CÔNG NỢ" (chot 2026-09-30): KHONG theo quy tac "PXK cong no -> Chuyen kho" - theo cai dat cua loai de xuat
+// (dang la Ban hang), chi nhan Ban hang/Xuat kho (2 mau nay tru kho KTV, xem maKhoDong ben duoi).
+export function resolveTemplate(loaiDon: RawLine["pxk_loai_don"], loaiFileXuatMisa: string | null, loaiDeXuat?: string | null): MisaTemplate {
+  if (laTruCongNo(loaiDeXuat)) return loaiFileXuatMisa === "xuat_kho" ? "xuat_kho" : "ban_hang";
   if (loaiDon === "cong_no" || loaiDon === "tra_hang") return "chuyen_kho";
   if (loaiFileXuatMisa === "chuyen_kho" || loaiFileXuatMisa === "xuat_kho") return loaiFileXuatMisa;
   return "ban_hang";
@@ -194,7 +200,8 @@ async function loadKhoSettings(db: Env["DB"]): Promise<Record<"bac" | "nam", { m
 export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTemplate?: MisaTemplate): Promise<MisaExportResult> {
   const sheets: MisaExportSheets = { xuat_kho: [], chuyen_kho: [], ban_hang: [] };
   const canhBaoThieuMisaMap = new Map<string, { ma_ktv: string; ten_hien_thi: string | null }>();
-  if (pxkIds.length === 0) return { sheets, canhBaoThieuMisa: [] };
+  const boQuaTruCongNo: MisaExportResult["boQuaTruCongNo"] = [];
+  if (pxkIds.length === 0) return { sheets, canhBaoThieuMisa: [], boQuaTruCongNo };
 
   const db = env.DB;
   const khoBanHang = await loadKhoSettings(db);
@@ -231,10 +238,16 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
 
   // Xac dinh template cho TUNG dong TRUOC (bo cot "Don dat hang" moi khong co cot Serial rieng nhu mau
   // "Xuat kho" cu - xem DonDatHangRow - nen KHONG con can goi lookupCases() o day).
-  const lines = results.map((line) => ({
-    line,
-    template: forceTemplate ?? resolveTemplate(line.pxk_loai_don, line.loai_file_xuat_misa),
-  }));
+  const lines = results
+    .map((line) => ({
+      line,
+      template: forceTemplate ?? resolveTemplate(line.pxk_loai_don, line.loai_file_xuat_misa, line.loai_de_xuat),
+    }))
+    .filter(({ line, template }) => {
+      if (template !== "chuyen_kho" || !laTruCongNo(line.loai_de_xuat)) return true;
+      boQuaTruCongNo.push({ so_phieu: line.pxk_ma_xuat_kho || line.pxk_id, ma_lk: line.ma_lk });
+      return false;
+    });
 
   // Mau "Ban hang" (phan hoi 2026-09-28 "cột Đơn giá sẽ điền đơn giá chưa tính 8% => đơn giá = (đơn giá
   // thực tế/108)*100"): "don gia thuc te" = tien dong do backend tinh (tinhToanPxk - CUNG nguon voi "Tiền
@@ -351,7 +364,7 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
     }
   }
 
-  return { sheets, canhBaoThieuMisa: [...canhBaoThieuMisaMap.values()] };
+  return { sheets, canhBaoThieuMisa: [...canhBaoThieuMisaMap.values()], boQuaTruCongNo };
 }
 
 // Tinh "mau MISA de xuat" cho 1 PXK de FE to mau noi bat dung 1 trong 3 nut tai (phan hoi 2026-09-10
@@ -365,7 +378,7 @@ export async function resolveMisaTemplateDeXuat(env: Env, pxkId: string): Promis
   // buildMisaExportSheets - o day khong doi ket qua cuoi (dem nhan doi deu nhau khong doi thu tu max),
   // nhung sua theo cung 1 pattern subquery de tranh lap lai anti-pattern nay noi khac.
   const { results } = await env.DB.prepare(
-    `SELECT pxk.loai_don as pxk_loai_don,
+    `SELECT pxk.loai_don as pxk_loai_don, ddh.loai_de_xuat,
        (SELECT loai_file_xuat_misa FROM settings_loai_de_xuat WHERE ten_option = ddh.loai_de_xuat LIMIT 1) as loai_file_xuat_misa
        FROM phieu_xuat_kho pxk
        JOIN phieu_xuat_kho_dong pxkd ON pxkd.phieu_xuat_kho_id = pxk.id
@@ -373,12 +386,12 @@ export async function resolveMisaTemplateDeXuat(env: Env, pxkId: string): Promis
       WHERE pxk.id = ?`,
   )
     .bind(pxkId)
-    .all<{ pxk_loai_don: RawLine["pxk_loai_don"]; loai_file_xuat_misa: string | null }>();
+    .all<{ pxk_loai_don: RawLine["pxk_loai_don"]; loai_de_xuat: string | null; loai_file_xuat_misa: string | null }>();
   if (results.length === 0) return null;
 
   const counts = new Map<MisaTemplate, number>();
   for (const r of results) {
-    const tpl = resolveTemplate(r.pxk_loai_don, r.loai_file_xuat_misa);
+    const tpl = resolveTemplate(r.pxk_loai_don, r.loai_file_xuat_misa, r.loai_de_xuat);
     counts.set(tpl, (counts.get(tpl) ?? 0) + 1);
   }
   let best: MisaTemplate = "ban_hang";

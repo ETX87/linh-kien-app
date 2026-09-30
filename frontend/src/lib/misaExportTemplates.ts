@@ -81,6 +81,8 @@ export interface MisaExportWarning {
 export interface MisaExportResult {
   sheets: MisaExportSheets;
   canhBaoThieuMisa: MisaExportWarning[];
+  // Dong "TRỪ CÔNG NỢ" bi bo khoi file Chuyen kho (2026-09-30) - phai tai bang mau Ban hang (tru kho KTV).
+  boQuaTruCongNo?: { so_phieu: string; ma_lk: string }[];
 }
 
 // Dung CHUNG cho ca sheet "Xuất kho" va "Bán hàng" khi xuat .xlsx (cung 1 bo cot AMIS "Đơn đặt hàng" -

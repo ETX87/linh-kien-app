@@ -46,6 +46,19 @@ const MISA_TEMPLATE_ORDER: MisaTemplate[] = ["xuat_kho", "chuyen_kho", "ban_hang
 // Canh bao KTV thieu ma_misa/ten_misa (them 2026-09-04, xem giai thich o backend/src/lib/misaExport.ts
 // MisaExportResult) - hien 1 toast RIENG (khong chan file .xlsx da tai, chi canh bao them) liet ke toi
 // da vai KTV dau tien tranh toast qua dai.
+// + dong "TRỪ CÔNG NỢ" bi bo khoi file Chuyen kho (2026-09-30): hang da o kho KTV, KTV tra tien giam cong no -> chi
+// hach toan bang "MISA Bán hàng" (tru kho KTV). `ok` = da tai duoc file.
+function toastKetQuaMisa(result: MisaExportResult, ok: boolean, addToast: (msg: string) => void) {
+  const boQua = result.boQuaTruCongNo ?? [];
+  if (boQua.length > 0) {
+    const phieu = [...new Set(boQua.map((b) => b.so_phieu))];
+    addToast(
+      `⚠ Bỏ ${boQua.length} dòng TRỪ CÔNG NỢ khỏi file Chuyển kho (phiếu ${phieu.slice(0, 5).join(", ")}${phieu.length > 5 ? "…" : ""}) — dòng TRỪ CÔNG NỢ trừ kho KTV, tải bằng nút "MISA Bán hàng"`,
+    );
+  } else if (!ok) addToast("Không có dòng nào để xuất");
+  if (ok) toastCanhBaoThieuMisa(result, addToast);
+}
+
 function toastCanhBaoThieuMisa(result: MisaExportResult, addToast: (msg: string) => void) {
   if (result.canhBaoThieuMisa.length === 0) return;
   const ten = result.canhBaoThieuMisa.slice(0, 5).map((w) => w.ten_hien_thi || w.ma_ktv).join(", ");
@@ -496,8 +509,7 @@ export function PhieuXuatKhoTab({
       ),
     onSuccess: async (result) => {
       const ok = await downloadMisaExport(result.sheets, `MISA_${LOAI_DON_TONE[xemLoaiDon || "mua"].label}_${new Date().toISOString().slice(0, 10)}.xlsx`);
-      if (!ok) addToast("Không có dòng nào để xuất");
-      else toastCanhBaoThieuMisa(result, addToast);
+      toastKetQuaMisa(result, ok, addToast);
     },
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
   });
@@ -1525,8 +1537,7 @@ export function PxkDetailModal({
     mutationFn: (template: MisaTemplate) => api.get<MisaExportResult>(`/phieu-xuat-kho/${id}/misa-export` + buildQuery({ template })),
     onSuccess: async (result) => {
       const ok = await downloadMisaExport(result.sheets, `MISA_${pxk?.ma_xuat_kho || id}.xlsx`);
-      if (!ok) addToast("Không có dòng nào để xuất");
-      else toastCanhBaoThieuMisa(result, addToast);
+      toastKetQuaMisa(result, ok, addToast);
     },
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
   });
