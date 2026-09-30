@@ -1,6 +1,6 @@
 import { nowVN } from "./vnTime";
-import { taiTinhPxk } from "./pxkRecalculate";
-import { canBangPxk, KE_TOAN_DA_CHOT_TIEN_SQL } from "./quyKtv";
+import { taiTinhPxk, tinhToanPxk } from "./pxkRecalculate";
+import { canBangPxk, KE_TOAN_DA_CHOT_TIEN_SQL, lenhKhoaDaThanhToan } from "./quyKtv";
 
 // KTV / nguoi tao TU HUY don tu duyet da tu gom vao PXK (chot nguoi dung 2026-09-28):
 //   "cho phép ktv hoặc người tạo đơn tự hủy đơn của bản thân nếu đơn đó được hệ thống tự duyệt, tự đẩy vào
@@ -87,35 +87,77 @@ export async function pxkDuocTuHuy(db: D1Database, donHangId: string): Promise<s
  * (POST /phieu-xuat-kho/:id/huy-neu-trong). Con dong khac -> tinh lai CA phieu (giong TN bo dong).
  * `moTa` = mo ta thao tac ghi vao log PXK, vd "KTV tự hủy đơn".
  */
+/** Don rời phieu MANG THEO tien cua dong (migration 0056): so tien = tien dong trong phieu (tinhToanPxk), toi da so phieu
+ * da tra. Tra ve cac lenh (CAS da_thanh_toan + rut khoi phieu + ghi vao don) de them vao CUNG batch go dong. */
+export async function lenhMangTienDon(
+  db: D1Database, pxkId: string, donHangId: string,
+): Promise<{ tien: number; lenh: D1PreparedStatement[] }> {
+  const pxk = await db.prepare("SELECT da_thanh_toan, nguoi_nhan_hang FROM phieu_xuat_kho WHERE id = ?")
+    .bind(pxkId)
+    .first<{ da_thanh_toan: number | null; nguoi_nhan_hang: string | null }>();
+  const daTra = pxk?.da_thanh_toan ?? 0;
+  if (!pxk?.nguoi_nhan_hang || daTra <= 0) return { tien: 0, lenh: [] };
+  const { results } = await db.prepare("SELECT dat_don_hang_id FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ?")
+    .bind(pxkId)
+    .all<{ dat_don_hang_id: string }>();
+  const tinh = await tinhToanPxk(db, results.map((r) => r.dat_don_hang_id));
+  const tien = Math.min(Math.max(0, tinh.tienUocTinhTheoDong.get(donHangId) ?? 0), daTra);
+  if (tien <= 0) return { tien: 0, lenh: [] };
+  return {
+    tien,
+    lenh: [
+      lenhKhoaDaThanhToan(db, pxkId, daTra),
+      db.prepare("UPDATE phieu_xuat_kho SET da_thanh_toan = da_thanh_toan - ? WHERE id = ?").bind(tien, pxkId),
+      db.prepare("UPDATE dat_don_hang SET tien_da_tra = tien_da_tra + ?, tien_da_tra_email = ?, tien_da_tra_pxk = ? WHERE id = ?")
+        .bind(tien, pxk.nguoi_nhan_hang, pxkId, donHangId),
+    ],
+  };
+}
+
+/** PXK "Dang tao phieu" dang chua 1 don CHUA TN duyet (don can chuyen tien truoc, vao phieu tu luc tao - chot 2026-09-30). */
+export async function pxkChuaDonChuaDuyet(db: D1Database, donHangId: string): Promise<string | null> {
+  const row = await db.prepare(
+    `SELECT d.phieu_xuat_kho_id as id FROM phieu_xuat_kho_dong d JOIN phieu_xuat_kho p ON p.id = d.phieu_xuat_kho_id
+     WHERE d.dat_don_hang_id = ? AND p.trang_thai_hien_tai = 'Dang tao phieu' LIMIT 1`,
+  ).bind(donHangId).first<{ id: string }>();
+  return row?.id ?? null;
+}
+
+/** giuTien: don roi phieu mang theo tien cua dong (don chuyen "Cho hang" - chot 2026-09-30); false = tong phieu giam,
+ * phan tra thua hoan ve quy nhu cu. */
 export async function goDonKhoiPxk(
   db: D1Database, pxkId: string, donHangId: string, email: string, moTa: string, lyDo: string, huyPhieuNeuTrong = true,
-): Promise<{ huyPhieu: boolean; hoanQuy: number }> {
+  giuTien = false,
+): Promise<{ huyPhieu: boolean; hoanQuy: number; tienMangTheo: number }> {
   const now = nowVN();
   const dem = await db.prepare("SELECT COUNT(*) as n FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ?").bind(pxkId).first<{ n: number }>();
   const donRow = await db.prepare("SELECT ma_lk FROM dat_don_hang WHERE id = ?").bind(donHangId).first<{ ma_lk: string }>();
   const huyPhieu = huyPhieuNeuTrong && (dem?.n ?? 0) <= 1;
+  const mang = giuTien ? await lenhMangTienDon(db, pxkId, donHangId) : { tien: 0, lenh: [] };
+  const ghiTien = mang.tien > 0 ? ` — đơn giữ ${mang.tien.toLocaleString("vi-VN")}đ đã thanh toán` : "";
   await db.batch([
+    ...mang.lenh,
     db.prepare("DELETE FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ? AND dat_don_hang_id = ?").bind(pxkId, donHangId),
     db.prepare("UPDATE dat_don_hang SET ma_xuat_kho = NULL, loai_chiet_khau_id = NULL, loai_chiet_khau_thu_cong = 0, updated_at = ? WHERE id = ?").bind(now, donHangId),
     huyPhieu
       ? db.prepare("UPDATE phieu_xuat_kho SET trang_thai_hien_tai = 'Ke toan huy', version = version + 1 WHERE id = ? AND trang_thai_hien_tai = 'Dang tao phieu'").bind(pxkId)
       : db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
-          pxkId, "Da xoa don khoi phieu", email, now, `${moTa} ${donRow?.ma_lk ?? donHangId} (${donHangId})${lyDo ? `: ${lyDo}` : ""}`,
+          pxkId, "Da xoa don khoi phieu", email, now, `${moTa} ${donRow?.ma_lk ?? donHangId} (${donHangId})${lyDo ? `: ${lyDo}` : ""}${ghiTien}`,
         ),
     ...(huyPhieu
       ? [
           db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
-            pxkId, "Ke toan huy", email, now, `Tự hủy phiếu — ${moTa.toLowerCase()} duy nhất của phiếu ${donHangId}${lyDo ? `: ${lyDo}` : ""}`,
+            pxkId, "Ke toan huy", email, now, `Tự hủy phiếu — ${moTa.toLowerCase()} duy nhất của phiếu ${donHangId}${lyDo ? `: ${lyDo}` : ""}${ghiTien}`,
           ),
         ]
       : []),
   ]);
   if (!huyPhieu) {
     await taiTinhPxk(db, pxkId, true, true, email);
-    return { huyPhieu, hoanQuy: 0 };
+    return { huyPhieu, hoanQuy: 0, tienMangTheo: mang.tien };
   }
   const { hoan } = await canBangPxk(db, pxkId, email); // phieu huy -> hoan tien da tra (neu co) ve quy du
-  return { huyPhieu, hoanQuy: hoan };
+  return { huyPhieu, hoanQuy: hoan, tienMangTheo: mang.tien };
 }
 
 /** PXK "Dang tao phieu" khong con dong nao -> huy (dong man phieu trong - chot 2026-09-28, muc 3). Tra ve null neu

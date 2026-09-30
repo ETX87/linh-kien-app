@@ -17,10 +17,10 @@ import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, emailGsListForPxk
 import { pushPxkToKhovan, notifyPxkAdvancedViaApp, buildWorkUrl } from "../lib/khovanPushClient";
 import { timLoaiChietKhauTheoTen, gonTenLoaiChietKhau, choPhepDoiLoaiChietKhau } from "../lib/loaiChietKhau";
 import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, laTruCongNo, type PxkCalculation } from "../lib/pxkRecalculate";
-import { laVanPhong, danhDauVanPhongTacDong, huyPxkNeuTrong } from "../lib/pxkTuHuy";
+import { laVanPhong, danhDauVanPhongTacDong, huyPxkNeuTrong, lenhMangTienDon } from "../lib/pxkTuHuy";
 import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
 import { ANH_DA_GHI_NHAN_SQL, docAnhBangChung, locTienDocAnh, MAX_ANH_BANG_CHUNG } from "../lib/bangChungChuyenTien";
-import { canBangPxk, duyetKhoanChuyen, lenhKhoaDaThanhToan, lenhNhanTienDaTraDon, lenhGhiKhoanTuChoi, lenhKhoaTrangThaiChuyenTien, moTaCanChuyen, soDuQuy, thongBaoHoanQuyPhieuHuy, tienPhieuVaQuy } from "../lib/quyKtv";
+import { canBangPxk, duyetKhoanChuyen, lenhNhanTienDaTraDon, lenhGhiKhoanTuChoi, lenhKhoaTrangThaiChuyenTien, moTaCanChuyen, soDuQuy, thongBaoHoanQuyPhieuHuy, tienPhieuVaQuy } from "../lib/quyKtv";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
 // Pattern header+log giong phieu_dat. TN tao (gom nhieu dong don hang da "TN da duyet" vao 1
@@ -1495,23 +1495,9 @@ phieuXuatKho.delete("/:id/dong/:donHangId", async (c) => {
 
   const donRow = await c.env.DB.prepare("SELECT ma_lk FROM dat_don_hang WHERE id = ?").bind(donHangId).first<{ ma_lk: string }>();
   const now = nowVN();
-  let tienMangTheo = 0;
-  if (giuTien && daTraPhieu > 0 && pxk.nguoi_nhan_hang) {
-    const { results: dongPhieu } = await c.env.DB.prepare("SELECT dat_don_hang_id FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ?")
-      .bind(id)
-      .all<{ dat_don_hang_id: string }>();
-    const tinh = await tinhToanPxk(c.env.DB, dongPhieu.map((r) => r.dat_don_hang_id));
-    tienMangTheo = Math.min(Math.max(0, tinh.tienUocTinhTheoDong.get(donHangId) ?? 0), daTraPhieu);
-  }
-  const lenhMangTien = tienMangTheo > 0
-    ? [
-        lenhKhoaDaThanhToan(c.env.DB, id, daTraPhieu),
-        c.env.DB.prepare("UPDATE phieu_xuat_kho SET da_thanh_toan = da_thanh_toan - ? WHERE id = ?").bind(tienMangTheo, id),
-        c.env.DB.prepare(
-          "UPDATE dat_don_hang SET tien_da_tra = tien_da_tra + ?, tien_da_tra_email = ?, tien_da_tra_pxk = ? WHERE id = ?",
-        ).bind(tienMangTheo, pxk.nguoi_nhan_hang, id, donHangId),
-      ]
-    : [];
+  const mang = giuTien ? await lenhMangTienDon(c.env.DB, id, donHangId) : { tien: 0, lenh: [] as D1PreparedStatement[] };
+  const tienMangTheo = mang.tien;
+  const lenhMangTien = mang.lenh;
   const ghiChuTien = tienMangTheo > 0
     ? ` — đơn ĐÃ THANH TOÁN, mang theo ${tienMangTheo.toLocaleString("vi-VN")}đ sang phiếu sau`
     : daTraPhieu > 0
@@ -1616,6 +1602,19 @@ phieuXuatKho.post("/:id/log", async (c) => {
     const coDong = await c.env.DB.prepare("SELECT 1 FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ? LIMIT 1").bind(id).first();
     if (!coDong) return c.json({ error: "PHIEU_TRONG" }, 409);
     if (pxk.so_tien_can_chuyen != null && pxk.trang_thai_chuyen_tien !== "TN da duyet") return c.json({ error: "MISSING_CHUYEN_TIEN_APPROVED" }, 409);
+    // Chot 2026-09-30: phieu con don CHUA TN duyet (don can chuyen tien truoc vao phieu tu luc tao, lib/pxkAutoBundle.ts) ->
+    // KHONG cho gui Ke toan; TN bo cac don do khoi phieu ("Đơn đã thanh toán" = don giu tien) roi moi gui.
+    const { results: chuaDuyet } = await c.env.DB.prepare(
+      `SELECT ddh.id, ddh.ma_lk FROM phieu_xuat_kho_dong d JOIN dat_don_hang ddh ON ddh.id = d.dat_don_hang_id
+       WHERE d.phieu_xuat_kho_id = ? AND ddh.trang_thai_hien_tai != 'TN da duyet' ORDER BY ddh.id`,
+    ).bind(id).all<{ id: string; ma_lk: string }>();
+    if (chuaDuyet.length > 0) {
+      return c.json({
+        error: "DON_CHUA_DUYET",
+        ids: chuaDuyet.map((r) => r.id),
+        message: `Phiếu còn ${chuaDuyet.length} đơn chưa được TN duyệt: ${chuaDuyet.map((r) => `${r.id} (${r.ma_lk})`).join(", ")}. Bỏ các đơn này khỏi phiếu (chọn "Đơn đã thanh toán" để đơn giữ tiền) rồi mới gửi kế toán.`,
+      }, 409);
+    }
 
     // CHOT 2026-08-14: chan cung neu co dong nao qua han "Ly do cham" (24h tu luc "Cho TN duyet",
     // cong T7/CN neu co - xem lib/hanLyDoCham.ts) ma van chua duoc TN giai trinh - bat buoc TN giai

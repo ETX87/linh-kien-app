@@ -446,6 +446,14 @@ tối đa phiếu đã trả) RÚT khỏi `da_thanh_toan` của phiếu, nằm �
 "Chờ tạo phiếu" (cột chuyển tiền theo đơn = Đã thanh toán). Đơn vào phiếu mới (tạo tay, thêm dòng, tự gom) → `lenhNhanTienDaTraDon()`
 cộng vào `da_thanh_toan` phiếu mới trong CÙNG batch với INSERT dòng — thêm đường đưa đơn vào phiếu mới phải gọi nó. Đơn mang tiền bị
 từ chối/hủy, đổi người nhận hoặc sang Trả hàng → TRIGGER `trg_ddh_hoan_tien_da_tra` hoàn về quỹ (mọi đường ghi).
+**Chuyển tiền TRƯỚC khi duyệt** (chốt 2026-09-30, migration `0057`): đơn Mua / TRỪ CÔNG NỢ TẠO MỚI có giá bán × SL > 0 vào phiếu
+NGAY lúc tạo dù chưa tự duyệt (`bundleAutoApprovedIntoPxk`), cột `dat_don_hang.bat_buoc_chuyen_tien = 1` (đơn cũ = 0, giữ quy
+tắc cũ). Không gộp vào phiếu Kế toán đã duyệt tiền ('TN da duyet') hay đã có mã MISA → tạo phiếu mới. "Gửi kế toán" chặn
+`DON_CHUA_DUYET` khi phiếu còn đơn khác 'TN da duyet' — TN tự bỏ ra (chọn "Đơn đã thanh toán" để giữ tiền), đơn giữ trạng thái
+thật. Đơn chưa duyệt trong phiếu bị hủy/từ chối (TN/KTV/Trạm/TBP) → tự rời phiếu (`pxkChuaDonChuaDuyet` + `goDonKhoiPxk`); chuyển
+"Chờ hàng" → rời phiếu MANG THEO tiền (`goDonKhoiPxk(..., giuTien)`/`lenhMangTienDon`). Đơn cờ này CHỈ "Chờ hàng" được khi đã
+chuyển tiền = `THANH_TOAN_DON_SQL` 'da_thanh_toan' (Kế toán xác nhận tiền phiếu chứa đơn, hoặc đơn mang tiền) — else
+`CHUA_CHUYEN_TIEN_KHONG_CHO_HANG` (`chuaChuyenTienChoHang`). PATCH đổi `loai_don` khi đơn trong phiếu "Dang tao phieu" → gỡ khỏi phiếu.
 **Tự đọc số tiền trên ảnh chuyển khoản** (2026-09-30, migration `0051`): OCR chạy HOÀN TOÀN trên trình duyệt
 (`frontend/src/lib/docTienAnh.ts`, tesseract.js v7 + dữ liệu `vie`, web worker, tải lười khi có ảnh) — file thư viện tự host ở
 `/ocr/*`, do plugin `ocrAssets()` trong `frontend/vite.config.ts` chép từ `node_modules` lúc build (`frontend/public/ocr/` bị

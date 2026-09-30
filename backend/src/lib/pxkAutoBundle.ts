@@ -10,6 +10,9 @@
 // duy nhat, dung y "TN gom don" tu nhien). Chua co PXK nao dang mo thi tao moi. Gop ca vao phieu KTV da nop
 // bang chung (chot 2026-09-29: KHONG tach phieu) - tong doi thi bang chung cu duoc GIU, KTV chuyen bo sung +
 // tai them anh (toi da 5, xem PATCH /phieu-xuat-kho/:id/chuyen-tien).
+// MO RONG 2026-09-30: gom ca don Mua / TRỪ CÔNG NỢ co tien > 0 CHUA duoc tu dong duyet (bat_buoc_chuyen_tien - yeu cau KTV
+// chuyen tien truoc; "Gửi kế toán" chan phieu con don chua TN duyet). KHONG gop vao phieu Ke toan da duyet tien ('TN da
+// duyet') hay da co ma MISA -> tao phieu moi (chot nguoi dung).
 import type { Env } from "../types";
 import { nowVN } from "./vnTime";
 import { nextSequentialId } from "./idCounter";
@@ -45,6 +48,7 @@ export async function bundleAutoApprovedIntoPxk(
     .prepare(
       `SELECT id, ma_xuat_kho, so_tien_can_chuyen FROM phieu_xuat_kho
        WHERE nguoi_nhan_hang = ? AND loai_don = ? AND trang_thai_hien_tai = 'Dang tao phieu'
+         AND COALESCE(trang_thai_chuyen_tien, '') != 'TN da duyet' AND COALESCE(TRIM(ma_misa), '') = ''
        ORDER BY ngay_tao DESC LIMIT 1`,
     )
     .bind(nguoiNhanHang, loaiDon)
@@ -70,7 +74,7 @@ export async function bundleAutoApprovedIntoPxk(
              (id, ma_xuat_kho, ma_xuat_kho_xac_nhan, nguoi_tao, ngay_tao, ghi_chu, so_tien_can_chuyen, trang_thai_chuyen_tien, nguoi_nhan_hang, loai_don, trang_thai_hien_tai)
            VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .bind(pxkId, maXuatKho, actorEmail, now, "Tự động gom các đơn đủ tồn kho, đã tự động duyệt", null, null, nguoiNhanHang, loaiDon, "Dang tao phieu"),
+        .bind(pxkId, maXuatKho, actorEmail, now, "Tự động gom đơn mới (đơn tự động duyệt + đơn cần chuyển tiền trước)", null, null, nguoiNhanHang, loaiDon, "Dang tao phieu"),
       db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly) VALUES (?, ?, ?, ?)").bind(pxkId, "Dang tao phieu", actorEmail, now),
     );
   }
@@ -97,7 +101,7 @@ export async function bundleAutoApprovedIntoPxk(
       emailGsList,
       pastActors: [],
       title: "Phiếu xuất kho",
-      body: `(Tự động duyệt) ${moTaCanChuyen(pxkId, await tienPhieuVaQuy(db, pxkId))}`,
+      body: `(Đơn mới) ${moTaCanChuyen(pxkId, await tienPhieuVaQuy(db, pxkId))}`,
       linkType: "phieu_xuat_kho",
       linkId: pxkId,
     });

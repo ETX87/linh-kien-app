@@ -11,6 +11,7 @@ import type { DonHangRow, LyDoChamRow } from "./types";
 import { LoaiChietKhauPicker, LoaiChietKhauText, HoaDonGiaNiemYet, duocDoiLoaiChietKhau } from "./LoaiChietKhau";
 import { describeApiError, invalidatePipelineCounts, laTruCongNo } from "./helpers";
 import { LoaiDeXuatBadge } from "./SharedUi";
+import { DON_CUA_TOI_TRANG_THAI_OPTIONS } from "./constants";
 
 // Bang "Dòng đơn hàng" cua 1 PXK - TACH component 2026-09-29 (phan hoi "trong danh sách phiếu xuất, tạo bảng danh sách
 // dạng phiếu gốc, ấn xổ xuống sẽ có danh sách các dòng đơn hàng chi tiết bên trong, các chức năng sẽ tương tự các chức
@@ -343,6 +344,19 @@ export function PxkDongDonHangTable({
     );
   }
 
+  // Don CHUA TN duyet nam trong phieu (don can chuyen tien truoc vao phieu tu luc tao - chot 2026-09-30): danh dau, TN phai
+  // bo ra truoc khi "Gửi kế toán" (backend chan DON_CHUA_DUYET).
+  function chipChuaDuyet(d: DonHangRow): ReactNode {
+    const tt = d.trang_thai_hien_tai ?? d.trang_thai;
+    if (!tt || tt === "TN da duyet") return null;
+    const nhan = DON_CUA_TOI_TRANG_THAI_OPTIONS.find((o) => o.value === tt)?.label ?? tt;
+    return (
+      <span title={`Đơn chưa được TN duyệt (${nhan}) — bỏ khỏi phiếu trước khi gửi kế toán`}>
+        <Badge tone="warning">{nhan}</Badge>
+      </span>
+    );
+  }
+
   const nenUuTien = (d: DonHangRow) => (d.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)]" : "");
   const slThucXuat = (d: DonHangRow) =>
     d.so_luong_thuc_xuat == null ? null : d.so_luong_thuc_xuat !== d.so_luong_de_xuat ? (
@@ -426,7 +440,7 @@ export function PxkDongDonHangTable({
             >
               <td className={`${o} font-mono text-[11.5px] text-[var(--color-text-secondary)]`} title={`${COT_GON[0].tip}: ${d.ma_lk}`}>{d.ma_lk}</td>
               <td className={o} title={d.ten_lk_snapshot ?? d.ma_lk}>
-                {d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
+                {chipChuaDuyet(d)} {d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
                 {d.ten_lk_snapshot ?? d.ma_lk}
               </td>
               <td className={o} title={COT_GON[2].tip}>
@@ -477,7 +491,7 @@ export function PxkDongDonHangTable({
           <tr key={d.id} onClick={() => onOpenDon(d.id)} className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer ${nenUuTien(d)}`}>
             <td className="px-2.5 py-2 font-mono">{d.ma_lk}</td>
             <td className="px-2.5 py-2">
-              {d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
+              {chipChuaDuyet(d)} {d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
               {d.ten_lk_snapshot ?? d.ma_lk}
             </td>
             {/* Loai de xuat quyet dinh cach tinh tien (2026-09-28). */}

@@ -24,6 +24,8 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   INVALID_SO_TIEN_THUC_NHAN: "Số tiền thực nhận phải là số nguyên lớn hơn 0",
   QUY_KHONG_DU: "Quỹ không đủ để trừ số tiền này",
   KHOAN_KHONG_SUA_DUOC: "Chỉ sửa được khoản đang ở trạng thái Đã duyệt",
+  CHUA_CHUYEN_TIEN_KHONG_CHO_HANG: "Đơn chưa chuyển tiền nên không thể chuyển sang trạng thái chờ hàng",
+  DON_CHUA_DUYET: "Phiếu còn đơn chưa được TN duyệt — bỏ các đơn này khỏi phiếu rồi mới gửi kế toán",
   DA_CO_MA_MISA: "Kế toán đã bổ sung mã MISA cho phiếu này — không bỏ đơn khỏi phiếu được nữa",
   DU_LIEU_VUA_DOI: "Tiền của phiếu vừa thay đổi — tải lại rồi thử lại",
   KHOAN_KHONG_HUY_DUOC: "Chỉ hủy được khoản đang ở trạng thái Đã duyệt",
