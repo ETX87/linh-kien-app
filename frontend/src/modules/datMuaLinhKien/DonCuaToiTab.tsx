@@ -35,11 +35,12 @@ import {
 } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
-  LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, laChoHangMoKhoa, laChoHangBiKhoa, trangThaiLabel, canNoRequired, maYcscRequired, pickLdeQuick, emptyDraft,
+  LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, laChoHangMoKhoa, laChoHangBiKhoa, trangThaiLabel, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
   donGiaSauChietKhau, tienSauChietKhau, giaNiemYet } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
+import { MaLadaCheck } from "./MaLadaCheck";
 import { LinhKienPicker, LinhKienDetailModal } from "./LinhKienPicker";
 // Lien ket 2 chieu voi ticket thieu LK (phan hoi 2026-09-10) - xem giai thich import vong o
 // ThieuLkTab.tsx (file do cung import nguoc lai DonHangDetailModal tu day).
@@ -335,6 +336,7 @@ export function DonHangDetailModal({
       tt_khach_hang: d.tt_khach_hang ?? "",
       chinh_sach: d.chinh_sach ?? "",
       ma_yeu_cau_su_co: d.ma_yeu_cau_su_co ?? "",
+      ma_lada: d.ma_lada ?? "",
       uu_tien: d.uu_tien === 1,
       // "anh" khong dung o luong sua nay (chi don loai_don='tra_hang' moi co anh, va dong tra_hang
       // KHONG bao gio vao duoc isCreatorEditWindow - xem giai thich o comment dat_don_hang_log/
@@ -422,6 +424,7 @@ export function DonHangDetailModal({
       tt_khach_hang: editDraft.tt_khach_hang.trim() || undefined,
       chinh_sach: editDraft.chinh_sach.trim() || undefined,
       ma_yeu_cau_su_co: editDraft.ma_yeu_cau_su_co.trim() || undefined,
+      ma_lada: editDraft.ma_lada.trim().toUpperCase(), // gui ca chuoi rong = xoa ma
       uu_tien: editDraft.uu_tien,
     };
     if (tnCoreDraft) {
@@ -446,7 +449,7 @@ export function DonHangDetailModal({
     editDraft.loai_de_xuat.trim() !== "" &&
     editDraft.so_luong_de_xuat > 0 &&
     (!canNoRequired(editDraft.loai_de_xuat) || editDraft.chinh_sach.trim() !== "") &&
-    (!maYcscRequired(editDraft.loai_de_xuat) || editDraft.ma_yeu_cau_su_co.trim() !== "") &&
+    (!maYcscRequired(editDraft.loai_de_xuat) || coMaIdLienQuan(editDraft.ma_yeu_cau_su_co, editDraft.ma_lada)) &&
     (!tnSlThucXuatDaDoi || !!tnCoreDraft?.ghi_chu_so_luong.trim());
 
   const footer =
@@ -991,8 +994,22 @@ export function DonHangDetailModal({
                     value={editDraft.ma_yeu_cau_su_co}
                     onChange={(e) => updateEditDraft({ ma_yeu_cau_su_co: e.target.value })}
                     maxLength={20}
-                    className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 py-1.5 text-sm disabled:opacity-40 ${maYcscRequired(editDraft.loai_de_xuat) && !editDraft.ma_yeu_cau_su_co.trim() ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
+                    className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 py-1.5 text-sm disabled:opacity-40 ${maYcscRequired(editDraft.loai_de_xuat) && !coMaIdLienQuan(editDraft.ma_yeu_cau_su_co, editDraft.ma_lada) ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
                   />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">
+                    Mã Lada liên quan{maYcscRequired(editDraft.loai_de_xuat) ? " *" : ""}
+                  </label>
+                  <input
+                    value={editDraft.ma_lada}
+                    onChange={(e) => updateEditDraft({ ma_lada: e.target.value })}
+                    maxLength={20}
+                    placeholder="VD: D1154680"
+                    className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 py-1.5 text-sm font-mono uppercase disabled:opacity-40 ${maYcscRequired(editDraft.loai_de_xuat) && !coMaIdLienQuan(editDraft.ma_yeu_cau_su_co, editDraft.ma_lada) ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
+                  />
+                  {maYcscRequired(editDraft.loai_de_xuat) && <div className="mt-1 text-[11px] text-[var(--ink-500)]">Chỉ cần 1 trong 2: Mã YCSC hoặc Mã Lada.</div>}
+                  <MaLadaCheck value={editDraft.ma_lada} />
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">
@@ -1139,6 +1156,7 @@ export function DonHangDetailModal({
                 <KvRow label="Mã YCSC">
                   <MaYcscCell value={d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />
                 </KvRow>
+                {d.ma_lada && <KvRow label="Mã Lada"><span className="font-mono">{d.ma_lada}</span></KvRow>}
                 <KvRow label="Mã xuất kho">{d.ma_xuat_kho ?? "—"}</KvRow>
               </DetailZone>
 
@@ -2325,6 +2343,11 @@ export function DonHangGroupedList({
         ),
     },
     {
+      key: "ma_lada",
+      header: "Mã Lada",
+      render: (row) => (row.d.ma_lada ? <span className="font-mono">{row.d.ma_lada}</span> : <span className="text-[var(--ink-400)]">—</span>),
+    },
+    {
       key: "hanh_dong",
       header: "",
       mobileHint: "actions",
@@ -2445,6 +2468,7 @@ export function DonHangGroupedList({
     ghi_chu_admin: { text: (d) => d.ghi_chu_xu_ly_gan_nhat || dash, max: 220 },
     nguoi_tao_yc: { text: (d) => formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap), max: 300 },
     ma_ycsc: { text: (d) => d.ma_yeu_cau_su_co || dash, font: MONO_FONT, max: 180 },
+    ma_lada: { text: (d) => d.ma_lada || dash, font: MONO_FONT, max: 140 },
     phan_loai_lk: { text: (d) => d.loai_de_xuat || dash, max: 180 },
   };
   const autoWidths = useAutoColumnWidths(tableColumns, rows, widthSpecs);
@@ -2753,6 +2777,7 @@ export function DonHangGroupedList({
                                   ID: <MaYcscCell value={d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />
                                 </span>
                               )}
+                              {d.ma_lada?.trim() && <span className="shrink-0 font-mono">Lada: {d.ma_lada}</span>}
                               {d.tt_khach_hang?.trim() && <span className="truncate min-w-0">{d.tt_khach_hang.trim()}</span>}
                               <span className="shrink-0 ml-auto whitespace-nowrap">
                                 SL:{d.so_luong_de_xuat} ·{" "}

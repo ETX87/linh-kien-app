@@ -13,6 +13,7 @@ import { YEU_CAU_HOA_DON_OPTIONS, CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABE
 import { deriveLoaiDon, reqLabelClass, pickLdeQuick, LOAI_DON_TONE, ktvOptionLabel, formatLkLabel } from "./helpers";
 import { LinhKienPicker, ThayTheGoiY, ThayTheGoiYTuSheet } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
+import { MaLadaCheck } from "./MaLadaCheck";
 import { DuDoanDuyetHint } from "./DuDoanDuyetHint";
 import { TraHangAnhPicker } from "./SharedUi";
 import { useTaoDonForm } from "./useTaoDonForm";
@@ -161,7 +162,8 @@ export function TaoDonTab({
                     <b className="font-mono">loai_de_xuat</b>, <b className="font-mono">so_luong_de_xuat</b>. Tùy chọn:{" "}
                     <b className="font-mono">ghi_chu</b>, <b className="font-mono">yeu_cau_hoa_don</b>,{" "}
                     <b className="font-mono">tt_mail_duyet</b>, <b className="font-mono">tt_khach_hang</b>,{" "}
-                    <b className="font-mono">chinh_sach</b>, <b className="font-mono">ma_yeu_cau_su_co</b>.
+                    <b className="font-mono">chinh_sach</b>, <b className="font-mono">ma_yeu_cau_su_co</b>,{" "}
+                    <b className="font-mono">ma_lada</b> (loại cần mã ID: chỉ cần 1 trong 2 mã).
                   </>
                 }
                 templateUrl="/api/dat-mua-lk/don-hang/import/template"
@@ -236,6 +238,8 @@ export function TaoDonTab({
           // cong no - xem maYcscRequired o helpers.ts) - batBuoc (canNoRequired) VAN giu nguyen dung
           // rieng cho label/border Chính sách.
           const batBuocYcsc = maYcscRequired(d.loai_de_xuat);
+          // Chi can 1 trong 2 ma (Mã YCSC / Mã Lada) - thieu = ca 2 deu trong.
+          const thieuMaId = batBuocYcsc && !coMaIdLienQuan(d.ma_yeu_cau_su_co, d.ma_lada);
           const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
           const giaUocTinh = lk?.gia_ban != null ? lk.gia_ban * d.so_luong_de_xuat : null;
           // "khac..." mo Select day du - tu dong mo neu gia tri hien tai KHONG khop 1 trong 3 nut
@@ -251,6 +255,7 @@ export function TaoDonTab({
           const infoHasData = !!(
             d.yeu_cau_hoa_don.trim() !== YEU_CAU_HOA_DON_OPTIONS[0] ||
             d.ma_yeu_cau_su_co.trim() ||
+            d.ma_lada.trim() ||
             d.chinh_sach.trim() ||
             d.tt_mail_duyet.trim() ||
             d.tt_khach_hang.trim()
@@ -447,14 +452,26 @@ export function TaoDonTab({
                       </div>
                     </div>
                     <div>
-                      <label className={reqLabelClass(batBuocYcsc && !d.ma_yeu_cau_su_co.trim())}>Mã YCSC liên quan{batBuocYcsc ? " *" : ""}</label>
+                      <label className={reqLabelClass(thieuMaId)}>Mã YCSC liên quan{batBuocYcsc ? " *" : ""}</label>
                       <input
                         value={d.ma_yeu_cau_su_co}
                         onChange={(e) => updateDraft(idx, { ma_yeu_cau_su_co: e.target.value })}
                         maxLength={20}
-                        className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 py-1.5 text-sm ${batBuocYcsc && !d.ma_yeu_cau_su_co.trim() ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
+                        className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 py-1.5 text-sm ${thieuMaId ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
                       />
                       <MaYeuCauSuCoCheck value={d.ma_yeu_cau_su_co} nguoiNhanHang={nguoiNhanHang || currentEmail} />
+                    </div>
+                    <div>
+                      <label className={reqLabelClass(thieuMaId)}>Mã Lada liên quan{batBuocYcsc ? " *" : ""}</label>
+                      <input
+                        value={d.ma_lada}
+                        onChange={(e) => updateDraft(idx, { ma_lada: e.target.value })}
+                        maxLength={20}
+                        placeholder="VD: D1154680"
+                        className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 py-1.5 text-sm font-mono uppercase ${thieuMaId ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
+                      />
+                      {batBuocYcsc && <div className="mt-1 text-[11px] text-[var(--ink-500)]">Chỉ cần nhập 1 trong 2: Mã YCSC hoặc Mã Lada.</div>}
+                      <MaLadaCheck value={d.ma_lada} />
                     </div>
                     <div>
                       <label className={reqLabelClass(batBuoc && !d.chinh_sach.trim())}>Chính sách{batBuoc ? " *" : ""}</label>
@@ -514,6 +531,6 @@ export function TaoDonTab({
 // canNoRequired/maYcscRequired duoc dung lai o day (import truc tiep, khong qua form) vi la ham thuan
 // tuy (khong dinh state) - chi import 1 lan o dau file, khong lap trong useTaoDonForm.ts (ham do da
 // import rieng cho chinh no dung trong isLineComplete).
-import { canNoRequired, maYcscRequired } from "./helpers";
+import { canNoRequired, maYcscRequired, coMaIdLienQuan } from "./helpers";
 import { Money } from "../../components/ui/Money";
 import { TongNgayKtvInfo } from "./TongNgayKtv";

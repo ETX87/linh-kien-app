@@ -5,9 +5,10 @@ import { Select } from "../../components/ui/Select";
 import { fmtVND } from "../../types";
 import { pushOverlayClose } from "../../lib/overlayStack";
 import { YEU_CAU_HOA_DON_OPTIONS, CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABELS } from "./constants";
-import { deriveLoaiDon, reqLabelClass, pickLdeQuick, ktvOptionLabel, canNoRequired, maYcscRequired } from "./helpers";
+import { deriveLoaiDon, reqLabelClass, pickLdeQuick, ktvOptionLabel, canNoRequired, maYcscRequired, coMaIdLienQuan } from "./helpers";
 import { LinhKienPicker, ThayTheGoiY, ThayTheGoiYTuSheet } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
+import { MaLadaCheck } from "./MaLadaCheck";
 import { DuDoanDuyetHint } from "./DuDoanDuyetHint";
 import { TraHangAnhPicker } from "./SharedUi";
 import type { TaoDonForm } from "./useTaoDonForm";
@@ -82,6 +83,7 @@ export function TaoDonMobileScreen({
   // Xem giai thich o TaoDonTab.tsx - batBuocYcsc rieng cho Mã YCSC ("MUA HÀNG CÓ ID"), batBuoc giu
   // nguyen rieng cho Chính sách (chi cong no).
   const batBuocYcsc = maYcscRequired(d.loai_de_xuat);
+  const thieuMaId = batBuocYcsc && !coMaIdLienQuan(d.ma_yeu_cau_su_co, d.ma_lada); // chi can 1 trong 2 ma
   const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
   const giaUocTinh = lk?.gia_ban != null ? lk.gia_ban * d.so_luong_de_xuat : null;
   const quickValues = (["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const)
@@ -92,6 +94,7 @@ export function TaoDonMobileScreen({
   const infoHasData = !!(
     d.yeu_cau_hoa_don.trim() !== YEU_CAU_HOA_DON_OPTIONS[0] ||
     d.ma_yeu_cau_su_co.trim() ||
+    d.ma_lada.trim() ||
     d.chinh_sach.trim() ||
     d.tt_mail_duyet.trim() ||
     d.tt_khach_hang.trim()
@@ -303,15 +306,27 @@ export function TaoDonMobileScreen({
               </div>
             </div>
             <div>
-              <label className={reqLabelClass(batBuocYcsc && !d.ma_yeu_cau_su_co.trim())}>Mã YCSC liên quan{batBuocYcsc ? " *" : ""}</label>
+              <label className={reqLabelClass(thieuMaId)}>Mã YCSC liên quan{batBuocYcsc ? " *" : ""}</label>
               <input
                 value={d.ma_yeu_cau_su_co}
                 onChange={(e) => updateDraft(activeIdx, { ma_yeu_cau_su_co: e.target.value })}
                 maxLength={20}
-                className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 h-11 text-sm ${batBuocYcsc && !d.ma_yeu_cau_su_co.trim() ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
+                className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 h-11 text-sm ${thieuMaId ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
               />
             </div>
             <MaYeuCauSuCoCheck value={d.ma_yeu_cau_su_co} nguoiNhanHang={nguoiNhanHang || currentEmail} />
+            <div>
+              <label className={reqLabelClass(thieuMaId)}>Mã Lada liên quan{batBuocYcsc ? " *" : ""}</label>
+              <input
+                value={d.ma_lada}
+                onChange={(e) => updateDraft(activeIdx, { ma_lada: e.target.value })}
+                maxLength={20}
+                placeholder="VD: D1154680"
+                className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 h-11 text-sm font-mono uppercase ${thieuMaId ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
+              />
+              {batBuocYcsc && <div className="mt-1 text-[11px] text-[var(--ink-500)]">Chỉ cần nhập 1 trong 2: Mã YCSC hoặc Mã Lada.</div>}
+            </div>
+            <MaLadaCheck value={d.ma_lada} />
             <div>
               <label className={reqLabelClass(batBuoc && !d.chinh_sach.trim())}>Chính sách{batBuoc ? " *" : ""}</label>
               <Select

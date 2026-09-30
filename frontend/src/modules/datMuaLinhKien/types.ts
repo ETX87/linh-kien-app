@@ -108,6 +108,7 @@ export interface DonHangRow {
   tt_khach_hang: string | null;
   chinh_sach: string | null;
   ma_yeu_cau_su_co: string | null;
+  ma_lada?: string | null; // "Mã Lada liên quan" (migration 0054)
   uu_tien: number;
   trang_thai?: string | null;
   // Cot goc "dat_don_hang.trang_thai_hien_tai" (khac "trang_thai" o tren - vai noi API tra ve qua
@@ -371,6 +372,7 @@ export interface DonHangDraft {
   tt_khach_hang: string;
   chinh_sach: string;
   ma_yeu_cau_su_co: string;
+  ma_lada: string;
   // Danh dau don uu tien (chot 2026-08-16, dot 3 gop y) - tich rieng TUNG dong, khong anh huong sap
   // xep, chi de hien thi/to mau noi bat.
   uu_tien: boolean;
@@ -384,6 +386,19 @@ export interface DonHangDraft {
 export interface XepHangLinhKienRow {
   ma_lk: string;
   so_lan: number;
+}
+
+// The doi chieu "Mã Lada liên quan" - khop ladaPreview() o backend/src/lib/ladaLookupClient.ts.
+export interface MaLadaPreview {
+  khach_hang: string | null;
+  ky_thuat_vien: string | null;
+  trang_thai: string | null;
+  model: string | null;
+  hang: string | null;
+  tinh: string | null;
+  quan_huyen: string | null;
+  ngay_khoi_tao: string | null;
+  ngay_chot_don: string | null;
 }
 
 export interface MaYeuCauSuCoPreview {

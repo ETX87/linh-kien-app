@@ -4,7 +4,7 @@ import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
 import type { DonHangDraft, NguoiNhanHangKhaDungRow } from "./types";
-import { describeApiError, canNoRequired, maYcscRequired, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo } from "./helpers";
+import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo } from "./helpers";
 
 // Tach tu TaoDonTab.tsx (them 2026-08-21, phan hoi "màn hình tạo đơn mobile bị đưa đưa, chiếm diện
 // tích nhỏ") - toan bo STATE/LOGIC nghiep vu (validate, mutation, quan ly danh sach drafts...) chuyen
@@ -104,6 +104,7 @@ export function useTaoDonForm({
           tt_khach_hang: d.tt_khach_hang.trim() || undefined,
           chinh_sach: d.chinh_sach.trim() || undefined,
           ma_yeu_cau_su_co: d.ma_yeu_cau_su_co.trim() || undefined,
+          ma_lada: d.ma_lada.trim().toUpperCase() || undefined,
           uu_tien: d.uu_tien || undefined,
           anh: deriveLoaiDon(d.loai_de_xuat.trim()) === "tra_hang" ? d.anh : undefined,
         })),
@@ -145,7 +146,7 @@ export function useTaoDonForm({
       d.loai_de_xuat.trim() &&
       d.so_luong_de_xuat > 0 &&
       (!canNoRequired(d.loai_de_xuat) || d.chinh_sach.trim()) &&
-      (!maYcscRequired(d.loai_de_xuat) || d.ma_yeu_cau_su_co.trim()) &&
+      (!maYcscRequired(d.loai_de_xuat) || coMaIdLienQuan(d.ma_yeu_cau_su_co, d.ma_lada)) &&
       // CHOT (phan hoi 2026-08-24, muc 1): don tra hang bat buoc 1-3 anh linh kien can tra.
       (deriveLoaiDon(d.loai_de_xuat) !== "tra_hang" || (d.anh.length >= 1 && d.anh.length <= 3))
     );

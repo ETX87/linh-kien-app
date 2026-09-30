@@ -83,21 +83,21 @@ export function orEmailIn(cols: string[], emails: string[]): { sql: string; bind
 /**
  * Tim theo MA YEU CAU SU CO (2026-09-29, "bổ sung tìm kiếm bằng mã yêu cầu sự cố bổ sung"): ma chinh
  * (`dat_don_hang.ma_yeu_cau_su_co`) + cac ma BO SUNG gan them vao don (`dat_don_case`). `a` = alias dat_don_hang.
- * Tra " OR ..." + 2 bind.
+ * + Mã Lada (`dat_don_hang.ma_lada`, 2026-09-30). Tra " OR ..." + 3 bind.
  */
 export function orMaYcsc(a: string, q: string): { sql: string; binds: string[] } {
   return {
-    sql: ` OR ${a}.ma_yeu_cau_su_co LIKE ? OR EXISTS (SELECT 1 FROM dat_don_case dc WHERE dc.dat_don_hang_id = ${a}.id AND dc.case_id LIKE ?)`,
-    binds: [`%${q}%`, `%${q}%`],
+    sql: ` OR ${a}.ma_yeu_cau_su_co LIKE ? OR ${a}.ma_lada LIKE ? OR EXISTS (SELECT 1 FROM dat_don_case dc WHERE dc.dat_don_hang_id = ${a}.id AND dc.case_id LIKE ?)`,
+    binds: [`%${q}%`, `%${q}%`, `%${q}%`],
   };
 }
 
-/** Cung y cho danh sach PXK: phieu co 1 dong don khop ma don / ma yeu cau su co (chinh hoac bo sung). 3 bind. */
+/** Cung y cho danh sach PXK: phieu co 1 dong don khop ma don / ma yeu cau su co (chinh hoac bo sung) / ma Lada. 4 bind. */
 export function orDonTrongPxk(q: string): { sql: string; binds: string[] } {
   return {
     sql: ` OR EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pd JOIN dat_don_hang x ON x.id = pd.dat_don_hang_id
-             WHERE pd.phieu_xuat_kho_id = pxk.id AND (x.id LIKE ? OR x.ma_yeu_cau_su_co LIKE ?
+             WHERE pd.phieu_xuat_kho_id = pxk.id AND (x.id LIKE ? OR x.ma_yeu_cau_su_co LIKE ? OR x.ma_lada LIKE ?
                OR EXISTS (SELECT 1 FROM dat_don_case dc WHERE dc.dat_don_hang_id = x.id AND dc.case_id LIKE ?)))`,
-    binds: [`%${q}%`, `%${q}%`, `%${q}%`],
+    binds: [`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`],
   };
 }

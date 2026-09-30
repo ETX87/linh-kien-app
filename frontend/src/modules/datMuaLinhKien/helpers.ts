@@ -224,6 +224,12 @@ export function maYcscRequired(loaiDeXuat: string): boolean {
   return canNoRequired(loaiDeXuat) || loaiDeXuat.includes("MUA HÀNG CÓ ID") || loaiDeXuat.toUpperCase().includes("HỖ TRỢ");
 }
 
+// Noi nao bat buoc Mã YCSC thi chi can 1 trong 2 ma ID lien quan: Mã YCSC HOAC Mã Lada (2026-09-30) - ban sao
+// coMaIdLienQuan() o backend datMuaLinhKien.ts (nguon that).
+export function coMaIdLienQuan(maYcsc: string | null | undefined, maLada: string | null | undefined): boolean {
+  return !!maYcsc?.trim() || !!maLada?.trim();
+}
+
 // To mau nhat quan cho nhan cac truong BAT BUOC (dot 3 gop y tong the: "to mau/noi bat gia tri bat
 // buoc") - dung 1 kieu nhan duy nhat (mau coral khi con trong) thay vi chi 2 truong cu (Chinh sach/
 // Ma yeu cau su co) co ma "*" con cac truong bat buoc khac (Ma LK/Loai de xuat/So luong) khong co.
@@ -242,7 +248,7 @@ export function pickLdeQuick(options: string[], keyword: string): string | undef
 export function emptyDraft(): DonHangDraft {
   return {
     ma_lk: "", loai_de_xuat: "", so_luong_de_xuat: 1,
-    ghi_chu: "", yeu_cau_hoa_don: YEU_CAU_HOA_DON_OPTIONS[0], tt_mail_duyet: "", tt_khach_hang: "", chinh_sach: "", ma_yeu_cau_su_co: "",
+    ghi_chu: "", yeu_cau_hoa_don: YEU_CAU_HOA_DON_OPTIONS[0], tt_mail_duyet: "", tt_khach_hang: "", chinh_sach: "", ma_yeu_cau_su_co: "", ma_lada: "",
     uu_tien: false, anh: [],
   };
 }

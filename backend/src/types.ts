@@ -97,6 +97,10 @@ export interface Env {
   // Service Binding (loi 1042 chi xay ra giua 2 Worker cung tai khoan).
   GIA88_BASE_URL: string;
   GIA88_API_KEY: string;
+  // Tra cuu "Mã Lada liên quan" (2026-09-30) qua center.dichvu3t.com - xem lib/ladaLookupClient.ts.
+  // CENTER3T_API_TOKEN la secret (wrangler secret put); thieu -> tra cuu bao "chua cau hinh", KHONG chan tao don.
+  CENTER3T_API_BASE?: string;
+  CENTER3T_API_TOKEN?: string;
   // Cua sau dang nhap CHI danh cho local dev (xem routes/auth.ts GET /dev-login), giong co che he goc.
   LOCAL_DEV_BYPASS_AUTH?: string;
   // Web Push (phan hoi 2026-08-26: day thong bao ngay khi co "tin nhan thong bao" moi trong

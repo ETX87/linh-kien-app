@@ -81,6 +81,9 @@
     // Them 2026-09-17: nguon danh ba "ETX nhan su" (xem lib/etxNhanSuClient.ts). Google Cloud Function
     // rieng, KHONG phai Worker cung tai khoan Cloudflare nen KHONG can khai bao "services".
     "ETX_HR_BASE_URL": "https://asia-southeast1-etx-nhan-su.cloudfunctions.net",
+    // Them 2026-09-30: tra cuu "Mã Lada liên quan" luc tao don qua he thong noi bo center.dichvu3t.com (giong
+    // App Khieu nai) - xem lib/ladaLookupClient.ts. Token la secret rieng: CENTER3T_API_TOKEN.
+    "CENTER3T_API_BASE": "https://center.dichvu3t.com",
     // Web Push (them 2026-08-26, xem backend/src/lib/webPush.ts) - VAPID_SERVER_PUBLIC_KEY KHONG
     // nhay cam (day la khoa cong khai frontend can de subscribe), an toan de trong "vars". Rieng
     // VAPID_SERVER_PRIVATE_KEY dat qua "wrangler secret put" (xem duoi).
@@ -90,7 +93,7 @@
 
   // Cac gia tri NHAY CAM (khong dat trong "vars" - dat qua "wrangler secret put", xem DEPLOY.md):
   // GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET, CASE_LOOKUP_API_KEY,
-  // DVBH_SYNC_API_KEY, VAPID_SERVER_PRIVATE_KEY.
+  // DVBH_SYNC_API_KEY, VAPID_SERVER_PRIVATE_KEY, CENTER3T_API_TOKEN (tra cuu Ma Lada, 2026-09-30).
   // Them 04/09/2026: SUACHUA_SYNC_API_KEY - PHAI dat gia tri GIONG HET secret
   // "LINHKIEN_SYNC_API_KEY" ben repo "gui-bao-hanh-linh-kien" (Worker "suachua"), vi day la quan he
   // xac thuc 1-1 dung 1 secret dung chung (khong phai bang partner_api_keys nhieu-key) - xem

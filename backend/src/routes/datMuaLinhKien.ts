@@ -17,6 +17,7 @@ import { csvTemplateResponse } from "../lib/csvTemplate";
 import { getOrCompute } from "../lib/precomputedCache";
 import { extractMaKtv } from "../lib/ktvCode";
 import { lookupCase, lookupCases, lookupCaseFull, type CaseLookupPreview, type CaseLookupGiaiTrinh } from "../lib/caseLookupClient";
+import { lookupLada, ladaPreview, isLikelyLadaId, type LadaPreview } from "../lib/ladaLookupClient";
 import { sendPushToUser } from "../lib/webPush";
 import { computeCongNoChot } from "../lib/congNoKtv";
 import { computeMocDuPhongHienTai } from "../lib/duPhongKtv";
@@ -153,6 +154,12 @@ function canNoRequired(loaiDeXuat: string): boolean {
 function maYcscRequired(loaiDeXuat: string): boolean {
   // + moi loai chua "HỖ TRỢ" (chot 2026-09-29) - "HỖ TRỢ CÔNG NỢ" da nam trong canNoRequired (bat buoc ca Chinh sach).
   return canNoRequired(loaiDeXuat) || loaiDeXuat.includes("MUA HÀNG CÓ ID") || loaiDeXuat.toUpperCase().includes("HỖ TRỢ");
+}
+
+// Ma ID lien quan (2026-09-30): noi nao "bat buoc Mã YCSC" thi chi can 1 trong 2 - Mã YCSC (case DVBH) HOAC
+// Mã Lada (don Ecolada, tra cuu center.dichvu3t.com - lib/ladaLookupClient.ts). Ban sao FE: coMaIdLienQuan() helpers.ts.
+function coMaIdLienQuan(maYcsc: string | null | undefined, maLada: string | null | undefined): boolean {
+  return !!maYcsc?.trim() || !!maLada?.trim();
 }
 
 // CHOT 2026-08-15: Ve tinh CHI la nguoi tao/de xuat don, KHONG phai nguoi nhan hang that su - Tram
@@ -1601,6 +1608,34 @@ datMuaLinhKien.get("/kiem-tra-ma-yeu-cau", async (c) => {
   return c.json({ found: true, khopKtv, preview });
 });
 
+// GET /api/dat-mua-lk/kiem-tra-ma-lada?id= - tra cuu "Mã Lada liên quan" (2026-09-30) qua center.dichvu3t.com
+// (lib/ladaLookupClient.ts, cung API App Khieu nai). CHI canh bao mem + the doi chieu, KHONG chan tao don (API ngoai
+// loi/chua cau hinh token van tao duoc). Gian cach 2s/tai khoan (bo dem rieng voi Ma YCSC) + cache ket qua TIM THAY
+// 10 phut theo ID (go lai / mo lai form khong goi API ngoai lan nua - API do la export Excel, nang).
+const LADA_CACHE_S = 600;
+datMuaLinhKien.get("/kiem-tra-ma-lada", async (c) => {
+  const id = c.req.query("id")?.trim().toUpperCase();
+  if (!id || !isLikelyLadaId(id)) return c.json({ found: false, preview: null });
+
+  const cache = caches.default;
+  const cacheKey = new Request(`https://lada-lookup.internal/${encodeURIComponent(id)}`);
+  const hit = await cache.match(cacheKey);
+  if (hit) return c.json({ found: true, preview: (await hit.json()) as LadaPreview });
+
+  const user = c.get("user");
+  const throttleKey = new Request(`https://ratelimit.internal/kiem-tra-ma-lada?email=${encodeURIComponent(user.email)}`);
+  if (await cache.match(throttleKey)) return c.json({ error: "TOO_SOON", retryAfterMs: KIEM_TRA_MA_YCSC_MIN_INTERVAL_MS }, 429);
+  await cache.put(throttleKey, new Response("1", { headers: { "Cache-Control": `max-age=${Math.ceil(KIEM_TRA_MA_YCSC_MIN_INTERVAL_MS / 1000)}` } }));
+
+  const kq = await lookupLada(c.env, id);
+  if (!kq.found || !kq.row) return c.json({ found: false, preview: null, warning: kq.warning ?? null });
+  const preview = ladaPreview(kq.row);
+  c.executionCtx.waitUntil(
+    cache.put(cacheKey, new Response(JSON.stringify(preview), { headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${LADA_CACHE_S}` } })),
+  );
+  return c.json({ found: true, preview });
+});
+
 // Khoang cach toi thieu giua 2 lan bam "Dong bo lai" tren 1 case (phan hoi 2026-08-26) - tranh spam
 // API doi tac khi nguoi dung bam lien tuc; kiem tra dua tren cot synced_at da luu (nowVN(), giay).
 const CASE_DETAIL_MIN_SYNC_MS = 5000;
@@ -2088,7 +2123,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
       // duoc sau do (xem migration 0070). KHONG con ly_do_cham o day - cot do doi y nghia sang
       // TAC NGHIEP giai trinh SLA, dien qua PATCH /don-hang/:id (xem duoi).
       ghi_chu?: string; yeu_cau_hoa_don?: string; tt_mail_duyet?: string; tt_khach_hang?: string;
-      chinh_sach?: string; ma_yeu_cau_su_co?: string; uu_tien?: boolean;
+      chinh_sach?: string; ma_yeu_cau_su_co?: string; ma_lada?: string; uu_tien?: boolean;
       // Anh linh kien can tra (phan hoi 2026-08-24, muc 1 "bắt buộc phải có ảnh... tối đa 3 ảnh") -
       // CHI ap dung khi deriveLoaiDon(loai_de_xuat) === 'tra_hang'. Da upload TRUOC qua
       // POST /tra-hang/upload-anh (id dong don hang luc do CHUA sinh - xem lib/googleDrive.ts), gui
@@ -2149,9 +2184,9 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
     if (!dh.ma_lk?.trim() || !dh.loai_de_xuat?.trim() || !dh.so_luong_de_xuat || dh.so_luong_de_xuat <= 0)
       return c.json({ error: "INVALID_DON_HANG" }, 400);
     const lde = dh.loai_de_xuat.trim();
-    if (canNoRequired(lde) && (!dh.chinh_sach?.trim() || !dh.ma_yeu_cau_su_co?.trim()))
+    if (canNoRequired(lde) && (!dh.chinh_sach?.trim() || !coMaIdLienQuan(dh.ma_yeu_cau_su_co, dh.ma_lada)))
       return c.json({ error: "THIEU_CHINH_SACH_HOAC_MA_YCSC", ma_lk: dh.ma_lk }, 400);
-    if (!canNoRequired(lde) && maYcscRequired(lde) && !dh.ma_yeu_cau_su_co?.trim())
+    if (!canNoRequired(lde) && maYcscRequired(lde) && !coMaIdLienQuan(dh.ma_yeu_cau_su_co, dh.ma_lada))
       return c.json({ error: "THIEU_MA_YCSC", ma_lk: dh.ma_lk }, 400);
     // CHOT (phan hoi 2026-08-24, muc 1): dong tra hang BAT BUOC 1-3 anh linh kien can tra, da upload
     // truoc qua POST /tra-hang/upload-anh (xem khai bao "anh" o tren).
@@ -2274,9 +2309,9 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
       c.env.DB.prepare(
         `INSERT INTO dat_don_hang
            (id, phieu_dat_id, loai_don, ma_lk, ten_lk_snapshot, loai_de_xuat, so_luong_de_xuat, gia_de_xuat,
-            so_tien_cong_no, danh_gia_cong_no, ghi_chu, yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang, chinh_sach, ma_yeu_cau_su_co,
+            so_tien_cong_no, danh_gia_cong_no, ghi_chu, yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang, chinh_sach, ma_yeu_cau_su_co, ma_lada,
             nguoi_tao, ngay_tao, updated_at, email_gs, nguoi_nhan_hang, uu_tien, trang_thai_hien_tai)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         donHangId,
         phieuDatId,
@@ -2294,6 +2329,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
         dh.tt_khach_hang?.trim() || null,
         dh.chinh_sach?.trim() || null,
         dh.ma_yeu_cau_su_co?.trim() || null,
+        dh.ma_lada?.trim().toUpperCase() || null,
         user.email,
         now,
         now,
@@ -2439,6 +2475,7 @@ interface DatDonHangImportRow {
   tt_khach_hang?: string;
   chinh_sach?: string;
   ma_yeu_cau_su_co?: string;
+  ma_lada?: string;
 }
 
 interface DatDonHangImportValidRow {
@@ -2456,6 +2493,7 @@ interface DatDonHangImportValidRow {
   ttKhachHang: string | null;
   chinhSach: string | null;
   maYeuCauSuCo: string | null;
+  maLada: string | null;
   dacThu: number;
   // "Cong no tam tinh" cua dong nay (them 04/09/2026, xem lib/congNoKtv.ts) - gia_tri_cong_no cua LK
   // x soLuong, chi > 0 khi loaiDon==='cong_no'. danhGiaCongNo chot cho CA nhom (1 KTV) sau khi gom.
@@ -2549,12 +2587,12 @@ async function processDatDonHangImportRows(
       continue;
     }
 
-    if (canNoRequired(loaiDeXuat) && (!row.chinh_sach?.trim() || !row.ma_yeu_cau_su_co?.trim())) {
-      errors.push(`Dòng ${dong}: Loại đề xuất "${loaiDeXuat}" yêu cầu điền CHÍNH SÁCH và MÃ YÊU CẦU SỰ CỐ`);
+    if (canNoRequired(loaiDeXuat) && (!row.chinh_sach?.trim() || !coMaIdLienQuan(row.ma_yeu_cau_su_co, row.ma_lada))) {
+      errors.push(`Dòng ${dong}: Loại đề xuất "${loaiDeXuat}" yêu cầu điền CHÍNH SÁCH và MÃ YÊU CẦU SỰ CỐ hoặc MÃ LADA`);
       continue;
     }
-    if (!canNoRequired(loaiDeXuat) && maYcscRequired(loaiDeXuat) && !row.ma_yeu_cau_su_co?.trim()) {
-      errors.push(`Dòng ${dong}: Loại đề xuất "${loaiDeXuat}" yêu cầu điền MÃ YÊU CẦU SỰ CỐ`);
+    if (!canNoRequired(loaiDeXuat) && maYcscRequired(loaiDeXuat) && !coMaIdLienQuan(row.ma_yeu_cau_su_co, row.ma_lada)) {
+      errors.push(`Dòng ${dong}: Loại đề xuất "${loaiDeXuat}" yêu cầu điền MÃ YÊU CẦU SỰ CỐ hoặc MÃ LADA`);
       continue;
     }
     // CHOT (phan hoi 2026-08-24): don Tra hang bat buoc anh linh kien can tra - Excel khong the kem
@@ -2580,6 +2618,7 @@ async function processDatDonHangImportRows(
       ttKhachHang: row.tt_khach_hang?.trim() || null,
       chinhSach: row.chinh_sach?.trim() || null,
       maYeuCauSuCo: row.ma_yeu_cau_su_co?.trim() || null,
+      maLada: row.ma_lada?.trim().toUpperCase() || null,
       dacThu: lk.dacThu,
       // "TRỪ CÔNG NỢ" khong doi chieu cong no (chot 2026-09-28) - soTienCongNo = 0 nhu don mua.
       soTienCongNo: loaiDonRow === "cong_no" && !laTruCongNo(loaiDeXuat) ? (lk.giaTriCongNo ?? 0) * soLuong : 0,
@@ -2636,9 +2675,9 @@ async function processDatDonHangImportRows(
             .prepare(
               `INSERT INTO dat_don_hang
                  (id, phieu_dat_id, loai_don, ma_lk, ten_lk_snapshot, loai_de_xuat, so_luong_de_xuat, gia_de_xuat,
-                  so_tien_cong_no, danh_gia_cong_no, ghi_chu, yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang, chinh_sach, ma_yeu_cau_su_co,
+                  so_tien_cong_no, danh_gia_cong_no, ghi_chu, yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang, chinh_sach, ma_yeu_cau_su_co, ma_lada,
                   nguoi_tao, ngay_tao, updated_at, email_gs, nguoi_nhan_hang, trang_thai_hien_tai)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             )
             .bind(
               donHangId,
@@ -2657,6 +2696,7 @@ async function processDatDonHangImportRows(
               v.ttKhachHang,
               v.chinhSach,
               v.maYeuCauSuCo,
+              v.maLada,
               user.email,
               now,
               now,
@@ -2694,8 +2734,8 @@ async function processDatDonHangImportRows(
 }
 
 const DAT_DON_HANG_IMPORT_TEMPLATE_CSV =
-  "nguoi_nhan_hang,ma_lk,loai_de_xuat,so_luong_de_xuat,ghi_chu,yeu_cau_hoa_don,tt_mail_duyet,tt_khach_hang,chinh_sach,ma_yeu_cau_su_co\n" +
-  "huannt.mb,LK-000123,MUA DỰ TRỮ,2,,Không,,,Trong CSBH,\n";
+  "nguoi_nhan_hang,ma_lk,loai_de_xuat,so_luong_de_xuat,ghi_chu,yeu_cau_hoa_don,tt_mail_duyet,tt_khach_hang,chinh_sach,ma_yeu_cau_su_co,ma_lada\n" +
+  "huannt.mb,LK-000123,MUA DỰ TRỮ,2,,Không,,,Trong CSBH,,\n";
 
 // GET /api/dat-mua-lk/don-hang/import/template - file mau Excel/CSV cho import hang loat (tieu chi
 // UX #4). "nguoi_nhan_hang" la MA KTV (khop ktv_lien_he.ma_ktv, xem Settings > Danh sach KTV),
@@ -3408,7 +3448,7 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
   const user = c.get("user");
   const body = await c.req.json<{
     so_luong_thuc_xuat?: number; gia_chot?: number; ma_xuat_kho?: string; ma_misa?: string;
-    ma_yeu_cau_su_co?: string; yeu_cau_hoa_don?: string; tt_khach_hang?: string; tt_mail_duyet?: string;
+    ma_yeu_cau_su_co?: string; ma_lada?: string; yeu_cau_hoa_don?: string; tt_khach_hang?: string; tt_mail_duyet?: string;
     ma_lk?: string; loai_de_xuat?: string; so_luong_de_xuat?: number; ghi_chu?: string; chinh_sach?: string; uu_tien?: boolean;
     ghi_chu_so_luong?: string;
   }>();
@@ -3421,7 +3461,7 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
   const existing = await c.env.DB.prepare(
     `SELECT nguoi_tao, nguoi_nhan_hang, ma_xuat_kho, so_luong_thuc_xuat, gia_chot, ma_misa, ly_do_cham,
        ma_lk, ten_lk_snapshot, loai_de_xuat, so_luong_de_xuat, gia_de_xuat, ghi_chu, chinh_sach,
-       ma_yeu_cau_su_co, yeu_cau_hoa_don, tt_khach_hang, tt_mail_duyet, uu_tien, loai_don, trang_thai_hien_tai, email_gs,
+       ma_yeu_cau_su_co, ma_lada, yeu_cau_hoa_don, tt_khach_hang, tt_mail_duyet, uu_tien, loai_don, trang_thai_hien_tai, email_gs,
        ${latestDonHangStatusExpr("dat_don_hang.id")} as trang_thai,
        (SELECT pxk.trang_thai_hien_tai FROM phieu_xuat_kho_dong pxkd JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
         WHERE pxkd.dat_don_hang_id = dat_don_hang.id) as pxk_trang_thai,
@@ -3434,7 +3474,7 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
       nguoi_tao: string; nguoi_nhan_hang: string | null; ma_xuat_kho: string | null; so_luong_thuc_xuat: number | null; gia_chot: number | null;
       ma_misa: string | null; ly_do_cham: string | null; ma_lk: string; ten_lk_snapshot: string | null;
       loai_de_xuat: string | null; so_luong_de_xuat: number; gia_de_xuat: number | null; ghi_chu: string | null;
-      chinh_sach: string | null; ma_yeu_cau_su_co: string | null; yeu_cau_hoa_don: string | null;
+      chinh_sach: string | null; ma_yeu_cau_su_co: string | null; ma_lada: string | null; yeu_cau_hoa_don: string | null;
       tt_khach_hang: string | null; tt_mail_duyet: string | null; uu_tien: number; trang_thai: string | null;
       loai_don: string; trang_thai_hien_tai: string; email_gs: string | null;
       pxk_trang_thai: string | null; pxk_id: string | null;
@@ -3492,10 +3532,11 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
     const nextLde = !daCoPxk && body.loai_de_xuat !== undefined ? body.loai_de_xuat.trim() : (existing.loai_de_xuat ?? "");
     const nextChinhSach = body.chinh_sach !== undefined ? body.chinh_sach?.trim() || null : existing.chinh_sach;
     const nextMaYeuCauSuCo = body.ma_yeu_cau_su_co !== undefined ? body.ma_yeu_cau_su_co?.trim() || null : existing.ma_yeu_cau_su_co;
-    if (canNoRequired(nextLde) && (!nextChinhSach || !nextMaYeuCauSuCo)) {
+    const nextMaLada = body.ma_lada !== undefined ? body.ma_lada?.trim().toUpperCase() || null : existing.ma_lada;
+    if (canNoRequired(nextLde) && (!nextChinhSach || !coMaIdLienQuan(nextMaYeuCauSuCo, nextMaLada))) {
       return c.json({ error: "THIEU_CHINH_SACH_HOAC_MA_YCSC" }, 400);
     }
-    if (!canNoRequired(nextLde) && maYcscRequired(nextLde) && !nextMaYeuCauSuCo) {
+    if (!canNoRequired(nextLde) && maYcscRequired(nextLde) && !coMaIdLienQuan(nextMaYeuCauSuCo, nextMaLada)) {
       return c.json({ error: "THIEU_MA_YCSC" }, 400);
     }
 
@@ -3530,6 +3571,7 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
       tt_mail_duyet: body.tt_mail_duyet !== undefined ? body.tt_mail_duyet?.trim() || null : existing.tt_mail_duyet,
       chinh_sach: nextChinhSach,
       ma_yeu_cau_su_co: nextMaYeuCauSuCo,
+      ma_lada: nextMaLada,
       uu_tien: body.uu_tien !== undefined ? (body.uu_tien ? 1 : 0) : existing.uu_tien,
       // 4 truong loi TN (them 2026-09-21) - null khi khong phai TN (canTacNghiep false), giu nguyen
       // existing.* trong cau UPDATE ben duoi trong TH do (xem nextTn ?? existing.* o binds).
@@ -3589,13 +3631,13 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
       c.env.DB.prepare(
         `UPDATE dat_don_hang SET ma_lk = ?, ten_lk_snapshot = ?, gia_de_xuat = ?, loai_don = ?, loai_de_xuat = ?,
            so_luong_de_xuat = ?, ghi_chu = ?, yeu_cau_hoa_don = ?, tt_khach_hang = ?, tt_mail_duyet = ?,
-           chinh_sach = ?, ma_yeu_cau_su_co = ?, uu_tien = ?,
+           chinh_sach = ?, ma_yeu_cau_su_co = ?, ma_lada = ?, uu_tien = ?,
            so_luong_thuc_xuat = ?, gia_chot = ?, ma_xuat_kho = ?, ma_misa = ?, updated_at = ?
          WHERE id = ?`,
       ).bind(
         next.ma_lk, next.ten_lk_snapshot, next.gia_de_xuat, next.loai_don, next.loai_de_xuat,
         next.so_luong_de_xuat, next.ghi_chu, next.yeu_cau_hoa_don, next.tt_khach_hang, next.tt_mail_duyet,
-        next.chinh_sach, next.ma_yeu_cau_su_co, next.uu_tien,
+        next.chinh_sach, next.ma_yeu_cau_su_co, next.ma_lada, next.uu_tien,
         next.so_luong_thuc_xuat, next.gia_chot, next.ma_xuat_kho, next.ma_misa, nowSua, id,
       ),
     ];
