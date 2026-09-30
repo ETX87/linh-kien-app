@@ -1,8 +1,10 @@
 // QUY TIEN DU CUA KTV (2026-09-29, migration 0047) - moi dong tien chuyen ve di qua quy cua NGUOI NHAN HANG:
 //   Ke toan duyet khoan chuyen (thuc nhan T) -> quy +T -> tu tru quy tra phieu (toi da so con thieu) -> du nam lai quy.
 //   Tong phieu giam / phieu huy sau khi da tra -> hoan phan thua ve quy. Quy con tien -> tu tru cho phieu
-//   "Cho KTV chuyen" CU NHAT cua cung nguoi (chot nguoi dung). Quy du tra het phieu -> phieu tu "Ke toan da duyet"
-//   ('TN da duyet') ngay, khong cho Ke toan (tien quy da duoc Ke toan xac nhan tu truoc).
+//   "Cho KTV chuyen" CU NHAT cua cung nguoi (chot nguoi dung). Quy du tra het phieu -> phieu sang "KTV da chuyen"
+//   (CHO Ke toan duyet, nhap thuc nhan 0d) - SUA 2026-09-30 (phan hoi KTV thuntmctv: huy phieu da tra tien, tao phieu
+//   moi thi phieu moi tu "Ke toan da duyet" du Ke toan chua duyet): chi khi CHINH Ke toan dang duyet/sua khoan cua
+//   phieu do moi dong thang "Ke toan da duyet" ('TN da duyet'). Truoc do: quy du -> tu 'TN da duyet' ngay.
 // Bat bien: so_du = tong so_tien cua quy_ktv_giao_dich; so_du >= 0 (CHECK); phieu con thieu tien o "Cho KTV chuyen"
 // thi quy cua nguoi do = 0 (vi quy duoc tru ngay khi co).
 // Chong ghi dua (2 thao tac cung luc): moi batch mo dau bang CAS tren phieu_xuat_kho.da_thanh_toan (quy_cas_guard) +
@@ -94,6 +96,12 @@ async function docPxkTien(db: D1Database, pxkId: string): Promise<PxkTien | null
     .first<PxkTien>();
 }
 
+/** Khi phieu da duoc tra DU (bang quy / tien da tra), dat trang thai chuyen tien nao:
+ *  "ke-toan"     -> 'TN da duyet' (Ke toan dang duyet/sua khoan cua CHINH phieu nay);
+ *  "cho-ke-toan" -> 'KTV da chuyen' = cho Ke toan xac nhan (mac dinh - moi duong tu dong: tao/tinh lai phieu, phan bo quy);
+ *  "giu"         -> khong doi (Ke toan vua tu choi: giu "Cho KTV chuyen", tranh vong lap tu choi -> tu cho duyet lai). */
+export type KhiTraDu = "ke-toan" | "cho-ke-toan" | "giu";
+
 export interface KetQuaCanBang {
   hoan: number; // tien tra thua da hoan ve quy
   tru: number; // tien quy vua tru tra phieu
@@ -106,8 +114,9 @@ export async function canBangPxk(
   db: D1Database,
   pxkId: string,
   nguoi?: string | null,
-  opts: { phanBoTiep?: boolean } = {},
+  opts: { phanBoTiep?: boolean; khiTraDu?: KhiTraDu } = {},
 ): Promise<KetQuaCanBang> {
+  const khiTraDu: KhiTraDu = opts.khiTraDu ?? "cho-ke-toan";
   const ketQua: KetQuaCanBang = { hoan: 0, tru: 0, daThanhToanDu: false };
   let email: string | null = null;
   for (let lan = 0; lan < 3; lan++) {
@@ -127,7 +136,7 @@ export async function canBangPxk(
     if (daTra > tong) hoan = daTra - tong;
     else if (choTien && tong > daTra) tru = Math.min(await soDuQuy(db, email), tong - daTra);
     const sauCung = daTra - hoan + tru;
-    const thanhToanDu = choTien && tong > 0 && sauCung >= tong;
+    const thanhToanDu = choTien && tong > 0 && sauCung >= tong && khiTraDu !== "giu";
     if (hoan === 0 && tru === 0 && !thanhToanDu) return ketQua;
 
     const lenh: D1PreparedStatement[] = [lenhKhoaDaThanhToan(db, pxkId, daTra)];
@@ -149,8 +158,8 @@ export async function canBangPxk(
     if (thanhToanDu) {
       lenh.push(
         db.prepare(
-          "UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = 'TN da duyet', ly_do_tu_choi_chuyen_tien = NULL, tu_choi_chuyen_tien_luc = NULL WHERE id = ?",
-        ).bind(pxkId),
+          `UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = ?, ly_do_tu_choi_chuyen_tien = NULL, tu_choi_chuyen_tien_luc = NULL WHERE id = ?`,
+        ).bind(khiTraDu === "ke-toan" ? "TN da duyet" : "KTV da chuyen", pxkId),
       );
     }
     if (nguoi) {
@@ -163,7 +172,11 @@ export async function canBangPxk(
         lenh.push(logLenh(
           "Tru quy du",
           (tru > 0 ? `Dùng ${tien(tru)} trong quỹ trả phiếu` : "Đã thanh toán đủ từ trước") +
-            (thanhToanDu ? " — phiếu đã thanh toán đủ, không cần chuyển thêm" : ` — còn phải chuyển ${tien(tong - sauCung)}`),
+            (thanhToanDu
+              ? khiTraDu === "ke-toan"
+                ? " — phiếu đã thanh toán đủ, không cần chuyển thêm"
+                : " — đã đủ tiền, KTV không cần chuyển thêm; chờ Kế toán xác nhận"
+              : ` — còn phải chuyển ${tien(tong - sauCung)}`),
         ));
       }
     }
@@ -266,7 +279,7 @@ export async function duyetKhoanChuyen(
     ),
   ]);
 
-  const canBang = await canBangPxk(db, pxkId, nguoiDuyet, { phanBoTiep: false });
+  const canBang = await canBangPxk(db, pxkId, nguoiDuyet, { phanBoTiep: false, khiTraDu: "ke-toan" });
   const sau = await docPxkTien(db, pxkId);
   const conThieu = Math.max(0, (sau?.so_tien_can_chuyen ?? 0) - (sau?.da_thanh_toan ?? 0));
   // Con thieu -> KTV phai chuyen lan moi: xoa moc "KTV bao chuyen" cu.
@@ -431,7 +444,7 @@ export async function suaThucNhanKhoan(
     return { error: "STATE_CHANGED", status: 409 };
   }
   if (chenh > 0) {
-    await canBangPxk(db, k.phieu_xuat_kho_id, nguoi, { phanBoTiep: false });
+    await canBangPxk(db, k.phieu_xuat_kho_id, nguoi, { phanBoTiep: false, khiTraDu: "ke-toan" });
     await phanBoQuy(db, email, nguoi);
   }
   return { cu, moi: thucNhanMoi, chenh, email, pxkId: k.phieu_xuat_kho_id, soDuQuy: await soDuQuy(db, email) };

@@ -95,7 +95,9 @@ export function DuyetChuyenTienForm({ pxkId, conPhaiChuyen, pxk, onDone, addToas
   const [soTien, setSoTien] = useState(String(conPhaiChuyen));
   const [xacNhan, setXacNhan] = useState(false);
   const so = Number(soTien);
-  const hopLe = soTien.trim() !== "" && Number.isInteger(so) && so > 0;
+  // Phieu da duoc tra DU bang quy du (2026-09-30): Ke toan chi xac nhan, thuc nhan 0d hop le (khop backend).
+  const traDuBangQuy = conPhaiChuyen === 0;
+  const hopLe = soTien.trim() !== "" && Number.isInteger(so) && (so > 0 || (so === 0 && traDuBangQuy));
   // Tu doc so tien tren anh (2026-09-30): dung so KTV da doc luc tai anh, anh chua co so thi doc tren may Ke toan.
   const tatCaAnh = pxk ? docAnhBangChung(pxk) : [];
   const doc = useDocTienAnh(pxk ? anhChuaGhiNhan(tatCaAnh, pxk) : [], docTienDocMap(pxk?.bang_chung_tien_doc));
@@ -116,7 +118,7 @@ export function DuyetChuyenTienForm({ pxkId, conPhaiChuyen, pxk, onDone, addToas
         <input
           id={`thuc-nhan-${pxkId}`}
           type="number"
-          min={1}
+          min={traDuBangQuy ? 0 : 1}
           inputMode="numeric"
           value={soTien}
           onChange={(e) => { setSoTien(e.target.value); setXacNhan(false); }}
@@ -128,9 +130,15 @@ export function DuyetChuyenTienForm({ pxkId, conPhaiChuyen, pxk, onDone, addToas
           disabled={!hopLe || duyet.isPending || xacNhan}
           loading={duyet.isPending}
         >
-          Duyệt bằng chứng
+          {traDuBangQuy ? "Xác nhận đã đủ tiền" : "Duyệt bằng chứng"}
         </Btn>
       </div>
+      {traDuBangQuy && (
+        <div className="rounded-lg border border-[var(--color-info)]/30 bg-[var(--color-info-soft)] px-2.5 py-1.5 text-[11.5px] text-[var(--color-text)]">
+          Phiếu đã được trừ đủ từ <b>quỹ dư</b> của người nhận hàng (tiền Kế toán đã xác nhận ở phiếu trước) — KTV không cần chuyển thêm.
+          Kiểm tra lịch sử quỹ rồi xác nhận với số thực nhận <b>0đ</b> (hoặc nhập số KTV đã chuyển thêm nếu có — phần dư vào quỹ).
+        </div>
+      )}
       <TienDocTuAnh doc={doc} soSoSanh={hopLe ? so : null} nhan="số thực nhận" sttCua={(u) => tatCaAnh.indexOf(u) + 1} />
       {hopLe && chenh !== 0 && (
         <div className={`rounded-lg border px-2.5 py-1.5 text-[11.5px] ${chenh > 0 ? "border-[var(--color-info)]/30 bg-[var(--color-info-soft)] text-[var(--color-text)]" : "border-[var(--color-warning)]/30 bg-[var(--color-warning-soft)] text-[var(--color-warning-strong)]"}`}>

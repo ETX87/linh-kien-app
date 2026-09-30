@@ -1281,7 +1281,11 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
     const user = c.get("user");
     let thucNhan = body.so_tien_thuc_nhan;
     if (thucNhan == null) thucNhan = (await tienPhieuVaQuy(c.env.DB, id)).conPhaiChuyen;
-    if (!Number.isInteger(thucNhan) || thucNhan <= 0 || thucNhan > 10_000_000_000) return c.json({ error: "INVALID_SO_TIEN_THUC_NHAN" }, 400);
+    // Thuc nhan 0d CHI hop le khi phieu da duoc tra du (bang quy du) - Ke toan chi xac nhan, khong co tien moi.
+    const conPhaiChuyen = (await tienPhieuVaQuy(c.env.DB, id)).conPhaiChuyen;
+    if (!Number.isInteger(thucNhan) || thucNhan < 0 || (thucNhan === 0 && conPhaiChuyen > 0) || thucNhan > 10_000_000_000) {
+      return c.json({ error: "INVALID_SO_TIEN_THUC_NHAN" }, 400);
+    }
     let ketQua;
     try {
       ketQua = await duyetKhoanChuyen(c.env.DB, id, thucNhan, user.email);
@@ -1346,7 +1350,8 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
     } catch {
       return c.json({ error: "STATE_CHANGED" }, 409);
     }
-    await canBangPxk(c.env.DB, id, user.email); // ve "Cho KTV chuyen" -> quy du (neu co) tru tiep
+    // ve "Cho KTV chuyen" -> quy du (neu co) tru tiep; da du tien thi GIU "Cho KTV chuyen" (khong tu cho duyet lai).
+    await canBangPxk(c.env.DB, id, user.email, { khiTraDu: "giu" });
     // Bao KTV nhan hang (nguoi chuyen tien) + TN "viec moi": chuyen lai/bo sung bang chung.
     c.executionCtx.waitUntil(
       (async () => {
