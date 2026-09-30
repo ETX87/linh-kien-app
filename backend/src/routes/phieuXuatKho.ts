@@ -587,7 +587,8 @@ phieuXuatKho.get("/don-hang-kha-dung", async (c) => {
   binds.push(...locNgoai.binds);
   const { results } = await c.env.DB.prepare(
     `SELECT ddh.id, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat, ddh.gia_chot, ddh.gia_de_xuat,
-       ddh.updated_at, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.so_luong_thuc_xuat, ddh.so_tien_cong_no, ddh.ngay_tao
+       ddh.updated_at, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.so_luong_thuc_xuat, ddh.so_tien_cong_no, ddh.ngay_tao,
+       ddh.ma_yeu_cau_su_co, ddh.ma_lada
      FROM dat_don_hang ddh
      WHERE ${whereSql}
      ORDER BY ddh.nguoi_nhan_hang, ddh.updated_at`,

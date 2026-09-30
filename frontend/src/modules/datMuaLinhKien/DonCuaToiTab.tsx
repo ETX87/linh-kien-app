@@ -1855,7 +1855,7 @@ export function DonCuaToiTab({
           <input
             value={filterQ}
             onChange={(e) => setFilterQ(e.target.value)}
-            placeholder="Tìm theo mã LK, mã đơn, mã YCSC, tên KTV/người nhận…"
+            placeholder="Tìm theo mã LK, mã đơn, mã YCSC, mã Lada, tên KTV/người nhận…"
             className="focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg pl-2.5 pr-7 py-1.5 text-sm w-64"
           />
           {/* FIX (ra soat UI 2026-08-27, hang muc #3): placeholder cu liet ke du 6 tieu chi, qua dai so

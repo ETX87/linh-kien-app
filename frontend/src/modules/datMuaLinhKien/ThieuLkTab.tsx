@@ -453,7 +453,7 @@ export function ThieuLkTab({
         activeFilterCount={activeFilterCount}
         searchValue={filterQ}
         onSearchChange={setFilterQ}
-        searchPlaceholder="Tìm theo mã TLK, mã đơn, mã YCSC, mã LK, tên LK, tên KTV/người báo..."
+        searchPlaceholder="Tìm theo mã TLK, mã đơn, mã YCSC, mã Lada, mã LK, tên LK, tên KTV/người báo..."
       >
         {/* Bo loc Khu vuc (them 2026-08-31, MO RONG 2026-09-05 dong bo voi DonCuaToiTab.tsx - xem
             showKhuVucFilter phia tren, khong chi rieng Kho nua). SUA BUG GIAO DIEN (phan hoi 2026-09-12):

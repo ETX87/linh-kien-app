@@ -2827,18 +2827,23 @@ datMuaLinhKien.get("/search", async (c) => {
     for (const r of rows) results.push({ type: "thieu_lk", id: r.id, label: `${r.id} — ${r.ten_lk_snapshot ?? r.ma_lk ?? ""}` });
   }
 
-  // + tim theo MA YEU CAU SU CO chinh/bo sung (2026-09-29) - cung scope xem don nhu tren.
+  // + tim theo MA YEU CAU SU CO chinh/bo sung (2026-09-29) + MA LADA (2026-09-30) - cung scope xem don nhu tren.
   {
     const scope = scopeDatMuaNguoiTao(c);
     const daCo = new Set(results.map((r) => r.id));
     const theoMa = orMaYcsc("ddh", q);
     const { results: rows } = await c.env.DB.prepare(
-      `SELECT ddh.id, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.ma_yeu_cau_su_co FROM dat_don_hang ddh
+      `SELECT ddh.id, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.ma_yeu_cau_su_co, ddh.ma_lada FROM dat_don_hang ddh
        WHERE (0${theoMa.sql})${scope?.whereSql ?? ""} ORDER BY ddh.ngay_tao DESC LIMIT 5`,
     )
       .bind(...theoMa.binds, ...(scope?.binds ?? []))
-      .all<{ id: string; ma_lk: string | null; ten_lk_snapshot: string | null; ma_yeu_cau_su_co: string | null }>();
-    for (const r of rows) if (!daCo.has(r.id)) results.push({ type: "don_hang", id: r.id, label: `${r.id} — YCSC ${r.ma_yeu_cau_su_co ?? q} — ${r.ten_lk_snapshot ?? r.ma_lk ?? ""}` });
+      .all<{ id: string; ma_lk: string | null; ten_lk_snapshot: string | null; ma_yeu_cau_su_co: string | null; ma_lada: string | null }>();
+    for (const r of rows) {
+      if (daCo.has(r.id)) continue;
+      // Nhan theo ma THUC SU khop tu khoa (Ma Lada hay Ma YCSC chinh/bo sung).
+      const maKhop = r.ma_lada?.toUpperCase().includes(q) ? `Lada ${r.ma_lada}` : `YCSC ${r.ma_yeu_cau_su_co ?? q}`;
+      results.push({ type: "don_hang", id: r.id, label: `${r.id} — ${maKhop} — ${r.ten_lk_snapshot ?? r.ma_lk ?? ""}` });
+    }
   }
 
   // + tim theo TEN KTV (2026-09-29, "các công cụ tìm kiếm cho phép tìm theo tên ktv"): go ten (khong dau) ->

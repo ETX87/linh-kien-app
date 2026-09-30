@@ -43,6 +43,13 @@ import { doiNguoiThanhTen, formatPersonDisplay, usePersonDirectory } from "../..
 
 const MISA_TEMPLATE_ORDER: MisaTemplate[] = ["xuat_kho", "chuyen_kho", "ban_hang"];
 
+// O loc dong don kha dung (modal tao PXK + "Thêm đơn") - q da lowercase + NFC. Khop mã LK, tên LK, mã đơn,
+// Mã YCSC, Mã Lada (2026-09-30).
+function khopDongKhaDung(r: DonHangKhaDungRow, q: string): boolean {
+  if (!q) return true;
+  return [r.ma_lk, r.ten_lk_snapshot, r.id, r.ma_yeu_cau_su_co, r.ma_lada].some((v) => (v ?? "").toLowerCase().normalize("NFC").includes(q));
+}
+
 // Canh bao KTV thieu ma_misa/ten_misa (them 2026-09-04, xem giai thich o backend/src/lib/misaExport.ts
 // MisaExportResult) - hien 1 toast RIENG (khong chan file .xlsx da tai, chi canh bao them) liet ke toi
 // da vai KTV dau tien tranh toast qua dai.
@@ -393,7 +400,7 @@ export function PhieuXuatKhoTab({
     ? (khaDungData?.rows ?? []).filter(
         (r) =>
           r.nguoi_nhan_hang === chonKtv &&
-          (!q || r.ma_lk.toLowerCase().normalize("NFC").includes(q) || (r.ten_lk_snapshot ?? "").toLowerCase().normalize("NFC").includes(q)),
+          khopDongKhaDung(r, q),
       )
     : [];
   // Danh sach KTV thuc su co dong kha dung (de dung lam options Select "Chon KTV") - chi liet ke
@@ -797,7 +804,7 @@ export function PhieuXuatKhoTab({
         activeFilterCount={[filterTrangThai, filterNguoiNhanHang, filterQ, khuVucParam].filter(Boolean).length + Object.keys(locCot.loc).length}
         searchValue={filterQ}
         onSearchChange={setFilterQ}
-        searchPlaceholder="Tìm theo mã PXK, mã đơn hàng, mã YCSC, mã MISA, tên KTV..."
+        searchPlaceholder="Tìm theo mã PXK, mã đơn hàng, mã YCSC, mã Lada, mã MISA, tên KTV..."
         activeFilters={
           <>
             {/* Nut bam nhanh "Đơn chờ xử lý" (them 2026-09-09, phan hoi "thêm 1 nút ấn nhanh...tự
@@ -1067,7 +1074,7 @@ export function PhieuXuatKhoTab({
               <input
                 value={timKiemDonHang}
                 onChange={(e) => setTimKiemDonHang(e.target.value)}
-                placeholder="Tìm theo mã LK, tên LK..."
+                placeholder="Tìm theo mã LK, tên LK, mã đơn, mã YCSC/Lada..."
                 disabled={!chonKtv}
                 className={`${inputCls} mb-1.5 disabled:bg-[var(--surface-200)]`}
               />
@@ -1581,7 +1588,7 @@ export function PxkDetailModal({
   const themDonLoc = (themDonKhaDungData?.rows ?? []).filter(
     (r) =>
       r.nguoi_nhan_hang === data?.phieuXuatKho.nguoi_nhan_hang &&
-      (!themDonQNorm || r.ma_lk.toLowerCase().normalize("NFC").includes(themDonQNorm) || (r.ten_lk_snapshot ?? "").toLowerCase().normalize("NFC").includes(themDonQNorm)),
+      khopDongKhaDung(r, themDonQNorm),
   );
 
   const themDonMutation = useMutation({
@@ -2111,7 +2118,7 @@ export function PxkDetailModal({
             <input
               value={themDonQ}
               onChange={(e) => setThemDonQ(e.target.value)}
-              placeholder="Tìm theo mã LK, tên LK..."
+              placeholder="Tìm theo mã LK, tên LK, mã đơn, mã YCSC/Lada..."
               className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
             <div className="border border-[var(--line)] rounded-lg max-h-72 overflow-y-auto">

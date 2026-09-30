@@ -210,6 +210,8 @@ export interface PhieuXuatKhoRow {
 export interface DonHangKhaDungRow {
   id: string;
   ma_lk: string;
+  ma_yeu_cau_su_co?: string | null;
+  ma_lada?: string | null;
   ten_lk_snapshot: string | null;
   so_luong_de_xuat: number;
   gia_chot: number | null;
