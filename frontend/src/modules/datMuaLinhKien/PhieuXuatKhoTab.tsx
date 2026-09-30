@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
 import { FileButton } from "../../components/ui/FileButton";
@@ -17,6 +17,8 @@ import { api, buildQuery, ApiError } from "../../api/client";
 import { exportRowsToExcel } from "../../lib/exportExcel";
 import { fmtDateTime, fmtVND } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
+import { useIsMobile } from "../../hooks/useMediaQuery";
+import { pushOverlayClose } from "../../lib/overlayStack";
 import type { DonHangRow, PhieuXuatKhoRow, DonHangKhaDungRow, NguoiNhanHangKhaDungRow, LyDoChamRow, KtvDisplayMap } from "./types";
 import { TongNgayKtvInfo } from "./TongNgayKtv";
 import { PxkDongDonHangTable } from "./PxkDongDonHangTable";
@@ -138,6 +140,7 @@ export function PhieuXuatKhoTab({
     if (initialDetailIdOverride) setDetailId(initialDetailIdOverride);
   }, [initialDetailIdOverride]);
   const [showCreate, setShowCreate] = useState(false);
+  const isMobile = useIsMobile();
   const [createData, setCreateData] = useState({ ghi_chu: "", ma_xuat_kho: "" });
   const [chonKtv, setChonKtv] = useState("");
   const [chonLoaiDon, setChonLoaiDon] = useState<"mua" | "cong_no" | "tra_hang">("mua");
@@ -925,20 +928,53 @@ export function PhieuXuatKhoTab({
         // 1 dong. Doi xanh duong nhat -> XANH LA nhat --color-success-soft (phan hoi 2026-09-29 "xanh dương nhạt khó nhìn").
         rowClassName={(r) => (r.co_don_uu_tien ? "bg-[var(--orange-100)] hover:brightness-95" : r.da_in_phieu ? "bg-[var(--color-success-soft)] hover:brightness-95" : "")}
       />
-      {showCreate && (
-        <Modal
-          open
-          title="Tạo phiếu xuất kho"
-          width="max-w-[95vw] sm:max-w-[1100px]"
-          height="max-h-[92vh]"
-          onClose={() => {
-            setShowCreate(false);
-            setSelectedDonHang(new Set());
-            setTimKiemDonHang("");
-            setChonKtv("");
-            setChonLoaiDon("mua");
-          }}
-        >
+      {showCreate && (() => {
+        const dongTaoPxk = () => {
+          setShowCreate(false);
+          setSelectedDonHang(new Set());
+          setTimKiemDonHang("");
+          setChonKtv("");
+          setChonLoaiDon("mua");
+        };
+        // Mobile (2026-09-30, "tối ưu giao diện tạo phiếu cho điện thoại"): CUNG 1 form, chi khac vo - man toan man hinh
+        // (TaoPxkMobileShell) + dong don dang THE bam ca the de chon + thanh CTA dinh day; desktop giu Modal + bang nhu cu.
+        const inputCls = `focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 ${isMobile ? "py-2 text-base" : "py-1.5 text-sm"}`;
+        // Tien + loai chiet khau du kien 1 dong - dung CHUNG cho bang (desktop) va the (mobile).
+        const oTienTaoPxk = (r: DonHangKhaDungRow) => {
+          const goiY = goiYTheoDong.get(r.id);
+          if (!(chonLoaiDon === "mua" || laTruCongNo(r.loai_de_xuat))) {
+            return r.so_tien_cong_no != null ? (
+              <span title="Tiền công nợ ghi nhận cho KTV — không cộng vào tiền cần chuyển của phiếu">
+                <Money>{fmtVND(r.so_tien_cong_no)}</Money> <span className="text-[11px] text-[var(--ink-400)]">công nợ</span>
+              </span>
+            ) : (
+              <span className="text-[11px] text-[var(--ink-400)]">công nợ</span>
+            );
+          }
+          if (!selectedDonHang.has(r.id)) {
+            return (
+              <span className="text-[11px] text-[var(--ink-400)]" title="Tiền tính theo cả tập dòng đang chọn (mốc 200k/500k)">
+                chọn để tính
+              </span>
+            );
+          }
+          if (goiY?.tien_uoc_tinh == null) return <span className="text-[var(--ink-400)]">Đang tính…</span>;
+          return (
+            <button
+              type="button"
+              className="italic text-[var(--ink-400)] hover:underline decoration-dotted underline-offset-2"
+              title="Bấm để sửa SL thực xuất/Đơn giá thực tế"
+              onClick={(e) => { e.stopPropagation(); setSuaTienTaoId(r.id); }}
+            >
+              <Money>{fmtVND(goiY.tien_uoc_tinh)}</Money> (ước tính)
+            </button>
+          );
+        };
+        const loaiCkTaoPxk = (r: DonHangKhaDungRow) => {
+          const ma = goiYTheoDong.get(r.id)?.ma_chiet_khau;
+          return ma ? loaiChietKhauList?.find((l) => l.ma === ma) : undefined;
+        };
+        const body = (
           <div className="space-y-3 text-sm">
             {(khuVucParam || filterNguoiNhanHang || cfKhaDung) && (
               <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-subtle)] px-2.5 py-1.5 text-[11.5px] text-[var(--color-text-secondary)]">
@@ -962,6 +998,7 @@ export function PhieuXuatKhoTab({
                   <Btn
                     key={l}
                     size="sm"
+                    className={isMobile ? "h-10 flex-1 justify-center" : undefined}
                     variant={chonLoaiDon === l ? "primary" : "ghost"}
                     onClick={() => { setChonLoaiDon(l); setChonKtv(""); setSelectedDonHang(new Set()); }}
                   >
@@ -992,7 +1029,7 @@ export function PhieuXuatKhoTab({
                 {/* CHOT #10 (ra soat module "Dat Mua Linh Kien 2.0"): them tong tien cua cac dong DA
                     CHON de doi chieu voi o "So tien can KTV chuyen" ngay ben duoi - truoc day chi
                     hien so luong dong, khong biet tong gia tri de doi chieu. */}
-                <span className="text-xs text-[var(--ink-500)]">
+                <span className={`text-xs text-[var(--ink-500)] ${isMobile ? "hidden" : ""}`}>
                   Đã chọn {selectedDonHang.size}
                   {selectedDonHang.size > 0 && (
                     <>
@@ -1020,14 +1057,14 @@ export function PhieuXuatKhoTab({
                 onChange={(e) => setTimKiemDonHang(e.target.value)}
                 placeholder="Tìm theo mã LK, tên LK..."
                 disabled={!chonKtv}
-                className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mb-1.5 disabled:bg-[var(--surface-200)]"
+                className={`${inputCls} mb-1.5 disabled:bg-[var(--surface-200)]`}
               />
               {/* SUA (phan hoi 2026-09-28 "danh sách đơn hàng cho hiện thị giống danh sách Dòng đơn hàng trong
                   UI phiếu xuất đã tạo (có các chức năng thay đổi, sửa thông tin...)") - truoc day chi la list
                   checkbox (ma + ten + SL). Gio la bang cung cot voi "Dòng đơn hàng": Loai de xuat, SL de xuat/
                   thuc xuat, Tien can chuyen (TN bam de sua SL thuc xuat/Don gia - SuaTienDongModal, sua duoc vi
                   dong CHUA vao PXK), Loai chiet khau DU KIEN (chi xem - doi loai can dong da nam trong PXK). */}
-              <div className="border border-[var(--line)] rounded-lg max-h-[45vh] overflow-auto">
+              <div className={isMobile ? "" : "border border-[var(--line)] rounded-lg max-h-[45vh] overflow-auto"}>
                 {!chonKtv ? (
                   <div className="text-xs text-[var(--ink-400)] text-center py-4">Chọn KTV nhận hàng ở trên trước.</div>
                 ) : khaDungLoading ? (
@@ -1035,6 +1072,54 @@ export function PhieuXuatKhoTab({
                 ) : donHangLoc.length === 0 ? (
                   <div className="text-xs text-[var(--ink-400)] text-center py-4">
                     {(khaDungData?.rows.length ?? 0) === 0 ? "Không có dòng nào đang chờ tạo phiếu xuất kho." : "Không khớp tìm kiếm."}
+                  </div>
+                ) : isMobile ? (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={toggleChonTatCaLoc}
+                      className="focus-ring text-xs font-semibold text-[var(--color-primary)] underline underline-offset-2 py-1"
+                    >
+                      {donHangLoc.every((r) => selectedDonHang.has(r.id)) ? "Bỏ chọn tất cả" : `Chọn tất cả (${donHangLoc.length})`}
+                    </button>
+                    {donHangLoc.map((r) => {
+                      const chon = selectedDonHang.has(r.id);
+                      const loaiCk = loaiCkTaoPxk(r);
+                      const lechSl = r.so_luong_thuc_xuat != null && r.so_luong_thuc_xuat !== r.so_luong_de_xuat;
+                      return (
+                        // Ca the la vung bam chon (div role=button - ben trong con nut sua tien, khong long button trong button).
+                        <div
+                          key={r.id}
+                          role="button"
+                          tabIndex={0}
+                          aria-pressed={chon}
+                          onClick={() => toggleDonHang(r.id)}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleDonHang(r.id); } }}
+                          className={`focus-ring flex gap-2.5 rounded-[var(--radius-card)] border px-3 py-2.5 transition-colors ${
+                            chon ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)]" : "border-[var(--color-border)] bg-[var(--color-surface)]"
+                          }`}
+                        >
+                          <input type="checkbox" checked={chon} readOnly tabIndex={-1} className="mt-0.5 h-5 w-5 shrink-0 pointer-events-none" />
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="truncate font-mono text-[13px] font-semibold text-[var(--color-text)]">{r.ma_lk}</span>
+                              <span className="shrink-0"><LoaiDeXuatBadge loaiDon={r.loai_don ?? chonLoaiDon} loaiDeXuat={r.loai_de_xuat} /></span>
+                            </div>
+                            <div className="truncate text-[13px] text-[var(--color-text-body)]">{r.ten_lk_snapshot ?? r.ma_lk}</div>
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                              <span className="text-[var(--color-text-secondary)]">
+                                SL {r.so_luong_de_xuat}
+                                {lechSl && <span className="font-semibold text-[var(--amber-700)]"> → thực xuất {r.so_luong_thuc_xuat}</span>}
+                              </span>
+                              {chonLoaiDon !== "tra_hang" && <span className="shrink-0">{oTienTaoPxk(r)}</span>}
+                            </div>
+                            {chon && loaiCk && chonLoaiDon !== "tra_hang" && (
+                              <LoaiChietKhauChip loai={loaiCk} title={`${loaiCk.ten} — dự kiến; TN đổi được sau khi tạo phiếu`} />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <table className="tbl min-w-full border-collapse">
@@ -1060,9 +1145,7 @@ export function PhieuXuatKhoTab({
                     <tbody>
                       {donHangLoc.map((r) => {
                         const chon = selectedDonHang.has(r.id);
-                        const goiY = goiYTheoDong.get(r.id);
-                        const tinhGiaNhuMua = chonLoaiDon === "mua" || laTruCongNo(r.loai_de_xuat);
-                        const loaiCk = goiY?.ma_chiet_khau ? loaiChietKhauList?.find((l) => l.ma === goiY.ma_chiet_khau) : undefined;
+                        const loaiCk = loaiCkTaoPxk(r);
                         return (
                           <tr
                             key={r.id}
@@ -1089,30 +1172,7 @@ export function PhieuXuatKhoTab({
                             </td>
                             {chonLoaiDon !== "tra_hang" && (
                               <td className="px-2.5 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                                {!tinhGiaNhuMua ? (
-                                  r.so_tien_cong_no != null ? (
-                                    <span title="Tiền công nợ ghi nhận cho KTV — không cộng vào tiền cần chuyển của phiếu">
-                                      <Money>{fmtVND(r.so_tien_cong_no)}</Money> <span className="text-[11px] text-[var(--ink-400)]">công nợ</span>
-                                    </span>
-                                  ) : (
-                                    <span className="text-[11px] text-[var(--ink-400)]">công nợ</span>
-                                  )
-                                ) : !chon ? (
-                                  <span className="text-[11px] text-[var(--ink-400)]" title="Tiền tính theo cả tập dòng đang chọn (mốc 200k/500k)">
-                                    chọn để tính
-                                  </span>
-                                ) : goiY?.tien_uoc_tinh == null ? (
-                                  <span className="text-[var(--ink-400)]">Đang tính…</span>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    className="italic text-[var(--ink-400)] hover:underline decoration-dotted underline-offset-2"
-                                    title="Bấm để sửa SL thực xuất/Đơn giá thực tế"
-                                    onClick={() => setSuaTienTaoId(r.id)}
-                                  >
-                                    <Money>{fmtVND(goiY.tien_uoc_tinh)}</Money> (ước tính)
-                                  </button>
-                                )}
+                                {oTienTaoPxk(r)}
                               </td>
                             )}
                             {chonLoaiDon !== "tra_hang" && (
@@ -1138,49 +1198,84 @@ export function PhieuXuatKhoTab({
                 value={createData.ma_xuat_kho}
                 onChange={(e) => setCreateData((p) => ({ ...p, ma_xuat_kho: e.target.value }))}
                 placeholder="Nhập nếu đã biết mã đơn hàng ngay lúc tạo"
-                className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                className={inputCls}
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Số tiền cần chuyển</label>
-              <div className="w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm">
-                <Money>{fmtTongTaoPxk}</Money> <span className="text-[var(--ink-400)]">(tự động)</span>
+            {/* Mobile: so tien nam o thanh CTA dinh day (luon thay), khong lap lai o day. */}
+            {!isMobile && (
+              <div>
+                <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Số tiền cần chuyển</label>
+                <div className="w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm">
+                  <Money>{fmtTongTaoPxk}</Money> <span className="text-[var(--ink-400)]">(tự động)</span>
+                </div>
               </div>
-            </div>
+            )}
             <div>
               <label className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Ghi chú</label>
               <input
                 value={createData.ghi_chu}
                 onChange={(e) => setCreateData((p) => ({ ...p, ghi_chu: e.target.value }))}
-                className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+                className={inputCls}
               />
             </div>
-            <div className="flex justify-end gap-2">
-              <Btn
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setShowCreate(false);
-                  setSelectedDonHang(new Set());
-                  setTimKiemDonHang("");
-                  setChonKtv("");
-                  setChonLoaiDon("mua");
-                }}
-              >
-                Hủy
-              </Btn>
-              <Btn
-                size="sm"
-                onClick={() => createMutation.mutate()}
-                disabled={!chonKtv || selectedDonHang.size === 0 || createMutation.isPending}
-                loading={createMutation.isPending}
-              >
-                Tạo
-              </Btn>
-            </div>
+            {!isMobile && (
+              <div className="flex justify-end gap-2">
+                <Btn variant="ghost" size="sm" onClick={dongTaoPxk}>
+                  Hủy
+                </Btn>
+                <Btn
+                  size="sm"
+                  onClick={() => createMutation.mutate()}
+                  disabled={!chonKtv || selectedDonHang.size === 0 || createMutation.isPending}
+                  loading={createMutation.isPending}
+                >
+                  Tạo
+                </Btn>
+              </div>
+            )}
           </div>
-        </Modal>
-      )}
+        );
+        if (!isMobile) {
+          return (
+            <Modal open title="Tạo phiếu xuất kho" width="max-w-[95vw] sm:max-w-[1100px]" height="max-h-[92vh]" onClose={dongTaoPxk}>
+              {body}
+            </Modal>
+          );
+        }
+        return (
+          <TaoPxkMobileShell
+            onClose={dongTaoPxk}
+            footer={
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-[var(--color-text-secondary)]">Đã chọn {selectedDonHang.size} dòng</span>
+                  {chonLoaiDon !== "tra_hang" && selectedDonHang.size > 0 && (
+                    <span className="font-bold text-[var(--color-text)]">
+                      Cần chuyển: <Money>{fmtTongTaoPxk}</Money>
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Btn variant="ghost" size="md" className="h-11 shrink-0" onClick={dongTaoPxk}>
+                    Hủy
+                  </Btn>
+                  <Btn
+                    size="md"
+                    className="h-11 flex-1 justify-center text-base"
+                    onClick={() => createMutation.mutate()}
+                    disabled={!chonKtv || selectedDonHang.size === 0 || createMutation.isPending}
+                    loading={createMutation.isPending}
+                  >
+                    Tạo phiếu
+                  </Btn>
+                </div>
+              </>
+            }
+          >
+            {body}
+          </TaoPxkMobileShell>
+        );
+      })()}
       {suaTienTaoId && (() => {
         const r = (khaDungData?.rows ?? []).find((x) => x.id === suaTienTaoId);
         return r ? (
@@ -2193,5 +2288,36 @@ export function SuaTienDongModal({
         </div>
       </div>
     </Modal>
+  );
+}
+
+// Vo toan man hinh cho "Tạo phiếu xuất kho" tren dien thoai (2026-09-30) - cung kieu TaoDonMobileScreen.tsx: fixed inset-0
+// + 100dvh (ban phim khong che thanh CTA), noi dung cuon giua, thanh CTA dinh day. Dang ky overlayStack de nut Back dien
+// thoai dong man nay thay vi hoi thoat app (onClose qua ref: dang ky 1 lan, khong doi thu tu ngan xep moi lan render).
+function TaoPxkMobileShell({ onClose, footer, children }: { onClose: () => void; footer: ReactNode; children: ReactNode }) {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => pushOverlayClose(() => onCloseRef.current()), []);
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-[var(--color-surface)] anim-in" style={{ height: "100dvh" }}>
+      <div className="shrink-0 flex items-center justify-between gap-2 border-b border-[var(--color-border)] px-3 py-2.5">
+        <h3 className="font-display text-sm font-bold text-[var(--color-text)]">Tạo phiếu xuất kho</h3>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Đóng"
+          className="focus-ring flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg text-[var(--color-text-faint)] hover:bg-[var(--color-subtle)]"
+        >
+          ✕
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-3.5 py-3">{children}</div>
+      <div
+        className="shrink-0 flex flex-col gap-2 border-t border-[var(--color-border)] bg-[var(--color-subtle)] px-3.5 pt-2.5"
+        style={{ paddingBottom: "max(0.625rem, env(safe-area-inset-bottom))" }}
+      >
+        {footer}
+      </div>
+    </div>
   );
 }
