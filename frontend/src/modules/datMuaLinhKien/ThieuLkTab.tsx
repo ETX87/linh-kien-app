@@ -19,7 +19,7 @@ import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import type { ThieuLkRow, LyDoChamRow, NguoiNhanHangKhaDungRow } from "./types";
 import { THIEU_LK_TRANG_THAI_TONE, THIEU_LK_TRANG_THAI_OPTIONS } from "./constants";
 import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts, trangThaiLabel, formatLkLabel, LOAI_DON_TONE } from "./helpers";
-import { StatusBadge, LoaiDeXuatBadge, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar, KhuVucChipFilter } from "./SharedUi";
+import { StatusBadge, LoaiDeXuatBadge, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar, KhuVucChipFilter, LogTieuDe, useTenNguoiLog } from "./SharedUi";
 import { ThieuLkStatusRail } from "./ThieuLkStatusRail";
 // Lien ket 2 chieu voi don goc (phan hoi 2026-09-10: "đơn gốc cũng không có truy vấn đến đơn ticket
 // đơn thiếu linh kiện") - import truc tiep component Drawer chi tiet don hang, tu quan ly state mo/dong
@@ -987,6 +987,7 @@ export function ThieuLkDetailModal({
   });
 
   const ktvDisplayMap = useKtvDisplayMap();
+  const tenLog = useTenNguoiLog();
   const t = data?.thieuLk ?? initialRow;
   const nexts = t
     ? nextStatesForThieuLk(t, { canKho, canTacNghiep, currentEmail })
@@ -1118,15 +1119,15 @@ export function ThieuLkDetailModal({
             <div className="text-xs text-[var(--ink-400)]">Đang tải lịch sử...</div>
           ) : (
             <Timeline
-              items={data.logs.map((l) => ({
-                // Ten nguoi (khong phai email tho) + ghi chu xuong dong rieng - truoc day "Trạng thái (email) — ghi
-                // chú" dinh 1 cau dai, ghi chu cung dam nhu tieu de.
+              items={data.logs.map((l, i, all) => ({
+                // Nguoi thao tac -> hanh dong -> trang thai (LogTieuDe, 2026-09-30) - dong cuoi = luc bao thieu hang.
                 title: (
-                  <>
-                    {trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, l.trang_thai)}
-                    <span className="font-normal text-[var(--ink-400)]"> · {formatNguoiDisplay(l.nguoi_xu_ly, ktvDisplayMap)}</span>
-                    {l.ghi_chu && <span className="mt-0.5 block font-normal text-[var(--color-text-body)]">{l.ghi_chu}</span>}
-                  </>
+                  <LogTieuDe
+                    nguoi={tenLog(l.nguoi_xu_ly)}
+                    hanhDong={i === all.length - 1 ? "báo thiếu hàng →" : "chuyển ticket sang"}
+                    trangThai={trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, l.trang_thai)}
+                    ghiChu={l.ghi_chu}
+                  />
                 ),
                 time: fmtDateTime(l.ngay_xu_ly),
               }))}

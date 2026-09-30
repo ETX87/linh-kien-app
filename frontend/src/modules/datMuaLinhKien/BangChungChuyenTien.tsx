@@ -44,7 +44,7 @@ export function LyDoTuChoiChuyenTien({ pxk }: { pxk: BangChungPxk }) {
   if (!pxk.ly_do_tu_choi_chuyen_tien) return null;
   return (
     <div className="rounded-lg border border-[var(--color-danger)]/30 bg-[var(--color-danger-soft)] px-2.5 py-1.5 text-[11.5px] text-[var(--color-danger-strong)]">
-      <span className="font-bold">Kế toán từ chối bằng chứng{pxk.tu_choi_chuyen_tien_luc ? ` (${fmtDateTime(pxk.tu_choi_chuyen_tien_luc)})` : ""}:</span>{" "}
+      <span className="font-bold">{pxk.ly_do_tu_choi_chuyen_tien.startsWith("(TN)") ? "Tác nghiệp trả lại" : "Kế toán từ chối"} bằng chứng{pxk.tu_choi_chuyen_tien_luc ? ` (${fmtDateTime(pxk.tu_choi_chuyen_tien_luc)})` : ""}:</span>{" "}
       {pxk.ly_do_tu_choi_chuyen_tien}
       <div className="mt-0.5 font-medium">Kiểm tra lại số tiền/bằng chứng, chuyển bổ sung nếu thiếu, thêm ảnh rồi bấm “Đã chuyển”.</div>
     </div>
@@ -221,7 +221,7 @@ const GOI_Y_TU_CHOI = ["Sai số tiền chuyển", "Thiếu bằng chứng chuy�
  * Ke toan TU CHOI / DAY LAI bang chung (2026-09-29, migration 0046): "KTV đã chuyển" -> "Chờ KTV chuyển", bat buoc ly do
  * (PATCH /phieu-xuat-kho/:id/chuyen-tien trang_thai="Cho KTV chuyen"). Dat canh nut "Duyệt bằng chứng".
  */
-export function TuChoiChuyenTienButton({ pxkId, onDone, addToast }: { pxkId: string; onDone: () => void; addToast: (msg: string) => void }) {
+export function TuChoiChuyenTienButton({ pxkId, onDone, addToast, laTn }: { pxkId: string; onDone: () => void; addToast: (msg: string) => void; laTn?: boolean }) {
   const [mo, setMo] = useState(false);
   const [lyDo, setLyDo] = useState("");
   const tuChoi = useMutation({
@@ -236,14 +236,19 @@ export function TuChoiChuyenTienButton({ pxkId, onDone, addToast }: { pxkId: str
   });
   if (!mo) {
     return (
-      <Btn size="sm" variant="danger" onClick={() => setMo(true)} title="Sai tiền, thiếu bằng chứng... - đẩy về Chờ KTV chuyển kèm lý do">
-        ↩ Từ chối, đẩy lại
+      <Btn
+        size="sm"
+        variant="danger"
+        onClick={() => setMo(true)}
+        title={laTn ? "KTV xác nhận nhầm / thiếu tiền - đẩy về Chờ KTV chuyển kèm lý do" : "Sai tiền, thiếu bằng chứng... - đẩy về Chờ KTV chuyển kèm lý do"}
+      >
+        {laTn ? "↩ Đẩy lại cho KTV chuyển" : "↩ Từ chối, đẩy lại"}
       </Btn>
     );
   }
   return (
     <div className="mt-2 w-full space-y-1.5 rounded-lg border border-[var(--color-danger)]/30 bg-[var(--color-danger-soft)] p-2">
-      <div className="text-[11.5px] font-semibold text-[var(--color-danger-strong)]">Lý do từ chối (KTV và Tác nghiệp sẽ thấy lý do này)</div>
+      <div className="text-[11.5px] font-semibold text-[var(--color-danger-strong)]">{laTn ? "Lý do đẩy lại (KTV sẽ thấy lý do này)" : "Lý do từ chối (KTV và Tác nghiệp sẽ thấy lý do này)"}</div>
       <textarea
         autoFocus
         value={lyDo}

@@ -8,7 +8,7 @@ import { Money } from "../../components/ui/Money";
 import { api, ApiError } from "../../api/client";
 import { fmtDateTime, fmtVND } from "../../types";
 import type { DonHangRow, LyDoChamRow } from "./types";
-import { LoaiChietKhauPicker, LoaiChietKhauText, HoaDonGiaNiemYet, duocDoiLoaiChietKhau } from "./LoaiChietKhau";
+import { LoaiChietKhauPicker, LoaiChietKhauText, HoaDonGiaNiemYet, duocDoiLoaiChietKhau, DoiLoaiChietKhauNhieuDon, tenLoaiChietKhau, useLoaiChietKhauList } from "./LoaiChietKhau";
 import { describeApiError, invalidatePipelineCounts, laTruCongNo } from "./helpers";
 import { LoaiDeXuatBadge } from "./SharedUi";
 import { DON_CUA_TOI_TRANG_THAI_OPTIONS } from "./constants";
@@ -128,6 +128,60 @@ export function PxkDongDonHangTable({
   });
 
   const coCotBo = (canTacNghiep || canKeToan) && dangTao;
+
+  // Chon NHIEU dong de doi loai chiet khau 1 lan (2026-09-30, phan hoi "cho phép lựa chọn nhiều đơn trong phiếu và sửa
+  // chiết khấu 1 lần cho tất cả"). Chi khi TN doi duoc loai chiet khau cua phieu (duocDoiLoaiChietKhau) va phieu co tien.
+  const coChonCk = canTacNghiep && pxk.loai_don !== "tra_hang" && duocDoiLoaiChietKhau(pxk) && donHang.length > 1;
+  const [chonCk, setChonCk] = useState<Set<string>>(new Set());
+  const [moDoiNhieu, setMoDoiNhieu] = useState(false);
+  const { data: dsLoaiCk } = useLoaiChietKhauList();
+  const chonDs = donHang.filter((d) => chonCk.has(d.id));
+  const batChon = (id: string) => setChonCk((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  // Nhom theo loai chiet khau hien tai -> nut "Chọn cùng loại".
+  const nhomLoai = new Map<number | null, string[]>();
+  for (const d of donHang) nhomLoai.set(d.loai_chiet_khau_id ?? null, [...(nhomLoai.get(d.loai_chiet_khau_id ?? null) ?? []), d.id]);
+  const oChon = (d: DonHangRow) => (
+    <input
+      type="checkbox"
+      aria-label={`Chọn đơn ${d.ma_lk}`}
+      checked={chonCk.has(d.id)}
+      onChange={() => batChon(d.id)}
+      onClick={(e) => e.stopPropagation()}
+      className="mr-1.5 align-middle"
+    />
+  );
+  const thanhChon = coChonCk && (!gon || chonCk.size > 0) ? (
+    <div className="mb-1.5 flex flex-wrap items-center gap-1.5 text-[12px]" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        className="focus-ring rounded-[var(--radius-pill)] border border-[var(--color-border)] px-2 py-0.5 font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
+        onClick={() => setChonCk(chonCk.size === donHang.length ? new Set() : new Set(donHang.map((d) => d.id)))}
+      >
+        {chonCk.size === donHang.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+      </button>
+      {nhomLoai.size > 1 &&
+        [...nhomLoai.entries()].map(([id, ids]) => (
+          <button
+            key={String(id)}
+            type="button"
+            title="Chọn các đơn đang cùng loại chiết khấu này"
+            className="focus-ring rounded-[var(--radius-pill)] border border-[var(--color-border)] px-2 py-0.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
+            onClick={() => setChonCk(new Set(ids))}
+          >
+            {tenLoaiChietKhau(dsLoaiCk, id) ?? "Chưa có loại"} ({ids.length})
+          </button>
+        ))}
+      {chonCk.size > 0 && (
+        <>
+          <span className="ml-1 text-[var(--color-text-secondary)]">Đã chọn <b className="text-[var(--color-text)]">{chonCk.size}</b> đơn</span>
+          <Btn size="sm" variant="subtle" onClick={() => setMoDoiNhieu(true)}>Đổi loại chiết khấu…</Btn>
+        </>
+      )}
+      {moDoiNhieu && chonDs.length > 0 && (
+        <DoiLoaiChietKhauNhieuDon dons={chonDs} onClose={() => setMoDoiNhieu(false)} onDone={() => { setMoDoiNhieu(false); setChonCk(new Set()); }} />
+      )}
+    </div>
+  ) : null;
   const huyCongNoDraft = (id: string) => setSoTienCongNoDraft((p) => { const n = { ...p }; delete n[id]; return n; });
 
   // ---- Noi dung tung o - DUNG CHUNG cho 2 kieu hien thi (day du / gon) ----
@@ -218,7 +272,7 @@ export function PxkDongDonHangTable({
     return (
       <span className="inline-flex max-w-full min-w-0 items-center gap-1.5">
         {canTacNghiep ? (
-          <LoaiChietKhauPicker don={d} duocDoi={duocDoiLoaiChietKhau(pxk)} />
+          <LoaiChietKhauPicker don={d} duocDoi={duocDoiLoaiChietKhau(pxk)} dongKhac={donHang.filter((x) => x.id !== d.id)} />
         ) : (
           <LoaiChietKhauText id={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
         )}
@@ -420,6 +474,7 @@ export function PxkDongDonHangTable({
     return (
       <>
       {hopThoaiBo}
+      {thanhChon}
       <table className="border-collapse text-[12px] text-[var(--color-text-body)]" style={{ tableLayout: "fixed", width: RONG_GON }}>
         <colgroup>
           {COT_GON.map((c, i) => (
@@ -438,7 +493,7 @@ export function PxkDongDonHangTable({
               onClick={() => onOpenDon(d.id)}
               className={`h-8 cursor-pointer border-b border-[var(--color-border-soft)] last:border-0 hover:bg-[var(--color-surface-hover)] ${nenUuTien(d)}`}
             >
-              <td className={`${o} font-mono text-[11.5px] text-[var(--color-text-secondary)]`} title={`${COT_GON[0].tip}: ${d.ma_lk}`}>{d.ma_lk}</td>
+              <td className={`${o} font-mono text-[11.5px] text-[var(--color-text-secondary)]`} title={`${COT_GON[0].tip}: ${d.ma_lk}`}>{coChonCk && oChon(d)}{d.ma_lk}</td>
               <td className={o} title={d.ten_lk_snapshot ?? d.ma_lk}>
                 {chipChuaDuyet(d)} {d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
                 {d.ten_lk_snapshot ?? d.ma_lk}
@@ -467,6 +522,7 @@ export function PxkDongDonHangTable({
   return (
     <>
     {hopThoaiBo}
+    {thanhChon}
     <table className="tbl min-w-full border-collapse">
       <thead>
         <tr className="tbl-head">
@@ -489,7 +545,7 @@ export function PxkDongDonHangTable({
         )}
         {donHang.map((d) => (
           <tr key={d.id} onClick={() => onOpenDon(d.id)} className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer ${nenUuTien(d)}`}>
-            <td className="px-2.5 py-2 font-mono">{d.ma_lk}</td>
+            <td className="px-2.5 py-2 font-mono whitespace-nowrap">{coChonCk && oChon(d)}{d.ma_lk}</td>
             <td className="px-2.5 py-2">
               {chipChuaDuyet(d)} {d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
               {d.ten_lk_snapshot ?? d.ma_lk}

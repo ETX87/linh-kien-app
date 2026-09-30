@@ -162,13 +162,124 @@ function giaGoiY(ma: string | null | undefined, d: DonHangRow): { gia: number; c
 
 type LuaChon = { id: number; ten: string; ma: string | null } | { tenMoi: string };
 
+/** Doi loai chiet khau cho NHIEU don (2026-09-30, phan hoi "cho phép lựa chọn nhiều đơn trong phiếu và sửa chiết khấu 1 lần
+ * cho tất cả") - goi TUAN TU endpoint 1 don san co (backend tinh lai tien phieu moi lan). capNhatGia: dat gia thuc te theo
+ * cong thuc cua loai moi (giaGoiY); don khong co goi y (loai tu them) giu nguyen gia. Tra ve danh sach loi tung don. */
+export async function doiLoaiChietKhauCacDon(dons: DonHangRow[], luaChon: LuaChon, capNhatGia: boolean): Promise<string[]> {
+  const loi: string[] = [];
+  const ma = "tenMoi" in luaChon ? null : luaChon.ma;
+  for (const d of dons) {
+    try {
+      await api.patch(
+        `/phieu-xuat-kho/don-hang/${encodeURIComponent(d.id)}/loai-chiet-khau`,
+        "tenMoi" in luaChon ? { ten_moi: luaChon.tenMoi } : { loai_chiet_khau_id: luaChon.id },
+      );
+      const g = capNhatGia ? giaGoiY(ma, d) : null;
+      if (g) {
+        const congNo = d.loai_don === "cong_no" && !laTruCongNo(d.loai_de_xuat);
+        const sl = d.so_luong_thuc_xuat ?? d.so_luong_de_xuat;
+        if (congNo) await api.patch(`/dat-mua-lk/don-hang/${encodeURIComponent(d.id)}/so-tien-cong-no`, { so_tien_cong_no: g.gia * sl });
+        else await api.patch(`/dat-mua-lk/don-hang/${encodeURIComponent(d.id)}`, { gia_chot: g.gia });
+      }
+    } catch (err) {
+      loi.push(`${d.ma_lk}: ${loiText(err)}`);
+    }
+  }
+  return loi;
+}
+
+const lamMoiSauDoiLoai = (qc: ReturnType<typeof useQueryClient>) =>
+  qc.invalidateQueries({
+    predicate: (q) => {
+      const k = String(q.queryKey[0]);
+      return k.startsWith("dat-mua-lk") || k === "pxk-detail" || k === LOAI_CHIET_KHAU_KEY[0];
+    },
+  });
+
+/** Popup doi loai chiet khau 1 lan cho cac don DA CHON trong 1 phieu (PxkDongDonHangTable). */
+export function DoiLoaiChietKhauNhieuDon({ dons, onClose, onDone }: { dons: DonHangRow[]; onClose: () => void; onDone: () => void }) {
+  const qc = useQueryClient();
+  const addToast = useToast();
+  const { data: list } = useLoaiChietKhauList();
+  const [loaiId, setLoaiId] = useState("");
+  const active = (list ?? []).filter((l) => l.bat_tat);
+  const loai = active.find((l) => String(l.id) === loaiId) ?? null;
+  const mut = useMutation({
+    mutationFn: (capNhatGia: boolean) => doiLoaiChietKhauCacDon(dons, { id: loai!.id, ten: loai!.ten, ma: loai!.ma }, capNhatGia),
+    onSuccess: (loi, capNhatGia) => {
+      if (loi.length > 0) addToast(`Đã đổi ${dons.length - loi.length}/${dons.length} đơn. Lỗi: ${loi.join("; ")}`);
+      else addToast(`Đã đổi loại chiết khấu cho ${dons.length} đơn${capNhatGia ? " và cập nhật giá theo công thức" : " (giữ nguyên giá)"}`);
+      onDone();
+    },
+    onSettled: () => lamMoiSauDoiLoai(qc),
+  });
+  return (
+    <Modal
+      open
+      onClose={() => !mut.isPending && onClose()}
+      title={`Đổi loại chiết khấu cho ${dons.length} đơn`}
+      width="max-w-lg"
+      footer={
+        <div className="flex flex-wrap justify-end gap-2">
+          <Btn variant="ghost" size="sm" disabled={mut.isPending} onClick={onClose}>Huỷ</Btn>
+          <Btn variant="subtle" size="sm" disabled={!loai || mut.isPending} onClick={() => mut.mutate(false)}>Đổi, giữ nguyên giá</Btn>
+          <Btn size="sm" disabled={!loai || mut.isPending} loading={mut.isPending} onClick={() => mut.mutate(true)}>Đổi + cập nhật giá theo công thức</Btn>
+        </div>
+      }
+    >
+      <div className="space-y-3 text-sm" onClick={(e) => e.stopPropagation()}>
+        <label className="block">
+          <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Loại chiết khấu mới</span>
+          <select
+            autoFocus
+            value={loaiId}
+            onChange={(e) => setLoaiId(e.target.value)}
+            className="focus-ring mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2 text-sm"
+          >
+            <option value="">— Chọn loại —</option>
+            {active.map((l) => (
+              <option key={l.id} value={l.id}>{l.ten}</option>
+            ))}
+          </select>
+        </label>
+        <div className="max-h-[40vh] overflow-y-auto rounded-lg border border-[var(--color-border)]">
+          <table className="tbl w-full text-[12px]">
+            <thead>
+              <tr className="tbl-head">
+                <th className="px-2 py-1.5 text-left">Mã LK</th>
+                <th className="px-2 py-1.5 text-left">Loại hiện tại</th>
+                <th className="px-2 py-1.5 text-right">Giá theo loại mới</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dons.map((d) => {
+                const g = loai ? giaGoiY(loai.ma, d) : null;
+                return (
+                  <tr key={d.id} className="border-t border-[var(--color-border-soft)]">
+                    <td className="px-2 py-1 font-mono">{d.ma_lk}</td>
+                    <td className="px-2 py-1">{tenLoaiChietKhau(list, d.loai_chiet_khau_id) ?? "—"}</td>
+                    <td className="px-2 py-1 text-right">{g ? <><Money>{fmtVND(g.gia)}</Money> <span className="text-[var(--color-text-secondary)]">({g.cachTinh})</span></> : "giữ giá"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[12px] text-[var(--color-text-secondary)]">
+          "Cập nhật giá theo công thức" đặt giá thực tế từng đơn theo loại mới (cột bên phải); loại tự thêm không có công thức thì giữ giá.
+        </p>
+      </div>
+    </Modal>
+  );
+}
+
 /**
  * O chon loai chiet khau cho TN. Chon loai khac -> popup hoi "có cập nhật giá thực tế không?" (phan hoi
  * 2026-09-26): Không = chi doi nhan, giu nguyen gia; Có = doi nhan + luu gia thuc te moi (goi y san theo
  * cong thuc cua loai he thong, TN tu sua duoc). Gia luu qua DUNG endpoint san co cua cot "Tiền cần chuyển":
  * mua -> gia_chot (don gia thuc te), cong_no -> so_tien_cong_no. `duocDoi` = false -> chi hien chu + 🔒.
  */
-export function LoaiChietKhauPicker({ don, duocDoi }: { don: DonHangRow; duocDoi: boolean }) {
+export function LoaiChietKhauPicker({ don, duocDoi, dongKhac }: { don: DonHangRow; duocDoi: boolean; dongKhac?: DonHangRow[] }) {
   const qc = useQueryClient();
   const addToast = useToast();
   const { data: list } = useLoaiChietKhauList();
@@ -176,6 +287,9 @@ export function LoaiChietKhauPicker({ don, duocDoi }: { don: DonHangRow; duocDoi
   const [tenMoi, setTenMoi] = useState("");
   const [chon, setChon] = useState<LuaChon | null>(null);
   const [giaMoi, setGiaMoi] = useState("");
+  // "Áp dụng cho cả các đơn khác trong phiếu" (2026-09-30) - chi co khi goi tu bang dong don cua PXK (dongKhac).
+  const [apDungTatCa, setApDungTatCa] = useState(false);
+  const soDongKhac = dongKhac?.length ?? 0;
 
   // Dong "TRỪ CÔNG NỢ" tinh tien nhu don mua (gia chot) - chi dong cong_no con lai luu so_tien_cong_no.
   const isCongNo = don.loai_don === "cong_no" && !laTruCongNo(don.loai_de_xuat);
@@ -197,17 +311,26 @@ export function LoaiChietKhauPicker({ don, duocDoi }: { don: DonHangRow; duocDoi
         `/phieu-xuat-kho/don-hang/${encodeURIComponent(don.id)}/loai-chiet-khau`,
         "tenMoi" in luaChon ? { ten_moi: luaChon.tenMoi } : { loai_chiet_khau_id: luaChon.id },
       );
-      if (gia == null) return;
-      try {
-        if (isCongNo) await api.patch(`/dat-mua-lk/don-hang/${encodeURIComponent(don.id)}/so-tien-cong-no`, { so_tien_cong_no: gia });
-        else await api.patch(`/dat-mua-lk/don-hang/${encodeURIComponent(don.id)}`, { gia_chot: gia });
-      } catch (err) {
-        throw new Error(`Đã đổi loại chiết khấu nhưng chưa lưu được giá: ${loiText(err)}`);
+      if (gia != null) {
+        try {
+          if (isCongNo) await api.patch(`/dat-mua-lk/don-hang/${encodeURIComponent(don.id)}/so-tien-cong-no`, { so_tien_cong_no: gia });
+          else await api.patch(`/dat-mua-lk/don-hang/${encodeURIComponent(don.id)}`, { gia_chot: gia });
+        } catch (err) {
+          throw new Error(`Đã đổi loại chiết khấu nhưng chưa lưu được giá: ${loiText(err)}`);
+        }
+      }
+      if (apDungTatCa && dongKhac && dongKhac.length > 0) {
+        const loi = await doiLoaiChietKhauCacDon(dongKhac, luaChon, gia != null);
+        if (loi.length > 0) throw new Error(`Đã đổi đơn này nhưng lỗi ở ${loi.length} đơn khác: ${loi.join("; ")}`);
       }
     },
     onSuccess: (_r, v) => {
-      addToast(v.gia == null ? "Đã đổi loại chiết khấu (giữ nguyên giá)" : "Đã đổi loại chiết khấu và cập nhật giá thực tế");
+      addToast(
+        (v.gia == null ? "Đã đổi loại chiết khấu (giữ nguyên giá)" : "Đã đổi loại chiết khấu và cập nhật giá thực tế") +
+          (apDungTatCa && soDongKhac > 0 ? ` — áp dụng cho cả ${soDongKhac + 1} đơn trong phiếu` : ""),
+      );
       setChon(null);
+      setApDungTatCa(false);
       setThemMoi(false);
       setTenMoi("");
     },
@@ -314,6 +437,15 @@ export function LoaiChietKhauPicker({ don, duocDoi }: { don: DonHangRow; duocDoi
                 <b className="text-[var(--color-text)]">{"tenMoi" in chon ? chon.tenMoi : chon.ten}</b>
               </div>
             </div>
+            {soDongKhac > 0 && (
+              <label className="flex items-start gap-2 rounded-[10px] border border-[var(--color-border)] px-3 py-2 text-[13px]">
+                <input type="checkbox" className="mt-0.5" checked={apDungTatCa} onChange={(e) => setApDungTatCa(e.target.checked)} />
+                <span>
+                  Áp dụng loại này cho <b>cả {soDongKhac} đơn khác</b> trong phiếu
+                  <span className="block text-[12px] text-[var(--color-text-secondary)]">Chọn "Có" thì giá các đơn khác tính theo công thức của loại mới (loại tự thêm giữ giá).</span>
+                </span>
+              </label>
+            )}
             <div>Có cập nhật giá thực tế theo loại chiết khấu mới không?</div>
             <KvRow label={isCongNo ? "Tiền công nợ hiện tại" : "Đơn giá thực tế hiện tại"}>
               {giaHienTai != null ? <Money>{fmtVND(giaHienTai)}</Money> : "—"}

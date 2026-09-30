@@ -19,7 +19,7 @@ import { khopTim } from "../lib/boDau";
 import { describeApiError } from "./datMuaLinhKien/helpers";
 import { BangChungAnhList, docAnhBangChung } from "./datMuaLinhKien/BangChungChuyenTien";
 import { TienDocTuAnh, docDsAnh, docTienDocMap, useDocTienAnh } from "./datMuaLinhKien/DocTienAnh";
-import { XemAnhNhanh, maHdCua, tienOcrNode, type AnhXem } from "./datMuaLinhKien/XemAnhNhanh";
+import { XemAnhNhanh, maHdCua, type AnhXem } from "./datMuaLinhKien/XemAnhNhanh";
 
 // "Quỹ & chuyển tiền" (2026-09-29, ban 2 quy du KTV - backend routes/quyKtv.ts, lib/quyKtv.ts, migration 0047):
 //  - Khoản chuyển tiền: moi lan Ke toan duyet (so can / thuc nhan, du vao quy / thieu) hoac tu choi, kem anh bang chung.
@@ -244,31 +244,48 @@ function KhoanChuyenTab({ xemTatCa, nguoiOptions, emailLoc, setEmailLoc, ten, co
     const tienDoc = docTienDocMap(k.tien_doc_anh);
     const anhTruoc = new Set(docDsAnh(k.anh_truoc));
     const kq = KET_QUA[k.trang_thai];
+    // Doi soat (2026-09-30): anh tinh vao khoan nay = bo anh da ghi nhan o lan duyet truoc; so doi chieu = Ke toan xac nhan
+    // thuc nhan (khoan da duyet/huy) hoac so can chuyen (khoan tu choi).
+    const urlsTinh = urls.filter((u) => !anhTruoc.has(u));
+    const soSanh =
+      k.trang_thai !== "Tu choi" && k.so_tien_thuc_nhan != null
+        ? { nhan: "Kế toán xác nhận", giaTri: k.so_tien_thuc_nhan }
+        : k.so_tien_can_chuyen != null
+          ? { nhan: "Cần chuyển", giaTri: k.so_tien_can_chuyen }
+          : null;
     urls.forEach((url, i) => {
       anhDs.push({
         url,
         tieuDe: k.ma_xuat_kho && k.ma_xuat_kho !== k.phieu_xuat_kho_id ? `${k.ma_xuat_kho} · ${k.phieu_xuat_kho_id}` : k.phieu_xuat_kho_id,
-        phu: `Ảnh ${i + 1}/${urls.length} · khoản #${k.id}` + (anhTruoc.has(url) ? " · đã ghi nhận ở lần duyệt trước" : ""),
-        dong: [
-          { nhan: "Tiền đọc từ ảnh (OCR)", giaTri: tienOcrNode(tienDoc, url) },
+        phu: `Ảnh ${i + 1}/${urls.length} · khoản #${k.id}`,
+        trangThai: (
+          <>
+            <Badge tone={kq?.tone ?? "gray"}>{kq?.label ?? k.trang_thai}</Badge>
+            {k.trang_thai_phieu === "Ke toan huy" && <Badge tone="gray">Phiếu đã hủy</Badge>}
+          </>
+        ),
+        urlsNhom: urls,
+        urlsTinh,
+        tienDoc,
+        tien: [
+          { nhan: "Cần chuyển", giaTri: fmtVND(k.so_tien_can_chuyen) },
+          {
+            nhan: k.thuc_nhan_goc != null ? "Kế toán xác nhận (đã sửa)" : "Kế toán xác nhận",
+            giaTri: k.so_tien_thuc_nhan == null ? "—" : fmtVND(k.so_tien_thuc_nhan),
+          },
+        ],
+        soSanh,
+        chungTu: [
           { nhan: "Mã HĐ", giaTri: maHdCua(k.ma_xuat_kho, k.phieu_xuat_kho_id) },
           { nhan: "Mã PXK", giaTri: k.phieu_xuat_kho_id },
           { nhan: "Người chuyển", giaTri: ten(k.email_nguoi_chuyen) || "—" },
           { nhan: "KTV báo chuyển lúc", giaTri: k.ktv_bao_chuyen_luc ? fmtDateTime(k.ktv_bao_chuyen_luc) : "—" },
-          {
-            nhan: "Trạng thái xác nhận",
-            giaTri: (
-              <span className="inline-flex flex-wrap justify-end gap-1">
-                <Badge tone={kq?.tone ?? "gray"}>{kq?.label ?? k.trang_thai}</Badge>
-                {k.trang_thai_phieu === "Ke toan huy" && <Badge tone="gray">Phiếu đã hủy</Badge>}
-              </span>
-            ),
-          },
           { nhan: "Kế toán xử lý", giaTri: `${ten(k.nguoi_huy ?? k.nguoi_duyet)} · ${fmtDateTime(k.huy_luc ?? k.duyet_luc)}` },
-          { nhan: "Tiền cần chuyển", giaTri: fmtVND(k.so_tien_can_chuyen) },
-          { nhan: "Thực nhận", giaTri: k.so_tien_thuc_nhan == null ? "—" : fmtVND(k.so_tien_thuc_nhan) + (k.thuc_nhan_goc != null ? " (đã sửa)" : "") },
+        ],
+        ghiChu: [
           ...(k.ghi_chu_ktv ? [{ nhan: "Ghi chú KTV", giaTri: k.ghi_chu_ktv }] : []),
           ...(k.trang_thai !== "Da duyet" && lyDoKhoan(k) ? [{ nhan: k.trang_thai === "Tu choi" ? "Lý do từ chối" : "Lý do hủy", giaTri: lyDoKhoan(k) }] : []),
+          ...(k.thuc_nhan_goc != null ? [{ nhan: "Thực nhận trước khi sửa", giaTri: fmtVND(k.thuc_nhan_goc) }] : []),
           ...(k.ly_do_sua ? [{ nhan: "Lý do sửa tiền", giaTri: k.ly_do_sua }] : []),
         ],
       });

@@ -1900,7 +1900,7 @@ datMuaLinhKien.get("/don-hang", async (c) => {
     `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, lk.dac_thu, lk.gia_ban as lk_gia_ban, ${TU_HUY_DUOC_SQL("ddh")} as tu_huy_duoc, ${TN_DOI_TRONG_PXK_SQL("ddh")} as tn_doi_trong_pxk, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
        ${khoDangXuLyThieuLkSql("ddh")} as kho_dang_xu_ly_thieu_lk,
        ${lastGiaiTrinhAtExpr("ddh.id")} as last_giai_trinh_at,
-       (SELECT ghi_chu FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) as ghi_chu_xu_ly_gan_nhat,
+       (SELECT ghi_chu FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) as ghi_chu_xu_ly_gan_nhat,${THIEU_LK_DON_COT("ddh")},
        kv.ten as khu_vuc_ten,
        ${TRANG_THAI_PXK_DON_SQL("ddh")} as trang_thai_pxk, ${THANH_TOAN_DON_SQL("ddh")} as thanh_toan
      FROM dat_don_hang ddh
@@ -2978,7 +2978,9 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
   // dat_don_hang khong the co qua 1 ticket thieu_lk dang mo cung luc (xem openThieuLkForDonHang), nen
   // chi lay ban ghi MOI NHAT la du de dan link 2 chieu; frontend dung id nay de mo Drawer ThieuLkTab.
   const thieuLk = await c.env.DB.prepare(
-    `SELECT tlk.id, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai
+    `SELECT tlk.id, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai, tlk.ngay_du_kien_co_hang, tlk.ngay_hang_ve_thuc_te,
+       (SELECT l.ngay_xu_ly FROM thieu_lk_log l WHERE l.thieu_lk_id = tlk.id AND l.trang_thai = 'Kho da tiep nhan' ORDER BY l.id DESC LIMIT 1) as tiep_nhan_luc,
+       (SELECT l.nguoi_xu_ly FROM thieu_lk_log l WHERE l.thieu_lk_id = tlk.id AND l.trang_thai = 'Kho da tiep nhan' ORDER BY l.id DESC LIMIT 1) as nguoi_tiep_nhan
      FROM thieu_lk tlk WHERE tlk.dat_don_hang_id = ? ORDER BY tlk.ngay_tao DESC, tlk.id DESC LIMIT 1`,
   )
     .bind(id)
@@ -3074,6 +3076,16 @@ function thongBaoChoNguoiTao(
   if (nextTrangThai === "TN da duyet") return { loai: "da_duyet", noiDung: `Đơn hàng ${ten} của bạn đã được duyệt` };
   return null;
 }
+
+// Thong tin ticket thieu hang GAN NHAT cua don dua ra don goc (2026-09-30, phan hoi "đẩy thông tin từ ticket thiếu hàng ra
+// đơn gốc: ngày tiếp nhận, thời gian dự kiến có hàng, người tiếp nhận") - dung cho danh sach + chi tiet don.
+const tlkCuaDon = (a: string) =>
+  `(SELECT t.id FROM thieu_lk t WHERE t.dat_don_hang_id = ${a}.id ORDER BY t.ngay_tao DESC, t.id DESC LIMIT 1)`;
+const THIEU_LK_DON_COT = (a: string) => `
+       (SELECT t.ngay_du_kien_co_hang FROM thieu_lk t WHERE t.id = ${tlkCuaDon(a)}) as tlk_ngay_du_kien,
+       (SELECT t.ngay_hang_ve_thuc_te FROM thieu_lk t WHERE t.id = ${tlkCuaDon(a)}) as tlk_ngay_hang_ve,
+       (SELECT l.ngay_xu_ly FROM thieu_lk_log l WHERE l.thieu_lk_id = ${tlkCuaDon(a)} AND l.trang_thai = 'Kho da tiep nhan' ORDER BY l.id DESC LIMIT 1) as tlk_tiep_nhan_luc,
+       (SELECT l.nguoi_xu_ly FROM thieu_lk_log l WHERE l.thieu_lk_id = ${tlkCuaDon(a)} AND l.trang_thai = 'Kho da tiep nhan' ORDER BY l.id DESC LIMIT 1) as tlk_nguoi_tiep_nhan`;
 
 // Don bat buoc chuyen tien truoc (migration 0057) ma CHUA "Đã thanh toán" (Ke toan chua xac nhan tien phieu chua don va don
 // khong mang tien da tra) -> chua duoc chuyen "Cho hang" (chot 2026-09-30). Dung CHUNG dinh nghia THANH_TOAN_DON_SQL.

@@ -22,7 +22,7 @@ import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, useNenAnhTraHangEnabled,
   useLkAndLdeCache, useLinhKienRankMap, isDonTaoHo, formatLkLabel, LOAI_DON_TONE, loaiDonLabel,
 } from "./helpers";
-import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, LoaiDeXuatBadge, DetailZone, QuickStat, KhuVucChipFilter, ImageLink, ImageThumb, MaYcscCell } from "./SharedUi";
+import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, LoaiDeXuatBadge, DetailZone, QuickStat, KhuVucChipFilter, ImageLink, ImageThumb, MaYcscCell, LogTieuDe, useTenNguoiLog } from "./SharedUi";
 import { LinhKienDetailModal } from "./LinhKienPicker";
 import { Money } from "../../components/ui/Money";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
@@ -1065,6 +1065,7 @@ function TraHangDetailModal({
   // day khong co duong nao goi toi hanh dong nay - chi co Duyet/Tu choi cho cac vai tro xu ly.
   const coTheHuy = !!d && !daDong && (currentEmail === d.nguoi_tao || isAdmin);
   const ktvDisplayMap = useKtvDisplayMap();
+  const tenLog = useTenNguoiLog();
 
   const navIndex = navRows?.findIndex((r) => r.id === id) ?? -1;
   const navPrevId = navRows && navIndex > 0 ? navRows[navIndex - 1]?.id : undefined;
@@ -1288,12 +1289,14 @@ function TraHangDetailModal({
           <SectionTitle className="mt-0">Lịch sử xử lý</SectionTitle>
           <Timeline
             items={(data?.logs ?? []).map((l) => ({
+              // Nguoi thao tac -> hanh dong -> trang thai (LogTieuDe, 2026-09-30).
               title: (
-                <>
-                  {trangThaiLabel(TRA_HANG_TRANG_THAI_OPTIONS, l.trang_thai)}
-                  <span className="font-normal text-[var(--ink-400)]"> ({l.nguoi_xu_ly})</span>
-                  {l.ghi_chu ? ` — ${l.ghi_chu}` : ""}
-                </>
+                <LogTieuDe
+                  nguoi={tenLog(l.nguoi_xu_ly)}
+                  hanhDong="chuyển sang"
+                  trangThai={trangThaiLabel(TRA_HANG_TRANG_THAI_OPTIONS, l.trang_thai)}
+                  ghiChu={l.ghi_chu}
+                />
               ),
               time: fmtDateTime(l.ngay_xu_ly),
             }))}

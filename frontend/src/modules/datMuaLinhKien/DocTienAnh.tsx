@@ -45,7 +45,9 @@ export function useDocTienAnh(urls: string[], daLuu: TienDocMap) {
   useEffect(() => {
     let huy = false;
     for (const u of urls) {
-      if (u in daLuu || u in docDuoc) continue;
+      // Da luu SO -> dung lai; da luu null ("không đọc được") -> DOC LAI tren may nay (bo nhan dang co the da tot hon, vd
+      // 2026-09-30 them mau "VND 310,000" Techcombank).
+      if (daLuu[u] != null || u in docDuoc) continue;
       void docSoTienAnh(u).then((so) => {
         if (!huy) setDocDuoc((m) => (u in m ? m : { ...m, [u]: so }));
       });
@@ -56,7 +58,11 @@ export function useDocTienAnh(urls: string[], daLuu: TienDocMap) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   const items: KetQuaDocAnh[] = urls.map((url) =>
-    url in daLuu ? { url, xong: true, soTien: daLuu[url] } : url in docDuoc ? { url, xong: true, soTien: docDuoc[url] } : { url, xong: false, soTien: null },
+    daLuu[url] != null
+      ? { url, xong: true, soTien: daLuu[url] }
+      : url in docDuoc
+        ? { url, xong: true, soTien: docDuoc[url] }
+        : { url, xong: false, soTien: null },
   );
   const ketQua: TienDocMap = {};
   for (const it of items) if (it.xong) ketQua[it.url] = it.soTien;

@@ -5,6 +5,7 @@ import { Select } from "../../components/x/Form";
 import { DropdownPortal } from "../../components/ui/DropdownPortal";
 import { api } from "../../api/client";
 import { compressImage } from "../../lib/imageCompress";
+import { formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay";
 import { trangThaiLabel, describeApiError, useNenAnhTraHangEnabled, LOAI_DON_TONE, loaiDonLabel } from "./helpers";
 
 // Cac component UI dung chung nhieu tab cua module "Dat mua linh kien" (tach tu
@@ -40,6 +41,34 @@ export function ImageLightbox({ url, onClose }: { url: string; onClose: () => vo
       </a>
     </div>
   );
+}
+
+// Tieu de 1 dong "Lịch sử xử lý" (2026-09-30, phan hoi "log đang để trạng thái - tên người thao tác gây hiểu lầm là trạng
+// thái đó do người thao tác xử lý"): NGUOI THAO TAC dung dau (dam) + hanh dong (chu nhat) + trang thai KET QUA trong 1 o
+// vien rieng -> doc thanh "Nguyễn A chuyển sang [Chờ TN duyệt]", khong con nham la Nguyen A dang xu ly buoc do.
+// Dung chung 4 man: don hang, phieu xuat kho, thieu hang, tra hang.
+export function LogTieuDe({ nguoi, hanhDong, trangThai, ghiChu }: { nguoi: ReactNode; hanhDong: string; trangThai?: ReactNode; ghiChu?: string | null }) {
+  return (
+    <>
+      <span className="font-semibold text-[var(--color-text)]">{nguoi}</span>{" "}
+      <span className="font-normal text-[var(--color-text-secondary)]">{hanhDong}</span>
+      {trangThai && (
+        <>
+          {" "}
+          <span className="inline-flex items-center rounded-[var(--radius-badge)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] px-1.5 py-px text-[11.5px] font-semibold text-[var(--color-text)]">
+            {trangThai}
+          </span>
+        </>
+      )}
+      {ghiChu && <span className="mt-0.5 block whitespace-pre-line font-normal text-[var(--color-text-body)]">{ghiChu}</span>}
+    </>
+  );
+}
+
+/** Ten nguoi thao tac trong log (ten hien thi day du moi tai khoan; "he-thong"/rong = "Hệ thống"). */
+export function useTenNguoiLog(): (email: string | null | undefined) => string {
+  const dir = usePersonDirectory();
+  return (email) => (!email || email === "he-thong" ? "Hệ thống" : formatPersonDisplay(email, dir));
 }
 
 // Thumbnail <img> co the bam de phong to (thay cho <a target="_blank"><img/></a>) - dung cho cac o

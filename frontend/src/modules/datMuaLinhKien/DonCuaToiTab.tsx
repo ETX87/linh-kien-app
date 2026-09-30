@@ -39,7 +39,7 @@ import {
   LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, laChoHangMoKhoa, laChoHangBiKhoa, trangThaiLabel, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
   donGiaSauChietKhau, tienSauChietKhau, giaNiemYet } from "./helpers";
-import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink } from "./SharedUi";
+import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink, LogTieuDe } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
 import { LinhKienPicker, LinhKienDetailModal } from "./LinhKienPicker";
@@ -80,6 +80,11 @@ interface PxkInfo {
 interface ThieuLkRefInfo {
   id: string;
   trang_thai: string | null;
+  // Dua thong tin ticket ra don goc (2026-09-30).
+  ngay_du_kien_co_hang?: string | null;
+  ngay_hang_ve_thuc_te?: string | null;
+  tiep_nhan_luc?: string | null;
+  nguoi_tiep_nhan?: string | null;
 }
 
 export function DonHangDetailModal({
@@ -270,6 +275,7 @@ export function DonHangDetailModal({
   const d = data?.donHang;
   const pxk = data?.pxk;
   const thieuLk = data?.thieuLk;
+  const personDirChiTiet = usePersonDirectory();
   const actions = d ? actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, isAdmin }) : { duyet: false, tuChoi: false, choHang: false, huy: false };
   // Muc #4: SL thuc xuat CHI cho sua khi dong dang "Cho TN duyet" va SL de xuat > 1 (dung dieu kien
   // nguoi dung neu ra). "Da doi" so voi SL de xuat (khong phai so voi gia tri cu da luu - dong nay
@@ -1270,6 +1276,13 @@ Quỹ của KTV giảm ${fmtVND(d.tra_bang_quy!.can_tra)}.`)) {
               <KvRow label="Trạng thái">
                 <StatusBadge value={thieuLk.trang_thai ?? ""} tones={THIEU_LK_TRANG_THAI_TONE} options={THIEU_LK_TRANG_THAI_OPTIONS} />
               </KvRow>
+              <KvRow label="Kho tiếp nhận">
+                {thieuLk.tiep_nhan_luc
+                  ? `${fmtDateTime(thieuLk.tiep_nhan_luc)} · ${formatPersonDisplay(thieuLk.nguoi_tiep_nhan ?? "", personDirChiTiet)}`
+                  : "Chưa tiếp nhận"}
+              </KvRow>
+              <KvRow label="Dự kiến có hàng">{thieuLk.ngay_du_kien_co_hang ? fmtDate(thieuLk.ngay_du_kien_co_hang) : "—"}</KvRow>
+              {thieuLk.ngay_hang_ve_thuc_te && <KvRow label="Hàng về thực tế">{fmtDate(thieuLk.ngay_hang_ve_thuc_te)}</KvRow>}
               <Btn size="sm" variant="ghost" className="mt-1" onClick={() => setShowThieuLk(true)}>
                 Xem ticket {thieuLk.id} ↗
               </Btn>
@@ -1285,17 +1298,17 @@ Quỹ của KTV giảm ${fmtVND(d.tra_bang_quy!.can_tra)}.`)) {
                   theo tone trang thai truoc day. TRANG_THAI_DOT_TONE khong con dung o day. */}
               <SectionTitle icon="🕐">Lịch sử xử lý</SectionTitle>
               <Timeline
-                items={d.logs!.map((l) => ({
+                items={d.logs!.map((l, i, all) => ({
                   dotClassName: TRANG_THAI_DOT_TONE[DON_HANG_TRANG_THAI_TONE_ALL[l.trang_thai] ?? "neutral"],
+                  // Nguoi thao tac -> hanh dong -> trang thai ket qua (LogTieuDe, 2026-09-30). Log moi nhat truoc -> dong
+                  // CUOI la luc tao don. "Tự động duyệt" (he thong tu duyet luc tao) tach khoi "TN đã duyệt" (chot 2026-09-28).
                   title: (
-                    <>
-                      {/* "Tự động duyệt đơn" (he thong tu duyet luc tao) tach khoi "TN đã duyệt" (chot 2026-09-28). */}
-                      {l.tu_dong ? "Tự động duyệt đơn" : trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, l.trang_thai)}
-                      <span className="font-normal text-[var(--ink-500)]"> · {l.tu_dong ? `Hệ thống (đơn của ${l.nguoi_xu_ly})` : l.nguoi_xu_ly}</span>
-                      {/* Ghi chu thanh doan rieng, giu xuong dong (2026-09-29): dong "Chờ TN duyệt" tu ticket thieu LK
-                          chua ca qua trinh Kho xu ly nhieu dong - truoc day dinh vao dong gio 11px. */}
-                      {l.ghi_chu && <span className="mt-0.5 block whitespace-pre-line font-normal text-[var(--color-text-body)]">{l.ghi_chu}</span>}
-                    </>
+                    <LogTieuDe
+                      nguoi={l.tu_dong ? "Hệ thống" : formatPersonDisplay(l.nguoi_xu_ly, personDirChiTiet)}
+                      hanhDong={l.tu_dong ? `tự động duyệt đơn của ${formatPersonDisplay(l.nguoi_xu_ly, personDirChiTiet)} →` : i === all.length - 1 ? "tạo đơn →" : "chuyển sang"}
+                      trangThai={trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, l.trang_thai)}
+                      ghiChu={l.ghi_chu}
+                    />
                   ),
                   time: fmtDateTime(l.ngay_xu_ly),
                 }))}
@@ -2242,6 +2255,7 @@ export function DonHangGroupedList({
   columnSettingsSlot: HTMLDivElement | null;
 }) {
   const ktvDisplayMap = useKtvDisplayMap();
+  const personDir = usePersonDirectory();
   // Xem chi tiet linh kien (phan hoi 2026-08-19: "Click vào tên linh kiện sẽ mở UI xem thông tin chi
   // tiết của linh kiện đó") - tai dung LinhKienDetailModal da co san (LinhKienPicker.tsx, dung boi
   // TaoDonTab). danhMuc/rankMap can THEM o day vi component nay truoc gio khong doc danh muc (chi hien
@@ -2310,6 +2324,24 @@ export function DonHangGroupedList({
     // chieu, giu nguyen vi tri dau/cuoi). "Cảnh báo linh kiện đặc thù"/"Đơn ưu tiên" GIU dang icon
     // 🔒/⭐ trong cot Linh kien (khong tach cot rieng, theo xac nhan nguoi dung).
     { key: "ngay_de_xuat", header: "Ngày đề xuất", render: (row) => fmtDate(row.d.ngay_tao) },
+    // Tu ticket thieu hang GAN NHAT cua don (2026-09-30) - di chuot xem Kho tiep nhan luc nao, ai.
+    {
+      key: "ngay_du_kien_co_hang", header: "Dự kiến có hàng",
+      render: (row) =>
+        row.d.tlk_ngay_du_kien ? (
+          <span
+            className={row.d.trang_thai === "Cho hang" ? "font-semibold text-[var(--color-warning-strong)]" : "text-[var(--color-text-secondary)]"}
+            title={
+              (row.d.tlk_tiep_nhan_luc ? `Kho tiếp nhận ${fmtDateTime(row.d.tlk_tiep_nhan_luc)} · ${formatPersonDisplay(row.d.tlk_nguoi_tiep_nhan ?? "", personDir)}` : "Kho chưa tiếp nhận") +
+              (row.d.tlk_ngay_hang_ve ? ` · hàng về ${fmtDate(row.d.tlk_ngay_hang_ve)}` : "")
+            }
+          >
+            {fmtDate(row.d.tlk_ngay_du_kien)}
+          </span>
+        ) : (
+          <span className="text-[var(--ink-400)]">—</span>
+        ),
+    },
     { key: "sl", header: "SL đề xuất", className: "text-right", render: (row) => row.d.so_luong_de_xuat },
     { key: "sl_thuc_xuat", header: "SL thực xuất", className: "text-right", render: (row) => row.d.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
     // "Giá niêm yết" (giá bán) canh "Giá đề xuất" = don gia SAU chiet khau (phan hoi 2026-09-28).

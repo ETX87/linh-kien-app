@@ -33,7 +33,7 @@ import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   trangThaiLabel, LOAI_DON_TONE, laTruCongNo,
 } from "./helpers";
-import { StatusBadge, LoaiDeXuatBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar, KhuVucChipFilter, ImageLink } from "./SharedUi";
+import { StatusBadge, LoaiDeXuatBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar, KhuVucChipFilter, ImageLink, LogTieuDe, useTenNguoiLog } from "./SharedUi";
 import { PxkMiniPipeline } from "./PipelineFlow";
 import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportResult, type MisaTemplate } from "../../lib/misaExportTemplates";
 import { Money } from "../../components/ui/Money";
@@ -293,7 +293,7 @@ export function PhieuXuatKhoTab({
       // Cot chuyen tien dat DAU file (2026-09-29, quy du KTV): Ma HD, nguoi chuyen, can/thuc chuyen, quy, link anh.
       // 4 cot chi dung cho "Xem ảnh nhanh" (XemAnhNhanh.tsx) - bo khoi file.
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const rows = res.rows.map(({ bang_chung_chuyen_tien_anh, bang_chung_chuyen_tien_url, da_thanh_toan, tien_thuc_chuyen, bang_chung_tien_doc, bang_chung_chuyen_tien_ghi_chu, ly_do_tu_choi_chuyen_tien, ngay_ktv_chuyen, ...r }) => {
+      const rows = res.rows.map(({ bang_chung_chuyen_tien_anh, bang_chung_chuyen_tien_url, da_thanh_toan, tien_thuc_chuyen, bang_chung_tien_doc, bang_chung_chuyen_tien_ghi_chu, ly_do_tu_choi_chuyen_tien, ngay_ktv_chuyen, anh_da_ghi_nhan, ...r }) => {
         const tong = r.so_tien_can_chuyen ?? 0;
         const daTra = da_thanh_toan ?? 0;
         const thucChuyen = tien_thuc_chuyen ?? 0;
@@ -1666,6 +1666,7 @@ export function PxkDetailModal({
   const isDong = ["KTV da nhan", "Ke toan huy", "Hang tru kho", "Kho da ket thuc", "Kho da nhan hang tra"].includes(trangThai);
   const chuyenTienOk = pxk?.so_tien_can_chuyen == null || pxk.trang_thai_chuyen_tien === "TN da duyet";
   const ktvDisplayMap = useKtvDisplayMap();
+  const tenLog = useTenNguoiLog();
   // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Drawer + Next/Previous") - xem comment day du o
   // DonHangDetailModal (cung pattern, navRows undefined = -1 = an het nut).
   const navIndex = navRows?.findIndex((r) => r.id === id) ?? -1;
@@ -2071,6 +2072,12 @@ export function PxkDetailModal({
                     <TuChoiChuyenTienButton pxkId={pxk.id} onDone={invalidate} addToast={addToast} />
                   </div>
                 )}
+                {/* TN day lai khi KTV xac nhan nham/thieu tien (2026-09-30) - KHONG ghi so khoan chuyen tien cua Ke toan. */}
+                {!canKeToan && canTacNghiep && pxk.trang_thai_chuyen_tien === "KTV da chuyen" && pxk.trang_thai !== "Ke toan huy" && (
+                  <div className="mt-2">
+                    <TuChoiChuyenTienButton pxkId={pxk.id} onDone={invalidate} addToast={addToast} laTn />
+                  </div>
+                )}
                 {(data?.khoanChuyen?.length ?? 0) > 0 && <LichSuKhoanChuyen rows={data!.khoanChuyen!} />}
               </>
             )}
@@ -2118,16 +2125,23 @@ export function PxkDetailModal({
           <div>
             <SectionTitle icon="🕐">Lịch sử xử lý</SectionTitle>
             <Timeline
-              items={data.logs.map((l) => ({
-                dotClassName: TRANG_THAI_DOT_TONE[PXK_TRANG_THAI_TONE[l.trang_thai] ?? PXK_LOG_ONLY_TONE[l.trang_thai] ?? "gray"],
-                title: (
-                  <>
-                    {trangThaiLabel([...PXK_TRANG_THAI_OPTIONS, ...PXK_LOG_ONLY_OPTIONS], l.trang_thai)}
-                    {l.ghi_chu && <span className="font-normal text-[var(--ink-400)]"> ({l.ghi_chu})</span>}
-                  </>
-                ),
-                time: `${l.nguoi_xu_ly} · ${fmtDateTime(l.ngay_xu_ly)}`,
-              }))}
+              items={data.logs.map((l, i, all) => {
+                // Nguoi thao tac -> hanh dong -> trang thai (LogTieuDe, 2026-09-30). Trang thai chinh cua phieu = "chuyển phiếu
+                // sang [..]"; log-only (luu ma, chuyen tien, tru quy...) la chinh hanh dong -> "đã thao tác: [..]".
+                const laTrangThaiPhieu = PXK_TRANG_THAI_OPTIONS.some((o) => o.value === l.trang_thai);
+                return {
+                  dotClassName: TRANG_THAI_DOT_TONE[PXK_TRANG_THAI_TONE[l.trang_thai] ?? PXK_LOG_ONLY_TONE[l.trang_thai] ?? "gray"],
+                  title: (
+                    <LogTieuDe
+                      nguoi={tenLog(l.nguoi_xu_ly)}
+                      hanhDong={i === all.length - 1 ? "tạo phiếu →" : laTrangThaiPhieu ? "chuyển phiếu sang" : "đã thao tác:"}
+                      trangThai={trangThaiLabel([...PXK_TRANG_THAI_OPTIONS, ...PXK_LOG_ONLY_OPTIONS], l.trang_thai)}
+                      ghiChu={l.ghi_chu}
+                    />
+                  ),
+                  time: fmtDateTime(l.ngay_xu_ly),
+                };
+              })}
             />
           </div>
         </div>

@@ -472,6 +472,20 @@ KHÔNG dạng canvas (canvas chậm ~1s/lần). UI chung `datMuaLinhKien/DocTien
 người chuyển, ngày, trạng thái xác nhận, tiền), ‹ › / ← → / vuốt, Esc. `BangChungAnhList` prop `onXem`; danh sách (Quỹ › Khoản chuyển
 tiền, cột Bằng chứng PXK) dựng MỌI ảnh của trang đang xem (chuyển xuyên dòng); chi tiết PXK/đơn dùng `BangChungAnhPxk`
 (`anhXemCuaPxk`). `GET /phieu-xuat-kho` trả thêm `bang_chung_tien_doc`/ghi chú/lý do từ chối/`ngay_ktv_chuyen` (bỏ khỏi file tải về).
+Khung phải = 3 khối **Đối soát tiền** (OCR ảnh này, tổng OCR ảnh của lần chuyển — bỏ ảnh đã ghi nhận trước, so với "Kế toán xác nhận"
+hoặc "Còn phải chuyển" → Khớp/Lệch + nhắc nhở; đọc lại trên máy qua `useDocTienAnh`, không gọi server) / Chứng từ / Ghi chú.
+`useDocTienAnh` ĐỌC LẠI ảnh đã lưu `null` ("không đọc được"). `lib/docTienAnh.ts` nhận đơn vị TRƯỚC số ("VND 310,000" Techcombank)
++ nhãn "chuyển thành công".
+**TN đẩy lại chuyển tiền** (2026-09-30): `PATCH /phieu-xuat-kho/:id/chuyen-tien` `trang_thai:"Cho KTV chuyen"` mở cho TN khi "KTV da
+chuyen" (KTV xác nhận nhầm/thiếu) — KHÔNG ghi `khoan_chuyen_tien` (sổ của Kế toán), log 'Da yeu cau KTV chuyen tien', lý do lưu tiền tố
+"(TN)" (FE hiện "Tác nghiệp trả lại"). **Mã đơn hàng phiếu đã hủy**: `ma_xuat_kho` UNIQUE → `giaiPhongMaPhieuHuy()` (tạo phiếu có mã,
+PATCH `/:id/ma-xuat-kho`) trả mã của phiếu "Ke toan huy" về ID của nó (+ log) để phiếu mới dùng lại; phiếu còn hiệu lực vẫn chặn.
+**Ticket thiếu hàng ra đơn gốc**: `GET /don-hang` trả `tlk_ngay_du_kien/tlk_ngay_hang_ve/tlk_tiep_nhan_luc/tlk_nguoi_tiep_nhan`
+(`THIEU_LK_DON_COT`, ticket MỚI NHẤT) → cột "Dự kiến có hàng" sau "Ngày đề xuất"; chi tiết đơn hiện Kho tiếp nhận/Dự kiến/Hàng về.
+**Lịch sử xử lý** 4 màn (đơn/PXK/thiếu hàng/trả hàng) dùng `LogTieuDe` + `useTenNguoiLog` (`SharedUi.tsx`): "NGƯỜI thao tác + hành động
++ [trạng thái kết quả]" (dòng cuối = tạo). **Đổi chiết khấu nhiều đơn**: `PxkDongDonHangTable` ô chọn + "Chọn tất cả"/"chọn cùng loại"
+→ `DoiLoaiChietKhauNhieuDon`; popup 1 đơn có "Áp dụng cho cả N đơn khác" (`dongKhac`) — cùng `doiLoaiChietKhauCacDon()` (gọi tuần tự
+endpoint 1 đơn; "Có" = giá theo công thức `giaGoiY`).
 
 **Thứ tự tên hiển thị người dùng** (chốt 2026-09-30, `lib/tenNguoi.ts`): Tên hiển thị KTV (danh bạ) → Tên MISA (KTV, rồi
 `users.ten_misa`) → tên Google (`users.ten`) → email. `/api/auth/nguoi-directory` trả sẵn theo thứ tự này (FE

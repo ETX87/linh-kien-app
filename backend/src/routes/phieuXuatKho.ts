@@ -360,6 +360,7 @@ phieuXuatKho.get("/", async (c) => {
        pxk.so_tien_can_chuyen, pxk.trang_thai_chuyen_tien, pxk.da_in_phieu, pxk.da_thanh_toan,
        pxk.bang_chung_chuyen_tien_anh, pxk.bang_chung_chuyen_tien_url,
        pxk.bang_chung_tien_doc, pxk.bang_chung_chuyen_tien_ghi_chu, pxk.ly_do_tu_choi_chuyen_tien, pxk.ngay_ktv_chuyen,
+       ${ANH_DA_GHI_NHAN_SQL("pxk")} as anh_da_ghi_nhan,
        (SELECT COALESCE(SUM(k.so_tien_thuc_nhan), 0) FROM khoan_chuyen_tien k
           WHERE k.phieu_xuat_kho_id = pxk.id AND k.trang_thai = 'Da duyet') as tien_thuc_chuyen,
        pxk.trang_thai_hien_tai as trang_thai,
@@ -838,6 +839,9 @@ phieuXuatKho.post("/", async (c) => {
   const id = await nextSequentialId(c.env.DB, "phieu_xuat_kho", pxkIdPrefix(body.loai_don), 6);
   const coChuyenTien = soTienCanChuyen > 0;
   const maXuatKhoNhap = body.ma_xuat_kho?.trim();
+  if (maXuatKhoNhap && !(await giaiPhongMaPhieuHuy(c.env.DB, maXuatKhoNhap, id, user.email))) {
+    return c.json({ error: "MA_XUAT_KHO_DA_TON_TAI" }, 409);
+  }
   const maXuatKho = maXuatKhoNhap || id;
   const maXacNhan = maXuatKhoNhap ? 1 : 0;
 
@@ -986,6 +990,27 @@ phieuXuatKho.get("/:id/misa-export", async (c) => {
   return c.json(result);
 });
 
+// Ma don hang (ma_xuat_kho) la UNIQUE (0001_init) - phieu DA HUY van giu ma cu nen truoc day tao/nhap lai CUNG ma cho phieu
+// moi bi chan (bug 2026-09-30). Ma dang nam o phieu "Ke toan huy" -> GIAI PHONG: phieu huy tra ve ma = ID cua no (+ log ghi
+// lai ma cu). Tra ve false neu ma dang thuoc 1 phieu CON HIEU LUC (van chan MA_XUAT_KHO_DA_TON_TAI).
+async function giaiPhongMaPhieuHuy(db: D1Database, maXuatKho: string, phieuMoi: string, email: string): Promise<boolean> {
+  const cu = await db.prepare("SELECT id, trang_thai_hien_tai FROM phieu_xuat_kho WHERE ma_xuat_kho = ? AND id != ?")
+    .bind(maXuatKho, phieuMoi)
+    .first<{ id: string; trang_thai_hien_tai: string | null }>();
+  if (!cu) return true;
+  if (cu.trang_thai_hien_tai !== "Ke toan huy") return false;
+  await db.batch([
+    db.prepare(
+      "UPDATE phieu_xuat_kho SET ma_xuat_kho = id, ma_xuat_kho_xac_nhan = 0 WHERE id = ? AND NOT EXISTS (SELECT 1 FROM phieu_xuat_kho p2 WHERE p2.ma_xuat_kho = ? AND p2.id != ?)",
+    ).bind(cu.id, cu.id, cu.id),
+    db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+      cu.id, "Da luu ma don hang", email, nowVN(), `Phiếu đã hủy — trả mã đơn hàng ${maXuatKho} để dùng cho phiếu ${phieuMoi}`,
+    ),
+  ]);
+  const conTrung = await db.prepare("SELECT 1 FROM phieu_xuat_kho WHERE ma_xuat_kho = ? AND id != ?").bind(maXuatKho, phieuMoi).first();
+  return !conTrung;
+}
+
 // PATCH /api/phieu-xuat-kho/:id/ma-xuat-kho - { ma_xuat_kho } TN nhap MA DON HANG THAT sau khi KTV
 // da chuyen tien xong (Dot 2, muc C) - chi khi PXK con "Dang tao phieu" (chua gui ke toan). Dong bo
 // lai dat_don_hang.ma_xuat_kho cua moi dong trong phieu cho khop (tra cuu nguoc dung ma that).
@@ -1002,11 +1027,10 @@ phieuXuatKho.patch("/:id/ma-xuat-kho", async (c) => {
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
   if ((pxk.trang_thai ?? "Dang tao phieu") !== "Dang tao phieu") return c.json({ error: "INVALID_STATE" }, 409);
 
-  const trung = await c.env.DB.prepare("SELECT id FROM phieu_xuat_kho WHERE ma_xuat_kho = ? AND id != ?").bind(maXuatKho, id).first();
-  if (trung) return c.json({ error: "MA_XUAT_KHO_DA_TON_TAI" }, 409);
+  const user = c.get("user");
+  if (!(await giaiPhongMaPhieuHuy(c.env.DB, maXuatKho, id, user.email))) return c.json({ error: "MA_XUAT_KHO_DA_TON_TAI" }, 409);
 
   const now = nowVN();
-  const user = c.get("user");
   await c.env.DB.batch([
     c.env.DB.prepare("UPDATE phieu_xuat_kho SET ma_xuat_kho = ?, ma_xuat_kho_xac_nhan = 1 WHERE id = ?").bind(maXuatKho, id),
     c.env.DB.prepare(
@@ -1324,11 +1348,16 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
     // tiền, thiếu bằng chứng... khi đẩy sẽ cho phép tạo ghi chú lý do từ chối") - "KTV da chuyen" -> "Cho KTV chuyen",
     // bat buoc ly do. GIU anh + ghi chu KTV da gui (KTV bo/them anh roi xac nhan lai - cung co che khi tong tien doi);
     // ly do hien cho KTV/TN o khoi "Chuyển tiền" toi khi KTV xac nhan chuyen lai.
-    if (!canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+    // + TN (chot 2026-09-30, phan hoi "cho phép tác nghiệp đẩy trạng thái lùi lại sau khi KTV xác nhận đã chuyển tiền - KTV
+    // xác nhận nhầm hoặc thiếu tiền"): cung duong nay nhung KHONG ghi vao so khoan_chuyen_tien (so do la quyet dinh cua Ke
+    // toan) - log 'Da yeu cau KTV chuyen tien' ghi ro TN; ly do luu kem tien to "(TN)".
+    const laKeToanDay = canKeToan(c);
+    if (!laKeToanDay && !canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
     // Phieu da huy -> khong day lai (tranh bao KTV chuyen tien cho phieu khong con hieu luc).
     if (pxk.trang_thai_chuyen_tien !== "KTV da chuyen" || pxk.trang_thai_hien_tai === "Ke toan huy") return c.json({ error: "INVALID_STATE" }, 409);
-    const lyDo = body.ly_do_tu_choi?.trim();
-    if (!lyDo) return c.json({ error: "MISSING_LY_DO" }, 400);
+    const lyDoNhap = body.ly_do_tu_choi?.trim();
+    if (!lyDoNhap) return c.json({ error: "MISSING_LY_DO" }, 400);
+    const lyDo = laKeToanDay ? lyDoNhap : `(TN) ${lyDoNhap}`;
     const user = c.get("user");
     const pxkDay = await c.env.DB.prepare(
       "SELECT id, nguoi_nhan_hang, so_tien_can_chuyen, da_thanh_toan, bang_chung_chuyen_tien_anh, bang_chung_chuyen_tien_ghi_chu, ngay_ktv_chuyen, bang_chung_tien_doc FROM phieu_xuat_kho WHERE id = ?",
@@ -1341,12 +1370,13 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
       await c.env.DB.batch([
         lenhKhoaTrangThaiChuyenTien(c.env.DB, id, "KTV da chuyen"), // chan bam 2 lan
         // So quan ly chuyen tien (migration 0047) ghi ca lan tu choi.
-        ...(pxkDay?.nguoi_nhan_hang ? [lenhGhiKhoanTuChoi(c.env.DB, { ...pxkDay, nguoi_nhan_hang: pxkDay.nguoi_nhan_hang }, lyDo, user.email, now)] : []),
+        ...(laKeToanDay && pxkDay?.nguoi_nhan_hang ? [lenhGhiKhoanTuChoi(c.env.DB, { ...pxkDay, nguoi_nhan_hang: pxkDay.nguoi_nhan_hang }, lyDo, user.email, now)] : []),
         c.env.DB.prepare(
           "UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = 'Cho KTV chuyen', ngay_ktv_chuyen = NULL, ly_do_tu_choi_chuyen_tien = ?, tu_choi_chuyen_tien_luc = ? WHERE id = ?",
         ).bind(lyDo, now, id),
         c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
-          id, "Ke toan tu choi bang chung chuyen tien", user.email, now, lyDo,
+          id, laKeToanDay ? "Ke toan tu choi bang chung chuyen tien" : "Da yeu cau KTV chuyen tien", user.email, now,
+          laKeToanDay ? lyDo : `TN đẩy lại "Chờ KTV chuyển" (KTV xác nhận nhầm/thiếu tiền): ${lyDoNhap}`,
         ),
       ]);
     } catch {
@@ -1368,7 +1398,7 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
           emailGsList,
           pastActors,
           title: "Phiếu xuất kho",
-          body: `PXK ${id}: Kế toán từ chối bằng chứng chuyển tiền — ${lyDo}`,
+          body: `PXK ${id}: ${laKeToanDay ? "Kế toán từ chối" : "Tác nghiệp trả lại"} bằng chứng chuyển tiền — ${lyDoNhap}`,
           linkType: "phieu_xuat_kho",
           linkId: id,
         });

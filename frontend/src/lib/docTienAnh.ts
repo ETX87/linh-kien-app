@@ -119,8 +119,11 @@ const boDau = (s: string) =>
 // Dong KHONG phai so tien chuyen: so du, phi, so tai khoan, ma giao dich, ngay gio, hotline...
 const DONG_LOAI = /(so du|balance|\bphi\b|\bfee\b|tai khoan|account|\bstk\b|\bso tk\b|ma (gd|giao dich|tham chieu)|tham chieu|\bref\b|transaction id|hotline|ngay|thoi gian|\btime\b|\bgio\b|so the|ma don)/;
 // Nhan thuong dung ngay truoc/cung dong voi so tien chuyen.
-const NHAN_TIEN = /(so tien|amount|chuyen tien|chuyen khoan thanh cong|giao dich thanh cong|thanh toan|da chuyen|tong tien)/;
-const SO = /([+\-−–]?)\s*(\d{1,3}(?:[.,  ]\d{3})+|\d{4,})(?:[.,]\d{1,2}(?!\d))?\s*(vnd|vnđ|vn d|đ|₫|d\b|dong)?/gi;
+// + "chuyen thanh cong" (2026-09-30: Techcombank ghi "Chuyển thành công" ngay tren dong so tien).
+const NHAN_TIEN = /(so tien|amount|chuyen tien|chuyen khoan thanh cong|chuyen thanh cong|giao dich thanh cong|thanh toan|da chuyen|tong tien)/;
+// Don vi tien dung TRUOC so ("VND 310,000" - Techcombank, 2026-09-30) hoac SAU so ("310.000 VND", "310.000đ"). Truoc so chi
+// nhan "vnd"/"₫" (chu "d" le truoc so de nham). Nhom: 1 dau, 2 don vi truoc, 3 so, 4 don vi sau.
+const SO = /([+\-−–]?)\s*(vnd|vn d|₫)?\s*(\d{1,3}(?:[.,  ]\d{3})+|\d{4,})(?:[.,]\d{1,2}(?!\d))?\s*(vnd|vnđ|vn d|đ|₫|d\b|dong)?/gi;
 
 /**
  * Chon so tien chuyen trong cac dong chu OCR (ham thuan, khong phu thuoc thu vien - de kiem thu). Cham diem: co don vi
@@ -133,7 +136,7 @@ export function tachSoTien(lines: DongChu[]): SoTienDoc {
 
 /** Cac so tien (>= 1.000) co trong 1 chuoi - dung doi chieu lan doc lai. */
 export function cacSoTrong(text: string): number[] {
-  return [...boDau(text).matchAll(SO)].map((m) => Number(m[2].replace(/[^\d]/g, ""))).filter((v) => Number.isFinite(v) && v >= 1000 && v <= 5_000_000_000);
+  return [...boDau(text).matchAll(SO)].map((m) => Number(m[3].replace(/[^\d]/g, ""))).filter((v) => Number.isFinite(v) && v >= 1000 && v <= 5_000_000_000);
 }
 
 /** Nhu tachSoTien, kem vi tri dong chua so (de doc lai dong do). */
@@ -144,7 +147,8 @@ export function chonSoTien(lines: DongChu[]): { giaTri: number; dong: number } |
     if (DONG_LOAI.test(t)) return;
     const truoc = i > 0 ? boDau(lines[i - 1].text) : "";
     for (const m of t.matchAll(SO)) {
-      const [, dau, so, donVi] = m;
+      const [, dau, donViTruoc, so, donViSau] = m;
+      const donVi = donViTruoc || donViSau;
       const coPhanCach = /[.,  ]/.test(so);
       const chuSo = so.replace(/[^\d]/g, "");
       if (!coPhanCach && !donVi && chuSo.length > 7) continue; // so TK / ma GD / so dien thoai
