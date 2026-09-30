@@ -363,6 +363,9 @@ phieuXuatKho.get("/", async (c) => {
           WHERE k.phieu_xuat_kho_id = pxk.id AND k.trang_thai = 'Da duyet') as tien_thuc_chuyen,
        pxk.trang_thai_hien_tai as trang_thai,
        (SELECT COUNT(*) FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = pxk.id) as so_dong,
+       -- Cot "Loai phieu" (2026-09-30) = cac loai de xuat KHAC NHAU cua dong don trong phieu (JSON mang - binh thuong 1
+       -- phan tu vi 1 phieu chi gom 1 loai). Loc/sap xep cot nay dung PXK_COT_LOC.loai_de_xuat (cung quan he).
+       (SELECT json_group_array(DISTINCT lcd.loai_de_xuat) ${PXK_DONG_TU} AND lcd.loai_de_xuat IS NOT NULL) as loai_phieu,
        -- Loai chiet khau "dang duoc huong" cua CA phieu (phan hoi 2026-09-28 "theo loại chiết khấu cao
        -- nhất") = loai co stt LON NHAT trong cac dong (thu tu Settings > Loai chiet khau: Khong CK < Dinh
        -- tu < 200k-500k < Gia KTV < Gia du phong) - vd phieu co ca dong Dinh tu + Gia KTV -> Gia KTV.

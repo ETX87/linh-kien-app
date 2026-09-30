@@ -55,6 +55,22 @@ function khopDongKhaDung(r: DonHangKhaDungRow, q: string): boolean {
 // da vai KTV dau tien tranh toast qua dai.
 // + dong "TRỪ CÔNG NỢ" bi bo khoi file Chuyen kho (2026-09-30): hang da o kho KTV, KTV tra tien giam cong no -> chi
 // hach toan bang "MISA Bán hàng" (tru kho KTV). `ok` = da tai duoc file.
+// "Loại phiếu" (2026-09-30) - badge loai de xuat cua cac dong trong phieu (loai_phieu = JSON mang tu GET /phieu-xuat-kho).
+function LoaiPhieu({ r }: { r: PhieuXuatKhoRow }) {
+  let ds: string[] = [];
+  try {
+    ds = r.loai_phieu ? (JSON.parse(r.loai_phieu) as string[]) : [];
+  } catch {
+    ds = [];
+  }
+  if (!ds.length) return <span className="text-[var(--ink-400)]">—</span>;
+  return (
+    <span className="inline-flex shrink-0 gap-1">
+      {ds.map((l) => <LoaiDeXuatBadge key={l} loaiDon={r.loai_don} loaiDeXuat={l} />)}
+    </span>
+  );
+}
+
 function toastKetQuaMisa(result: MisaExportResult, ok: boolean, addToast: (msg: string) => void) {
   const boQua = result.boQuaTruCongNo ?? [];
   if (boQua.length > 0) {
@@ -563,7 +579,7 @@ export function PhieuXuatKhoTab({
       nguoi_tao: "Người tạo",
       nguoi_nhan_hang: "Người nhận hàng",
       khu_vuc: "Khu vực",
-      loai_de_xuat: "Loại đề xuất",
+      loai_de_xuat: "Loại phiếu",
       yeu_cau_hoa_don: "Yêu cầu hóa đơn",
       loai_chiet_khau: "Loại chiết khấu",
     },
@@ -576,7 +592,8 @@ export function PhieuXuatKhoTab({
     },
   };
   // 3 cot loc KHONG co cot tuong ung tren bang PXK (gia tri nam o cac dong don ben trong / KTV) -> luon hien chip.
-  const LOC_COT_KHONG_CO_COT = ["khu_vuc", "loai_de_xuat", "yeu_cau_hoa_don"];
+  // loai_de_xuat co cot "Loại phiếu" tu 2026-09-30 -> loc ngay tren tieu de cot, khong con chip rieng.
+  const LOC_COT_KHONG_CO_COT = ["khu_vuc", "yeu_cau_hoa_don"];
   const locCotDangAp = Object.keys(locCotCfg.tieuDe).filter((c) => !LOC_COT_KHONG_CO_COT.includes(c) && (locCot.loc[c] || locCot.sapXep?.cot === c));
   const loc = (cot: string) => <LocCotButton cfg={locCotCfg} cot={cot} />;
   const cols: Column<PhieuXuatKhoRow>[] = [
@@ -635,6 +652,9 @@ export function PhieuXuatKhoTab({
           <span className="text-[var(--ink-400)]">—</span>
         ),
     },
+    // "Loại phiếu" (2026-09-30) = loai de xuat cua cac dong don trong phieu (1 phieu chi gom 1 loai) - dat SAU "In phiếu".
+    // key = "loai_de_xuat" de dung lai bo loc/sap xep cot PXK_COT_LOC.loai_de_xuat o backend.
+    { key: "loai_de_xuat", header: "Loại phiếu", filter: loc("loai_de_xuat"), render: (r) => <LoaiPhieu r={r} /> },
     { key: "nguoi_tao", header: "Người tạo", filter: loc("nguoi_tao"), render: (r) => <NguoiTao>{labelKtv(r.nguoi_tao)}</NguoiTao> },
     { key: "nguoi_nhan_hang", header: "Người nhận hàng", filter: loc("nguoi_nhan_hang"), render: (r) => (r.nguoi_nhan_hang ? <NguoiNhan>{labelKtv(r.nguoi_nhan_hang)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>) },
     { key: "ngay_tao", header: "Ngày tạo", render: (r) => fmtDateTime(r.ngay_tao) },
@@ -714,6 +734,7 @@ export function PhieuXuatKhoTab({
         </div>
         <div className="flex items-baseline gap-2 text-xs">
           <span className="min-w-0 flex-1 truncate text-[var(--color-text-body)]">{r.nguoi_nhan_hang ? <NguoiNhan>{labelKtv(r.nguoi_nhan_hang)}</NguoiNhan> : "—"}</span>
+          <LoaiPhieu r={r} />
           <span className="shrink-0 text-[11px] text-[var(--ink-400)]">{fmtDateTime(r.ngay_tao)}</span>
         </div>
         {(viec || chuyenTienCho || coInPhieu) && (

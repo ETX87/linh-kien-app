@@ -201,6 +201,8 @@ export interface PhieuXuatKhoRow {
   // Co PHU rieng cua Kho (migration 0032, phan hoi 2026-09-24: "chờ kho gửi hàng cho ktv, thêm 1 trạng
   // thái phụ là đã in phiếu/ chưa in phiếu") - theo doi thuan tuy, khong anh huong trang_thai_hien_tai.
   da_in_phieu: number;
+  // "Loai phieu" (2026-09-30) - JSON mang loai de xuat khac nhau cua dong don trong phieu (GET /phieu-xuat-kho).
+  loai_phieu?: string | null;
   // Co it nhat 1 dong dat_don_hang ben trong dang uu_tien=1 - danh dau ca PXK de nguoi xu ly biet
   // TRUOC KHI mo chi tiet (phan hoi 2026-08-19: "tất cả các phiếu... có liên quan đến đơn ưu tiên
   // bên trong, cũng tự động tô màu").
