@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from "react";
-import { LoaiChietKhauText, LoaiChietKhauPicker, useLoaiChietKhauList, tenLoaiChietKhau, duocDoiLoaiChietKhau } from "./LoaiChietKhau";
+import { LoaiChietKhauText, LoaiChietKhauPicker, HoaDonGiaNiemYet, coYeuCauHoaDon, useLoaiChietKhauList, tenLoaiChietKhau, duocDoiLoaiChietKhau } from "./LoaiChietKhau";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
@@ -836,11 +836,14 @@ export function DonHangDetailModal({
                 (ca tren mobile, noi khong co cot bang). Don tra hang khong co chiet khau. */}
             {d.loai_don !== "tra_hang" && (
               <KvRow label="Loại chiết khấu">
-                {canTacNghiep && pxk ? (
-                  <LoaiChietKhauPicker don={d} duocDoi={duocDoiLoaiChietKhau(pxk)} />
-                ) : (
-                  <LoaiChietKhauText id={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
-                )}
+                <span className="inline-flex flex-wrap items-center gap-1.5">
+                  {canTacNghiep && pxk ? (
+                    <LoaiChietKhauPicker don={d} duocDoi={duocDoiLoaiChietKhau(pxk)} />
+                  ) : (
+                    <LoaiChietKhauText id={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
+                  )}
+                  <HoaDonGiaNiemYet don={d} />
+                </span>
               </KvRow>
             )}
             {/* Tong dat Mua + TRỪ CÔNG NỢ cua KTV trong NGAY TAO don nay - moc chiet khau (2026-09-28). */}
@@ -2273,7 +2276,16 @@ export function DonHangGroupedList({
     { key: "gia", header: "Giá đề xuất", className: "text-right", render: (row) => (donGiaSauChietKhau(row.d) != null ? <span className="text-[var(--green-700)] font-semibold" title="Đơn giá sau chiết khấu (giá thực cần chuyển tiền)"><Money>{fmtVND(donGiaSauChietKhau(row.d))}</Money></span> : "—") },
     { key: "loai", header: "Loại", filter: loc("loai_de_xuat"), render: (row) => <LoaiDeXuatBadge loaiDon={row.d.loai_don} loaiDeXuat={row.d.loai_de_xuat} /> },
     // Loai chiet khau (2026-09-26) - he thong gan luc tao PXK, TN sua o chi tiet don/chi tiet PXK.
-    { key: "loai_chiet_khau", header: "Loại chiết khấu", render: (row) => <LoaiChietKhauText id={row.d.loai_chiet_khau_id} thuCong={row.d.loai_chiet_khau_thu_cong} /> },
+    {
+      key: "loai_chiet_khau",
+      header: "Loại chiết khấu",
+      render: (row) => (
+        <span className="inline-flex items-center gap-1.5">
+          <LoaiChietKhauText id={row.d.loai_chiet_khau_id} thuCong={row.d.loai_chiet_khau_thu_cong} />
+          <HoaDonGiaNiemYet don={row.d} />
+        </span>
+      ),
+    },
     { key: "yeu_cau_hoa_don", header: "Yêu cầu hóa đơn", filter: loc("yeu_cau_hoa_don"), render: (row) => row.d.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
     {
       key: "trang_thai",
@@ -2447,7 +2459,15 @@ export function DonHangGroupedList({
     gia_niem_yet: { text: (d) => (giaNiemYet(d) != null ? fmtVND(giaNiemYet(d)) : dash) },
     gia: { text: (d) => (donGiaSauChietKhau(d) != null ? fmtVND(donGiaSauChietKhau(d)) : dash), font: `700 12px "Plus Jakarta Sans", "Be Vietnam Pro", sans-serif` },
     loai: { text: (d) => loaiDeXuatText(d.loai_don, d.loai_de_xuat), font: BADGE_FONT, extra: BADGE_PAD, max: 180 },
-    loai_chiet_khau: { text: (d) => (tenLoaiChietKhau(loaiChietKhauList, d.loai_chiet_khau_id) ?? dash) + (d.loai_chiet_khau_thu_cong ? " ✎" : ""), font: BADGE_FONT, extra: BADGE_PAD, max: 280 },
+    loai_chiet_khau: {
+      text: (d) =>
+        (tenLoaiChietKhau(loaiChietKhauList, d.loai_chiet_khau_id) ?? dash) +
+        (d.loai_chiet_khau_thu_cong ? " ✎" : "") +
+        (coYeuCauHoaDon(d.yeu_cau_hoa_don) && d.gia_chot == null ? "     HĐ · giá niêm yết" : ""), // chip HoaDonGiaNiemYet
+      font: BADGE_FONT,
+      extra: BADGE_PAD,
+      max: 360,
+    },
     yeu_cau_hoa_don: { text: (d) => d.yeu_cau_hoa_don || dash, max: 220 },
     trang_thai: {
       text: (d) => {

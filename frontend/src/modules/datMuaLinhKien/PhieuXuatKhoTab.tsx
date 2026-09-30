@@ -26,7 +26,7 @@ import { PxkDongDonHangTable } from "./PxkDongDonHangTable";
 // hàng trong phiếu để mở giao diện UI chi tiết") - tai dung nguyen DonHangDetailModal, dung y het cach
 // ThieuLkTab.tsx da lam (xem comment o do ve import vong an toan trong ESM).
 import { DonHangDetailModal } from "./DonCuaToiTab";
-import { LoaiChietKhauPicker, LoaiChietKhauText, LoaiChietKhauChip, useLoaiChietKhauList, duocDoiLoaiChietKhau, tenLoaiChietKhau } from "./LoaiChietKhau";
+import { LoaiChietKhauPicker, LoaiChietKhauText, LoaiChietKhauChip, HoaDonGiaNiemYet, useLoaiChietKhauList, duocDoiLoaiChietKhau, tenLoaiChietKhau } from "./LoaiChietKhau";
 import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_TIEN_OPTIONS, TRANG_THAI_DOT_TONE, PXK_LOG_ONLY_OPTIONS, PXK_LOG_ONLY_TONE } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
@@ -1154,7 +1154,10 @@ export function PhieuXuatKhoTab({
                               {chonLoaiDon !== "tra_hang" && <span className="shrink-0">{oTienTaoPxk(r)}</span>}
                             </div>
                             {chon && loaiCk && chonLoaiDon !== "tra_hang" && (
-                              <LoaiChietKhauChip loai={loaiCk} title={`${loaiCk.ten} — dự kiến; TN đổi được sau khi tạo phiếu`} />
+                              <span className="inline-flex flex-wrap items-center gap-1.5">
+                                <LoaiChietKhauChip loai={loaiCk} title={`${loaiCk.ten} — dự kiến; TN đổi được sau khi tạo phiếu`} />
+                                <HoaDonGiaNiemYet don={r} />
+                              </span>
                             )}
                           </div>
                         </div>
@@ -1218,7 +1221,10 @@ export function PhieuXuatKhoTab({
                             {chonLoaiDon !== "tra_hang" && (
                               <td className="px-2.5 py-2">
                                 {chon && loaiCk ? (
-                                  <LoaiChietKhauChip loai={loaiCk} title={`${loaiCk.ten} — dự kiến; TN đổi được sau khi tạo phiếu`} />
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <LoaiChietKhauChip loai={loaiCk} title={`${loaiCk.ten} — dự kiến; TN đổi được sau khi tạo phiếu`} />
+                                    <HoaDonGiaNiemYet don={r} />
+                                  </span>
                                 ) : (
                                   <span className="text-[var(--ink-400)]">—</span>
                                 )}

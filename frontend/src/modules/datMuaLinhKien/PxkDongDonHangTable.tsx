@@ -7,7 +7,7 @@ import { Money } from "../../components/ui/Money";
 import { api, ApiError } from "../../api/client";
 import { fmtDateTime, fmtVND } from "../../types";
 import type { DonHangRow, LyDoChamRow } from "./types";
-import { LoaiChietKhauPicker, LoaiChietKhauText, duocDoiLoaiChietKhau } from "./LoaiChietKhau";
+import { LoaiChietKhauPicker, LoaiChietKhauText, HoaDonGiaNiemYet, duocDoiLoaiChietKhau } from "./LoaiChietKhau";
 import { describeApiError, invalidatePipelineCounts, laTruCongNo } from "./helpers";
 import { LoaiDeXuatBadge } from "./SharedUi";
 
@@ -204,10 +204,15 @@ export function PxkDongDonHangTable({
 
   // Loai chiet khau (2026-09-26) - TN chon lai/them loai moi ngay tai day.
   function oLoaiChietKhau(d: DonHangRow): ReactNode {
-    return canTacNghiep ? (
-      <LoaiChietKhauPicker don={d} duocDoi={duocDoiLoaiChietKhau(pxk)} />
-    ) : (
-      <LoaiChietKhauText id={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
+    return (
+      <span className="inline-flex max-w-full min-w-0 items-center gap-1.5">
+        {canTacNghiep ? (
+          <LoaiChietKhauPicker don={d} duocDoi={duocDoiLoaiChietKhau(pxk)} />
+        ) : (
+          <LoaiChietKhauText id={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
+        )}
+        <HoaDonGiaNiemYet don={d} />
+      </span>
     );
   }
 

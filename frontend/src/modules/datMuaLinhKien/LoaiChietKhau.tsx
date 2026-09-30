@@ -67,6 +67,31 @@ export function LoaiChietKhauChip({ loai, title, children }: { loai: Pick<LoaiCh
   );
 }
 
+// Ban sao coYeuCauHoaDon() cua backend lib/pxkRecalculate.ts (nguon that, chot 2026-09-29): "Yêu cầu hóa đơn" khac
+// trong / khac "Không" -> dong tinh GIA NIEM YET, khong huong chiet khau nao.
+export function coYeuCauHoaDon(v: string | null | undefined): boolean {
+  const t = (v ?? "").trim().normalize("NFC").toLowerCase();
+  return t !== "" && t !== "không" && t !== "khong";
+}
+
+// Ly do dong khong duoc chiet khau (2026-09-30, phan hoi PMH-000106 "sao MUA HÀNG CÓ ID không được tính chiết khấu"):
+// hien canh loai chiet khau khi dong co yeu cau hoa don. Chi dong tinh tien nhu don mua (mua + TRỪ CÔNG NỢ) va
+// CHUA co gia chot tay (gia chot thang moi cong thuc). Rê chuot xem giai thich day du.
+export function HoaDonGiaNiemYet({ don }: {
+  don: { yeu_cau_hoa_don?: string | null; loai_don?: string | null; loai_de_xuat?: string | null; gia_chot?: number | null };
+}) {
+  const tinhNhuMua = don.loai_don === "mua" || laTruCongNo(don.loai_de_xuat);
+  if (!tinhNhuMua || don.gia_chot != null || !coYeuCauHoaDon(don.yeu_cau_hoa_don)) return null;
+  return (
+    <span
+      title={`Đơn có yêu cầu hóa đơn ("${don.yeu_cau_hoa_don}") → tính giá niêm yết, không hưởng chiết khấu (Đình tủ, bậc thang, giá KTV, dự phòng).`}
+      className="inline-flex shrink-0 items-center whitespace-nowrap rounded-[var(--radius-badge)] bg-[var(--color-neutral-soft)] px-2 py-[3px] text-[11px] font-semibold leading-none text-[var(--color-text-secondary)]"
+    >
+      HĐ · giá niêm yết
+    </span>
+  );
+}
+
 const TIP_THU_CONG = "TN đã chọn lại loại chiết khấu này";
 const TIP_TU_DONG = "Hệ thống tự gán theo phiếu xuất kho";
 

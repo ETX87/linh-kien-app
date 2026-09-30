@@ -214,6 +214,7 @@ export interface DonHangKhaDungRow {
   ma_lk: string;
   ma_yeu_cau_su_co?: string | null;
   ma_lada?: string | null;
+  yeu_cau_hoa_don?: string | null;
   ten_lk_snapshot: string | null;
   so_luong_de_xuat: number;
   gia_chot: number | null;
