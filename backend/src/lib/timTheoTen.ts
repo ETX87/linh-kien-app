@@ -15,6 +15,35 @@ export function boDau(s: string): string {
     .replace(/\s+/g, " ");
 }
 
+// Chu cai goc cua 1 ky tu (bo dau thanh/dau mu, đ -> d).
+function goc(ch: string): string {
+  return ch.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d");
+}
+function chuan(s: string): string {
+  return s.normalize("NFC").toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+/**
+ * `text` co chua `q`? q rong -> true. Ky tu KHONG dau trong q khop moi bien the co dau ("le" -> "Lê", "lẻ", "Telesale");
+ * ky tu CO dau phai khop DUNG dau (sua 2026-09-30, phan hoi go "lẻ" ra ca "Telesale"/"Lê Thị Hường") - go "lẻ" chi ra
+ * "Khách hàng lẻ", go "nguyễn van" khop "Nguyễn Văn". Ban sao cua frontend/src/lib/boDau.ts - doi 1 ben doi ca 2.
+ */
+export function khopTim(text: string | null | undefined, q: string): boolean {
+  const qq = chuan(q);
+  if (!qq) return true;
+  if (!text) return false;
+  const Q = [...qq];
+  if (Q.every((c) => goc(c) === c)) return boDau(text).includes(boDau(q));
+  const T = [...chuan(text)];
+  const Tg = T.map(goc);
+  for (let i = 0; i + Q.length <= T.length; i++) {
+    let dung = true;
+    for (let j = 0; j < Q.length && dung; j++) dung = goc(Q[j]) === Q[j] ? Tg[i + j] === Q[j] : T[i + j] === Q[j];
+    if (dung) return true;
+  }
+  return false;
+}
+
 /**
  * Email (dang nhap) cua moi nguoi co ten/ma khop `q` (khong dau, khong phan biet hoa/thuong): KTV theo
  * ktv_lien_he.ten_hien_thi/ma_ktv, nhan vien van phong theo users.ten/ten_misa. Tra [] neu q qua ngan.
@@ -27,8 +56,8 @@ export async function emailsTheoTen(db: D1Database, q: string): Promise<string[]
     db.prepare("SELECT email, ten, ten_misa FROM users").all<{ email: string; ten: string | null; ten_misa: string | null }>(),
   ]);
   const out = new Set<string>();
-  for (const r of ktv.results) if ([r.ten_hien_thi, r.ma_ktv].some((v) => v && boDau(v).includes(key))) out.add(r.email);
-  for (const r of users.results) if ([r.ten, r.ten_misa].some((v) => v && boDau(v).includes(key))) out.add(r.email);
+  for (const r of ktv.results) if ([r.ten_hien_thi, r.ma_ktv].some((v) => v && khopTim(v, q))) out.add(r.email);
+  for (const r of users.results) if ([r.ten, r.ten_misa].some((v) => v && khopTim(v, q))) out.add(r.email);
   return [...out];
 }
 
@@ -37,7 +66,7 @@ export async function maKtvTheoTen(db: D1Database, q: string): Promise<string[]>
   const key = boDau(q);
   if (key.length < 2) return [];
   const { results } = await db.prepare("SELECT ma_ktv, ten_hien_thi FROM ktv_lien_he").all<{ ma_ktv: string; ten_hien_thi: string | null }>();
-  return results.filter((r) => [r.ten_hien_thi, r.ma_ktv].some((v) => v && boDau(v).includes(key))).map((r) => r.ma_ktv);
+  return results.filter((r) => [r.ten_hien_thi, r.ma_ktv].some((v) => v && khopTim(v, q))).map((r) => r.ma_ktv);
 }
 
 /**
