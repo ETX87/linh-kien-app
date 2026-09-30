@@ -34,12 +34,13 @@ export interface LinhKienXetDuyetRow {
   ten_linh_kien: string;
   trang_thai_ma: string;
   ma_chuan: string | null;
+  don_vi: string | null; // "Phân loại" (bat buoc khi xac nhan, 2026-09-30)
   co_tren_gia88: number;
 }
 
 export async function docLk(db: D1Database, ma: string): Promise<LinhKienXetDuyetRow | null> {
   return db
-    .prepare("SELECT ma_linh_kien, ten_linh_kien, trang_thai_ma, ma_chuan, co_tren_gia88 FROM linh_kien WHERE ma_linh_kien = ?")
+    .prepare("SELECT ma_linh_kien, ten_linh_kien, trang_thai_ma, ma_chuan, co_tren_gia88, don_vi FROM linh_kien WHERE ma_linh_kien = ?")
     .bind(ma)
     .first<LinhKienXetDuyetRow>();
 }

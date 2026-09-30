@@ -538,12 +538,25 @@ interface MisaKhoSettingsData {
   // misaExport.ts loadKhoSettings().
   misa_ma_kho_xk_mien_bac: string;
   misa_ma_kho_xk_mien_nam: string;
+  // Kho ky gui hang moi KRF cho LK phan loai "Máy" (migration 0059, 2026-09-30) - tru dong TRỪ CÔNG NỢ.
+  misa_ma_kho_may_mien_bac: string;
+  misa_ten_kho_may_mien_bac: string;
+  misa_ma_kho_may_mien_nam: string;
+  misa_ten_kho_may_mien_nam: string;
 }
 
 const EMPTY_MISA_KHO_SETTINGS: MisaKhoSettingsData = {
   misa_ma_kho_mien_bac: "", misa_ten_kho_mien_bac: "", misa_ma_kho_mien_nam: "", misa_ten_kho_mien_nam: "",
   misa_ma_kho_xk_mien_bac: "", misa_ma_kho_xk_mien_nam: "",
+  misa_ma_kho_may_mien_bac: "", misa_ten_kho_may_mien_bac: "", misa_ma_kho_may_mien_nam: "", misa_ten_kho_may_mien_nam: "",
 };
+
+const KHO_MAY_FIELDS: { key: keyof MisaKhoSettingsData; label: string }[] = [
+  { key: "misa_ma_kho_may_mien_bac", label: "Mã kho Máy — Miền Bắc" },
+  { key: "misa_ten_kho_may_mien_bac", label: "Tên kho Máy — Miền Bắc" },
+  { key: "misa_ma_kho_may_mien_nam", label: "Mã kho Máy — Miền Nam" },
+  { key: "misa_ten_kho_may_mien_nam", label: "Tên kho Máy — Miền Nam" },
+];
 
 // Ma/Ten kho mac dinh theo mien Bac/Nam (them 2026-09-02, xem CLAUDE.md muc xuat MISA) - dung de dien
 // cot "Mã kho" khi xuat file import MISA tu Phieu xuat kho (lib/misaExport.ts). Mien suy tu
@@ -627,6 +640,20 @@ function MisaKhoSettings() {
               className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
           </label>
+          <div className="col-span-2 pt-2 border-t border-[var(--line)] text-xs text-[var(--ink-500)]">
+            Linh kiện có Phân loại <b>"Máy"</b> xuất từ kho dưới đây (mọi mẫu file, trừ dòng "Trừ công nợ" vẫn trừ kho của
+            KTV). Để trống thì dùng kho theo miền ở trên.
+          </div>
+          {KHO_MAY_FIELDS.map((f) => (
+            <label key={f.key} className="text-xs space-y-1">
+              <div className="text-[var(--ink-500)]">{f.label}</div>
+              <input
+                value={current[f.key]}
+                onChange={(e) => setForm({ ...current, [f.key]: e.target.value })}
+                className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              />
+            </label>
+          ))}
         </div>
       )}
       {form && (

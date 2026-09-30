@@ -93,6 +93,16 @@ interface BulkImportCatalogChunkResult {
   success: number; errorCount: number;
   details: { ma_linh_kien: string; status: string }[];
 }
+const CHUA_PHAN_LOAI = "__CHUA_PHAN_LOAI__";
+
+// Nhan de doc cho ket qua nhap danh muc (status backend POST /settings/linh-kien/bulk-import).
+const TRANG_THAI_IMPORT_LK: Record<string, string> = {
+  thieu_ma: "thiếu mã",
+  ma_moi_thieu_ten: "mã mới thiếu tên",
+  ma_moi_thieu_phan_loai: "mã mới thiếu Phân loại (bắt buộc)",
+  thanh_cong_loi_anh: "đã lưu, lỗi tải ảnh",
+  loi_ghi_db: "lỗi ghi dữ liệu",
+};
 function pickField(raw: Record<string, unknown>, keys: string[]): unknown {
   for (const k of keys) if (raw[k] != null && raw[k] !== "") return raw[k];
   return null;
@@ -354,7 +364,7 @@ function PartDetailDrawer({
       { label: "Giá dự phòng", value: <span className="font-mono text-[var(--ink-600)]"><Money>{fmtVND(part.gia_du_phong)}</Money></span> },
       { label: "Giá EU", value: <span className="font-mono text-[var(--ink-600)]"><Money>{fmtVND(part.gia_eu)}</Money></span> },
     ]),
-    { label: "Phân loại", value: part.don_vi ?? "—" },
+    { label: "Phân loại", value: part.don_vi?.trim() || "⚠ Chưa phân loại — cần bổ sung" },
     ...(part.nhan_hang?.trim() ? [{ label: "Nhãn hàng", value: part.nhan_hang.trim() }] : []),
     ...(part.thiet_bi?.trim() ? [{ label: "Thiết bị", value: part.thiet_bi.trim() }] : []),
     ...(part.don_vi_nhap?.trim() ? [{ label: "Đơn vị nhập", value: part.don_vi_nhap.trim() }] : []),
@@ -508,6 +518,8 @@ function DanhMucTab() {
   // "Trạng thái mã" (xet duyet ma chuan, migration 0053). Mac dinh "" = an dong chuyen huong "Da doi ma"; Mua hang/Admin
   // mo Bang gia khi co LK cho duyet -> mac dinh loc "Cho xet duyet" (khop so dem tren Sidebar).
   const [filterTrangThaiMa, setFilterTrangThaiMa] = useState("");
+  // Loc Phan loai (2026-09-30): "" tat ca, CHUA_PHAN_LOAI = LK chua co phan loai (ma moi dong bo gia88), con lai = dung gia tri.
+  const [filterPhanLoai, setFilterPhanLoai] = useState("");
   // SUA (phan hoi 2026-08-20: "giao diện tạo mới đang khác giao diện chỉnh sửa, chuyển về chung 1
   // giao diện chuẩn (có thêm ảnh)") - gop addOpen/editOpen thanh 1 formMode duy nhat, dung chung 1
   // Modal ben duoi cho ca 2 che do (khac KtvTab.editing van dung union type row|"new"|null vi can
@@ -551,6 +563,11 @@ function DanhMucTab() {
     for (const p of parts?.rows ?? []) m.set(p.ma_linh_kien, taoChiMucTim(`${p.ten_linh_kien} ${p.ma_linh_kien}`));
     return m;
   }, [parts?.rows]);
+  // LK CHUA phan loai (gia88 dong bo ma moi khong co "Phân loại") - canh bao cho moi nguoi (chot 2026-09-30).
+  const soChuaPhanLoai = useMemo(
+    () => (parts?.rows ?? []).filter((p) => p.trang_thai_ma !== "Da doi ma" && !p.don_vi?.trim()).length,
+    [parts?.rows],
+  );
   const soChoXetDuyet = useMemo(() => (parts?.rows ?? []).filter((p) => p.trang_thai_ma === "Cho xet duyet").length, [parts?.rows]);
   // Mua hang/Admin mo Bang gia luc con LK cho duyet -> loc san "Cho xet duyet" (1 lan, nguoi dung doi lai thoai mai).
   const daLocMacDinh = useRef(false);
@@ -581,9 +598,10 @@ function DanhMucTab() {
     if (filterChiSuaChua) rows = rows.filter((p) => (filterChiSuaChua === "true" ? !!p.chi_sua_chua : !p.chi_sua_chua));
     if (filterBatTat) rows = rows.filter((p) => (filterBatTat === "true" ? !!p.bat_tat : !p.bat_tat));
     if (filterCamBan) rows = rows.filter((p) => (filterCamBan === "true" ? !!p.cam_ban : !p.cam_ban));
+    if (filterPhanLoai) rows = rows.filter((p) => (filterPhanLoai === CHUA_PHAN_LOAI ? !p.don_vi?.trim() : p.don_vi === filterPhanLoai));
     rows = filterTrangThaiMa ? rows.filter((p) => (p.trang_thai_ma ?? "Da xac nhan") === filterTrangThaiMa) : rows.filter((p) => p.trang_thai_ma !== "Da doi ma");
     return rows;
-  }, [parts?.rows, chiMuc, search, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan, filterTrangThaiMa]);
+  }, [parts?.rows, chiMuc, search, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan, filterTrangThaiMa, filterPhanLoai]);
 
   // "Phân loại" (doi ten tu "Đơn vị", phan hoi 2026-08-20) dang listdown NHUNG van cho go gia tri
   // moi (chon "tu dong gom tu du lieu hien co", khong phai danh sach co dinh quan ly rieng) - gop
@@ -715,7 +733,9 @@ function DanhMucTab() {
       addToast(
         err instanceof ApiError && err.code === "MA_DA_TON_TAI"
           ? `Mã ${form.ma_linh_kien.trim()} đã có trong danh mục (kể cả mã đã đổi/gộp sang mã khác) - dùng mã khác.`
-          : "Không thể thêm linh kiện.",
+          : err instanceof ApiError && err.code === "THIEU_PHAN_LOAI"
+            ? "Bắt buộc chọn Phân loại linh kiện."
+            : "Không thể thêm linh kiện.",
       ),
   });
 
@@ -855,7 +875,11 @@ function DanhMucTab() {
         return soLan ? <span className="font-mono text-xs">{soLan}</span> : <span className="text-xs text-[var(--ink-400)]">—</span>;
       },
     },
-    { key: "don_vi", header: "Phân loại", render: (p) => <span className="text-xs">{p.don_vi ?? "—"}</span> },
+    {
+      key: "don_vi",
+      header: "Phân loại",
+      render: (p) => (p.don_vi?.trim() ? <span className="text-xs">{p.don_vi}</span> : <Badge tone="amber">Chưa phân loại</Badge>),
+    },
     { key: "anh_demo", header: "Ảnh minh hoạ", render: (p) => <AnhThumbnail url={p.anh_demo} active={!!p.bat_tat} /> },
     { key: "ghi_chu", header: "Ghi chú", render: (p) => <span className="text-xs text-[var(--ink-600)]">{p.ghi_chu ?? "—"}</span> },
     {
@@ -1019,6 +1043,19 @@ function DanhMucTab() {
         </div>
       </div>
 
+      {soChuaPhanLoai > 0 && (
+        <div className="mb-3 flex items-center gap-2 flex-wrap rounded-xl border border-[var(--color-warning)] bg-[var(--color-warning-soft)] px-3 py-2 text-sm text-[var(--color-warning-strong)]">
+          <span>
+            ⚠ <b>{soChuaPhanLoai}</b> linh kiện <b>chưa có Phân loại</b> (thường là mã mới đồng bộ về). Phân loại quyết định kho
+            xuất trong file MISA (vd "Máy") — cần bổ sung.
+          </span>
+          {filterPhanLoai !== CHUA_PHAN_LOAI && (
+            <Btn size="sm" variant="ghost" onClick={() => { setFilterPhanLoai(CHUA_PHAN_LOAI); setFilterTrangThaiMa(""); setPage(1); }}>
+              Xem danh sách
+            </Btn>
+          )}
+        </div>
+      )}
       <div className="flex items-center gap-2 flex-wrap mb-3">
         <input
           value={search}
@@ -1043,6 +1080,18 @@ function DanhMucTab() {
         <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
           <span>Cấm bán:</span>
           <Select value={filterCamBan} onChange={(v) => { setFilterCamBan(v); setPage(1); }} options={BOOL_FILTER_OPTIONS} />
+        </div>
+        <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
+          <span>Phân loại:</span>
+          <Select
+            value={filterPhanLoai}
+            onChange={(v) => { setFilterPhanLoai(v); setPage(1); }}
+            options={[
+              { value: "", label: "Tất cả" },
+              { value: CHUA_PHAN_LOAI, label: `Chưa phân loại${soChuaPhanLoai ? ` (${soChuaPhanLoai})` : ""}` },
+              ...phanLoaiOptions.map((v) => ({ value: v, label: v })),
+            ]}
+          />
         </div>
         <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
           <span>Trạng thái mã:</span>
@@ -1170,7 +1219,10 @@ function DanhMucTab() {
             </div>
           )}
           <div>
-            <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Phân loại</label>
+            {/* BAT BUOC (chot 2026-09-30): "Máy" quyet dinh kho xuat trong file MISA (backend lib/misaExport.ts). */}
+            <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">
+              Phân loại <span className="text-[var(--color-danger)]">*</span>
+            </label>
             <input
               value={form.don_vi}
               onChange={(e) => setForm({ ...form, don_vi: e.target.value })}
@@ -1178,6 +1230,7 @@ function DanhMucTab() {
               placeholder="Chọn có sẵn hoặc gõ phân loại mới..."
               className="focus-ring w-full mt-1 border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
+            {!form.don_vi.trim() && <div className="mt-1 text-[11px] text-[var(--color-danger)]">Bắt buộc chọn phân loại linh kiện.</div>}
             <datalist id="danh-muc-lk-phan-loai-options">
               {phanLoaiOptions.map((v) => (
                 <option key={v} value={v} />
@@ -1247,11 +1300,11 @@ function DanhMucTab() {
               Hủy
             </Btn>
             {formMode === "add" ? (
-              <Btn onClick={() => addMutation.mutate()} disabled={!form.ma_linh_kien.trim() || !form.ten_linh_kien.trim() || addMutation.isPending || uploadingAnh}>
+              <Btn onClick={() => addMutation.mutate()} disabled={!form.ma_linh_kien.trim() || !form.ten_linh_kien.trim() || !form.don_vi.trim() || addMutation.isPending || uploadingAnh}>
                 Thêm
               </Btn>
             ) : (
-              <Btn onClick={() => editMutation.mutate()} disabled={!form.ten_linh_kien.trim() || editMutation.isPending}>
+              <Btn onClick={() => editMutation.mutate()} disabled={!form.ten_linh_kien.trim() || !form.don_vi.trim() || editMutation.isPending}>
                 Lưu
               </Btn>
             )}
@@ -1350,7 +1403,7 @@ function DanhMucTab() {
               {catalogImportFailDetails.length > 0 && (
                 <div className="max-h-40 overflow-y-auto border border-[var(--line)] rounded-lg p-2 text-xs font-mono space-y-0.5">
                   {catalogImportFailDetails.map((d, i) => (
-                    <div key={i}>{d.ma_linh_kien}: {d.status}</div>
+                    <div key={i}>{d.ma_linh_kien}: {TRANG_THAI_IMPORT_LK[d.status] ?? d.status}</div>
                   ))}
                 </div>
               )}

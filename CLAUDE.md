@@ -487,6 +487,13 @@ PATCH `/:id/ma-xuat-kho`) trả mã của phiếu "Ke toan huy" về ID của n�
 → `DoiLoaiChietKhauNhieuDon`; popup 1 đơn có "Áp dụng cho cả N đơn khác" (`dongKhac`) — cùng `doiLoaiChietKhauCacDon()` (gọi tuần tự
 endpoint 1 đơn; "Có" = giá theo công thức `giaGoiY`).
 
+**Phân loại linh kiện + kho "Máy"** (chốt 2026-09-30, migration `0059`): "Phân loại" = cột `linh_kien.don_vi` (listdown tự do).
+BẮT BUỘC khi tạo (`POST /settings/linh-kien`, `/lk-settings/danh-muc`, import mã mới → `ma_moi_thieu_phan_loai`), khi xác nhận mã
+(`/xac-nhan` nhận `phan_loai`, LK chưa có → `THIEU_PHAN_LOAI`), PATCH không xoá được. LK gia88 đồng bộ về chưa có phân loại →
+Bảng giá hiện cảnh báo + bộ lọc "Chưa phân loại". File MISA: dòng LK phân loại "Máy" (`laPhanLoaiMay`) dùng kho ký gửi KRF theo
+miền (`app_settings.misa_ma_kho_may_mien_*`, Cài đặt › Mã kho mặc định) thay kho công ty — ở cột "Mã kho" (Bán hàng/Xuất kho)
+và "Nhập tại kho" (Chuyển kho); dòng TRỪ CÔNG NỢ vẫn trừ kho KTV.
+
 **Thứ tự tên hiển thị người dùng** (chốt 2026-09-30, `lib/tenNguoi.ts`): Tên hiển thị KTV (danh bạ) → Tên MISA (KTV, rồi
 `users.ten_misa`) → tên Google (`users.ten`) → email. `/api/auth/nguoi-directory` trả sẵn theo thứ tự này (FE
 `formatPersonDisplay` giữ `ktv ?? users ?? email`); SQL dùng `tenNguoiSql`/`tenNguoiNullSql` (sắp xếp cột người `locCot`,

@@ -71,6 +71,8 @@ settingsDatMua.post("/linh-kien", linhKienWriteRoles, async (c) => {
     phan_loai_dac_thu?: string;
   }>();
   if (!body.ma_linh_kien?.trim() || !body.ten_linh_kien?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
+  // Phan loai BAT BUOC (chot 2026-09-30 - "Máy" quyet dinh kho xuat trong file MISA).
+  if (!body.don_vi?.trim()) return c.json({ error: "THIEU_PHAN_LOAI" }, 400);
   // Ma da co (ke ca ma da doi/gop sang ma khac - dong chuyen huong) -> bao ro thay vi loi ghi DB chung chung.
   const trung = await docLk(c.env.DB, body.ma_linh_kien.trim());
   if (trung) return c.json({ error: "MA_DA_TON_TAI", ma_linh_kien: trung.ma_linh_kien, ten_linh_kien: trung.ten_linh_kien, trang_thai_ma: trung.trang_thai_ma, ma_chuan: trung.ma_chuan }, 409);
@@ -115,7 +117,8 @@ settingsDatMua.patch("/linh-kien/:ma", suaLinhKienRoles, async (c) => {
   const dacThuNext = body.dac_thu !== undefined ? (body.dac_thu ? 1 : 0) : existing.dac_thu;
   const next = {
     bat_tat: body.bat_tat !== undefined ? (body.bat_tat ? 1 : 0) : existing.bat_tat,
-    don_vi: body.don_vi !== undefined ? body.don_vi?.trim() || null : existing.don_vi,
+    // Phan loai bat buoc (2026-09-30): khong cho XOA phan loai da co (LK gia88 chua phan loai van sua truong khac duoc).
+    don_vi: body.don_vi?.trim() ? body.don_vi.trim() : existing.don_vi,
     ghi_chu: body.ghi_chu !== undefined ? body.ghi_chu?.trim() || null : existing.ghi_chu,
     anh_demo: body.anh_demo !== undefined ? body.anh_demo?.trim() || null : existing.anh_demo,
     dac_thu: dacThuNext,
@@ -176,11 +179,14 @@ settingsDatMua.get("/linh-kien/:ma/xet-duyet", async (c) => {
 // MA_DA_TON_TAI, FE goi y "Gop vao ma nay" qua /gop).
 settingsDatMua.post("/linh-kien/:ma/xac-nhan", muaHangRoles, async (c) => {
   const ma = c.req.param("ma");
-  const body = await c.req.json<{ ma_moi?: string; ten_moi?: string }>();
+  const body = await c.req.json<{ ma_moi?: string; ten_moi?: string; phan_loai?: string }>();
   const user = c.get("user");
   const lk = await docLk(c.env.DB, ma);
   if (!lk) return c.json({ error: "NOT_FOUND" }, 404);
   if (lk.trang_thai_ma !== TT_MA.CHO) return c.json({ error: "KHONG_CON_CHO_DUYET", trang_thai_ma: lk.trang_thai_ma }, 409);
+  // Phan loai BAT BUOC khi xac nhan (chot 2026-09-30): gui kem phan_loai (doi) hoac LK phai co san.
+  const phanLoai = body.phan_loai?.trim() || lk.don_vi?.trim() || "";
+  if (!phanLoai) return c.json({ error: "THIEU_PHAN_LOAI" }, 400);
   const maMoi = body.ma_moi?.trim() || ma;
   const tenMoi = body.ten_moi?.trim() || lk.ten_linh_kien;
   if (/\s/.test(maMoi)) return c.json({ error: "MA_KHONG_HOP_LE" }, 400);
@@ -189,8 +195,8 @@ settingsDatMua.post("/linh-kien/:ma/xac-nhan", muaHangRoles, async (c) => {
   if (maMoi === ma) {
     const now = nowVN();
     await c.env.DB.batch([
-      c.env.DB.prepare("UPDATE linh_kien SET ten_linh_kien = ?, trang_thai_ma = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?")
-        .bind(tenMoi, TT_MA.DA_XAC_NHAN, user.email, now, ma),
+      c.env.DB.prepare("UPDATE linh_kien SET ten_linh_kien = ?, don_vi = ?, trang_thai_ma = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?")
+        .bind(tenMoi, phanLoai, TT_MA.DA_XAC_NHAN, user.email, now, ma),
       ...(tenMoi !== lk.ten_linh_kien ? [c.env.DB.prepare("UPDATE dat_don_hang SET ten_lk_snapshot = ? WHERE ma_lk = ?").bind(tenMoi, ma)] : []),
       logLk(c.env.DB, { ma, hanhDong: "Xac nhan", tenCu: lk.ten_linh_kien, tenMoi: tenMoi !== lk.ten_linh_kien ? tenMoi : null, soDon, nguoi: user.email }),
     ]);
@@ -198,6 +204,7 @@ settingsDatMua.post("/linh-kien/:ma/xac-nhan", muaHangRoles, async (c) => {
     const trung = await docLk(c.env.DB, maMoi);
     if (trung) return c.json({ error: "MA_DA_TON_TAI", ma_linh_kien: trung.ma_linh_kien, ten_linh_kien: trung.ten_linh_kien, trang_thai_ma: trung.trang_thai_ma, ma_chuan: trung.ma_chuan }, 409);
     await chuyenMaLk(c.env.DB, { maNguon: ma, maDich: maMoi, tenNguon: lk.ten_linh_kien, taoMoi: { ten: tenMoi }, hanhDong: "Doi ma", soDon, nguoi: user.email });
+    await c.env.DB.prepare("UPDATE linh_kien SET don_vi = ? WHERE ma_linh_kien = ?").bind(phanLoai, maMoi).run();
   }
   await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
   if (soDon) c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
@@ -465,6 +472,12 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
     if (!tenMoi && !existingRow) {
       errorCount++;
       details.push({ ma_linh_kien: ma, status: "ma_moi_thieu_ten" });
+      continue;
+    }
+    // Phan loai BAT BUOC cho ma MOI (chot 2026-09-30 - vd "Máy" quyet dinh kho xuat trong file MISA, lib/misaExport.ts).
+    if (!existingRow && !row.don_vi?.trim()) {
+      errorCount++;
+      details.push({ ma_linh_kien: ma, status: "ma_moi_thieu_phan_loai" });
       continue;
     }
     const ten = tenMoi ?? existingRow!.ten_linh_kien;
@@ -899,6 +912,8 @@ settingsDatMua.patch("/khu-vuc/:ma/gs", adminOnly, async (c) => {
 const MISA_KHO_KEYS = [
   "misa_ma_kho_mien_bac", "misa_ten_kho_mien_bac", "misa_ma_kho_mien_nam", "misa_ten_kho_mien_nam",
   "misa_ma_kho_xk_mien_bac", "misa_ma_kho_xk_mien_nam",
+  // Kho ky gui hang moi KRF cho LK phan loai "Máy" (migration 0059, chot 2026-09-30).
+  "misa_ma_kho_may_mien_bac", "misa_ten_kho_may_mien_bac", "misa_ma_kho_may_mien_nam", "misa_ten_kho_may_mien_nam",
 ] as const;
 
 settingsDatMua.get("/app-settings", async (c) => {
@@ -916,6 +931,10 @@ settingsDatMua.get("/app-settings", async (c) => {
     misa_ten_kho_mien_nam: byKey.get("misa_ten_kho_mien_nam") ?? "",
     misa_ma_kho_xk_mien_bac: byKey.get("misa_ma_kho_xk_mien_bac") ?? "",
     misa_ma_kho_xk_mien_nam: byKey.get("misa_ma_kho_xk_mien_nam") ?? "",
+    misa_ma_kho_may_mien_bac: byKey.get("misa_ma_kho_may_mien_bac") ?? "",
+    misa_ten_kho_may_mien_bac: byKey.get("misa_ten_kho_may_mien_bac") ?? "",
+    misa_ma_kho_may_mien_nam: byKey.get("misa_ma_kho_may_mien_nam") ?? "",
+    misa_ten_kho_may_mien_nam: byKey.get("misa_ten_kho_may_mien_nam") ?? "",
   });
 });
 
@@ -927,6 +946,8 @@ settingsDatMua.patch("/app-settings", adminOnly, async (c) => {
     nen_anh_tra_hang?: boolean; misa_ma_kho_mien_bac?: string; misa_ten_kho_mien_bac?: string;
     misa_ma_kho_mien_nam?: string; misa_ten_kho_mien_nam?: string;
     misa_ma_kho_xk_mien_bac?: string; misa_ma_kho_xk_mien_nam?: string;
+    misa_ma_kho_may_mien_bac?: string; misa_ten_kho_may_mien_bac?: string;
+    misa_ma_kho_may_mien_nam?: string; misa_ten_kho_may_mien_nam?: string;
   }>();
   const user = c.get("user");
   const updates: Array<[string, string]> = [];

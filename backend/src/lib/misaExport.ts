@@ -173,17 +173,26 @@ function mienFromKhuVuc(khuVucMa: string | null): "bac" | "nam" | null {
   return null;
 }
 
-async function loadKhoSettings(db: Env["DB"]): Promise<Record<"bac" | "nam", { ma: string; ten: string }>> {
+type KhoTheoMien = Record<"bac" | "nam", { ma: string; ten: string }>;
+
+// `prefix` "misa_ma_kho_" = kho cong ty theo mien; "misa_ma_kho_may_" = kho ky gui hang moi KRF cho LK phan loai "Máy"
+// (migration 0059, chot 2026-09-30).
+async function loadKhoSettings(db: Env["DB"], loai: "" | "may_" = ""): Promise<KhoTheoMien> {
+  const k = (x: "ma" | "ten", mien: "bac" | "nam") => `misa_${x}_kho_${loai}mien_${mien}`;
   const { results } = await db
     .prepare("SELECT key, value FROM app_settings WHERE key IN (?, ?, ?, ?)")
-    .bind("misa_ma_kho_mien_bac", "misa_ten_kho_mien_bac", "misa_ma_kho_mien_nam", "misa_ten_kho_mien_nam")
+    .bind(k("ma", "bac"), k("ten", "bac"), k("ma", "nam"), k("ten", "nam"))
     .all<{ key: string; value: string }>();
   const map = new Map(results.map((r) => [r.key, r.value]));
   return {
-    bac: { ma: map.get("misa_ma_kho_mien_bac") || "", ten: map.get("misa_ten_kho_mien_bac") || "" },
-    nam: { ma: map.get("misa_ma_kho_mien_nam") || "", ten: map.get("misa_ten_kho_mien_nam") || "" },
+    bac: { ma: map.get(k("ma", "bac")) || "", ten: map.get(k("ten", "bac")) || "" },
+    nam: { ma: map.get(k("ma", "nam")) || "", ten: map.get(k("ten", "nam")) || "" },
   };
 }
+
+// LK phan loai "Máy" (linh_kien.don_vi - cot "Phân loại") xuat tu kho ky gui KRF theo mien thay kho cong ty (chot
+// 2026-09-30); dong "TRỪ CÔNG NỢ" KHONG ap (van tru kho cua KTV).
+export const laPhanLoaiMay = (phanLoai: string | null | undefined) => (phanLoai ?? "").normalize("NFC").trim().toLowerCase() === "máy";
 
 // Doc TAT CA dong dat_don_hang thuoc danh sach PXK (pxkIds) kem thong tin can de xuat MISA. Dung
 // chung cho ca xuat 1 PXK va xuat gop nhieu PXK (bulk) - caller tu kiem tra quyen xem PXK truoc khi
@@ -205,6 +214,7 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
 
   const db = env.DB;
   const khoBanHang = await loadKhoSettings(db);
+  const khoMay = await loadKhoSettings(db, "may_");
   const placeholders = pxkIds.map(() => "?").join(",");
   const { results } = await db
     .prepare(
@@ -265,7 +275,10 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
 
   for (const { line, template } of lines) {
     const mien = mienFromKhuVuc(line.ktv_khu_vuc_ma);
-    const kho = mien ? khoBanHang[mien] : { ma: "", ten: "" };
+    // Kho phia CONG TY cua dong (Ban hang/Xuat kho: "Mã kho"; Chuyen kho: "Nhập tại kho"). LK "Máy" -> kho ky gui KRF
+    // (Admin chua dien thi quay ve kho cong ty).
+    const khoMayMien = mien && laPhanLoaiMay(line.don_vi) && !laTruCongNo(line.loai_de_xuat) ? khoMay[mien] : null;
+    const kho = khoMayMien?.ma ? khoMayMien : mien ? khoBanHang[mien] : { ma: "", ten: "" };
     const ngayHachToan = fmtDateVN(line.pxk_ngay_tao);
     // KHONG con fallback ve ten_hien_thi/email (xem giai thich dau file) - de trong + canh bao neu thieu.
     const tenMisa = line.ktv_ten_misa || "";

@@ -33,6 +33,7 @@ const LOI: Record<string, string> = {
   KHONG_CON_CHO_DUYET: "Linh kiện này không còn ở trạng thái chờ xét duyệt (có thể người khác vừa xử lý).",
   MA_DA_TON_TAI: "Mã này đã có trong danh mục - dùng \"Gộp vào mã có sẵn\".",
   MA_KHONG_HOP_LE: "Mã linh kiện không được chứa khoảng trắng.",
+  THIEU_PHAN_LOAI: "Bắt buộc chọn Phân loại linh kiện trước khi xác nhận.",
   MA_DICH_KHONG_HOP_LE: "Chọn mã linh kiện cần gộp vào.",
   MA_DICH_KHONG_TON_TAI: "Mã cần gộp vào không có trong danh mục.",
   MA_DICH_DA_DOI_MA: "Mã cần gộp vào đã bị đổi sang mã khác.",
@@ -168,11 +169,17 @@ function XacNhanModal({
   const sau = useSauXetDuyet();
   const [ma, setMa] = useState(part.ma_linh_kien);
   const [ten, setTen] = useState(part.ten_linh_kien);
+  // Phan loai BAT BUOC khi xac nhan (chot 2026-09-30 - "Máy" quyet dinh kho xuat file MISA).
+  const [phanLoai, setPhanLoai] = useState(part.don_vi ?? "");
+  const phanLoaiOptions = useMemo(
+    () => Array.from(new Set(parts.map((p) => p.don_vi?.trim()).filter((v): v is string => !!v))).sort(),
+    [parts],
+  );
   const maMoi = ma.trim();
   const doiMa = maMoi !== "" && maMoi !== part.ma_linh_kien;
   const trung = doiMa ? parts.find((p) => p.ma_linh_kien === maMoi) : undefined;
   const m = useMutation({
-    mutationFn: () => api.post<{ ma_linh_kien: string }>(`/settings/linh-kien/${encodeURIComponent(part.ma_linh_kien)}/xac-nhan`, { ma_moi: maMoi, ten_moi: ten.trim() }),
+    mutationFn: () => api.post<{ ma_linh_kien: string }>(`/settings/linh-kien/${encodeURIComponent(part.ma_linh_kien)}/xac-nhan`, { ma_moi: maMoi, ten_moi: ten.trim(), phan_loai: phanLoai.trim() }),
     onSuccess: (r) => {
       toast(doiMa ? `Đã đổi mã ${part.ma_linh_kien} → ${r.ma_linh_kien} và xác nhận mã chuẩn` : "Đã xác nhận mã chuẩn");
       sau();
@@ -189,7 +196,7 @@ function XacNhanModal({
       footer={
         <div className="flex justify-end gap-2">
           <Btn variant="ghost" onClick={onClose}>Hủy</Btn>
-          <Btn onClick={() => m.mutate()} loading={m.isPending} disabled={!maMoi || !ten.trim() || !!trung || /\s/.test(maMoi)}>
+          <Btn onClick={() => m.mutate()} loading={m.isPending} disabled={!maMoi || !ten.trim() || !phanLoai.trim() || !!trung || /\s/.test(maMoi)}>
             {doiMa ? "Đổi mã & xác nhận" : "Xác nhận"}
           </Btn>
         </div>
@@ -210,6 +217,16 @@ function XacNhanModal({
         <label className="block">
           <span className="text-xs font-semibold text-[var(--ink-500)]">Tên linh kiện chuẩn</span>
           <input className={INPUT} value={ten} onChange={(e) => setTen(e.target.value)} />
+        </label>
+        <label className="block">
+          <span className="text-xs font-semibold text-[var(--ink-500)]">
+            Phân loại <span className="text-[var(--color-danger)]">*</span>
+          </span>
+          <input className={INPUT} value={phanLoai} onChange={(e) => setPhanLoai(e.target.value)} list="xac-nhan-lk-phan-loai" placeholder="Chọn phân loại..." />
+          <datalist id="xac-nhan-lk-phan-loai">
+            {phanLoaiOptions.map((v) => <option key={v} value={v} />)}
+          </datalist>
+          {!phanLoai.trim() && <span className="text-[11px] text-[var(--color-danger)]">Bắt buộc chọn phân loại trước khi xác nhận.</span>}
         </label>
         {doiMa && <CanhBaoDon soDon={soDon} />}
       </div>

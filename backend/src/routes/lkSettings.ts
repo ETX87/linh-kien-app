@@ -48,6 +48,8 @@ lkSettings.get("/danh-muc", async (c) => {
 lkSettings.post("/danh-muc", quanLyDanhMuc, async (c) => {
   const body = await c.req.json<{ ma_linh_kien: string; ten_linh_kien: string; don_vi?: string | null; ghi_chu?: string | null; anh_demo?: string | null; dac_thu?: boolean; chi_sua_chua?: boolean }>();
   if (!body.ma_linh_kien?.trim() || !body.ten_linh_kien?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
+  // Phan loai bat buoc (chot 2026-09-30, cung quy tac POST /settings/linh-kien).
+  if (!body.don_vi?.trim()) return c.json({ error: "THIEU_PHAN_LOAI" }, 400);
 
   const user = c.get("user");
   const row = await c.env.DB.prepare(
