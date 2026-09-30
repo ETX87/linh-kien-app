@@ -16,8 +16,23 @@ export interface TimelineEvent {
   at: string; // ISO 8601 co offset, vd "2026-08-24T10:00:00+07:00" - xem toIsoVN()
   event: string; // ma su kien on dinh, xem cac *_EVENT map duoi
   actor: string | null;
+  // Them 2026-09-30 (bo sung, tuong thich nguoc voi v1): ten hien thi cua actor (email) - cung thu tu
+  // uu tien voi GET /api/auth/nguoi-directory (ten KTV > ten_misa/ten tai khoan), null neu khong tra
+  // duoc ten (doi tac tu hien email).
+  actor_name: string | null;
   note: string | null;
   source: "mua_hang" | "thieu_lk" | "phieu_xuat_kho" | "tra_hang";
+}
+
+// Them 2026-09-30 (bo sung v1): thong tin ticket thieu linh kien cua 1 don - log thieu_lk_log luc tao
+// ticket KHONG co ghi_chu (ly do nam o thieu_lk.ly_do_cham_id), nen doi tac can block nay moi biet
+// "thieu vi sao / du kien bao gio co / thuc te ve luc nao".
+export interface ThieuLkInfo {
+  id: string;
+  ly_do: string | null;
+  ngay_tao: string;
+  ngay_du_kien_co_hang: string | null; // "YYYY-MM-DD" hoac ISO +07:00 - giu nguyen dang Kho nhap
+  ngay_hang_ve_thuc_te: string | null; // ISO +07:00
 }
 
 export interface OrderTimeline {
@@ -31,6 +46,14 @@ export interface OrderTimeline {
   ngay_tao: string;
   phieu_xuat_kho: { id: string; ma_xuat_kho: string }[];
   timeline: TimelineEvent[];
+  // Them 2026-09-30 (bo sung, tuong thich nguoc voi v1):
+  loai_de_xuat: string | null;
+  so_luong_de_xuat: number;
+  so_luong_thuc_xuat: number | null;
+  ly_do_cham: string | null;
+  nguoi_tao_ten: string | null;
+  nguoi_nhan_hang_ten: string | null;
+  thieu_lk: ThieuLkInfo[];
 }
 
 export interface CaseTimelineResult {
@@ -43,6 +66,12 @@ export interface CaseTimelineResult {
 // bat doi tac tu suy doan timezone tu 1 chuoi tho khong offset).
 function toIsoVN(vnLocal: string): string {
   return `${vnLocal.replace(" ", "T")}+07:00`;
+}
+
+// Chuoi co gio ("YYYY-MM-DD HH:MM:SS") -> ISO +07:00; chuoi chi co ngay giu nguyen.
+function toIsoVNMaybe(v: string | null): string | null {
+  if (!v) return null;
+  return v.includes(" ") ? toIsoVN(v) : v;
 }
 
 function inPlaceholders(n: number): string {
@@ -143,14 +172,27 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
   // correlated subquery rieng.
   const { results: orderRows } = await db
     .prepare(
-      `SELECT id, ma_lk, ten_lk_snapshot, loai_don, trang_thai_hien_tai, nguoi_tao, nguoi_nhan_hang, ngay_tao
+      `SELECT id, ma_lk, ten_lk_snapshot, loai_don, trang_thai_hien_tai, nguoi_tao, nguoi_nhan_hang, ngay_tao,
+              loai_de_xuat, so_luong_de_xuat, so_luong_thuc_xuat, ly_do_cham
        FROM dat_don_hang WHERE id IN (${idPh})`,
     )
     .bind(...orderIds)
     .all<{
       id: string; ma_lk: string; ten_lk_snapshot: string | null; loai_don: string; trang_thai_hien_tai: string | null;
       nguoi_tao: string; nguoi_nhan_hang: string | null; ngay_tao: string;
+      loai_de_xuat: string | null; so_luong_de_xuat: number; so_luong_thuc_xuat: number | null; ly_do_cham: string | null;
     }>();
+
+  // Ticket thieu LK cua cac don (1 don co the co nhieu ticket qua cac lan "Cho hang") - ly do lay ten
+  // tu settings_ly_do_cham, fallback cot text cu thieu_lk.ly_do.
+  const { results: thieuLkRows } = await db
+    .prepare(
+      `SELECT t.id, t.dat_don_hang_id, COALESCE(s.ten_ly_do, t.ly_do) as ly_do, t.ngay_tao, t.ngay_du_kien_co_hang, t.ngay_hang_ve_thuc_te
+       FROM thieu_lk t LEFT JOIN settings_ly_do_cham s ON s.id = t.ly_do_cham_id
+       WHERE t.dat_don_hang_id IN (${idPh}) ORDER BY t.ngay_tao`,
+    )
+    .bind(...orderIds)
+    .all<{ id: string; dat_don_hang_id: string; ly_do: string | null; ngay_tao: string; ngay_du_kien_co_hang: string | null; ngay_hang_ve_thuc_te: string | null }>();
 
   // 3) Lien ket PXK - 1 PXK co the gom nhieu dong dat_don_hang (join table phieu_xuat_kho_dong,
   // migration 0001_init.sql:270) nen 1 su kien PXK (vd "Kho da ket thuc"/chuyen tien) can duoc gan
@@ -212,6 +254,33 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
       .all<RawLogRow>(),
   ]);
 
+  // Danh ba email -> ten (cung thu tu uu tien voi /api/auth/nguoi-directory: ten KTV truoc, roi
+  // ten_misa/ten tai khoan). Chi tra dung tap email co mat trong ket qua - 2 query IN, khong quet bang.
+  const emails = new Set<string>();
+  for (const o of orderRows) {
+    emails.add(o.nguoi_tao);
+    if (o.nguoi_nhan_hang) emails.add(o.nguoi_nhan_hang);
+  }
+  for (const r of [...ddhLog.results, ...thieuLkLog.results, ...pxkLog.results, ...traHangLog.results]) if (r.nguoi_xu_ly) emails.add(r.nguoi_xu_ly);
+  const nameByEmail = new Map<string, string>();
+  const emailList = [...emails];
+  if (emailList.length > 0) {
+    const ePh = inPlaceholders(emailList.length);
+    const [userNames, ktvNames] = await Promise.all([
+      db
+        .prepare(`SELECT email, COALESCE(NULLIF(TRIM(ten_misa), ''), NULLIF(TRIM(ten), '')) AS ten FROM users WHERE email IN (${ePh})`)
+        .bind(...emailList)
+        .all<{ email: string; ten: string | null }>(),
+      db
+        .prepare(`SELECT email_dang_nhap AS email, COALESCE(NULLIF(TRIM(ten_hien_thi), ''), NULLIF(TRIM(ten_misa), '')) AS ten FROM ktv_lien_he WHERE email_dang_nhap IN (${ePh})`)
+        .bind(...emailList)
+        .all<{ email: string; ten: string | null }>(),
+    ]);
+    for (const r of userNames.results) if (r.ten) nameByEmail.set(r.email, r.ten);
+    for (const r of ktvNames.results) if (r.ten) nameByEmail.set(r.email, r.ten);
+  }
+  const nameOf = (email: string | null) => (email ? nameByEmail.get(email) ?? null : null);
+
   const timelineByOrder = new Map<string, TimelineEvent[]>();
   for (const id of orderIds) timelineByOrder.set(id, []);
 
@@ -220,6 +289,7 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
       at: toIsoVN(r.ngay_xu_ly),
       event: DON_HANG_EVENT[r.trang_thai] ?? r.trang_thai,
       actor: r.nguoi_xu_ly,
+      actor_name: nameOf(r.nguoi_xu_ly),
       note: r.ghi_chu,
       source: "mua_hang",
     });
@@ -229,6 +299,7 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
       at: toIsoVN(r.ngay_xu_ly),
       event: THIEU_LK_EVENT[r.trang_thai] ?? `thieu_lk_${r.trang_thai}`,
       actor: r.nguoi_xu_ly,
+      actor_name: nameOf(r.nguoi_xu_ly),
       note: r.ghi_chu,
       source: "thieu_lk",
     });
@@ -239,6 +310,7 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
       at: toIsoVN(r.ngay_xu_ly),
       event: pxkEventFor(r.trang_thai, r.ghi_chu),
       actor: r.nguoi_xu_ly,
+      actor_name: nameOf(r.nguoi_xu_ly),
       note: r.ghi_chu,
       source: "phieu_xuat_kho",
     };
@@ -249,6 +321,7 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
       at: toIsoVN(r.ngay_xu_ly),
       event: TRA_HANG_EVENT[r.trang_thai] ?? `tra_hang_${r.trang_thai}`,
       actor: r.nguoi_xu_ly,
+      actor_name: nameOf(r.nguoi_xu_ly),
       note: r.ghi_chu,
       source: "tra_hang",
     });
@@ -271,6 +344,21 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
       ngay_tao: toIsoVN(o.ngay_tao),
       phieu_xuat_kho: pxkForOrder,
       timeline,
+      loai_de_xuat: o.loai_de_xuat,
+      so_luong_de_xuat: o.so_luong_de_xuat,
+      so_luong_thuc_xuat: o.so_luong_thuc_xuat,
+      ly_do_cham: o.ly_do_cham,
+      nguoi_tao_ten: nameOf(o.nguoi_tao),
+      nguoi_nhan_hang_ten: nameOf(o.nguoi_nhan_hang),
+      thieu_lk: thieuLkRows
+        .filter((t) => t.dat_don_hang_id === o.id)
+        .map((t) => ({
+          id: t.id,
+          ly_do: t.ly_do,
+          ngay_tao: toIsoVN(t.ngay_tao),
+          ngay_du_kien_co_hang: toIsoVNMaybe(t.ngay_du_kien_co_hang),
+          ngay_hang_ve_thuc_te: toIsoVNMaybe(t.ngay_hang_ve_thuc_te),
+        })),
     };
   });
 
