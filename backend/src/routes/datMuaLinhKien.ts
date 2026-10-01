@@ -622,6 +622,8 @@ export interface DangTonStep {
   tab: string;
   filter: string;
   loaiDon?: string;
+  // Buoc chi dem viec CUA CHINH nguoi xem (vd PXK nguoi_nhan_hang = minh) -> FE loc danh sach theo nguoi nhan nay khi bam.
+  nguoiNhanHang?: string;
   // Them (fix "bấm 'Việc cần làm' trên mobile nhảy sai tab/filter") - danh dau dong nao trong so cac
   // dong dangTonSteps THAT SU nam trong tong canLam (subset, xem cong thuc canLam += ... o duoi) de FE
   // dung LAM NGUON thay the mySteps (luong-quy-trinh, bi tat tren mobile qua "enabled: !isMobile") khi
@@ -879,8 +881,8 @@ datMuaLinhKien.get("/home-summary", async (c) => {
       // PhieuXuatKhoTab.tsx khi khong truyen loaiDon) khien PXK thuoc loai khac (vd cong_no) bi LOC
       // MAT khoi danh sach - nguoi dung thay "trong"/hoac phai tu xoa bo loc trang thai de tim thay,
       // lo ra CA cac PXK loai khac da dong (vd "mua" da xac nhan) truoc do.
-      { key: "s_cho_tien", label: "Chờ tiền", count: row?.cho_tien ?? 0, roleKeys: ["ktv"], tab: "phieu-xuat-kho", filter: "CHO_TIEN", loaiDon: "", isCanLam: true },
-      { key: "s_xac_nhan_nhan", label: "Chờ xác nhận đã nhận hàng", count: row?.xac_nhan_nhan ?? 0, roleKeys: ["ktv"], tab: "phieu-xuat-kho", filter: "Dang gui KTV", loaiDon: "", isCanLam: true },
+      { key: "s_cho_tien", label: "Chờ tiền", count: row?.cho_tien ?? 0, roleKeys: ["ktv"], tab: "phieu-xuat-kho", filter: "CHO_TIEN", loaiDon: "", nguoiNhanHang: user.email, isCanLam: true },
+      { key: "s_xac_nhan_nhan", label: "Chờ xác nhận đã nhận hàng", count: row?.xac_nhan_nhan ?? 0, roleKeys: ["ktv"], tab: "phieu-xuat-kho", filter: "Dang gui KTV", loaiDon: "", nguoiNhanHang: user.email, isCanLam: true },
       { key: "s_cho_tram_duyet", label: "Chờ Trạm duyệt", count: choTramDuyet, roleKeys: ["tram"], tab: "don-cua-toi", filter: "Cho Tram duyet", loaiDon: "all", isCanLam: true },
       // loaiDon: "all" o ca 3 dong duoi (them sau bao cao "Đơn đang xử lý (2) => click vào chỉ hiện 1
       // đơn" - cung loi voi "Chờ tiền"/"Đang gửi KTV" o tren, khac tab don-cua-toi thay vi phieu-xuat-
@@ -889,7 +891,7 @@ datMuaLinhKien.get("/home-summary", async (c) => {
       // don - thieu loaiDon khien DonCuaToiTab.tsx mac dinh sub-tab "mua" (xemLoaiDon luu localStorage,
       // xem DatMuaLinhKienModule.tsx) khi nhay toi, loc mat don thuoc loai khac (vd cong_no) khoi danh
       // sach hien ra du count o the van dung.
-      { key: "s_tu_choi", label: "Đơn bị từ chối chưa xem", count: row?.tu_choi ?? 0, roleKeys: ["ktv"], tab: "don-cua-toi", filter: "TN tu choi", loaiDon: "all", isCanLam: true },
+      { key: "s_tu_choi", label: "Đơn bị từ chối chưa xem", count: row?.tu_choi ?? 0, roleKeys: ["ktv"], tab: "don-cua-toi", filter: "__TU_CHOI_CHUA_XEM__", loaiDon: "all", isCanLam: true },
       { key: "s_dang_xu_ly", label: "Đơn đang xử lý (Trạm/TBP/TN)", count: row?.dang_xu_ly ?? 0, roleKeys: ["ktv"], tab: "don-cua-toi", filter: "__OPEN__", loaiDon: "all" },
       { key: "s_cho_hang_ktv", label: "Chờ hàng", count: row?.cho_hang ?? 0, roleKeys: ["ktv"], tab: "don-cua-toi", filter: "Cho hang", loaiDon: "all" },
     );
@@ -1839,6 +1841,11 @@ async function donHangListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string
     // tra_hang dung cot thang nhu o do - cot nay da LUON dong bo cho MOI loai_don, xem comment nhanh
     // "RA SOAT CHI PHI D1" o duoi).
     whereSql += " AND ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.ma_xuat_kho IS NULL";
+  } else if (trangThai === "__TU_CHOI_CHUA_XEM__") {
+    // The "Đơn bị từ chối" o Trang chu (2026-10-01): CUNG tap voi so dem (thong_bao_ktv 'tu_choi' chua doc cua chinh nguoi
+    // xem = don ho TAO bi tu choi, chua mo chi tiet) - truoc day nhay sang "TN tu choi" toan pham vi nen so lech danh sach.
+    whereSql += " AND ddh.trang_thai_hien_tai = 'TN tu choi' AND EXISTS (SELECT 1 FROM thong_bao_ktv tb WHERE tb.nguoi_nhan = ? AND tb.loai = 'tu_choi' AND tb.da_doc = 0 AND tb.link_id = ddh.id)";
+    binds.push(user.email);
   } else if (trangThai === "__CHO_TN__") {
     // Muc "Chờ tác nghiệp" (2026-09-30, phan hoi "đơn sau khi KT/Kho/QC xác nhận nhảy sang trạng thái chung với
     // Chờ TN duyệt để TN không bị miss đơn"): don mua/cong no "Cho TN duyet" + don tra hang "Cho TN duyet tong".

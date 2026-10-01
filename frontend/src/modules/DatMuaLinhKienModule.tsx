@@ -744,7 +744,8 @@ export function DatMuaLinhKienModule({
   // phai s.count, neu khong MOI KTV/Ve tinh se thay CUNG 1 con so gom ca PXK cua nguoi khac. Tinh 1
   // lan duy nhat o day, dung chung cho moi noi tieu thu luongQuyTrinh.steps ben duoi.
   const steps = (luongQuyTrinh?.steps ?? []).map((s) =>
-    myRoleKeys.has("ktv") && s.countCuaToi !== undefined ? { ...s, count: s.countCuaToi } : s,
+    // + nguoiNhanHang = chinh minh (2026-10-01): GS thay so PXK CUA MINH (vd 2) nhung bam vao lai ra ca khu vuc (28).
+    myRoleKeys.has("ktv") && s.countCuaToi !== undefined ? { ...s, count: s.countCuaToi, nguoiNhanHang: user?.email } : s,
   );
 
   // "Đơn bị từ chối" van hien rieng 1 StatCard o TrangChuTab.tsx (thong tin, khong phai "viec can lam"

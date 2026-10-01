@@ -495,7 +495,7 @@ export function TrangChuTab({
             label="Đơn bị từ chối"
             value={choDonBiTuChoi}
             tone="danger"
-            onClick={() => onJump({ tab: "don-cua-toi", filter: "TN tu choi", nguoiNhanHang: "" })}
+            onClick={() => onJump({ tab: "don-cua-toi", filter: "__TU_CHOI_CHUA_XEM__", nguoiNhanHang: "", loaiDon: "all" })}
           />
         </div>
       )}
@@ -509,7 +509,7 @@ export function TrangChuTab({
               label={STEP_SHORT_LABEL[s.key] ?? s.label}
               value={s.count}
               tone="warning"
-              onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
+              onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: s.nguoiNhanHang ?? "", loaiDon: s.loaiDon })}
             />
           ))}
         </div>
@@ -524,7 +524,7 @@ export function TrangChuTab({
               label={s.label}
               value={s.count}
               tone="warning"
-              onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
+              onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: s.nguoiNhanHang ?? "", loaiDon: s.loaiDon })}
             />
           ))}
         </div>
@@ -554,7 +554,7 @@ export function TrangChuTab({
               label={s.label}
               value={s.count}
               tone="info"
-              onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
+              onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: s.nguoiNhanHang ?? "", loaiDon: s.loaiDon })}
             />
           ))}
         </div>
@@ -586,7 +586,7 @@ export function TrangChuTab({
                   label={s.label}
                   value={s.count}
                   tone="purple"
-                  onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
+                  onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: s.nguoiNhanHang ?? "", loaiDon: s.loaiDon })}
                 />
               ))}
             </div>

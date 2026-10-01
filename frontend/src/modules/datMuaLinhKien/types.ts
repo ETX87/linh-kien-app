@@ -304,6 +304,8 @@ export interface LuongQuyTrinhStep {
   // day du o LuongQuyTrinhStep backend (datMuaLinhKien.ts). Dung thay `count` khi hien thi "viec cua
   // toi" cho KTV/Ve tinh, KHONG dung cho bang dieu hanh chung.
   countCuaToi?: number;
+  // Gan o FE khi dung countCuaToi (DatMuaLinhKienModule.tsx) - bam the thi loc PXK theo chinh nguoi xem cho khop so.
+  nguoiNhanHang?: string;
   roleKeys: string[];
   tab: string;
   filter: string;

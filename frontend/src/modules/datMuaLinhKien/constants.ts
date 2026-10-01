@@ -398,6 +398,8 @@ export const DON_CUA_TOI_TRANG_THAI_OPTIONS = [
   // /don-hang?trang_thai=__CHO_TAO_PXK__.
   { value: "__CHO_TAO_PXK__", label: "Chờ tạo phiếu xuất" },
   { value: "TN tu choi", label: "TN từ chối" },
+  // Sentinel the "Đơn bị từ chối" o Trang chu (2026-10-01) - don minh tao bi tu choi, chua mo xem (GET /don-hang).
+  { value: "__TU_CHOI_CHUA_XEM__", label: "Bị từ chối – chưa xem" },
   { value: "Cho hang", label: "Chờ hàng" },
   { value: "Da huy", label: "Đã hủy" },
 ];
