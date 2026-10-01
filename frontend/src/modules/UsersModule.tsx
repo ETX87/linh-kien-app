@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, buildQuery } from "../api/client";
 import { Btn } from "../components/ui/Btn";
 import { FileButton } from "../components/ui/FileButton";
-import { Badge } from "../components/ui/Badge";
+import { Badge, type BadgeTone } from "../components/ui/Badge";
 import { KvRow } from "../components/ui/KvRow";
 import { Modal } from "../components/ui/Modal";
 import { Select } from "../components/ui/Select";
@@ -1479,11 +1479,12 @@ function EtxNhanSuTab() {
   const addToast = useToast();
   const [search, setSearch] = useState("");
   const [trangThai, setTrangThai] = useState("");
+  const [taiKhoan, setTaiKhoan] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 50;
-  const query = buildQuery({ search: search || undefined, trang_thai: trangThai || undefined, page, pageSize });
+  const query = buildQuery({ search: search || undefined, trang_thai: trangThai || undefined, tai_khoan: taiKhoan || undefined, page, pageSize });
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["etx-nhan-su", search, trangThai, page],
+    queryKey: ["etx-nhan-su", search, trangThai, taiKhoan, page],
     queryFn: () => api.get<Paged<EtxNhanSuRow>>(`/etx-nhan-su${query}`),
   });
 
@@ -1513,6 +1514,31 @@ function EtxNhanSuTab() {
     onError: (err) => addToast("Không lưu được: " + (err instanceof Error ? err.message : String(err))),
   });
 
+  const taoTaiKhoan = useMutation({
+    mutationFn: (maNhanSu: string) => api.post<{ ma_ktv: string; email: string }>(`/etx-nhan-su/${encodeURIComponent(maNhanSu)}/tao-tai-khoan`, {}),
+    onSuccess: async (res) => {
+      addToast(`Đã tạo tài khoản ${res.email} (Mã KTV ${res.ma_ktv})`);
+      await qc.invalidateQueries({ queryKey: ["etx-nhan-su"] });
+    },
+    onError: (err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      addToast("Không tạo được: " + (TAO_TK_LOI[msg] ?? msg));
+    },
+  });
+  const xacNhanTao = (r: EtxNhanSuRow) => {
+    if (
+      window.confirm(
+        `Tạo tài khoản đặt hàng cho ${r.ho_ten} (${r.ma_nhan_su})?
+
+` +
+          `- Đăng nhập bằng: ${r.gmail}
+- Thêm vào danh bạ KTV với mã ${r.ma_nhan_su} (chưa có khu vực — gán sau ở thẻ "KTV hiện trường")
+- Kích hoạt tài khoản ngay`,
+      )
+    )
+      taoTaiKhoan.mutate(r.ma_nhan_su);
+  };
+
   const columns: Column<EtxNhanSuRow>[] = [
     { key: "ma_nhan_su", mobile: "sub", header: "Mã NV", render: (r) => r.ma_nhan_su },
     { key: "ho_ten", mobile: "title", header: "Họ tên", render: (r) => r.ho_ten },
@@ -1521,6 +1547,24 @@ function EtxNhanSuTab() {
       key: "trang_thai_lam_viec", mobile: "badge",
       header: "Trạng thái",
       render: (r) => (r.trang_thai_lam_viec === "on" ? <Badge tone="teal">Đang làm</Badge> : <Badge tone="coral">Đã nghỉ</Badge>),
+    },
+    {
+      key: "tk_trang_thai", mobile: "meta",
+      header: "Tài khoản đặt hàng",
+      render: (r) => {
+        const tt = TK_TRANG_THAI[r.tk_trang_thai] ?? TK_TRANG_THAI.chua_tao;
+        const coNut = r.trang_thai_lam_viec === "on" && ["chua_tao", "cho_duyet", "tu_choi"].includes(r.tk_trang_thai);
+        return (
+          <span className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+            <Badge tone={tt.tone}>{tt.label}</Badge>
+            {coNut && (
+              <Btn size="sm" variant="subtle" onClick={() => xacNhanTao(r)} loading={taoTaiKhoan.isPending && taoTaiKhoan.variables === r.ma_nhan_su}>
+                Tạo tài khoản
+              </Btn>
+            )}
+          </span>
+        );
+      },
     },
     { key: "gmail", header: "Gmail", render: (r) => r.gmail ?? "—" },
     { key: "tai_khoan_lada_ten", header: "Tài khoản Lada", render: (r) => r.tai_khoan_lada_ten ?? "—" },
@@ -1548,7 +1592,7 @@ function EtxNhanSuTab() {
     <div className="space-y-4">
       <div className="max-w-md space-y-4">
         <div className="text-xs text-[var(--ink-500)]">
-          Kéo danh bạ nhân sự từ hệ ETX về (chỉ bảng tham chiếu, không tự tạo tài khoản đăng nhập). Gán
+          Kéo danh bạ nhân sự từ hệ ETX về. Cột "Tài khoản đặt hàng" cho biết nhân sự đã có tài khoản trên app chưa — bấm "Tạo tài khoản" để tạo thủ công. Gán
           "Mã KTV" để liên kết với danh sách "KTV hiện trường" — khi trạng thái làm việc chuyển
           ON/OFF, tài khoản liên kết tự động mở/khoá. Tự động chạy 1 lần/7 ngày, hoặc bấm "Đồng bộ
           ngay" khi cần gấp.
@@ -1596,6 +1640,11 @@ function EtxNhanSuTab() {
           onChange={(v) => { setTrangThai(v); setPage(1); }}
           options={[{ value: "", label: "Tất cả trạng thái" }, { value: "on", label: "Đang làm" }, { value: "off", label: "Đã nghỉ" }]}
         />
+        <Select
+          value={taiKhoan}
+          onChange={(v) => { setTaiKhoan(v); setPage(1); }}
+          options={[{ value: "", label: "Tài khoản: Tất cả" }, ...Object.entries(TK_TRANG_THAI).map(([value, t]) => ({ value, label: t.label }))]}
+        />
       </div>
 
       <PaginatedTable
@@ -1614,6 +1663,21 @@ function EtxNhanSuTab() {
     </div>
   );
 }
+
+const TK_TRANG_THAI: Record<EtxNhanSuRow["tk_trang_thai"], { label: string; tone: BadgeTone }> = {
+  da_tao: { label: "Đã tạo", tone: "teal" },
+  chua_tao: { label: "Chưa tạo", tone: "amber" },
+  cho_duyet: { label: "Chờ duyệt", tone: "amber" },
+  tu_choi: { label: "Đã từ chối", tone: "violet" },
+  van_phong: { label: "TK văn phòng", tone: "ocean" },
+  khong_gmail: { label: "Thiếu Gmail", tone: "gray" },
+};
+const TAO_TK_LOI: Record<string, string> = {
+  DA_NGHI: "nhân sự đã nghỉ việc",
+  THIEU_GMAIL: "chưa có Gmail hợp lệ trên ETX",
+  MA_KTV_CUA_NGUOI_KHAC: "Mã NV đã là Mã KTV của người khác (email đăng nhập khác) — kiểm tra ở thẻ KTV hiện trường",
+  NOT_FOUND: "không tìm thấy nhân sự",
+};
 
 function MaKtvCell({ row, onSave }: { row: EtxNhanSuRow; onSave: (maKtv: string | null) => void }) {
   const [value, setValue] = useState(row.ma_ktv ?? "");

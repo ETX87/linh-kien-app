@@ -91,3 +91,66 @@ export async function tuDongTaoKtvTuEtx(db: D1Database): Promise<EtxTuDongKtvRes
   }
   return { ktvTuTao, tkTuDuyet };
 }
+
+// TAO TAI KHOAN DAT HANG THU CONG cho 1 nhan su ETX (2026-10-01, nut "Tạo tài khoản" o Quan ly nguoi dung > ETX nhan su):
+// cung ket qua voi buoc tu dong o tren (KTV ma = Ma NV + users "Da duyet"/la_ktv_dvbh) nhung KHONG doi chuc danh co CTV/KTV
+// (Admin tu quyet) - chuc danh khong nhan ra thi vai tro KTV. Gmail da la Email dang nhap cua KTV -> chi lien ket + duyet.
+// Ma NV da la ma_ktv cua KTV khac: KTV do chua co email dang nhap thi gan Gmail vao, co email khac -> MA_KTV_CUA_NGUOI_KHAC.
+export type TaoTaiKhoanEtxLoi = "NOT_FOUND" | "DA_NGHI" | "THIEU_GMAIL" | "MA_KTV_CUA_NGUOI_KHAC";
+
+export async function taoTaiKhoanTuEtx(db: D1Database, maNhanSu: string): Promise<{ ok: true; ma_ktv: string; email: string } | { ok: false; error: TaoTaiKhoanEtxLoi }> {
+  const r = await db
+    .prepare("SELECT ma_nhan_su, ho_ten, chuc_danh, gmail, trang_thai_lam_viec, ma_ktv FROM etx_nhan_su WHERE ma_nhan_su = ?")
+    .bind(maNhanSu)
+    .first<{ ma_nhan_su: string; ho_ten: string; chuc_danh: string | null; gmail: string | null; trang_thai_lam_viec: string; ma_ktv: string | null }>();
+  if (!r) return { ok: false, error: "NOT_FOUND" };
+  if (r.trang_thai_lam_viec !== "on") return { ok: false, error: "DA_NGHI" };
+  const email = (r.gmail ?? "").trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) return { ok: false, error: "THIEU_GMAIL" };
+  const ma = r.ma_nhan_su.trim();
+  const now = nowVN();
+
+  const [ktvTheoEmail, ktvTheoMa] = await Promise.all([
+    db.prepare("SELECT ma_ktv FROM ktv_lien_he WHERE LOWER(TRIM(email_dang_nhap)) = ? LIMIT 1").bind(email).first<{ ma_ktv: string }>(),
+    db.prepare("SELECT ma_ktv, email_dang_nhap FROM ktv_lien_he WHERE UPPER(TRIM(ma_ktv)) = ? LIMIT 1").bind(ma.toUpperCase()).first<{ ma_ktv: string; email_dang_nhap: string | null }>(),
+  ]);
+
+  const stmts: D1PreparedStatement[] = [];
+  let maKtv: string;
+  let doiDanhBa = false;
+  if (ktvTheoEmail) {
+    maKtv = ktvTheoEmail.ma_ktv;
+  } else if (ktvTheoMa) {
+    const emailCu = (ktvTheoMa.email_dang_nhap ?? "").trim().toLowerCase();
+    if (emailCu && emailCu !== email) return { ok: false, error: "MA_KTV_CUA_NGUOI_KHAC" };
+    maKtv = ktvTheoMa.ma_ktv;
+    stmts.push(db.prepare("UPDATE ktv_lien_he SET email_dang_nhap = ?, ngay_cap_nhat = ? WHERE ma_ktv = ?").bind(email, now, maKtv));
+    doiDanhBa = true;
+  } else {
+    maKtv = ma;
+    const tenHienThi = `(${ma}) ${(r.chuc_danh ?? "").trim()} - ${r.ho_ten.trim()}`;
+    stmts.push(
+      db
+        .prepare("INSERT INTO ktv_lien_he (ma_ktv, ten_hien_thi, gmail, vai_tro_ktv, email_dang_nhap, ngay_cap_nhat) VALUES (?, ?, ?, ?, ?, ?)")
+        .bind(ma, tenHienThi, (r.gmail ?? "").trim(), laChucDanhKtv(r.chuc_danh) ?? "KTV", email, now),
+    );
+    doiDanhBa = true;
+  }
+  stmts.push(
+    db
+      .prepare(
+        `INSERT INTO users (email, ten, trang_thai_duyet, la_ktv_dvbh, la_ve_tinh)
+         VALUES (?, ?, 'Da duyet', 1, 0)
+         ON CONFLICT(email) DO UPDATE SET trang_thai_duyet = 'Da duyet', la_ktv_dvbh = 1, bi_khoa = 0, updated_at = ?`,
+      )
+      .bind(email, r.ho_ten.trim(), now),
+    db.prepare("UPDATE etx_nhan_su SET ma_ktv = ?, updated_at = ? WHERE ma_nhan_su = ? AND (ma_ktv IS NULL OR ma_ktv = '')").bind(maKtv, now, r.ma_nhan_su),
+  );
+  await db.batch(stmts);
+
+  if (doiDanhBa) {
+    const { results } = await db.prepare("SELECT * FROM ktv_lien_he ORDER BY ma_ktv").all();
+    await computeAndStoreHash(db, "ktv_lien_he", results);
+  }
+  return { ok: true, ma_ktv: maKtv, email };
+}

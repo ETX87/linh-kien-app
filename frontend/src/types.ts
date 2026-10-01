@@ -253,6 +253,8 @@ export interface EtxNhanSuRow {
   updated_at: string;
   lien_ket_email: string | null;
   lien_ket_bi_khoa: number | null;
+  // Trang thai tai khoan dat hang (2026-10-01, backend etxNhanSuSync.ts TK_TRANG_THAI_SQL)
+  tk_trang_thai: "da_tao" | "van_phong" | "cho_duyet" | "tu_choi" | "chua_tao" | "khong_gmail";
 }
 export interface EtxNhanSuSyncStatus {
   last_run_at: string | null;

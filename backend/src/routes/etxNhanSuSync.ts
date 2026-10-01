@@ -4,7 +4,8 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { runEtxNhanSuSyncWithState } from "../lib/etxNhanSuSync";
-import { tuDongTaoKtvTuEtx } from "../lib/etxTuDongKtv";
+import { tuDongTaoKtvTuEtx, taoTaiKhoanTuEtx } from "../lib/etxTuDongKtv";
+import { resyncKhuVucDerivedFieldsForEmail } from "../lib/khuVucSync";
 import { nowVN } from "../lib/vnTime";
 
 // Quan tri "ETX nhan su" (xem lib/etxNhanSuSync.ts) - danh ba nhan su dong bo tu he ETX, du lieu
@@ -22,6 +23,20 @@ interface EtxNhanSuSyncStateRow {
   ktv_tu_tao?: number;
   tk_tu_duyet?: number;
 }
+
+// Trang thai "Tai khoan dat hang" (2026-10-01): da_tao = tai khoan lien ket (qua Ma KTV) hoac tai khoan Gmail "Da duyet" va
+// la Email dang nhap cua 1 KTV; van_phong = Gmail co tai khoan "Da duyet" nhung khong phai KTV (nhan vien van phong - khong
+// tao KTV tu day); cho_duyet / tu_choi theo users; chua_tao = chua co tai khoan; khong_gmail = ETX khong co Gmail hop le (cung dieu kien EMAIL_RE cua taoTaiKhoanTuEtx).
+// Join ug (users theo Gmail) + u (tai khoan lien ket) phai co trong FROM noi dung bieu thuc nay.
+const TK_TRANG_THAI = ["da_tao", "van_phong", "cho_duyet", "tu_choi", "chua_tao", "khong_gmail"] as const;
+const TK_TRANG_THAI_SQL = `(CASE
+  WHEN u.trang_thai_duyet = 'Da duyet' THEN 'da_tao'
+  WHEN e.gmail IS NULL OR TRIM(e.gmail) NOT LIKE '%_@_%._%' OR TRIM(e.gmail) LIKE '% %' THEN 'khong_gmail'
+  WHEN ug.trang_thai_duyet = 'Da duyet' AND EXISTS (SELECT 1 FROM ktv_lien_he kg WHERE kg.email_dang_nhap = ug.email) THEN 'da_tao'
+  WHEN ug.trang_thai_duyet = 'Da duyet' THEN 'van_phong'
+  WHEN ug.trang_thai_duyet = 'Cho duyet' THEN 'cho_duyet'
+  WHEN ug.trang_thai_duyet = 'Tu choi' THEN 'tu_choi'
+  ELSE 'chua_tao' END)`;
 
 // GET /?search=&trang_thai=on|off&page=&pageSize= - danh sach danh ba, LEFT JOIN ktv_lien_he/users
 // de hien "Tai khoan lien ket hien tai" (email_dang_nhap + bi_khoa) chi de tham khao, khong sua o day.
@@ -42,10 +57,16 @@ etxNhanSuSync.get("/", async (c) => {
     conditions.push("e.trang_thai_lam_viec = ?");
     binds.push(trangThai);
   }
+  const taiKhoan = c.req.query("tai_khoan")?.trim();
+  if (taiKhoan && (TK_TRANG_THAI as readonly string[]).includes(taiKhoan)) {
+    conditions.push(`${TK_TRANG_THAI_SQL} = ?`);
+    binds.push(taiKhoan);
+  }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  const selectCols = "e.*, k.email_dang_nhap as lien_ket_email, u.bi_khoa as lien_ket_bi_khoa";
-  const baseSql = `FROM etx_nhan_su e LEFT JOIN ktv_lien_he k ON k.ma_ktv = e.ma_ktv LEFT JOIN users u ON u.email = k.email_dang_nhap ${where}`;
+  const selectCols = `e.*, k.email_dang_nhap as lien_ket_email, u.bi_khoa as lien_ket_bi_khoa, ${TK_TRANG_THAI_SQL} as tk_trang_thai`;
+  const baseSql = `FROM etx_nhan_su e LEFT JOIN ktv_lien_he k ON k.ma_ktv = e.ma_ktv LEFT JOIN users u ON u.email = k.email_dang_nhap
+    LEFT JOIN users ug ON ug.email = LOWER(TRIM(e.gmail)) ${where}`;
 
   if (!pageParam) {
     const { results } = await c.env.DB.prepare(`SELECT ${selectCols} ${baseSql} ORDER BY e.ho_ten`).bind(...binds).all();
@@ -81,6 +102,14 @@ etxNhanSuSync.post("/sync/run", async (c) => {
 // keo lai tu ETX (vd Admin vua sua danh ba KTV, muon chay lai ngay). Dong bo thuong (/sync/run, cron) da tu chay buoc nay.
 etxNhanSuSync.post("/tu-dong-ktv/run", async (c) => {
   const kq = await tuDongTaoKtvTuEtx(c.env.DB);
+  return c.json(kq);
+});
+
+// POST /:maNhanSu/tao-tai-khoan - Admin tao tai khoan dat hang thu cong cho 1 nhan su (lib/etxTuDongKtv.ts taoTaiKhoanTuEtx).
+etxNhanSuSync.post("/:maNhanSu/tao-tai-khoan", async (c) => {
+  const kq = await taoTaiKhoanTuEtx(c.env.DB, c.req.param("maNhanSu"));
+  if (!kq.ok) return c.json({ error: kq.error }, kq.error === "NOT_FOUND" ? 404 : 400);
+  await resyncKhuVucDerivedFieldsForEmail(c.env.DB, kq.email);
   return c.json(kq);
 });
 
