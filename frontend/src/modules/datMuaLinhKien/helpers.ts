@@ -350,10 +350,17 @@ export function laChoHangBiKhoa(d: Pick<DonHangRow, "trang_thai" | "kho_dang_xu_
   return d.trang_thai === "Cho hang" && !!d.kho_dang_xu_ly_thieu_lk;
 }
 
+export function laTraHangChoTn(d: Pick<DonHangRow, "loai_don" | "trang_thai">): boolean {
+  return d.loai_don === "tra_hang" && d.trang_thai === "Cho TN duyet tong";
+}
+
 export function actionsFor(
   d: DonHangRow,
   ctx: { canTacNghiep: boolean; canTPDvbhXacNhan?: boolean; canActAsTram: boolean; currentEmail: string; isAdmin?: boolean },
 ): { duyet: boolean; tuChoi: boolean; choHang: boolean; huy: boolean } {
+  // Don tra hang "Cho TN duyet tong" hien chung muc "Chờ tác nghiệp" voi don mua (2026-09-30) -> TN Duyet/Tu choi ngay tren
+  // dong (DonCuaToiTab gui sang /tra-hang/bulk-log, xem laTraHangChoTn). Cac buoc tra hang khac xu ly o muc Hang tra.
+  if (laTraHangChoTn(d)) return { duyet: ctx.canTacNghiep, tuChoi: ctx.canTacNghiep, choHang: false, huy: false };
   if (d.loai_don === "tra_hang" || !d.trang_thai) return { duyet: false, tuChoi: false, choHang: false, huy: false };
   // FIX (phan hoi 2026-09-05, muc #4: "Ngoài người tạo và admin hệ thống không ai có quyền hủy đơn
   // hàng (TN chỉ có quyền từ chối)") - truoc day "isOwnerOrTram" (currentEmail===nguoi_tao HOAC

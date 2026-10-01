@@ -28,7 +28,7 @@ import { formatPersonDisplay, usePersonDirectory, doiNguoiThanhTen } from "../..
 import type { DonHangRow, DonHangLogRow, LyDoChamRow, ActionTarget, DonHangDraft, NguoiNhanHangKhaDungRow } from "./types";
 import {
   DON_HANG_TRANG_THAI_TONE_ALL, DON_HANG_ROW_STYLE, TRANG_THAI_DOT_TONE, DON_CUA_TOI_TRANG_THAI_OPTIONS,
-  DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, DON_HANG_DANG_MO, BULK_LOG_ERROR_MESSAGES, YEU_CAU_HOA_DON_OPTIONS,
+  DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, DON_HANG_DANG_MO, BULK_LOG_ERROR_MESSAGES, TRA_HANG_BULK_ERROR_MESSAGES, YEU_CAU_HOA_DON_OPTIONS,
   CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABELS, TRA_HANG_TRANG_THAI_OPTIONS, TAT_CA_LOAI_TRANG_THAI_OPTIONS,
   CHUYEN_TIEN_TONE, CHUYEN_TIEN_OPTIONS, PXK_TRANG_THAI_TONE, PXK_TRANG_THAI_OPTIONS,
   THIEU_LK_TRANG_THAI_TONE, THIEU_LK_TRANG_THAI_OPTIONS,
@@ -36,7 +36,7 @@ import {
 } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
-  LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, laChoHangMoKhoa, laChoHangBiKhoa, trangThaiLabel, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft,
+  LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, laTraHangChoTn, laChoHangMoKhoa, laChoHangBiKhoa, trangThaiLabel, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
   donGiaSauChietKhau, tienSauChietKhau, giaNiemYet } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink, LogTieuDe } from "./SharedUi";
@@ -1761,18 +1761,42 @@ export function DonCuaToiTab({
   // loaiDonCounts (so dong dang mo theo loai don) da chuyen len DatMuaLinhKienModule.tsx lam badge
   // do tren 3 tab "Mua hang/Cong no/Tra hang" (phan hoi 2026-08-19) - khong con dung o day.
 
+  const pageRowsRef = useRef<DonHangRow[]>([]);
   const bulkMutation = useMutation({
     // "ids" truyen tuong minh (khong doc "selected" qua closure) - cho phep goi truc tiep voi 1 dong
     // don le (thao tac nhanh tren tung dong trong DonHangGroupedList) ma khong dung den state
     // `selected` (chi danh cho chon hang loat cua Tram).
-    mutationFn: ({ ids, hanh_dong, ly_do_cham_id, ghi_chu }: { ids: string[]; hanh_dong: "duyet" | "tu_choi" | "huy"; ly_do_cham_id?: number; ghi_chu?: string }) =>
-      api.post<{ results: Record<string, string> }>("/dat-mua-lk/don-hang/bulk-log", { ids, hanh_dong, ly_do_cham_id, ghi_chu }),
-    onSuccess: (res) => {
+    // Dong tra hang "Cho TN duyet tong" (cung muc "Chờ tác nghiệp") di luong tra_hang_log rieng -> tach gui /tra-hang/bulk-log,
+    // gop ket qua 2 ben lai nhu 1 lan goi.
+    mutationFn: async ({ ids, hanh_dong, ly_do_cham_id, ghi_chu }: { ids: string[]; hanh_dong: "duyet" | "tu_choi" | "huy"; ly_do_cham_id?: number; ghi_chu?: string }) => {
+      const traIds = ids.filter((i) => { const r = pageRowsRef.current.find((x) => x.id === i); return !!r && laTraHangChoTn(r); });
+      const donIds = ids.filter((i) => !traIds.includes(i));
+      const [a, b] = await Promise.all([
+        donIds.length ? api.post<{ results: Record<string, string> }>("/dat-mua-lk/don-hang/bulk-log", { ids: donIds, hanh_dong, ly_do_cham_id, ghi_chu }) : null,
+        traIds.length ? api.post<{ results: Record<string, string> }>("/tra-hang/bulk-log", { ids: traIds, hanh_dong, ly_do_cham_id, ghi_chu }) : null,
+      ]);
+      return { results: { ...(a?.results ?? {}), ...(b?.results ?? {}) }, traIds };
+    },
+    onSuccess: (res, vars) => {
       setActionTarget(null);
       setBulkLyDoChamId("");
       setActionGhiChu("");
+      if (res.traIds.length) qc.invalidateQueries({ queryKey: ["tra-hang"] });
+      // Don tra hang qua han 24h o buoc TN -> backend doi ly do cham (khong biet truoc o danh sach) -> mo hop chon ly do
+      // cho dung cac dong do roi gui lai.
+      const canLyDo = vars.ly_do_cham_id ? [] : res.traIds.filter((i) => res.results[i] === "MISSING_LY_DO_CHAM");
+      if (canLyDo.length > 0) {
+        setSelected(new Set(canLyDo));
+        setActionTarget({ id: canLyDo.length === 1 ? canLyDo[0] : "bulk", action: vars.hanh_dong === "tu_choi" ? "tu_choi" : "duyet_qua_han" });
+        if (vars.hanh_dong === "tu_choi" && vars.ghi_chu) setActionGhiChu(vars.ghi_chu);
+        addToast(`${canLyDo.length} đơn trả hàng quá hạn 24h — chọn lý do chậm để xử lý tiếp`);
+        qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
+        invalidatePipelineCounts(qc);
+        return;
+      }
       const entries = Object.entries(res.results);
-      const failed = entries.filter(([, v]) => v in BULK_LOG_ERROR_MESSAGES);
+      const loiMsg = (code: string) => BULK_LOG_ERROR_MESSAGES[code] ?? TRA_HANG_BULK_ERROR_MESSAGES[code];
+      const failed = entries.filter(([, v]) => !!loiMsg(v));
       // Phase 4 (bulk retry, phan hoi Codex 2026-08-19 roadmap goc): that bai 1 phan thi CHI giu lai
       // dung cac dong loi trong `selected` (thay vi xoa het) - nguoi dung bam lai nut bulk 1 lan nua
       // la retry DUNG cac dong that bai, khong phai do tim lai tay trong danh sach.
@@ -1780,7 +1804,7 @@ export function DonCuaToiTab({
       if (failed.length === 0) {
         addToast(`Đã xử lý thành công ${entries.length} dòng`);
       } else {
-        const detail = failed.map(([lineId, code]) => `${lineId}: ${BULK_LOG_ERROR_MESSAGES[code] ?? code}`).join("; ");
+        const detail = failed.map(([lineId, code]) => `${lineId}: ${loiMsg(code) ?? code}`).join("; ");
         addToast(`Thành công ${entries.length - failed.length}/${entries.length} dòng. Thất bại: ${detail} — đã giữ lại các dòng lỗi, bấm lại để thử lại`);
       }
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
@@ -1805,14 +1829,21 @@ export function DonCuaToiTab({
       bulkMutation.mutate({ ids, hanh_dong: "tu_choi", ghi_chu: actionGhiChu.trim() });
       return;
     }
+    // Don tra hang "Cho TN duyet tong": bat buoc ly do (ghi_chu), ly do cham chi khi qua han 24h (backend bao MISSING_LY_DO_CHAM).
+    if (targetRow && laTraHangChoTn(targetRow)) {
+      if (!actionGhiChu.trim()) return;
+      bulkMutation.mutate({ ids, hanh_dong: "tu_choi", ghi_chu: actionGhiChu.trim(), ly_do_cham_id: bulkLyDoChamId ? Number(bulkLyDoChamId) : undefined });
+      return;
+    }
     // Bulk (id === "bulk") co the gom lan CA dong "Cho Tram duyet" VA "Cho TN duyet" (Admin xem duoc
     // ca 2 vai) - dong Tram BAT BUOC actionGhiChu rieng (khong dung ly_do_cham_id), dong TN BAT BUOC
     // bulkLyDoChamId - modal chi hien field tuong ung neu co dong loai do trong lua chon (xem
     // bulkCoDongTram/bulkCoDongTN o JSX ben duoi), nen chi validate field NAO thuc su can.
     const coDongTram = ids.some((i) => pageRows.find((r) => r.id === i)?.trang_thai === "Cho Tram duyet");
     const coDongTN = ids.some((i) => pageRows.find((r) => r.id === i)?.trang_thai === "Cho TN duyet");
+    const coDongTra = ids.some((i) => { const r = pageRows.find((x) => x.id === i); return !!r && laTraHangChoTn(r); });
     if (coDongTN && !bulkLyDoChamId) return;
-    if (coDongTram && !actionGhiChu.trim()) return;
+    if ((coDongTram || coDongTra) && !actionGhiChu.trim()) return;
     // "cho_hang" cung goi hanh_dong backend "tu_choi" - xem comment actionsFor.choHang o helpers.ts.
     bulkMutation.mutate({
       ids,
@@ -1837,6 +1868,7 @@ export function DonCuaToiTab({
   }
 
   const pageRows = data?.rows ?? [];
+  pageRowsRef.current = pageRows;
   // Dong tra hang dang o 4 buoc duyet rieng (tra_hang_log) -> chi tiet mo TraHangDetailModal.
   const detailRowDs = detailId ? pageRows.find((r) => r.id === detailId) : undefined;
   const detailTraHang =
@@ -1852,7 +1884,7 @@ export function DonCuaToiTab({
   const rowsCoTheChon = pageRows.filter((r) => {
     const a = actionsFor(r, { canTacNghiep, canActAsTram, currentEmail: user?.email ?? "" });
     if (r.trang_thai === "Cho Tram duyet") return (a.duyet || a.tuChoi) && r.nguoi_tao !== user?.email;
-    if (r.trang_thai === "Cho TN duyet") return a.duyet || a.tuChoi;
+    if (r.trang_thai === "Cho TN duyet" || laTraHangChoTn(r)) return a.duyet || a.tuChoi;
     return false;
   });
   // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Preview truoc bulk action") - tong tien cua CAC
@@ -2052,6 +2084,7 @@ export function DonCuaToiTab({
         const bulkIds = [...selected];
         const bulkCoDongTram = bulkIds.some((i) => pageRows.find((r) => r.id === i)?.trang_thai === "Cho Tram duyet");
         const bulkCoDongTN = bulkIds.some((i) => pageRows.find((r) => r.id === i)?.trang_thai === "Cho TN duyet");
+        const bulkCoDongTra = bulkIds.some((i) => { const r = pageRows.find((x) => x.id === i); return !!r && laTraHangChoTn(r); });
         return (
           <Modal
             open={actionTarget?.id === "bulk" && actionTarget.action === "tu_choi"}
@@ -2059,21 +2092,21 @@ export function DonCuaToiTab({
             title={`Từ chối ${selected.size} dòng đã chọn`}
           >
             <div className="space-y-3">
-              {bulkCoDongTN && (
+              {(bulkCoDongTN || bulkCoDongTra) && (
                 <Select
                   value={bulkLyDoChamId}
                   onChange={setBulkLyDoChamId}
-                  options={[{ value: "", label: "-- Chọn lý do chậm --" }, ...(bulkLyDoData?.rows ?? []).map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+                  options={[{ value: "", label: bulkCoDongTN ? "-- Chọn lý do chậm --" : "-- Lý do chậm (chỉ khi quá hạn 24h) --" }, ...(bulkLyDoData?.rows ?? []).map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
                   className="w-full"
                 />
               )}
               {/* Hang muc #19 (2026-08-25): dong "Cho Tram duyet" trong lua chon bat buoc ghi_chu rieng
                   (backend khong con nhan tuy chon). O luon o day de phuc vu ca truong hop chon lan
                   ca 2 loai dong (Admin dong thoi xem duoc ca Tram lan TN). */}
-              {bulkCoDongTram && (
+              {(bulkCoDongTram || bulkCoDongTra) && (
                 <div>
                   <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">
-                    Lý do từ chối cho các dòng đang chờ Trạm duyệt (bắt buộc)
+                    {bulkCoDongTram ? "Lý do từ chối cho các dòng đang chờ Trạm duyệt / đơn trả hàng (bắt buộc)" : "Lý do từ chối đơn trả hàng (bắt buộc)"}
                   </label>
                   <input
                     value={actionGhiChu}
@@ -2088,7 +2121,7 @@ export function DonCuaToiTab({
                   Lý do chậm chỉ áp dụng cho các dòng đang chờ tác nghiệp (TN) xử lý trong lựa chọn.
                 </div>
               )}
-              {bulkCoDongTN && !bulkCoDongTram && (
+              {bulkCoDongTN && !bulkCoDongTram && !bulkCoDongTra && (
                 <input
                   value={actionGhiChu}
                   onChange={(e) => setActionGhiChu(e.target.value)}
@@ -2101,7 +2134,7 @@ export function DonCuaToiTab({
                 <Btn
                   variant="danger"
                   onClick={confirmTuChoiChe}
-                  disabled={(bulkCoDongTN && !bulkLyDoChamId) || (bulkCoDongTram && !actionGhiChu.trim()) || bulkMutation.isPending}
+                  disabled={(bulkCoDongTN && !bulkLyDoChamId) || ((bulkCoDongTram || bulkCoDongTra) && !actionGhiChu.trim()) || bulkMutation.isPending}
                 >
                   Xác nhận từ chối
                 </Btn>
@@ -2637,7 +2670,7 @@ export function DonHangGroupedList({
       const actions = actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail });
       const tone = LOAI_DON_TONE[d.loai_don];
       const rowStyle = DON_HANG_ROW_STYLE[d.trang_thai ?? ""] ?? "";
-      const chonDuoc = showCheckbox && (d.trang_thai === "Cho Tram duyet" || d.trang_thai === "Cho TN duyet") && (actions.duyet || actions.tuChoi);
+      const chonDuoc = showCheckbox && (d.trang_thai === "Cho Tram duyet" || d.trang_thai === "Cho TN duyet" || laTraHangChoTn(d)) && (actions.duyet || actions.tuChoi);
       return { d, actions, tone, rowStyle, chonDuoc };
     });
     return { nguoiNhan, dongCon, choDuyet, dongY, tuChoi, choHang, tongTien, rowsEnriched };
@@ -3002,14 +3035,16 @@ export function DonHangGroupedList({
       {(() => {
         const targetId = actionTarget && actionTarget.id !== "bulk" ? actionTarget.id : null;
         const rowTarget = targetId ? rows.find((r) => r.id === targetId) : undefined;
+        const laTraTarget = !!rowTarget && laTraHangChoTn(rowTarget);
         const isTuChoiTBP =
           !!targetId &&
           actionTarget?.action === "tu_choi" &&
-          (rowTarget?.trang_thai === "Cho TBP xac nhan" || rowTarget?.trang_thai === "Cho Tram duyet" || rowTarget?.trang_thai === "TN da duyet");
+          (rowTarget?.trang_thai === "Cho TBP xac nhan" || rowTarget?.trang_thai === "Cho Tram duyet" || rowTarget?.trang_thai === "TN da duyet" || laTraTarget);
         const isTuChoiTN = !!targetId && actionTarget?.action === "tu_choi" && !isTuChoiTBP;
         const isChoHang = !!targetId && actionTarget?.action === "cho_hang";
         const isDuyetTaoHo = !!targetId && actionTarget?.action === "duyet_tao_ho";
-        const isDuyetQuaHan = !!targetId && actionTarget?.action === "duyet_qua_han";
+        // id "bulk": don tra hang qua han 24h phat hien khi duyet hang loat (bulkMutation) -> chon 1 ly do cho ca nhom.
+        const isDuyetQuaHan = !!actionTarget && actionTarget.action === "duyet_qua_han";
         return (
           <>
             {/* Canh bao "Công nợ tạo hộ" (them 2026-08-24, muc 4) - nut nhanh (✓) tren dong bang/the
@@ -3031,8 +3066,16 @@ export function DonHangGroupedList({
                 </div>
               </div>
             </Modal>
-            <Modal open={isTuChoiTBP} onClose={() => { setActionTarget(null); setActionGhiChu(""); }} title={`Từ chối dòng ${targetId} — nhập lý do`}>
+            <Modal open={isTuChoiTBP} onClose={() => { setActionTarget(null); setActionGhiChu(""); setBulkLyDoChamId(""); }} title={`Từ chối dòng ${targetId} — nhập lý do`}>
               <div className="space-y-3">
+                {laTraTarget && (
+                  <Select
+                    value={bulkLyDoChamId}
+                    onChange={setBulkLyDoChamId}
+                    options={[{ value: "", label: "-- Lý do chậm (chỉ khi quá hạn 24h) --" }, ...(bulkLyDoData?.rows ?? []).map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+                    className="w-full"
+                  />
+                )}
                 <input
                   value={actionGhiChu}
                   onChange={(e) => setActionGhiChu(e.target.value)}
@@ -3090,7 +3133,7 @@ export function DonHangGroupedList({
                 bam Duyet bat buoc chon 1 ly do TRUOC khi thuc su duyet, dung LAI toan bo danh sach ly
                 do (khong tach nhom nhu tu_choi/cho_hang vi day khong phai tu choi/mo ticket thieu
                 hang, chi la giai trinh ly do cham xu ly). */}
-            <Modal open={isDuyetQuaHan} onClose={() => { setActionTarget(null); setBulkLyDoChamId(""); }} title={`Duyệt dòng ${targetId} đã quá hạn — chọn lý do chậm`}>
+            <Modal open={isDuyetQuaHan} onClose={() => { setActionTarget(null); setBulkLyDoChamId(""); }} title={targetId ? `Duyệt dòng ${targetId} đã quá hạn — chọn lý do chậm` : `Duyệt ${selected.size} dòng đã quá hạn — chọn lý do chậm`}>
               <div className="space-y-3">
                 <div className="text-xs text-[var(--coral-600)]">Đơn này đã quá 24h chưa được tiếp nhận. Vui lòng chọn lý do trước khi duyệt.</div>
                 <Select

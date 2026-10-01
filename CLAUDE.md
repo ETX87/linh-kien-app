@@ -227,7 +227,8 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   = lọc sentinel `__CHO_XAC_NHAN__` (`traHang.ts`). Mobile: không có mục riêng — cụm "Hàng trả" + 3 mục con nằm trong menu "Đơn
   hàng"; số "Đơn hàng" desktop trừ phần việc trả hàng KT/Kho/QC (`navCount(..., tachHangTra)`). Bước "Cho TN duyet tong" gộp vào
   **"Chờ tác nghiệp"** cùng đơn mua (sentinel `__CHO_TN__` ở `donHangListWhere` + counts); DonCuaToiTab mở `TraHangDetailModal` cho
-  dòng trả hàng còn trong 4 bước duyệt riêng. Tên menu: Tổng / Chờ TBP / Chờ tác nghiệp / Chờ hàng / Chờ tạo phiếu / Từ chối /
+  dòng trả hàng còn trong 4 bước duyệt riêng. Dòng trả hàng "Cho TN duyet tong" có nút Duyệt/Từ chối + chọn hàng loạt ngay trong danh sách
+  (`laTraHangChoTn` ở `helpers.ts`; `bulkMutation` tách id trả hàng gửi `/tra-hang/bulk-log`, quá hạn 24h → hộp lý do chậm). Tên menu: Tổng / Chờ TBP / Chờ tác nghiệp / Chờ hàng / Chờ tạo phiếu / Từ chối /
   Duyệt trong ngày; Phiếu: Tổng phiếu / Chờ chuyển tiền / Chờ mã đơn hàng / Chờ mã MISA / Chờ kho in / Kho đã in / Chờ KTV nhận /
   KTV đã nhận / Hàng trừ kho / Kho đã kết thúc.
 - **Tạo phiếu xuất kho trên điện thoại** (2026-09-30, `PhieuXuatKhoTab.tsx`): CÙNG 1 form (`body`) cho 2 vỏ — desktop `Modal` +
