@@ -24,6 +24,7 @@ import { ThayTheTab } from "./danhMucLinhKien/ThayTheTab";
 import { Money } from "../components/ui/Money";
 import { boDau, diemTimTheoTu, taoChiMucTim, type ChiMucTim } from "../lib/boDau";
 import { TRANG_THAI_MA, TrangThaiMaBadge, XetDuyetMaSection } from "./danhMucLinhKien/XetDuyetMaLk";
+import { PhanLoaiNhanh } from "./danhMucLinhKien/PhanLoaiNhanh";
 
 const PAGE_SIZE = 20;
 const BOOL_FILTER_OPTIONS = [
@@ -878,7 +879,7 @@ function DanhMucTab() {
     {
       key: "don_vi",
       header: "Phân loại",
-      render: (p) => (p.don_vi?.trim() ? <span className="text-xs">{p.don_vi}</span> : <Badge tone="amber">Chưa phân loại</Badge>),
+      render: (p) => <PhanLoaiNhanh ma={p.ma_linh_kien} value={p.don_vi} options={phanLoaiOptions} canEdit={canSua && p.trang_thai_ma !== "Da doi ma"} />,
     },
     { key: "anh_demo", header: "Ảnh minh hoạ", render: (p) => <AnhThumbnail url={p.anh_demo} active={!!p.bat_tat} /> },
     { key: "ghi_chu", header: "Ghi chú", render: (p) => <span className="text-xs text-[var(--ink-600)]">{p.ghi_chu ?? "—"}</span> },
