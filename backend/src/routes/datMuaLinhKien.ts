@@ -1,4 +1,5 @@
 import { lenhGhiQuy, phanBoQuy, soDuQuy, thongBaoHoanQuyPhieuHuy } from "../lib/quyKtv";
+import { ktvChinhCuaEmailSql } from "../lib/ktvChinh";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { Env } from "../types";
@@ -507,7 +508,7 @@ datMuaLinhKien.get("/ton-dong-theo-ktv", async (c) => {
          ${tenNguoiNullSql("o.nguoi_nhan_hang")} AS ten_hien_thi, k.khu_vuc_ma, k.vai_tro_ktv, kv.ten as khu_vuc_ten,
          (SELECT ngay_du_kien_co_hang FROM thieu_lk WHERE dat_don_hang_id = o.id ORDER BY ngay_tao DESC LIMIT 1) as ngay_du_kien_co_hang
        FROM ddh_open o
-       LEFT JOIN ktv_lien_he k ON k.email_dang_nhap = o.nguoi_nhan_hang
+       LEFT JOIN ktv_lien_he k ON k.ma_ktv = ${ktvChinhCuaEmailSql("o.nguoi_nhan_hang")}
        LEFT JOIN khu_vuc kv ON kv.ma = k.khu_vuc_ma
        WHERE 1=1${whereExtra}
        ORDER BY o.ngay_tao ASC`,

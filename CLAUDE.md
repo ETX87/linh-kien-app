@@ -510,6 +510,10 @@ Bảng giá hiện cảnh báo + bộ lọc "Chưa phân loại". File MISA: dò
 miền (`app_settings.misa_ma_kho_may_mien_*`, Cài đặt › Mã kho mặc định) thay kho công ty — ở cột "Mã kho" (Bán hàng/Xuất kho)
 và "Nhập tại kho" (Chuyển kho); dòng TRỪ CÔNG NỢ vẫn trừ kho KTV.
 
+**Nhiều mã KTV dùng chung 1 Gmail** (dữ liệu thật, 2026-10-01): KHÔNG `JOIN ktv_lien_he k ON k.email_dang_nhap = <email>` khi
+cần thông tin KTV theo email (nhân dòng theo số mã — file MISA từng lặp ×5) → `k.ma_ktv = ${ktvChinhCuaEmailSql(email)}`
+(`lib/ktvChinh.ts`: mã có Mã MISA → đang bật → ma_ktv), hoặc `EXISTS` khi chỉ lọc. Truy vấn lọc theo 1 `k.ma_ktv = ?` không bị.
+
 **Thứ tự tên hiển thị người dùng** (chốt 2026-09-30, `lib/tenNguoi.ts`): Tên hiển thị KTV (danh bạ) → Tên MISA (KTV, rồi
 `users.ten_misa`) → tên Google (`users.ten`) → email. `/api/auth/nguoi-directory` trả sẵn theo thứ tự này (FE
 `formatPersonDisplay` giữ `ktv ?? users ?? email`); SQL dùng `tenNguoiSql`/`tenNguoiNullSql` (sắp xếp cột người `locCot`,

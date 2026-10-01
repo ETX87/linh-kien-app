@@ -38,8 +38,8 @@ export async function computeTonKhoPhatSinh(db: D1Database, khuVucMa: string, ma
     .prepare(
       `SELECT COALESCE(SUM(ddh.so_luong_de_xuat), 0) as gia_tri
        FROM dat_don_hang ddh
-       JOIN ktv_lien_he k ON k.email_dang_nhap = ddh.nguoi_nhan_hang
-       WHERE k.khu_vuc_ma = ? AND ddh.ma_lk = ? AND ddh.loai_don IN ('mua', 'cong_no')
+       -- EXISTS (khong JOIN): 1 Gmail co the gan nhieu ma KTV cung khu vuc -> JOIN nhan SL theo so ma (2026-10-01).
+       WHERE EXISTS (SELECT 1 FROM ktv_lien_he k WHERE k.email_dang_nhap = ddh.nguoi_nhan_hang AND k.khu_vuc_ma = ?) AND ddh.ma_lk = ? AND ddh.loai_don IN ('mua', 'cong_no')
          -- "TRỪ CÔNG NỢ" lay tu ton kho CUA KTV, khong giu hang kho cong ty (chot 2026-09-28, lib/tonKhoKtv.ts)
          AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') = 0
          AND ddh.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')

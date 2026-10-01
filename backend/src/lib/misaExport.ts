@@ -45,6 +45,7 @@
 import type { Env } from "../types";
 import { tinhToanPxk, laTruCongNo } from "./pxkRecalculate";
 import { tenNguoiNullSql } from "./tenNguoi";
+import { ktvChinhCuaEmailSql } from "./ktvChinh";
 
 export const MISA_TEMPLATES = ["xuat_kho", "chuyen_kho", "ban_hang"] as const;
 export type MisaTemplate = (typeof MISA_TEMPLATES)[number];
@@ -238,7 +239,7 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
        JOIN phieu_xuat_kho_dong pxkd ON pxkd.phieu_xuat_kho_id = pxk.id
        JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id
        LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
-       LEFT JOIN ktv_lien_he ktv ON ktv.email_dang_nhap = pxk.nguoi_nhan_hang
+       LEFT JOIN ktv_lien_he ktv ON ktv.ma_ktv = ${ktvChinhCuaEmailSql("pxk.nguoi_nhan_hang")}
        LEFT JOIN users u ON u.email = pxk.nguoi_nhan_hang
        WHERE pxk.id IN (${placeholders})
        ORDER BY pxk.ngay_tao, pxk.id, ddh.id`,
