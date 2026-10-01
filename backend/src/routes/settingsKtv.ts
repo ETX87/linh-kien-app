@@ -87,7 +87,7 @@ settingsKtv.get("/", async (c) => {
          AND (? IS NULL OR ddh.updated_at > ?)
        GROUP BY k3.ma_ktv
      ) dp ON dp.ma_ktv = k.ma_ktv`;
-  const selectCols = `k.*, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai, COALESCE(dp.gia_tri, 0) as han_muc_du_phong_phat_sinh`;
+  const selectCols = `k.*, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai, u.bi_khoa as tk_bi_khoa, u.email as tk_email, COALESCE(dp.gia_tri, 0) as han_muc_du_phong_phat_sinh`;
   const baseSql = `FROM ktv_lien_he k LEFT JOIN users u ON u.email = k.email_dang_nhap ${duPhongJoin} ${where}`;
   const duPhongBinds = [mocTinhDuPhong, mocTinhDuPhong];
   const withMocHienTai = (rows: Record<string, unknown>[]) =>
@@ -590,6 +590,23 @@ settingsKtv.post("/backfill-users", adminOnly, async (c) => {
   await c.env.DB.batch(statements);
   await resyncKhuVucDerivedFieldsForAll(c.env.DB);
   return c.json({ ok: true, checked: rows.length });
+});
+
+// PATCH /:ma/bat-tat {bat} - Admin BAT/TAT tai khoan KTV (2026-10-01): tat = users.bi_khoa = 1 cua email dang nhap -> khong
+// dang nhap duoc (loadUser tra DISABLED), khong tao don, khong hien trong o chon "Nguoi nhan hang" va API tao don/import chan
+// (resolveNguoiNhanHang NGUOI_NHAN_HANG_DA_TAT). Don cu giu nguyen. Trigger md_danh_ba tu lam moi cache danh ba tren may.
+settingsKtv.patch("/:ma/bat-tat", adminOnly, async (c) => {
+  const ma = c.req.param("ma");
+  const body = await c.req.json<{ bat?: boolean }>();
+  if (typeof body.bat !== "boolean") return c.json({ error: "MISSING_BAT" }, 400);
+  const ktv = await c.env.DB.prepare("SELECT email_dang_nhap FROM ktv_lien_he WHERE ma_ktv = ?").bind(ma).first<{ email_dang_nhap: string | null }>();
+  if (!ktv) return c.json({ error: "NOT_FOUND" }, 404);
+  if (!ktv.email_dang_nhap) return c.json({ error: "CHUA_CO_TAI_KHOAN" }, 400);
+  const res = await c.env.DB.prepare("UPDATE users SET bi_khoa = ?, updated_at = ? WHERE email = ?")
+    .bind(body.bat ? 0 : 1, nowVN(), ktv.email_dang_nhap)
+    .run();
+  if (!res.meta?.changes) return c.json({ error: "CHUA_CO_TAI_KHOAN" }, 400);
+  return c.json({ ok: true });
 });
 
 settingsKtv.delete("/:ma", adminOnly, async (c) => {

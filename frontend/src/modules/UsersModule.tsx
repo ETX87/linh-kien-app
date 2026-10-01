@@ -9,6 +9,7 @@ import { Modal } from "../components/ui/Modal";
 import { Select } from "../components/ui/Select";
 import { Tabs } from "../components/ui/Tabs";
 import { Tooltip } from "../components/ui/Tooltip";
+import { ToggleSwitch } from "../components/ui/ToggleSwitch";
 import { useToast } from "../components/ui/Toast";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { useAuth } from "../auth/AuthContext";
@@ -906,6 +907,15 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
     },
   });
 
+  const batTat = useMutation({
+    mutationFn: ({ ma, bat }: { ma: string; bat: boolean }) => api.patch(`/settings/ktv-lien-he/${encodeURIComponent(ma)}/bat-tat`, { bat }),
+    onSuccess: async (_res, { bat }) => {
+      addToast(bat ? "Đã bật tài khoản" : "Đã tắt tài khoản — không đăng nhập, không tạo đơn, không chọn làm người nhận hàng được");
+      await qc.invalidateQueries({ queryKey: ["settings-ktv"] });
+    },
+    onError: (err) => addToast("Không đổi được: " + (err instanceof Error ? err.message : String(err))),
+  });
+
   const khuVucTenByMa = useMemo(() => new Map((khuVucData?.rows ?? []).map((k) => [k.ma, k.ten])), [khuVucData]);
   const tenByMaKtv = useMemo(() => new Map((cap1Data?.rows ?? []).map((r) => [r.ma_ktv, r.ten_hien_thi])), [cap1Data]);
 
@@ -914,6 +924,31 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
     { key: "ten_hien_thi", mobile: "title", header: "Tên hiển thị", render: (r) => r.ten_hien_thi ?? "—" },
     { key: "sdt", mobile: "sub", header: "SĐT", render: (r) => r.sdt ?? "—" },
     { key: "vai_tro_ktv", mobile: "badge", header: "Vai trò", render: (r) => r.vai_tro_ktv ?? "—" },
+    {
+      key: "tk_bat_tat", mobile: "meta",
+      header: "Tài khoản",
+      render: (r) => {
+        if (!r.tk_email) return <span className="text-[var(--color-text-faint)]">Chưa có</span>;
+        const bat = !r.tk_bi_khoa;
+        return (
+          <span className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+            {mode === "admin" && (
+              <ToggleSwitch
+                checked={bat}
+                onChange={() => {
+                  if (batTat.isPending) return;
+                  if (bat && !window.confirm(`Tắt tài khoản ${r.ma_ktv} (${r.ten_hien_thi ?? r.email_dang_nhap})?
+
+Người này sẽ không đăng nhập được, không tạo đơn được và không hiện trong danh sách chọn người nhận hàng. Đơn cũ giữ nguyên.`)) return;
+                  batTat.mutate({ ma: r.ma_ktv, bat: !bat });
+                }}
+              />
+            )}
+            <Badge tone={bat ? "teal" : "coral"}>{bat ? "Đang bật" : "Đã tắt"}</Badge>
+          </span>
+        );
+      },
+    },
     { key: "khu_vuc", mobile: "meta", header: "Khu vực", render: (r) => (r.khu_vuc_ma ? khuVucTenByMa.get(r.khu_vuc_ma) ?? r.khu_vuc_ma : "—") },
     // FIX (ra soat UI 2026-08-27, hang muc #3): an han cot nay khi filter "cap" dang loc dung Cap 1 -
     // field CHI co nghia cho Ve tinh (vai_tro_ktv==='Ve tinh') nen luon rong khi dang xem rieng Cap 1,

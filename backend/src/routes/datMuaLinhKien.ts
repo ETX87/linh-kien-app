@@ -171,10 +171,17 @@ function coMaIdLienQuan(maYcsc: string | null | undefined, maLada: string | null
 async function resolveNguoiNhanHang(
   db: D1Database,
   target: { email: string; la_ve_tinh: number | boolean },
-): Promise<{ email: string } | { error: "VE_TINH_CHUA_GAN_TRAM" }> {
+): Promise<{ email: string } | { error: "VE_TINH_CHUA_GAN_TRAM" | "NGUOI_NHAN_HANG_DA_TAT" }> {
+  // Tai khoan KTV bi TAT (users.bi_khoa - cong tac o Quan ly nguoi dung > KTV hien truong, 2026-10-01) khong duoc la nguoi
+  // nhan hang: chan ca KTV/Ve tinh duoc chon lan Tram nhan thay.
+  const row = await db
+    .prepare("SELECT u.bi_khoa, u.tram_cha, t.bi_khoa AS tram_bi_khoa FROM users u LEFT JOIN users t ON t.email = u.tram_cha WHERE u.email = ?")
+    .bind(target.email)
+    .first<{ bi_khoa: number | null; tram_cha: string | null; tram_bi_khoa: number | null }>();
+  if (row?.bi_khoa) return { error: "NGUOI_NHAN_HANG_DA_TAT" };
   if (!target.la_ve_tinh) return { email: target.email };
-  const row = await db.prepare("SELECT tram_cha FROM users WHERE email = ?").bind(target.email).first<{ tram_cha: string | null }>();
   if (!row?.tram_cha) return { error: "VE_TINH_CHUA_GAN_TRAM" };
+  if (row.tram_bi_khoa) return { error: "NGUOI_NHAN_HANG_DA_TAT" };
   return { email: row.tram_cha };
 }
 
@@ -232,13 +239,14 @@ datMuaLinhKien.get("/nguoi-nhan-hang-kha-dung", async (c) => {
     gsBinds.push(user.email);
   }
   const { results } = await c.env.DB.prepare(
-    `SELECT dsk.ma_ktv, ${tenNguoiDaySql("dsk.email_dang_nhap")} AS ten_hien_thi, dsk.email_dang_nhap, ${tenNguoiNullSql("gs.email")} AS ten_gs
+    `SELECT dsk.ma_ktv, ${tenNguoiDaySql("dsk.email_dang_nhap")} AS ten_hien_thi, dsk.email_dang_nhap, ${tenNguoiNullSql("gs.email")} AS ten_gs,
+            COALESCE(u.bi_khoa, 0) AS bi_khoa
      FROM ktv_lien_he dsk
      JOIN users u ON u.email = dsk.email_dang_nhap
      LEFT JOIN users gs ON gs.email = u.giam_sat_quan_ly
      WHERE ${ktvWhereSql}
      UNION ALL
-     SELECT '' as ma_ktv, ${tenNguoiDaySql("u2.email")} as ten_hien_thi, u2.email as email_dang_nhap, NULL as ten_gs
+     SELECT '' as ma_ktv, ${tenNguoiDaySql("u2.email")} as ten_hien_thi, u2.email as email_dang_nhap, NULL as ten_gs, COALESCE(u2.bi_khoa, 0) AS bi_khoa
      FROM users u2
      WHERE ${gsWhereSql}
      ORDER BY ten_hien_thi`,
@@ -2559,14 +2567,16 @@ async function processDatDonHangImportRows(
     if (!ktvCache.has(maKtv)) {
       const ktvRow = await db
         .prepare(
-          `SELECT dsk.email_dang_nhap as email, u.la_ve_tinh, u.tram_cha
-           FROM ktv_lien_he dsk JOIN users u ON u.email = dsk.email_dang_nhap
+          `SELECT dsk.email_dang_nhap as email, u.la_ve_tinh, u.tram_cha, u.bi_khoa, t.bi_khoa AS tram_bi_khoa
+           FROM ktv_lien_he dsk JOIN users u ON u.email = dsk.email_dang_nhap LEFT JOIN users t ON t.email = u.tram_cha
            WHERE dsk.ma_ktv = ? AND dsk.email_dang_nhap IS NOT NULL`,
         )
         .bind(maKtv)
-        .first<{ email: string; la_ve_tinh: number; tram_cha: string | null }>();
+        .first<{ email: string; la_ve_tinh: number; tram_cha: string | null; bi_khoa: number | null; tram_bi_khoa: number | null }>();
       if (!ktvRow) {
         ktvCache.set(maKtv, { error: "NOT_FOUND" });
+      } else if (ktvRow.bi_khoa || (ktvRow.la_ve_tinh && ktvRow.tram_bi_khoa)) {
+        ktvCache.set(maKtv, { error: "DA_TAT" });
       } else if (ktvRow.la_ve_tinh && !ktvRow.tram_cha) {
         ktvCache.set(maKtv, { error: "VE_TINH_CHUA_GAN_TRAM" });
       } else {
@@ -2580,6 +2590,8 @@ async function processDatDonHangImportRows(
       errors.push(
         ktv.error === "VE_TINH_CHUA_GAN_TRAM"
           ? `Dòng ${dong}: KTV "${maKtv}" là Vệ tinh nhưng chưa được gán Trạm - không xác định được người nhận hàng`
+          : ktv.error === "DA_TAT"
+            ? `Dòng ${dong}: tài khoản KTV "${maKtv}" (hoặc Trạm nhận hàng thay) đang bị tắt - không nhận hàng được`
           : ktv.error === "NGOAI_PHAM_VI_GS"
             ? `Dòng ${dong}: KTV "${maKtv}" không thuộc quyền phụ trách của Giám sát này`
             : `Dòng ${dong}: KTV "${maKtv}" không tồn tại trong Danh sách KTV hoặc chưa ghép tài khoản đăng nhập`,

@@ -291,6 +291,8 @@ export interface NguoiNhanHangKhaDungRow {
   ten_hien_thi: string | null;
   email_dang_nhap: string;
   ten_gs?: string | null;
+  // 1 = tai khoan dang TAT (users.bi_khoa) - van tra ve de tra ten don cu, o chon nguoi nhan hang khi tao don tu loc bo
+  bi_khoa?: number;
 }
 export interface LuongQuyTrinhStep {
   key: string;

@@ -565,6 +565,11 @@ khoản Da duyet/Tu choi (không biến nhân viên văn phòng thành KTV). Ch�
 (`TK_TRANG_THAI_SQL` ở `routes/etxNhanSuSync.ts`, lọc `?tai_khoan=`); nút gọi `POST /api/etx-nhan-su/:ma/tao-tai-khoan` →
 `taoTaiKhoanTuEtx()` — cùng kết quả bước tự động nhưng KHÔNG đòi chức danh CTV/KTV, duyệt cả tài khoản "Tu choi" (Admin tự quyết).
 
+**Bật/tắt tài khoản KTV** (2026-10-01): cột "Tài khoản" + công tắc ở Quản lý người dùng › KTV hiện trường (Admin) →
+`PATCH /api/settings/ktv-lien-he/:ma/bat-tat` = `users.bi_khoa` của email đăng nhập (cùng cờ ETX nghỉ việc dùng). Tắt = không đăng
+nhập (`loadUser` DISABLED), không tạo đơn; `resolveNguoiNhanHang()` + import Excel chặn `NGUOI_NHAN_HANG_DA_TAT` (cả Trạm nhận thay
+bị tắt); `/nguoi-nhan-hang-kha-dung` VẪN trả người bị tắt (kèm `bi_khoa`, để tra tên đơn cũ) — ô chọn ở `useTaoDonForm` tự lọc bỏ.
+
 **Bỏ bước TBP** cho LK đặc thù khi loại đề xuất chứa MUA / HỖ TRỢ / **TRỪ CÔNG NỢ** (`boQuaTbpChoDacThu()` backend,
 bản sao `boQuaTbpDacThu()` FE cho cảnh báo ở `LinhKienPicker`).
 

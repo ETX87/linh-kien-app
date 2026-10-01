@@ -93,6 +93,9 @@ export interface KtvLienHeRow {
   han_muc_du_phong_cap_nhat_luc: string | null;
   han_muc_du_phong_phat_sinh: number;
   moc_du_phong_hien_tai: number;
+  // Bat/tat tai khoan KTV (2026-10-01): users.bi_khoa cua email dang nhap; tk_email NULL = chua co dong users
+  tk_bi_khoa?: number | null;
+  tk_email?: string | null;
 }
 
 // Them 2026-08-29 (phan hoi "xây dựng settings quản lý Tồn kho công nợ KTV", import hang ngay tu

@@ -50,6 +50,8 @@ export function useTaoDonForm({
   const { data: nguoiNhanHangData } = useQuery({
     queryKey: ["dat-mua-lk-nguoi-nhan-hang-kha-dung"],
     queryFn: () => api.get<{ rows: NguoiNhanHangKhaDungRow[] }>("/dat-mua-lk/nguoi-nhan-hang-kha-dung"),
+    // KTV bi tat tai khoan khong duoc chon lam nguoi nhan hang (backend cung chan NGUOI_NHAN_HANG_DA_TAT)
+    select: (d) => ({ rows: d.rows.filter((r) => !r.bi_khoa) }),
     enabled: canQuanLy,
   });
 
