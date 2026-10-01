@@ -84,7 +84,9 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   trạng thái như QC tải ảnh KHÔNG reset; bước đầu chưa có log → `ngay_tao`). Quá hạn mà Duyệt/Từ chối → `MISSING_LY_DO_CHAM`,
   bắt chọn lý do từ `settings_ly_do_cham` "Mua hàng" (ghi vào `tra_hang_log.ghi_chu`); Hủy không bắt. GET `/tra-hang` + `/:id`
   trả `qua_han_ly_do_cham`/`han_giai_doan`; FE `TraHangTab.tsx` badge "Quá hạn 24h" + `LyDoChamTraHangModal` (đơn lẻ, chi
-  tiết, hàng loạt). Kho xác nhận qua khovan (`partnerKho.ts`) KHÔNG bị chặn.
+  tiết, hàng loạt). Kho xác nhận qua khovan (`partnerKho.ts`) KHÔNG bị chặn. Đơn `loai_don='tra_hang'` KHÔNG áp hạn "Lý do
+  chậm" 24h-từ-"Cho TN duyet" của đơn mua (`choTnDuyetAtExpr`/`lastGiaiTrinhAtExpr` trả NULL, 2 truy vấn PXK cũng vậy) — đơn
+  đổi Mua→Trả hàng từng bị báo "Quá hạn" sai trong PXK + chặn "Gửi kế toán". Chi tiết đơn trả hàng gộp `tra_hang_log` vào "Lịch sử xử lý".
 - **Loại chiết khấu** (migration `0033_loai_chiet_khau.sql`, 2026-09-26): `dat_don_hang.loai_chiet_khau_id`
   (+ `loai_chiet_khau_thu_cong` = TN đã chọn tay) → `settings_loai_chiet_khau` (loại có `ma` = hệ thống tự
   gán, `ma` NULL = tự thêm). Gán tự động bằng `tinhToanPxk()` trong `lib/pxkRecalculate.ts` — **CÙNG hàm**

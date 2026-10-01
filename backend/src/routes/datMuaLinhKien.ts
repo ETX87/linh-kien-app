@@ -79,15 +79,20 @@ function latestDonHangStatusExpr(donHangIdCol: string): string {
 // Cung pattern voi latestDonHangStatusExpr - correlated subquery gioi han boi pageSize (toi da 200
 // dong/trang) nen chi phi tuong duong 1 index seek/dong, dung cho GET /don-hang de tinh
 // qua_han_ly_do_cham CHO CA DANH SACH (truoc day chi GET /don-hang/:id tinh duoc, xem hanLyDoCham.ts).
+// Don TRA HANG (2026-10-01): KHONG ap han "Ly do cham" cua don mua - han tung giai doan tra hang tinh rieng o traHang.ts
+// (mocGiaiDoanTraHangSql). Truoc day don Mua -> Tra hang van giu log "Cho TN duyet" cu nen bi bao "Qua han" sai trong PXK.
+function laTraHangSql(donHangIdCol: string): string {
+  return `${donHangIdCol.replace(/\.id$/, ".loai_don")} = 'tra_hang'`;
+}
 function choTnDuyetAtExpr(donHangIdCol: string): string {
-  return `(SELECT ngay_xu_ly FROM dat_don_hang_log WHERE dat_don_hang_id = ${donHangIdCol} AND trang_thai = 'Cho TN duyet' ORDER BY id DESC LIMIT 1)`;
+  return `(CASE WHEN ${laTraHangSql(donHangIdCol)} THEN NULL ELSE (SELECT ngay_xu_ly FROM dat_don_hang_log WHERE dat_don_hang_id = ${donHangIdCol} AND trang_thai = 'Cho TN duyet' ORDER BY id DESC LIMIT 1) END)`;
 }
 
 // FIX (phan hoi QA 2026-08-31, muc #5): moc "gan nhat" de tinh han qua_han_ly_do_cham GIO LA lan giai
 // trinh gan nhat (migration 0014) neu co, KHONG con dua vao cho_tn_duyet_at co dinh mai mai sau lan
 // giai trinh dau tien - xem cach dung ket hop 2 ham nay o GET /don-hang, /don-hang/:id, applyDonHangLog.
 function lastGiaiTrinhAtExpr(donHangIdCol: string): string {
-  return `(SELECT MAX(ngay_tao) FROM dat_don_hang_giai_trinh WHERE dat_don_hang_id = ${donHangIdCol})`;
+  return `(CASE WHEN ${laTraHangSql(donHangIdCol)} THEN NULL ELSE (SELECT MAX(ngay_tao) FROM dat_don_hang_giai_trinh WHERE dat_don_hang_id = ${donHangIdCol}) END)`;
 }
 
 function canCreatePhieuDat(c: Context<{ Bindings: Env }>): boolean {
@@ -2922,7 +2927,7 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
      WHERE ${whereSql}`,
   )
     .bind(...binds)
-    .first<{ id: string; ly_do_cham: string | null; dac_thu: number | null; nguoi_tao: string; trang_thai: string }>();
+    .first<{ id: string; ly_do_cham: string | null; dac_thu: number | null; nguoi_tao: string; trang_thai: string; loai_don: string | null }>();
   if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
 
   // FIX (ra soat "logic sai theo vai tro" 2026-08-29, cung dot voi choDonBiTuChoi o notifications.ts):
@@ -2974,7 +2979,17 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
   const choTnDuyetLog = (logs as { trang_thai: string; ngay_xu_ly: string }[]).find((l) => l.trang_thai === "Cho TN duyet");
   const lastGiaiTrinh = (giaiTrinh as { ngay_tao: string }[])[0];
   const mocThoiGian = mocTinhHanTn(lastGiaiTrinh?.ngay_tao, choTnDuyetLog?.ngay_xu_ly); // moc MUON hon (2026-09-29)
-  const quaHan = !!mocThoiGian && quaHanLyDoCham(mocThoiGian, now);
+  // Don tra hang: han rieng tung giai doan (traHang.ts) - khong dung han "Cho TN duyet" cua don mua.
+  const quaHan = ddh.loai_don !== "tra_hang" && !!mocThoiGian && quaHanLyDoCham(mocThoiGian, now);
+  // Lich su xu ly don tra hang (2026-10-01): gop ca tra_hang_log (Ke toan duyet mem -> Kho -> QC -> TN duyet tong) vao
+  // timeline chi tiet don - truoc day chi doc dat_don_hang_log nen khong thay cac buoc KT/Kho/QC.
+  const traHangLogs =
+    ddh.loai_don === "tra_hang"
+      ? (await c.env.DB.prepare("SELECT * FROM tra_hang_log WHERE dat_don_hang_id = ? ORDER BY id DESC").bind(id).all<{ ngay_xu_ly: string }>()).results
+      : [];
+  const logsHienThi = traHangLogs.length
+    ? [...(logs as { ngay_xu_ly: string }[]), ...traHangLogs].sort((a, b) => (a.ngay_xu_ly < b.ngay_xu_ly ? 1 : a.ngay_xu_ly > b.ngay_xu_ly ? -1 : 0))
+    : logs;
 
   // FIX (ra soat "logic sai theo vai tro" 2026-08-31, phan hoi "Vệ tinh không cần quan tâm đến PXK...
   // toàn bộ thông tin PXK có thể xem được ở đơn chi tiết"): KTV/Ve tinh KHONG co tab "Phieu xuat kho"
@@ -3013,7 +3028,7 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
   const tq = canTacNghiep(c) && !pxk ? await thongTinTraBangQuy(c.env.DB, id) : null;
   const traBangQuy = tq && !("error" in tq) ? { can_tra: tq.canTra, quy: tq.quy } : null;
   return c.json({
-    donHang: { ...ddh, cases, logs, giaiTrinh, qua_han_ly_do_cham: quaHan, tien_uoc_tinh: tienUocTinh, tra_bang_quy: traBangQuy },
+    donHang: { ...ddh, cases, logs: logsHienThi, giaiTrinh, qua_han_ly_do_cham: quaHan, tien_uoc_tinh: tienUocTinh, tra_bang_quy: traBangQuy },
     pxk: pxk ?? null, thieuLk: thieuLk ?? null,
   });
 });
