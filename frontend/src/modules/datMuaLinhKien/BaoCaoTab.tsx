@@ -186,7 +186,10 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
   const tongAsRow: BaoCaoRow = { ...tong, email: "", ten: null, slDeXuat: 0, slThucDuyet: 0 };
 
   function jumpDon(filter: string, loaiDon: "mua" | "cong_no" | undefined, email?: string) {
-    onJump({ tab: "don-cua-toi", filter, loaiDon, nguoiNhanHang: email });
+    // loaiDon undefined = so "tong" (Tong don/Da duyet/Dang cho/Tu choi/tien) - dem CA 3 loai ke ca tra hang -> mo danh sach
+    // GOP 3 loai ("tat_ca", nhu menu "Tổng"). Truoc 2026-10-01 de undefined -> danh sach theo loai dang xem (mac dinh chi
+    // Mua + Cong no) nen KTV chi co don tra hang bam "Tổng đơn" thay danh sach trong.
+    onJump({ tab: "don-cua-toi", filter, loaiDon: loaiDon ?? "tat_ca", nguoiNhanHang: email });
   }
   // "Đơn trả" that su la view co nut xu ly (TraHangTab) cho nguoi CO quyen xu ly, va view chi-de-xem
   // (DonCuaToiTab loc loaiDon=tra_hang) cho nguoi con lai - dung DUNG pattern jumpNum() da co san o
