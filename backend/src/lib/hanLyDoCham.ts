@@ -34,3 +34,19 @@ export function mocTinhHanTn(lastGiaiTrinhAt: string | null | undefined, choTnDu
   if (!choTnDuyetAt) return lastGiaiTrinhAt;
   return lastGiaiTrinhAt > choTnDuyetAt ? lastGiaiTrinhAt : choTnDuyetAt;
 }
+
+/** Han 24h TUNG GIAI DOAN cua don TRA HANG (chot 2026-10-01): Ke toan duyet mem / Kho xac nhan / QC xac nhan / TN duyet tong -
+ * moi buoc co 24h (cung quy tac day qua T7/CN nhu tinhHanLyDoCham) tinh tu MOC XU LY CUOI cua giai doan truoc = lan dau don vao
+ * trang thai hien tai sau lan doi trang thai gan nhat (log cung trang thai, vd QC tai anh, KHONG reset dong ho). Buoc dau chua co
+ * log (don tao thang la tra hang) -> ngay_tao. Qua han ma bam Duyet/Tu choi -> bat buoc chon ly do cham (routes/traHang.ts).
+ * `alias` = bang dat_don_hang (cot id/trang_thai_hien_tai/ngay_tao). */
+export const TRA_HANG_GIAI_DOAN_HAN = ["Cho ke toan duyet mem", "Cho kho xac nhan", "Cho QC xac nhan", "Cho TN duyet tong"] as const;
+export function mocGiaiDoanTraHangSql(alias: string): string {
+  return `COALESCE(
+    (SELECT MIN(l.ngay_xu_ly) FROM tra_hang_log l WHERE l.dat_don_hang_id = ${alias}.id AND l.trang_thai = ${alias}.trang_thai_hien_tai
+       AND l.id > COALESCE((SELECT MAX(l2.id) FROM tra_hang_log l2 WHERE l2.dat_don_hang_id = ${alias}.id AND l2.trang_thai <> ${alias}.trang_thai_hien_tai), 0)),
+    ${alias}.ngay_tao)`;
+}
+export function quaHanGiaiDoanTraHang(trangThai: string | null | undefined, moc: string | null | undefined, nowVnStr: string): boolean {
+  return !!moc && !!trangThai && (TRA_HANG_GIAI_DOAN_HAN as readonly string[]).includes(trangThai) && quaHanLyDoCham(moc, nowVnStr);
+}

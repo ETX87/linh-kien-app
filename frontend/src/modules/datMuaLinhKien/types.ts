@@ -282,6 +282,8 @@ export interface LyDoChamRow {
 // backend/src/routes/traHang.ts (buoc 3 ke hoach "Luong tao don mua hang").
 export interface TraHangRow extends DonHangRow {
   trang_thai_tra_hang: string;
+  // Han 24h tung giai doan (2026-10-01, GET /tra-hang): qua_han_ly_do_cham (ke thua DonHangRow) = da qua han buoc dang giu.
+  han_giai_doan?: string | null;
 }
 
 export type KtvDisplayMap = Map<string, { ma_ktv: string; ten_hien_thi: string | null }>;

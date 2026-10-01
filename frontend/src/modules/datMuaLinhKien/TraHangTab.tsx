@@ -16,7 +16,7 @@ import { exportRowsToExcel } from "../../lib/exportExcel";
 import { fmtDate, fmtDateTime, fmtVND } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import { compressImage } from "../../lib/imageCompress";
-import type { TraHangRow } from "./types";
+import type { TraHangRow, LyDoChamRow } from "./types";
 import { TRA_HANG_TRANG_THAI_TONE, TRA_HANG_TRANG_THAI_OPTIONS, TRA_HANG_BULK_ERROR_MESSAGES } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, useNenAnhTraHangEnabled,
@@ -44,6 +44,54 @@ function PriorityTag() {
 // POST /tra-hang/:donHangId/anh (dong da TON TAI luc nay, khac TraHangAnhPicker luc TAO don o
 // SharedUi.tsx - o do dong CHUA sinh nen chi pre-upload). "Xác nhận từ chối" chi bat khi da co >=1
 // anh (khop dung kiem tra o applyTraHangLog backend).
+// Han 24h TUNG GIAI DOAN tra hang (chot 2026-10-01, backend lib/hanLyDoCham.ts mocGiaiDoanTraHangSql): Ke toan/Kho/QC/TN xu
+// ly sau 24h tinh tu moc giai doan truoc day qua -> backend tra MISSING_LY_DO_CHAM -> modal nay hoi ly do roi gui LAI dung
+// thao tac (cung danh muc ly do cham "Mua hàng" voi don mua).
+type ChoLyDoCham = { ids: string[]; hanhDong: "duyet" | "tu_choi"; ghiChu?: string };
+
+function QuaHanBadge({ r }: { r: Pick<TraHangRow, "qua_han_ly_do_cham" | "han_giai_doan"> }) {
+  if (!r.qua_han_ly_do_cham) return null;
+  return (
+    <span title={r.han_giai_doan ? `Hạn xử lý bước này: ${fmtDateTime(r.han_giai_doan)} — xử lý sẽ phải chọn lý do chậm` : undefined}>
+      <Badge tone="danger">Quá hạn 24h</Badge>
+    </span>
+  );
+}
+
+function LyDoChamTraHangModal({ cho, onClose, onConfirm, loading }: {
+  cho: ChoLyDoCham;
+  onClose: () => void;
+  onConfirm: (lyDoChamId: number) => void;
+  loading?: boolean;
+}) {
+  const [lyDo, setLyDo] = useState("");
+  const { data } = useQuery({
+    queryKey: ["dat-mua-lk-ly-do-cham"],
+    queryFn: () => api.get<{ rows: LyDoChamRow[] }>("/dat-mua-lk/ly-do-cham?he_thong=" + encodeURIComponent("Mua hàng")),
+  });
+  return (
+    <Modal open title={cho.ids.length > 1 ? `${cho.ids.length} đơn quá hạn 24h — chọn lý do chậm` : `Đơn ${cho.ids[0]} quá hạn 24h — chọn lý do chậm`} onClose={onClose}>
+      <div className="space-y-3 text-sm">
+        <div className="text-[var(--ink-600)]">
+          Bước này đã quá 24h kể từ khi bộ phận trước chuyển sang. Chọn lý do chậm để {cho.hanhDong === "duyet" ? "duyệt" : "từ chối"} — lý do được ghi vào lịch sử xử lý.
+        </div>
+        <Select
+          value={lyDo}
+          onChange={setLyDo}
+          options={[{ value: "", label: "-- Chọn lý do chậm --" }, ...(data?.rows ?? []).map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+          className="w-full"
+        />
+        <div className="flex gap-2 justify-end">
+          <Btn variant="ghost" size="sm" onClick={onClose}>Hủy</Btn>
+          <Btn size="sm" onClick={() => onConfirm(Number(lyDo))} disabled={!lyDo || loading} loading={loading}>
+            {cho.hanhDong === "duyet" ? "Duyệt" : "Từ chối"}
+          </Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function QcTuChoiModal({
   donHangId, onClose, onConfirm, confirmDisabled, confirmLoading, addToast,
 }: {
@@ -310,20 +358,27 @@ export function TraHangTab({
   // Ban thang, khong qua modal (tieu chi UX #3, sua 2026-08-15) - "Duyet"/"Tu choi" khong bat buoc
   // nhap gi them nen khong can buoc "Xac nhan" phu. Modal chi con giu cho "Day lui" (ghiChu bat
   // buoc, xem layLuiMutation ben duoi).
+  // Don qua han 24h o buoc dang giu -> backend tra MISSING_LY_DO_CHAM -> mo LyDoChamTraHangModal, chon ly do roi gui lai.
+  const [choLyDoCham, setChoLyDoCham] = useState<ChoLyDoCham | null>(null);
   const logMutation = useMutation({
-    mutationFn: (args: { id: string; hanhDong: "duyet" | "tu_choi" | "huy"; ghiChu?: string }) =>
-      api.post(`/tra-hang/${args.id}/log`, { hanh_dong: args.hanhDong, ghi_chu: args.ghiChu?.trim() || undefined }),
+    mutationFn: (args: { id: string; hanhDong: "duyet" | "tu_choi" | "huy"; ghiChu?: string; lyDoChamId?: number }) =>
+      api.post(`/tra-hang/${args.id}/log`, { hanh_dong: args.hanhDong, ghi_chu: args.ghiChu?.trim() || undefined, ly_do_cham_id: args.lyDoChamId }),
     onSuccess: () => {
       setTuChoiTnId(null);
       setTuChoiQcId(null);
       setTuChoiSimpleId(null);
+      setChoLyDoCham(null);
       setGhiChu("");
       qc.invalidateQueries({ queryKey: ["tra-hang"] });
       invalidatePipelineCounts(qc);
       addToast("Đã cập nhật trạng thái đơn trả hàng");
     },
-    onError: (err) => {
+    onError: (err, vars) => {
       const code = err instanceof ApiError ? err.code : undefined;
+      if (code === "MISSING_LY_DO_CHAM" && vars.hanhDong !== "huy") {
+        setChoLyDoCham({ ids: [vars.id], hanhDong: vars.hanhDong, ghiChu: vars.ghiChu });
+        return;
+      }
       addToast(
         code === "MISSING_GHI_CHU"
           ? "Cần nhập lý do khi từ chối/huỷ"
@@ -372,9 +427,9 @@ export function TraHangTab({
     });
   }
   const bulkMutation = useMutation({
-    mutationFn: ({ hanhDong, ghiChu: gc }: { hanhDong: "duyet" | "tu_choi"; ghiChu?: string }) =>
-      api.post<{ results: Record<string, string> }>("/tra-hang/bulk-log", { ids: [...selected], hanh_dong: hanhDong, ghi_chu: gc?.trim() || undefined }),
-    onSuccess: (res) => {
+    mutationFn: ({ hanhDong, ghiChu: gc, ids, lyDoChamId }: { hanhDong: "duyet" | "tu_choi"; ghiChu?: string; ids?: string[]; lyDoChamId?: number }) =>
+      api.post<{ results: Record<string, string> }>("/tra-hang/bulk-log", { ids: ids ?? [...selected], hanh_dong: hanhDong, ghi_chu: gc?.trim() || undefined, ly_do_cham_id: lyDoChamId }),
+    onSuccess: (res, vars) => {
       const entries = Object.entries(res.results);
       const failed = entries.filter(([, v]) => v in TRA_HANG_BULK_ERROR_MESSAGES);
       // Phase 4 (bulk retry): giu lai dung cac dong loi trong `selected` khi that bai 1 phan, xem
@@ -382,8 +437,13 @@ export function TraHangTab({
       setSelected(new Set(failed.map(([id]) => id)));
       setBulkTuChoiOpen(false);
       setGhiChu("");
+      // Dong qua han 24h (chua chon ly do) -> hoi ly do 1 lan cho ca nhom roi gui lai dung cac dong do.
+      const canLyDo = vars.lyDoChamId ? [] : failed.filter(([, code]) => code === "MISSING_LY_DO_CHAM").map(([id]) => id);
+      setChoLyDoCham(canLyDo.length > 0 ? { ids: canLyDo, hanhDong: vars.hanhDong, ghiChu: vars.ghiChu } : null);
+      const conLai = failed.filter(([id]) => !canLyDo.includes(id));
       if (failed.length === 0) addToast(`Đã xử lý thành công ${entries.length} dòng`);
-      else addToast(`Thành công ${entries.length - failed.length}/${entries.length} dòng. Thất bại: ${failed.map(([id, code]) => `${id}: ${TRA_HANG_BULK_ERROR_MESSAGES[code] ?? code}`).join("; ")} — đã giữ lại các dòng lỗi, bấm lại để thử lại`);
+      else if (conLai.length === 0) addToast(`Thành công ${entries.length - failed.length}/${entries.length} dòng. ${canLyDo.length} dòng quá hạn 24h — chọn lý do chậm để xử lý tiếp`);
+      else addToast(`Thành công ${entries.length - failed.length}/${entries.length} dòng. Thất bại: ${conLai.map(([id, code]) => `${id}: ${TRA_HANG_BULK_ERROR_MESSAGES[code] ?? code}`).join("; ")} — đã giữ lại các dòng lỗi, bấm lại để thử lại`);
       qc.invalidateQueries({ queryKey: ["tra-hang"] });
       invalidatePipelineCounts(qc);
     },
@@ -451,6 +511,7 @@ export function TraHangTab({
           {/* CHUAN HOA: them badge "Đơn tạo hộ" khop dung DonCuaToiTab.tsx - isDonTaoHo() la ham DUNG
               CHUNG cho MOI loai_don (khong rieng mua/cong no), chi la nhan hien thi thuan tuy. */}
           {isDonTaoHo(r) && <Badge tone="neutral">Đơn tạo hộ</Badge>}
+          <QuaHanBadge r={r} />
         </div>
       ),
     },
@@ -734,6 +795,18 @@ export function TraHangTab({
           </div>
         </Modal>
       )}
+      {choLyDoCham && (
+        <LyDoChamTraHangModal
+          cho={choLyDoCham}
+          onClose={() => setChoLyDoCham(null)}
+          loading={logMutation.isPending || bulkMutation.isPending}
+          onConfirm={(lyDoChamId) =>
+            choLyDoCham.ids.length === 1
+              ? logMutation.mutate({ id: choLyDoCham.ids[0], hanhDong: choLyDoCham.hanhDong, ghiChu: choLyDoCham.ghiChu, lyDoChamId })
+              : bulkMutation.mutate({ ids: choLyDoCham.ids, hanhDong: choLyDoCham.hanhDong, ghiChu: choLyDoCham.ghiChu, lyDoChamId })
+          }
+        />
+      )}
       {bulkTuChoiOpen && (
         <Modal open title={`Từ chối ${selected.size} dòng đã chọn`} onClose={() => { setBulkTuChoiOpen(false); setGhiChu(""); }}>
           <div className="space-y-3 text-sm">
@@ -907,6 +980,7 @@ function TraHangGroupedList({
                     // CHUAN HOA (dong bo voi DonCuaToiTab.tsx) - them "Đơn tạo hộ" khi co, isDonTaoHo()
                     // dung chung cho moi loai_don.
                     ...(isDonTaoHo(r) ? [{ tone: "neutral" as Tone, label: "Đơn tạo hộ" }] : []),
+                    ...(r.qua_han_ly_do_cham ? [{ tone: "danger" as Tone, label: "Quá hạn 24h" }] : []),
                   ];
                   // SUA (phan hoi 2026-08-28, dong bo voi DonCuaToiTab.tsx): giam ve 1 - xem giai thich
                   // day du o DonCuaToiTab.tsx (MAX_BADGE gan voi comment "ẩn cả thẻ nếu không đủ diện
@@ -1025,18 +1099,24 @@ export function TraHangDetailModal({
     invalidatePipelineCounts(qc);
   }
 
+  const [choLyDoCham, setChoLyDoCham] = useState<ChoLyDoCham | null>(null);
   const logMutation = useMutation({
-    mutationFn: (args: { hanhDong: "duyet" | "tu_choi" | "huy"; ghiChu?: string }) =>
-      api.post(`/tra-hang/${id}/log`, { hanh_dong: args.hanhDong, ghi_chu: args.ghiChu?.trim() || undefined }),
+    mutationFn: (args: { hanhDong: "duyet" | "tu_choi" | "huy"; ghiChu?: string; lyDoChamId?: number }) =>
+      api.post(`/tra-hang/${id}/log`, { hanh_dong: args.hanhDong, ghi_chu: args.ghiChu?.trim() || undefined, ly_do_cham_id: args.lyDoChamId }),
     onSuccess: (_res, variables) => {
+      setChoLyDoCham(null);
       invalidate();
       // "Duyet va tiep theo" (concept 1 da duyet, 2026-08-24) - dong y het DonHangDetailModal: chi tu
       // nhay dong ke tiep khi "duyet" (tu choi/huy nguoi dung can tu xem lai ket qua, khong nhay tiep).
       if (variables.hanhDong === "duyet" && onNavigate && navNextId) onNavigate(navNextId);
       else addToast("Đã cập nhật trạng thái đơn trả hàng");
     },
-    onError: (err) => {
+    onError: (err, vars) => {
       const code = err instanceof ApiError ? err.code : undefined;
+      if (code === "MISSING_LY_DO_CHAM" && vars.hanhDong !== "huy") {
+        setChoLyDoCham({ ids: [id], hanhDong: vars.hanhDong, ghiChu: vars.ghiChu });
+        return;
+      }
       addToast(
         code === "MISSING_GHI_CHU"
           ? "Cần nhập lý do khi từ chối/huỷ"
@@ -1242,6 +1322,10 @@ export function TraHangDetailModal({
               <div className="flex items-center gap-1.5 flex-wrap">
                 <StatusBadge value={trangThai} tones={TRA_HANG_TRANG_THAI_TONE} options={TRA_HANG_TRANG_THAI_OPTIONS} />
                 {d.uu_tien === 1 && <PriorityTag />}
+                <QuaHanBadge r={d} />
+                {d.han_giai_doan && !d.qua_han_ly_do_cham && (
+                  <span className="text-[11px] text-[var(--ink-500)]">Hạn bước này: {fmtDateTime(d.han_giai_doan)}</span>
+                )}
               </div>
             </div>
           </div>
@@ -1318,6 +1402,15 @@ export function TraHangDetailModal({
         confirmDisabled={logMutation.isPending}
         confirmLoading={logMutation.isPending}
         addToast={addToast}
+      />
+    )}
+    {/* Render SAU Drawer + QcTuChoiModal de luon nam tren cung (xem FIX ngay tren). */}
+    {choLyDoCham && (
+      <LyDoChamTraHangModal
+        cho={choLyDoCham}
+        onClose={() => setChoLyDoCham(null)}
+        loading={logMutation.isPending}
+        onConfirm={(lyDoChamId) => logMutation.mutate({ hanhDong: choLyDoCham.hanhDong, ghiChu: choLyDoCham.ghiChu, lyDoChamId })}
       />
     )}
     </>

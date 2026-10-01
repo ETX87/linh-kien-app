@@ -121,6 +121,9 @@ export const TRA_HANG_BULK_ERROR_MESSAGES: Record<string, string> = {
   // Them 2026-08-24 (migration 0003_tra_hang_anh.sql) - QC tu choi hang loat se that bai o dong nao
   // chua co san anh bang chung (phai tai anh + tu choi tung dong rieng, khong the qua bulk).
   MISSING_ANH_QC: "cần ảnh bằng chứng — mở từng dòng để tải ảnh rồi từ chối",
+  // Han 24h tung giai doan (2026-10-01) - TraHangTab bat ma nay, hoi ly do cham 1 lan cho ca nhom roi gui lai.
+  MISSING_LY_DO_CHAM: "quá hạn 24h — cần chọn lý do chậm",
+  LY_DO_CHAM_KHONG_HOP_LE: "lý do chậm không hợp lệ",
   // Phat hien khi ra soat QA 2026-08-19: THIEU key nay khien 1 dong that bai do 2 nguoi cung xu ly
   // dong thoi (optimistic-concurrency, xem applyTraHangLog o backend) bi dem NHAM thanh thanh cong
   // trong toast bulk-log - day la truong hop THUC SU xay ra trong dung thao tac binh thuong (khong

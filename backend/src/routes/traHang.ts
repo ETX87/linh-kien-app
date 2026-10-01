@@ -5,6 +5,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nowVN } from "../lib/vnTime";
+import { mocGiaiDoanTraHangSql, quaHanGiaiDoanTraHang, tinhHanLyDoCham, TRA_HANG_GIAI_DOAN_HAN } from "../lib/hanLyDoCham";
 import { emailsTheoTen, orEmailIn, orMaYcsc } from "../lib/timTheoTen";
 import { bumpVersions } from "../lib/dataVersions";
 import { scopeDatMuaNguoiTao, khuVucSetWhereSql, phuTrachGsSet } from "../lib/scopeDatMua";
@@ -55,6 +56,19 @@ const THU_TU_BUOC = [
   "Cho TN duyet tong",
   "TN da duyet",
 ] as const;
+
+// Han 24h tung giai doan (chot 2026-10-01, lib/hanLyDoCham.ts) - gan qua_han_ly_do_cham (cung ten cot voi don mua de FE
+// dung lai) + han_giai_doan ("YYYY-MM-DD HH:MM:SS" gio VN) cho 1 dong co cot moc_giai_doan.
+function ganHanGiaiDoan<T extends Record<string, unknown>>(row: T): T & { qua_han_ly_do_cham: boolean; han_giai_doan: string | null } {
+  const trangThai = row.trang_thai_hien_tai as string | null;
+  const moc = row.moc_giai_doan as string | null;
+  const coHan = !!trangThai && (TRA_HANG_GIAI_DOAN_HAN as readonly string[]).includes(trangThai);
+  return {
+    ...row,
+    qua_han_ly_do_cham: quaHanGiaiDoanTraHang(trangThai, moc, nowVN()),
+    han_giai_doan: coHan && moc ? tinhHanLyDoCham(moc).toISOString().slice(0, 19).replace("T", " ") : null,
+  };
+}
 
 function canKeToan(c: Context<{ Bindings: Env }>): boolean {
   const user = c.get("user");
@@ -161,7 +175,8 @@ traHang.get("/", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai_tra_hang,
        (SELECT ghi_chu FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) as ghi_chu_xu_ly_gan_nhat,
-       kv.ten as khu_vuc_ten
+       kv.ten as khu_vuc_ten,
+       ${mocGiaiDoanTraHangSql("ddh")} as moc_giai_doan
      FROM dat_don_hang ddh
      -- "Khu vực" (them 2026-09-12, dong bo voi GET /don-hang - phan hoi "sắp xếp cột bảng danh sách
      -- đơn giống" file tham chieu) - lay tu Khu vuc cua CHINH nguoi_nhan_hang qua ktv_lien_he.khu_vuc_ma.
@@ -171,7 +186,7 @@ traHang.get("/", async (c) => {
   )
     .bind(...binds, ...(pageParam ? [pageSize, offset] : []))
     .all();
-  return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
+  return c.json({ rows: (results as Record<string, unknown>[]).map(ganHanGiaiDoan), page, pageSize, total: countRow?.total ?? 0 });
 });
 
 // GET /api/tra-hang/:donHangId - chi tiet dong don hang + log rieng luong tra hang. Ap dung
@@ -182,7 +197,7 @@ traHang.get("/:donHangId", async (c) => {
   const whereSql = "ddh.id = ? AND ddh.loai_don = 'tra_hang'" + (scope?.whereSql ?? "");
   const binds = [donHangId, ...(scope?.binds ?? [])];
   const ddh = await c.env.DB.prepare(
-    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai_tra_hang FROM dat_don_hang ddh WHERE ${whereSql}`,
+    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai_tra_hang, ${mocGiaiDoanTraHangSql("ddh")} as moc_giai_doan FROM dat_don_hang ddh WHERE ${whereSql}`,
   )
     .bind(...binds)
     .first();
@@ -197,7 +212,7 @@ traHang.get("/:donHangId", async (c) => {
   )
     .bind(donHangId)
     .all();
-  return c.json({ donHang: ddh, logs, anh });
+  return c.json({ donHang: ganHanGiaiDoan(ddh as Record<string, unknown>), logs, anh });
 });
 
 // GET /api/tra-hang/resolve-ma-thung/:maThung - tra ve dat_don_hang.id tuong ung voi 1 ma thung tra
@@ -306,18 +321,22 @@ async function applyTraHangLog(
   donHangId: string,
   hanhDong: "duyet" | "tu_choi" | "huy",
   ghiChu: string | undefined,
-): Promise<{ error: string; status: 404 | 409 | 403 } | { nextTrangThai: string }> {
+  lyDoChamId?: number,
+): Promise<{ error: string; status: 400 | 404 | 409 | 403 } | { nextTrangThai: string }> {
   // SUA 2026-08-21: truoc doc trang thai qua subquery tuong quan tra_hang_log (co bug qualify cot "id"
   // bi shadow, da vá bang fallback `?? "Cho ke toan duyet mem"") - doi hang doc thang cot mirror
   // trang_thai_hien_tai (LUON dong bo qua CAS ngay ben duoi), vua don gian hon vua tranh dung ca lop
   // "dong tra_hang vua tao chua co log dau tien" (xem giai thich o GET / ben tren).
   const ddh = await c.env.DB.prepare(
-    "SELECT id, nguoi_tao, version, trang_thai_hien_tai as trang_thai, email_gs, ten_lk_snapshot, so_luong_de_xuat, ma_thung_tra FROM dat_don_hang WHERE id = ? AND loai_don = 'tra_hang'",
+    `SELECT id, nguoi_tao, version, trang_thai_hien_tai as trang_thai, email_gs, ten_lk_snapshot, so_luong_de_xuat, ma_thung_tra,
+       ${mocGiaiDoanTraHangSql("dat_don_hang")} as moc_giai_doan
+     FROM dat_don_hang WHERE id = ? AND loai_don = 'tra_hang'`,
   )
     .bind(donHangId)
     .first<{
       id: string; nguoi_tao: string; version: number; trang_thai: string | null;
       email_gs: string | null; ten_lk_snapshot: string; so_luong_de_xuat: number; ma_thung_tra: string | null;
+      moc_giai_doan: string | null;
     }>();
   if (!ddh) return { error: "NOT_FOUND", status: 404 };
 
@@ -372,6 +391,21 @@ async function applyTraHangLog(
     nextTrangThai = hanhDong === "duyet" ? "TN da duyet" : "Tu choi";
   } else {
     return { error: "INVALID_STATE", status: 409 };
+  }
+
+  // Han 24h tung giai doan (chot 2026-10-01): bo phan dang giu don xu ly (Duyet/Tu choi) SAU han 24h tinh tu moc xu ly cuoi cua
+  // giai doan truoc -> BAT BUOC chon ly do cham (cung danh muc settings_ly_do_cham "Mua hàng" voi don mua), ghi vao log. Huy
+  // (nguoi tao/TN) khong phai xu ly giai doan nen khong bat.
+  if (hanhDong !== "huy" && quaHanGiaiDoanTraHang(trangThaiHienTai, ddh.moc_giai_doan, nowVN())) {
+    if (!lyDoChamId) return { error: "MISSING_LY_DO_CHAM", status: 400 };
+    const lyDo = await c.env.DB.prepare(
+      "SELECT ten_ly_do FROM settings_ly_do_cham WHERE id = ? AND bat_tat = 1 AND he_thong_su_dung LIKE '%Mua hàng%'",
+    )
+      .bind(lyDoChamId)
+      .first<{ ten_ly_do: string }>();
+    if (!lyDo) return { error: "LY_DO_CHAM_KHONG_HOP_LE", status: 400 };
+    const han = tinhHanLyDoCham(ddh.moc_giai_doan!).toISOString().slice(0, 16).replace("T", " ");
+    ghiChu = `Chậm quá hạn 24h (hạn ${han}) - lý do: ${lyDo.ten_ly_do}` + (ghiChu?.trim() ? ` | ${ghiChu.trim()}` : "");
   }
 
   // Luong C moi (chot 08/09/2026, xem Artifact "Ma tran luong Kho van"): dung LUC chuyen "Cho ke
@@ -458,8 +492,8 @@ async function applyTraHangLog(
 // toan/Kho duoc dung, xem route rieng ben duoi thay vi nhanh nay de tach rach ly do bat buoc).
 traHang.post("/:donHangId/log", async (c) => {
   const donHangId = c.req.param("donHangId");
-  const body = await c.req.json<{ hanh_dong: "duyet" | "tu_choi" | "huy"; ghi_chu?: string }>();
-  const result = await applyTraHangLog(c, donHangId, body.hanh_dong, body.ghi_chu);
+  const body = await c.req.json<{ hanh_dong: "duyet" | "tu_choi" | "huy"; ghi_chu?: string; ly_do_cham_id?: number }>();
+  const result = await applyTraHangLog(c, donHangId, body.hanh_dong, body.ghi_chu, body.ly_do_cham_id);
   if ("error" in result) return c.json({ error: result.error }, result.status);
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
@@ -470,7 +504,7 @@ traHang.post("/:donHangId/log", async (c) => {
 // cung luc (them 2026-08-15, tieu chi UX #4). Tai su dung applyTraHangLog, tiep tuc xu ly cac id
 // con lai ngay ca khi 1 id loi - tra ket qua tung id (khong phai tung phieu, moi id la 1 dong).
 traHang.post("/bulk-log", async (c) => {
-  const body = await c.req.json<{ ids: string[]; hanh_dong: "duyet" | "tu_choi" | "huy"; ghi_chu?: string }>();
+  const body = await c.req.json<{ ids: string[]; hanh_dong: "duyet" | "tu_choi" | "huy"; ghi_chu?: string; ly_do_cham_id?: number }>();
   if (!Array.isArray(body.ids) || body.ids.length === 0) return c.json({ error: "MISSING_IDS" }, 400);
   const ids = [...new Set(body.ids)];
   if (ids.length > MAX_BULK_IDS) return c.json({ error: "QUA_NHIEU_ID", max: MAX_BULK_IDS }, 400);
@@ -481,7 +515,7 @@ traHang.post("/bulk-log", async (c) => {
   // docs/audit/RESPONSE_PLAN.md).
   const bulkStartedAt = Date.now();
   for (const donHangId of ids) {
-    const result = await applyTraHangLog(c, donHangId, body.hanh_dong, body.ghi_chu);
+    const result = await applyTraHangLog(c, donHangId, body.hanh_dong, body.ghi_chu, body.ly_do_cham_id);
     results[donHangId] = "error" in result ? result.error : result.nextTrangThai;
     if (!("error" in result)) coThanhCong = true;
   }

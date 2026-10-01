@@ -78,7 +78,13 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   (TN qua tab "Phiếu xuất kho" tự tạo PXK) — `phieuXuatKho.ts` có nhiều nhánh rẽ riêng theo
   `loai_don==='tra_hang'` (chọn dòng đủ điều kiện gom PXK, và bước đóng riêng "Kho xác nhận đã nhận
   hàng trả" thay vì "KTV đã nhận" như PXK thường). Sửa 1 trong 2 route này liên quan tới trả hàng
-  thường phải đối chiếu route kia.
+  thường phải đối chiếu route kia. **Hạn 24h từng giai đoạn** (chốt 2026-10-01): Kế toán duyệt mềm / Kho / QC / TN duyệt
+  tổng mỗi bước có 24h (cùng quy tắc đẩy qua T7/CN của `tinhHanLyDoCham`) tính từ MỐC XỬ LÝ CUỐI của giai đoạn trước = lần
+  đầu đơn vào trạng thái hiện tại sau lần đổi trạng thái gần nhất (`mocGiaiDoanTraHangSql()` ở `lib/hanLyDoCham.ts`; log cùng
+  trạng thái như QC tải ảnh KHÔNG reset; bước đầu chưa có log → `ngay_tao`). Quá hạn mà Duyệt/Từ chối → `MISSING_LY_DO_CHAM`,
+  bắt chọn lý do từ `settings_ly_do_cham` "Mua hàng" (ghi vào `tra_hang_log.ghi_chu`); Hủy không bắt. GET `/tra-hang` + `/:id`
+  trả `qua_han_ly_do_cham`/`han_giai_doan`; FE `TraHangTab.tsx` badge "Quá hạn 24h" + `LyDoChamTraHangModal` (đơn lẻ, chi
+  tiết, hàng loạt). Kho xác nhận qua khovan (`partnerKho.ts`) KHÔNG bị chặn.
 - **Loại chiết khấu** (migration `0033_loai_chiet_khau.sql`, 2026-09-26): `dat_don_hang.loai_chiet_khau_id`
   (+ `loai_chiet_khau_thu_cong` = TN đã chọn tay) → `settings_loai_chiet_khau` (loại có `ma` = hệ thống tự
   gán, `ma` NULL = tự thêm). Gán tự động bằng `tinhToanPxk()` trong `lib/pxkRecalculate.ts` — **CÙNG hàm**
