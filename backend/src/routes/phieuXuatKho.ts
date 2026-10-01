@@ -630,7 +630,7 @@ phieuXuatKho.get("/don-hang-kha-dung-counts", async (c) => {
 // Ban dau CHI ap dung cho dong 'MUA DỰ TRỮ'; CHOT 2026-09-28: ap dung cho MOI dong mua (+ "TRỪ CÔNG NỢ"),
 // rieng gia du phong (buoc 4-5) van chi cho dong MUA DỰ TRỮ - nguon that o lib/pxkRecalculate.ts. 6 buoc (CHOT qua nhieu vong AskUserQuestion, xem plan
 // Task E):
-//   1) Dong "Đình tủ" (linh_kien.don_vi, dung CHINH XAC chuoi nay - KHONG phai "Đỉnh tủ") luon tinh
+//   1) Dong "Đình tủ" (linh_kien.don_vi, so khong dau qua laDinhTu(), "Đỉnh tủ" go nham cung tinh) luon tinh
 //      gia_ban*0.85 (chiet khau 15% co dinh), doc lap voi cac buoc duoi.
 //   2) D = tong gia_ban CUA TOAN BO dong mua cua KTV trong phieu (ke ca Dinh tu) - nguong xac dinh "gia KTV hieu luc"
 //      o buoc 3.

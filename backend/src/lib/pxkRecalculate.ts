@@ -2,6 +2,12 @@ import { computeMocDuPhongHienTai } from "./duPhongKtv";
 import { nowVN } from "./vnTime";
 import { canBangPxk, KE_TOAN_DA_CHOT_TIEN_SQL } from "./quyKtv";
 
+// Phan loai "Đình tủ" (chiet khau 15%) - so KHONG dau/hoa-thuong (2026-10-01: tung co "Đỉnh tủ" go nham dau nen mat chiet
+// khau; du lieu da gop ve "Đình tủ" + trigger o migration 0062, ham nay la lop chan thu 2).
+export function laDinhTu(donVi: string | null | undefined): boolean {
+  return (donVi ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/\s+/g, " ").trim() === "dinh tu";
+}
+
 export type MaChietKhau = "KHONG_CK" | "DINH_TU" | "TONG_200_500" | "GIA_KTV" | "GIA_DU_PHONG" | "CONG_NO";
 
 export interface PxkCalculation {
@@ -115,7 +121,7 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
     };
 
     // Gia du phong: CHI cac dong MUA DỰ TRỮ (tru Dinh tu), tat-ca-hoac-khong.
-    const duTru = rows.filter((row) => row.don_vi !== "Đình tủ" && laDuTru(row) && !coYeuCauHoaDon(row.yeu_cau_hoa_don));
+    const duTru = rows.filter((row) => !laDinhTu(row.don_vi) && laDuTru(row) && !coYeuCauHoaDon(row.yeu_cau_hoa_don));
     let dungDuPhong = false;
     if (duTru.length > 0) {
       const giaDuPhong = duTru.reduce((sum, row) => sum + (row.gia_du_phong ?? 0) * soLuongTinhTien(row), 0);
@@ -136,7 +142,7 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
       const { donGia, ma } =
         coYeuCauHoaDon(row.yeu_cau_hoa_don)
           ? { donGia: giaBan(row), ma: "KHONG_CK" as MaChietKhau }
-          : row.don_vi === "Đình tủ"
+          : laDinhTu(row.don_vi)
             ? { donGia: giaBan(row) * 0.85, ma: "DINH_TU" as MaChietKhau }
             : dungDuPhong && laDuTru(row)
               ? { donGia: row.gia_du_phong ?? 0, ma: "GIA_DU_PHONG" as MaChietKhau }
