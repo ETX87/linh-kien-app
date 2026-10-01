@@ -575,6 +575,10 @@ khoản Da duyet/Tu choi (không biến nhân viên văn phòng thành KTV). Ch�
 `PATCH /api/settings/ktv-lien-he/:ma/bat-tat` = `users.bi_khoa` của email đăng nhập (cùng cờ ETX nghỉ việc dùng). Tắt = không đăng
 nhập (`loadUser` DISABLED), không tạo đơn; `resolveNguoiNhanHang()` + import Excel chặn `NGUOI_NHAN_HANG_DA_TAT` (cả Trạm nhận thay
 bị tắt); `/nguoi-nhan-hang-kha-dung` VẪN trả người bị tắt (kèm `bi_khoa`, để tra tên đơn cũ) — ô chọn ở `useTaoDonForm` tự lọc bỏ.
+**Tắt THEO MÃ** (migration `0060`, sửa cùng ngày): nhiều mã KTV có thể dùng CHUNG 1 Gmail (vd sonnmh.dvbh-hcm + sonnmh.ptdv-hcm)
+→ công tắc ghi `ktv_lien_he.ngung_hoat_dong` của MÃ đó; `users.bi_khoa` chỉ = 1 khi MỌI mã cùng Gmail đều tắt (bật 1 mã = mở khoá
+Gmail). `bi_khoa` trả ở `/nguoi-nhan-hang-kha-dung` + import theo mã = `MAX(users.bi_khoa, ngung_hoat_dong)` (theo dòng mã). Đơn ghi
+người nhận theo EMAIL nên mã còn bật vẫn đặt/nhận hàng như cùng 1 người. Danh sách trả `ma_cung_gmail` (cảnh báo khi tắt).
 
 **Bỏ bước TBP** cho LK đặc thù khi loại đề xuất chứa MUA / HỖ TRỢ / **TRỪ CÔNG NỢ** (`boQuaTbpChoDacThu()` backend,
 bản sao `boQuaTbpDacThu()` FE cho cảnh báo ở `LinhKienPicker`).

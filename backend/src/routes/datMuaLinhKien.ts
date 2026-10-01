@@ -240,7 +240,7 @@ datMuaLinhKien.get("/nguoi-nhan-hang-kha-dung", async (c) => {
   }
   const { results } = await c.env.DB.prepare(
     `SELECT dsk.ma_ktv, ${tenNguoiDaySql("dsk.email_dang_nhap")} AS ten_hien_thi, dsk.email_dang_nhap, ${tenNguoiNullSql("gs.email")} AS ten_gs,
-            COALESCE(u.bi_khoa, 0) AS bi_khoa
+            MAX(COALESCE(u.bi_khoa, 0), dsk.ngung_hoat_dong) AS bi_khoa -- tat theo MA (0060) hoac ca Gmail
      FROM ktv_lien_he dsk
      JOIN users u ON u.email = dsk.email_dang_nhap
      LEFT JOIN users gs ON gs.email = u.giam_sat_quan_ly
@@ -2567,7 +2567,7 @@ async function processDatDonHangImportRows(
     if (!ktvCache.has(maKtv)) {
       const ktvRow = await db
         .prepare(
-          `SELECT dsk.email_dang_nhap as email, u.la_ve_tinh, u.tram_cha, u.bi_khoa, t.bi_khoa AS tram_bi_khoa
+          `SELECT dsk.email_dang_nhap as email, u.la_ve_tinh, u.tram_cha, MAX(COALESCE(u.bi_khoa, 0), dsk.ngung_hoat_dong) AS bi_khoa, t.bi_khoa AS tram_bi_khoa
            FROM ktv_lien_he dsk JOIN users u ON u.email = dsk.email_dang_nhap LEFT JOIN users t ON t.email = u.tram_cha
            WHERE dsk.ma_ktv = ? AND dsk.email_dang_nhap IS NOT NULL`,
         )

@@ -908,9 +908,16 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
   });
 
   const batTat = useMutation({
-    mutationFn: ({ ma, bat }: { ma: string; bat: boolean }) => api.patch(`/settings/ktv-lien-he/${encodeURIComponent(ma)}/bat-tat`, { bat }),
-    onSuccess: async (_res, { bat }) => {
-      addToast(bat ? "Đã bật tài khoản" : "Đã tắt tài khoản — không đăng nhập, không tạo đơn, không chọn làm người nhận hàng được");
+    mutationFn: ({ ma, bat }: { ma: string; bat: boolean }) =>
+      api.patch<{ ok: true; ma_khac_dang_bat: string | null }>(`/settings/ktv-lien-he/${encodeURIComponent(ma)}/bat-tat`, { bat }),
+    onSuccess: async (res, { ma, bat }) => {
+      addToast(
+        bat
+          ? `Đã bật mã ${ma}`
+          : res.ma_khac_dang_bat
+            ? `Đã tắt mã ${ma} — Gmail vẫn đăng nhập được vì mã ${res.ma_khac_dang_bat} (cùng Gmail) đang bật`
+            : `Đã tắt mã ${ma} — không đăng nhập, không tạo đơn, không chọn làm người nhận hàng được`,
+      );
       await qc.invalidateQueries({ queryKey: ["settings-ktv"] });
     },
     onError: (err) => addToast("Không đổi được: " + (err instanceof Error ? err.message : String(err))),
@@ -929,17 +936,22 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
       header: "Tài khoản",
       render: (r) => {
         if (!r.tk_email) return <span className="text-[var(--color-text-faint)]">Chưa có</span>;
-        const bat = !r.tk_bi_khoa;
+        // Bat/tat THEO MA (migration 0060): ma tat rieng (ngung_hoat_dong) hoac ca Gmail bi khoa (tk_bi_khoa).
+        const bat = !r.ngung_hoat_dong && !r.tk_bi_khoa;
         return (
-          <span className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <span className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()} title={r.ma_cung_gmail ? `Gmail dùng chung với mã: ${r.ma_cung_gmail}` : undefined}>
             {mode === "admin" && (
               <ToggleSwitch
                 checked={bat}
                 onChange={() => {
                   if (batTat.isPending) return;
-                  if (bat && !window.confirm(`Tắt tài khoản ${r.ma_ktv} (${r.ten_hien_thi ?? r.email_dang_nhap})?
+                  if (bat && !window.confirm(`Tắt mã ${r.ma_ktv} (${r.ten_hien_thi ?? r.email_dang_nhap})?
 
-Người này sẽ không đăng nhập được, không tạo đơn được và không hiện trong danh sách chọn người nhận hàng. Đơn cũ giữ nguyên.`)) return;
+Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
+                    r.ma_cung_gmail
+                      ? `Gmail ${r.email_dang_nhap} còn dùng cho mã ${r.ma_cung_gmail} — nếu mã đó còn bật thì người này VẪN đăng nhập và nhận hàng qua mã đó.`
+                      : "Người này sẽ không đăng nhập được và không tạo đơn được."
+                  } Đơn cũ giữ nguyên.`)) return;
                   batTat.mutate({ ma: r.ma_ktv, bat: !bat });
                 }}
               />

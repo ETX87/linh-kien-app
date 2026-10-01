@@ -87,7 +87,7 @@ settingsKtv.get("/", async (c) => {
          AND (? IS NULL OR ddh.updated_at > ?)
        GROUP BY k3.ma_ktv
      ) dp ON dp.ma_ktv = k.ma_ktv`;
-  const selectCols = `k.*, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai, u.bi_khoa as tk_bi_khoa, u.email as tk_email, COALESCE(dp.gia_tri, 0) as han_muc_du_phong_phat_sinh`;
+  const selectCols = `k.*, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai, u.bi_khoa as tk_bi_khoa, u.email as tk_email, (SELECT GROUP_CONCAT(k2.ma_ktv, ', ') FROM ktv_lien_he k2 WHERE k2.email_dang_nhap = k.email_dang_nhap AND k2.ma_ktv <> k.ma_ktv) as ma_cung_gmail, COALESCE(dp.gia_tri, 0) as han_muc_du_phong_phat_sinh`;
   const baseSql = `FROM ktv_lien_he k LEFT JOIN users u ON u.email = k.email_dang_nhap ${duPhongJoin} ${where}`;
   const duPhongBinds = [mocTinhDuPhong, mocTinhDuPhong];
   const withMocHienTai = (rows: Record<string, unknown>[]) =>
@@ -602,11 +602,26 @@ settingsKtv.patch("/:ma/bat-tat", adminOnly, async (c) => {
   const ktv = await c.env.DB.prepare("SELECT email_dang_nhap FROM ktv_lien_he WHERE ma_ktv = ?").bind(ma).first<{ email_dang_nhap: string | null }>();
   if (!ktv) return c.json({ error: "NOT_FOUND" }, 404);
   if (!ktv.email_dang_nhap) return c.json({ error: "CHUA_CO_TAI_KHOAN" }, 400);
-  const res = await c.env.DB.prepare("UPDATE users SET bi_khoa = ?, updated_at = ? WHERE email = ?")
-    .bind(body.bat ? 0 : 1, nowVN(), ktv.email_dang_nhap)
-    .run();
-  if (!res.meta?.changes) return c.json({ error: "CHUA_CO_TAI_KHOAN" }, 400);
-  return c.json({ ok: true });
+  const coTaiKhoan = await c.env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(ktv.email_dang_nhap).first();
+  if (!coTaiKhoan) return c.json({ error: "CHUA_CO_TAI_KHOAN" }, 400);
+  // SUA 2026-10-01 (migration 0060): tat THEO MA (ktv_lien_he.ngung_hoat_dong) - nhieu ma co the dung CHUNG 1 Gmail. Bat 1 ma =
+  // mo khoa Gmail; tat 1 ma chi khoa Gmail khi KHONG con ma nao khac cung Gmail dang bat.
+  const now = nowVN();
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE ktv_lien_he SET ngung_hoat_dong = ? WHERE ma_ktv = ?").bind(body.bat ? 0 : 1, ma),
+    body.bat
+      ? c.env.DB.prepare("UPDATE users SET bi_khoa = 0, updated_at = ? WHERE email = ?").bind(now, ktv.email_dang_nhap)
+      : c.env.DB.prepare(
+          `UPDATE users SET bi_khoa = 1, updated_at = ? WHERE email = ?
+             AND NOT EXISTS (SELECT 1 FROM ktv_lien_he WHERE email_dang_nhap = ? AND ngung_hoat_dong = 0)`,
+        ).bind(now, ktv.email_dang_nhap, ktv.email_dang_nhap),
+  ]);
+  const conMaKhac = await c.env.DB.prepare(
+    "SELECT GROUP_CONCAT(ma_ktv, ', ') AS mas FROM ktv_lien_he WHERE email_dang_nhap = ? AND ma_ktv <> ? AND ngung_hoat_dong = 0",
+  )
+    .bind(ktv.email_dang_nhap, ma)
+    .first<{ mas: string | null }>();
+  return c.json({ ok: true, ma_khac_dang_bat: conMaKhac?.mas ?? null });
 });
 
 settingsKtv.delete("/:ma", adminOnly, async (c) => {
