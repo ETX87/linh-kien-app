@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, buildQuery } from "../api/client";
+import { api, buildQuery, ApiError } from "../api/client";
 import { Btn } from "../components/ui/Btn";
 import { FileButton } from "../components/ui/FileButton";
 import { Badge, type BadgeTone } from "../components/ui/Badge";
@@ -969,7 +969,8 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
     await qc.invalidateQueries({ queryKey: ["settings-ktv"] });
     setEditing(null);
   };
-  const onSaveError = () => addToast("Không thể lưu, thử lại sau.");
+  // detail = thong bao cu the tu backend (vd EMAIL_DA_GAN_MA_KHAC "Gmail này đang là email đăng nhập của mã KTV …").
+  const onSaveError = (err: unknown) => addToast(err instanceof ApiError && err.detail ? err.detail : "Không thể lưu, thử lại sau.");
 
   const saveAdmin = useMutation({
     mutationFn: async () => {
@@ -1454,7 +1455,9 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
               {bulkFailDetails.length > 0 && (
                 <div className="max-h-40 overflow-y-auto border border-[var(--line)] rounded-lg p-2 text-xs font-mono space-y-0.5">
                   {bulkFailDetails.map((d, i) => (
-                    <div key={i}>{d.ma_ktv}: {d.status}</div>
+                    <div key={i}>
+                      {d.ma_ktv}: {d.status.startsWith("email_da_gan_ma_khac:") ? `Email đăng nhập đã gắn mã KTV ${d.status.slice(21)} (1 Gmail chỉ 1 mã)` : d.status}
+                    </div>
                   ))}
                 </div>
               )}

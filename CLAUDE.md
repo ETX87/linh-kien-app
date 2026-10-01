@@ -510,6 +510,10 @@ Bảng giá hiện cảnh báo + bộ lọc "Chưa phân loại". File MISA: dò
 miền (`app_settings.misa_ma_kho_may_mien_*`, Cài đặt › Mã kho mặc định) thay kho công ty — ở cột "Mã kho" (Bán hàng/Xuất kho)
 và "Nhập tại kho" (Chuyển kho); dòng TRỪ CÔNG NỢ vẫn trừ kho KTV.
 
+**1 Gmail = 1 mã KTV** (chốt 2026-10-01, migration `0061`): đã đóng 9 mã thừa của 6 Gmail dùng chung (gỡ Gmail + `ngung_hoat_dong`,
+ghi chú lý do trong `ghi_chu`); chỉ mục DUY NHẤT `LOWER(TRIM(email_dang_nhap))`; API báo `EMAIL_DA_GAN_MA_KHAC` trước khi chạm DB
+(`maKtvDangDungEmail()` ở `lib/ktvChinh.ts` — PATCH `/:ma/dat-mua-lk`, bulk-import status `email_da_gan_ma_khac:<mã>`; đường ETX đã
+tự bỏ qua Gmail có mã). Thêm đường gán `email_dang_nhap` mới → gọi `maKtvDangDungEmail`. Ghi chú lịch sử:
 **Nhiều mã KTV dùng chung 1 Gmail** (dữ liệu thật, 2026-10-01): KHÔNG `JOIN ktv_lien_he k ON k.email_dang_nhap = <email>` khi
 cần thông tin KTV theo email (nhân dòng theo số mã — file MISA từng lặp ×5) → `k.ma_ktv = ${ktvChinhCuaEmailSql(email)}`
 (`lib/ktvChinh.ts`: mã có Mã MISA → đang bật → ma_ktv), hoặc `EXISTS` khi chỉ lọc. Truy vấn lọc theo 1 `k.ma_ktv = ?` không bị.

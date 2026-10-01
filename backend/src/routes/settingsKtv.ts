@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { maKtvDangDungEmail } from "../lib/ktvChinh";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
@@ -236,6 +237,14 @@ settingsKtv.post("/bulk-import", adminOnly, async (c) => {
     const khuVucMa = row.khu_vuc_ma?.trim() || null;
     const maMisa = row.ma_misa?.trim() || null;
     const tenMisa = row.ten_misa?.trim() || null;
+    if (emailDangNhap) {
+      const maKhac = await maKtvDangDungEmail(c.env.DB, emailDangNhap, ma);
+      if (maKhac) {
+        errorCount++;
+        details.push({ ma_ktv: ma, status: `email_da_gan_ma_khac:${maKhac}` });
+        continue;
+      }
+    }
     if (row.han_muc_du_phong_hien_tai !== undefined) anyDuPhongHienTaiChanged = true;
     try {
       await c.env.DB.prepare(
@@ -331,6 +340,10 @@ settingsKtv.patch("/:ma/dat-mua-lk", adminOnly, async (c) => {
     han_muc_du_phong_hien_tai: body.han_muc_du_phong_hien_tai !== undefined ? body.han_muc_du_phong_hien_tai : existing.han_muc_du_phong_hien_tai,
   };
 
+  if (next.email_dang_nhap && next.email_dang_nhap !== existing.email_dang_nhap) {
+    const maKhac = await maKtvDangDungEmail(c.env.DB, next.email_dang_nhap, ma);
+    if (maKhac) return c.json({ error: "EMAIL_DA_GAN_MA_KHAC", message: `Gmail này đang là email đăng nhập của mã KTV ${maKhac} — 1 Gmail chỉ gắn 1 mã KTV` }, 409);
+  }
   if (next.khu_vuc_ma) {
     const khuVuc = await c.env.DB.prepare("SELECT ma FROM khu_vuc WHERE ma = ?").bind(next.khu_vuc_ma).first();
     if (!khuVuc) return c.json({ error: "KHU_VUC_NOT_FOUND" }, 400);
