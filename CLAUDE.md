@@ -508,7 +508,9 @@ BẮT BUỘC khi tạo (`POST /settings/linh-kien`, `/lk-settings/danh-muc`, imp
 (`/xac-nhan` nhận `phan_loai`, LK chưa có → `THIEU_PHAN_LOAI`), PATCH không xoá được. LK gia88 đồng bộ về chưa có phân loại →
 Bảng giá hiện cảnh báo + bộ lọc "Chưa phân loại". File MISA: dòng LK phân loại "Máy" (`laPhanLoaiMay`) dùng kho ký gửi KRF theo
 miền (`app_settings.misa_ma_kho_may_mien_*`, Cài đặt › Mã kho mặc định) thay kho công ty — ở cột "Mã kho" (Bán hàng/Xuất kho)
-và "Nhập tại kho" (Chuyển kho); dòng TRỪ CÔNG NỢ vẫn trừ kho KTV.
+và "Nhập tại kho" (Chuyển kho); dòng TRỪ CÔNG NỢ vẫn trừ kho KTV. Chốt 2026-10-01: cột ĐVT để TRỐNG ở mọi mẫu; dòng TRẢ HÀNG (`laDongTraHang`: PXK
+`loai_don='tra_hang'` hoặc loại đề xuất chứa "TRẢ HÀNG", so không dấu) → "Xuất tại kho"/Mã kho = `NTMN`/`NTMB` theo miền, Diễn giải
+"6803 NTMN -Nhận lại linh kiện ký gửi của <Tên MISA>" (MB: "6804-MB NTMB -…") — `KHO_NHAN_TRA`; "TRẢ HÀNG CÔNG NỢ" mọi cột tiền = 0.
 
 **1 Gmail = 1 mã KTV** (chốt 2026-10-01, migration `0061`): đã đóng 9 mã thừa của 6 Gmail dùng chung (gỡ Gmail + `ngung_hoat_dong`,
 ghi chú lý do trong `ghi_chu`); chỉ mục DUY NHẤT `LOWER(TRIM(email_dang_nhap))`; API báo `EMAIL_DA_GAN_MA_KHAC` trước khi chạm DB

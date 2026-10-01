@@ -46,6 +46,7 @@ import type { Env } from "../types";
 import { tinhToanPxk, laTruCongNo } from "./pxkRecalculate";
 import { tenNguoiNullSql } from "./tenNguoi";
 import { ktvChinhCuaEmailSql } from "./ktvChinh";
+import { boDau } from "./timTheoTen";
 
 export const MISA_TEMPLATES = ["xuat_kho", "chuyen_kho", "ban_hang"] as const;
 export type MisaTemplate = (typeof MISA_TEMPLATES)[number];
@@ -167,6 +168,20 @@ export function resolveTemplate(loaiDon: RawLine["pxk_loai_don"], loaiFileXuatMi
   return "ban_hang";
 }
 
+// DONG TRA HANG (chot 2026-10-01): KTV tra LK ve kho cong ty -> "Xuất tại kho" = kho nhan lai theo mien (NTMN/NTMB, thay
+// ma MISA KTV), Dien giai co dinh theo mien; rieng "TRẢ HÀNG CÔNG NỢ" moi cot tien = 0. Nhan dien theo loai don cua phieu
+// HOAC ten loai de xuat chua "TRẢ HÀNG" (khong dau - tranh lech chuan Unicode NFC/NFD giua cac ten option).
+const KHO_NHAN_TRA: Record<"bac" | "nam", { ma: string; dienGiai: string }> = {
+  nam: { ma: "NTMN", dienGiai: "6803 NTMN -Nhận lại linh kiện ký gửi của" },
+  bac: { ma: "NTMB", dienGiai: "6804-MB NTMB -Nhận lại linh kiện ký gửi của" },
+};
+function laDongTraHang(line: Pick<RawLine, "pxk_loai_don" | "loai_de_xuat">): boolean {
+  return line.pxk_loai_don === "tra_hang" || boDau(line.loai_de_xuat ?? "").includes("tra hang");
+}
+function laTraHangCongNo(loaiDeXuat: string | null): boolean {
+  return boDau(loaiDeXuat ?? "").includes("tra hang cong no");
+}
+
 function mienFromKhuVuc(khuVucMa: string | null): "bac" | "nam" | null {
   if (!khuVucMa) return null;
   if (khuVucMa.includes("MB")) return "bac";
@@ -286,8 +301,12 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
     const maMisa = line.ktv_ma_misa || "";
     const tenHang = line.ten_lk || line.ma_lk;
     const soLuong = line.so_luong;
-    const donGia = line.don_gia;
+    // "TRẢ HÀNG CÔNG NỢ": moi cot tien = 0 (chot 2026-10-01).
+    const tienBang0 = laTraHangCongNo(line.loai_de_xuat);
+    const donGia = tienBang0 ? 0 : line.don_gia;
     const thanhTien = soLuong != null && donGia != null ? soLuong * donGia : null;
+    const traHang = laDongTraHang(line) && mien ? KHO_NHAN_TRA[mien] : null;
+    const dienGiaiTraHang = traHang ? `${traHang.dienGiai} ${tenMisa || line.nguoi_nhan_hang || ""}`.trim() : null;
 
     if (line.nguoi_nhan_hang && (!maMisa || !tenMisa)) {
       const key = line.ktv_ma_ktv || line.nguoi_nhan_hang;
@@ -297,8 +316,8 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
     }
 
     if (template === "chuyen_kho") {
-      // "Ve viec/Dien giai": giu nguyen cong thuc cu (chua co yeu cau doi rieng).
-      const veViecDienGiai = `${tenHang} xuất ${line.loai_de_xuat ?? ""} cho KTV ${tenMisa || line.nguoi_nhan_hang || ""}${
+      // "Ve viec/Dien giai": dong tra hang dung cau co dinh theo mien (KHO_NHAN_TRA), con lai giu cong thuc cu.
+      const veViecDienGiai = dienGiaiTraHang ?? `${tenHang} xuất ${line.loai_de_xuat ?? ""} cho KTV ${tenMisa || line.nguoi_nhan_hang || ""}${
         line.ma_yeu_cau_su_co ? ` - case ${line.ma_yeu_cau_su_co}` : ""
       }`.trim();
       sheets.chuyen_kho.push({
@@ -322,11 +341,11 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
         // kho ca nhan cua KTV/dai ly dang giu hang truoc khi tra (dung ma_misa lam proxy - he thong
         // KHONG theo doi ma kho vat ly rieng cho tung don vi ben ngoai nhu "NTMN" trong file mau that,
         // day la GAN DUNG TOT NHAT co the voi du lieu hien co), "Nhap tai kho" = kho cong ty theo mien.
-        xuatTaiKho: maMisa,
+        xuatTaiKho: traHang ? traHang.ma : maMisa,
         nhapTaiKho: kho.ma,
         tkNo: "157",
         tkCo: "156",
-        dvt: line.don_vi || "",
+        dvt: "", // bo trong (chot 2026-10-01)
         soLuong,
         donGiaBan: donGia,
         thanhTien,
@@ -340,17 +359,17 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
       const tinhGiaThanhCo = template === "ban_hang";
       // Dong "TRỪ CÔNG NỢ" (chot 2026-09-29): hang da nam o KHO CUA KTV -> tru tu kho KTV, khong tru kho cong ty theo
       // mien. Ma kho KTV tren MISA = ma MISA cua KTV (cung quy uoc "Xuất tại kho" cua mau Chuyen kho + ton kho KTV).
-      const maKhoDong = laTruCongNo(line.loai_de_xuat) ? maMisa : kho.ma;
-      const dienGiai = tinhGiaThanhCo
+      const maKhoDong = traHang ? traHang.ma : laTruCongNo(line.loai_de_xuat) ? maMisa : kho.ma;
+      const dienGiai = dienGiaiTraHang ?? (tinhGiaThanhCo
         ? `${maKhoDong} bán hàng ${tenMisa || line.nguoi_nhan_hang || ""}`.trim()
         : `${maKhoDong} xuất ${line.loai_de_xuat ?? ""} cho ${tenMisa || line.nguoi_nhan_hang || ""}${
             line.ma_yeu_cau_su_co ? ` theo MYC ${line.ma_yeu_cau_su_co}` : ""
-          }`.replace(/\s+/g, " ").trim();
+          }`.replace(/\s+/g, " ").trim());
       const phanTramThueGTGT = tinhGiaThanhCo ? 8 : 0;
       // Don gia CHUA thue 8% = don gia thuc te * 100 / 108 (lam tron 2 so le - cung do chinh xac voi Tien
       // thue GTGT); Thanh tien/Tien thue tinh lai tu don gia nay.
       const tienDong = tienTheoDong.get(line.ddh_id);
-      const donGiaThucTe = tienDong != null && soLuong ? tienDong / soLuong : donGia;
+      const donGiaThucTe = tienBang0 ? 0 : tienDong != null && soLuong ? tienDong / soLuong : donGia;
       const donGiaChuaThue = donGiaThucTe != null ? lam2((donGiaThucTe * 100) / 108) : null;
       const thanhTienChuaThue = soLuong != null && donGiaChuaThue != null ? lam2(soLuong * donGiaChuaThue) : null;
       const row: DonDatHangRow = {
@@ -365,7 +384,7 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
         maHang: line.ma_lk,
         tenHang,
         maKho: maKhoDong,
-        dvt: line.don_vi || "",
+        dvt: "", // bo trong (chot 2026-10-01)
         soLuong,
         donGia: tinhGiaThanhCo ? donGiaChuaThue : null,
         thanhTien: tinhGiaThanhCo ? thanhTienChuaThue : null,
