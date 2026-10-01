@@ -79,6 +79,107 @@ export function UsersModule({ pendingKtvSearch }: { pendingKtvSearch?: { value: 
   );
 }
 
+// "Gắn mã KTV" (2026-10-01, phan hoi "tài khoản chuyển từ nhân viên văn phòng sang KTV ... đã set KTV nhưng vẫn báo chưa
+// set"): co KTV DVBH/Ve tinh CHI la co quyen - tai khoan chi thuoc the "KTV hiện trường" khi 1 ma KTV trong danh ba co Email
+// dang nhap = Gmail nay. "Chuyển sang văn phòng" go lien ket, "Chuyển KTV" chi bat co -> tai khoan lo lung "Chưa thuộc thẻ nào".
+// Modal nay chon 1 ma KTV co san roi gan Gmail qua PATCH /settings/ktv-lien-he/:ma/dat-mua-lk (cung duong voi sua "Email đăng
+// nhập" o the KTV - tu cap users + dong bo GS/Tram/khu vuc don cu).
+function goiYTimMaKtv(u: Pick<UserRow, "ten" | "ten_misa" | "email">): string {
+  const ten = (u.ten_misa || u.ten || "").trim();
+  if (!ten) return u.email.split("@")[0];
+  const sauGachCuoi = ten.split(/\s+-\s+|-/).pop()?.trim();
+  return sauGachCuoi || ten;
+}
+
+function GanMaKtvModal({ user, onClose, onDone }: { user: UserRow; onClose: () => void; onDone: () => void }) {
+  const addToast = useToast();
+  const [search, setSearch] = useState(() => goiYTimMaKtv(user));
+  const [chiChuaCoTk, setChiChuaCoTk] = useState(true);
+  const [debounced, setDebounced] = useState(search);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+  const { data, isLoading } = useQuery({
+    queryKey: ["gan-ma-ktv", debounced],
+    queryFn: () => api.get<Paged<KtvLienHeRow>>(`/settings/ktv-lien-he${buildQuery({ search: debounced || undefined, page: 1, pageSize: 30 })}`),
+    enabled: debounced.length >= 2,
+  });
+  const rows = (data?.rows ?? []).filter((r) => !chiChuaCoTk || !r.email_dang_nhap || r.email_dang_nhap === user.email);
+  const gan = useMutation({
+    mutationFn: (ma: string) => api.patch(`/settings/ktv-lien-he/${encodeURIComponent(ma)}/dat-mua-lk`, { email_dang_nhap: user.email }),
+    onSuccess: (_r, ma) => {
+      addToast(`Đã gắn mã ${ma} cho ${user.email} — tài khoản hiện ở thẻ "KTV hiện trường"`);
+      onDone();
+    },
+    onError: (err) => addToast("Không gắn được: " + (err instanceof Error ? err.message : String(err))),
+  });
+  return (
+    <Modal open onClose={onClose} title={`Gắn mã KTV cho ${user.email}`} width="max-w-2xl">
+      <div className="space-y-3 text-sm">
+        <div className="text-xs text-[var(--ink-500)]">
+          Cờ "KTV DVBH" chỉ là quyền. Tài khoản chỉ thuộc thẻ "KTV hiện trường" khi có 1 mã KTV trong danh bạ dùng Gmail này làm Email đăng nhập. Chọn mã của người này
+          (chưa có mã thì tạo ở thẻ "KTV hiện trường" › "+ Thêm KTV", nhập Email đăng nhập = Gmail này).
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            autoFocus
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Tìm mã KTV / tên…"
+            className="focus-ring w-full max-w-xs border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+          />
+          <label className="flex items-center gap-1.5 text-xs text-[var(--ink-600)]">
+            <input type="checkbox" checked={chiChuaCoTk} onChange={(e) => setChiChuaCoTk(e.target.checked)} />
+            Chỉ mã chưa gắn tài khoản
+          </label>
+        </div>
+        <div className="max-h-[50vh] overflow-auto border border-[var(--line)] rounded-lg">
+          {debounced.length < 2 ? (
+            <div className="p-3 text-[var(--ink-400)]">Gõ ít nhất 2 ký tự để tìm.</div>
+          ) : isLoading ? (
+            <div className="p-3 text-[var(--ink-400)]">Đang tìm…</div>
+          ) : rows.length === 0 ? (
+            <div className="p-3 text-[var(--ink-400)]">Không có mã phù hợp{chiChuaCoTk ? " (thử bỏ \"Chỉ mã chưa gắn tài khoản\")" : ""}.</div>
+          ) : (
+            <table className="tbl w-full">
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.ma_ktv}>
+                    <td className="font-mono text-xs whitespace-nowrap">{r.ma_ktv}</td>
+                    <td className="truncate max-w-[260px]" title={r.ten_hien_thi ?? ""}>{r.ten_hien_thi ?? "—"}</td>
+                    <td className="whitespace-nowrap text-xs">{r.khu_vuc_ma ?? "—"}</td>
+                    <td className="whitespace-nowrap text-xs">
+                      {r.email_dang_nhap ? <span className="text-[var(--color-warning)]" title={r.email_dang_nhap}>Đang gắn: {r.email_dang_nhap}</span> : <span className="text-[var(--ink-400)]">Chưa gắn</span>}
+                    </td>
+                    <td className="text-right">
+                      <Btn
+                        size="sm"
+                        variant="ghost"
+                        loading={gan.isPending && gan.variables === r.ma_ktv}
+                        disabled={gan.isPending || r.email_dang_nhap === user.email}
+                        onClick={() => {
+                          if (r.email_dang_nhap && !window.confirm(`Mã ${r.ma_ktv} đang gắn với ${r.email_dang_nhap}. Đổi sang ${user.email}?\n\nTài khoản cũ sẽ không còn thuộc mã này.`)) return;
+                          gan.mutate(r.ma_ktv);
+                        }}
+                      >
+                        {r.email_dang_nhap === user.email ? "Đã gắn" : "Gắn"}
+                      </Btn>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div className="flex justify-end">
+          <Btn variant="ghost" size="sm" onClick={onClose}>Đóng</Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
   const qc = useQueryClient();
   const addToast = useToast();
@@ -93,6 +194,7 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
     queryFn: () => api.get<Paged<UserRow>>(`/users${query}`),
   });
   const [editing, setEditing] = useState<UserRow | null>(null);
+  const [ganMa, setGanMa] = useState<UserRow | null>(null);
   const personDir = usePersonDirectory();
 
   // FIX (phan hoi 2026-09-05, audit AUD-001): endpoint /users gio LUON phan trang (khong con nhanh
@@ -112,8 +214,13 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
             ) : u.co_ktv_lien_he ? (
               <span className="whitespace-nowrap">KTV hiện trường</span>
             ) : (
-              <span title="Có cờ KTV DVBH/Vệ tinh nhưng chưa có trong danh bạ KTV - vào thẻ &quot;KTV hiện trường&quot; thêm KTV với email đăng nhập này, hoặc bỏ cờ KTV để chuyển sang thẻ &quot;Nhân viên văn phòng&quot;.">
-                <Badge tone="amber">Chưa thuộc thẻ nào</Badge>
+              <span className="flex items-center gap-1.5 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                <span title="Có cờ KTV DVBH/Vệ tinh nhưng chưa mã KTV nào trong danh bạ dùng Gmail này làm Email đăng nhập.">
+                  <Badge tone="amber">Chưa thuộc thẻ nào</Badge>
+                </span>
+                <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => setGanMa(u)}>
+                  Gắn mã KTV
+                </button>
               </span>
             ),
         }]
@@ -194,6 +301,17 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
             addToast("Đã lưu");
             await qc.invalidateQueries({ queryKey: ["users"] });
             setEditing(null);
+          }}
+        />
+      )}
+      {ganMa && (
+        <GanMaKtvModal
+          user={ganMa}
+          onClose={() => setGanMa(null)}
+          onDone={async () => {
+            setGanMa(null);
+            await qc.invalidateQueries({ queryKey: ["users"] });
+            await qc.invalidateQueries({ queryKey: ["settings-ktv"] });
           }}
         />
       )}
@@ -493,11 +611,14 @@ function VanPhongTab() {
   // "Chuyển nhóm vai trò" chieu nguoc lai (them 2026-09-05, xem giai thich day du o KtvTab cung file)
   // - tat het co van phong + bat la_ktv_dvbh. KHONG tu mo modal tiep theo nhu chieu KTV->van phong vi
   // chua co ho so ktv_lien_he nao de sua (can Admin tu tao qua the "KTV hiện trường" > "+ Thêm KTV").
+  // SUA 2026-10-01: chuyen xong MO NGAY buoc "Gắn mã KTV" (truoc chi bao toast -> de quen, tai khoan lo lung "Chưa thuộc thẻ nào").
+  const [ganMa, setGanMa] = useState<UserRow | null>(null);
   const chuyenSangKtv = useMutation({
-    mutationFn: (email: string) => api.post(`/users/${encodeURIComponent(email)}/chuyen-nhom-vai-tro`, { to: "ktv" }),
-    onSuccess: async () => {
+    mutationFn: (u: UserRow) => api.post(`/users/${encodeURIComponent(u.email)}/chuyen-nhom-vai-tro`, { to: "ktv" }),
+    onSuccess: async (_r, u) => {
       await qc.invalidateQueries({ queryKey: ["users"] });
-      addToast('Đã chuyển sang nhóm KTV hiện trường - qua thẻ "KTV hiện trường" > "+ Thêm KTV" để tạo hồ sơ (nhập đúng email này ở mục "Email đăng nhập")');
+      addToast("Đã chuyển sang nhóm KTV — chọn mã KTV của người này để hoàn tất");
+      setGanMa(u);
     },
   });
 
@@ -543,10 +664,10 @@ function VanPhongTab() {
             onClick={() => {
               if (
                 window.confirm(
-                  `Chuyển tài khoản "${u.email}" sang nhóm KTV hiện trường?\n\nSẽ tắt toàn bộ cờ văn phòng (Kho/Kế toán/TN/TP DVBH/View) và bật cờ KTV DVBH. Bạn cần tạo hồ sơ KTV (mã KTV, tên hiển thị...) riêng ở thẻ "KTV hiện trường" ngay sau đó.`,
+                  `Chuyển tài khoản "${u.email}" sang nhóm KTV hiện trường?\n\nSẽ tắt toàn bộ cờ văn phòng (Kho/Kế toán/TN/TP DVBH/View) và bật cờ KTV DVBH. Bước tiếp theo: chọn mã KTV của người này để gắn Gmail (chưa có mã thì tạo ở thẻ "KTV hiện trường").`,
                 )
               ) {
-                chuyenSangKtv.mutate(u.email);
+                chuyenSangKtv.mutate(u);
               }
             }}
           >
@@ -602,6 +723,17 @@ function VanPhongTab() {
             await qc.invalidateQueries({ queryKey: ["users"] });
             await qc.invalidateQueries({ queryKey: ["settings-khu-vuc"] });
             setEditing(null);
+          }}
+        />
+      )}
+      {ganMa && (
+        <GanMaKtvModal
+          user={ganMa}
+          onClose={() => setGanMa(null)}
+          onDone={async () => {
+            setGanMa(null);
+            await qc.invalidateQueries({ queryKey: ["users"] });
+            await qc.invalidateQueries({ queryKey: ["settings-ktv"] });
           }}
         />
       )}

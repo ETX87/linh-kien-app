@@ -584,6 +584,10 @@ bị tắt); `/nguoi-nhan-hang-kha-dung` VẪN trả người bị tắt (kèm `
 → công tắc ghi `ktv_lien_he.ngung_hoat_dong` của MÃ đó; `users.bi_khoa` chỉ = 1 khi MỌI mã cùng Gmail đều tắt (bật 1 mã = mở khoá
 Gmail). `bi_khoa` trả ở `/nguoi-nhan-hang-kha-dung` + import theo mã = `MAX(users.bi_khoa, ngung_hoat_dong)` (theo dòng mã). Đơn ghi
 người nhận theo EMAIL nên mã còn bật vẫn đặt/nhận hàng như cùng 1 người. Danh sách trả `ma_cung_gmail` (cảnh báo khi tắt).
+**"Gắn mã KTV"** (2026-10-01, `GanMaKtvModal` ở `UsersModule.tsx`): cờ KTV DVBH/Vệ tinh chỉ là QUYỀN — tài khoản thuộc thẻ "KTV hiện
+trường" khi có mã trong `ktv_lien_he` có `email_dang_nhap` = Gmail. "Chuyển sang văn phòng" gỡ liên kết; "Chuyển KTV" giờ mở NGAY modal chọn
+mã có sẵn để gắn (gợi ý tìm theo tên sau dấu "-" cuối của Tên MISA/tên), dòng "Chưa thuộc thẻ nào" ở Người dùng đã duyệt có nút
+"Gắn mã KTV". Gắn = `PATCH /settings/ktv-lien-he/:ma/dat-mua-lk {email_dang_nhap}` (cấp users + đồng bộ GS/Trạm/email_gs đơn cũ).
 
 **Bỏ bước TBP** cho LK đặc thù khi loại đề xuất chứa MUA / HỖ TRỢ / **TRỪ CÔNG NỢ** (`boQuaTbpChoDacThu()` backend,
 bản sao `boQuaTbpDacThu()` FE cho cảnh báo ở `LinhKienPicker`).
