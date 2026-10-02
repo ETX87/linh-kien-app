@@ -8,7 +8,7 @@ export function laDinhTu(donVi: string | null | undefined): boolean {
   return (donVi ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/\s+/g, " ").trim() === "dinh tu";
 }
 
-export type MaChietKhau = "KHONG_CK" | "DINH_TU" | "TONG_200_500" | "GIA_KTV" | "GIA_DU_PHONG" | "CONG_NO";
+export type MaChietKhau = "KHONG_CK" | "DINH_TU" | "TONG_200_500" | "GIA_KTV" | "GIA_DU_PHONG" | "CONG_NO" | "KH_TRA_GOP";
 
 export interface PxkCalculation {
   total: number;
@@ -42,6 +42,19 @@ export function laTruCongNo(loaiDeXuat: string | null | undefined): boolean {
   return (loaiDeXuat ?? "").toUpperCase().includes("TRỪ CÔNG NỢ");
 }
 
+// DON KH TRA GOP (chot 2026-10-02): loai de xuat "HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX" / "...TG12-NPP" (nhom cong_no vi chua "HỖ TRỢ")
+// KHONG tinh cong no - gia tri CN = 0 (so_tien_cong_no 0, khong danh gia Du/Khong du, khong cong vao cong no tam tinh) va
+// loai chiet khau "Chiết khấu đơn KH trả góp" (ma KH_TRA_GOP, migration 0063 - trigger trg_ddh_kh_tra_gop_* giu dung cho moi
+// duong ghi). So KHONG dau (lech chuan Unicode NFC/NFD giua cac ten option). Ban sao FE: helpers.ts laKhTraGop.
+export function laKhTraGop(loaiDeXuat: string | null | undefined): boolean {
+  return (loaiDeXuat ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/gi, "d")
+    .toLowerCase()
+    .includes("ho tro ngoai bao hanh tg12");
+}
+
 // Chot 2026-09-29: don CO yeu cau xuat hoa don (cot "Yêu cầu hóa đơn" khac trong / khac "Không") tinh theo GIA NIEM YET,
 // KHONG huong chinh sach chiet khau nao (Dinh tu/bac thang/gia KTV/du phong) - nhan KHONG_CK. Gia chot TN nhap tay van thang.
 // 2026-09-30: "Yêu cầu hóa đơn (xuất cho Trạm)" (nut "HĐ - Xuất cho trạm") VAN tinh chiet khau nhu binh thuong.
@@ -72,7 +85,11 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
   ).bind(...datDonHangIds).all<CalculationRow>();
 
   const maTheoLoaiDon = (row: CalculationRow, ma: MaChietKhau): MaChietKhau | null =>
-    row.loai_don === "tra_hang" ? null : row.loai_don === "cong_no" && !laTruCongNo(row.loai_de_xuat) ? "CONG_NO" : ma;
+    row.loai_don === "tra_hang"
+      ? null
+      : row.loai_don === "cong_no" && !laTruCongNo(row.loai_de_xuat)
+        ? laKhTraGop(row.loai_de_xuat) ? "KH_TRA_GOP" : "CONG_NO"
+        : ma;
   const setTien = (row: CalculationRow, amount: number): number => {
     const rounded = Math.round(amount);
     tienUocTinhTheoDong.set(row.id, rounded);
@@ -92,7 +109,7 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
       continue;
     }
     if (row.loai_don === "cong_no" && !laTruCongNo(row.loai_de_xuat)) {
-      maTheoDong.set(row.id, "CONG_NO");
+      maTheoDong.set(row.id, laKhTraGop(row.loai_de_xuat) ? "KH_TRA_GOP" : "CONG_NO");
       setTien(row, row.so_tien_cong_no ?? 0);
       continue;
     }

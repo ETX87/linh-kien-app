@@ -153,6 +153,8 @@ function giaGoiY(ma: string | null | undefined, d: DonHangRow): { gia: number; c
     case "GIA_KTV":
     case "CONG_NO":
       return d.lk_gia_tri_cong_no != null ? { gia: d.lk_gia_tri_cong_no, cachTinh: "giá KTV" } : null;
+    case "KH_TRA_GOP":
+      return { gia: 0, cachTinh: "đơn KH trả góp — không tính công nợ" };
     case "GIA_DU_PHONG":
       return d.lk_gia_du_phong != null ? { gia: d.lk_gia_du_phong, cachTinh: "giá dự phòng" } : null;
     default:

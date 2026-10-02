@@ -24,7 +24,7 @@ import { computeCongNoChot } from "../lib/congNoKtv";
 import { computeMocDuPhongHienTai } from "../lib/duPhongKtv";
 import { computeTonKhoChot } from "../lib/tonKhoCongTy";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
-import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon } from "../lib/pxkRecalculate";
+import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon, laKhTraGop } from "../lib/pxkRecalculate";
 import { computeTonKtvConLai } from "../lib/tonKhoKtv";
 import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
 import { tenNguoiSql as tenNguoiDaySql, tenNguoiNullSql, tenNguoiMap } from "../lib/tenNguoi";
@@ -2252,7 +2252,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   const soTienCongNoPerDong = new Map<number, number>();
   let tongMoiCongNo = 0;
   body.don_hang.forEach((dh, i) => {
-    if (deriveLoaiDon(dh.loai_de_xuat.trim()) !== "cong_no" || laTruCongNo(dh.loai_de_xuat)) return;
+    if (deriveLoaiDon(dh.loai_de_xuat.trim()) !== "cong_no" || laTruCongNo(dh.loai_de_xuat) || laKhTraGop(dh.loai_de_xuat)) return;
     const lk = lkMap.get(dh.ma_lk.trim())!;
     const soTien = (lk.gia_tri_cong_no ?? 0) * dh.so_luong_de_xuat;
     soTienCongNoPerDong.set(i, soTien);
@@ -2354,7 +2354,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
         dh.so_luong_de_xuat,
         lk.gia_ban,
         loai_don === "cong_no" && !laTruCongNo(lde) ? (soTienCongNoPerDong.get(i) ?? 0) : null,
-        loai_don === "cong_no" && !laTruCongNo(lde) ? danhGiaCongNoPhieu : null,
+        loai_don === "cong_no" && !laTruCongNo(lde) && !laKhTraGop(lde) ? danhGiaCongNoPhieu : null,
         dh.ghi_chu?.trim() || null,
         dh.yeu_cau_hoa_don?.trim() || null,
         dh.tt_mail_duyet?.trim() || null,
@@ -2663,7 +2663,8 @@ async function processDatDonHangImportRows(
       maLada: row.ma_lada?.trim().toUpperCase() || null,
       dacThu: lk.dacThu,
       // "TRỪ CÔNG NỢ" khong doi chieu cong no (chot 2026-09-28) - soTienCongNo = 0 nhu don mua.
-      soTienCongNo: loaiDonRow === "cong_no" && !laTruCongNo(loaiDeXuat) ? (lk.giaTriCongNo ?? 0) * soLuong : 0,
+      // Don KH tra gop (laKhTraGop) - gia tri CN = 0 (chot 2026-10-02).
+      soTienCongNo: loaiDonRow === "cong_no" && !laTruCongNo(loaiDeXuat) && !laKhTraGop(loaiDeXuat) ? (lk.giaTriCongNo ?? 0) * soLuong : 0,
     });
   }
 
@@ -2731,7 +2732,7 @@ async function processDatDonHangImportRows(
               v.soLuong,
               v.giaBan,
               v.loaiDon === "cong_no" && !laTruCongNo(v.loaiDeXuat) ? v.soTienCongNo : null,
-              v.loaiDon === "cong_no" && !laTruCongNo(v.loaiDeXuat) ? danhGiaCongNoGroup : null,
+              v.loaiDon === "cong_no" && !laTruCongNo(v.loaiDeXuat) && !laKhTraGop(v.loaiDeXuat) ? danhGiaCongNoGroup : null,
               v.ghiChu,
               v.yeuCauHoaDon,
               v.ttMailDuyet,

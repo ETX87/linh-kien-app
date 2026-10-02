@@ -199,6 +199,16 @@ export function laTruCongNo(loaiDeXuat: string | null | undefined): boolean {
   return (loaiDeXuat ?? "").toUpperCase().includes("TRỪ CÔNG NỢ");
 }
 
+/** Ban sao laKhTraGop() (backend lib/pxkRecalculate.ts): "HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX/-NPP" - gia tri CN = 0 (chot 2026-10-02). */
+export function laKhTraGop(loaiDeXuat: string | null | undefined): boolean {
+  return (loaiDeXuat ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/gi, "d")
+    .toLowerCase()
+    .includes("ho tro ngoai bao hanh tg12");
+}
+
 /** Ban sao boQuaTbpChoDacThu() (backend datMuaLinhKien.ts): loai MUA / HỖ TRỢ / TRỪ CÔNG NỢ bo qua buoc TBP du LK dac thu. */
 export function boQuaTbpDacThu(loaiDeXuat: string | null | undefined): boolean {
   const upper = (loaiDeXuat ?? "").toUpperCase();
