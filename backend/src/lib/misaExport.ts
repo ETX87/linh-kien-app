@@ -43,7 +43,7 @@
 // tra THEM danh sach "canhBaoThieuMisa" (cac KTV dang xuat hien trong file nhung thieu ma_misa hoac
 // ten_misa) de FE hien canh bao ro rang luc tai file.
 import type { Env } from "../types";
-import { tinhToanPxk, laTruCongNo } from "./pxkRecalculate";
+import { tinhToanPxk, laTruCongNo, laKhTraGop } from "./pxkRecalculate";
 import { tenNguoiNullSql } from "./tenNguoi";
 import { ktvChinhCuaEmailSql } from "./ktvChinh";
 import { boDau } from "./timTheoTen";
@@ -238,6 +238,45 @@ export const laPhanLoaiMay = (phanLoai: string | null | undefined) => (phanLoai 
 // xuat ra file. Doi sang subquery scalar (chi lay loai_file_xuat_misa, KHONG can gi khac tu sld) -
 // an toan vi da xac nhan qua du lieu that: moi cap trung ten_option luon co CUNG 1 gia tri
 // loai_file_xuat_misa, LIMIT 1 chon dong nao cung ra ket qua giong nhau.
+// Don KH tra gop ("HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX/-NPP", chot 2026-10-02): gom MOI dong cung phieu + cung KTV nhan + cung
+// ma LK + cung loai de xuat + cung mau file thanh 1 dong - SL cong lai, Ma YCSC / TT+Mail duyet / TT khach hang noi bang ", "
+// (bo trung, bo trong), tien (mau Ban hang) cong theo tung dong goc. Dong khac giu nguyen thu tu.
+type DongMisa = { line: RawLine; template: MisaTemplate };
+function gopDongKhTraGop(lines: DongMisa[], tienTheoDong: Map<string, number>): DongMisa[] {
+  const out: DongMisa[] = [];
+  const nhom = new Map<string, { dong: DongMisa; ids: string[] }>();
+  const noi = (a: string | null, b: string | null) => {
+    const ds = [...(a ?? "").split(", "), ...(b ?? "").split(", ")].map((x) => x.trim()).filter(Boolean);
+    return ds.length ? [...new Set(ds)].join(", ") : null;
+  };
+  for (const d of lines) {
+    if (!laKhTraGop(d.line.loai_de_xuat)) {
+      out.push(d);
+      continue;
+    }
+    const key = [d.template, d.line.pxk_id, d.line.nguoi_nhan_hang ?? "", d.line.ma_lk, d.line.loai_de_xuat ?? ""].join("|");
+    const g = nhom.get(key);
+    if (!g) {
+      const dong = { template: d.template, line: { ...d.line } };
+      nhom.set(key, { dong, ids: [d.line.ddh_id] });
+      out.push(dong);
+      continue;
+    }
+    const l = g.dong.line;
+    l.so_luong = l.so_luong == null && d.line.so_luong == null ? null : (l.so_luong ?? 0) + (d.line.so_luong ?? 0);
+    l.ma_yeu_cau_su_co = noi(l.ma_yeu_cau_su_co, d.line.ma_yeu_cau_su_co);
+    l.tt_mail_duyet = noi(l.tt_mail_duyet, d.line.tt_mail_duyet);
+    l.tt_khach_hang = noi(l.tt_khach_hang, d.line.tt_khach_hang);
+    g.ids.push(d.line.ddh_id);
+  }
+  // Tien dong gop = tong tien cac dong goc, gan vao id dong dai dien (buildMisaExportSheets tra theo line.ddh_id).
+  for (const { dong, ids } of nhom.values()) {
+    if (ids.length < 2 || !ids.some((id) => tienTheoDong.has(id))) continue;
+    tienTheoDong.set(dong.line.ddh_id, ids.reduce((t, id) => t + (tienTheoDong.get(id) ?? 0), 0));
+  }
+  return out;
+}
+
 export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTemplate?: MisaTemplate): Promise<MisaExportResult> {
   const sheets: MisaExportSheets = { xuat_kho: [], chuyen_kho: [], ban_hang: [] };
   const canhBaoThieuMisaMap = new Map<string, { ma_ktv: string; ten_hien_thi: string | null }>();
@@ -305,7 +344,7 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
   }
   const lam2 = (x: number) => Math.round(x * 100) / 100;
 
-  for (const { line, template } of lines) {
+  for (const { line, template } of gopDongKhTraGop(lines, tienTheoDong)) {
     const mien = mienFromKhuVuc(line.ktv_khu_vuc_ma);
     // Kho phia CONG TY cua dong (Ban hang/Xuat kho: "Mã kho"; Chuyen kho: "Nhập tại kho"). LK "Máy" -> kho ky gui KRF
     // (Admin chua dien thi quay ve kho cong ty).
