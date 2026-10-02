@@ -185,6 +185,8 @@ export function DatMuaLinhKienModule({
   // nut "KTV đã nhận" trong PhieuXuatKhoTab.tsx cung da gate theo currentEmail===nguoi_nhan_hang chu
   // khong theo co vai tro) - chi can MO tab o FE, khong sua gi backend/PhieuXuatKhoTab.
   const isFieldKtv = !!(user?.la_ktv_dvbh || user?.la_ve_tinh);
+  // Tai khoan CHI co vai tro KTV/Ve tinh (khong kiem vai tro van phong nao) - vd an nut Tai Excel o Thieu hang (2026-10-02).
+  const laChiKtv = isFieldKtv && !(user?.vai_tro || user?.la_kho || user?.la_ke_toan || user?.la_tac_nghiep || user?.la_tp_dvbh || user?.la_view || user?.la_mua_hang);
   const canKho = !!user?.la_kho || user?.vai_tro === "Admin";
   const canKeToan = !!user?.la_ke_toan || user?.vai_tro === "Admin";
   const canQC = user?.vai_tro === "QC" || user?.vai_tro === "Admin";
@@ -997,6 +999,7 @@ export function DatMuaLinhKienModule({
             initialDetailIdOverride={openDetailIdFor("thieu-lk")}
             onDetailIdConsumed={consumeOpenDetailId}
             onJumpConsumed={consumeJumpTarget}
+            coTaiExcel={!laChiKtv}
           />
         )}
         {activeView === "tra-hang" && (

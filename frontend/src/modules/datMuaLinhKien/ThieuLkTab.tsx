@@ -179,8 +179,9 @@ function ThieuLkActionForm({
 
 export function ThieuLkTab({
   addToast, qc, canKho, canTacNghiep, canKeToan, isGiamSat, currentEmail, initialFilterOverride, initialNguoiNhanHangOverride,
-  initialDetailIdOverride, onDetailIdConsumed, onJumpConsumed,
+  initialDetailIdOverride, onDetailIdConsumed, onJumpConsumed, coTaiExcel = true,
 }: {
+  coTaiExcel?: boolean;
   addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>; canKho: boolean; canTacNghiep: boolean;
   // Them 2026-09-05 (phan hoi "'Chờ LK' chức năng filter vẫn thiếu bộ lọc theo khu vực, theo người
   // nhận hàng") - chi dung de MO RONG dieu kien hien bo loc Khu vuc/Nguoi nhan hang (showKhuVucFilter
@@ -454,6 +455,14 @@ export function ThieuLkTab({
         searchValue={filterQ}
         onSearchChange={setFilterQ}
         searchPlaceholder="Tìm theo mã TLK, mã đơn, mã YCSC, mã Lada, mã LK, tên LK, tên KTV/người báo..."
+        trailing={
+          // Tai Excel (2026-10-02): LUON hien canh o tim (truoc nam trong khoi Bo loc thu gon) - moi vai tro tru KTV/Ve tinh thuan.
+          coTaiExcel ? (
+            <Btn size="sm" variant="ghost" onClick={handleDownloadFullList} disabled={downloadingFull}>
+              {downloadingFull ? "Đang tải..." : "⬇ Tải Excel"}
+            </Btn>
+          ) : undefined
+        }
       >
         {/* Bo loc Khu vuc (them 2026-08-31, MO RONG 2026-09-05 dong bo voi DonCuaToiTab.tsx - xem
             showKhuVucFilter phia tren, khong chi rieng Kho nua). SUA BUG GIAO DIEN (phan hoi 2026-09-12):
@@ -472,9 +481,6 @@ export function ThieuLkTab({
           <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Cột hiển thị</div>
           <div ref={setColumnSettingsSlot} />
         </div>
-        <Btn size="sm" variant="ghost" onClick={handleDownloadFullList} disabled={downloadingFull}>
-          {downloadingFull ? "Đang tải..." : "⬇ Tải danh sách chi tiết"}
-        </Btn>
       </FilterSearchBar>
       <ActiveFiltersBar
         chips={[
