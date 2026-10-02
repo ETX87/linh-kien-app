@@ -1503,6 +1503,21 @@ export function PxkDetailModal({
     enabled: canTacNghiep,
   });
   const { data, isLoading } = useQuery(pxkDetailQuery(id));
+  // "Tải danh sách chi tiết" CUA RIENG phieu nay (2026-10-02) - cung endpoint + cung dinh dang file voi nut o danh sach
+  // Don hang (DonCuaToiTab handleDownloadFullList), chi loc theo pxk_id, moi loai don (gom ca tra hang).
+  const personDir = usePersonDirectory();
+  const [dangTaiDs, setDangTaiDs] = useState(false);
+  async function taiDanhSachDon() {
+    setDangTaiDs(true);
+    try {
+      const res = await api.get<{ rows: DonHangRow[] }>("/dat-mua-lk/don-hang" + buildQuery({ pxk_id: id, loai_don: "all" }));
+      await exportRowsToExcel(doiNguoiThanhTen(res.rows, personDir), `don_hang_${id}.xlsx`, "Đơn hàng");
+    } catch (err) {
+      addToast("Không tải được danh sách chi tiết: " + describeApiError(err));
+    } finally {
+      setDangTaiDs(false);
+    }
+  }
 
   function invalidate() {
     setGhiChu("");
@@ -2087,11 +2102,18 @@ export function PxkDetailModal({
           <div>
             <div className="flex items-center justify-between mb-1">
               <SectionTitle icon="📋">Dòng đơn hàng</SectionTitle>
-              {/* Them don vao phieu dang xem (2026-09-21, yeu cau #4) - CHI hien khi con "Dang tao
-                  phieu" (khop gate backend POST /:id/dong). */}
-              {(canTacNghiep || canKeToan) && trangThai === "Dang tao phieu" && (
-                <Btn size="sm" variant="ghost" onClick={() => setShowThemDon(true)}>+ Thêm đơn</Btn>
-              )}
+              <div className="flex items-center gap-1.5">
+                {data.donHang.length > 0 && (
+                  <Btn size="sm" variant="ghost" onClick={taiDanhSachDon} disabled={dangTaiDs}>
+                    {dangTaiDs ? "Đang tải..." : "⬇ Tải danh sách chi tiết"}
+                  </Btn>
+                )}
+                {/* Them don vao phieu dang xem (2026-09-21, yeu cau #4) - CHI hien khi con "Dang tao
+                    phieu" (khop gate backend POST /:id/dong). */}
+                {(canTacNghiep || canKeToan) && trangThai === "Dang tao phieu" && (
+                  <Btn size="sm" variant="ghost" onClick={() => setShowThemDon(true)}>+ Thêm đơn</Btn>
+                )}
+              </div>
             </div>
             {phieuTrong && (
               <div className="mb-1.5 rounded-lg border border-[var(--amber-500)]/30 bg-[var(--amber-100)]/60 px-2.5 py-1.5 text-[11px] font-medium text-[var(--amber-700)]">

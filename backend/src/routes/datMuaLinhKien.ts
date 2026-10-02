@@ -1806,7 +1806,14 @@ async function donHangListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string
   // dat_mua_lk_phu_trach_gs) van thay TOAN BO don he thong khi bam vao danh sach, du badge da bao dung
   // so nho hon. Them dieu kien CUNG mot Set, ap dung THANG len danh sach - khop hoan toan voi badge,
   // dung tinh than "không thuộc phạm vi của họ thì họ không cần quan tâm".
-  if (scope === null && (canTacNghiep(c) || user.la_kho || user.la_ke_toan)) {
+  // "pxk_id" (2026-10-02, nut "Tải danh sách chi tiết" trong chi tiet PXK) - chi cac don dang nam trong phieu do. Bo lop
+  // "Giám sát phụ trách" mem (nguoi xem phieu da thay du dong); scope bao mat (scopeDatMuaNguoiTao) van ap.
+  const pxkId = c.req.query("pxk_id")?.trim();
+  if (pxkId) {
+    whereSql += " AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pd WHERE pd.dat_don_hang_id = ddh.id AND pd.phieu_xuat_kho_id = ?)";
+    binds.push(pxkId);
+  }
+  if (!pxkId && scope === null && (canTacNghiep(c) || user.la_kho || user.la_ke_toan)) {
     const gsSet = await phuTrachGsSet(c.env.DB, user.email);
     if (gsSet) {
       whereSql += ` AND ddh.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;
