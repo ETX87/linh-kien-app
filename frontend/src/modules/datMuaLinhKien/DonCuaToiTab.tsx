@@ -1211,7 +1211,18 @@ Quỹ của KTV giảm ${fmtVND(d.tra_bang_quy!.can_tra)}.`)) {
                 <KvRow label="Mã xuất kho">{d.ma_xuat_kho ?? "—"}</KvRow>
               </DetailZone>
 
-              {d.ghi_chu && <div className="text-[var(--ink-500)]">{d.ghi_chu}</div>}
+              {/* Moi thong tin nguoi dung nhap luc tao don (2026-10-02, phan hoi "chi tiết đơn hàng cần hiện đầy đủ tất cả
+                  các thông tin khi người dùng tạo đơn") - truoc day TT khách hàng/TT mail duyệt/Yêu cầu hóa đơn/Chính sách
+                  chi thay o form Sua, ghi chu hien 1 dong khong nhan. Truong trong van hien "—" de biet la chua nhap. */}
+              <DetailZone title="Thông tin đặt hàng">
+                <KvRow label="Loại đề xuất">{d.loai_de_xuat || "—"}</KvRow>
+                <KvRow label="Chính sách">{d.chinh_sach || "—"}</KvRow>
+                <KvRow label="Yêu cầu hóa đơn">{d.yeu_cau_hoa_don || "—"}</KvRow>
+                <KvRow label="TT khách hàng"><span className="whitespace-pre-line break-words">{d.tt_khach_hang || "—"}</span></KvRow>
+                <KvRow label="TT + Mail duyệt"><span className="whitespace-pre-line break-words">{d.tt_mail_duyet || "—"}</span></KvRow>
+                <KvRow label="Ưu tiên">{d.uu_tien === 1 ? "Có" : "Không"}</KvRow>
+                <KvRow label="Ghi chú"><span className="whitespace-pre-line break-words">{d.ghi_chu || "—"}</span></KvRow>
+              </DetailZone>
               {/* Ly do chon luc "tu choi"/"cho hang" luu trong ghi_chu cua log moi nhat (xem
                   applyDonHangLog backend) - hien cho nguoi tao biet vi sao, khong chi hien trang thai suong. */}
               {(d.trang_thai === "TN tu choi" || d.trang_thai === "Cho hang") && d.logs?.[0]?.ghi_chu && (
