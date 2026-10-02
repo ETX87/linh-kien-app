@@ -2535,9 +2535,14 @@ interface DatDonHangImportValidRow {
 
 async function processDatDonHangImportRows(
   c: Context<{ Bindings: Env }>,
-  rows: DatDonHangImportRow[],
+  rowsGoc: DatDonHangImportRow[],
   commit: boolean,
 ): Promise<{ thanhCong: number; loi: number; errors: string[]; soPhieu: number; ktvList: string[]; phieuIds?: string[] }> {
+  // Thu vien doc Excel o trinh duyet giu o SO la number (vd Ma yeu cau su co / TT mail duyet toan chu so) -> `.trim()` tren
+  // number nem TypeError = 500 "INTERNAL_ERROR" cho CA file (bao loi 2026-10-02). Chuan hoa moi o ve chuoi truoc.
+  const rows = rowsGoc.map((r) =>
+    Object.fromEntries(Object.entries(r ?? {}).map(([k, v]) => [k, v == null ? v : typeof v === "string" ? v : String(v)])),
+  ) as DatDonHangImportRow[];
   const user = c.get("user");
   const db = c.env.DB;
   const errors: string[] = [];
