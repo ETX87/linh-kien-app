@@ -617,6 +617,13 @@ TBP) → "Cho TBP xac nhan" + báo TBP; chỉ ghi log khi trạng thái ĐỔI (
 "Đặc thù" (`PATCH /settings/linh-kien/:ma/dac-thu`) cho TN/Kế toán/người sửa LK (TN/Kế toán được cấp menu Bảng giá). **"Chờ hàng"
 chỉ bắt buộc đã thanh toán với đơn ĐẶC THÙ** (`chuaChuyenTienChoHang` = `bat_buoc_chuyen_tien` + đặc thù hiệu lực + chưa thanh toán).
 
+**GS — "Khu vực xem thêm"** (chốt 2026-10-02): Admin chọn thêm Khu vực cho tài khoản GS ở Quản lý người dùng › Nhân viên văn
+phòng (CÙNG bảng `user_khu_vuc`; GS trước chỉ thấy khu vực mình phụ trách, read-only). Scope GS = điều kiện cũ **OR** cột
+`khu_vuc_ma` của đơn/PXK/KTV nằm trong `user_khu_vuc` (`gsKhuVucXemThemSql()` ở `scopeDatMua.ts`) — áp ở `scopeDatMuaNguoiTao`,
+`scopePxkNguoiNhanHang`, `baoCaoScope`, 3 nhánh GS Thiếu LK, `ktvTonKho` scope; bộ lọc khu vực mặc định (`khuVucCuaToiSet`,
+`/khu-vuc-cua-toi`) gộp luôn. Thêm nhánh scope GS mới → nối điều kiện này. Chỉ mở rộng XEM, không đổi GS/`email_gs`. Danh sách
+Nhân viên văn phòng có cột "Khu vực được xem" (`khu_vuc_gan`).
+
 **GS đặt hộ cho MỌI KTV** (chốt 2026-09-28): `/nguoi-nhan-hang-kha-dung` trả toàn bộ KTV cho GS, bỏ chặn
 `NGUOI_NHAN_HANG_NGOAI_PHAM_VI`/`NGOAI_PHAM_VI_GS` (tạo đơn, import, cảnh báo công nợ/dự phòng/dự đoán duyệt).
 Scope xem của GS = `ddh.email_gs = GS` **HOẶC `ddh.nguoi_tao = GS`** (để thấy lại đơn mình đặt ngoài khu vực);

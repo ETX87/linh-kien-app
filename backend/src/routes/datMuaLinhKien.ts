@@ -9,7 +9,7 @@ import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nextSequentialId } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
 import { emailsTheoTen, orEmailIn, orMaYcsc } from "../lib/timTheoTen";
-import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, khuVucViewEmailInSql, khuVucCuaToiSet, khuVucSetWhereSql, scopePxkNguoiNhanHang } from "../lib/scopeDatMua";
+import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, khuVucViewEmailInSql, khuVucCuaToiSet, khuVucSetWhereSql, scopePxkNguoiNhanHang, gsKhuVucXemThemSql } from "../lib/scopeDatMua";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { quaHanLyDoCham, mocTinhHanTn } from "../lib/hanLyDoCham";
@@ -437,8 +437,11 @@ datMuaLinhKien.get("/tong-ngay-ktv", async (c) => {
 datMuaLinhKien.get("/khu-vuc-cua-toi", async (c) => {
   const user = c.get("user");
   if (user.vai_tro === "Giam sat") {
-    const { results } = await c.env.DB.prepare("SELECT ma, ten FROM khu_vuc WHERE gs_email = ? ORDER BY stt, ma")
-      .bind(user.email)
+    // + Khu vuc xem them (user_khu_vuc, 2026-10-02) - khop khuVucCuaToiSet().
+    const { results } = await c.env.DB.prepare(
+      "SELECT ma, ten FROM khu_vuc WHERE gs_email = ? OR ma IN (SELECT khu_vuc_ma FROM user_khu_vuc WHERE user_email = ?) ORDER BY stt, ma",
+    )
+      .bind(user.email, user.email)
       .all<{ ma: string; ten: string }>();
     return c.json({ rows: results });
   }
@@ -1213,8 +1216,8 @@ async function baoCaoScope(c: Context<{ Bindings: Env }>, wantFull: boolean): Pr
     if (!wantFull) {
       // email_gs = GS phu trach khu vuc HIEN TAI cua KTV nhan hang (dong bo o lib/khuVucSync.ts) + don CHINH GS
       // dat ho (chot 2026-09-28 "Có tính", khop scopeDatMuaNguoiTao).
-      scopeCond = (alias) => ` AND (${alias}.email_gs = ? OR ${alias}.nguoi_tao = ?)`;
-      scopeBinds = [user.email, user.email];
+      scopeCond = (alias) => ` AND (${alias}.email_gs = ? OR ${alias}.nguoi_tao = ? OR ${gsKhuVucXemThemSql(`${alias}.khu_vuc_ma`)})`;
+      scopeBinds = [user.email, user.email, user.email];
     }
   } else if (canTacNghiep(c) || user.la_kho || user.la_ke_toan) {
     if (!wantFull) {
@@ -2861,8 +2864,8 @@ datMuaLinhKien.get("/search", async (c) => {
     if (canKho(c) || canTacNghiep(c)) {
       // khong gioi han
     } else if (user.vai_tro === "Giam sat") {
-      whereSql += " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ? OR ddh.nguoi_nhan_hang = ?)"; // + don chinh GS tao (2026-09-28) / GS nhan hang (2026-09-30)
-      binds.push(user.email, user.email, user.email);
+      whereSql += ` AND (ddh.email_gs = ? OR ddh.nguoi_tao = ? OR ddh.nguoi_nhan_hang = ? OR ${gsKhuVucXemThemSql("ddh.khu_vuc_ma")})`; // + don chinh GS tao (2026-09-28) / GS nhan hang (2026-09-30) / khu vuc xem them (2026-10-02)
+      binds.push(user.email, user.email, user.email, user.email);
     } else if (user.la_mua_hang) {
       // "Mua hang" (2026-09-30) - xem toan bo, chi doc.
     } else if (user.la_view) {
@@ -4287,8 +4290,8 @@ async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = 
       binds.push(...gsSet);
     }
   } else if (user.vai_tro === "Giam sat") {
-    whereSql += " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ? OR ddh.nguoi_nhan_hang = ?)"; // + don chinh GS tao (2026-09-28) / GS nhan hang (2026-09-30)
-    binds.push(user.email, user.email, user.email);
+    whereSql += ` AND (ddh.email_gs = ? OR ddh.nguoi_tao = ? OR ddh.nguoi_nhan_hang = ? OR ${gsKhuVucXemThemSql("ddh.khu_vuc_ma")})`; // + don chinh GS tao (2026-09-28) / GS nhan hang (2026-09-30) / khu vuc xem them (2026-10-02)
+    binds.push(user.email, user.email, user.email, user.email);
   } else if (user.la_mua_hang) {
     // "Mua hang" (2026-09-30) - xem toan bo, chi doc.
   } else if (user.la_view) {
@@ -4426,8 +4429,8 @@ datMuaLinhKien.get("/thieu-lk/:id", async (c) => {
   if (canKho(c) || canTacNghiep(c)) {
     // khong gioi han - giu nguyen
   } else if (user.vai_tro === "Giam sat") {
-    whereSql += " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ? OR ddh.nguoi_nhan_hang = ?)"; // + don chinh GS tao (2026-09-28) / GS nhan hang (2026-09-30)
-    binds.push(user.email, user.email, user.email);
+    whereSql += ` AND (ddh.email_gs = ? OR ddh.nguoi_tao = ? OR ddh.nguoi_nhan_hang = ? OR ${gsKhuVucXemThemSql("ddh.khu_vuc_ma")})`; // + don chinh GS tao (2026-09-28) / GS nhan hang (2026-09-30) / khu vuc xem them (2026-10-02)
+    binds.push(user.email, user.email, user.email, user.email);
   } else if (user.la_mua_hang) {
     // "Mua hang" (2026-09-30) - xem toan bo, chi doc.
   } else if (user.la_view) {

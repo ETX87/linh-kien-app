@@ -3,7 +3,7 @@ import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
-import { khuVucViewEmailInSql } from "../lib/scopeDatMua";
+import { khuVucViewEmailInSql, gsKhuVucXemThemSql } from "../lib/scopeDatMua";
 import { nowVN } from "../lib/vnTime";
 import { getMocTinhCongNo, danhGiaCongNo3Muc, CONG_NO_DA_TRU_FROM_SQL, CONG_NO_DA_TRU_WHERE_SQL, CONG_NO_DA_TRU_GIA_TRI_SQL } from "../lib/congNoKtv";
 import { daTruTheoMaHang } from "../lib/tonKhoKtv";
@@ -50,7 +50,10 @@ function scopeKtvTonKho(c: Context<{ Bindings: Env }>): { whereSql: string; bind
     return null;
   }
   if (user.vai_tro === "Giam sat") {
-    return { whereSql: "k.email_dang_nhap IN (SELECT email FROM users WHERE giam_sat_quan_ly = ?)", binds: [user.email] };
+    return {
+      whereSql: `(k.email_dang_nhap IN (SELECT email FROM users WHERE giam_sat_quan_ly = ?) OR ${gsKhuVucXemThemSql("k.khu_vuc_ma")})`,
+      binds: [user.email, user.email],
+    };
   }
   if (user.la_ktv_dvbh || user.la_ve_tinh) {
     return { whereSql: "k.email_dang_nhap = ?", binds: [user.email] };

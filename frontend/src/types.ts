@@ -210,6 +210,7 @@ export interface UserRow {
   email: string;
   // GET /api/users - 1 = co dong ktv_lien_he tro toi email nay (hien o the "KTV hiện trường").
   co_ktv_lien_he?: number;
+  khu_vuc_gan?: string | null; // ma khu vuc gan qua user_khu_vuc, noi bang dau phay (2026-10-02)
   ten: string | null;
   vai_tro: string | null;
   trang_thai_duyet: "Cho duyet" | "Da duyet" | "Tu choi";

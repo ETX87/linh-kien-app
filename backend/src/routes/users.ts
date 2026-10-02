@@ -78,7 +78,7 @@ users.get("/", async (c) => {
   const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 50)));
   const offset = (page - 1) * pageSize;
   const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM users ${where}`).bind(...binds).first<{ total: number }>();
-  const { results } = await c.env.DB.prepare(`SELECT users.*, ${CO_KTV_LIEN_HE} as co_ktv_lien_he FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+  const { results } = await c.env.DB.prepare(`SELECT users.*, ${CO_KTV_LIEN_HE} as co_ktv_lien_he, (SELECT group_concat(khu_vuc_ma, ',') FROM user_khu_vuc WHERE user_email = users.email) as khu_vuc_gan FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
     .bind(...binds, pageSize, offset)
     .all();
   return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });

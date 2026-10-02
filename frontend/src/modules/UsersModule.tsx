@@ -377,8 +377,9 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
   // day THAT SU gioi han du lieu View thay duoc (xem khuVucViewEmailInSql() trong scopeDatMua.ts) -
   // chua gan Khu vuc nao = View khong thay don nao ca. GS gan khu vuc qua khu_vuc.gs_email (Settings >
   // Khu vực), o day chi hien READ-ONLY.
-  const showKhuVucAssign = form.la_kho || form.la_ke_toan || form.la_tac_nghiep || form.la_view;
   const isGiamSat = form.vai_tro === "Giam sat";
+  // + GS (2026-10-02): "Khu vực xem thêm" - cung bang user_khu_vuc, MO RONG pham vi xem cua GS (gsKhuVucXemThemSql backend).
+  const showKhuVucAssign = form.la_kho || form.la_ke_toan || form.la_tac_nghiep || form.la_view || isGiamSat;
   const { data: khuVucData } = useQuery({ queryKey: ["settings-khu-vuc"], queryFn: () => api.get<{ rows: KhuVucRow[] }>("/settings/khu-vuc") });
   const khuVucRows = khuVucData?.rows ?? [];
   const { data: userKhuVucData } = useQuery({
@@ -493,10 +494,12 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
         {showKhuVucAssign && (
           <div>
             <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] flex items-center gap-1.5">
-              Khu vực phụ trách
+              {isGiamSat && !(form.la_kho || form.la_ke_toan || form.la_tac_nghiep || form.la_view) ? "Khu vực xem thêm" : "Khu vực phụ trách"}
               <Tooltip
                 text={
-                  form.la_view
+                  isGiamSat
+                    ? "Giám sát: ngoài khu vực đang phụ trách (Cài đặt › Khu vực), được XEM thêm đơn hàng / phiếu xuất / thiếu hàng / công nợ của các khu vực chọn ở đây. Không đổi Giám sát phụ trách của khu vực."
+                    : form.la_view
                     ? "Với vai trò View: đây là phạm vi dữ liệu THẬT SỰ được xem (chỉ đơn của KTV thuộc các khu vực này) - chưa chọn khu vực nào thì không thấy đơn nào cả."
                     : "Chỉ để tìm kiếm/thống kê/badge - KHÔNG giới hạn quyền xem/xử lý đơn. Có thể chọn nhiều khu vực, cho phép chồng chéo với người khác."
                 }
@@ -628,6 +631,16 @@ function VanPhongTab() {
     {
       key: "khu_vuc_dat_hang", mobile: "meta", header: "Khu vực đặt hàng",
       render: (u) => (u.khu_vuc_dat_hang ? khuVucData?.rows.find((k) => k.ma === u.khu_vuc_dat_hang)?.ten ?? u.khu_vuc_dat_hang : "—"),
+    },
+    {
+      // Khu vuc gan qua user_khu_vuc (2026-10-02): GS = khu vuc xem them, View = pham vi xem, TN/Kho/Ke toan = loc mac dinh.
+      key: "khu_vuc_gan", mobile: "meta", header: "Khu vực được xem",
+      render: (u) => {
+        const ds = (u.khu_vuc_gan ?? "").split(",").filter(Boolean);
+        if (ds.length === 0) return "—";
+        const ten = ds.map((ma) => khuVucData?.rows.find((k) => k.ma === ma)?.ten ?? ma);
+        return <span title={ten.join(", ")}>{ten.length > 3 ? `${ten.slice(0, 3).join(", ")} +${ten.length - 3}` : ten.join(", ")}</span>;
+      },
     },
     { key: "ma_misa", header: "Mã MISA", render: (u) => u.ma_misa ?? "—" },
     { key: "ten_misa", header: "Tên trên MISA", render: (u) => u.ten_misa ?? "—" },

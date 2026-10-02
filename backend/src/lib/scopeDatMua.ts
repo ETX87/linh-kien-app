@@ -10,6 +10,16 @@ import type { Env, AppUser } from "../types";
  * KHONG phai thay het). Dung chung 1 sql snippet o ca scopeDatMuaNguoiTao/scopePxkNguoiNhanHang va
  * GET /dat-mua-lk/thieu-lk (xem routes/datMuaLinhKien.ts) de tranh viet lap subquery 3 lan.
  */
+/**
+ * "Khu vuc xem them" cua GS (chot 2026-10-02): Admin gan them Khu vuc cho tai khoan GS o Quan ly nguoi dung › Nhan vien
+ * van phong (bang user_khu_vuc - cung bang TN/Kho/Ke toan/View) -> GS thay THEM don/PXK/ticket thuoc cac khu vuc do (theo
+ * cot khu_vuc_ma luu san tren dat_don_hang/phieu_xuat_kho, migration 0042), NGOAI khu vuc GS phu trach (khu_vuc.gs_email).
+ * Chi mo rong pham vi XEM, khong doi GS cua khu vuc/email_gs. 1 bind = email GS. Moi nhanh scope GS phai noi them dieu kien nay.
+ */
+export function gsKhuVucXemThemSql(col: string): string {
+  return `${col} IN (SELECT khu_vuc_ma FROM user_khu_vuc WHERE user_email = ?)`;
+}
+
 export function khuVucViewEmailInSql(): string {
   return "(SELECT email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND khu_vuc_ma IN (SELECT khu_vuc_ma FROM user_khu_vuc WHERE user_email = ?))";
 }
@@ -42,7 +52,10 @@ export function scopeDatMuaNguoiTao(c: Context<{ Bindings: Env }>): { whereSql: 
   if (user.vai_tro === "Giam sat") {
     // + don CHINH GS tao (2026-09-28: GS dat duoc cho KTV ngoai khu vuc -> email_gs la GS khac).
     // + don GS la NGUOI NHAN (2026-09-30, khu vuc dat hang 0055: don GS nhan hang co the thuoc khu vuc cua GS khac).
-    return { whereSql: " AND (ddh.email_gs = ? OR ddh.nguoi_tao = ? OR ddh.nguoi_nhan_hang = ?)", binds: [user.email, user.email, user.email] };
+    return {
+      whereSql: ` AND (ddh.email_gs = ? OR ddh.nguoi_tao = ? OR ddh.nguoi_nhan_hang = ? OR ${gsKhuVucXemThemSql("ddh.khu_vuc_ma")})`,
+      binds: [user.email, user.email, user.email, user.email],
+    };
   }
   if (user.la_ktv_dvbh || user.la_ve_tinh) {
     return {
@@ -79,8 +92,8 @@ export function scopePxkNguoiNhanHang(c: Context<{ Bindings: Env }>): { whereSql
   // nhan = GS -> GS khong thay phieu de chuyen tien). Ap cho MOI nhanh bi gioi han ben duoi.
   if (user.vai_tro === "Giam sat") {
     return {
-      whereSql: " AND (pxk.nguoi_nhan_hang = ? OR pxk.nguoi_nhan_hang IN (SELECT email FROM users WHERE giam_sat_quan_ly = ?))",
-      binds: [user.email, user.email],
+      whereSql: ` AND (pxk.nguoi_nhan_hang = ? OR pxk.nguoi_nhan_hang IN (SELECT email FROM users WHERE giam_sat_quan_ly = ?) OR ${gsKhuVucXemThemSql("pxk.khu_vuc_ma")})`,
+      binds: [user.email, user.email, user.email],
     };
   }
   if (user.la_ktv_dvbh || user.la_ve_tinh) {
@@ -148,7 +161,11 @@ export async function autoClaimGs(db: D1Database, nguoiPhuTrach: string, emailGs
  */
 export async function khuVucCuaToiSet(db: D1Database, user: Pick<AppUser, "email" | "vai_tro" | "la_tac_nghiep" | "la_kho" | "la_ke_toan">): Promise<Set<string> | null> {
   if (user.vai_tro === "Giam sat") {
-    const rows = await db.prepare("SELECT ma FROM khu_vuc WHERE gs_email = ?").bind(user.email).all<{ ma: string }>();
+    // + Khu vuc xem them (user_khu_vuc, 2026-10-02) - bo loc mac dinh gom ca khu vuc duoc mo them.
+    const rows = await db
+      .prepare("SELECT ma FROM khu_vuc WHERE gs_email = ? UNION SELECT khu_vuc_ma FROM user_khu_vuc WHERE user_email = ?")
+      .bind(user.email, user.email)
+      .all<{ ma: string }>();
     if (!rows.results || rows.results.length === 0) return null;
     return new Set(rows.results.map((r) => r.ma));
   }
