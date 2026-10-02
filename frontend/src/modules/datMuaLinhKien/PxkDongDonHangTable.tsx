@@ -267,6 +267,14 @@ export function PxkDongDonHangTable({
     );
   }
 
+  // So tien THUC TE tung dong = dung so dang hien o cot "Tien can chuyen" (oTien) - dung cho dong Tong cuoi bang (2026-10-02).
+  function tienThucTe(d: DonHangRow): number {
+    if (pxk.loai_don === "mua" || laTruCongNo(d.loai_de_xuat)) {
+      return d.tien_uoc_tinh ?? (d.gia_chot ?? d.gia_de_xuat ?? 0) * (d.so_luong_thuc_xuat ?? d.so_luong_de_xuat);
+    }
+    return d.so_tien_cong_no ?? (d.gia_de_xuat ?? 0) * d.so_luong_de_xuat;
+  }
+
   // Loai chiet khau (2026-09-26) - TN chon lai/them loai moi ngay tai day.
   function oLoaiChietKhau(d: DonHangRow): ReactNode {
     return (
@@ -565,6 +573,21 @@ export function PxkDongDonHangTable({
           </tr>
         ))}
       </tbody>
+      {donHang.length > 0 && (
+        <tfoot>
+          <tr className="border-t-2 border-[var(--line)] bg-[var(--surface-100)] font-semibold text-[var(--color-text-body)]">
+            <td className="px-2.5 py-2 whitespace-nowrap" colSpan={3}>Tổng: {donHang.length} dòng</td>
+            <td className="px-2.5 py-2 text-right">{donHang.reduce((t, d) => t + d.so_luong_de_xuat, 0)}</td>
+            <td className="px-2.5 py-2 text-right">
+              {donHang.some((d) => d.so_luong_thuc_xuat != null) ? donHang.reduce((t, d) => t + (d.so_luong_thuc_xuat ?? d.so_luong_de_xuat), 0) : <span className="text-[var(--ink-400)]">—</span>}
+            </td>
+            <td className="px-2.5 py-2 text-right whitespace-nowrap" title="Tổng số tiền thực tế các dòng (theo cột Tiền cần chuyển)">
+              <Money>{fmtVND(donHang.reduce((t, d) => t + tienThucTe(d), 0))}</Money>
+            </td>
+            <td colSpan={(pxk.loai_don !== "tra_hang" ? 2 : 1) + (coCotBo ? 1 : 0)}></td>
+          </tr>
+        </tfoot>
+      )}
     </table>
     </>
   );
