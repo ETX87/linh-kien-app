@@ -1,4 +1,6 @@
-import { useState, useEffect, useMemo, useRef, Fragment } from "react";
+import { useState, useEffect, useMemo, useRef, Fragment, lazy, Suspense } from "react";
+// Lazy: PhieuXuatKhoTab da import DonHangDetailModal tu file nay - tranh vong import tinh (2026-10-02).
+const PxkDetailModalLazy = lazy(() => import("./PhieuXuatKhoTab").then((m) => ({ default: m.PxkDetailModal })));
 import { BangChungAnhPxk } from "./XemAnhNhanh";
 import { LoaiChietKhauText, LoaiChietKhauPicker, HoaDonGiaNiemYet, TienDaTraDon, coYeuCauHoaDon, useLoaiChietKhauList, tenLoaiChietKhau, duocDoiLoaiChietKhau } from "./LoaiChietKhau";
 import { createPortal } from "react-dom";
@@ -75,6 +77,14 @@ interface PxkInfo {
   bang_chung_chuyen_tien_ghi_chu: string | null;
   nguoi_nhan_hang: string | null;
   ma_xuat_kho: string | null;
+  // Thong tin phieu hien o chi tiet don (2026-10-02).
+  ma_xuat_kho_xac_nhan?: number | null;
+  ma_misa?: string | null;
+  ma_van_don?: string | null;
+  ngay_tao?: string | null;
+  nguoi_tao?: string | null;
+  loai_don?: string | null;
+  so_dong?: number | null;
 }
 
 // Them (phan hoi 2026-09-10: "đơn gốc cũng không có truy vấn đến đơn ticket đơn thiếu linh kiện") -
@@ -148,6 +158,7 @@ export function DonHangDetailModal({
   const [soLuongThucXuat, setSoLuongThucXuat] = useState("");
   const [lyDoSoLuong, setLyDoSoLuong] = useState("");
   const [showThieuLk, setShowThieuLk] = useState(false);
+  const [showPxk, setShowPxk] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["dat-mua-lk-don-hang-detail", id],
     queryFn: () => api.get<{ donHang: DonHangRow; pxk: PxkInfo | null; thieuLk: ThieuLkRefInfo | null }>(`/dat-mua-lk/don-hang/${id}`),
@@ -353,6 +364,7 @@ export function DonHangDetailModal({
   const rankMap = useLinhKienRankMap();
   const [xemLkChiTiet, setXemLkChiTiet] = useState(false);
   const auth = useAuth();
+  const authUser = auth.status === "authenticated" ? auth.user : null;
   const loaiDeXuatOptions = getOptionsForUser(auth.status === "authenticated" ? auth.user : null, ldeEntries);
 
   function startEdit() {
@@ -1279,9 +1291,26 @@ Quỹ của KTV giảm ${fmtVND(d.tra_bang_quy!.can_tra)}.`)) {
               PXK (pxk != null). */}
           {pxk && (
             <DetailZone title="Phiếu xuất kho">
+              {/* Thong tin phieu + link mo Drawer chi tiet phieu (2026-10-02). */}
+              <KvRow label="Mã phiếu">
+                <button type="button" className="code-link underline underline-offset-2 hover:opacity-80 font-mono" title="Mở chi tiết phiếu" onClick={() => setShowPxk(true)}>
+                  {pxk.id}
+                </button>
+                {pxk.so_dong != null && <span className="ml-2 text-xs text-[var(--ink-400)]">{pxk.so_dong} dòng</span>}
+              </KvRow>
+              <KvRow label="Mã đơn hàng (HĐ)">
+                {pxk.ma_xuat_kho_xac_nhan ? <span className="font-mono">{pxk.ma_xuat_kho}</span> : <span className="italic text-xs text-[var(--ink-400)]">Chưa có</span>}
+              </KvRow>
+              <KvRow label="Mã PXK (MISA)">
+                {pxk.ma_misa ? <span className="font-mono">{pxk.ma_misa}</span> : <span className="italic text-xs text-[var(--ink-400)]">Chưa có</span>}
+              </KvRow>
+              {pxk.ma_van_don && <KvRow label="Mã vận đơn"><span className="font-mono">{pxk.ma_van_don}</span></KvRow>}
               <KvRow label="Trạng thái">
                 <StatusBadge value={pxk.trang_thai ?? ""} tones={PXK_TRANG_THAI_TONE} options={PXK_TRANG_THAI_OPTIONS} />
               </KvRow>
+              {pxk.nguoi_tao && <KvRow label="Người tạo">{formatNguoiDisplay(pxk.nguoi_tao, ktvDisplayMap)}</KvRow>}
+              {pxk.ngay_tao && <KvRow label="Thời gian tạo">{fmtDateTime(pxk.ngay_tao)}</KvRow>}
+              {pxk.nguoi_nhan_hang && <KvRow label="Người nhận hàng">{formatNguoiDisplay(pxk.nguoi_nhan_hang, ktvDisplayMap)}</KvRow>}
               {pxk.so_tien_can_chuyen != null && (
                 <>
                   <TienPhieuVaQuy
@@ -1398,6 +1427,22 @@ Quỹ của KTV giảm ${fmtVND(d.tra_bang_quy!.can_tra)}.`)) {
           </div>
         </div>
       </Modal>
+    )}
+    {showPxk && pxk && (
+      <Suspense fallback={null}>
+        <PxkDetailModalLazy
+          id={pxk.id}
+          onClose={() => setShowPxk(false)}
+          addToast={addToast}
+          qc={qc}
+          canTacNghiep={canTacNghiep}
+          canKho={canKho ?? false}
+          canKeToan={!!authUser?.la_ke_toan || !!isAdmin}
+          canDownloadMisa={!!authUser?.la_ke_toan || !!authUser?.la_kho || canTacNghiep || !!isAdmin}
+          currentEmail={currentEmail}
+          isAdmin={!!isAdmin}
+        />
+      </Suspense>
     )}
     {showThieuLk && thieuLk && (
       <ThieuLkDetailModal
