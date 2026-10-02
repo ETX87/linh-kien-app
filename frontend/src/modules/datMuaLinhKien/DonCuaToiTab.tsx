@@ -10,6 +10,7 @@ import { Modal } from "../../components/ui/Modal";
 import { Drawer, DrawerNavButtons, useDrawerArrowNav, DRAWER_WIDTH_CHI_TIET } from "../../components/ui/Drawer";
 import { Select } from "../../components/ui/Select";
 import { KvRow } from "../../components/ui/KvRow";
+import { ToggleSwitch } from "../../components/ui/ToggleSwitch";
 import { SectionTitle } from "../../components/ui/SectionTitle";
 import { IconChip } from "../../components/ui/IconChip";
 import { Tooltip } from "../../components/ui/Tooltip";
@@ -38,7 +39,7 @@ import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, laTraHangChoTn, laChoHangMoKhoa, laChoHangBiKhoa, trangThaiLabel, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
-  donGiaSauChietKhau, tienSauChietKhau, giaNiemYet } from "./helpers";
+  donGiaSauChietKhau, tienSauChietKhau, giaNiemYet, boQuaTbpDacThu } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink, LogTieuDe } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
@@ -174,6 +175,17 @@ export function DonHangDetailModal({
     qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk"] });
     invalidatePipelineCounts(qc);
   }
+
+  // TN bat/tat "Linh kiện đặc thù" tren don (2026-10-02, PATCH /don-hang/:id/dac-thu) - tat: thoat buoc TBP + khong con bat
+  // buoc thanh toan moi "Chờ hàng"; bat: don "Chờ TN duyệt" vao lai buoc TBP (tru loai de xuat bo qua TBP).
+  const dacThuMutation = useMutation({
+    mutationFn: (dac_thu: boolean) => api.patch<{ trang_thai: string }>(`/dat-mua-lk/don-hang/${id}/dac-thu`, { dac_thu }),
+    onSuccess: (res, dac_thu) => {
+      addToast(`${dac_thu ? "Đã bật" : "Đã tắt"} linh kiện đặc thù cho đơn → ${trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, res.trang_thai)}`);
+      invalidate();
+    },
+    onError: (err) => addToast("Không đổi được linh kiện đặc thù: " + describeApiError(err)),
+  });
 
   const logMutation = useMutation({
     mutationFn: ({ hanh_dong, ly_do_cham_id, so_luong_thuc_xuat, ghi_chu_so_luong }: { hanh_dong: string; ly_do_cham_id?: number; so_luong_thuc_xuat?: number; ghi_chu_so_luong?: string }) =>
@@ -1221,6 +1233,36 @@ Quỹ của KTV giảm ${fmtVND(d.tra_bang_quy!.can_tra)}.`)) {
                 <KvRow label="TT khách hàng"><span className="whitespace-pre-line break-words">{d.tt_khach_hang || "—"}</span></KvRow>
                 <KvRow label="TT + Mail duyệt"><span className="whitespace-pre-line break-words">{d.tt_mail_duyet || "—"}</span></KvRow>
                 <KvRow label="Ưu tiên">{d.uu_tien === 1 ? "Có" : "Không"}</KvRow>
+                {d.loai_don !== "tra_hang" && (
+                  <KvRow label="Linh kiện đặc thù">
+                    <span className="inline-flex items-center gap-1.5">
+                      {canTacNghiep && !["TN tu choi", "Tu choi", "Da huy"].includes(d.trang_thai ?? "") ? (
+                        <ToggleSwitch
+                          checked={!!d.dac_thu}
+                          onChange={() => {
+                            if (dacThuMutation.isPending) return;
+                            const bat = !d.dac_thu;
+                            const canhBao = !bat
+                              ? d.trang_thai === "Cho TBP xac nhan"
+                                ? "Tắt đặc thù: đơn bỏ bước TBP, chuyển sang Chờ TN duyệt và không còn bắt buộc thanh toán mới được Chờ hàng. Tiếp tục?"
+                                : "Tắt đặc thù: đơn không còn bắt buộc thanh toán mới được Chờ hàng. Tiếp tục?"
+                              : d.trang_thai === "Cho TN duyet" && !boQuaTbpDacThu(d.loai_de_xuat ?? "")
+                                ? "Bật đặc thù: đơn chuyển về Chờ TBP xác nhận. Tiếp tục?"
+                                : "Bật đặc thù cho đơn này?";
+                            if (window.confirm(canhBao)) dacThuMutation.mutate(bat);
+                          }}
+                        />
+                      ) : null}
+                      <span>{d.dac_thu ? "Có" : "Không"}</span>
+                      {d.dac_thu_thu_cong != null && (
+                        <span className="text-[11px] text-[var(--color-text-faint)]">
+                          (TN chỉnh tay{d.dac_thu_nguoi_sua ? ` · ${formatNguoiDisplay(d.dac_thu_nguoi_sua, ktvDisplayMap)}` : ""}
+                          {d.dac_thu_sua_luc ? ` · ${fmtDateTime(d.dac_thu_sua_luc)}` : ""}; danh mục: {d.lk_dac_thu ? "đặc thù" : "thường"})
+                        </span>
+                      )}
+                    </span>
+                  </KvRow>
+                )}
                 <KvRow label="Ghi chú"><span className="whitespace-pre-line break-words">{d.ghi_chu || "—"}</span></KvRow>
               </DetailZone>
               {/* Ly do chon luc "tu choi"/"cho hang" luu trong ghi_chu cua log moi nhat (xem

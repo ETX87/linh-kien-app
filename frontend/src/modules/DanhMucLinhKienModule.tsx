@@ -485,6 +485,8 @@ function DanhMucTab() {
   // backend settingsDatMua.ts muaHangRoles/suaLinhKienRoles.
   const canXetDuyet = !!authUser?.la_mua_hang || authUser?.vai_tro === "Admin";
   const canSua = canWrite || canXetDuyet;
+  // Cong tac "Đặc thù" nhanh (2026-10-02) - them TN + Ke toan, khop backend PATCH /settings/linh-kien/:ma/dac-thu.
+  const canDacThu = canSua || !!authUser?.la_tac_nghiep || !!authUser?.la_ke_toan;
   // "Đồng bộ Gia88" thủ công (them 2026-09-12, phan hoi "thêm nút đồng bộ thủ công cho admin trong
   // danh mục linh kiện") - GATE RIENG theo Admin (khac canWrite o tren dung quan_ly_danh_muc_lk) vi
   // backend routes/gia88Sync.ts CHI cho Admin (requireRole("Admin"), khong nhan quan_ly_danh_muc_lk) -
@@ -661,6 +663,14 @@ function DanhMucTab() {
     setStagedImagePreview(URL.createObjectURL(file));
   }
 
+  const toggleDacThu = useMutation({
+    mutationFn: ({ ma, dac_thu }: { ma: string; dac_thu: boolean }) => api.patch(`/settings/linh-kien/${encodeURIComponent(ma)}/dac-thu`, { dac_thu }),
+    onSuccess: (_r, v) => {
+      addToast(`${v.ma}: ${v.dac_thu ? "đã bật" : "đã tắt"} linh kiện đặc thù`);
+      qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
+    },
+    onError: () => addToast("Không thể cập nhật linh kiện đặc thù."),
+  });
   const togglePart = useMutation({
     mutationFn: ({ ma, bat_tat }: { ma: string; bat_tat: boolean }) => api.patch(`/settings/linh-kien/${ma}`, { bat_tat }),
     onSuccess: () => {
@@ -886,7 +896,18 @@ function DanhMucTab() {
     {
       key: "dac_thu",
       header: "Đặc thù",
-      render: (p) => (!!p.dac_thu ? <span className="text-xs font-semibold text-[var(--amber-600)]">Đặc thù</span> : <span className="text-xs text-[var(--ink-400)]">—</span>),
+      render: (p) =>
+        canDacThu && p.trang_thai_ma !== "Da doi ma" ? (
+          // stopPropagation - nhu cot "Hiển thị": dong co onRowClick mo chi tiet LK.
+          <span onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1.5" title="Bật/tắt linh kiện đặc thù (cần TP DVBH xác nhận)">
+            <ToggleSwitch checked={!!p.dac_thu} onChange={() => toggleDacThu.mutate({ ma: p.ma_linh_kien, dac_thu: !p.dac_thu })} />
+            {!!p.dac_thu && <span className="text-xs font-semibold text-[var(--amber-600)]">Đặc thù</span>}
+          </span>
+        ) : !!p.dac_thu ? (
+          <span className="text-xs font-semibold text-[var(--amber-600)]">Đặc thù</span>
+        ) : (
+          <span className="text-xs text-[var(--ink-400)]">—</span>
+        ),
     },
     {
       key: "phan_loai_dac_thu",

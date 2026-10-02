@@ -137,6 +137,28 @@ settingsDatMua.patch("/linh-kien/:ma", suaLinhKienRoles, async (c) => {
   return c.json({ ok: true });
 });
 
+// PATCH /linh-kien/:ma/dac-thu - { dac_thu: boolean } (2026-10-02, "bổ sung chức năng tắt bật linh kiện đặc thù trong Bảng giá
+// cho TN và kế toán") - cong tac nhanh o cot "Đặc thù" cua Bang gia. Mo cho TN/Ke toan ngoai nhom sua LK (suaLinhKienRoles).
+// Tat -> xoa "Phân loại đặc thù" (cung quy tac PATCH /linh-kien/:ma). Don da tao doc dac_thu song qua JOIN (tru don TN chon tay
+// dat_don_hang.dac_thu_thu_cong) nen doi o day = doi luon don dang mo.
+settingsDatMua.patch("/linh-kien/:ma/dac-thu", async (c) => {
+  const u = c.get("user");
+  if (!u.quan_ly_danh_muc_lk && !laMuaHangHoacAdmin(u) && !u.la_tac_nghiep && !u.la_ke_toan) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const ma = c.req.param("ma");
+  const body = await c.req.json<{ dac_thu?: boolean }>();
+  if (typeof body.dac_thu !== "boolean") return c.json({ error: "INVALID_BODY" }, 400);
+  const r = await c.env.DB.prepare(
+    `UPDATE linh_kien SET dac_thu = ?, phan_loai_dac_thu = CASE WHEN ? = 1 THEN phan_loai_dac_thu ELSE NULL END, nguoi_cap_nhat = ?, ngay_cap_nhat = ?
+     WHERE ma_linh_kien = ?`,
+  )
+    .bind(body.dac_thu ? 1 : 0, body.dac_thu ? 1 : 0, u.email, nowVN(), ma)
+    .run();
+  if (!r.meta.changes) return c.json({ error: "NOT_FOUND" }, 404);
+  await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true });
+});
+
 // PATCH /linh-kien/:ma/gia-tri-cong-no - { gia_tri_cong_no: number|null } - route RIENG (khong dung
 // chung PATCH /linh-kien/:ma o tren) vi truong nay CO CHU DICH KHONG dong cham ngay_cap_nhat/
 // nguoi_cap_nhat - theo yeu cau nguoi dung "cột này nội bộ app linh kiện, khi chỉnh sửa thay đổi

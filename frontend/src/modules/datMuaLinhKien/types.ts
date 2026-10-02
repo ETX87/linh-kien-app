@@ -125,8 +125,12 @@ export interface DonHangRow {
   // trong PhieuXuatKhoTab.tsx (xem GET /phieu-xuat-kho/:id o backend).
   trang_thai_hien_tai?: string | null;
   // Tu linh_kien.dac_thu qua LEFT JOIN (khong luu tren dat_don_hang) - true khi can qua buoc "Cho TBP
-  // xac nhan" truoc TN, xem migration 0082.
+  // xac nhan" truoc TN, xem migration 0082. Tu 2026-10-02 = gia tri HIEU LUC (TN chon tay tren don thang danh muc, 0064).
   dac_thu?: number | null;
+  dac_thu_thu_cong?: number | null;
+  dac_thu_nguoi_sua?: string | null;
+  dac_thu_sua_luc?: string | null;
+  lk_dac_thu?: number | null;
   logs?: DonHangLogRow[];
   cases?: { id: string; khach_hang: string | null; khu_vuc: string | null }[];
   // Chi co tren GET /phieu-dat/:id va GET /phieu-xuat-kho/:id (tinh server-side, khong luu DB) - true

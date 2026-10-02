@@ -609,6 +609,14 @@ cảnh báo tạm tính FE bỏ qua), "Giá đề xuất"/"Tổng tiền đề x
 **Bỏ bước TBP** cho LK đặc thù khi loại đề xuất chứa MUA / HỖ TRỢ / **TRỪ CÔNG NỢ** (`boQuaTbpChoDacThu()` backend,
 bản sao `boQuaTbpDacThu()` FE cho cảnh báo ở `LinhKienPicker`).
 
+**Đặc thù theo đơn + bật/tắt nhanh** (chốt 2026-10-02, migration `0064`): đặc thù HIỆU LỰC của đơn = `DAC_THU_DON_SQL` =
+`COALESCE(ddh.dac_thu_thu_cong, lk.dac_thu, 0)` (danh sách/chi tiết đơn trả `dac_thu` = hiệu lực + `lk_dac_thu`; `applyDonHangLog`
+cũng đọc nó) — đọc đặc thù của đơn ở chỗ mới thì dùng hằng này, KHÔNG `lk.dac_thu`. TN/Admin bật/tắt trên chi tiết đơn (`PATCH
+/dat-mua-lk/don-hang/:id/dac-thu`): tắt khi "Cho TBP xac nhan" → "Cho TN duyet"; bật khi "Cho TN duyet" (loại đề xuất không bỏ qua
+TBP) → "Cho TBP xac nhan" + báo TBP; chỉ ghi log khi trạng thái ĐỔI (log cùng trạng thái reset hạn 24h). Bảng giá: công tắc cột
+"Đặc thù" (`PATCH /settings/linh-kien/:ma/dac-thu`) cho TN/Kế toán/người sửa LK (TN/Kế toán được cấp menu Bảng giá). **"Chờ hàng"
+chỉ bắt buộc đã thanh toán với đơn ĐẶC THÙ** (`chuaChuyenTienChoHang` = `bat_buoc_chuyen_tien` + đặc thù hiệu lực + chưa thanh toán).
+
 **GS đặt hộ cho MỌI KTV** (chốt 2026-09-28): `/nguoi-nhan-hang-kha-dung` trả toàn bộ KTV cho GS, bỏ chặn
 `NGUOI_NHAN_HANG_NGOAI_PHAM_VI`/`NGOAI_PHAM_VI_GS` (tạo đơn, import, cảnh báo công nợ/dự phòng/dự đoán duyệt).
 Scope xem của GS = `ddh.email_gs = GS` **HOẶC `ddh.nguoi_tao = GS`** (để thấy lại đơn mình đặt ngoài khu vực);
