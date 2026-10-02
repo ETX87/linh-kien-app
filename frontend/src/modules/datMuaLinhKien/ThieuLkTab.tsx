@@ -965,7 +965,7 @@ export function ThieuLkDetailModal({
         ghi_chu: args.ghiChu?.trim() || undefined,
         ngay_du_kien_co_hang: args.ngayDuKien || undefined,
       }),
-    onSuccess: () => {
+    onSuccess: (_res, args) => {
       setActionTrangThai(null);
       setGhiChu("");
       setNgayDuKien("");
@@ -975,13 +975,12 @@ export function ThieuLkDetailModal({
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-detail"] });
       invalidatePipelineCounts(qc);
-      // "Duyet va tiep theo" (concept 1 da duyet, 2026-08-24): xu ly xong tu nhay sang ticket TIEP THEO trong danh
-      // sach dang xem - TRU khi Drawer duoc mo tu nut thao tac nhanh o danh sach (initialAction) thi dong lai.
-      if (initialAction) {
-        addToast("Đã cập nhật trạng thái thiếu LK");
-        onClose();
-      } else if (onNavigate && navNextId) onNavigate(navNextId);
-      else addToast("Đã cập nhật trạng thái thiếu LK");
+      // 2026-10-02 (phan hoi Kho "xác nhận hàng đã về... tự động next phiếu tiếp theo làm nhân viên kho dễ nhầm lẫn là
+      // chưa bấm thành công"): BO "Duyet va tiep theo" - xu ly xong GIU NGUYEN ticket vua thao tac (chi tiet tai lai,
+      // thay trang thai moi), muon sang ticket khac thi tu bam ‹ ›. Mo tu nut thao tac nhanh o danh sach (initialAction)
+      // van dong ve danh sach nhu cu.
+      addToast(`Đã cập nhật ${id} → ${trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, args.trangThai)}`);
+      if (initialAction) onClose();
     },
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
   });
