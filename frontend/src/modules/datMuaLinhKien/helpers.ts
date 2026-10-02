@@ -183,11 +183,13 @@ type DongTinhGia = {
 };
 const coGiaSauCk = (d: DongTinhGia) => (d.loai_don === "mua" || laTruCongNo(d.loai_de_xuat)) && d.tien_uoc_tinh != null;
 export function donGiaSauChietKhau(d: DongTinhGia): number | null {
+  if (laKhTraGop(d.loai_de_xuat)) return 0; // don KH tra gop: gia/tien de xuat = 0 (chot 2026-10-02)
   const sl = d.so_luong_thuc_xuat ?? d.so_luong_de_xuat;
   if (coGiaSauCk(d) && sl > 0) return Math.round(d.tien_uoc_tinh! / sl);
   return d.gia_de_xuat;
 }
 export function tienSauChietKhau(d: DongTinhGia): number {
+  if (laKhTraGop(d.loai_de_xuat)) return 0;
   return coGiaSauCk(d) ? d.tien_uoc_tinh! : (d.gia_de_xuat ?? 0) * d.so_luong_de_xuat;
 }
 /** Gia niem yet = gia ban hien tai trong danh muc (LK khong con trong danh muc -> gia_de_xuat luc tao don). */
