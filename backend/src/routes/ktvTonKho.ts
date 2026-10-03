@@ -221,6 +221,9 @@ ktvTonKho.post("/import", adminOrKeToan, async (c) => {
       dau_ky?: number; nhap_kho?: number; xuat_kho?: number; cuoi_ky?: number;
     }[];
     offset: number;
+    // total (2026-10-03): client moi gui `rows` = CHINH lo dang xu ly + total = tong so dong file (truoc day gui lai TOAN BO
+    // file moi request, server slice - van ho tro cho tab cu chua tai lai: thieu total -> rows la ca file).
+    total?: number;
     ky_tu_ngay?: string;
     ky_den_ngay?: string;
   }>();
@@ -229,15 +232,18 @@ ktvTonKho.post("/import", adminOrKeToan, async (c) => {
   const CHUNK_SIZE = 100;
   const offset = Math.max(0, body.offset ?? 0);
   const user = c.get("user");
+  const kieuLo = typeof body.total === "number";
+  const total = kieuLo ? Math.max(0, body.total!) : body.rows.length;
+  if (kieuLo && body.rows.length > 500) return c.json({ error: "LO_QUA_LON" }, 400);
+  if (kieuLo && body.rows.length === 0 && offset < total) return c.json({ error: "LO_RONG" }, 400); // tranh client lap vo han
 
+  // Ghi vao BANG TAM (migration 0065) - lo dau xoa tam, lo cuoi thay bang that trong 1 batch. Dung giua chung = du lieu
+  // ton kho cu con nguyen (truoc day lo dau xoa trang bang that).
   if (offset === 0) {
-    await c.env.DB.prepare("DELETE FROM ktv_ton_kho").run();
-    // Xoa cung luc voi ktv_ton_kho (cung 1 file import, xem giai thich duoi) - giu dung y "GHI DE
-    // toan bo" cho ca 2 bang.
-    await c.env.DB.prepare("DELETE FROM kho_cong_ty_ton_kho").run();
+    await c.env.DB.batch([c.env.DB.prepare("DELETE FROM ktv_ton_kho_tam"), c.env.DB.prepare("DELETE FROM kho_cong_ty_ton_kho_tam")]);
   }
 
-  const chunk = body.rows.slice(offset, offset + CHUNK_SIZE);
+  const chunk = kieuLo ? body.rows : body.rows.slice(offset, offset + CHUNK_SIZE);
   const { results: ktvRows } = await c.env.DB.prepare("SELECT ma_ktv, ma_misa FROM ktv_lien_he WHERE ma_misa IS NOT NULL AND ma_misa != ''")
     .all<{ ma_ktv: string; ma_misa: string }>();
   const maMisaToKtv = new Map(ktvRows.map((r) => [r.ma_misa.trim().toLowerCase(), r.ma_ktv]));
@@ -260,7 +266,7 @@ ktvTonKho.post("/import", adminOrKeToan, async (c) => {
       matched++;
       statements.push(
         c.env.DB.prepare(
-          `INSERT INTO ktv_ton_kho (ma_ktv, ma_kho, ten_kho, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky)
+          `INSERT INTO ktv_ton_kho_tam (ma_ktv, ma_kho, ten_kho, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(ma_kho, ma_hang) DO UPDATE SET
              ma_ktv = excluded.ma_ktv, ten_kho = excluded.ten_kho, ten_hang = excluded.ten_hang, dvt = excluded.dvt,
@@ -274,7 +280,7 @@ ktvTonKho.post("/import", adminOrKeToan, async (c) => {
       matched++;
       statements.push(
         c.env.DB.prepare(
-          `INSERT INTO kho_cong_ty_ton_kho (kho_ma, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky)
+          `INSERT INTO kho_cong_ty_ton_kho_tam (kho_ma, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(kho_ma, ma_hang) DO UPDATE SET
              ten_hang = excluded.ten_hang, dvt = excluded.dvt,
@@ -288,7 +294,7 @@ ktvTonKho.post("/import", adminOrKeToan, async (c) => {
       unmatched.add(maKho);
       statements.push(
         c.env.DB.prepare(
-          `INSERT INTO ktv_ton_kho (ma_ktv, ma_kho, ten_kho, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky)
+          `INSERT INTO ktv_ton_kho_tam (ma_ktv, ma_kho, ten_kho, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky)
            VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(ma_kho, ma_hang) DO UPDATE SET
              ma_ktv = excluded.ma_ktv, ten_kho = excluded.ten_kho, ten_hang = excluded.ten_hang, dvt = excluded.dvt,
@@ -302,19 +308,32 @@ ktvTonKho.post("/import", adminOrKeToan, async (c) => {
   }
   if (statements.length) await c.env.DB.batch(statements);
 
-  const nextOffset = offset + CHUNK_SIZE;
-  const done = nextOffset >= body.rows.length;
+  const nextOffset = offset + (kieuLo ? chunk.length : CHUNK_SIZE);
+  const done = nextOffset >= total;
   if (done) {
-    await c.env.DB.prepare(
-      `INSERT INTO app_settings (key, value, updated_by, updated_at) VALUES ('ktv_ton_kho_import_meta', ?, ?, ?)
-       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
-    )
-      .bind(
-        JSON.stringify({ ky_tu_ngay: body.ky_tu_ngay ?? null, ky_den_ngay: body.ky_den_ngay ?? null, so_dong: body.rows.length }),
+    // Thay bang that + ghi meta trong CUNG 1 batch (giao dich) - "GHI DE toan bo" ca 2 bang nhu cu.
+    await c.env.DB.batch([
+      c.env.DB.prepare("DELETE FROM ktv_ton_kho"),
+      c.env.DB.prepare(
+        `INSERT INTO ktv_ton_kho (ma_ktv, ma_kho, ten_kho, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky)
+         SELECT ma_ktv, ma_kho, ten_kho, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky FROM ktv_ton_kho_tam`,
+      ),
+      c.env.DB.prepare("DELETE FROM kho_cong_ty_ton_kho"),
+      c.env.DB.prepare(
+        `INSERT INTO kho_cong_ty_ton_kho (kho_ma, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky)
+         SELECT kho_ma, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky FROM kho_cong_ty_ton_kho_tam`,
+      ),
+      c.env.DB.prepare("DELETE FROM ktv_ton_kho_tam"),
+      c.env.DB.prepare("DELETE FROM kho_cong_ty_ton_kho_tam"),
+      c.env.DB.prepare(
+        `INSERT INTO app_settings (key, value, updated_by, updated_at) VALUES ('ktv_ton_kho_import_meta', ?, ?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
+      ).bind(
+        JSON.stringify({ ky_tu_ngay: body.ky_tu_ngay ?? null, ky_den_ngay: body.ky_den_ngay ?? null, so_dong: total }),
         user.email,
         nowVN(),
-      )
-      .run();
+      ),
+    ]);
   }
   return c.json({ done, nextOffset, matched, unmatched: Array.from(unmatched) });
 });

@@ -183,6 +183,24 @@ async function repackAsStoreZip(data: ArrayBuffer): Promise<ArrayBuffer> {
   return result.buffer;
 }
 
+// File MISA hay khai bao vung "!ref" toi dong 1.048.576 / cot XFD (do dinh dang ca cot/ca dong) du du lieu that chi vai
+// nghin dong -> sheet_to_json(header:1, defval:null) tao mang cho TOAN BO vung khai bao (hang trieu dong) = treo tab /
+// het bo nho ("Đang xử lý... 0/0 dòng" mai khong chay). Tinh lai vung theo o CO GIA TRI that.
+function thuGonVungDuLieu(XLSX: typeof import("xlsx"), sheet: import("xlsx").WorkSheet | undefined) {
+  if (!sheet) return;
+  let maxR = -1;
+  let maxC = -1;
+  for (const key of Object.keys(sheet)) {
+    if (key.charCodeAt(0) === 33) continue; // "!ref", "!merges"...
+    const cell = sheet[key] as { v?: unknown } | undefined;
+    if (cell?.v == null || cell.v === "") continue;
+    const { r, c } = XLSX.utils.decode_cell(key);
+    if (r > maxR) maxR = r;
+    if (c > maxC) maxC = c;
+  }
+  if (maxR >= 0) sheet["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: maxR, c: maxC } });
+}
+
 export async function parseTonKhoImportFile(file: File): Promise<TonKhoParseResult> {
   const XLSX = await import("xlsx");
   const data = await file.arrayBuffer();
@@ -194,9 +212,14 @@ export async function parseTonKhoImportFile(file: File): Promise<TonKhoParseResu
       readData = data;
     }
   }
-  const workbook = XLSX.read(readData, { type: "array" });
+  // Tat moi phan khong dung (2026-10-03, import treo "0/0 dòng"): cellText/cellNF/cellStyles/cellHTML/cellFormula -
+  // mac dinh SheetJS sinh chuoi hien thi + dinh dang cho TUNG o, ton thoi gian/bo nho voi file MISA vai chuc nghin o.
+  const workbook = XLSX.read(readData, {
+    type: "array", cellText: false, cellNF: false, cellStyles: false, cellHTML: false, cellFormula: false, cellDates: false,
+  });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const raw = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: null, raw: true });
+  thuGonVungDuLieu(XLSX, sheet);
+  const raw = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: null, raw: true, blankrows: false });
 
   // Tim dong tieu de ky bao cao - 2 dinh dang da xac nhan (xem comment dau file): khoang "Từ ngày...
   // đến ngày..." (bien the theo tung KTV) hoac 1 moc "Ngày dd tháng mm năm yyyy" (bien the toan
@@ -263,3 +286,4 @@ export async function parseTonKhoImportFile(file: File): Promise<TonKhoParseResu
   }
   return { rows, ky_tu_ngay: kyTuNgay, ky_den_ngay: kyDenNgay };
 }
+

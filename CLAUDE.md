@@ -570,6 +570,15 @@ nhat") → khóa `THIEU_LK_KHO_DANG_XU_LY` + ghi chú chờ Kho. Điều kiện 
 (danh sách + chi tiết đơn, FE `laChoHangMoKhoa`/`laChoHangBiKhoa` ở `helpers.ts`), gắn luôn vào CAS UPDATE (Kho tiếp nhận không
 đổi version đơn). Đóng ticket từ app KHÔNG báo sang khovan (như mọi đường đóng ticket khác).
 
+**Import tồn kho MISA** (sửa 2026-10-03, treo "Đang xử lý... 0/0 dòng"): file MISA khai báo vùng `!ref` tới dòng 1.048.576/cột
+XFD → `sheet_to_json` tạo mảng hàng triệu dòng = treo tab. `lib/tonKhoImport.ts` thu gọn vùng theo ô có giá trị
+(`thuGonVungDuLieu`) + tắt cellText/cellNF/cellStyles…; đọc trong **Web Worker** (`tonKhoImport.worker.ts`, gọi qua
+`tonKhoImportNen.ts` — tách file để worker không tự bundle chính nó; `vite.config.ts` `worker.format: "es"`), quá 180 giây báo lỗi,
+nút Huỷ dừng thật. Client gửi TỪNG LÔ 200 dòng (`rows` = lô + `total`; tab cũ gửi cả file vẫn chạy) thay vì gửi lại cả file mỗi
+request. `POST /settings/ktv-ton-kho/import` ghi vào BẢNG TẠM `ktv_ton_kho_tam`/`kho_cong_ty_ton_kho_tam` (migration `0065`), lô
+cuối thay bảng thật + meta trong 1 batch → dừng giữa chừng không mất dữ liệu cũ. Còn cùng kiểu "gửi lại cả file mỗi lô":
+`settingsKtv.ts` bulk-import (2 route), `settingsDatMua.ts`, `lkSettings.ts` (file nhỏ hơn, chưa sửa).
+
 **Kế toán ở "Danh sách KTV"** (`KtvTab mode="ke-toan"`): sửa tay Trần công nợ/Hạn mức dự phòng (+ hiện tại)/Mã MISA/Tên
 MISA (`PATCH /:ma/cong-no-misa`) + import hàng loạt KHỚP THEO MÃ MISA (`POST /settings/ktv-lien-he/bulk-import-cong-no-misa`,
 `modules/ImportCongNoMisaModal.tsx` — không tạo KTV, ô trống giữ cũ, mã trùng nhiều KTV thì bỏ qua + báo lỗi).

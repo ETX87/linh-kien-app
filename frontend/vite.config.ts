@@ -34,6 +34,8 @@ function ocrAssets(): Plugin {
 // Port RIENG voi he DVBH goc (5173/8787) de 2 he chay dev song song khong dung do - xem CLAUDE.md.
 export default defineConfig({
   plugins: [react(), ocrAssets()],
+  // Worker dang ES module (2026-10-03, lib/tonKhoImport.worker.ts) - can de worker dung dynamic import("xlsx").
+  worker: { format: "es" },
   server: {
     port: 5174,
     proxy: {

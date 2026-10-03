@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { Btn } from "../components/ui/Btn";
@@ -14,7 +14,7 @@ import type {
   KhoCongTyRow, KhoCongTyTonKhoSummaryRow, KhoCongTyTonKhoChiTietRow,
 } from "../types";
 import { fmtVND, fmtDateTime } from "../types";
-import { parseTonKhoImportFile } from "../lib/tonKhoImport";
+import { parseTonKhoImportFileNen } from "../lib/tonKhoImportNen";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { StatCard } from "../components/x/StatCard";
 import { Icon } from "../components/ui/Icon";
@@ -190,25 +190,40 @@ function TonKhoKtvContent() {
   const [importTotal, setImportTotal] = useState(0);
   const [importProcessed, setImportProcessed] = useState(0);
   const [importSummary, setImportSummary] = useState<{ matched: number; unmatched: string[] } | null>(null);
+  // "doc" = dang doc file (Web Worker), "gui" = dang gui tung lo len server (2026-10-03).
+  const [importPha, setImportPha] = useState<"doc" | "gui">("doc");
+  const importAbort = useRef<AbortController | null>(null);
 
   async function handleImport(file: File) {
     setImportRunning(true);
     setImportSummary(null);
+    setImportPha("doc");
+    setImportTotal(0);
+    setImportProcessed(0);
+    const ac = new AbortController();
+    importAbort.current = ac;
     try {
-      const parsed = await parseTonKhoImportFile(file);
+      const parsed = await parseTonKhoImportFileNen(file, { signal: ac.signal });
       if (parsed.rows.length === 0) {
         addToast('Không đọc được dòng nào hợp lệ (kiểm tra lại file có cột "Mã kho"/"Mã hàng")');
         return;
       }
       setImportTotal(parsed.rows.length);
       setImportProcessed(0);
+      setImportPha("gui");
+      // CHI gui dung lo dang xu ly (2026-10-03) - truoc day MOI request gui lai TOAN BO file (8.895 dong ~ 1,5 MB x 89 lan
+      // = ~130 MB tai len, Worker parse JSON lon moi lan). Server ghi vao bang TAM, lo cuoi moi thay bang that (khong mat du
+      // lieu neu dung giua chung).
+      const LO = 200;
       let offset = 0;
       let matched = 0;
       const unmatched = new Set<string>();
       while (offset < parsed.rows.length) {
+        if (ac.signal.aborted) throw new DOMException("Đã huỷ", "AbortError");
         const res = await api.post<{ done: boolean; nextOffset: number; matched: number; unmatched: string[] }>("/settings/ktv-ton-kho/import", {
-          rows: parsed.rows,
+          rows: parsed.rows.slice(offset, offset + LO),
           offset,
+          total: parsed.rows.length,
           ky_tu_ngay: parsed.ky_tu_ngay,
           ky_den_ngay: parsed.ky_den_ngay,
         });
@@ -224,8 +239,10 @@ function TonKhoKtvContent() {
       await qc.invalidateQueries({ queryKey: ["ktv-ton-kho-ma-kho-chua-khop"] });
       addToast(`Đã nhập xong: ${matched} dòng khớp KTV / ${parsed.rows.length} dòng đọc được`);
     } catch (err) {
-      addToast("Lỗi nhập tồn kho: " + (err instanceof Error ? err.message : String(err)));
+      if (err instanceof DOMException && err.name === "AbortError") addToast("Đã huỷ import — dữ liệu tồn kho cũ giữ nguyên");
+      else addToast("Lỗi nhập tồn kho: " + (err instanceof Error ? err.message : String(err)));
     } finally {
+      importAbort.current = null;
       setImportRunning(false);
     }
   }
@@ -421,7 +438,7 @@ function TonKhoKtvContent() {
             )}
             {importRunning && (
               <div className="text-sm">
-                Đang xử lý... {importProcessed}/{importTotal} dòng
+                {importPha === "doc" ? "Đang đọc file Excel..." : `Đang nhập... ${importProcessed}/${importTotal} dòng`}
                 <div className="w-full h-2 bg-[var(--surface-100)] rounded-full mt-1 overflow-hidden">
                   <div
                     className="h-full bg-[var(--ocean-800)] transition-all"
@@ -450,7 +467,8 @@ function TonKhoKtvContent() {
               </div>
             )}
             <div className="flex justify-end gap-2">
-              <Btn variant="ghost" onClick={() => setImportOpen(false)} disabled={importRunning}>
+              {/* Huy khi dang chay (2026-10-03): dung doc file / dung gui lo tiep - server chi thay bang that o lo cuoi nen du lieu cu con nguyen. */}
+              <Btn variant="ghost" onClick={() => (importRunning ? importAbort.current?.abort() : setImportOpen(false))}>
                 {importSummary ? "Đóng" : "Huỷ"}
               </Btn>
             </div>
