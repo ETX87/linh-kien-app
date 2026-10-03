@@ -351,7 +351,11 @@ settingsDatMua.post("/linh-kien/bulk-import-anh", linhKienWriteRoles, async (c) 
 
   const CHUNK_SIZE = 10;
   const offset = Math.max(0, body.offset ?? 0);
-  const chunk = body.rows.slice(offset, offset + CHUNK_SIZE);
+  // Kieu lo (2026-10-03): client moi gui `rows` = CHINH lo + `total` (truoc gui lai ca file moi request); thieu total = kieu cu.
+  const kieuLo = typeof (body as { total?: unknown }).total === "number";
+  const total = kieuLo ? (body as { total?: number }).total! : body.rows.length;
+  if (kieuLo && (body.rows.length > CHUNK_SIZE * 4 || (body.rows.length === 0 && offset < total))) return c.json({ error: "LO_KHONG_HOP_LE" }, 400);
+  const chunk = kieuLo ? body.rows : body.rows.slice(offset, offset + CHUNK_SIZE);
   const user = c.get("user");
   const now = nowVN();
 
@@ -394,8 +398,8 @@ settingsDatMua.post("/linh-kien/bulk-import-anh", linhKienWriteRoles, async (c) 
     }
   }
 
-  const nextOffset = offset + CHUNK_SIZE;
-  const done = nextOffset >= body.rows.length;
+  const nextOffset = offset + (kieuLo ? chunk.length : CHUNK_SIZE);
+  const done = nextOffset >= total;
   if (done) await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
   return c.json({ done, nextOffset, success, notFound, fetchFailed, errorCount, details });
 });

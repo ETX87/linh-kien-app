@@ -2473,51 +2473,7 @@ export function DonHangGroupedList({
         </button>
       ),
     },
-    // SUA (phan hoi 2026-09-12: "sắp xếp các cột trong table danh sách đơn giống" file tham chiếu
-    // AppSheet "ADMIN XUAT HANG MN v3" - doi ca THU TU LAN gop toan bo cot "Tuỳ chỉnh cột" (truoc day
-    // an mac dinh) thanh cot chinh LUON hien, khop dung thu tu: Linh kien -> Ngay de xuat -> SL de
-    // xuat -> SL thuc xuat -> Gia de xuat -> Loai don -> Yeu cau hoa don -> Trang thai duyet -> Nguoi
-    // nhan hang -> Ly do tu choi/cho hang -> Khu vuc -> Ghi chu nguoi dat hang -> Ghi chu Admin ->
-    // Nguoi tao yeu cau -> Ma yeu cau su co (2 cot UI-only "chon"/"hanh_dong" khong co trong file tham
-    // chieu, giu nguyen vi tri dau/cuoi). "Cảnh báo linh kiện đặc thù"/"Đơn ưu tiên" GIU dang icon
-    // 🔒/⭐ trong cot Linh kien (khong tach cot rieng, theo xac nhan nguoi dung).
-    { key: "ngay_de_xuat", header: "Ngày đề xuất", render: (row) => fmtDate(row.d.ngay_tao) },
-    // Tu ticket thieu hang GAN NHAT cua don (2026-09-30) - di chuot xem Kho tiep nhan luc nao, ai.
-    {
-      key: "ngay_du_kien_co_hang", header: "Dự kiến có hàng",
-      render: (row) =>
-        row.d.tlk_ngay_du_kien ? (
-          <span
-            className={row.d.trang_thai === "Cho hang" ? "font-semibold text-[var(--color-warning-strong)]" : "text-[var(--color-text-secondary)]"}
-            title={
-              (row.d.tlk_tiep_nhan_luc ? `Kho tiếp nhận ${fmtDateTime(row.d.tlk_tiep_nhan_luc)} · ${formatPersonDisplay(row.d.tlk_nguoi_tiep_nhan ?? "", personDir)}` : "Kho chưa tiếp nhận") +
-              (row.d.tlk_ngay_hang_ve ? ` · hàng về ${fmtDate(row.d.tlk_ngay_hang_ve)}` : "")
-            }
-          >
-            {fmtDate(row.d.tlk_ngay_du_kien)}
-          </span>
-        ) : (
-          <span className="text-[var(--ink-400)]">—</span>
-        ),
-    },
-    { key: "sl", header: "SL đề xuất", className: "text-right", render: (row) => row.d.so_luong_de_xuat },
-    { key: "sl_thuc_xuat", header: "SL thực xuất", className: "text-right", render: (row) => row.d.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
-    // "Giá niêm yết" (giá bán) canh "Giá đề xuất" = don gia SAU chiet khau (phan hoi 2026-09-28).
-    { key: "gia_niem_yet", header: "Giá niêm yết", className: "text-right", render: (row) => (giaNiemYet(row.d) != null ? <Money>{fmtVND(giaNiemYet(row.d))}</Money> : "—") },
-    { key: "gia", header: "Giá đề xuất", className: "text-right", render: (row) => (donGiaSauChietKhau(row.d) != null ? <span className="text-[var(--green-700)] font-semibold" title="Đơn giá sau chiết khấu (giá thực cần chuyển tiền)"><Money>{fmtVND(donGiaSauChietKhau(row.d))}</Money></span> : "—") },
-    { key: "loai", header: "Loại", filter: loc("loai_de_xuat"), render: (row) => <LoaiDeXuatBadge loaiDon={row.d.loai_don} loaiDeXuat={row.d.loai_de_xuat} /> },
-    // Loai chiet khau (2026-09-26) - he thong gan luc tao PXK, TN sua o chi tiet don/chi tiet PXK.
-    {
-      key: "loai_chiet_khau",
-      header: "Loại chiết khấu",
-      render: (row) => (
-        <span className="inline-flex items-center gap-1.5">
-          <LoaiChietKhauText id={row.d.loai_chiet_khau_id} thuCong={row.d.loai_chiet_khau_thu_cong} />
-          <HoaDonGiaNiemYet don={row.d} />
-        </span>
-      ),
-    },
-    { key: "yeu_cau_hoa_don", header: "Yêu cầu hóa đơn", filter: loc("yeu_cau_hoa_don"), render: (row) => row.d.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
+    // Trang thai / Phieu xuat kho / Chuyen tien dua len NGAY SAU "Linh kiện" (phan hoi 2026-10-03).
     {
       key: "trang_thai",
       header: "Trạng thái",
@@ -2563,6 +2519,51 @@ export function DonHangGroupedList({
       render: (row) =>
         row.d.thanh_toan ? <StatusBadge value={row.d.thanh_toan} tones={THANH_TOAN_DON_TONE} options={THANH_TOAN_DON_OPTIONS} /> : <span className="text-[var(--ink-400)]">—</span>,
     },
+    // SUA (phan hoi 2026-09-12: "sắp xếp các cột trong table danh sách đơn giống" file tham chiếu
+    // AppSheet "ADMIN XUAT HANG MN v3" - doi ca THU TU LAN gop toan bo cot "Tuỳ chỉnh cột" (truoc day
+    // an mac dinh) thanh cot chinh LUON hien, khop dung thu tu: Linh kien -> Ngay de xuat -> SL de
+    // xuat -> SL thuc xuat -> Gia de xuat -> Loai don -> Yeu cau hoa don -> Trang thai duyet -> Nguoi
+    // nhan hang -> Ly do tu choi/cho hang -> Khu vuc -> Ghi chu nguoi dat hang -> Ghi chu Admin ->
+    // Nguoi tao yeu cau -> Ma yeu cau su co (2 cot UI-only "chon"/"hanh_dong" khong co trong file tham
+    // chieu, giu nguyen vi tri dau/cuoi). "Cảnh báo linh kiện đặc thù"/"Đơn ưu tiên" GIU dang icon
+    // 🔒/⭐ trong cot Linh kien (khong tach cot rieng, theo xac nhan nguoi dung).
+    { key: "ngay_de_xuat", header: "Ngày đề xuất", render: (row) => fmtDate(row.d.ngay_tao) },
+    // Tu ticket thieu hang GAN NHAT cua don (2026-09-30) - di chuot xem Kho tiep nhan luc nao, ai.
+    {
+      key: "ngay_du_kien_co_hang", header: "Dự kiến có hàng",
+      render: (row) =>
+        row.d.tlk_ngay_du_kien ? (
+          <span
+            className={row.d.trang_thai === "Cho hang" ? "font-semibold text-[var(--color-warning-strong)]" : "text-[var(--color-text-secondary)]"}
+            title={
+              (row.d.tlk_tiep_nhan_luc ? `Kho tiếp nhận ${fmtDateTime(row.d.tlk_tiep_nhan_luc)} · ${formatPersonDisplay(row.d.tlk_nguoi_tiep_nhan ?? "", personDir)}` : "Kho chưa tiếp nhận") +
+              (row.d.tlk_ngay_hang_ve ? ` · hàng về ${fmtDate(row.d.tlk_ngay_hang_ve)}` : "")
+            }
+          >
+            {fmtDate(row.d.tlk_ngay_du_kien)}
+          </span>
+        ) : (
+          <span className="text-[var(--ink-400)]">—</span>
+        ),
+    },
+    { key: "sl", header: "SL đề xuất", className: "text-right", render: (row) => row.d.so_luong_de_xuat },
+    { key: "sl_thuc_xuat", header: "SL thực xuất", className: "text-right", render: (row) => row.d.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
+    // "Giá niêm yết" (giá bán) canh "Giá đề xuất" = don gia SAU chiet khau (phan hoi 2026-09-28).
+    { key: "gia_niem_yet", header: "Giá niêm yết", className: "text-right", render: (row) => (giaNiemYet(row.d) != null ? <Money>{fmtVND(giaNiemYet(row.d))}</Money> : "—") },
+    { key: "gia", header: "Giá đề xuất", className: "text-right", render: (row) => (donGiaSauChietKhau(row.d) != null ? <span className="text-[var(--green-700)] font-semibold" title="Đơn giá sau chiết khấu (giá thực cần chuyển tiền)"><Money>{fmtVND(donGiaSauChietKhau(row.d))}</Money></span> : "—") },
+    { key: "loai", header: "Loại", filter: loc("loai_de_xuat"), render: (row) => <LoaiDeXuatBadge loaiDon={row.d.loai_don} loaiDeXuat={row.d.loai_de_xuat} /> },
+    // Loai chiet khau (2026-09-26) - he thong gan luc tao PXK, TN sua o chi tiet don/chi tiet PXK.
+    {
+      key: "loai_chiet_khau",
+      header: "Loại chiết khấu",
+      render: (row) => (
+        <span className="inline-flex items-center gap-1.5">
+          <LoaiChietKhauText id={row.d.loai_chiet_khau_id} thuCong={row.d.loai_chiet_khau_thu_cong} />
+          <HoaDonGiaNiemYet don={row.d} />
+        </span>
+      ),
+    },
+    { key: "yeu_cau_hoa_don", header: "Yêu cầu hóa đơn", filter: loc("yeu_cau_hoa_don"), render: (row) => row.d.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
     { key: "nguoi_nhan_hang", header: "Người nhận hàng", filter: loc("nguoi_nhan_hang"), render: (row) => (row.d.nguoi_nhan_hang ? <NguoiNhan>{formatNguoiDisplay(row.d.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>) },
     { key: "ly_do_cham", header: "Lý do từ chối/chờ hàng", render: (row) => row.d.ly_do_cham || <span className="text-[var(--ink-400)]">—</span> },
     // "Khu vực" cua NGUOI NHAN HANG (khong phai cot that tren dat_don_hang - server LEFT JOIN qua
@@ -2655,7 +2656,7 @@ export function DonHangGroupedList({
     effectiveColumns, toggleableColumns, resolvedOrder, colWidths,
     settingsOpen, setSettingsOpen, dragOverKey, setDragOverKey, draggedColKey,
     toggleColumn, handleColumnDrop, handleResizeStart,
-  } = useColumnConfig(cols, optionalCols, [], "dmlk-don-hang-list", "dmlk-don-hang-list-v2");
+  } = useColumnConfig(cols, optionalCols, [], "dmlk-don-hang-list-v3", "dmlk-don-hang-list-v2") /* -v3 (2026-10-03): thu tu cot moi (trang thai sau Linh kien) - bo thu tu da luu cu */;
 
   // ===== Bo cuc cot bang desktop (SUA 2026-09-26, phan hoi "danh sách đơn hàng đang bị kéo giãn...
   // các nút bấm chuyển về góc trái, các cột không tự xuống dòng, dựa vào độ dài các ký tự thật") =====

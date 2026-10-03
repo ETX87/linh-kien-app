@@ -934,7 +934,7 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
       let success = 0, errorCount = 0;
       const failDetails: { ma_ktv: string; status: string }[] = [];
       while (offset < rows.length) {
-        const res = await api.post<BulkImportKtvChunkResult>("/settings/ktv-lien-he/bulk-import", { rows, offset });
+        const res = await api.post<BulkImportKtvChunkResult>("/settings/ktv-lien-he/bulk-import", { rows: rows.slice(offset, offset + 25), offset, total: rows.length } /* chi gui lo dang xu ly (2026-10-03) */);
         success += res.success;
         errorCount += res.errorCount;
         failDetails.push(...res.details.filter((d) => d.status !== "thanh_cong"));

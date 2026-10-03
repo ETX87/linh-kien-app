@@ -201,7 +201,7 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   (Chờ KTV chuyển tiền / Chờ xác nhận chuyển tiền / Chờ TN gửi kế toán); đơn chưa vào phiếu: "TN da duyet" → "Chờ tạo
   phiếu", còn lại trống. Chuyển tiền: đơn từ chối/hủy → Đã hủy bỏ; không phải Mua/TRỪ CÔNG NỢ → Không cần chuyển; chưa vào
   phiếu → Chờ thanh toán (chốt người dùng); trong phiếu theo `trang_thai_chuyen_tien` (Kế toán duyệt = Đã thanh toán; PXK
-  `so_tien_can_chuyen` NULL = Không cần chuyển). Cột đặt sau "Trạng thái" ở danh sách đơn; mobile: dòng 3 của thẻ đơn.
+  `so_tien_can_chuyen` NULL = Không cần chuyển). Danh sách đơn: 3 cột Trạng thái / Phiếu xuất kho / Chuyển tiền đứng NGAY SAU "Linh kiện" (2026-10-03, key cấu hình cột `dmlk-don-hang-list-v3`); mobile: dòng 3 của thẻ đơn.
 - **Kế toán đẩy lùi PXK "Chờ mã MISA" → "Chờ mã HĐ"** (2026-09-29): `POST /phieu-xuat-kho/:id/log` `trang_thai='Dang tao
   phieu'` từ "Cho ke toan", CHỈ Kế toán/Admin, bắt buộc `ghi_chu` (log "Kế toán trả về chờ mã HĐ: …", báo việc mới cho TN);
   giữ nguyên mã đơn hàng/mã MISA/chuyển tiền đã duyệt. Nút "↩ Trả về chờ mã HĐ" ở footer chi tiết PXK.
@@ -576,8 +576,9 @@ XFD → `sheet_to_json` tạo mảng hàng triệu dòng = treo tab. `lib/tonKho
 `tonKhoImportNen.ts` — tách file để worker không tự bundle chính nó; `vite.config.ts` `worker.format: "es"`), quá 180 giây báo lỗi,
 nút Huỷ dừng thật. Client gửi TỪNG LÔ 200 dòng (`rows` = lô + `total`; tab cũ gửi cả file vẫn chạy) thay vì gửi lại cả file mỗi
 request. `POST /settings/ktv-ton-kho/import` ghi vào BẢNG TẠM `ktv_ton_kho_tam`/`kho_cong_ty_ton_kho_tam` (migration `0065`), lô
-cuối thay bảng thật + meta trong 1 batch → dừng giữa chừng không mất dữ liệu cũ. Còn cùng kiểu "gửi lại cả file mỗi lô":
-`settingsKtv.ts` bulk-import (2 route), `settingsDatMua.ts`, `lkSettings.ts` (file nhỏ hơn, chưa sửa).
+cuối thay bảng thật + meta trong 1 batch → dừng giữa chừng không mất dữ liệu cũ. Cùng kiểu "chỉ gửi lô + `total`" (2026-10-03) cho
+`settingsKtv.ts` bulk-import + bulk-import-cong-no-misa, `settingsDatMua.ts` bulk-import-anh, `lkSettings.ts` bom/import (thiếu `total` =
+kiểu cũ, server tự cắt) — import mới theo lô: client gửi ĐÚNG lô, đừng gửi lại cả file.
 
 **Kế toán ở "Danh sách KTV"** (`KtvTab mode="ke-toan"`): sửa tay Trần công nợ/Hạn mức dự phòng (+ hiện tại)/Mã MISA/Tên
 MISA (`PATCH /:ma/cong-no-misa`) + import hàng loạt KHỚP THEO MÃ MISA (`POST /settings/ktv-lien-he/bulk-import-cong-no-misa`,

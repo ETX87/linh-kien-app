@@ -173,7 +173,7 @@ export function ImportCongNoMisaModal({ open, onClose, addToast }: { open: boole
       let errorCount = 0;
       const dsLoi: KetQuaChunk["details"] = [];
       while (offset < rows.length) {
-        const res = await api.post<KetQuaChunk>("/settings/ktv-lien-he/bulk-import-cong-no-misa", { rows, offset });
+        const res = await api.post<KetQuaChunk>("/settings/ktv-lien-he/bulk-import-cong-no-misa", { rows: rows.slice(offset, offset + 25), offset, total: rows.length } /* chi gui lo dang xu ly (2026-10-03) */);
         success += res.success;
         errorCount += res.errorCount;
         dsLoi.push(...res.details.filter((d) => d.status !== "thanh_cong"));

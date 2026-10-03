@@ -210,7 +210,11 @@ lkSettings.post("/bom/import", adminOnly, async (c) => {
   }
 
   const offset = Math.max(0, body.offset ?? 0);
-  const chunk = body.rows.slice(offset, offset + CHUNK_SIZE_BATCH);
+  // Kieu lo (2026-10-03): client moi gui `rows` = CHINH lo + `total` (truoc gui lai ca file moi request); thieu total = kieu cu.
+  const kieuLo = typeof (body as { total?: unknown }).total === "number";
+  const total = kieuLo ? (body as { total?: number }).total! : body.rows.length;
+  if (kieuLo && (body.rows.length > CHUNK_SIZE_BATCH * 2 || (body.rows.length === 0 && offset < total))) return c.json({ error: "LO_KHONG_HOP_LE" }, 400);
+  const chunk = kieuLo ? body.rows : body.rows.slice(offset, offset + CHUNK_SIZE_BATCH);
   const now = nowVN();
 
   const valid = chunk
@@ -236,9 +240,9 @@ lkSettings.post("/bom/import", adminOnly, async (c) => {
     );
   }
 
-  const nextOffset = offset + CHUNK_SIZE_BATCH;
-  const done = nextOffset >= body.rows.length;
-  return c.json({ done, nextOffset: done ? body.rows.length : nextOffset, processed: valid.length });
+  const nextOffset = offset + (kieuLo ? chunk.length : CHUNK_SIZE_BATCH);
+  const done = nextOffset >= total;
+  return c.json({ done, nextOffset: done ? total : nextOffset, processed: valid.length });
 });
 
 export default lkSettings;

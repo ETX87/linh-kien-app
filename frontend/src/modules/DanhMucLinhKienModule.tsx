@@ -796,7 +796,7 @@ function DanhMucTab() {
       let success = 0, notFound = 0, fetchFailed = 0, errorCount = 0;
       const failDetails: { ma_linh_kien: string; status: string }[] = [];
       while (offset < rows.length) {
-        const res = await api.post<BulkImportChunkResult>("/settings/linh-kien/bulk-import-anh", { rows, offset });
+        const res = await api.post<BulkImportChunkResult>("/settings/linh-kien/bulk-import-anh", { rows: rows.slice(offset, offset + 10), offset, total: rows.length } /* chi gui lo dang xu ly (2026-10-03) */);
         success += res.success;
         notFound += res.notFound;
         fetchFailed += res.fetchFailed;
