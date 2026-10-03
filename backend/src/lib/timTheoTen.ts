@@ -101,3 +101,13 @@ export function orDonTrongPxk(q: string): { sql: string; binds: string[] } {
     binds: [`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`],
   };
 }
+
+// Chieu nguoc cua orDonTrongPxk (2026-10-03, "tìm kiếm theo mã đơn hàng, mã xuất trong đơn hàng"): don khop khi nam trong 1 PXK co
+// ID phieu / Ma don hang (ma_xuat_kho) / Ma PXK MISA (ma_misa) / ma van don khop tu khoa. a = alias dat_don_hang.
+export function orPxkCuaDon(a: string, q: string): { sql: string; binds: string[] } {
+  return {
+    sql: ` OR EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pd JOIN phieu_xuat_kho px ON px.id = pd.phieu_xuat_kho_id
+             WHERE pd.dat_don_hang_id = ${a}.id AND (px.id LIKE ? OR px.ma_xuat_kho LIKE ? OR px.ma_misa LIKE ? OR px.ma_van_don LIKE ?))`,
+    binds: [`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`],
+  };
+}

@@ -202,6 +202,9 @@ function MainApp({
     setPendingKtvSearch({ value: ktvSearch, nonce: Date.now() });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // View noi bo cua DatMuaLinhKienModule -> muc Sidebar tuong ung (2026-09-29 tach "Phiếu xuất" rieng).
+  // Lan bam muc Sidebar (2026-10-03, "click vào đơn hàng mặc định là chọn tổng") - nonce de bam LAI cung muc van kich hoat;
+  // KHONG doi khi dieu huong noi bo (onLeaveForceView/chuong thong bao) nen khong de mat bo loc dang mang theo.
+  const [sidebarClick, setSidebarClick] = useState<{ key: string; nonce: number } | null>(null);
   function mucChoView(view: string): string {
     if (view === "thieu-lk") return "thieu-lk";
     if (view === "phieu-xuat-kho" && allowedModules.includes("phieu-xuat")) return "phieu-xuat";
@@ -334,7 +337,10 @@ function MainApp({
     <div className="flex min-h-screen">
       <Sidebar
         active={active}
-        setActive={setActive}
+        setActive={(key: string) => {
+          setActive(key);
+          setSidebarClick({ key, nonce: Date.now() });
+        }}
         allowedModules={allowedModules}
         collapsed={collapsed}
         setCollapsed={setCollapsed}
@@ -441,6 +447,7 @@ function MainApp({
               headerExtra={headerExtraEl}
               stageMenuSlots={{ don: stageMenuSlotDonEl, pxk: stageMenuSlotPxkEl, tra: stageMenuSlotTraEl }}
               externalDetailOpen={pendingDetailOpen}
+              sidebarClick={sidebarClick}
               onExternalDetailOpenConsumed={() => setPendingDetailOpen(null)}
               // FIX (phan hoi 2026-08-26, cung van de tren): khi nguoi dung bam so lieu/StatCard nhay
               // sang noi dung khac tu "Trang chủ"/"Thiếu linh kiện" (vd "Đơn của tôi"), noi dung thuc

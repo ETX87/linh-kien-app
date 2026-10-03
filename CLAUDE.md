@@ -538,7 +538,7 @@ làm được): danh sách đơn/PXK/Thiếu LK/Trả hàng (`emailsTheoTen` + `
 `json_each`, KHÔNG dùng 1 `?` mỗi người vì họ phổ biến vượt giới hạn 100 tham số D1), danh bạ KTV + tồn kho KTV
 (`maKtvTheoTen`), Users, Ctrl+K (`GET /dat-mua-lk/search` — thêm đơn/PXK gần nhất của KTV khớp tên, cùng scope với
 tìm theo mã). Lọc phía client (`Select`, ô tìm trong lọc cột, Ctrl+K, báo cáo) dùng `frontend/src/lib/boDau.ts`
-`khopTim()` — cùng quy tắc với backend (bản sao `khopTim` trong `timTheoTen.ts`, đổi 1 bên đổi cả 2): ký tự KHÔNG dấu trong từ khóa khớp mọi biến thể có dấu, ký tự CÓ dấu phải khớp đúng dấu (2026-09-30: gõ "lẻ" trước đây ra cả "Telesale"/"Lê"). Mã yêu cầu sự cố (chính + BỔ SUNG trong `dat_don_case`): `orMaYcsc()`
+`khopTim()` — cùng quy tắc với backend (bản sao `khopTim` trong `timTheoTen.ts`, đổi 1 bên đổi cả 2): ký tự KHÔNG dấu trong từ khóa khớp mọi biến thể có dấu, ký tự CÓ dấu phải khớp đúng dấu (2026-09-30: gõ "lẻ" trước đây ra cả "Telesale"/"Lê"). Đơn/Thiếu LK/Trả hàng tìm được theo ID phiếu / Mã đơn hàng / Mã PXK MISA / mã vận đơn của phiếu chứa đơn (`orPxkCuaDon()`, 2026-10-03). Bấm mục Sidebar "Đơn hàng"/"Phiếu xuất" = mở "Tổng"/"Tổng phiếu" (`sidebarClick` nonce App.tsx → effect ở `DatMuaLinhKienModule`; điều hướng nội bộ không đổi); đang ở "Còn tồn" (`__OPEN__`) mà gõ từ khóa thì tìm trên MỌI trạng thái (`trangThaiGui` ở DonCuaToiTab/PhieuXuatKhoTab). Mã yêu cầu sự cố (chính + BỔ SUNG trong `dat_don_case`): `orMaYcsc()`
 (đơn/Thiếu LK/Trả hàng/Ctrl+K), `orDonTrongPxk()` (PXK — theo mã đơn/mã YCSC của dòng trong phiếu). File tải về 4 danh
 sách đổi cột người (`nguoi_*`) sang tên: `doiNguoiThanhTen()` (`lib/personDisplay.ts`).
 

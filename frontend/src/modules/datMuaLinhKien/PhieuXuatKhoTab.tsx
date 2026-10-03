@@ -209,6 +209,9 @@ export function PhieuXuatKhoTab({
   // tim kiem tu do + nut thu gon "☰ Bộ lọc ▾".
   const [filterQ, setFilterQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
+  // Tim kiem tren "Tổng"/"Còn tồn" (2026-10-03, "cho phép tìm kiếm theo tổng"): co tu khoa thi tim TREN MOI trang thai (ke ca
+  // don/phieu da xong/da huy - tim theo ma don hang/ma xuat thuong la phieu cu); chon 1 trang thai cu the thi van tim trong do.
+  const trangThaiGui = debouncedQ.trim() && filterTrangThai === "__OPEN__" ? "" : filterTrangThai;
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(filterQ.trim()), 500);
     return () => clearTimeout(t);
@@ -260,7 +263,7 @@ export function PhieuXuatKhoTab({
       api.get<{ rows: PhieuXuatKhoRow[]; total: number }>(
         "/phieu-xuat-kho" +
           buildQuery({
-            trang_thai: filterTrangThai || undefined,
+            trang_thai: trangThaiGui || undefined,
             nguoi_nhan_hang: filterNguoiNhanHang || undefined,
             loai_don: xemLoaiDon,
             q: debouncedQ || undefined,
@@ -282,7 +285,7 @@ export function PhieuXuatKhoTab({
       const res = await api.get<{ rows: PhieuXuatKhoRow[] }>(
         "/phieu-xuat-kho" +
           buildQuery({
-            trang_thai: filterTrangThai || undefined,
+            trang_thai: trangThaiGui || undefined,
             nguoi_nhan_hang: filterNguoiNhanHang || undefined,
             loai_don: xemLoaiDon,
             q: debouncedQ || undefined,
@@ -576,7 +579,7 @@ export function PhieuXuatKhoTab({
     ...locCot,
     endpoint: "/phieu-xuat-kho/gia-tri-loc",
     params: {
-      trang_thai: filterTrangThai || undefined,
+      trang_thai: trangThaiGui || undefined,
       nguoi_nhan_hang: filterNguoiNhanHang || undefined,
       loai_don: xemLoaiDon,
       q: debouncedQ || undefined,

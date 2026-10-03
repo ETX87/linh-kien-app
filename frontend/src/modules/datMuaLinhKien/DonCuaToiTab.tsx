@@ -1606,6 +1606,9 @@ export function DonCuaToiTab({
   // trong 20 dong dang tai). Debounce 500ms giong pattern MaYeuCauSuCoCheck da co san trong file.
   const [filterQ, setFilterQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
+  // Tim kiem tren "Tổng"/"Còn tồn" (2026-10-03, "cho phép tìm kiếm theo tổng"): co tu khoa thi tim TREN MOI trang thai (ke ca
+  // don/phieu da xong/da huy - tim theo ma don hang/ma xuat thuong la phieu cu); chon 1 trang thai cu the thi van tim trong do.
+  const trangThaiGui = debouncedQ.trim() && filterTrangThai === "__OPEN__" ? "" : filterTrangThai;
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(filterQ.trim()), 500);
     return () => clearTimeout(t);
@@ -1730,7 +1733,7 @@ export function DonCuaToiTab({
     ...locCot,
     endpoint: "/dat-mua-lk/don-hang/gia-tri-loc",
     params: {
-      trang_thai: filterTrangThai || undefined,
+      trang_thai: trangThaiGui || undefined,
       nguoi_tao: filterNguoiTao || undefined,
       nguoi_nhan_hang: filterNguoiNhanHang || undefined,
       tu_ngay: filterTuNgay || undefined,
@@ -1763,7 +1766,7 @@ export function DonCuaToiTab({
       const res = await api.get<{ rows: DonHangRow[] }>(
         "/dat-mua-lk/don-hang" +
           buildQuery({
-            trang_thai: filterTrangThai || undefined,
+            trang_thai: trangThaiGui || undefined,
             nguoi_tao: filterNguoiTao || undefined,
             nguoi_nhan_hang: filterNguoiNhanHang || undefined,
             tu_ngay: filterTuNgay || undefined,
@@ -1788,7 +1791,7 @@ export function DonCuaToiTab({
       api.get<{ rows: DonHangRow[]; page: number; pageSize: number; total: number }>(
         "/dat-mua-lk/don-hang" +
           buildQuery({
-            trang_thai: filterTrangThai || undefined,
+            trang_thai: trangThaiGui || undefined,
             nguoi_tao: filterNguoiTao || undefined,
             nguoi_nhan_hang: filterNguoiNhanHang || undefined,
             tu_ngay: filterTuNgay || undefined,
@@ -1822,7 +1825,7 @@ export function DonCuaToiTab({
         "/dat-mua-lk/don-hang/gia-tri-loc" +
           buildQuery({
             cot: "nguoi_tao",
-            trang_thai: filterTrangThai || undefined,
+            trang_thai: trangThaiGui || undefined,
             nguoi_nhan_hang: filterNguoiNhanHang || undefined,
             tu_ngay: filterTuNgay || undefined,
             den_ngay: filterDenNgay || undefined,
@@ -2048,7 +2051,7 @@ export function DonCuaToiTab({
           <input
             value={filterQ}
             onChange={(e) => setFilterQ(e.target.value)}
-            placeholder="Tìm theo mã LK, mã đơn, mã YCSC, mã Lada, tên KTV/người nhận…"
+            placeholder="Tìm theo mã LK, mã đơn, mã YCSC, mã Lada, mã phiếu/mã đơn hàng/mã MISA, tên KTV…"
             className="focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg pl-2.5 pr-7 py-1.5 text-sm w-64"
           />
           {/* FIX (ra soat UI 2026-08-27, hang muc #3): placeholder cu liet ke du 6 tieu chi, qua dai so

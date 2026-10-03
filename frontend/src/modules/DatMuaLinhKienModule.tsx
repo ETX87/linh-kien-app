@@ -103,6 +103,7 @@ export function DatMuaLinhKienModule({
   headerExtra,
   stageMenuSlots,
   section = "don-dat-hang",
+  sidebarClick,
   onLeaveForceView,
   externalDetailOpen,
   onExternalDetailOpenConsumed,
@@ -144,6 +145,8 @@ export function DatMuaLinhKienModule({
   // Muc Sidebar dang chon khi KHONG co forceView: "don-dat-hang" (dat-mua-lk) hay "phieu-xuat" - quyet dinh view mac
   // dinh luc moi vao muc (xem sectionView ben duoi).
   section?: "don-dat-hang" | "phieu-xuat" | "tra-hang";
+  // Lan bam muc Sidebar (App.tsx) - "Đơn hàng" -> muc "Tổng", "Phiếu xuất" -> "Tổng phiếu" (2026-10-03).
+  sidebarClick?: { key: string; nonce: number } | null;
 } = {}) {
   const auth = useAuth();
   const user = auth.status === "authenticated" ? auth.user : null;
@@ -482,6 +485,17 @@ export function DatMuaLinhKienModule({
     jumpTo({ ...target, stageKey: key });
     if (target.tab === "don-cua-toi") setLoaiDonTabClickSeq((n) => n + 1);
   }
+  // Bam muc Sidebar "Đơn hàng"/"Phiếu xuất" (2026-10-03, "click vào đơn hàng mặc định là chọn tổng... tương tự ở phiếu") = mo
+  // muc "Tổng"/"Tổng phiếu" (cung jump voi muc con). Chi theo lan BAM (nonce) - dieu huong noi bo/chuong thong bao khong doi.
+  useEffect(() => {
+    if (!sidebarClick || externalDetailOpen) return;
+    if (sidebarClick.key === "dat-mua-lk" && canXemDonMuaCongNo) {
+      stageJump("tong-don-hang", { tab: "don-cua-toi", filter: "__OPEN__", loaiDon: "tat_ca" });
+    } else if (sidebarClick.key === "phieu-xuat" && canXemPxkTab) {
+      stageJump("tong-phieu-xuat", { tab: "phieu-xuat-kho", filter: "__OPEN__", loaiDon: "" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sidebarClick?.nonce]);
   // FIX (phan hoi 2026-09-23 "đối với vai trò nào chỉ đếm số đơn cần xử lý theo vai trò đó"): truoc
   // day dung THANG traHangStatusCounts.__OPEN__ (tong CA 4 buoc KT/Kho/QC/TN gop lai) cho MOI vai tro
   // xem - 1 QC/Ke toan/Kho/TN "thuan" (chi co dung 1 cua 4 co) se thay 1 con so bao gom ca viec KHONG
