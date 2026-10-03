@@ -195,6 +195,25 @@ async function resolveNguoiNhanHang(
   return { email: row.tram_cha };
 }
 
+// Nguoi nhan hang hop le khi TN/GS chon nguoi khac (2026-10-03): tai khoan co co KTV DVBH/Ve tinh HOAC Gmail dang gan 1 ma KTV
+// con hoat dong trong danh ba (co KTV chi la QUYEN - tai khoan thuoc "KTV hien truong" khi co ma; vd ma khuongnv.ttbh gan Gmail
+// cua tai khoan vai tro QC khong bat co KTV -> o chon van hien nhung tao don bao "Người nhận hàng không hợp lệ"). Ma "Ve tinh" =
+// Ve tinh (di qua Tram). Cung tap voi /nguoi-nhan-hang-kha-dung + import Excel (theo ktv_lien_he).
+async function nguoiNhanHangHopLe(db: D1Database, email: string): Promise<{ email: string; la_ve_tinh: number } | null> {
+  const r = await db
+    .prepare(
+      `SELECT u.email, u.la_ktv_dvbh, u.la_ve_tinh,
+              EXISTS(SELECT 1 FROM ktv_lien_he k WHERE LOWER(TRIM(k.email_dang_nhap)) = LOWER(u.email) AND COALESCE(k.ngung_hoat_dong, 0) = 0) AS co_ma,
+              EXISTS(SELECT 1 FROM ktv_lien_he k WHERE LOWER(TRIM(k.email_dang_nhap)) = LOWER(u.email) AND COALESCE(k.ngung_hoat_dong, 0) = 0
+                     AND k.vai_tro_ktv = 'Ve tinh') AS ma_ve_tinh
+       FROM users u WHERE u.email = ?`,
+    )
+    .bind(email)
+    .first<{ email: string; la_ktv_dvbh: number; la_ve_tinh: number; co_ma: number; ma_ve_tinh: number }>();
+  if (!r || !(r.la_ktv_dvbh || r.la_ve_tinh || r.co_ma)) return null;
+  return { email: r.email, la_ve_tinh: r.la_ve_tinh || (!r.la_ktv_dvbh && r.ma_ve_tinh) ? 1 : 0 };
+}
+
 // Tien to ID phieu_dat theo VAI TRO nguoi goi API luc tao (khong luu cot rieng) - chot buoc 1 ke
 // hoach "Luong tao don mua hang": XH- (KTV/Ve tinh tu tao), TN- (Tac nghiep tao ho), AD- (GS tao
 // ho). Uu tien TN/GS truoc vi 1 nguoi co the vua la_ktv_dvbh vua giu vai_tro khac.
@@ -282,10 +301,8 @@ datMuaLinhKien.get("/cong-no-du-kien", async (c) => {
   let targetUser: { email: string; la_ve_tinh: number | boolean };
   if (q && q !== user.email) {
     if (!canQuanLyDonHo(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
-    const target = await c.env.DB.prepare("SELECT email, la_ktv_dvbh, la_ve_tinh FROM users WHERE email = ?")
-      .bind(q)
-      .first<{ email: string; la_ktv_dvbh: number; la_ve_tinh: number }>();
-    if (!target || !(target.la_ktv_dvbh || target.la_ve_tinh)) return c.json({ error: "NGUOI_NHAN_HANG_KHONG_HOP_LE" }, 400);
+    const target = await nguoiNhanHangHopLe(c.env.DB, q);
+    if (!target) return c.json({ error: "NGUOI_NHAN_HANG_KHONG_HOP_LE" }, 400);
     targetUser = target;
   } else {
     targetUser = { email: user.email, la_ve_tinh: user.la_ve_tinh };
@@ -316,10 +333,8 @@ datMuaLinhKien.get("/du-phong-du-kien", async (c) => {
   let targetUser: { email: string; la_ve_tinh: number | boolean };
   if (q && q !== user.email) {
     if (!canQuanLyDonHo(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
-    const target = await c.env.DB.prepare("SELECT email, la_ktv_dvbh, la_ve_tinh FROM users WHERE email = ?")
-      .bind(q)
-      .first<{ email: string; la_ktv_dvbh: number; la_ve_tinh: number }>();
-    if (!target || !(target.la_ktv_dvbh || target.la_ve_tinh)) return c.json({ error: "NGUOI_NHAN_HANG_KHONG_HOP_LE" }, 400);
+    const target = await nguoiNhanHangHopLe(c.env.DB, q);
+    if (!target) return c.json({ error: "NGUOI_NHAN_HANG_KHONG_HOP_LE" }, 400);
     targetUser = target;
   } else {
     targetUser = { email: user.email, la_ve_tinh: user.la_ve_tinh };
@@ -361,10 +376,8 @@ datMuaLinhKien.get("/du-doan-duyet", async (c) => {
   let targetUser: { email: string; la_ve_tinh: number | boolean };
   if (q && q !== user.email) {
     if (!canQuanLyDonHo(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
-    const target = await c.env.DB.prepare("SELECT email, la_ktv_dvbh, la_ve_tinh FROM users WHERE email = ?")
-      .bind(q)
-      .first<{ email: string; la_ktv_dvbh: number; la_ve_tinh: number }>();
-    if (!target || !(target.la_ktv_dvbh || target.la_ve_tinh)) return c.json({ error: "NGUOI_NHAN_HANG_KHONG_HOP_LE" }, 400);
+    const target = await nguoiNhanHangHopLe(c.env.DB, q);
+    if (!target) return c.json({ error: "NGUOI_NHAN_HANG_KHONG_HOP_LE" }, 400);
     targetUser = target;
   } else {
     targetUser = { email: user.email, la_ve_tinh: user.la_ve_tinh };
@@ -2192,10 +2205,8 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   let targetUser: { email: string; la_ve_tinh: number | boolean };
   if (body.nguoi_nhan_hang?.trim() && body.nguoi_nhan_hang.trim() !== user.email) {
     if (!canQuanLyDonHo(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
-    const target = await c.env.DB.prepare("SELECT email, la_ktv_dvbh, la_ve_tinh FROM users WHERE email = ?")
-      .bind(body.nguoi_nhan_hang.trim())
-      .first<{ email: string; la_ktv_dvbh: number; la_ve_tinh: number }>();
-    if (!target || !(target.la_ktv_dvbh || target.la_ve_tinh)) return c.json({ error: "NGUOI_NHAN_HANG_KHONG_HOP_LE" }, 400);
+    const target = await nguoiNhanHangHopLe(c.env.DB, body.nguoi_nhan_hang.trim());
+    if (!target) return c.json({ error: "NGUOI_NHAN_HANG_KHONG_HOP_LE" }, 400);
     targetUser = target;
   } else {
     targetUser = { email: user.email, la_ve_tinh: user.la_ve_tinh };

@@ -608,7 +608,7 @@ người nhận theo EMAIL nên mã còn bật vẫn đặt/nhận hàng như c�
 **"Gắn mã KTV"** (2026-10-01, `GanMaKtvModal` ở `UsersModule.tsx`): cờ KTV DVBH/Vệ tinh chỉ là QUYỀN — tài khoản thuộc thẻ "KTV hiện
 trường" khi có mã trong `ktv_lien_he` có `email_dang_nhap` = Gmail. "Chuyển sang văn phòng" gỡ liên kết; "Chuyển KTV" giờ mở NGAY modal chọn
 mã có sẵn để gắn (gợi ý tìm theo tên sau dấu "-" cuối của Tên MISA/tên), dòng "Chưa thuộc thẻ nào" ở Người dùng đã duyệt có nút
-"Gắn mã KTV". Gắn = `PATCH /settings/ktv-lien-he/:ma/dat-mua-lk {email_dang_nhap}` (cấp users + đồng bộ GS/Trạm/email_gs đơn cũ).
+"Gắn mã KTV". Gắn = `PATCH /settings/ktv-lien-he/:ma/dat-mua-lk {email_dang_nhap}` (cấp users + đồng bộ GS/Trạm/email_gs đơn cũ). Người nhận hàng khi TN/GS đặt hộ hợp lệ = cờ KTV DVBH/Vệ tinh HOẶC Gmail gắn 1 mã KTV đang hoạt động (`nguoiNhanHangHopLe()` ở `datMuaLinhKien.ts`, 2026-10-03 — mã gắn Gmail của tài khoản QC không bật cờ từng bị `NGUOI_NHAN_HANG_KHONG_HOP_LE`).
 
 **Đơn KH trả góp** (chốt 2026-10-02, migration `0063`): loại đề xuất chứa "HỖ TRỢ NGOÀI BẢO HÀNH TG12" (-NSKX / -NPP, `laKhTraGop()`
 ở `pxkRecalculate.ts`, bản sao FE `helpers.ts`) KHÔNG tính công nợ: `so_tien_cong_no` = 0, `danh_gia_cong_no` NULL (tạo tay, import,
