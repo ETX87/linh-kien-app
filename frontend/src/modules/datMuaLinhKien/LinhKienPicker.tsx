@@ -185,6 +185,8 @@ export function LinhKienPickerRow({
         {rank != null && rank <= 5 && <span className="text-[10px] font-semibold text-[var(--amber-700)]">🔥 #{rank} hay đặt (30 ngày)</span>}
         {/* LK moi tao trong app, Mua hang chua xac nhan ma chuan (migration 0053) - van dat duoc (chot nguoi dung). */}
         {o.trang_thai_ma === "Cho xet duyet" && <span className="ml-1 text-[10px] font-semibold text-[var(--amber-700)]">Mã chờ xét duyệt</span>}
+        {/* Combo (migration 0066) - gia hien = tong cac LK thanh phan. */}
+        {o.combo && <span className="ml-1"><Badge tone="neutral">🧩 Combo · {o.combo.ct.length} linh kiện</Badge></span>}
       </span>
       {o.gia_ban != null && <span className="shrink-0 text-[11px] text-[var(--green-700)] font-mono font-semibold"><Money>{fmtVND(o.gia_ban)}</Money></span>}
     </button>
@@ -368,7 +370,7 @@ export function LinhKienPicker({
       </div>
       {/* CHOT (phan hoi 2026-08-18): nut xem chi tiet - chi hien khi DA CHON 1 linh kien, mo modal
           xem (va sua neu co quyen quan_ly_danh_muc_lk) - xem LinhKienDetailModal ben duoi. */}
-      {selected && (
+      {selected && !selected.combo && (
         <button
           type="button"
           tabIndex={-1}
@@ -385,6 +387,7 @@ export function LinhKienPicker({
         này sẽ phải chờ TBP duyệt") - 2 dong DOC LAP: dong "Phân loại đặc thù" CHI hien khi truong do
         co gia tri (bo trong thi khong hien dong nay); dong canh bao TBP LUON hien khi dac_thu, khong
         phu thuoc phan_loai_dac_thu co dien hay khong. */}
+    {selected?.combo && <ComboThanhPhanNote combo={selected.combo} />}
     {selected?.dac_thu ? (
       <div className="mt-1.5 rounded-lg border border-[var(--amber-500)] bg-[var(--amber-100)] px-2.5 py-1.5 text-xs text-[var(--amber-700)] space-y-0.5">
         {selected.phan_loai_dac_thu?.trim() && <div className="font-semibold">🔖 Phân loại đặc thù: {selected.phan_loai_dac_thu.trim()}</div>}
@@ -406,6 +409,24 @@ export function LinhKienPicker({
         onClose={() => setShowDetail(false)}
       />
     )}
+    </div>
+  );
+}
+
+// Danh sach LK thanh phan duoi o chon khi chon 1 combo - bao truoc la khi tao don se tach thanh tung don (SL = SL combo x SL).
+function ComboThanhPhanNote({ combo }: { combo: NonNullable<LkDanhMucRow["combo"]> }) {
+  return (
+    <div className="mt-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-100)] px-2.5 py-1.5 text-xs text-[var(--ink-700)]">
+      <div className="font-semibold text-[var(--ink-900)] mb-0.5">🧩 Combo gồm {combo.ct.length} linh kiện — khi tạo đơn hệ thống tự tách thành {combo.ct.length} đơn:</div>
+      <ul className="space-y-0.5">
+        {combo.ct.map((t) => (
+          <li key={t.ma_lk} className="flex items-center gap-2 min-w-0">
+            <span className="truncate flex-1 min-w-0">• {formatLkLabel(t.ma_lk, t.ten_lk ?? t.ma_lk)}</span>
+            <span className="shrink-0 font-mono text-[var(--ink-500)]">×{t.so_luong}/bộ</span>
+            {t.gia_ban != null && <span className="shrink-0 font-mono font-semibold text-[var(--green-700)]"><Money>{fmtVND(t.gia_ban)}</Money></span>}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

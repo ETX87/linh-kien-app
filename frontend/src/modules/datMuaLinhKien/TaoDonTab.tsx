@@ -163,7 +163,8 @@ export function TaoDonTab({
                     <b className="font-mono">ghi_chu</b>, <b className="font-mono">yeu_cau_hoa_don</b>,{" "}
                     <b className="font-mono">tt_mail_duyet</b>, <b className="font-mono">tt_khach_hang</b>,{" "}
                     <b className="font-mono">chinh_sach</b>, <b className="font-mono">ma_yeu_cau_su_co</b>,{" "}
-                    <b className="font-mono">ma_lada</b> (loại cần mã ID: chỉ cần 1 trong 2 mã).
+                    <b className="font-mono">ma_lada</b> (loại cần mã ID: chỉ cần 1 trong 2 mã).{" "}
+                    <b className="font-mono">ma_lk</b> ghi mã combo thì hệ thống tự tách thành từng đơn linh kiện thành phần.
                   </>
                 }
                 templateUrl="/api/dat-mua-lk/don-hang/import/template"
@@ -172,7 +173,7 @@ export function TaoDonTab({
                 buildBody={(rows) => ({ rows })}
                 renderSummary={(s) => (
                   <div className="grid grid-cols-3 gap-3 mb-2">
-                    <StatCard label="Dòng hợp lệ" value={s.thanhCong} tone="teal" />
+                    <StatCard label="Đơn hợp lệ" value={s.thanhCong} tone="teal" />
                     <StatCard label="Dòng lỗi" value={s.loi} tone={s.loi > 0 ? "amber" : "gray"} />
                     <StatCard label="Số phiếu sẽ tạo" value={s.soPhieu} tone="ocean" />
                   </div>
@@ -390,7 +391,7 @@ export function TaoDonTab({
                   {/* Canh bao "don nay se tu dong duyet hay khong" (them 2026-09-11) - chi co y nghia
                       khi da chon du Ma LK + Loai de xuat + So luong, xem dieu kien ben trong component. */}
                   <DuDoanDuyetHint
-                    maLk={d.ma_lk}
+                    maLk={lk?.combo ? "" : d.ma_lk}
                     soLuong={d.so_luong_de_xuat}
                     loaiDeXuat={d.loai_de_xuat}
                     nguoiNhanHang={nguoiNhanHang || currentEmail}
@@ -418,8 +419,8 @@ export function TaoDonTab({
                   </div>
                 )}
 
-                {d.ma_lk.trim() && <ThayTheGoiY maLk={d.ma_lk.trim()} canQuanLy={canQuanLy} addToast={addToast} />}
-                {d.ma_lk.trim() && <ThayTheGoiYTuSheet maLk={d.ma_lk.trim()} />}
+                {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiY maLk={d.ma_lk.trim()} canQuanLy={canQuanLy} addToast={addToast} />}
+                {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiYTuSheet maLk={d.ma_lk.trim()} />}
 
                 {/* "Thong tin bo sung" - mac dinh AN (phan hoi 2026-08-19 #5), chi tu mo khi batBuoc/
                     da co du lieu/nguoi dung tu bam. Gop het Yeu cau hoa don + Ma YCSC + Chinh sach vao

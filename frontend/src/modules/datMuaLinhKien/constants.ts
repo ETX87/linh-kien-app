@@ -12,6 +12,15 @@ import type { Tone } from "../../components/x/Badge";
 // ma tho kem tien to giai thich (van giu ma de ho tro/debug doi chieu duoc).
 export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   FORBIDDEN_ROLE: "Bạn không có quyền thực hiện thao tác này",
+  // Combo linh kien (lkSettings.ts /combo)
+  THIEU_MA_COMBO: "Chưa nhập mã combo",
+  MA_COMBO_QUA_DAI: "Mã combo quá dài (tối đa 200 ký tự)",
+  THIEU_TEN_COMBO: "Chưa nhập tên combo",
+  THIEU_THANH_PHAN: "Combo cần ít nhất 1 linh kiện thành phần",
+  SO_LUONG_KHONG_HOP_LE: "Số lượng mỗi linh kiện phải là số nguyên lớn hơn 0",
+  TRUNG_THANH_PHAN: "Có linh kiện bị chọn 2 lần trong combo",
+  MA_COMBO_DA_CO: "Mã combo này đã tồn tại",
+  MA_TRUNG_LINH_KIEN: "Mã combo trùng mã 1 linh kiện đang bật trong Bảng giá — chọn mã khác",
   XEM_NHU_CHI_DOC: "Đang xem như người dùng khác (chỉ xem) — thoát chế độ này để thao tác",
   MODULE_NOT_ALLOWED: "Tài khoản của bạn không có quyền truy cập module này",
   NOT_FOUND: "Không tìm thấy dữ liệu (có thể đã bị xoá hoặc thay đổi)",

@@ -267,7 +267,7 @@ export function TaoDonMobileScreen({
             </div>
           </div>
           <DuDoanDuyetHint
-            maLk={d.ma_lk}
+            maLk={lk?.combo ? "" : d.ma_lk}
             soLuong={d.so_luong_de_xuat}
             loaiDeXuat={d.loai_de_xuat}
             nguoiNhanHang={nguoiNhanHang || currentEmail}
@@ -284,8 +284,8 @@ export function TaoDonMobileScreen({
           </div>
         )}
 
-        {d.ma_lk.trim() && <ThayTheGoiY maLk={d.ma_lk.trim()} canQuanLy={canQuanLy} addToast={addToast} />}
-        {d.ma_lk.trim() && <ThayTheGoiYTuSheet maLk={d.ma_lk.trim()} />}
+        {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiY maLk={d.ma_lk.trim()} canQuanLy={canQuanLy} addToast={addToast} />}
+        {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiYTuSheet maLk={d.ma_lk.trim()} />}
 
         {showInfoBoSung ? (
           <>

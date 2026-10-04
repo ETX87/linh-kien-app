@@ -51,6 +51,28 @@ export interface LkDanhMucRow {
   thiet_bi?: string | null;
   don_vi_tinh?: string | null;
   ghi_chu_doi_tac?: string | null;
+  // Muc combo trong o chon LK luc tao don (migration 0066) - KHONG phai LK that: gia = tong thanh phan, server tach thanh
+  // tung don thanh phan khi luu (comboThanhLkRow o helpers.ts).
+  combo?: LkComboRow;
+}
+
+// Combo linh kien (GET /lk-settings/combo, migration 0066).
+export interface LkComboThanhPhan {
+  ma_lk: string;
+  so_luong: number;
+  ten_lk: string | null;
+  gia_ban: number | null;
+  gia_tri_cong_no: number | null;
+  lk_bat_tat: number | null;
+}
+export interface LkComboRow {
+  ma_combo: string;
+  ten_combo: string;
+  bat_tat: number;
+  ghi_chu: string | null;
+  nguoi_cap_nhat: string | null;
+  ngay_cap_nhat: string;
+  ct: LkComboThanhPhan[];
 }
 
 // Trang thai 1 DONG don hang - null cho dong loai_don='tra_hang' (dung tra_hang_log rieng, xem
@@ -83,6 +105,8 @@ export interface DonHangRow {
   loai_don: "mua" | "cong_no" | "tra_hang";
   ma_lk: string;
   ten_lk_snapshot: string | null;
+  // Don sinh tu combo (migration 0066) - nhan hien thi.
+  combo_ma?: string | null;
   loai_de_xuat: string | null;
   so_luong_de_xuat: number;
   so_luong_thuc_xuat: number | null;

@@ -1,10 +1,13 @@
 import { Hono } from "hono";
+import { createMiddleware } from "hono/factory";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { requireQuanLyDanhMucLk } from "../middleware/requireQuanLyDanhMucLk";
 import { nowVN } from "../lib/vnTime";
+import { chuanMaCombo } from "../lib/lkCombo";
+import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
 
 // Catalog "Dat mua linh kien": danh muc LK, nhom thay the, BOM tra cuu - xem migration
 // 0054_lk_danh_muc.sql + 0055_lk_bom.sql. Doc mo cho moi user da duyet (dropdown tao don), ghi
@@ -243,6 +246,125 @@ lkSettings.post("/bom/import", adminOnly, async (c) => {
   const nextOffset = offset + (kieuLo ? chunk.length : CHUNK_SIZE_BATCH);
   const done = nextOffset >= total;
   return c.json({ done, nextOffset: done ? total : nextOffset, processed: valid.length });
+});
+
+// ---------- Combo linh kien (migration 0066, lib/lkCombo.ts) ----------
+// Doc mo cho moi user da duyet (o chon LK luc tao don hien combo); ghi = Quan ly danh muc LK / Mua hang / Admin.
+const quanLyCombo = createMiddleware<{ Bindings: Env }>(async (c, next) => {
+  const u = c.get("user");
+  if (!u.quan_ly_danh_muc_lk && !u.la_mua_hang && u.vai_tro !== "Admin") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  await next();
+});
+
+// GET /api/lk-settings/combo - moi combo (ca dang tat) kem thanh phan theo stt (+ ten/gia/trang thai LK hien tai).
+lkSettings.get("/combo", async (c) => {
+  const [{ results: combos }, { results: ct }] = await Promise.all([
+    c.env.DB.prepare("SELECT ma_combo, ten_combo, bat_tat, ghi_chu, nguoi_cap_nhat, ngay_cap_nhat FROM lk_combo ORDER BY ten_combo").all<Record<string, unknown>>(),
+    c.env.DB.prepare(
+      `SELECT ct.ma_combo, ct.ma_lk, ct.so_luong, lk.ten_linh_kien AS ten_lk, lk.gia_ban, lk.gia_tri_cong_no, lk.bat_tat AS lk_bat_tat
+       FROM lk_combo_ct ct LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ct.ma_lk ORDER BY ct.ma_combo, ct.stt, ct.ma_lk`,
+    ).all<{ ma_combo: string } & Record<string, unknown>>(),
+  ]);
+  const theoCombo = new Map<string, Record<string, unknown>[]>();
+  for (const r of ct) {
+    const { ma_combo, ...rest } = r;
+    if (!theoCombo.has(ma_combo)) theoCombo.set(ma_combo, []);
+    theoCombo.get(ma_combo)!.push(rest);
+  }
+  return c.json({ rows: combos.map((cb) => ({ ...cb, ct: theoCombo.get(cb.ma_combo as string) ?? [] })) });
+});
+
+interface ComboBody { ma_combo?: string; ten_combo?: string; ghi_chu?: string | null; bat_tat?: boolean | number; ct?: { ma_lk?: string; so_luong?: number }[] }
+
+// Kiem tra ten + thanh phan (quy ma da doi/gop ve ma chuan, ma phai co trong danh muc, khong trung, SL nguyen > 0).
+async function kiemTraCombo(db: D1Database, body: ComboBody): Promise<{ error: string; ma_lk?: string } | { ten: string; ct: { ma_lk: string; so_luong: number }[] }> {
+  const ten = body.ten_combo?.trim();
+  if (!ten) return { error: "THIEU_TEN_COMBO" };
+  const dong = (body.ct ?? []).map((r) => ({ ma_lk: String(r.ma_lk ?? "").trim(), so_luong: Number(r.so_luong ?? 1) })).filter((r) => r.ma_lk);
+  if (dong.length === 0) return { error: "THIEU_THANH_PHAN" };
+  const maChuan = await quyVeMaChuan(db, dong.map((r) => r.ma_lk));
+  const ct: { ma_lk: string; so_luong: number }[] = [];
+  for (const r of dong) {
+    const ma = maChuan.get(r.ma_lk) ?? r.ma_lk;
+    if (!Number.isInteger(r.so_luong) || r.so_luong <= 0) return { error: "SO_LUONG_KHONG_HOP_LE", ma_lk: ma };
+    if (ct.some((x) => x.ma_lk === ma)) return { error: "TRUNG_THANH_PHAN", ma_lk: ma };
+    ct.push({ ma_lk: ma, so_luong: r.so_luong });
+  }
+  const { results } = await db.prepare("SELECT ma_linh_kien FROM linh_kien WHERE ma_linh_kien IN (SELECT value FROM json_each(?))")
+    .bind(JSON.stringify(ct.map((r) => r.ma_lk)))
+    .all<{ ma_linh_kien: string }>();
+  const coSan = new Set(results.map((r) => r.ma_linh_kien));
+  const thieu = ct.find((r) => !coSan.has(r.ma_lk));
+  if (thieu) return { error: "MA_LK_NOT_FOUND", ma_lk: thieu.ma_lk };
+  return { ten, ct };
+}
+
+function lenhGhiThanhPhan(db: D1Database, ma: string, ct: { ma_lk: string; so_luong: number }[]) {
+  return [
+    db.prepare("DELETE FROM lk_combo_ct WHERE ma_combo = ?").bind(ma),
+    ...ct.map((r, i) => db.prepare("INSERT INTO lk_combo_ct (ma_combo, ma_lk, so_luong, stt) VALUES (?, ?, ?, ?)").bind(ma, r.ma_lk, r.so_luong, i + 1)),
+  ];
+}
+
+// POST /api/lk-settings/combo - tao combo. Ma combo khong doi duoc ve sau (don da tao giu nhan combo_ma theo ma).
+lkSettings.post("/combo", quanLyCombo, async (c) => {
+  const body = await c.req.json<ComboBody>();
+  const ma = chuanMaCombo(body.ma_combo);
+  if (!ma) return c.json({ error: "THIEU_MA_COMBO" }, 400);
+  if (ma.length > 200) return c.json({ error: "MA_COMBO_QUA_DAI" }, 400);
+  const kt = await kiemTraCombo(c.env.DB, body);
+  if ("error" in kt) return c.json(kt, 400);
+  if (await c.env.DB.prepare("SELECT 1 FROM lk_combo WHERE ma_combo = ?").bind(ma).first()) return c.json({ error: "MA_COMBO_DA_CO" }, 409);
+  // Ma trung 1 LK DANG BAT -> o chon LK se co 2 muc cung ma, dat don khong biet la LK hay combo.
+  if (await c.env.DB.prepare("SELECT 1 FROM linh_kien WHERE ma_linh_kien = ? AND bat_tat = 1").bind(ma).first())
+    return c.json({ error: "MA_TRUNG_LINH_KIEN" }, 409);
+  const user = c.get("user");
+  await c.env.DB.batch([
+    c.env.DB.prepare("INSERT INTO lk_combo (ma_combo, ten_combo, bat_tat, ghi_chu, nguoi_cap_nhat, ngay_cap_nhat) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(ma, kt.ten, body.bat_tat === false || body.bat_tat === 0 ? 0 : 1, body.ghi_chu?.trim() || null, user.email, nowVN()),
+    ...lenhGhiThanhPhan(c.env.DB, ma, kt.ct),
+  ]);
+  return c.json({ ok: true, ma_combo: ma });
+});
+
+// PATCH /api/lk-settings/combo/:ma - sua ten/ghi chu/bat tat/thanh phan (gui ct = thay TOAN BO thanh phan).
+lkSettings.patch("/combo/:ma", quanLyCombo, async (c) => {
+  const ma = c.req.param("ma");
+  const cu = await c.env.DB.prepare("SELECT ten_combo, ghi_chu, bat_tat FROM lk_combo WHERE ma_combo = ?").bind(ma)
+    .first<{ ten_combo: string; ghi_chu: string | null; bat_tat: number }>();
+  if (!cu) return c.json({ error: "NOT_FOUND" }, 404);
+  const body = await c.req.json<ComboBody>();
+  const stmts: D1PreparedStatement[] = [];
+  let ten = cu.ten_combo;
+  if (body.ct !== undefined) {
+    const kt = await kiemTraCombo(c.env.DB, { ten_combo: body.ten_combo ?? cu.ten_combo, ct: body.ct });
+    if ("error" in kt) return c.json(kt, 400);
+    ten = kt.ten;
+    stmts.push(...lenhGhiThanhPhan(c.env.DB, ma, kt.ct));
+  } else if (body.ten_combo !== undefined) {
+    if (!body.ten_combo.trim()) return c.json({ error: "THIEU_TEN_COMBO" }, 400);
+    ten = body.ten_combo.trim();
+  }
+  const batTat = body.bat_tat === undefined ? cu.bat_tat : body.bat_tat === false || body.bat_tat === 0 ? 0 : 1;
+  const ghiChu = body.ghi_chu === undefined ? cu.ghi_chu : body.ghi_chu?.trim() || null;
+  const user = c.get("user");
+  stmts.unshift(
+    c.env.DB.prepare("UPDATE lk_combo SET ten_combo = ?, bat_tat = ?, ghi_chu = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_combo = ?")
+      .bind(ten, batTat, ghiChu, user.email, nowVN(), ma),
+  );
+  await c.env.DB.batch(stmts);
+  return c.json({ ok: true });
+});
+
+// DELETE /api/lk-settings/combo/:ma - xoa han combo (don da tao giu nguyen, van con nhan ma combo).
+lkSettings.delete("/combo/:ma", quanLyCombo, async (c) => {
+  const ma = c.req.param("ma");
+  if (!(await c.env.DB.prepare("SELECT 1 FROM lk_combo WHERE ma_combo = ?").bind(ma).first())) return c.json({ error: "NOT_FOUND" }, 404);
+  await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM lk_combo_ct WHERE ma_combo = ?").bind(ma),
+    c.env.DB.prepare("DELETE FROM lk_combo WHERE ma_combo = ?").bind(ma),
+  ]);
+  return c.json({ ok: true });
 });
 
 export default lkSettings;

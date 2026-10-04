@@ -21,6 +21,7 @@ import { useAuth } from "../auth/AuthContext";
 import { formatLkLabel } from "./datMuaLinhKien/helpers";
 import { BomHangTab } from "./danhMucLinhKien/BomHangTab";
 import { ThayTheTab } from "./danhMucLinhKien/ThayTheTab";
+import { ComboTab } from "./danhMucLinhKien/ComboTab";
 import { Money } from "../components/ui/Money";
 import { boDau, diemTimTheoTu, taoChiMucTim, type ChiMucTim } from "../lib/boDau";
 import { TRANG_THAI_MA, TrangThaiMaBadge, XetDuyetMaSection } from "./danhMucLinhKien/XetDuyetMaLk";
@@ -445,6 +446,7 @@ const TABS = [
   { key: "danh-muc", label: "Danh mục" },
   { key: "bom-hang", label: "BOM" },
   { key: "thay-the", label: "Linh kiện thay thế" },
+  { key: "combo", label: "Combo" },
 ];
 
 // Tach ra khoi SettingsModule.tsx (truoc la 1 tab trong trang Settings Admin-only) thanh module
@@ -465,6 +467,7 @@ export function DanhMucLinhKienModule() {
       {tab === "danh-muc" && <DanhMucTab />}
       {tab === "bom-hang" && <BomHangTab />}
       {tab === "thay-the" && <ThayTheTab />}
+      {tab === "combo" && <ComboTab />}
     </div>
   );
 }

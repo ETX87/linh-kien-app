@@ -616,6 +616,15 @@ mã có sẵn để gắn (gợi ý tìm theo tên sau dấu "-" cuối của T�
 cảnh báo tạm tính FE bỏ qua), "Giá đề xuất"/"Tổng tiền đề xuất" = 0 (`donGiaSauChietKhau`/`tienSauChietKhau`), loại chiết khấu `KH_TRA_GOP` "Chiết khấu đơn KH trả góp" (`tinhToanPxk` + `maTheoLoaiDon`). TRIGGER
 `trg_ddh_kh_tra_gop_i/u` ép lại lúc tạo/đổi loại đề xuất (mọi đường ghi); TN vẫn sửa tay được sau đó. File MISA (mọi mẫu): dòng trả góp cùng phiếu + KTV + mã LK + loại đề xuất GỘP 1 dòng (SL cộng, Mã YCSC / TT mail duyệt / TT KH nối ", ") — `gopDongKhTraGop()` ở `misaExport.ts`.
 
+**Combo linh kiện** (chốt 2026-10-04, migration `0066`, `lib/lkCombo.ts`): bảng `lk_combo` (mã combo, tên, bật/tắt) +
+`lk_combo_ct` (LK thành phần + SL/bộ), quản lý ở Bảng giá › tab "Combo" (`danhMucLinhKien/ComboTab.tsx`, `/api/lk-settings/combo`,
+ghi = Quản lý danh mục LK / Mua hàng / Admin; mã combo không đổi được, không trùng LK đang bật, ";" → ","). Combo KHÔNG phải LK: ô chọn
+LK lúc tạo đơn thêm combo như 1 mục (`comboThanhLkRow()` ở `helpers.ts` — chỉ combo đang bật có MỌI thành phần đang chọn được, giá =
+tổng thành phần), form giữ 1 dòng; server `tachComboDong()` tách thành từng đơn thành phần (SL = SL combo × SL/bộ) ở ĐẦU POST
+`/phieu-dat` và import Excel (combo tạo đủ bộ hoặc không tạo) — mỗi đơn tính giá/chiết khấu/công nợ/tồn kho/MISA như đơn thường,
+`dat_don_hang.combo_ma` chỉ là nhãn 🧩. `chuyenMaLk()` cập nhật thành phần combo. 10 dòng "combo" cũ trong `linh_kien` (mã = danh
+sách mã nối dấu phẩy, đã tắt) + 4 đơn cũ dùng chúng giữ nguyên (chốt người dùng) — combo cùng mã thắng vì tách trước khi tra `linh_kien`.
+
 **Bỏ bước TBP** cho LK đặc thù khi loại đề xuất chứa MUA / HỖ TRỢ / **TRỪ CÔNG NỢ** (`boQuaTbpChoDacThu()` backend,
 bản sao `boQuaTbpDacThu()` FE cho cảnh báo ở `LinhKienPicker`).
 

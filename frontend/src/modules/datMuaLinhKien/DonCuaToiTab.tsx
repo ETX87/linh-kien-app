@@ -40,7 +40,7 @@ import {
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, laTraHangChoTn, laChoHangMoKhoa, laChoHangBiKhoa, trangThaiLabel, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft,
-  useLkAndLdeCache, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
+  useLkAndLdeCache, useLkCombo, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
   donGiaSauChietKhau, tienSauChietKhau, giaNiemYet, boQuaTbpDacThu } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink, LogTieuDe } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
@@ -361,6 +361,7 @@ export function DonHangDetailModal({
   // mã linh kiện để xem chi tiết linh kiện") - truoc chi nap danh muc o che do SUA; gio nap ca khi XEM
   // de tra ten LK (du phong khi ten_lk_snapshot rong) + mo LinhKienDetailModal. Rẻ: IndexedDB + ?since=.
   const { danhMuc, ldeEntries } = useLkAndLdeCache(true);
+  const { data: comboData } = useLkCombo();
   const rankMap = useLinhKienRankMap();
   const [xemLkChiTiet, setXemLkChiTiet] = useState(false);
   const auth = useAuth();
@@ -1215,6 +1216,11 @@ Quỹ của KTV giảm ${fmtVND(d.tra_bang_quy!.can_tra)}.`)) {
                 <KvRow label="Tên linh kiện">
                   {d.ten_lk_snapshot ?? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk)?.ten_linh_kien ?? "—"}
                 </KvRow>
+                {d.combo_ma && (
+                  <KvRow label="Combo">
+                    🧩 {formatLkLabel(d.combo_ma, comboData?.rows.find((cb) => cb.ma_combo === d.combo_ma)?.ten_combo ?? d.combo_ma)}
+                  </KvRow>
+                )}
                 <KvRow label="Mã LK">
                   <button
                     type="button"
@@ -2468,6 +2474,7 @@ export function DonHangGroupedList({
           className={`block w-full truncate text-left font-medium hover:underline hover:text-[var(--ocean-600)] ${row.rowStyle}`}
         >
           {row.d.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
+          {row.d.combo_ma && <span title={`Đơn tách từ combo ${row.d.combo_ma}`}>🧩 </span>}
           {formatLkLabel(row.d.ma_lk, row.d.ten_lk_snapshot ?? row.d.ma_lk)}
           {!!row.d.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
         </button>
@@ -2996,6 +3003,7 @@ export function DonHangGroupedList({
                                   className={`inline-block align-top max-w-full min-w-0 truncate text-left font-medium text-sm hover:underline hover:text-[var(--ocean-600)] ${rowStyle}`}
                                 >
                                   {d.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
+                                  {d.combo_ma && <span title={`Đơn tách từ combo ${d.combo_ma}`}>🧩 </span>}
                                   {d.ten_lk_snapshot ?? d.ma_lk}
                                   {!!d.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
                                 </button>

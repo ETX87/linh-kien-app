@@ -24,6 +24,8 @@ export const TINH_QUERY: Record<string, string[]> = {
   "dat-mua-lk-ly-do-cham": ["md_ly_do_cham"],
   "settings-ly-do-cham": ["md_ly_do_cham"],
   "settings-loai-chiet-khau": ["md_loai_chiet_khau"],
+  // Combo LK (migration 0066) - kem ten/gia thanh phan nen theo ca md_linh_kien.
+  "lk-combo": ["md_lk_combo", "md_linh_kien"],
 };
 
 type PhienBan = Record<string, number>;

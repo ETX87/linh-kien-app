@@ -5,7 +5,7 @@ import { api, ApiError } from "../../api/client";
 import { getAllFromCache, getLastCacheTimestamp, mergeLinhKienToCache, ensureCacheSchemaVersion } from "../../lib/linhKienCache";
 import { getAllLdeFromCache, clearLdeCache, mergeLdeToCache, type LdeEntry } from "../../lib/loaiDeXuatCache";
 import type { Tone } from "../../components/x/Badge";
-import type { LkDanhMucRow, NguoiNhanHangKhaDungRow, DonHangDraft, DonHangRow, KtvDisplayMap, XepHangLinhKienRow } from "./types";
+import type { LkDanhMucRow, LkComboRow, NguoiNhanHangKhaDungRow, DonHangDraft, DonHangRow, KtvDisplayMap, XepHangLinhKienRow } from "./types";
 import { YEU_CAU_HOA_DON_OPTIONS, GENERIC_ERROR_MESSAGES } from "./constants";
 
 // Ham/hook thuan (khong JSX) dung chung nhieu tab, tach tu DatMuaLinhKienModule.tsx (UI redesign
@@ -113,6 +113,47 @@ export function ktvOptionLabel(r: NguoiNhanHangKhaDungRow, allRows: NguoiNhanHan
 export function formatLkLabel(maLinhKien: string, tenLinhKien: string): string {
   if (tenLinhKien.toLowerCase().includes(maLinhKien.toLowerCase())) return tenLinhKien;
   return `${tenLinhKien} (${maLinhKien})`;
+}
+
+// Combo linh kien (migration 0066) - cache tren may theo md_lk_combo/md_linh_kien (TINH_QUERY "lk-combo").
+export function useLkCombo(enabled = true) {
+  return useQuery({
+    queryKey: ["lk-combo"],
+    queryFn: () => api.get<{ rows: LkComboRow[] }>("/lk-settings/combo"),
+    enabled,
+  });
+}
+
+/**
+ * Muc combo cho o chon LK luc tao don: chi combo dang bat co MOI thanh phan con chon duoc (co trong danhMuc da loc
+ * bat_tat/cam_ban/chi_sua_chua). Gia NY / Gia KTV = tong thanh phan x SL theo danh muc hien tai; dac_thu = co thanh phan
+ * dac thu. Server tach thanh tung don thanh phan khi luu (lib/lkCombo.ts) nen moi don van tinh rieng nhu thuong.
+ */
+export function comboThanhLkRow(combos: LkComboRow[] | undefined, danhMuc: LkDanhMucRow[]): LkDanhMucRow[] {
+  if (!combos?.length) return [];
+  const map = new Map(danhMuc.map((r) => [r.ma_linh_kien, r]));
+  const out: LkDanhMucRow[] = [];
+  for (const cb of combos) {
+    if (!cb.bat_tat || cb.ct.length === 0 || map.has(cb.ma_combo)) continue;
+    const tp = cb.ct.map((t) => ({ t, lk: map.get(t.ma_lk) }));
+    if (tp.some((x) => !x.lk)) continue;
+    const tong = (f: (lk: LkDanhMucRow) => number | null | undefined) => tp.reduce((s, x) => s + (f(x.lk!) ?? 0) * x.t.so_luong, 0);
+    out.push({
+      ma_linh_kien: cb.ma_combo,
+      ten_linh_kien: cb.ten_combo,
+      gia_ban: tong((lk) => lk.gia_ban),
+      gia_tri_cong_no: tong((lk) => lk.gia_tri_cong_no),
+      gia_du_phong: null,
+      don_vi: "Combo",
+      bat_tat: 1,
+      dac_thu: tp.some((x) => x.lk!.dac_thu) ? 1 : 0,
+      trang_thai_ma: "Da xac nhan",
+      anh_demo: tp.find((x) => x.lk!.anh_demo)?.lk!.anh_demo ?? null,
+      ghi_chu: cb.ghi_chu,
+      combo: { ...cb, ct: tp.map((x) => ({ ...x.t, ten_lk: x.lk!.ten_linh_kien, gia_ban: x.lk!.gia_ban, gia_tri_cong_no: x.lk!.gia_tri_cong_no ?? null })) },
+    });
+  }
+  return out;
 }
 
 export function trangThaiLabel(options: { value: string; label: string }[], value: string): string {

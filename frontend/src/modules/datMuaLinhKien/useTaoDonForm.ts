@@ -4,7 +4,7 @@ import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
 import type { DonHangDraft, NguoiNhanHangKhaDungRow } from "./types";
-import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop } from "./helpers";
+import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, useLkCombo, comboThanhLkRow } from "./helpers";
 
 // Tach tu TaoDonTab.tsx (them 2026-08-21, phan hoi "màn hình tạo đơn mobile bị đưa đưa, chiếm diện
 // tích nhỏ") - toan bo STATE/LOGIC nghiep vu (validate, mutation, quan ly danh sach drafts...) chuyen
@@ -17,7 +17,10 @@ export function useTaoDonForm({
 }: {
   addToast: (msg: string) => void; qc: ReturnType<typeof useQueryClient>; canQuanLy: boolean; onClose: () => void;
 }) {
-  const { danhMuc, ldeEntries } = useLkAndLdeCache(true);
+  const { danhMuc: danhMucLk, ldeEntries } = useLkAndLdeCache(true);
+  // Combo LK (migration 0066) - them vao o chon LK nhu 1 muc (gia = tong thanh phan); server tach thanh tung don khi luu.
+  const { data: comboData } = useLkCombo();
+  const danhMuc = useMemo(() => [...danhMucLk, ...comboThanhLkRow(comboData?.rows, danhMucLk)], [danhMucLk, comboData]);
 
   const [nguoiNhanHang, setNguoiNhanHang] = useState("");
   const [drafts, setDrafts] = useState<DonHangDraft[]>([emptyDraft()]);

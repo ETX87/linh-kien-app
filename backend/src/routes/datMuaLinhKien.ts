@@ -34,6 +34,7 @@ import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, MUA_CONG_NO_ROLES
 import { pushThieuLkToKhovan, buildWorkUrl } from "../lib/khovanPushClient";
 import { ANH_DA_GHI_NHAN_SQL } from "../lib/bangChungChuyenTien";
 import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
+import { tachComboDong } from "../lib/lkCombo";
 
 // Luong chinh "Dat mua linh kien" - phieu dat (header, chi de tong hop hien thi) + dong don hang -
 // xem migration 0056_phieu_dat.sql + 0063_dat_don_hang_trang_thai_theo_dong.sql.
@@ -2189,6 +2190,17 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
     }[];
   }>();
   if (!Array.isArray(body.don_hang) || body.don_hang.length === 0) return c.json({ error: "MISSING_DON_HANG" }, 400);
+  // Combo linh kien (migration 0066): dong ma combo -> tung don LK thanh phan TRUOC moi kiem tra ben duoi. comboMaCuaDong
+  // song song voi body.don_hang (khong nhan combo_ma tu client).
+  const tachDon = await tachComboDong(
+    c.env.DB,
+    body.don_hang,
+    (dh) => dh?.ma_lk,
+    (dh) => Number(dh?.so_luong_de_xuat),
+    (dh, maLk, soLuong) => ({ ...dh, ma_lk: maLk, so_luong_de_xuat: soLuong }),
+  );
+  body.don_hang = tachDon.map((t) => t.dong);
+  const comboMaCuaDong = tachDon.map((t) => t.comboMa);
 
   const user = c.get("user");
   // FIX 2026-09-28 (bug "KTV tao 1 don, he thong hien 5 don giong het"): lan bam truoc da luu thanh
@@ -2368,8 +2380,8 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
         `INSERT INTO dat_don_hang
            (id, phieu_dat_id, loai_don, ma_lk, ten_lk_snapshot, loai_de_xuat, so_luong_de_xuat, gia_de_xuat,
             so_tien_cong_no, danh_gia_cong_no, ghi_chu, yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang, chinh_sach, ma_yeu_cau_su_co, ma_lada,
-            nguoi_tao, ngay_tao, updated_at, email_gs, nguoi_nhan_hang, uu_tien, trang_thai_hien_tai, bat_buoc_chuyen_tien)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            nguoi_tao, ngay_tao, updated_at, email_gs, nguoi_nhan_hang, uu_tien, trang_thai_hien_tai, bat_buoc_chuyen_tien, combo_ma)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         donHangId,
         phieuDatId,
@@ -2396,6 +2408,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
         dh.uu_tien ? 1 : 0,
         trangThaiKhoiTao,
         batBuocChuyenTien ? 1 : 0,
+        comboMaCuaDong[i] ?? null,
       ),
     );
 
@@ -2557,6 +2570,9 @@ interface DatDonHangImportValidRow {
   // "Cong no tam tinh" cua dong nay (them 04/09/2026, xem lib/congNoKtv.ts) - gia_tri_cong_no cua LK
   // x soLuong, chi > 0 khi loaiDon==='cong_no'. danhGiaCongNo chot cho CA nhom (1 KTV) sau khi gom.
   soTienCongNo: number;
+  // Dong sinh tu combo (migration 0066) - nhan hien thi. idx = vi tri trong mang da tach combo.
+  comboMa: string | null;
+  idx: number;
 }
 
 async function processDatDonHangImportRows(
@@ -2566,9 +2582,18 @@ async function processDatDonHangImportRows(
 ): Promise<{ thanhCong: number; loi: number; errors: string[]; soPhieu: number; ktvList: string[]; phieuIds?: string[] }> {
   // Thu vien doc Excel o trinh duyet giu o SO la number (vd Ma yeu cau su co / TT mail duyet toan chu so) -> `.trim()` tren
   // number nem TypeError = 500 "INTERNAL_ERROR" cho CA file (bao loi 2026-10-02). Chuan hoa moi o ve chuoi truoc.
-  const rows = rowsGoc.map((r) =>
+  const rowsChuan = rowsGoc.map((r) =>
     Object.fromEntries(Object.entries(r ?? {}).map(([k, v]) => [k, v == null ? v : typeof v === "string" ? v : String(v)])),
   ) as DatDonHangImportRow[];
+  // Combo linh kien (migration 0066): dong ghi ma combo -> tung dong LK thanh phan; bao loi van theo so dong trong file.
+  const tachDong = await tachComboDong(
+    c.env.DB,
+    rowsChuan,
+    (r) => r.ma_lk,
+    (r) => Number(r.so_luong_de_xuat),
+    (r, maLk, soLuong) => ({ ...r, ma_lk: maLk, so_luong_de_xuat: String(soLuong) }),
+  );
+  const rows = tachDong.map((t) => t.dong);
   const user = c.get("user");
   const db = c.env.DB;
   const errors: string[] = [];
@@ -2583,7 +2608,7 @@ async function processDatDonHangImportRows(
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    const dong = i + 1;
+    const dong = tachDong[i].goc + 1;
     const maKtv = String(row.nguoi_nhan_hang ?? "").trim();
     const maLkGoc = String(row.ma_lk ?? "").trim();
     // File import cu con ma LK da doi/gop -> quy ve ma chuan (migration 0053).
@@ -2691,7 +2716,24 @@ async function processDatDonHangImportRows(
       // "TRỪ CÔNG NỢ" khong doi chieu cong no (chot 2026-09-28) - soTienCongNo = 0 nhu don mua.
       // Don KH tra gop (laKhTraGop) - gia tri CN = 0 (chot 2026-10-02).
       soTienCongNo: loaiDonRow === "cong_no" && !laTruCongNo(loaiDeXuat) && !laKhTraGop(loaiDeXuat) ? (lk.giaTriCongNo ?? 0) * soLuong : 0,
+      comboMa: tachDong[i].comboMa,
+      idx: i,
     });
+  }
+
+  // Combo tao DU BO hoac khong tao: 1 thanh phan loi -> bo ca cac thanh phan con lai cua dong combo do.
+  const idxHopLe = new Set(valid.map((v) => v.idx));
+  const gocLoi = new Set(tachDong.filter((t, i) => t.comboMa && !idxHopLe.has(i)).map((t) => t.goc));
+  if (gocLoi.size > 0) {
+    const gocDaBo = new Set<number>();
+    for (let k = valid.length - 1; k >= 0; k--) {
+      const g = tachDong[valid[k].idx].goc;
+      if (gocLoi.has(g)) {
+        valid.splice(k, 1);
+        gocDaBo.add(g);
+      }
+    }
+    for (const g of gocDaBo) errors.push(`Dòng ${g + 1}: combo "${tachDong.find((t) => t.goc === g)!.comboMa}" không tạo vì có linh kiện thành phần lỗi (xem lỗi phía trên)`);
   }
 
   // Gom theo KTV nhan hang - moi nhom = 1 phieu_dat (chot voi chu he thong 2026-08-15).
@@ -2745,8 +2787,8 @@ async function processDatDonHangImportRows(
               `INSERT INTO dat_don_hang
                  (id, phieu_dat_id, loai_don, ma_lk, ten_lk_snapshot, loai_de_xuat, so_luong_de_xuat, gia_de_xuat,
                   so_tien_cong_no, danh_gia_cong_no, ghi_chu, yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang, chinh_sach, ma_yeu_cau_su_co, ma_lada,
-                  nguoi_tao, ngay_tao, updated_at, email_gs, nguoi_nhan_hang, trang_thai_hien_tai)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                  nguoi_tao, ngay_tao, updated_at, email_gs, nguoi_nhan_hang, trang_thai_hien_tai, combo_ma)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             )
             .bind(
               donHangId,
@@ -2772,6 +2814,7 @@ async function processDatDonHangImportRows(
               giamSatRow?.giam_sat_quan_ly ?? null,
               emailNhanHang,
               trangThaiKhoiTao,
+              v.comboMa,
             ),
         );
         if (v.loaiDon !== "tra_hang") {
@@ -2792,10 +2835,12 @@ async function processDatDonHangImportRows(
     }
   }
 
+  // Dong combo loi -> cung 1 loi lap lai theo tung thanh phan, chi giu 1.
+  const errorsGon = [...new Set(errors)];
   return {
     thanhCong: valid.length,
-    loi: errors.length,
-    errors,
+    loi: errorsGon.length,
+    errors: errorsGon,
     soPhieu: groups.size,
     ktvList: [...new Set(valid.map((v) => v.maKtv))],
     ...(commit ? { phieuIds } : {}),
