@@ -2526,6 +2526,26 @@ export function DonHangGroupedList({
       render: (row) =>
         row.d.thanh_toan ? <StatusBadge value={row.d.thanh_toan} tones={THANH_TOAN_DON_TONE} options={THANH_TOAN_DON_OPTIONS} /> : <span className="text-[var(--ink-400)]">—</span>,
     },
+    // Loai / Ghi chu nguoi dat hang / Ma YCSC / Ma Lada dua len NGAY SAU "Chuyển tiền" (phan hoi 2026-10-04).
+    { key: "loai", header: "Loại", filter: loc("loai_de_xuat"), render: (row) => <LoaiDeXuatBadge loaiDon={row.d.loai_don} loaiDeXuat={row.d.loai_de_xuat} /> },
+    { key: "ghi_chu", header: "Ghi chú người đặt hàng", render: (row) => row.d.ghi_chu || <span className="text-[var(--ink-400)]">—</span> },
+    {
+      key: "ma_ycsc",
+      header: "Mã yêu cầu sự cố",
+      render: (row) =>
+        row.d.ma_yeu_cau_su_co ? (
+          <span onClick={(e) => e.stopPropagation()}>
+            <MaYcscCell value={row.d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />
+          </span>
+        ) : (
+          <span className="text-[var(--ink-400)]">—</span>
+        ),
+    },
+    {
+      key: "ma_lada",
+      header: "Mã Lada",
+      render: (row) => (row.d.ma_lada ? <span className="font-mono">{row.d.ma_lada}</span> : <span className="text-[var(--ink-400)]">—</span>),
+    },
     // SUA (phan hoi 2026-09-12: "sắp xếp các cột trong table danh sách đơn giống" file tham chiếu
     // AppSheet "ADMIN XUAT HANG MN v3" - doi ca THU TU LAN gop toan bo cot "Tuỳ chỉnh cột" (truoc day
     // an mac dinh) thanh cot chinh LUON hien, khop dung thu tu: Linh kien -> Ngay de xuat -> SL de
@@ -2558,7 +2578,6 @@ export function DonHangGroupedList({
     // "Giá niêm yết" (giá bán) canh "Giá đề xuất" = don gia SAU chiet khau (phan hoi 2026-09-28).
     { key: "gia_niem_yet", header: "Giá niêm yết", className: "text-right", render: (row) => (giaNiemYet(row.d) != null ? <Money>{fmtVND(giaNiemYet(row.d))}</Money> : "—") },
     { key: "gia", header: "Giá đề xuất", className: "text-right", render: (row) => (donGiaSauChietKhau(row.d) != null ? <span className="text-[var(--green-700)] font-semibold" title="Đơn giá sau chiết khấu (giá thực cần chuyển tiền)"><Money>{fmtVND(donGiaSauChietKhau(row.d))}</Money></span> : "—") },
-    { key: "loai", header: "Loại", filter: loc("loai_de_xuat"), render: (row) => <LoaiDeXuatBadge loaiDon={row.d.loai_don} loaiDeXuat={row.d.loai_de_xuat} /> },
     // Loai chiet khau (2026-09-26) - he thong gan luc tao PXK, TN sua o chi tiet don/chi tiet PXK.
     {
       key: "loai_chiet_khau",
@@ -2576,28 +2595,10 @@ export function DonHangGroupedList({
     // "Khu vực" cua NGUOI NHAN HANG (khong phai cot that tren dat_don_hang - server LEFT JOIN qua
     // ktv_lien_he.khu_vuc_ma, xem GET /don-hang + DonHangRow.khu_vuc_ten trong types.ts).
     { key: "khu_vuc", header: "Khu vực", filter: loc("khu_vuc"), render: (row) => row.d.khu_vuc_ten || <span className="text-[var(--ink-400)]">—</span> },
-    { key: "ghi_chu", header: "Ghi chú người đặt hàng", render: (row) => row.d.ghi_chu || <span className="text-[var(--ink-400)]">—</span> },
     // "Ghi chú Admin" - xem giai thich mapping (dong dat_don_hang_log MOI NHAT) o comment tren
     // DonHangRow.ghi_chu_xu_ly_gan_nhat trong types.ts.
     { key: "ghi_chu_admin", header: "Ghi chú Admin", render: (row) => row.d.ghi_chu_xu_ly_gan_nhat || <span className="text-[var(--ink-400)]">—</span> },
     { key: "nguoi_tao_yc", header: "Người tạo yêu cầu", filter: loc("nguoi_tao"), render: (row) => <NguoiTao>{formatNguoiDisplay(row.d.nguoi_tao, ktvDisplayMap)}</NguoiTao> },
-    {
-      key: "ma_ycsc",
-      header: "Mã yêu cầu sự cố",
-      render: (row) =>
-        row.d.ma_yeu_cau_su_co ? (
-          <span onClick={(e) => e.stopPropagation()}>
-            <MaYcscCell value={row.d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />
-          </span>
-        ) : (
-          <span className="text-[var(--ink-400)]">—</span>
-        ),
-    },
-    {
-      key: "ma_lada",
-      header: "Mã Lada",
-      render: (row) => (row.d.ma_lada ? <span className="font-mono">{row.d.ma_lada}</span> : <span className="text-[var(--ink-400)]">—</span>),
-    },
     {
       key: "hanh_dong",
       header: "",
@@ -2663,7 +2664,7 @@ export function DonHangGroupedList({
     effectiveColumns, toggleableColumns, resolvedOrder, colWidths,
     settingsOpen, setSettingsOpen, dragOverKey, setDragOverKey, draggedColKey,
     toggleColumn, handleColumnDrop, handleResizeStart,
-  } = useColumnConfig(cols, optionalCols, [], "dmlk-don-hang-list-v3", "dmlk-don-hang-list-v2") /* -v3 (2026-10-03): thu tu cot moi (trang thai sau Linh kien) - bo thu tu da luu cu */;
+  } = useColumnConfig(cols, optionalCols, [], "dmlk-don-hang-list-v4", "dmlk-don-hang-list-v2") /* -v4 (2026-10-04): Loai/Ghi chu/Ma YCSC/Ma Lada sau Chuyen tien - bo thu tu da luu cu */;
 
   // ===== Bo cuc cot bang desktop (SUA 2026-09-26, phan hoi "danh sách đơn hàng đang bị kéo giãn...
   // các nút bấm chuyển về góc trái, các cột không tự xuống dòng, dựa vào độ dài các ký tự thật") =====

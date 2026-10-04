@@ -201,7 +201,7 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   (Chờ KTV chuyển tiền / Chờ xác nhận chuyển tiền / Chờ TN gửi kế toán); đơn chưa vào phiếu: "TN da duyet" → "Chờ tạo
   phiếu", còn lại trống. Chuyển tiền: đơn từ chối/hủy → Đã hủy bỏ; không phải Mua/TRỪ CÔNG NỢ → Không cần chuyển; chưa vào
   phiếu → Chờ thanh toán (chốt người dùng); trong phiếu theo `trang_thai_chuyen_tien` (Kế toán duyệt = Đã thanh toán; PXK
-  `so_tien_can_chuyen` NULL = Không cần chuyển). Danh sách đơn: 3 cột Trạng thái / Phiếu xuất kho / Chuyển tiền đứng NGAY SAU "Linh kiện" (2026-10-03, key cấu hình cột `dmlk-don-hang-list-v3`); mobile: dòng 3 của thẻ đơn.
+  `so_tien_can_chuyen` NULL = Không cần chuyển). Danh sách đơn: 3 cột Trạng thái / Phiếu xuất kho / Chuyển tiền đứng NGAY SAU "Linh kiện" (2026-10-03), tiếp theo Loại / Ghi chú người đặt hàng / Mã yêu cầu sự cố / Mã Lada (2026-10-04, key cấu hình cột `dmlk-don-hang-list-v4` — đổi thứ tự mặc định thì tăng key để bỏ thứ tự đã lưu); mobile: dòng 3 của thẻ đơn.
 - **Kế toán đẩy lùi PXK "Chờ mã MISA" → "Chờ mã HĐ"** (2026-09-29): `POST /phieu-xuat-kho/:id/log` `trang_thai='Dang tao
   phieu'` từ "Cho ke toan", CHỈ Kế toán/Admin, bắt buộc `ghi_chu` (log "Kế toán trả về chờ mã HĐ: …", báo việc mới cho TN);
   giữ nguyên mã đơn hàng/mã MISA/chuyển tiền đã duyệt. Nút "↩ Trả về chờ mã HĐ" ở footer chi tiết PXK.
