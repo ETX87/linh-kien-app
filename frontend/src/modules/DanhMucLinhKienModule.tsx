@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../components/ui/Btn";
 import { FileButton } from "../components/ui/FileButton";
@@ -23,7 +23,10 @@ import { BomHangTab } from "./danhMucLinhKien/BomHangTab";
 import { ThayTheTab } from "./danhMucLinhKien/ThayTheTab";
 import { ComboTab } from "./danhMucLinhKien/ComboTab";
 import { Money } from "../components/ui/Money";
-import { boDau, diemTimTheoTu, taoChiMucTim, type ChiMucTim } from "../lib/boDau";
+import { timLk, sapTheoDiem } from "../lib/timLinhKien";
+import { useBoTimLk, useLichSuLk, diemHayDat } from "../lib/useTimLinhKien";
+import { ToDam } from "../components/ui/ToDam";
+import { TimLkBox, TuKhoaLkSection, DongNghiaTab } from "./danhMucLinhKien/TimLkBox";
 import { TRANG_THAI_MA, TrangThaiMaBadge, XetDuyetMaSection } from "./danhMucLinhKien/XetDuyetMaLk";
 import { PhanLoaiNhanh } from "./danhMucLinhKien/PhanLoaiNhanh";
 
@@ -418,6 +421,8 @@ function PartDetailDrawer({
 
           <XetDuyetMaSection part={part} parts={parts} canXetDuyet={canXetDuyet} onDoiMa={onDoiMa} />
 
+          <TuKhoaLkSection ma={part.ma_linh_kien} canSua={canEdit || canXetDuyet} />
+
           <div>
             <SectionTitle>Ghi chú</SectionTitle>
             <div className="text-sm text-[var(--ink-700)] whitespace-pre-wrap rounded-xl bg-[var(--surface-100)] px-3.5 py-2.5 min-h-[2.5rem]">
@@ -447,6 +452,7 @@ const TABS = [
   { key: "bom-hang", label: "BOM" },
   { key: "thay-the", label: "Linh kiện thay thế" },
   { key: "combo", label: "Combo" },
+  { key: "tu-khoa", label: "Từ khóa tìm kiếm" },
 ];
 
 // Tach ra khoi SettingsModule.tsx (truoc la 1 tab trong trang Settings Admin-only) thanh module
@@ -461,6 +467,10 @@ const TABS = [
 // cho MOI tai khoan dang nhap nhu de xuat ban dau.
 export function DanhMucLinhKienModule() {
   const [tab, setTab] = useState("danh-muc");
+  const auth = useAuth();
+  const u = auth.status === "authenticated" ? auth.user : null;
+  // Sua tu khoa / dong nghia = cung nhom sua combo (backend lkSettings quanLyCombo).
+  const canSuaTuKhoa = !!u && (!!u.quan_ly_danh_muc_lk || !!u.la_mua_hang || u.vai_tro === "Admin");
   return (
     <div className="anim-in">
       <Tabs active={tab} onChange={setTab} tabs={TABS} />
@@ -468,6 +478,7 @@ export function DanhMucLinhKienModule() {
       {tab === "bom-hang" && <BomHangTab />}
       {tab === "thay-the" && <ThayTheTab />}
       {tab === "combo" && <ComboTab />}
+      {tab === "tu-khoa" && <DongNghiaTab canSua={canSuaTuKhoa} />}
     </div>
   );
 }
@@ -561,14 +572,16 @@ function DanhMucTab() {
     queryFn: () => fetchWithHashCache<{ rows: LinhKienRow[] }>("settings-linh-kien", "/settings/linh-kien/version", "/settings/linh-kien"),
   });
 
-  // Tim kiem theo TU + xep hang (2026-09-30, "gõ 'lõi ro' cũng tìm thấy 'lõi lọc nước ro'") - lib/boDau.ts
-  // diemTimTheoTu(). Chi muc (bo dau + tach tu) tinh 1 lan khi danh muc tai xong, khong tinh lai moi lan go phim.
-  // Loc/xep hang hoan toan tren may: danh muc da tai 1 lan (fetchWithHashCache), go tim KHONG goi server.
-  const chiMuc = useMemo(() => {
-    const m = new Map<string, ChiMucTim>();
-    for (const p of parts?.rows ?? []) m.set(p.ma_linh_kien, taoChiMucTim(`${p.ten_linh_kien} ${p.ma_linh_kien}`));
-    return m;
-  }, [parts?.rows]);
+  // Bo tim tren may (2026-10-04, lib/timLinhKien.ts - CUNG bo voi o chon LK luc tao don): tach tu khoa roi rac, khong dau,
+  // bo qua gach noi trong ma, tu dong nghia/tu khoa phu, go sai 1 ky tu. Danh muc + tu khoa da cache tren may - go tim KHONG
+  // goi server. useDeferredValue: go phim muot, loc 6000 dong chay sau.
+  const lichSu = useLichSuLk();
+  const rowsTim = useMemo(() => (parts?.rows ?? []).map((p) => ({ ma: p.ma_linh_kien, ten: p.ten_linh_kien })), [parts?.rows]);
+  const boTim = useBoTimLk(rowsTim);
+  const searchHoan = useDeferredValue(search);
+  const kqTim = useMemo(() => timLk(boTim, searchHoan), [boTim, searchHoan]);
+  // Hang dat 30 ngay toan he thong (ma -> hang 1..n) - cung nguon cot "Lượt dùng 30 ngày".
+  const hangCongTy = useMemo(() => new Map((xepHangData?.rows ?? []).map((r, i) => [r.ma_lk, i + 1])), [xepHangData]);
   // LK CHUA phan loai (gia88 dong bo ma moi khong co "Phân loại") - canh bao cho moi nguoi (chot 2026-09-30).
   const soChuaPhanLoai = useMemo(
     () => (parts?.rows ?? []).filter((p) => p.trang_thai_ma !== "Da doi ma" && !p.don_vi?.trim()).length,
@@ -584,22 +597,11 @@ function DanhMucTab() {
   }, [parts, canXetDuyet, soChoXetDuyet]);
   const filteredRows = useMemo(() => {
     let rows = parts?.rows ?? [];
-    const q = search.trim();
-    if (q) {
-      const qbd = boDau(q);
-      const diem = new Map<string, number>();
-      for (const p of rows) {
-        const cm = chiMuc.get(p.ma_linh_kien);
-        let d = cm ? diemTimTheoTu(cm, q) : -1;
-        if (d < 0) continue;
-        // Go dung/dau ma linh kien -> len dau.
-        const ma = boDau(p.ma_linh_kien);
-        if (ma === qbd) d += 1000;
-        else if (ma.startsWith(qbd)) d += 200;
-        diem.set(p.ma_linh_kien, d);
-      }
-      rows = rows.filter((p) => diem.has(p.ma_linh_kien)).sort((a, b) => diem.get(b.ma_linh_kien)! - diem.get(a.ma_linh_kien)!);
-    }
+    // "Hay mua" len dau (2026-10-04): co tu khoa -> do sat + uu tien hay dat; o trong -> chinh minh hay chon (lich su tren
+    // may) roi hang dat 30 ngay toan he thong, con lai giu thu tu cu.
+    const uuTien = (ma: string) => diemHayDat(ma, lichSu.soLanChon, hangCongTy);
+    if (kqTim.diem) rows = sapTheoDiem(rows, (p) => p.ma_linh_kien, kqTim.diem, uuTien);
+    else rows = rows.map((p, i) => ({ p, i, v: uuTien(p.ma_linh_kien) })).sort((x, y) => y.v - x.v || x.i - y.i).map((x) => x.p);
     if (filterDacThu) rows = rows.filter((p) => (filterDacThu === "true" ? !!p.dac_thu : !p.dac_thu));
     if (filterChiSuaChua) rows = rows.filter((p) => (filterChiSuaChua === "true" ? !!p.chi_sua_chua : !p.chi_sua_chua));
     if (filterBatTat) rows = rows.filter((p) => (filterBatTat === "true" ? !!p.bat_tat : !p.bat_tat));
@@ -607,7 +609,7 @@ function DanhMucTab() {
     if (filterPhanLoai) rows = rows.filter((p) => (filterPhanLoai === CHUA_PHAN_LOAI ? !p.don_vi?.trim() : p.don_vi === filterPhanLoai));
     rows = filterTrangThaiMa ? rows.filter((p) => (p.trang_thai_ma ?? "Da xac nhan") === filterTrangThaiMa) : rows.filter((p) => p.trang_thai_ma !== "Da doi ma");
     return rows;
-  }, [parts?.rows, chiMuc, search, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan, filterTrangThaiMa, filterPhanLoai]);
+  }, [parts?.rows, kqTim, lichSu.soLanChon, hangCongTy, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan, filterTrangThaiMa, filterPhanLoai]);
 
   // "Phân loại" (doi ten tu "Đơn vị", phan hoi 2026-08-20) dang listdown NHUNG van cho go gia tri
   // moi (chon "tu dong gom tu du lieu hien co", khong phai danh sach co dinh quan ly rieng) - gop
@@ -869,8 +871,8 @@ function DanhMucTab() {
   }
 
   const tatCaCot: Column<LinhKienRow>[] = [
-    { key: "ma_linh_kien", header: "Mã", render: (p) => <span className="font-mono text-xs">{p.ma_linh_kien}</span> },
-    { key: "ten_linh_kien", header: "Tên linh kiện", render: (p) => <span className="font-semibold text-[var(--ocean-800)]">{p.ten_linh_kien}</span> },
+    { key: "ma_linh_kien", header: "Mã", render: (p) => <span className="font-mono text-xs"><ToDam text={p.ma_linh_kien} spec={kqTim.toDam} /></span> },
+    { key: "ten_linh_kien", header: "Tên linh kiện", render: (p) => <span className="font-semibold text-[var(--ocean-800)]"><ToDam text={p.ten_linh_kien} spec={kqTim.toDam} /></span> },
     { key: "trang_thai_ma", header: "Trạng thái mã", render: (p) => <TrangThaiMaBadge tt={p.trang_thai_ma} /> },
     { key: "gia_ban", header: "Giá NY", render: (p) => <span className="font-mono font-semibold text-[var(--green-700)]"><Money>{fmtVND(p.gia_ban)}</Money></span> },
     { key: "gia_tri_cong_no", header: "Giá KTV", render: (p) => <span className="font-mono text-xs">{p.gia_tri_cong_no != null ? <Money>{fmtVND(p.gia_tri_cong_no)}</Money> : "—"}</span> },
@@ -1082,14 +1084,28 @@ function DanhMucTab() {
         </div>
       )}
       <div className="flex items-center gap-2 flex-wrap mb-3">
-        <input
+        <TimLkBox
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          placeholder="Tìm mã/tên, vd: lõi ro..."
-          className="focus-ring w-full sm:w-64 bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+          onChange={(v) => { setSearch(v); setPage(1); }}
+          ketQua={filteredRows}
+          tong={filteredRows.length}
+          toDam={kqTim.toDam}
+          goiY={kqTim.goiY}
+          timGanDay={lichSu.timGanDay}
+          onChonMa={(ma) => setViewingMa(ma)}
+          onGhiTim={lichSu.ghiTim}
+          onXoaTim={lichSu.xoaTim}
         />
-        {/* Nhac nho so ket qua (phan hoi 2026-08-25, hang muc #11) - chi hien khi dang go tim kiem. */}
-        {search.trim() && <span className="text-xs text-[var(--ink-400)]">{filteredRows.length} kết quả</span>}
+        {search.trim() && (
+          <span className="text-xs text-[var(--ink-400)]">
+            {filteredRows.length} kết quả
+            {filteredRows.length === 0 && kqTim.goiY && (
+              <button type="button" className="ml-1 text-[var(--color-link)] hover:underline" onClick={() => { setSearch(kqTim.goiY!); setPage(1); }}>
+                · Có phải bạn muốn tìm “<b>{kqTim.goiY}</b>”?
+              </button>
+            )}
+          </span>
+        )}
         <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
           <span>Đặc thù:</span>
           <Select value={filterDacThu} onChange={(v) => { setFilterDacThu(v); setPage(1); }} options={BOOL_FILTER_OPTIONS} />
@@ -1157,7 +1173,7 @@ function DanhMucTab() {
             >
               <AnhThumbnail url={p.anh_demo} active={!!p.bat_tat} size={56} />
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-[var(--ocean-800)] truncate">{p.ten_linh_kien}</div>
+                <div className="font-semibold text-[var(--ocean-800)] truncate"><ToDam text={p.ten_linh_kien} spec={kqTim.toDam} /></div>
                 <div className="flex items-center gap-2 flex-wrap mt-0.5">
                   <span className="font-mono text-sm font-semibold text-[var(--green-700)]"><Money>{fmtVND(p.gia_ban)}</Money></span>
                   <Badge tone={p.bat_tat ? "teal" : "gray"}>{p.bat_tat ? "Bật" : "Tắt"}</Badge>

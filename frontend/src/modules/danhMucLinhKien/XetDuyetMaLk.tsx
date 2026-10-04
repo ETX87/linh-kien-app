@@ -9,7 +9,8 @@ import { useToast } from "../../components/ui/Toast";
 import { api, ApiError } from "../../api/client";
 import { fmtDateTime, fmtVND, type LinhKienLogRow, type LinhKienRow, type TrangThaiMaLk } from "../../types";
 import { usePersonDirectory, formatPersonDisplay } from "../../lib/personDisplay";
-import { diemTimTheoTu, taoChiMucTim } from "../../lib/boDau";
+import { timLk, sapTheoDiem } from "../../lib/timLinhKien";
+import { useBoTimLk } from "../../lib/useTimLinhKien";
 
 // Xet duyet ma chuan linh kien moi (2026-09-30, migration 0053 - backend lib/linhKienXetDuyet.ts + routes
 // settingsDatMua.ts /linh-kien/:ma/xac-nhan|gop|tu-choi|gia-tam|xet-duyet). LK tao trong app vao "Chờ xét duyệt";
@@ -243,18 +244,15 @@ function GopModal({
   const [maDich, setMaDich] = useState<string | null>(null);
   const [ghiChu, setGhiChu] = useState("");
   const ungVien = useMemo(
-    () => parts.filter((p) => p.ma_linh_kien !== part.ma_linh_kien && p.trang_thai_ma !== "Da doi ma" && p.trang_thai_ma !== "Tu choi").map((p) => ({ p, cm: taoChiMucTim(`${p.ten_linh_kien} ${p.ma_linh_kien}`) })),
+    () => parts.filter((p) => p.ma_linh_kien !== part.ma_linh_kien && p.trang_thai_ma !== "Da doi ma" && p.trang_thai_ma !== "Tu choi"),
     [parts, part.ma_linh_kien],
   );
+  // Bo tim chung (lib/timLinhKien.ts) - ma go dung len dau, tu dong nghia/go sai nhu o tim Bang gia.
+  const boTim = useBoTimLk(useMemo(() => ungVien.map((p) => ({ ma: p.ma_linh_kien, ten: p.ten_linh_kien })), [ungVien]));
   const goiY = useMemo(() => {
-    if (!q.trim()) return [];
-    return ungVien
-      .map(({ p, cm }) => ({ p, d: p.ma_linh_kien.toLowerCase() === q.trim().toLowerCase() ? 1e6 : diemTimTheoTu(cm, q) }))
-      .filter((x) => x.d >= 0)
-      .sort((a, b) => b.d - a.d)
-      .slice(0, 8)
-      .map((x) => x.p);
-  }, [ungVien, q]);
+    const kq = timLk(boTim, q);
+    return kq.diem ? sapTheoDiem(ungVien, (p) => p.ma_linh_kien, kq.diem).slice(0, 8) : [];
+  }, [boTim, ungVien, q]);
   const dich = maDich ? parts.find((p) => p.ma_linh_kien === maDich) : undefined;
   const m = useMutation({
     mutationFn: () => api.post(`/settings/linh-kien/${encodeURIComponent(part.ma_linh_kien)}/gop`, { ma_dich: maDich, ghi_chu: ghiChu.trim() || undefined }),

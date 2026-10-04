@@ -367,4 +367,60 @@ lkSettings.delete("/combo/:ma", quanLyCombo, async (c) => {
   return c.json({ ok: true });
 });
 
+// ---------- Tu khoa tim kiem LK (migration 0067, frontend/src/lib/timLinhKien.ts) ----------
+// Doc mo cho moi user da duyet (bo tim chay tren may o Bang gia + o chon LK luc tao don, cache theo md_lk_tu_khoa);
+// ghi = cung nhom sua combo (Quan ly danh muc LK / Mua hang / Admin). 2 bang nho - doc ca bang chi khi co nguoi sua.
+const chuanTuKhoa = (s: unknown) =>
+  [...new Set(String(s ?? "").split(/[,;\n]/).map((x) => x.trim().replace(/\s+/g, " ")).filter(Boolean))].join(", ").slice(0, 500);
+
+lkSettings.get("/tu-khoa", async (c) => {
+  const [{ results: tuKhoa }, { results: dongNghia }] = await Promise.all([
+    c.env.DB.prepare("SELECT ma_linh_kien, tu_khoa FROM lk_tu_khoa").all<{ ma_linh_kien: string; tu_khoa: string }>(),
+    c.env.DB.prepare("SELECT id, nhom, nguoi_cap_nhat, ngay_cap_nhat FROM lk_dong_nghia ORDER BY id").all(),
+  ]);
+  return c.json({ tu_khoa: tuKhoa, dong_nghia: dongNghia });
+});
+
+// PUT /tu-khoa/:ma - { tu_khoa } (cac tu cach nhau dau phay; rong = xoa).
+lkSettings.put("/tu-khoa/:ma", quanLyCombo, async (c) => {
+  const ma = c.req.param("ma");
+  const tuKhoa = chuanTuKhoa((await c.req.json<{ tu_khoa?: string }>().catch(() => ({}) as { tu_khoa?: string })).tu_khoa);
+  const lk = await c.env.DB.prepare("SELECT 1 FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
+  if (!lk) return c.json({ error: "NOT_FOUND" }, 404);
+  if (!tuKhoa) {
+    await c.env.DB.prepare("DELETE FROM lk_tu_khoa WHERE ma_linh_kien = ?").bind(ma).run();
+  } else {
+    await c.env.DB.prepare(
+      `INSERT INTO lk_tu_khoa (ma_linh_kien, tu_khoa, nguoi_cap_nhat, ngay_cap_nhat) VALUES (?, ?, ?, ?)
+       ON CONFLICT(ma_linh_kien) DO UPDATE SET tu_khoa = excluded.tu_khoa, nguoi_cap_nhat = excluded.nguoi_cap_nhat, ngay_cap_nhat = excluded.ngay_cap_nhat`,
+    ).bind(ma, tuKhoa, c.get("user").email, nowVN()).run();
+  }
+  return c.json({ ok: true, tu_khoa: tuKhoa || null });
+});
+
+// Nhom dong nghia - { nhom: "bộ mạch, board, mainboard" } (it nhat 2 tu).
+async function docNhom(c: { req: { json: <T>() => Promise<T> } }): Promise<string | null> {
+  const nhom = chuanTuKhoa((await c.req.json<{ nhom?: string }>().catch(() => ({}) as { nhom?: string })).nhom);
+  return nhom.split(", ").length >= 2 ? nhom : null;
+}
+lkSettings.post("/dong-nghia", quanLyCombo, async (c) => {
+  const nhom = await docNhom(c);
+  if (!nhom) return c.json({ error: "NHOM_IT_NHAT_2_TU" }, 400);
+  await c.env.DB.prepare("INSERT INTO lk_dong_nghia (nhom, nguoi_cap_nhat, ngay_cap_nhat) VALUES (?, ?, ?)").bind(nhom, c.get("user").email, nowVN()).run();
+  return c.json({ ok: true });
+});
+lkSettings.patch("/dong-nghia/:id", quanLyCombo, async (c) => {
+  const nhom = await docNhom(c);
+  if (!nhom) return c.json({ error: "NHOM_IT_NHAT_2_TU" }, 400);
+  const r = await c.env.DB.prepare("UPDATE lk_dong_nghia SET nhom = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE id = ?")
+    .bind(nhom, c.get("user").email, nowVN(), Number(c.req.param("id")))
+    .run();
+  if (!r.meta.changes) return c.json({ error: "NOT_FOUND" }, 404);
+  return c.json({ ok: true });
+});
+lkSettings.delete("/dong-nghia/:id", quanLyCombo, async (c) => {
+  await c.env.DB.prepare("DELETE FROM lk_dong_nghia WHERE id = ?").bind(Number(c.req.param("id"))).run();
+  return c.json({ ok: true });
+});
+
 export default lkSettings;

@@ -261,7 +261,7 @@ function ComboModal({
             {dong.map((d, i) => (
               <div key={i} className="flex items-start gap-2">
                 <span className="w-5 pt-2 text-xs text-[var(--color-text-secondary)] text-right shrink-0">{i + 1}.</span>
-                <LinhKienPicker className="flex-1 min-w-0" value={d.ma_lk} onChange={(v) => suaDong(i, { ma_lk: v })} options={options} />
+                <LinhKienPicker className="flex-1 min-w-0" value={d.ma_lk} onChange={(v) => suaDong(i, { ma_lk: v })} options={options} ghiLichSu={false} />
                 <input
                   type="number"
                   min={1}

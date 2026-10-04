@@ -542,6 +542,16 @@ tìm theo mã). Lọc phía client (`Select`, ô tìm trong lọc cột, Ctrl+K,
 (đơn/Thiếu LK/Trả hàng/Ctrl+K), `orDonTrongPxk()` (PXK — theo mã đơn/mã YCSC của dòng trong phiếu). File tải về 4 danh
 sách đổi cột người (`nguoi_*`) sang tên: `doiNguoiThanhTen()` (`lib/personDisplay.ts`).
 
+**Tìm linh kiện trên máy người dùng** (2026-10-04, migration `0067`): Bảng giá (ô tìm `danhMucLinhKien/TimLkBox.tsx` + gợi ý xổ
+xuống), `LinhKienPicker` (tạo đơn) và ô gộp mã ở `XetDuyetMaLk` dùng CHUNG bộ tìm `frontend/src/lib/timLinhKien.ts` (`taoBoTimLk`/
+`timLk`/`sapTheoDiem`/`doanToDam`) — tìm rời từ khóa, bỏ dấu, bỏ gạch/dấu chấm trong mã, chấp nhận sai 1 ký tự (từ ≥4 chữ),
+"Có phải bạn muốn tìm…", từ đồng nghĩa + từ khóa phụ, tô đậm phần khớp (`components/ui/ToDam.tsx`). Gõ tìm KHÔNG gọi server.
+Từ khóa phụ theo LK (`lk_tu_khoa`) + nhóm đồng nghĩa (`lk_dong_nghia`) là bảng RIÊNG (sửa không chạm `linh_kien.ngay_cap_nhat` →
+không đẩy DVBH, không làm tải lại danh mục), `GET/PUT /lk-settings/tu-khoa`, `/lk-settings/dong-nghia` (ghi: quyền như Combo), cache
+trên máy theo domain `md_lk_tu_khoa` (TINH_QUERY `lk-tu-khoa`). "Hay đặt" = lịch sử chọn LK + từ khóa đã tìm lưu **localStorage**
+theo tài khoản (`useLichSuLk` ở `lib/useTimLinhKien.ts`, không gửi server) + hạng đặt 30 ngày toàn hệ thống (`diemHayDat`); picker
+ô trống hiện "Chọn gần đây" / "Hay đặt" / còn lại; `ComboTab` truyền `ghiLichSu={false}` (soạn combo không tính là đặt).
+
 **Thiếu LK — trạng thái "Kho da cap nhat" + cột trạng thái bên trái** (2026-09-28, migration `0040`/`0041`): sau
 "Kho da tiep nhan", Kho bấm "Cập nhật thông tin" (lặp lại được) để đổi ngày dự kiến và/hoặc ghi chú tiến độ (bắt
 buộc 1 trong 2, `MISSING_THONG_TIN_CAP_NHAT`); "Kho xac nhan hang da ve" tự ghi `thieu_lk.ngay_hang_ve_thuc_te` (ngày

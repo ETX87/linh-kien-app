@@ -12,7 +12,9 @@ import { usePublicSheetCache } from "../../lib/publicSheetCache";
 import type { LkDanhMucRow } from "./types";
 import { describeApiError, useLinhKienRankMap, formatLkLabel, boQuaTbpDacThu } from "./helpers";
 import { Money } from "../../components/ui/Money";
-import { diemTimTheoTu, taoChiMucTim, type ChiMucTim } from "../../lib/boDau";
+import { timLk, sapTheoDiem, type ToDamSpec } from "../../lib/timLinhKien";
+import { useBoTimLk, useLichSuLk, diemHayDat } from "../../lib/useTimLinhKien";
+import { ToDam } from "../../components/ui/ToDam";
 
 // O chon "Ma linh kien" (autocomplete co anh/gia/xep hang) + cac component lien quan (thumbnail,
 // modal xem chi tiet, goi y thay the) - tach tu DatMuaLinhKienModule.tsx (UI redesign Phase 3,
@@ -158,8 +160,12 @@ export function LinhKienThumbMini({ url, size = 28 }: { url: string | null; size
 }
 
 export function LinhKienPickerRow({
-  o, rank, selected, highlighted, onPick,
-}: { o: LkDanhMucRow; rank: number | undefined; selected: boolean; highlighted: boolean; onPick: () => void }) {
+  o, rank, selected, highlighted, onPick, toDam, soLanChon,
+}: {
+  o: LkDanhMucRow; rank: number | undefined; selected: boolean; highlighted: boolean; onPick: () => void;
+  // Bo tim tren may (2026-10-04): to dam phan khop + so lan CHINH nguoi dung da chon (lich su tren may).
+  toDam?: ToDamSpec | null; soLanChon?: number;
+}) {
   return (
     <button
       type="button"
@@ -181,7 +187,8 @@ export function LinhKienPickerRow({
       <span className="flex-1 min-w-0">
         {/* SUA (phan hoi 2026-08-19): bo tien to "mã - " lap - nhieu ten_linh_kien da tu chua san ma
             dang "[ma]" trong chuoi, ghep them tien to se hien ma 2 lan. Xem formatLkLabel (helpers.ts). */}
-        <span className="block truncate font-medium text-[var(--ocean-800)]">{formatLkLabel(o.ma_linh_kien, o.ten_linh_kien)}</span>
+        <span className="block truncate font-medium text-[var(--ocean-800)]"><ToDam text={formatLkLabel(o.ma_linh_kien, o.ten_linh_kien)} spec={toDam} /></span>
+        {!!soLanChon && soLanChon >= 2 && <span className="mr-1 text-[10px] font-semibold text-[var(--color-primary)]">⭐ Bạn đã chọn {soLanChon} lần</span>}
         {rank != null && rank <= 5 && <span className="text-[10px] font-semibold text-[var(--amber-700)]">🔥 #{rank} hay đặt (30 ngày)</span>}
         {/* LK moi tao trong app, Mua hang chua xac nhan ma chuan (migration 0053) - van dat duoc (chot nguoi dung). */}
         {o.trang_thai_ma === "Cho xet duyet" && <span className="ml-1 text-[10px] font-semibold text-[var(--amber-700)]">Mã chờ xét duyệt</span>}
@@ -205,9 +212,11 @@ const LINH_KIEN_PICKER_MAX_RESULTS = 60;
 // luot dat nao roi xuong duoi 1 dong ke "── Linh kiện khác ──". Khi go tu khoa, van uu tien sap theo
 // hang trong nhom da khop, khong chi loc dung theo chuoi tim.
 export function LinhKienPicker({
-  value, onChange, options, disabled = false, className = "", autoFocus = false, loaiDeXuat,
+  value, onChange, options, disabled = false, className = "", autoFocus = false, loaiDeXuat, ghiLichSu = true,
 }: {
   value: string; onChange: (v: string) => void; options: LkDanhMucRow[]; disabled?: boolean; className?: string; autoFocus?: boolean;
+  // false = khong ghi lich su chon (vd soan Combo o Bang gia - khong phai dat hang, tranh lam lech "Bạn hay đặt").
+  ghiLichSu?: boolean;
   // Loai de xuat dang chon - MUA/HỖ TRỢ/TRỪ CÔNG NỢ bo qua TBP nen khong hien canh bao "chờ TP DVBH" (2026-09-29).
   loaiDeXuat?: string;
 }) {
@@ -233,41 +242,58 @@ export function LinhKienPicker({
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [open]);
 
-  // .normalize("NFC") (fix bug 2026-09-12, cung goc voi Select.tsx: "tìm 'khách h' ra, 'khách hà'
-  // không ra" - ky tu co dau go tu ban phim/IME co the o dang to hop NFD, khac dang NFC luu san trong
-  // du lieu, khien .includes() khong khop du nhin giong het nhau).
-  const q = query.trim().toLowerCase().normalize("NFC");
-  // SUA LAG: useMemo - chi tinh lai loc/sap xep/cap so dong khi options, tu khoa, hoac rankMap
-  // THUC SU doi, khong phai moi lan component cha re-render vi ly do khac.
-  // Tim theo TU + xep hang (2026-09-30, CUNG cach Bang gia - lib/boDau.ts diemTimTheoTu): "lõi ro" ra "Lõi lọc nước RO".
-  // Co tu khoa: sap theo do sat truoc, cung do sat moi theo luot dung/ten nhu cu. Chi muc tinh 1 lan theo options.
-  const chiMuc = useMemo(() => {
-    const m = new Map<string, ChiMucTim>();
-    for (const o of options) m.set(o.ma_linh_kien, taoChiMucTim(`${o.ten_linh_kien} ${o.ma_linh_kien}`));
-    return m;
-  }, [options]);
-  const { ranked, unranked, totalMatched } = useMemo(() => {
-    const diem = new Map<string, number>();
-    if (q) for (const o of options) {
-      const cm = chiMuc.get(o.ma_linh_kien);
-      const d = cm ? diemTimTheoTu(cm, q) : -1;
-      if (d >= 0) diem.set(o.ma_linh_kien, d);
+  // Bo tim tren may (2026-10-04, lib/timLinhKien.ts - CUNG bo voi Bang gia): tach tu khoa roi rac, khong dau, bo qua gach
+  // noi trong ma, tu dong nghia/tu khoa phu, go sai 1 ky tu; to dam phan khop. Uu tien: do sat > chinh minh hay chon (lich su
+  // tren may) > hang dat 30 ngay toan he thong. O trong: "Chọn gần đây" -> "Hay đặt" -> con lai. Khong goi server khi go.
+  const q = query.trim();
+  const lichSu = useLichSuLk();
+  const rowsTim = useMemo(() => options.map((o) => ({ ma: o.ma_linh_kien, ten: o.ten_linh_kien })), [options]);
+  const boTim = useBoTimLk(rowsTim);
+  const kqTim = useMemo(() => timLk(boTim, q), [boTim, q]);
+  const { nhom, totalMatched } = useMemo(() => {
+    const MAX = LINH_KIEN_PICKER_MAX_RESULTS;
+    if (kqTim.diem) {
+      const ds = sapTheoDiem(options, (o) => o.ma_linh_kien, kqTim.diem, (ma) => diemHayDat(ma, lichSu.soLanChon, rankMap));
+      return { nhom: [{ tieuDe: null as string | null, items: ds.slice(0, MAX) }], totalMatched: ds.length };
     }
-    const matched = q ? options.filter((o) => diem.has(o.ma_linh_kien)) : options;
-    const theoDiem = (a: LkDanhMucRow, b: LkDanhMucRow) => (diem.get(b.ma_linh_kien) ?? 0) - (diem.get(a.ma_linh_kien) ?? 0);
-    const rankedFull = matched.filter((o) => rankMap.has(o.ma_linh_kien)).sort((a, b) => theoDiem(a, b) || rankMap.get(a.ma_linh_kien)! - rankMap.get(b.ma_linh_kien)!);
-    const unrankedFull = matched.filter((o) => !rankMap.has(o.ma_linh_kien)).sort((a, b) => theoDiem(a, b) || a.ten_linh_kien.localeCompare(b.ten_linh_kien));
-    const rankedShown = rankedFull.slice(0, LINH_KIEN_PICKER_MAX_RESULTS);
-    const unrankedShown = unrankedFull.slice(0, Math.max(0, LINH_KIEN_PICKER_MAX_RESULTS - rankedShown.length));
-    return { ranked: rankedShown, unranked: unrankedShown, totalMatched: rankedFull.length + unrankedFull.length };
-  }, [options, chiMuc, q, rankMap]);
-  const flatResults = useMemo(() => [...ranked, ...unranked], [ranked, unranked]);
+    const theoMa = new Map(options.map((o) => [o.ma_linh_kien, o]));
+    const ganDay = lichSu.ganDay.map((m) => theoMa.get(m)).filter((o): o is LkDanhMucRow => !!o).slice(0, 5);
+    const daLay = new Set(ganDay.map((o) => o.ma_linh_kien));
+    const hayDat = options
+      .filter((o) => !daLay.has(o.ma_linh_kien) && (lichSu.soLanChon.has(o.ma_linh_kien) || rankMap.has(o.ma_linh_kien)))
+      .sort(
+        (a, b) =>
+          (lichSu.soLanChon.get(b.ma_linh_kien) ?? 0) - (lichSu.soLanChon.get(a.ma_linh_kien) ?? 0) ||
+          (rankMap.get(a.ma_linh_kien) ?? 1e9) - (rankMap.get(b.ma_linh_kien) ?? 1e9),
+      );
+    for (const o of hayDat) daLay.add(o.ma_linh_kien);
+    const khac = options.filter((o) => !daLay.has(o.ma_linh_kien)).sort((a, b) => a.ten_linh_kien.localeCompare(b.ten_linh_kien));
+    let conLai = MAX;
+    const cat = (ds: LkDanhMucRow[]) => {
+      const x = ds.slice(0, Math.max(0, conLai));
+      conLai -= x.length;
+      return x;
+    };
+    return {
+      nhom: [
+        { tieuDe: "🕘 Chọn gần đây", items: cat(ganDay) },
+        { tieuDe: "🔥 Hay đặt", items: cat(hayDat) },
+        { tieuDe: "Linh kiện khác", items: cat(khac) },
+      ].filter((n) => n.items.length > 0),
+      totalMatched: options.length,
+    };
+  }, [options, kqTim, rankMap, lichSu.soLanChon, lichSu.ganDay]);
+  const flatResults = useMemo(() => nhom.flatMap((n) => n.items), [nhom]);
   const shownCount = flatResults.length;
   const truncatedCount = totalMatched - shownCount;
 
   useEffect(() => setHighlightIdx(0), [q, open]);
 
   function pick(maLinhKien: string) {
+    if (ghiLichSu) {
+      lichSu.ghiChon(maLinhKien);
+      if (q) lichSu.ghiTim(q);
+    }
     onChange(maLinhKien);
     setOpen(false);
     setQuery("");
@@ -332,33 +358,50 @@ export function LinhKienPicker({
           className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm text-[var(--ink-900)] disabled:opacity-40 disabled:cursor-not-allowed"
         />
         <DropdownPortal anchorRef={containerRef} contentRef={dropdownRef} open={open} maxHeight={288} className="rounded-lg py-1">
-          {ranked.length === 0 && unranked.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-[var(--ink-400)] italic">Không tìm thấy.</div>
+          {flatResults.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-[var(--ink-400)]">
+              <span className="italic">Không tìm thấy.</span>
+              {kqTim.goiY && (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setQuery(kqTim.goiY!);
+                  }}
+                  className="ml-1 text-[var(--color-link)] hover:underline"
+                >
+                  Có phải bạn muốn tìm “<b>{kqTim.goiY}</b>”?
+                </button>
+              )}
+            </div>
           ) : (
             <>
-              {ranked.map((o, i) => (
-                <LinhKienPickerRow
-                  key={o.ma_linh_kien}
-                  o={o}
-                  rank={rankMap.get(o.ma_linh_kien)}
-                  selected={o.ma_linh_kien === value}
-                  highlighted={i === highlightIdx}
-                  onPick={() => pick(o.ma_linh_kien)}
-                />
-              ))}
-              {ranked.length > 0 && unranked.length > 0 && (
-                <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-400)] text-center">── Linh kiện khác ──</div>
-              )}
-              {unranked.map((o, i) => (
-                <LinhKienPickerRow
-                  key={o.ma_linh_kien}
-                  o={o}
-                  rank={undefined}
-                  selected={o.ma_linh_kien === value}
-                  highlighted={ranked.length + i === highlightIdx}
-                  onPick={() => pick(o.ma_linh_kien)}
-                />
-              ))}
+              {(() => {
+                let idx = 0;
+                return nhom.map((n, ni) => (
+                  <div key={ni}>
+                    {n.tieuDe && (
+                      <div className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-400)]">{n.tieuDe}</div>
+                    )}
+                    {n.items.map((o) => {
+                      const i = idx++;
+                      return (
+                        <LinhKienPickerRow
+                          key={o.ma_linh_kien}
+                          o={o}
+                          rank={rankMap.get(o.ma_linh_kien)}
+                          selected={o.ma_linh_kien === value}
+                          highlighted={i === highlightIdx}
+                          onPick={() => pick(o.ma_linh_kien)}
+                          toDam={kqTim.toDam}
+                          soLanChon={lichSu.soLanChon.get(o.ma_linh_kien)}
+                        />
+                      );
+                    })}
+                  </div>
+                ));
+              })()}
               {truncatedCount > 0 && (
                 <div className="px-3 py-1.5 text-[10px] text-[var(--ink-400)] text-center border-t border-[var(--line)] mt-1">
                   Còn {truncatedCount} kết quả khác — gõ thêm để thu hẹp
