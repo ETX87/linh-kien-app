@@ -10,8 +10,9 @@ export type MisaTemplate = "xuat_kho" | "chuyen_kho" | "ban_hang";
 
 // 3 nut chon mau rieng (them 2026-09-02, phan hoi "tạo 3 button, TN muốn tải mẫu nào thì tải") - TN/
 // Ke toan tu quyet dinh mau nao, khong phu thuoc phan loai tu dong o backend.
+// "xuat_kho" hien la "CN, hỗ trợ" (2026-10-05, doi ten "misa xuất kho" => "MISA CN, hỗ trợ" - mau dung cho don cong no / ho tro).
 export const MISA_TEMPLATE_LABELS: Record<MisaTemplate, string> = {
-  xuat_kho: "Xuất kho",
+  xuat_kho: "CN, hỗ trợ",
   chuyen_kho: "Chuyển kho",
   ban_hang: "Bán hàng",
 };
@@ -146,7 +147,7 @@ export async function downloadMisaExport(sheets: MisaExportSheets, filename: str
 
   if (sheets.xuat_kho.length > 0) {
     const aoa = buildSheetAoa(DON_DAT_HANG_HEADER, sheets.xuat_kho.map(donDatHangToRow));
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(aoa), "Xuất kho");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(aoa), MISA_TEMPLATE_LABELS.xuat_kho);
     hasAny = true;
   }
   if (sheets.chuyen_kho.length > 0) {

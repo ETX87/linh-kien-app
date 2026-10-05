@@ -526,6 +526,11 @@ và "Nhập tại kho" (Chuyển kho); dòng TRỪ CÔNG NỢ vẫn trừ kho KT
 `loai_don='tra_hang'` hoặc loại đề xuất chứa "TRẢ HÀNG", so không dấu) → "Xuất tại kho"/Mã kho = `NTMN`/`NTMB` theo miền, Diễn giải
 "6803 NTMN -Nhận lại linh kiện ký gửi của <Tên MISA>" (MB: "6804-MB NTMB -…") — `KHO_NHAN_TRA`; "TRẢ HÀNG CÔNG NỢ" mọi cột tiền = 0. Dòng LK "Máy" có loại đề xuất chứa "CÔNG NỢ"/"HỖ TRỢ" (trừ trả hàng + TRỪ CÔNG NỢ — `laXuatMayDoiBaoHanh()`) → Diễn giải mọi mẫu = "Kho <Tên MISA KTV nhận> xuất máy mới đổi bảo hành cho khách hàng <tt_khach_hang> <tt_mail_duyet>".
 
+**Nút tải MISA** (2026-10-05): mẫu `xuat_kho` hiển thị là **"MISA CN, hỗ trợ"** (`MISA_TEMPLATE_LABELS` ở
+`frontend/src/lib/misaExportTemplates.ts` — nhãn nút, tên sheet trong file, ô chọn ở Cài đặt › Loại đề xuất; mã nội bộ vẫn
+`xuat_kho`). Chi tiết PXK chỉ hiện nút mẫu ĐỀ XUẤT (`misaTemplateDeXuat` = `resolveMisaTemplateDeXuat`), nút mũi tên ▸ mở 2 mẫu còn
+lại (`moMauMisaKhac` theo id phiếu); không có mẫu đề xuất thì hiện cả 3. Nút tải gộp ở danh sách PXK vẫn hiện đủ 3.
+
 **1 Gmail = 1 mã KTV** (chốt 2026-10-01, migration `0061`): đã đóng 9 mã thừa của 6 Gmail dùng chung (gỡ Gmail + `ngung_hoat_dong`,
 ghi chú lý do trong `ghi_chu`); chỉ mục DUY NHẤT `LOWER(TRIM(email_dang_nhap))`; API báo `EMAIL_DA_GAN_MA_KHAC` trước khi chạm DB
 (`maKtvDangDungEmail()` ở `lib/ktvChinh.ts` — PATCH `/:ma/dat-mua-lk`, bulk-import status `email_da_gan_ma_khac:<mã>`; đường ETX đã

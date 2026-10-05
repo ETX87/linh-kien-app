@@ -44,7 +44,7 @@ const MISA_TEMPLATE_OPTIONS = [
   { value: "", label: "(mặc định: Bán hàng)" },
   { value: "ban_hang", label: "Bán hàng" },
   { value: "chuyen_kho", label: "Chuyển kho" },
-  { value: "xuat_kho", label: "Xuất kho" },
+  { value: "xuat_kho", label: "CN, hỗ trợ" },
 ];
 
 const TABS = [

@@ -1483,6 +1483,9 @@ export function PxkDetailModal({
   const [maVanDonInput, setMaVanDonInput] = useState("");
   const [maXuatKhoDraft, setMaXuatKhoDraft] = useState("");
   const [maMisaDraft, setMaMisaDraft] = useState("");
+  // Id phieu dang MO them cac mau MISA khong de xuat (mac dinh chi hien nut de xuat - 2026-10-05); luu theo id de chuyen
+  // phieu (←/→) tu thu gon lai.
+  const [moMauMisaKhac, setMoMauMisaKhac] = useState<string | null>(null);
   const [uploadingAnh, setUploadingAnh] = useState(false);
   // Ly do cham / tien cong no / bo don tung dong: nam trong PxkDongDonHangTable.tsx (tach 2026-09-29).
   // 4 state moi (2026-09-21, phan hoi "cho phép Kế toán/TN sửa lại thông tin đơn ở bước chờ KTV
@@ -1932,23 +1935,46 @@ export function PxkDetailModal({
                 MISA: {pxk.ma_misa}
               </span>
             )}
-            {canDownloadMisa && pxk.ma_xuat_kho_xac_nhan &&
-              MISA_TEMPLATE_ORDER.map((tpl) => (
-                <Btn
-                  key={tpl}
-                  size="sm"
-                  // To mau noi bat nut trung mau MISA de xuat theo settings_loai_de_xuat cua cac dong
-                  // trong phieu (phan hoi 2026-09-10 "nút tải nào được đề xuất sẽ tô màu nổi bật lên")
-                  // - "subtle" (nen cam nhat) thay vi "ghost" (trang) cho 2 nut con lai.
-                  variant={data.misaTemplateDeXuat === tpl ? "subtle" : "ghost"}
-                  title={data.misaTemplateDeXuat === tpl ? "Mẫu được đề xuất theo Loại đề xuất của phiếu này" : undefined}
-                  onClick={() => misaExportMutation.mutate(tpl)}
-                  disabled={misaExportMutation.isPending}
-                  loading={misaExportMutation.isPending && misaExportMutation.variables === tpl}
-                >
-                  ⬇ MISA {MISA_TEMPLATE_LABELS[tpl]}
-                </Btn>
-              ))}
+            {canDownloadMisa && pxk.ma_xuat_kho_xac_nhan && (() => {
+              // Chi hien nut mau DE XUAT (2026-10-05, "ẩn 2 nút không đề xuất, hiện mũi tên hiện thêm" - tranh tai nham);
+              // mui ten mo/thu 2 mau con lai. Khong co mau de xuat (phieu rong) -> hien du 3 nut nhu cu.
+              const deXuat = data.misaTemplateDeXuat;
+              const moKhac = !deXuat || moMauMisaKhac === id;
+              const dsMau = deXuat ? [deXuat, ...MISA_TEMPLATE_ORDER.filter((t) => t !== deXuat)] : MISA_TEMPLATE_ORDER;
+              return (
+                <>
+                  {dsMau.filter((tpl) => moKhac || tpl === deXuat).map((tpl) => (
+                    <Btn
+                      key={tpl}
+                      size="sm"
+                      // To mau noi bat nut trung mau MISA de xuat theo settings_loai_de_xuat cua cac dong
+                      // trong phieu (phan hoi 2026-09-10 "nút tải nào được đề xuất sẽ tô màu nổi bật lên")
+                      // - "subtle" (nen cam nhat) thay vi "ghost" (trang) cho 2 nut con lai.
+                      variant={deXuat === tpl ? "subtle" : "ghost"}
+                      title={deXuat === tpl ? "Mẫu được đề xuất theo Loại đề xuất của phiếu này" : "Mẫu không được đề xuất cho phiếu này"}
+                      onClick={() => misaExportMutation.mutate(tpl)}
+                      disabled={misaExportMutation.isPending}
+                      loading={misaExportMutation.isPending && misaExportMutation.variables === tpl}
+                    >
+                      ⬇ MISA {MISA_TEMPLATE_LABELS[tpl]}
+                    </Btn>
+                  ))}
+                  {deXuat && (
+                    <Btn
+                      size="sm"
+                      variant="ghost"
+                      className="px-2"
+                      title={moKhac ? "Ẩn các mẫu MISA không đề xuất" : "Hiện thêm các mẫu MISA khác (không đề xuất)"}
+                      aria-label={moKhac ? "Ẩn các mẫu MISA không đề xuất" : "Hiện thêm các mẫu MISA khác"}
+                      aria-expanded={moKhac}
+                      onClick={() => setMoMauMisaKhac(moKhac ? null : id)}
+                    >
+                      {moKhac ? "◂" : "▸"}
+                    </Btn>
+                  )}
+                </>
+              );
+            })()}
             <StatusBadge value={trangThai} tones={PXK_TRANG_THAI_TONE} options={PXK_TRANG_THAI_OPTIONS} />
             {pxk.nguoi_nhan_hang && (
               <span className="text-[var(--ink-500)] text-xs"><NguoiNhan>{formatNguoiDisplay(pxk.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan></span>
