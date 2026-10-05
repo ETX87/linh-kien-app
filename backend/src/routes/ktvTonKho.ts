@@ -5,9 +5,10 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { khuVucViewEmailInSql, gsKhuVucXemThemSql } from "../lib/scopeDatMua";
 import { nowVN } from "../lib/vnTime";
-import { getMocTinhCongNo, danhGiaCongNo3Muc, CONG_NO_DA_TRU_FROM_SQL, CONG_NO_DA_TRU_WHERE_SQL, CONG_NO_DA_TRU_GIA_TRI_SQL } from "../lib/congNoKtv";
+import { getMocTinhCongNo, danhGiaCongNo3Muc, SL_HO_TRO_0D_SQL, CONG_NO_DA_TRU_FROM_SQL, CONG_NO_DA_TRU_WHERE_SQL, CONG_NO_DA_TRU_GIA_TRI_SQL } from "../lib/congNoKtv";
 import { daTruTheoMaHang } from "../lib/tonKhoKtv";
 import { maKtvTheoTen } from "../lib/timTheoTen";
+import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
 
 // "Tồn kho KTV" (them 2026-08-29, phan hoi nguoi dung) - import hang ngay file "Tổng hợp tồn kho"
 // xuat tu MISA (mot bao cao gom NHIEU khoi "Kho: ..." xep lien tiep, moi khoi la 1 KTV/tram - xem
@@ -96,8 +97,9 @@ ktvTonKho.get("/", async (c) => {
        SELECT k.ma_ktv, k.email_dang_nhap FROM ktv_lien_he k ${where}
      ),
      thuc_te AS (
-       SELECT t2.ma_ktv, SUM(t2.cuoi_ky * COALESCE(lk.gia_tri_cong_no, 0)) as gia_tri
-       FROM ktv_ton_kho t2
+       -- Tru phan "Công nợ 0 đồng" (2026-10-05, SL_HO_TRO_0D_SQL - cung cong thuc computeCongNoThucTe).
+       SELECT t2.ma_ktv, SUM((t2.cuoi_ky - t2.sl_0d) * COALESCE(lk.gia_tri_cong_no, 0)) as gia_tri, SUM(t2.sl_0d) as sl_0d
+       FROM (SELECT t3.*, ${SL_HO_TRO_0D_SQL("t3")} as sl_0d FROM ktv_ton_kho t3 WHERE t3.ma_ktv IN (SELECT ma_ktv FROM pham_vi)) t2
        LEFT JOIN linh_kien lk ON lk.ma_linh_kien = t2.ma_hang
        WHERE t2.ma_ktv IN (SELECT ma_ktv FROM pham_vi)
        GROUP BY t2.ma_ktv
@@ -123,7 +125,7 @@ ktvTonKho.get("/", async (c) => {
      SELECT k.ma_ktv, k.ten_hien_thi, k.ma_misa, k.ten_misa, k.cong_no, k.cong_no_cap_nhat_luc,
        COUNT(t.id) as so_ma_hang, SUM(t.cuoi_ky) as tong_cuoi_ky,
        COALESCE(tt.gia_tri, 0) as cong_no_thuc_te, COALESCE(ps.gia_tri, 0) as cong_no_phat_sinh,
-       COALESCE(dt.gia_tri, 0) as cong_no_da_tru
+       COALESCE(dt.gia_tri, 0) as cong_no_da_tru, COALESCE(tt.sl_0d, 0) as sl_ho_tro_0d
      FROM ktv_ton_kho t
      JOIN pham_vi pv ON pv.ma_ktv = t.ma_ktv
      JOIN ktv_lien_he k ON k.ma_ktv = pv.ma_ktv
@@ -181,7 +183,8 @@ ktvTonKho.get("/:ma_ktv/chi-tiet", async (c) => {
   // "Công nợ thực tế" hien o dau modal).
   const { results } = await c.env.DB.prepare(
     `SELECT t.ma_hang, t.ten_hang, t.dvt, t.dau_ky, t.nhap_kho, t.xuat_kho, t.cuoi_ky,
-            t.cuoi_ky * COALESCE(lk.gia_tri_cong_no, 0) as cong_no_thuc_te
+            (t.cuoi_ky - ${SL_HO_TRO_0D_SQL("t")}) * COALESCE(lk.gia_tri_cong_no, 0) as cong_no_thuc_te,
+            ${SL_HO_TRO_0D_SQL("t")} as sl_ho_tro_0d
      FROM ktv_ton_kho t
      LEFT JOIN linh_kien lk ON lk.ma_linh_kien = t.ma_hang
      WHERE t.ma_ktv = ?
@@ -430,6 +433,162 @@ ktvTonKho.get("/kho-cong-ty-ton-kho/:ma/chi-tiet", async (c) => {
     .bind(ma)
     .all();
   return c.json({ rows: results });
+});
+
+// ---------- "Công nợ 0 đồng" (2026-10-05, migration 0069) ----------
+// Ke toan/Admin khai bao chuong trinh: danh sach ma LK + SL ho tro (cho MOI KTV ap dung), khoang ngay, KTV ap dung (1 / nhieu /
+// toan bo). Cong no thuc te tru phan nay TRUC TIEP luc doc (SL_HO_TRO_0D_SQL o lib/congNoKtv.ts) nen bat/tat/sua la so lieu doi
+// ngay, khong can tinh lai/luu gi them.
+type CongNo0dBody = {
+  ten?: string | null;
+  tu_ngay?: string;
+  den_ngay?: string;
+  tat_ca_ktv?: boolean;
+  bat_tat?: boolean;
+  ktv?: string[];
+  lk?: { ma_linh_kien: string; so_luong: number }[];
+};
+const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+async function kiemTraCongNo0d(db: D1Database, b: CongNo0dBody): Promise<{ error: string } | {
+  ten: string | null; tu: string; den: string; tatCa: boolean; ktv: string[]; lk: { ma: string; sl: number }[];
+}> {
+  const tu = (b.tu_ngay ?? "").trim();
+  const den = (b.den_ngay ?? "").trim();
+  if (!NGAY_RE.test(tu) || !NGAY_RE.test(den)) return { error: "NGAY_KHONG_HOP_LE" };
+  if (tu > den) return { error: "TU_NGAY_SAU_DEN_NGAY" };
+  const tatCa = !!b.tat_ca_ktv;
+  const lkVao = (b.lk ?? []).filter((d) => d && String(d.ma_linh_kien ?? "").trim());
+  if (lkVao.length === 0) return { error: "THIEU_LINH_KIEN" };
+  if (lkVao.some((d) => !Number.isInteger(d.so_luong) || d.so_luong <= 0)) return { error: "SO_LUONG_KHONG_HOP_LE" };
+  // Ma A da doi/gop sang B -> quy ve B (cung quy uoc moi bang co cot ma LK).
+  const chuan = await quyVeMaChuan(db, lkVao.map((d) => String(d.ma_linh_kien).trim()));
+  const gop = new Map<string, number>();
+  for (const d of lkVao) {
+    const ma = chuan.get(String(d.ma_linh_kien).trim()) ?? String(d.ma_linh_kien).trim();
+    gop.set(ma, (gop.get(ma) ?? 0) + d.so_luong);
+  }
+  const { results: lkCo } = await db
+    .prepare("SELECT ma_linh_kien FROM linh_kien WHERE ma_linh_kien IN (SELECT value FROM json_each(?))")
+    .bind(JSON.stringify([...gop.keys()]))
+    .all<{ ma_linh_kien: string }>();
+  const lkCoSet = new Set(lkCo.map((r) => r.ma_linh_kien));
+  const lkThieu = [...gop.keys()].filter((m) => !lkCoSet.has(m));
+  if (lkThieu.length) return { error: `LINH_KIEN_KHONG_TON_TAI:${lkThieu.join(",")}` };
+  let ktv: string[] = [];
+  if (!tatCa) {
+    ktv = [...new Set((b.ktv ?? []).map((m) => String(m).trim()).filter(Boolean))];
+    if (ktv.length === 0) return { error: "THIEU_KTV" };
+    const { results: ktvCo } = await db
+      .prepare("SELECT ma_ktv FROM ktv_lien_he WHERE ma_ktv IN (SELECT value FROM json_each(?))")
+      .bind(JSON.stringify(ktv))
+      .all<{ ma_ktv: string }>();
+    if (ktvCo.length !== ktv.length) return { error: "KTV_KHONG_TON_TAI" };
+  }
+  const ten = (b.ten ?? "").trim() || null;
+  return { ten, tu, den, tatCa, ktv, lk: [...gop].map(([ma, sl]) => ({ ma, sl })) };
+}
+
+function lenhConCongNo0d(db: D1Database, id: number, v: { ktv: string[]; lk: { ma: string; sl: number }[] }) {
+  return [
+    db.prepare("DELETE FROM cong_no_0d_lk WHERE cong_no_0d_id = ?").bind(id),
+    db.prepare("DELETE FROM cong_no_0d_ktv WHERE cong_no_0d_id = ?").bind(id),
+    db
+      .prepare("INSERT INTO cong_no_0d_lk (cong_no_0d_id, ma_linh_kien, so_luong) SELECT ?, json_extract(value, '$.ma'), json_extract(value, '$.sl') FROM json_each(?)")
+      .bind(id, JSON.stringify(v.lk)),
+    db.prepare("INSERT INTO cong_no_0d_ktv (cong_no_0d_id, ma_ktv) SELECT ?, value FROM json_each(?)").bind(id, JSON.stringify(v.ktv)),
+  ];
+}
+
+// GET /cong-no-0d - danh sach chuong trinh kem LK/KTV (chuong trinh trung nhau thi cong don SL ho tro, xem SL_HO_TRO_0D_SQL).
+ktvTonKho.get("/cong-no-0d", adminOrKeToan, async (c) => {
+  const db = c.env.DB;
+  const [rules, lks, ktvs] = await db.batch<Record<string, unknown>>([
+    db.prepare(`SELECT r.*, date('now', '+7 hours') as hom_nay FROM cong_no_0d r ORDER BY r.bat_tat DESC, r.den_ngay DESC, r.id DESC`),
+    db.prepare(
+      `SELECT l.cong_no_0d_id, l.ma_linh_kien, l.so_luong, lk.ten_linh_kien, lk.gia_tri_cong_no
+       FROM cong_no_0d_lk l LEFT JOIN linh_kien lk ON lk.ma_linh_kien = l.ma_linh_kien
+       ORDER BY l.cong_no_0d_id, l.ma_linh_kien`,
+    ),
+    db.prepare(
+      `SELECT x.cong_no_0d_id, x.ma_ktv, k.ten_hien_thi, k.khu_vuc_ma FROM cong_no_0d_ktv x
+       LEFT JOIN ktv_lien_he k ON k.ma_ktv = x.ma_ktv ORDER BY x.cong_no_0d_id, x.ma_ktv`,
+    ),
+  ]);
+  const rows = rules.results.map((r) => ({
+    ...r,
+    lk: lks.results.filter((l) => l.cong_no_0d_id === r.id),
+    ktv: ktvs.results.filter((k) => k.cong_no_0d_id === r.id),
+  }));
+  return c.json({ rows });
+});
+
+// GET /cong-no-0d/ktv-options - danh ba KTV de chon ap dung (kem khu vuc de loc nhanh).
+ktvTonKho.get("/cong-no-0d/ktv-options", adminOrKeToan, async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT k.ma_ktv, k.ten_hien_thi, k.ten_misa, k.khu_vuc_ma, k.vai_tro_ktv, COALESCE(k.ngung_hoat_dong, 0) as ngung_hoat_dong
+     FROM ktv_lien_he k ORDER BY k.khu_vuc_ma, k.ten_hien_thi`,
+  ).all();
+  return c.json({ rows: results });
+});
+
+ktvTonKho.post("/cong-no-0d", adminOrKeToan, async (c) => {
+  const user = c.get("user");
+  const body = await c.req.json<CongNo0dBody>();
+  const v = await kiemTraCongNo0d(c.env.DB, body);
+  if ("error" in v) return c.json({ error: v.error }, 400);
+  const now = nowVN();
+  const row = await c.env.DB.prepare(
+    `INSERT INTO cong_no_0d (ten, tu_ngay, den_ngay, tat_ca_ktv, bat_tat, nguoi_tao, ngay_tao, nguoi_cap_nhat, ngay_cap_nhat)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+  )
+    .bind(v.ten, v.tu, v.den, v.tatCa ? 1 : 0, body.bat_tat === false ? 0 : 1, user.email, now, user.email, now)
+    .first<{ id: number }>();
+  if (!row) return c.json({ error: "INSERT_FAILED" }, 500);
+  try {
+    await c.env.DB.batch(lenhConCongNo0d(c.env.DB, row.id, v));
+  } catch (e) {
+    await c.env.DB.prepare("DELETE FROM cong_no_0d WHERE id = ?").bind(row.id).run();
+    throw e;
+  }
+  return c.json({ ok: true, id: row.id });
+});
+
+// PATCH /cong-no-0d/:id - chi { bat_tat } = bat/tat nhanh; co tu_ngay = sua toan bo (thay LK/KTV).
+ktvTonKho.patch("/cong-no-0d/:id", adminOrKeToan, async (c) => {
+  const user = c.get("user");
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<CongNo0dBody>();
+  const coSan = await c.env.DB.prepare("SELECT id FROM cong_no_0d WHERE id = ?").bind(id).first();
+  if (!coSan) return c.json({ error: "NOT_FOUND" }, 404);
+  const now = nowVN();
+  if (body.tu_ngay === undefined) {
+    if (body.bat_tat === undefined) return c.json({ error: "NOTHING_TO_UPDATE" }, 400);
+    await c.env.DB.prepare("UPDATE cong_no_0d SET bat_tat = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE id = ?")
+      .bind(body.bat_tat ? 1 : 0, user.email, now, id)
+      .run();
+    return c.json({ ok: true });
+  }
+  const v = await kiemTraCongNo0d(c.env.DB, body);
+  if ("error" in v) return c.json({ error: v.error }, 400);
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `UPDATE cong_no_0d SET ten = ?, tu_ngay = ?, den_ngay = ?, tat_ca_ktv = ?, bat_tat = COALESCE(?, bat_tat),
+         nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE id = ?`,
+    ).bind(v.ten, v.tu, v.den, v.tatCa ? 1 : 0, body.bat_tat === undefined ? null : body.bat_tat ? 1 : 0, user.email, now, id),
+    ...lenhConCongNo0d(c.env.DB, id, v),
+  ]);
+  return c.json({ ok: true });
+});
+
+ktvTonKho.delete("/cong-no-0d/:id", adminOrKeToan, async (c) => {
+  const id = Number(c.req.param("id"));
+  await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM cong_no_0d_lk WHERE cong_no_0d_id = ?").bind(id),
+    c.env.DB.prepare("DELETE FROM cong_no_0d_ktv WHERE cong_no_0d_id = ?").bind(id),
+    c.env.DB.prepare("DELETE FROM cong_no_0d WHERE id = ?").bind(id),
+  ]);
+  return c.json({ ok: true });
 });
 
 export default ktvTonKho;

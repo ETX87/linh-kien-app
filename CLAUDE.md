@@ -657,6 +657,14 @@ tổng thành phần), form giữ 1 dòng; server `tachComboDong()` tách thành
 `dat_don_hang.combo_ma` chỉ là nhãn 🧩. `chuyenMaLk()` cập nhật thành phần combo. 10 dòng "combo" cũ trong `linh_kien` (mã = danh
 sách mã nối dấu phẩy, đã tắt) + 4 đơn cũ dùng chúng giữ nguyên (chốt người dùng) — combo cùng mã thắng vì tách trước khi tra `linh_kien`.
 
+**Công nợ 0 đồng** (chốt 2026-10-05, migration `0069`): tab "Công nợ 0 đồng" ở menu Công nợ (`modules/CongNo0dTab.tsx`, CHỈ
+Admin/Kế toán — `adminOrKeToan`, `/api/settings/ktv-ton-kho/cong-no-0d`): chương trình = danh sách mã LK + SL hỗ trợ (cho MỖI KTV) +
+từ/đến ngày (ngày VN, gồm 2 đầu) + KTV áp dụng (chọn lẻ / lọc theo Khu vực / "Toàn bộ KTV" = cờ `tat_ca_ktv`, gồm cả KTV thêm sau) +
+bật/tắt. Hôm nay nằm trong khoảng → `MIN(tồn cuối kỳ, tổng SL hỗ trợ các chương trình đang bật)` chiếc tính công nợ 0đ, phần vượt tính
+bình thường — `SL_HO_TRO_0D_SQL()` ở `lib/congNoKtv.ts` dùng CHUNG cho `computeCongNoThucTe` (đánh giá công nợ lúc tạo đơn) + bảng
+Công nợ KTV (`ktvTonKho.ts GET /`, cột `sl_ho_tro_0d` "SL hỗ trợ 0 đồng") + chi tiết từng mã. Tính lúc đọc, không lưu → bật/tắt/sửa
+là công nợ thực tế đổi ngay. Không ảnh hưởng "phát sinh"/"đã trừ". `chuyenMaLk()` chuyển luôn `cong_no_0d_lk`.
+
 **Bỏ bước TBP** cho LK đặc thù khi loại đề xuất chứa MUA / HỖ TRỢ / **TRỪ CÔNG NỢ** (`boQuaTbpChoDacThu()` backend,
 bản sao `boQuaTbpDacThu()` FE cho cảnh báo ở `LinhKienPicker`).
 

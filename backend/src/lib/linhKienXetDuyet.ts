@@ -137,6 +137,9 @@ export async function chuyenMaLk(
     // Thanh phan combo (migration 0066) - (ma_combo, ma_lk) la khoa chinh, B da co trong combo thi bo dong cua A.
     db.prepare("UPDATE OR IGNORE lk_combo_ct SET ma_lk = ? WHERE ma_lk = ?").bind(B, A),
     db.prepare("DELETE FROM lk_combo_ct WHERE ma_lk = ?").bind(A),
+    // "Công nợ 0 đồng" (migration 0069) - (cong_no_0d_id, ma_linh_kien) la khoa chinh.
+    db.prepare("UPDATE OR IGNORE cong_no_0d_lk SET ma_linh_kien = ? WHERE ma_linh_kien = ?").bind(B, A),
+    db.prepare("DELETE FROM cong_no_0d_lk WHERE ma_linh_kien = ?").bind(A),
     db.prepare("UPDATE linh_kien SET ma_chuan = ? WHERE ma_chuan = ?").bind(B, A),
     db
       .prepare("UPDATE linh_kien SET trang_thai_ma = ?, ma_chuan = ?, bat_tat = 0, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?")

@@ -118,6 +118,8 @@ export interface KtvTonKhoSummaryRow {
   // nhat); cong_no_chot = thuc_te + phat_sinh; danh_gia_cong_no so sanh cong_no_chot voi Tran cong no
   // (cot "cong_no" o tren) - null neu Tran chua duoc dat (khong the danh gia).
   cong_no_thuc_te: number;
+  // Tong SL ton dang duoc tinh cong no 0d ("Công nợ 0 đồng", 2026-10-05) - da tru san khoi cong_no_thuc_te.
+  sl_ho_tro_0d?: number;
   cong_no_phat_sinh: number;
   // Don "TRỪ CÔNG NỢ" da thanh toan (Ke toan duyet / quy tra du) - tru ngay khoi cong no (2026-09-30);
   // cong_no_chot = thuc_te + phat_sinh - da_tru.
@@ -140,6 +142,8 @@ export interface KtvTonKhoChiTietRow {
   // xem backend routes/ktvTonKho.ts GET /:ma_ktv/chi-tiet) - tong cac dong nay = "Công nợ thực tế"
   // hien o dau modal (computeCongNoThucTe() trong lib/congNoKtv.ts).
   cong_no_thuc_te: number;
+  // SL cua dong nay tinh cong no 0d ("Công nợ 0 đồng", 2026-10-05).
+  sl_ho_tro_0d?: number;
 }
 export interface KtvTonKhoImportMeta {
   ky_tu_ngay: string | null;

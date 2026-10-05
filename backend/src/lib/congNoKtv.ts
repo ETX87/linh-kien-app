@@ -15,10 +15,22 @@ export async function getMocTinhCongNo(db: D1Database): Promise<string | null> {
 // khop ktv_ton_kho.ma_hang voi linh_kien.ma_linh_kien TRUC TIEP (xac nhan nguoi dung: MISA "Mã hàng"
 // luon giong het "Mã linh kiện" trong danh muc). Linh kien khong co gia_tri_cong_no (chua dat) tinh
 // la 0, khong loai tru dong do khoi tong.
+// "Công nợ 0 đồng" (2026-10-05, migration 0069): SL ton cua dong ktv_ton_kho (alias `t`, can t.ma_ktv/t.ma_hang/t.cuoi_ky)
+// duoc tinh cong no = 0 = MIN(ton, tong SL ho tro cua moi chuong trinh DANG BAT, hom nay (ngay VN) nam trong [tu_ngay,
+// den_ngay], ap dung cho KTV do (tat_ca_ktv hoac co trong cong_no_0d_ktv) va co ma LK nay). Phan ton vuot SL ho tro tinh binh
+// thuong. Dung CHUNG cho computeCongNoThucTe + routes/ktvTonKho.ts (bang tong hop + chi tiet) - sua 1 cho la doi ca 3.
+export function SL_HO_TRO_0D_SQL(t: string): string {
+  return `MIN(MAX(COALESCE(${t}.cuoi_ky, 0), 0), (SELECT COALESCE(SUM(l0.so_luong), 0) FROM cong_no_0d_lk l0
+    JOIN cong_no_0d r0 ON r0.id = l0.cong_no_0d_id
+    WHERE l0.ma_linh_kien = ${t}.ma_hang AND r0.bat_tat = 1
+      AND date('now', '+7 hours') BETWEEN r0.tu_ngay AND r0.den_ngay
+      AND (r0.tat_ca_ktv = 1 OR EXISTS (SELECT 1 FROM cong_no_0d_ktv x0 WHERE x0.cong_no_0d_id = r0.id AND x0.ma_ktv = ${t}.ma_ktv))))`;
+}
+
 export async function computeCongNoThucTe(db: D1Database, maKtv: string): Promise<number> {
   const row = await db
     .prepare(
-      `SELECT COALESCE(SUM(t.cuoi_ky * COALESCE(lk.gia_tri_cong_no, 0)), 0) as gia_tri
+      `SELECT COALESCE(SUM((t.cuoi_ky - ${SL_HO_TRO_0D_SQL("t")}) * COALESCE(lk.gia_tri_cong_no, 0)), 0) as gia_tri
        FROM ktv_ton_kho t
        LEFT JOIN linh_kien lk ON lk.ma_linh_kien = t.ma_hang
        WHERE t.ma_ktv = ?`,

@@ -23,6 +23,7 @@ import { DonutChart } from "../components/charts/DonutChart";
 import { HBarList } from "../components/charts/BarCharts";
 import { fmtCompactVND, pct } from "../components/charts/chartUtils";
 import { Money } from "../components/ui/Money";
+import { CongNo0dTab } from "./CongNo0dTab";
 
 // File mau cho "Import tồn kho MISA" - chi can dung dong tieu de cot (parser tim theo TEN cot, xem
 // HEADER_ALIASES o lib/tonKhoImport.ts) + vai dong vi du, KHONG can dung dinh dang goc phuc tap cua
@@ -65,7 +66,9 @@ export function TonKhoKtvModule() {
   // la_ktv_dvbh/la_ve_tinh, giu nguyen cho moi vai tro con lai (Giam sat/la_view/Admin/Kho/Ke toan/Tac
   // nghiep/TBP - xem scopeKtvTonKho() o backend/src/routes/ktvTonKho.ts).
   const isKtvLike = auth.status === "authenticated" && (auth.user.la_ktv_dvbh || auth.user.la_ve_tinh);
-  const [topTab, setTopTab] = useState<"ktv" | "kho-cong-ty">("ktv");
+  // "Công nợ 0 đồng" (2026-10-05) - chi Admin/Ke toan (adminOrKeToan o backend).
+  const canCongNo0d = auth.status === "authenticated" && (auth.user.vai_tro === "Admin" || !!auth.user.la_ke_toan);
+  const [topTab, setTopTab] = useState<"ktv" | "kho-cong-ty" | "cong-no-0d">("ktv");
   return (
     <div className="anim-in space-y-3">
       {!isKtvLike && (
@@ -73,12 +76,13 @@ export function TonKhoKtvModule() {
           tabs={[
             { key: "ktv", label: "Tồn kho KTV" },
             { key: "kho-cong-ty", label: "Kho công ty" },
+            ...(canCongNo0d ? [{ key: "cong-no-0d", label: "Công nợ 0 đồng" }] : []),
           ]}
           active={topTab}
-          onChange={(k) => setTopTab(k as "ktv" | "kho-cong-ty")}
+          onChange={(k) => setTopTab(k as "ktv" | "kho-cong-ty" | "cong-no-0d")}
         />
       )}
-      {topTab === "ktv" || isKtvLike ? <TonKhoKtvContent /> : <KhoCongTyContent />}
+      {topTab === "ktv" || isKtvLike ? <TonKhoKtvContent /> : topTab === "cong-no-0d" && canCongNo0d ? <CongNo0dTab /> : <KhoCongTyContent />}
     </div>
   );
 }
@@ -334,6 +338,12 @@ function TonKhoKtvContent() {
                 <span className="text-[var(--color-text-muted)]">Tồn </span>
                 {r.so_ma_hang} mã · {r.tong_cuoi_ky?.toLocaleString("vi-VN") ?? 0} SL
               </span>
+              {!!r.sl_ho_tro_0d && (
+                <span>
+                  <span className="text-[var(--color-text-muted)]">Hỗ trợ 0đ </span>
+                  {r.sl_ho_tro_0d.toLocaleString("vi-VN")} SL
+                </span>
+              )}
             </div>
           </div>
         ))}
@@ -354,18 +364,19 @@ function TonKhoKtvContent() {
                 <th className="px-3 py-2">Đánh giá công nợ</th>
                 <th className="px-3 py-2">Số mã hàng tồn</th>
                 <th className="px-3 py-2">Tổng SL tồn</th>
+                <th className="px-3 py-2" title="SL tồn đang được tính công nợ = 0đ theo chương trình &quot;Công nợ 0 đồng&quot; (đã trừ khỏi Công nợ thực tế)">SL hỗ trợ 0 đồng</th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={12} className="px-3 py-6 text-center text-[var(--ink-400)]">Đang tải…</td>
+                  <td colSpan={13} className="px-3 py-6 text-center text-[var(--ink-400)]">Đang tải…</td>
                 </tr>
               )}
               {!isLoading && allRows.length === 0 && (
                 <tr>
-                  <td colSpan={12} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có dữ liệu tồn kho{canManage ? ' - bấm "Import tồn kho MISA" để nhập.' : "."}</td>
+                  <td colSpan={13} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có dữ liệu tồn kho{canManage ? ' - bấm "Import tồn kho MISA" để nhập.' : "."}</td>
                 </tr>
               )}
               {pageRows.map((r) => (
@@ -394,6 +405,7 @@ function TonKhoKtvContent() {
                   </td>
                   <td className="px-3 py-2">{r.so_ma_hang}</td>
                   <td className="px-3 py-2">{r.tong_cuoi_ky?.toLocaleString("vi-VN") ?? 0}</td>
+                  <td className="px-3 py-2">{r.sl_ho_tro_0d ? r.sl_ho_tro_0d.toLocaleString("vi-VN") : <span className="text-[var(--ink-400)]">—</span>}</td>
                   <td className="px-3 py-2">
                     <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={(e) => { e.stopPropagation(); setDetailKtv(r); }}>
                       Xem chi tiết
@@ -564,6 +576,9 @@ function TonKhoChiTietModal({ row, onClose }: { row: KtvTonKhoSummaryRow; onClos
         <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs border border-[var(--line)] rounded-xl bg-[var(--surface-soft)] px-3 py-2">
           <div><span className="text-[var(--ink-400)]">Trần công nợ: </span><span className="font-semibold">{row.cong_no != null ? <Money>{fmtVND(row.cong_no)}</Money> : "—"}</span></div>
           <div><span className="text-[var(--ink-400)]">Công nợ thực tế: </span><span className="font-mono font-semibold"><Money>{fmtVND(row.cong_no_thuc_te)}</Money></span></div>
+          {!!row.sl_ho_tro_0d && (
+            <div title="Đã trừ khỏi Công nợ thực tế"><span className="text-[var(--ink-400)]">SL hỗ trợ 0 đồng: </span><span className="font-semibold">{row.sl_ho_tro_0d}</span></div>
+          )}
           <div><span className="text-[var(--ink-400)]">Công nợ phát sinh: </span><span className="font-mono font-semibold"><Money>{fmtVND(row.cong_no_phat_sinh)}</Money></span></div>
           {row.cong_no_da_tru > 0 && (
             <div title="Đơn TRỪ CÔNG NỢ đã thanh toán — trừ ngay, không chờ lần import tồn kho MISA sau">
@@ -587,12 +602,13 @@ function TonKhoChiTietModal({ row, onClose }: { row: KtvTonKhoSummaryRow; onClos
                   <th className="px-3 py-2 text-right">Cuối kỳ</th>
                   <th className="px-3 py-2 text-right whitespace-nowrap" title="SL các đơn TRỪ CÔNG NỢ tạo sau lần import tồn kho gần nhất, chưa bị từ chối/hủy">Đã trừ theo đơn</th>
                   <th className="px-3 py-2 text-right whitespace-nowrap">Tồn còn lại</th>
+                  <th className="px-3 py-2 text-right whitespace-nowrap" title="SL tồn được tính công nợ = 0đ (chương trình Công nợ 0 đồng đang áp dụng)">SL hỗ trợ 0đ</th>
                   <th className="px-3 py-2 text-right">Công nợ thực tế</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading && (
-                  <tr><td colSpan={10} className="px-3 py-6 text-center text-[var(--ink-400)]">Đang tải…</td></tr>
+                  <tr><td colSpan={11} className="px-3 py-6 text-center text-[var(--ink-400)]">Đang tải…</td></tr>
                 )}
                 {(data?.rows ?? []).map((p) => (
                   <tr key={p.ma_hang} className="border-b border-[var(--line)] last:border-0">
@@ -607,6 +623,7 @@ function TonKhoChiTietModal({ row, onClose }: { row: KtvTonKhoSummaryRow; onClos
                     <td className={`px-3 py-2 text-right font-semibold ${(p.ton_con_lai ?? p.cuoi_ky ?? 0) < 0 ? "text-[var(--color-danger-strong)]" : ""}`}>
                       {p.ton_con_lai ?? p.cuoi_ky ?? 0}
                     </td>
+                    <td className="px-3 py-2 text-right">{p.sl_ho_tro_0d ? p.sl_ho_tro_0d : <span className="text-[var(--ink-400)]">—</span>}</td>
                     <td className="px-3 py-2 text-right font-mono"><Money>{fmtVND(p.cong_no_thuc_te)}</Money></td>
                   </tr>
                 ))}
