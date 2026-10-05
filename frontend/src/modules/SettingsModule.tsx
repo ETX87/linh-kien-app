@@ -37,11 +37,11 @@ interface LoaiDeXuatOptionRow {
   loai_file_xuat_misa: string | null;
 }
 
-// 3 gia tri hop le cho "mau file xuat MISA" khi tao PXK (xem lib/misaExport.ts o backend) - rong =
-// mac dinh "Bán hàng" (KHONG bat buoc Admin phai dien, chi dung khi loai_don='mua'; loai_don='cong_no'/
-// 'tra_hang' LUON dung "Chuyển kho" bat ke gia tri nay, xac nhan qua AskUserQuestion 2026-09-02).
+// 3 gia tri hop le cho "mau file xuat MISA" de xuat cho PXK (xem resolveTemplate o backend lib/misaExport.ts). SUA 2026-10-05:
+// gia tri nay ap ca don cong no (truoc day cong no LUON Chuyen kho); de trong = don mua Ban hang, don cong no Chuyen kho;
+// don tra hang LUON Chuyen kho, TRỪ CÔNG NỢ chi Ban hang / CN, hỗ trợ.
 const MISA_TEMPLATE_OPTIONS = [
-  { value: "", label: "(mặc định: Bán hàng)" },
+  { value: "", label: "(mặc định: mua → Bán hàng, công nợ → Chuyển kho)" },
   { value: "ban_hang", label: "Bán hàng" },
   { value: "chuyen_kho", label: "Chuyển kho" },
   { value: "xuat_kho", label: "CN, hỗ trợ" },

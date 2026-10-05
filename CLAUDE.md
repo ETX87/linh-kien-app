@@ -531,6 +531,15 @@ và "Nhập tại kho" (Chuyển kho); dòng TRỪ CÔNG NỢ vẫn trừ kho KT
 `xuat_kho`). Chi tiết PXK chỉ hiện nút mẫu ĐỀ XUẤT (`misaTemplateDeXuat` = `resolveMisaTemplateDeXuat`), nút mũi tên ▸ mở 2 mẫu còn
 lại (`moMauMisaKhac` theo id phiếu); không có mẫu đề xuất thì hiện cả 3. Nút tải gộp ở danh sách PXK vẫn hiện đủ 3.
 
+**Mẫu đề xuất + diễn giải MISA theo file "Diễn giải hệ thống misa.xlsx"** (chốt 2026-10-05, `lib/misaExport.ts`, migration `0068`):
+`resolveTemplate` BỎ quy tắc "phiếu công nợ luôn Chuyển kho" — theo `settings_loai_de_xuat.loai_file_xuat_misa` (CÔNG NỢ / HỖ TRỢ * /
+TG12 = `xuat_kho` "CN, hỗ trợ"; chưa cài: công nợ → Chuyển kho, mua → Bán hàng; trả hàng LUÔN Chuyển kho; TRỪ CÔNG NỢ chỉ Bán hàng /
+CN, hỗ trợ). Diễn giải 2 mẫu Bán hàng / CN, hỗ trợ: MUA DỰ TRỮ "<kho> bán hàng <Tên MISA> MDT" (mua khác không có MDT); TRỪ CÔNG NỢ
+"<mã MISA KTV> xuất trừ kho kí gửi cho KTV <Tên MISA>"; ĐƠN CÔNG NỢ (loại đề xuất bắt đầu "CÔNG NỢ") "<kho> xuất ký gửi <Tên MISA>
+theo MYC <mã>"; HỖ TRỢ 0 ĐỒNG "<kho> xuất hỗ trợ <trong/ngoài BH theo `chinh_sach`> <Tên MISA> theo MYC <mã> <TT KH> - <TT+Mail
+duyệt>" (KÊNH MT: "xuất hỗ trợ KINH DOANH KRF") + cột Người nhận hàng = "<Tên MISA> (<TT KH>)"; MYC = Mã YCSC, không có thì Mã Lada.
+Giữ nguyên: HỖ TRỢ CÔNG NỢ, TG12 (gộp dòng), trả hàng, xuất máy (`dienGiaiCoDinh` thắng mọi công thức trên), Chuyển kho.
+
 **1 Gmail = 1 mã KTV** (chốt 2026-10-01, migration `0061`): đã đóng 9 mã thừa của 6 Gmail dùng chung (gỡ Gmail + `ngung_hoat_dong`,
 ghi chú lý do trong `ghi_chu`); chỉ mục DUY NHẤT `LOWER(TRIM(email_dang_nhap))`; API báo `EMAIL_DA_GAN_MA_KHAC` trước khi chạm DB
 (`maKtvDangDungEmail()` ở `lib/ktvChinh.ts` — PATCH `/:ma/dat-mua-lk`, bulk-import status `email_da_gan_ma_khac:<mã>`; đường ETX đã
