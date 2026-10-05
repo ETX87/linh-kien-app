@@ -323,20 +323,23 @@ async function applyTraHangLog(
   hanhDong: "duyet" | "tu_choi" | "huy",
   ghiChu: string | undefined,
   lyDoChamId?: number,
+  // SL thuc te Kho nhan duoc (2026-10-05) - CHI o buoc "Cho kho xac nhan" + duyet; ghi vao so_luong_thuc_xuat (PXK/MISA doc
+  // COALESCE(so_luong_thuc_xuat, so_luong_de_xuat)). Bang SL de xuat -> NULL (khong doi).
+  soLuongThucTe?: number,
 ): Promise<{ error: string; status: 400 | 404 | 409 | 403 } | { nextTrangThai: string }> {
   // SUA 2026-08-21: truoc doc trang thai qua subquery tuong quan tra_hang_log (co bug qualify cot "id"
   // bi shadow, da vá bang fallback `?? "Cho ke toan duyet mem"") - doi hang doc thang cot mirror
   // trang_thai_hien_tai (LUON dong bo qua CAS ngay ben duoi), vua don gian hon vua tranh dung ca lop
   // "dong tra_hang vua tao chua co log dau tien" (xem giai thich o GET / ben tren).
   const ddh = await c.env.DB.prepare(
-    `SELECT id, nguoi_tao, version, trang_thai_hien_tai as trang_thai, email_gs, ten_lk_snapshot, so_luong_de_xuat, ma_thung_tra,
+    `SELECT id, nguoi_tao, version, trang_thai_hien_tai as trang_thai, email_gs, ten_lk_snapshot, so_luong_de_xuat, so_luong_thuc_xuat, ma_thung_tra,
        ${mocGiaiDoanTraHangSql("dat_don_hang")} as moc_giai_doan
      FROM dat_don_hang WHERE id = ? AND loai_don = 'tra_hang'`,
   )
     .bind(donHangId)
     .first<{
       id: string; nguoi_tao: string; version: number; trang_thai: string | null;
-      email_gs: string | null; ten_lk_snapshot: string; so_luong_de_xuat: number; ma_thung_tra: string | null;
+      email_gs: string | null; ten_lk_snapshot: string; so_luong_de_xuat: number; so_luong_thuc_xuat: number | null; ma_thung_tra: string | null;
       moc_giai_doan: string | null;
     }>();
   if (!ddh) return { error: "NOT_FOUND", status: 404 };
@@ -394,6 +397,19 @@ async function applyTraHangLog(
     return { error: "INVALID_STATE", status: 409 };
   }
 
+  // Kho sua SL thuc te nhan duoc truoc khi duyet (2026-10-05).
+  let slThucXuatMoi: number | null | undefined; // undefined = khong doi
+  if (soLuongThucTe !== undefined && soLuongThucTe !== null) {
+    if (trangThaiHienTai !== "Cho kho xac nhan" || hanhDong !== "duyet") return { error: "SO_LUONG_CHI_SUA_O_BUOC_KHO", status: 409 };
+    if (!Number.isInteger(soLuongThucTe) || soLuongThucTe < 1) return { error: "SO_LUONG_KHONG_HOP_LE", status: 400 };
+    const slCu = ddh.so_luong_thuc_xuat ?? ddh.so_luong_de_xuat;
+    if (soLuongThucTe !== slCu) {
+      slThucXuatMoi = soLuongThucTe === ddh.so_luong_de_xuat ? null : soLuongThucTe;
+      const moTa = `Kho sửa SL thực tế nhận: ${slCu} → ${soLuongThucTe}`;
+      ghiChu = ghiChu?.trim() ? `${moTa} | ${ghiChu.trim()}` : moTa;
+    }
+  }
+
   // Han 24h tung giai doan (chot 2026-10-01): bo phan dang giu don xu ly (Duyet/Tu choi) SAU han 24h tinh tu moc xu ly cuoi cua
   // giai doan truoc -> BAT BUOC chon ly do cham (cung danh muc settings_ly_do_cham "Mua hàng" voi don mua), ghi vao log. Huy
   // (nguoi tao/TN) khong phai xu ly giai doan nen khong bat.
@@ -436,9 +452,17 @@ async function applyTraHangLog(
   const casResult = await c.env.DB.prepare(
     maThungTraMoi
       ? "UPDATE dat_don_hang SET trang_thai_hien_tai = ?, ma_thung_tra = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?"
-      : "UPDATE dat_don_hang SET trang_thai_hien_tai = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?",
+      : slThucXuatMoi !== undefined
+        ? "UPDATE dat_don_hang SET trang_thai_hien_tai = ?, so_luong_thuc_xuat = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?"
+        : "UPDATE dat_don_hang SET trang_thai_hien_tai = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?",
   )
-    .bind(...(maThungTraMoi ? [nextTrangThai, maThungTraMoi, nowVN(), donHangId, ddh.version] : [nextTrangThai, nowVN(), donHangId, ddh.version]))
+    .bind(
+      ...(maThungTraMoi
+        ? [nextTrangThai, maThungTraMoi, nowVN(), donHangId, ddh.version]
+        : slThucXuatMoi !== undefined
+          ? [nextTrangThai, slThucXuatMoi, nowVN(), donHangId, ddh.version]
+          : [nextTrangThai, nowVN(), donHangId, ddh.version]),
+    )
     .run();
   if (!casResult.meta.changes) return { error: "STATE_CHANGED", status: 409 };
 
@@ -493,8 +517,8 @@ async function applyTraHangLog(
 // toan/Kho duoc dung, xem route rieng ben duoi thay vi nhanh nay de tach rach ly do bat buoc).
 traHang.post("/:donHangId/log", async (c) => {
   const donHangId = c.req.param("donHangId");
-  const body = await c.req.json<{ hanh_dong: "duyet" | "tu_choi" | "huy"; ghi_chu?: string; ly_do_cham_id?: number }>();
-  const result = await applyTraHangLog(c, donHangId, body.hanh_dong, body.ghi_chu, body.ly_do_cham_id);
+  const body = await c.req.json<{ hanh_dong: "duyet" | "tu_choi" | "huy"; ghi_chu?: string; ly_do_cham_id?: number; so_luong_thuc_te?: number }>();
+  const result = await applyTraHangLog(c, donHangId, body.hanh_dong, body.ghi_chu, body.ly_do_cham_id, body.so_luong_thuc_te);
   if ("error" in result) return c.json({ error: result.error }, result.status);
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));

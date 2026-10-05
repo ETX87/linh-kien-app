@@ -87,6 +87,11 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   tiết, hàng loạt). Kho xác nhận qua khovan (`partnerKho.ts`) KHÔNG bị chặn. Đơn `loai_don='tra_hang'` KHÔNG áp hạn "Lý do
   chậm" 24h-từ-"Cho TN duyet" của đơn mua (`choTnDuyetAtExpr`/`lastGiaiTrinhAtExpr` trả NULL, 2 truy vấn PXK cũng vậy) — đơn
   đổi Mua→Trả hàng từng bị báo "Quá hạn" sai trong PXK + chặn "Gửi kế toán". Chi tiết đơn trả hàng gộp `tra_hang_log` vào "Lịch sử xử lý".
+  **Kho sửa SL thực tế nhận về** (2026-10-05): ở bước "Cho kho xac nhan", chi tiết đơn trả hàng có ô "SL thực tế nhận về" → gửi
+  `so_luong_thuc_te` kèm `POST /tra-hang/:id/log` duyệt (`applyTraHangLog`, số nguyên ≥ 1; bước/hành động khác →
+  `SO_LUONG_CHI_SUA_O_BUOC_KHO`), ghi vào `so_luong_thuc_xuat` trong CÙNG CAS (bằng SL đề xuất → NULL) + log "Kho sửa SL thực tế
+  nhận: A → B". PXK/file MISA đọc `COALESCE(so_luong_thuc_xuat, so_luong_de_xuat)` nên tự theo số mới. Duyệt nhanh ở danh sách /
+  hàng loạt / qua khovan giữ nguyên SL.
 - **Loại chiết khấu** (migration `0033_loai_chiet_khau.sql`, 2026-09-26): `dat_don_hang.loai_chiet_khau_id`
   (+ `loai_chiet_khau_thu_cong` = TN đã chọn tay) → `settings_loai_chiet_khau` (loại có `ma` = hệ thống tự
   gán, `ma` NULL = tự thêm). Gán tự động bằng `tinhToanPxk()` trong `lib/pxkRecalculate.ts` — **CÙNG hàm**

@@ -384,6 +384,8 @@ export function TraHangTab({
           ? "Cần nhập lý do khi từ chối/huỷ"
           : code === "MISSING_ANH_QC"
             ? "Cần tải ít nhất 1 ảnh bằng chứng trước khi từ chối"
+            : code === "SO_LUONG_KHONG_HOP_LE"
+              ? "Số lượng thực tế phải là số nguyên ≥ 1"
             : code === "KHOVAN_PUSH_FAILED"
               ? "Không báo được sang Kho vận (khovan) — thử duyệt lại. Đơn CHƯA được duyệt."
               : "Lỗi: " + describeApiError(err),
@@ -1101,8 +1103,13 @@ export function TraHangDetailModal({
 
   const [choLyDoCham, setChoLyDoCham] = useState<ChoLyDoCham | null>(null);
   const logMutation = useMutation({
-    mutationFn: (args: { hanhDong: "duyet" | "tu_choi" | "huy"; ghiChu?: string; lyDoChamId?: number }) =>
-      api.post(`/tra-hang/${id}/log`, { hanh_dong: args.hanhDong, ghi_chu: args.ghiChu?.trim() || undefined, ly_do_cham_id: args.lyDoChamId }),
+    mutationFn: (args: { hanhDong: "duyet" | "tu_choi" | "huy"; ghiChu?: string; lyDoChamId?: number; soLuongThucTe?: number }) =>
+      api.post(`/tra-hang/${id}/log`, {
+        hanh_dong: args.hanhDong,
+        ghi_chu: args.ghiChu?.trim() || undefined,
+        ly_do_cham_id: args.lyDoChamId,
+        so_luong_thuc_te: args.hanhDong === "duyet" ? args.soLuongThucTe : undefined,
+      }),
     onSuccess: (_res, variables) => {
       setChoLyDoCham(null);
       invalidate();
@@ -1139,6 +1146,17 @@ export function TraHangDetailModal({
   const trangThai = d?.trang_thai_tra_hang ?? "";
   const daDong = DA_DONG.includes(trangThai);
   const coTheXuLy = !!d && !daDong && canXuLy(trangThai);
+  // Kho sua SL thuc te nhan duoc truoc khi duyet (2026-10-05) - gui kem "duyet" o buoc "Cho kho xac nhan", luu vao
+  // so_luong_thuc_xuat (PXK/file MISA dung SL nay).
+  const slSuaDuoc = coTheXuLy && trangThai === "Cho kho xac nhan";
+  const slHienTai = d ? d.so_luong_thuc_xuat ?? d.so_luong_de_xuat : 0;
+  const [slThucTe, setSlThucTe] = useState("");
+  useEffect(() => {
+    if (d) setSlThucTe(String(d.so_luong_thuc_xuat ?? d.so_luong_de_xuat));
+  }, [d?.id, d?.so_luong_thuc_xuat, d?.so_luong_de_xuat]); // eslint-disable-line react-hooks/exhaustive-deps
+  const slNhap = Number(slThucTe);
+  const slHopLe = Number.isInteger(slNhap) && slNhap >= 1;
+  const slGuiDuyet = slSuaDuoc && slHopLe && slNhap !== slHienTai ? slNhap : undefined;
   const coTheDayLui = !!d && (canKeToan || canKho) && CO_THE_DAY_LUI.includes(trangThai);
   // FIX (phan hoi QA 2026-08-31, muc #2): backend da cho phep chinh nguoi tao (hoac Admin) tu huy don
   // tra hang cua minh o bat ky buoc nao con mo (xem traHang.ts, hanhDong "huy") nhung frontend truoc
@@ -1252,6 +1270,25 @@ export function TraHangDetailModal({
               actionMode===null - moi nhanh Huy/actionMode khac deu tu clear ve "" luc bam Huy/Dong nen
               an toan, khong lo dinh gia tri cu). Backend applyTraHangLog() da nhan ghiChu tuy chon cho
               MOI hanh dong (khong rieng tu_choi/huy) tu truoc - chi can gui len, khong can sua BE. */}
+          {slSuaDuoc && d && (
+            <label className="flex w-full items-center justify-end gap-2 text-sm">
+              <span className="text-[var(--color-text-secondary)]">SL thực tế nhận về</span>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={slThucTe}
+                onChange={(e) => setSlThucTe(e.target.value)}
+                className="focus-ring w-20 bg-white border border-[var(--line)] rounded-lg px-2 py-1 text-right font-mono"
+              />
+              <span className="text-xs text-[var(--color-text-muted)]">/ KTV gửi {d.so_luong_de_xuat}</span>
+            </label>
+          )}
+          {slSuaDuoc && slGuiDuyet !== undefined && (
+            <div className="w-full text-right text-xs text-[var(--color-warning-strong)]">
+              Duyệt sẽ ghi nhận SL thực tế {slGuiDuyet} (khác {slHienTai}) — phiếu xuất kho và file MISA dùng số này.
+            </div>
+          )}
           {coTheXuLy && trangThai !== "Cho TN duyet tong" && (
             <input
               value={ghiChu}
@@ -1264,8 +1301,8 @@ export function TraHangDetailModal({
             {coTheXuLy && (
               <Btn
                 size="sm"
-                onClick={() => logMutation.mutate({ hanhDong: "duyet", ghiChu: trangThai !== "Cho TN duyet tong" ? ghiChu : undefined })}
-                disabled={logMutation.isPending}
+                onClick={() => logMutation.mutate({ hanhDong: "duyet", ghiChu: trangThai !== "Cho TN duyet tong" ? ghiChu : undefined, soLuongThucTe: slGuiDuyet })}
+                disabled={logMutation.isPending || (slSuaDuoc && !slHopLe)}
                 loading={logMutation.isPending}
               >
                 {navNextId && onNavigate ? "Duyệt và tiếp theo →" : "Duyệt"}
@@ -1316,7 +1353,7 @@ export function TraHangDetailModal({
               da doi cho DonHangDetailModal (DonCuaToiTab.tsx): dai "chỉ số nhanh" + DetailZone thay
               cho khoi KvRow/SectionTitle phang truoc day. */}
           <div className="flex items-start gap-4 flex-wrap pb-3 border-b border-[var(--line)]">
-            <QuickStat label="SL" value={d.so_luong_de_xuat} />
+            <QuickStat label="SL" value={d.so_luong_thuc_xuat != null && d.so_luong_thuc_xuat !== d.so_luong_de_xuat ? `${d.so_luong_de_xuat} → ${d.so_luong_thuc_xuat}` : d.so_luong_de_xuat} />
             <div className="flex-1 min-w-[160px]">
               <div className="text-[10px] uppercase tracking-wide text-[var(--ink-400)] font-bold mb-1">Trạng thái</div>
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -1410,7 +1447,7 @@ export function TraHangDetailModal({
         cho={choLyDoCham}
         onClose={() => setChoLyDoCham(null)}
         loading={logMutation.isPending}
-        onConfirm={(lyDoChamId) => logMutation.mutate({ hanhDong: choLyDoCham.hanhDong, ghiChu: choLyDoCham.ghiChu, lyDoChamId })}
+        onConfirm={(lyDoChamId) => logMutation.mutate({ hanhDong: choLyDoCham.hanhDong, ghiChu: choLyDoCham.ghiChu, lyDoChamId, soLuongThucTe: slGuiDuyet })}
       />
     )}
     </>
