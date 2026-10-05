@@ -407,6 +407,14 @@ export function laTraHangChoTn(d: Pick<DonHangRow, "loai_don" | "trang_thai">): 
   return d.loai_don === "tra_hang" && d.trang_thai === "Cho TN duyet tong";
 }
 
+// TN "đẩy lại" don da huy / da tu choi ve "Chờ TN duyệt" trong 24h (chot 2026-10-05) - han do backend tinh (day_lai_han,
+// gio VN), POST /don-hang/:id/day-lai kiem tra lai.
+export function dayLaiDuoc(d: DonHangRow, canTacNghiep: boolean): boolean {
+  if (!canTacNghiep || !d.day_lai_han) return false;
+  const bayGioVN = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 19).replace("T", " ");
+  return d.day_lai_han > bayGioVN;
+}
+
 export function actionsFor(
   d: DonHangRow,
   ctx: { canTacNghiep: boolean; canTPDvbhXacNhan?: boolean; canActAsTram: boolean; currentEmail: string; isAdmin?: boolean },

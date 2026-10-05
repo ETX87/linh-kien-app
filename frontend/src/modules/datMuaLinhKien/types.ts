@@ -196,6 +196,8 @@ export interface DonHangRow {
   // 1 = don "TN da duyet" trong PXK con "Dang tao phieu", Ke toan chua duyet chuyen tien -> TN van Huy/Tu choi/
   // Cho hang duoc (don tu go khoi phieu) - backend TN_DOI_TRONG_PXK_SQL.
   tn_doi_trong_pxk?: number | null;
+  // Han TN "đẩy lại" don da huy / tu choi (gio VN, = luc huy/tu choi + 24h); null = khong ap dung (2026-10-05).
+  day_lai_han?: string | null;
   // 1 = don "Cho hang" ma Kho DA tiep nhan ticket thieu LK (dang xu ly) -> khoa thao tac, cho Kho (2026-09-30). Don
   // "Cho hang" con lai (Kho chua tiep nhan / ticket da dong) thao tac nhu "Cho TN duyet", ticket tu huy.
   kho_dang_xu_ly_thieu_lk?: number | null;

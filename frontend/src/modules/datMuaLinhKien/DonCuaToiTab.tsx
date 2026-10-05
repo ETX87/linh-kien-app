@@ -39,7 +39,7 @@ import {
 } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
-  LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, laTraHangChoTn, laChoHangMoKhoa, laChoHangBiKhoa, trangThaiLabel, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft,
+  LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, laTraHangChoTn, laChoHangMoKhoa, laChoHangBiKhoa, dayLaiDuoc, trangThaiLabel, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLkCombo, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
   donGiaSauChietKhau, tienSauChietKhau, giaNiemYet, boQuaTbpDacThu } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink, LogTieuDe } from "./SharedUi";
@@ -146,7 +146,7 @@ export function DonHangDetailModal({
   const [ghiChu, setGhiChu] = useState("");
   // "Tu choi" bat buoc chon 1 Ly do cham, "Huy" bat buoc nhap ghiChu tu do (phan hoi UX muc 1, xem
   // comment applyDonHangLog o backend).
-  const [actionTarget, setActionTarget] = useState<"tu_choi" | "cho_hang" | "huy" | "duyet_qua_han" | null>(null);
+  const [actionTarget, setActionTarget] = useState<"tu_choi" | "cho_hang" | "huy" | "duyet_qua_han" | "day_lai" | null>(null);
   // Canh bao "Công nợ tạo hộ" (them 2026-08-24, muc 4) - chan 1 nhip TRUOC khi goi mutation "duyet"
   // that su, xem isCongNoTaoHo o helpers.ts.
   const [confirmDuyetTaoHo, setConfirmDuyetTaoHo] = useState(false);
@@ -215,6 +215,16 @@ export function DonHangDetailModal({
       }
     },
     onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+  });
+
+  // TN "đẩy lại" don da huy / tu choi ve "Chờ TN duyệt" trong 24h (chot 2026-10-05).
+  const dayLaiMutation = useMutation({
+    mutationFn: () => api.post(`/dat-mua-lk/don-hang/${id}/day-lai`, { ghi_chu: ghiChu.trim() || undefined }),
+    onSuccess: () => {
+      invalidate();
+      addToast(`Đã đẩy lại đơn ${id} về Chờ TN duyệt`);
+    },
+    onError: (err) => addToast("Không đẩy lại được đơn: " + describeApiError(err)),
   });
 
   // "Lý do chậm" khi dòng còn "Cho TN duyệt" quá hạn (phản hồi: "danh sách chờ TN duyệt đang không có
@@ -665,6 +675,27 @@ export function DonHangDetailModal({
             <Btn size="sm" variant="danger" onClick={confirmHuy} disabled={!ghiChu.trim() || logMutation.isPending}>Xác nhận hủy</Btn>
           </div>
         </div>
+      ) : actionTarget === "day_lai" ? (
+        <div className="w-full space-y-2 bg-[var(--surface-100)] border border-dashed border-[var(--line)] rounded-lg p-2.5">
+          <div className="font-semibold text-xs">Đẩy lại dòng {d.id} về Chờ TN duyệt</div>
+          <div className="text-[11px] text-[var(--ink-500)]">
+            Đơn quay lại hàng chờ duyệt của Tác nghiệp để xử lý lại (duyệt / từ chối / chờ hàng). Ticket thiếu hàng đã đóng không mở lại;
+            đơn cần chuyển tiền trước sẽ được gom lại vào phiếu đang tạo của người nhận.
+          </div>
+          <div>
+            <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">Ghi chú (tuỳ chọn)</label>
+            <input
+              value={ghiChu}
+              onChange={(e) => setGhiChu(e.target.value)}
+              placeholder="Lý do đẩy lại (tuỳ chọn)"
+              className="focus-ring w-full bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setGhiChu(""); }}>Đóng</Btn>
+            <Btn size="sm" onClick={() => dayLaiMutation.mutate()} loading={dayLaiMutation.isPending} disabled={dayLaiMutation.isPending}>Xác nhận đẩy lại</Btn>
+          </div>
+        </div>
       ) : actions.duyet || actions.tuChoi || actions.choHang || actions.huy ? (
         <div className="w-full space-y-2">
           {laChoHangMoKhoa(d) && (
@@ -722,6 +753,11 @@ export function DonHangDetailModal({
           )}
           {actions.huy && <Btn size="sm" variant="ghost" onClick={() => setActionTarget("huy")} disabled={logMutation.isPending}>Hủy</Btn>}
           </div>
+        </div>
+      ) : dayLaiDuoc(d, canTacNghiep) ? (
+        <div className="w-full flex items-center justify-end gap-2 flex-wrap">
+          <span className="text-[11.5px] text-[var(--color-text-secondary)]">Đẩy lại được đến {fmtDateTime(d.day_lai_han)}</span>
+          <Btn size="sm" variant="ghost" onClick={() => setActionTarget("day_lai")}>↩ Đẩy lại chờ duyệt</Btn>
         </div>
       ) : laChoHangBiKhoa(d) ? (
         <div className="w-full rounded-lg border border-[var(--color-warning)]/30 bg-[var(--color-warning-soft)] px-2.5 py-1.5 text-[11.5px] font-medium text-[var(--color-warning-strong)]">
@@ -2430,6 +2466,18 @@ export function DonHangGroupedList({
   // helpers.ts) - dung cho ca nut "Chờ hàng" rieng tren tung dong.
   const choHangReasons = (bulkLyDoData?.rows ?? []).filter((l) => l.quan_ly_don_thieu_linh_kien);
   const tuChoiReasons = (bulkLyDoData?.rows ?? []).filter((l) => !l.quan_ly_don_thieu_linh_kien);
+  // TN "đẩy lại" don da huy / tu choi ve "Chờ TN duyệt" trong 24h ngay tren dong (chot 2026-10-05) - ghi chu tuy chon nhap o
+  // chi tiet don; o day bam 1 lan la day lai (de thao tac lai: TN tu choi/huy lai don nhu thuong).
+  const dayLaiMutation = useMutation({
+    mutationFn: (donId: string) => api.post(`/dat-mua-lk/don-hang/${donId}/day-lai`, {}),
+    onSuccess: (_r, donId) => {
+      addToast(`Đã đẩy lại đơn ${donId} về Chờ TN duyệt`);
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk"] });
+      invalidatePipelineCounts(qc);
+    },
+    onError: (err) => addToast("Không đẩy lại được đơn: " + describeApiError(err)),
+  });
   const [detailLk, setDetailLk] = useState<string | null>(null);
   function openLkDetail(maLk: string) {
     if (danhMuc.some((m) => m.ma_linh_kien === maLk)) setDetailLk(maLk);
@@ -2642,6 +2690,19 @@ export function DonHangGroupedList({
               ✕
             </Btn>
           )}
+{dayLaiDuoc(row.d, canTacNghiep) && (
+            <Btn
+              size="sm"
+              variant="ghost"
+              className="px-2"
+              title={`Đẩy lại về Chờ TN duyệt (được đến ${fmtDateTime(row.d.day_lai_han)})`}
+              aria-label="Đẩy lại về Chờ TN duyệt"
+              onClick={() => dayLaiMutation.mutate(row.d.id)}
+              disabled={dayLaiMutation.isPending}
+            >
+              ↩
+            </Btn>
+          )}
           {/* FIX (phan hoi 2026-09-05: "nút hủy đơn của tất cả các giao diện đều bỏ ở màn hình ngoài,
               chỉ hiện ở màn hình UI chi tiết để tránh bấm nhầm") - nut "Hủy" (row.actions.huy) truoc day
               hien CA o day (danh sach ngoai) LAN trong DonHangDetailModal - bo han o day, chi giu lai
@@ -2675,7 +2736,7 @@ export function DonHangGroupedList({
   //     an han neu khong dong nao co nut (vd KTV xem don cua minh).
   const actionCount = (d: DonHangRow) => {
     const a = actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail });
-    return (a.duyet ? 1 : 0) + (a.choHang ? 1 : 0) + (a.tuChoi ? 1 : 0);
+    return (a.duyet ? 1 : 0) + (a.choHang ? 1 : 0) + (a.tuChoi ? 1 : 0) + (dayLaiDuoc(d, canTacNghiep) ? 1 : 0);
   };
   const maxActions = rows.reduce((m, d) => Math.max(m, actionCount(d)), 0);
   const actionCol = effectiveColumns.find((c) => c.key === "hanh_dong");
@@ -3118,6 +3179,19 @@ export function DonHangGroupedList({
                                   disabled={bulkMutation.isPending}
                                 >
                                   ✕
+                                </Btn>
+                              )}
+{dayLaiDuoc(d, canTacNghiep) && (
+                                <Btn
+                                  size="sm"
+                                  variant="ghost"
+                                  className="px-2"
+                                  title={`Đẩy lại về Chờ TN duyệt (được đến ${fmtDateTime(d.day_lai_han)})`}
+                                  aria-label="Đẩy lại về Chờ TN duyệt"
+                                  onClick={() => dayLaiMutation.mutate(d.id)}
+                                  disabled={dayLaiMutation.isPending}
+                                >
+                                  ↩
                                 </Btn>
                               )}
                               {/* FIX (phan hoi 2026-09-05: "nút hủy đơn ... bỏ ở màn hình ngoài, chỉ

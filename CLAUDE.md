@@ -404,6 +404,13 @@ khác đi như cũ. Đơn **có "Yêu cầu hóa đơn"** (khác trống/"Không
 nhãn `KHONG_CK`, không Đình tủ/bậc thang/giá KTV/dự phòng (vẫn cộng vào tổng ngày; giá chốt tay vẫn thắng). Loại đề xuất chứa
 "HỖ TRỢ" bắt buộc Mã YCSC (`maYcscRequired()` — backend + bản sao FE).
 
+**TN đẩy lại đơn đã hủy / từ chối trong 24h** (chốt 2026-10-05, `POST /dat-mua-lk/don-hang/:id/day-lai` {ghi_chu?}): TN/Admin đưa
+đơn "Da huy"/"TN tu choi" (KHÔNG áp dụng trả hàng) về **"Cho TN duyet"** khi chưa quá 24h kể từ log hủy/từ chối (`dayLaiHanSql()` →
+cột `day_lai_han` ở danh sách + chi tiết đơn; FE `dayLaiDuoc()` ở `helpers.ts`). Log "Cho TN duyet" mới reset hạn lý do chậm. Không
+khôi phục hậu quả cũ: ticket thiếu LK đã đóng giữ nguyên, tiền đã trả đã về quỹ; đơn `bat_buoc_chuyen_tien` gom LẠI vào phiếu đang tạo
+(`bundleAutoApprovedIntoPxk`), đơn còn `ma_xuat_kho` của phiếu "Ke toan huy" bỏ liên kết, còn trong phiếu khác → `DON_CON_TRONG_PHIEU`;
+gọi `taiTinhPxkMoCuaKtv`. Người nhận bị tắt → `NGUOI_NHAN_HANG_DA_TAT`. Thông báo người tạo loại `mo_lai`. UI: nút "↩" trên dòng danh
+sách + "↩ Đẩy lại chờ duyệt" (kèm ghi chú) ở footer chi tiết đơn.
 **Tự hủy đơn tự duyệt đã vào PXK** (chốt 2026-09-28, `lib/pxkTuHuy.ts`, migration `0036`): người tạo HOẶC KTV nhận
 hàng được Hủy đơn tự duyệt (log đầu tiên đã là "TN da duyet") đã tự gom vào PXK khi PXK còn "Dang tao phieu", Kế
 toán chưa duyệt chuyển tiền (KTV đã báo chuyển vẫn hủy được) và văn phòng CHƯA thao tác tay
