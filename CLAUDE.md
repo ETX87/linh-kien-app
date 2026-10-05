@@ -405,7 +405,8 @@ nhãn `KHONG_CK`, không Đình tủ/bậc thang/giá KTV/dự phòng (vẫn c�
 "HỖ TRỢ" bắt buộc Mã YCSC (`maYcscRequired()` — backend + bản sao FE).
 
 **TN đẩy lại đơn đã hủy / từ chối trong 24h** (chốt 2026-10-05, `POST /dat-mua-lk/don-hang/:id/day-lai` {ghi_chu?}): TN/Admin đưa
-đơn "Da huy"/"TN tu choi" (KHÔNG áp dụng trả hàng) về **"Cho TN duyet"** khi chưa quá 24h kể từ log hủy/từ chối (`dayLaiHanSql()` →
+đơn "Da huy"/"TN tu choi" DO TN HỦY/TỪ CHỐI (log cuối của người có `la_tac_nghiep`/Admin, "Da huy" phải từ bước của TN — loại đơn
+người tạo/KTV tự hủy, Trạm/TBP từ chối; else `KHONG_PHAI_TN_HUY_TU_CHOI`; KHÔNG áp dụng trả hàng) về **"Cho TN duyet"** khi chưa quá 24h kể từ log hủy/từ chối (`dayLaiHanSql()` →
 cột `day_lai_han` ở danh sách + chi tiết đơn; FE `dayLaiDuoc()` ở `helpers.ts`). Log "Cho TN duyet" mới reset hạn lý do chậm. Không
 khôi phục hậu quả cũ: ticket thiếu LK đã đóng giữ nguyên, tiền đã trả đã về quỹ; đơn `bat_buoc_chuyen_tien` gom LẠI vào phiếu đang tạo
 (`bundleAutoApprovedIntoPxk`), đơn còn `ma_xuat_kho` của phiếu "Ke toan huy" bỏ liên kết, còn trong phiếu khác → `DON_CON_TRONG_PHIEU`;

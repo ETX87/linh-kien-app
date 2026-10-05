@@ -90,11 +90,19 @@ function choTnDuyetAtExpr(donHangIdCol: string): string {
 }
 
 // TN "đẩy lại" don da huy / da tu choi (chot 2026-10-05): han = luc don bi huy/tu choi (log moi nhat) + 24h; NULL = khong
-// phai don dong do huy/tu choi hoac la don tra hang. Dung CHUNG cho cot day_lai_han (danh sach/chi tiet) va POST /day-lai.
+// day lai duoc. CHI don do TAC NGHIEP huy/tu choi (chot cung ngay: "chỉ xử lý đơn do tn hủy hoặc từ chối"): nguoi ghi log
+// huy/tu choi la TN (la_tac_nghiep) hoac Admin, VA voi "Da huy" thi don dang o buoc cua TN (log truoc do la "Cho TN duyet" /
+// "TN da duyet" / "Cho hang") - loai don nguoi tao/KTV tu huy, Tram/TBP tu choi (cung ra "Da huy"), he thong tu huy.
+// Don tra hang khong ap dung. Dung CHUNG cho cot day_lai_han (danh sach/chi tiet) va POST /day-lai.
 const DAY_LAI_TRANG_THAI = ["TN tu choi", "Da huy"] as const;
 function dayLaiHanSql(a: string): string {
-  return `(CASE WHEN ${a}.loai_don != 'tra_hang' AND ${a}.trang_thai_hien_tai IN ('TN tu choi', 'Da huy')
-    THEN datetime((SELECT ngay_xu_ly FROM dat_don_hang_log WHERE dat_don_hang_id = ${a}.id ORDER BY id DESC LIMIT 1), '+24 hours') END)`;
+  const logCuoi = `(SELECT MAX(id) FROM dat_don_hang_log WHERE dat_don_hang_id = ${a}.id)`;
+  return `(CASE WHEN ${a}.loai_don != 'tra_hang' AND ${a}.trang_thai_hien_tai IN ('TN tu choi', 'Da huy') AND EXISTS (
+      SELECT 1 FROM dat_don_hang_log l JOIN users u ON u.email = l.nguoi_xu_ly
+      WHERE l.id = ${logCuoi} AND (u.la_tac_nghiep = 1 OR u.vai_tro = 'Admin')
+        AND (${a}.trang_thai_hien_tai = 'TN tu choi' OR (SELECT l2.trang_thai FROM dat_don_hang_log l2
+             WHERE l2.dat_don_hang_id = ${a}.id AND l2.id < l.id ORDER BY l2.id DESC LIMIT 1) IN ('Cho TN duyet', 'TN da duyet', 'Cho hang')))
+    THEN datetime((SELECT ngay_xu_ly FROM dat_don_hang_log WHERE id = ${logCuoi}), '+24 hours') END)`;
 }
 
 // FIX (phan hoi QA 2026-08-31, muc #5): moc "gan nhat" de tinh han qua_han_ly_do_cham GIO LA lan giai
@@ -3595,9 +3603,8 @@ datMuaLinhKien.post("/don-hang/:id/log", async (c) => {
 });
 
 // POST /api/dat-mua-lk/don-hang/:id/day-lai - { ghi_chu? } (chot 2026-10-05, "cho phép tác nghiệp đẩy lại đơn đặt hàng đã hủy,
-// đã từ chối trong vòng 24h"): TN/Admin dua don "Da huy"/"TN tu choi" (khong phai tra hang) ve "Cho TN duyet" de duyet lai,
-// trong 24h tu luc bi huy/tu choi (dayLaiHanSql). Moi buoc tram/TBP da qua coi nhu xong - TN tu quyet dinh lai (TN van bat
-// duoc dac thu -> TBP). Hau qua cua lan huy/tu choi KHONG khoi phuc: ticket thieu LK da dong giu nguyen, tien da tra cua don
+// đã từ chối trong vòng 24h" + "chỉ xử lý đơn do tn hủy hoặc từ chối"): TN/Admin dua don "Da huy"/"TN tu choi" DO TN huy/tu choi
+// (khong phai tra hang) ve "Cho TN duyet" de duyet lai, trong 24h tu luc bi huy/tu choi (dayLaiHanSql). Hau qua cua lan huy/tu choi KHONG khoi phuc: ticket thieu LK da dong giu nguyen, tien da tra cua don
 // da hoan ve quy (trigger 0056) - don "chuyen tien truoc" (bat_buoc_chuyen_tien) duoc gom LAI vao phieu dang tao nhu luc tao
 // don moi; chiet khau tong ngay + ton kho KTV (tinh dong) tu tinh lai.
 datMuaLinhKien.post("/don-hang/:id/day-lai", async (c) => {
@@ -3618,7 +3625,9 @@ datMuaLinhKien.post("/don-hang/:id/day-lai", async (c) => {
     }>();
   if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
   if (ddh.loai_don === "tra_hang") return c.json({ error: "TRA_HANG_KHONG_AP_DUNG" }, 409);
-  if (!(DAY_LAI_TRANG_THAI as readonly string[]).includes(ddh.trang_thai) || !ddh.han) return c.json({ error: "DON_KHONG_DAY_LAI_DUOC" }, 409);
+  if (!(DAY_LAI_TRANG_THAI as readonly string[]).includes(ddh.trang_thai)) return c.json({ error: "DON_KHONG_DAY_LAI_DUOC" }, 409);
+  // han NULL = don khong do TN huy/tu choi (nguoi tao/KTV tu huy, Tram/TBP tu choi...) - xem dayLaiHanSql.
+  if (!ddh.han) return c.json({ error: "KHONG_PHAI_TN_HUY_TU_CHOI" }, 409);
   if (ddh.han < ddh.bay_gio) return c.json({ error: "QUA_24H_KHONG_DAY_LAI", han: ddh.han }, 409);
   if (ddh.nhan_bi_khoa) return c.json({ error: "NGUOI_NHAN_HANG_DA_TAT" }, 409);
 
