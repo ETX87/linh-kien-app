@@ -15,6 +15,7 @@ import { Money } from "../../components/ui/Money";
 import { timLk, sapTheoDiem, type ToDamSpec } from "../../lib/timLinhKien";
 import { useBoTimLk, useLichSuLk, diemHayDat } from "../../lib/useTimLinhKien";
 import { ToDam } from "../../components/ui/ToDam";
+import { t } from "../../i18n";
 
 // O chon "Ma linh kien" (autocomplete co anh/gia/xep hang) + cac component lien quan (thumbnail,
 // modal xem chi tiet, goi y thay the) - tach tu DatMuaLinhKienModule.tsx (UI redesign Phase 3,
@@ -41,7 +42,7 @@ export function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQu
       return api.patch(`/lk-settings/nhom-thay-the/${nhomId}`, { ma_lk_list: maLkList });
     },
     onSuccess: () => {
-      addToast(`Đã thêm ${maLk} vào nhóm thay thế`);
+      addToast(t("Đã thêm {ma} vào nhóm thay thế", { ma: maLk }));
       qc.invalidateQueries({ queryKey: ["lk-nhom-thay-the"] });
       qc.invalidateQueries({ queryKey: ["lk-thay-the", maLk] });
     },
@@ -57,7 +58,7 @@ export function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQu
           ngoai pham vi restyle JSX/className cua dot nay). */}
       {rows.length > 0 && (
         <>
-          <span className="text-[var(--ink-500)]">Có thể thay thế bằng:</span>
+          <span className="text-[var(--ink-500)]">{t("Có thể thay thế bằng:")}</span>
           {rows.map((r) => (
             <span
               key={r.ma_linh_kien}
@@ -73,7 +74,7 @@ export function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQu
           value=""
           onChange={(v) => v && themVaoNhom.mutate(Number(v))}
           options={[
-            { value: "", label: "+ Thêm vào nhóm thay thế" },
+            { value: "", label: t("+ Thêm vào nhóm thay thế") },
             ...(nhomData?.rows ?? []).map((n) => ({ value: String(n.id), label: n.ten_nhom })),
           ]}
         />
@@ -121,7 +122,7 @@ export function ThayTheGoiYTuSheet({ maLk }: { maLk: string }) {
   if (suggestions.length === 0) return null;
   return (
     <div className="col-span-2 sm:col-span-6 -mt-1 text-xs flex items-center gap-2 flex-wrap">
-      <span className="text-[var(--ink-500)]">Có thể đặt thay thế bằng:</span>
+      <span className="text-[var(--ink-500)]">{t("Có thể đặt thay thế bằng:")}</span>
       {suggestions.map((s) => (
         <span
           key={s.ma}
@@ -188,12 +189,12 @@ export function LinhKienPickerRow({
         {/* SUA (phan hoi 2026-08-19): bo tien to "mã - " lap - nhieu ten_linh_kien da tu chua san ma
             dang "[ma]" trong chuoi, ghep them tien to se hien ma 2 lan. Xem formatLkLabel (helpers.ts). */}
         <span className="block truncate font-medium text-[var(--ocean-800)]"><ToDam text={formatLkLabel(o.ma_linh_kien, o.ten_linh_kien)} spec={toDam} /></span>
-        {!!soLanChon && soLanChon >= 2 && <span className="mr-1 text-[10px] font-semibold text-[var(--color-primary)]">⭐ Bạn đã chọn {soLanChon} lần</span>}
-        {rank != null && rank <= 5 && <span className="text-[10px] font-semibold text-[var(--amber-700)]">🔥 #{rank} hay đặt (30 ngày)</span>}
+        {!!soLanChon && soLanChon >= 2 && <span className="mr-1 text-[10px] font-semibold text-[var(--color-primary)]">{t("⭐ Bạn đã chọn {n} lần", { n: soLanChon })}</span>}
+        {rank != null && rank <= 5 && <span className="text-[10px] font-semibold text-[var(--amber-700)]">{t("🔥 #{n} hay đặt (30 ngày)", { n: rank })}</span>}
         {/* LK moi tao trong app, Mua hang chua xac nhan ma chuan (migration 0053) - van dat duoc (chot nguoi dung). */}
-        {o.trang_thai_ma === "Cho xet duyet" && <span className="ml-1 text-[10px] font-semibold text-[var(--amber-700)]">Mã chờ xét duyệt</span>}
+        {o.trang_thai_ma === "Cho xet duyet" && <span className="ml-1 text-[10px] font-semibold text-[var(--amber-700)]">{t("Mã chờ xét duyệt")}</span>}
         {/* Combo (migration 0066) - gia hien = tong cac LK thanh phan. */}
-        {o.combo && <span className="ml-1"><Badge tone="neutral">🧩 Combo · {o.combo.ct.length} linh kiện</Badge></span>}
+        {o.combo && <span className="ml-1"><Badge tone="neutral">{t("🧩 Combo · {n} linh kiện", { n: o.combo.ct.length })}</Badge></span>}
       </span>
       {o.gia_ban != null && <span className="shrink-0 text-[11px] text-[var(--green-700)] font-mono font-semibold"><Money>{fmtVND(o.gia_ban)}</Money></span>}
     </button>
@@ -276,9 +277,9 @@ export function LinhKienPicker({
     };
     return {
       nhom: [
-        { tieuDe: "🕘 Chọn gần đây", items: cat(ganDay) },
-        { tieuDe: "🔥 Hay đặt", items: cat(hayDat) },
-        { tieuDe: "Linh kiện khác", items: cat(khac) },
+        { tieuDe: t("🕘 Chọn gần đây"), items: cat(ganDay) },
+        { tieuDe: t("🔥 Hay đặt"), items: cat(hayDat) },
+        { tieuDe: t("Linh kiện khác"), items: cat(khac) },
       ].filter((n) => n.items.length > 0),
       totalMatched: options.length,
     };
@@ -354,13 +355,13 @@ export function LinhKienPicker({
           // preventDefault() nen bam chon bang chuot van an toan, khong bi blur cuop truoc.
           onBlur={() => setOpen(false)}
           onKeyDown={handleKeyDown}
-          placeholder="Gõ để tìm…"
+          placeholder={t("Gõ để tìm…")}
           className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm text-[var(--ink-900)] disabled:opacity-40 disabled:cursor-not-allowed"
         />
         <DropdownPortal anchorRef={containerRef} contentRef={dropdownRef} open={open} maxHeight={288} className="rounded-lg py-1">
           {flatResults.length === 0 ? (
             <div className="px-3 py-2 text-xs text-[var(--ink-400)]">
-              <span className="italic">Không tìm thấy.</span>
+              <span className="italic">{t("Không tìm thấy.")}</span>
               {kqTim.goiY && (
                 <button
                   type="button"
@@ -371,7 +372,7 @@ export function LinhKienPicker({
                   }}
                   className="ml-1 text-[var(--color-link)] hover:underline"
                 >
-                  Có phải bạn muốn tìm “<b>{kqTim.goiY}</b>”?
+                  {t("Có phải bạn muốn tìm")} “<b>{kqTim.goiY}</b>”?
                 </button>
               )}
             </div>
@@ -404,7 +405,7 @@ export function LinhKienPicker({
               })()}
               {truncatedCount > 0 && (
                 <div className="px-3 py-1.5 text-[10px] text-[var(--ink-400)] text-center border-t border-[var(--line)] mt-1">
-                  Còn {truncatedCount} kết quả khác — gõ thêm để thu hẹp
+                  {t("Còn {n} kết quả khác — gõ thêm để thu hẹp", { n: truncatedCount })}
                 </div>
               )}
             </>
@@ -418,7 +419,7 @@ export function LinhKienPicker({
           type="button"
           tabIndex={-1}
           onClick={() => setShowDetail(true)}
-          title="Xem chi tiết linh kiện"
+          title={t("Xem chi tiết linh kiện")}
           className="focus-ring shrink-0 w-8 h-8 flex items-center justify-center rounded-lg border border-[var(--line)] bg-white text-[var(--ink-500)] hover:text-[var(--ocean-600)] hover:border-[var(--ocean-400)]"
         >
           ℹ️
@@ -433,8 +434,8 @@ export function LinhKienPicker({
     {selected?.combo && <ComboThanhPhanNote combo={selected.combo} />}
     {selected?.dac_thu ? (
       <div className="mt-1.5 rounded-lg border border-[var(--amber-500)] bg-[var(--amber-100)] px-2.5 py-1.5 text-xs text-[var(--amber-700)] space-y-0.5">
-        {selected.phan_loai_dac_thu?.trim() && <div className="font-semibold">🔖 Phân loại đặc thù: {selected.phan_loai_dac_thu.trim()}</div>}
-        {!boQuaTbpDacThu(loaiDeXuat) && <div>⚠ Linh kiện đặc thù — đơn sẽ cần chờ TP DVBH xác nhận trước khi Tác nghiệp duyệt.</div>}
+        {selected.phan_loai_dac_thu?.trim() && <div className="font-semibold">{t("🔖 Phân loại đặc thù:")} {selected.phan_loai_dac_thu.trim()}</div>}
+        {!boQuaTbpDacThu(loaiDeXuat) && <div>{t("⚠ Linh kiện đặc thù — đơn sẽ cần chờ TP DVBH xác nhận trước khi Tác nghiệp duyệt.")}</div>}
       </div>
     ) : selected?.phan_loai_dac_thu?.trim() ? (
       // Them (yeu cau nguoi dung 2026-08-27): mot so linh kien dac_thu=0 (KHONG can TP DVBH xac nhan,
@@ -442,7 +443,7 @@ export function LinhKienPicker({
       // NHO nhe hon (khong co cau "cần chờ TP DVBH xác nhận"), KHONG dung selected.dac_thu de tranh
       // dung nham logic cho luong duyet o backend.
       <div className="mt-1.5 rounded-lg border border-[var(--amber-500)] bg-[var(--amber-100)] px-2.5 py-1.5 text-xs text-[var(--amber-700)]">
-        (!) Linh kiện thuộc diện "{selected.phan_loai_dac_thu.trim()}"
+        {t("(!) Linh kiện thuộc diện \"{loai}\"", { loai: selected.phan_loai_dac_thu.trim() })}
       </div>
     ) : null}
     {showDetail && selected && (
@@ -460,13 +461,13 @@ export function LinhKienPicker({
 function ComboThanhPhanNote({ combo }: { combo: NonNullable<LkDanhMucRow["combo"]> }) {
   return (
     <div className="mt-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-100)] px-2.5 py-1.5 text-xs text-[var(--ink-700)]">
-      <div className="font-semibold text-[var(--ink-900)] mb-0.5">🧩 Combo gồm {combo.ct.length} linh kiện — khi tạo đơn hệ thống tự tách thành {combo.ct.length} đơn:</div>
+      <div className="font-semibold text-[var(--ink-900)] mb-0.5">{t("🧩 Combo gồm {n} linh kiện — khi tạo đơn hệ thống tự tách thành {n} đơn:", { n: combo.ct.length })}</div>
       <ul className="space-y-0.5">
-        {combo.ct.map((t) => (
-          <li key={t.ma_lk} className="flex items-center gap-2 min-w-0">
-            <span className="truncate flex-1 min-w-0">• {formatLkLabel(t.ma_lk, t.ten_lk ?? t.ma_lk)}</span>
-            <span className="shrink-0 font-mono text-[var(--ink-500)]">×{t.so_luong}/bộ</span>
-            {t.gia_ban != null && <span className="shrink-0 font-mono font-semibold text-[var(--green-700)]"><Money>{fmtVND(t.gia_ban)}</Money></span>}
+        {combo.ct.map((tp) => (
+          <li key={tp.ma_lk} className="flex items-center gap-2 min-w-0">
+            <span className="truncate flex-1 min-w-0">• {formatLkLabel(tp.ma_lk, tp.ten_lk ?? tp.ma_lk)}</span>
+            <span className="shrink-0 font-mono text-[var(--ink-500)]">×{tp.so_luong}/{t("bộ")}</span>
+            {tp.gia_ban != null && <span className="shrink-0 font-mono font-semibold text-[var(--green-700)]"><Money>{fmtVND(tp.gia_ban)}</Money></span>}
           </li>
         ))}
       </ul>
@@ -499,7 +500,7 @@ export function LinhKienHeroImage({ url, alt }: { url: string | null; alt: strin
       {status === "error" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-[var(--ink-400)]">
           <span className="text-3xl">🖼️</span>
-          <span className="text-xs font-medium">{url ? "Không tải được ảnh" : "Chưa có ảnh minh hoạ"}</span>
+          <span className="text-xs font-medium">{url ? t("Không tải được ảnh") : t("Chưa có ảnh minh hoạ")}</span>
         </div>
       )}
     </div>
@@ -531,7 +532,7 @@ export function LinhKienDetailModal({
   }, []);
 
   return (
-    <Modal open title="🔍 Chi tiết linh kiện" onClose={onClose} width="max-w-md">
+    <Modal open title={t("🔍 Chi tiết linh kiện")} onClose={onClose} width="max-w-md">
       <div className="space-y-4 text-sm">
         <LinhKienHeroImage url={part.anh_demo ?? null} alt={part.ten_linh_kien} />
         {/* SUA BUG GIAO DIEN (phan hoi 2026-09-12, kem anh chup "2014010043" hien 2 lan - 1 lan rieng o
@@ -543,36 +544,36 @@ export function LinhKienDetailModal({
         <div className="min-w-0">
           <div className="font-display font-bold text-base text-[var(--ocean-800)] leading-snug">{formatLkLabel(part.ma_linh_kien, part.ten_linh_kien)}</div>
         </div>
-        {rank != null && <Badge tone="warning">🔥 Hạng #{rank} trong 30 ngày gần nhất</Badge>}
+        {rank != null && <Badge tone="warning">{t("🔥 Hạng #{n} trong 30 ngày gần nhất", { n: rank })}</Badge>}
 
         <div>
-          <KvRow label="Giá NY">
+          <KvRow label={t("Giá NY")}>
             <span className="font-semibold font-mono text-[var(--green-700)]"><Money>{fmtVND(part.gia_ban)}</Money></span>
           </KvRow>
-          <KvRow label="Giá KTV">
+          <KvRow label={t("Giá KTV")}>
             <span className="font-semibold font-mono text-[var(--green-700)]"><Money>{fmtVND(part.gia_tri_cong_no ?? null)}</Money></span>
           </KvRow>
-          <KvRow label="Phân loại">
+          <KvRow label={t("Phân loại")}>
             <span className="font-semibold">{part.don_vi ?? "—"}</span>
           </KvRow>
           {!!part.cam_ban && (
-            <KvRow label="Cấm bán">
-              <Badge tone="danger">Cấm bán (đối tác)</Badge>
+            <KvRow label={t("Cấm bán")}>
+              <Badge tone="danger">{t("Cấm bán (đối tác)")}</Badge>
             </KvRow>
           )}
           {!!part.dac_thu && (
-            <KvRow label="Phân loại đặc thù">
+            <KvRow label={t("Phân loại đặc thù")}>
               <span className="font-semibold">{part.phan_loai_dac_thu?.trim() || "—"}</span>
             </KvRow>
           )}
         </div>
         <div>
-          <div className="text-[10px] font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1">Ghi chú</div>
-          <div className="text-[var(--ink-700)] whitespace-pre-wrap">{part.ghi_chu?.trim() || <span className="text-[var(--ink-400)]">Không có ghi chú.</span>}</div>
+          <div className="text-[10px] font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1">{t("Ghi chú")}</div>
+          <div className="text-[var(--ink-700)] whitespace-pre-wrap">{part.ghi_chu?.trim() || <span className="text-[var(--ink-400)]">{t("Không có ghi chú.")}</span>}</div>
         </div>
       </div>
       <div className="flex justify-end gap-2 mt-5">
-        <Btn variant="ghost" size="sm" onClick={onClose}>Đóng</Btn>
+        <Btn variant="ghost" size="sm" onClick={onClose}>{t("Đóng")}</Btn>
       </div>
     </Modal>
   );

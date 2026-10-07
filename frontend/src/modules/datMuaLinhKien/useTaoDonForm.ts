@@ -5,6 +5,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
 import type { DonHangDraft, NguoiNhanHangKhaDungRow } from "./types";
 import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, useLkCombo, comboThanhLkRow } from "./helpers";
+import { t } from "../../i18n";
 
 // Tach tu TaoDonTab.tsx (them 2026-08-21, phan hoi "màn hình tạo đơn mobile bị đưa đưa, chiếm diện
 // tích nhỏ") - toan bo STATE/LOGIC nghiep vu (validate, mutation, quan ly danh sach drafts...) chuyen
@@ -35,8 +36,8 @@ export function useTaoDonForm({
   }, [activeIdx]);
   useEffect(() => {
     if (!justAdded) return;
-    const t = setTimeout(() => setJustAdded(false), 650);
-    return () => clearTimeout(t);
+    const hen = setTimeout(() => setJustAdded(false), 650);
+    return () => clearTimeout(hen);
   }, [justAdded]);
 
   const auth = useAuth();
@@ -115,7 +116,7 @@ export function useTaoDonForm({
         })),
       }),
     onSuccess: (res) => {
-      addToast(res.trung_lap ? `Đơn đặt hàng ${res.id} đã được tạo từ lần bấm trước — không tạo thêm` : `Đã tạo đơn đặt hàng ${res.id}`);
+      addToast(res.trung_lap ? t("Đơn đặt hàng {id} đã được tạo từ lần bấm trước — không tạo thêm", { id: res.id }) : t("Đã tạo đơn đặt hàng {id}", { id: res.id }));
       setNguoiNhanHang("");
       setDrafts([emptyDraft()]);
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
@@ -125,8 +126,8 @@ export function useTaoDonForm({
     },
     onError: (err) =>
       addToast(
-        "Không thể tạo đơn: " + describeApiError(err) +
-          (err instanceof TypeError ? " — kiểm tra mạng rồi bấm lại, hệ thống sẽ không tạo trùng đơn." : ""),
+        t("Không thể tạo đơn: ") + describeApiError(err) +
+          (err instanceof TypeError ? t(" — kiểm tra mạng rồi bấm lại, hệ thống sẽ không tạo trùng đơn.") : ""),
       ),
     onSettled: () => {
       dangGuiRef.current = false;

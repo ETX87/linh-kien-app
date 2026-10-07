@@ -14,6 +14,7 @@ import { TraHangAnhPicker } from "./SharedUi";
 import type { TaoDonForm } from "./useTaoDonForm";
 import { Money } from "../../components/ui/Money";
 import { TongNgayKtvInfo } from "./TongNgayKtv";
+import { t } from "../../i18n";
 
 // Man hinh "Tao don" rieng cho mobile (them 2026-08-21, phan hoi "giao diện tạo đơn mua hàng cho KTV
 // đang gặp vấn đề trên giao diện mobile. màn hình bị đưa đưa và chỉ ếm diện tích nhỏ so với toàn màn
@@ -105,14 +106,14 @@ export function TaoDonMobileScreen({
     <div className="fixed inset-0 z-50 flex flex-col bg-[var(--surface)] anim-in" style={{ height: "100dvh" }}>
       {/* Header - tieu de + "Dung giao dien cu" + dong (diem #6: dat xa CTA chinh o duoi) */}
       <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-2.5 border-b border-[var(--line)]">
-        <h3 className="font-display font-bold text-[var(--ink-900)] text-sm">🧾 Tạo đơn đặt linh kiện</h3>
+        <h3 className="font-display font-bold text-[var(--ink-900)] text-sm">{t("🧾 Tạo đơn đặt linh kiện")}</h3>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={handleOldUiClick}
             className={`focus-ring text-[11px] font-semibold underline underline-offset-2 px-1.5 py-1 rounded ${confirmOldUi ? "text-[var(--coral-600)]" : "text-[var(--ink-500)]"}`}
           >
-            {confirmOldUi ? "Mất dữ liệu đang nhập — bấm lần nữa?" : "Dùng giao diện cũ"}
+            {confirmOldUi ? t("Mất dữ liệu đang nhập — bấm lần nữa?") : t("Dùng giao diện cũ")}
           </button>
           <button onClick={onClose} className="focus-ring w-9 h-9 shrink-0 rounded-lg hover:bg-slate-100 text-[var(--ink-400)] text-lg flex items-center justify-center">
             ✕
@@ -122,12 +123,12 @@ export function TaoDonMobileScreen({
 
       {canQuanLy && (
         <div className="shrink-0 px-3 py-2 border-b border-[var(--line)] bg-[var(--surface-100)]">
-          <label className="block text-[10px] font-bold uppercase tracking-wide text-[var(--ocean-700)] mb-1">👤 Người nhận hàng</label>
+          <label className="block text-[10px] font-bold uppercase tracking-wide text-[var(--ocean-700)] mb-1">{t("👤 Người nhận hàng")}</label>
           <Select
             value={nguoiNhanHang}
             onChange={setNguoiNhanHang}
             options={[
-              { value: "", label: "-- Chính tôi --" },
+              { value: "", label: t("-- Chính tôi --") },
               ...(nguoiNhanHangData?.rows ?? []).map((r) => ({ value: r.email_dang_nhap, label: ktvOptionLabel(r, nguoiNhanHangData?.rows ?? []) })),
             ]}
           />
@@ -159,15 +160,15 @@ export function TaoDonMobileScreen({
           onClick={themDong}
           className="focus-ring shrink-0 flex items-center justify-center rounded-full h-8 px-3 text-xs font-semibold bg-white border border-dashed border-[var(--line)] text-[var(--ink-500)]"
         >
-          + Dòng
+          {t("+ Dòng")}
         </button>
         {drafts.length > 1 && (
           <button
             type="button"
             onClick={() => deleteDraft(activeIdx)}
             className="focus-ring shrink-0 flex items-center justify-center rounded-full h-8 w-8 text-xs font-semibold bg-white border border-[var(--coral-100)] text-[var(--coral-500)]"
-            title="Xóa dòng đang xem"
-            aria-label="Xóa dòng đang xem"
+            title={t("Xóa dòng đang xem")}
+            aria-label={t("Xóa dòng đang xem")}
           >
             ✕
           </button>
@@ -175,7 +176,7 @@ export function TaoDonMobileScreen({
       </div>
       {addBlockedHint && !isLineComplete(drafts[activeIdx]) && (
         <div className="shrink-0 px-3 py-1.5 text-[11px] text-[var(--coral-600)] bg-[var(--coral-100)]/40 font-medium">
-          ⚠ Điền xong Mã linh kiện/Số lượng dòng {activeIdx + 1} trước khi thêm dòng mới
+          {t("⚠ Điền xong Mã linh kiện/Số lượng (dòng {n}) trước khi thêm dòng mới", { n: activeIdx + 1 })}
         </div>
       )}
 
@@ -188,16 +189,16 @@ export function TaoDonMobileScreen({
             "Loại đề xuất" ben duoi) va pill mau cam cho Ưu tiên, dua ve 1 checkbox thuong. */}
         <label className="flex items-center gap-1.5 text-xs font-medium text-[var(--ink-600)] cursor-pointer select-none self-start">
           <input type="checkbox" checked={d.uu_tien} onChange={(e) => updateDraft(activeIdx, { uu_tien: e.target.checked })} className="w-4 h-4 accent-[var(--orange-600)]" />
-          Ưu tiên
+          {t("Ưu tiên")}
         </label>
 
         <div>
-          <label className={reqLabelClass(!d.ma_lk.trim())}>Mã linh kiện *</label>
+          <label className={reqLabelClass(!d.ma_lk.trim())}>{t("Mã linh kiện *")}</label>
           <LinhKienPicker value={d.ma_lk} onChange={(v) => updateDraft(activeIdx, { ma_lk: v })} options={danhMuc} autoFocus={justAdded} loaiDeXuat={d.loai_de_xuat} />
         </div>
 
         <div>
-          <label className={reqLabelClass(!d.loai_de_xuat.trim())}>Loại đề xuất *</label>
+          <label className={reqLabelClass(!d.loai_de_xuat.trim())}>{t("Loại đề xuất *")}</label>
           <div className="flex gap-1.5 flex-wrap">
             {(["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const).map((kw) => {
               const matched = pickLdeQuick(loaiDeXuatOptions, kw);
@@ -222,14 +223,14 @@ export function TaoDonMobileScreen({
               );
             })}
             <Btn size="md" variant={showOtherSelect ? "primary" : "ghost"} onClick={() => setOtherLdeIdx((s) => new Set(s).add(activeIdx))}>
-              khác…
+              {t("khác…")}
             </Btn>
           </div>
           {showOtherSelect && (
             <Select
               value={d.loai_de_xuat}
               onChange={(v) => updateDraft(activeIdx, { loai_de_xuat: v })}
-              options={[{ value: "", label: "-- Chọn --" }, ...loaiDeXuatOptions.map((o) => ({ value: o, label: o }))]}
+              options={[{ value: "", label: t("-- Chọn --") }, ...loaiDeXuatOptions.map((o) => ({ value: o, label: o }))]}
               className="mt-1.5 w-full"
             />
           )}
@@ -237,7 +238,7 @@ export function TaoDonMobileScreen({
 
         {/* So luong - nut +/- 44px (diem #4), rieng cho man hinh nay. */}
         <div>
-          <label className={reqLabelClass(!(d.so_luong_de_xuat > 0))}>Số lượng *</label>
+          <label className={reqLabelClass(!(d.so_luong_de_xuat > 0))}>{t("Số lượng *")}</label>
           <div className="flex items-center gap-3">
             <div className="flex items-center border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface-100)]">
               <button
@@ -263,7 +264,7 @@ export function TaoDonMobileScreen({
               </button>
             </div>
             <div className="text-xs text-[var(--ink-500)]">
-              {giaUocTinh != null ? <><span className="text-[10px]">Ước tính: </span><b className="text-[var(--green-700)]"><Money>{fmtVND(giaUocTinh)}</Money></b></> : <span className="text-[var(--ink-400)]">Giá: —</span>}
+              {giaUocTinh != null ? <><span className="text-[10px]">{t("Ước tính:")} </span><b className="text-[var(--green-700)]"><Money>{fmtVND(giaUocTinh)}</Money></b></> : <span className="text-[var(--ink-400)]">{t("Giá: —")}</span>}
             </div>
           </div>
           <DuDoanDuyetHint
@@ -279,7 +280,7 @@ export function TaoDonMobileScreen({
         {/* Anh linh kien can tra (them 2026-08-24, muc 1) - xem giai thich day du o TaoDonTab.tsx. */}
         {loaiDon === "tra_hang" && (
           <div>
-            <label className={reqLabelClass(d.anh.length === 0)}>Ảnh linh kiện cần trả *</label>
+            <label className={reqLabelClass(d.anh.length === 0)}>{t("Ảnh linh kiện cần trả *")}</label>
             <TraHangAnhPicker photos={d.anh} onChange={(anh) => updateDraft(activeIdx, { anh })} addToast={addToast} />
           </div>
         )}
@@ -291,12 +292,12 @@ export function TaoDonMobileScreen({
           <>
             <div className="flex items-center gap-2 -my-1">
               <div className="h-px flex-1 bg-[var(--line)]" />
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-400)]">Thông tin bổ sung (tuỳ chọn)</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--ink-400)]">{t("Thông tin bổ sung (tuỳ chọn)")}</span>
               <div className="h-px flex-1 bg-[var(--line)]" />
             </div>
 
             <div>
-              <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Yêu cầu hóa đơn</label>
+              <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">{t("Yêu cầu hóa đơn")}</label>
               <div className="flex gap-1.5 flex-wrap">
                 {YEU_CAU_HOA_DON_OPTIONS.map((o) => (
                   <Btn key={o} type="button" size="md" variant={d.yeu_cau_hoa_don === o ? "primary" : "ghost"} onClick={() => updateDraft(activeIdx, { yeu_cau_hoa_don: o })}>
@@ -306,7 +307,7 @@ export function TaoDonMobileScreen({
               </div>
             </div>
             <div>
-              <label className={reqLabelClass(thieuMaId)}>Mã YCSC liên quan{batBuocYcsc ? " *" : ""}</label>
+              <label className={reqLabelClass(thieuMaId)}>{t("Mã YCSC liên quan")}{batBuocYcsc ? " *" : ""}</label>
               <input
                 value={d.ma_yeu_cau_su_co}
                 onChange={(e) => updateDraft(activeIdx, { ma_yeu_cau_su_co: e.target.value })}
@@ -316,7 +317,7 @@ export function TaoDonMobileScreen({
             </div>
             <MaYeuCauSuCoCheck value={d.ma_yeu_cau_su_co} nguoiNhanHang={nguoiNhanHang || currentEmail} />
             <div>
-              <label className={reqLabelClass(thieuMaId)}>Mã Lada liên quan{batBuocYcsc ? " *" : ""}</label>
+              <label className={reqLabelClass(thieuMaId)}>{t("Mã Lada liên quan")}{batBuocYcsc ? " *" : ""}</label>
               <input
                 value={d.ma_lada}
                 onChange={(e) => updateDraft(activeIdx, { ma_lada: e.target.value })}
@@ -324,32 +325,32 @@ export function TaoDonMobileScreen({
                 placeholder="VD: D1154680"
                 className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 h-11 text-sm font-mono uppercase ${thieuMaId ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
               />
-              {batBuocYcsc && <div className="mt-1 text-[11px] text-[var(--ink-500)]">Chỉ cần nhập 1 trong 2: Mã YCSC hoặc Mã Lada.</div>}
+              {batBuocYcsc && <div className="mt-1 text-[11px] text-[var(--ink-500)]">{t("Chỉ cần nhập 1 trong 2: Mã YCSC hoặc Mã Lada.")}</div>}
             </div>
             <MaLadaCheck value={d.ma_lada} />
             <div>
-              <label className={reqLabelClass(batBuoc && !d.chinh_sach.trim())}>Chính sách{batBuoc ? " *" : ""}</label>
+              <label className={reqLabelClass(batBuoc && !d.chinh_sach.trim())}>{t("Chính sách")}{batBuoc ? " *" : ""}</label>
               <Select
                 value={d.chinh_sach}
                 onChange={(v) => updateDraft(activeIdx, { chinh_sach: v })}
-                options={[{ value: "", label: "-- Không chọn --" }, ...CHINH_SACH_OPTIONS.map((o) => ({ value: o, label: o }))]}
+                options={[{ value: "", label: t("-- Không chọn --") }, ...CHINH_SACH_OPTIONS.map((o) => ({ value: o, label: o }))]}
               />
             </div>
             <div>
-              <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">TT khách hàng</label>
+              <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">{t("TT khách hàng")}</label>
               <input
                 value={d.tt_khach_hang}
                 onChange={(e) => updateDraft(activeIdx, { tt_khach_hang: e.target.value })}
-                placeholder="Tên/SĐT/địa chỉ khách hàng liên quan"
+                placeholder={t("Tên/SĐT/địa chỉ khách hàng liên quan")}
                 className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 h-11 text-sm"
               />
             </div>
             <div>
-              <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">TT+Mail duyệt</label>
+              <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">{t("TT+Mail duyệt")}</label>
               <input
                 value={d.tt_mail_duyet}
                 onChange={(e) => updateDraft(activeIdx, { tt_mail_duyet: e.target.value })}
-                placeholder="Mã/nội dung email phê duyệt đặc biệt (nếu có)"
+                placeholder={t("Mã/nội dung email phê duyệt đặc biệt (nếu có)")}
                 className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 h-11 text-sm"
               />
             </div>
@@ -360,12 +361,12 @@ export function TaoDonMobileScreen({
             onClick={() => setInfoExpandedIdx((s) => new Set(s).add(activeIdx))}
             className="focus-ring self-start text-xs font-semibold text-[var(--ink-500)]"
           >
-            + Thông tin bổ sung (Hóa đơn/Chính sách/TT khách hàng…) ▾
+            {t("+ Thông tin bổ sung (Hóa đơn/Chính sách/TT khách hàng…) ▾")}
           </button>
         )}
 
         <div>
-          <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Ghi chú (tuỳ chọn)</label>
+          <label className="block text-[11.5px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">{t("Ghi chú (tuỳ chọn)")}</label>
           <input
             value={d.ghi_chu}
             onChange={(e) => updateDraft(activeIdx, { ghi_chu: e.target.value })}
@@ -386,27 +387,27 @@ export function TaoDonMobileScreen({
             desktop, cung dieu kien). */}
         {sePhepDuCongNo === false && congNoDuKien && (
           <div className="rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-[11px] font-bold text-[var(--coral-700)]">
-            ⚠ Vượt trần công nợ dự kiến: <Money>{fmtVND(congNoDuKien.cong_no_chot + tongCongNoTamTinh)}</Money> / <Money>{fmtVND(congNoDuKien.tran ?? 0)}</Money>
+            {t("⚠ Vượt trần công nợ dự kiến:")} <Money>{fmtVND(congNoDuKien.cong_no_chot + tongCongNoTamTinh)}</Money> / <Money>{fmtVND(congNoDuKien.tran ?? 0)}</Money>
           </div>
         )}
         {/* Canh bao THONG TIN mốc dự phòng (them 2026-09-13) - xem giai thich o TaoDonTab.tsx (ban
             desktop, cung dieu kien). */}
         {coDongMuaDuTru && duPhongDuKien && (
           <div className="rounded-lg border border-[var(--ocean-500)]/30 bg-[var(--ocean-100)]/50 px-2.5 py-1.5 text-[11px] font-medium text-[var(--ocean-700)]">
-            ℹ Mốc dự phòng hiện tại còn khả dụng: <Money>{fmtVND(duPhongDuKien.moc_hien_tai)}</Money> / <Money>{fmtVND(duPhongDuKien.tran ?? 0)}</Money>
+            {t("ℹ Mốc dự phòng hiện tại còn khả dụng:")} <Money>{fmtVND(duPhongDuKien.moc_hien_tai)}</Money> / <Money>{fmtVND(duPhongDuKien.tran ?? 0)}</Money>
           </div>
         )}
         <TongNgayKtvInfo email={targetNguoiNhanHang} themGiaTri={giaTriTinhChietKhau} />
         <div className="flex items-center justify-between text-sm">
-          <span className="text-[var(--ink-500)]">{drafts.length} dòng · {tongSoLuong} cái</span>
+          <span className="text-[var(--ink-500)]">{t("{n} dòng · {sl} cái", { n: drafts.length, sl: tongSoLuong })}</span>
           {tongGiaUocTinh > 0 && <span className="font-bold text-[var(--green-700)]"><Money>{fmtVND(tongGiaUocTinh)}</Money></span>}
         </div>
         <div className="flex items-center gap-2">
           <Btn variant="ghost" size="md" className="h-11 shrink-0" onClick={themDong}>
-            + Thêm dòng
+            {t("+ Thêm dòng")}
           </Btn>
           <Btn size="md" className="h-11 flex-1 justify-center text-base" onClick={() => create.mutate()} disabled={!canSubmit || create.isPending}>
-            {create.isPending ? "Đang tạo..." : drafts.length > 1 ? `Tạo ${drafts.length} đơn` : "Tạo đơn"}
+            {create.isPending ? t("Đang tạo...") : drafts.length > 1 ? t("Tạo {n} đơn", { n: drafts.length }) : t("Tạo đơn")}
           </Btn>
         </div>
       </div>
