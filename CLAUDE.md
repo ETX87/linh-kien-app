@@ -733,7 +733,10 @@ tinh, quan_huyen, hang, san_pham_bao_hanh, tien_do_hoan_thanh`.
 `lib/caseLookupClient.ts` (`lookupCase`/`lookupCases`) gọi endpoint này qua
 `env.CASE_LOOKUP_BASE_URL` + `env.CASE_LOOKUP_API_KEY`, dùng ở 3 chỗ trong
 `routes/datMuaLinhKien.ts`: kiểm tra mã yêu cầu sự cố lúc tạo đơn, hiển thị thông tin case ở màn chi
-tiết đơn, và kiểm tra tồn tại case lúc gắn thêm case vào đơn.
+tiết đơn, và kiểm tra tồn tại case lúc gắn thêm case vào đơn. Ô "Mã YCSC" chỉ gửi tra cứu khi mã đúng dạng
+`isLikelyCaseId()` (> 5 ký tự: toàn số / `T`+số / `SC`+số — có bản sao FE ở `MaYeuCauSuCoCheck.tsx`, đổi 1 bên đổi cả 2;
+thiếu `SC` từng làm mã "SC261003300" không phản hồi gì, 2026-10-07); `fetchCaseLookupRaw()` quy `t…`/`sc…` về chữ HOA vì DVBH
+lưu + khớp đúng chữ hoa.
 
 **Lưu ý khi sửa endpoint phía hệ gốc**: route `case-lookup` KHÔNG áp dụng rate-limit 30
 lần/ngày+60s/lần của các API partner khác (thiết kế cho export định kỳ) — nó chỉ dựa vào throttle

@@ -21,7 +21,7 @@ import { CaseDetailModal } from "./CaseDetailModal";
 // (xem isLikelyCaseId trong datMuaLinhKien.ts, day la nguon that) de tranh goi debounce roi bi
 // server tra rong ngay lap tuc trong luc go do (vd "12", "case001").
 function isLikelyCaseId(id: string): boolean {
-  return id.length > 5 && (/^\d+$/.test(id) || /^T\d+$/i.test(id));
+  return id.length > 5 && (/^\d+$/.test(id) || /^(T|SC)\d+$/i.test(id)); // + "SC" + so (2026-10-07)
 }
 
 export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; nguoiNhanHang: string }) {

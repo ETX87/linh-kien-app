@@ -64,6 +64,8 @@ interface CaseLookupRawResponse {
 }
 
 async function fetchCaseLookupRaw(id: string, env: Env): Promise<CaseLookupRawResponse | null> {
+  // DVBH luu ma chu HOA ("SC26100799", "T25258") va tra cuu khop dung - KTV hay go thuong ("sc26100171") -> quy ve chu hoa.
+  if (/^(t|sc)\d+$/i.test(id)) id = id.toUpperCase();
   const url = `${env.CASE_LOOKUP_BASE_URL.replace(/\/$/, "")}/api/partner/case-lookup?id=${encodeURIComponent(id)}`;
   try {
     // SUA 2026-08-26 (debug production): fetch() thang toi URL nay tu 1 Worker khac (chinh he nay) bi
