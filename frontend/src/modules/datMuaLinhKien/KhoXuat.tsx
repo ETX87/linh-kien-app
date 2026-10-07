@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
 import { Badge } from "../../components/x/Badge";
 import { Select } from "../../components/ui/Select";
@@ -78,6 +78,69 @@ export function ChuyenKhoXuatCard({
         {pxk.mien_xuat
           ? `Đã chuyển từ ${mienKv ? MIEN_XUAT_LABEL[mienKv] : "khu vực chưa rõ miền"} — chỉ Kho/TN ${MIEN_XUAT_LABEL[pxk.mien_xuat]} thấy mặc định, file MISA dùng kho ${MIEN_XUAT_NGAN[pxk.mien_xuat]}.`
           : "Mặc định theo khu vực của phiếu. Chuyển sang miền khác: phiếu hiện cho Kho/TN miền mới, file MISA dùng kho miền mới."}
+      </div>
+    </div>
+  );
+}
+
+// Kho chon lai khu vuc cho phieu SAI khu vuc (chot 2026-10-07, migration 0071, PATCH /phieu-xuat-kho/:id/khu-vuc): ghi cho
+// CA phieu + moi don trong phieu -> Kho/Ke toan/TN khu vuc moi thay, khu vuc cu khong con thay mac dinh. Phieu chua dong.
+export const PXK_TRANG_THAI_DONG = ["KTV da nhan", "Ke toan huy", "Hang tru kho", "Kho da ket thuc", "Kho da nhan hang tra"];
+
+type PxkKhuVuc = Pick<PhieuXuatKhoRow, "id" | "khu_vuc_ma" | "khu_vuc_chon" | "khu_vuc_tu_dong_ten" | "khu_vuc_chon_ten">;
+
+export function KhuVucPxkBadge({ pxk }: { pxk: PxkKhuVuc }) {
+  if (!pxk.khu_vuc_chon) return null;
+  return (
+    <Badge tone="purple">
+      <span title={`Kho đã chuyển từ ${pxk.khu_vuc_tu_dong_ten ?? pxk.khu_vuc_ma ?? "?"}`}>Khu vực {pxk.khu_vuc_chon_ten ?? pxk.khu_vuc_chon} · Kho đã chuyển</span>
+    </Badge>
+  );
+}
+
+export function ChuyenKhuVucCard({ pxk, addToast, onDone }: { pxk: PxkKhuVuc; addToast: (msg: string) => void; onDone: () => void }) {
+  const hienTai = pxk.khu_vuc_chon ?? pxk.khu_vuc_ma ?? "";
+  const [chon, setChon] = useState(hienTai);
+  const [lyDo, setLyDo] = useState("");
+  useEffect(() => { setChon(hienTai); setLyDo(""); }, [pxk.id, hienTai]);
+  const { data: khuVucData } = useQuery({
+    queryKey: ["settings-khu-vuc"],
+    queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/settings/khu-vuc"),
+  });
+  const options = (khuVucData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ma === pxk.khu_vuc_ma ? `${k.ten} (tự động)` : k.ten }));
+  const mutation = useMutation({
+    mutationFn: () => api.patch<{ so_don: number }>(`/phieu-xuat-kho/${pxk.id}/khu-vuc`, { khu_vuc_ma: chon, ghi_chu: lyDo.trim() || undefined }),
+    onSuccess: (res) => {
+      onDone();
+      addToast(`Đã chuyển khu vực: ${options.find((o) => o.value === chon)?.label ?? chon}${res?.so_don ? ` (phiếu + ${res.so_don} đơn)` : ""}`);
+    },
+    onError: (err) => {
+      const code = err instanceof ApiError ? err.code : undefined;
+      if (code === "PHIEU_DA_DONG") addToast("Phiếu đã đóng — không chuyển khu vực được nữa");
+      else if (code === "CONFLICT") addToast("Phiếu vừa được người khác cập nhật — tải lại rồi thử lại");
+      else addToast("Lỗi: " + describeApiError(err));
+    },
+  });
+  const doi = !!chon && chon !== hienTai;
+  return (
+    <div className="border border-[var(--line)] rounded-lg p-3">
+      <SectionTitle icon="📍">Khu vực</SectionTitle>
+      <div className="flex flex-wrap gap-2 items-center">
+        <Select value={chon} onChange={setChon} options={options} className="min-w-[180px]" />
+        {doi && (
+          <input
+            value={lyDo}
+            onChange={(e) => setLyDo(e.target.value)}
+            placeholder="Lý do chuyển (không bắt buộc)"
+            className="focus-ring flex-1 min-w-[160px] bg-[var(--surface)] border border-[var(--ink-400)] rounded-lg px-2.5 py-1.5 text-sm"
+          />
+        )}
+        <Btn size="sm" onClick={() => mutation.mutate()} disabled={!doi || mutation.isPending} loading={mutation.isPending}>Lưu</Btn>
+      </div>
+      <div className="mt-1.5 text-[11px] text-[var(--ink-500)]">
+        {pxk.khu_vuc_chon
+          ? `Kho đã chuyển từ ${pxk.khu_vuc_tu_dong_ten ?? pxk.khu_vuc_ma ?? "?"} — phiếu + đơn trong phiếu chỉ hiện cho Kho/Kế toán/TN khu vực ${pxk.khu_vuc_chon_ten ?? pxk.khu_vuc_chon}.`
+          : "Phiếu sai khu vực: chọn lại để chuyển cả phiếu + đơn trong phiếu sang Kho/Kế toán/TN khu vực đúng (kho xuất MISA theo miền khu vực mới)."}
       </div>
     </div>
   );

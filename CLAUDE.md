@@ -225,6 +225,14 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   khu vực thuộc miền MỚI (khu vực cũ không còn thấy mặc định, phải tự lọc); (3) đẩy khovan kèm `sender_info.mien_xuat` (khovan
   chưa dùng). Thông báo việc mới vẫn theo bảng cũ. UI: cột "Kho xuất" + lọc cột `mien_xuat` ở danh sách PXK, badge + thẻ "Kho xuất"
   ở chi tiết PXK (`datMuaLinhKien/KhoXuat.tsx`).
+- **Kho chọn lại khu vực cho phiếu sai khu vực** (chốt 2026-10-07, migration `0071`): cột `khu_vuc_chon` trên CẢ
+  `phieu_xuat_kho` lẫn `dat_don_hang` (NULL = theo `khu_vuc_ma` do trigger tự tính — KHÔNG ghi đè `khu_vuc_ma` vì trigger sẽ tính
+  lại). Kho/Admin `PATCH /phieu-xuat-kho/:id/khu-vuc` {khu_vuc_ma, ghi_chu?} khi phiếu chưa đóng → ghi phiếu + MỌI đơn trong phiếu,
+  xoá `mien_xuat` (miền theo khu vực mới), log 'Da chuyen khu vuc'; chọn đúng khu vực tự tính = bỏ chọn. `khuVucSetWhereSql()`
+  (dùng chung đơn/PXK/thiếu LK/trả hàng/badge) = `khu_vuc_chon` có thì CHỈ khớp khu vực chọn, không thì điều kiện cũ (CTE
+  `/home-summary` viết tay cùng quy tắc). Khu vực hiển thị/lọc cột/MISA/miền kho xuất = `COALESCE(khu_vuc_chon, khu_vuc_ma)`
+  (`khuVucHieuLucSql()` ở `lib/mienXuat.ts`). Đơn thêm vào phiếu SAU khi chọn không tự nhận khu vực chọn; đơn rời phiếu giữ khu
+  vực chọn. Chưa áp: scope GS/View. UI: thẻ "Khu vực" + badge ở chi tiết PXK (`ChuyenKhuVucCard` trong `KhoXuat.tsx`).
 - **Danh sách PXK dạng phiếu gốc xổ xuống** (2026-09-29): bấm 1 dòng PXK = xổ/thu các dòng đơn con ngay bên dưới
   (`PaginatedTable` prop `expandedContent` — 1 hàng `<td colSpan>`, nội dung rộng không kéo giãn cột cha; mobile: khối
   dưới thẻ), bấm ID phiếu (link màu, gạch chân — desktop + mobile) mới mở Drawer, không còn nút "Chi tiết", "Xổ tất cả dòng đơn" mở cả trang. Bảng dòng đơn + mọi thao

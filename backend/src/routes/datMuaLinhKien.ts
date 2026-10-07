@@ -1026,14 +1026,15 @@ datMuaLinhKien.get("/home-summary", async (c) => {
     const orCond = (conds: string[]): string => (conds.length > 0 ? `(${conds.join(" OR ")})` : "1=0");
     const ddhScope = (): string => {
       let s = "";
-      if (khuVucSet) s += ` AND (ddh.nguoi_tao IN (SELECT email FROM kv_email) OR ddh.nguoi_nhan_hang IN (SELECT email FROM kv_email) OR ddh.khu_vuc_ma IN (SELECT ma FROM kv_ma))`;
+      // khu_vuc_chon (Kho chon lai, migration 0071) thang - cung quy tac khuVucSetWhereSql().
+      if (khuVucSet) s += ` AND ((ddh.khu_vuc_chon IS NULL AND (ddh.nguoi_tao IN (SELECT email FROM kv_email) OR ddh.nguoi_nhan_hang IN (SELECT email FROM kv_email) OR ddh.khu_vuc_ma IN (SELECT ma FROM kv_ma))) OR ddh.khu_vuc_chon IN (SELECT ma FROM kv_ma))`;
       if (gsSet) s += ` AND ddh.email_gs IN (SELECT email FROM gs_list)`;
       return s;
     };
     const pxkScope = (): string => {
       let s = "";
       // Phieu da chuyen kho xuat (mien_xuat, 2026-10-07) thuoc mien moi - cung quy tac khuVucPxkWhereSql().
-      if (khuVucSet) s += ` AND ((pxk.mien_xuat IS NULL AND (pxk.nguoi_nhan_hang IN (SELECT email FROM kv_email) OR pxk.khu_vuc_ma IN (SELECT ma FROM kv_ma))) OR ${pxkKhopMienXuatSql("pxk", "kv_ma")})`;
+      if (khuVucSet) s += ` AND ((pxk.mien_xuat IS NULL AND ((pxk.khu_vuc_chon IS NULL AND (pxk.nguoi_nhan_hang IN (SELECT email FROM kv_email) OR pxk.khu_vuc_ma IN (SELECT ma FROM kv_ma))) OR pxk.khu_vuc_chon IN (SELECT ma FROM kv_ma))) OR ${pxkKhopMienXuatSql("pxk", "kv_ma")})`;
       if (gsSet) {
         s += ` AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh2.email_gs IN (SELECT email FROM gs_list))`;
       }
@@ -1041,7 +1042,7 @@ datMuaLinhKien.get("/home-summary", async (c) => {
     };
     const thieuLkScope = (): string => {
       let inner = "";
-      if (khuVucSet) inner += ` AND (ddh3.nguoi_tao IN (SELECT email FROM kv_email) OR ddh3.nguoi_nhan_hang IN (SELECT email FROM kv_email) OR ddh3.khu_vuc_ma IN (SELECT ma FROM kv_ma))`;
+      if (khuVucSet) inner += ` AND ((ddh3.khu_vuc_chon IS NULL AND (ddh3.nguoi_tao IN (SELECT email FROM kv_email) OR ddh3.nguoi_nhan_hang IN (SELECT email FROM kv_email) OR ddh3.khu_vuc_ma IN (SELECT ma FROM kv_ma))) OR ddh3.khu_vuc_chon IN (SELECT ma FROM kv_ma))`;
       if (gsSet) inner += ` AND ddh3.email_gs IN (SELECT email FROM gs_list)`;
       return inner ? ` AND EXISTS (SELECT 1 FROM dat_don_hang ddh3 WHERE ddh3.id = tlk.dat_don_hang_id${inner})` : "";
     };
@@ -1807,7 +1808,7 @@ const DON_HANG_COT_LOC: Record<string, CotLoc> = {
   trang_thai: { kieu: "don", expr: "ddh.trang_thai_hien_tai" },
   yeu_cau_hoa_don: { kieu: "don", expr: "ddh.yeu_cau_hoa_don" },
   // Cot luu san (migration 0042) - thay subquery ktv_lien_he: co ca khu vuc GS va "Chưa có khu vực".
-  khu_vuc: { kieu: "don", expr: "ddh.khu_vuc_ma", khuVuc: true },
+  khu_vuc: { kieu: "don", expr: "COALESCE(ddh.khu_vuc_chon, ddh.khu_vuc_ma)", khuVuc: true }, // + Kho chon lai (0071)
   // Trang thai phieu xuat kho + chuyen tien THEO DON (2026-09-29, lib/trangThaiDonPxk.ts) - bieu thuc suy tu PXK chua don.
   trang_thai_pxk: { kieu: "don", expr: TRANG_THAI_PXK_DON_SQL("ddh") },
   thanh_toan: { kieu: "don", expr: THANH_TOAN_DON_SQL("ddh") },
@@ -1979,7 +1980,7 @@ datMuaLinhKien.get("/don-hang", async (c) => {
      LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
      -- "Khu vực" = cot ddh.khu_vuc_ma (migration 0042: KTV nhan hang -> KTV tao -> GS -> "Chưa có khu vực"),
      -- truoc day JOIN ktv_lien_he cua nguoi nhan (don GS tu nhan hien trong).
-     LEFT JOIN khu_vuc kv ON kv.ma = ddh.khu_vuc_ma
+     LEFT JOIN khu_vuc kv ON kv.ma = COALESCE(ddh.khu_vuc_chon, ddh.khu_vuc_ma) -- + Kho chon lai (0071)
      WHERE ${whereSql}
      ORDER BY ${orderSql}
      ${pageParam ? "LIMIT ? OFFSET ?" : ""}`,

@@ -22,7 +22,7 @@ import { pushOverlayClose } from "../../lib/overlayStack";
 import type { DonHangRow, PhieuXuatKhoRow, DonHangKhaDungRow, NguoiNhanHangKhaDungRow, LyDoChamRow, KtvDisplayMap } from "./types";
 import { TongNgayKtvInfo } from "./TongNgayKtv";
 import { PxkDongDonHangTable } from "./PxkDongDonHangTable";
-import { KhoXuatBadge, ChuyenKhoXuatCard, MIEN_XUAT_SUA_DUOC } from "./KhoXuat";
+import { KhoXuatBadge, ChuyenKhoXuatCard, MIEN_XUAT_SUA_DUOC, KhuVucPxkBadge, ChuyenKhuVucCard, PXK_TRANG_THAI_DONG } from "./KhoXuat";
 // Lien ket 2 chieu voi don goc trong phieu (them 2026-09-21, phan hoi "cho phép click vào dòng đơn
 // hàng trong phiếu để mở giao diện UI chi tiết") - tai dung nguyen DonHangDetailModal, dung y het cach
 // ThieuLkTab.tsx da lam (xem comment o do ve import vong an toan trong ESM).
@@ -1998,6 +1998,7 @@ export function PxkDetailModal({
             })()}
             <StatusBadge value={trangThai} tones={PXK_TRANG_THAI_TONE} options={PXK_TRANG_THAI_OPTIONS} />
             <KhoXuatBadge r={pxk} />
+            <KhuVucPxkBadge pxk={pxk} />
             {pxk.nguoi_nhan_hang && (
               <span className="text-[var(--ink-500)] text-xs"><NguoiNhan>{formatNguoiDisplay(pxk.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan></span>
             )}
@@ -2050,6 +2051,11 @@ export function PxkDetailModal({
           {/* Chuyen kho xuat MB/MN (2026-10-07) - TN/Ke toan, truoc khi phieu gui Kho. */}
           {(canTacNghiep || canKeToan) && MIEN_XUAT_SUA_DUOC.includes(trangThai) && (
             <ChuyenKhoXuatCard pxk={pxk} addToast={addToast} onDone={invalidate} />
+          )}
+
+          {/* Kho chon lai khu vuc cho phieu sai khu vuc (2026-10-07) - phieu chua dong. */}
+          {canKho && !PXK_TRANG_THAI_DONG.includes(trangThai) && (
+            <ChuyenKhuVucCard pxk={pxk} addToast={addToast} onDone={invalidate} />
           )}
 
           {/* Muc D (Dot 2): Ke toan dien "Ma MISA" tren chinh PXK, bat buoc truoc khi chot xong don xuat. */}

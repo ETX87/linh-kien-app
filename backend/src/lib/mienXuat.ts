@@ -22,9 +22,14 @@ export function mienTuKhuVucSql(expr: string): string {
   return `(CASE WHEN instr(${expr}, 'MB') > 0 THEN 'bac' WHEN instr(${expr}, 'MN') > 0 THEN 'nam' END)`;
 }
 
+// Khu vuc HIEU LUC cua don/phieu = Kho chon lai (khu_vuc_chon, migration 0071), khong co thi khu_vuc_ma tu tinh.
+export function khuVucHieuLucSql(alias: string): string {
+  return `COALESCE(${alias}.khu_vuc_chon, ${alias}.khu_vuc_ma)`;
+}
+
 // Mien xuat HIEU LUC cua phieu = chon tay, khong co thi theo khu vuc cua phieu.
 export function mienXuatHieuLucSql(alias = "pxk"): string {
-  return `COALESCE(${alias}.mien_xuat, ${mienTuKhuVucSql(`${alias}.khu_vuc_ma`)})`;
+  return `COALESCE(${alias}.mien_xuat, ${mienTuKhuVucSql(khuVucHieuLucSql(alias))})`;
 }
 
 // Phieu DA CHUYEN kho xuat khop 1 tap khu vuc khi tap co it nhat 1 khu vuc thuoc mien moi. `kvMaTable` = bang/subquery

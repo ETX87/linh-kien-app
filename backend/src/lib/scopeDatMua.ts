@@ -202,7 +202,10 @@ export function khuVucSetWhereSql(khuVucSet: Set<string>, emailCols: string[]): 
   const alias = emailCols[0].split(".")[0];
   conds.push(`${alias}.khu_vuc_ma IN (SELECT value FROM json_each(?))`);
   binds.push(json);
-  return { sql: ` AND (${conds.join(" OR ")})`, binds };
+  // Kho CHON LAI khu vuc cho phieu sai khu vuc (khu_vuc_chon, migration 0071, co tren CA dat_don_hang lan phieu_xuat_kho):
+  // da chon thi CHI theo khu vuc chon - khu vuc cu (ke ca qua email KTV) khong con thay.
+  binds.push(json);
+  return { sql: ` AND ((${alias}.khu_vuc_chon IS NULL AND (${conds.join(" OR ")})) OR ${alias}.khu_vuc_chon IN (SELECT value FROM json_each(?)))`, binds };
 }
 
 /**

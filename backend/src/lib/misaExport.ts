@@ -322,7 +322,7 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
          ktv.ma_ktv as ktv_ma_ktv, ${tenNguoiNullSql("pxk.nguoi_nhan_hang")} as ktv_ten,
          COALESCE(NULLIF(TRIM(ktv.ma_misa), ''), NULLIF(TRIM(u.ma_misa), '')) as ktv_ma_misa,
          COALESCE(NULLIF(TRIM(ktv.ten_misa), ''), NULLIF(TRIM(u.ten_misa), '')) as ktv_ten_misa,
-         COALESCE(ktv.khu_vuc_ma, pxk.khu_vuc_ma) as ktv_khu_vuc_ma,
+         COALESCE(pxk.khu_vuc_chon, ktv.khu_vuc_ma, pxk.khu_vuc_ma) as ktv_khu_vuc_ma, -- Kho chon lai khu vuc (0071) thang
          pxk.mien_xuat as pxk_mien_xuat, -- TN/Ke toan chuyen kho xuat MB/MN (migration 0070) - thang mien theo khu vuc
          pxk.nguoi_nhan_hang
        FROM phieu_xuat_kho pxk

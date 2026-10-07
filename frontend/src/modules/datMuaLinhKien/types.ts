@@ -226,6 +226,11 @@ export interface PhieuXuatKhoRow {
   mien_xuat?: "bac" | "nam" | null;
   mien_xuat_hieu_luc?: "bac" | "nam" | null;
   mien_khu_vuc?: "bac" | "nam" | null;
+  // Khu vuc (0042) + Kho chon lai cho phieu sai khu vuc (0071) - ten chi chi tiet PXK tra.
+  khu_vuc_ma?: string | null;
+  khu_vuc_chon?: string | null;
+  khu_vuc_tu_dong_ten?: string | null;
+  khu_vuc_chon_ten?: string | null;
   // Id loai chiet khau co thu tu cao nhat trong cac dong cua phieu (GET /api/phieu-xuat-kho).
   loai_chiet_khau_cao_nhat_id?: number | null;
   so_tien_can_chuyen: number | null;
