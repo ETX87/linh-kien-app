@@ -3,6 +3,7 @@ import { fmtVND } from "../../types";
 import { Money } from "../../components/ui/Money";
 import { docBiLoi, docSoTienAnh, PHIEN_BAN_OCR, type SoTienDoc } from "../../lib/docTienAnh";
 import { api } from "../../api/client";
+import { t } from "../../i18n";
 
 // So tien doc tu anh chuyen khoan (lib/docTienAnh.ts, 2026-09-30) - dung chung form KTV "Đã chuyển", form Ke toan "Duyệt
 // bằng chứng" va modal "Sửa tiền" (Quỹ & chuyển tiền). CHI canh bao, khong chan.
@@ -138,16 +139,16 @@ export function TienDocTuAnh({
   const khongDoc = items.filter((i) => i.xong && i.soTien == null);
   return (
     <div className="space-y-1">
-      <div className="text-[11.5px] text-[var(--color-text-secondary)]" title="Số tiền hệ thống tự đọc từ ảnh — có thể sai, chỉ để đối chiếu">
-        <span className="font-semibold">Đọc từ ảnh:</span>{" "}
+      <div className="text-[11.5px] text-[var(--color-text-secondary)]" title={t("Số tiền hệ thống tự đọc từ ảnh — có thể sai, chỉ để đối chiếu")}>
+        <span className="font-semibold">{t("Đọc từ ảnh:")}</span>{" "}
         {items.map((i, k) => (
           <span key={i.url}>
             {k > 0 && " + "}
-            ảnh {sttCua(i.url)}{" "}
+            {t("ảnh {a}", { a: sttCua(i.url) })}
             {!i.xong ? (
-              <span className="text-[var(--color-text-faint)]">đang đọc…</span>
+              <span className="text-[var(--color-text-faint)]">{t("đang đọc…")}</span>
             ) : i.soTien == null ? (
-              <span className="text-[var(--color-warning-strong)]">không đọc được</span>
+              <span className="text-[var(--color-warning-strong)]">{t("không đọc được")}</span>
             ) : (
               <b className="text-[var(--color-text)]"><Money>{fmtVND(i.soTien)}</Money></b>
             )}
@@ -165,15 +166,15 @@ export function TienDocTuAnh({
             thongDiepLech(tong, soSoSanh)
           ) : (
             <>
-              ⚠ {nhan[0].toUpperCase() + nhan.slice(1)} <Money>{fmtVND(soSoSanh)}</Money> lệch <Money>{fmtVND(Math.abs(soSoSanh - tong))}</Money> so với tổng đọc từ ảnh{" "}
-              <Money>{fmtVND(tong)}</Money> — kiểm tra lại ảnh/sao kê.
+              ⚠ {nhan[0].toUpperCase() + nhan.slice(1)} <Money>{fmtVND(soSoSanh)}</Money> {t("lệch")} <Money>{fmtVND(Math.abs(soSoSanh - tong))}</Money> {t("so với tổng đọc từ ảnh")}{" "}
+              <Money>{fmtVND(tong)}</Money> {t("— kiểm tra lại ảnh/sao kê.")}
             </>
           )}
         </div>
       )}
       {xongHet && khongDoc.length > 0 && (
         <div className="text-[11px] text-[var(--color-text-faint)]">
-          Ảnh {khongDoc.map((i) => sttCua(i.url)).join(", ")} không tự đọc được số tiền — kiểm tra bằng mắt.
+          {t("Ảnh {a} không tự đọc được số tiền — kiểm tra bằng mắt.", { a: khongDoc.map((i) => sttCua(i.url)).join(", ") })}
         </div>
       )}
     </div>

@@ -12,6 +12,7 @@ import { LoaiChietKhauPicker, LoaiChietKhauText, HoaDonGiaNiemYet, duocDoiLoaiCh
 import { describeApiError, invalidatePipelineCounts, laTruCongNo } from "./helpers";
 import { LoaiDeXuatBadge } from "./SharedUi";
 import { DON_CUA_TOI_TRANG_THAI_OPTIONS } from "./constants";
+import { t } from "../../i18n";
 
 // Bang "Dòng đơn hàng" cua 1 PXK - TACH component 2026-09-29 (phan hoi "trong danh sách phiếu xuất, tạo bảng danh sách
 // dạng phiếu gốc, ấn xổ xuống sẽ có danh sách các dòng đơn hàng chi tiết bên trong, các chức năng sẽ tương tự các chức
@@ -83,9 +84,9 @@ export function PxkDongDonHangTable({
     onSuccess: (_res, { donHangId }) => {
       setLyDoChamDraft((p) => { const n = { ...p }; delete n[donHangId]; return n; });
       lamMoi();
-      addToast("Đã lưu lý do chậm");
+      addToast(t("Đã lưu lý do chậm"));
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
   });
 
   // PATCH /don-hang/:id/so-tien-cong-no (datMuaLinhKien.ts) - chi dong cong no thuan (khong phai TRỪ CÔNG NỢ).
@@ -95,9 +96,9 @@ export function PxkDongDonHangTable({
     onSuccess: (_res, { donHangId }) => {
       setSoTienCongNoDraft((p) => { const n = { ...p }; delete n[donHangId]; return n; });
       lamMoi();
-      addToast("Đã lưu tiền cần chuyển của đơn");
+      addToast(t("Đã lưu tiền cần chuyển của đơn"));
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
   });
 
   // Phieu DA CO TIEN tra (chot 2026-09-30): bo don -> hoi TN don do "Chưa thanh toán" (tien cua don = 0, phan thua hoan
@@ -119,11 +120,11 @@ export function PxkDongDonHangTable({
       lamMoi();
       invalidatePipelineCounts(qc);
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
-      addToast(daHuyPhieu ? "Đã bỏ đơn — phiếu không còn đơn nào nên đã tự hủy" : "Đã bỏ đơn khỏi phiếu");
+      addToast(daHuyPhieu ? t("Đã bỏ đơn — phiếu không còn đơn nào nên đã tự hủy") : t("Đã bỏ đơn khỏi phiếu"));
     },
     onError: (err) => {
       const code = err instanceof ApiError ? err.code : undefined;
-      addToast(code === "LAST_ORDER" ? "Không thể bỏ - đây là đơn cuối cùng trong phiếu" : "Lỗi: " + describeApiError(err));
+      addToast(code === "LAST_ORDER" ? t("Không thể bỏ - đây là đơn cuối cùng trong phiếu") : t("Lỗi: ") + describeApiError(err));
     },
   });
 
@@ -143,7 +144,7 @@ export function PxkDongDonHangTable({
   const oChon = (d: DonHangRow) => (
     <input
       type="checkbox"
-      aria-label={`Chọn đơn ${d.ma_lk}`}
+      aria-label={t("Chọn đơn {a}", { a: d.ma_lk })}
       checked={chonCk.has(d.id)}
       onChange={() => batChon(d.id)}
       onClick={(e) => e.stopPropagation()}
@@ -157,24 +158,24 @@ export function PxkDongDonHangTable({
         className="focus-ring rounded-[var(--radius-pill)] border border-[var(--color-border)] px-2 py-0.5 font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
         onClick={() => setChonCk(chonCk.size === donHang.length ? new Set() : new Set(donHang.map((d) => d.id)))}
       >
-        {chonCk.size === donHang.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+        {chonCk.size === donHang.length ? t("Bỏ chọn tất cả") : t("Chọn tất cả")}
       </button>
       {nhomLoai.size > 1 &&
         [...nhomLoai.entries()].map(([id, ids]) => (
           <button
             key={String(id)}
             type="button"
-            title="Chọn các đơn đang cùng loại chiết khấu này"
+            title={t("Chọn các đơn đang cùng loại chiết khấu này")}
             className="focus-ring rounded-[var(--radius-pill)] border border-[var(--color-border)] px-2 py-0.5 text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
             onClick={() => setChonCk(new Set(ids))}
           >
-            {tenLoaiChietKhau(dsLoaiCk, id) ?? "Chưa có loại"} ({ids.length})
+            {tenLoaiChietKhau(dsLoaiCk, id) ?? t("Chưa có loại")} ({ids.length})
           </button>
         ))}
       {chonCk.size > 0 && (
         <>
-          <span className="ml-1 text-[var(--color-text-secondary)]">Đã chọn <b className="text-[var(--color-text)]">{chonCk.size}</b> đơn</span>
-          <Btn size="sm" variant="subtle" onClick={() => setMoDoiNhieu(true)}>Đổi loại chiết khấu…</Btn>
+          <span className="ml-1 text-[var(--color-text-secondary)]">{t("Đã chọn")} <b className="text-[var(--color-text)]">{chonCk.size}</b> {t("đơn")}</span>
+          <Btn size="sm" variant="subtle" onClick={() => setMoDoiNhieu(true)}>{t("Đổi loại chiết khấu…")}</Btn>
         </>
       )}
       {moDoiNhieu && chonDs.length > 0 && (
@@ -195,15 +196,15 @@ export function PxkDongDonHangTable({
       const sl = d.so_luong_thuc_xuat ?? d.so_luong_de_xuat;
       const noiDung =
         d.tien_uoc_tinh != null || donGia != null ? (
-          <span className="italic text-[var(--ink-400)]" title="Ước tính theo loại chiết khấu, giá chốt và SL thực xuất">
+          <span className="italic text-[var(--ink-400)]" title={t("Ước tính theo loại chiết khấu, giá chốt và SL thực xuất")}>
             <Money>{fmtVND(d.tien_uoc_tinh ?? (donGia ?? 0) * sl)}</Money>
-            {!gon && " (ước tính)"}
+            {!gon && t(" (ước tính)")}
           </span>
         ) : (
           <span className="text-[var(--ink-400)]">—</span>
         );
       return canTacNghiep && dangTao ? (
-        <button type="button" className="hover:underline decoration-dotted underline-offset-2" title="Bấm để sửa SL thực xuất/Đơn giá thực tế" onClick={() => onSuaTien(d.id)}>
+        <button type="button" className="hover:underline decoration-dotted underline-offset-2" title={t("Bấm để sửa SL thực xuất/Đơn giá thực tế")} onClick={() => onSuaTien(d.id)}>
           {noiDung}
         </button>
       ) : (
@@ -230,7 +231,7 @@ export function PxkDongDonHangTable({
             onClick={() => soTienCongNoMutation.mutate({ donHangId: d.id, so_tien_cong_no: Number(soTienCongNoDraft[d.id]) })}
             disabled={!soTienCongNoDraft[d.id]?.trim() || soTienCongNoMutation.isPending}
           >
-            Lưu
+            {t("Lưu")}
           </Btn>
           <button type="button" className="text-[var(--ink-400)] hover:underline" onClick={() => huyCongNoDraft(d.id)}>✕</button>
         </span>
@@ -240,13 +241,13 @@ export function PxkDongDonHangTable({
       <span className="inline-flex gap-1.5 items-center">
         {/* Chua sua tay -> hien uoc tinh Gia de xuat × SL (in nghieng), dung lam gia tri khoi tao khi bam ✎. */}
         {d.so_tien_cong_no != null ? (
-          <span title="Tiền công nợ ghi nhận cho KTV — không cộng vào tiền cần chuyển của phiếu">
-            <Money>{fmtVND(d.so_tien_cong_no)}</Money> <span className="text-[11px] text-[var(--ink-400)]">công nợ</span>
+          <span title={t("Tiền công nợ ghi nhận cho KTV — không cộng vào tiền cần chuyển của phiếu")}>
+            <Money>{fmtVND(d.so_tien_cong_no)}</Money> <span className="text-[11px] text-[var(--ink-400)]">{t("công nợ")}</span>
           </span>
         ) : d.gia_de_xuat != null ? (
-          <span className="italic text-[var(--ink-400)]" title="Ước tính = Giá đề xuất × SL, chưa được xác nhận/sửa tay">
+          <span className="italic text-[var(--ink-400)]" title={t("Ước tính = Giá đề xuất × SL, chưa được xác nhận/sửa tay")}>
             <Money>{fmtVND(d.gia_de_xuat * d.so_luong_de_xuat)}</Money>
-            {!gon && " (ước tính)"}
+            {!gon && t(" (ước tính)")}
           </span>
         ) : (
           <span className="text-[var(--ink-400)]">—</span>
@@ -255,7 +256,7 @@ export function PxkDongDonHangTable({
           <button
             type="button"
             className="text-[var(--ocean-700)] hover:underline"
-            title="Sửa tiền công nợ"
+            title={t("Sửa tiền công nợ")}
             onClick={() =>
               setSoTienCongNoDraft((p) => ({ ...p, [d.id]: String(d.so_tien_cong_no ?? (d.gia_de_xuat != null ? d.gia_de_xuat * d.so_luong_de_xuat : "")) }))
             }
@@ -303,15 +304,15 @@ export function PxkDongDonHangTable({
       if (choNhap) {
         return (
           <span className="inline-flex max-w-full items-center gap-1">
-            <Badge tone="danger">Quá hạn</Badge>
+            <Badge tone="danger">{t("Quá hạn")}</Badge>
             <select
               value={lyDoChamDraft[d.id] ?? ""}
               onChange={(e) => setLyDoChamDraft((p) => ({ ...p, [d.id]: e.target.value }))}
               disabled={dsLyDo.length === 0}
-              title={dsLyDo.length === 0 ? 'Chưa có lý do chậm nào cho "Mua hàng" — vào Settings › Lý do chậm để thêm' : tatCa || "Chọn lý do chậm"}
+              title={dsLyDo.length === 0 ? t('Chưa có lý do chậm nào cho "Mua hàng" — vào Settings › Lý do chậm để thêm') : tatCa || t("Chọn lý do chậm")}
               className="focus-ring h-[24px] min-w-0 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--surface)] px-1 text-xs disabled:opacity-40"
             >
-              <option value="">-- Chọn lý do --</option>
+              <option value="">{t("-- Chọn lý do --")}</option>
               {dsLyDo.map((l) => (
                 <option key={l.ten_ly_do} value={l.ten_ly_do}>{l.ten_ly_do}</option>
               ))}
@@ -322,7 +323,7 @@ export function PxkDongDonHangTable({
               disabled={!lyDoChamDraft[d.id]?.trim() || lyDoChamMutation.isPending}
               onClick={luu}
             >
-              Lưu
+              {t("Lưu")}
             </button>
           </span>
         );
@@ -330,12 +331,12 @@ export function PxkDongDonHangTable({
       if (moiNhat) {
         return (
           <span title={tatCa}>
-            {d.qua_han_ly_do_cham && <Badge tone="danger">Quá hạn</Badge>} {moiNhat.noi_dung}
+            {d.qua_han_ly_do_cham && <Badge tone="danger">{t("Quá hạn")}</Badge>} {moiNhat.noi_dung}
             {giaiTrinh.length > 1 && <span className="text-[var(--ink-400)]"> (+{giaiTrinh.length - 1})</span>}
           </span>
         );
       }
-      return d.qua_han_ly_do_cham ? <Badge tone="danger">Quá hạn</Badge> : <span className="text-[var(--ink-400)]">—</span>;
+      return d.qua_han_ly_do_cham ? <Badge tone="danger">{t("Quá hạn")}</Badge> : <span className="text-[var(--ink-400)]">—</span>;
     }
     return (
       <div className="flex flex-col gap-1">
@@ -352,24 +353,24 @@ export function PxkDongDonHangTable({
         {choNhap ? (
           <div className="flex flex-col gap-1">
             <div className="flex gap-1 items-center">
-              <Badge tone="danger">Quá hạn</Badge>
+              <Badge tone="danger">{t("Quá hạn")}</Badge>
               <Select
                 value={lyDoChamDraft[d.id] ?? ""}
                 onChange={(v) => setLyDoChamDraft((p) => ({ ...p, [d.id]: v }))}
-                options={[{ value: "", label: "-- Chọn lý do chậm --" }, ...dsLyDo.map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
+                options={[{ value: "", label: t("-- Chọn lý do chậm --") }, ...dsLyDo.map((l) => ({ value: l.ten_ly_do, label: l.ten_ly_do }))]}
                 disabled={dsLyDo.length === 0}
                 className="flex-1"
               />
               <Btn size="sm" variant="ghost" onClick={luu} disabled={!lyDoChamDraft[d.id]?.trim() || lyDoChamMutation.isPending}>
-                Lưu
+                {t("Lưu")}
               </Btn>
             </div>
             {dsLyDo.length === 0 && (
-              <div className="text-[10.5px] text-[var(--coral-600)]">Chưa có lý do chậm nào được cấu hình cho "Mua hàng" — vào Settings › Lý do chậm để thêm.</div>
+              <div className="text-[10.5px] text-[var(--coral-600)]">{t("Chưa có lý do chậm nào được cấu hình cho \"Mua hàng\" — vào Settings › Lý do chậm để thêm.")}</div>
             )}
           </div>
         ) : d.qua_han_ly_do_cham ? (
-          <Badge tone="danger">Quá hạn</Badge>
+          <Badge tone="danger">{t("Quá hạn")}</Badge>
         ) : giaiTrinh.length === 0 ? (
           <span className="text-[var(--ink-400)]">—</span>
         ) : null}
@@ -383,7 +384,7 @@ export function PxkDongDonHangTable({
       <button
         type="button"
         className="text-[var(--coral-500)] hover:underline disabled:opacity-50"
-        title={coMaMisa ? "Kế toán đã bổ sung mã MISA — không bỏ đơn khỏi phiếu được nữa" : "Bỏ đơn khỏi phiếu"}
+        title={coMaMisa ? t("Kế toán đã bổ sung mã MISA — không bỏ đơn khỏi phiếu được nữa") : t("Bỏ đơn khỏi phiếu")}
         disabled={boDonMutation.isPending || coMaMisa}
         onClick={() => {
           const laDonCuoi = donHang.length === 1;
@@ -393,15 +394,15 @@ export function PxkDongDonHangTable({
           }
           const canhBaoCuoi = laDonCuoi
             ? giuPhieuTrong
-              ? "\n\nĐây là đơn cuối cùng — phiếu trống sẽ tự hủy khi bạn đóng màn phiếu."
-              : "\n\nĐây là đơn cuối cùng — phiếu sẽ bị hủy luôn."
+              ? t("\n\nĐây là đơn cuối cùng — phiếu trống sẽ tự hủy khi bạn đóng màn phiếu.")
+              : t("\n\nĐây là đơn cuối cùng — phiếu sẽ bị hủy luôn.")
             : "";
-          if (window.confirm(`Bỏ đơn "${d.ma_lk}" khỏi phiếu này?\n\nĐơn sẽ quay lại danh sách "khả dụng" để gán vào 1 phiếu khác.${canhBaoCuoi}`)) {
+          if (window.confirm(t("Bỏ đơn \"{a}\" khỏi phiếu này?\n\nĐơn sẽ quay lại danh sách \"khả dụng\" để gán vào 1 phiếu khác.{b}", { a: d.ma_lk, b: canhBaoCuoi }))) {
             boDonMutation.mutate({ donHangId: d.id, laDonCuoi });
           }
         }}
       >
-        {gon ? "✕" : "✕ Bỏ"}
+        {gon ? "✕" : t("✕ Bỏ")}
       </button>
     );
   }
@@ -413,7 +414,7 @@ export function PxkDongDonHangTable({
     if (!tt || tt === "TN da duyet") return null;
     const nhan = DON_CUA_TOI_TRANG_THAI_OPTIONS.find((o) => o.value === tt)?.label ?? tt;
     return (
-      <span title={`Đơn chưa được TN duyệt (${nhan}) — bỏ khỏi phiếu trước khi gửi kế toán`}>
+      <span title={t("Đơn chưa được TN duyệt ({a}) — bỏ khỏi phiếu trước khi gửi kế toán", { a: nhan })}>
         <Badge tone="warning">{nhan}</Badge>
       </span>
     );
@@ -422,7 +423,7 @@ export function PxkDongDonHangTable({
   const nenUuTien = (d: DonHangRow) => (d.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)]" : "");
   const slThucXuat = (d: DonHangRow) =>
     d.so_luong_thuc_xuat == null ? null : d.so_luong_thuc_xuat !== d.so_luong_de_xuat ? (
-      <span className="font-semibold text-[var(--amber-700)]" title="Khác SL đề xuất">{d.so_luong_thuc_xuat}</span>
+      <span className="font-semibold text-[var(--amber-700)]" title={t("Khác SL đề xuất")}>{d.so_luong_thuc_xuat}</span>
     ) : (
       d.so_luong_thuc_xuat
     );
@@ -432,43 +433,43 @@ export function PxkDongDonHangTable({
     <Modal
       open={!!boDonCho}
       onClose={() => !boDonMutation.isPending && setBoDonCho(null)}
-      title={`Bỏ đơn ${boDonCho?.ma_lk ?? ""} khỏi phiếu đã có tiền`}
+      title={t("Bỏ đơn {a} khỏi phiếu đã có tiền", { a: boDonCho?.ma_lk ?? "" })}
       footer={
         <div className="flex flex-wrap justify-end gap-2">
-          <Btn variant="ghost" disabled={boDonMutation.isPending} onClick={() => setBoDonCho(null)}>Đóng</Btn>
+          <Btn variant="ghost" disabled={boDonMutation.isPending} onClick={() => setBoDonCho(null)}>{t("Đóng")}</Btn>
           <Btn
             variant="ghost"
             disabled={boDonMutation.isPending}
             onClick={() => boDonCho && boDonMutation.mutate({ donHangId: boDonCho.id, laDonCuoi: donHang.length === 1 })}
           >
-            Đơn chưa thanh toán
+            {t("Đơn chưa thanh toán")}
           </Btn>
           <Btn
             loading={boDonMutation.isPending}
             disabled={boDonMutation.isPending || tienDong <= 0}
             onClick={() => boDonCho && boDonMutation.mutate({ donHangId: boDonCho.id, laDonCuoi: donHang.length === 1, giuTien: true })}
           >
-            Đơn đã thanh toán
+            {t("Đơn đã thanh toán")}
           </Btn>
         </div>
       }
     >
       <div className="space-y-3 text-[13px] text-[var(--color-text-body)]">
         <p>
-          Phiếu đã được trả <b><Money>{fmtVND(daTraPhieu)}</Money></b>. Tiền của đơn này trong phiếu: <b><Money>{fmtVND(tienDong)}</Money></b>.
+          {t("Phiếu đã được trả")} <b><Money>{fmtVND(daTraPhieu)}</Money></b>{t(". Tiền của đơn này trong phiếu:")} <b><Money>{fmtVND(tienDong)}</Money></b>.
         </p>
         <ul className="list-disc space-y-1.5 pl-5">
           <li>
-            <b>Đơn chưa thanh toán</b> — tiền đã thanh toán của đơn = 0. Tổng phiếu giảm, phần đã trả thừa hoàn về quỹ dư của KTV.
+            <b>{t("Đơn chưa thanh toán")}</b> {t("— tiền đã thanh toán của đơn = 0. Tổng phiếu giảm, phần đã trả thừa hoàn về quỹ dư của KTV.")}
           </li>
           <li>
-            <b>Đơn đã thanh toán</b> — đơn giữ <b><Money>{fmtVND(Math.min(tienDong, daTraPhieu))}</Money></b> đã trả và về trạng thái "Chờ tạo
-            phiếu". Khi vào phiếu mới, số tiền này được trừ vào tiền cần chuyển của phiếu đó. Đơn bị từ chối/hủy thì tiền tự về quỹ.
+            <b>{t("Đơn đã thanh toán")}</b> {t("— đơn giữ")} <b><Money>{fmtVND(Math.min(tienDong, daTraPhieu))}</Money></b>{" "}
+            {t("đã trả và về trạng thái \"Chờ tạo phiếu\". Khi vào phiếu mới, số tiền này được trừ vào tiền cần chuyển của phiếu đó. Đơn bị từ chối/hủy thì tiền tự về quỹ.")}
           </li>
         </ul>
         {donHang.length === 1 && (
           <p className="text-[12px] text-[var(--color-text-secondary)]">
-            {giuPhieuTrong ? "Đây là đơn cuối cùng — phiếu trống sẽ tự hủy khi bạn đóng màn phiếu." : "Đây là đơn cuối cùng — phiếu sẽ bị hủy luôn."}
+            {giuPhieuTrong ? t("Đây là đơn cuối cùng — phiếu trống sẽ tự hủy khi bạn đóng màn phiếu.") : t("Đây là đơn cuối cùng — phiếu sẽ bị hủy luôn.")}
           </p>
         )}
       </div>
@@ -492,7 +493,7 @@ export function PxkDongDonHangTable({
         <tbody>
           {donHang.length === 0 && (
             <tr>
-              <td colSpan={COT_GON.length} className="px-2 py-1.5 text-xs text-[var(--ink-400)]">Phiếu không còn đơn nào.</td>
+              <td colSpan={COT_GON.length} className="px-2 py-1.5 text-xs text-[var(--ink-400)]">{t("Phiếu không còn đơn nào.")}</td>
             </tr>
           )}
           {donHang.map((d) => (
@@ -501,19 +502,19 @@ export function PxkDongDonHangTable({
               onClick={() => onOpenDon(d.id)}
               className={`h-8 cursor-pointer border-b border-[var(--color-border-soft)] last:border-0 hover:bg-[var(--color-surface-hover)] ${nenUuTien(d)}`}
             >
-              <td className={`${o} font-mono text-[11.5px] text-[var(--color-text-secondary)]`} title={`${COT_GON[0].tip}: ${d.ma_lk}`}>{coChonCk && oChon(d)}{d.ma_lk}</td>
+              <td className={`${o} font-mono text-[11.5px] text-[var(--color-text-secondary)]`} title={`${t(COT_GON[0].tip)}: ${d.ma_lk}`}>{coChonCk && oChon(d)}{d.ma_lk}</td>
               <td className={o} title={d.ten_lk_snapshot ?? d.ma_lk}>
-                {chipChuaDuyet(d)} {d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
+                {chipChuaDuyet(d)} {d.uu_tien === 1 && <span title={t("Ưu tiên")}>⭐ </span>}
                 {d.ten_lk_snapshot ?? d.ma_lk}
               </td>
-              <td className={o} title={COT_GON[2].tip}>
+              <td className={o} title={t(COT_GON[2].tip)}>
                 <LoaiDeXuatBadge loaiDon={d.loai_don ?? pxk.loai_don ?? undefined} loaiDeXuat={d.loai_de_xuat} />
               </td>
-              <td className={`${o} text-right`} title={COT_GON[3].tip}>
+              <td className={`${o} text-right`} title={t(COT_GON[3].tip)}>
                 SL {d.so_luong_de_xuat}
                 {slThucXuat(d) != null && d.so_luong_thuc_xuat !== d.so_luong_de_xuat && <> → {slThucXuat(d)}</>}
               </td>
-              <td className={`${oNut} text-right`} title={COT_GON[4].tip} onClick={(e) => e.stopPropagation()}>{oTien(d)}</td>
+              <td className={`${oNut} text-right`} title={t(COT_GON[4].tip)} onClick={(e) => e.stopPropagation()}>{oTien(d)}</td>
               <td className={`${oNut} [&_select]:h-[24px] [&_select]:max-w-[200px]`} onClick={(e) => e.stopPropagation()}>
                 {pxk.loai_don !== "tra_hang" && oLoaiChietKhau(d)}
               </td>
@@ -534,28 +535,28 @@ export function PxkDongDonHangTable({
     <table className="tbl min-w-full border-collapse">
       <thead>
         <tr className="tbl-head">
-          <th className="px-2.5 py-2">Mã</th>
-          <th className="px-2.5 py-2">Tên LK</th>
-          <th className="px-2.5 py-2 whitespace-nowrap">Loại đề xuất</th>
-          <th className="px-2.5 py-2 text-right whitespace-nowrap">SL đề xuất</th>
-          <th className="px-2.5 py-2 text-right whitespace-nowrap">SL thực xuất</th>
-          <th className="px-2.5 py-2 text-right">Tiền cần chuyển</th>
-          {pxk.loai_don !== "tra_hang" && <th className="px-2.5 py-2">Loại chiết khấu</th>}
-          <th className="px-2.5 py-2">Lý do chậm</th>
+          <th className="px-2.5 py-2">{t("Mã")}</th>
+          <th className="px-2.5 py-2">{t("Tên LK")}</th>
+          <th className="px-2.5 py-2 whitespace-nowrap">{t("Loại đề xuất")}</th>
+          <th className="px-2.5 py-2 text-right whitespace-nowrap">{t("SL đề xuất")}</th>
+          <th className="px-2.5 py-2 text-right whitespace-nowrap">{t("SL thực xuất")}</th>
+          <th className="px-2.5 py-2 text-right">{t("Tiền cần chuyển")}</th>
+          {pxk.loai_don !== "tra_hang" && <th className="px-2.5 py-2">{t("Loại chiết khấu")}</th>}
+          <th className="px-2.5 py-2">{t("Lý do chậm")}</th>
           {coCotBo && <th className="px-2.5 py-2"></th>}
         </tr>
       </thead>
       <tbody>
         {donHang.length === 0 && (
           <tr>
-            <td colSpan={9} className="px-2.5 py-3 text-center text-xs text-[var(--ink-400)]">Phiếu không còn đơn nào.</td>
+            <td colSpan={9} className="px-2.5 py-3 text-center text-xs text-[var(--ink-400)]">{t("Phiếu không còn đơn nào.")}</td>
           </tr>
         )}
         {donHang.map((d) => (
           <tr key={d.id} onClick={() => onOpenDon(d.id)} className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer ${nenUuTien(d)}`}>
             <td className="px-2.5 py-2 font-mono whitespace-nowrap">{coChonCk && oChon(d)}{d.ma_lk}</td>
             <td className="px-2.5 py-2">
-              {chipChuaDuyet(d)} {d.uu_tien === 1 && <span title="Ưu tiên">⭐ </span>}
+              {chipChuaDuyet(d)} {d.uu_tien === 1 && <span title={t("Ưu tiên")}>⭐ </span>}
               {d.ten_lk_snapshot ?? d.ma_lk}
             </td>
             {/* Loai de xuat quyet dinh cach tinh tien (2026-09-28). */}
@@ -576,12 +577,12 @@ export function PxkDongDonHangTable({
       {donHang.length > 0 && (
         <tfoot>
           <tr className="border-t-2 border-[var(--line)] bg-[var(--surface-100)] font-semibold text-[var(--color-text-body)]">
-            <td className="px-2.5 py-2 whitespace-nowrap" colSpan={3}>Tổng: {donHang.length} dòng</td>
+            <td className="px-2.5 py-2 whitespace-nowrap" colSpan={3}>{t("Tổng: {a} dòng", { a: donHang.length })}</td>
             <td className="px-2.5 py-2 text-right">{donHang.reduce((t, d) => t + d.so_luong_de_xuat, 0)}</td>
             <td className="px-2.5 py-2 text-right">
               {donHang.some((d) => d.so_luong_thuc_xuat != null) ? donHang.reduce((t, d) => t + (d.so_luong_thuc_xuat ?? d.so_luong_de_xuat), 0) : <span className="text-[var(--ink-400)]">—</span>}
             </td>
-            <td className="px-2.5 py-2 text-right whitespace-nowrap" title="Tổng số tiền thực tế các dòng (theo cột Tiền cần chuyển)">
+            <td className="px-2.5 py-2 text-right whitespace-nowrap" title={t("Tổng số tiền thực tế các dòng (theo cột Tiền cần chuyển)")}>
               <Money>{fmtVND(donHang.reduce((t, d) => t + tienThucTe(d), 0))}</Money>
             </td>
             <td colSpan={(pxk.loai_don !== "tra_hang" ? 2 : 1) + (coCotBo ? 1 : 0)}></td>

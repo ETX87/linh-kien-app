@@ -8,7 +8,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
-const FILE_HANG_SO = ["layout/navConfig.ts", "modules/datMuaLinhKien/constants.ts", "modules/datMuaLinhKien/PipelineFlow.tsx", "modules/datMuaLinhKien/LoaiChietKhau.tsx"];
+const FILE_HANG_SO = ["layout/navConfig.ts", "modules/datMuaLinhKien/constants.ts", "modules/datMuaLinhKien/PipelineFlow.tsx", "modules/datMuaLinhKien/LoaiChietKhau.tsx", "modules/datMuaLinhKien/PxkDongDonHangTable.tsx"];
 // Nhan the "Trang chu" do backend tra ve (luong-quy-trinh / home-summary) - StatCard tu tn() nen chi can co trong tu dien.
 const FILE_NHAN_BACKEND = ["../../backend/src/routes/datMuaLinhKien.ts"];
 const VIET = /[À-ỹđĐ]/;

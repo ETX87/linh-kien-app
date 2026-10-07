@@ -11,6 +11,7 @@ import { KvRow } from "../../components/ui/KvRow";
 import { Money } from "../../components/ui/Money";
 import { ghiNhoAnhCucBo } from "../../lib/docTienAnh";
 import { TienDocTuAnh, docDsAnh, docTienDocMap, useDocTienAnh } from "./DocTienAnh";
+import { t } from "../../i18n";
 
 // Bang chung chuyen tien PXK NHIEU anh (toi da 5, chot 2026-09-29 - migration 0043, backend
 // lib/bangChungChuyenTien.ts). Dung chung cho chi tiet PXK (PhieuXuatKhoTab) va khoi PXK trong chi tiet don cua KTV
@@ -44,9 +45,9 @@ export function LyDoTuChoiChuyenTien({ pxk }: { pxk: BangChungPxk }) {
   if (!pxk.ly_do_tu_choi_chuyen_tien) return null;
   return (
     <div className="rounded-lg border border-[var(--color-danger)]/30 bg-[var(--color-danger-soft)] px-2.5 py-1.5 text-[11.5px] text-[var(--color-danger-strong)]">
-      <span className="font-bold">{pxk.ly_do_tu_choi_chuyen_tien.startsWith("(TN)") ? "Tác nghiệp trả lại" : "Kế toán từ chối"} bằng chứng{pxk.tu_choi_chuyen_tien_luc ? ` (${fmtDateTime(pxk.tu_choi_chuyen_tien_luc)})` : ""}:</span>{" "}
+      <span className="font-bold">{pxk.ly_do_tu_choi_chuyen_tien.startsWith("(TN)") ? t("Tác nghiệp trả lại") : t("Kế toán từ chối")} {t("bằng chứng")}{pxk.tu_choi_chuyen_tien_luc ? ` (${fmtDateTime(pxk.tu_choi_chuyen_tien_luc)})` : ""}:</span>{" "}
       {pxk.ly_do_tu_choi_chuyen_tien}
-      <div className="mt-0.5 font-medium">Kiểm tra lại số tiền/bằng chứng, chuyển bổ sung nếu thiếu, thêm ảnh rồi bấm “Đã chuyển”.</div>
+      <div className="mt-0.5 font-medium">{t("Kiểm tra lại số tiền/bằng chứng, chuyển bổ sung nếu thiếu, thêm ảnh rồi bấm “Đã chuyển”.")}</div>
     </div>
   );
 }
@@ -59,22 +60,22 @@ export function TienPhieuVaQuy({ tong, daThanhToan, daDuyet, quyDu }: { tong: nu
   const con = Math.max(0, tong - daThanhToan);
   return (
     <>
-      <KvRow label="Tổng tiền phiếu"><Money>{fmtVND(tong)}</Money></KvRow>
+      <KvRow label={t("Tổng tiền phiếu")}><Money>{fmtVND(tong)}</Money></KvRow>
       {daThanhToan > 0 && (
-        <KvRow label="Đã thanh toán">
+        <KvRow label={t("Đã thanh toán")}>
           <Money>{fmtVND(Math.min(daThanhToan, tong))}</Money>
-          <span className="text-[11px] text-[var(--color-text-secondary)]"> (tiền đã chuyển + quỹ dư)</span>
+          <span className="text-[11px] text-[var(--color-text-secondary)]"> {t("(tiền đã chuyển + quỹ dư)")}</span>
         </KvRow>
       )}
       {!daDuyet && (
-        <KvRow label="Còn phải chuyển">
+        <KvRow label={t("Còn phải chuyển")}>
           <span className="font-semibold text-[var(--color-success-strong)]"><Money>{fmtVND(con)}</Money></span>
         </KvRow>
       )}
       {quyDu != null && (
-        <KvRow label="Quỹ dư hiện tại">
+        <KvRow label={t("Quỹ dư hiện tại")}>
           <Money>{fmtVND(quyDu)}</Money>
-          {quyDu > 0 && <span className="text-[11px] text-[var(--color-text-secondary)]"> — tự trừ vào phiếu cần chuyển tiếp theo</span>}
+          {quyDu > 0 && <span className="text-[11px] text-[var(--color-text-secondary)]"> {t("— tự trừ vào phiếu cần chuyển tiếp theo")}</span>}
         </KvRow>
       )}
     </>
@@ -105,16 +106,16 @@ export function DuyetChuyenTienForm({ pxkId, conPhaiChuyen, pxk, onDone, addToas
   const duyet = useMutation({
     mutationFn: () => api.patch<{ conThieu: number; soDuQuy: number }>(`/phieu-xuat-kho/${pxkId}/chuyen-tien`, { trang_thai: "TN da duyet", so_tien_thuc_nhan: so }),
     onSuccess: (r) => {
-      addToast(r.conThieu > 0 ? `Đã ghi nhận — còn thiếu ${fmtVND(r.conThieu)}, phiếu về Chờ KTV chuyển` : chenh > 0 ? `Đã duyệt — dư ${fmtVND(chenh)} vào quỹ` : "Đã duyệt chuyển tiền");
+      addToast(r.conThieu > 0 ? t("Đã ghi nhận — còn thiếu {a}, phiếu về Chờ KTV chuyển", { a: fmtVND(r.conThieu) }) : chenh > 0 ? t("Đã duyệt — dư {a} vào quỹ", { a: fmtVND(chenh) }) : t("Đã duyệt chuyển tiền"));
       setXacNhan(false);
       onDone();
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
   });
   return (
     <div className="space-y-1.5">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[11.5px] font-semibold text-[var(--color-text-secondary)]" htmlFor={`thuc-nhan-${pxkId}`}>Số tiền thực nhận</label>
+        <label className="text-[11.5px] font-semibold text-[var(--color-text-secondary)]" htmlFor={`thuc-nhan-${pxkId}`}>{t("Số tiền thực nhận")}</label>
         <input
           id={`thuc-nhan-${pxkId}`}
           type="number"
@@ -130,28 +131,28 @@ export function DuyetChuyenTienForm({ pxkId, conPhaiChuyen, pxk, onDone, addToas
           disabled={!hopLe || duyet.isPending || xacNhan}
           loading={duyet.isPending}
         >
-          {traDuBangQuy ? "Xác nhận đã đủ tiền" : "Duyệt bằng chứng"}
+          {traDuBangQuy ? t("Xác nhận đã đủ tiền") : t("Duyệt bằng chứng")}
         </Btn>
       </div>
       {traDuBangQuy && (
         <div className="rounded-lg border border-[var(--color-info)]/30 bg-[var(--color-info-soft)] px-2.5 py-1.5 text-[11.5px] text-[var(--color-text)]">
-          Phiếu đã được trừ đủ từ <b>quỹ dư</b> của người nhận hàng (tiền Kế toán đã xác nhận ở phiếu trước) — KTV không cần chuyển thêm.
-          Kiểm tra lịch sử quỹ rồi xác nhận với số thực nhận <b>0đ</b> (hoặc nhập số KTV đã chuyển thêm nếu có — phần dư vào quỹ).
+          {t("Phiếu đã được trừ đủ từ")} <b>{t("quỹ dư")}</b> {t("của người nhận hàng (tiền Kế toán đã xác nhận ở phiếu trước) — KTV không cần chuyển thêm.")}
+          {t("Kiểm tra lịch sử quỹ rồi xác nhận với số thực nhận")} <b>{t("0đ")}</b> {t("(hoặc nhập số KTV đã chuyển thêm nếu có — phần dư vào quỹ).")}
         </div>
       )}
-      <TienDocTuAnh doc={doc} soSoSanh={hopLe ? so : null} nhan="số thực nhận" sttCua={(u) => tatCaAnh.indexOf(u) + 1} />
+      <TienDocTuAnh doc={doc} soSoSanh={hopLe ? so : null} nhan={t("số thực nhận")} sttCua={(u) => tatCaAnh.indexOf(u) + 1} />
       {hopLe && chenh !== 0 && (
         <div className={`rounded-lg border px-2.5 py-1.5 text-[11.5px] ${chenh > 0 ? "border-[var(--color-info)]/30 bg-[var(--color-info-soft)] text-[var(--color-text)]" : "border-[var(--color-warning)]/30 bg-[var(--color-warning-soft)] text-[var(--color-warning-strong)]"}`}>
           {chenh > 0 ? (
-            <>Cần chuyển <Money>{fmtVND(conPhaiChuyen)}</Money> — nhận <Money>{fmtVND(so)}</Money> → <b>dư <Money>{fmtVND(chenh)}</Money> vào quỹ</b> của người nhận hàng (tự trừ cho phiếu sau).</>
+            <>{t("Cần chuyển")} <Money>{fmtVND(conPhaiChuyen)}</Money> {t("— nhận")} <Money>{fmtVND(so)}</Money> → <b>{t("dư")} <Money>{fmtVND(chenh)}</Money> {t("vào quỹ")}</b> {t("của người nhận hàng (tự trừ cho phiếu sau).")}</>
           ) : (
-            <>Cần chuyển <Money>{fmtVND(conPhaiChuyen)}</Money> — nhận <Money>{fmtVND(so)}</Money> → <b>còn thiếu <Money>{fmtVND(-chenh)}</Money></b> (trừ quỹ dư nếu có), phiếu về “Chờ KTV chuyển” số còn thiếu.</>
+            <>{t("Cần chuyển")} <Money>{fmtVND(conPhaiChuyen)}</Money> {t("— nhận")} <Money>{fmtVND(so)}</Money> → <b>{t("còn thiếu")} <Money>{fmtVND(-chenh)}</Money></b> {t("(trừ quỹ dư nếu có), phiếu về “Chờ KTV chuyển” số còn thiếu.")}</>
           )}
           {xacNhan && (
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
-              <span className="font-semibold">Số thực nhận khác số cần chuyển — kiểm tra lại sao kê trước khi xác nhận.</span>
-              <Btn size="sm" onClick={() => duyet.mutate()} disabled={duyet.isPending} loading={duyet.isPending}>Xác nhận nhận <Money>{fmtVND(so)}</Money></Btn>
-              <Btn size="sm" variant="ghost" onClick={() => setXacNhan(false)} disabled={duyet.isPending}>Sửa lại</Btn>
+              <span className="font-semibold">{t("Số thực nhận khác số cần chuyển — kiểm tra lại sao kê trước khi xác nhận.")}</span>
+              <Btn size="sm" onClick={() => duyet.mutate()} disabled={duyet.isPending} loading={duyet.isPending}>{t("Xác nhận nhận")} <Money>{fmtVND(so)}</Money></Btn>
+              <Btn size="sm" variant="ghost" onClick={() => setXacNhan(false)} disabled={duyet.isPending}>{t("Sửa lại")}</Btn>
             </div>
           )}
         </div>
@@ -182,7 +183,7 @@ export interface KhoanChuyenTien {
 export function LichSuKhoanChuyen({ rows }: { rows: KhoanChuyenTien[] }) {
   return (
     <div className="mt-2 border-t border-[var(--color-border)] pt-2">
-      <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">Các lần Kế toán xác nhận</div>
+      <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">{t("Các lần Kế toán xác nhận")}</div>
       <ul className="space-y-1">
         {rows.map((k) => {
           const chenh = (k.so_tien_thuc_nhan ?? 0) - (k.so_tien_can_chuyen ?? 0);
@@ -190,19 +191,19 @@ export function LichSuKhoanChuyen({ rows }: { rows: KhoanChuyenTien[] }) {
             <li key={k.id} className="text-[11.5px] text-[var(--color-text-body)]">
               <span className="text-[var(--color-text-secondary)]">{fmtDateTime(k.duyet_luc)}</span>{" "}
               {k.trang_thai === "Tu choi" ? (
-                <span className="text-[var(--color-danger-strong)]">Từ chối — {k.ly_do_tu_choi}</span>
+                <span className="text-[var(--color-danger-strong)]">{t("Từ chối — {a}", { a: k.ly_do_tu_choi })}</span>
               ) : k.trang_thai === "Da huy" ? (
                 <span className="text-[var(--color-text-secondary)]">
-                  <s>Nhận <Money>{fmtVND(k.so_tien_thuc_nhan)}</Money></s> — <span className="text-[var(--color-danger-strong)]">Kế toán đã hủy{k.huy_luc ? ` lúc ${fmtDateTime(k.huy_luc)}` : ""}: {k.ly_do_huy}</span>
+                  <s>{t("Nhận")} <Money>{fmtVND(k.so_tien_thuc_nhan)}</Money></s> — <span className="text-[var(--color-danger-strong)]">{t("Kế toán đã hủy")}{k.huy_luc ? t(" lúc {a}", { a: fmtDateTime(k.huy_luc) }) : ""}: {k.ly_do_huy}</span>
                 </span>
               ) : (
                 <>
-                  Nhận <b><Money>{fmtVND(k.so_tien_thuc_nhan)}</Money></b> / cần <Money>{fmtVND(k.so_tien_can_chuyen)}</Money>
-                  {!k.lich_su && chenh > 0 && <span className="text-[var(--color-success-strong)]"> · dư <Money>{fmtVND(chenh)}</Money> vào quỹ</span>}
-                  {!k.lich_su && chenh < 0 && <span className="text-[var(--color-warning-strong)]"> · thiếu <Money>{fmtVND(-chenh)}</Money></span>}
-                  {!!k.lich_su && <span className="text-[var(--color-text-secondary)]"> (trước khi có quỹ)</span>}
+                  {t("Nhận")} <b><Money>{fmtVND(k.so_tien_thuc_nhan)}</Money></b> {t("/ cần")} <Money>{fmtVND(k.so_tien_can_chuyen)}</Money>
+                  {!k.lich_su && chenh > 0 && <span className="text-[var(--color-success-strong)]"> {t("· dư")} <Money>{fmtVND(chenh)}</Money> {t("vào quỹ")}</span>}
+                  {!k.lich_su && chenh < 0 && <span className="text-[var(--color-warning-strong)]"> {t("· thiếu")} <Money>{fmtVND(-chenh)}</Money></span>}
+                  {!!k.lich_su && <span className="text-[var(--color-text-secondary)]"> {t("(trước khi có quỹ)")}</span>}
                   {k.thuc_nhan_goc != null && (
-                    <span className="text-[var(--color-warning-strong)]" title={k.ly_do_sua ?? ""}> · đã sửa từ <Money>{fmtVND(k.thuc_nhan_goc)}</Money></span>
+                    <span className="text-[var(--color-warning-strong)]" title={k.ly_do_sua ?? ""}> {t("· đã sửa từ")} <Money>{fmtVND(k.thuc_nhan_goc)}</Money></span>
                   )}
                 </>
               )}
@@ -227,12 +228,12 @@ export function TuChoiChuyenTienButton({ pxkId, onDone, addToast, laTn }: { pxkI
   const tuChoi = useMutation({
     mutationFn: () => api.patch(`/phieu-xuat-kho/${pxkId}/chuyen-tien`, { trang_thai: "Cho KTV chuyen", ly_do_tu_choi: lyDo.trim() }),
     onSuccess: () => {
-      addToast("Đã đẩy lại về Chờ KTV chuyển tiền");
+      addToast(t("Đã đẩy lại về Chờ KTV chuyển tiền"));
       setMo(false);
       setLyDo("");
       onDone();
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
   });
   if (!mo) {
     return (
@@ -240,21 +241,21 @@ export function TuChoiChuyenTienButton({ pxkId, onDone, addToast, laTn }: { pxkI
         size="sm"
         variant="danger"
         onClick={() => setMo(true)}
-        title={laTn ? "KTV xác nhận nhầm / thiếu tiền - đẩy về Chờ KTV chuyển kèm lý do" : "Sai tiền, thiếu bằng chứng... - đẩy về Chờ KTV chuyển kèm lý do"}
+        title={laTn ? t("KTV xác nhận nhầm / thiếu tiền - đẩy về Chờ KTV chuyển kèm lý do") : t("Sai tiền, thiếu bằng chứng... - đẩy về Chờ KTV chuyển kèm lý do")}
       >
-        {laTn ? "↩ Đẩy lại cho KTV chuyển" : "↩ Từ chối, đẩy lại"}
+        {laTn ? t("↩ Đẩy lại cho KTV chuyển") : t("↩ Từ chối, đẩy lại")}
       </Btn>
     );
   }
   return (
     <div className="mt-2 w-full space-y-1.5 rounded-lg border border-[var(--color-danger)]/30 bg-[var(--color-danger-soft)] p-2">
-      <div className="text-[11.5px] font-semibold text-[var(--color-danger-strong)]">{laTn ? "Lý do đẩy lại (KTV sẽ thấy lý do này)" : "Lý do từ chối (KTV và Tác nghiệp sẽ thấy lý do này)"}</div>
+      <div className="text-[11.5px] font-semibold text-[var(--color-danger-strong)]">{laTn ? t("Lý do đẩy lại (KTV sẽ thấy lý do này)") : t("Lý do từ chối (KTV và Tác nghiệp sẽ thấy lý do này)")}</div>
       <textarea
         autoFocus
         value={lyDo}
         onChange={(e) => setLyDo(e.target.value)}
         rows={2}
-        placeholder="Vd: Số tiền chuyển 3.200.000đ, thiếu 39.300đ"
+        placeholder={t("Vd: Số tiền chuyển 3.200.000đ, thiếu 39.300đ")}
         className="focus-ring w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-base sm:text-sm"
       />
       <div className="flex flex-wrap gap-1">
@@ -271,10 +272,10 @@ export function TuChoiChuyenTienButton({ pxkId, onDone, addToast, laTn }: { pxkI
       </div>
       <div className="flex gap-2">
         <Btn size="sm" variant="danger" onClick={() => tuChoi.mutate()} disabled={!lyDo.trim() || tuChoi.isPending} loading={tuChoi.isPending}>
-          Xác nhận đẩy lại
+          {t("Xác nhận đẩy lại")}
         </Btn>
         <Btn size="sm" variant="ghost" onClick={() => { setMo(false); setLyDo(""); }} disabled={tuChoi.isPending}>
-          Huỷ
+          {t("Huỷ")}
         </Btn>
       </div>
     </div>
@@ -294,7 +295,7 @@ export function docAnhBangChung(pxk: BangChungPxk): string[] {
 }
 
 function AnhThumb({ url, stt, onXoa, nho, onXem }: { url: string; stt: number; onXoa?: () => void; nho?: boolean; onXem?: () => void }) {
-  const img = <img src={url} alt={`Bằng chứng ${stt}`} loading="lazy" className={nho ? "h-9 w-9 object-cover" : "h-14 w-14 object-cover"} />;
+  const img = <img src={url} alt={t("Bằng chứng {a}", { a: stt })} loading="lazy" className={nho ? "h-9 w-9 object-cover" : "h-14 w-14 object-cover"} />;
   const khung = "focus-ring block overflow-hidden rounded-lg border border-[var(--color-border)]";
   return (
     <div className="relative">
@@ -308,7 +309,7 @@ function AnhThumb({ url, stt, onXoa, nho, onXem }: { url: string; stt: number; o
         <button
           type="button"
           onClick={onXoa}
-          aria-label={`Bỏ ảnh ${stt}`}
+          aria-label={t("Bỏ ảnh {a}", { a: stt })}
           className="focus-ring absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] text-xs text-[var(--color-text-secondary)] shadow-sm"
         >
           ✕
@@ -373,7 +374,7 @@ export function BangChungChuyenTienForm({
 
   async function taiAnh(files: File[]) {
     const chon = files.slice(0, Math.max(0, conLai));
-    if (files.length > chon.length) addToast(`Chỉ tải thêm được ${Math.max(0, conLai)} ảnh (tối đa ${MAX_ANH_BANG_CHUNG} ảnh/phiếu)`);
+    if (files.length > chon.length) addToast(t("Chỉ tải thêm được {a} ảnh (tối đa {b} ảnh/phiếu)", { a: Math.max(0, conLai), b: MAX_ANH_BANG_CHUNG }));
     for (const f of chon) {
       setDangTai((n) => n + 1);
       try {
@@ -381,7 +382,7 @@ export function BangChungChuyenTienForm({
         ghiNhoAnhCucBo(res.url, f); // doc tu file tren may, khong tai lai anh tu Drive
         setAnh((a) => (a.includes(res.url) || a.length >= MAX_ANH_BANG_CHUNG ? a : [...a, res.url]));
       } catch (err) {
-        addToast("Lỗi tải ảnh: " + describeApiError(err));
+        addToast(t("Lỗi tải ảnh: ") + describeApiError(err));
       } finally {
         setDangTai((n) => n - 1);
       }
@@ -397,10 +398,10 @@ export function BangChungChuyenTienForm({
         bang_chung_tien_doc: { ...tienDaLuu, ...doc.ketQua },
       }),
     onSuccess: () => {
-      addToast("Đã xác nhận chuyển tiền");
+      addToast(t("Đã xác nhận chuyển tiền"));
       onDone();
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
   });
 
   return (
@@ -408,7 +409,7 @@ export function BangChungChuyenTienForm({
       <LyDoTuChoiChuyenTien pxk={pxk} />
       {xacNhanLai && !pxk.ly_do_tu_choi_chuyen_tien && (
         <div className="rounded-lg border border-[var(--amber-500)]/30 bg-[var(--amber-100)]/60 px-2.5 py-1.5 text-[11.5px] font-medium text-[var(--amber-700)]">
-          Phiếu còn thiếu tiền sau lần xác nhận trước (tổng tiền đổi hoặc Kế toán nhận chưa đủ) — chuyển bổ sung đúng số “Còn phải chuyển”, thêm ảnh rồi bấm “Đã chuyển”.
+          {t("Phiếu còn thiếu tiền sau lần xác nhận trước (tổng tiền đổi hoặc Kế toán nhận chưa đủ) — chuyển bổ sung đúng số “Còn phải chuyển”, thêm ảnh rồi bấm “Đã chuyển”.")}
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2">
@@ -417,22 +418,22 @@ export function BangChungChuyenTienForm({
         ))}
         {/* Khong dat capture: bang chung thuong la anh chup man hinh app ngan hang -> can mo thu vien (chon nhieu). */}
         <FileButton accept="image/*" multiple variant="subtle" disabled={dangTai > 0 || conLai <= 0} onFilesSelected={(fs) => void taiAnh(fs)}>
-          {dangTai > 0 ? "Đang tải..." : anh.length === 0 ? "⬆ Chọn ảnh" : "+ Thêm ảnh"}
+          {dangTai > 0 ? t("Đang tải...") : anh.length === 0 ? t("⬆ Chọn ảnh") : t("+ Thêm ảnh")}
         </FileButton>
         <span className="text-[11px] text-[var(--ink-400)] tabular-nums">
-          {anh.length}/{MAX_ANH_BANG_CHUNG} ảnh
+          {t("{a}/{b} ảnh", { a: anh.length, b: MAX_ANH_BANG_CHUNG })}
         </span>
       </div>
       <TienDocTuAnh
         doc={doc}
         soSoSanh={conPhaiChuyen}
-        nhan="số còn phải chuyển"
+        nhan={t("số còn phải chuyển")}
         sttCua={(u) => anh.indexOf(u) + 1}
         thongDiepLech={(tong, so) =>
           tong < so ? (
-            <>⚠ Tổng đọc từ ảnh <Money>{fmtVND(tong)}</Money> ít hơn số còn phải chuyển <Money>{fmtVND(so)}</Money> (thiếu <Money>{fmtVND(so - tong)}</Money>) — kiểm tra lại số tiền đã chuyển / ảnh trước khi bấm “Đã chuyển”.</>
+            <>{t("⚠ Tổng đọc từ ảnh")} <Money>{fmtVND(tong)}</Money> {t("ít hơn số còn phải chuyển")} <Money>{fmtVND(so)}</Money> {t("(thiếu")} <Money>{fmtVND(so - tong)}</Money>{t(") — kiểm tra lại số tiền đã chuyển / ảnh trước khi bấm “Đã chuyển”.")}</>
           ) : (
-            <>Tổng đọc từ ảnh <Money>{fmtVND(tong)}</Money> nhiều hơn số còn phải chuyển <Money>{fmtVND(so)}</Money> — phần dư <Money>{fmtVND(tong - so)}</Money> vào quỹ sau khi Kế toán xác nhận.</>
+            <>{t("Tổng đọc từ ảnh")} <Money>{fmtVND(tong)}</Money> {t("nhiều hơn số còn phải chuyển")} <Money>{fmtVND(so)}</Money> {t("— phần dư")} <Money>{fmtVND(tong - so)}</Money> {t("vào quỹ sau khi Kế toán xác nhận.")}</>
           )
         }
       />
@@ -440,14 +441,14 @@ export function BangChungChuyenTienForm({
         <input
           value={ghiChu}
           onChange={(e) => setGhiChu(e.target.value)}
-          placeholder="Hoặc ghi chú thông tin chuyển khoản (vd: đã chuyển qua Momo, mã GD...)"
+          placeholder={t("Hoặc ghi chú thông tin chuyển khoản (vd: đã chuyển qua Momo, mã GD...)")}
           className="focus-ring min-w-[200px] flex-1 rounded-lg border border-[var(--ink-400)] bg-[var(--surface)] px-2.5 py-1.5 text-base sm:text-sm"
         />
         {goiYGhiChu && goiYGhiChu.length > 0 && (
           <Select
             value=""
             onChange={(v) => v && setGhiChu(v)}
-            options={[{ value: "", label: "+ Chọn nhanh lý do" }, ...goiYGhiChu.map((l) => ({ value: l, label: l }))]}
+            options={[{ value: "", label: t("+ Chọn nhanh lý do") }, ...goiYGhiChu.map((l) => ({ value: l, label: l }))]}
             className="text-xs"
           />
         )}
@@ -458,7 +459,7 @@ export function BangChungChuyenTienForm({
         disabled={(anh.length === 0 && !ghiChu.trim()) || dangTai > 0 || xacNhan.isPending}
         loading={xacNhan.isPending}
       >
-        Đã chuyển
+        {t("Đã chuyển")}
       </Btn>
     </div>
   );

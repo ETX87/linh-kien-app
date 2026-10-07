@@ -237,7 +237,7 @@ export function DatMuaLinhKienModule({
     ...(canXemDonMuaCongNo ? [{ key: "don-cua-toi", label: t("Đơn của tôi / Danh sách") }] : []),
     // Giam sat/KTV/Ve tinh them vao tab duoi - CHI de theo doi + tu xac nhan "KTV đã nhận" (khong co
     // canTacNghiep/canKho/canKeToan rieng nen khong nut hanh dong quan ly nao hien ra, xem PxkDetailModal).
-    ...(canTacNghiep || canKho || canKeToan || isGiamSat || isFieldKtv || laMuaHang ? [{ key: "phieu-xuat-kho", label: t("Phiếu xuất kho"), shortLabel: "Phiếu" }] : []),
+    ...(canTacNghiep || canKho || canKeToan || isGiamSat || isFieldKtv || laMuaHang ? [{ key: "phieu-xuat-kho", label: t("Phiếu xuất kho"), shortLabel: t("Phiếu") }] : []),
   ];
   // "Đơn trả hàng" KHONG con la tab rieng tren thanh menu (CHOT vong 7: "thừa" - thanh luong quy trinh
   // da co san 3 buoc bam thang vao dung day: Trả hàng KT/Kho/QC). Van GIU render/activeView cho key

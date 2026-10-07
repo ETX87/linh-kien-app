@@ -8,6 +8,7 @@ import { api, ApiError } from "../../api/client";
 import { describeApiError } from "./helpers";
 import { MIEN_XUAT_LABEL, MIEN_XUAT_NGAN, type MienXuat } from "./constants";
 import type { PhieuXuatKhoRow } from "./types";
+import { t } from "../../i18n";
 
 // Kho xuat MB/MN cua phieu (chot 2026-10-07, backend/src/lib/mienXuat.ts, migration 0070): mac dinh theo khu vuc,
 // TN/Ke toan chuyen duoc khi phieu chua gui Kho ("Dang tao phieu"/"Cho ke toan"). Phieu da chuyen chi hien mac dinh
@@ -18,13 +19,13 @@ type PxkMien = Pick<PhieuXuatKhoRow, "mien_xuat" | "mien_xuat_hieu_luc">;
 
 export function KhoXuatBadge({ r }: { r: PxkMien }) {
   const m = r.mien_xuat_hieu_luc;
-  if (!m) return <span className="text-[var(--ink-400)]" title="Khu vực không xác định được miền — file MISA để trống mã kho">—</span>;
+  if (!m) return <span className="text-[var(--ink-400)]" title={t("Khu vực không xác định được miền — file MISA để trống mã kho")}>—</span>;
   return r.mien_xuat ? (
     <Badge tone="purple">
-      <span title={`Đã chuyển kho xuất sang ${MIEN_XUAT_LABEL[m]}`}>Kho {MIEN_XUAT_NGAN[m]} · đã chuyển</span>
+      <span title={t("Đã chuyển kho xuất sang {a}", { a: t(MIEN_XUAT_LABEL[m]) })}>{t("Kho {a} · đã chuyển", { a: MIEN_XUAT_NGAN[m] })}</span>
     </Badge>
   ) : (
-    <span className="text-xs text-[var(--color-text-body)]" title="Theo khu vực của phiếu">Kho {MIEN_XUAT_NGAN[m]}</span>
+    <span className="text-xs text-[var(--color-text-body)]" title={t("Theo khu vực của phiếu")}>{t("Kho {a}", { a: MIEN_XUAT_NGAN[m] })}</span>
   );
 }
 
@@ -42,42 +43,42 @@ export function ChuyenKhoXuatCard({
 
   const mutation = useMutation({
     mutationFn: () => api.patch(`/phieu-xuat-kho/${pxk.id}/mien-xuat`, { mien_xuat: chon || null, ghi_chu: lyDo.trim() || undefined }),
-    onSuccess: () => { onDone(); addToast(`Đã chuyển kho xuất: ${chon ? MIEN_XUAT_LABEL[chon as MienXuat] : "theo khu vực"}`); },
+    onSuccess: () => { onDone(); addToast(t("Đã chuyển kho xuất: {a}", { a: chon ? t(MIEN_XUAT_LABEL[chon as MienXuat]) : t("theo khu vực") })); },
     onError: (err) => {
       const code = err instanceof ApiError ? err.code : undefined;
-      if (code === "DA_GUI_KHO") addToast("Phiếu đã gửi Kho — không chuyển kho xuất được nữa");
-      else if (code === "CONFLICT") addToast("Phiếu vừa được người khác cập nhật — tải lại rồi thử lại");
-      else addToast("Lỗi: " + describeApiError(err));
+      if (code === "DA_GUI_KHO") addToast(t("Phiếu đã gửi Kho — không chuyển kho xuất được nữa"));
+      else if (code === "CONFLICT") addToast(t("Phiếu vừa được người khác cập nhật — tải lại rồi thử lại"));
+      else addToast(t("Lỗi: ") + describeApiError(err));
     },
   });
 
   const mienKv = pxk.mien_khu_vuc;
   const options: { value: string; label: string }[] = (["bac", "nam"] as MienXuat[]).map((m) => ({
     value: m,
-    label: `${MIEN_XUAT_LABEL[m]}${m === mienKv ? " (theo khu vực)" : ""}`,
+    label: `${t(MIEN_XUAT_LABEL[m])}${m === mienKv ? t(" (theo khu vực)") : ""}`,
   }));
-  if (!mienKv && !pxk.mien_xuat) options.unshift({ value: "", label: "Chưa xác định (theo khu vực)" });
+  if (!mienKv && !pxk.mien_xuat) options.unshift({ value: "", label: t("Chưa xác định (theo khu vực)") });
   const doi = chon !== hienTai;
 
   return (
     <div className="border border-[var(--line)] rounded-lg p-3">
-      <SectionTitle icon="🏭">Kho xuất</SectionTitle>
+      <SectionTitle icon="🏭">{t("Kho xuất")}</SectionTitle>
       <div className="flex flex-wrap gap-2 items-center">
         <Select value={chon} onChange={setChon} options={options} className="min-w-[180px]" />
         {doi && (
           <input
             value={lyDo}
             onChange={(e) => setLyDo(e.target.value)}
-            placeholder="Lý do chuyển (không bắt buộc)"
+            placeholder={t("Lý do chuyển (không bắt buộc)")}
             className="focus-ring flex-1 min-w-[160px] bg-[var(--surface)] border border-[var(--ink-400)] rounded-lg px-2.5 py-1.5 text-sm"
           />
         )}
-        <Btn size="sm" onClick={() => mutation.mutate()} disabled={!doi || mutation.isPending} loading={mutation.isPending}>Lưu</Btn>
+        <Btn size="sm" onClick={() => mutation.mutate()} disabled={!doi || mutation.isPending} loading={mutation.isPending}>{t("Lưu")}</Btn>
       </div>
       <div className="mt-1.5 text-[11px] text-[var(--ink-500)]">
         {pxk.mien_xuat
-          ? `Đã chuyển từ ${mienKv ? MIEN_XUAT_LABEL[mienKv] : "khu vực chưa rõ miền"} — chỉ Kho/TN ${MIEN_XUAT_LABEL[pxk.mien_xuat]} thấy mặc định, file MISA dùng kho ${MIEN_XUAT_NGAN[pxk.mien_xuat]}.`
-          : "Mặc định theo khu vực của phiếu. Chuyển sang miền khác: phiếu hiện cho Kho/TN miền mới, file MISA dùng kho miền mới."}
+          ? t("Đã chuyển từ {a} — chỉ Kho/TN {b} thấy mặc định, file MISA dùng kho {c}.", { a: mienKv ? t(MIEN_XUAT_LABEL[mienKv]) : t("khu vực chưa rõ miền"), b: MIEN_XUAT_LABEL[pxk.mien_xuat], c: MIEN_XUAT_NGAN[pxk.mien_xuat] })
+          : t("Mặc định theo khu vực của phiếu. Chuyển sang miền khác: phiếu hiện cho Kho/TN miền mới, file MISA dùng kho miền mới.")}
       </div>
     </div>
   );
@@ -93,7 +94,7 @@ export function KhuVucPxkBadge({ pxk }: { pxk: PxkKhuVuc }) {
   if (!pxk.khu_vuc_chon) return null;
   return (
     <Badge tone="purple">
-      <span title={`Kho đã chuyển từ ${pxk.khu_vuc_tu_dong_ten ?? pxk.khu_vuc_ma ?? "?"}`}>Khu vực {pxk.khu_vuc_chon_ten ?? pxk.khu_vuc_chon} · Kho đã chuyển</span>
+      <span title={t("Kho đã chuyển từ {a}", { a: pxk.khu_vuc_tu_dong_ten ?? pxk.khu_vuc_ma ?? "?" })}>{t("Khu vực {a} · Kho đã chuyển", { a: pxk.khu_vuc_chon_ten ?? pxk.khu_vuc_chon })}</span>
     </Badge>
   );
 }
@@ -107,40 +108,40 @@ export function ChuyenKhuVucCard({ pxk, addToast, onDone }: { pxk: PxkKhuVuc; ad
     queryKey: ["settings-khu-vuc"],
     queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/settings/khu-vuc"),
   });
-  const options = (khuVucData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ma === pxk.khu_vuc_ma ? `${k.ten} (tự động)` : k.ten }));
+  const options = (khuVucData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ma === pxk.khu_vuc_ma ? t("{a} (tự động)", { a: k.ten }) : k.ten }));
   const mutation = useMutation({
     mutationFn: () => api.patch<{ so_don: number }>(`/phieu-xuat-kho/${pxk.id}/khu-vuc`, { khu_vuc_ma: chon, ghi_chu: lyDo.trim() || undefined }),
     onSuccess: (res) => {
       onDone();
-      addToast(`Đã chuyển khu vực: ${options.find((o) => o.value === chon)?.label ?? chon}${res?.so_don ? ` (phiếu + ${res.so_don} đơn)` : ""}`);
+      addToast(t("Đã chuyển khu vực: {kv}{don}", { kv: options.find((o) => o.value === chon)?.label ?? chon, don: res?.so_don ? t(" (phiếu + {n} đơn)", { n: res.so_don }) : "" }));
     },
     onError: (err) => {
       const code = err instanceof ApiError ? err.code : undefined;
-      if (code === "PHIEU_DA_DONG") addToast("Phiếu đã đóng — không chuyển khu vực được nữa");
-      else if (code === "CONFLICT") addToast("Phiếu vừa được người khác cập nhật — tải lại rồi thử lại");
-      else addToast("Lỗi: " + describeApiError(err));
+      if (code === "PHIEU_DA_DONG") addToast(t("Phiếu đã đóng — không chuyển khu vực được nữa"));
+      else if (code === "CONFLICT") addToast(t("Phiếu vừa được người khác cập nhật — tải lại rồi thử lại"));
+      else addToast(t("Lỗi: ") + describeApiError(err));
     },
   });
   const doi = !!chon && chon !== hienTai;
   return (
     <div className="border border-[var(--line)] rounded-lg p-3">
-      <SectionTitle icon="📍">Khu vực</SectionTitle>
+      <SectionTitle icon="📍">{t("Khu vực")}</SectionTitle>
       <div className="flex flex-wrap gap-2 items-center">
         <Select value={chon} onChange={setChon} options={options} className="min-w-[180px]" />
         {doi && (
           <input
             value={lyDo}
             onChange={(e) => setLyDo(e.target.value)}
-            placeholder="Lý do chuyển (không bắt buộc)"
+            placeholder={t("Lý do chuyển (không bắt buộc)")}
             className="focus-ring flex-1 min-w-[160px] bg-[var(--surface)] border border-[var(--ink-400)] rounded-lg px-2.5 py-1.5 text-sm"
           />
         )}
-        <Btn size="sm" onClick={() => mutation.mutate()} disabled={!doi || mutation.isPending} loading={mutation.isPending}>Lưu</Btn>
+        <Btn size="sm" onClick={() => mutation.mutate()} disabled={!doi || mutation.isPending} loading={mutation.isPending}>{t("Lưu")}</Btn>
       </div>
       <div className="mt-1.5 text-[11px] text-[var(--ink-500)]">
         {pxk.khu_vuc_chon
-          ? `Kho đã chuyển từ ${pxk.khu_vuc_tu_dong_ten ?? pxk.khu_vuc_ma ?? "?"} — phiếu + đơn trong phiếu chỉ hiện cho Kho/Kế toán/TN khu vực ${pxk.khu_vuc_chon_ten ?? pxk.khu_vuc_chon}.`
-          : "Phiếu sai khu vực: chọn lại để chuyển cả phiếu + đơn trong phiếu sang Kho/Kế toán/TN khu vực đúng (kho xuất MISA theo miền khu vực mới)."}
+          ? t("Kho đã chuyển từ {a} — phiếu + đơn trong phiếu chỉ hiện cho Kho/Kế toán/TN khu vực {b}.", { a: pxk.khu_vuc_tu_dong_ten ?? pxk.khu_vuc_ma ?? "?", b: pxk.khu_vuc_chon_ten ?? pxk.khu_vuc_chon })
+          : t("Phiếu sai khu vực: chọn lại để chuyển cả phiếu + đơn trong phiếu sang Kho/Kế toán/TN khu vực đúng (kho xuất MISA theo miền khu vực mới).")}
       </div>
     </div>
   );
