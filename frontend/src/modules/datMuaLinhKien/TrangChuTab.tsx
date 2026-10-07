@@ -15,6 +15,7 @@ import type { JumpTarget, LuongQuyTrinhStep, DangTonStep } from "./types";
 import { NguoiNhan } from "../../components/ui/TenNguoi";
 import { useAuth } from "../../auth/AuthContext";
 import { TongNgayKtvInfo } from "./TongNgayKtv";
+import { t } from "../../i18n";
 
 interface TonDongRow {
   id: string;
@@ -45,33 +46,33 @@ interface TonDongRow {
 function moTaTonDong(r: TonDongRow): { label: string; nguoiCanGap: string; tone: Tone } {
   const choTien = r.so_tien_can_chuyen != null && r.trang_thai_chuyen_tien !== "TN da duyet";
   if (r.pxk_trang_thai) {
-    if (r.pxk_trang_thai === "Dang tao phieu" && choTien) return { label: "Chờ chuyển tiền cho KTV", nguoiCanGap: "KTV / Tác nghiệp", tone: "warning" };
+    if (r.pxk_trang_thai === "Dang tao phieu" && choTien) return { label: t("Chờ chuyển tiền cho KTV"), nguoiCanGap: t("KTV / Tác nghiệp"), tone: "warning" };
     switch (r.pxk_trang_thai) {
       case "Dang tao phieu":
-        return { label: "Tác nghiệp đang tạo phiếu xuất kho", nguoiCanGap: "Tác nghiệp", tone: "info" };
+        return { label: t("Tác nghiệp đang tạo phiếu xuất kho"), nguoiCanGap: t("Tác nghiệp"), tone: "info" };
       case "Cho ke toan":
-        return { label: "Chờ Kế toán duyệt phiếu xuất kho", nguoiCanGap: "Kế toán", tone: "warning" };
+        return { label: t("Chờ Kế toán duyệt phiếu xuất kho"), nguoiCanGap: t("Kế toán"), tone: "warning" };
       case "Da chot xong don xuat":
-        return { label: "Chờ Kho gửi hàng cho KTV", nguoiCanGap: "Kho", tone: "warning" };
+        return { label: t("Chờ Kho gửi hàng cho KTV"), nguoiCanGap: t("Kho"), tone: "warning" };
       case "Dang gui KTV":
-        return { label: "Đã gửi hàng, chờ KTV xác nhận đã nhận", nguoiCanGap: "KTV", tone: "info" };
+        return { label: t("Đã gửi hàng, chờ KTV xác nhận đã nhận"), nguoiCanGap: t("KTV"), tone: "info" };
       default:
         return { label: r.pxk_trang_thai, nguoiCanGap: "—", tone: "neutral" };
     }
   }
   switch (r.ddh_trang_thai) {
     case "Cho Tram duyet":
-      return { label: "Chờ Trạm duyệt", nguoiCanGap: "Trạm", tone: "success" };
+      return { label: t("Chờ Trạm duyệt"), nguoiCanGap: t("Trạm"), tone: "success" };
     case "Cho TBP xac nhan":
-      return { label: "Chờ TBP ĐVBH duyệt LK đặc thù", nguoiCanGap: "TBP ĐVBH", tone: "warning" };
+      return { label: t("Chờ TBP ĐVBH duyệt LK đặc thù"), nguoiCanGap: t("TBP ĐVBH"), tone: "warning" };
     case "Cho TN duyet":
-      return { label: "Chờ Tác nghiệp duyệt", nguoiCanGap: "Tác nghiệp", tone: "info" };
+      return { label: t("Chờ Tác nghiệp duyệt"), nguoiCanGap: t("Tác nghiệp"), tone: "info" };
     case "TN da duyet":
-      return { label: "Đã duyệt, chờ Tác nghiệp tạo phiếu xuất kho", nguoiCanGap: "Tác nghiệp", tone: "info" };
+      return { label: t("Đã duyệt, chờ Tác nghiệp tạo phiếu xuất kho"), nguoiCanGap: t("Tác nghiệp"), tone: "info" };
     case "Cho hang":
       return {
-        label: r.ngay_du_kien_co_hang ? `Thiếu hàng, Kho dự kiến có hàng ${fmtDate(r.ngay_du_kien_co_hang)}` : "Thiếu hàng, Kho đang tìm nguồn",
-        nguoiCanGap: "Kho",
+        label: r.ngay_du_kien_co_hang ? t("Thiếu hàng, Kho dự kiến có hàng {ngay}", { ngay: fmtDate(r.ngay_du_kien_co_hang) }) : t("Thiếu hàng, Kho đang tìm nguồn"),
+        nguoiCanGap: t("Kho"),
         tone: "warning",
       };
     default:
@@ -167,7 +168,7 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
     const soNgayList = rowsOfKtv.map((r) => Math.floor((nowMs - parseDbDateTime(r.ngay_tao).getTime()) / 86400000));
     return {
       email,
-      ten: rowsOfKtv[0]?.ten_hien_thi ?? email ?? "(chưa gán người nhận)",
+      ten: rowsOfKtv[0]?.ten_hien_thi ?? email ?? t("(chưa gán người nhận)"),
       khuVucTen: rowsOfKtv[0]?.khu_vuc_ten ?? null,
       rows: rowsOfKtv,
       soNgayList,
@@ -184,9 +185,9 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
   // mau thanh tong hop khop dung mau badge "N ngày" cua tung dong ben duoi.
   const allSoNgay = groups.flatMap((g) => g.soNgayList);
   const tuoiDon = [
-    { key: "moi", label: "0–2 ngày", value: allSoNgay.filter((d) => d < 3).length, color: "var(--chart-good)" },
-    { key: "vua", label: "3–6 ngày", value: allSoNgay.filter((d) => d >= 3 && d < 7).length, color: "var(--chart-warn)" },
-    { key: "lau", label: "≥ 7 ngày", value: allSoNgay.filter((d) => d >= 7).length, color: "var(--chart-bad)" },
+    { key: "moi", label: t("0–2 ngày"), value: allSoNgay.filter((d) => d < 3).length, color: "var(--chart-good)" },
+    { key: "vua", label: t("3–6 ngày"), value: allSoNgay.filter((d) => d >= 3 && d < 7).length, color: "var(--chart-warn)" },
+    { key: "lau", label: t("≥ 7 ngày"), value: allSoNgay.filter((d) => d >= 7).length, color: "var(--chart-bad)" },
   ];
 
   const hasFilterOptions = khuVucOptions.length > 0 || ktvOptions.length > 0;
@@ -195,7 +196,7 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
       {khuVucOptions.length > 0 && <KhuVucChipFilter value={filterKhuVuc} onChange={setFilterKhuVuc} options={khuVucOptions} />}
       {ktvOptions.length > 0 && (
         <div className="w-56">
-          <Select value={filterKtv} onChange={setFilterKtv} options={[{ value: "", label: "— Tất cả KTV —" }, ...ktvOptions]} />
+          <Select value={filterKtv} onChange={setFilterKtv} options={[{ value: "", label: t("— Tất cả KTV —") }, ...ktvOptions]} />
         </div>
       )}
     </div>
@@ -207,10 +208,10 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
       defaultOpen={!isMobile}
       open={sectionOpen}
       onOpenChange={setSectionOpen}
-      title="Đơn hàng đang tồn theo KTV"
+      title={t("Đơn hàng đang tồn theo KTV")}
       note={
         <span className="hidden sm:inline normal-case font-normal text-[var(--ink-400)]">
-          {" "}(sắp xếp theo số ngày tồn lâu nhất — bấm vào 1 KTV để xem chi tiết từng đơn.)
+          {" "}{t("(sắp xếp theo số ngày tồn lâu nhất — bấm vào 1 KTV để xem chi tiết từng đơn.)")}
         </span>
       }
     >
@@ -221,7 +222,7 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
             onClick={() => setShowFilter((v) => !v)}
             className="focus-ring text-xs font-semibold text-[var(--ink-500)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 bg-[var(--surface)]"
           >
-            {showFilter ? "▲ Ẩn bộ lọc" : "☰ Bộ lọc Khu vực/KTV ▾"}
+            {showFilter ? t("▲ Ẩn bộ lọc") : t("☰ Bộ lọc Khu vực/KTV ▾")}
           </button>
           {showFilter && <div className="mt-2">{filterRow}</div>}
         </div>
@@ -229,17 +230,17 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
         filterRow
       )}
       {isLoading ? (
-        <div className="text-sm text-[var(--ink-400)] py-4 text-center">Đang tải…</div>
+        <div className="text-sm text-[var(--ink-400)] py-4 text-center">{t("Đang tải…")}</div>
       ) : groups.length === 0 ? (
         <div className="text-sm text-[var(--ink-400)] py-4 text-center rounded-xl border border-dashed border-[var(--line)]">
-          Không có đơn hàng nào đang tồn trong phạm vi này.
+          {t("Không có đơn hàng nào đang tồn trong phạm vi này.")}
         </div>
       ) : (
         <div className="space-y-3">
         <div className="content-card px-4 py-3">
           <div className="mb-2 flex items-baseline justify-between gap-2">
-            <span className="text-[12px] font-semibold text-[var(--color-text-body)]">Phân bố thời gian tồn</span>
-            <span className="text-[11px] text-[var(--color-text-secondary)]">{allSoNgay.length} đơn · {groups.length} KTV</span>
+            <span className="text-[12px] font-semibold text-[var(--color-text-body)]">{t("Phân bố thời gian tồn")}</span>
+            <span className="text-[11px] text-[var(--color-text-secondary)]">{t("{n} đơn · {k} KTV", { n: allSoNgay.length, k: groups.length })}</span>
           </div>
           <StackedBar segments={tuoiDon} />
         </div>
@@ -260,8 +261,8 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
                   <NguoiNhan>{g.ten}</NguoiNhan>
                   {g.khuVucTen && <span className="text-[var(--ink-400)] font-normal"> · {g.khuVucTen}</span>}
                 </span>
-                <Badge tone="info">{g.rows.length} đơn tồn</Badge>
-                <Badge tone={soNgayTonTone(g.maxNgay)}>Lâu nhất {g.maxNgay} ngày</Badge>
+                <Badge tone="info">{t("{n} đơn tồn", { n: g.rows.length })}</Badge>
+                <Badge tone={soNgayTonTone(g.maxNgay)}>{t("Lâu nhất {n} ngày", { n: g.maxNgay })}</Badge>
                 {g.email && (
                   <span
                     role="button"
@@ -273,7 +274,7 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
                     onKeyDown={(e) => e.key === "Enter" && onJump({ tab: "don-cua-toi", filter: "", nguoiNhanHang: g.email })}
                     className="focus-ring text-xs font-semibold text-[var(--color-primary)] hover:underline whitespace-nowrap"
                   >
-                    Xem danh sách →
+                    {t("Xem danh sách →")}
                   </span>
                 )}
               </button>
@@ -282,11 +283,11 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
                   <table className="tbl w-full">
                     <thead>
                       <tr className="tbl-head">
-                        <th className="px-3 py-1.5">Mã đơn</th>
-                        <th className="px-3 py-1.5">Linh kiện</th>
-                        <th className="px-3 py-1.5">Ngày tạo</th>
-                        <th className="px-3 py-1.5">Tồn</th>
-                        <th className="px-3 py-1.5">Lý do / Đang chờ ai</th>
+                        <th className="px-3 py-1.5">{t("Mã đơn")}</th>
+                        <th className="px-3 py-1.5">{t("Linh kiện")}</th>
+                        <th className="px-3 py-1.5">{t("Ngày tạo")}</th>
+                        <th className="px-3 py-1.5">{t("Tồn")}</th>
+                        <th className="px-3 py-1.5">{t("Lý do / Đang chờ ai")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -309,14 +310,14 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
                               >
                                 {r.id}
                               </button>
-                              <span className="ml-1 text-[var(--ink-400)]">({r.loai_don === "cong_no" ? "Công nợ" : "Mua"})</span>
+                              <span className="ml-1 text-[var(--ink-400)]">({r.loai_don === "cong_no" ? t("Công nợ") : t("Mua")})</span>
                             </td>
                             <td className="px-3 py-1.5">
                               {r.ten_lk_snapshot ?? r.ma_lk} × {r.so_luong_de_xuat}
                             </td>
                             <td className="px-3 py-1.5 whitespace-nowrap">{fmtDate(r.ngay_tao)}</td>
                             <td className="px-3 py-1.5">
-                              <Badge tone={soNgayTonTone(soNgay)}>{soNgay} ngày</Badge>
+                              <Badge tone={soNgayTonTone(soNgay)}>{t("{n} ngày", { n: soNgay })}</Badge>
                             </td>
                             <td className="px-3 py-1.5">
                               <span className="text-[var(--ink-700)]">{mota.label}</span>
@@ -346,7 +347,7 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
         {soTrang > 1 && (
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] tabular-nums text-[var(--color-text-secondary)]">
-              KTV {(trangKtv - 1) * DONG_MOI_TRANG + 1}–{Math.min(trangKtv * DONG_MOI_TRANG, groups.length)} / {groups.length}
+              {t("KTV {a}–{b} / {c}", { a: (trangKtv - 1) * DONG_MOI_TRANG + 1, b: Math.min(trangKtv * DONG_MOI_TRANG, groups.length), c: groups.length })}
             </span>
             <Pagination page={trangKtv} pageCount={soTrang} onPage={setTrang} />
           </div>
@@ -470,15 +471,15 @@ export function TrangChuTab({
   return (
     <div className="mt-4 space-y-4">
       <div>
-        <h2 className="font-display text-base font-bold text-[var(--ink-900)]">Đang chờ hôm nay</h2>
-        <div className="hidden sm:block text-xs text-[var(--ink-500)] mt-0.5">Số liệu tồn đọng đúng theo vai trò của bạn — bấm vào ô số để nhảy thẳng tới danh sách xử lý.</div>
+        <h2 className="font-display text-base font-bold text-[var(--ink-900)]">{t("Đang chờ hôm nay")}</h2>
+        <div className="hidden sm:block text-xs text-[var(--ink-500)] mt-0.5">{t("Số liệu tồn đọng đúng theo vai trò của bạn — bấm vào ô số để nhảy thẳng tới danh sách xử lý.")}</div>
       </div>
 
       {/* Tong dat Mua + TRỪ CÔNG NỢ hom nay cua KTV + tien uoc tinh can chuyen + muc chiet khau (2026-09-28).
           Ve tinh: backend tu quy ve Tram (nguoi nhan hang that). */}
       {laKtv && me && (
         <div className="rounded-xl border border-[var(--line)] px-3 py-2.5">
-          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)] mb-1">Đặt hàng hôm nay (Mua + Trừ công nợ)</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)] mb-1">{t("Đặt hàng hôm nay (Mua + Trừ công nợ)")}</div>
           <TongNgayKtvInfo email={me.email} />
         </div>
       )}
@@ -492,7 +493,7 @@ export function TrangChuTab({
       {choDonBiTuChoi > 0 && (
         <div className="flex gap-2 sm:gap-3 flex-wrap">
           <StatCard
-            label="Đơn bị từ chối"
+            label={t("Đơn bị từ chối")}
             value={choDonBiTuChoi}
             tone="danger"
             onClick={() => onJump({ tab: "don-cua-toi", filter: "__TU_CHOI_CHUA_XEM__", nguoiNhanHang: "", loaiDon: "all" })}
@@ -500,7 +501,7 @@ export function TrangChuTab({
         </div>
       )}
 
-      <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)]">Cần làm</div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)]">{t("Cần làm")}</div>
       {mySteps.length > 0 ? (
         <div className="flex gap-2 sm:gap-3 flex-wrap">
           {mySteps.map((s) => (
@@ -533,10 +534,10 @@ export function TrangChuTab({
         // nao trong dangTonSteps duoc danh dau isCanLam khop voi myRoleKeys (vd vai tro chua co mat
         // trong danh sach dangTonSteps ben backend) - tranh man hinh trong khong co gi de bam.
         <div className="flex gap-2 sm:gap-3 flex-wrap">
-          <StatCard label="Việc cần làm" value={tongViecCuaToi} tone="warning" onClick={() => onJump({ tab: "don-cua-toi", filter: "__OPEN__", nguoiNhanHang: "" })} />
+          <StatCard label={t("Việc cần làm")} value={tongViecCuaToi} tone="warning" onClick={() => onJump({ tab: "don-cua-toi", filter: "__OPEN__", nguoiNhanHang: "" })} />
         </div>
       ) : (
-        <div className="text-sm text-[var(--ink-400)] py-4 text-center rounded-xl border border-dashed border-[var(--line)]">Không có việc gì đang chờ bạn xử lý.</div>
+        <div className="text-sm text-[var(--ink-400)] py-4 text-center rounded-xl border border-dashed border-[var(--line)]">{t("Không có việc gì đang chờ bạn xử lý.")}</div>
       )}
 
       {/* Them (phan hoi 2026-08-31: "'Đang tồn' là đơn của ktv vẫn đang xử lý chưa xong") - tach rieng
@@ -545,7 +546,7 @@ export function TrangChuTab({
           này hiện ở đâu để click vào xem") - THAY the rieng, quyet dinh RIENG "mo report Đơn hàng đang
           tồn theo KTV" (khong khop so, gay nham lan) bang 1 luoi StatCard chi tiet LUON HIEN SAN, GIONG
           HET co che mySteps o tren - moi dong = 1 trang thai cu the, bam thang toi dung tab/filter. */}
-      <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)]">Đang tồn</div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)]">{t("Đang tồn")}</div>
       {dangTonRows.length > 0 ? (
         <div className="flex gap-2 sm:gap-3 flex-wrap">
           {dangTonRows.map((s) => (
@@ -560,24 +561,24 @@ export function TrangChuTab({
         </div>
       ) : dangTon > 0 ? (
         <div className="flex gap-2 sm:gap-3 flex-wrap">
-          <StatCard label="Đang tồn" value={dangTon} tone="info" />
+          <StatCard label={t("Đang tồn")} value={dangTon} tone="info" />
         </div>
       ) : (
-        <div className="text-sm text-[var(--ink-400)] py-4 text-center rounded-xl border border-dashed border-[var(--line)]">Không có đơn nào đang tồn.</div>
+        <div className="text-sm text-[var(--ink-400)] py-4 text-center rounded-xl border border-dashed border-[var(--line)]">{t("Không có đơn nào đang tồn.")}</div>
       )}
 
       {tonDongToanHeThong !== null && (canTacNghiep || canKho || canKeToan) && (
         <>
-          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)]">Tồn đọng toàn hệ thống</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)]">{t("Tồn đọng toàn hệ thống")}</div>
           <div className="flex gap-2 sm:gap-3 flex-wrap">
             <StatCard
-              label="Tồn đọng toàn hệ thống"
+              label={t("Tồn đọng toàn hệ thống")}
               value={tonDongToanHeThong}
               tone="purple"
               onClick={toanHeThongRows.length > 0 ? () => setShowToanHeThongDetail((v) => !v) : undefined}
             />
           </div>
-          <div className="text-[11px] text-[var(--color-text-faint)] -mt-2">Toàn quốc, không lọc theo Khu vực của bạn</div>
+          <div className="text-[11px] text-[var(--color-text-faint)] -mt-2">{t("Toàn quốc, không lọc theo Khu vực của bạn")}</div>
           {showToanHeThongDetail && toanHeThongRows.length > 0 && (
             <div className="flex gap-2 sm:gap-3 flex-wrap">
               {toanHeThongRows.map((s) => (
@@ -598,12 +599,12 @@ export function TrangChuTab({
           không cần thiết") - doi tu Card+table 3 hang (~130px cao) sang 1 hang inline duy nhat, giu
           nguyen y nghia/hanh vi bam-nhay (jumpNum), chi doi lop trinh bay. */}
       <div className="flex items-center gap-1.5 flex-wrap text-xs text-[var(--ink-500)]">
-        <span className="font-semibold uppercase tracking-wide text-[var(--ink-400)]">Phạm vi dữ liệu:</span>
-        <span>Mua hàng {jumpNum("mua")} đơn</span>
+        <span className="font-semibold uppercase tracking-wide text-[var(--ink-400)]">{t("Phạm vi dữ liệu:")}</span>
+        <span>{t("Mua hàng")} {jumpNum("mua")} {t("đơn")}</span>
         <span className="text-[var(--line)]">·</span>
-        <span>Công nợ {jumpNum("cong_no")} đơn</span>
+        <span>{t("Công nợ")} {jumpNum("cong_no")} {t("đơn")}</span>
         <span className="text-[var(--line)]">·</span>
-        <span>Trả hàng {jumpNum("tra_hang")} đơn</span>
+        <span>{t("Trả hàng")} {jumpNum("tra_hang")} {t("đơn")}</span>
       </div>
 
       {isManagerish && <TonDongTheoKtvReport ref={ktvReportRef} onJump={onJump} />}
@@ -616,10 +617,10 @@ export function TrangChuTab({
         // thu gon rieng ben trong BaoCaoTab, phan hien san chi con KPI + bieu do co gian theo be rong.
         <CollapsibleSection
           defaultOpen
-          title="Báo cáo tổng thể"
+          title={t("Báo cáo tổng thể")}
           note={
             <span className="hidden sm:inline normal-case font-normal text-[var(--ink-400)]">
-              {" "}(① Số liệu "Việc cần làm" luôn tô đúng theo vai trò của bạn · ② Bấm vào số bất kỳ để nhảy thẳng tới đúng tab/bộ lọc tương ứng.)
+              {" "}{t("(① Số liệu \"Việc cần làm\" luôn tô đúng theo vai trò của bạn · ② Bấm vào số bất kỳ để nhảy thẳng tới đúng tab/bộ lọc tương ứng.)")}
             </span>
           }
         >

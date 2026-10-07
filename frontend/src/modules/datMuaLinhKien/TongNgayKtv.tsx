@@ -3,6 +3,7 @@ import { api } from "../../api/client";
 import { fmtDate, fmtVND } from "../../types";
 import { Money } from "../../components/ui/Money";
 import { LoaiChietKhauChip, useLoaiChietKhauList } from "./LoaiChietKhau";
+import { t } from "../../i18n";
 
 // "Tổng tiền KTV đặt Mua + Trừ công nợ trong ngày" (them 2026-09-28) - moc chiet khau 200k/500k cua MOI dong
 // don tinh theo tong nay (lib/pxkRecalculate.ts tinhToanPxk), kem "Ước tính chuyển" (tong tien uoc tinh can
@@ -30,9 +31,9 @@ export function maMucTheoTong(tong: number): "KHONG_CK" | "TONG_200_500" | "GIA_
 }
 
 function goiYMucTiep(tong: number): string {
-  if (tong < MOC_1) return `Thêm ${fmtVND(MOC_1 - tong)} để được giảm 30%`;
-  if (tong < MOC_2) return `Thêm ${fmtVND(MOC_2 - tong)} để hưởng Giá KTV`;
-  return "Đã đạt mức chiết khấu cao nhất";
+  if (tong < MOC_1) return t("Thêm {tien} để được giảm 30%", { tien: fmtVND(MOC_1 - tong) });
+  if (tong < MOC_2) return t("Thêm {tien} để hưởng Giá KTV", { tien: fmtVND(MOC_2 - tong) });
+  return t("Đã đạt mức chiết khấu cao nhất");
 }
 
 /** `ngays` rong = hom nay (gio VN, backend tu tinh). */
@@ -53,7 +54,7 @@ function MucChip({ tong }: { tong: number }) {
   const { data: list } = useLoaiChietKhauList();
   const loai = list?.find((l) => l.ma === maMucTheoTong(tong));
   if (!loai) return null;
-  return <LoaiChietKhauChip loai={loai} title={`Mức chiết khấu theo tổng ngày — ${goiYMucTiep(tong)}. Linh kiện Đình tủ luôn tính giá bán × 85%.`} />;
+  return <LoaiChietKhauChip loai={loai} title={t("Mức chiết khấu theo tổng ngày — {goiY}. Linh kiện Đình tủ luôn tính giá bán × 85%.", { goiY: goiYMucTiep(tong) })} />;
 }
 
 /**
@@ -65,16 +66,16 @@ export function TongNgayKtvLine({ row, themGiaTri = 0, hienNgay = true }: { row:
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--color-text-secondary)]">
       <span className="whitespace-nowrap">
-        {hienNgay ? `Tổng đặt ngày ${fmtDate(row.ngay)}` : "Tổng đặt trong ngày"}:{" "}
+        {hienNgay ? t("Tổng đặt ngày {ngay}", { ngay: fmtDate(row.ngay) }) : t("Tổng đặt trong ngày")}:{" "}
         <Money className="font-semibold text-[var(--color-text)]">{fmtVND(row.tong_gia_tri)}</Money>
-        {row.so_don > 0 && <span> ({row.so_don} đơn)</span>}
+        {row.so_don > 0 && <span> {t("({n} đơn)", { n: row.so_don })}</span>}
       </span>
       <span className="whitespace-nowrap">
-        · Ước tính chuyển: <Money className="font-semibold text-[var(--color-text)]">{fmtVND(row.tong_can_chuyen)}</Money>
+        · {t("Ước tính chuyển:")} <Money className="font-semibold text-[var(--color-text)]">{fmtVND(row.tong_can_chuyen)}</Money>
       </span>
       {themGiaTri > 0 && (
         <span className="whitespace-nowrap">
-          · Sau đơn này: <Money className="font-semibold text-[var(--color-text)]">{fmtVND(tongSau)}</Money>
+          · {t("Sau đơn này:")} <Money className="font-semibold text-[var(--color-text)]">{fmtVND(tongSau)}</Money>
         </span>
       )}
       <MucChip tong={tongSau} />
@@ -88,7 +89,7 @@ export function TongNgayKtvLine({ row, themGiaTri = 0, hienNgay = true }: { row:
 export function TongNgayKtvInfo({ email, ngays = [], themGiaTri = 0, anQuy = false }: { email: string | null | undefined; ngays?: string[]; themGiaTri?: number; anQuy?: boolean }) {
   const { data, isLoading } = useTongNgayKtv(email, ngays);
   if (!email) return null;
-  if (isLoading) return <div className="text-xs text-[var(--color-text-faint)]">Đang tính tổng đặt trong ngày…</div>;
+  if (isLoading) return <div className="text-xs text-[var(--color-text-faint)]">{t("Đang tính tổng đặt trong ngày…")}</div>;
   const rows = data?.rows ?? [];
   const quyDu = anQuy || !data?.nguoi_nhan_hang ? null : (data.quy_du ?? 0);
   if (rows.length === 0 && quyDu == null) return null;
@@ -99,8 +100,8 @@ export function TongNgayKtvInfo({ email, ngays = [], themGiaTri = 0, anQuy = fal
       ))}
       {quyDu != null && (
         <div className="text-xs text-[var(--color-text-secondary)]">
-          Quỹ dư hiện tại: <Money className="font-semibold text-[var(--color-text)]">{fmtVND(quyDu)}</Money>
-          {quyDu > 0 && <span className="text-[var(--color-text-faint)]"> — tự trừ vào phiếu cần chuyển tiền tiếp theo</span>}
+          {t("Quỹ dư hiện tại:")} <Money className="font-semibold text-[var(--color-text)]">{fmtVND(quyDu)}</Money>
+          {quyDu > 0 && <span className="text-[var(--color-text-faint)]"> {t("— tự trừ vào phiếu cần chuyển tiền tiếp theo")}</span>}
         </div>
       )}
     </div>

@@ -9,6 +9,7 @@ import { HBarList, VBarChart } from "../../components/charts/BarCharts";
 import { fmtCompactVND, pct } from "../../components/charts/chartUtils";
 import { formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay";
 import type { BaoCaoRow } from "./types";
+import { t } from "../../i18n";
 
 interface XuHuongResp {
   ngay: string[];
@@ -57,121 +58,121 @@ export function BaoCaoCharts({
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-[14px] xl:grid-cols-5">
         <div className={kpiWrap}>
           <StatCard
-            label="Tổng đơn"
+            label={t("Tổng đơn")}
             value={tong.slDon.toLocaleString("vi-VN")}
             color="blue"
             iconType={Icon.cart}
-            sub={`Mua ${tong.slDonMua} · CN ${tong.slDonCongNo} · Trả ${tong.slDonTraHang}`}
+            sub={t("Mua {a} · CN {b} · Trả {c}", { a: tong.slDonMua, b: tong.slDonCongNo, c: tong.slDonTraHang })}
             onClick={() => jumpDon("", undefined)}
           />
         </div>
         <div className={kpiWrap}>
           <StatCard
-            label="Đã duyệt"
+            label={t("Đã duyệt")}
             value={tong.slDuyet.toLocaleString("vi-VN")}
             tone="success"
             iconType={Icon.check}
-            sub={`${pct(tong.slDuyet, tong.slDon)} tổng đơn`}
+            sub={t("{p} tổng đơn", { p: pct(tong.slDuyet, tong.slDon) })}
             onClick={() => jumpDon("TN da duyet", undefined)}
           />
         </div>
         <div className={kpiWrap}>
           <StatCard
-            label="Đang chờ duyệt"
+            label={t("Đang chờ duyệt")}
             value={tong.slDangCho.toLocaleString("vi-VN")}
             tone="warning"
             iconType={Icon.clock}
-            sub={`${pct(tong.slDangCho, tong.slDon)} tổng đơn`}
+            sub={t("{p} tổng đơn", { p: pct(tong.slDangCho, tong.slDon) })}
             onClick={() => jumpDon("__OPEN__", undefined)}
           />
         </div>
         <div className={kpiWrap}>
           <StatCard
-            label="Bị từ chối / huỷ"
+            label={t("Bị từ chối / huỷ")}
             value={tong.slTuChoi.toLocaleString("vi-VN")}
             tone="danger"
             iconType={Icon.x}
-            sub={`${pct(tong.slTuChoi, tong.slDon)} tổng đơn`}
+            sub={t("{p} tổng đơn", { p: pct(tong.slTuChoi, tong.slDon) })}
             onClick={() => jumpDon("TN tu choi", undefined)}
           />
         </div>
         <div className={`${kpiWrap} col-span-2 xl:col-span-1`}>
           <StatCard
-            label="Thực tế đã mua"
+            label={t("Thực tế đã mua")}
             value={fmtCompactVND(tong.tongTienThucTe)}
             tone="purple"
             iconType={Icon.chart}
-            sub={`Dự kiến ${fmtCompactVND(tong.tongTienDatMua)} · Chờ duyệt ${fmtCompactVND(tong.tienChoDuyet)}`}
+            sub={t("Dự kiến {a} · Chờ duyệt {b}", { a: fmtCompactVND(tong.tongTienDatMua), b: fmtCompactVND(tong.tienChoDuyet) })}
             onClick={() => jumpDon("TN da duyet", undefined)}
           />
         </div>
       </div>
 
       <div className="grid gap-[14px] lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-        <ChartCard title="Xu hướng đơn hàng theo ngày" subtitle={thang === 0 ? "Từ đầu tháng tới hôm nay" : "Cả tháng đã chọn"}>
+        <ChartCard title={t("Xu hướng đơn hàng theo ngày")} subtitle={thang === 0 ? t("Từ đầu tháng tới hôm nay") : t("Cả tháng đã chọn")}>
           <TrendChart
             labels={(xuHuong?.ngay ?? []).map((d) => `${d.slice(8, 10)}/${d.slice(5, 7)}`)}
             series={[
-              { key: "tao", label: "Tạo mới", color: "var(--chart-new)", values: xuHuong?.tao_moi ?? [] },
-              { key: "duyet", label: "Đã duyệt", color: "var(--chart-ok)", values: xuHuong?.da_duyet ?? [] },
-              { key: "tuchoi", label: "Từ chối / huỷ", color: "var(--chart-reject)", values: xuHuong?.tu_choi ?? [], dashed: true },
+              { key: "tao", label: t("Tạo mới"), color: "var(--chart-new)", values: xuHuong?.tao_moi ?? [] },
+              { key: "duyet", label: t("Đã duyệt"), color: "var(--chart-ok)", values: xuHuong?.da_duyet ?? [] },
+              { key: "tuchoi", label: t("Từ chối / huỷ"), color: "var(--chart-reject)", values: xuHuong?.tu_choi ?? [], dashed: true },
             ]}
           />
         </ChartCard>
-        <ChartCard title="Cơ cấu đơn theo loại" subtitle="Bấm 1 loại để mở danh sách">
+        <ChartCard title={t("Cơ cấu đơn theo loại")} subtitle={t("Bấm 1 loại để mở danh sách")}>
           <DonutChart
-            centerLabel="Tổng đơn"
+            centerLabel={t("Tổng đơn")}
             segments={[
-              { key: "mua", label: "Mua hàng", value: tong.slDonMua, color: "var(--chart-1)", onClick: () => jumpDon("", "mua") },
-              { key: "cn", label: "Công nợ", value: tong.slDonCongNo, color: "var(--chart-2)", onClick: () => jumpDon("", "cong_no") },
-              { key: "tra", label: "Trả hàng", value: tong.slDonTraHang, color: "var(--chart-3)", onClick: () => jumpTraHang("") },
+              { key: "mua", label: t("Mua hàng"), value: tong.slDonMua, color: "var(--chart-1)", onClick: () => jumpDon("", "mua") },
+              { key: "cn", label: t("Công nợ"), value: tong.slDonCongNo, color: "var(--chart-2)", onClick: () => jumpDon("", "cong_no") },
+              { key: "tra", label: t("Trả hàng"), value: tong.slDonTraHang, color: "var(--chart-3)", onClick: () => jumpTraHang("") },
             ]}
           />
         </ChartCard>
       </div>
 
       <div className={`grid gap-[14px] ${isPersonal ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
-        <ChartCard title="Tiến trình phiếu xuất kho" subtitle={thang === 0 ? "3 bước đầu = đang chờ ngay lúc này" : "Tháng cũ chỉ còn 2 bước kết thúc"} action={<ChartLink onClick={() => jumpPxk("")} />}>
+        <ChartCard title={t("Tiến trình phiếu xuất kho")} subtitle={thang === 0 ? t("3 bước đầu = đang chờ ngay lúc này") : t("Tháng cũ chỉ còn 2 bước kết thúc")} action={<ChartLink onClick={() => jumpPxk("")} />}>
           <VBarChart
             bars={[
-              { key: "kt", label: "Chờ kế toán", value: tong.slChoKeToan, color: "var(--chart-1)", onClick: () => jumpPxk("Cho ke toan") },
-              { key: "kho", label: "Chờ kho gửi", value: tong.slChoKhoGui, color: "var(--chart-2)", onClick: () => jumpPxk("Da chot xong don xuat") },
-              { key: "gui", label: "Chờ KTV nhận", value: tong.slDaGui, color: "var(--chart-3)", onClick: () => jumpPxk("Dang gui KTV") },
-              { key: "nhan", label: "KTV đã nhận", value: tong.slDaXacNhan, color: "var(--chart-4)", onClick: () => jumpPxk("KTV da nhan") },
-              { key: "xong", label: "Kho kết thúc", value: tong.slKhoKetThuc, color: "var(--chart-5)", onClick: () => jumpPxk("Kho da ket thuc") },
+              { key: "kt", label: t("Chờ kế toán"), value: tong.slChoKeToan, color: "var(--chart-1)", onClick: () => jumpPxk("Cho ke toan") },
+              { key: "kho", label: t("Chờ kho gửi"), value: tong.slChoKhoGui, color: "var(--chart-2)", onClick: () => jumpPxk("Da chot xong don xuat") },
+              { key: "gui", label: t("Chờ KTV nhận"), value: tong.slDaGui, color: "var(--chart-3)", onClick: () => jumpPxk("Dang gui KTV") },
+              { key: "nhan", label: t("KTV đã nhận"), value: tong.slDaXacNhan, color: "var(--chart-4)", onClick: () => jumpPxk("KTV da nhan") },
+              { key: "xong", label: t("Kho kết thúc"), value: tong.slKhoKetThuc, color: "var(--chart-5)", onClick: () => jumpPxk("Kho da ket thuc") },
             ]}
           />
         </ChartCard>
         {isPersonal ? (
-          <ChartCard title="Cơ cấu tiền" subtitle="Giá trị theo từng giai đoạn">
+          <ChartCard title={t("Cơ cấu tiền")} subtitle={t("Giá trị theo từng giai đoạn")}>
             <HBarList
               rows={[
-                { key: "dk", label: "Đang đặt mua (dự kiến)", value: tong.tongTienDatMua, display: fmtCompactVND(tong.tongTienDatMua), color: "var(--chart-1)", onClick: () => jumpDon("", undefined) },
-                { key: "cd", label: "Chờ duyệt", value: tong.tienChoDuyet, display: fmtCompactVND(tong.tienChoDuyet), color: "var(--chart-2)", onClick: () => jumpDon("__OPEN__", undefined) },
-                { key: "tt", label: "Thực tế đã mua", value: tong.tongTienThucTe, display: fmtCompactVND(tong.tongTienThucTe), color: "var(--chart-3)", onClick: () => jumpDon("TN da duyet", undefined) },
-                { key: "cc", label: "Chờ chuyển tiền", value: tong.tongChoChuyen, display: fmtCompactVND(tong.tongChoChuyen), color: "var(--chart-4)", onClick: () => jumpPxk("") },
+                { key: "dk", label: t("Đang đặt mua (dự kiến)"), value: tong.tongTienDatMua, display: fmtCompactVND(tong.tongTienDatMua), color: "var(--chart-1)", onClick: () => jumpDon("", undefined) },
+                { key: "cd", label: t("Chờ duyệt"), value: tong.tienChoDuyet, display: fmtCompactVND(tong.tienChoDuyet), color: "var(--chart-2)", onClick: () => jumpDon("__OPEN__", undefined) },
+                { key: "tt", label: t("Thực tế đã mua"), value: tong.tongTienThucTe, display: fmtCompactVND(tong.tongTienThucTe), color: "var(--chart-3)", onClick: () => jumpDon("TN da duyet", undefined) },
+                { key: "cc", label: t("Chờ chuyển tiền"), value: tong.tongChoChuyen, display: fmtCompactVND(tong.tongChoChuyen), color: "var(--chart-4)", onClick: () => jumpPxk("") },
               ]}
             />
           </ChartCard>
         ) : (
           <>
-            <ChartCard title="Top 5 KTV tồn đọng nhiều nhất" subtitle="Đơn chưa xong + phiếu xuất chưa tới tay KTV">
+            <ChartCard title={t("Top 5 KTV tồn đọng nhiều nhất")} subtitle={t("Đơn chưa xong + phiếu xuất chưa tới tay KTV")}>
               <HBarList
                 ranked
-                emptyText="Không có KTV nào đang tồn đọng."
+                emptyText={t("Không có KTV nào đang tồn đọng.")}
                 rows={topTonDong.map((r) => ({
                   key: r.email,
                   label: formatPersonDisplay(r.email, personDir),
                   value: tonDong(r),
-                  sub: `Chờ duyệt ${r.slDangCho} · Xuất kho ${r.slChoKeToan + r.slChoKhoGui + r.slDaGui}`,
+                  sub: t("Chờ duyệt {a} · Xuất kho {b}", { a: r.slDangCho, b: r.slChoKeToan + r.slChoKhoGui + r.slDaGui }),
                   onClick: () => jumpDon("", undefined, r.email),
                 }))}
               />
             </ChartCard>
-            <ChartCard title="Top 5 KTV theo tiền đã mua" subtitle="Tổng thực tế đã duyệt mua">
+            <ChartCard title={t("Top 5 KTV theo tiền đã mua")} subtitle={t("Tổng thực tế đã duyệt mua")}>
               <HBarList
                 ranked
-                emptyText="Chưa có đơn nào được duyệt mua."
+                emptyText={t("Chưa có đơn nào được duyệt mua.")}
                 rows={topTien.map((r) => ({
                   key: r.email,
                   label: formatPersonDisplay(r.email, personDir),

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Btn } from "../../components/x/Btn";
 import type { LuongQuyTrinhStep, JumpTarget } from "./types";
 import { STEP_SHORT_LABEL, STEP_DESCRIPTION, PIPELINE_NOTCH, PXK_TRANG_THAI_TONE, PXK_MINI_STEPS, PXK_MINI_LABEL, PXK_MINI_NHANH_RE } from "./constants";
+import { t } from "../../i18n";
 
 // "Luong quy trinh" pipeline UI (thanh chevron so dem theo buoc) dung chung boi DatMuaLinhKienModule
 // (tab tong quan) va PhieuXuatKhoTab (mini-pipeline PXK) - tach tu DatMuaLinhKienModule.tsx (UI
@@ -39,7 +40,7 @@ export function MyWorkloadStrip({
   // thanh 4 hang (~150px) day danh sach xuong duoi nua man hinh o MOI tab cua module.
   return (
     <div className="no-scrollbar -mx-4 mb-2 flex items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
-      <span className="text-[11px] font-semibold text-[var(--ink-500)] uppercase tracking-wide shrink-0">Việc của tôi</span>
+      <span className="text-[11px] font-semibold text-[var(--ink-500)] uppercase tracking-wide shrink-0">{t("Việc của tôi")}</span>
       {mine.map((s) => (
         <button
           key={s.key}
@@ -47,7 +48,7 @@ export function MyWorkloadStrip({
           onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
           className="focus-ring shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 rounded-full bg-[var(--color-warning-soft)] hover:brightness-95 text-[var(--color-warning-strong)] pl-2.5 pr-1.5 py-1 text-xs font-semibold transition-all"
         >
-          {STEP_SHORT_LABEL[s.key] ?? s.label}
+          {t(STEP_SHORT_LABEL[s.key] ?? s.label)}
           <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--color-warning)] text-white text-[10px] font-bold leading-none">
             {s.count > 99 ? "99+" : s.count}
           </span>
@@ -152,8 +153,8 @@ export function PipelineFlow({
   return (
     <div className={`flex items-center gap-2 min-w-0 ${inHeader ? "" : "mb-3"}`}>
       {canCreateDon && (
-        <Btn size="sm" onClick={onCreateDon} className="shrink-0" title="Tạo đơn đặt linh kiện mới">
-          ＋ Tạo đơn
+        <Btn size="sm" onClick={onCreateDon} className="shrink-0" title={t("Tạo đơn đặt linh kiện mới")}>
+          {t("＋ Tạo đơn")}
         </Btn>
       )}
       {!collapsed && (
@@ -171,7 +172,7 @@ export function PipelineFlow({
                 <div key={lane.key} className="flex items-center gap-1 shrink-0">
                   {laneIdx > 0 && <span className="w-px h-6 bg-[var(--line)] mr-1" aria-hidden />}
                   <span className="text-[8.5px] font-bold uppercase tracking-wide shrink-0" style={{ color: lane.meta.labelColor }}>
-                    {lane.meta.label}
+                    {t(lane.meta.label)}
                   </span>
                   <div className="flex items-center gap-1">
                     {lane.items.map((s) => {
@@ -184,10 +185,10 @@ export function PipelineFlow({
                           onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: "", loaiDon: s.loaiDon })}
                           style={{ background: lane.meta.bg, borderColor: lane.meta.border }}
                           className="focus-ring relative flex min-w-[32px] flex-col items-center justify-center gap-0 rounded-md border py-1 px-1 text-center transition-transform hover:-translate-y-0.5"
-                          title={STEP_DESCRIPTION[s.key] ?? s.label}
+                          title={t(STEP_DESCRIPTION[s.key] ?? s.label)}
                         >
                           {isMine && hasCount && (
-                            <span className="absolute top-0.5 right-0.5 h-1 w-1 rounded-full bg-[var(--color-primary)]" title="Việc của bạn" />
+                            <span className="absolute top-0.5 right-0.5 h-1 w-1 rounded-full bg-[var(--color-primary)]" title={t("Việc của bạn")} />
                           )}
                           <span
                             className="text-[11px] font-extrabold leading-none tabular-nums"
@@ -196,7 +197,7 @@ export function PipelineFlow({
                             {s.count}
                           </span>
                           <span className="text-[7px] font-semibold leading-none mt-0.5 whitespace-nowrap" style={{ color: hasCount ? lane.meta.labelColor : "var(--color-text-faint)" }}>
-                            {STEP_SHORT_LABEL[s.key] ?? s.label}
+                            {t(STEP_SHORT_LABEL[s.key] ?? s.label)}
                           </span>
                         </button>
                       );
@@ -221,7 +222,7 @@ export function PipelineFlow({
           onClick={onToggleCollapsed}
           className="focus-ring shrink-0 whitespace-nowrap text-xs font-semibold text-[var(--ink-500)] underline decoration-dotted underline-offset-2 hover:text-[var(--ink-700)]"
         >
-          {collapsed ? `Xem toàn bộ quy trình (${steps.length}) ▾` : "Thu gọn quy trình ▴"}
+          {collapsed ? t("Xem toàn bộ quy trình ({n}) ▾", { n: steps.length }) : t("Thu gọn quy trình ▴")}
         </button>
       )}
     </div>
@@ -242,7 +243,7 @@ export function PxkMiniPipeline({ trangThai }: { trangThai: string }) {
   const nhanhReTone = PXK_TRANG_THAI_TONE[trangThai] === "success" ? "var(--color-success)" : "var(--color-text-faint)";
   // SUA (phan hoi 2026-09-22 "TN hủy phiếu nhưng đang hiện là kế toán hủy") - nhan trung tinh vai tro,
   // xem giai thich day du o constants.ts PXK_TRANG_THAI_OPTIONS.
-  const nhanhReLabel = trangThai === "Ke toan huy" ? "Đã huỷ" : trangThai === "Hang tru kho" ? "Trừ kho" : "Kết thúc";
+  const nhanhReLabel = trangThai === "Ke toan huy" ? t("Đã huỷ") : trangThai === "Hang tru kho" ? t("Trừ kho") : t("Kết thúc");
   const nhanhReIcon = trangThai === "Ke toan huy" ? "✕" : "⏹";
   return (
     <div className="mb-3 overflow-x-auto pb-0.5">
@@ -281,7 +282,7 @@ export function PxkMiniPipeline({ trangThai }: { trangThai: string }) {
                 className="mt-1.5 text-[10px] font-semibold text-center leading-tight px-0.5"
                 style={{ color: dangO ? "var(--color-text)" : daQua ? "var(--color-success)" : "var(--color-text-faint)" }}
               >
-                {PXK_MINI_LABEL[s]}
+                {t(PXK_MINI_LABEL[s])}
               </span>
             </div>
           );

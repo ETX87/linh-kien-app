@@ -8,7 +8,9 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
-const FILE_HANG_SO = ["layout/navConfig.ts", "modules/datMuaLinhKien/constants.ts"];
+const FILE_HANG_SO = ["layout/navConfig.ts", "modules/datMuaLinhKien/constants.ts", "modules/datMuaLinhKien/PipelineFlow.tsx"];
+// Nhan the "Trang chu" do backend tra ve (luong-quy-trinh / home-summary) - StatCard tu tn() nen chi can co trong tu dien.
+const FILE_NHAN_BACKEND = ["../../backend/src/routes/datMuaLinhKien.ts"];
 const VIET = /[À-ỹđĐ]/;
 
 function duyet(dir, out = []) {
@@ -37,6 +39,14 @@ for (const f of duyet(SRC)) {
 for (const rel of FILE_HANG_SO) {
   const s = boChuThich(readFileSync(join(SRC, rel), "utf8"));
   for (const m of s.matchAll(/"((?:[^"\\]|\\.)*)"/g)) {
+    const v = giaiChuoi(m[1], '"');
+    if (VIET.test(v)) khoa.add(v);
+  }
+}
+
+for (const rel of FILE_NHAN_BACKEND) {
+  const s = boChuThich(readFileSync(join(SRC, rel), "utf8"));
+  for (const m of s.matchAll(/\blabel:\s*"((?:[^"\\]|\\.)*)"/g)) {
     const v = giaiChuoi(m[1], '"');
     if (VIET.test(v)) khoa.add(v);
   }
