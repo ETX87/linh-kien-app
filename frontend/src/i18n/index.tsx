@@ -38,9 +38,13 @@ function taiTuDien(n: NgonNgu): Promise<void> {
 }
 
 /** Dich 1 cau tieng Viet sang ngon ngu dang chon (thieu ban dich -> giu tieng Viet). */
-export function t(vi: string, bien?: Record<string, string | number>): string {
-  let s = hienTai === "vi" ? vi : (tuDien[hienTai]?.[vi] ?? vi);
-  if (bien) s = s.replace(/\{(\w+)\}/g, (m, k: string) => (k in bien ? String(bien[k]) : m));
+// Ngu canh: cung 1 chu tieng Viet nhung nghia khac (nut "Từ chối" = Reject, muc menu "Từ chối" = Rejected) -> khoa
+// "Từ chối||nút": tieng Viet hien phan truoc "||", tu dien tra theo CA khoa.
+export function t(vi: string, bien?: Record<string, string | number | null | undefined>): string {
+  const ngat = vi.indexOf("||");
+  const goc = ngat >= 0 ? vi.slice(0, ngat) : vi;
+  let s = hienTai === "vi" ? goc : (tuDien[hienTai]?.[vi] ?? goc);
+  if (bien) s = s.replace(/\{(\w+)\}/g, (m, k: string) => (k in bien ? String(bien[k] ?? "") : m));
   return s;
 }
 

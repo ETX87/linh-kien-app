@@ -7,6 +7,7 @@ import { api } from "../../api/client";
 import { compressImage } from "../../lib/imageCompress";
 import { formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay";
 import { trangThaiLabel, describeApiError, useNenAnhTraHangEnabled, LOAI_DON_TONE, loaiDonLabel } from "./helpers";
+import { t } from "../../i18n";
 
 // Cac component UI dung chung nhieu tab cua module "Dat mua linh kien" (tach tu
 // DatMuaLinhKienModule.tsx - UI redesign Phase 3, phan hoi Codex 2026-08-19).
@@ -29,7 +30,7 @@ export function ImageLightbox({ url, onClose }: { url: string; onClose: () => vo
       <button onClick={onClose} className="focus-ring absolute top-4 right-4 w-9 h-9 rounded-lg bg-white/10 text-white hover:bg-white/20 text-lg">
         ✕
       </button>
-      <img src={url} alt="Ảnh phóng to" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+      <img src={url} alt={t("Ảnh phóng to")} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
       <a
         href={url}
         target="_blank"
@@ -37,7 +38,7 @@ export function ImageLightbox({ url, onClose }: { url: string; onClose: () => vo
         onClick={(e) => e.stopPropagation()}
         className="absolute bottom-5 text-xs text-white/70 hover:text-white hover:underline"
       >
-        Mở ảnh gốc trên Google Drive ↗
+        {t("Mở ảnh gốc trên Google Drive ↗")}
       </a>
     </div>
   );
@@ -68,7 +69,7 @@ export function LogTieuDe({ nguoi, hanhDong, trangThai, ghiChu }: { nguoi: React
 /** Ten nguoi thao tac trong log (ten hien thi day du moi tai khoan; "he-thong"/rong = "Hệ thống"). */
 export function useTenNguoiLog(): (email: string | null | undefined) => string {
   const dir = usePersonDirectory();
-  return (email) => (!email || email === "he-thong" ? "Hệ thống" : formatPersonDisplay(email, dir));
+  return (email) => (!email || email === "he-thong" ? t("Hệ thống") : formatPersonDisplay(email, dir));
 }
 
 // Thumbnail <img> co the bam de phong to (thay cho <a target="_blank"><img/></a>) - dung cho cac o
@@ -130,7 +131,7 @@ export function ActiveFiltersBar({ chips }: { chips: { label: string; onClear: (
   if (chips.length === 0) return null;
   return (
     <div className="flex flex-wrap items-center gap-1.5 mb-2">
-      <span className="text-xs text-[var(--ink-500)]">Đang lọc:</span>
+      <span className="text-xs text-[var(--ink-500)]">{t("Đang lọc:")}</span>
       {chips.map((c, i) => (
         <button
           key={i}
@@ -147,7 +148,7 @@ export function ActiveFiltersBar({ chips }: { chips: { label: string; onClear: (
           onClick={() => chips.forEach((c) => c.onClear())}
           className="focus-ring text-xs text-[var(--ink-500)] underline decoration-dotted underline-offset-2 hover:text-[var(--ink-700)]"
         >
-          Xoá tất cả bộ lọc
+          {t("Xoá tất cả bộ lọc")}
         </button>
       )}
     </div>
@@ -227,7 +228,7 @@ export function CollapsibleSection({
           onClick={() => setOpen((v) => !v)}
           className="focus-ring shrink-0 text-[11px] font-semibold text-[var(--color-primary)] hover:underline"
         >
-          {open ? "▲ Thu gọn" : "▼ Mở rộng"}
+          {open ? t("▲ Thu gọn") : t("▼ Mở rộng")}
         </button>
       </div>
       {open && children}
@@ -286,14 +287,14 @@ export function FilterSearchBar({
             onClick={onToggleFilters}
             className="focus-ring inline-flex items-center gap-1 rounded-lg border border-[var(--line)] bg-white px-2.5 py-1.5 text-sm font-semibold text-[var(--ink-600)] hover:bg-[var(--surface-100)]"
           >
-            {showFilters ? "▲ Ẩn bộ lọc" : `☰ Bộ lọc${activeFilterCount > 0 ? ` (${activeFilterCount})` : ""} ▾`}
+            {showFilters ? t("▲ Ẩn bộ lọc") : `☰ ${t("Bộ lọc")}${activeFilterCount > 0 ? ` (${activeFilterCount})` : ""} ▾`}
           </button>
           {activeFilters}
           {onSearchChange && (
             <input
               value={searchValue ?? ""}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={searchPlaceholder ?? "Tìm kiếm..."}
+              placeholder={searchPlaceholder ?? t("Tìm kiếm...")}
               className="focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-base sm:text-sm min-w-0 flex-1 basis-40 sm:flex-none sm:w-64"
             />
           )}
@@ -370,8 +371,8 @@ export function KhuVucChipFilter({
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
-      const t = e.target as Node;
-      if (anchorRef.current?.contains(t) || contentRef.current?.contains(t)) return;
+      const dich = e.target as Node;
+      if (anchorRef.current?.contains(dich) || contentRef.current?.contains(dich)) return;
       setOpen(false);
     }
     if (open) document.addEventListener("mousedown", onClickOutside);
@@ -393,7 +394,7 @@ export function KhuVucChipFilter({
   // trong chinh no) - bo nhan rieng ben ngoai o CA 4 noi goi (DonCuaToiTab/PhieuXuatKhoTab/ThieuLkTab/
   // TraHangTab), gio chi con 1 dong cao bang cac o loc khac.
   const triggerLabel =
-    value.size === 0 ? "Khu vực: Tất cả" : value.size <= 2 ? `Khu vực: ${selectedLabels.join(", ")}` : `Khu vực (${value.size})`;
+    value.size === 0 ? t("Khu vực: Tất cả") : value.size <= 2 ? t("Khu vực: {a}", { a: selectedLabels.join(", ") }) : t("Khu vực ({a})", { a: value.size });
 
   return (
     <div className="relative inline-block">
@@ -413,7 +414,7 @@ export function KhuVucChipFilter({
       <DropdownPortal anchorRef={anchorRef} contentRef={contentRef} open={open} matchWidth={false} minWidth={200} maxHeight={320} className="rounded-xl py-1.5">
         <label className="flex items-center gap-2 px-3 py-1.5 mb-1 border-b border-[var(--line)] text-xs font-semibold text-[var(--ink-700)] hover:bg-slate-50 cursor-pointer">
           <input type="checkbox" checked={value.size === 0} onChange={() => onChange(new Set())} className="w-3.5 h-3.5" />
-          Tất cả
+          {t("Tất cả")}
         </label>
         {options.map((o) => (
           <label key={o.value} className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-700)] hover:bg-slate-50 cursor-pointer">
@@ -489,7 +490,7 @@ export function TraHangAnhPicker({
       const res = await api.postBinary<{ driveFileId: string; url: string }>("/tra-hang/upload-anh", bytes, upload.type || "image/jpeg");
       onChange([...photos, res]);
     } catch (err) {
-      addToast("Lỗi tải ảnh: " + describeApiError(err));
+      addToast(t("Lỗi tải ảnh: ") + describeApiError(err));
     } finally {
       setUploading(false);
     }
@@ -500,9 +501,9 @@ export function TraHangAnhPicker({
         {photos.map((p, i) => (
           <span key={p.driveFileId} className="inline-flex items-center gap-1.5 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2 py-1 text-xs">
             <ImageLink url={p.url} className="text-[var(--color-primary)] underline underline-offset-2">
-              📷 Ảnh {i + 1}
+              {t("📷 Ảnh {a}", { a: i + 1 })}
             </ImageLink>
-            <button type="button" onClick={() => onChange(photos.filter((_, j) => j !== i))} className="text-[var(--color-danger)] font-bold leading-none" title="Xoá ảnh này">
+            <button type="button" onClick={() => onChange(photos.filter((_, j) => j !== i))} className="text-[var(--color-danger)] font-bold leading-none" title={t("Xoá ảnh này")}>
               ✕
             </button>
           </span>
@@ -513,7 +514,7 @@ export function TraHangAnhPicker({
               uploading ? "opacity-50 pointer-events-none" : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
             }`}
           >
-            {uploading ? "Đang tải..." : "+ Thêm ảnh"}
+            {uploading ? t("Đang tải...") : t("+ Thêm ảnh")}
             <input
               type="file"
               accept="image/*"
@@ -528,7 +529,7 @@ export function TraHangAnhPicker({
           </label>
         )}
       </div>
-      <div className={`text-[11px] mt-1 ${photos.length === 0 ? "text-[var(--color-danger)]" : "text-[var(--color-text-faint)]"}`}>{photos.length}/{max} ảnh (bắt buộc tối thiểu 1)</div>
+      <div className={`text-[11px] mt-1 ${photos.length === 0 ? "text-[var(--color-danger)]" : "text-[var(--color-text-faint)]"}`}>{t("{n}/{max} ảnh (bắt buộc tối thiểu 1)", { n: photos.length, max })}</div>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { KvRow } from "../../components/ui/KvRow";
 import { fmtVND } from "../../types";
 import type { DonHangRow } from "./types";
 import { Money } from "../../components/ui/Money";
+import { t } from "../../i18n";
 
 // Loai chiet khau duoc huong cua tung dong don hang (2026-09-26, migration 0033_loai_chiet_khau.sql).
 // He thong TU GAN luc tao PXK theo dung nhanh cua thuat toan tinh tien PXK (va tinh lai CA phieu khi
@@ -71,8 +72,8 @@ export function LoaiChietKhauChip({ loai, title, children }: { loai: Pick<LoaiCh
 // trong / khac "Không" -> dong tinh GIA NIEM YET, khong huong chiet khau nao.
 // 2026-09-30: "Yêu cầu hóa đơn (xuất cho Trạm)" (nut "HĐ - Xuất cho trạm") VAN tinh chiet khau nhu binh thuong.
 export function coYeuCauHoaDon(v: string | null | undefined): boolean {
-  const t = (v ?? "").trim().normalize("NFC").toLowerCase();
-  return t !== "" && t !== "không" && t !== "khong" && !t.includes("xuất cho trạm") && !t.includes("xuat cho tram");
+  const chuan = (v ?? "").trim().normalize("NFC").toLowerCase();
+  return chuan !== "" && chuan !== "không" && chuan !== "khong" && !chuan.includes("xuất cho trạm") && !chuan.includes("xuat cho tram");
 }
 
 // Ly do dong khong duoc chiet khau (2026-09-30, phan hoi PMH-000106 "sao MUA HÀNG CÓ ID không được tính chiết khấu"):
@@ -85,10 +86,10 @@ export function HoaDonGiaNiemYet({ don }: {
   if (!tinhNhuMua || don.gia_chot != null || !coYeuCauHoaDon(don.yeu_cau_hoa_don)) return null;
   return (
     <span
-      title={`Đơn có yêu cầu hóa đơn ("${don.yeu_cau_hoa_don}") → tính giá niêm yết, không hưởng chiết khấu (Đình tủ, bậc thang, giá KTV, dự phòng).`}
+      title={t("Đơn có yêu cầu hóa đơn (\"{a}\") → tính giá niêm yết, không hưởng chiết khấu (Đình tủ, bậc thang, giá KTV, dự phòng).", { a: don.yeu_cau_hoa_don })}
       className="inline-flex shrink-0 items-center whitespace-nowrap rounded-[var(--radius-badge)] bg-[var(--color-neutral-soft)] px-2 py-[3px] text-[11px] font-semibold leading-none text-[var(--color-text-secondary)]"
     >
-      HĐ · giá niêm yết
+      {t("HĐ · giá niêm yết")}
     </span>
   );
 }
@@ -99,10 +100,10 @@ export function TienDaTraDon({ don }: { don: { tien_da_tra?: number | null; tien
   if (!don.tien_da_tra || don.tien_da_tra <= 0) return null;
   return (
     <span
-      title={`Đơn đã thanh toán ${don.tien_da_tra.toLocaleString("vi-VN")}đ${don.tien_da_tra_pxk ? ` ở phiếu ${don.tien_da_tra_pxk}` : ""} — vào phiếu mới sẽ được trừ vào số tiền cần chuyển`}
+      title={t("Đơn đã thanh toán {tien}đ{phieu} — vào phiếu mới sẽ được trừ vào số tiền cần chuyển", { tien: don.tien_da_tra.toLocaleString("vi-VN"), phieu: don.tien_da_tra_pxk ? t(" ở phiếu {id}", { id: don.tien_da_tra_pxk }) : "" })}
       className="inline-flex shrink-0 items-center whitespace-nowrap rounded-[var(--radius-badge)] bg-[var(--color-success-soft)] px-2 py-[3px] text-[11px] font-semibold leading-none text-[var(--color-success-strong)]"
     >
-      Đã trả {don.tien_da_tra.toLocaleString("vi-VN")}đ
+      {t("Đã trả {a}đ", { a: don.tien_da_tra.toLocaleString("vi-VN") })}
     </span>
   );
 }
@@ -115,7 +116,7 @@ export function LoaiChietKhauText({ id, thuCong, title }: { id: number | null | 
   const loai = id == null ? undefined : data?.find((l) => l.id === id);
   if (!loai) return <span className="text-[var(--color-text-faint)]">—</span>;
   return (
-    <LoaiChietKhauChip loai={loai} title={title ?? `${loai.ten} — ${thuCong ? TIP_THU_CONG : TIP_TU_DONG}`}>
+    <LoaiChietKhauChip loai={loai} title={title ?? `${loai.ten} — ${t(thuCong ? TIP_THU_CONG : TIP_TU_DONG)}`}>
       {!!thuCong && <span aria-hidden>✎</span>}
     </LoaiChietKhauChip>
   );
@@ -130,7 +131,7 @@ const LOI: Record<string, string> = {
   KHONG_THUOC_PXK: "Đơn chưa nằm trong phiếu xuất kho nào.",
   INVALID_STATE: "Phiếu không còn ở bước Đang tạo phiếu.",
 };
-const loiText = (err: unknown) => (err instanceof ApiError && err.code && LOI[err.code] ? LOI[err.code] : describeApiError(err));
+const loiText = (err: unknown) => (err instanceof ApiError && err.code && LOI[err.code] ? t(LOI[err.code]) : describeApiError(err));
 
 /**
  * Chi duoc doi loai chiet khau TRUOC KHI Ke toan chot tien - khop `choPhepDoiLoaiChietKhau` o backend
@@ -145,18 +146,18 @@ function giaGoiY(ma: string | null | undefined, d: DonHangRow): { gia: number; c
   const ban = d.lk_gia_ban;
   switch (ma) {
     case "KHONG_CK":
-      return ban != null ? { gia: ban, cachTinh: "giá bán" } : null;
+      return ban != null ? { gia: ban, cachTinh: t("giá bán") } : null;
     case "DINH_TU":
-      return ban != null ? { gia: Math.round(ban * 0.85), cachTinh: "giá bán × 85%" } : null;
+      return ban != null ? { gia: Math.round(ban * 0.85), cachTinh: t("giá bán × 85%") } : null;
     case "TONG_200_500":
-      return ban != null ? { gia: Math.round(ban * 0.7), cachTinh: "giá bán × 70%" } : null;
+      return ban != null ? { gia: Math.round(ban * 0.7), cachTinh: t("giá bán × 70%") } : null;
     case "GIA_KTV":
     case "CONG_NO":
-      return d.lk_gia_tri_cong_no != null ? { gia: d.lk_gia_tri_cong_no, cachTinh: "giá KTV" } : null;
+      return d.lk_gia_tri_cong_no != null ? { gia: d.lk_gia_tri_cong_no, cachTinh: t("giá KTV") } : null;
     case "KH_TRA_GOP":
-      return { gia: 0, cachTinh: "đơn KH trả góp — không tính công nợ" };
+      return { gia: 0, cachTinh: t("đơn KH trả góp — không tính công nợ") };
     case "GIA_DU_PHONG":
-      return d.lk_gia_du_phong != null ? { gia: d.lk_gia_du_phong, cachTinh: "giá dự phòng" } : null;
+      return d.lk_gia_du_phong != null ? { gia: d.lk_gia_du_phong, cachTinh: t("giá dự phòng") } : null;
     default:
       return null;
   }
@@ -209,8 +210,8 @@ export function DoiLoaiChietKhauNhieuDon({ dons, onClose, onDone }: { dons: DonH
   const mut = useMutation({
     mutationFn: (capNhatGia: boolean) => doiLoaiChietKhauCacDon(dons, { id: loai!.id, ten: loai!.ten, ma: loai!.ma }, capNhatGia),
     onSuccess: (loi, capNhatGia) => {
-      if (loi.length > 0) addToast(`Đã đổi ${dons.length - loi.length}/${dons.length} đơn. Lỗi: ${loi.join("; ")}`);
-      else addToast(`Đã đổi loại chiết khấu cho ${dons.length} đơn${capNhatGia ? " và cập nhật giá theo công thức" : " (giữ nguyên giá)"}`);
+      if (loi.length > 0) addToast(t("Đã đổi {a}/{b} đơn. Lỗi: {c}", { a: dons.length - loi.length, b: dons.length, c: loi.join("; ") }));
+      else addToast(t("Đã đổi loại chiết khấu cho {a} đơn{b}", { a: dons.length, b: capNhatGia ? t(" và cập nhật giá theo công thức") : t(" (giữ nguyên giá)") }));
       onDone();
     },
     onSettled: () => lamMoiSauDoiLoai(qc),
@@ -219,26 +220,26 @@ export function DoiLoaiChietKhauNhieuDon({ dons, onClose, onDone }: { dons: DonH
     <Modal
       open
       onClose={() => !mut.isPending && onClose()}
-      title={`Đổi loại chiết khấu cho ${dons.length} đơn`}
+      title={t("Đổi loại chiết khấu cho {a} đơn", { a: dons.length })}
       width="max-w-lg"
       footer={
         <div className="flex flex-wrap justify-end gap-2">
-          <Btn variant="ghost" size="sm" disabled={mut.isPending} onClick={onClose}>Huỷ</Btn>
-          <Btn variant="subtle" size="sm" disabled={!loai || mut.isPending} onClick={() => mut.mutate(false)}>Đổi, giữ nguyên giá</Btn>
-          <Btn size="sm" disabled={!loai || mut.isPending} loading={mut.isPending} onClick={() => mut.mutate(true)}>Đổi + cập nhật giá theo công thức</Btn>
+          <Btn variant="ghost" size="sm" disabled={mut.isPending} onClick={onClose}>{t("Huỷ")}</Btn>
+          <Btn variant="subtle" size="sm" disabled={!loai || mut.isPending} onClick={() => mut.mutate(false)}>{t("Đổi, giữ nguyên giá")}</Btn>
+          <Btn size="sm" disabled={!loai || mut.isPending} loading={mut.isPending} onClick={() => mut.mutate(true)}>{t("Đổi + cập nhật giá theo công thức")}</Btn>
         </div>
       }
     >
       <div className="space-y-3 text-sm" onClick={(e) => e.stopPropagation()}>
         <label className="block">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Loại chiết khấu mới</span>
+          <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">{t("Loại chiết khấu mới")}</span>
           <select
             autoFocus
             value={loaiId}
             onChange={(e) => setLoaiId(e.target.value)}
             className="focus-ring mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2 text-sm"
           >
-            <option value="">— Chọn loại —</option>
+            <option value="">{t("— Chọn loại —")}</option>
             {active.map((l) => (
               <option key={l.id} value={l.id}>{l.ten}</option>
             ))}
@@ -248,9 +249,9 @@ export function DoiLoaiChietKhauNhieuDon({ dons, onClose, onDone }: { dons: DonH
           <table className="tbl w-full text-[12px]">
             <thead>
               <tr className="tbl-head">
-                <th className="px-2 py-1.5 text-left">Mã LK</th>
-                <th className="px-2 py-1.5 text-left">Loại hiện tại</th>
-                <th className="px-2 py-1.5 text-right">Giá theo loại mới</th>
+                <th className="px-2 py-1.5 text-left">{t("Mã LK")}</th>
+                <th className="px-2 py-1.5 text-left">{t("Loại hiện tại")}</th>
+                <th className="px-2 py-1.5 text-right">{t("Giá theo loại mới")}</th>
               </tr>
             </thead>
             <tbody>
@@ -260,7 +261,7 @@ export function DoiLoaiChietKhauNhieuDon({ dons, onClose, onDone }: { dons: DonH
                   <tr key={d.id} className="border-t border-[var(--color-border-soft)]">
                     <td className="px-2 py-1 font-mono">{d.ma_lk}</td>
                     <td className="px-2 py-1">{tenLoaiChietKhau(list, d.loai_chiet_khau_id) ?? "—"}</td>
-                    <td className="px-2 py-1 text-right">{g ? <><Money>{fmtVND(g.gia)}</Money> <span className="text-[var(--color-text-secondary)]">({g.cachTinh})</span></> : "giữ giá"}</td>
+                    <td className="px-2 py-1 text-right">{g ? <><Money>{fmtVND(g.gia)}</Money> <span className="text-[var(--color-text-secondary)]">({g.cachTinh})</span></> : t("giữ giá")}</td>
                   </tr>
                 );
               })}
@@ -268,7 +269,7 @@ export function DoiLoaiChietKhauNhieuDon({ dons, onClose, onDone }: { dons: DonH
           </table>
         </div>
         <p className="text-[12px] text-[var(--color-text-secondary)]">
-          "Cập nhật giá theo công thức" đặt giá thực tế từng đơn theo loại mới (cột bên phải); loại tự thêm không có công thức thì giữ giá.
+          {t("\"Cập nhật giá theo công thức\" đặt giá thực tế từng đơn theo loại mới (cột bên phải); loại tự thêm không có công thức thì giữ giá.")}
         </p>
       </div>
     </Modal>
@@ -297,7 +298,7 @@ export function LoaiChietKhauPicker({ don, duocDoi, dongKhac }: { don: DonHangRo
   const isCongNo = don.loai_don === "cong_no" && !laTruCongNo(don.loai_de_xuat);
   const sl = don.so_luong_thuc_xuat ?? don.so_luong_de_xuat;
   const giaHienTai = isCongNo ? don.so_tien_cong_no : (don.gia_chot ?? don.gia_de_xuat);
-  const tenHienTai = tenLoaiChietKhau(list, don.loai_chiet_khau_id) ?? "Chưa có";
+  const tenHienTai = tenLoaiChietKhau(list, don.loai_chiet_khau_id) ?? t("Chưa có");
 
   const lamMoi = () =>
     qc.invalidateQueries({
@@ -318,25 +319,25 @@ export function LoaiChietKhauPicker({ don, duocDoi, dongKhac }: { don: DonHangRo
           if (isCongNo) await api.patch(`/dat-mua-lk/don-hang/${encodeURIComponent(don.id)}/so-tien-cong-no`, { so_tien_cong_no: gia });
           else await api.patch(`/dat-mua-lk/don-hang/${encodeURIComponent(don.id)}`, { gia_chot: gia });
         } catch (err) {
-          throw new Error(`Đã đổi loại chiết khấu nhưng chưa lưu được giá: ${loiText(err)}`);
+          throw new Error(t("Đã đổi loại chiết khấu nhưng chưa lưu được giá: {a}", { a: loiText(err) }));
         }
       }
       if (apDungTatCa && dongKhac && dongKhac.length > 0) {
         const loi = await doiLoaiChietKhauCacDon(dongKhac, luaChon, gia != null);
-        if (loi.length > 0) throw new Error(`Đã đổi đơn này nhưng lỗi ở ${loi.length} đơn khác: ${loi.join("; ")}`);
+        if (loi.length > 0) throw new Error(t("Đã đổi đơn này nhưng lỗi ở {a} đơn khác: {b}", { a: loi.length, b: loi.join("; ") }));
       }
     },
     onSuccess: (_r, v) => {
       addToast(
-        (v.gia == null ? "Đã đổi loại chiết khấu (giữ nguyên giá)" : "Đã đổi loại chiết khấu và cập nhật giá thực tế") +
-          (apDungTatCa && soDongKhac > 0 ? ` — áp dụng cho cả ${soDongKhac + 1} đơn trong phiếu` : ""),
+        (v.gia == null ? t("Đã đổi loại chiết khấu (giữ nguyên giá)") : t("Đã đổi loại chiết khấu và cập nhật giá thực tế")) +
+          (apDungTatCa && soDongKhac > 0 ? t(" — áp dụng cho cả {a} đơn trong phiếu", { a: soDongKhac + 1 }) : ""),
       );
       setChon(null);
       setApDungTatCa(false);
       setThemMoi(false);
       setTenMoi("");
     },
-    onError: (err) => addToast(err instanceof ApiError ? "Lỗi: " + loiText(err) : String((err as Error).message)),
+    onError: (err) => addToast(err instanceof ApiError ? t("Lỗi: ") + loiText(err) : String((err as Error).message)),
     onSettled: lamMoi,
   });
 
@@ -350,7 +351,7 @@ export function LoaiChietKhauPicker({ don, duocDoi, dongKhac }: { don: DonHangRo
 
   if (!duocDoi) {
     return (
-      <span title="Phiếu đã chốt chuyển tiền (hoặc đã qua bước Đang tạo phiếu) — không đổi được loại chiết khấu">
+      <span title={t("Phiếu đã chốt chuyển tiền (hoặc đã qua bước Đang tạo phiếu) — không đổi được loại chiết khấu")}>
         <LoaiChietKhauText id={don.loai_chiet_khau_id} thuCong={don.loai_chiet_khau_thu_cong} /> <span className="text-xs">🔒</span>
       </span>
     );
@@ -374,14 +375,14 @@ export function LoaiChietKhauPicker({ don, duocDoi, dongKhac }: { don: DonHangRo
               if (e.key === "Enter" && tenMoi.trim()) moPopup({ tenMoi: tenMoi.trim() });
               if (e.key === "Escape") setThemMoi(false);
             }}
-            placeholder="Tên loại chiết khấu mới"
+            placeholder={t("Tên loại chiết khấu mới")}
             className="focus-ring h-[30px] w-52 rounded-lg border border-[var(--line)] bg-[var(--surface-100)] px-2 text-xs"
           />
           <Btn size="sm" disabled={!tenMoi.trim()} onClick={() => moPopup({ tenMoi: tenMoi.trim() })}>
-            Tiếp
+            {t("Tiếp")}
           </Btn>
           <Btn size="sm" variant="ghost" onClick={() => setThemMoi(false)}>
-            Huỷ
+            {t("Huỷ")}
           </Btn>
         </>
       ) : (
@@ -389,7 +390,7 @@ export function LoaiChietKhauPicker({ don, duocDoi, dongKhac }: { don: DonHangRo
           <select
             value={don.loai_chiet_khau_id != null ? String(don.loai_chiet_khau_id) : ""}
             disabled={mut.isPending}
-            title={don.loai_chiet_khau_id == null ? undefined : don.loai_chiet_khau_thu_cong ? TIP_THU_CONG : TIP_TU_DONG}
+            title={don.loai_chiet_khau_id == null ? undefined : don.loai_chiet_khau_thu_cong ? t(TIP_THU_CONG) : t(TIP_TU_DONG)}
             onChange={(e) => {
               const v = e.target.value;
               if (v === THEM_MOI) return setThemMoi(true);
@@ -399,33 +400,33 @@ export function LoaiChietKhauPicker({ don, duocDoi, dongKhac }: { don: DonHangRo
             // To mau o chon theo loai DANG chon (cung mau chip) - moi option cung mang mau rieng cua no.
             className={`focus-ring h-[30px] max-w-[260px] rounded-lg border border-[var(--line)] px-1.5 text-xs font-semibold ${ckClass(active.find((l) => l.id === don.loai_chiet_khau_id)) || "bg-[var(--surface)]"}`}
           >
-            {don.loai_chiet_khau_id == null && <option value="">— Chưa có —</option>}
+            {don.loai_chiet_khau_id == null && <option value="">{t("— Chưa có —")}</option>}
             {active.map((l) => (
               <option key={l.id} value={l.id} className={ckClass(l)}>
                 {l.ten}
               </option>
             ))}
-            <option value={THEM_MOI} className="bg-[var(--surface)] text-[var(--color-text)]">+ Thêm loại mới…</option>
+            <option value={THEM_MOI} className="bg-[var(--surface)] text-[var(--color-text)]">{t("+ Thêm loại mới…")}</option>
           </select>
-          {!!don.loai_chiet_khau_thu_cong && <span className="text-xs text-[var(--color-text-muted)]" title={TIP_THU_CONG}>✎</span>}
+          {!!don.loai_chiet_khau_thu_cong && <span className="text-xs text-[var(--color-text-muted)]" title={t(TIP_THU_CONG)}>✎</span>}
         </>
       )}
       {chon && (
         <Modal
           open
           onClose={() => !mut.isPending && setChon(null)}
-          title="Đổi loại chiết khấu"
+          title={t("Đổi loại chiết khấu")}
           width="max-w-md"
           footer={
             <div className="flex flex-wrap justify-end gap-2">
               <Btn variant="ghost" size="sm" disabled={mut.isPending} onClick={() => setChon(null)}>
-                Huỷ
+                {t("Huỷ")}
               </Btn>
               <Btn variant="subtle" size="sm" disabled={mut.isPending} onClick={() => mut.mutate({ luaChon: chon, gia: null })}>
-                Không, giữ nguyên giá
+                {t("Không, giữ nguyên giá")}
               </Btn>
               <Btn size="sm" disabled={mut.isPending || !giaHopLe} loading={mut.isPending} onClick={() => mut.mutate({ luaChon: chon, gia: Math.round(giaSo) })}>
-                Có, cập nhật giá
+                {t("Có, cập nhật giá")}
               </Btn>
             </div>
           }
@@ -443,19 +444,19 @@ export function LoaiChietKhauPicker({ don, duocDoi, dongKhac }: { don: DonHangRo
               <label className="flex items-start gap-2 rounded-[10px] border border-[var(--color-border)] px-3 py-2 text-[13px]">
                 <input type="checkbox" className="mt-0.5" checked={apDungTatCa} onChange={(e) => setApDungTatCa(e.target.checked)} />
                 <span>
-                  Áp dụng loại này cho <b>cả {soDongKhac} đơn khác</b> trong phiếu
-                  <span className="block text-[12px] text-[var(--color-text-secondary)]">Chọn "Có" thì giá các đơn khác tính theo công thức của loại mới (loại tự thêm giữ giá).</span>
+                  {t("Áp dụng loại này cho")} <b>{t("cả {a} đơn khác", { a: soDongKhac })}</b> {t("trong phiếu")}
+                  <span className="block text-[12px] text-[var(--color-text-secondary)]">{t("Chọn \"Có\" thì giá các đơn khác tính theo công thức của loại mới (loại tự thêm giữ giá).")}</span>
                 </span>
               </label>
             )}
-            <div>Có cập nhật giá thực tế theo loại chiết khấu mới không?</div>
-            <KvRow label={isCongNo ? "Tiền công nợ hiện tại" : "Đơn giá thực tế hiện tại"}>
+            <div>{t("Có cập nhật giá thực tế theo loại chiết khấu mới không?")}</div>
+            <KvRow label={isCongNo ? t("Tiền công nợ hiện tại") : t("Đơn giá thực tế hiện tại")}>
               {giaHienTai != null ? <Money>{fmtVND(giaHienTai)}</Money> : "—"}
               {!isCongNo && <span className="text-[var(--color-text-secondary)]"> × {sl} = {giaHienTai != null ? <Money>{fmtVND(giaHienTai * sl)}</Money> : "—"}</span>}
             </KvRow>
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">
-                {isCongNo ? "Tiền công nợ thực tế mới" : "Đơn giá thực tế mới"}
+                {isCongNo ? t("Tiền công nợ thực tế mới") : t("Đơn giá thực tế mới")}
               </label>
               <input
                 type="number"
@@ -468,12 +469,12 @@ export function LoaiChietKhauPicker({ don, duocDoi, dongKhac }: { don: DonHangRo
               <div className="mt-1 text-xs text-[var(--color-text-secondary)]">
                 {goiY ? (
                   <>
-                    Gợi ý theo loại mới: {isCongNo ? <><Money>{fmtVND(goiY.gia)}</Money> × {sl} = <Money>{fmtVND(goiY.gia * sl)}</Money></> : <Money>{fmtVND(goiY.gia)}</Money>} ({goiY.cachTinh})
+                    {t("Gợi ý theo loại mới:")} {isCongNo ? <><Money>{fmtVND(goiY.gia)}</Money> × {sl} = <Money>{fmtVND(goiY.gia * sl)}</Money></> : <Money>{fmtVND(goiY.gia)}</Money>} ({goiY.cachTinh})
                   </>
                 ) : (
-                  "Loại tự thêm không có công thức — nhập giá thực tế nếu cần đổi."
+                  t("Loại tự thêm không có công thức — nhập giá thực tế nếu cần đổi.")
                 )}
-                {!isCongNo && giaHopLe && <> · Thành tiền mới: <b className="text-[var(--color-text)]"><Money>{fmtVND(giaSo * sl)}</Money></b></>}
+                {!isCongNo && giaHopLe && <> {t("· Thành tiền mới:")} <b className="text-[var(--color-text)]"><Money>{fmtVND(giaSo * sl)}</Money></b></>}
               </div>
             </div>
           </div>
