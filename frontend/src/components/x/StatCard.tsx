@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Tone } from "./Badge";
 import { Icon } from "./Icon";
+import { tn } from "../../i18n";
 
 // DESIGN_GUIDELINES.md §2.4/§6.1 (chuyen doi 2026-09-26): the KPI pastel - nen gradient theo nhom, icon
 // tron nen dam goc trai tren, watermark mo goc phai duoi, so lieu 28px/800 mau chu chinh. Mau tone ->
@@ -63,12 +64,12 @@ export function StatCard({
     >
       <span className="kpi-icon grid h-[38px] w-[38px] shrink-0 place-items-center rounded-full">{icon ?? <DefIcon size={18} />}</span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[12px] font-semibold leading-tight text-[var(--color-text-body)]">{label}</span>
+        <span className="block text-[12px] font-semibold leading-tight text-[var(--color-text-body)]">{tn(label)}</span>
         <span className="mt-1.5 flex items-center gap-1.5">
           <span className={`text-[28px] font-extrabold leading-none tracking-tight ${muted ? "text-[var(--color-text-faint)]" : "text-[var(--color-text)]"}`}>{value}</span>
           {onClick && <Icon.arrowRight size={15} className="kpi-accent transition-transform group-hover:translate-x-0.5" />}
         </span>
-        {sub && <span className="mt-1.5 block text-[11px] leading-snug text-[var(--color-text-secondary)]">{sub}</span>}
+        {sub && <span className="mt-1.5 block text-[11px] leading-snug text-[var(--color-text-secondary)]">{tn(sub)}</span>}
       </span>
       <span aria-hidden className="kpi-watermark pointer-events-none absolute -bottom-2 -right-1">
         <DefIcon size={52} />

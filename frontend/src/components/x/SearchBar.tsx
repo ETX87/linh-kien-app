@@ -1,9 +1,10 @@
 import { Icon } from "./Icon";
+import { t } from "../../i18n";
 
 export function SearchBar({
   value,
   onChange,
-  placeholder = "Tìm kiếm…",
+  placeholder = t("Tìm kiếm…"),
   className = "",
 }: {
   value: string;

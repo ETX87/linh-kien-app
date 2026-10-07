@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { t } from "../../i18n";
 
 export interface Column<T> {
   key: string;
@@ -18,7 +19,7 @@ export function DataTable<T extends { id: string }>({
   onToggleAll,
   onRowClick,
   rowAccent,
-  emptyText = "Không có dữ liệu.",
+  emptyText = t("Không có dữ liệu."),
   minWidth = 1060,
 }: {
   columns: Column<T>[];

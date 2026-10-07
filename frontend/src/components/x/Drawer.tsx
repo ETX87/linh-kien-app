@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { Icon } from "./Icon";
+import { tn } from "../../i18n";
 
 // Drawer phai (desktop) / BottomSheet full-height (mobile) - cung API. `mobile` do AppShell truyen.
 export function Drawer({
@@ -47,7 +48,7 @@ export function Drawer({
         style={mobile ? undefined : { maxWidth: "var(--drawer-w)" }}
       >
         <div className="flex h-[52px] shrink-0 items-center justify-between gap-3 border-b border-[var(--color-border)] px-4">
-          <div className="flex min-w-0 items-center gap-2">{title}</div>
+          <div className="flex min-w-0 items-center gap-2">{tn(title)}</div>
           <div className="flex shrink-0 items-center gap-1">
             {nav && (
               <>

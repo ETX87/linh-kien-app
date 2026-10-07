@@ -1,3 +1,4 @@
+import { tn } from "../../i18n";
 export interface TabItem {
   key: string;
   label: string;
@@ -10,17 +11,17 @@ export function Tabs({ tabs, active, onChange }: { tabs: TabItem[]; active: stri
     // trang, inactive nen #F1F5F9 chu xam (class .filter-tab trong tokens.css). Thay kieu gach chan +
     // nen nhat cu; van giu tin hieu "dang chon" ro rang ma UX audit 2026-09-08 yeu cau.
     <div className="flex items-center gap-1.5 mb-4 overflow-x-auto pb-0.5">
-      {tabs.map((t) => {
-        const isActive = active === t.key;
+      {tabs.map((tab) => {
+        const isActive = active === tab.key;
         // Chi hien badge khi count > 0 - tab "rong" (0) khong can hien "(0)" gay roi mat, vua giup
         // hang tab gon hon vua lam tab co du lieu THUC SU noi bat (giong bao hieu "co tin nhan moi").
-        const hasCount = !!t.count;
+        const hasCount = !!tab.count;
         return (
-          <button key={t.key} onClick={() => onChange(t.key)} className={`focus-ring filter-tab ${isActive ? "active" : ""}`}>
-            {t.label}
+          <button key={tab.key} onClick={() => onChange(tab.key)} className={`focus-ring filter-tab ${isActive ? "active" : ""}`}>
+            {tn(tab.label)}
             {hasCount && (
               <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--color-danger)] text-white text-[10px] font-bold leading-none">
-                {t.count! > 99 ? "99+" : t.count}
+                {tab.count! > 99 ? "99+" : tab.count}
               </span>
             )}
           </button>

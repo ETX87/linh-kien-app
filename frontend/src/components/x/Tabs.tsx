@@ -1,4 +1,5 @@
 import { useIsMobile } from "../../hooks/useMediaQuery";
+import { tn } from "../../i18n";
 
 export interface TabDef {
   key: string;
@@ -28,12 +29,12 @@ export function Tabs({ tabs, value, onChange, size = "md" }: { tabs: TabDef[]; v
           >
             {useShort ? (
               <>
-                {t.shortLabel}
+                {tn(t.shortLabel)}
                 {t.count != null && <span className="tabular">{` (x${t.count})`}</span>}
               </>
             ) : (
               <>
-                {t.label}
+                {tn(t.label)}
                 {t.count != null && (
                   <span className={`tabular rounded-full px-1.5 text-[11px] ${active ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]" : "bg-[var(--color-neutral-soft)] text-[var(--color-text-secondary)]"}`}>
                     {t.count}

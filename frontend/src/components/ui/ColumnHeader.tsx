@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import type { Column } from "./PaginatedTable";
 import { DropdownPortal } from "./DropdownPortal";
+import { t, tn } from "../../i18n";
 
 // Tach tu PaginatedTable.tsx (UI redesign 2026-08-21) - phan UI cua 1 o <th> (sap xep/keo doi vi
 // tri/keo doi do rong) + nut "⚙ Tuy chinh cot" + panel, dung chung voi useColumnConfig.ts. Tach
@@ -28,16 +29,16 @@ export function ColumnSettingsButton<T>({
         type="button"
         onClick={() => setSettingsOpen((v) => !v)}
         className="focus-ring inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-[var(--ocean-400)] bg-[var(--ocean-100)] text-[var(--ocean-700)] hover:bg-[var(--ocean-400)] hover:text-white normal-case font-semibold transition-colors"
-        title="Chọn cột hiển thị / ẩn bớt, đổi độ rộng, kéo thả sắp xếp cột"
+        title={t("Chọn cột hiển thị / ẩn bớt, đổi độ rộng, kéo thả sắp xếp cột")}
       >
         <span className="text-sm leading-none">⚙</span>
-        <span className="hidden sm:inline whitespace-nowrap">Tùy chỉnh cột</span>
+        <span className="hidden sm:inline whitespace-nowrap">{t("Tùy chỉnh cột")}</span>
       </button>
       <DropdownPortal anchorRef={anchorRef} open={settingsOpen} matchWidth={false} maxHeight={384} className="w-64 rounded-xl py-1.5 normal-case font-normal">
         <div className="px-3 py-1.5 text-xs text-[var(--ink-600)] border-b border-[var(--line)] mb-1">
-          ↔ Kéo đường kẻ giữa 2 tiêu đề để đổi độ rộng · Kéo cả tiêu đề để đổi vị trí cột
+          ↔ {t("Kéo đường kẻ giữa 2 tiêu đề để đổi độ rộng · Kéo cả tiêu đề để đổi vị trí cột")}
         </div>
-        <div className="px-3 py-1.5 text-[11px] font-semibold text-[var(--ink-400)] uppercase tracking-wide">Cột hiển thị (bỏ tick để ẩn bớt)</div>
+        <div className="px-3 py-1.5 text-[11px] font-semibold text-[var(--ink-400)] uppercase tracking-wide">{t("Cột hiển thị (bỏ tick để ẩn bớt)")}</div>
         {toggleableColumns.map((tc) => (
           <label key={tc.key} className="flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--ink-700)] hover:bg-slate-50 cursor-pointer">
             <input type="checkbox" checked={resolvedOrder.includes(tc.key)} onChange={() => toggleColumn(tc.key)} className="w-3.5 h-3.5" />
@@ -105,7 +106,7 @@ export function ResizableHeaderCell<T>({
       onDragEnd={reorderable ? () => { draggedColKey.current = null; setDragOverKey(null); } : undefined}
     >
       <span className="inline-flex items-center gap-1">
-        {col.header}
+        {tn(col.header)}
         {isActive && <span>{sortDir === "asc" ? "▲" : "▼"}</span>}
         {col.filter}
       </span>
@@ -116,7 +117,7 @@ export function ResizableHeaderCell<T>({
           onClick={(e) => e.stopPropagation()}
           draggable={false}
           className="group absolute top-0 right-0 h-full w-2.5 cursor-col-resize select-none flex items-center justify-center hover:bg-[var(--ocean-100)]"
-          title="Kéo để đổi độ rộng cột"
+          title={t("Kéo để đổi độ rộng cột")}
         >
           <span className="w-px h-3/5 bg-[var(--ink-400)] group-hover:bg-[var(--ocean-500)]" />
         </span>

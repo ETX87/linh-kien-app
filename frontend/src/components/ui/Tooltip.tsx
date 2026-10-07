@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../../i18n";
 
 // Tooltip "?" nho (hang muc #5, 2026-08-25: "Bỏ các đoạn text giải thích dài dòng cho vào icon ? nhỏ
 // ở cuối cùng, chuyển hết về dạng tooltip. Di chuột vào mới hiện hoặc ấn vào để hiện.") - dieu khien
@@ -31,7 +32,7 @@ export function Tooltip({ text, className = "" }: { text: string; className?: st
           setOpen((v) => !v);
         }}
         className="focus-ring w-4 h-4 rounded-full bg-[var(--surface-200)] text-[var(--ink-500)] text-[10px] font-bold flex items-center justify-center hover:bg-[var(--ocean-100)] hover:text-[var(--ocean-800)] transition-colors"
-        aria-label="Xem giải thích"
+        aria-label={t("Xem giải thích")}
       >
         ?
       </button>

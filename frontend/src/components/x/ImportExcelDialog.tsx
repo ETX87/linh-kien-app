@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Modal } from "./Modal";
 import { Btn } from "./Btn";
 import { Icon } from "./Icon";
+import { t } from "../../i18n";
 
 // Props-driven (port P1). Nơi gọi lo: đọc file (preview qua API), truyền previewRows/errors về,
 // và onConfirm (commit). `dropHint` mô tả cột file mẫu.
@@ -9,7 +10,7 @@ export function ImportExcelDialog({
   open,
   onClose,
   mobile,
-  title = "Nhập Excel hàng loạt",
+  title = t("Nhập Excel hàng loạt"),
   dropHint,
   fileName,
   previewRows,
@@ -49,14 +50,14 @@ export function ImportExcelDialog({
         <>
           {onDownloadTemplate && (
             <Btn variant="ghost" size="sm" onClick={onDownloadTemplate}>
-              <Icon.download size={14} /> Tải file mẫu
+              <Icon.download size={14} /> {t("Tải file mẫu")}
             </Btn>
           )}
           <Btn variant="ghost" size="sm" onClick={onClose}>
-            Huỷ
+            {t("Huỷ")}
           </Btn>
           <Btn size="sm" loading={loading} disabled={!hasPreview || errors.length === previewRows!.length} onClick={onConfirm}>
-            Nhập ngay
+            {t("Nhập ngay")}
           </Btn>
         </>
       }
@@ -92,16 +93,16 @@ export function ImportExcelDialog({
           }`}
         >
           {loading ? <span className="spin inline-block h-5 w-5 rounded-full border-2 border-current border-t-transparent" /> : <Icon.upload size={22} />}
-          <span className="text-[13px] font-semibold">{fileName || "Chọn file .xlsx hoặc kéo thả vào đây"}</span>
+          <span className="text-[13px] font-semibold">{fileName || t("Chọn file .xlsx hoặc kéo thả vào đây")}</span>
           {dropHint && <span className="text-[11px] text-[var(--color-text-faint)]">{dropHint}</span>}
         </button>
       ) : (
         <>
           <div className="mb-2 flex items-center gap-3 text-[12.5px]">
-            <span className="font-semibold text-[var(--color-success)]">✓ {okCount} dòng hợp lệ</span>
-            {errors.length > 0 && <span className="font-semibold text-[var(--color-danger)]">✕ {errors.length} dòng lỗi</span>}
+            <span className="font-semibold text-[var(--color-success)]">✓ {t("{n} dòng hợp lệ", { n: okCount })}</span>
+            {errors.length > 0 && <span className="font-semibold text-[var(--color-danger)]">✕ {t("{n} dòng lỗi", { n: errors.length })}</span>}
             <button onClick={() => inputRef.current?.click()} className="focus-ring ml-auto text-[var(--color-primary)] hover:underline">
-              Chọn file khác
+              {t("Chọn file khác")}
             </button>
           </div>
           <div className="overflow-x-auto rounded-[var(--radius-btn)] border border-[var(--color-border)]">

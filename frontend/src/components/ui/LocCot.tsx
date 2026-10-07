@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, buildQuery } from "../../api/client";
 import { Btn } from "./Btn";
 import { khopTim } from "../../lib/boDau";
+import { t } from "../../i18n";
 
 // Loc cot kieu Excel (phan hoi 2026-09-28: "filter ... giống như chức năng fiter tiêu đề của excel, có tìm kiếm, chọn
 // 1 hoặc nhiều, hoặc tất cả, sort") - dung chung cho danh sach don (DonCuaToiTab) va danh sach PXK (PhieuXuatKhoTab).
@@ -94,7 +95,7 @@ export function LocCotButton({ cfg, cot, variant = "icon" }: { cfg: LocCotCfg; c
           ref={btnRef}
           type="button"
           draggable={false}
-          title={`Lọc / sắp xếp cột "${tieuDe}"`}
+          title={t('Lọc / sắp xếp cột "{cot}"', { cot: tieuDe })}
           onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
           onMouseDown={stop}
           onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
@@ -118,7 +119,7 @@ export function LocCotButton({ cfg, cot, variant = "icon" }: { cfg: LocCotCfg; c
         >
           <FunnelIcon active={active} />
           {tieuDe}
-          {dangLoc && <span>({cfg.loc[cot].not ? "trừ " : ""}{cfg.loc[cot].v.length})</span>}
+          {dangLoc && <span>({cfg.loc[cot].not ? t("trừ") + " " : ""}{cfg.loc[cot].v.length})</span>}
           {dangSapXep && <span>{dangSapXep === "asc" ? "▲" : "▼"}</span>}
         </button>
       )}
@@ -242,28 +243,28 @@ function LocCotPopover({ cfg, cot, anchor, onClose }: { cfg: LocCotCfg; cot: str
       className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-2 text-sm shadow-[var(--shadow-pop)]"
     >
       <div className="mb-1 px-1 text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">{cfg.tieuDe[cot] ?? cot}</div>
-      {dongSapXep("asc", "Sắp xếp A → Z")}
-      {dongSapXep("desc", "Sắp xếp Z → A")}
+      {dongSapXep("asc", t("Sắp xếp A → Z"))}
+      {dongSapXep("desc", t("Sắp xếp Z → A"))}
       <div className="my-1.5 border-t border-[var(--line)]" />
       <input
         autoFocus
         value={tim}
         onChange={(e) => setTim(e.target.value)}
-        placeholder="Tìm…"
+        placeholder={t("Tìm…")}
         className="focus-ring mb-1.5 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-100)] px-2 py-1 text-xs"
       />
       <div className="max-h-60 overflow-auto rounded-lg border border-[var(--line)]">
         {isLoading ? (
-          <div className="px-2 py-3 text-center text-xs text-[var(--ink-400)]">Đang tải…</div>
+          <div className="px-2 py-3 text-center text-xs text-[var(--ink-400)]">{t("Đang tải…")}</div>
         ) : isError ? (
-          <div className="px-2 py-3 text-center text-xs text-[var(--coral-600)]">Không tải được danh sách giá trị</div>
+          <div className="px-2 py-3 text-center text-xs text-[var(--coral-600)]">{t("Không tải được danh sách giá trị")}</div>
         ) : khop.length === 0 ? (
-          <div className="px-2 py-3 text-center text-xs text-[var(--ink-400)]">Không có giá trị</div>
+          <div className="px-2 py-3 text-center text-xs text-[var(--ink-400)]">{t("Không có giá trị")}</div>
         ) : (
           <>
             <label className="flex cursor-pointer items-center gap-2 border-b border-[var(--line)] px-2 py-1.5 text-xs font-semibold">
               <input type="checkbox" checked={tatCaKhopDaChon} onChange={toggleTatCa} />
-              {tim.trim() ? "(Chọn tất cả kết quả tìm)" : "(Chọn tất cả)"}
+              {tim.trim() ? t("(Chọn tất cả kết quả tìm)") : t("(Chọn tất cả)")}
             </label>
             {khop.map((g) => (
               <label key={g.v} className="flex cursor-pointer items-center gap-2 px-2 py-1 text-xs hover:bg-[var(--surface-100)]">
@@ -282,10 +283,10 @@ function LocCotPopover({ cfg, cot, anchor, onClose }: { cfg: LocCotCfg; cot: str
           onClick={() => { cfg.setLoc(cot, undefined); onClose(); }}
           className="text-xs text-[var(--color-primary)] hover:underline disabled:text-[var(--ink-400)] disabled:no-underline"
         >
-          Xóa lọc cột này
+          {t("Xóa lọc cột này")}
         </button>
         <div className="flex gap-1.5">
-          <Btn size="sm" variant="ghost" onClick={onClose}>Hủy</Btn>
+          <Btn size="sm" variant="ghost" onClick={onClose}>{t("Hủy")}</Btn>
           <Btn size="sm" onClick={apDung} disabled={isLoading}>OK</Btn>
         </div>
       </div>
@@ -300,7 +301,7 @@ function LocCotPopover({ cfg, cot, anchor, onClose }: { cfg: LocCotCfg; cot: str
  */
 // `nhan`: nhan dau hang (mac dinh "Lọc cột:"); null = khong ve (khi dat trong khoi co tieu de rieng, vd bang
 // "Bộ lọc" tren mobile - 2026-09-29).
-export function LocCotBar({ cfg, cots, hienTatCa, nhan = "Lọc cột:" }: { cfg: LocCotCfg; cots: string[]; hienTatCa: boolean; nhan?: string | null }) {
+export function LocCotBar({ cfg, cots, hienTatCa, nhan = t("Lọc cột:") }: { cfg: LocCotCfg; cots: string[]; hienTatCa: boolean; nhan?: string | null }) {
   const dangAp = cots.filter((c) => cfg.loc[c] || cfg.sapXep?.cot === c);
   const hien = hienTatCa ? cots : dangAp;
   if (hien.length === 0) return null;
@@ -312,7 +313,7 @@ export function LocCotBar({ cfg, cots, hienTatCa, nhan = "Lọc cột:" }: { cfg
       ))}
       {dangAp.length > 0 && (
         <button type="button" onClick={cfg.xoaHet} className="text-xs text-[var(--color-primary)] hover:underline">
-          Xóa tất cả
+          {t("Xóa tất cả")}
         </button>
       )}
     </div>

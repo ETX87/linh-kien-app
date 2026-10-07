@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { tn } from "../../i18n";
 
 export type Tone = "info" | "success" | "warning" | "danger" | "purple" | "neutral";
 
@@ -32,7 +33,7 @@ export function Badge({
   return (
     <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-[var(--radius-badge)] px-2 py-[3px] text-[11px] font-semibold leading-none ${cls}`}>
       {dot && tone === "warning" && variant === "soft" && <span aria-hidden className="h-[5px] w-[5px] shrink-0 rounded-full bg-[var(--color-warning)]" />}
-      {children}
+      {tn(children)}
     </span>
   );
 }
@@ -53,7 +54,7 @@ export function StatusBadge({ status }: { status: string }) {
 export function RoleChip({ children }: { children: ReactNode }) {
   return (
     <span className="inline-flex items-center whitespace-nowrap rounded-[var(--radius-badge)] bg-[var(--chip-bg)] px-2 py-[3px] text-[10.5px] font-semibold text-[var(--chip-fg)]">
-      {children}
+      {tn(children)}
     </span>
   );
 }

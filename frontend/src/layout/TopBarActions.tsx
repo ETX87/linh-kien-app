@@ -5,6 +5,7 @@ import { api } from "../api/client";
 import { formatPersonDisplay, usePersonDirectory } from "../lib/personDisplay";
 import { useAuth } from "../auth/AuthContext";
 import { XemNhuNguoiDungModal } from "./XemNhuNguoiDung";
+import { t } from "../i18n";
 
 // Tach tu TopBar.tsx (hang muc #15, 2026-08-25: "mobile mặc định bỏ top, ấn menu ở bottom mới hiện")
 // - avatar/tai khoan gio dung CHUNG duoc o CA TopBar (desktop) lan Sidebar (mobile off-canvas, mo qua
@@ -91,7 +92,7 @@ export function TopBarActions({
         <button
           type="button"
           onClick={onToggleMobilePreview}
-          title={mobilePreviewOpen ? "Đóng xem trước Mobile" : "Xem trước giao diện Mobile (test nhanh, không cần thu nhỏ cửa sổ)"}
+          title={mobilePreviewOpen ? t("Đóng xem trước Mobile") : t("Xem trước giao diện Mobile (test nhanh, không cần thu nhỏ cửa sổ)")}
           className={`focus-ring w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
             mobilePreviewOpen ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]" : "hover:bg-[var(--color-subtle)] text-[var(--topbar-fg-dim)]"
           }`}
@@ -130,14 +131,14 @@ export function TopBarActions({
             <div className="px-3.5 py-2 text-xs text-[var(--ink-400)] border-b border-[var(--line)] truncate">{user.email}</div>
             {realIsAdmin && (
               <div className="px-3.5 py-2.5 border-b border-[var(--line)]" onClick={(e) => e.stopPropagation()}>
-                <div className="text-[10px] font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1">Xem thử vai trò (test)</div>
+                <div className="text-[10px] font-semibold text-[var(--ink-400)] uppercase tracking-wide mb-1">{t("Xem thử vai trò (test)")}</div>
                 <select
                   value={viewAsRole ?? ""}
                   disabled={switching}
                   onChange={(e) => setViewAs(e.target.value as ViewAsRole | "")}
                   className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-md px-2 py-1.5 text-xs font-medium disabled:opacity-60"
                 >
-                  <option value="">— Admin thật (mặc định) —</option>
+                  <option value="">{t("— Admin thật (mặc định) —")}</option>
                   {VIEW_AS_ROLES.map((r) => (
                     <option key={r.key} value={r.key}>
                       {r.label}
@@ -152,12 +153,12 @@ export function TopBarActions({
                   }}
                   className="focus-ring mt-2 w-full rounded-md border border-[var(--line)] px-2 py-1.5 text-left text-xs font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]"
                 >
-                  👤 {viewAsUser ? "Đổi người đang xem như…" : "Xem như người dùng…"}
+                  👤 {viewAsUser ? t("Đổi người đang xem như…") : t("Xem như người dùng…")}
                 </button>
               </div>
             )}
             <button onClick={logout} className="w-full text-left px-3.5 py-2 text-sm hover:bg-[var(--color-danger-soft)] text-[var(--color-danger-strong)]">
-              Đăng xuất
+              {t("Đăng xuất")}
             </button>
           </div>
         )}

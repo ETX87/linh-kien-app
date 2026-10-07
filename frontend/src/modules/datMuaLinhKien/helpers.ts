@@ -7,6 +7,7 @@ import { getAllLdeFromCache, clearLdeCache, mergeLdeToCache, type LdeEntry } fro
 import type { Tone } from "../../components/x/Badge";
 import type { LkDanhMucRow, LkComboRow, NguoiNhanHangKhaDungRow, DonHangDraft, DonHangRow, KtvDisplayMap, XepHangLinhKienRow } from "./types";
 import { YEU_CAU_HOA_DON_OPTIONS, GENERIC_ERROR_MESSAGES } from "./constants";
+import { t } from "../../i18n";
 
 // Ham/hook thuan (khong JSX) dung chung nhieu tab, tach tu DatMuaLinhKienModule.tsx (UI redesign
 // Phase 3, phan hoi Codex 2026-08-19).
@@ -15,8 +16,8 @@ export function describeApiError(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.detail) return err.detail;
     const known = GENERIC_ERROR_MESSAGES[err.code ?? ""];
-    if (known) return known;
-    return `không xác định (mã: ${err.code ?? err.status})`;
+    if (known) return t(known);
+    return t("không xác định (mã: {ma})", { ma: String(err.code ?? err.status) });
   }
   return err instanceof Error ? err.message : String(err);
 }
@@ -157,7 +158,8 @@ export function comboThanhLkRow(combos: LkComboRow[] | undefined, danhMuc: LkDan
 }
 
 export function trangThaiLabel(options: { value: string; label: string }[], value: string): string {
-  return options.find((o) => o.value === value)?.label ?? value;
+  const nhan = options.find((o) => o.value === value)?.label;
+  return nhan ? t(nhan) : value;
 }
 
 // Co bat/tat "nen anh tra hang truoc khi upload" (them 2026-08-24, phan hoi "cơ chế nén ảnh này cho

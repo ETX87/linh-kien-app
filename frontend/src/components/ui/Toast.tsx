@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import { tn } from "../../i18n";
 
 interface ToastItem {
   id: number;
@@ -23,7 +24,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div key={t.id} className="toast-in bg-[var(--ocean-900)] text-white px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--teal-500)]"></span>
-            {t.msg}
+            {tn(t.msg)}
           </div>
         ))}
       </div>

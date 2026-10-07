@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { t, tn } from "../../i18n";
 
 // Danh sach lich su xu ly (log) trong Drawer chi tiet (concept 1, pattern ".timeline") - thay cho
 // danh sach text tho truoc day. `items` da theo thu tu hien thi mong muon (khong tu sap xep lai).
@@ -13,8 +14,8 @@ export interface TimelineItem {
   dotClassName?: string;
 }
 
-export function Timeline({ items, emptyText = "Chưa có lịch sử xử lý." }: { items: TimelineItem[]; emptyText?: string }) {
-  if (items.length === 0) return <div className="text-xs text-[var(--ink-400)]">{emptyText}</div>;
+export function Timeline({ items, emptyText = t("Chưa có lịch sử xử lý.") }: { items: TimelineItem[]; emptyText?: string }) {
+  if (items.length === 0) return <div className="text-xs text-[var(--ink-400)]">{tn(emptyText)}</div>;
   return (
     <div className="flex flex-col gap-2.5">
       {items.map((it, i) => (

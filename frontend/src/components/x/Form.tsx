@@ -1,14 +1,15 @@
 import type { ReactNode, InputHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { tn } from "../../i18n";
 
 export function FormField({ label, required, hint, children }: { label: string; required?: boolean; hint?: ReactNode; children: ReactNode }) {
   return (
     <label className="block">
       <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">
-        {label}
+        {tn(label)}
         {required && <span className="text-[var(--color-danger)]"> *</span>}
       </span>
       {children}
-      {hint && <span className="mt-1 block text-[11px] text-[var(--color-text-faint)]">{hint}</span>}
+      {hint && <span className="mt-1 block text-[11px] text-[var(--color-text-faint)]">{tn(hint)}</span>}
     </label>
   );
 }
@@ -39,10 +40,10 @@ export function Select({
 }) {
   return (
     <select value={value} onChange={(e) => onChange(e.target.value)} className={`h-9 ${base} ${className}`}>
-      {placeholder && <option value="">{placeholder}</option>}
+      {placeholder && <option value="">{tn(placeholder)}</option>}
       {options.map((o) => (
         <option key={o.value} value={o.value}>
-          {o.label}
+          {tn(o.label)}
         </option>
       ))}
     </select>
@@ -53,7 +54,7 @@ export function Checkbox({ checked, onChange, label }: { checked: boolean; onCha
   return (
     <label className="flex cursor-pointer items-center gap-2 text-[13px] font-medium">
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 accent-[var(--color-primary)]" />
-      {label}
+      {tn(label)}
     </label>
   );
 }

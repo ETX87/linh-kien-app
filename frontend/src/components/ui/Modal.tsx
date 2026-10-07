@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { pushOverlayClose } from "../../lib/overlayStack";
+import { tn } from "../../i18n";
 
 export function Modal({
   open,
@@ -51,7 +52,7 @@ export function Modal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)] p-4">
       <div className={`bg-[var(--surface)] rounded-[14px] w-full ${width} ${height} overflow-hidden flex flex-col anim-in shadow-[var(--shadow-drawer)]`}>
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--color-border-soft)]">
-          <h3 className="text-base font-bold text-[var(--color-text)]">{title}</h3>
+          <h3 className="text-base font-bold text-[var(--color-text)]">{tn(title)}</h3>
           <div className="flex items-center gap-2 shrink-0">
             {headerExtra}
             <button onClick={onClose} className="focus-ring w-8 h-8 rounded-[var(--radius-btn)] hover:bg-[var(--color-subtle)] text-[var(--color-text-faint)] hover:text-[var(--color-text-body)]">

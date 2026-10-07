@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { Icon } from "./Icon";
+import { tn } from "../../i18n";
 
 export function Modal({
   open,
@@ -36,7 +37,7 @@ export function Modal({
         style={{ maxWidth: full ? "100%" : width }}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--color-border)] px-4 py-3">
-          <h3 className="text-[15px] font-bold text-[var(--color-text)]">{title}</h3>
+          <h3 className="text-[15px] font-bold text-[var(--color-text)]">{tn(title)}</h3>
           <button onClick={onClose} className="focus-ring grid h-7 w-7 place-items-center rounded-md text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]">
             <Icon.x size={16} />
           </button>

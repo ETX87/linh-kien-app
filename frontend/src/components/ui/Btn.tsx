@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { tn } from "../../i18n";
 
 export type BtnVariant = "primary" | "ghost" | "subtle" | "danger" | "success";
 export type BtnSize = "sm" | "md";
@@ -50,7 +51,7 @@ export function Btn({ children, variant = "primary", size = "md", className = ""
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
       )}
-      {children}
+      {tn(children)}
     </button>
   );
 }

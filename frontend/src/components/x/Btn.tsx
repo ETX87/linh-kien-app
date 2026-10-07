@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { tn } from "../../i18n";
 
 export type BtnVariant = "primary" | "ghost" | "success" | "danger" | "danger-line" | "subtle";
 export type BtnSize = "xs" | "sm" | "md";
@@ -33,7 +34,7 @@ export function Btn({ children, variant = "primary", size = "md", className = ""
       {...rest}
     >
       {loading && <span className="spin inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent" />}
-      {children}
+      {tn(children)}
     </button>
   );
 }

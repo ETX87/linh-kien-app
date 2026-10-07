@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Modal } from "../components/ui/Modal";
 import { usePwaInstall, isIosSafari, isStandalonePwa } from "../hooks/usePwaInstall";
+import { t } from "../i18n";
 
 // Nut "Cai dat vao man hinh chinh" (hang muc #1, phan hoi 2026-08-26: "chỉ hiện trên mobile", dat
 // trong Sidebar mobile off-canvas cung TopBarActions) - CHI render khi CHUA cai dat (isStandalonePwa()
@@ -34,21 +35,21 @@ export function InstallAppButton({ onNavigateAway }: { onNavigateAway?: () => vo
         className="focus-ring w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-sm font-semibold text-[var(--sidebar-ink-mid)] hover:bg-[var(--sidebar-highlight)] hover:text-[var(--sidebar-ink)] transition-colors"
       >
         <span className="w-6 text-center text-base">📲</span>
-        <span>Cài đặt vào màn hình chính</span>
+        <span>{t("Cài đặt vào màn hình chính")}</span>
       </button>
       {showIosGuide && (
-        <Modal open title="📲 Cài đặt vào màn hình chính" onClose={() => setShowIosGuide(false)}>
+        <Modal open title={"📲 " + t("Cài đặt vào màn hình chính")} onClose={() => setShowIosGuide(false)}>
           <div className="space-y-3 text-sm text-[var(--ink-700)]">
-            <p>Trình duyệt này không hỗ trợ cài đặt tự động. Làm theo hướng dẫn thủ công:</p>
+            <p>{t("Trình duyệt này không hỗ trợ cài đặt tự động. Làm theo hướng dẫn thủ công:")}</p>
             <div className="space-y-1.5 bg-[var(--surface-100)] rounded-lg p-3">
               <div className="font-semibold text-[var(--ocean-800)]">iPhone/iPad (Safari)</div>
-              <div>1. Bấm nút Chia sẻ <span className="font-mono">⬆️</span> ở thanh trình duyệt.</div>
-              <div>2. Chọn "Thêm vào Màn hình chính" (Add to Home Screen).</div>
+              <div>{t("1. Bấm nút Chia sẻ")} <span className="font-mono">⬆️</span> {t("ở thanh trình duyệt.")}</div>
+              <div>{t('2. Chọn "Thêm vào Màn hình chính" (Add to Home Screen).')}</div>
             </div>
             <div className="space-y-1.5 bg-[var(--surface-100)] rounded-lg p-3">
               <div className="font-semibold text-[var(--ocean-800)]">Android (Chrome)</div>
-              <div>1. Bấm menu ⋮ ở góc trên bên phải.</div>
-              <div>2. Chọn "Cài đặt ứng dụng" hoặc "Thêm vào Màn hình chính".</div>
+              <div>{t("1. Bấm menu ⋮ ở góc trên bên phải.")}</div>
+              <div>{t('2. Chọn "Cài đặt ứng dụng" hoặc "Thêm vào Màn hình chính".')}</div>
             </div>
           </div>
         </Modal>

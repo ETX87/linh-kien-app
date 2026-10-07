@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon } from "./Icon";
+import { t } from "../../i18n";
 
 export interface NotifItem {
   id: string;
@@ -16,7 +17,7 @@ export function NotificationPanel({
   onMarkAllRead,
   onItemClick,
   onDark,
-  emptyText = "Chưa có thông báo.",
+  emptyText = t("Chưa có thông báo."),
 }: {
   items: NotifItem[];
   unread?: number;
@@ -46,7 +47,7 @@ export function NotificationPanel({
         className={`focus-ring relative grid h-9 w-9 place-items-center rounded-lg ${
           onDark ? "text-[var(--topbar-fg-dim)] hover:bg-white/10 hover:text-white" : "text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
         }`}
-        aria-label="Thông báo"
+        aria-label={t("Thông báo")}
       >
         <Icon.bell size={18} />
         {unreadCount > 0 && (
@@ -58,10 +59,10 @@ export function NotificationPanel({
       {open && (
         <div className="anim-in absolute right-0 top-11 z-50 w-[340px] overflow-hidden rounded-[var(--radius-card)] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-drawer">
           <div className="flex items-center justify-between border-b border-[var(--color-border)] px-3 py-2">
-            <span className="text-[13px] font-bold">Thông báo</span>
+            <span className="text-[13px] font-bold">{t("Thông báo")}</span>
             {onMarkAllRead && (
               <button onClick={onMarkAllRead} className="focus-ring text-[12px] font-semibold text-[var(--color-primary)] hover:underline">
-                Đánh dấu đã đọc hết
+                {t("Đánh dấu đã đọc hết")}
               </button>
             )}
           </div>

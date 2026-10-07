@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { BadgeTone } from "./Badge";
+import { tn } from "../../i18n";
 
 export function StatCard({
   label,
@@ -38,17 +39,17 @@ export function StatCard({
   if (size === "sm") {
     return (
       <div className={`kpi-card ${kpiCls} p-2 flex-1 min-w-[110px] ${hoverCls} ${activeCls}`} onClick={onClick}>
-        <span className="text-[10.5px] font-semibold text-[var(--color-text-body)] leading-tight">{label}</span>
+        <span className="text-[10.5px] font-semibold text-[var(--color-text-body)] leading-tight">{tn(label)}</span>
         <div className={`tabular text-lg font-extrabold leading-tight mt-0.5 ${numCls}`}>{value}</div>
-        {sub && <div className="text-[10.5px] text-[var(--color-text-secondary)] leading-tight mt-0.5">{sub}</div>}
+        {sub && <div className="text-[10.5px] text-[var(--color-text-secondary)] leading-tight mt-0.5">{tn(sub)}</div>}
       </div>
     );
   }
   return (
     <div className={`kpi-card ${kpiCls} p-3.5 sm:p-4 flex-1 min-w-[150px] ${hoverCls} ${activeCls}`} onClick={onClick}>
-      <span className="text-xs font-semibold text-[var(--color-text-body)]">{label}</span>
+      <span className="text-xs font-semibold text-[var(--color-text-body)]">{tn(label)}</span>
       <div className={`tabular text-[26px] sm:text-[28px] font-extrabold leading-none mt-2 ${numCls}`}>{value}</div>
-      {sub && <div className="text-[11px] text-[var(--color-text-secondary)] mt-1.5">{sub}</div>}
+      {sub && <div className="text-[11px] text-[var(--color-text-secondary)] mt-1.5">{tn(sub)}</div>}
     </div>
   );
 }

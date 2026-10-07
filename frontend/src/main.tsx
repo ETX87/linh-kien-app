@@ -7,6 +7,7 @@ import { App } from "./App";
 import { ErrorBoundary, taiLaiDeLayBanMoi } from "./components/ui/ErrorBoundary";
 import { capturePxkDeepLinkFromUrl } from "./lib/pxkDeepLink";
 import "./styles/tokens.css";
+import { NgonNguGate } from "./i18n";
 
 // Ghi nho link truy cap truc tiep PXK (vd "/PMH-000001/") CANG SOM CANG TOT, truoc ca khi React mount -
 // xem giai thich day du trong lib/pxkDeepLink.ts (can bat duoc URL truoc khi nguoi dung dieu huong sang
@@ -31,7 +32,9 @@ createRoot(document.getElementById("root")!).render(
       <AuthProvider>
         <ToastProvider>
           <ErrorBoundary>
-            <App />
+            <NgonNguGate>
+              <App />
+            </NgonNguGate>
           </ErrorBoundary>
         </ToastProvider>
       </AuthProvider>

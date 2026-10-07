@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { NAV_GROUPS, navCount, type NavCounts } from "./navConfig";
 import { Icon } from "../components/ui/Icon";
 import { api } from "../api/client";
+import { t } from "../i18n";
 
 // Bottom nav mobile (port P0) — tối đa 4 mục + nút "Thêm" (mở Sidebar off-canvas). Nút "Thêm" là
 // đường vào duy nhất tới các module còn lại + tài khoản/đăng xuất (xem Sidebar.tsx mobile).
@@ -52,13 +53,13 @@ export function BottomTabBar({
                 </span>
               )}
             </span>
-            <span className="truncate max-w-full px-1">{it.label}</span>
+            <span className="truncate max-w-full px-1">{t(it.label)}</span>
           </button>
         );
       })}
       <button type="button" onClick={onOpenMore} className="focus-ring flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-[var(--color-text-faint)]">
         <Icon.menu size={19} />
-        <span>Thêm</span>
+        <span>{t("Thêm")}</span>
       </button>
     </nav>
   );

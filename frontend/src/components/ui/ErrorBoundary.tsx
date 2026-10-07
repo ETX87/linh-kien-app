@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from "react";
 import { Btn } from "./Btn";
+import { t } from "../../i18n";
 
 // Chong "trang trắng tinh màn hình" (phan hoi 2026-09-29: "thỉnh thoảng ấn vào trang chủ, trang web bị bug trắng
 // tinh màn hình"). Truoc day app KHONG co error boundary nao: 1 loi render bat ky -> React go CA cay -> man trang.
@@ -47,10 +48,10 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: u
       <div className="content-card mx-auto my-6 max-w-md p-5 text-center">
         <div className="text-2xl">⚠</div>
         <div className="mt-1 text-[15px] font-bold text-[var(--color-text)]">
-          {chunk ? "Hệ thống vừa được cập nhật phiên bản mới" : "Có lỗi khi hiển thị màn hình này"}
+          {chunk ? t("Hệ thống vừa được cập nhật phiên bản mới") : t("Có lỗi khi hiển thị màn hình này")}
         </div>
         <div className="mt-1 text-[13px] text-[var(--color-text-secondary)]">
-          {chunk ? "Bấm “Tải lại trang” để dùng phiên bản mới nhất." : "Bấm “Thử lại”, nếu vẫn lỗi hãy tải lại trang và báo quản trị kèm nội dung bên dưới."}
+          {chunk ? t("Bấm “Tải lại trang” để dùng phiên bản mới nhất.") : t("Bấm “Thử lại”, nếu vẫn lỗi hãy tải lại trang và báo quản trị kèm nội dung bên dưới.")}
         </div>
         {!chunk && (
           <div className="mt-2 break-words rounded-lg bg-[var(--color-subtle)] px-2.5 py-1.5 text-left font-mono text-[11px] text-[var(--color-text-secondary)]">
@@ -60,10 +61,10 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: u
         <div className="mt-3 flex justify-center gap-2">
           {!chunk && (
             <Btn variant="ghost" onClick={() => this.setState({ error: null })}>
-              Thử lại
+              {t("Thử lại")}
             </Btn>
           )}
-          <Btn onClick={() => window.location.reload()}>Tải lại trang</Btn>
+          <Btn onClick={() => window.location.reload()}>{t("Tải lại trang")}</Btn>
         </div>
       </div>
     );

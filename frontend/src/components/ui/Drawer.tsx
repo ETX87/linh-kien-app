@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { pushOverlayClose } from "../../lib/overlayStack";
+import { t, tn } from "../../i18n";
 
 // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Doi Detail Modal sang Drawer"): component RIENG
 // (khong sua Modal.tsx dung chung 40 noi trong 12 file) - copy dung pattern PartDetailDrawer da co san
@@ -55,10 +56,10 @@ export function Drawer({
       <div className="fixed inset-0 z-50 bg-[var(--overlay)] backdrop-blur-[2px]" onClick={onClose} />
       <div className={`drawer-in fixed inset-y-0 right-0 z-50 w-full ${width} bg-[var(--surface)] shadow-[var(--shadow-drawer)] flex flex-col`}>
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--color-border-soft)] shrink-0">
-          <h3 className="text-base font-bold text-[var(--color-text)] truncate">{title}</h3>
+          <h3 className="text-base font-bold text-[var(--color-text)] truncate">{tn(title)}</h3>
           <div className="flex items-center gap-2 shrink-0">
             {headerExtra}
-            <button onClick={onClose} aria-label="Đóng" className="focus-ring w-10 h-10 sm:w-8 sm:h-8 rounded-[var(--radius-btn)] hover:bg-[var(--color-subtle)] text-[var(--color-text-faint)] hover:text-[var(--color-text-body)]">
+            <button onClick={onClose} aria-label={t("Đóng")} className="focus-ring w-10 h-10 sm:w-8 sm:h-8 rounded-[var(--radius-btn)] hover:bg-[var(--color-subtle)] text-[var(--color-text-faint)] hover:text-[var(--color-text-body)]">
               ✕
             </button>
           </div>
@@ -82,7 +83,7 @@ export function DrawerNavButtons({ hasPrev, hasNext, onPrev, onNext }: { hasPrev
         type="button"
         onClick={onPrev}
         disabled={!hasPrev}
-        title="Dòng trước"
+        title={t("Dòng trước")}
         className="focus-ring w-9 h-10 sm:w-7 sm:h-8 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-[var(--ink-500)]"
       >
         ‹
@@ -91,7 +92,7 @@ export function DrawerNavButtons({ hasPrev, hasNext, onPrev, onNext }: { hasPrev
         type="button"
         onClick={onNext}
         disabled={!hasNext}
-        title="Dòng sau"
+        title={t("Dòng sau")}
         className="focus-ring w-9 h-10 sm:w-7 sm:h-8 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-[var(--ink-500)]"
       >
         ›

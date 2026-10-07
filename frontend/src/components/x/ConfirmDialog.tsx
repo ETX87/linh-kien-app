@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Modal } from "./Modal";
 import { Btn } from "./Btn";
 import { FormField, Select, TextArea } from "./Form";
+import { t } from "../../i18n";
 
 // Dialog xac nhan thao tac nguy hiem - prompt sec.22. `reasons` != null -> bat buoc chon 1 ly do.
 export function ConfirmDialog({
@@ -10,10 +11,10 @@ export function ConfirmDialog({
   onConfirm,
   title,
   message,
-  confirmLabel = "Xác nhận",
+  confirmLabel = t("Xác nhận"),
   danger = true,
   reasons,
-  noteLabel = "Ghi chú",
+  noteLabel = t("Ghi chú"),
   mobile,
 }: {
   open: boolean;
@@ -40,7 +41,7 @@ export function ConfirmDialog({
       footer={
         <>
           <Btn variant="ghost" size="sm" onClick={onClose}>
-            Huỷ
+            {t("Huỷ")}
           </Btn>
           <Btn
             variant={danger ? "danger" : "primary"}
@@ -60,13 +61,13 @@ export function ConfirmDialog({
       {message && <p className="mb-3 text-[13px] text-[var(--color-text-secondary)]">{message}</p>}
       {reasons && (
         <div className="mb-3">
-          <FormField label="Lý do" required>
-            <Select value={reason} onChange={setReason} options={reasons} placeholder="Chọn lý do" />
+          <FormField label={t("Lý do")} required>
+            <Select value={reason} onChange={setReason} options={reasons} placeholder={t("Chọn lý do")} />
           </FormField>
         </div>
       )}
       <FormField label={noteLabel}>
-        <TextArea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Nhập ghi chú (tuỳ chọn)…" />
+        <TextArea value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("Nhập ghi chú (tuỳ chọn)…")} />
       </FormField>
     </Modal>
   );

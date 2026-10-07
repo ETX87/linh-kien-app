@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DropdownPortal } from "./DropdownPortal";
 import { khopTim } from "../../lib/boDau";
+import { t } from "../../i18n";
 
 export type SelectOption = string | { value: string; label: string };
 
@@ -51,11 +52,11 @@ export function Select({
       {options.map((o) =>
         typeof o === "string" ? (
           <option key={o} value={o}>
-            {o}
+            {t(o)}
           </option>
         ) : (
           <option key={o.value} value={o.value}>
-            {o.label}
+            {t(o.label)}
           </option>
         ),
       )}
@@ -118,7 +119,7 @@ function SearchableSelect({
           setQuery("");
         }}
         disabled={disabled}
-        placeholder="Gõ để tìm…"
+        placeholder={t("Gõ để tìm…")}
         // FIX (phan hoi 2026-09-05, giong het comment o <select> thuan phia tren): cung doi bg-surface-100
         // -> bg-surface + border dam hon de khong lan vao panel bo loc bao quanh.
         className="focus-ring w-full h-9 bg-[var(--surface)] border border-[var(--color-border)] rounded-[var(--radius-btn)] px-2.5 text-[13px] text-[var(--color-text-body)] disabled:opacity-40 disabled:cursor-not-allowed"
@@ -127,7 +128,7 @@ function SearchableSelect({
           vd o trong 1 <td> chat hep) - xem giai thich day du o DropdownPortal.tsx. */}
       <DropdownPortal anchorRef={containerRef} contentRef={dropdownRef} open={open} maxHeight={224} minWidth={220} className="rounded-lg py-1">
         {filtered.length === 0 ? (
-          <div className="px-3 py-2 text-xs text-[var(--ink-400)] italic">Không tìm thấy.</div>
+          <div className="px-3 py-2 text-xs text-[var(--ink-400)] italic">{t("Không tìm thấy.")}</div>
         ) : (
           filtered.map((o, i) => {
             const v = optValue(o);

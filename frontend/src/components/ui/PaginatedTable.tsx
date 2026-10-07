@@ -4,6 +4,7 @@ import { Btn } from "./Btn";
 import { LoadingInline } from "./LoadingInline";
 import { useColumnConfig, type ColumnConfig } from "./useColumnConfig";
 import { ColumnSettingsButton, ResizableHeaderCell } from "./ColumnHeader";
+import { t, tn } from "../../i18n";
 
 export interface Column<T> {
   key: string;
@@ -99,7 +100,7 @@ export function PaginatedTable<T>({
   total,
   onPageChange,
   onRowClick,
-  emptyText = "Không có dữ liệu.",
+  emptyText = t("Không có dữ liệu."),
   rowKey,
   rowClassName,
   mobileCard,
@@ -162,11 +163,11 @@ export function PaginatedTable<T>({
           ))}
         {!isLoading && isError && (
           <div className="py-8 text-center">
-            <div className="text-sm text-[var(--coral-500)] font-semibold mb-2">Không tải được dữ liệu.</div>
-            {onRetry && <Btn size="sm" variant="ghost" onClick={onRetry}>Thử lại</Btn>}
+            <div className="text-sm text-[var(--coral-500)] font-semibold mb-2">{t("Không tải được dữ liệu.")}</div>
+            {onRetry && <Btn size="sm" variant="ghost" onClick={onRetry}>{t("Thử lại")}</Btn>}
           </div>
         )}
-        {!isLoading && !isError && rows.length === 0 && <div className="py-8 text-center text-[var(--ink-400)] text-sm">{emptyText}</div>}
+        {!isLoading && !isError && rows.length === 0 && <div className="py-8 text-center text-[var(--ink-400)] text-sm">{tn(emptyText)}</div>}
         {!isLoading &&
           !isError &&
           rows.map((row) => {
@@ -207,7 +208,7 @@ export function PaginatedTable<T>({
                   <div className="flex-1 min-w-0 space-y-1">
                     {fieldCols.map((col) => (
                       <div key={col.key} className="flex items-baseline gap-1.5 text-xs">
-                        {col.header ? <span className="text-[var(--ink-400)] shrink-0">{col.header}:</span> : null}
+                        {col.header ? <span className="text-[var(--ink-400)] shrink-0">{tn(col.header)}:</span> : null}
                         <span className="text-[var(--ink-800)] min-w-0">{col.render(row)}</span>
                       </div>
                     ))}
@@ -278,10 +279,10 @@ export function PaginatedTable<T>({
             {!isLoading && isError && (
               <tr>
                 <td colSpan={effectiveColumns.length} className="py-8 text-center">
-                  <div className="text-sm text-[var(--coral-500)] font-semibold mb-2">Không tải được dữ liệu.</div>
+                  <div className="text-sm text-[var(--coral-500)] font-semibold mb-2">{t("Không tải được dữ liệu.")}</div>
                   {onRetry && (
                     <Btn size="sm" variant="ghost" onClick={onRetry}>
-                      Thử lại
+                      {t("Thử lại")}
                     </Btn>
                   )}
                 </td>
@@ -291,7 +292,7 @@ export function PaginatedTable<T>({
             {!isLoading && !isError && rows.length === 0 && (
               <tr>
                 <td colSpan={effectiveColumns.length} className="py-8 text-center text-[var(--ink-400)] text-sm">
-                  {emptyText}
+                  {tn(emptyText)}
                 </td>
               </tr>
             )}
@@ -347,7 +348,7 @@ export function PaginatedTable<T>({
         </table>
       </div>
       <div className="flex items-center justify-between px-3 py-2.5 border-t border-[var(--line)] text-xs text-[var(--ink-400)]">
-        <span>{total} dòng</span>
+        <span>{t("{n} dòng", { n: total })}</span>
         <div className="flex gap-1">
           <Btn variant="ghost" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
             ‹
@@ -391,7 +392,7 @@ function renderCompactCard<T>(columns: Column<T>[], row: T): ReactNode {
         <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
           {meta.map((c) => (
             <span key={c.key} className="inline-flex min-w-0 max-w-full items-baseline gap-1">
-              <span className="shrink-0 text-[var(--color-text-muted)]">{c.header}</span>
+              <span className="shrink-0 text-[var(--color-text-muted)]">{tn(c.header)}</span>
               <span className="min-w-0 truncate text-[var(--color-text-body)]">{c.render(row)}</span>
             </span>
           ))}

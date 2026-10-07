@@ -28,6 +28,7 @@ import { CommandPalette, type CommandItem } from "./components/ui/CommandPalette
 import { Modal } from "./components/ui/Modal";
 import { Btn } from "./components/ui/Btn";
 import { consumePendingPxkDeepLinkId } from "./lib/pxkDeepLink";
+import { t } from "./i18n";
 
 // Shell RUT GON tu frontend/src/App.tsx cua he DVBH goc - he doc lap nay CHI phuc vu 1 mien nghiep
 // vu (Dat mua linh kien + Tra hang + Danh muc linh kien + Settings/Users quan tri), nen KHONG con
@@ -45,14 +46,14 @@ function roleDisplayLabel(user: { vai_tro: string | null; la_kho: boolean; la_ke
   if (user.vai_tro) return user.vai_tro;
   const labels: string[] = [];
   if (user.la_kho) labels.push("Kho");
-  if (user.la_ke_toan) labels.push("Kế toán");
-  if (user.la_tac_nghiep) labels.push("Tác nghiệp (TN)");
+  if (user.la_ke_toan) labels.push(t("Kế toán"));
+  if (user.la_tac_nghiep) labels.push(t("Tác nghiệp (TN)"));
   if (user.la_tp_dvbh) labels.push("TP DVBH");
   if (user.la_ktv_dvbh) labels.push("KTV DVBH");
-  if (user.la_ve_tinh) labels.push("Vệ tinh");
+  if (user.la_ve_tinh) labels.push(t("Vệ tinh"));
   if (user.la_view) labels.push("View");
-  if (user.la_mua_hang) labels.push("Mua hàng");
-  return labels.length ? labels.join(" · ") : "Đặt mua linh kiện";
+  if (user.la_mua_hang) labels.push(t("Mua hàng"));
+  return labels.length ? labels.join(" · ") : t("Đặt mua linh kiện");
 }
 
 export function App() {
@@ -61,7 +62,7 @@ export function App() {
   if (auth.status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-[var(--ink-700)] text-xl font-bold">Đang tải…</div>
+        <div className="text-[var(--ink-700)] text-xl font-bold">{t("Đang tải…")}</div>
       </div>
     );
   }
@@ -96,7 +97,7 @@ function CacheTinhGate({ scope, children }: { scope: string; children: ReactNode
   if (!san) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-[var(--ink-700)] text-xl font-bold">Đang tải…</div>
+        <div className="text-[var(--ink-700)] text-xl font-bold">{t("Đang tải…")}</div>
       </div>
     );
   }
@@ -360,17 +361,17 @@ function MainApp({
         {viewAsUser && (
           <div className="bg-[var(--color-primary)] text-white text-xs font-semibold px-4 py-1.5 flex items-center justify-center gap-3 flex-wrap text-center">
             <span>
-              👤 Đang xem như <strong>{viewAsUser.ten || viewAsUser.email}</strong> ({viewAsUser.email}) — thấy đúng menu, dữ liệu và quyền của người này. Chỉ xem, không thao tác được.
+              👤 {t("Đang xem như")} <strong>{viewAsUser.ten || viewAsUser.email}</strong> ({viewAsUser.email}) — {t("thấy đúng menu, dữ liệu và quyền của người này. Chỉ xem, không thao tác được.")}
             </span>
             <button type="button" onClick={() => doiXemNhu(null)} className="focus-ring underline underline-offset-2 shrink-0">
-              Thoát về Admin
+              {t("Thoát về Admin")}
             </button>
           </div>
         )}
         {viewAsRole && (
           <div className="bg-[var(--amber-500)] text-white text-xs font-semibold px-4 py-1.5 flex items-center justify-center gap-3 flex-wrap text-center">
             <span>
-              🔍 Admin đang xem/thao tác thử dưới vai trò <strong>{VIEW_AS_LABELS[viewAsRole]}</strong> — mọi hành động vẫn ghi nhận thật vào hệ thống.
+              🔍 {t("Admin đang xem/thao tác thử dưới vai trò")} <strong>{VIEW_AS_LABELS[viewAsRole]}</strong> — {t("mọi hành động vẫn ghi nhận thật vào hệ thống.")}
             </span>
             <button
               type="button"
@@ -380,7 +381,7 @@ function MainApp({
               }}
               className="focus-ring underline underline-offset-2 shrink-0"
             >
-              Thoát về Admin thật
+              {t("Thoát về Admin thật")}
             </button>
           </div>
         )}
@@ -476,12 +477,12 @@ function MainApp({
       </div>
       {isMobile && <BottomTabBar active={active} setActive={setActive} allowedModules={allowedModules} onOpenMore={() => setMobileOpen(true)} />}
       {isMobile && exitConfirmOpen && (
-        <Modal open onClose={stayInApp} title="Thoát ứng dụng?">
+        <Modal open onClose={stayInApp} title={t("Thoát ứng dụng?")}>
           <div className="space-y-4 text-sm">
-            <div className="text-[var(--ink-700)]">Bạn có chắc muốn thoát khỏi ứng dụng không?</div>
+            <div className="text-[var(--ink-700)]">{t("Bạn có chắc muốn thoát khỏi ứng dụng không?")}</div>
             <div className="flex justify-end gap-2">
-              <Btn variant="ghost" onClick={stayInApp}>Ở lại</Btn>
-              <Btn variant="danger" onClick={exitApp}>Thoát</Btn>
+              <Btn variant="ghost" onClick={stayInApp}>{t("Ở lại")}</Btn>
+              <Btn variant="danger" onClick={exitApp}>{t("Thoát")}</Btn>
             </div>
           </div>
         </Modal>
@@ -491,13 +492,13 @@ function MainApp({
         <div className="fixed inset-0 z-[100] bg-[rgba(24,24,27,0.65)] flex items-center justify-center p-4 sm:p-8 overflow-auto">
           <div className="relative shrink-0">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <span className="text-white text-xs font-semibold">📱 Xem trước Mobile — cửa sổ riêng, cùng phiên đăng nhập</span>
+              <span className="text-white text-xs font-semibold">📱 {t("Xem trước Mobile — cửa sổ riêng, cùng phiên đăng nhập")}</span>
               <button
                 type="button"
                 onClick={() => setMobilePreviewOpen(false)}
                 className="focus-ring text-white text-xs font-semibold underline underline-offset-2 shrink-0"
               >
-                ✕ Đóng
+                ✕ {t("Đóng")}
               </button>
             </div>
             <div

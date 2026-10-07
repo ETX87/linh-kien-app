@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api/client";
 import { Icon } from "./Icon";
 import { khopTim } from "../../lib/boDau";
+import { t } from "../../i18n";
 
 // Command palette (Ctrl+K / Cmd+K) - moi (concept 1 "Structured Neutral" da duyet, 2026-08-24). Chi
 // dieu huong giua cac module/man hinh nguoi dung DANG DUOC PHEP xem (danh sach `items` truyen tu App.tsx,
@@ -36,13 +37,13 @@ export function CommandPalette({ open, onClose, items, onSelect }: { open: boole
       return;
     }
     let cancelled = false;
-    const t = setTimeout(() => {
+    const hen = setTimeout(() => {
       api
         .get<{ results: { type: "don_hang" | "phieu_xuat_kho" | "thieu_lk"; id: string; label: string }[] }>(`/dat-mua-lk/search?q=${encodeURIComponent(needle)}`)
         .then((res) => {
           if (cancelled) return;
           setSearchResults(
-            res.results.map((r) => ({ key: `search:${r.type}:${r.id}`, label: r.label, icon: SEARCH_TYPE_ICON[r.type] ?? "🔎", group: SEARCH_TYPE_GROUP[r.type] ?? "Kết quả", action: { type: r.type, id: r.id } })),
+            res.results.map((r) => ({ key: `search:${r.type}:${r.id}`, label: r.label, icon: SEARCH_TYPE_ICON[r.type] ?? "🔎", group: t(SEARCH_TYPE_GROUP[r.type] ?? "Kết quả"), action: { type: r.type, id: r.id } })),
           );
         })
         .catch(() => {
@@ -51,7 +52,7 @@ export function CommandPalette({ open, onClose, items, onSelect }: { open: boole
     }, 300);
     return () => {
       cancelled = true;
-      clearTimeout(t);
+      clearTimeout(hen);
     };
   }, [q]);
 
@@ -111,14 +112,14 @@ export function CommandPalette({ open, onClose, items, onSelect }: { open: boole
               ref={inputRef}
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Tìm kiếm hoặc gõ lệnh... (Ctrl K)"
+              placeholder={t("Tìm kiếm hoặc gõ lệnh... (Ctrl K)")}
               className="flex-1 bg-transparent outline-none text-sm text-[var(--ink-900)] placeholder:text-[var(--ink-400)]"
             />
             <kbd className="hidden sm:inline text-[10px] font-semibold text-[var(--ink-400)] border border-[var(--line)] rounded px-1.5 py-0.5">Esc</kbd>
           </div>
           <div className="max-h-[50vh] overflow-y-auto py-1.5">
             {filtered.length === 0 ? (
-              <div className="px-4 py-6 text-sm text-[var(--ink-400)] text-center">Không tìm thấy lệnh nào khớp.</div>
+              <div className="px-4 py-6 text-sm text-[var(--ink-400)] text-center">{t("Không tìm thấy lệnh nào khớp.")}</div>
             ) : (
               filtered.map((it, idx) => (
                 <button

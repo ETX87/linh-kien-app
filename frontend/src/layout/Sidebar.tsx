@@ -10,6 +10,7 @@ import { TopBarActions } from "./TopBarActions";
 import { InstallAppButton } from "./InstallAppButton";
 import type { AppUser } from "../auth/AuthContext";
 import type { ViewAsRole } from "../auth/viewAsRoles";
+import { t, ChonNgonNgu } from "../i18n";
 
 // Sidebar — DESIGN_GUIDELINES.md §2.1/§4 (chuyển đổi 2026-09-26): rộng 261px, nền gradient xanh hoàng gia
 // (--sidebar-gradient), item cao 40px bo 8px, active = nền trắng 25%. Prop contract giữ nguyên.
@@ -76,10 +77,10 @@ export function Sidebar({
       style={{ background: "var(--sidebar-gradient)" }}
     >
       <div className="flex items-center gap-2.5 px-4 h-16 shrink-0 border-b border-[var(--sidebar-border)]">
-        <img src="/icon-192.png" alt="Đặt mua linh kiện" width={34} height={34} className="shrink-0 rounded-[10px] shadow-[var(--shadow-raise)]" />
+        <img src="/icon-192.png" alt={t("Đặt mua linh kiện")} width={34} height={34} className="shrink-0 rounded-[10px] shadow-[var(--shadow-raise)]" />
         {showText && (
           <div className="leading-tight">
-            <div className="text-[16px] font-bold tracking-tight text-white">Đặt hàng linh kiện</div>
+            <div className="text-[16px] font-bold tracking-tight text-white">{t("Đặt hàng linh kiện")}</div>
             <div className="text-[11px] font-semibold text-[var(--sidebar-fg-dim)]">3T</div>
           </div>
         )}
@@ -87,7 +88,10 @@ export function Sidebar({
 
       {isMobile && (
         <div className="px-3 py-2.5 border-b border-[var(--sidebar-border)] shrink-0">
-          <TopBarActions role={role} user={user} realIsAdmin={realIsAdmin} viewAsRole={viewAsRole} tone="dark" />
+          <div className="flex items-center justify-between gap-2">
+            <TopBarActions role={role} user={user} realIsAdmin={realIsAdmin} viewAsRole={viewAsRole} tone="dark" />
+            <ChonNgonNgu toi />
+          </div>
         </div>
       )}
       {isMobile && (
@@ -102,7 +106,7 @@ export function Sidebar({
           if (items.length === 0) return null;
           return (
             <div key={g.label} className="mb-4">
-              {showText && <div className="text-[10px] uppercase tracking-wider font-bold text-[var(--sidebar-fg-dim)] px-2.5 mb-1.5">{g.label}</div>}
+              {showText && <div className="text-[10px] uppercase tracking-wider font-bold text-[var(--sidebar-fg-dim)] px-2.5 mb-1.5">{t(g.label)}</div>}
               {items.map((it) => {
                 const count = navCount(it.countKey, countsDu, coHangTra);
                 const on = active === it.key;
@@ -117,7 +121,7 @@ export function Sidebar({
                     </span>
                     {showText && (
                       <>
-                        <span className="truncate flex-1 text-left min-w-0">{it.label}</span>
+                        <span className="truncate flex-1 text-left min-w-0">{t(it.label)}</span>
                         {count > 0 && (
                           <span className="shrink-0 tabular grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[var(--color-danger)] px-1 text-[11px] font-bold text-white">
                             {count > 99 ? "99+" : count}
@@ -128,7 +132,7 @@ export function Sidebar({
                   </>
                 );
                 const itemEl = it.href ? (
-                  <a href={it.href} className={cls} title={collapsed ? it.label : undefined}>
+                  <a href={it.href} className={cls} title={collapsed ? t(it.label) : undefined}>
                     {inner}
                   </a>
                 ) : (
@@ -138,7 +142,7 @@ export function Sidebar({
                       if (isMobile) onMobileClose();
                     }}
                     className={cls}
-                    title={collapsed ? it.label : undefined}
+                    title={collapsed ? t(it.label) : undefined}
                   >
                     {inner}
                   </button>
@@ -167,7 +171,7 @@ export function Sidebar({
           className="focus-ring relative z-[1] m-2.5 flex items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] font-semibold text-[var(--sidebar-fg-dim)] hover:bg-[var(--sidebar-hover-bg)] hover:text-[var(--sidebar-fg)]"
         >
           <Icon.chevronLeft size={15} className={collapsed ? "rotate-180" : ""} />
-          {showText && "Thu gọn sidebar"}
+          {showText && t("Thu gọn sidebar")}
         </button>
       )}
       {/* Sóng cyan trang trí chân sidebar (§4) - thuần thẩm mỹ, không bắt sự kiện. */}
@@ -177,9 +181,9 @@ export function Sidebar({
       </svg>
       {showText && (
         <div className="relative z-[1] px-3.5 pb-3 pt-1 text-[10px] leading-snug text-[var(--sidebar-fg-dim)] shrink-0">
-          Hệ thống nội bộ không chia sẻ dưới mọi hình thức.
+          {t("Hệ thống nội bộ không chia sẻ dưới mọi hình thức.")}
           <br />
-          Phiên bản v{APP_VERSION}
+          {t("Phiên bản")} v{APP_VERSION}
         </div>
       )}
     </aside>

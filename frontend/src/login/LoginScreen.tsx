@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { api } from "../api/client";
+import { t, ChonNgonNgu } from "../i18n";
 
 export function LoginScreen({ variant = "login" }: { variant?: "login" | "pending" | "rejected" | "disabled" }) {
   const messages: Record<string, { title: string; sub: string }> = {
-    login: { title: "Đặt mua linh kiện", sub: "Hệ thống quản lý đặt mua/xuất kho/trả hàng linh kiện nội bộ" },
-    pending: { title: "Đang chờ duyệt", sub: "Tài khoản của bạn đã được ghi nhận, vui lòng chờ Admin phê duyệt và gán vai trò." },
-    rejected: { title: "Tài khoản bị từ chối", sub: "Liên hệ Admin nếu bạn cho rằng đây là nhầm lẫn." },
-    disabled: { title: "Tài khoản đã bị khóa", sub: "Liên hệ Admin để được mở khóa lại." },
+    login: { title: t("Đặt mua linh kiện"), sub: t("Hệ thống quản lý đặt mua/xuất kho/trả hàng linh kiện nội bộ") },
+    pending: { title: t("Đang chờ duyệt"), sub: t("Tài khoản của bạn đã được ghi nhận, vui lòng chờ Admin phê duyệt và gán vai trò.") },
+    rejected: { title: t("Tài khoản bị từ chối"), sub: t("Liên hệ Admin nếu bạn cho rằng đây là nhầm lẫn.") },
+    disabled: { title: t("Tài khoản đã bị khóa"), sub: t("Liên hệ Admin để được mở khóa lại.") },
   };
   const { title, sub } = messages[variant];
   // Man cho duyet / bi tu choi / bi khoa (2026-10-07): truoc day khong co cach thoat -> ket o Gmail nay, khong doi duoc tai
@@ -22,9 +23,10 @@ export function LoginScreen({ variant = "login" }: { variant?: "login" | "pendin
   }
 
   return (
-    <div className="min-h-screen ripple-bg flex items-center justify-center" style={{ background: "var(--brand-gradient)" }}>
+    <div className="relative min-h-screen ripple-bg flex items-center justify-center" style={{ background: "var(--brand-gradient)" }}>
+      <ChonNgonNgu toi className="absolute top-4 right-4" />
       <div className="bg-white rounded-[14px] shadow-[var(--shadow-drawer)] p-10 w-full max-w-sm text-center anim-in">
-        <img src="/icon-192.png" alt="Đặt mua linh kiện" width={52} height={52} className="mx-auto mb-3 rounded-xl shadow-[var(--shadow-raise)]" />
+        <img src="/icon-192.png" alt={t("Đặt mua linh kiện")} width={52} height={52} className="mx-auto mb-3 rounded-xl shadow-[var(--shadow-raise)]" />
         <div className="text-[21px] font-bold text-[var(--color-text)] mb-1">{title}</div>
         <div className="text-sm text-[var(--ink-400)] mb-7">{sub}</div>
         {variant === "login" && (
@@ -38,11 +40,11 @@ export function LoginScreen({ variant = "login" }: { variant?: "login" | "pendin
               <path fill="#4CAF50" d="M24 45c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 36.6 26.7 37.5 24 37.5c-5.3 0-9.7-3.6-11.3-8.4l-6.5 5C9.5 40.6 16.2 45 24 45z" />
               <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.9 2.6-2.5 4.8-4.7 6.3l6.2 5.2C40.5 36.2 44 30.6 44 24c0-1.3-.1-2.7-.4-3.5z" />
             </svg>
-            Đăng nhập bằng Google
+            {t("Đăng nhập bằng Google")}
           </a>
         )}
         {variant === "login" && (
-          <div className="text-xs text-[var(--ink-400)] mt-5">Chỉ tài khoản đã được Admin phê duyệt mới truy cập được hệ thống.</div>
+          <div className="text-xs text-[var(--ink-400)] mt-5">{t("Chỉ tài khoản đã được Admin phê duyệt mới truy cập được hệ thống.")}</div>
         )}
         {variant !== "login" && (
           <>
@@ -52,9 +54,9 @@ export function LoginScreen({ variant = "login" }: { variant?: "login" | "pendin
               disabled={dangThoat}
               className="focus-ring w-full flex items-center justify-center gap-2 border border-[var(--color-border)] rounded-[var(--radius-btn)] h-10 font-semibold text-sm text-[var(--color-text-body)] hover:bg-[var(--color-subtle)] transition-colors disabled:opacity-60"
             >
-              {dangThoat ? "Đang đăng xuất…" : "Đăng xuất"}
+              {dangThoat ? t("Đang đăng xuất…") : t("Đăng xuất")}
             </button>
-            <div className="text-xs text-[var(--ink-400)] mt-3">Đăng xuất để đăng nhập bằng tài khoản Google khác.</div>
+            <div className="text-xs text-[var(--ink-400)] mt-3">{t("Đăng xuất để đăng nhập bằng tài khoản Google khác.")}</div>
           </>
         )}
         {/* import.meta.env.DEV chi true khi chay "vite dev" local, khong bao gio xuat hien tren production
