@@ -1742,6 +1742,8 @@ export function PxkDetailModal({
           placeholder={
             canKeToan && trangThai === "Cho ke toan"
               ? "Ghi chú (bắt buộc nếu bấm Huỷ / Trả về chờ mã HĐ)"
+              : (canKho || canKeToan) && trangThai === "Da chot xong don xuat"
+                ? "Ghi chú (bắt buộc nếu bấm Đẩy lùi về chờ mã MISA)"
               : (canTacNghiep || canKeToan) && ["Dang tao phieu", "Cho ke toan"].includes(trangThai)
                 ? "Ghi chú (bắt buộc nếu bấm Huỷ)"
                 : "Ghi chú (tuỳ chọn)"
@@ -1832,6 +1834,18 @@ export function PxkDetailModal({
                 📦 Hàng trừ kho
               </Btn>
             </>
+          )}
+          {/* Day lui "Đã chốt xong đơn xuất" -> "Chờ mã MISA" (2026-10-07) - Kho/Ke toan tra phieu ve Ke toan, bat buoc ly do (o ghi chu). */}
+          {(canKho || canKeToan) && trangThai === "Da chot xong don xuat" && (
+            <Btn
+              variant="ghost"
+              onClick={() => logMutation.mutate("Cho ke toan")}
+              disabled={logMutation.isPending || !ghiChu.trim()}
+              title={!ghiChu.trim() ? "Nhập lý do đẩy lùi vào ô Ghi chú trước" : "Trả phiếu về bước Chờ mã MISA để Kế toán kiểm tra/sửa rồi chốt lại"}
+              aria-label="Đẩy lùi về chờ mã MISA"
+            >
+              ↩ Đẩy lùi về chờ mã MISA
+            </Btn>
           )}
           {/* Co phu "Da in phieu" (migration 0032, phan hoi 2026-09-24: "ở giai đoạn chờ kho gửi hàng
               cho ktv, thêm 1 trạng thái phụ là đã in phiếu/ chưa in phiếu để kho xác định được phiếu

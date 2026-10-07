@@ -210,6 +210,11 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
 - **Kế toán đẩy lùi PXK "Chờ mã MISA" → "Chờ mã HĐ"** (2026-09-29): `POST /phieu-xuat-kho/:id/log` `trang_thai='Dang tao
   phieu'` từ "Cho ke toan", CHỈ Kế toán/Admin, bắt buộc `ghi_chu` (log "Kế toán trả về chờ mã HĐ: …", báo việc mới cho TN);
   giữ nguyên mã đơn hàng/mã MISA/chuyển tiền đã duyệt. Nút "↩ Trả về chờ mã HĐ" ở footer chi tiết PXK.
+  **Kho đẩy lùi "Đã chốt xong đơn xuất" → "Chờ mã MISA"** (2026-10-07): cùng `POST /:id/log` `trang_thai='Cho ke toan'` khi phiếu
+  đang "Da chot xong don xuat" (`dayLuiTuKho`) — Kho/Kế toán/Admin, bắt buộc `ghi_chu` (log "Trả về chờ mã MISA: …", báo việc Kế
+  toán), bỏ qua mọi kiểm tra của "Gửi kế toán", reset `da_in_phieu = 0`. Bên khovan dòng "chờ xử lý" cũ vẫn còn (khovan không có
+  trạng thái rút lại; Kế toán chốt lại thì push cùng `order_code`, khovan trả dòng có sẵn — không trùng). Nút "↩ Đẩy lùi về chờ mã
+  MISA" ở footer chi tiết PXK.
 - **Danh sách PXK dạng phiếu gốc xổ xuống** (2026-09-29): bấm 1 dòng PXK = xổ/thu các dòng đơn con ngay bên dưới
   (`PaginatedTable` prop `expandedContent` — 1 hàng `<td colSpan>`, nội dung rộng không kéo giãn cột cha; mobile: khối
   dưới thẻ), bấm ID phiếu (link màu, gạch chân — desktop + mobile) mới mở Drawer, không còn nút "Chi tiết", "Xổ tất cả dòng đơn" mở cả trang. Bảng dòng đơn + mọi thao

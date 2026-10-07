@@ -1625,8 +1625,17 @@ phieuXuatKho.post("/:id/log", async (c) => {
   const user = c.get("user");
   const hienTai = pxk.trang_thai ?? "Dang tao phieu";
   const target = body.trang_thai;
+  // DAY LUI "Đã chốt xong đơn xuất" -> "Chờ mã MISA" (2026-10-07, phan hoi "ở bước Đã chốt xong đơn xuất => bổ sung nút đẩy lùi
+  // và ghi chú lý do"): Kho (hoac Ke toan/Admin) tra phieu ve Ke toan, bat buoc ly do. Giu nguyen ma don hang/ma MISA/chuyen
+  // tien; bo co "Đã in phiếu" (Ke toan co the sua phieu -> Kho in lai). Ben khovan van giu dong "cho xu ly" cu (khovan khong co
+  // trang thai rut lai) - Ke toan chot lai thi day lai cung order_code, khovan tra ve dong da co (khong tao trung).
+  const dayLuiTuKho = target === "Cho ke toan" && hienTai === "Da chot xong don xuat";
 
-  if (target === "Cho ke toan") {
+  if (dayLuiTuKho) {
+    if (!canKho(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+    if (!body.ghi_chu?.trim()) return c.json({ error: "MISSING_GHI_CHU" }, 400);
+    body.ghi_chu = `Trả về chờ mã MISA: ${body.ghi_chu.trim()}`;
+  } else if (target === "Cho ke toan") {
     if (hienTai !== "Dang tao phieu") return c.json({ error: "INVALID_STATE" }, 409);
     if (!canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
     if (!pxk.ma_xuat_kho_xac_nhan) return c.json({ error: "MA_XUAT_KHO_CHUA_XAC_NHAN" }, 409);
@@ -1721,7 +1730,9 @@ phieuXuatKho.post("/:id/log", async (c) => {
   // RA SOAT BAO MAT 2026-08-18 (phan hoi Codex #8, migration 0087) - CAS giong applyDonHangLog, xem
   // comment o do.
   const casResult = await c.env.DB.prepare(
-    "UPDATE phieu_xuat_kho SET trang_thai_hien_tai = ?, version = version + 1 WHERE id = ? AND version = ?",
+    dayLuiTuKho
+      ? "UPDATE phieu_xuat_kho SET trang_thai_hien_tai = ?, da_in_phieu = 0, version = version + 1 WHERE id = ? AND version = ?"
+      : "UPDATE phieu_xuat_kho SET trang_thai_hien_tai = ?, version = version + 1 WHERE id = ? AND version = ?",
   )
     .bind(target, id, pxk.version)
     .run();
@@ -1847,7 +1858,9 @@ phieuXuatKho.post("/:id/log", async (c) => {
     const role = target === "Cho ke toan" ? "la_ke_toan" : target === "Dang tao phieu" ? "la_tac_nghiep" : "la_kho";
     const body_ =
       target === "Cho ke toan"
-        ? `PXK ${id} đang chờ bạn chốt kế toán`
+        ? dayLuiTuKho
+          ? `PXK ${id} bị trả về chờ mã MISA — ${body.ghi_chu}`
+          : `PXK ${id} đang chờ bạn chốt kế toán`
         : target === "Dang tao phieu"
           ? `PXK ${id} bị kế toán trả về chờ mã HĐ — ${body.ghi_chu}`
           : `PXK ${id} đã chốt kế toán, chờ bạn xử lý`;
