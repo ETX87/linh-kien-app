@@ -215,6 +215,16 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   toán), bỏ qua mọi kiểm tra của "Gửi kế toán", reset `da_in_phieu = 0`. Bên khovan dòng "chờ xử lý" cũ vẫn còn (khovan không có
   trạng thái rút lại; Kế toán chốt lại thì push cùng `order_code`, khovan trả dòng có sẵn — không trùng). Nút "↩ Đẩy lùi về chờ mã
   MISA" ở footer chi tiết PXK.
+- **Chuyển kho xuất MB/MN theo phiếu** (chốt 2026-10-07, migration `0070`, `lib/mienXuat.ts`): `phieu_xuat_kho.mien_xuat`
+  (`bac`/`nam`, NULL = theo khu vực — "MB"/"MN" trong mã khu vực, như MISA trước nay). TN/Kế toán/Admin đổi qua `PATCH
+  /phieu-xuat-kho/:id/mien-xuat` {mien_xuat, ghi_chu?} khi phiếu còn "Dang tao phieu"/"Cho ke toan" (`DA_GUI_KHO`); chọn đúng miền
+  của khu vực = lưu NULL; log 'Da chuyen kho xuat'. Ảnh hưởng: (1) file MISA `mien = pxk.mien_xuat ?? miền khu vực` (mọi cột kho:
+  kho công ty, kho Máy KRF, NTMB/NTMN trả hàng; dòng TRỪ CÔNG NỢ vẫn kho KTV); (2) bộ lọc khu vực của PXK — **mọi chỗ lọc PXK theo
+  khu vực dùng `khuVucPxkWhereSql()`** (`scopeDatMua.ts`; danh sách/status-counts/mo-count/misa-export gộp/badge
+  `notifications.ts`/`/luong-quy-trinh`, `/home-summary` CTE dùng `pxkKhopMienXuatSql`): phiếu đã chuyển chỉ khớp tập khu vực có
+  khu vực thuộc miền MỚI (khu vực cũ không còn thấy mặc định, phải tự lọc); (3) đẩy khovan kèm `sender_info.mien_xuat` (khovan
+  chưa dùng). Thông báo việc mới vẫn theo bảng cũ. UI: cột "Kho xuất" + lọc cột `mien_xuat` ở danh sách PXK, badge + thẻ "Kho xuất"
+  ở chi tiết PXK (`datMuaLinhKien/KhoXuat.tsx`).
 - **Danh sách PXK dạng phiếu gốc xổ xuống** (2026-09-29): bấm 1 dòng PXK = xổ/thu các dòng đơn con ngay bên dưới
   (`PaginatedTable` prop `expandedContent` — 1 hàng `<td colSpan>`, nội dung rộng không kéo giãn cột cha; mobile: khối
   dưới thẻ), bấm ID phiếu (link màu, gạch chân — desktop + mobile) mới mở Drawer, không còn nút "Chi tiết", "Xổ tất cả dòng đơn" mở cả trang. Bảng dòng đơn + mọi thao

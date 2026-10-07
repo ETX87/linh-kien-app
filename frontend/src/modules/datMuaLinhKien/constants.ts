@@ -209,6 +209,7 @@ export const PXK_LOG_ONLY_OPTIONS = [
   { value: "Da sua tong tien can chuyen", label: "Đã sửa tổng tiền cần chuyển" },
   { value: "Da them don vao phieu", label: "Đã thêm đơn vào phiếu" },
   { value: "Da xoa don khoi phieu", label: "Đã xoá đơn khỏi phiếu" },
+  { value: "Da chuyen kho xuat", label: "Đã chuyển kho xuất" },
 ];
 export const PXK_LOG_ONLY_TONE: Record<string, Tone> = {
   "Da luu ma don hang": "info",
@@ -225,7 +226,13 @@ export const PXK_LOG_ONLY_TONE: Record<string, Tone> = {
   "Da sua tong tien can chuyen": "info",
   "Da them don vao phieu": "info",
   "Da xoa don khoi phieu": "info",
+  "Da chuyen kho xuat": "purple",
 };
+
+// Kho xuat theo mien cua PXK (migration 0070, backend lib/mienXuat.ts).
+export type MienXuat = "bac" | "nam";
+export const MIEN_XUAT_LABEL: Record<MienXuat, string> = { bac: "Miền Bắc", nam: "Miền Nam" };
+export const MIEN_XUAT_NGAN: Record<MienXuat, string> = { bac: "MB", nam: "MN" };
 
 export const CHUYEN_TIEN_TONE: Record<string, Tone> = {
   "Cho KTV chuyen": "warning",

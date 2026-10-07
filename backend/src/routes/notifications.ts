@@ -3,7 +3,7 @@ import type { Env, AppUser } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
-import { phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql } from "../lib/scopeDatMua";
+import { phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql } from "../lib/scopeDatMua";
 
 // Port gan nguyen ban tu backend/src/routes/notifications.ts cua he DVBH goc - CHI giu phan
 // "DatMuaLkBreakdown"/computeDatMuaLkBreakdown()/getDatMuaLkBadge() (badge rieng cho module "Dat
@@ -114,7 +114,7 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
     // Dang gui KTV (cho KTV xac nhan da nhan). Scope GIONG HET pattern cho_kho_pxk ben duoi (GS qua
     // EXISTS join phieu_xuat_kho_dong/dat_don_hang, Khu vuc THANG tren pxk.nguoi_nhan_hang).
     const pxkClause = gsInClause(gsSet, "ddh2");
-    const pxkKvClause = kvClauseFor(["pxk.nguoi_nhan_hang"]);
+    const pxkKvClause = (khuVucSet ? khuVucPxkWhereSql(khuVucSet) : null);
     const row = await db
       .prepare(
         `SELECT
@@ -146,7 +146,7 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
     const pxkClause = gsInClause(gsSet, "ddh2");
     const traHangClause = gsInClause(gsSet, "ddh");
     const thieuLkKvClause = kvClauseFor(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
-    const pxkKvClause = kvClauseFor(["pxk.nguoi_nhan_hang"]);
+    const pxkKvClause = (khuVucSet ? khuVucPxkWhereSql(khuVucSet) : null);
     const traHangKvClause = kvClauseFor(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
     const row = await db
       .prepare(
@@ -181,7 +181,7 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
   if (isKeToan) {
     const pxkClause = gsInClause(gsSet, "ddh2");
     const traHangClause = gsInClause(gsSet, "ddh");
-    const pxkKvClause = kvClauseFor(["pxk.nguoi_nhan_hang"]);
+    const pxkKvClause = (khuVucSet ? khuVucPxkWhereSql(khuVucSet) : null);
     const traHangKvClause = kvClauseFor(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
     const row = await db
       .prepare(

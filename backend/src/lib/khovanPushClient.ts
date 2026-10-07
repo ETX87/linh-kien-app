@@ -31,6 +31,8 @@ export async function pushPxkToKhovan(
   note: string,
   exportSlipCode?: string | null,
   workUrl?: string | null,
+  // Kho xuat "bac"/"nam" cua phieu (chuyen tay hoac theo khu vuc, migration 0070) - de khovan biet kho MB/MN nao xu ly.
+  mienXuat?: string | null,
 ): Promise<void> {
   const url = `${env.KHOVAN_SYNC_BASE_URL.replace(/\/$/, "")}/api/v1/inbound/orders`;
   try {
@@ -41,7 +43,7 @@ export async function pushPxkToKhovan(
         order_code: orderCode,
         export_slip_code: exportSlipCode ?? undefined,
         sender_name: senderName,
-        sender_info: { loai_don: loaiDon, work_url: workUrl ?? undefined },
+        sender_info: { loai_don: loaiDon, work_url: workUrl ?? undefined, mien_xuat: mienXuat ?? undefined },
         note,
       }),
     });

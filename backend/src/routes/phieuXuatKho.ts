@@ -9,7 +9,8 @@ import { nowVN } from "../lib/vnTime";
 import { emailsTheoTen, orDonTrongPxk, orEmailIn } from "../lib/timTheoTen";
 import { bumpVersions } from "../lib/dataVersions";
 import { quaHanLyDoCham, mocTinhHanTn } from "../lib/hanLyDoCham";
-import { autoClaimGs, scopePxkNguoiNhanHang, phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql } from "../lib/scopeDatMua";
+import { MIEN_XUAT_LABEL, MIEN_XUAT_SUA_DUOC, mienTuMaKhuVuc, mienTuKhuVucSql, mienXuatHieuLucSql, type MienXuat } from "../lib/mienXuat";
+import { autoClaimGs, scopePxkNguoiNhanHang, phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql } from "../lib/scopeDatMua";
 import { uploadPublicImage } from "../lib/googleDrive";
 import { sendPushToUser } from "../lib/webPush";
 import { buildMisaExportSheets, resolveMisaTemplateDeXuat, MISA_TEMPLATES, type MisaTemplate } from "../lib/misaExport";
@@ -163,7 +164,7 @@ phieuXuatKho.get("/mo-count", async (c) => {
   if (scope === null) {
     const khuVucSet = await khuVucCuaToiSet(c.env.DB, user);
     if (khuVucSet) {
-      const { sql, binds } = khuVucSetWhereSql(khuVucSet, ["pxk.nguoi_nhan_hang"]);
+      const { sql, binds } = khuVucPxkWhereSql(khuVucSet);
       extraScopeSql += sql;
       extraScopeBinds.push(...binds);
     }
@@ -215,6 +216,8 @@ const PXK_COT_LOC: Record<string, CotLoc> = {
   nguoi_tao: { kieu: "don", expr: "pxk.nguoi_tao", sortExpr: tenNguoiSql("pxk.nguoi_tao") },
   nguoi_nhan_hang: { kieu: "don", expr: "pxk.nguoi_nhan_hang", sortExpr: tenNguoiSql("pxk.nguoi_nhan_hang") },
   khu_vuc: { kieu: "don", expr: "pxk.khu_vuc_ma", khuVuc: true }, // cot luu san, migration 0042
+  // Kho xuat hieu luc ("bac"/"nam", NULL = khu vuc khong ro mien) - migration 0070, lib/mienXuat.ts.
+  mien_xuat: { kieu: "don", expr: mienXuatHieuLucSql("pxk") },
   loai_de_xuat: { kieu: "nhieu", tu: PXK_DONG_TU, join: PXK_DONG_JOIN, expr: "lcd.loai_de_xuat" },
   yeu_cau_hoa_don: { kieu: "nhieu", tu: PXK_DONG_TU, join: PXK_DONG_JOIN, expr: "lcd.yeu_cau_hoa_don" },
   // Loai chiet khau "cao nhat" cua phieu - cung cong thuc cot loai_chiet_khau_cao_nhat_id o SELECT danh sach.
@@ -312,7 +315,7 @@ async function pxkListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string): P
   if (khuVuc) {
     const khuVucList = khuVuc.split(",").map((s) => s.trim()).filter(Boolean);
     if (khuVucList.length > 0) {
-      const { sql, binds: khuVucBinds } = khuVucSetWhereSql(new Set(khuVucList), ["pxk.nguoi_nhan_hang"]);
+      const { sql, binds: khuVucBinds } = khuVucPxkWhereSql(new Set(khuVucList));
       whereSql += sql;
       binds.push(...khuVucBinds);
     }
@@ -357,6 +360,7 @@ phieuXuatKho.get("/", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT pxk.id, pxk.ma_xuat_kho, pxk.ma_xuat_kho_xac_nhan, pxk.ma_misa, pxk.ma_van_don, pxk.anh_bien_ban_url,
        pxk.nguoi_tao, pxk.ngay_tao, pxk.ghi_chu, pxk.nguoi_nhan_hang, pxk.loai_don,
+       pxk.mien_xuat, ${mienXuatHieuLucSql("pxk")} as mien_xuat_hieu_luc,
        pxk.so_tien_can_chuyen, pxk.trang_thai_chuyen_tien, pxk.da_in_phieu, pxk.da_thanh_toan,
        pxk.bang_chung_chuyen_tien_anh, pxk.bang_chung_chuyen_tien_url,
        pxk.bang_chung_tien_doc, pxk.bang_chung_chuyen_tien_ghi_chu, pxk.ly_do_tu_choi_chuyen_tien, pxk.ngay_ktv_chuyen,
@@ -445,7 +449,7 @@ phieuXuatKho.get("/misa-export", async (c) => {
   if (khuVuc) {
     const khuVucList = khuVuc.split(",").map((s) => s.trim()).filter(Boolean);
     if (khuVucList.length > 0) {
-      const { sql, binds: khuVucBinds } = khuVucSetWhereSql(new Set(khuVucList), ["pxk.nguoi_nhan_hang"]);
+      const { sql, binds: khuVucBinds } = khuVucPxkWhereSql(new Set(khuVucList));
       whereSql += sql;
       binds.push(...khuVucBinds);
     }
@@ -495,7 +499,7 @@ phieuXuatKho.get("/status-counts", async (c) => {
   if (scope === null) {
     const khuVucSet = await khuVucCuaToiSet(c.env.DB, user);
     if (khuVucSet) {
-      const { sql, binds: kvBinds } = khuVucSetWhereSql(khuVucSet, ["pxk.nguoi_nhan_hang"]);
+      const { sql, binds: kvBinds } = khuVucPxkWhereSql(khuVucSet);
       whereSql += sql;
       binds.push(...kvBinds);
     }
@@ -898,7 +902,9 @@ phieuXuatKho.get("/:id", async (c) => {
   const whereSql = "pxk.id = ?" + (scope?.whereSql ?? "");
   const binds = [id, ...(scope?.binds ?? [])];
   const pxk = await c.env.DB.prepare(
-    `SELECT pxk.*, pxk.trang_thai_hien_tai as trang_thai, ${ANH_DA_GHI_NHAN_SQL("pxk")} as anh_da_ghi_nhan FROM phieu_xuat_kho pxk WHERE ${whereSql}`,
+    `SELECT pxk.*, pxk.trang_thai_hien_tai as trang_thai, ${ANH_DA_GHI_NHAN_SQL("pxk")} as anh_da_ghi_nhan,
+       ${mienXuatHieuLucSql("pxk")} as mien_xuat_hieu_luc, ${mienTuKhuVucSql("pxk.khu_vuc_ma")} as mien_khu_vuc
+     FROM phieu_xuat_kho pxk WHERE ${whereSql}`,
   )
     .bind(...binds)
     .first();
@@ -1072,6 +1078,47 @@ phieuXuatKho.patch("/:id/ma-misa", async (c) => {
     ),
   ]);
   return c.json({ ok: true });
+});
+
+// PATCH /api/phieu-xuat-kho/:id/mien-xuat - { mien_xuat: "bac" | "nam" | null, ghi_chu? } - TN/Ke toan CHUYEN kho xuat
+// MB/MN cua CA phieu (chot 2026-10-07, xem lib/mienXuat.ts) khi phieu chua giao sang Kho ("Dang tao phieu"/"Cho ke
+// toan"). Chon dung mien suy tu khu vuc (hoac null) = bo chuyen, luu NULL. Anh huong: file MISA (kho theo mien moi) +
+// bo loc khu vuc cua TN/Kho/Ke toan (khuVucPxkWhereSql - phieu thuoc mien moi).
+phieuXuatKho.patch("/:id/mien-xuat", async (c) => {
+  if (!canTacNghiep(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const id = c.req.param("id");
+  const body = await c.req.json<{ mien_xuat: string | null; ghi_chu?: string }>().catch(() => null);
+  if (!body || (body.mien_xuat !== null && body.mien_xuat !== "bac" && body.mien_xuat !== "nam")) {
+    return c.json({ error: "MIEN_XUAT_KHONG_HOP_LE" }, 400);
+  }
+  const pxk = await c.env.DB.prepare("SELECT trang_thai_hien_tai as trang_thai, mien_xuat, khu_vuc_ma FROM phieu_xuat_kho WHERE id = ?")
+    .bind(id)
+    .first<{ trang_thai: string | null; mien_xuat: MienXuat | null; khu_vuc_ma: string | null }>();
+  if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
+  if (!MIEN_XUAT_SUA_DUOC.includes(pxk.trang_thai ?? "Dang tao phieu")) return c.json({ error: "DA_GUI_KHO" }, 409);
+
+  const mienKhuVuc = mienTuMaKhuVuc(pxk.khu_vuc_ma);
+  const moi: MienXuat | null = body.mien_xuat === mienKhuVuc ? null : (body.mien_xuat as MienXuat | null);
+  if (moi === pxk.mien_xuat) return c.json({ ok: true, mien_xuat: moi, khong_doi: true });
+
+  const nhan = (m: MienXuat | null) => (m ? MIEN_XUAT_LABEL[m] : "chưa xác định");
+  const tu = pxk.mien_xuat ?? mienKhuVuc;
+  const den = moi ?? mienKhuVuc;
+  const lyDo = body.ghi_chu?.trim();
+  const ghiChu = `Chuyển kho xuất: ${nhan(tu)} → ${nhan(den)}${moi === null ? " (theo khu vực)" : ""}${lyDo ? ` — ${lyDo}` : ""}`;
+  const user = c.get("user");
+  // CAS: trang thai + mien cu khong doi giua luc doc va ghi (Ke toan chot xong cung luc -> khong chuyen nua).
+  const upd = await c.env.DB.prepare(
+    `UPDATE phieu_xuat_kho SET mien_xuat = ? WHERE id = ? AND COALESCE(trang_thai_hien_tai, 'Dang tao phieu') IN (${MIEN_XUAT_SUA_DUOC.map(() => "?").join(",")}) AND mien_xuat IS ?`,
+  )
+    .bind(moi, id, ...MIEN_XUAT_SUA_DUOC, pxk.mien_xuat)
+    .run();
+  if (!upd.meta.changes) return c.json({ error: "CONFLICT" }, 409);
+  await c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Da chuyen kho xuat', ?, ?, ?)")
+    .bind(id, user.email, nowVN(), ghiChu)
+    .run();
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, mien_xuat: moi });
 });
 
 // PATCH /api/phieu-xuat-kho/:id/da-in-phieu - { da_in_phieu } - co PHU rieng cua Kho de theo doi phieu
@@ -1606,7 +1653,8 @@ phieuXuatKho.post("/:id/log", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json<{ trang_thai: string; ghi_chu?: string; ma_van_don?: string; ly_do_huy_pxk?: "loi" | "khong_con_nhu_cau" }>();
   const pxk = await c.env.DB.prepare(
-    "SELECT so_tien_can_chuyen, trang_thai_chuyen_tien, ma_xuat_kho_xac_nhan, ma_misa, nguoi_nhan_hang, loai_don, version, trang_thai_hien_tai as trang_thai FROM phieu_xuat_kho WHERE id = ?",
+    `SELECT so_tien_can_chuyen, trang_thai_chuyen_tien, ma_xuat_kho_xac_nhan, ma_misa, nguoi_nhan_hang, loai_don, version, trang_thai_hien_tai as trang_thai,
+       ${mienXuatHieuLucSql("phieu_xuat_kho")} as mien_xuat_hieu_luc FROM phieu_xuat_kho WHERE id = ?`,
   )
     .bind(id)
     .first<{
@@ -1618,6 +1666,7 @@ phieuXuatKho.post("/:id/log", async (c) => {
       loai_don: string | null;
       version: number;
       trang_thai: string | null;
+      mien_xuat_hieu_luc: MienXuat | null;
     }>();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
   if (pxk.trang_thai && (TRANG_THAI_DONG as readonly string[]).includes(pxk.trang_thai)) return c.json({ error: "PHIEU_DA_DONG" }, 409);
@@ -1848,7 +1897,7 @@ phieuXuatKho.post("/:id/log", async (c) => {
       const displayCode = pxk.ma_misa?.trim() || id;
       const senderLabel = `Xuất kho ${displayCode}` + (pxk.nguoi_nhan_hang ? ` (giao ${pxk.nguoi_nhan_hang})` : "");
       const note = pxk.loai_don === "tra_hang" ? "Trả hàng - chờ Kho xác nhận nhận hàng" : "Xuất kho - chờ Kho gửi/hàng trữ kho";
-      await pushPxkToKhovan(c.env, id, senderLabel, pxk.loai_don, note, pxk.ma_misa, buildWorkUrl(c.env, id));
+      await pushPxkToKhovan(c.env, id, senderLabel, pxk.loai_don, note, pxk.ma_misa, buildWorkUrl(c.env, id), pxk.mien_xuat_hieu_luc);
     }
   }
 

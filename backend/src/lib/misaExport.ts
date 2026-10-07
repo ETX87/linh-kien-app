@@ -47,6 +47,7 @@ import { tinhToanPxk, laTruCongNo, laKhTraGop } from "./pxkRecalculate";
 import { tenNguoiNullSql } from "./tenNguoi";
 import { ktvChinhCuaEmailSql } from "./ktvChinh";
 import { boDau } from "./timTheoTen";
+import { mienTuMaKhuVuc, type MienXuat } from "./mienXuat";
 
 export const MISA_TEMPLATES = ["xuat_kho", "chuyen_kho", "ban_hang"] as const;
 export type MisaTemplate = (typeof MISA_TEMPLATES)[number];
@@ -148,6 +149,7 @@ interface RawLine {
   ktv_ten: string | null;
   ktv_ma_misa: string | null;
   ktv_ten_misa: string | null;
+  pxk_mien_xuat: MienXuat | null;
   ktv_khu_vuc_ma: string | null;
   nguoi_nhan_hang: string | null;
 }
@@ -219,12 +221,8 @@ function dienGiaiXuatMay(tenKhoKtv: string, line: Pick<RawLine, "tt_khach_hang" 
     .join(" ");
 }
 
-function mienFromKhuVuc(khuVucMa: string | null): "bac" | "nam" | null {
-  if (!khuVucMa) return null;
-  if (khuVucMa.includes("MB")) return "bac";
-  if (khuVucMa.includes("MN")) return "nam";
-  return null;
-}
+// Mien theo khu vuc: lib/mienXuat.ts mienTuMaKhuVuc (dung chung bo loc khu vuc PXK, 2026-10-07).
+const mienFromKhuVuc = mienTuMaKhuVuc;
 
 type KhoTheoMien = Record<"bac" | "nam", { ma: string; ten: string }>;
 
@@ -325,6 +323,7 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
          COALESCE(NULLIF(TRIM(ktv.ma_misa), ''), NULLIF(TRIM(u.ma_misa), '')) as ktv_ma_misa,
          COALESCE(NULLIF(TRIM(ktv.ten_misa), ''), NULLIF(TRIM(u.ten_misa), '')) as ktv_ten_misa,
          COALESCE(ktv.khu_vuc_ma, pxk.khu_vuc_ma) as ktv_khu_vuc_ma,
+         pxk.mien_xuat as pxk_mien_xuat, -- TN/Ke toan chuyen kho xuat MB/MN (migration 0070) - thang mien theo khu vuc
          pxk.nguoi_nhan_hang
        FROM phieu_xuat_kho pxk
        JOIN phieu_xuat_kho_dong pxkd ON pxkd.phieu_xuat_kho_id = pxk.id
@@ -366,7 +365,7 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
   const lam2 = (x: number) => Math.round(x * 100) / 100;
 
   for (const { line, template } of gopDongKhTraGop(lines, tienTheoDong)) {
-    const mien = mienFromKhuVuc(line.ktv_khu_vuc_ma);
+    const mien = line.pxk_mien_xuat ?? mienFromKhuVuc(line.ktv_khu_vuc_ma);
     // Kho phia CONG TY cua dong (Ban hang/Xuat kho: "Mã kho"; Chuyen kho: "Nhập tại kho"). LK "Máy" -> kho ky gui KRF
     // (Admin chua dien thi quay ve kho cong ty).
     const khoMayMien = mien && laPhanLoaiMay(line.don_vi) && !laTruCongNo(line.loai_de_xuat) ? khoMay[mien] : null;

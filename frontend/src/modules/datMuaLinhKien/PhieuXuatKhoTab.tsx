@@ -22,13 +22,14 @@ import { pushOverlayClose } from "../../lib/overlayStack";
 import type { DonHangRow, PhieuXuatKhoRow, DonHangKhaDungRow, NguoiNhanHangKhaDungRow, LyDoChamRow, KtvDisplayMap } from "./types";
 import { TongNgayKtvInfo } from "./TongNgayKtv";
 import { PxkDongDonHangTable } from "./PxkDongDonHangTable";
+import { KhoXuatBadge, ChuyenKhoXuatCard, MIEN_XUAT_SUA_DUOC } from "./KhoXuat";
 // Lien ket 2 chieu voi don goc trong phieu (them 2026-09-21, phan hoi "cho phép click vào dòng đơn
 // hàng trong phiếu để mở giao diện UI chi tiết") - tai dung nguyen DonHangDetailModal, dung y het cach
 // ThieuLkTab.tsx da lam (xem comment o do ve import vong an toan trong ESM).
 import { DonHangDetailModal } from "./DonCuaToiTab";
 import { XemAnhNhanh, BangChungAnhPxk, anhXemCuaPxk, type AnhXem } from "./XemAnhNhanh";
 import { LoaiChietKhauPicker, LoaiChietKhauText, LoaiChietKhauChip, HoaDonGiaNiemYet, TienDaTraDon, useLoaiChietKhauList, duocDoiLoaiChietKhau, tenLoaiChietKhau } from "./LoaiChietKhau";
-import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_TIEN_OPTIONS, TRANG_THAI_DOT_TONE, PXK_LOG_ONLY_OPTIONS, PXK_LOG_ONLY_TONE } from "./constants";
+import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_TIEN_OPTIONS, TRANG_THAI_DOT_TONE, PXK_LOG_ONLY_OPTIONS, PXK_LOG_ONLY_TONE, MIEN_XUAT_LABEL, type MienXuat } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   trangThaiLabel, LOAI_DON_TONE, laTruCongNo,
@@ -296,7 +297,7 @@ export function PhieuXuatKhoTab({
       // Cot chuyen tien dat DAU file (2026-09-29, quy du KTV): Ma HD, nguoi chuyen, can/thuc chuyen, quy, link anh.
       // 4 cot chi dung cho "Xem ảnh nhanh" (XemAnhNhanh.tsx) - bo khoi file.
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const rows = res.rows.map(({ bang_chung_chuyen_tien_anh, bang_chung_chuyen_tien_url, da_thanh_toan, tien_thuc_chuyen, bang_chung_tien_doc, bang_chung_chuyen_tien_ghi_chu, ly_do_tu_choi_chuyen_tien, ngay_ktv_chuyen, anh_da_ghi_nhan, ...r }) => {
+      const rows = res.rows.map(({ bang_chung_chuyen_tien_anh, bang_chung_chuyen_tien_url, da_thanh_toan, tien_thuc_chuyen, bang_chung_tien_doc, bang_chung_chuyen_tien_ghi_chu, ly_do_tu_choi_chuyen_tien, ngay_ktv_chuyen, anh_da_ghi_nhan, mien_xuat, mien_xuat_hieu_luc, ...r }) => {
         const tong = r.so_tien_can_chuyen ?? 0;
         const daTra = da_thanh_toan ?? 0;
         const thucChuyen = tien_thuc_chuyen ?? 0;
@@ -310,6 +311,7 @@ export function PhieuXuatKhoTab({
           "Dư vào quỹ": Math.max(0, thucChuyen - daTra),
           "Còn phải chuyển": Math.max(0, tong - daTra),
           ...Object.fromEntries([0, 1, 2, 3, 4].map((i) => [`Ảnh chuyển tiền ${i + 1}`, anh[i] ?? ""])),
+          "Kho xuất": mien_xuat_hieu_luc ? MIEN_XUAT_LABEL[mien_xuat_hieu_luc] + (mien_xuat ? " (đã chuyển)" : "") : "",
           ...r,
         };
       });
@@ -593,6 +595,7 @@ export function PhieuXuatKhoTab({
       nguoi_tao: "Người tạo",
       nguoi_nhan_hang: "Người nhận hàng",
       khu_vuc: "Khu vực",
+      mien_xuat: "Kho xuất",
       loai_de_xuat: "Loại phiếu",
       yeu_cau_hoa_don: "Yêu cầu hóa đơn",
       loai_chiet_khau: "Loại chiết khấu",
@@ -602,6 +605,7 @@ export function PhieuXuatKhoTab({
       chuyen_tien: (v) => (v === "Khong can" ? "Không cần" : trangThaiLabel(CHUYEN_TIEN_OPTIONS, v)),
       nguoi_tao: (v) => labelKtv(v),
       nguoi_nhan_hang: (v) => labelKtv(v),
+      mien_xuat: (v) => MIEN_XUAT_LABEL[v as MienXuat] ?? v,
       loai_chiet_khau: (v) => tenLoaiChietKhau(loaiChietKhauList, Number(v)) ?? v,
     },
   };
@@ -671,6 +675,8 @@ export function PhieuXuatKhoTab({
     { key: "loai_de_xuat", header: "Loại phiếu", filter: loc("loai_de_xuat"), render: (r) => <LoaiPhieu r={r} /> },
     { key: "nguoi_tao", header: "Người tạo", filter: loc("nguoi_tao"), render: (r) => <NguoiTao>{labelKtv(r.nguoi_tao)}</NguoiTao> },
     { key: "nguoi_nhan_hang", header: "Người nhận hàng", filter: loc("nguoi_nhan_hang"), render: (r) => (r.nguoi_nhan_hang ? <NguoiNhan>{labelKtv(r.nguoi_nhan_hang)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>) },
+    // Kho xuat MB/MN (2026-10-07, migration 0070) - phieu TN/Ke toan da chuyen kho hien badge "đã chuyển".
+    { key: "mien_xuat", header: "Kho xuất", filter: loc("mien_xuat"), render: (r) => <KhoXuatBadge r={r} /> },
     { key: "ngay_tao", header: "Ngày tạo", render: (r) => fmtDateTime(r.ngay_tao) },
     // Them 2026-09-28 (phan hoi "hiện thêm cột Tiền cần chuyển + Loại chiết khấu đang được hưởng (theo
     // loại chiết khấu cao nhất)") - tong do backend tinh (1 nguon, lib/pxkRecalculate.ts); PXK cong no
@@ -753,6 +759,7 @@ export function PhieuXuatKhoTab({
         <div className="flex items-baseline gap-2 text-xs">
           <span className="min-w-0 flex-1 truncate text-[var(--color-text-body)]">{r.nguoi_nhan_hang ? <NguoiNhan>{labelKtv(r.nguoi_nhan_hang)}</NguoiNhan> : "—"}</span>
           <LoaiPhieu r={r} />
+          {r.mien_xuat && <KhoXuatBadge r={r} />}
           <span className="shrink-0 text-[11px] text-[var(--ink-400)]">{fmtDateTime(r.ngay_tao)}</span>
         </div>
         {(viec || chuyenTienCho || coInPhieu) && (
@@ -1990,6 +1997,7 @@ export function PxkDetailModal({
               );
             })()}
             <StatusBadge value={trangThai} tones={PXK_TRANG_THAI_TONE} options={PXK_TRANG_THAI_OPTIONS} />
+            <KhoXuatBadge r={pxk} />
             {pxk.nguoi_nhan_hang && (
               <span className="text-[var(--ink-500)] text-xs"><NguoiNhan>{formatNguoiDisplay(pxk.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan></span>
             )}
@@ -2037,6 +2045,11 @@ export function PxkDetailModal({
                 </div>
               )}
             </div>
+          )}
+
+          {/* Chuyen kho xuat MB/MN (2026-10-07) - TN/Ke toan, truoc khi phieu gui Kho. */}
+          {(canTacNghiep || canKeToan) && MIEN_XUAT_SUA_DUOC.includes(trangThai) && (
+            <ChuyenKhoXuatCard pxk={pxk} addToast={addToast} onDone={invalidate} />
           )}
 
           {/* Muc D (Dot 2): Ke toan dien "Ma MISA" tren chinh PXK, bat buoc truoc khi chot xong don xuat. */}
