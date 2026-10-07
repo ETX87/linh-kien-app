@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { api } from "../api/client";
+
 export function LoginScreen({ variant = "login" }: { variant?: "login" | "pending" | "rejected" | "disabled" }) {
   const messages: Record<string, { title: string; sub: string }> = {
     login: { title: "Đặt mua linh kiện", sub: "Hệ thống quản lý đặt mua/xuất kho/trả hàng linh kiện nội bộ" },
@@ -6,6 +9,17 @@ export function LoginScreen({ variant = "login" }: { variant?: "login" | "pendin
     disabled: { title: "Tài khoản đã bị khóa", sub: "Liên hệ Admin để được mở khóa lại." },
   };
   const { title, sub } = messages[variant];
+  // Man cho duyet / bi tu choi / bi khoa (2026-10-07): truoc day khong co cach thoat -> ket o Gmail nay, khong doi duoc tai
+  // khoan khac. Cung API voi menu tai khoan (TopBarActions) - /auth/logout khong doi phien hop le.
+  const [dangThoat, setDangThoat] = useState(false);
+  async function dangXuat() {
+    setDangThoat(true);
+    try {
+      await api.post("/auth/logout");
+    } finally {
+      window.location.href = "/";
+    }
+  }
 
   return (
     <div className="min-h-screen ripple-bg flex items-center justify-center" style={{ background: "var(--brand-gradient)" }}>
@@ -29,6 +43,19 @@ export function LoginScreen({ variant = "login" }: { variant?: "login" | "pendin
         )}
         {variant === "login" && (
           <div className="text-xs text-[var(--ink-400)] mt-5">Chỉ tài khoản đã được Admin phê duyệt mới truy cập được hệ thống.</div>
+        )}
+        {variant !== "login" && (
+          <>
+            <button
+              type="button"
+              onClick={dangXuat}
+              disabled={dangThoat}
+              className="focus-ring w-full flex items-center justify-center gap-2 border border-[var(--color-border)] rounded-[var(--radius-btn)] h-10 font-semibold text-sm text-[var(--color-text-body)] hover:bg-[var(--color-subtle)] transition-colors disabled:opacity-60"
+            >
+              {dangThoat ? "Đang đăng xuất…" : "Đăng xuất"}
+            </button>
+            <div className="text-xs text-[var(--ink-400)] mt-3">Đăng xuất để đăng nhập bằng tài khoản Google khác.</div>
+          </>
         )}
         {/* import.meta.env.DEV chi true khi chay "vite dev" local, khong bao gio xuat hien tren production
             (backend GET /api/auth/dev-login cung tra 404 tru khi LOCAL_DEV_BYPASS_AUTH=true trong .dev.vars). */}
