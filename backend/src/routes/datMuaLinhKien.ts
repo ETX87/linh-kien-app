@@ -232,6 +232,40 @@ async function nguoiNhanHangHopLe(db: D1Database, email: string): Promise<{ emai
   return { email: r.email, la_ve_tinh: r.la_ve_tinh || (!r.la_ktv_dvbh && r.ma_ve_tinh) ? 1 : 0 };
 }
 
+// Chan KTV chua co Ma MISA dat hang (chot 2026-10-08): nguoi NHAN HANG cuoi cung (sau Ve tinh -> Tram) la KTV (co KTV DVBH/Ve
+// tinh hoac Gmail gan 1 ma KTV dang hoat dong) ma KHONG ma nao dang hoat dong cua Gmail do co ma_misa -> khong tao duoc don (moi
+// loai don, ca KTV tu dat lan TN/GS dat ho, tao tay + import Excel). Nguoi nhan khong phai KTV (GS/TN "Chinh toi") khong bi chan.
+async function nguoiNhanChuaCoMaMisa(db: D1Database, email: string): Promise<boolean> {
+  const r = await db
+    .prepare(
+      `SELECT u.la_ktv_dvbh, u.la_ve_tinh,
+              EXISTS(SELECT 1 FROM ktv_lien_he k WHERE LOWER(TRIM(k.email_dang_nhap)) = LOWER(u.email) AND COALESCE(k.ngung_hoat_dong, 0) = 0) AS co_ma,
+              EXISTS(SELECT 1 FROM ktv_lien_he k WHERE LOWER(TRIM(k.email_dang_nhap)) = LOWER(u.email) AND COALESCE(k.ngung_hoat_dong, 0) = 0
+                     AND TRIM(COALESCE(k.ma_misa, '')) <> '') AS co_misa
+       FROM users u WHERE u.email = ?`,
+    )
+    .bind(email)
+    .first<{ la_ktv_dvbh: number; la_ve_tinh: number; co_ma: number; co_misa: number }>();
+  if (!r) return false;
+  return !!(r.la_ktv_dvbh || r.la_ve_tinh || r.co_ma) && !r.co_misa;
+}
+
+// GET /api/dat-mua-lk/kiem-tra-ma-misa?nguoi_nhan_hang=<email> - FE hoi truoc khi soan don de hien canh bao + khoa nut gui
+// (cung cach resolve nguoi nhan nhu POST /phieu-dat). Bo trong = chinh nguoi goi.
+datMuaLinhKien.get("/kiem-tra-ma-misa", async (c) => {
+  const user = c.get("user");
+  const q = c.req.query("nguoi_nhan_hang")?.trim();
+  let targetUser: { email: string; la_ve_tinh: number | boolean } = { email: user.email, la_ve_tinh: user.la_ve_tinh };
+  if (q && q !== user.email) {
+    const target = await nguoiNhanHangHopLe(c.env.DB, q);
+    if (!target) return c.json({ chua_co_ma_misa: false });
+    targetUser = target;
+  }
+  const resolved = await resolveNguoiNhanHang(c.env.DB, targetUser);
+  if ("error" in resolved) return c.json({ chua_co_ma_misa: false });
+  return c.json({ chua_co_ma_misa: await nguoiNhanChuaCoMaMisa(c.env.DB, resolved.email), nguoi_nhan_hang: resolved.email });
+});
+
 // Tien to ID phieu_dat theo VAI TRO nguoi goi API luc tao (khong luu cot rieng) - chot buoc 1 ke
 // hoach "Luong tao don mua hang": XH- (KTV/Ve tinh tu tao), TN- (Tac nghiep tao ho), AD- (GS tao
 // ho). Uu tien TN/GS truoc vi 1 nguoi co the vua la_ktv_dvbh vua giu vai_tro khac.
@@ -2247,7 +2281,8 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   const resolved = await resolveNguoiNhanHang(c.env.DB, targetUser);
   if ("error" in resolved) return c.json({ error: resolved.error }, 400);
   const nguoiNhanHang = resolved.email;
-  const recipientRow = await c.env.DB.prepare("SELECT giam_sat_quan_ly FROM users WHERE email = ?")
+  if (await nguoiNhanChuaCoMaMisa(c.env.DB, nguoiNhanHang)) return c.json({ error: "KTV_CHUA_CO_MA_MISA" }, 409);
+  const recipientRow =await c.env.DB.prepare("SELECT giam_sat_quan_ly FROM users WHERE email = ?")
     .bind(nguoiNhanHang)
     .first<{ giam_sat_quan_ly: string | null }>();
 
@@ -2671,7 +2706,8 @@ async function processDatDonHangImportRows(
       } else {
         const resolvedEmail = ktvRow.la_ve_tinh ? ktvRow.tram_cha! : ktvRow.email;
         // (Bo 2026-09-28) GS import ho duoc cho MOI KTV - khong con chan NGOAI_PHAM_VI_GS.
-        ktvCache.set(maKtv, { email: resolvedEmail });
+        if (await nguoiNhanChuaCoMaMisa(db, resolvedEmail)) ktvCache.set(maKtv, { error: "CHUA_CO_MA_MISA" });
+        else ktvCache.set(maKtv, { email: resolvedEmail });
       }
     }
     const ktv = ktvCache.get(maKtv)!;
@@ -2681,6 +2717,8 @@ async function processDatDonHangImportRows(
           ? `Dòng ${dong}: KTV "${maKtv}" là Vệ tinh nhưng chưa được gán Trạm - không xác định được người nhận hàng`
           : ktv.error === "DA_TAT"
             ? `Dòng ${dong}: tài khoản KTV "${maKtv}" (hoặc Trạm nhận hàng thay) đang bị tắt - không nhận hàng được`
+          : ktv.error === "CHUA_CO_MA_MISA"
+            ? `Dòng ${dong}: tài khoản KTV "${maKtv}" (hoặc Trạm nhận hàng thay) chưa cài đặt mã MISA nên không thể đặt hàng - vui lòng liên hệ giám sát khu vực`
           : ktv.error === "NGOAI_PHAM_VI_GS"
             ? `Dòng ${dong}: KTV "${maKtv}" không thuộc quyền phụ trách của Giám sát này`
             : `Dòng ${dong}: KTV "${maKtv}" không tồn tại trong Danh sách KTV hoặc chưa ghép tài khoản đăng nhập`,

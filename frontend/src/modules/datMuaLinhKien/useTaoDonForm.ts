@@ -72,6 +72,15 @@ export function useTaoDonForm({
     enabled: !!targetNguoiNhanHang,
   });
 
+  // KTV nhan hang (sau Ve tinh -> Tram) chua co Ma MISA -> canh bao + khoa nut gui (chot 2026-10-08; backend chan
+  // KTV_CHUA_CO_MA_MISA o POST /phieu-dat + import Excel).
+  const { data: kiemTraMaMisa } = useQuery({
+    queryKey: ["dat-mua-lk-kiem-tra-ma-misa", targetNguoiNhanHang],
+    queryFn: () => api.get<{ chua_co_ma_misa: boolean }>(`/dat-mua-lk/kiem-tra-ma-misa?nguoi_nhan_hang=${encodeURIComponent(targetNguoiNhanHang)}`),
+    enabled: !!targetNguoiNhanHang,
+  });
+  const chuaCoMaMisa = !!kiemTraMaMisa?.chua_co_ma_misa;
+
   // Canh bao SONG "mốc dự phòng còn khả dụng" ngay luc soan don MUA DỰ TRỮ (them 2026-09-13, phan hoi
   // "Nếu ktv chọn 'MUA DỰ TRỮ' hệ thống sẽ tự hiện cảnh báo số tiền chốt dữ trữ còn khả dụng, giống
   // như hiện tại đang cảnh báo đơn công nợ") - mirror DUNG cap query congNoDuKien o tren, chi doi
@@ -158,7 +167,7 @@ export function useTaoDonForm({
     );
   }
 
-  const canSubmit = drafts.every(isLineComplete);
+  const canSubmit = !chuaCoMaMisa && drafts.every(isLineComplete);
   const [showImport, setShowImport] = useState(false);
 
   function themDong() {
@@ -222,7 +231,7 @@ export function useTaoDonForm({
     activeRowRef, justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
     updateDraft, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
     tongGiaUocTinh, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
-    duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau,
+    duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
   };
 }
 

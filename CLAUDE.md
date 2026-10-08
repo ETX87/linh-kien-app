@@ -576,6 +576,12 @@ theo MYC <mã>"; HỖ TRỢ 0 ĐỒNG "<kho> xuất hỗ trợ <trong/ngoài BH 
 duyệt>" (KÊNH MT: "xuất hỗ trợ KINH DOANH KRF") + cột Người nhận hàng = "<Tên MISA> (<TT KH>)"; MYC = Mã YCSC, không có thì Mã Lada.
 Giữ nguyên: HỖ TRỢ CÔNG NỢ, TG12 (gộp dòng), trả hàng, xuất máy (`dienGiaiCoDinh` thắng mọi công thức trên), Chuyển kho.
 
+**KTV chưa có Mã MISA không đặt hàng được** (chốt 2026-10-08, v1.306): người nhận hàng CUỐI (sau Vệ tinh → Trạm) là KTV (cờ KTV
+DVBH/Vệ tinh hoặc Gmail gắn mã KTV đang hoạt động) mà không mã đang hoạt động nào của Gmail đó có `ma_misa` → `POST /phieu-dat` trả
+409 `KTV_CHUA_CO_MA_MISA`, import Excel báo lỗi dòng (`nguoiNhanChuaCoMaMisa()` ở `datMuaLinhKien.ts`; mọi loại đơn, cả KTV tự đặt
+lẫn TN/GS đặt hộ). FE hỏi `GET /dat-mua-lk/kiem-tra-ma-misa?nguoi_nhan_hang=` → cảnh báo + khoá nút "Tạo đơn" (`useTaoDonForm`
+`chuaCoMaMisa`). Người nhận không phải KTV (GS/TN tự nhận) không bị chặn; đẩy lại đơn đã hủy (`/day-lai`) không kiểm tra.
+
 **1 Gmail = 1 mã KTV** (chốt 2026-10-01, migration `0061`): đã đóng 9 mã thừa của 6 Gmail dùng chung (gỡ Gmail + `ngung_hoat_dong`,
 ghi chú lý do trong `ghi_chu`); chỉ mục DUY NHẤT `LOWER(TRIM(email_dang_nhap))`; API báo `EMAIL_DA_GAN_MA_KHAC` trước khi chạm DB
 (`maKtvDangDungEmail()` ở `lib/ktvChinh.ts` — PATCH `/:ma/dat-mua-lk`, bulk-import status `email_da_gan_ma_khac:<mã>`; đường ETX đã

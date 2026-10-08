@@ -56,7 +56,7 @@ export function TaoDonMobileScreen({
     justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
     updateDraft, isLineComplete, canSubmit, themDong, deleteDraft, tongGiaUocTinh, tongSoLuong,
     tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien, duPhongDuKien, coDongMuaDuTru,
-    targetNguoiNhanHang, giaTriTinhChietKhau,
+    targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
   } = form;
 
   // FIX (phan hoi 2026-08-28: "ở giao diện tạo đơn ấn lùi vẫn báo thoát app") - man hinh nay la
@@ -383,6 +383,12 @@ export function TaoDonMobileScreen({
         className="shrink-0 flex flex-col gap-2 border-t border-[var(--line)] bg-[var(--ocean-100)]/35 px-3.5 pt-2.5"
         style={{ paddingBottom: "max(0.625rem, env(safe-area-inset-bottom))" }}
       >
+        {/* KTV nhan hang chua co Ma MISA (2026-10-08) - khoa nut Tao don, backend chan KTV_CHUA_CO_MA_MISA. */}
+        {chuaCoMaMisa && (
+          <div role="alert" className="rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-[12px] font-bold text-[var(--coral-700)]">
+            {t("⚠ Tài khoản này chưa cài đặt mã MISA nên không thể đặt hàng => vui lòng liên hệ giám sát khu vực")}
+          </div>
+        )}
         {/* Canh bao SONG vuot tran cong no (them 2026-09-04) - xem giai thich o TaoDonTab.tsx (ban
             desktop, cung dieu kien). */}
         {sePhepDuCongNo === false && congNoDuKien && (
