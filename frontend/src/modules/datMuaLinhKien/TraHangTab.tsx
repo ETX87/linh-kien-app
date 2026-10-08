@@ -28,6 +28,7 @@ import { Money } from "../../components/ui/Money";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { doiNguoiThanhTen, usePersonDirectory } from "../../lib/personDisplay";
 import { t } from "../../i18n";
+import { baoLoiTaiAnh, canhBaoHanMucAnh, type HanMucAnh } from "../../lib/hanMucAnh";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -115,10 +116,11 @@ function QcTuChoiModal({
     try {
       const upload = await anhVuaGioiHan(nenAnh ? await compressImage(file) : file);
       const bytes = await upload.arrayBuffer();
-      const res = await api.postBinary<{ ok: true; url: string }>(`/tra-hang/${donHangId}/anh`, bytes, upload.type || "image/jpeg");
+      const res = await api.postBinary<{ ok: true; url: string; han_muc_anh?: HanMucAnh | null }>(`/tra-hang/${donHangId}/anh`, bytes, upload.type || "image/jpeg");
+      canhBaoHanMucAnh(res.han_muc_anh, addToast);
       setAnh((prev) => [...prev, { url: res.url }]);
     } catch (err) {
-      addToast(t("Lỗi tải ảnh: ") + describeApiError(err));
+      baoLoiTaiAnh(err, addToast, describeApiError);
     } finally {
       setUploading(false);
     }

@@ -760,8 +760,11 @@ fallback `Origin`) → 403 `YEU_CAU_TU_SITE_KHAC` — app anh em `*.dichvu3t.wor
 (CSP — thêm domain ngoài mà frontend `fetch()` thì thêm vào `connect-src`; `frame-ancestors 'self'` vì App.tsx tự nhúng iframe
 xem trước Mobile; `'wasm-unsafe-eval'` + `blob:` cho tesseract OCR). **Ảnh** (`lib/anhUpload.ts`): mọi đường tải ảnh lên Drive đi
 qua `nhanAnhTaiLen()` (body request) / `taiAnhTuUrl()` (import Excel có link ảnh) — JPG/PNG/WEBP/GIF/HEIC (không SVG), ≤ 10MB, ≤ **20
-ảnh/ngày/tài khoản** (bảng `anh_upload_ngay`, ngày VN, Admin không giới hạn; cron 0h xoá số đếm > 30 ngày); FE `anhVuaGioiHan()`
-tự nén ảnh > 10MB trước khi gửi. URL ảnh client gửi lên: bằng chứng chuyển tiền + ảnh trả hàng lúc tạo đơn CHỈ nhận link Drive
+ảnh/ngày/tài khoản**, Kế toán / Tác nghiệp / Giám sát ≤ **100** (v1.313, `hanMucAnhNgay()`; bảng `anh_upload_ngay`, ngày VN, Admin
+không giới hạn; cron 0h xoá số đếm > 30 ngày). Upload thành công trả `han_muc_anh` {da_dung, han_muc} → FE `canhBaoHanMucAnh()`
+cảnh báo khi vừa dùng hết; hết lượt → 429 `QUA_SO_ANH_NGAY` kèm `han_muc` → `baoLoiTaiAnh()`/`loiHetHanMucAnh()`
+(`frontend/src/lib/hanMucAnh.ts`, đọc `ApiError.body`); import ảnh hàng loạt trả `het_han_muc_anh` (Bảng giá dừng import ảnh + cảnh
+báo). Thêm chỗ tải ảnh mới → gọi 2 helper này. FE `anhVuaGioiHan()` tự nén ảnh > 10MB trước khi gửi. URL ảnh client gửi lên: bằng chứng chuyển tiền + ảnh trả hàng lúc tạo đơn CHỈ nhận link Drive
 (`laUrlAnhDrive`), ảnh đóng gói/ảnh minh hoạ LK chỉ http(s) (`laUrlHttp`); FE đưa link vào `href` qua `linkAnToan()`
 (`lib/linhAnToan.ts` — React không chặn `javascript:`). **Thu hồi phiên**: JWT mang `pv` = `users.phien_ban_phien`; `loadUser` so
 với tài khoản THẬT → 401 `PHIEN_DA_THU_HOI`. "Đăng xuất mọi thiết bị": tự mình (menu tài khoản, `POST /auth/dang-xuat-moi-thiet-bi`)

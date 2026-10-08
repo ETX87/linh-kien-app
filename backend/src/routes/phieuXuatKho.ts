@@ -1212,7 +1212,7 @@ phieuXuatKho.post("/:id/anh-bien-ban", async (c) => {
       id, "Da tai anh bien ban", user.email, nowVN(), "Đã tải ảnh biên bản giao nhận",
     ),
   ]);
-  return c.json({ ok: true, url: uploaded.thumbnailUrl });
+  return c.json({ ok: true, url: uploaded.thumbnailUrl, han_muc_anh: uploaded.hanMucAnh });
 });
 
 // POST /api/phieu-xuat-kho/:id/bang-chung-chuyen-tien - upload BINARY THO anh bang chung chuyen
@@ -1243,7 +1243,7 @@ phieuXuatKho.post("/:id/bang-chung-chuyen-tien", async (c) => {
   // Dinh dang / <= 10MB / <= 20 anh/ngay/tai khoan + tai len Drive - xem lib/anhUpload.ts.
   const uploaded = await nhanAnhTaiLen(c, (ext) => `bang-chung-chuyen-tien-${id}-${Date.now()}.${ext}`);
   if (uploaded instanceof Response) return uploaded;
-  return c.json({ ok: true, url: uploaded.thumbnailUrl });
+  return c.json({ ok: true, url: uploaded.thumbnailUrl, han_muc_anh: uploaded.hanMucAnh });
 });
 
 // POST /api/phieu-xuat-kho/:id/chuyen-tien - { so_tien } TN (tao moi hoac dat lai) 1 khoan can KTV

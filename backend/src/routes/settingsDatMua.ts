@@ -327,7 +327,7 @@ settingsDatMua.post("/linh-kien/:ma/anh", suaLinhKienRoles, async (c) => {
     .bind(uploaded.thumbnailUrl, user.email, nowVN(), ma)
     .run();
   await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
-  return c.json({ ok: true, url: uploaded.thumbnailUrl });
+  return c.json({ ok: true, url: uploaded.thumbnailUrl, han_muc_anh: uploaded.hanMucAnh });
 });
 
 // POST /api/settings/linh-kien/bulk-import-anh - { rows: [{ma_linh_kien, source_url}], offset } - 1
@@ -387,7 +387,8 @@ settingsDatMua.post("/linh-kien/bulk-import-anh", linhKienWriteRoles, async (c) 
   const nextOffset = offset + (kieuLo ? chunk.length : CHUNK_SIZE);
   const done = nextOffset >= total;
   if (done) await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
-  return c.json({ done, nextOffset, success, notFound, fetchFailed, errorCount, details });
+  // het_han_muc_anh: frontend dung lo tiep theo + canh bao (lib/hanMucAnh.ts).
+  return c.json({ done, nextOffset, success, notFound, fetchFailed, errorCount, details, het_han_muc_anh: details.some((d) => d.status === "qua_so_anh_ngay") });
 });
 
 // POST /api/settings/linh-kien/bulk-import - { rows: [{ma_linh_kien, ten_linh_kien?, don_vi?,
@@ -471,6 +472,7 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
 
   const statements: D1PreparedStatement[] = [];
   const rowMetas: { ma: string; anhLoi: boolean }[] = [];
+  let hetHanMucAnh = false;
 
   for (const row of chunk) {
     const ma = row.ma_linh_kien?.trim();
@@ -502,8 +504,9 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
         // Cung ly do AUD-003 nhu bulk-import-anh o tren.
         const uploaded = await taiAnhTuUrl(c, anhUrl, (ext) => `linh-kien-${ma}-${Date.now()}.${ext}`);
         anhDemo = uploaded.thumbnailUrl;
-      } catch {
+      } catch (err) {
         anhLoi = true;
+        if (err instanceof Error && err.message === "QUA_SO_ANH_NGAY") hetHanMucAnh = true;
       }
     }
 
@@ -555,7 +558,7 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
   }
 
   if (body.isLast) await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
-  return c.json({ success, errorCount, details });
+  return c.json({ success, errorCount, details, het_han_muc_anh: hetHanMucAnh });
 });
 
 // ---------- Google Drive OAuth (uy quyen 1 tai khoan Google THAT de upload anh linh kien) ----------

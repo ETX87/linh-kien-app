@@ -6,15 +6,16 @@ interface ToastItem {
   msg: string;
 }
 
-const ToastContext = createContext<{ addToast: (msg: string) => void } | null>(null);
+// ms: thoi gian hien (mac dinh 3,2s) - canh bao can nguoi dung doc ky (vd het han muc anh) truyen dai hon.
+const ToastContext = createContext<{ addToast: (msg: string, ms?: number) => void } | null>(null);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const addToast = useCallback((msg: string) => {
+  const addToast = useCallback((msg: string, ms = 3200) => {
     const id = Date.now() + Math.random();
     setToasts((t) => [...t, { id, msg }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), ms);
   }, []);
 
   return (

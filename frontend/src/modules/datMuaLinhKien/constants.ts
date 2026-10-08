@@ -61,7 +61,7 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   YEU_CAU_TU_SITE_KHAC: "Yêu cầu bị chặn vì không gửi từ trang của hệ thống - tải lại trang rồi thử lại",
   DINH_DANG_ANH_KHONG_HO_TRO: "Chỉ nhận ảnh JPG, PNG, WEBP, GIF, HEIC",
   ANH_QUA_LON: "Ảnh tối đa 10MB",
-  QUA_SO_ANH_NGAY: "Mỗi tài khoản tải tối đa 20 ảnh/ngày",
+  QUA_SO_ANH_NGAY: "Đã hết hạn mức tải ảnh hôm nay - ngày mai mới tải tiếp được",
   ANH_KHONG_HOP_LE: "Ảnh đính kèm không hợp lệ - vui lòng tải lại ảnh",
   INVALID_URL: "Đường dẫn ảnh không hợp lệ - vui lòng tải lại ảnh",
   QUA_NHIEU_DONG: "Tối đa 300 dòng mỗi lần tạo đơn - dùng Import Excel",

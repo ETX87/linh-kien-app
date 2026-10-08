@@ -44,6 +44,7 @@ import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../compon
 import { BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung, DuyetChuyenTienForm, LichSuKhoanChuyen, TienPhieuVaQuy, TuChoiChuyenTienButton, type KhoanChuyenTien } from "./BangChungChuyenTien";
 import { doiNguoiThanhTen, formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay";
 import { t } from "../../i18n";
+import { baoLoiTaiAnh, canhBaoHanMucAnh, type HanMucAnh } from "../../lib/hanMucAnh";
 
 const MISA_TEMPLATE_ORDER: MisaTemplate[] = ["xuat_kho", "chuyen_kho", "ban_hang"];
 
@@ -1629,11 +1630,12 @@ export function PxkDetailModal({
     setUploadingAnh(true);
     try {
       const gui = await anhVuaGioiHan(file);
-      await api.postBinary(`/phieu-xuat-kho/${id}/anh-bien-ban`, await gui.arrayBuffer(), gui.type || "image/jpeg");
+      const res = await api.postBinary<{ ok: true; url: string; han_muc_anh?: HanMucAnh | null }>(`/phieu-xuat-kho/${id}/anh-bien-ban`, await gui.arrayBuffer(), gui.type || "image/jpeg");
       qc.invalidateQueries({ queryKey: ["pxk-detail", id] });
       addToast(t("Đã tải ảnh biên bản"));
+      canhBaoHanMucAnh(res.han_muc_anh, addToast);
     } catch (err) {
-      addToast(t("Lỗi tải ảnh: ") + describeApiError(err));
+      baoLoiTaiAnh(err, addToast, describeApiError);
     } finally {
       setUploadingAnh(false);
     }

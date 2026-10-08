@@ -13,6 +13,7 @@ import { Money } from "../../components/ui/Money";
 import { ghiNhoAnhCucBo } from "../../lib/docTienAnh";
 import { TienDocTuAnh, docDsAnh, docTienDocMap, useDocTienAnh } from "./DocTienAnh";
 import { t } from "../../i18n";
+import { baoLoiTaiAnh, canhBaoHanMucAnh, type HanMucAnh } from "../../lib/hanMucAnh";
 
 // Bang chung chuyen tien PXK NHIEU anh (toi da 5, chot 2026-09-29 - migration 0043, backend
 // lib/bangChungChuyenTien.ts). Dung chung cho chi tiet PXK (PhieuXuatKhoTab) va khoi PXK trong chi tiet don cua KTV
@@ -380,11 +381,12 @@ export function BangChungChuyenTienForm({
       setDangTai((n) => n + 1);
       try {
         const gui = await anhVuaGioiHan(f);
-        const res = await api.postBinary<{ ok: true; url: string }>(`/phieu-xuat-kho/${pxkId}/bang-chung-chuyen-tien`, await gui.arrayBuffer(), gui.type || "image/jpeg");
+        const res = await api.postBinary<{ ok: true; url: string; han_muc_anh?: HanMucAnh | null }>(`/phieu-xuat-kho/${pxkId}/bang-chung-chuyen-tien`, await gui.arrayBuffer(), gui.type || "image/jpeg");
+        canhBaoHanMucAnh(res.han_muc_anh, addToast);
         ghiNhoAnhCucBo(res.url, f); // doc tu file tren may, khong tai lai anh tu Drive
         setAnh((a) => (a.includes(res.url) || a.length >= MAX_ANH_BANG_CHUNG ? a : [...a, res.url]));
       } catch (err) {
-        addToast(t("Lỗi tải ảnh: ") + describeApiError(err));
+        baoLoiTaiAnh(err, addToast, describeApiError);
       } finally {
         setDangTai((n) => n - 1);
       }

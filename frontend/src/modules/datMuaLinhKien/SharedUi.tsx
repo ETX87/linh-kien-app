@@ -9,6 +9,7 @@ import { formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay
 import { trangThaiLabel, describeApiError, useNenAnhTraHangEnabled, LOAI_DON_TONE, loaiDonLabel } from "./helpers";
 import { t } from "../../i18n";
 import { linkAnToan } from "../../lib/linhAnToan";
+import { baoLoiTaiAnh, canhBaoHanMucAnh, type HanMucAnh } from "../../lib/hanMucAnh";
 
 // Cac component UI dung chung nhieu tab cua module "Dat mua linh kien" (tach tu
 // DatMuaLinhKienModule.tsx - UI redesign Phase 3, phan hoi Codex 2026-08-19).
@@ -488,10 +489,11 @@ export function TraHangAnhPicker({
     try {
       const upload = await anhVuaGioiHan(nenAnh ? await compressImage(file) : file);
       const bytes = await upload.arrayBuffer();
-      const res = await api.postBinary<{ driveFileId: string; url: string }>("/tra-hang/upload-anh", bytes, upload.type || "image/jpeg");
-      onChange([...photos, res]);
+      const res = await api.postBinary<{ driveFileId: string; url: string; han_muc_anh?: HanMucAnh | null }>("/tra-hang/upload-anh", bytes, upload.type || "image/jpeg");
+      onChange([...photos, { driveFileId: res.driveFileId, url: res.url }]);
+      canhBaoHanMucAnh(res.han_muc_anh, addToast);
     } catch (err) {
-      addToast(t("Lỗi tải ảnh: ") + describeApiError(err));
+      baoLoiTaiAnh(err, addToast, describeApiError);
     } finally {
       setUploading(false);
     }

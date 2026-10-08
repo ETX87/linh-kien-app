@@ -31,6 +31,7 @@ import { TimLkBox, TuKhoaLkSection, DongNghiaTab } from "./danhMucLinhKien/TimLk
 import { TRANG_THAI_MA, TrangThaiMaBadge, XetDuyetMaSection } from "./danhMucLinhKien/XetDuyetMaLk";
 import { PhanLoaiNhanh } from "./danhMucLinhKien/PhanLoaiNhanh";
 import { linkAnToan } from "../lib/linhAnToan";
+import { canhBaoHanMucAnh, loiHetHanMucAnh, loiHetHanMucAnhTuMa, type HanMucAnh } from "../lib/hanMucAnh";
 
 const PAGE_SIZE = 20;
 const BOOL_FILTER_OPTIONS = [
@@ -45,6 +46,7 @@ const BOOL_FILTER_OPTIONS = [
 // voi offset tra ve den khi done:true, khong can biet truoc kich thuoc chunk.
 interface BulkImportRow { ma_linh_kien: string; source_url: string }
 interface BulkImportChunkResult {
+  het_han_muc_anh?: boolean;
   done: boolean;
   nextOffset: number;
   success: number;
@@ -97,6 +99,7 @@ interface BulkImportCatalogRow {
   phan_loai_dac_thu?: string;
 }
 interface BulkImportCatalogChunkResult {
+  het_han_muc_anh?: boolean;
   success: number; errorCount: number;
   details: { ma_linh_kien: string; status: string }[];
 }
@@ -717,10 +720,13 @@ function DanhMucTab() {
     setUploadingAnh(true);
     try {
       const gui = await anhVuaGioiHan(file);
-      await api.postBinary(`/settings/linh-kien/${ma}/anh`, await gui.arrayBuffer(), gui.type || "image/jpeg");
+      const res = await api.postBinary<{ ok: true; url: string; han_muc_anh?: HanMucAnh | null }>(`/settings/linh-kien/${ma}/anh`, await gui.arrayBuffer(), gui.type || "image/jpeg");
       setImgCacheBust((n) => n + 1);
+      canhBaoHanMucAnh(res.han_muc_anh, addToast);
     } catch (err) {
-      addToast("Đã lưu linh kiện nhưng lỗi tải ảnh: " + (err instanceof Error ? err.message : String(err)));
+      const het = loiHetHanMucAnh(err);
+      if (het) addToast(het, 8000);
+      else addToast("Đã lưu linh kiện nhưng lỗi tải ảnh: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setUploadingAnh(false);
     }
@@ -812,6 +818,11 @@ function DanhMucTab() {
         offset = res.nextOffset;
         setBulkImportProcessed(offset);
         if (res.done) break;
+        // Het han muc anh/ngay -> dung, cac dong sau chac chan bi chan (backend lib/anhUpload.ts).
+        if (res.het_han_muc_anh) {
+          addToast(loiHetHanMucAnhTuMa(), 8000);
+          break;
+        }
       }
       setBulkImportSummary({ success, notFound, fetchFailed, error: errorCount });
       setBulkImportFailDetails(failDetails);
@@ -849,6 +860,7 @@ function DanhMucTab() {
       const CHUNK = 100;
       let offset = 0;
       let success = 0, errorCount = 0, anhLoi = 0;
+      let daBaoHetHanMuc = false;
       const failDetails: { ma_linh_kien: string; status: string }[] = [];
       while (offset < rows.length) {
         const slice = rows.slice(offset, offset + CHUNK);
@@ -860,6 +872,10 @@ function DanhMucTab() {
         anhLoi += res.details.filter((d) => d.status === "thanh_cong_loi_anh").length;
         failDetails.push(...res.details.filter((d) => d.status !== "thanh_cong"));
         setCatalogImportProcessed(offset);
+        if (res.het_han_muc_anh && !daBaoHetHanMuc) {
+          daBaoHetHanMuc = true;
+          addToast(loiHetHanMucAnhTuMa() + " (các dòng còn lại vẫn nhập, chỉ bỏ ảnh)", 8000);
+        }
       }
       setCatalogImportSummary({ success, errorCount, anhLoi, coAnh });
       setCatalogImportFailDetails(failDetails);

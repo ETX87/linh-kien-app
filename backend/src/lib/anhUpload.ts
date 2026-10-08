@@ -3,12 +3,15 @@ import type { Env } from "../types";
 import { uploadPublicImage } from "./googleDrive";
 import { nowVN } from "./vnTime";
 
-// Gioi han anh tai len (chot 2026-10-08, danh gia bao mat): moi anh <= 10MB, moi tai khoan <= 20 anh/ngay (ngay VN),
-// Admin khong gioi han so anh. Truoc day khong gioi han gi - 1 tai khoan bi lo co the day hang nghin anh lam day
+// Gioi han anh tai len (chot 2026-10-08, danh gia bao mat): moi anh <= 10MB, moi tai khoan <= 20 anh/ngay (ngay VN);
+// Ke toan / Tac nghiep / Giam sat <= 100 anh/ngay (chot 2026-10-09 - tai ho anh bang chung/bien ban cho nhieu KTV);
+// Admin khong gioi han so anh. Upload thanh cong tra kem `han_muc_anh` {da_dung, han_muc} de frontend canh bao khi
+// dat han muc (lib/hanMucAnh.ts), het luot tra 429 QUA_SO_ANH_NGAY kem `han_muc`. Truoc day khong gioi han gi - 1 tai khoan bi lo co the day hang nghin anh lam day
 // Google Drive. Dung CHUNG cho moi duong tai anh len Drive (5 endpoint nhan file + 2 duong import tai anh tu URL) -
 // them duong tai anh moi thi goi nhanAnhTaiLen()/taiAnhTuUrl(), dung goi thang uploadPublicImage().
 export const ANH_TOI_DA_BYTE = 10 * 1024 * 1024;
-export const ANH_TOI_DA_NGAY = 20;
+export const ANH_NGAY_MAC_DINH = 20;
+export const ANH_NGAY_VAN_PHONG = 100;
 
 // Khong nhan SVG (co the chua script) - chi anh raster.
 const LOAI_ANH = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"]);
@@ -43,17 +46,18 @@ async function docGioiHan(body: ReadableStream<Uint8Array> | null, max: number):
   return out.buffer;
 }
 
-// Giu 1 luot trong han muc ngay (nguyen tu - 2 request song song khong vuot duoc). false = da het han muc anh hom nay.
-async function giuLuot(db: D1Database, email: string, ngay: string): Promise<boolean> {
+// Giu 1 luot trong han muc ngay (nguyen tu - 2 request song song khong vuot duoc). Tra so anh da dung SAU luot nay,
+// null = da het han muc hom nay.
+async function giuLuot(db: D1Database, email: string, ngay: string, hanMuc: number): Promise<number | null> {
   const r = await db
     .prepare(
       `INSERT INTO anh_upload_ngay (email, ngay, so_luong) VALUES (?, ?, 1)
        ON CONFLICT(email, ngay) DO UPDATE SET so_luong = so_luong + 1 WHERE so_luong < ?
        RETURNING so_luong`,
     )
-    .bind(email, ngay, ANH_TOI_DA_NGAY)
+    .bind(email, ngay, hanMuc)
     .first<{ so_luong: number }>();
-  return !!r;
+  return r?.so_luong ?? null;
 }
 
 async function traLuot(db: D1Database, email: string, ngay: string): Promise<void> {
@@ -65,16 +69,22 @@ async function traLuot(db: D1Database, email: string, ngay: string): Promise<voi
 }
 
 type Ctx = Context<{ Bindings: Env }>;
+export interface HanMucAnh {
+  da_dung: number;
+  han_muc: number;
+}
 export interface AnhDaTai {
   id: string;
   thumbnailUrl: string;
+  // null = Admin (khong gioi han).
+  hanMucAnh: HanMucAnh | null;
 }
 
-// Thong bao hien thi: frontend tra theo ma (constants.ts GENERIC_ERROR_MESSAGES) de dich duoc VI/EN/ID.
-const LOI_QUA_SO_ANH = { error: "QUA_SO_ANH_NGAY" };
-
-function laMienHanMuc(c: Ctx): boolean {
-  return !!c.get("realIsAdmin");
+// Han muc anh/ngay cua tai khoan dang thao tac; null = khong gioi han (Admin THAT, ke ca luc "xem thu vai tro").
+function hanMucAnhNgay(c: Ctx): number | null {
+  if (c.get("realIsAdmin")) return null;
+  const u = c.get("user");
+  return u.la_ke_toan || u.la_tac_nghiep || u.vai_tro === "Giam sat" ? ANH_NGAY_VAN_PHONG : ANH_NGAY_MAC_DINH;
 }
 
 // Nhan 1 anh tu body request (binary tho, Content-Type = mime anh) -> tai len Drive. Tra Response loi neu khong hop le,
@@ -93,14 +103,17 @@ export async function nhanAnhTaiLen(c: Ctx, tenFile: (ext: string) => string): P
 
   const email = c.get("user").email;
   const ngay = nowVN().slice(0, 10);
-  const mien = laMienHanMuc(c);
-  if (!mien && !(await giuLuot(c.env.DB, email, ngay))) return c.json(LOI_QUA_SO_ANH, 429);
+  const hanMuc = hanMucAnhNgay(c);
+  const daDung = hanMuc === null ? null : await giuLuot(c.env.DB, email, ngay, hanMuc);
+  // Thong bao hien thi: frontend tra theo ma + han_muc (lib/hanMucAnh.ts) de dich duoc VI/EN/ID.
+  if (hanMuc !== null && daDung === null) return c.json({ error: "QUA_SO_ANH_NGAY", han_muc: hanMuc }, 429);
 
   const ext = contentType.split("/")[1] || "jpg";
   try {
-    return await uploadPublicImage(c.env, c.env.DB, bytes, contentType, tenFile(ext));
+    const anh = await uploadPublicImage(c.env, c.env.DB, bytes, contentType, tenFile(ext));
+    return { ...anh, hanMucAnh: hanMuc === null ? null : { da_dung: daDung!, han_muc: hanMuc } };
   } catch (err) {
-    if (!mien) await traLuot(c.env.DB, email, ngay);
+    if (hanMuc !== null) await traLuot(c.env.DB, email, ngay);
     const message = err instanceof Error ? err.message : String(err);
     if (message.startsWith("GOOGLE_DRIVE_NOT_CONNECTED")) {
       return c.json({ error: "GOOGLE_DRIVE_NOT_CONNECTED", message: "Chưa kết nối tài khoản Google Drive - vào Cài đặt để kết nối." }, 400);
@@ -124,12 +137,14 @@ export async function taiAnhTuUrl(c: Ctx, url: string, tenFile: (ext: string) =>
 
   const email = c.get("user").email;
   const ngay = nowVN().slice(0, 10);
-  const mien = laMienHanMuc(c);
-  if (!mien && !(await giuLuot(c.env.DB, email, ngay))) throw new Error("QUA_SO_ANH_NGAY");
+  const hanMuc = hanMucAnhNgay(c);
+  const daDung = hanMuc === null ? null : await giuLuot(c.env.DB, email, ngay, hanMuc);
+  if (hanMuc !== null && daDung === null) throw new Error("QUA_SO_ANH_NGAY");
   try {
-    return await uploadPublicImage(c.env, c.env.DB, bytes, contentType, tenFile(contentType.split("/")[1] || "jpg"));
+    const anh = await uploadPublicImage(c.env, c.env.DB, bytes, contentType, tenFile(contentType.split("/")[1] || "jpg"));
+    return { ...anh, hanMucAnh: hanMuc === null ? null : { da_dung: daDung!, han_muc: hanMuc } };
   } catch (err) {
-    if (!mien) await traLuot(c.env.DB, email, ngay);
+    if (hanMuc !== null) await traLuot(c.env.DB, email, ngay);
     throw err;
   }
 }

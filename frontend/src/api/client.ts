@@ -4,11 +4,14 @@ export class ApiError extends Error {
   status: number;
   code?: string;
   detail?: string;
-  constructor(status: number, code?: string, detail?: string) {
+  // Body JSON loi day du (vd QUA_SO_ANH_NGAY kem `han_muc`) - doc them truong rieng ngoai error/message.
+  body?: Record<string, unknown>;
+  constructor(status: number, code?: string, detail?: string, body?: Record<string, unknown>) {
     super(code ?? `HTTP_${status}`);
     this.status = status;
     this.code = code;
     this.detail = detail;
+    this.body = body;
   }
 }
 
@@ -28,8 +31,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     let code: string | undefined;
     let detail: string | undefined;
+    let errBody: Record<string, unknown> | undefined;
     try {
       const body = await res.json();
+      if (body && typeof body === "object") errBody = body;
       code = body.error;
       // "message" - vai backend tra them mo ta cu the (vd NO_ROWS_PARSED cua importNapGas.ts,
       // FETCH_FAILED cua cac route sync-sheet) - uu tien hien noi dung nay hon ma loi tho trong
@@ -38,7 +43,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       /* body khong phai JSON */
     }
-    throw new ApiError(res.status, code, detail);
+    throw new ApiError(res.status, code, detail, errBody);
   }
 
   if (res.status === 204) return undefined as T;

@@ -244,7 +244,7 @@ traHang.post("/upload-anh", async (c) => {
   // Dinh dang / <= 10MB / <= 20 anh/ngay/tai khoan + tai len Drive - xem lib/anhUpload.ts.
   const uploaded = await nhanAnhTaiLen(c, (ext) => `tra-hang-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`);
   if (uploaded instanceof Response) return uploaded;
-  return c.json({ driveFileId: uploaded.id, url: uploaded.thumbnailUrl });
+  return c.json({ driveFileId: uploaded.id, url: uploaded.thumbnailUrl, han_muc_anh: uploaded.hanMucAnh });
 });
 
 // POST /api/tra-hang/:donHangId/anh - upload BINARY THO 1 anh bang chung, gan THANG vao dong da
@@ -283,7 +283,7 @@ traHang.post("/:donHangId/anh", async (c) => {
       "INSERT INTO tra_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)",
     ).bind(donHangId, "Cho QC xac nhan", user.email, nowVN(), "Đã tải ảnh bằng chứng từ chối"),
   ]);
-  return c.json({ ok: true, url: uploaded.thumbnailUrl });
+  return c.json({ ok: true, url: uploaded.thumbnailUrl, han_muc_anh: uploaded.hanMucAnh });
 });
 
 // Logic dung chung cho 1 dong don tra hang - tach ra de route bulk-log tai su dung dung 1 cho (them
