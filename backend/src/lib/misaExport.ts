@@ -258,8 +258,8 @@ export const laPhanLoaiMay = (phanLoai: string | null | undefined) => (phanLoai 
 // an toan vi da xac nhan qua du lieu that: moi cap trung ten_option luon co CUNG 1 gia tri
 // loai_file_xuat_misa, LIMIT 1 chon dong nao cung ra ket qua giong nhau.
 // Don KH tra gop ("HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX/-NPP", chot 2026-10-02): gom MOI dong cung phieu + cung KTV nhan + cung
-// ma LK + cung loai de xuat + cung mau file thanh 1 dong - SL cong lai, Ma YCSC / TT+Mail duyet / TT khach hang noi bang ", "
-// (bo trung, bo trong), tien (mau Ban hang) cong theo tung dong goc. Dong khac giu nguyen thu tu.
+// ma LK + cung loai de xuat + cung mau file thanh 1 dong - SL cong lai, Ma YCSC noi bang dau cach " " (2026-10-08, truoc la ", "),
+// TT+Mail duyet / TT khach hang noi bang ", " (bo trung, bo trong), tien (mau Ban hang) cong theo tung dong goc. Dong khac giu nguyen thu tu.
 type DongMisa = { line: RawLine; template: MisaTemplate };
 function gopDongKhTraGop(lines: DongMisa[], tienTheoDong: Map<string, number>): DongMisa[] {
   const out: DongMisa[] = [];
@@ -267,6 +267,11 @@ function gopDongKhTraGop(lines: DongMisa[], tienTheoDong: Map<string, number>): 
   const noi = (a: string | null, b: string | null) => {
     const ds = [...(a ?? "").split(", "), ...(b ?? "").split(", ")].map((x) => x.trim()).filter(Boolean);
     return ds.length ? [...new Set(ds)].join(", ") : null;
+  };
+  // Ma YCSC khong co dau cach - tach theo dau cach/dau phay, noi bang 1 dau cach.
+  const noiMa = (a: string | null, b: string | null) => {
+    const ds = `${a ?? ""} ${b ?? ""}`.split(/[\s,]+/).filter(Boolean);
+    return ds.length ? [...new Set(ds)].join(" ") : null;
   };
   for (const d of lines) {
     if (!laKhTraGop(d.line.loai_de_xuat)) {
@@ -283,7 +288,7 @@ function gopDongKhTraGop(lines: DongMisa[], tienTheoDong: Map<string, number>): 
     }
     const l = g.dong.line;
     l.so_luong = l.so_luong == null && d.line.so_luong == null ? null : (l.so_luong ?? 0) + (d.line.so_luong ?? 0);
-    l.ma_yeu_cau_su_co = noi(l.ma_yeu_cau_su_co, d.line.ma_yeu_cau_su_co);
+    l.ma_yeu_cau_su_co = noiMa(l.ma_yeu_cau_su_co, d.line.ma_yeu_cau_su_co);
     l.tt_mail_duyet = noi(l.tt_mail_duyet, d.line.tt_mail_duyet);
     l.tt_khach_hang = noi(l.tt_khach_hang, d.line.tt_khach_hang);
     g.ids.push(d.line.ddh_id);
