@@ -1,5 +1,6 @@
 import { THIEU_LK_TRANG_THAI_OPTIONS } from "./constants";
 import { trangThaiLabel } from "./helpers";
+import { t } from "../../i18n";
 
 // Cot trang thai ben trai man "Thiếu linh kiện" (2026-09-28, phan hoi "tạo 1 side bar con bên trong và nhóm các trạng
 // thái thành các vùng lựa chọn riêng") - bo cuc master-detail kieu hop thu: nhom trang thai theo "viec cua ai / da xong
@@ -30,20 +31,20 @@ function nhomTrangThai(canKho: boolean, canTacNghiep: boolean): Nhom[] {
   const coViec = canXuLy.length > 0;
   const dangCho = DANG_MO.filter((v) => !canXuLy.includes(v));
   const phuDangCho: Record<string, string> = {
-    "Kho da cap nhat": "chờ hàng về",
-    "Kho xac nhan hang da ve": "chờ TN duyệt",
-    "Kho tu choi sai TT": "chờ TN duyệt",
-    "Cho kho xu ly": "chờ Kho",
-    "Kho da tiep nhan": "chờ Kho",
+    "Kho da cap nhat": t("chờ hàng về"),
+    "Kho xac nhan hang da ve": t("chờ TN duyệt"),
+    "Kho tu choi sai TT": t("chờ TN duyệt"),
+    "Cho kho xu ly": t("chờ Kho"),
+    "Kho da tiep nhan": t("chờ Kho"),
   };
   const nhom: Nhom[] = [];
-  if (coViec) nhom.push({ tieuDe: "Cần xử lý", value: "__VIEC__", canLam: true, muc: canXuLy.map((v) => ({ value: v, label: nhan(v) })) });
+  if (coViec) nhom.push({ tieuDe: t("Cần xử lý"), value: "__VIEC__", canLam: true, muc: canXuLy.map((v) => ({ value: v, label: nhan(v) })) });
   nhom.push({
-    tieuDe: coViec ? "Đang chờ" : "Đang xử lý",
+    tieuDe: coViec ? t("Đang chờ") : t("Đang xử lý"),
     value: dangCho.join(","),
     muc: dangCho.map((v) => ({ value: v, label: nhan(v), phu: coViec ? phuDangCho[v] : undefined })),
   });
-  nhom.push({ tieuDe: "Đã đóng", value: DA_DONG.join(","), muc: DA_DONG.map((v) => ({ value: v, label: nhan(v) })) });
+  nhom.push({ tieuDe: t("Đã đóng"), value: DA_DONG.join(","), muc: DA_DONG.map((v) => ({ value: v, label: nhan(v) })) });
   return nhom;
 }
 
@@ -88,7 +89,7 @@ export function ThieuLkStatusRail({
   return (
     <>
       {/* Desktop: cot doc ben trai */}
-      <nav aria-label="Lọc theo trạng thái" className="content-card hidden w-[232px] shrink-0 self-start p-2 md:block md:sticky md:top-3">
+      <nav aria-label={t("Lọc theo trạng thái")} className="content-card hidden w-[232px] shrink-0 self-start p-2 md:block md:sticky md:top-3">
         {nhom.map((g) => {
           const activeNhom = value === g.value;
           return (
@@ -125,7 +126,7 @@ export function ThieuLkStatusRail({
         })}
         <div className="mt-1 border-t border-[var(--color-border)] pt-1">
           <button type="button" onClick={() => onChange("")} aria-pressed={value === ""} className={`${dongCls(value === "")} px-2.5 py-1.5 text-[13px]`}>
-            <span>Tất cả</span>
+            <span>{t("Tất cả")}</span>
             <SoDem n={counts?.[""]} active={value === ""} />
           </button>
         </div>
@@ -151,11 +152,11 @@ function MobileTrangThai({
   onChange: (v: string) => void;
   counts: Record<string, number> | undefined;
 }) {
-  const tang1 = [...nhom.map((g) => ({ value: g.value, label: g.tieuDe, n: demNhom(g, counts), canLam: g.canLam })), { value: "", label: "Tất cả", n: counts?.[""], canLam: false }];
+  const tang1 = [...nhom.map((g) => ({ value: g.value, label: g.tieuDe, n: demNhom(g, counts), canLam: g.canLam })), { value: "", label: t("Tất cả"), n: counts?.[""], canLam: false }];
   // Nhom dang chon: chinh no, hoac nhom chua muc dang chon.
   const nhomChon = nhom.find((g) => g.value === value || g.muc.some((m) => m.value === value));
   return (
-    <div className="mb-3 md:hidden" role="group" aria-label="Lọc theo trạng thái">
+    <div className="mb-3 md:hidden" role="group" aria-label={t("Lọc theo trạng thái")}>
       <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${tang1.length}, minmax(0, 1fr))` }}>
         {tang1.map((x) => {
           const active = x.value === value || (nhomChon !== undefined && nhomChon.value === x.value);
@@ -182,7 +183,7 @@ function MobileTrangThai({
       </div>
       {nhomChon && nhomChon.muc.length > 1 && (
         <div className="no-scrollbar -mx-4 mt-2 flex gap-1.5 overflow-x-auto px-4">
-          {[{ value: nhomChon.value, label: "Cả nhóm" }, ...nhomChon.muc].map((m) => {
+          {[{ value: nhomChon.value, label: t("Cả nhóm") }, ...nhomChon.muc].map((m) => {
             const active = value === m.value;
             const n = m.value === nhomChon.value ? demNhom(nhomChon, counts) : counts ? counts[m.value] ?? 0 : undefined;
             return (

@@ -1,6 +1,7 @@
 import { useId, useState, type ReactNode } from "react";
 import { ChartEmpty } from "./ChartCard";
 import { niceScale, pct, useElementWidth } from "./chartUtils";
+import { t } from "../../i18n";
 
 export interface BarDatum {
   key: string;
@@ -135,7 +136,7 @@ export function HBarList({
 }) {
   const max = Math.max(0, ...rows.map((r) => r.value));
   const total = rows.reduce((s, r) => s + r.value, 0);
-  if (rows.length === 0 || max === 0) return <ChartEmpty>{emptyText ?? "Chưa có dữ liệu trong kỳ này."}</ChartEmpty>;
+  if (rows.length === 0 || max === 0) return <ChartEmpty>{emptyText ?? t("Chưa có dữ liệu trong kỳ này.")}</ChartEmpty>;
   return (
     <ul className="space-y-1">
       {rows.map((r, i) => {

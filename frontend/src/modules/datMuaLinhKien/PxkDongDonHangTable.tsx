@@ -511,7 +511,7 @@ export function PxkDongDonHangTable({
                 <LoaiDeXuatBadge loaiDon={d.loai_don ?? pxk.loai_don ?? undefined} loaiDeXuat={d.loai_de_xuat} />
               </td>
               <td className={`${o} text-right`} title={t(COT_GON[3].tip)}>
-                SL {d.so_luong_de_xuat}
+                {t("SL {a}", { a: d.so_luong_de_xuat })}
                 {slThucXuat(d) != null && d.so_luong_thuc_xuat !== d.so_luong_de_xuat && <> → {slThucXuat(d)}</>}
               </td>
               <td className={`${oNut} text-right`} title={t(COT_GON[4].tip)} onClick={(e) => e.stopPropagation()}>{oTien(d)}</td>

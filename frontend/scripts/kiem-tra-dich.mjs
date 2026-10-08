@@ -1,7 +1,7 @@
 // Kiem tra cau giao dien chua co ban dich EN/ID (xem src/i18n/index.tsx).
 //   node frontend/scripts/kiem-tra-dich.mjs          -> in so cau thieu + danh sach
 //   node frontend/scripts/kiem-tra-dich.mjs --json   -> in JSON mang cau thieu (de bo sung tu dien)
-// Nguon cau: moi t("...") / t('...') trong src + moi chuoi co dau tieng Viet trong cac file HANG SO duoc dich luc hien thi
+// Nguon cau: moi t("...") / t('...') / dichSau("...") trong src + moi chuoi co dau tieng Viet trong cac file HANG SO duoc dich luc hien thi
 // (nhan trang thai, menu, thong bao loi) - FILE_HANG_SO ben duoi.
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -33,7 +33,7 @@ function giaiChuoi(raw, q) {
 const khoa = new Set();
 for (const f of duyet(SRC)) {
   const s = boChuThich(readFileSync(f, "utf8"));
-  for (const m of s.matchAll(/\bt\(\s*"((?:[^"\\]|\\.)*)"/g)) khoa.add(giaiChuoi(m[1], '"'));
+  for (const m of s.matchAll(/\b(?:t|dichSau)\(\s*"((?:[^"\\]|\\.)*)"/g)) khoa.add(giaiChuoi(m[1], '"'));
   for (const m of s.matchAll(/\bt\(\s*'((?:[^'\\]|\\.)*)'/g)) khoa.add(giaiChuoi(m[1], "'"));
 }
 for (const rel of FILE_HANG_SO) {

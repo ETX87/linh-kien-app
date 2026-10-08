@@ -1176,7 +1176,7 @@ export function PhieuXuatKhoTab({
                             <div className="truncate text-[13px] text-[var(--color-text-body)]">{r.ten_lk_snapshot ?? r.ma_lk}</div>
                             <div className="flex items-center justify-between gap-2 text-xs">
                               <span className="text-[var(--color-text-secondary)]">
-                                SL {r.so_luong_de_xuat}
+                                {t("SL {a}", { a: r.so_luong_de_xuat })}
                                 {lechSl && <span className="font-semibold text-[var(--amber-700)]">{" "}{t("→ thực xuất {a}", { a: r.so_luong_thuc_xuat })}</span>}
                               </span>
                               {chonLoaiDon !== "tra_hang" && <span className="shrink-0">{oTienTaoPxk(r)}</span>}
@@ -2306,7 +2306,7 @@ export function PxkDetailModal({
                       />
                       <span className="font-mono">{r.ma_lk}</span>
                       <span className="flex-1 truncate">{r.ten_lk_snapshot ?? r.ma_lk}</span>
-                      <span className="text-[var(--ink-500)]">SL {r.so_luong_de_xuat}</span>
+                      <span className="text-[var(--ink-500)]">{t("SL {a}", { a: r.so_luong_de_xuat })}</span>
                     </label>
                   ))}
                 </>

@@ -48,6 +48,12 @@ export function t(vi: string, bien?: Record<string, string | number | null | und
   return s;
 }
 
+/** Danh dau cau se dich LUC HIEN THI (tra nguyen tieng Viet) - dung trong hang so cap module (chay 1 lan luc nap file nen
+ *  khong goi t() duoc): `{ label: dichSau("Trả phiếu") }` roi hien thi `t(x.label)`. Script kiem-tra-dich thu khoa tu day. */
+export function dichSau(vi: string): string {
+  return vi;
+}
+
 /** Dich node React neu la chuoi (component dung chung: tieu de Modal/Drawer, nhan tab/cot/KvRow/StatCard, chu tren nut/Badge).
  *  Node khac (JSX, so) giu nguyen. Du lieu nghiep vu truyen vao chi bi doi neu TRUNG DUNG 1 cau giao dien trong tu dien. */
 export function tn<T>(node: T): T | string {

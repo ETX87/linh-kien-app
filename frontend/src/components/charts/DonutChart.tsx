@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { ChartEmpty } from "./ChartCard";
 import { pct, useElementWidth } from "./chartUtils";
+import { t } from "../../i18n";
 
 export interface DonutSegment {
   key: string;
@@ -17,7 +18,7 @@ export interface DonutSegment {
 // thich nam PHAI khi du rong, xuong DUOI tren mobile (tu doi theo be rong khung, khong theo breakpoint).
 export function DonutChart({
   segments,
-  centerLabel = "Tổng số",
+  centerLabel = t("Tổng số"),
   formatValue = (v: number) => v.toLocaleString("vi-VN"),
   size = 168,
 }: {

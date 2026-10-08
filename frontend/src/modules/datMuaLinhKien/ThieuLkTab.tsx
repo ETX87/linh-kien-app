@@ -29,13 +29,14 @@ import { ThieuLkStatusRail } from "./ThieuLkStatusRail";
 import { DonHangDetailModal } from "./DonCuaToiTab";
 import { NguoiNhan } from "../../components/ui/TenNguoi";
 import { doiNguoiThanhTen, usePersonDirectory } from "../../lib/personDisplay";
+import { t, dichSau } from "../../i18n";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
 function PriorityTag() {
   return (
-    <span className="inline-flex items-center gap-0.5 text-[var(--orange-600)] font-extrabold text-xs" title="Đơn ưu tiên">
-      <span aria-hidden>★</span>Ưu tiên
+    <span className="inline-flex items-center gap-0.5 text-[var(--orange-600)] font-extrabold text-xs" title={t("Đơn ưu tiên")}>
+      <span aria-hidden>★</span>{t("Ưu tiên")}
     </span>
   );
 }
@@ -82,12 +83,12 @@ const CAN_NHAP_LIEU = ["Kho da tiep nhan", "Kho da cap nhat"];
 // "Kho xác nhận hàng đã về") - dai, khong vua 3 nut/hang tren dien thoai va doc nhu trang thai hon la hanh dong.
 // Ten trang thai day du van o title/aria cua nut va o lich su xu ly.
 const NHAN_HANH_DONG: Record<string, string> = {
-  "Kho da tiep nhan": "Tiếp nhận",
-  "Kho da cap nhat": "Cập nhật",
-  "Kho tu choi sai TT": "Từ chối (sai TT)",
-  "Da huy bo": "Hủy bỏ",
-  "Kho xac nhan hang da ve": "Hàng đã về",
-  "Da ket thuc": "TN duyệt",
+  "Kho da tiep nhan": dichSau("Tiếp nhận"),
+  "Kho da cap nhat": dichSau("Cập nhật"),
+  "Kho tu choi sai TT": dichSau("Từ chối (sai TT)"),
+  "Da huy bo": dichSau("Hủy bỏ"),
+  "Kho xac nhan hang da ve": dichSau("Hàng đã về"),
+  "Da ket thuc": dichSau("TN duyệt"),
 };
 // Buoc "di tiep" cua luong (nut primary duy nhat o chan Drawer) - cac nut con lai la phu/nguy hiem.
 const HANH_DONG_CHINH = new Set(["Kho da tiep nhan", "Kho xac nhan hang da ve", "Da ket thuc"]);
@@ -99,7 +100,7 @@ function thuTuNut(trangThai: string): number {
 }
 
 function actionLabel(trangThai: string): string {
-  return NHAN_HANH_DONG[trangThai] ?? trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, trangThai);
+  return NHAN_HANH_DONG[trangThai] ? t(NHAN_HANH_DONG[trangThai]) : trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, trangThai);
 }
 
 // Ngay "YYYY-MM-DD" -> "dd/mm" (nam hien tai) hoac "dd/mm/yy" - gon cho the mobile.
@@ -136,23 +137,23 @@ function ThieuLkActionForm({
       <div className="text-[13px] font-bold text-[var(--color-text)]">{actionLabel(trangThai)}</div>
       {(isGiaiTrinh || isCapNhat) && (
         <label className="block">
-          <span className="mb-1 block text-xs font-semibold text-[var(--color-text-body)]">Ngày dự kiến có hàng</span>
+          <span className="mb-1 block text-xs font-semibold text-[var(--color-text-body)]">{t("Ngày dự kiến có hàng")}</span>
           <input type="date" value={ngayDuKien} onChange={(e) => setNgayDuKien(e.target.value)} className={oNhap} />
         </label>
       )}
       <label className="block">
         <span className="mb-1 block text-xs font-semibold text-[var(--color-text-body)]">
-          {isGiaiTrinh ? "Lý do thiếu hàng *" : isCapNhat ? "Ghi chú tiến độ" : "Ghi chú (tuỳ chọn)"}
+          {isGiaiTrinh ? t("Lý do thiếu hàng *") : isCapNhat ? t("Ghi chú tiến độ") : t("Ghi chú (tuỳ chọn)")}
         </span>
         <textarea
           rows={2}
           value={ghiChu}
           onChange={(e) => setGhiChu(e.target.value)}
-          placeholder={isGiaiTrinh ? "Giải thích thực tế vì sao thiếu hàng" : isCapNhat ? "VD: NCC báo lùi ngày giao" : ""}
+          placeholder={isGiaiTrinh ? t("Giải thích thực tế vì sao thiếu hàng") : isCapNhat ? t("VD: NCC báo lùi ngày giao") : ""}
           className={`${oNhap} resize-none`}
         />
       </label>
-      {isCapNhat && <div className="text-[11px] text-[var(--color-text-secondary)]">Cần đổi ngày dự kiến hoặc nhập ghi chú.</div>}
+      {isCapNhat && <div className="text-[11px] text-[var(--color-text-secondary)]">{t("Cần đổi ngày dự kiến hoặc nhập ghi chú.")}</div>}
       {isGiaiTrinh && goiY.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {goiY.map((l) => (
@@ -168,9 +169,9 @@ function ThieuLkActionForm({
         </div>
       )}
       <div className="flex gap-2 sm:justify-end">
-        <Btn variant="ghost" className="min-h-10 flex-1 sm:min-h-9 sm:flex-none" onClick={onCancel}>Quay lại</Btn>
+        <Btn variant="ghost" className="min-h-10 flex-1 sm:min-h-9 sm:flex-none" onClick={onCancel}>{t("Quay lại")}</Btn>
         <Btn className="min-h-10 flex-1 sm:min-h-9 sm:flex-none" onClick={onSubmit} disabled={thieuThongTin} loading={pending}>
-          Xác nhận
+          {t("Xác nhận")}
         </Btn>
       </div>
     </div>
@@ -229,8 +230,8 @@ export function ThieuLkTab({
   const [filterQ, setFilterQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQ(filterQ.trim()), 500);
-    return () => clearTimeout(t);
+    const hen = setTimeout(() => setDebouncedQ(filterQ.trim()), 500);
+    return () => clearTimeout(hen);
   }, [filterQ]);
   const [showFilters, setShowFilters] = useState(false);
   const [detailId, setDetailIdRaw] = useState<string | null>(null);
@@ -351,7 +352,7 @@ export function ThieuLkTab({
       );
       await exportRowsToExcel(doiNguoiThanhTen(res.rows, personDir), "thieu_lk_chi_tiet.xlsx", "Thiếu LK");
     } catch (err) {
-      addToast("Không tải được danh sách chi tiết: " + describeApiError(err));
+      addToast(t("Không tải được danh sách chi tiết: ") + describeApiError(err));
     } finally {
       setDownloadingFull(false);
     }
@@ -372,9 +373,9 @@ export function ThieuLkTab({
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-detail"] });
       invalidatePipelineCounts(qc);
-      addToast("Đã cập nhật trạng thái thiếu LK");
+      addToast(t("Đã cập nhật trạng thái thiếu LK"));
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
   });
 
   // "Da ket thuc" la cua TN (khop cot "Admin xu ly" trong Excel goc), con lai la Kho. "Da huy bo"
@@ -416,8 +417,8 @@ export function ThieuLkTab({
       setSelected(new Set(failed.map(([lineId]) => lineId)));
       addToast(
         failed.length === 0
-          ? `Đã xử lý thành công ${entries.length} dòng`
-          : `Thành công ${entries.length - failed.length}/${entries.length} dòng — đã giữ lại các dòng lỗi, bấm lại để thử lại`,
+          ? t("Đã xử lý thành công {a} dòng", { a: entries.length })
+          : t("Thành công {a}/{b} dòng — đã giữ lại các dòng lỗi, bấm lại để thử lại", { a: entries.length - failed.length, b: entries.length }),
       );
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-thieu-lk"] });
       // Don goc doi trang thai theo ticket (Cho hang -> Cho TN duyet, TN duyet ticket -> duyet don) - 2026-09-29.
@@ -425,7 +426,7 @@ export function ThieuLkTab({
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-detail"] });
       invalidatePipelineCounts(qc);
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
   });
 
   // FIX (ra soat bug mua hang 2026-08-26, BUG-003): thieu filterTrangThai trong bo dem - nut "☰ Bộ
@@ -454,12 +455,12 @@ export function ThieuLkTab({
         activeFilterCount={activeFilterCount}
         searchValue={filterQ}
         onSearchChange={setFilterQ}
-        searchPlaceholder="Tìm theo mã TLK, mã đơn, mã YCSC, mã Lada, mã LK, tên LK, tên KTV/người báo..."
+        searchPlaceholder={t("Tìm theo mã TLK, mã đơn, mã YCSC, mã Lada, mã LK, tên LK, tên KTV/người báo...")}
         trailing={
           // Tai Excel (2026-10-02): LUON hien canh o tim (truoc nam trong khoi Bo loc thu gon) - moi vai tro tru KTV/Ve tinh thuan.
           coTaiExcel ? (
             <Btn size="sm" variant="ghost" onClick={handleDownloadFullList} disabled={downloadingFull}>
-              {downloadingFull ? "Đang tải..." : "⬇ Tải Excel"}
+              {downloadingFull ? t("Đang tải...") : t("⬇ Tải Excel")}
             </Btn>
           ) : undefined
         }
@@ -474,19 +475,19 @@ export function ThieuLkTab({
           <Select
             value={filterNguoiNhanHang}
             onChange={setFilterNguoiNhanHang}
-            options={[{ value: "", label: "Tất cả người nhận hàng" }, ...(nguoiNhanHangData?.rows ?? []).map((r) => ({ value: r.email_dang_nhap, label: ktvOptionLabel(r, nguoiNhanHangData?.rows ?? []) }))]}
+            options={[{ value: "", label: t("Tất cả người nhận hàng") }, ...(nguoiNhanHangData?.rows ?? []).map((r) => ({ value: r.email_dang_nhap, label: ktvOptionLabel(r, nguoiNhanHangData?.rows ?? []) }))]}
           />
         )}
         <div>
-          <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">Cột hiển thị</div>
+          <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">{t("Cột hiển thị")}</div>
           <div ref={setColumnSettingsSlot} />
         </div>
       </FilterSearchBar>
       <ActiveFiltersBar
         chips={[
-          ...(khuVucParam ? [{ label: `Khu vực: ${[...filterKhuVuc].map((ma) => khuVucOptions.find((o) => o.value === ma)?.label ?? ma).join(", ")}`, onClear: () => setFilterKhuVuc(new Set()) }] : []),
-          ...(filterNguoiNhanHang ? [{ label: "Người nhận hàng đã lọc", onClear: () => setFilterNguoiNhanHang("") }] : []),
-          ...(filterQ ? [{ label: `Tìm: "${filterQ}"`, onClear: () => setFilterQ("") }] : []),
+          ...(khuVucParam ? [{ label: t("Khu vực: {a}", { a: [...filterKhuVuc].map((ma) => khuVucOptions.find((o) => o.value === ma)?.label ?? ma).join(", ") }), onClear: () => setFilterKhuVuc(new Set()) }] : []),
+          ...(filterNguoiNhanHang ? [{ label: t("Người nhận hàng đã lọc"), onClear: () => setFilterNguoiNhanHang("") }] : []),
+          ...(filterQ ? [{ label: t("Tìm: \"{a}\"", { a: filterQ }), onClear: () => setFilterQ("") }] : []),
         ]}
       />
       {/* Dong bo pattern "Chọn tất cả" voi DonHangGroupedList (DonCuaToiTab.tsx) - dat O DAY (thanh phan
@@ -497,7 +498,7 @@ export function ThieuLkTab({
         <label className="mb-1 flex min-h-10 cursor-pointer items-center gap-2 text-xs sm:min-h-0 sm:mb-2">
           <input type="checkbox" className="h-4 w-4" checked={selected.size === rowsCoTheChon.length} onChange={toggleSelectAll} />
           <span className="truncate text-[var(--ink-500)]">
-            Chọn tất cả {rowsCoTheChon.length} ticket xử lý được<span className="hidden sm:inline"> (trên mọi nhóm KTV ở trang này)</span>
+            {t("Chọn tất cả {a} ticket xử lý được", { a: rowsCoTheChon.length })}<span className="hidden sm:inline"> {t("(trên mọi nhóm KTV ở trang này)")}</span>
           </span>
         </label>
       )}
@@ -505,15 +506,15 @@ export function ThieuLkTab({
         // Mobile: thanh thao tac hang loat NOI o day man hinh (tren thanh dieu huong 56px) de luon thay khi cuon
         // danh sach dai; desktop giu vi tri cu phia tren danh sach.
         <div className="fixed inset-x-3 bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 flex items-center gap-2 flex-wrap rounded-lg border border-[var(--ocean-800)]/30 bg-[var(--ocean-100)] px-3 py-2 shadow-[var(--shadow-pop)] sm:static sm:mb-3 sm:shadow-none">
-          <span className="text-sm font-bold text-[var(--ocean-900)]">Đã chọn {selected.size} dòng</span>
+          <span className="text-sm font-bold text-[var(--ocean-900)]">{t("Đã chọn {a} dòng", { a: selected.size })}</span>
           {commonBulkStates.length === 0 ? (
-            <span className="text-xs text-[var(--ocean-900)]">Các dòng đã chọn không có bước xử lý chung — chọn lại theo cùng trạng thái</span>
+            <span className="text-xs text-[var(--ocean-900)]">{t("Các dòng đã chọn không có bước xử lý chung — chọn lại theo cùng trạng thái")}</span>
           ) : (
             commonBulkStates.map((s) => (
               <BulkConfirmButton
                 key={s}
                 label={actionLabel(s)}
-                confirmLabel={`Xác nhận chuyển ${selected.size} dòng sang "${actionLabel(s)}"?`}
+                confirmLabel={t("Xác nhận chuyển {a} dòng sang \"{b}\"?", { a: selected.size, b: actionLabel(s) })}
                 count={selected.size}
                 onConfirm={() => bulkMutation.mutate(s)}
                 disabled={bulkMutation.isPending}
@@ -634,7 +635,7 @@ function ThieuLkGroupedList({
         ]
       : []),
     {
-      key: "linh_kien", header: "Linh kiện",
+      key: "linh_kien", header: t("Linh kiện"),
       // SUA BUG GIAO DIEN (phan hoi 2026-09-12, kem anh chup ma LK lap 2 lan trong cung 1 dong don) -
       // truoc day hien ma_lk RIENG 1 dong tren, gay lap voi ten_lk_snapshot da TU chua san ma trong
       // chuoi - gop ve DUNG 1 dong bang formatLkLabel() (dong bo voi LinhKienPicker.tsx).
@@ -645,15 +646,15 @@ function ThieuLkGroupedList({
         </div>
       ),
     },
-    { key: "loai", header: "Loại", render: (r) => <LoaiDeXuatBadge loaiDon={r.loai_don} loaiDeXuat={r.loai_de_xuat} /> },
-    { key: "loai_chiet_khau", header: "Loại chiết khấu", render: (r) => <LoaiChietKhauText id={r.loai_chiet_khau_id} thuCong={r.loai_chiet_khau_thu_cong} /> },
-    { key: "nguoi_tao", header: "TN báo", render: (r) => formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap) },
-    { key: "ngay_tao", header: "Ngày báo", render: (r) => fmtDateTime(r.ngay_tao) },
+    { key: "loai", header: t("Loại"), render: (r) => <LoaiDeXuatBadge loaiDon={r.loai_don} loaiDeXuat={r.loai_de_xuat} /> },
+    { key: "loai_chiet_khau", header: t("Loại chiết khấu"), render: (r) => <LoaiChietKhauText id={r.loai_chiet_khau_id} thuCong={r.loai_chiet_khau_thu_cong} /> },
+    { key: "nguoi_tao", header: t("TN báo"), render: (r) => formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap) },
+    { key: "ngay_tao", header: t("Ngày báo"), render: (r) => fmtDateTime(r.ngay_tao) },
     // fmtDate: truoc day in thang chuoi ISO "2026-10-05" (lech dinh dang dd/mm/yyyy cua moi cot ngay khac).
-    { key: "ngay_du_kien_co_hang", header: "Ngày dự kiến có hàng", render: (r) => fmtDate(r.ngay_du_kien_co_hang) },
-    { key: "ngay_hang_ve_thuc_te", header: "Ngày hàng về", render: (r) => fmtDate(r.ngay_hang_ve_thuc_te) },
+    { key: "ngay_du_kien_co_hang", header: t("Ngày dự kiến có hàng"), render: (r) => fmtDate(r.ngay_du_kien_co_hang) },
+    { key: "ngay_hang_ve_thuc_te", header: t("Ngày hàng về"), render: (r) => fmtDate(r.ngay_hang_ve_thuc_te) },
     {
-      key: "trang_thai", header: "Trạng thái",
+      key: "trang_thai", header: t("Trạng thái"),
       render: (r) => (
         <div className="flex flex-col gap-0.5 items-start">
           <StatusBadge value={r.trang_thai} tones={THIEU_LK_TRANG_THAI_TONE} options={THIEU_LK_TRANG_THAI_OPTIONS} />
@@ -692,8 +693,8 @@ function ThieuLkGroupedList({
     },
   ];
   const optionalCols: Column<ThieuLkRow>[] = [
-    { key: "dat_don_hang_id", header: "Đơn hàng", render: (r) => <span className="font-mono text-xs">{r.dat_don_hang_id}</span> },
-    { key: "ten_ly_do", header: "Lý do TN báo", render: (r) => r.ten_ly_do ?? "—" },
+    { key: "dat_don_hang_id", header: t("Đơn hàng"), render: (r) => <span className="font-mono text-xs">{r.dat_don_hang_id}</span> },
+    { key: "ten_ly_do", header: t("Lý do TN báo"), render: (r) => r.ten_ly_do ?? "—" },
   ];
   const {
     effectiveColumns, toggleableColumns, resolvedOrder, colWidths,
@@ -710,15 +711,15 @@ function ThieuLkGroupedList({
     />
   );
 
-  if (isLoading) return <div className="text-sm text-[var(--ink-500)] py-6 text-center">Đang tải...</div>;
-  if (isError) return <div className="text-sm text-[var(--coral-500)] py-6 text-center">Lỗi tải dữ liệu.</div>;
+  if (isLoading) return <div className="text-sm text-[var(--ink-500)] py-6 text-center">{t("Đang tải...")}</div>;
+  if (isError) return <div className="text-sm text-[var(--coral-500)] py-6 text-center">{t("Lỗi tải dữ liệu.")}</div>;
   if (rows.length === 0)
     return (
       <div className="py-8 text-center text-sm text-[var(--ink-400)]">
-        {filterTrangThai ? "Không có ticket nào ở mục đang chọn." : "Không có ticket thiếu linh kiện nào."}
+        {filterTrangThai ? t("Không có ticket nào ở mục đang chọn.") : t("Không có ticket thiếu linh kiện nào.")}
         {filterTrangThai && (
           <div className="mt-2">
-            <Btn variant="ghost" size="sm" className="min-h-10 sm:min-h-[30px]" onClick={onXemTatCa}>Xem tất cả ticket</Btn>
+            <Btn variant="ghost" size="sm" className="min-h-10 sm:min-h-[30px]" onClick={onXemTatCa}>{t("Xem tất cả ticket")}</Btn>
           </div>
         )}
       </div>
@@ -789,9 +790,9 @@ function ThieuLkGroupedList({
                           (chờ xử lý/đang xử lý/hoàn tất/huỷ) thanh 1 dong toi thieu "tên + so luong",
                           khop dung tinh than da ap dung o DonHangGroupedList (DonCuaToiTab.tsx). */}
                       {g.choXuLy + g.dangXuLy > 0 ? (
-                        <Badge tone="warning">Chờ {g.choXuLy + g.dangXuLy}/{g.dongCon.length} đơn</Badge>
+                        <Badge tone="warning">{t("Chờ {a}/{b} đơn", { a: g.choXuLy + g.dangXuLy, b: g.dongCon.length })}</Badge>
                       ) : (
-                        <Badge tone="success">Đã xong {g.dongCon.length} đơn</Badge>
+                        <Badge tone="success">{t("Đã xong {a} đơn", { a: g.dongCon.length })}</Badge>
                       )}
                     </div>
                   </td>
@@ -829,9 +830,9 @@ function ThieuLkGroupedList({
             <div className="flex items-center justify-between gap-2 bg-[var(--ocean-100)] px-3 py-2">
               <span className="truncate text-[13px] font-bold text-[var(--ink-900)]"><NguoiNhan>{formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}</NguoiNhan></span>
               {g.choXuLy + g.dangXuLy > 0 ? (
-                <Badge tone="warning">Chờ {g.choXuLy + g.dangXuLy}/{g.dongCon.length}</Badge>
+                <Badge tone="warning">{t("Chờ {a}/{b}", { a: g.choXuLy + g.dangXuLy, b: g.dongCon.length })}</Badge>
               ) : (
-                <Badge tone="success">Xong {g.dongCon.length}</Badge>
+                <Badge tone="success">{t("Xong {a}", { a: g.dongCon.length })}</Badge>
               )}
             </div>
             <div className="divide-y divide-[var(--color-border-soft)]">
@@ -862,18 +863,18 @@ function ThieuLkGroupedList({
                       <div className="mt-1 flex items-center gap-1.5 overflow-hidden">
                         <StatusBadge value={r.trang_thai} tones={THIEU_LK_TRANG_THAI_TONE} options={THIEU_LK_TRANG_THAI_OPTIONS} />
                         <LoaiDeXuatBadge loaiDon={r.loai_don} loaiDeXuat={r.loai_de_xuat} />
-                        {r.so_luong_de_xuat != null && <span className="shrink-0 text-xs text-[var(--color-text-secondary)]">SL {r.so_luong_de_xuat}</span>}
+                        {r.so_luong_de_xuat != null && <span className="shrink-0 text-xs text-[var(--color-text-secondary)]">{t("SL {a}", { a: r.so_luong_de_xuat })}</span>}
                       </div>
                       <div className="mt-1 truncate text-xs text-[var(--color-text-secondary)]">
                         {r.ngay_hang_ve_thuc_te ? (
-                          <span className="font-semibold text-[var(--color-success-strong)]">Hàng về {ngayNgan(r.ngay_hang_ve_thuc_te)}</span>
+                          <span className="font-semibold text-[var(--color-success-strong)]">{t("Hàng về {a}", { a: ngayNgan(r.ngay_hang_ve_thuc_te) })}</span>
                         ) : r.ngay_du_kien_co_hang ? (
-                          <span className="font-semibold text-[var(--color-text-body)]">Dự kiến có hàng {ngayNgan(r.ngay_du_kien_co_hang)}</span>
+                          <span className="font-semibold text-[var(--color-text-body)]">{t("Dự kiến có hàng {a}", { a: ngayNgan(r.ngay_du_kien_co_hang) })}</span>
                         ) : dangMo ? (
-                          <span>Chưa có ngày dự kiến</span>
+                          <span>{t("Chưa có ngày dự kiến")}</span>
                         ) : null}
                         {(r.ngay_hang_ve_thuc_te || r.ngay_du_kien_co_hang || dangMo) && " · "}
-                        Báo {ngayNgan(r.ngay_tao)}
+                        {t("Báo {a}", { a: ngayNgan(r.ngay_tao) })}
                       </div>
                       {nexts.length > 0 && (
                         // Chi chan bubble khi bam TRUNG nut (phan hoi 2026-08-28: bam khoang trong van mo chi tiet).
@@ -907,9 +908,9 @@ function ThieuLkGroupedList({
         ))}
       </div>
       <div className="flex items-center justify-between px-1 py-2 text-xs text-[var(--ink-400)]">
-        <span>{total} ticket</span>
+        <span>{t("{a} ticket", { a: total })}</span>
         <div className="flex items-center gap-1">
-          <Btn variant="ghost" size="sm" className="min-h-10 min-w-10 sm:min-h-[30px] sm:min-w-0" aria-label="Trang trước" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>‹</Btn>
+          <Btn variant="ghost" size="sm" className="min-h-10 min-w-10 sm:min-h-[30px] sm:min-w-0" aria-label={t("Trang trước")} disabled={page <= 1} onClick={() => onPageChange(page - 1)}>‹</Btn>
           <span className="px-2">{page}/{Math.max(1, Math.ceil(total / pageSize))}</span>
           <Btn variant="ghost" size="sm" className="min-h-10 min-w-10 sm:min-h-[30px] sm:min-w-0" aria-label="Trang sau" disabled={page * pageSize >= total} onClick={() => onPageChange(page + 1)}>›</Btn>
         </div>
@@ -985,17 +986,17 @@ export function ThieuLkDetailModal({
       // chưa bấm thành công"): BO "Duyet va tiep theo" - xu ly xong GIU NGUYEN ticket vua thao tac (chi tiet tai lai,
       // thay trang thai moi), muon sang ticket khac thi tu bam ‹ ›. Mo tu nut thao tac nhanh o danh sach (initialAction)
       // van dong ve danh sach nhu cu.
-      addToast(`Đã cập nhật ${id} → ${trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, args.trangThai)}`);
+      addToast(t("Đã cập nhật {a} → {b}", { a: id, b: trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, args.trangThai) }));
       if (initialAction) onClose();
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
   });
 
   const ktvDisplayMap = useKtvDisplayMap();
   const tenLog = useTenNguoiLog();
-  const t = data?.thieuLk ?? initialRow;
-  const nexts = t
-    ? nextStatesForThieuLk(t, { canKho, canTacNghiep, currentEmail })
+  const tk = data?.thieuLk ?? initialRow;
+  const nexts = tk
+    ? nextStatesForThieuLk(tk, { canKho, canTacNghiep, currentEmail })
         .filter((s) => s.canDo)
         .sort((a, b) => thuTuNut(a.trangThai) - thuTuNut(b.trangThai))
     : [];
@@ -1014,14 +1015,14 @@ export function ThieuLkDetailModal({
     if (CAN_NHAP_LIEU.includes(trangThai)) {
       setActionTrangThai(trangThai);
       setGhiChu("");
-      setNgayDuKien(trangThai === "Kho da cap nhat" ? t?.ngay_du_kien_co_hang ?? "" : "");
+      setNgayDuKien(trangThai === "Kho da cap nhat" ? tk?.ngay_du_kien_co_hang ?? "" : "");
     } else logMutation.mutate({ trangThai });
   }
 
   // Chan Drawer (thiet ke lai 2026-09-29): truoc day moi nut deu ghost 30px cung 1 hang, nhan dai ("Kho đã tiếp
   // nhận…", "Kho từ chối (sai TT)") - khong phan biet buoc chinh/nguy hiem, 3 nut tran hang tren mobile. Gio:
   // nhan dong tu ngan, cao 40px (mobile), nguy hiem (vien do) trai -> phu -> 1 nut primary (buoc di tiep) phai.
-  const footer = t ? (
+  const footer = tk ? (
     actionTrangThai ? (
       <ThieuLkActionForm
         trangThai={actionTrangThai}
@@ -1065,7 +1066,7 @@ export function ThieuLkDetailModal({
     ) : null
   ) : null;
 
-  const nguoiNhanHang = t?.nguoi_nhan_hang || t?.ddh_nguoi_tao;
+  const nguoiNhanHang = tk?.nguoi_nhan_hang || tk?.ddh_nguoi_tao;
 
   return (
     <Drawer
@@ -1085,43 +1086,43 @@ export function ThieuLkDetailModal({
         ) : undefined
       }
     >
-      {!t ? (
-        <div className="py-4 text-center text-sm text-[var(--ink-500)]">{isLoading ? "Đang tải..." : "Không tìm thấy ticket."}</div>
+      {!tk ? (
+        <div className="py-4 text-center text-sm text-[var(--ink-500)]">{isLoading ? t("Đang tải...") : t("Không tìm thấy ticket.")}</div>
       ) : (
         <div className="text-sm">
           {/* Khoi tom tat dau Drawer (2026-09-29): LK + trang thai + loai + SL doc duoc ngay, khong phai do tung dong
               "nhan: gia tri" nhu truoc (Ma LK nam dong thu 4, trang thai dong thu 3). */}
           <div className="mb-4 rounded-xl border border-[var(--color-border-soft)] bg-[var(--color-subtle)] p-3">
-            {t.uu_tien === 1 && <div className="mb-1"><PriorityTag /></div>}
-            <div className="text-[15px] font-bold leading-snug text-[var(--color-text)]">{t.ten_lk_snapshot ?? t.ma_lk ?? t.id}</div>
-            {t.ma_lk && <div className="mt-0.5 font-mono text-xs text-[var(--color-text-secondary)]">{t.ma_lk}</div>}
+            {tk.uu_tien === 1 && <div className="mb-1"><PriorityTag /></div>}
+            <div className="text-[15px] font-bold leading-snug text-[var(--color-text)]">{tk.ten_lk_snapshot ?? tk.ma_lk ?? tk.id}</div>
+            {tk.ma_lk && <div className="mt-0.5 font-mono text-xs text-[var(--color-text-secondary)]">{tk.ma_lk}</div>}
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <StatusBadge value={t.trang_thai} tones={THIEU_LK_TRANG_THAI_TONE} options={THIEU_LK_TRANG_THAI_OPTIONS} />
-              {(t.loai_don || t.loai_de_xuat) && <LoaiDeXuatBadge loaiDon={t.loai_don} loaiDeXuat={t.loai_de_xuat} />}
-              {t.so_luong_de_xuat != null && <span className="text-xs font-semibold text-[var(--color-text-body)]">SL {t.so_luong_de_xuat}</span>}
+              <StatusBadge value={tk.trang_thai} tones={THIEU_LK_TRANG_THAI_TONE} options={THIEU_LK_TRANG_THAI_OPTIONS} />
+              {(tk.loai_don || tk.loai_de_xuat) && <LoaiDeXuatBadge loaiDon={tk.loai_don} loaiDeXuat={tk.loai_de_xuat} />}
+              {tk.so_luong_de_xuat != null && <span className="text-xs font-semibold text-[var(--color-text-body)]">{t("SL {a}", { a: tk.so_luong_de_xuat })}</span>}
             </div>
           </div>
 
-          <SectionTitle>Thông tin ticket</SectionTitle>
-          {nguoiNhanHang && <KvRow label="KTV nhận hàng"><NguoiNhan>{formatNguoiDisplay(nguoiNhanHang, ktvDisplayMap)}</NguoiNhan></KvRow>}
-          <KvRow label="Dự kiến có hàng">
-            {t.ngay_du_kien_co_hang ? <span className="font-semibold">{fmtDate(t.ngay_du_kien_co_hang)}</span> : "—"}
+          <SectionTitle>{t("Thông tin ticket")}</SectionTitle>
+          {nguoiNhanHang && <KvRow label={t("KTV nhận hàng")}><NguoiNhan>{formatNguoiDisplay(nguoiNhanHang, ktvDisplayMap)}</NguoiNhan></KvRow>}
+          <KvRow label={t("Dự kiến có hàng")}>
+            {tk.ngay_du_kien_co_hang ? <span className="font-semibold">{fmtDate(tk.ngay_du_kien_co_hang)}</span> : "—"}
           </KvRow>
-          <KvRow label="Hàng về thực tế">
-            {t.ngay_hang_ve_thuc_te ? <span className="font-semibold text-[var(--color-success-strong)]">{fmtDate(t.ngay_hang_ve_thuc_te)}</span> : "—"}
+          <KvRow label={t("Hàng về thực tế")}>
+            {tk.ngay_hang_ve_thuc_te ? <span className="font-semibold text-[var(--color-success-strong)]">{fmtDate(tk.ngay_hang_ve_thuc_te)}</span> : "—"}
           </KvRow>
-          <KvRow label="Đơn hàng">
+          <KvRow label={t("Đơn hàng||1 đơn")}>
             <button type="button" onClick={() => setShowDonGoc(true)} className="code-link -my-1 inline-flex min-h-8 items-center">
-              {t.dat_don_hang_id} ↗
+              {tk.dat_don_hang_id} ↗
             </button>
           </KvRow>
-          <KvRow label="TN báo">{formatNguoiDisplay(t.nguoi_tao, ktvDisplayMap)}</KvRow>
-          <KvRow label="Ngày báo">{fmtDateTime(t.ngay_tao)}</KvRow>
-          {t.ten_ly_do && <KvRow label="Lý do TN báo">{t.ten_ly_do}</KvRow>}
+          <KvRow label={t("TN báo")}>{formatNguoiDisplay(tk.nguoi_tao, ktvDisplayMap)}</KvRow>
+          <KvRow label={t("Ngày báo")}>{fmtDateTime(tk.ngay_tao)}</KvRow>
+          {tk.ten_ly_do && <KvRow label={t("Lý do TN báo")}>{tk.ten_ly_do}</KvRow>}
 
-          <SectionTitle>Lịch sử xử lý</SectionTitle>
+          <SectionTitle>{t("Lịch sử xử lý")}</SectionTitle>
           {!data ? (
-            <div className="text-xs text-[var(--ink-400)]">Đang tải lịch sử...</div>
+            <div className="text-xs text-[var(--ink-400)]">{t("Đang tải lịch sử...")}</div>
           ) : (
             <Timeline
               items={data.logs.map((l, i, all) => ({
@@ -1129,7 +1130,7 @@ export function ThieuLkDetailModal({
                 title: (
                   <LogTieuDe
                     nguoi={tenLog(l.nguoi_xu_ly)}
-                    hanhDong={i === all.length - 1 ? "báo thiếu hàng →" : "chuyển ticket sang"}
+                    hanhDong={i === all.length - 1 ? t("báo thiếu hàng →") : t("chuyển ticket sang")}
                     trangThai={trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, l.trang_thai)}
                     ghiChu={l.ghi_chu}
                   />
@@ -1140,9 +1141,9 @@ export function ThieuLkDetailModal({
           )}
         </div>
       )}
-      {showDonGoc && t && (
+      {showDonGoc && tk && (
         <DonHangDetailModal
-          id={t.dat_don_hang_id}
+          id={tk.dat_don_hang_id}
           onClose={() => setShowDonGoc(false)}
           addToast={addToast}
           qc={qc}

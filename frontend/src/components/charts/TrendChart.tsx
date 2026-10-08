@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import { ChartEmpty, ChartLegend } from "./ChartCard";
 import { monotonePath, niceScale, useElementWidth } from "./chartUtils";
+import { t } from "../../i18n";
 
 export interface TrendSeries {
   key: string;
@@ -78,7 +79,7 @@ export function TrendChart({
           <ChartEmpty />
         ) : (
           width > 0 && (
-            <svg width={width} height={height} role="img" aria-label={`Biểu đồ xu hướng: ${series.map((s) => s.label).join(", ")}`}>
+            <svg width={width} height={height} role="img" aria-label={t("Biểu đồ xu hướng: {a}", { a: series.map((s) => s.label).join(", ") })}>
               <defs>
                 {series.map((s) => (
                   <linearGradient key={s.key} id={`${uid}-${s.key}`} x1="0" y1="0" x2="0" y2="1">
@@ -87,11 +88,11 @@ export function TrendChart({
                   </linearGradient>
                 ))}
               </defs>
-              {ticks.map((t) => (
-                <g key={t}>
-                  <line x1={padL} x2={width - padR} y1={y(t)} y2={y(t)} stroke="var(--chart-grid)" strokeWidth={1} />
-                  <text x={padL - 8} y={y(t)} dy="0.32em" textAnchor="end" fontSize={10.5} fill="var(--chart-axis)">
-                    {formatValue(t)}
+              {ticks.map((tick) => (
+                <g key={tick}>
+                  <line x1={padL} x2={width - padR} y1={y(tick)} y2={y(tick)} stroke="var(--chart-grid)" strokeWidth={1} />
+                  <text x={padL - 8} y={y(tick)} dy="0.32em" textAnchor="end" fontSize={10.5} fill="var(--chart-axis)">
+                    {formatValue(tick)}
                   </text>
                 </g>
               ))}

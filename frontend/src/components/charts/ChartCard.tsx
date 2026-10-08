@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { t } from "../../i18n";
 
 // Khung the bieu do (DESIGN_GUIDELINES.md §6 + demo): tieu de 14px/700, phu de 11px xam, link "Xem chi
 // tiet →" goc phai. Dung .content-card (bo 12px, vien #F1F5F9, bong sieu nhe).
@@ -29,7 +30,7 @@ export function ChartCard({
   );
 }
 
-export function ChartLink({ children = "Xem chi tiết", onClick }: { children?: ReactNode; onClick: () => void }) {
+export function ChartLink({ children = t("Xem chi tiết"), onClick }: { children?: ReactNode; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className="focus-ring card-header-link shrink-0 whitespace-nowrap hover:underline">
       {children} →
@@ -63,6 +64,6 @@ export function ChartLegend({ items }: { items: LegendItem[] }) {
   );
 }
 
-export function ChartEmpty({ children = "Chưa có dữ liệu trong kỳ này." }: { children?: ReactNode }) {
+export function ChartEmpty({ children = t("Chưa có dữ liệu trong kỳ này.") }: { children?: ReactNode }) {
   return <div className="grid h-full min-h-[120px] place-items-center rounded-[10px] bg-[var(--color-surface-soft)] text-xs text-[var(--color-text-faint)]">{children}</div>;
 }
