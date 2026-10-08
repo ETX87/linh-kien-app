@@ -249,7 +249,7 @@ export function LinhKienPicker({
   // tren may) > hang dat 30 ngay toan he thong. O trong: "Chọn gần đây" -> "Hay đặt" -> con lai. Khong goi server khi go.
   const q = query.trim();
   const lichSu = useLichSuLk();
-  // LK cam ban an khoi danh sach khi loai de xuat la MUA HÀNG / MUA HÀNG CÓ ID (2026-10-08); loai khac van chon duoc.
+  // LK cam ban an khoi danh sach khi loai de xuat la MUA HÀNG / MUA HÀNG CÓ ID / MUA DỰ TRỮ (2026-10-08); loai khac van chon duoc.
   const dsChon = useMemo(() => (camBanChoLoai(loaiDeXuat) ? options.filter((o) => !o.cam_ban) : options), [options, loaiDeXuat]);
   const rowsTim = useMemo(() => dsChon.map((o) => ({ ma: o.ma_linh_kien, ten: o.ten_linh_kien })), [dsChon]);
   const boTim = useBoTimLk(rowsTim);
@@ -437,7 +437,7 @@ export function LinhKienPicker({
     {selected?.combo && <ComboThanhPhanNote combo={selected.combo} />}
     {lkCamBanVoiLoai(selected, loaiDeXuat) && (
       <div role="alert" className="mt-1.5 rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-xs font-semibold text-[var(--coral-700)]">
-        {t("⚠ Linh kiện cấm bán — không đặt được với loại MUA HÀNG / MUA HÀNG CÓ ID, chọn loại đề xuất khác hoặc linh kiện khác.")}
+        {t("⚠ Linh kiện cấm bán — không đặt được với loại MUA HÀNG / MUA HÀNG CÓ ID / MUA DỰ TRỮ, chọn loại đề xuất khác hoặc linh kiện khác.")}
       </div>
     )}
     {selected?.dac_thu ? (

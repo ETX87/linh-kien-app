@@ -170,7 +170,7 @@ export function useTaoDonForm({
       d.ma_lk.trim() &&
       d.loai_de_xuat.trim() &&
       d.so_luong_de_xuat > 0 &&
-      // LK cam ban khong dat duoc voi MUA HÀNG / MUA HÀNG CÓ ID (canh bao hien ngay duoi o chon LK).
+      // LK cam ban khong dat duoc voi MUA HÀNG / MUA HÀNG CÓ ID / MUA DỰ TRỮ (canh bao hien ngay duoi o chon LK).
       !lkCamBanVoiLoai(danhMuc.find((m) => m.ma_linh_kien === d.ma_lk), d.loai_de_xuat) &&
       (!canNoRequired(d.loai_de_xuat) || d.chinh_sach.trim()) &&
       (!maYcscRequired(d.loai_de_xuat) || coMaIdLienQuan(d.ma_yeu_cau_su_co, d.ma_lada)) &&

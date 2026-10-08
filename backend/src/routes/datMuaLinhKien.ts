@@ -184,11 +184,11 @@ function maYcscRequired(loaiDeXuat: string): boolean {
   return canNoRequired(loaiDeXuat) || loaiDeXuat.includes("MUA HÀNG CÓ ID") || loaiDeXuat.toUpperCase().includes("HỖ TRỢ");
 }
 
-// LK "Cấm bán" (cot linh_kien.cam_ban tu gia88) CHI cam voi 2 loai de xuat "MUA HÀNG" + "MUA HÀNG CÓ ID" (chot 2026-10-08 - truoc do
+// LK "Cấm bán" (cot linh_kien.cam_ban tu gia88) CHI cam voi 3 loai de xuat "MUA HÀNG" + "MUA HÀNG CÓ ID" + "MUA DỰ TRỮ" (chot 2026-10-08 - truoc do
 // an khoi o chon cho MOI loai). Chan o tao tay, import Excel, PATCH doi ma LK/loai. Ban sao FE: camBanChoLoai() helpers.ts.
 function camBanChoLoai(loaiDeXuat: string | null | undefined): boolean {
   const k = (loaiDeXuat ?? "").trim().toUpperCase();
-  return k === "MUA HÀNG" || k === "MUA HÀNG CÓ ID";
+  return k === "MUA HÀNG" || k === "MUA HÀNG CÓ ID" || k === "MUA DỰ TRỮ";
 }
 
 // Chinh sach mac dinh (chot 2026-10-08): don "TRỪ CÔNG NỢ" bo trong -> "Trong CSBH" (tao tay + import Excel). Ban sao FE:
@@ -3955,7 +3955,7 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
     // Ma LK da doi/gop (migration 0053) -> quy ve ma chuan.
     const nextMaLk = body.ma_lk !== undefined ? (await quyVeMaChuan(c.env.DB, [maLkGui])).get(maLkGui) ?? maLkGui : maLkGui;
     if (!nextMaLk) return c.json({ error: "INVALID_DON_HANG" }, 400);
-    // Cam ban (chi MUA HÀNG / MUA HÀNG CÓ ID) - chi xet khi doi ma LK hoac loai de xuat, khong chan sua truong khac cua don cu.
+    // Cam ban (chi MUA HÀNG / MUA HÀNG CÓ ID / MUA DỰ TRỮ) - chi xet khi doi ma LK hoac loai de xuat, khong chan sua truong khac cua don cu.
     if ((nextMaLk !== existing.ma_lk || nextLde !== (existing.loai_de_xuat ?? "")) && camBanChoLoai(nextLde)) {
       const cb = await c.env.DB.prepare("SELECT cam_ban FROM linh_kien WHERE ma_linh_kien = ?").bind(nextMaLk).first<{ cam_ban: number | null }>();
       if (cb?.cam_ban) return c.json({ error: "LK_CAM_BAN", ma_lk: nextMaLk }, 400);

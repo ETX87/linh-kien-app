@@ -506,7 +506,7 @@ export function DonHangDetailModal({
     (!canNoRequired(editDraft.loai_de_xuat) || editDraft.chinh_sach.trim() !== "") &&
     (!maYcscRequired(editDraft.loai_de_xuat) || coMaIdLienQuan(editDraft.ma_yeu_cau_su_co, editDraft.ma_lada)) &&
     (!tnSlThucXuatDaDoi || !!tnCoreDraft?.ghi_chu_so_luong.trim()) &&
-    // LK cam ban + MUA HÀNG / MUA HÀNG CÓ ID - chi chan khi DOI ma LK hoac loai (khop backend PATCH, khong chan sua don cu).
+    // LK cam ban + MUA HÀNG / MUA HÀNG CÓ ID / MUA DỰ TRỮ - chi chan khi DOI ma LK hoac loai (khop backend PATCH, khong chan sua don cu).
     !((editDraft.ma_lk !== d?.ma_lk || editDraft.loai_de_xuat !== (d?.loai_de_xuat ?? "")) &&
       lkCamBanVoiLoai(danhMuc.find((m) => m.ma_linh_kien === editDraft.ma_lk), editDraft.loai_de_xuat));
 
