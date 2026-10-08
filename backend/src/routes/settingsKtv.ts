@@ -645,6 +645,109 @@ settingsKtv.patch("/:ma/bat-tat", adminOnly, async (c) => {
   return c.json({ ok: true, ma_khac_dang_bat: conMaKhac?.mas ?? null });
 });
 
+// POST /:ma/doi-ma { ma_moi, ten_hien_thi?, xac_nhan_gop? } (chot 2026-10-08, phan hoi "danh sach KTV dong bo tu dong va tao tai
+// khoan tu ETX tuy nhien 1 so KTV se phai sua lai ma KTV va sua ten") - Admin doi ma KTV (vd ma tu tao tu ETX = Ma NV) sang ma
+// dung, kem sua ten. Ma CU XOA HAN (chot nguoi dung) - luu y dong bo sang DVBH/khovan/vipham chi upsert, khong dong bo xoa, nen
+// ben do van con dong ma cu.
+//   - Ma moi CHUA co: doi ten ma (giu nguyen moi cot). PK co FK tu ktv_cap1_phu_trach (Ve tinh) -> defer_foreign_keys trong batch.
+//   - Ma moi DA co (vd ma cu trong danh ba chua gan Gmail): GOP - ma moi nhan Gmail dang nhap + trang thai bat/tat cua ma cu, cac
+//     cot con lai GIU gia tri cua ma moi, cot nao trong thi lay tu ma cu. Ma moi da gan Gmail KHAC -> MA_MOI_DA_GAN_GMAIL_KHAC.
+//     Lan dau tra 409 CAN_XAC_NHAN_GOP (kem thong tin ma moi) de FE hoi lai; gui lai voi xac_nhan_gop = true moi gop.
+// Bang co cot ma KTV: ktv_lien_he.ktv_cap1_phu_trach, ktv_ton_kho(_tam), etx_nhan_su, cong_no_0d_ktv - them bang moi co ma KTV
+// thi them vao day. Don/PXK luu theo EMAIL nen khong doi.
+settingsKtv.post("/:ma/doi-ma", adminOnly, async (c) => {
+  const ma = c.req.param("ma");
+  const body = await c.req.json<{ ma_moi?: string; ten_hien_thi?: string; xac_nhan_gop?: boolean }>().catch(() => ({}) as { ma_moi?: string; ten_hien_thi?: string; xac_nhan_gop?: boolean });
+  const maMoi = (body.ma_moi ?? "").trim();
+  const tenMoi = body.ten_hien_thi?.trim() || null;
+  if (!maMoi) return c.json({ error: "THIEU_MA_MOI" }, 400);
+  const db = c.env.DB;
+  type Ktv = { ma_ktv: string; ten_hien_thi: string | null; email_dang_nhap: string | null; ma_misa: string | null; khu_vuc_ma: string | null; ghi_chu: string | null };
+  const cu = await db.prepare("SELECT ma_ktv, ten_hien_thi, email_dang_nhap, ma_misa, khu_vuc_ma, ghi_chu FROM ktv_lien_he WHERE ma_ktv = ?").bind(ma).first<Ktv>();
+  if (!cu) return c.json({ error: "NOT_FOUND" }, 404);
+  const dich = await db
+    .prepare("SELECT ma_ktv, ten_hien_thi, email_dang_nhap, ma_misa, khu_vuc_ma, ghi_chu FROM ktv_lien_he WHERE UPPER(ma_ktv) = UPPER(?) AND ma_ktv <> ?")
+    .bind(maMoi, ma)
+    .first<Ktv>();
+  if (!dich && maMoi === ma) {
+    if (!tenMoi || tenMoi === cu.ten_hien_thi) return c.json({ error: "KHONG_CO_THAY_DOI" }, 400);
+    await db.prepare("UPDATE ktv_lien_he SET ten_hien_thi = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_ktv = ?").bind(tenMoi, c.get("user").email, nowVN(), ma).run();
+    await refreshHash(db);
+    return c.json({ ok: true, ma_ktv: ma, gop: false });
+  }
+  const now = nowVN();
+  const user = c.get("user");
+  const ghiChu = (truoc: string | null, noiDung: string) => [truoc?.trim(), `${noiDung} (${now.slice(0, 10)}, ${user.email})`].filter(Boolean).join(" | ");
+  const veTinh = await db
+    .prepare("SELECT email_dang_nhap FROM ktv_lien_he WHERE ktv_cap1_phu_trach = ? AND email_dang_nhap IS NOT NULL")
+    .bind(ma)
+    .all<{ email_dang_nhap: string }>();
+  const maDich = dich?.ma_ktv ?? maMoi;
+  // Chuyen cot ma KTV o cac bang lien quan (dung chung cho doi ten + gop).
+  const chuyenThamChieu = [
+    db.prepare("UPDATE ktv_lien_he SET ktv_cap1_phu_trach = CASE WHEN ma_ktv = ? THEN NULL ELSE ? END WHERE ktv_cap1_phu_trach = ?").bind(maDich, maDich, ma),
+    db.prepare("UPDATE ktv_ton_kho SET ma_ktv = ? WHERE ma_ktv = ?").bind(maDich, ma),
+    db.prepare("UPDATE ktv_ton_kho_tam SET ma_ktv = ? WHERE ma_ktv = ?").bind(maDich, ma),
+    db.prepare("UPDATE etx_nhan_su SET ma_ktv = ?, updated_at = ? WHERE ma_ktv = ?").bind(maDich, now, ma),
+    db.prepare("UPDATE OR IGNORE cong_no_0d_ktv SET ma_ktv = ? WHERE ma_ktv = ?").bind(maDich, ma),
+    db.prepare("DELETE FROM cong_no_0d_ktv WHERE ma_ktv = ?").bind(ma),
+  ];
+
+  if (!dich) {
+    // Doi ten ma (ma moi chua co, hoac chi doi hoa/thuong).
+    await db.batch([
+      db.prepare("PRAGMA defer_foreign_keys = ON"),
+      db
+        .prepare("UPDATE ktv_lien_he SET ma_ktv = ?, ten_hien_thi = COALESCE(?, ten_hien_thi), ghi_chu = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_ktv = ?")
+        .bind(maMoi, tenMoi, ghiChu(cu.ghi_chu, `Đổi mã từ ${ma}`), user.email, now, ma),
+      ...chuyenThamChieu,
+    ]);
+  } else {
+    if (dich.email_dang_nhap && cu.email_dang_nhap && dich.email_dang_nhap.trim().toLowerCase() !== cu.email_dang_nhap.trim().toLowerCase()) {
+      return c.json({ error: "MA_MOI_DA_GAN_GMAIL_KHAC", message: `Mã ${dich.ma_ktv} đang gắn Gmail ${dich.email_dang_nhap} — không gộp được` }, 409);
+    }
+    if (!body.xac_nhan_gop) {
+      const tt = [
+        `Tên: ${dich.ten_hien_thi || "—"}`,
+        `Khu vực: ${dich.khu_vuc_ma || "—"}`,
+        `Mã MISA: ${dich.ma_misa || "—"}`,
+        `Gmail đăng nhập: ${dich.email_dang_nhap || "chưa gắn"}`,
+      ].join(" · ");
+      return c.json({ error: "CAN_XAC_NHAN_GOP", message: tt, ma_moi: { ma_ktv: dich.ma_ktv, ten_hien_thi: dich.ten_hien_thi, email_dang_nhap: dich.email_dang_nhap, ma_misa: dich.ma_misa, khu_vuc_ma: dich.khu_vuc_ma } }, 409);
+    }
+    // Cot chu: giu cua ma moi, trong thi lay ma cu. Cot so: NULL thi lay ma cu.
+    const o = (cot: string) => `(SELECT o.${cot} FROM ktv_lien_he o WHERE o.ma_ktv = ?1)`;
+    const chu = ["sdt", "gmail", "vai_tro_ktv", "giam_sat_quan_ly", "khu_vuc_ma", "ma_misa", "ten_misa"].map((k) => `${k} = COALESCE(NULLIF(TRIM(${k}), ''), ${o(k)})`);
+    const so = ["cong_no", "cong_no_cap_nhat_luc", "han_muc_du_phong", "han_muc_du_phong_hien_tai", "han_muc_du_phong_cap_nhat_luc"].map((k) => `${k} = COALESCE(${k}, ${o(k)})`);
+    await db.batch([
+      db.prepare("PRAGMA defer_foreign_keys = ON"),
+      // Go Gmail khoi ma cu truoc (chi muc DUY NHAT Gmail - migration 0061) roi gan cho ma moi.
+      db.prepare("UPDATE ktv_lien_he SET email_dang_nhap = NULL WHERE ma_ktv = ?").bind(ma),
+      db
+        .prepare(
+          `UPDATE ktv_lien_he SET ${[...chu, ...so].join(", ")},
+             ktv_cap1_phu_trach = COALESCE(ktv_cap1_phu_trach, NULLIF(${o("ktv_cap1_phu_trach")}, ?2)),
+             ngung_hoat_dong = ${o("ngung_hoat_dong")},
+             email_dang_nhap = COALESCE(?3, email_dang_nhap),
+             ten_hien_thi = COALESCE(?4, ten_hien_thi, ${o("ten_hien_thi")}),
+             ghi_chu = ?5, nguoi_cap_nhat = ?6, ngay_cap_nhat = ?7
+           WHERE ma_ktv = ?2`,
+        )
+        .bind(ma, dich.ma_ktv, cu.email_dang_nhap, tenMoi, ghiChu(dich.ghi_chu, `Gộp từ mã ${ma}`), user.email, now),
+      ...chuyenThamChieu,
+      db.prepare("DELETE FROM ktv_lien_he WHERE ma_ktv = ?").bind(ma),
+    ]);
+  }
+
+  const email = cu.email_dang_nhap;
+  if (email) await resyncKhuVucDerivedFieldsForEmail(db, email);
+  for (const v of veTinh.results) await resyncKhuVucDerivedFieldsForEmail(db, v.email_dang_nhap);
+  const sau = await db.prepare("SELECT ma_misa FROM ktv_lien_he WHERE ma_ktv = ?").bind(maDich).first<{ ma_misa: string | null }>();
+  if (sau?.ma_misa) await relinkTonKhoForMaMisa(db, maDich, sau.ma_misa);
+  await refreshHash(db);
+  return c.json({ ok: true, ma_ktv: maDich, gop: !!dich });
+});
+
 settingsKtv.delete("/:ma", adminOnly, async (c) => {
   const ma = c.req.param("ma");
   const existing = await c.env.DB.prepare("SELECT ma_ktv FROM ktv_lien_he WHERE ma_ktv = ?").bind(ma).first();

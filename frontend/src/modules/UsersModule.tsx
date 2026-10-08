@@ -840,6 +840,99 @@ function generateInternalEmail(maKtv: string): string {
   return `${slug || "ktv"}@noreply.local`;
 }
 
+// Doi ma KTV / sua ten (2026-10-08, POST /settings/ktv-lien-he/:ma/doi-ma, chi Admin) - ma tu tao tu ETX (= Ma NV) can doi sang ma
+// dung. Ma moi chua co -> doi ten ma; ma moi DA co trong danh ba -> server tra CAN_XAC_NHAN_GOP, hoi lai roi gop. Ma cu bi XOA HAN.
+function DoiMaKtvModal({ row, onClose, onDone }: { row: KtvLienHeRow; onClose: () => void; onDone: (maMoi: string) => void }) {
+  const [maMoi, setMaMoi] = useState(row.ma_ktv);
+  const [ten, setTen] = useState(row.ten_hien_thi ?? "");
+  const [gop, setGop] = useState<{ ma: string; thongTin: string } | null>(null);
+  const [loi, setLoi] = useState<string | null>(null);
+  const doiTen = ten.trim() !== (row.ten_hien_thi ?? "").trim();
+  const luu = useMutation({
+    mutationFn: (xacNhanGop: boolean) =>
+      api.post<{ ok: true; ma_ktv: string }>(`/settings/ktv-lien-he/${encodeURIComponent(row.ma_ktv)}/doi-ma`, {
+        ma_moi: maMoi.trim(),
+        // Chi gui ten khi nguoi dung sua - gop vao ma co san ma khong sua ten thi giu ten cua ma co san.
+        ten_hien_thi: doiTen ? ten.trim() : undefined,
+        xac_nhan_gop: xacNhanGop || undefined,
+      }),
+    onSuccess: (r) => onDone(r.ma_ktv),
+    onError: (err) => {
+      if (err instanceof ApiError && err.code === "CAN_XAC_NHAN_GOP") {
+        setGop({ ma: maMoi.trim(), thongTin: err.detail ?? "" });
+        setLoi(null);
+        return;
+      }
+      const ma = err instanceof ApiError ? err.code : undefined;
+      setLoi(
+        err instanceof ApiError && err.detail
+          ? err.detail
+          : ma === "KHONG_CO_THAY_DOI"
+            ? "Chưa thay đổi mã hoặc tên"
+            : ma === "THIEU_MA_MOI"
+              ? "Cần nhập mã KTV mới"
+              : "Không lưu được: " + (err instanceof Error ? err.message : String(err)),
+      );
+    },
+  });
+  const thayDoi = maMoi.trim() !== row.ma_ktv || doiTen;
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Đổi mã / tên KTV — ${row.ma_ktv}`}
+      width="max-w-md"
+      footer={
+        <div className="flex justify-end gap-2">
+          <Btn variant="ghost" onClick={onClose}>Huỷ</Btn>
+          {gop ? (
+            <Btn onClick={() => luu.mutate(true)} disabled={luu.isPending}>
+              {luu.isPending ? "Đang gộp…" : `Gộp vào mã ${gop.ma}`}
+            </Btn>
+          ) : (
+            <Btn onClick={() => luu.mutate(false)} disabled={!thayDoi || !maMoi.trim() || luu.isPending}>
+              {luu.isPending ? "Đang lưu…" : "Lưu"}
+            </Btn>
+          )}
+        </div>
+      }
+    >
+      <div className="space-y-3 text-sm">
+        <div>
+          <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Mã KTV mới</label>
+          <input
+            autoFocus
+            value={maMoi}
+            onChange={(e) => { setMaMoi(e.target.value); setGop(null); setLoi(null); }}
+            className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Tên hiển thị</label>
+          <input value={ten} onChange={(e) => { setTen(e.target.value); setLoi(null); }} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1" />
+        </div>
+        {maMoi.trim() !== row.ma_ktv && !gop && (
+          <div className="text-xs text-[var(--ink-500)]">
+            Mã <b>{row.ma_ktv}</b> sẽ được đổi thành <b>{maMoi.trim() || "…"}</b> — giữ nguyên Gmail đăng nhập, khu vực, MISA, công nợ, tồn kho, liên kết ETX. Đơn
+            hàng/phiếu cũ không đổi (lưu theo Gmail). Mã cũ bị xoá khỏi danh bạ; các hệ DVBH/kho vận chỉ nhận cập nhật nên bên đó vẫn còn dòng mã cũ.
+          </div>
+        )}
+        {gop && (
+          <div className="rounded-lg border border-[var(--color-warning)]/40 bg-[var(--color-warning-soft)] px-3 py-2 text-xs text-[var(--color-text-body)] space-y-1">
+            <div className="font-bold">Mã {gop.ma} đã có trong danh bạ — gộp mã {row.ma_ktv} vào mã này?</div>
+            <div>{gop.thongTin}</div>
+            <div>
+              Mã {gop.ma} nhận Gmail đăng nhập + trạng thái bật/tắt của {row.ma_ktv}; thông tin khác giữ của mã {gop.ma}, ô nào trống thì lấy từ {row.ma_ktv}.
+              Tồn kho, liên kết ETX, Vệ tinh, công nợ 0 đồng chuyển sang {gop.ma}. Mã {row.ma_ktv} bị xoá hẳn.
+            </div>
+          </div>
+        )}
+        {loi && <div className="text-xs font-medium text-[var(--color-danger)]">{loi}</div>}
+      </div>
+    </Modal>
+  );
+}
+
 export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; initialSearch?: { value: string; nonce: number } | null } = {}) {
   const qc = useQueryClient();
   const addToast = useToast();
@@ -953,6 +1046,7 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
     }
   }
 
+  const [doiMa, setDoiMa] = useState<KtvLienHeRow | null>(null);
   function openEdit(row: KtvLienHeRow | "new") {
     setEditing(row);
     if (row === "new")
@@ -1294,7 +1388,14 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
           <div className="space-y-3 text-sm">
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Mã KTV</label>
-              <input value={form.ma_ktv} disabled={editing !== "new" || mode !== "admin"} onChange={(e) => setForm({ ...form, ma_ktv: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60" />
+              <div className="flex items-center gap-2 mt-1">
+                <input value={form.ma_ktv} disabled={editing !== "new" || mode !== "admin"} onChange={(e) => setForm({ ...form, ma_ktv: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm disabled:opacity-60" />
+                {editing !== "new" && mode === "admin" && (
+                  <Btn variant="ghost" size="sm" className="shrink-0" onClick={() => setDoiMa(editing)}>
+                    Đổi mã / tên
+                  </Btn>
+                )}
+              </div>
             </div>
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Tên hiển thị</label>
@@ -1433,6 +1534,18 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
       )}
 
       <ImportCongNoMisaModal open={importCongNoOpen} onClose={() => setImportCongNoOpen(false)} addToast={addToast} />
+      {doiMa && (
+        <DoiMaKtvModal
+          row={doiMa}
+          onClose={() => setDoiMa(null)}
+          onDone={async (maMoi) => {
+            setDoiMa(null);
+            setEditing(null);
+            addToast(`Đã đổi sang mã ${maMoi}`);
+            await qc.invalidateQueries({ queryKey: ["settings-ktv"] });
+          }}
+        />
+      )}
       <Modal open={bulkOpen} onClose={() => { if (!bulkRunning) setBulkOpen(false); }} title="Nhập danh sách KTV hàng loạt">
         <div className="space-y-3">
           <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">

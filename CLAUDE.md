@@ -672,6 +672,14 @@ khoản Da duyet/Tu choi (không biến nhân viên văn phòng thành KTV). Ch�
 (`TK_TRANG_THAI_SQL` ở `routes/etxNhanSuSync.ts`, lọc `?tai_khoan=`); nút gọi `POST /api/etx-nhan-su/:ma/tao-tai-khoan` →
 `taoTaiKhoanTuEtx()` — cùng kết quả bước tự động nhưng KHÔNG đòi chức danh CTV/KTV, duyệt cả tài khoản "Tu choi" (Admin tự quyết).
 
+**Đổi mã / tên KTV** (chốt 2026-10-08, v1.307): mã tự tạo từ ETX (= Mã NV) cần đổi sang mã đúng. Admin bấm "Đổi mã / tên" cạnh ô Mã KTV
+(form Sửa KTV, `DoiMaKtvModal` ở `UsersModule.tsx`) → `POST /settings/ktv-lien-he/:ma/doi-ma` {ma_moi, ten_hien_thi?, xac_nhan_gop?}. Mã mới
+chưa có = đổi tên mã (`PRAGMA defer_foreign_keys` vì `ktv_cap1_phu_trach` FK); mã mới ĐÃ có (so không phân biệt hoa/thường) → 409
+`CAN_XAC_NHAN_GOP` rồi gộp: mã mới nhận Gmail + bật/tắt của mã cũ, cột khác giữ của mã mới, trống thì lấy mã cũ; mã mới gắn Gmail khác →
+`MA_MOI_DA_GAN_GMAIL_KHAC`. Mã cũ XOÁ HẲN (chốt người dùng — đồng bộ DVBH/khovan/vipham chỉ upsert nên bên đó còn dòng mã cũ). Chuyển
+theo: `ktv_cap1_phu_trach`, `ktv_ton_kho(_tam)`, `etx_nhan_su.ma_ktv`, `cong_no_0d_ktv` — bảng mới có cột mã KTV phải thêm vào route này.
+Đơn/PXK lưu theo email nên không đổi; ghi chú KTV ghi "Đổi mã từ … / Gộp từ mã …".
+
 **Bật/tắt tài khoản KTV** (2026-10-01): cột "Tài khoản" + công tắc ở Quản lý người dùng › KTV hiện trường (Admin) →
 `PATCH /api/settings/ktv-lien-he/:ma/bat-tat` = `users.bi_khoa` của email đăng nhập (cùng cờ ETX nghỉ việc dùng). Tắt = không đăng
 nhập (`loadUser` DISABLED), không tạo đơn; `resolveNguoiNhanHang()` + import Excel chặn `NGUOI_NHAN_HANG_DA_TAT` (cả Trạm nhận thay
