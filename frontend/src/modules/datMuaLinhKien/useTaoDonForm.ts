@@ -4,7 +4,7 @@ import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
 import type { DonHangDraft, NguoiNhanHangKhaDungRow } from "./types";
-import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, useLkCombo, comboThanhLkRow } from "./helpers";
+import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, useLkCombo, comboThanhLkRow, chinhSachMacDinh } from "./helpers";
 import { t } from "../../i18n";
 
 // Tach tu TaoDonTab.tsx (them 2026-08-21, phan hoi "màn hình tạo đơn mobile bị đưa đưa, chiếm diện
@@ -152,7 +152,17 @@ export function useTaoDonForm({
   };
 
   function updateDraft(idx: number, patch: Partial<DonHangDraft>) {
-    setDrafts((prev) => prev.map((d, i) => (i === idx ? { ...d, ...patch } : d)));
+    setDrafts((prev) =>
+      prev.map((d, i) => {
+        if (i !== idx) return d;
+        const next = { ...d, ...patch };
+        // Doi loai de xuat: chinh sach dang trong (hoac la gia tri tu dien cua loai cu) -> theo mac dinh cua loai moi.
+        if (patch.loai_de_xuat !== undefined && patch.chinh_sach === undefined && (!d.chinh_sach.trim() || d.chinh_sach === chinhSachMacDinh(d.loai_de_xuat))) {
+          next.chinh_sach = chinhSachMacDinh(patch.loai_de_xuat);
+        }
+        return next;
+      }),
+    );
   }
 
   function isLineComplete(d: DonHangDraft): boolean {
@@ -176,7 +186,7 @@ export function useTaoDonForm({
       return;
     }
     setAddBlockedHint(false);
-    setDrafts((prev) => [...prev, { ...emptyDraft(), loai_de_xuat: prev[activeIdx]?.loai_de_xuat ?? "" }]);
+    setDrafts((prev) => [...prev, { ...emptyDraft(), loai_de_xuat: prev[activeIdx]?.loai_de_xuat ?? "", chinh_sach: chinhSachMacDinh(prev[activeIdx]?.loai_de_xuat) }]);
     setActiveIdx(drafts.length);
     setJustAdded(true);
   }

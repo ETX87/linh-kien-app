@@ -244,6 +244,12 @@ export function laTruCongNo(loaiDeXuat: string | null | undefined): boolean {
   return (loaiDeXuat ?? "").toUpperCase().includes("TRỪ CÔNG NỢ");
 }
 
+// Chinh sach mac dinh (chot 2026-10-08): don "TRỪ CÔNG NỢ" tu dien "Trong CSBH" (van sua duoc). Ban sao backend: chinhSachMacDinh()
+// trong routes/datMuaLinhKien.ts (server cung dien khi bo trong - import Excel).
+export function chinhSachMacDinh(loaiDeXuat: string | null | undefined): string {
+  return laTruCongNo(loaiDeXuat) ? "Trong CSBH" : "";
+}
+
 /** Ban sao laKhTraGop() (backend lib/pxkRecalculate.ts): "HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX/-NPP" - gia tri CN = 0 (chot 2026-10-02). */
 export function laKhTraGop(loaiDeXuat: string | null | undefined): boolean {
   return (loaiDeXuat ?? "")

@@ -184,6 +184,12 @@ function maYcscRequired(loaiDeXuat: string): boolean {
   return canNoRequired(loaiDeXuat) || loaiDeXuat.includes("MUA HÀNG CÓ ID") || loaiDeXuat.toUpperCase().includes("HỖ TRỢ");
 }
 
+// Chinh sach mac dinh (chot 2026-10-08): don "TRỪ CÔNG NỢ" bo trong -> "Trong CSBH" (tao tay + import Excel). Ban sao FE:
+// chinhSachMacDinh() helpers.ts.
+function chinhSachMacDinh(loaiDeXuat: string | null | undefined): string | null {
+  return laTruCongNo(loaiDeXuat) ? "Trong CSBH" : null;
+}
+
 // Ma ID lien quan (2026-09-30): noi nao "bat buoc Mã YCSC" thi chi can 1 trong 2 - Mã YCSC (case DVBH) HOAC
 // Mã Lada (don Ecolada, tra cuu center.dichvu3t.com - lib/ladaLookupClient.ts). Ban sao FE: coMaIdLienQuan() helpers.ts.
 function coMaIdLienQuan(maYcsc: string | null | undefined, maLada: string | null | undefined): boolean {
@@ -2452,7 +2458,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
         dh.yeu_cau_hoa_don?.trim() || null,
         dh.tt_mail_duyet?.trim() || null,
         dh.tt_khach_hang?.trim() || null,
-        dh.chinh_sach?.trim() || null,
+        dh.chinh_sach?.trim() || chinhSachMacDinh(lde),
         dh.ma_yeu_cau_su_co?.trim() || null,
         dh.ma_lada?.trim().toUpperCase() || null,
         user.email,
@@ -2767,7 +2773,7 @@ async function processDatDonHangImportRows(
       yeuCauHoaDon: row.yeu_cau_hoa_don?.trim() || null,
       ttMailDuyet: row.tt_mail_duyet?.trim() || null,
       ttKhachHang: row.tt_khach_hang?.trim() || null,
-      chinhSach: row.chinh_sach?.trim() || null,
+      chinhSach: row.chinh_sach?.trim() || chinhSachMacDinh(loaiDeXuat),
       maYeuCauSuCo: row.ma_yeu_cau_su_co?.trim() || null,
       maLada: row.ma_lada?.trim().toUpperCase() || null,
       dacThu: lk.dacThu,

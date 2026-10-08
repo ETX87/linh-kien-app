@@ -429,7 +429,7 @@ xử lý vẫn theo email KTV. Badge (`getDatMuaLkBadge`) cache theo version —
 **Đơn "TRỪ CÔNG NỢ"** (chốt 2026-09-28): không đối chiếu công nợ (không cộng công nợ phát sinh) và không đối
 chiếu/giữ tồn kho công ty — đối chiếu **tồn kho của chính KTV nhận hàng** (`lib/tonKhoKtv.ts`: cuối kỳ file MISA −
 SL các đơn TRỪ CÔNG NỢ tạo sau mốc import, chưa từ chối/hủy; trừ ngay từ lúc tạo đơn). Đủ tồn → tự duyệt, thiếu →
-giữ "Chờ TN duyệt". TN có Hủy/Từ chối/Chờ hàng cho mọi đơn chưa vào PXK ("Chờ TN duyệt" và "TN đã duyệt").
+giữ "Chờ TN duyệt". Chính sách mặc định "Trong CSBH" (2026-10-08, `chinhSachMacDinh()` backend + bản sao FE `helpers.ts`; tạo tay + import Excel, vẫn sửa được). TN có Hủy/Từ chối/Chờ hàng cho mọi đơn chưa vào PXK ("Chờ TN duyệt" và "TN đã duyệt").
 Chốt 2026-09-29: file MISA Bán hàng/Xuất kho của dòng TRỪ CÔNG NỢ trừ **kho của KTV** (mã kho = mã MISA KTV, `misaExport.ts`)
 thay vì kho công ty theo miền (chốt 2026-09-30: dòng TRỪ CÔNG NỢ gợi ý mẫu **Bán hàng** theo `settings_loai_de_xuat.loai_file_xuat_misa`, KHÔNG theo quy tắc "PXK công nợ → Chuyển kho" — `resolveTemplate(..., loaiDeXuat)`; ép "MISA Chuyển kho" thì BỎ dòng TRỪ CÔNG NỢ khỏi file + cảnh báo `boQuaTruCongNo`, vì Chuyển kho sẽ chuyển ngược hàng KTV về kho công ty. Nghiệp vụ: KTV chuyển tiền mua LK đang giữ công nợ → Kế toán duyệt → giảm công nợ KTV đúng LK đó — Kế toán chỉ dùng file
 Bán hàng; trên app: **Công nợ chốt = thực tế + phát sinh − đã trừ**, "đã trừ" = `gia_tri_cong_no` × SL của đơn TRỪ CÔNG NỢ tạo
