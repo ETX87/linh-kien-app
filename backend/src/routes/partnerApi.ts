@@ -63,4 +63,43 @@ partnerApi.get("/v1/ton-kho", async (c) => {
   return c.json({ phien_ban: meta?.updated_at ?? null, rows: results, next_after_id: nextAfterId });
 });
 
+// GET /api/partner/v1/linh-kien/lich-su?ma=<ma_lk>&limit=50 (2026-10-08, DVBH "Ho so linh kien") - cac don gan nhat
+// cua 1 ma linh kien (mua/cong no/tra hang, ca gan kem) + ticket thieu hang cua ma do (trang thai = log moi nhat).
+// Index idx_ddh_ma_lk (migration 0072). Ten nguoi nhan lay qua subquery LIMIT 1 (1 Gmail co the gan nhieu ma KTV).
+partnerApi.get("/v1/linh-kien/lich-su", async (c) => {
+  const ma = c.req.query("ma")?.trim();
+  if (!ma) return c.json({ error: "MISSING_MA" }, 400);
+  const limit = Math.min(200, Math.max(1, Number(c.req.query("limit") ?? 50) || 50));
+  const [orders, thieuLk] = await Promise.all([
+    c.env.DB.prepare(
+      `SELECT d.id, d.loai_don, d.loai_de_xuat, d.trang_thai_hien_tai, d.so_luong_de_xuat, d.so_luong_thuc_xuat,
+              d.ngay_tao, d.updated_at, d.khu_vuc_ma, d.ma_xuat_kho, d.nguoi_nhan_hang,
+              COALESCE(
+                (SELECT COALESCE(NULLIF(TRIM(k.ten_hien_thi), ''), NULLIF(TRIM(k.ten_misa), '')) FROM ktv_lien_he k WHERE k.email_dang_nhap = d.nguoi_nhan_hang LIMIT 1),
+                (SELECT COALESCE(NULLIF(TRIM(u.ten_misa), ''), NULLIF(TRIM(u.ten), '')) FROM users u WHERE u.email = d.nguoi_nhan_hang),
+                d.nguoi_nhan_hang
+              ) AS nguoi_nhan_hang_ten,
+              COALESCE((SELECT group_concat(dc.case_id) FROM dat_don_case dc WHERE dc.dat_don_hang_id = d.id), d.ma_yeu_cau_su_co) AS case_ids
+       FROM dat_don_hang d
+       WHERE d.ma_lk = ?
+       ORDER BY d.ngay_tao DESC LIMIT ?`,
+    )
+      .bind(ma, limit)
+      .all(),
+    c.env.DB.prepare(
+      `SELECT t.id, t.dat_don_hang_id, COALESCE(s.ten_ly_do, t.ly_do) AS ly_do, t.ngay_tao, t.ngay_du_kien_co_hang, t.ngay_hang_ve_thuc_te,
+              (SELECT l.trang_thai FROM thieu_lk_log l WHERE l.thieu_lk_id = t.id ORDER BY l.id DESC LIMIT 1) AS trang_thai,
+              (SELECT l.ngay_xu_ly FROM thieu_lk_log l WHERE l.thieu_lk_id = t.id ORDER BY l.id DESC LIMIT 1) AS ngay_cap_nhat
+       FROM thieu_lk t
+       JOIN dat_don_hang d ON d.id = t.dat_don_hang_id
+       LEFT JOIN settings_ly_do_cham s ON s.id = t.ly_do_cham_id
+       WHERE d.ma_lk = ?
+       ORDER BY t.ngay_tao DESC LIMIT 100`,
+    )
+      .bind(ma)
+      .all(),
+  ]);
+  return c.json({ orders: orders.results, thieu_lk: thieuLk.results });
+});
+
 export default partnerApi;
