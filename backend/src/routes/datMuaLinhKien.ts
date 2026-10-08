@@ -184,6 +184,13 @@ function maYcscRequired(loaiDeXuat: string): boolean {
   return canNoRequired(loaiDeXuat) || loaiDeXuat.includes("MUA HÀNG CÓ ID") || loaiDeXuat.toUpperCase().includes("HỖ TRỢ");
 }
 
+// LK "Cấm bán" (cot linh_kien.cam_ban tu gia88) CHI cam voi 2 loai de xuat "MUA HÀNG" + "MUA HÀNG CÓ ID" (chot 2026-10-08 - truoc do
+// an khoi o chon cho MOI loai). Chan o tao tay, import Excel, PATCH doi ma LK/loai. Ban sao FE: camBanChoLoai() helpers.ts.
+function camBanChoLoai(loaiDeXuat: string | null | undefined): boolean {
+  const k = (loaiDeXuat ?? "").trim().toUpperCase();
+  return k === "MUA HÀNG" || k === "MUA HÀNG CÓ ID";
+}
+
 // Chinh sach mac dinh (chot 2026-10-08): don "TRỪ CÔNG NỢ" bo trong -> "Trong CSBH" (tao tay + import Excel). Ban sao FE:
 // chinhSachMacDinh() helpers.ts.
 function chinhSachMacDinh(loaiDeXuat: string | null | undefined): string | null {
@@ -2333,11 +2340,13 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   const maLkList = [...new Set(body.don_hang.map((dh) => dh.ma_lk.trim()))];
   const lkPlaceholders = maLkList.map(() => "?").join(",");
   const { results: lkRows } = await c.env.DB.prepare(
-    `SELECT ma_linh_kien, ten_linh_kien as ten_lk, gia_ban, dac_thu, gia_tri_cong_no FROM linh_kien WHERE ma_linh_kien IN (${lkPlaceholders})`,
-  ).bind(...maLkList).all<{ ma_linh_kien: string; ten_lk: string; gia_ban: number | null; dac_thu: number; gia_tri_cong_no: number | null }>();
+    `SELECT ma_linh_kien, ten_linh_kien as ten_lk, gia_ban, dac_thu, gia_tri_cong_no, cam_ban FROM linh_kien WHERE ma_linh_kien IN (${lkPlaceholders})`,
+  ).bind(...maLkList).all<{ ma_linh_kien: string; ten_lk: string; gia_ban: number | null; dac_thu: number; gia_tri_cong_no: number | null; cam_ban: number | null }>();
   const lkMap = new Map(lkRows.map((r) => [r.ma_linh_kien, r]));
   for (const dh of body.don_hang) {
-    if (!lkMap.has(dh.ma_lk.trim())) return c.json({ error: "MA_LK_NOT_FOUND", ma_lk: dh.ma_lk }, 400);
+    const lkDong = lkMap.get(dh.ma_lk.trim());
+    if (!lkDong) return c.json({ error: "MA_LK_NOT_FOUND", ma_lk: dh.ma_lk }, 400);
+    if (lkDong.cam_ban && camBanChoLoai(dh.loai_de_xuat)) return c.json({ error: "LK_CAM_BAN", ma_lk: dh.ma_lk }, 400);
   }
 
   // "Cong no tam tinh" + "danh gia cong no" (them 04/09/2026, xem lib/congNoKtv.ts) - CHI tinh khi
@@ -2664,7 +2673,7 @@ async function processDatDonHangImportRows(
   // ktvCache: email da RESOLVE (Ve tinh -> tram_cha, xem resolveNguoiNhanHang o tren - gop chung 1
   // query o day thay vi goi lai ham do vi chay trong vong lap nhieu dong).
   const ktvCache = new Map<string, { email: string } | { error: string }>();
-  const lkCache = new Map<string, { ten: string; gia: number | null; dacThu: number; giaTriCongNo: number | null } | null>();
+  const lkCache = new Map<string, { ten: string; gia: number | null; dacThu: number; giaTriCongNo: number | null; camBan: number | null } | null>();
   const maChuanImport = await quyVeMaChuan(db, rows.map((r) => String(r.ma_lk ?? "")));
 
   for (let i = 0; i < rows.length; i++) {
@@ -2735,12 +2744,16 @@ async function processDatDonHangImportRows(
     if (!lkCache.has(maLk)) {
       // CHOT 2026-08-16: gia lay tu linh_kien.gia_ban (khong con gia_tham_chieu), khop dung
       // POST /phieu-dat o tren.
-      const lkRow = await db.prepare("SELECT ten_linh_kien as ten, gia_ban as gia, dac_thu, gia_tri_cong_no FROM linh_kien WHERE ma_linh_kien = ?").bind(maLk).first<{ ten: string; gia: number | null; dac_thu: number; gia_tri_cong_no: number | null }>();
-      lkCache.set(maLk, lkRow ? { ten: lkRow.ten, gia: lkRow.gia, dacThu: lkRow.dac_thu, giaTriCongNo: lkRow.gia_tri_cong_no } : null);
+      const lkRow = await db.prepare("SELECT ten_linh_kien as ten, gia_ban as gia, dac_thu, gia_tri_cong_no, cam_ban FROM linh_kien WHERE ma_linh_kien = ?").bind(maLk).first<{ ten: string; gia: number | null; dac_thu: number; gia_tri_cong_no: number | null; cam_ban: number | null }>();
+      lkCache.set(maLk, lkRow ? { ten: lkRow.ten, gia: lkRow.gia, dacThu: lkRow.dac_thu, giaTriCongNo: lkRow.gia_tri_cong_no, camBan: lkRow.cam_ban } : null);
     }
     const lk = lkCache.get(maLk);
     if (!lk) {
       errors.push(`Dòng ${dong}: mã LK "${maLk}" không tồn tại`);
+      continue;
+    }
+    if (lk.camBan && camBanChoLoai(loaiDeXuat)) {
+      errors.push(`Dòng ${dong}: mã LK "${maLk}" đang CẤM BÁN - không đặt được với loại "${loaiDeXuat}"`);
       continue;
     }
 
@@ -3942,6 +3955,11 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
     // Ma LK da doi/gop (migration 0053) -> quy ve ma chuan.
     const nextMaLk = body.ma_lk !== undefined ? (await quyVeMaChuan(c.env.DB, [maLkGui])).get(maLkGui) ?? maLkGui : maLkGui;
     if (!nextMaLk) return c.json({ error: "INVALID_DON_HANG" }, 400);
+    // Cam ban (chi MUA HÀNG / MUA HÀNG CÓ ID) - chi xet khi doi ma LK hoac loai de xuat, khong chan sua truong khac cua don cu.
+    if ((nextMaLk !== existing.ma_lk || nextLde !== (existing.loai_de_xuat ?? "")) && camBanChoLoai(nextLde)) {
+      const cb = await c.env.DB.prepare("SELECT cam_ban FROM linh_kien WHERE ma_linh_kien = ?").bind(nextMaLk).first<{ cam_ban: number | null }>();
+      if (cb?.cam_ban) return c.json({ error: "LK_CAM_BAN", ma_lk: nextMaLk }, 400);
+    }
     if (nextMaLk !== existing.ma_lk) {
       const lk = await c.env.DB.prepare("SELECT ten_linh_kien as ten_lk, gia_ban FROM linh_kien WHERE ma_linh_kien = ?")
         .bind(nextMaLk)

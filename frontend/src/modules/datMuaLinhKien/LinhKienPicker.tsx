@@ -10,7 +10,7 @@ import { api } from "../../api/client";
 import { fmtVND } from "../../types";
 import { usePublicSheetCache } from "../../lib/publicSheetCache";
 import type { LkDanhMucRow } from "./types";
-import { describeApiError, useLinhKienRankMap, formatLkLabel, boQuaTbpDacThu } from "./helpers";
+import { describeApiError, useLinhKienRankMap, formatLkLabel, boQuaTbpDacThu, camBanChoLoai, lkCamBanVoiLoai } from "./helpers";
 import { Money } from "../../components/ui/Money";
 import { timLk, sapTheoDiem, type ToDamSpec } from "../../lib/timLinhKien";
 import { useBoTimLk, useLichSuLk, diemHayDat } from "../../lib/useTimLinhKien";
@@ -195,6 +195,7 @@ export function LinhKienPickerRow({
         {o.trang_thai_ma === "Cho xet duyet" && <span className="ml-1 text-[10px] font-semibold text-[var(--amber-700)]">{t("Mã chờ xét duyệt")}</span>}
         {/* Combo (migration 0066) - gia hien = tong cac LK thanh phan. */}
         {o.combo && <span className="ml-1"><Badge tone="neutral">{t("🧩 Combo · {n} linh kiện", { n: o.combo.ct.length })}</Badge></span>}
+        {!!o.cam_ban && <span className="ml-1"><Badge tone="danger">{t("Cấm bán")}</Badge></span>}
       </span>
       {o.gia_ban != null && <span className="shrink-0 text-[11px] text-[var(--green-700)] font-mono font-semibold"><Money>{fmtVND(o.gia_ban)}</Money></span>}
     </button>
@@ -248,19 +249,21 @@ export function LinhKienPicker({
   // tren may) > hang dat 30 ngay toan he thong. O trong: "Chọn gần đây" -> "Hay đặt" -> con lai. Khong goi server khi go.
   const q = query.trim();
   const lichSu = useLichSuLk();
-  const rowsTim = useMemo(() => options.map((o) => ({ ma: o.ma_linh_kien, ten: o.ten_linh_kien })), [options]);
+  // LK cam ban an khoi danh sach khi loai de xuat la MUA HÀNG / MUA HÀNG CÓ ID (2026-10-08); loai khac van chon duoc.
+  const dsChon = useMemo(() => (camBanChoLoai(loaiDeXuat) ? options.filter((o) => !o.cam_ban) : options), [options, loaiDeXuat]);
+  const rowsTim = useMemo(() => dsChon.map((o) => ({ ma: o.ma_linh_kien, ten: o.ten_linh_kien })), [dsChon]);
   const boTim = useBoTimLk(rowsTim);
   const kqTim = useMemo(() => timLk(boTim, q), [boTim, q]);
   const { nhom, totalMatched } = useMemo(() => {
     const MAX = LINH_KIEN_PICKER_MAX_RESULTS;
     if (kqTim.diem) {
-      const ds = sapTheoDiem(options, (o) => o.ma_linh_kien, kqTim.diem, (ma) => diemHayDat(ma, lichSu.soLanChon, rankMap));
+      const ds = sapTheoDiem(dsChon, (o) => o.ma_linh_kien, kqTim.diem, (ma) => diemHayDat(ma, lichSu.soLanChon, rankMap));
       return { nhom: [{ tieuDe: null as string | null, items: ds.slice(0, MAX) }], totalMatched: ds.length };
     }
-    const theoMa = new Map(options.map((o) => [o.ma_linh_kien, o]));
+    const theoMa = new Map(dsChon.map((o) => [o.ma_linh_kien, o]));
     const ganDay = lichSu.ganDay.map((m) => theoMa.get(m)).filter((o): o is LkDanhMucRow => !!o).slice(0, 5);
     const daLay = new Set(ganDay.map((o) => o.ma_linh_kien));
-    const hayDat = options
+    const hayDat = dsChon
       .filter((o) => !daLay.has(o.ma_linh_kien) && (lichSu.soLanChon.has(o.ma_linh_kien) || rankMap.has(o.ma_linh_kien)))
       .sort(
         (a, b) =>
@@ -268,7 +271,7 @@ export function LinhKienPicker({
           (rankMap.get(a.ma_linh_kien) ?? 1e9) - (rankMap.get(b.ma_linh_kien) ?? 1e9),
       );
     for (const o of hayDat) daLay.add(o.ma_linh_kien);
-    const khac = options.filter((o) => !daLay.has(o.ma_linh_kien)).sort((a, b) => a.ten_linh_kien.localeCompare(b.ten_linh_kien));
+    const khac = dsChon.filter((o) => !daLay.has(o.ma_linh_kien)).sort((a, b) => a.ten_linh_kien.localeCompare(b.ten_linh_kien));
     let conLai = MAX;
     const cat = (ds: LkDanhMucRow[]) => {
       const x = ds.slice(0, Math.max(0, conLai));
@@ -281,9 +284,9 @@ export function LinhKienPicker({
         { tieuDe: t("🔥 Hay đặt"), items: cat(hayDat) },
         { tieuDe: t("Linh kiện khác"), items: cat(khac) },
       ].filter((n) => n.items.length > 0),
-      totalMatched: options.length,
+      totalMatched: dsChon.length,
     };
-  }, [options, kqTim, rankMap, lichSu.soLanChon, lichSu.ganDay]);
+  }, [dsChon, kqTim, rankMap, lichSu.soLanChon, lichSu.ganDay]);
   const flatResults = useMemo(() => nhom.flatMap((n) => n.items), [nhom]);
   const shownCount = flatResults.length;
   const truncatedCount = totalMatched - shownCount;
@@ -432,6 +435,11 @@ export function LinhKienPicker({
         co gia tri (bo trong thi khong hien dong nay); dong canh bao TBP LUON hien khi dac_thu, khong
         phu thuoc phan_loai_dac_thu co dien hay khong. */}
     {selected?.combo && <ComboThanhPhanNote combo={selected.combo} />}
+    {lkCamBanVoiLoai(selected, loaiDeXuat) && (
+      <div role="alert" className="mt-1.5 rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-xs font-semibold text-[var(--coral-700)]">
+        {t("⚠ Linh kiện cấm bán — không đặt được với loại MUA HÀNG / MUA HÀNG CÓ ID, chọn loại đề xuất khác hoặc linh kiện khác.")}
+      </div>
+    )}
     {selected?.dac_thu ? (
       <div className="mt-1.5 rounded-lg border border-[var(--amber-500)] bg-[var(--amber-100)] px-2.5 py-1.5 text-xs text-[var(--amber-700)] space-y-0.5">
         {selected.phan_loai_dac_thu?.trim() && <div className="font-semibold">{t("🔖 Phân loại đặc thù:")} {selected.phan_loai_dac_thu.trim()}</div>}

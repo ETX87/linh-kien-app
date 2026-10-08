@@ -715,6 +715,12 @@ bình thường — `SL_HO_TRO_0D_SQL()` ở `lib/congNoKtv.ts` dùng CHUNG cho 
 Công nợ KTV (`ktvTonKho.ts GET /`, cột `sl_ho_tro_0d` "SL hỗ trợ 0 đồng") + chi tiết từng mã. Tính lúc đọc, không lưu → bật/tắt/sửa
 là công nợ thực tế đổi ngay. Không ảnh hưởng "phát sinh"/"đã trừ". `chuyenMaLk()` chuyển luôn `cong_no_0d_lk`.
 
+**LK "Cấm bán" chỉ cấm với MUA HÀNG + MUA HÀNG CÓ ID** (chốt 2026-10-08, v1.309; trước đó ẩn khỏi ô chọn cho MỌI loại):
+`useLkAndLdeCache` không lọc `cam_ban` nữa; `LinhKienPicker` tự ẩn khi loại đề xuất là 2 loại này (`camBanChoLoai()` ở `helpers.ts`),
+loại khác hiện nhãn "Cấm bán"; đã chọn rồi đổi sang loại cấm → cảnh báo + dòng không hợp lệ (tạo đơn) / không Lưu được (sửa đơn,
+chỉ khi đổi mã LK hoặc loại). Backend `camBanChoLoai()` (`datMuaLinhKien.ts`) chặn `LK_CAM_BAN` ở POST `/phieu-dat`, import Excel
+(lỗi dòng), PATCH đơn (chỉ khi đổi mã LK/loại). Combo có thành phần cấm bán = combo cấm bán.
+
 **Bỏ bước TBP** cho LK đặc thù khi loại đề xuất chứa MUA / HỖ TRỢ / **TRỪ CÔNG NỢ** (`boQuaTbpChoDacThu()` backend,
 bản sao `boQuaTbpDacThu()` FE cho cảnh báo ở `LinhKienPicker`).
 

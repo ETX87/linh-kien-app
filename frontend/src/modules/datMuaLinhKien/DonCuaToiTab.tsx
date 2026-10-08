@@ -41,7 +41,7 @@ import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, laTraHangChoTn, laChoHangMoKhoa, laChoHangBiKhoa, dayLaiDuoc, trangThaiLabel, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLkCombo, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
-  donGiaSauChietKhau, tienSauChietKhau, giaNiemYet, boQuaTbpDacThu } from "./helpers";
+  donGiaSauChietKhau, tienSauChietKhau, giaNiemYet, boQuaTbpDacThu, lkCamBanVoiLoai } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink, LogTieuDe } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
@@ -505,7 +505,10 @@ export function DonHangDetailModal({
     editDraft.so_luong_de_xuat > 0 &&
     (!canNoRequired(editDraft.loai_de_xuat) || editDraft.chinh_sach.trim() !== "") &&
     (!maYcscRequired(editDraft.loai_de_xuat) || coMaIdLienQuan(editDraft.ma_yeu_cau_su_co, editDraft.ma_lada)) &&
-    (!tnSlThucXuatDaDoi || !!tnCoreDraft?.ghi_chu_so_luong.trim());
+    (!tnSlThucXuatDaDoi || !!tnCoreDraft?.ghi_chu_so_luong.trim()) &&
+    // LK cam ban + MUA HÀNG / MUA HÀNG CÓ ID - chi chan khi DOI ma LK hoac loai (khop backend PATCH, khong chan sua don cu).
+    !((editDraft.ma_lk !== d?.ma_lk || editDraft.loai_de_xuat !== (d?.loai_de_xuat ?? "")) &&
+      lkCamBanVoiLoai(danhMuc.find((m) => m.ma_linh_kien === editDraft.ma_lk), editDraft.loai_de_xuat));
 
   const footer =
     !isLoading && d ? (
