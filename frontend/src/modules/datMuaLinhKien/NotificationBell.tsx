@@ -9,6 +9,7 @@ import { fmtDateTime } from "../../types";
 import { usePushNotifications } from "../../hooks/usePushNotifications";
 import { useAuth, useRefreshUser } from "../../auth/AuthContext";
 import { describeApiError } from "./helpers";
+import { t, dichSau } from "../../i18n";
 
 // Chuong thong bao KTV (them 2026-08-26, phan hoi "thêm 1 trạng danh sách thông báo cho KTV với log
 // các trạng thái của đơn thay đổi... để trong màn hình Home, tạo icon góc trên cùng bên phải") - chi
@@ -45,16 +46,16 @@ const LOAI_TONE: Record<string, Tone> = {
   theo_doi: "neutral",
 };
 const LOAI_LABEL: Record<string, string> = {
-  tu_choi: "Từ chối",
-  huy: "Đã huỷ",
-  cho_hang: "Chờ hàng",
-  da_duyet: "Đã duyệt",
-  pxk_da_duyet: "PXK đã duyệt",
-  kho_da_gui: "Kho đã gửi",
-  mo_lai: "Mở lại",
-  viec_moi: "Việc mới",
-  lien_quan: "Liên quan",
-  theo_doi: "Theo dõi",
+  tu_choi: dichSau("Từ chối"),
+  huy: dichSau("Đã huỷ"),
+  cho_hang: dichSau("Chờ hàng"),
+  da_duyet: dichSau("Đã duyệt"),
+  pxk_da_duyet: dichSau("PXK đã duyệt"),
+  kho_da_gui: dichSau("Kho đã gửi"),
+  mo_lai: dichSau("Mở lại"),
+  viec_moi: dichSau("Việc mới"),
+  lien_quan: dichSau("Liên quan"),
+  theo_doi: dichSau("Theo dõi"),
 };
 
 export function NotificationBell({
@@ -100,7 +101,7 @@ export function NotificationBell({
       await api.post("/notifications/ktv-log/mark-all-read");
       invalidate();
     } catch (err) {
-      addToast("Lỗi: " + describeApiError(err));
+      addToast(t("Lỗi: ") + describeApiError(err));
     }
   }
 
@@ -110,7 +111,7 @@ export function NotificationBell({
         await api.post(`/notifications/ktv-log/${row.id}/read`);
         invalidate();
       } catch (err) {
-        addToast("Lỗi: " + describeApiError(err));
+        addToast(t("Lỗi: ") + describeApiError(err));
       }
     }
     if (row.link_type === "don_hang" && row.link_id) {
@@ -126,9 +127,9 @@ export function NotificationBell({
     const wasSubscribed = push.subscribed;
     try {
       await (wasSubscribed ? push.unsubscribe() : push.subscribe());
-      addToast(wasSubscribed ? "Đã tắt thông báo đẩy trên thiết bị này" : "Đã bật thông báo đẩy trên thiết bị này");
+      addToast(wasSubscribed ? t("Đã tắt thông báo đẩy trên thiết bị này") : t("Đã bật thông báo đẩy trên thiết bị này"));
     } catch (err) {
-      addToast("Lỗi: " + describeApiError(err));
+      addToast(t("Lỗi: ") + describeApiError(err));
     }
   }
 
@@ -141,7 +142,7 @@ export function NotificationBell({
       await api.patch("/auth/me/thong-bao-prefs", { [field]: next });
       await refreshUser();
     } catch (err) {
-      addToast("Lỗi: " + describeApiError(err));
+      addToast(t("Lỗi: ") + describeApiError(err));
     }
   }
 
@@ -152,7 +153,7 @@ export function NotificationBell({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title="Thông báo"
+        title={t("Thông báo")}
         className="focus-ring relative w-9 h-9 rounded-full flex items-center justify-center text-lg hover:bg-[var(--surface-100)] transition-colors"
       >
         🔔
@@ -165,14 +166,14 @@ export function NotificationBell({
       <Drawer
         open={open}
         onClose={() => setOpen(false)}
-        title="Thông báo"
+        title={t("Thông báo")}
         footer={
           <div className="flex flex-col gap-1.5">
             {/* Chon loai thong bao muon NHAN (them 2026-09-05) - 3 loai doc lap, xem lib/taskNotify.ts.
                 Tat 1 loai KHONG mat du lieu, chi khong day push cho loai do (van ghi vao chuong o tren). */}
             {authUser && (
               <div className="flex flex-col gap-1 text-xs text-[var(--ink-600)] pb-1 mb-1 border-b border-[var(--line)]">
-                <span className="font-semibold text-[var(--ink-500)]">Nhận thông báo</span>
+                <span className="font-semibold text-[var(--ink-500)]">{t("Nhận thông báo")}</span>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -180,7 +181,7 @@ export function NotificationBell({
                     checked={authUser.nhan_tb_nhiem_vu}
                     onChange={(e) => handleTogglePref("nhan_tb_nhiem_vu", e.target.checked)}
                   />
-                  Nhiệm vụ cần làm của tôi
+                  {t("Nhiệm vụ cần làm của tôi")}
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -189,7 +190,7 @@ export function NotificationBell({
                     checked={authUser.nhan_tb_lien_quan}
                     onChange={(e) => handleTogglePref("nhan_tb_lien_quan", e.target.checked)}
                   />
-                  Công việc liên quan (chưa đến lượt)
+                  {t("Công việc liên quan (chưa đến lượt)")}
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -198,7 +199,7 @@ export function NotificationBell({
                     checked={authUser.nhan_tb_theo_doi}
                     onChange={(e) => handleTogglePref("nhan_tb_theo_doi", e.target.checked)}
                   />
-                  Công việc tôi từng làm (theo dõi)
+                  {t("Công việc tôi từng làm (theo dõi)")}
                 </label>
               </div>
             )}
@@ -216,7 +217,7 @@ export function NotificationBell({
                     : "border-[var(--ocean-500)]/50 text-[var(--ocean-800)]"
                 }`}
               >
-                {push.subscribed ? "✓ Đã bật thông báo trên thiết bị này" : "🔔 Bật thông báo đẩy trên thiết bị này"}
+                {push.subscribed ? t("✓ Đã bật thông báo trên thiết bị này") : t("🔔 Bật thông báo đẩy trên thiết bị này")}
               </button>
             )}
             <button
@@ -225,24 +226,24 @@ export function NotificationBell({
               disabled={unreadCount === 0}
               className="focus-ring w-full text-center text-sm font-semibold text-[var(--ocean-800)] disabled:text-[var(--ink-400)] disabled:cursor-default py-1.5"
             >
-              Đánh dấu đã đọc toàn bộ
+              {t("Đánh dấu đã đọc toàn bộ")}
             </button>
           </div>
         }
       >
         <Tabs
           tabs={[
-            { key: "all", label: "Tất cả" },
-            { key: "unread", label: "Chưa đọc" },
-            { key: "read", label: "Đã đọc" },
+            { key: "all", label: t("Tất cả") },
+            { key: "unread", label: t("Chưa đọc") },
+            { key: "read", label: t("Đã đọc") },
           ]}
           active={filter}
           onChange={(k) => setFilter(k as "all" | "unread" | "read")}
         />
         {isLoading ? (
-          <div className="text-sm text-[var(--ink-500)] text-center py-6">Đang tải...</div>
+          <div className="text-sm text-[var(--ink-500)] text-center py-6">{t("Đang tải...")}</div>
         ) : rows.length === 0 ? (
-          <div className="text-sm text-[var(--ink-500)] text-center py-6">Không có thông báo</div>
+          <div className="text-sm text-[var(--ink-500)] text-center py-6">{t("Không có thông báo")}</div>
         ) : (
           <div className="flex flex-col gap-2">
             {rows.map((row) => (
@@ -257,7 +258,7 @@ export function NotificationBell({
                 }`}
               >
                 <div className="flex items-center justify-between gap-2 mb-1">
-                  <Badge tone={LOAI_TONE[row.loai] ?? "gray"}>{LOAI_LABEL[row.loai] ?? row.loai}</Badge>
+                  <Badge tone={LOAI_TONE[row.loai] ?? "gray"}>{LOAI_LABEL[row.loai] ? t(LOAI_LABEL[row.loai]) : row.loai}</Badge>
                   <span className="text-[11px] text-[var(--ink-400)] shrink-0">{fmtDateTime(row.ngay_tao)}</span>
                 </div>
                 <div className={`text-sm ${row.da_doc ? "text-[var(--ink-600)]" : "text-[var(--ink-900)] font-semibold"}`}>{row.noi_dung}</div>

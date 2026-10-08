@@ -3,6 +3,7 @@ import { api, buildQuery } from "../../api/client";
 import { shortKhuVuc } from "../../lib/khuVucShortLabel";
 import type { MaYeuCauSuCoPreview } from "./types";
 import { CaseDetailModal } from "./CaseDetailModal";
+import { t } from "../../i18n";
 
 // Canh bao mem khi nhap "Ma yeu cau su co lien quan" (tieu chi UX phan hoi 2026-08-15, muc 5) - debounce
 // 500ms sau khi ngung go, goi GET /dat-mua-lk/kiem-tra-ma-yeu-cau (KHONG dung GET /api/cases/:id vi
@@ -33,7 +34,7 @@ export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; ngu
     setResult(null);
     setShowDetail(false);
     if (!id || !isLikelyCaseId(id)) return;
-    const t = setTimeout(() => {
+    const hen = setTimeout(() => {
       api
         .get<{ found: boolean; khopKtv: boolean | null; preview: MaYeuCauSuCoPreview | null; blocked?: boolean }>(
           `/dat-mua-lk/kiem-tra-ma-yeu-cau${buildQuery({ id, nguoi_nhan_hang: nguoiNhanHang || undefined })}`,
@@ -41,7 +42,7 @@ export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; ngu
         .then(setResult)
         .catch(() => setResult(null));
     }, 500);
-    return () => clearTimeout(t);
+    return () => clearTimeout(hen);
   }, [id, nguoiNhanHang]);
 
   if (!id || !result) return null;
@@ -49,7 +50,7 @@ export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; ngu
   if (!result.found) {
     return (
       <div className="mt-1.5 rounded-lg border border-[var(--amber-500)]/30 bg-[var(--amber-100)]/60 px-2.5 py-1.5 text-[11px] font-medium text-[var(--amber-700)]">
-        ⚠ Mã sự cố không chính xác hoặc chưa đồng bộ lên server — hãy chắc chắn thông tin chính xác.
+        {t("⚠ Mã sự cố không chính xác hoặc chưa đồng bộ lên server — hãy chắc chắn thông tin chính xác.")}
       </div>
     );
   }
@@ -57,7 +58,7 @@ export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; ngu
   if (result.blocked) {
     return (
       <div className="mt-1.5 rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-[11px] font-bold text-[var(--coral-700)]">
-        ✕ ID case này không thuộc về bạn — case do KTV khác xử lý, kiểm tra lại mã đã nhập.
+        {t("✕ ID case này không thuộc về bạn — case do KTV khác xử lý, kiểm tra lại mã đã nhập.")}
       </div>
     );
   }
@@ -74,18 +75,18 @@ export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; ngu
     <div className={`mt-1.5 rounded-lg border ${toneCls.border} ${toneCls.bg} px-2.5 py-2`}>
       <div className={`flex items-center justify-between gap-2 text-[11px] font-bold mb-1.5 ${toneCls.head}`}>
         <span>
-          {result.khopKtv === true && "✓ Đúng KTV xử lý — đối chiếu ca dưới đây trước khi gửi"}
-          {result.khopKtv === false && "⚠ Mã này không do bạn/KTV này xử lý — kiểm tra lại"}
-          {result.khopKtv === null && "Đã tìm thấy ca — đối chiếu thông tin dưới đây"}
+          {result.khopKtv === true && t("✓ Đúng KTV xử lý — đối chiếu ca dưới đây trước khi gửi")}
+          {result.khopKtv === false && t("⚠ Mã này không do bạn/KTV này xử lý — kiểm tra lại")}
+          {result.khopKtv === null && t("Đã tìm thấy ca — đối chiếu thông tin dưới đây")}
         </span>
         <button type="button" onClick={() => setShowDetail(true)} className="focus-ring shrink-0 font-semibold underline decoration-dotted underline-offset-2">
-          Xem chi tiết
+          {t("Xem chi tiết")}
         </button>
       </div>
       {p && (
         <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-[var(--ink-700)]">
           <div className="col-span-2">
-            <span className="text-[var(--ink-500)]">Khách hàng: </span>
+            <span className="text-[var(--ink-500)]">{t("Khách hàng:")} </span>
             <span className="font-semibold">{p.khach_hang ?? "—"}</span>
           </div>
           <div>
@@ -93,22 +94,22 @@ export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; ngu
             <span className="font-mono">{p.seri_san_pham ?? "—"}</span>
           </div>
           <div>
-            <span className="text-[var(--ink-500)]">Hãng: </span>
+            <span className="text-[var(--ink-500)]">{t("Hãng:")} </span>
             {p.hang ?? "—"}
             {p.san_pham_bao_hanh ? ` · ${p.san_pham_bao_hanh}` : ""}
           </div>
           <div>
-            <span className="text-[var(--ink-500)]">Khu vực: </span>
+            <span className="text-[var(--ink-500)]">{t("Khu vực:")} </span>
             {shortKhuVuc(p.khu_vuc)}
             {p.tinh ? ` · ${p.tinh}` : ""}
             {p.quan_huyen ? ` · ${p.quan_huyen}` : ""}
           </div>
           <div>
-            <span className="text-[var(--ink-500)]">Tiến độ: </span>
+            <span className="text-[var(--ink-500)]">{t("Tiến độ:")} </span>
             {p.tien_do_hoan_thanh ?? "—"}
           </div>
           <div className="col-span-2">
-            <span className="text-[var(--ink-500)]">KTV xử lý: </span>
+            <span className="text-[var(--ink-500)]">{t("KTV xử lý:")} </span>
             {p.ky_thuat_vien ?? "—"}
           </div>
         </div>

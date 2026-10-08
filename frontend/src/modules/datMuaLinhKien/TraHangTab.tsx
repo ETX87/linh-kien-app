@@ -27,13 +27,14 @@ import { LinhKienDetailModal } from "./LinhKienPicker";
 import { Money } from "../../components/ui/Money";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { doiNguoiThanhTen, usePersonDirectory } from "../../lib/personDisplay";
+import { t } from "../../i18n";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
 function PriorityTag() {
   return (
-    <span className="inline-flex items-center gap-0.5 text-[var(--orange-600)] font-extrabold text-xs" title="Đơn ưu tiên">
-      <span aria-hidden>★</span>Ưu tiên
+    <span className="inline-flex items-center gap-0.5 text-[var(--orange-600)] font-extrabold text-xs" title={t("Đơn ưu tiên")}>
+      <span aria-hidden>★</span>{t("Ưu tiên")}
     </span>
   );
 }
@@ -52,8 +53,8 @@ type ChoLyDoCham = { ids: string[]; hanhDong: "duyet" | "tu_choi"; ghiChu?: stri
 function QuaHanBadge({ r }: { r: Pick<TraHangRow, "qua_han_ly_do_cham" | "han_giai_doan"> }) {
   if (!r.qua_han_ly_do_cham) return null;
   return (
-    <span title={r.han_giai_doan ? `Hạn xử lý bước này: ${fmtDateTime(r.han_giai_doan)} — xử lý sẽ phải chọn lý do chậm` : undefined}>
-      <Badge tone="danger">Quá hạn 24h</Badge>
+    <span title={r.han_giai_doan ? t("Hạn xử lý bước này: {a} — xử lý sẽ phải chọn lý do chậm", { a: fmtDateTime(r.han_giai_doan) }) : undefined}>
+      <Badge tone="danger">{t("Quá hạn 24h")}</Badge>
     </span>
   );
 }
@@ -70,21 +71,21 @@ function LyDoChamTraHangModal({ cho, onClose, onConfirm, loading }: {
     queryFn: () => api.get<{ rows: LyDoChamRow[] }>("/dat-mua-lk/ly-do-cham?he_thong=" + encodeURIComponent("Mua hàng")),
   });
   return (
-    <Modal open title={cho.ids.length > 1 ? `${cho.ids.length} đơn quá hạn 24h — chọn lý do chậm` : `Đơn ${cho.ids[0]} quá hạn 24h — chọn lý do chậm`} onClose={onClose}>
+    <Modal open title={cho.ids.length > 1 ? t("{a} đơn quá hạn 24h — chọn lý do chậm", { a: cho.ids.length }) : t("Đơn {a} quá hạn 24h — chọn lý do chậm", { a: cho.ids[0] })} onClose={onClose}>
       <div className="space-y-3 text-sm">
         <div className="text-[var(--ink-600)]">
-          Bước này đã quá 24h kể từ khi bộ phận trước chuyển sang. Chọn lý do chậm để {cho.hanhDong === "duyet" ? "duyệt" : "từ chối"} — lý do được ghi vào lịch sử xử lý.
+          {t("Bước này đã quá 24h kể từ khi bộ phận trước chuyển sang. Chọn lý do chậm để {a} — lý do được ghi vào lịch sử xử lý.", { a: cho.hanhDong === "duyet" ? t("duyệt") : t("từ chối") })}
         </div>
         <Select
           value={lyDo}
           onChange={setLyDo}
-          options={[{ value: "", label: "-- Chọn lý do chậm --" }, ...(data?.rows ?? []).map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+          options={[{ value: "", label: t("-- Chọn lý do chậm --") }, ...(data?.rows ?? []).map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
           className="w-full"
         />
         <div className="flex gap-2 justify-end">
-          <Btn variant="ghost" size="sm" onClick={onClose}>Hủy</Btn>
+          <Btn variant="ghost" size="sm" onClick={onClose}>{t("Hủy")}</Btn>
           <Btn size="sm" onClick={() => onConfirm(Number(lyDo))} disabled={!lyDo || loading} loading={loading}>
-            {cho.hanhDong === "duyet" ? "Duyệt" : "Từ chối"}
+            {cho.hanhDong === "duyet" ? t("Duyệt") : t("Từ chối||nút")}
           </Btn>
         </div>
       </div>
@@ -117,19 +118,19 @@ function QcTuChoiModal({
       const res = await api.postBinary<{ ok: true; url: string }>(`/tra-hang/${donHangId}/anh`, bytes, upload.type || "image/jpeg");
       setAnh((prev) => [...prev, { url: res.url }]);
     } catch (err) {
-      addToast("Lỗi tải ảnh: " + describeApiError(err));
+      addToast(t("Lỗi tải ảnh: ") + describeApiError(err));
     } finally {
       setUploading(false);
     }
   }
 
   return (
-    <Modal open title={`Từ chối dòng ${donHangId} — QC — ảnh bằng chứng (bắt buộc)`} onClose={onClose}>
+    <Modal open title={t("Từ chối dòng {a} — QC — ảnh bằng chứng (bắt buộc)", { a: donHangId })} onClose={onClose}>
       <div className="space-y-3 text-sm">
         <div className="flex items-center gap-2 flex-wrap">
           {anh.map((a, i) => (
             <ImageLink key={i} url={a.url} className="inline-flex items-center gap-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2 py-1 text-xs text-[var(--ocean-800)] underline underline-offset-2">
-              📷 Ảnh {i + 1}
+              {t("📷 Ảnh {a}", { a: i + 1 })}
             </ImageLink>
           ))}
           {anh.length < 3 && (
@@ -138,7 +139,7 @@ function QcTuChoiModal({
                 uploading ? "opacity-50 pointer-events-none" : "border-[var(--line)] text-[var(--ink-500)] hover:border-[var(--ocean-400)] hover:text-[var(--ocean-600)]"
               }`}
             >
-              {uploading ? "Đang tải..." : "+ Thêm ảnh"}
+              {uploading ? t("Đang tải...") : t("+ Thêm ảnh")}
               <input
                 type="file"
                 accept="image/*"
@@ -153,17 +154,17 @@ function QcTuChoiModal({
             </label>
           )}
         </div>
-        <div className={`text-[11px] ${anh.length === 0 ? "text-[var(--coral-600)]" : "text-[var(--ink-400)]"}`}>{anh.length}/3 ảnh (bắt buộc tối thiểu 1)</div>
+        <div className={`text-[11px] ${anh.length === 0 ? "text-[var(--coral-600)]" : "text-[var(--ink-400)]"}`}>{t("{a}/3 ảnh (bắt buộc tối thiểu 1)", { a: anh.length })}</div>
         <input
           value={ghiChu}
           onChange={(e) => setGhiChu(e.target.value)}
-          placeholder="Lý do từ chối (bắt buộc)"
+          placeholder={t("Lý do từ chối (bắt buộc)")}
           className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
         />
         <div className="flex justify-end gap-2">
-          <Btn variant="ghost" size="sm" onClick={onClose}>Hủy</Btn>
+          <Btn variant="ghost" size="sm" onClick={onClose}>{t("Hủy")}</Btn>
           <Btn size="sm" variant="danger" disabled={anh.length === 0 || !ghiChu.trim() || confirmDisabled} loading={confirmLoading} onClick={() => onConfirm(ghiChu)}>
-            Xác nhận từ chối
+            {t("Xác nhận từ chối")}
           </Btn>
         </div>
       </div>
@@ -237,7 +238,7 @@ export function TraHangTab({
   const [detailLk, setDetailLk] = useState<string | null>(null);
   function openLkDetail(maLk: string) {
     if (danhMuc.some((m) => m.ma_linh_kien === maLk)) setDetailLk(maLk);
-    else addToast("Không tìm thấy linh kiện này trong danh mục (có thể đã bị ẩn/xoá)");
+    else addToast(t("Không tìm thấy linh kiện này trong danh mục (có thể đã bị ẩn/xoá)"));
   }
   // CHOT (ra soat module "Dat Mua Linh Kien 2.0" #21): loc theo "Nguoi tao", KHONG tai dung API
   // "ve-tinh-cua-toi" (phuc vu dung quan he Tram-Ve tinh, khong khop ngu canh Ke toan/Kho/QC/TN thuc
@@ -248,8 +249,8 @@ export function TraHangTab({
   const [filterQ, setFilterQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQ(filterQ.trim()), 500);
-    return () => clearTimeout(t);
+    const hen = setTimeout(() => setDebouncedQ(filterQ.trim()), 500);
+    return () => clearTimeout(hen);
   }, [filterQ]);
   const [showFilters, setShowFilters] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -332,7 +333,7 @@ export function TraHangTab({
       );
       await exportRowsToExcel(doiNguoiThanhTen(res.rows, personDir), "tra_hang_chi_tiet.xlsx", "Trả hàng");
     } catch (err) {
-      addToast("Không tải được danh sách chi tiết: " + describeApiError(err));
+      addToast(t("Không tải được danh sách chi tiết: ") + describeApiError(err));
     } finally {
       setDownloadingFull(false);
     }
@@ -371,7 +372,7 @@ export function TraHangTab({
       setGhiChu("");
       qc.invalidateQueries({ queryKey: ["tra-hang"] });
       invalidatePipelineCounts(qc);
-      addToast("Đã cập nhật trạng thái đơn trả hàng");
+      addToast(t("Đã cập nhật trạng thái đơn trả hàng"));
     },
     onError: (err, vars) => {
       const code = err instanceof ApiError ? err.code : undefined;
@@ -381,14 +382,14 @@ export function TraHangTab({
       }
       addToast(
         code === "MISSING_GHI_CHU"
-          ? "Cần nhập lý do khi từ chối/huỷ"
+          ? t("Cần nhập lý do khi từ chối/huỷ")
           : code === "MISSING_ANH_QC"
-            ? "Cần tải ít nhất 1 ảnh bằng chứng trước khi từ chối"
+            ? t("Cần tải ít nhất 1 ảnh bằng chứng trước khi từ chối")
             : code === "SO_LUONG_KHONG_HOP_LE"
-              ? "Số lượng thực tế phải là số nguyên ≥ 1"
+              ? t("Số lượng thực tế phải là số nguyên ≥ 1")
             : code === "KHOVAN_PUSH_FAILED"
-              ? "Không báo được sang Kho vận (khovan) — thử duyệt lại. Đơn CHƯA được duyệt."
-              : "Lỗi: " + describeApiError(err),
+              ? t("Không báo được sang Kho vận (khovan) — thử duyệt lại. Đơn CHƯA được duyệt.")
+              : t("Lỗi: ") + describeApiError(err),
       );
     },
   });
@@ -400,9 +401,9 @@ export function TraHangTab({
       setGhiChu("");
       qc.invalidateQueries({ queryKey: ["tra-hang"] });
       invalidatePipelineCounts(qc);
-      addToast("Đã đẩy lùi 1 bước");
+      addToast(t("Đã đẩy lùi 1 bước"));
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
   });
 
   function canXuLy(trangThai: string): boolean {
@@ -443,13 +444,13 @@ export function TraHangTab({
       const canLyDo = vars.lyDoChamId ? [] : failed.filter(([, code]) => code === "MISSING_LY_DO_CHAM").map(([id]) => id);
       setChoLyDoCham(canLyDo.length > 0 ? { ids: canLyDo, hanhDong: vars.hanhDong, ghiChu: vars.ghiChu } : null);
       const conLai = failed.filter(([id]) => !canLyDo.includes(id));
-      if (failed.length === 0) addToast(`Đã xử lý thành công ${entries.length} dòng`);
-      else if (conLai.length === 0) addToast(`Thành công ${entries.length - failed.length}/${entries.length} dòng. ${canLyDo.length} dòng quá hạn 24h — chọn lý do chậm để xử lý tiếp`);
-      else addToast(`Thành công ${entries.length - failed.length}/${entries.length} dòng. Thất bại: ${conLai.map(([id, code]) => `${id}: ${TRA_HANG_BULK_ERROR_MESSAGES[code] ?? code}`).join("; ")} — đã giữ lại các dòng lỗi, bấm lại để thử lại`);
+      if (failed.length === 0) addToast(t("Đã xử lý thành công {a} dòng", { a: entries.length }));
+      else if (conLai.length === 0) addToast(t("Thành công {a}/{b} dòng. {c} dòng quá hạn 24h — chọn lý do chậm để xử lý tiếp", { a: entries.length - failed.length, b: entries.length, c: canLyDo.length }));
+      else addToast(t("Thành công {a}/{b} dòng. Thất bại: {c} — đã giữ lại các dòng lỗi, bấm lại để thử lại", { a: entries.length - failed.length, b: entries.length, c: conLai.map(([id, code]) => id + ": " + (TRA_HANG_BULK_ERROR_MESSAGES[code] ? t(TRA_HANG_BULK_ERROR_MESSAGES[code]) : code)).join("; ") }));
       qc.invalidateQueries({ queryKey: ["tra-hang"] });
       invalidatePipelineCounts(qc);
     },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
   });
 
   const cols: Column<TraHangRow>[] = [
@@ -469,13 +470,13 @@ export function TraHangTab({
         ) : null,
       mobileHint: "select",
     },
-    { key: "id", header: "Mã đơn hàng", render: (r) => <span className="code-link font-mono text-xs">{r.id}</span> },
+    { key: "id", header: t("Mã đơn hàng"), render: (r) => <span className="code-link font-mono text-xs">{r.id}</span> },
     {
       // CHUAN HOA (phan hoi 2026-09-11: "giao diện của tab trả hàng đang khác giao diện của tab mua
       // hàng") - gop "Mã LK"/"Tên LK" thanh 1 cot "Linh kiện" DUY NHAT, dung y het bo cuc/hanh vi cot
       // "linh_kien" cua DonCuaToiTab.tsx (mono ma_lk nho phia tren + ten LK dam bam-mo-chi-tiet phia
       // duoi, kem ⭐ uu tien/🔒 dac thu) thay vi 2 cot phang rieng nhu truoc.
-      key: "linh_kien", header: "Linh kiện",
+      key: "linh_kien", header: t("Linh kiện"),
       // SUA BUG GIAO DIEN (phan hoi 2026-09-12, kem anh chup ma LK lap 2 lan trong cung 1 dong don) -
       // truoc day hien ma_lk RIENG 1 dong tren, gay lap voi ten_lk_snapshot da TU chua san ma trong
       // chuoi - gop ve DUNG 1 dong bang formatLkLabel() (dong bo voi LinhKienPicker.tsx/DonCuaToiTab.tsx).
@@ -483,12 +484,12 @@ export function TraHangTab({
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); openLkDetail(r.ma_lk); }}
-          title="Xem chi tiết linh kiện"
+          title={t("Xem chi tiết linh kiện")}
           className="block w-full truncate text-left font-medium hover:underline hover:text-[var(--ocean-600)]"
         >
-          {r.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
+          {r.uu_tien === 1 && <span title={t("Ưu tiên")} className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
           {formatLkLabel(r.ma_lk, r.ten_lk_snapshot ?? r.ma_lk)}
-          {!!r.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
+          {!!r.dac_thu && <span title={t("Linh kiện đặc thù")}> 🔒</span>}
         </button>
       ),
     },
@@ -497,14 +498,14 @@ export function TraHangTab({
     // voi cols cua DonCuaToiTab.tsx (cung 1 khuon dat_don_hang nen moi truong deu co san du lieu, ke
     // ca cac truong TraHangTab truoc day chua tung hien nhu gia_de_xuat/yeu_cau_hoa_don/ghi_chu...).
     // Giu rieng cot "id" (Mã đơn hàng, khong co trong file tham chieu) theo xac nhan nguoi dung.
-    { key: "ngay_de_xuat", header: "Ngày đề xuất", render: (r) => fmtDate(r.ngay_tao) },
-    { key: "so_luong_de_xuat", header: "SL đề xuất", render: (r) => r.so_luong_de_xuat },
-    { key: "sl_thuc_xuat", header: "SL thực xuất", render: (r) => r.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
-    { key: "gia", header: "Giá đề xuất", render: (r) => (r.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold"><Money>{fmtVND(r.gia_de_xuat)}</Money></span> : "—") },
-    { key: "loai", header: "Loại", render: (r) => <LoaiDeXuatBadge loaiDon={r.loai_don ?? "tra_hang"} loaiDeXuat={r.loai_de_xuat} /> },
-    { key: "yeu_cau_hoa_don", header: "Yêu cầu hóa đơn", render: (r) => r.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
+    { key: "ngay_de_xuat", header: t("Ngày đề xuất"), render: (r) => fmtDate(r.ngay_tao) },
+    { key: "so_luong_de_xuat", header: t("SL đề xuất"), render: (r) => r.so_luong_de_xuat },
+    { key: "sl_thuc_xuat", header: t("SL thực xuất"), render: (r) => r.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
+    { key: "gia", header: t("Giá đề xuất"), render: (r) => (r.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold"><Money>{fmtVND(r.gia_de_xuat)}</Money></span> : "—") },
+    { key: "loai", header: t("Loại"), render: (r) => <LoaiDeXuatBadge loaiDon={r.loai_don ?? "tra_hang"} loaiDeXuat={r.loai_de_xuat} /> },
+    { key: "yeu_cau_hoa_don", header: t("Yêu cầu hóa đơn"), render: (r) => r.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
     {
-      key: "trang_thai_tra_hang", header: "Trạng thái",
+      key: "trang_thai_tra_hang", header: t("Trạng thái"),
       render: (r) => (
         <div className="flex flex-col gap-0.5 items-start">
           <Badge tone={TRA_HANG_TRANG_THAI_TONE[r.trang_thai_tra_hang] ?? "neutral"}>
@@ -512,20 +513,20 @@ export function TraHangTab({
           </Badge>
           {/* CHUAN HOA: them badge "Đơn tạo hộ" khop dung DonCuaToiTab.tsx - isDonTaoHo() la ham DUNG
               CHUNG cho MOI loai_don (khong rieng mua/cong no), chi la nhan hien thi thuan tuy. */}
-          {isDonTaoHo(r) && <Badge tone="neutral">Đơn tạo hộ</Badge>}
+          {isDonTaoHo(r) && <Badge tone="neutral">{t("Đơn tạo hộ")}</Badge>}
           <QuaHanBadge r={r} />
         </div>
       ),
     },
-    { key: "nguoi_nhan_hang", header: "Người nhận hàng", render: (r) => (r.nguoi_nhan_hang ? <NguoiNhan>{formatNguoiDisplay(r.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>) },
-    { key: "ly_do_cham", header: "Lý do từ chối/chờ hàng", render: (r) => r.ly_do_cham || <span className="text-[var(--ink-400)]">—</span> },
+    { key: "nguoi_nhan_hang", header: t("Người nhận hàng"), render: (r) => (r.nguoi_nhan_hang ? <NguoiNhan>{formatNguoiDisplay(r.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>) },
+    { key: "ly_do_cham", header: t("Lý do từ chối/chờ hàng"), render: (r) => r.ly_do_cham || <span className="text-[var(--ink-400)]">—</span> },
     // "Khu vực" cua NGUOI NHAN HANG - khong phai cot that tren dat_don_hang, server LEFT JOIN qua
     // ktv_lien_he.khu_vuc_ma (xem GET /tra-hang backend + DonHangRow.khu_vuc_ten trong types.ts).
-    { key: "khu_vuc", header: "Khu vực", render: (r) => r.khu_vuc_ten || <span className="text-[var(--ink-400)]">—</span> },
-    { key: "ghi_chu", header: "Ghi chú người đặt hàng", render: (r) => r.ghi_chu || <span className="text-[var(--ink-400)]">—</span> },
-    { key: "ghi_chu_admin", header: "Ghi chú Admin", render: (r) => r.ghi_chu_xu_ly_gan_nhat || <span className="text-[var(--ink-400)]">—</span> },
-    { key: "nguoi_tao_yc", header: "Người tạo yêu cầu", render: (r) => <NguoiTao>{formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap)}</NguoiTao> },
-    { key: "ma_ycsc", header: "Mã yêu cầu sự cố", render: (r) => <MaYcscCell value={r.ma_yeu_cau_su_co} canXemChiTietCa={false} /> },
+    { key: "khu_vuc", header: t("Khu vực"), render: (r) => r.khu_vuc_ten || <span className="text-[var(--ink-400)]">—</span> },
+    { key: "ghi_chu", header: t("Ghi chú người đặt hàng"), render: (r) => r.ghi_chu || <span className="text-[var(--ink-400)]">—</span> },
+    { key: "ghi_chu_admin", header: t("Ghi chú Admin"), render: (r) => r.ghi_chu_xu_ly_gan_nhat || <span className="text-[var(--ink-400)]">—</span> },
+    { key: "nguoi_tao_yc", header: t("Người tạo yêu cầu"), render: (r) => <NguoiTao>{formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap)}</NguoiTao> },
+    { key: "ma_ycsc", header: t("Mã yêu cầu sự cố"), render: (r) => <MaYcscCell value={r.ma_yeu_cau_su_co} canXemChiTietCa={false} /> },
     {
       key: "actions", header: "", mobileHint: "actions",
       render: (r) => {
@@ -553,8 +554,8 @@ export function TraHangTab({
                 size="sm"
                 variant="ghost"
                 className="px-2"
-                title="Duyệt"
-                aria-label="Duyệt"
+                title={t("Duyệt")}
+                aria-label={t("Duyệt")}
                 disabled={logMutation.isPending}
                 onClick={() => logMutation.mutate({ id: r.id, hanhDong: "duyet" })}
               >
@@ -562,7 +563,7 @@ export function TraHangTab({
               </Btn>
             )}
             {coTheDayLui && (
-              <Btn size="sm" variant="ghost" className="px-2" title="Đẩy lùi 1 bước" aria-label="Đẩy lùi 1 bước" onClick={() => { setLayLuiId(r.id); setGhiChu(""); }}>
+              <Btn size="sm" variant="ghost" className="px-2" title={t("Đẩy lùi 1 bước")} aria-label={t("Đẩy lùi 1 bước")} onClick={() => { setLayLuiId(r.id); setGhiChu(""); }}>
                 ↩
               </Btn>
             )}
@@ -571,8 +572,8 @@ export function TraHangTab({
                 size="sm"
                 variant="danger"
                 className="px-2"
-                title="Từ chối"
-                aria-label="Từ chối"
+                title={t("Từ chối||nút")}
+                aria-label={t("Từ chối||nút")}
                 disabled={logMutation.isPending}
                 onClick={() => {
                   if (r.trang_thai_tra_hang === "Cho TN duyet tong") {
@@ -622,12 +623,12 @@ export function TraHangTab({
         activeFilterCount={activeFilterCount}
         searchValue={filterQ}
         onSearchChange={setFilterQ}
-        searchPlaceholder="Tìm theo mã đơn, mã YCSC, mã Lada, mã LK, tên LK, tên KTV/người tạo..."
+        searchPlaceholder={t("Tìm theo mã đơn, mã YCSC, mã Lada, mã LK, tên LK, tên KTV/người tạo...")}
         trailing={
           <div className="flex items-center gap-2">
             {settingsButtonEl}
             <Btn size="sm" variant="ghost" onClick={handleDownloadFullList} disabled={downloadingFull}>
-              {downloadingFull ? "Đang tải..." : "⬇ Tải danh sách chi tiết"}
+              {downloadingFull ? t("Đang tải...") : t("⬇ Tải danh sách chi tiết")}
             </Btn>
           </div>
         }
@@ -637,8 +638,8 @@ export function TraHangTab({
           <ActiveFiltersBar
             chips={[
               ...(filterNguoiTao ? [{ label: `KTV: ${formatNguoiDisplay(filterNguoiTao, ktvDisplayMap)}`, onClear: () => setFilterNguoiTao("") }] : []),
-              ...(khuVucParam ? [{ label: `Khu vực: ${[...filterKhuVuc].map((ma) => khuVucOptions.find((o) => o.value === ma)?.label ?? ma).join(", ")}`, onClear: () => setFilterKhuVuc(new Set()) }] : []),
-              ...(filterQ ? [{ label: `Tìm: "${filterQ}"`, onClear: () => setFilterQ("") }] : []),
+              ...(khuVucParam ? [{ label: t("Khu vực: {a}", { a: [...filterKhuVuc].map((ma) => khuVucOptions.find((o) => o.value === ma)?.label ?? ma).join(", ") }), onClear: () => setFilterKhuVuc(new Set()) }] : []),
+              ...(filterQ ? [{ label: t("Tìm: \"{a}\"", { a: filterQ }), onClear: () => setFilterQ("") }] : []),
             ]}
           />
         }
@@ -658,7 +659,7 @@ export function TraHangTab({
             <Select
               value={filterNguoiTao}
               onChange={(v) => { setFilterNguoiTao(v); setPage(1); }}
-              options={[{ value: "", label: "Tất cả KTV (người tạo)" }, ...nguoiTaoOptions.map((email) => ({ value: email, label: formatNguoiDisplay(email, ktvDisplayMap) }))]}
+              options={[{ value: "", label: t("Tất cả KTV (người tạo)") }, ...nguoiTaoOptions.map((email) => ({ value: email, label: formatNguoiDisplay(email, ktvDisplayMap) }))]}
             />
           </div>
         )}
@@ -669,15 +670,15 @@ export function TraHangTab({
       {rowsCoTheChon.length > 1 && (
         <div className="flex items-center gap-2 mb-2 text-xs">
           <input type="checkbox" checked={selected.size === rowsCoTheChon.length} onChange={toggleSelectAll} />
-          <span className="text-[var(--ink-500)]">Chọn tất cả {rowsCoTheChon.length} dòng có thể xử lý (trên mọi nhóm KTV ở trang này)</span>
+          <span className="text-[var(--ink-500)]">{t("Chọn tất cả {a} dòng có thể xử lý (trên mọi nhóm KTV ở trang này)", { a: rowsCoTheChon.length })}</span>
         </div>
       )}
       {selected.size > 0 && (
         <div className="flex items-center gap-2 flex-wrap mb-3 bg-[var(--ocean-100)] border border-[var(--ocean-800)]/30 rounded-lg px-3 py-2">
-          <span className="text-sm font-bold text-[var(--ocean-900)]">Đã chọn {selected.size} dòng</span>
+          <span className="text-sm font-bold text-[var(--ocean-900)]">{t("Đã chọn {a} dòng", { a: selected.size })}</span>
           <BulkConfirmButton
-            label="Duyệt tất cả"
-            confirmLabel={`Xác nhận duyệt ${selected.size} dòng?`}
+            label={t("Duyệt tất cả")}
+            confirmLabel={t("Xác nhận duyệt {a} dòng?", { a: selected.size })}
             count={selected.size}
             onConfirm={() => bulkMutation.mutate({ hanhDong: "duyet" })}
             disabled={bulkMutation.isPending}
@@ -688,7 +689,7 @@ export function TraHangTab({
               (ap dung cho ca lua chon, tru dong "Cho QC xac nhan" van can anh rieng tung dong nen
               khong the xu ly hang loat - giu nguyen han che da co tu truoc). */}
           <Btn size="sm" variant="danger" onClick={() => { setBulkTuChoiOpen(true); setGhiChu(""); }} disabled={bulkMutation.isPending}>
-            Từ chối tất cả
+            {t("Từ chối tất cả")}
           </Btn>
         </div>
       )}
@@ -722,7 +723,7 @@ export function TraHangTab({
         />
       )}
       {layLuiId && (
-        <Modal open title="Đẩy lùi 1 bước" onClose={() => setLayLuiId(null)}>
+        <Modal open title={t("Đẩy lùi 1 bước")} onClose={() => setLayLuiId(null)}>
           <div className="space-y-3 text-sm">
             <input
               value={ghiChu}
@@ -731,12 +732,12 @@ export function TraHangTab({
               // dang tuy ca cu the - chuan hoa cung se khong phu het, ep chon "Khac" thuong xuyen thi
               // vo nghia) - chi doi placeholder rong thanh vi du cu the de goi y muc do chi tiet can
               // viet.
-              placeholder="VD: xác nhận sai số lượng, cần Kho kiểm lại"
+              placeholder={t("VD: xác nhận sai số lượng, cần Kho kiểm lại")}
               className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
             <div className="flex justify-end gap-2">
-              <Btn variant="ghost" size="sm" onClick={() => setLayLuiId(null)}>Hủy</Btn>
-              <Btn size="sm" onClick={() => layLuiMutation.mutate()} disabled={layLuiMutation.isPending || !ghiChu.trim()}>Xác nhận</Btn>
+              <Btn variant="ghost" size="sm" onClick={() => setLayLuiId(null)}>{t("Hủy")}</Btn>
+              <Btn size="sm" onClick={() => layLuiMutation.mutate()} disabled={layLuiMutation.isPending || !ghiChu.trim()}>{t("Xác nhận")}</Btn>
             </div>
           </div>
         </Modal>
@@ -752,46 +753,46 @@ export function TraHangTab({
         />
       )}
       {tuChoiTnId && (
-        <Modal open title={`Từ chối dòng ${tuChoiTnId} — TN duyệt tổng`} onClose={() => setTuChoiTnId(null)}>
+        <Modal open title={t("Từ chối dòng {a} — TN duyệt tổng", { a: tuChoiTnId })} onClose={() => setTuChoiTnId(null)}>
           <div className="space-y-3 text-sm">
             <input
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
-              placeholder="Lý do từ chối (bắt buộc)"
+              placeholder={t("Lý do từ chối (bắt buộc)")}
               className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
             <div className="flex justify-end gap-2">
-              <Btn variant="ghost" size="sm" onClick={() => setTuChoiTnId(null)}>Hủy</Btn>
+              <Btn variant="ghost" size="sm" onClick={() => setTuChoiTnId(null)}>{t("Hủy")}</Btn>
               <Btn
                 size="sm"
                 variant="danger"
                 onClick={() => logMutation.mutate({ id: tuChoiTnId, hanhDong: "tu_choi", ghiChu })}
                 disabled={logMutation.isPending || !ghiChu.trim()}
               >
-                Xác nhận từ chối
+                {t("Xác nhận từ chối")}
               </Btn>
             </div>
           </div>
         </Modal>
       )}
       {tuChoiSimpleId && (
-        <Modal open title={`Từ chối dòng ${tuChoiSimpleId}`} onClose={() => setTuChoiSimpleId(null)}>
+        <Modal open title={t("Từ chối dòng {a}", { a: tuChoiSimpleId })} onClose={() => setTuChoiSimpleId(null)}>
           <div className="space-y-3 text-sm">
             <input
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
-              placeholder="Lý do từ chối (bắt buộc)"
+              placeholder={t("Lý do từ chối (bắt buộc)")}
               className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
             <div className="flex justify-end gap-2">
-              <Btn variant="ghost" size="sm" onClick={() => setTuChoiSimpleId(null)}>Hủy</Btn>
+              <Btn variant="ghost" size="sm" onClick={() => setTuChoiSimpleId(null)}>{t("Hủy")}</Btn>
               <Btn
                 size="sm"
                 variant="danger"
                 onClick={() => logMutation.mutate({ id: tuChoiSimpleId, hanhDong: "tu_choi", ghiChu })}
                 disabled={logMutation.isPending || !ghiChu.trim()}
               >
-                Xác nhận từ chối
+                {t("Xác nhận từ chối")}
               </Btn>
             </div>
           </div>
@@ -810,23 +811,23 @@ export function TraHangTab({
         />
       )}
       {bulkTuChoiOpen && (
-        <Modal open title={`Từ chối ${selected.size} dòng đã chọn`} onClose={() => { setBulkTuChoiOpen(false); setGhiChu(""); }}>
+        <Modal open title={t("Từ chối {a} dòng đã chọn", { a: selected.size })} onClose={() => { setBulkTuChoiOpen(false); setGhiChu(""); }}>
           <div className="space-y-3 text-sm">
             <input
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
-              placeholder="Lý do từ chối (bắt buộc, áp dụng chung cho tất cả các dòng đã chọn)"
+              placeholder={t("Lý do từ chối (bắt buộc, áp dụng chung cho tất cả các dòng đã chọn)")}
               className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
             <div className="flex justify-end gap-2">
-              <Btn variant="ghost" size="sm" onClick={() => { setBulkTuChoiOpen(false); setGhiChu(""); }}>Hủy</Btn>
+              <Btn variant="ghost" size="sm" onClick={() => { setBulkTuChoiOpen(false); setGhiChu(""); }}>{t("Hủy")}</Btn>
               <Btn
                 size="sm"
                 variant="danger"
                 onClick={() => bulkMutation.mutate({ hanhDong: "tu_choi", ghiChu })}
                 disabled={bulkMutation.isPending || !ghiChu.trim()}
               >
-                Xác nhận từ chối
+                {t("Xác nhận từ chối")}
               </Btn>
             </div>
           </div>
@@ -873,9 +874,9 @@ function TraHangGroupedList({
   const chonCol = columns.find((c) => c.key === "chon");
   const actionsCol = columns.find((c) => c.key === "actions");
 
-  if (isLoading) return <div className="text-sm text-[var(--ink-500)] py-6 text-center">Đang tải...</div>;
-  if (isError) return <div className="text-sm text-[var(--coral-500)] py-6 text-center">Lỗi tải dữ liệu.</div>;
-  if (rows.length === 0) return <div className="text-sm text-[var(--ink-400)] py-6 text-center">Không có dữ liệu.</div>;
+  if (isLoading) return <div className="text-sm text-[var(--ink-500)] py-6 text-center">{t("Đang tải...")}</div>;
+  if (isError) return <div className="text-sm text-[var(--coral-500)] py-6 text-center">{t("Lỗi tải dữ liệu.")}</div>;
+  if (rows.length === 0) return <div className="text-sm text-[var(--ink-400)] py-6 text-center">{t("Không có dữ liệu.")}</div>;
 
   const groups = new Map<string, TraHangRow[]>();
   for (const r of rows) {
@@ -928,11 +929,11 @@ function TraHangGroupedList({
                         <span className="font-bold text-[var(--ink-900)] text-sm truncate">
                           <NguoiTao>{formatNguoiDisplay(g.nguoiTao, ktvDisplayMap)}</NguoiTao>
                         </span>
-                        <span className="text-[var(--ink-500)] text-xs">({g.dongCon.length} dòng)</span>
+                        <span className="text-[var(--ink-500)] text-xs">{t("({a} dòng)", { a: g.dongCon.length })}</span>
                       </div>
                       <div className="flex items-center gap-1 flex-wrap">
-                        {g.dangCho > 0 && <Badge tone="warning">{g.dangCho} đang chờ</Badge>}
-                        {g.daDong > 0 && <Badge tone="success">{g.daDong} đã xong</Badge>}
+                        {g.dangCho > 0 && <Badge tone="warning">{t("{a} đang chờ", { a: g.dangCho })}</Badge>}
+                        {g.daDong > 0 && <Badge tone="success">{t("{a} đã xong", { a: g.daDong })}</Badge>}
                       </div>
                     </div>
                   </td>
@@ -965,11 +966,11 @@ function TraHangGroupedList({
           <div className="sm:hidden flex items-center justify-between gap-2 flex-wrap">
             <SectionTitle>
               KTV: <NguoiTao>{formatNguoiDisplay(g.nguoiTao, ktvDisplayMap)}</NguoiTao>
-              <span className="ml-1.5 font-normal normal-case tracking-normal text-[var(--ink-400)]">({g.dongCon.length} dòng)</span>
+              <span className="ml-1.5 font-normal normal-case tracking-normal text-[var(--ink-400)]">{t("({a} dòng)", { a: g.dongCon.length })}</span>
             </SectionTitle>
             <div className="flex items-center gap-1 flex-wrap mb-2">
-              {g.dangCho > 0 && <Badge tone="warning">{g.dangCho} đang chờ</Badge>}
-              {g.daDong > 0 && <Badge tone="success">{g.daDong} đã xong</Badge>}
+              {g.dangCho > 0 && <Badge tone="warning">{t("{a} đang chờ", { a: g.dangCho })}</Badge>}
+              {g.daDong > 0 && <Badge tone="success">{t("{a} đã xong", { a: g.daDong })}</Badge>}
             </div>
           </div>
           <div className="sm:hidden border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
@@ -981,8 +982,8 @@ function TraHangGroupedList({
                     { tone: TRA_HANG_TRANG_THAI_TONE[r.trang_thai_tra_hang] ?? "neutral", label: trangThaiLabel(TRA_HANG_TRANG_THAI_OPTIONS, r.trang_thai_tra_hang) },
                     // CHUAN HOA (dong bo voi DonCuaToiTab.tsx) - them "Đơn tạo hộ" khi co, isDonTaoHo()
                     // dung chung cho moi loai_don.
-                    ...(isDonTaoHo(r) ? [{ tone: "neutral" as Tone, label: "Đơn tạo hộ" }] : []),
-                    ...(r.qua_han_ly_do_cham ? [{ tone: "danger" as Tone, label: "Quá hạn 24h" }] : []),
+                    ...(isDonTaoHo(r) ? [{ tone: "neutral" as Tone, label: t("Đơn tạo hộ") }] : []),
+                    ...(r.qua_han_ly_do_cham ? [{ tone: "danger" as Tone, label: t("Quá hạn 24h") }] : []),
                   ];
                   // SUA (phan hoi 2026-08-28, dong bo voi DonCuaToiTab.tsx): giam ve 1 - xem giai thich
                   // day du o DonCuaToiTab.tsx (MAX_BADGE gan voi comment "ẩn cả thẻ nếu không đủ diện
@@ -1006,12 +1007,12 @@ function TraHangGroupedList({
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); onLkDetail(r.ma_lk); }}
-                                title="Xem chi tiết linh kiện"
+                                title={t("Xem chi tiết linh kiện")}
                                 className="inline-block align-top max-w-full min-w-0 truncate text-left font-medium text-sm hover:underline hover:text-[var(--ocean-600)]"
                               >
-                                {r.uu_tien === 1 && <span title="Ưu tiên" className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
+                                {r.uu_tien === 1 && <span title={t("Ưu tiên")} className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
                                 {r.ten_lk_snapshot ?? r.ma_lk}
-                                {!!r.dac_thu && <span title="Linh kiện đặc thù"> 🔒</span>}
+                                {!!r.dac_thu && <span title={t("Linh kiện đặc thù")}> 🔒</span>}
                               </button>
                             </div>
                             {/* SUA (phan hoi 2026-08-28, lan 2, dong bo voi DonCuaToiTab.tsx): 1 dong
@@ -1022,7 +1023,7 @@ function TraHangGroupedList({
                               ))}
                               {extraBadgeCount > 0 && (
                                 <span
-                                  title="Xem đầy đủ trạng thái trong chi tiết"
+                                  title={t("Xem đầy đủ trạng thái trong chi tiết")}
                                   className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--ink-500)] text-white text-[10px] font-bold leading-none shrink-0"
                                 >
                                   +{extraBadgeCount}
@@ -1031,9 +1032,9 @@ function TraHangGroupedList({
                             </div>
                           </div>
                           <div className="flex items-center gap-1.5 text-xs text-[var(--ink-500)] mt-1">
-                            <span>Mã đơn {r.id}</span>
+                            <span>{t("Mã đơn {a}", { a: r.id })}</span>
                             <span>·</span>
-                            <span>SL:{r.so_luong_de_xuat}</span>
+                            <span>{t("SL:{a}", { a: r.so_luong_de_xuat })}</span>
                             <span>·</span>
                             <span>{fmtDateTime(r.ngay_tao)}</span>
                           </div>
@@ -1048,7 +1049,7 @@ function TraHangGroupedList({
         </div>
       ))}
       <div className="flex items-center justify-between px-1 py-2 text-xs text-[var(--ink-400)]">
-        <span>{total} dòng</span>
+        <span>{t("{a} dòng", { a: total })}</span>
         <div className="flex gap-1">
           <Btn variant="ghost" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>‹</Btn>
           <span className="px-2 py-1.5">{page}/{Math.max(1, Math.ceil(total / pageSize))}</span>
@@ -1116,7 +1117,7 @@ export function TraHangDetailModal({
       // "Duyet va tiep theo" (concept 1 da duyet, 2026-08-24) - dong y het DonHangDetailModal: chi tu
       // nhay dong ke tiep khi "duyet" (tu choi/huy nguoi dung can tu xem lai ket qua, khong nhay tiep).
       if (variables.hanhDong === "duyet" && onNavigate && navNextId) onNavigate(navNextId);
-      else addToast("Đã cập nhật trạng thái đơn trả hàng");
+      else addToast(t("Đã cập nhật trạng thái đơn trả hàng"));
     },
     onError: (err, vars) => {
       const code = err instanceof ApiError ? err.code : undefined;
@@ -1126,20 +1127,20 @@ export function TraHangDetailModal({
       }
       addToast(
         code === "MISSING_GHI_CHU"
-          ? "Cần nhập lý do khi từ chối/huỷ"
+          ? t("Cần nhập lý do khi từ chối/huỷ")
           : code === "MISSING_ANH_QC"
-            ? "Cần tải ít nhất 1 ảnh bằng chứng trước khi từ chối"
+            ? t("Cần tải ít nhất 1 ảnh bằng chứng trước khi từ chối")
             : code === "KHOVAN_PUSH_FAILED"
-              ? "Không báo được sang Kho vận (khovan) — thử duyệt lại. Đơn CHƯA được duyệt."
-              : "Lỗi: " + describeApiError(err),
+              ? t("Không báo được sang Kho vận (khovan) — thử duyệt lại. Đơn CHƯA được duyệt.")
+              : t("Lỗi: ") + describeApiError(err),
       );
     },
   });
 
   const layLuiMutation = useMutation({
     mutationFn: () => api.post(`/tra-hang/${id}/log-lui`, { ghi_chu: ghiChu.trim() }),
-    onSuccess: () => { invalidate(); addToast("Đã đẩy lùi 1 bước"); },
-    onError: (err) => addToast("Lỗi: " + describeApiError(err)),
+    onSuccess: () => { invalidate(); addToast(t("Đã đẩy lùi 1 bước")); },
+    onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
   });
 
   const d = data?.donHang;
@@ -1195,17 +1196,17 @@ export function TraHangDetailModal({
     !isLoading && d ? (
       actionMode === "tu_choi_tn" ? (
         <div className="space-y-2">
-          <div className="font-semibold text-xs">Từ chối — TN duyệt tổng — lý do (bắt buộc)</div>
+          <div className="font-semibold text-xs">{t("Từ chối — TN duyệt tổng — lý do (bắt buộc)")}</div>
           <div className="flex gap-2 flex-wrap items-center">
             <input
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
-              placeholder="Lý do từ chối (bắt buộc)"
+              placeholder={t("Lý do từ chối (bắt buộc)")}
               className="focus-ring flex-1 min-w-[160px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
-            <Btn variant="ghost" size="sm" onClick={() => { setActionMode(null); setGhiChu(""); }}>Hủy</Btn>
+            <Btn variant="ghost" size="sm" onClick={() => { setActionMode(null); setGhiChu(""); }}>{t("Hủy")}</Btn>
             <Btn size="sm" variant="danger" onClick={() => logMutation.mutate({ hanhDong: "tu_choi", ghiChu })} disabled={!ghiChu.trim() || logMutation.isPending}>
-              Xác nhận từ chối
+              {t("Xác nhận từ chối")}
             </Btn>
           </div>
         </div>
@@ -1215,47 +1216,47 @@ export function TraHangDetailModal({
         null
       ) : actionMode === "tu_choi_simple" ? (
         <div className="space-y-2">
-          <div className="font-semibold text-xs">Từ chối — lý do (bắt buộc)</div>
+          <div className="font-semibold text-xs">{t("Từ chối — lý do (bắt buộc)")}</div>
           <div className="flex gap-2 flex-wrap items-center">
             <input
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
-              placeholder="Lý do từ chối (bắt buộc)"
+              placeholder={t("Lý do từ chối (bắt buộc)")}
               className="focus-ring flex-1 min-w-[160px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
-            <Btn variant="ghost" size="sm" onClick={() => { setActionMode(null); setGhiChu(""); }}>Hủy</Btn>
+            <Btn variant="ghost" size="sm" onClick={() => { setActionMode(null); setGhiChu(""); }}>{t("Hủy")}</Btn>
             <Btn size="sm" variant="danger" onClick={() => logMutation.mutate({ hanhDong: "tu_choi", ghiChu })} disabled={!ghiChu.trim() || logMutation.isPending}>
-              Xác nhận từ chối
+              {t("Xác nhận từ chối")}
             </Btn>
           </div>
         </div>
       ) : actionMode === "day_lui" ? (
         <div className="space-y-2">
-          <div className="font-semibold text-xs">Đẩy lùi 1 bước — lý do</div>
+          <div className="font-semibold text-xs">{t("Đẩy lùi 1 bước — lý do")}</div>
           <div className="flex gap-2 flex-wrap items-center">
             <input
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
-              placeholder="VD: xác nhận sai số lượng, cần Kho kiểm lại"
+              placeholder={t("VD: xác nhận sai số lượng, cần Kho kiểm lại")}
               className="focus-ring flex-1 min-w-[160px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
-            <Btn variant="ghost" size="sm" onClick={() => { setActionMode(null); setGhiChu(""); }}>Hủy</Btn>
-            <Btn size="sm" onClick={() => layLuiMutation.mutate()} disabled={!ghiChu.trim() || layLuiMutation.isPending}>Xác nhận</Btn>
+            <Btn variant="ghost" size="sm" onClick={() => { setActionMode(null); setGhiChu(""); }}>{t("Hủy")}</Btn>
+            <Btn size="sm" onClick={() => layLuiMutation.mutate()} disabled={!ghiChu.trim() || layLuiMutation.isPending}>{t("Xác nhận")}</Btn>
           </div>
         </div>
       ) : actionMode === "huy" ? (
         <div className="space-y-2">
-          <div className="font-semibold text-xs">Hủy đơn trả hàng — lý do (bắt buộc)</div>
+          <div className="font-semibold text-xs">{t("Hủy đơn trả hàng — lý do (bắt buộc)")}</div>
           <div className="flex gap-2 flex-wrap items-center">
             <input
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
-              placeholder="Lý do hủy (bắt buộc)"
+              placeholder={t("Lý do hủy (bắt buộc)")}
               className="focus-ring flex-1 min-w-[160px] bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
-            <Btn variant="ghost" size="sm" onClick={() => { setActionMode(null); setGhiChu(""); }}>Đóng</Btn>
+            <Btn variant="ghost" size="sm" onClick={() => { setActionMode(null); setGhiChu(""); }}>{t("Đóng")}</Btn>
             <Btn size="sm" variant="danger" onClick={() => logMutation.mutate({ hanhDong: "huy", ghiChu })} disabled={!ghiChu.trim() || logMutation.isPending}>
-              Xác nhận hủy
+              {t("Xác nhận hủy")}
             </Btn>
           </div>
         </div>
@@ -1272,7 +1273,7 @@ export function TraHangDetailModal({
               MOI hanh dong (khong rieng tu_choi/huy) tu truoc - chi can gui len, khong can sua BE. */}
           {slSuaDuoc && d && (
             <label className="flex w-full items-center justify-end gap-2 text-sm">
-              <span className="text-[var(--color-text-secondary)]">SL thực tế nhận về</span>
+              <span className="text-[var(--color-text-secondary)]">{t("SL thực tế nhận về")}</span>
               <input
                 type="number"
                 min={1}
@@ -1281,19 +1282,19 @@ export function TraHangDetailModal({
                 onChange={(e) => setSlThucTe(e.target.value)}
                 className="focus-ring w-20 bg-white border border-[var(--line)] rounded-lg px-2 py-1 text-right font-mono"
               />
-              <span className="text-xs text-[var(--color-text-muted)]">/ KTV gửi {d.so_luong_de_xuat}</span>
+              <span className="text-xs text-[var(--color-text-muted)]">{t("/ KTV gửi {a}", { a: d.so_luong_de_xuat })}</span>
             </label>
           )}
           {slSuaDuoc && slGuiDuyet !== undefined && (
             <div className="w-full text-right text-xs text-[var(--color-warning-strong)]">
-              Duyệt sẽ ghi nhận SL thực tế {slGuiDuyet} (khác {slHienTai}) — phiếu xuất kho và file MISA dùng số này.
+              {t("Duyệt sẽ ghi nhận SL thực tế {a} (khác {b}) — phiếu xuất kho và file MISA dùng số này.", { a: slGuiDuyet, b: slHienTai })}
             </div>
           )}
           {coTheXuLy && trangThai !== "Cho TN duyet tong" && (
             <input
               value={ghiChu}
               onChange={(e) => setGhiChu(e.target.value)}
-              placeholder="Ghi chú khi duyệt (không bắt buộc)"
+              placeholder={t("Ghi chú khi duyệt (không bắt buộc)")}
               className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
           )}
@@ -1305,19 +1306,19 @@ export function TraHangDetailModal({
                 disabled={logMutation.isPending || (slSuaDuoc && !slHopLe)}
                 loading={logMutation.isPending}
               >
-                {navNextId && onNavigate ? "Duyệt và tiếp theo →" : "Duyệt"}
+                {navNextId && onNavigate ? t("Duyệt và tiếp theo →") : t("Duyệt")}
               </Btn>
             )}
             {coTheDayLui && (
               <Btn size="sm" variant="ghost" onClick={() => { setActionMode("day_lui"); setGhiChu(""); }} disabled={logMutation.isPending}>
-                Đẩy lùi
+                {t("Đẩy lùi")}
               </Btn>
             )}
             {coTheXuLy && (
-              <Btn size="sm" variant="danger" onClick={handleTuChoi} disabled={logMutation.isPending}>Từ chối</Btn>
+              <Btn size="sm" variant="danger" onClick={handleTuChoi} disabled={logMutation.isPending}>{t("Từ chối||nút")}</Btn>
             )}
             {coTheHuy && (
-              <Btn size="sm" variant="danger" onClick={() => { setActionMode("huy"); setGhiChu(""); }} disabled={logMutation.isPending}>Hủy</Btn>
+              <Btn size="sm" variant="danger" onClick={() => { setActionMode("huy"); setGhiChu(""); }} disabled={logMutation.isPending}>{t("Hủy")}</Btn>
             )}
           </div>
         </div>
@@ -1331,7 +1332,7 @@ export function TraHangDetailModal({
       // SUA (ra soat UI/UX 2026-08-28, van de #1: "tên linh kiện tạo thành tiêu đề trên cùng",
       // "sửa chung cho 1 màn rồi áp dụng ra") - khop dung cau truc da doi cho DonHangDetailModal
       // (DonCuaToiTab.tsx): tieu de la ID truoc day, gio la ten LK.
-      title={d ? (d.ten_lk_snapshot ?? d.ma_lk) : `Đơn trả hàng ${id}`}
+      title={d ? (d.ten_lk_snapshot ?? d.ma_lk) : t("Đơn trả hàng {a}", { a: id })}
       onClose={onClose}
       footer={footer}
       headerExtra={
@@ -1346,32 +1347,32 @@ export function TraHangDetailModal({
       }
     >
       {isLoading ? (
-        <div className="text-sm text-[var(--ink-500)] py-4 text-center">Đang tải...</div>
+        <div className="text-sm text-[var(--ink-500)] py-4 text-center">{t("Đang tải...")}</div>
       ) : !d ? null : (
         <div className="text-sm space-y-4">
           {/* SUA (ra soat UI/UX 2026-08-28, "sửa chung cho 1 màn rồi áp dụng ra") - khop dung cau truc
               da doi cho DonHangDetailModal (DonCuaToiTab.tsx): dai "chỉ số nhanh" + DetailZone thay
               cho khoi KvRow/SectionTitle phang truoc day. */}
           <div className="flex items-start gap-4 flex-wrap pb-3 border-b border-[var(--line)]">
-            <QuickStat label="SL" value={d.so_luong_thuc_xuat != null && d.so_luong_thuc_xuat !== d.so_luong_de_xuat ? `${d.so_luong_de_xuat} → ${d.so_luong_thuc_xuat}` : d.so_luong_de_xuat} />
+            <QuickStat label={t("SL")} value={d.so_luong_thuc_xuat != null && d.so_luong_thuc_xuat !== d.so_luong_de_xuat ? `${d.so_luong_de_xuat} → ${d.so_luong_thuc_xuat}` : d.so_luong_de_xuat} />
             <div className="flex-1 min-w-[160px]">
-              <div className="text-[10px] uppercase tracking-wide text-[var(--ink-400)] font-bold mb-1">Trạng thái</div>
+              <div className="text-[10px] uppercase tracking-wide text-[var(--ink-400)] font-bold mb-1">{t("Trạng thái")}</div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <StatusBadge value={trangThai} tones={TRA_HANG_TRANG_THAI_TONE} options={TRA_HANG_TRANG_THAI_OPTIONS} />
                 {d.uu_tien === 1 && <PriorityTag />}
                 <QuaHanBadge r={d} />
                 {d.han_giai_doan && !d.qua_han_ly_do_cham && (
-                  <span className="text-[11px] text-[var(--ink-500)]">Hạn bước này: {fmtDateTime(d.han_giai_doan)}</span>
+                  <span className="text-[11px] text-[var(--ink-500)]">{t("Hạn bước này: {a}", { a: fmtDateTime(d.han_giai_doan) })}</span>
                 )}
               </div>
             </div>
           </div>
 
-          <DetailZone title="Thông tin đơn">
-            <KvRow label="Người tạo"><NguoiTao>{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</NguoiTao></KvRow>
-            <KvRow label="Ngày tạo">{fmtDateTime(d.ngay_tao)}</KvRow>
-            <KvRow label="Mã LK"><span className="font-mono text-xs">{d.ma_lk}</span></KvRow>
-            {d.ghi_chu && <KvRow label="Ghi chú">{d.ghi_chu}</KvRow>}
+          <DetailZone title={t("Thông tin đơn")}>
+            <KvRow label={t("Người tạo")}><NguoiTao>{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</NguoiTao></KvRow>
+            <KvRow label={t("Ngày tạo")}>{fmtDateTime(d.ngay_tao)}</KvRow>
+            <KvRow label={t("Mã LK")}><span className="font-mono text-xs">{d.ma_lk}</span></KvRow>
+            {d.ghi_chu && <KvRow label={t("Ghi chú")}>{d.ghi_chu}</KvRow>}
           </DetailZone>
 
           {/* Anh tra hang (them 2026-08-24, muc 3: "các ảnh này các vai trò liên quan đến có thể xem
@@ -1381,24 +1382,24 @@ export function TraHangDetailModal({
             const anhQc = (data?.anh ?? []).filter((a) => a.loai === "qc_tu_choi");
             if (anhTaoMoi.length === 0 && anhQc.length === 0) return null;
             return (
-              <DetailZone title="Ảnh">
+              <DetailZone title={t("Ảnh")}>
                 {/* FIX (phan hoi QA 2026-08-31, muc #12): truoc day chi hien link chu "📷 Ảnh N" - phai
                     bam moi biet anh chup gi, doi thanh thumbnail xem truoc ngay tai cho, bam vao moi
                     mo anh goc kich thuoc that o tab moi. */}
                 {anhTaoMoi.length > 0 && (
-                  <KvRow label="Ảnh LK cần trả">
+                  <KvRow label={t("Ảnh LK cần trả")}>
                     <div className="flex gap-1.5 flex-wrap">
                       {anhTaoMoi.map((a) => (
-                        <ImageThumb key={a.id} url={a.url} alt="Ảnh linh kiện cần trả" className="w-16 h-16 object-cover rounded-lg border border-[var(--line)] hover:opacity-80 transition-opacity" />
+                        <ImageThumb key={a.id} url={a.url} alt={t("Ảnh linh kiện cần trả")} className="w-16 h-16 object-cover rounded-lg border border-[var(--line)] hover:opacity-80 transition-opacity" />
                       ))}
                     </div>
                   </KvRow>
                 )}
                 {anhQc.length > 0 && (
-                  <KvRow label="Ảnh bằng chứng QC">
+                  <KvRow label={t("Ảnh bằng chứng QC")}>
                     <div className="flex gap-1.5 flex-wrap">
                       {anhQc.map((a) => (
-                        <ImageThumb key={a.id} url={a.url} alt="Ảnh bằng chứng QC" className="w-16 h-16 object-cover rounded-lg border border-[var(--line)] hover:opacity-80 transition-opacity" />
+                        <ImageThumb key={a.id} url={a.url} alt={t("Ảnh bằng chứng QC")} className="w-16 h-16 object-cover rounded-lg border border-[var(--line)] hover:opacity-80 transition-opacity" />
                       ))}
                     </div>
                   </KvRow>
@@ -1407,14 +1408,14 @@ export function TraHangDetailModal({
             );
           })()}
 
-          <SectionTitle className="mt-0">Lịch sử xử lý</SectionTitle>
+          <SectionTitle className="mt-0">{t("Lịch sử xử lý")}</SectionTitle>
           <Timeline
             items={(data?.logs ?? []).map((l) => ({
               // Nguoi thao tac -> hanh dong -> trang thai (LogTieuDe, 2026-09-30).
               title: (
                 <LogTieuDe
                   nguoi={tenLog(l.nguoi_xu_ly)}
-                  hanhDong="chuyển sang"
+                  hanhDong={t("chuyển sang")}
                   trangThai={trangThaiLabel(TRA_HANG_TRANG_THAI_OPTIONS, l.trang_thai)}
                   ghiChu={l.ghi_chu}
                 />

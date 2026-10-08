@@ -1945,7 +1945,7 @@ export function DonCuaToiTab({
       if (failed.length === 0) {
         addToast(t("Đã xử lý thành công {a} dòng", { a: entries.length }));
       } else {
-        const detail = failed.map(([lineId, code]) => `${lineId}: ${loiMsg(code) ?? code}`).join("; ");
+        const detail = failed.map(([lineId, code]) => `${lineId}: ${loiMsg(code) ? t(loiMsg(code)) : code}`).join("; ");
         addToast(t("Thành công {a}/{b} dòng. Thất bại: {c} — đã giữ lại các dòng lỗi, bấm lại để thử lại", { a: entries.length - failed.length, b: entries.length, c: detail }));
       }
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
@@ -3103,7 +3103,7 @@ export function DonHangGroupedList({
                               {d.ma_lada?.trim() && <span className="shrink-0 font-mono">Lada: {d.ma_lada}</span>}
                               {d.tt_khach_hang?.trim() && <span className="truncate min-w-0">{d.tt_khach_hang.trim()}</span>}
                               <span className="shrink-0 ml-auto whitespace-nowrap">
-                                SL:{d.so_luong_de_xuat} ·{" "}
+                                {t("SL:{a}", { a: d.so_luong_de_xuat })} ·{" "}
                                 {giaNiemYet(d) != null && giaNiemYet(d) !== donGiaSauChietKhau(d) && (
                                   <span className="text-[var(--ink-400)] line-through mr-1" title={t("Giá niêm yết")}><Money>{fmtVND(giaNiemYet(d))}</Money></span>
                                 )}

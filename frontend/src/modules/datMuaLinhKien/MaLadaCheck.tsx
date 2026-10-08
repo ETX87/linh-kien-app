@@ -3,6 +3,7 @@ import { api, buildQuery } from "../../api/client";
 import type { MaLadaPreview } from "./types";
 import { Badge, type BadgeTone } from "../../components/ui/Badge";
 import { boDau } from "../../lib/boDau";
+import { t } from "../../i18n";
 
 // "Mã Lada liên quan" (2026-09-30) - canh bao mem + the doi chieu, cung kieu MaYeuCauSuCoCheck: debounce 500ms sau
 // khi ngung go, goi GET /dat-mua-lk/kiem-tra-ma-lada (backend tra cuu center.dichvu3t.com - lib/ladaLookupClient.ts,
@@ -16,9 +17,9 @@ type KetQua = { found: boolean; preview: MaLadaPreview | null; warning?: string 
 
 // Mau badge trang thai don Lada: xong = xanh la, huy = do, con lai (dang xu ly...) = cam cho.
 function toneTrangThai(tt: string): BadgeTone {
-  const t = boDau(tt.toLowerCase());
-  if (t.includes("huy")) return "coral";
-  if (t.includes("thanh cong") || t.includes("hoan thanh") || t.includes("da chot")) return "teal";
+  const chuan = boDau(tt.toLowerCase());
+  if (chuan.includes("huy")) return "coral";
+  if (chuan.includes("thanh cong") || chuan.includes("hoan thanh") || chuan.includes("da chot")) return "teal";
   return "amber";
 }
 
@@ -46,7 +47,7 @@ export function MaLadaCheck({ value }: { value: string }) {
     setDangTai(false);
     if (!id || !isLikelyLadaId(id)) return;
     let huy = false;
-    const t = setTimeout(() => {
+    const hen = setTimeout(() => {
       setDangTai(true);
       api
         .get<KetQua>(`/dat-mua-lk/kiem-tra-ma-lada${buildQuery({ id })}`)
@@ -56,12 +57,12 @@ export function MaLadaCheck({ value }: { value: string }) {
     }, 500);
     return () => {
       huy = true;
-      clearTimeout(t);
+      clearTimeout(hen);
     };
   }, [id]);
 
   if (!id) return null;
-  if (dangTai) return <div className="mt-1.5 text-[11px] text-[var(--color-text-secondary)]">Đang tra cứu hệ thống Lada…</div>;
+  if (dangTai) return <div className="mt-1.5 text-[11px] text-[var(--color-text-secondary)]">{t("Đang tra cứu hệ thống Lada…")}</div>;
   if (!result) return null;
 
   if (!result.found) {
@@ -69,8 +70,8 @@ export function MaLadaCheck({ value }: { value: string }) {
     return (
       <div className="mt-1.5 rounded-lg border border-[var(--amber-500)]/30 bg-[var(--amber-100)]/60 px-2.5 py-1.5 text-[11px] font-medium text-[var(--amber-700)]">
         {loiKetNoi
-          ? "⚠ Chưa tra cứu được hệ thống Lada lúc này — vẫn tạo đơn được, hãy chắc chắn mã chính xác."
-          : "⚠ Không tìm thấy Mã Lada này — kiểm tra lại mã đã nhập."}
+          ? t("⚠ Chưa tra cứu được hệ thống Lada lúc này — vẫn tạo đơn được, hãy chắc chắn mã chính xác.")
+          : t("⚠ Không tìm thấy Mã Lada này — kiểm tra lại mã đã nhập.")}
       </div>
     );
   }
@@ -83,7 +84,7 @@ export function MaLadaCheck({ value }: { value: string }) {
     <div className="mt-1.5 rounded-lg border border-[var(--color-success)]/30 bg-[var(--color-surface)] px-3 py-2">
       <div className="flex items-center gap-2 min-w-0">
         <span className="shrink-0 text-[12px] font-bold text-[var(--color-success)]">✓</span>
-        <span className="text-[11px] text-[var(--color-text-secondary)] shrink-0">Đơn Lada</span>
+        <span className="text-[11px] text-[var(--color-text-secondary)] shrink-0">{t("Đơn Lada")}</span>
         <span className="font-mono text-[12px] font-semibold text-[var(--color-text)] shrink-0">{id}</span>
         {p?.khach_hang && <span className="text-[13px] font-bold text-[var(--color-text)] truncate min-w-0" title={p.khach_hang}>· {p.khach_hang}</span>}
         {p?.trang_thai && (
@@ -94,10 +95,10 @@ export function MaLadaCheck({ value }: { value: string }) {
       </div>
       {p && (
         <div className="mt-1.5 pt-1.5 border-t border-[var(--color-border-soft)] flex flex-wrap gap-x-6 gap-y-1">
-          <Truong nhan="Sản phẩm" giaTri={sanPham} />
-          <Truong nhan="Khu vực" giaTri={khuVuc} />
+          <Truong nhan={t("Sản phẩm")} giaTri={sanPham} />
+          <Truong nhan={t("Khu vực")} giaTri={khuVuc} />
           <Truong nhan="KTV" giaTri={p.ky_thuat_vien} />
-          <Truong nhan="Ngày tạo" giaTri={ngayTao} />
+          <Truong nhan={t("Ngày tạo")} giaTri={ngayTao} />
         </div>
       )}
     </div>

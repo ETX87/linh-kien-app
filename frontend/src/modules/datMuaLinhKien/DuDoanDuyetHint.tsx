@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { api, buildQuery } from "../../api/client";
 import { shortKhuVuc } from "../../lib/khuVucShortLabel";
 import { laTruCongNo } from "./helpers";
+import { t } from "../../i18n";
 
 // Canh bao SONG "don nay se tu dong duyet hay khong" ngay luc soan don (them 2026-09-11, phan hoi
 // "linh kiện này tại khu vực MB đang hết/thiếu hàng... đơn của bạn sẽ cần phê duyệt / kho đủ hàng đơn
@@ -26,7 +27,7 @@ export function DuDoanDuyetHint({
   useEffect(() => {
     setResult(null);
     if (loaiDon === "tra_hang" || !ma || !(soLuong > 0) || !lde) return;
-    const t = setTimeout(() => {
+    const hen = setTimeout(() => {
       api
         .get<{ ap_dung: boolean; du_ton: boolean | null; ton_chot: number | null; khu_vuc_ma: string | null; nguon?: "ktv" }>(
           `/dat-mua-lk/du-doan-duyet${buildQuery({ ma_lk: ma, so_luong: soLuong, loai_de_xuat: lde, nguoi_nhan_hang: nguoiNhanHang || undefined })}`,
@@ -34,7 +35,7 @@ export function DuDoanDuyetHint({
         .then(setResult)
         .catch(() => setResult(null));
     }, 500);
-    return () => clearTimeout(t);
+    return () => clearTimeout(hen);
   }, [ma, soLuong, lde, nguoiNhanHang, loaiDon]);
 
   if (!result?.ap_dung || result.du_ton == null) return null;
@@ -42,11 +43,11 @@ export function DuDoanDuyetHint({
   if (result.nguon === "ktv") {
     return result.du_ton ? (
       <div className="mt-1.5 rounded-lg border border-[var(--teal-500)]/30 bg-[var(--teal-100)]/50 px-2.5 py-1.5 text-[11px] font-medium text-[var(--teal-700)]">
-        ✅ Tồn kho của KTV nhận hàng còn đủ ({result.ton_chot}) — đơn này sẽ được tự động duyệt.
+        {t("✅ Tồn kho của KTV nhận hàng còn đủ ({a}) — đơn này sẽ được tự động duyệt.", { a: result.ton_chot })}
       </div>
     ) : (
       <div className="mt-1.5 rounded-lg border border-[var(--amber-500)]/30 bg-[var(--amber-100)]/60 px-2.5 py-1.5 text-[11px] font-medium text-[var(--amber-700)]">
-        ⚠ Tồn kho của KTV nhận hàng không đủ (còn {Math.max(0, result.ton_chot ?? 0)}/{soLuong}) — đơn sẽ cần Tác nghiệp phê duyệt.
+        {t("⚠ Tồn kho của KTV nhận hàng không đủ (còn {a}/{b}) — đơn sẽ cần Tác nghiệp phê duyệt.", { a: Math.max(0, result.ton_chot ?? 0), b: soLuong })}
       </div>
     );
   }
@@ -64,7 +65,7 @@ export function DuDoanDuyetHint({
   if (seTuDongDuyet) {
     return (
       <div className="mt-1.5 rounded-lg border border-[var(--teal-500)]/30 bg-[var(--teal-100)]/50 px-2.5 py-1.5 text-[11px] font-medium text-[var(--teal-700)]">
-        ✅ Kho khu vực {shortKhuVuc(result.khu_vuc_ma)} còn đủ hàng — đơn này sẽ được tự động duyệt, chờ chuyển tiền.
+        {t("✅ Kho khu vực {a} còn đủ hàng — đơn này sẽ được tự động duyệt, chờ chuyển tiền.", { a: shortKhuVuc(result.khu_vuc_ma) })}
       </div>
     );
   }
@@ -72,8 +73,8 @@ export function DuDoanDuyetHint({
   return (
     <div className="mt-1.5 rounded-lg border border-[var(--amber-500)]/30 bg-[var(--amber-100)]/60 px-2.5 py-1.5 text-[11px] font-medium text-[var(--amber-700)]">
       {!result.du_ton
-        ? `⚠ Linh kiện này tại khu vực ${shortKhuVuc(result.khu_vuc_ma)} đang hết/thiếu hàng (kho còn ${Math.max(0, result.ton_chot ?? 0)}/${soLuong}) — đơn sẽ cần Tác nghiệp phê duyệt.`
-        : "⚠ Đủ hàng nhưng vượt trần công nợ dự kiến — đơn sẽ cần Tác nghiệp phê duyệt."}
+        ? t("⚠ Linh kiện này tại khu vực {a} đang hết/thiếu hàng (kho còn {b}/{c}) — đơn sẽ cần Tác nghiệp phê duyệt.", { a: shortKhuVuc(result.khu_vuc_ma), b: Math.max(0, result.ton_chot ?? 0), c: soLuong })
+        : t("⚠ Đủ hàng nhưng vượt trần công nợ dự kiến — đơn sẽ cần Tác nghiệp phê duyệt.")}
     </div>
   );
 }
