@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from "../types";
+import { khoaKhop } from "../lib/baoVe";
+import { laUrlHttp } from "../lib/anhUpload";
 import { nowVN } from "../lib/vnTime";
 import { sendPushToUser } from "../lib/webPush";
 import { bumpVersions } from "../lib/dataVersions";
@@ -15,7 +17,7 @@ const partnerKho = new Hono<{ Bindings: Env }>();
 
 partnerKho.use("*", async (c, next) => {
   const key = c.req.header("X-Khovan-Key");
-  if (!key || !c.env.KHOVAN_PARTNER_API_KEY || key !== c.env.KHOVAN_PARTNER_API_KEY) {
+  if (!(await khoaKhop(key, c.env.KHOVAN_PARTNER_API_KEY))) {
     return c.json({ error: "INVALID_KEY" }, 401);
   }
   await next();
@@ -51,6 +53,7 @@ partnerKho.post("/phieu-xuat-kho/:id/dong-goi", async (c) => {
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
   if (pxk.trang_thai !== "Da chot xong don xuat") return c.json({ error: "INVALID_STATE" }, 409);
 
+  if (!Array.isArray(body.anh ?? []) || (body.anh ?? []).length > 20 || (body.anh ?? []).some((u) => !laUrlHttp(u))) return c.json({ error: "INVALID_URL" }, 400);
   const statements = (body.anh || []).map((url) =>
     c.env.DB.prepare("INSERT INTO phieu_xuat_kho_anh (phieu_xuat_kho_id, anh_url, nguoi_upload) VALUES (?, ?, ?)").bind(id, url, actor),
   );

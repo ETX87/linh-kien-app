@@ -147,7 +147,7 @@ auth.get("/callback", async (c) => {
     .bind(userInfo.email, nowVN(), c.req.header("CF-Connecting-IP") ?? null, c.req.header("User-Agent") ?? null)
     .run();
 
-  const token = await signSession({ email: userInfo.email }, c.env.SESSION_SECRET, SESSION_TTL_SECONDS);
+  const token = await signSession({ email: userInfo.email, pv: await phienBanPhien(c.env.DB, userInfo.email) }, c.env.SESSION_SECRET, SESSION_TTL_SECONDS);
   setCookie(c, SESSION_COOKIE, token, {
     httpOnly: true,
     secure: true,
@@ -175,7 +175,7 @@ auth.get("/dev-login", async (c) => {
     .bind(email, "Dev Admin (local bypass)", nowVN())
     .run();
 
-  const token = await signSession({ email }, c.env.SESSION_SECRET, SESSION_TTL_SECONDS);
+  const token = await signSession({ email, pv: await phienBanPhien(c.env.DB, email) }, c.env.SESSION_SECRET, SESSION_TTL_SECONDS);
   setCookie(c, SESSION_COOKIE, token, {
     httpOnly: true,
     secure: true,
@@ -188,6 +188,17 @@ auth.get("/dev-login", async (c) => {
 });
 
 auth.post("/logout", async (c) => {
+  deleteCookie(c, SESSION_COOKIE, { path: "/" });
+  deleteCookie(c, VIEW_AS_USER_COOKIE, { path: "/" });
+  return c.json({ ok: true });
+});
+
+// POST /api/auth/dang-xuat-moi-thiet-bi (2026-10-08) - tang users.phien_ban_phien -> moi phien dang nhap cua tai khoan
+// (moi may, ke ca may nay) het hieu luc o request ke tiep (loadUser tra PHIEN_DA_THU_HOI). Dung khi mat may/nghi lo
+// tai khoan. Admin dang xuat ho nguoi khac: POST /api/users/:email/dang-xuat-moi-thiet-bi.
+auth.post("/dang-xuat-moi-thiet-bi", verifySessionMiddleware, loadUser, async (c) => {
+  const email = c.get("realEmail");
+  await c.env.DB.prepare("UPDATE users SET phien_ban_phien = phien_ban_phien + 1, updated_at = ? WHERE email = ?").bind(nowVN(), email).run();
   deleteCookie(c, SESSION_COOKIE, { path: "/" });
   deleteCookie(c, VIEW_AS_USER_COOKIE, { path: "/" });
   return c.json({ ok: true });
@@ -338,3 +349,9 @@ auth.get("/data-versions", verifySessionMiddleware, async (c) => {
 });
 
 export default auth;
+
+// So "phien ban phien" hien tai cua tai khoan - ky vao JWT luc dang nhap (xem lib/jwt.ts SessionPayload.pv).
+async function phienBanPhien(db: D1Database, email: string): Promise<number> {
+  const r = await db.prepare("SELECT phien_ban_phien FROM users WHERE email = ?").bind(email).first<{ phien_ban_phien: number }>();
+  return r?.phien_ban_phien ?? 0;
+}

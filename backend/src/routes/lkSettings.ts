@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { laUrlHttp } from "../lib/anhUpload";
 import { createMiddleware } from "hono/factory";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
@@ -51,6 +52,7 @@ lkSettings.get("/danh-muc", async (c) => {
 lkSettings.post("/danh-muc", quanLyDanhMuc, async (c) => {
   const body = await c.req.json<{ ma_linh_kien: string; ten_linh_kien: string; don_vi?: string | null; ghi_chu?: string | null; anh_demo?: string | null; dac_thu?: boolean; chi_sua_chua?: boolean }>();
   if (!body.ma_linh_kien?.trim() || !body.ten_linh_kien?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
+  if (body.anh_demo?.trim() && !laUrlHttp(body.anh_demo.trim())) return c.json({ error: "INVALID_URL" }, 400);
   // Phan loai bat buoc (chot 2026-09-30, cung quy tac POST /settings/linh-kien).
   if (!body.don_vi?.trim()) return c.json({ error: "THIEU_PHAN_LOAI" }, 400);
 
@@ -75,6 +77,7 @@ lkSettings.patch("/danh-muc/:ma", quanLyDanhMuc, async (c) => {
   // "ten_linh_kien" cung chuyen "chi xem" tu 2026-09-12 (dong bo tu gia88) - route nay khong con nhan
   // truong do, giong het PATCH /settings/linh-kien/:ma.
   const body = await c.req.json<{ don_vi?: string | null; ghi_chu?: string | null; anh_demo?: string | null; bat_tat?: boolean; dac_thu?: boolean; chi_sua_chua?: boolean }>();
+  if (body.anh_demo?.trim() && !laUrlHttp(body.anh_demo.trim())) return c.json({ error: "INVALID_URL" }, 400);
   const existing = await c.env.DB.prepare("SELECT * FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
 

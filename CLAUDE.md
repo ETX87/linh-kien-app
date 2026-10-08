@@ -749,6 +749,27 @@ Quản lý tài khoản tách 2 thẻ ở `UsersModule.tsx`: **"KTV hiện trư�
 nợ) và **"Nhân viên văn phòng"** (lọc `nhom=van-phong`, gán nhiều Khu vực cho TN/Kho/Kế toán qua
 `user_khu_vuc`). `SettingsModule.tsx` chỉ còn tab "Khu vực" cho phần Khu vực (CRUD + gán GS).
 
+## Bảo vệ hệ thống (chốt 2026-10-08, v1.312, migration `0073`)
+
+App chạy trên `*.workers.dev` → KHÔNG có WAF/Rate Limiting rule của Cloudflare (cần tên miền riêng) — mọi lớp bảo vệ nằm
+trong Worker, KHÔNG chặn được DDoS phân tán nhiều IP. `lib/baoVe.ts` gắn cho `/api/*` TRƯỚC mọi router: (1) giới hạn tần suất
+bằng binding `ratelimits` (`wrangler.jsonc`): 600/phút theo tài khoản (phiên hợp lệ), 300/phút theo IP khi chưa đăng nhập,
+600/phút theo khóa API đối tác → 429 `QUA_NHIEU_YEU_CAU`; (2) request GHI từ trình duyệt phải cùng origin (`Sec-Fetch-Site`,
+fallback `Origin`) → 403 `YEU_CAU_TU_SITE_KHAC` — app anh em `*.dichvu3t.workers.dev` là "cùng site" nên SameSite=Lax không đủ;
+`/api/partner*`, `/api/khovan-partner*` bỏ qua; (3) header nosniff/DENY/no-store cho API. Trang tĩnh: `frontend/public/_headers`
+(CSP — thêm domain ngoài mà frontend `fetch()` thì thêm vào `connect-src`; `frame-ancestors 'self'` vì App.tsx tự nhúng iframe
+xem trước Mobile; `'wasm-unsafe-eval'` + `blob:` cho tesseract OCR). **Ảnh** (`lib/anhUpload.ts`): mọi đường tải ảnh lên Drive đi
+qua `nhanAnhTaiLen()` (body request) / `taiAnhTuUrl()` (import Excel có link ảnh) — JPG/PNG/WEBP/GIF/HEIC (không SVG), ≤ 10MB, ≤ **20
+ảnh/ngày/tài khoản** (bảng `anh_upload_ngay`, ngày VN, Admin không giới hạn; cron 0h xoá số đếm > 30 ngày); FE `anhVuaGioiHan()`
+tự nén ảnh > 10MB trước khi gửi. URL ảnh client gửi lên: bằng chứng chuyển tiền + ảnh trả hàng lúc tạo đơn CHỈ nhận link Drive
+(`laUrlAnhDrive`), ảnh đóng gói/ảnh minh hoạ LK chỉ http(s) (`laUrlHttp`); FE đưa link vào `href` qua `linkAnToan()`
+(`lib/linhAnToan.ts` — React không chặn `javascript:`). **Thu hồi phiên**: JWT mang `pv` = `users.phien_ban_phien`; `loadUser` so
+với tài khoản THẬT → 401 `PHIEN_DA_THU_HOI`. "Đăng xuất mọi thiết bị": tự mình (menu tài khoản, `POST /auth/dang-xuat-moi-thiet-bi`)
+hoặc Admin (sửa tài khoản, `POST /users/:email/dang-xuat-moi-thiet-bi`). Khác: khóa khovan so bằng `khoaKhop()` (băm + XOR),
+endpoint Web Push chỉ nhận host dịch vụ push thật, unsubscribe chỉ xoá của chính mình, `page`/`pageSize` không ra NaN,
+POST `/phieu-dat` tối đa 300 dòng. Chưa làm (cần người dùng quyết): ảnh Drive đang công khai theo link, KTV xem được email danh
+bạ/giá KTV qua API, 1 khóa đối tác dùng chung; `xlsx` 0.18.5 còn cảnh báo bảo mật (npm không có bản vá — chỉ đọc file người dùng tự chọn).
+
 ## Điểm nối hệ DVBH gốc (quan trọng)
 
 Hệ này gọi **đúng một** endpoint bên hệ gốc: `GET /api/partner/case-lookup?id=<case_id>`

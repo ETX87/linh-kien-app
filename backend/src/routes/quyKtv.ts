@@ -151,8 +151,8 @@ quyKtv.get("/khoan-chuyen", async (c) => {
     binds.push(`%${q}%`, `%${q}%`, `%${q}%`);
   }
   const pageParam = c.req.query("page");
-  const page = Math.max(1, Number(pageParam ?? 1));
-  const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const page = Math.max(1, (Math.trunc(Number(pageParam)) || 1));
+  const pageSize = Math.min(200, Math.max(1, (Math.trunc(Number(c.req.query("pageSize"))) || 20)));
   const from = "FROM khoan_chuyen_tien k LEFT JOIN phieu_xuat_kho p ON p.id = k.phieu_xuat_kho_id";
   const tong = await c.env.DB.prepare(
     `SELECT COUNT(*) AS total,
@@ -189,8 +189,8 @@ quyKtv.get("/giao-dich", async (c) => {
     binds.push(loai);
   }
   const pageParam = c.req.query("page");
-  const page = Math.max(1, Number(pageParam ?? 1));
-  const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const page = Math.max(1, (Math.trunc(Number(pageParam)) || 1));
+  const pageSize = Math.min(200, Math.max(1, (Math.trunc(Number(c.req.query("pageSize"))) || 20)));
   const tong = await c.env.DB.prepare(`SELECT COUNT(*) AS total FROM quy_ktv_giao_dich g WHERE ${where}`).bind(...binds).first<{ total: number }>();
   const { results } = await c.env.DB.prepare(
     `SELECT g.*, p.ma_xuat_kho FROM quy_ktv_giao_dich g LEFT JOIN phieu_xuat_kho p ON p.id = g.phieu_xuat_kho_id

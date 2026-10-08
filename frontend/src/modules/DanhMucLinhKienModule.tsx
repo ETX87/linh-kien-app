@@ -12,6 +12,7 @@ import { SectionTitle } from "../components/ui/SectionTitle";
 import { Tabs } from "../components/ui/Tabs";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { api, ApiError } from "../api/client";
+import { anhVuaGioiHan } from "../lib/imageCompress";
 import { useToast } from "../components/ui/Toast";
 import { fmtVND, fmtDateTime, type LinhKienRow } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
@@ -29,6 +30,7 @@ import { ToDam } from "../components/ui/ToDam";
 import { TimLkBox, TuKhoaLkSection, DongNghiaTab } from "./danhMucLinhKien/TimLkBox";
 import { TRANG_THAI_MA, TrangThaiMaBadge, XetDuyetMaSection } from "./danhMucLinhKien/XetDuyetMaLk";
 import { PhanLoaiNhanh } from "./danhMucLinhKien/PhanLoaiNhanh";
+import { linkAnToan } from "../lib/linhAnToan";
 
 const PAGE_SIZE = 20;
 const BOOL_FILTER_OPTIONS = [
@@ -290,7 +292,7 @@ function ImageLightbox({ url, onClose }: { url: string; onClose: () => void }) {
       </button>
       <img src={url} alt="Ảnh linh kiện phóng to" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
       <a
-        href={url}
+        href={linkAnToan(url)}
         target="_blank"
         rel="noreferrer"
         onClick={(e) => e.stopPropagation()}
@@ -714,8 +716,8 @@ function DanhMucTab() {
   async function uploadAnhForMa(ma: string, file: File) {
     setUploadingAnh(true);
     try {
-      const bytes = await file.arrayBuffer();
-      await api.postBinary(`/settings/linh-kien/${ma}/anh`, bytes, file.type || "image/jpeg");
+      const gui = await anhVuaGioiHan(file);
+      await api.postBinary(`/settings/linh-kien/${ma}/anh`, await gui.arrayBuffer(), gui.type || "image/jpeg");
       setImgCacheBust((n) => n + 1);
     } catch (err) {
       addToast("Đã lưu linh kiện nhưng lỗi tải ảnh: " + (err instanceof Error ? err.message : String(err)));

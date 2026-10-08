@@ -64,6 +64,14 @@ export function TopBarActions({
     window.location.href = "/";
   }
 
+  // Thu hoi MOI phien dang nhap cua tai khoan nay tren moi may (mat dien thoai, nghi lo tai khoan) - backend tang
+  // users.phien_ban_phien (2026-10-08). May nay cung bi dang xuat.
+  async function logoutMoiThietBi() {
+    if (!window.confirm(t("Đăng xuất tài khoản này trên MỌI thiết bị (kể cả máy này)?"))) return;
+    await api.post("/auth/dang-xuat-moi-thiet-bi");
+    window.location.href = "/";
+  }
+
   // FIX (ra soat bug mua hang 2026-08-26, BUG-004): filter trang thai mac dinh cua Don cua toi/Thieu
   // LK/PXK/Tra hang phu thuoc vai tro (vd Kho -> "Cho kho xu ly") nhung duoc luu localStorage - doi
   // "Xem thu vai tro" chi lam window.location.reload() (xoa QueryClient in-memory) chu KHONG xoa
@@ -160,6 +168,11 @@ export function TopBarActions({
             <button onClick={logout} className="w-full text-left px-3.5 py-2 text-sm hover:bg-[var(--color-danger-soft)] text-[var(--color-danger-strong)]">
               {t("Đăng xuất")}
             </button>
+            {!viewAsUser && (
+              <button onClick={logoutMoiThietBi} className="w-full text-left px-3.5 py-2 text-xs hover:bg-[var(--color-danger-soft)] text-[var(--color-text-secondary)]">
+                {t("Đăng xuất mọi thiết bị")}
+              </button>
+            )}
           </div>
         )}
       </div>

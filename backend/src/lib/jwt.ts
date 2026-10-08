@@ -30,6 +30,9 @@ async function hmacKey(secret: string): Promise<CryptoKey> {
 
 export interface SessionPayload {
   email: string;
+  // "Phien ban phien" (2026-10-08) = users.phien_ban_phien luc ky; "Đăng xuất mọi thiết bị" tang so trong DB -> moi
+  // token mang so cu bi loadUser tu choi. Token cu khong co truong nay = 0.
+  pv?: number;
   iat: number;
   exp: number;
 }

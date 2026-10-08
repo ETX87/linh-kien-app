@@ -5,6 +5,7 @@ import { docDsAnh, docTienDocMap, useDocTienAnh, type TienDocMap } from "./DocTi
 import { BangChungAnhList, docAnhBangChung, type BangChungPxk } from "./BangChungChuyenTien";
 import { CHUYEN_TIEN_OPTIONS, CHUYEN_TIEN_TONE } from "./constants";
 import { t } from "../../i18n";
+import { linkAnToan } from "../../lib/linhAnToan";
 
 // XEM ANH NHANH (2026-09-30, phan hoi "thêm chức năng xem ảnh nhanh, hiện thông tin bên phải ảnh đang xem như tiền đã đọc
 // được bằng OCR, mã HĐ, mã PXK, ngày tháng, người chuyển, trạng thái xác nhận..., ấn trái phải để next ảnh tiếp theo").
@@ -253,7 +254,7 @@ export function XemAnhNhanh({ items, batDau, onClose }: { items: AnhXem[]; batDa
         </div>
         <div className="flex items-center justify-between gap-2 border-t border-[var(--color-border)] px-4 py-2.5 text-[12px]">
           <span className="text-[var(--color-text-secondary)]">{t("← → để chuyển ảnh · Esc để đóng")}</span>
-          <a href={cur.url} target="_blank" rel="noreferrer" className="shrink-0 font-semibold text-[var(--color-primary)] hover:underline">
+          <a href={linkAnToan(cur.url)} target="_blank" rel="noreferrer" className="shrink-0 font-semibold text-[var(--color-primary)] hover:underline">
             {t("Mở ảnh gốc ↗")}
           </a>
         </div>

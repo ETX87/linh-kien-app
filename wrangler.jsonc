@@ -28,6 +28,17 @@
   // Them 2026-08-28 - dong bo danh ba KTV/danh muc linh kien sang he DVBH goc moi dau gio (xem
   // backend/src/lib/dvbhSyncClient.ts, index.ts `scheduled()`). Day la cron DUY NHAT cua he nay.
   "triggers": { "crons": ["0 * * * *"] },
+
+  // Them 2026-10-08 (danh gia bao mat): app chay tren *.workers.dev nen KHONG dung duoc WAF/Rate Limiting rule cua
+  // Cloudflare (can ten mien rieng) - gioi han tan suat lam ngay trong Worker (backend/src/lib/baoVe.ts). Theo TAI KHOAN
+  // (phien hop le), theo IP (chua dang nhap), theo KHOA API doi tac. "namespace_id" la so tu dat, duy nhat trong tai khoan.
+  "ratelimits": [
+    { "name": "RL_NGUOI_DUNG", "namespace_id": "73001", "simple": { "limit": 600, "period": 60 } },
+    { "name": "RL_KHACH", "namespace_id": "73002", "simple": { "limit": 300, "period": 60 } },
+    { "name": "RL_DOI_TAC", "namespace_id": "73003", "simple": { "limit": 600, "period": 60 } }
+  ],
+  // Log Worker (Workers Logs) - de tra lai khi co su co/tan cong (console.warn "[rate-limit]", loi 500 kem requestId).
+  "observability": { "enabled": true },
   // Khong co "r2_buckets" - khong dung R2 (xem CLAUDE.md).
 
   // Them 2026-08-26 (debug production case-lookup): fetch() thang toi URL "*.workers.dev" cua 1

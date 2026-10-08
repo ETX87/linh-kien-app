@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "../../api/client";
+import { anhVuaGioiHan } from "../../lib/imageCompress";
 import { Btn } from "../../components/ui/Btn";
 import { FileButton } from "../../components/ui/FileButton";
 import { Select } from "../../components/ui/Select";
@@ -378,7 +379,8 @@ export function BangChungChuyenTienForm({
     for (const f of chon) {
       setDangTai((n) => n + 1);
       try {
-        const res = await api.postBinary<{ ok: true; url: string }>(`/phieu-xuat-kho/${pxkId}/bang-chung-chuyen-tien`, await f.arrayBuffer(), f.type || "image/jpeg");
+        const gui = await anhVuaGioiHan(f);
+        const res = await api.postBinary<{ ok: true; url: string }>(`/phieu-xuat-kho/${pxkId}/bang-chung-chuyen-tien`, await gui.arrayBuffer(), gui.type || "image/jpeg");
         ghiNhoAnhCucBo(res.url, f); // doc tu file tren may, khong tai lai anh tu Drive
         setAnh((a) => (a.includes(res.url) || a.length >= MAX_ANH_BANG_CHUNG ? a : [...a, res.url]));
       } catch (err) {

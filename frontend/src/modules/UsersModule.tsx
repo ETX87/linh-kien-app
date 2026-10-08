@@ -328,6 +328,13 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
   const isSelf = auth.status === "authenticated" && auth.user.email === user.email;
   const [selfEditAck, setSelfEditAck] = useState(false);
   const personDir = usePersonDirectory();
+  const addToastSua = useToast();
+  // Thu hoi moi phien dang nhap cua tai khoan (mat may, nghi lo tai khoan) - backend POST /users/:email/dang-xuat-moi-thiet-bi.
+  const dangXuatMoiThietBi = useMutation({
+    mutationFn: () => api.post(`/users/${encodeURIComponent(user.email)}/dang-xuat-moi-thiet-bi`),
+    onSuccess: () => addToastSua(`Đã đăng xuất ${user.email} trên mọi thiết bị`),
+    onError: (err) => addToastSua("Không đăng xuất được: " + (err instanceof ApiError && err.detail ? err.detail : err instanceof Error ? err.message : String(err))),
+  });
   const [form, setForm] = useState({
     vai_tro: user.vai_tro ?? "",
     trang_thai_duyet: user.trang_thai_duyet,
@@ -582,6 +589,21 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
           <input type="checkbox" checked={form.bi_khoa} onChange={(e) => setForm({ ...form, bi_khoa: e.target.checked })} />
           Khoá tài khoản
         </label>
+        {!isSelf && (
+          <div className="flex items-center justify-between gap-2 text-[12px] text-[var(--color-text-secondary)]">
+            <span>Mất máy / lộ tài khoản: buộc đăng nhập lại trên mọi thiết bị.</span>
+            <Btn
+              variant="ghost"
+              size="sm"
+              loading={dangXuatMoiThietBi.isPending}
+              onClick={() => {
+                if (window.confirm(`Đăng xuất ${user.email} trên MỌI thiết bị?`)) dangXuatMoiThietBi.mutate();
+              }}
+            >
+              Đăng xuất mọi thiết bị
+            </Btn>
+          </div>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <Btn variant="ghost" size="sm" onClick={onClose}>Huỷ</Btn>
           <Btn size="sm" onClick={handleSave} loading={save.isPending || saveKhuVuc.isPending} disabled={isSelf && !selfEditAck}>Lưu</Btn>

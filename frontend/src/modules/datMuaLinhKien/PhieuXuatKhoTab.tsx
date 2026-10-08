@@ -14,6 +14,7 @@ import { SectionTitle } from "../../components/ui/SectionTitle";
 import { IconChip } from "../../components/ui/IconChip";
 import { Timeline } from "../../components/ui/Timeline";
 import { api, buildQuery, ApiError } from "../../api/client";
+import { anhVuaGioiHan } from "../../lib/imageCompress";
 import { exportRowsToExcel } from "../../lib/exportExcel";
 import { fmtDateTime, fmtVND } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
@@ -1627,8 +1628,8 @@ export function PxkDetailModal({
   async function handleUploadAnhBienBan(file: File) {
     setUploadingAnh(true);
     try {
-      const bytes = await file.arrayBuffer();
-      await api.postBinary(`/phieu-xuat-kho/${id}/anh-bien-ban`, bytes, file.type || "image/jpeg");
+      const gui = await anhVuaGioiHan(file);
+      await api.postBinary(`/phieu-xuat-kho/${id}/anh-bien-ban`, await gui.arrayBuffer(), gui.type || "image/jpeg");
       qc.invalidateQueries({ queryKey: ["pxk-detail", id] });
       addToast(t("Đã tải ảnh biên bản"));
     } catch (err) {

@@ -1,6 +1,7 @@
 import { lenhGhiQuy, phanBoQuy, soDuQuy, thongBaoHoanQuyPhieuHuy } from "../lib/quyKtv";
 import { ktvChinhCuaEmailSql } from "../lib/ktvChinh";
 import { Hono } from "hono";
+import { laUrlAnhDrive } from "../lib/anhUpload";
 import type { Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
@@ -2001,8 +2002,8 @@ async function donHangListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string
 
 datMuaLinhKien.get("/don-hang", async (c) => {
   const pageParam = c.req.query("page");
-  const page = Math.max(1, Number(pageParam ?? 1));
-  const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const page = Math.max(1, (Math.trunc(Number(pageParam)) || 1));
+  const pageSize = Math.min(200, Math.max(1, (Math.trunc(Number(c.req.query("pageSize"))) || 20)));
   const offset = (page - 1) * pageSize;
   const { whereSql, binds } = await donHangListWhere(c);
   // Sap xep theo cot (2026-09-28): giu nhom theo KTV nhan hang (UI nhom theo cot nay) - sort TRONG tung nhom; rieng
@@ -2257,6 +2258,12 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
     }[];
   }>();
   if (!Array.isArray(body.don_hang) || body.don_hang.length === 0) return c.json({ error: "MISSING_DON_HANG" }, 400);
+  // Chan body khong lo (2026-10-08, danh gia bao mat) - form tao don thuc te vai chuc dong; nhieu hon dung Import Excel.
+  if (body.don_hang.length > 300) return c.json({ error: "QUA_NHIEU_DONG" }, 400);
+  // Anh tra hang: CHI nhan link Drive do chinh /tra-hang/upload-anh tra ve (lib/anhUpload.ts laUrlAnhDrive).
+  for (const dh of body.don_hang) {
+    if ((dh.anh ?? []).some((a) => !laUrlAnhDrive(a?.url))) return c.json({ error: "ANH_KHONG_HOP_LE", ma_lk: dh.ma_lk }, 400);
+  }
   // Combo linh kien (migration 0066): dong ma combo -> tung don LK thanh phan TRUOC moi kiem tra ben duoi. comboMaCuaDong
   // song song voi body.don_hang (khong nhan combo_ma tu client).
   const tachDon = await tachComboDong(
@@ -4575,8 +4582,8 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
   // Them phan trang server-side, cung pattern voi GET /don-hang.
   // KHONG truyen page -> tra HET (nut "Tải danh sách chi tiết", them 2026-09-13, mirror settingsKtv.ts).
   const pageParam = c.req.query("page");
-  const page = Math.max(1, Number(pageParam ?? 1));
-  const pageSize = Math.min(1000, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const page = Math.max(1, (Math.trunc(Number(pageParam)) || 1));
+  const pageSize = Math.min(1000, Math.max(1, (Math.trunc(Number(c.req.query("pageSize"))) || 20)));
   const offset = (page - 1) * pageSize;
 
   const { whereSql, binds } = await thieuLkListWhere(c);

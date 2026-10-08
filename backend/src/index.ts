@@ -22,6 +22,7 @@ import partnerKhoRoutes from "./routes/partnerKho";
 import { runDvbhSync } from "./lib/dvbhSyncClient";
 import { runGia88SyncWithState } from "./lib/gia88Sync";
 import { runEtxNhanSuSyncWithState } from "./lib/etxNhanSuSync";
+import { chanGhiTuSiteKhac, gioiHanTanSuat, headerBaoMatApi } from "./lib/baoVe";
 
 // He doc lap "Dat mua linh kien" - tach tu he DVBH goc (xem CLAUDE.md muc "Nguon goc tach he
 // thong"). CO 1 cron job DUY NHAT (them 2026-08-28, xem `scheduled` o duoi) - dong bo danh ba KTV/
@@ -38,6 +39,12 @@ app.use("*", async (c, next) => {
   c.set("requestId", crypto.randomUUID());
   await next();
 });
+
+// Lop bao ve chung cho moi API (2026-10-08) - header bao mat, gioi han tan suat, chan request ghi tu site khac. Xem
+// lib/baoVe.ts. Dat TRUOC moi router de chan som, truoc moi truy van D1.
+app.use("/api/*", headerBaoMatApi);
+app.use("/api/*", gioiHanTanSuat);
+app.use("/api/*", chanGhiTuSiteKhac);
 
 app.route("/api/auth", authRoutes);
 app.route("/api/users", usersRoutes);
@@ -84,6 +91,8 @@ export default {
     // theo gio de tranh chay 24 lan/ngay khong can thiet (doi tac chi khuyen nghi "moi ngay/moi ca").
     if (new Date(event.scheduledTime).getUTCHours() === 17) {
       ctx.waitUntil(runGia88SyncWithState(env, env.DB));
+      // Don so dem anh tai len cu (lib/anhUpload.ts) - chi can ngay hom nay, giu 30 ngay de tra cuu.
+      ctx.waitUntil(env.DB.prepare("DELETE FROM anh_upload_ngay WHERE ngay < date('now', '+7 hours', '-30 days')").run().then(() => undefined));
     }
     // Them 2026-09-17: PULL danh ba "ETX nhan su" 1 lan/7 ngay luc 0h thu Hai GIO VN = 17h UTC thu
     // Chu nhat (getUTCDay()===0) - tai dung DUNG cron hang gio co san, gate them theo thu de chi chay

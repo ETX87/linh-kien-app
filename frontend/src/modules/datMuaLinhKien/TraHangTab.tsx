@@ -15,7 +15,7 @@ import { api, buildQuery, ApiError } from "../../api/client";
 import { exportRowsToExcel } from "../../lib/exportExcel";
 import { fmtDate, fmtDateTime, fmtVND } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
-import { compressImage } from "../../lib/imageCompress";
+import { anhVuaGioiHan, compressImage } from "../../lib/imageCompress";
 import type { TraHangRow, LyDoChamRow } from "./types";
 import { TRA_HANG_TRANG_THAI_TONE, TRA_HANG_TRANG_THAI_OPTIONS, TRA_HANG_BULK_ERROR_MESSAGES } from "./constants";
 import {
@@ -113,7 +113,7 @@ function QcTuChoiModal({
     if (anh.length >= 3) return;
     setUploading(true);
     try {
-      const upload = nenAnh ? await compressImage(file) : file;
+      const upload = await anhVuaGioiHan(nenAnh ? await compressImage(file) : file);
       const bytes = await upload.arrayBuffer();
       const res = await api.postBinary<{ ok: true; url: string }>(`/tra-hang/${donHangId}/anh`, bytes, upload.type || "image/jpeg");
       setAnh((prev) => [...prev, { url: res.url }]);

@@ -4,10 +4,11 @@ import { Badge, type Tone } from "../../components/x/Badge";
 import { Select } from "../../components/x/Form";
 import { DropdownPortal } from "../../components/ui/DropdownPortal";
 import { api } from "../../api/client";
-import { compressImage } from "../../lib/imageCompress";
+import { anhVuaGioiHan, compressImage } from "../../lib/imageCompress";
 import { formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay";
 import { trangThaiLabel, describeApiError, useNenAnhTraHangEnabled, LOAI_DON_TONE, loaiDonLabel } from "./helpers";
 import { t } from "../../i18n";
+import { linkAnToan } from "../../lib/linhAnToan";
 
 // Cac component UI dung chung nhieu tab cua module "Dat mua linh kien" (tach tu
 // DatMuaLinhKienModule.tsx - UI redesign Phase 3, phan hoi Codex 2026-08-19).
@@ -32,7 +33,7 @@ export function ImageLightbox({ url, onClose }: { url: string; onClose: () => vo
       </button>
       <img src={url} alt={t("Ảnh phóng to")} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
       <a
-        href={url}
+        href={linkAnToan(url)}
         target="_blank"
         rel="noreferrer"
         onClick={(e) => e.stopPropagation()}
@@ -485,7 +486,7 @@ export function TraHangAnhPicker({
     if (photos.length >= max) return;
     setUploading(true);
     try {
-      const upload = nenAnh ? await compressImage(file) : file;
+      const upload = await anhVuaGioiHan(nenAnh ? await compressImage(file) : file);
       const bytes = await upload.arrayBuffer();
       const res = await api.postBinary<{ driveFileId: string; url: string }>("/tra-hang/upload-anh", bytes, upload.type || "image/jpeg");
       onChange([...photos, res]);

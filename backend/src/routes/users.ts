@@ -75,7 +75,7 @@ users.get("/", async (c) => {
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const page = Math.max(1, Number(pageParam) || 1);
-  const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 50)));
+  const pageSize = Math.min(200, Math.max(1, (Math.trunc(Number(c.req.query("pageSize"))) || 50)));
   const offset = (page - 1) * pageSize;
   const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM users ${where}`).bind(...binds).first<{ total: number }>();
   const { results } = await c.env.DB.prepare(`SELECT users.*, ${CO_KTV_LIEN_HE} as co_ktv_lien_he, (SELECT group_concat(khu_vuc_ma, ',') FROM user_khu_vuc WHERE user_email = users.email) as khu_vuc_gan FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
@@ -87,8 +87,8 @@ users.get("/", async (c) => {
 // GET /api/users/login-log?email=&page=&pageSize=
 users.get("/login-log", async (c) => {
   const email = c.req.query("email")?.trim();
-  const page = Math.max(1, Number(c.req.query("page") ?? 1));
-  const pageSize = Math.min(100, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const page = Math.max(1, (Math.trunc(Number(c.req.query("page"))) || 1));
+  const pageSize = Math.min(100, Math.max(1, (Math.trunc(Number(c.req.query("pageSize"))) || 20)));
   const whereSql = email ? " WHERE email = ?" : " WHERE thoi_gian >= datetime('now', '-90 days')";
   const binds = email ? [email] : [];
 
@@ -232,6 +232,17 @@ users.post("/:email/chuyen-nhom-vai-tro", async (c) => {
   }
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["users"]));
+  return c.json({ ok: true });
+});
+
+// POST /api/users/:email/dang-xuat-moi-thiet-bi (2026-10-08) - Admin thu hoi MOI phien dang nhap cua 1 tai khoan (mat
+// may, nghi lo tai khoan, nhan vien nghi viec). Tang users.phien_ban_phien -> loadUser tu choi token cu (PHIEN_DA_THU_HOI).
+users.post("/:email/dang-xuat-moi-thiet-bi", async (c) => {
+  const email = decodeURIComponent(c.req.param("email"));
+  const r = await c.env.DB.prepare("UPDATE users SET phien_ban_phien = phien_ban_phien + 1, updated_at = ? WHERE email = ?")
+    .bind(nowVN(), email)
+    .run();
+  if (!r.meta.changes) return c.json({ error: "NOT_FOUND" }, 404);
   return c.json({ ok: true });
 });
 

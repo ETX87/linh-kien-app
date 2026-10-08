@@ -1,3 +1,5 @@
+import { t } from "../i18n";
+
 // Nen anh phia trinh duyet truoc khi upload (phan hoi 2026-08-24: "thêm cơ chế nén ảnh mà không giảm
 // chất lượng ảnh") - dung Canvas API co san (khong can them thu vien nao, khac backend Workers KHONG
 // co bo giai ma/nen anh native). Gioi han canh dai nhat ~2000px (mat thuong khong phan biet duoc so
@@ -43,4 +45,14 @@ export async function compressImage(file: File): Promise<File> {
     // chan luong tao/xu ly don vi loi nen thuan tuy o buoc phu nay.
     return file;
   }
+}
+
+// Gioi han server (2026-10-08, backend lib/anhUpload.ts): moi anh <= 10MB. Anh lon hon -> tu nen (ke ca khi nguoi dung
+// tat "nen anh"), nen roi van qua -> bao loi ngay, khong gui len (tranh tai 20MB roi moi bi tu choi).
+export const ANH_TOI_DA_BYTE = 10 * 1024 * 1024;
+export async function anhVuaGioiHan(file: File): Promise<File> {
+  if (file.size <= ANH_TOI_DA_BYTE) return file;
+  const nen = await compressImage(file);
+  if (nen.size > ANH_TOI_DA_BYTE) throw new Error(t("Ảnh tối đa 10MB"));
+  return nen;
 }

@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { nhanAnhTaiLen, laUrlAnhDrive, laUrlHttp } from "../lib/anhUpload";
 import type { Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
@@ -11,7 +12,6 @@ import { bumpVersions } from "../lib/dataVersions";
 import { quaHanLyDoCham, mocTinhHanTn } from "../lib/hanLyDoCham";
 import { MIEN_XUAT_LABEL, MIEN_XUAT_SUA_DUOC, mienTuMaKhuVuc, mienTuKhuVucSql, mienXuatHieuLucSql, khuVucHieuLucSql, type MienXuat } from "../lib/mienXuat";
 import { autoClaimGs, scopePxkNguoiNhanHang, phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql } from "../lib/scopeDatMua";
-import { uploadPublicImage } from "../lib/googleDrive";
 import { sendPushToUser } from "../lib/webPush";
 import { buildMisaExportSheets, resolveMisaTemplateDeXuat, MISA_TEMPLATES, type MisaTemplate } from "../lib/misaExport";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, emailGsListForPxk, PXK_ROLES } from "../lib/taskNotify";
@@ -349,8 +349,8 @@ phieuXuatKho.get("/gia-tri-loc", async (c) => {
 
 phieuXuatKho.get("/", async (c) => {
   const pageParam = c.req.query("page");
-  const page = Math.max(1, Number(pageParam ?? 1));
-  const pageSize = Math.min(1000, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const page = Math.max(1, (Math.trunc(Number(pageParam)) || 1));
+  const pageSize = Math.min(1000, Math.max(1, (Math.trunc(Number(c.req.query("pageSize"))) || 20)));
   const offset = (page - 1) * pageSize;
   const { whereSql, binds } = await pxkListWhere(c);
   const sapXep = sqlSapXep(PXK_COT_LOC, c.req.query("cs"), c.req.query("cd"));
@@ -1199,23 +1199,9 @@ phieuXuatKho.post("/:id/anh-bien-ban", async (c) => {
   if (user.email !== pxk.nguoi_nhan_hang) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   if (pxk.trang_thai !== "Dang gui KTV") return c.json({ error: "INVALID_STATE" }, 409);
 
-  const contentType = c.req.header("Content-Type") || "image/jpeg";
-  if (!contentType.startsWith("image/")) return c.json({ error: "INVALID_CONTENT_TYPE" }, 400);
-  const bytes = await c.req.arrayBuffer();
-  if (bytes.byteLength === 0) return c.json({ error: "EMPTY_FILE" }, 400);
-
-  const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
-  const filename = `bien-ban-${id}-${Date.now()}.${ext}`;
-  let uploaded: { id: string; thumbnailUrl: string };
-  try {
-    uploaded = await uploadPublicImage(c.env, c.env.DB, bytes, contentType, filename);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.startsWith("GOOGLE_DRIVE_NOT_CONNECTED")) {
-      return c.json({ error: "GOOGLE_DRIVE_NOT_CONNECTED", message: "Chưa kết nối tài khoản Google Drive - vào Cài đặt để kết nối." }, 400);
-    }
-    return c.json({ error: "UPLOAD_FAILED", message }, 502);
-  }
+  // Dinh dang / <= 10MB / <= 20 anh/ngay/tai khoan + tai len Drive - xem lib/anhUpload.ts.
+  const uploaded = await nhanAnhTaiLen(c, (ext) => `bien-ban-${id}-${Date.now()}.${ext}`);
+  if (uploaded instanceof Response) return uploaded;
 
   // FIX (phan hoi QA 2026-08-31, muc #6): truoc day khong ghi log khi tai anh bien ban.
   await c.env.DB.batch([
@@ -1254,23 +1240,9 @@ phieuXuatKho.post("/:id/bang-chung-chuyen-tien", async (c) => {
   if (user.email !== pxk.nguoi_nhan_hang && user.vai_tro !== "Admin" && !canTacNghiep(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   if (pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen") return c.json({ error: "INVALID_STATE" }, 409);
 
-  const contentType = c.req.header("Content-Type") || "image/jpeg";
-  if (!contentType.startsWith("image/")) return c.json({ error: "INVALID_CONTENT_TYPE" }, 400);
-  const bytes = await c.req.arrayBuffer();
-  if (bytes.byteLength === 0) return c.json({ error: "EMPTY_FILE" }, 400);
-
-  const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
-  const filename = `bang-chung-chuyen-tien-${id}-${Date.now()}.${ext}`;
-  let uploaded: { id: string; thumbnailUrl: string };
-  try {
-    uploaded = await uploadPublicImage(c.env, c.env.DB, bytes, contentType, filename);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.startsWith("GOOGLE_DRIVE_NOT_CONNECTED")) {
-      return c.json({ error: "GOOGLE_DRIVE_NOT_CONNECTED", message: "Chưa kết nối tài khoản Google Drive - vào Cài đặt để kết nối." }, 400);
-    }
-    return c.json({ error: "UPLOAD_FAILED", message }, 502);
-  }
+  // Dinh dang / <= 10MB / <= 20 anh/ngay/tai khoan + tai len Drive - xem lib/anhUpload.ts.
+  const uploaded = await nhanAnhTaiLen(c, (ext) => `bang-chung-chuyen-tien-${id}-${Date.now()}.${ext}`);
+  if (uploaded instanceof Response) return uploaded;
   return c.json({ ok: true, url: uploaded.thumbnailUrl });
 });
 
@@ -1349,7 +1321,8 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
     const anh = [...new Set((Array.isArray(body.bang_chung_chuyen_tien_anh) ? body.bang_chung_chuyen_tien_anh : [body.bang_chung_chuyen_tien_url ?? ""])
       .map((u) => (typeof u === "string" ? u.trim() : "")).filter(Boolean))];
     if (anh.length > MAX_ANH_BANG_CHUNG) return c.json({ error: "QUA_SO_ANH_BANG_CHUNG" }, 400);
-    if (anh.some((u) => !/^https?:\/\//i.test(u))) return c.json({ error: "INVALID_URL" }, 400);
+    // CHI link Drive do chinh /:id/bang-chung-chuyen-tien tra ve - anh ngoai co the bi doi noi dung sau khi Ke toan duyet.
+    if (anh.some((u) => !laUrlAnhDrive(u))) return c.json({ error: "INVALID_URL" }, 400);
     if (anh.length === 0 && !body.bang_chung_chuyen_tien_ghi_chu?.trim()) {
       return c.json({ error: "MISSING_BANG_CHUNG" }, 400);
     }
@@ -1680,6 +1653,7 @@ phieuXuatKho.post("/:id/dong-goi", async (c) => {
   if (pxk.trang_thai !== "Da chot xong don xuat") return c.json({ error: "INVALID_STATE" }, 409);
 
   const body = await c.req.json<{ anh?: string[] }>().catch(() => ({}) as { anh?: string[] });
+  if (!Array.isArray(body.anh ?? []) || (body.anh ?? []).length > 20 || (body.anh ?? []).some((u) => !laUrlHttp(u))) return c.json({ error: "INVALID_URL" }, 400);
   const statements = (body.anh || []).map((url) =>
     c.env.DB.prepare("INSERT INTO phieu_xuat_kho_anh (phieu_xuat_kho_id, anh_url, nguoi_upload) VALUES (?, ?, ?)").bind(id, url, user.email),
   );

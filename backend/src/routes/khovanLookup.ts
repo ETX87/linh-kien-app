@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { Env } from "../types";
+import { khoaKhop } from "../lib/baoVe";
 
 // Khovan (he Quan ly hang ve kho) goi vao day khi Kho quet ma 1 PXK da duoc bao truoc
 // (xem lib/khovanPushClient.ts) - lay thong tin MOI NHAT (nguoi nhan hang, loai_don) de
@@ -10,7 +11,7 @@ const khovanLookup = new Hono<{ Bindings: Env }>();
 
 khovanLookup.use("*", async (c, next) => {
   const key = c.req.header("X-Khovan-Key");
-  if (!key || !c.env.KHOVAN_LOOKUP_API_KEY || key !== c.env.KHOVAN_LOOKUP_API_KEY) {
+  if (!(await khoaKhop(key, c.env.KHOVAN_LOOKUP_API_KEY))) {
     return c.json({ error: "INVALID_KEY" }, 401);
   }
   await next();

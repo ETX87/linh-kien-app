@@ -361,8 +361,8 @@ export interface ThongBaoKtvRow {
 notifications.get("/ktv-log", async (c) => {
   const user = c.get("user");
   const filter = c.req.query("filter") ?? "all";
-  const page = Math.max(1, Number(c.req.query("page") ?? 1));
-  const pageSize = Math.min(100, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const page = Math.max(1, (Math.trunc(Number(c.req.query("page"))) || 1));
+  const pageSize = Math.min(100, Math.max(1, (Math.trunc(Number(c.req.query("pageSize"))) || 20)));
   const offset = (page - 1) * pageSize;
   const daDocClause = filter === "unread" ? " AND da_doc = 0" : filter === "read" ? " AND da_doc = 1" : "";
 

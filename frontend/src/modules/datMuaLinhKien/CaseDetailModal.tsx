@@ -7,6 +7,7 @@ import { ImageThumb } from "./SharedUi";
 import type { CaseDetailData, CaseGiaiTrinh } from "./types";
 import { Money } from "../../components/ui/Money";
 import { t } from "../../i18n";
+import { linkAnToan } from "../../lib/linhAnToan";
 
 // Man "Xem chi tiet case" doc lap (phan hoi 2026-08-26) - mo tu icon canh o kiem tra ma yeu cau su co
 // luc tao don, hoac bam vao 1 ID case bat ky dang hien trong don hang (MaYcscCell/danh sach case cua
@@ -184,7 +185,7 @@ export function CaseDetailModal({ caseId, onClose }: { caseId: string; onClose: 
           </Section>
 
           {d.link_crm && (
-            <a href={d.link_crm} target="_blank" rel="noreferrer" className="block text-center text-[12px] font-semibold text-[var(--ocean-700)] hover:underline">
+            <a href={linkAnToan(d.link_crm)} target="_blank" rel="noreferrer" className="block text-center text-[12px] font-semibold text-[var(--ocean-700)] hover:underline">
               {t("Mở case trên CRM nội bộ ↗")}
             </a>
           )}

@@ -74,7 +74,7 @@ etxNhanSuSync.get("/", async (c) => {
   }
 
   const page = Math.max(1, Number(pageParam) || 1);
-  const pageSize = Math.min(200, Math.max(1, Number(c.req.query("pageSize") ?? 50)));
+  const pageSize = Math.min(200, Math.max(1, (Math.trunc(Number(c.req.query("pageSize"))) || 50)));
   const offset = (page - 1) * pageSize;
   const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total ${baseSql}`).bind(...binds).first<{ total: number }>();
   const { results } = await c.env.DB.prepare(`SELECT ${selectCols} ${baseSql} ORDER BY e.ho_ten LIMIT ? OFFSET ?`)

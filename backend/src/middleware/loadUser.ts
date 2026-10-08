@@ -34,10 +34,11 @@ interface UserRow {
   nhan_tb_nhiem_vu: number;
   nhan_tb_lien_quan: number;
   nhan_tb_theo_doi: number;
+  phien_ban_phien: number;
 }
 
 const USER_COLUMNS =
-  "email, ten, vai_tro, trang_thai_duyet, bi_khoa, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, la_tac_nghiep, la_tp_dvbh, la_view, la_mua_hang, quan_ly_danh_muc_lk, xem_danh_muc_lk, tram_cha, giam_sat_quan_ly, nhan_tb_nhiem_vu, nhan_tb_lien_quan, nhan_tb_theo_doi";
+  "email, ten, vai_tro, trang_thai_duyet, bi_khoa, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, la_tac_nghiep, la_tp_dvbh, la_view, la_mua_hang, quan_ly_danh_muc_lk, xem_danh_muc_lk, tram_cha, giam_sat_quan_ly, nhan_tb_nhiem_vu, nhan_tb_lien_quan, nhan_tb_theo_doi, phien_ban_phien";
 
 export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
   const email = c.get("email");
@@ -58,6 +59,10 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
 
   if (!row) return c.json({ error: "USER_LOAD_FAILED" }, 500);
 
+  // Phien da bi thu hoi ("Đăng xuất mọi thiết bị" - tu minh hoac Admin) - so voi tai khoan THAT, truoc moi che do xem thu.
+  if ((c.get("sessionPv") ?? 0) !== (row.phien_ban_phien ?? 0)) {
+    return c.json({ error: "PHIEN_DA_THU_HOI" }, 401);
+  }
   if (row.bi_khoa) {
     return c.json({ error: "DISABLED" }, 403);
   }

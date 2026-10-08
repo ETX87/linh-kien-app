@@ -19,6 +19,7 @@ export async function verifySessionMiddleware(c: Context<{ Bindings: Env }>, nex
   if (!payload) return c.json({ error: "INVALID_TOKEN" }, 401);
 
   c.set("email", payload.email);
+  c.set("sessionPv", payload.pv ?? 0);
 
   // Gia han phien (sliding window): Chỉ ký lại và cập nhật cookie khi thời gian hết hạn còn lại
   // dưới 50% tổng thời gian sống (tương đương 36 giờ), giúp giảm thiểu tải tính toán mã hóa CPU
@@ -26,7 +27,7 @@ export async function verifySessionMiddleware(c: Context<{ Bindings: Env }>, nex
   const now = Math.floor(Date.now() / 1000);
   const remaining = payload.exp - now;
   if (remaining < SESSION_TTL_SECONDS / 2) {
-    const freshToken = await signSession({ email: payload.email }, c.env.SESSION_SECRET, SESSION_TTL_SECONDS);
+    const freshToken = await signSession({ email: payload.email, pv: payload.pv ?? 0 }, c.env.SESSION_SECRET, SESSION_TTL_SECONDS);
     setCookie(c, SESSION_COOKIE, freshToken, {
       httpOnly: true,
       secure: true,

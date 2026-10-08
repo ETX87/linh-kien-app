@@ -114,11 +114,18 @@ export interface Env {
   // la khoa doi tac cap rieng cho he nay, PHAI dat qua "wrangler secret put" (xem wrangler.jsonc).
   ETX_HR_BASE_URL: string;
   ETX_HR_API_KEY: string;
+  // Gioi han tan suat (2026-10-08, lib/baoVe.ts) - binding Workers Rate Limiting (wrangler.jsonc "ratelimits"). Khong co
+  // binding (vd moi truong cu) -> bo qua, khong chan.
+  RL_NGUOI_DUNG?: RateLimit;
+  RL_KHACH?: RateLimit;
+  RL_DOI_TAC?: RateLimit;
 }
 
 declare module "hono" {
   interface ContextVariableMap {
     email: string;
+    // Phien ban phien trong JWT (2026-10-08, "Đăng xuất mọi thiết bị") - loadUser so voi users.phien_ban_phien.
+    sessionPv: number;
     user: AppUser;
     // Gan o middleware dau tien trong index.ts, dung cho onError (AUD-007) - moi request 1 id.
     requestId: string;

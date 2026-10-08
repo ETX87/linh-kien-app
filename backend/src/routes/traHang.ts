@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { nhanAnhTaiLen } from "../lib/anhUpload";
 import type { Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
@@ -9,7 +10,6 @@ import { mocGiaiDoanTraHangSql, quaHanGiaiDoanTraHang, tinhHanLyDoCham, TRA_HANG
 import { emailsTheoTen, orEmailIn, orMaYcsc, orPxkCuaDon } from "../lib/timTheoTen";
 import { bumpVersions } from "../lib/dataVersions";
 import { scopeDatMuaNguoiTao, khuVucSetWhereSql, phuTrachGsSet } from "../lib/scopeDatMua";
-import { uploadPublicImage } from "../lib/googleDrive";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
 import { nextSequentialId } from "../lib/idCounter";
 import { pushTraHangToKhovan, notifyTraHangQcRejected, notifyTraHangReceivedViaApp, buildWorkUrl } from "../lib/khovanPushClient";
@@ -111,8 +111,8 @@ traHang.get("/", async (c) => {
   // client-side (tren data.rows) sang server-side de khop dung tong so sau khi phan trang that su.
   // KHONG truyen page -> tra HET (nut "Tải danh sách chi tiết", them 2026-09-13, mirror settingsKtv.ts).
   const pageParam = c.req.query("page");
-  const page = Math.max(1, Number(pageParam ?? 1));
-  const pageSize = Math.min(1000, Math.max(1, Number(c.req.query("pageSize") ?? 20)));
+  const page = Math.max(1, (Math.trunc(Number(pageParam)) || 1));
+  const pageSize = Math.min(1000, Math.max(1, (Math.trunc(Number(c.req.query("pageSize"))) || 20)));
   const offset = (page - 1) * pageSize;
   let whereSql = "ddh.loai_don = 'tra_hang'" + (scope?.whereSql ?? "");
   const binds: unknown[] = [...(scope?.binds ?? [])];
@@ -241,23 +241,9 @@ traHang.get("/resolve-ma-thung/:maThung", async (c) => {
 // kem trong body tao don de backend gan chinh thuc vao dong vua sinh trong CUNG 1 batch. Khong rang
 // buoc role/trang thai o day (viec kiem tra so luong/quyen gan nam o noi NHAN cac gia tri nay).
 traHang.post("/upload-anh", async (c) => {
-  const contentType = c.req.header("Content-Type") || "image/jpeg";
-  if (!contentType.startsWith("image/")) return c.json({ error: "INVALID_CONTENT_TYPE" }, 400);
-  const bytes = await c.req.arrayBuffer();
-  if (bytes.byteLength === 0) return c.json({ error: "EMPTY_FILE" }, 400);
-
-  const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
-  const filename = `tra-hang-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
-  let uploaded: { id: string; thumbnailUrl: string };
-  try {
-    uploaded = await uploadPublicImage(c.env, c.env.DB, bytes, contentType, filename);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.startsWith("GOOGLE_DRIVE_NOT_CONNECTED")) {
-      return c.json({ error: "GOOGLE_DRIVE_NOT_CONNECTED", message: "Chưa kết nối tài khoản Google Drive - vào Cài đặt để kết nối." }, 400);
-    }
-    return c.json({ error: "UPLOAD_FAILED", message }, 502);
-  }
+  // Dinh dang / <= 10MB / <= 20 anh/ngay/tai khoan + tai len Drive - xem lib/anhUpload.ts.
+  const uploaded = await nhanAnhTaiLen(c, (ext) => `tra-hang-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`);
+  if (uploaded instanceof Response) return uploaded;
   return c.json({ driveFileId: uploaded.id, url: uploaded.thumbnailUrl });
 });
 
@@ -281,23 +267,9 @@ traHang.post("/:donHangId/anh", async (c) => {
     .first<{ n: number }>();
   if ((countRow?.n ?? 0) >= MAX_ANH_TRA_HANG) return c.json({ error: "QUA_NHIEU_ANH" }, 400);
 
-  const contentType = c.req.header("Content-Type") || "image/jpeg";
-  if (!contentType.startsWith("image/")) return c.json({ error: "INVALID_CONTENT_TYPE" }, 400);
-  const bytes = await c.req.arrayBuffer();
-  if (bytes.byteLength === 0) return c.json({ error: "EMPTY_FILE" }, 400);
-
-  const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
-  const filename = `tra-hang-qc-${donHangId}-${Date.now()}.${ext}`;
-  let uploaded: { id: string; thumbnailUrl: string };
-  try {
-    uploaded = await uploadPublicImage(c.env, c.env.DB, bytes, contentType, filename);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.startsWith("GOOGLE_DRIVE_NOT_CONNECTED")) {
-      return c.json({ error: "GOOGLE_DRIVE_NOT_CONNECTED", message: "Chưa kết nối tài khoản Google Drive - vào Cài đặt để kết nối." }, 400);
-    }
-    return c.json({ error: "UPLOAD_FAILED", message }, 502);
-  }
+  // Dinh dang / <= 10MB / <= 20 anh/ngay/tai khoan + tai len Drive - xem lib/anhUpload.ts.
+  const uploaded = await nhanAnhTaiLen(c, (ext) => `tra-hang-qc-${donHangId}-${Date.now()}.${ext}`);
+  if (uploaded instanceof Response) return uploaded;
 
   const user = c.get("user");
   // FIX (phan hoi QA 2026-08-31, muc #6/#14): truoc day khong ghi log khi QC tai anh bang chung -

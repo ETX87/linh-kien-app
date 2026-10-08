@@ -1,11 +1,11 @@
 import { Hono } from "hono";
+import { nhanAnhTaiLen, taiAnhTuUrl, laUrlAnhDrive, laUrlHttp } from "../lib/anhUpload";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { requireQuanLyDanhMucLk } from "../middleware/requireQuanLyDanhMucLk";
-import { uploadPublicImage } from "../lib/googleDrive";
 import { encryptSecret } from "../lib/secretBox";
 import { computeAndStoreHash, getOrComputeHash } from "../lib/contentHash";
 import { nowVN } from "../lib/vnTime";
@@ -70,6 +70,7 @@ settingsDatMua.post("/linh-kien", linhKienWriteRoles, async (c) => {
     // dac_thu=true, frontend tu an o nhap khi chua tick dac_thu.
     phan_loai_dac_thu?: string;
   }>();
+  if (body.anh_demo?.trim() && !laUrlHttp(body.anh_demo.trim())) return c.json({ error: "INVALID_URL" }, 400);
   if (!body.ma_linh_kien?.trim() || !body.ten_linh_kien?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
   // Phan loai BAT BUOC (chot 2026-09-30 - "Máy" quyet dinh kho xuat trong file MISA).
   if (!body.don_vi?.trim()) return c.json({ error: "THIEU_PHAN_LOAI" }, 400);
@@ -110,6 +111,7 @@ settingsDatMua.patch("/linh-kien/:ma", suaLinhKienRoles, async (c) => {
     bat_tat?: boolean; don_vi?: string; ghi_chu?: string;
     anh_demo?: string; dac_thu?: boolean; chi_sua_chua?: boolean; phan_loai_dac_thu?: string;
   }>();
+  if (body.anh_demo?.trim() && !laUrlHttp(body.anh_demo.trim())) return c.json({ error: "INVALID_URL" }, 400);
   const existing = await c.env.DB.prepare("SELECT * FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
 
@@ -316,23 +318,9 @@ settingsDatMua.post("/linh-kien/:ma/anh", suaLinhKienRoles, async (c) => {
   const existing = await c.env.DB.prepare("SELECT ma_linh_kien FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
 
-  const contentType = c.req.header("Content-Type") || "image/jpeg";
-  if (!contentType.startsWith("image/")) return c.json({ error: "INVALID_CONTENT_TYPE" }, 400);
-  const bytes = await c.req.arrayBuffer();
-  if (bytes.byteLength === 0) return c.json({ error: "EMPTY_FILE" }, 400);
-
-  const ext = contentType.split("/")[1]?.split(";")[0] || "jpg";
-  const filename = `linh-kien-${ma}-${Date.now()}.${ext}`;
-  let uploaded: { id: string; thumbnailUrl: string };
-  try {
-    uploaded = await uploadPublicImage(c.env, c.env.DB, bytes, contentType, filename);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.startsWith("GOOGLE_DRIVE_NOT_CONNECTED")) {
-      return c.json({ error: "GOOGLE_DRIVE_NOT_CONNECTED", message: "Chưa kết nối tài khoản Google Drive - vào Cài đặt để kết nối." }, 400);
-    }
-    return c.json({ error: "UPLOAD_FAILED", message }, 502);
-  }
+  // Dinh dang / <= 10MB / <= 20 anh/ngay/tai khoan + tai len Drive - xem lib/anhUpload.ts.
+  const uploaded = await nhanAnhTaiLen(c, (ext) => `linh-kien-${ma}-${Date.now()}.${ext}`);
+  if (uploaded instanceof Response) return uploaded;
 
   const user = c.get("user");
   await c.env.DB.prepare("UPDATE linh_kien SET anh_demo = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?")
@@ -382,19 +370,17 @@ settingsDatMua.post("/linh-kien/bulk-import-anh", linhKienWriteRoles, async (c) 
     try {
       // Gioi han 5s/anh (phan hoi audit AUD-003: 1 URL treo khong duoc phep keo dai ca Worker
       // request) - AbortSignal.timeout tu nem TimeoutError, roi dung vao nhanh catch da co san.
-      const imgRes = await fetch(sourceUrl, { signal: AbortSignal.timeout(5000) });
-      if (!imgRes.ok) throw new Error(`fetch ${imgRes.status}`);
-      const bytes = await imgRes.arrayBuffer();
-      const contentType = imgRes.headers.get("Content-Type") || "image/jpeg";
-      const uploaded = await uploadPublicImage(c.env, c.env.DB, bytes, contentType, `linh-kien-${ma}-${Date.now()}.jpg`);
+      // + dinh dang / <= 10MB / han muc anh ngay (lib/anhUpload.ts).
+      const uploaded = await taiAnhTuUrl(c, sourceUrl, (ext) => `linh-kien-${ma}-${Date.now()}.${ext}`);
       await c.env.DB.prepare("UPDATE linh_kien SET anh_demo = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?")
         .bind(uploaded.thumbnailUrl, user.email, now, ma)
         .run();
       success++;
       details.push({ ma_linh_kien: ma, status: "thanh_cong" });
-    } catch {
+    } catch (err) {
       fetchFailed++;
-      details.push({ ma_linh_kien: ma, status: "tai_anh_that_bai" });
+      const loi = err instanceof Error ? err.message : "";
+      details.push({ ma_linh_kien: ma, status: loi === "QUA_SO_ANH_NGAY" ? "qua_so_anh_ngay" : loi === "ANH_QUA_LON" ? "anh_qua_lon" : "tai_anh_that_bai" });
     }
   }
 
@@ -514,11 +500,7 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
     if (anhUrl) {
       try {
         // Cung ly do AUD-003 nhu bulk-import-anh o tren.
-        const imgRes = await fetch(anhUrl, { signal: AbortSignal.timeout(5000) });
-        if (!imgRes.ok) throw new Error(`fetch ${imgRes.status}`);
-        const bytes = await imgRes.arrayBuffer();
-        const contentType = imgRes.headers.get("Content-Type") || "image/jpeg";
-        const uploaded = await uploadPublicImage(c.env, c.env.DB, bytes, contentType, `linh-kien-${ma}-${Date.now()}.jpg`);
+        const uploaded = await taiAnhTuUrl(c, anhUrl, (ext) => `linh-kien-${ma}-${Date.now()}.${ext}`);
         anhDemo = uploaded.thumbnailUrl;
       } catch {
         anhLoi = true;
