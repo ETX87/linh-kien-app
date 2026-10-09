@@ -12,6 +12,12 @@ import type { Tone } from "../../components/x/Badge";
 // ma tho kem tien to giai thich (van giu ma de ho tro/debug doi chieu duoc).
 export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   FORBIDDEN_ROLE: "Bạn không có quyền thực hiện thao tác này",
+  // KH le theo tung khach (migration 0074, routes/khachLe.ts)
+  SDT_KHONG_HOP_LE: "SĐT khách hàng không hợp lệ (10–11 số, bắt đầu bằng 0)",
+  KHONG_PHAI_NHOM_KH_LE: "Người nhận hàng không phải tài khoản nhóm KH lẻ",
+  KHONG_PHAI_DON_KH_LE_CHUNG: "Đơn này không thuộc tài khoản KH lẻ chung — không cần gán KH",
+  DON_DA_DONG: "Đơn đã từ chối / hủy, không thao tác được",
+  DON_CON_TRONG_PHIEU: "Đơn đang nằm trong 1 phiếu xuất kho còn hiệu lực — bỏ đơn khỏi phiếu trước",
   // Combo linh kien (lkSettings.ts /combo)
   THIEU_MA_COMBO: "Chưa nhập mã combo",
   MA_COMBO_QUA_DAI: "Mã combo quá dài (tối đa 200 ký tự)",

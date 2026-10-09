@@ -8,6 +8,7 @@ import type { Tone } from "../../components/x/Badge";
 import type { LkDanhMucRow, LkComboRow, NguoiNhanHangKhaDungRow, DonHangDraft, DonHangRow, KtvDisplayMap, XepHangLinhKienRow } from "./types";
 import { YEU_CAU_HOA_DON_OPTIONS, GENERIC_ERROR_MESSAGES } from "./constants";
 import { t } from "../../i18n";
+import { usePersonDirectory } from "../../lib/personDisplay";
 
 // Ham/hook thuan (khong JSX) dung chung nhieu tab, tach tu DatMuaLinhKienModule.tsx (UI redesign
 // Phase 3, phan hoi Codex 2026-08-19).
@@ -31,7 +32,14 @@ export function useKtvDisplayMap(): KtvDisplayMap {
     queryKey: ["dat-mua-lk-nguoi-nhan-hang-kha-dung"],
     queryFn: () => api.get<{ rows: { ma_ktv: string; ten_hien_thi: string | null; email_dang_nhap: string }[] }>("/dat-mua-lk/nguoi-nhan-hang-kha-dung"),
   });
-  return new Map((data?.rows ?? []).map((r) => [r.email_dang_nhap, { ma_ktv: r.ma_ktv, ten_hien_thi: r.ten_hien_thi }]));
+  // KH le (migration 0074) khong nam trong danh ba KTV -> lay ten tu danh ba nguoi dung ("KH lẻ MN - <SĐT>") thay vi hien
+  // email noi bo <ma>@khle.local. Chi bo sung email KH le (khong doi cach hien nguoi khac).
+  const dir = usePersonDirectory();
+  return useMemo(() => {
+    const m: KtvDisplayMap = new Map((data?.rows ?? []).map((r) => [r.email_dang_nhap, { ma_ktv: r.ma_ktv, ten_hien_thi: r.ten_hien_thi }]));
+    for (const [email, ten] of dir.users) if (email.endsWith("@khle.local") && !m.has(email)) m.set(email, { ma_ktv: "", ten_hien_thi: ten });
+    return m;
+  }, [data, dir]);
 }
 
 // SUA BUG (phan hoi 2026-08-18): "luồng quy trình" (PipelineFlow) + 3 nut sub-tab so luong dung 2

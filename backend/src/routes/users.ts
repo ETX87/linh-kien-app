@@ -44,6 +44,8 @@ users.get("/", async (c) => {
   } else {
     conditions.push("trang_thai_duyet != 'Cho duyet'");
   }
+  // Tai khoan NOI BO cua KH le (migration 0074, <ma>@khle.local) - chi lam nguoi nhan hang, khong phai nguoi dung.
+  conditions.push("NOT EXISTS (SELECT 1 FROM khach_le kl WHERE kl.email = users.email)");
 
   if (search) {
     // + ten KHONG dau (2026-09-29, lib/timTheoTen.ts: users.ten/ten_misa + ten KTV trong danh ba).

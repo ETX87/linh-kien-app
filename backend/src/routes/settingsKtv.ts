@@ -691,6 +691,10 @@ settingsKtv.post("/:ma/doi-ma", adminOnly, async (c) => {
     db.prepare("UPDATE etx_nhan_su SET ma_ktv = ?, updated_at = ? WHERE ma_ktv = ?").bind(maDich, now, ma),
     db.prepare("UPDATE OR IGNORE cong_no_0d_ktv SET ma_ktv = ? WHERE ma_ktv = ?").bind(maDich, ma),
     db.prepare("DELETE FROM cong_no_0d_ktv WHERE ma_ktv = ?").bind(ma),
+    // Nhom KH le (migration 0074) - ma nhom doi theo.
+    db.prepare("UPDATE OR IGNORE khach_le_nhom SET ma_ktv = ? WHERE ma_ktv = ?").bind(maDich, ma),
+    db.prepare("DELETE FROM khach_le_nhom WHERE ma_ktv = ?").bind(ma),
+    db.prepare("UPDATE khach_le SET nhom_ma = ? WHERE nhom_ma = ?").bind(maDich, ma),
   ];
 
   if (!dich) {

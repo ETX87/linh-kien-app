@@ -21,6 +21,8 @@ import { BangChungAnhList, docAnhBangChung } from "./datMuaLinhKien/BangChungChu
 import { TienDocTuAnh, docDsAnh, docTienDocMap, useDocTienAnh } from "./datMuaLinhKien/DocTienAnh";
 import { XemAnhNhanh, maHdCua, type AnhXem } from "./datMuaLinhKien/XemAnhNhanh";
 import { t, dichSau } from "../i18n";
+import type { KhachLeRow } from "./datMuaLinhKien/types";
+import { useNhomKhLe } from "./datMuaLinhKien/KhachLeSdt";
 
 // "Quỹ & chuyển tiền" (2026-09-29, ban 2 quy du KTV - backend routes/quyKtv.ts, lib/quyKtv.ts, migration 0047):
 //  - Khoản chuyển tiền: moi lan Ke toan duyet (so can / thuc nhan, du vao quy / thieu) hoac tu choi, kem anh bang chung.
@@ -117,7 +119,7 @@ export function QuyChuyenTienModule() {
   const user = auth.status === "authenticated" ? auth.user : null;
   const xemTatCa = !!user && (user.vai_tro === "Admin" || !!user.la_ke_toan || !!user.la_tac_nghiep || !!user.la_mua_hang); // Mua hang: xem, khong dieu chinh
 
-  const [tab, setTab] = useState<"khoan" | "so-du" | "so-quy">("khoan");
+  const [tab, setTab] = useState<"khoan" | "so-du" | "so-quy" | "kh-le">("khoan");
   const [emailLoc, setEmailLoc] = useState("");
 
   const tongQuan = useQuery({
@@ -135,17 +137,20 @@ export function QuyChuyenTienModule() {
     [tqRows, dir],
   );
 
-  const [dieuChinh, setDieuChinh] = useState<TongQuanRow | null>(null);
+  const [dieuChinh, setDieuChinh] = useState<(TongQuanRow & { laKhLe?: boolean }) | null>(null);
   const lamMoi = () => {
     void qc.invalidateQueries({ queryKey: ["quy-ktv-tong-quan"] });
     void qc.invalidateQueries({ queryKey: ["quy-ktv-khoan"] });
     void qc.invalidateQueries({ queryKey: ["quy-ktv-giao-dich"] });
+    void qc.invalidateQueries({ queryKey: ["khach-le"] });
   };
 
   const tabs = [
     { key: "khoan", label: t("Khoản chuyển tiền") },
     ...(xemTatCa ? [{ key: "so-du", label: t("Số dư quỹ"), count: tqRows.filter((r) => r.so_du > 0).length }] : []),
     { key: "so-quy", label: t("Sổ quỹ") },
+    // KH le theo tung khach (migration 0074) - quy/tien dang giu/don cho hang cua tung KH.
+    ...(xemTatCa ? [{ key: "kh-le", label: t("KH lẻ") }] : []),
   ];
 
   return (
@@ -189,6 +194,15 @@ export function QuyChuyenTienModule() {
           coTheDieuChinh={coTheDieuChinh}
           onXemSoQuy={(email) => { setEmailLoc(email); setTab("so-quy"); }}
           onDieuChinh={setDieuChinh}
+        />
+      )}
+      {tab === "kh-le" && xemTatCa && (
+        <KhachLeTab
+          coTheDieuChinh={coTheDieuChinh}
+          onXemSoQuy={(email) => { setEmailLoc(email); setTab("so-quy"); }}
+          onDieuChinh={(k) =>
+            setDieuChinh({ email: k.email, so_du: k.quy_du, cap_nhat_luc: null, tong_thuc_nhan: 0, so_khoan_duyet: 0, so_lan_tu_choi: 0, lan_cuoi: null, con_phai_chuyen: 0, so_phieu_cho: 0, laKhLe: true })
+          }
         />
       )}
       {tab === "so-quy" && <SoQuyTab xemTatCa={xemTatCa} nguoiOptions={nguoiOptions} emailLoc={emailLoc} setEmailLoc={setEmailLoc} ten={ten} />}
@@ -691,7 +705,7 @@ function SoQuyTab({ xemTatCa, nguoiOptions, emailLoc, setEmailLoc, ten }: {
 }
 
 function DieuChinhModal({ row, ten, onClose, onDone }: {
-  row: TongQuanRow;
+  row: TongQuanRow & { laKhLe?: boolean };
   ten: (e: string | null | undefined) => string;
   onClose: () => void;
   onDone: (soDu: number) => void;
@@ -721,7 +735,7 @@ function DieuChinhModal({ row, ten, onClose, onDone }: {
         <div>{t("Quỹ hiện tại:")} <b><Money>{fmtVND(row.so_du)}</Money></b></div>
         <div className="flex flex-col gap-1.5">
           {([
-            ["hoan_tien_ktv", t("Hoàn tiền cho KTV (Kế toán đã trả lại tiền dư) — trừ quỹ")],
+            ["hoan_tien_ktv", row.laKhLe ? t("Hoàn tiền cho KH (Kế toán đã trả lại tiền cho khách) — trừ quỹ") : t("Hoàn tiền cho KTV (Kế toán đã trả lại tiền dư) — trừ quỹ")],
             ["cong", t("Điều chỉnh cộng quỹ (vd nhập thiếu số thực nhận)")],
             ["tru", t("Điều chỉnh trừ quỹ (vd nhập thừa số thực nhận)")],
           ] as const).map(([v, label]) => (
@@ -750,5 +764,83 @@ function DieuChinhModal({ row, ten, onClose, onDone }: {
         </div>
       </div>
     </Modal>
+  );
+}
+
+// Tab "KH lẻ" (chot 2026-10-09, migration 0074): moi KH le = 1 nguoi nhan rieng nen quy du / phieu xuat / chuyen tien / hoan tien
+// theo dung KH nhu 1 KTV. Mac dinh chi hien KH con theo doi (don mo, quy du > 0, tien dang giu tren don); "Hiện tất cả" de xem
+// het. Bo sung tien / hoan tien = "Điều chỉnh" (POST /quy-ktv/dieu-chinh, Ke toan/Admin). Tien KH chuyen cho 1 phieu thi KTV/TN
+// van tai bang chung o phieu xuat cua KH nhu thuong.
+function KhachLeTab({ coTheDieuChinh, onXemSoQuy, onDieuChinh }: {
+  coTheDieuChinh: boolean;
+  onXemSoQuy: (email: string) => void;
+  onDieuChinh: (k: KhachLeRow) => void;
+}) {
+  const [q, setQ] = useState("");
+  const [nhom, setNhom] = useState("");
+  const [tatCa, setTatCa] = useState(false);
+  const [page, setPage] = useState(1);
+  const { data: nhomData } = useNhomKhLe();
+  const params = new URLSearchParams();
+  if (q.trim()) params.set("q", q.trim());
+  if (nhom) params.set("nhom", nhom);
+  if (tatCa) params.set("tat_ca", "1");
+  params.set("page", String(page));
+  params.set("pageSize", "20");
+  const qs = params.toString();
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["khach-le", qs],
+    queryFn: () => api.get<{ rows: KhachLeRow[]; total: number }>(`/khach-le?${qs}`),
+  });
+  const columns: Column<KhachLeRow>[] = [
+    { key: "ma", header: t("Mã KH"), render: (k) => <span className="font-mono font-semibold">{k.ma}</span>, mobile: "title" },
+    { key: "sdt", header: t("SĐT"), render: (k) => (k.sdt ? <span className="font-mono">{k.sdt}</span> : <span className="text-[var(--color-text-faint)]">{t("(không có)")}</span>) },
+    { key: "nhom", header: t("Nhóm"), render: (k) => k.nhom_ma },
+    { key: "quy", header: t("Quỹ dư"), className: "text-right", render: (k) => <b className={k.quy_du > 0 ? "text-[var(--color-success-strong)]" : "text-[var(--color-text-faint)]"}><Money>{fmtVND(k.quy_du)}</Money></b>, mobile: "badge" },
+    { key: "giu", header: t("Tiền đã trả trên đơn"), className: "text-right", render: (k) => (k.tien_giu_tren_don > 0 ? <Money>{fmtVND(k.tien_giu_tren_don)}</Money> : "—") },
+    { key: "mo", header: t("Đơn đang mở"), className: "text-right", render: (k) => `${k.so_don_mo}/${k.so_don}` },
+    { key: "cho", header: t("Chờ hàng"), className: "text-right", render: (k) => (k.so_don_cho_hang > 0 ? <Badge tone="amber">{k.so_don_cho_hang}</Badge> : "—") },
+    { key: "ngay", header: t("Ngày tạo"), render: (k) => fmtDateTime(k.ngay_tao), mobile: "meta" },
+    {
+      key: "tt", header: "", mobileHint: "actions",
+      render: (k) => (
+        <div className="flex gap-1.5">
+          <Btn size="sm" variant="ghost" onClick={() => onXemSoQuy(k.email)}>{t("Sổ quỹ")}</Btn>
+          {coTheDieuChinh && <Btn size="sm" variant="subtle" onClick={() => onDieuChinh(k)}>{t("Điều chỉnh")}</Btn>}
+        </div>
+      ),
+    },
+  ];
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder={t("Tìm theo SĐT / mã KH")} className="focus-ring w-56 rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-base sm:text-sm" />
+        <Select
+          value={nhom}
+          onChange={(v) => { setNhom(v); setPage(1); }}
+          options={[{ value: "", label: t("Tất cả nhóm") }, ...(nhomData?.rows ?? []).map((r) => ({ value: r.ma_ktv, label: r.ma_ktv }))]}
+          className="w-full sm:w-44"
+        />
+        <label className="flex items-center gap-1.5 text-sm text-[var(--color-text-body)]">
+          <input type="checkbox" checked={tatCa} onChange={(e) => { setTatCa(e.target.checked); setPage(1); }} /> {t("Hiện tất cả (cả KH đã xong)")}
+        </label>
+      </div>
+      <div className="text-xs text-[var(--color-text-secondary)]">
+        {t("Mỗi KH lẻ được theo dõi riêng như 1 KTV: tiền KH chuyển cho phiếu, quỹ dư, đơn chờ hàng. Tìm đơn của KH: gõ SĐT / mã KH vào ô tìm ở Đơn hàng.")}
+      </div>
+      <PaginatedTable
+        columns={columns}
+        rows={data?.rows ?? []}
+        isLoading={isLoading}
+        isError={isError}
+        onRetry={() => void refetch()}
+        page={page}
+        pageSize={20}
+        total={data?.total ?? 0}
+        onPageChange={setPage}
+        rowKey={(k) => k.ma}
+        emptyText={tatCa ? t("Chưa có KH lẻ nào") : t("Không có KH lẻ nào đang cần theo dõi")}
+      />
+    </div>
   );
 }

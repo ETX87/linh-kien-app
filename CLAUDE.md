@@ -715,6 +715,24 @@ bình thường — `SL_HO_TRO_0D_SQL()` ở `lib/congNoKtv.ts` dùng CHUNG cho 
 Công nợ KTV (`ktvTonKho.ts GET /`, cột `sl_ho_tro_0d` "SL hỗ trợ 0 đồng") + chi tiết từng mã. Tính lúc đọc, không lưu → bật/tắt/sửa
 là công nợ thực tế đổi ngay. Không ảnh hưởng "phát sinh"/"đã trừ". `chuyenMaLk()` chuyển luôn `cong_no_0d_lk`.
 
+**KH lẻ theo từng khách** (chốt 2026-10-09, v1.314, migration `0074`, `lib/khachLe.ts` + `routes/khachLe.ts` tại `/api/khach-le`):
+trước đây mọi KH lẻ dùng chung tài khoản KH_LE_MB/KH_LE_MN nên tiền KH chuyển không gắn được KH nào. Giờ MỖI KH = 1 NGƯỜI NHẬN RIÊNG:
+users NỘI BỘ `<ma>@khle.local` (Da duyet, `khu_vuc_dat_hang` = khu vực nhóm, `ma_misa` = của nhóm, `ten` "KH lẻ MN - <SĐT|mã>" — KHÔNG
+ghi `ten_misa`) + dòng `khach_le` (ma, nhom_ma, sdt). Nhóm = `khach_le_nhom` (mã KTV tài khoản chung). KH lẻ KHÔNG nằm trong
+`ktv_lien_he` (danh bạ đồng bộ DVBH/khovan/vipham, công nợ, ETX) — bị loại khỏi danh sách Users/xem thử. Đặt đơn cho người nhận là
+tài khoản nhóm → ô "SĐT khách hàng lẻ" (`KhachLeSdt.tsx`, `useTaoDonForm` `kh_le_sdt`; SĐT chuẩn hoá `chuanHoaSdt`, 84→0, sai →
+`SDT_KHONG_HOP_LE`; trống → mã tự động `KL<MB|MN>-A000001`, có SĐT → `KL<MB|MN>-<SĐT>`, 1 SĐT = 1 KH trong nhóm) → POST `/phieu-dat`
+ghi `nguoi_nhan_hang` = email KH (tạo hồ sơ SAU mọi kiểm tra). Nhờ vậy quỹ dư, PXK, chuyển tiền, tiền theo đơn khi "Chờ hàng", hoàn
+quỹ khi hủy, Điều chỉnh/Hoàn tiền (`/quy-ktv/dieu-chinh`) chạy Y HỆT KTV. Giá: KH lẻ (cả KH lẫn tài khoản nhóm, `laNguoiNhanKhLe`) =
+GIÁ NIÊM YẾT, nhãn `KHONG_CK`, không Đình tủ/bậc thang (`tinhToanPxk`; giá chốt vẫn thắng) — 6 đơn cũ đã trả theo giá chiết khấu được
+migration ghi `gia_chot` = tiền đã trả ÷ SL (chốt người dùng: giữ giá KH đã trả). File MISA: mã/tên MISA lấy của nhóm (`misaExport.ts`
+JOIN `khach_le`). Đơn CŨ của tài khoản nhóm: TN/Admin "Gán KH lẻ" ở chi tiết đơn (`POST /khach-le/gan-don`, `GanKhachLe`) — chỉ đơn chưa
+từ chối/hủy và KHÔNG trong PXK còn hiệu lực (`DON_CON_TRONG_PHIEU` — bỏ khỏi phiếu trước, chọn "Đơn đã thanh toán" để giữ tiền); tiền đã
+trả đi THEO ĐƠN: trigger `trg_ddh_hoan_tien_da_tra` có ngoại lệ khi cùng UPDATE đặt `tien_da_tra_email` = người nhận mới. Import Excel
+đơn cho tài khoản nhóm vẫn ghi cho nhóm (dùng Gán). Tab "KH lẻ" ở Quỹ & chuyển tiền (`KhachLeTab`, `GET /khach-le`: quỹ dư, tiền trên
+đơn, đơn mở/chờ hàng; mặc định ẩn KH đã xong). Tên KH hiện qua `useKtvDisplayMap` (bổ sung email `@khle.local` từ danh bạ người dùng);
+tìm đơn theo SĐT/mã KH qua `users.ten`. Đổi mã KTV nhóm (`/doi-ma`) chuyển theo `khach_le_nhom`/`khach_le.nhom_ma`.
+
 **LK "Cấm bán" chỉ cấm với MUA HÀNG + MUA HÀNG CÓ ID + MUA DỰ TRỮ** (chốt 2026-10-08, v1.309, thêm MUA DỰ TRỮ v1.310; trước đó ẩn khỏi ô chọn cho MỌI loại):
 `useLkAndLdeCache` không lọc `cam_ban` nữa; `LinhKienPicker` tự ẩn khi loại đề xuất là 3 loại này (`camBanChoLoai()` ở `helpers.ts`),
 loại khác hiện nhãn "Cấm bán"; đã chọn rồi đổi sang loại cấm → cảnh báo + dòng không hợp lệ (tạo đơn) / không Lưu được (sửa đơn,

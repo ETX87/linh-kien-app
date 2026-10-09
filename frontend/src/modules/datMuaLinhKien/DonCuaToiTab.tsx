@@ -51,6 +51,7 @@ import { LinhKienPicker, LinhKienDetailModal } from "./LinhKienPicker";
 import { ThieuLkDetailModal } from "./ThieuLkTab";
 import { Money } from "../../components/ui/Money";
 import { TongNgayKtvInfo } from "./TongNgayKtv";
+import { GanKhachLe } from "./KhachLeSdt";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../components/ui/LocCot";
 import { TienPhieuVaQuy, BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung } from "./BangChungChuyenTien";
@@ -913,7 +914,22 @@ export function DonHangDetailModal({
             <KvRow label={t("Người tạo")}><NguoiTao>{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</NguoiTao></KvRow>
             {/* Luon hien (phan hoi 2026-08-25, hang muc #9) - truoc chi hien khi khac nguoi tao, gay
                 cam giac "thieu thong tin nguoi nhan hang" khi 2 gia tri trung nhau. */}
-            <KvRow label={t("Người nhận hàng")}>{d.nguoi_nhan_hang ? <NguoiNhan>{formatNguoiDisplay(d.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan> : "—"}</KvRow>
+            <KvRow label={t("Người nhận hàng")}>
+              <span className="inline-flex flex-wrap items-center gap-2">
+                {d.nguoi_nhan_hang ? <NguoiNhan>{formatNguoiDisplay(d.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan> : "—"}
+                {/* Don cu cua tai khoan nhom KH le -> TN gan cho dung KH (migration 0074). */}
+                {canTacNghiep && (
+                  <GanKhachLe
+                    don={d}
+                    trongPhieu={!!pxk && pxk.trang_thai !== "Ke toan huy"}
+                    onDone={() => {
+                      invalidate();
+                      addToast(t("Đã gán đơn {id} cho KH lẻ", { id: d.id }));
+                    }}
+                  />
+                )}
+              </span>
+            </KvRow>
             <KvRow label={t("Ngày tạo")}>{fmtDateTime(d.ngay_tao)}</KvRow>
             {/* Loai chiet khau (2026-09-26) - he thong gan khi don vao PXK; TN chon lai ngay tai day
                 (ca tren mobile, noi khong co cot bang). Don tra hang khong co chiet khau. */}

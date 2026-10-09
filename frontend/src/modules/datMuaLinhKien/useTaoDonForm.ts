@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
-import type { DonHangDraft, NguoiNhanHangKhaDungRow } from "./types";
+import type { DonHangDraft, KhachLeRow, NguoiNhanHangKhaDungRow } from "./types";
 import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, useLkCombo, comboThanhLkRow, chinhSachMacDinh, lkCamBanVoiLoai } from "./helpers";
 import { t } from "../../i18n";
 
@@ -23,7 +23,13 @@ export function useTaoDonForm({
   const { data: comboData } = useLkCombo();
   const danhMuc = useMemo(() => [...danhMucLk, ...comboThanhLkRow(comboData?.rows, danhMucLk)], [danhMucLk, comboData]);
 
-  const [nguoiNhanHang, setNguoiNhanHang] = useState("");
+  const [nguoiNhanHang, setNguoiNhanHangState] = useState("");
+  // SDT KH le (migration 0074) - chi dung khi nguoi nhan la tai khoan nhom KH le; doi nguoi nhan -> xoa.
+  const [khLeSdt, setKhLeSdt] = useState("");
+  const setNguoiNhanHang = (v: string) => {
+    setNguoiNhanHangState(v);
+    setKhLeSdt("");
+  };
   const [drafts, setDrafts] = useState<DonHangDraft[]>([emptyDraft()]);
   const [infoExpandedIdx, setInfoExpandedIdx] = useState<Set<number>>(new Set());
   const [activeIdx, setActiveIdx] = useState(0);
@@ -81,6 +87,22 @@ export function useTaoDonForm({
   });
   const chuaCoMaMisa = !!kiemTraMaMisa?.chua_co_ma_misa;
 
+  // Nguoi nhan la tai khoan nhom KH le -> nhap SDT KH (khong bat buoc - bo trong he thong cap ma KH tu dong). Tra cuu
+  // KH da co theo SDT (debounce nhe theo so chu so) de TN biet dang dat tiep cho KH cu (quy du, don dang cho).
+  const laNhomKhLe = !!nguoiNhanHangData?.rows.find((r) => r.email_dang_nhap === nguoiNhanHang)?.la_nhom_kh_le;
+  const khLeSdtSo = khLeSdt.replace(/\D/g, "");
+  const { data: khLeTraCuu, isFetching: khLeDangTraCuu } = useQuery({
+    queryKey: ["khach-le-tra-cuu", nguoiNhanHang, khLeSdtSo],
+    queryFn: () =>
+      api.get<{ sdt: string | null; sai: boolean; kh: KhachLeRow | null }>(
+        `/khach-le/tra-cuu?nhom=${encodeURIComponent(nguoiNhanHang)}&sdt=${encodeURIComponent(khLeSdtSo)}`,
+      ),
+    enabled: laNhomKhLe && khLeSdtSo.length >= 10,
+    staleTime: 30_000,
+  });
+  // SDT sai dinh dang: co nhap nhung chua du 10 so, hoac server bao sai (vd khong bat dau bang 0).
+  const khLeSdtSai = laNhomKhLe && khLeSdtSo.length > 0 && (khLeSdtSo.length < 10 || !!khLeTraCuu?.sai);
+
   // Canh bao SONG "mốc dự phòng còn khả dụng" ngay luc soan don MUA DỰ TRỮ (them 2026-09-13, phan hoi
   // "Nếu ktv chọn 'MUA DỰ TRỮ' hệ thống sẽ tự hiện cảnh báo số tiền chốt dữ trữ còn khả dụng, giống
   // như hiện tại đang cảnh báo đơn công nợ") - mirror DUNG cap query congNoDuKien o tren, chi doi
@@ -95,7 +117,7 @@ export function useTaoDonForm({
   // ngau nhien cho MOI noi dung form - bam lai cung noi dung (sau loi mang/timeout ma server thuc ra
   // da luu) gui LAI dung ma cu -> backend tra ve phieu da tao thay vi tao them (migration 0034). Doi
   // noi dung (sua dong/them dong/doi nguoi nhan) hoac tao xong (reset form) -> ma moi.
-  const noiDungKey = JSON.stringify({ nguoiNhanHang, drafts });
+  const noiDungKey = JSON.stringify({ nguoiNhanHang, khLeSdt: laNhomKhLe ? khLeSdtSo : "", drafts });
   const clientRequestId = useMemo(
     () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`),
     [noiDungKey],
@@ -106,9 +128,10 @@ export function useTaoDonForm({
 
   const createMutation = useMutation({
     mutationFn: () =>
-      api.post<{ id: string; trung_lap?: boolean }>("/dat-mua-lk/phieu-dat", {
+      api.post<{ id: string; trung_lap?: boolean; kh_le?: { ma: string; sdt: string | null; moi: boolean } | null }>("/dat-mua-lk/phieu-dat", {
         client_request_id: clientRequestId,
         nguoi_nhan_hang: nguoiNhanHang || undefined,
+        kh_le_sdt: laNhomKhLe && khLeSdtSo ? khLeSdtSo : undefined,
         don_hang: drafts.map((d) => ({
           ma_lk: d.ma_lk,
           loai_de_xuat: d.loai_de_xuat.trim(),
@@ -125,7 +148,12 @@ export function useTaoDonForm({
         })),
       }),
     onSuccess: (res) => {
-      addToast(res.trung_lap ? t("Đơn đặt hàng {id} đã được tạo từ lần bấm trước — không tạo thêm", { id: res.id }) : t("Đã tạo đơn đặt hàng {id}", { id: res.id }));
+      addToast(
+        (res.trung_lap ? t("Đơn đặt hàng {id} đã được tạo từ lần bấm trước — không tạo thêm", { id: res.id }) : t("Đã tạo đơn đặt hàng {id}", { id: res.id })) +
+          (res.kh_le ? " · " + (res.kh_le.moi ? t("KH lẻ mới {ma}", { ma: res.kh_le.ma }) : t("KH lẻ {ma}", { ma: res.kh_le.ma })) : ""),
+      );
+      qc.invalidateQueries({ queryKey: ["khach-le"] });
+      qc.invalidateQueries({ queryKey: ["nguoi-directory"] });
       setNguoiNhanHang("");
       setDrafts([emptyDraft()]);
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
@@ -179,7 +207,7 @@ export function useTaoDonForm({
     );
   }
 
-  const canSubmit = !chuaCoMaMisa && drafts.every(isLineComplete);
+  const canSubmit = !chuaCoMaMisa && !khLeSdtSai && drafts.every(isLineComplete);
   const [showImport, setShowImport] = useState(false);
 
   function themDong() {
@@ -244,6 +272,7 @@ export function useTaoDonForm({
     updateDraft, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
     tongGiaUocTinh, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
     duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
+    laNhomKhLe, khLeSdt, setKhLeSdt, khLeSdtSai, khLeTraCuu, khLeDangTraCuu,
   };
 }
 

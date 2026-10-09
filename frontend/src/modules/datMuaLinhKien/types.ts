@@ -335,6 +335,23 @@ export interface NguoiNhanHangKhaDungRow {
   ten_gs?: string | null;
   // 1 = tai khoan dang TAT (users.bi_khoa) - van tra ve de tra ten don cu, o chon nguoi nhan hang khi tao don tu loc bo
   bi_khoa?: number;
+  // 1 = tai khoan nhom KH le (KH_LE_MB/KH_LE_MN, migration 0074) - tao don hien o nhap SDT KH
+  la_nhom_kh_le?: number;
+}
+// KH le (bang khach_le, GET /khach-le/tra-cuu + GET /khach-le)
+export interface KhachLeRow {
+  ma: string;
+  sdt: string | null;
+  nhom_ma: string;
+  email: string;
+  ngay_tao: string;
+  nguoi_tao: string | null;
+  ten: string | null;
+  quy_du: number;
+  tien_giu_tren_don: number;
+  so_don: number;
+  so_don_cho_hang: number;
+  so_don_mo: number;
 }
 export interface LuongQuyTrinhStep {
   key: string;

@@ -15,6 +15,7 @@ import type { TaoDonForm } from "./useTaoDonForm";
 import { Money } from "../../components/ui/Money";
 import { TongNgayKtvInfo } from "./TongNgayKtv";
 import { t } from "../../i18n";
+import { KhachLeSdt } from "./KhachLeSdt";
 
 // Man hinh "Tao don" rieng cho mobile (them 2026-08-21, phan hoi "giao diện tạo đơn mua hàng cho KTV
 // đang gặp vấn đề trên giao diện mobile. màn hình bị đưa đưa và chỉ ếm diện tích nhỏ so với toàn màn
@@ -132,6 +133,7 @@ export function TaoDonMobileScreen({
               ...(nguoiNhanHangData?.rows ?? []).map((r) => ({ value: r.email_dang_nhap, label: ktvOptionLabel(r, nguoiNhanHangData?.rows ?? []) })),
             ]}
           />
+          <KhachLeSdt form={form} compact />
         </div>
       )}
 

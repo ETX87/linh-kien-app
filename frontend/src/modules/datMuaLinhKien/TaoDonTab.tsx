@@ -18,6 +18,7 @@ import { DuDoanDuyetHint } from "./DuDoanDuyetHint";
 import { TraHangAnhPicker } from "./SharedUi";
 import { useTaoDonForm } from "./useTaoDonForm";
 import { TaoDonMobileScreen } from "./TaoDonMobileScreen";
+import { KhachLeSdt } from "./KhachLeSdt";
 
 // SUA (phan hoi 2026-08-21: "giao diện tạo đơn mua hàng cho KTV đang gặp vấn đề trên giao diện
 // mobile... xây dựng thêm 1 màn hình tạo linh kiện ưu tiên tiện lợi cho giao diện mobile") - ham nay
@@ -157,6 +158,7 @@ export function TaoDonTab({
             </Btn>
           </div>
           <div className="text-[11px] text-[var(--ink-500)] mt-1.5">{t("Tạo hộ cho KTV/Trạm khác — bỏ trống nếu bạn tự nhận hàng.")}</div>
+          <KhachLeSdt form={form} />
           {showImport && (
             <div className="mt-3 pt-3 border-t border-[var(--line)]">
               <ImportUploader<DatDonHangImportSummary>

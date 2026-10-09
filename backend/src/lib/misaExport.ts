@@ -325,9 +325,10 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
          -- mã misa nhưng khi tải file về lại không điền"). Khu vuc (chon kho theo mien): KTV, khong co thi khu vuc cua
          -- PHIEU (migration 0042 - GS nhan hang -> khu vuc dau tien GS phu trach).
          ktv.ma_ktv as ktv_ma_ktv, ${tenNguoiNullSql("pxk.nguoi_nhan_hang")} as ktv_ten,
-         COALESCE(NULLIF(TRIM(ktv.ma_misa), ''), NULLIF(TRIM(u.ma_misa), '')) as ktv_ma_misa,
-         COALESCE(NULLIF(TRIM(ktv.ten_misa), ''), NULLIF(TRIM(u.ten_misa), '')) as ktv_ten_misa,
-         COALESCE(pxk.khu_vuc_chon, ktv.khu_vuc_ma, pxk.khu_vuc_ma) as ktv_khu_vuc_ma, -- Kho chon lai khu vuc (0071) thang
+         -- KH le (migration 0074): khong co trong danh ba KTV -> ma/ten MISA + khu vuc lay tu TAI KHOAN NHOM (KH_LE_MB/MN).
+         COALESCE(NULLIF(TRIM(ktv.ma_misa), ''), NULLIF(TRIM(u.ma_misa), ''), NULLIF(TRIM(kln.ma_misa), '')) as ktv_ma_misa,
+         COALESCE(NULLIF(TRIM(ktv.ten_misa), ''), NULLIF(TRIM(u.ten_misa), ''), NULLIF(TRIM(kln.ten_misa), '')) as ktv_ten_misa,
+         COALESCE(pxk.khu_vuc_chon, ktv.khu_vuc_ma, kln.khu_vuc_ma, pxk.khu_vuc_ma) as ktv_khu_vuc_ma, -- Kho chon lai khu vuc (0071) thang
          pxk.mien_xuat as pxk_mien_xuat, -- TN/Ke toan chuyen kho xuat MB/MN (migration 0070) - thang mien theo khu vuc
          pxk.nguoi_nhan_hang
        FROM phieu_xuat_kho pxk
@@ -336,6 +337,8 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
        LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
        LEFT JOIN ktv_lien_he ktv ON ktv.ma_ktv = ${ktvChinhCuaEmailSql("pxk.nguoi_nhan_hang")}
        LEFT JOIN users u ON u.email = pxk.nguoi_nhan_hang
+       LEFT JOIN khach_le kl ON kl.email = pxk.nguoi_nhan_hang
+       LEFT JOIN ktv_lien_he kln ON kln.ma_ktv = kl.nhom_ma
        WHERE pxk.id IN (${placeholders})
        ORDER BY pxk.ngay_tao, pxk.id, ddh.id`,
     )

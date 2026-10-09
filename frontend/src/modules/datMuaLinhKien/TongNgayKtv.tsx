@@ -42,7 +42,7 @@ export function useTongNgayKtv(email: string | null | undefined, ngays: string[]
   return useQuery({
     queryKey: [TONG_NGAY_KTV_KEY, email ?? "", key],
     queryFn: () =>
-      api.get<{ nguoi_nhan_hang: string | null; rows: TongNgayKtvRow[]; quy_du?: number }>(
+      api.get<{ nguoi_nhan_hang: string | null; rows: TongNgayKtvRow[]; quy_du?: number; kh_le?: boolean }>(
         `/dat-mua-lk/tong-ngay-ktv?nguoi_nhan_hang=${encodeURIComponent(email ?? "")}${key ? `&ngay=${key}` : ""}`,
       ),
     enabled: !!email,
@@ -61,7 +61,8 @@ function MucChip({ tong }: { tong: number }) {
  * 1 dong tong ngay. `themGiaTri` = gia tri cac dong dang soan (man tao don) - cong vao tong de xem truoc muc
  * chiet khau sau khi tao; "Ước tính chuyển" van la cua cac don DA tao (don dang soan chua tinh duoc chinh xac).
  */
-export function TongNgayKtvLine({ row, themGiaTri = 0, hienNgay = true }: { row: TongNgayKtvRow; themGiaTri?: number; hienNgay?: boolean }) {
+// khLe: nguoi nhan la KH le (migration 0074) - tinh gia niem yet, khong co bac thang -> an muc/goi y chiet khau.
+export function TongNgayKtvLine({ row, themGiaTri = 0, hienNgay = true, khLe = false }: { row: TongNgayKtvRow; themGiaTri?: number; hienNgay?: boolean; khLe?: boolean }) {
   const tongSau = row.tong_gia_tri + themGiaTri;
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--color-text-secondary)]">
@@ -78,8 +79,14 @@ export function TongNgayKtvLine({ row, themGiaTri = 0, hienNgay = true }: { row:
           · {t("Sau đơn này:")} <Money className="font-semibold text-[var(--color-text)]">{fmtVND(tongSau)}</Money>
         </span>
       )}
-      <MucChip tong={tongSau} />
-      <span className="whitespace-nowrap text-[var(--color-text-faint)]">{goiYMucTiep(tongSau)}</span>
+      {khLe ? (
+        <span className="whitespace-nowrap text-[var(--color-text-faint)]">· {t("KH lẻ: giá niêm yết, không chiết khấu")}</span>
+      ) : (
+        <>
+          <MucChip tong={tongSau} />
+          <span className="whitespace-nowrap text-[var(--color-text-faint)]">{goiYMucTiep(tongSau)}</span>
+        </>
+      )}
     </div>
   );
 }
@@ -96,7 +103,7 @@ export function TongNgayKtvInfo({ email, ngays = [], themGiaTri = 0, anQuy = fal
   return (
     <div className="space-y-1">
       {rows.map((r) => (
-        <TongNgayKtvLine key={r.ngay} row={r} themGiaTri={themGiaTri} hienNgay={ngays.length > 0} />
+        <TongNgayKtvLine key={r.ngay} row={r} themGiaTri={themGiaTri} hienNgay={ngays.length > 0} khLe={!!data?.kh_le} />
       ))}
       {quyDu != null && (
         <div className="text-xs text-[var(--color-text-secondary)]">

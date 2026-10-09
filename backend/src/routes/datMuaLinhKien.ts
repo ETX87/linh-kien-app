@@ -1,6 +1,7 @@
 import { lenhGhiQuy, phanBoQuy, soDuQuy, thongBaoHoanQuyPhieuHuy } from "../lib/quyKtv";
 import { ktvChinhCuaEmailSql } from "../lib/ktvChinh";
 import { Hono } from "hono";
+import { chuanHoaSdt, laNguoiNhanKhLe, nhomKhLeTheoEmail, timHoacTaoKhachLe } from "../lib/khachLe";
 import { laUrlAnhDrive } from "../lib/anhUpload";
 import type { Context } from "hono";
 import type { Env } from "../types";
@@ -335,13 +336,15 @@ datMuaLinhKien.get("/nguoi-nhan-hang-kha-dung", async (c) => {
   }
   const { results } = await c.env.DB.prepare(
     `SELECT dsk.ma_ktv, ${tenNguoiDaySql("dsk.email_dang_nhap")} AS ten_hien_thi, dsk.email_dang_nhap, ${tenNguoiNullSql("gs.email")} AS ten_gs,
-            MAX(COALESCE(u.bi_khoa, 0), dsk.ngung_hoat_dong) AS bi_khoa -- tat theo MA (0060) hoac ca Gmail
+            MAX(COALESCE(u.bi_khoa, 0), dsk.ngung_hoat_dong) AS bi_khoa, -- tat theo MA (0060) hoac ca Gmail
+            EXISTS(SELECT 1 FROM khach_le_nhom kn WHERE kn.ma_ktv = dsk.ma_ktv) AS la_nhom_kh_le -- chon nhom -> nhap SDT KH le (0074)
      FROM ktv_lien_he dsk
      JOIN users u ON u.email = dsk.email_dang_nhap
      LEFT JOIN users gs ON gs.email = u.giam_sat_quan_ly
      WHERE ${ktvWhereSql}
      UNION ALL
-     SELECT '' as ma_ktv, ${tenNguoiDaySql("u2.email")} as ten_hien_thi, u2.email as email_dang_nhap, NULL as ten_gs, COALESCE(u2.bi_khoa, 0) AS bi_khoa
+     SELECT '' as ma_ktv, ${tenNguoiDaySql("u2.email")} as ten_hien_thi, u2.email as email_dang_nhap, NULL as ten_gs, COALESCE(u2.bi_khoa, 0) AS bi_khoa,
+            0 AS la_nhom_kh_le
      FROM users u2
      WHERE ${gsWhereSql}
      ORDER BY ten_hien_thi`,
@@ -502,7 +505,8 @@ datMuaLinhKien.get("/tong-ngay-ktv", async (c) => {
     .slice(0, 31);
   const rows = await tongNgayKtv(c.env.DB, resolved.email, [...new Set(ngays)]);
   // Quy du (migration 0047) - tien chuyen du tinh cho NGUOI NHAN HANG (Ve tinh -> Tram).
-  return c.json({ nguoi_nhan_hang: resolved.email, rows, quy_du: await soDuQuy(c.env.DB, resolved.email) });
+  // kh_le: KH le / nhom KH le tinh gia niem yet (0074) - FE khong hien bac thang chiet khau.
+  return c.json({ nguoi_nhan_hang: resolved.email, rows, quy_du: await soDuQuy(c.env.DB, resolved.email), kh_le: await laNguoiNhanKhLe(c.env.DB, resolved.email) });
 });
 
 // GET /api/dat-mua-lk/khu-vuc-cua-toi (them 2026-08-27, phan hoi "GS test không thấy đơn của KTV khu
@@ -2238,6 +2242,8 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   const body = await c.req.json<{
     ghi_chu?: string;
     nguoi_nhan_hang?: string;
+    // SDT KH le (migration 0074) - CHI khi nguoi nhan la tai khoan nhom KH le; bo trong = cap ma KH tu dong.
+    kh_le_sdt?: string;
     // Ma chong tao trung (migration 0034) - xem nhanh kiem tra ngay duoi.
     client_request_id?: string;
     don_hang: {
@@ -2300,8 +2306,14 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   }
   const resolved = await resolveNguoiNhanHang(c.env.DB, targetUser);
   if ("error" in resolved) return c.json({ error: resolved.error }, 400);
-  const nguoiNhanHang = resolved.email;
+  let nguoiNhanHang = resolved.email;
   if (await nguoiNhanChuaCoMaMisa(c.env.DB, nguoiNhanHang)) return c.json({ error: "KTV_CHUA_CO_MA_MISA" }, 409);
+  // Nguoi nhan la tai khoan NHOM KH le (migration 0074) -> don ghi cho 1 KH le rieng (tim theo SDT / ma tu dong), tao ho so KH
+  // SAU khi kiem tra xong moi dong (tranh ho so rong khi don bi tu choi vi du lieu sai). Truoc do moi kiem tra ben duoi van
+  // dung tai khoan nhom (khu vuc tinh ton kho cong ty, GS).
+  const nhomKhLe = await nhomKhLeTheoEmail(c.env.DB, nguoiNhanHang);
+  const sdtKhLe = nhomKhLe ? chuanHoaSdt(body.kh_le_sdt) : null;
+  if (sdtKhLe === "sai") return c.json({ error: "SDT_KHONG_HOP_LE" }, 400);
   const recipientRow =await c.env.DB.prepare("SELECT giam_sat_quan_ly FROM users WHERE email = ?")
     .bind(nguoiNhanHang)
     .first<{ giam_sat_quan_ly: string | null }>();
@@ -2387,6 +2399,9 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
     // lib/congNoKtv.ts danhGiaCongNo3Muc.
     danhGiaCongNoPhieu = congNoChotHienTai + tongMoiCongNo <= (ktvRow.cong_no ?? 0) ? "Du" : "Khong du";
   }
+
+  const khLe = nhomKhLe ? await timHoacTaoKhachLe(c.env.DB, nhomKhLe, sdtKhLe, user.email) : null;
+  if (khLe) nguoiNhanHang = khLe.email;
 
   const now = nowVN();
   const phieuDatId = await nextSequentialId(c.env.DB, "phieu_dat", phieuDatPrefix(c), 6);
@@ -2603,7 +2618,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
       );
     }
   }
-  return c.json({ id: phieuDatId }, 201);
+  return c.json({ id: phieuDatId, kh_le: khLe ? { ma: khLe.ma, sdt: khLe.sdt, moi: khLe.moi } : null }, 201);
 });
 
 // Import Excel tao hang loat don mua linh kien (tieu chi UX #4, them 2026-08-15) - CHOT voi chu he

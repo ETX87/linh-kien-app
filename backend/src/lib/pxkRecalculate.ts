@@ -1,4 +1,5 @@
 import { computeMocDuPhongHienTai } from "./duPhongKtv";
+import { laNguoiNhanKhLe } from "./khachLe";
 import { nowVN } from "./vnTime";
 import { canBangPxk, KE_TOAN_DA_CHOT_TIEN_SQL } from "./quyKtv";
 
@@ -123,6 +124,15 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
   const laDuTru = (row: CalculationRow) => (row.loai_de_xuat ?? "").trim().toUpperCase() === "MUA DỰ TRỮ";
 
   for (const [email, rows] of nhomTheoKtv) {
+    // KH le (migration 0074, chot 2026-10-09): KH le + tai khoan nhom KH le tinh GIA NIEM YET, khong chiet khau nao (khong
+    // Dinh tu/bac thang/gia KTV/du phong). Gia chot TN nhap tay van thang.
+    if (await laNguoiNhanKhLe(db, email)) {
+      for (const row of rows) {
+        total += setTien(row, (row.gia_chot ?? giaBan(row)) * soLuongTinhTien(row));
+        maTheoDong.set(row.id, maTheoLoaiDon(row, "KHONG_CK"));
+      }
+      continue;
+    }
     // CHOT 2026-09-28 ("Tổng tiền tính chiết khấu ... dựa vào tổng tiền đặt hàng MUA HÀNG + TRỪ CÔNG NỢ
     // trong ngày của KTV"): moc 200k/500k cua TUNG dong = tong gia ban x SL thuc xuat (chua co thi de xuat)
     // cua MOI don nhom Mua + TRỪ CÔNG NỢ ma KTV nay nhan, tao CUNG NGAY (gio VN, ngay_tao) voi dong do, KHONG

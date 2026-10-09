@@ -296,6 +296,7 @@ auth.get("/view-as-user/options", verifySessionMiddleware, loadUser, async (c) =
             tk.la_tp_dvbh, tk.la_view, tk.la_mua_hang
      FROM users tk
      WHERE tk.trang_thai_duyet = 'Da duyet' AND COALESCE(tk.bi_khoa, 0) = 0 AND tk.email != ?
+       AND NOT EXISTS (SELECT 1 FROM khach_le kl WHERE kl.email = tk.email) -- KH le (0074) khong phai nguoi dung
      ORDER BY ${ten} LIMIT 2000`,
   )
     .bind(c.get("realEmail"))
