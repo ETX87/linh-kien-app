@@ -31,8 +31,7 @@ export interface LinhKienRow {
   thiet_bi: string | null; // thong tin phu
   don_vi_tinh: string | null; // thong tin phu, khac "don_vi"
   ghi_chu_doi_tac: string | null; // thong tin phu, khac "ghi_chu" (van tu nhap tay binh thuong)
-  // "Cấm bán" - van tim/xem duoc, chi bi loai khoi picker chon linh kien khi tao don (xem
-  // modules/datMuaLinhKien/helpers.ts) - KHONG chan o backend, nhat quan voi cach "bat_tat" hien co.
+  // "Cấm bán" - van tim/xem/chon/dat duoc voi moi loai de xuat (chot 2026-10-10), o chon LK chi hien canh bao khi chon.
   cam_ban: number;
   // Xet duyet ma chuan (2026-09-30, migration 0053 - backend lib/linhKienXetDuyet.ts). "Da doi ma" = dong chuyen huong
   // (an), ma_chuan = ma moi. co_tren_gia88 = 0 -> Mua hang nhap duoc gia tam.

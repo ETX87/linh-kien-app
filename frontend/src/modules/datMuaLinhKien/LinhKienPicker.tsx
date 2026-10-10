@@ -10,7 +10,7 @@ import { api } from "../../api/client";
 import { fmtVND } from "../../types";
 import { usePublicSheetCache } from "../../lib/publicSheetCache";
 import type { LkDanhMucRow } from "./types";
-import { describeApiError, useLinhKienRankMap, formatLkLabel, boQuaTbpDacThu, camBanChoLoai, lkCamBanVoiLoai } from "./helpers";
+import { describeApiError, useLinhKienRankMap, formatLkLabel, boQuaTbpDacThu } from "./helpers";
 import { Money } from "../../components/ui/Money";
 import { timLk, sapTheoDiem, type ToDamSpec } from "../../lib/timLinhKien";
 import { useBoTimLk, useLichSuLk, diemHayDat } from "../../lib/useTimLinhKien";
@@ -249,8 +249,8 @@ export function LinhKienPicker({
   // tren may) > hang dat 30 ngay toan he thong. O trong: "Chọn gần đây" -> "Hay đặt" -> con lai. Khong goi server khi go.
   const q = query.trim();
   const lichSu = useLichSuLk();
-  // LK cam ban an khoi danh sach khi loai de xuat la MUA HÀNG / MUA HÀNG CÓ ID / MUA DỰ TRỮ (2026-10-08); loai khac van chon duoc.
-  const dsChon = useMemo(() => (camBanChoLoai(loaiDeXuat) ? options.filter((o) => !o.cam_ban) : options), [options, loaiDeXuat]);
+  // LK cam ban VAN hien de chon voi moi loai de xuat (chot 2026-10-10) - chon xong hien canh bao ben duoi, khong chan.
+  const dsChon = options;
   const rowsTim = useMemo(() => dsChon.map((o) => ({ ma: o.ma_linh_kien, ten: o.ten_linh_kien })), [dsChon]);
   const boTim = useBoTimLk(rowsTim);
   const kqTim = useMemo(() => timLk(boTim, q), [boTim, q]);
@@ -435,9 +435,9 @@ export function LinhKienPicker({
         co gia tri (bo trong thi khong hien dong nay); dong canh bao TBP LUON hien khi dac_thu, khong
         phu thuoc phan_loai_dac_thu co dien hay khong. */}
     {selected?.combo && <ComboThanhPhanNote combo={selected.combo} />}
-    {lkCamBanVoiLoai(selected, loaiDeXuat) && (
+    {!!selected?.cam_ban && (
       <div role="alert" className="mt-1.5 rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-xs font-semibold text-[var(--coral-700)]">
-        {t("⚠ Linh kiện cấm bán — không đặt được với loại MUA HÀNG / MUA HÀNG CÓ ID / MUA DỰ TRỮ, chọn loại đề xuất khác hoặc linh kiện khác.")}
+        {t("⚠ Linh kiện thuộc dạng không bán, hãy chắc chắn mình đặt đúng linh kiện")}
       </div>
     )}
     {selected?.dac_thu ? (

@@ -255,14 +255,6 @@ export function laTruCongNo(loaiDeXuat: string | null | undefined): boolean {
 
 // Chinh sach mac dinh (chot 2026-10-08): don "TRỪ CÔNG NỢ" tu dien "Trong CSBH" (van sua duoc). Ban sao backend: chinhSachMacDinh()
 // trong routes/datMuaLinhKien.ts (server cung dien khi bo trong - import Excel).
-// LK "Cấm bán" CHI cam voi "MUA HÀNG" + "MUA HÀNG CÓ ID" + "MUA DỰ TRỮ" (chot 2026-10-08). Ban sao backend: camBanChoLoai() routes/datMuaLinhKien.ts.
-export function camBanChoLoai(loaiDeXuat: string | null | undefined): boolean {
-  const k = (loaiDeXuat ?? "").trim().toUpperCase();
-  return k === "MUA HÀNG" || k === "MUA HÀNG CÓ ID" || k === "MUA DỰ TRỮ";
-}
-export function lkCamBanVoiLoai(lk: { cam_ban?: number | null } | null | undefined, loaiDeXuat: string | null | undefined): boolean {
-  return !!lk?.cam_ban && camBanChoLoai(loaiDeXuat);
-}
 
 export function chinhSachMacDinh(loaiDeXuat: string | null | undefined): string {
   return laTruCongNo(loaiDeXuat) ? "Trong CSBH" : "";
@@ -350,8 +342,8 @@ export function useLkAndLdeCache(enabled: boolean) {
       // Ep 1 lan full-refetch neu cache cu thieu cot moi them (xem giai thich o linhKienCache.ts).
       await ensureCacheSchemaVersion();
       // LK cache - "chi_sua_chua" (Only sua chua) loai khoi picker tao don, xem migration 0083.
-      // "cam_ban" (tich hop gia88): KHONG loai o day nua (2026-10-08) - chi cam voi loai MUA HÀNG / MUA HÀNG CÓ ID / MUA DỰ TRỮ, LinhKienPicker
-      // tu an theo loai de xuat (camBanChoLoai), backend chan LK_CAM_BAN.
+      // "cam_ban" (tich hop gia88): KHONG loai o day (chot 2026-10-10) - LK cam ban van chon/dat duoc voi MOI loai de xuat,
+      // LinhKienPicker chi hien canh bao khi chon (khong an, khong chan - backend cung khong chan).
       const cached = await getAllFromCache();
       if (cached.length > 0) {
         setDanhMuc(cached.filter((r) => r.bat_tat && !r.chi_sua_chua) as unknown as LkDanhMucRow[]);

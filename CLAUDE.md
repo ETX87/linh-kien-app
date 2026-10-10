@@ -733,11 +733,10 @@ trả đi THEO ĐƠN: trigger `trg_ddh_hoan_tien_da_tra` có ngoại lệ khi c�
 đơn, đơn mở/chờ hàng; mặc định ẩn KH đã xong). Tên KH hiện qua `useKtvDisplayMap` (bổ sung email `@khle.local` từ danh bạ người dùng);
 tìm đơn theo SĐT/mã KH qua `users.ten`. Đổi mã KTV nhóm (`/doi-ma`) chuyển theo `khach_le_nhom`/`khach_le.nhom_ma`.
 
-**LK "Cấm bán" chỉ cấm với MUA HÀNG + MUA HÀNG CÓ ID + MUA DỰ TRỮ** (chốt 2026-10-08, v1.309, thêm MUA DỰ TRỮ v1.310; trước đó ẩn khỏi ô chọn cho MỌI loại):
-`useLkAndLdeCache` không lọc `cam_ban` nữa; `LinhKienPicker` tự ẩn khi loại đề xuất là 3 loại này (`camBanChoLoai()` ở `helpers.ts`),
-loại khác hiện nhãn "Cấm bán"; đã chọn rồi đổi sang loại cấm → cảnh báo + dòng không hợp lệ (tạo đơn) / không Lưu được (sửa đơn,
-chỉ khi đổi mã LK hoặc loại). Backend `camBanChoLoai()` (`datMuaLinhKien.ts`) chặn `LK_CAM_BAN` ở POST `/phieu-dat`, import Excel
-(lỗi dòng), PATCH đơn (chỉ khi đổi mã LK/loại). Combo có thành phần cấm bán = combo cấm bán.
+**LK "Cấm bán" chỉ CẢNH BÁO, không chặn** (chốt 2026-10-10, v1.315 — v1.309/1.310 từng ẩn + chặn với MUA HÀNG / MUA HÀNG CÓ ID / MUA DỰ
+TRỮ): LK `cam_ban` hiện + chọn + đặt được với MỌI loại đề xuất (tạo tay, import Excel, sửa đơn — backend không còn `LK_CAM_BAN`).
+`LinhKienPicker` hiện nhãn "Cấm bán" trong danh sách + chọn xong hiện cảnh báo "⚠ Linh kiện thuộc dạng không bán, hãy chắc chắn mình
+đặt đúng linh kiện" (cả form sửa đơn). Combo có thành phần cấm bán = combo cấm bán (cũng chỉ cảnh báo).
 
 **Bỏ bước TBP** cho LK đặc thù khi loại đề xuất chứa MUA / HỖ TRỢ / **TRỪ CÔNG NỢ** (`boQuaTbpChoDacThu()` backend,
 bản sao `boQuaTbpDacThu()` FE cho cảnh báo ở `LinhKienPicker`).

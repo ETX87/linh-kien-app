@@ -4,7 +4,7 @@ import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
 import type { DonHangDraft, KhachLeRow, NguoiNhanHangKhaDungRow } from "./types";
-import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, useLkCombo, comboThanhLkRow, chinhSachMacDinh, lkCamBanVoiLoai } from "./helpers";
+import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, useLkCombo, comboThanhLkRow, chinhSachMacDinh } from "./helpers";
 import { t } from "../../i18n";
 
 // Tach tu TaoDonTab.tsx (them 2026-08-21, phan hoi "màn hình tạo đơn mobile bị đưa đưa, chiếm diện
@@ -198,8 +198,6 @@ export function useTaoDonForm({
       d.ma_lk.trim() &&
       d.loai_de_xuat.trim() &&
       d.so_luong_de_xuat > 0 &&
-      // LK cam ban khong dat duoc voi MUA HÀNG / MUA HÀNG CÓ ID / MUA DỰ TRỮ (canh bao hien ngay duoi o chon LK).
-      !lkCamBanVoiLoai(danhMuc.find((m) => m.ma_linh_kien === d.ma_lk), d.loai_de_xuat) &&
       (!canNoRequired(d.loai_de_xuat) || d.chinh_sach.trim()) &&
       (!maYcscRequired(d.loai_de_xuat) || coMaIdLienQuan(d.ma_yeu_cau_su_co, d.ma_lada)) &&
       // CHOT (phan hoi 2026-08-24, muc 1): don tra hang bat buoc 1-3 anh linh kien can tra.

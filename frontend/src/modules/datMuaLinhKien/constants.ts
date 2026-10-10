@@ -98,7 +98,6 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   NGOAI_PHAM_VI_GS: "KTV này không thuộc quyền phụ trách của bạn",
   VE_TINH_CHUA_GAN_TRAM: "Vệ tinh này chưa được gán Trạm phụ trách",
   NGUOI_NHAN_HANG_DA_TAT: "Tài khoản người nhận hàng (hoặc Trạm nhận thay) đang bị tắt",
-  LK_CAM_BAN: "Linh kiện cấm bán — không đặt được với loại MUA HÀNG / MUA HÀNG CÓ ID / MUA DỰ TRỮ",
   KTV_CHUA_CO_MA_MISA: "Tài khoản này chưa cài đặt mã MISA nên không thể đặt hàng => vui lòng liên hệ giám sát khu vực",
   DON_HANG_KHONG_HOP_LE: "Một số dòng đơn hàng đã chọn không còn hợp lệ (đã bị đổi hoặc gán nơi khác)",
   MA_XUAT_KHO_DA_TON_TAI: "Mã đơn hàng này đã được dùng cho phiếu khác",

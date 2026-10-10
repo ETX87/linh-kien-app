@@ -1487,6 +1487,7 @@ const tuDien: Record<string, string> = {
   "⚠ Không tìm thấy Mã Lada này — kiểm tra lại mã đã nhập.": "⚠ Kode Lada ini tidak ditemukan — periksa kode yang diisi.",
   "⚠ Linh kiện cấm bán — không đặt được với loại MUA HÀNG / MUA HÀNG CÓ ID / MUA DỰ TRỮ, chọn loại đề xuất khác hoặc linh kiện khác.": "⚠ Suku cadang ini dilarang dijual — tidak dapat dipesan dengan jenis MUA HÀNG / MUA HÀNG CÓ ID / MUA DỰ TRỮ; pilih jenis usulan lain atau suku cadang lain.",
   "⚠ Linh kiện này tại khu vực {a} đang hết/thiếu hàng (kho còn {b}/{c}) — đơn sẽ cần Tác nghiệp phê duyệt.": "⚠ Suku cadang ini habis/kurang di area {a} (stok {b}/{c}) — pesanan perlu persetujuan Operasional.",
+  "⚠ Linh kiện thuộc dạng không bán, hãy chắc chắn mình đặt đúng linh kiện": "⚠ Suku cadang ini tergolong tidak dijual — pastikan Anda memesan suku cadang yang benar",
   "⚠ Linh kiện đặc thù — đơn sẽ cần chờ TP DVBH xác nhận trước khi Tác nghiệp duyệt.": "⚠ Suku cadang khusus — pesanan perlu konfirmasi kepala layanan sebelum disetujui Operasional.",
   "⚠ Lệch {a}{b} — OCR {c} / {d} {e}": "⚠ Selisih {a}{b} — OCR {c} / {d} {e}",
   "⚠ Mã này không do bạn/KTV này xử lý — kiểm tra lại": "⚠ Kode ini tidak ditangani oleh Anda/teknisi ini — periksa lagi",
