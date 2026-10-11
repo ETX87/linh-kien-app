@@ -13,7 +13,7 @@ import { verifySession } from "./jwt";
 //      nen SameSite=Lax cua cookie khong chan duoc - day la lop chan CSRF thu 2. API doi tac (goi tu server) bo qua.
 //   3) headerBaoMatApi - header bao mat cho moi phan hoi API (trang tinh dung frontend/public/_headers).
 
-const LA_API_DOI_TAC = (path: string) => path.startsWith("/api/partner") || path.startsWith("/api/khovan-partner");
+const LA_API_DOI_TAC = (path: string) => path.startsWith("/api/partner") || path.startsWith("/api/khovan-partner") || path.startsWith("/api/suachua-partner");
 
 async function sha256Ngan(text: string): Promise<string> {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));

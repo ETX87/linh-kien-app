@@ -274,6 +274,13 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   duyệt mã, từ khóa, người cập nhật). Thẻ mobile hiện "NY … · KTV …". Cấu hình cột lưu khóa riêng `danh-muc-lk-ktv`. Excel vẫn
   chặn với KTV như cũ. API `/settings/linh-kien` không đổi. Preset "xem thử" ktv/ve_tinh/tram bật `xem_danh_muc_lk` như tài
   khoản thật (`viewAsPresets.ts`).
+- **Nhận "Phân loại" đồng bộ ngược từ hệ Sửa chữa bảo hành** (2026-10-11, v1.317, `routes/suachuaPartner.ts`). Yêu cầu bên
+  `gui-bao-hanh-linh-kien`: *"phân loại cho phép đồng bộ ngược về danh sách linh kiện app"* + *"chỉ đồng bộ ngược về với thông
+  tin có thay đổi"*. `POST /api/suachua-partner/phan-loai {rows:[{ma_linh_kien, don_vi}]}` (≤500 dòng), xác thực `X-Sync-Key` =
+  CHÍNH secret đồng bộ đã dùng chung `SUACHUA_SYNC_API_KEY` (không tạo key mới), gọi qua Service Binding `LINHKIEN_SERVICE` bên
+  suachua. Chỉ UPDATE dòng có `don_vi` khác thật (điều kiện trong WHERE) + đặt `ngay_cap_nhat` mới → cron đồng bộ đẩy lại giá trị
+  mới cho cả dvbh/suachua (nhất quán). Trả `cap_nhat` (số dòng đổi thật) + `khong_thay`. Thêm `/api/suachua-partner` vào
+  `LA_API_DOI_TAC` (`lib/baoVe.ts`). Test local 2 Worker nối service binding: sai key → 401; dòng không đổi không bị ghi.
 - **Menu "Phiếu đã in"** (2026-09-29): nhóm Xuất kho — "Đã chốt xong đơn xuất" = sentinel `CHOT_CHUA_IN` (chốt + chưa in),
   "Phiếu đã in" = `DA_IN` (chốt + đã in) — `DA_IN_COND`/`CHOT_CHUA_IN_COND` ở `phieuXuatKho.ts` (danh sách, xuất MISA,
   `/status-counts`). Lọc thường "Da chot xong don xuat" GIỮ NGUYÊN (cả 2) cho pipeline "Kho"/thẻ "Kho chốt đơn xuất"/báo cáo

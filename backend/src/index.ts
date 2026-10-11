@@ -19,6 +19,7 @@ import gia88SyncRoutes from "./routes/gia88Sync";
 import etxNhanSuSyncRoutes from "./routes/etxNhanSuSync";
 import partnerApiRoutes from "./routes/partnerApi";
 import khovanLookupRoutes from "./routes/khovanLookup";
+import suachuaPartnerRoutes from "./routes/suachuaPartner";
 import partnerKhoRoutes from "./routes/partnerKho";
 import { runDvbhSync } from "./lib/dvbhSyncClient";
 import { runGia88SyncWithState } from "./lib/gia88Sync";
@@ -72,6 +73,7 @@ app.route("/api/partner", partnerApiRoutes);
 // "X-Khovan-Key" va key hop le). Dung tien to rieng de tranh dung do.
 app.route("/api/khovan-partner/box-lookup", khovanLookupRoutes);
 app.route("/api/khovan-partner/kho-action", partnerKhoRoutes);
+app.route("/api/suachua-partner", suachuaPartnerRoutes);
 
 app.onError((err, c) => {
   const requestId = c.get("requestId") ?? "unknown";
