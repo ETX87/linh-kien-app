@@ -347,8 +347,8 @@ function PartHeroImage({ url, alt, onZoom }: { url: string | null; alt: string; 
 // duoi: xem la thao tac tra cuu nhanh (bam vao dong/thumbnail trong bang), khong nen dung chung
 // giao dien voi form chinh sua de tranh nguoi dung tuong nham co the sua ngay tai day.
 function PartDetailDrawer({
-  part, onClose, onEdit, canEdit, chiGiaNiemYet, parts, canXetDuyet, onDoiMa,
-}: { part: LinhKienRow | null; onClose: () => void; onEdit: () => void; canEdit: boolean; chiGiaNiemYet: boolean; parts: LinhKienRow[]; canXetDuyet: boolean; onDoiMa: (ma: string) => void }) {
+  part, onClose, onEdit, canEdit, ktvXem, parts, canXetDuyet, onDoiMa,
+}: { part: LinhKienRow | null; onClose: () => void; onEdit: () => void; canEdit: boolean; ktvXem: boolean; parts: LinhKienRow[]; canXetDuyet: boolean; onDoiMa: (ma: string) => void }) {
   const personDir = usePersonDirectory();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   useEffect(() => setLightboxOpen(false), [part?.ma_linh_kien]);
@@ -369,17 +369,17 @@ function PartDetailDrawer({
     // hien rieng 1 dong "Mã linh kiện" o day de tra cuu/copy nhanh du ten co chua ma hay khong.
     { label: "Mã linh kiện", value: <span className="font-mono font-semibold text-[var(--ocean-700)]">{part.ma_linh_kien}</span> },
     { label: "Giá NY", value: <span className="font-mono font-semibold text-[var(--green-700)]"><Money>{fmtVND(part.gia_ban)}</Money></span> },
-    ...(chiGiaNiemYet ? [] : [
-      { label: "Giá KTV", value: <span className="font-mono font-semibold text-[var(--green-700)]"><Money>{fmtVND(part.gia_tri_cong_no)}</Money></span> },
+    { label: "Giá KTV", value: <span className="font-mono font-semibold text-[var(--green-700)]"><Money>{fmtVND(part.gia_tri_cong_no)}</Money></span> },
+    ...(ktvXem ? [] : [
       { label: "Giá dự phòng", value: <span className="font-mono text-[var(--ink-600)]"><Money>{fmtVND(part.gia_du_phong)}</Money></span> },
       { label: "Giá EU", value: <span className="font-mono text-[var(--ink-600)]"><Money>{fmtVND(part.gia_eu)}</Money></span> },
     ]),
-    { label: "Phân loại", value: part.don_vi?.trim() || "⚠ Chưa phân loại — cần bổ sung" },
+    ...(ktvXem && !part.don_vi?.trim() ? [] : [{ label: "Phân loại", value: part.don_vi?.trim() || "⚠ Chưa phân loại — cần bổ sung" }]),
     ...(part.nhan_hang?.trim() ? [{ label: "Nhãn hàng", value: part.nhan_hang.trim() }] : []),
     ...(part.thiet_bi?.trim() ? [{ label: "Thiết bị", value: part.thiet_bi.trim() }] : []),
     ...(part.don_vi_nhap?.trim() ? [{ label: "Đơn vị nhập", value: part.don_vi_nhap.trim() }] : []),
     ...(part.ghi_chu_doi_tac?.trim() ? [{ label: "Ghi chú đối tác", value: part.ghi_chu_doi_tac.trim() }] : []),
-    ...(part.dac_thu ? [{ label: "Phân loại đặc thù", value: part.phan_loai_dac_thu?.trim() || "—" }] : []),
+    ...(part.dac_thu && !ktvXem ? [{ label: "Phân loại đặc thù", value: part.phan_loai_dac_thu?.trim() || "—" }] : []),
   ];
 
   return (
@@ -402,6 +402,13 @@ function PartDetailDrawer({
         <div className="overflow-y-auto p-5 space-y-5 flex-1">
           <PartHeroImage url={part.anh_demo} alt={part.ten_linh_kien} onZoom={() => setLightboxOpen(true)} />
 
+          {ktvXem ? (
+            !!part.cam_ban && (
+              <div className="flex flex-wrap gap-1.5">
+                <Badge tone="coral">Cấm bán (đối tác)</Badge>
+              </div>
+            )
+          ) : (
           <div className="flex flex-wrap gap-1.5">
             {part.trang_thai_ma && part.trang_thai_ma !== "Da xac nhan" && <TrangThaiMaBadge tt={part.trang_thai_ma} />}
             {!!part.bat_tat === false && <Badge tone="gray">Đang ẩn</Badge>}
@@ -414,6 +421,7 @@ function PartDetailDrawer({
             {!!part.chi_sua_chua && <Badge tone="coral">Only sửa chữa</Badge>}
             {!part.dac_thu && !part.chi_sua_chua && !!part.bat_tat && <Badge tone="teal">Đang hiển thị bình thường</Badge>}
           </div>
+          )}
 
           <div>
             <SectionTitle>Thông tin</SectionTitle>
@@ -424,9 +432,9 @@ function PartDetailDrawer({
             ))}
           </div>
 
-          <XetDuyetMaSection part={part} parts={parts} canXetDuyet={canXetDuyet} onDoiMa={onDoiMa} />
+          {!ktvXem && <XetDuyetMaSection part={part} parts={parts} canXetDuyet={canXetDuyet} onDoiMa={onDoiMa} />}
 
-          <TuKhoaLkSection ma={part.ma_linh_kien} canSua={canEdit || canXetDuyet} />
+          {!ktvXem && <TuKhoaLkSection ma={part.ma_linh_kien} canSua={canEdit || canXetDuyet} />}
 
           <div>
             <SectionTitle>Ghi chú</SectionTitle>
@@ -435,9 +443,9 @@ function PartDetailDrawer({
             </div>
           </div>
 
-          <div className="text-xs text-[var(--ink-400)] pt-1">
+          {!ktvXem && <div className="text-xs text-[var(--ink-400)] pt-1">
             Cập nhật lần cuối bởi <span className="font-medium text-[var(--ink-500)]">{part.nguoi_cap_nhat ? formatPersonDisplay(part.nguoi_cap_nhat, personDir) : "—"}</span> lúc {fmtDateTime(part.ngay_cap_nhat)}
-          </div>
+          </div>}
         </div>
 
         <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-[var(--line)] shrink-0">
@@ -476,9 +484,11 @@ export function DanhMucLinhKienModule() {
   const u = auth.status === "authenticated" ? auth.user : null;
   // Sua tu khoa / dong nghia = cung nhom sua combo (backend lkSettings quanLyCombo).
   const canSuaTuKhoa = !!u && (!!u.quan_ly_danh_muc_lk || !!u.la_mua_hang || u.vai_tro === "Admin");
+  // KTV/Ve tinh thuan (khong co quyen sua/xet duyet/tac nghiep/ke toan) - xem DanhMucTab.ktvXem.
+  const ktvThuan = !!u && (!!u.la_ktv_dvbh || !!u.la_ve_tinh) && !canSuaTuKhoa && !u.la_tac_nghiep && !u.la_ke_toan;
   return (
     <div className="anim-in">
-      <Tabs active={tab} onChange={setTab} tabs={TABS} />
+      <Tabs active={tab} onChange={setTab} tabs={ktvThuan ? TABS.filter((t) => t.key !== "tu-khoa") : TABS} />
       {tab === "danh-muc" && <DanhMucTab />}
       {tab === "bom-hang" && <BomHangTab />}
       {tab === "thay-the" && <ThayTheTab />}
@@ -511,11 +521,14 @@ function DanhMucTab() {
   // backend routes/gia88Sync.ts CHI cho Admin (requireRole("Admin"), khong nhan quan_ly_danh_muc_lk) -
   // an nut voi nguoi khong phai Admin de tranh "bam thi bao loi" (cung tinh than voi canWrite o tren).
   const isAdmin = authUser?.vai_tro === "Admin";
-  // Chot 2026-09-30 ("trong bảng giá: chỉ hiện giá niêm yết cho ktv, ẩn các giá còn lại"): KTV/Ve tinh
-  // (khong quan ly danh muc) chi thay "Giá NY" - an Giá KTV/dự phòng/EU o bang + drawer chi tiet. Cung
-  // dieu kien voi nut Xuat Excel ben duoi. CHI an o Bang gia - man tao don (LinhKienPicker, canh bao
-  // cong no) van dung gia_tri_cong_no nen API khong cat truong nay.
-  const chiGiaNiemYet = !!(authUser?.la_ktv_dvbh || authUser?.la_ve_tinh) && !canWrite;
+  // Che do xem gon cho KTV/Ve tinh thuan (2026-10-11, yeu cau "với tài khoản KTV, bảng giá không cần hiện thị
+  // các thông tin phức tạp như linh kiện chưa đánh giá, chỉ cần hiện danh sách linh kiện và các công cụ tìm
+  // kiếm => hiện giá KTV + giá niêm yết"). GHI DE chot 2026-09-30 ("chỉ hiện giá niêm yết cho ktv"): KTV nay
+  // thay CA Giá NY lan Giá KTV (van an Giá dự phòng/EU). Bang chi con Ảnh/Mã/Tên/Phân loại/Giá NY/Giá KTV;
+  // chi giu o tim kiem + loc Phan loai; an LK dang tat, ma cho xet duyet/da doi ma, canh bao chua phan loai,
+  // cac bo loc quan tri; drawer an xet duyet ma/tu khoa/nguoi cap nhat. Ai co quyen sua/xet duyet/dac thu
+  // (TN, Ke toan...) van xem day du nhu cu.
+  const ktvXem = !!(authUser?.la_ktv_dvbh || authUser?.la_ve_tinh) && !canSua && !canDacThu;
   const personDir = usePersonDirectory();
   // Them (ra soat UI 2026-08-27, hang muc #5): cot "Lượt dùng 30 ngày" - tai dung DU LIEU DA CO SAN
   // (GET /dat-mua-lk/xep-hang-linh-kien, tinh 1 lan/ngay o backend, dang dung cho goi y trong
@@ -613,8 +626,9 @@ function DanhMucTab() {
     if (filterCamBan) rows = rows.filter((p) => (filterCamBan === "true" ? !!p.cam_ban : !p.cam_ban));
     if (filterPhanLoai) rows = rows.filter((p) => (filterPhanLoai === CHUA_PHAN_LOAI ? !p.don_vi?.trim() : p.don_vi === filterPhanLoai));
     rows = filterTrangThaiMa ? rows.filter((p) => (p.trang_thai_ma ?? "Da xac nhan") === filterTrangThaiMa) : rows.filter((p) => p.trang_thai_ma !== "Da doi ma");
+    if (ktvXem) rows = rows.filter((p) => !!p.bat_tat && (p.trang_thai_ma ?? "Da xac nhan") === "Da xac nhan");
     return rows;
-  }, [parts?.rows, kqTim, lichSu.soLanChon, hangCongTy, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan, filterTrangThaiMa, filterPhanLoai]);
+  }, [parts?.rows, kqTim, lichSu.soLanChon, hangCongTy, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan, filterTrangThaiMa, filterPhanLoai, ktvXem]);
 
   // "Phân loại" (doi ten tu "Đơn vị", phan hoi 2026-08-20) dang listdown NHUNG van cho go gia tri
   // moi (chon "tu dong gom tu du lieu hien co", khong phai danh sach co dinh quan ly rieng) - gop
@@ -973,15 +987,22 @@ function DanhMucTab() {
         ) : null,
     },
   ];
-  const columns = chiGiaNiemYet
-    ? tatCaCot.filter((c) => c.key !== "gia_tri_cong_no" && c.key !== "gia_du_phong" && c.key !== "gia_eu")
+  const COT_KTV = ["anh_demo", "ma_linh_kien", "ten_linh_kien", "don_vi", "gia_ban", "gia_tri_cong_no"];
+  const columns = ktvXem
+    ? COT_KTV.map((k) => {
+        const c = tatCaCot.find((x) => x.key === k)!;
+        // Phan loai: chu thuong (KTV khong sua); Gia KTV: noi bat ngang Gia NY.
+        if (k === "don_vi") return { ...c, render: (p: LinhKienRow) => <span className="text-xs text-[var(--ink-600)]">{p.don_vi?.trim() || "—"}</span> };
+        if (k === "gia_tri_cong_no") return { ...c, render: (p: LinhKienRow) => <span className="font-mono font-semibold text-[var(--ocean-700)]">{p.gia_tri_cong_no != null ? <Money>{fmtVND(p.gia_tri_cong_no)}</Money> : "—"}</span> };
+        return c;
+      })
     : tatCaCot;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
         <div className="text-sm text-[var(--ink-600)] flex items-center gap-1.5">
-          <Tooltip text={`Đánh dấu "Đặc thù" để chèn thêm bước TP DVBH xác nhận trước khi Tác nghiệp duyệt khi tạo phiếu đặt. Đánh dấu "Only sửa chữa" để ẩn mã này khỏi danh sách chọn khi tạo đơn mua hàng.`} />
+          {ktvXem ? <span>Bảng giá linh kiện — giá niêm yết và giá KTV</span> : <Tooltip text={`Đánh dấu "Đặc thù" để chèn thêm bước TP DVBH xác nhận trước khi Tác nghiệp duyệt khi tạo phiếu đặt. Đánh dấu "Only sửa chữa" để ẩn mã này khỏi danh sách chọn khi tạo đơn mua hàng.`} />}
         </div>
         {/* SUA mobile (phan hoi 2026-09-27: "danh mục linh kiện chưa tối ưu cho mobile, mất bottom, độ dài vượt
             diện tích màn hình") - nguyen nhan do tren trinh duyet: hang 5 nut (Xuất Excel/Nhập ảnh/Nhập danh
@@ -1088,7 +1109,7 @@ function DanhMucTab() {
         </div>
       </div>
 
-      {soChuaPhanLoai > 0 && (
+      {soChuaPhanLoai > 0 && !ktvXem && (
         <div className="mb-3 flex items-center gap-2 flex-wrap rounded-xl border border-[var(--color-warning)] bg-[var(--color-warning-soft)] px-3 py-2 text-sm text-[var(--color-warning-strong)]">
           <span>
             ⚠ <b>{soChuaPhanLoai}</b> linh kiện <b>chưa có Phân loại</b> (thường là mã mới đồng bộ về). Phân loại quyết định kho
@@ -1124,6 +1145,7 @@ function DanhMucTab() {
             )}
           </span>
         )}
+        {!ktvXem && <>
         <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
           <span>Đặc thù:</span>
           <Select value={filterDacThu} onChange={(v) => { setFilterDacThu(v); setPage(1); }} options={BOOL_FILTER_OPTIONS} />
@@ -1140,6 +1162,7 @@ function DanhMucTab() {
           <span>Cấm bán:</span>
           <Select value={filterCamBan} onChange={(v) => { setFilterCamBan(v); setPage(1); }} options={BOOL_FILTER_OPTIONS} />
         </div>
+        </>}
         <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
           <span>Phân loại:</span>
           <Select
@@ -1147,12 +1170,12 @@ function DanhMucTab() {
             onChange={(v) => { setFilterPhanLoai(v); setPage(1); }}
             options={[
               { value: "", label: "Tất cả" },
-              { value: CHUA_PHAN_LOAI, label: `Chưa phân loại${soChuaPhanLoai ? ` (${soChuaPhanLoai})` : ""}` },
+              ...(ktvXem ? [] : [{ value: CHUA_PHAN_LOAI, label: `Chưa phân loại${soChuaPhanLoai ? ` (${soChuaPhanLoai})` : ""}` }]),
               ...phanLoaiOptions.map((v) => ({ value: v, label: v })),
             ]}
           />
         </div>
-        <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
+        {!ktvXem && <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
           <span>Trạng thái mã:</span>
           <Select
             value={filterTrangThaiMa}
@@ -1165,7 +1188,7 @@ function DanhMucTab() {
               })),
             ]}
           />
-        </div>
+        </div>}
       </div>
 
       {/* Card mobile rieng cho module nay (hang muc #7, 2026-08-25) - thay cho fallback the chung cua
@@ -1193,9 +1216,18 @@ function DanhMucTab() {
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-[var(--ocean-800)] truncate"><ToDam text={p.ten_linh_kien} spec={kqTim.toDam} /></div>
                 <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                  <span className="font-mono text-sm font-semibold text-[var(--green-700)]"><Money>{fmtVND(p.gia_ban)}</Money></span>
-                  <Badge tone={p.bat_tat ? "teal" : "gray"}>{p.bat_tat ? "Bật" : "Tắt"}</Badge>
-                  {p.trang_thai_ma && p.trang_thai_ma !== "Da xac nhan" && <TrangThaiMaBadge tt={p.trang_thai_ma} />}
+                  {ktvXem ? (
+                    <>
+                      <span className="text-xs text-[var(--ink-500)]">NY <span className="font-mono text-sm font-semibold text-[var(--green-700)]"><Money>{fmtVND(p.gia_ban)}</Money></span></span>
+                      <span className="text-xs text-[var(--ink-500)]">KTV <span className="font-mono text-sm font-semibold text-[var(--ocean-700)]">{p.gia_tri_cong_no != null ? <Money>{fmtVND(p.gia_tri_cong_no)}</Money> : "—"}</span></span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-mono text-sm font-semibold text-[var(--green-700)]"><Money>{fmtVND(p.gia_ban)}</Money></span>
+                      <Badge tone={p.bat_tat ? "teal" : "gray"}>{p.bat_tat ? "Bật" : "Tắt"}</Badge>
+                      {p.trang_thai_ma && p.trang_thai_ma !== "Da xac nhan" && <TrangThaiMaBadge tt={p.trang_thai_ma} />}
+                    </>
+                  )}
                 </div>
               </div>
               {canSua && (
@@ -1228,7 +1260,7 @@ function DanhMucTab() {
           onRowClick={(p) => setViewingMa(p.ma_linh_kien)}
           rowKey={(p) => p.ma_linh_kien}
           emptyText="Không có linh kiện phù hợp."
-          storageKey="danh-muc-lk"
+          storageKey={ktvXem ? "danh-muc-lk-ktv" : "danh-muc-lk"}
         />
       </div>
 
@@ -1481,7 +1513,7 @@ function DanhMucTab() {
         onClose={() => setViewingMa(null)}
         onEdit={() => { if (viewingRow) openEdit(viewingRow); }}
         canEdit={canSua}
-        chiGiaNiemYet={chiGiaNiemYet}
+        ktvXem={ktvXem}
         parts={parts?.rows ?? []}
         canXetDuyet={canXetDuyet}
         onDoiMa={setViewingMa}

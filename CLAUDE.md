@@ -265,10 +265,15 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   bảng như cũ; mobile `TaoPxkMobileShell` (toàn màn hình `100dvh`, đăng ký `overlayStack` cho nút Back, thanh CTA dính đáy: số dòng
   + "Cần chuyển" + "Tạo phiếu") + dòng đơn dạng THẺ bấm cả thẻ để chọn. Tiền/loại chiết khấu từng dòng dùng chung helper
   `oTienTaoPxk()`/`loaiCkTaoPxk()` cho cả bảng lẫn thẻ — sửa 1 chỗ. Danh sách PXK có cột "Bằng chứng" (ảnh thu nhỏ, `BangChungAnhList nho`).
-- **Bảng giá — KTV/Vệ tinh chỉ thấy "Giá NY"** (2026-09-30, `DanhMucLinhKienModule.tsx` `chiGiaNiemYet` = KTV/Vệ tinh
-  không `quan_ly_danh_muc_lk`): ẩn Giá KTV/dự phòng/EU ở bảng + drawer chi tiết (Excel đã chặn sẵn). CHỈ ẩn ở giao diện Bảng
-  giá — API `/settings/linh-kien` vẫn trả đủ vì màn tạo đơn (LinhKienPicker, cảnh báo công nợ) dùng `gia_tri_cong_no`.
-  Preset "xem thử" ktv/ve_tinh/tram bật `xem_danh_muc_lk` như tài khoản thật (`viewAsPresets.ts`).
+- **Bảng giá — KTV/Vệ tinh xem gọn: Giá NY + Giá KTV** (2026-10-11, v1.316, `DanhMucLinhKienModule.tsx` `ktvXem` = KTV/Vệ tinh
+  không có quyền sửa/đặc thù). Nguyên văn: *"với tài khoản KTV, bảng giá không cần hiện thị các thông tin phức tạm như linh kiện
+  chưa đánh giá, chỉ cần hiện danh sách linh kiện và các công cụ tìm kiếm => hiện giá KTV + giá niêm yết"* — GHI ĐÈ chốt
+  2026-09-30 ("KTV chỉ thấy Giá NY"). Bảng chỉ còn Ảnh/Mã/Tên/Phân loại/Giá NY/Giá KTV; chỉ giữ ô tìm + lọc Phân loại; ẩn LK
+  đang tắt, mã chờ xét duyệt/đã đổi mã, cảnh báo "chưa phân loại", các bộ lọc quản trị (Đặc thù/Only sửa chữa/Hiển thị/Cấm
+  bán/Trạng thái mã) và tab "Từ khóa tìm kiếm"; drawer chỉ còn Mã/Giá NY/Giá KTV/Phân loại/ghi chú (ẩn Giá dự phòng/EU, xét
+  duyệt mã, từ khóa, người cập nhật). Thẻ mobile hiện "NY … · KTV …". Cấu hình cột lưu khóa riêng `danh-muc-lk-ktv`. Excel vẫn
+  chặn với KTV như cũ. API `/settings/linh-kien` không đổi. Preset "xem thử" ktv/ve_tinh/tram bật `xem_danh_muc_lk` như tài
+  khoản thật (`viewAsPresets.ts`).
 - **Menu "Phiếu đã in"** (2026-09-29): nhóm Xuất kho — "Đã chốt xong đơn xuất" = sentinel `CHOT_CHUA_IN` (chốt + chưa in),
   "Phiếu đã in" = `DA_IN` (chốt + đã in) — `DA_IN_COND`/`CHOT_CHUA_IN_COND` ở `phieuXuatKho.ts` (danh sách, xuất MISA,
   `/status-counts`). Lọc thường "Da chot xong don xuat" GIỮ NGUYÊN (cả 2) cho pipeline "Kho"/thẻ "Kho chốt đơn xuất"/báo cáo
