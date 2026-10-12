@@ -1824,6 +1824,20 @@ export function PxkDetailModal({
               {t("✅ Đã chốt xong đơn xuất")}
             </Btn>
           )}
+          {/* Ke toan chot + xac nhan "Hang tru kho" 1 buoc, ket thuc phieu (2026-10-12) - hang khong giao vat ly, khong qua Kho. */}
+          {canKeToan && trangThai === "Cho ke toan" && pxk.loai_don !== "tra_hang" && (
+            <Btn
+              variant="ghost"
+              onClick={() => {
+                if (window.confirm(t("Chốt xong đơn xuất và xác nhận HÀNG TRỪ KHO để kết thúc phiếu {a}? Phiếu không chuyển sang Kho gửi hàng.", { a: id }))) logMutation.mutate("Hang tru kho");
+              }}
+              disabled={logMutation.isPending || !pxk.ma_misa}
+              title={!pxk.ma_misa ? t("Cần nhập Mã MISA trước") : t("Chốt xong và kết thúc phiếu bằng Hàng trừ kho (không qua Kho)")}
+              aria-label={t("Hàng trừ kho")}
+            >
+              {t("📦 Hàng trừ kho")}
+            </Btn>
+          )}
           {/* Day lui "Chờ mã MISA" -> "Chờ mã HĐ" (2026-09-29) - Ke toan tra phieu ve TN, bat buoc ly do (o ghi chu). */}
           {canKeToan && trangThai === "Cho ke toan" && (
             <Btn

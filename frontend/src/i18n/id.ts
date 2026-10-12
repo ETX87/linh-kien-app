@@ -1614,5 +1614,7 @@ const tuDien: Record<string, string> = {
   "✓ Xác nhận thiếu hàng": "✓ Konfirmasi kekurangan",
   "✓ Đã cân đối MISA — xác nhận": "✓ MISA disesuaikan — konfirmasi",
   "📷 Thêm ảnh": "📷 Tambah foto",
+  "Chốt xong và kết thúc phiếu bằng Hàng trừ kho (không qua Kho)": "Selesaikan dan tutup nota sebagai Potong stok (tanpa gudang)",
+  "Chốt xong đơn xuất và xác nhận HÀNG TRỪ KHO để kết thúc phiếu {a}? Phiếu không chuyển sang Kho gửi hàng.": "Selesaikan pengeluaran dan konfirmasi POTONG STOK untuk menutup nota {a}? Nota tidak diteruskan ke gudang untuk dikirim.",
 };
 export default tuDien;

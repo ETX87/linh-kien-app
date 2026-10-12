@@ -1700,6 +1700,7 @@ phieuXuatKho.post("/:id/log", async (c) => {
   // tien; bo co "Đã in phiếu" (Ke toan co the sua phieu -> Kho in lai). Ben khovan van giu dong "cho xu ly" cu (khovan khong co
   // trang thai rut lai) - Ke toan chot lai thi day lai cung order_code, khovan tra ve dong da co (khong tao trung).
   const dayLuiTuKho = target === "Cho ke toan" && hienTai === "Da chot xong don xuat";
+  const keToanTruKho = target === "Hang tru kho" && hienTai === "Cho ke toan";
 
   if (dayLuiTuKho) {
     if (!canKho(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
@@ -1775,6 +1776,12 @@ phieuXuatKho.post("/:id/log", async (c) => {
     if (hienTai !== "Cho ke toan") return c.json({ error: "INVALID_STATE" }, 409);
     if (!canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
     if (!pxk.ma_misa?.trim()) return c.json({ error: "MISSING_MA_MISA" }, 409);
+  } else if (keToanTruKho) {
+    // Ke toan chot + "Hang tru kho" 1 buoc (2026-10-12, phan hoi "kế toán có thể chọn chốt xong gửi kho hoặc xác nhận hàng trừ kho
+    // để kết thúc luôn"): cung dieu kien voi "Da chot xong don xuat"; khong day khovan, khong bao viec Kho.
+    if (!canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+    if (pxk.loai_don === "tra_hang") return c.json({ error: "INVALID_TRANG_THAI" }, 400);
+    if (!pxk.ma_misa?.trim()) return c.json({ error: "MISSING_MA_MISA" }, 409);
   } else if (target === "Dang gui KTV" || target === "Hang tru kho") {
     if (hienTai !== "Da chot xong don xuat") return c.json({ error: "INVALID_STATE" }, 409);
     if (!canKho(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
@@ -1813,8 +1820,14 @@ phieuXuatKho.post("/:id/log", async (c) => {
     .run();
   if (!casResult.meta.changes) return c.json({ error: "STATE_CHANGED" }, 409);
 
+  if (keToanTruKho) {
+    // Giu moc "Da chot xong don xuat" trong lich su (bao cao toc do xu ly Ke toan doc moc nay).
+    await c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Da chot xong don xuat', ?, ?, ?)")
+      .bind(id, user.email, nowVN(), "Kế toán chốt xong và xác nhận Hàng trừ kho")
+      .run();
+  }
   await c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)")
-    .bind(id, target, user.email, nowVN(), body.ghi_chu?.trim() || null)
+    .bind(id, target, user.email, nowVN(), body.ghi_chu?.trim() || (keToanTruKho ? "Kế toán xác nhận hàng trừ kho — kết thúc phiếu, không qua Kho" : null))
     .run();
 
   // MOI (2026-09-22): huy PXK xong thi xu ly tiep cac don dang gom ben trong, theo dung ly_do_huy_pxk
@@ -1865,7 +1878,7 @@ phieuXuatKho.post("/:id/log", async (c) => {
   // cho app khovan") - route nay la duong session (Google OAuth) DUY NHAT xu ly 4 trang thai Kho nay,
   // khac han routes/partnerKho.ts (khovan tu goi vao, khong can bao nguoc vi chinh no la nguon). Best-
   // effort, khong chan thao tac cua Kho neu khovan dang loi/down.
-  if (target === "Dang gui KTV" || target === "Hang tru kho" || target === "Kho da ket thuc" || target === "Kho da nhan hang tra") {
+  if (!keToanTruKho && (target === "Dang gui KTV" || target === "Hang tru kho" || target === "Kho da ket thuc" || target === "Kho da nhan hang tra")) {
     c.executionCtx.waitUntil(notifyPxkAdvancedViaApp(c.env, id, `Đã xác nhận "${target}" trực tiếp trên hệ thống Đặt mua linh kiện`));
   }
 
@@ -1968,17 +1981,19 @@ phieuXuatKho.post("/:id/log", async (c) => {
   // Thong bao "chung" cho KTV nhan hang (phan hoi 2026-08-26) - 2 moc PXK dang tien trien ma KTV quan
   // tam: Ke toan xu ly xong (sap toi luot Kho gui hang) va Kho da thuc su gui di. Bo qua neu nguoi
   // vua thao tac CHINH LA KTV nhan hang do (hiem, nhung tranh tu bao chinh minh).
-  if ((target === "Da chot xong don xuat" || target === "Dang gui KTV") && pxk.nguoi_nhan_hang && pxk.nguoi_nhan_hang !== user.email) {
+  if ((target === "Da chot xong don xuat" || target === "Dang gui KTV" || keToanTruKho) && pxk.nguoi_nhan_hang && pxk.nguoi_nhan_hang !== user.email) {
     const noiDung =
-      target === "Da chot xong don xuat"
-        ? `Phiếu xuất kho ${id} của bạn đã được Kế toán duyệt xong`
-        : `Phiếu xuất kho ${id} của bạn đã được Kho gửi hàng`;
+      keToanTruKho
+        ? `Phiếu xuất kho ${id} của bạn đã được Kế toán chốt — hàng trừ kho, phiếu kết thúc`
+        : target === "Da chot xong don xuat"
+          ? `Phiếu xuất kho ${id} của bạn đã được Kế toán duyệt xong`
+          : `Phiếu xuất kho ${id} của bạn đã được Kho gửi hàng`;
     c.executionCtx.waitUntil(
       (async () => {
         await c.env.DB.prepare(
           "INSERT INTO thong_bao_ktv (nguoi_nhan, loai, noi_dung, link_type, link_id, ngay_tao) VALUES (?, ?, ?, 'phieu_xuat_kho', ?, ?)",
         )
-          .bind(pxk.nguoi_nhan_hang, target === "Da chot xong don xuat" ? "pxk_da_duyet" : "kho_da_gui", noiDung, id, nowVN())
+          .bind(pxk.nguoi_nhan_hang, target === "Dang gui KTV" ? "kho_da_gui" : "pxk_da_duyet", noiDung, id, nowVN())
           .run();
         // Day Web Push ngay (phan hoi 2026-08-26) - xem lib/webPush.ts.
         await sendPushToUser(c.env, pxk.nguoi_nhan_hang!, { title: "Phiếu xuất kho", body: noiDung, url: "/" });
