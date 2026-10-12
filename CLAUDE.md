@@ -142,8 +142,9 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   người dùng tải tăng dần theo `ngay_cap_nhat`, không biết dòng bị xoá); đơn/BOM/nhóm thay thế chuyển sang B trong 1
   batch; mã A gửi lên sau đó (form cũ, file import) được `quyVeMaChuan()` quy về B (POST `/phieu-dat`, import, PATCH
   đơn). Bảng mới có cột mã LK → thêm vào `chuyenMaLk()`. gia88 trả đúng mã đang chờ → lấy tên/giá gia88 +
-  `'Tu dong duyet'`; `co_tren_gia88` đồng bộ theo danh sách gia88 đầy đủ mỗi đêm. DVBH/Sửa chữa chỉ nhận LK
-  `LK_DONG_BO_DUOC_SQL` (đã xác nhận/tự động duyệt). Sidebar "Bảng giá" đếm LK chờ (`lkChoXetDuyet`, chỉ Mua hàng/Admin).
+  `'Tu dong duyet'`; `co_tren_gia88` đồng bộ theo danh sách gia88 đầy đủ mỗi đêm. DVBH/Sửa chữa nhận LK ở MỌI
+  trạng thái (từ 2026-10-12, migration 0076; trước đó chỉ đã xác nhận/tự động duyệt) — mã chờ duyệt sang ngay, từ chối/đổi mã
+  sang với `bat_tat = 0`. Sidebar "Bảng giá" đếm LK chờ (`lkChoXetDuyet`, chỉ Mua hàng/Admin).
   UI: `modules/danhMucLinhKien/XetDuyetMaLk.tsx` (khối trong drawer chi tiết LK). **Mua hàng xem TOÀN BỘ, chỉ đọc**
   (đợt 2): `requireDatMuaLkArea` cho vào + chặn mọi request khác GET (`VIEW_READONLY`, giống View nhưng KHÔNG giới hạn
   Khu vực); `scopeDatMuaNguoiTao`/`scopePxkNguoiNhanHang`/`scopeKtvTonKho`/`phamViXem` (quỹ) trả null; 3 nhánh Thiếu LK

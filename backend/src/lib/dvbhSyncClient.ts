@@ -1,6 +1,5 @@
 import type { Env } from "../types";
 import { nowVN } from "./vnTime";
-import { LK_DONG_BO_DUOC_SQL } from "./linhKienXetDuyet";
 
 // Day danh ba KTV/danh muc linh kien/danh muc Khu vuc sang cac he ngoai dinh ky (phan hoi
 // 2026-08-28: "khi cập nhật danh sách ktv hoặc cập nhật danh sách linh kiện, sẽ bắn API về web dvbh
@@ -63,8 +62,7 @@ interface EntityConfig {
   columns: string;
   syncPath: string;
   targets: TargetKey[];
-  // Dieu kien loc them (AND) - linh_kien: LK "Cho xet duyet"/"Tu choi"/dong chuyen huong "Da doi ma" KHONG day sang he
-  // khac (migration 0053) - Mua hang xac nhan xong (ngay_cap_nhat moi) moi day ma chuan.
+  // Dieu kien loc them (AND), tuy chon - hien khong entity nao dung (linh_kien bo loc trang_thai_ma 2026-10-12).
   where?: string;
 }
 
@@ -86,7 +84,10 @@ const ENTITIES: Record<EntityKey, EntityConfig> = {
     // suachua khong can sua gi ca.
     columns: "ma_linh_kien, ten_linh_kien, gia_ban, don_vi, ghi_chu, anh_demo, bat_tat, dac_thu, chi_sua_chua",
     syncPath: "/api/partner/sync/linh-kien",
-    where: LK_DONG_BO_DUOC_SQL,
+    // SUA 2026-10-12 (chot nguoi dung): day MOI trang thai ma, ke ca "Cho xet duyet" - LK tao tay phai sang
+    // DVBH/Sua chua ngay, khong cho Mua hang xac nhan. "Tu choi"/"Da doi ma" cung day vi 2 trang thai nay
+    // tat ma (bat_tat = 0) - ma da sang he nhan luc con cho duyet ma khong day lan tat thi ben nhan van
+    // con hien ma do. Truoc day loc trang_thai_ma IN ('Da xac nhan','Tu dong duyet') (migration 0053).
     targets: ["dvbh", "suachua"],
   },
   // MOI 04/09/2026 - CHI "suachua" dung (xem giai thich o dau file). "dvbh" khong nam trong
@@ -128,7 +129,7 @@ export async function getPendingSyncCounts(db: D1Database): Promise<PendingSyncC
   ]);
   const [ktvRow, linhKienRow, khuVucRow] = await Promise.all([
     db.prepare("SELECT COUNT(*) as cnt FROM ktv_lien_he WHERE ngay_cap_nhat > ?").bind(ktvSince).first<{ cnt: number }>(),
-    db.prepare(`SELECT COUNT(*) as cnt FROM linh_kien WHERE ngay_cap_nhat > ? AND ${LK_DONG_BO_DUOC_SQL}`).bind(linhKienSince).first<{ cnt: number }>(),
+    db.prepare("SELECT COUNT(*) as cnt FROM linh_kien WHERE ngay_cap_nhat > ?").bind(linhKienSince).first<{ cnt: number }>(),
     db.prepare("SELECT COUNT(*) as cnt FROM khu_vuc WHERE ngay_cap_nhat > ?").bind(khuVucSince).first<{ cnt: number }>(),
   ]);
   return { ktv: ktvRow?.cnt ?? 0, linhKien: linhKienRow?.cnt ?? 0, khuVuc: khuVucRow?.cnt ?? 0 };

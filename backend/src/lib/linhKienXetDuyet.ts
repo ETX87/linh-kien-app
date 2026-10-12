@@ -20,8 +20,6 @@ export const TT_MA = {
   DA_DOI: "Da doi ma",
 } as const;
 
-/** Trang thai LK dong bo sang DVBH/Sua chua (lib/dvbhSyncClient.ts) - LK dang cho/tu choi/dong chuyen huong KHONG day. */
-export const LK_DONG_BO_DUOC_SQL = `trang_thai_ma IN ('${TT_MA.DA_XAC_NHAN}', '${TT_MA.TU_DONG}')`;
 
 // Don con hieu luc (khong tinh don da tu choi/huy) - dung dem "don dang dung LK" + chan tu choi.
 const DON_CON_HIEU_LUC_SQL = "trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')";
