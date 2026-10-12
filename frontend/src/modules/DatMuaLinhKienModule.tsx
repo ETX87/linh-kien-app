@@ -84,6 +84,8 @@ const TaoDonTab = lazy(() => import("./datMuaLinhKien/TaoDonTab").then((m) => ({
 const DonCuaToiTab = lazy(() => import("./datMuaLinhKien/DonCuaToiTab").then((m) => ({ default: m.DonCuaToiTab })));
 const PhieuXuatKhoTab = lazy(() => import("./datMuaLinhKien/PhieuXuatKhoTab").then((m) => ({ default: m.PhieuXuatKhoTab })));
 const ThieuLkTab = lazy(() => import("./datMuaLinhKien/ThieuLkTab").then((m) => ({ default: m.ThieuLkTab })));
+const ThieuHangTabs = lazy(() => import("./datMuaLinhKien/NhanThieu").then((m) => ({ default: m.ThieuHangTabs })));
+const NhanThieuList = lazy(() => import("./datMuaLinhKien/NhanThieu").then((m) => ({ default: m.NhanThieuList })));
 const TraHangTab = lazy(() => import("./datMuaLinhKien/TraHangTab").then((m) => ({ default: m.TraHangTab })));
 // Trang chu (them 2026-08-24, khop concept-1-structured-neutral.html renderHome()) - man mac dinh
 // moi khi vao module, dung LAI luongQuyTrinh/notifCounts/loaiDonCounts da co san o duoi, khong goi
@@ -1001,21 +1003,34 @@ export function DatMuaLinhKienModule({
           />
         )}
         {activeView === "thieu-lk" && (
-          <ThieuLkTab
-            addToast={addToast}
-            qc={qc}
-            canKho={canKho}
-            canTacNghiep={canTacNghiep}
-            canKeToan={canKeToan}
-            isGiamSat={isGiamSat}
-            currentEmail={user?.email ?? ""}
-            initialFilterOverride={filterFor("thieu-lk")}
-            initialNguoiNhanHangOverride={nguoiNhanHangFor("thieu-lk")}
-            initialDetailIdOverride={openDetailIdFor("thieu-lk")}
-            onDetailIdConsumed={consumeOpenDetailId}
-            onJumpConsumed={consumeJumpTarget}
-            coTaiExcel={!laChiKtv}
-          />
+          <ThieuHangTabs
+            list={
+              <NhanThieuList
+                addToast={addToast}
+                canKho={canKho}
+                canKeToan={canKeToan}
+                canTacNghiep={canTacNghiep}
+                currentEmail={user?.email ?? ""}
+                isAdmin={user?.vai_tro === "Admin"}
+              />
+            }
+          >
+            <ThieuLkTab
+              addToast={addToast}
+              qc={qc}
+              canKho={canKho}
+              canTacNghiep={canTacNghiep}
+              canKeToan={canKeToan}
+              isGiamSat={isGiamSat}
+              currentEmail={user?.email ?? ""}
+              initialFilterOverride={filterFor("thieu-lk")}
+              initialNguoiNhanHangOverride={nguoiNhanHangFor("thieu-lk")}
+              initialDetailIdOverride={openDetailIdFor("thieu-lk")}
+              onDetailIdConsumed={consumeOpenDetailId}
+              onJumpConsumed={consumeJumpTarget}
+              coTaiExcel={!laChiKtv}
+            />
+          </ThieuHangTabs>
         )}
         {activeView === "tra-hang" && (
           <TraHangTab

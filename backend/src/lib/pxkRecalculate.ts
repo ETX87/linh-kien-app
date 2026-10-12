@@ -221,7 +221,8 @@ export async function tienUocTinhChoDon(db: D1Database, ids: string[]): Promise<
 
 // Dieu kien "don tinh vao tong ngay" (chot 2026-09-28): nhom Mua + TRỪ CÔNG NỢ, chua tu choi/huy.
 const DON_TINH_TONG_NGAY_SQL = `(ddh.loai_don = 'mua' OR (ddh.loai_don = 'cong_no' AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') > 0))
-         AND ddh.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')`;
+         AND ddh.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')
+         AND ddh.gui_bu_nhan_thieu_id IS NULL`; // don gui bu thieu hang (migration 0075) da tinh o don goc
 
 // Tong gia tri don trong ngay cua 1 KTV (nguoi nhan hang) theo tung ngay (YYYY-MM-DD, gio VN) - xem CHOT
 // 2026-09-28 o tinhToanPxk. Gia ban = linh_kien.gia_ban (LK khong con trong danh muc -> gia_de_xuat).

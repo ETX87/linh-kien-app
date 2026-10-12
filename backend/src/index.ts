@@ -21,6 +21,7 @@ import partnerApiRoutes from "./routes/partnerApi";
 import khovanLookupRoutes from "./routes/khovanLookup";
 import suachuaPartnerRoutes from "./routes/suachuaPartner";
 import partnerKhoRoutes from "./routes/partnerKho";
+import nhanThieuRoutes, { tuXacNhanVaNhacPxk } from "./routes/nhanThieu";
 import { runDvbhSync } from "./lib/dvbhSyncClient";
 import { runGia88SyncWithState } from "./lib/gia88Sync";
 import { runEtxNhanSuSyncWithState } from "./lib/etxNhanSuSync";
@@ -59,6 +60,7 @@ app.route("/api/dat-mua-lk", datMuaLinhKienRoutes);
 app.route("/api/phieu-xuat-kho", phieuXuatKhoRoutes);
 app.route("/api/tra-hang", traHangRoutes);
 app.route("/api/quy-ktv", quyKtvRoutes);
+app.route("/api/nhan-thieu", nhanThieuRoutes);
 app.route("/api/khach-le", khachLeRoutes);
 app.route("/api/bao-cao-toc-do", baoCaoTocDoXuLyRoutes);
 app.route("/api/push", pushRoutes);
@@ -103,6 +105,10 @@ export default {
     // 1 lan/tuan (xem lib/etxNhanSuSync.ts).
     if (new Date(event.scheduledTime).getUTCDay() === 0 && new Date(event.scheduledTime).getUTCHours() === 17) {
       ctx.waitUntil(runEtxNhanSuSyncWithState(env, env.DB));
+    }
+    // 8h sang VN (1h UTC, migration 0075): PXK "Dang gui KTV" qua 10 ngay -> tu "KTV da nhan" + nhac KTV phieu con cho xac nhan.
+    if (new Date(event.scheduledTime).getUTCHours() === 1) {
+      ctx.waitUntil(tuXacNhanVaNhacPxk(env).then(() => undefined).catch((err) => console.error("[tuXacNhanVaNhacPxk]", err)));
     }
   },
 };

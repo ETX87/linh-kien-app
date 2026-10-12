@@ -37,6 +37,7 @@ import {
 } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar, KhuVucChipFilter, ImageLink, LogTieuDe, useTenNguoiLog } from "./SharedUi";
 import { PxkMiniPipeline } from "./PipelineFlow";
+import { BaoNhanThieuModal, NhanThieuCard, nhanThieuPxkQuery } from "./NhanThieu";
 import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportResult, type MisaTemplate } from "../../lib/misaExportTemplates";
 import { Money } from "../../components/ui/Money";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
@@ -1536,10 +1537,15 @@ export function PxkDetailModal({
     }
   }
 
+  // Bao nhan thieu (migration 0075): ticket dang cho Kho kiem tra -> an "KTV đã nhận" (backend cung chan).
+  const [showBaoThieu, setShowBaoThieu] = useState(false);
+  const { data: nhanThieuData } = useQuery(nhanThieuPxkQuery(id));
+  const dangBaoThieu = !!nhanThieuData?.tickets.some((tk) => tk.trang_thai === "Cho kho kiem tra");
   function invalidate() {
     setGhiChu("");
     setMaVanDonInput("");
     qc.invalidateQueries({ queryKey: ["pxk-detail", id] });
+    qc.invalidateQueries({ queryKey: ["nhan-thieu-pxk", id] });
     qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk"] });
     invalidatePipelineCounts(qc);
   }
@@ -1877,12 +1883,18 @@ export function PxkDetailModal({
           )}
           {/* Muc F (Dot 2): CHOT bat buoc DUNG nguoi nhan hang xac nhan - an nut voi moi nguoi
               khac (ke ca Admin/TN xem, du backend van cho Admin bam duoc de xu ly su co). */}
-          {trangThai === "Dang gui KTV" && currentEmail === pxk.nguoi_nhan_hang && (
+          {trangThai === "Dang gui KTV" && currentEmail === pxk.nguoi_nhan_hang && !dangBaoThieu && (
             <Btn onClick={() => logMutation.mutate("KTV da nhan")} disabled={logMutation.isPending} loading={logMutation.isPending} title={t("KTV đã nhận")} aria-label={t("KTV đã nhận")}>
               {t("📥 KTV đã nhận")}
             </Btn>
           )}
-          {trangThai === "Dang gui KTV" && currentEmail !== pxk.nguoi_nhan_hang && isAdmin && (
+          {/* Bao nhan thieu / khong nhan duoc hang (2026-10-12) - nguoi nhan hang hoac TN bao ho. */}
+          {trangThai === "Dang gui KTV" && pxk.loai_don !== "tra_hang" && !nhanThieuData?.co_ticket_mo && (currentEmail === pxk.nguoi_nhan_hang || canTacNghiep) && (
+            <Btn variant="danger" onClick={() => setShowBaoThieu(true)} title={t("Báo nhận thiếu / không nhận được hàng")}>
+              {t("⚠ Báo nhận thiếu")}
+            </Btn>
+          )}
+          {trangThai === "Dang gui KTV" && currentEmail !== pxk.nguoi_nhan_hang && isAdmin && !dangBaoThieu && (
             <Btn variant="ghost" onClick={() => logMutation.mutate("KTV da nhan")} disabled={logMutation.isPending} title={t("KTV đã nhận (Admin xác nhận thay - trường hợp đặc biệt)")} aria-label={t("KTV đã nhận (Admin xác nhận thay)")}>
               🛡️📥 {t("KTV đã nhận (thay)")}
             </Btn>
@@ -2051,6 +2063,21 @@ export function PxkDetailModal({
                 </div>
               )}
             </div>
+          )}
+
+          {/* Nhan hang: han tu xac nhan + bao nhan thieu (2026-10-12). */}
+          <NhanThieuCard
+            pxkId={id}
+            nguoiNhanHang={pxk.nguoi_nhan_hang ?? null}
+            canKho={canKho}
+            canKeToan={canKeToan}
+            canTacNghiep={canTacNghiep}
+            currentEmail={currentEmail}
+            addToast={addToast}
+            onDone={invalidate}
+          />
+          {showBaoThieu && (
+            <BaoNhanThieuModal pxkId={id} dong={data.donHang} onClose={() => setShowBaoThieu(false)} onDone={invalidate} addToast={addToast} />
           )}
 
           {/* Chuyen kho xuat MB/MN (2026-10-07) - TN/Ke toan, truoc khi phieu gui Kho. */}

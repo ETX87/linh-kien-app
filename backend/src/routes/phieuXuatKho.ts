@@ -1783,6 +1783,11 @@ phieuXuatKho.post("/:id/log", async (c) => {
     // CHOT 2026-08-15 (Dot 2, muc F): bat buoc DUNG nguoi nhan hang xac nhan (hoac Admin) - truoc day
     // bat ky ai cung xac nhan duoc.
     if (user.email !== pxk.nguoi_nhan_hang && user.vai_tro !== "Admin") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+    // Dang co bao nhan thieu cho Kho kiem tra (migration 0075) -> cho Kho xu ly (Kho tu choi thi KTV xac nhan lai).
+    const moBaoThieu = await c.env.DB.prepare("SELECT id FROM nhan_thieu WHERE phieu_xuat_kho_id = ? AND trang_thai = 'Cho kho kiem tra' LIMIT 1")
+      .bind(id)
+      .first<{ id: string }>();
+    if (moBaoThieu) return c.json({ error: "DANG_BAO_NHAN_THIEU", message: `Phiếu đang có báo nhận thiếu ${moBaoThieu.id} chờ Kho kiểm tra.` }, 409);
   } else if (target === "Kho da ket thuc") {
     if (hienTai !== "Dang gui KTV") return c.json({ error: "INVALID_STATE" }, 409);
     if (!canKho(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);

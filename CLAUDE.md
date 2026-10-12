@@ -649,6 +649,27 @@ badge + `__VIEC__`): TN duyệt trên ticket = duyệt luôn đơn gốc (đơn 
 đơn gốc từ "Cho TN duyet" → ticket mở tự "Da ket thuc"; TN từ chối/hủy đơn → ticket tự "Da huy bo" kèm lý do; TN
 chuyển lại "Chờ hàng" → đóng ticket cũ, mở ticket mới (`dongThieuLkMoCuaDon()`). Hạn 24h của TN tính từ mốc MUỘN
 hơn giữa giải trình và lúc vào "Cho TN duyet" (`mocTinhHanTn()` trong `lib/hanLyDoCham.ts`).
+**KTV báo nhận thiếu / không nhận được hàng + tự xác nhận đã nhận sau 10 ngày** (chốt 2026-10-12, v1.318, migration `0075`,
+`routes/nhanThieu.ts` tại `/api/nhan-thieu`, FE `datMuaLinhKien/NhanThieu.tsx`). Ticket RIÊNG `nhan_thieu` (mã `NTH-…`) +
+`nhan_thieu_dong` + `nhan_thieu_log` — KHÔNG dùng `thieu_lk` (bảng đó gắn chặt đơn "Cho hang"). KTV nhận hàng (hoặc TN báo hộ) bấm
+"⚠ Báo nhận thiếu" ở PXK "Dang gui KTV" (không áp trả hàng): SL thực nhận từng dòng + lý do (`thieu_sl`/`khong_nhan`/`sai_hong`/`khac`)
++ ảnh (≤5, `POST /nhan-thieu/anh/:pxkId`) + mô tả → "Cho kho kiem tra" (PXK giữ "Dang gui KTV", "KTV đã nhận" bị chặn
+`DANG_BAO_NHAN_THIEU`, cron không tự đóng; người báo rút lại được). Kho: **Từ chối** (bắt buộc ghi chú) → ticket đóng, PXK chờ KTV
+xác nhận lại, `han_tu_nhan` +10 ngày | **Xác nhận thiếu** (chỉnh SL nếu cần) + chọn `gui_bu` / `hoan_tien` → PXK "KTV da nhan",
+"Cho ke toan". Kế toán (đã cân đối phiếu trên MISA) bấm xác nhận: `so_luong_thuc_xuat` đơn gốc = SL thực nhận (KHÔNG đổi `updated_at` —
+công nợ phát sinh lọc theo nó), đơn công nợ giảm `so_tien_cong_no` theo tỉ lệ; tiền phần thiếu = đơn giá THỰC TRẢ (`tinhToanPxk` quy theo
+`so_tien_can_chuyen` thật) × SL thiếu, trần `min(da_thanh_toan, so_tien_can_chuyen)`. `hoan_tien`: tổng phiếu giảm → `canBangPxk` hoàn
+về quỹ người nhận (Kế toán sửa được số) → "Da hoan tien" (không có dòng tiền → "Da can doi"). `gui_bu`: rút tiền khỏi phiếu gốc (tổng + đã
+trả), tạo đơn gửi bù (clone đơn gốc, SL thiếu, `gia_chot` = đơn giá thực trả, `tien_da_tra`, log 'TN da duyet' tu_dong,
+`dat_don_hang.gui_bu_nhan_thieu_id` — KHÔNG tính vào tổng ngày chiết khấu) + phiếu gửi bù "Dang tao phieu" (cùng `mien_xuat`/`khu_vuc_chon`)
+→ đủ tiền thì đặt luôn "Kế toán đã duyệt" tiền; TN xử lý tiếp như phiếu thường. **Tự xác nhận**: `phieu_xuat_kho.han_tu_nhan` (TRIGGER
+`trg_pxk_han_tu_nhan` = +10 ngày mỗi lần vào "Dang gui KTV"; phiếu cũ lúc triển khai: lần gửi + 10 ngày nhưng không sớm hơn +3 ngày).
+Cron 8h VN (`tuXacNhanVaNhacPxk`, index.ts `getUTCHours()===1`): quá hạn + không có ticket mở → "KTV da nhan" (log "Hệ thống tự xác
+nhận…", `nguoi_xu_ly` = người nhận) + 1 thông báo/KTV/ngày liệt kê phiếu chờ + hạn. UI: khối "Nhận hàng" trong chi tiết PXK
+(`NhanThieuCard` — hạn, ticket, thao tác Kho/Kế toán); menu Thiếu hàng có 2 mục "Thiếu hàng đặt mua" | "KTV báo nhận thiếu"
+(`ThieuHangTabs`/`NhanThieuList`); số việc (Kho: chờ kiểm tra, Kế toán: chờ cân đối) cộng vào badge `thieuLkCanXuLy`
+(`nhanThieuCanXuLy`). Chưa đẩy ticket sang khovan (Kho thao tác trong app). Chỉ báo được khi phiếu còn "Dang gui KTV".
+
 **Đơn "Cho hang" mở/khóa theo ticket** (chốt 2026-09-30): Kho CHƯA tiếp nhận ticket ("Cho kho xu ly") hoặc ticket đã đóng →
 đơn thao tác như "Cho TN duyet" (TN duyệt/từ chối/chờ hàng lại/hủy, người tạo/Admin hủy), ticket đang chờ TỰ HỦY
 (`laChoHangMoKhoa` trong `applyDonHangLog`; duyệt thẳng → ticket "Da huy bo"); Kho ĐÃ tiếp nhận ("Kho da tiep nhan"/"Kho da cap

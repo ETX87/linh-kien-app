@@ -51,6 +51,8 @@ export interface DatMuaLkBreakdown {
   // "Cho kho xu ly" + "Kho da tiep nhan" (cho xac nhan hang ve), TN = "Kho xac nhan hang da ve" (cho
   // TN ket thuc). KHONG cong vao total (choKhoThieuLk da nam trong total - tranh dem trung).
   thieuLkCanXuLy: number;
+  // So ticket "Báo nhận thiếu" cho vai tro nguoi xem (da cong vao thieuLkCanXuLy).
+  nhanThieuCanXuLy: number;
 }
 
 const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
@@ -69,6 +71,7 @@ const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
   choDonCuaToi: 0,
   choDonBiTuChoi: 0,
   thieuLkCanXuLy: 0,
+  nhanThieuCanXuLy: 0,
 };
 
 export interface NotificationsCountPayload {
@@ -283,6 +286,16 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
       .bind(...thieuLkTrangThaiCho, ...(clause?.binds ?? []), ...(kvClause?.binds ?? []))
       .first<{ n: number }>();
     out.thieuLkCanXuLy = row?.n ?? 0;
+  }
+  // Bao nhan thieu (migration 0075) - cung muc "Thiếu hàng": Kho = cho kiem tra, Ke toan = cho can doi MISA. Khong cong vao total.
+  const nhanThieuCho = [...(isKho ? ["Cho kho kiem tra"] : []), ...(isKeToan ? ["Cho ke toan"] : [])];
+  if (nhanThieuCho.length > 0) {
+    const row = await db
+      .prepare(`SELECT COUNT(*) as n FROM nhan_thieu WHERE trang_thai IN (${nhanThieuCho.map(() => "?").join(",")})`)
+      .bind(...nhanThieuCho)
+      .first<{ n: number }>();
+    out.nhanThieuCanXuLy = row?.n ?? 0;
+    out.thieuLkCanXuLy += out.nhanThieuCanXuLy;
   }
 
   out.total =
