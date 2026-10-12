@@ -1616,5 +1616,8 @@ const tuDien: Record<string, string> = {
   "📷 Thêm ảnh": "📷 Add photos",
   "Chốt xong và kết thúc phiếu bằng Hàng trừ kho (không qua Kho)": "Close and finish the note as Stock deduction (skip warehouse)",
   "Chốt xong đơn xuất và xác nhận HÀNG TRỪ KHO để kết thúc phiếu {a}? Phiếu không chuyển sang Kho gửi hàng.": "Close the issue and confirm STOCK DEDUCTION to finish note {a}? The note will not go to the warehouse for shipping.",
+  "Tổng ngày 200–500k −30%": "Daily total 200–500k −30%",
+  "niêm yết": "list",
+  "Đình tủ −15%": "Đình tủ −15%",
 };
 export default tuDien;

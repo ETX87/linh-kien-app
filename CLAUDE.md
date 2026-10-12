@@ -109,7 +109,7 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   `taiTinhPxkMoCuaKtv()` để tính lại MỌI PXK "Dang tao phieu" của KTV **trừ PXK Kế toán đã duyệt chuyển tiền**
   (`trang_thai_chuyen_tien='TN da duyet'` — khoá, chỉ bỏ qua lần tính lại TỰ ĐỘNG; TN sửa tay vẫn tính như cũ)
   + gán lại nhãn cho đơn CHƯA vào PXK (`ganLoaiChietKhauDonChuaPxk()` — nhãn có ngay từ lúc tạo đơn, lên/xuống
-  theo tổng thực tế; Đình tủ luôn ×85%). Hiển thị tổng ngày + "Ước tính chuyển": `GET /api/dat-mua-lk/tong-ngay-ktv`
+  theo tổng thực tế; Đình tủ luôn ×85%). Màn tạo đơn: "Giá ước tính" từng dòng + tổng dưới chân = giá SAU chiết khấu (`giaUocTinhDong()` ở `useTaoDonForm.ts`, v1.320 — bản sao FE của quy tắc `tinhToanPxk`: KH lẻ/có yêu cầu hóa đơn = niêm yết, Đình tủ ×85%, mốc theo tổng ngày đã tạo + dòng đang soạn; không tính giá dự phòng; dòng công nợ/trả hàng giữ niêm yết) kèm nhãn mức + giá niêm yết gạch ngang — đổi quy tắc giá ở backend phải sửa cả đây. Hiển thị tổng ngày + "Ước tính chuyển": `GET /api/dat-mua-lk/tong-ngay-ktv`
   (Vệ tinh tự quy về Trạm) → `datMuaLinhKien/TongNgayKtv.tsx` (Trang chủ KTV, chi tiết đơn, chi tiết PXK, màn
   tạo đơn, modal tạo PXK). Danh sách/chi tiết đơn: cột **"Giá niêm yết"** = giá bán danh mục, **"Giá đề xuất"** = đơn giá SAU chiết khấu
   (`tien_uoc_tinh` từ `tienUocTinhChoDon()` — dòng trong PXK tính theo cả PXK — chia SL; helper FE

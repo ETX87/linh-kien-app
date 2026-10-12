@@ -6,6 +6,8 @@ import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
 import type { DonHangDraft, KhachLeRow, NguoiNhanHangKhaDungRow } from "./types";
 import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, useLkCombo, comboThanhLkRow, chinhSachMacDinh } from "./helpers";
 import { t } from "../../i18n";
+import { coYeuCauHoaDon } from "./LoaiChietKhau";
+import { useTongNgayKtv } from "./TongNgayKtv";
 
 // Tach tu TaoDonTab.tsx (them 2026-08-21, phan hoi "màn hình tạo đơn mobile bị đưa đưa, chiếm diện
 // tích nhỏ") - toan bo STATE/LOGIC nghiep vu (validate, mutation, quan ly danh sach drafts...) chuyen
@@ -225,10 +227,6 @@ export function useTaoDonForm({
     setActiveIdx((cur) => (idx < cur ? cur - 1 : idx === cur ? Math.max(0, cur - 1) : cur));
   }
 
-  const tongGiaUocTinh = drafts.reduce((sum, d) => {
-    const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
-    return sum + (lk?.gia_ban != null ? lk.gia_ban * d.so_luong_de_xuat : 0);
-  }, 0);
   const tongSoLuong = drafts.reduce((sum, d) => sum + (d.so_luong_de_xuat || 0), 0);
   // Phan gia tri cac dong dang soan duoc CONG vao tong ngay tinh chiet khau (Mua + TRỪ CÔNG NỢ, gia ban x SL -
   // khop DON_TINH_TONG_NGAY_SQL o backend) - xem truoc muc chiet khau sau khi tao (TongNgayKtv.tsx).
@@ -238,6 +236,29 @@ export function useTaoDonForm({
     const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
     return sum + (lk?.gia_ban != null ? lk.gia_ban * d.so_luong_de_xuat : 0);
   }, 0);
+
+  // Gia uoc tinh SAU CHIET KHAU tung dong (2026-10-12, phan hoi "giá 557 là giá niêm yết trong khi hiển thị được hưởng chiết
+  // khấu >=500k"): CUNG quy tac tinhToanPxk (backend lib/pxkRecalculate.ts) cho dong Mua + TRỪ CÔNG NỢ - KH le / co yeu cau hoa
+  // don = gia niem yet, Dinh tu x85%, con lai theo moc TONG NGAY (da tao hom nay + cac dong dang soan): <200k gia ban, 200-500k
+  // x70%, >=500k gia KTV (LK chua co gia KTV giu gia ban). Khong tinh gia du phong (MUA DỰ TRỮ) - backend chot khi tao.
+  // Dong khac (cong no/tra hang) giu gia niem yet x SL nhu truoc (chi de tham khao).
+  const { data: tongNgayData } = useTongNgayKtv(targetNguoiNhanHang);
+  const tongNgaySau = (tongNgayData?.rows[0]?.tong_gia_tri ?? 0) + giaTriTinhChietKhau;
+  function giaUocTinhDong(d: DonHangDraft): { gia: number | null; giaNiemYet: number | null; nhan: string | null } {
+    const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
+    if (lk?.gia_ban == null) return { gia: null, giaNiemYet: null, nhan: null };
+    const sl = d.so_luong_de_xuat || 0;
+    const niemYet = lk.gia_ban * sl;
+    const lde = d.loai_de_xuat.trim();
+    if (!lde || (deriveLoaiDon(lde) !== "mua" && !laTruCongNo(lde))) return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
+    if (tongNgayData?.kh_le || coYeuCauHoaDon(d.yeu_cau_hoa_don)) return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
+    if (laDinhTuFe(lk.don_vi)) return { gia: Math.round(lk.gia_ban * 0.85) * sl, giaNiemYet: niemYet, nhan: t("Đình tủ −15%") };
+    if (tongNgaySau < 200000) return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
+    if (tongNgaySau < 500000) return { gia: Math.round(lk.gia_ban * 0.7) * sl, giaNiemYet: niemYet, nhan: t("Tổng ngày 200–500k −30%") };
+    if ((lk.gia_tri_cong_no ?? 0) > 0) return { gia: lk.gia_tri_cong_no! * sl, giaNiemYet: niemYet, nhan: t("Giá KTV") };
+    return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
+  }
+  const tongGiaUocTinh = drafts.reduce((sum, d) => sum + (giaUocTinhDong(d).gia ?? 0), 0);
 
   // "Cong no tam tinh" cua RIENG cac dong loai_don='cong_no' dang soan - CUNG cong thuc voi backend
   // (gia_tri_cong_no x so_luong_de_xuat, xem POST /phieu-dat) nhung tinh tai client de canh bao SONG
@@ -268,10 +289,15 @@ export function useTaoDonForm({
     activeIdx, setActiveIdx, otherLdeIdx, setOtherLdeIdx, addBlockedHint, setAddBlockedHint,
     activeRowRef, justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
     updateDraft, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
-    tongGiaUocTinh, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
+    giaUocTinhDong, tongGiaUocTinh, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
     duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
     laNhomKhLe, khLeSdt, setKhLeSdt, khLeSdtSai, khLeTraCuu, khLeDangTraCuu,
   };
 }
 
 export type TaoDonForm = ReturnType<typeof useTaoDonForm>;
+
+// Ban sao laDinhTu() backend (lib/pxkRecalculate.ts) - so khong dau/hoa-thuong.
+function laDinhTuFe(donVi: string | null | undefined): boolean {
+  return (donVi ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/\s+/g, " ").trim() === "dinh tu";
+}

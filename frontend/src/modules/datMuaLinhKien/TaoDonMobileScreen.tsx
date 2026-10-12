@@ -55,7 +55,7 @@ export function TaoDonMobileScreen({
     danhMuc, nguoiNhanHang, setNguoiNhanHang, drafts, infoExpandedIdx, setInfoExpandedIdx,
     activeIdx, setActiveIdx, otherLdeIdx, setOtherLdeIdx, addBlockedHint, setAddBlockedHint,
     justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
-    updateDraft, isLineComplete, canSubmit, themDong, deleteDraft, tongGiaUocTinh, tongSoLuong,
+    updateDraft, isLineComplete, canSubmit, themDong, deleteDraft, giaUocTinhDong, tongGiaUocTinh, tongSoLuong,
     tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien, duPhongDuKien, coDongMuaDuTru,
     targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
   } = form;
@@ -87,7 +87,7 @@ export function TaoDonMobileScreen({
   const batBuocYcsc = maYcscRequired(d.loai_de_xuat);
   const thieuMaId = batBuocYcsc && !coMaIdLienQuan(d.ma_yeu_cau_su_co, d.ma_lada); // chi can 1 trong 2 ma
   const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
-  const giaUocTinh = lk?.gia_ban != null ? lk.gia_ban * d.so_luong_de_xuat : null;
+  const { gia: giaUocTinh, giaNiemYet, nhan: nhanChietKhau } = giaUocTinhDong(d);
   const quickValues = (["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const)
     .map((kw) => pickLdeQuick(loaiDeXuatOptions, kw))
     .filter((v): v is string => !!v);
@@ -266,7 +266,7 @@ export function TaoDonMobileScreen({
               </button>
             </div>
             <div className="text-xs text-[var(--ink-500)]">
-              {giaUocTinh != null ? <><span className="text-[10px]">{t("Ước tính:")} </span><b className="text-[var(--green-700)]"><Money>{fmtVND(giaUocTinh)}</Money></b></> : <span className="text-[var(--ink-400)]">{t("Giá: —")}</span>}
+              {giaUocTinh != null ? <><span className="text-[10px]">{t("Ước tính:")} </span><b className="text-[var(--green-700)]"><Money>{fmtVND(giaUocTinh)}</Money></b>{nhanChietKhau && giaNiemYet != null && giaUocTinh < giaNiemYet && <span className="text-[10px]"> · {nhanChietKhau} · <s><Money>{fmtVND(giaNiemYet)}</Money></s></span>}</> : <span className="text-[var(--ink-400)]">{t("Giá: —")}</span>}
             </div>
           </div>
           <DuDoanDuyetHint

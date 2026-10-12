@@ -48,7 +48,7 @@ export function TaoDonTab({
     activeIdx, setActiveIdx, otherLdeIdx, setOtherLdeIdx, addBlockedHint, setAddBlockedHint,
     activeRowRef, justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
     updateDraft, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
-    tongGiaUocTinh, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
+    giaUocTinhDong, tongGiaUocTinh, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
     duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
   } = form;
 
@@ -250,7 +250,7 @@ export function TaoDonTab({
           // Chi can 1 trong 2 ma (Mã YCSC / Mã Lada) - thieu = ca 2 deu trong.
           const thieuMaId = batBuocYcsc && !coMaIdLienQuan(d.ma_yeu_cau_su_co, d.ma_lada);
           const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
-          const giaUocTinh = lk?.gia_ban != null ? lk.gia_ban * d.so_luong_de_xuat : null;
+          const { gia: giaUocTinh, giaNiemYet, nhan: nhanChietKhau } = giaUocTinhDong(d);
           // "khac..." mo Select day du - tu dong mo neu gia tri hien tai KHONG khop 1 trong 3 nut
           // nhanh (vd sua tu don cu / import co san loai it dung), khong chi khi nguoi dung tu bam.
           const quickValues = (["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const)
@@ -410,8 +410,15 @@ export function TaoDonTab({
 
                 <div>
                   <label className="block text-[11px] font-semibold mb-1 text-[var(--ink-600)]">{t("Giá ước tính")}</label>
-                  <div className="flex items-center border border-[var(--line)] rounded-lg px-2.5 py-2 text-sm bg-[var(--surface-100)] w-fit min-w-[140px]">
-                    {giaUocTinh != null ? <b className="text-[var(--green-700)]"><Money>{fmtVND(giaUocTinh)}</Money></b> : <span className="text-[var(--ink-400)]">{t("Chưa rõ giá")}</span>}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center border border-[var(--line)] rounded-lg px-2.5 py-2 text-sm bg-[var(--surface-100)] w-fit min-w-[140px]">
+                      {giaUocTinh != null ? <b className="text-[var(--green-700)]"><Money>{fmtVND(giaUocTinh)}</Money></b> : <span className="text-[var(--ink-400)]">{t("Chưa rõ giá")}</span>}
+                    </div>
+                    {nhanChietKhau && giaNiemYet != null && giaUocTinh != null && giaUocTinh < giaNiemYet && (
+                      <span className="text-xs text-[var(--ink-500)]">
+                        {nhanChietKhau} · {t("niêm yết")} <s><Money>{fmtVND(giaNiemYet)}</Money></s>
+                      </span>
+                    )}
                   </div>
                 </div>
 
