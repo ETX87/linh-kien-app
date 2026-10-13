@@ -14,6 +14,7 @@ import { generateApiKey, hashApiKey } from "../lib/partnerApiAuth";
 import { timLoaiChietKhauTheoTen, gonTenLoaiChietKhau } from "../lib/loaiChietKhau";
 import { TT_MA, docLk, logLk, demDonDungLk, chuyenMaLk, tinhLaiTienTheoLk } from "../lib/linhKienXetDuyet";
 import { bumpVersions } from "../lib/dataVersions";
+import { dsAnhLk, cotAnhLk, SO_ANH_LK_TOI_DA } from "../lib/anhLinhKien";
 import { createMiddleware } from "hono/factory";
 
 // Port rut gon tu backend/src/routes/settings.ts cua he DVBH goc - CHI giu 4 khoi thuc su can cho
@@ -313,21 +314,72 @@ settingsDatMua.post("/linh-kien/:ma/gia-tam", muaHangRoles, async (c) => {
   return c.json({ ok: true });
 });
 
+// ?them=1 (2026-10-13, toi da 10 anh - migration 0077): THEM anh vao cuoi danh sach anh_ds. Khong co ?them (tab cu) = thay anh
+// chinh (anh_demo) nhu truoc, trigger trg_linh_kien_anh_ds giu cac anh phu.
 settingsDatMua.post("/linh-kien/:ma/anh", suaLinhKienRoles, async (c) => {
   const ma = c.req.param("ma");
-  const existing = await c.env.DB.prepare("SELECT ma_linh_kien FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
+  const them = c.req.query("them") === "1";
+  const existing = await c.env.DB.prepare("SELECT anh_demo, anh_ds FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first<{ anh_demo: string | null; anh_ds: string | null }>();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+  // Kiem tra TRUOC khi tai len de khong ton luot anh/ngay.
+  if (them && dsAnhLk(existing).length >= SO_ANH_LK_TOI_DA) return c.json({ error: "QUA_SO_ANH_LK", toi_da: SO_ANH_LK_TOI_DA }, 409);
 
   // Dinh dang / <= 10MB / <= 20 anh/ngay/tai khoan + tai len Drive - xem lib/anhUpload.ts.
   const uploaded = await nhanAnhTaiLen(c, (ext) => `linh-kien-${ma}-${Date.now()}.${ext}`);
   if (uploaded instanceof Response) return uploaded;
 
   const user = c.get("user");
-  await c.env.DB.prepare("UPDATE linh_kien SET anh_demo = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?")
-    .bind(uploaded.thumbnailUrl, user.email, nowVN(), ma)
-    .run();
+  if (!them) {
+    await c.env.DB.prepare("UPDATE linh_kien SET anh_demo = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?")
+      .bind(uploaded.thumbnailUrl, user.email, nowVN(), ma)
+      .run();
+  } else {
+    // CAS theo (anh_demo, anh_ds) doc duoc - 2 anh tai song song khong de mat nhau; doi thi doc lai, thu toi 5 lan.
+    let cur = existing;
+    let ok = false;
+    for (let lan = 0; lan < 5 && !ok; lan++) {
+      const ds = dsAnhLk(cur);
+      if (ds.length >= SO_ANH_LK_TOI_DA) return c.json({ error: "QUA_SO_ANH_LK", toi_da: SO_ANH_LK_TOI_DA }, 409);
+      const moi = cotAnhLk([...ds, uploaded.thumbnailUrl]);
+      const r = await c.env.DB.prepare(
+        "UPDATE linh_kien SET anh_demo = ?, anh_ds = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ? AND anh_demo IS ? AND anh_ds IS ?",
+      )
+        .bind(moi.anh_demo, moi.anh_ds, user.email, nowVN(), ma, cur.anh_demo, cur.anh_ds)
+        .run();
+      ok = (r.meta.changes ?? 0) > 0;
+      if (!ok) {
+        const lai = await c.env.DB.prepare("SELECT anh_demo, anh_ds FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first<{ anh_demo: string | null; anh_ds: string | null }>();
+        if (!lai) return c.json({ error: "NOT_FOUND" }, 404);
+        cur = lai;
+      }
+    }
+    if (!ok) return c.json({ error: "XUNG_DOT_GHI" }, 409);
+  }
   await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
   return c.json({ ok: true, url: uploaded.thumbnailUrl, han_muc_anh: uploaded.hanMucAnh });
+});
+
+// PUT /linh-kien/:ma/anh-ds {anh_ds: string[]} - sap xep lai / xoa anh (anh dau = anh chinh). CHI nhan URL dang co trong danh
+// sach hien tai (khong chen link ngoai), khong trung; them anh moi di qua POST .../anh?them=1.
+settingsDatMua.put("/linh-kien/:ma/anh-ds", suaLinhKienRoles, async (c) => {
+  const ma = c.req.param("ma");
+  const body = await c.req.json<{ anh_ds?: unknown }>();
+  if (!Array.isArray(body.anh_ds) || !body.anh_ds.every((x) => typeof x === "string")) return c.json({ error: "INVALID_BODY" }, 400);
+  const existing = await c.env.DB.prepare("SELECT anh_demo, anh_ds FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first<{ anh_demo: string | null; anh_ds: string | null }>();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+  const hienTai = new Set(dsAnhLk(existing));
+  const ds = body.anh_ds as string[];
+  if (new Set(ds).size !== ds.length || ds.some((u) => !hienTai.has(u))) return c.json({ error: "DANH_SACH_ANH_DA_DOI" }, 409);
+  const moi = cotAnhLk(ds);
+  const user = c.get("user");
+  const r = await c.env.DB.prepare(
+    "UPDATE linh_kien SET anh_demo = ?, anh_ds = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ? AND anh_demo IS ? AND anh_ds IS ?",
+  )
+    .bind(moi.anh_demo, moi.anh_ds, user.email, nowVN(), ma, existing.anh_demo, existing.anh_ds)
+    .run();
+  if (!(r.meta.changes ?? 0)) return c.json({ error: "DANH_SACH_ANH_DA_DOI" }, 409);
+  await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
+  return c.json({ ok: true });
 });
 
 // POST /api/settings/linh-kien/bulk-import-anh - { rows: [{ma_linh_kien, source_url}], offset } - 1

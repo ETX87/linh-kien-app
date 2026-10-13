@@ -741,6 +741,14 @@ tổng thành phần), form giữ 1 dòng; server `tachComboDong()` tách thành
 `dat_don_hang.combo_ma` chỉ là nhãn 🧩. `chuyenMaLk()` cập nhật thành phần combo. 10 dòng "combo" cũ trong `linh_kien` (mã = danh
 sách mã nối dấu phẩy, đã tắt) + 4 đơn cũ dùng chúng giữ nguyên (chốt người dùng) — combo cùng mã thắng vì tách trước khi tra `linh_kien`.
 
+**Ảnh minh hoạ LK tối đa 10 ảnh** (chốt 2026-10-13, v1.321, migration `0077`): `linh_kien.anh_ds` = JSON array URL (≤ 10, ảnh đầu = ảnh
+chính); `anh_demo` GIỮ = ảnh đầu (đồng bộ DVBH/Sửa chữa, ảnh thu nhỏ bảng/ô chọn LK đọc cột này). `anh_ds` NULL = chỉ có `anh_demo` (LK cũ)
+→ đọc qua `dsAnhLk()`/`cotAnhLk()` (`backend/src/lib/anhLinhKien.ts`) / `anhCuaLk()` (FE `lib/anhLinhKien.ts`). `POST /settings/linh-kien/:ma/anh?them=1`
+thêm cuối (đủ 10 → `QUA_SO_ANH_LK` TRƯỚC khi tải lên, CAS theo anh_demo+anh_ds); không `?them` (tab cũ, import ảnh hàng loạt, mọi đường chỉ ghi
+`anh_demo`) = thay ảnh chính — TRIGGER `trg_linh_kien_anh_ds` thay phần tử đầu, giữ ảnh phụ; `anh_demo` NULL = xoá hết. `PUT .../anh-ds` sắp
+xếp/xoá (chỉ URL đang có, else `DANH_SACH_ANH_DA_DOI`). UI: drawer chi tiết có dải ảnh nhỏ + phóng to ‹ ›; form thêm/sửa chọn nhiều ảnh 1 lần,
+✕ xoá, "★ Chính". Đổi mã A→B chép `anh_ds` (`COT_CHEP`).
+
 **Công nợ 0 đồng** (chốt 2026-10-05, migration `0069`): tab "Công nợ 0 đồng" ở menu Công nợ (`modules/CongNo0dTab.tsx`, CHỈ
 Admin/Kế toán — `adminOrKeToan`, `/api/settings/ktv-ton-kho/cong-no-0d`): chương trình = danh sách mã LK + SL hỗ trợ (cho MỖI KTV) +
 từ/đến ngày (ngày VN, gồm 2 đầu) + KTV áp dụng (chọn lẻ / lọc theo Khu vực / "Toàn bộ KTV" = cờ `tat_ca_ktv`, gồm cả KTV thêm sau) +

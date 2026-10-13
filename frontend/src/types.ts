@@ -9,6 +9,8 @@ export interface LinhKienRow {
   don_vi: string | null;
   ghi_chu: string | null;
   anh_demo: string | null;
+  // Toi da 10 anh (2026-10-13, migration 0077) - JSON array, doc qua anhCuaLk() (lib/anhLinhKien.ts).
+  anh_ds?: string | null;
   nguoi_cap_nhat: string | null;
   ngay_cap_nhat: string;
   bat_tat: number;

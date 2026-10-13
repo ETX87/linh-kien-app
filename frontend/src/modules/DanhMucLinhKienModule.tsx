@@ -31,6 +31,7 @@ import { TimLkBox, TuKhoaLkSection, DongNghiaTab } from "./danhMucLinhKien/TimLk
 import { TRANG_THAI_MA, TrangThaiMaBadge, XetDuyetMaSection } from "./danhMucLinhKien/XetDuyetMaLk";
 import { PhanLoaiNhanh } from "./danhMucLinhKien/PhanLoaiNhanh";
 import { linkAnToan } from "../lib/linhAnToan";
+import { anhCuaLk, SO_ANH_LK_TOI_DA } from "../lib/anhLinhKien";
 import { canhBaoHanMucAnh, loiHetHanMucAnh, loiHetHanMucAnhTuMa, type HanMucAnh } from "../lib/hanMucAnh";
 
 const PAGE_SIZE = 20;
@@ -281,12 +282,19 @@ function AnhThumbnail({
 
 // Xem anh phong to toan man hinh - lop tren ca Modal (z-[60] > 50) vi PartDetailDrawer co the dang
 // mo cung luc. object-contain (khac object-cover cua thumbnail) de KHONG cat mat anh du ty le nao.
-function ImageLightbox({ url, onClose }: { url: string; onClose: () => void }) {
+// Nhieu anh (2026-10-13): urls + index, chuyen anh bang nut ‹ › hoac phim ← →.
+function ImageLightbox({ urls, index, onIndex, onClose }: { urls: string[]; index: number; onIndex: (i: number) => void; onClose: () => void }) {
+  const n = urls.length;
+  const url = urls[Math.min(index, n - 1)];
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft" && n > 1) onIndex((index - 1 + n) % n);
+      else if (e.key === "ArrowRight" && n > 1) onIndex((index + 1) % n);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, onIndex, index, n]);
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-sm p-8 anim-in" onClick={onClose}>
@@ -294,6 +302,23 @@ function ImageLightbox({ url, onClose }: { url: string; onClose: () => void }) {
         ✕
       </button>
       <img src={url} alt="Ảnh linh kiện phóng to" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+      {n > 1 && (
+        <>
+          <button
+            onClick={(e) => { e.stopPropagation(); onIndex((index - 1 + n) % n); }}
+            className="focus-ring absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 text-white hover:bg-white/20 text-2xl"
+          >
+            ‹
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onIndex((index + 1) % n); }}
+            className="focus-ring absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 text-white hover:bg-white/20 text-2xl"
+          >
+            ›
+          </button>
+          <div className="absolute top-5 left-1/2 -translate-x-1/2 text-xs font-semibold text-white/80">{index + 1}/{n}</div>
+        </>
+      )}
       <a
         href={linkAnToan(url)}
         target="_blank"
@@ -351,7 +376,8 @@ function PartDetailDrawer({
 }: { part: LinhKienRow | null; onClose: () => void; onEdit: () => void; canEdit: boolean; ktvXem: boolean; parts: LinhKienRow[]; canXetDuyet: boolean; onDoiMa: (ma: string) => void }) {
   const personDir = usePersonDirectory();
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  useEffect(() => setLightboxOpen(false), [part?.ma_linh_kien]);
+  const [anhIdx, setAnhIdx] = useState(0);
+  useEffect(() => { setLightboxOpen(false); setAnhIdx(0); }, [part?.ma_linh_kien]);
   useEffect(() => {
     if (!part) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !lightboxOpen) onClose(); };
@@ -360,6 +386,8 @@ function PartDetailDrawer({
   }, [part, lightboxOpen, onClose]);
 
   if (!part) return null;
+  const anhs = anhCuaLk(part);
+  const anhHien = Math.min(anhIdx, Math.max(0, anhs.length - 1));
 
   // Cac gia + thong tin phu (them 2026-09-12, tich hop gia88) - TAT CA la "chi xem", dong bo tu doi
   // tac moi dem, xem CLAUDE.md/lib/gia88Sync.ts. gia_tham_chieu XOA HAN, thay bang gia_ban ("Gia NY").
@@ -400,7 +428,18 @@ function PartDetailDrawer({
         </div>
 
         <div className="overflow-y-auto p-5 space-y-5 flex-1">
-          <PartHeroImage url={part.anh_demo} alt={part.ten_linh_kien} onZoom={() => setLightboxOpen(true)} />
+          <div className="space-y-2">
+            <PartHeroImage url={anhs[anhHien] ?? null} alt={part.ten_linh_kien} onZoom={() => setLightboxOpen(true)} />
+            {anhs.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {anhs.map((u, i) => (
+                  <div key={u} className={`rounded-lg shrink-0 ${i === anhHien ? "ring-2 ring-[var(--color-primary)]" : ""}`}>
+                    <AnhThumbnail url={u} size={48} onClick={() => setAnhIdx(i)} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {ktvXem ? (
             !!part.cam_ban && (
@@ -455,7 +494,7 @@ function PartDetailDrawer({
           {canEdit && <Btn onClick={onEdit}>Sửa thông tin</Btn>}
         </div>
       </div>
-      {lightboxOpen && part.anh_demo && <ImageLightbox url={part.anh_demo} onClose={() => setLightboxOpen(false)} />}
+      {lightboxOpen && anhs.length > 0 && <ImageLightbox urls={anhs} index={anhHien} onIndex={setAnhIdx} onClose={() => setLightboxOpen(false)} />}
     </>
   );
 }
@@ -567,8 +606,8 @@ function DanhMucTab() {
   // Anh "tam giu" luc dang o che do THEM MOI - chua co ma_linh_kien that (dong chua duoc tao trong
   // DB) nen chua the goi API upload (POST /linh-kien/:ma/anh doi hoi dong da ton tai) - giu File tho
   // trong state, chi thuc su upload SAU KHI addMutation tao dong thanh cong (xem addMutation.onSuccess).
-  const [stagedImageFile, setStagedImageFile] = useState<File | null>(null);
-  const [stagedImagePreview, setStagedImagePreview] = useState<string | null>(null);
+  // Toi da 10 anh (2026-10-13) - giu danh sach, upload lan luot sau khi tao dong.
+  const [stagedImages, setStagedImages] = useState<{ file: File; preview: string }[]>([]);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [bulkImportRunning, setBulkImportRunning] = useState(false);
   const [bulkImportTotal, setBulkImportTotal] = useState(0);
@@ -643,12 +682,13 @@ function DanhMucTab() {
   );
 
   const editingRow = editingMa ? parts?.rows.find((p) => p.ma_linh_kien === editingMa) ?? null : null;
+  const anhSua = editingRow ? anhCuaLk(editingRow) : [];
+  const soAnhForm = formMode === "add" ? stagedImages.length : anhSua.length;
   const viewingRow = viewingMa ? parts?.rows.find((p) => p.ma_linh_kien === viewingMa) ?? null : null;
 
   function openAdd() {
     setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "" });
-    setStagedImageFile(null);
-    setStagedImagePreview(null);
+    setStagedImages([]);
     setFormMode("add");
   }
 
@@ -656,8 +696,7 @@ function DanhMucTab() {
     setViewingMa(null);
     setEditingMa(p.ma_linh_kien);
     setImgCacheBust(0);
-    setStagedImageFile(null);
-    setStagedImagePreview(null);
+    setStagedImages([]);
     setForm({
       // ten_linh_kien/gia_ban chi con dung de HIEN THI tinh trong form Sua (chi xem, dong bo tu
       // gia88) - khong gui len khi Luu (xem editMutation ben duoi).
@@ -676,15 +715,20 @@ function DanhMucTab() {
   function closeForm() {
     setFormMode(null);
     setEditingMa(null);
-    if (stagedImagePreview) URL.revokeObjectURL(stagedImagePreview);
-    setStagedImageFile(null);
-    setStagedImagePreview(null);
+    stagedImages.forEach((a) => URL.revokeObjectURL(a.preview));
+    setStagedImages([]);
   }
 
-  function onPickStagedImage(file: File) {
-    if (stagedImagePreview) URL.revokeObjectURL(stagedImagePreview);
-    setStagedImageFile(file);
-    setStagedImagePreview(URL.createObjectURL(file));
+  function onPickStagedImages(files: File[]) {
+    const conLai = Math.max(0, SO_ANH_LK_TOI_DA - stagedImages.length);
+    if (files.length > conLai) addToast(`Tối đa ${SO_ANH_LK_TOI_DA} ảnh — chỉ lấy ${conLai} ảnh đầu`);
+    const them = files.slice(0, conLai).map((file) => ({ file, preview: URL.createObjectURL(file) }));
+    setStagedImages((ds) => [...ds, ...them]);
+  }
+
+  function boStagedImage(i: number) {
+    URL.revokeObjectURL(stagedImages[i].preview);
+    setStagedImages((ds) => ds.filter((_, k) => k !== i));
   }
 
   const toggleDacThu = useMutation({
@@ -730,20 +774,27 @@ function DanhMucTab() {
   // Upload anh dung 1 ma cu the - tach rieng khoi handleUploadAnh() ben duoi (truoc chi dung
   // editingMa co san trong closure) de dung lai duoc cho CA 2 luong: sua (ma da co san tu truoc) VA
   // them moi (ma vua duoc tao xong, chi biet duoc SAU KHI addMutation thanh cong - xem duoi).
-  async function uploadAnhForMa(ma: string, file: File) {
+  // Nhieu anh (2026-10-13): tai LAN LUOT, them vao cuoi danh sach (?them=1); dung o anh loi dau tien. Tra so anh tai duoc.
+  async function uploadAnhForMa(ma: string, files: File[]): Promise<number> {
     setUploadingAnh(true);
+    let ok = 0;
     try {
-      const gui = await anhVuaGioiHan(file);
-      const res = await api.postBinary<{ ok: true; url: string; han_muc_anh?: HanMucAnh | null }>(`/settings/linh-kien/${ma}/anh`, await gui.arrayBuffer(), gui.type || "image/jpeg");
-      setImgCacheBust((n) => n + 1);
-      canhBaoHanMucAnh(res.han_muc_anh, addToast);
+      for (const file of files) {
+        const gui = await anhVuaGioiHan(file);
+        const res = await api.postBinary<{ ok: true; url: string; han_muc_anh?: HanMucAnh | null }>(`/settings/linh-kien/${encodeURIComponent(ma)}/anh?them=1`, await gui.arrayBuffer(), gui.type || "image/jpeg");
+        ok++;
+        canhBaoHanMucAnh(res.han_muc_anh, addToast);
+      }
     } catch (err) {
       const het = loiHetHanMucAnh(err);
       if (het) addToast(het, 8000);
-      else addToast("Đã lưu linh kiện nhưng lỗi tải ảnh: " + (err instanceof Error ? err.message : String(err)));
+      else if (err instanceof ApiError && err.code === "QUA_SO_ANH_LK") addToast(`Linh kiện đã đủ ${SO_ANH_LK_TOI_DA} ảnh — xoá bớt ảnh cũ trước khi thêm`, 8000);
+      else addToast("Lỗi tải ảnh: " + (err instanceof Error ? err.message : String(err)));
     } finally {
+      setImgCacheBust((n) => n + 1);
       setUploadingAnh(false);
     }
+    return ok;
   }
 
   const addMutation = useMutation({
@@ -761,7 +812,7 @@ function DanhMucTab() {
     onSuccess: async () => {
       // Anh (neu co chon luc them moi) chi upload duoc BAY GIO - dong vua duoc tao that su trong DB,
       // POST .../anh doi hoi dong da ton tai (xem backend/src/routes/settingsDatMua.ts).
-      if (stagedImageFile) await uploadAnhForMa(form.ma_linh_kien.trim(), stagedImageFile);
+      if (stagedImages.length) await uploadAnhForMa(form.ma_linh_kien.trim(), stagedImages.map((a) => a.file));
       addToast("Đã thêm linh kiện mới - chờ Mua hàng xác nhận mã chuẩn");
       setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "" });
       closeForm();
@@ -801,12 +852,28 @@ function DanhMucTab() {
   // Giu ten ham cu (goi tu input file trong Modal ben duoi khi dang o che do SUA - editingMa chac
   // chan co gia tri luc nay) de khong phai doi cho goi trong JSX, chi doi than ham sang dung lai
   // uploadAnhForMa() dung chung voi luong them moi.
-  async function handleUploadAnh(file: File) {
+  async function handleUploadAnh(files: File[]) {
     if (!editingMa) return;
-    await uploadAnhForMa(editingMa, file);
-    addToast("Đã tải ảnh linh kiện lên Google Drive");
+    const conLai = SO_ANH_LK_TOI_DA - anhSua.length;
+    if (conLai <= 0) {
+      addToast(`Linh kiện đã đủ ${SO_ANH_LK_TOI_DA} ảnh — xoá bớt ảnh cũ trước khi thêm`);
+      return;
+    }
+    if (files.length > conLai) addToast(`Tối đa ${SO_ANH_LK_TOI_DA} ảnh — chỉ lấy ${conLai} ảnh đầu`);
+    const ok = await uploadAnhForMa(editingMa, files.slice(0, conLai));
+    if (ok) addToast(`Đã tải ${ok} ảnh linh kiện lên Google Drive`);
     qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
   }
+
+  // Xoa / dat lam anh chinh (2026-10-13) - gui ca danh sach moi (PUT .../anh-ds, chi nhan URL dang co).
+  const suaDsAnh = useMutation({
+    mutationFn: (ds: string[]) => api.put(`/settings/linh-kien/${encodeURIComponent(editingMa ?? "")}/anh-ds`, { anh_ds: ds }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["settings-linh-kien"] }),
+    onError: (err) => {
+      addToast(err instanceof ApiError && err.code === "DANH_SACH_ANH_DA_DOI" ? "Danh sách ảnh vừa thay đổi — đã tải lại, thử lại" : "Không lưu được thay đổi ảnh");
+      qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
+    },
+  });
 
   async function handleBulkImportAnh(file: File) {
     setBulkImportRunning(true);
@@ -1329,29 +1396,59 @@ function DanhMucTab() {
             </datalist>
           </div>
           <div>
-            <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Ảnh minh hoạ</label>
-            <div className="flex items-center gap-3 mt-1">
-              <AnhThumbnail url={formMode === "add" ? stagedImagePreview : editingRow?.anh_demo ?? null} cacheBust={formMode === "edit" ? imgCacheBust || undefined : undefined} size={64} />
-              <div className="flex flex-col gap-1 items-start">
-                <FileButton
-                  accept="image/*"
-                  disabled={uploadingAnh}
-                  onFileSelected={(f) => {
-                    if (formMode === "add") onPickStagedImage(f);
-                    else void handleUploadAnh(f);
-                  }}
-                >
-                  {uploadingAnh ? "Đang tải..." : "⬆ Chọn ảnh"}
-                </FileButton>
-                {formMode === "edit" && editingRow?.anh_demo && (
-                  <button type="button" className="text-xs text-[var(--ocean-600)] hover:underline self-start" onClick={() => setImgCacheBust((n) => n + 1)}>
-                    🔄 Đồng bộ lại ảnh
+            <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Ảnh minh hoạ ({soAnhForm}/{SO_ANH_LK_TOI_DA})</label>
+            <div className="flex flex-wrap items-start gap-2 mt-1.5">
+              {(formMode === "add" ? stagedImages.map((a) => a.preview) : anhSua).map((u, i) => (
+                <div key={u} className="relative">
+                  <AnhThumbnail url={u} cacheBust={formMode === "edit" ? imgCacheBust || undefined : undefined} size={64} />
+                  {i === 0 && <span className="absolute left-0.5 bottom-0.5 rounded bg-[var(--color-primary)] px-1 text-[10px] font-semibold text-white pointer-events-none">Chính</span>}
+                  <button
+                    type="button"
+                    title="Xóa ảnh"
+                    disabled={uploadingAnh || suaDsAnh.isPending}
+                    onClick={() => {
+                      if (formMode === "add") boStagedImage(i);
+                      else if (window.confirm("Xóa ảnh này khỏi linh kiện?")) suaDsAnh.mutate(anhSua.filter((_, k) => k !== i));
+                    }}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[var(--color-danger)] text-white text-[11px] leading-5 shadow"
+                  >
+                    ✕
                   </button>
-                )}
-                {formMode === "add" && !stagedImageFile && <div className="text-xs text-[var(--ink-400)]">Chưa chọn ảnh — có thể để trống, thêm sau.</div>}
-                {uploadingAnh && <div className="text-xs text-[var(--ink-500)]">Đang tải ảnh lên Google Drive...</div>}
-              </div>
+                  {formMode === "edit" && i > 0 && (
+                    <button
+                      type="button"
+                      title="Đặt làm ảnh chính"
+                      disabled={uploadingAnh || suaDsAnh.isPending}
+                      onClick={() => suaDsAnh.mutate([u, ...anhSua.filter((_, k) => k !== i)])}
+                      className="absolute left-0.5 bottom-0.5 rounded bg-black/50 px-1 text-[10px] text-white hover:bg-black/70"
+                    >
+                      ★ Chính
+                    </button>
+                  )}
+                </div>
+              ))}
+              {soAnhForm === 0 && <AnhThumbnail url={null} size={64} />}
             </div>
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <FileButton
+                accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif"
+                multiple
+                disabled={uploadingAnh || soAnhForm >= SO_ANH_LK_TOI_DA}
+                onFilesSelected={(fs) => {
+                  if (formMode === "add") onPickStagedImages(fs);
+                  else void handleUploadAnh(fs);
+                }}
+              >
+                {uploadingAnh ? "Đang tải..." : "⬆ Thêm ảnh"}
+              </FileButton>
+              {formMode === "edit" && anhSua.length > 0 && (
+                <button type="button" className="text-xs text-[var(--ocean-600)] hover:underline" onClick={() => setImgCacheBust((n) => n + 1)}>
+                  🔄 Đồng bộ lại ảnh
+                </button>
+              )}
+            </div>
+            <div className="text-xs text-[var(--ink-400)] mt-1">Tối đa {SO_ANH_LK_TOI_DA} ảnh (chọn được nhiều ảnh 1 lần). Ảnh đầu tiên là ảnh chính, hiện ở danh sách và đồng bộ sang DVBH.</div>
+            {uploadingAnh && <div className="text-xs text-[var(--ink-500)] mt-1">Đang tải ảnh lên Google Drive...</div>}
           </div>
           <div>
             <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Ghi chú</label>
