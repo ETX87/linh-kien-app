@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { Btn } from "../components/ui/Btn";
@@ -27,9 +27,13 @@ interface CongNo0dRow {
   hom_nay: string;
   nguoi_cap_nhat: string | null;
   ngay_cap_nhat: string | null;
-  lk: { ma_linh_kien: string; so_luong: number; ten_linh_kien: string | null; gia_tri_cong_no: number | null }[];
+  // tu_khoa_id != null = dong do tu khoa tu lap (migration 0079); bat_tat = 0 = ma bi tat (khop sai).
+  lk: { ma_linh_kien: string; so_luong: number; ten_linh_kien: string | null; gia_tri_cong_no: number | null; tu_khoa_id: number | null; bat_tat: number }[];
   ktv: { ma_ktv: string; ten_hien_thi: string | null; khu_vuc_ma: string | null }[];
+  tu_khoa: { id: number; tu_khoa: string; khop_ten: number; so_luong: number }[];
 }
+interface TuKhoaSoan { tu_khoa: string; so_luong: number; khop_ten: boolean }
+interface LkKhopRow { ma_linh_kien: string; ten_linh_kien: string | null; gia_tri_cong_no: number | null; bat_tat: number; khop_ma: number }
 interface KtvOption {
   ma_ktv: string;
   ten_hien_thi: string | null;
@@ -95,7 +99,8 @@ export function CongNo0dTab() {
       <div className="text-xs text-[var(--color-text-secondary)]">
         Trong khoảng ngày áp dụng, KTV được chọn đang tồn linh kiện trong danh sách thì tối đa <b>số lượng hỗ trợ</b> chiếc được tính công
         nợ = 0đ, phần tồn vượt tính công nợ bình thường. Bật/tắt hoặc sửa là "Công nợ thực tế" tính lại ngay. Nhiều chương trình cùng mã
-        LK cho cùng KTV thì cộng dồn số lượng hỗ trợ.
+        LK cho cùng KTV thì cộng dồn số lượng hỗ trợ. Chương trình có <b>từ khóa</b> (🔎) tự thêm mọi linh kiện có mã chứa từ khóa, kể cả
+        linh kiện mới thêm sau.
       </div>
       <div className="flex items-center gap-2 flex-wrap">
         <input
@@ -131,15 +136,21 @@ export function CongNo0dTab() {
             )}
             {rows.map((r) => {
               const tt = trangThai(r);
-              const moTaLk = r.lk.map((l) => `${formatLkLabel(l.ma_linh_kien, l.ten_linh_kien ?? l.ma_linh_kien)} ×${l.so_luong}`).join("\n");
+              const lkBat = r.lk.filter((l) => l.bat_tat);
+              const soTat = r.lk.length - lkBat.length;
+              const moTaLk = lkBat.map((l) => `${formatLkLabel(l.ma_linh_kien, l.ten_linh_kien ?? l.ma_linh_kien)} ×${l.so_luong}`).join("\n");
               const moTaKtv = r.ktv.map((k) => k.ten_hien_thi ?? k.ma_ktv).join("\n");
               return (
                 <tr key={r.id} className="border-t border-[var(--color-border)]">
                   <td className="px-2.5 py-1.5 font-medium max-w-[220px] truncate" title={r.ten ?? undefined}>{r.ten ?? <span className="text-[var(--color-text-muted)]">#{r.id}</span>}</td>
                   <td className="px-2.5 py-1.5 text-xs">{fmtDate(r.tu_ngay)} → {fmtDate(r.den_ngay)}</td>
                   <td className="px-2.5 py-1.5 max-w-[360px] truncate" title={moTaLk}>
-                    <span className="font-semibold">{r.lk.length} LK</span>
-                    <span className="ml-1.5 text-[var(--color-text-secondary)]">{r.lk.map((l) => `${l.ma_linh_kien} ×${l.so_luong}`).join(", ")}</span>
+                    <span className="font-semibold">{lkBat.length} LK</span>
+                    {r.tu_khoa.map((k) => (
+                      <span key={k.id} className="ml-1.5"><Badge tone="info">🔎 {k.tu_khoa} ×{k.so_luong}</Badge></span>
+                    ))}
+                    {soTat > 0 && <span className="ml-1.5 text-xs text-[var(--color-text-muted)]">({soTat} mã tắt)</span>}
+                    <span className="ml-1.5 text-[var(--color-text-secondary)]">{lkBat.map((l) => `${l.ma_linh_kien} ×${l.so_luong}`).join(", ")}</span>
                   </td>
                   <td className="px-2.5 py-1.5 max-w-[260px] truncate" title={r.tat_ca_ktv ? undefined : moTaKtv}>
                     {r.tat_ca_ktv ? <Badge tone="info">Toàn bộ KTV</Badge> : (
@@ -223,7 +234,20 @@ function CongNo0dModal({ row, onClose, onSaved }: { row: CongNo0dRow | null; onC
   const [denNgay, setDenNgay] = useState(row?.den_ngay ?? cuoiThangVN());
   const [tatCa, setTatCa] = useState(!!row?.tat_ca_ktv);
   const [chon, setChon] = useState<Set<string>>(() => new Set(row?.ktv.map((k) => k.ma_ktv) ?? []));
-  const [dong, setDong] = useState<DongSoan[]>(row ? row.lk.map((l) => ({ ma_lk: l.ma_linh_kien, so_luong: l.so_luong })) : [{ ma_lk: "", so_luong: 1 }]);
+  // Dong nhap tay = dong khong do tu khoa sinh ra (tu_khoa_id null).
+  const lkTay = row ? row.lk.filter((l) => l.tu_khoa_id == null) : [];
+  const [dong, setDong] = useState<DongSoan[]>(
+    lkTay.length ? lkTay.map((l) => ({ ma_lk: l.ma_linh_kien, so_luong: l.so_luong })) : [{ ma_lk: "", so_luong: 1 }],
+  );
+  const [tuKhoa, setTuKhoa] = useState<TuKhoaSoan[]>(() => (row?.tu_khoa ?? []).map((k) => ({ tu_khoa: k.tu_khoa, so_luong: k.so_luong, khop_ten: !!k.khop_ten })));
+  const [tatMa, setTatMa] = useState<Set<string>>(() => new Set((row?.lk ?? []).filter((l) => l.tu_khoa_id != null && !l.bat_tat).map((l) => l.ma_linh_kien)));
+  const doiTatMa = (ma: string) =>
+    setTatMa((prev) => {
+      const next = new Set(prev);
+      if (next.has(ma)) next.delete(ma);
+      else next.add(ma);
+      return next;
+    });
   const [locKv, setLocKv] = useState("");
   const [timKtv, setTimKtv] = useState("");
   const [chiDaChon, setChiDaChon] = useState(false);
@@ -269,8 +293,18 @@ function CongNo0dModal({ row, onClose, onSaved }: { row: CongNo0dRow | null; onC
   const dongHopLe = dong.filter((d) => d.ma_lk);
   const trung = new Set(dongHopLe.map((d) => d.ma_lk)).size !== dongHopLe.length;
   const ngaySai = !tuNgay || !denNgay || tuNgay > denNgay;
+  const tuKhoaDung = tuKhoa.filter((k) => k.tu_khoa.trim());
+  const tuKhoaSai =
+    tuKhoaDung.some((k) => k.tu_khoa.trim().length < 3 || !Number.isInteger(k.so_luong) || k.so_luong <= 0) ||
+    new Set(tuKhoaDung.map((k) => k.tu_khoa.trim().toUpperCase())).size !== tuKhoaDung.length;
   const duLieu =
-    !ngaySai && dongHopLe.length > 0 && dongHopLe.every((d) => Number.isInteger(d.so_luong) && d.so_luong > 0) && !trung && (tatCa || chon.size > 0);
+    !ngaySai &&
+    dongHopLe.length + tuKhoaDung.length > 0 &&
+    dongHopLe.every((d) => Number.isInteger(d.so_luong) && d.so_luong > 0) &&
+    !trung &&
+    !tuKhoaSai &&
+    (tatCa || chon.size > 0);
+  const maTay = useMemo(() => new Set(dongHopLe.map((d) => d.ma_lk)), [dongHopLe]);
 
   const luu = useMutation({
     mutationFn: () => {
@@ -281,6 +315,8 @@ function CongNo0dModal({ row, onClose, onSaved }: { row: CongNo0dRow | null; onC
         tat_ca_ktv: tatCa,
         ktv: tatCa ? [] : [...chon],
         lk: dongHopLe.map((d) => ({ ma_linh_kien: d.ma_lk, so_luong: d.so_luong })),
+        tu_khoa: tuKhoaDung.map((k) => ({ tu_khoa: k.tu_khoa.trim(), so_luong: k.so_luong, khop_ten: k.khop_ten })),
+        tat_ma: [...tatMa],
       };
       return row ? api.patch(`/settings/ktv-ton-kho/cong-no-0d/${row.id}`, body) : api.post("/settings/ktv-ton-kho/cong-no-0d", body);
     },
@@ -350,6 +386,32 @@ function CongNo0dModal({ row, onClose, onSaved }: { row: CongNo0dRow | null; onC
         </div>
 
         <div>
+          <div className={nhan}>Chọn hàng loạt theo từ khóa (tự thêm cả linh kiện mới sau này)</div>
+          <div className="text-xs text-[var(--color-text-secondary)] mb-2">
+            Mọi linh kiện có <b>mã</b> chứa từ khóa (vd "BH004") vào chương trình với số lượng hỗ trợ của từ khóa. Linh kiện thêm sau có mã phù
+            hợp tự được bổ sung. Tắt từng mã khớp sai ở danh sách bên dưới — mã đã tắt không tự bật lại. Mã đã nhập tay ở trên dùng số lượng nhập tay.
+          </div>
+          <div className="space-y-3">
+            {tuKhoa.map((k, i) => (
+              <TuKhoaDong
+                key={i}
+                k={k}
+                stt={i + 1}
+                maTay={maTay}
+                tatMa={tatMa}
+                doiTatMa={doiTatMa}
+                onChange={(patch) => setTuKhoa((prev) => prev.map((x, j) => (j === i ? { ...x, ...patch } : x)))}
+                onXoa={() => setTuKhoa((prev) => prev.filter((_, j) => j !== i))}
+              />
+            ))}
+          </div>
+          {tuKhoaSai && <div className="mt-1 text-xs text-[var(--color-danger)]">Từ khóa cần ít nhất 3 ký tự, không trùng nhau, số lượng ≥ 1.</div>}
+          <Btn size="sm" variant="ghost" className="mt-2" onClick={() => setTuKhoa((prev) => [...prev, { tu_khoa: "", so_luong: 1, khop_ten: false }])}>
+            ＋ Thêm từ khóa
+          </Btn>
+        </div>
+
+        <div>
           <div className="flex items-center gap-3 mb-2">
             <span className="text-xs font-semibold text-[var(--color-text-secondary)]">KTV áp dụng *</span>
             <label className="flex items-center gap-1.5 cursor-pointer">
@@ -401,5 +463,95 @@ function CongNo0dModal({ row, onClose, onSaved }: { row: CongNo0dRow | null; onC
         </div>
       </div>
     </Modal>
+  );
+}
+
+// 1 dong tu khoa trong form + danh sach LK khop (xem truoc tu server, cung dieu kien luc luu - GET /cong-no-0d/khop) kem cong tac
+// tat/bat tung ma. Tat/bat chi luu khi bam "Lưu" (gui tat_ma).
+function TuKhoaDong({
+  k, stt, maTay, tatMa, doiTatMa, onChange, onXoa,
+}: {
+  k: TuKhoaSoan; stt: number; maTay: Set<string>; tatMa: Set<string>; doiTatMa: (ma: string) => void;
+  onChange: (patch: Partial<TuKhoaSoan>) => void; onXoa: () => void;
+}) {
+  const [tk, setTk] = useState(k.tu_khoa.trim());
+  useEffect(() => {
+    const t = setTimeout(() => setTk(k.tu_khoa.trim()), 400);
+    return () => clearTimeout(t);
+  }, [k.tu_khoa]);
+  const [mo, setMo] = useState(false);
+  const [loc, setLoc] = useState("");
+  const { data, isFetching } = useQuery({
+    queryKey: ["cong-no-0d-khop", tk.toUpperCase(), k.khop_ten],
+    queryFn: () => api.get<{ rows: LkKhopRow[] }>(`/settings/ktv-ton-kho/cong-no-0d/khop?tu_khoa=${encodeURIComponent(tk)}&khop_ten=${k.khop_ten ? 1 : 0}`),
+    enabled: tk.length >= 3,
+  });
+  const rows = data?.rows ?? [];
+  const soTat = rows.filter((r) => tatMa.has(r.ma_linh_kien)).length;
+  const hien = rows.filter((r) => !loc.trim() || khopTim(`${r.ma_linh_kien} ${r.ten_linh_kien ?? ""}`, loc.trim()));
+  return (
+    <div className="rounded-lg border border-[var(--color-border)]">
+      <div className="flex flex-wrap items-center gap-2 px-2.5 py-2">
+        <span className="w-5 text-xs text-[var(--color-text-secondary)] text-right shrink-0">{stt}.</span>
+        <input
+          value={k.tu_khoa}
+          onChange={(e) => onChange({ tu_khoa: e.target.value })}
+          placeholder="Từ khóa, vd BH004"
+          className="focus-ring w-40 bg-white border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 font-mono"
+        />
+        <input
+          type="number"
+          min={1}
+          step={1}
+          value={k.so_luong}
+          onChange={(e) => onChange({ so_luong: Number(e.target.value) })}
+          className="focus-ring w-20 bg-white border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-right font-mono"
+          title="Số lượng hỗ trợ / KTV cho mỗi linh kiện khớp"
+        />
+        <label className="flex items-center gap-1 text-xs cursor-pointer">
+          <input type="checkbox" checked={k.khop_ten} onChange={(e) => onChange({ khop_ten: e.target.checked })} />
+          Khớp cả tên linh kiện
+        </label>
+        <span className="ml-auto text-xs text-[var(--color-text-secondary)]">
+          {tk.length < 3 ? "Nhập ≥ 3 ký tự" : isFetching && !data ? "Đang tìm…" : (
+            <>
+              <b>{rows.length - soTat}</b> mã áp dụng{soTat > 0 ? ` · ${soTat} tắt` : ""}
+              {rows.length >= 2000 ? " (hiện 2.000 mã đầu)" : ""}
+            </>
+          )}
+        </span>
+        <Btn size="sm" variant="ghost" disabled={rows.length === 0} onClick={() => setMo((v) => !v)}>{mo ? "Thu gọn" : "Xem / tắt mã"}</Btn>
+        <Btn size="sm" variant="ghost" onClick={onXoa}>✕</Btn>
+      </div>
+      {mo && rows.length > 0 && (
+        <div className="border-t border-[var(--color-border)]">
+          <div className="px-2.5 py-2 bg-[var(--color-surface-soft)]">
+            <input
+              value={loc}
+              onChange={(e) => setLoc(e.target.value)}
+              placeholder="Lọc trong danh sách khớp…"
+              className="focus-ring w-full bg-white border border-[var(--color-border)] rounded-lg px-2 py-1 text-sm"
+            />
+          </div>
+          <div className="max-h-64 overflow-y-auto divide-y divide-[var(--color-border)]">
+            {hien.map((r) => {
+              const tay = maTay.has(r.ma_linh_kien);
+              const bat = !tatMa.has(r.ma_linh_kien);
+              return (
+                <div key={r.ma_linh_kien} className={`flex items-center gap-2 px-2.5 py-1.5 ${bat ? "" : "opacity-60"}`}>
+                  {tay ? <span className="w-10 shrink-0" /> : <ToggleSwitch checked={bat} onChange={() => doiTatMa(r.ma_linh_kien)} />}
+                  <span className="shrink-0 font-mono text-xs">{r.ma_linh_kien}</span>
+                  <span className="min-w-0 flex-1 truncate" title={r.ten_linh_kien ?? undefined}>{r.ten_linh_kien ?? "—"}</span>
+                  {!r.khop_ma && <Badge tone="warning">Khớp theo tên</Badge>}
+                  {tay && <Badge tone="neutral">Đã nhập tay</Badge>}
+                  {!r.bat_tat && <Badge tone="neutral">LK đang tắt</Badge>}
+                </div>
+              );
+            })}
+            {hien.length === 0 && <div className="px-3 py-3 text-center text-xs text-[var(--color-text-secondary)]">Không có mã phù hợp.</div>}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

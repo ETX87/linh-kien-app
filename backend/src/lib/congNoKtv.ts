@@ -22,7 +22,7 @@ export async function getMocTinhCongNo(db: D1Database): Promise<string | null> {
 export function SL_HO_TRO_0D_SQL(t: string): string {
   return `MIN(MAX(COALESCE(${t}.cuoi_ky, 0), 0), (SELECT COALESCE(SUM(l0.so_luong), 0) FROM cong_no_0d_lk l0
     JOIN cong_no_0d r0 ON r0.id = l0.cong_no_0d_id
-    WHERE l0.ma_linh_kien = ${t}.ma_hang AND r0.bat_tat = 1
+    WHERE l0.ma_linh_kien = ${t}.ma_hang AND l0.bat_tat = 1 AND r0.bat_tat = 1
       AND date('now', '+7 hours') BETWEEN r0.tu_ngay AND r0.den_ngay
       AND (r0.tat_ca_ktv = 1 OR EXISTS (SELECT 1 FROM cong_no_0d_ktv x0 WHERE x0.cong_no_0d_id = r0.id AND x0.ma_ktv = ${t}.ma_ktv))))`;
 }

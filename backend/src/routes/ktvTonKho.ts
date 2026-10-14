@@ -447,11 +447,16 @@ type CongNo0dBody = {
   bat_tat?: boolean;
   ktv?: string[];
   lk?: { ma_linh_kien: string; so_luong: number }[];
+  // Tu khoa (migration 0079): LK co ma (khop_ten: ca ten) chua tu khoa tu vao chuong trinh, ke ca LK them sau (trigger).
+  tu_khoa?: { tu_khoa: string; so_luong: number; khop_ten?: boolean }[];
+  // Ma LK khop tu khoa ma nguoi dung TAT (sai) - luu bat_tat = 0, trigger khong tu bat lai.
+  tat_ma?: string[];
 };
 const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 async function kiemTraCongNo0d(db: D1Database, b: CongNo0dBody): Promise<{ error: string } | {
   ten: string | null; tu: string; den: string; tatCa: boolean; ktv: string[]; lk: { ma: string; sl: number }[];
+  tuKhoa: { tu_khoa: string; sl: number; khop_ten: number }[]; tatMa: string[];
 }> {
   const tu = (b.tu_ngay ?? "").trim();
   const den = (b.den_ngay ?? "").trim();
@@ -459,7 +464,18 @@ async function kiemTraCongNo0d(db: D1Database, b: CongNo0dBody): Promise<{ error
   if (tu > den) return { error: "TU_NGAY_SAU_DEN_NGAY" };
   const tatCa = !!b.tat_ca_ktv;
   const lkVao = (b.lk ?? []).filter((d) => d && String(d.ma_linh_kien ?? "").trim());
-  if (lkVao.length === 0) return { error: "THIEU_LINH_KIEN" };
+  const tuKhoaVao = (b.tu_khoa ?? []).filter((d) => d && String(d.tu_khoa ?? "").trim());
+  if (lkVao.length === 0 && tuKhoaVao.length === 0) return { error: "THIEU_LINH_KIEN" };
+  // Tu khoa >= 3 ky tu (tranh 1-2 ky tu khop gan het danh muc), trung (khong phan biet hoa/thuong) -> gop.
+  const tuKhoa: { tu_khoa: string; sl: number; khop_ten: number }[] = [];
+  for (const d of tuKhoaVao) {
+    const tk = String(d.tu_khoa).trim();
+    if (tk.length < 3) return { error: "TU_KHOA_QUA_NGAN" };
+    if (!Number.isInteger(d.so_luong) || d.so_luong <= 0) return { error: "SO_LUONG_KHONG_HOP_LE" };
+    if (tuKhoa.some((x) => x.tu_khoa.toUpperCase() === tk.toUpperCase())) return { error: `TU_KHOA_TRUNG:${tk}` };
+    tuKhoa.push({ tu_khoa: tk, sl: d.so_luong, khop_ten: d.khop_ten ? 1 : 0 });
+  }
+  const tatMa = [...new Set((b.tat_ma ?? []).map((m) => String(m).trim()).filter(Boolean))];
   if (lkVao.some((d) => !Number.isInteger(d.so_luong) || d.so_luong <= 0)) return { error: "SO_LUONG_KHONG_HOP_LE" };
   // Ma A da doi/gop sang B -> quy ve B (cung quy uoc moi bang co cot ma LK).
   const chuan = await quyVeMaChuan(db, lkVao.map((d) => String(d.ma_linh_kien).trim()));
@@ -473,7 +489,7 @@ async function kiemTraCongNo0d(db: D1Database, b: CongNo0dBody): Promise<{ error
     .bind(JSON.stringify([...gop.keys()]))
     .all<{ ma_linh_kien: string }>();
   const lkCoSet = new Set(lkCo.map((r) => r.ma_linh_kien));
-  const lkThieu = [...gop.keys()].filter((m) => !lkCoSet.has(m));
+  const lkThieu = gop.size ? [...gop.keys()].filter((m) => !lkCoSet.has(m)) : [];
   if (lkThieu.length) return { error: `LINH_KIEN_KHONG_TON_TAI:${lkThieu.join(",")}` };
   let ktv: string[] = [];
   if (!tatCa) {
@@ -486,16 +502,45 @@ async function kiemTraCongNo0d(db: D1Database, b: CongNo0dBody): Promise<{ error
     if (ktvCo.length !== ktv.length) return { error: "KTV_KHONG_TON_TAI" };
   }
   const ten = (b.ten ?? "").trim() || null;
-  return { ten, tu, den, tatCa, ktv, lk: [...gop].map(([ma, sl]) => ({ ma, sl })) };
+  return { ten, tu, den, tatCa, ktv, lk: [...gop].map(([ma, sl]) => ({ ma, sl })), tuKhoa, tatMa };
 }
 
-function lenhConCongNo0d(db: D1Database, id: number, v: { ktv: string[]; lk: { ma: string; sl: number }[] }) {
+// Dieu kien "LK khop tu khoa" - CUNG cong thuc voi 2 trigger o migration 0079 (sua 1 cho phai sua ca 2). Alias: k = cong_no_0d_tu_khoa
+// (hoac bang co cot tu_khoa/khop_ten), lk = linh_kien.
+const LK_KHOP_TU_KHOA_SQL = `COALESCE(lk.trang_thai_ma, '') <> 'Da doi ma'
+  AND (instr(UPPER(lk.ma_linh_kien), UPPER(k.tu_khoa)) > 0
+       OR (k.khop_ten = 1 AND instr(UPPER(COALESCE(lk.ten_linh_kien, '')), UPPER(k.tu_khoa)) > 0))`;
+
+// Ghi lai toan bo LK/KTV/tu khoa cua 1 chuong trinh: dong nhap tay truoc (thang dong tu khoa cung ma), roi LK khop tu khoa
+// (INSERT OR IGNORE, ma trong tat_ma -> bat_tat = 0).
+function lenhConCongNo0d(
+  db: D1Database,
+  id: number,
+  v: { ktv: string[]; lk: { ma: string; sl: number }[]; tuKhoa: { tu_khoa: string; sl: number; khop_ten: number }[]; tatMa: string[] },
+) {
   return [
     db.prepare("DELETE FROM cong_no_0d_lk WHERE cong_no_0d_id = ?").bind(id),
     db.prepare("DELETE FROM cong_no_0d_ktv WHERE cong_no_0d_id = ?").bind(id),
+    db.prepare("DELETE FROM cong_no_0d_tu_khoa WHERE cong_no_0d_id = ?").bind(id),
     db
       .prepare("INSERT INTO cong_no_0d_lk (cong_no_0d_id, ma_linh_kien, so_luong) SELECT ?, json_extract(value, '$.ma'), json_extract(value, '$.sl') FROM json_each(?)")
       .bind(id, JSON.stringify(v.lk)),
+    db
+      .prepare(
+        `INSERT INTO cong_no_0d_tu_khoa (cong_no_0d_id, tu_khoa, khop_ten, so_luong)
+         SELECT ?, json_extract(value, '$.tu_khoa'), json_extract(value, '$.khop_ten'), json_extract(value, '$.sl') FROM json_each(?)`,
+      )
+      .bind(id, JSON.stringify(v.tuKhoa)),
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO cong_no_0d_lk (cong_no_0d_id, ma_linh_kien, so_luong, tu_khoa_id, bat_tat)
+         SELECT k.cong_no_0d_id, lk.ma_linh_kien, k.so_luong, k.id,
+                CASE WHEN lk.ma_linh_kien IN (SELECT value FROM json_each(?)) THEN 0 ELSE 1 END
+         FROM cong_no_0d_tu_khoa k JOIN linh_kien lk ON ${LK_KHOP_TU_KHOA_SQL}
+         WHERE k.cong_no_0d_id = ?
+         ORDER BY k.id, lk.ma_linh_kien`,
+      )
+      .bind(JSON.stringify(v.tatMa), id),
     db.prepare("INSERT INTO cong_no_0d_ktv (cong_no_0d_id, ma_ktv) SELECT ?, value FROM json_each(?)").bind(id, JSON.stringify(v.ktv)),
   ];
 }
@@ -503,10 +548,10 @@ function lenhConCongNo0d(db: D1Database, id: number, v: { ktv: string[]; lk: { m
 // GET /cong-no-0d - danh sach chuong trinh kem LK/KTV (chuong trinh trung nhau thi cong don SL ho tro, xem SL_HO_TRO_0D_SQL).
 ktvTonKho.get("/cong-no-0d", adminOrKeToan, async (c) => {
   const db = c.env.DB;
-  const [rules, lks, ktvs] = await db.batch<Record<string, unknown>>([
+  const [rules, lks, ktvs, tks] = await db.batch<Record<string, unknown>>([
     db.prepare(`SELECT r.*, date('now', '+7 hours') as hom_nay FROM cong_no_0d r ORDER BY r.bat_tat DESC, r.den_ngay DESC, r.id DESC`),
     db.prepare(
-      `SELECT l.cong_no_0d_id, l.ma_linh_kien, l.so_luong, lk.ten_linh_kien, lk.gia_tri_cong_no
+      `SELECT l.cong_no_0d_id, l.ma_linh_kien, l.so_luong, l.tu_khoa_id, l.bat_tat, lk.ten_linh_kien, lk.gia_tri_cong_no
        FROM cong_no_0d_lk l LEFT JOIN linh_kien lk ON lk.ma_linh_kien = l.ma_linh_kien
        ORDER BY l.cong_no_0d_id, l.ma_linh_kien`,
     ),
@@ -514,13 +559,47 @@ ktvTonKho.get("/cong-no-0d", adminOrKeToan, async (c) => {
       `SELECT x.cong_no_0d_id, x.ma_ktv, k.ten_hien_thi, k.khu_vuc_ma FROM cong_no_0d_ktv x
        LEFT JOIN ktv_lien_he k ON k.ma_ktv = x.ma_ktv ORDER BY x.cong_no_0d_id, x.ma_ktv`,
     ),
+    db.prepare("SELECT id, cong_no_0d_id, tu_khoa, khop_ten, so_luong FROM cong_no_0d_tu_khoa ORDER BY cong_no_0d_id, id"),
   ]);
   const rows = rules.results.map((r) => ({
     ...r,
     lk: lks.results.filter((l) => l.cong_no_0d_id === r.id),
     ktv: ktvs.results.filter((k) => k.cong_no_0d_id === r.id),
+    tu_khoa: tks.results.filter((k) => k.cong_no_0d_id === r.id),
   }));
   return c.json({ rows });
+});
+
+// GET /cong-no-0d/khop?tu_khoa=&khop_ten=1 - xem truoc LK khop 1 tu khoa (form them/sua chuong trinh) - CUNG dieu kien
+// LK_KHOP_TU_KHOA_SQL voi luc luu. Toi da 2000 dong.
+ktvTonKho.get("/cong-no-0d/khop", adminOrKeToan, async (c) => {
+  const tk = (c.req.query("tu_khoa") ?? "").trim();
+  if (tk.length < 3) return c.json({ error: "TU_KHOA_QUA_NGAN" }, 400);
+  const khopTen = c.req.query("khop_ten") === "1" ? 1 : 0;
+  const { results } = await c.env.DB.prepare(
+    `SELECT lk.ma_linh_kien, lk.ten_linh_kien, lk.gia_tri_cong_no, lk.bat_tat,
+            instr(UPPER(lk.ma_linh_kien), UPPER(k.tu_khoa)) > 0 AS khop_ma
+     FROM (SELECT ? AS tu_khoa, ? AS khop_ten) k JOIN linh_kien lk ON ${LK_KHOP_TU_KHOA_SQL}
+     ORDER BY lk.ma_linh_kien LIMIT 2000`,
+  )
+    .bind(tk, khopTen)
+    .all();
+  return c.json({ rows: results });
+});
+
+// PATCH /cong-no-0d/:id/lk/:ma - { bat_tat } bat/tat nhanh 1 ma trong chuong trinh (ma khop tu khoa bi sai). Cong no tinh lai ngay.
+ktvTonKho.patch("/cong-no-0d/:id/lk/:ma", adminOrKeToan, async (c) => {
+  const user = c.get("user");
+  const id = Number(c.req.param("id"));
+  const ma = c.req.param("ma");
+  const body = await c.req.json<{ bat_tat?: boolean }>().catch(() => ({}) as { bat_tat?: boolean });
+  if (typeof body.bat_tat !== "boolean") return c.json({ error: "NOTHING_TO_UPDATE" }, 400);
+  const [r] = await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE cong_no_0d_lk SET bat_tat = ? WHERE cong_no_0d_id = ? AND ma_linh_kien = ?").bind(body.bat_tat ? 1 : 0, id, ma),
+    c.env.DB.prepare("UPDATE cong_no_0d SET nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE id = ?").bind(user.email, nowVN(), id),
+  ]);
+  if (!r.meta.changes) return c.json({ error: "NOT_FOUND" }, 404);
+  return c.json({ ok: true });
 });
 
 // GET /cong-no-0d/ktv-options - danh ba KTV de chon ap dung (kem khu vuc de loc nhanh).
@@ -586,6 +665,7 @@ ktvTonKho.delete("/cong-no-0d/:id", adminOrKeToan, async (c) => {
   await c.env.DB.batch([
     c.env.DB.prepare("DELETE FROM cong_no_0d_lk WHERE cong_no_0d_id = ?").bind(id),
     c.env.DB.prepare("DELETE FROM cong_no_0d_ktv WHERE cong_no_0d_id = ?").bind(id),
+    c.env.DB.prepare("DELETE FROM cong_no_0d_tu_khoa WHERE cong_no_0d_id = ?").bind(id),
     c.env.DB.prepare("DELETE FROM cong_no_0d WHERE id = ?").bind(id),
   ]);
   return c.json({ ok: true });
