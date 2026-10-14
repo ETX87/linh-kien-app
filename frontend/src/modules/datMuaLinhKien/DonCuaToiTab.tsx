@@ -41,7 +41,7 @@ import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, laTraHangChoTn, laChoHangMoKhoa, laChoHangBiKhoa, dayLaiDuoc, trangThaiLabel, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLkCombo, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
-  donGiaSauChietKhau, tienSauChietKhau, giaNiemYet, boQuaTbpDacThu } from "./helpers";
+  donGiaSauChietKhau, tienSauChietKhau, giaNiemYet, boQuaTbpDacThu, canNhapMaEo } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink, LogTieuDe } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
@@ -148,7 +148,9 @@ export function DonHangDetailModal({
   const [ghiChu, setGhiChu] = useState("");
   // "Tu choi" bat buoc chon 1 Ly do cham, "Huy" bat buoc nhap ghiChu tu do (phan hoi UX muc 1, xem
   // comment applyDonHangLog o backend).
-  const [actionTarget, setActionTarget] = useState<"tu_choi" | "cho_hang" | "huy" | "duyet_qua_han" | "day_lai" | null>(null);
+  const [actionTarget, setActionTarget] = useState<"tu_choi" | "cho_hang" | "huy" | "duyet_qua_han" | "day_lai" | "duyet_eo" | null>(null);
+  // Ma EO khi GS / TBP duyet don vuot tran cong no (tu dong duyet 100%, 2026-10-14).
+  const [maEo, setMaEo] = useState("");
   // Canh bao "Công nợ tạo hộ" (them 2026-08-24, muc 4) - chan 1 nhip TRUOC khi goi mutation "duyet"
   // that su, xem isCongNoTaoHo o helpers.ts.
   const [confirmDuyetTaoHo, setConfirmDuyetTaoHo] = useState(false);
@@ -181,6 +183,7 @@ export function DonHangDetailModal({
     setGhiChu("");
     setActionTarget(null);
     setLyDoChamId("");
+    setMaEo("");
     qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-detail", id] });
     qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
     // Doi trang thai don trong PXK -> don tu go khoi phieu (chot 2026-09-28) - lam moi man phieu dang mo.
@@ -201,8 +204,8 @@ export function DonHangDetailModal({
   });
 
   const logMutation = useMutation({
-    mutationFn: ({ hanh_dong, ly_do_cham_id, so_luong_thuc_xuat, ghi_chu_so_luong }: { hanh_dong: string; ly_do_cham_id?: number; so_luong_thuc_xuat?: number; ghi_chu_so_luong?: string }) =>
-      api.post(`/dat-mua-lk/don-hang/${id}/log`, { hanh_dong, ly_do_cham_id, ghi_chu: ghiChu.trim() || undefined, so_luong_thuc_xuat, ghi_chu_so_luong, giu_phieu_trong: giuPhieuTrong || undefined }),
+    mutationFn: ({ hanh_dong, ly_do_cham_id, so_luong_thuc_xuat, ghi_chu_so_luong, ma_eo }: { hanh_dong: string; ly_do_cham_id?: number; so_luong_thuc_xuat?: number; ghi_chu_so_luong?: string; ma_eo?: string }) =>
+      api.post(`/dat-mua-lk/don-hang/${id}/log`, { hanh_dong, ly_do_cham_id, ghi_chu: ghiChu.trim() || undefined, so_luong_thuc_xuat, ghi_chu_so_luong, ma_eo, giu_phieu_trong: giuPhieuTrong || undefined }),
     onSuccess: (_res, variables) => {
       invalidate();
       // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Duyet va tiep"): sau khi Duyet, tu dong nhay
@@ -283,6 +286,7 @@ export function DonHangDetailModal({
     if (
       data?.donHang.trang_thai === "Cho TBP xac nhan" ||
       data?.donHang.trang_thai === "Cho Tram duyet" ||
+      data?.donHang.trang_thai === "Cho GS duyet" ||
       (data?.donHang.trang_thai === "TN da duyet" && actionTarget === "tu_choi")
     ) {
       if (!ghiChu.trim()) return;
@@ -518,7 +522,39 @@ export function DonHangDetailModal({
           </Btn>
           <Btn size="sm" onClick={saveEdit} disabled={!editCanSave || editMutation.isPending}>{t("Lưu thay đổi")}</Btn>
         </div>
-      ) : actionTarget === "tu_choi" && (d.trang_thai === "Cho TBP xac nhan" || d.trang_thai === "Cho Tram duyet" || d.trang_thai === "TN da duyet") ? (
+      ) : actionTarget === "duyet_eo" ? (
+        // Tu dong duyet 100% (2026-10-14): GS (don "Cho GS duyet") / TBP (don dac thu vuot tran) duyet don VUOT TRAN cong no -
+        // canh bao cong no nguoi nhan + bat buoc nhap ma EO (tu do, khong kiem tra). Duyet xong he thong tu kiem tra ton kho.
+        <div className="w-full space-y-2 bg-[var(--surface-100)] border border-dashed border-[var(--color-warning)] rounded-lg p-2.5">
+          <div className="font-semibold text-xs text-[var(--color-warning-strong)]">{t("Đơn {a} vượt trần công nợ — nhập mã EO để duyệt", { a: d.id })}</div>
+          {d.cong_no_nhan && (
+            <div className="text-[11.5px] text-[var(--color-text-secondary)] flex flex-wrap gap-x-4 gap-y-0.5">
+              <span>{t("Trần công nợ")}: <b className="text-[var(--color-text)]">{d.cong_no_nhan.tran != null ? fmtVND(d.cong_no_nhan.tran) : t("Chưa đặt")}</b></span>
+              <span>{t("Công nợ hiện tại")}: <b className="text-[var(--color-text)]">{fmtVND(d.cong_no_nhan.chot)}</b></span>
+              {d.cong_no_nhan.don != null && <span>{t("Công nợ đơn này")}: <b className="text-[var(--color-text)]">{fmtVND(d.cong_no_nhan.don)}</b></span>}
+            </div>
+          )}
+          <div className="text-[11px] text-[var(--color-text-secondary)]">
+            {t("Duyệt = cho phép KTV vượt trần công nợ. Sau khi duyệt, hệ thống tự kiểm tra tồn kho: đủ hàng → vào phiếu xuất, thiếu → chờ hàng.")}
+          </div>
+          <div>
+            <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">{t("Mã EO (bắt buộc)")}</label>
+            <input
+              value={maEo}
+              onChange={(e) => setMaEo(e.target.value)}
+              placeholder={t("Mã EO")}
+              maxLength={100}
+              className="focus-ring w-full bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setMaEo(""); }}>{t("Hủy")}</Btn>
+            <Btn size="sm" onClick={() => logMutation.mutate({ hanh_dong: "duyet", ma_eo: maEo.trim() })} disabled={!maEo.trim() || logMutation.isPending} loading={logMutation.isPending}>
+              {t("Xác nhận duyệt")}
+            </Btn>
+          </div>
+        </div>
+      ) : actionTarget === "tu_choi" && (d.trang_thai === "Cho TBP xac nhan" || d.trang_thai === "Cho Tram duyet" || d.trang_thai === "Cho GS duyet" || d.trang_thai === "TN da duyet") ? (
         // Panel tu choi inline (concept 1, pattern ".inline-panel"/".field": nen xam nhat, vien dut
         // net, label chu hoa nho phia tren input) - thay khoi flex ngang tu viet tay truoc day.
         // FIX (phan hoi 2026-08-25, hang muc #19): ghi chu tu "tuy chon" thanh "bat buoc" (dao nguoc
@@ -725,7 +761,9 @@ export function DonHangDetailModal({
             <Btn
               size="sm"
               onClick={() =>
-                isCongNoTaoHo(d)
+                canNhapMaEo(d)
+                  ? setActionTarget("duyet_eo")
+                  : isCongNoTaoHo(d)
                   ? setConfirmDuyetTaoHo(true)
                   : d.qua_han_ly_do_cham
                     ? setActionTarget("duyet_qua_han")
@@ -899,6 +937,7 @@ export function DonHangDetailModal({
                     "Công nợ tạm tính" o tren + lib/congNoKtv.ts o backend. */}
                 {d.loai_don === "cong_no" && !laTruCongNo(d.loai_de_xuat) && d.danh_gia_cong_no === "Du" && <Badge tone="success">{t("Đủ công nợ")}</Badge>}
                 {d.loai_don === "cong_no" && !laTruCongNo(d.loai_de_xuat) && d.danh_gia_cong_no === "Khong du" && <Badge tone="danger">{t("Không đủ công nợ")}</Badge>}
+                {d.ma_eo && <Badge tone="purple">{t("Mã EO")}: {d.ma_eo}</Badge>}
               </div>
             </div>
           </div>
@@ -1444,7 +1483,7 @@ export function DonHangDetailModal({
                   title: (
                     <LogTieuDe
                       nguoi={l.tu_dong ? t("Hệ thống") : formatPersonDisplay(l.nguoi_xu_ly, personDirChiTiet)}
-                      hanhDong={l.tu_dong ? t("tự động duyệt đơn của {a} →", { a: formatPersonDisplay(l.nguoi_xu_ly, personDirChiTiet) }) : i === all.length - 1 ? t("tạo đơn →") : t("chuyển sang")}
+                      hanhDong={l.tu_dong ? (l.trang_thai === "TN da duyet" ? t("tự động duyệt đơn của {a} →", { a: formatPersonDisplay(l.nguoi_xu_ly, personDirChiTiet) }) : t("tự động chuyển đơn của {a} →", { a: formatPersonDisplay(l.nguoi_xu_ly, personDirChiTiet) })) : i === all.length - 1 ? t("tạo đơn →") : t("chuyển sang")}
                       trangThai={trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, l.trang_thai)}
                       ghiChu={l.ghi_chu}
                     />
@@ -1978,7 +2017,7 @@ export function DonCuaToiTab({
     // duyet" (phan hoi 2026-09-24) dung chung nhanh nay - khong the vao bulk (rowsCoTheChon khong gom
     // trang thai nay) nen chi can xu ly o day, cho thao tac tung dong.
     if (
-      targetRow?.trang_thai === "Cho TBP xac nhan" ||
+      targetRow?.trang_thai === "Cho TBP xac nhan" || targetRow?.trang_thai === "Cho GS duyet" ||
       targetRow?.trang_thai === "Cho Tram duyet" ||
       (targetRow?.trang_thai === "TN da duyet" && actionTarget.action === "tu_choi")
     ) {
@@ -2675,7 +2714,9 @@ export function DonHangGroupedList({
               title={t("Duyệt")}
               aria-label={t("Duyệt")}
               onClick={() =>
-                isCongNoTaoHo(row.d)
+                canNhapMaEo(row.d)
+                  ? onDetail(row.d.id) // vuot tran: mo chi tiet de nhap ma EO (2026-10-14)
+                  : isCongNoTaoHo(row.d)
                   ? setActionTarget({ id: row.d.id, action: "duyet_tao_ho" })
                   : row.d.qua_han_ly_do_cham
                     ? setActionTarget({ id: row.d.id, action: "duyet_qua_han" })
@@ -3166,7 +3207,9 @@ export function DonHangGroupedList({
                                   title={t("Duyệt")}
                                   aria-label={t("Duyệt")}
                                   onClick={() =>
-                                    isCongNoTaoHo(d)
+                                    canNhapMaEo(d)
+                                      ? onDetail(d.id) // vuot tran: mo chi tiet de nhap ma EO (2026-10-14)
+                                      : isCongNoTaoHo(d)
                                       ? setActionTarget({ id: d.id, action: "duyet_tao_ho" })
                                       : d.qua_han_ly_do_cham
                                         ? setActionTarget({ id: d.id, action: "duyet_qua_han" })
@@ -3238,7 +3281,7 @@ export function DonHangGroupedList({
         const isTuChoiTBP =
           !!targetId &&
           actionTarget?.action === "tu_choi" &&
-          (rowTarget?.trang_thai === "Cho TBP xac nhan" || rowTarget?.trang_thai === "Cho Tram duyet" || rowTarget?.trang_thai === "TN da duyet" || laTraTarget);
+          (rowTarget?.trang_thai === "Cho TBP xac nhan" || rowTarget?.trang_thai === "Cho GS duyet" || rowTarget?.trang_thai === "Cho Tram duyet" || rowTarget?.trang_thai === "TN da duyet" || laTraTarget);
         const isTuChoiTN = !!targetId && actionTarget?.action === "tu_choi" && !isTuChoiTBP;
         const isChoHang = !!targetId && actionTarget?.action === "cho_hang";
         const isDuyetTaoHo = !!targetId && actionTarget?.action === "duyet_tao_ho";

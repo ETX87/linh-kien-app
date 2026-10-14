@@ -43,6 +43,8 @@ const STAGE_MENU_TARGETS: { key: string; tab: string; filter: string; loaiDon?: 
   { key: "cho-tn-duyet", tab: "tra-hang", filter: "Cho TN duyet tong" },
   { key: "tong-don-hang", tab: "don-cua-toi", filter: "__OPEN__", loaiDon: "tat_ca" },
   { key: "cho-tbp", tab: "don-cua-toi", filter: "Cho TBP xac nhan", loaiDon: "" },
+  { key: "cho-gs", tab: "don-cua-toi", filter: "Cho GS duyet", loaiDon: "" },
+  { key: "cho-thanh-toan", tab: "don-cua-toi", filter: "Cho thanh toan", loaiDon: "" },
   { key: "cho-tn-duyet", tab: "don-cua-toi", filter: "__CHO_TN__", loaiDon: "tat_ca" },
   { key: "cho-tn-duyet", tab: "don-cua-toi", filter: "Cho TN duyet", loaiDon: "" },
   { key: "cho-hang", tab: "don-cua-toi", filter: "Cho hang", loaiDon: "" },
@@ -183,6 +185,9 @@ export function DatMuaLinhKienModule({
   // khong phai tram_cha cua ai, nhung nut se luon that bai - trai UX). canBulkTram GIU NGUYEN tap
   // vai tro cu (KTV/Ve tinh/TN/Admin, khong Giam sat).
   const canDatHo = !!(user?.la_ktv_dvbh || user?.la_ve_tinh || canTacNghiep || isGiamSat);
+  // Tat luong Ve tinh tao don (tu dong duyet 100%, chot 2026-10-14) - khop canCreatePhieuDat backend: TN/GS luon tao, Ve tinh
+  // khong, con lai theo co KTV DVBH. canDatHo van dung cho quyen XEM don (Ve tinh van xem don Tram dat cho minh).
+  const canTaoDon = canTacNghiep || isGiamSat || (!user?.la_ve_tinh && !!user?.la_ktv_dvbh);
   // Them (phan hoi 2026-09-10: "KTV không thấy PXK ở đâu để check khi Kho gửi hàng") - KTV/Ve tinh
   // truoc day KHONG co lich su hien tab "Phiếu xuất kho" nao, chi vao duoc PHAN UNG (Trang chu "Cần
   // làm" hoac chuong thong bao khi CO 1 PXK dang cho ho xac nhan) - khong browse duoc danh sach/lich
@@ -558,6 +563,19 @@ export function DatMuaLinhKienModule({
                 count: donHangStatusCounts["Cho TBP xac nhan"],
                 onClick: () => stageJump("cho-tbp", { tab: "don-cua-toi", filter: "Cho TBP xac nhan", loaiDon: "" }),
               },
+              // Tu dong duyet 100% (2026-10-14): don vuot tran cho GS duyet (ma EO) + don thieu hang cho KTV chuyen tien.
+              {
+                key: "cho-gs",
+                label: t("Chờ GS duyệt"),
+                count: donHangStatusCounts["Cho GS duyet"],
+                onClick: () => stageJump("cho-gs", { tab: "don-cua-toi", filter: "Cho GS duyet", loaiDon: "" }),
+              },
+              {
+                key: "cho-thanh-toan",
+                label: t("Chờ thanh toán"),
+                count: donHangStatusCounts["Cho thanh toan"],
+                onClick: () => stageJump("cho-thanh-toan", { tab: "don-cua-toi", filter: "Cho thanh toan", loaiDon: "" }),
+              },
               {
                 key: "cho-tn-duyet",
                 label: t("Chờ tác nghiệp"),
@@ -808,7 +826,7 @@ export function DatMuaLinhKienModule({
   // duy nhat loi tat "+ Tao don" (hanh dong, khong phai bao cao) de khong mat tinh nang tao don, vi
   // day la CACH DUY NHAT tao don tren "Don cua toi" (nut rieng da bo, xem DonCuaToiTab.tsx dong 887).
   const pipelineEl = isMobile ? (
-    canDatHo && (
+    canTaoDon && (
       <button
         type="button"
         onClick={() => setShowCreateFromPipeline(true)}
@@ -823,7 +841,7 @@ export function DatMuaLinhKienModule({
       myRoleKeys={myRoleKeys}
       onJump={jumpTo}
       onCreateDon={() => setShowCreateFromPipeline(true)}
-      canCreateDon={canDatHo}
+      canCreateDon={canTaoDon}
       inHeader={!!headerExtra}
       collapsed={pipelineCollapsed}
       onToggleCollapsed={() => setPipelineCollapsed((v) => !v)}

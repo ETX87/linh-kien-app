@@ -739,6 +739,17 @@ function DanhMucTab() {
     },
     onError: () => addToast("Không thể cập nhật linh kiện đặc thù."),
   });
+  // "Cho phép giá 0đ" (tu dong duyet 100%, 2026-10-14) - LK chua co gia ban: mac dinh CHAN don MUA / TRỪ CÔNG NỢ, bat cong tac = cho
+  // dat voi gia 0 dong. Cung nhom quyen voi "Đặc thù" (backend PATCH /settings/linh-kien/:ma/gia-0).
+  const toggleGia0 = useMutation({
+    mutationFn: ({ ma, cho_phep_gia_0 }: { ma: string; cho_phep_gia_0: boolean }) =>
+      api.patch(`/settings/linh-kien/${encodeURIComponent(ma)}/gia-0`, { cho_phep_gia_0 }),
+    onSuccess: (_r, v) => {
+      addToast(`${v.ma}: ${v.cho_phep_gia_0 ? "cho phép" : "không cho"} đặt mua với giá 0 đồng`);
+      qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
+    },
+    onError: () => addToast("Không thể cập nhật cho phép giá 0đ."),
+  });
   const togglePart = useMutation({
     mutationFn: ({ ma, bat_tat }: { ma: string; bat_tat: boolean }) => api.patch(`/settings/linh-kien/${ma}`, { bat_tat }),
     onSuccess: () => {
@@ -1012,6 +1023,25 @@ function DanhMucTab() {
         ) : (
           <span className="text-xs text-[var(--ink-400)]">—</span>
         ),
+    },
+    {
+      key: "cho_phep_gia_0",
+      header: "Cho phép giá 0đ",
+      // Chi co y nghia voi LK chua co gia ban (gia 0 / trong) - LK co gia hien "—" (tru khi dang bat, de con tat duoc).
+      render: (p) => {
+        const chuaCoGia = (p.gia_ban ?? 0) <= 0;
+        if (!chuaCoGia && !p.cho_phep_gia_0) return <span className="text-xs text-[var(--ink-400)]">—</span>;
+        return canDacThu && p.trang_thai_ma !== "Da doi ma" ? (
+          <span onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1.5" title="Cho phép đặt đơn mua / trừ công nợ khi linh kiện chưa có giá bán">
+            <ToggleSwitch checked={!!p.cho_phep_gia_0} onChange={() => toggleGia0.mutate({ ma: p.ma_linh_kien, cho_phep_gia_0: !p.cho_phep_gia_0 })} />
+            {p.cho_phep_gia_0 ? <span className="text-xs font-semibold text-[var(--color-success-strong)]">Cho phép</span> : <span className="text-xs text-[var(--color-danger-strong)]">Chặn</span>}
+          </span>
+        ) : p.cho_phep_gia_0 ? (
+          <span className="text-xs font-semibold text-[var(--color-success-strong)]">Cho phép</span>
+        ) : (
+          <span className="text-xs text-[var(--color-danger-strong)]">Chặn</span>
+        );
+      },
     },
     {
       key: "phan_loai_dac_thu",

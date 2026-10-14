@@ -98,6 +98,15 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   NGOAI_PHAM_VI_GS: "KTV này không thuộc quyền phụ trách của bạn",
   VE_TINH_CHUA_GAN_TRAM: "Vệ tinh này chưa được gán Trạm phụ trách",
   NGUOI_NHAN_HANG_DA_TAT: "Tài khoản người nhận hàng (hoặc Trạm nhận thay) đang bị tắt",
+  // Tu dong duyet 100% (2026-10-14, backend lib/tuDongDuyet.ts)
+  MISSING_MA_EO: "Đơn vượt trần công nợ — cần nhập mã EO",
+  CHO_HANG_KHO_QUYET_DINH: "Đơn đang chờ hàng — Kho xác nhận hàng về thì đơn tự duyệt",
+  KHONG_PHAI_GS_KHU_VUC: "Chỉ Giám sát khu vực của KTV nhận hàng được duyệt đơn này",
+  VE_TINH_KHONG_TAO_DON: "Tài khoản Vệ tinh không tạo đơn — Trạm phụ trách đặt hàng",
+  GIA_0_KHONG_DAT_DUOC: "Linh kiện chưa có giá bán — chưa được phép đặt đơn có tiền",
+  CHUA_CO_MA_MISA_CONG_NO: "Người nhận chưa có Mã MISA — chỉ đặt được đơn mua",
+  TRU_CONG_NO_KHONG_PHAI_KTV: "Đơn TRỪ CÔNG NỢ chỉ dành cho KTV có mã KTV",
+  TRU_CONG_NO_THIEU_TON: "Tồn kho của KTV không đủ cho đơn TRỪ CÔNG NỢ",
   KTV_CHUA_CO_MA_MISA: "Tài khoản này chưa cài đặt mã MISA nên không thể đặt hàng => vui lòng liên hệ giám sát khu vực",
   DON_HANG_KHONG_HOP_LE: "Một số dòng đơn hàng đã chọn không còn hợp lệ (đã bị đổi hoặc gán nơi khác)",
   MA_XUAT_KHO_DA_TON_TAI: "Mã đơn hàng này đã được dùng cho phiếu khác",
@@ -130,6 +139,11 @@ export const BULK_LOG_ERROR_MESSAGES: Record<string, string> = {
   // (phat hien khi ra soat QA 2026-08-19, so sanh voi applyDonHangLog o backend).
   THIEU_LY_DO_HUY: "thiếu lý do huỷ",
   INVALID_HANH_DONG: "hành động không hợp lệ ở trạng thái hiện tại",
+  // Tu dong duyet 100% (2026-10-14): don vuot tran phai mo chi tiet de nhap ma EO; GS khac khu vuc.
+  MISSING_MA_EO: "vượt trần công nợ — mở chi tiết đơn để nhập mã EO",
+  CHO_HANG_KHO_QUYET_DINH: "đơn đang chờ hàng — chờ Kho xác nhận hàng về",
+  KHONG_PHAI_GS_KHU_VUC: "không phải Giám sát khu vực của KTV",
+  MISSING_GHI_CHU: "cần nhập lý do — mở từng dòng để nhập",
 };
 
 // Ma loi tra ve tu applyTraHangLog (backend/src/routes/traHang.ts) khi 1 dong trong bulk-log khong
@@ -172,6 +186,8 @@ export const DON_HANG_TRANG_THAI_TONE: Record<string, Tone> = {
   "TN tu choi": "danger",
   "Cho hang": "warning",
   "Da huy": "neutral",
+  "Cho GS duyet": "purple",
+  "Cho thanh toan": "warning",
 };
 
 // Phan hoi UX muc 2 (2026-08-15): to mau/gach ngang TEN LINH KIEN theo trang thai dong don hang -
@@ -186,6 +202,8 @@ export const DON_HANG_ROW_STYLE: Record<string, string> = {
   "Cho TN duyet": "text-[var(--color-info)]",
   "Cho hang": "text-[var(--color-warning-strong)] font-medium",
   "TN da duyet": "text-[var(--color-success)]",
+  "Cho GS duyet": "text-[var(--color-purple)]",
+  "Cho thanh toan": "text-[var(--color-warning-strong)]",
 };
 
 // UI_SPEC §1.2: "Chờ kho"/"Chờ QC"/"Đang xử lý" -> info, cac buoc "cho ke toan xu ly/chot" -> warning
@@ -431,6 +449,9 @@ export const DON_CUA_TOI_TRANG_THAI_OPTIONS = [
   { value: "__TODAY__", label: "Duyệt trong ngày" },
   { value: "Cho Tram duyet", label: "Chờ Trạm duyệt" },
   { value: "Cho TBP xac nhan", label: "Chờ TBP DVBH xác nhận" },
+  // Tu dong duyet 100% (2026-10-14, migration 0080).
+  { value: "Cho GS duyet", label: "Chờ GS duyệt (vượt trần)" },
+  { value: "Cho thanh toan", label: "Chờ thanh toán (thiếu hàng)" },
   { value: "Cho TN duyet", label: "Chờ TN duyệt" },
   { value: "TN da duyet", label: "TN đã duyệt" },
   // Sentinel "Đơn chờ tạo xuất" (them 2026-09-11, muc menu StageMenu) - khac "TN da duyet" o tren (gom

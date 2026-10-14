@@ -433,6 +433,17 @@ export function dayLaiDuoc(d: DonHangRow, canTacNghiep: boolean): boolean {
   return d.day_lai_han > bayGioVN;
 }
 
+// Tu dong duyet 100% (2026-10-14): duyet don nay bat buoc nhap MA EO - "Cho GS duyet" (vuot tran) hoac TBP duyet don cong no
+// vuot tran (danh_gia_cong_no 'Khong du'). Ban sao canDoiChieuCongNo (backend lib/tuDongDuyet.ts): cong no thuc su, khong
+// TRỪ CÔNG NỢ / TG12.
+export function canNhapMaEo(d: Pick<DonHangRow, "trang_thai" | "loai_don" | "loai_de_xuat" | "danh_gia_cong_no">): boolean {
+  if (d.trang_thai === "Cho GS duyet") return true;
+  return (
+    d.trang_thai === "Cho TBP xac nhan" && d.loai_don === "cong_no" && d.danh_gia_cong_no === "Khong du" &&
+    !laTruCongNo(d.loai_de_xuat) && !laKhTraGop(d.loai_de_xuat)
+  );
+}
+
 export function actionsFor(
   d: DonHangRow,
   ctx: { canTacNghiep: boolean; canTPDvbhXacNhan?: boolean; canActAsTram: boolean; currentEmail: string; isAdmin?: boolean },
@@ -455,10 +466,23 @@ export function actionsFor(
   if (d.trang_thai === "Cho TBP xac nhan") {
     return { duyet: !!ctx.canTPDvbhXacNhan, tuChoi: !!ctx.canTPDvbhXacNhan, choHang: false, huy: canHuy };
   }
+  // Tu dong duyet 100% (2026-10-14): don vuot tran -> CHI GS khu vuc cua KTV (email_gs) / Admin duyet (ma EO) hoac tu choi;
+  // "Cho thanh toan" (thieu hang, cho KTV chuyen tien) khong ai duyet tay - chi huy (nguoi tao / TN / Admin).
+  if (d.trang_thai === "Cho GS duyet") {
+    const laGs = (!!d.email_gs && ctx.currentEmail === d.email_gs) || !!ctx.isAdmin;
+    return { duyet: laGs, tuChoi: laGs, choHang: false, huy: canHuy || ctx.canTacNghiep };
+  }
+  if (d.trang_thai === "Cho thanh toan") {
+    return { duyet: false, tuChoi: false, choHang: false, huy: canHuy || ctx.canTacNghiep };
+  }
   // MO RONG (phan hoi 2026-09-28): TN co them quyen Huy o "Cho TN duyet" (truoc chi nguoi tao/Admin).
   // "Cho hang" (chot 2026-09-30): Kho CHUA tiep nhan ticket (hoac ticket da dong) -> thao tac nhu don "Cho TN duyet",
   // ticket dang cho tu huy (backend applyDonHangLog); Kho DA tiep nhan -> khoa, cho Kho xu ly (xem laChoHangBiKhoa).
-  if (d.trang_thai === "Cho TN duyet" || laChoHangMoKhoa(d)) {
+  // Tu dong duyet 100% (2026-10-14): don "Cho hang" khong duyet / chuyen cho hang lai - Kho quyet dinh (hang ve -> tu duyet).
+  if (laChoHangMoKhoa(d)) {
+    return { duyet: false, tuChoi: ctx.canTacNghiep, choHang: false, huy: canHuy || ctx.canTacNghiep };
+  }
+  if (d.trang_thai === "Cho TN duyet") {
     return { duyet: ctx.canTacNghiep, tuChoi: ctx.canTacNghiep, choHang: ctx.canTacNghiep, huy: canHuy || ctx.canTacNghiep };
   }
   // FIX (phan hoi 2026-09-24: "Đơn đã duyệt chờ tạo xuất bổ sung thêm nút từ chối cho TN") - cho phep

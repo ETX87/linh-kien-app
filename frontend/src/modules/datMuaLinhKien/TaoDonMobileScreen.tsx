@@ -9,7 +9,7 @@ import { deriveLoaiDon, reqLabelClass, pickLdeQuick, ktvOptionLabel, canNoRequir
 import { LinhKienPicker, ThayTheGoiY, ThayTheGoiYTuSheet } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
-import { DuDoanDuyetHint } from "./DuDoanDuyetHint";
+import { DuDoanDuyetHint, XacNhanTaoDonModal } from "./DuDoanDuyetHint";
 import { TraHangAnhPicker } from "./SharedUi";
 import type { TaoDonForm } from "./useTaoDonForm";
 import { Money } from "../../components/ui/Money";
@@ -58,6 +58,7 @@ export function TaoDonMobileScreen({
     updateDraft, isLineComplete, canSubmit, themDong, deleteDraft, giaUocTinhDong, tongGiaUocTinh, tongSoLuong,
     tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien, duPhongDuKien, coDongMuaDuTru,
     targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
+    ketQuaTheoDong, loiPhieuText, dongCanXacNhan, hoiXacNhan, setHoiXacNhan,
   } = form;
 
   // FIX (phan hoi 2026-08-28: "ở giao diện tạo đơn ấn lùi vẫn báo thoát app") - man hinh nay la
@@ -269,14 +270,7 @@ export function TaoDonMobileScreen({
               {giaUocTinh != null ? <><span className="text-[10px]">{t("Ước tính:")} </span><b className="text-[var(--green-700)]"><Money>{fmtVND(giaUocTinh)}</Money></b>{nhanChietKhau && giaNiemYet != null && giaUocTinh < giaNiemYet && <span className="text-[10px]"> · {nhanChietKhau} · <s><Money>{fmtVND(giaNiemYet)}</Money></s></span>}</> : <span className="text-[var(--ink-400)]">{t("Giá: —")}</span>}
             </div>
           </div>
-          <DuDoanDuyetHint
-            maLk={lk?.combo ? "" : d.ma_lk}
-            soLuong={d.so_luong_de_xuat}
-            loaiDeXuat={d.loai_de_xuat}
-            nguoiNhanHang={nguoiNhanHang || currentEmail}
-            loaiDon={loaiDon}
-            sePhepDuCongNo={sePhepDuCongNo}
-          />
+          <DuDoanDuyetHint ketQua={ketQuaTheoDong.get(activeIdx)} />
         </div>
 
         {/* Anh linh kien can tra (them 2026-08-24, muc 1) - xem giai thich day du o TaoDonTab.tsx. */}
@@ -391,6 +385,12 @@ export function TaoDonMobileScreen({
             {t("⚠ Tài khoản này chưa cài đặt mã MISA nên không thể đặt hàng => vui lòng liên hệ giám sát khu vực")}
           </div>
         )}
+        {loiPhieuText && (
+          <div role="alert" className="rounded-lg border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-2.5 py-1.5 text-[12px] font-bold text-[var(--color-danger-strong)]">
+            ⚠ {loiPhieuText}
+          </div>
+        )}
+        <XacNhanTaoDonModal open={hoiXacNhan} dong={dongCanXacNhan} onDatTiep={() => create.mutate(true)} onQuayLai={() => setHoiXacNhan(false)} dangGui={create.isPending} />
         {/* Canh bao SONG vuot tran cong no (them 2026-09-04) - xem giai thich o TaoDonTab.tsx (ban
             desktop, cung dieu kien). */}
         {sePhepDuCongNo === false && congNoDuKien && (

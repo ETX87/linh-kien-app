@@ -67,6 +67,10 @@ function moTaTonDong(r: TonDongRow): { label: string; nguoiCanGap: string; tone:
       return { label: t("Chờ TBP ĐVBH duyệt LK đặc thù"), nguoiCanGap: t("TBP ĐVBH"), tone: "warning" };
     case "Cho TN duyet":
       return { label: t("Chờ Tác nghiệp duyệt"), nguoiCanGap: t("Tác nghiệp"), tone: "info" };
+    case "Cho GS duyet":
+      return { label: t("Vượt trần công nợ, chờ Giám sát duyệt (mã EO)"), nguoiCanGap: t("Giám sát"), tone: "purple" };
+    case "Cho thanh toan":
+      return { label: t("Thiếu hàng, chờ KTV chuyển tiền"), nguoiCanGap: t("KTV"), tone: "warning" };
     case "TN da duyet":
       return { label: t("Đã duyệt, chờ Tác nghiệp tạo phiếu xuất kho"), nguoiCanGap: t("Tác nghiệp"), tone: "info" };
     case "Cho hang":

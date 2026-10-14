@@ -3,9 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
-import type { DonHangDraft, KhachLeRow, NguoiNhanHangKhaDungRow } from "./types";
+import type { DonHangDraft, KhachLeRow, NguoiNhanHangKhaDungRow, KiemTraPhieuDat, KiemTraDong } from "./types";
 import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, useLkCombo, comboThanhLkRow, chinhSachMacDinh } from "./helpers";
 import { t } from "../../i18n";
+import { GENERIC_ERROR_MESSAGES } from "./constants";
 import { coYeuCauHoaDon } from "./LoaiChietKhau";
 import { useTongNgayKtv } from "./TongNgayKtv";
 
@@ -172,10 +173,71 @@ export function useTaoDonForm({
       dangGuiRef.current = false;
     },
   });
+  // Tu dong duyet 100% (chot 2026-10-14): hoi server TRUOC (POST /phieu-dat/kiem-tra, khong ghi gi) ket qua tung dong - tu duyet /
+  // cho hang / cho thanh toan / cho GS / cho TBP / bi chan + ly do. Chi gui dong da chon du Ma LK + Loai de xuat + SL (cac o con
+  // lai server bo qua o che do kiem tra); debounce 600ms. KHONG chan tao don khi chua tra loi xong - POST /phieu-dat tu kiem tra lai.
+  const dongKiemTra = drafts
+    .map((d, idx) => ({ d, idx }))
+    .filter(({ d }) => d.ma_lk.trim() && d.loai_de_xuat.trim() && d.so_luong_de_xuat > 0);
+  const kiemTraKey = JSON.stringify({
+    n: nguoiNhanHang,
+    dong: dongKiemTra.map(({ d }) => [d.ma_lk.trim(), d.loai_de_xuat.trim(), d.so_luong_de_xuat]),
+  });
+  const [kiemTraKeyTre, setKiemTraKeyTre] = useState(kiemTraKey);
+  useEffect(() => {
+    const hen = setTimeout(() => setKiemTraKeyTre(kiemTraKey), 600);
+    return () => clearTimeout(hen);
+  }, [kiemTraKey]);
+  const { data: kiemTra, isFetching: dangKiemTra } = useQuery({
+    queryKey: ["dat-mua-lk-phieu-dat-kiem-tra", kiemTraKeyTre],
+    queryFn: () => {
+      const k = JSON.parse(kiemTraKeyTre) as { n: string; dong: [string, string, number][] };
+      return api.post<KiemTraPhieuDat>("/dat-mua-lk/phieu-dat/kiem-tra", {
+        nguoi_nhan_hang: k.n || undefined,
+        don_hang: k.dong.map(([ma_lk, loai_de_xuat, so_luong_de_xuat]) => ({ ma_lk, loai_de_xuat, so_luong_de_xuat })),
+      });
+    },
+    enabled: (JSON.parse(kiemTraKeyTre) as { dong: unknown[] }).dong.length > 0,
+    staleTime: 15_000,
+  });
+  // Ket qua chi dung khi khop noi dung form HIEN TAI (tranh hien ket qua cu trong 600ms cho).
+  const kiemTraHienTai = kiemTra && kiemTraKeyTre === kiemTraKey ? kiemTra : null;
+  // Ket qua theo DONG FORM (dong combo -> nhieu dong ket qua, 1 cho moi LK thanh phan).
+  const idxKiemTra = dongKiemTra.map((x) => x.idx).join(",");
+  const ketQuaTheoDong = useMemo(() => {
+    const m = new Map<number, KiemTraDong[]>();
+    if (!kiemTraHienTai || kiemTraHienTai.loi_phieu) return m;
+    const viTri = idxKiemTra.split(",").map(Number);
+    for (const r of kiemTraHienTai.dong) {
+      const formIdx = viTri[r.goc];
+      if (formIdx == null || Number.isNaN(formIdx)) continue;
+      m.set(formIdx, [...(m.get(formIdx) ?? []), r]);
+    }
+    return m;
+  }, [kiemTraHienTai, idxKiemTra]);
+  const coDongBiChan = [...ketQuaTheoDong.values()].some((ds) => ds.some((r) => r.loi));
+  // Dong se KHONG tu duyet ngay - hoi lai truoc khi gui (2 lua chon: dat tiep / quay lai).
+  const dongCanXacNhan = [...ketQuaTheoDong.entries()]
+    .flatMap(([idx, ds]) => ds.map((r) => ({ idx, ...r })))
+    .filter((r) => !r.loi && (r.trang_thai === "Cho hang" || r.trang_thai === "Cho thanh toan" || r.trang_thai === "Cho GS duyet"));
+  const [hoiXacNhan, setHoiXacNhan] = useState(false);
+  // Loi cap phieu tu kiem tra truoc (vd Ve tinh khong tao don) - bo qua loi da co canh bao rieng tren form.
+  const loiPhieuMa = kiemTraHienTai?.loi_phieu;
+  const loiPhieuText =
+    loiPhieuMa && !["KTV_CHUA_CO_MA_MISA", "INVALID_DON_HANG", "MISSING_DON_HANG", "MA_LK_NOT_FOUND"].includes(loiPhieuMa)
+      ? t(GENERIC_ERROR_MESSAGES[loiPhieuMa] ?? loiPhieuMa)
+      : null;
+
   const create = {
     ...createMutation,
-    mutate: () => {
+    // daXacNhan = KTV da bam "Đặt tiếp" o hop xac nhan (don thieu hang / vuot tran).
+    mutate: (daXacNhan?: boolean) => {
       if (dangGuiRef.current) return;
+      if (!daXacNhan && dongCanXacNhan.length > 0) {
+        setHoiXacNhan(true);
+        return;
+      }
+      setHoiXacNhan(false);
       dangGuiRef.current = true;
       createMutation.mutate();
     },
@@ -207,7 +269,7 @@ export function useTaoDonForm({
     );
   }
 
-  const canSubmit = !chuaCoMaMisa && !khLeSdtSai && drafts.every(isLineComplete);
+  const canSubmit = !chuaCoMaMisa && !khLeSdtSai && !coDongBiChan && drafts.every(isLineComplete);
   const [showImport, setShowImport] = useState(false);
 
   function themDong() {
@@ -292,6 +354,7 @@ export function useTaoDonForm({
     giaUocTinhDong, tongGiaUocTinh, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
     duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
     laNhomKhLe, khLeSdt, setKhLeSdt, khLeSdtSai, khLeTraCuu, khLeDangTraCuu,
+    kiemTra: kiemTraHienTai, dangKiemTra, loiPhieuText, ketQuaTheoDong, coDongBiChan, dongCanXacNhan, hoiXacNhan, setHoiXacNhan,
   };
 }
 

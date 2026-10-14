@@ -10,6 +10,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nowVN } from "../lib/vnTime";
 import { lenhGhiQuy, phanBoQuy, soDuQuy, suaThucNhanKhoan, huyKhoanChuyen, KHOAN_HUY_DUOC_SQL } from "../lib/quyKtv";
+import { xuLyDonChoThanhToan } from "../lib/tuDongDuyet";
 import { notifyWorkflowTask, emailGsListForPxk, pastActorsFor } from "../lib/taskNotify";
 import { bumpVersions } from "../lib/dataVersions";
 
@@ -268,6 +269,8 @@ quyKtv.post("/khoan-chuyen/:id/sua", async (c) => {
   const user = c.get("user");
   const kq = await suaThucNhanKhoan(c.env.DB, khoanId, moi, lyDo.slice(0, 500), user.email);
   if ("error" in kq) return c.json({ error: kq.error, message: kq.message, so_du: kq.so_du }, kq.status);
+  // Sua tang -> phieu co the vua du tien: don "Cho thanh toan" (thieu hang) trong phieu -> kiem tra ton lai (2026-10-14).
+  if (kq.pxkId) await xuLyDonChoThanhToan(c.env, c.env.DB, kq.pxkId, user.email, (p) => c.executionCtx.waitUntil(p));
   baoKtv(c, kq.email, kq.pxkId,
     `PXK ${kq.pxkId}: Kế toán sửa số tiền thực nhận ${tienVnd(kq.cu)} → ${tienVnd(kq.moi)} (${lyDo}). Quỹ của bạn hiện còn ${tienVnd(kq.soDuQuy)}`);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));

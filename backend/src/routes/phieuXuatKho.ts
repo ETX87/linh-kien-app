@@ -21,6 +21,7 @@ import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, laTruCongNo, type PxkCalcu
 import { laVanPhong, danhDauVanPhongTacDong, huyPxkNeuTrong, lenhMangTienDon } from "../lib/pxkTuHuy";
 import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
 import { ANH_DA_GHI_NHAN_SQL, docAnhBangChung, locTienDocAnh, MAX_ANH_BANG_CHUNG } from "../lib/bangChungChuyenTien";
+import { xuLyDonChoThanhToan } from "../lib/tuDongDuyet";
 import { canBangPxk, duyetKhoanChuyen, lenhNhanTienDaTraDon, lenhGhiKhoanTuChoi, lenhKhoaTrangThaiChuyenTien, moTaCanChuyen, soDuQuy, thongBaoHoanQuyPhieuHuy, tienPhieuVaQuy } from "../lib/quyKtv";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
@@ -1386,6 +1387,9 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
       return c.json({ error: "STATE_CHANGED" }, 409); // vua co nguoi duyet/tu choi/doi tien phieu nay
     }
     if (!ketQua) return c.json({ error: "NOT_FOUND" }, 404);
+    // Tu dong duyet 100% (chot 2026-10-14): phieu da du tien -> don "Cho thanh toan" (thieu hang) trong phieu kiem tra ton lai: du ->
+    // tu duyet, van thieu -> roi phieu mang theo tien sang "Cho hang" (mo ticket cho Kho).
+    if (ketQua.conThieu === 0) await xuLyDonChoThanhToan(c.env, c.env.DB, id, user.email, (p) => c.executionCtx.waitUntil(p));
     // Bao KTV ket qua (du vao quy / con thieu phai chuyen bo sung).
     const tienVnd = (n: number) => `${n.toLocaleString("vi-VN")}đ`;
     const du = Math.max(0, thucNhan - ketQua.canChuyen);

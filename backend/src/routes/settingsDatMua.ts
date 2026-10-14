@@ -162,6 +162,23 @@ settingsDatMua.patch("/linh-kien/:ma/dac-thu", async (c) => {
   return c.json({ ok: true });
 });
 
+// PATCH /linh-kien/:ma/gia-0 - { cho_phep_gia_0: boolean } (tu dong duyet 100%, chot 2026-10-14, migration 0080): LK duoc phep dat
+// don phat sinh tien (MUA / TRỪ CÔNG NỢ) khi gia ban 0 / chua co gia - mac dinh CHAN (lib/tuDongDuyet.ts GIA_0_KHONG_DAT_DUOC).
+// Cung nhom quyen nut "Đặc thù". KHONG cham ngay_cap_nhat (cot noi bo, khong day DVBH/Sua chua) - van refreshHash cho cache FE.
+settingsDatMua.patch("/linh-kien/:ma/gia-0", async (c) => {
+  const u = c.get("user");
+  if (!u.quan_ly_danh_muc_lk && !laMuaHangHoacAdmin(u) && !u.la_tac_nghiep && !u.la_ke_toan) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const ma = c.req.param("ma");
+  const body = await c.req.json<{ cho_phep_gia_0?: boolean }>();
+  if (typeof body.cho_phep_gia_0 !== "boolean") return c.json({ error: "INVALID_BODY" }, 400);
+  const r = await c.env.DB.prepare("UPDATE linh_kien SET cho_phep_gia_0 = ?, cho_phep_gia_0_nguoi = ?, cho_phep_gia_0_luc = ? WHERE ma_linh_kien = ?")
+    .bind(body.cho_phep_gia_0 ? 1 : 0, u.email, nowVN(), ma)
+    .run();
+  if (!r.meta.changes) return c.json({ error: "NOT_FOUND" }, 404);
+  await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
+  return c.json({ ok: true });
+});
+
 // PATCH /linh-kien/:ma/gia-tri-cong-no - { gia_tri_cong_no: number|null } - route RIENG (khong dung
 // chung PATCH /linh-kien/:ma o tren) vi truong nay CO CHU DICH KHONG dong cham ngay_cap_nhat/
 // nguoi_cap_nhat - theo yeu cau nguoi dung "cột này nội bộ app linh kiện, khi chỉnh sửa thay đổi

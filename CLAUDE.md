@@ -785,6 +785,28 @@ TRỮ): LK `cam_ban` hiện + chọn + đặt được với MỌI loại đề 
 `LinhKienPicker` hiện nhãn "Cấm bán" trong danh sách + chọn xong hiện cảnh báo "⚠ Linh kiện thuộc dạng không bán, hãy chắc chắn mình
 đặt đúng linh kiện" (cả form sửa đơn). Combo có thành phần cấm bán = combo cấm bán (cũng chỉ cảnh báo).
 
+**TỰ ĐỘNG DUYỆT 100% — bỏ Tác nghiệp khỏi khâu duyệt đơn** (chốt 2026-10-14, v1.325, migration `0080`, `backend/src/lib/tuDongDuyet.ts`).
+1 bộ quyết định `danhGiaPhieu()` dùng CHUNG cho tạo tay (POST `/phieu-dat`), Import Excel, kiểm tra trước trên form (POST
+`/phieu-dat/kiem-tra` — cùng body, không ghi gì, bỏ qua ô chưa điền; thay GET `/du-doan-duyet` đã bỏ) và các bước sau
+(`trangThaiSauDuyet` khi Trạm/TBP/GS duyệt). Sửa quy tắc ở file này, KHÔNG ở từng route. Quy tắc: **CHẶN tạo** (báo lý do từng
+dòng) — đơn có tiền (Mua / TRỪ CÔNG NỢ) giá bán 0/trống trừ LK bật "Cho phép giá 0đ" ở Bảng giá (`linh_kien.cho_phep_gia_0`,
+`PATCH /settings/linh-kien/:ma/gia-0`, không chạm `ngay_cap_nhat`); đơn công nợ khi người nhận chưa có Mã MISA (KTV hoặc
+`users.ma_misa` — không có thì chỉ đặt Mua); TRỪ CÔNG NỢ thiếu tồn KTV / người nhận không phải KTV. Vệ tinh KHÔNG tạo đơn
+(`VE_TINH_KHONG_TAO_DON`, FE `canTaoDon`). Đặc thù (trừ loại bỏ qua TBP) → "Cho TBP xac nhan" (TBP duyệt đơn vượt trần phải
+nhập mã EO); công nợ thật (không TRỪ CÔNG NỢ/TG12) vượt trần → **"Cho GS duyet"** (CHỈ `email_gs` = GS khu vực của KTV, hoặc
+Admin; duyệt bắt buộc `ma_eo` tự nhập không kiểm tra → `dat_don_hang.ma_eo`; từ chối = "Da huy"; khu vực chưa có GS thì đơn nằm
+chờ). Còn lại kiểm tra **tồn kho công ty theo KHU VỰC CỦA ĐƠN** (`computeTonKhoChot(..., truocDon)` — trừ dần theo `ngay_tao,id`:
+đơn trước đủ, đơn sau thiếu; dòng bị chặn không giữ tồn): đủ → "TN da duyet" `tu_dong=1` + vào phiếu; thiếu + có tiền →
+**"Cho thanh toan"** (vào phiếu, KTV chuyển tiền; Kế toán xác nhận tiền phiếu xong → `xuLyDonChoThanhToan()` kiểm tra lại FIFO:
+đủ → tự duyệt, vẫn thiếu → rời phiếu MANG THEO tiền sang "Cho hang" + mở ticket — hook ở `PATCH /phieu-xuat-kho/:id/chuyen-tien`
+và sửa khoản `/quy-ktv/khoan-chuyen/:id/sua`); thiếu + không tiền → "Cho hang" + ticket tự mở (`moTicketChoHangTuDong`, lý do
+"Kho hết hàng"). **Đơn "Cho hang" do KHO quyết định**: Kho "Hàng đã về" → đơn tự duyệt + vào phiếu (`duyetDonKhiHangVe`, ticket
+đóng "Da ket thuc"); Kho "Từ chối (sai TT)" (bắt buộc lý do) / hủy ticket → đơn tự hủy, tiền về quỹ (`huyDonChoHangTuDong`);
+TN KHÔNG duyệt được đơn "Cho hang" (`CHO_HANG_KHO_QUYET_DINH`), chỉ Từ chối/Hủy. Trả hàng: QC đồng ý → "TN da duyet" + tự gom
+phiếu PTL (bỏ bước "Cho TN duyet tong" cho đơn mới). TN duyệt tay đơn "Cho TN duyet" cũ/đẩy lại → cũng tự vào phiếu. Form tạo đơn:
+gợi ý kết quả từng dòng (`DuDoanDuyetHint`), dòng bị chặn khoá nút, dòng sẽ chờ hàng/chờ thanh toán/chờ GS → hộp "Đặt tiếp / Quay
+lại" (`XacNhanTaoDonModal`). Badge GS `choGsDuyet`. `dat_don_hang_log` CHECK thêm 'Cho GS duyet','Cho thanh toan'.
+
 **Bỏ bước TBP** cho LK đặc thù khi loại đề xuất chứa MUA / HỖ TRỢ / **TRỪ CÔNG NỢ** (`boQuaTbpChoDacThu()` backend,
 bản sao `boQuaTbpDacThu()` FE cho cảnh báo ở `LinhKienPicker`).
 

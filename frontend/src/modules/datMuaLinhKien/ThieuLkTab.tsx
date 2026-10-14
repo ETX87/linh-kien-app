@@ -77,7 +77,9 @@ function nextStatesForThieuLk(
 // nhan khac trangThaiLabel() dung cho nhom trang thai - hien chi "Da huy bo" can tach, cac gia tri
 // khac giu nguyen (dung chung 1 nhan cho ca 2 vai tro).
 // Buoc can nhap lieu truoc khi chuyen (mo khung nhap thay vi bam la chuyen ngay).
-const CAN_NHAP_LIEU = ["Kho da tiep nhan", "Kho da cap nhat"];
+// + "Kho tu choi sai TT" (tu dong duyet 100%, 2026-10-14): Kho tu choi = DON GOC TU HUY -> bat buoc ly do (gui KTV).
+const CAN_NHAP_LIEU = ["Kho da tiep nhan", "Kho da cap nhat", "Kho tu choi sai TT"];
+const CO_NGAY_DU_KIEN = ["Kho da tiep nhan", "Kho da cap nhat"];
 
 // Nhan nut = DONG TU ngan (ra soat mobile 2026-09-29): truoc day dung lai ten trang thai ("Kho đã tiếp nhận…",
 // "Kho xác nhận hàng đã về") - dai, khong vua 3 nut/hang tren dien thoai va doc nhu trang thai hon la hanh dong.
@@ -129,7 +131,8 @@ function ThieuLkActionForm({
 }) {
   const isGiaiTrinh = trangThai === "Kho da tiep nhan";
   const isCapNhat = trangThai === "Kho da cap nhat";
-  const thieuThongTin = (isGiaiTrinh && !ghiChu.trim()) || (isCapNhat && !ghiChu.trim() && !ngayDuKien);
+  const isTuChoi = trangThai === "Kho tu choi sai TT";
+  const thieuThongTin = ((isGiaiTrinh || isTuChoi) && !ghiChu.trim()) || (isCapNhat && !ghiChu.trim() && !ngayDuKien);
   // text-base tren mobile: o nhap < 16px lam iOS tu phong to trang khi cham vao.
   const oNhap = "focus-ring w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-2 text-base sm:text-sm";
   return (
@@ -143,7 +146,7 @@ function ThieuLkActionForm({
       )}
       <label className="block">
         <span className="mb-1 block text-xs font-semibold text-[var(--color-text-body)]">
-          {isGiaiTrinh ? t("Lý do thiếu hàng *") : isCapNhat ? t("Ghi chú tiến độ") : t("Ghi chú (tuỳ chọn)")}
+          {isGiaiTrinh ? t("Lý do thiếu hàng *") : isCapNhat ? t("Ghi chú tiến độ") : isTuChoi ? t("Lý do từ chối *") : t("Ghi chú (tuỳ chọn)")}
         </span>
         <textarea
           rows={2}
@@ -154,6 +157,7 @@ function ThieuLkActionForm({
         />
       </label>
       {isCapNhat && <div className="text-[11px] text-[var(--color-text-secondary)]">{t("Cần đổi ngày dự kiến hoặc nhập ghi chú.")}</div>}
+      {isTuChoi && <div className="text-[11px] text-[var(--color-danger-strong)]">{t("Đơn gốc đang chờ hàng sẽ tự hủy (tiền đã trả về quỹ của KTV) và KTV nhận được lý do này.")}</div>}
       {isGiaiTrinh && goiY.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {goiY.map((l) => (
@@ -1041,7 +1045,7 @@ export function ThieuLkDetailModal({
           logMutation.mutate({
             trangThai: actionTrangThai,
             ghiChu,
-            ngayDuKien: CAN_NHAP_LIEU.includes(actionTrangThai) ? ngayDuKien : undefined,
+            ngayDuKien: CO_NGAY_DU_KIEN.includes(actionTrangThai) ? ngayDuKien : undefined,
           })
         }
       />

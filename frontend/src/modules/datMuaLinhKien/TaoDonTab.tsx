@@ -14,7 +14,7 @@ import { deriveLoaiDon, reqLabelClass, pickLdeQuick, LOAI_DON_TONE, ktvOptionLab
 import { LinhKienPicker, ThayTheGoiY, ThayTheGoiYTuSheet } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
-import { DuDoanDuyetHint } from "./DuDoanDuyetHint";
+import { DuDoanDuyetHint, XacNhanTaoDonModal } from "./DuDoanDuyetHint";
 import { TraHangAnhPicker } from "./SharedUi";
 import { useTaoDonForm } from "./useTaoDonForm";
 import { TaoDonMobileScreen } from "./TaoDonMobileScreen";
@@ -50,6 +50,7 @@ export function TaoDonTab({
     updateDraft, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
     giaUocTinhDong, tongGiaUocTinh, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
     duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
+    ketQuaTheoDong, loiPhieuText, dongCanXacNhan, hoiXacNhan, setHoiXacNhan,
   } = form;
 
   return (
@@ -86,6 +87,13 @@ export function TaoDonTab({
               {t("⚠ Tài khoản này chưa cài đặt mã MISA nên không thể đặt hàng => vui lòng liên hệ giám sát khu vực")}
             </div>
           )}
+          {/* Loi cap phieu tu kiem tra truoc (tu dong duyet 100%, 2026-10-14). */}
+          {loiPhieuText && (
+            <div role="alert" className="rounded-lg border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-2.5 py-1.5 text-[12px] font-bold text-[var(--color-danger-strong)]">
+              ⚠ {loiPhieuText}
+            </div>
+          )}
+          <XacNhanTaoDonModal open={hoiXacNhan} dong={dongCanXacNhan} onDatTiep={() => create.mutate(true)} onQuayLai={() => setHoiXacNhan(false)} dangGui={create.isPending} />
           {/* Canh bao SONG vuot tran cong no (them 2026-09-04) - chi hien khi da co du lieu de ket luan
               "Khong du" (sePhepDuCongNo === false), tranh nhieu khi chua co dong cong_no nao/chua co
               tran. Xem giai thich cong thuc o useTaoDonForm.ts. */}
@@ -398,14 +406,7 @@ export function TaoDonTab({
                   </div>
                   {/* Canh bao "don nay se tu dong duyet hay khong" (them 2026-09-11) - chi co y nghia
                       khi da chon du Ma LK + Loai de xuat + So luong, xem dieu kien ben trong component. */}
-                  <DuDoanDuyetHint
-                    maLk={lk?.combo ? "" : d.ma_lk}
-                    soLuong={d.so_luong_de_xuat}
-                    loaiDeXuat={d.loai_de_xuat}
-                    nguoiNhanHang={nguoiNhanHang || currentEmail}
-                    loaiDon={loaiDon}
-                    sePhepDuCongNo={sePhepDuCongNo}
-                  />
+                  <DuDoanDuyetHint ketQua={ketQuaTheoDong.get(idx)} />
                 </div>
 
                 <div>

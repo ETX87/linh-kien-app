@@ -22,8 +22,9 @@ import { lenhNhanTienDaTraDon, moTaCanChuyen, tienPhieuVaQuy } from "./quyKtv";
 
 // Trung voi ham cung ten (khong export) trong routes/phieuXuatKho.ts - giu RIENG o day (khong import
 // tu file routes) de lib/ khong phu thuoc nguoc vao routes/, dung quy uoc lop kien truc san co.
-function pxkIdPrefix(loaiDon: "mua" | "cong_no"): "PMH" | "PCN" {
-  return loaiDon === "mua" ? "PMH" : "PCN";
+// + "tra_hang" -> PTL (2026-10-14: QC dong y don tra hang -> tu vao phieu tra hang, bo buoc TN duyet tong).
+function pxkIdPrefix(loaiDon: "mua" | "cong_no" | "tra_hang"): "PMH" | "PCN" | "PTL" {
+  return loaiDon === "mua" ? "PMH" : loaiDon === "cong_no" ? "PCN" : "PTL";
 }
 
 export interface AutoApprovedLine {
@@ -38,10 +39,10 @@ export async function bundleAutoApprovedIntoPxk(
   db: D1Database,
   actorEmail: string,
   nguoiNhanHang: string,
-  loaiDon: "mua" | "cong_no",
+  loaiDon: "mua" | "cong_no" | "tra_hang",
   lines: AutoApprovedLine[],
-): Promise<void> {
-  if (lines.length === 0) return;
+): Promise<string | null> {
+  if (lines.length === 0) return null;
   const now = nowVN();
 
   const existing = await db
@@ -74,7 +75,7 @@ export async function bundleAutoApprovedIntoPxk(
              (id, ma_xuat_kho, ma_xuat_kho_xac_nhan, nguoi_tao, ngay_tao, ghi_chu, so_tien_can_chuyen, trang_thai_chuyen_tien, nguoi_nhan_hang, loai_don, trang_thai_hien_tai)
            VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .bind(pxkId, maXuatKho, actorEmail, now, "Tự động gom đơn mới (đơn tự động duyệt + đơn cần chuyển tiền trước)", null, null, nguoiNhanHang, loaiDon, "Dang tao phieu"),
+        .bind(pxkId, maXuatKho, actorEmail, now, loaiDon === "tra_hang" ? "Tự động gom đơn trả hàng QC đã đồng ý" : "Tự động gom đơn mới (đơn tự động duyệt + đơn cần chuyển tiền trước)", null, null, nguoiNhanHang, loaiDon, "Dang tao phieu"),
       db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly) VALUES (?, ?, ?, ?)").bind(pxkId, "Dang tao phieu", actorEmail, now),
     );
   }
@@ -106,4 +107,5 @@ export async function bundleAutoApprovedIntoPxk(
       linkId: pxkId,
     });
   }
+  return pxkId;
 }

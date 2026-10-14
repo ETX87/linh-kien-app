@@ -33,6 +33,9 @@ export interface DatMuaLkBreakdown {
   choQcTraHang: number;
   choTramDuyet: number;
   choTpXacNhan: number;
+  // Don cong no / ho tro vuot tran cho GS khu vuc duyet + nhap ma EO (2026-10-14, tu dong duyet 100%) - CHI tai khoan GS, theo
+  // dat_don_hang.email_gs = chinh GS.
+  choGsDuyet: number;
   // Them 2026-08-26 (bao cao "lỗi không hiện số đơn hàng đang xử lý" - tai khoan test la KTV/Ve
   // tinh, cac muc con lai o tren CHI tinh cho vai tro XU LY (TN/Kho/Ke toan/QC/TP), nguoi TAO don
   // thuan tuy luon thay 0 du chinh don cua ho dang cho duyet) - so don CHINH nguoi dang dang nhap da
@@ -68,6 +71,7 @@ const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
   choQcTraHang: 0,
   choTramDuyet: 0,
   choTpXacNhan: 0,
+  choGsDuyet: 0,
   choDonCuaToi: 0,
   choDonBiTuChoi: 0,
   thieuLkCanXuLy: 0,
@@ -233,6 +237,14 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
     out.choTpXacNhan = row?.n ?? 0;
   }
 
+  if (user.vai_tro === "Giam sat") {
+    const row = await db
+      .prepare("SELECT COUNT(*) as n FROM dat_don_hang ddh WHERE ddh.trang_thai_hien_tai = 'Cho GS duyet' AND ddh.email_gs = ?")
+      .bind(user.email)
+      .first<{ n: number }>();
+    out.choGsDuyet = row?.n ?? 0;
+  }
+
   if (user.la_ktv_dvbh) {
     const isTram = await db.prepare("SELECT 1 as x FROM users WHERE tram_cha = ? LIMIT 1").bind(user.email).first();
     if (isTram) {
@@ -256,7 +268,7 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
       `SELECT COUNT(*) as n FROM dat_don_hang ddh
          WHERE ddh.nguoi_tao = ? AND ddh.loai_don != 'tra_hang'
          AND (SELECT trang_thai FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1)
-           IN ('Cho Tram duyet', 'Cho TBP xac nhan', 'Cho TN duyet')`,
+           IN ('Cho Tram duyet', 'Cho TBP xac nhan', 'Cho TN duyet', 'Cho GS duyet')`,
     )
     .bind(user.email)
     .first<{ n: number }>();
@@ -300,7 +312,7 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
 
   out.total =
     out.choTnDuyet + out.choTnTraHang + out.choTnPxk + out.choKhoThieuLk + out.choKhoPxk + out.choKhoTraHang +
-    out.choKeToanPxk + out.choKeToanTraHang + out.choQcTraHang + out.choTramDuyet + out.choTpXacNhan +
+    out.choKeToanPxk + out.choKeToanTraHang + out.choQcTraHang + out.choTramDuyet + out.choTpXacNhan + out.choGsDuyet +
     out.choDonCuaToi + out.choDonBiTuChoi;
 
   return out;

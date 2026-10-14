@@ -13,6 +13,7 @@ import { scopeDatMuaNguoiTao, khuVucSetWhereSql, phuTrachGsSet } from "../lib/sc
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
 import { nextSequentialId } from "../lib/idCounter";
 import { pushTraHangToKhovan, notifyTraHangQcRejected, notifyTraHangReceivedViaApp, buildWorkUrl } from "../lib/khovanPushClient";
+import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
 
 // Vai tro can bao "viec moi" khi 1 dong tra hang toi trang thai nay (phan hoi 2026-09-05) - dung
 // chung cho ca applyTraHangLog (di xuoi) va POST /:donHangId/log-lui (di lui), vi 2 chieu deu ha
@@ -304,13 +305,13 @@ async function applyTraHangLog(
   // trang_thai_hien_tai (LUON dong bo qua CAS ngay ben duoi), vua don gian hon vua tranh dung ca lop
   // "dong tra_hang vua tao chua co log dau tien" (xem giai thich o GET / ben tren).
   const ddh = await c.env.DB.prepare(
-    `SELECT id, nguoi_tao, version, trang_thai_hien_tai as trang_thai, email_gs, ten_lk_snapshot, so_luong_de_xuat, so_luong_thuc_xuat, ma_thung_tra,
+    `SELECT id, nguoi_tao, nguoi_nhan_hang, ma_xuat_kho, version, trang_thai_hien_tai as trang_thai, email_gs, ten_lk_snapshot, so_luong_de_xuat, so_luong_thuc_xuat, ma_thung_tra,
        ${mocGiaiDoanTraHangSql("dat_don_hang")} as moc_giai_doan
      FROM dat_don_hang WHERE id = ? AND loai_don = 'tra_hang'`,
   )
     .bind(donHangId)
     .first<{
-      id: string; nguoi_tao: string; version: number; trang_thai: string | null;
+      id: string; nguoi_tao: string; nguoi_nhan_hang: string | null; ma_xuat_kho: string | null; version: number; trang_thai: string | null;
       email_gs: string | null; ten_lk_snapshot: string; so_luong_de_xuat: number; so_luong_thuc_xuat: number | null; ma_thung_tra: string | null;
       moc_giai_doan: string | null;
     }>();
@@ -356,8 +357,11 @@ async function applyTraHangLog(
         .first<{ n: number }>();
       if (!anhRow?.n) return { error: "MISSING_ANH_QC", status: 409 };
     }
-    nextTrangThai = hanhDong === "duyet" ? "Cho TN duyet tong" : "Tu choi";
+    // Tu dong duyet 100% (chot 2026-10-14, muc 1): QC dong y -> "TN da duyet" + tu vao phieu tra hang (bo buoc "Cho TN duyet tong").
+    nextTrangThai = hanhDong === "duyet" ? "TN da duyet" : "Tu choi";
+    if (hanhDong === "duyet") ghiChu = ghiChu?.trim() ? `${ghiChu.trim()} | QC đồng ý → tự duyệt, vào phiếu trả hàng` : "QC đồng ý → tự duyệt, vào phiếu trả hàng";
   } else if (trangThaiHienTai === "Cho TN duyet tong") {
+    // Don con ton o buoc cu (truoc 2026-10-14) - TN van duyet duoc; duyet xong cung tu vao phieu tra hang (xem duoi).
     if (!canTacNghiep(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
     if (hanhDong === "tu_choi" && !ghiChu?.trim()) return { error: "MISSING_GHI_CHU", status: 409 };
     // SUA (migration 0002_tra_hang_pxk.sql): truoc day di tiep toi "Cho ke toan xac nhan nhap kho" ->
@@ -455,6 +459,29 @@ async function applyTraHangLog(
   // khong de nguyen "pending" gay hieu nham chua ai xu ly. Best-effort.
   if (trangThaiHienTai === "Cho kho xac nhan" && nextTrangThai === "Cho QC xac nhan" && ddh.ma_thung_tra) {
     c.executionCtx.waitUntil(notifyTraHangReceivedViaApp(c.env, ddh.ma_thung_tra, `Kho đã xác nhận nhận hàng trực tiếp trên hệ thống Đặt mua linh kiện`));
+  }
+
+  // Duyet xong (QC dong y, hoac TN duyet don ton buoc cu) -> tu gom vao phieu tra hang "Dang tao phieu" cua nguoi nhan (tao moi neu
+  // chua co), bao TN len ma don hang / gui Ke toan (2026-10-14).
+  if (nextTrangThai === "TN da duyet" && ddh.nguoi_nhan_hang && ddh.ma_xuat_kho == null) {
+    const pxkId = await bundleAutoApprovedIntoPxk(c.env, c.env.DB, user.email, ddh.nguoi_nhan_hang, "tra_hang", [{ donHangId, soTien: 0 }]);
+    if (pxkId) {
+      const emailGsList = ddh.email_gs ? [ddh.email_gs] : [];
+      c.executionCtx.waitUntil(
+        (async () => {
+          await notifyWorkflowTask(c.env, c.env.DB, {
+            cat1Emails: await emailsForRoleOrQC(c.env.DB, "la_tac_nghiep", emailGsList),
+            otherRoles: [],
+            emailGsList,
+            pastActors: [],
+            title: "Trả hàng",
+            body: `Đơn trả hàng "${ddh.ten_lk_snapshot} (x${ddh.so_luong_de_xuat})" QC đã đồng ý, đã vào phiếu ${pxkId} — chờ lên mã đơn hàng`,
+            linkType: "phieu_xuat_kho",
+            linkId: pxkId,
+          });
+        })(),
+      );
+    }
   }
 
   // Bao "viec moi" cho vai tro SAP xu ly buoc tiep theo (phan hoi 2026-09-05).

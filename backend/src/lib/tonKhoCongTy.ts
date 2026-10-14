@@ -30,34 +30,39 @@ export async function computeTonKhoGoc(db: D1Database, khuVucMa: string, maLk: s
   return row?.gia_tri ?? 0;
 }
 
-// "Ton phat sinh" = tong so_luong_de_xuat cua cac dong dat_don_hang (loai_don mua/cong_no) CUNG ma
-// hang, CUNG Khu vuc (qua nguoi_nhan_hang -> ktv_lien_he.khu_vuc_ma), tao SAU moc tinh ton kho, CHUA
-// bi tu choi/huy (TAT CA trang thai con lai deu tinh, ke ca dang cho duyet - xem giai thich dau file).
-export async function computeTonKhoPhatSinh(db: D1Database, khuVucMa: string, maLk: string, mocTonKho: string | null): Promise<number> {
+// "Ton phat sinh" = tong so_luong_de_xuat cua cac dong dat_don_hang (loai_don mua/cong_no) CUNG ma hang, CUNG Khu vuc, tao SAU moc
+// tinh ton kho, CHUA bi tu choi/huy (TAT CA trang thai con lai deu tinh, ke ca dang cho duyet / cho hang - xem giai thich dau file).
+// SUA 2026-10-14 (tu dong duyet 100%, migration 0080): khu vuc = KHU VUC CUA DON (COALESCE(khu_vuc_chon, khu_vuc_ma)) thay vi
+// ktv_lien_he cua nguoi nhan - tinh duoc ca don nguoi nhan khong phai KTV (GS/TN, KH le). `truocDon` co -> CHI tinh cac don tao
+// TRUOC don do (ngay_tao, id) - uu tien don tao truoc (tru dan cung ma, chot nguoi dung: don truoc du hang, don sau thieu).
+export async function computeTonKhoPhatSinh(
+  db: D1Database, khuVucMa: string, maLk: string, mocTonKho: string | null, truocDon?: { id: string; ngay_tao: string },
+): Promise<number> {
   const row = await db
     .prepare(
       `SELECT COALESCE(SUM(ddh.so_luong_de_xuat), 0) as gia_tri
        FROM dat_don_hang ddh
-       -- EXISTS (khong JOIN): 1 Gmail co the gan nhieu ma KTV cung khu vuc -> JOIN nhan SL theo so ma (2026-10-01).
-       WHERE EXISTS (SELECT 1 FROM ktv_lien_he k WHERE k.email_dang_nhap = ddh.nguoi_nhan_hang AND k.khu_vuc_ma = ?) AND ddh.ma_lk = ? AND ddh.loai_don IN ('mua', 'cong_no')
+       WHERE ddh.ma_lk = ? AND COALESCE(ddh.khu_vuc_chon, ddh.khu_vuc_ma) = ? AND ddh.loai_don IN ('mua', 'cong_no')
          -- "TRỪ CÔNG NỢ" lay tu ton kho CUA KTV, khong giu hang kho cong ty (chot 2026-09-28, lib/tonKhoKtv.ts)
          AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') = 0
          AND ddh.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')
-         AND (? IS NULL OR ddh.ngay_tao > ?)`,
+         AND (? IS NULL OR ddh.ngay_tao > ?)${truocDon ? " AND (ddh.ngay_tao < ? OR (ddh.ngay_tao = ? AND ddh.id < ?))" : ""}`,
     )
-    .bind(khuVucMa, maLk, mocTonKho, mocTonKho)
+    .bind(maLk, khuVucMa, mocTonKho, mocTonKho, ...(truocDon ? [truocDon.ngay_tao, truocDon.ngay_tao, truocDon.id] : []))
     .first<{ gia_tri: number }>();
   return row?.gia_tri ?? 0;
 }
 
 // "Ton chot" = Ton goc - Ton phat sinh (co the am neu da dat vuot ton thuc te ghi nhan luc import -
 // khong clamp ve 0, ben goi chi can so sanh >= so_luong_de_xuat cua dong DANG xet).
-export async function computeTonKhoChot(db: D1Database, khuVucMa: string | null, maLk: string): Promise<number> {
+export async function computeTonKhoChot(
+  db: D1Database, khuVucMa: string | null, maLk: string, truocDon?: { id: string; ngay_tao: string },
+): Promise<number> {
   if (!khuVucMa) return 0;
   const moc = await getMocTonKhoCongTy(db);
   const [tonGoc, tonPhatSinh] = await Promise.all([
     computeTonKhoGoc(db, khuVucMa, maLk),
-    computeTonKhoPhatSinh(db, khuVucMa, maLk, moc),
+    computeTonKhoPhatSinh(db, khuVucMa, maLk, moc, truocDon),
   ]);
   return tonGoc - tonPhatSinh;
 }

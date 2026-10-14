@@ -88,6 +88,8 @@ const DON_HANG_EVENT: Record<string, string> = {
   "TN tu choi": "tn_tu_choi",
   "Cho hang": "cho_hang",
   "Da huy": "da_huy",
+  "Cho GS duyet": "cho_gs_duyet", // tu dong duyet 100% (2026-10-14)
+  "Cho thanh toan": "cho_thanh_toan",
 };
 
 const THIEU_LK_EVENT: Record<string, string> = {

@@ -40,6 +40,8 @@ export interface LkDanhMucRow {
   // SELECT * o backend, chi thieu trong TYPE nay. Dung o useTaoDonForm.ts tinh "Cong no tam tinh" song
   // ngay luc soan don (xem GET /dat-mua-lk/cong-no-du-kien).
   gia_tri_cong_no?: number | null;
+  // "Cho phép giá 0đ" (migration 0080) - LK duoc dat don co tien (MUA / TRỪ CÔNG NỢ) khi gia ban 0 / chua co gia.
+  cho_phep_gia_0?: number | null;
   // Cac truong moi tu gia88 (them 2026-09-12, xem types.ts LinhKienRow) - "cam_ban" BAT BUOC (dung
   // loc khoi picker o helpers.ts useLkAndLdeCache), cac truong con lai chi hien thi tham khao khi mo
   // LinhKienDetailModal.
@@ -54,6 +56,29 @@ export interface LkDanhMucRow {
   // Muc combo trong o chon LK luc tao don (migration 0066) - KHONG phai LK that: gia = tong thanh phan, server tach thanh
   // tung don thanh phan khi luu (comboThanhLkRow o helpers.ts).
   combo?: LkComboRow;
+}
+
+// POST /dat-mua-lk/phieu-dat/kiem-tra (tu dong duyet 100%, 2026-10-14) - ket qua du kien tung dong truoc khi tao don.
+export interface KiemTraDong {
+  goc: number; // vi tri dong trong danh sach GUI LEN (dong combo tach thanh nhieu ket qua cung goc)
+  ma_lk: string;
+  so_luong: number;
+  combo_ma: string | null;
+  trang_thai: "Cho TBP xac nhan" | "Cho GS duyet" | "TN da duyet" | "Cho thanh toan" | "Cho hang" | "Cho ke toan duyet mem";
+  loi: string | null;
+  thong_diep: string | null;
+  ton: number | null;
+  nguon_ton: "kho" | "ktv" | null;
+  bat_buoc_chuyen_tien: boolean;
+}
+export interface KiemTraPhieuDat {
+  loi_phieu: string | null;
+  khu_vuc?: string;
+  danh_gia_cong_no?: "Du" | "Khong du" | null;
+  cong_no_chot?: number;
+  tong_moi_cong_no?: number;
+  tran_cong_no?: number | null;
+  dong: KiemTraDong[];
 }
 
 // Combo linh kien (GET /lk-settings/combo, migration 0066).
@@ -141,6 +166,11 @@ export interface DonHangRow {
   tlk_nguoi_tiep_nhan?: string | null;
   // GET /don-hang/:id (TN/Admin): don chua vao phieu con thieu tien -> so can tra + quy du hien tai cua nguoi nhan hang.
   tra_bang_quy?: { can_tra: number; quy: number } | null;
+  // Tu dong duyet 100% (migration 0080): ma EO GS/TBP nhap khi duyet don vuot tran + canh bao cong no nguoi nhan (chi tiet don
+  // "Cho TBP xac nhan"/"Cho GS duyet" - tran, cong no chot hien tai, gia tri cong no cua don).
+  ma_eo?: string | null;
+  ma_eo_nguoi?: string | null;
+  cong_no_nhan?: { tran: number | null; chot: number; don: number | null } | null;
   tien_da_tra_pxk?: string | null;
   uu_tien: number;
   trang_thai?: string | null;
