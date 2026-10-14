@@ -138,6 +138,52 @@ settingsKtv.post("/", adminOnly, async (c) => {
   return c.json(row, 201);
 });
 
+// POST /tao-cho-van-phong - { email, ma_ktv, ten_hien_thi?, khu_vuc_ma, ma_misa, ten_misa? } (2026-10-14, phan hoi "vai trò đó vẫn
+// là gs, thêm trực tiếp ở mục quản lý nhân viên văn phòng"): TN dat ho cho 1 GS -> NGUOI_NHAN_HANG_KHONG_HOP_LE vi nguoi nhan hop le
+// = co KTV HOAC Gmail gan 1 ma KTV dang hoat dong (nguoiNhanHangHopLe). Tao 1 ma KTV moi gan THANG Gmail cua tai khoan van phong, KHONG
+// bat co la_ktv_dvbh/la_ve_tinh (provisionPlaceholderUser khong dong vao tai khoan da duyet) -> tai khoan van o the "Nhân viên văn
+// phòng", vai tro giu nguyen. Bat buoc Ma MISA (thieu thi dat don bi KTV_CHUA_CO_MA_MISA). Tat ca kiem tra TRUOC khi ghi (khong de
+// lai ma KTV mo coi nhu khi goi rieng POST / + PATCH /:ma/dat-mua-lk).
+settingsKtv.post("/tao-cho-van-phong", adminOnly, async (c) => {
+  const body = await c.req
+    .json<{ email?: string; ma_ktv?: string; ten_hien_thi?: string; khu_vuc_ma?: string; ma_misa?: string; ten_misa?: string }>()
+    .catch(() => ({}) as Record<string, string | undefined>);
+  const email = body.email?.trim();
+  const maKtv = body.ma_ktv?.trim();
+  const khuVucMa = body.khu_vuc_ma?.trim();
+  const maMisa = body.ma_misa?.trim();
+  if (!email || !maKtv || !khuVucMa || !maMisa) return c.json({ error: "MISSING_FIELDS" }, 400);
+  const db = c.env.DB;
+  const u = await db
+    .prepare("SELECT email, ten, trang_thai_duyet, la_ktv_dvbh, la_ve_tinh FROM users WHERE email = ?")
+    .bind(email)
+    .first<{ email: string; ten: string | null; trang_thai_duyet: string; la_ktv_dvbh: number; la_ve_tinh: number }>();
+  if (!u) return c.json({ error: "NOT_FOUND" }, 404);
+  if (u.trang_thai_duyet !== "Da duyet") return c.json({ error: "TAI_KHOAN_CHUA_DUYET", message: "Tài khoản chưa được duyệt" }, 400);
+  if (u.la_ktv_dvbh || u.la_ve_tinh) return c.json({ error: "KHONG_PHAI_VAN_PHONG", message: "Tài khoản đang là KTV — gắn mã ở thẻ KTV hiện trường" }, 400);
+  const maKhac = await maKtvDangDungEmail(db, email);
+  if (maKhac) return c.json({ error: "EMAIL_DA_GAN_MA_KHAC", message: `Gmail này đã gắn mã KTV ${maKhac}` }, 409);
+  const trungMa = await db.prepare("SELECT ma_ktv FROM ktv_lien_he WHERE UPPER(ma_ktv) = UPPER(?)").bind(maKtv).first<{ ma_ktv: string }>();
+  if (trungMa) return c.json({ error: "MA_KTV_DA_TON_TAI", message: `Mã KTV ${trungMa.ma_ktv} đã có trong danh bạ — dùng "Chọn mã có sẵn"` }, 409);
+  const kv = await db.prepare("SELECT ma FROM khu_vuc WHERE ma = ?").bind(khuVucMa).first();
+  if (!kv) return c.json({ error: "KHU_VUC_NOT_FOUND" }, 400);
+  const trungMisa = await db.prepare("SELECT ma_ktv FROM ktv_lien_he WHERE UPPER(TRIM(ma_misa)) = UPPER(?) LIMIT 1").bind(maMisa).first<{ ma_ktv: string }>();
+  if (trungMisa) return c.json({ error: "MA_MISA_DA_DUNG", message: `Mã MISA ${maMisa} đang thuộc mã KTV ${trungMisa.ma_ktv}` }, 409);
+
+  const tenHienThi = body.ten_hien_thi?.trim() || u.ten || email;
+  await db
+    .prepare(
+      `INSERT INTO ktv_lien_he (ma_ktv, ten_hien_thi, vai_tro_ktv, email_dang_nhap, khu_vuc_ma, ma_misa, ten_misa, nguoi_cap_nhat, ngay_cap_nhat)
+       VALUES (?, ?, 'KTV', ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(maKtv, tenHienThi, email, khuVucMa, maMisa, body.ten_misa?.trim() || null, c.get("user").email, nowVN())
+    .run();
+  await resyncKhuVucDerivedFieldsForEmail(db, email);
+  await relinkTonKhoForMaMisa(db, maKtv, maMisa);
+  await refreshHash(db);
+  return c.json({ ok: true, ma_ktv: maKtv }, 201);
+});
+
 // Cap tai khoan "users" PLACEHOLDER cho 1 KTV da ghep email_dang_nhap nhung CHUA TUNG dang nhap
 // Google that - can thiet vi dat_don_hang.nguoi_nhan_hang/phieu_xuat_kho.nguoi_nhan_hang la FK THAT
 // toi users(email). Khong co placeholder nay, "Nguoi nhan hang (tao ho)" se rong voi KTV chua tung

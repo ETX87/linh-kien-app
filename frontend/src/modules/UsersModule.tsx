@@ -91,7 +91,7 @@ function goiYTimMaKtv(u: Pick<UserRow, "ten" | "ten_misa" | "email">): string {
   return sauGachCuoi || ten;
 }
 
-function GanMaKtvModal({ user, onClose, onDone }: { user: UserRow; onClose: () => void; onDone: () => void }) {
+function GanMaKtvModal({ user, onClose, onDone, vanPhong = false }: { user: UserRow; onClose: () => void; onDone: () => void; vanPhong?: boolean }) {
   const addToast = useToast();
   const [search, setSearch] = useState(() => goiYTimMaKtv(user));
   const [chiChuaCoTk, setChiChuaCoTk] = useState(true);
@@ -109,7 +109,7 @@ function GanMaKtvModal({ user, onClose, onDone }: { user: UserRow; onClose: () =
   const gan = useMutation({
     mutationFn: (ma: string) => api.patch(`/settings/ktv-lien-he/${encodeURIComponent(ma)}/dat-mua-lk`, { email_dang_nhap: user.email }),
     onSuccess: (_r, ma) => {
-      addToast(`Đã gắn mã ${ma} cho ${user.email} — tài khoản hiện ở thẻ "KTV hiện trường"`);
+      addToast(vanPhong ? `Đã gắn mã ${ma} cho ${user.email} — đặt hộ được, tài khoản vẫn ở thẻ "Nhân viên văn phòng"` : `Đã gắn mã ${ma} cho ${user.email} — tài khoản hiện ở thẻ "KTV hiện trường"`);
       onDone();
     },
     onError: (err) => addToast("Không gắn được: " + (err instanceof Error ? err.message : String(err))),
@@ -117,10 +117,16 @@ function GanMaKtvModal({ user, onClose, onDone }: { user: UserRow; onClose: () =
   return (
     <Modal open onClose={onClose} title={`Gắn mã KTV cho ${user.email}`} width="max-w-2xl">
       <div className="space-y-3 text-sm">
+        {vanPhong ? (
+          <div className="text-xs text-[var(--ink-500)]">
+            Gắn 1 mã KTV có sẵn cho Gmail này để TN/GS đặt hộ được (người nhận hàng). Vai trò và cờ văn phòng giữ nguyên. Mã cần có Mã MISA.
+          </div>
+        ) : (
         <div className="text-xs text-[var(--ink-500)]">
           Cờ "KTV DVBH" chỉ là quyền. Tài khoản chỉ thuộc thẻ "KTV hiện trường" khi có 1 mã KTV trong danh bạ dùng Gmail này làm Email đăng nhập. Chọn mã của người này
           (chưa có mã thì tạo ở thẻ "KTV hiện trường" › "+ Thêm KTV", nhập Email đăng nhập = Gmail này).
         </div>
+        )}
         <div className="flex flex-wrap items-center gap-3">
           <input
             autoFocus
@@ -616,6 +622,130 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
 // "Nhân viên văn phòng" (them 2026-08-26) - the thu 2 trong yeu cau "tach rieng 2 the quan ly", loc
 // nguoc lai voi KTV/Ve tinh qua query "nhom=van-phong" (backend/src/routes/users.ts). Dung lai chinh
 // EditUserModal o tren (khong nhan doi logic sua/luu).
+// "Mã nhận hàng" cho tai khoan VAN PHONG (2026-10-14, phan hoi "vai trò đó vẫn là gs, thêm trực tiếp ở mục quản lý nhân viên văn
+// phòng"): TN dat ho cho GS bi NGUOI_NHAN_HANG_KHONG_HOP_LE vi nguoi nhan phai la KTV hoac Gmail gan 1 ma KTV. Tao ma moi (POST
+// /settings/ktv-lien-he/tao-cho-van-phong - khong bat co KTV, tai khoan o lai the nay) hoac chon ma co san (GanMaKtvModal), go lien
+// ket = PATCH email_dang_nhap null.
+function MaNhanHangVanPhongModal({ user, khuVucRows, onClose, onDone }: { user: UserRow; khuVucRows: KhuVucRow[]; onClose: () => void; onDone: () => void }) {
+  const addToast = useToast();
+  const maGan = (user.ma_ktv_gan ?? "").split(",").filter(Boolean);
+  const khuVucMacDinh = user.khu_vuc_dat_hang || khuVucRows.find((k) => k.gs_email === user.email)?.ma || "";
+  const [form, setForm] = useState({
+    ma_ktv: user.email.split("@")[0],
+    ten_hien_thi: user.ten ?? "",
+    khu_vuc_ma: khuVucMacDinh,
+    ma_misa: user.ma_misa ?? "",
+    ten_misa: user.ten_misa ?? "",
+  });
+  const [loi, setLoi] = useState("");
+  const [chonCoSan, setChonCoSan] = useState(false);
+  const loiApi = (err: unknown) => (err instanceof ApiError ? err.detail || err.code || err.message : String(err));
+  const tao = useMutation({
+    mutationFn: () => api.post<{ ok: true; ma_ktv: string }>("/settings/ktv-lien-he/tao-cho-van-phong", { email: user.email, ...form }),
+    onSuccess: (r) => {
+      addToast(`Đã tạo mã ${r.ma_ktv} cho ${user.email} — TN/GS đặt hộ được cho người này`);
+      onDone();
+    },
+    onError: (err) => setLoi(loiApi(err)),
+  });
+  const go = useMutation({
+    mutationFn: (ma: string) => api.patch(`/settings/ktv-lien-he/${encodeURIComponent(ma)}/dat-mua-lk`, { email_dang_nhap: null }),
+    onSuccess: (_r, ma) => {
+      addToast(`Đã gỡ mã ${ma} khỏi ${user.email}`);
+      onDone();
+    },
+    onError: (err) => setLoi(loiApi(err)),
+  });
+  if (chonCoSan) return <GanMaKtvModal user={user} vanPhong onClose={() => setChonCoSan(false)} onDone={onDone} />;
+  const thieu = !form.ma_ktv.trim() || !form.khu_vuc_ma || !form.ma_misa.trim();
+  const o = (key: keyof typeof form, label: string, batBuoc = false, placeholder = "") => (
+    <label className="block">
+      <span className="block text-xs font-semibold text-[var(--ink-600)] mb-1">
+        {label}
+        {batBuoc && " *"}
+      </span>
+      <input
+        value={form[key]}
+        placeholder={placeholder}
+        onChange={(e) => {
+          setForm({ ...form, [key]: e.target.value });
+          setLoi("");
+        }}
+        className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+      />
+    </label>
+  );
+  return (
+    <Modal open onClose={onClose} title={`Mã nhận hàng — ${user.email}`} width="max-w-xl">
+      <div className="space-y-3 text-sm">
+        <div className="text-xs text-[var(--ink-500)]">
+          Người nhận hàng khi TN/GS đặt hộ phải có mã KTV. Mã này chỉ dùng để nhận hàng — vai trò ({user.vai_tro ?? "—"}) và cờ văn phòng giữ
+          nguyên, tài khoản vẫn ở thẻ "Nhân viên văn phòng". Đơn người này nhận tính theo Khu vực của mã.
+        </div>
+        {maGan.length > 0 ? (
+          <div className="space-y-2">
+            {maGan.map((ma) => (
+              <div key={ma} className="flex items-center justify-between gap-2 border border-[var(--line)] rounded-lg px-3 py-2">
+                <span>
+                  Đang gắn mã <span className="font-mono font-semibold">{ma}</span>
+                </span>
+                <Btn
+                  size="sm"
+                  variant="ghost"
+                  loading={go.isPending && go.variables === ma}
+                  disabled={go.isPending}
+                  onClick={() => {
+                    if (window.confirm(`Gỡ mã ${ma} khỏi ${user.email}?\n\nSau khi gỡ, TN/GS không đặt hộ cho người này được nữa. Mã vẫn còn trong danh bạ KTV.`)) go.mutate(ma);
+                  }}
+                >
+                  Gỡ mã
+                </Btn>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {o("ma_ktv", "Mã KTV", true)}
+              {o("ten_hien_thi", "Tên hiển thị", false, user.email)}
+              <label className="block">
+                <span className="block text-xs font-semibold text-[var(--ink-600)] mb-1">Khu vực *</span>
+                <Select
+                  value={form.khu_vuc_ma}
+                  onChange={(v) => {
+                    setForm({ ...form, khu_vuc_ma: v });
+                    setLoi("");
+                  }}
+                  options={[
+                    { value: "", label: "— Chọn khu vực —" },
+                    ...khuVucRows.filter((k) => k.ma !== "CHUA_CO" && (k.bat_tat || k.ma === form.khu_vuc_ma)).map((k) => ({ value: k.ma, label: k.ten })),
+                  ]}
+                />
+              </label>
+              {o("ma_misa", "Mã MISA", true)}
+              {o("ten_misa", "Tên trên MISA")}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Btn variant="ghost" size="sm" onClick={() => setChonCoSan(true)}>
+                Chọn mã có sẵn…
+              </Btn>
+              <Btn variant="primary" size="sm" loading={tao.isPending} disabled={thieu || tao.isPending} onClick={() => tao.mutate()}>
+                Tạo mã nhận hàng
+              </Btn>
+            </div>
+          </>
+        )}
+        {loi && <div className="text-xs font-semibold text-[var(--coral-700)]">{loi}</div>}
+        <div className="flex justify-end">
+          <Btn variant="ghost" size="sm" onClick={onClose}>
+            Đóng
+          </Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function VanPhongTab() {
   const qc = useQueryClient();
   const addToast = useToast();
@@ -638,6 +768,7 @@ function VanPhongTab() {
   // chua co ho so ktv_lien_he nao de sua (can Admin tu tao qua the "KTV hiện trường" > "+ Thêm KTV").
   // SUA 2026-10-01: chuyen xong MO NGAY buoc "Gắn mã KTV" (truoc chi bao toast -> de quen, tai khoan lo lung "Chưa thuộc thẻ nào").
   const [ganMa, setGanMa] = useState<UserRow | null>(null);
+  const [maNhanHang, setMaNhanHang] = useState<UserRow | null>(null);
   const chuyenSangKtv = useMutation({
     mutationFn: (u: UserRow) => api.post(`/users/${encodeURIComponent(u.email)}/chuyen-nhom-vai-tro`, { to: "ktv" }),
     onSuccess: async (_r, u) => {
@@ -667,6 +798,10 @@ function VanPhongTab() {
     { key: "ma_misa", header: "Mã MISA", render: (u) => u.ma_misa ?? "—" },
     { key: "ten_misa", header: "Tên trên MISA", render: (u) => u.ten_misa ?? "—" },
     {
+      key: "ma_ktv_gan", mobile: "meta", header: "Mã nhận hàng",
+      render: (u) => (u.ma_ktv_gan ? <span className="font-mono text-xs">{u.ma_ktv_gan.split(",").join(", ")}</span> : "—"),
+    },
+    {
       key: "co_nghiep_vu", mobile: "meta",
       header: "Cờ nghiệp vụ",
       render: (u) => (
@@ -693,6 +828,9 @@ function VanPhongTab() {
         <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
           <button className="text-[var(--ocean-600)] hover:underline text-xs" onClick={() => setEditing(u)}>
             Sửa
+          </button>
+          <button className="text-[var(--ocean-600)] hover:underline text-xs whitespace-nowrap" onClick={() => setMaNhanHang(u)}>
+            Mã nhận hàng
           </button>
           <button
             className="text-[var(--violet-600)] hover:underline text-xs"
@@ -769,6 +907,19 @@ function VanPhongTab() {
             setGanMa(null);
             await qc.invalidateQueries({ queryKey: ["users"] });
             await qc.invalidateQueries({ queryKey: ["settings-ktv"] });
+          }}
+        />
+      )}
+      {maNhanHang && (
+        <MaNhanHangVanPhongModal
+          user={maNhanHang}
+          khuVucRows={khuVucData?.rows ?? []}
+          onClose={() => setMaNhanHang(null)}
+          onDone={async () => {
+            setMaNhanHang(null);
+            await qc.invalidateQueries({ queryKey: ["users"] });
+            await qc.invalidateQueries({ queryKey: ["settings-ktv"] });
+            await qc.invalidateQueries({ queryKey: ["nguoi-directory"] });
           }}
         />
       )}
