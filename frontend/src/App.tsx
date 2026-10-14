@@ -154,8 +154,10 @@ function MainApp({
   // "Tốc độ xử lý" (them 04/09/2026) - RIENG cho la_view (KHONG gop vao khoi 7 co "Dat mua linh kien"
   // o tren, vi 6 co con lai - la_kho/la_ke_toan/la_tac_nghiep/.../vai_tro Giam sat - KHONG duoc xem
   // bao cao nay, du co quyen vao module dat-mua-lk) - xem backend/src/routes/baoCaoTocDoXuLy.ts gate.
+  // + 2026-10-14 ("la_view xem full các menu, đơn + phiếu"): View vao MOI man nghiep vu nhu Mua hang (Phiếu xuất, Quỹ &
+  // chuyển tiền, Bảng giá), CHI DOC (backend requireDatMuaLkArea chan ghi), du lieu don/PXK/quy van theo Khu vuc duoc gan.
   if (role !== "Admin" && user.la_view) {
-    allowedModules = [...new Set([...allowedModules, "bao-cao-toc-do"])];
+    allowedModules = [...new Set([...allowedModules, "bao-cao-toc-do", "phieu-xuat", "quy-chuyen-tien", "danh-muc-lk"])];
   }
   // "Danh sách KTV" (them 2026-09-05, phan hoi "đẩy ra menu để các vai trò nhân viên văn phòng có thể
   // xem được thông tin") - MOI vai tro KHONG PHAI ban than KTV/CTV/Tram/Ve tinh deu xem duoc (TN/Kho/

@@ -389,7 +389,7 @@ là con đường DUY NHẤT đưa tài khoản vào module — tài khoản có
 bình thường theo quyền của cờ đó) và `lib/scopeDatMua.ts` (`khuVucViewEmailInSql()` — phạm vi xem =
 tập KTV/Vệ tinh có `khu_vuc_ma` nằm trong danh sách Khu vực được gán cho chính tài khoản View đó qua
 `user_khu_vuc`; chưa gán Khu vực nào thì không thấy đơn nào, không phải mặc định thấy hết). `App.tsx`
-tự cấp module `dat-mua-lk`/`thieu-lk`/`tra-hang` cho `la_view` giống các cờ nghiệp vụ khác.
+tự cấp module `dat-mua-lk`/`thieu-lk`/`tra-hang` cho `la_view` giống các cờ nghiệp vụ khác. **View xem full các menu** (chốt 2026-10-14, v1.326): View vào MỌI màn như Mua hàng — Đơn hàng (danh sách Mua/Công nợ + menu Tổng/Chờ…, Hàng trả: `canXemDonMuaCongNo`/`canTraHangView` ở `DatMuaLinhKienModule.tsx` — thiếu thì danh sách rơi về lọc loại "mua", tìm đơn CÔNG NỢ theo Mã YCSC ra rỗng), Phiếu xuất (`canXemPxkTab`), Quỹ & chuyển tiền (`phamViXem()` ở `quyKtv.ts` = KTV thuộc Khu vực được gán; không có tab KH lẻ), Bảng giá — CHỈ ĐỌC (`requireDatMuaLkArea` chặn ghi), dữ liệu đơn/PXK/quỹ VẪN theo Khu vực được gán.
 
 ### Khu vực (2026-08-26 — xây lại quản lý tài khoản/vai trò)
 

@@ -9,6 +9,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nowVN } from "../lib/vnTime";
+import { khuVucViewEmailInSql } from "../lib/scopeDatMua";
 import { lenhGhiQuy, phanBoQuy, soDuQuy, suaThucNhanKhoan, huyKhoanChuyen, KHOAN_HUY_DUOC_SQL } from "../lib/quyKtv";
 import { xuLyDonChoThanhToan } from "../lib/tuDongDuyet";
 import { notifyWorkflowTask, emailGsListForPxk, pastActorsFor } from "../lib/taskNotify";
@@ -20,11 +21,16 @@ quyKtv.use("*", verifySessionMiddleware, loadUser, requireDatMuaLkArea);
 type C = Context<{ Bindings: Env }>;
 
 /** null = xem tat ca; mang = chi cac email nay; undefined = khong co quyen. */
-function phamViXem(c: C): string[] | null | undefined {
+async function phamViXem(c: C): Promise<string[] | null | undefined> {
   const u = c.get("user");
   if (u.vai_tro === "Admin" || u.la_ke_toan || u.la_tac_nghiep || u.la_mua_hang) return null; // Mua hang: xem, khong dieu chinh
   if (u.la_ve_tinh) return u.tram_cha ? [u.tram_cha] : [];
   if (u.la_ktv_dvbh) return [u.email];
+  // View (2026-10-14, "xem full các menu"): chi doc, quy cua KTV thuoc Khu vuc duoc gan (cung tap voi khuVucViewEmailInSql).
+  if (u.la_view) {
+    const { results } = await c.env.DB.prepare(khuVucViewEmailInSql().slice(1, -1)).bind(u.email).all<{ email_dang_nhap: string }>();
+    return (results ?? []).map((r) => r.email_dang_nhap);
+  }
   return undefined;
 }
 const coTheDieuChinh = (c: C) => c.get("user").vai_tro === "Admin" || !!c.get("user").la_ke_toan;
@@ -94,7 +100,7 @@ quyKtv.post("/ocr-anh", async (c) => {
 
 // GET /api/quy-ktv/tong-quan -so du quy + tong tien da nhan + con phai chuyen cua tung nguoi nhan hang.
 quyKtv.get("/tong-quan", async (c) => {
-  const pv = phamViXem(c);
+  const pv = await phamViXem(c);
   if (pv === undefined) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const loc = locEmail("ng.email", pv);
   const { results } = await c.env.DB.prepare(
@@ -129,7 +135,7 @@ quyKtv.get("/tong-quan", async (c) => {
 // GET /api/quy-ktv/khoan-chuyen?email=&trang_thai=&tu=&den=&q=&page=&pageSize= - so cac lan Ke toan duyet/tu choi.
 // Khong truyen page = tra HET (tai Excel).
 quyKtv.get("/khoan-chuyen", async (c) => {
-  const pv = phamViXem(c);
+  const pv = await phamViXem(c);
   if (pv === undefined) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const loc = locEmail("k.email_nguoi_chuyen", pv, c.req.query("email")?.trim() || undefined);
   let where = `1 = 1${loc.sql}`;
@@ -179,7 +185,7 @@ quyKtv.get("/khoan-chuyen", async (c) => {
 
 // GET /api/quy-ktv/giao-dich?email=&page=&pageSize= - so quy (chi ghi them), moi nhat truoc.
 quyKtv.get("/giao-dich", async (c) => {
-  const pv = phamViXem(c);
+  const pv = await phamViXem(c);
   if (pv === undefined) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const loc = locEmail("g.email", pv, c.req.query("email")?.trim() || undefined);
   const loai = c.req.query("loai");

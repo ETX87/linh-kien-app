@@ -118,6 +118,8 @@ export function QuyChuyenTienModule() {
   const ten = (e: string | null | undefined) => (e ? formatPersonDisplay(e, dir) : "");
   const user = auth.status === "authenticated" ? auth.user : null;
   const xemTatCa = !!user && (user.vai_tro === "Admin" || !!user.la_ke_toan || !!user.la_tac_nghiep || !!user.la_mua_hang); // Mua hang: xem, khong dieu chinh
+  // View (2026-10-14): xem quy NHIEU nguoi (KTV thuoc Khu vuc duoc gan - backend phamViXem) nhung KHONG co tab KH le (/khach-le khong mo cho View).
+  const xemNhieuNguoi = xemTatCa || !!user?.la_view;
 
   const [tab, setTab] = useState<"khoan" | "so-du" | "so-quy" | "kh-le">("khoan");
   const [emailLoc, setEmailLoc] = useState("");
@@ -147,7 +149,7 @@ export function QuyChuyenTienModule() {
 
   const tabs = [
     { key: "khoan", label: t("Khoản chuyển tiền") },
-    ...(xemTatCa ? [{ key: "so-du", label: t("Số dư quỹ"), count: tqRows.filter((r) => r.so_du > 0).length }] : []),
+    ...(xemNhieuNguoi ? [{ key: "so-du", label: t("Số dư quỹ"), count: tqRows.filter((r) => r.so_du > 0).length }] : []),
     { key: "so-quy", label: t("Sổ quỹ") },
     // KH le theo tung khach (migration 0074) - quy/tien dang giu/don cho hang cua tung KH.
     ...(xemTatCa ? [{ key: "kh-le", label: t("KH lẻ") }] : []),
@@ -158,8 +160,8 @@ export function QuyChuyenTienModule() {
       {/* Mobile 1 cot (so tien day du khong bi cat), desktop 3 cot - cung khuon grid cua TonKhoKtvModule. */}
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3 sm:gap-[14px]">
         <div className="flex min-w-0">
-          <StatCard label={xemTatCa ? t("Tổng quỹ dư") : t("Quỹ dư của tôi")} value={fmtVND(tongQuy)} color="green" iconType={Icon.wallet}
-            sub={xemTatCa ? t("{a} người có quỹ dư", { a: tqRows.filter((r) => r.so_du > 0).length }) : t("Tự trừ vào phiếu cần chuyển tiếp theo")} />
+          <StatCard label={xemNhieuNguoi ? t("Tổng quỹ dư") : t("Quỹ dư của tôi")} value={fmtVND(tongQuy)} color="green" iconType={Icon.wallet}
+            sub={xemNhieuNguoi ? t("{a} người có quỹ dư", { a: tqRows.filter((r) => r.so_du > 0).length }) : t("Tự trừ vào phiếu cần chuyển tiếp theo")} />
         </div>
         <div className="flex min-w-0">
           <StatCard label={t("Còn phải chuyển")} value={fmtVND(tongConPhai)} color="amber" iconType={Icon.clock}
@@ -175,7 +177,7 @@ export function QuyChuyenTienModule() {
 
       {tab === "khoan" && (
         <KhoanChuyenTab
-          xemTatCa={xemTatCa}
+          xemTatCa={xemNhieuNguoi}
           nguoiOptions={nguoiOptions}
           emailLoc={emailLoc}
           setEmailLoc={setEmailLoc}
@@ -185,7 +187,7 @@ export function QuyChuyenTienModule() {
           onChanged={lamMoi}
         />
       )}
-      {tab === "so-du" && xemTatCa && (
+      {tab === "so-du" && xemNhieuNguoi && (
         <SoDuTab
           rows={tqRows}
           isLoading={tongQuan.isLoading}
@@ -205,7 +207,7 @@ export function QuyChuyenTienModule() {
           }
         />
       )}
-      {tab === "so-quy" && <SoQuyTab xemTatCa={xemTatCa} nguoiOptions={nguoiOptions} emailLoc={emailLoc} setEmailLoc={setEmailLoc} ten={ten} />}
+      {tab === "so-quy" && <SoQuyTab xemTatCa={xemNhieuNguoi} nguoiOptions={nguoiOptions} emailLoc={emailLoc} setEmailLoc={setEmailLoc} ten={ten} />}
 
       {dieuChinh && (
         <DieuChinhModal
