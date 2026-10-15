@@ -2014,7 +2014,10 @@ function EtxNhanSuTab() {
 ` +
           `- Đăng nhập bằng: ${r.gmail}
 - Thêm vào danh bạ KTV với mã ${r.ma_nhan_su} (chưa có khu vực — gán sau ở thẻ "KTV hiện trường")
-- Kích hoạt tài khoản ngay`,
+- Kích hoạt tài khoản ngay` +
+          (r.trang_thai_lam_viec === "on" ? "" : `
+
+⚠ Nhân sự này đang "Đã nghỉ" trên ETX — tài khoản vẫn được mở. Nếu ETX chuyển lại "Đang làm" rồi "Đã nghỉ", tài khoản sẽ tự khoá.`),
       )
     )
       taoTaiKhoan.mutate(r.ma_nhan_su);
@@ -2034,7 +2037,7 @@ function EtxNhanSuTab() {
       header: "Tài khoản đặt hàng",
       render: (r) => {
         const tt = TK_TRANG_THAI[r.tk_trang_thai] ?? TK_TRANG_THAI.chua_tao;
-        const coNut = r.trang_thai_lam_viec === "on" && ["chua_tao", "cho_duyet", "tu_choi"].includes(r.tk_trang_thai);
+        const coNut = ["chua_tao", "cho_duyet", "tu_choi"].includes(r.tk_trang_thai); // ca nhan su "Đã nghỉ" (2026-10-15)
         return (
           <span className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
             <Badge tone={tt.tone}>{tt.label}</Badge>
@@ -2154,7 +2157,6 @@ const TK_TRANG_THAI: Record<EtxNhanSuRow["tk_trang_thai"], { label: string; tone
   khong_gmail: { label: "Thiếu Gmail", tone: "gray" },
 };
 const TAO_TK_LOI: Record<string, string> = {
-  DA_NGHI: "nhân sự đã nghỉ việc",
   THIEU_GMAIL: "chưa có Gmail hợp lệ trên ETX",
   MA_KTV_CUA_NGUOI_KHAC: "Mã NV đã là Mã KTV của người khác (email đăng nhập khác) — kiểm tra ở thẻ KTV hiện trường",
   NOT_FOUND: "không tìm thấy nhân sự",

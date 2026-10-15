@@ -96,7 +96,7 @@ export async function tuDongTaoKtvTuEtx(db: D1Database): Promise<EtxTuDongKtvRes
 // cung ket qua voi buoc tu dong o tren (KTV ma = Ma NV + users "Da duyet"/la_ktv_dvbh) nhung KHONG doi chuc danh co CTV/KTV
 // (Admin tu quyet) - chuc danh khong nhan ra thi vai tro KTV. Gmail da la Email dang nhap cua KTV -> chi lien ket + duyet.
 // Ma NV da la ma_ktv cua KTV khac: KTV do chua co email dang nhap thi gan Gmail vao, co email khac -> MA_KTV_CUA_NGUOI_KHAC.
-export type TaoTaiKhoanEtxLoi = "NOT_FOUND" | "DA_NGHI" | "THIEU_GMAIL" | "MA_KTV_CUA_NGUOI_KHAC";
+export type TaoTaiKhoanEtxLoi = "NOT_FOUND" | "THIEU_GMAIL" | "MA_KTV_CUA_NGUOI_KHAC";
 
 export async function taoTaiKhoanTuEtx(db: D1Database, maNhanSu: string): Promise<{ ok: true; ma_ktv: string; email: string } | { ok: false; error: TaoTaiKhoanEtxLoi }> {
   const r = await db
@@ -104,7 +104,8 @@ export async function taoTaiKhoanTuEtx(db: D1Database, maNhanSu: string): Promis
     .bind(maNhanSu)
     .first<{ ma_nhan_su: string; ho_ten: string; chuc_danh: string | null; gmail: string | null; trang_thai_lam_viec: string; ma_ktv: string | null }>();
   if (!r) return { ok: false, error: "NOT_FOUND" };
-  if (r.trang_thai_lam_viec !== "on") return { ok: false, error: "DA_NGHI" };
+  // Nhan su "Da nghi" tren ETX VAN tao duoc (chot 2026-10-15 - Admin tu quyet, vd CTV ETX bao nghi nhung van lam): tai khoan mo
+  // binh thuong; dong bo ETX chi khoa/mo khi trang thai lam viec DOI (lib/etxNhanSuSync.ts) nen khong bi khoa lai ngay.
   const email = (r.gmail ?? "").trim().toLowerCase();
   if (!EMAIL_RE.test(email)) return { ok: false, error: "THIEU_GMAIL" };
   const ma = r.ma_nhan_su.trim();
