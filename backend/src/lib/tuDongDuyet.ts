@@ -33,7 +33,10 @@ import { THANH_TOAN_DON_SQL } from "./trangThaiDonPxk";
 export type LoaiDon = "mua" | "cong_no" | "tra_hang";
 
 // Suy loai_don tu ten loai de xuat (dung chung tao tay / import / kiem tra truoc).
-export function deriveLoaiDon(loaiDeXuat: string): LoaiDon {
+// So KHONG phan biet hoa/thuong (2026-10-15): file import tung ghi "Trả hàng công nợ"/"Trừ công nợ" chu thuong -> roi vao "mua",
+// don tra hang di luong mua (tu duyet, cho chuyen tien). Ban sao FE: helpers.ts deriveLoaiDon.
+export function deriveLoaiDon(loaiDeXuatGoc: string): LoaiDon {
+  const loaiDeXuat = loaiDeXuatGoc.normalize("NFC").toUpperCase();
   if (loaiDeXuat.includes("TRẢ HÀNG")) return "tra_hang";
   if (loaiDeXuat.includes("CÔNG NỢ") || loaiDeXuat.includes("HỖ TRỢ") || loaiDeXuat.includes("TRỪ CÔNG NỢ") || loaiDeXuat.includes("THẺ BẢO HÀNH"))
     return "cong_no";

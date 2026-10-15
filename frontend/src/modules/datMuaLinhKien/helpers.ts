@@ -203,7 +203,9 @@ export function isDonTaoHo(d: { nguoi_tao: string; nguoi_nhan_hang: string | nul
 
 // ---------- Tab "Tao don" ----------
 
-export function deriveLoaiDon(v: string): "mua" | "cong_no" | "tra_hang" {
+export function deriveLoaiDon(vGoc: string): "mua" | "cong_no" | "tra_hang" {
+  // Khong phan biet hoa/thuong (2026-10-15) - cung quy tac backend lib/tuDongDuyet.ts deriveLoaiDon.
+  const v = vGoc.normalize("NFC").toUpperCase();
   if (v.includes("TRẢ HÀNG")) return "tra_hang";
   if (v.includes("CÔNG NỢ") || v.includes("HỖ TRỢ") || v.includes("TRỪ CÔNG NỢ") || v.includes("THẺ BẢO HÀNH"))
     return "cong_no";

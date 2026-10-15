@@ -745,6 +745,11 @@ trường" khi có mã trong `ktv_lien_he` có `email_dang_nhap` = Gmail. "Chuy�
 mã có sẵn để gắn (gợi ý tìm theo tên sau dấu "-" cuối của Tên MISA/tên), dòng "Chưa thuộc thẻ nào" ở Người dùng đã duyệt có nút
 "Gắn mã KTV". Gắn = `PATCH /settings/ktv-lien-he/:ma/dat-mua-lk {email_dang_nhap}` (cấp users + đồng bộ GS/Trạm/email_gs đơn cũ). Người nhận hàng khi TN/GS đặt hộ hợp lệ = cờ KTV DVBH/Vệ tinh HOẶC Gmail gắn 1 mã KTV đang hoạt động (`nguoiNhanHangHopLe()` ở `datMuaLinhKien.ts`, 2026-10-03 — mã gắn Gmail của tài khoản QC không bật cờ từng bị `NGUOI_NHAN_HANG_KHONG_HOP_LE`). **"Mã nhận hàng" cho tài khoản văn phòng** (2026-10-14, v1.323): GS/văn phòng KHÔNG có mã KTV → TN đặt hộ báo `NGUOI_NHAN_HANG_KHONG_HOP_LE` (ô chọn người nhận vẫn liệt kê mọi GS). Thẻ "Nhân viên văn phòng" có cột + nút "Mã nhận hàng" (`MaNhanHangVanPhongModal`): tạo mã mới qua `POST /settings/ktv-lien-he/tao-cho-van-phong` {email, ma_ktv, khu_vuc_ma, ma_misa (bắt buộc), ten_hien_thi?, ten_misa?} — kiểm tra hết TRƯỚC khi ghi (mã trùng không phân biệt hoa/thường, Gmail đã gắn mã, Mã MISA đã thuộc KTV khác), KHÔNG bật cờ KTV nên tài khoản ở lại thẻ văn phòng, vai trò giữ nguyên; hoặc "Chọn mã có sẵn" (`GanMaKtvModal vanPhong`); "Gỡ mã" = PATCH `email_dang_nhap` null. `GET /users` trả `ma_ktv_gan`. Đơn người đó nhận theo Khu vực của mã.
 
+**Loại đề xuất không phân biệt hoa/thường** (sửa 2026-10-15, v1.338): `deriveLoaiDon()` (backend `tuDongDuyet.ts` + bản sao FE `helpers.ts`)
+so trên `toUpperCase()` — file import từng ghi "Trả hàng công nợ"/"Trừ công nợ" chữ thường → đơn trả hàng lọt chặn import, đi luồng mua
+(tự duyệt). Import Excel quy loại đề xuất về ĐÚNG tên trong `settings_loai_de_xuat` (bỏ hoa/thường/khoảng trắng thừa); không có trong danh
+mục → báo lỗi dòng. Đơn cũ đã lưu tên chữ thường giữ nguyên (TN sửa loại đề xuất trên đơn = đổi luồng nếu cần).
+
 **Đơn KH trả góp** (chốt 2026-10-02, migration `0063`): loại đề xuất chứa "HỖ TRỢ NGOÀI BẢO HÀNH TG12" (-NSKX / -NPP, `laKhTraGop()`
 ở `pxkRecalculate.ts`, bản sao FE `helpers.ts`) KHÔNG tính công nợ: `so_tien_cong_no` = 0, `danh_gia_cong_no` NULL (tạo tay, import,
 cảnh báo tạm tính FE bỏ qua), "Giá đề xuất"/"Tổng tiền đề xuất" = 0 (`donGiaSauChietKhau`/`tienSauChietKhau`), loại chiết khấu `KH_TRA_GOP` "Chiết khấu đơn KH trả góp" (`tinhToanPxk` + `maTheoLoaiDon`). TRIGGER

@@ -2595,6 +2595,12 @@ async function processDatDonHangImportRows(
   const ktvCache = new Map<string, { email: string } | { error: string }>();
   const lkCache = new Map<string, { ten: string; gia: number | null; dacThu: number; giaTriCongNo: number | null; camBan: number | null; choPhepGia0: number | null } | null>();
   const maChuanImport = await quyVeMaChuan(db, rows.map((r) => String(r.ma_lk ?? "")));
+  // Loai de xuat trong file quy ve DUNG ten trong danh muc (settings_loai_de_xuat, khong phan biet hoa/thuong/khoang trang -
+  // 2026-10-15: file ghi "Trả hàng công nợ" chu thuong lot qua chan tra hang, thanh don mua). Khong co trong danh muc -> bao loi.
+  const khoaLde = (v: string) => v.normalize("NFC").trim().replace(/\s+/g, " ").toUpperCase();
+  const { results: dsLde } = await db.prepare("SELECT ten_option FROM settings_loai_de_xuat ORDER BY bat_tat DESC").all<{ ten_option: string }>();
+  const ldeChuan = new Map<string, string>();
+  for (const r of dsLde) if (!ldeChuan.has(khoaLde(r.ten_option))) ldeChuan.set(khoaLde(r.ten_option), r.ten_option);
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -2603,7 +2609,8 @@ async function processDatDonHangImportRows(
     const maLkGoc = String(row.ma_lk ?? "").trim();
     // File import cu con ma LK da doi/gop -> quy ve ma chuan (migration 0053).
     const maLk = maChuanImport.get(maLkGoc) ?? maLkGoc;
-    const loaiDeXuat = String(row.loai_de_xuat ?? "").trim();
+    const loaiDeXuatFile = String(row.loai_de_xuat ?? "").trim();
+    const loaiDeXuat = ldeChuan.get(khoaLde(loaiDeXuatFile)) ?? loaiDeXuatFile;
     const soLuong = Number(row.so_luong_de_xuat);
 
     if (!maKtv) {
@@ -2616,6 +2623,10 @@ async function processDatDonHangImportRows(
     }
     if (!loaiDeXuat) {
       errors.push(`Dòng ${dong}: thiếu LOẠI ĐỀ XUẤT`);
+      continue;
+    }
+    if (!ldeChuan.has(khoaLde(loaiDeXuat))) {
+      errors.push(`Dòng ${dong}: LOẠI ĐỀ XUẤT "${loaiDeXuatFile}" không có trong danh mục`);
       continue;
     }
     if (!soLuong || soLuong <= 0) {
