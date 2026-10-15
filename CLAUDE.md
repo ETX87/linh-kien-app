@@ -240,6 +240,13 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   `/home-summary` viết tay cùng quy tắc). Khu vực hiển thị/lọc cột/MISA/miền kho xuất = `COALESCE(khu_vuc_chon, khu_vuc_ma)`
   (`khuVucHieuLucSql()` ở `lib/mienXuat.ts`). Đơn thêm vào phiếu SAU khi chọn không tự nhận khu vực chọn; đơn rời phiếu giữ khu
   vực chọn. Chưa áp: scope GS/View. UI: thẻ "Khu vực" + badge ở chi tiết PXK (`ChuyenKhuVucCard` trong `KhoXuat.tsx`).
+  **Đổi khu vực xử lý trên TỪNG ĐƠN** (chốt 2026-10-15, v1.339 — KTV đúng khu vực nhưng đơn cần khu vực khác xử lý): `PATCH
+  /dat-mua-lk/don-hang/:id/khu-vuc` {khu_vuc_ma, ghi_chu?} (TN — gồm Kế toán làm thay —/Kho/Admin) ghi `dat_don_hang.khu_vuc_chon` (chọn đúng
+  khu vực tự tính = bỏ chọn), CHỈ khi đơn chưa từ chối/hủy và CHƯA trong phiếu còn hiệu lực (`DON_TRONG_PHIEU` → Kho đổi ở phiếu); log vào
+  `tra_hang_log` (đơn trả hàng) / `dat_don_hang_log` (cùng trạng thái). Đơn vào phiếu SAU đó: phiếu MANG THEO khu vực chọn —
+  `bundleAutoApprovedIntoPxk` tách nhóm theo `khu_vuc_chon` của đơn và chỉ gộp vào phiếu đang tạo có CÙNG `khu_vuc_chon` (phiếu Kho đã chọn
+  khu vực không còn nhận đơn mới khu vực tự động), tạo phiếu tay = khu vực chọn chung nếu MỌI đơn cùng 1 giá trị. UI: dòng "Khu vực xử lý"
+  (`DoiKhuVucDon` ở `KhoXuat.tsx`) trong chi tiết đơn + chi tiết đơn trả hàng.
 - **Danh sách PXK dạng phiếu gốc xổ xuống** (2026-09-29): bấm 1 dòng PXK = xổ/thu các dòng đơn con ngay bên dưới
   (`PaginatedTable` prop `expandedContent` — 1 hàng `<td colSpan>`, nội dung rộng không kéo giãn cột cha; mobile: khối
   dưới thẻ), bấm ID phiếu (link màu, gạch chân — desktop + mobile) mới mở Drawer, không còn nút "Chi tiết", "Xổ tất cả dòng đơn" mở cả trang. Bảng dòng đơn + mọi thao

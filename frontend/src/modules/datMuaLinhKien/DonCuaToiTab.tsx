@@ -58,6 +58,7 @@ import { TienPhieuVaQuy, BangChungAnhList, BangChungChuyenTienForm, docAnhBangCh
 import { TraHangDetailModal } from "./TraHangTab";
 import { t } from "../../i18n";
 import { LyDoTrangThaiDon, tomTatLyDo } from "./LyDoTrangThai";
+import { DoiKhuVucDon } from "./KhoXuat";
 
 // FIX (ra soat "logic sai theo vai tro" 2026-08-31): KTV/Ve tinh khong co tab "Phieu xuat kho" rieng
 // (chi Tac nghiep/Kho/Ke toan/Giam sat moi thay, xem canXemPxkTab o DatMuaLinhKienModule.tsx) - theo
@@ -1374,6 +1375,9 @@ export function DonHangDetailModal({
                     </span>
                   </KvRow>
                 )}
+                <KvRow label={t("Khu vực xử lý")}>
+                  <DoiKhuVucDon don={d} canSua={canTacNghiep || !!canKho} addToast={addToast} onDone={invalidate} />
+                </KvRow>
                 <KvRow label={t("Ghi chú")}><span className="whitespace-pre-line break-words">{d.ghi_chu || "—"}</span></KvRow>
               </DetailZone>
             </>

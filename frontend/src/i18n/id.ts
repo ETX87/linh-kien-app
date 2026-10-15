@@ -1696,5 +1696,14 @@ const tuDien: Record<string, string> = {
   "Mặc định theo khu vực của phiếu. Chuyển sang miền khác: phiếu hiện thêm cho Kho/TN miền mới (TN miền mới được báo việc), bạn vẫn chịu trách nhiệm theo dõi; file MISA dùng kho miền mới.": "Default sesuai area nota. Pindah wilayah: nota juga tampil untuk Gudang/Operasional wilayah baru (Operasional wilayah baru diberi notifikasi), Anda tetap bertanggung jawab memantau; file MISA memakai gudang wilayah baru.",
   "Người chuyển kho: {a}": "Gudang dipindah oleh: {a}",
   "Người chuyển kho xuất chịu trách nhiệm theo dõi phiếu": "Orang yang memindahkan gudang keluar bertanggung jawab memantau nota",
+  "(theo KTV: {a})": "(sesuai teknisi: {a})",
+  "Khu vực theo KTV: {a}": "Area teknisi: {a}",
+  "Khu vực xử lý": "Area penanganan",
+  "{a} (theo KTV)": "{a} (sesuai teknisi)",
+  "Đã đổi khu vực xử lý đơn: {a}": "Area penanganan pesanan diubah: {a}",
+  "Đơn vừa được người khác cập nhật — tải lại rồi thử lại": "Pesanan baru saja diperbarui orang lain — muat ulang lalu coba lagi",
+  "Đơn đã từ chối/hủy — không đổi khu vực được": "Pesanan sudah ditolak/dibatalkan — area tidak bisa diubah",
+  "Đơn đã vào phiếu xuất — Kho đổi khu vực ở chi tiết phiếu": "Pesanan sudah masuk nota keluar — Gudang mengubah area di detail nota",
+  "đã đổi": "diubah",
 };
 export default tuDien;

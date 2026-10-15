@@ -43,6 +43,32 @@ export async function bundleAutoApprovedIntoPxk(
   lines: AutoApprovedLine[],
 ): Promise<string | null> {
   if (lines.length === 0) return null;
+  // Don da duoc chon khu vuc xu ly rieng (dat_don_hang.khu_vuc_chon - PATCH /dat-mua-lk/don-hang/:id/khu-vuc, 2026-10-15) di vao
+  // phieu CUNG khu vuc chon (phieu mang theo khu_vuc_chon de Kho/Ke toan/TN khu vuc do thay ca phieu) - tach nhom theo khu vuc chon.
+  const { results: kvDon } = await db
+    .prepare("SELECT id, khu_vuc_chon FROM dat_don_hang WHERE id IN (SELECT value FROM json_each(?))")
+    .bind(JSON.stringify(lines.map((l) => l.donHangId)))
+    .all<{ id: string; khu_vuc_chon: string | null }>();
+  const kvTheoDon = new Map(kvDon.map((r) => [r.id, r.khu_vuc_chon]));
+  const nhom = new Map<string | null, AutoApprovedLine[]>();
+  for (const l of lines) {
+    const kv = kvTheoDon.get(l.donHangId) ?? null;
+    nhom.set(kv, [...(nhom.get(kv) ?? []), l]);
+  }
+  let pxkCuoi: string | null = null;
+  for (const [kvChon, dong] of nhom) pxkCuoi = await gomMotNhom(env, db, actorEmail, nguoiNhanHang, loaiDon, dong, kvChon);
+  return pxkCuoi;
+}
+
+async function gomMotNhom(
+  env: Env,
+  db: D1Database,
+  actorEmail: string,
+  nguoiNhanHang: string,
+  loaiDon: "mua" | "cong_no" | "tra_hang",
+  lines: AutoApprovedLine[],
+  kvChon: string | null,
+): Promise<string> {
   const now = nowVN();
 
   const existing = await db
@@ -50,9 +76,10 @@ export async function bundleAutoApprovedIntoPxk(
       `SELECT id, ma_xuat_kho, so_tien_can_chuyen FROM phieu_xuat_kho
        WHERE nguoi_nhan_hang = ? AND loai_don = ? AND trang_thai_hien_tai = 'Dang tao phieu'
          AND COALESCE(trang_thai_chuyen_tien, '') != 'TN da duyet' AND COALESCE(TRIM(ma_misa), '') = ''
+         AND khu_vuc_chon IS ?
        ORDER BY ngay_tao DESC LIMIT 1`,
     )
-    .bind(nguoiNhanHang, loaiDon)
+    .bind(nguoiNhanHang, loaiDon, kvChon)
     .first<{ id: string; ma_xuat_kho: string; so_tien_can_chuyen: number | null }>();
 
   const statements = [];
@@ -72,10 +99,10 @@ export async function bundleAutoApprovedIntoPxk(
       db
         .prepare(
           `INSERT INTO phieu_xuat_kho
-             (id, ma_xuat_kho, ma_xuat_kho_xac_nhan, nguoi_tao, ngay_tao, ghi_chu, so_tien_can_chuyen, trang_thai_chuyen_tien, nguoi_nhan_hang, loai_don, trang_thai_hien_tai)
-           VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             (id, ma_xuat_kho, ma_xuat_kho_xac_nhan, nguoi_tao, ngay_tao, ghi_chu, so_tien_can_chuyen, trang_thai_chuyen_tien, nguoi_nhan_hang, loai_don, trang_thai_hien_tai, khu_vuc_chon)
+           VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .bind(pxkId, maXuatKho, actorEmail, now, loaiDon === "tra_hang" ? "Tự động gom đơn trả hàng QC đã đồng ý" : "Tự động gom đơn mới (đơn tự động duyệt + đơn cần chuyển tiền trước)", null, null, nguoiNhanHang, loaiDon, "Dang tao phieu"),
+        .bind(pxkId, maXuatKho, actorEmail, now, loaiDon === "tra_hang" ? "Tự động gom đơn trả hàng QC đã đồng ý" : "Tự động gom đơn mới (đơn tự động duyệt + đơn cần chuyển tiền trước)", null, null, nguoiNhanHang, loaiDon, "Dang tao phieu", kvChon),
       db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly) VALUES (?, ?, ?, ?)").bind(pxkId, "Dang tao phieu", actorEmail, now),
     );
   }

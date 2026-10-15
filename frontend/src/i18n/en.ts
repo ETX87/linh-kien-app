@@ -1696,5 +1696,14 @@ const tuDien: Record<string, string> = {
   "Mặc định theo khu vực của phiếu. Chuyển sang miền khác: phiếu hiện thêm cho Kho/TN miền mới (TN miền mới được báo việc), bạn vẫn chịu trách nhiệm theo dõi; file MISA dùng kho miền mới.": "Defaults to the note's area. Changing region: the note is also shown to Warehouse/Ops of the new region (new-region Ops are notified), you remain responsible for follow-up; the MISA file uses the new region's warehouse.",
   "Người chuyển kho: {a}": "Warehouse changed by: {a}",
   "Người chuyển kho xuất chịu trách nhiệm theo dõi phiếu": "The person who changed the outbound warehouse is responsible for following this note",
+  "(theo KTV: {a})": "(by technician: {a})",
+  "Khu vực theo KTV: {a}": "Technician's area: {a}",
+  "Khu vực xử lý": "Handling area",
+  "{a} (theo KTV)": "{a} (by technician)",
+  "Đã đổi khu vực xử lý đơn: {a}": "Order handling area changed: {a}",
+  "Đơn vừa được người khác cập nhật — tải lại rồi thử lại": "The order was just updated by someone else — reload and try again",
+  "Đơn đã từ chối/hủy — không đổi khu vực được": "The order is rejected/cancelled — the area can't be changed",
+  "Đơn đã vào phiếu xuất — Kho đổi khu vực ở chi tiết phiếu": "The order is already in a delivery note — the Warehouse changes the area in the note details",
+  "đã đổi": "changed",
 };
 export default tuDien;

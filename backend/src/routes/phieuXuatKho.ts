@@ -850,11 +850,16 @@ phieuXuatKho.post("/", async (c) => {
   }
   const maXuatKho = maXuatKhoNhap || id;
   const maXacNhan = maXuatKhoNhap ? 1 : 0;
+  // Moi don da chon CUNG 1 khu vuc xu ly (dat_don_hang.khu_vuc_chon, 2026-10-15) -> phieu mang theo khu vuc do; lan khu vuc -> theo KTV.
+  const { results: kvChonDon } = await c.env.DB.prepare(`SELECT DISTINCT khu_vuc_chon FROM dat_don_hang WHERE id IN (${placeholders})`)
+    .bind(...body.dat_don_hang_ids)
+    .all<{ khu_vuc_chon: string | null }>();
+  const kvChonPhieu = kvChonDon.length === 1 ? kvChonDon[0].khu_vuc_chon : null;
 
   const statements = [
     c.env.DB.prepare(
-      "INSERT INTO phieu_xuat_kho (id, ma_xuat_kho, ma_xuat_kho_xac_nhan, nguoi_tao, ngay_tao, ghi_chu, so_tien_can_chuyen, trang_thai_chuyen_tien, nguoi_nhan_hang, loai_don, trang_thai_hien_tai) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    ).bind(id, maXuatKho, maXacNhan, user.email, now, body.ghi_chu?.trim() || null, coChuyenTien ? soTienCanChuyen : null, coChuyenTien ? "Cho KTV chuyen" : null, nguoiNhanHang, body.loai_don, "Dang tao phieu"),
+      "INSERT INTO phieu_xuat_kho (id, ma_xuat_kho, ma_xuat_kho_xac_nhan, nguoi_tao, ngay_tao, ghi_chu, so_tien_can_chuyen, trang_thai_chuyen_tien, nguoi_nhan_hang, loai_don, trang_thai_hien_tai, khu_vuc_chon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    ).bind(id, maXuatKho, maXacNhan, user.email, now, body.ghi_chu?.trim() || null, coChuyenTien ? soTienCanChuyen : null, coChuyenTien ? "Cho KTV chuyen" : null, nguoiNhanHang, body.loai_don, "Dang tao phieu", kvChonPhieu),
     c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly) VALUES (?, ?, ?, ?)").bind(
       id,
       "Dang tao phieu",

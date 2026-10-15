@@ -146,3 +146,51 @@ export function ChuyenKhuVucCard({ pxk, addToast, onDone }: { pxk: PxkKhuVuc; ad
     </div>
   );
 }
+
+// Doi KHU VUC XU LY cua RIENG 1 don (2026-10-15, PATCH /dat-mua-lk/don-hang/:id/khu-vuc) - TN/Ke toan/Kho/Admin. Chi khi don chua
+// dong + chua vao phieu xuat (trong phieu -> Kho doi o chi tiet phieu, ChuyenKhuVucCard). Don vao phieu sau do: phieu mang theo
+// khu vuc nay. Hien inline trong KvRow "Khu vực xử lý" (chi tiet don mua/cong no + chi tiet don tra hang).
+export function DoiKhuVucDon({
+  don, canSua, addToast, onDone,
+}: {
+  don: { id: string; khu_vuc_ma?: string | null; khu_vuc_chon?: string | null; trang_thai?: string | null };
+  canSua: boolean;
+  addToast: (msg: string) => void;
+  onDone: () => void;
+}) {
+  const hienTai = don.khu_vuc_chon ?? don.khu_vuc_ma ?? "";
+  const [chon, setChon] = useState(hienTai);
+  useEffect(() => { setChon(hienTai); }, [don.id, hienTai]);
+  const { data: khuVucData } = useQuery({
+    queryKey: ["settings-khu-vuc"],
+    queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/settings/khu-vuc"),
+  });
+  const ten = (ma: string | null | undefined) => (ma ? khuVucData?.rows.find((k) => k.ma === ma)?.ten ?? ma : "—");
+  const options = (khuVucData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ma === don.khu_vuc_ma ? t("{a} (theo KTV)", { a: k.ten }) : k.ten }));
+  const mutation = useMutation({
+    mutationFn: () => api.patch(`/dat-mua-lk/don-hang/${don.id}/khu-vuc`, { khu_vuc_ma: chon }),
+    onSuccess: () => { onDone(); addToast(t("Đã đổi khu vực xử lý đơn: {a}", { a: ten(chon) })); },
+    onError: (err) => {
+      const code = err instanceof ApiError ? err.code : undefined;
+      if (code === "DON_TRONG_PHIEU") addToast(t("Đơn đã vào phiếu xuất — Kho đổi khu vực ở chi tiết phiếu"));
+      else if (code === "DON_DA_DONG") addToast(t("Đơn đã từ chối/hủy — không đổi khu vực được"));
+      else if (code === "STATE_CHANGED") addToast(t("Đơn vừa được người khác cập nhật — tải lại rồi thử lại"));
+      else addToast(t("Lỗi: ") + describeApiError(err));
+    },
+  });
+  const dong = ["TN tu choi", "Tu choi", "Da huy"].includes(don.trang_thai ?? "");
+  const nhan = (
+    <span className="inline-flex items-center gap-1.5">
+      <span>{ten(hienTai)}</span>
+      {don.khu_vuc_chon && <Badge tone="purple"><span title={t("Khu vực theo KTV: {a}", { a: ten(don.khu_vuc_ma) })}>{t("đã đổi")}</span></Badge>}
+    </span>
+  );
+  if (!canSua || dong) return nhan;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <Select value={chon} onChange={setChon} options={options} className="min-w-[180px]" />
+      <Btn size="sm" onClick={() => mutation.mutate()} disabled={!chon || chon === hienTai || mutation.isPending} loading={mutation.isPending}>{t("Lưu")}</Btn>
+      {don.khu_vuc_chon && <span className="text-[11px] text-[var(--color-text-faint)]">{t("(theo KTV: {a})", { a: ten(don.khu_vuc_ma) })}</span>}
+    </span>
+  );
+}

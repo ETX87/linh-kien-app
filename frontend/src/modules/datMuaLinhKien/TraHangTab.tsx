@@ -28,6 +28,8 @@ import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { doiNguoiThanhTen, usePersonDirectory } from "../../lib/personDisplay";
 import { t } from "../../i18n";
 import { baoLoiTaiAnh, canhBaoHanMucAnh, type HanMucAnh } from "../../lib/hanMucAnh";
+import { DoiKhuVucDon } from "./KhoXuat";
+import { useAuth } from "../../auth/AuthContext";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -1066,6 +1068,9 @@ export function TraHangDetailModal({
       }>(`/tra-hang/${id}`),
   });
 
+  // TN (ke ca Ke toan lam thay) doi khu vuc xu ly don (DoiKhuVucDon, 2026-10-15) - modal khong nhan san canTacNghiep.
+  const authState = useAuth();
+  const authLaTn = authState.status === "authenticated" ? authState.user.la_tac_nghiep : false;
   function invalidate() {
     setGhiChu("");
     setActionMode(null);
@@ -1344,6 +1349,9 @@ export function TraHangDetailModal({
             <KvRow label={t("Người tạo")}><NguoiTao>{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</NguoiTao></KvRow>
             <KvRow label={t("Ngày tạo")}>{fmtDateTime(d.ngay_tao)}</KvRow>
             <KvRow label={t("Mã LK")}><span className="font-mono text-xs">{d.ma_lk}</span></KvRow>
+            <KvRow label={t("Khu vực xử lý")}>
+              <DoiKhuVucDon don={{ ...d, trang_thai: d.trang_thai_hien_tai }} canSua={canKeToan || canKho || isAdmin || !!authLaTn} addToast={addToast} onDone={invalidate} />
+            </KvRow>
             {d.ghi_chu && <KvRow label={t("Ghi chú")}>{d.ghi_chu}</KvRow>}
           </DetailZone>
 

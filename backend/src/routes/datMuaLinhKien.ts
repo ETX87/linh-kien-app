@@ -3848,6 +3848,52 @@ datMuaLinhKien.patch("/don-hang/:id/dac-thu", async (c) => {
   return c.json({ ok: true, dac_thu: bat, trang_thai: nextTrangThai });
 });
 
+// PATCH /api/dat-mua-lk/don-hang/:id/khu-vuc - { khu_vuc_ma, ghi_chu? } (chot 2026-10-15: "mấy đơn này lại cần khu vực MB xử lý
+// => bổ sung thêm việc thay đổi khu vực trên đơn") - TN/Ke toan/Kho/Admin chon khu vuc xu ly cho RIENG 1 don (KTV van giu khu vuc
+// cua minh). Ghi dat_don_hang.khu_vuc_chon (migration 0071 - chon dung khu vuc tu tinh = bo chon, NULL) -> bo loc khu vuc
+// (khuVucSetWhereSql) chi con khop khu vuc chon. CHI khi don chua dong va CHUA nam trong phieu xuat con hieu luc (dang trong phieu
+// -> doi o phieu, PATCH /phieu-xuat-kho/:id/khu-vuc, de phieu + moi don cung khu vuc). Don vao phieu SAU do: phieu mang theo khu vuc
+// chon (pxkAutoBundle / tao phieu tay). Log vao tra_hang_log (don tra hang - log cung trang thai khong reset han) hoac
+// dat_don_hang_log (cung trang thai, giong PATCH sua don).
+datMuaLinhKien.patch("/don-hang/:id/khu-vuc", async (c) => {
+  const user = c.get("user");
+  if (!canTacNghiep(c) && !canKho(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const id = c.req.param("id");
+  const body = await c.req.json<{ khu_vuc_ma?: string; ghi_chu?: string }>().catch(() => null);
+  const ma = body?.khu_vuc_ma?.trim();
+  if (!ma) return c.json({ error: "MISSING_KHU_VUC" }, 400);
+  const kv = await c.env.DB.prepare("SELECT ma, ten FROM khu_vuc WHERE ma = ?").bind(ma).first<{ ma: string; ten: string }>();
+  if (!kv) return c.json({ error: "KHU_VUC_KHONG_TON_TAI" }, 400);
+  const ddh = await c.env.DB.prepare(
+    `SELECT ddh.loai_don, ddh.trang_thai_hien_tai as trang_thai, ddh.khu_vuc_ma, ddh.khu_vuc_chon,
+       (SELECT ten FROM khu_vuc WHERE ma = COALESCE(ddh.khu_vuc_chon, ddh.khu_vuc_ma)) as ten_cu,
+       EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pd JOIN phieu_xuat_kho p ON p.id = pd.phieu_xuat_kho_id
+               WHERE pd.dat_don_hang_id = ddh.id AND COALESCE(p.trang_thai_hien_tai, '') != 'Ke toan huy') as trong_phieu
+     FROM dat_don_hang ddh WHERE ddh.id = ?`,
+  )
+    .bind(id)
+    .first<{ loai_don: string; trang_thai: string | null; khu_vuc_ma: string | null; khu_vuc_chon: string | null; ten_cu: string | null; trong_phieu: number }>();
+  if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
+  if (["TN tu choi", "Tu choi", "Da huy"].includes(ddh.trang_thai ?? "")) return c.json({ error: "DON_DA_DONG" }, 409);
+  if (ddh.trong_phieu) return c.json({ error: "DON_TRONG_PHIEU" }, 409);
+
+  const moi = ma === ddh.khu_vuc_ma ? null : ma;
+  if (moi === ddh.khu_vuc_chon) return c.json({ ok: true, khu_vuc_chon: moi, khong_doi: true });
+  const now = nowVN();
+  const upd = await c.env.DB.prepare("UPDATE dat_don_hang SET khu_vuc_chon = ?, updated_at = ? WHERE id = ? AND khu_vuc_chon IS ? AND trang_thai_hien_tai IS ?")
+    .bind(moi, now, id, ddh.khu_vuc_chon, ddh.trang_thai)
+    .run();
+  if (!upd.meta.changes) return c.json({ error: "STATE_CHANGED" }, 409);
+  const lyDo = body?.ghi_chu?.trim();
+  const ghiChu = `Đổi khu vực xử lý đơn: ${ddh.ten_cu ?? ddh.khu_vuc_chon ?? ddh.khu_vuc_ma ?? "?"} → ${kv.ten}${moi === null ? " (theo KTV)" : ""}${lyDo ? ` — ${lyDo}` : ""}`;
+  const bangLog = ddh.loai_don === "tra_hang" ? "tra_hang_log" : "dat_don_hang_log";
+  await c.env.DB.prepare(`INSERT INTO ${bangLog} (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)`)
+    .bind(id, ddh.trang_thai, user.email, now, ghiChu)
+    .run();
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, khu_vuc_chon: moi });
+});
+
 // POST /api/dat-mua-lk/don-hang/bulk-log - { ids, hanh_dong, ly_do_cham_id?, ghi_chu? } xu ly hang
 // loat nhieu DONG don hang cung luc (luon la dat_don_hang id - CHOT 2026-08-15: bo nhanh mo rong
 // "phieu_dat id -> toan bo dong con", khong con khai niem phieu de truyen vao nua, xem migration
