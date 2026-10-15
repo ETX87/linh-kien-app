@@ -57,6 +57,7 @@ import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../compon
 import { TienPhieuVaQuy, BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung } from "./BangChungChuyenTien";
 import { TraHangDetailModal } from "./TraHangTab";
 import { t } from "../../i18n";
+import { LyDoTrangThaiDon, tomTatLyDo } from "./LyDoTrangThai";
 
 // FIX (ra soat "logic sai theo vai tro" 2026-08-31): KTV/Ve tinh khong co tab "Phieu xuat kho" rieng
 // (chi Tac nghiep/Kho/Ke toan/Giam sat moi thay, xem canXemPxkTab o DatMuaLinhKienModule.tsx) - theo
@@ -942,6 +943,9 @@ export function DonHangDetailModal({
             </div>
           </div>
 
+          {/* "Vì sao đơn ở trạng thái này" (2026-10-15) - ly do + ai xu ly tiep, cho nguoi dat hieu (LyDoTrangThai.tsx). */}
+          <LyDoTrangThaiDon d={d} tenNguoi={(e) => formatPersonDisplay(e, personDirChiTiet)} />
+
           <DetailZone title={t("Thông tin đơn")}>
             {/* "ID hệ thống" (phan hoi 2026-09-05, muc #6: "cần nhìn thấy ID hệ thống của đơn hàng để
                 dễ tra cứu hoặc kiểm soát") - d.id la ID that cua dong dat_don_hang, dung tra cuu truc
@@ -1372,11 +1376,6 @@ export function DonHangDetailModal({
                 )}
                 <KvRow label={t("Ghi chú")}><span className="whitespace-pre-line break-words">{d.ghi_chu || "—"}</span></KvRow>
               </DetailZone>
-              {/* Ly do chon luc "tu choi"/"cho hang" luu trong ghi_chu cua log moi nhat (xem
-                  applyDonHangLog backend) - hien cho nguoi tao biet vi sao, khong chi hien trang thai suong. */}
-              {(d.trang_thai === "TN tu choi" || d.trang_thai === "Cho hang") && d.logs?.[0]?.ghi_chu && (
-                <div className="text-xs text-[var(--ink-500)]">{d.logs[0].ghi_chu}</div>
-              )}
             </>
           )}
 
@@ -2593,9 +2592,14 @@ export function DonHangGroupedList({
       render: (row) => {
         const flags = trangThaiFlags(row.d);
         const rest = flags.slice(1);
+        // Ly do trang thai (2026-10-15) - re chuot vao "ⓘ" xem vi sao don chua duyet / bi tu choi; chi tiet day du trong Drawer.
+        const lyDo = tomTatLyDo(row.d);
         return (
           <div className="flex items-center gap-1 whitespace-nowrap">
             <StatusBadge value={row.d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} options={DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL} />
+            {lyDo && (
+              <span title={lyDo} aria-label={lyDo} className="cursor-help text-[12px] leading-none text-[var(--color-text-faint)]">ⓘ</span>
+            )}
             {flags[0] && <Badge tone={flags[0].tone}>{flags[0].label}</Badge>}
             {rest.length > 0 && (
               <span title={rest.map((f) => f.label).join(" · ")} className="rounded-[var(--radius-badge)] bg-[var(--color-neutral-soft)] px-1.5 py-[3px] text-[10.5px] font-semibold leading-none text-[var(--color-text-secondary)]">

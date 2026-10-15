@@ -9,7 +9,7 @@ import { deriveLoaiDon, reqLabelClass, pickLdeQuick, ktvOptionLabel, canNoRequir
 import { LinhKienPicker, ThayTheGoiY, ThayTheGoiYTuSheet } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
-import { DuDoanDuyetHint, XacNhanTaoDonModal } from "./DuDoanDuyetHint";
+import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal } from "./DuDoanDuyetHint";
 import { TraHangAnhPicker } from "./SharedUi";
 import type { TaoDonForm } from "./useTaoDonForm";
 import { Money } from "../../components/ui/Money";
@@ -391,6 +391,7 @@ export function TaoDonMobileScreen({
           </div>
         )}
         <XacNhanTaoDonModal open={hoiXacNhan} dong={dongCanXacNhan} onDatTiep={() => create.mutate(true)} onQuayLai={() => setHoiXacNhan(false)} dangGui={create.isPending} />
+        <KetQuaTaoDonModal ketQua={form.ketQuaTao} onClose={form.dongKetQuaTao} />
         {/* Canh bao SONG vuot tran cong no (them 2026-09-04) - xem giai thich o TaoDonTab.tsx (ban
             desktop, cung dieu kien). */}
         {sePhepDuCongNo === false && congNoDuKien && (

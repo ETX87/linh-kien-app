@@ -71,6 +71,19 @@ export interface KiemTraDong {
   nguon_ton: "kho" | "ktv" | null;
   bat_buoc_chuyen_tien: boolean;
 }
+// Ket qua POST /dat-mua-lk/phieu-dat (2026-10-15): tung dong da tao + trang thai khoi tao + ly do (ghi chu log he thong).
+export interface KetQuaTaoDonDong {
+  id: string;
+  ten: string; // "<ten LK> (xSL)"
+  trang_thai: string;
+  ly_do: string | null;
+}
+export interface KetQuaTaoDon {
+  id: string;
+  trung_lap?: boolean;
+  kh_le?: { ma: string; sdt: string | null; moi: boolean } | null;
+  dong?: KetQuaTaoDonDong[];
+}
 export interface KiemTraPhieuDat {
   loi_phieu: string | null;
   khu_vuc?: string;

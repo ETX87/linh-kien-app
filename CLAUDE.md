@@ -807,6 +807,8 @@ phiếu PTL (bỏ bước "Cho TN duyet tong" cho đơn mới). TN duyệt tay �
 gợi ý kết quả từng dòng (`DuDoanDuyetHint`), dòng bị chặn khoá nút, dòng sẽ chờ hàng/chờ thanh toán/chờ GS → hộp "Đặt tiếp / Quay
 lại" (`XacNhanTaoDonModal`). Badge GS `choGsDuyet`. `dat_don_hang_log` CHECK thêm 'Cho GS duyet','Cho thanh toan'.
 
+**Minh bạch lý do cho người đặt hàng** (chốt 2026-10-15, v1.327): MỌI quyết định tự động ghi lý do vào `dat_don_hang_log.ghi_chu` (`ghiChuKhoiTao` lúc tạo — cả "TN da duyet"/"Cho TBP xac nhan"; log định tuyến sau Trạm/TBP/GS; `xuLyDonChoThanhToan`), lý do tồn kho ghi rõ KHU VỰC kho đã kiểm (`moTaThieuTon(ton, sl, khuVuc)`). Lý do = SỰ VIỆC ngắn; câu "tiếp theo ai xử lý" nằm ở FE `datMuaLinhKien/LyDoTrangThai.tsx` (`giaiThichTrangThai` — 1 bộ dùng chung cho khung "lý do" trong chi tiết đơn `LyDoTrangThaiDon`, ⓘ cột Trạng thái danh sách `tomTatLyDo`, hộp `KetQuaTaoDonModal` sau khi tạo) — đổi luồng ở `tuDongDuyet.ts` thì sửa câu ở đây. POST `/phieu-dat` trả `dong` [{id, ten, trang_thai, ly_do}] → form mở "Kết quả đặt hàng" khi có dòng chưa duyệt (đóng hộp = đóng form). Hộp xác nhận trước khi gửi gồm cả "Cho TBP xac nhan". Thông báo người tạo (`thongBaoChoNguoiTao`) kèm lý do + thêm Chờ thanh toán / Chờ GS / Chờ TBP (loại `cho_thanh_toan`/`cho_duyet`); Kho tiếp nhận / cập nhật dự kiến ticket chờ hàng cũng báo người tạo.
+
 **Bỏ bước TBP** cho LK đặc thù khi loại đề xuất chứa MUA / HỖ TRỢ / **TRỪ CÔNG NỢ** (`boQuaTbpChoDacThu()` backend,
 bản sao `boQuaTbpDacThu()` FE cho cảnh báo ở `LinhKienPicker`).
 

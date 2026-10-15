@@ -14,7 +14,7 @@ import { deriveLoaiDon, reqLabelClass, pickLdeQuick, LOAI_DON_TONE, ktvOptionLab
 import { LinhKienPicker, ThayTheGoiY, ThayTheGoiYTuSheet } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
-import { DuDoanDuyetHint, XacNhanTaoDonModal } from "./DuDoanDuyetHint";
+import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal } from "./DuDoanDuyetHint";
 import { TraHangAnhPicker } from "./SharedUi";
 import { useTaoDonForm } from "./useTaoDonForm";
 import { TaoDonMobileScreen } from "./TaoDonMobileScreen";
@@ -94,6 +94,7 @@ export function TaoDonTab({
             </div>
           )}
           <XacNhanTaoDonModal open={hoiXacNhan} dong={dongCanXacNhan} onDatTiep={() => create.mutate(true)} onQuayLai={() => setHoiXacNhan(false)} dangGui={create.isPending} />
+          <KetQuaTaoDonModal ketQua={form.ketQuaTao} onClose={form.dongKetQuaTao} />
           {/* Canh bao SONG vuot tran cong no (them 2026-09-04) - chi hien khi da co du lieu de ket luan
               "Khong du" (sePhepDuCongNo === false), tranh nhieu khi chua co dong cong_no nao/chua co
               tran. Xem giai thich cong thuc o useTaoDonForm.ts. */}

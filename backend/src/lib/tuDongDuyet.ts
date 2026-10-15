@@ -233,9 +233,10 @@ export async function danhGiaPhieu(db: D1Database, ctx: NguCanhNhan, dongs: Dong
   };
 }
 
-// Mo ta ngan ket qua 1 dong cho thong bao/log.
-export function moTaThieuTon(ton: number | null, soLuong: number): string {
-  return `kho công ty còn ${Math.max(0, ton ?? 0)}, đặt ${soLuong}`;
+// Mo ta ngan ket qua 1 dong cho thong bao/log. Ghi ro KHU VUC kho da kiem tra (2026-10-15, "minh bạch cho người đặt hàng hiểu"
+// - ton kho xet theo khu vuc cua don, KTV thay kho khac con hang se khong hieu vi sao thieu).
+export function moTaThieuTon(ton: number | null, soLuong: number, khuVuc?: string | null): string {
+  return `kho công ty${khuVuc ? ` khu vực ${khuVuc}` : ""} còn ${Math.max(0, ton ?? 0)}, đặt ${soLuong}`;
 }
 
 // ===================== Sau khi don da ton tai trong DB =====================
@@ -274,17 +275,19 @@ async function docDon(db: D1Database, donHangId: string): Promise<DonDinhTuyen |
 }
 
 // Don DA ton tai con du ton kho cong ty khong (uu tien don tao truoc - khong tinh don tao sau).
-export async function donDuTonKhoCongTy(db: D1Database, donHangId: string): Promise<{ du: boolean; ton: number }> {
+export async function donDuTonKhoCongTy(db: D1Database, donHangId: string): Promise<{ du: boolean; ton: number; khuVuc: string | null }> {
   const d = await docDon(db, donHangId);
-  if (!d) return { du: false, ton: 0 };
+  if (!d) return { du: false, ton: 0, khuVuc: null };
   const ton = await computeTonKhoChot(db, d.khu_vuc, d.ma_lk, { id: d.id, ngay_tao: d.ngay_tao });
-  return { du: ton >= d.so_luong_de_xuat, ton };
+  return { du: ton >= d.so_luong_de_xuat, ton, khuVuc: d.khu_vuc };
 }
 
 /** Trang thai TIEP THEO sau khi 1 buoc duyet truoc (Tram / TBP / GS) dong y - CHUA ghi gi. `tuBuoc`:
  *  "tram" -> con xet TBP (dac thu) va GS (vuot tran chua co ma EO);  "tbp" -> TBP da xu ly cong no (ma EO neu vuot tran) -> chi
  *  con ton kho;  "gs" -> chi con ton kho. TRỪ CÔNG NỢ thieu ton KTV (hiem - da chan luc tao) -> "Cho TN duyet" (ngoai le). */
-export async function trangThaiSauDuyet(db: D1Database, donHangId: string, tuBuoc: "tram" | "tbp" | "gs"): Promise<{ trangThai: string; ton: number | null }> {
+export async function trangThaiSauDuyet(
+  db: D1Database, donHangId: string, tuBuoc: "tram" | "tbp" | "gs",
+): Promise<{ trangThai: string; ton: number | null; khuVuc?: string | null }> {
   const d = await docDon(db, donHangId);
   if (!d) return { trangThai: "Cho TN duyet", ton: null };
   const lde = d.loai_de_xuat ?? "";
@@ -301,11 +304,11 @@ export async function trangThaiSauDuyet(db: D1Database, donHangId: string, tuBuo
     const conLai = await computeTonKtvConLai(db, kt.ma_ktv, d.ma_lk);
     return { trangThai: conLai >= 0 ? "TN da duyet" : "Cho TN duyet", ton: conLai };
   }
-  const { du, ton } = await donDuTonKhoCongTy(db, donHangId);
-  if (du) return { trangThai: "TN da duyet", ton };
+  const { du, ton, khuVuc } = await donDuTonKhoCongTy(db, donHangId);
+  if (du) return { trangThai: "TN da duyet", ton, khuVuc };
   // Thieu hang: don co tien chua thanh toan -> cho KTV chuyen tien truoc (nam trong phieu); da thanh toan / khong tien -> cho hang.
   const daThanhToan = d.thanh_toan === "da_thanh_toan" || d.thanh_toan === "khong_can";
-  return { trangThai: d.bat_buoc_chuyen_tien && !daThanhToan ? "Cho thanh toan" : "Cho hang", ton };
+  return { trangThai: d.bat_buoc_chuyen_tien && !daThanhToan ? "Cho thanh toan" : "Cho hang", ton, khuVuc };
 }
 
 // ID ly do "Kho het hang" (co quan_ly_don_thieu_linh_kien) gan cho ticket tu dong - lay ly do dau tien dang bat co co do.
@@ -463,15 +466,18 @@ export async function xuLyDonChoThanhToan(env: Env, db: D1Database, pxkId: strin
     .bind(pxkId)
     .all<{ id: string; nguoi_tao: string; ten_lk_snapshot: string; so_luong_de_xuat: number }>();
   for (const don of results) {
-    const { du, ton } = await donDuTonKhoCongTy(db, don.id);
+    const { du, ton, khuVuc } = await donDuTonKhoCongTy(db, don.id);
     if (du) {
-      await ghiTrangThaiDon(db, don.id, "TN da duyet", nguoi, `Tự động duyệt: Kế toán đã xác nhận tiền phiếu ${pxkId}, kho công ty đủ hàng`, true, "Cho thanh toan");
+      await ghiTrangThaiDon(db, don.id, "TN da duyet", nguoi, `Tự động duyệt: Kế toán đã xác nhận tiền phiếu ${pxkId}, ${moTaThieuTon(ton, don.so_luong_de_xuat, khuVuc)} — đủ hàng`, true, "Cho thanh toan");
+      const p = baoNguoiTaoDon(env, db, don.nguoi_tao, "da_duyet", `Đơn hàng "${don.ten_lk_snapshot} (x${don.so_luong_de_xuat})" đã thanh toán và kho đủ hàng — tự động duyệt, chờ xuất kho`, don.id);
+      if (waitUntil) waitUntil(p);
+      else await p;
       continue;
     }
-    const lyDo = `Kế toán đã xác nhận tiền phiếu ${pxkId} nhưng ${moTaThieuTon(ton, don.so_luong_de_xuat)} — chuyển chờ hàng (đơn giữ tiền đã thanh toán)`;
+    const lyDo = `Kế toán đã xác nhận tiền phiếu ${pxkId} nhưng ${moTaThieuTon(ton, don.so_luong_de_xuat, khuVuc)} — chuyển chờ hàng (đơn giữ tiền đã thanh toán)`;
     if (!(await ghiTrangThaiDon(db, don.id, "Cho hang", nguoi, `Tự động: ${lyDo}`, true, "Cho thanh toan"))) continue;
     await tacDongSauDinhTuyen(env, db, don.id, "Cho hang", nguoi, lyDo, waitUntil);
-    const p = baoNguoiTaoDon(env, db, don.nguoi_tao, "cho_hang", `Đơn hàng "${don.ten_lk_snapshot} (x${don.so_luong_de_xuat})" đã thanh toán, đang chờ hàng về kho`, don.id);
+    const p = baoNguoiTaoDon(env, db, don.nguoi_tao, "cho_hang", `Đơn hàng "${don.ten_lk_snapshot} (x${don.so_luong_de_xuat})" đã thanh toán nhưng ${moTaThieuTon(ton, don.so_luong_de_xuat, khuVuc)} — chờ Kho xác nhận chờ hàng hoặc từ chối (từ chối thì tiền về quỹ dư)`, don.id);
     if (waitUntil) waitUntil(p);
     else await p;
   }

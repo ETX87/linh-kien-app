@@ -2290,14 +2290,30 @@ async function chuanBiPhieuDat(
 }
 
 // Ghi chu log khoi tao theo ket qua danh gia (giai thich vi sao don di nhanh do).
+// SUA 2026-10-15 ("minh bạch cho mọi thao tác xử lý cho người đặt hàng hiểu"): MOI trang thai khoi tao deu co ly do (truoc chi 3
+// trang thai) - FE LyDoTrangThaiDon doc dong log nay de giai thich cho nguoi dat.
 function ghiChuKhoiTao(kq: KetQuaDong, soLuong: number, phieu: KetQuaPhieu): string | null {
   const tien = (n: number) => `${Math.round(n).toLocaleString("vi-VN")}đ`;
-  if (kq.trangThai === "Cho thanh toan") return `Tự động: ${moTaThieuTon(kq.ton, soLuong)} — chuyển tiền trước, Kế toán xác nhận xong đơn sẽ vào danh sách chờ hàng`;
-  if (kq.trangThai === "Cho hang") return `Tự động: ${moTaThieuTon(kq.ton, soLuong)} — chờ hàng (Kho xác nhận chờ hàng hoặc từ chối)`;
-  if (kq.trangThai === "Cho GS duyet") {
-    return `Vượt trần công nợ: công nợ chốt ${tien(phieu.congNoChot)} + đơn mới ${tien(phieu.tongMoiCongNo)} > trần ${tien(phieu.tranCongNo ?? 0)} — chờ Giám sát khu vực duyệt (nhập mã EO)`;
+  const vuotTran = kq.danhGiaCongNo === "Khong du"
+    ? `vượt trần công nợ: công nợ chốt ${tien(phieu.congNoChot)} + đơn mới ${tien(phieu.tongMoiCongNo)} > trần ${tien(phieu.tranCongNo ?? 0)}`
+    : "";
+  const ton = kq.nguonTon === "ktv"
+    ? `tồn kho công nợ của KTV còn ${Math.max(0, kq.ton ?? 0)}, đặt ${soLuong}`
+    : moTaThieuTon(kq.ton, soLuong, phieu.khuVuc);
+  switch (kq.trangThai) {
+    case "TN da duyet":
+      return `Tự động duyệt: ${ton} — đủ hàng${kq.batBuocChuyenTien ? ", vào phiếu chờ chuyển tiền" : ", vào phiếu xuất kho"}`;
+    case "Cho thanh toan":
+      return `Tự động: ${ton} — thiếu hàng, cần chuyển tiền trước`;
+    case "Cho hang":
+      return `Tự động: ${ton} — thiếu hàng, chờ hàng`;
+    case "Cho GS duyet":
+      return `${vuotTran.charAt(0).toUpperCase()}${vuotTran.slice(1)} — chờ Giám sát khu vực duyệt (nhập mã EO)`;
+    case "Cho TBP xac nhan":
+      return `Linh kiện đặc thù — chờ TBP DVBH xác nhận${vuotTran ? ` (${vuotTran}: TBP duyệt phải nhập mã EO)` : ""}`;
+    default:
+      return null;
   }
-  return null;
 }
 
 // POST /api/dat-mua-lk/phieu-dat/kiem-tra - CUNG body voi POST /phieu-dat, KHONG ghi gi (chot 2026-10-14): form tao don hoi truoc
@@ -2478,7 +2494,9 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   }
   const demTrangThai: Record<string, number> = {};
   for (const item of notifyQueue) demTrangThai[item.trangThai] = (demTrangThai[item.trangThai] ?? 0) + 1;
-  return c.json({ id: phieuDatId, kh_le: khLe ? { ma: khLe.ma, sdt: khLe.sdt, moi: khLe.moi } : null, ket_qua: demTrangThai }, 201);
+  // Ket qua TUNG dong (2026-10-15) - FE hien "Kết quả đặt hàng" (dong nao tu duyet / vi sao chua duyet / ai xu ly tiep).
+  const dongKq = notifyQueue.map((i) => ({ id: i.donHangId, ten: i.tenLkNoiDung, trang_thai: i.trangThai, ly_do: i.lyDo ?? null }));
+  return c.json({ id: phieuDatId, kh_le: khLe ? { ma: khLe.ma, sdt: khLe.sdt, moi: khLe.moi } : null, ket_qua: demTrangThai, dong: dongKq }, 201);
 });
 
 // Import Excel tao hang loat don mua linh kien (tieu chi UX #4, them 2026-08-15) - CHOT voi chu he
@@ -3184,21 +3202,29 @@ async function openThieuLkForDonHang(
 // qua cac buoc trung gian noi bo nhu "Cho Tram duyet"/"Cho TBP xac nhan" - nguoi tao khong can biet
 // tung buoc, chi can biet ket qua cuoi). "Da huy" dung chung cho ca Tram/TBP tu choi LAN tu huy that
 // su (hanhDong khac nhau) nen phai phan biet qua hanhDong de chon dung tu "từ chối" hay "huỷ".
+// SUA 2026-10-15 ("cần có cảnh báo rõ ràng cho từng trường hợp để người đặt hàng biết lý do"): thong bao KEM ly do (ghi chu cua
+// dong log vua ghi - ly do tu choi/huy, ly do cho hang, ket qua kiem tra kho...) + bao them cac buoc he thong tu chuyen (cho thanh
+// toan / cho GS / cho TBP) ma truoc day nguoi dat khong biet.
 function thongBaoChoNguoiTao(
   hanhDong: "duyet" | "tu_choi" | "huy",
   nextTrangThai: string,
   tenLk: string,
   soLuong: number,
+  lyDo?: string | null,
 ): { loai: string; noiDung: string } | null {
   const ten = `"${tenLk} (x${soLuong})"`;
+  const vi = lyDo?.trim() ? ` — Lý do: ${lyDo.trim().slice(0, 300)}` : "";
   if (nextTrangThai === "Da huy") {
     return hanhDong === "huy"
-      ? { loai: "huy", noiDung: `Đơn hàng ${ten} của bạn đã bị huỷ` }
-      : { loai: "tu_choi", noiDung: `Đơn hàng ${ten} của bạn đã bị từ chối` };
+      ? { loai: "huy", noiDung: `Đơn hàng ${ten} của bạn đã bị huỷ${vi}` }
+      : { loai: "tu_choi", noiDung: `Đơn hàng ${ten} của bạn đã bị từ chối${vi}` };
   }
-  if (nextTrangThai === "TN tu choi") return { loai: "tu_choi", noiDung: `Đơn hàng ${ten} của bạn đã bị từ chối` };
-  if (nextTrangThai === "Cho hang") return { loai: "cho_hang", noiDung: `Đơn hàng ${ten} của bạn bị báo chờ hàng` };
-  if (nextTrangThai === "TN da duyet") return { loai: "da_duyet", noiDung: `Đơn hàng ${ten} của bạn đã được duyệt` };
+  if (nextTrangThai === "TN tu choi") return { loai: "tu_choi", noiDung: `Đơn hàng ${ten} của bạn đã bị từ chối${vi}` };
+  if (nextTrangThai === "Cho hang") return { loai: "cho_hang", noiDung: `Đơn hàng ${ten} của bạn chuyển sang chờ hàng${vi}` };
+  if (nextTrangThai === "Cho thanh toan") return { loai: "cho_thanh_toan", noiDung: `Đơn hàng ${ten} của bạn thiếu hàng — cần chuyển tiền trước${vi}` };
+  if (nextTrangThai === "Cho GS duyet") return { loai: "cho_duyet", noiDung: `Đơn hàng ${ten} của bạn đang chờ Giám sát khu vực duyệt${vi}` };
+  if (nextTrangThai === "Cho TBP xac nhan") return { loai: "cho_duyet", noiDung: `Đơn hàng ${ten} của bạn đang chờ TBP DVBH xác nhận linh kiện đặc thù` };
+  if (nextTrangThai === "TN da duyet") return { loai: "da_duyet", noiDung: `Đơn hàng ${ten} của bạn đã được duyệt${vi}` };
   return null;
 }
 
@@ -3309,7 +3335,7 @@ async function applyDonHangLog(
   const dinhTuyen = async (tuBuoc: "tram" | "tbp" | "gs") => {
     const kq = await trangThaiSauDuyet(c.env.DB, donHangId, tuBuoc);
     dinhTuyenTuDong = true;
-    lyDoDinhTuyen = kq.trangThai === "Cho hang" || kq.trangThai === "Cho thanh toan" ? moTaThieuTon(kq.ton, ddh.so_luong_de_xuat) : "";
+    lyDoDinhTuyen = kq.ton != null ? moTaThieuTon(kq.ton, ddh.so_luong_de_xuat, kq.khuVuc) : "";
     return kq.trangThai;
   };
 
@@ -3486,10 +3512,11 @@ async function applyDonHangLog(
   const ghiChuLog = [
     maEo && hanhDong === "duyet" ? `Mã EO: ${maEo}` : "",
     ghiChu?.trim() ?? "",
-    dinhTuyenTuDong && nextTrangThai === "TN da duyet" ? "Tự động: kho đủ hàng → duyệt" : "",
-    dinhTuyenTuDong && nextTrangThai === "Cho hang" ? `Tự động: ${lyDoDinhTuyen} — chờ hàng (Kho xác nhận)` : "",
-    dinhTuyenTuDong && nextTrangThai === "Cho thanh toan" ? `Tự động: ${lyDoDinhTuyen} — chuyển tiền trước, Kế toán xác nhận xong vào chờ hàng` : "",
-    dinhTuyenTuDong && nextTrangThai === "Cho GS duyet" ? "Vượt trần công nợ — chờ Giám sát khu vực duyệt (mã EO)" : "",
+    dinhTuyenTuDong && nextTrangThai === "TN da duyet" ? `Tự động duyệt: ${lyDoDinhTuyen || "kho đủ hàng"} — vào phiếu xuất kho` : "",
+    dinhTuyenTuDong && nextTrangThai === "Cho hang" ? `Tự động: ${lyDoDinhTuyen} — thiếu hàng, chờ hàng` : "",
+    dinhTuyenTuDong && nextTrangThai === "Cho thanh toan" ? `Tự động: ${lyDoDinhTuyen} — thiếu hàng, cần chuyển tiền trước` : "",
+    dinhTuyenTuDong && nextTrangThai === "Cho GS duyet" ? "Vượt trần công nợ — chờ Giám sát khu vực duyệt (nhập mã EO)" : "",
+    dinhTuyenTuDong && nextTrangThai === "Cho TBP xac nhan" ? "Linh kiện đặc thù — chờ TBP DVBH xác nhận" : "",
   ].filter(Boolean).join(" | ");
   await c.env.DB.prepare("INSERT INTO dat_don_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu, tu_dong) VALUES (?, ?, ?, ?, ?, ?)")
     .bind(donHangId, nextTrangThai, user.email, nowVN(), ghiChuLog || null, dinhTuyenTuDong && nextTrangThai === "TN da duyet" ? 1 : 0)
@@ -3557,7 +3584,7 @@ async function applyDonHangLog(
   // Thong bao cho nguoi tao (phan hoi 2026-08-26) - bo qua neu chinh nguoi tao la nguoi vua thao tac
   // (vd tu huy don cua minh, da biet ket qua ngay tren man hinh, khong can bao lai).
   if (ddh.nguoi_tao !== user.email) {
-    const thongBao = thongBaoChoNguoiTao(hanhDong, nextTrangThai, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat);
+    const thongBao = thongBaoChoNguoiTao(hanhDong, nextTrangThai, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat, ghiChuLog);
     if (thongBao) {
       c.executionCtx.waitUntil(
         (async () => {
@@ -4772,6 +4799,24 @@ async function applyThieuLkLog(
   }
 
   await c.env.DB.batch(statements);
+  // Kho TIEP NHAN / CAP NHAT ticket cho hang -> bao nguoi dat (2026-10-15, "minh bạch cho mọi thao tác xử lý"): ly do thieu Kho
+  // giai trinh + ngay du kien co hang. Khong bao chinh nguoi vua thao tac.
+  if (trangThai === "Kho da tiep nhan" || trangThai === "Kho da cap nhat") {
+    const don = await c.env.DB
+      .prepare("SELECT nguoi_tao, ten_lk_snapshot, so_luong_de_xuat FROM dat_don_hang WHERE id = ?")
+      .bind(tlk.dat_don_hang_id)
+      .first<{ nguoi_tao: string; ten_lk_snapshot: string; so_luong_de_xuat: number }>();
+    if (don && don.nguoi_tao !== user.email) {
+      const hanhDong = trangThai === "Kho da tiep nhan" ? "Kho đã tiếp nhận" : "Kho cập nhật tiến độ";
+      c.executionCtx.waitUntil(
+        baoNguoiTaoDon(
+          c.env, c.env.DB, don.nguoi_tao, "cho_hang",
+          `${hanhDong} đơn chờ hàng "${don.ten_lk_snapshot} (x${don.so_luong_de_xuat})"${ghiChu?.trim() ? `: ${ghiChu.trim().slice(0, 300)}` : ""}`,
+          tlk.dat_don_hang_id,
+        ),
+      );
+    }
+  }
   if (donGoc) {
     const tenDon = `"${donGoc.ten_lk_snapshot} (x${donGoc.so_luong_de_xuat})"`;
     if (trangThai === "Kho xac nhan hang da ve") {

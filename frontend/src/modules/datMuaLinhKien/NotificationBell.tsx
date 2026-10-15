@@ -37,6 +37,9 @@ const LOAI_TONE: Record<string, Tone> = {
   pxk_da_duyet: "success",
   kho_da_gui: "info",
   mo_lai: "info",
+  // 2026-10-15: he thong chuyen don sang buoc cho nguoi khac duyet / cho chuyen tien (kem ly do trong noi dung).
+  cho_duyet: "info",
+  cho_thanh_toan: "warning",
   // Them (phan hoi 2026-09-05: "khi đến các nhiệm vụ của mỗi vai trò + khu vực sẽ có thông báo đẩy về
   // cho người xử lý") - 3 loai DOC LAP nguoi dung tu bat/tat (xem cong tac o footer Drawer ben duoi):
   // "viec_moi" = nhiem vu TRUC TIEP phai xu ly, "lien_quan" = viec cung quy trinh/khu vuc nhung chua
@@ -53,6 +56,8 @@ const LOAI_LABEL: Record<string, string> = {
   pxk_da_duyet: dichSau("PXK đã duyệt"),
   kho_da_gui: dichSau("Kho đã gửi"),
   mo_lai: dichSau("Mở lại"),
+  cho_duyet: dichSau("Chờ duyệt"),
+  cho_thanh_toan: dichSau("Chờ thanh toán"),
   viec_moi: dichSau("Việc mới"),
   lien_quan: dichSau("Liên quan"),
   theo_doi: dichSau("Theo dõi"),

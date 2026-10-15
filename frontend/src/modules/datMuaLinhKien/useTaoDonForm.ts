@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
-import type { DonHangDraft, KhachLeRow, NguoiNhanHangKhaDungRow, KiemTraPhieuDat, KiemTraDong } from "./types";
+import type { DonHangDraft, KhachLeRow, NguoiNhanHangKhaDungRow, KiemTraPhieuDat, KiemTraDong, KetQuaTaoDon } from "./types";
 import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, useLkCombo, comboThanhLkRow, chinhSachMacDinh } from "./helpers";
 import { t } from "../../i18n";
 import { GENERIC_ERROR_MESSAGES } from "./constants";
@@ -131,7 +131,7 @@ export function useTaoDonForm({
 
   const createMutation = useMutation({
     mutationFn: () =>
-      api.post<{ id: string; trung_lap?: boolean; kh_le?: { ma: string; sdt: string | null; moi: boolean } | null }>("/dat-mua-lk/phieu-dat", {
+      api.post<KetQuaTaoDon>("/dat-mua-lk/phieu-dat", {
         client_request_id: clientRequestId,
         nguoi_nhan_hang: nguoiNhanHang || undefined,
         kh_le_sdt: laNhomKhLe && khLeSdtSo ? khLeSdtSo : undefined,
@@ -151,9 +151,14 @@ export function useTaoDonForm({
         })),
       }),
     onSuccess: (res) => {
+      // Ket qua tung dong (2026-10-15): co dong CHUA duyet ngay -> mo "Kết quả đặt hàng" (ly do + ai xu ly tiep), form dong SAU khi
+      // nguoi dat bam "Đã hiểu" (KetQuaTaoDonModal); tat ca tu duyet -> chi toast nhu cu.
+      const dongKq = res.dong ?? [];
+      const soTuDuyet = dongKq.filter((d) => d.trang_thai === "TN da duyet").length;
       addToast(
         (res.trung_lap ? t("Đơn đặt hàng {id} đã được tạo từ lần bấm trước — không tạo thêm", { id: res.id }) : t("Đã tạo đơn đặt hàng {id}", { id: res.id })) +
-          (res.kh_le ? " · " + (res.kh_le.moi ? t("KH lẻ mới {ma}", { ma: res.kh_le.ma }) : t("KH lẻ {ma}", { ma: res.kh_le.ma })) : ""),
+          (res.kh_le ? " · " + (res.kh_le.moi ? t("KH lẻ mới {ma}", { ma: res.kh_le.ma }) : t("KH lẻ {ma}", { ma: res.kh_le.ma })) : "") +
+          (soTuDuyet > 0 ? " · " + t("{a} đơn tự động duyệt", { a: soTuDuyet }) : ""),
       );
       qc.invalidateQueries({ queryKey: ["khach-le"] });
       qc.invalidateQueries({ queryKey: ["nguoi-directory"] });
@@ -162,7 +167,8 @@ export function useTaoDonForm({
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-tom-tat"] });
       invalidatePipelineCounts(qc);
-      onClose();
+      if (dongKq.some((d) => d.trang_thai !== "TN da duyet")) setKetQuaTao(res);
+      else onClose();
     },
     onError: (err) =>
       addToast(
@@ -219,8 +225,15 @@ export function useTaoDonForm({
   // Dong se KHONG tu duyet ngay - hoi lai truoc khi gui (2 lua chon: dat tiep / quay lai).
   const dongCanXacNhan = [...ketQuaTheoDong.entries()]
     .flatMap(([idx, ds]) => ds.map((r) => ({ idx, ...r })))
-    .filter((r) => !r.loi && (r.trang_thai === "Cho hang" || r.trang_thai === "Cho thanh toan" || r.trang_thai === "Cho GS duyet"));
+    // + "Cho TBP xac nhan" (2026-10-15): moi truong hop KHONG duyet ngay deu phai bao truoc cho nguoi dat.
+    .filter((r) => !r.loi && (r.trang_thai === "Cho hang" || r.trang_thai === "Cho thanh toan" || r.trang_thai === "Cho GS duyet" || r.trang_thai === "Cho TBP xac nhan"));
   const [hoiXacNhan, setHoiXacNhan] = useState(false);
+  // "Kết quả đặt hàng" sau khi tao (2026-10-15) - dong hop = dong luon form tao don.
+  const [ketQuaTao, setKetQuaTao] = useState<KetQuaTaoDon | null>(null);
+  const dongKetQuaTao = () => {
+    setKetQuaTao(null);
+    onClose();
+  };
   // Loi cap phieu tu kiem tra truoc (vd Ve tinh khong tao don) - bo qua loi da co canh bao rieng tren form.
   const loiPhieuMa = kiemTraHienTai?.loi_phieu;
   const loiPhieuText =
@@ -355,6 +368,7 @@ export function useTaoDonForm({
     duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
     laNhomKhLe, khLeSdt, setKhLeSdt, khLeSdtSai, khLeTraCuu, khLeDangTraCuu,
     kiemTra: kiemTraHienTai, dangKiemTra, loiPhieuText, ketQuaTheoDong, coDongBiChan, dongCanXacNhan, hoiXacNhan, setHoiXacNhan,
+    ketQuaTao, dongKetQuaTao,
   };
 }
 
