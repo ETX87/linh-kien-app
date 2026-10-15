@@ -891,13 +891,20 @@ export function PhieuXuatKhoTab({
           </>
         }
         trailing={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2">
             {settingsButtonEl}
             {(data?.rows.length ?? 0) > 0 && (
               <Btn size="sm" variant="ghost" onClick={() => setMoRongPxk(moHetTrang ? new Set() : new Set((data?.rows ?? []).map((r) => r.id)))}>
                 {moHetTrang ? t("⊟ Thu gọn tất cả") : t("⊞ Xổ tất cả dòng đơn")}
               </Btn>
             )}
+            {canTacNghiep && (
+              <Btn size="sm" onClick={moModalTaoPxk}>
+                {t("+ Tạo phiếu xuất kho")}
+              </Btn>
+            )}
+            {/* Nhom nut TAI DU LIEU tach rieng sat mep PHAI, ngan bang vach doc (phan hoi 2026-10-15 "Nút tải dữ liệu cho tách riêng sang bên phải"). */}
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
             <Btn size="sm" variant="ghost" onClick={handleDownloadFullList} disabled={downloadingFull}>
               {downloadingFull ? t("Đang tải...") : t("⬇ Tải danh sách chi tiết")}
             </Btn>
@@ -916,11 +923,7 @@ export function PhieuXuatKhoTab({
                 ⬇ MISA {MISA_TEMPLATE_LABELS[tpl]}
               </Btn>
             ))}
-            {canTacNghiep && (
-              <Btn size="sm" onClick={moModalTaoPxk}>
-                {t("+ Tạo phiếu xuất kho")}
-              </Btn>
-            )}
+            </div>
           </div>
         }
       >

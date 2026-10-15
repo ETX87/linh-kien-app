@@ -2119,9 +2119,6 @@ export function DonCuaToiTab({
         <Btn size="sm" variant="ghost" onClick={() => setShowFilters((v) => !v)}>
           {showFilters ? t("▲ Ẩn bộ lọc") : `☰ ${t("Bộ lọc")}${activeFilterCount > 0 ? ` (${activeFilterCount})` : ""} ▾`}
         </Btn>
-        <Btn size="sm" variant="ghost" onClick={handleDownloadFullList} disabled={downloadingFull}>
-          {downloadingFull ? t("Đang tải...") : t("⬇ Tải danh sách chi tiết")}
-        </Btn>
         {/* FIX (phan hoi 2026-08-28: "'Đang lọc: (còn tồn X)' chuyển lên cùng dòng với nút bộ lọc") -
             dat NGAY SAU nut "Bộ lọc", TRUOC o tim kiem (rong co dinh w-64) - tren man hep, flex-wrap uu
             tien giu cac phan tu DAU hang o line 1, o tim kiem la phan tu it uu tien nhat nen se tu wrap
@@ -2155,6 +2152,10 @@ export function DonCuaToiTab({
             <Tooltip text={t("Tìm theo: mã LK, tên LK, mã đơn, người tạo, người nhận, mã yêu cầu sự cố.")} />
           </span>
         </span>
+        {/* Nut tai du lieu tach rieng sat mep PHAI (phan hoi 2026-10-15 "Nút tải dữ liệu cho tách riêng sang bên phải"). */}
+        <Btn size="sm" variant="ghost" className="ml-auto" onClick={handleDownloadFullList} disabled={downloadingFull}>
+          {downloadingFull ? t("Đang tải...") : t("⬇ Tải danh sách chi tiết")}
+        </Btn>
       </div>
       {showFilters && (
         // SUA (phan hoi 2026-09-12: "chuyển tất cả các nút filter lên cùng dòng") - dong bo voi
@@ -2508,12 +2509,6 @@ export function DonHangGroupedList({
 }) {
   const ktvDisplayMap = useKtvDisplayMap();
   const personDir = usePersonDirectory();
-  // Xem chi tiet linh kien (phan hoi 2026-08-19: "Click vào tên linh kiện sẽ mở UI xem thông tin chi
-  // tiết của linh kiện đó") - tai dung LinhKienDetailModal da co san (LinhKienPicker.tsx, dung boi
-  // TaoDonTab). danhMuc/rankMap can THEM o day vi component nay truoc gio khong doc danh muc (chi hien
-  // snapshot ten/ma da luu san tren dong don hang).
-  const { danhMuc } = useLkAndLdeCache(true);
-  const rankMap = useLinhKienRankMap();
   // Tach 2 nhom Ly do cham theo quan_ly_don_thieu_linh_kien (xem comment actionsFor.choHang o
   // helpers.ts) - dung cho ca nut "Chờ hàng" rieng tren tung dong.
   const choHangReasons = (bulkLyDoData?.rows ?? []).filter((l) => l.quan_ly_don_thieu_linh_kien);
@@ -2530,11 +2525,8 @@ export function DonHangGroupedList({
     },
     onError: (err) => addToast(t("Không đẩy lại được đơn: ") + describeApiError(err)),
   });
-  const [detailLk, setDetailLk] = useState<string | null>(null);
-  function openLkDetail(maLk: string) {
-    if (danhMuc.some((m) => m.ma_linh_kien === maLk)) setDetailLk(maLk);
-    else addToast(t("Không tìm thấy linh kiện này trong danh mục (có thể đã bị ẩn/xoá)"));
-  }
+  // Danh sach KHONG con bam ten LK mo chi tiet linh kien (phan hoi 2026-10-15 "bỏ chức năng click vào tên linh kiện mở UI linh kiện bên
+  // table danh sách, chỉ giữ trong UI xem chi tiết") - bam dong = mo chi tiet DON; xem LK qua nut trong chi tiet don.
 
   // Tuy chinh cot (them 2026-08-21, "hợp nhất phong cách giao diện" - Mua hang/Cong no truoc day la
   // MAN DUY NHAT khong co "⚙ Tuy chinh cot" trong khi Trả hàng/PXK/Thiếu LK/Danh mục LK deu co). Dung
@@ -2567,17 +2559,12 @@ export function DonHangGroupedList({
       // truoc day hien ma_lk RIENG 1 dong tren, gay lap voi ten_lk_snapshot da TU chua san ma trong
       // chuoi - gop ve DUNG 1 dong bang formatLkLabel() (dong bo voi LinhKienPicker.tsx).
       render: (row) => (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); openLkDetail(row.d.ma_lk); }}
-          title={t("Xem chi tiết linh kiện")}
-          className={`block w-full truncate text-left font-medium hover:underline hover:text-[var(--ocean-600)] ${row.rowStyle}`}
-        >
+        <span className={`block w-full truncate text-left font-medium ${row.rowStyle}`}>
           {row.d.uu_tien === 1 && <span title={t("Ưu tiên")} className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
           {row.d.combo_ma && <span title={t("Đơn tách từ combo {a}", { a: row.d.combo_ma })}>🧩 </span>}
           {formatLkLabel(row.d.ma_lk, row.d.ten_lk_snapshot ?? row.d.ma_lk)}
           {!!row.d.dac_thu && <span title={t("Linh kiện đặc thù")}> 🔒</span>}
-        </button>
+        </span>
       ),
     },
     // Trang thai / Phieu xuat kho / Chuyen tien dua len NGAY SAU "Linh kiện" (phan hoi 2026-10-03).
@@ -3121,17 +3108,12 @@ export function DonHangGroupedList({
                                   max-w-full de tu CO LAI dung do rong noi dung that su - khoang trong
                                   con lai trong div bao (khong co onClick) se lot qua cho the ben ngoai. */}
                               <div className="min-w-0 flex-[3]">
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); openLkDetail(d.ma_lk); }}
-                                  title={t("Xem chi tiết linh kiện")}
-                                  className={`inline-block align-top max-w-full min-w-0 truncate text-left font-medium text-sm hover:underline hover:text-[var(--ocean-600)] ${rowStyle}`}
-                                >
+                                <span className={`inline-block align-top max-w-full min-w-0 truncate text-left font-medium text-sm ${rowStyle}`}>
                                   {d.uu_tien === 1 && <span title={t("Ưu tiên")} className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
                                   {d.combo_ma && <span title={t("Đơn tách từ combo {a}", { a: d.combo_ma })}>🧩 </span>}
                                   {d.ten_lk_snapshot ?? d.ma_lk}
                                   {!!d.dac_thu && <span title={t("Linh kiện đặc thù")}> 🔒</span>}
-                                </button>
+                                </span>
                               </div>
                               {/* SUA (phan hoi 2026-08-28, lan 2: "ẩn cả thẻ nếu không đủ diện tích,
                                   không xuống dòng") - quay lai 1 dong DUY NHAT (overflow-hidden, khong
@@ -3430,16 +3412,6 @@ export function DonHangGroupedList({
           <Btn variant="ghost" size="sm" disabled={page * pageSize >= total} onClick={() => onPageChange(page + 1)}>›</Btn>
         </div>
       </div>
-      {detailLk && (() => {
-        const part = danhMuc.find((m) => m.ma_linh_kien === detailLk);
-        return part ? (
-          <LinhKienDetailModal
-            part={part}
-            rank={rankMap.get(detailLk)}
-            onClose={() => setDetailLk(null)}
-          />
-        ) : null;
-      })()}
     </div>
   );
 }

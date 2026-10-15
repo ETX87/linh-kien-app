@@ -20,10 +20,9 @@ import type { TraHangRow, LyDoChamRow } from "./types";
 import { TRA_HANG_TRANG_THAI_TONE, TRA_HANG_TRANG_THAI_OPTIONS, TRA_HANG_BULK_ERROR_MESSAGES } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, useNenAnhTraHangEnabled,
-  useLkAndLdeCache, useLinhKienRankMap, isDonTaoHo, formatLkLabel, LOAI_DON_TONE, loaiDonLabel,
+  isDonTaoHo, formatLkLabel, LOAI_DON_TONE, loaiDonLabel,
 } from "./helpers";
 import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, LoaiDeXuatBadge, DetailZone, QuickStat, KhuVucChipFilter, ImageLink, ImageThumb, MaYcscCell, LogTieuDe, useTenNguoiLog } from "./SharedUi";
-import { LinhKienDetailModal } from "./LinhKienPicker";
 import { Money } from "../../components/ui/Money";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { doiNguoiThanhTen, usePersonDirectory } from "../../lib/personDisplay";
@@ -233,15 +232,8 @@ export function TraHangTab({
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const ktvDisplayMap = useKtvDisplayMap();
-  // Popup "Xem chi tiết linh kiện" tren cot "Linh kiện" (chuan hoa 2026-09-11, dong bo giao dien voi
-  // Mua hang/Cong no - xem DonCuaToiTab.tsx dung y het pattern nay).
-  const { danhMuc } = useLkAndLdeCache(true);
-  const rankMap = useLinhKienRankMap();
-  const [detailLk, setDetailLk] = useState<string | null>(null);
-  function openLkDetail(maLk: string) {
-    if (danhMuc.some((m) => m.ma_linh_kien === maLk)) setDetailLk(maLk);
-    else addToast(t("Không tìm thấy linh kiện này trong danh mục (có thể đã bị ẩn/xoá)"));
-  }
+  // Danh sach KHONG con bam ten LK mo chi tiet linh kien (phan hoi 2026-10-15 "bỏ chức năng click vào tên linh kiện mở UI linh kiện bên
+  // table danh sách, chỉ giữ trong UI xem chi tiết") - bam dong = mo chi tiet DON; xem LK qua nut trong chi tiet don.
   // CHOT (ra soat module "Dat Mua Linh Kien 2.0" #21): loc theo "Nguoi tao", KHONG tai dung API
   // "ve-tinh-cua-toi" (phuc vu dung quan he Tram-Ve tinh, khong khop ngu canh Ke toan/Kho/QC/TN thuc
   // su dung man nay).
@@ -483,16 +475,11 @@ export function TraHangTab({
       // truoc day hien ma_lk RIENG 1 dong tren, gay lap voi ten_lk_snapshot da TU chua san ma trong
       // chuoi - gop ve DUNG 1 dong bang formatLkLabel() (dong bo voi LinhKienPicker.tsx/DonCuaToiTab.tsx).
       render: (r) => (
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); openLkDetail(r.ma_lk); }}
-          title={t("Xem chi tiết linh kiện")}
-          className="block w-full truncate text-left font-medium hover:underline hover:text-[var(--ocean-600)]"
-        >
+        <span className="block w-full truncate text-left font-medium">
           {r.uu_tien === 1 && <span title={t("Ưu tiên")} className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
           {formatLkLabel(r.ma_lk, r.ten_lk_snapshot ?? r.ma_lk)}
           {!!r.dac_thu && <span title={t("Linh kiện đặc thù")}> 🔒</span>}
-        </button>
+        </span>
       ),
     },
     // SUA (phan hoi 2026-09-12: "sắp xếp các cột trong table danh sách đơn giống" file tham chiếu -
@@ -706,7 +693,6 @@ export function TraHangTab({
         onPageChange={setPage}
         columnConfig={columnConfig}
         onDetail={(id) => setDetailId(id)}
-        onLkDetail={openLkDetail}
         ktvDisplayMap={ktvDisplayMap}
       />
       {detailId && (
@@ -835,16 +821,6 @@ export function TraHangTab({
           </div>
         </Modal>
       )}
-      {detailLk && (() => {
-        const part = danhMuc.find((m) => m.ma_linh_kien === detailLk);
-        return part ? (
-          <LinhKienDetailModal
-            part={part}
-            rank={rankMap.get(detailLk)}
-            onClose={() => setDetailLk(null)}
-          />
-        ) : null;
-      })()}
     </div>
   );
 }
@@ -857,7 +833,7 @@ export function TraHangTab({
 // tu component cha (TraHangTab da goi useColumnConfig o do de dat nut "⚙" trong FilterSearchBar, xem
 // comment goc 2026-08-21) - KHONG tu goi lai hook o day, tranh 2 nguon state cot lech nhau.
 function TraHangGroupedList({
-  columns, rows, isLoading, isError, page, pageSize, total, onPageChange, onDetail, onLkDetail, ktvDisplayMap, columnConfig,
+  columns, rows, isLoading, isError, page, pageSize, total, onPageChange, onDetail, ktvDisplayMap, columnConfig,
 }: {
   columns: Column<TraHangRow>[];
   rows: TraHangRow[];
@@ -868,7 +844,6 @@ function TraHangGroupedList({
   total: number;
   onPageChange: (p: number) => void;
   onDetail: (id: string) => void;
-  onLkDetail: (maLk: string) => void;
   ktvDisplayMap: ReturnType<typeof useKtvDisplayMap>;
   columnConfig: ColumnConfig<TraHangRow>;
 }) {
@@ -1006,16 +981,11 @@ function TraHangGroupedList({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start gap-2">
                             <div className="min-w-0 flex-[3]">
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); onLkDetail(r.ma_lk); }}
-                                title={t("Xem chi tiết linh kiện")}
-                                className="inline-block align-top max-w-full min-w-0 truncate text-left font-medium text-sm hover:underline hover:text-[var(--ocean-600)]"
-                              >
+                              <span className="inline-block align-top max-w-full min-w-0 truncate text-left font-medium text-sm">
                                 {r.uu_tien === 1 && <span title={t("Ưu tiên")} className="text-[var(--orange-600)] font-extrabold">⭐ </span>}
                                 {r.ten_lk_snapshot ?? r.ma_lk}
                                 {!!r.dac_thu && <span title={t("Linh kiện đặc thù")}> 🔒</span>}
-                              </button>
+                              </span>
                             </div>
                             {/* SUA (phan hoi 2026-08-28, lan 2, dong bo voi DonCuaToiTab.tsx): 1 dong
                                 DUY NHAT (overflow-hidden) - badge thua gop vao "+N" thay vi xuong dong. */}
