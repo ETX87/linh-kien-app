@@ -12,7 +12,7 @@ import { emailsTheoTen, orDonTrongPxk, orEmailIn } from "../lib/timTheoTen";
 import { bumpVersions } from "../lib/dataVersions";
 import { quaHanLyDoCham, mocTinhHanTn } from "../lib/hanLyDoCham";
 import { MIEN_XUAT_LABEL, MIEN_XUAT_SUA_DUOC, mienTuMaKhuVuc, mienTuKhuVucSql, mienXuatHieuLucSql, khuVucHieuLucSql, type MienXuat } from "../lib/mienXuat";
-import { autoClaimGs, scopePxkNguoiNhanHang, phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql } from "../lib/scopeDatMua";
+import { autoClaimGs, scopePxkNguoiNhanHang, phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql, laKhoThuan } from "../lib/scopeDatMua";
 import { sendPushToUser } from "../lib/webPush";
 import { buildMisaExportSheets, resolveMisaTemplateDeXuat, MISA_TEMPLATES, type MisaTemplate } from "../lib/misaExport";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, emailGsListForPxk, PXK_ROLES } from "../lib/taskNotify";
@@ -166,7 +166,7 @@ phieuXuatKho.get("/mo-count", async (c) => {
   if (scope === null) {
     const khuVucSet = await khuVucCuaToiSet(c.env.DB, user);
     if (khuVucSet) {
-      const { sql, binds } = khuVucPxkWhereSql(khuVucSet);
+      const { sql, binds } = khuVucPxkWhereSql(khuVucSet, "pxk", laKhoThuan(c.get("user")));
       extraScopeSql += sql;
       extraScopeBinds.push(...binds);
     }
@@ -317,7 +317,7 @@ async function pxkListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string): P
   if (khuVuc) {
     const khuVucList = khuVuc.split(",").map((s) => s.trim()).filter(Boolean);
     if (khuVucList.length > 0) {
-      const { sql, binds: khuVucBinds } = khuVucPxkWhereSql(new Set(khuVucList));
+      const { sql, binds: khuVucBinds } = khuVucPxkWhereSql(new Set(khuVucList), "pxk", laKhoThuan(c.get("user")));
       whereSql += sql;
       binds.push(...khuVucBinds);
     }
@@ -451,7 +451,7 @@ phieuXuatKho.get("/misa-export", async (c) => {
   if (khuVuc) {
     const khuVucList = khuVuc.split(",").map((s) => s.trim()).filter(Boolean);
     if (khuVucList.length > 0) {
-      const { sql, binds: khuVucBinds } = khuVucPxkWhereSql(new Set(khuVucList));
+      const { sql, binds: khuVucBinds } = khuVucPxkWhereSql(new Set(khuVucList), "pxk", laKhoThuan(c.get("user")));
       whereSql += sql;
       binds.push(...khuVucBinds);
     }
@@ -501,7 +501,7 @@ phieuXuatKho.get("/status-counts", async (c) => {
   if (scope === null) {
     const khuVucSet = await khuVucCuaToiSet(c.env.DB, user);
     if (khuVucSet) {
-      const { sql, binds: kvBinds } = khuVucPxkWhereSql(khuVucSet);
+      const { sql, binds: kvBinds } = khuVucPxkWhereSql(khuVucSet, "pxk", laKhoThuan(c.get("user")));
       whereSql += sql;
       binds.push(...kvBinds);
     }

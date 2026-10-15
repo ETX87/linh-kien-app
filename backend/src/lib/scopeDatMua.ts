@@ -237,10 +237,18 @@ export function khuVucSetWhereSql(khuVucSet: Set<string>, emailCols: string[]): 
  * TN mien moi duoc bao viec - PATCH /:id/mien-xuat). Moi noi loc PXK theo khu vuc
  * (danh sach, so dem, badge, Trang chu) phai dung ham nay thay vi goi thang khuVucSetWhereSql(..., ["pxk.nguoi_nhan_hang"]).
  */
-export function khuVucPxkWhereSql(khuVucSet: Set<string>, alias = "pxk"): { sql: string; binds: string[] } {
+export function khuVucPxkWhereSql(khuVucSet: Set<string>, alias = "pxk", chiMienMoi = false): { sql: string; binds: string[] } {
   const base = khuVucSetWhereSql(khuVucSet, [`${alias}.nguoi_nhan_hang`]);
+  // chiMienMoi (KHO, chot 2026-10-15 "kho chỉ cần nhìn thấy đơn theo khu vực họ phụ trách"): phieu DA chuyen chi khop mien
+  // xuat MOI (kho thuc su xuat hang) - Kho mien cu khong thay nua. TN/Ke toan giu "ca 2 mien" (xem laKhoThuan()).
   return {
-    sql: ` AND ((1 = 1${base.sql}) OR ${pxkKhopMienXuatSql(alias, "(SELECT value AS ma FROM json_each(?))")})`,
+    sql: ` AND ((${chiMienMoi ? `${alias}.mien_xuat IS NULL` : "1 = 1"}${base.sql}) OR ${pxkKhopMienXuatSql(alias, "(SELECT value AS ma FROM json_each(?))")})`,
     binds: [...base.binds, JSON.stringify([...khuVucSet])],
   };
+}
+
+/** Tai khoan CHI lam Kho (khong TN/Ke toan - Ke toan da mang la_tac_nghiep qua keToanLamThayTn, khong Admin): loc phieu da
+ * chuyen kho xuat theo MIEN XUAT MOI (khuVucPxkWhereSql chiMienMoi). */
+export function laKhoThuan(user: { la_kho?: boolean | number | null; la_tac_nghiep?: boolean | number | null; la_ke_toan?: boolean | number | null; vai_tro?: string | null }): boolean {
+  return !!user.la_kho && !user.la_tac_nghiep && !user.la_ke_toan && user.vai_tro !== "Admin";
 }

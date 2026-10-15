@@ -153,7 +153,7 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
     const pxkClause = gsInClause(gsSet, "ddh2");
     const traHangClause = gsInClause(gsSet, "ddh");
     const thieuLkKvClause = kvClauseFor(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
-    const pxkKvClause = (khuVucSet ? khuVucPxkWhereSql(khuVucSet) : null);
+    const pxkKvClause = (khuVucSet ? khuVucPxkWhereSql(khuVucSet, "pxk", true) : null);
     const traHangKvClause = kvClauseFor(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
     const row = await db
       .prepare(

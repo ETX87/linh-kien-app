@@ -228,7 +228,7 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   khu vực dùng `khuVucPxkWhereSql()`** (`scopeDatMua.ts`; danh sách/status-counts/mo-count/misa-export gộp/badge
   `notifications.ts`/`/luong-quy-trinh`, `/home-summary` CTE dùng `pxkKhopMienXuatSql`): phiếu đã chuyển khớp CẢ khu vực cũ LẪN tập
   khu vực có khu vực thuộc miền MỚI (chốt 2026-10-15, v1.333 — trước đó chỉ miền mới; người chuyển vẫn chịu trách nhiệm theo dõi,
-  chi tiết PXK hiện "Người chuyển kho" = log 'Da chuyen kho xuat' mới nhất, cột `mien_xuat_nguoi_chuyen`); (3) đẩy khovan kèm
+  chi tiết PXK hiện "Người chuyển kho" = log 'Da chuyen kho xuat' mới nhất, cột `mien_xuat_nguoi_chuyen`; **RIÊNG Kho thuần** (`laKhoThuan()` — `la_kho` mà không TN/Kế toán/Admin, chốt 2026-10-15 v1.337 "kho chỉ cần nhìn thấy đơn theo khu vực họ phụ trách") chỉ thấy phiếu đã chuyển ở MIỀN XUẤT MỚI: tham số `chiMienMoi` của `khuVucPxkWhereSql()` + CTE `/home-summary`; badge Kho ở `notifications.ts` luôn `true`); (3) đẩy khovan kèm
   `sender_info.mien_xuat` (khovan chưa dùng). Chuyển sang miền khác → báo việc (`viec_moi`) cho TN có `user_khu_vuc` thuộc miền mới
   (trừ người chuyển); bỏ chuyển về theo khu vực thì không báo. Thông báo việc khác vẫn theo bảng cũ. UI: cột "Kho xuất" + lọc cột `mien_xuat` ở danh sách PXK, badge + thẻ "Kho xuất"
   ở chi tiết PXK (`datMuaLinhKien/KhoXuat.tsx`).
