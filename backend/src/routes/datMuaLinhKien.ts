@@ -1005,8 +1005,8 @@ datMuaLinhKien.get("/home-summary", async (c) => {
     };
     const pxkScope = (): string => {
       let s = "";
-      // Phieu da chuyen kho xuat (mien_xuat, 2026-10-07) thuoc mien moi - cung quy tac khuVucPxkWhereSql().
-      if (khuVucSet) s += ` AND ((pxk.mien_xuat IS NULL AND ((pxk.khu_vuc_chon IS NULL AND (pxk.nguoi_nhan_hang IN (SELECT email FROM kv_email) OR pxk.khu_vuc_ma IN (SELECT ma FROM kv_ma))) OR pxk.khu_vuc_chon IN (SELECT ma FROM kv_ma))) OR ${pxkKhopMienXuatSql("pxk", "kv_ma")})`;
+      // Phieu da chuyen kho xuat (mien_xuat): khop CA khu vuc cu lan mien moi - cung quy tac khuVucPxkWhereSql().
+      if (khuVucSet) s += ` AND ((((pxk.khu_vuc_chon IS NULL AND (pxk.nguoi_nhan_hang IN (SELECT email FROM kv_email) OR pxk.khu_vuc_ma IN (SELECT ma FROM kv_ma))) OR pxk.khu_vuc_chon IN (SELECT ma FROM kv_ma))) OR ${pxkKhopMienXuatSql("pxk", "kv_ma")})`;
       if (gsSet) {
         s += ` AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh2.email_gs IN (SELECT email FROM gs_list))`;
       }

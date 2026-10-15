@@ -232,14 +232,15 @@ export function khuVucSetWhereSql(khuVucSet: Set<string>, emailCols: string[]): 
 
 /**
  * Ban cua khuVucSetWhereSql() cho PHIEU XUAT KHO (alias co cot nguoi_nhan_hang/khu_vuc_ma/mien_xuat) - them 2026-10-07
- * "chuyen kho xuat MB/MN": phieu CHUA chuyen (mien_xuat NULL) khop nhu cu; phieu DA chuyen chi khop khi tap khu vuc co
- * khu vuc thuoc MIEN MOI (lib/mienXuat.ts) - khu vuc cu cua phieu khong con thay mac dinh. Moi noi loc PXK theo khu vuc
+ * "chuyen kho xuat MB/MN": phieu khop theo khu vuc nhu cu; phieu DA chuyen khop THEM tap khu vuc co khu vuc thuoc MIEN
+ * MOI (lib/mienXuat.ts) - CA 2 mien deu thay (chot 2026-10-15: TN mien cu = nguoi gan van chiu trach nhiem theo doi,
+ * TN mien moi duoc bao viec - PATCH /:id/mien-xuat). Moi noi loc PXK theo khu vuc
  * (danh sach, so dem, badge, Trang chu) phai dung ham nay thay vi goi thang khuVucSetWhereSql(..., ["pxk.nguoi_nhan_hang"]).
  */
 export function khuVucPxkWhereSql(khuVucSet: Set<string>, alias = "pxk"): { sql: string; binds: string[] } {
   const base = khuVucSetWhereSql(khuVucSet, [`${alias}.nguoi_nhan_hang`]);
   return {
-    sql: ` AND ((${alias}.mien_xuat IS NULL${base.sql}) OR ${pxkKhopMienXuatSql(alias, "(SELECT value AS ma FROM json_each(?))")})`,
+    sql: ` AND ((1 = 1${base.sql}) OR ${pxkKhopMienXuatSql(alias, "(SELECT value AS ma FROM json_each(?))")})`,
     binds: [...base.binds, JSON.stringify([...khuVucSet])],
   };
 }

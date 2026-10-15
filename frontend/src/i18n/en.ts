@@ -645,7 +645,6 @@ const tuDien: Record<string, string> = {
   "Mất dữ liệu đang nhập — bấm lần nữa?": "Unsaved input will be lost — press again?",
   "Mẫu không được đề xuất cho phiếu này": "Template not suggested for this note",
   "Mẫu được đề xuất theo Loại đề xuất của phiếu này": "Template suggested by this note's request type",
-  "Mặc định theo khu vực của phiếu. Chuyển sang miền khác: phiếu hiện cho Kho/TN miền mới, file MISA dùng kho miền mới.": "Defaults to the note's area. Switching region: the note shows for the new region's Warehouse/Ops and the MISA file uses the new region's warehouse.",
   "Mỗi KH lẻ được theo dõi riêng như 1 KTV: tiền KH chuyển cho phiếu, quỹ dư, đơn chờ hàng. Tìm đơn của KH: gõ SĐT / mã KH vào ô tìm ở Đơn hàng.": "Each walk-in customer is tracked separately like a technician: payments for notes, balance, orders awaiting stock. To find a customer's orders, type the phone / customer code into the search box in Orders.",
   "Mỗi tài khoản tải tối đa 20 ảnh/ngày": "Each account can upload at most 20 images per day",
   "Một số dòng đơn hàng đã chọn không còn hợp lệ (đã bị đổi hoặc gán nơi khác)": "Some selected order lines are no longer valid (changed or assigned elsewhere)",
@@ -1231,7 +1230,6 @@ const tuDien: Record<string, string> = {
   "Đã chuyển kho xuất sang {a}": "Issuing warehouse changed to {a}",
   "Đã chuyển kho xuất: {a}": "Issuing warehouse changed: {a}",
   "Đã chuyển khu vực: {kv}{don}": "Area changed: {kv}{don}",
-  "Đã chuyển từ {a} — chỉ Kho/TN {b} thấy mặc định, file MISA dùng kho {c}.": "Changed from {a} — only Warehouse/Ops of {b} see it by default; the MISA file uses warehouse {c}.",
   "Đã chuyển đơn sang luồng Trả hàng — chờ Kế toán duyệt mềm": "Order moved to the Returns flow — awaiting Accounting soft approval",
   "Đã chuyển đơn về luồng Đơn hàng — chờ TN duyệt": "Order moved back to the Orders flow — awaiting Ops approval",
   "Đã chọn": "Selected",
@@ -1694,5 +1692,9 @@ const tuDien: Record<string, string> = {
   "Đơn đã hủy": "Order cancelled",
   "Đơn đã vào phiếu {a}: chuyển tiền cho phiếu trước.": "The order is in note {a}: pay for the note first.",
   "Đơn được hệ thống tự động duyệt": "Order approved automatically by the system",
+  "Đã chuyển từ {a} — Kho/TN cả 2 miền đều thấy phiếu, người chuyển chịu trách nhiệm theo dõi; file MISA dùng kho {c}.": "Changed from {a} — Warehouse/Ops of both regions see this note, the person who changed it is responsible for follow-up; the MISA file uses warehouse {c}.",
+  "Mặc định theo khu vực của phiếu. Chuyển sang miền khác: phiếu hiện thêm cho Kho/TN miền mới (TN miền mới được báo việc), bạn vẫn chịu trách nhiệm theo dõi; file MISA dùng kho miền mới.": "Defaults to the note's area. Changing region: the note is also shown to Warehouse/Ops of the new region (new-region Ops are notified), you remain responsible for follow-up; the MISA file uses the new region's warehouse.",
+  "Người chuyển kho: {a}": "Warehouse changed by: {a}",
+  "Người chuyển kho xuất chịu trách nhiệm theo dõi phiếu": "The person who changed the outbound warehouse is responsible for following this note",
 };
 export default tuDien;

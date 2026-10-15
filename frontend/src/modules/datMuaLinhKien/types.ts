@@ -269,6 +269,8 @@ export interface PhieuXuatKhoRow {
   mien_xuat?: "bac" | "nam" | null;
   mien_xuat_hieu_luc?: "bac" | "nam" | null;
   mien_khu_vuc?: "bac" | "nam" | null;
+  // Nguoi chuyen kho xuat gan nhat (chi chi tiet PXK, khi mien_xuat co) - chiu trach nhiem theo doi phieu (2026-10-15).
+  mien_xuat_nguoi_chuyen?: string | null;
   // Khu vuc (0042) + Kho chon lai cho phieu sai khu vuc (0071) - ten chi chi tiet PXK tra.
   khu_vuc_ma?: string | null;
   khu_vuc_chon?: string | null;

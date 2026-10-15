@@ -7,6 +7,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nextSequentialId } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
+import { tenNguoiMap } from "../lib/tenNguoi";
 import { emailsTheoTen, orDonTrongPxk, orEmailIn } from "../lib/timTheoTen";
 import { bumpVersions } from "../lib/dataVersions";
 import { quaHanLyDoCham, mocTinhHanTn } from "../lib/hanLyDoCham";
@@ -905,7 +906,9 @@ phieuXuatKho.get("/:id", async (c) => {
   const pxk = await c.env.DB.prepare(
     `SELECT pxk.*, pxk.trang_thai_hien_tai as trang_thai, ${ANH_DA_GHI_NHAN_SQL("pxk")} as anh_da_ghi_nhan,
        ${mienXuatHieuLucSql("pxk")} as mien_xuat_hieu_luc, ${mienTuKhuVucSql(khuVucHieuLucSql("pxk"))} as mien_khu_vuc,
-       (SELECT ten FROM khu_vuc WHERE ma = pxk.khu_vuc_ma) as khu_vuc_tu_dong_ten, (SELECT ten FROM khu_vuc WHERE ma = pxk.khu_vuc_chon) as khu_vuc_chon_ten
+       (SELECT ten FROM khu_vuc WHERE ma = pxk.khu_vuc_ma) as khu_vuc_tu_dong_ten, (SELECT ten FROM khu_vuc WHERE ma = pxk.khu_vuc_chon) as khu_vuc_chon_ten,
+       CASE WHEN pxk.mien_xuat IS NOT NULL THEN (SELECT l.nguoi_xu_ly FROM phieu_xuat_kho_log l WHERE l.phieu_xuat_kho_id = pxk.id
+         AND l.trang_thai = 'Da chuyen kho xuat' ORDER BY l.id DESC LIMIT 1) END as mien_xuat_nguoi_chuyen
      FROM phieu_xuat_kho pxk WHERE ${whereSql}`,
   )
     .bind(...binds)
@@ -1085,7 +1088,8 @@ phieuXuatKho.patch("/:id/ma-misa", async (c) => {
 // PATCH /api/phieu-xuat-kho/:id/mien-xuat - { mien_xuat: "bac" | "nam" | null, ghi_chu? } - TN/Ke toan CHUYEN kho xuat
 // MB/MN cua CA phieu (chot 2026-10-07, xem lib/mienXuat.ts) khi phieu chua giao sang Kho ("Dang tao phieu"/"Cho ke
 // toan"). Chon dung mien suy tu khu vuc (hoac null) = bo chuyen, luu NULL. Anh huong: file MISA (kho theo mien moi) +
-// bo loc khu vuc cua TN/Kho/Ke toan (khuVucPxkWhereSql - phieu thuoc mien moi).
+// bo loc khu vuc cua TN/Kho/Ke toan (khuVucPxkWhereSql - phieu thay o CA khu vuc cu lan mien moi) + bao viec cho TN
+// mien moi (chot 2026-10-15: nguoi chuyen van chiu trach nhiem theo doi phieu, TN mien moi duoc bao de cung xu ly).
 phieuXuatKho.patch("/:id/mien-xuat", async (c) => {
   if (!canTacNghiep(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const id = c.req.param("id");
@@ -1120,6 +1124,32 @@ phieuXuatKho.patch("/:id/mien-xuat", async (c) => {
     .bind(id, user.email, nowVN(), ghiChu)
     .run();
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  // Bao viec cho TN co Khu vuc (user_khu_vuc) thuoc mien DUOC CHUYEN TOI (tru nguoi chuyen) - chi khi thuc su chuyen
+  // sang mien khac mien cua khu vuc (bo chuyen ve theo khu vuc = phieu ve lai TN cu, khong bao).
+  if (moi !== null) {
+    c.executionCtx.waitUntil(
+      (async () => {
+        const { results } = await c.env.DB.prepare(
+          `SELECT DISTINCT u.email FROM users u JOIN user_khu_vuc ukv ON ukv.user_email = u.email
+           WHERE u.la_tac_nghiep = 1 AND u.bi_khoa = 0 AND u.email != ? AND ${mienTuKhuVucSql("ukv.khu_vuc_ma")} = ?`,
+        )
+          .bind(user.email, moi)
+          .all<{ email: string }>();
+        if (results.length === 0) return;
+        const tenNguoiChuyen = (await tenNguoiMap(c.env.DB, [user.email])).get(user.email) ?? user.email;
+        await notifyWorkflowTask(c.env, c.env.DB, {
+          cat1Emails: results.map((r) => r.email),
+          otherRoles: [],
+          emailGsList: [],
+          pastActors: [],
+          title: "Phiếu chuyển kho xuất",
+          body: `Phiếu ${id} được chuyển kho xuất sang ${nhan(moi)} bởi ${tenNguoiChuyen} (người chuyển chịu trách nhiệm theo dõi)${lyDo ? ` — ${lyDo}` : ""}`,
+          linkType: "phieu_xuat_kho",
+          linkId: id,
+        });
+      })(),
+    );
+  }
   return c.json({ ok: true, mien_xuat: moi });
 });
 

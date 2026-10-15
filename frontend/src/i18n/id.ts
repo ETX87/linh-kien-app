@@ -645,7 +645,6 @@ const tuDien: Record<string, string> = {
   "Mất dữ liệu đang nhập — bấm lần nữa?": "Data yang diisi akan hilang — tekan lagi?",
   "Mẫu không được đề xuất cho phiếu này": "Template tidak disarankan untuk SJ ini",
   "Mẫu được đề xuất theo Loại đề xuất của phiếu này": "Template disarankan sesuai jenis pengajuan SJ ini",
-  "Mặc định theo khu vực của phiếu. Chuyển sang miền khác: phiếu hiện cho Kho/TN miền mới, file MISA dùng kho miền mới.": "Default sesuai area SJ. Pindah wilayah: SJ tampil untuk Gudang/Operasional wilayah baru, file MISA memakai gudang wilayah baru.",
   "Mỗi KH lẻ được theo dõi riêng như 1 KTV: tiền KH chuyển cho phiếu, quỹ dư, đơn chờ hàng. Tìm đơn của KH: gõ SĐT / mã KH vào ô tìm ở Đơn hàng.": "Setiap pelanggan eceran dilacak terpisah seperti teknisi: pembayaran nota, saldo, pesanan menunggu barang. Untuk mencari pesanan pelanggan, ketik telepon / kode pelanggan di kotak cari pada Pesanan.",
   "Mỗi tài khoản tải tối đa 20 ảnh/ngày": "Setiap akun maksimal mengunggah 20 gambar per hari",
   "Một số dòng đơn hàng đã chọn không còn hợp lệ (đã bị đổi hoặc gán nơi khác)": "Beberapa baris pesanan yang dipilih tidak valid lagi (diubah atau dipindahkan)",
@@ -1231,7 +1230,6 @@ const tuDien: Record<string, string> = {
   "Đã chuyển kho xuất sang {a}": "Gudang pengeluaran dipindah ke {a}",
   "Đã chuyển kho xuất: {a}": "Gudang pengeluaran dipindah: {a}",
   "Đã chuyển khu vực: {kv}{don}": "Area dipindah: {kv}{don}",
-  "Đã chuyển từ {a} — chỉ Kho/TN {b} thấy mặc định, file MISA dùng kho {c}.": "Dipindah dari {a} — hanya Gudang/Operasional {b} yang melihatnya secara default; file MISA memakai gudang {c}.",
   "Đã chuyển đơn sang luồng Trả hàng — chờ Kế toán duyệt mềm": "Pesanan dipindah ke alur Retur — menunggu persetujuan awal Akuntansi",
   "Đã chuyển đơn về luồng Đơn hàng — chờ TN duyệt": "Pesanan dikembalikan ke alur Pesanan — menunggu persetujuan Operasional",
   "Đã chọn": "Dipilih",
@@ -1694,5 +1692,9 @@ const tuDien: Record<string, string> = {
   "Đơn đã hủy": "Pesanan dibatalkan",
   "Đơn đã vào phiếu {a}: chuyển tiền cho phiếu trước.": "Pesanan ada di nota {a}: bayar nota terlebih dahulu.",
   "Đơn được hệ thống tự động duyệt": "Pesanan disetujui otomatis oleh sistem",
+  "Đã chuyển từ {a} — Kho/TN cả 2 miền đều thấy phiếu, người chuyển chịu trách nhiệm theo dõi; file MISA dùng kho {c}.": "Dipindah dari {a} — Gudang/Operasional kedua wilayah melihat nota ini, orang yang memindahkan bertanggung jawab memantau; file MISA memakai gudang {c}.",
+  "Mặc định theo khu vực của phiếu. Chuyển sang miền khác: phiếu hiện thêm cho Kho/TN miền mới (TN miền mới được báo việc), bạn vẫn chịu trách nhiệm theo dõi; file MISA dùng kho miền mới.": "Default sesuai area nota. Pindah wilayah: nota juga tampil untuk Gudang/Operasional wilayah baru (Operasional wilayah baru diberi notifikasi), Anda tetap bertanggung jawab memantau; file MISA memakai gudang wilayah baru.",
+  "Người chuyển kho: {a}": "Gudang dipindah oleh: {a}",
+  "Người chuyển kho xuất chịu trách nhiệm theo dõi phiếu": "Orang yang memindahkan gudang keluar bertanggung jawab memantau nota",
 };
 export default tuDien;

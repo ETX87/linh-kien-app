@@ -2034,6 +2034,11 @@ export function PxkDetailModal({
             })()}
             <StatusBadge value={trangThai} tones={PXK_TRANG_THAI_TONE} options={PXK_TRANG_THAI_OPTIONS} />
             <KhoXuatBadge r={pxk} />
+            {pxk.mien_xuat && pxk.mien_xuat_nguoi_chuyen && (
+              <span className="text-xs text-[var(--ink-500)]" title={t("Người chuyển kho xuất chịu trách nhiệm theo dõi phiếu")}>
+                {t("Người chuyển kho: {a}", { a: tenLog(pxk.mien_xuat_nguoi_chuyen) })}
+              </span>
+            )}
             <KhuVucPxkBadge pxk={pxk} />
             {pxk.nguoi_nhan_hang && (
               <span className="text-[var(--ink-500)] text-xs"><NguoiNhan>{formatNguoiDisplay(pxk.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan></span>

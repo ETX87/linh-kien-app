@@ -222,9 +222,11 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   của khu vực = lưu NULL; log 'Da chuyen kho xuat'. Ảnh hưởng: (1) file MISA `mien = pxk.mien_xuat ?? miền khu vực` (mọi cột kho:
   kho công ty, kho Máy KRF, NTMB/NTMN trả hàng; dòng TRỪ CÔNG NỢ vẫn kho KTV); (2) bộ lọc khu vực của PXK — **mọi chỗ lọc PXK theo
   khu vực dùng `khuVucPxkWhereSql()`** (`scopeDatMua.ts`; danh sách/status-counts/mo-count/misa-export gộp/badge
-  `notifications.ts`/`/luong-quy-trinh`, `/home-summary` CTE dùng `pxkKhopMienXuatSql`): phiếu đã chuyển chỉ khớp tập khu vực có
-  khu vực thuộc miền MỚI (khu vực cũ không còn thấy mặc định, phải tự lọc); (3) đẩy khovan kèm `sender_info.mien_xuat` (khovan
-  chưa dùng). Thông báo việc mới vẫn theo bảng cũ. UI: cột "Kho xuất" + lọc cột `mien_xuat` ở danh sách PXK, badge + thẻ "Kho xuất"
+  `notifications.ts`/`/luong-quy-trinh`, `/home-summary` CTE dùng `pxkKhopMienXuatSql`): phiếu đã chuyển khớp CẢ khu vực cũ LẪN tập
+  khu vực có khu vực thuộc miền MỚI (chốt 2026-10-15, v1.333 — trước đó chỉ miền mới; người chuyển vẫn chịu trách nhiệm theo dõi,
+  chi tiết PXK hiện "Người chuyển kho" = log 'Da chuyen kho xuat' mới nhất, cột `mien_xuat_nguoi_chuyen`); (3) đẩy khovan kèm
+  `sender_info.mien_xuat` (khovan chưa dùng). Chuyển sang miền khác → báo việc (`viec_moi`) cho TN có `user_khu_vuc` thuộc miền mới
+  (trừ người chuyển); bỏ chuyển về theo khu vực thì không báo. Thông báo việc khác vẫn theo bảng cũ. UI: cột "Kho xuất" + lọc cột `mien_xuat` ở danh sách PXK, badge + thẻ "Kho xuất"
   ở chi tiết PXK (`datMuaLinhKien/KhoXuat.tsx`).
 - **Kho chọn lại khu vực cho phiếu sai khu vực** (chốt 2026-10-07, migration `0071`): cột `khu_vuc_chon` trên CẢ
   `phieu_xuat_kho` lẫn `dat_don_hang` (NULL = theo `khu_vuc_ma` do trigger tự tính — KHÔNG ghi đè `khu_vuc_ma` vì trigger sẽ tính

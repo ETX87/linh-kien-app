@@ -11,8 +11,8 @@ import type { PhieuXuatKhoRow } from "./types";
 import { t } from "../../i18n";
 
 // Kho xuat MB/MN cua phieu (chot 2026-10-07, backend/src/lib/mienXuat.ts, migration 0070): mac dinh theo khu vuc,
-// TN/Ke toan chuyen duoc khi phieu chua gui Kho ("Dang tao phieu"/"Cho ke toan"). Phieu da chuyen chi hien mac dinh
-// cho tai khoan co khu vuc thuoc mien moi + file MISA lay kho cua mien moi.
+// TN/Ke toan chuyen duoc khi phieu chua gui Kho ("Dang tao phieu"/"Cho ke toan"). Phieu da chuyen hien cho CA khu vuc cu
+// lan mien moi (2026-10-15), TN mien moi duoc bao viec, nguoi chuyen chiu trach nhiem theo doi; file MISA lay kho mien moi.
 export const MIEN_XUAT_SUA_DUOC = ["Dang tao phieu", "Cho ke toan"];
 
 type PxkMien = Pick<PhieuXuatKhoRow, "mien_xuat" | "mien_xuat_hieu_luc">;
@@ -77,8 +77,8 @@ export function ChuyenKhoXuatCard({
       </div>
       <div className="mt-1.5 text-[11px] text-[var(--ink-500)]">
         {pxk.mien_xuat
-          ? t("Đã chuyển từ {a} — chỉ Kho/TN {b} thấy mặc định, file MISA dùng kho {c}.", { a: mienKv ? t(MIEN_XUAT_LABEL[mienKv]) : t("khu vực chưa rõ miền"), b: MIEN_XUAT_LABEL[pxk.mien_xuat], c: MIEN_XUAT_NGAN[pxk.mien_xuat] })
-          : t("Mặc định theo khu vực của phiếu. Chuyển sang miền khác: phiếu hiện cho Kho/TN miền mới, file MISA dùng kho miền mới.")}
+          ? t("Đã chuyển từ {a} — Kho/TN cả 2 miền đều thấy phiếu, người chuyển chịu trách nhiệm theo dõi; file MISA dùng kho {c}.", { a: mienKv ? t(MIEN_XUAT_LABEL[mienKv]) : t("khu vực chưa rõ miền"), c: MIEN_XUAT_NGAN[pxk.mien_xuat] })
+          : t("Mặc định theo khu vực của phiếu. Chuyển sang miền khác: phiếu hiện thêm cho Kho/TN miền mới (TN miền mới được báo việc), bạn vẫn chịu trách nhiệm theo dõi; file MISA dùng kho miền mới.")}
       </div>
     </div>
   );
