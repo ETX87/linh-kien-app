@@ -272,6 +272,15 @@ export function laKhTraGop(loaiDeXuat: string | null | undefined): boolean {
     .includes("ho tro ngoai bao hanh tg12");
 }
 
+/** Ban sao laHoTro0Dong / khongTinhCongNo (backend lib/pxkRecalculate.ts, 2026-10-15): "HỖ TRỢ 0 ĐỒNG" (+ KÊNH MT) khong tinh gia tri
+ * cong no, khong doi chieu tran - nhu don KH tra gop. */
+export function laHoTro0Dong(loaiDeXuat: string | null | undefined): boolean {
+  return (loaiDeXuat ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").toLowerCase().includes("ho tro 0 dong");
+}
+export function khongTinhCongNo(loaiDeXuat: string | null | undefined): boolean {
+  return laKhTraGop(loaiDeXuat) || laHoTro0Dong(loaiDeXuat);
+}
+
 /** Ban sao boQuaTbpChoDacThu() (backend datMuaLinhKien.ts): loai MUA / HỖ TRỢ / TRỪ CÔNG NỢ bo qua buoc TBP du LK dac thu. */
 export function boQuaTbpDacThu(loaiDeXuat: string | null | undefined): boolean {
   const upper = (loaiDeXuat ?? "").toUpperCase();
@@ -442,7 +451,7 @@ export function canNhapMaEo(d: Pick<DonHangRow, "trang_thai" | "loai_don" | "loa
   if (d.trang_thai === "Cho GS duyet") return true;
   return (
     d.trang_thai === "Cho TBP xac nhan" && d.loai_don === "cong_no" && d.danh_gia_cong_no === "Khong du" &&
-    !laTruCongNo(d.loai_de_xuat) && !laKhTraGop(d.loai_de_xuat)
+    !laTruCongNo(d.loai_de_xuat) && !khongTinhCongNo(d.loai_de_xuat)
   );
 }
 

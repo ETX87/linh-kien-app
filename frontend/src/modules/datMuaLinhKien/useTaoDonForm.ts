@@ -4,7 +4,7 @@ import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
 import type { DonHangDraft, KhachLeRow, NguoiNhanHangKhaDungRow, KiemTraPhieuDat, KiemTraDong, KetQuaTaoDon } from "./types";
-import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, useLkCombo, comboThanhLkRow, chinhSachMacDinh } from "./helpers";
+import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, khongTinhCongNo, useLkCombo, comboThanhLkRow, chinhSachMacDinh } from "./helpers";
 import { t } from "../../i18n";
 import { GENERIC_ERROR_MESSAGES } from "./constants";
 import { coYeuCauHoaDon } from "./LoaiChietKhau";
@@ -340,8 +340,8 @@ export function useTaoDonForm({
   // (khong doi submit xong moi biet).
   const tongCongNoTamTinh = drafts.reduce((sum, d) => {
     // "TRỪ CÔNG NỢ" khong doi chieu cong no (chot 2026-09-28) - khop backend POST /phieu-dat.
-    // + don KH tra gop (laKhTraGop) - gia tri CN = 0, khop backend.
-    if (deriveLoaiDon(d.loai_de_xuat.trim()) !== "cong_no" || laTruCongNo(d.loai_de_xuat) || laKhTraGop(d.loai_de_xuat)) return sum;
+    // + don KH tra gop / HỖ TRỢ 0 ĐỒNG (khongTinhCongNo) - gia tri CN = 0, khop backend.
+    if (deriveLoaiDon(d.loai_de_xuat.trim()) !== "cong_no" || laTruCongNo(d.loai_de_xuat) || khongTinhCongNo(d.loai_de_xuat)) return sum;
     const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
     return sum + (lk?.gia_tri_cong_no ?? 0) * d.so_luong_de_xuat;
   }, 0);

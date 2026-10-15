@@ -27,7 +27,7 @@ import { computeCongNoChot } from "../lib/congNoKtv";
 import { computeMocDuPhongHienTai } from "../lib/duPhongKtv";
 import { computeTonKhoChot } from "../lib/tonKhoCongTy";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
-import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon, laKhTraGop } from "../lib/pxkRecalculate";
+import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon, laKhTraGop, khongTinhCongNo } from "../lib/pxkRecalculate";
 import { computeTonKtvConLai } from "../lib/tonKhoKtv";
 import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
 import { tenNguoiSql as tenNguoiDaySql, tenNguoiNullSql, tenNguoiMap } from "../lib/tenNguoi";
@@ -2721,7 +2721,7 @@ async function processDatDonHangImportRows(
       giaTriCongNo: lk.giaTriCongNo,
       // "TRỪ CÔNG NỢ" khong doi chieu cong no (chot 2026-09-28) - soTienCongNo = 0 nhu don mua.
       // Don KH tra gop (laKhTraGop) - gia tri CN = 0 (chot 2026-10-02).
-      soTienCongNo: loaiDonRow === "cong_no" && !laTruCongNo(loaiDeXuat) && !laKhTraGop(loaiDeXuat) ? (lk.giaTriCongNo ?? 0) * soLuong : 0,
+      soTienCongNo: loaiDonRow === "cong_no" && !laTruCongNo(loaiDeXuat) && !khongTinhCongNo(loaiDeXuat) ? (lk.giaTriCongNo ?? 0) * soLuong : 0,
       comboMa: tachDong[i].comboMa,
       idx: i,
     });

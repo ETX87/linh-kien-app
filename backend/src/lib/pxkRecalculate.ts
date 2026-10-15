@@ -56,6 +56,23 @@ export function laKhTraGop(loaiDeXuat: string | null | undefined): boolean {
     .includes("ho tro ngoai bao hanh tg12");
 }
 
+// DON "HỖ TRỢ 0 ĐỒNG" (+ "(KÊNH MT)") (chot 2026-10-15): khong tinh gia tri cong no - nhu don KH tra gop (so_tien_cong_no 0, khong
+// danh gia Du/Khong du, KHONG BAO GIO vao "Cho GS duyet" vuot tran). Gia/chiet khau giu nguyen. Trigger trg_ddh_ho_tro_0d_* (migration
+// 0082) giu dung cho moi duong ghi. Ban sao FE: helpers.ts laHoTro0Dong.
+export function laHoTro0Dong(loaiDeXuat: string | null | undefined): boolean {
+  return (loaiDeXuat ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/gi, "d")
+    .toLowerCase()
+    .includes("ho tro 0 dong");
+}
+
+// Loai de xuat nhom cong_no nhung KHONG tinh gia tri cong no / khong doi chieu tran: KH tra gop + HỖ TRỢ 0 ĐỒNG.
+export function khongTinhCongNo(loaiDeXuat: string | null | undefined): boolean {
+  return laKhTraGop(loaiDeXuat) || laHoTro0Dong(loaiDeXuat);
+}
+
 // Chot 2026-09-29: don CO yeu cau xuat hoa don (cot "Yêu cầu hóa đơn" khac trong / khac "Không") tinh theo GIA NIEM YET,
 // KHONG huong chinh sach chiet khau nao (Dinh tu/bac thang/gia KTV/du phong) - nhan KHONG_CK. Gia chot TN nhap tay van thang.
 // 2026-09-30: "Yêu cầu hóa đơn (xuất cho Trạm)" (nut "HĐ - Xuất cho trạm") VAN tinh chiet khau nhu binh thuong.

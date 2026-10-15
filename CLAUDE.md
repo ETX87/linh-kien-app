@@ -762,6 +762,12 @@ mục → báo lỗi dòng. Đơn cũ đã lưu tên chữ thường giữ nguy�
 cảnh báo tạm tính FE bỏ qua), "Giá đề xuất"/"Tổng tiền đề xuất" = 0 (`donGiaSauChietKhau`/`tienSauChietKhau`), loại chiết khấu `KH_TRA_GOP` "Chiết khấu đơn KH trả góp" (`tinhToanPxk` + `maTheoLoaiDon`). TRIGGER
 `trg_ddh_kh_tra_gop_i/u` ép lại lúc tạo/đổi loại đề xuất (mọi đường ghi); TN vẫn sửa tay được sau đó. File MISA (mọi mẫu): dòng trả góp cùng phiếu + KTV + mã LK + loại đề xuất GỘP 1 dòng (SL cộng, Mã YCSC nối bằng dấu cách " " — 2026-10-08, TT mail duyệt / TT KH nối ", ") — `gopDongKhTraGop()` ở `misaExport.ts`.
 
+**Đơn "HỖ TRỢ 0 ĐỒNG"** (+ "(KÊNH MT)", chốt 2026-10-15, v1.342, migration `0082`): KHÔNG tính giá trị công nợ, mặc định bỏ qua bước
+vượt trần — `laHoTro0Dong()`/`khongTinhCongNo()` (`pxkRecalculate.ts`, bản sao FE `helpers.ts`; `khongTinhCongNo` = trả góp TG12 + 0 đồng)
+thay `laKhTraGop` ở `canDoiChieuCongNo`, `danhGiaPhieu` (soTienCongNo), import, `canNhapMaEo`, cảnh báo công nợ tạm tính form tạo đơn.
+TRIGGER `trg_ddh_ho_tro_0d_i/u` ép `so_tien_cong_no = 0`, `danh_gia_cong_no = NULL` (mọi đường ghi). Giá/chiết khấu giữ nguyên (khác trả
+góp). Đơn CŨ giữ `so_tien_cong_no` đã lưu (~80 đơn, chưa chốt backfill).
+
 **Combo linh kiện** (chốt 2026-10-04, migration `0066`, `lib/lkCombo.ts`): bảng `lk_combo` (mã combo, tên, bật/tắt) +
 `lk_combo_ct` (LK thành phần + SL/bộ), quản lý ở Bảng giá › tab "Combo" (`danhMucLinhKien/ComboTab.tsx`, `/api/lk-settings/combo`,
 ghi = Quản lý danh mục LK / Mua hàng / Admin; mã combo không đổi được, không trùng LK đang bật, ";" → ","). Combo KHÔNG phải LK: ô chọn

@@ -20,7 +20,7 @@ import { nowVN } from "./vnTime";
 import { computeTonKhoChot } from "./tonKhoCongTy";
 import { computeTonKtvConLai } from "./tonKhoKtv";
 import { computeCongNoChot } from "./congNoKtv";
-import { laTruCongNo, laKhTraGop, taiTinhPxkMoCuaKtv } from "./pxkRecalculate";
+import { laTruCongNo, khongTinhCongNo, taiTinhPxkMoCuaKtv } from "./pxkRecalculate";
 import { nextSequentialId } from "./idCounter";
 import { bundleAutoApprovedIntoPxk } from "./pxkAutoBundle";
 import { goDonKhoiPxk, pxkChuaDonChuaDuyet } from "./pxkTuHuy";
@@ -56,7 +56,7 @@ export function laDonPhatSinhTien(loaiDon: string, loaiDeXuat: string): boolean 
 
 // Don can doi chieu TRAN CONG NO (cong no / ho tro thuc su): khong tinh TRỪ CÔNG NỢ (doi chieu ton KTV) va TG12 (KH tra gop).
 export function canDoiChieuCongNo(loaiDon: string, loaiDeXuat: string): boolean {
-  return loaiDon === "cong_no" && !laTruCongNo(loaiDeXuat) && !laKhTraGop(loaiDeXuat);
+  return loaiDon === "cong_no" && !laTruCongNo(loaiDeXuat) && !khongTinhCongNo(loaiDeXuat); // + HỖ TRỢ 0 ĐỒNG (2026-10-15)
 }
 
 // Khu vuc DU KIEN cua don sap tao - BAN SAO chuoi trigger trg_ddh_khu_vuc_i (migration 0055): KTV nhan -> khu vuc dat hang nguoi
@@ -182,7 +182,7 @@ export async function danhGiaPhieu(db: D1Database, ctx: NguCanhNhan, dongs: Dong
     const coTien = laDonPhatSinhTien(loaiDon, lde);
     kq.batBuocChuyenTien = coTien && (d.gia_ban ?? 0) * d.so_luong > 0;
     if (loaiDon === "cong_no" && !laTruCongNo(lde)) {
-      kq.soTienCongNo = laKhTraGop(lde) ? 0 : (d.gia_tri_cong_no ?? 0) * d.so_luong;
+      kq.soTienCongNo = khongTinhCongNo(lde) ? 0 : (d.gia_tri_cong_no ?? 0) * d.so_luong;
       kq.danhGiaCongNo = canDoiChieuCongNo(loaiDon, lde) ? danhGiaCongNo : null;
     }
 
