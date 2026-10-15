@@ -691,16 +691,17 @@ textarea::placeholder {
   border-radius: var(--radius-kpi);
   border: 1px solid var(--color-border-soft);
   box-shadow: var(--shadow-card);
-  /* 2026-10-15 ("nền màu trắng"): bo nen pastel gradient - the KPI nen trang, chi con icon tron mang mau nhom. */
-  background: var(--color-surface);
-  border-color: var(--color-border);
+  /* Giu nen pastel gradient (2026-10-15: thu bo nen trang roi KHOI PHUC theo phan hoi "các button cần làm + đang tồn ở trang chủ
+     ko cần bỏ bớt màu => quay lại như cũ"). */
+  background: linear-gradient(135deg, var(--kpi-from), var(--kpi-to));
 }
 .kpi-card .kpi-icon {
   background: var(--kpi-icon);
   color: #fff;
 }
 .kpi-card .kpi-watermark {
-  display: none;
+  color: var(--kpi-icon);
+  opacity: 0.13;
 }
 .kpi-card .kpi-accent {
   color: var(--kpi-fg);

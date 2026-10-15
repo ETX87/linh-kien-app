@@ -168,7 +168,7 @@ Mỗi nhóm dữ liệu gắn 1 bộ **[Nền gradient thẻ – Icon tròn nề
 ### 6.1. Thẻ KPI (KPI Summary Card)
 Mỗi màn hình module mở đầu bằng 3–5 thẻ KPI:
 1. Icon tròn góc trái trên `38–40px`, bo 50%, nền đậm theo bảng pastel §2.4.
-2. Watermark mờ góc phải dưới (icon `48–54px`, opacity `0.12–0.15`). **⚠ Đã thay bởi §10 (2026-10-15).**
+2. Watermark mờ góc phải dưới (icon `48–54px`, opacity `0.12–0.15`).
 3. Tên chỉ số `12px`, 600, `#334155`.
 4. Số liệu chính `28–29px`, 800, `#0F172A`.
 5. Xu hướng `↑ 12% so với kỳ trước` — xanh lá `#10B981` hoặc đỏ `#EF4444`.
@@ -299,7 +299,7 @@ chấm), `StatCard` (thẻ KPI pastel), `Tabs` (filter pill), `Card`, `Modal`/`D
 Phản hồi người dùng: *"app nhiều hơi màu mè và rối mặt"* + *"màu nền cũng đang bị chê là gây hoa mắt => sửa thành nền màu trắng"*.
 Nguyên tắc: **màu chỉ dùng để báo trạng thái cần chú ý**, mọi thứ khác trung tính. Áp dụng TOÀN APP qua token (`tokens.css`):
 
-- **Nền trắng**: `--color-background` = `#FFFFFF` (bỏ nền ánh xanh + `.ripple-bg`); Sidebar nền trắng + viền phải `--color-border`, chữ slate, mục đang chọn nền `--color-primary-soft` chữ `--color-primary-dark` (bỏ gradient xanh hoàng gia + sóng cyan chân sidebar); thẻ KPI nền trắng viền xám, ẩn watermark.
+- **Nền trắng**: `--color-background` = `#FFFFFF` (bỏ nền ánh xanh + `.ripple-bg`); Sidebar nền trắng + viền phải `--color-border`, chữ slate, mục đang chọn nền `--color-primary-soft` chữ `--color-primary-dark` (bỏ gradient xanh hoàng gia + sóng cyan chân sidebar); thẻ KPI (Cần làm / Đang tồn… ở Trang chủ) GIỮ nền pastel + watermark như §6.1 (đã thử bỏ rồi khôi phục cùng ngày theo phản hồi người dùng).
 - **Không tô nền hàng bảng**: bỏ nền xanh lá dòng PXK đã in, nền cam dòng ưu tiên, nền xanh nhạt tiêu đề nhóm KTV. Ưu tiên = vạch cam 3px bên trái dòng; tiêu đề nhóm = `--color-surface-soft` + viền trên; hover = `--color-surface-soft`. Đơn hủy/từ chối = chữ xám gạch ngang (không tô nền).
 - **Số tiền / tên người / Loại / Loại chiết khấu trung tính**: `--color-money` = màu chữ thường (đậm 600, vẫn qua `<Money>`); `--color-nguoi-tao/-nhan` = `inherit`; `<LoaiDeXuatBadge>` = chữ IN HOA xám, không pill màu; mọi `--ck-*` = nền trong suốt, chữ thường. Bỏ chốt màu 2026-09-28 tương ứng.
 - **Badge**: tối đa 1 badge màu (pill) cho trạng thái CHÍNH của dòng; trạng thái PHỤ (Phiếu xuất kho, Chuyển tiền, In phiếu…) dùng kiểu chấm `<Badge variant="dot">` / `<StatusBadge phu>` (chấm 6px màu + chữ thường). "Chờ Trạm duyệt" = info (trước đây xanh lá như đã xong — sai nghĩa).

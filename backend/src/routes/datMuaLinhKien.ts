@@ -1303,12 +1303,23 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
   // key - dung nguyen tac buildReportKey da ghi: khac pham vi xem ra khac key, khong tra nham du lieu
   // ngoai pham vi. scopeCond null (Admin, hoac wantFull) => scope null ("khong gioi han").
   const scopeKeyPart = scopeCond ? scopeBinds : null;
-  const reportKey = buildReportKey("bao-cao-tong-the", { thang: String(thangParam), full: wantFull ? "1" : undefined }, scopeKeyPart);
+  const reportKey = buildReportKey("bao-cao-tong-the-v2", { /* -v2 2026-10-15: doi cong thuc "Tổng thực tế đã mua" - bo cache cu */ thang: String(thangParam), full: wantFull ? "1" : undefined }, scopeKeyPart);
   const rows = await cachedReport(c.env.DB, reportKey, ["dat_mua_lk"], async () => {
   const { results: donRows } = await c.env.DB.prepare(
     `WITH ddh_kt AS (
        SELECT ddh.id, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.so_luong_de_xuat, ddh.gia_de_xuat, ddh.gia_chot,
          ddh.so_luong_thuc_xuat, ddh.trang_thai_hien_tai,
+         -- "Tổng thực tế đã mua" (SUA 2026-10-15, phan hoi "lại = 0 1 loạt vậy, rõ ràng là họ đã mua rồi"): truoc day CHI cong don
+         -- co CA gia_chot (TN chot tay) LAN so_luong_thuc_xuat -> tu khi gia tinh tu dong (tinhToanPxk) gan nhu khong don nao co
+         -- gia_chot nen ra 0. Gio: don CO TIEN (nhom Mua + TRỪ CÔNG NỢ, giong DON_TINH_TONG_NGAY_SQL o pxkRecalculate.ts; bo don gui
+         -- bu thieu hang - da tinh o don goc) co trong so w = gia (gia_chot neu co) x SL thuc xuat (chua co = SL de xuat). Don trong
+         -- PXK con hieu luc -> chia "Tiền cần chuyển" THAT cua phieu (sau chiet khau) theo ti le w (xem ddh_tt); chua vao phieu -> w.
+         CASE WHEN (ddh.loai_don = 'mua' OR (ddh.loai_don = 'cong_no' AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') > 0))
+                AND ddh.gui_bu_nhan_thieu_id IS NULL
+           THEN COALESCE(ddh.gia_chot, ddh.gia_de_xuat, 0) * COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat)
+           ELSE 0 END as w_tien,
+         CASE WHEN pxk.trang_thai_hien_tai != 'Ke toan huy' THEN pxk.id END as pxk_hl,
+         CASE WHEN pxk.trang_thai_hien_tai != 'Ke toan huy' THEN pxk.so_tien_can_chuyen END as pxk_tien,
          CASE
            WHEN ddh.trang_thai_hien_tai IN ('TN tu choi', 'Tu choi', 'Da huy') THEN ddh.updated_at
            WHEN pxk.trang_thai_hien_tai IN ('Ke toan huy', 'Kho da ket thuc', 'Hang tru kho', 'KTV da nhan')
@@ -1319,6 +1330,11 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
        LEFT JOIN phieu_xuat_kho_dong pxkd ON pxkd.dat_don_hang_id = ddh.id
        LEFT JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
        WHERE 1=1${scopeCond ? scopeCond("ddh") : ""}
+     ),
+     ddh_tt AS (
+       -- Tong trong so cua MOI dong co tien trong cung phieu (moi trang thai - "Tiền cần chuyển" cua phieu tinh tren ca phieu).
+       SELECT ddh_kt.*, CASE WHEN pxk_hl IS NULL THEN NULL ELSE SUM(w_tien) OVER (PARTITION BY pxk_hl) END as pxk_w
+       FROM ddh_kt
      )
      SELECT ddh.nguoi_nhan_hang as email, ${tenNguoiNullSql("ddh.nguoi_nhan_hang")} as ten,
        COUNT(*) as sl_don,
@@ -1333,10 +1349,12 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
        COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.loai_don = 'cong_no' THEN 1 ELSE 0 END), 0) as sl_duyet_cong_no,
        COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.loai_don = 'tra_hang' THEN 1 ELSE 0 END), 0) as sl_duyet_tra_hang,
        COALESCE(SUM(CASE WHEN ddh.so_luong_thuc_xuat IS NOT NULL THEN ddh.so_luong_thuc_xuat ELSE 0 END), 0) as sl_thuc_duyet,
-       COALESCE(SUM(CASE WHEN ddh.gia_chot IS NOT NULL AND ddh.so_luong_thuc_xuat IS NOT NULL THEN ddh.gia_chot * ddh.so_luong_thuc_xuat ELSE 0 END), 0) as tong_tien_thuc_te,
+       ROUND(COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.w_tien > 0 THEN
+         CASE WHEN ddh.pxk_tien IS NOT NULL AND ddh.pxk_w > 0 THEN ddh.pxk_tien * ddh.w_tien / ddh.pxk_w ELSE ddh.w_tien END
+       ELSE 0 END), 0)) as tong_tien_thuc_te,
        COALESCE(SUM(ddh.gia_de_xuat * ddh.so_luong_de_xuat), 0) as tong_tien_dat_mua,
        COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai IN (${DANG_CHO_DUYET_SQL_IN}) THEN ddh.gia_de_xuat * ddh.so_luong_de_xuat ELSE 0 END), 0) as tien_cho_duyet
-     FROM ddh_kt ddh
+     FROM ddh_tt ddh
      WHERE ${thangWhere}
      GROUP BY ddh.nguoi_nhan_hang`,
   )
