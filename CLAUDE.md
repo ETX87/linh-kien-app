@@ -727,7 +727,11 @@ sự `on` + chức danh chứa CTV/KTV/Kỹ thuật viên (không dấu) + Gmail
 `ktv_lien_he` (ma_ktv = Mã NV, tên "(Mã NV) Chức danh - Họ tên", vai trò KTV nếu có KTV/Kỹ thuật viên còn lại CTV, chưa
 khu vực) + `users` "Da duyet"/`la_ktv_dvbh=1` (tài khoản "Cho duyet" có sẵn cũng được duyệt) + liên kết
 `etx_nhan_su.ma_ktv` (nghỉ việc → tự khoá). Bỏ qua: Gmail đã là email đăng nhập KTV, Mã NV trùng ma_ktv, Gmail đã có tài
-khoản Da duyet/Tu choi (không biến nhân viên văn phòng thành KTV). Chạy lặp lại an toàn (lần 2 tạo 0). **Cột "Tài khoản đặt hàng" + nút "Tạo tài khoản"** (2026-10-01, tab ETX nhân sự): trạng thái `tk_trang_thai`
+khoản Da duyet/Tu choi (không biến nhân viên văn phòng thành KTV). Chạy lặp lại an toàn (lần 2 tạo 0). **Khu vực mặc định theo QUẢN LÝ TRỰC TIẾP** (chốt 2026-10-15,
+v1.343, `taoBoDoanKhuVucTheoQuanLy()`): `etx_nhan_su.quan_ly_truc_tiep` (JSON [{maNhanSu, gmail}]) → lần lượt từng quản lý: khu vực của CHÍNH
+quản lý (mã KTV qua `etx.ma_ktv` hoặc Gmail = email đăng nhập KTV) → khu vực PHỔ BIẾN NHẤT của nhân sự cùng quản lý → quản lý là GS của
+ĐÚNG 1 khu vực → không đoán được thì để trống. Áp khi tạo KTV tự động + nút "Tạo tài khoản" (KTV có sẵn chưa có khu vực cũng được gán),
+xong gọi `resyncKhuVucDerivedFieldsForAll`/`ForEmail` (GS phụ trách). **Cột "Tài khoản đặt hàng" + nút "Tạo tài khoản"** (2026-10-01, tab ETX nhân sự): trạng thái `tk_trang_thai`
 (`TK_TRANG_THAI_SQL` ở `routes/etxNhanSuSync.ts`, lọc `?tai_khoan=`); nút gọi `POST /api/etx-nhan-su/:ma/tao-tai-khoan` →
 `taoTaiKhoanTuEtx()` — cùng kết quả bước tự động nhưng KHÔNG đòi chức danh CTV/KTV, duyệt cả tài khoản "Tu choi", tạo được cả nhân sự "Đã nghỉ" (2026-10-15, v1.336 — tài khoản mở; đồng bộ ETX chỉ khoá/mở khi trạng thái làm việc ĐỔI) (Admin tự quyết).
 
