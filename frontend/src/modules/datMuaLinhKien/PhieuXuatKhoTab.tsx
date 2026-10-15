@@ -2104,8 +2104,8 @@ export function PxkDetailModal({
             <BaoNhanThieuModal pxkId={id} dong={data.donHang} onClose={() => setShowBaoThieu(false)} onDone={invalidate} addToast={addToast} />
           )}
 
-          {/* Chuyen kho xuat MB/MN (2026-10-07) - TN/Ke toan, truoc khi phieu gui Kho. */}
-          {(canTacNghiep || canKeToan) && MIEN_XUAT_SUA_DUOC.includes(trangThai) && (
+          {/* Chuyen kho xuat MB/MN (2026-10-07) - TN/Ke toan (+ Kho 2026-10-15), truoc khi phieu gui Kho. */}
+          {(canTacNghiep || canKeToan || canKho) && MIEN_XUAT_SUA_DUOC.includes(trangThai) && (
             <ChuyenKhoXuatCard pxk={pxk} addToast={addToast} onDone={invalidate} />
           )}
 

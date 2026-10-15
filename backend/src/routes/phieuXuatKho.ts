@@ -1096,7 +1096,8 @@ phieuXuatKho.patch("/:id/ma-misa", async (c) => {
 // bo loc khu vuc cua TN/Kho/Ke toan (khuVucPxkWhereSql - phieu thay o CA khu vuc cu lan mien moi) + bao viec cho TN
 // mien moi (chot 2026-10-15: nguoi chuyen van chiu trach nhiem theo doi phieu, TN mien moi duoc bao de cung xu ly).
 phieuXuatKho.patch("/:id/mien-xuat", async (c) => {
-  if (!canTacNghiep(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  // + Kho (chot 2026-10-15 "cho phép kế toán + TN + kho sửa miền") - cung gioi han trang thai (truoc khi Ke toan chot giao Kho).
+  if (!canTacNghiep(c) && !canKeToan(c) && !canKho(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const id = c.req.param("id");
   const body = await c.req.json<{ mien_xuat: string | null; ghi_chu?: string }>().catch(() => null);
   if (!body || (body.mien_xuat !== null && body.mien_xuat !== "bac" && body.mien_xuat !== "nam")) {
