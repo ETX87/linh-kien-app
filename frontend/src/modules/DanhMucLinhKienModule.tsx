@@ -14,7 +14,7 @@ import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { api, ApiError } from "../api/client";
 import { anhVuaGioiHan } from "../lib/imageCompress";
 import { useToast } from "../components/ui/Toast";
-import { fmtVND, fmtDateTime, type LinhKienRow } from "../types";
+import { fmtVND, fmtDate, fmtDateTime, type LinhKienRow } from "../types";
 import { exportRowsToExcel } from "../lib/exportExcel";
 import { fetchWithHashCache } from "../lib/staticListCache";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
@@ -665,6 +665,8 @@ function DanhMucTab() {
     if (filterCamBan) rows = rows.filter((p) => (filterCamBan === "true" ? !!p.cam_ban : !p.cam_ban));
     if (filterPhanLoai) rows = rows.filter((p) => (filterPhanLoai === CHUA_PHAN_LOAI ? !p.don_vi?.trim() : p.don_vi === filterPhanLoai));
     rows = filterTrangThaiMa ? rows.filter((p) => (p.trang_thai_ma ?? "Da xac nhan") === filterTrangThaiMa) : rows.filter((p) => p.trang_thai_ma !== "Da doi ma");
+    // Loc "Chờ xét duyệt": ma tao LAU NHAT len dau (2026-10-15 - kiem tra nhanh ma tao lau chua xac nhan).
+    if (filterTrangThaiMa === "Cho xet duyet" && !kqTim.diem) rows = [...rows].sort((x, y) => (x.ngay_tao ?? "").localeCompare(y.ngay_tao ?? ""));
     if (ktvXem) rows = rows.filter((p) => !!p.bat_tat && (p.trang_thai_ma ?? "Da xac nhan") === "Da xac nhan");
     return rows;
   }, [parts?.rows, kqTim, lichSu.soLanChon, hangCongTy, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan, filterTrangThaiMa, filterPhanLoai, ktvXem]);
@@ -984,6 +986,22 @@ function DanhMucTab() {
     { key: "ma_linh_kien", header: "Mã", render: (p) => <span className="font-mono text-xs"><ToDam text={p.ma_linh_kien} spec={kqTim.toDam} /></span> },
     { key: "ten_linh_kien", header: "Tên linh kiện", render: (p) => <span className="font-semibold text-[var(--ocean-800)]"><ToDam text={p.ten_linh_kien} spec={kqTim.toDam} /></span> },
     { key: "trang_thai_ma", header: "Trạng thái mã", render: (p) => <TrangThaiMaBadge tt={p.trang_thai_ma} /> },
+    {
+      // Ngay tao ma (2026-10-15, migration 0081): ma CHUA xac nhan hien them so ngay da cho - cam khi > 3 ngay.
+      key: "ngay_tao",
+      header: "Ngày tạo",
+      render: (p) => {
+        if (!p.ngay_tao) return <span className="text-xs text-[var(--ink-400)]">—</span>;
+        const choDuyet = p.trang_thai_ma === "Cho xet duyet";
+        const soNgay = Math.floor((Date.now() - new Date(p.ngay_tao.replace(" ", "T") + "+07:00").getTime()) / 86_400_000);
+        return (
+          <span className="text-xs whitespace-nowrap" title={fmtDateTime(p.ngay_tao)}>
+            {fmtDate(p.ngay_tao)}
+            {choDuyet && <span className={soNgay > 3 ? " font-semibold text-[var(--color-warning-strong)]" : " text-[var(--ink-500)]"}> · {soNgay} ngày</span>}
+          </span>
+        );
+      },
+    },
     { key: "gia_ban", header: "Giá NY", render: (p) => <span className="font-mono font-semibold text-[var(--green-700)]"><Money>{fmtVND(p.gia_ban)}</Money></span> },
     { key: "gia_tri_cong_no", header: "Giá KTV", render: (p) => <span className="font-mono text-xs">{p.gia_tri_cong_no != null ? <Money>{fmtVND(p.gia_tri_cong_no)}</Money> : "—"}</span> },
     { key: "gia_du_phong", header: "Giá dự phòng", render: (p) => <span className="font-mono text-xs">{p.gia_du_phong != null ? <Money>{fmtVND(p.gia_du_phong)}</Money> : "—"}</span> },
@@ -1128,6 +1146,7 @@ function DanhMucTab() {
                 ma_linh_kien: "Mã",
                 ten_linh_kien: "Tên linh kiện",
                 trang_thai_ma: "Trạng thái mã",
+                ngay_tao: "Ngày tạo",
                 gia_ban: "Giá NY",
                 gia_tri_cong_no: "Giá KTV",
                 gia_du_phong: "Giá dự phòng",

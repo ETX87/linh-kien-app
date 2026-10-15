@@ -42,6 +42,8 @@ export interface LinhKienRow {
   trang_thai_ma: TrangThaiMaLk;
   ma_chuan: string | null;
   co_tren_gia88: number;
+  // Ngay tao ma (gio VN, migration 0081) - NULL = LK tao truoc khi co nhat ky xet duyet ma.
+  ngay_tao?: string | null;
 }
 
 export type TrangThaiMaLk = "Cho xet duyet" | "Da xac nhan" | "Tu dong duyet" | "Tu choi" | "Da doi ma";

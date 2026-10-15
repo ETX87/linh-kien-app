@@ -145,6 +145,10 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   `'Tu dong duyet'`; `co_tren_gia88` đồng bộ theo danh sách gia88 đầy đủ mỗi đêm. DVBH/Sửa chữa nhận LK ở MỌI
   trạng thái (từ 2026-10-12, migration 0076; trước đó chỉ đã xác nhận/tự động duyệt) — mã chờ duyệt sang ngay, từ chối/đổi mã
   sang với `bat_tat = 0`. Sidebar "Bảng giá" đếm LK chờ (`lkChoXetDuyet`, chỉ Mua hàng/Admin).
+  **Ngày tạo mã** (2026-10-15, v1.335, migration `0081`): `linh_kien.ngay_tao` (giờ VN) do TRIGGER `trg_linh_kien_ngay_tao` ghi
+  cho MỌI đường tạo LK (INSERT mang sẵn `ngay_tao` thì giữ — đổi mã A→B chép ngày tạo của A qua `COT_CHEP`); LK cũ lấy log đầu
+  tiên trong `linh_kien_log`, trước đó NULL ("—"). Bảng giá: cột "Ngày tạo" sau "Trạng thái mã", mã chờ xét duyệt hiện số ngày
+  chờ (cam khi > 3 ngày); lọc "Chờ xét duyệt" xếp mã cũ nhất lên đầu (khi không gõ tìm).
   UI: `modules/danhMucLinhKien/XetDuyetMaLk.tsx` (khối trong drawer chi tiết LK). **Mua hàng xem TOÀN BỘ, chỉ đọc**
   (đợt 2): `requireDatMuaLkArea` cho vào + chặn mọi request khác GET (`VIEW_READONLY`, giống View nhưng KHÔNG giới hạn
   Khu vực); `scopeDatMuaNguoiTao`/`scopePxkNguoiNhanHang`/`scopeKtvTonKho`/`phamViXem` (quỹ) trả null; 3 nhánh Thiếu LK
