@@ -513,7 +513,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
                   isGiamSat
                     ? "Giám sát: ngoài khu vực đang phụ trách (Cài đặt › Khu vực), được XEM thêm đơn hàng / phiếu xuất / thiếu hàng / công nợ của các khu vực chọn ở đây. Không đổi Giám sát phụ trách của khu vực."
                     : form.la_view
-                    ? "Với vai trò View: đây là phạm vi dữ liệu THẬT SỰ được xem (chỉ đơn của KTV thuộc các khu vực này) - chưa chọn khu vực nào thì không thấy đơn nào cả."
+                    ? "Với vai trò View: đây là phạm vi dữ liệu THẬT SỰ được xem (đơn / phiếu / công nợ / quỹ thuộc các khu vực này). Không chọn khu vực nào = xem TẤT CẢ khu vực."
                     : "Chỉ để tìm kiếm/thống kê/badge - KHÔNG giới hạn quyền xem/xử lý đơn. Có thể chọn nhiều khu vực, cho phép chồng chéo với người khác."
                 }
               />

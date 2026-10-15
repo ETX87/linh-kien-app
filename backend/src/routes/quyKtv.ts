@@ -27,7 +27,10 @@ async function phamViXem(c: C): Promise<string[] | null | undefined> {
   if (u.la_ve_tinh) return u.tram_cha ? [u.tram_cha] : [];
   if (u.la_ktv_dvbh) return [u.email];
   // View (2026-10-14, "xem full các menu"): chi doc, quy cua KTV thuoc Khu vuc duoc gan (cung tap voi khuVucViewEmailInSql).
+  // Chua gan Khu vuc nao -> xem tat ca (chot 2026-10-15).
   if (u.la_view) {
+    const coGan = await c.env.DB.prepare("SELECT 1 FROM user_khu_vuc WHERE user_email = ? LIMIT 1").bind(u.email).first();
+    if (!coGan) return null;
     const { results } = await c.env.DB.prepare(khuVucViewEmailInSql().slice(1, -1)).bind(u.email).all<{ email_dang_nhap: string }>();
     return (results ?? []).map((r) => r.email_dang_nhap);
   }

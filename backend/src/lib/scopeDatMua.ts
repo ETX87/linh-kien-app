@@ -21,6 +21,34 @@ export function gsKhuVucXemThemSql(col: string): string {
   return `${col} IN (SELECT khu_vuc_ma FROM user_khu_vuc WHERE user_email = ?)`;
 }
 
+/**
+ * Pham vi XEM cua vai tro View (chot 2026-10-15): "Cho tất cả các kv được gán" + "Nếu không gán kv nào thì là xem tất cả".
+ * - Da gan Khu vuc (user_khu_vuc): don/PXK cua KTV thuoc cac khu vuc do (theo email, nhu truoc) HOAC khu vuc HIEU LUC cua chinh
+ *   don/PXK (COALESCE(khu_vuc_chon, khu_vuc_ma) - de don GS/TN nhan, KTV chua gan khu vuc... van hien dung khu vuc).
+ * - Chua gan Khu vuc nao: KHONG gioi han (truoc 2026-10-15: khong thay gi). VIEW_CHUA_GAN_KHU_VUC_SQL la subquery KHONG phu thuoc
+ *   dong (SQLite tinh 1 lan). 1 bind = email View.
+ */
+export const VIEW_CHUA_GAN_KHU_VUC_SQL = "NOT EXISTS (SELECT 1 FROM user_khu_vuc WHERE user_email = ?)";
+
+/** Dieu kien View cho dat_don_hang (alias `ddh`). */
+export function viewDonScopeSql(email: string): { whereSql: string; binds: string[] } {
+  const emailIn = khuVucViewEmailInSql();
+  return {
+    whereSql: ` AND (${VIEW_CHUA_GAN_KHU_VUC_SQL} OR ddh.nguoi_tao IN ${emailIn} OR ddh.nguoi_nhan_hang IN ${emailIn} OR ${gsKhuVucXemThemSql("COALESCE(ddh.khu_vuc_chon, ddh.khu_vuc_ma)")})`,
+    binds: [email, email, email, email],
+  };
+}
+
+/** Dieu kien View cho phieu_xuat_kho (alias `pxk`). */
+export function viewPxkScopeSql(email: string): { whereSql: string; binds: string[] } {
+  return {
+    whereSql: ` AND (${VIEW_CHUA_GAN_KHU_VUC_SQL} OR pxk.nguoi_nhan_hang = ? OR pxk.nguoi_nhan_hang IN ${khuVucViewEmailInSql()} OR ${gsKhuVucXemThemSql("COALESCE(pxk.khu_vuc_chon, pxk.khu_vuc_ma)")})`,
+    binds: [email, email, email, email],
+  };
+}
+
+/** Tap email KTV thuoc Khu vuc gan cho tai khoan View (1 bind). Chua gan khu vuc -> tap rong; noi nao can "xem tat ca" thi
+ * dung VIEW_CHUA_GAN_KHU_VUC_SQL / viewDonScopeSql / viewPxkScopeSql. */
 export function khuVucViewEmailInSql(): string {
   return "(SELECT email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND khu_vuc_ma IN (SELECT khu_vuc_ma FROM user_khu_vuc WHERE user_email = ?))";
 }
@@ -64,13 +92,7 @@ export function scopeDatMuaNguoiTao(c: Context<{ Bindings: Env }>): { whereSql: 
       binds: [user.email, user.email, user.email],
     };
   }
-  if (user.la_view) {
-    const emailIn = khuVucViewEmailInSql();
-    return {
-      whereSql: ` AND (ddh.nguoi_tao IN ${emailIn} OR ddh.nguoi_nhan_hang IN ${emailIn})`,
-      binds: [user.email, user.email],
-    };
-  }
+  if (user.la_view) return viewDonScopeSql(user.email);
   return { whereSql: " AND 1=0", binds: [] };
 }
 
@@ -104,7 +126,7 @@ export function scopePxkNguoiNhanHang(c: Context<{ Bindings: Env }>): { whereSql
     };
   }
   if (user.la_view) {
-    return { whereSql: ` AND (pxk.nguoi_nhan_hang = ? OR pxk.nguoi_nhan_hang IN ${khuVucViewEmailInSql()})`, binds: [user.email, user.email] };
+    return viewPxkScopeSql(user.email);
   }
   return { whereSql: " AND pxk.nguoi_nhan_hang = ?", binds: [user.email] };
 }

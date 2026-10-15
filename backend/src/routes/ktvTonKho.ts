@@ -3,7 +3,7 @@ import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
-import { khuVucViewEmailInSql, gsKhuVucXemThemSql } from "../lib/scopeDatMua";
+import { VIEW_CHUA_GAN_KHU_VUC_SQL, gsKhuVucXemThemSql } from "../lib/scopeDatMua";
 import { nowVN } from "../lib/vnTime";
 import { getMocTinhCongNo, danhGiaCongNo3Muc, SL_HO_TRO_0D_SQL, CONG_NO_DA_TRU_FROM_SQL, CONG_NO_DA_TRU_WHERE_SQL, CONG_NO_DA_TRU_GIA_TRI_SQL } from "../lib/congNoKtv";
 import { daTruTheoMaHang } from "../lib/tonKhoKtv";
@@ -60,7 +60,8 @@ function scopeKtvTonKho(c: Context<{ Bindings: Env }>): { whereSql: string; bind
     return { whereSql: "k.email_dang_nhap = ?", binds: [user.email] };
   }
   if (user.la_view) {
-    return { whereSql: `k.email_dang_nhap IN ${khuVucViewEmailInSql()}`, binds: [user.email] };
+    // Gan Khu vuc -> KTV thuoc cac khu vuc do; chua gan -> tat ca (chot 2026-10-15).
+    return { whereSql: `(${VIEW_CHUA_GAN_KHU_VUC_SQL} OR ${gsKhuVucXemThemSql("k.khu_vuc_ma")})`, binds: [user.email, user.email] };
   }
   return { whereSql: "1=0", binds: [] };
 }

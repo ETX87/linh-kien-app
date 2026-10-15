@@ -47,7 +47,8 @@ async function resolveScopeEmails(
   let maSet: Set<string> | null = null;
   if (user.la_view && user.vai_tro !== "Admin") {
     const rows = await db.prepare("SELECT khu_vuc_ma FROM user_khu_vuc WHERE user_email = ?").bind(user.email).all<{ khu_vuc_ma: string }>();
-    maSet = new Set((rows.results ?? []).map((r) => r.khu_vuc_ma));
+    // Chua gan Khu vuc nao -> xem tat ca (chot 2026-10-15), nhu Admin.
+    if ((rows.results ?? []).length > 0) maSet = new Set((rows.results ?? []).map((r) => r.khu_vuc_ma));
   }
   if (khuVucParam) {
     const requested = new Set(khuVucParam.split(",").map((s) => s.trim()).filter(Boolean));

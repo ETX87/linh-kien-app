@@ -388,7 +388,7 @@ vực** — quyết định cuối: "view thấy theo khu vực được set" (k
 là con đường DUY NHẤT đưa tài khoản vào module — tài khoản có thêm cờ khác như `la_kho` vẫn ghi được
 bình thường theo quyền của cờ đó) và `lib/scopeDatMua.ts` (`khuVucViewEmailInSql()` — phạm vi xem =
 tập KTV/Vệ tinh có `khu_vuc_ma` nằm trong danh sách Khu vực được gán cho chính tài khoản View đó qua
-`user_khu_vuc`; chưa gán Khu vực nào thì không thấy đơn nào, không phải mặc định thấy hết). `App.tsx`
+`user_khu_vuc`). **Chốt 2026-10-15 (v1.329)**: gán Khu vực → xem TẤT CẢ các khu vực được gán, khớp theo email KTV HOẶC khu vực hiệu lực của chính đơn/PXK (`COALESCE(khu_vuc_chon, khu_vuc_ma)`); KHÔNG gán khu vực nào → xem TẤT CẢ (trước đó không thấy gì). Điều kiện chung `viewDonScopeSql`/`viewPxkScopeSql`/`VIEW_CHUA_GAN_KHU_VUC_SQL` (`scopeDatMua.ts`) — dùng ở scope đơn/PXK, 3 nhánh Thiếu LK, Công nợ (`ktvTonKho.ts`), Quỹ (`phamViXem`), báo cáo tốc độ xử lý. `App.tsx`
 tự cấp module `dat-mua-lk`/`thieu-lk`/`tra-hang` cho `la_view` giống các cờ nghiệp vụ khác. **View xem full các menu** (chốt 2026-10-14, v1.326): View vào MỌI màn như Mua hàng — Đơn hàng (danh sách Mua/Công nợ + menu Tổng/Chờ…, Hàng trả: `canXemDonMuaCongNo`/`canTraHangView` ở `DatMuaLinhKienModule.tsx` — thiếu thì danh sách rơi về lọc loại "mua", tìm đơn CÔNG NỢ theo Mã YCSC ra rỗng), Phiếu xuất (`canXemPxkTab`), Quỹ & chuyển tiền (`phamViXem()` ở `quyKtv.ts` = KTV thuộc Khu vực được gán; không có tab KH lẻ), Bảng giá — CHỈ ĐỌC (`requireDatMuaLkArea` chặn ghi), dữ liệu đơn/PXK/quỹ VẪN theo Khu vực được gán.
 
 ### Khu vực (2026-08-26 — xây lại quản lý tài khoản/vai trò)
@@ -441,8 +441,7 @@ KHÔNG tự set trong code; cột không bao giờ NULL. `email_gs` = `giam_sat_
 của đơn (trigger `trg_ddh_email_gs_theo_khu_vuc` + `DON_EMAIL_GS_MOI` ở `khuVucSync.ts` — cùng công thức) nên đơn GS tự
 nhận hàng không còn `email_gs` NULL. Bộ lọc khu vực (`khuVucSetWhereSql()`, CTE `kv_ma` ở `/luong-quy-trinh`) = điều kiện email KTV
 cũ **OR** cột này (không đơn nào mất); danh sách khu vực truyền 1 bind JSON (`json_each`). Cột "Khu vực" ở danh sách
-đơn/PXK/trả hàng + lọc cột Excel đọc thẳng cột này. Chưa áp: scope `la_view` (`khuVucViewEmailInSql`) và báo cáo tốc độ
-xử lý vẫn theo email KTV. Badge (`getDatMuaLkBadge`) cache theo version — đổi `user_khu_vuc` không làm mới ngay.
+đơn/PXK/trả hàng + lọc cột Excel đọc thẳng cột này. Báo cáo tốc độ xử lý vẫn theo email KTV. Badge (`getDatMuaLkBadge`) cache theo version — đổi `user_khu_vuc` không làm mới ngay.
 
 **Đơn "TRỪ CÔNG NỢ"** (chốt 2026-09-28): không đối chiếu công nợ (không cộng công nợ phát sinh) và không đối
 chiếu/giữ tồn kho công ty — đối chiếu **tồn kho của chính KTV nhận hàng** (`lib/tonKhoKtv.ts`: cuối kỳ file MISA −

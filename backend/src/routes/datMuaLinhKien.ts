@@ -11,7 +11,7 @@ import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nextSequentialId } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
 import { emailsTheoTen, orEmailIn, orMaYcsc, orPxkCuaDon } from "../lib/timTheoTen";
-import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, khuVucViewEmailInSql, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql, scopePxkNguoiNhanHang, gsKhuVucXemThemSql } from "../lib/scopeDatMua";
+import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, viewDonScopeSql, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql, scopePxkNguoiNhanHang, gsKhuVucXemThemSql } from "../lib/scopeDatMua";
 import { pxkKhopMienXuatSql } from "../lib/mienXuat";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
@@ -2937,9 +2937,9 @@ datMuaLinhKien.get("/search", async (c) => {
     } else if (user.la_mua_hang) {
       // "Mua hang" (2026-09-30) - xem toan bo, chi doc.
     } else if (user.la_view) {
-      const emailIn = khuVucViewEmailInSql();
-      whereSql += ` AND (ddh.nguoi_tao IN ${emailIn} OR ddh.nguoi_nhan_hang IN ${emailIn})`;
-      binds.push(user.email, user.email);
+      const v = viewDonScopeSql(user.email);
+      whereSql += v.whereSql;
+      binds.push(...v.binds);
     } else {
       whereSql += " AND tlk.nguoi_tao = ?";
       binds.push(user.email);
@@ -4525,9 +4525,9 @@ async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = 
   } else if (user.la_view) {
     // "View" (them 2026-08-26) - loc theo Khu vuc gan cho tai khoan nay, giong scopeDatMuaNguoiTao -
     // xem comment khuVucViewEmailInSql() trong scopeDatMua.ts.
-    const emailIn = khuVucViewEmailInSql();
-    whereSql += ` AND (ddh.nguoi_tao IN ${emailIn} OR ddh.nguoi_nhan_hang IN ${emailIn})`;
-    binds.push(user.email, user.email);
+    const v = viewDonScopeSql(user.email);
+    whereSql += v.whereSql;
+    binds.push(...v.binds);
   } else {
     whereSql += " AND tlk.nguoi_tao = ?";
     binds.push(user.email);
@@ -4665,9 +4665,9 @@ datMuaLinhKien.get("/thieu-lk/:id", async (c) => {
   } else if (user.la_view) {
     // "View" (them 2026-08-26) - loc theo Khu vuc gan cho tai khoan nay, giong scopeDatMuaNguoiTao -
     // xem comment khuVucViewEmailInSql() trong scopeDatMua.ts.
-    const emailIn = khuVucViewEmailInSql();
-    whereSql += ` AND (ddh.nguoi_tao IN ${emailIn} OR ddh.nguoi_nhan_hang IN ${emailIn})`;
-    binds.push(user.email, user.email);
+    const v = viewDonScopeSql(user.email);
+    whereSql += v.whereSql;
+    binds.push(...v.binds);
   } else {
     whereSql += " AND tlk.nguoi_tao = ?";
     binds.push(user.email);
