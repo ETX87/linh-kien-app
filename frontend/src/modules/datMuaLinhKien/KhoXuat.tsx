@@ -94,7 +94,7 @@ export function KhuVucPxkBadge({ pxk }: { pxk: PxkKhuVuc }) {
   if (!pxk.khu_vuc_chon) return null;
   return (
     <Badge tone="purple">
-      <span title={t("Kho đã chuyển từ {a}", { a: pxk.khu_vuc_tu_dong_ten ?? pxk.khu_vuc_ma ?? "?" })}>{t("Khu vực {a} · Kho đã chuyển", { a: pxk.khu_vuc_chon_ten ?? pxk.khu_vuc_chon })}</span>
+      <span title={t("Đã chuyển khu vực từ {a}", { a: pxk.khu_vuc_tu_dong_ten ?? pxk.khu_vuc_ma ?? "?" })}>{t("Khu vực {a} · đã chuyển", { a: pxk.khu_vuc_chon_ten ?? pxk.khu_vuc_chon })}</span>
     </Badge>
   );
 }
@@ -140,7 +140,7 @@ export function ChuyenKhuVucCard({ pxk, addToast, onDone }: { pxk: PxkKhuVuc; ad
       </div>
       <div className="mt-1.5 text-[11px] text-[var(--ink-500)]">
         {pxk.khu_vuc_chon
-          ? t("Kho đã chuyển từ {a} — phiếu + đơn trong phiếu chỉ hiện cho Kho/Kế toán/TN khu vực {b}.", { a: pxk.khu_vuc_tu_dong_ten ?? pxk.khu_vuc_ma ?? "?", b: pxk.khu_vuc_chon_ten ?? pxk.khu_vuc_chon })
+          ? t("Đã chuyển từ {a} — phiếu + đơn trong phiếu chỉ hiện cho Kho/Kế toán/TN khu vực {b}.", { a: pxk.khu_vuc_tu_dong_ten ?? pxk.khu_vuc_ma ?? "?", b: pxk.khu_vuc_chon_ten ?? pxk.khu_vuc_chon })
           : t("Phiếu sai khu vực: chọn lại để chuyển cả phiếu + đơn trong phiếu sang Kho/Kế toán/TN khu vực đúng (kho xuất MISA theo miền khu vực mới).")}
       </div>
     </div>

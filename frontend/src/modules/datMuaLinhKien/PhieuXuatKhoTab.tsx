@@ -2109,8 +2109,8 @@ export function PxkDetailModal({
             <ChuyenKhoXuatCard pxk={pxk} addToast={addToast} onDone={invalidate} />
           )}
 
-          {/* Kho chon lai khu vuc cho phieu sai khu vuc (2026-10-07) - phieu chua dong. */}
-          {canKho && !PXK_TRANG_THAI_DONG.includes(trangThai) && (
+          {/* Chon lai khu vuc cho phieu sai khu vuc (2026-10-07 Kho; + TN/Ke toan 2026-10-15) - phieu chua dong. */}
+          {(canKho || canTacNghiep || canKeToan) && !PXK_TRANG_THAI_DONG.includes(trangThai) && (
             <ChuyenKhuVucCard pxk={pxk} addToast={addToast} onDone={invalidate} />
           )}
 

@@ -1705,5 +1705,8 @@ const tuDien: Record<string, string> = {
   "Đơn đã từ chối/hủy — không đổi khu vực được": "The order is rejected/cancelled — the area can't be changed",
   "Đơn đã vào phiếu xuất — Kho đổi khu vực ở chi tiết phiếu": "The order is already in a delivery note — the Warehouse changes the area in the note details",
   "đã đổi": "changed",
+  "Đã chuyển khu vực từ {a}": "Area changed from {a}",
+  "Khu vực {a} · đã chuyển": "Area {a} · changed",
+  "Đã chuyển từ {a} — phiếu + đơn trong phiếu chỉ hiện cho Kho/Kế toán/TN khu vực {b}.": "Changed from {a} — the note and its orders only show to Warehouse/Accounting/Ops of area {b}.",
 };
 export default tuDien;

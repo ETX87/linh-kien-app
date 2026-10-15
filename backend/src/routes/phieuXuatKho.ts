@@ -1165,7 +1165,8 @@ phieuXuatKho.patch("/:id/mien-xuat", async (c) => {
 // khu vuc cu khong con thay mac dinh. Xoa luon chuyen kho xuat cua TN (mien_xuat) - mien theo khu vuc moi (file MISA cung
 // vay). Duoc doi khi phieu chua dong.
 phieuXuatKho.patch("/:id/khu-vuc", async (c) => {
-  if (!canKho(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  // + TN / Ke toan (chot 2026-10-15) - cung dieu kien phieu chua dong.
+  if (!canKho(c) && !canTacNghiep(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const id = c.req.param("id");
   const body = await c.req.json<{ khu_vuc_ma: string; ghi_chu?: string }>().catch(() => null);
   const ma = body?.khu_vuc_ma?.trim();
@@ -1194,7 +1195,7 @@ phieuXuatKho.patch("/:id/khu-vuc", async (c) => {
     .run();
   if (!upd.meta.changes) return c.json({ error: "CONFLICT" }, 409);
   const lyDo = body?.ghi_chu?.trim();
-  const ghiChu = `Kho chuyển khu vực: ${pxk.ten_cu ?? pxk.khu_vuc_chon ?? pxk.khu_vuc_ma ?? "?"} → ${kv.ten}${moi === null ? " (khu vực tự động)" : ""}${pxk.mien_xuat ? " — bỏ chuyển kho xuất cũ" : ""}${lyDo ? ` — ${lyDo}` : ""}`;
+  const ghiChu = `Chuyển khu vực phiếu: ${pxk.ten_cu ?? pxk.khu_vuc_chon ?? pxk.khu_vuc_ma ?? "?"} → ${kv.ten}${moi === null ? " (khu vực tự động)" : ""}${pxk.mien_xuat ? " — bỏ chuyển kho xuất cũ" : ""}${lyDo ? ` — ${lyDo}` : ""}`;
   const r = await c.env.DB.batch([
     c.env.DB.prepare("UPDATE dat_don_hang SET khu_vuc_chon = ? WHERE id IN (SELECT dat_don_hang_id FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ?)").bind(moi, id),
     c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Da chuyen khu vuc', ?, ?, ?)").bind(
