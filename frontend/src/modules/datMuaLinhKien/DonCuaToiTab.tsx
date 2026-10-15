@@ -1576,6 +1576,7 @@ export function DonCuaToiTab({
   onDetailIdConsumed,
   onJumpConsumed,
   loaiDonTabClickSeq,
+  toolbarSlot,
 }: {
   user: { email: string; vai_tro: string | null } | null;
   addToast: (msg: string) => void;
@@ -1614,6 +1615,8 @@ export function DonCuaToiTab({
   // co che "tu tieu thu" nhu onDetailIdConsumed o tren thay vi timer mu.
   onJumpConsumed?: () => void;
   loaiDonTabClickSeq?: number;
+  // O tren header module (cung hang "Cần làm" + "＋ Tạo đơn") de dat thanh loc/tim/tai - desktop (2026-10-15). null = render tai cho.
+  toolbarSlot?: HTMLDivElement | null;
 }) {
   const personDir = usePersonDirectory();
   // Mac dinh loc thang vao bucket "can xu ly" cua vai tro dang xem (chi anh huong lan dau, xem
@@ -2115,7 +2118,8 @@ export function DonCuaToiTab({
           với nút filter"): ActiveFiltersBar gop VAO CHUNG hang voi nut "Bộ lọc"/o tim kiem (truoc day
           nam rieng 1 hang duoi) - flex-wrap cua hang ngoai tu xuong dong khi khong du cho (man hep),
           ActiveFiltersBar tu return null khi khong co bo loc nao dang bat nen khong chiem cho thua. */}
-      <div className="flex items-center gap-2 mb-2 flex-wrap">
+      {(() => { const toolbarEl = (
+      <div className={toolbarSlot ? "flex w-full flex-1 items-center gap-2 flex-wrap" : "flex items-center gap-2 mb-2 flex-wrap"}>
         <Btn size="sm" variant="ghost" onClick={() => setShowFilters((v) => !v)}>
           {showFilters ? t("▲ Ẩn bộ lọc") : `☰ ${t("Bộ lọc")}${activeFilterCount > 0 ? ` (${activeFilterCount})` : ""} ▾`}
         </Btn>
@@ -2157,6 +2161,7 @@ export function DonCuaToiTab({
           {downloadingFull ? t("Đang tải...") : t("⬇ Tải danh sách chi tiết")}
         </Btn>
       </div>
+      ); return toolbarSlot ? createPortal(toolbarEl, toolbarSlot) : toolbarEl; })()}
       {showFilters && (
         // SUA (phan hoi 2026-09-12: "chuyển tất cả các nút filter lên cùng dòng") - dong bo voi
         // FilterSearchBar (SharedUi.tsx): flex-col -> flex-wrap, cac khoi loc nam CHUNG 1 hang khi du

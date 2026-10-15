@@ -885,10 +885,15 @@ export function DatMuaLinhKienModule({
   // Chuong thong bao KTV: CHUYEN RA App.tsx (them 2026-09-05, phan hoi "chuyển vị trí chuông thông
   // báo lên top giao diện" - truoc day chi hien tren man Home, gio hien o header chung MOI tab) - xem
   // externalDetailOpen prop + useEffect xu ly no o tren.
+  // Desktop danh sach don (2026-10-15, phan hoi "gộp 2 dòng này thành 1 dòng"): thanh loc/tim/tai cua DonCuaToiTab portal vao
+  // o nay - CUNG hang voi "Cần làm" + "＋ Tạo đơn". Mobile giu thanh loc trong tab nhu cu.
+  const [donToolbarSlot, setDonToolbarSlot] = useState<HTMLDivElement | null>(null);
+  const gopToolbarDon = !isMobile && activeView === "don-cua-toi";
   const headerContentEl = (
     <>
       {titleButtonEl}
       {pipelineEl}
+      {gopToolbarDon && <div ref={setDonToolbarSlot} className="flex min-w-0 flex-1 items-center" />}
     </>
   );
 
@@ -1003,6 +1008,7 @@ export function DatMuaLinhKienModule({
             onDetailIdConsumed={consumeOpenDetailId}
             onJumpConsumed={consumeJumpTarget}
             loaiDonTabClickSeq={loaiDonTabClickSeq}
+            toolbarSlot={gopToolbarDon ? donToolbarSlot : null}
           />
         )}
         {activeView === "phieu-xuat-kho" && (

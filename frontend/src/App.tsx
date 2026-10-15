@@ -409,9 +409,9 @@ function MainApp({
             md:hidden cua BottomTabBar): 56px thanh + 16px khoang thoang + safe-area iPhone. */}
         <main className={`px-4 pt-4 sm:px-6 sm:pt-4 flex-1 min-w-0 ${isMobile ? "pb-[calc(4.5rem+env(safe-area-inset-bottom))]" : "pb-5 sm:pb-[22px]"}`}>
           <div className="flex items-center justify-between mb-[14px] flex-wrap gap-2">
-            <div className="flex items-center gap-3 flex-wrap min-w-0">
+            <div className="flex flex-1 items-center gap-3 flex-wrap min-w-0">
               {active !== "dat-mua-lk" && active !== "phieu-xuat" && active !== "tra-hang" && <h1 className="page-title text-lg sm:text-[21px]">{MODULE_TITLES[active] ? t(MODULE_TITLES[active]) : active}</h1>}
-              <div ref={setHeaderExtraEl} className="flex items-center gap-2 flex-wrap min-w-0" />
+              <div ref={setHeaderExtraEl} className="flex flex-1 items-center gap-2 flex-wrap min-w-0" />
             </div>
             {/* Muc 7 (yeu cau UI mobile 2026-08-27): "icon cai dat giao dien va muc dang xuat o goc
                 phai" - tai dung NGUYEN VEN TopBarActions (da co san "🎨 Giao diện"/"Đăng xuất" trong
