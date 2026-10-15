@@ -143,6 +143,7 @@ const tuDien: Record<string, string> = {
   "Chưa có đơn nào được duyệt mua.": "Belum ada pesanan beli yang disetujui.",
   "Chưa có ảnh minh hoạ": "Belum ada gambar",
   "Chưa in": "Belum dicetak",
+  "Đã in": "Sudah dicetak",
   "Chưa nhập mã combo": "Kode kombo belum diisi",
   "Chưa nhập tên combo": "Nama kombo belum diisi",
   "Chưa rõ giá": "Harga belum diketahui",

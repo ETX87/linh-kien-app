@@ -107,8 +107,10 @@ export function ImageLink({ url, className, children }: { url: string; className
 // nao - CHI dung dung de tra cuu mau (`tones`). Them `options` (danh sach { value, label } co san moi
 // noi goi, dung chung voi TrangThaiChipFilter/ActiveFiltersBar) de dich sang nhan tieng Viet co dau
 // truoc khi hien, qua trangThaiLabel (fallback ve chinh value neu khong khop - khong an du lieu).
-export function StatusBadge({ value, tones, options }: { value: string; tones: Record<string, Tone>; options: { value: string; label: string }[] }) {
-  return <Badge tone={tones[value] ?? "neutral"}>{trangThaiLabel(options, value)}</Badge>;
+// `phu` (2026-10-15): trang thai PHU cua dong (vd Phiếu xuất kho / Chuyển tiền o danh sach don) - cham mau + chu thuong, khong nen;
+// moi dong chi giu 1 badge nen mau cho trang thai chinh.
+export function StatusBadge({ value, tones, options, phu = false }: { value: string; tones: Record<string, Tone>; options: { value: string; label: string }[]; phu?: boolean }) {
+  return <Badge tone={tones[value] ?? "neutral"} variant={phu ? "dot" : "soft"}>{trangThaiLabel(options, value)}</Badge>;
 }
 
 // Thanh hien thi bo loc dang ap dung + nut xoa tung cai/xoa het (UI redesign phan hoi Codex
@@ -125,8 +127,9 @@ export function loaiDeXuatText(loaiDon: string | null | undefined, loaiDeXuat?: 
 }
 
 export function LoaiDeXuatBadge({ loaiDon, loaiDeXuat }: { loaiDon: string | null | undefined; loaiDeXuat?: string | null }) {
-  const nhom = (loaiDon && loaiDon in LOAI_DON_TONE ? loaiDon : "mua") as keyof typeof LOAI_DON_TONE;
-  return <Badge tone={LOAI_DON_TONE[nhom].tone} dot={false}>{loaiDeXuatText(loaiDon, loaiDeXuat)}</Badge>;
+  // 2026-10-15 ("app màu mè, rối mắt"): Loai = CHU THUONG trung tinh (truoc: pill mau theo nhom Mua/Cong no/Tra hang) - mau chi danh
+  // cho trang thai. Cot "Loại" + loc cot van phan biet duoc nhom.
+  return <span className="whitespace-nowrap text-[11px] font-semibold tracking-wide text-[var(--color-text-secondary)]">{loaiDeXuatText(loaiDon, loaiDeXuat)}</span>;
 }
 
 export function ActiveFiltersBar({ chips }: { chips: { label: string; onClear: () => void }[] }) {

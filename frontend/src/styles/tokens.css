@@ -34,7 +34,8 @@
   --color-primary-ring: rgba(20, 103, 232, 0.15);
 
   /* ---- Nền & bề mặt (§2.2) ---- */
-  --color-background: #f6f9fe;
+  /* 2026-10-15 (phan hoi "màu nền gây hoa mắt => sửa thành nền màu trắng"): nen trang TRANG, khoi tach bang vien. */
+  --color-background: #ffffff;
   --color-surface: #ffffff;
   --color-surface-soft: #f8fafc;
   --color-surface-hover: #f1f5f9;
@@ -58,36 +59,39 @@
   --color-success-soft: #dcfce7;
   /* Số tiền (phản hồi 2026-09-28: "tất cả UI số tiền tô màu xanh lá cây đậm để dễ phân biệt") -
      MỌI số tiền hiển thị dùng <Money> (components/ui/Money.tsx) → class .money bên dưới. */
-  --color-money: #166534;
+  /* 2026-10-15 ("app màu mè, rối mắt"): BO to xanh la - tien = chu thuong mau chu chinh, dam vua, so canh deu. */
+  --color-money: var(--color-text);
   /* Tên người (phản hồi 2026-09-28: "tên người tạo đơn = màu hồng đậm, người nhận hàng = màu xanh dương
      đậm") - dùng qua <NguoiTao>/<NguoiNhan> (components/ui/TenNguoi.tsx). Chỉ đổi màu, giữ độ đậm chữ. */
-  --color-nguoi-tao: #be185d;
-  --color-nguoi-nhan: #1e40af;
-  /* Loại chiết khấu - MỖI loại 1 màu cố định (phản hồi 2026-09-28 "mỗi loại chiết khấu 1 màu khác để dễ
+  /* 2026-10-15: BO mau hong/xanh - phan biet nguoi tao/nguoi nhan bang tieu de cot, khong bang mau. */
+  --color-nguoi-tao: inherit;
+  --color-nguoi-nhan: inherit;
+  /* 2026-10-15 ("app màu mè"): MOI loai chiet khau = chu trung tinh, khong nen (giu ten bien de khong sua noi goi).
+     Lich su: Loại chiết khấu - MỖI loại 1 màu cố định (phản hồi 2026-09-28 "mỗi loại chiết khấu 1 màu khác để dễ
      phân biệt, áp dụng mọi UI"). Dùng qua <LoaiChietKhauChip>/class .ck-* (LoaiChietKhau.tsx), KHÔNG
      mang nghĩa ngữ nghĩa (chờ/lỗi/xong) - chỉ là màu phân loại. Loại tự thêm (ma NULL) xoay vòng tu-them-0..4 theo id. */
-  --ck-khong-ck-bg: #f1f5f9;
-  --ck-khong-ck-fg: #475569; /* Không chiết khấu - xám */
-  --ck-dinh-tu-bg: #ccfbf1;
-  --ck-dinh-tu-fg: #0f766e; /* Đình tủ - xanh ngọc */
-  --ck-tong-200-500-bg: #fef3c7;
-  --ck-tong-200-500-fg: #b45309; /* 200k-500k - vàng hổ phách */
-  --ck-gia-ktv-bg: #dbeafe;
-  --ck-gia-ktv-fg: #1d4ed8; /* Giá KTV - xanh dương */
-  --ck-gia-du-phong-bg: #ede9fe;
-  --ck-gia-du-phong-fg: #6d28d9; /* Giá dự phòng - tím */
-  --ck-cong-no-bg: #cffafe;
-  --ck-cong-no-fg: #0e7490; /* Công nợ - xanh lơ */
-  --ck-tu-them-0-bg: #e0e7ff;
-  --ck-tu-them-0-fg: #4338ca; /* loại tự thêm - chàm */
-  --ck-tu-them-1-bg: #ecfccb;
-  --ck-tu-them-1-fg: #4d7c0f; /* loại tự thêm - xanh lá mạ */
-  --ck-tu-them-2-bg: #fae8ff;
-  --ck-tu-them-2-fg: #a21caf; /* loại tự thêm - hồng tím */
-  --ck-tu-them-3-bg: #ffe4e6;
-  --ck-tu-them-3-fg: #be123c; /* loại tự thêm - đỏ hồng */
-  --ck-tu-them-4-bg: #e7e5e4;
-  --ck-tu-them-4-fg: #57534e; /* loại tự thêm - nâu xám */
+  --ck-khong-ck-bg: transparent;
+  --ck-khong-ck-fg: var(--color-text-body); /* Không chiết khấu - xám */
+  --ck-dinh-tu-bg: transparent;
+  --ck-dinh-tu-fg: var(--color-text-body); /* Đình tủ - xanh ngọc */
+  --ck-tong-200-500-bg: transparent;
+  --ck-tong-200-500-fg: var(--color-text-body); /* 200k-500k - vàng hổ phách */
+  --ck-gia-ktv-bg: transparent;
+  --ck-gia-ktv-fg: var(--color-text-body); /* Giá KTV - xanh dương */
+  --ck-gia-du-phong-bg: transparent;
+  --ck-gia-du-phong-fg: var(--color-text-body); /* Giá dự phòng - tím */
+  --ck-cong-no-bg: transparent;
+  --ck-cong-no-fg: var(--color-text-body); /* Công nợ - xanh lơ */
+  --ck-tu-them-0-bg: transparent;
+  --ck-tu-them-0-fg: var(--color-text-body); /* loại tự thêm - chàm */
+  --ck-tu-them-1-bg: transparent;
+  --ck-tu-them-1-fg: var(--color-text-body); /* loại tự thêm - xanh lá mạ */
+  --ck-tu-them-2-bg: transparent;
+  --ck-tu-them-2-fg: var(--color-text-body); /* loại tự thêm - hồng tím */
+  --ck-tu-them-3-bg: transparent;
+  --ck-tu-them-3-fg: var(--color-text-body); /* loại tự thêm - đỏ hồng */
+  --ck-tu-them-4-bg: transparent;
+  --ck-tu-them-4-fg: var(--color-text-body); /* loại tự thêm - nâu xám */
   --color-info: #0379a8;
   --color-info-soft: #e3f8fd;
   --color-warning: #ff9800;
@@ -169,17 +173,19 @@
   --chip-fg: #0f4fb0;
 
   /* ---- Sidebar (§2.1/§4): gradient xanh hoàng gia, chữ trắng ---- */
-  --sidebar-gradient: linear-gradient(180deg, #0d4fb8 0%, #0b46a6 45%, #093b8f 80%, #0e5cc4 100%);
-  --sidebar-bg-from: #0d4fb8;
-  --sidebar-bg-to: #093b8f;
-  --sidebar-fg: rgba(255, 255, 255, 0.88);
-  --sidebar-fg-dim: rgba(255, 255, 255, 0.62);
-  --sidebar-hover-bg: rgba(255, 255, 255, 0.1);
-  --sidebar-active-bg: rgba(255, 255, 255, 0.25);
-  --sidebar-active-fg: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.12);
-  --sidebar-tag-bg: rgba(255, 255, 255, 0.14);
-  --sidebar-tag-fg: #dce8ff;
+  /* 2026-10-15 ("nền màu trắng"): Sidebar TRANG (truoc: gradient xanh hoang gia, chu trang). Muc dang chon = nen xanh nhat +
+     chu primary - mau thuong hieu chi con o diem nhan, khong phu ca cot. */
+  --sidebar-gradient: #ffffff;
+  --sidebar-bg-from: #ffffff;
+  --sidebar-bg-to: #ffffff;
+  --sidebar-fg: var(--color-text-body);
+  --sidebar-fg-dim: var(--color-text-secondary);
+  --sidebar-hover-bg: var(--color-subtle);
+  --sidebar-active-bg: var(--color-primary-soft);
+  --sidebar-active-fg: var(--color-primary-dark);
+  --sidebar-border: var(--color-border);
+  --sidebar-tag-bg: var(--color-subtle);
+  --sidebar-tag-fg: var(--color-text-secondary);
 
   /* ---- Topbar (§4): nền trắng, viền dưới mờ ---- */
   --topbar-bg: #ffffff;
@@ -354,13 +360,13 @@ body {
   width: 5px;
 }
 .sidebar-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--color-border-strong);
   border-radius: 8px;
 }
 
+/* 2026-10-15: bo vet loang mau nen (nen trang). */
 .ripple-bg {
-  background-image: radial-gradient(circle at 15% 25%, color-mix(in srgb, var(--color-primary) 10%, transparent) 0, transparent 42%),
-    radial-gradient(circle at 85% 15%, color-mix(in srgb, var(--color-success) 8%, transparent) 0, transparent 38%);
+  background-image: none;
 }
 
 .focus-ring:focus-visible {
@@ -567,7 +573,8 @@ textarea::placeholder {
    ============================================================================ */
 .content-card {
   background: var(--color-surface);
-  border: 1px solid var(--color-border-soft);
+  /* nen trang -> vien ro hon (border thay border-soft) de khoi van tach khoi nen. */
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
 }
@@ -584,7 +591,7 @@ textarea::placeholder {
 /* Số tiền - xem --color-money + components/ui/Money.tsx. */
 .money {
   color: var(--color-money);
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -684,15 +691,16 @@ textarea::placeholder {
   border-radius: var(--radius-kpi);
   border: 1px solid var(--color-border-soft);
   box-shadow: var(--shadow-card);
-  background: linear-gradient(135deg, var(--kpi-from), var(--kpi-to));
+  /* 2026-10-15 ("nền màu trắng"): bo nen pastel gradient - the KPI nen trang, chi con icon tron mang mau nhom. */
+  background: var(--color-surface);
+  border-color: var(--color-border);
 }
 .kpi-card .kpi-icon {
   background: var(--kpi-icon);
   color: #fff;
 }
 .kpi-card .kpi-watermark {
-  color: var(--kpi-icon);
-  opacity: 0.13;
+  display: none;
 }
 .kpi-card .kpi-accent {
   color: var(--kpi-fg);

@@ -179,7 +179,7 @@ export const TRA_HANG_BULK_ERROR_MESSAGES: Record<string, string> = {
 // CHU trong badge (dung nguyen tac accessibility cua chinh UI_SPEC §6: "trạng thái không chỉ dựa
 // màu"), khong tu y them tone thu 7 ngoai spec.
 export const DON_HANG_TRANG_THAI_TONE: Record<string, Tone> = {
-  "Cho Tram duyet": "success",
+  "Cho Tram duyet": "info", // 2026-10-15: dang CHO -> info (truoc success = mau "xong", sai nghia)
   "Cho TBP xac nhan": "warning",
   "Cho TN duyet": "info",
   "TN da duyet": "success",
@@ -194,16 +194,11 @@ export const DON_HANG_TRANG_THAI_TONE: Record<string, Tone> = {
 // chi ap dung len phan ten (khong toan hang, tranh roi mat), StatusBadge canh ben van la diem neo
 // chinh. DOI SANG token UI_SPEC (--color-danger/--color-warning/--color-text-secondary/--color-
 // success), khop dung DON_HANG_TRANG_THAI_TONE o tren (2026-09-10).
+// 2026-10-15 ("app màu mè, rối mắt"): KHONG to mau chu ca dong theo trang thai nua (trang thai da co badge rieng) - chi con gach
+// ngang chu xam cho don da huy / bi tu choi.
 export const DON_HANG_ROW_STYLE: Record<string, string> = {
   "Da huy": "line-through text-[var(--color-text-secondary)]",
-  "TN tu choi": "line-through text-[var(--color-danger)]",
-  "Cho Tram duyet": "text-[var(--color-success)]",
-  "Cho TBP xac nhan": "text-[var(--color-warning-strong)]",
-  "Cho TN duyet": "text-[var(--color-info)]",
-  "Cho hang": "text-[var(--color-warning-strong)] font-medium",
-  "TN da duyet": "text-[var(--color-success)]",
-  "Cho GS duyet": "text-[var(--color-purple)]",
-  "Cho thanh toan": "text-[var(--color-warning-strong)]",
+  "TN tu choi": "line-through text-[var(--color-text-secondary)]",
 };
 
 // UI_SPEC §1.2: "Chờ kho"/"Chờ QC"/"Đang xử lý" -> info, cac buoc "cho ke toan xu ly/chot" -> warning

@@ -73,14 +73,14 @@ export function Sidebar({
 
   const content = (
     <aside
-      className={`relative overflow-hidden h-full flex flex-col text-[var(--sidebar-fg)] transition-all duration-200 ${isMobile ? "w-[min(261px,85vw)]" : collapsed ? "w-[var(--sidebar-w-collapsed)]" : "w-[var(--sidebar-w)]"}`}
+      className={`relative overflow-hidden h-full flex flex-col border-r border-[var(--sidebar-border)] text-[var(--sidebar-fg)] transition-all duration-200 ${isMobile ? "w-[min(261px,85vw)]" : collapsed ? "w-[var(--sidebar-w-collapsed)]" : "w-[var(--sidebar-w)]"}`}
       style={{ background: "var(--sidebar-gradient)" }}
     >
       <div className="flex items-center gap-2.5 px-4 h-16 shrink-0 border-b border-[var(--sidebar-border)]">
         <img src="/icon-192.png" alt={t("Đặt mua linh kiện")} width={34} height={34} className="shrink-0 rounded-[10px] shadow-[var(--shadow-raise)]" />
         {showText && (
           <div className="leading-tight">
-            <div className="text-[16px] font-bold tracking-tight text-white">{t("Đặt hàng linh kiện")}</div>
+            <div className="text-[16px] font-bold tracking-tight text-[var(--color-text)]">{t("Đặt hàng linh kiện")}</div>
             <div className="text-[11px] font-semibold text-[var(--sidebar-fg-dim)]">3T</div>
           </div>
         )}
@@ -89,8 +89,8 @@ export function Sidebar({
       {isMobile && (
         <div className="px-3 py-2.5 border-b border-[var(--sidebar-border)] shrink-0">
           <div className="flex items-center justify-between gap-2">
-            <TopBarActions role={role} user={user} realIsAdmin={realIsAdmin} viewAsRole={viewAsRole} tone="dark" />
-            <ChonNgonNgu toi />
+            <TopBarActions role={role} user={user} realIsAdmin={realIsAdmin} viewAsRole={viewAsRole} />
+            <ChonNgonNgu />
           </div>
         </div>
       )}
@@ -174,11 +174,7 @@ export function Sidebar({
           {showText && t("Thu gọn sidebar")}
         </button>
       )}
-      {/* Sóng cyan trang trí chân sidebar (§4) - thuần thẩm mỹ, không bắt sự kiện. */}
-      <svg aria-hidden className="pointer-events-none absolute bottom-0 left-0 w-full h-24 opacity-[0.18]" viewBox="0 0 261 96" preserveAspectRatio="none">
-        <path d="M0 52 C 60 28, 120 76, 190 50 S 261 40, 261 40 L 261 96 L 0 96 Z" fill="var(--brand-cyan)" />
-        <path d="M0 70 C 70 50, 140 92, 210 66 S 261 60, 261 60 L 261 96 L 0 96 Z" fill="var(--brand-cyan)" opacity="0.6" />
-      </svg>
+      {/* 2026-10-15: bo song cyan trang tri chan sidebar (Sidebar nen trang, "app màu mè"). */}
       {showText && (
         <div className="relative z-[1] px-3.5 pb-3 pt-1 text-[10px] leading-snug text-[var(--sidebar-fg-dim)] shrink-0">
           {t("Hệ thống nội bộ không chia sẻ dưới mọi hình thức.")}

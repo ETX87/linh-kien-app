@@ -830,7 +830,9 @@ export function DatMuaLinhKienModule({
   // Mobile: khong render thanh pipeline (steps rong vi query da enabled:false o tren) - chi giu lai
   // duy nhat loi tat "+ Tao don" (hanh dong, khong phai bao cao) de khong mat tinh nang tao don, vi
   // day la CACH DUY NHAT tao don tren "Don cua toi" (nut rieng da bo, xem DonCuaToiTab.tsx dong 887).
-  const pipelineEl = isMobile ? (
+  // Thi diem gon man Đơn hàng (2026-10-15, phan hoi "app màu mè và rối mặt"): desktop o danh sach don cung chi giu nut
+  // "＋ Tạo đơn", bo dai "Cần làm" (dai nay van o Trang chủ / Phiếu xuất / Hàng trả).
+  const pipelineEl = isMobile || activeView === "don-cua-toi" ? (
     canTaoDon && (
       <button
         type="button"

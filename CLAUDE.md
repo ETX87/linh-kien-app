@@ -207,7 +207,7 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   (Chờ KTV chuyển tiền / Chờ xác nhận chuyển tiền / Chờ TN gửi kế toán); đơn chưa vào phiếu: "TN da duyet" → "Chờ tạo
   phiếu", còn lại trống. Chuyển tiền: đơn từ chối/hủy → Đã hủy bỏ; không phải Mua/TRỪ CÔNG NỢ → Không cần chuyển; chưa vào
   phiếu → Chờ thanh toán (chốt người dùng); trong phiếu theo `trang_thai_chuyen_tien` (Kế toán duyệt = Đã thanh toán; PXK
-  `so_tien_can_chuyen` NULL = Không cần chuyển). Danh sách đơn: 3 cột Trạng thái / Phiếu xuất kho / Chuyển tiền đứng NGAY SAU "Linh kiện" (2026-10-03), tiếp theo Loại / Ghi chú người đặt hàng / Mã yêu cầu sự cố / Mã Lada (2026-10-04, key cấu hình cột `dmlk-don-hang-list-v4` — đổi thứ tự mặc định thì tăng key để bỏ thứ tự đã lưu); mobile: dòng 3 của thẻ đơn.
+  `so_tien_can_chuyen` NULL = Không cần chuyển). Danh sách đơn: 3 cột Trạng thái / Phiếu xuất kho / Chuyển tiền đứng NGAY SAU "Linh kiện" (2026-10-03), tiếp theo Loại / Ghi chú người đặt hàng / Mã yêu cầu sự cố / Mã Lada (2026-10-04; 2026-10-15 gọn còn ~9 cột chính `COT_CHINH`, cột còn lại ẩn trong "Tùy chỉnh cột", key cấu hình cột `dmlk-don-hang-list-v5` — đổi thứ tự/cột mặc định thì tăng key để bỏ cấu hình đã lưu); mobile: dòng 3 của thẻ đơn.
 - **Kế toán đẩy lùi PXK "Chờ mã MISA" → "Chờ mã HĐ"** (2026-09-29): `POST /phieu-xuat-kho/:id/log` `trang_thai='Dang tao
   phieu'` từ "Cho ke toan", CHỈ Kế toán/Admin, bắt buộc `ghi_chu` (log "Kế toán trả về chờ mã HĐ: …", báo việc mới cho TN);
   giữ nguyên mã đơn hàng/mã MISA/chuyển tiền đã duyệt. Nút "↩ Trả về chờ mã HĐ" ở footer chi tiết PXK.
@@ -285,7 +285,7 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
 - **Menu "Phiếu đã in"** (2026-09-29): nhóm Xuất kho — "Đã chốt xong đơn xuất" = sentinel `CHOT_CHUA_IN` (chốt + chưa in),
   "Phiếu đã in" = `DA_IN` (chốt + đã in) — `DA_IN_COND`/`CHOT_CHUA_IN_COND` ở `phieuXuatKho.ts` (danh sách, xuất MISA,
   `/status-counts`). Lọc thường "Da chot xong don xuat" GIỮ NGUYÊN (cả 2) cho pipeline "Kho"/thẻ "Kho chốt đơn xuất"/báo cáo
-  "Chờ kho gửi". Dòng PXK đã in tô `--color-success-soft` (xanh lá), cột "In phiếu" đứng trước "Người tạo".
+  "Chờ kho gửi". Dòng PXK đã in KHÔNG còn tô nền (2026-10-15, §10 `DESIGN_GUIDELINES.md` — cột "In phiếu" chấm Đã in/Chưa in), cột "In phiếu" đứng trước "Người tạo".
 - **API tồn kho cho DVBH** (2026-10-08, v1.304, `routes/partnerApi.ts`, X-API-Key như `case-timeline`): `GET /api/partner/v1/ton-kho/meta`
   (`phien_ban` = `updated_at` của `app_settings 'ktv_ton_kho_import_meta'`, giờ VN — chỉ đổi khi Kế toán import file MISA mới) và
   `GET /api/partner/v1/ton-kho?nguon=kho|ktv&after_id=&limit=` (con trỏ theo `id`, kèm `phien_ban` mỗi trang để bên kéo phát hiện import
@@ -344,7 +344,7 @@ bảng ánh xạ token/class/component ở `DESIGN_GUIDELINES.md` §7. Token tê
 `.tbl`/`.tbl-head`/`.filter-tab`/`.kpi-card`/`.code-link`. Biểu đồ báo cáo (2026-09-26): bộ SVG tự dựng
 `frontend/src/components/charts/` + token `--chart-*` (đã qua validator dataviz) — quy tắc ở
 `DESIGN_GUIDELINES.md` §9; endpoint chỉ-đọc `GET /api/dat-mua-lk/bao-cao-xu-huong` dùng CHUNG
-`baoCaoScope()` với `/bao-cao-tong-the` (sửa scope 1 chỗ là đổi cả 2 — cố ý, để biểu đồ khớp bảng). Font: `tokens.css` khai báo
+`baoCaoScope()` với `/bao-cao-tong-the` (sửa scope 1 chỗ là đổi cả 2 — cố ý, để biểu đồ khớp bảng). **Giảm màu — nền trắng** (chốt 2026-10-15, `DESIGN_GUIDELINES.md` §10, THẮNG các chốt màu 2026-09-28): nền trang + Sidebar + KPI trắng, không tô nền hàng bảng (ưu tiên = vạch cam trái), tiền/tên người/Loại/loại chiết khấu chữ trung tính, trạng thái phụ dùng `Badge variant="dot"`/`StatusBadge phu`; màn Đơn hàng (thí điểm) bỏ dải "Cần làm". Font: `tokens.css` khai báo
 `"Plus Jakarta Sans"` (đã cài + import weight 400-800 đầu `tokens.css`), fallback `Be Vietnam Pro`.
 
 ### Thiết kế UI — "concept 1" đang được triển khai dần vào app thật

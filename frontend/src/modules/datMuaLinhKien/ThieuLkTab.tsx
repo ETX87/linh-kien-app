@@ -784,7 +784,7 @@ function ThieuLkGroupedList({
           <tbody>
             {groupEntries.map((g) => (
               <Fragment key={g.nguoiNhan}>
-                <tr className="bg-[var(--ocean-100)]">
+                <tr className="bg-[var(--color-surface-soft)] border-t border-[var(--color-border)]">
                   <td colSpan={effectiveColumns.length} className="px-3 py-2">
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <span className="font-bold text-[var(--ink-900)] text-sm truncate">
@@ -806,7 +806,7 @@ function ThieuLkGroupedList({
                     key={r.id}
                     onClick={() => onDetail(r.id)}
                     className={`cursor-pointer transition-colors border-b border-[var(--line)] last:border-0 ${
-                      r.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)] hover:brightness-95" : "hover:bg-slate-50"
+                      r.uu_tien === 1 ? "shadow-[inset_3px_0_0_var(--color-warning)] [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-warning)] hover:bg-[var(--color-surface-soft)]" : "hover:bg-[var(--color-surface-soft)]"
                     }`}
                   >
                     {effectiveColumns.map((col) => {
@@ -831,7 +831,7 @@ function ThieuLkGroupedList({
       <div className="sm:hidden space-y-3">
         {groupEntries.map((g) => (
           <div key={g.nguoiNhan} className="overflow-hidden rounded-xl border border-[var(--color-border-soft)] bg-[var(--color-surface)]">
-            <div className="flex items-center justify-between gap-2 bg-[var(--ocean-100)] px-3 py-2">
+            <div className="flex items-center justify-between gap-2 bg-[var(--color-surface-soft)] border-t border-[var(--color-border)] px-3 py-2">
               <span className="truncate text-[13px] font-bold text-[var(--ink-900)]"><NguoiNhan>{formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}</NguoiNhan></span>
               {g.choXuLy + g.dangXuLy > 0 ? (
                 <Badge tone="warning">{t("Chờ {a}/{b}", { a: g.choXuLy + g.dangXuLy, b: g.dongCon.length })}</Badge>
@@ -851,7 +851,7 @@ function ThieuLkGroupedList({
                   <div
                     key={r.id}
                     onClick={() => onDetail(r.id)}
-                    className={`flex cursor-pointer gap-2 px-3 py-3 ${r.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)] active:brightness-95" : "active:bg-[var(--color-surface-hover)]"}`}
+                    className={`flex cursor-pointer gap-2 px-3 py-3 ${r.uu_tien === 1 ? "shadow-[inset_3px_0_0_var(--color-warning)] [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-warning)]" : "active:bg-[var(--color-surface-hover)]"}`}
                   >
                     {coChon && (
                       // Vung cham 32x40 quanh checkbox - bam lech khong mo nham Drawer.

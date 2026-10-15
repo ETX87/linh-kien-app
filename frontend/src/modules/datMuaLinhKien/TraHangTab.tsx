@@ -924,7 +924,7 @@ function TraHangGroupedList({
           <tbody>
             {groupEntries.map((g) => (
               <Fragment key={g.nguoiTao}>
-                <tr className="bg-[var(--ocean-100)]">
+                <tr className="bg-[var(--color-surface-soft)] border-t border-[var(--color-border)]">
                   <td colSpan={effectiveColumns.length} className="px-3 py-2">
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <div className="flex items-center gap-3 flex-wrap text-sm min-w-0">
@@ -945,7 +945,7 @@ function TraHangGroupedList({
                     key={r.id}
                     onClick={() => onDetail(r.id)}
                     className={`cursor-pointer transition-colors border-b border-[var(--line)] last:border-0 ${
-                      r.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)] hover:brightness-95" : "hover:bg-slate-50"
+                      r.uu_tien === 1 ? "shadow-[inset_3px_0_0_var(--color-warning)] [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-warning)] hover:bg-[var(--color-surface-soft)]" : "hover:bg-[var(--color-surface-soft)]"
                     }`}
                   >
                     {effectiveColumns.map((col) => {
@@ -997,7 +997,7 @@ function TraHangGroupedList({
                     <div
                       key={r.id}
                       onClick={() => onDetail(r.id)}
-                      className={`cursor-pointer px-3 py-2.5 ${r.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)] active:brightness-95" : "active:bg-slate-50"}`}
+                      className={`cursor-pointer px-3 py-2.5 ${r.uu_tien === 1 ? "shadow-[inset_3px_0_0_var(--color-warning)] [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-warning)]" : "active:bg-slate-50"}`}
                     >
                       <div className="flex items-start gap-2">
                         {chonCol && (

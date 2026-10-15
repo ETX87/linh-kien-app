@@ -2619,7 +2619,7 @@ export function DonHangGroupedList({
       filter: loc("trang_thai_pxk"),
       render: (row) =>
         row.d.trang_thai_pxk ? (
-          <StatusBadge value={row.d.trang_thai_pxk} tones={TRANG_THAI_PXK_DON_TONE} options={TRANG_THAI_PXK_DON_OPTIONS} />
+          <StatusBadge phu value={row.d.trang_thai_pxk} tones={TRANG_THAI_PXK_DON_TONE} options={TRANG_THAI_PXK_DON_OPTIONS} />
         ) : (
           <span className="text-[var(--ink-400)]">—</span>
         ),
@@ -2629,7 +2629,7 @@ export function DonHangGroupedList({
       header: t("Chuyển tiền"),
       filter: loc("thanh_toan"),
       render: (row) =>
-        row.d.thanh_toan ? <StatusBadge value={row.d.thanh_toan} tones={THANH_TOAN_DON_TONE} options={THANH_TOAN_DON_OPTIONS} /> : <span className="text-[var(--ink-400)]">—</span>,
+        row.d.thanh_toan ? <StatusBadge phu value={row.d.thanh_toan} tones={THANH_TOAN_DON_TONE} options={THANH_TOAN_DON_OPTIONS} /> : <span className="text-[var(--ink-400)]">—</span>,
     },
     // Loai / Ghi chu nguoi dat hang / Ma YCSC / Ma Lada dua len NGAY SAU "Chuyển tiền" (phan hoi 2026-10-04).
     { key: "loai", header: t("Loại"), filter: loc("loai_de_xuat"), render: (row) => <LoaiDeXuatBadge loaiDon={row.d.loai_don} loaiDeXuat={row.d.loai_de_xuat} /> },
@@ -2682,7 +2682,7 @@ export function DonHangGroupedList({
     { key: "sl_thuc_xuat", header: t("SL thực xuất"), className: "text-right", render: (row) => row.d.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
     // "Giá niêm yết" (giá bán) canh "Giá đề xuất" = don gia SAU chiet khau (phan hoi 2026-09-28).
     { key: "gia_niem_yet", header: t("Giá niêm yết"), className: "text-right", render: (row) => (giaNiemYet(row.d) != null ? <Money>{fmtVND(giaNiemYet(row.d))}</Money> : "—") },
-    { key: "gia", header: t("Giá đề xuất"), className: "text-right", render: (row) => (donGiaSauChietKhau(row.d) != null ? <span className="text-[var(--green-700)] font-semibold" title={t("Đơn giá sau chiết khấu (giá thực cần chuyển tiền)")}><Money>{fmtVND(donGiaSauChietKhau(row.d))}</Money></span> : "—") },
+    { key: "gia", header: t("Giá đề xuất"), className: "text-right", render: (row) => (donGiaSauChietKhau(row.d) != null ? <span className="font-semibold" title={t("Đơn giá sau chiết khấu (giá thực cần chuyển tiền)")}><Money>{fmtVND(donGiaSauChietKhau(row.d))}</Money></span> : "—") },
     // Loai chiet khau (2026-09-26) - he thong gan luc tao PXK, TN sua o chi tiet don/chi tiet PXK.
     {
       key: "loai_chiet_khau",
@@ -2777,14 +2777,20 @@ export function DonHangGroupedList({
   // yeu_cau_hoa_don/ly_do_cham/ghi_chu/ghi_chu_admin) - da CHUYEN het 5 cot do sang `cols` chinh (luon
   // hien) de khop 100% file tham chiếu, chi con "Phân loại linh kiện" (khong co trong file tham chieu)
   // o day, van AN MAC DINH nhu truoc.
+  // GON BANG (2026-10-15, phan hoi "app màu mè và rối mặt" - thi diem o Đơn hàng): mac dinh chi hien cac cot COT_CHINH (~9 cot);
+  // cot con lai van giu dinh nghia, chuyen sang "Tùy chỉnh cột" (an mac dinh, nguoi dung tu bat lai, thu tu bat = thu tu hien).
+  const COT_CHINH = new Set(["chon", "linh_kien", "trang_thai", "trang_thai_pxk", "thanh_toan", "loai", "sl", "gia", "nguoi_nhan_hang", "ngay_de_xuat", "khu_vuc", "hanh_dong"]);
+  const colsPhu = cols.filter((c) => !COT_CHINH.has(c.key));
+  const colsChinh = cols.filter((c) => COT_CHINH.has(c.key));
   const optionalCols: Column<EnrichedRow>[] = [
+    ...colsPhu,
     { key: "phan_loai_lk", header: t("Phân loại linh kiện"), render: (row) => row.d.loai_de_xuat || <span className="text-[var(--ink-400)]">—</span> },
   ];
   const {
     effectiveColumns, toggleableColumns, resolvedOrder, colWidths,
     settingsOpen, setSettingsOpen, dragOverKey, setDragOverKey, draggedColKey,
     toggleColumn, handleColumnDrop, handleResizeStart,
-  } = useColumnConfig(cols, optionalCols, [], "dmlk-don-hang-list-v4", "dmlk-don-hang-list-v2") /* -v4 (2026-10-04): Loai/Ghi chu/Ma YCSC/Ma Lada sau Chuyen tien - bo thu tu da luu cu */;
+  } = useColumnConfig(colsChinh, optionalCols, [], "dmlk-don-hang-list-v5", "dmlk-don-hang-list-v2") /* -v5 (2026-10-15): gon con ~9 cot chinh, cot phu an mac dinh; -v4 (2026-10-04): Loai/Ghi chu/Ma YCSC/Ma Lada sau Chuyen tien - bo thu tu da luu cu */;
 
   // ===== Bo cuc cot bang desktop (SUA 2026-09-26, phan hoi "danh sách đơn hàng đang bị kéo giãn...
   // các nút bấm chuyển về góc trái, các cột không tự xuống dòng, dựa vào độ dài các ký tự thật") =====
@@ -2812,7 +2818,7 @@ export function DonHangGroupedList({
   const widthSpecs: Record<string, AutoWidthSpec<DonHangRow>> = {
     chon: { fixed: 40 },
     hanh_dong: { fixed: maxActions * 34 + Math.max(0, maxActions - 1) * 4 + 24 },
-    linh_kien: { text: (d) => `${d.uu_tien === 1 ? "⭐ " : ""}${formatLkLabel(d.ma_lk, d.ten_lk_snapshot ?? d.ma_lk)}${d.dac_thu ? " 🔒" : ""}`, font: `500 12px "Plus Jakarta Sans", "Be Vietnam Pro", sans-serif`, min: 180, max: 340 },
+    linh_kien: { text: (d) => `${d.uu_tien === 1 ? "⭐ " : ""}${formatLkLabel(d.ma_lk, d.ten_lk_snapshot ?? d.ma_lk)}${d.dac_thu ? " 🔒" : ""}`, font: `500 12px "Plus Jakarta Sans", "Be Vietnam Pro", sans-serif`, min: 180, max: 280 },
     ngay_de_xuat: { text: (d) => fmtDate(d.ngay_tao) },
     sl: { text: (d) => String(d.so_luong_de_xuat) },
     sl_thuc_xuat: { text: (d) => (d.so_luong_thuc_xuat != null ? String(d.so_luong_thuc_xuat) : dash) },
@@ -2837,11 +2843,11 @@ export function DonHangGroupedList({
       font: BADGE_FONT,
       // padding 2 badge + khe 4px + "+N" (~30px) khi co tu 2 co phu tro len
       extra: BADGE_PAD * 2 + 4 + 30,
-      max: 300,
+      max: 250,
     },
     trang_thai_pxk: { text: (d) => (d.trang_thai_pxk ? trangThaiLabel(TRANG_THAI_PXK_DON_OPTIONS, d.trang_thai_pxk) : dash), font: BADGE_FONT, extra: BADGE_PAD },
     thanh_toan: { text: (d) => (d.thanh_toan ? trangThaiLabel(THANH_TOAN_DON_OPTIONS, d.thanh_toan) : dash), font: BADGE_FONT, extra: BADGE_PAD },
-    nguoi_nhan_hang: { text: (d) => (d.nguoi_nhan_hang ? formatNguoiDisplay(d.nguoi_nhan_hang, ktvDisplayMap) : dash), max: 300 },
+    nguoi_nhan_hang: { text: (d) => (d.nguoi_nhan_hang ? formatNguoiDisplay(d.nguoi_nhan_hang, ktvDisplayMap) : dash), max: 220 },
     ly_do_cham: { text: (d) => d.ly_do_cham || dash, max: 220 },
     khu_vuc: { text: (d) => d.khu_vuc_ten || dash, max: 150 },
     ghi_chu: { text: (d) => d.ghi_chu || dash, max: 220 },
@@ -2952,7 +2958,7 @@ export function DonHangGroupedList({
                 {/* Hang banner nhom KTV (them 2026-08-27, thay cho div rieng ngoai bang truoc day) -
                     Phan hoi 2026-08-26: "tô màu cho top banner này khác hẳn màu nền bên dưới" - dung
                     --ocean-100 (mau nhan chinh, tu doi theo "Giao diện" ca nhan - xem theme/presets.ts). */}
-                <tr className="bg-[var(--ocean-100)]">
+                <tr className="bg-[var(--color-surface-soft)] border-t border-[var(--color-border)]">
                   <td colSpan={tableColumns.length} className="px-3 py-2">
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <div className="flex items-center gap-3 flex-wrap text-sm min-w-0">
@@ -2987,10 +2993,10 @@ export function DonHangGroupedList({
                   <tr
                     key={row.d.id}
                     onClick={() => onDetail(row.d.id)}
-                    className={`cursor-pointer transition-colors border-b border-[var(--line)] last:border-0 ${row.tone.border} border-l-4 ${
-                      row.d.uu_tien === 1
-                        ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)] hover:brightness-95"
-                        : "hover:bg-slate-50"
+                    // 2026-10-15 ("app màu mè"): bo vien trai mau theo loai don + nen cam cua don uu tien - nen dong luon trang, don uu
+                    // tien chi con 1 vach cam ben trai.
+                    className={`cursor-pointer transition-colors border-b border-[var(--line)] last:border-0 border-l-4 hover:bg-[var(--color-surface-soft)] ${
+                      row.d.uu_tien === 1 ? "border-l-[var(--color-warning)]" : "border-l-transparent"
                     }`}
                   >
                     {tableColumns.map((col) => {
@@ -3027,7 +3033,7 @@ export function DonHangGroupedList({
                 ý/từ chối/chờ hàng) thanh 1 badge DUY NHAT "Chờ X/Y đơn" (X = con cho xu ly = chờ duyệt
                 + chờ hàng, Y = tong so dong) doi voi tong tien canh phai - mat granularity dong y/tu
                 choi rieng le, dung y don gian hoa da xac nhan. */}
-            <div className="bg-[var(--ocean-100)] px-3 py-2">
+            <div className="bg-[var(--color-surface-soft)] border-t border-[var(--color-border)] px-3 py-2">
               <div className="font-bold text-[var(--ink-900)] text-xs truncate"><NguoiNhan>{formatNguoiDisplay(g.nguoiNhan, ktvDisplayMap)}</NguoiNhan></div>
               <div className="flex items-center justify-between gap-2 mt-1">
                 {g.choDuyet + g.choHang > 0 ? (
@@ -3080,10 +3086,8 @@ export function DonHangGroupedList({
                       <div
                         key={d.id}
                         onClick={() => onDetail(d.id)}
-                        className={`cursor-pointer px-3 py-2.5 ${tone.border} border-l-4 ${
-                          d.uu_tien === 1
-                            ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)] active:brightness-95"
-                            : "active:bg-slate-50"
+                        className={`cursor-pointer px-3 py-2.5 border-l-4 active:bg-[var(--color-surface-soft)] ${
+                          d.uu_tien === 1 ? "border-l-[var(--color-warning)]" : "border-l-transparent"
                         }`}
                       >
                         <div className="flex items-start gap-2">

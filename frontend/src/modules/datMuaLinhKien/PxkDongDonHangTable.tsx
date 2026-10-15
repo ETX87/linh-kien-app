@@ -420,7 +420,7 @@ export function PxkDongDonHangTable({
     );
   }
 
-  const nenUuTien = (d: DonHangRow) => (d.uu_tien === 1 ? "bg-[var(--orange-100)] ring-1 ring-inset ring-[var(--orange-500)]" : "");
+  const nenUuTien = (d: DonHangRow) => (d.uu_tien === 1 ? "shadow-[inset_3px_0_0_var(--color-warning)] [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-warning)]" : "");
   const slThucXuat = (d: DonHangRow) =>
     d.so_luong_thuc_xuat == null ? null : d.so_luong_thuc_xuat !== d.so_luong_de_xuat ? (
       <span className="font-semibold text-[var(--amber-700)]" title={t("Khác SL đề xuất")}>{d.so_luong_thuc_xuat}</span>

@@ -670,7 +670,7 @@ export function PhieuXuatKhoTab({
       key: "da_in_phieu", header: t("In phiếu"), filter: loc("da_in_phieu"),
       render: (r) =>
         r.loai_don !== "tra_hang" && ["Da chot xong don xuat", "Dang gui KTV", "KTV da nhan"].includes(r.trang_thai) ? (
-          r.da_in_phieu ? <Badge tone="success">{t("🖨 Đã in")}</Badge> : <Badge tone="warning">{t("Chưa in")}</Badge>
+          r.da_in_phieu ? <Badge tone="success" variant="dot">{t("Đã in")}</Badge> : <Badge tone="warning" variant="dot">{t("Chưa in")}</Badge>
         ) : (
           <span className="text-[var(--ink-400)]">—</span>
         ),
@@ -700,7 +700,7 @@ export function PhieuXuatKhoTab({
     },
     {
       key: "chuyen_tien", header: t("Chuyển tiền"), filter: loc("chuyen_tien"),
-      render: (r) => (r.so_tien_can_chuyen != null ? <StatusBadge value={r.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /> : <span className="text-[var(--ink-400)] text-xs">{t("Không cần")}</span>),
+      render: (r) => (r.so_tien_can_chuyen != null ? <StatusBadge phu value={r.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /> : <span className="text-[var(--ink-400)] text-xs">{t("Không cần")}</span>),
     },
     // Anh bang chung chuyen tien xem nhanh ngay tren danh sach (2026-09-29, giong cot "Ảnh" man Quỹ & chuyển tiền) - bam anh
     // mo lightbox, khong xo dong.
@@ -997,7 +997,9 @@ export function PhieuXuatKhoTab({
         // xanh dương nhạt để phân biệt với các pxk chưa in phiếu") - uu_tien (cam) van uu tien hien thi
         // truoc (canh bao quan trong hon), da_in_phieu chi to khi KHONG co uu_tien de tranh 2 mau ganh nhau tren cung
         // 1 dong. Doi xanh duong nhat -> XANH LA nhat --color-success-soft (phan hoi 2026-09-29 "xanh dương nhạt khó nhìn").
-        rowClassName={(r) => (r.co_don_uu_tien ? "bg-[var(--orange-100)] hover:brightness-95" : r.da_in_phieu ? "bg-[var(--color-success-soft)] hover:brightness-95" : "")}
+        // SUA 2026-10-15 ("nền màu trắng", "app màu mè"): bo nen cam/xanh la ca dong - nen dong luon trang; phieu co don uu tien = 1
+        // vach cam ben trai (o dau tien), da in = xem cot "In phiếu".
+        rowClassName={(r) => (r.co_don_uu_tien ? "[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-warning)] shadow-[inset_3px_0_0_var(--color-warning)]" : "")}
       />
       {showCreate && (() => {
         const dongTaoPxk = () => {

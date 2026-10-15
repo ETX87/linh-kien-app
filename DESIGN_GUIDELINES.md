@@ -42,7 +42,7 @@ dùng cho logo, màn đăng nhập, hero/banner nhỏ; **không** dùng cho nút
 ### 2.1. Màu thương hiệu & Điều hướng
 | Token | Giá trị | Ứng dụng | (Thay cho token teal gốc) |
 | :--- | :--- | :--- | :--- |
-| `--sidebar-gradient` | `linear-gradient(180deg, #0D4FB8 0%, #0B46A6 45%, #093B8F 80%, #0E5CC4 100%)` | Nền Sidebar | `#0B6B7A → #017280` |
+| `--sidebar-gradient` | `linear-gradient(180deg, #0D4FB8 0%, #0B46A6 45%, #093B8F 80%, #0E5CC4 100%)` | Nền Sidebar | `#0B6B7A → #017280` | **⚠ Đã thay bởi §10 (2026-10-15).**
 | `--brand-primary` | `#1467E8` | Nút hành động chính, tab active, link điều hướng, focus | `--teal-primary #009688` |
 | `--brand-primary-hover` | `#0F56C4` | Hover/pressed của nút chính | — |
 | `--brand-cyan` | `#0FC7F0` | Line biểu đồ, điểm nhấn trực quan, chấm tiến độ | `--teal-cyan #00A2B4` |
@@ -54,7 +54,7 @@ dùng cho logo, màn đăng nhập, hero/banner nhỏ; **không** dùng cho nút
 ### 2.2. Nền & Bề mặt
 | Token | Mã Hex | Ứng dụng |
 | :--- | :--- | :--- |
-| `--bg-main` | `#F6F9FE` | Nền toàn trang (trắng ánh xanh dương dịu — thay `#F7FBFE` ánh teal) |
+| `--bg-main` | `#F6F9FE` | Nền toàn trang (trắng ánh xanh dương dịu — thay `#F7FBFE` ánh teal) | **⚠ Đã thay bởi §10 (2026-10-15).**
 | `--bg-surface` | `#FFFFFF` | Card, Topbar, Modal, Dropdown |
 | `--bg-subtle` | `#F1F5F9` | Ô tìm kiếm, filter tab không chọn, header bảng |
 
@@ -66,10 +66,10 @@ dùng cho logo, màn đăng nhập, hero/banner nhỏ; **không** dùng cho nút
 | `--text-muted` | `#64748B` | Mô tả phụ, ngày giờ, header bảng |
 | `--text-light` | `#94A3B8` | Trục biểu đồ, placeholder, icon mũi tên |
 | `--text-link` | `#0B63CE` | Mã đơn / mã PXK / mã phiếu bấm được (xanh đậm hơn primary để đạt tương phản ≥ 4.5:1 ở chữ 12px) |
-| `--color-money` | `#166534` | **MỌI số tiền** hiển thị (giá, tiền cần chuyển, công nợ, dự phòng, tổng tiền…) — chữ đậm 700, số canh đều. Bắt buộc render qua `<Money>{fmtVND(x)}</Money>` (`components/ui/Money.tsx`, class `.money`), không tự tô màu tay. Giá trị trống "—" giữ màu chữ nhạt. Chuỗi văn bản (toast, placeholder, tooltip) không áp dụng. *(Chốt người dùng 2026-09-28: "tất cả UI số tiền tô màu xanh lá cây đậm để dễ phân biệt".)* |
-| `--color-nguoi-tao` / `--color-nguoi-nhan` | `#be185d` / `#1e40af` | Tên **người tạo đơn** (hồng đậm) / **người nhận hàng** (xanh dương đậm) ở bảng, nhóm, thẻ mobile, chi tiết đơn/PXK/trả hàng. Render qua `<NguoiTao>`/`<NguoiNhan>` (`components/ui/TenNguoi.tsx`, class `.nguoi-tao`/`.nguoi-nhan`) — CHỈ đổi màu, giữ độ đậm chữ nơi gọi. Không áp dụng cho option của dropdown chọn người. *(Chốt người dùng 2026-09-28.)* |
-| (badge Loại) | theo nhóm | Nhãn **Loại / Loại đề xuất** ở MỌI màn render qua `<LoaiDeXuatBadge>` (`modules/datMuaLinhKien/SharedUi.tsx`): pill mềm, chữ IN HOA, KHÔNG chấm tròn (chấm của tone warning chỉ dành cho badge trạng thái "cần xử lý"), màu theo nhóm Mua=info / Công nợ=purple / Trả hàng=warning. *(Chốt người dùng 2026-09-28.)* |
-| `--ck-*-bg` / `--ck-*-fg` | 11 cặp màu | **Loại chiết khấu** — MỖI loại 1 màu cố định (Không CK xám, Đình tủ xanh ngọc, 200k–500k hổ phách, Giá KTV xanh dương, Giá dự phòng tím, Công nợ xanh lơ; loại tự thêm xoay vòng 5 màu phụ theo id). Mọi nơi hiện loại chiết khấu (bảng, chi tiết, ô chọn, Settings, danh sách PXK) dùng `<LoaiChietKhauChip>`/`<LoaiChietKhauText>`/`ckClass()` (`modules/datMuaLinhKien/LoaiChietKhau.tsx`). Màu phân loại, KHÔNG mang nghĩa trạng thái. *(Chốt người dùng 2026-09-28.)* |
+| `--color-money` | `#166534` | **MỌI số tiền** hiển thị (giá, tiền cần chuyển, công nợ, dự phòng, tổng tiền…) — chữ đậm 700, số canh đều. Bắt buộc render qua `<Money>{fmtVND(x)}</Money>` (`components/ui/Money.tsx`, class `.money`), không tự tô màu tay. Giá trị trống "—" giữ màu chữ nhạt. Chuỗi văn bản (toast, placeholder, tooltip) không áp dụng. *(Chốt người dùng 2026-09-28: "tất cả UI số tiền tô màu xanh lá cây đậm để dễ phân biệt".)* | **⚠ Đã thay bởi §10 (2026-10-15).**
+| `--color-nguoi-tao` / `--color-nguoi-nhan` | `#be185d` / `#1e40af` | Tên **người tạo đơn** (hồng đậm) / **người nhận hàng** (xanh dương đậm) ở bảng, nhóm, thẻ mobile, chi tiết đơn/PXK/trả hàng. Render qua `<NguoiTao>`/`<NguoiNhan>` (`components/ui/TenNguoi.tsx`, class `.nguoi-tao`/`.nguoi-nhan`) — CHỈ đổi màu, giữ độ đậm chữ nơi gọi. Không áp dụng cho option của dropdown chọn người. *(Chốt người dùng 2026-09-28.)* | **⚠ Đã thay bởi §10 (2026-10-15).**
+| (badge Loại) | theo nhóm | Nhãn **Loại / Loại đề xuất** ở MỌI màn render qua `<LoaiDeXuatBadge>` (`modules/datMuaLinhKien/SharedUi.tsx`): pill mềm, chữ IN HOA, KHÔNG chấm tròn (chấm của tone warning chỉ dành cho badge trạng thái "cần xử lý"), màu theo nhóm Mua=info / Công nợ=purple / Trả hàng=warning. *(Chốt người dùng 2026-09-28.)* | **⚠ Đã thay bởi §10 (2026-10-15).**
+| `--ck-*-bg` / `--ck-*-fg` | 11 cặp màu | **Loại chiết khấu** — MỖI loại 1 màu cố định (Không CK xám, Đình tủ xanh ngọc, 200k–500k hổ phách, Giá KTV xanh dương, Giá dự phòng tím, Công nợ xanh lơ; loại tự thêm xoay vòng 5 màu phụ theo id). Mọi nơi hiện loại chiết khấu (bảng, chi tiết, ô chọn, Settings, danh sách PXK) dùng `<LoaiChietKhauChip>`/`<LoaiChietKhauText>`/`ckClass()` (`modules/datMuaLinhKien/LoaiChietKhau.tsx`). Màu phân loại, KHÔNG mang nghĩa trạng thái. *(Chốt người dùng 2026-09-28.)* | **⚠ Đã thay bởi §10 (2026-10-15).**
 
 ### 2.4. Bảng Pastel cho Thẻ KPI & Nhóm nghiệp vụ
 Mỗi nhóm dữ liệu gắn 1 bộ **[Nền gradient thẻ – Icon tròn nền đậm – Chữ nhấn]**:
@@ -168,7 +168,7 @@ Mỗi nhóm dữ liệu gắn 1 bộ **[Nền gradient thẻ – Icon tròn nề
 ### 6.1. Thẻ KPI (KPI Summary Card)
 Mỗi màn hình module mở đầu bằng 3–5 thẻ KPI:
 1. Icon tròn góc trái trên `38–40px`, bo 50%, nền đậm theo bảng pastel §2.4.
-2. Watermark mờ góc phải dưới (icon `48–54px`, opacity `0.12–0.15`).
+2. Watermark mờ góc phải dưới (icon `48–54px`, opacity `0.12–0.15`). **⚠ Đã thay bởi §10 (2026-10-15).**
 3. Tên chỉ số `12px`, 600, `#334155`.
 4. Số liệu chính `28–29px`, 800, `#0F172A`.
 5. Xu hướng `↑ 12% so với kỳ trước` — xanh lá `#10B981` hoặc đỏ `#EF4444`.
@@ -293,3 +293,14 @@ chấm), `StatCard` (thẻ KPI pastel), `Tabs` (filter pill), `Card`, `Modal`/`D
 5. Chữ/số dùng màu chữ, không tô theo màu series; chấm/vạch màu bên cạnh mang danh tính.
 6. Mobile: KPI lưới 2 cột, biểu đồ co theo bề rộng thật (`useElementWidth`), nhãn trục thưa theo pixel,
    bảng số liệu dài thu gọn sau nút "Xem bảng số liệu".
+
+## 10. GIẢM MÀU — NỀN TRẮNG (chốt 2026-10-15, THẮNG mọi mục ở trên khi khác nhau)
+
+Phản hồi người dùng: *"app nhiều hơi màu mè và rối mặt"* + *"màu nền cũng đang bị chê là gây hoa mắt => sửa thành nền màu trắng"*.
+Nguyên tắc: **màu chỉ dùng để báo trạng thái cần chú ý**, mọi thứ khác trung tính. Áp dụng TOÀN APP qua token (`tokens.css`):
+
+- **Nền trắng**: `--color-background` = `#FFFFFF` (bỏ nền ánh xanh + `.ripple-bg`); Sidebar nền trắng + viền phải `--color-border`, chữ slate, mục đang chọn nền `--color-primary-soft` chữ `--color-primary-dark` (bỏ gradient xanh hoàng gia + sóng cyan chân sidebar); thẻ KPI nền trắng viền xám, ẩn watermark.
+- **Không tô nền hàng bảng**: bỏ nền xanh lá dòng PXK đã in, nền cam dòng ưu tiên, nền xanh nhạt tiêu đề nhóm KTV. Ưu tiên = vạch cam 3px bên trái dòng; tiêu đề nhóm = `--color-surface-soft` + viền trên; hover = `--color-surface-soft`. Đơn hủy/từ chối = chữ xám gạch ngang (không tô nền).
+- **Số tiền / tên người / Loại / Loại chiết khấu trung tính**: `--color-money` = màu chữ thường (đậm 600, vẫn qua `<Money>`); `--color-nguoi-tao/-nhan` = `inherit`; `<LoaiDeXuatBadge>` = chữ IN HOA xám, không pill màu; mọi `--ck-*` = nền trong suốt, chữ thường. Bỏ chốt màu 2026-09-28 tương ứng.
+- **Badge**: tối đa 1 badge màu (pill) cho trạng thái CHÍNH của dòng; trạng thái PHỤ (Phiếu xuất kho, Chuyển tiền, In phiếu…) dùng kiểu chấm `<Badge variant="dot">` / `<StatusBadge phu>` (chấm 6px màu + chữ thường). "Chờ Trạm duyệt" = info (trước đây xanh lá như đã xong — sai nghĩa).
+- **Bảng gọn (thí điểm màn Đơn hàng)**: mặc định ~9 cột chính (Linh kiện, Trạng thái, Phiếu xuất kho, Chuyển tiền, Loại, Ngày đề xuất, SL, Giá đề xuất, Người nhận hàng, Khu vực); cột còn lại ở "⚙ Tùy chỉnh cột" (ẩn mặc định). Dải "Cần làm" không hiện ở danh sách đơn (còn ở Trang chủ/Phiếu xuất). Đạt yêu cầu thì nhân sang Phiếu xuất / Thiếu hàng / Hàng trả / Bảng giá.

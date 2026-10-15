@@ -24,11 +24,30 @@ const SOFT: Record<Tone, string> = {
   neutral: "bg-[var(--color-neutral-soft)] text-[var(--color-text-secondary)]",
 };
 
+// variant "dot" (2026-10-15, "app màu mè, rối mắt"): trang thai PHU (vd Phiếu xuất kho / Chuyển tiền o danh sach don) = cham tron
+// mau + chu thuong, KHONG nen - moi dong chi 1 badge nen mau (trang thai chinh).
+const DOT: Record<Tone, string> = {
+  info: "bg-[var(--color-info)]",
+  success: "bg-[var(--color-success)]",
+  warning: "bg-[var(--color-warning)]",
+  danger: "bg-[var(--color-danger)]",
+  purple: "bg-[var(--color-purple)]",
+  neutral: "bg-[var(--color-text-faint)]",
+};
+
 // `dot` (them 2026-09-28): cham tron cua tone warning mang nghia "can xu ly" - CHI hop voi badge TRANG
 // THAI. Badge phan loai (vd LoaiDeXuatBadge) truyen dot={false} de khong bi hieu nham + khong lech kieu.
 export function Badge({
   children, tone = "info", variant = "soft", dot = true,
-}: { children: ReactNode; tone?: Tone; variant?: "line" | "soft"; dot?: boolean }) {
+}: { children: ReactNode; tone?: Tone; variant?: "line" | "soft" | "dot"; dot?: boolean }) {
+  if (variant === "dot") {
+    return (
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[11.5px] font-medium leading-none text-[var(--color-text-body)]">
+        <span aria-hidden className={`h-[6px] w-[6px] shrink-0 rounded-full ${DOT[tone]}`} />
+        {tn(children)}
+      </span>
+    );
+  }
   const cls = variant === "soft" ? SOFT[tone] : `border ${LINE[tone]}`;
   return (
     <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-[var(--radius-badge)] px-2 py-[3px] text-[11px] font-semibold leading-none ${cls}`}>
@@ -40,7 +59,7 @@ export function Badge({
 
 // Map chuoi trang thai -> tone (khop mau tren screenshot 260910).
 export function statusTone(s: string): Tone {
-  if (/(TN đã duyệt|Đã duyệt|Hoàn thành|Đã về kho|Kho đã kết thúc|Chờ Trạm duyệt)/.test(s)) return "success";
+  if (/(TN đã duyệt|Đã duyệt|Hoàn thành|Đã về kho|Kho đã kết thúc)/.test(s)) return "success";
   if (/(Từ chối|Quá hạn)/.test(s)) return "danger";
   if (/(Đã huỷ|Đã hủy)/.test(s)) return "neutral";
   if (/(Chờ TBP|Chờ kế toán|Chờ hàng)/.test(s)) return "warning";
