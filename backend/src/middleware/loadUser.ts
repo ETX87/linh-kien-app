@@ -95,7 +95,7 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
       }
       c.set("viewAsRole", null);
       c.set("viewAsUser", { email: target.email, ten: target.ten });
-      c.set("user", toAppUser(target));
+      c.set("user", keToanLamThayTn(toAppUser(target)));
       await next();
       return;
     }
@@ -106,12 +106,21 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
   const viewAsCookie = getCookie(c, VIEW_AS_COOKIE);
   if (realIsAdmin && isViewAsRole(viewAsCookie)) {
     c.set("viewAsRole", viewAsCookie);
-    c.set("user", applyViewAsOverride(user, viewAsCookie));
+    c.set("user", keToanLamThayTn(applyViewAsOverride(user, viewAsCookie)));
   } else {
     c.set("viewAsRole", null);
-    c.set("user", user);
+    c.set("user", keToanLamThayTn(user));
   }
   await next();
+}
+
+// KE TOAN LAM THAY TAC NGHIEP (chot 2026-10-15, v1.334 - "sau này sẽ cắt bỏ vai trò của TN trong việc duyệt phiếu => các
+// chức năng của TN đều cho phép KT thao tác thay được"): Ke toan mang them quyen TN o MOI kiem tra quyen (backend canTacNghiep
+// + moi cho doc user.la_tac_nghiep, frontend qua /auth/me) - 1 diem duy nhat thay vi sua tung route. Chi doi user TRONG BO
+// NHO cua request: cot users.la_tac_nghiep trong DB khong doi -> thong bao viec theo vai tro (emailsForRoleOrQC doc DB),
+// danh sach Users van tach TN/Ke toan nhu cu. Cho nao uu tien Ke toan truoc TN (vd day lai chuyen tien) da xet canKeToan truoc.
+function keToanLamThayTn(user: AppUser): AppUser {
+  return user.la_ke_toan && !user.la_tac_nghiep ? { ...user, la_tac_nghiep: true } : user;
 }
 
 function toAppUser(row: UserRow): AppUser {

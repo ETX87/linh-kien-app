@@ -376,6 +376,14 @@ Khi sửa UI trong module này, đối chiếu lại `concept-1-structured-neutr
 
 ### Auth & vai trò
 
+**Kế toán làm thay Tác nghiệp** (chốt 2026-10-15, v1.334 — "sau này sẽ cắt bỏ vai trò của TN trong việc duyệt phiếu => các chức
+năng của TN đều cho phép KT thao tác thay được"): `keToanLamThayTn()` ở `middleware/loadUser.ts` cấp `la_tac_nghiep = true` cho
+user Kế toán TRONG BỘ NHỚ request (cả "xem thử") → mọi `canTacNghiep`/`user.la_tac_nghiep` backend + frontend (qua `/auth/me`) tự
+cho KT. Cột DB `users.la_tac_nghiep` KHÔNG đổi: thông báo việc theo vai trò (`emailsForRoleOrQC`, báo TN miền mới) vẫn chỉ gửi TN
+thật; danh sách Users vẫn tách TN/KT; nhãn vai trò ở TopBar không thêm "TN". Chỗ phân nhánh KT/TN đã xét `canKeToan` TRƯỚC (đẩy
+lại chuyển tiền, lọc mặc định PXK/Trả hàng, Danh sách KTV mode). SQL đọc vai trò người ghi log (đẩy lại đơn TN hủy) tính cả
+`la_ke_toan`. Thêm kiểm tra quyền TN mới: dùng `canTacNghiep`/`user.la_tac_nghiep` như cũ là tự áp dụng cho KT.
+
 Google OAuth 2.0 độc lập (Client ID/Secret RIÊNG, không dùng chung với hệ gốc), session JWT
 `dvbh_session` cookie (cùng cơ chế `lib/jwt.ts`/`middleware/session.ts` port từ hệ gốc).
 `BOOTSTRAP_ADMIN_EMAIL` tự động promote thành Admin ở lần đăng nhập đầu.

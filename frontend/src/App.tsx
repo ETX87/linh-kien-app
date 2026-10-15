@@ -47,7 +47,8 @@ function roleDisplayLabel(user: { vai_tro: string | null; la_kho: boolean; la_ke
   const labels: string[] = [];
   if (user.la_kho) labels.push("Kho");
   if (user.la_ke_toan) labels.push(t("Kế toán"));
-  if (user.la_tac_nghiep) labels.push(t("Tác nghiệp (TN)"));
+  // Ke toan duoc server cap them la_tac_nghiep (lam thay TN, 2026-10-15) - khong hien them nhan TN.
+  if (user.la_tac_nghiep && !user.la_ke_toan) labels.push(t("Tác nghiệp (TN)"));
   if (user.la_tp_dvbh) labels.push("TP DVBH");
   if (user.la_ktv_dvbh) labels.push("KTV DVBH");
   if (user.la_ve_tinh) labels.push(t("Vệ tinh"));

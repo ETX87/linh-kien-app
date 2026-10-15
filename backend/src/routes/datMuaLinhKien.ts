@@ -98,7 +98,7 @@ function choTnDuyetAtExpr(donHangIdCol: string): string {
 
 // TN "đẩy lại" don da huy / da tu choi (chot 2026-10-05): han = luc don bi huy/tu choi (log moi nhat) + 24h; NULL = khong
 // day lai duoc. CHI don do TAC NGHIEP huy/tu choi (chot cung ngay: "chỉ xử lý đơn do tn hủy hoặc từ chối"): nguoi ghi log
-// huy/tu choi la TN (la_tac_nghiep) hoac Admin, VA voi "Da huy" thi don dang o buoc cua TN (log truoc do la "Cho TN duyet" /
+// huy/tu choi la TN (la_tac_nghiep; Ke toan lam thay TN tu 2026-10-15) hoac Admin, VA voi "Da huy" thi don dang o buoc cua TN (log truoc do la "Cho TN duyet" /
 // "TN da duyet" / "Cho hang") - loai don nguoi tao/KTV tu huy, Tram/TBP tu choi (cung ra "Da huy"), he thong tu huy.
 // Don tra hang khong ap dung. Dung CHUNG cho cot day_lai_han (danh sach/chi tiet) va POST /day-lai.
 const DAY_LAI_TRANG_THAI = ["TN tu choi", "Da huy"] as const;
@@ -106,7 +106,7 @@ function dayLaiHanSql(a: string): string {
   const logCuoi = `(SELECT MAX(id) FROM dat_don_hang_log WHERE dat_don_hang_id = ${a}.id)`;
   return `(CASE WHEN ${a}.loai_don != 'tra_hang' AND ${a}.trang_thai_hien_tai IN ('TN tu choi', 'Da huy') AND EXISTS (
       SELECT 1 FROM dat_don_hang_log l JOIN users u ON u.email = l.nguoi_xu_ly
-      WHERE l.id = ${logCuoi} AND (u.la_tac_nghiep = 1 OR u.vai_tro = 'Admin')
+      WHERE l.id = ${logCuoi} AND (u.la_tac_nghiep = 1 OR u.la_ke_toan = 1 OR u.vai_tro = 'Admin')
         AND (${a}.trang_thai_hien_tai = 'TN tu choi' OR (SELECT l2.trang_thai FROM dat_don_hang_log l2
              WHERE l2.dat_don_hang_id = ${a}.id AND l2.id < l.id ORDER BY l2.id DESC LIMIT 1) IN ('Cho TN duyet', 'TN da duyet', 'Cho hang')))
     THEN datetime((SELECT ngay_xu_ly FROM dat_don_hang_log WHERE id = ${logCuoi}), '+24 hours') END)`;
