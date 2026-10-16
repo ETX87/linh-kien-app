@@ -1708,5 +1708,6 @@ const tuDien: Record<string, string> = {
   "Đã chuyển khu vực từ {a}": "Area changed from {a}",
   "Khu vực {a} · đã chuyển": "Area {a} · changed",
   "Đã chuyển từ {a} — phiếu + đơn trong phiếu chỉ hiện cho Kho/Kế toán/TN khu vực {b}.": "Changed from {a} — the note and its orders only show to Warehouse/Accounting/Ops of area {b}.",
+  "Đã có hàng": "In stock",
 };
 export default tuDien;

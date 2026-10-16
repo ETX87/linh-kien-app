@@ -4779,6 +4779,16 @@ async function applyThieuLkLog(
   if (tlk.trang_thai && (THIEU_LK_TRANG_THAI_DONG as readonly string[]).includes(tlk.trang_thai)) return { error: "DA_DONG", status: 409 };
 
   const user = c.get("user");
+  // "Da co hang" (chot 2026-10-16): Kho bam 1 lan o buoc "Cho kho xu ly" = TIEP NHAN + XAC NHAN HANG DA VE luon, ly do "Kho đã có
+  // hàng" -> ghi 2 log lien tiep, phan con lai di dung luong "Kho xac nhan hang da ve" (don goc tu duyet + vao phieu, ticket dong).
+  let daCoHang = false;
+  if (trangThai === "Da co hang") {
+    if (!canKho(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
+    if (tlk.trang_thai !== "Cho kho xu ly") return { error: "INVALID_TRANG_THAI", status: 400 };
+    daCoHang = true;
+    trangThai = "Kho xac nhan hang da ve";
+    ghiChu = ghiChu?.trim() || "Kho đã có hàng";
+  }
   const isCancel = trangThai === "Da huy bo";
   // "Da ket thuc" la cua TN (khop cot "Admin xu ly" trong du lieu Excel goc), con lai la Kho.
   if (isCancel) {
@@ -4829,6 +4839,9 @@ async function applyThieuLkLog(
 
   const now = nowVN();
   const statements = [
+    ...(daCoHang
+      ? [c.env.DB.prepare("INSERT INTO thieu_lk_log (thieu_lk_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Kho da tiep nhan', ?, ?, ?)").bind(id, user.email, now, "Kho đã có hàng")]
+      : []),
     c.env.DB.prepare("INSERT INTO thieu_lk_log (thieu_lk_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
       id,
       trangThai,

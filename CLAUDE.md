@@ -696,6 +696,11 @@ nhận…", `nguoi_xu_ly` = người nhận) + 1 thông báo/KTV/ngày liệt k�
 (`ThieuHangTabs`/`NhanThieuList`); số việc (Kho: chờ kiểm tra, Kế toán: chờ cân đối) cộng vào badge `thieuLkCanXuLy`
 (`nhanThieuCanXuLy`). Chưa đẩy ticket sang khovan (Kho thao tác trong app). Chỉ báo được khi phiếu còn "Dang gui KTV".
 
+**Nút "Đã có hàng"** (chốt 2026-10-16, v1.344): ở bước "Cho kho xu ly" Kho bấm 1 lần = ghi 'Kho da tiep nhan' + 'Kho xac nhan hang da
+ve', lý do "Kho đã có hàng" — `applyThieuLkLog` nhận `trang_thai = "Da co hang"` (chỉ Kho/Admin, chỉ từ "Cho kho xu ly", có cả hàng loạt)
+rồi đi đúng luồng hàng về (đơn gốc tự duyệt + vào phiếu, ticket "Da ket thuc"). FE: hành động "Da co hang" ở `nextStatesForThieuLk`
+(`ThieuLkTab.tsx`).
+
 **Đơn "Cho hang" mở/khóa theo ticket** (chốt 2026-09-30): Kho CHƯA tiếp nhận ticket ("Cho kho xu ly") hoặc ticket đã đóng →
 đơn thao tác như "Cho TN duyet" (TN duyệt/từ chối/chờ hàng lại/hủy, người tạo/Admin hủy), ticket đang chờ TỰ HỦY
 (`laChoHangMoKhoa` trong `applyDonHangLog`; duyệt thẳng → ticket "Da huy bo"); Kho ĐÃ tiếp nhận ("Kho da tiep nhan"/"Kho da cap

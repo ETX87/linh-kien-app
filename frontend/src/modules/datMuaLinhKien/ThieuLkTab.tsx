@@ -54,6 +54,8 @@ function nextStatesForThieuLk(
   if (r.trang_thai === "Cho kho xu ly")
     return [
       { trangThai: "Kho da tiep nhan", canDo: ctx.canKho },
+      // "Đã có hàng" (2026-10-16): tiep nhan + xac nhan hang da ve trong 1 lan bam (backend applyThieuLkLog "Da co hang").
+      { trangThai: "Da co hang", canDo: ctx.canKho },
       { trangThai: "Kho tu choi sai TT", canDo: ctx.canKho },
       { trangThai: "Da huy bo", canDo: isCreator },
     ];
@@ -90,6 +92,7 @@ const NHAN_HANH_DONG: Record<string, string> = {
   "Kho tu choi sai TT": dichSau("Từ chối (sai TT)"),
   "Da huy bo": dichSau("Hủy bỏ"),
   "Kho xac nhan hang da ve": dichSau("Hàng đã về"),
+  "Da co hang": dichSau("Đã có hàng"),
   "Da ket thuc": dichSau("TN duyệt"),
 };
 // Buoc "di tiep" cua luong (nut primary duy nhat o chan Drawer) - cac nut con lai la phu/nguy hiem.
@@ -390,7 +393,7 @@ export function ThieuLkTab({
   // Bulk-log (tieu chi UX #4, them 2026-08-15) - chi ap dung cho cac buoc KHONG can nhap lieu bat
   // buoc ("Kho da tiep nhan" can giai trinh rieng tung dong nen loai khoi bulk). Thanh hanh dong chi
   // hien cac trang thai dich CHUNG cho toan bo dong da chon (giao cua tap NEXT_STATES tung dong).
-  const BULK_ELIGIBLE_STATES = ["Kho xac nhan hang da ve", "Kho tu choi sai TT", "Da huy bo", "Da ket thuc"];
+  const BULK_ELIGIBLE_STATES = ["Kho xac nhan hang da ve", "Da co hang", "Kho tu choi sai TT", "Da huy bo", "Da ket thuc"];
   const eligibleBulkStates = (r: ThieuLkRow) => NEXT_STATES(r).filter((s) => s.canDo && BULK_ELIGIBLE_STATES.includes(s.trangThai)).map((s) => s.trangThai);
   const rowsCoTheChon = (data?.rows ?? []).filter((r) => eligibleBulkStates(r).length > 0);
   const selectedRows = (data?.rows ?? []).filter((r) => selected.has(r.id));
@@ -619,6 +622,7 @@ function ThieuLkGroupedList({
     "Kho tu choi sai TT": "✕",
     "Da huy bo": "🚫",
     "Kho xac nhan hang da ve": "✓",
+    "Da co hang": "📦",
     "Da ket thuc": "✅",
   };
   const ACTION_DANGER = new Set(["Kho tu choi sai TT", "Da huy bo"]);
@@ -893,7 +897,7 @@ function ThieuLkGroupedList({
                               key={s.trangThai}
                               variant={HANH_DONG_NGUY_HIEM.has(s.trangThai) ? "danger" : HANH_DONG_CHINH.has(s.trangThai) ? "subtle" : "ghost"}
                               className="min-h-10 flex-1"
-                              title={trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, s.trangThai)}
+                              title={s.trangThai === "Da co hang" ? actionLabel(s.trangThai) : trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, s.trangThai)}
                               disabled={quickActionPending}
                               onClick={() => (CAN_NHAP_LIEU.includes(s.trangThai) ? onGiaiTrinh(r, s.trangThai) : onQuickAction(r, s.trangThai))}
                             >
