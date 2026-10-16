@@ -42,4 +42,15 @@ suachuaPartner.post("/phan-loai", async (c) => {
   return c.json({ cap_nhat: res.reduce((n, r) => n + (r.meta?.changes ?? 0), 0), khong_thay: ma.filter((m) => !co.has(m)) });
 });
 
+// GET /api/suachua-partner/etx-nhan-su - danh ba "ETX nhan su" (2026-10-16, yeu cau suachua "tu duyet neu co tren ETX, tu
+// khoa neu nghi viec"). suachua KHONG goi thang API ETX (khong can them secret ETX, khong tang tai doi tac) - doc lai bang
+// etx_nhan_su ma he nay da PULL hang tuan. Chi tra cac cot can cho duyet/khoa tai khoan.
+suachuaPartner.get("/etx-nhan-su", async (c) => {
+  const [{ results }, state] = await Promise.all([
+    c.env.DB.prepare("SELECT ma_nhan_su, ho_ten, chuc_danh, gmail, trang_thai_lam_viec, ma_ktv FROM etx_nhan_su").all(),
+    c.env.DB.prepare("SELECT last_run_at, last_status FROM etx_nhan_su_sync_state WHERE id = 1").first<{ last_run_at: string | null; last_status: string | null }>(),
+  ]);
+  return c.json({ rows: results, etx_dong_bo_luc: state?.last_run_at ?? null, etx_trang_thai: state?.last_status ?? null });
+});
+
 export default suachuaPartner;
