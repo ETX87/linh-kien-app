@@ -20,6 +20,7 @@ import { t, dichSau } from "../../i18n";
 import { BangChungAnhList } from "./BangChungChuyenTien";
 import { describeApiError, invalidatePipelineCounts } from "./helpers";
 import { useTenNguoiLog } from "./SharedUi";
+import { useAuth } from "../../auth/AuthContext";
 
 const PxkDetailModalLazy = lazy(() => import("./PhieuXuatKhoTab").then((m) => ({ default: m.PxkDetailModal })));
 
@@ -638,13 +639,24 @@ export function ThieuHangTabs({ children, list }: { children: ReactNode; list: R
     queryKey: ["nhan-thieu-list", "can_xu_ly", "", 1],
     queryFn: () => api.get<{ counts: Record<string, number> }>(`/nhan-thieu${buildQuery({ trang_thai: "can_xu_ly", page: 1 })}`),
   });
-  const canXuLy = (data?.counts["Cho kho kiem tra"] ?? 0) + (data?.counts["Cho ke toan"] ?? 0);
+  // So ticket CHO XU LY theo vai tro (2026-10-16): Kho = cho kiem tra, Ke toan = cho can doi, Admin/khac = ca 2.
+  const auth = useAuth();
+  const u = auth.status === "authenticated" ? auth.user : null;
+  const laAdmin = u?.vai_tro === "Admin";
+  const choKho = data?.counts["Cho kho kiem tra"] ?? 0;
+  const choKeToan = data?.counts["Cho ke toan"] ?? 0;
+  const canXuLy = laAdmin ? choKho + choKeToan : (u?.la_kho ? choKho : 0) + (u?.la_ke_toan ? choKeToan : 0) || (u?.la_kho || u?.la_ke_toan ? 0 : choKho + choKeToan);
   return (
     <div className="space-y-3">
       <div className="flex gap-1.5">
         <button type="button" className={`filter-tab ${muc === "dat-mua" ? "active" : ""}`} onClick={() => setMuc("dat-mua")}>{t("Thiếu hàng đặt mua")}</button>
         <button type="button" className={`filter-tab ${muc === "nhan-thieu" ? "active" : ""}`} onClick={() => setMuc("nhan-thieu")}>
-          {t("KTV báo nhận thiếu")}{canXuLy > 0 ? ` (${canXuLy})` : ""}
+          {t("KTV báo nhận thiếu")}
+          {canXuLy > 0 && (
+            <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--color-warning)] text-white text-[10px] font-bold leading-none">
+              {canXuLy > 99 ? "99+" : canXuLy}
+            </span>
+          )}
         </button>
       </div>
       {muc === "dat-mua" ? children : list}
