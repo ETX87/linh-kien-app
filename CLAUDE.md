@@ -490,7 +490,7 @@ cột `day_lai_han` ở danh sách + chi tiết đơn; FE `dayLaiDuoc()` ở `he
 khôi phục hậu quả cũ: ticket thiếu LK đã đóng giữ nguyên, tiền đã trả đã về quỹ; đơn `bat_buoc_chuyen_tien` gom LẠI vào phiếu đang tạo
 (`bundleAutoApprovedIntoPxk`), đơn còn `ma_xuat_kho` của phiếu "Ke toan huy" bỏ liên kết, còn trong phiếu khác → `DON_CON_TRONG_PHIEU`;
 gọi `taiTinhPxkMoCuaKtv`. Người nhận bị tắt → `NGUOI_NHAN_HANG_DA_TAT`. Thông báo người tạo loại `mo_lai`. UI: nút "↩" trên dòng danh
-sách + "↩ Đẩy lại chờ duyệt" (kèm ghi chú) ở footer chi tiết đơn.
+sách + "↩ Đẩy lại chờ duyệt" (kèm ghi chú) ở footer chi tiết đơn. **Mở rộng 2026-10-16 (v1.353)**: đẩy lại được MỌI đơn bị NGƯỜI KHÁC hủy/từ chối (Kho từ chối ticket thiếu hàng → đơn tự hủy, TBP/GS/Trạm từ chối, TN/Kế toán/Admin hủy) — `dayLaiHanSql` chỉ loại đơn do chính người tạo / người nhận hàng tự hủy (trừ khi họ là TN/Kế toán/Admin); vẫn 24h, vẫn về "Cho TN duyet".
 **Tự hủy đơn tự duyệt đã vào PXK** (chốt 2026-09-28, `lib/pxkTuHuy.ts`, migration `0036`): người tạo HOẶC KTV nhận
 hàng được Hủy đơn tự duyệt (log đầu tiên đã là "TN da duyet") đã tự gom vào PXK khi PXK còn "Dang tao phieu", Kế
 toán chưa duyệt chuyển tiền (KTV đã báo chuyển vẫn hủy được) và văn phòng CHƯA thao tác tay

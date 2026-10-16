@@ -100,15 +100,18 @@ function choTnDuyetAtExpr(donHangIdCol: string): string {
 // day lai duoc. CHI don do TAC NGHIEP huy/tu choi (chot cung ngay: "chỉ xử lý đơn do tn hủy hoặc từ chối"): nguoi ghi log
 // huy/tu choi la TN (la_tac_nghiep; Ke toan lam thay TN tu 2026-10-15) hoac Admin, VA voi "Da huy" thi don dang o buoc cua TN (log truoc do la "Cho TN duyet" /
 // "TN da duyet" / "Cho hang") - loai don nguoi tao/KTV tu huy, Tram/TBP tu choi (cung ra "Da huy"), he thong tu huy.
+// MO RONG 2026-10-16 ("thêm chức năng đẩy đơn bị từ chối lại. ví dụ đơn: DDH-002653 bị từ chối nhầm" - don do KHO tu choi ticket
+// thieu hang -> don tu huy): moi lan huy/tu choi do NGUOI KHAC lam (Kho tu choi ticket, TBP/GS/Tram tu choi, TN/Ke toan/Admin huy...)
+// deu day lai duoc; CHI loai don do chinh nguoi tao / nguoi nhan hang tu huy (tru khi ho la TN/Ke toan/Admin).
 // Don tra hang khong ap dung. Dung CHUNG cho cot day_lai_han (danh sach/chi tiet) va POST /day-lai.
 const DAY_LAI_TRANG_THAI = ["TN tu choi", "Da huy"] as const;
 function dayLaiHanSql(a: string): string {
   const logCuoi = `(SELECT MAX(id) FROM dat_don_hang_log WHERE dat_don_hang_id = ${a}.id)`;
   return `(CASE WHEN ${a}.loai_don != 'tra_hang' AND ${a}.trang_thai_hien_tai IN ('TN tu choi', 'Da huy') AND EXISTS (
       SELECT 1 FROM dat_don_hang_log l JOIN users u ON u.email = l.nguoi_xu_ly
-      WHERE l.id = ${logCuoi} AND (u.la_tac_nghiep = 1 OR u.la_ke_toan = 1 OR u.vai_tro = 'Admin')
-        AND (${a}.trang_thai_hien_tai = 'TN tu choi' OR (SELECT l2.trang_thai FROM dat_don_hang_log l2
-             WHERE l2.dat_don_hang_id = ${a}.id AND l2.id < l.id ORDER BY l2.id DESC LIMIT 1) IN ('Cho TN duyet', 'TN da duyet', 'Cho hang')))
+      WHERE l.id = ${logCuoi}
+        AND (u.la_tac_nghiep = 1 OR u.la_ke_toan = 1 OR u.vai_tro = 'Admin'
+             OR (u.email != ${a}.nguoi_tao AND u.email != COALESCE(${a}.nguoi_nhan_hang, ''))))
     THEN datetime((SELECT ngay_xu_ly FROM dat_don_hang_log WHERE id = ${logCuoi}), '+24 hours') END)`;
 }
 
@@ -3731,7 +3734,7 @@ datMuaLinhKien.post("/don-hang/:id/day-lai", async (c) => {
   if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
   if (ddh.loai_don === "tra_hang") return c.json({ error: "TRA_HANG_KHONG_AP_DUNG" }, 409);
   if (!(DAY_LAI_TRANG_THAI as readonly string[]).includes(ddh.trang_thai)) return c.json({ error: "DON_KHONG_DAY_LAI_DUOC" }, 409);
-  // han NULL = don khong do TN huy/tu choi (nguoi tao/KTV tu huy, Tram/TBP tu choi...) - xem dayLaiHanSql.
+  // han NULL = don do chinh nguoi tao / nguoi nhan hang tu huy - xem dayLaiHanSql.
   if (!ddh.han) return c.json({ error: "KHONG_PHAI_TN_HUY_TU_CHOI" }, 409);
   if (ddh.han < ddh.bay_gio) return c.json({ error: "QUA_24H_KHONG_DAY_LAI", han: ddh.han }, 409);
   if (ddh.nhan_bi_khoa) return c.json({ error: "NGUOI_NHAN_HANG_DA_TAT" }, 409);
@@ -3761,7 +3764,7 @@ datMuaLinhKien.post("/don-hang/:id/day-lai", async (c) => {
     .run();
   if (!cas.meta.changes) return c.json({ error: "STATE_CHANGED" }, 409);
   const tuTrangThai = ddh.trang_thai === "Da huy" ? "đã hủy" : "đã từ chối";
-  const ghiChu = `TN đẩy lại đơn ${tuTrangThai} về chờ duyệt${body.ghi_chu?.trim() ? `: ${body.ghi_chu.trim()}` : ""}`;
+  const ghiChu = `Đẩy lại đơn ${tuTrangThai} về chờ duyệt${body.ghi_chu?.trim() ? `: ${body.ghi_chu.trim()}` : ""}`;
   await c.env.DB.prepare("INSERT INTO dat_don_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Cho TN duyet', ?, ?, ?)")
     .bind(id, user.email, now, ghiChu)
     .run();
