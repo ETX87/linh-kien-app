@@ -1,9 +1,12 @@
 # Hướng dẫn tích hợp API — Hệ thống Mua hàng linh kiện (dành cho đối tác DVBH)
 
-Phiên bản tài liệu: 1.0 — 2026-10-13 · Phiên bản API: **v1**
+Phiên bản tài liệu: 1.1 — 2026-10-15 · Phiên bản API: **v1**
 
 Tài liệu này mô tả các API **chỉ đọc** mà hệ thống Mua hàng linh kiện mở cho đối tác tra cứu:
-lịch sử đơn hàng theo mã ca, tồn kho, và lịch sử đặt hàng của từng mã linh kiện.
+lịch sử đơn hàng theo mã ca, tồn kho, lịch sử đặt hàng của từng mã linh kiện, và danh mục linh kiện chi
+tiết (kèm **hình ảnh minh họa**, linh kiện thay thế, combo, từ khóa, công nợ, tồn kho).
+
+Thay đổi 1.1: bổ sung mục 4.5 `linh-kien/chi-tiet` và mục 4.6 hướng dẫn dùng hình ảnh minh họa.
 
 ---
 
@@ -64,6 +67,7 @@ Lỗi trả về dạng `{"error": "<MÃ_LỖI>"}`.
 | 400 | `MISSING_ID` | Thiếu tham số `id` (case-timeline) | Sửa yêu cầu |
 | 400 | `MISSING_MA` | Thiếu tham số `ma` (lich-su linh kiện) | Sửa yêu cầu |
 | 400 | `INVALID_NGUON` | `nguon` khác `kho` / `ktv` | Sửa yêu cầu |
+| 400 | `QUA_NHIEU_MA` | `ma=` quá 200 mã (linh-kien/chi-tiet) | Chia thành nhiều yêu cầu |
 | 401 | `MISSING_API_KEY` | Không gửi header `X-API-Key` | Thêm header |
 | 401 | `INVALID_API_KEY` | Khóa sai hoặc đã bị tắt | Liên hệ quản trị viên — **không thử lại liên tục** |
 | 429 | `QUA_NHIEU_YEU_CAU` | Vượt 600 yêu cầu/phút | Chờ theo header `Retry-After` (giây) rồi thử lại |
@@ -281,6 +285,146 @@ Tần suất gợi ý: kiểm tra `meta` mỗi 30–60 phút trong giờ làm vi
 Lưu ý: thời gian trong API này dạng `YYYY-MM-DD HH:MM:SS` (giờ VN, **không kèm** `+07:00`), khác với
 `case-timeline` (ISO 8601). Giá trị `loai_don` giống mục 4.1. Giá trị `trang_thai_hien_tai` / `trang_thai`
 là mã trạng thái nội bộ — chỉ dùng để hiển thị, có thể được bổ sung giá trị mới.
+
+### 4.5. Danh mục linh kiện chi tiết (kèm hình ảnh minh họa) — `GET /v1/linh-kien/chi-tiet`
+
+Trả thông tin đầy đủ của từng linh kiện: giá, phân loại, **hình ảnh minh họa**, nhóm linh kiện thay thế,
+combo chứa linh kiện, từ khóa tìm kiếm, công nợ theo KTV và tồn kho. Có 2 cách gọi:
+
+| Cách gọi | Tham số | Mô tả |
+|---|---|---|
+| Lấy toàn bộ danh mục (phân trang) | `after_ma` | Mã cuối của trang trước; bỏ trống ở trang đầu |
+| | `limit` | Số linh kiện / trang, mặc định 100, tối đa 200 |
+| Tra theo danh sách mã | `ma` | Các mã cách nhau bằng dấu phẩy, tối đa 200 mã, vd `ma=3004030490,2013140023`. Có `ma` thì bỏ qua `after_ma`/`limit` |
+
+Mã không tồn tại sẽ không có trong `rows` (không báo lỗi).
+
+```bash
+# Trang đầu
+curl -s "https://linhkien.dichvu3t.workers.dev/api/partner/v1/linh-kien/chi-tiet?limit=200" \
+  -H "X-API-Key: $LINHKIEN_API_KEY"
+# Trang tiếp theo: after_ma = next_after_ma của trang trước
+curl -s "https://linhkien.dichvu3t.workers.dev/api/partner/v1/linh-kien/chi-tiet?limit=200&after_ma=2013140023" \
+  -H "X-API-Key: $LINHKIEN_API_KEY"
+# Tra vài mã cụ thể
+curl -s "https://linhkien.dichvu3t.workers.dev/api/partner/v1/linh-kien/chi-tiet?ma=3004030490,2013140023" \
+  -H "X-API-Key: $LINHKIEN_API_KEY"
+```
+
+```json
+{
+  "phien_ban_ton_kho": "2026-10-14 17:30:00",
+  "next_after_ma": "3004030490",
+  "rows": [
+    {
+      "ma_linh_kien": "3004030490",
+      "ten_linh_kien": "Bo mạch điều khiển máy lọc nước",
+      "phan_loai": "Bo mạch",
+      "gia_niem_yet": 450000,
+      "gia_tri_cong_no": 380000,
+      "gia_du_phong": null,
+      "gia_eu": null,
+      "bat_tat": 1, "dac_thu": 0, "chi_sua_chua": 0, "cam_ban": 0,
+      "trang_thai_ma": "Da xac nhan",
+      "ma_chuan": null,
+      "ghi_chu": null,
+      "ngay_cap_nhat": "2026-10-13 09:41:05",
+      "anh": [
+        "https://drive.google.com/thumbnail?id=1AbC...xyz&sz=w1000",
+        "https://drive.google.com/thumbnail?id=1DeF...uvw&sz=w1000"
+      ],
+      "thay_the": [
+        { "nhom_id": 12, "ten_nhom": "Bo mạch dòng KG",
+          "linh_kien": [ { "ma_linh_kien": "3004030491", "ten_linh_kien": "Bo mạch điều khiển (bản mới)", "bat_tat": 1 } ] }
+      ],
+      "combo": [
+        { "ma_combo": "CB-LOC-01", "ten_combo": "Bộ lõi lọc 1-2-3", "bat_tat": 1, "so_luong_trong_combo": 1,
+          "thanh_phan": [ { "ma_linh_kien": "3004030490", "so_luong": 1 }, { "ma_linh_kien": "3004030500", "so_luong": 2 } ] }
+      ],
+      "tu_khoa": ["mạch", "board"],
+      "cong_no": {
+        "gia_tri_cong_no": 380000,
+        "tong_cong_no": 760000,
+        "chi_tiet": [
+          { "ma_ktv": "KTV001", "ten_ktv": "Nguyễn Văn A", "khu_vuc_ma": "MB1", "sl_ton": 3, "sl_ho_tro_0d": 1, "cong_no": 760000 }
+        ]
+      },
+      "ton_kho": {
+        "tong_kho_cong_ty": 25,
+        "tong_kho_ktv": 3,
+        "kho_cong_ty": [ { "ma_kho": "KHO-MB", "ten_kho": "Kho Miền Bắc", "sl_ton": 25 } ],
+        "kho_ktv": [ { "ma_kho": "KTV001", "ma_ktv": "KTV001", "ten_ktv": "Nguyễn Văn A", "khu_vuc_ma": "MB1", "sl_ton": 3 } ]
+      }
+    }
+  ]
+}
+```
+
+*(Giá trị trong ví dụ là minh họa, không phải dữ liệu thật.)*
+
+| Trường | Mô tả |
+|---|---|
+| `next_after_ma` | Mã để gọi trang tiếp theo; `null` = đã hết danh mục (luôn `null` khi tra theo `ma`) |
+| `phien_ban_ton_kho` | Phiên bản file tồn kho đang dùng — giống `phien_ban` ở mục 4.2 / 4.3 |
+| `phan_loai` | Phân loại linh kiện (vd "Bo mạch", "Máy", "Đình tủ"), có thể null |
+| `gia_niem_yet` | Giá bán niêm yết (VNĐ) |
+| `gia_tri_cong_no` | Giá KTV (VNĐ) — cũng là đơn giá tính công nợ |
+| `gia_du_phong`, `gia_eu` | Giá dự phòng / giá EU (VNĐ), có thể null |
+| `bat_tat` | `1` = đang dùng, `0` = đã tắt |
+| `dac_thu` | `1` = linh kiện đặc thù (cần trưởng bộ phận xác nhận khi đặt) |
+| `chi_sua_chua` | `1` = chỉ dùng cho sửa chữa |
+| `cam_ban` | `1` = linh kiện thuộc dạng không bán |
+| `trang_thai_ma` | `Da xac nhan` / `Tu dong duyet` = mã chuẩn; `Cho xet duyet` = mã mới chờ duyệt; `Da doi ma` = mã cũ đã đổi sang `ma_chuan`; `Tu choi` = mã bị từ chối. Có thể bổ sung giá trị mới |
+| `ma_chuan` | Chỉ có khi `trang_thai_ma = "Da doi ma"`: mã mới thay thế — hãy quy mã cũ về mã này |
+| `ngay_cap_nhat` | Lần sửa gần nhất thông tin linh kiện **hoặc hình ảnh** (`YYYY-MM-DD HH:MM:SS`, giờ VN) |
+| `anh[]` | Danh sách URL hình ảnh minh họa — xem mục 4.6 |
+| `thay_the[]` | Các nhóm linh kiện thay thế chứa mã này; `linh_kien[]` = các mã KHÁC trong nhóm (không gồm chính nó) |
+| `combo[]` | Các combo có chứa mã này; `so_luong_trong_combo` = số lượng của mã này trong 1 bộ, `thanh_phan[]` = toàn bộ thành phần combo |
+| `tu_khoa[]` | Từ khóa tìm kiếm phụ (tên gọi khác) của linh kiện |
+| `cong_no.tong_cong_no` | Tổng công nợ của mã trên mọi KTV = Σ (`sl_ton` − `sl_ho_tro_0d`) × `gia_tri_cong_no` |
+| `cong_no.chi_tiet[]` | Từng KTV đang giữ hàng; `sl_ho_tro_0d` = số chiếc được tính công nợ 0 đồng theo chương trình hỗ trợ đang chạy |
+| `ton_kho.kho_cong_ty[]` | Tồn từng kho công ty theo file MISA import gần nhất |
+| `ton_kho.kho_ktv[]` | Tồn từng kho KTV; `ma_ktv` null = mã kho chưa khớp KTV nào (không tính vào `cong_no`) |
+
+Lưu ý:
+- Danh mục có hơn 6.000 mã — lấy toàn bộ cần khoảng 30–35 lần gọi với `limit=200`. Gọi tuần tự từng trang,
+  không gọi song song nhiều trang.
+- Kết quả có cả mã đã tắt và mã `Da doi ma` — tự lọc theo `bat_tat` / `trang_thai_ma` nếu chỉ cần mã đang dùng.
+- `ngay_cap_nhat` **không** đổi khi chỉ sửa nhóm thay thế / combo / từ khóa, và không đổi khi tồn kho/công nợ
+  thay đổi. Nếu cần các phần này mới nhất, hãy quét lại toàn bộ định kỳ (vd mỗi đêm) hoặc tra lại theo `ma` khi
+  hiển thị.
+- Tồn kho trong API này **chưa trừ** các đơn "trừ công nợ" phát sinh sau lần import file MISA gần nhất.
+
+### 4.6. Hình ảnh minh họa linh kiện
+
+Mỗi linh kiện có **tối đa 10 ảnh**, trả trong trường `anh` của mục 4.5:
+
+| Quy ước | Mô tả |
+|---|---|
+| Thứ tự | `anh[0]` là **ảnh chính** (ảnh đại diện, dùng làm ảnh thu nhỏ trong danh sách); các ảnh sau là ảnh phụ theo thứ tự quản trị viên sắp xếp |
+| Không có ảnh | `anh` = `[]` (mảng rỗng, không bao giờ null) |
+| Định dạng URL | Ảnh lưu trên Google Drive, dạng `https://drive.google.com/thumbnail?id=<ID_ẢNH>&sz=w1000` (rộng tối đa 1000px). Một số ảnh cũ có thể là link `https://` khác — hãy coi URL là chuỗi bất kỳ, không tự tách `id` |
+| Quyền xem | Ảnh **công khai theo link** — không cần khóa API hay đăng nhập Google để tải |
+
+Cách hiển thị:
+
+```html
+<!-- Ảnh chính trong danh sách -->
+<img src="{{ anh[0] }}" alt="{{ ma_linh_kien }}" loading="lazy" referrerpolicy="no-referrer">
+```
+
+- Ảnh thu nhỏ nhỏ hơn: với URL dạng `drive.google.com/thumbnail`, đổi tham số `sz=w1000` thành `sz=w300`
+  (hoặc `sz=w600`…) để tải nhanh hơn. URL không có `sz=` thì dùng nguyên.
+- Link `drive.google.com/thumbnail` trả về **chuyển hướng (HTTP 302)** sang máy chủ ảnh của Google và không có
+  header CORS: hiển thị bằng thẻ `<img>` thì không sao; nếu máy chủ của đối tác tải ảnh về, hãy bật **theo chuyển
+  hướng** (vd `curl -L`). Không tải ảnh bằng `fetch()` từ trình duyệt.
+
+Đồng bộ ảnh về hệ thống đối tác (khuyến nghị):
+- Lưu danh sách `anh` theo `ma_linh_kien`. Thêm / xoá / đổi thứ tự / thay ảnh đều làm `ngay_cap_nhat` của linh kiện
+  thay đổi → so `ngay_cap_nhat` với bản đã lưu để biết cần cập nhật lại ảnh.
+- Nếu tự lưu bản sao ảnh, dùng chính URL làm khóa: ảnh thay mới luôn có URL mới, URL cũ không đổi nội dung.
+- Ảnh bị xoá khỏi danh sách thì hệ thống đối tác cũng nên ngừng hiển thị ảnh đó (link cũ có thể vẫn mở được
+  nhưng không còn là ảnh minh họa của linh kiện).
 
 ---
 

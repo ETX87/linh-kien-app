@@ -1,4 +1,5 @@
 import { Fragment, useState, useEffect, useRef } from "react";
+import { NhomLkBadge } from "../danhMucLinhKien/NhomLk";
 import { LoaiChietKhauText } from "./LoaiChietKhau";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -234,6 +235,11 @@ export function ThieuLkTab({
   // vi timer mu.
   onJumpConsumed?: () => void;
 }) {
+  // Nhom LK Kho duoc gan (Karofi / B2B, 2026-10-16) - chi tai khoan CHI lam Kho (khong TN/Ke toan/Admin), cung quy tac laKhoThuan backend.
+  const authNhom = useAuth();
+  const userNhom = authNhom.status === "authenticated" ? authNhom.user : null;
+  const nhomKhoXuLy =
+    userNhom?.la_kho && !userNhom.la_tac_nghiep && !userNhom.la_ke_toan && userNhom.vai_tro !== "Admin" ? userNhom.kho_nhom_lk ?? null : null;
   // FIX (ra soat bug mua hang 2026-08-26, BUG-002): tach lop luu-lau-dai (localStorage) khoi lop
   // hien-thi/query - jump tu Home/Pipeline CHI doi lop hien thi, khong ghi de vinh vien filter da luu
   // (dung y "giữ filter đã lưu gần nhất" cua chu he thong). Xem giai thich day du o DonCuaToiTab.tsx.
@@ -526,7 +532,13 @@ export function ThieuLkTab({
         </div>
       </FilterSearchBar>
       {/* Loc nhanh trang thai ma LK cua don goc (2026-10-16) - "Mã chờ xác nhận" = Kho vao chi tiet ticket xac nhan ma. */}
-      <div className="mb-2 flex flex-wrap gap-1.5">
+      <div className="mb-2 flex flex-wrap items-center gap-1.5">
+        {nhomKhoXuLy && (
+          // Kho THUAN duoc Admin gan 1 nhom LK (2026-10-16, backend lib/nhomLk.ts khoNhomLkLoc) - server da loc san danh sach.
+          <span className="mr-1 inline-flex items-center gap-1 text-xs text-[var(--color-text-secondary)]" title={t("Admin đã gán tài khoản này chỉ xử lý thiếu hàng của nhóm linh kiện này")}>
+            {t("Đang xử lý:")} <NhomLkBadge value={nhomKhoXuLy} />
+          </span>
+        )}
         {([
           ["", t("Tất cả mã LK")],
           ["cho", t("Mã chờ xác nhận ({n})", { n: statusCountsData?.ma_lk?.cho ?? 0 })],
@@ -705,6 +717,8 @@ function ThieuLkGroupedList({
       ),
     },
     { key: "ma_lk_tt", header: t("Mã LK"), render: (r) => <MaLkXacNhanBadge tt={r.lk_trang_thai_ma} /> },
+    // Nhom LK Karofi / B2B (2026-10-16, migration 0088) - Kho duoc gan 1 nhom chi thay ticket cua nhom do.
+    { key: "nhom_lk", header: t("Nhóm LK"), render: (r) => <NhomLkBadge value={r.lk_nhom_lk} /> },
     { key: "kho_du_hang", header: t("Kho công ty"), render: (r) => (r.kho_du_hang ? <KhoDuHangBadge du={r.kho_du_hang} /> : <span className="text-[var(--ink-400)]">—</span>) },
     { key: "loai", header: t("Loại"), render: (r) => <LoaiDeXuatBadge loaiDon={r.loai_don} loaiDeXuat={r.loai_de_xuat} /> },
     { key: "loai_chiet_khau", header: t("Loại chiết khấu"), render: (r) => <LoaiChietKhauText id={r.loai_chiet_khau_id} thuCong={r.loai_chiet_khau_thu_cong} /> },
@@ -1262,6 +1276,7 @@ export function ThieuLkDetailModal({
               <StatusBadge value={tk.trang_thai} tones={THIEU_LK_TRANG_THAI_TONE} options={THIEU_LK_TRANG_THAI_OPTIONS} />
               {(tk.loai_don || tk.loai_de_xuat) && <LoaiDeXuatBadge loaiDon={tk.loai_don} loaiDeXuat={tk.loai_de_xuat} />}
               <MaLkXacNhanBadge tt={tk.lk_trang_thai_ma} />
+              {tk.lk_nhom_lk && <NhomLkBadge value={tk.lk_nhom_lk} />}
               <KhoDuHangBadge du={tk.kho_du_hang} />
               {tk.so_luong_de_xuat != null && <span className="text-xs font-semibold text-[var(--color-text-body)]">{t("SL {a}", { a: tk.so_luong_de_xuat })}</span>}
             </div>

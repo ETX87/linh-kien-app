@@ -714,6 +714,30 @@ Mã đã xác nhận", Drawer ticket mã chờ → khối `XetDuyetMaSection` (d
 (`xetDuyetMaRoles` ở `settingsDatMua.ts` = Mua hàng + Admin + Kho); "Giá tạm" vẫn chỉ Mua hàng/Admin (`choPhepGiaTam`). Bảng giá: Kho chỉ có
 khối xét duyệt mã (`canXetDuyetMa`), không có quyền sửa LK.
 
+**Nhóm LK Karofi / B2B + Kho xử lý theo nhóm** (chốt 2026-10-16, v1.356, migration `0088`, `lib/nhomLk.ts` backend + bản sao FE
+`frontend/src/lib/nhomLk.ts`): trường MỚI `linh_kien.nhom_lk` = `karofi` | `b2b` (TÁCH khỏi "Phân loại" `don_vi`), BẮT BUỘC ở form tạo/sửa LK
+(`THIEU_NHOM_LK`, PATCH không xoá được), import Excel cột "Nhóm LK" ("Linh kiện Karofi"/"Linh kiện B2B", sai → `nhom_lk_khong_hop_le`; trống:
+mã cũ giữ nguyên, mã mới tự đoán). Tự đoán (chốt người dùng, "sau này tôi sẽ import bổ sung nếu bị sai") = mã đúng 10 chữ số HOẶC tên chứa
+Karofi/KRF/LVT/Livotec/KRH/Korihome → Karofi, còn lại B2B — `doanNhomLk()` (BE + FE) + TRIGGER `trg_linh_kien_nhom_lk_i/u` (mọi đường INSERT không mang
+nhóm: gia88, import, `/lk-settings/danh-muc`; ghi rỗng/giá trị lạ → tự đoán lại) — đổi quy tắc phải đổi cả 3. Lúc triển khai: 4.421 Karofi / 1.913 B2B.
+Đổi mã A→B chép nhóm (`COT_CHEP`). Bảng giá: cột "Nhóm LK" bấm đổi nhanh (`danhMucLinhKien/NhomLk.tsx` `NhomLkNhanh`), lọc "Nhóm LK", drawer,
+Excel. **Kho xử lý theo nhóm**: `users.kho_nhom_lk` (NULL = cả 2) — Admin chọn ở Quản lý người dùng › sửa tài khoản Kho ("Xử lý thiếu hàng cho
+nhóm LK", cột "Kho xử lý nhóm LK" ở thẻ Nhân viên văn phòng). CHỈ Kho thuần (`laKhoThuan` — kiêm TN/Kế toán/Admin thì không lọc) — `khoNhomLkLoc(user)`
++ `locNhomLkSql(alias, nhom)` (LK không có trong danh mục vẫn hiện): danh sách/số đếm/Excel Thiếu hàng (`thieuLkListWhere`), chi tiết ticket
+(`/thieu-lk/:id`), Ctrl+K, `/luong-quy-trinh` + `/home-summary` (CTE thieu LK), badge `choKhoThieuLk`/`thieuLkCanXuLy` (`notifications.ts`, cache key
+có `kho_nhom_lk`), thông báo ticket mới cho Kho (`locEmailKhoTheoNhomLk` ở `moTicketChoHangTuDong` + `applyDonHangLog` cat1 la_kho). KHÔNG áp: tab
+"KTV báo nhận thiếu", thao tác (Kho vẫn xử lý được ticket nhóm khác nếu mở bằng link — chỉ ẩn khỏi danh sách). `GET /thieu-lk` trả `lk_nhom_lk` →
+cột "Nhóm LK" + nhãn "Đang xử lý: …" (Kho đã gán nhóm) ở `ThieuLkTab.tsx`.
+
+**Xác nhận khu vực KTV khi bổ sung Mã MISA** (chốt 2026-10-16, v1.356, migration `0087`): `ktv_lien_he.khu_vuc_xac_nhan_luc/_boi` (NULL = khu vực
+CHƯA từng được người chọn tay — trống hoặc hệ thống tự gán: tạo từ ETX đoán theo quản lý trực tiếp, migration rà soát). Dữ liệu cũ có khu vực coi
+như đã xác nhận, TRỪ mã tạo tự động từ ETX (ma_ktv = Mã NV) + 11 mã migration `0084` gán MB2 theo phỏng đoán. Bổ sung Mã MISA (trước trống) cho KTV
+chưa xác nhận → `kiemTraXacNhanKhuVuc()` (`settingsKtv.ts`) trả 409 `CAN_XAC_NHAN_KHU_VUC` trừ khi gửi kèm `xac_nhan_khu_vuc` (+ `khu_vuc_ma`) —
+ở PATCH `/:ma/cong-no-misa` (Kế toán/TN) lẫn `/:ma/dat-mua-lk` (Admin; đổi sang khu vực khác = coi như xác nhận); import công nợ/MISA theo Mã KTV +
+import KTV không có cột khu vực → lỗi dòng `can_xac_nhan_khu_vuc`. Ghi xác nhận: Admin chọn/đổi khu vực, import có cột khu vực (cả mã mới), tạo
+"Mã nhận hàng" văn phòng. FE `KtvTab` (`UsersModule.tsx`): cột Khu vực "· chưa xác nhận", form sửa hiện khối cảnh báo + chọn khu vực + ô "Tôi xác nhận…"
+(khoá Lưu tới khi tick). Đổi khu vực qua cong-no-misa → `resyncKhuVucDerivedFieldsForEmail`.
+
 **Thiếu hàng — "Đã có đủ hàng tồn trong kho"** (chốt 2026-10-16, v1.350): `donChoHangDuTonKho()` (`lib/tonKhoCongTy.ts`) tính LÚC ĐỌC
 (theo file tồn kho mới nhất, không lưu): mỗi (mã LK, khu vực của đơn) — tồn khả dụng = tồn gốc kho công ty − SL đơn KHÁC "Cho hang" giữ hàng
 sau mốc import (cùng điều kiện `computeTonKhoPhatSinh`); đơn "Cho hang" (Mua/Công nợ, không TRỪ CÔNG NỢ) xếp CŨ NHẤT trước, lũy kế SL ≤ tồn khả

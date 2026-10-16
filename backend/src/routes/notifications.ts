@@ -1,3 +1,4 @@
+import { khoNhomLkLoc, locNhomLkSql } from "../lib/nhomLk";
 import { Hono } from "hono";
 import type { Env, AppUser } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
@@ -153,13 +154,16 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
     const pxkClause = gsInClause(gsSet, "ddh2");
     const traHangClause = gsInClause(gsSet, "ddh");
     const thieuLkKvClause = kvClauseFor(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
+    // Kho chi xu ly 1 nhom LK (Karofi / B2B, 2026-10-16 - lib/nhomLk.ts): gia tri da chuan hoa, noi chuoi an toan.
+    const nhomKho = khoNhomLkLoc(user);
+    const thieuLkNhomSql = nhomKho ? locNhomLkSql("ddh", nhomKho) : "";
     const pxkKvClause = (khuVucSet ? khuVucPxkWhereSql(khuVucSet, "pxk", true) : null);
     const traHangKvClause = kvClauseFor(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
     const row = await db
       .prepare(
         `SELECT
            (SELECT COUNT(*) FROM thieu_lk tlk JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id
-              WHERE (SELECT trang_thai FROM thieu_lk_log WHERE thieu_lk_id = tlk.id ORDER BY id DESC LIMIT 1) = 'Cho kho xu ly'${thieuLkClause?.sql ?? ""}${thieuLkKvClause?.sql ?? ""}) as cho_kho_thieu_lk,
+              WHERE (SELECT trang_thai FROM thieu_lk_log WHERE thieu_lk_id = tlk.id ORDER BY id DESC LIMIT 1) = 'Cho kho xu ly'${thieuLkClause?.sql ?? ""}${thieuLkKvClause?.sql ?? ""}${thieuLkNhomSql}) as cho_kho_thieu_lk,
            (SELECT COUNT(*) FROM phieu_xuat_kho pxk
               WHERE (SELECT trang_thai FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = pxk.id ORDER BY id DESC LIMIT 1) = 'Da chot xong don xuat'
               ${pxkClause ? `AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id${pxkClause.sql})` : ""}${pxkKvClause?.sql ?? ""}) as cho_kho_pxk,
@@ -289,11 +293,12 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
     // Scope GIONG HET cho_kho_thieu_lk o tren (GS + Khu vuc tren ddh).
     const clause = gsInClause(gsSet, "ddh");
     const kvClause = kvClauseFor(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"]);
+    const nhomKhoTlk = khoNhomLkLoc(user); // Kho THUAN (khong TN) nen chi co trang thai cua Kho - loc ca truy van.
     const row = await db
       .prepare(
         `SELECT COUNT(*) as n FROM thieu_lk tlk JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id
            WHERE (SELECT trang_thai FROM thieu_lk_log WHERE thieu_lk_id = tlk.id ORDER BY id DESC LIMIT 1)
-             IN (${thieuLkTrangThaiCho.map(() => "?").join(",")})${clause?.sql ?? ""}${kvClause?.sql ?? ""}`,
+             IN (${thieuLkTrangThaiCho.map(() => "?").join(",")})${clause?.sql ?? ""}${kvClause?.sql ?? ""}${nhomKhoTlk ? locNhomLkSql("ddh", nhomKhoTlk) : ""}`,
       )
       .bind(...thieuLkTrangThaiCho, ...(clause?.binds ?? []), ...(kvClause?.binds ?? []))
       .first<{ n: number }>();
@@ -346,6 +351,7 @@ export async function getDatMuaLkBadge(db: D1Database, user: AppUser): Promise<D
       la_ke_toan: user.la_ke_toan ? "1" : "",
       la_tac_nghiep: user.la_tac_nghiep ? "1" : "",
       la_tp_dvbh: user.la_tp_dvbh ? "1" : "",
+      kho_nhom_lk: user.kho_nhom_lk ?? "",
     },
     null,
   );

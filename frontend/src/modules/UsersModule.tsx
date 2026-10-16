@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { NHOM_LK_LABEL, NHOM_LK_LIST, type NhomLk } from "../lib/nhomLk";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, buildQuery, ApiError } from "../api/client";
 import { Btn } from "../components/ui/Btn";
@@ -358,6 +359,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
     ma_misa: user.ma_misa ?? "",
     ten_misa: user.ten_misa ?? "",
     khu_vuc_dat_hang: user.khu_vuc_dat_hang ?? "",
+    kho_nhom_lk: (user.kho_nhom_lk ?? "") as "" | NhomLk,
   });
 
   const save = useMutation({
@@ -380,6 +382,8 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
         ten_misa: form.ten_misa.trim() || null,
         // KTV/Ve tinh: khu vuc lay tu danh ba KTV -> khong gui (giu nguyen).
         ...(form.la_ktv_dvbh || form.la_ve_tinh ? {} : { khu_vuc_dat_hang: form.khu_vuc_dat_hang || null }),
+        // Nhom LK Kho xu ly thieu hang (2026-10-16, migration 0088) - bo co Kho thi xoa luon.
+        kho_nhom_lk: form.la_kho ? form.kho_nhom_lk || null : null,
       }),
     onSuccess: onSaved,
   });
@@ -489,6 +493,26 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
                   .map((k) => ({ value: k.ma, label: k.ten })),
               ]}
             />
+          </div>
+        )}
+        {/* Nhom LK Kho xu ly thieu hang (2026-10-16, migration 0088, backend lib/nhomLk.ts): Kho THUAN chi thay / dem viec /
+            nhan thong bao ticket thieu hang cua LK thuoc nhom duoc chon. Kiem TN/Ke toan/Admin thi khong loc. */}
+        {form.la_kho && (
+          <div>
+            <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] flex items-center gap-1.5">
+              Xử lý thiếu hàng cho nhóm LK
+              <Tooltip text="Kho chỉ thấy danh sách thiếu hàng, số việc cần làm và thông báo ticket mới của linh kiện thuộc nhóm được chọn. Để 'Cả hai nhóm' = thấy toàn bộ như trước." />
+            </label>
+            <Select
+              value={form.kho_nhom_lk}
+              onChange={(v) => setForm({ ...form, kho_nhom_lk: v as "" | NhomLk })}
+              options={[{ value: "", label: "Cả hai nhóm" }, ...NHOM_LK_LIST.map((v) => ({ value: v, label: `Chỉ ${NHOM_LK_LABEL[v]}` }))]}
+            />
+            {form.kho_nhom_lk && (form.la_tac_nghiep || form.la_ke_toan || form.vai_tro === "Admin") && (
+              <div className="mt-1 text-[11px] text-[var(--color-warning-strong)]">
+                Tài khoản này kiêm Tác nghiệp / Kế toán / Admin nên vẫn thấy cả hai nhóm — lựa chọn chỉ có tác dụng với tài khoản chỉ làm Kho.
+              </div>
+            )}
           </div>
         )}
         {isGiamSat && (
@@ -795,6 +819,11 @@ function VanPhongTab() {
         const ten = ds.map((ma) => khuVucData?.rows.find((k) => k.ma === ma)?.ten ?? ma);
         return <span title={ten.join(", ")}>{ten.length > 3 ? `${ten.slice(0, 3).join(", ")} +${ten.length - 3}` : ten.join(", ")}</span>;
       },
+    },
+    {
+      // Nhom LK Kho xu ly thieu hang (2026-10-16, migration 0088) - chi co y nghia voi tai khoan Kho.
+      key: "kho_nhom_lk", mobile: "meta", header: "Kho xử lý nhóm LK",
+      render: (u) => (!u.la_kho ? "—" : u.kho_nhom_lk === "karofi" || u.kho_nhom_lk === "b2b" ? NHOM_LK_LABEL[u.kho_nhom_lk] : "Cả hai nhóm"),
     },
     { key: "ma_misa", header: "Mã MISA", render: (u) => u.ma_misa ?? "—" },
     { key: "ten_misa", header: "Tên trên MISA", render: (u) => u.ten_misa ?? "—" },
@@ -1161,6 +1190,8 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
   }));
 
   const [editing, setEditing] = useState<KtvLienHeRow | "new" | null>(null);
+  // Xac nhan khu vuc khi BO SUNG Ma MISA (2026-10-16, migration 0087) - xem canXacNhanKv.
+  const [xacNhanKv, setXacNhanKv] = useState(false);
   const [form, setForm] = useState({
     ma_ktv: "", ten_hien_thi: "", sdt: "", vai_tro_ktv: "KTV" as KtvLienHeRow["vai_tro_ktv"], email_dang_nhap: "",
     khu_vuc_ma: "", ktv_cap1_phu_trach: "", cong_no: "", ma_misa: "", ten_misa: "",
@@ -1231,8 +1262,14 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
   }
 
   const [doiMa, setDoiMa] = useState<KtvLienHeRow | null>(null);
+  // Dang BO SUNG Ma MISA (truoc trong) cho KTV khu vuc chua tung chon tay -> bat buoc xac nhan/chon lai khu vuc (backend
+  // kiemTraXacNhanKhuVuc, 409 CAN_XAC_NHAN_KHU_VUC). Tao moi: chua co gi -> cung phai chon khu vuc.
+  const canXacNhanKv =
+    mode !== "readonly" && !!editing && !!form.ma_misa.trim() &&
+    (editing === "new" || (!(editing.ma_misa ?? "").trim() && !editing.khu_vuc_xac_nhan_luc));
   function openEdit(row: KtvLienHeRow | "new") {
     setEditing(row);
+    setXacNhanKv(false);
     if (row === "new")
       setForm({
         ma_ktv: "", ten_hien_thi: "", sdt: "", vai_tro_ktv: "KTV", email_dang_nhap: "", khu_vuc_ma: "", ktv_cap1_phu_trach: "", cong_no: "", ma_misa: "", ten_misa: "",
@@ -1276,6 +1313,7 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
         ten_misa: form.ten_misa.trim() || null,
         han_muc_du_phong: form.han_muc_du_phong !== "" ? Number(form.han_muc_du_phong) : null,
         han_muc_du_phong_hien_tai: form.han_muc_du_phong_hien_tai !== "" ? Number(form.han_muc_du_phong_hien_tai) : null,
+        xac_nhan_khu_vuc: canXacNhanKv && xacNhanKv,
       });
     },
     onSuccess: onSaveSuccess,
@@ -1290,6 +1328,7 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
       api.patch(`/settings/ktv-lien-he/${encodeURIComponent(form.ma_ktv)}/cong-no-misa`, {
         ma_misa: form.ma_misa.trim() || null,
         ten_misa: form.ten_misa.trim() || null,
+        ...(canXacNhanKv ? { khu_vuc_ma: form.khu_vuc_ma || null, xac_nhan_khu_vuc: true } : {}),
         ...(mode === "tn"
           ? {}
           : {
@@ -1385,7 +1424,15 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
         );
       },
     },
-    { key: "khu_vuc", mobile: "meta", header: "Khu vực", render: (r) => (r.khu_vuc_ma ? khuVucTenByMa.get(r.khu_vuc_ma) ?? r.khu_vuc_ma : "—") },
+    {
+      key: "khu_vuc", mobile: "meta", header: "Khu vực",
+      render: (r) => (
+        <span>
+          {r.khu_vuc_ma ? khuVucTenByMa.get(r.khu_vuc_ma) ?? r.khu_vuc_ma : "—"}
+          {!r.khu_vuc_xac_nhan_luc && <span className="ml-1 text-[11px] text-[var(--color-warning)]" title="Khu vực chưa được chọn tay lần nào (tự gán / trống) — sẽ phải xác nhận khi bổ sung Mã MISA">· chưa xác nhận</span>}
+        </span>
+      ),
+    },
     // FIX (ra soat UI 2026-08-27, hang muc #3): an han cot nay khi filter "cap" dang loc dung Cap 1 -
     // field CHI co nghia cho Ve tinh (vai_tro_ktv==='Ve tinh') nen luon rong khi dang xem rieng Cap 1,
     // chiem cho ngang vo ich tren bang 8 cot.
@@ -1698,6 +1745,19 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
                 <input disabled={mode === "readonly"} value={form.ten_misa} onChange={(e) => setForm({ ...form, ten_misa: e.target.value })} className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60" />
               </div>
             </div>
+            {canXacNhanKv && (
+              <div className="rounded-lg border border-[var(--color-warning)]/50 bg-[var(--color-warning-soft)] px-3 py-2.5 space-y-2">
+                <div className="text-xs font-semibold text-[var(--color-warning)]">
+                  ⚠ Khu vực của KTV này chưa được chọn tay lần nào{editing !== "new" && editing?.khu_vuc_ma ? ` (hiện: ${khuVucTenByMa.get(editing.khu_vuc_ma) ?? editing.khu_vuc_ma} — do hệ thống tự gán)` : " (đang trống)"}.
+                  Xác nhận hoặc chọn lại khu vực chính xác trước khi lưu Mã MISA.
+                </div>
+                <Select value={form.khu_vuc_ma} onChange={(v) => setForm({ ...form, khu_vuc_ma: v })} options={[{ value: "", label: "— Chọn khu vực —" }, ...khuVucOptions]} />
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" checked={xacNhanKv} onChange={(e) => setXacNhanKv(e.target.checked)} />
+                  Tôi xác nhận đây là khu vực đúng của KTV
+                </label>
+              </div>
+            )}
             {editing !== "new" && (
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Giám sát quản lý (tự động theo Khu vực)</label>
@@ -1710,7 +1770,7 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
             <div className="flex justify-end gap-2 pt-2">
               <Btn variant="ghost" size="sm" onClick={() => setEditing(null)}>{mode === "readonly" ? "Đóng" : "Huỷ"}</Btn>
               {mode !== "readonly" && (
-                <Btn size="sm" onClick={() => save.mutate()} disabled={!form.ma_ktv.trim() || save.isPending} loading={save.isPending}>Lưu</Btn>
+                <Btn size="sm" onClick={() => save.mutate()} disabled={!form.ma_ktv.trim() || save.isPending || (canXacNhanKv && (!xacNhanKv || !form.khu_vuc_ma))} loading={save.isPending}>Lưu</Btn>
               )}
             </div>
           </div>
@@ -1766,7 +1826,7 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
                 <div className="max-h-40 overflow-y-auto border border-[var(--line)] rounded-lg p-2 text-xs font-mono space-y-0.5">
                   {bulkFailDetails.map((d, i) => (
                     <div key={i}>
-                      {d.ma_ktv}: {d.status.startsWith("email_da_gan_ma_khac:") ? `Email đăng nhập đã gắn mã KTV ${d.status.slice(21)} (1 Gmail chỉ 1 mã)` : d.status}
+                      {d.ma_ktv}: {d.status.startsWith("email_da_gan_ma_khac:") ? `Email đăng nhập đã gắn mã KTV ${d.status.slice(21)} (1 Gmail chỉ 1 mã)` : d.status === "can_xac_nhan_khu_vuc" ? "Khu vực KTV chưa xác nhận — thêm cột Khu vực vào file hoặc sửa tay KTV để xác nhận khu vực khi bổ sung Mã MISA" : d.status}
                     </div>
                   ))}
                 </div>

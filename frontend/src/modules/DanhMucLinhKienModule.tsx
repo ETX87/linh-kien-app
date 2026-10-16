@@ -29,6 +29,8 @@ import { useBoTimLk, useLichSuLk, diemHayDat } from "../lib/useTimLinhKien";
 import { ToDam } from "../components/ui/ToDam";
 import { TimLkBox, TuKhoaLkSection, DongNghiaTab } from "./danhMucLinhKien/TimLkBox";
 import { TRANG_THAI_MA, TrangThaiMaBadge, XetDuyetMaSection } from "./danhMucLinhKien/XetDuyetMaLk";
+import { NhomLkBadge, NhomLkNhanh } from "./danhMucLinhKien/NhomLk";
+import { NHOM_LK_LABEL, NHOM_LK_LIST, doanNhomLk, type NhomLk } from "../lib/nhomLk";
 import { PhanLoaiNhanh } from "./danhMucLinhKien/PhanLoaiNhanh";
 import { linkAnToan } from "../lib/linhAnToan";
 import { anhCuaLk, SO_ANH_LK_TOI_DA } from "../lib/anhLinhKien";
@@ -99,6 +101,7 @@ interface BulkImportCatalogRow {
   ma_linh_kien: string; ten_linh_kien?: string;
   don_vi?: string; ghi_chu?: string; dac_thu?: boolean; chi_sua_chua?: boolean; anh_url?: string;
   phan_loai_dac_thu?: string;
+  nhom_lk?: string; // "Linh kiện Karofi" / "Linh kiện B2B" (2026-10-16) - trong: ma moi tu doan theo ma/ten, ma cu giu nguyen
 }
 interface BulkImportCatalogChunkResult {
   het_han_muc_anh?: boolean;
@@ -112,6 +115,7 @@ const TRANG_THAI_IMPORT_LK: Record<string, string> = {
   thieu_ma: "thiếu mã",
   ma_moi_thieu_ten: "mã mới thiếu tên",
   ma_moi_thieu_phan_loai: "mã mới thiếu Phân loại (bắt buộc)",
+  nhom_lk_khong_hop_le: "Nhóm LK phải là \"Linh kiện Karofi\" hoặc \"Linh kiện B2B\"",
   thanh_cong_loi_anh: "đã lưu, lỗi tải ảnh",
   loi_ghi_db: "lỗi ghi dữ liệu",
 };
@@ -175,6 +179,10 @@ async function parseCatalogImportFile(file: File): Promise<BulkImportCatalogRow[
       phan_loai_dac_thu: pickField(raw, ["Phân loại đặc thù", "Phan loai dac thu", "phan_loai_dac_thu"]) != null
         ? String(pickField(raw, ["Phân loại đặc thù", "Phan loai dac thu", "phan_loai_dac_thu"])).trim()
         : undefined,
+      nhom_lk: (() => {
+        const v = pickField(raw, ["Nhóm LK", "Nhóm linh kiện", "Nhom LK", "Nhom linh kien", "nhom_lk"]);
+        return v != null ? String(v).trim() : undefined;
+      })(),
       anh_url: (() => {
         const v = pickField(raw, ["Ảnh", "ẢNH DEMO", "Anh demo", "Ảnh minh hoạ", "anh_url", "anh_demo"]) ?? findColumnByImageKeyword(raw);
         return v != null ? String(v).trim() : undefined;
@@ -198,7 +206,7 @@ async function downloadCatalogImportTemplate() {
     [
       {
         "Mã": "LK001", "Tên linh kiện": "Bo nguon 65W",
-        "Phân loại": "Nguồn/Sạc", "Ghi chú": "", "Đặc thù": "", "Phân loại đặc thù": "",
+        "Phân loại": "Nguồn/Sạc", "Nhóm LK": "Linh kiện Karofi", "Ghi chú": "", "Đặc thù": "", "Phân loại đặc thù": "",
         "Only sửa chữa": "", "Ảnh": "",
       },
     ],
@@ -408,6 +416,7 @@ function PartDetailDrawer({
       { label: "Giá EU", value: <span className="font-mono text-[var(--ink-600)]"><Money>{fmtVND(part.gia_eu)}</Money></span> },
     ]),
     ...(ktvXem && !part.don_vi?.trim() ? [] : [{ label: "Phân loại", value: part.don_vi?.trim() || "⚠ Chưa phân loại — cần bổ sung" }]),
+    ...(ktvXem ? [] : [{ label: "Nhóm LK", value: <NhomLkBadge value={part.nhom_lk} /> }]),
     ...(part.nhan_hang?.trim() ? [{ label: "Nhãn hàng", value: part.nhan_hang.trim() }] : []),
     ...(part.thiet_bi?.trim() ? [{ label: "Thiết bị", value: part.thiet_bi.trim() }] : []),
     ...(part.don_vi_nhap?.trim() ? [{ label: "Đơn vị nhập", value: part.don_vi_nhap.trim() }] : []),
@@ -624,6 +633,7 @@ function DanhMucTab() {
   const [filterTrangThaiMa, setFilterTrangThaiMa] = useState("");
   // Loc Phan loai (2026-09-30): "" tat ca, CHUA_PHAN_LOAI = LK chua co phan loai (ma moi dong bo gia88), con lai = dung gia tri.
   const [filterPhanLoai, setFilterPhanLoai] = useState("");
+  const [filterNhomLk, setFilterNhomLk] = useState<"" | NhomLk>(""); // Nhom LK Karofi / B2B (2026-10-16)
   // SUA (phan hoi 2026-08-20: "giao diện tạo mới đang khác giao diện chỉnh sửa, chuyển về chung 1
   // giao diện chuẩn (có thêm ảnh)") - gop addOpen/editOpen thanh 1 formMode duy nhat, dung chung 1
   // Modal ben duoi cho ca 2 che do (khac KtvTab.editing van dung union type row|"new"|null vi can
@@ -651,7 +661,7 @@ function DanhMucTab() {
   const [catalogImportSummary, setCatalogImportSummary] = useState<{ success: number; errorCount: number; anhLoi: number; coAnh: number } | null>(null);
   const [catalogImportFailDetails, setCatalogImportFailDetails] = useState<{ ma_linh_kien: string; status: string }[]>([]);
   const [form, setForm] = useState({
-    ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "",
+    ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "", nhom_lk: "" as NhomLk | "",
   });
 
   const { data: parts } = useQuery({
@@ -694,12 +704,13 @@ function DanhMucTab() {
     if (filterBatTat) rows = rows.filter((p) => (filterBatTat === "true" ? !!p.bat_tat : !p.bat_tat));
     if (filterCamBan) rows = rows.filter((p) => (filterCamBan === "true" ? !!p.cam_ban : !p.cam_ban));
     if (filterPhanLoai) rows = rows.filter((p) => (filterPhanLoai === CHUA_PHAN_LOAI ? !p.don_vi?.trim() : p.don_vi === filterPhanLoai));
+    if (filterNhomLk) rows = rows.filter((p) => p.nhom_lk === filterNhomLk);
     rows = filterTrangThaiMa ? rows.filter((p) => (p.trang_thai_ma ?? "Da xac nhan") === filterTrangThaiMa) : rows.filter((p) => p.trang_thai_ma !== "Da doi ma");
     // Loc "Chờ xét duyệt": ma tao LAU NHAT len dau (2026-10-15 - kiem tra nhanh ma tao lau chua xac nhan).
     if (filterTrangThaiMa === "Cho xet duyet" && !kqTim.diem) rows = [...rows].sort((x, y) => (x.ngay_tao ?? "").localeCompare(y.ngay_tao ?? ""));
     if (ktvXem) rows = rows.filter((p) => !!p.bat_tat && (p.trang_thai_ma ?? "Da xac nhan") === "Da xac nhan");
     return rows;
-  }, [parts?.rows, kqTim, lichSu.soLanChon, hangCongTy, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan, filterTrangThaiMa, filterPhanLoai, ktvXem]);
+  }, [parts?.rows, kqTim, lichSu.soLanChon, hangCongTy, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan, filterTrangThaiMa, filterPhanLoai, filterNhomLk, ktvXem]);
 
   // "Phân loại" (doi ten tu "Đơn vị", phan hoi 2026-08-20) dang listdown NHUNG van cho go gia tri
   // moi (chon "tu dong gom tu du lieu hien co", khong phai danh sach co dinh quan ly rieng) - gop
@@ -719,7 +730,7 @@ function DanhMucTab() {
   const viewingRow = viewingMa ? parts?.rows.find((p) => p.ma_linh_kien === viewingMa) ?? null : null;
 
   function openAdd() {
-    setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "" });
+    setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "", nhom_lk: "" as NhomLk | "" });
     setStagedImages([]);
     setFormMode("add");
   }
@@ -740,6 +751,7 @@ function DanhMucTab() {
       dac_thu: !!p.dac_thu,
       chi_sua_chua: !!p.chi_sua_chua,
       phan_loai_dac_thu: p.phan_loai_dac_thu ?? "",
+      nhom_lk: p.nhom_lk ?? "",
     });
     setFormMode("edit");
   }
@@ -851,13 +863,14 @@ function DanhMucTab() {
         dac_thu: form.dac_thu,
         chi_sua_chua: form.chi_sua_chua,
         phan_loai_dac_thu: form.dac_thu ? form.phan_loai_dac_thu.trim() || undefined : undefined,
+        nhom_lk: form.nhom_lk || undefined,
       }),
     onSuccess: async () => {
       // Anh (neu co chon luc them moi) chi upload duoc BAY GIO - dong vua duoc tao that su trong DB,
       // POST .../anh doi hoi dong da ton tai (xem backend/src/routes/settingsDatMua.ts).
       if (stagedImages.length) await uploadAnhForMa(form.ma_linh_kien.trim(), stagedImages.map((a) => a.file));
       addToast("Đã thêm linh kiện mới - chờ Mua hàng xác nhận mã chuẩn");
-      setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "" });
+      setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "", nhom_lk: "" as NhomLk | "" });
       closeForm();
       qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
     },
@@ -867,7 +880,9 @@ function DanhMucTab() {
           ? `Mã ${form.ma_linh_kien.trim()} đã có trong danh mục (kể cả mã đã đổi/gộp sang mã khác) - dùng mã khác.`
           : err instanceof ApiError && err.code === "THIEU_PHAN_LOAI"
             ? "Bắt buộc chọn Phân loại linh kiện."
-            : "Không thể thêm linh kiện.",
+            : err instanceof ApiError && err.code === "THIEU_NHOM_LK"
+              ? "Bắt buộc chọn Nhóm LK (Linh kiện Karofi / Linh kiện B2B)."
+              : "Không thể thêm linh kiện.",
       ),
   });
 
@@ -883,6 +898,7 @@ function DanhMucTab() {
         dac_thu: form.dac_thu,
         chi_sua_chua: form.chi_sua_chua,
         phan_loai_dac_thu: form.dac_thu ? form.phan_loai_dac_thu.trim() || null : null,
+        ...(form.nhom_lk ? { nhom_lk: form.nhom_lk } : {}),
       }),
     onSuccess: () => {
       addToast("Đã cập nhật linh kiện");
@@ -1054,6 +1070,12 @@ function DanhMucTab() {
       header: "Phân loại",
       render: (p) => <PhanLoaiNhanh ma={p.ma_linh_kien} value={p.don_vi} options={phanLoaiOptions} canEdit={canSua && p.trang_thai_ma !== "Da doi ma"} />,
     },
+    {
+      // Nhom LK Karofi / B2B (2026-10-16, migration 0088) - Kho xu ly thieu hang theo nhom nay; bam o = doi nhanh.
+      key: "nhom_lk",
+      header: "Nhóm LK",
+      render: (p) => <NhomLkNhanh ma={p.ma_linh_kien} value={p.nhom_lk} canEdit={canSua && p.trang_thai_ma !== "Da doi ma"} />,
+    },
     { key: "anh_demo", header: "Ảnh minh hoạ", render: (p) => <AnhThumbnail url={p.anh_demo} active={!!p.bat_tat} /> },
     { key: "ghi_chu", header: "Ghi chú", render: (p) => <span className="text-xs text-[var(--ink-600)]">{p.ghi_chu ?? "—"}</span> },
     {
@@ -1182,6 +1204,7 @@ function DanhMucTab() {
                 gia_du_phong: "Giá dự phòng",
                 gia_eu: "Giá EU",
                 don_vi: "Phân loại",
+                nhom_lk: "Nhóm LK",
                 nhan_hang: "Nhãn hàng",
                 thiet_bi: "Thiết bị",
                 don_vi_nhap: "Đơn vị nhập",
@@ -1321,6 +1344,14 @@ function DanhMucTab() {
             ]}
           />
         </div>
+        {!ktvXem && <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
+          <span>Nhóm LK:</span>
+          <Select
+            value={filterNhomLk}
+            onChange={(v) => { setFilterNhomLk(v as "" | NhomLk); setPage(1); }}
+            options={[{ value: "", label: "Tất cả" }, ...NHOM_LK_LIST.map((v) => ({ value: v, label: NHOM_LK_LABEL[v] }))]}
+          />
+        </div>}
         {!ktvXem && <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
           <span>Trạng thái mã:</span>
           <Select
@@ -1475,6 +1506,37 @@ function DanhMucTab() {
             </datalist>
           </div>
           <div>
+            {/* BAT BUOC (2026-10-16, migration 0088): Kho xu ly thieu hang theo nhom nay (lib/nhomLk.ts). */}
+            <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">
+              Nhóm LK <span className="text-[var(--color-danger)]">*</span>
+            </label>
+            <div className="mt-1 flex flex-wrap items-center gap-3">
+              {NHOM_LK_LIST.map((o) => (
+                <label key={o} className="inline-flex items-center gap-1.5 text-sm cursor-pointer">
+                  <input type="radio" name="nhom-lk-form" checked={form.nhom_lk === o} onChange={() => setForm({ ...form, nhom_lk: o })} />
+                  {NHOM_LK_LABEL[o]}
+                </label>
+              ))}
+            </div>
+            {!form.nhom_lk && (
+              <div className="mt-1 text-[11px] text-[var(--color-danger)]">
+                Bắt buộc chọn nhóm linh kiện.
+                {(form.ma_linh_kien.trim() || form.ten_linh_kien.trim()) && (
+                  <>
+                    {" "}Gợi ý theo mã/tên:{" "}
+                    <button
+                      type="button"
+                      className="font-semibold underline text-[var(--color-primary)]"
+                      onClick={() => setForm({ ...form, nhom_lk: doanNhomLk(form.ma_linh_kien, form.ten_linh_kien) })}
+                    >
+                      {NHOM_LK_LABEL[doanNhomLk(form.ma_linh_kien, form.ten_linh_kien)]}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+          <div>
             <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Ảnh minh hoạ ({soAnhForm}/{SO_ANH_LK_TOI_DA})</label>
             <div className="flex flex-wrap items-start gap-2 mt-1.5">
               {(formMode === "add" ? stagedImages.map((a) => a.preview) : anhSua).map((u, i) => (
@@ -1567,11 +1629,11 @@ function DanhMucTab() {
               Hủy
             </Btn>
             {formMode === "add" ? (
-              <Btn onClick={() => addMutation.mutate()} disabled={!form.ma_linh_kien.trim() || !form.ten_linh_kien.trim() || !form.don_vi.trim() || addMutation.isPending || uploadingAnh}>
+              <Btn onClick={() => addMutation.mutate()} disabled={!form.ma_linh_kien.trim() || !form.ten_linh_kien.trim() || !form.don_vi.trim() || !form.nhom_lk || addMutation.isPending || uploadingAnh}>
                 Thêm
               </Btn>
             ) : (
-              <Btn onClick={() => editMutation.mutate()} disabled={!form.ten_linh_kien.trim() || !form.don_vi.trim() || editMutation.isPending}>
+              <Btn onClick={() => editMutation.mutate()} disabled={!form.ten_linh_kien.trim() || !form.don_vi.trim() || !form.nhom_lk || editMutation.isPending}>
                 Lưu
               </Btn>
             )}
@@ -1633,7 +1695,7 @@ function DanhMucTab() {
           <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">
             File Excel chỉ cần cột <span className="font-mono">Mã</span> — dùng được luôn file xuất từ nút "⬇ Xuất Excel".
             <Tooltip
-              text={`Dùng được file xuất từ nút "⬇ Xuất Excel" ở trên, hoặc file từ hệ khác (vd hệ bảo hành gốc) có tên cột tương tự. Chỉ bắt buộc cột "Mã" — mọi cột khác (Tên linh kiện, Phân loại, Ghi chú, Đặc thù, Phân loại đặc thù, Only sửa chữa, Ảnh) đều tuỳ chọn: cột nào KHÔNG có trong file (hoặc để trống) sẽ GIỮ NGUYÊN giá trị cũ, không bị xoá trắng. Ảnh (link ảnh nguồn) sẽ được hệ thống tự tải về và lưu lên Google Drive của hệ thống (cần đã kết nối ở Settings > Google Drive). Mã đã tồn tại sẽ được CẬP NHẬT theo các cột có mặt trong file, mã CHƯA CÓ sẽ được thêm mới nhưng bắt buộc phải kèm "Tên linh kiện" (mã mới thiếu tên sẽ báo lỗi riêng dòng đó). Lưu ý: Giá NY/Giá KTV/Giá dự phòng/Giá EU KHÔNG import được qua đây nữa — các giá này giờ đồng bộ tự động từ đối tác gia88 mỗi đêm.`}
+              text={`Dùng được file xuất từ nút "⬇ Xuất Excel" ở trên, hoặc file từ hệ khác (vd hệ bảo hành gốc) có tên cột tương tự. Chỉ bắt buộc cột "Mã" — mọi cột khác (Tên linh kiện, Phân loại, Nhóm LK, Ghi chú, Đặc thù, Phân loại đặc thù, Only sửa chữa, Ảnh) đều tuỳ chọn: cột nào KHÔNG có trong file (hoặc để trống) sẽ GIỮ NGUYÊN giá trị cũ, không bị xoá trắng. Ảnh (link ảnh nguồn) sẽ được hệ thống tự tải về và lưu lên Google Drive của hệ thống (cần đã kết nối ở Settings > Google Drive). Mã đã tồn tại sẽ được CẬP NHẬT theo các cột có mặt trong file, mã CHƯA CÓ sẽ được thêm mới nhưng bắt buộc phải kèm "Tên linh kiện" (mã mới thiếu tên sẽ báo lỗi riêng dòng đó). Cột "Nhóm LK" ghi "Linh kiện Karofi" hoặc "Linh kiện B2B" — mã mới không có cột này sẽ tự xếp nhóm theo mã/tên (mã 10 chữ số hoặc tên có Karofi/KRF/LVT/Livotec/KRH/Korihome = Karofi, còn lại B2B). Lưu ý: Giá NY/Giá KTV/Giá dự phòng/Giá EU KHÔNG import được qua đây nữa — các giá này giờ đồng bộ tự động từ đối tác gia88 mỗi đêm.`}
             />
           </div>
           {!catalogImportRunning && !catalogImportSummary && (

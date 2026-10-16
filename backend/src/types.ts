@@ -36,6 +36,8 @@ export interface AppUser {
   nhan_tb_nhiem_vu: boolean; // Loai 1: nhiem vu TRUC TIEP toi phai xu ly (mac dinh BAT)
   nhan_tb_lien_quan: boolean; // Loai 2: viec lien quan cung khu vuc, chua den luot (mac dinh TAT)
   nhan_tb_theo_doi: boolean; // Loai 3: viec toi tung xu ly, van con nhiem vu (mac dinh TAT)
+  // Nhom LK Kho xu ly thieu hang (2026-10-16, migration 0088): null = ca 2 - xem lib/nhomLk.ts.
+  kho_nhom_lk: "karofi" | "b2b" | null;
 }
 
 export interface Env {

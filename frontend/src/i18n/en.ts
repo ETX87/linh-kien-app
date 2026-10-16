@@ -1729,5 +1729,11 @@ const tuDien: Record<string, string> = {
   "Kho công ty": "Company warehouse",
   "Kho đã có đủ hàng ({n})": "Warehouse has enough stock ({n})",
   "Đơn chờ hàng đã có đủ tồn kho công ty (xét đơn chờ lâu nhất trước) — Kho có thể xác nhận": "Waiting orders now covered by company stock (oldest first) — the warehouse can confirm",
+  // Nhom LK Karofi / B2B (2026-10-16)
+  "Admin đã gán tài khoản này chỉ xử lý thiếu hàng của nhóm linh kiện này": "Admin assigned this account to handle shortages of this part group only",
+  "Linh kiện B2B": "B2B parts",
+  "Linh kiện Karofi": "Karofi parts",
+  "Nhóm LK": "Part group",
+  "Đang xử lý:": "Handling:",
 };
 export default tuDien;

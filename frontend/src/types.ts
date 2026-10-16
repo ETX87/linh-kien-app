@@ -44,6 +44,8 @@ export interface LinhKienRow {
   co_tren_gia88: number;
   // Ngay tao ma (gio VN, migration 0081) - NULL = LK tao truoc khi co nhat ky xet duyet ma.
   ngay_tao?: string | null;
+  // Nhom LK Karofi / B2B (2026-10-16, migration 0088) - bat buoc khi tao/sua; Kho xu ly thieu hang theo nhom (lib/nhomLk.ts).
+  nhom_lk?: "karofi" | "b2b" | null;
 }
 
 export type TrangThaiMaLk = "Cho xet duyet" | "Da xac nhan" | "Tu dong duyet" | "Tu choi" | "Da doi ma";
@@ -64,6 +66,8 @@ export interface LinhKienLogRow {
 
 export interface KtvLienHeRow {
   ma_ktv: string;
+  // NULL = khu vuc chua tung duoc chon tay/xac nhan (tu ETX, he thong tu gan) - migration 0087.
+  khu_vuc_xac_nhan_luc?: string | null;
   ten_hien_thi: string | null;
   sdt: string | null;
   ghi_chu: string | null;
@@ -241,6 +245,8 @@ export interface UserRow {
   ten_misa: string | null;
   // "Khu vuc dat hang" (0055) - tai khoan KHONG phai KTV: don/PXK cua ho thuoc khu vuc nay (thang khu vuc GS phu trach).
   khu_vuc_dat_hang: string | null;
+  // Nhom LK Kho xu ly thieu hang (2026-10-16, migration 0088): null = ca 2.
+  kho_nhom_lk?: "karofi" | "b2b" | null;
 }
 
 export interface Paged<T> {

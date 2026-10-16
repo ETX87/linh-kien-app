@@ -30,6 +30,8 @@ export interface AppUser {
   nhan_tb_nhiem_vu: boolean;
   nhan_tb_lien_quan: boolean;
   nhan_tb_theo_doi: boolean;
+  // Nhom LK Kho xu ly thieu hang (2026-10-16, migration 0088): null = ca 2 - xem lib/nhomLk.ts.
+  kho_nhom_lk?: "karofi" | "b2b" | null;
 }
 
 type AuthState =

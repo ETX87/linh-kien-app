@@ -50,6 +50,7 @@ export function applyViewAsOverride(user: AppUser, role: ViewAsRole): AppUser {
     quan_ly_danh_muc_lk: false,
     xem_danh_muc_lk: false,
     la_tram: false,
+    kho_nhom_lk: null,
   };
   switch (role) {
     case "ktv":

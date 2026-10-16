@@ -15,6 +15,7 @@
 //                             van thieu thi roi phieu MANG THEO tien sang "Cho hang");
 //      thieu + khong tien  -> "Cho hang" (mo ticket thieu hang - Kho tiep nhan hoac tu choi).
 //  - Kho bao hang ve -> don tu duyet + vao phieu; Kho tu choi / ticket bi huy -> don tu huy (tien da tra ve quy, bao KTV).
+import { locEmailKhoTheoNhomLk } from "./nhomLk";
 import type { Env } from "../types";
 import { nowVN } from "./vnTime";
 import { computeTonKhoChot } from "./tonKhoCongTy";
@@ -365,7 +366,8 @@ export async function moTicketChoHangTuDong(
     );
     const emailGsList = don.email_gs ? [don.email_gs] : [];
     await notifyWorkflowTask(env, db, {
-      cat1Emails: await emailsForRoleOrQC(db, "la_kho", emailGsList),
+      // Kho chi xu ly 1 nhom LK (Karofi / B2B, 2026-10-16): chi bao Kho dung nhom LK cua don.
+      cat1Emails: await locEmailKhoTheoNhomLk(db, await emailsForRoleOrQC(db, "la_kho", emailGsList), don.ma_lk),
       otherRoles: MUA_CONG_NO_ROLES.filter((r) => r !== "la_kho"),
       emailGsList,
       pastActors: [],

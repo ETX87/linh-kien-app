@@ -35,10 +35,11 @@ interface UserRow {
   nhan_tb_lien_quan: number;
   nhan_tb_theo_doi: number;
   phien_ban_phien: number;
+  kho_nhom_lk: string | null;
 }
 
 const USER_COLUMNS =
-  "email, ten, vai_tro, trang_thai_duyet, bi_khoa, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, la_tac_nghiep, la_tp_dvbh, la_view, la_mua_hang, quan_ly_danh_muc_lk, xem_danh_muc_lk, tram_cha, giam_sat_quan_ly, nhan_tb_nhiem_vu, nhan_tb_lien_quan, nhan_tb_theo_doi, phien_ban_phien";
+  "email, ten, vai_tro, trang_thai_duyet, bi_khoa, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, la_tac_nghiep, la_tp_dvbh, la_view, la_mua_hang, quan_ly_danh_muc_lk, xem_danh_muc_lk, tram_cha, giam_sat_quan_ly, nhan_tb_nhiem_vu, nhan_tb_lien_quan, nhan_tb_theo_doi, phien_ban_phien, kho_nhom_lk";
 
 export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
   const email = c.get("email");
@@ -146,5 +147,6 @@ function toAppUser(row: UserRow): AppUser {
     nhan_tb_nhiem_vu: !!row.nhan_tb_nhiem_vu,
     nhan_tb_lien_quan: !!row.nhan_tb_lien_quan,
     nhan_tb_theo_doi: !!row.nhan_tb_theo_doi,
+    kho_nhom_lk: row.kho_nhom_lk === "karofi" || row.kho_nhom_lk === "b2b" ? row.kho_nhom_lk : null,
   };
 }

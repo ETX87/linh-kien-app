@@ -1,3 +1,4 @@
+import { chuanNhomLk } from "../lib/nhomLk";
 import { Hono } from "hono";
 import { nhanAnhTaiLen, taiAnhTuUrl, laUrlAnhDrive, laUrlHttp } from "../lib/anhUpload";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
@@ -79,11 +80,15 @@ settingsDatMua.post("/linh-kien", linhKienWriteRoles, async (c) => {
     // "Phân loại đặc thù" (them 2026-08-25) - listdown tu do (dung y het "don_vi"), chi co y nghia khi
     // dac_thu=true, frontend tu an o nhap khi chua tick dac_thu.
     phan_loai_dac_thu?: string;
+    nhom_lk?: string; // "karofi" | "b2b" - BAT BUOC (2026-10-16, migration 0088)
   }>();
   if (body.anh_demo?.trim() && !laUrlHttp(body.anh_demo.trim())) return c.json({ error: "INVALID_URL" }, 400);
   if (!body.ma_linh_kien?.trim() || !body.ten_linh_kien?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
   // Phan loai BAT BUOC (chot 2026-09-30 - "Máy" quyet dinh kho xuat trong file MISA).
   if (!body.don_vi?.trim()) return c.json({ error: "THIEU_PHAN_LOAI" }, 400);
+  // Nhom LK Karofi / B2B BAT BUOC (2026-10-16) - Kho xu ly thieu hang theo nhom nay (lib/nhomLk.ts).
+  const nhomLk = chuanNhomLk(body.nhom_lk);
+  if (!nhomLk) return c.json({ error: "THIEU_NHOM_LK" }, 400);
   // Ma da co (ke ca ma da doi/gop sang ma khac - dong chuyen huong) -> bao ro thay vi loi ghi DB chung chung.
   const trung = await docLk(c.env.DB, body.ma_linh_kien.trim());
   if (trung) return c.json({ error: "MA_DA_TON_TAI", ma_linh_kien: trung.ma_linh_kien, ten_linh_kien: trung.ten_linh_kien, trang_thai_ma: trung.trang_thai_ma, ma_chuan: trung.ma_chuan }, 409);
@@ -91,14 +96,14 @@ settingsDatMua.post("/linh-kien", linhKienWriteRoles, async (c) => {
   const user = c.get("user");
   // LK tao trong app vao "Cho xet duyet" (DEFAULT cot trang_thai_ma, migration 0053) - Mua hang xac nhan ma chuan.
   const row = await c.env.DB.prepare(
-    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, nguoi_cap_nhat, ngay_cap_nhat)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, nhom_lk, nguoi_cap_nhat, ngay_cap_nhat)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
   )
     .bind(
       body.ma_linh_kien.trim(), body.ten_linh_kien.trim(), body.gia_ban ?? null,
       body.don_vi?.trim() || null, body.ghi_chu?.trim() || null, body.anh_demo?.trim() || null,
       body.dac_thu ? 1 : 0, body.chi_sua_chua ? 1 : 0, body.dac_thu ? body.phan_loai_dac_thu?.trim() || null : null,
-      user.email, nowVN(),
+      nhomLk, user.email, nowVN(),
     )
     .first();
   await logLk(c.env.DB, { ma: body.ma_linh_kien.trim(), hanhDong: "Tao moi", tenMoi: body.ten_linh_kien.trim(), nguoi: user.email }).run();
@@ -120,7 +125,9 @@ settingsDatMua.patch("/linh-kien/:ma", suaLinhKienRoles, async (c) => {
   const body = await c.req.json<{
     bat_tat?: boolean; don_vi?: string; ghi_chu?: string;
     anh_demo?: string; dac_thu?: boolean; chi_sua_chua?: boolean; phan_loai_dac_thu?: string;
+    nhom_lk?: string; // "karofi" | "b2b" (2026-10-16) - khong xoa duoc
   }>();
+  if (body.nhom_lk !== undefined && !chuanNhomLk(body.nhom_lk)) return c.json({ error: "NHOM_LK_KHONG_HOP_LE" }, 400);
   if (body.anh_demo?.trim() && !laUrlHttp(body.anh_demo.trim())) return c.json({ error: "INVALID_URL" }, 400);
   const existing = await c.env.DB.prepare("SELECT * FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
@@ -138,11 +145,12 @@ settingsDatMua.patch("/linh-kien/:ma", suaLinhKienRoles, async (c) => {
     // "Phân loại đặc thù" chi giu gia tri khi dac_thu (sau khi ap gia tri moi) van true - bo tick
     // "Linh kien dac thu" thi xoa luon phan loai di kem, tranh du lieu "mo côi" khong con y nghia.
     phan_loai_dac_thu: !dacThuNext ? null : body.phan_loai_dac_thu !== undefined ? body.phan_loai_dac_thu?.trim() || null : existing.phan_loai_dac_thu,
+    nhom_lk: chuanNhomLk(body.nhom_lk) ?? existing.nhom_lk,
   };
   await c.env.DB.prepare(
-    "UPDATE linh_kien SET bat_tat = ?, don_vi = ?, ghi_chu = ?, anh_demo = ?, dac_thu = ?, chi_sua_chua = ?, phan_loai_dac_thu = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?",
+    "UPDATE linh_kien SET bat_tat = ?, don_vi = ?, ghi_chu = ?, anh_demo = ?, dac_thu = ?, chi_sua_chua = ?, phan_loai_dac_thu = ?, nhom_lk = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE ma_linh_kien = ?",
   )
-    .bind(next.bat_tat, next.don_vi, next.ghi_chu, next.anh_demo, next.dac_thu, next.chi_sua_chua, next.phan_loai_dac_thu, user.email, nowVN(), ma)
+    .bind(next.bat_tat, next.don_vi, next.ghi_chu, next.anh_demo, next.dac_thu, next.chi_sua_chua, next.phan_loai_dac_thu, next.nhom_lk, user.email, nowVN(), ma)
     .run();
 
   await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
@@ -567,6 +575,7 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
       ma_linh_kien: string; ten_linh_kien?: string;
       don_vi?: string; ghi_chu?: string; dac_thu?: boolean; chi_sua_chua?: boolean; anh_url?: string;
       phan_loai_dac_thu?: string;
+      nhom_lk?: string; // "Linh kiện Karofi" / "Linh kiện B2B" (2026-10-16) - trong: ma moi tu doan (trigger), ma cu giu nguyen
     }[];
     isLast?: boolean;
   }>();
@@ -598,8 +607,8 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
     for (const r of results) existingMap.set(r.ma_linh_kien, r);
   }
 
-  const UPSERT_SQL = `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, nguoi_cap_nhat, ngay_cap_nhat)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  const UPSERT_SQL = `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, nhom_lk, nguoi_cap_nhat, ngay_cap_nhat)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(ma_linh_kien) DO UPDATE SET
        ten_linh_kien = excluded.ten_linh_kien,
        don_vi = COALESCE(excluded.don_vi, linh_kien.don_vi),
@@ -608,6 +617,7 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
        dac_thu = excluded.dac_thu,
        chi_sua_chua = excluded.chi_sua_chua,
        phan_loai_dac_thu = COALESCE(excluded.phan_loai_dac_thu, linh_kien.phan_loai_dac_thu),
+       nhom_lk = COALESCE(excluded.nhom_lk, linh_kien.nhom_lk),
        nguoi_cap_nhat = excluded.nguoi_cap_nhat,
        ngay_cap_nhat = excluded.ngay_cap_nhat`;
 
@@ -633,6 +643,13 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
     if (!existingRow && !row.don_vi?.trim()) {
       errorCount++;
       details.push({ ma_linh_kien: ma, status: "ma_moi_thieu_phan_loai" });
+      continue;
+    }
+    // Nhom LK Karofi / B2B (2026-10-16): co ghi thi phai dung 1 trong 2 nhom.
+    const nhomLk = chuanNhomLk(row.nhom_lk);
+    if (row.nhom_lk?.trim() && !nhomLk) {
+      errorCount++;
+      details.push({ ma_linh_kien: ma, status: "nhom_lk_khong_hop_le" });
       continue;
     }
     const ten = tenMoi ?? existingRow!.ten_linh_kien;
@@ -662,7 +679,7 @@ settingsDatMua.post("/linh-kien/bulk-import", linhKienWriteRoles, async (c) => {
         ma, ten, row.don_vi?.trim() || null, row.ghi_chu?.trim() || null,
         anhDemo, dacThuVal, chiSuaChuaVal,
         row.phan_loai_dac_thu?.trim() || null,
-        user.email, now,
+        nhomLk, user.email, now,
       ),
     );
     rowMetas.push({ ma, anhLoi });

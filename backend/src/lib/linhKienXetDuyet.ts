@@ -25,7 +25,7 @@ export const TT_MA = {
 const DON_CON_HIEU_LUC_SQL = "trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')";
 
 // Cot linh_kien chep sang ma moi khi doi ma A -> B (tru ma_linh_kien/ten/trang thai/ma_chuan/nguoi+ngay cap nhat).
-const COT_CHEP = "ngay_tao, gia_ban, don_vi, ghi_chu, anh_demo, anh_ds, bat_tat, dac_thu, chi_sua_chua, phan_loai_dac_thu, gia_tri_cong_no, gia_du_phong, gia_eu, don_vi_nhap, nhan_hang, thiet_bi, don_vi_tinh, ghi_chu_doi_tac, cam_ban, co_tren_gia88";
+const COT_CHEP = "ngay_tao, gia_ban, don_vi, ghi_chu, anh_demo, anh_ds, bat_tat, dac_thu, chi_sua_chua, phan_loai_dac_thu, gia_tri_cong_no, gia_du_phong, gia_eu, don_vi_nhap, nhan_hang, thiet_bi, don_vi_tinh, ghi_chu_doi_tac, cam_ban, co_tren_gia88, nhom_lk"; // + nhom_lk Karofi/B2B (2026-10-16, migration 0088)
 
 export interface LinhKienXetDuyetRow {
   ma_linh_kien: string;

@@ -1,3 +1,4 @@
+import { chuanNhomLk } from "../lib/nhomLk";
 import { Hono } from "hono";
 import type { Env, VaiTro } from "../types";
 import { VAI_TRO_VALUES } from "../types";
@@ -126,6 +127,7 @@ users.patch("/:email", async (c) => {
     ma_misa?: string | null;
     ten_misa?: string | null;
     khu_vuc_dat_hang?: string | null;
+    kho_nhom_lk?: string | null;
   }>();
 
   if (body.vai_tro !== undefined && body.vai_tro !== null && !(VAI_TRO_VALUES as readonly string[]).includes(body.vai_tro)) {
@@ -140,6 +142,9 @@ users.patch("/:email", async (c) => {
     const kv = await c.env.DB.prepare("SELECT 1 FROM khu_vuc WHERE ma = ? AND ma <> 'CHUA_CO'").bind(kvDatHang).first();
     if (!kv) return c.json({ error: "KHU_VUC_KHONG_HOP_LE" }, 400);
   }
+
+  // Nhom LK Kho xu ly thieu hang (2026-10-16, migration 0088): null/"" = ca 2.
+  if (body.kho_nhom_lk && !chuanNhomLk(body.kho_nhom_lk)) return c.json({ error: "NHOM_LK_KHONG_HOP_LE" }, 400);
 
   const next = {
     trang_thai_duyet: body.trang_thai_duyet ?? existing.trang_thai_duyet,
@@ -158,10 +163,11 @@ users.patch("/:email", async (c) => {
     ma_misa: body.ma_misa !== undefined ? body.ma_misa?.trim() || null : existing.ma_misa,
     ten_misa: body.ten_misa !== undefined ? body.ten_misa?.trim() || null : existing.ten_misa,
     khu_vuc_dat_hang: body.khu_vuc_dat_hang !== undefined ? body.khu_vuc_dat_hang?.trim() || null : (existing.khu_vuc_dat_hang as string | null),
+    kho_nhom_lk: body.kho_nhom_lk !== undefined ? chuanNhomLk(body.kho_nhom_lk) : (existing.kho_nhom_lk as string | null),
   };
 
   await c.env.DB.prepare(
-    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, bi_khoa = ?, la_ktv_dvbh = ?, la_ve_tinh = ?, la_kho = ?, la_ke_toan = ?, la_tac_nghiep = ?, la_tp_dvbh = ?, la_view = ?, la_mua_hang = ?, quan_ly_danh_muc_lk = ?, xem_danh_muc_lk = ?, ma_misa = ?, ten_misa = ?, khu_vuc_dat_hang = ?, updated_at = ? WHERE email = ?",
+    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, bi_khoa = ?, la_ktv_dvbh = ?, la_ve_tinh = ?, la_kho = ?, la_ke_toan = ?, la_tac_nghiep = ?, la_tp_dvbh = ?, la_view = ?, la_mua_hang = ?, quan_ly_danh_muc_lk = ?, xem_danh_muc_lk = ?, ma_misa = ?, ten_misa = ?, khu_vuc_dat_hang = ?, kho_nhom_lk = ?, updated_at = ? WHERE email = ?",
   )
     .bind(
       next.trang_thai_duyet,
@@ -180,6 +186,7 @@ users.patch("/:email", async (c) => {
       next.ma_misa,
       next.ten_misa,
       next.khu_vuc_dat_hang,
+      next.kho_nhom_lk,
       nowVN(),
       email,
     )

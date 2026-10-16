@@ -59,6 +59,8 @@ const NHAN_LOI: Record<string, string> = {
   trung_ma_misa: "Nhiều KTV cùng mã MISA - sửa tay từng KTV",
   khong_co_du_lieu: "Dòng không có cột nào để cập nhật",
   loi_ghi_db: "Lỗi ghi dữ liệu",
+  // 0087: bo sung Ma MISA cho KTV co khu vuc chua tung chon tay -> phai sua tung KTV de xac nhan khu vuc.
+  can_xac_nhan_khu_vuc: "Khu vực KTV chưa xác nhận — sửa từng KTV ở Danh sách KTV để xác nhận khu vực khi bổ sung Mã MISA",
 };
 
 // Khop tieu de cot KHONG dau / khong phan biet hoa-thuong / bo khoang trang thua ("Mã tài khoản MISA " = "ma tai khoan misa").
