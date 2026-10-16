@@ -108,6 +108,13 @@ function actionLabel(trangThai: string): string {
   return NHAN_HANH_DONG[trangThai] ? t(NHAN_HANH_DONG[trangThai]) : trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, trangThai);
 }
 
+// Hoi xac nhan truoc "Đã có hàng" (2026-10-16) - 1 lan bam la tiep nhan + hang ve + don goc tu duyet, vao phieu.
+// (Xu ly hang loat da co BulkConfirmButton hoi xac nhan rieng.)
+function xacNhanDaCoHang(trangThai: string): boolean {
+  if (trangThai !== "Da co hang") return true;
+  return window.confirm(t("Xác nhận Kho đã có hàng? Hệ thống sẽ ghi Kho tiếp nhận + hàng đã về, đơn gốc tự duyệt và vào phiếu xuất kho."));
+}
+
 // Ngay "YYYY-MM-DD" -> "dd/mm" (nam hien tai) hoac "dd/mm/yy" - gon cho the mobile.
 function ngayNgan(d: string | null | undefined): string {
   if (!d) return "";
@@ -546,7 +553,7 @@ export function ThieuLkTab({
         ktvDisplayMap={ktvDisplayMap}
         nextStates={NEXT_STATES}
         onGiaiTrinh={(r, tt) => { setDetailIdRaw(r.id); setDetailAction(tt); }}
-        onQuickAction={(r, trangThai) => logMutation.mutate({ id: r.id, trangThai })}
+        onQuickAction={(r, trangThai) => { if (xacNhanDaCoHang(trangThai)) logMutation.mutate({ id: r.id, trangThai }); }}
         quickActionPending={logMutation.isPending}
         selected={selected}
         toggleSelectOne={toggleSelectOne}
@@ -1024,7 +1031,7 @@ export function ThieuLkDetailModal({
       setActionTrangThai(trangThai);
       setGhiChu("");
       setNgayDuKien(trangThai === "Kho da cap nhat" ? tk?.ngay_du_kien_co_hang ?? "" : "");
-    } else logMutation.mutate({ trangThai });
+    } else if (xacNhanDaCoHang(trangThai)) logMutation.mutate({ trangThai });
   }
 
   // Chan Drawer (thiet ke lai 2026-09-29): truoc day moi nut deu ghost 30px cung 1 hang, nhan dai ("Kho đã tiếp

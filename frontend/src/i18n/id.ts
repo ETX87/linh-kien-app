@@ -1709,5 +1709,6 @@ const tuDien: Record<string, string> = {
   "Khu vực {a} · đã chuyển": "Area {a} · dipindah",
   "Đã chuyển từ {a} — phiếu + đơn trong phiếu chỉ hiện cho Kho/Kế toán/TN khu vực {b}.": "Dipindah dari {a} — nota dan pesanannya hanya tampil untuk Gudang/Akuntansi/Operasional area {b}.",
   "Đã có hàng": "Sudah ada barang",
+  "Xác nhận Kho đã có hàng? Hệ thống sẽ ghi Kho tiếp nhận + hàng đã về, đơn gốc tự duyệt và vào phiếu xuất kho.": "Konfirmasi gudang sudah ada barang? Sistem akan mencatat gudang menerima + barang sudah datang, pesanan asal otomatis disetujui dan masuk nota keluar.",
 };
 export default tuDien;

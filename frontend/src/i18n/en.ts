@@ -1709,5 +1709,6 @@ const tuDien: Record<string, string> = {
   "Khu vực {a} · đã chuyển": "Area {a} · changed",
   "Đã chuyển từ {a} — phiếu + đơn trong phiếu chỉ hiện cho Kho/Kế toán/TN khu vực {b}.": "Changed from {a} — the note and its orders only show to Warehouse/Accounting/Ops of area {b}.",
   "Đã có hàng": "In stock",
+  "Xác nhận Kho đã có hàng? Hệ thống sẽ ghi Kho tiếp nhận + hàng đã về, đơn gốc tự duyệt và vào phiếu xuất kho.": "Confirm the warehouse has the goods? The system will record warehouse receipt + goods arrived, and the original order will be auto-approved and added to a delivery note.",
 };
 export default tuDien;
