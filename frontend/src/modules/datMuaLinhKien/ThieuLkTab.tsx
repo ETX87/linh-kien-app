@@ -1061,10 +1061,20 @@ export function ThieuLkDetailModal({
   const tk = data?.thieuLk ?? initialRow;
   // "↩ Đẩy lại đơn gốc" ngay tren ticket (2026-10-16, phan hoi "thêm nút đẩy lại ở ticket" - vd TLK-000317: Kho tu choi nham -> don goc
   // DDH-002653 tu huy). Han do server tinh (ddh_day_lai_han = dayLaiHanSql cua don goc) - CUNG dieu kien/API voi nut o danh sach don.
-  const tkDonGoc = tk as (ThieuLkRow & { ddh_trang_thai?: string | null; ddh_day_lai_han?: string | null }) | undefined;
-  const dayLaiDonGoc = !!tkDonGoc?.dat_don_hang_id && dayLaiDuoc({ day_lai_han: tkDonGoc.ddh_day_lai_han ?? null } as DonHangRow, canTacNghiep);
+  // "↩ Đẩy lại ticket" (2026-10-16, "đẩy ticket lại trạng thái trước khi bị từ chối => đơn gốc cũng đẩy ngược lại theo ticket"): UU TIEN
+  // phuc hoi THEO TICKET (ticket ve trang thai mo truoc do, don goc ve Cho hang, lay lai tien da hoan - lib/dayLaiThieuLk.ts, TN/Ke toan/
+  // Kho/Admin); khong phuc hoi duoc theo ticket ma don goc van day lai duoc -> nut cu dua don ve "Chờ TN duyệt".
+  const tkDonGoc = tk as (ThieuLkRow & {
+    ddh_trang_thai?: string | null; ddh_day_lai_han?: string | null; day_lai_ticket_han?: string | null; day_lai_ticket_ve?: string | null;
+  }) | undefined;
+  const dayLaiTicket = !!tkDonGoc?.day_lai_ticket_ve && dayLaiDuoc({ day_lai_han: tkDonGoc.day_lai_ticket_han ?? null } as DonHangRow, canTacNghiep || canKho);
+  const dayLaiDonGoc = !dayLaiTicket && !!tkDonGoc?.dat_don_hang_id && dayLaiDuoc({ day_lai_han: tkDonGoc.ddh_day_lai_han ?? null } as DonHangRow, canTacNghiep);
+  const nhanTicketVe = tkDonGoc?.day_lai_ticket_ve ? trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, tkDonGoc.day_lai_ticket_ve) : "";
   const dayLaiMutation = useMutation({
-    mutationFn: () => api.post(`/dat-mua-lk/don-hang/${tkDonGoc?.dat_don_hang_id}/day-lai`, { ghi_chu: ghiChuDayLai.trim() || undefined }),
+    mutationFn: () =>
+      dayLaiTicket
+        ? api.post(`/dat-mua-lk/thieu-lk/${id}/day-lai`, { ghi_chu: ghiChuDayLai.trim() || undefined })
+        : api.post(`/dat-mua-lk/don-hang/${tkDonGoc?.dat_don_hang_id}/day-lai`, { ghi_chu: ghiChuDayLai.trim() || undefined }),
     onSuccess: () => {
       setMoDayLai(false);
       setGhiChuDayLai("");
@@ -1073,7 +1083,11 @@ export function ThieuLkDetailModal({
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-detail"] });
       invalidatePipelineCounts(qc);
-      addToast(t("Đã đẩy lại đơn {a} về Chờ TN duyệt", { a: tkDonGoc?.dat_don_hang_id ?? "" }));
+      addToast(
+        dayLaiTicket
+          ? t("Đã đẩy lại ticket {a} về \"{b}\" — đơn {c} về Chờ hàng", { a: id, b: nhanTicketVe, c: tkDonGoc?.dat_don_hang_id ?? "" })
+          : t("Đã đẩy lại đơn {a} về Chờ TN duyệt", { a: tkDonGoc?.dat_don_hang_id ?? "" }),
+      );
     },
     onError: (err) => addToast(t("Không đẩy lại được đơn: ") + describeApiError(err)),
   });
@@ -1152,9 +1166,15 @@ export function ThieuLkDetailModal({
       />
     ) : moDayLai ? (
       <div className="space-y-2.5">
-        <div className="text-[13px] font-bold text-[var(--color-text)]">{t("Đẩy lại đơn gốc {a} về Chờ TN duyệt", { a: tk.dat_don_hang_id })}</div>
+        <div className="text-[13px] font-bold text-[var(--color-text)]">
+          {dayLaiTicket
+            ? t("Đẩy lại ticket về \"{a}\"", { a: nhanTicketVe })
+            : t("Đẩy lại đơn gốc {a} về Chờ TN duyệt", { a: tk.dat_don_hang_id })}
+        </div>
         <div className="text-[11px] text-[var(--color-text-secondary)]">
-          {t("Đơn quay lại hàng chờ duyệt của Tác nghiệp để xử lý lại (duyệt / từ chối / chờ hàng). Ticket thiếu hàng đã đóng không mở lại; đơn cần chuyển tiền trước sẽ được gom lại vào phiếu đang tạo của người nhận.")}
+          {dayLaiTicket
+            ? t("Ticket quay lại trạng thái trước khi bị từ chối / hủy để Kho xử lý tiếp; đơn gốc {a} về lại Chờ hàng. Tiền đã hoàn về quỹ lúc hủy được lấy lại gắn vào đơn (trong phạm vi số dư quỹ hiện có).", { a: tk.dat_don_hang_id })
+            : t("Đơn quay lại hàng chờ duyệt của Tác nghiệp để xử lý lại (duyệt / từ chối / chờ hàng). Ticket thiếu hàng đã đóng không mở lại; đơn cần chuyển tiền trước sẽ được gom lại vào phiếu đang tạo của người nhận.")}
         </div>
         <label className="block">
           <span className="mb-1 block text-xs font-semibold text-[var(--color-text-body)]">{t("Ghi chú (tuỳ chọn)")}</span>
@@ -1173,16 +1193,20 @@ export function ThieuLkDetailModal({
           </Btn>
         </div>
       </div>
-    ) : nexts.length > 0 || dayLaiDonGoc ? (
+    ) : nexts.length > 0 || dayLaiTicket || dayLaiDonGoc ? (
       <div className="flex gap-2 sm:justify-end">
-        {dayLaiDonGoc && (
+        {(dayLaiTicket || dayLaiDonGoc) && (
           <Btn
             variant={nexts.length > 0 ? "ghost" : "primary"}
             className="min-h-10 min-w-0 flex-1 px-2 sm:min-h-9 sm:flex-none sm:px-3.5"
-            title={t("Đơn gốc {a} bị hủy / từ chối — đẩy lại về Chờ TN duyệt (trong 24h)", { a: tk.dat_don_hang_id })}
+            title={
+              dayLaiTicket
+                ? t("Ticket về \"{a}\", đơn gốc {b} về Chờ hàng (trong 24h)", { a: nhanTicketVe, b: tk.dat_don_hang_id })
+                : t("Đơn gốc {a} bị hủy / từ chối — đẩy lại về Chờ TN duyệt (trong 24h)", { a: tk.dat_don_hang_id })
+            }
             onClick={() => setMoDayLai(true)}
           >
-            <span className="truncate">{t("↩ Đẩy lại đơn gốc")}</span>
+            <span className="truncate">{dayLaiTicket ? t("↩ Đẩy lại ticket") : t("↩ Đẩy lại đơn gốc")}</span>
           </Btn>
         )}
         {nexts.map((s) => (

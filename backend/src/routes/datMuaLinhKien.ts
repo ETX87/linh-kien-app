@@ -1,4 +1,5 @@
 import { lenhGhiQuy, phanBoQuy, soDuQuy, thongBaoHoanQuyPhieuHuy } from "../lib/quyKtv";
+import { dayLaiTicketThieuLk, hanDayLaiTicketSql, trangThaiTruocTicketSql, ticketDayLaiCuaDon } from "../lib/dayLaiThieuLk";
 import { ktvChinhCuaEmailSql } from "../lib/ktvChinh";
 import { Hono } from "hono";
 import { chuanHoaSdt, laNguoiNhanKhLe, nhomKhLeTheoEmail, timHoacTaoKhachLe } from "../lib/khachLe";
@@ -3720,6 +3721,15 @@ datMuaLinhKien.post("/don-hang/:id/day-lai", async (c) => {
   const user = c.get("user");
   const id = c.req.param("id");
   const body = await c.req.json<{ ghi_chu?: string }>().catch(() => ({}) as { ghi_chu?: string });
+  // Don bi huy theo TICKET thieu hang (Kho tu choi / huy ticket khi don dang Cho hang) -> phuc hoi THEO TICKET (2026-10-16): ticket ve
+  // trang thai truoc khi bi tu choi, don ve "Cho hang" (khong ve "Cho TN duyet") - lib/dayLaiThieuLk.ts.
+  const ticketPhucHoi = await ticketDayLaiCuaDon(c.env.DB, id);
+  if (ticketPhucHoi) {
+    const kq = await dayLaiTicketThieuLk(c.env, c.env.DB, ticketPhucHoi, user.email, body.ghi_chu);
+    if ("error" in kq) return c.json({ error: kq.error, han: kq.han, pxk: kq.pxk }, kq.status);
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+    return c.json({ ok: true, trang_thai: "Cho hang", ticket: ticketPhucHoi, trang_thai_ticket: kq.trangThaiTicket, tien_lay_lai: kq.tienLayLai });
+  }
   const ddh = await c.env.DB.prepare(
     `SELECT ddh.version, ddh.loai_don, ddh.trang_thai_hien_tai as trang_thai, ddh.nguoi_tao, ddh.nguoi_nhan_hang, ddh.ma_xuat_kho,
             ddh.bat_buoc_chuyen_tien, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat, ${dayLaiHanSql("ddh")} as han, ? as bay_gio,
@@ -4800,7 +4810,9 @@ datMuaLinhKien.get("/thieu-lk/:id", async (c) => {
   const tlk = await c.env.DB.prepare(
     `SELECT tlk.*, sldc.ten_ly_do, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.uu_tien, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao as ddh_nguoi_tao, ddh.so_luong_de_xuat, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai, ${LK_TRANG_THAI_MA_SQL} as lk_trang_thai_ma,
             -- Nut "Đẩy lại đơn gốc" tren ticket (2026-10-16): trang thai + han day lai cua DON GOC (cung dayLaiHanSql voi danh sach don).
-            ddh.trang_thai_hien_tai as ddh_trang_thai, ${dayLaiHanSql("ddh")} as ddh_day_lai_han
+            ddh.trang_thai_hien_tai as ddh_trang_thai, ${dayLaiHanSql("ddh")} as ddh_day_lai_han,
+            -- "Đẩy lại ticket" (2026-10-16, lib/dayLaiThieuLk.ts): han + trang thai ticket se phuc hoi.
+            ${hanDayLaiTicketSql("tlk")} as day_lai_ticket_han, ${trangThaiTruocTicketSql("tlk")} as day_lai_ticket_ve
      FROM thieu_lk tlk
      LEFT JOIN settings_ly_do_cham sldc ON sldc.id = tlk.ly_do_cham_id
      LEFT JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id
@@ -4814,6 +4826,18 @@ datMuaLinhKien.get("/thieu-lk/:id", async (c) => {
   const tlkRow = tlk as Record<string, unknown>;
   const khoDuHang = duTonCt.has(String(tlkRow.dat_don_hang_id)) && !(THIEU_LK_TRANG_THAI_DONG as readonly string[]).includes(String(tlkRow.trang_thai)) ? 1 : 0;
   return c.json({ thieuLk: { ...tlkRow, kho_du_hang: khoDuHang }, logs });
+});
+
+// POST /api/dat-mua-lk/thieu-lk/:id/day-lai - { ghi_chu? } (2026-10-16, "đẩy ticket lại trạng thái trước khi bị từ chối => đơn gốc cũng
+// đẩy ngược lại theo ticket"): ticket ve trang thai mo truoc khi bi tu choi / huy, don goc 'Da huy' -> 'Cho hang' + lay lai tien da hoan
+// ve quy. TN (gom Ke toan lam thay) / Kho / Admin. Toan bo dieu kien + ghi o lib/dayLaiThieuLk.ts.
+datMuaLinhKien.post("/thieu-lk/:id/day-lai", async (c) => {
+  if (!canTacNghiep(c) && !canKho(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const body = await c.req.json<{ ghi_chu?: string }>().catch(() => ({}) as { ghi_chu?: string });
+  const kq = await dayLaiTicketThieuLk(c.env, c.env.DB, c.req.param("id"), c.get("user").email, body.ghi_chu);
+  if ("error" in kq) return c.json({ error: kq.error, han: kq.han, pxk: kq.pxk }, kq.status);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, don_hang_id: kq.donHangId, trang_thai_ticket: kq.trangThaiTicket, tien_lay_lai: kq.tienLayLai, tien_hoan: kq.tienHoan });
 });
 
 // Logic dung chung cho 1 ticket thieu_lk - tach ra de route bulk-log tai su dung dung 1 cho (them
