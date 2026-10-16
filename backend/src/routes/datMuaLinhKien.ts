@@ -4798,7 +4798,9 @@ datMuaLinhKien.get("/thieu-lk/:id", async (c) => {
     binds.push(user.email);
   }
   const tlk = await c.env.DB.prepare(
-    `SELECT tlk.*, sldc.ten_ly_do, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.uu_tien, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao as ddh_nguoi_tao, ddh.so_luong_de_xuat, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai, ${LK_TRANG_THAI_MA_SQL} as lk_trang_thai_ma
+    `SELECT tlk.*, sldc.ten_ly_do, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.uu_tien, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao as ddh_nguoi_tao, ddh.so_luong_de_xuat, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai, ${LK_TRANG_THAI_MA_SQL} as lk_trang_thai_ma,
+            -- Nut "Đẩy lại đơn gốc" tren ticket (2026-10-16): trang thai + han day lai cua DON GOC (cung dayLaiHanSql voi danh sach don).
+            ddh.trang_thai_hien_tai as ddh_trang_thai, ${dayLaiHanSql("ddh")} as ddh_day_lai_han
      FROM thieu_lk tlk
      LEFT JOIN settings_ly_do_cham sldc ON sldc.id = tlk.ly_do_cham_id
      LEFT JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id

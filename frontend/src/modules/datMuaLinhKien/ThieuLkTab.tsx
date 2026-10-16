@@ -16,9 +16,9 @@ import { api, buildQuery } from "../../api/client";
 import { exportRowsToExcel } from "../../lib/exportExcel";
 import { fmtDate, fmtDateTime } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
-import type { ThieuLkRow, LyDoChamRow, NguoiNhanHangKhaDungRow } from "./types";
+import type { ThieuLkRow, LyDoChamRow, NguoiNhanHangKhaDungRow, DonHangRow } from "./types";
 import { THIEU_LK_TRANG_THAI_TONE, THIEU_LK_TRANG_THAI_OPTIONS } from "./constants";
-import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts, trangThaiLabel, formatLkLabel, LOAI_DON_TONE } from "./helpers";
+import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts, trangThaiLabel, formatLkLabel, LOAI_DON_TONE, dayLaiDuoc } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar, KhuVucChipFilter, LogTieuDe, useTenNguoiLog } from "./SharedUi";
 import { ThieuLkStatusRail } from "./ThieuLkStatusRail";
 // Lien ket 2 chieu voi don goc (phan hoi 2026-09-10: "đơn gốc cũng không có truy vấn đến đơn ticket
@@ -1011,6 +1011,8 @@ export function ThieuLkDetailModal({
   const [ghiChu, setGhiChu] = useState("");
   const [ngayDuKien, setNgayDuKien] = useState(initialAction === "Kho da cap nhat" ? initialRow?.ngay_du_kien_co_hang ?? "" : "");
   const [showDonGoc, setShowDonGoc] = useState(false);
+  const [moDayLai, setMoDayLai] = useState(false);
+  const [ghiChuDayLai, setGhiChuDayLai] = useState("");
   const { data, isLoading } = useQuery({
     queryKey: ["thieu-lk-detail", id],
     queryFn: () =>
@@ -1057,6 +1059,24 @@ export function ThieuLkDetailModal({
   const ktvDisplayMap = useKtvDisplayMap();
   const tenLog = useTenNguoiLog();
   const tk = data?.thieuLk ?? initialRow;
+  // "↩ Đẩy lại đơn gốc" ngay tren ticket (2026-10-16, phan hoi "thêm nút đẩy lại ở ticket" - vd TLK-000317: Kho tu choi nham -> don goc
+  // DDH-002653 tu huy). Han do server tinh (ddh_day_lai_han = dayLaiHanSql cua don goc) - CUNG dieu kien/API voi nut o danh sach don.
+  const tkDonGoc = tk as (ThieuLkRow & { ddh_trang_thai?: string | null; ddh_day_lai_han?: string | null }) | undefined;
+  const dayLaiDonGoc = !!tkDonGoc?.dat_don_hang_id && dayLaiDuoc({ day_lai_han: tkDonGoc.ddh_day_lai_han ?? null } as DonHangRow, canTacNghiep);
+  const dayLaiMutation = useMutation({
+    mutationFn: () => api.post(`/dat-mua-lk/don-hang/${tkDonGoc?.dat_don_hang_id}/day-lai`, { ghi_chu: ghiChuDayLai.trim() || undefined }),
+    onSuccess: () => {
+      setMoDayLai(false);
+      setGhiChuDayLai("");
+      qc.invalidateQueries({ queryKey: ["thieu-lk-detail", id] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-thieu-lk"] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-detail"] });
+      invalidatePipelineCounts(qc);
+      addToast(t("Đã đẩy lại đơn {a} về Chờ TN duyệt", { a: tkDonGoc?.dat_don_hang_id ?? "" }));
+    },
+    onError: (err) => addToast(t("Không đẩy lại được đơn: ") + describeApiError(err)),
+  });
   // Xac nhan MA LK cua don goc ngay tren ticket (2026-10-16): Kho (vai tro hien co) + Mua hang + Admin. Danh muc LK day du dung chung cache
   // voi Bang gia ("settings-linh-kien"); chi tai khi ma cua ticket dang cho xet duyet.
   const authState = useAuth();
@@ -1130,8 +1150,41 @@ export function ThieuLkDetailModal({
           })
         }
       />
-    ) : nexts.length > 0 ? (
+    ) : moDayLai ? (
+      <div className="space-y-2.5">
+        <div className="text-[13px] font-bold text-[var(--color-text)]">{t("Đẩy lại đơn gốc {a} về Chờ TN duyệt", { a: tk.dat_don_hang_id })}</div>
+        <div className="text-[11px] text-[var(--color-text-secondary)]">
+          {t("Đơn quay lại hàng chờ duyệt của Tác nghiệp để xử lý lại (duyệt / từ chối / chờ hàng). Ticket thiếu hàng đã đóng không mở lại; đơn cần chuyển tiền trước sẽ được gom lại vào phiếu đang tạo của người nhận.")}
+        </div>
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold text-[var(--color-text-body)]">{t("Ghi chú (tuỳ chọn)")}</span>
+          <textarea
+            rows={2}
+            value={ghiChuDayLai}
+            onChange={(e) => setGhiChuDayLai(e.target.value)}
+            placeholder={t("VD: Kho từ chối nhầm")}
+            className="focus-ring w-full resize-none rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-2 text-base sm:text-sm"
+          />
+        </label>
+        <div className="flex gap-2 sm:justify-end">
+          <Btn variant="ghost" className="min-h-10 flex-1 sm:min-h-9 sm:flex-none" onClick={() => setMoDayLai(false)}>{t("Quay lại")}</Btn>
+          <Btn className="min-h-10 flex-1 sm:min-h-9 sm:flex-none" onClick={() => dayLaiMutation.mutate()} loading={dayLaiMutation.isPending}>
+            {t("Xác nhận")}
+          </Btn>
+        </div>
+      </div>
+    ) : nexts.length > 0 || dayLaiDonGoc ? (
       <div className="flex gap-2 sm:justify-end">
+        {dayLaiDonGoc && (
+          <Btn
+            variant={nexts.length > 0 ? "ghost" : "primary"}
+            className="min-h-10 min-w-0 flex-1 px-2 sm:min-h-9 sm:flex-none sm:px-3.5"
+            title={t("Đơn gốc {a} bị hủy / từ chối — đẩy lại về Chờ TN duyệt (trong 24h)", { a: tk.dat_don_hang_id })}
+            onClick={() => setMoDayLai(true)}
+          >
+            <span className="truncate">{t("↩ Đẩy lại đơn gốc")}</span>
+          </Btn>
+        )}
         {nexts.map((s) => (
           <Btn
             key={s.trangThai}
