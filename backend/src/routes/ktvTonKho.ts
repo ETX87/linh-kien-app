@@ -3,7 +3,7 @@ import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
-import { VIEW_CHUA_GAN_KHU_VUC_SQL, gsKhuVucXemThemSql } from "../lib/scopeDatMua";
+import { VIEW_CHUA_GAN_KHU_VUC_SQL, gsKhuVucXemThemSql, scopeKtvTonKho } from "../lib/scopeDatMua";
 import { nowVN } from "../lib/vnTime";
 import { getMocTinhCongNo, danhGiaCongNo3Muc, SL_HO_TRO_0D_SQL, CONG_NO_DA_TRU_FROM_SQL, CONG_NO_DA_TRU_WHERE_SQL, CONG_NO_DA_TRU_GIA_TRI_SQL } from "../lib/congNoKtv";
 import { daTruTheoMaHang } from "../lib/tonKhoKtv";
@@ -45,26 +45,7 @@ const adminOrKeToan = async (c: Context<{ Bindings: Env }>, next: Next) => {
 //   module Dat mua linh kien - KHONG mac dinh xem het).
 // - Khac (khong thuoc nhom nao o tren, tuc chua co co/vai_tro hop le) -> khong thay gi (1=0), tuy
 //   thuc te se khong xay ra vi requireDatMuaLkArea da chan tu truoc.
-function scopeKtvTonKho(c: Context<{ Bindings: Env }>): { whereSql: string; binds: string[] } | null {
-  const user = c.get("user");
-  if (user.vai_tro === "Admin" || user.vai_tro === "QC" || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh || user.la_mua_hang) {
-    return null;
-  }
-  if (user.vai_tro === "Giam sat") {
-    return {
-      whereSql: `(k.email_dang_nhap IN (SELECT email FROM users WHERE giam_sat_quan_ly = ?) OR ${gsKhuVucXemThemSql("k.khu_vuc_ma")})`,
-      binds: [user.email, user.email],
-    };
-  }
-  if (user.la_ktv_dvbh || user.la_ve_tinh) {
-    return { whereSql: "k.email_dang_nhap = ?", binds: [user.email] };
-  }
-  if (user.la_view) {
-    // Gan Khu vuc -> KTV thuoc cac khu vuc do; chua gan -> tat ca (chot 2026-10-15).
-    return { whereSql: `(${VIEW_CHUA_GAN_KHU_VUC_SQL} OR ${gsKhuVucXemThemSql("k.khu_vuc_ma")})`, binds: [user.email, user.email] };
-  }
-  return { whereSql: "1=0", binds: [] };
-}
+// (2026-10-16) Than ham chuyen sang lib/scopeDatMua.ts (export scopeKtvTonKho) - dung chung voi drawer LK o Bang gia.
 
 // GET /?search= - danh sach tong hop theo KTV (chi KTV DANG co du lieu ton kho, INNER JOIN) - kem
 // Cong no/Ma MISA de doi chieu chung 1 man hinh (dung y "Tồn kho công nợ KTV" cua nguoi dung).

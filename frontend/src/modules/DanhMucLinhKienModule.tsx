@@ -32,6 +32,7 @@ import { TRANG_THAI_MA, TrangThaiMaBadge, XetDuyetMaSection } from "./danhMucLin
 import { PhanLoaiNhanh } from "./danhMucLinhKien/PhanLoaiNhanh";
 import { linkAnToan } from "../lib/linhAnToan";
 import { anhCuaLk, SO_ANH_LK_TOI_DA } from "../lib/anhLinhKien";
+import { useLienQuanLk, TomTatLienQuan, TonKhoLkTab, DatHangLkTab, LienQuanLkTab } from "./danhMucLinhKien/LienQuanLk";
 import { canhBaoHanMucAnh, loiHetHanMucAnh, loiHetHanMucAnhTuMa, type HanMucAnh } from "../lib/hanMucAnh";
 
 const PAGE_SIZE = 20;
@@ -377,13 +378,17 @@ function PartDetailDrawer({
   const personDir = usePersonDirectory();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [anhIdx, setAnhIdx] = useState(0);
-  useEffect(() => { setLightboxOpen(false); setAnhIdx(0); }, [part?.ma_linh_kien]);
+  // Tab (2026-10-16, "xem được các thông tin liên quan đến linh kiện ... lịch sử đặt hàng, tồn kho ở các kho") - danhMucLinhKien/LienQuanLk.tsx.
+  const [tab, setTab] = useState<"tong-quan" | "ton-kho" | "dat-hang" | "lien-quan">("tong-quan");
+  const lienQuan = useLienQuanLk(part?.ma_linh_kien ?? null);
+  const [dangMoDon, setDangMoDon] = useState(false);
+  useEffect(() => { setLightboxOpen(false); setAnhIdx(0); setTab("tong-quan"); }, [part?.ma_linh_kien]);
   useEffect(() => {
     if (!part) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !lightboxOpen) onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !lightboxOpen && !dangMoDon) onClose(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [part, lightboxOpen, onClose]);
+  }, [part, lightboxOpen, dangMoDon, onClose]);
 
   if (!part) return null;
   const anhs = anhCuaLk(part);
@@ -413,7 +418,7 @@ function PartDetailDrawer({
   return (
     <>
       <div className="fixed inset-0 z-50 bg-[var(--overlay)] backdrop-blur-[2px]" onClick={onClose} />
-      <div className="drawer-in fixed inset-y-0 right-0 z-50 w-full max-w-md bg-[var(--surface)] shadow-2xl flex flex-col">
+      <div className="drawer-in fixed inset-y-0 right-0 z-50 w-full max-w-2xl bg-[var(--surface)] shadow-2xl flex flex-col">
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-[var(--line)] shrink-0">
           {/* SUA BUG GIAO DIEN (phan hoi 2026-09-12, dong bo voi LinhKienPicker.tsx trong module "Dat
               mua linh kien" - cung 1 danh muc linh_kien): truoc day hien rieng ma_linh_kien o dong
@@ -426,8 +431,27 @@ function PartDetailDrawer({
             ✕
           </button>
         </div>
+        <div className="px-5 pt-3 shrink-0 overflow-x-auto">
+          <Tabs
+            tabs={[
+              { key: "tong-quan", label: "Tổng quan" },
+              { key: "ton-kho", label: "Tồn kho", count: lienQuan.data ? lienQuan.data.ton_kho_cong_ty.length + lienQuan.data.ton_kho_ktv.length : undefined },
+              { key: "dat-hang", label: "Đặt hàng", count: lienQuan.data ? lienQuan.data.don_hang.length : undefined },
+              { key: "lien-quan", label: "Liên quan", count: lienQuan.data ? lienQuan.data.thay_the.reduce((n, g) => n + g.linh_kien.length, 0) + lienQuan.data.combo.length : undefined },
+            ]}
+            active={tab}
+            onChange={(k) => setTab(k as typeof tab)}
+          />
+        </div>
 
+        {tab === "ton-kho" && <div className="overflow-y-auto p-5 flex-1"><TonKhoLkTab ma={part.ma_linh_kien} ktvXem={ktvXem} /></div>}
+        {tab === "dat-hang" && <div className="overflow-y-auto p-5 flex-1"><DatHangLkTab ma={part.ma_linh_kien} onMoDon={setDangMoDon} /></div>}
+        {tab === "lien-quan" && <div className="overflow-y-auto p-5 flex-1"><LienQuanLkTab ma={part.ma_linh_kien} onXemLk={onDoiMa} /></div>}
+        {tab === "tong-quan" && (
         <div className="overflow-y-auto p-5 space-y-5 flex-1">
+          <TomTatLienQuan ma={part.ma_linh_kien} onTab={setTab} />
+          {/* 2 cot tu man >= sm (drawer rong 2xl): anh trai, trang thai + thong tin phai. */}
+          <div className="grid gap-5 sm:grid-cols-[240px_minmax(0,1fr)] items-start">
           <div className="space-y-2">
             <PartHeroImage url={anhs[anhHien] ?? null} alt={part.ten_linh_kien} onZoom={() => setLightboxOpen(true)} />
             {anhs.length > 1 && (
@@ -440,6 +464,7 @@ function PartDetailDrawer({
               </div>
             )}
           </div>
+          <div className="space-y-4 min-w-0">
 
           {ktvXem ? (
             !!part.cam_ban && (
@@ -470,6 +495,8 @@ function PartDetailDrawer({
               </KvRow>
             ))}
           </div>
+          </div>
+          </div>
 
           {!ktvXem && <XetDuyetMaSection part={part} parts={parts} canXetDuyet={canXetDuyetMa} choPhepGiaTam={canXetDuyet} onDoiMa={onDoiMa} />}
 
@@ -486,6 +513,7 @@ function PartDetailDrawer({
             Cập nhật lần cuối bởi <span className="font-medium text-[var(--ink-500)]">{part.nguoi_cap_nhat ? formatPersonDisplay(part.nguoi_cap_nhat, personDir) : "—"}</span> lúc {fmtDateTime(part.ngay_cap_nhat)}
           </div>}
         </div>
+        )}
 
         <div className="flex justify-end gap-2 px-5 py-3.5 border-t border-[var(--line)] shrink-0">
           <Btn variant="ghost" onClick={onClose}>

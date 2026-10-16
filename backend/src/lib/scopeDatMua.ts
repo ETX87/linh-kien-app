@@ -252,3 +252,26 @@ export function khuVucPxkWhereSql(khuVucSet: Set<string>, alias = "pxk", chiMien
 export function laKhoThuan(user: { la_kho?: boolean | number | null; la_tac_nghiep?: boolean | number | null; la_ke_toan?: boolean | number | null; vai_tro?: string | null }): boolean {
   return !!user.la_kho && !user.la_tac_nghiep && !user.la_ke_toan && user.vai_tro !== "Admin";
 }
+
+// Pham vi xem ton kho / cong no KTV (alias `k` = ktv_lien_he) - man Cong no (routes/ktvTonKho.ts) + drawer LK o Bang gia
+// (GET /settings/linh-kien/:ma/lien-quan). Giai thich tung nhanh: dau file routes/ktvTonKho.ts.
+export function scopeKtvTonKho(c: Context<{ Bindings: Env }>): { whereSql: string; binds: string[] } | null {
+  const user = c.get("user");
+  if (user.vai_tro === "Admin" || user.vai_tro === "QC" || user.la_kho || user.la_ke_toan || user.la_tac_nghiep || user.la_tp_dvbh || user.la_mua_hang) {
+    return null;
+  }
+  if (user.vai_tro === "Giam sat") {
+    return {
+      whereSql: `(k.email_dang_nhap IN (SELECT email FROM users WHERE giam_sat_quan_ly = ?) OR ${gsKhuVucXemThemSql("k.khu_vuc_ma")})`,
+      binds: [user.email, user.email],
+    };
+  }
+  if (user.la_ktv_dvbh || user.la_ve_tinh) {
+    return { whereSql: "k.email_dang_nhap = ?", binds: [user.email] };
+  }
+  if (user.la_view) {
+    // Gan Khu vuc -> KTV thuoc cac khu vuc do; chua gan -> tat ca (chot 2026-10-15).
+    return { whereSql: `(${VIEW_CHUA_GAN_KHU_VUC_SQL} OR ${gsKhuVucXemThemSql("k.khu_vuc_ma")})`, binds: [user.email, user.email] };
+  }
+  return { whereSql: "1=0", binds: [] };
+}

@@ -16,6 +16,8 @@ import { TT_MA, docLk, logLk, demDonDungLk, chuyenMaLk, tinhLaiTienTheoLk } from
 import { bumpVersions } from "../lib/dataVersions";
 import { dsAnhLk, cotAnhLk, SO_ANH_LK_TOI_DA } from "../lib/anhLinhKien";
 import { createMiddleware } from "hono/factory";
+import { docLienQuanLk } from "../lib/linhKienLienQuan";
+import { scopeDatMuaNguoiTao, scopeKtvTonKho } from "../lib/scopeDatMua";
 
 // Port rut gon tu backend/src/routes/settings.ts cua he DVBH goc - CHI giu 4 khoi thuc su can cho
 // mien nghiep vu "Dat mua linh kien" (xem CLAUDE.md muc "Nguon goc tach he thong"): danh muc linh
@@ -211,6 +213,69 @@ settingsDatMua.patch("/linh-kien/:ma/gia-tri-cong-no", linhKienWriteRoles, async
 
 // GET /linh-kien/:ma/xet-duyet - lich su xet duyet (log cua chinh ma + log cac ma da doi/gop VAO ma nay) + so don dang
 // dung ma. Mo cho moi nguoi xem duoc Bang gia (chi doc).
+// GET /linh-kien/:ma/lien-quan (2026-10-16, "xem được các thông tin liên quan đến linh kiện ... lịch sử đặt hàng, tồn kho ở các kho") - du
+// lieu cho drawer xem LK o Bang gia: ton kho cong ty tung kho (file MISA, ai cung xem), ton kho + cong no tung KTV (pham vi man Cong
+// no - scopeKtvTonKho: KTV chi thay cua minh), don dat gan nhat + thong ke 30/90 ngay + ticket thieu hang dang mo (pham vi danh sach don -
+// scopeDatMuaNguoiTao), nhom thay the + combo. Truy van ton kho/thay the/combo dung chung API doi tac (lib/linhKienLienQuan.ts).
+settingsDatMua.get("/linh-kien/:ma/lien-quan", async (c) => {
+  const ma = c.req.param("ma");
+  const db = c.env.DB;
+  const lk = await db.prepare("SELECT ma_linh_kien FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first();
+  if (!lk) return c.json({ error: "NOT_FOUND" }, 404);
+  const scopeDon = scopeDatMuaNguoiTao(c);
+  const sDon = scopeDon?.whereSql ?? "";
+  const bDon = scopeDon?.binds ?? [];
+  const TT_LOAI = "('TN tu choi', 'Da huy')";
+  const [lq, don, thongKe, thieuLk] = await Promise.all([
+    docLienQuanLk(db, JSON.stringify([ma]), scopeKtvTonKho(c)),
+    db.prepare(
+      `SELECT ddh.id, ddh.ngay_tao, ddh.loai_de_xuat, ddh.trang_thai_hien_tai, COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) AS so_luong,
+              ddh.nguoi_nhan_hang, ddh.nguoi_tao, COALESCE(ddh.khu_vuc_chon, ddh.khu_vuc_ma) AS khu_vuc_ma,
+              (SELECT pxk.id FROM phieu_xuat_kho_dong d JOIN phieu_xuat_kho pxk ON pxk.id = d.phieu_xuat_kho_id
+               WHERE d.dat_don_hang_id = ddh.id AND pxk.trang_thai_hien_tai <> 'Ke toan huy' ORDER BY pxk.id DESC LIMIT 1) AS pxk_id
+       FROM dat_don_hang ddh WHERE ddh.ma_lk = ? ${sDon} ORDER BY ddh.ngay_tao DESC, ddh.id DESC LIMIT 30`,
+    ).bind(ma, ...bDon).all(),
+    db.prepare(
+      `SELECT
+         SUM(CASE WHEN ddh.ngay_tao >= datetime('now', '+7 hours', '-30 days') THEN 1 ELSE 0 END) AS don_30,
+         SUM(CASE WHEN ddh.ngay_tao >= datetime('now', '+7 hours', '-30 days') THEN COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) ELSE 0 END) AS sl_30,
+         SUM(CASE WHEN ddh.ngay_tao >= datetime('now', '+7 hours', '-90 days') THEN 1 ELSE 0 END) AS don_90,
+         SUM(CASE WHEN ddh.ngay_tao >= datetime('now', '+7 hours', '-90 days') THEN COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) ELSE 0 END) AS sl_90,
+         SUM(CASE WHEN ddh.trang_thai_hien_tai = 'Cho hang' THEN 1 ELSE 0 END) AS dang_cho_hang,
+         COUNT(*) AS tong_don, MAX(ddh.ngay_tao) AS lan_cuoi
+       FROM dat_don_hang ddh WHERE ddh.ma_lk = ? AND ddh.trang_thai_hien_tai NOT IN ${TT_LOAI} ${sDon}`,
+    ).bind(ma, ...bDon).first(),
+    db.prepare(
+      `SELECT tlk.id, tlk.dat_don_hang_id, tlk.ngay_tao, tlk.ngay_du_kien_co_hang, ddh.nguoi_nhan_hang,
+              (SELECT l.trang_thai FROM thieu_lk_log l WHERE l.thieu_lk_id = tlk.id ORDER BY l.id DESC LIMIT 1) AS trang_thai
+       FROM thieu_lk tlk JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id
+       WHERE ddh.ma_lk = ? ${sDon}
+         AND COALESCE((SELECT l.trang_thai FROM thieu_lk_log l WHERE l.thieu_lk_id = tlk.id ORDER BY l.id DESC LIMIT 1), '') NOT IN ('Da huy bo', 'Da ket thuc')
+       ORDER BY tlk.ngay_tao DESC LIMIT 20`,
+    ).bind(ma, ...bDon).all(),
+  ]);
+  const so = (v: number | null | undefined) => Number(v ?? 0);
+  const nhomTt = new Map<number, { nhom_id: number; ten_nhom: string; linh_kien: { ma_linh_kien: string; ten_linh_kien: string | null; bat_tat: number | null }[] }>();
+  for (const r of lq.thayThe) {
+    const g = nhomTt.get(r.nhom_id) ?? { nhom_id: r.nhom_id, ten_nhom: r.ten_nhom, linh_kien: [] };
+    g.linh_kien.push({ ma_linh_kien: r.ma_thay_the, ten_linh_kien: r.ten_thay_the, bat_tat: r.bat_tat });
+    nhomTt.set(r.nhom_id, g);
+  }
+  return c.json({
+    phien_ban_ton_kho: lq.phienBanTonKho,
+    ton_kho_cong_ty: lq.tonKho.map((r) => ({ ma_kho: r.ma_kho, ten_kho: r.ten_kho, sl_ton: so(r.cuoi_ky) })),
+    ton_kho_ktv: lq.tonKtv
+      .filter((r) => so(r.cuoi_ky) !== 0)
+      .map((r) => ({ ma_kho: r.ma_kho, ma_ktv: r.ma_ktv, ten_ktv: r.ten_ktv, khu_vuc_ma: r.khu_vuc_ma, sl_ton: so(r.cuoi_ky), sl_ho_tro_0d: so(r.sl_ho_tro_0d), cong_no: so(r.cong_no) }))
+      .sort((a, b) => b.sl_ton - a.sl_ton),
+    thong_ke_dat_hang: thongKe,
+    don_hang: don.results,
+    thieu_lk_mo: thieuLk.results,
+    thay_the: [...nhomTt.values()],
+    combo: lq.combo.map(({ ma: _ma, thanh_phan, ...cb }) => ({ ...cb, thanh_phan: JSON.parse(thanh_phan) as { ma_linh_kien: string; so_luong: number }[] })),
+  });
+});
+
 settingsDatMua.get("/linh-kien/:ma/xet-duyet", async (c) => {
   const ma = c.req.param("ma");
   const [{ results: log }, soDon] = await Promise.all([
