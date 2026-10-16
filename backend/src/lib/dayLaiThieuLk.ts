@@ -90,9 +90,10 @@ export async function dayLaiTicketThieuLk(env: Env, db: D1Database, ticketId: st
     ? await db
         .prepare(
           `SELECT so_tien, phieu_xuat_kho_id FROM quy_ktv_giao_dich
-           WHERE email = ? AND loai = 'hoan_phieu' AND ngay_tao >= ? AND ghi_chu LIKE ? ORDER BY id DESC LIMIT 1`,
+           WHERE email = ? AND loai = 'hoan_phieu' AND ngay_tao >= ? AND instr(ghi_chu, ?) = 1 ORDER BY id DESC LIMIT 1`,
         )
-        .bind(tk.nguoi_nhan_hang, tk.huy_luc, `Hoàn tiền đã thanh toán của đơn ${tk.dat_don_hang_id} (%`)
+        // instr() thay LIKE: D1 gioi han do dai mau LIKE (~50 byte) -> "LIKE or GLOB pattern too complex" voi cau tieng Viet nay.
+        .bind(tk.nguoi_nhan_hang, tk.huy_luc, `Hoàn tiền đã thanh toán của đơn ${tk.dat_don_hang_id} (`)
         .first<{ so_tien: number; phieu_xuat_kho_id: string | null }>()
     : null;
   const tienHoan = Math.max(0, hoan?.so_tien ?? 0);
