@@ -78,8 +78,8 @@ function moTaLog(l: LinhKienLogRow): string {
 
 /** Khoi "Xét duyệt mã" trong drawer chi tiet LK: trang thai, nguoi tao, nut thao tac (Mua hang/Admin), lich su. */
 export function XetDuyetMaSection({
-  part, parts, canXetDuyet, onDoiMa,
-}: { part: LinhKienRow; parts: LinhKienRow[]; canXetDuyet: boolean; onDoiMa: (maMoi: string) => void }) {
+  part, parts, canXetDuyet, onDoiMa, choPhepGiaTam = true,
+}: { part: LinhKienRow; parts: LinhKienRow[]; canXetDuyet: boolean; onDoiMa: (maMoi: string) => void; choPhepGiaTam?: boolean }) {
   const personDir = usePersonDirectory();
   const [moModal, setMoModal] = useState<"xac-nhan" | "gop" | "tu-choi" | "gia-tam" | null>(null);
   const { data } = useQuery({
@@ -89,7 +89,8 @@ export function XetDuyetMaSection({
   const tt = part.trang_thai_ma ?? "Da xac nhan";
   const choDuyet = tt === "Cho xet duyet";
   const nguoiTao = data?.log.find((l) => l.hanh_dong === "Tao moi" && l.ma_linh_kien === part.ma_linh_kien)?.nguoi_thuc_hien;
-  const giaTamDuoc = canXetDuyet && !part.co_tren_gia88 && tt !== "Tu choi" && tt !== "Da doi ma";
+  // Kho xac nhan ma (2026-10-16) khong nhap gia tam - chi Mua hang/Admin (choPhepGiaTam).
+  const giaTamDuoc = canXetDuyet && choPhepGiaTam && !part.co_tren_gia88 && tt !== "Tu choi" && tt !== "Da doi ma";
 
   return (
     <div>

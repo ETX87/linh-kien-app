@@ -701,6 +701,14 @@ ve', lý do "Kho đã có hàng" — `applyThieuLkLog` nhận `trang_thai = "Da 
 rồi đi đúng luồng hàng về (đơn gốc tự duyệt + vào phiếu, ticket "Da ket thuc"). FE: hành động "Da co hang" ở `nextStatesForThieuLk`
 (`ThieuLkTab.tsx`).
 
+**Thiếu hàng — trạng thái MÃ LK của đơn chờ hàng** (chốt 2026-10-16, v1.347): GET `/thieu-lk` (+ `/:id`) trả `lk_trang_thai_ma`
+(`LK_TRANG_THAI_MA_SQL` = `linh_kien.trang_thai_ma` của `ddh.ma_lk`, không có → 'Da xac nhan'); lọc `ma_lk_tt=cho|da` trong
+`thieuLkListWhere` (dùng chung danh sách / số đếm / tải Excel); `/thieu-lk-status-counts` trả thêm `ma_lk {cho, da}` (cùng bộ lọc, kể cả
+trạng thái ticket, trừ chính bộ lọc mã). FE `ThieuLkTab`: cột "Mã LK" (`MaLkXacNhanBadge`), chip lọc nhanh "Tất cả mã LK / Mã chờ xác nhận /
+Mã đã xác nhận", Drawer ticket mã chờ → khối `XetDuyetMaSection` (dùng chung Bảng giá). **Kho xác nhận / gộp / từ chối mã LK**
+(`xetDuyetMaRoles` ở `settingsDatMua.ts` = Mua hàng + Admin + Kho); "Giá tạm" vẫn chỉ Mua hàng/Admin (`choPhepGiaTam`). Bảng giá: Kho chỉ có
+khối xét duyệt mã (`canXetDuyetMa`), không có quyền sửa LK.
+
 **Đơn "Cho hang" mở/khóa theo ticket** (chốt 2026-09-30): Kho CHƯA tiếp nhận ticket ("Cho kho xu ly") hoặc ticket đã đóng →
 đơn thao tác như "Cho TN duyet" (TN duyệt/từ chối/chờ hàng lại/hủy, người tạo/Admin hủy), ticket đang chờ TỰ HỦY
 (`laChoHangMoKhoa` trong `applyDonHangLog`; duyệt thẳng → ticket "Da huy bo"); Kho ĐÃ tiếp nhận ("Kho da tiep nhan"/"Kho da cap

@@ -4569,7 +4569,11 @@ datMuaLinhKien.get("/ly-do-cham", async (c) => {
 // Dieu kien WHERE cua GET /thieu-lk (tach ham 2026-09-28) - dung CHUNG cho /thieu-lk-status-counts de so dem o cot
 // trang thai ben trai man Thieu LK luon KHOP dung danh sach dang xem (cung pham vi + khu vuc + nguoi nhan + tim kiem).
 // boQuaTrangThai = true: bo dieu kien trang thai (dem theo tung trang thai).
-async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = false): Promise<{ whereSql: string; binds: unknown[] }> {
+// Trang thai MA LINH KIEN cua don goc ticket thieu hang (chot 2026-10-16): "cho" = ma dang "Cho xet duyet" (Kho vao xac nhan ma), "da" =
+// con lai (da xac nhan / tu dong duyet / doi ma...). LK khong con trong danh muc -> coi nhu da xac nhan.
+const LK_TRANG_THAI_MA_SQL = "COALESCE((SELECT lkx.trang_thai_ma FROM linh_kien lkx WHERE lkx.ma_linh_kien = ddh.ma_lk), 'Da xac nhan')";
+
+async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = false, boQuaMaLk = false): Promise<{ whereSql: string; binds: unknown[] }> {
   const user = c.get("user");
   const donHangId = c.req.query("dat_don_hang_id");
   const trangThai = boQuaTrangThai ? undefined : c.req.query("trang_thai");
@@ -4614,6 +4618,10 @@ async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = 
     whereSql += " AND tlk.dat_don_hang_id = ?";
     binds.push(donHangId);
   }
+  // Loc theo trang thai ma LK (2026-10-16): ma_lk_tt=cho | da.
+  const maLkTt = boQuaMaLk ? undefined : c.req.query("ma_lk_tt");
+  if (maLkTt === "cho") whereSql += ` AND ${LK_TRANG_THAI_MA_SQL} = 'Cho xet duyet'`;
+  else if (maLkTt === "da") whereSql += ` AND ${LK_TRANG_THAI_MA_SQL} != 'Cho xet duyet'`;
   if (trangThai === THIEU_LK_VIEC) {
     const ds = thieuLkTrangThaiViec(c);
     whereSql += ds.length ? ` AND ${latestThieuLkStatusExpr("tlk.id")} IN (${ds.map(() => "?").join(",")})` : " AND 1=0";
@@ -4686,7 +4694,8 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
   // xem docs/audit/RESPONSE_PLAN.md de biet nguong/phuong an xu ly khi log nay cho thay cham that).
   const queryStartedAt = Date.now();
   const { results } = await c.env.DB.prepare(
-    `SELECT tlk.*, sldc.ten_ly_do, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.uu_tien, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao as ddh_nguoi_tao, ddh.loai_chiet_khau_id, ddh.loai_chiet_khau_thu_cong, ddh.so_luong_de_xuat, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai
+    `SELECT tlk.*, sldc.ten_ly_do, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.uu_tien, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao as ddh_nguoi_tao, ddh.loai_chiet_khau_id, ddh.loai_chiet_khau_thu_cong, ddh.so_luong_de_xuat, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai,
+       ${LK_TRANG_THAI_MA_SQL} as lk_trang_thai_ma
      FROM thieu_lk tlk
      LEFT JOIN settings_ly_do_cham sldc ON sldc.id = tlk.ly_do_cham_id
      LEFT JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id
@@ -4719,7 +4728,17 @@ datMuaLinhKien.get("/thieu-lk-status-counts", async (c) => {
   for (const r of results) if (r.trang_thai) counts[r.trang_thai] = r.n;
   const viec = thieuLkTrangThaiViec(c);
   counts[THIEU_LK_VIEC] = viec.reduce((s, t) => s + (counts[t] ?? 0), 0);
-  return c.json({ counts });
+  // So ticket theo trang thai ma LK (chip loc "Mã chờ xác nhận"/"Mã đã xác nhận", 2026-10-16) - CUNG bo loc danh sach (ke ca trang
+  // thai ticket dang chon), tru chinh bo loc ma LK.
+  const kq = await thieuLkListWhere(c, false, true);
+  const maLk = await c.env.DB.prepare(
+    `SELECT SUM(CASE WHEN ${LK_TRANG_THAI_MA_SQL} = 'Cho xet duyet' THEN 1 ELSE 0 END) as cho, COUNT(*) as tong
+     FROM thieu_lk tlk LEFT JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id WHERE ${kq.whereSql}`,
+  )
+    .bind(...kq.binds)
+    .first<{ cho: number | null; tong: number }>();
+  const cho = maLk?.cho ?? 0;
+  return c.json({ counts, ma_lk: { cho, da: (maLk?.tong ?? 0) - cho } });
 });
 
 // GET /api/dat-mua-lk/thieu-lk/:id - chi tiet 1 ticket + lich su xu ly (them 2026-08-21, phan hoi
@@ -4751,7 +4770,7 @@ datMuaLinhKien.get("/thieu-lk/:id", async (c) => {
     binds.push(user.email);
   }
   const tlk = await c.env.DB.prepare(
-    `SELECT tlk.*, sldc.ten_ly_do, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.uu_tien, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao as ddh_nguoi_tao, ddh.so_luong_de_xuat, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai
+    `SELECT tlk.*, sldc.ten_ly_do, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.uu_tien, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao as ddh_nguoi_tao, ddh.so_luong_de_xuat, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai, ${LK_TRANG_THAI_MA_SQL} as lk_trang_thai_ma
      FROM thieu_lk tlk
      LEFT JOIN settings_ly_do_cham sldc ON sldc.id = tlk.ly_do_cham_id
      LEFT JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id

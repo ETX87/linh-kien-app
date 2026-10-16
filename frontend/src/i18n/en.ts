@@ -1710,5 +1710,11 @@ const tuDien: Record<string, string> = {
   "Đã chuyển từ {a} — phiếu + đơn trong phiếu chỉ hiện cho Kho/Kế toán/TN khu vực {b}.": "Changed from {a} — the note and its orders only show to Warehouse/Accounting/Ops of area {b}.",
   "Đã có hàng": "In stock",
   "Xác nhận Kho đã có hàng? Hệ thống sẽ ghi Kho tiếp nhận + hàng đã về, đơn gốc tự duyệt và vào phiếu xuất kho.": "Confirm the warehouse has the goods? The system will record warehouse receipt + goods arrived, and the original order will be auto-approved and added to a delivery note.",
+  "Mã chờ xác nhận": "Code pending confirmation",
+  "Mã chờ xác nhận ({n})": "Code pending confirmation ({n})",
+  "Mã linh kiện đang chờ xác nhận — đang tải…": "Part code pending confirmation — loading…",
+  "Mã đã xác nhận": "Code confirmed",
+  "Mã đã xác nhận ({n})": "Code confirmed ({n})",
+  "Tất cả mã LK": "All part codes",
 };
 export default tuDien;

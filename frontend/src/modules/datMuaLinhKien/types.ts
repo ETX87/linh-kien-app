@@ -356,6 +356,8 @@ export interface ThieuLkRow {
   loai_chiet_khau_thu_cong?: number | null;
   /** SL cua dong don goc (JOIN dat_don_hang, 2026-09-29 - hien tren the mobile/Drawer). */
   so_luong_de_xuat?: number | null;
+  /** Trang thai ma LK cua don goc (linh_kien.trang_thai_ma, 2026-10-16) - "Cho xet duyet" = ma cho Kho/Mua hang xac nhan. */
+  lk_trang_thai_ma?: string | null;
 }
 
 export interface LyDoChamRow {

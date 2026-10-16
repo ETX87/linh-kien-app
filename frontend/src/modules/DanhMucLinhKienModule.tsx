@@ -372,8 +372,8 @@ function PartHeroImage({ url, alt, onZoom }: { url: string | null; alt: string; 
 // duoi: xem la thao tac tra cuu nhanh (bam vao dong/thumbnail trong bang), khong nen dung chung
 // giao dien voi form chinh sua de tranh nguoi dung tuong nham co the sua ngay tai day.
 function PartDetailDrawer({
-  part, onClose, onEdit, canEdit, ktvXem, parts, canXetDuyet, onDoiMa,
-}: { part: LinhKienRow | null; onClose: () => void; onEdit: () => void; canEdit: boolean; ktvXem: boolean; parts: LinhKienRow[]; canXetDuyet: boolean; onDoiMa: (ma: string) => void }) {
+  part, onClose, onEdit, canEdit, ktvXem, parts, canXetDuyet, canXetDuyetMa, onDoiMa,
+}: { part: LinhKienRow | null; onClose: () => void; onEdit: () => void; canEdit: boolean; ktvXem: boolean; parts: LinhKienRow[]; canXetDuyet: boolean; canXetDuyetMa: boolean; onDoiMa: (ma: string) => void }) {
   const personDir = usePersonDirectory();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [anhIdx, setAnhIdx] = useState(0);
@@ -471,7 +471,7 @@ function PartDetailDrawer({
             ))}
           </div>
 
-          {!ktvXem && <XetDuyetMaSection part={part} parts={parts} canXetDuyet={canXetDuyet} onDoiMa={onDoiMa} />}
+          {!ktvXem && <XetDuyetMaSection part={part} parts={parts} canXetDuyet={canXetDuyetMa} choPhepGiaTam={canXetDuyet} onDoiMa={onDoiMa} />}
 
           {!ktvXem && <TuKhoaLkSection ma={part.ma_linh_kien} canSua={canEdit || canXetDuyet} />}
 
@@ -552,6 +552,8 @@ function DanhMucTab() {
   // "Mua hang" (2026-09-30, migration 0053): xet duyet ma LK moi + sua thong tin LK (khong them/nhap hang loat) - khop
   // backend settingsDatMua.ts muaHangRoles/suaLinhKienRoles.
   const canXetDuyet = !!authUser?.la_mua_hang || authUser?.vai_tro === "Admin";
+  // Kho xac nhan / gop / tu choi ma (2026-10-16) - CHI khoi xet duyet ma (khong sua LK, khong gia tam).
+  const canXetDuyetMa = canXetDuyet || !!authUser?.la_kho;
   const canSua = canWrite || canXetDuyet;
   // Cong tac "Đặc thù" nhanh (2026-10-02) - them TN + Ke toan, khop backend PATCH /settings/linh-kien/:ma/dac-thu.
   const canDacThu = canSua || !!authUser?.la_tac_nghiep || !!authUser?.la_ke_toan;
@@ -1662,6 +1664,7 @@ function DanhMucTab() {
         ktvXem={ktvXem}
         parts={parts?.rows ?? []}
         canXetDuyet={canXetDuyet}
+        canXetDuyetMa={canXetDuyetMa}
         onDoiMa={setViewingMa}
       />
     </div>

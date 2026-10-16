@@ -35,6 +35,13 @@ const muaHangRoles = createMiddleware<{ Bindings: Env }>(async (c, next) => {
   if (!laMuaHangHoacAdmin(c.get("user"))) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   await next();
 });
+// Xac nhan / gop / tu choi MA LK cho xet duyet: Mua hang + Admin + KHO (chot 2026-10-16 - Kho xac nhan ma LK cua don cho hang tu man
+// Thieu hang). Gia tam van chi Mua hang/Admin (muaHangRoles).
+const xetDuyetMaRoles = createMiddleware<{ Bindings: Env }>(async (c, next) => {
+  const u = c.get("user");
+  if (!laMuaHangHoacAdmin(u) && !u.la_kho) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  await next();
+});
 // Sua thong tin LK (PATCH/anh) = Quan ly danh muc LK HOAC Mua hang.
 const suaLinhKienRoles = createMiddleware<{ Bindings: Env }>(async (c, next) => {
   const u = c.get("user");
@@ -219,7 +226,7 @@ settingsDatMua.get("/linh-kien/:ma/xet-duyet", async (c) => {
 // POST /linh-kien/:ma/xac-nhan - { ma_moi?, ten_moi? } - Mua hang xac nhan ma chuan cho LK "Cho xet duyet". ma_moi
 // trong/giong ma cu = giu ma (chi sua ten neu co); ma_moi khac = doi ma A -> B (B CHUA duoc ton tai - co roi thi 409
 // MA_DA_TON_TAI, FE goi y "Gop vao ma nay" qua /gop).
-settingsDatMua.post("/linh-kien/:ma/xac-nhan", muaHangRoles, async (c) => {
+settingsDatMua.post("/linh-kien/:ma/xac-nhan", xetDuyetMaRoles, async (c) => {
   const ma = c.req.param("ma");
   const body = await c.req.json<{ ma_moi?: string; ten_moi?: string; phan_loai?: string }>();
   const user = c.get("user");
@@ -255,7 +262,7 @@ settingsDatMua.post("/linh-kien/:ma/xac-nhan", muaHangRoles, async (c) => {
 
 // POST /linh-kien/:ma/gop - { ma_dich, ghi_chu? } - LK cho duyet tao trung 1 LK da co -> chuyen moi don/BOM/nhom thay
 // the sang ma_dich, A thanh dong chuyen huong. Gia theo ma_dich -> tinh lai tien PXK dang tao cua KTV lien quan.
-settingsDatMua.post("/linh-kien/:ma/gop", muaHangRoles, async (c) => {
+settingsDatMua.post("/linh-kien/:ma/gop", xetDuyetMaRoles, async (c) => {
   const ma = c.req.param("ma");
   const body = await c.req.json<{ ma_dich?: string; ghi_chu?: string }>();
   const user = c.get("user");
@@ -279,7 +286,7 @@ settingsDatMua.post("/linh-kien/:ma/gop", muaHangRoles, async (c) => {
 
 // POST /linh-kien/:ma/tu-choi - { ly_do } - chi khi KHONG con don dang hieu luc dung ma (con thi phai Gop). LK bi tu choi
 // an khoi o chon tao don (bat_tat = 0).
-settingsDatMua.post("/linh-kien/:ma/tu-choi", muaHangRoles, async (c) => {
+settingsDatMua.post("/linh-kien/:ma/tu-choi", xetDuyetMaRoles, async (c) => {
   const ma = c.req.param("ma");
   const body = await c.req.json<{ ly_do?: string }>();
   const user = c.get("user");
