@@ -111,7 +111,9 @@ export async function tinhLaiTienTheoLk(db: D1Database, ma: string, nguoi: strin
  */
 export async function chuyenMaLk(
   db: D1Database,
-  a: { maNguon: string; maDich: string; tenNguon: string; taoMoi: { ten: string } | null; hanhDong: "Doi ma" | "Gop ma"; ghiChu?: string | null; soDon: number; nguoi: string },
+  // taoMoi.giuChoDuyet (2026-10-16, "linh kiện chưa xác nhận, vẫn cho phép nhân viên mua hàng cập nhật lại tên và mã hàng chuẩn"): ma moi
+  // B VAN "Cho xet duyet" (log B = "Cap nhat") thay vi "Da xac nhan" (log B = "Xac nhan").
+  a: { maNguon: string; maDich: string; tenNguon: string; taoMoi: { ten: string; giuChoDuyet?: boolean } | null; hanhDong: "Doi ma" | "Gop ma"; ghiChu?: string | null; soDon: number; nguoi: string },
 ): Promise<void> {
   const now = nowVN();
   const { maNguon: A, maDich: B } = a;
@@ -123,7 +125,7 @@ export async function chuyenMaLk(
           `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, ${COT_CHEP}, trang_thai_ma, ma_chuan, nguoi_cap_nhat, ngay_cap_nhat)
            SELECT ?, ?, ${COT_CHEP}, ?, NULL, ?, ? FROM linh_kien WHERE ma_linh_kien = ?`,
         )
-        .bind(B, a.taoMoi.ten, TT_MA.DA_XAC_NHAN, a.nguoi, now, A),
+        .bind(B, a.taoMoi.ten, a.taoMoi.giuChoDuyet ? TT_MA.CHO : TT_MA.DA_XAC_NHAN, a.nguoi, now, A),
     );
   }
   stmts.push(
@@ -144,7 +146,7 @@ export async function chuyenMaLk(
       .bind(TT_MA.DA_DOI, B, a.nguoi, now, A),
     logLk(db, { ma: A, hanhDong: a.hanhDong, maCu: A, maMoi: B, tenCu: a.tenNguon, tenMoi: a.taoMoi?.ten ?? null, ghiChu: a.ghiChu, soDon: a.soDon, nguoi: a.nguoi }),
   );
-  if (a.taoMoi) stmts.push(logLk(db, { ma: B, hanhDong: "Xac nhan", maCu: A, maMoi: B, tenCu: a.tenNguon, tenMoi: a.taoMoi.ten, soDon: a.soDon, nguoi: a.nguoi }));
+  if (a.taoMoi) stmts.push(logLk(db, { ma: B, hanhDong: a.taoMoi.giuChoDuyet ? "Cap nhat" : "Xac nhan", maCu: A, maMoi: B, tenCu: a.tenNguon, tenMoi: a.taoMoi.ten, soDon: a.soDon, nguoi: a.nguoi }));
   else stmts.push(logLk(db, { ma: B, hanhDong: "Gop ma", maCu: A, maMoi: B, tenCu: a.tenNguon, ghiChu: a.ghiChu, soDon: a.soDon, nguoi: a.nguoi }));
   await db.batch(stmts);
 }

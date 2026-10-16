@@ -137,7 +137,7 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   (DEFAULT cột; gia88 INSERT ghi 'Da xac nhan'). Cờ mới `users.la_mua_hang` ("Mua hàng", Cờ nghiệp vụ) + Admin:
   `POST /settings/linh-kien/:ma/xac-nhan` (giữ mã/sửa tên, hoặc đổi mã A→B), `/gop` (gộp vào mã có sẵn), `/tu-choi`
   (chỉ khi không còn đơn hiệu lực), `/gia-tam` (Giá NY/KTV cho LK `co_tren_gia88=0`), log `linh_kien_log`
-  (`GET /:ma/xet-duyet`). Đặt đơn bằng mã chờ duyệt KHÔNG chặn (chốt người dùng). **Đổi/gộp mã KHÔNG xoá dòng A** — A
+  (`GET /:ma/xet-duyet`). Đặt đơn bằng mã chờ duyệt KHÔNG chặn (chốt người dùng). **Sửa tên / mã khi CHƯA xác nhận** (chốt 2026-10-16, v1.357 — "linh kiện chưa xác nhận, vẫn cho phép nhân viên mua hàng cập nhật lại tên và mã hàng chuẩn"): `POST /settings/linh-kien/:ma/cap-nhat-cho-duyet` {ma_moi?, ten_moi?} (cùng quyền `xetDuyetMaRoles`) — sửa tên và/hoặc đổi mã A→B mà mã VẪN "Cho xet duyet" (`chuyenMaLk` `taoMoi.giuChoDuyet`), log "Cap nhat"; không bắt Phân loại. UI: nút "Sửa tên / mã" trong khối Xét duyệt mã (`CapNhatModal`). **Đổi/gộp mã KHÔNG xoá dòng A** — A
   thành dòng chuyển hướng `'Da doi ma'` + `ma_chuan=B` + `bat_tat=0` + `ngay_cap_nhat` mới (cache ô chọn LK trên máy
   người dùng tải tăng dần theo `ngay_cap_nhat`, không biết dòng bị xoá); đơn/BOM/nhóm thay thế chuyển sang B trong 1
   batch; mã A gửi lên sau đó (form cũ, file import) được `quyVeMaChuan()` quy về B (POST `/phieu-dat`, import, PATCH

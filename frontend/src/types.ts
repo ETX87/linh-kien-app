@@ -53,7 +53,7 @@ export type TrangThaiMaLk = "Cho xet duyet" | "Da xac nhan" | "Tu dong duyet" | 
 export interface LinhKienLogRow {
   id: number;
   ma_linh_kien: string;
-  hanh_dong: "Tao moi" | "Xac nhan" | "Doi ma" | "Gop ma" | "Tu choi" | "Gia tam" | "Tu dong duyet";
+  hanh_dong: "Tao moi" | "Xac nhan" | "Cap nhat" | "Doi ma" | "Gop ma" | "Tu choi" | "Gia tam" | "Tu dong duyet";
   ma_cu: string | null;
   ma_moi: string | null;
   ten_cu: string | null;

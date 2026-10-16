@@ -45,6 +45,7 @@ const LOI: Record<string, string> = {
   LK_KHONG_CON_HIEU_LUC: "Linh kiện đã bị từ chối/đổi mã.",
   GIA_KHONG_HOP_LE: "Giá không hợp lệ.",
   FORBIDDEN_ROLE: "Bạn không có quyền xét duyệt mã linh kiện.",
+  KHONG_CO_THAY_DOI: "Mã và tên không thay đổi.",
 };
 function moTaLoi(err: unknown): string {
   if (err instanceof ApiError) return LOI[err.code ?? ""] ?? `Lỗi (mã: ${err.code ?? err.status})`;
@@ -63,6 +64,10 @@ function moTaLog(l: LinhKienLogRow): string {
         : `Xác nhận mã chuẩn${l.ten_moi ? ` - sửa tên thành: ${l.ten_moi}` : ""}`;
     case "Doi ma":
       return `Đổi mã ${l.ma_cu} → ${l.ma_moi}${l.ten_moi ? ` - tên: ${l.ten_moi}` : ""}`;
+    case "Cap nhat":
+      return l.ma_cu && l.ma_moi && l.ma_cu !== l.ma_moi
+        ? `Cập nhật mã ${l.ma_cu} → ${l.ma_moi}${l.ten_moi ? ` - tên: ${l.ten_moi}` : ""} (vẫn chờ xác nhận)`
+        : `Cập nhật tên: ${l.ten_cu ?? ""} → ${l.ten_moi ?? ""} (vẫn chờ xác nhận)`;
     case "Gop ma":
       return `Gộp ${l.ma_cu} vào ${l.ma_moi}${l.ghi_chu ? ` - ${l.ghi_chu}` : ""}`;
     case "Tu choi":
@@ -81,7 +86,7 @@ export function XetDuyetMaSection({
   part, parts, canXetDuyet, onDoiMa, choPhepGiaTam = true,
 }: { part: LinhKienRow; parts: LinhKienRow[]; canXetDuyet: boolean; onDoiMa: (maMoi: string) => void; choPhepGiaTam?: boolean }) {
   const personDir = usePersonDirectory();
-  const [moModal, setMoModal] = useState<"xac-nhan" | "gop" | "tu-choi" | "gia-tam" | null>(null);
+  const [moModal, setMoModal] = useState<"xac-nhan" | "cap-nhat" | "gop" | "tu-choi" | "gia-tam" | null>(null);
   const { data } = useQuery({
     queryKey: ["lk-xet-duyet", part.ma_linh_kien],
     queryFn: () => api.get<{ log: LinhKienLogRow[]; so_don: number; so_don_con_hieu_luc: number }>(`/settings/linh-kien/${encodeURIComponent(part.ma_linh_kien)}/xet-duyet`),
@@ -118,6 +123,8 @@ export function XetDuyetMaSection({
         {canXetDuyet && (choDuyet || giaTamDuoc) && (
           <div className="flex flex-wrap gap-2 pt-1">
             {choDuyet && <Btn size="sm" onClick={() => setMoModal("xac-nhan")}>Xác nhận mã chuẩn</Btn>}
+            {/* Sua ten / ma ma VAN chua xac nhan (2026-10-16) - /cap-nhat-cho-duyet. */}
+            {choDuyet && <Btn size="sm" variant="ghost" onClick={() => setMoModal("cap-nhat")}>Sửa tên / mã</Btn>}
             {choDuyet && <Btn size="sm" variant="ghost" onClick={() => setMoModal("gop")}>Gộp vào mã có sẵn</Btn>}
             {giaTamDuoc && <Btn size="sm" variant="ghost" onClick={() => setMoModal("gia-tam")}>Nhập giá tạm</Btn>}
             {choDuyet && <Btn size="sm" variant="ghost" onClick={() => setMoModal("tu-choi")}>Từ chối</Btn>}
@@ -139,6 +146,7 @@ export function XetDuyetMaSection({
       </div>
 
       {moModal === "xac-nhan" && <XacNhanModal part={part} parts={parts} soDon={data?.so_don ?? 0} onClose={() => setMoModal(null)} onGop={() => setMoModal("gop")} onDone={onDoiMa} />}
+      {moModal === "cap-nhat" && <CapNhatModal part={part} parts={parts} soDon={data?.so_don ?? 0} onClose={() => setMoModal(null)} onGop={() => setMoModal("gop")} onDone={onDoiMa} />}
       {moModal === "gop" && <GopModal part={part} parts={parts} soDon={data?.so_don ?? 0} onClose={() => setMoModal(null)} onDone={onDoiMa} />}
       {moModal === "tu-choi" && <TuChoiModal part={part} onClose={() => setMoModal(null)} />}
       {moModal === "gia-tam" && <GiaTamModal part={part} onClose={() => setMoModal(null)} />}
@@ -229,6 +237,67 @@ function XacNhanModal({
             {phanLoaiOptions.map((v) => <option key={v} value={v} />)}
           </datalist>
           {!phanLoai.trim() && <span className="text-[11px] text-[var(--color-danger)]">Bắt buộc chọn phân loại trước khi xác nhận.</span>}
+        </label>
+        {doiMa && <CanhBaoDon soDon={soDon} />}
+      </div>
+    </Modal>
+  );
+}
+
+// Sua ten va/hoac ma chuan cho LK "Chờ xét duyệt" ma KHONG xac nhan (2026-10-16, "linh kiện chưa xác nhận, vẫn cho phép nhân viên mua hàng
+// cập nhật lại tên và mã hàng chuẩn") - ma van o "Chờ xét duyệt", xac nhan sau bang "Xác nhận mã chuẩn".
+function CapNhatModal({
+  part, parts, soDon, onClose, onGop, onDone,
+}: { part: LinhKienRow; parts: LinhKienRow[]; soDon: number; onClose: () => void; onGop: () => void; onDone: (ma: string) => void }) {
+  const toast = useToast();
+  const sau = useSauXetDuyet();
+  const [ma, setMa] = useState(part.ma_linh_kien);
+  const [ten, setTen] = useState(part.ten_linh_kien);
+  const maMoi = ma.trim();
+  const doiMa = maMoi !== "" && maMoi !== part.ma_linh_kien;
+  const coThayDoi = doiMa || ten.trim() !== part.ten_linh_kien;
+  const trung = doiMa ? parts.find((p) => p.ma_linh_kien === maMoi) : undefined;
+  const m = useMutation({
+    mutationFn: () => api.post<{ ma_linh_kien: string }>(`/settings/linh-kien/${encodeURIComponent(part.ma_linh_kien)}/cap-nhat-cho-duyet`, { ma_moi: maMoi, ten_moi: ten.trim() }),
+    onSuccess: (r) => {
+      toast(doiMa ? `Đã đổi mã ${part.ma_linh_kien} → ${r.ma_linh_kien} (vẫn chờ xác nhận)` : "Đã cập nhật tên (vẫn chờ xác nhận)");
+      sau();
+      onClose();
+      if (doiMa) onDone(r.ma_linh_kien);
+    },
+    onError: (e) => toast(moTaLoi(e)),
+  });
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Sửa tên / mã - ${part.ma_linh_kien}`}
+      footer={
+        <div className="flex justify-end gap-2">
+          <Btn variant="ghost" onClick={onClose}>Hủy</Btn>
+          <Btn onClick={() => m.mutate()} loading={m.isPending} disabled={!maMoi || !ten.trim() || !coThayDoi || !!trung || /\s/.test(maMoi)}>
+            Lưu (chưa xác nhận)
+          </Btn>
+        </div>
+      }
+    >
+      <div className="space-y-3 text-sm">
+        <div className="text-xs text-[var(--ink-500)]">
+          Sửa lại mã và tên cho chuẩn nhưng CHƯA xác nhận — mã vẫn ở "Chờ xét duyệt", xác nhận sau bằng nút "Xác nhận mã chuẩn".
+        </div>
+        <label className="block">
+          <span className="text-xs font-semibold text-[var(--ink-500)]">Mã linh kiện chuẩn</span>
+          <input className={`${INPUT} font-mono`} value={ma} onChange={(e) => setMa(e.target.value)} autoFocus />
+        </label>
+        {trung && (
+          <div className="rounded-lg bg-[var(--color-danger-soft)] text-[var(--color-danger-strong)] text-xs px-3 py-2">
+            Mã {trung.ma_linh_kien} đã có: {trung.ten_linh_kien}.{" "}
+            <button className="underline font-semibold" onClick={onGop}>Gộp vào mã này</button>
+          </div>
+        )}
+        <label className="block">
+          <span className="text-xs font-semibold text-[var(--ink-500)]">Tên linh kiện chuẩn</span>
+          <input className={INPUT} value={ten} onChange={(e) => setTen(e.target.value)} />
         </label>
         {doiMa && <CanhBaoDon soDon={soDon} />}
       </div>
