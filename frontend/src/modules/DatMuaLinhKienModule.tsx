@@ -916,7 +916,9 @@ export function DatMuaLinhKienModule({
           (TrangChuTab da tu ve lai dung du lieu nay thanh luoi StatCard rieng ben duoi, hien them se
           trung lap) - nhung SAU KHI nguoi dung da jump/doi tab (navigatedAway=true, activeView khong
           con la "trang-chu" nua), coi nhu forceView khac binh thuong, hien lai theo dung tinh than cu. */}
-      {((forceView && (navigatedAway || forceView !== "trang-chu")) || showWorkloadDetail) && (
+      {/* Bo dong "Việc của tôi" tu hien (chot 2026-10-16, phan hoi "bỏ dòng việc của tôi" o man Thieu hang) - chi con hien khi bam nut
+          "Cần làm" (showWorkloadDetail); viec can lam van o Sidebar/menu giai doan/Trang chu. */}
+      {showWorkloadDetail && (
         <MyWorkloadStrip steps={canLamSteps} myRoleKeys={myRoleKeys} onJump={jumpTo} />
       )}
       {/* FIX (phan hoi 2026-08-26): an han thanh tab noi bo khi vao qua 2 duong rieng moi
