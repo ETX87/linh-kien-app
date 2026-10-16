@@ -709,6 +709,13 @@ Mã đã xác nhận", Drawer ticket mã chờ → khối `XetDuyetMaSection` (d
 (`xetDuyetMaRoles` ở `settingsDatMua.ts` = Mua hàng + Admin + Kho); "Giá tạm" vẫn chỉ Mua hàng/Admin (`choPhepGiaTam`). Bảng giá: Kho chỉ có
 khối xét duyệt mã (`canXetDuyetMa`), không có quyền sửa LK.
 
+**Thiếu hàng — "Đã có đủ hàng tồn trong kho"** (chốt 2026-10-16, v1.350): `donChoHangDuTonKho()` (`lib/tonKhoCongTy.ts`) tính LÚC ĐỌC
+(theo file tồn kho mới nhất, không lưu): mỗi (mã LK, khu vực của đơn) — tồn khả dụng = tồn gốc kho công ty − SL đơn KHÁC "Cho hang" giữ hàng
+sau mốc import (cùng điều kiện `computeTonKhoPhatSinh`); đơn "Cho hang" (Mua/Công nợ, không TRỪ CÔNG NỢ) xếp CŨ NHẤT trước, lũy kế SL ≤ tồn khả
+dụng = đủ. GET `/thieu-lk` (+ `/:id`) trả `kho_du_hang` (ticket còn mở); lọc `du_hang=1` trong `thieuLkListWhere`; `/thieu-lk-status-counts`
+trả `du_hang`. FE: cột "Kho công ty" + chip "Kho đã có đủ hàng (n)" + badge ở thẻ mobile/Drawer (`KhoDuHangBadge`, `ThieuLkTab.tsx`). Khi có
+nguồn tồn kho mới (đồng bộ hệ khác) chỉ cần ghi vào `kho_cong_ty_ton_kho` + mốc `ktv_ton_kho_import_meta` là tự đúng.
+
 **Đơn "Cho hang" mở/khóa theo ticket** (chốt 2026-09-30): Kho CHƯA tiếp nhận ticket ("Cho kho xu ly") hoặc ticket đã đóng →
 đơn thao tác như "Cho TN duyet" (TN duyệt/từ chối/chờ hàng lại/hủy, người tạo/Admin hủy), ticket đang chờ TỰ HỦY
 (`laChoHangMoKhoa` trong `applyDonHangLog`; duyệt thẳng → ticket "Da huy bo"); Kho ĐÃ tiếp nhận ("Kho da tiep nhan"/"Kho da cap

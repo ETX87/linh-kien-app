@@ -66,3 +66,41 @@ export async function computeTonKhoChot(
   ]);
   return tonGoc - tonPhatSinh;
 }
+
+// DON "CHO HANG" DA CO DU TON KHO CONG TY (chot 2026-10-16: "sau khi kế toán import tồn kho (hoặc đồng bộ tồn kho mới) => đánh giá
+// cho các đơn tồn lâu nhất về gần => nếu sl tồn kho >= số lượng cần => nhắc Kho có thể xác nhận"). Tinh LUC DOC (khong luu) nen luon
+// theo file ton kho moi nhat. Theo tung (ma LK, khu vuc cua don): ton kha dung = ton goc (computeTonKhoGoc) - SL cac don KHAC "Cho hang"
+// dang giu hang sau moc import (cung dieu kien computeTonKhoPhatSinh); cac don "Cho hang" xep CU NHAT truoc (ngay_tao, id), cong don
+// SL - don nao luy ke <= ton kha dung = du hang. Chi xet nhom Mua/Cong no, khong TRỪ CÔNG NỢ (lay ton KTV, khong lay kho cong ty).
+export async function donChoHangDuTonKho(db: D1Database): Promise<Set<string>> {
+  const moc = await getMocTonKhoCongTy(db);
+  const { results } = await db
+    .prepare(
+      `WITH cho AS (
+         SELECT ddh.id, ddh.ma_lk, COALESCE(ddh.khu_vuc_chon, ddh.khu_vuc_ma) AS kv, ddh.so_luong_de_xuat AS sl, ddh.ngay_tao
+         FROM dat_don_hang ddh
+         WHERE ddh.trang_thai_hien_tai = 'Cho hang' AND ddh.loai_don IN ('mua', 'cong_no')
+           AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') = 0
+       ),
+       cap AS (SELECT DISTINCT ma_lk, kv FROM cho),
+       ton AS (
+         SELECT c.ma_lk, c.kv,
+           COALESCE((SELECT SUM(t.cuoi_ky) FROM kho_cong_ty_ton_kho t JOIN kho_cong_ty k ON k.ma = t.kho_ma
+                     JOIN kho_cong_ty_khu_vuc x ON x.kho_ma = k.ma
+                     WHERE k.bat_tat = 1 AND x.khu_vuc_ma = c.kv AND t.ma_hang = c.ma_lk), 0)
+           - COALESCE((SELECT SUM(d.so_luong_de_xuat) FROM dat_don_hang d
+                       WHERE d.ma_lk = c.ma_lk AND COALESCE(d.khu_vuc_chon, d.khu_vuc_ma) = c.kv AND d.loai_don IN ('mua', 'cong_no')
+                         AND instr(COALESCE(d.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') = 0
+                         AND d.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy', 'Cho hang')
+                         AND (? IS NULL OR d.ngay_tao > ?)), 0) AS kha_dung
+         FROM cap c
+       ),
+       luy_ke AS (
+         SELECT id, ma_lk, kv, SUM(sl) OVER (PARTITION BY ma_lk, kv ORDER BY ngay_tao, id ROWS UNBOUNDED PRECEDING) AS lk FROM cho
+       )
+       SELECT l.id FROM luy_ke l JOIN ton USING (ma_lk, kv) WHERE l.lk <= ton.kha_dung`,
+    )
+    .bind(moc, moc)
+    .all<{ id: string }>();
+  return new Set(results.map((r) => r.id));
+}

@@ -358,6 +358,8 @@ export interface ThieuLkRow {
   so_luong_de_xuat?: number | null;
   /** Trang thai ma LK cua don goc (linh_kien.trang_thai_ma, 2026-10-16) - "Cho xet duyet" = ma cho Kho/Mua hang xac nhan. */
   lk_trang_thai_ma?: string | null;
+  /** 1 = ticket con mo + don goc "Cho hang" DA DU ton kho cong ty (xet don cho lau nhat truoc, 2026-10-16) - nhac Kho xac nhan. */
+  kho_du_hang?: number;
 }
 
 export interface LyDoChamRow {

@@ -1716,5 +1716,9 @@ const tuDien: Record<string, string> = {
   "Mã đã xác nhận": "Kode sudah dikonfirmasi",
   "Mã đã xác nhận ({n})": "Kode sudah dikonfirmasi ({n})",
   "Tất cả mã LK": "Semua kode suku cadang",
+  "Đã có đủ hàng tồn trong kho": "Stok gudang sudah cukup",
+  "Kho công ty": "Gudang perusahaan",
+  "Kho đã có đủ hàng ({n})": "Gudang sudah cukup stok ({n})",
+  "Đơn chờ hàng đã có đủ tồn kho công ty (xét đơn chờ lâu nhất trước) — Kho có thể xác nhận": "Pesanan menunggu sudah tercukupi stok perusahaan (terlama dulu) — gudang dapat mengonfirmasi",
 };
 export default tuDien;

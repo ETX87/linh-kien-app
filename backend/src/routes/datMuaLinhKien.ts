@@ -25,7 +25,7 @@ import { lookupLada, ladaPreview, isLikelyLadaId, type LadaPreview } from "../li
 import { sendPushToUser } from "../lib/webPush";
 import { computeCongNoChot } from "../lib/congNoKtv";
 import { computeMocDuPhongHienTai } from "../lib/duPhongKtv";
-import { computeTonKhoChot } from "../lib/tonKhoCongTy";
+import { computeTonKhoChot, donChoHangDuTonKho } from "../lib/tonKhoCongTy";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
 import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon, laKhTraGop, khongTinhCongNo } from "../lib/pxkRecalculate";
 import { computeTonKtvConLai } from "../lib/tonKhoKtv";
@@ -4573,7 +4573,7 @@ datMuaLinhKien.get("/ly-do-cham", async (c) => {
 // con lai (da xac nhan / tu dong duyet / doi ma...). LK khong con trong danh muc -> coi nhu da xac nhan.
 const LK_TRANG_THAI_MA_SQL = "COALESCE((SELECT lkx.trang_thai_ma FROM linh_kien lkx WHERE lkx.ma_linh_kien = ddh.ma_lk), 'Da xac nhan')";
 
-async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = false, boQuaMaLk = false): Promise<{ whereSql: string; binds: unknown[] }> {
+async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = false, boQuaMaLk = false, boQuaDuHang = false): Promise<{ whereSql: string; binds: unknown[] }> {
   const user = c.get("user");
   const donHangId = c.req.query("dat_don_hang_id");
   const trangThai = boQuaTrangThai ? undefined : c.req.query("trang_thai");
@@ -4622,6 +4622,12 @@ async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = 
   const maLkTt = boQuaMaLk ? undefined : c.req.query("ma_lk_tt");
   if (maLkTt === "cho") whereSql += ` AND ${LK_TRANG_THAI_MA_SQL} = 'Cho xet duyet'`;
   else if (maLkTt === "da") whereSql += ` AND ${LK_TRANG_THAI_MA_SQL} != 'Cho xet duyet'`;
+  // Loc "Kho đã có đủ hàng" (2026-10-16): ticket con mo + don goc "Cho hang" du ton kho cong ty (donChoHangDuTonKho).
+  if (!boQuaDuHang && c.req.query("du_hang") === "1") {
+    const ds = await donChoHangDuTonKho(c.env.DB);
+    whereSql += ` AND ddh.id IN (SELECT value FROM json_each(?)) AND ${latestThieuLkStatusExpr("tlk.id")} NOT IN ('Da huy bo', 'Da ket thuc')`;
+    binds.push(JSON.stringify([...ds]));
+  }
   if (trangThai === THIEU_LK_VIEC) {
     const ds = thieuLkTrangThaiViec(c);
     whereSql += ds.length ? ` AND ${latestThieuLkStatusExpr("tlk.id")} IN (${ds.map(() => "?").join(",")})` : " AND 1=0";
@@ -4705,7 +4711,13 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
     .bind(...binds, ...(pageParam ? [pageSize, offset] : []))
     .all();
   console.log("[thieu-lk-query]", { durationMs: Date.now() - queryStartedAt, rowCount: results.length });
-  return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
+  // Cot "Kho công ty" (2026-10-16): don goc "Cho hang" da du ton kho cong ty -> nhac Kho xac nhan (ticket con mo).
+  const duTon = await donChoHangDuTonKho(c.env.DB);
+  const rows = (results as Array<Record<string, unknown>>).map((r) => ({
+    ...r,
+    kho_du_hang: duTon.has(String(r.dat_don_hang_id)) && !(THIEU_LK_TRANG_THAI_DONG as readonly string[]).includes(String(r.trang_thai)) ? 1 : 0,
+  }));
+  return c.json({ rows, page, pageSize, total: countRow?.total ?? 0 });
 });
 
 // GET /api/dat-mua-lk/thieu-lk-status-counts - dem tinh theo tung trang_thai (dropdown loc, xem
@@ -4738,7 +4750,16 @@ datMuaLinhKien.get("/thieu-lk-status-counts", async (c) => {
     .bind(...kq.binds)
     .first<{ cho: number | null; tong: number }>();
   const cho = maLk?.cho ?? 0;
-  return c.json({ counts, ma_lk: { cho, da: (maLk?.tong ?? 0) - cho } });
+  // So ticket "Kho đã có đủ hàng" (chip loc, 2026-10-16) - cung bo loc danh sach, tru chinh bo loc nay.
+  const kqDu = await thieuLkListWhere(c, false, false, true);
+  const dsDu = await donChoHangDuTonKho(c.env.DB);
+  const duRow = await c.env.DB.prepare(
+    `SELECT COUNT(*) as n FROM thieu_lk tlk LEFT JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id
+     WHERE ${kqDu.whereSql} AND ddh.id IN (SELECT value FROM json_each(?)) AND ${latestThieuLkStatusExpr("tlk.id")} NOT IN ('Da huy bo', 'Da ket thuc')`,
+  )
+    .bind(...kqDu.binds, JSON.stringify([...dsDu]))
+    .first<{ n: number }>();
+  return c.json({ counts, ma_lk: { cho, da: (maLk?.tong ?? 0) - cho }, du_hang: duRow?.n ?? 0 });
 });
 
 // GET /api/dat-mua-lk/thieu-lk/:id - chi tiet 1 ticket + lich su xu ly (them 2026-08-21, phan hoi
@@ -4780,7 +4801,10 @@ datMuaLinhKien.get("/thieu-lk/:id", async (c) => {
     .first();
   if (!tlk) return c.json({ error: "NOT_FOUND" }, 404);
   const { results: logs } = await c.env.DB.prepare("SELECT * FROM thieu_lk_log WHERE thieu_lk_id = ? ORDER BY id DESC").bind(id).all();
-  return c.json({ thieuLk: tlk, logs });
+  const duTonCt = await donChoHangDuTonKho(c.env.DB);
+  const tlkRow = tlk as Record<string, unknown>;
+  const khoDuHang = duTonCt.has(String(tlkRow.dat_don_hang_id)) && !(THIEU_LK_TRANG_THAI_DONG as readonly string[]).includes(String(tlkRow.trang_thai)) ? 1 : 0;
+  return c.json({ thieuLk: { ...tlkRow, kho_du_hang: khoDuHang }, logs });
 });
 
 // Logic dung chung cho 1 ticket thieu_lk - tach ra de route bulk-log tai su dung dung 1 cho (them

@@ -1716,5 +1716,9 @@ const tuDien: Record<string, string> = {
   "Mã đã xác nhận": "Code confirmed",
   "Mã đã xác nhận ({n})": "Code confirmed ({n})",
   "Tất cả mã LK": "All part codes",
+  "Đã có đủ hàng tồn trong kho": "Enough stock in warehouse",
+  "Kho công ty": "Company warehouse",
+  "Kho đã có đủ hàng ({n})": "Warehouse has enough stock ({n})",
+  "Đơn chờ hàng đã có đủ tồn kho công ty (xét đơn chờ lâu nhất trước) — Kho có thể xác nhận": "Waiting orders now covered by company stock (oldest first) — the warehouse can confirm",
 };
 export default tuDien;
