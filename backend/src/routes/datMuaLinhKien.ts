@@ -360,6 +360,9 @@ datMuaLinhKien.get("/cong-no-du-kien", async (c) => {
 
   // (Bo 2026-09-28) GS duoc dat/tra cuu cho MOI KTV, khong con gioi han KTV minh phu trach.
 
+  // Nguoi nhan la GS -> khong doi chieu tran (2026-10-16, cung quy tac nguCanhNhan().laGs o lib/tuDongDuyet.ts) - FE an canh bao.
+  const laGs = await c.env.DB.prepare("SELECT 1 FROM users WHERE email = ? AND vai_tro = 'Giam sat'").bind(nguoiNhanHang).first();
+  if (laGs) return c.json({ tran: null, cong_no_chot: 0, khong_xet_tran: true });
   const ktvRow = await c.env.DB.prepare("SELECT ma_ktv, cong_no FROM ktv_lien_he WHERE email_dang_nhap = ?")
     .bind(nguoiNhanHang)
     .first<{ ma_ktv: string; cong_no: number | null }>();

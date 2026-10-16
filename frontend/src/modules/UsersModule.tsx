@@ -631,8 +631,9 @@ function MaNhanHangVanPhongModal({ user, khuVucRows, onClose, onDone }: { user: 
   const maGan = (user.ma_ktv_gan ?? "").split(",").filter(Boolean);
   const khuVucMacDinh = user.khu_vuc_dat_hang || khuVucRows.find((k) => k.gs_email === user.email)?.ma || "";
   const [form, setForm] = useState({
-    ma_ktv: user.email.split("@")[0],
-    ten_hien_thi: user.ten ?? "",
+    // Co Ma MISA thi goi y ma = Ma MISA (cung quy uoc migration 0085 cho GS) + ten = Ten MISA.
+    ma_ktv: user.ma_misa?.trim().toUpperCase() || user.email.split("@")[0],
+    ten_hien_thi: user.ten_misa?.trim() || user.ten || "",
     khu_vuc_ma: khuVucMacDinh,
     ma_misa: user.ma_misa ?? "",
     ten_misa: user.ten_misa ?? "",
@@ -799,7 +800,17 @@ function VanPhongTab() {
     { key: "ten_misa", header: "Tên trên MISA", render: (u) => u.ten_misa ?? "—" },
     {
       key: "ma_ktv_gan", mobile: "meta", header: "Mã nhận hàng",
-      render: (u) => (u.ma_ktv_gan ? <span className="font-mono text-xs">{u.ma_ktv_gan.split(",").join(", ")}</span> : "—"),
+      // Co Ma MISA ma chua co ma nhan hang (2026-10-16): ton kho/cong no MISA cua nguoi nay KHONG khop duoc (import khop theo ma KTV).
+      render: (u) =>
+        u.ma_ktv_gan ? (
+          <span className="font-mono text-xs">{u.ma_ktv_gan.split(",").join(", ")}</span>
+        ) : u.ma_misa?.trim() ? (
+          <span className="text-xs text-[var(--color-warning)]" title="Có Mã MISA nhưng chưa có mã nhận hàng — tồn kho/công nợ trên file MISA của người này chưa được quản lý. Bấm Mã nhận hàng để tạo.">
+            ⚠ Chưa có — tồn kho chưa quản lý
+          </span>
+        ) : (
+          "—"
+        ),
     },
     {
       key: "co_nghiep_vu", mobile: "meta",

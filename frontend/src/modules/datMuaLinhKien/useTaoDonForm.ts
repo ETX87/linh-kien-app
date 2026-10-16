@@ -77,7 +77,7 @@ export function useTaoDonForm({
   const targetNguoiNhanHang = nguoiNhanHang || currentEmail;
   const { data: congNoDuKien } = useQuery({
     queryKey: ["dat-mua-lk-cong-no-du-kien", targetNguoiNhanHang],
-    queryFn: () => api.get<{ tran: number | null; cong_no_chot: number }>(`/dat-mua-lk/cong-no-du-kien?nguoi_nhan_hang=${encodeURIComponent(targetNguoiNhanHang)}`),
+    queryFn: () => api.get<{ tran: number | null; cong_no_chot: number; khong_xet_tran?: boolean }>(`/dat-mua-lk/cong-no-du-kien?nguoi_nhan_hang=${encodeURIComponent(targetNguoiNhanHang)}`),
     enabled: !!targetNguoiNhanHang,
   });
 
@@ -351,7 +351,8 @@ export function useTaoDonForm({
   // (congNoDuKien.tran === null) gio coi NHU tran = 0 (KHAC truoc day la bo qua/khong danh gia) -
   // khop dung quy uoc moi cua danhGiaCongNo3Muc o backend.
   const sePhepDuCongNo: boolean | null =
-    tongCongNoTamTinh > 0 && congNoDuKien != null
+    // khong_xet_tran: nguoi nhan la GS (2026-10-16) - don cong no GS khong doi chieu tran.
+    tongCongNoTamTinh > 0 && congNoDuKien != null && !congNoDuKien.khong_xet_tran
       ? congNoDuKien.cong_no_chot + tongCongNoTamTinh <= (congNoDuKien.tran ?? 0)
       : null;
 
