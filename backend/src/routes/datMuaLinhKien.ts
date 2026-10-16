@@ -39,7 +39,7 @@ import { ANH_DA_GHI_NHAN_SQL } from "../lib/bangChungChuyenTien";
 import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
 import { tachComboDong } from "../lib/lkCombo";
 import {
-  deriveLoaiDon, boQuaTbpChoDacThu, canDoiChieuCongNo, nguCanhNhan, danhGiaPhieu, trangThaiSauDuyet, tacDongSauDinhTuyen, duyetDonKhiHangVe,
+  deriveLoaiDon, boQuaTbpChoDacThu, canDoiChieuCongNo, nguCanhNhan, danhGiaPhieu, trangThaiSauDuyet, tacDongSauDinhTuyen, duyetDonKhiHangVe, danhGiaLaiDonChoThanhToan,
   huyDonChoHangTuDong, baoNguoiTaoDon, moTaThieuTon, moTicketChoHangTuDong, baoGsChoDuyet, type DongDanhGia, type KetQuaDong, type KetQuaPhieu,
 } from "../lib/tuDongDuyet";
 
@@ -4220,6 +4220,10 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
     // Doi ma LK/SL/SL thuc xuat lam doi tong don trong ngay cua KTV (chiet khau, chot 2026-09-28) -> tinh
     // lai CAC PXK dang tao KHAC cua KTV (PXK chua dong nay vua tinh o tren).
     if (thayDoiTinhTien) await taiTinhPxkMoCuaKtv(c.env.DB, existing.nguoi_nhan_hang, user.email, existing.pxk_id ?? undefined);
+    // Don "Cho thanh toan" (thieu ton luc tao) doi ma LK / SL -> danh gia lai ton kho ngay, du thi tu duyet (2026-10-16).
+    if (!trangThaiLuongMoi && (next.ma_lk !== existing.ma_lk || next.so_luong_de_xuat !== existing.so_luong_de_xuat)) {
+      await danhGiaLaiDonChoThanhToan(c.env, c.env.DB, id, user.email, next.ma_lk !== existing.ma_lk ? `đổi mã LK ${existing.ma_lk} → ${next.ma_lk}` : `đổi SL ${existing.so_luong_de_xuat} → ${next.so_luong_de_xuat}`);
+    }
     if (trangThaiLuongMoi) {
       c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
       return c.json({ ok: true, chuyen_luong: laTraMoi ? "tra_hang" : "dat_hang", trang_thai: trangThaiLuongMoi });

@@ -491,6 +491,22 @@ export async function xuLyDonChoThanhToan(env: Env, db: D1Database, pxkId: strin
   }
 }
 
+/** SUA DON dang "Cho thanh toan" (doi ma LK / SL / khu vuc - 2026-10-16, DDH-002638 doi sang ma con hang van ket "kho con 0"): danh gia
+ *  LAI ton kho cong ty ngay (FIFO cung computeTonKhoChot) - du -> tu duyet "TN da duyet" (van nam trong phieu, KTV van chuyen tien nhu
+ *  don mua thuong). Van thieu -> giu "Cho thanh toan" (Ke toan xac nhan tien xong se xet lai - xuLyDonChoThanhToan). Tra true khi da duyet. */
+export async function danhGiaLaiDonChoThanhToan(env: Env, db: D1Database, donHangId: string, nguoi: string, lyDoSua: string): Promise<boolean> {
+  const d = await db.prepare("SELECT trang_thai_hien_tai, nguoi_tao, ten_lk_snapshot, so_luong_de_xuat FROM dat_don_hang WHERE id = ?")
+    .bind(donHangId)
+    .first<{ trang_thai_hien_tai: string | null; nguoi_tao: string; ten_lk_snapshot: string; so_luong_de_xuat: number }>();
+  if (d?.trang_thai_hien_tai !== "Cho thanh toan") return false;
+  const { du, ton, khuVuc } = await donDuTonKhoCongTy(db, donHangId);
+  if (!du) return false;
+  if (!(await ghiTrangThaiDon(db, donHangId, "TN da duyet", nguoi, `Tự động duyệt sau khi sửa đơn (${lyDoSua}): ${moTaThieuTon(ton, d.so_luong_de_xuat, khuVuc)} — đủ hàng`, true, "Cho thanh toan"))) return false;
+  await tacDongSauDinhTuyen(env, db, donHangId, "TN da duyet", nguoi, "");
+  if (d.nguoi_tao !== nguoi) await baoNguoiTaoDon(env, db, d.nguoi_tao, "da_duyet", `Đơn hàng "${d.ten_lk_snapshot} (x${d.so_luong_de_xuat})" đã sửa và kho đủ hàng — tự động duyệt`, donHangId);
+  return true;
+}
+
 /** Kho bao HANG DA VE (ticket thieu hang) cho don "Cho hang" -> don tu duyet + vao phieu (mang theo tien da tra). */
 export async function duyetDonKhiHangVe(env: Env, db: D1Database, donHangId: string, nguoi: string, ghiChu: string): Promise<boolean> {
   if (!(await ghiTrangThaiDon(db, donHangId, "TN da duyet", nguoi, ghiChu, true, "Cho hang"))) return false;
