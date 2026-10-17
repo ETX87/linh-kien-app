@@ -5,7 +5,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { VIEW_CHUA_GAN_KHU_VUC_SQL, gsKhuVucXemThemSql, scopeKtvTonKho } from "../lib/scopeDatMua";
 import { nowVN } from "../lib/vnTime";
-import { getMocTinhCongNo, danhGiaCongNo3Muc, SL_HO_TRO_0D_SQL, CONG_NO_DA_TRU_FROM_SQL, CONG_NO_DA_TRU_WHERE_SQL, CONG_NO_DA_TRU_GIA_TRI_SQL } from "../lib/congNoKtv";
+import { SL_HO_TRO_0D_SQL, docCongNoTongHop } from "../lib/congNoKtv";
 import { daTruTheoMaHang } from "../lib/tonKhoKtv";
 import { maKtvTheoTen } from "../lib/timTheoTen";
 import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
@@ -69,61 +69,9 @@ ktvTonKho.get("/", async (c) => {
   // gop qua 2 CTE thay vi N+1 query rieng tung KTV (bang co the toi vai tram KTV). "phat_sinh" loc
   // theo moc tinh cong no (tham so ?3/?4, bind 2 lan cho dieu kien "IS NULL OR >") - giong dung logic
   // computeCongNoPhatSinh() nhung viet lai o day de gop 1 lan truy van duy nhat.
-  const mocTinhCongNo = await getMocTinhCongNo(c.env.DB);
-  // SUA 2026-09-28 (phan hoi "mỗi KTV chỉ load công nợ của bản thân"): truoc day 2 CTE thuc_te/phat_sinh gom TOAN
-  // BO KTV (ca bang ktv_ton_kho + moi don cong no) roi moi loc pham vi o cuoi - KTV xem 1 dong van doc 17-33 nghin
-  // dong. Gio loc pham vi TRUOC (CTE pham_vi, cung dieu kien search + scopeKtvTonKho()) va 2 CTE chi tinh cho
-  // cac KTV trong pham vi (KTV = chi chinh minh). Ket qua giu nguyen: cung cong thuc, cung tap dong.
-  const { results } = await c.env.DB.prepare(
-    `WITH pham_vi AS (
-       SELECT k.ma_ktv, k.email_dang_nhap FROM ktv_lien_he k ${where}
-     ),
-     thuc_te AS (
-       -- Tru phan "Công nợ 0 đồng" (2026-10-05, SL_HO_TRO_0D_SQL - cung cong thuc computeCongNoThucTe).
-       SELECT t2.ma_ktv, SUM((t2.cuoi_ky - t2.sl_0d) * COALESCE(lk.gia_tri_cong_no, 0)) as gia_tri, SUM(t2.sl_0d) as sl_0d
-       FROM (SELECT t3.*, ${SL_HO_TRO_0D_SQL("t3")} as sl_0d FROM ktv_ton_kho t3 WHERE t3.ma_ktv IN (SELECT ma_ktv FROM pham_vi)) t2
-       LEFT JOIN linh_kien lk ON lk.ma_linh_kien = t2.ma_hang
-       WHERE t2.ma_ktv IN (SELECT ma_ktv FROM pham_vi)
-       GROUP BY t2.ma_ktv
-     ),
-     phat_sinh AS (
-       SELECT pv.ma_ktv, SUM(ddh.so_tien_cong_no) as gia_tri
-       FROM pham_vi pv
-       JOIN dat_don_hang ddh ON ddh.nguoi_nhan_hang = pv.email_dang_nhap
-       WHERE ddh.loai_don = 'cong_no' AND ddh.trang_thai_hien_tai = 'TN da duyet'
-         AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') = 0 -- "TRỪ CÔNG NỢ" nhu don mua (2026-09-28)
-         AND (? IS NULL OR ddh.updated_at > ?)
-       GROUP BY pv.ma_ktv
-     ),
-     -- Don "TRỪ CÔNG NỢ" da thanh toan -> giam cong no ngay (2026-09-30, lib/congNoKtv.ts computeCongNoDaTru).
-     da_tru AS (
-       SELECT pv.ma_ktv, SUM(${CONG_NO_DA_TRU_GIA_TRI_SQL}) as gia_tri
-       FROM pham_vi pv
-       JOIN dat_don_hang ddh ON ddh.nguoi_nhan_hang = pv.email_dang_nhap
-       ${CONG_NO_DA_TRU_FROM_SQL}
-       WHERE ${CONG_NO_DA_TRU_WHERE_SQL}
-       GROUP BY pv.ma_ktv
-     )
-     SELECT k.ma_ktv, k.ten_hien_thi, k.ma_misa, k.ten_misa, k.cong_no, k.cong_no_cap_nhat_luc,
-       COUNT(t.id) as so_ma_hang, SUM(t.cuoi_ky) as tong_cuoi_ky,
-       COALESCE(tt.gia_tri, 0) as cong_no_thuc_te, COALESCE(ps.gia_tri, 0) as cong_no_phat_sinh,
-       COALESCE(dt.gia_tri, 0) as cong_no_da_tru, COALESCE(tt.sl_0d, 0) as sl_ho_tro_0d
-     FROM ktv_ton_kho t
-     JOIN pham_vi pv ON pv.ma_ktv = t.ma_ktv
-     JOIN ktv_lien_he k ON k.ma_ktv = pv.ma_ktv
-     LEFT JOIN thuc_te tt ON tt.ma_ktv = k.ma_ktv
-     LEFT JOIN phat_sinh ps ON ps.ma_ktv = k.ma_ktv
-     LEFT JOIN da_tru dt ON dt.ma_ktv = k.ma_ktv
-     GROUP BY k.ma_ktv
-     ORDER BY tong_cuoi_ky DESC`,
-  )
-    .bind(...binds, mocTinhCongNo, mocTinhCongNo, mocTinhCongNo, mocTinhCongNo)
-    .all<{ cong_no: number | null; cong_no_thuc_te: number; cong_no_phat_sinh: number; cong_no_da_tru: number }>();
-
-  const rows = results.map((r) => {
-    const congNoChot = r.cong_no_thuc_te + r.cong_no_phat_sinh - r.cong_no_da_tru;
-    return { ...r, cong_no_chot: congNoChot, danh_gia_cong_no: danhGiaCongNo3Muc(congNoChot, r.cong_no) };
-  });
+  // Tinh tong hop cong no (2026-10-17): than truy van chuyen sang lib/congNoKtv.ts docCongNoTongHop() - dung CHUNG voi API doi tac
+  // GET /api/partner/v1/cong-no-ktv (sua cong thuc 1 cho la doi ca 2).
+  const rows = await docCongNoTongHop(c.env.DB, where, binds);
   return c.json({ rows });
 });
 

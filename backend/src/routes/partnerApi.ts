@@ -4,6 +4,7 @@ import { partnerApiAuth } from "../lib/partnerApiAuth";
 import { buildCaseTimeline } from "../lib/partnerTimeline";
 import { docLienQuanLk } from "../lib/linhKienLienQuan";
 import { dsAnhLk } from "../lib/anhLinhKien";
+import { docCongNoTongHop, SL_HO_TRO_0D_SQL } from "../lib/congNoKtv";
 
 // API tra cuu cho CAC HE THONG DOI TAC ben ngoai (khac hoan toan cac router khac trong app - khong
 // dung verifySessionMiddleware/cookie, xac thuc rieng qua header "X-API-Key", xem
@@ -175,6 +176,123 @@ partnerApi.get("/v1/linh-kien/chi-tiet", async (c) => {
   });
   const nextAfterMa = !maQuery && lks.length === limit ? lks[lks.length - 1].ma_linh_kien : null;
   return c.json({ phien_ban_ton_kho: meta?.updated_at ?? null, rows, next_after_ma: nextAfterMa });
+});
+
+// ---- Danh muc phu tro linh kien + cong no KTV (2026-10-17, doi tac bao "API Đặt linh kiện thiếu: Mã thay thế, combo, từ khoá
+// riêng, nhóm đồng nghĩa, công nợ KTV") - 4 endpoint DANH SACH (keo ca bang ve dong bo), khac /v1/linh-kien/chi-tiet (theo tung LK).
+// Moi endpoint tra `phien_ban` de ben keo biet du lieu co doi khong (chi so sanh chuoi, khong tu tach nghia). Chi DOC.
+const pbMaxCount = (table: string, col: string) => `SELECT COALESCE(MAX(${col}), '') || '#' || COUNT(*) AS pb FROM ${table}`;
+const tachMa = (v: string | undefined) => [...new Set((v ?? "").split(",").map((m) => m.trim()).filter(Boolean))].slice(0, 200);
+
+// GET /api/partner/v1/lk-thay-the[?ma=A,B] - nhom linh kien thay the (cac ma trong 1 nhom dung thay nhau duoc). ?ma= = chi nhom chua
+// 1 trong cac ma do. phien_ban = ngay sua nhom moi nhat + so nhom + so dong thanh vien.
+partnerApi.get("/v1/lk-thay-the", async (c) => {
+  const db = c.env.DB;
+  const mas = tachMa(c.req.query("ma"));
+  const loc = mas.length ? "WHERE n.id IN (SELECT nhom_id FROM lk_nhom_thay_the_ct WHERE ma_lk IN (SELECT value FROM json_each(?)))" : "";
+  const [pb, pbCt, { results }] = await Promise.all([
+    db.prepare(pbMaxCount("lk_nhom_thay_the", "ngay_cap_nhat")).first<{ pb: string }>(),
+    db.prepare("SELECT COUNT(*) AS n FROM lk_nhom_thay_the_ct").first<{ n: number }>(),
+    db.prepare(
+      `SELECT n.id, n.ten_nhom, n.ghi_chu, n.ngay_cap_nhat,
+              (SELECT json_group_array(json_object('ma_linh_kien', t.ma_lk, 'ten_linh_kien', t.ten, 'bat_tat', t.bat_tat))
+               FROM (SELECT ct.ma_lk, lk.ten_linh_kien AS ten, lk.bat_tat FROM lk_nhom_thay_the_ct ct
+                     LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ct.ma_lk WHERE ct.nhom_id = n.id ORDER BY ct.ma_lk) t) AS linh_kien
+       FROM lk_nhom_thay_the n ${loc} ORDER BY n.id`,
+    ).bind(...(mas.length ? [JSON.stringify(mas)] : [])).all<{ id: number; ten_nhom: string; ghi_chu: string | null; ngay_cap_nhat: string; linh_kien: string }>(),
+  ]);
+  return c.json({
+    phien_ban: `${pb?.pb ?? ""}#${pbCt?.n ?? 0}`,
+    rows: results.map((r) => ({ ...r, linh_kien: JSON.parse(r.linh_kien) as unknown[] })),
+  });
+});
+
+// GET /api/partner/v1/lk-combo[?ma=A,B][&chi_bat=1] - combo linh kien (dat 1 combo = dat du cac thanh phan theo SL/bo). ?ma= = combo
+// chua 1 trong cac ma LK do; chi_bat=1 = chi combo dang bat. gia_niem_yet = tong Gia NY thanh phan x SL/bo (tham khao).
+partnerApi.get("/v1/lk-combo", async (c) => {
+  const db = c.env.DB;
+  const mas = tachMa(c.req.query("ma"));
+  const dk: string[] = [];
+  if (mas.length) dk.push("cb.ma_combo IN (SELECT ma_combo FROM lk_combo_ct WHERE ma_lk IN (SELECT value FROM json_each(?)))");
+  if (c.req.query("chi_bat") === "1") dk.push("cb.bat_tat = 1");
+  const [pb, pbCt, { results }] = await Promise.all([
+    db.prepare(pbMaxCount("lk_combo", "ngay_cap_nhat")).first<{ pb: string }>(),
+    db.prepare("SELECT COUNT(*) AS n, COALESCE(SUM(so_luong), 0) AS sl FROM lk_combo_ct").first<{ n: number; sl: number }>(),
+    db.prepare(
+      `SELECT cb.ma_combo, cb.ten_combo, cb.bat_tat, cb.ghi_chu, cb.ngay_cap_nhat,
+              (SELECT json_group_array(json_object('ma_linh_kien', t.ma_lk, 'ten_linh_kien', t.ten, 'so_luong', t.so_luong, 'gia_niem_yet', t.gia))
+               FROM (SELECT ct.ma_lk, lk.ten_linh_kien AS ten, ct.so_luong, lk.gia_ban AS gia FROM lk_combo_ct ct
+                     LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ct.ma_lk WHERE ct.ma_combo = cb.ma_combo ORDER BY ct.stt, ct.ma_lk) t) AS thanh_phan
+       FROM lk_combo cb ${dk.length ? `WHERE ${dk.join(" AND ")}` : ""} ORDER BY cb.ma_combo`,
+    ).bind(...(mas.length ? [JSON.stringify(mas)] : [])).all<{ ma_combo: string; ten_combo: string; bat_tat: number; ghi_chu: string | null; ngay_cap_nhat: string; thanh_phan: string }>(),
+  ]);
+  return c.json({
+    phien_ban: `${pb?.pb ?? ""}#${pbCt?.n ?? 0}#${pbCt?.sl ?? 0}`,
+    rows: results.map((r) => {
+      const tp = JSON.parse(r.thanh_phan) as { so_luong: number; gia_niem_yet: number | null }[];
+      return { ...r, thanh_phan: tp, gia_niem_yet: tp.reduce((t, x) => t + (x.gia_niem_yet ?? 0) * x.so_luong, 0) };
+    }),
+  });
+});
+
+// GET /api/partner/v1/lk-tu-khoa - tu khoa tim kiem RIENG cua tung LK (ten goi khac) + NHOM DONG NGHIA (go 1 tu trong nhom = tim ca
+// cac tu con lai). 2 bang nho - tra ca bang. phien_ban = data_versions 'md_lk_tu_khoa' (trigger tang moi lan them/sua/xoa ca 2 bang).
+const tachTu = (s: string | null) => (s ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+partnerApi.get("/v1/lk-tu-khoa", async (c) => {
+  const db = c.env.DB;
+  const [pb, { results: tuKhoa }, { results: dongNghia }] = await Promise.all([
+    db.prepare("SELECT version FROM data_versions WHERE domain = 'md_lk_tu_khoa'").first<{ version: number }>(),
+    db.prepare("SELECT ma_linh_kien, tu_khoa, ngay_cap_nhat FROM lk_tu_khoa ORDER BY ma_linh_kien").all<{ ma_linh_kien: string; tu_khoa: string; ngay_cap_nhat: string }>(),
+    db.prepare("SELECT id, nhom, ngay_cap_nhat FROM lk_dong_nghia ORDER BY id").all<{ id: number; nhom: string; ngay_cap_nhat: string }>(),
+  ]);
+  return c.json({
+    phien_ban: String(pb?.version ?? 0),
+    tu_khoa: tuKhoa.map((r) => ({ ma_linh_kien: r.ma_linh_kien, tu_khoa: tachTu(r.tu_khoa), ngay_cap_nhat: r.ngay_cap_nhat })),
+    dong_nghia: dongNghia.map((r) => ({ id: r.id, tu: tachTu(r.nhom), ngay_cap_nhat: r.ngay_cap_nhat })),
+  });
+});
+
+// GET /api/partner/v1/cong-no-ktv[?ma_ktv=A,B][&khu_vuc=MB1,MB2][&chi_tiet=1] - cong no theo KTV, CUNG cong thuc + CUNG tap dong voi
+// man Cong no cua app (lib/congNoKtv.ts docCongNoTongHop - chi KTV dang co ton kho trong file MISA import gan nhat). chi_tiet=1 (bat
+// buoc kem ma_ktv, toi da 20 KTV) = them tung ma hang dang giu. KHONG tra email/so dien thoai KTV.
+partnerApi.get("/v1/cong-no-ktv", async (c) => {
+  const db = c.env.DB;
+  const maKtv = tachMa(c.req.query("ma_ktv"));
+  const khuVuc = tachMa(c.req.query("khu_vuc"));
+  const chiTiet = c.req.query("chi_tiet") === "1";
+  if (chiTiet && (maKtv.length === 0 || maKtv.length > 20)) return c.json({ error: "CHI_TIET_CAN_MA_KTV", toi_da: 20 }, 400);
+  const dk: string[] = [];
+  const binds: unknown[] = [];
+  if (maKtv.length) {
+    dk.push("UPPER(k.ma_ktv) IN (SELECT UPPER(value) FROM json_each(?))");
+    binds.push(JSON.stringify(maKtv));
+  }
+  if (khuVuc.length) {
+    dk.push("k.khu_vuc_ma IN (SELECT value FROM json_each(?))");
+    binds.push(JSON.stringify(khuVuc));
+  }
+  const [meta, rows] = await Promise.all([
+    db.prepare("SELECT updated_at FROM app_settings WHERE key = 'ktv_ton_kho_import_meta'").first<{ updated_at: string }>(),
+    docCongNoTongHop(db, dk.length ? `WHERE ${dk.join(" AND ")}` : "", binds),
+  ]);
+  const ketQua = rows.map((r) => ({
+    ma_ktv: r.ma_ktv, ten_ktv: r.ten_hien_thi, ma_misa: r.ma_misa, ten_misa: r.ten_misa, khu_vuc_ma: r.khu_vuc_ma,
+    tran_cong_no: r.cong_no, so_ma_hang: r.so_ma_hang, tong_sl_ton: r.tong_cuoi_ky, sl_ho_tro_0d: r.sl_ho_tro_0d,
+    cong_no_thuc_te: r.cong_no_thuc_te, cong_no_phat_sinh: r.cong_no_phat_sinh, cong_no_da_tru: r.cong_no_da_tru,
+    cong_no_chot: r.cong_no_chot, danh_gia_cong_no: r.danh_gia_cong_no,
+  }));
+  if (!chiTiet) return c.json({ phien_ban_ton_kho: meta?.updated_at ?? null, rows: ketQua });
+  const { results: ct } = await db.prepare(
+    `SELECT t.ma_ktv, t.ma_hang AS ma_linh_kien, COALESCE(lk.ten_linh_kien, t.ten_hang) AS ten_linh_kien, t.cuoi_ky AS sl_ton,
+            ${SL_HO_TRO_0D_SQL("t")} AS sl_ho_tro_0d, lk.gia_tri_cong_no AS gia_ktv,
+            (t.cuoi_ky - ${SL_HO_TRO_0D_SQL("t")}) * COALESCE(lk.gia_tri_cong_no, 0) AS cong_no
+     FROM ktv_ton_kho t LEFT JOIN linh_kien lk ON lk.ma_linh_kien = t.ma_hang
+     WHERE t.ma_ktv IN (SELECT value FROM json_each(?)) ORDER BY t.ma_ktv, t.ma_hang`,
+  ).bind(JSON.stringify(ketQua.map((r) => r.ma_ktv))).all<{ ma_ktv: string } & Record<string, unknown>>();
+  return c.json({
+    phien_ban_ton_kho: meta?.updated_at ?? null,
+    rows: ketQua.map((r) => ({ ...r, chi_tiet: ct.filter((x) => x.ma_ktv === r.ma_ktv).map(({ ma_ktv: _m, ...x }) => x) })),
+  });
 });
 
 export default partnerApi;

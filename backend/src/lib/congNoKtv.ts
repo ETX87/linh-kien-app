@@ -119,3 +119,68 @@ export function danhGiaCongNo3Muc(congNoChot: number, tranCongNo: number | null)
   if (tran > 0 && congNoChot > 0.7 * tran) return "Canh bao";
   return "Binh thuong";
 }
+
+export type CongNoTongHopRow = {
+  ma_ktv: string; ten_hien_thi: string | null; ma_misa: string | null; ten_misa: string | null; khu_vuc_ma: string | null;
+  cong_no: number | null; cong_no_cap_nhat_luc: string | null; so_ma_hang: number; tong_cuoi_ky: number;
+  cong_no_thuc_te: number; cong_no_phat_sinh: number; cong_no_da_tru: number; sl_ho_tro_0d: number;
+  cong_no_chot: number; danh_gia_cong_no: DanhGiaCongNo3Muc;
+};
+
+// Bang tong hop cong no theo KTV (2026-10-17, tach tu routes/ktvTonKho.ts GET / - dung CHUNG voi API doi tac
+// GET /api/partner/v1/cong-no-ktv). `where` = "WHERE ..." tren alias `k` (ktv_lien_he) - pham vi KTV duoc tinh (CTE pham_vi loc
+// TRUOC de KTV xem 1 dong khong phai doc ca bang); chi tra KTV DANG co dong ton kho (INNER JOIN ktv_ton_kho). Cong thuc:
+// chot = thuc te (ton x Gia KTV, tru "Cong no 0 dong") + phat sinh (don cong no TN da duyet sau moc import) - da tru (TRU CONG NO
+// da thanh toan) - giong computeCongNoChot nhung gop 1 truy van cho nhieu KTV.
+export async function docCongNoTongHop(db: D1Database, where: string, binds: unknown[]): Promise<CongNoTongHopRow[]> {
+  const mocTinhCongNo = await getMocTinhCongNo(db);
+  const { results } = await db.prepare(
+    `WITH pham_vi AS (
+       SELECT k.ma_ktv, k.email_dang_nhap FROM ktv_lien_he k ${where}
+     ),
+     thuc_te AS (
+       -- Tru phan "Công nợ 0 đồng" (2026-10-05, SL_HO_TRO_0D_SQL - cung cong thuc computeCongNoThucTe).
+       SELECT t2.ma_ktv, SUM((t2.cuoi_ky - t2.sl_0d) * COALESCE(lk.gia_tri_cong_no, 0)) as gia_tri, SUM(t2.sl_0d) as sl_0d
+       FROM (SELECT t3.*, ${SL_HO_TRO_0D_SQL("t3")} as sl_0d FROM ktv_ton_kho t3 WHERE t3.ma_ktv IN (SELECT ma_ktv FROM pham_vi)) t2
+       LEFT JOIN linh_kien lk ON lk.ma_linh_kien = t2.ma_hang
+       WHERE t2.ma_ktv IN (SELECT ma_ktv FROM pham_vi)
+       GROUP BY t2.ma_ktv
+     ),
+     phat_sinh AS (
+       SELECT pv.ma_ktv, SUM(ddh.so_tien_cong_no) as gia_tri
+       FROM pham_vi pv
+       JOIN dat_don_hang ddh ON ddh.nguoi_nhan_hang = pv.email_dang_nhap
+       WHERE ddh.loai_don = 'cong_no' AND ddh.trang_thai_hien_tai = 'TN da duyet'
+         AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') = 0 -- "TRỪ CÔNG NỢ" nhu don mua (2026-09-28)
+         AND (? IS NULL OR ddh.updated_at > ?)
+       GROUP BY pv.ma_ktv
+     ),
+     -- Don "TRỪ CÔNG NỢ" da thanh toan -> giam cong no ngay (2026-09-30, lib/congNoKtv.ts computeCongNoDaTru).
+     da_tru AS (
+       SELECT pv.ma_ktv, SUM(${CONG_NO_DA_TRU_GIA_TRI_SQL}) as gia_tri
+       FROM pham_vi pv
+       JOIN dat_don_hang ddh ON ddh.nguoi_nhan_hang = pv.email_dang_nhap
+       ${CONG_NO_DA_TRU_FROM_SQL}
+       WHERE ${CONG_NO_DA_TRU_WHERE_SQL}
+       GROUP BY pv.ma_ktv
+     )
+     SELECT k.ma_ktv, k.ten_hien_thi, k.ma_misa, k.ten_misa, k.khu_vuc_ma, k.cong_no, k.cong_no_cap_nhat_luc,
+       COUNT(t.id) as so_ma_hang, SUM(t.cuoi_ky) as tong_cuoi_ky,
+       COALESCE(tt.gia_tri, 0) as cong_no_thuc_te, COALESCE(ps.gia_tri, 0) as cong_no_phat_sinh,
+       COALESCE(dt.gia_tri, 0) as cong_no_da_tru, COALESCE(tt.sl_0d, 0) as sl_ho_tro_0d
+     FROM ktv_ton_kho t
+     JOIN pham_vi pv ON pv.ma_ktv = t.ma_ktv
+     JOIN ktv_lien_he k ON k.ma_ktv = pv.ma_ktv
+     LEFT JOIN thuc_te tt ON tt.ma_ktv = k.ma_ktv
+     LEFT JOIN phat_sinh ps ON ps.ma_ktv = k.ma_ktv
+     LEFT JOIN da_tru dt ON dt.ma_ktv = k.ma_ktv
+     GROUP BY k.ma_ktv
+     ORDER BY tong_cuoi_ky DESC`,
+  )
+    .bind(...binds, mocTinhCongNo, mocTinhCongNo, mocTinhCongNo, mocTinhCongNo)
+    .all<Omit<CongNoTongHopRow, "cong_no_chot" | "danh_gia_cong_no">>();
+  return results.map((r) => {
+    const congNoChot = r.cong_no_thuc_te + r.cong_no_phat_sinh - r.cong_no_da_tru;
+    return { ...r, cong_no_chot: congNoChot, danh_gia_cong_no: danhGiaCongNo3Muc(congNoChot, r.cong_no) };
+  });
+}

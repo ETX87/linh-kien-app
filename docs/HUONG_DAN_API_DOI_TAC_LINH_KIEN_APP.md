@@ -1,12 +1,13 @@
 # Hướng dẫn tích hợp API — Hệ thống Mua hàng linh kiện (dành cho đối tác DVBH)
 
-Phiên bản tài liệu: 1.1 — 2026-10-15 · Phiên bản API: **v1**
+Phiên bản tài liệu: 1.2 — 2026-10-17 · Phiên bản API: **v1**
 
 Tài liệu này mô tả các API **chỉ đọc** mà hệ thống Mua hàng linh kiện mở cho đối tác tra cứu:
 lịch sử đơn hàng theo mã ca, tồn kho, lịch sử đặt hàng của từng mã linh kiện, và danh mục linh kiện chi
 tiết (kèm **hình ảnh minh họa**, linh kiện thay thế, combo, từ khóa, công nợ, tồn kho).
 
 Thay đổi 1.1: bổ sung mục 4.5 `linh-kien/chi-tiet` và mục 4.6 hướng dẫn dùng hình ảnh minh họa.
+Thay đổi 1.2: bổ sung 4 API danh sách — 4.7 nhóm thay thế, 4.8 combo, 4.9 từ khóa riêng + nhóm đồng nghĩa, 4.10 công nợ KTV.
 
 ---
 
@@ -68,6 +69,7 @@ Lỗi trả về dạng `{"error": "<MÃ_LỖI>"}`.
 | 400 | `MISSING_MA` | Thiếu tham số `ma` (lich-su linh kiện) | Sửa yêu cầu |
 | 400 | `INVALID_NGUON` | `nguon` khác `kho` / `ktv` | Sửa yêu cầu |
 | 400 | `QUA_NHIEU_MA` | `ma=` quá 200 mã (linh-kien/chi-tiet) | Chia thành nhiều yêu cầu |
+| 400 | `CHI_TIET_CAN_MA_KTV` | `cong-no-ktv?chi_tiet=1` thiếu `ma_ktv` hoặc quá 20 KTV | Thêm / bớt `ma_ktv` |
 | 401 | `MISSING_API_KEY` | Không gửi header `X-API-Key` | Thêm header |
 | 401 | `INVALID_API_KEY` | Khóa sai hoặc đã bị tắt | Liên hệ quản trị viên — **không thử lại liên tục** |
 | 429 | `QUA_NHIEU_YEU_CAU` | Vượt 600 yêu cầu/phút | Chờ theo header `Retry-After` (giây) rồi thử lại |
@@ -425,6 +427,118 @@ Cách hiển thị:
 - Nếu tự lưu bản sao ảnh, dùng chính URL làm khóa: ảnh thay mới luôn có URL mới, URL cũ không đổi nội dung.
 - Ảnh bị xoá khỏi danh sách thì hệ thống đối tác cũng nên ngừng hiển thị ảnh đó (link cũ có thể vẫn mở được
   nhưng không còn là ảnh minh họa của linh kiện).
+
+### 4.7. Nhóm linh kiện thay thế — `GET /v1/lk-thay-the`
+
+Các mã trong cùng 1 nhóm có thể dùng thay nhau. Trả **toàn bộ** nhóm (danh sách nhỏ, không phân trang).
+
+| Tham số | Bắt buộc | Mô tả |
+|---|---|---|
+| `ma` | Không | Các mã LK cách nhau dấu phẩy (tối đa 200) — chỉ trả nhóm có chứa 1 trong các mã đó |
+
+```json
+{
+  "phien_ban": "2026-10-17 09:00:00#12#40",
+  "rows": [
+    { "id": 4, "ten_nhom": "Bo mạch dòng KG", "ghi_chu": null, "ngay_cap_nhat": "2026-10-17 09:00:00",
+      "linh_kien": [
+        { "ma_linh_kien": "3004030490", "ten_linh_kien": "Bo mạch điều khiển", "bat_tat": 1 },
+        { "ma_linh_kien": "3004030491", "ten_linh_kien": "Bo mạch điều khiển (bản mới)", "bat_tat": 1 }
+      ] }
+  ]
+}
+```
+
+`linh_kien[]` = mọi mã trong nhóm (kể cả mã đang tắt `bat_tat = 0` — tự lọc nếu chỉ cần mã đang dùng).
+
+### 4.8. Combo linh kiện — `GET /v1/lk-combo`
+
+Combo = bộ nhiều linh kiện đặt cùng lúc; đặt 1 combo = đặt từng thành phần theo số lượng/bộ.
+
+| Tham số | Bắt buộc | Mô tả |
+|---|---|---|
+| `ma` | Không | Các mã LK (tối đa 200) — chỉ trả combo có chứa 1 trong các mã đó |
+| `chi_bat` | Không | `1` = chỉ combo đang bật |
+
+```json
+{
+  "phien_ban": "2026-10-04 13:10:15#10#25#31",
+  "rows": [
+    { "ma_combo": "CB-LOC-01", "ten_combo": "Bộ lõi lọc 1-2-3", "bat_tat": 1, "ghi_chu": null,
+      "ngay_cap_nhat": "2026-10-04 13:10:15", "gia_niem_yet": 650000,
+      "thanh_phan": [
+        { "ma_linh_kien": "2004010025", "ten_linh_kien": "Lõi PP 10 inch", "so_luong": 1, "gia_niem_yet": 150000 },
+        { "ma_linh_kien": "2005010032", "ten_linh_kien": "Lõi UDF", "so_luong": 2, "gia_niem_yet": 250000 }
+      ] }
+  ]
+}
+```
+
+`gia_niem_yet` của combo = Σ giá niêm yết thành phần × số lượng/bộ — chỉ để tham khảo (giá thật tính theo từng thành phần lúc đặt).
+
+### 4.9. Từ khóa riêng + nhóm đồng nghĩa — `GET /v1/lk-tu-khoa`
+
+Dùng để tìm linh kiện giống trên app: mỗi LK có thể có **từ khóa riêng** (tên gọi khác), và các **nhóm đồng nghĩa** dùng
+chung (gõ 1 từ trong nhóm = tìm cả các từ còn lại). Không có tham số, trả toàn bộ 2 danh sách.
+
+```json
+{
+  "phien_ban": "20",
+  "tu_khoa": [
+    { "ma_linh_kien": "3004030490", "tu_khoa": ["board", "mạch điều khiển"], "ngay_cap_nhat": "2026-10-17 09:00:00" }
+  ],
+  "dong_nghia": [
+    { "id": 1, "tu": ["bộ mạch", "mạch", "board", "mainboard", "main", "pcb"], "ngay_cap_nhat": "2026-10-04 18:16:15" },
+    { "id": 2, "tu": ["bơm", "pump"], "ngay_cap_nhat": "2026-10-04 18:16:15" }
+  ]
+}
+```
+
+`phien_ban` tăng mỗi lần thêm / sửa / xoá từ khóa hoặc nhóm đồng nghĩa (kể cả xoá).
+
+### 4.10. Công nợ KTV — `GET /v1/cong-no-ktv`
+
+Công nợ theo từng KTV — **cùng công thức, cùng danh sách** với màn "Công nợ" trên app (chỉ KTV đang có tồn kho trong file MISA
+import gần nhất).
+
+| Tham số | Bắt buộc | Mô tả |
+|---|---|---|
+| `ma_ktv` | Không | Các mã KTV cách nhau dấu phẩy (không phân biệt hoa/thường, tối đa 200) |
+| `khu_vuc` | Không | Các mã khu vực, vd `MB1,MB2` |
+| `chi_tiet` | Không | `1` = kèm từng mã linh kiện KTV đang giữ — **bắt buộc** có `ma_ktv` (tối đa 20 KTV), nếu không trả 400 `CHI_TIET_CAN_MA_KTV` |
+
+```json
+{
+  "phien_ban_ton_kho": "2026-10-16 17:30:00",
+  "rows": [
+    { "ma_ktv": "KTV001", "ten_ktv": "Nguyễn Văn A", "ma_misa": "NVA01", "ten_misa": "Nguyễn Văn A", "khu_vuc_ma": "MB1",
+      "tran_cong_no": 5000000, "so_ma_hang": 12, "tong_sl_ton": 30, "sl_ho_tro_0d": 2,
+      "cong_no_thuc_te": 3200000, "cong_no_phat_sinh": 450000, "cong_no_da_tru": 120000,
+      "cong_no_chot": 3530000, "danh_gia_cong_no": "Binh thuong",
+      "chi_tiet": [
+        { "ma_linh_kien": "3004030490", "ten_linh_kien": "Bo mạch điều khiển", "sl_ton": 3, "sl_ho_tro_0d": 1, "gia_ktv": 380000, "cong_no": 760000 }
+      ] }
+  ]
+}
+```
+
+*(Giá trị minh họa. `chi_tiet` chỉ có khi gọi `chi_tiet=1`.)*
+
+| Trường | Mô tả |
+|---|---|
+| `tran_cong_no` | Trần công nợ được cấp (VNĐ); null = chưa đặt (coi như 0) |
+| `cong_no_thuc_te` | Σ (SL tồn − SL hỗ trợ 0 đồng) × Giá KTV, theo file MISA import gần nhất |
+| `cong_no_phat_sinh` | Đơn công nợ đã duyệt SAU lần import gần nhất (chưa có trong file MISA) |
+| `cong_no_da_tru` | Đơn "TRỪ CÔNG NỢ" đã thanh toán sau lần import gần nhất |
+| `cong_no_chot` | = thực tế + phát sinh − đã trừ — số dùng để xét trần khi đặt đơn công nợ |
+| `danh_gia_cong_no` | `Vuot tran` (chốt > trần) / `Canh bao` (> 70% trần) / `Binh thuong` |
+| `sl_ho_tro_0d` | Số chiếc được tính công nợ 0 đồng theo chương trình hỗ trợ đang chạy |
+| `phien_ban_ton_kho` | Như mục 4.2 — đổi khi có file tồn kho mới; phát sinh/đã trừ vẫn đổi liên tục trong ngày |
+
+Lưu ý: dữ liệu công nợ là thông tin tài chính của KTV — chỉ dùng cho nghiệp vụ, không hiển thị công khai.
+
+**Đồng bộ 4.7 – 4.9**: gọi định kỳ (vd mỗi giờ), so `phien_ban` với lần trước — giống thì bỏ qua, khác thì thay toàn bộ danh sách
+đã lưu. Công nợ (4.10) thay đổi liên tục, nên gọi khi cần hiển thị hoặc cache tối đa vài phút.
 
 ---
 
