@@ -155,7 +155,9 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   có `else if (la_mua_hang)` trước `la_view`. FE: App.tsx cấp Trang chủ/Đơn hàng/Phiếu xuất/Thiếu hàng/Trả hàng/Công
   nợ/Quỹ (`laTaiKhoanMuaHangThuanTuy` gồm cả `la_mua_hang` — thiếu thì tài khoản chỉ có cờ này kẹt màn "chờ duyệt");
   `DatMuaLinhKienModule` `laMuaHang` mở tab (không có cờ xử lý nào nên không hiện nút thao tác; không tải file MISA).
-  "Báo cáo tốc độ xử lý" KHÔNG mở cho Mua hàng (chỉ Admin + View — đánh giá nhân sự, cần người dùng chốt riêng).
+  **"Báo cáo tốc độ xử lý" mở cho MỌI nhân viên văn phòng** (chốt 2026-10-17, v1.360 — ghi đè "chỉ Admin + View"): gate backend
+  `routes/baoCaoTocDoXuLy.ts` chỉ chặn KTV/Vệ tinh (`la_ktv_dvbh`/`la_ve_tinh`), FE `App.tsx` cấp module `bao-cao-toc-do` cho cùng tập; phạm vi:
+  View theo Khu vực được gán (`resolveScopeEmails`), còn lại xem toàn bộ.
 - `routes/settingsDatMua.ts` — CRUD `linh_kien` (danh mục riêng, KHÔNG chung với module "giải trình"
   như hệ gốc), Google Drive OAuth (uỷ quyền tài khoản thật để upload ảnh minh hoạ linh kiện),
   `settings_ly_do_cham`, `settings_loai_de_xuat`/`_nhom`. Mount tại `/api/settings`.

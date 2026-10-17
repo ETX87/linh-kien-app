@@ -25,7 +25,9 @@ const baoCaoTocDoXuLy = new Hono<{ Bindings: Env }>();
 baoCaoTocDoXuLy.use("*", verifySessionMiddleware, loadUser);
 baoCaoTocDoXuLy.use("*", async (c, next) => {
   const user = c.get("user");
-  if (user.vai_tro !== "Admin" && !user.la_view) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  // MO cho MOI nhan vien van phong (chot 2026-10-17, "show báo cáo tốc độ xử lý cho tất cả nhân viên văn phòng" - GHI DE chot
+  // 04/09/2026 chi Admin + View): chan rieng KTV/Ve tinh. Pham vi: View theo Khu vuc duoc gan (resolveScopeEmails), con lai xem het.
+  if (user.vai_tro !== "Admin" && (user.la_ktv_dvbh || user.la_ve_tinh)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   await next();
 });
 

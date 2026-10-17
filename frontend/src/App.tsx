@@ -168,6 +168,11 @@ function MainApp({
   if (role !== "Admin" && !user.la_ktv_dvbh && !user.la_ve_tinh) {
     allowedModules = [...new Set([...allowedModules, "danh-sach-ktv"])];
   }
+  // "Báo cáo tốc độ xử lý" mo cho MOI nhan vien van phong (chot 2026-10-17 - ghi de "chi Admin + View"), khop gate backend
+  // routes/baoCaoTocDoXuLy.ts (chan KTV/Ve tinh).
+  if (role !== "Admin" && !user.la_ktv_dvbh && !user.la_ve_tinh) {
+    allowedModules = [...new Set([...allowedModules, "bao-cao-toc-do"])];
+  }
 
   // "Quỹ & chuyển tiền" (2026-09-29) - khop phamViXem() o backend routes/quyKtv.ts: Ke toan/TN xem tat ca, KTV/Ve
   // tinh xem quy cua chinh minh (Ve tinh = quy cua Tram). Admin da co qua ROLE_MODULES.
