@@ -65,8 +65,20 @@ export function Sidebar({
     refetchInterval: 5 * 60_000,
   });
   const tc = traHangCounts?.counts ?? {};
+  // "Hỏi đáp" (2026-10-17): CUNG queryKey voi icon chat (HoiDapWidget) - khong ton them request.
+  const coHoiDap = allowedModules.includes("hoi-dap");
+  const { data: hoiDapDem } = useQuery({
+    queryKey: ["hoi-dap-dem"],
+    queryFn: () => api.get<{ la_xu_ly: boolean; chua_doc: number; cho_tiep_nhan: number }>("/hoi-dap/dem"),
+    enabled: coHoiDap,
+    refetchInterval: 60_000,
+  });
   const countsDu: NavCounts | undefined = counts
-    ? { ...counts, hangTra: (tc["Cho ke toan duyet mem"] ?? 0) + (tc["Cho kho xac nhan"] ?? 0) + (tc["Cho QC xac nhan"] ?? 0) }
+    ? {
+        ...counts,
+        hangTra: (tc["Cho ke toan duyet mem"] ?? 0) + (tc["Cho kho xac nhan"] ?? 0) + (tc["Cho QC xac nhan"] ?? 0),
+        hoiDap: (hoiDapDem?.cho_tiep_nhan ?? 0) + (hoiDapDem?.chua_doc ?? 0),
+      }
     : undefined;
 
   const showText = !collapsed || isMobile;

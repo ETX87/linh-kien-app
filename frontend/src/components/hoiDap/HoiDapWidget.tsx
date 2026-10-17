@@ -16,16 +16,16 @@ import { useLkAndLdeCache, describeApiError } from "../../modules/datMuaLinhKien
 // 1 widget cho CA 2 phia: nguoi hoi (KTV...) thay cau hoi cua minh; Mua hang/Admin (la_xu_ly) thay hang cho cua moi nguoi + nut xu ly.
 // Chuong thong bao mo dung ticket qua su kien window "mo-hoi-dap" (detail = id ticket) - xem NotificationBell.tsx.
 
-type TrangThai = "Cho tiep nhan" | "Dang xu ly" | "Da xu ly" | "Huy bo" | "Tu choi";
-const TT: Record<TrangThai, { label: string; tone: Tone }> = {
+export type TrangThai = "Cho tiep nhan" | "Dang xu ly" | "Da xu ly" | "Huy bo" | "Tu choi";
+export const TT: Record<TrangThai, { label: string; tone: Tone }> = {
   "Cho tiep nhan": { label: dichSau("Chờ tiếp nhận"), tone: "warning" },
   "Dang xu ly": { label: dichSau("Đang xử lý"), tone: "info" },
   "Da xu ly": { label: dichSau("Đã xử lý"), tone: "success" },
   "Huy bo": { label: dichSau("Hủy bỏ"), tone: "neutral" },
   "Tu choi": { label: dichSau("Từ chối"), tone: "danger" },
 };
-const LOAI: Record<string, string> = { hoi_gia: dichSau("Hỏi giá"), hoi_ngay_ve: dichSau("Hỏi ngày hàng về"), khac: dichSau("Hỏi khác") };
-const LOC_XU_LY: { v: string; label: string }[] = [
+export const LOAI: Record<string, string> = { hoi_gia: dichSau("Hỏi giá"), hoi_ngay_ve: dichSau("Hỏi ngày hàng về"), khac: dichSau("Hỏi khác") };
+export const LOC_XU_LY: { v: string; label: string }[] = [
   { v: "__MO__", label: dichSau("Đang mở") },
   { v: "Cho tiep nhan", label: dichSau("Chờ tiếp nhận") },
   { v: "Dang xu ly", label: dichSau("Đang xử lý") },
@@ -35,7 +35,7 @@ const LOC_XU_LY: { v: string; label: string }[] = [
   { v: "", label: dichSau("Tất cả") },
 ];
 
-interface HoiDapRow {
+export interface HoiDapRow {
   id: string;
   nguoi_hoi: string;
   ten_nguoi_hoi: string;
@@ -61,7 +61,7 @@ type Man = { ten: "ds" } | { ten: "moi"; loai?: string; maLk?: string; maDon?: s
 
 const O_NHAP = "focus-ring w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-2 text-base sm:text-sm";
 
-function TtBadge({ tt }: { tt: TrangThai }) {
+export function TtBadge({ tt }: { tt: TrangThai }) {
   return <Badge tone={TT[tt]?.tone ?? "neutral"}>{t(TT[tt]?.label ?? tt)}</Badge>;
 }
 
@@ -109,7 +109,7 @@ export function HoiDapWidget() {
           title={t("Hỏi đáp mua hàng")}
           aria-label={t("Hỏi đáp mua hàng")}
           className={`focus-ring fixed z-40 grid h-[52px] w-[52px] place-items-center rounded-full bg-[var(--color-primary)] text-white shadow-[var(--shadow-raise)] transition-transform hover:scale-105 hover:bg-[var(--color-primary-hover)] ${
-            isMobile ? "right-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))]" : "right-5 bottom-5"
+            isMobile ? "right-3 bottom-[calc(9rem+env(safe-area-inset-bottom))]" : "right-5 bottom-28"
           }`}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

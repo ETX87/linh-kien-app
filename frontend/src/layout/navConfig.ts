@@ -6,7 +6,7 @@ export interface NavItem {
   label: string;
   // Tên khoá trong `Icon` (components/ui/Icon.tsx) — hoặc 1 emoji (fallback cho link ngoài).
   icon: keyof typeof Icon | string;
-  countKey?: "datMuaLk" | "phieuXuat" | "ktvLogChuaDoc" | "thieuLk" | "lkChoXetDuyet" | "hangTra";
+  countKey?: "datMuaLk" | "phieuXuat" | "ktvLogChuaDoc" | "thieuLk" | "lkChoXetDuyet" | "hangTra" | "hoiDap";
   // Chi hien tren desktop (Sidebar rong) - mobile gop vao muc khac (vd "Hàng trả" nam trong menu con "Đơn hàng").
   desktopOnly?: boolean;
   // "href" — mục menu là LIÊN KẾT RA NGOÀI (Worker/app khác), KHÔNG tham gia allowedModules/setActive;
@@ -40,6 +40,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: "danh-sach-ktv", label: "Danh sách KTV", icon: "users" },
       // Quy du KTV (2026-09-29, migration 0047) - Admin/Ke toan/TN xem tat ca, KTV/Ve tinh xem cua minh (App.tsx).
       { key: "quy-chuyen-tien", label: "Quỹ & chuyển tiền", icon: "wallet" },
+      // Quan ly ticket hoi dap KTV <-> Mua hang (2026-10-17) - Mua hang + Admin; so = cho tiep nhan + tin moi (Sidebar tu dem /hoi-dap/dem).
+      { key: "hoi-dap", label: "Hỏi đáp", icon: "chat", countKey: "hoiDap" },
     ],
   },
   {
@@ -68,6 +70,7 @@ export const MODULE_TITLES: Record<string, string> = {
   "ton-kho-ktv": "Công nợ",
   "danh-sach-ktv": "Danh sách KTV",
   "quy-chuyen-tien": "Quỹ & chuyển tiền",
+  "hoi-dap": "Hỏi đáp mua hàng",
   "bao-cao-toc-do": "Báo cáo tốc độ xử lý",
   settings: "Cài đặt",
   users: "Quản lý người dùng",
@@ -94,11 +97,14 @@ export interface NavCounts {
   lkChoXetDuyet?: number;
   // Tong don tra hang cho Ke toan/Kho/QC xac nhan (tinh o Sidebar tu /don-hang-status-counts?loai_don=tra_hang).
   hangTra?: number;
+  // Ticket hoi dap cho tiep nhan + tin moi chua doc (Sidebar tu dem tu /hoi-dap/dem - chung cache voi icon chat).
+  hoiDap?: number;
 }
 // tachHangTra: desktop co muc "Hàng trả" rieng -> viec tra hang cua Ke toan/Kho/QC khong tinh vao "Đơn hàng" nua.
 export function navCount(countKey: NavItem["countKey"], counts: NavCounts | undefined, tachHangTra = false): number {
   if (!countKey || !counts) return 0;
   if (countKey === "hangTra") return counts.hangTra ?? 0;
+  if (countKey === "hoiDap") return counts.hoiDap ?? 0;
   if (countKey === "ktvLogChuaDoc") return counts.ktvLogChuaDoc;
   if (countKey === "lkChoXetDuyet") return counts.lkChoXetDuyet ?? 0;
   if (countKey === "thieuLk") return counts.datMuaLk.thieuLkCanXuLy ?? 0;

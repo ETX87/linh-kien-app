@@ -38,6 +38,13 @@ export const Icon = {
       <path d="M9 7.5h7M9 11h7" />
     </S>
   ),
+  // Hoi dap KTV <-> Mua hang (2026-10-17).
+  chat: (p: P) => (
+    <S {...p}>
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      <path d="M8 9h8M8 13h5" />
+    </S>
+  ),
   wallet: (p: P) => (
     <S {...p}>
       <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3" />

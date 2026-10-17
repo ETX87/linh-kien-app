@@ -1772,5 +1772,11 @@ const tuDien: Record<string, string> = {
   "Đã xử lý": "Selesai",
   "✓ Đã xử lý": "✓ Selesai",
   "＋ Câu hỏi mới": "＋ Pertanyaan baru",
+  "Câu hỏi": "Pertanyaan",
+  "Câu hỏi của KTV gửi nhân viên mua hàng (giá, ngày hàng về…). Bấm 1 dòng để mở khung chat trả lời / tiếp nhận / đóng ticket.": "Pertanyaan teknisi ke staf pembelian (harga, tanggal barang tiba…). Klik baris untuk membuka obrolan untuk membalas / menerima / menutup tiket.",
+  "Mã đơn / phiếu": "Kode pesanan / slip",
+  "Ngày hỏi": "Tanggal tanya",
+  "Người hỏi": "Penanya",
+  "Người xử lý": "Ditangani oleh",
 };
 export default tuDien;

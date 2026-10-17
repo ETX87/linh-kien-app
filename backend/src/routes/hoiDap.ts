@@ -137,8 +137,8 @@ hoiDap.get("/", async (c) => {
   }
   const { results } = await c.env.DB.prepare(
     `SELECT * FROM hoi_dap ${where.length ? "WHERE " + where.join(" AND ") : ""}
-     ORDER BY CASE WHEN trang_thai IN ('Cho tiep nhan', 'Dang xu ly') THEN 0 ELSE 1 END, tin_cuoi_luc DESC LIMIT 200`,
-  ).bind(...binds).all<HoiDapRow>();
+     ORDER BY CASE WHEN trang_thai IN ('Cho tiep nhan', 'Dang xu ly') THEN 0 ELSE 1 END, tin_cuoi_luc DESC LIMIT ?`,
+  ).bind(...binds, Math.min(500, Math.max(1, Math.trunc(Number(c.req.query("gioi_han"))) || 200))).all<HoiDapRow>(); // gioi_han: man quan ly (menu Hỏi đáp) tai 500
   const ten = await tenNguoiMap(c.env.DB, [...new Set(results.flatMap((r) => [r.nguoi_hoi, r.nguoi_xu_ly ?? ""]).filter(Boolean))]);
   return c.json({
     la_xu_ly: laXuLy(c),

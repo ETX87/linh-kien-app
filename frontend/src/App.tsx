@@ -17,6 +17,7 @@ import { DanhMucLinhKienModule } from "./modules/DanhMucLinhKienModule";
 import { TonKhoKtvModule } from "./modules/TonKhoKtvModule";
 import { DanhSachKtvModule } from "./modules/DanhSachKtvModule";
 import { QuyChuyenTienModule } from "./modules/QuyChuyenTienModule";
+import { HoiDapModule } from "./modules/HoiDapModule";
 import { BaoCaoTocDoXuLyModule } from "./modules/BaoCaoTocDoXuLyModule";
 import { NotificationBell } from "./modules/datMuaLinhKien/NotificationBell";
 import { SettingsModule } from "./modules/SettingsModule";
@@ -141,7 +142,8 @@ function MainApp({
   // "Mua hang" (2026-09-30, dot 2): xem TOAN BO cac man nghiep vu, CHI DOC (backend requireDatMuaLkArea chan ghi, scope
   // tra null - lib/scopeDatMua.ts). KHONG gom "Báo cáo tốc độ xử lý" (chi Admin + View, danh gia nhan su).
   if (role !== "Admin" && user.la_mua_hang) {
-    allowedModules = [...new Set([...allowedModules, "trang-chu", "dat-mua-lk", "phieu-xuat", "thieu-lk", "tra-hang", "ton-kho-ktv", "quy-chuyen-tien"])];
+    // + "hoi-dap" (2026-10-17): quan ly ticket hoi dap KTV <-> Mua hang (khop laXuLy() o backend routes/hoiDap.ts). Admin co qua ROLE_MODULES.
+    allowedModules = [...new Set([...allowedModules, "trang-chu", "dat-mua-lk", "phieu-xuat", "thieu-lk", "tra-hang", "ton-kho-ktv", "quy-chuyen-tien", "hoi-dap"])];
   }
   // "Phiếu xuất" (tach khoi "Đặt mua linh kiện" 2026-09-29) - khop canXemPxkTab o DatMuaLinhKienModule.tsx (TN/Kho/Ke
   // toan/GS/KTV/Ve tinh). Admin + "Giam sat" da co qua ROLE_MODULES.
@@ -479,6 +481,7 @@ function MainApp({
           {active === "ton-kho-ktv" && <TonKhoKtvModule />}
           {active === "danh-sach-ktv" && <DanhSachKtvModule />}
           {active === "quy-chuyen-tien" && <QuyChuyenTienModule />}
+          {active === "hoi-dap" && <HoiDapModule />}
           {active === "bao-cao-toc-do" && <BaoCaoTocDoXuLyModule />}
           {active === "settings" && <SettingsModule />}
           {active === "users" && <UsersModule pendingKtvSearch={pendingKtvSearch} />}
