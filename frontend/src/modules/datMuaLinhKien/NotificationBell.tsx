@@ -40,6 +40,7 @@ const LOAI_TONE: Record<string, Tone> = {
   // 2026-10-15: he thong chuyen don sang buoc cho nguoi khac duyet / cho chuyen tien (kem ly do trong noi dung).
   cho_duyet: "info",
   cho_thanh_toan: "warning",
+  hoi_dap: "info", // Hoi dap KTV <-> Mua hang (2026-10-17)
   // Them (phan hoi 2026-09-05: "khi đến các nhiệm vụ của mỗi vai trò + khu vực sẽ có thông báo đẩy về
   // cho người xử lý") - 3 loai DOC LAP nguoi dung tu bat/tat (xem cong tac o footer Drawer ben duoi):
   // "viec_moi" = nhiem vu TRUC TIEP phai xu ly, "lien_quan" = viec cung quy trinh/khu vuc nhung chua
@@ -58,6 +59,7 @@ const LOAI_LABEL: Record<string, string> = {
   mo_lai: dichSau("Mở lại"),
   cho_duyet: dichSau("Chờ duyệt"),
   cho_thanh_toan: dichSau("Chờ thanh toán"),
+  hoi_dap: dichSau("Hỏi đáp"),
   viec_moi: dichSau("Việc mới"),
   lien_quan: dichSau("Liên quan"),
   theo_doi: dichSau("Theo dõi"),
@@ -125,6 +127,10 @@ export function NotificationBell({
     } else if (row.link_type === "phieu_xuat_kho" && row.link_id) {
       setOpen(false);
       onOpenPxk(row.link_id);
+    } else if (row.link_type === "hoi_dap" && row.link_id) {
+      // Mo dung ticket trong khung chat (HoiDapWidget nghe su kien nay).
+      setOpen(false);
+      window.dispatchEvent(new CustomEvent("mo-hoi-dap", { detail: row.link_id }));
     }
   }
 

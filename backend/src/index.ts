@@ -20,6 +20,7 @@ import etxNhanSuSyncRoutes from "./routes/etxNhanSuSync";
 import partnerApiRoutes from "./routes/partnerApi";
 import khovanLookupRoutes from "./routes/khovanLookup";
 import suachuaPartnerRoutes from "./routes/suachuaPartner";
+import hoiDapRoutes from "./routes/hoiDap";
 import partnerKhoRoutes from "./routes/partnerKho";
 import nhanThieuRoutes, { tuXacNhanVaNhacPxk } from "./routes/nhanThieu";
 import { runDvbhSync } from "./lib/dvbhSyncClient";
@@ -61,6 +62,7 @@ app.route("/api/phieu-xuat-kho", phieuXuatKhoRoutes);
 app.route("/api/tra-hang", traHangRoutes);
 app.route("/api/quy-ktv", quyKtvRoutes);
 app.route("/api/nhan-thieu", nhanThieuRoutes);
+app.route("/api/hoi-dap", hoiDapRoutes); // Hoi dap KTV <-> Mua hang (2026-10-17, migration 0089)
 app.route("/api/khach-le", khachLeRoutes);
 app.route("/api/bao-cao-toc-do", baoCaoTocDoXuLyRoutes);
 app.route("/api/push", pushRoutes);

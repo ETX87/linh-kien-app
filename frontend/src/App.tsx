@@ -10,6 +10,7 @@ import { Sidebar } from "./layout/Sidebar";
 import { TopBarActions } from "./layout/TopBarActions";
 import { TopBar } from "./layout/TopBar";
 import { BottomTabBar } from "./layout/BottomTabBar";
+import { HoiDapWidget } from "./components/hoiDap/HoiDapWidget";
 import { ROLE_MODULES, MODULE_TITLES, NAV_GROUPS } from "./layout/navConfig";
 import { DatMuaLinhKienModule } from "./modules/DatMuaLinhKienModule";
 import { DanhMucLinhKienModule } from "./modules/DanhMucLinhKienModule";
@@ -484,6 +485,8 @@ function MainApp({
         </main>
       </div>
       {isMobile && <BottomTabBar active={active} setActive={setActive} allowedModules={allowedModules} onOpenMore={() => setMobileOpen(true)} />}
+      {/* Hoi dap KTV <-> Mua hang (2026-10-17) - icon chat goc duoi phai, moi tai khoan da duyet. */}
+      <HoiDapWidget />
       {isMobile && exitConfirmOpen && (
         <Modal open onClose={stayInApp} title={t("Thoát ứng dụng?")}>
           <div className="space-y-4 text-sm">
