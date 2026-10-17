@@ -5,6 +5,8 @@ import { buildCaseTimeline } from "../lib/partnerTimeline";
 import { docLienQuanLk } from "../lib/linhKienLienQuan";
 import { dsAnhLk } from "../lib/anhLinhKien";
 import { docCongNoTongHop, SL_HO_TRO_0D_SQL } from "../lib/congNoKtv";
+import { donChoHangDuTonKho, getMocTonKhoCongTy } from "../lib/tonKhoCongTy";
+import { ktvChinhCuaEmailSql } from "../lib/ktvChinh";
 
 // API tra cuu cho CAC HE THONG DOI TAC ben ngoai (khac hoan toan cac router khac trong app - khong
 // dung verifySessionMiddleware/cookie, xac thuc rieng qua header "X-API-Key", xem
@@ -293,6 +295,108 @@ partnerApi.get("/v1/cong-no-ktv", async (c) => {
     phien_ban_ton_kho: meta?.updated_at ?? null,
     rows: ketQua.map((r) => ({ ...r, chi_tiet: ct.filter((x) => x.ma_ktv === r.ma_ktv).map(({ ma_ktv: _m, ...x }) => x) })),
   });
+});
+
+// ---- Thieu hang + ton kha dung (2026-10-17, ra soat API doi tac - nguoi dung chon bo sung mang nay) ----
+
+// GET /api/partner/v1/thieu-hang?trang_thai=mo|dong|tat_ca&ma=&ma_ktv=&khu_vuc=&cap_nhat_tu=&after_id=&limit= - ticket "Thiếu hàng
+// đặt mua" (don cho hang: Kho tim nguon / du kien co hang / hang ve). Mac dinh chi ticket CON MO. cap_nhat_tu = chi ticket co thao tac
+// (log moi nhat) SAU moc do (gio VN "YYYY-MM-DD HH:MM:SS") - dung de keo bu thay doi. Phan trang con tro theo id. kho_du_hang = ticket
+// mo ma don goc da du ton kho cong ty (donChoHangDuTonKho - cung so voi chip "Kho đã có đủ hàng" tren app). KHONG tra email.
+partnerApi.get("/v1/thieu-hang", async (c) => {
+  const db = c.env.DB;
+  const trangThai = c.req.query("trang_thai") ?? "mo";
+  if (!["mo", "dong", "tat_ca"].includes(trangThai)) return c.json({ error: "INVALID_TRANG_THAI" }, 400);
+  const limit = Math.min(500, Math.max(1, Number(c.req.query("limit") ?? 200) || 200));
+  const afterId = c.req.query("after_id")?.trim() ?? "";
+  const capNhatTu = c.req.query("cap_nhat_tu")?.trim();
+  const mas = tachMa(c.req.query("ma"));
+  const maKtv = tachMa(c.req.query("ma_ktv"));
+  const khuVuc = tachMa(c.req.query("khu_vuc"));
+  const TT = "(SELECT l.trang_thai FROM thieu_lk_log l WHERE l.thieu_lk_id = t.id ORDER BY l.id DESC LIMIT 1)";
+  const LUC = "(SELECT l.ngay_xu_ly FROM thieu_lk_log l WHERE l.thieu_lk_id = t.id ORDER BY l.id DESC LIMIT 1)";
+  const dk = ["t.id > ?"];
+  const binds: unknown[] = [afterId];
+  if (trangThai === "mo") dk.push(`${TT} NOT IN ('Da huy bo', 'Da ket thuc')`);
+  if (trangThai === "dong") dk.push(`${TT} IN ('Da huy bo', 'Da ket thuc')`);
+  if (capNhatTu) { dk.push(`${LUC} > ?`); binds.push(capNhatTu); }
+  if (mas.length) { dk.push("d.ma_lk IN (SELECT value FROM json_each(?))"); binds.push(JSON.stringify(mas)); }
+  if (khuVuc.length) { dk.push("COALESCE(d.khu_vuc_chon, d.khu_vuc_ma) IN (SELECT value FROM json_each(?))"); binds.push(JSON.stringify(khuVuc)); }
+  if (maKtv.length) {
+    dk.push("UPPER(k.ma_ktv) IN (SELECT UPPER(value) FROM json_each(?))");
+    binds.push(JSON.stringify(maKtv));
+  }
+  const [{ results }, duHang] = await Promise.all([
+    db.prepare(
+      `SELECT t.id, t.dat_don_hang_id, d.ma_lk AS ma_linh_kien, COALESCE(lk.ten_linh_kien, d.ten_lk_snapshot) AS ten_linh_kien,
+              d.so_luong_de_xuat AS so_luong, d.loai_don, d.loai_de_xuat, COALESCE(d.khu_vuc_chon, d.khu_vuc_ma) AS khu_vuc_ma,
+              d.trang_thai_hien_tai AS trang_thai_don, k.ma_ktv AS nguoi_nhan_ma_ktv,
+              COALESCE(NULLIF(TRIM(k.ten_hien_thi), ''), NULLIF(TRIM(k.ten_misa), ''), NULLIF(TRIM(u.ten_misa), ''), NULLIF(TRIM(u.ten), '')) AS nguoi_nhan_ten,
+              COALESCE((SELECT group_concat(dc.case_id) FROM dat_don_case dc WHERE dc.dat_don_hang_id = d.id), d.ma_yeu_cau_su_co) AS case_ids,
+              COALESCE(s.ten_ly_do, t.ly_do) AS ly_do, ${TT} AS trang_thai, t.ngay_tao, t.ngay_du_kien_co_hang, t.ngay_hang_ve_thuc_te,
+              ${LUC} AS cap_nhat_luc
+       FROM thieu_lk t
+       JOIN dat_don_hang d ON d.id = t.dat_don_hang_id
+       LEFT JOIN linh_kien lk ON lk.ma_linh_kien = d.ma_lk
+       LEFT JOIN settings_ly_do_cham s ON s.id = t.ly_do_cham_id
+       LEFT JOIN ktv_lien_he k ON k.ma_ktv = ${ktvChinhCuaEmailSql("d.nguoi_nhan_hang")}
+       LEFT JOIN users u ON u.email = d.nguoi_nhan_hang
+       WHERE ${dk.join(" AND ")}
+       ORDER BY t.id LIMIT ?`,
+    ).bind(...binds, limit).all<{ id: string; dat_don_hang_id: string; trang_thai: string }>(),
+    donChoHangDuTonKho(db),
+  ]);
+  return c.json({
+    rows: results.map((r) => ({
+      ...r,
+      kho_du_hang: !["Da huy bo", "Da ket thuc"].includes(r.trang_thai) && duHang.has(r.dat_don_hang_id),
+    })),
+    next_after_id: results.length === limit ? results[results.length - 1].id : null,
+  });
+});
+
+// GET /api/partner/v1/ton-kho-kha-dung?ma=A,B[&khu_vuc=MB1,MN1] - TON KHA DUNG kho cong ty theo (ma LK, khu vuc) = dung so app dung
+// de tu duyet don (lib/tonKhoCongTy.ts computeTonKhoChot): ton_goc = tong cuoi ky MOI kho cong ty dang bat phuc vu khu vuc (file MISA
+// import gan nhat) - dang_giu = SL don Mua/Cong no (khong TRỪ CÔNG NỢ) tao SAU moc import, chua tu choi/huy, cung ma + cung khu vuc
+// cua don (gom ca don "Cho hang" - so rieng o cho_hang). kha_dung co the AM (da dat vuot ton). `ma` bat buoc (<= 200). Khu vuc = cac
+// khu vuc co kho cong ty dang bat (mac dinh tat ca).
+partnerApi.get("/v1/ton-kho-kha-dung", async (c) => {
+  const db = c.env.DB;
+  const mas = tachMa(c.req.query("ma"));
+  if (!mas.length) return c.json({ error: "MISSING_MA" }, 400);
+  const khuVuc = tachMa(c.req.query("khu_vuc"));
+  const moc = await getMocTonKhoCongTy(db);
+  const { results } = await db.prepare(
+    `WITH mas AS (SELECT value AS ma FROM json_each(?)),
+     kvs AS (
+       SELECT DISTINCT x.khu_vuc_ma AS kv FROM kho_cong_ty_khu_vuc x JOIN kho_cong_ty k ON k.ma = x.kho_ma
+       WHERE k.bat_tat = 1 ${khuVuc.length ? "AND x.khu_vuc_ma IN (SELECT value FROM json_each(?))" : ""}
+     ),
+     goc AS (
+       SELECT t.ma_hang AS ma, x.khu_vuc_ma AS kv, SUM(t.cuoi_ky) AS sl
+       FROM kho_cong_ty_ton_kho t JOIN kho_cong_ty k ON k.ma = t.kho_ma JOIN kho_cong_ty_khu_vuc x ON x.kho_ma = k.ma
+       WHERE k.bat_tat = 1 AND t.ma_hang IN (SELECT ma FROM mas) GROUP BY t.ma_hang, x.khu_vuc_ma
+     ),
+     giu AS (
+       SELECT d.ma_lk AS ma, COALESCE(d.khu_vuc_chon, d.khu_vuc_ma) AS kv, SUM(d.so_luong_de_xuat) AS sl,
+              SUM(CASE WHEN d.trang_thai_hien_tai = 'Cho hang' THEN d.so_luong_de_xuat ELSE 0 END) AS cho
+       FROM dat_don_hang d
+       WHERE d.ma_lk IN (SELECT ma FROM mas) AND d.loai_don IN ('mua', 'cong_no')
+         AND instr(COALESCE(d.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') = 0
+         AND d.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')
+         AND (? IS NULL OR d.ngay_tao > ?)
+       GROUP BY d.ma_lk, COALESCE(d.khu_vuc_chon, d.khu_vuc_ma)
+     )
+     SELECT m.ma AS ma_linh_kien, kvs.kv AS khu_vuc_ma, kvt.ten AS khu_vuc_ten,
+            COALESCE(goc.sl, 0) AS ton_goc, COALESCE(giu.sl, 0) AS dang_giu, COALESCE(giu.cho, 0) AS cho_hang,
+            COALESCE(goc.sl, 0) - COALESCE(giu.sl, 0) AS kha_dung
+     FROM mas m CROSS JOIN kvs
+     LEFT JOIN khu_vuc kvt ON kvt.ma = kvs.kv
+     LEFT JOIN goc ON goc.ma = m.ma AND goc.kv = kvs.kv
+     LEFT JOIN giu ON giu.ma = m.ma AND giu.kv = kvs.kv
+     ORDER BY m.ma, kvt.stt, kvs.kv`,
+  ).bind(JSON.stringify(mas), ...(khuVuc.length ? [JSON.stringify(khuVuc)] : []), moc, moc).all();
+  return c.json({ phien_ban_ton_kho: moc, rows: results });
 });
 
 export default partnerApi;

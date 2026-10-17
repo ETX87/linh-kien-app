@@ -1,6 +1,6 @@
 # Hướng dẫn tích hợp API — Hệ thống Mua hàng linh kiện (dành cho đối tác DVBH)
 
-Phiên bản tài liệu: 1.2 — 2026-10-17 · Phiên bản API: **v1**
+Phiên bản tài liệu: 1.3 — 2026-10-17 · Phiên bản API: **v1**
 
 Tài liệu này mô tả các API **chỉ đọc** mà hệ thống Mua hàng linh kiện mở cho đối tác tra cứu:
 lịch sử đơn hàng theo mã ca, tồn kho, lịch sử đặt hàng của từng mã linh kiện, và danh mục linh kiện chi
@@ -8,6 +8,7 @@ tiết (kèm **hình ảnh minh họa**, linh kiện thay thế, combo, từ kh�
 
 Thay đổi 1.1: bổ sung mục 4.5 `linh-kien/chi-tiet` và mục 4.6 hướng dẫn dùng hình ảnh minh họa.
 Thay đổi 1.2: bổ sung 4 API danh sách — 4.7 nhóm thay thế, 4.8 combo, 4.9 từ khóa riêng + nhóm đồng nghĩa, 4.10 công nợ KTV.
+Thay đổi 1.3: bổ sung 4.11 thiếu hàng (ticket chờ hàng) và 4.12 tồn kho khả dụng theo khu vực.
 
 ---
 
@@ -66,7 +67,8 @@ Lỗi trả về dạng `{"error": "<MÃ_LỖI>"}`.
 | HTTP | `error` | Ý nghĩa | Cách xử lý |
 |---|---|---|---|
 | 400 | `MISSING_ID` | Thiếu tham số `id` (case-timeline) | Sửa yêu cầu |
-| 400 | `MISSING_MA` | Thiếu tham số `ma` (lich-su linh kiện) | Sửa yêu cầu |
+| 400 | `MISSING_MA` | Thiếu tham số `ma` (lich-su linh kiện, ton-kho-kha-dung) | Sửa yêu cầu |
+| 400 | `INVALID_TRANG_THAI` | `trang_thai` khác `mo` / `dong` / `tat_ca` (thieu-hang) | Sửa yêu cầu |
 | 400 | `INVALID_NGUON` | `nguon` khác `kho` / `ktv` | Sửa yêu cầu |
 | 400 | `QUA_NHIEU_MA` | `ma=` quá 200 mã (linh-kien/chi-tiet) | Chia thành nhiều yêu cầu |
 | 400 | `CHI_TIET_CAN_MA_KTV` | `cong-no-ktv?chi_tiet=1` thiếu `ma_ktv` hoặc quá 20 KTV | Thêm / bớt `ma_ktv` |
@@ -539,6 +541,73 @@ Lưu ý: dữ liệu công nợ là thông tin tài chính của KTV — chỉ d
 
 **Đồng bộ 4.7 – 4.9**: gọi định kỳ (vd mỗi giờ), so `phien_ban` với lần trước — giống thì bỏ qua, khác thì thay toàn bộ danh sách
 đã lưu. Công nợ (4.10) thay đổi liên tục, nên gọi khi cần hiển thị hoặc cache tối đa vài phút.
+
+### 4.11. Thiếu hàng (ticket chờ hàng) — `GET /v1/thieu-hang`
+
+Danh sách ticket "Thiếu hàng đặt mua": đơn linh kiện kho chưa có hàng, Kho đang tìm nguồn / báo ngày dự kiến / xác nhận hàng về.
+
+| Tham số | Bắt buộc | Mô tả |
+|---|---|---|
+| `trang_thai` | Không | `mo` (mặc định — ticket còn mở) / `dong` / `tat_ca` |
+| `ma` | Không | Các mã LK (tối đa 200) |
+| `ma_ktv` | Không | Mã KTV nhận hàng (tối đa 200) |
+| `khu_vuc` | Không | Mã khu vực của đơn, vd `MB1,MN2` |
+| `cap_nhat_tu` | Không | Chỉ ticket có thao tác mới nhất SAU thời điểm này (`YYYY-MM-DD HH:MM:SS`, giờ VN) — dùng kéo bù thay đổi |
+| `after_id`, `limit` | Không | Phân trang con trỏ theo `id` (`limit` mặc định 200, tối đa 500); gọi tiếp với `after_id = next_after_id` tới khi `null` |
+
+```json
+{
+  "rows": [
+    { "id": "TLK-000317", "dat_don_hang_id": "DDH-002653", "ma_linh_kien": "3004030490", "ten_linh_kien": "Bo mạch điều khiển",
+      "so_luong": 2, "loai_don": "mua", "loai_de_xuat": "MUA HÀNG", "khu_vuc_ma": "MB1", "trang_thai_don": "Cho hang",
+      "nguoi_nhan_ma_ktv": "KTV001", "nguoi_nhan_ten": "Nguyễn Văn A", "case_ids": "SC261003300",
+      "ly_do": "Kho hết hàng", "trang_thai": "Kho da tiep nhan",
+      "ngay_tao": "2026-10-16 09:12:30", "ngay_du_kien_co_hang": "2026-10-20", "ngay_hang_ve_thuc_te": null,
+      "cap_nhat_luc": "2026-10-16 14:00:00", "kho_du_hang": false }
+  ],
+  "next_after_id": null
+}
+```
+
+| Trường | Mô tả |
+|---|---|
+| `trang_thai` | Trạng thái ticket: `Cho kho xu ly` (Kho chưa nhận) · `Kho da tiep nhan` · `Kho da cap nhat` (đã báo tiến độ) · `Kho xac nhan hang da ve` · `Kho tu choi sai TT` · đóng: `Da ket thuc` / `Da huy bo`. Có thể bổ sung giá trị mới |
+| `trang_thai_don` | Trạng thái hiện tại của đơn gốc (vd `Cho hang`, `TN da duyet`, `Da huy`) |
+| `ngay_du_kien_co_hang` | Ngày Kho dự kiến có hàng (`YYYY-MM-DD`), null = chưa báo |
+| `ngay_hang_ve_thuc_te` | Ngày hàng về thật (`YYYY-MM-DD`) |
+| `cap_nhat_luc` | Thời điểm thao tác gần nhất trên ticket |
+| `kho_du_hang` | `true` = ticket còn mở và tồn kho công ty (file MISA mới nhất) đã đủ cho đơn này — xét đơn chờ lâu nhất trước |
+| `nguoi_nhan_ma_ktv` | null khi người nhận không phải KTV (GS, nhân viên văn phòng, KH lẻ) |
+
+### 4.12. Tồn kho khả dụng — `GET /v1/ton-kho-kha-dung`
+
+Số lượng **còn đặt được** ở kho công ty theo từng khu vực — đúng con số hệ thống dùng để tự duyệt đơn (khác mục 4.3 là tồn
+nguyên bản trong file MISA).
+
+| Tham số | Bắt buộc | Mô tả |
+|---|---|---|
+| `ma` | **Có** | Các mã LK, tối đa 200 (thiếu → 400 `MISSING_MA`) |
+| `khu_vuc` | Không | Các mã khu vực; mặc định mọi khu vực có kho công ty đang hoạt động |
+
+```json
+{
+  "phien_ban_ton_kho": "2026-10-16 17:30:00",
+  "rows": [
+    { "ma_linh_kien": "3004030490", "khu_vuc_ma": "MB1", "khu_vuc_ten": "Miền Bắc 1",
+      "ton_goc": 25, "dang_giu": 7, "cho_hang": 2, "kha_dung": 18 }
+  ]
+}
+```
+
+| Trường | Mô tả |
+|---|---|
+| `ton_goc` | Tổng tồn cuối kỳ của mọi kho công ty phục vụ khu vực (file MISA import gần nhất) |
+| `dang_giu` | SL các đơn Mua / Công nợ cùng mã + cùng khu vực tạo SAU lần import, chưa từ chối/hủy (kể cả đơn đang chờ duyệt / chờ hàng) |
+| `cho_hang` | Phần trong `dang_giu` thuộc đơn đang "Chờ hàng" |
+| `kha_dung` | = `ton_goc − dang_giu`; **có thể âm** khi đã đặt vượt tồn ghi nhận. Đơn mới đủ hàng khi `kha_dung ≥ số lượng đặt` |
+
+Mỗi mã trả đủ 1 dòng cho mỗi khu vực (khu vực không có tồn → các số = 0). Đơn "TRỪ CÔNG NỢ" lấy hàng từ tồn của chính KTV
+nên không tính vào đây.
 
 ---
 
