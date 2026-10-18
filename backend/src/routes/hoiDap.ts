@@ -69,7 +69,8 @@ async function emailsXuLy(db: D1Database): Promise<string[]> {
 }
 
 /** Bao chuong + push cho danh sach nguoi nhan (bo chinh nguoi gui). Loi push khong lam hong thao tac. */
-async function baoTin(env: Env, nguoiNhan: string[], tru: string, hoiDapId: string, noiDung: string): Promise<void> {
+// Push mo thang ticket: url "/?hoi_dap=<id>" - HoiDapWidget doc tham so nay luc tai trang (sw.js navigate tab dang mo / mo tab moi).
+async function baoTin(env: Env, nguoiNhan: string[], tru: string, hoiDapId: string, noiDung: string, tieuDe = "Hỏi đáp mua hàng"): Promise<void> {
   const ds = [...new Set(nguoiNhan.filter((e) => e && e !== tru))];
   const now = nowVN();
   for (const email of ds) {
@@ -77,7 +78,7 @@ async function baoTin(env: Env, nguoiNhan: string[], tru: string, hoiDapId: stri
       .bind(email, noiDung.slice(0, 500), hoiDapId, now)
       .run()
       .catch(() => undefined);
-    await sendPushToUser(env, email, { title: "Hỏi đáp mua hàng", body: noiDung.slice(0, 200), url: "/" }).catch(() => undefined);
+    await sendPushToUser(env, email, { title: tieuDe, body: noiDung.slice(0, 200), url: `/?hoi_dap=${encodeURIComponent(hoiDapId)}` }).catch(() => undefined);
   }
 }
 
@@ -102,6 +103,8 @@ hoiDap.get("/dem", async (c) => {
   ).bind(email).first<{ n: number }>();
   let choTiepNhan = 0;
   let xuLyChuaDoc = 0;
+  let moiNhat: { id: string; tieu_de: string; nguoi_hoi: string; trang_thai: string; tin_cuoi_luc: string } | null = null;
+  let moiNhatTen = "";
   if (xuLy) {
     const r = await c.env.DB.prepare(
       `SELECT SUM(CASE WHEN trang_thai = 'Cho tiep nhan' THEN 1 ELSE 0 END) cho,
@@ -110,8 +113,26 @@ hoiDap.get("/dem", async (c) => {
     ).bind(email).first<{ cho: number | null; moi: number | null }>();
     choTiepNhan = r?.cho ?? 0;
     xuLyChuaDoc = r?.moi ?? 0;
+    // Ticket can chu y moi nhat (cho tiep nhan / tin moi cua nguoi hoi chua doc) - FE so khoa id|tin_cuoi_luc giua 2 lan hoi de bat canh bao
+    // noi (popup + am bao + thong bao he thong) khi co yeu cau moi, khong phai cho nguoi dung tu mo chuong.
+    if (choTiepNhan + xuLyChuaDoc > 0) {
+      moiNhat = await c.env.DB.prepare(
+        `SELECT id, tieu_de, nguoi_hoi, trang_thai, tin_cuoi_luc FROM hoi_dap
+         WHERE nguoi_hoi != ? AND tin_cuoi_tu = 'hoi'
+           AND (trang_thai = 'Cho tiep nhan' OR (trang_thai = 'Dang xu ly' AND (doc_xu_ly_luc IS NULL OR doc_xu_ly_luc < tin_cuoi_luc)))
+         ORDER BY tin_cuoi_luc DESC LIMIT 1`,
+      ).bind(email).first<{ id: string; tieu_de: string; nguoi_hoi: string; trang_thai: string; tin_cuoi_luc: string }>();
+      if (moiNhat) moiNhatTen = (await tenNguoiMap(c.env.DB, [moiNhat.nguoi_hoi])).get(moiNhat.nguoi_hoi) ?? moiNhat.nguoi_hoi;
+    }
   }
-  return c.json({ la_xu_ly: xuLy, chua_doc: (cuaToi?.n ?? 0) + xuLyChuaDoc, cho_tiep_nhan: choTiepNhan });
+  return c.json({
+    la_xu_ly: xuLy,
+    chua_doc: (cuaToi?.n ?? 0) + xuLyChuaDoc,
+    cho_tiep_nhan: choTiepNhan,
+    moi_nhat: moiNhat
+      ? { id: moiNhat.id, tieu_de: moiNhat.tieu_de, ten_nguoi_hoi: moiNhatTen, moi: moiNhat.trang_thai === "Cho tiep nhan", luc: moiNhat.tin_cuoi_luc }
+      : null,
+  });
 });
 
 // GET /?trang_thai=&q=&pham_vi=cua-toi - danh sach (nguoi hoi: cua minh; phia xu ly: tat ca, pham_vi=cua-toi = minh hoi).
@@ -174,7 +195,7 @@ hoiDap.post("/", async (c) => {
   const ten = (await tenNguoiMap(c.env.DB, [user.email])).get(user.email) ?? user.email;
   c.executionCtx.waitUntil(
     (async () => baoTin(c.env, await emailsXuLy(c.env.DB), user.email, id,
-      `${ten} ${LOAI[loai].toLowerCase()} (${id}${maLk ? ` · ${maLk}` : ""}): ${noiDung}`))(),
+      `${ten} ${LOAI[loai].toLowerCase()} (${id}${maLk ? ` · ${maLk}` : ""}): ${noiDung}`, "💬 Câu hỏi mới từ KTV"))(),
   );
   return c.json({ ok: true, id }, 201);
 });

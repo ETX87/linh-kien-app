@@ -1778,5 +1778,11 @@ const tuDien: Record<string, string> = {
   "Ngày hỏi": "Asked on",
   "Người hỏi": "Asked by",
   "Người xử lý": "Handled by",
+  "(+{n} khác)": "(+{n} more)",
+  "Mở trả lời": "Open & reply",
+  "Thiết bị này chưa bật thông báo đẩy — bật để nhận câu hỏi mới của KTV cả khi không mở app.": "Push notifications are off on this device — turn them on to get new technician questions even when the app is closed.",
+  "💬 Câu hỏi mới từ KTV": "💬 New question from a technician",
+  "💬 Tin nhắn mới từ KTV": "💬 New message from a technician",
+  "🔔 Bật thông báo": "🔔 Turn on notifications",
 };
 export default tuDien;

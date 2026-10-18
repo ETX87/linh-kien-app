@@ -4,7 +4,7 @@ import { api } from "../api/client";
 import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { fmtDateTime } from "../types";
 import { t } from "../i18n";
-import { LOAI, LOC_XU_LY, TtBadge, type HoiDapRow } from "../components/hoiDap/HoiDapWidget";
+import { BatPushHoiDap, LOAI, LOC_XU_LY, TtBadge, type HoiDapRow } from "../components/hoiDap/HoiDapWidget";
 
 // Menu "Hỏi đáp" (2026-10-17, phan hoi "thêm menu sidebar cho nhân viên mua hàng quản lý ticket thắc mắc") - bang quan ly ticket hoi dap
 // cho Mua hang/Admin (backend GET /hoi-dap, cung API voi khung chat). Bam 1 dong = mo khung chat dung ticket (su kien "mo-hoi-dap" ma
@@ -76,6 +76,7 @@ export function HoiDapModule() {
       <div className="text-[13px] text-[var(--color-text-secondary)]">
         {t("Câu hỏi của KTV gửi nhân viên mua hàng (giá, ngày hàng về…). Bấm 1 dòng để mở khung chat trả lời / tiếp nhận / đóng ticket.")}
       </div>
+      <BatPushHoiDap />
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap gap-1.5">
           {LOC_XU_LY.map((l) => (

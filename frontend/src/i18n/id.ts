@@ -1778,5 +1778,11 @@ const tuDien: Record<string, string> = {
   "Ngày hỏi": "Tanggal tanya",
   "Người hỏi": "Penanya",
   "Người xử lý": "Ditangani oleh",
+  "(+{n} khác)": "(+{n} lainnya)",
+  "Mở trả lời": "Buka & balas",
+  "Thiết bị này chưa bật thông báo đẩy — bật để nhận câu hỏi mới của KTV cả khi không mở app.": "Notifikasi push belum aktif di perangkat ini — aktifkan agar tetap menerima pertanyaan baru dari teknisi meski aplikasi tidak dibuka.",
+  "💬 Câu hỏi mới từ KTV": "💬 Pertanyaan baru dari teknisi",
+  "💬 Tin nhắn mới từ KTV": "💬 Pesan baru dari teknisi",
+  "🔔 Bật thông báo": "🔔 Aktifkan notifikasi",
 };
 export default tuDien;

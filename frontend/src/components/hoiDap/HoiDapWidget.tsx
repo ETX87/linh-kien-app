@@ -5,6 +5,7 @@ import { Btn } from "../ui/Btn";
 import { Badge, type Tone } from "../x/Badge";
 import { useToast } from "../ui/Toast";
 import { useIsMobile } from "../../hooks/useMediaQuery";
+import { usePushNotifications } from "../../hooks/usePushNotifications";
 import { pushOverlayClose } from "../../lib/overlayStack";
 import { fmtDateTime } from "../../types";
 import { t, dichSau } from "../../i18n";
@@ -65,18 +66,153 @@ export function TtBadge({ tt }: { tt: TrangThai }) {
   return <Badge tone={TT[tt]?.tone ?? "neutral"}>{t(TT[tt]?.label ?? tt)}</Badge>;
 }
 
+interface MoiNhat {
+  id: string;
+  tieu_de: string;
+  ten_nguoi_hoi: string;
+  moi: boolean; // true = ticket "Cho tiep nhan", false = tin moi trong ticket dang xu ly
+  luc: string;
+}
+interface DemHoiDap {
+  la_xu_ly: boolean;
+  chua_doc: number;
+  cho_tiep_nhan: number;
+  moi_nhat?: MoiNhat | null;
+}
+
+// Am bao ngan 2 not (WebAudio, khong can file am thanh). Trinh duyet chan am thanh khi nguoi dung chua tung bam vao trang - bo qua im lang.
+function amBao() {
+  try {
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ac = new Ctx();
+    [880, 1175].forEach((f, i) => {
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      const t0 = ac.currentTime + i * 0.18;
+      o.type = "sine";
+      o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.18, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3);
+      o.connect(g).connect(ac.destination);
+      o.start(t0);
+      o.stop(t0 + 0.32);
+    });
+    setTimeout(() => void ac.close().catch(() => undefined), 800);
+  } catch {
+    /* khong phat duoc am thanh - van con popup */
+  }
+}
+
+// Canh bao YEU CAU MOI cho phia Mua hang (phan hoi 2026-10-18 "khi có yêu cầu chat mới đẩy thông báo về cho nhân viên mua hàng"): so moc
+// `moi_nhat.luc` cua /hoi-dap/dem giua 2 lan hoi - moc moi hon = co cau hoi / tin nhan moi -> popup noi canh icon chat + am bao + lam moi chuong;
+// tab dang an va thiet bi CHUA dang ky push (co push thi he thong da hien thong bao tu backend) -> them thong bao he thong cua trinh duyet.
+// Lan tai dau: con ticket cho thi hien popup nhac (khong am bao).
+function useCanhBaoYeuCauMoi(dem: DemHoiDap | undefined, dangMo: boolean) {
+  const qc = useQueryClient();
+  const push = usePushNotifications();
+  const moc = useRef<string | null>(null);
+  const [tin, setTin] = useState<MoiNhat | null>(null);
+  const m = dem?.la_xu_ly ? dem.moi_nhat ?? null : null;
+  useEffect(() => {
+    if (!dem?.la_xu_ly) return;
+    const lanDau = moc.current === null;
+    if (!m) {
+      if (lanDau) moc.current = "";
+      setTin(null);
+      return;
+    }
+    if (!lanDau && m.luc <= moc.current!) return;
+    moc.current = m.luc;
+    if (lanDau) {
+      if (!dangMo && m.moi) setTin(m);
+      return;
+    }
+    qc.invalidateQueries({ queryKey: ["hoi-dap-ds"] });
+    qc.invalidateQueries({ queryKey: ["notifications-count"] });
+    if (dangMo) return;
+    setTin(m);
+    amBao();
+    if (document.hidden && !push.subscribed && "Notification" in window && Notification.permission === "granted") {
+      try {
+        const n = new Notification(m.moi ? t("💬 Câu hỏi mới từ KTV") : t("💬 Tin nhắn mới từ KTV"), {
+          body: `${m.id} · ${m.ten_nguoi_hoi}: ${m.tieu_de}`,
+          icon: "/icon-192.png",
+          tag: `hoi-dap-${m.id}`,
+        });
+        n.onclick = () => {
+          window.focus();
+          window.dispatchEvent(new CustomEvent("mo-hoi-dap", { detail: m.id }));
+          n.close();
+        };
+      } catch {
+        /* mot so trinh duyet mobile chi cho thong bao qua service worker */
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dem?.la_xu_ly, m?.id, m?.luc]);
+  useEffect(() => {
+    if (dangMo) setTin(null);
+  }, [dangMo]);
+  const tong = (dem?.cho_tiep_nhan ?? 0) + (dem?.chua_doc ?? 0);
+  return { tin, them: tin ? Math.max(0, tong - 1) : 0, tat: () => setTin(null) };
+}
+
+// Nhac bat Web Push tren thiet bi nay cho phia Mua hang - khong bat thi khong nhan duoc thong bao khi dong app (chi con chuong + popup khi dang mo).
+export function BatPushHoiDap() {
+  const push = usePushNotifications();
+  const toast = useToast();
+  if (!push.checked || !push.supported || push.subscribed) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-[var(--radius-btn)] border border-[var(--color-warning)] bg-[var(--color-warning-soft)] px-3 py-2 text-[12.5px] text-[var(--color-text)]">
+      <span className="min-w-0 flex-1">{t("Thiết bị này chưa bật thông báo đẩy — bật để nhận câu hỏi mới của KTV cả khi không mở app.")}</span>
+      <Btn
+        size="sm"
+        variant="ghost"
+        loading={push.busy}
+        onClick={() =>
+          push
+            .subscribe()
+            .then(() => toast(t("✓ Đã bật thông báo trên thiết bị này")))
+            .catch((e) => toast(e instanceof Error ? e.message : String(e), 6000))
+        }
+      >
+        {t("🔔 Bật thông báo")}
+      </Btn>
+    </div>
+  );
+}
+
 export function HoiDapWidget() {
   const isMobile = useIsMobile();
   const qc = useQueryClient();
   const [mo, setMo] = useState(false);
   const [man, setMan] = useState<Man>({ ten: "ds" });
 
+  const [laXuLyTruoc, setLaXuLyTruoc] = useState(false);
   const { data: dem } = useQuery({
     queryKey: ["hoi-dap-dem"],
-    queryFn: () => api.get<{ la_xu_ly: boolean; chua_doc: number; cho_tiep_nhan: number }>("/hoi-dap/dem"),
-    refetchInterval: mo ? 20_000 : 60_000,
+    queryFn: () => api.get<DemHoiDap>("/hoi-dap/dem"),
+    // Phia Mua hang hoi 20s/lan KE CA khi tab an (phan hoi 2026-10-18 "khi có yêu cầu chat mới đẩy thông báo về cho nhân viên mua hàng")
+    // de canh bao noi kip thoi; nguoi hoi giu 60s.
+    refetchInterval: mo || laXuLyTruoc ? 20_000 : 60_000,
+    refetchIntervalInBackground: laXuLyTruoc,
   });
+  useEffect(() => setLaXuLyTruoc(!!dem?.la_xu_ly), [dem?.la_xu_ly]);
   const soBadge = (dem?.chua_doc ?? 0) + (dem?.cho_tiep_nhan ?? 0);
+  const canhBao = useCanhBaoYeuCauMoi(dem, mo);
+
+  // Link push "/?hoi_dap=<id>" (backend baoTin) - mo dung ticket roi xoa tham so khoi thanh dia chi.
+  useEffect(() => {
+    const u = new URL(window.location.href);
+    const id = u.searchParams.get("hoi_dap");
+    if (!id) return;
+    u.searchParams.delete("hoi_dap");
+    window.history.replaceState(window.history.state, "", u.pathname + u.search + u.hash);
+    setMo(true);
+    setMan({ ten: "ct", id });
+  }, []);
 
   // Chuong thong bao (link_type 'hoi_dap') mo dung ticket.
   useEffect(() => {
@@ -102,6 +238,44 @@ export function HoiDapWidget() {
 
   return (
     <>
+      {!mo && canhBao.tin && (
+        <div
+          role="alert"
+          className={`toast-in fixed z-40 w-[300px] max-w-[calc(100vw-1.5rem)] rounded-[var(--radius-card)] border border-[var(--color-border)] border-l-4 border-l-[var(--color-warning)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-raise)] ${
+            isMobile ? "right-3 bottom-[calc(13rem+env(safe-area-inset-bottom))]" : "right-5 bottom-[11.5rem]"
+          }`}
+        >
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-bold text-[var(--color-text)]">
+                {canhBao.tin.moi ? t("💬 Câu hỏi mới từ KTV") : t("💬 Tin nhắn mới từ KTV")}
+                {canhBao.them > 0 && <span className="ml-1 font-semibold text-[var(--color-text-secondary)]">{t("(+{n} khác)", { n: canhBao.them })}</span>}
+              </div>
+              <div className="mt-0.5 truncate text-[12px] text-[var(--color-text-secondary)]">
+                <span className="font-mono">{canhBao.tin.id}</span> · {canhBao.tin.ten_nguoi_hoi}
+              </div>
+              <div className="mt-1 line-clamp-2 text-[13px] text-[var(--color-text)]">{canhBao.tin.tieu_de}</div>
+            </div>
+            <button type="button" onClick={canhBao.tat} aria-label={t("Đóng")} className="focus-ring -mr-1 -mt-1 rounded px-1.5 text-[var(--color-text-faint)] hover:text-[var(--color-text)]">
+              ✕
+            </button>
+          </div>
+          <div className="mt-2 flex justify-end">
+            <Btn
+              size="sm"
+              variant="primary"
+              onClick={() => {
+                const id = canhBao.tin!.id;
+                canhBao.tat();
+                setMo(true);
+                setMan({ ten: "ct", id });
+              }}
+            >
+              {t("Mở trả lời")}
+            </Btn>
+          </div>
+        </div>
+      )}
       {!mo && (
         <button
           type="button"
@@ -208,6 +382,7 @@ function DanhSach({ laXuLy, onDong, onMo, onMoi }: { laXuLy: boolean; onDong: ()
           ))}
         </div>
         {laXuLy && <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Tìm mã HD, mã LK, mã đơn, nội dung…")} className={O_NHAP} />}
+        {laXuLy && <BatPushHoiDap />}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {isLoading ? (
