@@ -356,8 +356,6 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
     la_mua_hang: !!user.la_mua_hang,
     quan_ly_danh_muc_lk: !!user.quan_ly_danh_muc_lk,
     xem_danh_muc_lk: !!user.xem_danh_muc_lk,
-    ma_misa: user.ma_misa ?? "",
-    ten_misa: user.ten_misa ?? "",
     khu_vuc_dat_hang: user.khu_vuc_dat_hang ?? "",
     kho_nhom_lk: (user.kho_nhom_lk ?? "") as "" | NhomLk,
   });
@@ -378,8 +376,6 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
         la_mua_hang: form.la_mua_hang,
         quan_ly_danh_muc_lk: form.quan_ly_danh_muc_lk,
         xem_danh_muc_lk: form.xem_danh_muc_lk,
-        ma_misa: form.ma_misa.trim() || null,
-        ten_misa: form.ten_misa.trim() || null,
         // KTV/Ve tinh: khu vuc lay tu danh ba KTV -> khong gui (giu nguyen).
         ...(form.la_ktv_dvbh || form.la_ve_tinh ? {} : { khu_vuc_dat_hang: form.khu_vuc_dat_hang || null }),
         // Nhom LK Kho xu ly thieu hang (2026-10-16, migration 0088) - bo co Kho thi xoa luon.
@@ -597,22 +593,26 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
             <div className="col-span-2 text-[11px] text-[var(--ink-400)] -mt-2">Sửa ở thẻ "KTV hiện trường" (Khu vực / KTV cấp 1 phụ trách).</div>
           </div>
         )}
+        {/* Ma/Ten MISA (2026-10-19, "2 cái này bản chất là 1"): nguon DUY NHAT la ma KTV (ktv_lien_he) - file MISA, ton kho, cong no,
+            chan dat hang deu doc tu do. Form tai khoan chi HIEN (doc tu ma KTV gan Gmail), sua o the "KTV hiện trường" hoac "Mã nhận
+            hàng" (tai khoan van phong chua co ma). Cot users.ma_misa/ten_misa cu giu nguyen, khong con dung. */}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Mã tài khoản MISA</label>
-            <input
-              value={form.ma_misa}
-              onChange={(e) => setForm({ ...form, ma_misa: e.target.value })}
-              className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1"
-            />
+            <div className="w-full border border-[var(--line)] bg-[var(--surface-100)] rounded-lg px-2.5 py-1.5 text-sm mt-1 text-[var(--ink-600)]">
+              {user.ktv_ma_misa?.trim() || "— (chưa có)"}
+            </div>
           </div>
           <div>
             <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Tên trên MISA</label>
-            <input
-              value={form.ten_misa}
-              onChange={(e) => setForm({ ...form, ten_misa: e.target.value })}
-              className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1"
-            />
+            <div className="w-full border border-[var(--line)] bg-[var(--surface-100)] rounded-lg px-2.5 py-1.5 text-sm mt-1 text-[var(--ink-600)] truncate" title={user.ktv_ten_misa ?? ""}>
+              {user.ktv_ten_misa?.trim() || "— (chưa có)"}
+            </div>
+          </div>
+          <div className="col-span-2 text-[11px] text-[var(--ink-400)] -mt-2">
+            {user.ma_ktv_gan
+              ? `Lấy từ mã KTV ${user.ma_ktv_gan.split(",").join(", ")} — sửa ở thẻ "KTV hiện trường".`
+              : `Tài khoản chưa có mã KTV — tạo "Mã nhận hàng" ở thẻ "Nhân viên văn phòng" để khai Mã MISA.`}
           </div>
         </div>
         <label className="flex items-center gap-2">
@@ -825,8 +825,9 @@ function VanPhongTab() {
       key: "kho_nhom_lk", mobile: "meta", header: "Kho xử lý nhóm LK",
       render: (u) => (!u.la_kho ? "—" : u.kho_nhom_lk === "karofi" || u.kho_nhom_lk === "b2b" ? NHOM_LK_LABEL[u.kho_nhom_lk] : "Cả hai nhóm"),
     },
-    { key: "ma_misa", header: "Mã MISA", render: (u) => u.ma_misa ?? "—" },
-    { key: "ten_misa", header: "Tên trên MISA", render: (u) => u.ten_misa ?? "—" },
+    // Ma/Ten MISA lay tu ma KTV gan tai khoan (2026-10-19 gop ve 1 nguon).
+    { key: "ma_misa", header: "Mã MISA", render: (u) => u.ktv_ma_misa ?? "—" },
+    { key: "ten_misa", header: "Tên trên MISA", render: (u) => u.ktv_ten_misa ?? "—" },
     {
       key: "ma_ktv_gan", mobile: "meta", header: "Mã nhận hàng",
       // Co Ma MISA ma chua co ma nhan hang (2026-10-16): ton kho/cong no MISA cua nguoi nay KHONG khop duoc (import khop theo ma KTV).

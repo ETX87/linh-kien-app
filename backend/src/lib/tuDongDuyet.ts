@@ -86,7 +86,7 @@ export interface NguCanhNhan {
   nguoiTao: string;
   maKtv: string | null; // ma KTV cua nguoi nhan (ton kho KTV, cong no) - null = khong phai KTV
   tranCongNo: number | null;
-  coMaMisa: boolean; // ma MISA: cua ma KTV dang hoat dong, hoac users.ma_misa (tai khoan khong phai KTV / KH le)
+  coMaMisa: boolean; // ma MISA: cua ma KTV dang hoat dong; KH le = ma MISA cua ma KTV nhom (2026-10-19 bo users.ma_misa)
   // Nguoi nhan la Giam sat (2026-10-16, chot "Không xét trần cho GS"): GS co ma nhan hang de quan ly ton kho/cong no (migration 0085)
   // nhung don cong no GS tu nhan KHONG doi chieu tran (tran trong = 0 -> moi don thanh "Cho GS duyet", GS tu duyet don minh).
   laGs: boolean;
@@ -103,7 +103,8 @@ export async function nguCanhNhan(db: D1Database, nguoiNhan: string, nguoiTao: s
             COALESCE(k.ngung_hoat_dong, 0), k.ma_ktv LIMIT 1) AS cong_no,
          (EXISTS (SELECT 1 FROM ktv_lien_he k WHERE LOWER(TRIM(k.email_dang_nhap)) = LOWER(?) AND COALESCE(k.ngung_hoat_dong, 0) = 0
                     AND TRIM(COALESCE(k.ma_misa, '')) <> '')
-          OR EXISTS (SELECT 1 FROM users u WHERE u.email = ? AND TRIM(COALESCE(u.ma_misa, '')) <> '')) AS co_misa,
+          OR EXISTS (SELECT 1 FROM khach_le kl JOIN ktv_lien_he kn ON kn.ma_ktv = kl.nhom_ma
+                     WHERE kl.email = ? AND TRIM(COALESCE(kn.ma_misa, '')) <> '')) AS co_misa,
          EXISTS (SELECT 1 FROM users u WHERE u.email = ? AND u.vai_tro = 'Giam sat') AS la_gs`,
     )
     .bind(nguoiNhan, nguoiNhan, nguoiNhan, nguoiNhan, nguoiNhan)

@@ -9,6 +9,7 @@ import { bumpVersions } from "../lib/dataVersions";
 import { nowVN } from "../lib/vnTime";
 import { resyncKhuVucDerivedFieldsForEmail } from "../lib/khuVucSync";
 import { emailsTheoTen } from "../lib/timTheoTen";
+import { ktvChinhCuaEmailSql } from "../lib/ktvChinh";
 
 // Port rut gon tu backend/src/routes/users.ts cua he DVBH goc - bo cac truong khong con ton tai o
 // he nay (khu_vuc_phu_trach, la_ksnb_doi_tac, modules, co_the_import_tranh_chap - xem types.ts).
@@ -81,7 +82,7 @@ users.get("/", async (c) => {
   const pageSize = Math.min(200, Math.max(1, (Math.trunc(Number(c.req.query("pageSize"))) || 50)));
   const offset = (page - 1) * pageSize;
   const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM users ${where}`).bind(...binds).first<{ total: number }>();
-  const { results } = await c.env.DB.prepare(`SELECT users.*, ${CO_KTV_LIEN_HE} as co_ktv_lien_he, (SELECT group_concat(k.ma_ktv, ',') FROM ktv_lien_he k WHERE k.email_dang_nhap = users.email) as ma_ktv_gan, (SELECT group_concat(khu_vuc_ma, ',') FROM user_khu_vuc WHERE user_email = users.email) as khu_vuc_gan FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+  const { results } = await c.env.DB.prepare(`SELECT users.*, ${CO_KTV_LIEN_HE} as co_ktv_lien_he, (SELECT group_concat(k.ma_ktv, ',') FROM ktv_lien_he k WHERE k.email_dang_nhap = users.email) as ma_ktv_gan, (SELECT km.ma_misa FROM ktv_lien_he km WHERE km.ma_ktv = ${ktvChinhCuaEmailSql("users.email")}) as ktv_ma_misa, (SELECT km.ten_misa FROM ktv_lien_he km WHERE km.ma_ktv = ${ktvChinhCuaEmailSql("users.email")}) as ktv_ten_misa, (SELECT group_concat(khu_vuc_ma, ',') FROM user_khu_vuc WHERE user_email = users.email) as khu_vuc_gan FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
     .bind(...binds, pageSize, offset)
     .all();
   return c.json({ rows: results, page, pageSize, total: countRow?.total ?? 0 });
@@ -160,8 +161,10 @@ users.patch("/:email", async (c) => {
     la_mua_hang: body.la_mua_hang !== undefined ? (body.la_mua_hang ? 1 : 0) : existing.la_mua_hang,
     quan_ly_danh_muc_lk: body.quan_ly_danh_muc_lk !== undefined ? (body.quan_ly_danh_muc_lk ? 1 : 0) : existing.quan_ly_danh_muc_lk,
     xem_danh_muc_lk: body.xem_danh_muc_lk !== undefined ? (body.xem_danh_muc_lk ? 1 : 0) : existing.xem_danh_muc_lk,
-    ma_misa: body.ma_misa !== undefined ? body.ma_misa?.trim() || null : existing.ma_misa,
-    ten_misa: body.ten_misa !== undefined ? body.ten_misa?.trim() || null : existing.ten_misa,
+    // Ma/Ten MISA (2026-10-19, gop ve 1 nguon): CHI con o ma KTV (ktv_lien_he) - form tai khoan khong sua nua, bo qua body.
+    // Cot users.ma_misa/ten_misa giu nguyen gia tri cu (khong xoa), KH le van do lib/khachLe.ts tu ghi.
+    ma_misa: existing.ma_misa,
+    ten_misa: existing.ten_misa,
     khu_vuc_dat_hang: body.khu_vuc_dat_hang !== undefined ? body.khu_vuc_dat_hang?.trim() || null : (existing.khu_vuc_dat_hang as string | null),
     kho_nhom_lk: body.kho_nhom_lk !== undefined ? chuanNhomLk(body.kho_nhom_lk) : (existing.kho_nhom_lk as string | null),
   };

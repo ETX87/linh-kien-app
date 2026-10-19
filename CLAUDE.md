@@ -638,6 +638,8 @@ DVBH/Vệ tinh hoặc Gmail gắn mã KTV đang hoạt động) mà không mã �
 lẫn TN/GS đặt hộ). FE hỏi `GET /dat-mua-lk/kiem-tra-ma-misa?nguoi_nhan_hang=` → cảnh báo + khoá nút "Tạo đơn" (`useTaoDonForm`
 `chuaCoMaMisa`). Người nhận không phải KTV (GS/TN tự nhận) không bị chặn; đẩy lại đơn đã hủy (`/day-lai`) không kiểm tra.
 
+**Mã / Tên MISA chỉ 1 nguồn = mã KTV** (chốt 2026-10-19, v1.365 — "2 cái này bản chất là 1"): migration `0011`/`0012` từng thêm `ma_misa`/`ten_misa` vào CẢ `ktv_lien_he` lẫn `users` (khi đó văn phòng/GS chưa có mã KTV). Nay mọi người đặt hàng đều có mã KTV ("Mã nhận hàng" v1.323, GS v1.346) nên `ktv_lien_he.ma_misa/ten_misa` là nguồn DUY NHẤT: form sửa tài khoản (`UsersModule.tsx`) chỉ HIỆN Mã/Tên MISA của mã KTV chính gắn Gmail (`GET /users` trả `ktv_ma_misa`/`ktv_ten_misa` qua `ktvChinhCuaEmailSql`), `PATCH /users/:email` bỏ qua `ma_misa`/`ten_misa`; file MISA (`misaExport.ts`) và kiểm tra `coMaMisa` (`tuDongDuyet.ts`) không đọc `users.ma_misa` nữa (KH lẻ = Mã MISA của mã KTV nhóm qua `khach_le.nhom_ma`). Cột `users.ma_misa/ten_misa` GIỮ dữ liệu cũ (7 tài khoản, đều trùng mã KTV lúc chuyển), `users.ten_misa` vẫn là bậc dự phòng của tên hiển thị (`tenNguoi.ts`); `lib/khachLe.ts` vẫn tự ghi `users.ma_misa` cho KH lẻ.
+
 **1 Gmail = 1 mã KTV** (chốt 2026-10-01, migration `0061`): đã đóng 9 mã thừa của 6 Gmail dùng chung (gỡ Gmail + `ngung_hoat_dong`,
 ghi chú lý do trong `ghi_chu`); chỉ mục DUY NHẤT `LOWER(TRIM(email_dang_nhap))`; API báo `EMAIL_DA_GAN_MA_KHAC` trước khi chạm DB
 (`maKtvDangDungEmail()` ở `lib/ktvChinh.ts` — PATCH `/:ma/dat-mua-lk`, bulk-import status `email_da_gan_ma_khac:<mã>`; đường ETX đã
