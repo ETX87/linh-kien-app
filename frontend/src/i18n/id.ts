@@ -1836,5 +1836,18 @@ const tuDien: Record<string, string> = {
   "Đã tải {n} đơn của {m} phiếu": "{n} pesanan dari {m} nota diunduh",
   "⬇ Tải chi tiết phiếu": "⬇ Unduh detail nota",
   "⬇ Tải chi tiết đơn": "⬇ Unduh detail pesanan",
+  "\n\nĐây là toàn bộ đơn — phiếu sẽ bị hủy luôn.": "\n\nIni semua pesanan — nota akan dibatalkan.",
+  "\n\nĐây là toàn bộ đơn — phiếu trống sẽ tự hủy khi bạn đóng màn phiếu.": "\n\nIni semua pesanan — nota kosong dibatalkan saat Anda menutupnya.",
+  ". Tiền của các đơn đã chọn trong phiếu:": ". Nilai pesanan terpilih di nota:",
+  "Bỏ {n} đơn khỏi phiếu đã có tiền": "Keluarkan {n} pesanan dari nota yang sudah dibayar",
+  "Bỏ {n} đơn đã chọn khỏi phiếu này?\n\nCác đơn sẽ quay lại danh sách \"khả dụng\" để gán vào phiếu khác.{b}": "Keluarkan {n} pesanan terpilih dari nota ini?\n\nPesanan kembali ke daftar \"tersedia\" untuk dimasukkan ke nota lain.{b}",
+  "Đây là toàn bộ đơn — phiếu sẽ bị hủy luôn.": "Ini semua pesanan — nota akan dibatalkan.",
+  "Đây là toàn bộ đơn — phiếu trống sẽ tự hủy khi bạn đóng màn phiếu.": "Ini semua pesanan — nota kosong dibatalkan saat Anda menutupnya.",
+  "Đã bỏ {n} đơn khỏi phiếu": "{n} pesanan dikeluarkan dari nota",
+  "Đã bỏ {n} đơn — phiếu không còn đơn nào nên đã tự hủy": "{n} pesanan dikeluarkan — nota tanpa pesanan sehingga dibatalkan",
+  "Đã bỏ {n} đơn, dừng ở đơn tiếp theo: ": "{n} pesanan dikeluarkan, berhenti di pesanan berikutnya: ",
+  "— áp cho cả nhóm: mỗi đơn giữ phần tiền đã trả của mình (lần lượt, tối đa số phiếu đã trả) và về trạng thái \"Chờ tạo phiếu\".": "— berlaku untuk semua: tiap pesanan menyimpan jumlah yang sudah dibayar (bergiliran, maks. jumlah dibayar nota) dan kembali ke \"Menunggu nota\".",
+  "— áp cho cả nhóm: tiền đã thanh toán của các đơn = 0. Tổng phiếu giảm, phần đã trả thừa hoàn về quỹ dư của KTV.": "— berlaku untuk semua: jumlah dibayar pesanan = 0. Total nota turun, kelebihan bayar kembali ke saldo teknisi.",
+  "✕ Bỏ {n} đơn khỏi phiếu": "✕ Keluarkan {n} pesanan dari nota",
 };
 export default tuDien;

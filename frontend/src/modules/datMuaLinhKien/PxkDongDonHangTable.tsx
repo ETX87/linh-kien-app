@@ -133,11 +133,105 @@ export function PxkDongDonHangTable({
   // Chon NHIEU dong de doi loai chiet khau 1 lan (2026-09-30, phan hoi "cho phép lựa chọn nhiều đơn trong phiếu và sửa
   // chiết khấu 1 lần cho tất cả"). Chi khi TN doi duoc loai chiet khau cua phieu (duocDoiLoaiChietKhau) va phieu co tien.
   const coChonCk = canTacNghiep && pxk.loai_don !== "tra_hang" && duocDoiLoaiChietKhau(pxk) && donHang.length > 1;
+  // Bo NHIEU don khoi phieu 1 lan (2026-10-19, "thêm các chức năng xử lý hàng loạt cho các đơn được tích chọn => bỏ khỏi phiếu hàng
+  // loat") - cung dieu kien nut "✕ Bỏ" tung dong (coCotBo, chua co Ma MISA). O chon hien khi co it nhat 1 thao tac hang loat.
+  const coBoNhieu = coCotBo && !coMaMisa && donHang.length > 1;
+  const coChon = coChonCk || coBoNhieu;
   const [chonCk, setChonCk] = useState<Set<string>>(new Set());
   const [moDoiNhieu, setMoDoiNhieu] = useState(false);
   const { data: dsLoaiCk } = useLoaiChietKhauList();
   const chonDs = donHang.filter((d) => chonCk.has(d.id));
   const batChon = (id: string) => setChonCk((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  // Bo nhieu don: goi LAN LUOT DELETE /:id/dong/:donHangId (cung endpoint bo 1 don - moi lan tinh lai tien phieu), dung o loi dau tien.
+  // Bo HET don: giong bo don cuoi (Drawer giu phieu trong, ngoai danh sach huy phieu ngay qua /huy-neu-trong).
+  const [hoiBoNhieu, setHoiBoNhieu] = useState(false);
+  const boNhieuMutation = useMutation({
+    mutationFn: async ({ ids, giuTien }: { ids: string[]; giuTien: boolean }) => {
+      let xong = 0;
+      try {
+        for (const id of ids) {
+          await api.delete(`/phieu-xuat-kho/${pxkId}/dong/${id}${giuTien ? "?giu_tien=1" : ""}`);
+          xong++;
+        }
+      } catch (err) {
+        throw Object.assign(err instanceof Error ? err : new Error(String(err)), { xong });
+      }
+      let daHuy = false;
+      if (ids.length === donHang.length && !giuPhieuTrong) {
+        const r = await api.post<{ ok: true; da_huy: boolean }>(`/phieu-xuat-kho/${pxkId}/huy-neu-trong`, {});
+        daHuy = r.da_huy;
+      }
+      return { xong, daHuy };
+    },
+    onSuccess: ({ xong, daHuy }) => {
+      setHoiBoNhieu(false);
+      setChonCk(new Set());
+      addToast(daHuy ? t("Đã bỏ {n} đơn — phiếu không còn đơn nào nên đã tự hủy", { n: xong }) : t("Đã bỏ {n} đơn khỏi phiếu", { n: xong }));
+    },
+    onError: (err) => {
+      const xong = (err as { xong?: number }).xong ?? 0;
+      setHoiBoNhieu(false);
+      setChonCk(new Set());
+      addToast(t("Đã bỏ {n} đơn, dừng ở đơn tiếp theo: ", { n: xong }) + describeApiError(err));
+    },
+    onSettled: () => {
+      lamMoi();
+      invalidatePipelineCounts(qc);
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
+    },
+  });
+  function batDauBoNhieu() {
+    const ids = donHang.filter((d) => chonCk.has(d.id)).map((d) => d.id);
+    if (ids.length === 0) return;
+    if (daTraPhieu > 0 && pxk.loai_don !== "tra_hang") {
+      setHoiBoNhieu(true);
+      return;
+    }
+    const tatCa = ids.length === donHang.length;
+    const canhBao = tatCa
+      ? giuPhieuTrong
+        ? t("\n\nĐây là toàn bộ đơn — phiếu trống sẽ tự hủy khi bạn đóng màn phiếu.")
+        : t("\n\nĐây là toàn bộ đơn — phiếu sẽ bị hủy luôn.")
+      : "";
+    if (window.confirm(t("Bỏ {n} đơn đã chọn khỏi phiếu này?\n\nCác đơn sẽ quay lại danh sách \"khả dụng\" để gán vào phiếu khác.{b}", { n: ids.length, b: canhBao }))) {
+      boNhieuMutation.mutate({ ids, giuTien: false });
+    }
+  }
+  const tienChon = donHang.filter((d) => chonCk.has(d.id)).reduce((s, d) => s + (d.tien_uoc_tinh ?? 0), 0);
+  const hopThoaiBoNhieu = (
+    <Modal
+      open={hoiBoNhieu}
+      onClose={() => !boNhieuMutation.isPending && setHoiBoNhieu(false)}
+      title={t("Bỏ {n} đơn khỏi phiếu đã có tiền", { n: chonCk.size })}
+      footer={
+        <div className="flex flex-wrap justify-end gap-2">
+          <Btn variant="ghost" disabled={boNhieuMutation.isPending} onClick={() => setHoiBoNhieu(false)}>{t("Đóng")}</Btn>
+          <Btn variant="ghost" disabled={boNhieuMutation.isPending} onClick={() => boNhieuMutation.mutate({ ids: donHang.filter((d) => chonCk.has(d.id)).map((d) => d.id), giuTien: false })}>
+            {t("Đơn chưa thanh toán")}
+          </Btn>
+          <Btn loading={boNhieuMutation.isPending} disabled={boNhieuMutation.isPending || tienChon <= 0} onClick={() => boNhieuMutation.mutate({ ids: donHang.filter((d) => chonCk.has(d.id)).map((d) => d.id), giuTien: true })}>
+            {t("Đơn đã thanh toán")}
+          </Btn>
+        </div>
+      }
+    >
+      <div className="space-y-3 text-[13px] text-[var(--color-text-body)]">
+        <p>
+          {t("Phiếu đã được trả")} <b><Money>{fmtVND(daTraPhieu)}</Money></b>{t(". Tiền của các đơn đã chọn trong phiếu:")} <b><Money>{fmtVND(tienChon)}</Money></b>.
+        </p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>{t("Đơn chưa thanh toán")}</b> {t("— áp cho cả nhóm: tiền đã thanh toán của các đơn = 0. Tổng phiếu giảm, phần đã trả thừa hoàn về quỹ dư của KTV.")}</li>
+          <li><b>{t("Đơn đã thanh toán")}</b> {t("— áp cho cả nhóm: mỗi đơn giữ phần tiền đã trả của mình (lần lượt, tối đa số phiếu đã trả) và về trạng thái \"Chờ tạo phiếu\".")}</li>
+        </ul>
+        {chonCk.size === donHang.length && (
+          <p className="text-[12px] text-[var(--color-text-secondary)]">
+            {giuPhieuTrong ? t("Đây là toàn bộ đơn — phiếu trống sẽ tự hủy khi bạn đóng màn phiếu.") : t("Đây là toàn bộ đơn — phiếu sẽ bị hủy luôn.")}
+          </p>
+        )}
+      </div>
+    </Modal>
+  );
+
   // Nhom theo loai chiet khau hien tai -> nut "Chọn cùng loại".
   const nhomLoai = new Map<number | null, string[]>();
   for (const d of donHang) nhomLoai.set(d.loai_chiet_khau_id ?? null, [...(nhomLoai.get(d.loai_chiet_khau_id ?? null) ?? []), d.id]);
@@ -151,7 +245,7 @@ export function PxkDongDonHangTable({
       className="mr-1.5 align-middle"
     />
   );
-  const thanhChon = coChonCk && (!gon || chonCk.size > 0) ? (
+  const thanhChon = coChon && (!gon || chonCk.size > 0) ? (
     <div className="mb-1.5 flex flex-wrap items-center gap-1.5 text-[12px]" onClick={(e) => e.stopPropagation()}>
       <button
         type="button"
@@ -160,7 +254,7 @@ export function PxkDongDonHangTable({
       >
         {chonCk.size === donHang.length ? t("Bỏ chọn tất cả") : t("Chọn tất cả")}
       </button>
-      {nhomLoai.size > 1 &&
+      {coChonCk && nhomLoai.size > 1 &&
         [...nhomLoai.entries()].map(([id, ids]) => (
           <button
             key={String(id)}
@@ -175,7 +269,12 @@ export function PxkDongDonHangTable({
       {chonCk.size > 0 && (
         <>
           <span className="ml-1 text-[var(--color-text-secondary)]">{t("Đã chọn")} <b className="text-[var(--color-text)]">{chonCk.size}</b> {t("đơn")}</span>
-          <Btn size="sm" variant="subtle" onClick={() => setMoDoiNhieu(true)}>{t("Đổi loại chiết khấu…")}</Btn>
+          {coChonCk && <Btn size="sm" variant="subtle" onClick={() => setMoDoiNhieu(true)}>{t("Đổi loại chiết khấu…")}</Btn>}
+          {coBoNhieu && (
+            <Btn size="sm" variant="danger" loading={boNhieuMutation.isPending} disabled={boNhieuMutation.isPending} onClick={batDauBoNhieu}>
+              {t("✕ Bỏ {n} đơn khỏi phiếu", { n: chonCk.size })}
+            </Btn>
+          )}
         </>
       )}
       {moDoiNhieu && chonDs.length > 0 && (
@@ -483,6 +582,7 @@ export function PxkDongDonHangTable({
     return (
       <>
       {hopThoaiBo}
+      {hopThoaiBoNhieu}
       {thanhChon}
       <table className="border-collapse text-[12px] text-[var(--color-text-body)]" style={{ tableLayout: "fixed", width: RONG_GON }}>
         <colgroup>
@@ -502,7 +602,7 @@ export function PxkDongDonHangTable({
               onClick={() => onOpenDon(d.id)}
               className={`h-8 cursor-pointer border-b border-[var(--color-border-soft)] last:border-0 hover:bg-[var(--color-surface-hover)] ${nenUuTien(d)}`}
             >
-              <td className={`${o} font-mono text-[11.5px] text-[var(--color-text-secondary)]`} title={`${t(COT_GON[0].tip)}: ${d.ma_lk}`}>{coChonCk && oChon(d)}{d.ma_lk}</td>
+              <td className={`${o} font-mono text-[11.5px] text-[var(--color-text-secondary)]`} title={`${t(COT_GON[0].tip)}: ${d.ma_lk}`}>{coChon && oChon(d)}{d.ma_lk}</td>
               <td className={o} title={d.ten_lk_snapshot ?? d.ma_lk}>
                 {chipChuaDuyet(d)} {d.uu_tien === 1 && <span title={t("Ưu tiên")}>⭐ </span>}
                 {d.ten_lk_snapshot ?? d.ma_lk}
@@ -531,6 +631,7 @@ export function PxkDongDonHangTable({
   return (
     <>
     {hopThoaiBo}
+    {hopThoaiBoNhieu}
     {thanhChon}
     <table className="tbl min-w-full border-collapse">
       <thead>
@@ -554,7 +655,7 @@ export function PxkDongDonHangTable({
         )}
         {donHang.map((d) => (
           <tr key={d.id} onClick={() => onOpenDon(d.id)} className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer ${nenUuTien(d)}`}>
-            <td className="px-2.5 py-2 font-mono whitespace-nowrap">{coChonCk && oChon(d)}{d.ma_lk}</td>
+            <td className="px-2.5 py-2 font-mono whitespace-nowrap">{coChon && oChon(d)}{d.ma_lk}</td>
             <td className="px-2.5 py-2">
               {chipChuaDuyet(d)} {d.uu_tien === 1 && <span title={t("Ưu tiên")}>⭐ </span>}
               {d.ten_lk_snapshot ?? d.ma_lk}

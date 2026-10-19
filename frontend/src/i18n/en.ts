@@ -1836,5 +1836,18 @@ const tuDien: Record<string, string> = {
   "Đã tải {n} đơn của {m} phiếu": "Downloaded {n} orders from {m} notes",
   "⬇ Tải chi tiết phiếu": "⬇ Download note details",
   "⬇ Tải chi tiết đơn": "⬇ Download order details",
+  "\n\nĐây là toàn bộ đơn — phiếu sẽ bị hủy luôn.": "\n\nThese are all the orders — the note will be cancelled.",
+  "\n\nĐây là toàn bộ đơn — phiếu trống sẽ tự hủy khi bạn đóng màn phiếu.": "\n\nThese are all the orders — the empty note is cancelled when you close it.",
+  ". Tiền của các đơn đã chọn trong phiếu:": ". Amount of the selected orders in the note:",
+  "Bỏ {n} đơn khỏi phiếu đã có tiền": "Remove {n} orders from a paid note",
+  "Bỏ {n} đơn đã chọn khỏi phiếu này?\n\nCác đơn sẽ quay lại danh sách \"khả dụng\" để gán vào phiếu khác.{b}": "Remove the {n} selected orders from this note?\n\nThey go back to the \"available\" list to be added to another note.{b}",
+  "Đây là toàn bộ đơn — phiếu sẽ bị hủy luôn.": "These are all the orders — the note will be cancelled.",
+  "Đây là toàn bộ đơn — phiếu trống sẽ tự hủy khi bạn đóng màn phiếu.": "These are all the orders — the empty note is cancelled when you close it.",
+  "Đã bỏ {n} đơn khỏi phiếu": "Removed {n} orders from the note",
+  "Đã bỏ {n} đơn — phiếu không còn đơn nào nên đã tự hủy": "Removed {n} orders — the note had no orders left and was cancelled",
+  "Đã bỏ {n} đơn, dừng ở đơn tiếp theo: ": "Removed {n} orders, stopped at the next one: ",
+  "— áp cho cả nhóm: mỗi đơn giữ phần tiền đã trả của mình (lần lượt, tối đa số phiếu đã trả) và về trạng thái \"Chờ tạo phiếu\".": "— applies to all: each order keeps its paid amount (in turn, up to what the note was paid) and returns to \"Awaiting note\".",
+  "— áp cho cả nhóm: tiền đã thanh toán của các đơn = 0. Tổng phiếu giảm, phần đã trả thừa hoàn về quỹ dư của KTV.": "— applies to all: paid amount of the orders = 0. The note total drops and any overpayment goes back to the technician's balance.",
+  "✕ Bỏ {n} đơn khỏi phiếu": "✕ Remove {n} orders from note",
 };
 export default tuDien;

@@ -257,7 +257,9 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   lazy khi mở, chung cache `["pxk-detail", id]` (`pxkDetailQuery()`) với Drawer. Ở danh sách dùng kiểu `gon` (người dùng
   chọn "lưới cột chung"): không tiêu đề/khung riêng, dòng ~32px, mọi phiếu chung 1 bộ độ rộng cột cố định (`COT_GON`) nên
   thẳng hàng, nghĩa cột hiện khi rê chuột; Drawer giữ bản đầy đủ có tiêu đề. Drawer có nút "⬇ Tải danh sách chi tiết" (2026-10-02) = file y hệt nút ở danh sách Đơn hàng, chỉ các đơn của phiếu (`GET /dat-mua-lk/don-hang?pxk_id=&loai_don=all` — `pxk_id` bỏ lớp GS phụ trách mềm, scope vẫn áp). Danh sách PXK có 2 nút tải (2026-10-19, v1.366): "⬇ Tải chi tiết phiếu" (mỗi dòng 1 phiếu, như cũ) và "⬇ Tải chi tiết đơn" = MỌI đơn trong các phiếu đang xem theo bộ lọc, cùng format file danh sách Đơn hàng (`GET /dat-mua-lk/don-hang?pxk_ids=<JSON>&loai_don=all`, 1 bind `json_each`, ≤ 200 mã/lần — FE chia lô 100, bỏ trùng đơn; `pxk_ids` cùng quy tắc `pxk_id`). Bỏ đơn cuối từ danh sách
-  (`giuPhieuTrong={false}`) → hủy phiếu ngay qua `/huy-neu-trong`; từ Drawer giữ phiếu trống như cũ.
+  (`giuPhieuTrong={false}`) → hủy phiếu ngay qua `/huy-neu-trong`; từ Drawer giữ phiếu trống như cũ. **Bỏ nhiều đơn 1 lần** (2026-10-19, v1.368): ô chọn đơn bật cả khi được bỏ đơn (TN/Kế toán, phiếu "Dang tao phieu", chưa Mã MISA,
+  ≥ 2 đơn — `coBoNhieu`), nút "✕ Bỏ N đơn khỏi phiếu" gọi LẦN LƯỢT `DELETE /:id/dong/:donHangId` (dừng ở lỗi đầu, báo số đã bỏ); phiếu đã có
+  tiền hỏi 1 lần "Đơn chưa/đã thanh toán" áp cho cả nhóm; bỏ hết đơn = như bỏ đơn cuối.
 - **Tách "Đặt mua linh kiện" thành 2 mục Sidebar** (2026-09-29): **"Đơn hàng"** (tên cũ "Đơn đặt hàng") (key `dat-mua-lk`, nhóm menu đơn +
   trả hàng) và **"Phiếu xuất"** (key `phieu-xuat`, nhóm "Xuất kho") — vẫn là CÙNG 1 `DatMuaLinhKienModule` (prop `section`
   chọn view mặc định: Phiếu xuất → `phieu-xuat-kho`, Đơn đặt hàng → đơn/trả hàng xem lần trước), mỗi mục có slot menu giai
