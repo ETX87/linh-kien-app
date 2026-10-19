@@ -809,6 +809,15 @@ chưa có = đổi tên mã (`PRAGMA defer_foreign_keys` vì `ktv_cap1_phu_trach
 theo: `ktv_cap1_phu_trach`, `ktv_ton_kho(_tam)`, `etx_nhan_su.ma_ktv`, `cong_no_0d_ktv` — bảng mới có cột mã KTV phải thêm vào route này.
 Đơn/PXK lưu theo email nên không đổi; ghi chú KTV ghi "Đổi mã từ … / Gộp từ mã …".
 
+**Gmail đăng nhập phụ** (chốt 2026-10-19, v1.367, migration `0091`, `lib/gmailPhu.ts`) — KTV có 2 Gmail hay đăng nhập nhầm: bảng
+`users_gmail_phu (email_phu PK chữ thường → email_chinh)`. OAuth callback (`routes/auth.ts`) gặp Gmail phụ → ký phiên bằng EMAIL CHÍNH, bỏ qua
+upsert users, `login_log` ghi email chính + "[Gmail phu: …]" ở user_agent — phần còn lại của hệ thống không biết Gmail phụ. Admin thêm/gỡ ở
+form Sửa KTV (`GmailPhuSection`, `POST|DELETE /settings/ktv-lien-he/:ma/gmail-phu`, email chính = `email_dang_nhap` của mã). Chặn
+(`kiemTraGmailPhu`): trùng email chính, đã là Gmail phụ, là email chính có Gmail phụ khác, là Email đăng nhập của mã KTV ĐANG BẬT, đã có
+đơn/PXK/quỹ (chưa hỗ trợ gộp dữ liệu). Thêm xong: mã KTV đã tắt còn giữ Gmail đó bị gỡ Email đăng nhập + thu hồi phiên của Gmail phụ. Dòng
+`users` cũ của Gmail phụ ẩn khỏi danh sách Users; ETX tự tạo KTV / "Tạo tài khoản" bỏ qua Gmail phụ (`LA_GMAIL_PHU`); gán Gmail phụ làm
+`email_dang_nhap` (PATCH, bulk-import, tạo mã văn phòng) bị chặn `LA_GMAIL_PHU`.
+
 **Bật/tắt tài khoản KTV** (2026-10-01): cột "Tài khoản" + công tắc ở Quản lý người dùng › KTV hiện trường (Admin) →
 `PATCH /api/settings/ktv-lien-he/:ma/bat-tat` = `users.bi_khoa` của email đăng nhập (cùng cờ ETX nghỉ việc dùng). Tắt = không đăng
 nhập (`loadUser` DISABLED), không tạo đơn; `resolveNguoiNhanHang()` + import Excel chặn `NGUOI_NHAN_HANG_DA_TAT` (cả Trạm nhận thay

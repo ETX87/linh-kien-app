@@ -8,6 +8,7 @@ import { tenNguoiSql } from "../lib/tenNguoi";
 import { nowVN } from "../lib/vnTime";
 import { isViewAsRole } from "../lib/viewAsPresets";
 import { resyncKhuVucDerivedFieldsForEmail } from "../lib/khuVucSync";
+import { chuanHoaGmail, emailChinhCuaGmail } from "../lib/gmailPhu";
 
 const STATE_COOKIE = "dvbh_oauth_state";
 
@@ -73,6 +74,19 @@ auth.get("/callback", async (c) => {
 
   if (!userInfo.email_verified) {
     return c.text("Email Google chua duoc xac minh.", 403);
+  }
+
+  // Gmail dang nhap PHU (2026-10-19, migration 0091, lib/gmailPhu.ts): ky phien bang email CHINH, bo qua upsert users (khong
+  // ghi ten Google cua Gmail phu de len tai khoan chinh). Nhat ky dang nhap ghi email chinh, user_agent kem "[Gmail phu: ...]".
+  const emailChinh = await emailChinhCuaGmail(c.env.DB, userInfo.email);
+  if (emailChinh) {
+    const gmailPhu = chuanHoaGmail(userInfo.email);
+    await c.env.DB.prepare("INSERT INTO login_log (email, thoi_gian, ip, user_agent) VALUES (?, ?, ?, ?)")
+      .bind(emailChinh, nowVN(), c.req.header("CF-Connecting-IP") ?? null, `[Gmail phu: ${gmailPhu}] ${c.req.header("User-Agent") ?? ""}`)
+      .run();
+    const tokenPhu = await signSession({ email: emailChinh, pv: await phienBanPhien(c.env.DB, emailChinh) }, c.env.SESSION_SECRET, SESSION_TTL_SECONDS);
+    setCookie(c, SESSION_COOKIE, tokenPhu, { httpOnly: true, secure: true, sameSite: "Lax", maxAge: SESSION_TTL_SECONDS, path: "/" });
+    return c.redirect(c.env.FRONTEND_URL || "/");
   }
 
   const isBootstrapAdmin = userInfo.email === c.env.BOOTSTRAP_ADMIN_EMAIL;

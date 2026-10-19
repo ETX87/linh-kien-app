@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { maKtvDangDungEmail } from "../lib/ktvChinh";
+import { chuanHoaGmail, emailChinhCuaGmail, kiemTraGmailPhu } from "../lib/gmailPhu";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
@@ -51,9 +52,9 @@ settingsKtv.get("/", async (c) => {
   if (search) {
     // + ten KHONG dau (2026-09-29, lib/timTheoTen.ts) - LOWER() cua SQLite khong ha chu co dau.
     conditions.push(
-      "(LOWER(k.ma_ktv) LIKE LOWER(?) OR LOWER(COALESCE(k.ten_hien_thi,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.sdt,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.gmail,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.email_dang_nhap,'')) LIKE LOWER(?) OR k.ma_ktv IN (SELECT value FROM json_each(?)))",
+      "(LOWER(k.ma_ktv) LIKE LOWER(?) OR LOWER(COALESCE(k.ten_hien_thi,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.sdt,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.gmail,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.email_dang_nhap,'')) LIKE LOWER(?) OR EXISTS (SELECT 1 FROM users_gmail_phu gp WHERE gp.email_chinh = k.email_dang_nhap AND gp.email_phu LIKE LOWER(?)) OR k.ma_ktv IN (SELECT value FROM json_each(?)))",
     );
-    binds.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, JSON.stringify(await maKtvTheoTen(c.env.DB, search)));
+    binds.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, JSON.stringify(await maKtvTheoTen(c.env.DB, search)));
   }
   if (cap === "1") {
     conditions.push("COALESCE(k.vai_tro_ktv, 'KTV') != 'Ve tinh'");
@@ -88,7 +89,7 @@ settingsKtv.get("/", async (c) => {
          AND (? IS NULL OR ddh.updated_at > ?)
        GROUP BY k3.ma_ktv
      ) dp ON dp.ma_ktv = k.ma_ktv`;
-  const selectCols = `k.*, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai, u.bi_khoa as tk_bi_khoa, u.email as tk_email, (SELECT GROUP_CONCAT(k2.ma_ktv, ', ') FROM ktv_lien_he k2 WHERE k2.email_dang_nhap = k.email_dang_nhap AND k2.ma_ktv <> k.ma_ktv) as ma_cung_gmail, COALESCE(dp.gia_tri, 0) as han_muc_du_phong_phat_sinh`;
+  const selectCols = `k.*, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai, u.bi_khoa as tk_bi_khoa, u.email as tk_email, (SELECT GROUP_CONCAT(k2.ma_ktv, ', ') FROM ktv_lien_he k2 WHERE k2.email_dang_nhap = k.email_dang_nhap AND k2.ma_ktv <> k.ma_ktv) as ma_cung_gmail, (SELECT GROUP_CONCAT(gp.email_phu, ', ') FROM users_gmail_phu gp WHERE gp.email_chinh = k.email_dang_nhap) as gmail_phu, COALESCE(dp.gia_tri, 0) as han_muc_du_phong_phat_sinh`;
   const baseSql = `FROM ktv_lien_he k LEFT JOIN users u ON u.email = k.email_dang_nhap ${duPhongJoin} ${where}`;
   const duPhongBinds = [mocTinhDuPhong, mocTinhDuPhong];
   const withMocHienTai = (rows: Record<string, unknown>[]) =>
@@ -163,6 +164,8 @@ settingsKtv.post("/tao-cho-van-phong", adminOnly, async (c) => {
   if (u.la_ktv_dvbh || u.la_ve_tinh) return c.json({ error: "KHONG_PHAI_VAN_PHONG", message: "Tài khoản đang là KTV — gắn mã ở thẻ KTV hiện trường" }, 400);
   const maKhac = await maKtvDangDungEmail(db, email);
   if (maKhac) return c.json({ error: "EMAIL_DA_GAN_MA_KHAC", message: `Gmail này đã gắn mã KTV ${maKhac}` }, 409);
+  const chinhCuaPhu = await emailChinhCuaGmail(db, email);
+  if (chinhCuaPhu) return c.json({ error: "LA_GMAIL_PHU", message: `Gmail này đang là Gmail đăng nhập phụ của ${chinhCuaPhu}` }, 409);
   const trungMa = await db.prepare("SELECT ma_ktv FROM ktv_lien_he WHERE UPPER(ma_ktv) = UPPER(?)").bind(maKtv).first<{ ma_ktv: string }>();
   if (trungMa) return c.json({ error: "MA_KTV_DA_TON_TAI", message: `Mã KTV ${trungMa.ma_ktv} đã có trong danh bạ — dùng "Chọn mã có sẵn"` }, 409);
   const kv = await db.prepare("SELECT ma FROM khu_vuc WHERE ma = ?").bind(khuVucMa).first();
@@ -295,6 +298,12 @@ settingsKtv.post("/bulk-import", adminOnly, async (c) => {
         details.push({ ma_ktv: ma, status: `email_da_gan_ma_khac:${maKhac}` });
         continue;
       }
+      const chinhCuaPhu = await emailChinhCuaGmail(c.env.DB, emailDangNhap);
+      if (chinhCuaPhu) {
+        errorCount++;
+        details.push({ ma_ktv: ma, status: `la_gmail_phu_cua:${chinhCuaPhu}` });
+        continue;
+      }
     }
     // Bo sung Ma MISA cho ma CO SAN chua co Ma MISA, khu vuc chua xac nhan, file khong co khu vuc -> bo qua dong (2026-10-16, 0087).
     if (maMisa && !khuVucMa) {
@@ -415,6 +424,8 @@ settingsKtv.patch("/:ma/dat-mua-lk", adminOnly, async (c) => {
   if (next.email_dang_nhap && next.email_dang_nhap !== existing.email_dang_nhap) {
     const maKhac = await maKtvDangDungEmail(c.env.DB, next.email_dang_nhap, ma);
     if (maKhac) return c.json({ error: "EMAIL_DA_GAN_MA_KHAC", message: `Gmail này đang là email đăng nhập của mã KTV ${maKhac} — 1 Gmail chỉ gắn 1 mã KTV` }, 409);
+    const chinhCuaPhu = await emailChinhCuaGmail(c.env.DB, next.email_dang_nhap);
+    if (chinhCuaPhu) return c.json({ error: "LA_GMAIL_PHU", message: `Gmail này đang là Gmail đăng nhập phụ của ${chinhCuaPhu} — gỡ ở tài khoản đó trước` }, 409);
   }
   if (next.khu_vuc_ma) {
     const khuVuc = await c.env.DB.prepare("SELECT ma FROM khu_vuc WHERE ma = ?").bind(next.khu_vuc_ma).first();
@@ -757,6 +768,46 @@ settingsKtv.patch("/:ma/bat-tat", adminOnly, async (c) => {
     .bind(ktv.email_dang_nhap, ma)
     .first<{ mas: string | null }>();
   return c.json({ ok: true, ma_khac_dang_bat: conMaKhac?.mas ?? null });
+});
+
+// GMAIL DANG NHAP PHU (chot 2026-10-19, v1.367, migration 0091, lib/gmailPhu.ts) - KTV co nhieu Gmail hay dang nhap nham:
+// Admin gan Gmail con lai lam Gmail phu cua tai khoan (= Email dang nhap cua ma KTV nay). Dang nhap bang Gmail phu = vao dung
+// tai khoan chinh (routes/auth.ts). Gan xong: phien dang mo cua Gmail phu bi thu hoi (phien_ban_phien + 1) de lan sau dang
+// nhap la vao tai khoan chinh; ma KTV DA TAT con giu Gmail phu lam Email dang nhap thi go ra (1 Gmail chi 1 vai tro).
+settingsKtv.post("/:ma/gmail-phu", adminOnly, async (c) => {
+  const ma = c.req.param("ma");
+  const body = await c.req.json<{ email?: string; ghi_chu?: string }>();
+  const emailPhu = chuanHoaGmail(body.email ?? "");
+  const ktv = await c.env.DB.prepare("SELECT email_dang_nhap FROM ktv_lien_he WHERE ma_ktv = ?").bind(ma).first<{ email_dang_nhap: string | null }>();
+  if (!ktv) return c.json({ error: "NOT_FOUND" }, 404);
+  if (!ktv.email_dang_nhap) return c.json({ error: "CHUA_CO_TAI_KHOAN" }, 400);
+  const coTaiKhoan = await c.env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(ktv.email_dang_nhap).first();
+  if (!coTaiKhoan) return c.json({ error: "CHUA_CO_TAI_KHOAN" }, 400);
+  const kt = await kiemTraGmailPhu(c.env.DB, ktv.email_dang_nhap, emailPhu);
+  if (!kt.ok) return c.json({ error: kt.error, chi_tiet: kt.chi_tiet ?? null }, 409);
+  const now = nowVN();
+  const ghiChu = body.ghi_chu?.trim() || null;
+  await c.env.DB.batch([
+    c.env.DB.prepare("INSERT INTO users_gmail_phu (email_phu, email_chinh, nguoi_them, ngay_them, ghi_chu) VALUES (?, ?, ?, ?, ?)")
+      .bind(emailPhu, ktv.email_dang_nhap, c.get("realEmail") ?? null, now, ghiChu),
+    c.env.DB.prepare("UPDATE ktv_lien_he SET email_dang_nhap = NULL, ngay_cap_nhat = ? WHERE LOWER(TRIM(email_dang_nhap)) = ? AND COALESCE(ngung_hoat_dong, 0) = 1")
+      .bind(now, emailPhu),
+    c.env.DB.prepare("UPDATE users SET phien_ban_phien = phien_ban_phien + 1, updated_at = ? WHERE LOWER(email) = ?").bind(now, emailPhu),
+  ]);
+  await refreshHash(c.env.DB);
+  return c.json({ ok: true });
+});
+
+// DELETE /:ma/gmail-phu?email= - go Gmail phu. Phien dang mo bang Gmail do (da ky = email chinh) VAN con toi khi het han -
+// Admin muon chan ngay thi dung "Đăng xuất mọi thiết bị" cua tai khoan chinh.
+settingsKtv.delete("/:ma/gmail-phu", adminOnly, async (c) => {
+  const ma = c.req.param("ma");
+  const emailPhu = chuanHoaGmail(c.req.query("email") ?? "");
+  const ktv = await c.env.DB.prepare("SELECT email_dang_nhap FROM ktv_lien_he WHERE ma_ktv = ?").bind(ma).first<{ email_dang_nhap: string | null }>();
+  if (!ktv?.email_dang_nhap) return c.json({ error: "NOT_FOUND" }, 404);
+  const r = await c.env.DB.prepare("DELETE FROM users_gmail_phu WHERE email_phu = ? AND email_chinh = ?").bind(emailPhu, ktv.email_dang_nhap).run();
+  if (!r.meta.changes) return c.json({ error: "NOT_FOUND" }, 404);
+  return c.json({ ok: true });
 });
 
 // POST /:ma/doi-ma { ma_moi, ten_hien_thi?, xac_nhan_gop? } (chot 2026-10-08, phan hoi "danh sach KTV dong bo tu dong va tao tai

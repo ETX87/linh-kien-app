@@ -1056,6 +1056,97 @@ function generateInternalEmail(maKtv: string): string {
 
 // Doi ma KTV / sua ten (2026-10-08, POST /settings/ktv-lien-he/:ma/doi-ma, chi Admin) - ma tu tao tu ETX (= Ma NV) can doi sang ma
 // dung. Ma moi chua co -> doi ten ma; ma moi DA co trong danh ba -> server tra CAN_XAC_NHAN_GOP, hoi lai roi gop. Ma cu bi XOA HAN.
+// GMAIL DANG NHAP PHU (chot 2026-10-19, v1.367, migration 0091) - KTV co nhieu Gmail hay dang nhap nham: Admin gan Gmail con
+// lai lam Gmail phu, dang nhap bang Gmail phu = vao dung tai khoan nay (cung don, quy, thong bao).
+const GMAIL_PHU_LOI: Record<string, string> = {
+  EMAIL_KHONG_HOP_LE: "Gmail không hợp lệ",
+  TRUNG_EMAIL_CHINH: "Trùng Email đăng nhập chính",
+  DA_LA_GMAIL_PHU: "Gmail này đã là Gmail phụ của tài khoản khác",
+  LA_EMAIL_CHINH_CO_GMAIL_PHU: "Gmail này đang là tài khoản chính có Gmail phụ khác",
+  LA_EMAIL_DANG_NHAP_KTV: "Gmail này đang là Email đăng nhập của 1 mã KTV đang bật — tắt mã đó hoặc gỡ Email đăng nhập trước",
+  GMAIL_PHU_DA_CO_DU_LIEU: "Gmail này đã có đơn / phiếu xuất / quỹ riêng — chưa hỗ trợ gộp dữ liệu",
+  CHUA_CO_TAI_KHOAN: "Mã KTV chưa có Email đăng nhập / tài khoản — lưu Email đăng nhập trước",
+};
+
+function GmailPhuSection({ row, onChanged }: { row: KtvLienHeRow; onChanged: () => void }) {
+  const addToast = useToast();
+  const [ds, setDs] = useState<string[]>(() => (row.gmail_phu ?? "").split(",").map((s) => s.trim()).filter(Boolean));
+  const [moi, setMoi] = useState("");
+  const [loi, setLoi] = useState<string | null>(null);
+  const url = `/settings/ktv-lien-he/${encodeURIComponent(row.ma_ktv)}/gmail-phu`;
+  const baoLoi = (err: unknown) => {
+    const ma = err instanceof ApiError ? err.code : undefined;
+    const chiTiet = err instanceof ApiError ? (err.body as { chi_tiet?: string | null } | undefined)?.chi_tiet : null;
+    setLoi(ma && GMAIL_PHU_LOI[ma] ? GMAIL_PHU_LOI[ma] + (chiTiet && ma !== "GMAIL_PHU_DA_CO_DU_LIEU" ? ` (${chiTiet})` : "") : "Không lưu được: " + (err instanceof Error ? err.message : String(err)));
+  };
+  const them = useMutation({
+    mutationFn: (email: string) => api.post(url, { email }),
+    onSuccess: (_r, email) => {
+      setDs((d) => [...d, email.trim().toLowerCase()]);
+      setMoi("");
+      setLoi(null);
+      addToast("Đã thêm Gmail phụ — đăng nhập bằng Gmail này sẽ vào tài khoản này");
+      onChanged();
+    },
+    onError: baoLoi,
+  });
+  const go = useMutation({
+    mutationFn: (email: string) => api.delete(`${url}?email=${encodeURIComponent(email)}`),
+    onSuccess: (_r, email) => {
+      setDs((d) => d.filter((x) => x !== email));
+      setLoi(null);
+      onChanged();
+    },
+    onError: baoLoi,
+  });
+  return (
+    <div>
+      <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] flex items-center gap-1.5">
+        Gmail đăng nhập phụ
+        <Tooltip text="KTV có nhiều Gmail và hay đăng nhập nhầm: thêm Gmail còn lại vào đây. Đăng nhập Google bằng Gmail phụ sẽ vào ĐÚNG tài khoản này (cùng đơn hàng, phiếu xuất, quỹ, thông báo). Gmail phụ không được có đơn / phiếu riêng." />
+      </label>
+      {ds.length > 0 && (
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          {ds.map((e) => (
+            <span key={e} className="inline-flex items-center gap-1 rounded-full border border-[var(--line)] bg-[var(--color-surface-soft)] px-2 py-0.5 text-xs">
+              {e}
+              <button
+                type="button"
+                className="focus-ring text-[var(--ink-400)] hover:text-[var(--color-danger)]"
+                title="Gỡ Gmail phụ"
+                disabled={go.isPending}
+                onClick={() => {
+                  if (confirm(`Gỡ Gmail phụ ${e}?`)) go.mutate(e);
+                }}
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="mt-1 flex gap-2">
+        <input
+          value={moi}
+          placeholder="vd: tenkhac@gmail.com"
+          onChange={(e) => setMoi(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && moi.trim()) {
+              e.preventDefault();
+              them.mutate(moi.trim());
+            }
+          }}
+          className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+        />
+        <Btn variant="ghost" size="sm" className="shrink-0" disabled={!moi.trim() || them.isPending} onClick={() => them.mutate(moi.trim())}>
+          {them.isPending ? "Đang thêm…" : "+ Thêm"}
+        </Btn>
+      </div>
+      {loi && <div className="mt-1 text-[11px] text-[var(--color-danger-strong)]">{loi}</div>}
+    </div>
+  );
+}
+
 function DoiMaKtvModal({ row, onClose, onDone }: { row: KtvLienHeRow; onClose: () => void; onDone: (maMoi: string) => void }) {
   const [maMoi, setMaMoi] = useState(row.ma_ktv);
   const [ten, setTen] = useState(row.ten_hien_thi ?? "");
@@ -1486,7 +1577,19 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
     { key: "moc_du_phong_hien_tai", header: "Mốc dự phòng hiện tại", render: (r) => <Money>{fmtVND(r.moc_du_phong_hien_tai)}</Money> },
     // FIX (ra soat UI 2026-08-27, hang muc #1): bo "(mã) Tên" lap lai truoc email - cot "Tên hiển thị"
     // da o ngay dau bang, khong can nhac lai o cot cuoi (giam ~50% do dai dong tren bang 25+ dong).
-    { key: "email_dang_nhap", header: "Email đăng nhập", render: (r) => r.email_dang_nhap ?? "—" },
+    {
+      key: "email_dang_nhap",
+      header: "Email đăng nhập",
+      render: (r) =>
+        r.email_dang_nhap ? (
+          <span title={r.gmail_phu ? `Gmail đăng nhập phụ: ${r.gmail_phu}` : undefined}>
+            {r.email_dang_nhap}
+            {r.gmail_phu && <span className="ml-1 text-[11px] text-[var(--ink-400)]">+{r.gmail_phu.split(",").length} Gmail phụ</span>}
+          </span>
+        ) : (
+          "—"
+        ),
+    },
     { key: "ma_misa", header: "Mã MISA", render: (r) => r.ma_misa ?? "—" },
     { key: "ten_misa", header: "Tên trên MISA", render: (r) => r.ten_misa ?? "—" },
     {
@@ -1721,6 +1824,9 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
                 </button>
               )}
             </div>
+            {editing !== "new" && mode === "admin" && editing.email_dang_nhap && (
+              <GmailPhuSection key={editing.ma_ktv} row={editing} onChanged={() => qc.invalidateQueries({ queryKey: ["settings-ktv"] })} />
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] flex items-center gap-1.5">
@@ -2231,6 +2337,7 @@ const TK_TRANG_THAI: Record<EtxNhanSuRow["tk_trang_thai"], { label: string; tone
 const TAO_TK_LOI: Record<string, string> = {
   THIEU_GMAIL: "chưa có Gmail hợp lệ trên ETX",
   MA_KTV_CUA_NGUOI_KHAC: "Mã NV đã là Mã KTV của người khác (email đăng nhập khác) — kiểm tra ở thẻ KTV hiện trường",
+  LA_GMAIL_PHU: "Gmail này đang là Gmail đăng nhập phụ của tài khoản khác — gỡ Gmail phụ trước nếu muốn tạo tài khoản riêng",
   NOT_FOUND: "không tìm thấy nhân sự",
 };
 

@@ -108,6 +108,8 @@ export interface KtvLienHeRow {
   // Bat/tat THEO MA (migration 0060) + cac ma khac dung CHUNG Gmail dang nhap (GROUP_CONCAT, NULL = khong co).
   ngung_hoat_dong?: number;
   ma_cung_gmail?: string | null;
+  // Gmail dang nhap PHU cua tai khoan (migration 0091), noi bang ", "; NULL = khong co.
+  gmail_phu?: string | null;
 }
 
 // Them 2026-08-29 (phan hoi "xây dựng settings quản lý Tồn kho công nợ KTV", import hang ngay tu

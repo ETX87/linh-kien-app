@@ -1,3 +1,4 @@
+import { dsGmailPhu, emailChinhCuaGmail } from "./gmailPhu";
 import { boDau } from "./timTheoTen";
 import { nowVN } from "./vnTime";
 import { computeAndStoreHash } from "./contentHash";
@@ -101,6 +102,8 @@ export async function tuDongTaoKtvTuEtx(db: D1Database): Promise<EtxTuDongKtvRes
   const emailKtv = new Set(ktv.map((r) => (r.email_dang_nhap ?? "").trim().toLowerCase()).filter(Boolean));
   const maKtv = new Set(ktv.map((r) => r.ma_ktv.trim().toUpperCase()));
   const trangThaiUser = new Map(users.map((u) => [u.email.trim().toLowerCase(), u.trang_thai_duyet]));
+  // Gmail dang nhap PHU cua 1 tai khoan khac (migration 0091) - khong tao them ma KTV/tai khoan cho Gmail do.
+  const gmailPhu = await dsGmailPhu(db);
 
   const doanKhuVuc = await taoBoDoanKhuVucTheoQuanLy(db);
   const now = nowVN();
@@ -115,7 +118,7 @@ export async function tuDongTaoKtvTuEtx(db: D1Database): Promise<EtxTuDongKtvRes
     const email = r.gmail.trim().toLowerCase();
     const ma = r.ma_nhan_su.trim();
     if (!EMAIL_RE.test(email) || !ma) continue;
-    if (emailKtv.has(email) || maKtv.has(ma.toUpperCase()) || daXuLy.has(email)) continue;
+    if (emailKtv.has(email) || gmailPhu.has(email) || maKtv.has(ma.toUpperCase()) || daXuLy.has(email)) continue;
     const tt = trangThaiUser.get(email);
     if (tt && tt !== "Cho duyet") continue;
     daXuLy.add(email);
@@ -157,7 +160,7 @@ export async function tuDongTaoKtvTuEtx(db: D1Database): Promise<EtxTuDongKtvRes
 // cung ket qua voi buoc tu dong o tren (KTV ma = Ma NV + users "Da duyet"/la_ktv_dvbh) nhung KHONG doi chuc danh co CTV/KTV
 // (Admin tu quyet) - chuc danh khong nhan ra thi vai tro KTV. Gmail da la Email dang nhap cua KTV -> chi lien ket + duyet.
 // Ma NV da la ma_ktv cua KTV khac: KTV do chua co email dang nhap thi gan Gmail vao, co email khac -> MA_KTV_CUA_NGUOI_KHAC.
-export type TaoTaiKhoanEtxLoi = "NOT_FOUND" | "THIEU_GMAIL" | "MA_KTV_CUA_NGUOI_KHAC";
+export type TaoTaiKhoanEtxLoi = "NOT_FOUND" | "THIEU_GMAIL" | "MA_KTV_CUA_NGUOI_KHAC" | "LA_GMAIL_PHU";
 
 export async function taoTaiKhoanTuEtx(db: D1Database, maNhanSu: string): Promise<{ ok: true; ma_ktv: string; email: string } | { ok: false; error: TaoTaiKhoanEtxLoi }> {
   const r = await db
@@ -169,6 +172,7 @@ export async function taoTaiKhoanTuEtx(db: D1Database, maNhanSu: string): Promis
   // binh thuong; dong bo ETX chi khoa/mo khi trang thai lam viec DOI (lib/etxNhanSuSync.ts) nen khong bi khoa lai ngay.
   const email = (r.gmail ?? "").trim().toLowerCase();
   if (!EMAIL_RE.test(email)) return { ok: false, error: "THIEU_GMAIL" };
+  if (await emailChinhCuaGmail(db, email)) return { ok: false, error: "LA_GMAIL_PHU" };
   const ma = r.ma_nhan_su.trim();
   const now = nowVN();
 
