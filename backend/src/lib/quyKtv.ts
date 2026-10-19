@@ -41,6 +41,7 @@ export function lenhGhiQuy(
     pxkId?: string | null;
     khoanChuyenMoiNhatCuaPxk?: boolean;
     khoanId?: number; // gan voi 1 khoan chuyen tien co san (sua/huy khoan)
+    phieuHoanTienId?: string; // tam giu / tra lai tam giu cua phieu hoan tien (migration 0090)
     ghiChu?: string | null;
     nguoi: string;
     now: string;
@@ -52,15 +53,16 @@ export function lenhGhiQuy(
       ? String(Math.trunc(g.khoanId))
       : "NULL";
   const insert = db.prepare(
-    `INSERT INTO quy_ktv_giao_dich (email, loai, so_tien, so_du_sau, phieu_xuat_kho_id, khoan_chuyen_tien_id, ghi_chu, nguoi_tao, ngay_tao)
-     SELECT ?, ?, ?, so_du, ?, ${khoanSql}, ?, ?, ? FROM quy_ktv WHERE email = ?`,
+    `INSERT INTO quy_ktv_giao_dich (email, loai, so_tien, so_du_sau, phieu_xuat_kho_id, khoan_chuyen_tien_id, ghi_chu, nguoi_tao, ngay_tao, phieu_hoan_tien_id)
+     SELECT ?, ?, ?, so_du, ?, ${khoanSql}, ?, ?, ?, ? FROM quy_ktv WHERE email = ?`,
   );
+  const ht = g.phieuHoanTienId ?? null;
   return [
     db.prepare("INSERT INTO quy_ktv (email, so_du, cap_nhat_luc) VALUES (?, 0, ?) ON CONFLICT(email) DO NOTHING").bind(g.email, g.now),
     db.prepare("UPDATE quy_ktv SET so_du = so_du + ?, cap_nhat_luc = ? WHERE email = ?").bind(g.soTien, g.now, g.email),
     g.khoanChuyenMoiNhatCuaPxk
-      ? insert.bind(g.email, g.loai, g.soTien, g.pxkId ?? null, g.pxkId ?? null, g.ghiChu ?? null, g.nguoi, g.now, g.email)
-      : insert.bind(g.email, g.loai, g.soTien, g.pxkId ?? null, g.ghiChu ?? null, g.nguoi, g.now, g.email),
+      ? insert.bind(g.email, g.loai, g.soTien, g.pxkId ?? null, g.pxkId ?? null, g.ghiChu ?? null, g.nguoi, g.now, ht, g.email)
+      : insert.bind(g.email, g.loai, g.soTien, g.pxkId ?? null, g.ghiChu ?? null, g.nguoi, g.now, ht, g.email),
   ];
 }
 

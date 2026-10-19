@@ -14,6 +14,8 @@ import { lenhGhiQuy, phanBoQuy, soDuQuy, suaThucNhanKhoan, huyKhoanChuyen, KHOAN
 import { xuLyDonChoThanhToan } from "../lib/tuDongDuyet";
 import { notifyWorkflowTask, emailGsListForPxk, pastActorsFor } from "../lib/taskNotify";
 import { bumpVersions } from "../lib/dataVersions";
+import { laEmailKhLeSql } from "../lib/khachLe";
+import { taoPhieuHoanTien, xuLyPhieuHoanTien, hanhDongDuoc, type PhieuHoanTienRow, type HanhDongHoanTien } from "../lib/phieuHoanTien";
 
 const quyKtv = new Hono<{ Bindings: Env }>();
 quyKtv.use("*", verifySessionMiddleware, loadUser, requireDatMuaLkArea);
@@ -110,11 +112,14 @@ quyKtv.get("/tong-quan", async (c) => {
     `WITH ng AS (
        SELECT email_nguoi_chuyen AS email FROM khoan_chuyen_tien
        UNION SELECT email FROM quy_ktv
+       UNION SELECT email FROM phieu_hoan_tien WHERE trang_thai IN ('Cho KTV xac nhan', 'Cho KT xac nhan')
        UNION SELECT nguoi_nhan_hang FROM phieu_xuat_kho
          WHERE nguoi_nhan_hang IS NOT NULL AND trang_thai_hien_tai != 'Ke toan huy'
            AND trang_thai_chuyen_tien IN ('Cho KTV chuyen', 'KTV da chuyen')
      )
      SELECT ng.email, COALESCE(q.so_du, 0) AS so_du, q.cap_nhat_luc,
+       (SELECT COALESCE(SUM(h.so_tien), 0) FROM phieu_hoan_tien h
+          WHERE h.email = ng.email AND h.trang_thai IN ('Cho KTV xac nhan', 'Cho KT xac nhan')) AS tam_giu,
        (SELECT COALESCE(SUM(k.so_tien_thuc_nhan), 0) FROM khoan_chuyen_tien k
           WHERE k.email_nguoi_chuyen = ng.email AND k.trang_thai = 'Da duyet') AS tong_thuc_nhan,
        (SELECT COUNT(*) FROM khoan_chuyen_tien k WHERE k.email_nguoi_chuyen = ng.email AND k.trang_thai = 'Da duyet') AS so_khoan_duyet,
@@ -203,7 +208,8 @@ quyKtv.get("/giao-dich", async (c) => {
   const pageSize = Math.min(200, Math.max(1, (Math.trunc(Number(c.req.query("pageSize"))) || 20)));
   const tong = await c.env.DB.prepare(`SELECT COUNT(*) AS total FROM quy_ktv_giao_dich g WHERE ${where}`).bind(...binds).first<{ total: number }>();
   const { results } = await c.env.DB.prepare(
-    `SELECT g.*, p.ma_xuat_kho FROM quy_ktv_giao_dich g LEFT JOIN phieu_xuat_kho p ON p.id = g.phieu_xuat_kho_id
+    `SELECT g.*, p.ma_xuat_kho, ht.trang_thai AS ht_trang_thai FROM quy_ktv_giao_dich g LEFT JOIN phieu_xuat_kho p ON p.id = g.phieu_xuat_kho_id
+       LEFT JOIN phieu_hoan_tien ht ON ht.id = g.phieu_hoan_tien_id
      WHERE ${where} ORDER BY g.id DESC ${pageParam ? "LIMIT ? OFFSET ?" : ""}`,
   )
     .bind(...binds, ...(pageParam ? [pageSize, (page - 1) * pageSize] : []))
@@ -227,6 +233,11 @@ quyKtv.post("/dieu-chinh", async (c) => {
   if (body.loai === "hoan_tien_ktv" && soTien < 0) return c.json({ error: "INVALID_SO_TIEN" }, 400);
   const tonTai = await c.env.DB.prepare("SELECT 1 AS x FROM users WHERE email = ?").bind(email).first();
   if (!tonTai) return c.json({ error: "USER_NOT_FOUND" }, 404);
+  // Hoan tien cho KTV = phieu hoan tien (KTV xac nhan, migration 0090). Tru thang chi con cho KH le (khong co tai khoan de xac nhan).
+  if (body.loai === "hoan_tien_ktv") {
+    const khLe = await c.env.DB.prepare(`SELECT ${laEmailKhLeSql("?1")} AS la`).bind(email).first<{ la: number }>();
+    if (!khLe?.la) return c.json({ error: "DUNG_PHIEU_HOAN_TIEN" }, 409);
+  }
 
   const user = c.get("user");
   const bienDong = body.loai === "hoan_tien_ktv" ? -soTien : soTien;
@@ -240,6 +251,107 @@ quyKtv.post("/dieu-chinh", async (c) => {
   if (bienDong > 0) await phanBoQuy(c.env.DB, email, user.email);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ ok: true, so_du: await soDuQuy(c.env.DB, email) });
+});
+
+// ===== PHIẾU HOÀN TIỀN (migration 0090, lib/phieuHoanTien.ts) =====
+
+type BodyHt = { email?: string; so_tien?: number; ghi_chu?: string; hanh_dong?: string };
+
+// GET /api/quy-ktv/phieu-hoan-tien?trang_thai=__MO__|<trang thai>&email=&page=&pageSize= - theo pham vi xem quy.
+quyKtv.get("/phieu-hoan-tien", async (c) => {
+  const pv = await phamViXem(c);
+  if (pv === undefined) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const loc = locEmail("h.email", pv, c.req.query("email")?.trim() || undefined);
+  let where = `1 = 1${loc.sql}`;
+  const binds = [...loc.binds];
+  const tt = c.req.query("trang_thai");
+  if (tt === "__MO__") where += " AND h.trang_thai IN ('Cho KTV xac nhan', 'Cho KT xac nhan')";
+  else if (tt && ["Cho KTV xac nhan", "Cho KT xac nhan", "Da hoan tien", "Da huy"].includes(tt)) {
+    where += " AND h.trang_thai = ?";
+    binds.push(tt);
+  }
+  const page = Math.max(1, (Math.trunc(Number(c.req.query("page"))) || 1));
+  const pageSize = Math.min(200, Math.max(1, (Math.trunc(Number(c.req.query("pageSize"))) || 20)));
+  // So dem theo trang thai: cung pham vi + nguoi dang loc, KHONG theo chinh bo loc trang thai (de hien so tren tung chip).
+  const dem = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS tat_ca,
+       SUM(CASE WHEN h.trang_thai = 'Cho KTV xac nhan' THEN 1 ELSE 0 END) AS cho_ktv,
+       SUM(CASE WHEN h.trang_thai = 'Cho KT xac nhan' THEN 1 ELSE 0 END) AS cho_kt,
+       SUM(CASE WHEN h.trang_thai = 'Da hoan tien' THEN 1 ELSE 0 END) AS da_hoan,
+       SUM(CASE WHEN h.trang_thai = 'Da huy' THEN 1 ELSE 0 END) AS da_huy
+     FROM phieu_hoan_tien h WHERE 1 = 1${loc.sql}`,
+  ).bind(...loc.binds).first<Record<string, number | null>>();
+  const tong = await c.env.DB.prepare(`SELECT COUNT(*) AS total FROM phieu_hoan_tien h WHERE ${where}`).bind(...binds).first<{ total: number }>();
+  const { results } = await c.env.DB.prepare(
+    `SELECT h.*,
+       (SELECT l.ghi_chu FROM phieu_hoan_tien_log l WHERE l.phieu_hoan_tien_id = h.id ORDER BY l.id DESC LIMIT 1) AS ghi_chu_cuoi,
+       (SELECT l.hanh_dong FROM phieu_hoan_tien_log l WHERE l.phieu_hoan_tien_id = h.id ORDER BY l.id DESC LIMIT 1) AS hanh_dong_cuoi,
+       (SELECT l.nguoi FROM phieu_hoan_tien_log l WHERE l.phieu_hoan_tien_id = h.id ORDER BY l.id DESC LIMIT 1) AS nguoi_cuoi
+     FROM phieu_hoan_tien h WHERE ${where}
+     ORDER BY CASE h.trang_thai WHEN 'Cho KT xac nhan' THEN 0 WHEN 'Cho KTV xac nhan' THEN 1 ELSE 2 END, h.cap_nhat_luc DESC, h.id DESC
+     LIMIT ? OFFSET ?`,
+  ).bind(...binds, pageSize, (page - 1) * pageSize).all<PhieuHoanTienRow>();
+  const u = c.get("user");
+  return c.json({
+    rows: results.map((r) => ({ ...r, hanh_dong: hanhDongDuoc(r, u) })),
+    page,
+    pageSize,
+    total: tong?.total ?? 0,
+    dem: {
+      __MO__: (dem?.cho_ktv ?? 0) + (dem?.cho_kt ?? 0),
+      "Cho KTV xac nhan": dem?.cho_ktv ?? 0,
+      "Cho KT xac nhan": dem?.cho_kt ?? 0,
+      "Da hoan tien": dem?.da_hoan ?? 0,
+      "Da huy": dem?.da_huy ?? 0,
+      "": dem?.tat_ca ?? 0,
+    },
+    coTheTao: coTheDieuChinh(c),
+  });
+});
+
+// GET /api/quy-ktv/phieu-hoan-tien/:id - chi tiet + lich su (ghi chu tung buoc).
+quyKtv.get("/phieu-hoan-tien/:id", async (c) => {
+  const pv = await phamViXem(c);
+  if (pv === undefined) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const p = await c.env.DB.prepare("SELECT * FROM phieu_hoan_tien WHERE id = ?").bind(c.req.param("id")).first<PhieuHoanTienRow>();
+  if (!p || (pv && !pv.includes(p.email))) return c.json({ error: "NOT_FOUND" }, 404);
+  const { results: log } = await c.env.DB.prepare(
+    "SELECT id, hanh_dong, trang_thai, ghi_chu, nguoi, ngay_tao FROM phieu_hoan_tien_log WHERE phieu_hoan_tien_id = ? ORDER BY id",
+  ).bind(p.id).all();
+  return c.json({ phieu: { ...p, hanh_dong: hanhDongDuoc(p, c.get("user")) }, log, so_du: await soDuQuy(c.env.DB, p.email) });
+});
+
+// POST /api/quy-ktv/phieu-hoan-tien { email, so_tien, ghi_chu? } - Ke toan/Admin tao phieu, tam giu tien khoi quy.
+quyKtv.post("/phieu-hoan-tien", async (c) => {
+  if (!coTheDieuChinh(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const body = await c.req.json<BodyHt>().catch((): BodyHt => ({}));
+  const email = body.email?.trim();
+  if (!email) return c.json({ error: "MISSING_EMAIL" }, 400);
+  const soTien = Number(body.so_tien);
+  if (!Number.isInteger(soTien) || soTien <= 0 || soTien > 10_000_000_000) return c.json({ error: "INVALID_SO_TIEN" }, 400);
+  const nd = await c.env.DB.prepare(`SELECT ${laEmailKhLeSql("users.email")} AS kh_le FROM users WHERE email = ?`).bind(email).first<{ kh_le: number }>();
+  if (!nd) return c.json({ error: "USER_NOT_FOUND" }, 404);
+  if (nd.kh_le) return c.json({ error: "KH_LE_HOAN_TRUC_TIEP" }, 409);
+  const user = c.get("user");
+  const kq = await taoPhieuHoanTien(c.env, { email, soTien, ghiChu: body.ghi_chu?.trim().slice(0, 500) || null, nguoi: user.email }, (p) =>
+    c.executionCtx.waitUntil(p),
+  );
+  if ("error" in kq) return c.json({ error: kq.error, so_du: kq.so_du }, kq.status);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, ...kq }, 201);
+});
+
+// POST /api/quy-ktv/phieu-hoan-tien/:id/xu-ly { hanh_dong, ghi_chu? } - KTV (chu quy): ktv_xac_nhan | ktv_tu_choi; Ke toan/Admin:
+// kt_xac_nhan_huy | kt_tu_choi | kt_huy. Ghi chu tuy chon o moi buoc.
+quyKtv.post("/phieu-hoan-tien/:id/xu-ly", async (c) => {
+  const body = await c.req.json<BodyHt>().catch((): BodyHt => ({}));
+  const user = c.get("user");
+  const kq = await xuLyPhieuHoanTien(c.env, c.req.param("id"), body.hanh_dong as HanhDongHoanTien, body.ghi_chu?.trim().slice(0, 500) || null, user, (p) =>
+    c.executionCtx.waitUntil(p),
+  );
+  if ("error" in kq) return c.json({ error: kq.error }, kq.status);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, ...kq });
 });
 
 const tienVnd = (n: number) => `${n.toLocaleString("vi-VN")}đ`;

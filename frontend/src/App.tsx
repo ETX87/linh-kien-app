@@ -187,6 +187,25 @@ function MainApp({
     const saved = localStorage.getItem(ACTIVE_MODULE_KEY);
     return saved && allowedModules.includes(saved) ? saved : (allowedModules[0] ?? "dat-mua-lk");
   });
+  // Phieu hoan tien quy (2026-10-19, migration 0090): chuong (su kien "mo-phieu-hoan-tien") + link push "/?hoan_tien=<id>" -> mo
+  // "Quỹ & chuyển tiền" › tab Hoàn tiền + chi tiet phieu (QuyChuyenTienModule nhan qua prop, nonce de mo lai cung 1 phieu).
+  const [moHoanTien, setMoHoanTien] = useState<{ id: string; nonce: number } | null>(null);
+  useEffect(() => {
+    const mo = (id: string) => {
+      setMoHoanTien({ id, nonce: Date.now() });
+      setActive("quy-chuyen-tien");
+    };
+    const u = new URL(window.location.href);
+    const id = u.searchParams.get("hoan_tien");
+    if (id) {
+      u.searchParams.delete("hoan_tien");
+      window.history.replaceState(window.history.state, "", u.pathname + u.search + u.hash);
+      mo(id);
+    }
+    const nghe = (e: Event) => { const d = (e as CustomEvent<string>).detail; if (d) mo(d); };
+    window.addEventListener("mo-phieu-hoan-tien", nghe);
+    return () => window.removeEventListener("mo-phieu-hoan-tien", nghe);
+  }, []);
   // Chuong thong bao (them 2026-09-05, phan hoi "chuyển vị trí chuông thông báo lên top giao diện") -
   // truoc day NotificationBell la 1 phan noi bo cua DatMuaLinhKienModule, CHI hien khi active==="trang-
   // chu" (man Home) - gio nang len render o day, hien tren MOI tab. queryKey "notifications-count"
@@ -480,7 +499,7 @@ function MainApp({
           {active === "danh-muc-lk" && <DanhMucLinhKienModule />}
           {active === "ton-kho-ktv" && <TonKhoKtvModule />}
           {active === "danh-sach-ktv" && <DanhSachKtvModule />}
-          {active === "quy-chuyen-tien" && <QuyChuyenTienModule />}
+          {active === "quy-chuyen-tien" && <QuyChuyenTienModule moPhieuHoanTien={moHoanTien} />}
           {active === "hoi-dap" && <HoiDapModule />}
           {active === "bao-cao-toc-do" && <BaoCaoTocDoXuLyModule />}
           {active === "settings" && <SettingsModule />}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -23,16 +23,20 @@ import { XemAnhNhanh, maHdCua, type AnhXem } from "./datMuaLinhKien/XemAnhNhanh"
 import { t, dichSau } from "../i18n";
 import type { KhachLeRow } from "./datMuaLinhKien/types";
 import { useNhomKhLe } from "./datMuaLinhKien/KhachLeSdt";
+import { HoanTienTab, TaoHoanTienModal, lamMoiHoanTien, nhanGiaoDichHoanTien, type TrangThaiHt } from "./quyChuyenTien/PhieuHoanTien";
 
 // "Quỹ & chuyển tiền" (2026-09-29, ban 2 quy du KTV - backend routes/quyKtv.ts, lib/quyKtv.ts, migration 0047):
 //  - Khoản chuyển tiền: moi lan Ke toan duyet (so can / thuc nhan, du vao quy / thieu) hoac tu choi, kem anh bang chung.
 //  - Số dư quỹ: quy du + con phai chuyen cua tung nguoi nhan hang; Ke toan/Admin "Điều chỉnh" / "Hoàn tiền cho KTV".
 //  - Sổ quỹ: moi bien dong quy (chi ghi them).
+//  - Hoàn tiền (2026-10-19, migration 0090, quyChuyenTien/PhieuHoanTien.tsx): Ke toan tao phieu hoan tien -> tam giu khoi quy -> KTV
+//    xac nhan da nhan / tu choi -> Ke toan xac nhan huy / day lai. KH le van "Hoàn tiền cho KH" tru thang (khong co tai khoan xac nhan).
 // Pham vi: Admin/Ke toan/TN xem tat ca; KTV (Ve tinh = quy cua Tram) chi thay cua minh (backend loc).
 
 interface TongQuanRow {
   email: string;
   so_du: number;
+  tam_giu?: number; // phieu hoan tien dang mo (da tru khoi so_du)
   cap_nhat_luc: string | null;
   tong_thuc_nhan: number;
   so_khoan_duyet: number;
@@ -82,6 +86,8 @@ interface GiaoDichRow {
   ghi_chu: string | null;
   nguoi_tao: string;
   ngay_tao: string;
+  phieu_hoan_tien_id?: string | null;
+  ht_trang_thai?: TrangThaiHt | null;
 }
 
 const LOAI_GIAO_DICH: Record<string, { label: string; tone: BadgeTone }> = {
@@ -110,7 +116,7 @@ function ChenhLech({ k }: { k: KhoanRow }) {
   return <span className="text-[var(--color-text-secondary)]">{t("Đủ")}</span>;
 }
 
-export function QuyChuyenTienModule() {
+export function QuyChuyenTienModule({ moPhieuHoanTien = null }: { moPhieuHoanTien?: { id: string; nonce: number } | null } = {}) {
   const auth = useAuth();
   const addToast = useToast();
   const qc = useQueryClient();
@@ -121,8 +127,18 @@ export function QuyChuyenTienModule() {
   // View (2026-10-14): xem quy NHIEU nguoi (KTV thuoc Khu vuc duoc gan - backend phamViXem) nhung KHONG co tab KH le (/khach-le khong mo cho View).
   const xemNhieuNguoi = xemTatCa || !!user?.la_view;
 
-  const [tab, setTab] = useState<"khoan" | "so-du" | "so-quy" | "kh-le">("khoan");
+  const [tab, setTab] = useState<"khoan" | "so-du" | "so-quy" | "kh-le" | "hoan-tien">(moPhieuHoanTien ? "hoan-tien" : "khoan");
   const [emailLoc, setEmailLoc] = useState("");
+  // Chuong / link push mo 1 phieu hoan tien (App.tsx) -> chuyen sang tab Hoàn tiền, HoanTienTab mo chi tiet.
+  useEffect(() => {
+    if (moPhieuHoanTien) setTab("hoan-tien");
+  }, [moPhieuHoanTien]);
+  // So phieu hoan tien CAN minh xu ly - chung cache voi badge Sidebar (routes/notifications.ts hoanTienCanXuLy).
+  const { data: demTb } = useQuery({
+    queryKey: ["notifications-count"],
+    queryFn: () => api.get<{ hoanTienCanXuLy?: number }>("/notifications/count"),
+  });
+  const [taoHoanTien, setTaoHoanTien] = useState<{ email?: string } | null>(null);
 
   const tongQuan = useQuery({
     queryKey: ["quy-ktv-tong-quan"],
@@ -131,6 +147,7 @@ export function QuyChuyenTienModule() {
   const tqRows = tongQuan.data?.rows ?? [];
   const coTheDieuChinh = !!tongQuan.data?.coTheDieuChinh;
   const tongQuy = tqRows.reduce((s, r) => s + r.so_du, 0);
+  const tongTamGiu = tqRows.reduce((s, r) => s + (r.tam_giu ?? 0), 0);
   const tongConPhai = tqRows.reduce((s, r) => s + r.con_phai_chuyen, 0);
   const tongDaNhan = tqRows.reduce((s, r) => s + r.tong_thuc_nhan, 0);
   const nguoiOptions = useMemo(
@@ -145,12 +162,14 @@ export function QuyChuyenTienModule() {
     void qc.invalidateQueries({ queryKey: ["quy-ktv-khoan"] });
     void qc.invalidateQueries({ queryKey: ["quy-ktv-giao-dich"] });
     void qc.invalidateQueries({ queryKey: ["khach-le"] });
+    lamMoiHoanTien(qc);
   };
 
   const tabs = [
     { key: "khoan", label: t("Khoản chuyển tiền") },
     ...(xemNhieuNguoi ? [{ key: "so-du", label: t("Số dư quỹ"), count: tqRows.filter((r) => r.so_du > 0).length }] : []),
     { key: "so-quy", label: t("Sổ quỹ") },
+    { key: "hoan-tien", label: t("Hoàn tiền"), count: (demTb as { hoanTienCanXuLy?: number } | undefined)?.hoanTienCanXuLy ?? 0 },
     // KH le theo tung khach (migration 0074) - quy/tien dang giu/don cho hang cua tung KH.
     ...(xemTatCa ? [{ key: "kh-le", label: t("KH lẻ") }] : []),
   ];
@@ -161,7 +180,11 @@ export function QuyChuyenTienModule() {
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3 sm:gap-[14px]">
         <div className="flex min-w-0">
           <StatCard label={xemNhieuNguoi ? t("Tổng quỹ dư") : t("Quỹ dư của tôi")} value={fmtVND(tongQuy)} color="green" iconType={Icon.wallet}
-            sub={xemNhieuNguoi ? t("{a} người có quỹ dư", { a: tqRows.filter((r) => r.so_du > 0).length }) : t("Tự trừ vào phiếu cần chuyển tiếp theo")} />
+            sub={
+              tongTamGiu > 0
+                ? t("Đang tạm giữ hoàn tiền {a} (chờ xác nhận)", { a: fmtVND(tongTamGiu) })
+                : xemNhieuNguoi ? t("{a} người có quỹ dư", { a: tqRows.filter((r) => r.so_du > 0).length }) : t("Tự trừ vào phiếu cần chuyển tiếp theo")
+            } />
         </div>
         <div className="flex min-w-0">
           <StatCard label={t("Còn phải chuyển")} value={fmtVND(tongConPhai)} color="amber" iconType={Icon.clock}
@@ -196,6 +219,16 @@ export function QuyChuyenTienModule() {
           coTheDieuChinh={coTheDieuChinh}
           onXemSoQuy={(email) => { setEmailLoc(email); setTab("so-quy"); }}
           onDieuChinh={setDieuChinh}
+          onHoanTien={(email) => setTaoHoanTien({ email })}
+        />
+      )}
+      {tab === "hoan-tien" && (
+        <HoanTienTab
+          xemNhieuNguoi={xemNhieuNguoi}
+          nguoiOptions={nguoiOptions}
+          ten={ten}
+          moId={moPhieuHoanTien}
+          onTao={coTheDieuChinh ? () => setTaoHoanTien({}) : null}
         />
       )}
       {tab === "kh-le" && xemTatCa && (
@@ -214,7 +247,20 @@ export function QuyChuyenTienModule() {
           row={dieuChinh}
           ten={ten}
           onClose={() => setDieuChinh(null)}
-          onDone={(soDu) => { addToast(t("Đã ghi — quỹ còn {a}", { a: fmtVND(soDu) })); setDieuChinh(null); lamMoi(); }}
+          onDone={(soDu, htId) => {
+            addToast(htId ? t("Đã tạo phiếu hoàn tiền {a} — chờ KTV xác nhận", { a: htId }) : t("Đã ghi — quỹ còn {a}", { a: fmtVND(soDu) }));
+            setDieuChinh(null);
+            lamMoi();
+          }}
+        />
+      )}
+      {taoHoanTien && (
+        <TaoHoanTienModal
+          nguoi={tqRows}
+          emailChon={taoHoanTien.email}
+          ten={ten}
+          onClose={() => setTaoHoanTien(null)}
+          onDone={(id) => { addToast(t("Đã tạo phiếu hoàn tiền {a} — chờ KTV xác nhận", { a: id })); setTaoHoanTien(null); lamMoi(); setTab("hoan-tien"); }}
         />
       )}
     </div>
@@ -593,7 +639,7 @@ function HuyKhoanModal({ k, ten, onClose, onDone }: {
   );
 }
 
-function SoDuTab({ rows, isLoading, isError, ten, coTheDieuChinh, onXemSoQuy, onDieuChinh }: {
+function SoDuTab({ rows, isLoading, isError, ten, coTheDieuChinh, onXemSoQuy, onDieuChinh, onHoanTien }: {
   rows: TongQuanRow[];
   isLoading: boolean;
   isError: boolean;
@@ -601,6 +647,7 @@ function SoDuTab({ rows, isLoading, isError, ten, coTheDieuChinh, onXemSoQuy, on
   coTheDieuChinh: boolean;
   onXemSoQuy: (email: string) => void;
   onDieuChinh: (r: TongQuanRow) => void;
+  onHoanTien: (email: string) => void;
 }) {
   const [q, setQ] = useState("");
   const [chiCoQuy, setChiCoQuy] = useState(false);
@@ -610,6 +657,10 @@ function SoDuTab({ rows, isLoading, isError, ten, coTheDieuChinh, onXemSoQuy, on
   const columns: Column<TongQuanRow>[] = [
     { key: "nguoi", header: t("Người nhận hàng"), render: (r) => <span className="font-semibold">{ten(r.email) || r.email}</span>, mobile: "title" },
     { key: "so_du", header: t("Quỹ dư"), className: "text-right", render: (r) => <b className={r.so_du > 0 ? "text-[var(--color-success-strong)]" : "text-[var(--color-text-faint)]"}><Money>{fmtVND(r.so_du)}</Money></b>, mobile: "badge" },
+    {
+      key: "tam_giu", header: t("Tạm giữ hoàn tiền"), className: "text-right",
+      render: (r) => ((r.tam_giu ?? 0) > 0 ? <span className="text-[var(--color-warning-strong)]"><Money>{fmtVND(r.tam_giu)}</Money></span> : "—"),
+    },
     { key: "con", header: t("Còn phải chuyển"), className: "text-right", render: (r) => (r.con_phai_chuyen > 0 ? <span><Money>{fmtVND(r.con_phai_chuyen)}</Money> <span className="text-[var(--color-text-faint)]">{t("({a} phiếu)", { a: r.so_phieu_cho })}</span></span> : "—") },
     { key: "nhan", header: t("Đã xác nhận nhận"), className: "text-right", render: (r) => <Money>{fmtVND(r.tong_thuc_nhan)}</Money> },
     { key: "khoan", header: t("Số khoản"), render: (r) => `${r.so_khoan_duyet}${r.so_lan_tu_choi ? t(" (+{a} từ chối)", { a: r.so_lan_tu_choi }) : ""}` },
@@ -619,6 +670,7 @@ function SoDuTab({ rows, isLoading, isError, ten, coTheDieuChinh, onXemSoQuy, on
       render: (r) => (
         <div className="flex gap-1.5">
           <Btn size="sm" variant="ghost" onClick={() => onXemSoQuy(r.email)}>{t("Sổ quỹ")}</Btn>
+          {coTheDieuChinh && r.so_du > 0 && <Btn size="sm" variant="ghost" onClick={() => onHoanTien(r.email)}>{t("Hoàn tiền")}</Btn>}
           {coTheDieuChinh && <Btn size="sm" variant="subtle" onClick={() => onDieuChinh(r)}>{t("Điều chỉnh")}</Btn>}
         </div>
       ),
@@ -668,13 +720,19 @@ function SoQuyTab({ xemTatCa, nguoiOptions, emailLoc, setEmailLoc, ten }: {
   const columns: Column<GiaoDichRow>[] = [
     { key: "ngay", header: t("Thời gian"), render: (g) => fmtDateTime(g.ngay_tao), mobile: "meta" },
     ...(xemTatCa ? [{ key: "nguoi", header: t("Người nhận hàng"), render: (g: GiaoDichRow) => ten(g.email), mobile: "title" as const }] : []),
-    { key: "loai", header: t("Loại"), render: (g) => <Badge tone={LOAI_GIAO_DICH[g.loai]?.tone ?? "gray"}>{LOAI_GIAO_DICH[g.loai] ? t(LOAI_GIAO_DICH[g.loai].label) : g.loai}</Badge>, mobile: "badge" },
+    {
+      key: "loai", header: t("Loại"), mobile: "badge",
+      render: (g) => {
+        const n = nhanGiaoDichHoanTien(g) ?? LOAI_GIAO_DICH[g.loai];
+        return <Badge tone={n?.tone ?? "gray"}>{n ? t(n.label) : g.loai}</Badge>;
+      },
+    },
     {
       key: "tien", header: t("Biến động"), className: "text-right",
       render: (g) => <b className={g.so_tien > 0 ? "text-[var(--color-success-strong)]" : "text-[var(--color-danger-strong)]"}>{g.so_tien > 0 ? "+" : "−"}<Money>{fmtVND(Math.abs(g.so_tien))}</Money></b>,
     },
     { key: "sau", header: t("Số dư sau"), className: "text-right", render: (g) => <Money>{fmtVND(g.so_du_sau)}</Money> },
-    { key: "pxk", header: t("Phiếu||cột"), render: (g) => g.ma_xuat_kho ?? g.phieu_xuat_kho_id ?? "—" },
+    { key: "pxk", header: t("Phiếu||cột"), render: (g) => g.ma_xuat_kho ?? g.phieu_xuat_kho_id ?? g.phieu_hoan_tien_id ?? "—" },
     { key: "ghi_chu", header: t("Ghi chú"), render: (g) => <span className="block max-w-[300px] truncate" title={g.ghi_chu ?? ""}>{g.ghi_chu}</span> },
     { key: "nguoi_tao", header: t("Người thực hiện"), render: (g) => (g.nguoi_tao === "he-thong" ? t("Hệ thống") : ten(g.nguoi_tao)) },
   ];
@@ -710,25 +768,29 @@ function DieuChinhModal({ row, ten, onClose, onDone }: {
   row: TongQuanRow & { laKhLe?: boolean };
   ten: (e: string | null | undefined) => string;
   onClose: () => void;
-  onDone: (soDu: number) => void;
+  onDone: (soDu: number, phieuHoanTienId?: string) => void;
 }) {
   const addToast = useToast();
   const [loai, setLoai] = useState<"hoan_tien_ktv" | "cong" | "tru">("hoan_tien_ktv");
+  // KTV: "Hoàn tiền" = tao PHIEU HOAN TIEN (tam giu, KTV xac nhan - migration 0090), ghi chu tuy chon. KH le: tru thang nhu cu.
+  const taoPhieu = loai === "hoan_tien_ktv" && !row.laKhLe;
   const [soTien, setSoTien] = useState("");
   const [lyDo, setLyDo] = useState("");
   const so = Number(soTien);
-  const hopLe = Number.isInteger(so) && so > 0 && !!lyDo.trim();
+  const hopLe = Number.isInteger(so) && so > 0 && (taoPhieu || !!lyDo.trim());
   const tru = loai !== "cong";
   const sauDieuChinh = row.so_du + (tru ? -so : so);
   const mut = useMutation({
     mutationFn: () =>
-      api.post<{ so_du: number }>("/quy-ktv/dieu-chinh", {
-        email: row.email,
-        loai: loai === "hoan_tien_ktv" ? "hoan_tien_ktv" : "dieu_chinh",
-        so_tien: loai === "tru" ? -so : so,
-        ghi_chu: lyDo.trim(),
-      }),
-    onSuccess: (r) => onDone(r.so_du),
+      taoPhieu
+        ? api.post<{ so_du: number; id: string }>("/quy-ktv/phieu-hoan-tien", { email: row.email, so_tien: so, ghi_chu: lyDo.trim() || undefined })
+        : api.post<{ so_du: number; id?: string }>("/quy-ktv/dieu-chinh", {
+            email: row.email,
+            loai: loai === "hoan_tien_ktv" ? "hoan_tien_ktv" : "dieu_chinh",
+            so_tien: loai === "tru" ? -so : so,
+            ghi_chu: lyDo.trim(),
+          }),
+    onSuccess: (r) => onDone(r.so_du, r.id),
     onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
   });
   return (
@@ -737,7 +799,7 @@ function DieuChinhModal({ row, ten, onClose, onDone }: {
         <div>{t("Quỹ hiện tại:")} <b><Money>{fmtVND(row.so_du)}</Money></b></div>
         <div className="flex flex-col gap-1.5">
           {([
-            ["hoan_tien_ktv", row.laKhLe ? t("Hoàn tiền cho KH (Kế toán đã trả lại tiền cho khách) — trừ quỹ") : t("Hoàn tiền cho KTV (Kế toán đã trả lại tiền dư) — trừ quỹ")],
+            ["hoan_tien_ktv", row.laKhLe ? t("Hoàn tiền cho KH (Kế toán đã trả lại tiền cho khách) — trừ quỹ") : t("Tạo phiếu hoàn tiền cho KTV — tạm giữ khỏi quỹ, KTV xác nhận đã nhận mới trừ hẳn")],
             ["cong", t("Điều chỉnh cộng quỹ (vd nhập thiếu số thực nhận)")],
             ["tru", t("Điều chỉnh trừ quỹ (vd nhập thừa số thực nhận)")],
           ] as const).map(([v, label]) => (
@@ -757,12 +819,12 @@ function DieuChinhModal({ row, ten, onClose, onDone }: {
           )}
         </div>
         <div>
-          <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">{t("Lý do (bắt buộc)")}</label>
+          <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">{taoPhieu ? t("Ghi chú (không bắt buộc)") : t("Lý do (bắt buộc)")}</label>
           <textarea value={lyDo} onChange={(e) => setLyDo(e.target.value)} rows={2} placeholder={t("Vd: Đã chuyển trả KTV 80.000đ ngày 29/09, UNC số ...")} className="focus-ring mt-1 w-full rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-base sm:text-sm" />
         </div>
         <div className="flex justify-end gap-2">
           <Btn variant="ghost" onClick={onClose} disabled={mut.isPending}>{t("Huỷ")}</Btn>
-          <Btn onClick={() => mut.mutate()} disabled={!hopLe || sauDieuChinh < 0 || mut.isPending} loading={mut.isPending}>{t("Ghi vào sổ quỹ")}</Btn>
+          <Btn onClick={() => mut.mutate()} disabled={!hopLe || sauDieuChinh < 0 || mut.isPending} loading={mut.isPending}>{taoPhieu ? t("Tạo phiếu & tạm giữ tiền") : t("Ghi vào sổ quỹ")}</Btn>
         </div>
       </div>
     </Modal>
