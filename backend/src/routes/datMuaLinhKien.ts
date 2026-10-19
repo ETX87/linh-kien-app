@@ -1857,7 +1857,20 @@ async function donHangListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string
     whereSql += " AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pd WHERE pd.dat_don_hang_id = ddh.id AND pd.phieu_xuat_kho_id = ?)";
     binds.push(pxkId);
   }
-  if (!pxkId && scope === null && (canTacNghiep(c) || user.la_kho || user.la_ke_toan)) {
+  // "pxk_ids" (2026-10-19, nut "Tải chi tiết đơn" o danh sach PXK) - JSON array ma phieu (<= 200/lan, FE chia lo), 1 bind json_each.
+  // Cung quy tac voi pxk_id: bo lop GS phu trach mem, scope bao mat van ap.
+  let pxkIds: string[] | null = null;
+  const pxkIdsRaw = c.req.query("pxk_ids");
+  if (pxkIdsRaw) {
+    try {
+      const v: unknown = JSON.parse(pxkIdsRaw);
+      if (Array.isArray(v)) pxkIds = v.filter((x): x is string => typeof x === "string" && x.trim().length > 0).slice(0, 200);
+    } catch { /* tham so hong -> bo qua */ }
+    if (!pxkIds) pxkIds = []; // tham so hong -> khong khop don nao
+    whereSql += " AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pd WHERE pd.dat_don_hang_id = ddh.id AND pd.phieu_xuat_kho_id IN (SELECT value FROM json_each(?)))";
+    binds.push(JSON.stringify(pxkIds));
+  }
+  if (!pxkId && !pxkIds && scope === null && (canTacNghiep(c) || user.la_kho || user.la_ke_toan)) {
     const gsSet = await phuTrachGsSet(c.env.DB, user.email);
     if (gsSet) {
       whereSql += ` AND ddh.email_gs IN (${[...gsSet].map(() => "?").join(",")})`;

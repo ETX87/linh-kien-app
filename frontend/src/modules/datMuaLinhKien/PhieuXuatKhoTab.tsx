@@ -284,20 +284,23 @@ export function PhieuXuatKhoTab({
   // goi lai GET /phieu-xuat-kho VOI CUNG bo loc dang xem nhung KHONG truyen page (BE tra HET).
   const personDir = usePersonDirectory(); // ten nguoi trong file tai ve (2026-09-29)
   const [downloadingFull, setDownloadingFull] = useState(false);
+  // MOI phieu theo bo loc dang xem (khong phan trang) - dung chung cho "Tải chi tiết phiếu" + "Tải chi tiết đơn".
+  const taiPhieuTheoBoLoc = () =>
+    api.get<{ rows: PhieuXuatKhoRow[] }>(
+      "/phieu-xuat-kho" +
+        buildQuery({
+          trang_thai: trangThaiGui || undefined,
+          nguoi_nhan_hang: filterNguoiNhanHang || undefined,
+          loai_don: xemLoaiDon,
+          q: debouncedQ || undefined,
+          khu_vuc: khuVucParam || undefined,
+          ...locCot.queryParams,
+        }),
+    );
   async function handleDownloadFullList() {
     setDownloadingFull(true);
     try {
-      const res = await api.get<{ rows: PhieuXuatKhoRow[] }>(
-        "/phieu-xuat-kho" +
-          buildQuery({
-            trang_thai: trangThaiGui || undefined,
-            nguoi_nhan_hang: filterNguoiNhanHang || undefined,
-            loai_don: xemLoaiDon,
-            q: debouncedQ || undefined,
-            khu_vuc: khuVucParam || undefined,
-            ...locCot.queryParams,
-          }),
-      );
+      const res = await taiPhieuTheoBoLoc();
       // Cot chuyen tien dat DAU file (2026-09-29, quy du KTV): Ma HD, nguoi chuyen, can/thuc chuyen, quy, link anh.
       // 4 cot chi dung cho "Xem ảnh nhanh" (XemAnhNhanh.tsx) - bo khoi file.
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -326,6 +329,35 @@ export function PhieuXuatKhoTab({
       addToast(t("Không tải được danh sách chi tiết: ") + describeApiError(err));
     } finally {
       setDownloadingFull(false);
+    }
+  }
+
+  // "Tải chi tiết đơn" (2026-10-19, "tải tất cả danh sách đơn bên trong các phiếu đang xem - format theo format tải đơn"): lay
+  // cac phieu theo bo loc dang xem roi tai don cua chung qua GET /dat-mua-lk/don-hang?pxk_ids= (CUNG endpoint + dinh dang file voi
+  // nut tai o danh sach Don hang / trong chi tiet PXK), chia lo 100 phieu cho URL khong qua dai, bo trung don.
+  const [dangTaiDon, setDangTaiDon] = useState(false);
+  async function taiChiTietDon() {
+    setDangTaiDon(true);
+    try {
+      const ids = (await taiPhieuTheoBoLoc()).rows.map((r) => r.id);
+      if (ids.length === 0) {
+        addToast(t("Không có phiếu nào trong danh sách đang xem"));
+        return;
+      }
+      const don: DonHangRow[] = [];
+      const daCo = new Set<string>();
+      for (let i = 0; i < ids.length; i += 100) {
+        const res = await api.get<{ rows: DonHangRow[] }>(
+          "/dat-mua-lk/don-hang" + buildQuery({ pxk_ids: JSON.stringify(ids.slice(i, i + 100)), loai_don: "all" }),
+        );
+        for (const r of res.rows) if (!daCo.has(r.id)) { daCo.add(r.id); don.push(r); }
+      }
+      await exportRowsToExcel(doiNguoiThanhTen(don, personDir), "don_hang_trong_phieu.xlsx", "Đơn hàng");
+      addToast(t("Đã tải {n} đơn của {m} phiếu", { n: don.length, m: ids.length }));
+    } catch (err) {
+      addToast(t("Không tải được danh sách chi tiết: ") + describeApiError(err));
+    } finally {
+      setDangTaiDon(false);
     }
   }
 
@@ -905,8 +937,11 @@ export function PhieuXuatKhoTab({
             )}
             {/* Nhom nut TAI DU LIEU tach rieng sat mep PHAI, ngan bang vach doc (phan hoi 2026-10-15 "Nút tải dữ liệu cho tách riêng sang bên phải"). */}
             <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-            <Btn size="sm" variant="ghost" onClick={handleDownloadFullList} disabled={downloadingFull}>
-              {downloadingFull ? t("Đang tải...") : t("⬇ Tải danh sách chi tiết")}
+            <Btn size="sm" variant="ghost" onClick={handleDownloadFullList} disabled={downloadingFull} title={t("Mỗi dòng là 1 phiếu trong danh sách đang xem")}>
+              {downloadingFull ? t("Đang tải...") : t("⬇ Tải chi tiết phiếu")}
+            </Btn>
+            <Btn size="sm" variant="ghost" onClick={taiChiTietDon} disabled={dangTaiDon} title={t("Mọi đơn hàng nằm trong các phiếu đang xem — cùng định dạng file tải ở danh sách Đơn hàng")}>
+              {dangTaiDon ? t("Đang tải...") : t("⬇ Tải chi tiết đơn")}
             </Btn>
             {/* Tai gop file MISA cho danh sach PXK dang hien theo bo loc (them 2026-09-02) - 3 nut
                 rieng cho 3 mau, TN/Ke toan tu chon mau nao thi tai mau do (khong con tu dong 1 nut).

@@ -1830,5 +1830,11 @@ const tuDien: Record<string, string> = {
   "Đã tạo phiếu hoàn tiền {a} — chờ KTV xác nhận": "Refund slip {a} created — awaiting technician confirmation",
   "— Chọn người có quỹ dư —": "— Choose someone with a fund balance —",
   "✓ Đã nhận tiền": "✓ Received",
+  "Không có phiếu nào trong danh sách đang xem": "No notes in the current list",
+  "Mọi đơn hàng nằm trong các phiếu đang xem — cùng định dạng file tải ở danh sách Đơn hàng": "All orders inside the notes being viewed — same file format as the Orders list download",
+  "Mỗi dòng là 1 phiếu trong danh sách đang xem": "One row per note in the current list",
+  "Đã tải {n} đơn của {m} phiếu": "Downloaded {n} orders from {m} notes",
+  "⬇ Tải chi tiết phiếu": "⬇ Download note details",
+  "⬇ Tải chi tiết đơn": "⬇ Download order details",
 };
 export default tuDien;
