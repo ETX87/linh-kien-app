@@ -6,7 +6,7 @@ import { fmtVND } from "../../types";
 import { pushOverlayClose } from "../../lib/overlayStack";
 import { YEU_CAU_HOA_DON_OPTIONS, CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABELS } from "./constants";
 import { deriveLoaiDon, reqLabelClass, pickLdeQuick, ktvOptionLabel, canNoRequired, maYcscRequired, coMaIdLienQuan } from "./helpers";
-import { LinhKienPicker, ThayTheGoiY, ThayTheGoiYTuSheet } from "./LinhKienPicker";
+import { LinhKienPicker, ThayTheGoiY } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
 import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal } from "./DuDoanDuyetHint";
@@ -281,8 +281,7 @@ export function TaoDonMobileScreen({
           </div>
         )}
 
-        {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiY maLk={d.ma_lk.trim()} canQuanLy={canQuanLy} addToast={addToast} />}
-        {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiYTuSheet maLk={d.ma_lk.trim()} />}
+        {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiY maLk={d.ma_lk.trim()} addToast={addToast} />}
 
         {showInfoBoSung ? (
           <>

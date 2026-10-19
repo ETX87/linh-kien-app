@@ -1849,5 +1849,10 @@ const tuDien: Record<string, string> = {
   "— áp cho cả nhóm: mỗi đơn giữ phần tiền đã trả của mình (lần lượt, tối đa số phiếu đã trả) và về trạng thái \"Chờ tạo phiếu\".": "— applies to all: each order keeps its paid amount (in turn, up to what the note was paid) and returns to \"Awaiting note\".",
   "— áp cho cả nhóm: tiền đã thanh toán của các đơn = 0. Tổng phiếu giảm, phần đã trả thừa hoàn về quỹ dư của KTV.": "— applies to all: paid amount of the orders = 0. The note total drops and any overpayment goes back to the technician's balance.",
   "✕ Bỏ {n} đơn khỏi phiếu": "✕ Remove {n} orders from note",
+  "Chưa nhập tên nhóm": "Group name is required",
+  "Có mã không có trong danh mục linh kiện": "Some codes are not in the parts catalog",
+  "Nhóm thay thế cần ít nhất 2 mã khác nhau": "A substitute group needs at least 2 different codes",
+  "Nhóm tối đa 100 mã": "A group can have at most 100 codes",
+  "Đã có nhóm thay thế trùng tên này": "A substitute group with this name already exists",
 };
 export default tuDien;

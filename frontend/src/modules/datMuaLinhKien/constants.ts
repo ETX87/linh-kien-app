@@ -27,6 +27,12 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   TRUNG_THANH_PHAN: "Có linh kiện bị chọn 2 lần trong combo",
   MA_COMBO_DA_CO: "Mã combo này đã tồn tại",
   MA_TRUNG_LINH_KIEN: "Mã combo trùng mã 1 linh kiện đang bật trong Bảng giá — chọn mã khác",
+  // Nhom linh kien thay the (lkSettings.ts /nhom-thay-the, migration 0092)
+  MISSING_TEN_NHOM: "Chưa nhập tên nhóm",
+  TEN_NHOM_DA_CO: "Đã có nhóm thay thế trùng tên này",
+  IT_NHAT_2_MA: "Nhóm thay thế cần ít nhất 2 mã khác nhau",
+  MA_KHONG_CO_TRONG_DANH_MUC: "Có mã không có trong danh mục linh kiện",
+  QUA_NHIEU_THANH_VIEN: "Nhóm tối đa 100 mã",
   XEM_NHU_CHI_DOC: "Đang xem như người dùng khác (chỉ xem) — thoát chế độ này để thao tác",
   MODULE_NOT_ALLOWED: "Tài khoản của bạn không có quyền truy cập module này",
   NOT_FOUND: "Không tìm thấy dữ liệu (có thể đã bị xoá hoặc thay đổi)",

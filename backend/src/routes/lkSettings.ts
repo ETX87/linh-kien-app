@@ -100,71 +100,179 @@ lkSettings.patch("/danh-muc/:ma", quanLyDanhMuc, async (c) => {
   return c.json({ ok: true });
 });
 
-// ---------- Nhom thay the ----------
+// ---------- Nhom thay the (chot 2026-10-19, migration 0092 - "chuyển hẳn sang app") ----------
+// Bang lk_nhom_thay_the + lk_nhom_thay_the_ct la nguon DUY NHAT (tab "Linh kiện thay thế" Bang gia, goi y luc tao don, drawer LK
+// "Liên quan", API doi tac /v1/lk-thay-the + linh-kien/chi-tiet). Truoc 2026-10-19 man hinh doc Google Sheet, bang rong.
+// Doc: moi user da dang nhap. Ghi (them/sua/xoa nhom, them/bot ma): nguoi co quyen sua linh kien = Quan ly danh muc LK / Mua hang /
+// Admin (khop canSua o DanhMucLinhKienModule + suaLinhKienRoles o settingsDatMua.ts). Thanh vien CHUA co trong danh muc (nhap tu Sheet)
+// van giu duoc khi sua nhom; ma MOI them vao phai co trong danh muc (ma 'Da doi ma' tu quy ve ma chuan).
+const suaThayThe = createMiddleware<{ Bindings: Env }>(async (c, next) => {
+  const u = c.get("user");
+  if (!u.quan_ly_danh_muc_lk && !u.la_mua_hang && u.vai_tro !== "Admin") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  await next();
+});
+const TOI_DA_THANH_VIEN = 100;
 
+interface ThanhVienGui {
+  ma_lk?: unknown;
+  ghi_chu?: unknown;
+}
+interface BodyNhomThayThe {
+  ten_nhom?: string;
+  ghi_chu?: string | null;
+  thanh_vien?: ThanhVienGui[];
+  ma_lk_list?: string[]; // kieu cu (nut "+ Thêm vào nhóm thay thế" o form tao don) - chi ma, khong ghi chu
+}
+
+// GET /api/lk-settings/nhom-thay-the - moi nhom kem thanh vien (ten/gia/trang thai theo danh muc hien tai, ten luc them neu ma chua co).
 lkSettings.get("/nhom-thay-the", async (c) => {
-  const { results: nhoms } = await c.env.DB.prepare("SELECT * FROM lk_nhom_thay_the ORDER BY id").all();
-  const { results: cts } = await c.env.DB.prepare("SELECT * FROM lk_nhom_thay_the_ct").all<{ nhom_id: number; ma_lk: string }>();
-
-  const maLkByNhom = new Map<number, string[]>();
-  for (const ct of cts) {
-    const list = maLkByNhom.get(ct.nhom_id) ?? [];
-    list.push(ct.ma_lk);
-    maLkByNhom.set(ct.nhom_id, list);
-  }
-
-  const rows = (nhoms as Record<string, unknown>[]).map((n) => ({ ...n, ma_lk_list: maLkByNhom.get(n.id as number) ?? [] }));
+  const { results: nhoms } = await c.env.DB.prepare(
+    "SELECT id, ten_nhom, ghi_chu, nguoi_cap_nhat, ngay_cap_nhat FROM lk_nhom_thay_the ORDER BY ten_nhom COLLATE NOCASE, id",
+  ).all<{ id: number; ten_nhom: string; ghi_chu: string | null; nguoi_cap_nhat: string | null; ngay_cap_nhat: string }>();
+  const { results: cts } = await c.env.DB.prepare(
+    `SELECT ct.nhom_id, ct.ma_lk, COALESCE(lk.ten_linh_kien, ct.ten_lk) AS ten_lk, ct.ghi_chu, ct.stt,
+            CASE WHEN lk.ma_linh_kien IS NULL THEN 0 ELSE 1 END AS co_trong_danh_muc,
+            lk.bat_tat, lk.trang_thai_ma, lk.ma_chuan, lk.gia_ban, lk.gia_tri_cong_no, lk.anh_demo
+     FROM lk_nhom_thay_the_ct ct LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ct.ma_lk
+     ORDER BY ct.nhom_id, ct.stt, ct.ma_lk`,
+  ).all<{ nhom_id: number; ma_lk: string } & Record<string, unknown>>();
+  const theoNhom = new Map<number, (typeof cts)[number][]>();
+  for (const ct of cts) theoNhom.set(Number(ct.nhom_id), [...(theoNhom.get(Number(ct.nhom_id)) ?? []), ct]);
+  const rows = nhoms.map((n) => {
+    const tv = (theoNhom.get(n.id) ?? []).map(({ nhom_id: _n, ...r }) => r);
+    return { ...n, thanh_vien: tv, ma_lk_list: tv.map((t) => t.ma_lk) };
+  });
   return c.json({ rows });
 });
 
-// POST /api/lk-settings/nhom-thay-the - { ten_nhom, ghi_chu?, ma_lk_list } tao moi (thay toan bo
-// thanh vien trong 1 lan, khong PATCH tung dong - danh sach thanh vien thuong nho, don gian hon).
-lkSettings.post("/nhom-thay-the", quanLyDanhMuc, async (c) => {
-  const body = await c.req.json<{ ten_nhom: string; ghi_chu?: string | null; ma_lk_list: string[] }>();
-  if (!body.ten_nhom?.trim() || !Array.isArray(body.ma_lk_list) || body.ma_lk_list.length === 0) {
-    return c.json({ error: "MISSING_FIELDS" }, 400);
+/** Chuan hoa + kiem tra danh sach thanh vien gui len. `cu` = thanh vien hien co cua nhom (sua) - ma da co thi duoc giu du chua co trong
+ * danh muc. Tra loi (400) hoac danh sach {ma_lk, ten_lk, ghi_chu} theo thu tu gui. */
+async function chuanThanhVien(
+  db: D1Database,
+  body: BodyNhomThayThe,
+  cu: Map<string, { ten_lk: string | null }>,
+): Promise<{ error: string; ma?: string[] } | { ds: { ma_lk: string; ten_lk: string | null; ghi_chu: string | null }[] }> {
+  const vao: { ma: string; ghi_chu: string | null }[] = Array.isArray(body.thanh_vien)
+    ? body.thanh_vien.map((t) => ({ ma: String(t?.ma_lk ?? "").trim(), ghi_chu: typeof t?.ghi_chu === "string" ? t.ghi_chu.trim().slice(0, 300) || null : null }))
+    : Array.isArray(body.ma_lk_list)
+      ? body.ma_lk_list.map((m) => ({ ma: String(m ?? "").trim(), ghi_chu: null }))
+      : [];
+  const coMa = vao.filter((t) => t.ma);
+  if (coMa.length > TOI_DA_THANH_VIEN) return { error: "QUA_NHIEU_THANH_VIEN" };
+  const moi = [...new Set(coMa.map((t) => t.ma).filter((m) => !cu.has(m)))];
+  const lkMap = new Map<string, { ma_linh_kien: string; ten_linh_kien: string | null; trang_thai_ma: string | null; ma_chuan: string | null }>();
+  if (moi.length) {
+    const { results } = await db
+      .prepare("SELECT ma_linh_kien, ten_linh_kien, trang_thai_ma, ma_chuan FROM linh_kien WHERE ma_linh_kien IN (SELECT value FROM json_each(?))")
+      .bind(JSON.stringify(moi))
+      .all<{ ma_linh_kien: string; ten_linh_kien: string | null; trang_thai_ma: string | null; ma_chuan: string | null }>();
+    for (const r of results) lkMap.set(r.ma_linh_kien, r);
   }
-
-  const user = c.get("user");
-  const nhom = await c.env.DB.prepare(
-    "INSERT INTO lk_nhom_thay_the (ten_nhom, ghi_chu, nguoi_cap_nhat, ngay_cap_nhat) VALUES (?, ?, ?, ?) RETURNING *",
-  )
-    .bind(body.ten_nhom.trim(), body.ghi_chu?.trim() || null, user.email, nowVN())
-    .first<{ id: number }>();
-  if (!nhom) return c.json({ error: "INSERT_FAILED" }, 500);
-
-  await c.env.DB.batch(
-    body.ma_lk_list.map((ma) => c.env.DB.prepare("INSERT INTO lk_nhom_thay_the_ct (nhom_id, ma_lk) VALUES (?, ?)").bind(nhom.id, ma)),
-  );
-
-  return c.json(nhom, 201);
-});
-
-lkSettings.patch("/nhom-thay-the/:id", quanLyDanhMuc, async (c) => {
-  const id = Number(c.req.param("id"));
-  const body = await c.req.json<{ ten_nhom?: string; ghi_chu?: string | null; ma_lk_list?: string[] }>();
-  const existing = await c.env.DB.prepare("SELECT * FROM lk_nhom_thay_the WHERE id = ?").bind(id).first();
-  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
-
-  const user = c.get("user");
-  const next = {
-    ten_nhom: body.ten_nhom !== undefined ? body.ten_nhom.trim() : existing.ten_nhom,
-    ghi_chu: body.ghi_chu !== undefined ? body.ghi_chu?.trim() || null : existing.ghi_chu,
-  };
-
-  await c.env.DB.prepare("UPDATE lk_nhom_thay_the SET ten_nhom = ?, ghi_chu = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE id = ?")
-    .bind(next.ten_nhom, next.ghi_chu, user.email, nowVN(), id)
-    .run();
-
-  if (body.ma_lk_list !== undefined) {
-    await c.env.DB.prepare("DELETE FROM lk_nhom_thay_the_ct WHERE nhom_id = ?").bind(id).run();
-    if (body.ma_lk_list.length > 0) {
-      await c.env.DB.batch(
-        body.ma_lk_list.map((ma) => c.env.DB.prepare("INSERT INTO lk_nhom_thay_the_ct (nhom_id, ma_lk) VALUES (?, ?)").bind(id, ma)),
-      );
+  const khongCo = moi.filter((m) => !lkMap.has(m));
+  if (khongCo.length) return { error: "MA_KHONG_CO_TRONG_DANH_MUC", ma: khongCo };
+  // Ma da doi ('Da doi ma') -> ma chuan (ten lay theo ma chuan neu co).
+  const chuan = new Map<string, string>();
+  const canTenChuan: string[] = [];
+  for (const m of moi) {
+    const r = lkMap.get(m)!;
+    if (r.trang_thai_ma === "Da doi ma" && r.ma_chuan) {
+      chuan.set(m, r.ma_chuan);
+      canTenChuan.push(r.ma_chuan);
     }
   }
+  const tenChuan = new Map<string, string | null>();
+  if (canTenChuan.length) {
+    const { results } = await db
+      .prepare("SELECT ma_linh_kien, ten_linh_kien FROM linh_kien WHERE ma_linh_kien IN (SELECT value FROM json_each(?))")
+      .bind(JSON.stringify(canTenChuan))
+      .all<{ ma_linh_kien: string; ten_linh_kien: string | null }>();
+    for (const r of results) tenChuan.set(r.ma_linh_kien, r.ten_linh_kien);
+  }
+  const ds: { ma_lk: string; ten_lk: string | null; ghi_chu: string | null }[] = [];
+  const daCo = new Set<string>();
+  for (const t of coMa) {
+    const ma = chuan.get(t.ma) ?? t.ma;
+    if (daCo.has(ma)) continue; // trung (hoac 2 ma cung quy ve 1 ma chuan) -> giu dong dau
+    daCo.add(ma);
+    const ten = chuan.has(t.ma) ? (tenChuan.get(ma) ?? null) : (lkMap.get(ma)?.ten_linh_kien ?? cu.get(ma)?.ten_lk ?? null);
+    ds.push({ ma_lk: ma, ten_lk: ten, ghi_chu: t.ghi_chu });
+  }
+  if (ds.length < 2) return { error: "IT_NHAT_2_MA" };
+  return { ds };
+}
 
+async function tenNhomDaCo(db: D1Database, ten: string, boQuaId?: number): Promise<boolean> {
+  // So khong phan biet hoa/thuong o JS (lower() SQLite khong ha chu co dau).
+  const { results } = await db.prepare("SELECT id, ten_nhom FROM lk_nhom_thay_the").all<{ id: number; ten_nhom: string }>();
+  const k = ten.toLocaleLowerCase("vi").replace(/\s+/g, " ").trim();
+  return results.some((r) => r.id !== boQuaId && r.ten_nhom.toLocaleLowerCase("vi").replace(/\s+/g, " ").trim() === k);
+}
+
+const lenhGhiThanhVien = (db: D1Database, nhomId: number, ds: { ma_lk: string; ten_lk: string | null; ghi_chu: string | null }[]) =>
+  ds.map((t, i) =>
+    db.prepare("INSERT INTO lk_nhom_thay_the_ct (nhom_id, ma_lk, ten_lk, ghi_chu, stt) VALUES (?, ?, ?, ?, ?)").bind(nhomId, t.ma_lk, t.ten_lk, t.ghi_chu, i + 1),
+  );
+
+// POST /api/lk-settings/nhom-thay-the - { ten_nhom, ghi_chu?, thanh_vien: [{ma_lk, ghi_chu?}] } (>= 2 ma).
+lkSettings.post("/nhom-thay-the", suaThayThe, async (c) => {
+  const body = await c.req.json<BodyNhomThayThe>().catch((): BodyNhomThayThe => ({}));
+  const ten = body.ten_nhom?.replace(/\s+/g, " ").trim().slice(0, 200);
+  if (!ten) return c.json({ error: "MISSING_TEN_NHOM" }, 400);
+  if (await tenNhomDaCo(c.env.DB, ten)) return c.json({ error: "TEN_NHOM_DA_CO" }, 409);
+  const kq = await chuanThanhVien(c.env.DB, body, new Map());
+  if ("error" in kq) return c.json(kq, 400);
+  const user = c.get("user");
+  const nhom = await c.env.DB.prepare(
+    "INSERT INTO lk_nhom_thay_the (ten_nhom, ghi_chu, nguoi_cap_nhat, ngay_cap_nhat) VALUES (?, ?, ?, ?) RETURNING id",
+  )
+    .bind(ten, body.ghi_chu?.trim().slice(0, 500) || null, user.email, nowVN())
+    .first<{ id: number }>();
+  if (!nhom) return c.json({ error: "INSERT_FAILED" }, 500);
+  try {
+    await c.env.DB.batch(lenhGhiThanhVien(c.env.DB, nhom.id, kq.ds));
+  } catch (e) {
+    await c.env.DB.prepare("DELETE FROM lk_nhom_thay_the WHERE id = ?").bind(nhom.id).run();
+    throw e;
+  }
+  return c.json({ ok: true, id: nhom.id }, 201);
+});
+
+// PATCH /api/lk-settings/nhom-thay-the/:id - { ten_nhom?, ghi_chu?, thanh_vien? | ma_lk_list? } - thanh vien gui len = DANH SACH DAY DU
+// (thay toan bo, 1 batch). Khong gui thanh vien = chi doi ten/ghi chu.
+lkSettings.patch("/nhom-thay-the/:id", suaThayThe, async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<BodyNhomThayThe>().catch((): BodyNhomThayThe => ({}));
+  const existing = await c.env.DB.prepare("SELECT id, ten_nhom, ghi_chu FROM lk_nhom_thay_the WHERE id = ?").bind(id).first<{ id: number; ten_nhom: string; ghi_chu: string | null }>();
+  if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+  const ten = body.ten_nhom !== undefined ? body.ten_nhom.replace(/\s+/g, " ").trim().slice(0, 200) : existing.ten_nhom;
+  if (!ten) return c.json({ error: "MISSING_TEN_NHOM" }, 400);
+  if (ten !== existing.ten_nhom && (await tenNhomDaCo(c.env.DB, ten, id))) return c.json({ error: "TEN_NHOM_DA_CO" }, 409);
+  const ghiChu = body.ghi_chu !== undefined ? body.ghi_chu?.trim().slice(0, 500) || null : existing.ghi_chu;
+  const user = c.get("user");
+  const lenh: D1PreparedStatement[] = [
+    c.env.DB.prepare("UPDATE lk_nhom_thay_the SET ten_nhom = ?, ghi_chu = ?, nguoi_cap_nhat = ?, ngay_cap_nhat = ? WHERE id = ?").bind(ten, ghiChu, user.email, nowVN(), id),
+  ];
+  if (body.thanh_vien !== undefined || body.ma_lk_list !== undefined) {
+    const { results: cu } = await c.env.DB.prepare("SELECT ma_lk, ten_lk, ghi_chu FROM lk_nhom_thay_the_ct WHERE nhom_id = ?").bind(id).all<{ ma_lk: string; ten_lk: string | null; ghi_chu: string | null }>();
+    const cuMap = new Map(cu.map((r) => [r.ma_lk, r]));
+    const kq = await chuanThanhVien(c.env.DB, body, cuMap);
+    if ("error" in kq) return c.json(kq, 400);
+    // Kieu cu ma_lk_list (khong co ghi chu) -> giu ghi chu dang co cua tung ma.
+    const ds = body.thanh_vien === undefined ? kq.ds.map((t) => ({ ...t, ghi_chu: cuMap.get(t.ma_lk)?.ghi_chu ?? null })) : kq.ds;
+    lenh.push(c.env.DB.prepare("DELETE FROM lk_nhom_thay_the_ct WHERE nhom_id = ?").bind(id), ...lenhGhiThanhVien(c.env.DB, id, ds));
+  }
+  await c.env.DB.batch(lenh);
+  return c.json({ ok: true });
+});
+
+// DELETE /api/lk-settings/nhom-thay-the/:id - xoa nhom + thanh vien (khong anh huong don/LK nao).
+lkSettings.delete("/nhom-thay-the/:id", suaThayThe, async (c) => {
+  const id = Number(c.req.param("id"));
+  const r = await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM lk_nhom_thay_the_ct WHERE nhom_id = ?").bind(id),
+    c.env.DB.prepare("DELETE FROM lk_nhom_thay_the WHERE id = ?").bind(id),
+  ]);
+  if (!r[1]?.meta?.changes) return c.json({ error: "NOT_FOUND" }, 404);
   return c.json({ ok: true });
 });
 

@@ -1849,5 +1849,10 @@ const tuDien: Record<string, string> = {
   "— áp cho cả nhóm: mỗi đơn giữ phần tiền đã trả của mình (lần lượt, tối đa số phiếu đã trả) và về trạng thái \"Chờ tạo phiếu\".": "— berlaku untuk semua: tiap pesanan menyimpan jumlah yang sudah dibayar (bergiliran, maks. jumlah dibayar nota) dan kembali ke \"Menunggu nota\".",
   "— áp cho cả nhóm: tiền đã thanh toán của các đơn = 0. Tổng phiếu giảm, phần đã trả thừa hoàn về quỹ dư của KTV.": "— berlaku untuk semua: jumlah dibayar pesanan = 0. Total nota turun, kelebihan bayar kembali ke saldo teknisi.",
   "✕ Bỏ {n} đơn khỏi phiếu": "✕ Keluarkan {n} pesanan dari nota",
+  "Chưa nhập tên nhóm": "Nama grup wajib diisi",
+  "Có mã không có trong danh mục linh kiện": "Ada kode yang tidak ada di katalog suku cadang",
+  "Nhóm thay thế cần ít nhất 2 mã khác nhau": "Grup pengganti membutuhkan minimal 2 kode berbeda",
+  "Nhóm tối đa 100 mã": "Satu grup maksimal 100 kode",
+  "Đã có nhóm thay thế trùng tên này": "Sudah ada grup pengganti dengan nama ini",
 };
 export default tuDien;

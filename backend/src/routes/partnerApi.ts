@@ -197,9 +197,12 @@ partnerApi.get("/v1/lk-thay-the", async (c) => {
     db.prepare("SELECT COUNT(*) AS n FROM lk_nhom_thay_the_ct").first<{ n: number }>(),
     db.prepare(
       `SELECT n.id, n.ten_nhom, n.ghi_chu, n.ngay_cap_nhat,
-              (SELECT json_group_array(json_object('ma_linh_kien', t.ma_lk, 'ten_linh_kien', t.ten, 'bat_tat', t.bat_tat))
-               FROM (SELECT ct.ma_lk, lk.ten_linh_kien AS ten, lk.bat_tat FROM lk_nhom_thay_the_ct ct
-                     LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ct.ma_lk WHERE ct.nhom_id = n.id ORDER BY ct.ma_lk) t) AS linh_kien
+              (SELECT json_group_array(json_object('ma_linh_kien', t.ma_lk, 'ten_linh_kien', t.ten, 'bat_tat', t.bat_tat,
+                                                 'co_trong_danh_muc', t.co_dm, 'ghi_chu', t.ghi_chu))
+               FROM (SELECT ct.ma_lk, COALESCE(lk.ten_linh_kien, ct.ten_lk) AS ten, lk.bat_tat, ct.ghi_chu,
+                            CASE WHEN lk.ma_linh_kien IS NULL THEN 0 ELSE 1 END AS co_dm
+                     FROM lk_nhom_thay_the_ct ct
+                     LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ct.ma_lk WHERE ct.nhom_id = n.id ORDER BY ct.stt, ct.ma_lk) t) AS linh_kien
        FROM lk_nhom_thay_the n ${loc} ORDER BY n.id`,
     ).bind(...(mas.length ? [JSON.stringify(mas)] : [])).all<{ id: number; ten_nhom: string; ghi_chu: string | null; ngay_cap_nhat: string; linh_kien: string }>(),
   ]);

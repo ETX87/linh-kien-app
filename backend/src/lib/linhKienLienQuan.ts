@@ -21,12 +21,12 @@ export async function docLienQuanLk(
   const [meta, thayThe, combo, tuKhoa, tonKtv, tonKho] = await Promise.all([
     db.prepare("SELECT updated_at FROM app_settings WHERE key = 'ktv_ton_kho_import_meta'").first<{ updated_at: string }>(),
     db.prepare(
-      `SELECT ct.ma_lk AS ma, n.id AS nhom_id, n.ten_nhom, ct2.ma_lk AS ma_thay_the, lk2.ten_linh_kien AS ten_thay_the, lk2.bat_tat
+      `SELECT ct.ma_lk AS ma, n.id AS nhom_id, n.ten_nhom, ct2.ma_lk AS ma_thay_the, COALESCE(lk2.ten_linh_kien, ct2.ten_lk) AS ten_thay_the, lk2.bat_tat
        FROM lk_nhom_thay_the_ct ct
        JOIN lk_nhom_thay_the n ON n.id = ct.nhom_id
        JOIN lk_nhom_thay_the_ct ct2 ON ct2.nhom_id = ct.nhom_id AND ct2.ma_lk <> ct.ma_lk
        LEFT JOIN linh_kien lk2 ON lk2.ma_linh_kien = ct2.ma_lk
-       WHERE ct.ma_lk IN ${IN_MAS} ORDER BY n.id, ct2.ma_lk`,
+       WHERE ct.ma_lk IN ${IN_MAS} ORDER BY n.id, ct2.stt, ct2.ma_lk`,
     ).bind(masJson).all<ThayTheRow>(),
     db.prepare(
       `SELECT x.ma_lk AS ma, cb.ma_combo, cb.ten_combo, cb.bat_tat, x.so_luong AS so_luong_trong_combo,

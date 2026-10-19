@@ -8,7 +8,6 @@ import { DropdownPortal } from "../../components/ui/DropdownPortal";
 import { KvRow } from "../../components/ui/KvRow";
 import { api } from "../../api/client";
 import { fmtVND } from "../../types";
-import { usePublicSheetCache } from "../../lib/publicSheetCache";
 import type { LkDanhMucRow } from "./types";
 import { describeApiError, useLinhKienRankMap, formatLkLabel, boQuaTbpDacThu } from "./helpers";
 import { Money } from "../../components/ui/Money";
@@ -16,15 +15,20 @@ import { timLk, sapTheoDiem, type ToDamSpec } from "../../lib/timLinhKien";
 import { useBoTimLk, useLichSuLk, diemHayDat } from "../../lib/useTimLinhKien";
 import { ToDam } from "../../components/ui/ToDam";
 import { t } from "../../i18n";
+import { useAuth } from "../../auth/AuthContext";
 
 // O chon "Ma linh kien" (autocomplete co anh/gia/xep hang) + cac component lien quan (thumbnail,
 // modal xem chi tiet, goi y thay the) - tach tu DatMuaLinhKienModule.tsx (UI redesign Phase 3,
 // phan hoi Codex 2026-08-19). Dung boi ca TaoDonTab va DonHangDetailModal (che do sua).
 
-// Goi y ma LK cung nhom thay the - buoc 2 ke hoach "Luong tao don mua hang", ap dung cho MOI nguoi
-// dung (khong rieng Kho/TN). GS/TN co them nut "Them vao nhom thay the" de bo sung nhanh tai day.
-export function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQuanLy: boolean; addToast: (msg: string) => void }) {
+// Goi y ma LK cung nhom thay the (bang lk_nhom_thay_the - nguon duy nhat tu 2026-10-19, migration 0092; truoc do goi y doc Google
+// Sheet qua ThayTheGoiYTuSheet, da bo). Ap dung cho MOI nguoi dung. Nguoi co quyen sua linh kien (Quan ly danh muc LK / Mua hang /
+// Admin - khop backend suaThayThe) co them o "+ Thêm vào nhóm thay thế" de bo sung nhanh ma dang chon vao 1 nhom co san.
+export function ThayTheGoiY({ maLk, addToast }: { maLk: string; addToast: (msg: string) => void }) {
   const qc = useQueryClient();
+  const auth = useAuth();
+  const u = auth.status === "authenticated" ? auth.user : null;
+  const canQuanLy = !!u?.quan_ly_danh_muc_lk || !!u?.la_mua_hang || u?.vai_tro === "Admin";
   const { data } = useQuery({
     queryKey: ["lk-thay-the", maLk],
     queryFn: () => api.get<{ rows: LkDanhMucRow[] }>(`/lk-settings/thay-the/${encodeURIComponent(maLk)}`),
@@ -33,6 +37,7 @@ export function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQu
     queryKey: ["lk-nhom-thay-the"],
     queryFn: () => api.get<{ rows: { id: number; ten_nhom: string; ma_lk_list: string[] }[] }>("/lk-settings/nhom-thay-the"),
     enabled: canQuanLy,
+    staleTime: 60_000,
   });
 
   const themVaoNhom = useMutation({
@@ -50,6 +55,7 @@ export function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQu
   });
 
   const rows = data?.rows ?? [];
+  const nhomChuaCo = (nhomData?.rows ?? []).filter((n) => !n.ma_lk_list.includes(maLk));
 
   return (
     <div className="col-span-2 sm:col-span-6 -mt-1 text-xs flex items-center gap-2 flex-wrap">
@@ -69,13 +75,13 @@ export function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQu
           ))}
         </>
       )}
-      {canQuanLy && (nhomData?.rows.length ?? 0) > 0 && (
+      {canQuanLy && nhomChuaCo.length > 0 && (
         <Select
           value=""
           onChange={(v) => v && themVaoNhom.mutate(Number(v))}
           options={[
             { value: "", label: t("+ Thêm vào nhóm thay thế") },
-            ...(nhomData?.rows ?? []).map((n) => ({ value: String(n.id), label: n.ten_nhom })),
+            ...nhomChuaCo.map((n) => ({ value: String(n.id), label: n.ten_nhom })),
           ]}
         />
       )}
@@ -89,52 +95,6 @@ export function ThayTheGoiY({ maLk, canQuanLy, addToast }: { maLk: string; canQu
 // khi chuyen trang thai), toggle opacity qua CSS thay vi mount/unmount, skeleton nhap nhay luc dang
 // tai, icon rieng khi loi/khong co anh. Viec tai anh & viec hien danh sach hoan toan DOC LAP - danh
 // sach da render xong text/gia ngay lap tuc, <img> tu no tai ngam ben duoi, khong lam cham hien thi.
-const THAY_THE_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ02aMyUHGYZC59csU07jfbzDX0M3vRPipKCN1ZAwhGU6p6JWElulY1GFn5aAAJuAJ3VegHivyEKsfN/pub?gid=1488773788&single=true&output=tsv";
-const THAY_THE_SHEET_STORAGE_KEY = "dat-mua-lk-linh-kien-thay-the-cache-v1";
-
-// Goi y linh kien thay the cho nhau TU GOOGLE SHEET CONG KHAI (yeu cau nguoi dung 2026-08-27) - nguon
-// HOAN TOAN DOC LAP voi ThayTheGoiY o tren (doc tu bang lk_nhom_thay_the qua backend): rieng he thong
-// nay CHUA TUNG co man Settings de tao/sua nhom trong DB (chi co nut "+ Thêm vào nhóm thay thế" gan
-// vao nhom DA CO SAN, khong co cach nao tao nhom dau tien qua UI - xac nhan qua AskUserQuestion cung
-// ngay: "dùng Google Sheet mới, không đụng DB cũ"), nen ThayTheGoiY thuc te gan nhu luon rong. Component
-// nay dung publicSheetCache.ts (cache IndexedDB tren may, tu dong bo 1 lan/ngay, KHONG goi backend) -
-// CHI hien thi thuan tuy, khong co nut ghi nao (du lieu nguon la Sheet, khong phai bang DB he thong).
-export function ThayTheGoiYTuSheet({ maLk }: { maLk: string }) {
-  const { rows } = usePublicSheetCache(THAY_THE_SHEET_STORAGE_KEY, THAY_THE_SHEET_URL);
-  const suggestions = useMemo(() => {
-    const q = maLk.trim();
-    if (!q) return [];
-    const nhoms = new Set(rows.filter((r) => (r["MÃ"] ?? "").trim() === q).map((r) => r["NHÓM"]));
-    if (nhoms.size === 0) return [];
-    const seen = new Set<string>([q]);
-    const result: { ma: string; ten: string }[] = [];
-    for (const r of rows) {
-      if (!nhoms.has(r["NHÓM"])) continue;
-      const ma = (r["MÃ"] ?? "").trim();
-      if (!ma || seen.has(ma)) continue;
-      seen.add(ma);
-      result.push({ ma, ten: (r["TÊN"] ?? "").trim() });
-    }
-    return result;
-  }, [rows, maLk]);
-
-  if (suggestions.length === 0) return null;
-  return (
-    <div className="col-span-2 sm:col-span-6 -mt-1 text-xs flex items-center gap-2 flex-wrap">
-      <span className="text-[var(--ink-500)]">{t("Có thể đặt thay thế bằng:")}</span>
-      {suggestions.map((s) => (
-        <span
-          key={s.ma}
-          className="inline-flex items-center gap-1 border border-[var(--ocean-800)] text-[var(--ocean-800)] bg-[var(--ocean-100)] rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
-        >
-          ↔ {formatLkLabel(s.ma, s.ten)}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 export function LinhKienThumbMini({ url, size = 28 }: { url: string | null; size?: number }) {
   const [status, setStatus] = useState<"loading" | "loaded" | "error">(url ? "loading" : "error");
   useEffect(() => setStatus(url ? "loading" : "error"), [url]);

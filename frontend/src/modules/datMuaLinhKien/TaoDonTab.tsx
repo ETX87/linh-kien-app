@@ -11,7 +11,7 @@ import { fmtVND } from "../../types";
 import type { DatDonHangImportSummary } from "./types";
 import { YEU_CAU_HOA_DON_OPTIONS, CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABELS } from "./constants";
 import { deriveLoaiDon, reqLabelClass, pickLdeQuick, LOAI_DON_TONE, ktvOptionLabel, formatLkLabel } from "./helpers";
-import { LinhKienPicker, ThayTheGoiY, ThayTheGoiYTuSheet } from "./LinhKienPicker";
+import { LinhKienPicker, ThayTheGoiY } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
 import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal } from "./DuDoanDuyetHint";
@@ -436,8 +436,7 @@ export function TaoDonTab({
                   </div>
                 )}
 
-                {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiY maLk={d.ma_lk.trim()} canQuanLy={canQuanLy} addToast={addToast} />}
-                {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiYTuSheet maLk={d.ma_lk.trim()} />}
+                {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiY maLk={d.ma_lk.trim()} addToast={addToast} />}
 
                 {/* "Thong tin bo sung" - mac dinh AN (phan hoi 2026-08-19 #5), chi tu mo khi batBuoc/
                     da co du lieu/nguoi dung tu bam. Gop het Yeu cau hoa don + Ma YCSC + Chinh sach vao

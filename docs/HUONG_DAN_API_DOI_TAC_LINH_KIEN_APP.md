@@ -1,6 +1,6 @@
 # Hướng dẫn tích hợp API — Hệ thống Mua hàng linh kiện (dành cho đối tác DVBH)
 
-Phiên bản tài liệu: 1.3 — 2026-10-17 · Phiên bản API: **v1**
+Phiên bản tài liệu: 1.4 — 2026-10-19 · Phiên bản API: **v1**
 
 Tài liệu này mô tả các API **chỉ đọc** mà hệ thống Mua hàng linh kiện mở cho đối tác tra cứu:
 lịch sử đơn hàng theo mã ca, tồn kho, lịch sử đặt hàng của từng mã linh kiện, và danh mục linh kiện chi
@@ -9,6 +9,7 @@ tiết (kèm **hình ảnh minh họa**, linh kiện thay thế, combo, từ kh�
 Thay đổi 1.1: bổ sung mục 4.5 `linh-kien/chi-tiet` và mục 4.6 hướng dẫn dùng hình ảnh minh họa.
 Thay đổi 1.2: bổ sung 4 API danh sách — 4.7 nhóm thay thế, 4.8 combo, 4.9 từ khóa riêng + nhóm đồng nghĩa, 4.10 công nợ KTV.
 Thay đổi 1.3: bổ sung 4.11 thiếu hàng (ticket chờ hàng) và 4.12 tồn kho khả dụng theo khu vực.
+Thay đổi 1.4: 4.7 nhóm thay thế đã CÓ DỮ LIỆU (trước 2026-10-19 trả `rows: []` vì dữ liệu nằm ngoài hệ thống); mỗi mã thêm `co_trong_danh_muc` + `ghi_chu`.
 
 ---
 
@@ -451,7 +452,14 @@ Các mã trong cùng 1 nhóm có thể dùng thay nhau. Trả **toàn bộ** nh�
 }
 ```
 
-`linh_kien[]` = mọi mã trong nhóm (kể cả mã đang tắt `bat_tat = 0` — tự lọc nếu chỉ cần mã đang dùng).
+`linh_kien[]` = mọi mã trong nhóm theo thứ tự hiển thị (kể cả mã đang tắt `bat_tat = 0` — tự lọc nếu chỉ cần mã đang dùng). Từ 1.4 mỗi mã có thêm:
+
+| Trường | Mô tả |
+|---|---|
+| `co_trong_danh_muc` | `1` = mã có trong danh mục linh kiện; `0` = mã chỉ có trong nhóm thay thế (chưa có trong danh mục — `bat_tat` = `null`, `ten_linh_kien` = tên lúc thêm vào nhóm) |
+| `ghi_chu` | Ghi chú riêng của mã này trong nhóm (vd "Cần đi kèm 1 cút nối vuông"), có thể `null` |
+
+Dữ liệu nhóm do người dùng quản lý trực tiếp trên app (Bảng giá › Linh kiện thay thế) — `phien_ban` đổi mỗi khi thêm/sửa/xoá nhóm hoặc thành viên.
 
 ### 4.8. Combo linh kiện — `GET /v1/lk-combo`
 
