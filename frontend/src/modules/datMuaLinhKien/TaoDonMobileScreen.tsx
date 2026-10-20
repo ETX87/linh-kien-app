@@ -310,7 +310,7 @@ export function TaoDonMobileScreen({
                 className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 h-11 text-sm ${thieuMaId ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
               />
             </div>
-            <MaYeuCauSuCoCheck value={d.ma_yeu_cau_su_co} nguoiNhanHang={nguoiNhanHang || currentEmail} />
+            <MaYeuCauSuCoCheck value={d.ma_yeu_cau_su_co} nguoiNhanHang={nguoiNhanHang || currentEmail} maLada={d.ma_lada} />
             <div>
               <label className={reqLabelClass(thieuMaId)}>{t("Mã Lada liên quan")}{batBuocYcsc ? " *" : ""}</label>
               <input

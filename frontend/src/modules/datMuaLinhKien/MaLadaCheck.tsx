@@ -9,7 +9,7 @@ import { t } from "../../i18n";
 // khi ngung go, goi GET /dat-mua-lk/kiem-tra-ma-lada (backend tra cuu center.dichvu3t.com - lib/ladaLookupClient.ts,
 // cung API App Khieu nai). KHONG chan tao don: API ngoai loi/chua cau hinh chi hien thong bao.
 // Ban sao dieu kien isLikelyLadaId() cua backend (nguon that) - chi goi khi ma dung dang 1 chu cai + so (vd D1154680).
-function isLikelyLadaId(id: string): boolean {
+export function isLikelyLadaId(id: string): boolean {
   return /^[A-Z]\d{5,}$/i.test(id);
 }
 

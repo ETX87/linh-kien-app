@@ -4,6 +4,7 @@ import { shortKhuVuc } from "../../lib/khuVucShortLabel";
 import type { MaYeuCauSuCoPreview } from "./types";
 import { CaseDetailModal } from "./CaseDetailModal";
 import { t } from "../../i18n";
+import { MaLadaCheck, isLikelyLadaId } from "./MaLadaCheck";
 
 // Canh bao mem khi nhap "Ma yeu cau su co lien quan" (tieu chi UX phan hoi 2026-08-15, muc 5) - debounce
 // 500ms sau khi ngung go, goi GET /dat-mua-lk/kiem-tra-ma-yeu-cau (KHONG dung GET /api/cases/:id vi
@@ -25,7 +26,9 @@ function isLikelyCaseId(id: string): boolean {
   return id.length > 5 && (/^\d+$/.test(id) || /^(T|SC)\d+$/i.test(id)); // + "SC" + so (2026-10-07)
 }
 
-export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; nguoiNhanHang: string }) {
+// maLada: gia tri o "Mã Lada" cung dong - KTV hay go CUNG 1 ID Lada vao ca 2 o (du lieu that 2026-10-20) nen trung thi
+// khong hien the Lada lan 2 o day.
+export function MaYeuCauSuCoCheck({ value, nguoiNhanHang, maLada }: { value: string; nguoiNhanHang: string; maLada?: string }) {
   const [result, setResult] = useState<{ found: boolean; khopKtv: boolean | null; preview: MaYeuCauSuCoPreview | null; blocked?: boolean } | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const id = value.trim();
@@ -45,6 +48,11 @@ export function MaYeuCauSuCoCheck({ value, nguoiNhanHang }: { value: string; ngu
     return () => clearTimeout(hen);
   }, [id, nguoiNhanHang]);
 
+  // ID dang Lada (1 chu cai + so) go vao o Mã YCSC: khong phai ma case DVBH -> hien the tra cuu don Lada
+  // (2026-10-20, "ID lada đang không hiện UI thông tin casse").
+  if (id && !isLikelyCaseId(id) && isLikelyLadaId(id)) {
+    return (maLada ?? "").trim().toUpperCase() === id.toUpperCase() ? null : <MaLadaCheck value={id} />;
+  }
   if (!id || !result) return null;
 
   if (!result.found) {

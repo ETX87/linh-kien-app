@@ -1968,6 +1968,87 @@ export function PxkDetailModal({
       </div>
     ) : null;
 
+  // Khoi "Chuyển tiền" - App KTV (khong phai TN/Kho/Ke toan/Admin) dua len TREN CUNG chi tiet phieu (2026-10-20, "giao diện App KTV
+  // phiếu tiền => hiện phần tiền cần chuyển lên ưu tiên trên cùng"); van phong giu vi tri cu trong luoi the.
+  const uuTienTien = !canTacNghiep && !canKho && !canKeToan && !isAdmin && pxk?.so_tien_can_chuyen != null;
+  const veKhoiChuyenTien = (pxk: NonNullable<typeof data>["phieuXuatKho"]) => (
+    <div className="border border-[var(--line)] rounded-lg p-3">
+      <SectionTitle icon="💲" iconTone="teal">{t("Chuyển tiền")}</SectionTitle>
+      {pxk.so_tien_can_chuyen == null ? (
+        canTacNghiep && trangThai === "Dang tao phieu" ? (
+          <div className="flex gap-2 items-end">
+            {/* SUA (2026-09-22, phan hoi "tổng tiền cần chuyển sẽ tự động = tổng tiền ước tính
+                trong danh sách các đơn"): bo o nhap tu do, chi hien so da tu tinh (read-only) -
+                nut "Yêu cầu chuyển" gui thang tongTienUocTinhPxk, khong con go tay duoc. */}
+            <div className="flex-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm">
+              <Money>{fmtVND(tongTienUocTinhPxk)}</Money> <span className="text-[var(--ink-400)]">{t("(tự động)")}</span>
+            </div>
+            <Btn size="sm" onClick={() => yeuCauChuyenTienMutation.mutate(tongTienUocTinhPxk)} disabled={tongTienUocTinhPxk <= 0 || yeuCauChuyenTienMutation.isPending}>{t("Yêu cầu chuyển")}</Btn>
+          </div>
+        ) : (
+          <span className="text-[var(--ink-400)] text-xs">{t("Không cần chuyển tiền")}</span>
+        )
+      ) : (
+        <>
+          {/* Quy du KTV (2026-09-29, migration 0047): tong / da thanh toan / con phai chuyen / quy du. */}
+          <TienPhieuVaQuy
+            tong={pxk.so_tien_can_chuyen}
+            daThanhToan={pxk.da_thanh_toan ?? 0}
+            daDuyet={pxk.trang_thai_chuyen_tien === "TN da duyet"}
+            quyDu={data?.quyDu}
+          />
+          <KvRow label={t("Trạng thái")}><StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /></KvRow>
+          {/* Nhieu anh (2026-09-29, BangChungChuyenTien.tsx) - dang "Cho KTV chuyen" thi form ben duoi tu hien anh. */}
+          {pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen" && docAnhBangChung(pxk).length > 0 && (
+            <KvRow label={t("Bằng chứng")}><BangChungAnhPxk pxk={pxk} ten={(e) => (e ? formatNguoiDisplay(e, ktvDisplayMap) : "")} /></KvRow>
+          )}
+          {pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen" && pxk.bang_chung_chuyen_tien_ghi_chu && (
+            <KvRow label={t("Ghi chú")}><span className="text-xs text-[var(--ink-600)]">{pxk.bang_chung_chuyen_tien_ghi_chu}</span></KvRow>
+          )}
+          {/* Phan hoi 2026-08-19: "cho phép upload ảnh hoặc ghi chú thông tin chuyển tiền" -
+              truoc day CHI co 1 o dan link tay. Gio 2 lua chon SONG SONG (co the dung ca 2):
+              upload anh THAT qua Drive (giong "Ảnh biên bản") HOAC go ghi chu van ban, goi y
+              nhanh tu CUNG danh muc "Lý do chậm (Mua hàng)" da dung o cot "Lý do chậm" ben duoi. */}
+          {pxk.trang_thai_chuyen_tien === "Cho KTV chuyen" && (
+            <BangChungChuyenTienForm
+              key={`${pxk.id}|${pxk.so_tien_can_chuyen}|${pxk.bang_chung_chuyen_tien_anh ?? ""}`}
+              pxkId={pxk.id}
+              pxk={pxk}
+              goiYGhiChu={(lyDoChamGoiYData?.rows ?? []).map((l) => l.ten_ly_do)}
+              onDone={invalidate}
+              addToast={addToast}
+            />
+          )}
+          {/* SUA (phan hoi 04/09/2026: "Bước 2: 'Kế toán duyệt chuyển tiền'") - nguoi duyet
+              buoc cuoi chuyen tu TN sang Ke toan, khop dung gate canKeToan o backend PATCH
+              /:id/chuyen-tien nhanh "TN da duyet" (gia tri DB giu nguyen ten cu). */}
+          {canKeToan && pxk.trang_thai_chuyen_tien === "KTV da chuyen" && (
+            // + "Từ chối, đẩy lại" (2026-09-29, migration 0046) - sai tien/thieu bang chung -> ve "Chờ KTV chuyển" kem ly do.
+            // Quy du (migration 0047): Ke toan nhap so THUC NHAN - du vao quy, thieu thi ve cho chuyen bo sung.
+            <div className="mt-2 space-y-2">
+              <DuyetChuyenTienForm
+                key={`${pxk.id}|${pxk.so_tien_can_chuyen}|${pxk.da_thanh_toan ?? 0}`}
+                pxkId={pxk.id}
+                conPhaiChuyen={Math.max(0, pxk.so_tien_can_chuyen - (pxk.da_thanh_toan ?? 0))}
+                pxk={pxk}
+                onDone={invalidate}
+                addToast={addToast}
+              />
+              <TuChoiChuyenTienButton pxkId={pxk.id} onDone={invalidate} addToast={addToast} />
+            </div>
+          )}
+          {/* TN day lai khi KTV xac nhan nham/thieu tien (2026-09-30) - KHONG ghi so khoan chuyen tien cua Ke toan. */}
+          {!canKeToan && canTacNghiep && pxk.trang_thai_chuyen_tien === "KTV da chuyen" && pxk.trang_thai !== "Ke toan huy" && (
+            <div className="mt-2">
+              <TuChoiChuyenTienButton pxkId={pxk.id} onDone={invalidate} addToast={addToast} laTn />
+            </div>
+          )}
+          {(data?.khoanChuyen?.length ?? 0) > 0 && <LichSuKhoanChuyen rows={data!.khoanChuyen!} />}
+        </>
+      )}
+    </div>
+  );
+
   return (
     // SUA (phan hoi 2026-08-18 muc 2 + 4): rong modal tu max-w-lg (mac dinh, 512px) len max-w-2xl
     // (672px) - noi dung modal nay co toi 4-5 khoi "the" xep DOC lien tiep (Ma don hang/Ma MISA/Anh
@@ -2009,6 +2090,7 @@ export function PxkDetailModal({
               nay ma khong bo sung gi (PxkMiniPipeline da xu ly du ca 5 buoc chinh lan 4 trang thai
               nhanh re) - bo han <Stepper>, chi giu 1 chi bao duy nhat. */}
           <PxkMiniPipeline trangThai={trangThai} />
+          {uuTienTien && veKhoiChuyenTien(pxk)}
           <div className="flex gap-3 items-center flex-wrap">
             {pxk.ma_xuat_kho_xac_nhan ? (
               <span className="font-mono font-bold">{pxk.ma_xuat_kho}</span>
@@ -2181,81 +2263,7 @@ export function PxkDetailModal({
             </div>
           )}
 
-          <div className="border border-[var(--line)] rounded-lg p-3">
-            <SectionTitle icon="💲" iconTone="teal">{t("Chuyển tiền")}</SectionTitle>
-            {pxk.so_tien_can_chuyen == null ? (
-              canTacNghiep && trangThai === "Dang tao phieu" ? (
-                <div className="flex gap-2 items-end">
-                  {/* SUA (2026-09-22, phan hoi "tổng tiền cần chuyển sẽ tự động = tổng tiền ước tính
-                      trong danh sách các đơn"): bo o nhap tu do, chi hien so da tu tinh (read-only) -
-                      nut "Yêu cầu chuyển" gui thang tongTienUocTinhPxk, khong con go tay duoc. */}
-                  <div className="flex-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm">
-                    <Money>{fmtVND(tongTienUocTinhPxk)}</Money> <span className="text-[var(--ink-400)]">{t("(tự động)")}</span>
-                  </div>
-                  <Btn size="sm" onClick={() => yeuCauChuyenTienMutation.mutate(tongTienUocTinhPxk)} disabled={tongTienUocTinhPxk <= 0 || yeuCauChuyenTienMutation.isPending}>{t("Yêu cầu chuyển")}</Btn>
-                </div>
-              ) : (
-                <span className="text-[var(--ink-400)] text-xs">{t("Không cần chuyển tiền")}</span>
-              )
-            ) : (
-              <>
-                {/* Quy du KTV (2026-09-29, migration 0047): tong / da thanh toan / con phai chuyen / quy du. */}
-                <TienPhieuVaQuy
-                  tong={pxk.so_tien_can_chuyen}
-                  daThanhToan={pxk.da_thanh_toan ?? 0}
-                  daDuyet={pxk.trang_thai_chuyen_tien === "TN da duyet"}
-                  quyDu={data?.quyDu}
-                />
-                <KvRow label={t("Trạng thái")}><StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /></KvRow>
-                {/* Nhieu anh (2026-09-29, BangChungChuyenTien.tsx) - dang "Cho KTV chuyen" thi form ben duoi tu hien anh. */}
-                {pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen" && docAnhBangChung(pxk).length > 0 && (
-                  <KvRow label={t("Bằng chứng")}><BangChungAnhPxk pxk={pxk} ten={(e) => (e ? formatNguoiDisplay(e, ktvDisplayMap) : "")} /></KvRow>
-                )}
-                {pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen" && pxk.bang_chung_chuyen_tien_ghi_chu && (
-                  <KvRow label={t("Ghi chú")}><span className="text-xs text-[var(--ink-600)]">{pxk.bang_chung_chuyen_tien_ghi_chu}</span></KvRow>
-                )}
-                {/* Phan hoi 2026-08-19: "cho phép upload ảnh hoặc ghi chú thông tin chuyển tiền" -
-                    truoc day CHI co 1 o dan link tay. Gio 2 lua chon SONG SONG (co the dung ca 2):
-                    upload anh THAT qua Drive (giong "Ảnh biên bản") HOAC go ghi chu van ban, goi y
-                    nhanh tu CUNG danh muc "Lý do chậm (Mua hàng)" da dung o cot "Lý do chậm" ben duoi. */}
-                {pxk.trang_thai_chuyen_tien === "Cho KTV chuyen" && (
-                  <BangChungChuyenTienForm
-                    key={`${pxk.id}|${pxk.so_tien_can_chuyen}|${pxk.bang_chung_chuyen_tien_anh ?? ""}`}
-                    pxkId={pxk.id}
-                    pxk={pxk}
-                    goiYGhiChu={(lyDoChamGoiYData?.rows ?? []).map((l) => l.ten_ly_do)}
-                    onDone={invalidate}
-                    addToast={addToast}
-                  />
-                )}
-                {/* SUA (phan hoi 04/09/2026: "Bước 2: 'Kế toán duyệt chuyển tiền'") - nguoi duyet
-                    buoc cuoi chuyen tu TN sang Ke toan, khop dung gate canKeToan o backend PATCH
-                    /:id/chuyen-tien nhanh "TN da duyet" (gia tri DB giu nguyen ten cu). */}
-                {canKeToan && pxk.trang_thai_chuyen_tien === "KTV da chuyen" && (
-                  // + "Từ chối, đẩy lại" (2026-09-29, migration 0046) - sai tien/thieu bang chung -> ve "Chờ KTV chuyển" kem ly do.
-                  // Quy du (migration 0047): Ke toan nhap so THUC NHAN - du vao quy, thieu thi ve cho chuyen bo sung.
-                  <div className="mt-2 space-y-2">
-                    <DuyetChuyenTienForm
-                      key={`${pxk.id}|${pxk.so_tien_can_chuyen}|${pxk.da_thanh_toan ?? 0}`}
-                      pxkId={pxk.id}
-                      conPhaiChuyen={Math.max(0, pxk.so_tien_can_chuyen - (pxk.da_thanh_toan ?? 0))}
-                      pxk={pxk}
-                      onDone={invalidate}
-                      addToast={addToast}
-                    />
-                    <TuChoiChuyenTienButton pxkId={pxk.id} onDone={invalidate} addToast={addToast} />
-                  </div>
-                )}
-                {/* TN day lai khi KTV xac nhan nham/thieu tien (2026-09-30) - KHONG ghi so khoan chuyen tien cua Ke toan. */}
-                {!canKeToan && canTacNghiep && pxk.trang_thai_chuyen_tien === "KTV da chuyen" && pxk.trang_thai !== "Ke toan huy" && (
-                  <div className="mt-2">
-                    <TuChoiChuyenTienButton pxkId={pxk.id} onDone={invalidate} addToast={addToast} laTn />
-                  </div>
-                )}
-                {(data?.khoanChuyen?.length ?? 0) > 0 && <LichSuKhoanChuyen rows={data!.khoanChuyen!} />}
-              </>
-            )}
-          </div>
+          {!uuTienTien && veKhoiChuyenTien(pxk)}
           </div>
 
           <div>

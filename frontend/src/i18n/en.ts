@@ -1902,5 +1902,8 @@ const tuDien: Record<string, string> = {
   "Đã cho phép bởi {a} · {b}": "Allowed by {a} · {b}",
   "Đã cho phép thanh toán sau — đơn {a} → {b}": "Pay-later allowed — order {a} → {b}",
   "⏭ Cho phép thanh toán sau": "⏭ Allow pay later",
+  "Mã này chưa có linh kiện tương đương nào trong nhóm thay thế (Bảng giá › Linh kiện thay thế).": "This code has no equivalent parts in a substitute group yet (Price list › Substitute parts).",
+  "Đơn gốc đang đặt {ma}. Chọn linh kiện tương đương (cùng nhóm thay thế) Kho đang có — đơn đổi sang mã mới (giá theo mã mới), ticket ghi hàng đã về, đơn tự duyệt và vào phiếu xuất kho.": "The original order is for {ma}. Pick an equivalent part (same substitute group) the warehouse has — the order switches to the new code (new code's price), the ticket is marked as arrived, and the order is auto-approved into a delivery note.",
+  "Đổi LK tương đương": "Switch to equivalent part",
 };
 export default tuDien;

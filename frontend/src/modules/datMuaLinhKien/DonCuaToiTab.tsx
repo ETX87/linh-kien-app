@@ -44,7 +44,7 @@ import {
   donGiaSauChietKhau, tienSauChietKhau, giaNiemYet, boQuaTbpDacThu, canNhapMaEo } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink, LogTieuDe } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
-import { MaLadaCheck } from "./MaLadaCheck";
+import { MaLadaCheck, isLikelyLadaId } from "./MaLadaCheck";
 import { LinhKienPicker, LinhKienDetailModal } from "./LinhKienPicker";
 // Lien ket 2 chieu voi ticket thieu LK (phan hoi 2026-09-10) - xem giai thich import vong o
 // ThieuLkTab.tsx (file do cung import nguoc lai DonHangDetailModal tu day).
@@ -105,6 +105,15 @@ interface ThieuLkRefInfo {
 
 // Trang thai DONG - sua gia ve 0 khong can hoi (khong con chuyen tien nao).
 const DON_DONG_GIA_0 = ["Da huy", "TN tu choi"];
+
+
+// ID Lada de tra cuu o chi tiet don: o "Mã Lada", hoac o "Mã YCSC" neu go ID Lada vao do (KTV hay go cung 1 ID vao ca 2 o).
+function maLadaTraCuu(d: { ma_lada?: string | null; ma_yeu_cau_su_co?: string | null }): string | null {
+  const lada = d.ma_lada?.trim();
+  if (lada) return lada;
+  const ycsc = d.ma_yeu_cau_su_co?.trim() ?? "";
+  return isLikelyLadaId(ycsc) && !/^T\d+$/i.test(ycsc) ? ycsc : null; // "T"+so la ma case DVBH
+}
 
 export function DonHangDetailModal({
   id,
@@ -1462,6 +1471,9 @@ export function DonHangDetailModal({
                   <MaYcscCell value={d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />
                 </KvRow>
                 {d.ma_lada && <KvRow label={t("Mã Lada")}><span className="font-mono">{d.ma_lada}</span></KvRow>}
+                {/* The thong tin don Lada (2026-10-20, "ID lada đang không hiện UI thông tin case") - cung the tra cuu
+                    nhu luc tao don (MaLadaCheck, GET /kiem-tra-ma-lada, co cache 5 phut phia server). */}
+                {maLadaTraCuu(d) && <div className="pb-1"><MaLadaCheck value={maLadaTraCuu(d)!} /></div>}
                 <KvRow label={t("Mã xuất kho")}>{d.ma_xuat_kho ?? "—"}</KvRow>
               </DetailZone>
 

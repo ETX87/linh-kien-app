@@ -476,7 +476,7 @@ export function TaoDonTab({
                         maxLength={20}
                         className={`focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 py-1.5 text-sm ${thieuMaId ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
                       />
-                      <MaYeuCauSuCoCheck value={d.ma_yeu_cau_su_co} nguoiNhanHang={nguoiNhanHang || currentEmail} />
+                      <MaYeuCauSuCoCheck value={d.ma_yeu_cau_su_co} nguoiNhanHang={nguoiNhanHang || currentEmail} maLada={d.ma_lada} />
                     </div>
                     <div>
                       <label className={reqLabelClass(thieuMaId)}>{t("Mã Lada liên quan")}{batBuocYcsc ? " *" : ""}</label>
