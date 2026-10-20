@@ -1896,5 +1896,11 @@ const tuDien: Record<string, string> = {
   "Xác nhận lưu giá 0đ": "Confirm saving price 0",
   "Đơn {a} sẽ có giá trị 0đ — đơn sẽ tự động chuyển trạng thái, KHÔNG còn chờ chuyển tiền nữa.": "Order {a} will be worth 0 — its status will change automatically and it will NO longer wait for a money transfer.",
   "Đơn đang \"Chờ thanh toán\" vì thiếu hàng: kho đủ hàng thì đơn tự duyệt và vào phiếu xuất; vẫn thiếu thì đơn chuyển \"Chờ hàng\" và mở ticket cho Kho.": "The order is \"Awaiting payment\" because stock is short: if stock is sufficient it is auto-approved and added to a delivery note; if still short it moves to \"Awaiting stock\" and a ticket is opened for the warehouse.",
+  "Cho phép đơn {id} thanh toán sau?\n\nKho đủ hàng → đơn được duyệt và vào phiếu xuất; thiếu hàng → đơn chuyển \"Chờ hàng\" cho Kho xử lý. Tiền vẫn chuyển ở phiếu xuất như đơn bình thường — phiếu không gửi Kế toán được khi chưa chuyển đủ tiền.\n\nGhi chú (không bắt buộc):": "Allow order {id} to pay later?\n\nIf stock is sufficient the order is approved and added to a delivery note; if short it moves to \"Awaiting stock\" for the warehouse. Money is still transferred on the delivery note like a normal order — the note cannot be sent to Accounting until fully paid.\n\nNote (optional):",
+  "Cho đơn đi tiếp không chờ chuyển tiền — tiền vẫn phải chuyển đủ ở phiếu xuất trước khi gửi Kế toán": "Let the order proceed without waiting for payment — money must still be fully transferred on the delivery note before sending to Accounting",
+  "Thanh toán sau": "Pay later",
+  "Đã cho phép bởi {a} · {b}": "Allowed by {a} · {b}",
+  "Đã cho phép thanh toán sau — đơn {a} → {b}": "Pay-later allowed — order {a} → {b}",
+  "⏭ Cho phép thanh toán sau": "⏭ Allow pay later",
 };
 export default tuDien;

@@ -238,6 +238,16 @@ export function DonHangDetailModal({
   });
 
   // Dua don "Cho thanh toan" da roi phieu vao lai phieu cho thanh toan (2026-10-20, v1.371) - POST /don-hang/:id/vao-phieu.
+  // Cho phep thanh toan sau (2026-10-20, migration 0094) - POST /don-hang/:id/thanh-toan-sau.
+  const thanhToanSauMutation = useMutation({
+    mutationFn: (ghi_chu: string) => api.post<{ ok: true; trang_thai: string }>(`/dat-mua-lk/don-hang/${id}/thanh-toan-sau`, { ghi_chu: ghi_chu || undefined }),
+    onSuccess: (r) => {
+      invalidate();
+      invalidatePipelineCounts(qc);
+      addToast(t("Đã cho phép thanh toán sau — đơn {a} → {b}", { a: id, b: trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, r.trang_thai) }));
+    },
+    onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
+  });
   const vaoPhieuMutation = useMutation({
     mutationFn: () => api.post<{ ok: true; pxk: string | null; trang_thai?: string | null }>(`/dat-mua-lk/don-hang/${id}/vao-phieu`, {}),
     onSuccess: (r) => {
@@ -1075,6 +1085,35 @@ export function DonHangDetailModal({
                   >
                     {t("Đưa vào phiếu chờ thanh toán")}
                   </Btn>
+                </span>
+              </KvRow>
+            )}
+            {canTacNghiep && d.trang_thai === "Cho thanh toan" && (
+              <KvRow label={t("Thanh toán sau")}>
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  <span className="text-[12px] text-[var(--color-text-secondary)]">{t("Cho đơn đi tiếp không chờ chuyển tiền — tiền vẫn phải chuyển đủ ở phiếu xuất trước khi gửi Kế toán")}</span>
+                  <Btn
+                    size="sm"
+                    variant="ghost"
+                    loading={thanhToanSauMutation.isPending}
+                    disabled={thanhToanSauMutation.isPending}
+                    onClick={() => {
+                      const gc = window.prompt(
+                        t("Cho phép đơn {id} thanh toán sau?\n\nKho đủ hàng → đơn được duyệt và vào phiếu xuất; thiếu hàng → đơn chuyển \"Chờ hàng\" cho Kho xử lý. Tiền vẫn chuyển ở phiếu xuất như đơn bình thường — phiếu không gửi Kế toán được khi chưa chuyển đủ tiền.\n\nGhi chú (không bắt buộc):", { id: d.id }),
+                        "",
+                      );
+                      if (gc !== null) thanhToanSauMutation.mutate(gc.trim());
+                    }}
+                  >
+                    {t("⏭ Cho phép thanh toán sau")}
+                  </Btn>
+                </span>
+              </KvRow>
+            )}
+            {d.thanh_toan_sau_luc && (
+              <KvRow label={t("Thanh toán sau")}>
+                <span className="text-[12.5px]">
+                  {t("Đã cho phép bởi {a} · {b}", { a: formatPersonDisplay(d.thanh_toan_sau_boi ?? "", personDirChiTiet), b: fmtDateTime(d.thanh_toan_sau_luc) })}
                 </span>
               </KvRow>
             )}

@@ -526,6 +526,33 @@ export async function danhGiaLaiDonChoThanhToan(env: Env, db: D1Database, donHan
   return true;
 }
 
+/** CHO PHEP THANH TOAN SAU (2026-10-20, migration 0094): TN / Ke toan xac nhan don "Cho thanh toan" (thieu hang, phai chuyen tien truoc)
+ *  di tiep KHONG cho tien - du ton -> "TN da duyet" (o lai / vao phieu), thieu -> "Cho hang" + ticket (roi phieu, mang tien da tra neu co).
+ *  Tien van thu nhu don thuong o phieu xuat: "Gửi kế toán" chan toi khi Ke toan duyet du tien (MISSING_CHUYEN_TIEN_APPROVED). */
+export async function choPhepThanhToanSau(
+  env: Env, db: D1Database, donHangId: string, nguoi: string, ghiChu: string | null,
+): Promise<{ ok: true; trangThai: string } | { error: string }> {
+  const d = await db.prepare("SELECT trang_thai_hien_tai, nguoi_tao, ten_lk_snapshot, so_luong_de_xuat FROM dat_don_hang WHERE id = ?")
+    .bind(donHangId)
+    .first<{ trang_thai_hien_tai: string | null; nguoi_tao: string; ten_lk_snapshot: string; so_luong_de_xuat: number }>();
+  if (!d) return { error: "NOT_FOUND" };
+  if (d.trang_thai_hien_tai !== "Cho thanh toan") return { error: "CHI_DON_CHO_THANH_TOAN" };
+  const { du, ton, khuVuc } = await donDuTonKhoCongTy(db, donHangId);
+  const kem = ghiChu ? ` (${ghiChu})` : "";
+  const trangThai = du ? "TN da duyet" : "Cho hang";
+  const lyDo = du
+    ? `Cho phép thanh toán sau${kem}: ${moTaThieuTon(ton, d.so_luong_de_xuat, khuVuc)} — đủ hàng, duyệt (tiền chuyển ở phiếu xuất trước khi gửi Kế toán)`
+    : `Cho phép thanh toán sau${kem}: ${moTaThieuTon(ton, d.so_luong_de_xuat, khuVuc)} — chuyển chờ hàng (tiền chuyển ở phiếu xuất khi hàng về)`;
+  if (!(await ghiTrangThaiDon(db, donHangId, trangThai, nguoi, lyDo, false, "Cho thanh toan"))) return { error: "STATE_CHANGED" };
+  await db.prepare("UPDATE dat_don_hang SET thanh_toan_sau_luc = ?, thanh_toan_sau_boi = ? WHERE id = ?").bind(nowVN(), nguoi, donHangId).run();
+  await tacDongSauDinhTuyen(env, db, donHangId, trangThai, nguoi, lyDo);
+  if (d.nguoi_tao !== nguoi) {
+    await baoNguoiTaoDon(env, db, d.nguoi_tao, du ? "da_duyet" : "cho_hang",
+      `Đơn hàng "${d.ten_lk_snapshot} (x${d.so_luong_de_xuat})" được cho phép thanh toán sau — ${du ? "kho đủ hàng, đã duyệt" : "chuyển chờ hàng"}; tiền vẫn chuyển ở phiếu xuất`, donHangId);
+  }
+  return { ok: true, trangThai };
+}
+
 /** Kho bao HANG DA VE (ticket thieu hang) cho don "Cho hang" -> don tu duyet + vao phieu (mang theo tien da tra). */
 export async function duyetDonKhiHangVe(env: Env, db: D1Database, donHangId: string, nguoi: string, ghiChu: string): Promise<boolean> {
   if (!(await ghiTrangThaiDon(db, donHangId, "TN da duyet", nguoi, ghiChu, true, "Cho hang"))) return false;

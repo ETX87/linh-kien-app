@@ -940,6 +940,8 @@ phiếu PTL (bỏ bước "Cho TN duyet tong" cho đơn mới). TN duyệt tay �
 gợi ý kết quả từng dòng (`DuDoanDuyetHint`), dòng bị chặn khoá nút, dòng sẽ chờ hàng/chờ thanh toán/chờ GS → hộp "Đặt tiếp / Quay
 lại" (`XacNhanTaoDonModal`). Badge GS `choGsDuyet`. `dat_don_hang_log` CHECK thêm 'Cho GS duyet','Cho thanh toan'.
 
+**Cho phép thanh toán sau** (chốt 2026-10-20, v1.374, migration `0094` — "cho phép kế toán hoặc tác nghiệp xác nhận cho phép thanh toán sau với các đơn chờ chuyển tiền"): TN (gồm Kế toán làm thay) / Admin bấm "⏭ Cho phép thanh toán sau" ở chi tiết đơn "Cho thanh toan" → `POST /dat-mua-lk/don-hang/:id/thanh-toan-sau` {ghi_chu?} = `choPhepThanhToanSau()` (`tuDongDuyet.ts`): đủ tồn → "TN da duyet" (vào phiếu), thiếu → "Cho hang" + ticket (`tacDongSauDinhTuyen`), ghi `dat_don_hang.thanh_toan_sau_luc/_boi` (hiện ở chi tiết đơn; `chuaChuyenTienChoHang` bỏ qua đơn đã cho phép). Tiền vẫn thu như đơn thường ở phiếu xuất (sửa/bổ sung tiền bình thường) — "Gửi kế toán" vẫn chặn `MISSING_CHUYEN_TIEN_APPROVED` tới khi Kế toán duyệt đủ tiền (không cần code mới).
+
 **Đưa đơn "Cho thanh toan" vào lại phiếu** (2026-10-20, v1.371 — "DDH-002838 tôi muốn add nó lại vào phiếu để chờ thanh toán thì lại không có
 chức năng để add"): đơn "Cho thanh toan" rời phiếu (TN bỏ đơn, đổi khu vực…) trước đây không có đường vào lại (chỉ tự gom lúc tạo đơn). Nay: (1) nút
 "Đưa vào phiếu chờ thanh toán" ở chi tiết đơn (TN/Kế toán/Admin, đơn Mua/Công nợ không trong phiếu còn hiệu lực) → `POST /dat-mua-lk/don-hang/:id/vao-phieu`

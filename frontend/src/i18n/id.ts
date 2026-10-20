@@ -1896,5 +1896,11 @@ const tuDien: Record<string, string> = {
   "Xác nhận lưu giá 0đ": "Konfirmasi simpan harga 0",
   "Đơn {a} sẽ có giá trị 0đ — đơn sẽ tự động chuyển trạng thái, KHÔNG còn chờ chuyển tiền nữa.": "Pesanan {a} akan bernilai 0 — statusnya berubah otomatis dan TIDAK lagi menunggu transfer uang.",
   "Đơn đang \"Chờ thanh toán\" vì thiếu hàng: kho đủ hàng thì đơn tự duyệt và vào phiếu xuất; vẫn thiếu thì đơn chuyển \"Chờ hàng\" và mở ticket cho Kho.": "Pesanan \"Menunggu pembayaran\" karena stok kurang: jika stok cukup, pesanan otomatis disetujui dan masuk nota keluar; jika masih kurang, pesanan menjadi \"Menunggu barang\" dan tiket dibuka untuk Gudang.",
+  "Cho phép đơn {id} thanh toán sau?\n\nKho đủ hàng → đơn được duyệt và vào phiếu xuất; thiếu hàng → đơn chuyển \"Chờ hàng\" cho Kho xử lý. Tiền vẫn chuyển ở phiếu xuất như đơn bình thường — phiếu không gửi Kế toán được khi chưa chuyển đủ tiền.\n\nGhi chú (không bắt buộc):": "Izinkan pesanan {id} bayar nanti?\n\nJika stok cukup, pesanan disetujui dan masuk nota keluar; jika kurang, pesanan menjadi \"Menunggu barang\" untuk Gudang. Uang tetap ditransfer di nota keluar seperti pesanan biasa — nota tidak bisa dikirim ke Akuntansi sebelum lunas.\n\nCatatan (opsional):",
+  "Cho đơn đi tiếp không chờ chuyển tiền — tiền vẫn phải chuyển đủ ở phiếu xuất trước khi gửi Kế toán": "Lanjutkan pesanan tanpa menunggu pembayaran — uang tetap harus lunas di nota keluar sebelum dikirim ke Akuntansi",
+  "Thanh toán sau": "Bayar nanti",
+  "Đã cho phép bởi {a} · {b}": "Diizinkan oleh {a} · {b}",
+  "Đã cho phép thanh toán sau — đơn {a} → {b}": "Bayar nanti diizinkan — pesanan {a} → {b}",
+  "⏭ Cho phép thanh toán sau": "⏭ Izinkan bayar nanti",
 };
 export default tuDien;

@@ -41,7 +41,7 @@ import { ANH_DA_GHI_NHAN_SQL } from "../lib/bangChungChuyenTien";
 import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
 import { tachComboDong } from "../lib/lkCombo";
 import {
-  deriveLoaiDon, boQuaTbpChoDacThu, canDoiChieuCongNo, nguCanhNhan, danhGiaPhieu, trangThaiSauDuyet, tacDongSauDinhTuyen, duyetDonKhiHangVe, danhGiaLaiDonChoThanhToan,
+  deriveLoaiDon, boQuaTbpChoDacThu, canDoiChieuCongNo, nguCanhNhan, danhGiaPhieu, trangThaiSauDuyet, tacDongSauDinhTuyen, duyetDonKhiHangVe, danhGiaLaiDonChoThanhToan, choPhepThanhToanSau,
   huyDonChoHangTuDong, baoNguoiTaoDon, moTaThieuTon, moTicketChoHangTuDong, baoGsChoDuyet, type DongDanhGia, type KetQuaDong, type KetQuaPhieu,
 } from "../lib/tuDongDuyet";
 
@@ -3301,11 +3301,12 @@ const THIEU_LK_DON_COT = (a: string) => `
 async function chuaChuyenTienChoHang(db: D1Database, donHangId: string): Promise<boolean> {
   const r = await db
     .prepare(
-      `SELECT ddh.bat_buoc_chuyen_tien as bb, ${DAC_THU_DON_SQL("ddh")} as dt, ${THANH_TOAN_DON_SQL("ddh")} as tt
+      `SELECT ddh.bat_buoc_chuyen_tien as bb, ${DAC_THU_DON_SQL("ddh")} as dt, ${THANH_TOAN_DON_SQL("ddh")} as tt, ddh.thanh_toan_sau_luc as tsl
        FROM dat_don_hang ddh LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk WHERE ddh.id = ?`,
     )
     .bind(donHangId)
-    .first<{ bb: number; dt: number; tt: string }>();
+    .first<{ bb: number; dt: number; tt: string; tsl: string | null }>();
+  if (r && r.tsl) return false; // TN/Ke toan da cho phep thanh toan sau (migration 0094)
   return !!r?.bb && !!r.dt && r.tt !== "da_thanh_toan" && r.tt !== "khong_can";
 }
 
@@ -3829,6 +3830,17 @@ datMuaLinhKien.post("/don-hang/:id/day-lai", async (c) => {
 // thi khong con duong nao vao lai phieu - chi luc tao don moi tu gom. TN/Ke toan/Admin dua lai: CUNG logic gom luc tao don
 // (bundleAutoApprovedIntoPxk - vao phieu "Dang tao phieu" cua nguoi nhan, khong co thi tao phieu moi). Don con lien ket phieu da
 // huy ("Ke toan huy") -> bo lien ket truoc; con trong phieu hieu luc -> DON_CON_TRONG_PHIEU.
+// POST /api/dat-mua-lk/don-hang/:id/thanh-toan-sau - { ghi_chu? } (2026-10-20, migration 0094) - TN (gom Ke toan lam thay) / Admin cho don
+// "Cho thanh toan" di tiep khong cho tien (lib/tuDongDuyet.ts choPhepThanhToanSau).
+datMuaLinhKien.post("/don-hang/:id/thanh-toan-sau", async (c) => {
+  if (!canTacNghiep(c) && !c.get("user").la_ke_toan && c.get("user").vai_tro !== "Admin") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const body = await c.req.json<{ ghi_chu?: string }>().catch(() => ({}) as { ghi_chu?: string });
+  const kq = await choPhepThanhToanSau(c.env, c.env.DB, c.req.param("id"), c.get("user").email, body.ghi_chu?.trim().slice(0, 300) || null);
+  if ("error" in kq) return c.json({ error: kq.error }, kq.error === "NOT_FOUND" ? 404 : 409);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, trang_thai: kq.trangThai });
+});
+
 datMuaLinhKien.post("/don-hang/:id/vao-phieu", async (c) => {
   if (!canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const user = c.get("user");

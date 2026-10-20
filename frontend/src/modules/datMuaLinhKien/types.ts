@@ -172,6 +172,9 @@ export interface DonHangRow {
   ma_yeu_cau_su_co: string | null;
   ma_lada?: string | null; // "Mã Lada liên quan" (migration 0054)
   tien_da_tra?: number; // tien da thanh toan don MANG THEO khi chua vao phieu (migration 0056)
+  // TN / Ke toan cho phep thanh toan sau (migration 0094) - don "Cho thanh toan" di tiep khong cho tien.
+  thanh_toan_sau_luc?: string | null;
+  thanh_toan_sau_boi?: string | null;
   // Ticket thieu hang GAN NHAT cua don (GET /don-hang, 2026-09-30).
   tlk_ngay_du_kien?: string | null;
   tlk_ngay_hang_ve?: string | null;
