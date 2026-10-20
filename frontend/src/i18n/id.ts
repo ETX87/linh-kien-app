@@ -1883,5 +1883,10 @@ const tuDien: Record<string, string> = {
   "Đã đặt hàng": "Sudah dipesan",
   "Đơn đang chờ mã này": "Pesanan menunggu kode ini",
   "… và {n} ticket khác": "… dan {n} tiket lainnya",
+  "Không đưa được vào phiếu: ": "Gagal menambahkan ke slip: ",
+  "Đã đưa đơn {a} vào phiếu {b}": "Pesanan {a} ditambahkan ke slip {b}",
+  "Đơn chờ thanh toán chưa nằm trong phiếu nào": "Pesanan menunggu pembayaran ini belum ada di slip mana pun",
+  "Đưa vào phiếu chờ thanh toán": "Tambahkan ke slip menunggu pembayaran",
+  "Đưa đơn {id} vào phiếu đang tạo của người nhận hàng (không có thì tạo phiếu mới) để KTV chuyển tiền?": "Tambahkan pesanan {id} ke slip penerima yang sedang dibuat (atau buat slip baru) agar teknisi mentransfer pembayaran?",
 };
 export default tuDien;

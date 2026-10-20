@@ -940,6 +940,14 @@ phiếu PTL (bỏ bước "Cho TN duyet tong" cho đơn mới). TN duyệt tay �
 gợi ý kết quả từng dòng (`DuDoanDuyetHint`), dòng bị chặn khoá nút, dòng sẽ chờ hàng/chờ thanh toán/chờ GS → hộp "Đặt tiếp / Quay
 lại" (`XacNhanTaoDonModal`). Badge GS `choGsDuyet`. `dat_don_hang_log` CHECK thêm 'Cho GS duyet','Cho thanh toan'.
 
+**Đưa đơn "Cho thanh toan" vào lại phiếu** (2026-10-20, v1.371 — "DDH-002838 tôi muốn add nó lại vào phiếu để chờ thanh toán thì lại không có
+chức năng để add"): đơn "Cho thanh toan" rời phiếu (TN bỏ đơn, đổi khu vực…) trước đây không có đường vào lại (chỉ tự gom lúc tạo đơn). Nay: (1) nút
+"Đưa vào phiếu chờ thanh toán" ở chi tiết đơn (TN/Kế toán/Admin, đơn Mua/Công nợ không trong phiếu còn hiệu lực) → `POST /dat-mua-lk/don-hang/:id/vao-phieu`
+= CÙNG `bundleAutoApprovedIntoPxk` (phiếu đang tạo của người nhận, không có thì tạo mới; liên kết phiếu "Ke toan huy" tự gỡ trước); (2) tạo phiếu tay /
+`POST /:id/dong` / danh sách `don-hang-kha-dung` (+ counts) nhận đơn Mua/Công nợ "TN da duyet" HOẶC "Cho thanh toan" (`DON_VAO_PHIEU_DUOC` ở
+`phieuXuatKho.ts`; trả `trang_thai_hien_tai`, modal tạo phiếu gắn nhãn "Chờ thanh toán"). "Gửi kế toán" vẫn chặn `DON_CHUA_DUYET` tới khi Kế toán xác nhận
+tiền (`xuLyDonChoThanhToan`).
+
 **Sửa đơn "Cho thanh toan" → đánh giá lại tồn kho** (sửa 2026-10-16, v1.351): PATCH sửa đơn đổi mã LK / SL → `danhGiaLaiDonChoThanhToan()`
 (`tuDongDuyet.ts`): đủ tồn kho công ty (FIFO `donDuTonKhoCongTy`) → "TN da duyet" tự động + báo người tạo; vẫn thiếu → giữ nguyên (Kế toán
 xác nhận tiền xong xét lại). Trước đó DDH-002638 đổi sang mã còn hàng vẫn kẹt "kho còn 0" (migration `0086` gỡ riêng đơn này).

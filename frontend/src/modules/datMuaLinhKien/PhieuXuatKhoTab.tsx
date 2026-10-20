@@ -1216,7 +1216,10 @@ export function PhieuXuatKhoTab({
                               <span className="truncate font-mono text-[13px] font-semibold text-[var(--color-text)]">{r.ma_lk}</span>
                               <span className="shrink-0"><LoaiDeXuatBadge loaiDon={r.loai_don ?? chonLoaiDon} loaiDeXuat={r.loai_de_xuat} /></span>
                             </div>
-                            <div className="truncate text-[13px] text-[var(--color-text-body)]">{r.ten_lk_snapshot ?? r.ma_lk}</div>
+                            <div className="truncate text-[13px] text-[var(--color-text-body)]">
+                              {r.trang_thai_hien_tai === "Cho thanh toan" && <span className="mr-1.5"><Badge tone="warning" variant="dot">{t("Chờ thanh toán")}</Badge></span>}
+                              {r.ten_lk_snapshot ?? r.ma_lk}
+                            </div>
                             <div className="flex items-center justify-between gap-2 text-xs">
                               <span className="text-[var(--color-text-secondary)]">
                                 {t("SL {a}", { a: r.so_luong_de_xuat })}
@@ -1271,7 +1274,10 @@ export function PhieuXuatKhoTab({
                               <input type="checkbox" checked={chon} onChange={() => toggleDonHang(r.id)} />
                             </td>
                             <td className="px-2.5 py-2 font-mono">{r.ma_lk}</td>
-                            <td className="px-2.5 py-2">{r.ten_lk_snapshot ?? r.ma_lk}</td>
+                            <td className="px-2.5 py-2">
+                              {r.trang_thai_hien_tai === "Cho thanh toan" && <span className="mr-1.5"><Badge tone="warning" variant="dot">{t("Chờ thanh toán")}</Badge></span>}
+                              {r.ten_lk_snapshot ?? r.ma_lk}
+                            </td>
                             <td className="px-2.5 py-2 whitespace-nowrap">
                               <LoaiDeXuatBadge loaiDon={r.loai_don ?? chonLoaiDon} loaiDeXuat={r.loai_de_xuat} />
                             </td>

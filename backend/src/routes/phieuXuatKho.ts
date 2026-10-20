@@ -545,6 +545,10 @@ phieuXuatKho.get("/status-counts", async (c) => {
   return c.json({ counts });
 });
 
+// Don Mua/Cong no duoc dua vao phieu (tao phieu tay, them dong, danh sach kha dung): "TN da duyet" + "Cho thanh toan" (2026-10-20,
+// v1.371 - don cho thanh toan da roi phieu khong co duong vao lai; "Gửi kế toán" van chan DON_CHUA_DUYET toi khi Ke toan xac nhan tien).
+const DON_VAO_PHIEU_DUOC = "'TN da duyet', 'Cho thanh toan'";
+
 // GET /api/phieu-xuat-kho/don-hang-kha-dung - danh sach dong dat_don_hang DA "TN da duyet" VA CHUA
 // gan vao PXK nao (ma_xuat_kho IS NULL) - nguon cho picker chon dong luc "Tao phieu xuat kho".
 // CHOT 2026-08-14 (ra soat UX toan dien): truoc day o nay la 1 o nhap tay/dan chuoi ID tu do, nhung
@@ -592,14 +596,14 @@ phieuXuatKho.get("/don-hang-kha-dung", async (c) => {
     whereSql += " AND ddh.loai_don = ?";
     binds.push(loaiDon);
   }
-  whereSql += isTraHang ? " AND ddh.trang_thai_hien_tai = 'TN da duyet'" : ` AND ${latestDonHangLogStatusExpr("ddh.id")} = 'TN da duyet'`;
+  whereSql += isTraHang ? " AND ddh.trang_thai_hien_tai = 'TN da duyet'" : ` AND ${latestDonHangLogStatusExpr("ddh.id")} IN (${DON_VAO_PHIEU_DUOC})`;
   const locNgoai = khaDungLocNgoai(c);
   whereSql += locNgoai.sql;
   binds.push(...locNgoai.binds);
   const { results } = await c.env.DB.prepare(
     `SELECT ddh.id, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat, ddh.gia_chot, ddh.gia_de_xuat,
        ddh.updated_at, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.so_luong_thuc_xuat, ddh.so_tien_cong_no, ddh.ngay_tao,
-       ddh.ma_yeu_cau_su_co, ddh.ma_lada, ddh.yeu_cau_hoa_don, ddh.tien_da_tra, ddh.tien_da_tra_pxk
+       ddh.ma_yeu_cau_su_co, ddh.ma_lada, ddh.yeu_cau_hoa_don, ddh.tien_da_tra, ddh.tien_da_tra_pxk, ddh.trang_thai_hien_tai
      FROM dat_don_hang ddh
      WHERE ${whereSql}
      ORDER BY ddh.nguoi_nhan_hang, ddh.updated_at`,
@@ -619,7 +623,7 @@ phieuXuatKho.get("/don-hang-kha-dung-counts", async (c) => {
   const locNgoai = khaDungLocNgoai(c); // cung bo loc ngoai voi GET /don-hang-kha-dung (2026-09-29)
   const muaCongNo = await c.env.DB.prepare(
     `SELECT ddh.loai_don as loai_don, COUNT(*) as n FROM dat_don_hang ddh
-     WHERE ddh.loai_don != 'tra_hang' AND ddh.ma_xuat_kho IS NULL AND ${latestDonHangLogStatusExpr("ddh.id")} = 'TN da duyet'${locNgoai.sql}
+     WHERE ddh.loai_don != 'tra_hang' AND ddh.ma_xuat_kho IS NULL AND ${latestDonHangLogStatusExpr("ddh.id")} IN (${DON_VAO_PHIEU_DUOC})${locNgoai.sql}
      GROUP BY ddh.loai_don`,
   ).bind(...locNgoai.binds).all<{ loai_don: string; n: number }>();
   const traHang = await c.env.DB.prepare(
@@ -808,7 +812,7 @@ phieuXuatKho.post("/", async (c) => {
       ? `SELECT id FROM dat_don_hang ddh WHERE ddh.id IN (${placeholders}) AND ddh.loai_don = 'tra_hang' AND ddh.ma_xuat_kho IS NULL
            AND ddh.trang_thai_hien_tai = 'TN da duyet'`
       : `SELECT id FROM dat_don_hang ddh WHERE ddh.id IN (${placeholders}) AND ddh.loai_don != 'tra_hang' AND ddh.ma_xuat_kho IS NULL
-           AND ${latestDonHangLogStatusExpr("ddh.id")} = 'TN da duyet'`,
+           AND ${latestDonHangLogStatusExpr("ddh.id")} IN (${DON_VAO_PHIEU_DUOC})`,
   )
     .bind(...body.dat_don_hang_ids)
     .all<{ id: string }>();
@@ -1568,7 +1572,7 @@ phieuXuatKho.post("/:id/dong", async (c) => {
       ? `SELECT id FROM dat_don_hang ddh WHERE ddh.id IN (${placeholders}) AND ddh.loai_don = 'tra_hang' AND ddh.ma_xuat_kho IS NULL
            AND ddh.nguoi_nhan_hang = ? AND ddh.trang_thai_hien_tai = 'TN da duyet'`
       : `SELECT id FROM dat_don_hang ddh WHERE ddh.id IN (${placeholders}) AND ddh.loai_don = ? AND ddh.ma_xuat_kho IS NULL
-           AND ddh.nguoi_nhan_hang = ? AND ${latestDonHangLogStatusExpr("ddh.id")} = 'TN da duyet'`,
+           AND ddh.nguoi_nhan_hang = ? AND ${latestDonHangLogStatusExpr("ddh.id")} IN (${DON_VAO_PHIEU_DUOC})`,
   )
     .bind(...body.dat_don_hang_ids, isTraHang ? pxk.nguoi_nhan_hang : pxk.loai_don, ...(isTraHang ? [] : [pxk.nguoi_nhan_hang]))
     .all<{ id: string }>();

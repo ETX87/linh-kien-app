@@ -234,6 +234,17 @@ export function DonHangDetailModal({
     onError: (err) => addToast(t("Không đẩy lại được đơn: ") + describeApiError(err)),
   });
 
+  // Dua don "Cho thanh toan" da roi phieu vao lai phieu cho thanh toan (2026-10-20, v1.371) - POST /don-hang/:id/vao-phieu.
+  const vaoPhieuMutation = useMutation({
+    mutationFn: () => api.post<{ ok: true; pxk: string | null }>(`/dat-mua-lk/don-hang/${id}/vao-phieu`, {}),
+    onSuccess: (r) => {
+      invalidate();
+      invalidatePipelineCounts(qc);
+      addToast(t("Đã đưa đơn {a} vào phiếu {b}", { a: id, b: r.pxk ?? "" }));
+    },
+    onError: (err) => addToast(t("Không đưa được vào phiếu: ") + describeApiError(err)),
+  });
+
   // "Lý do chậm" khi dòng còn "Cho TN duyệt" quá hạn (phản hồi: "danh sách chờ TN duyệt đang không có
   // nơi để nhập lý do quá hạn") - cùng pattern/endpoint với PhieuXuatKhoTab.tsx. SUA (phan hoi QA
   // 2026-08-31, muc #5): doi tu PATCH /don-hang/:id { ly_do_cham } (1 lan duy nhat, khoa vinh vien) ->
@@ -984,6 +995,26 @@ export function DonHangDetailModal({
                   )}
                   <HoaDonGiaNiemYet don={d} />
                   {!pxk && <TienDaTraDon don={d} />}
+                </span>
+              </KvRow>
+            )}
+            {canTacNghiep && d.trang_thai === "Cho thanh toan" && (d.loai_don === "mua" || d.loai_don === "cong_no") && (!pxk || pxk.trang_thai === "Ke toan huy") && (
+              <KvRow label={t("Phiếu xuất kho")}>
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  <span className="text-[12px] text-[var(--color-text-secondary)]">{t("Đơn chờ thanh toán chưa nằm trong phiếu nào")}</span>
+                  <Btn
+                    size="sm"
+                    variant="subtle"
+                    loading={vaoPhieuMutation.isPending}
+                    disabled={vaoPhieuMutation.isPending}
+                    onClick={() => {
+                      if (window.confirm(t("Đưa đơn {id} vào phiếu đang tạo của người nhận hàng (không có thì tạo phiếu mới) để KTV chuyển tiền?", { id: d.id }))) {
+                        vaoPhieuMutation.mutate();
+                      }
+                    }}
+                  >
+                    {t("Đưa vào phiếu chờ thanh toán")}
+                  </Btn>
                 </span>
               </KvRow>
             )}

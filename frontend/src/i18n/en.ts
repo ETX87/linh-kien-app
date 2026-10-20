@@ -1883,5 +1883,10 @@ const tuDien: Record<string, string> = {
   "Đã đặt hàng": "Ordered",
   "Đơn đang chờ mã này": "Orders waiting for this part",
   "… và {n} ticket khác": "… and {n} more tickets",
+  "Không đưa được vào phiếu: ": "Could not add to slip: ",
+  "Đã đưa đơn {a} vào phiếu {b}": "Added order {a} to slip {b}",
+  "Đơn chờ thanh toán chưa nằm trong phiếu nào": "This awaiting-payment order is not in any slip",
+  "Đưa vào phiếu chờ thanh toán": "Add to slip for payment",
+  "Đưa đơn {id} vào phiếu đang tạo của người nhận hàng (không có thì tạo phiếu mới) để KTV chuyển tiền?": "Add order {id} to the recipient's open slip (or create a new slip) so the technician can transfer payment?",
 };
 export default tuDien;

@@ -3824,6 +3824,41 @@ datMuaLinhKien.post("/don-hang/:id/day-lai", async (c) => {
   return c.json({ ok: true, trang_thai: "Cho TN duyet" });
 });
 
+// POST /api/dat-mua-lk/don-hang/:id/vao-phieu - { ghi_chu? } (2026-10-20, v1.371 - "DDH-002838 tôi muốn add nó lại vào phiếu để chờ
+// thanh toán thì lại không có chức năng để add"): don "Cho thanh toan" (Mua/Cong no) da RA KHOI phieu (TN bo don, doi khu vuc...)
+// thi khong con duong nao vao lai phieu - chi luc tao don moi tu gom. TN/Ke toan/Admin dua lai: CUNG logic gom luc tao don
+// (bundleAutoApprovedIntoPxk - vao phieu "Dang tao phieu" cua nguoi nhan, khong co thi tao phieu moi). Don con lien ket phieu da
+// huy ("Ke toan huy") -> bo lien ket truoc; con trong phieu hieu luc -> DON_CON_TRONG_PHIEU.
+datMuaLinhKien.post("/don-hang/:id/vao-phieu", async (c) => {
+  if (!canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const user = c.get("user");
+  const id = c.req.param("id");
+  const body = await c.req.json<{ ghi_chu?: string }>().catch(() => ({}) as { ghi_chu?: string });
+  const ddh = await c.env.DB.prepare(
+    "SELECT loai_don, trang_thai_hien_tai as trang_thai, nguoi_nhan_hang, ma_xuat_kho FROM dat_don_hang WHERE id = ?",
+  ).bind(id).first<{ loai_don: string; trang_thai: string; nguoi_nhan_hang: string | null; ma_xuat_kho: string | null }>();
+  if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
+  if (ddh.trang_thai !== "Cho thanh toan") return c.json({ error: "CHI_DON_CHO_THANH_TOAN" }, 409);
+  if ((ddh.loai_don !== "mua" && ddh.loai_don !== "cong_no") || !ddh.nguoi_nhan_hang) return c.json({ error: "LOAI_DON_KHONG_HOP_LE" }, 409);
+  const conHieuLuc = await c.env.DB.prepare(
+    `SELECT p.id FROM phieu_xuat_kho_dong d JOIN phieu_xuat_kho p ON p.id = d.phieu_xuat_kho_id
+     WHERE d.dat_don_hang_id = ? AND p.trang_thai_hien_tai != 'Ke toan huy' LIMIT 1`,
+  ).bind(id).first<{ id: string }>();
+  if (conHieuLuc) return c.json({ error: "DON_CON_TRONG_PHIEU", pxk: conHieuLuc.id }, 409);
+  const now = nowVN();
+  if (ddh.ma_xuat_kho != null) {
+    const bo = await c.env.DB.prepare("UPDATE dat_don_hang SET ma_xuat_kho = NULL, updated_at = ? WHERE id = ? AND ma_xuat_kho = ?")
+      .bind(now, id, ddh.ma_xuat_kho).run();
+    if (!bo.meta.changes) return c.json({ error: "STATE_CHANGED" }, 409);
+  }
+  const pxkId = await bundleAutoApprovedIntoPxk(c.env, c.env.DB, user.email, ddh.nguoi_nhan_hang, ddh.loai_don, [{ donHangId: id, soTien: 0 }]);
+  await c.env.DB.prepare("INSERT INTO dat_don_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Cho thanh toan', ?, ?, ?)")
+    .bind(id, user.email, now, `Đưa lại vào phiếu ${pxkId ?? ""} chờ thanh toán${body.ghi_chu?.trim() ? `: ${body.ghi_chu.trim()}` : ""}`)
+    .run();
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, pxk: pxkId });
+});
+
 // PATCH /api/dat-mua-lk/don-hang/:id/dac-thu - { dac_thu: boolean } (2026-10-02, migration 0064) - TN/Admin bat/tat "Linh kiện
 // đặc thù" CUA RIENG don nay (thang danh muc). Doi luong theo gia tri moi:
 //  - TAT khi don "Cho TBP xac nhan" -> "Cho TN duyet" (thoat buoc TBP); TAT -> khong con bat buoc thanh toan moi "Cho hang".
