@@ -103,6 +103,9 @@ interface ThieuLkRefInfo {
   nguoi_tiep_nhan?: string | null;
 }
 
+// Trang thai DONG - sua gia ve 0 khong can hoi (khong con chuyen tien nao).
+const DON_DONG_GIA_0 = ["Da huy", "TN tu choi"];
+
 export function DonHangDetailModal({
   id,
   onClose,
@@ -236,11 +239,13 @@ export function DonHangDetailModal({
 
   // Dua don "Cho thanh toan" da roi phieu vao lai phieu cho thanh toan (2026-10-20, v1.371) - POST /don-hang/:id/vao-phieu.
   const vaoPhieuMutation = useMutation({
-    mutationFn: () => api.post<{ ok: true; pxk: string | null }>(`/dat-mua-lk/don-hang/${id}/vao-phieu`, {}),
+    mutationFn: () => api.post<{ ok: true; pxk: string | null; trang_thai?: string | null }>(`/dat-mua-lk/don-hang/${id}/vao-phieu`, {}),
     onSuccess: (r) => {
       invalidate();
       invalidatePipelineCounts(qc);
-      addToast(t("Đã đưa đơn {a} vào phiếu {b}", { a: id, b: r.pxk ?? "" }));
+      // Backend xet lai truoc (kho du -> tu duyet; het tien phai chuyen -> cho hang) thi khong vao phieu cho thanh toan nua.
+      if (r.trang_thai) addToast(t("Đơn {a} đã được xét lại → {b}", { a: id, b: trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, r.trang_thai) }));
+      else addToast(t("Đã đưa đơn {a} vào phiếu {b}", { a: id, b: r.pxk ?? "" }));
     },
     onError: (err) => addToast(t("Không đưa được vào phiếu: ") + describeApiError(err)),
   });
@@ -383,6 +388,9 @@ export function DonHangDetailModal({
   // draft THUC SU khac ban goc - truoc day xoa draft ngay khong canh bao, du da sua nhieu truong.
   const [editDraftSnapshot, setEditDraftSnapshot] = useState<DonHangDraft | null>(null);
   const [confirmCancelPending, setConfirmCancelPending] = useState(false);
+  // Gia tri don ve 0 khi sua (2026-10-20, "nếu giá trị đơn hàng bị chuyển về = 0 sẽ hiện cảnh báo nhắc nhở người đang sửa giá...") -
+  // giu body cho xac nhan; null = khong hoi.
+  const [xacNhanVe0, setXacNhanVe0] = useState<Record<string, unknown> | null>(null);
   // "khac..." mo Select day du cho Loai de xuat trong form sua - chi 1 dong nen dung 1 boolean thay
   // vi Set<number> nhu TaoDonTab.
   const [otherLdeOpen, setOtherLdeOpen] = useState(false);
@@ -512,8 +520,59 @@ export function DonHangDetailModal({
       if (!pxk) body.ma_xuat_kho = tnCoreDraft.ma_xuat_kho.trim() || undefined;
       if (slThucXuat !== slGoc) body.ghi_chu_so_luong = tnCoreDraft.ghi_chu_so_luong.trim() || undefined;
     }
+    // Don phat sinh tien (Mua / TRỪ CÔNG NỢ) dang mo ma gia tri (gia chot, khong co thi gia de xuat) x SL tu > 0 ve 0 -> hoi lai truoc khi
+    // luu: don se khong con cho chuyen tien ("Cho thanh toan" -> backend danhGiaLaiDonChoThanhToan tu duyet / chuyen cho hang).
+    if (d && (d.loai_don === "mua" || laTruCongNo(d.loai_de_xuat ?? "")) && !DON_DONG_GIA_0.includes(d.trang_thai ?? "")) {
+      const giaCu = d.gia_chot ?? d.gia_de_xuat ?? 0;
+      const slCu = d.so_luong_thuc_xuat ?? d.so_luong_de_xuat;
+      const giaMoi = typeof body.gia_chot === "number" ? body.gia_chot : giaCu;
+      const slMoi = typeof body.so_luong_thuc_xuat === "number" ? body.so_luong_thuc_xuat : slCu;
+      if (giaCu * slCu > 0 && giaMoi * slMoi === 0) {
+        setXacNhanVe0(body);
+        return;
+      }
+    }
     editMutation.mutate(body);
   }
+
+  const hopXacNhanVe0 = xacNhanVe0 && d ? (
+    <Modal
+      open
+      title={t("Giá trị đơn hàng về 0đ")}
+      onClose={() => setXacNhanVe0(null)}
+      footer={
+        <>
+          <Btn variant="ghost" onClick={() => setXacNhanVe0(null)}>{t("Không, sửa lại")}</Btn>
+          <Btn
+            variant="primary"
+            disabled={editMutation.isPending}
+            onClick={() => {
+              editMutation.mutate(xacNhanVe0);
+              setXacNhanVe0(null);
+            }}
+          >
+            {t("Xác nhận lưu giá 0đ")}
+          </Btn>
+        </>
+      }
+    >
+      <div className="space-y-2 text-sm">
+        <div className="rounded-lg bg-[var(--color-warning-soft)] px-3 py-2 text-[var(--color-text-body)]">
+          {t("Đơn {a} sẽ có giá trị 0đ — đơn sẽ tự động chuyển trạng thái, KHÔNG còn chờ chuyển tiền nữa.", { a: d.id })}
+        </div>
+        {d.trang_thai === "Cho thanh toan" ? (
+          <div className="text-[13px] text-[var(--color-text-secondary)]">
+            {t("Đơn đang \"Chờ thanh toán\" vì thiếu hàng: kho đủ hàng thì đơn tự duyệt và vào phiếu xuất; vẫn thiếu thì đơn chuyển \"Chờ hàng\" và mở ticket cho Kho.")}
+          </div>
+        ) : (
+          <div className="text-[13px] text-[var(--color-text-secondary)]">
+            {t("Tiền cần chuyển của phiếu xuất chứa đơn sẽ giảm tương ứng (tiền đã chuyển thừa về quỹ dư của người nhận).")}
+          </div>
+        )}
+        <div className="text-[13px]">{t("Bạn có chắc muốn lưu giá 0đ?")}</div>
+      </div>
+    </Modal>
+  ) : null;
 
   const tnSlThucXuatDaDoi = !!tnCoreDraft && Number(tnCoreDraft.so_luong_thuc_xuat) !== (d?.so_luong_thuc_xuat ?? d?.so_luong_de_xuat);
   const editCanSave =
@@ -862,6 +921,7 @@ export function DonHangDetailModal({
         </>
       }
     >
+      {hopXacNhanVe0}
       {isLoading ? (
         <div className="text-sm text-[var(--ink-500)] py-4 text-center">{t("Đang tải...")}</div>
       ) : !d ? null : (

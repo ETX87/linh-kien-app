@@ -3851,6 +3851,13 @@ datMuaLinhKien.post("/don-hang/:id/vao-phieu", async (c) => {
       .bind(now, id, ddh.ma_xuat_kho).run();
     if (!bo.meta.changes) return c.json({ error: "STATE_CHANGED" }, 409);
   }
+  // Xet lai truoc (2026-10-20, bug DDH-002733): kho da du -> tu duyet + vao phieu; het tien phai chuyen (gia chot 0...) -> "Cho hang" +
+  // ticket. Dua don 0d vao phieu 0d se ket mai (phieu khong co buoc Ke toan xac nhan tien).
+  if (await danhGiaLaiDonChoThanhToan(c.env, c.env.DB, id, user.email, "đưa lại vào phiếu")) {
+    const sau = await c.env.DB.prepare("SELECT trang_thai_hien_tai FROM dat_don_hang WHERE id = ?").bind(id).first<{ trang_thai_hien_tai: string }>();
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+    return c.json({ ok: true, pxk: null, trang_thai: sau?.trang_thai_hien_tai ?? null });
+  }
   const pxkId = await bundleAutoApprovedIntoPxk(c.env, c.env.DB, user.email, ddh.nguoi_nhan_hang, ddh.loai_don, [{ donHangId: id, soTien: 0 }]);
   await c.env.DB.prepare("INSERT INTO dat_don_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Cho thanh toan', ?, ?, ?)")
     .bind(id, user.email, now, `Đưa lại vào phiếu ${pxkId ?? ""} chờ thanh toán${body.ghi_chu?.trim() ? `: ${body.ghi_chu.trim()}` : ""}`)
@@ -4291,9 +4298,17 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
     // Doi ma LK/SL/SL thuc xuat lam doi tong don trong ngay cua KTV (chiet khau, chot 2026-09-28) -> tinh
     // lai CAC PXK dang tao KHAC cua KTV (PXK chua dong nay vua tinh o tren).
     if (thayDoiTinhTien) await taiTinhPxkMoCuaKtv(c.env.DB, existing.nguoi_nhan_hang, user.email, existing.pxk_id ?? undefined);
-    // Don "Cho thanh toan" (thieu ton luc tao) doi ma LK / SL -> danh gia lai ton kho ngay, du thi tu duyet (2026-10-16).
-    if (!trangThaiLuongMoi && (next.ma_lk !== existing.ma_lk || next.so_luong_de_xuat !== existing.so_luong_de_xuat)) {
-      await danhGiaLaiDonChoThanhToan(c.env, c.env.DB, id, user.email, next.ma_lk !== existing.ma_lk ? `đổi mã LK ${existing.ma_lk} → ${next.ma_lk}` : `đổi SL ${existing.so_luong_de_xuat} → ${next.so_luong_de_xuat}`);
+    // Don "Cho thanh toan" (thieu ton luc tao) doi ma LK / SL -> danh gia lai ton kho ngay, du thi tu duyet (2026-10-16); + doi gia chot / SL
+    // thuc xuat / loai de xuat (2026-10-20, bug DDH-002733 gia chot -> 0): het tien phai chuyen ma van thieu -> "Cho hang" + ticket.
+    if (!trangThaiLuongMoi) {
+      const lyDoSua =
+        next.ma_lk !== existing.ma_lk ? `đổi mã LK ${existing.ma_lk} → ${next.ma_lk}`
+        : next.so_luong_de_xuat !== existing.so_luong_de_xuat ? `đổi SL ${existing.so_luong_de_xuat} → ${next.so_luong_de_xuat}`
+        : next.gia_chot !== existing.gia_chot ? `đổi giá chốt ${existing.gia_chot ?? "—"} → ${next.gia_chot ?? "—"}`
+        : next.so_luong_thuc_xuat !== existing.so_luong_thuc_xuat ? `đổi SL thực xuất ${existing.so_luong_thuc_xuat ?? "—"} → ${next.so_luong_thuc_xuat ?? "—"}`
+        : next.loai_de_xuat !== existing.loai_de_xuat ? `đổi loại đề xuất ${existing.loai_de_xuat ?? "—"} → ${next.loai_de_xuat ?? "—"}`
+        : null;
+      if (lyDoSua) await danhGiaLaiDonChoThanhToan(c.env, c.env.DB, id, user.email, lyDoSua);
     }
     if (trangThaiLuongMoi) {
       c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));

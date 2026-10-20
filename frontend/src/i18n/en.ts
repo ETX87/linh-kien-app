@@ -1888,5 +1888,13 @@ const tuDien: Record<string, string> = {
   "Đơn chờ thanh toán chưa nằm trong phiếu nào": "This awaiting-payment order is not in any slip",
   "Đưa vào phiếu chờ thanh toán": "Add to slip for payment",
   "Đưa đơn {id} vào phiếu đang tạo của người nhận hàng (không có thì tạo phiếu mới) để KTV chuyển tiền?": "Add order {id} to the recipient's open slip (or create a new slip) so the technician can transfer payment?",
+  "Đơn {a} đã được xét lại → {b}": "Order {a} was re-evaluated → {b}",
+  "Bạn có chắc muốn lưu giá 0đ?": "Are you sure you want to save a price of 0?",
+  "Giá trị đơn hàng về 0đ": "Order value becomes 0",
+  "Không, sửa lại": "No, keep editing",
+  "Tiền cần chuyển của phiếu xuất chứa đơn sẽ giảm tương ứng (tiền đã chuyển thừa về quỹ dư của người nhận).": "The delivery note amount to transfer will drop accordingly (any overpayment goes back to the recipient’s surplus fund).",
+  "Xác nhận lưu giá 0đ": "Confirm saving price 0",
+  "Đơn {a} sẽ có giá trị 0đ — đơn sẽ tự động chuyển trạng thái, KHÔNG còn chờ chuyển tiền nữa.": "Order {a} will be worth 0 — its status will change automatically and it will NO longer wait for a money transfer.",
+  "Đơn đang \"Chờ thanh toán\" vì thiếu hàng: kho đủ hàng thì đơn tự duyệt và vào phiếu xuất; vẫn thiếu thì đơn chuyển \"Chờ hàng\" và mở ticket cho Kho.": "The order is \"Awaiting payment\" because stock is short: if stock is sufficient it is auto-approved and added to a delivery note; if still short it moves to \"Awaiting stock\" and a ticket is opened for the warehouse.",
 };
 export default tuDien;

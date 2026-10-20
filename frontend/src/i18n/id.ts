@@ -1888,5 +1888,13 @@ const tuDien: Record<string, string> = {
   "Đơn chờ thanh toán chưa nằm trong phiếu nào": "Pesanan menunggu pembayaran ini belum ada di slip mana pun",
   "Đưa vào phiếu chờ thanh toán": "Tambahkan ke slip menunggu pembayaran",
   "Đưa đơn {id} vào phiếu đang tạo của người nhận hàng (không có thì tạo phiếu mới) để KTV chuyển tiền?": "Tambahkan pesanan {id} ke slip penerima yang sedang dibuat (atau buat slip baru) agar teknisi mentransfer pembayaran?",
+  "Đơn {a} đã được xét lại → {b}": "Pesanan {a} telah dievaluasi ulang → {b}",
+  "Bạn có chắc muốn lưu giá 0đ?": "Yakin ingin menyimpan harga 0?",
+  "Giá trị đơn hàng về 0đ": "Nilai pesanan menjadi 0",
+  "Không, sửa lại": "Tidak, ubah lagi",
+  "Tiền cần chuyển của phiếu xuất chứa đơn sẽ giảm tương ứng (tiền đã chuyển thừa về quỹ dư của người nhận).": "Jumlah transfer nota keluar akan berkurang sesuai (kelebihan bayar kembali ke dana lebih penerima).",
+  "Xác nhận lưu giá 0đ": "Konfirmasi simpan harga 0",
+  "Đơn {a} sẽ có giá trị 0đ — đơn sẽ tự động chuyển trạng thái, KHÔNG còn chờ chuyển tiền nữa.": "Pesanan {a} akan bernilai 0 — statusnya berubah otomatis dan TIDAK lagi menunggu transfer uang.",
+  "Đơn đang \"Chờ thanh toán\" vì thiếu hàng: kho đủ hàng thì đơn tự duyệt và vào phiếu xuất; vẫn thiếu thì đơn chuyển \"Chờ hàng\" và mở ticket cho Kho.": "Pesanan \"Menunggu pembayaran\" karena stok kurang: jika stok cukup, pesanan otomatis disetujui dan masuk nota keluar; jika masih kurang, pesanan menjadi \"Menunggu barang\" dan tiket dibuka untuk Gudang.",
 };
 export default tuDien;
