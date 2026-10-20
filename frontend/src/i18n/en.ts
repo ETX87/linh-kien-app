@@ -1905,5 +1905,7 @@ const tuDien: Record<string, string> = {
   "Mã này chưa có linh kiện tương đương nào trong nhóm thay thế (Bảng giá › Linh kiện thay thế).": "This code has no equivalent parts in a substitute group yet (Price list › Substitute parts).",
   "Đơn gốc đang đặt {ma}. Chọn linh kiện tương đương (cùng nhóm thay thế) Kho đang có — đơn đổi sang mã mới (giá theo mã mới), ticket ghi hàng đã về, đơn tự duyệt và vào phiếu xuất kho.": "The original order is for {ma}. Pick an equivalent part (same substitute group) the warehouse has — the order switches to the new code (new code's price), the ticket is marked as arrived, and the order is auto-approved into a delivery note.",
   "Đổi LK tương đương": "Switch to equivalent part",
+  "Kho từ chối bắt buộc nhập lý do": "Warehouse rejection requires a reason",
+  "Lý do từ chối (bắt buộc, áp dụng cho {a} dòng đã chọn — KTV nhận được lý do này):": "Rejection reason (required, applies to the {a} selected rows — the technician receives this reason):",
 };
 export default tuDien;

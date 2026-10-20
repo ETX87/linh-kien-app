@@ -1905,5 +1905,7 @@ const tuDien: Record<string, string> = {
   "Mã này chưa có linh kiện tương đương nào trong nhóm thay thế (Bảng giá › Linh kiện thay thế).": "Kode ini belum punya suku cadang setara di grup pengganti (Daftar harga › Suku cadang pengganti).",
   "Đơn gốc đang đặt {ma}. Chọn linh kiện tương đương (cùng nhóm thay thế) Kho đang có — đơn đổi sang mã mới (giá theo mã mới), ticket ghi hàng đã về, đơn tự duyệt và vào phiếu xuất kho.": "Pesanan asli untuk {ma}. Pilih suku cadang setara (grup pengganti yang sama) yang tersedia di gudang — pesanan beralih ke kode baru (harga kode baru), tiket dicatat barang tiba, dan pesanan otomatis disetujui masuk ke nota keluar.",
   "Đổi LK tương đương": "Ganti suku cadang setara",
+  "Kho từ chối bắt buộc nhập lý do": "Penolakan gudang wajib mengisi alasan",
+  "Lý do từ chối (bắt buộc, áp dụng cho {a} dòng đã chọn — KTV nhận được lý do này):": "Alasan penolakan (wajib, berlaku untuk {a} baris terpilih — teknisi menerima alasan ini):",
 };
 export default tuDien;

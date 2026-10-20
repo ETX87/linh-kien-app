@@ -533,7 +533,8 @@ export function ThieuLkTab({
   }
 
   const bulkMutation = useMutation({
-    mutationFn: (trangThai: string) => api.post<{ results: Record<string, string> }>("/dat-mua-lk/thieu-lk/bulk-log", { ids: [...selected], trang_thai: trangThai }),
+    mutationFn: (args: { trangThai: string; ghiChu?: string }) =>
+      api.post<{ results: Record<string, string> }>("/dat-mua-lk/thieu-lk/bulk-log", { ids: [...selected], trang_thai: args.trangThai, ghi_chu: args.ghiChu }),
     onSuccess: (res) => {
       const entries = Object.entries(res.results);
       const failed = entries.filter(([, v]) => v !== "ok");
@@ -662,7 +663,17 @@ export function ThieuLkTab({
                 label={actionLabel(s)}
                 confirmLabel={t("Xác nhận chuyển {a} dòng sang \"{b}\"?", { a: selected.size, b: actionLabel(s) })}
                 count={selected.size}
-                onConfirm={() => bulkMutation.mutate(s)}
+                onConfirm={() => {
+                  // Kho tu choi (sai TT) bat buoc ly do (2026-10-20) - hang loat dung chung 1 ly do cho moi dong da chon.
+                  if (s === "Kho tu choi sai TT") {
+                    const lyDo = window.prompt(t("Lý do từ chối (bắt buộc, áp dụng cho {a} dòng đã chọn — KTV nhận được lý do này):", { a: selected.size }))?.trim();
+                    if (!lyDo) {
+                      if (lyDo !== undefined) addToast(t("Kho từ chối bắt buộc nhập lý do"));
+                      return;
+                    }
+                    bulkMutation.mutate({ trangThai: s, ghiChu: lyDo });
+                  } else bulkMutation.mutate({ trangThai: s });
+                }}
                 disabled={bulkMutation.isPending}
                 loading={bulkMutation.isPending}
               />

@@ -5035,6 +5035,9 @@ async function applyThieuLkLog(
     const macDinh = tnThayKho ? "TN xác nhận thay Kho: đã có hàng" : "Kho đã có hàng";
     ghiChu = ghiChu?.trim() ? (tnThayKho ? `${macDinh} — ${ghiChu.trim()}` : ghiChu.trim()) : macDinh;
   }
+  // Kho tu choi (sai TT) LUON bat buoc ly do (chot 2026-10-20, "bắt buộc lý do từ chối khi kho từ chối đơn thiếu hàng") - ke ca xu
+  // ly hang loat va ticket ma don goc da roi "Cho hang"; kiem tra TRUOC khi them tien to "TN thao tác thay Kho" vao ghi chu.
+  if (trangThai === "Kho tu choi sai TT" && !ghiChu?.trim()) return { error: "MISSING_LY_DO_TU_CHOI", status: 400 };
   const isCancel = trangThai === "Da huy bo";
   // "Da ket thuc" la cua TN (khop cot "Admin xu ly" trong du lieu Excel goc), con lai la Kho.
   if (isCancel) {

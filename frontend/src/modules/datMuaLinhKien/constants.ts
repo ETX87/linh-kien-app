@@ -89,6 +89,7 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   MISSING_LY_DO_CHAM: "Cần chọn lý do chậm",
   MISSING_GHI_CHU: "Cần nhập ghi chú/lý do",
   MISSING_GIAI_TRINH: "Cần nhập giải trình",
+  MISSING_LY_DO_TU_CHOI: "Kho từ chối bắt buộc nhập lý do",
   DUYET_TREN_DON_GOC: "Đơn gốc đã quá hạn duyệt 24h — hãy duyệt trên đơn gốc để chọn lý do chậm (ticket sẽ tự đóng theo)",
   MISSING_IDS: "Chưa chọn dòng nào để xử lý",
   MISSING_CASE_ID: "Thiếu mã case",
