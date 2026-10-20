@@ -57,15 +57,18 @@ function nextStatesForThieuLk(
   ctx: { canKho: boolean; canTacNghiep: boolean; currentEmail: string; canMuaHang?: boolean },
 ): { trangThai: string; canDo: boolean }[] {
   const isCreator = r.nguoi_tao === ctx.currentEmail;
+  // Buoc cua Kho: TN (gom Ke toan lam thay) thao tac ho Kho duoc (2026-10-20, "cũng hiện cho Tác nghiệp hỗ trợ xác nhận hộ") - backend
+  // applyThieuLkLog ghi "TN thao tác thay Kho" vao lich su. Huy bo van chi nguoi tao / Kho nhu cu.
+  const kho = ctx.canKho || ctx.canTacNghiep;
   if (r.trang_thai === "Cho kho xu ly")
     return [
-      { trangThai: "Kho da tiep nhan", canDo: ctx.canKho },
+      { trangThai: "Kho da tiep nhan", canDo: kho },
       // "Đã có hàng" (2026-10-16): tiep nhan + xac nhan hang da ve trong 1 lan bam (backend applyThieuLkLog "Da co hang").
       // TN (gom Ke toan) xac nhan thay Kho khi Kho chua tiep nhan (2026-10-19, hang ve trong ngay).
-      { trangThai: "Da co hang", canDo: ctx.canKho || ctx.canTacNghiep },
+      { trangThai: "Da co hang", canDo: kho },
       // Chuyen Mua hang (2026-10-19): ma chua co ke hoach hang ve -> Mua hang dat hang.
-      { trangThai: "Cho mua hang", canDo: ctx.canKho },
-      { trangThai: "Kho tu choi sai TT", canDo: ctx.canKho },
+      { trangThai: "Cho mua hang", canDo: kho },
+      { trangThai: "Kho tu choi sai TT", canDo: kho },
       { trangThai: "Da huy bo", canDo: isCreator },
     ];
   // "Kho da cap nhat" (2026-09-28): sau tiep nhan, Kho cap nhat lai ngay du kien/ghi chu (lap lai duoc).
@@ -77,9 +80,9 @@ function nextStatesForThieuLk(
     ];
   if (r.trang_thai === "Kho da tiep nhan" || r.trang_thai === "Kho da cap nhat" || r.trang_thai === "Mua hang da dat")
     return [
-      { trangThai: "Kho da cap nhat", canDo: ctx.canKho },
-      ...(r.trang_thai !== "Mua hang da dat" ? [{ trangThai: "Cho mua hang", canDo: ctx.canKho }] : []),
-      { trangThai: "Kho xac nhan hang da ve", canDo: ctx.canKho },
+      { trangThai: "Kho da cap nhat", canDo: kho },
+      ...(r.trang_thai !== "Mua hang da dat" ? [{ trangThai: "Cho mua hang", canDo: kho }] : []),
+      { trangThai: "Kho xac nhan hang da ve", canDo: kho },
       { trangThai: "Da huy bo", canDo: ctx.canKho || isCreator },
     ];
   // Kho xong phan minh (hang ve / tu choi sai TT) -> don goc da quay ve "Cho TN duyet"; TN duyet o day = duyet luon
@@ -1074,7 +1077,7 @@ export function ThieuLkDetailModal({
   const { data: giaiTrinhGoiYData } = useQuery({
     queryKey: ["dat-mua-lk-ly-do-cham"],
     queryFn: () => api.get<{ rows: LyDoChamRow[] }>("/dat-mua-lk/ly-do-cham?he_thong=" + encodeURIComponent("Mua hàng")),
-    enabled: canKho && actionTrangThai === "Kho da tiep nhan",
+    enabled: (canKho || canTacNghiep) && actionTrangThai === "Kho da tiep nhan",
   });
 
   const logMutation = useMutation({

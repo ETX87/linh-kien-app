@@ -722,7 +722,7 @@ nhận…", `nguoi_xu_ly` = người nhận) + 1 thông báo/KTV/ngày liệt k�
 ve', lý do "Kho đã có hàng" — `applyThieuLkLog` nhận `trang_thai = "Da co hang"` (chỉ Kho/Admin, chỉ từ "Cho kho xu ly", có cả hàng loạt)
 rồi đi đúng luồng hàng về (đơn gốc tự duyệt + vào phiếu, ticket "Da ket thuc"). FE: hành động "Da co hang" ở `nextStatesForThieuLk`
 (`ThieuLkTab.tsx`). **TN bấm "Đã có hàng" thay Kho** (2026-10-19, v1.370 — hàng về trong ngày): TN (gồm Kế toán làm thay) cũng bấm được khi
-ticket còn "Cho kho xu ly"; ghi chú mặc định "TN xác nhận thay Kho: đã có hàng".
+ticket còn "Cho kho xu ly"; ghi chú mặc định "TN xác nhận thay Kho: đã có hàng". **TN thao tác hộ MỌI bước của Kho** (2026-10-20, v1.372 — "Các nút thao tác ở mục chờ hàng của kho cũng hiện cho Tác nghiệp hỗ trợ xác nhận hộ"): Tiếp nhận / Cập nhật / Hàng đã về / Từ chối (sai TT) / Chuyển Mua hàng — `applyThieuLkLog` cho `canKho || canTacNghiep`, TN không phải Kho → ghi chú log thêm tiền tố "TN thao tác thay Kho"; FE `nextStatesForThieuLk` (`kho = canKho || canTacNghiep`). Hủy bỏ ticket giữ quy tắc cũ; nhóm "Cần xử lý" của TN không đổi (ticket chờ Kho vẫn nằm ở "Đang chờ").
 
 **Thiếu hàng — Chuyển Mua hàng** (chốt 2026-10-19, v1.370, migration `0093` rebuild `thieu_lk_log` CHECK + `thieu_lk.ma_eo_mua`): Kho đánh giá
 ticket → Tiếp nhận chờ hàng về (mã đang có hàng/EO về) HOẶC **"Chuyển Mua hàng"** (từ Cho kho xu ly / Kho da tiep nhan / Kho da cap nhat) →

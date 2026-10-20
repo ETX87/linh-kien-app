@@ -5015,8 +5015,14 @@ async function applyThieuLkLog(
     if (!canTacNghiep(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
   } else if (trangThai === "Mua hang da dat" || trangThai === "Mua hang tu choi") {
     if (!laMuaHangXuLy(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
-  } else if (!canKho(c) && !(daCoHang && tnThayKho)) {
+  } else if (!canKho(c) && !canTacNghiep(c)) {
+    // Buoc cua Kho (Tiep nhan / Cap nhat / Hang da ve / Tu choi sai TT / Chuyen Mua hang): TN (gom Ke toan lam thay) thao tac HO
+    // Kho duoc (chot 2026-10-20, "Các nút thao tác ở mục chờ hàng của kho cũng hiện cho Tác nghiệp hỗ trợ xác nhận hộ").
     return { error: "FORBIDDEN_ROLE", status: 403 };
+  } else if (!canKho(c) && !daCoHang) {
+    // Ghi ro trong lich su la TN lam thay (nguoi ghi log van la TN).
+    tnThayKho = true;
+    ghiChu = ghiChu?.trim() ? `TN thao tác thay Kho — ${ghiChu.trim()}` : "TN thao tác thay Kho";
   }
 
   const validNext = [
