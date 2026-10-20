@@ -17,14 +17,15 @@ import { lenhGhiQuy, soDuQuy } from "./quyKtv";
 import { taiTinhPxkMoCuaKtv } from "./pxkRecalculate";
 import { baoNguoiTaoDon } from "./tuDongDuyet";
 
-const TRANG_THAI_MO = ["Cho kho xu ly", "Kho da tiep nhan", "Kho da cap nhat"] as const;
+// + 2 trang thai Mua hang (2026-10-19, migration 0093).
+const TRANG_THAI_MO = ["Cho kho xu ly", "Kho da tiep nhan", "Kho da cap nhat", "Cho mua hang", "Mua hang da dat"] as const;
 
 /** Hạn đẩy lại ticket (giờ VN) hoặc NULL = không đẩy lại được. `t` = alias bảng thieu_lk. */
 export function hanDayLaiTicketSql(t: string): string {
   const logTk = `(SELECT MAX(id) FROM thieu_lk_log WHERE thieu_lk_id = ${t}.id)`;
   return `(CASE WHEN (SELECT trang_thai FROM thieu_lk_log WHERE id = ${logTk}) = 'Da huy bo'
       AND NOT EXISTS (SELECT 1 FROM thieu_lk t2 WHERE t2.dat_don_hang_id = ${t}.dat_don_hang_id AND t2.id > ${t}.id)
-      AND EXISTS (SELECT 1 FROM thieu_lk_log o WHERE o.thieu_lk_id = ${t}.id AND o.trang_thai IN ('Cho kho xu ly', 'Kho da tiep nhan', 'Kho da cap nhat'))
+      AND EXISTS (SELECT 1 FROM thieu_lk_log o WHERE o.thieu_lk_id = ${t}.id AND o.trang_thai IN ('Cho kho xu ly', 'Kho da tiep nhan', 'Kho da cap nhat', 'Cho mua hang', 'Mua hang da dat'))
       AND EXISTS (
         SELECT 1 FROM dat_don_hang d
         JOIN dat_don_hang_log l ON l.id = (SELECT MAX(id) FROM dat_don_hang_log WHERE dat_don_hang_id = d.id)
@@ -37,7 +38,7 @@ export function hanDayLaiTicketSql(t: string): string {
 
 /** Trạng thái ticket sẽ được phục hồi (trạng thái mở cuối cùng). `t` = alias bảng thieu_lk. */
 export function trangThaiTruocTicketSql(t: string): string {
-  return `(SELECT o.trang_thai FROM thieu_lk_log o WHERE o.thieu_lk_id = ${t}.id AND o.trang_thai IN ('Cho kho xu ly', 'Kho da tiep nhan', 'Kho da cap nhat') ORDER BY o.id DESC LIMIT 1)`;
+  return `(SELECT o.trang_thai FROM thieu_lk_log o WHERE o.thieu_lk_id = ${t}.id AND o.trang_thai IN ('Cho kho xu ly', 'Kho da tiep nhan', 'Kho da cap nhat', 'Cho mua hang', 'Mua hang da dat') ORDER BY o.id DESC LIMIT 1)`;
 }
 
 /** Ticket mới nhất của đơn có đẩy lại được không (để POST /don-hang/:id/day-lai chuyển sang phục hồi theo ticket). */
@@ -99,7 +100,10 @@ export async function dayLaiTicketThieuLk(env: Env, db: D1Database, ticketId: st
   const tienHoan = Math.max(0, hoan?.so_tien ?? 0);
   const tienLayLai = tienHoan > 0 && tk.nguoi_nhan_hang ? Math.min(tienHoan, Math.max(0, await soDuQuy(db, tk.nguoi_nhan_hang))) : 0;
 
-  const nhanTicket: Record<string, string> = { "Cho kho xu ly": "Chờ kho xử lý", "Kho da tiep nhan": "Kho đã tiếp nhận", "Kho da cap nhat": "Kho đã cập nhật" };
+  const nhanTicket: Record<string, string> = {
+    "Cho kho xu ly": "Chờ kho xử lý", "Kho da tiep nhan": "Kho đã tiếp nhận", "Kho da cap nhat": "Kho đã cập nhật",
+    "Cho mua hang": "Chờ mua hàng", "Mua hang da dat": "Mua hàng đã đặt",
+  };
   const them = ghiChuNguoiDung?.trim() ? `: ${ghiChuNguoiDung.trim().slice(0, 500)}` : "";
   const ghiChuTicket = `Đẩy lại ticket về "${nhanTicket[tk.trang_thai_truoc]}" (trước khi bị từ chối / hủy) — đơn gốc ${tk.dat_don_hang_id} về Chờ hàng${them}`;
   const ghiChuDon = `Đẩy lại theo ticket ${tk.id}: ticket về "${nhanTicket[tk.trang_thai_truoc]}", đơn về Chờ hàng${

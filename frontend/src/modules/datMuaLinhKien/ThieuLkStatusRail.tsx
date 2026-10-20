@@ -9,7 +9,10 @@ import { t } from "../../i18n";
 // Gia tri loc: 1 trang thai | nhieu trang thai noi bang "," (tieu de nhom) | "__VIEC__" (Can xu ly, khop badge Sidebar).
 
 // "Kho tu choi sai TT" (2026-09-29) chua dong: don goc quay ve "Cho TN duyet", ticket dong khi TN duyet/tu choi don.
-const DANG_MO = ["Cho kho xu ly", "Kho da tiep nhan", "Kho da cap nhat", "Kho xac nhan hang da ve", "Kho tu choi sai TT"];
+const DANG_MO = [
+  "Cho kho xu ly", "Kho da tiep nhan", "Kho da cap nhat", "Cho mua hang", "Mua hang da dat",
+  "Kho xac nhan hang da ve", "Kho tu choi sai TT", "Mua hang tu choi",
+];
 const DA_DONG = ["Da ket thuc", "Da huy bo"];
 
 interface Muc {
@@ -24,10 +27,14 @@ interface Nhom {
   muc: Muc[];
 }
 
-function nhomTrangThai(canKho: boolean, canTacNghiep: boolean): Nhom[] {
+function nhomTrangThai(canKho: boolean, canTacNghiep: boolean, canMuaHang: boolean): Nhom[] {
   const nhan = (v: string) => trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, v);
   // Cung tap voi thieuLkTrangThaiViec() (backend) + badge Sidebar (routes/notifications.ts).
-  const canXuLy = [...(canKho ? ["Cho kho xu ly", "Kho da tiep nhan"] : []), ...(canTacNghiep ? ["Kho xac nhan hang da ve", "Kho tu choi sai TT"] : [])];
+  const canXuLy = [
+    ...(canKho ? ["Cho kho xu ly", "Kho da tiep nhan"] : []),
+    ...(canTacNghiep ? ["Kho xac nhan hang da ve", "Kho tu choi sai TT", "Mua hang tu choi"] : []),
+    ...(canMuaHang ? ["Cho mua hang"] : []),
+  ];
   const coViec = canXuLy.length > 0;
   const dangCho = DANG_MO.filter((v) => !canXuLy.includes(v));
   const phuDangCho: Record<string, string> = {
@@ -36,6 +43,9 @@ function nhomTrangThai(canKho: boolean, canTacNghiep: boolean): Nhom[] {
     "Kho tu choi sai TT": t("chờ TN duyệt"),
     "Cho kho xu ly": t("chờ Kho"),
     "Kho da tiep nhan": t("chờ Kho"),
+    "Cho mua hang": t("chờ Mua hàng"),
+    "Mua hang da dat": t("chờ hàng về"),
+    "Mua hang tu choi": t("chờ TN duyệt"),
   };
   const nhom: Nhom[] = [];
   if (coViec) nhom.push({ tieuDe: t("Cần xử lý"), value: "__VIEC__", canLam: true, muc: canXuLy.map((v) => ({ value: v, label: nhan(v) })) });
@@ -71,14 +81,16 @@ export function ThieuLkStatusRail({
   counts,
   canKho,
   canTacNghiep,
+  canMuaHang = false,
 }: {
   value: string;
   onChange: (v: string) => void;
   counts: Record<string, number> | undefined;
   canKho: boolean;
   canTacNghiep: boolean;
+  canMuaHang?: boolean;
 }) {
-  const nhom = nhomTrangThai(canKho, canTacNghiep);
+  const nhom = nhomTrangThai(canKho, canTacNghiep, canMuaHang);
   const dongCls = (active: boolean) =>
     `focus-ring flex w-full items-center justify-between rounded-[var(--radius-btn)] text-left transition-colors ${
       active

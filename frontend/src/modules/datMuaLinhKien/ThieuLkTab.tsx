@@ -35,6 +35,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { fetchWithHashCache } from "../../lib/staticListCache";
 import type { LinhKienRow } from "../../types";
 import { XetDuyetMaSection } from "../danhMucLinhKien/XetDuyetMaLk";
+import { DanhGiaThieuLk } from "./DanhGiaThieuLk";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -53,27 +54,38 @@ function PriorityTag() {
 // năng không hiện trong drawer") cung can dung, nhan ctx qua tham so thay vi dong qua closure.
 function nextStatesForThieuLk(
   r: ThieuLkRow,
-  ctx: { canKho: boolean; canTacNghiep: boolean; currentEmail: string },
+  ctx: { canKho: boolean; canTacNghiep: boolean; currentEmail: string; canMuaHang?: boolean },
 ): { trangThai: string; canDo: boolean }[] {
   const isCreator = r.nguoi_tao === ctx.currentEmail;
   if (r.trang_thai === "Cho kho xu ly")
     return [
       { trangThai: "Kho da tiep nhan", canDo: ctx.canKho },
       // "Đã có hàng" (2026-10-16): tiep nhan + xac nhan hang da ve trong 1 lan bam (backend applyThieuLkLog "Da co hang").
-      { trangThai: "Da co hang", canDo: ctx.canKho },
+      // TN (gom Ke toan) xac nhan thay Kho khi Kho chua tiep nhan (2026-10-19, hang ve trong ngay).
+      { trangThai: "Da co hang", canDo: ctx.canKho || ctx.canTacNghiep },
+      // Chuyen Mua hang (2026-10-19): ma chua co ke hoach hang ve -> Mua hang dat hang.
+      { trangThai: "Cho mua hang", canDo: ctx.canKho },
       { trangThai: "Kho tu choi sai TT", canDo: ctx.canKho },
       { trangThai: "Da huy bo", canDo: isCreator },
     ];
   // "Kho da cap nhat" (2026-09-28): sau tiep nhan, Kho cap nhat lai ngay du kien/ghi chu (lap lai duoc).
-  if (r.trang_thai === "Kho da tiep nhan" || r.trang_thai === "Kho da cap nhat")
+  if (r.trang_thai === "Cho mua hang")
+    return [
+      { trangThai: "Mua hang da dat", canDo: !!ctx.canMuaHang },
+      { trangThai: "Mua hang tu choi", canDo: !!ctx.canMuaHang },
+      { trangThai: "Da huy bo", canDo: ctx.canKho || isCreator },
+    ];
+  if (r.trang_thai === "Kho da tiep nhan" || r.trang_thai === "Kho da cap nhat" || r.trang_thai === "Mua hang da dat")
     return [
       { trangThai: "Kho da cap nhat", canDo: ctx.canKho },
+      ...(r.trang_thai !== "Mua hang da dat" ? [{ trangThai: "Cho mua hang", canDo: ctx.canKho }] : []),
       { trangThai: "Kho xac nhan hang da ve", canDo: ctx.canKho },
       { trangThai: "Da huy bo", canDo: ctx.canKho || isCreator },
     ];
   // Kho xong phan minh (hang ve / tu choi sai TT) -> don goc da quay ve "Cho TN duyet"; TN duyet o day = duyet luon
   // don goc (backend applyThieuLkLog), hoac duyet tren don goc thi ticket tu dong (2026-09-29).
-  if (r.trang_thai === "Kho xac nhan hang da ve" || r.trang_thai === "Kho tu choi sai TT") return [{ trangThai: "Da ket thuc", canDo: ctx.canTacNghiep }];
+  if (r.trang_thai === "Kho xac nhan hang da ve" || r.trang_thai === "Kho tu choi sai TT" || r.trang_thai === "Mua hang tu choi")
+    return [{ trangThai: "Da ket thuc", canDo: ctx.canTacNghiep }];
   return [];
 }
 
@@ -85,8 +97,9 @@ function nextStatesForThieuLk(
 // khac giu nguyen (dung chung 1 nhan cho ca 2 vai tro).
 // Buoc can nhap lieu truoc khi chuyen (mo khung nhap thay vi bam la chuyen ngay).
 // + "Kho tu choi sai TT" (tu dong duyet 100%, 2026-10-14): Kho tu choi = DON GOC TU HUY -> bat buoc ly do (gui KTV).
-const CAN_NHAP_LIEU = ["Kho da tiep nhan", "Kho da cap nhat", "Kho tu choi sai TT"];
-const CO_NGAY_DU_KIEN = ["Kho da tiep nhan", "Kho da cap nhat"];
+// + 3 buoc Mua hang (2026-10-19): Chuyen (ghi chu tuy chon), Da dat (ma EO + ngay du kien bat buoc), Khong mua duoc (ly do bat buoc).
+const CAN_NHAP_LIEU = ["Kho da tiep nhan", "Kho da cap nhat", "Kho tu choi sai TT", "Cho mua hang", "Mua hang da dat", "Mua hang tu choi"];
+const CO_NGAY_DU_KIEN = ["Kho da tiep nhan", "Kho da cap nhat", "Mua hang da dat"];
 
 // Nhan nut = DONG TU ngan (ra soat mobile 2026-09-29): truoc day dung lai ten trang thai ("Kho đã tiếp nhận…",
 // "Kho xác nhận hàng đã về") - dai, khong vua 3 nut/hang tren dien thoai va doc nhu trang thai hon la hanh dong.
@@ -99,10 +112,13 @@ const NHAN_HANH_DONG: Record<string, string> = {
   "Kho xac nhan hang da ve": dichSau("Hàng đã về"),
   "Da co hang": dichSau("Đã có hàng"),
   "Da ket thuc": dichSau("TN duyệt"),
+  "Cho mua hang": dichSau("Chuyển Mua hàng"),
+  "Mua hang da dat": dichSau("Đã đặt hàng"),
+  "Mua hang tu choi": dichSau("Không mua được"),
 };
 // Buoc "di tiep" cua luong (nut primary duy nhat o chan Drawer) - cac nut con lai la phu/nguy hiem.
-const HANH_DONG_CHINH = new Set(["Kho da tiep nhan", "Kho xac nhan hang da ve", "Da ket thuc"]);
-const HANH_DONG_NGUY_HIEM = new Set(["Kho tu choi sai TT", "Da huy bo"]);
+const HANH_DONG_CHINH = new Set(["Kho da tiep nhan", "Kho xac nhan hang da ve", "Da ket thuc", "Mua hang da dat"]);
+const HANH_DONG_NGUY_HIEM = new Set(["Kho tu choi sai TT", "Da huy bo", "Mua hang tu choi"]);
 
 // Thu tu nut trong 1 hang: nguy hiem ben trai, phu o giua, buoc chinh ben phai (DESIGN_GUIDELINES §6.4).
 function thuTuNut(trangThai: string): number {
@@ -145,9 +161,11 @@ function ngayNgan(d: string | null | undefined): string {
 // DUNG CHUNG cho chan Drawer chi tiet - truoc day chep 2 ban (Modal o danh sach + chan Drawer), gio nut can nhap
 // lieu o danh sach mo thang Drawer cua ticket do (thay Modal khong co ngu canh ticket nao).
 function ThieuLkActionForm({
-  trangThai, ngayDuKien, setNgayDuKien, ghiChu, setGhiChu, goiY, pending, onCancel, onSubmit,
+  trangThai, ngayDuKien, setNgayDuKien, ghiChu, setGhiChu, goiY, pending, onCancel, onSubmit, maEo = "", setMaEo,
 }: {
   trangThai: string;
+  maEo?: string;
+  setMaEo?: (v: string) => void;
   ngayDuKien: string;
   setNgayDuKien: (v: string) => void;
   ghiChu: string;
@@ -159,16 +177,25 @@ function ThieuLkActionForm({
 }) {
   const isGiaiTrinh = trangThai === "Kho da tiep nhan";
   const isCapNhat = trangThai === "Kho da cap nhat";
-  const isTuChoi = trangThai === "Kho tu choi sai TT";
-  const thieuThongTin = ((isGiaiTrinh || isTuChoi) && !ghiChu.trim()) || (isCapNhat && !ghiChu.trim() && !ngayDuKien);
+  const isTuChoi = trangThai === "Kho tu choi sai TT" || trangThai === "Mua hang tu choi";
+  const isDatHang = trangThai === "Mua hang da dat";
+  const isChuyenMua = trangThai === "Cho mua hang";
+  const thieuThongTin =
+    ((isGiaiTrinh || isTuChoi) && !ghiChu.trim()) || (isCapNhat && !ghiChu.trim() && !ngayDuKien) || (isDatHang && (!maEo.trim() || !ngayDuKien));
   // text-base tren mobile: o nhap < 16px lam iOS tu phong to trang khi cham vao.
   const oNhap = "focus-ring w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-2 text-base sm:text-sm";
   return (
     <div className="space-y-2.5">
       <div className="text-[13px] font-bold text-[var(--color-text)]">{actionLabel(trangThai)}</div>
-      {(isGiaiTrinh || isCapNhat) && (
+      {isDatHang && (
         <label className="block">
-          <span className="mb-1 block text-xs font-semibold text-[var(--color-text-body)]">{t("Ngày dự kiến có hàng")}</span>
+          <span className="mb-1 block text-xs font-semibold text-[var(--color-text-body)]">{t("Mã EO mua hàng *")}</span>
+          <input value={maEo} onChange={(e) => setMaEo?.(e.target.value)} placeholder={t("VD: 3TDO-001234")} className={oNhap} />
+        </label>
+      )}
+      {(isGiaiTrinh || isCapNhat || isDatHang) && (
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold text-[var(--color-text-body)]">{isDatHang ? t("Ngày dự kiến có hàng *") : t("Ngày dự kiến có hàng")}</span>
           <input type="date" value={ngayDuKien} onChange={(e) => setNgayDuKien(e.target.value)} className={oNhap} />
         </label>
       )}
@@ -186,6 +213,8 @@ function ThieuLkActionForm({
       </label>
       {isCapNhat && <div className="text-[11px] text-[var(--color-text-secondary)]">{t("Cần đổi ngày dự kiến hoặc nhập ghi chú.")}</div>}
       {isTuChoi && <div className="text-[11px] text-[var(--color-danger-strong)]">{t("Đơn gốc đang chờ hàng sẽ tự hủy (tiền đã trả về quỹ của KTV) và KTV nhận được lý do này.")}</div>}
+      {isChuyenMua && <div className="text-[11px] text-[var(--color-text-secondary)]">{t("Ticket chuyển sang Mua hàng đặt hàng (Mua hàng nhận thông báo). Khi Mua hàng báo đã đặt, ticket về chờ hàng về như sau khi Kho tiếp nhận; Kho vẫn xác nhận \"Hàng đã về\".")}</div>}
+      {isDatHang && <div className="text-[11px] text-[var(--color-text-secondary)]">{t("Người đặt đơn được báo mã EO + ngày dự kiến. Hàng về: Kho bấm \"Hàng đã về\" như thường lệ.")}</div>}
       {isGiaiTrinh && goiY.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {goiY.map((l) => (
@@ -429,7 +458,8 @@ export function ThieuLkTab({
   // "Da ket thuc" la cua TN (khop cot "Admin xu ly" trong Excel goc), con lai la Kho. "Da huy bo"
   // cung mo cho chinh TN da tao ticket (nguoi_tao), khong chi Kho - khop quyen da co san o backend
   // (POST /thieu-lk/:id/log: isCancel cho phep nguoi_tao huy bat ky luc nao con dang mo).
-  const NEXT_STATES = (r: ThieuLkRow) => nextStatesForThieuLk(r, { canKho, canTacNghiep, currentEmail });
+  const canMuaHang = !!userNhom?.la_mua_hang || userNhom?.vai_tro === "Admin";
+  const NEXT_STATES = (r: ThieuLkRow) => nextStatesForThieuLk(r, { canKho, canTacNghiep, currentEmail, canMuaHang });
 
   // Bulk-log (tieu chi UX #4, them 2026-08-15) - chi ap dung cho cac buoc KHONG can nhap lieu bat
   // buoc ("Kho da tiep nhan" can giai trinh rieng tung dong nen loai khoi bulk). Thanh hanh dong chi
@@ -495,7 +525,7 @@ export function ThieuLkTab({
 
   return (
     <div className="mt-4 md:flex md:items-start md:gap-[14px]">
-      <ThieuLkStatusRail value={filterTrangThai} onChange={setFilterTrangThai} counts={statusCountsData?.counts} canKho={canKho} canTacNghiep={canTacNghiep} />
+      <ThieuLkStatusRail value={filterTrangThai} onChange={setFilterTrangThai} counts={statusCountsData?.counts} canKho={canKho} canTacNghiep={canTacNghiep} canMuaHang={canMuaHang} />
       <div className="min-w-0 flex-1">
       <FilterSearchBar
         showFilters={showFilters}
@@ -686,8 +716,11 @@ function ThieuLkGroupedList({
     "Kho xac nhan hang da ve": "✓",
     "Da co hang": "📦",
     "Da ket thuc": "✅",
+    "Cho mua hang": "🛒",
+    "Mua hang da dat": "🧾",
+    "Mua hang tu choi": "✕",
   };
-  const ACTION_DANGER = new Set(["Kho tu choi sai TT", "Da huy bo"]);
+  const ACTION_DANGER = new Set(["Kho tu choi sai TT", "Da huy bo", "Mua hang tu choi"]);
 
   const cols: Column<ThieuLkRow>[] = [
     ...(rowsCoTheChon.length > 0
@@ -1024,6 +1057,7 @@ export function ThieuLkDetailModal({
   const [actionTrangThai, setActionTrangThai] = useState<string | null>(initialAction ?? null);
   const [ghiChu, setGhiChu] = useState("");
   const [ngayDuKien, setNgayDuKien] = useState(initialAction === "Kho da cap nhat" ? initialRow?.ngay_du_kien_co_hang ?? "" : "");
+  const [maEo, setMaEo] = useState("");
   const [showDonGoc, setShowDonGoc] = useState(false);
   const [moDayLai, setMoDayLai] = useState(false);
   const [ghiChuDayLai, setGhiChuDayLai] = useState("");
@@ -1044,16 +1078,19 @@ export function ThieuLkDetailModal({
   });
 
   const logMutation = useMutation({
-    mutationFn: (args: { trangThai: string; ghiChu?: string; ngayDuKien?: string }) =>
+    mutationFn: (args: { trangThai: string; ghiChu?: string; ngayDuKien?: string; maEo?: string }) =>
       api.post(`/dat-mua-lk/thieu-lk/${id}/log`, {
         trang_thai: args.trangThai,
         ghi_chu: args.ghiChu?.trim() || undefined,
         ngay_du_kien_co_hang: args.ngayDuKien || undefined,
+        ma_eo: args.maEo?.trim() || undefined,
       }),
     onSuccess: (_res, args) => {
       setActionTrangThai(null);
       setGhiChu("");
       setNgayDuKien("");
+      setMaEo("");
+      qc.invalidateQueries({ queryKey: ["thieu-lk-danh-gia"] });
       qc.invalidateQueries({ queryKey: ["thieu-lk-detail", id] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-thieu-lk"] });
       // Don goc doi trang thai theo ticket (Cho hang -> Cho TN duyet, TN duyet ticket -> duyet don) - 2026-09-29.
@@ -1129,7 +1166,7 @@ export function ThieuLkDetailModal({
     ttMaTruoc.current = partLk?.trang_thai_ma;
   }, [partLk?.trang_thai_ma, id, qc]);
   const nexts = tk
-    ? nextStatesForThieuLk(tk, { canKho, canTacNghiep, currentEmail })
+    ? nextStatesForThieuLk(tk, { canKho, canTacNghiep, currentEmail, canMuaHang: laMuaHangHoacAdmin })
         .filter((s) => s.canDo)
         .sort((a, b) => thuTuNut(a.trangThai) - thuTuNut(b.trangThai))
     : [];
@@ -1163,6 +1200,8 @@ export function ThieuLkDetailModal({
         setNgayDuKien={setNgayDuKien}
         ghiChu={ghiChu}
         setGhiChu={setGhiChu}
+        maEo={maEo}
+        setMaEo={setMaEo}
         goiY={giaiTrinhGoiYData?.rows ?? []}
         pending={logMutation.isPending}
         onCancel={() => {
@@ -1175,6 +1214,7 @@ export function ThieuLkDetailModal({
             trangThai: actionTrangThai,
             ghiChu,
             ngayDuKien: CO_NGAY_DU_KIEN.includes(actionTrangThai) ? ngayDuKien : undefined,
+            maEo: actionTrangThai === "Mua hang da dat" ? maEo : undefined,
           })
         }
       />
@@ -1281,6 +1321,11 @@ export function ThieuLkDetailModal({
               {tk.so_luong_de_xuat != null && <span className="text-xs font-semibold text-[var(--color-text-body)]">{t("SL {a}", { a: tk.so_luong_de_xuat })}</span>}
             </div>
           </div>
+
+          {/* Khung danh gia (2026-10-19): ticket con o buoc Kho/Mua hang quyet dinh - tiep nhan cho hang ve hay chuyen Mua hang. */}
+          {["Cho kho xu ly", "Kho da tiep nhan", "Kho da cap nhat", "Cho mua hang"].includes(tk.trang_thai) && (canKho || canTacNghiep || laMuaHangHoacAdmin) && (
+            <DanhGiaThieuLk id={id} />
+          )}
 
           {canMaChoDuyet && (
             <div className="mb-4 rounded-xl border border-[var(--color-warning)]/40 p-3">

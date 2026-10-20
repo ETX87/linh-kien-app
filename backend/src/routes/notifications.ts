@@ -290,7 +290,9 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
   const thieuLkTrangThaiCho = [
     ...(isKho ? ["Cho kho xu ly", "Kho da tiep nhan"] : []),
     // TN: ticket Kho da xong phan minh, cho TN duyet (THIEU_LK_CHO_TN o datMuaLinhKien.ts - 2026-09-29 them "Kho tu choi sai TT").
-    ...(isTacNghiep ? ["Kho xac nhan hang da ve", "Kho tu choi sai TT"] : []),
+    ...(isTacNghiep ? ["Kho xac nhan hang da ve", "Kho tu choi sai TT", "Mua hang tu choi"] : []),
+    // Mua hang (2026-10-19, migration 0093): ticket Kho chuyen sang cho dat hang.
+    ...(user.la_mua_hang || user.vai_tro === "Admin" ? ["Cho mua hang"] : []),
   ];
   if (thieuLkTrangThaiCho.length > 0) {
     // Scope GIONG HET cho_kho_thieu_lk o tren (GS + Khu vuc tren ddh).

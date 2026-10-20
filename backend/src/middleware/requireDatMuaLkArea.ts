@@ -28,7 +28,11 @@ export async function requireDatMuaLkArea(c: Context<{ Bindings: Env }>, next: N
   // phai ra soat tung endpoint POST/PATCH/DELETE rieng le trong 3 router dung middleware nay - datMuaLinhKien.ts/
   // phieuXuatKho.ts/traHang.ts). Neu tai khoan co ca la_view LAN 1 co khac (vd la_kho), van duoc ghi
   // binh thuong theo quyen cua co kia.
-  if (chiDoc && c.req.method !== "GET") {
+  // Mua hang (chi doc) DUOC ghi DUY NHAT thao tac ticket thieu hang (2026-10-19, migration 0093 - "Chờ mua hàng" -> Mua hang bao
+  // da dat / tu choi); applyThieuLkLog tu gioi han Mua hang chi lam 2 buoc cua minh.
+  const muaHangGhiThieuLk =
+    user.la_mua_hang && c.req.method === "POST" && /^\/api\/dat-mua-lk\/thieu-lk\/([^/]+\/log|bulk-log)$/.test(c.req.path);
+  if (chiDoc && c.req.method !== "GET" && !muaHangGhiThieuLk) {
     return c.json({ error: "VIEW_READONLY" }, 403);
   }
   await next();

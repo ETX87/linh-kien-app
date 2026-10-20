@@ -4506,7 +4506,8 @@ const THIEU_LK_TRANG_THAI_DONG = ["Da huy bo", "Da ket thuc"] as const;
 // Kho DA tiep nhan ticket va dang xu ly (tim hang/cap nhat tien do) -> don goc "Cho hang" bi KHOA, phai cho Kho xac nhan
 // hang ve / tu choi (chot 2026-09-30). Ticket "Cho kho xu ly" (Kho chua tiep nhan) hoac da dong -> don mo, thao tac nhu
 // "Cho TN duyet", ticket tu huy (applyDonHangLog). Tra 0/1; alias = bang dat_don_hang. FE: kho_dang_xu_ly_thieu_lk.
-const THIEU_LK_KHO_DANG_XU_LY = ["Kho da tiep nhan", "Kho da cap nhat"] as const;
+// + "Cho mua hang" / "Mua hang da dat" (2026-10-19, migration 0093): ticket dang o tay Mua hang / cho EO ve - cung khoa don goc.
+const THIEU_LK_KHO_DANG_XU_LY = ["Kho da tiep nhan", "Kho da cap nhat", "Cho mua hang", "Mua hang da dat"] as const;
 function khoDangXuLyThieuLkSql(alias: string): string {
   return `(CASE WHEN ${alias}.trang_thai_hien_tai = 'Cho hang' AND EXISTS (
       SELECT 1 FROM thieu_lk kxl WHERE kxl.dat_don_hang_id = ${alias}.id
@@ -4518,13 +4519,16 @@ function khoDangXuLyThieuLkSql(alias: string): string {
 // (DOI 2026-09-29, truoc day tu nhay thang "TN da duyet") kem 1 dong log tom tat TOAN BO qua trinh Kho xu ly ticket.
 // TN duyet don goc -> ticket tu sang "Da ket thuc" (nhan hien thi "TN đã duyệt"); TN duyet tren ticket -> don goc
 // duyet theo (applyThieuLkLog). TN tu choi/huy/cho hang don goc -> ticket tu dong (dongThieuLkMoCuaDon).
-const THIEU_LK_TIEP_TUC_LUONG = ["Kho xac nhan hang da ve", "Kho tu choi sai TT", "Da huy bo"] as const;
+const THIEU_LK_TIEP_TUC_LUONG = ["Kho xac nhan hang da ve", "Kho tu choi sai TT", "Mua hang tu choi", "Da huy bo"] as const;
 // Ticket da xong phan Kho, CHO TN quyet dinh (duyet don goc) - buoc "Da ket thuc" chi hop le tu day.
-const THIEU_LK_CHO_TN = ["Kho xac nhan hang da ve", "Kho tu choi sai TT"] as const;
+const THIEU_LK_CHO_TN = ["Kho xac nhan hang da ve", "Kho tu choi sai TT", "Mua hang tu choi"] as const;
 const THIEU_LK_NHAN: Record<string, string> = {
   "Cho kho xu ly": "Chờ kho xử lý",
   "Kho da tiep nhan": "Kho đã tiếp nhận",
   "Kho da cap nhat": "Kho đã cập nhật",
+  "Cho mua hang": "Chờ mua hàng",
+  "Mua hang da dat": "Mua hàng đã đặt",
+  "Mua hang tu choi": "Mua hàng từ chối",
   "Kho xac nhan hang da ve": "Kho xác nhận hàng đã về",
   "Kho tu choi sai TT": "Kho từ chối (sai thông tin)",
   "Da huy bo": "Đã hủy bỏ",
@@ -4585,8 +4589,19 @@ function canKho(c: Context<{ Bindings: Env }>): boolean {
 // "Kho da tiep nhan" nhung tab mo mac dinh loc "Cho kho xu ly" -> bam vao khong thay don nao). Cung tap trang thai
 // voi thieuLkCanXuLy trong routes/notifications.ts - doi 1 ben phai doi ben kia.
 const THIEU_LK_VIEC = "__VIEC__";
+// Nguoi xu ly ticket "Cho mua hang" (2026-10-19): Mua hang + Admin.
+function laMuaHangXuLy(c: Context<{ Bindings: Env }>): boolean {
+  const u = c.get("user");
+  return !!u.la_mua_hang || u.vai_tro === "Admin";
+}
+
 function thieuLkTrangThaiViec(c: Context<{ Bindings: Env }>): string[] {
-  return [...(canKho(c) ? ["Cho kho xu ly", "Kho da tiep nhan"] : []), ...(canTacNghiep(c) ? [...THIEU_LK_CHO_TN] : [])];
+  return [
+    ...(canKho(c) ? ["Cho kho xu ly", "Kho da tiep nhan"] : []),
+    ...(canTacNghiep(c) ? [...THIEU_LK_CHO_TN] : []),
+    // Mua hang (2026-10-19): ticket Kho chuyen sang cho dat hang.
+    ...(laMuaHangXuLy(c) ? ["Cho mua hang"] : []),
+  ];
 }
 
 // GET /api/dat-mua-lk/ly-do-cham?he_thong= - danh sach ly do cham dang bat, loc theo he thong su
@@ -4812,6 +4827,60 @@ datMuaLinhKien.get("/thieu-lk-status-counts", async (c) => {
 // giong PXK/Mua hang nen can endpoint tra ca logs). Ap dung CUNG scope voi GET /thieu-lk (Kho/TN xem
 // toan bo, con lai chi xem duoc ticket cua chinh minh) - tra 404 khi ngoai pham vi thay vi 403 de
 // khong lo thong tin ticket ton tai hay khong.
+// GET /thieu-lk/:id/danh-gia (2026-10-19, "hiện thông tin nhắc nhở với đầy đủ các thông tin để kho đánh giá" - tiếp nhận chờ hàng về hay
+// chuyển Mua hàng đặt hàng): tồn kho công ty còn đặt được theo khu vực của đơn, các ticket CÙNG MÃ đang chờ hàng (ngày dự kiến / mã EO),
+// lần hàng về gần nhất, số đơn đang chờ mã này + gợi ý. EO mua hàng (app muahang) CHƯA kết nối API -> eo.ket_noi = false.
+datMuaLinhKien.get("/thieu-lk/:id/danh-gia", async (c) => {
+  if (!canKho(c) && !canTacNghiep(c) && !laMuaHangXuLy(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const id = c.req.param("id");
+  const db = c.env.DB;
+  const tk = await db
+    .prepare(
+      `SELECT ddh.ma_lk, ddh.ten_lk_snapshot, ddh.id AS don_id, COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) AS sl,
+              COALESCE(ddh.khu_vuc_chon, ddh.khu_vuc_ma) AS khu_vuc
+       FROM thieu_lk tlk JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id WHERE tlk.id = ?`,
+    )
+    .bind(id)
+    .first<{ ma_lk: string; ten_lk_snapshot: string; don_id: string; sl: number; khu_vuc: string | null }>();
+  if (!tk) return c.json({ error: "NOT_FOUND" }, 404);
+  const ttExpr = latestThieuLkStatusExpr("t2.id");
+  const [tonConDat, cungMa, veGanNhat, donCho] = await Promise.all([
+    computeTonKhoChot(db, tk.khu_vuc, tk.ma_lk),
+    db.prepare(
+      `SELECT * FROM (
+         SELECT t2.id, ${ttExpr} AS trang_thai, t2.ngay_du_kien_co_hang, t2.ma_eo_mua, t2.ngay_tao, d2.id AS don_id,
+                COALESCE(d2.so_luong_thuc_xuat, d2.so_luong_de_xuat) AS sl, COALESCE(d2.khu_vuc_chon, d2.khu_vuc_ma) AS khu_vuc
+         FROM thieu_lk t2 JOIN dat_don_hang d2 ON d2.id = t2.dat_don_hang_id
+         WHERE d2.ma_lk = ? AND t2.id <> ?
+       ) x WHERE COALESCE(x.trang_thai, '') NOT IN ('Da huy bo', 'Da ket thuc', 'Kho xac nhan hang da ve', 'Kho tu choi sai TT', 'Mua hang tu choi')
+       ORDER BY COALESCE(x.ngay_du_kien_co_hang, '9999') , x.ngay_tao LIMIT 30`,
+    ).bind(tk.ma_lk, id).all<{ id: string; trang_thai: string; ngay_du_kien_co_hang: string | null; ma_eo_mua: string | null; ngay_tao: string; don_id: string; sl: number; khu_vuc: string | null }>(),
+    db.prepare(
+      `SELECT MAX(t2.ngay_hang_ve_thuc_te) AS ngay FROM thieu_lk t2 JOIN dat_don_hang d2 ON d2.id = t2.dat_don_hang_id WHERE d2.ma_lk = ?`,
+    ).bind(tk.ma_lk).first<{ ngay: string | null }>(),
+    db.prepare(
+      `SELECT COUNT(*) AS so_don, COALESCE(SUM(COALESCE(so_luong_thuc_xuat, so_luong_de_xuat)), 0) AS tong_sl
+       FROM dat_don_hang WHERE ma_lk = ? AND trang_thai_hien_tai = 'Cho hang'`,
+    ).bind(tk.ma_lk).first<{ so_don: number; tong_sl: number }>(),
+  ]);
+  const homNay = nowVN().slice(0, 10);
+  const dangVe = cungMa.results.filter(
+    (r) => ["Kho da tiep nhan", "Kho da cap nhat", "Mua hang da dat"].includes(r.trang_thai) && (r.ngay_du_kien_co_hang ?? "") >= homNay,
+  );
+  const choMua = cungMa.results.filter((r) => r.trang_thai === "Cho mua hang");
+  const goiY = tonConDat >= tk.sl ? "co_ton" : dangVe.length > 0 ? "dang_ve" : choMua.length > 0 ? "dang_cho_mua" : "can_dat";
+  return c.json({
+    ma_lk: tk.ma_lk, ten_lk: tk.ten_lk_snapshot, sl: tk.sl, khu_vuc: tk.khu_vuc,
+    ton_con_dat: tonConDat,
+    ticket_cung_ma: cungMa.results,
+    ngay_hang_ve_gan_nhat: veGanNhat?.ngay ?? null,
+    don_cho_cung_ma: { so_don: donCho?.so_don ?? 0, tong_sl: donCho?.tong_sl ?? 0 },
+    ngay_du_kien_gan_nhat: dangVe.map((r) => r.ngay_du_kien_co_hang!).sort()[0] ?? null,
+    eo: { ket_noi: false },
+    goi_y: goiY,
+  });
+});
+
 datMuaLinhKien.get("/thieu-lk/:id", async (c) => {
   const user = c.get("user");
   const id = c.req.param("id");
@@ -4879,6 +4948,7 @@ async function applyThieuLkLog(
   trangThai: string,
   ghiChu: string | undefined,
   ngayDuKienCoHang: string | undefined,
+  maEo?: string,
 ): Promise<{ error: string; status: 404 | 409 | 403 | 400 } | { ok: true }> {
   // BUG THAT (cung dot ma-misa PXK) - phai qualify "thieu_lk.id", xem giai thich o openThieuLkForDonHang.
   const tlk = await c.env.DB.prepare(`SELECT nguoi_tao, dat_don_hang_id, ${latestThieuLkStatusExpr("thieu_lk.id")} as trang_thai FROM thieu_lk WHERE id = ?`)
@@ -4891,12 +4961,16 @@ async function applyThieuLkLog(
   // "Da co hang" (chot 2026-10-16): Kho bam 1 lan o buoc "Cho kho xu ly" = TIEP NHAN + XAC NHAN HANG DA VE luon, ly do "Kho đã có
   // hàng" -> ghi 2 log lien tiep, phan con lai di dung luong "Kho xac nhan hang da ve" (don goc tu duyet + vao phieu, ticket dong).
   let daCoHang = false;
+  // TN (gom Ke toan lam thay) cung bam duoc khi Kho CHUA tiep nhan (2026-10-19, "hàng đã có trong kho - hàng về trong ngày").
+  let tnThayKho = false;
   if (trangThai === "Da co hang") {
-    if (!canKho(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
+    if (!canKho(c) && !canTacNghiep(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
     if (tlk.trang_thai !== "Cho kho xu ly") return { error: "INVALID_TRANG_THAI", status: 400 };
     daCoHang = true;
+    tnThayKho = !canKho(c);
     trangThai = "Kho xac nhan hang da ve";
-    ghiChu = ghiChu?.trim() || "Kho đã có hàng";
+    const macDinh = tnThayKho ? "TN xác nhận thay Kho: đã có hàng" : "Kho đã có hàng";
+    ghiChu = ghiChu?.trim() ? (tnThayKho ? `${macDinh} — ${ghiChu.trim()}` : ghiChu.trim()) : macDinh;
   }
   const isCancel = trangThai === "Da huy bo";
   // "Da ket thuc" la cua TN (khop cot "Admin xu ly" trong du lieu Excel goc), con lai la Kho.
@@ -4904,16 +4978,34 @@ async function applyThieuLkLog(
     if (tlk.nguoi_tao !== user.email && user.vai_tro !== "Admin") return { error: "FORBIDDEN_ROLE", status: 403 };
   } else if (trangThai === "Da ket thuc") {
     if (!canTacNghiep(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
-  } else if (!canKho(c)) {
+  } else if (trangThai === "Mua hang da dat" || trangThai === "Mua hang tu choi") {
+    if (!laMuaHangXuLy(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
+  } else if (!canKho(c) && !(daCoHang && tnThayKho)) {
     return { error: "FORBIDDEN_ROLE", status: 403 };
   }
 
-  const validNext = ["Kho da tiep nhan", "Kho da cap nhat", "Kho xac nhan hang da ve", "Kho tu choi sai TT", "Da huy bo", "Da ket thuc"];
+  const validNext = [
+    "Kho da tiep nhan", "Kho da cap nhat", "Kho xac nhan hang da ve", "Kho tu choi sai TT", "Da huy bo", "Da ket thuc",
+    "Cho mua hang", "Mua hang da dat", "Mua hang tu choi",
+  ];
   if (!validNext.includes(trangThai)) return { error: "INVALID_TRANG_THAI", status: 400 };
+  // CHUYEN MUA HANG (2026-10-19, migration 0093): Kho chuyen ticket chua co ke hoach hang ve sang Mua hang dat hang.
+  if (trangThai === "Cho mua hang" && !["Cho kho xu ly", "Kho da tiep nhan", "Kho da cap nhat"].includes(tlk.trang_thai ?? "")) {
+    return { error: "INVALID_TRANG_THAI", status: 400 };
+  }
+  // Mua hang: chi xu ly ticket dang "Cho mua hang". Da dat = bat buoc ma EO + ngay du kien; tu choi = bat buoc ly do.
+  if ((trangThai === "Mua hang da dat" || trangThai === "Mua hang tu choi") && tlk.trang_thai !== "Cho mua hang") {
+    return { error: "INVALID_TRANG_THAI", status: 400 };
+  }
+  if (trangThai === "Mua hang da dat") {
+    if (!maEo?.trim()) return { error: "THIEU_MA_EO", status: 400 };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ngayDuKienCoHang?.trim() ?? "")) return { error: "THIEU_NGAY_DU_KIEN", status: 400 };
+  }
+  if (trangThai === "Mua hang tu choi" && !ghiChu?.trim()) return { error: "MISSING_GHI_CHU", status: 400 };
   // "Kho da cap nhat" (2026-09-28): Kho cap nhat lai ngay du kien/ghi chu SAU khi da tiep nhan (lap lai duoc) - phai
   // co it nhat 1 thong tin moi, khong thi chi la 1 dong log rong.
   if (trangThai === "Kho da cap nhat") {
-    if (tlk.trang_thai !== "Kho da tiep nhan" && tlk.trang_thai !== "Kho da cap nhat") return { error: "INVALID_TRANG_THAI", status: 400 };
+    if (!["Kho da tiep nhan", "Kho da cap nhat", "Mua hang da dat"].includes(tlk.trang_thai ?? "")) return { error: "INVALID_TRANG_THAI", status: 400 };
     if (!ngayDuKienCoHang?.trim() && !ghiChu?.trim()) return { error: "MISSING_THONG_TIN_CAP_NHAT", status: 400 };
   }
   // "Kho da tiep nhan" = buoc Kho giai trinh ly do thieu hang that su (cot "Giai thich ly do thieu
@@ -4940,16 +5032,17 @@ async function applyThieuLkLog(
   }
   // Ngay du kien di kem vao ghi chu log (2026-09-29) - lich su ticket va dong tom tat tren don goc doc duoc ngay
   // du kien TUNG LAN Kho bao, khong chi gia tri moi nhat tren thieu_lk.
-  if ((trangThai === "Kho da tiep nhan" || trangThai === "Kho da cap nhat") && ngayDuKienCoHang?.trim()) {
+  if ((trangThai === "Kho da tiep nhan" || trangThai === "Kho da cap nhat" || trangThai === "Mua hang da dat") && ngayDuKienCoHang?.trim()) {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ngayDuKienCoHang.trim());
     const nhanNgay = `Dự kiến có hàng ${m ? `${m[3]}/${m[2]}/${m[1]}` : ngayDuKienCoHang.trim()}`;
     ghiChu = ghiChu?.trim() ? `${ghiChu.trim()} · ${nhanNgay}` : nhanNgay;
   }
+  if (trangThai === "Mua hang da dat") ghiChu = `EO ${maEo!.trim().slice(0, 60)} · ${ghiChu ?? ""}`.replace(/ · $/, "");
 
   const now = nowVN();
   const statements = [
     ...(daCoHang
-      ? [c.env.DB.prepare("INSERT INTO thieu_lk_log (thieu_lk_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Kho da tiep nhan', ?, ?, ?)").bind(id, user.email, now, "Kho đã có hàng")]
+      ? [c.env.DB.prepare("INSERT INTO thieu_lk_log (thieu_lk_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Kho da tiep nhan', ?, ?, ?)").bind(id, user.email, now, tnThayKho ? "TN xác nhận thay Kho: đã có hàng" : "Kho đã có hàng")]
       : []),
     c.env.DB.prepare("INSERT INTO thieu_lk_log (thieu_lk_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
       id,
@@ -4961,6 +5054,9 @@ async function applyThieuLkLog(
   ];
   if (ngayDuKienCoHang !== undefined && (trangThai !== "Kho da cap nhat" || ngayDuKienCoHang.trim())) {
     statements.push(c.env.DB.prepare("UPDATE thieu_lk SET ngay_du_kien_co_hang = ? WHERE id = ?").bind(ngayDuKienCoHang?.trim() || null, id));
+  }
+  if (trangThai === "Mua hang da dat") {
+    statements.push(c.env.DB.prepare("UPDATE thieu_lk SET ma_eo_mua = ? WHERE id = ?").bind(maEo!.trim().slice(0, 60), id));
   }
   // Ngay hang ve thuc te = ngay Kho bam "Hàng đã về" (gio VN) - tu dien, khong can nhap.
   if (trangThai === "Kho xac nhan hang da ve") {
@@ -4980,7 +5076,7 @@ async function applyThieuLkLog(
     if (donGoc?.trang_thai !== "Cho hang") donGoc = null;
   }
   // Kho tu choi = huy don -> bat buoc ly do (hien cho KTV).
-  if (donGoc && trangThai === "Kho tu choi sai TT" && !ghiChu?.trim()) return { error: "MISSING_GHI_CHU", status: 400 };
+  if (donGoc && (trangThai === "Kho tu choi sai TT" || trangThai === "Mua hang tu choi") && !ghiChu?.trim()) return { error: "MISSING_GHI_CHU", status: 400 };
   const tomTat = donGoc
     ? await tomTatThieuLk(c.env.DB, id, { trangThai, email: user.email, ngay: now, ghiChu: ghiChu?.trim() || null },
         trangThai === "Kho xac nhan hang da ve" ? "tự động duyệt đơn, vào phiếu xuất kho" : "đơn tự hủy")
@@ -4990,7 +5086,9 @@ async function applyThieuLkLog(
     statements.push(
       c.env.DB.prepare("INSERT INTO thieu_lk_log (thieu_lk_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
         id, trangThai === "Kho xac nhan hang da ve" ? "Da ket thuc" : "Da huy bo", user.email, now,
-        trangThai === "Kho xac nhan hang da ve" ? "Tự động: hàng về → duyệt đơn gốc, vào phiếu" : "Tự động: Kho từ chối → hủy đơn gốc",
+        trangThai === "Kho xac nhan hang da ve"
+          ? "Tự động: hàng về → duyệt đơn gốc, vào phiếu"
+          : trangThai === "Mua hang tu choi" ? "Tự động: Mua hàng từ chối → hủy đơn gốc" : "Tự động: Kho từ chối → hủy đơn gốc",
       ),
     );
   }
@@ -4998,13 +5096,32 @@ async function applyThieuLkLog(
   await c.env.DB.batch(statements);
   // Kho TIEP NHAN / CAP NHAT ticket cho hang -> bao nguoi dat (2026-10-15, "minh bạch cho mọi thao tác xử lý"): ly do thieu Kho
   // giai trinh + ngay du kien co hang. Khong bao chinh nguoi vua thao tac.
-  if (trangThai === "Kho da tiep nhan" || trangThai === "Kho da cap nhat") {
+  // Chuyen Mua hang (2026-10-19): bao chuong + push cho moi tai khoan Mua hang (viec moi).
+  if (trangThai === "Cho mua hang") {
+    const ds = await c.env.DB
+      .prepare("SELECT email FROM users WHERE la_mua_hang = 1 AND trang_thai_duyet = 'Da duyet' AND COALESCE(bi_khoa, 0) = 0 AND email != ?")
+      .bind(user.email)
+      .all<{ email: string }>();
+    const don = await c.env.DB.prepare("SELECT ma_lk, ten_lk_snapshot, so_luong_de_xuat FROM dat_don_hang WHERE id = ?").bind(tlk.dat_don_hang_id)
+      .first<{ ma_lk: string; ten_lk_snapshot: string; so_luong_de_xuat: number }>();
+    if (ds.results.length && don) {
+      c.executionCtx.waitUntil(
+        notifyWorkflowTask(c.env, c.env.DB, {
+          cat1Emails: ds.results.map((r) => r.email), otherRoles: [], emailGsList: [], pastActors: [],
+          title: "Ticket thiếu hàng cần đặt mua",
+          body: `Kho chuyển ticket ${id} — ${don.ma_lk} ${don.ten_lk_snapshot} (x${don.so_luong_de_xuat}) sang Mua hàng đặt hàng${ghiChu?.trim() ? `: ${ghiChu.trim().slice(0, 200)}` : ""}`,
+          linkType: "don_hang", linkId: tlk.dat_don_hang_id,
+        }),
+      );
+    }
+  }
+  if (trangThai === "Kho da tiep nhan" || trangThai === "Kho da cap nhat" || trangThai === "Mua hang da dat") {
     const don = await c.env.DB
       .prepare("SELECT nguoi_tao, ten_lk_snapshot, so_luong_de_xuat FROM dat_don_hang WHERE id = ?")
       .bind(tlk.dat_don_hang_id)
       .first<{ nguoi_tao: string; ten_lk_snapshot: string; so_luong_de_xuat: number }>();
     if (don && don.nguoi_tao !== user.email) {
-      const hanhDong = trangThai === "Kho da tiep nhan" ? "Kho đã tiếp nhận" : "Kho cập nhật tiến độ";
+      const hanhDong = trangThai === "Kho da tiep nhan" ? "Kho đã tiếp nhận" : trangThai === "Mua hang da dat" ? "Mua hàng đã đặt hàng cho" : "Kho cập nhật tiến độ";
       c.executionCtx.waitUntil(
         baoNguoiTaoDon(
           c.env, c.env.DB, don.nguoi_tao, "cho_hang",
@@ -5025,7 +5142,11 @@ async function applyThieuLkLog(
       c.executionCtx.waitUntil(
         baoNguoiTaoDon(
           c.env, c.env.DB, donGoc.nguoi_tao, "huy",
-          trangThai === "Kho tu choi sai TT" ? `Đơn hàng ${tenDon} bị hủy — Kho từ chối chờ hàng${lyDo}` : `Đơn hàng ${tenDon} bị hủy — ticket chờ hàng đã hủy${lyDo}`,
+          trangThai === "Kho tu choi sai TT"
+            ? `Đơn hàng ${tenDon} bị hủy — Kho từ chối chờ hàng${lyDo}`
+            : trangThai === "Mua hang tu choi"
+              ? `Đơn hàng ${tenDon} bị hủy — Mua hàng không mua được linh kiện${lyDo}`
+              : `Đơn hàng ${tenDon} bị hủy — ticket chờ hàng đã hủy${lyDo}`,
           tlk.dat_don_hang_id,
         ),
       );
@@ -5038,8 +5159,8 @@ async function applyThieuLkLog(
 // the "Da huy bo" khi con dang mo.
 datMuaLinhKien.post("/thieu-lk/:id/log", async (c) => {
   const id = c.req.param("id");
-  const body = await c.req.json<{ trang_thai: string; ghi_chu?: string; ngay_du_kien_co_hang?: string }>();
-  const result = await applyThieuLkLog(c, id, body.trang_thai, body.ghi_chu, body.ngay_du_kien_co_hang);
+  const body = await c.req.json<{ trang_thai: string; ghi_chu?: string; ngay_du_kien_co_hang?: string; ma_eo?: string }>();
+  const result = await applyThieuLkLog(c, id, body.trang_thai, body.ghi_chu, body.ngay_du_kien_co_hang, body.ma_eo);
   if ("error" in result) return c.json({ error: result.error }, result.status);
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
@@ -5050,7 +5171,7 @@ datMuaLinhKien.post("/thieu-lk/:id/log", async (c) => {
 // ly hang loat nhieu ticket thieu_lk cung luc (them 2026-08-15, tieu chi UX #4). Tai su dung
 // applyThieuLkLog, tiep tuc xu ly cac id con lai ngay ca khi 1 id loi - tra ket qua tung id.
 datMuaLinhKien.post("/thieu-lk/bulk-log", async (c) => {
-  const body = await c.req.json<{ ids: string[]; trang_thai: string; ghi_chu?: string; ngay_du_kien_co_hang?: string }>();
+  const body = await c.req.json<{ ids: string[]; trang_thai: string; ghi_chu?: string; ngay_du_kien_co_hang?: string; ma_eo?: string }>();
   if (!Array.isArray(body.ids) || body.ids.length === 0) return c.json({ error: "MISSING_IDS" }, 400);
   const ids = [...new Set(body.ids)];
   if (ids.length > MAX_BULK_IDS) return c.json({ error: "QUA_NHIEU_ID", max: MAX_BULK_IDS }, 400);
@@ -5058,7 +5179,7 @@ datMuaLinhKien.post("/thieu-lk/bulk-log", async (c) => {
   const results: Record<string, string> = {};
   let coThanhCong = false;
   for (const id of ids) {
-    const result = await applyThieuLkLog(c, id, body.trang_thai, body.ghi_chu, body.ngay_du_kien_co_hang);
+    const result = await applyThieuLkLog(c, id, body.trang_thai, body.ghi_chu, body.ngay_du_kien_co_hang, body.ma_eo);
     results[id] = "error" in result ? result.error : "ok";
     if (!("error" in result)) coThanhCong = true;
   }

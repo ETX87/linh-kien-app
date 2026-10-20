@@ -721,7 +721,19 @@ nhận…", `nguoi_xu_ly` = người nhận) + 1 thông báo/KTV/ngày liệt k�
 **Nút "Đã có hàng"** (chốt 2026-10-16, v1.344): ở bước "Cho kho xu ly" Kho bấm 1 lần = ghi 'Kho da tiep nhan' + 'Kho xac nhan hang da
 ve', lý do "Kho đã có hàng" — `applyThieuLkLog` nhận `trang_thai = "Da co hang"` (chỉ Kho/Admin, chỉ từ "Cho kho xu ly", có cả hàng loạt)
 rồi đi đúng luồng hàng về (đơn gốc tự duyệt + vào phiếu, ticket "Da ket thuc"). FE: hành động "Da co hang" ở `nextStatesForThieuLk`
-(`ThieuLkTab.tsx`).
+(`ThieuLkTab.tsx`). **TN bấm "Đã có hàng" thay Kho** (2026-10-19, v1.370 — hàng về trong ngày): TN (gồm Kế toán làm thay) cũng bấm được khi
+ticket còn "Cho kho xu ly"; ghi chú mặc định "TN xác nhận thay Kho: đã có hàng".
+
+**Thiếu hàng — Chuyển Mua hàng** (chốt 2026-10-19, v1.370, migration `0093` rebuild `thieu_lk_log` CHECK + `thieu_lk.ma_eo_mua`): Kho đánh giá
+ticket → Tiếp nhận chờ hàng về (mã đang có hàng/EO về) HOẶC **"Chuyển Mua hàng"** (từ Cho kho xu ly / Kho da tiep nhan / Kho da cap nhat) →
+"Cho mua hang" (báo mọi Mua hàng). Mua hàng (`laMuaHangXuLy` = `la_mua_hang`/Admin; `requireDatMuaLkArea` mở riêng POST `/thieu-lk/:id/log` +
+`/bulk-log` cho Mua hàng chỉ đọc): **"Đã đặt hàng"** (bắt buộc mã EO `THIEU_MA_EO` + ngày dự kiến `THIEU_NGAY_DU_KIEN`) → "Mua hang da dat"
+(ghi `ma_eo_mua`/`ngay_du_kien_co_hang`, báo người tạo đơn; đơn gốc vẫn khoá như Kho đã tiếp nhận; Kho cập nhật / "Hàng đã về" như thường) |
+**"Không mua được"** (bắt buộc ghi chú) → "Mua hang tu choi" rồi ticket tự "Da huy bo" + đơn gốc tự hủy (tiền về quỹ, báo người tạo). Khung
+"Thông tin để Kho đánh giá" (`DanhGiaThieuLk.tsx`, `GET /thieu-lk/:id/danh-gia`): tồn kho còn đặt được (`computeTonKhoChot`), ticket cùng mã
+đang mở (dự kiến/EO), hàng về gần nhất, đơn đang chờ mã, gợi ý `co_ton`/`dang_ve`/`dang_cho_mua`/`can_dat`. EO thật từ app muahang
+(`muahang.dichvu3t.workers.dev`, bảng `eo_item`/`amis_receipt`) CHƯA kết nối (`eo.ket_noi=false`) — chờ bên đó có API "hàng đang về theo mã LK".
+Thêm trạng thái: sửa `THIEU_LK_*` (datMuaLinhKien.ts), `dayLaiThieuLk.ts`, `notifications.ts`, `partnerTimeline.ts`, FE `constants.ts`/`ThieuLkStatusRail.tsx`.
 
 **Thiếu hàng — trạng thái MÃ LK của đơn chờ hàng** (chốt 2026-10-16, v1.347): GET `/thieu-lk` (+ `/:id`) trả `lk_trang_thai_ma`
 (`LK_TRANG_THAI_MA_SQL` = `linh_kien.trang_thai_ma` của `ddh.ma_lk`, không có → 'Da xac nhan'); lọc `ma_lk_tt=cho|da` trong
