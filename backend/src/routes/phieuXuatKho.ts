@@ -115,6 +115,19 @@ function canKeToan(c: Context<{ Bindings: Env }>): boolean {
   return !!user.la_ke_toan || user.vai_tro === "Admin";
 }
 
+// Ai duoc tai anh bang chung + xac nhan "KTV da chuyen" thay KTV: chinh nguoi nhan hang, Admin, TN, Ke toan (nhu cu) + (chot 2026-10-21,
+// "cho phép người tạo hộ đơn (hoặc giám sát) up ảnh bằng chứng chuyển tiền và xác nhận chuyển tiền thay cho KTV đặt hàng") NGUOI TAO
+// 1 don trong phieu hoac GS cua don (dat_don_hang.email_gs = GS khu vuc cua KTV nhan).
+async function duocXacNhanChuyenTienHo(c: Context<{ Bindings: Env }>, pxkId: string, nguoiNhanHang: string | null): Promise<boolean> {
+  const user = c.get("user");
+  if (user.email === nguoiNhanHang || user.vai_tro === "Admin" || canTacNghiep(c) || canKeToan(c)) return true;
+  const r = await c.env.DB.prepare(
+    `SELECT 1 FROM phieu_xuat_kho_dong pd JOIN dat_don_hang d ON d.id = pd.dat_don_hang_id
+     WHERE pd.phieu_xuat_kho_id = ? AND (d.nguoi_tao = ? OR d.email_gs = ?) LIMIT 1`,
+  ).bind(pxkId, user.email, user.email).first();
+  return !!r;
+}
+
 function canKho(c: Context<{ Bindings: Env }>): boolean {
   const user = c.get("user");
   return !!user.la_kho || user.vai_tro === "Admin";
@@ -1279,7 +1292,7 @@ phieuXuatKho.post("/:id/bang-chung-chuyen-tien", async (c) => {
   // SUA (phan hoi nguoi dung 04/09/2026: "bước 1: KTV xác nhận thông tin chuyển tiền (hoặc TN/Kế
   // toán xác nhận hộ)") - them canKeToan(c) vao danh sach duoc phep xac nhan ho, giu nguyen TN/Admin/
   // chinh KTV nhu cu.
-  if (user.email !== pxk.nguoi_nhan_hang && user.vai_tro !== "Admin" && !canTacNghiep(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  if (!(await duocXacNhanChuyenTienHo(c, id, pxk.nguoi_nhan_hang))) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   if (pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen") return c.json({ error: "INVALID_STATE" }, 409);
 
   // Dinh dang / <= 10MB / <= 20 anh/ngay/tai khoan + tai len Drive - xem lib/anhUpload.ts.
@@ -1353,7 +1366,7 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
     // thao tac tren he thong thay vi tu KTV dang nhap.
     // SUA (phan hoi nguoi dung 04/09/2026): them canKeToan(c) - xem giai thich o POST
     // /:id/bang-chung-chuyen-tien phia tren.
-    if (user.email !== pxk.nguoi_nhan_hang && user.vai_tro !== "Admin" && !canTacNghiep(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+    if (!(await duocXacNhanChuyenTienHo(c, id, pxk.nguoi_nhan_hang))) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
     if (pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen") return c.json({ error: "INVALID_STATE" }, 409);
     // migration 0091 (phan hoi 2026-08-19: "cho phép upload ảnh hoặc ghi chú thông tin chuyển
     // tiền") - bat buoc CO IT NHAT 1 trong 2 (anh that qua Drive HOAC ghi chu van ban), khong con

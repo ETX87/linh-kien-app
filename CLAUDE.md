@@ -524,6 +524,7 @@ phiếu: đơn tự duyệt vẫn gộp vào phiếu đã có bằng chứng; t�
 chuyen" nhưng GIỮ ảnh + ghi chú, KTV chuyển bổ sung, thêm ảnh rồi xác nhận lại. `PATCH /:id/chuyen-tien` "KTV da
 chuyen" nhận `bang_chung_chuyen_tien_anh` = DANH SÁCH ĐẦY ĐỦ (cũ + mới). UI dùng chung
 `datMuaLinhKien/BangChungChuyenTien.tsx` (chi tiết PXK + khối PXK trong chi tiết đơn của KTV).
+**Người tạo hộ / GS xác nhận chuyển tiền thay KTV** (chốt 2026-10-21, v1.379 — "cho phép người tạo hộ đơn (hoặc giám sát) up ảnh bằng chứng chuyển tiền và xác nhận chuyển tiền thay cho KTV đặt hàng"): `POST /phieu-xuat-kho/:id/bang-chung-chuyen-tien` + `PATCH /:id/chuyen-tien` "KTV da chuyen" dùng `duocXacNhanChuyenTienHo()` (`phieuXuatKho.ts`) = người nhận hàng / Admin / TN / Kế toán (như cũ) + NGƯỜI TẠO 1 đơn trong phiếu hoặc GS của đơn (`dat_don_hang.email_gs`) — trước đó họ thấy form nhưng bấm "Đã chuyển" bị `FORBIDDEN_ROLE`.
 **Đổi loại đề xuất Mua/Công nợ ↔ TRẢ HÀNG = đổi luồng** (2026-09-29, `PATCH /dat-mua-lk/don-hang/:id`, migration `0048`
 sửa 16 đơn kẹt): trước chỉ đổi `loai_don`, đơn kẹt "Cho TN duyet" trong luồng Trả hàng. Giờ Mua → Trả hàng đặt
 `trang_thai_hien_tai='Cho ke toan duyet mem'` + `tra_hang_log` + báo Kế toán (không bắt ảnh; đơn đã từ chối/hủy →
