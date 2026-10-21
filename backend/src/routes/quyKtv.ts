@@ -28,6 +28,18 @@ async function phamViXem(c: C): Promise<string[] | null | undefined> {
   if (u.vai_tro === "Admin" || u.la_ke_toan || u.la_tac_nghiep || u.la_mua_hang) return null; // Mua hang: xem, khong dieu chinh
   if (u.la_ve_tinh) return u.tram_cha ? [u.tram_cha] : [];
   if (u.la_ktv_dvbh) return [u.email];
+  // Giam sat (chot 2026-10-21, "ngoài vai trò kế toán, danh sách quỹ sẽ chỉ hiện quỹ theo tài khoản do giám sát đó quản lý"): CHI quy
+  // cua tai khoan GS quan ly (users.giam_sat_quan_ly = GS - suy tu Khu vuc ma GS phu trach, lib/khuVucSync.ts) + KTV thuoc "Khu vuc
+  // xem them" Admin gan (user_khu_vuc, cung quy tac gsKhuVucXemThemSql) + chinh GS (GS cung dat/nhan hang). Chi xem.
+  if (u.vai_tro === "Giam sat") {
+    const { results } = await c.env.DB.prepare(
+      `SELECT email FROM users WHERE giam_sat_quan_ly = ?1
+       UNION SELECT k.email_dang_nhap FROM ktv_lien_he k
+         WHERE k.email_dang_nhap IS NOT NULL AND k.khu_vuc_ma IN (SELECT khu_vuc_ma FROM user_khu_vuc WHERE user_email = ?1)
+       UNION SELECT ?1`,
+    ).bind(u.email).all<{ email: string }>();
+    return (results ?? []).map((r) => r.email);
+  }
   // View (2026-10-14, "xem full các menu"): chi doc, quy cua KTV thuoc Khu vuc duoc gan (cung tap voi khuVucViewEmailInSql).
   // Chua gan Khu vuc nao -> xem tat ca (chot 2026-10-15).
   if (u.la_view) {

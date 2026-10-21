@@ -125,7 +125,8 @@ export function QuyChuyenTienModule({ moPhieuHoanTien = null }: { moPhieuHoanTie
   const user = auth.status === "authenticated" ? auth.user : null;
   const xemTatCa = !!user && (user.vai_tro === "Admin" || !!user.la_ke_toan || !!user.la_tac_nghiep || !!user.la_mua_hang); // Mua hang: xem, khong dieu chinh
   // View (2026-10-14): xem quy NHIEU nguoi (KTV thuoc Khu vuc duoc gan - backend phamViXem) nhung KHONG co tab KH le (/khach-le khong mo cho View).
-  const xemNhieuNguoi = xemTatCa || !!user?.la_view;
+  // + Giam sat (2026-10-21): quy cac tai khoan GS quan ly (backend phamViXem), khong tab KH le.
+  const xemNhieuNguoi = xemTatCa || !!user?.la_view || user?.vai_tro === "Giam sat";
 
   const [tab, setTab] = useState<"khoan" | "so-du" | "so-quy" | "kh-le" | "hoan-tien">(moPhieuHoanTien ? "hoan-tien" : "khoan");
   const [emailLoc, setEmailLoc] = useState("");

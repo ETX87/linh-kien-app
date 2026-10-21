@@ -57,7 +57,7 @@ export const NAV_GROUPS: NavGroup[] = [
 export const ROLE_MODULES: Record<VaiTro, string[]> = {
   Admin: NAV_GROUPS.flatMap((g) => g.items.map((i) => i.key)),
   QC: ["trang-chu", "dat-mua-lk", "thieu-lk", "tra-hang", "danh-muc-lk", "ton-kho-ktv"],
-  "Giam sat": ["trang-chu", "dat-mua-lk", "phieu-xuat", "thieu-lk", "tra-hang", "danh-muc-lk", "ton-kho-ktv"],
+  "Giam sat": ["trang-chu", "dat-mua-lk", "phieu-xuat", "thieu-lk", "tra-hang", "danh-muc-lk", "ton-kho-ktv", "quy-chuyen-tien"], // + Quy (2026-10-21): chi quy tai khoan GS quan ly (phamViXem)
 };
 
 export const MODULE_TITLES: Record<string, string> = {
