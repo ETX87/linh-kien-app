@@ -53,4 +53,11 @@ suachuaPartner.get("/etx-nhan-su", async (c) => {
   return c.json({ rows: results, etx_dong_bo_luc: state?.last_run_at ?? null, etx_trang_thai: state?.last_status ?? null });
 });
 
+// GET /api/suachua-partner/user-khu-vuc - khu vuc phu trach cua tai khoan nhan su (2026-10-21, yeu cau suachua "chi can
+// dong bo kiem tra 1 ngay 1 lan + bo sung dong bo thu cong"). suachua dung de gioi han pham vi xem (View) va tu suy mien.
+suachuaPartner.get("/user-khu-vuc", async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT user_email, khu_vuc_ma FROM user_khu_vuc").all();
+  return c.json({ rows: results });
+});
+
 export default suachuaPartner;
