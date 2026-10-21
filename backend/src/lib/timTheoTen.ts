@@ -93,12 +93,32 @@ export function orMaYcsc(a: string, q: string): { sql: string; binds: string[] }
 }
 
 /** Cung y cho danh sach PXK: phieu co 1 dong don khop ma don / ma yeu cau su co (chinh hoac bo sung) / ma Lada. 4 bind. */
+// Tim TEN LINH KIEN khong phan biet hoa/thuong (2026-10-21, v1.377 - "hỗ trợ tìm cả chữ hoa và chữ thường khi tìm tên linh kiện ở các mục
+// đơn hàng hoặc phiếu"): LIKE cua SQLite chi bo qua hoa/thuong voi chu ASCII -> go "LÕI LỌC" khong ra "Lõi lọc". Tach tu khoa thanh tu
+// (toi da 6), MOI tu phai khop 1 trong 3 dang viet thuong / VIET HOA / Viet hoa chu dau (cac tu AND nhau, khong can lien nhau). Chu ASCII
+// LIKE da tu bo qua hoa/thuong. Ca bo tu + bien the di trong 1 BIND JSON ([[%a%,%A%,..],[..]]) - so tham so KHONG doi so voi 1 LIKE cu
+// (/status-counts cua PXK lap lai WHERE 5 lan, D1 gioi han 100 tham so). Tra "(...)" de ghep OR voi cac cot khac.
+export function tenLkKhopSql(col: string, q: string): { sql: string; binds: string[] } {
+  const tu = q.normalize("NFC").trim().split(/\s+/).filter(Boolean).slice(0, 6);
+  if (tu.length === 0) return { sql: `${col} LIKE ?`, binds: [`%${q}%`] };
+  const nhom = tu.map((w) => {
+    const thuong = w.toLocaleLowerCase("vi");
+    return [...new Set([w, thuong, w.toLocaleUpperCase("vi"), thuong.charAt(0).toLocaleUpperCase("vi") + thuong.slice(1)])].map((v) => `%${v}%`);
+  });
+  return {
+    sql: `(NOT EXISTS (SELECT 1 FROM json_each(?) tlk_w WHERE NOT EXISTS (SELECT 1 FROM json_each(tlk_w.value) tlk_v WHERE ${col} LIKE tlk_v.value)))`,
+    binds: [JSON.stringify(nhom)],
+  };
+}
+
 export function orDonTrongPxk(q: string): { sql: string; binds: string[] } {
+  // + ma / TEN linh kien cua dong trong phieu (2026-10-21, v1.377 - truoc day tim phieu theo ten LK khong ra gi).
+  const ten = tenLkKhopSql("x.ten_lk_snapshot", q);
   return {
     sql: ` OR EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pd JOIN dat_don_hang x ON x.id = pd.dat_don_hang_id
-             WHERE pd.phieu_xuat_kho_id = pxk.id AND (x.id LIKE ? OR x.ma_yeu_cau_su_co LIKE ? OR x.ma_lada LIKE ?
+             WHERE pd.phieu_xuat_kho_id = pxk.id AND (x.id LIKE ? OR x.ma_yeu_cau_su_co LIKE ? OR x.ma_lada LIKE ? OR x.ma_lk LIKE ? OR ${ten.sql}
                OR EXISTS (SELECT 1 FROM dat_don_case dc WHERE dc.dat_don_hang_id = x.id AND dc.case_id LIKE ?)))`,
-    binds: [`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`],
+    binds: [`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...ten.binds, `%${q}%`],
   };
 }
 

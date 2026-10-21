@@ -7,7 +7,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nowVN } from "../lib/vnTime";
 import { mocGiaiDoanTraHangSql, quaHanGiaiDoanTraHang, tinhHanLyDoCham, TRA_HANG_GIAI_DOAN_HAN } from "../lib/hanLyDoCham";
-import { emailsTheoTen, orEmailIn, orMaYcsc, orPxkCuaDon } from "../lib/timTheoTen";
+import { emailsTheoTen, orEmailIn, orMaYcsc, orPxkCuaDon, tenLkKhopSql } from "../lib/timTheoTen";
 import { bumpVersions } from "../lib/dataVersions";
 import { scopeDatMuaNguoiTao, khuVucSetWhereSql, phuTrachGsSet } from "../lib/scopeDatMua";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
@@ -159,8 +159,9 @@ traHang.get("/", async (c) => {
     const theoTen = orEmailIn(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"], await emailsTheoTen(c.env.DB, q));
     const theoMa = orMaYcsc("ddh", q); // + ma yeu cau su co chinh/bo sung (2026-09-29)
     const theoPxk = orPxkCuaDon("ddh", q); // + ma phieu / ma don hang / ma PXK MISA (2026-10-03)
-    whereSql += ` AND (ddh.ma_lk LIKE ? OR ddh.ten_lk_snapshot LIKE ? OR ddh.id LIKE ? OR ddh.nguoi_tao LIKE ?${theoMa.sql}${theoPxk.sql}${theoTen.sql})`;
-    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoMa.binds, ...theoPxk.binds, ...theoTen.binds);
+    const tenLk = tenLkKhopSql("ddh.ten_lk_snapshot", q); // ten LK khong phan biet hoa/thuong (v1.377)
+    whereSql += ` AND (ddh.ma_lk LIKE ? OR ${tenLk.sql} OR ddh.id LIKE ? OR ddh.nguoi_tao LIKE ?${theoMa.sql}${theoPxk.sql}${theoTen.sql})`;
+    binds.push(`%${q}%`, ...tenLk.binds, `%${q}%`, `%${q}%`, ...theoMa.binds, ...theoPxk.binds, ...theoTen.binds);
   }
 
   const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM dat_don_hang ddh WHERE ${whereSql}`)

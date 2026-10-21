@@ -12,7 +12,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nextSequentialId } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
-import { emailsTheoTen, orEmailIn, orMaYcsc, orPxkCuaDon } from "../lib/timTheoTen";
+import { emailsTheoTen, orEmailIn, orMaYcsc, orPxkCuaDon, tenLkKhopSql } from "../lib/timTheoTen";
 import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, viewDonScopeSql, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql, laKhoThuan, scopePxkNguoiNhanHang, gsKhuVucXemThemSql } from "../lib/scopeDatMua";
 import { pxkKhopMienXuatSql } from "../lib/mienXuat";
 import { bumpVersions } from "../lib/dataVersions";
@@ -1957,8 +1957,9 @@ async function donHangListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string
     const theoTen = orEmailIn(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"], await emailsTheoTen(c.env.DB, q));
     const theoMa = orMaYcsc("ddh", q); // + ma yeu cau su co BO SUNG (2026-09-29)
     const theoPxk = orPxkCuaDon("ddh", q); // + ma phieu / ma don hang / ma PXK MISA / ma van don cua phieu chua don (2026-10-03)
-    whereSql += ` AND (ddh.ma_lk LIKE ? OR ddh.ten_lk_snapshot LIKE ? OR ddh.id LIKE ? OR ddh.nguoi_tao LIKE ? OR ddh.nguoi_nhan_hang LIKE ?${theoMa.sql}${theoPxk.sql}${theoTen.sql})`;
-    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoMa.binds, ...theoPxk.binds, ...theoTen.binds);
+    const tenLk = tenLkKhopSql("ddh.ten_lk_snapshot", q); // ten LK khong phan biet hoa/thuong (v1.377)
+    whereSql += ` AND (ddh.ma_lk LIKE ? OR ${tenLk.sql} OR ddh.id LIKE ? OR ddh.nguoi_tao LIKE ? OR ddh.nguoi_nhan_hang LIKE ?${theoMa.sql}${theoPxk.sql}${theoTen.sql})`;
+    binds.push(`%${q}%`, ...tenLk.binds, `%${q}%`, `%${q}%`, `%${q}%`, ...theoMa.binds, ...theoPxk.binds, ...theoTen.binds);
   }
 
   // Loc cot kieu Excel (2026-09-28, lib/locCot.ts).
@@ -4779,8 +4780,9 @@ async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = 
     const theoTen = orEmailIn(["tlk.nguoi_tao", "ddh.nguoi_nhan_hang", "ddh.nguoi_tao"], await emailsTheoTen(c.env.DB, q));
     const theoMa = orMaYcsc("ddh", q); // + ma don goc, ma yeu cau su co chinh/bo sung (2026-09-29)
     const theoPxk = orPxkCuaDon("ddh", q); // + ma phieu / ma don hang / ma PXK MISA cua don goc (2026-10-03)
-    whereSql += ` AND (ddh.ma_lk LIKE ? OR ddh.ten_lk_snapshot LIKE ? OR tlk.id LIKE ? OR tlk.nguoi_tao LIKE ? OR ddh.id LIKE ?${theoMa.sql}${theoPxk.sql}${theoTen.sql})`;
-    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoMa.binds, ...theoPxk.binds, ...theoTen.binds);
+    const tenLk = tenLkKhopSql("ddh.ten_lk_snapshot", q); // ten LK khong phan biet hoa/thuong (v1.377)
+    whereSql += ` AND (ddh.ma_lk LIKE ? OR ${tenLk.sql} OR tlk.id LIKE ? OR tlk.nguoi_tao LIKE ? OR ddh.id LIKE ?${theoMa.sql}${theoPxk.sql}${theoTen.sql})`;
+    binds.push(`%${q}%`, ...tenLk.binds, `%${q}%`, `%${q}%`, `%${q}%`, ...theoMa.binds, ...theoPxk.binds, ...theoTen.binds);
   }
   return { whereSql, binds };
 }

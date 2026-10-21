@@ -666,6 +666,12 @@ tìm theo mã). Lọc phía client (`Select`, ô tìm trong lọc cột, Ctrl+K,
 (đơn/Thiếu LK/Trả hàng/Ctrl+K), `orDonTrongPxk()` (PXK — theo mã đơn/mã YCSC của dòng trong phiếu). File tải về 4 danh
 sách đổi cột người (`nguoi_*`) sang tên: `doiNguoiThanhTen()` (`lib/personDisplay.ts`).
 
+**Tìm TÊN linh kiện không phân biệt hoa/thường ở danh sách** (2026-10-21, v1.377 — "hỗ trợ tìm cả chữ hoa và chữ thường khi tìm tên linh kiện ở
+các mục đơn hàng hoặc phiếu"): LIKE của SQLite chỉ bỏ qua hoa/thường với chữ ASCII ("LÕI LỌC" không ra "Lõi lọc"). `tenLkKhopSql(col, q)` (`lib/timTheoTen.ts`):
+tách từ (≤ 6), mỗi từ khớp 1 trong các dạng gốc / thường / HOA / Hoa chữ đầu, các từ AND nhau (không cần liền nhau) — CẢ bộ đi trong 1 bind JSON (`json_each`)
+nên số tham số không đổi (`/status-counts` PXK lặp WHERE 5 lần, D1 ≤ 100 tham số). Dùng ở ô tìm Đơn hàng, Thiếu hàng, Hàng trả và Phiếu xuất (`orDonTrongPxk`
+— trước đây tìm phiếu theo tên/mã LK của dòng không ra gì). Không bỏ dấu (gõ có dấu phải đúng dấu).
+
 **Tìm linh kiện trên máy người dùng** (2026-10-04, migration `0067`): Bảng giá (ô tìm `danhMucLinhKien/TimLkBox.tsx` + gợi ý xổ
 xuống), `LinhKienPicker` (tạo đơn) và ô gộp mã ở `XetDuyetMaLk` dùng CHUNG bộ tìm `frontend/src/lib/timLinhKien.ts` (`taoBoTimLk`/
 `timLk`/`sapTheoDiem`/`doanToDam`) — tìm rời từ khóa, bỏ dấu, bỏ gạch/dấu chấm trong mã, chấp nhận sai 1 ký tự (từ ≥4 chữ),
