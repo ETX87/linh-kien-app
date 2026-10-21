@@ -1349,7 +1349,7 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json<{
     trang_thai: string; bang_chung_chuyen_tien_url?: string; bang_chung_chuyen_tien_anh?: string[]; bang_chung_chuyen_tien_ghi_chu?: string;
-    ly_do_tu_choi?: string; so_tien_thuc_nhan?: number; bang_chung_tien_doc?: Record<string, unknown>;
+    ly_do_tu_choi?: string; so_tien_thuc_nhan?: number; bang_chung_tien_doc?: Record<string, unknown>; rut_lai?: boolean;
   }>();
   const pxk = await c.env.DB.prepare(
     "SELECT trang_thai_hien_tai, trang_thai_chuyen_tien, nguoi_nhan_hang, bang_chung_tien_doc FROM phieu_xuat_kho WHERE id = ?",
@@ -1468,6 +1468,25 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
     );
     c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
     return c.json({ ok: true, ...ketQua });
+  } else if (body.trang_thai === "Cho KTV chuyen" && body.rut_lai === true) {
+    // KTV RUT LAI xac nhan de sua / huy anh bang chung up nham (chot 2026-10-21, "thêm nút hủy ảnh bằng chứng khi ktv up ảnh xong nhưng
+    // bị up nhầm (trước khi kế toán duyệt)"): "KTV da chuyen" -> "Cho KTV chuyen", GIU anh + ghi chu (form hien lai, bo anh bang ✕ roi
+    // "Đã chuyển" lai). Cung nguoi duoc xac nhan (duocXacNhanChuyenTienHo); KHONG ghi so khoan_chuyen_tien, khong bat ly do, khong bao ai.
+    const user = c.get("user");
+    if (!(await duocXacNhanChuyenTienHo(c, id, pxk.nguoi_nhan_hang))) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+    if (pxk.trang_thai_chuyen_tien !== "KTV da chuyen" || pxk.trang_thai_hien_tai === "Ke toan huy") return c.json({ error: "INVALID_STATE" }, 409);
+    try {
+      await c.env.DB.batch([
+        lenhKhoaTrangThaiChuyenTien(c.env.DB, id, "KTV da chuyen"), // chan bam 2 lan / Ke toan vua duyet
+        c.env.DB.prepare("UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = 'Cho KTV chuyen', ngay_ktv_chuyen = NULL WHERE id = ?").bind(id),
+        c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+          id, "Da yeu cau KTV chuyen tien", user.email, now, "Rút lại xác nhận đã chuyển để sửa / hủy ảnh bằng chứng (trước khi Kế toán duyệt)",
+        ),
+      ]);
+    } catch {
+      return c.json({ error: "STATE_CHANGED" }, 409);
+    }
+    await canBangPxk(c.env.DB, id, user.email, { khiTraDu: "giu" });
   } else if (body.trang_thai === "Cho KTV chuyen") {
     // KE TOAN TU CHOI / DAY LAI (2026-09-29, migration 0046, phan hoi "bổ sung chức năng đẩy lại các trường hợp sai
     // tiền, thiếu bằng chứng... khi đẩy sẽ cho phép tạo ghi chú lý do từ chối") - "KTV da chuyen" -> "Cho KTV chuyen",

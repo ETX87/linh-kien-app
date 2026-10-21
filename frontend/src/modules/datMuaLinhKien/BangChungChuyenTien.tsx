@@ -224,6 +224,33 @@ const GOI_Y_TU_CHOI = ["Sai số tiền chuyển", "Thiếu bằng chứng chuy�
  * Ke toan TU CHOI / DAY LAI bang chung (2026-09-29, migration 0046): "KTV đã chuyển" -> "Chờ KTV chuyển", bat buoc ly do
  * (PATCH /phieu-xuat-kho/:id/chuyen-tien trang_thai="Cho KTV chuyen"). Dat canh nut "Duyệt bằng chứng".
  */
+// Rut lai xac nhan "Đã chuyển" de sua / huy anh bang chung up nham (2026-10-21) - CHI khi Ke toan chua duyet ("KTV da chuyen").
+// Phieu ve "Chờ KTV chuyển", GIU anh + ghi chu -> form hien lai, bam ✕ bo anh sai, them anh dung roi "Đã chuyển" lai.
+// Backend PATCH /:id/chuyen-tien {rut_lai: true} (nguoi nhan hang / nguoi tao ho / GS cua don / TN / Ke toan / Admin).
+export function RutLaiBangChungButton({ pxkId, onDone, addToast }: { pxkId: string; onDone: () => void; addToast: (msg: string) => void }) {
+  const rutLai = useMutation({
+    mutationFn: () => api.patch(`/phieu-xuat-kho/${pxkId}/chuyen-tien`, { trang_thai: "Cho KTV chuyen", rut_lai: true }),
+    onSuccess: () => {
+      addToast(t("Đã rút lại xác nhận — bỏ ảnh sai (✕), thêm ảnh đúng rồi bấm \"Đã chuyển\" lại"));
+      onDone();
+    },
+    onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
+  });
+  return (
+    <Btn
+      size="sm"
+      variant="ghost"
+      onClick={() => {
+        if (window.confirm(t("Rút lại xác nhận \"Đã chuyển\" để sửa / hủy ảnh bằng chứng? Phiếu về \"Chờ KTV chuyển\" cho tới khi bấm \"Đã chuyển\" lại."))) rutLai.mutate();
+      }}
+      loading={rutLai.isPending}
+      title={t("Up nhầm ảnh — rút lại để sửa / hủy ảnh bằng chứng (trước khi Kế toán duyệt)")}
+    >
+      {t("↩ Sửa / hủy ảnh bằng chứng")}
+    </Btn>
+  );
+}
+
 export function TuChoiChuyenTienButton({ pxkId, onDone, addToast, laTn }: { pxkId: string; onDone: () => void; addToast: (msg: string) => void; laTn?: boolean }) {
   const [mo, setMo] = useState(false);
   const [lyDo, setLyDo] = useState("");

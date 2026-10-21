@@ -1907,5 +1907,9 @@ const tuDien: Record<string, string> = {
   "Đổi LK tương đương": "Ganti suku cadang setara",
   "Kho từ chối bắt buộc nhập lý do": "Penolakan gudang wajib mengisi alasan",
   "Lý do từ chối (bắt buộc, áp dụng cho {a} dòng đã chọn — KTV nhận được lý do này):": "Alasan penolakan (wajib, berlaku untuk {a} baris terpilih — teknisi menerima alasan ini):",
+  "Rút lại xác nhận \"Đã chuyển\" để sửa / hủy ảnh bằng chứng? Phiếu về \"Chờ KTV chuyển\" cho tới khi bấm \"Đã chuyển\" lại.": "Tarik kembali konfirmasi \"Sudah transfer\" untuk memperbaiki / menghapus foto bukti? Nota kembali ke \"Menunggu teknisi transfer\" sampai Anda menekan \"Sudah transfer\" lagi.",
+  "Up nhầm ảnh — rút lại để sửa / hủy ảnh bằng chứng (trước khi Kế toán duyệt)": "Salah unggah foto — tarik kembali untuk memperbaiki / menghapus foto bukti (sebelum Akuntansi menyetujui)",
+  "Đã rút lại xác nhận — bỏ ảnh sai (✕), thêm ảnh đúng rồi bấm \"Đã chuyển\" lại": "Konfirmasi ditarik — hapus foto yang salah (✕), tambah foto yang benar lalu tekan \"Sudah transfer\" lagi",
+  "↩ Sửa / hủy ảnh bằng chứng": "↩ Perbaiki / hapus foto bukti",
 };
 export default tuDien;

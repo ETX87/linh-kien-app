@@ -54,7 +54,7 @@ import { TongNgayKtvInfo } from "./TongNgayKtv";
 import { GanKhachLe } from "./KhachLeSdt";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../components/ui/LocCot";
-import { TienPhieuVaQuy, BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung } from "./BangChungChuyenTien";
+import { TienPhieuVaQuy, BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung, RutLaiBangChungButton } from "./BangChungChuyenTien";
 import { TraHangDetailModal } from "./TraHangTab";
 import { t } from "../../i18n";
 import { LyDoTrangThaiDon, tomTatLyDo } from "./LyDoTrangThai";
@@ -1579,6 +1579,12 @@ export function DonHangDetailModal({
                       onDone={invalidatePxk}
                       addToast={addToast}
                     />
+                  )}
+                  {/* Up nham anh -> rut lai xac nhan de sua / huy anh (2026-10-21), truoc khi Ke toan duyet. */}
+                  {currentEmail === pxk.nguoi_nhan_hang && pxk.trang_thai_chuyen_tien === "KTV da chuyen" && pxk.trang_thai !== "Ke toan huy" && (
+                    <div className="mt-2">
+                      <RutLaiBangChungButton pxkId={pxk.id} onDone={invalidatePxk} addToast={addToast} />
+                    </div>
                   )}
                 </>
               )}

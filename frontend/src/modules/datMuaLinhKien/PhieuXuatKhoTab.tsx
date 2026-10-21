@@ -42,7 +42,7 @@ import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportResult, type M
 import { Money } from "../../components/ui/Money";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../components/ui/LocCot";
-import { BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung, DuyetChuyenTienForm, LichSuKhoanChuyen, TienPhieuVaQuy, TuChoiChuyenTienButton, type KhoanChuyenTien } from "./BangChungChuyenTien";
+import { BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung, DuyetChuyenTienForm, LichSuKhoanChuyen, RutLaiBangChungButton, TienPhieuVaQuy, TuChoiChuyenTienButton, type KhoanChuyenTien } from "./BangChungChuyenTien";
 import { doiNguoiThanhTen, formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay";
 import { t } from "../../i18n";
 import { baoLoiTaiAnh, canhBaoHanMucAnh, type HanMucAnh } from "../../lib/hanMucAnh";
@@ -2022,6 +2022,13 @@ export function PxkDetailModal({
           {/* SUA (phan hoi 04/09/2026: "Bước 2: 'Kế toán duyệt chuyển tiền'") - nguoi duyet
               buoc cuoi chuyen tu TN sang Ke toan, khop dung gate canKeToan o backend PATCH
               /:id/chuyen-tien nhanh "TN da duyet" (gia tri DB giu nguyen ten cu). */}
+          {/* KTV / nguoi tao ho / GS up nham anh -> rut lai sua (2026-10-21); Ke toan / TN da co nut tu choi / day lai rieng. */}
+          {!canKeToan && !canTacNghiep && pxk.trang_thai_chuyen_tien === "KTV da chuyen" && pxk.trang_thai !== "Ke toan huy" &&
+            (currentEmail === pxk.nguoi_nhan_hang || (data?.donHang ?? []).some((d) => d.nguoi_tao === currentEmail || d.email_gs === currentEmail)) && (
+            <div className="mt-2">
+              <RutLaiBangChungButton pxkId={pxk.id} onDone={invalidate} addToast={addToast} />
+            </div>
+          )}
           {canKeToan && pxk.trang_thai_chuyen_tien === "KTV da chuyen" && (
             // + "Từ chối, đẩy lại" (2026-09-29, migration 0046) - sai tien/thieu bang chung -> ve "Chờ KTV chuyển" kem ly do.
             // Quy du (migration 0047): Ke toan nhap so THUC NHAN - du vao quy, thieu thi ve cho chuyen bo sung.

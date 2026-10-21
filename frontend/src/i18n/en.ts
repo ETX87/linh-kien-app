@@ -1907,5 +1907,9 @@ const tuDien: Record<string, string> = {
   "Đổi LK tương đương": "Switch to equivalent part",
   "Kho từ chối bắt buộc nhập lý do": "Warehouse rejection requires a reason",
   "Lý do từ chối (bắt buộc, áp dụng cho {a} dòng đã chọn — KTV nhận được lý do này):": "Rejection reason (required, applies to the {a} selected rows — the technician receives this reason):",
+  "Rút lại xác nhận \"Đã chuyển\" để sửa / hủy ảnh bằng chứng? Phiếu về \"Chờ KTV chuyển\" cho tới khi bấm \"Đã chuyển\" lại.": "Withdraw the \"Transferred\" confirmation to fix / remove proof images? The note returns to \"Awaiting technician transfer\" until you press \"Transferred\" again.",
+  "Up nhầm ảnh — rút lại để sửa / hủy ảnh bằng chứng (trước khi Kế toán duyệt)": "Wrong image uploaded — withdraw to fix / remove proof images (before Accounting approves)",
+  "Đã rút lại xác nhận — bỏ ảnh sai (✕), thêm ảnh đúng rồi bấm \"Đã chuyển\" lại": "Confirmation withdrawn — remove the wrong image (✕), add the right one, then press \"Transferred\" again",
+  "↩ Sửa / hủy ảnh bằng chứng": "↩ Fix / remove proof images",
 };
 export default tuDien;
