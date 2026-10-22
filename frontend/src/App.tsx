@@ -152,7 +152,8 @@ function MainApp({
   }
   // "Mua hang" (2026-09-30, migration 0053) - xet duyet ma LK moi o Bang gia (dot 1 chi vao Bang gia).
   // TN/Ke toan (2026-10-02): bat/tat "Đặc thù" nhanh o Bang gia (PATCH /settings/linh-kien/:ma/dac-thu).
-  if (role !== "Admin" && (user.xem_danh_muc_lk || user.quan_ly_danh_muc_lk || user.la_mua_hang || user.la_tac_nghiep || user.la_ke_toan)) {
+  // Kho (2026-10-22, v1.390): quan ly nhom LK thay the (tab "Linh kiện thay thế") - xem coQuyenSuaThayThe.
+  if (role !== "Admin" && (user.xem_danh_muc_lk || user.quan_ly_danh_muc_lk || user.la_mua_hang || user.la_tac_nghiep || user.la_ke_toan || user.la_kho)) {
     allowedModules = [...new Set([...allowedModules, "danh-muc-lk"])];
   }
   // "Tốc độ xử lý" (them 04/09/2026) - RIENG cho la_view (KHONG gop vao khoi 7 co "Dat mua linh kien"

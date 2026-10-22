@@ -104,11 +104,14 @@ lkSettings.patch("/danh-muc/:ma", quanLyDanhMuc, async (c) => {
 // Bang lk_nhom_thay_the + lk_nhom_thay_the_ct la nguon DUY NHAT (tab "Linh kiện thay thế" Bang gia, goi y luc tao don, drawer LK
 // "Liên quan", API doi tac /v1/lk-thay-the + linh-kien/chi-tiet). Truoc 2026-10-19 man hinh doc Google Sheet, bang rong.
 // Doc: moi user da dang nhap. Ghi (them/sua/xoa nhom, them/bot ma): nguoi co quyen sua linh kien = Quan ly danh muc LK / Mua hang /
-// Admin (khop canSua o DanhMucLinhKienModule + suaLinhKienRoles o settingsDatMua.ts). Thanh vien CHUA co trong danh muc (nhap tu Sheet)
+// Admin + Kho / Ke toan / Giam sat (chot 2026-10-22, v1.390 - "xây dựng công cụ để kho, hoặc kế toán, giám sát cho phép tạo, sửa,
+// thay đổi các danh sách linh kiện tương đương"; ban sao FE coQuyenSuaThayThe o frontend/src/lib/quyenThayThe.ts). Thanh vien CHUA co trong danh muc (nhap tu Sheet)
 // van giu duoc khi sua nhom; ma MOI them vao phai co trong danh muc (ma 'Da doi ma' tu quy ve ma chuan).
 const suaThayThe = createMiddleware<{ Bindings: Env }>(async (c, next) => {
   const u = c.get("user");
-  if (!u.quan_ly_danh_muc_lk && !u.la_mua_hang && u.vai_tro !== "Admin") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  if (!u.quan_ly_danh_muc_lk && !u.la_mua_hang && !u.la_kho && !u.la_ke_toan && u.vai_tro !== "Admin" && u.vai_tro !== "Giam sat") {
+    return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  }
   await next();
 });
 const TOI_DA_THANH_VIEN = 100;

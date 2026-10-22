@@ -16,6 +16,7 @@ import { useBoTimLk, useLichSuLk, diemHayDat } from "../../lib/useTimLinhKien";
 import { ToDam } from "../../components/ui/ToDam";
 import { t } from "../../i18n";
 import { useAuth } from "../../auth/AuthContext";
+import { coQuyenSuaThayThe } from "../../lib/quyenThayThe";
 
 // O chon "Ma linh kien" (autocomplete co anh/gia/xep hang) + cac component lien quan (thumbnail,
 // modal xem chi tiet, goi y thay the) - tach tu DatMuaLinhKienModule.tsx (UI redesign Phase 3,
@@ -23,12 +24,12 @@ import { useAuth } from "../../auth/AuthContext";
 
 // Goi y ma LK cung nhom thay the (bang lk_nhom_thay_the - nguon duy nhat tu 2026-10-19, migration 0092; truoc do goi y doc Google
 // Sheet qua ThayTheGoiYTuSheet, da bo). Ap dung cho MOI nguoi dung. Nguoi co quyen sua linh kien (Quan ly danh muc LK / Mua hang /
-// Admin - khop backend suaThayThe) co them o "+ Thêm vào nhóm thay thế" de bo sung nhanh ma dang chon vao 1 nhom co san.
+// Admin, + Kho / Ke toan / Giam sat tu v1.390 - coQuyenSuaThayThe, khop backend suaThayThe) co them o "+ Thêm vào nhóm thay thế" de bo sung nhanh ma dang chon vao 1 nhom co san.
 export function ThayTheGoiY({ maLk, addToast }: { maLk: string; addToast: (msg: string) => void }) {
   const qc = useQueryClient();
   const auth = useAuth();
   const u = auth.status === "authenticated" ? auth.user : null;
-  const canQuanLy = !!u?.quan_ly_danh_muc_lk || !!u?.la_mua_hang || u?.vai_tro === "Admin";
+  const canQuanLy = coQuyenSuaThayThe(u);
   const { data } = useQuery({
     queryKey: ["lk-thay-the", maLk],
     queryFn: () => api.get<{ rows: LkDanhMucRow[] }>(`/lk-settings/thay-the/${encodeURIComponent(maLk)}`),

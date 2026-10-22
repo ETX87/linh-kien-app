@@ -7,6 +7,7 @@ import { Money } from "../../components/ui/Money";
 import { useToast } from "../../components/ui/Toast";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
+import { coQuyenSuaThayThe } from "../../lib/quyenThayThe";
 import { fmtVND, fmtDateTime } from "../../types";
 import { khopTim } from "../../lib/boDau";
 import { usePersonDirectory, formatPersonDisplay } from "../../lib/personDisplay";
@@ -43,7 +44,7 @@ export interface NhomThayTheRow {
 export function ThayTheTab() {
   const auth = useAuth();
   const u = auth.status === "authenticated" ? auth.user : null;
-  const canWrite = !!u?.quan_ly_danh_muc_lk || !!u?.la_mua_hang || u?.vai_tro === "Admin";
+  const canWrite = coQuyenSuaThayThe(u);
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["lk-nhom-thay-the"],
     queryFn: () => api.get<{ rows: NhomThayTheRow[] }>("/lk-settings/nhom-thay-the"),
