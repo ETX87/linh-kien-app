@@ -1987,5 +1987,6 @@ const tuDien: Record<string, string> = {
   "⬆ Import Excel": "⬆ Import Excel",
   "⬇ File mẫu": "⬇ Template",
   "⬇ Tải danh sách": "⬇ Download list",
+  "Đã đổi khu vực xử lý đơn: {a} — kho khu vực mới đủ hàng, đơn tự duyệt và vào phiếu": "Order processing area changed: {a} — the new area's warehouse has enough stock, the order was auto-approved and added to a slip",
 };
 export default tuDien;

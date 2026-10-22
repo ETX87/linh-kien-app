@@ -255,6 +255,10 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   người nhận = GS hoặc khu vực hiệu lực thuộc "Khu vực xem thêm"); phiếu = có ≥ 1 đơn trong phiếu thoả. Chi tiết đơn (`GET /don-hang/:id`, `GET /tra-hang/:id`)
   và chi tiết PXK trả cờ `duoc_doi_khu_vuc` → FE hiện ô chọn (`DoiKhuVucDon`/`ChuyenKhuVucCard`). Vẫn theo phạm vi XEM: TBP không có tab Phiếu xuất
   (`canXemPxkTab`) và KTV tạo hộ không mở được phiếu của người khác nhận → chỉ đổi được ở chi tiết đơn khi đơn chưa vào phiếu.
+  **Đơn "Cho hang" đổi khu vực → xét lại tồn kho** (chốt 2026-10-22, v1.388 — "chuyển sang khu vực khác có hàng, nhưng tiket vẫn tồn và bị chờ
+  hàng => tự động xác định lại ticket"): PATCH `/don-hang/:id/khu-vuc` với đơn Mua/Công nợ (không TRỪ CÔNG NỢ) đang "Cho hang" → `donDuTonKhoCongTy`
+  (FIFO theo khu vực MỚI): đủ → `duyetDonKhiHangVe` (tự duyệt + vào phiếu, mang tiền đã trả) + `dongThieuLkMoCuaDon(..., "Da ket thuc")` + báo người tạo,
+  trả `tu_duyet: true` (toast riêng ở `DoiKhuVucDon`); vẫn thiếu → giữ ticket cho Kho như cũ. Không áp chiều ngược (đơn đã duyệt đổi sang khu vực hết hàng).
 - **Danh sách PXK dạng phiếu gốc xổ xuống** (2026-09-29): bấm 1 dòng PXK = xổ/thu các dòng đơn con ngay bên dưới
   (`PaginatedTable` prop `expandedContent` — 1 hàng `<td colSpan>`, nội dung rộng không kéo giãn cột cha; mobile: khối
   dưới thẻ), bấm ID phiếu (link màu, gạch chân — desktop + mobile) mới mở Drawer, không còn nút "Chi tiết", "Xổ tất cả dòng đơn" mở cả trang. Bảng dòng đơn + mọi thao

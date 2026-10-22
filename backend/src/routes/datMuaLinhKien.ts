@@ -42,7 +42,7 @@ import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
 import { tachComboDong } from "../lib/lkCombo";
 import {
   deriveLoaiDon, boQuaTbpChoDacThu, canDoiChieuCongNo, nguCanhNhan, danhGiaPhieu, trangThaiSauDuyet, tacDongSauDinhTuyen, duyetDonKhiHangVe, danhGiaLaiDonChoThanhToan, choPhepThanhToanSau,
-  huyDonChoHangTuDong, baoNguoiTaoDon, moTaThieuTon, moTicketChoHangTuDong, baoGsChoDuyet, type DongDanhGia, type KetQuaDong, type KetQuaPhieu,
+  huyDonChoHangTuDong, baoNguoiTaoDon, moTaThieuTon, moTicketChoHangTuDong, donDuTonKhoCongTy, baoGsChoDuyet, type DongDanhGia, type KetQuaDong, type KetQuaPhieu,
 } from "../lib/tuDongDuyet";
 
 // Luong chinh "Dat mua linh kien" - phieu dat (header, chi de tong hop hien thi) + dong don hang -
@@ -3960,14 +3960,18 @@ datMuaLinhKien.patch("/don-hang/:id/khu-vuc", async (c) => {
   const kv = await c.env.DB.prepare("SELECT ma, ten FROM khu_vuc WHERE ma = ?").bind(ma).first<{ ma: string; ten: string }>();
   if (!kv) return c.json({ error: "KHU_VUC_KHONG_TON_TAI" }, 400);
   const ddh = await c.env.DB.prepare(
-    `SELECT ddh.loai_don, ddh.trang_thai_hien_tai as trang_thai, ddh.khu_vuc_ma, ddh.khu_vuc_chon,
+    `SELECT ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat,
+       ddh.trang_thai_hien_tai as trang_thai, ddh.khu_vuc_ma, ddh.khu_vuc_chon,
        (SELECT ten FROM khu_vuc WHERE ma = COALESCE(ddh.khu_vuc_chon, ddh.khu_vuc_ma)) as ten_cu,
        EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pd JOIN phieu_xuat_kho p ON p.id = pd.phieu_xuat_kho_id
                WHERE pd.dat_don_hang_id = ddh.id AND COALESCE(p.trang_thai_hien_tai, '') != 'Ke toan huy') as trong_phieu
      FROM dat_don_hang ddh WHERE ddh.id = ?`,
   )
     .bind(id)
-    .first<{ loai_don: string; trang_thai: string | null; khu_vuc_ma: string | null; khu_vuc_chon: string | null; ten_cu: string | null; trong_phieu: number }>();
+    .first<{
+      loai_don: string; loai_de_xuat: string | null; nguoi_tao: string; ten_lk_snapshot: string; so_luong_de_xuat: number;
+      trang_thai: string | null; khu_vuc_ma: string | null; khu_vuc_chon: string | null; ten_cu: string | null; trong_phieu: number;
+    }>();
   if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
   if (["TN tu choi", "Tu choi", "Da huy"].includes(ddh.trang_thai ?? "")) return c.json({ error: "DON_DA_DONG" }, 409);
   if (ddh.trong_phieu) return c.json({ error: "DON_TRONG_PHIEU" }, 409);
@@ -3985,8 +3989,29 @@ datMuaLinhKien.patch("/don-hang/:id/khu-vuc", async (c) => {
   await c.env.DB.prepare(`INSERT INTO ${bangLog} (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)`)
     .bind(id, ddh.trang_thai, user.email, now, ghiChu)
     .run();
+
+  // Don "Cho hang" doi khu vuc (chot 2026-10-22, "chuyển sang khu vực khác có hàng, nhưng tiket vẫn tồn và bị chờ hàng => tự động xác định
+  // lại ticket thiếu hàng bị chuyển khu vực nếu có hàng tự duyệt có hàng và bỏ khỏi hàng chờ => đẩy theo logic như bình thường"): xet lai
+  // ton kho cong ty o KHU VUC MOI (cung FIFO donDuTonKhoCongTy nhu luc tao don) - du -> don tu duyet + vao phieu nhu Kho "Hàng đã về"
+  // (duyetDonKhiHangVe, mang theo tien da tra) + dong ticket con mo "Da ket thuc"; van thieu -> giu nguyen ticket cho Kho xu ly.
+  // Don TRỪ CÔNG NỢ doi chieu ton KTV, khong theo khu vuc -> bo qua.
+  let tuDuyet = false;
+  if (ddh.trang_thai === "Cho hang" && (ddh.loai_don === "mua" || ddh.loai_don === "cong_no") && !laTruCongNo(ddh.loai_de_xuat)) {
+    const { du, ton, khuVuc } = await donDuTonKhoCongTy(c.env.DB, id);
+    if (du) {
+      const lyDoDuyet = `Tự động: đơn chuyển khu vực ${ddh.ten_cu ?? ddh.khu_vuc_chon ?? ddh.khu_vuc_ma ?? "?"} → ${kv.ten}, ${moTaThieuTon(ton, ddh.so_luong_de_xuat, khuVuc)} — đủ hàng, duyệt đơn + vào phiếu`;
+      tuDuyet = await duyetDonKhiHangVe(c.env, c.env.DB, id, user.email, lyDoDuyet);
+      if (tuDuyet) {
+        await dongThieuLkMoCuaDon(c.env.DB, id, "Da ket thuc", user.email, lyDoDuyet);
+        if (ddh.nguoi_tao !== user.email) {
+          c.executionCtx.waitUntil(baoNguoiTaoDon(c.env, c.env.DB, ddh.nguoi_tao, "da_duyet",
+            `Đơn hàng "${ddh.ten_lk_snapshot} (x${ddh.so_luong_de_xuat})" chuyển sang khu vực ${kv.ten} — kho đủ hàng, đã duyệt và vào phiếu xuất kho`, id));
+        }
+      }
+    }
+  }
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
-  return c.json({ ok: true, khu_vuc_chon: moi });
+  return c.json({ ok: true, khu_vuc_chon: moi, tu_duyet: tuDuyet });
 });
 
 // POST /api/dat-mua-lk/don-hang/bulk-log - { ids, hanh_dong, ly_do_cham_id?, ghi_chu? } xu ly hang

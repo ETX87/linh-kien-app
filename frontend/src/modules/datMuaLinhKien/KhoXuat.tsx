@@ -169,8 +169,13 @@ export function DoiKhuVucDon({
   const ten = (ma: string | null | undefined) => (ma ? khuVucData?.rows.find((k) => k.ma === ma)?.ten ?? ma : "—");
   const options = (khuVucData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ma === don.khu_vuc_ma ? t("{a} (theo KTV)", { a: k.ten }) : k.ten }));
   const mutation = useMutation({
-    mutationFn: () => api.patch(`/dat-mua-lk/don-hang/${don.id}/khu-vuc`, { khu_vuc_ma: chon }),
-    onSuccess: () => { onDone(); addToast(t("Đã đổi khu vực xử lý đơn: {a}", { a: ten(chon) })); },
+    mutationFn: () => api.patch<{ tu_duyet?: boolean }>(`/dat-mua-lk/don-hang/${don.id}/khu-vuc`, { khu_vuc_ma: chon }),
+    onSuccess: (res) => {
+      onDone();
+      addToast(res?.tu_duyet
+        ? t("Đã đổi khu vực xử lý đơn: {a} — kho khu vực mới đủ hàng, đơn tự duyệt và vào phiếu", { a: ten(chon) })
+        : t("Đã đổi khu vực xử lý đơn: {a}", { a: ten(chon) }));
+    },
     onError: (err) => {
       const code = err instanceof ApiError ? err.code : undefined;
       if (code === "DON_TRONG_PHIEU") addToast(t("Đơn đã vào phiếu xuất — Kho đổi khu vực ở chi tiết phiếu"));
