@@ -535,7 +535,7 @@ ktvTonKho.patch("/cong-no-0d/:id/lk/:ma", adminOrKeToan, async (c) => {
 // GET /cong-no-0d/ktv-options - danh ba KTV de chon ap dung (kem khu vuc de loc nhanh).
 ktvTonKho.get("/cong-no-0d/ktv-options", adminOrKeToan, async (c) => {
   const { results } = await c.env.DB.prepare(
-    `SELECT k.ma_ktv, k.ten_hien_thi, k.ten_misa, k.khu_vuc_ma, k.vai_tro_ktv, COALESCE(k.ngung_hoat_dong, 0) as ngung_hoat_dong
+    `SELECT k.ma_ktv, k.ten_hien_thi, k.ma_misa, k.ten_misa, k.khu_vuc_ma, k.vai_tro_ktv, COALESCE(k.ngung_hoat_dong, 0) as ngung_hoat_dong
      FROM ktv_lien_he k ORDER BY k.khu_vuc_ma, k.ten_hien_thi`,
   ).all();
   return c.json({ rows: results });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { Btn } from "../components/ui/Btn";
@@ -37,6 +37,7 @@ interface LkKhopRow { ma_linh_kien: string; ten_linh_kien: string | null; gia_tr
 interface KtvOption {
   ma_ktv: string;
   ten_hien_thi: string | null;
+  ma_misa?: string | null;
   ten_misa: string | null;
   khu_vuc_ma: string | null;
   ngung_hoat_dong: number;
@@ -270,7 +271,7 @@ function CongNo0dModal({ row, onClose, onSaved }: { row: CongNo0dRow | null; onC
         if (!chiDaChon && k.ngung_hoat_dong && !chon.has(k.ma_ktv)) return false;
         if (locKv && (locKv === CHUA_CO_KV ? !!k.khu_vuc_ma : k.khu_vuc_ma !== locKv)) return false;
         const q = timKtv.trim();
-        return !q || khopTim(`${k.ma_ktv} ${k.ten_hien_thi ?? ""} ${k.ten_misa ?? ""}`, q);
+        return !q || khopTim(`${k.ma_ktv} ${k.ten_hien_thi ?? ""} ${k.ten_misa ?? ""} ${k.ma_misa ?? ""}`, q);
       }),
     [ktvAll, chon, chiDaChon, locKv, timKtv],
   );
@@ -282,6 +283,45 @@ function CongNo0dModal({ row, onClose, onSaved }: { row: CongNo0dRow | null; onC
       else ktvLoc.forEach((k) => next.add(k.ma_ktv));
       return next;
     });
+  // CHON KTV TU FILE EXCEL (2026-10-22, "thêm chức năng import KTV mã ID KTV hoặc mã misa từ file excel => tự động sẽ chọn các KTV có
+  // trong danh sách đó thay vì phải tích chọn từng ktv"): doc MOI o trong sheet dau, o nao trung Ma KTV hoac Ma MISA (khong phan biet
+  // hoa/thuong) thi chon KTV do (CONG THEM vao danh sach dang chon). Ma khong khop chi bao o cac COT co it nhat 1 o khop (bo dong tieu de).
+  const [ketQuaFile, setKetQuaFile] = useState<{ ten: string; chon: number; daCo: number; khongThay: string[] } | null>(null);
+  const fileKtvRef = useRef<HTMLInputElement>(null);
+  async function chonKtvTuFile(file: File) {
+    try {
+      const XLSX = await import("xlsx");
+      const wb = /\.csv$/i.test(file.name)
+        ? XLSX.read((await file.text()).replace(/^\uFEFF/, ""), { type: "string" })
+        : XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const bang = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "", blankrows: false });
+      const chuan = (v: unknown) => String(v ?? "").trim().toUpperCase();
+      const theoMa = new Map<string, string[]>();
+      const them = (k: string, ma: string) => theoMa.set(k, [...(theoMa.get(k) ?? []), ma]);
+      for (const k of ktvAll) {
+        them(chuan(k.ma_ktv), k.ma_ktv);
+        if (k.ma_misa?.trim()) them(chuan(k.ma_misa), k.ma_ktv);
+      }
+      const tim = new Set<string>();
+      const cotCoKhop = new Set<number>();
+      bang.forEach((dong) => (dong as unknown[]).forEach((o, c) => {
+        const ds = theoMa.get(chuan(o));
+        if (!ds) return;
+        cotCoKhop.add(c);
+        // 1 Ma MISA gan nhieu ma KTV: chi lay ma dang hoat dong (het thi lay tat ca).
+        const dangBat = ds.filter((ma) => !ktvAll.find((k) => k.ma_ktv === ma)?.ngung_hoat_dong);
+        (dangBat.length ? dangBat : ds).forEach((ma) => tim.add(ma));
+      }));
+      const khongThay = [...new Set(bang.slice(1).flatMap((dong) =>
+        (dong as unknown[]).filter((o, c) => cotCoKhop.has(c) && chuan(o) && !theoMa.has(chuan(o))).map((o) => String(o).trim())))];
+      const daCo = [...tim].filter((ma) => chon.has(ma)).length;
+      setChon((prev) => new Set([...prev, ...tim]));
+      setKetQuaFile({ ten: file.name, chon: tim.size, daCo, khongThay });
+      if (tim.size) { setChiDaChon(true); setLocKv(""); setTimKtv(""); }
+    } catch (e) {
+      addToast("Không đọc được file: " + (e instanceof Error ? e.message : String(e)));
+    }
+  }
   const doiChon = (ma: string) =>
     setChon((prev) => {
       const next = new Set(prev);
@@ -443,7 +483,28 @@ function CongNo0dModal({ row, onClose, onSaved }: { row: CongNo0dRow | null; onC
                 <Btn size="sm" variant="ghost" disabled={ktvLoc.length === 0} onClick={doiChonLoc}>
                   {tatCaDangLocDaChon ? `Bỏ chọn ${ktvLoc.length} KTV đang lọc` : `Chọn ${ktvLoc.length} KTV đang lọc`}
                 </Btn>
+                <Btn size="sm" variant="subtle" disabled={!ktvAll.length} onClick={() => fileKtvRef.current?.click()}
+                  title="File Excel/CSV có cột Mã KTV hoặc Mã MISA — mọi KTV có mã trong file được chọn thêm">
+                  ⬆ Chọn KTV từ file
+                </Btn>
+                <input ref={fileKtvRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
+                  onChange={(e) => { const fi = e.target.files?.[0]; e.target.value = ""; if (fi) void chonKtvTuFile(fi); }} />
               </div>
+              {ketQuaFile && (
+                <div className={`flex items-start gap-2 border-b border-[var(--color-border)] px-2.5 py-2 text-xs ${ketQuaFile.chon ? "text-[var(--color-text-body)]" : "text-[var(--color-danger-strong)]"}`}>
+                  <div className="min-w-0 flex-1">
+                    {ketQuaFile.chon
+                      ? <>Từ file <b>{ketQuaFile.ten}</b>: chọn <b>{ketQuaFile.chon}</b> KTV{ketQuaFile.daCo ? ` (${ketQuaFile.daCo} KTV đã chọn từ trước)` : ""} — đang lọc "Chỉ KTV đã chọn" để kiểm tra lại.</>
+                      : <>File <b>{ketQuaFile.ten}</b> không có mã nào khớp Mã KTV / Mã MISA.</>}
+                    {ketQuaFile.khongThay.length > 0 && (
+                      <div className="mt-0.5 text-[var(--color-warning)]" title={ketQuaFile.khongThay.join(", ")}>
+                        ⚠ {ketQuaFile.khongThay.length} mã không tìm thấy: {ketQuaFile.khongThay.slice(0, 15).join(", ")}{ketQuaFile.khongThay.length > 15 ? "…" : ""}
+                      </div>
+                    )}
+                  </div>
+                  <button type="button" className="shrink-0 text-[var(--color-text-secondary)]" onClick={() => setKetQuaFile(null)} aria-label="Đóng">✕</button>
+                </div>
+              )}
               <div className="max-h-64 overflow-y-auto divide-y divide-[var(--color-border)]">
                 {ktvLoc.length === 0 && <div className="px-3 py-4 text-center text-xs text-[var(--color-text-secondary)]">Không có KTV phù hợp.</div>}
                 {ktvLoc.map((k) => (
