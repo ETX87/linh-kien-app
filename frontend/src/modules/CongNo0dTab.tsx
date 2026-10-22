@@ -11,6 +11,7 @@ import { khopTim } from "../lib/boDau";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 import { LinhKienPicker } from "./datMuaLinhKien/LinhKienPicker";
 import { describeApiError, formatLkLabel, useLkAndLdeCache } from "./datMuaLinhKien/helpers";
+import { ImportChuongTrinhModal } from "./congNo0d/ImportChuongTrinhModal";
 
 // Tab "Công nợ 0 đồng" (2026-10-05, migration 0069) - Ke toan/Admin khai bao chuong trinh ho tro: ma LK + SL ho tro (cho MOI
 // KTV ap dung) + khoang ngay + KTV ap dung (1 / nhieu / toan bo, loc nhanh theo Khu vuc). Trong khoang ngay, KTV co ton LK do thi
@@ -61,6 +62,7 @@ export function CongNo0dTab() {
   const [query, setQuery] = useState("");
   const [sua, setSua] = useState<CongNo0dRow | "moi" | null>(null);
   const [xoa, setXoa] = useState<CongNo0dRow | null>(null);
+  const [moImport, setMoImport] = useState(false);
 
   const lamMoi = () => {
     void qc.invalidateQueries({ queryKey: QK });
@@ -110,7 +112,10 @@ export function CongNo0dTab() {
           placeholder="Tìm tên chương trình, mã/tên LK, KTV…"
           className="focus-ring w-full sm:max-w-md bg-white border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-sm"
         />
-        <Btn variant="primary" size="sm" className="ml-auto" onClick={() => setSua("moi")}>
+        <Btn variant="subtle" size="sm" className="ml-auto" onClick={() => setMoImport(true)} title="Tạo nhiều chương trình từ file Excel/CSV">
+          ⬆ Import chương trình
+        </Btn>
+        <Btn variant="primary" size="sm" onClick={() => setSua("moi")}>
           ＋ Thêm chương trình
         </Btn>
       </div>
@@ -185,6 +190,13 @@ export function CongNo0dTab() {
             setSua(null);
             lamMoi();
           }}
+        />
+      )}
+      {moImport && (
+        <ImportChuongTrinhModal
+          daCo={(data?.rows ?? []).map((r) => ({ ten: r.ten, tu_ngay: r.tu_ngay, den_ngay: r.den_ngay }))}
+          onClose={() => setMoImport(false)}
+          onDone={lamMoi}
         />
       )}
       {xoa && (
