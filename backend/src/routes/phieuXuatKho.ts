@@ -1797,8 +1797,22 @@ phieuXuatKho.post("/:id/log", async (c) => {
   // trang thai rut lai) - Ke toan chot lai thi day lai cung order_code, khovan tra ve dong da co (khong tao trung).
   const dayLuiTuKho = target === "Cho ke toan" && hienTai === "Da chot xong don xuat";
   const keToanTruKho = target === "Hang tru kho" && hienTai === "Cho ke toan";
+  // DAY LUI "Đang gửi KTV" -> "Đã chốt xong đơn xuất" (2026-10-22, v1.394 - "đơn đã ấn gửi ktv cho phép kho đẩy ngược lại bước
+  // trước"): Kho bam nham "Đang gửi KTV" / hang chua di that. Kho/Admin, bat buoc ly do; chan khi KTV dang bao nhan thieu (ticket
+  // mo). Giu ma van don + co "Đã in phiếu" (Kho gui lai thi nhap ma moi de ghi de). KHONG lap lai tac dung phu cua "Da chot xong
+  // don xuat" (day khovan, bao viec Kho, bao KTV "Ke toan duyet xong"). Han tu xac nhan (trigger trg_pxk_han_tu_nhan) tinh lai khi gui
+  // lai; cron tu xac nhan chi xet phieu "Dang gui KTV" nen phieu da day lui khong bi tu dong. Ben khovan khong co trang thai rut lai.
+  const dayLuiGuiKtv = target === "Da chot xong don xuat" && hienTai === "Dang gui KTV";
 
-  if (dayLuiTuKho) {
+  if (dayLuiGuiKtv) {
+    if (!canKho(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+    if (!body.ghi_chu?.trim()) return c.json({ error: "MISSING_GHI_CHU" }, 400);
+    const moBaoThieu = await c.env.DB.prepare("SELECT id FROM nhan_thieu WHERE phieu_xuat_kho_id = ? AND trang_thai = 'Cho kho kiem tra' LIMIT 1")
+      .bind(id)
+      .first<{ id: string }>();
+    if (moBaoThieu) return c.json({ error: "DANG_BAO_NHAN_THIEU", message: `Phiếu đang có báo nhận thiếu ${moBaoThieu.id} chờ Kho kiểm tra — xử lý ticket trước.` }, 409);
+    body.ghi_chu = `Kho đẩy lùi về chờ gửi KTV: ${body.ghi_chu.trim()}`;
+  } else if (dayLuiTuKho) {
     if (!canKho(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
     if (!body.ghi_chu?.trim()) return c.json({ error: "MISSING_GHI_CHU" }, 400);
     body.ghi_chu = `Trả về chờ mã MISA: ${body.ghi_chu.trim()}`;
@@ -1981,7 +1995,7 @@ phieuXuatKho.post("/:id/log", async (c) => {
   // Phieu CHI gom dong "TRỪ CÔNG NỢ" (chot 2026-09-29): hang da o kho CUA KTV, khong co giao vat ly -> Ke toan chot xong
   // thi he thong tu "Hang tru kho" thay Kho (khong day sang khovan, khong bao viec cho Kho). Phieu lan dong khac: nhu cu.
   let hangTruKhoTuDong = false;
-  if (target === "Da chot xong don xuat" && pxk.loai_don === "cong_no") {
+  if (target === "Da chot xong don xuat" && !dayLuiGuiKtv && pxk.loai_don === "cong_no") {
     const { results: ldx } = await c.env.DB.prepare(
       "SELECT ddh.loai_de_xuat FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = ?",
     )
@@ -1993,7 +2007,7 @@ phieuXuatKho.post("/:id/log", async (c) => {
   // "Da chot xong don xuat" la moc "san sang cho Kho xu ly" (nguyen tac "Kho chi thao
   // tac qua app kho van", chot 2026-09-07) - day "cho xu ly" sang khovan O DAY, ap dung
   // CA loai_don thuong (mua/cong_no) LAN 'tra_hang' (xem lib/khovanPushClient.ts).
-  if (target === "Da chot xong don xuat") {
+  if (target === "Da chot xong don xuat" && !dayLuiGuiKtv) {
     // Luong C moi (chot 08/09/2026, xem Artifact "Ma tran luong Kho van"): neu PXK nay gom cac
     // dong tra_hang DA ve kho that qua ma "TRA-" (Kho da nhan vat ly, QC da kiem xong - xem
     // routes/traHang.ts), day CHI la thu tuc ke toan/MISA cho lo hang DA co san tai kho - KHONG
@@ -2038,7 +2052,7 @@ phieuXuatKho.post("/:id/log", async (c) => {
 
   // Bao "viec moi" cho vai tro SAP xu ly buoc tiep theo (phan hoi 2026-09-05) - PXK khong co
   // email_gs rieng, suy tu cac dat_don_hang da gop vao (xem emailGsListForPxk).
-  if (target === "Cho ke toan" || (target === "Da chot xong don xuat" && !hangTruKhoTuDong) || target === "Dang tao phieu") {
+  if (target === "Cho ke toan" || (target === "Da chot xong don xuat" && !hangTruKhoTuDong && !dayLuiGuiKtv) || target === "Dang tao phieu") {
     const role = target === "Cho ke toan" ? "la_ke_toan" : target === "Dang tao phieu" ? "la_tac_nghiep" : "la_kho";
     const body_ =
       target === "Cho ke toan"
@@ -2079,7 +2093,9 @@ phieuXuatKho.post("/:id/log", async (c) => {
   // vua thao tac CHINH LA KTV nhan hang do (hiem, nhung tranh tu bao chinh minh).
   if ((target === "Da chot xong don xuat" || target === "Dang gui KTV" || keToanTruKho) && pxk.nguoi_nhan_hang && pxk.nguoi_nhan_hang !== user.email) {
     const noiDung =
-      keToanTruKho
+      dayLuiGuiKtv
+        ? `Phiếu xuất kho ${id} của bạn được Kho đưa về chờ gửi (chưa gửi hàng) — ${body.ghi_chu}`
+        : keToanTruKho
         ? `Phiếu xuất kho ${id} của bạn đã được Kế toán chốt — hàng trừ kho, phiếu kết thúc`
         : target === "Da chot xong don xuat"
           ? `Phiếu xuất kho ${id} của bạn đã được Kế toán duyệt xong`

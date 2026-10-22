@@ -1808,6 +1808,8 @@ export function PxkDetailModal({
               ? t("Ghi chú (bắt buộc nếu bấm Huỷ / Trả về chờ mã HĐ)")
               : (canKho || canKeToan) && trangThai === "Da chot xong don xuat"
                 ? t("Ghi chú (bắt buộc nếu bấm Đẩy lùi về chờ mã MISA)")
+              : canKho && trangThai === "Dang gui KTV" && pxk.loai_don !== "tra_hang"
+                ? t("Ghi chú (bắt buộc nếu bấm Đẩy lùi về chờ gửi)")
               : (canTacNghiep || canKeToan) && ["Dang tao phieu", "Cho ke toan"].includes(trangThai)
                 ? t("Ghi chú (bắt buộc nếu bấm Huỷ)")
                 : t("Ghi chú (tuỳ chọn)")
@@ -1962,6 +1964,18 @@ export function PxkDetailModal({
           {canKho && trangThai === "Dang gui KTV" && (
             <Btn variant="ghost" onClick={() => logMutation.mutate("Kho da ket thuc")} disabled={logMutation.isPending} title={t("Kho đã kết thúc (KTV không phản hồi)")} aria-label={t("Kho đã kết thúc (KTV không phản hồi)")}>
               {t("⏹️ Kho đã kết thúc")}
+            </Btn>
+          )}
+          {/* Day lui "Đang gửi KTV" -> "Đã chốt xong đơn xuất" (2026-10-22, v1.394) - Kho bam nham / hang chua di, bat buoc ly do. */}
+          {canKho && trangThai === "Dang gui KTV" && pxk.loai_don !== "tra_hang" && (
+            <Btn
+              variant="ghost"
+              onClick={() => logMutation.mutate("Da chot xong don xuat")}
+              disabled={logMutation.isPending || !ghiChu.trim() || dangBaoThieu}
+              title={dangBaoThieu ? t("Phiếu đang có báo nhận thiếu — xử lý ticket trước") : !ghiChu.trim() ? t("Nhập lý do đẩy lùi vào ô Ghi chú trước") : t("Đưa phiếu về bước Chờ gửi KTV (Kho chưa gửi hàng)")}
+              aria-label={t("Đẩy lùi về chờ gửi")}
+            >
+              {t("↩ Đẩy lùi về chờ gửi")}
             </Btn>
           )}
         </div>

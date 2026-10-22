@@ -222,6 +222,10 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   toán), bỏ qua mọi kiểm tra của "Gửi kế toán", reset `da_in_phieu = 0`. Bên khovan dòng "chờ xử lý" cũ vẫn còn (khovan không có
   trạng thái rút lại; Kế toán chốt lại thì push cùng `order_code`, khovan trả dòng có sẵn — không trùng). Nút "↩ Đẩy lùi về chờ mã
   MISA" ở footer chi tiết PXK.
+  **Kho đẩy lùi "Đang gửi KTV" → "Đã chốt xong đơn xuất"** (2026-10-22, v1.394 — "đơn đã ấn gửi ktv cho phép kho đẩy ngược lại bước trước"): cùng `POST /:id/log`
+  `trang_thai='Da chot xong don xuat'` khi phiếu "Dang gui KTV" (`dayLuiGuiKtv`) — Kho/Admin, bắt buộc `ghi_chu` (log "Kho đẩy lùi về chờ gửi KTV: …"), chặn
+  `DANG_BAO_NHAN_THIEU` khi có ticket nhận thiếu mở; giữ mã vận đơn + cờ đã in; KHÔNG lặp tác dụng phụ của bước chốt (đẩy khovan, báo việc Kho, báo KTV
+  "Kế toán duyệt xong") — chỉ báo KTV nhận "đưa về chờ gửi". Khovan không có trạng thái rút lại (dòng bên đó giữ nguyên). Nút "↩ Đẩy lùi về chờ gửi" ở footer chi tiết PXK.
 - **Chuyển kho xuất MB/MN theo phiếu** (chốt 2026-10-07, migration `0070`, `lib/mienXuat.ts`): `phieu_xuat_kho.mien_xuat`
   (`bac`/`nam`, NULL = theo khu vực — "MB"/"MN" trong mã khu vực, như MISA trước nay). TN/Kế toán/Kho (Kho từ v1.340)/Admin đổi qua `PATCH
   /phieu-xuat-kho/:id/mien-xuat` {mien_xuat, ghi_chu?} khi phiếu còn "Dang tao phieu"/"Cho ke toan" (`DA_GUI_KHO`); chọn đúng miền
