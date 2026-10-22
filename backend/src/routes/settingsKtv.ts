@@ -52,9 +52,9 @@ settingsKtv.get("/", async (c) => {
   if (search) {
     // + ten KHONG dau (2026-09-29, lib/timTheoTen.ts) - LOWER() cua SQLite khong ha chu co dau.
     conditions.push(
-      "(LOWER(k.ma_ktv) LIKE LOWER(?) OR LOWER(COALESCE(k.ten_hien_thi,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.sdt,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.gmail,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.email_dang_nhap,'')) LIKE LOWER(?) OR EXISTS (SELECT 1 FROM users_gmail_phu gp WHERE gp.email_chinh = k.email_dang_nhap AND gp.email_phu LIKE LOWER(?)) OR k.ma_ktv IN (SELECT value FROM json_each(?)))",
+      "(LOWER(k.ma_ktv) LIKE LOWER(?) OR LOWER(COALESCE(k.ten_hien_thi,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.sdt,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.gmail,'')) LIKE LOWER(?) OR LOWER(COALESCE(k.email_dang_nhap,'')) LIKE LOWER(?) OR EXISTS (SELECT 1 FROM users_gmail_phu gp WHERE gp.email_chinh = k.email_dang_nhap AND gp.email_phu LIKE LOWER(?)) OR EXISTS (SELECT 1 FROM users un WHERE un.email = k.email_dang_nhap AND UPPER(COALESCE(un.ma_nhan_su, '')) LIKE UPPER(?)) OR k.ma_ktv IN (SELECT value FROM json_each(?)))",
     );
-    binds.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, JSON.stringify(await maKtvTheoTen(c.env.DB, search)));
+    binds.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`, JSON.stringify(await maKtvTheoTen(c.env.DB, search)));
   }
   if (cap === "1") {
     conditions.push("COALESCE(k.vai_tro_ktv, 'KTV') != 'Ve tinh'");
@@ -89,7 +89,7 @@ settingsKtv.get("/", async (c) => {
          AND (? IS NULL OR ddh.updated_at > ?)
        GROUP BY k3.ma_ktv
      ) dp ON dp.ma_ktv = k.ma_ktv`;
-  const selectCols = `k.*, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai, u.bi_khoa as tk_bi_khoa, u.email as tk_email, (SELECT GROUP_CONCAT(k2.ma_ktv, ', ') FROM ktv_lien_he k2 WHERE k2.email_dang_nhap = k.email_dang_nhap AND k2.ma_ktv <> k.ma_ktv) as ma_cung_gmail, (SELECT GROUP_CONCAT(gp.email_phu, ', ') FROM users_gmail_phu gp WHERE gp.email_chinh = k.email_dang_nhap) as gmail_phu, COALESCE(dp.gia_tri, 0) as han_muc_du_phong_phat_sinh`;
+  const selectCols = `k.*, u.ma_nhan_su as ma_nhan_su, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai, u.bi_khoa as tk_bi_khoa, u.email as tk_email, (SELECT GROUP_CONCAT(k2.ma_ktv, ', ') FROM ktv_lien_he k2 WHERE k2.email_dang_nhap = k.email_dang_nhap AND k2.ma_ktv <> k.ma_ktv) as ma_cung_gmail, (SELECT GROUP_CONCAT(gp.email_phu, ', ') FROM users_gmail_phu gp WHERE gp.email_chinh = k.email_dang_nhap) as gmail_phu, COALESCE(dp.gia_tri, 0) as han_muc_du_phong_phat_sinh`;
   const baseSql = `FROM ktv_lien_he k LEFT JOIN users u ON u.email = k.email_dang_nhap ${duPhongJoin} ${where}`;
   const duPhongBinds = [mocTinhDuPhong, mocTinhDuPhong];
   const withMocHienTai = (rows: Record<string, unknown>[]) =>

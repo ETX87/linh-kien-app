@@ -10,6 +10,7 @@ import { nowVN } from "../lib/vnTime";
 import { resyncKhuVucDerivedFieldsForEmail } from "../lib/khuVucSync";
 import { emailsTheoTen } from "../lib/timTheoTen";
 import { ktvChinhCuaEmailSql } from "../lib/ktvChinh";
+import { chuanMaNhanSu } from "../lib/maNhanSu";
 
 // Port rut gon tu backend/src/routes/users.ts cua he DVBH goc - bo cac truong khong con ton tai o
 // he nay (khu_vuc_phu_trach, la_ksnb_doi_tac, modules, co_the_import_tranh_chap - xem types.ts).
@@ -53,8 +54,8 @@ users.get("/", async (c) => {
 
   if (search) {
     // + ten KHONG dau (2026-09-29, lib/timTheoTen.ts: users.ten/ten_misa + ten KTV trong danh ba).
-    conditions.push("(LOWER(email) LIKE LOWER(?) OR LOWER(COALESCE(ten,'')) LIKE LOWER(?) OR email IN (SELECT value FROM json_each(?)))");
-    binds.push(`%${search}%`, `%${search}%`, JSON.stringify(await emailsTheoTen(c.env.DB, search)));
+    conditions.push("(LOWER(email) LIKE LOWER(?) OR LOWER(COALESCE(ten,'')) LIKE LOWER(?) OR UPPER(COALESCE(ma_nhan_su,'')) LIKE UPPER(?) OR email IN (SELECT value FROM json_each(?)))");
+    binds.push(`%${search}%`, `%${search}%`, `%${search}%`, JSON.stringify(await emailsTheoTen(c.env.DB, search)));
   }
   if (vaiTro && (VAI_TRO_VALUES as readonly string[]).includes(vaiTro)) {
     conditions.push("vai_tro = ?");
@@ -111,6 +112,24 @@ users.get("/login-log", async (c) => {
 // giam_sat_quan_ly tu body (Phase 4, 2026-08-26) - 2 cot nay tro thanh derived/read-only, tu dong
 // tinh tu Khu vuc/KTV cap 1 phu trach cua ktv_lien_he (xem lib/khuVucSync.ts, goi tu
 // routes/settingsKtv.ts/settingsDatMua.ts) thay vi Admin nhap tay o day nhu truoc.
+// PATCH /api/users/:email/ma-nhan-su { ma_nhan_su } - Admin sua / xoa Ma nhan su (NS-xxxx, 2026-10-22, lib/maNhanSu.ts). Dung chung cho
+// the Nhan vien van phong lan KTV hien truong (form KTV gui theo Email dang nhap). 1 ma chi thuoc 1 tai khoan.
+users.patch("/:email/ma-nhan-su", async (c) => {
+  const email = decodeURIComponent(c.req.param("email"));
+  const body = await c.req.json<{ ma_nhan_su?: string | null }>().catch(() => ({}) as { ma_nhan_su?: string | null });
+  const ma = chuanMaNhanSu(body.ma_nhan_su);
+  if (ma === "INVALID") return c.json({ error: "INVALID_MA_NHAN_SU" }, 400);
+  const tk = await c.env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first();
+  if (!tk) return c.json({ error: "NOT_FOUND" }, 404);
+  if (ma) {
+    const trung = await c.env.DB.prepare("SELECT email FROM users WHERE ma_nhan_su = ? AND email <> ?").bind(ma, email).first<{ email: string }>();
+    if (trung) return c.json({ error: "MA_NHAN_SU_DA_DUNG", email: trung.email }, 409);
+  }
+  await c.env.DB.prepare("UPDATE users SET ma_nhan_su = ?, updated_at = ? WHERE email = ?").bind(ma, nowVN(), email).run();
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["users"]));
+  return c.json({ ok: true, ma_nhan_su: ma });
+});
+
 users.patch("/:email", async (c) => {
   const email = decodeURIComponent(c.req.param("email"));
   const body = await c.req.json<{

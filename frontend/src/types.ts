@@ -66,6 +66,7 @@ export interface LinhKienLogRow {
 
 export interface KtvLienHeRow {
   ma_ktv: string;
+  ma_nhan_su?: string | null; // users.ma_nhan_su cua Email dang nhap (2026-10-22)
   // NULL = khu vuc chua tung duoc chon tay/xac nhan (tu ETX, he thong tu gan) - migration 0087.
   khu_vuc_xac_nhan_luc?: string | null;
   ten_hien_thi: string | null;
@@ -226,6 +227,7 @@ export interface UserRow {
   // GET /api/users - 1 = co dong ktv_lien_he tro toi email nay (hien o the "KTV hiện trường").
   co_ktv_lien_he?: number;
   ma_ktv_gan?: string | null; // ma KTV co Email dang nhap = tai khoan nay, noi dau phay (2026-10-14)
+  ma_nhan_su?: string | null; // Ma nhan su NS-xxxx (2026-10-22, migration 0096, tu dien tu ETX)
   // Ma/Ten MISA cua ma KTV chinh gan tai khoan (2026-10-19: nguon DUY NHAT - form tai khoan chi hien, khong sua).
   ktv_ma_misa?: string | null;
   ktv_ten_misa?: string | null;

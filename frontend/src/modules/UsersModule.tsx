@@ -210,6 +210,8 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
   const columns: Column<UserRow>[] = [
     // Quy uoc "Ten (email)" toan he thong (phan hoi 2026-08-25, hang muc #16).
     { key: "nguoi_dung", mobile: "title", header: "Người dùng", render: (u) => formatPersonDisplay(u.email, personDir) },
+    // Ma nhan su NS-xxxx (2026-10-22, migration 0096).
+    { key: "ma_nhan_su", mobile: "meta", header: "Mã nhân sự", render: (u) => (u.ma_nhan_su ? <span className="font-mono text-xs">{u.ma_nhan_su}</span> : "—") },
     { key: "vai_tro", mobile: "meta", header: "Vai trò", render: (u) => u.vai_tro ?? "—" },
     ...(tabValue === "da-duyet"
       ? [{
@@ -615,6 +617,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
               : `Tài khoản chưa có mã KTV — tạo "Mã nhận hàng" ở thẻ "Nhân viên văn phòng" để khai Mã MISA.`}
           </div>
         </div>
+        <MaNhanSuField email={user.email} value={user.ma_nhan_su} />
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={form.bi_khoa} onChange={(e) => setForm({ ...form, bi_khoa: e.target.checked })} />
           Khoá tài khoản
@@ -805,6 +808,8 @@ function VanPhongTab() {
 
   const columns: Column<UserRow>[] = [
     { key: "nguoi_dung", mobile: "title", header: "Người dùng", render: (u) => formatPersonDisplay(u.email, personDir) },
+    // Ma nhan su NS-xxxx (2026-10-22, migration 0096).
+    { key: "ma_nhan_su", mobile: "meta", header: "Mã nhân sự", render: (u) => (u.ma_nhan_su ? <span className="font-mono text-xs">{u.ma_nhan_su}</span> : "—") },
     { key: "vai_tro", mobile: "meta", header: "Vai trò", render: (u) => u.vai_tro ?? "—" },
     {
       key: "khu_vuc_dat_hang", mobile: "meta", header: "Khu vực đặt hàng",
@@ -1067,6 +1072,53 @@ const GMAIL_PHU_LOI: Record<string, string> = {
   GMAIL_PHU_DA_CO_DU_LIEU: "Gmail này đã có đơn / phiếu xuất / quỹ riêng — chưa hỗ trợ gộp dữ liệu",
   CHUA_CO_TAI_KHOAN: "Mã KTV chưa có Email đăng nhập / tài khoản — lưu Email đăng nhập trước",
 };
+
+// MÃ NHÂN SỰ (2026-10-22, backend lib/maNhanSu.ts + PATCH /users/:email/ma-nhan-su) - "tất cả các danh sách người dùng ktv, văn phòng đều
+// có thêm cột mã nhân sự ... mã nhân sự là mã dạng NS-xxxx". Luu theo TAI KHOAN (Gmail); tu dien tu danh ba ETX khi tao/duyet tai khoan.
+// O nhap + nut Luu rieng (khong gop vao nut Luu cua form) - dung chung form tai khoan van phong lan form KTV (theo Email dang nhap).
+function MaNhanSuField({ email, value, onSaved }: { email: string | null | undefined; value: string | null | undefined; onSaved?: () => void }) {
+  const addToast = useToast();
+  const qc = useQueryClient();
+  const [daLuu, setDaLuu] = useState<string | null>(value ?? null); // gia tri dang luu (form mo tu ban chup cu cua dong)
+  const [ma, setMa] = useState(value ?? "");
+  useEffect(() => { setMa(value ?? ""); setDaLuu(value ?? null); }, [value]);
+  const luu = useMutation({
+    mutationFn: () => api.patch<{ ma_nhan_su: string | null }>(`/users/${encodeURIComponent(email ?? "")}/ma-nhan-su`, { ma_nhan_su: ma.trim() || null }),
+    onSuccess: (r) => {
+      addToast(r.ma_nhan_su ? `Đã lưu mã nhân sự ${r.ma_nhan_su}` : "Đã xoá mã nhân sự");
+      setDaLuu(r.ma_nhan_su);
+      setMa(r.ma_nhan_su ?? "");
+      void qc.invalidateQueries({ queryKey: ["users"] });
+      void qc.invalidateQueries({ queryKey: ["settings-ktv"] });
+      onSaved?.();
+    },
+    onError: (err) => {
+      const code = err instanceof ApiError ? err.code : null;
+      const body = err instanceof ApiError ? (err.body as { email?: string } | undefined) : undefined;
+      addToast(
+        code === "INVALID_MA_NHAN_SU" ? "Mã nhân sự phải dạng NS-xxxx (vd NS-0123)"
+        : code === "MA_NHAN_SU_DA_DUNG" ? `Mã này đã thuộc tài khoản ${body?.email ?? "khác"}`
+        : "Không lưu được: " + (err instanceof Error ? err.message : String(err)),
+      );
+    },
+  });
+  const doi = (ma.trim().toUpperCase() || null) !== daLuu;
+  return (
+    <div>
+      <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Mã nhân sự</label>
+      {email ? (
+        <div className="mt-1 flex gap-2">
+          <input value={ma} onChange={(e) => setMa(e.target.value)} placeholder="NS-xxxx"
+            className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm font-mono uppercase" />
+          <Btn size="sm" variant="subtle" disabled={!doi} loading={luu.isPending} onClick={() => luu.mutate()}>Lưu mã</Btn>
+        </div>
+      ) : (
+        <div className="mt-1 text-[11px] text-[var(--ink-400)]">Chưa có Email đăng nhập — gắn Gmail trước rồi mới điền được mã nhân sự.</div>
+      )}
+      <div className="mt-0.5 text-[11px] text-[var(--ink-400)]">Tự điền từ danh bạ ETX nhân sự khi tạo / duyệt tài khoản; sửa tay khi cần.</div>
+    </div>
+  );
+}
 
 function GmailPhuSection({ row, onChanged }: { row: KtvLienHeRow; onChanged: () => void }) {
   const addToast = useToast();
@@ -1483,6 +1535,8 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
 
   const columns: Column<KtvLienHeRow>[] = [
     { key: "ma_ktv", mobile: "sub", header: "Mã KTV", render: (r) => <span className="font-mono text-xs">{r.ma_ktv}</span> },
+    // Ma nhan su NS-xxxx cua tai khoan (Email dang nhap) - 2026-10-22, migration 0096.
+    { key: "ma_nhan_su", mobile: "meta", header: "Mã nhân sự", render: (r) => (r.ma_nhan_su ? <span className="font-mono text-xs">{r.ma_nhan_su}</span> : "—") },
     { key: "ten_hien_thi", mobile: "title", header: "Tên hiển thị", render: (r) => r.ten_hien_thi ?? "—" },
     { key: "sdt", mobile: "sub", header: "SĐT", render: (r) => r.sdt ?? "—" },
     { key: "vai_tro_ktv", mobile: "badge", header: "Vai trò", render: (r) => r.vai_tro_ktv ?? "—" },
@@ -1826,6 +1880,9 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
             </div>
             {editing !== "new" && mode === "admin" && editing.email_dang_nhap && (
               <GmailPhuSection key={editing.ma_ktv} row={editing} onChanged={() => qc.invalidateQueries({ queryKey: ["settings-ktv"] })} />
+            )}
+            {editing !== "new" && mode === "admin" && (
+              <MaNhanSuField email={editing.email_dang_nhap} value={editing.ma_nhan_su} />
             )}
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -2184,6 +2241,50 @@ function EtxNhanSuTab() {
       addToast("Không tạo được: " + (TAO_TK_LOI[msg] ?? msg));
     },
   });
+  // "⬇ Tải danh sách" (2026-10-22, "thêm nút tải ở danh sách ETX"): MOI dong theo bo loc dang chon (tim / trang thai / tai khoan) - tai
+  // lan luot tung trang 200 dong (gioi han pageSize cua GET /etx-nhan-su) roi xuat 1 file Excel.
+  const [dangTai, setDangTai] = useState(false);
+  async function taiDanhSach() {
+    setDangTai(true);
+    try {
+      const tatCa: EtxNhanSuRow[] = [];
+      for (let p = 1; p <= 100; p++) {
+        const res = await api.get<Paged<EtxNhanSuRow>>(
+          `/etx-nhan-su${buildQuery({ search: search || undefined, trang_thai: trangThai || undefined, tai_khoan: taiKhoan || undefined, page: p, pageSize: 200 })}`,
+        );
+        tatCa.push(...res.rows);
+        if (!res.rows.length || tatCa.length >= res.total) break;
+      }
+      const quanLy = (v: string | null) => {
+        try {
+          const a = JSON.parse(v ?? "[]") as { maNhanSu?: string; hoTen?: string; gmail?: string }[];
+          return Array.isArray(a) ? a.map((x) => [x.maNhanSu, x.hoTen, x.gmail].filter(Boolean).join(" ")).join("; ") : "";
+        } catch {
+          return v ?? "";
+        }
+      };
+      await exportRowsToExcel(
+        tatCa.map((r) => ({
+          ma_nhan_su: r.ma_nhan_su, ho_ten: r.ho_ten, chuc_danh: r.chuc_danh ?? "", ma_chuc_danh: r.ma_chuc_danh ?? "", gmail: r.gmail ?? "",
+          trang_thai: r.trang_thai_lam_viec === "on" ? "Đang làm" : "Đã nghỉ",
+          tai_khoan: (TK_TRANG_THAI[r.tk_trang_thai] ?? TK_TRANG_THAI.chua_tao).label,
+          lada: [r.tai_khoan_lada_ma, r.tai_khoan_lada_ten].filter(Boolean).join(" - "),
+          ma_ktv: r.ma_ktv ?? "", lien_ket: r.lien_ket_email ? `${r.lien_ket_email}${r.lien_ket_bi_khoa ? " (đã khoá)" : ""}` : "",
+          quan_ly: quanLy(r.quan_ly_truc_tiep), cap_nhat: r.updated_at,
+        })),
+        "etx-nhan-su.xlsx", "ETX nhân sự",
+        { ma_nhan_su: "Mã NV", ho_ten: "Họ tên", chuc_danh: "Chức danh", ma_chuc_danh: "Mã chức danh", gmail: "Gmail", trang_thai: "Trạng thái",
+          tai_khoan: "Tài khoản đặt hàng", lada: "Tài khoản Lada", ma_ktv: "Mã KTV", lien_ket: "Tài khoản liên kết",
+          quan_ly: "Quản lý trực tiếp", cap_nhat: "Cập nhật lúc" },
+      );
+      addToast(`Đã tải ${tatCa.length} nhân sự`);
+    } catch (err) {
+      addToast("Không tải được: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setDangTai(false);
+    }
+  }
+
   const xacNhanTao = (r: EtxNhanSuRow) => {
     if (
       window.confirm(
@@ -2307,6 +2408,9 @@ function EtxNhanSuTab() {
           onChange={(v) => { setTaiKhoan(v); setPage(1); }}
           options={[{ value: "", label: "Tài khoản: Tất cả" }, ...Object.entries(TK_TRANG_THAI).map(([value, t]) => ({ value, label: t.label }))]}
         />
+        <Btn variant="ghost" className="sm:ml-auto" onClick={() => void taiDanhSach()} loading={dangTai} disabled={!data?.total}>
+          ⬇ Tải danh sách{data?.total ? ` (${data.total})` : ""}
+        </Btn>
       </div>
 
       <PaginatedTable

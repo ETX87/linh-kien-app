@@ -1,3 +1,4 @@
+import { dienMaNhanSuTuEtx } from "./maNhanSu";
 import { dsGmailPhu, emailChinhCuaGmail } from "./gmailPhu";
 import { boDau } from "./timTheoTen";
 import { nowVN } from "./vnTime";
@@ -153,6 +154,8 @@ export async function tuDongTaoKtvTuEtx(db: D1Database): Promise<EtxTuDongKtvRes
     // KTV moi co khu vuc (theo quan ly truc tiep) -> GS phu trach (users.giam_sat_quan_ly) tinh lai nhu khi Admin gan khu vuc.
     await resyncKhuVucDerivedFieldsForAll(db);
   }
+  // Ma nhan su (2026-10-22, lib/maNhanSu.ts): dien cho MOI tai khoan con trong khop ETX (ca tai khoan vua tao / vua duyet).
+  await dienMaNhanSuTuEtx(db);
   return { ktvTuTao, tkTuDuyet };
 }
 
@@ -226,5 +229,6 @@ export async function taoTaiKhoanTuEtx(db: D1Database, maNhanSu: string): Promis
     const { results } = await db.prepare("SELECT * FROM ktv_lien_he ORDER BY ma_ktv").all();
     await computeAndStoreHash(db, "ktv_lien_he", results);
   }
+  await dienMaNhanSuTuEtx(db, email); // ma nhan su = Ma NV cua nhan su ETX vua tao tai khoan
   return { ok: true, ma_ktv: maKtv, email };
 }

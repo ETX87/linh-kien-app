@@ -9,6 +9,7 @@ import { nowVN } from "../lib/vnTime";
 import { isViewAsRole } from "../lib/viewAsPresets";
 import { resyncKhuVucDerivedFieldsForEmail } from "../lib/khuVucSync";
 import { chuanHoaGmail, emailChinhCuaGmail } from "../lib/gmailPhu";
+import { dienMaNhanSuTuEtx } from "../lib/maNhanSu";
 
 const STATE_COOKIE = "dvbh_oauth_state";
 
@@ -154,6 +155,9 @@ auth.get("/callback", async (c) => {
       )
       .run();
   }
+
+  // Ma nhan su (2026-10-22, lib/maNhanSu.ts): tai khoan moi / con trong -> tu dien tu danh ba ETX (khop Gmail / ma KTV). 2 cau UPDATE nho.
+  await dienMaNhanSuTuEtx(c.env.DB, userInfo.email);
 
   // Ghi nhat ky dang nhap (bao mat noi bo - Admin tra cuu ai dang nhap luc nao tu dau).
   // CF-Connecting-IP la header Cloudflare tu dong gan, dang tin cay hon so voi client tu khai bao.
