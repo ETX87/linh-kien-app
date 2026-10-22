@@ -1518,7 +1518,7 @@ export function DonHangDetailModal({
                   </KvRow>
                 )}
                 <KvRow label={t("Khu vực xử lý")}>
-                  <DoiKhuVucDon don={d} canSua={canTacNghiep || !!canKho} addToast={addToast} onDone={invalidate} />
+                  <DoiKhuVucDon don={d} canSua={canTacNghiep || !!canKho || !!d.duoc_doi_khu_vuc} addToast={addToast} onDone={invalidate} />
                 </KvRow>
                 <KvRow label={t("Ghi chú")}><span className="whitespace-pre-line break-words">{d.ghi_chu || "—"}</span></KvRow>
               </DetailZone>

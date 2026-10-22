@@ -1350,7 +1350,7 @@ export function TraHangDetailModal({
             <KvRow label={t("Ngày tạo")}>{fmtDateTime(d.ngay_tao)}</KvRow>
             <KvRow label={t("Mã LK")}><span className="font-mono text-xs">{d.ma_lk}</span></KvRow>
             <KvRow label={t("Khu vực xử lý")}>
-              <DoiKhuVucDon don={{ ...d, trang_thai: d.trang_thai_hien_tai }} canSua={canKeToan || canKho || isAdmin || !!authLaTn} addToast={addToast} onDone={invalidate} />
+              <DoiKhuVucDon don={{ ...d, trang_thai: d.trang_thai_hien_tai }} canSua={canKeToan || canKho || isAdmin || !!authLaTn || !!d.duoc_doi_khu_vuc} addToast={addToast} onDone={invalidate} />
             </KvRow>
             {d.ghi_chu && <KvRow label={t("Ghi chú")}>{d.ghi_chu}</KvRow>}
           </DetailZone>

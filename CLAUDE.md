@@ -236,7 +236,7 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   ở chi tiết PXK (`datMuaLinhKien/KhoXuat.tsx`).
 - **Kho chọn lại khu vực cho phiếu sai khu vực** (chốt 2026-10-07, migration `0071`): cột `khu_vuc_chon` trên CẢ
   `phieu_xuat_kho` lẫn `dat_don_hang` (NULL = theo `khu_vuc_ma` do trigger tự tính — KHÔNG ghi đè `khu_vuc_ma` vì trigger sẽ tính
-  lại). Kho/Admin (+ TN/Kế toán từ v1.341) `PATCH /phieu-xuat-kho/:id/khu-vuc` {khu_vuc_ma, ghi_chu?} khi phiếu chưa đóng → ghi phiếu + MỌI đơn trong phiếu,
+  lại). Kho/Admin (+ TN/Kế toán từ v1.341, + TBP / GS / người tạo đơn hộ từ v1.387 — xem dưới) `PATCH /phieu-xuat-kho/:id/khu-vuc` {khu_vuc_ma, ghi_chu?} khi phiếu chưa đóng → ghi phiếu + MỌI đơn trong phiếu,
   xoá `mien_xuat` (miền theo khu vực mới), log 'Da chuyen khu vuc'; chọn đúng khu vực tự tính = bỏ chọn. `khuVucSetWhereSql()`
   (dùng chung đơn/PXK/thiếu LK/trả hàng/badge) = `khu_vuc_chon` có thì CHỈ khớp khu vực chọn, không thì điều kiện cũ (CTE
   `/home-summary` viết tay cùng quy tắc). Khu vực hiển thị/lọc cột/MISA/miền kho xuất = `COALESCE(khu_vuc_chon, khu_vuc_ma)`
@@ -249,6 +249,12 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   `bundleAutoApprovedIntoPxk` tách nhóm theo `khu_vuc_chon` của đơn và chỉ gộp vào phiếu đang tạo có CÙNG `khu_vuc_chon` (phiếu Kho đã chọn
   khu vực không còn nhận đơn mới khu vực tự động), tạo phiếu tay = khu vực chọn chung nếu MỌI đơn cùng 1 giá trị. UI: dòng "Khu vực xử lý"
   (`DoiKhuVucDon` ở `KhoXuat.tsx`) trong chi tiết đơn + chi tiết đơn trả hàng.
+  **GS / TBP / người tạo đơn hộ chọn lại khu vực** (chốt 2026-10-22, v1.387 — "Cho phép giám sát, TBP hoặc người tạo đơn hộ chọn lại khu vực cho đơn
+  hàng hoặc phiếu hàng"): ngoài TN/Kế toán/Kho/Admin, `duocDoiKhuVucDon()` (`lib/scopeDatMua.ts`, PATCH đơn) + `duocDoiKhuVucPxk()` (`phieuXuatKho.ts`) cho
+  TBP (`la_tp_dvbh`, mọi đơn/phiếu) và theo `doiKhuVucDonSql()`: NGƯỜI TẠO HỘ (`nguoi_tao` = mình, người nhận khác mình) + GS (đơn có `email_gs` / người tạo /
+  người nhận = GS hoặc khu vực hiệu lực thuộc "Khu vực xem thêm"); phiếu = có ≥ 1 đơn trong phiếu thoả. Chi tiết đơn (`GET /don-hang/:id`, `GET /tra-hang/:id`)
+  và chi tiết PXK trả cờ `duoc_doi_khu_vuc` → FE hiện ô chọn (`DoiKhuVucDon`/`ChuyenKhuVucCard`). Vẫn theo phạm vi XEM: TBP không có tab Phiếu xuất
+  (`canXemPxkTab`) và KTV tạo hộ không mở được phiếu của người khác nhận → chỉ đổi được ở chi tiết đơn khi đơn chưa vào phiếu.
 - **Danh sách PXK dạng phiếu gốc xổ xuống** (2026-09-29): bấm 1 dòng PXK = xổ/thu các dòng đơn con ngay bên dưới
   (`PaginatedTable` prop `expandedContent` — 1 hàng `<td colSpan>`, nội dung rộng không kéo giãn cột cha; mobile: khối
   dưới thẻ), bấm ID phiếu (link màu, gạch chân — desktop + mobile) mới mở Drawer, không còn nút "Chi tiết", "Xổ tất cả dòng đơn" mở cả trang. Bảng dòng đơn + mọi thao

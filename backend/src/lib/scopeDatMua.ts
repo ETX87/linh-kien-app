@@ -22,6 +22,31 @@ export function gsKhuVucXemThemSql(col: string): string {
 }
 
 /**
+ * Quyen CHON LAI KHU VUC cua don / phieu xuat (chot 2026-10-22, "Cho phép giám sát, TBP hoặc người tạo đơn hộ chọn lại khu vực cho đơn
+ * hàng hoặc phiếu hàng"). TN (gom Ke toan lam thay) / Kho / Ke toan / Admin van duoc nhu cu (kiem tra o route) + TBP (la_tp_dvbh) moi don.
+ * Ham nay tra dieu kien SQL tren alias don `a` cho 2 nhom con lai: NGUOI TAO HO (tao don cho nguoi KHAC nhan) va GIAM SAT (don trong pham
+ * vi: GS khu vuc `email_gs` / GS dat / GS nhan / khu vuc hieu luc thuoc "Khu vuc xem them").
+ * Phieu xuat: duoc khi CO 1 don trong phieu thoa dieu kien (dung chung, xem PATCH /phieu-xuat-kho/:id/khu-vuc).
+ */
+export function doiKhuVucDonSql(a: string, user: AppUser): { sql: string; binds: string[] } {
+  const e = user.email;
+  const ho = `(${a}.nguoi_tao = ? AND COALESCE(${a}.nguoi_nhan_hang, '') <> ?)`;
+  if (user.vai_tro !== "Giam sat") return { sql: ho, binds: [e, e] };
+  return {
+    sql: `(${ho} OR ${a}.email_gs = ? OR ${a}.nguoi_tao = ? OR ${a}.nguoi_nhan_hang = ? OR ${gsKhuVucXemThemSql(`COALESCE(${a}.khu_vuc_chon, ${a}.khu_vuc_ma)`)})`,
+    binds: [e, e, e, e, e, e],
+  };
+}
+
+/** Quyen chon lai khu vuc xu ly cua 1 DON (PATCH /dat-mua-lk/don-hang/:id/khu-vuc, co `duoc_doi_khu_vuc` o chi tiet don mua + tra hang):
+ *  TN (gom Ke toan lam thay) / Kho / Admin nhu cu + TBP + Giam sat / nguoi tao don ho theo doiKhuVucDonSql. */
+export async function duocDoiKhuVucDon(db: D1Database, user: AppUser, donId: string): Promise<boolean> {
+  if (user.vai_tro === "Admin" || user.la_tac_nghiep || user.la_kho || user.la_tp_dvbh) return true;
+  const q = doiKhuVucDonSql("d", user);
+  return !!(await db.prepare(`SELECT 1 FROM dat_don_hang d WHERE d.id = ? AND ${q.sql}`).bind(donId, ...q.binds).first());
+}
+
+/**
  * Pham vi XEM cua vai tro View (chot 2026-10-15): "Cho tất cả các kv được gán" + "Nếu không gán kv nào thì là xem tất cả".
  * - Da gan Khu vuc (user_khu_vuc): don/PXK cua KTV thuoc cac khu vuc do (theo email, nhu truoc) HOAC khu vuc HIEU LUC cua chinh
  *   don/PXK (COALESCE(khu_vuc_chon, khu_vuc_ma) - de don GS/TN nhan, KTV chua gan khu vuc... van hien dung khu vuc).

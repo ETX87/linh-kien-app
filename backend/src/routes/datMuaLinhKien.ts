@@ -13,7 +13,7 @@ import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nextSequentialId } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
 import { emailsTheoTen, orEmailIn, orMaYcsc, orPxkCuaDon, tenLkKhopSql } from "../lib/timTheoTen";
-import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, viewDonScopeSql, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql, laKhoThuan, scopePxkNguoiNhanHang, gsKhuVucXemThemSql } from "../lib/scopeDatMua";
+import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, viewDonScopeSql, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql, laKhoThuan, scopePxkNguoiNhanHang, gsKhuVucXemThemSql, duocDoiKhuVucDon } from "../lib/scopeDatMua";
 import { pxkKhopMienXuatSql } from "../lib/mienXuat";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
@@ -3193,7 +3193,7 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
     if (ng.maKtv) congNoNhan = { tran: ng.tranCongNo, chot: await computeCongNoChot(c.env.DB, ng.maKtv), don: ddhX.so_tien_cong_no };
   }
   return c.json({
-    donHang: { ...ddh, cases, logs: logsHienThi, giaiTrinh, qua_han_ly_do_cham: quaHan, tien_uoc_tinh: tienUocTinh, tra_bang_quy: traBangQuy, cong_no_nhan: congNoNhan },
+    donHang: { ...ddh, cases, logs: logsHienThi, giaiTrinh, qua_han_ly_do_cham: quaHan, tien_uoc_tinh: tienUocTinh, tra_bang_quy: traBangQuy, cong_no_nhan: congNoNhan, duoc_doi_khu_vuc: await duocDoiKhuVucDon(c.env.DB, user, id) },
     pxk: pxk ?? null, thieuLk: thieuLk ?? null,
   });
 });
@@ -3951,8 +3951,9 @@ datMuaLinhKien.patch("/don-hang/:id/dac-thu", async (c) => {
 // dat_don_hang_log (cung trang thai, giong PATCH sua don).
 datMuaLinhKien.patch("/don-hang/:id/khu-vuc", async (c) => {
   const user = c.get("user");
-  if (!canTacNghiep(c) && !canKho(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const id = c.req.param("id");
+  // + TBP / Giam sat / nguoi tao don ho (chot 2026-10-22) - xem doiKhuVucDonSql.
+  if (!(await duocDoiKhuVucDon(c.env.DB, user, id))) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const body = await c.req.json<{ khu_vuc_ma?: string; ghi_chu?: string }>().catch(() => null);
   const ma = body?.khu_vuc_ma?.trim();
   if (!ma) return c.json({ error: "MISSING_KHU_VUC" }, 400);

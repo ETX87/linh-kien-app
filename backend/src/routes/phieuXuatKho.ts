@@ -12,7 +12,7 @@ import { emailsTheoTen, orDonTrongPxk, orEmailIn } from "../lib/timTheoTen";
 import { bumpVersions } from "../lib/dataVersions";
 import { quaHanLyDoCham, mocTinhHanTn } from "../lib/hanLyDoCham";
 import { MIEN_XUAT_LABEL, MIEN_XUAT_SUA_DUOC, mienTuMaKhuVuc, mienTuKhuVucSql, mienXuatHieuLucSql, khuVucHieuLucSql, type MienXuat } from "../lib/mienXuat";
-import { autoClaimGs, scopePxkNguoiNhanHang, phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql, laKhoThuan } from "../lib/scopeDatMua";
+import { autoClaimGs, scopePxkNguoiNhanHang, phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql, laKhoThuan, doiKhuVucDonSql } from "../lib/scopeDatMua";
 import { sendPushToUser } from "../lib/webPush";
 import { buildMisaExportSheets, resolveMisaTemplateDeXuat, MISA_TEMPLATES, type MisaTemplate } from "../lib/misaExport";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, emailGsListForPxk, PXK_ROLES } from "../lib/taskNotify";
@@ -131,6 +131,18 @@ async function duocXacNhanChuyenTienHo(c: Context<{ Bindings: Env }>, pxkId: str
 function canKho(c: Context<{ Bindings: Env }>): boolean {
   const user = c.get("user");
   return !!user.la_kho || user.vai_tro === "Admin";
+}
+
+// Ai duoc CHON LAI KHU VUC cua phieu (PATCH /:id/khu-vuc + co `duoc_doi_khu_vuc` o GET /:id): Kho / TN / Ke toan / Admin nhu cu + TBP
+// (moi phieu) + Giam sat / nguoi tao don ho khi CO 1 don trong phieu thoa doiKhuVucDonSql (chot 2026-10-22).
+async function duocDoiKhuVucPxk(c: Context<{ Bindings: Env }>, pxkId: string): Promise<boolean> {
+  const user = c.get("user");
+  if (canKho(c) || canTacNghiep(c) || canKeToan(c) || user.la_tp_dvbh) return true;
+  const q = doiKhuVucDonSql("d", user);
+  const r = await c.env.DB.prepare(
+    `SELECT 1 FROM phieu_xuat_kho_dong pd JOIN dat_don_hang d ON d.id = pd.dat_don_hang_id WHERE pd.phieu_xuat_kho_id = ? AND ${q.sql} LIMIT 1`,
+  ).bind(pxkId, ...q.binds).first();
+  return !!r;
 }
 
 // CHOT (phan hoi nguoi dung: "bỏ quyền tải file form misa" cho KTV/Trạm/CTV/Vệ tinh) - MISA la form
@@ -994,7 +1006,7 @@ phieuXuatKho.get("/:id", async (c) => {
      FROM khoan_chuyen_tien WHERE phieu_xuat_kho_id = ? ORDER BY id DESC`,
   ).bind(id).all();
 
-  return c.json({ phieuXuatKho: pxk, donHang: donHangWithFlag, tongTienUocTinh: tinhTien.total, logs, misaTemplateDeXuat, quyDu, khoanChuyen });
+  return c.json({ phieuXuatKho: { ...pxk, duoc_doi_khu_vuc: await duocDoiKhuVucPxk(c, id) }, donHang: donHangWithFlag, tongTienUocTinh: tinhTien.total, logs, misaTemplateDeXuat, quyDu, khoanChuyen });
 });
 
 // "template" query param dung chung cho ca 2 endpoint misa-export ben duoi (them 2026-09-02, phan
@@ -1182,9 +1194,9 @@ phieuXuatKho.patch("/:id/mien-xuat", async (c) => {
 // khu vuc cu khong con thay mac dinh. Xoa luon chuyen kho xuat cua TN (mien_xuat) - mien theo khu vuc moi (file MISA cung
 // vay). Duoc doi khi phieu chua dong.
 phieuXuatKho.patch("/:id/khu-vuc", async (c) => {
-  // + TN / Ke toan (chot 2026-10-15) - cung dieu kien phieu chua dong.
-  if (!canKho(c) && !canTacNghiep(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  // + TN / Ke toan (chot 2026-10-15) + TBP / Giam sat / nguoi tao don ho (2026-10-22) - cung dieu kien phieu chua dong.
   const id = c.req.param("id");
+  if (!(await duocDoiKhuVucPxk(c, id))) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const body = await c.req.json<{ khu_vuc_ma: string; ghi_chu?: string }>().catch(() => null);
   const ma = body?.khu_vuc_ma?.trim();
   if (!ma) return c.json({ error: "MISSING_KHU_VUC" }, 400);

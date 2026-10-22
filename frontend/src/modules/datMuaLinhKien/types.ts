@@ -223,6 +223,8 @@ export interface DonHangRow {
   // Khu vuc tu tinh (trigger) + khu vuc xu ly chon tay cho rieng don (2026-10-15, PATCH /don-hang/:id/khu-vuc) - chi tiet don (ddh.*).
   khu_vuc_ma?: string | null;
   khu_vuc_chon?: string | null;
+  // Nguoi xem duoc chon lai khu vuc xu ly don (chi tiet don / don tra hang, 2026-10-22 - TN/Kho/TBP/GS/nguoi tao ho; duocDoiKhuVucDon).
+  duoc_doi_khu_vuc?: boolean;
   // Trang thai phieu xuat kho + chuyen tien THEO DON (2026-09-29) - MA do backend suy tu PXK chua don (lib/trangThaiDonPxk.ts),
   // nhan o TRANG_THAI_PXK_DON_OPTIONS / THANH_TOAN_DON_OPTIONS (constants.ts). Chi co o GET /don-hang (danh sach).
   trang_thai_pxk?: string | null;
@@ -282,6 +284,8 @@ export interface PhieuXuatKhoRow {
   khu_vuc_chon?: string | null;
   khu_vuc_tu_dong_ten?: string | null;
   khu_vuc_chon_ten?: string | null;
+  // Nguoi xem duoc chon lai khu vuc phieu (chi tiet PXK, 2026-10-22 - Kho/TN/Ke toan/TBP/GS/nguoi tao don ho; duocDoiKhuVucPxk).
+  duoc_doi_khu_vuc?: boolean;
   // Id loai chiet khau co thu tu cao nhat trong cac dong cua phieu (GET /api/phieu-xuat-kho).
   loai_chiet_khau_cao_nhat_id?: number | null;
   so_tien_can_chuyen: number | null;

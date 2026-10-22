@@ -147,7 +147,8 @@ export function ChuyenKhuVucCard({ pxk, addToast, onDone }: { pxk: PxkKhuVuc; ad
   );
 }
 
-// Doi KHU VUC XU LY cua RIENG 1 don (2026-10-15, PATCH /dat-mua-lk/don-hang/:id/khu-vuc) - TN/Ke toan/Kho/Admin. Chi khi don chua
+// Doi KHU VUC XU LY cua RIENG 1 don (2026-10-15, PATCH /dat-mua-lk/don-hang/:id/khu-vuc) - TN/Ke toan/Kho/Admin (+ TBP / Giam sat / nguoi tao
+// don ho tu 2026-10-22, theo co `duoc_doi_khu_vuc` backend tra). Chi khi don chua
 // dong + chua vao phieu xuat (trong phieu -> Kho doi o chi tiet phieu, ChuyenKhuVucCard). Don vao phieu sau do: phieu mang theo
 // khu vuc nay. Hien inline trong KvRow "Khu vực xử lý" (chi tiet don mua/cong no + chi tiet don tra hang).
 export function DoiKhuVucDon({

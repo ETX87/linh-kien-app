@@ -9,7 +9,7 @@ import { nowVN } from "../lib/vnTime";
 import { mocGiaiDoanTraHangSql, quaHanGiaiDoanTraHang, tinhHanLyDoCham, TRA_HANG_GIAI_DOAN_HAN } from "../lib/hanLyDoCham";
 import { emailsTheoTen, orEmailIn, orMaYcsc, orPxkCuaDon, tenLkKhopSql } from "../lib/timTheoTen";
 import { bumpVersions } from "../lib/dataVersions";
-import { scopeDatMuaNguoiTao, khuVucSetWhereSql, phuTrachGsSet } from "../lib/scopeDatMua";
+import { scopeDatMuaNguoiTao, khuVucSetWhereSql, phuTrachGsSet, duocDoiKhuVucDon } from "../lib/scopeDatMua";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
 import { nextSequentialId } from "../lib/idCounter";
 import { pushTraHangToKhovan, notifyTraHangQcRejected, notifyTraHangReceivedViaApp, buildWorkUrl } from "../lib/khovanPushClient";
@@ -215,7 +215,8 @@ traHang.get("/:donHangId", async (c) => {
   )
     .bind(donHangId)
     .all();
-  return c.json({ donHang: ganHanGiaiDoan(ddh as Record<string, unknown>), logs, anh });
+  const duocDoiKhuVuc = await duocDoiKhuVucDon(c.env.DB, c.get("user"), donHangId);
+  return c.json({ donHang: { ...ganHanGiaiDoan(ddh as Record<string, unknown>), duoc_doi_khu_vuc: duocDoiKhuVuc }, logs, anh });
 });
 
 // GET /api/tra-hang/resolve-ma-thung/:maThung - tra ve dat_don_hang.id tuong ung voi 1 ma thung tra
