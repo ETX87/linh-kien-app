@@ -332,6 +332,7 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   v1.352: truy vấn tồn kho/thay thế/combo/từ khóa tách ra `lib/linhKienLienQuan.ts` (`docLienQuanLk`) — dùng CHUNG với drawer xem LK ở Bảng
   giá: `GET /api/settings/linh-kien/:ma/lien-quan` (tồn kho công ty tất cả xem; tồn KTV + công nợ theo `scopeKtvTonKho` — đã chuyển sang
   `lib/scopeDatMua.ts`, KTV chỉ thấy của mình; 30 đơn gần nhất + thống kê 30/90 ngày + ticket thiếu hàng mở theo `scopeDatMuaNguoiTao`).
+  **Bấm "Mã LK" ở chi tiết đơn** (2026-10-22, v1.391 — "mở giao diện UI thông tin linh kiện giống trong bảng giá") mở CÙNG drawer này qua `XemLinhKienDrawer` (export ở `DanhMucLinhKienModule.tsx`, tự tải danh mục + tự tính quyền, không nút Sửa; `DonCuaToiTab` tải lazy) thay cho `LinhKienDetailModal` cũ.
   FE `danhMucLinhKien/LienQuanLk.tsx`: drawer rộng `max-w-2xl`, tab Tổng quan (ô số liệu nhanh + ảnh trái/thông tin phải) | Tồn kho | Đặt hàng
   (bấm mã đơn = `DonHangDetailModal`, drawer bỏ qua Esc khi đang mở) | Liên quan (bấm mã thay thế/thành phần combo = chuyển sang xem LK đó).
   v1.358 (2026-10-17, đối tác báo thiếu): 4 API DANH SÁCH để kéo về đồng bộ — `GET /api/partner/v1/lk-thay-the` (nhóm thay thế + thành viên,
@@ -1030,7 +1031,7 @@ qua `nhanAnhTaiLen()` (body request) / `taiAnhTuUrl()` (import Excel có link �
 không giới hạn; cron 0h xoá số đếm > 30 ngày). Upload thành công trả `han_muc_anh` {da_dung, han_muc} → FE `canhBaoHanMucAnh()`
 cảnh báo khi vừa dùng hết; hết lượt → 429 `QUA_SO_ANH_NGAY` kèm `han_muc` → `baoLoiTaiAnh()`/`loiHetHanMucAnh()`
 (`frontend/src/lib/hanMucAnh.ts`, đọc `ApiError.body`); import ảnh hàng loạt trả `het_han_muc_anh` (Bảng giá dừng import ảnh + cảnh
-báo). Thêm chỗ tải ảnh mới → gọi 2 helper này. FE `anhVuaGioiHan()` tự nén ảnh > 10MB trước khi gửi. URL ảnh client gửi lên: bằng chứng chuyển tiền + ảnh trả hàng lúc tạo đơn CHỈ nhận link Drive
+báo). Thêm chỗ tải ảnh mới → gọi 2 helper này. **KTV / Vệ tinh ≤ 50 ảnh/ngày** (2026-10-22, v1.391, `ANH_NGAY_KTV` — đơn trả hàng cần 1–3 ảnh MỖI dòng; tài khoản khác không phải văn phòng vẫn 20). **Form tạo đơn lưu nháp trên máy** (v1.391, `useTaoDonForm.ts` `docNhapTaoDon`/`luuNhapTaoDon`, localStorage `tao-don-nhap:<email>`, giữ 3 ngày): mở camera chụp ảnh trả hàng trên điện thoại có thể làm trình duyệt TẢI LẠI trang → trước đây mất cả đơn đang soạn lẫn link ảnh ĐÃ tải lên Drive (KTV chụp lại, hết hạn mức mà chưa tạo được đơn — KTV Nguyễn Vũ Trí, migration `0097` đặt lại bộ đếm ngày cho tài khoản này). Ghi mỗi lần đổi (người nhận, SĐT KH lẻ, mọi dòng kể cả `anh`, dòng đang mở), mở lại form → khôi phục + `NhapKhoiPhucBanner` ("Soạn mới" = bỏ nháp); tạo đơn xong form về rỗng → tự xoá. FE `anhVuaGioiHan()` tự nén ảnh > 10MB trước khi gửi. URL ảnh client gửi lên: bằng chứng chuyển tiền + ảnh trả hàng lúc tạo đơn CHỈ nhận link Drive
 (`laUrlAnhDrive`), ảnh đóng gói/ảnh minh hoạ LK chỉ http(s) (`laUrlHttp`); FE đưa link vào `href` qua `linkAnToan()`
 (`lib/linhAnToan.ts` — React không chặn `javascript:`). **Thu hồi phiên**: JWT mang `pv` = `users.phien_ban_phien`; `loadUser` so
 với tài khoản THẬT → 401 `PHIEN_DA_THU_HOI`. "Đăng xuất mọi thiết bị": tự mình (menu tài khoản, `POST /auth/dang-xuat-moi-thiet-bi`)

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, Fragment, lazy, Suspense } from "react";
 // Lazy: PhieuXuatKhoTab da import DonHangDetailModal tu file nay - tranh vong import tinh (2026-10-02).
 const PxkDetailModalLazy = lazy(() => import("./PhieuXuatKhoTab").then((m) => ({ default: m.PxkDetailModal })));
+const XemLinhKienDrawerLazy = lazy(() => import("../DanhMucLinhKienModule").then((m) => ({ default: m.XemLinhKienDrawer })));
 import { BangChungAnhPxk } from "./XemAnhNhanh";
 import { LoaiChietKhauText, LoaiChietKhauPicker, HoaDonGiaNiemYet, TienDaTraDon, coYeuCauHoaDon, useLoaiChietKhauList, tenLoaiChietKhau, duocDoiLoaiChietKhau } from "./LoaiChietKhau";
 import { createPortal } from "react-dom";
@@ -40,12 +41,12 @@ import {
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, laTraHangChoTn, laChoHangMoKhoa, laChoHangBiKhoa, dayLaiDuoc, trangThaiLabel, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft,
-  useLkAndLdeCache, useLkCombo, useLinhKienRankMap, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
+  useLkAndLdeCache, useLkCombo, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
   donGiaSauChietKhau, tienSauChietKhau, giaNiemYet, boQuaTbpDacThu, canNhapMaEo } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink, LogTieuDe } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck, isLikelyLadaId } from "./MaLadaCheck";
-import { LinhKienPicker, LinhKienDetailModal } from "./LinhKienPicker";
+import { LinhKienPicker } from "./LinhKienPicker";
 // Lien ket 2 chieu voi ticket thieu LK (phan hoi 2026-09-10) - xem giai thich import vong o
 // ThieuLkTab.tsx (file do cung import nguoc lai DonHangDetailModal tu day).
 import { ThieuLkDetailModal } from "./ThieuLkTab";
@@ -415,10 +416,9 @@ export function DonHangDetailModal({
   const [otherLdeOpen, setOtherLdeOpen] = useState(false);
   // SUA (phan hoi 2026-09-28: "chi tiết khi xem đơn hàng thiếu tên linh kiện, thiếu chức năng click vào
   // mã linh kiện để xem chi tiết linh kiện") - truoc chi nap danh muc o che do SUA; gio nap ca khi XEM
-  // de tra ten LK (du phong khi ten_lk_snapshot rong) + mo LinhKienDetailModal. Rẻ: IndexedDB + ?since=.
+  // de tra ten LK (du phong khi ten_lk_snapshot rong) + mo drawer xem LK (XemLinhKienDrawer). Rẻ: IndexedDB + ?since=.
   const { danhMuc, ldeEntries } = useLkAndLdeCache(true);
   const { data: comboData } = useLkCombo();
-  const rankMap = useLinhKienRankMap();
   const [xemLkChiTiet, setXemLkChiTiet] = useState(false);
   const auth = useAuth();
   const authUser = auth.status === "authenticated" ? auth.user : null;
@@ -1459,10 +1459,7 @@ export function DonHangDetailModal({
                     type="button"
                     className="code-link font-mono text-xs"
                     title={t("Xem chi tiết linh kiện")}
-                    onClick={() => {
-                      if (danhMuc.some((m) => m.ma_linh_kien === d.ma_lk)) setXemLkChiTiet(true);
-                      else addToast(t("Không tìm thấy linh kiện này trong danh mục (có thể đã bị ẩn/xoá)"));
-                    }}
+                    onClick={() => setXemLkChiTiet(true)}
                   >
                     {d.ma_lk}
                   </button>
@@ -1653,10 +1650,13 @@ export function DonHangDetailModal({
         ve tren, truoc day dat TRUOC nen bi Drawer de len, khong bam duoc. */}
     {/* Chi tiet linh kien khi bam "Mã LK" o vung "Mã tham chiếu" - dat SAU </Drawer> de ve TREN (cung ly
         do voi Modal canh bao ben duoi). */}
-    {xemLkChiTiet && d && (() => {
-      const part = danhMuc.find((m) => m.ma_linh_kien === d.ma_lk);
-      return part ? <LinhKienDetailModal part={part} rank={rankMap.get(d.ma_lk)} onClose={() => setXemLkChiTiet(false)} /> : null;
-    })()}
+    {/* v1.391 ("mở giao diện UI thông tin linh kiện giống trong bảng giá"): CUNG drawer Bang gia (Tổng quan / Tồn kho / Đặt hàng /
+        Liên quan) - XemLinhKienDrawer o DanhMucLinhKienModule.tsx, tai lazy. */}
+    {xemLkChiTiet && d && (
+      <Suspense fallback={null}>
+        <XemLinhKienDrawerLazy ma={d.ma_lk} onClose={() => setXemLkChiTiet(false)} />
+      </Suspense>
+    )}
     {confirmDuyetTaoHo && (
       <Modal open title={t("Cảnh báo")} onClose={() => setConfirmDuyetTaoHo(false)}>
         <div className="space-y-3 text-sm">

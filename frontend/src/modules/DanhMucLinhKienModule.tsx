@@ -536,6 +536,48 @@ function PartDetailDrawer({
   );
 }
 
+// Drawer xem LK dung o NGOAI Bang gia (2026-10-22, v1.391 - "ở giao diện thông tin đơn, khi click vào mã linh kiện, mở giao
+// diện UI thông tin linh kiện giống trong bảng giá"): CUNG PartDetailDrawer, tu tai danh muc (cung queryKey/cache "settings-linh-kien")
+// + tu tinh quyen nhu DanhMucTab (ktvXem / xet duyet ma). Khong co nut "Sửa thông tin" (sua LK o Bang gia). Bam ma thay the / thanh
+// phan combo o tab "Liên quan" = chuyen sang xem LK do ngay trong drawer. Goi qua React.lazy de khong keo ca module Bang gia.
+export function XemLinhKienDrawer({ ma, onClose }: { ma: string; onClose: () => void }) {
+  const auth = useAuth();
+  const authUser = auth.status === "authenticated" ? auth.user : null;
+  const [dangXem, setDangXem] = useState(ma);
+  useEffect(() => setDangXem(ma), [ma]);
+  const { data: parts, isLoading } = useQuery({
+    queryKey: ["settings-linh-kien"],
+    queryFn: () => fetchWithHashCache<{ rows: LinhKienRow[] }>("settings-linh-kien", "/settings/linh-kien/version", "/settings/linh-kien"),
+  });
+  const canXetDuyet = !!authUser?.la_mua_hang || authUser?.vai_tro === "Admin";
+  const canXetDuyetMa = canXetDuyet || !!authUser?.la_kho;
+  const canSua = !!authUser?.quan_ly_danh_muc_lk || canXetDuyet;
+  const canDacThu = canSua || !!authUser?.la_tac_nghiep || !!authUser?.la_ke_toan;
+  const ktvXem = !!(authUser?.la_ktv_dvbh || authUser?.la_ve_tinh) && !canSua && !canDacThu;
+  const part = parts?.rows.find((p) => p.ma_linh_kien === dangXem) ?? null;
+  if (!part) {
+    if (isLoading) return null;
+    return (
+      <Modal open title="Thông tin linh kiện" onClose={onClose}>
+        <div className="text-sm text-[var(--ink-600)]">Không tìm thấy linh kiện <span className="font-mono">{dangXem}</span> trong danh mục (có thể đã bị ẩn/xoá).</div>
+      </Modal>
+    );
+  }
+  return (
+    <PartDetailDrawer
+      part={part}
+      onClose={onClose}
+      onEdit={() => {}}
+      canEdit={false}
+      ktvXem={ktvXem}
+      parts={parts?.rows ?? []}
+      canXetDuyet={canXetDuyet}
+      canXetDuyetMa={canXetDuyetMa}
+      onDoiMa={setDangXem}
+    />
+  );
+}
+
 const TABS = [
   { key: "danh-muc", label: "Danh mục" },
   { key: "bom-hang", label: "BOM" },
