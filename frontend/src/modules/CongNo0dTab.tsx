@@ -322,6 +322,63 @@ function CongNo0dModal({ row, onClose, onSaved }: { row: CongNo0dRow | null; onC
       addToast("Không đọc được file: " + (e instanceof Error ? e.message : String(e)));
     }
   }
+  // NHAP LINH KIEN HANG LOAT TU FILE (2026-10-22, v1.385 - "trong mục thêm chương trình hỗ trợ 0 đồng, thêm chức năng import hàng loạt"):
+  // doc tren trinh duyet (Excel/CSV, sheet dau). Cot ma = tieu de chua "ma" (Mã LK / Mã linh kiện / Mã hàng), cot SL = tieu de chua "sl" /
+  // "so luong"; khong co dong tieu de -> cot 1 = ma, cot 2 = SL (trong -> 1). Ma khop danh muc (khong phan biet hoa/thuong) moi lay; ma
+  // lap trong file -> cong SL. Gop vao danh sach dang soan: ma da co -> THAY SL bang so trong file, ma moi -> them dong. Chi luu khi bam "Lưu".
+  const [ketQuaLkFile, setKetQuaLkFile] = useState<{ ten: string; them: number; capNhat: number; khongThay: string[]; slSai: string[] } | null>(null);
+  const fileLkRef = useRef<HTMLInputElement>(null);
+  async function nhapLkTuFile(file: File) {
+    try {
+      const XLSX = await import("xlsx");
+      const wb = /\.csv$/i.test(file.name)
+        ? XLSX.read((await file.text()).replace(/^\uFEFF/, ""), { type: "string" })
+        : XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const bang = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "", blankrows: false }) as unknown[][];
+      const boDauTieuDe = (v: unknown) => String(v ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d").toLowerCase().trim();
+      const theoMa = new Map(options.map((o) => [o.ma_linh_kien.trim().toUpperCase(), o.ma_linh_kien]));
+      // Dong tieu de: dong dau co o "ma ..." hoac "sl"/"so luong".
+      const dau = (bang[0] ?? []).map(boDauTieuDe);
+      let cotMa = dau.findIndex((h) => /^ma\b|ma linh kien|ma lk|ma hang/.test(h));
+      let cotSl = dau.findIndex((h) => /^sl\b|so luong/.test(h));
+      const coTieuDe = cotMa >= 0 || cotSl >= 0;
+      if (cotMa < 0) cotMa = 0;
+      if (cotSl < 0) cotSl = cotMa === 0 ? 1 : 0;
+      const gop = new Map<string, number>();
+      const khongThay: string[] = [];
+      const slSai: string[] = [];
+      for (const dongFile of coTieuDe ? bang.slice(1) : bang) {
+        const maGo = String(dongFile[cotMa] ?? "").trim();
+        if (!maGo) continue;
+        const ma = theoMa.get(maGo.toUpperCase());
+        if (!ma) { if (!khongThay.includes(maGo)) khongThay.push(maGo); continue; }
+        const slRaw = String(dongFile[cotSl] ?? "").trim();
+        const sl = slRaw === "" ? 1 : Number(slRaw.replace(/[.,\s]/g, ""));
+        if (!Number.isInteger(sl) || sl <= 0) { slSai.push(`${maGo} (${slRaw})`); continue; }
+        gop.set(ma, (gop.get(ma) ?? 0) + sl);
+      }
+      let them = 0;
+      let capNhat = 0;
+      const ketQua = dong.filter((d) => d.ma_lk);
+      for (const [ma, sl] of gop) {
+        const i = ketQua.findIndex((d) => d.ma_lk === ma);
+        if (i >= 0) { ketQua[i] = { ...ketQua[i], so_luong: sl }; capNhat++; } else { ketQua.push({ ma_lk: ma, so_luong: sl }); them++; }
+      }
+      setDong(ketQua.length ? ketQua : [{ ma_lk: "", so_luong: 1 }]);
+      setKetQuaLkFile({ ten: file.name, them, capNhat, khongThay, slSai });
+    } catch (e) {
+      addToast("Không đọc được file: " + (e instanceof Error ? e.message : String(e)));
+    }
+  }
+  async function taiFileMauLk() {
+    const XLSX = await import("xlsx");
+    const ws = XLSX.utils.aoa_to_sheet([["Mã LK", "SL hỗ trợ / KTV"], ["VD-MA-001", 2], ["VD-MA-002", 1]]);
+    ws["!cols"] = [{ wch: 22 }, { wch: 18 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Linh kiện");
+    XLSX.writeFile(wb, "mau-import-lk-cong-no-0-dong.xlsx");
+  }
+
   const doiChon = (ma: string) =>
     setChon((prev) => {
       const next = new Set(prev);
@@ -422,7 +479,38 @@ function CongNo0dModal({ row, onClose, onSaved }: { row: CongNo0dRow | null; onC
             ))}
           </div>
           {trung && <div className="mt-1 text-xs text-[var(--color-danger)]">Có linh kiện bị chọn 2 lần — tăng số lượng thay vì thêm dòng.</div>}
-          <Btn size="sm" variant="ghost" className="mt-2" onClick={() => setDong((prev) => [...prev, { ma_lk: "", so_luong: 1 }])}>＋ Thêm linh kiện</Btn>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Btn size="sm" variant="ghost" onClick={() => setDong((prev) => [...prev, { ma_lk: "", so_luong: 1 }])}>＋ Thêm linh kiện</Btn>
+            <Btn size="sm" variant="subtle" disabled={!options.length} onClick={() => fileLkRef.current?.click()}
+              title="File Excel/CSV: cột Mã LK + cột SL hỗ trợ / KTV (SL trống = 1). Mã đã có trong danh sách sẽ lấy SL theo file.">
+              ⬆ Nhập linh kiện từ file
+            </Btn>
+            <button type="button" className="text-xs text-[var(--color-primary)] underline underline-offset-2" onClick={() => void taiFileMauLk()}>
+              Tải file mẫu
+            </button>
+            <input ref={fileLkRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
+              onChange={(e) => { const fi = e.target.files?.[0]; e.target.value = ""; if (fi) void nhapLkTuFile(fi); }} />
+          </div>
+          {ketQuaLkFile && (
+            <div className={`mt-2 flex items-start gap-2 rounded-lg border border-[var(--color-border)] px-2.5 py-2 text-xs ${ketQuaLkFile.them + ketQuaLkFile.capNhat ? "text-[var(--color-text-body)]" : "text-[var(--color-danger-strong)]"}`}>
+              <div className="min-w-0 flex-1">
+                {ketQuaLkFile.them + ketQuaLkFile.capNhat
+                  ? <>Từ file <b>{ketQuaLkFile.ten}</b>: thêm <b>{ketQuaLkFile.them}</b> linh kiện{ketQuaLkFile.capNhat ? <>, cập nhật số lượng <b>{ketQuaLkFile.capNhat}</b> linh kiện đã có</> : null} — bấm "Lưu" để áp dụng.</>
+                  : <>File <b>{ketQuaLkFile.ten}</b> không có mã linh kiện nào khớp danh mục.</>}
+                {ketQuaLkFile.khongThay.length > 0 && (
+                  <div className="mt-0.5 text-[var(--color-warning)]" title={ketQuaLkFile.khongThay.join(", ")}>
+                    ⚠ {ketQuaLkFile.khongThay.length} mã không có trong danh mục: {ketQuaLkFile.khongThay.slice(0, 15).join(", ")}{ketQuaLkFile.khongThay.length > 15 ? "…" : ""}
+                  </div>
+                )}
+                {ketQuaLkFile.slSai.length > 0 && (
+                  <div className="mt-0.5 text-[var(--color-warning)]" title={ketQuaLkFile.slSai.join(", ")}>
+                    ⚠ {ketQuaLkFile.slSai.length} dòng số lượng không hợp lệ (bỏ qua): {ketQuaLkFile.slSai.slice(0, 10).join(", ")}{ketQuaLkFile.slSai.length > 10 ? "…" : ""}
+                  </div>
+                )}
+              </div>
+              <button type="button" className="shrink-0 text-[var(--color-text-secondary)]" onClick={() => setKetQuaLkFile(null)} aria-label="Đóng">✕</button>
+            </div>
+          )}
         </div>
 
         <div>
