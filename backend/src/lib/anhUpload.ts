@@ -12,6 +12,8 @@ import { nowVN } from "./vnTime";
 export const ANH_TOI_DA_BYTE = 10 * 1024 * 1024;
 export const ANH_NGAY_MAC_DINH = 20;
 export const ANH_NGAY_VAN_PHONG = 100;
+// KTV / Ve tinh (2026-10-22, nang 20 -> 50: don tra hang can 1-3 anh MOI dong, KTV tra nhieu LK 1 lan het han muc giua chung).
+export const ANH_NGAY_KTV = 50;
 
 // Khong nhan SVG (co the chua script) - chi anh raster.
 const LOAI_ANH = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"]);
@@ -84,7 +86,8 @@ export interface AnhDaTai {
 function hanMucAnhNgay(c: Ctx): number | null {
   if (c.get("realIsAdmin")) return null;
   const u = c.get("user");
-  return u.la_ke_toan || u.la_tac_nghiep || u.vai_tro === "Giam sat" ? ANH_NGAY_VAN_PHONG : ANH_NGAY_MAC_DINH;
+  if (u.la_ke_toan || u.la_tac_nghiep || u.vai_tro === "Giam sat") return ANH_NGAY_VAN_PHONG;
+  return u.la_ktv_dvbh || u.la_ve_tinh ? ANH_NGAY_KTV : ANH_NGAY_MAC_DINH;
 }
 
 // Nhan 1 anh tu body request (binary tho, Content-Type = mime anh) -> tai len Drive. Tra Response loi neu khong hop le,

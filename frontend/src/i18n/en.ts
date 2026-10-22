@@ -1992,5 +1992,9 @@ const tuDien: Record<string, string> = {
   "{n} đơn thiếu hàng — chuyển chờ hàng, rời phiếu: {ds}": "{n} orders lack stock — moved to awaiting stock, removed from slip: {ds}",
   "{n} đơn đủ hàng — tự duyệt": "{n} orders in stock — auto-approved",
   "Đã đổi khu vực xử lý đơn: {a} — kho khu vực mới thiếu hàng, đơn chuyển chờ hàng (mở ticket cho Kho)": "Order processing area changed: {a} — the new area's warehouse lacks stock, the order moved to awaiting stock (ticket opened for Warehouse)",
+  // Khoi phuc don dang soan (2026-10-22)
+  "Soạn mới": "Start over",
+  "Đã khôi phục đơn đang soạn dở (lưu lúc {gio}) — ảnh đã tải lên vẫn giữ nguyên.": "Restored your unfinished order (saved at {gio}) — uploaded photos are kept.",
+  "Ẩn": "Hide",
 };
 export default tuDien;

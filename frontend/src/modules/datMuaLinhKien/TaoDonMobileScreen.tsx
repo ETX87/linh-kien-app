@@ -10,7 +10,7 @@ import { LinhKienPicker, ThayTheGoiY } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
 import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal } from "./DuDoanDuyetHint";
-import { TraHangAnhPicker } from "./SharedUi";
+import { TraHangAnhPicker, NhapKhoiPhucBanner } from "./SharedUi";
 import type { TaoDonForm } from "./useTaoDonForm";
 import { Money } from "../../components/ui/Money";
 import { TongNgayKtvInfo } from "./TongNgayKtv";
@@ -59,6 +59,7 @@ export function TaoDonMobileScreen({
     tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien, duPhongDuKien, coDongMuaDuTru,
     targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
     ketQuaTheoDong, loiPhieuText, dongCanXacNhan, hoiXacNhan, setHoiXacNhan,
+    khoiPhucLuc, boNhap, anKhoiPhuc,
   } = form;
 
   // FIX (phan hoi 2026-08-28: "ở giao diện tạo đơn ấn lùi vẫn báo thoát app") - man hinh nay la
@@ -378,6 +379,7 @@ export function TaoDonMobileScreen({
         className="shrink-0 flex flex-col gap-2 border-t border-[var(--line)] bg-[var(--ocean-100)]/35 px-3.5 pt-2.5"
         style={{ paddingBottom: "max(0.625rem, env(safe-area-inset-bottom))" }}
       >
+        <NhapKhoiPhucBanner luc={khoiPhucLuc} onSoanMoi={boNhap} onAn={anKhoiPhuc} />
         {/* KTV nhan hang chua co Ma MISA (2026-10-08) - khoa nut Tao don, backend chan KTV_CHUA_CO_MA_MISA. */}
         {chuaCoMaMisa && (
           <div role="alert" className="rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-[12px] font-bold text-[var(--coral-700)]">

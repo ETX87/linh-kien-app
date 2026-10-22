@@ -15,7 +15,7 @@ import { LinhKienPicker, ThayTheGoiY } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
 import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal } from "./DuDoanDuyetHint";
-import { TraHangAnhPicker } from "./SharedUi";
+import { TraHangAnhPicker, NhapKhoiPhucBanner } from "./SharedUi";
 import { useTaoDonForm } from "./useTaoDonForm";
 import { TaoDonMobileScreen } from "./TaoDonMobileScreen";
 import { KhachLeSdt } from "./KhachLeSdt";
@@ -51,6 +51,7 @@ export function TaoDonTab({
     giaUocTinhDong, tongGiaUocTinh, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
     duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
     ketQuaTheoDong, loiPhieuText, dongCanXacNhan, hoiXacNhan, setHoiXacNhan,
+    khoiPhucLuc, boNhap, anKhoiPhuc,
   } = form;
 
   return (
@@ -81,6 +82,7 @@ export function TaoDonTab({
       // chon quay lai, khong phai loi moi).
       footer={
         <div className="flex flex-col gap-1.5 -mx-5 -my-3 px-5 py-3 bg-[var(--ocean-100)]/35">
+          <NhapKhoiPhucBanner luc={khoiPhucLuc} onSoanMoi={boNhap} onAn={anKhoiPhuc} />
           {/* KTV nhan hang chua co Ma MISA (2026-10-08) - khoa nut Tao don, backend chan KTV_CHUA_CO_MA_MISA. */}
           {chuaCoMaMisa && (
             <div role="alert" className="rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-[12px] font-bold text-[var(--coral-700)]">

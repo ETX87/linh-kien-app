@@ -563,3 +563,20 @@ export function MaYcscCell({ value, canXemChiTietCa, openCase }: { value: string
 // CHOT 2026-08-15: thay the PhieuDatDetailModal (chi tiet ca "phieu") - khong con khai niem phieu,
 // modal gio chi xem/xu ly DUNG 1 dong don hang (goi GET /dat-mua-lk/don-hang/:id). Khong con checkbox/
 // bulk-select trong modal (bulk-select van hoat dong o ngoai bang danh sach, xem DonHangGroupedList).
+
+/** Bao "Đã khôi phục đơn đang soạn dở" (2026-10-22, useTaoDonForm luu nhap tren may) - dung chung form desktop + mobile. */
+export function NhapKhoiPhucBanner({ luc, onSoanMoi, onAn }: { luc: number | null; onSoanMoi: () => void; onAn: () => void }) {
+  if (!luc) return null;
+  const gio = new Date(luc).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" });
+  return (
+    <div role="status" className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-primary-soft)] px-2.5 py-1.5 text-[12px] text-[var(--color-text)]">
+      <span className="flex-1 min-w-[12rem]">{t("Đã khôi phục đơn đang soạn dở (lưu lúc {gio}) — ảnh đã tải lên vẫn giữ nguyên.", { gio })}</span>
+      <button type="button" className="font-semibold text-[var(--color-primary)] underline underline-offset-2" onClick={onSoanMoi}>
+        {t("Soạn mới")}
+      </button>
+      <button type="button" className="text-[var(--color-text-faint)]" onClick={onAn} title={t("Ẩn")}>
+        ✕
+      </button>
+    </div>
+  );
+}

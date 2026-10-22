@@ -16,6 +16,39 @@ import { useTongNgayKtv } from "./TongNgayKtv";
 // full-screen rieng cho mobile (TaoDonMobileScreen.tsx) - tranh 2 noi cung giu 1 ban logic dat hang de
 // roi lech nhau dan theo thoi gian. KHONG doi bat ky hanh vi nghiep vu nao khi tach, chi di chuyen code
 // nguyen ven tu than ham TaoDonTab cu.
+// Luu don DANG SOAN tren may (2026-10-22, KTV bao "up anh bi bao loi khi dang lam do va bi van ra va mat cac don dang luu do"): tren
+// dien thoai, mo camera chup anh tra hang co the khien trinh duyet TAI LAI trang -> form chi giu trong bo nho nen mat het (ca link anh
+// DA tai len Drive -> KTV chup lai, het han muc 20 anh/ngay ma chua tao duoc don nao). Ghi localStorage theo tai khoan moi lan doi;
+// mo lai form -> khoi phuc (giu 3 ngay). Tao don xong (form ve rong) / bam "Soạn mới" -> xoa.
+type NhapTaoDon = { luc: number; nguoiNhanHang: string; khLeSdt: string; drafts: DonHangDraft[]; activeIdx: number };
+const NHAP_GIU_MS = 3 * 24 * 60 * 60 * 1000;
+const khoaNhap = (email: string) => `tao-don-nhap:${email.toLowerCase()}`;
+function coNoiDung(drafts: DonHangDraft[]): boolean {
+  return drafts.some((d) => !!(d.ma_lk.trim() || d.anh.length || d.ghi_chu.trim() || d.ma_yeu_cau_su_co.trim() || d.ma_lada.trim()));
+}
+function docNhapTaoDon(email: string): NhapTaoDon | null {
+  if (!email) return null;
+  try {
+    const raw = localStorage.getItem(khoaNhap(email));
+    if (!raw) return null;
+    const v = JSON.parse(raw) as NhapTaoDon;
+    if (!Array.isArray(v.drafts) || !v.drafts.length || Date.now() - (v.luc ?? 0) > NHAP_GIU_MS || !coNoiDung(v.drafts)) return null;
+    // Gop voi draft rong - nhap luu tu ban cu thieu truong moi van dung duoc.
+    return { ...v, drafts: v.drafts.map((d) => ({ ...emptyDraft(), ...d, anh: Array.isArray(d.anh) ? d.anh : [] })) };
+  } catch {
+    return null;
+  }
+}
+function luuNhapTaoDon(email: string, v: Omit<NhapTaoDon, "luc">) {
+  if (!email) return;
+  try {
+    if (coNoiDung(v.drafts)) localStorage.setItem(khoaNhap(email), JSON.stringify({ ...v, luc: Date.now() }));
+    else localStorage.removeItem(khoaNhap(email));
+  } catch {
+    // het bo nho / che do rieng tu - bo qua, form van chay binh thuong
+  }
+}
+
 export function useTaoDonForm({
   addToast, qc, canQuanLy, onClose,
 }: {
@@ -26,16 +59,32 @@ export function useTaoDonForm({
   const { data: comboData } = useLkCombo();
   const danhMuc = useMemo(() => [...danhMucLk, ...comboThanhLkRow(comboData?.rows, danhMucLk)], [danhMucLk, comboData]);
 
-  const [nguoiNhanHang, setNguoiNhanHangState] = useState("");
+  const authNhap = useAuth();
+  const emailNhap = authNhap.status === "authenticated" ? authNhap.user.email : "";
+  const [nhapCu] = useState(() => docNhapTaoDon(emailNhap));
+  const [khoiPhucLuc, setKhoiPhucLuc] = useState<number | null>(nhapCu?.luc ?? null);
+  const [nguoiNhanHang, setNguoiNhanHangState] = useState(nhapCu?.nguoiNhanHang ?? "");
   // SDT KH le (migration 0074) - chi dung khi nguoi nhan la tai khoan nhom KH le; doi nguoi nhan -> xoa.
-  const [khLeSdt, setKhLeSdt] = useState("");
+  const [khLeSdt, setKhLeSdt] = useState(nhapCu?.khLeSdt ?? "");
   const setNguoiNhanHang = (v: string) => {
     setNguoiNhanHangState(v);
     setKhLeSdt("");
   };
-  const [drafts, setDrafts] = useState<DonHangDraft[]>([emptyDraft()]);
+  const [drafts, setDrafts] = useState<DonHangDraft[]>(nhapCu?.drafts ?? [emptyDraft()]);
   const [infoExpandedIdx, setInfoExpandedIdx] = useState<Set<number>>(new Set());
-  const [activeIdx, setActiveIdx] = useState(0);
+  const [activeIdx, setActiveIdx] = useState(nhapCu ? Math.min(Math.max(0, nhapCu.activeIdx || 0), nhapCu.drafts.length - 1) : 0);
+  useEffect(() => {
+    luuNhapTaoDon(emailNhap, { nguoiNhanHang, khLeSdt, drafts, activeIdx });
+  }, [emailNhap, nguoiNhanHang, khLeSdt, drafts, activeIdx]);
+  // "Soạn mới" - bo don dang soan da khoi phuc (localStorage tu xoa qua effect tren vi form ve rong).
+  function boNhap() {
+    setNguoiNhanHangState("");
+    setKhLeSdt("");
+    setDrafts([{ ...emptyDraft(), loai_de_xuat: pickLdeQuick(loaiDeXuatOptionsRef.current, "MUA HÀNG") ?? "" }]);
+    setActiveIdx(0);
+    setKhoiPhucLuc(null);
+  }
+  const loaiDeXuatOptionsRef = useRef<string[]>([]);
   const [otherLdeIdx, setOtherLdeIdx] = useState<Set<number>>(new Set());
   const [addBlockedHint, setAddBlockedHint] = useState(false);
   const activeRowRef = useRef<HTMLDivElement | null>(null);
@@ -52,6 +101,7 @@ export function useTaoDonForm({
   const auth = useAuth();
   const currentEmail = auth.status === "authenticated" ? auth.user.email : "";
   const loaiDeXuatOptions = getOptionsForUser(auth.status === "authenticated" ? auth.user : null, ldeEntries);
+  loaiDeXuatOptionsRef.current = loaiDeXuatOptions;
 
   useEffect(() => {
     if (loaiDeXuatOptions.length === 0) return;
@@ -369,7 +419,7 @@ export function useTaoDonForm({
     duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
     laNhomKhLe, khLeSdt, setKhLeSdt, khLeSdtSai, khLeTraCuu, khLeDangTraCuu,
     kiemTra: kiemTraHienTai, dangKiemTra, loiPhieuText, ketQuaTheoDong, coDongBiChan, dongCanXacNhan, hoiXacNhan, setHoiXacNhan,
-    ketQuaTao, dongKetQuaTao,
+    ketQuaTao, dongKetQuaTao, khoiPhucLuc, boNhap, anKhoiPhuc: () => setKhoiPhucLuc(null),
   };
 }
 
