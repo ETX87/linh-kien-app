@@ -22,7 +22,7 @@ import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, laTruCongNo, type PxkCalcu
 import { laVanPhong, danhDauVanPhongTacDong, huyPxkNeuTrong, lenhMangTienDon } from "../lib/pxkTuHuy";
 import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
 import { ANH_DA_GHI_NHAN_SQL, docAnhBangChung, locTienDocAnh, MAX_ANH_BANG_CHUNG } from "../lib/bangChungChuyenTien";
-import { xuLyDonChoThanhToan } from "../lib/tuDongDuyet";
+import { xuLyDonChoThanhToan, xetLaiTonKhiDoiKhuVuc } from "../lib/tuDongDuyet";
 import { canBangPxk, duyetKhoanChuyen, lenhNhanTienDaTraDon, lenhGhiKhoanTuChoi, lenhKhoaTrangThaiChuyenTien, moTaCanChuyen, soDuQuy, thongBaoHoanQuyPhieuHuy, tienPhieuVaQuy } from "../lib/quyKtv";
 
 // Phieu xuat kho/giao hang - xem migration 0058_phieu_xuat_kho.sql + 0066_pxk_gop_chuyen_tien.sql.
@@ -1231,8 +1231,15 @@ phieuXuatKho.patch("/:id/khu-vuc", async (c) => {
       id, user.email, nowVN(), ghiChu,
     ),
   ]);
+  // Xet lai ton kho CA 2 CHIEU cho moi don trong phieu theo khu vuc moi (chot 2026-10-22, xetLaiTonKhiDoiKhuVuc): don "Cho thanh toan"
+  // du -> tu duyet; don "TN da duyet" thieu -> roi phieu mang theo tien, "Cho hang" + ticket (chi khi phieu "Dang tao phieu" + Ke toan chua
+  // chot tien - con lai giu nguyen, tra `giu_nguyen` de nguoi doi biet).
+  const { results: donTrongPhieu } = await c.env.DB.prepare("SELECT dat_don_hang_id AS id FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ?")
+    .bind(id).all<{ id: string }>();
+  const xet = await xetLaiTonKhiDoiKhuVuc(c.env, c.env.DB, donTrongPhieu.map((d) => d.id), user.email,
+    `phiếu ${id} chuyển khu vực ${pxk.ten_cu ?? pxk.khu_vuc_chon ?? pxk.khu_vuc_ma ?? "?"} → ${kv.ten}`, (p) => c.executionCtx.waitUntil(p));
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
-  return c.json({ ok: true, khu_vuc_chon: moi, so_don: r[0].meta.changes ?? 0 });
+  return c.json({ ok: true, khu_vuc_chon: moi, so_don: r[0].meta.changes ?? 0, tu_duyet: xet.tuDuyet, cho_hang: xet.choHang, giu_nguyen: xet.giuNguyen });
 });
 
 // PATCH /api/phieu-xuat-kho/:id/da-in-phieu - { da_in_phieu } - co PHU rieng cua Kho de theo doi phieu

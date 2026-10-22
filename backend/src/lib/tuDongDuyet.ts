@@ -24,7 +24,7 @@ import { computeCongNoChot } from "./congNoKtv";
 import { laTruCongNo, khongTinhCongNo, taiTinhPxkMoCuaKtv } from "./pxkRecalculate";
 import { nextSequentialId } from "./idCounter";
 import { bundleAutoApprovedIntoPxk } from "./pxkAutoBundle";
-import { goDonKhoiPxk, pxkChuaDonChuaDuyet } from "./pxkTuHuy";
+import { goDonKhoiPxk, pxkChuaDonChuaDuyet, TN_DOI_TRONG_PXK_SQL } from "./pxkTuHuy";
 import { pushThieuLkToKhovan, buildWorkUrl } from "./khovanPushClient";
 import { notifyWorkflowTask, emailsForRoleOrQC, MUA_CONG_NO_ROLES } from "./taskNotify";
 import { sendPushToUser } from "./webPush";
@@ -560,6 +560,79 @@ export async function duyetDonKhiHangVe(env: Env, db: D1Database, donHangId: str
   const d = await db.prepare("SELECT nguoi_nhan_hang FROM dat_don_hang WHERE id = ?").bind(donHangId).first<{ nguoi_nhan_hang: string | null }>();
   await taiTinhPxkMoCuaKtv(db, d?.nguoi_nhan_hang, nguoi);
   return true;
+}
+
+/** DOI KHU VUC -> XET LAI TON KHO CA 2 CHIEU (chot 2026-10-22, "chuyển sang khu vực khác có hàng, nhưng tiket vẫn tồn và bị chờ hàng => tự
+ *  động xác định lại ticket..." + "xử lý cả 2 chiều"). Goi SAU KHI da ghi khu_vuc_chon moi cho don (PATCH don) hoac moi don trong phieu (PATCH
+ *  phieu). Ton kho = kho cong ty theo KHU VUC MOI, cung FIFO donDuTonKhoCongTy nhu luc tao don. Chi don Mua / Cong no (khong TRỪ CÔNG NỢ - doi
+ *  chieu ton KTV; khong don gui bu nhan thieu):
+ *  - "Cho hang" + du  -> tu duyet + vao phieu nhu Kho "Hàng đã về" (duyetDonKhiHangVe, mang tien da tra) + dong ticket con mo "Da ket thuc".
+ *  - "Cho thanh toan" -> danhGiaLaiDonChoThanhToan (du -> tu duyet, o lai phieu; thieu ma het tien -> cho hang).
+ *  - "TN da duyet" + THIEU -> "Cho hang" + mo ticket, roi phieu "Dang tao phieu" MANG THEO tien (tacDongSauDinhTuyen) - CHI khi don chua vao
+ *    phieu hoac phieu con "Dang tao phieu" + Ke toan chua chot tien (TN_DOI_TRONG_PXK_SQL, cung dieu kien TN doi don trong phieu); phieu da
+ *    gui Ke toan / Kho -> giu nguyen (`giuNguyen`, de nguoi doi biet ma xu ly tay). */
+export async function xetLaiTonKhiDoiKhuVuc(
+  env: Env, db: D1Database, donIds: string[], nguoi: string, moTaDoi: string, waitUntil?: (p: Promise<unknown>) => void,
+): Promise<{ tuDuyet: string[]; choHang: string[]; giuNguyen: string[] }> {
+  const kq = { tuDuyet: [] as string[], choHang: [] as string[], giuNguyen: [] as string[] };
+  if (!donIds.length) return kq;
+  const { results } = await db
+    .prepare(
+      `SELECT ddh.id, ddh.trang_thai_hien_tai AS trang_thai, ddh.loai_de_xuat, ddh.nguoi_tao, ddh.nguoi_nhan_hang, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat,
+              EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pd JOIN phieu_xuat_kho p ON p.id = pd.phieu_xuat_kho_id
+                      WHERE pd.dat_don_hang_id = ddh.id AND COALESCE(p.trang_thai_hien_tai, '') != 'Ke toan huy') AS trong_phieu,
+              ${TN_DOI_TRONG_PXK_SQL("ddh")} AS doi_trong_pxk
+       FROM dat_don_hang ddh
+       WHERE ddh.id IN (SELECT value FROM json_each(?)) AND ddh.loai_don IN ('mua', 'cong_no') AND ddh.gui_bu_nhan_thieu_id IS NULL
+         AND ddh.trang_thai_hien_tai IN ('Cho hang', 'Cho thanh toan', 'TN da duyet')
+       ORDER BY ddh.ngay_tao, ddh.id`,
+    )
+    .bind(JSON.stringify(donIds))
+    .all<{
+      id: string; trang_thai: string; loai_de_xuat: string | null; nguoi_tao: string; nguoi_nhan_hang: string | null; ten_lk_snapshot: string;
+      so_luong_de_xuat: number; trong_phieu: number; doi_trong_pxk: number;
+    }>();
+  const bao = (p: Promise<unknown>) => (waitUntil ? waitUntil(p) : p);
+  for (const d of results) {
+    if (laTruCongNo(d.loai_de_xuat)) continue;
+    const tenDon = `"${d.ten_lk_snapshot} (x${d.so_luong_de_xuat})"`;
+    if (d.trang_thai === "Cho thanh toan") {
+      if (await danhGiaLaiDonChoThanhToan(env, db, d.id, nguoi, moTaDoi)) {
+        const sau = await db.prepare("SELECT trang_thai_hien_tai AS tt FROM dat_don_hang WHERE id = ?").bind(d.id).first<{ tt: string }>();
+        (sau?.tt === "TN da duyet" ? kq.tuDuyet : kq.choHang).push(d.id);
+      }
+      continue;
+    }
+    const { du, ton, khuVuc } = await donDuTonKhoCongTy(db, d.id);
+    const moTaTon = moTaThieuTon(ton, d.so_luong_de_xuat, khuVuc);
+    if (d.trang_thai === "Cho hang") {
+      if (!du) continue;
+      const lyDo = `Tự động: ${moTaDoi}, ${moTaTon} — đủ hàng, duyệt đơn + vào phiếu`;
+      if (!(await duyetDonKhiHangVe(env, db, d.id, nguoi, lyDo))) continue;
+      await db
+        .prepare(
+          `INSERT INTO thieu_lk_log (thieu_lk_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu)
+           SELECT t.id, 'Da ket thuc', ?, ?, ? FROM thieu_lk t
+           WHERE t.dat_don_hang_id = ? AND COALESCE((SELECT l.trang_thai FROM thieu_lk_log l WHERE l.thieu_lk_id = t.id ORDER BY l.id DESC LIMIT 1), '')
+                 NOT IN ('Da huy bo', 'Da ket thuc')`,
+        )
+        .bind(nguoi, nowVN(), lyDo.slice(0, 1000), d.id)
+        .run();
+      kq.tuDuyet.push(d.id);
+      if (d.nguoi_tao !== nguoi) await bao(baoNguoiTaoDon(env, db, d.nguoi_tao, "da_duyet", `Đơn hàng ${tenDon} — ${moTaDoi}: kho đủ hàng, đã duyệt và vào phiếu xuất kho`, d.id));
+      continue;
+    }
+    // "TN da duyet"
+    if (du) continue;
+    if (d.trong_phieu && !d.doi_trong_pxk) { kq.giuNguyen.push(d.id); continue; }
+    const lyDo = `${moTaDoi}, ${moTaTon} — chuyển chờ hàng (đơn giữ tiền đã thanh toán)`;
+    if (!(await ghiTrangThaiDon(db, d.id, "Cho hang", nguoi, `Tự động: ${lyDo}`, true, "TN da duyet"))) continue;
+    await tacDongSauDinhTuyen(env, db, d.id, "Cho hang", nguoi, lyDo, waitUntil);
+    await taiTinhPxkMoCuaKtv(db, d.nguoi_nhan_hang, nguoi);
+    kq.choHang.push(d.id);
+    if (d.nguoi_tao !== nguoi) await bao(baoNguoiTaoDon(env, db, d.nguoi_tao, "cho_hang", `Đơn hàng ${tenDon} — ${moTaDoi}: ${moTaTon}, chuyển chờ hàng (chờ Kho xử lý)`, d.id));
+  }
+  return kq;
 }
 
 /** Kho TU CHOI / ticket bi HUY cho don "Cho hang" -> don tu huy ("Da huy"): tien da tra cua don ve quy (trigger 0056) + phan bo

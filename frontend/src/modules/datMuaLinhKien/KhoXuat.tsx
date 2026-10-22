@@ -110,10 +110,16 @@ export function ChuyenKhuVucCard({ pxk, addToast, onDone }: { pxk: PxkKhuVuc; ad
   });
   const options = (khuVucData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ma === pxk.khu_vuc_ma ? t("{a} (tự động)", { a: k.ten }) : k.ten }));
   const mutation = useMutation({
-    mutationFn: () => api.patch<{ so_don: number }>(`/phieu-xuat-kho/${pxk.id}/khu-vuc`, { khu_vuc_ma: chon, ghi_chu: lyDo.trim() || undefined }),
+    mutationFn: () => api.patch<{ so_don: number; tu_duyet?: string[]; cho_hang?: string[]; giu_nguyen?: string[] }>(`/phieu-xuat-kho/${pxk.id}/khu-vuc`, { khu_vuc_ma: chon, ghi_chu: lyDo.trim() || undefined }),
     onSuccess: (res) => {
       onDone();
-      addToast(t("Đã chuyển khu vực: {kv}{don}", { kv: options.find((o) => o.value === chon)?.label ?? chon, don: res?.so_don ? t(" (phiếu + {n} đơn)", { n: res.so_don }) : "" }));
+      // Xet lai ton kho theo khu vuc moi (2026-10-22): bao so don tu duyet / chuyen cho hang / giu nguyen (phieu da gui Ke toan).
+      const them = [
+        res?.tu_duyet?.length ? t("{n} đơn đủ hàng — tự duyệt", { n: res.tu_duyet.length }) : "",
+        res?.cho_hang?.length ? t("{n} đơn thiếu hàng — chuyển chờ hàng, rời phiếu: {ds}", { n: res.cho_hang.length, ds: res.cho_hang.join(", ") }) : "",
+        res?.giu_nguyen?.length ? t("{n} đơn thiếu hàng ở khu vực mới nhưng phiếu đã chốt tiền / đã gửi Kế toán — giữ nguyên: {ds}", { n: res.giu_nguyen.length, ds: res.giu_nguyen.join(", ") }) : "",
+      ].filter(Boolean).join("; ");
+      addToast(t("Đã chuyển khu vực: {kv}{don}", { kv: options.find((o) => o.value === chon)?.label ?? chon, don: res?.so_don ? t(" (phiếu + {n} đơn)", { n: res.so_don }) : "" }) + (them ? ` — ${them}` : ""));
     },
     onError: (err) => {
       const code = err instanceof ApiError ? err.code : undefined;
@@ -169,12 +175,14 @@ export function DoiKhuVucDon({
   const ten = (ma: string | null | undefined) => (ma ? khuVucData?.rows.find((k) => k.ma === ma)?.ten ?? ma : "—");
   const options = (khuVucData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ma === don.khu_vuc_ma ? t("{a} (theo KTV)", { a: k.ten }) : k.ten }));
   const mutation = useMutation({
-    mutationFn: () => api.patch<{ tu_duyet?: boolean }>(`/dat-mua-lk/don-hang/${don.id}/khu-vuc`, { khu_vuc_ma: chon }),
+    mutationFn: () => api.patch<{ tu_duyet?: boolean; cho_hang?: boolean }>(`/dat-mua-lk/don-hang/${don.id}/khu-vuc`, { khu_vuc_ma: chon }),
     onSuccess: (res) => {
       onDone();
       addToast(res?.tu_duyet
         ? t("Đã đổi khu vực xử lý đơn: {a} — kho khu vực mới đủ hàng, đơn tự duyệt và vào phiếu", { a: ten(chon) })
-        : t("Đã đổi khu vực xử lý đơn: {a}", { a: ten(chon) }));
+        : res?.cho_hang
+          ? t("Đã đổi khu vực xử lý đơn: {a} — kho khu vực mới thiếu hàng, đơn chuyển chờ hàng (mở ticket cho Kho)", { a: ten(chon) })
+          : t("Đã đổi khu vực xử lý đơn: {a}", { a: ten(chon) }));
     },
     onError: (err) => {
       const code = err instanceof ApiError ? err.code : undefined;

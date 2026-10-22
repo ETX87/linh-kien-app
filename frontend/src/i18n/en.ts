@@ -1988,5 +1988,9 @@ const tuDien: Record<string, string> = {
   "⬇ File mẫu": "⬇ Template",
   "⬇ Tải danh sách": "⬇ Download list",
   "Đã đổi khu vực xử lý đơn: {a} — kho khu vực mới đủ hàng, đơn tự duyệt và vào phiếu": "Order processing area changed: {a} — the new area's warehouse has enough stock, the order was auto-approved and added to a slip",
+  "{n} đơn thiếu hàng ở khu vực mới nhưng phiếu đã chốt tiền / đã gửi Kế toán — giữ nguyên: {ds}": "{n} orders lack stock in the new area but the slip's payment is locked / sent to Accounting — kept as is: {ds}",
+  "{n} đơn thiếu hàng — chuyển chờ hàng, rời phiếu: {ds}": "{n} orders lack stock — moved to awaiting stock, removed from slip: {ds}",
+  "{n} đơn đủ hàng — tự duyệt": "{n} orders in stock — auto-approved",
+  "Đã đổi khu vực xử lý đơn: {a} — kho khu vực mới thiếu hàng, đơn chuyển chờ hàng (mở ticket cho Kho)": "Order processing area changed: {a} — the new area's warehouse lacks stock, the order moved to awaiting stock (ticket opened for Warehouse)",
 };
 export default tuDien;
