@@ -429,4 +429,168 @@ quyKtv.post("/khoan-chuyen/:id/huy", async (c) => {
   return c.json({ ok: true, ...kq });
 });
 
+// ===== KHOẢN TIỀN NGOÀI VÀO QUỸ (chot 2026-10-22, migration 0095) =====
+// "cho phép kế toán tự thêm khoản tiền chuyển ngoài cho KTV (tạo thủ công hoặc import hàng loạt - import sẽ theo mã misa hoặc ID KTV
+// làm chuẩn ...) ví dụ đầu tháng sẽ có 1 khoản tiền KTV bị trừ lương ... tạo thành quỹ để dùng khi ktv sau này đặt hàng".
+// Ke toan/Admin ghi tien vao quy nguoi nhan hang (Ve tinh -> quy cua Tram) KHONG qua phieu xuat; so quy = giao dich 'dieu_chinh' gan
+// khoan_tien_ngoai_id. Doi chieu ma trong file -> KTV lam TREN TRINH DUYET (danh ba tu GET /tien-ngoai/ktv) de nguoi import xem + chon
+// lai tung dong; server chi kiem tra email chu quy co that + so tien/noi dung, roi ghi CA LO trong 1 batch (CAS theo lo_id chong gui 2 lan).
+const TIEN_NGOAI_TOI_DA_LO = 50; // 4 lenh/dong + phanBoQuy moi email -> giu duoi gioi han truy van D1 cua 1 request
+const QUY_EMAIL_SQL = `CASE WHEN k.vai_tro_ktv = 'Ve tinh' AND t.email_dang_nhap IS NOT NULL THEN t.email_dang_nhap ELSE k.email_dang_nhap END`;
+
+// GET /api/quy-ktv/tien-ngoai/ktv - danh ba KTV de doi chieu file import / chon tay (Ke toan/Admin).
+quyKtv.get("/tien-ngoai/ktv", async (c) => {
+  if (!coTheDieuChinh(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const { results } = await c.env.DB.prepare(
+    `SELECT k.ma_ktv, k.ten_hien_thi, k.ma_misa, k.ten_misa, k.email_dang_nhap AS email, k.khu_vuc_ma, k.vai_tro_ktv,
+            COALESCE(k.ngung_hoat_dong, 0) AS ngung, COALESCE(u.bi_khoa, 0) AS bi_khoa,
+            ${QUY_EMAIL_SQL} AS quy_email,
+            CASE WHEN k.vai_tro_ktv = 'Ve tinh' THEN t.ten_hien_thi END AS tram_ten,
+            (SELECT so_du FROM quy_ktv q WHERE q.email = ${QUY_EMAIL_SQL}) AS so_du
+     FROM ktv_lien_he k
+     LEFT JOIN ktv_lien_he t ON t.ma_ktv = k.ktv_cap1_phu_trach
+     LEFT JOIN users u ON u.email = k.email_dang_nhap
+     ORDER BY k.ma_ktv`,
+  ).all();
+  return c.json({ rows: results ?? [] });
+});
+
+// GET /api/quy-ktv/tien-ngoai?q=&tu=&den=&trang_thai=&nguon=&email=&page=&pageSize= - danh sach khoan tien ngoai (theo pham vi xem quy).
+quyKtv.get("/tien-ngoai", async (c) => {
+  const pv = await phamViXem(c);
+  if (pv === undefined) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const loc = locEmail("n.email", pv, c.req.query("email")?.trim() || undefined);
+  let where = `1 = 1${loc.sql}`;
+  const binds: unknown[] = [...loc.binds];
+  const tu = c.req.query("tu")?.trim();
+  const den = c.req.query("den")?.trim();
+  if (tu && /^\d{4}-\d{2}-\d{2}$/.test(tu)) { where += " AND substr(n.ngay_tao, 1, 10) >= ?"; binds.push(tu); }
+  if (den && /^\d{4}-\d{2}-\d{2}$/.test(den)) { where += " AND substr(n.ngay_tao, 1, 10) <= ?"; binds.push(den); }
+  const tt = c.req.query("trang_thai");
+  if (tt === "Da ghi" || tt === "Da huy") { where += " AND n.trang_thai = ?"; binds.push(tt); }
+  const nguon = c.req.query("nguon");
+  if (nguon === "thu_cong" || nguon === "import") { where += " AND n.nguon = ?"; binds.push(nguon); }
+  const q = c.req.query("q")?.trim();
+  if (q) {
+    // Ma / noi dung / ten file / email; ten KTV so tren danh ba (ten hien thi, ten MISA) - LIKE chi bo hoa/thuong ASCII, du cho ma.
+    where += ` AND (n.ma_ktv LIKE ?1x OR n.ma_trong_file LIKE ?1x OR n.noi_dung LIKE ?1x OR n.ten_file LIKE ?1x OR n.email LIKE ?1x
+               OR EXISTS (SELECT 1 FROM ktv_lien_he kk WHERE kk.email_dang_nhap = n.email AND (kk.ten_hien_thi LIKE ?1x OR kk.ten_misa LIKE ?1x OR kk.ma_misa LIKE ?1x)))`;
+  }
+  const qBind = q ? `%${q}%` : null;
+  // ?1x = cung 1 gia tri tim kiem lap lai - thay bang ? va day du so bind.
+  const soLap = (where.match(/\?1x/g) ?? []).length;
+  where = where.replace(/\?1x/g, "?");
+  const allBinds = [...binds, ...Array(soLap).fill(qBind)];
+  const page = Math.max(1, Math.trunc(Number(c.req.query("page"))) || 1);
+  const pageSize = Math.min(500, Math.max(1, Math.trunc(Number(c.req.query("pageSize"))) || 20));
+  const tong = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS total, COALESCE(SUM(CASE WHEN n.trang_thai = 'Da ghi' THEN n.so_tien END), 0) AS tong_tien FROM khoan_tien_ngoai n WHERE ${where}`,
+  ).bind(...allBinds).first<{ total: number; tong_tien: number }>();
+  const { results } = await c.env.DB.prepare(
+    `SELECT n.*, (SELECT so_du FROM quy_ktv q WHERE q.email = n.email) AS so_du_hien_tai
+     FROM khoan_tien_ngoai n WHERE ${where} ORDER BY n.id DESC LIMIT ? OFFSET ?`,
+  ).bind(...allBinds, pageSize, (page - 1) * pageSize).all();
+  return c.json({ rows: results ?? [], total: tong?.total ?? 0, tong_tien: tong?.tong_tien ?? 0, page, pageSize, coTheGhi: coTheDieuChinh(c) });
+});
+
+type DongTienNgoai = { email?: string; ma_ktv?: string; ma_trong_file?: string; so_tien?: number; noi_dung?: string; ngay_chung_tu?: string };
+
+// POST /api/quy-ktv/tien-ngoai { lo_id, nguon: 'thu_cong'|'import', ten_file?, items: [...] } - Ke toan/Admin. Ghi CA LO hoac khong ghi gi.
+quyKtv.post("/tien-ngoai", async (c) => {
+  if (!coTheDieuChinh(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const body = await c.req.json<{ lo_id?: string; nguon?: string; ten_file?: string; items?: DongTienNgoai[] }>();
+  const loId = body.lo_id?.trim() ?? "";
+  if (!/^[A-Za-z0-9_-]{8,80}$/.test(loId)) return c.json({ error: "INVALID_LO_ID" }, 400);
+  const nguon = body.nguon === "import" ? "import" : "thu_cong";
+  const items = Array.isArray(body.items) ? body.items : [];
+  if (items.length === 0) return c.json({ error: "MISSING_ITEMS" }, 400);
+  if (items.length > TIEN_NGOAI_TOI_DA_LO) return c.json({ error: "QUA_NHIEU_DONG", max: TIEN_NGOAI_TOI_DA_LO }, 400);
+  const loi: { dong: number; loi: string }[] = [];
+  const sach = items.map((it, i) => {
+    const email = typeof it.email === "string" ? it.email.trim() : "";
+    const soTien = Number(it.so_tien);
+    const noiDung = typeof it.noi_dung === "string" ? it.noi_dung.trim().slice(0, 300) : "";
+    const ngay = typeof it.ngay_chung_tu === "string" && /^\d{4}-\d{2}-\d{2}$/.test(it.ngay_chung_tu.trim()) ? it.ngay_chung_tu.trim() : null;
+    if (!email) loi.push({ dong: i + 1, loi: "MISSING_EMAIL" });
+    if (!Number.isInteger(soTien) || soTien <= 0 || soTien > 10_000_000_000) loi.push({ dong: i + 1, loi: "INVALID_SO_TIEN" });
+    if (!noiDung) loi.push({ dong: i + 1, loi: "MISSING_NOI_DUNG" });
+    return {
+      email, soTien, noiDung, ngay,
+      maKtv: typeof it.ma_ktv === "string" ? it.ma_ktv.trim().slice(0, 80) || null : null,
+      maFile: typeof it.ma_trong_file === "string" ? it.ma_trong_file.trim().slice(0, 80) || null : null,
+    };
+  });
+  if (loi.length) return c.json({ error: "DONG_KHONG_HOP_LE", loi }, 400);
+  const dsEmail = [...new Set(sach.map((s) => s.email))];
+  const { results: coThat } = await c.env.DB.prepare("SELECT email FROM users WHERE email IN (SELECT value FROM json_each(?))")
+    .bind(JSON.stringify(dsEmail)).all<{ email: string }>();
+  const coThatSet = new Set((coThat ?? []).map((r) => r.email));
+  const thieu = sach.map((s, i) => (coThatSet.has(s.email) ? null : { dong: i + 1, loi: "USER_NOT_FOUND" })).filter(Boolean);
+  if (thieu.length) return c.json({ error: "DONG_KHONG_HOP_LE", loi: thieu }, 400);
+
+  const user = c.get("user");
+  const now = nowVN();
+  const tenFile = typeof body.ten_file === "string" ? body.ten_file.trim().slice(0, 200) || null : null;
+  const lenh: D1PreparedStatement[] = [
+    // CAS: lo nay da ghi (bam 2 lan / gui lai) -> CHECK x=0 vi pham -> rollback ca batch.
+    c.env.DB.prepare("INSERT INTO quy_cas_guard (x) SELECT 1 WHERE EXISTS (SELECT 1 FROM khoan_tien_ngoai WHERE lo_id = ?)").bind(loId),
+  ];
+  for (const s of sach) {
+    const ghiChu = `Tiền ngoài vào quỹ: ${s.noiDung}`;
+    const [taoQuy, congQuy, ghiSo] = lenhGhiQuy(c.env.DB, {
+      email: s.email, loai: "dieu_chinh", soTien: s.soTien, nguoi: user.email, now, ghiChu, khoanTienNgoaiSql: "last_insert_rowid()",
+    });
+    lenh.push(
+      taoQuy,
+      congQuy,
+      c.env.DB.prepare(
+        `INSERT INTO khoan_tien_ngoai (email, ma_ktv, ma_trong_file, so_tien, noi_dung, ngay_chung_tu, nguon, ten_file, lo_id, nguoi_tao, ngay_tao)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).bind(s.email, s.maKtv, s.maFile, s.soTien, s.noiDung, s.ngay, nguon, tenFile, loId, user.email, now),
+      ghiSo, // ngay sau INSERT khoan -> last_insert_rowid() = id khoan vua tao
+    );
+  }
+  try {
+    await c.env.DB.batch(lenh);
+  } catch (e) {
+    if (String(e).includes("CHECK")) return c.json({ error: "LO_DA_GHI" }, 409);
+    throw e;
+  }
+  // Tien vao quy -> tu tra cac phieu dang cho chuyen tien cu nhat cua tung nguoi (nhu moi lan cong quy).
+  for (const email of dsEmail) await phanBoQuy(c.env.DB, email, user.email);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, so_dong: sach.length, tong_tien: sach.reduce((t, s) => t + s.soTien, 0) });
+});
+
+// POST /api/quy-ktv/tien-ngoai/:id/huy { ly_do } - Ke toan/Admin huy khoan ghi nham: tru lai dung so tien khoi quy (quy phai con du).
+quyKtv.post("/tien-ngoai/:id/huy", async (c) => {
+  if (!coTheDieuChinh(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const id = Math.trunc(Number(c.req.param("id")));
+  const body = await c.req.json<{ ly_do?: string }>().catch(() => ({}) as { ly_do?: string });
+  const lyDo = body.ly_do?.trim().slice(0, 300);
+  if (!lyDo) return c.json({ error: "MISSING_LY_DO" }, 400);
+  const k = await c.env.DB.prepare("SELECT email, so_tien, trang_thai, noi_dung FROM khoan_tien_ngoai WHERE id = ?").bind(id)
+    .first<{ email: string; so_tien: number; trang_thai: string; noi_dung: string }>();
+  if (!k) return c.json({ error: "NOT_FOUND" }, 404);
+  if (k.trang_thai !== "Da ghi") return c.json({ error: "DA_HUY" }, 409);
+  const user = c.get("user");
+  const now = nowVN();
+  try {
+    await c.env.DB.batch([
+      c.env.DB.prepare("INSERT INTO quy_cas_guard (x) SELECT 1 WHERE (SELECT trang_thai FROM khoan_tien_ngoai WHERE id = ?) IS NOT 'Da ghi'").bind(id),
+      c.env.DB.prepare("UPDATE khoan_tien_ngoai SET trang_thai = 'Da huy', huy_boi = ?, huy_luc = ?, ly_do_huy = ? WHERE id = ?").bind(user.email, now, lyDo, id),
+      ...lenhGhiQuy(c.env.DB, {
+        email: k.email, loai: "dieu_chinh", soTien: -k.so_tien, nguoi: user.email, now,
+        ghiChu: `Hủy tiền ngoài "${k.noi_dung}": ${lyDo}`, khoanTienNgoaiSql: String(id),
+      }),
+    ]);
+  } catch {
+    const sau = await c.env.DB.prepare("SELECT trang_thai FROM khoan_tien_ngoai WHERE id = ?").bind(id).first<{ trang_thai: string }>();
+    if (sau?.trang_thai !== "Da ghi") return c.json({ error: "DA_HUY" }, 409);
+    return c.json({ error: "QUY_KHONG_DU", so_du: await soDuQuy(c.env.DB, k.email) }, 409);
+  }
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, so_du: await soDuQuy(c.env.DB, k.email) });
+});
+
 export default quyKtv;

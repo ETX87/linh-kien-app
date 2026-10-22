@@ -42,6 +42,8 @@ export function lenhGhiQuy(
     khoanChuyenMoiNhatCuaPxk?: boolean;
     khoanId?: number; // gan voi 1 khoan chuyen tien co san (sua/huy khoan)
     phieuHoanTienId?: string; // tam giu / tra lai tam giu cua phieu hoan tien (migration 0090)
+    // Khoan tien ngoai (migration 0095): bieu thuc SQL id khoan (vd "last_insert_rowid()" khi INSERT khoan_tien_ngoai dat NGAY truoc lenh ghi so).
+    khoanTienNgoaiSql?: string;
     ghiChu?: string | null;
     nguoi: string;
     now: string;
@@ -53,8 +55,8 @@ export function lenhGhiQuy(
       ? String(Math.trunc(g.khoanId))
       : "NULL";
   const insert = db.prepare(
-    `INSERT INTO quy_ktv_giao_dich (email, loai, so_tien, so_du_sau, phieu_xuat_kho_id, khoan_chuyen_tien_id, ghi_chu, nguoi_tao, ngay_tao, phieu_hoan_tien_id)
-     SELECT ?, ?, ?, so_du, ?, ${khoanSql}, ?, ?, ?, ? FROM quy_ktv WHERE email = ?`,
+    `INSERT INTO quy_ktv_giao_dich (email, loai, so_tien, so_du_sau, phieu_xuat_kho_id, khoan_chuyen_tien_id, ghi_chu, nguoi_tao, ngay_tao, phieu_hoan_tien_id, khoan_tien_ngoai_id)
+     SELECT ?, ?, ?, so_du, ?, ${khoanSql}, ?, ?, ?, ?, ${g.khoanTienNgoaiSql ?? "NULL"} FROM quy_ktv WHERE email = ?`,
   );
   const ht = g.phieuHoanTienId ?? null;
   return [

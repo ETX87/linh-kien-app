@@ -23,6 +23,7 @@ import { XemAnhNhanh, maHdCua, type AnhXem } from "./datMuaLinhKien/XemAnhNhanh"
 import { t, dichSau } from "../i18n";
 import type { KhachLeRow } from "./datMuaLinhKien/types";
 import { useNhomKhLe } from "./datMuaLinhKien/KhachLeSdt";
+import { TienNgoaiTab } from "./quyChuyenTien/TienNgoai";
 import { HoanTienTab, TaoHoanTienModal, lamMoiHoanTien, nhanGiaoDichHoanTien, type TrangThaiHt } from "./quyChuyenTien/PhieuHoanTien";
 
 // "Quỹ & chuyển tiền" (2026-09-29, ban 2 quy du KTV - backend routes/quyKtv.ts, lib/quyKtv.ts, migration 0047):
@@ -88,6 +89,7 @@ interface GiaoDichRow {
   ngay_tao: string;
   phieu_hoan_tien_id?: string | null;
   ht_trang_thai?: TrangThaiHt | null;
+  khoan_tien_ngoai_id?: number | null; // migration 0095
 }
 
 const LOAI_GIAO_DICH: Record<string, { label: string; tone: BadgeTone }> = {
@@ -128,7 +130,7 @@ export function QuyChuyenTienModule({ moPhieuHoanTien = null }: { moPhieuHoanTie
   // + Giam sat (2026-10-21): quy cac tai khoan GS quan ly (backend phamViXem), khong tab KH le.
   const xemNhieuNguoi = xemTatCa || !!user?.la_view || user?.vai_tro === "Giam sat";
 
-  const [tab, setTab] = useState<"khoan" | "so-du" | "so-quy" | "kh-le" | "hoan-tien">(moPhieuHoanTien ? "hoan-tien" : "khoan");
+  const [tab, setTab] = useState<"khoan" | "so-du" | "so-quy" | "kh-le" | "hoan-tien" | "tien-ngoai">(moPhieuHoanTien ? "hoan-tien" : "khoan");
   const [emailLoc, setEmailLoc] = useState("");
   // Chuong / link push mo 1 phieu hoan tien (App.tsx) -> chuyen sang tab Hoàn tiền, HoanTienTab mo chi tiet.
   useEffect(() => {
@@ -173,6 +175,8 @@ export function QuyChuyenTienModule({ moPhieuHoanTien = null }: { moPhieuHoanTie
     { key: "hoan-tien", label: t("Hoàn tiền"), count: (demTb as { hoanTienCanXuLy?: number } | undefined)?.hoanTienCanXuLy ?? 0 },
     // KH le theo tung khach (migration 0074) - quy/tien dang giu/don cho hang cua tung KH.
     ...(xemTatCa ? [{ key: "kh-le", label: t("KH lẻ") }] : []),
+    // Khoan tien ngoai vao quy (2026-10-22, migration 0095) - Ke toan/Admin ghi thu cong / import (vd tru luong).
+    ...(coTheDieuChinh ? [{ key: "tien-ngoai", label: t("Tiền ngoài vào quỹ") }] : []),
   ];
 
   return (
@@ -241,6 +245,7 @@ export function QuyChuyenTienModule({ moPhieuHoanTien = null }: { moPhieuHoanTie
           }
         />
       )}
+      {tab === "tien-ngoai" && coTheDieuChinh && <TienNgoaiTab ten={ten} />}
       {tab === "so-quy" && <SoQuyTab xemTatCa={xemNhieuNguoi} nguoiOptions={nguoiOptions} emailLoc={emailLoc} setEmailLoc={setEmailLoc} ten={ten} />}
 
       {dieuChinh && (
@@ -724,7 +729,10 @@ function SoQuyTab({ xemTatCa, nguoiOptions, emailLoc, setEmailLoc, ten }: {
     {
       key: "loai", header: t("Loại"), mobile: "badge",
       render: (g) => {
-        const n = nhanGiaoDichHoanTien(g) ?? LOAI_GIAO_DICH[g.loai];
+        // Khoan tien ngoai (migration 0095): ghi so loai dieu_chinh kem khoan_tien_ngoai_id -> nhan rieng.
+        const n = g.khoan_tien_ngoai_id
+          ? { label: g.so_tien >= 0 ? dichSau("Tiền ngoài vào quỹ") : dichSau("Hủy tiền ngoài"), tone: (g.so_tien >= 0 ? "teal" : "gray") as BadgeTone }
+          : nhanGiaoDichHoanTien(g) ?? LOAI_GIAO_DICH[g.loai];
         return <Badge tone={n?.tone ?? "gray"}>{n ? t(n.label) : g.loai}</Badge>;
       },
     },
