@@ -543,15 +543,16 @@ export async function countDangCho(db: D1Database, stageKey: string, filter: Sta
     let sql = "";
     if (filter.scopeEmails !== null) {
       if (filter.scopeEmails.size === 0) return { sql: " AND 1=0", binds: [] };
-      sql += ` AND ${emailCol} IN (${[...filter.scopeEmails].map(() => "?").join(",")})`;
-      binds.push(...filter.scopeEmails);
+      // 1 bind JSON (json_each) thay vi 1 "?" moi email - khu vuc dong KTV (MB3 > 120) vuot gioi han 100 tham so D1 -> INTERNAL_ERROR (sua 2026-10-23).
+      sql += ` AND ${emailCol} IN (SELECT value FROM json_each(?))`;
+      binds.push(JSON.stringify([...filter.scopeEmails]));
     }
     return { sql, binds };
   }
   function loaiDeXuatClause(col: string): { sql: string; binds: unknown[] } {
     if (filter.loaiDeXuatOptions === null) return { sql: "", binds: [] };
     if (filter.loaiDeXuatOptions.size === 0) return { sql: " AND 1=0", binds: [] };
-    return { sql: ` AND ${col} IN (${[...filter.loaiDeXuatOptions].map(() => "?").join(",")})`, binds: [...filter.loaiDeXuatOptions] };
+    return { sql: ` AND ${col} IN (SELECT value FROM json_each(?))`, binds: [JSON.stringify([...filter.loaiDeXuatOptions])] };
   }
 
   if (stage.logTable === "dat_don_hang_log" || stage.logTable === "tra_hang_log") {

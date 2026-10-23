@@ -157,7 +157,7 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   `DatMuaLinhKienModule` `laMuaHang` mở tab (không có cờ xử lý nào nên không hiện nút thao tác; không tải file MISA).
   **"Báo cáo tốc độ xử lý" mở cho MỌI nhân viên văn phòng** (chốt 2026-10-17, v1.360 — ghi đè "chỉ Admin + View"): gate backend
   `routes/baoCaoTocDoXuLy.ts` chỉ chặn KTV/Vệ tinh (`la_ktv_dvbh`/`la_ve_tinh`), FE `App.tsx` cấp module `bao-cao-toc-do` cho cùng tập; phạm vi:
-  View theo Khu vực được gán (`resolveScopeEmails`), còn lại xem toàn bộ.
+  View theo Khu vực được gán (`resolveScopeEmails`), còn lại xem toàn bộ. **Lọc theo Khu vực / nhóm loại đề xuất truyền 1 bind JSON** (sửa 2026-10-23, v1.396 — "vào báo cáo tốc độ tải bị báo lỗi" INTERNAL_ERROR): `countDangCho` (`lib/slaMetrics.ts`) + `resolveScopeEmails` từng đặt 1 `?` mỗi email KTV → khu vực đông KTV (MB3 ~122) vượt giới hạn 100 tham số D1; giờ `IN (SELECT value FROM json_each(?))`.
 - `routes/settingsDatMua.ts` — CRUD `linh_kien` (danh mục riêng, KHÔNG chung với module "giải trình"
   như hệ gốc), Google Drive OAuth (uỷ quyền tài khoản thật để upload ảnh minh hoạ linh kiện),
   `settings_ly_do_cham`, `settings_loai_de_xuat`/`_nhom`. Mount tại `/api/settings`.

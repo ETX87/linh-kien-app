@@ -58,10 +58,9 @@ async function resolveScopeEmails(
   }
   if (maSet === null) return null;
   if (maSet.size === 0) return new Set();
-  const placeholders = [...maSet].map(() => "?").join(",");
   const rows = await db
-    .prepare(`SELECT email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND khu_vuc_ma IN (${placeholders})`)
-    .bind(...maSet)
+    .prepare("SELECT email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND khu_vuc_ma IN (SELECT value FROM json_each(?))")
+    .bind(JSON.stringify([...maSet]))
     .all<{ email_dang_nhap: string }>();
   return new Set((rows.results ?? []).map((r) => r.email_dang_nhap));
 }
