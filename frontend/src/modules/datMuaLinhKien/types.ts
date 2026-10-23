@@ -288,6 +288,8 @@ export interface PhieuXuatKhoRow {
   khu_vuc_chon_ten?: string | null;
   // Nguoi xem duoc chon lai khu vuc phieu (chi tiet PXK, 2026-10-22 - Kho/TN/Ke toan/TBP/GS/nguoi tao don ho; duocDoiKhuVucPxk).
   duoc_doi_khu_vuc?: boolean;
+  // Nguoi xem duoc chuyen don sang phieu khac (tach phieu moi / them vao phieu co san - 2026-10-23, TN/Ke toan/Kho/Admin/GS; duocChuyenDonPxk).
+  duoc_chuyen_don?: boolean;
   // Id loai chiet khau co thu tu cao nhat trong cac dong cua phieu (GET /api/phieu-xuat-kho).
   loai_chiet_khau_cao_nhat_id?: number | null;
   so_tien_can_chuyen: number | null;

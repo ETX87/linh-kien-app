@@ -278,6 +278,14 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   (`giuPhieuTrong={false}`) → hủy phiếu ngay qua `/huy-neu-trong`; từ Drawer giữ phiếu trống như cũ. **Bỏ nhiều đơn 1 lần** (2026-10-19, v1.368): ô chọn đơn bật cả khi được bỏ đơn (TN/Kế toán, phiếu "Dang tao phieu", chưa Mã MISA,
   ≥ 2 đơn — `coBoNhieu`), nút "✕ Bỏ N đơn khỏi phiếu" gọi LẦN LƯỢT `DELETE /:id/dong/:donHangId` (dừng ở lỗi đầu, báo số đã bỏ); phiếu đã có
   tiền hỏi 1 lần "Đơn chưa/đã thanh toán" áp cho cả nhóm; bỏ hết đơn = như bỏ đơn cuối.
+  **Nút "Bỏ" ở phiếu NHIỀU đơn = hộp 3 lựa chọn** (chốt 2026-10-23, v1.401 — "tách thành phiếu mới / Chỉ bỏ khỏi phiếu / Thêm vào 1 phiếu có sẵn"):
+  `ChuyenDonModal` (`PxkDongDonHangTable.tsx`, hiện khi `duoc_chuyen_don` + "Dang tao phieu" + chưa Mã MISA + ≥ 2 đơn; phiếu 1 đơn giữ như cũ).
+  "Tách thành phiếu mới" / "Thêm vào 1 phiếu có sẵn" = `POST /phieu-xuat-kho/:id/dong/:donHangId/chuyen` {dich: "moi" | id phiếu, giu_tien?} — quyền
+  `duocChuyenDonPxk()` (TN/Kế toán/Kho/Admin + GS theo `doiKhuVucDonSql`, ≥ 1 đơn trong phiếu thoả); phiếu đích hợp lệ = `PHIEU_NHAN_DUOC_SQL` (cùng người
+  nhận + loại đơn, "Dang tao phieu", chưa Mã MISA, Kế toán CHƯA duyệt tiền — else 409 `PHIEU_DICH_KHONG_HOP_LE`), danh sách ở `GET /:id/phieu-nhan-duoc`.
+  1 batch: (giu_tien → `lenhMangTienDon`) xoá dòng nguồn + log 2 phiếu + (phiếu mới: INSERT mang `khu_vuc_chon` của đơn, `mien_xuat` phiếu nguồn) + INSERT
+  dòng đích + `ma_xuat_kho` đơn + `lenhNhanTienDaTraDon`; sau đó `ganLoaiChietKhauChoPxk` cả 2 phiếu (tính lại tiền, cân bằng quỹ). Phiếu đã có tiền bắt chọn
+  "Đơn đã/chưa thanh toán". "Chỉ bỏ khỏi phiếu" (đơn về "Chờ tạo phiếu") = `DELETE` cũ, CHỈ TN/Kế toán.
 - **Tách "Đặt mua linh kiện" thành 2 mục Sidebar** (2026-09-29): **"Đơn hàng"** (tên cũ "Đơn đặt hàng") (key `dat-mua-lk`, nhóm menu đơn +
   trả hàng) và **"Phiếu xuất"** (key `phieu-xuat`, nhóm "Xuất kho") — vẫn là CÙNG 1 `DatMuaLinhKienModule` (prop `section`
   chọn view mặc định: Phiếu xuất → `phieu-xuat-kho`, Đơn đặt hàng → đơn/trả hàng xem lần trước), mỗi mục có slot menu giai

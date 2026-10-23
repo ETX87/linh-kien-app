@@ -46,7 +46,7 @@ export function PxkDongDonHangTable({
   pxkId: string;
   pxk: {
     loai_don?: "mua" | "cong_no" | "tra_hang" | null; trang_thai?: string | null; so_tien_can_chuyen?: number | null;
-    trang_thai_chuyen_tien?: string | null; da_thanh_toan?: number | null; ma_misa?: string | null;
+    trang_thai_chuyen_tien?: string | null; da_thanh_toan?: number | null; ma_misa?: string | null; duoc_chuyen_don?: boolean | null;
   };
   donHang: DonHangRow[];
   canTacNghiep: boolean;
@@ -129,6 +129,11 @@ export function PxkDongDonHangTable({
   });
 
   const coCotBo = (canTacNghiep || canKeToan) && dangTao;
+  // Phieu NHIEU don: nut "Bỏ" mo hop 3 lua chon (2026-10-23) - tach thanh phieu moi / them vao phieu co san (TN, Ke toan, Kho, GS -
+  // backend duocChuyenDonPxk tra `duoc_chuyen_don`) / chi bo khoi phieu (TN, Ke toan). Phieu 1 don giu nhu cu.
+  const coChuyenDon = !!pxk.duoc_chuyen_don && dangTao && !coMaMisa && donHang.length > 1;
+  const coCotNutBo = coCotBo || coChuyenDon;
+  const [chuyenDonCho, setChuyenDonCho] = useState<DonHangRow | null>(null);
 
   // Chon NHIEU dong de doi loai chiet khau 1 lan (2026-09-30, phan hoi "cho phép lựa chọn nhiều đơn trong phiếu và sửa
   // chiết khấu 1 lần cho tất cả"). Chi khi TN doi duoc loai chiet khau cua phieu (duocDoiLoaiChietKhau) va phieu co tien.
@@ -486,6 +491,10 @@ export function PxkDongDonHangTable({
         title={coMaMisa ? t("Kế toán đã bổ sung mã MISA — không bỏ đơn khỏi phiếu được nữa") : t("Bỏ đơn khỏi phiếu")}
         disabled={boDonMutation.isPending || coMaMisa}
         onClick={() => {
+          if (coChuyenDon) {
+            setChuyenDonCho(d);
+            return;
+          }
           const laDonCuoi = donHang.length === 1;
           if (daTraPhieu > 0 && pxk.loai_don !== "tra_hang") {
             setBoDonCho(d);
@@ -575,6 +584,28 @@ export function PxkDongDonHangTable({
     </Modal>
   );
 
+  const hopThoaiChuyen = chuyenDonCho ? (
+    <ChuyenDonModal
+      pxkId={pxkId}
+      don={chuyenDonCho}
+      daTraPhieu={pxk.loai_don !== "tra_hang" ? daTraPhieu : 0}
+      choBoKhoiPhieu={coCotBo}
+      addToast={addToast}
+      onClose={() => setChuyenDonCho(null)}
+      onBoKhoiPhieu={(giuTien) => {
+        boDonMutation.mutate({ donHangId: chuyenDonCho.id, laDonCuoi: false, giuTien });
+        setChuyenDonCho(null);
+      }}
+      onXong={(phieuDich) => {
+        setChuyenDonCho(null);
+        lamMoi();
+        qc.invalidateQueries({ queryKey: ["pxk-detail", phieuDich] });
+        invalidatePipelineCounts(qc);
+        qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
+      }}
+    />
+  ) : null;
+
   if (gon) {
     // Moi o: 1 dong, cat "…" (quy tac bang 1 dong); o co nut/o chon (tien, loai CK, ly do cham) khong cat de khong mat nut.
     const o = "px-2 py-1 align-middle whitespace-nowrap overflow-hidden text-ellipsis";
@@ -582,6 +613,7 @@ export function PxkDongDonHangTable({
     return (
       <>
       {hopThoaiBo}
+      {hopThoaiChuyen}
       {hopThoaiBoNhieu}
       {thanhChon}
       <table className="border-collapse text-[12px] text-[var(--color-text-body)]" style={{ tableLayout: "fixed", width: RONG_GON }}>
@@ -619,7 +651,7 @@ export function PxkDongDonHangTable({
                 {pxk.loai_don !== "tra_hang" && oLoaiChietKhau(d)}
               </td>
               <td className={o} onClick={(e) => e.stopPropagation()}>{oLyDoCham(d)}</td>
-              <td className={`${oNut} text-center`} onClick={(e) => e.stopPropagation()}>{coCotBo && nutBo(d)}</td>
+              <td className={`${oNut} text-center`} onClick={(e) => e.stopPropagation()}>{coCotNutBo && nutBo(d)}</td>
             </tr>
           ))}
         </tbody>
@@ -631,6 +663,7 @@ export function PxkDongDonHangTable({
   return (
     <>
     {hopThoaiBo}
+    {hopThoaiChuyen}
     {hopThoaiBoNhieu}
     {thanhChon}
     <table className="tbl min-w-full border-collapse">
@@ -644,7 +677,7 @@ export function PxkDongDonHangTable({
           <th className="px-2.5 py-2 text-right">{t("Tiền cần chuyển")}</th>
           {pxk.loai_don !== "tra_hang" && <th className="px-2.5 py-2">{t("Loại chiết khấu")}</th>}
           <th className="px-2.5 py-2">{t("Lý do chậm")}</th>
-          {coCotBo && <th className="px-2.5 py-2"></th>}
+          {coCotNutBo && <th className="px-2.5 py-2"></th>}
         </tr>
       </thead>
       <tbody>
@@ -669,7 +702,7 @@ export function PxkDongDonHangTable({
               <td className="px-2.5 py-2" onClick={(e) => e.stopPropagation()}>{oLoaiChietKhau(d)}</td>
             )}
             <td className="px-2.5 py-2" onClick={(e) => e.stopPropagation()}>{oLyDoCham(d)}</td>
-            {coCotBo && (
+            {coCotNutBo && (
               <td className="px-2.5 py-2" onClick={(e) => e.stopPropagation()}>{nutBo(d)}</td>
             )}
           </tr>
@@ -686,11 +719,133 @@ export function PxkDongDonHangTable({
             <td className="px-2.5 py-2 text-right whitespace-nowrap" title={t("Tổng số tiền thực tế các dòng (theo cột Tiền cần chuyển)")}>
               <Money>{fmtVND(donHang.reduce((t, d) => t + tienThucTe(d), 0))}</Money>
             </td>
-            <td colSpan={(pxk.loai_don !== "tra_hang" ? 2 : 1) + (coCotBo ? 1 : 0)}></td>
+            <td colSpan={(pxk.loai_don !== "tra_hang" ? 2 : 1) + (coCotNutBo ? 1 : 0)}></td>
           </tr>
         </tfoot>
       )}
     </table>
     </>
+  );
+}
+
+// Hop "Bỏ đơn" cua phieu NHIEU don (2026-10-23, "khi ấn nút bỏ, sẽ có 3 lựa chọn 'tách thành phiếu mới' hay 'Chỉ bỏ khỏi phiếu' / 'Thêm vào
+// 1 phiếu có sẵn'"): tach / them vao phieu co san = POST /phieu-xuat-kho/:id/dong/:donHangId/chuyen; chi bo khoi phieu = DELETE cu (don ve
+// "Chờ tạo phiếu", chi TN / Ke toan). Phieu da co tien: bat buoc chon don da / chua thanh toan (da thanh toan = don mang tien theo).
+function ChuyenDonModal({
+  pxkId, don, daTraPhieu, choBoKhoiPhieu, addToast, onClose, onBoKhoiPhieu, onXong,
+}: {
+  pxkId: string;
+  don: DonHangRow;
+  daTraPhieu: number;
+  choBoKhoiPhieu: boolean;
+  addToast: (msg: string) => void;
+  onClose: () => void;
+  onBoKhoiPhieu: (giuTien: boolean) => void;
+  onXong: (phieuDich: string) => void;
+}) {
+  const [cach, setCach] = useState<"moi" | "co_san" | "bo" | "">("");
+  const [phieuChon, setPhieuChon] = useState("");
+  const [thanhToan, setThanhToan] = useState<"da" | "chua" | "">("");
+  const tienDong = don.tien_uoc_tinh ?? 0;
+  const canHoiTien = daTraPhieu > 0;
+  const { data: dsPhieu, isLoading } = useQuery({
+    queryKey: ["pxk-phieu-nhan-duoc", pxkId],
+    queryFn: () =>
+      api.get<{ rows: { id: string; ma_xuat_kho: string | null; so_tien_can_chuyen: number | null; da_thanh_toan: number | null; ngay_tao: string; so_don: number }[] }>(
+        `/phieu-xuat-kho/${pxkId}/phieu-nhan-duoc`,
+      ),
+    enabled: cach === "co_san",
+  });
+  const giuTien = canHoiTien && thanhToan === "da";
+  const mutation = useMutation({
+    mutationFn: () =>
+      api.post<{ phieu_dich: string; tao_moi: boolean; tien_mang_theo: number }>(`/phieu-xuat-kho/${pxkId}/dong/${don.id}/chuyen`, {
+        dich: cach === "moi" ? "moi" : phieuChon,
+        giu_tien: giuTien,
+      }),
+    onSuccess: (r) => {
+      addToast(r.tao_moi ? t("Đã tách đơn sang phiếu mới {a}", { a: r.phieu_dich }) : t("Đã chuyển đơn sang phiếu {a}", { a: r.phieu_dich }));
+      onXong(r.phieu_dich);
+    },
+    onError: (err) => {
+      const code = err instanceof ApiError ? err.code : undefined;
+      addToast(code === "PHIEU_DICH_KHONG_HOP_LE" ? t("Phiếu được chọn không còn nhận thêm đơn — chọn phiếu khác") : t("Lỗi: ") + describeApiError(err));
+    },
+  });
+  const thieuTien = canHoiTien && !thanhToan;
+  const duocGui = !!cach && !thieuTien && (cach !== "co_san" || !!phieuChon) && !mutation.isPending;
+  const luaChon = (gt: "moi" | "co_san" | "bo", tieuDe: string, moTa: string) => (
+    <label className={`flex cursor-pointer items-start gap-2 rounded-lg border p-2.5 ${cach === gt ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)]" : "border-[var(--line)]"}`}>
+      <input type="radio" className="mt-0.5" checked={cach === gt} onChange={() => setCach(gt)} />
+      <span>
+        <b>{tieuDe}</b>
+        <span className="block text-[12px] text-[var(--color-text-secondary)]">{moTa}</span>
+      </span>
+    </label>
+  );
+  return (
+    <Modal
+      open
+      onClose={() => !mutation.isPending && onClose()}
+      title={t("Bỏ đơn {a} khỏi phiếu {b}", { a: don.ma_lk, b: pxkId })}
+      footer={
+        <div className="flex flex-wrap justify-end gap-2">
+          <Btn variant="ghost" disabled={mutation.isPending} onClick={onClose}>{t("Đóng")}</Btn>
+          <Btn
+            loading={mutation.isPending}
+            disabled={!duocGui}
+            onClick={() => (cach === "bo" ? onBoKhoiPhieu(giuTien) : mutation.mutate())}
+          >
+            {cach === "moi" ? t("Tách thành phiếu mới") : cach === "co_san" ? t("Thêm vào phiếu đã chọn") : cach === "bo" ? t("Bỏ khỏi phiếu") : t("Xác nhận")}
+          </Btn>
+        </div>
+      }
+    >
+      <div className="space-y-2.5 text-[13px] text-[var(--color-text-body)]">
+        {luaChon("moi", t("Tách thành phiếu mới"), t("Tự tạo 1 phiếu mới (cùng người nhận) chỉ chứa đơn này."))}
+        {luaChon("co_san", t("Thêm vào 1 phiếu có sẵn"), t("Chuyển đơn sang 1 phiếu đang tạo khác của cùng người nhận."))}
+        {cach === "co_san" && (
+          <div className="ml-6 space-y-1">
+            {isLoading ? (
+              <div className="text-[12px] text-[var(--color-text-secondary)]">{t("Đang tải…")}</div>
+            ) : (dsPhieu?.rows.length ?? 0) === 0 ? (
+              <div className="text-[12px] text-[var(--color-text-secondary)]">
+                {t("Không có phiếu đang tạo nào khác của người nhận này nhận được thêm đơn (phiếu đã chốt tiền / có Mã MISA không nhận).")}
+              </div>
+            ) : (
+              dsPhieu!.rows.map((p) => (
+                <label key={p.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-[var(--surface-100)]">
+                  <input type="radio" checked={phieuChon === p.id} onChange={() => setPhieuChon(p.id)} />
+                  <span className="font-semibold">{p.ma_xuat_kho ?? p.id}</span>
+                  <span className="text-[12px] text-[var(--color-text-secondary)]">
+                    {t("{a} đơn", { a: p.so_don })} · {fmtDateTime(p.ngay_tao)} · {t("Tổng")} <Money>{fmtVND(p.so_tien_can_chuyen ?? 0)}</Money>
+                    {(p.da_thanh_toan ?? 0) > 0 && <> · {t("đã trả")} <Money>{fmtVND(p.da_thanh_toan ?? 0)}</Money></>}
+                  </span>
+                </label>
+              ))
+            )}
+          </div>
+        )}
+        {choBoKhoiPhieu && luaChon("bo", t("Chỉ bỏ khỏi phiếu"), t("Đơn về trạng thái \"Chờ tạo phiếu\" — Tác nghiệp / Kế toán xếp vào phiếu sau."))}
+        {canHoiTien && cach && (
+          <div className="rounded-lg border border-[var(--line)] p-2.5">
+            <div className="mb-1.5">
+              {t("Phiếu đã được trả")} <b><Money>{fmtVND(daTraPhieu)}</Money></b>{t(". Tiền của đơn này trong phiếu:")} <b><Money>{fmtVND(tienDong)}</Money></b>.
+            </div>
+            <label className="flex items-start gap-2 py-0.5">
+              <input type="radio" className="mt-0.5" checked={thanhToan === "da"} disabled={tienDong <= 0} onChange={() => setThanhToan("da")} />
+              <span>
+                <b>{t("Đơn đã thanh toán")}</b> {t("— đơn mang theo")} <Money>{fmtVND(Math.min(tienDong, daTraPhieu))}</Money>{" "}
+                {t("sang nơi mới (trừ vào tiền cần chuyển của phiếu đó).")}
+              </span>
+            </label>
+            <label className="flex items-start gap-2 py-0.5">
+              <input type="radio" className="mt-0.5" checked={thanhToan === "chua"} onChange={() => setThanhToan("chua")} />
+              <span><b>{t("Đơn chưa thanh toán")}</b> {t("— tổng phiếu này giảm, phần đã trả thừa hoàn về quỹ dư của KTV.")}</span>
+            </label>
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }
