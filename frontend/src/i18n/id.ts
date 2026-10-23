@@ -2001,5 +2001,11 @@ const tuDien: Record<string, string> = {
   "Soạn mới": "Mulai baru",
   "Đã khôi phục đơn đang soạn dở (lưu lúc {gio}) — ảnh đã tải lên vẫn giữ nguyên.": "Pesanan yang belum selesai dipulihkan (disimpan {gio}) — foto yang diunggah tetap ada.",
   "Ẩn": "Sembunyikan",
+  "Phiếu đã hủy sau khi đã trả tiền — tiền đã trả đi theo đơn (đơn chuyển chờ hàng mang theo tiền, vào phiếu mới thì cộng vào tiền đã trả của phiếu đó) hoặc hoàn về quỹ dư của người nhận hàng": "Slip dibatalkan setelah dibayar — uang yang dibayar mengikuti pesanan (pesanan yang dipindah ke menunggu barang membawa uangnya; saat masuk slip baru ditambahkan ke jumlah terbayar slip itu) atau dikembalikan ke dana penerima",
+  "Phiếu đã hủy · {a}": "Slip dibatalkan · {a}",
+  "tiền theo đơn sang {a}": "uang ikut pesanan ke {a}",
+  "tiền về quỹ": "uang kembali ke dana",
+  "tiền đang giữ ở đơn {a}": "uang ditahan di pesanan {a}",
+  "{a} về quỹ": "{a} kembali ke dana",
 };
 export default tuDien;

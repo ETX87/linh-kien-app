@@ -74,6 +74,10 @@ interface KhoanRow {
   nguoi_huy: string | null;
   ly_do_huy: string | null;
   trang_thai_phieu: string | null;
+  // Phieu da huy: tien da tra di dau (GET /quy-ktv/khoan-chuyen, 2026-10-23).
+  huy_tien_ve_quy?: number | null;
+  huy_don_giu_tien?: string | null;
+  huy_sang_phieu?: string | null;
   huy_duoc: number; // backend KHOAN_HUY_DUOC_SQL (chua tinh quy du - chi biet luc bam)
 }
 interface GiaoDichRow {
@@ -116,6 +120,21 @@ function ChenhLech({ k }: { k: KhoanRow }) {
   if (d > 0) return <span className="text-[var(--color-success-strong)]">{t("Dư")} <Money>{fmtVND(d)}</Money> {t("vào quỹ")}</span>;
   if (d < 0) return <span className="text-[var(--color-warning-strong)]">{t("Thiếu")} <Money>{fmtVND(-d)}</Money></span>;
   return <span className="text-[var(--color-text-secondary)]">{t("Đủ")}</span>;
+}
+
+// Phieu da huy: nhan "tien di dau" theo du lieu that (ve quy / theo don sang phieu khac / dang giu o don cho hang).
+function TienPhieuHuy({ k }: { k: KhoanRow }) {
+  const veQuy = k.huy_tien_ve_quy ?? 0;
+  const phan: string[] = [];
+  if (k.huy_sang_phieu) phan.push(t("tiền theo đơn sang {a}", { a: k.huy_sang_phieu.split(",").join(", ") }));
+  if (k.huy_don_giu_tien) phan.push(t("tiền đang giữ ở đơn {a}", { a: k.huy_don_giu_tien }));
+  if (veQuy > 0) phan.push(t("{a} về quỹ", { a: fmtVND(veQuy) }));
+  const nhan = phan.length ? phan.join(" · ") : t("tiền về quỹ");
+  return (
+    <span title={t("Phiếu đã hủy sau khi đã trả tiền — tiền đã trả đi theo đơn (đơn chuyển chờ hàng mang theo tiền, vào phiếu mới thì cộng vào tiền đã trả của phiếu đó) hoặc hoàn về quỹ dư của người nhận hàng")}>
+      <Badge tone="gray">{t("Phiếu đã hủy · {a}", { a: nhan })}</Badge>
+    </span>
+  );
 }
 
 export function QuyChuyenTienModule({ moPhieuHoanTien = null }: { moPhieuHoanTien?: { id: string; nonce: number } | null } = {}) {
@@ -409,12 +428,9 @@ function KhoanChuyenTab({ xemTatCa, nguoiOptions, emailLoc, setEmailLoc, ten, co
       render: (k) => (
         <span className="inline-flex items-center gap-1.5">
           <span className="font-semibold">{k.ma_xuat_kho ?? k.phieu_xuat_kho_id}</span>
-          {/* Phieu huy SAU khi da tra tien -> tien da tu hoan ve quy (lib/quyKtv.ts canBangPxk) - khoan van "Da duyet". */}
-          {k.trang_thai_phieu === "Ke toan huy" && k.trang_thai === "Da duyet" && (
-            <span title={t("Phiếu đã hủy — tiền đã trả cho phiếu được tự hoàn về quỹ dư của người nhận hàng")}>
-              <Badge tone="gray">{t("Phiếu đã hủy · tiền về quỹ")}</Badge>
-            </span>
-          )}
+          {/* Phieu huy SAU khi da tra tien - khoan van "Da duyet". Tien di 1 trong 3 noi (2026-10-23, truoc day luon ghi "tiền về quỹ"):
+              hoan ve quy du / di THEO DON (don chuyen cho hang mang tien) roi sang phieu khac / con giu o don cho hang. */}
+          {k.trang_thai_phieu === "Ke toan huy" && k.trang_thai === "Da duyet" && <TienPhieuHuy k={k} />}
         </span>
       ),
     },

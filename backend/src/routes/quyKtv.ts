@@ -191,6 +191,16 @@ quyKtv.get("/khoan-chuyen", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT k.*, p.ma_xuat_kho, p.loai_don, p.trang_thai_hien_tai AS trang_thai_phieu,
        CASE WHEN ${KHOAN_HUY_DUOC_SQL} THEN 1 ELSE 0 END AS huy_duoc,
+       -- Phieu DA HUY: tien da tra thuc te di dau (2026-10-23, PMH-001137 "thấy ghi tiền đã hủy chuyển về quỹ, thực tế tiền đó đã về quỹ hay
+       -- đã chuyển vào đơn"): hoan ve quy (hoan_phieu) / dang giu o don cho hang (tien_da_tra_pxk) / don mang tien sang phieu khac (log
+       -- 'Da them don vao phieu' do lenhNhanTienDaTraDon ghi "… ở phiếu <id> → …"). Chi tinh khi phieu da huy.
+       CASE WHEN p.trang_thai_hien_tai = 'Ke toan huy' THEN
+         (SELECT COALESCE(SUM(g.so_tien), 0) FROM quy_ktv_giao_dich g WHERE g.loai = 'hoan_phieu' AND g.phieu_xuat_kho_id = k.phieu_xuat_kho_id) END AS huy_tien_ve_quy,
+       CASE WHEN p.trang_thai_hien_tai = 'Ke toan huy' THEN
+         (SELECT group_concat(d.id, ', ') FROM dat_don_hang d WHERE d.tien_da_tra_pxk = k.phieu_xuat_kho_id AND d.tien_da_tra > 0) END AS huy_don_giu_tien,
+       CASE WHEN p.trang_thai_hien_tai = 'Ke toan huy' THEN
+         (SELECT group_concat(DISTINCT l.phieu_xuat_kho_id) FROM phieu_xuat_kho_log l
+          WHERE l.trang_thai = 'Da them don vao phieu' AND l.ghi_chu LIKE '% ở phiếu ' || k.phieu_xuat_kho_id || ' →%') END AS huy_sang_phieu,
        -- Anh da duoc ghi nhan o khoan DA DUYET TRUOC cua cung phieu (anh giu qua cac lan chuyen bo sung) - modal "Sửa
        -- tiền" chi doi chieu tong tien doc tu anh MOI cua khoan nay (migration 0051).
        (SELECT json_group_array(j.value) FROM khoan_chuyen_tien k2,

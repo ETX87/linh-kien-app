@@ -2001,5 +2001,11 @@ const tuDien: Record<string, string> = {
   "Soạn mới": "Start over",
   "Đã khôi phục đơn đang soạn dở (lưu lúc {gio}) — ảnh đã tải lên vẫn giữ nguyên.": "Restored your unfinished order (saved at {gio}) — uploaded photos are kept.",
   "Ẩn": "Hide",
+  "Phiếu đã hủy sau khi đã trả tiền — tiền đã trả đi theo đơn (đơn chuyển chờ hàng mang theo tiền, vào phiếu mới thì cộng vào tiền đã trả của phiếu đó) hoặc hoàn về quỹ dư của người nhận hàng": "Slip cancelled after payment — the paid money follows the orders (orders moved to awaiting stock carry their money; when they join a new slip it is added to that slip's paid amount) or is refunded to the recipient's fund",
+  "Phiếu đã hủy · {a}": "Slip cancelled · {a}",
+  "tiền theo đơn sang {a}": "money moved with orders to {a}",
+  "tiền về quỹ": "money returned to fund",
+  "tiền đang giữ ở đơn {a}": "money held on order {a}",
+  "{a} về quỹ": "{a} returned to fund",
 };
 export default tuDien;
