@@ -1988,7 +1988,7 @@ datMuaLinhKien.get("/don-hang", async (c) => {
     .bind(...binds)
     .first<{ total: number }>();
   const { results } = await c.env.DB.prepare(
-    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, ${DAC_THU_DON_SQL("ddh")} as dac_thu, lk.dac_thu as lk_dac_thu, lk.gia_ban as lk_gia_ban, ${TU_HUY_DUOC_SQL("ddh")} as tu_huy_duoc, ${TN_DOI_TRONG_PXK_SQL("ddh")} as tn_doi_trong_pxk, ${dayLaiHanSql("ddh")} as day_lai_han, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
+    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, ${DAC_THU_DON_SQL("ddh")} as dac_thu, lk.dac_thu as lk_dac_thu, lk.gia_ban as lk_gia_ban, ${TU_HUY_DUOC_SQL("ddh")} as tu_huy_duoc, (SELECT u_gs.giam_sat_quan_ly FROM users u_gs WHERE u_gs.email = ddh.nguoi_tao) as gs_nguoi_tao, ${TN_DOI_TRONG_PXK_SQL("ddh")} as tn_doi_trong_pxk, ${dayLaiHanSql("ddh")} as day_lai_han, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
        ${khoDangXuLyThieuLkSql("ddh")} as kho_dang_xu_ly_thieu_lk,
        ${lastGiaiTrinhAtExpr("ddh.id")} as last_giai_trinh_at,
        (SELECT ghi_chu FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) as ghi_chu_xu_ly_gan_nhat,${THIEU_LK_DON_COT("ddh")},
@@ -3072,7 +3072,7 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
   const binds = [id, ...(scope?.binds ?? [])];
 
   const ddh = await c.env.DB.prepare(
-    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, ${DAC_THU_DON_SQL("ddh")} as dac_thu, lk.dac_thu as lk_dac_thu, ${TU_HUY_DUOC_SQL("ddh")} as tu_huy_duoc, ${TN_DOI_TRONG_PXK_SQL("ddh")} as tn_doi_trong_pxk, ${dayLaiHanSql("ddh")} as day_lai_han,
+    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, ${DAC_THU_DON_SQL("ddh")} as dac_thu, lk.dac_thu as lk_dac_thu, ${TU_HUY_DUOC_SQL("ddh")} as tu_huy_duoc, (SELECT u_gs.giam_sat_quan_ly FROM users u_gs WHERE u_gs.email = ddh.nguoi_tao) as gs_nguoi_tao, ${TN_DOI_TRONG_PXK_SQL("ddh")} as tn_doi_trong_pxk, ${dayLaiHanSql("ddh")} as day_lai_han,
        ${khoDangXuLyThieuLkSql("ddh")} as kho_dang_xu_ly_thieu_lk,
        lk.gia_ban as lk_gia_ban, lk.gia_tri_cong_no as lk_gia_tri_cong_no, lk.gia_du_phong as lk_gia_du_phong
      FROM dat_don_hang ddh
@@ -3330,14 +3330,14 @@ async function applyDonHangLog(
   opts: { ghiChuTicket?: string; maEo?: string } = {},
 ): Promise<{ error: string; status: 404 | 409 | 403 | 400 } | { nextTrangThai: string }> {
   const ddh = await c.env.DB.prepare(
-    `SELECT ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao, ddh.nguoi_nhan_hang, ddh.email_gs, ddh.version, ddh.ly_do_cham, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat,
+    `SELECT ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao, ddh.nguoi_nhan_hang, ddh.email_gs, ddh.version, (SELECT u_gs.giam_sat_quan_ly FROM users u_gs WHERE u_gs.email = ddh.nguoi_tao) as gs_nguoi_tao, ddh.ly_do_cham, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat,
             ddh.ma_xuat_kho, ddh.danh_gia_cong_no, ddh.ma_eo, ddh.ma_lk, ${DAC_THU_DON_SQL("ddh")} as dac_thu, ${latestDonHangStatusExpr("ddh.id")} as trang_thai, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
             ${lastGiaiTrinhAtExpr("ddh.id")} as last_giai_trinh_at
      FROM dat_don_hang ddh LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk WHERE ddh.id = ?`,
   )
     .bind(donHangId)
     .first<{
-      loai_don: string; loai_de_xuat: string | null; nguoi_tao: string; nguoi_nhan_hang: string | null; email_gs: string | null; version: number; ly_do_cham: string | null;
+      loai_don: string; loai_de_xuat: string | null; nguoi_tao: string; nguoi_nhan_hang: string | null; email_gs: string | null; version: number; ly_do_cham: string | null; gs_nguoi_tao: string | null;
       ten_lk_snapshot: string; so_luong_de_xuat: number; ma_xuat_kho: string | null; dac_thu: number | null; trang_thai: string | null;
       cho_tn_duyet_at: string | null; last_giai_trinh_at: string | null; danh_gia_cong_no: string | null; ma_eo: string | null; ma_lk: string | null;
     }>();
@@ -3364,10 +3364,12 @@ async function applyDonHangLog(
   const laHuySauDuyet = hanhDong === "huy" && chuaVaoPxkSauDuyet;
   const user = c.get("user");
   // GS khu vuc HUY HO don cho KTV khu vuc minh (chot 2026-10-23, v1.399 - "cho phép giám sát khu vực hủy hộ đơn cho ktv khu vực
-  // mình"): GS = email_gs cua don (GS khu vuc hien tai cua KTV nhan hang) duoc huy NHU CHINH KTV dat don (cung cac buoc nguoi tao huy
-  // duoc + tu huy don tu duyet trong phieu chua thao tac); bat buoc ly do, log ghi "GS hủy hộ KTV". Ban sao FE: actionsFor (helpers.ts).
+  // mình"; v1.400 "cho phép hủy hộ đơn hàng do KTV thuộc khu vực của giám sát đặt hàng"): GS = email_gs cua don (GS khu vuc hien tai
+  // cua KTV nhan hang) HOAC GS cua KTV TAO don (users.giam_sat_quan_ly cua nguoi_tao) duoc huy NHU CHINH KTV dat don (cung cac buoc
+  // nguoi tao huy duoc + tu huy don tu duyet trong phieu chua thao tac); bat buoc ly do, log "GS hủy hộ KTV". Ban sao FE: actionsFor.
   const gsHuyHo =
-    hanhDong === "huy" && user.vai_tro === "Giam sat" && !!ddh.email_gs && ddh.email_gs === user.email && ddh.nguoi_tao !== user.email;
+    hanhDong === "huy" && user.vai_tro === "Giam sat" && ddh.nguoi_tao !== user.email &&
+    (ddh.email_gs === user.email || ddh.gs_nguoi_tao === user.email);
   // KTV/nguoi tao TU HUY don tu duyet da tu gom vao PXK (chot 2026-09-28, lib/pxkTuHuy.ts) - chi khi PXK con
   // "Dang tao phieu", Ke toan chua duyet chuyen tien, van phong chua thao tac tay. Don duy nhat -> huy ca phieu.
   const tuHuyPxkId =

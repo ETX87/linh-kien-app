@@ -244,6 +244,8 @@ export interface DonHangRow {
   tien_uoc_tinh?: number | null;
   // 1 = don tu duyet da tu gom vao PXK, nguoi tao/KTV nhan hang con tu huy duoc (backend lib/pxkTuHuy.ts).
   tu_huy_duoc?: number | null;
+  // GS cua KTV tao don (users.giam_sat_quan_ly cua nguoi_tao) - GS nay huy ho duoc (v1.400).
+  gs_nguoi_tao?: string | null;
   // 1 = don "TN da duyet" trong PXK con "Dang tao phieu", Ke toan chua duyet chuyen tien -> TN van Huy/Tu choi/
   // Cho hang duoc (don tu go khoi phieu) - backend TN_DOI_TRONG_PXK_SQL.
   tn_doi_trong_pxk?: number | null;

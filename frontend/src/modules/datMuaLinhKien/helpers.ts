@@ -468,8 +468,9 @@ export function actionsFor(
   // canActAsTram) cho phep CA Tram huy don cua Ve tinh minh quan ly, khong chi nguoi tao/Admin. Tach
   // rieng dieu kien huy khoi canActAsTram (canActAsTram VAN dung cho duyet/tu choi o buoc "Cho Tram
   // duyet" nhu cu, khong doi).
-  // GS khu vuc huy ho KTV (v1.399): GS = email_gs cua don duoc huy NHU nguoi tao - ban sao backend gsHuyHo (applyDonHangLog).
-  const gsHuyHo = !!ctx.laGs && !!d.email_gs && d.email_gs === ctx.currentEmail;
+  // GS khu vuc huy ho KTV (v1.399/v1.400): GS = email_gs cua don HOAC GS cua KTV tao don (gs_nguoi_tao) duoc huy NHU nguoi tao -
+  // ban sao backend gsHuyHo (applyDonHangLog).
+  const gsHuyHo = !!ctx.laGs && d.nguoi_tao !== ctx.currentEmail && (d.email_gs === ctx.currentEmail || d.gs_nguoi_tao === ctx.currentEmail);
   const canHuy = ctx.currentEmail === d.nguoi_tao || !!ctx.isAdmin || gsHuyHo;
   if (d.trang_thai === "Cho Tram duyet") {
     return { duyet: ctx.canActAsTram, tuChoi: ctx.canActAsTram, choHang: false, huy: canHuy };
