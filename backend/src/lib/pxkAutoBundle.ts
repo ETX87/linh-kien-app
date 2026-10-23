@@ -45,19 +45,50 @@ export async function bundleAutoApprovedIntoPxk(
   if (lines.length === 0) return null;
   // Don da duoc chon khu vuc xu ly rieng (dat_don_hang.khu_vuc_chon - PATCH /dat-mua-lk/don-hang/:id/khu-vuc, 2026-10-15) di vao
   // phieu CUNG khu vuc chon (phieu mang theo khu_vuc_chon de Kho/Ke toan/TN khu vuc do thay ca phieu) - tach nhom theo khu vuc chon.
+  // + thong tin de ghi LY DO vao lich su phieu (2026-10-23, "lịch xử xử lý của phiếu hiện tại chưa rõ ràng lý do phiếu được tạo"):
+  // trang thai don + ghi chu log don MOI NHAT (ly do tu dong: du hang / hang ve / doi khu vuc / thanh toan sau...).
   const { results: kvDon } = await db
-    .prepare("SELECT id, khu_vuc_chon FROM dat_don_hang WHERE id IN (SELECT value FROM json_each(?))")
+    .prepare(
+      `SELECT d.id, d.khu_vuc_chon, d.ma_lk, d.ten_lk_snapshot, d.so_luong_de_xuat, d.trang_thai_hien_tai,
+              (SELECT l.ghi_chu FROM dat_don_hang_log l WHERE l.dat_don_hang_id = d.id ORDER BY l.id DESC LIMIT 1) AS ghi_chu_log
+       FROM dat_don_hang d WHERE d.id IN (SELECT value FROM json_each(?))`,
+    )
     .bind(JSON.stringify(lines.map((l) => l.donHangId)))
-    .all<{ id: string; khu_vuc_chon: string | null }>();
-  const kvTheoDon = new Map(kvDon.map((r) => [r.id, r.khu_vuc_chon]));
+    .all<DonVaoPhieu>();
+  const donTheoId = new Map(kvDon.map((r) => [r.id, r]));
   const nhom = new Map<string | null, AutoApprovedLine[]>();
   for (const l of lines) {
-    const kv = kvTheoDon.get(l.donHangId) ?? null;
+    const kv = donTheoId.get(l.donHangId)?.khu_vuc_chon ?? null;
     nhom.set(kv, [...(nhom.get(kv) ?? []), l]);
   }
   let pxkCuoi: string | null = null;
-  for (const [kvChon, dong] of nhom) pxkCuoi = await gomMotNhom(env, db, actorEmail, nguoiNhanHang, loaiDon, dong, kvChon);
+  for (const [kvChon, dong] of nhom) {
+    const lyDo = dong.map((l) => moTaDonVaoPhieu(donTheoId.get(l.donHangId), l.donHangId, loaiDon)).join("\n");
+    pxkCuoi = await gomMotNhom(env, db, actorEmail, nguoiNhanHang, loaiDon, dong, kvChon, lyDo);
+  }
   return pxkCuoi;
+}
+
+interface DonVaoPhieu {
+  id: string; khu_vuc_chon: string | null; ma_lk: string | null; ten_lk_snapshot: string | null; so_luong_de_xuat: number | null;
+  trang_thai_hien_tai: string | null; ghi_chu_log: string | null;
+}
+
+const TRANG_THAI_CHO: Record<string, string> = {
+  "Cho TN duyet": "chờ Tác nghiệp duyệt", "Cho TBP xac nhan": "chờ TBP xác nhận", "Cho GS duyet": "chờ GS duyệt", "Cho tram duyet": "chờ Trạm duyệt",
+};
+
+/** 1 dong giai thich vi sao don vao phieu: "Đơn DDH-… (ma · ten xSL) <theo trang thai> — <ly do tu dong moi nhat cua don>". */
+function moTaDonVaoPhieu(d: DonVaoPhieu | undefined, id: string, loaiDon: "mua" | "cong_no" | "tra_hang"): string {
+  if (!d) return `Đơn ${id}`;
+  const tt = d.trang_thai_hien_tai ?? "";
+  const vi =
+    loaiDon === "tra_hang" ? "QC đã đồng ý trả hàng"
+    : tt === "TN da duyet" ? "đã duyệt, chờ xuất kho"
+    : tt === "Cho thanh toan" ? (d.ghi_chu_log ? "chờ chuyển tiền" : "chờ chuyển tiền (kho thiếu hàng — Kế toán xác nhận tiền xong hệ thống xét lại tồn kho)")
+    : `${TRANG_THAI_CHO[tt] ?? tt} — cần chuyển tiền trước khi duyệt`;
+  const logDong = (d.ghi_chu_log ?? "").split("\n")[0].replace(/^Tự động:\s*/, "").trim();
+  return `Đơn ${id} (${d.ma_lk ?? ""}${d.ten_lk_snapshot ? ` · ${d.ten_lk_snapshot}` : ""} x${d.so_luong_de_xuat ?? "?"}) ${vi}${logDong ? ` — ${logDong.slice(0, 220)}` : ""}`;
 }
 
 async function gomMotNhom(
@@ -68,6 +99,7 @@ async function gomMotNhom(
   loaiDon: "mua" | "cong_no" | "tra_hang",
   lines: AutoApprovedLine[],
   kvChon: string | null,
+  lyDo: string,
 ): Promise<string> {
   const now = nowVN();
 
@@ -92,6 +124,11 @@ async function gomMotNhom(
     maXuatKho = existing.ma_xuat_kho;
     // Tong tien KHONG cong don o day - taiTinhPxk ben duoi so tong cu (soTienTruoc) voi tong tinh lai
     // tu toan bo dong, doi -> reset trang thai chuyen tien giong luong them dong thu cong.
+    statements.push(
+      db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+        pxkId, "Da them don vao phieu", actorEmail, now, `Hệ thống tự gom vào phiếu đang tạo:\n${lyDo}`.slice(0, 2000),
+      ),
+    );
   } else {
     pxkId = await nextSequentialId(db, "phieu_xuat_kho", pxkIdPrefix(loaiDon), 6);
     maXuatKho = pxkId;
@@ -103,7 +140,9 @@ async function gomMotNhom(
            VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(pxkId, maXuatKho, actorEmail, now, loaiDon === "tra_hang" ? "Tự động gom đơn trả hàng QC đã đồng ý" : "Tự động gom đơn mới (đơn tự động duyệt + đơn cần chuyển tiền trước)", null, null, nguoiNhanHang, loaiDon, "Dang tao phieu", kvChon),
-      db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly) VALUES (?, ?, ?, ?)").bind(pxkId, "Dang tao phieu", actorEmail, now),
+      db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+        pxkId, "Dang tao phieu", actorEmail, now, `Hệ thống tự tạo phiếu để gom ${lines.length > 1 ? `${lines.length} đơn` : "đơn"}:\n${lyDo}`.slice(0, 2000),
+      ),
     );
   }
 

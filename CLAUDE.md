@@ -594,7 +594,7 @@ cộng vào `da_thanh_toan` phiếu mới trong CÙNG batch với INSERT dòng �
 từ chối/hủy, đổi người nhận hoặc sang Trả hàng → TRIGGER `trg_ddh_hoan_tien_da_tra` hoàn về quỹ (mọi đường ghi).
 **Chuyển tiền TRƯỚC khi duyệt** (chốt 2026-09-30, migration `0057`): đơn Mua / TRỪ CÔNG NỢ TẠO MỚI có giá bán × SL > 0 vào phiếu
 NGAY lúc tạo dù chưa tự duyệt (`bundleAutoApprovedIntoPxk`), cột `dat_don_hang.bat_buoc_chuyen_tien = 1` (đơn cũ = 0, giữ quy
-tắc cũ). Không gộp vào phiếu Kế toán đã duyệt tiền ('TN da duyet') hay đã có mã MISA → tạo phiếu mới. "Gửi kế toán" chặn
+tắc cũ). Không gộp vào phiếu Kế toán đã duyệt tiền ('TN da duyet') hay đã có mã MISA → tạo phiếu mới. **Lịch sử phiếu ghi LÝ DO gom** (2026-10-23, v1.395 — "lịch sử xử lý của phiếu chưa rõ ràng lý do phiếu được tạo"): `bundleAutoApprovedIntoPxk` (`lib/pxkAutoBundle.ts`) ghi log tạo phiếu "Hệ thống tự tạo phiếu để gom đơn: …" (hoặc log 'Da them don vao phieu' "Hệ thống tự gom vào phiếu đang tạo: …" khi gộp vào phiếu có sẵn), mỗi đơn 1 dòng = mã đơn (mã LK · tên xSL) + trạng thái (đã duyệt / chờ chuyển tiền / chờ duyệt cần chuyển tiền trước / QC đồng ý trả hàng) + dòng đầu ghi chú log đơn MỚI NHẤT (lý do tự động: đủ hàng, hàng về, đổi khu vực…) — `moTaDonVaoPhieu()`. Thêm luồng tự động mới: ghi lý do vào `dat_don_hang_log` TRƯỚC khi gom là log phiếu tự có. "Gửi kế toán" chặn
 `DON_CHUA_DUYET` khi phiếu còn đơn khác 'TN da duyet' — TN tự bỏ ra (chọn "Đơn đã thanh toán" để giữ tiền), đơn giữ trạng thái
 thật. Đơn chưa duyệt trong phiếu bị hủy/từ chối (TN/KTV/Trạm/TBP) → tự rời phiếu (`pxkChuaDonChuaDuyet` + `goDonKhoiPxk`); chuyển
 "Chờ hàng" → rời phiếu MANG THEO tiền (`goDonKhoiPxk(..., giuTien)`/`lenhMangTienDon`). Đơn cờ này CHỈ "Chờ hàng" được khi đã
