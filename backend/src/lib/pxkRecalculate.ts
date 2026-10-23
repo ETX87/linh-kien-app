@@ -390,19 +390,26 @@ export async function taiTinhPxk(
     // Chot 2026-09-30: Ke toan xac nhan = xac nhan bang chung chuyen tien khop so tien. Phieu DA duoc Ke toan duyet ma tong
     // moi KHONG vuot so da tra (vd don roi phieu) -> KTV khong phai chuyen them, tien that khong doi -> GIU "Ke toan da
     // duyet", phan tra thua hoan ve quy (canBangPxk ben duoi). Tong tang vuot so da tra -> "Cho KTV chuyen" nhu cu.
-    const giuDaDuyet = pxk.trang_thai_chuyen_tien === "TN da duyet" && soTienLuu != null && soTienLuu <= (pxk.da_thanh_toan ?? 0);
+    // + "KTV da chuyen" (sua 2026-10-23, PMH-001168 "sao tiền lại cứ tự động sửa giá tiền"): them don MANG SAN tien da tra (bo khoi phieu
+    // khac voi "Đơn đã thanh toán") -> tong + da tra cung tang, van du tien -> GIU trang thai (truoc day ve "Cho KTV chuyen" + log "KTV
+    // chuyen bo sung" roi ngay lap tuc canBangPxk lai dua len "KTV da chuyen" = 2 dong log gay hieu nham moi lan them 1 don).
+    const duTien = soTienLuu != null && soTienLuu <= (pxk.da_thanh_toan ?? 0);
+    const giuDaDuyet = pxk.trang_thai_chuyen_tien === "TN da duyet" && duTien;
+    const giuChoKeToan = pxk.trang_thai_chuyen_tien === "KTV da chuyen" && duTien;
+    const giuTrangThai = giuDaDuyet || giuChoKeToan;
     await db.prepare(
       `UPDATE phieu_xuat_kho
        SET so_tien_can_chuyen = ?,
            trang_thai_chuyen_tien = CASE WHEN ? IS NULL THEN NULL WHEN ? = 1 THEN trang_thai_chuyen_tien ELSE 'Cho KTV chuyen' END,
            ngay_ktv_chuyen = CASE WHEN ? = 1 THEN ngay_ktv_chuyen ELSE NULL END
        WHERE id = ?`,
-    ).bind(soTienLuu, soTienLuu, giuDaDuyet ? 1 : 0, giuDaDuyet ? 1 : 0, pxkId).run();
+    ).bind(soTienLuu, soTienLuu, giuTrangThai ? 1 : 0, giuTrangThai ? 1 : 0, pxkId).run();
     if (nguoiXuLy) {
-      const datLaiChuyenTien = !giuDaDuyet && pxk.trang_thai_chuyen_tien != null && pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen";
+      const datLaiChuyenTien = !giuTrangThai && pxk.trang_thai_chuyen_tien != null && pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen";
       const ghiChu = `Tự tính lại ${(pxk.so_tien_can_chuyen ?? 0).toLocaleString("vi-VN")}đ → ${totalCanChuyen.toLocaleString("vi-VN")}đ` +
         (datLaiChuyenTien ? ` — đặt lại chuyển tiền từ "${NHAN_CHUYEN_TIEN[pxk.trang_thai_chuyen_tien!] ?? pxk.trang_thai_chuyen_tien}" về "Chờ KTV chuyển" — giữ bằng chứng cũ, KTV chuyển bổ sung/tải thêm ảnh rồi xác nhận lại` : "") +
-        (giuDaDuyet ? ` — tiền KTV đã chuyển không đổi, giữ "Kế toán đã duyệt" (không cần xác nhận lại)` : "");
+        (giuDaDuyet ? ` — tiền KTV đã chuyển không đổi, giữ "Kế toán đã duyệt" (không cần xác nhận lại)` : "") +
+        (giuChoKeToan ? ` — phiếu đã thanh toán ${(pxk.da_thanh_toan ?? 0).toLocaleString("vi-VN")}đ, đủ tiền, KTV không cần chuyển thêm; vẫn chờ Kế toán xác nhận` : "");
       await db.prepare(
         "INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)",
       ).bind(pxkId, "Da sua tong tien can chuyen", nguoiXuLy, nowVN(), ghiChu).run();
