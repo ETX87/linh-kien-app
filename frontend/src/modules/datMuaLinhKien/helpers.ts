@@ -457,7 +457,7 @@ export function canNhapMaEo(d: Pick<DonHangRow, "trang_thai" | "loai_don" | "loa
 
 export function actionsFor(
   d: DonHangRow,
-  ctx: { canTacNghiep: boolean; canTPDvbhXacNhan?: boolean; canActAsTram: boolean; currentEmail: string; isAdmin?: boolean },
+  ctx: { canTacNghiep: boolean; canTPDvbhXacNhan?: boolean; canActAsTram: boolean; currentEmail: string; isAdmin?: boolean; laGs?: boolean },
 ): { duyet: boolean; tuChoi: boolean; choHang: boolean; huy: boolean } {
   // Don tra hang "Cho TN duyet tong" hien chung muc "Chờ tác nghiệp" voi don mua (2026-09-30) -> TN Duyet/Tu choi ngay tren
   // dong (DonCuaToiTab gui sang /tra-hang/bulk-log, xem laTraHangChoTn). Cac buoc tra hang khac xu ly o muc Hang tra.
@@ -468,7 +468,9 @@ export function actionsFor(
   // canActAsTram) cho phep CA Tram huy don cua Ve tinh minh quan ly, khong chi nguoi tao/Admin. Tach
   // rieng dieu kien huy khoi canActAsTram (canActAsTram VAN dung cho duyet/tu choi o buoc "Cho Tram
   // duyet" nhu cu, khong doi).
-  const canHuy = ctx.currentEmail === d.nguoi_tao || !!ctx.isAdmin;
+  // GS khu vuc huy ho KTV (v1.399): GS = email_gs cua don duoc huy NHU nguoi tao - ban sao backend gsHuyHo (applyDonHangLog).
+  const gsHuyHo = !!ctx.laGs && !!d.email_gs && d.email_gs === ctx.currentEmail;
+  const canHuy = ctx.currentEmail === d.nguoi_tao || !!ctx.isAdmin || gsHuyHo;
   if (d.trang_thai === "Cho Tram duyet") {
     return { duyet: ctx.canActAsTram, tuChoi: ctx.canActAsTram, choHang: false, huy: canHuy };
   }
@@ -507,7 +509,7 @@ export function actionsFor(
   // "Dang tao phieu", Ke toan chua duyet chuyen tien, van phong chua thao tac tay (backend tinh tu_huy_duoc).
   const tuHuy =
     d.trang_thai === "TN da duyet" && d.ma_xuat_kho != null && !!d.tu_huy_duoc &&
-    (ctx.currentEmail === d.nguoi_tao || ctx.currentEmail === d.nguoi_nhan_hang);
+    (ctx.currentEmail === d.nguoi_tao || ctx.currentEmail === d.nguoi_nhan_hang || gsHuyHo);
   // MO RONG (chot 2026-09-28, muc 5): don da vao PXK nhung phieu con "Dang tao phieu" + Ke toan chua duyet chuyen
   // tien (tn_doi_trong_pxk) -> TN van Huy/Tu choi/Cho hang, don tu go khoi phieu.
   if (d.trang_thai === "TN da duyet" && (d.ma_xuat_kho == null || !!d.tn_doi_trong_pxk)) {

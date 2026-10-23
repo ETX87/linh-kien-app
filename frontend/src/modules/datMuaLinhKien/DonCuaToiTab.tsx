@@ -354,7 +354,9 @@ export function DonHangDetailModal({
   const pxk = data?.pxk;
   const thieuLk = data?.thieuLk;
   const personDirChiTiet = usePersonDirectory();
-  const actions = d ? actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, isAdmin }) : { duyet: false, tuChoi: false, choHang: false, huy: false };
+  const authHuy = useAuth();
+  const laGsXem = authHuy.status === "authenticated" && authHuy.user.vai_tro === "Giam sat";
+  const actions = d ? actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, isAdmin, laGs: laGsXem }) : { duyet: false, tuChoi: false, choHang: false, huy: false };
   // Muc #4: SL thuc xuat CHI cho sua khi dong dang "Cho TN duyet" va SL de xuat > 1 (dung dieu kien
   // nguoi dung neu ra). "Da doi" so voi SL de xuat (khong phai so voi gia tri cu da luu - dong nay
   // chua tung duoc duyet nen chua co "gia tri cu" nao khac SL de xuat) la dieu kien bat buoc ghi chu.
@@ -2232,7 +2234,7 @@ export function DonCuaToiTab({
   // nguoi_tao cho nhanh TN (actionsFor cho buoc "Cho TN duyet" von khong chan tu-duyet, giu dung
   // hanh vi hien co cua thao tac tung dong rieng le).
   const rowsCoTheChon = pageRows.filter((r) => {
-    const a = actionsFor(r, { canTacNghiep, canActAsTram, currentEmail: user?.email ?? "" });
+    const a = actionsFor(r, { canTacNghiep, canActAsTram, currentEmail: user?.email ?? "", laGs: user?.vai_tro === "Giam sat" });
     if (r.trang_thai === "Cho Tram duyet") return (a.duyet || a.tuChoi) && r.nguoi_tao !== user?.email;
     if (r.trang_thai === "Cho TN duyet" || laTraHangChoTn(r)) return a.duyet || a.tuChoi;
     return false;
@@ -2664,6 +2666,8 @@ export function DonHangGroupedList({
   // null khi bang loc dang an (showFilters=false o component cha), portal tu khong render gi ca.
   columnSettingsSlot: HTMLDivElement | null;
 }) {
+  const authGs = useAuth();
+  const laGsList = authGs.status === "authenticated" && authGs.user.vai_tro === "Giam sat";
   const ktvDisplayMap = useKtvDisplayMap();
   const personDir = usePersonDirectory();
   // Tach 2 nhom Ly do cham theo quan_ly_don_thieu_linh_kien (xem comment actionsFor.choHang o
@@ -2944,7 +2948,7 @@ export function DonHangGroupedList({
   // (1) Cot nut luon dung NGAY SAU checkbox (bat ke thu tu cot da luu - nguoi dung khong phai keo lai),
   //     an han neu khong dong nao co nut (vd KTV xem don cua minh).
   const actionCount = (d: DonHangRow) => {
-    const a = actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail });
+    const a = actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, laGs: laGsList });
     return (a.duyet ? 1 : 0) + (a.choHang ? 1 : 0) + (a.tuChoi ? 1 : 0) + (dayLaiDuoc(d, canTacNghiep) ? 1 : 0);
   };
   const maxActions = rows.reduce((m, d) => Math.max(m, actionCount(d)), 0);
@@ -3047,7 +3051,7 @@ export function DonHangGroupedList({
     const choHang = dongCon.filter((d) => d.trang_thai === "Cho hang").length;
     const tongTien = dongCon.reduce((s, d) => s + tienSauChietKhau(d), 0);
     const rowsEnriched: EnrichedRow[] = dongCon.map((d) => {
-      const actions = actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail });
+      const actions = actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, laGs: laGsList });
       const tone = LOAI_DON_TONE[d.loai_don];
       const rowStyle = DON_HANG_ROW_STYLE[d.trang_thai ?? ""] ?? "";
       const chonDuoc = showCheckbox && (d.trang_thai === "Cho Tram duyet" || d.trang_thai === "Cho TN duyet" || laTraHangChoTn(d)) && (actions.duyet || actions.tuChoi);

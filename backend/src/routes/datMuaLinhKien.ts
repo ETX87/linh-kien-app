@@ -3363,11 +3363,16 @@ async function applyDonHangLog(
   const laTuChoiSauDuyet = hanhDong === "tu_choi" && chuaVaoPxkSauDuyet;
   const laHuySauDuyet = hanhDong === "huy" && chuaVaoPxkSauDuyet;
   const user = c.get("user");
+  // GS khu vuc HUY HO don cho KTV khu vuc minh (chot 2026-10-23, v1.399 - "cho phép giám sát khu vực hủy hộ đơn cho ktv khu vực
+  // mình"): GS = email_gs cua don (GS khu vuc hien tai cua KTV nhan hang) duoc huy NHU CHINH KTV dat don (cung cac buoc nguoi tao huy
+  // duoc + tu huy don tu duyet trong phieu chua thao tac); bat buoc ly do, log ghi "GS hủy hộ KTV". Ban sao FE: actionsFor (helpers.ts).
+  const gsHuyHo =
+    hanhDong === "huy" && user.vai_tro === "Giam sat" && !!ddh.email_gs && ddh.email_gs === user.email && ddh.nguoi_tao !== user.email;
   // KTV/nguoi tao TU HUY don tu duyet da tu gom vao PXK (chot 2026-09-28, lib/pxkTuHuy.ts) - chi khi PXK con
   // "Dang tao phieu", Ke toan chua duyet chuyen tien, van phong chua thao tac tay. Don duy nhat -> huy ca phieu.
   const tuHuyPxkId =
     hanhDong === "huy" && ddh.trang_thai === "TN da duyet" && ddh.ma_xuat_kho != null &&
-    (user.email === ddh.nguoi_tao || user.email === ddh.nguoi_nhan_hang)
+    (user.email === ddh.nguoi_tao || user.email === ddh.nguoi_nhan_hang || gsHuyHo)
       ? await pxkDuocTuHuy(c.env.DB, donHangId)
       : null;
   // Don "Cho hang" (chot 2026-09-30): ticket thieu LK Kho CHUA tiep nhan (hoac da dong/khong con) -> thao tac nhu don
@@ -3407,10 +3412,11 @@ async function applyDonHangLog(
     // + "Cho GS duyet" / "Cho thanh toan" (chot 2026-10-14).
     const tnDuocHuy = canTacNghiep(c) && (ddh.trang_thai === "Cho TN duyet" || ddh.trang_thai === "Cho GS duyet" || ddh.trang_thai === "Cho thanh toan" || laChoHangMoKhoa || chuaVaoPxkSauDuyet);
     if (laHuySauDuyet && !tnDuocHuy && user.vai_tro !== "Admin") return { error: "FORBIDDEN_ROLE", status: 403 };
-    if (ddh.nguoi_tao !== user.email && user.vai_tro !== "Admin" && !tnDuocHuy && !tuHuyPxkId) return { error: "FORBIDDEN_ROLE", status: 403 };
+    if (ddh.nguoi_tao !== user.email && user.vai_tro !== "Admin" && !tnDuocHuy && !tuHuyPxkId && !gsHuyHo) return { error: "FORBIDDEN_ROLE", status: 403 };
     // Chot phan hoi UX 2026-08-15 (muc 1): bat buoc nguoi huy nhap ly do (tu do, khong dung danh muc
     // Ly do cham cua TN vi khong hop nghia voi tu huy).
     if (!ghiChu?.trim()) return { error: "THIEU_LY_DO_HUY", status: 400 };
+    if (gsHuyHo && !tnDuocHuy && user.vai_tro !== "Admin") ghiChu = `GS hủy hộ KTV: ${ghiChu.trim()}`;
     nextTrangThai = "Da huy";
   } else if (ddh.trang_thai === "Cho Tram duyet") {
     const nguoiTaoRow = await c.env.DB.prepare("SELECT tram_cha FROM users WHERE email = ?").bind(ddh.nguoi_tao).first<{ tram_cha: string | null }>();
