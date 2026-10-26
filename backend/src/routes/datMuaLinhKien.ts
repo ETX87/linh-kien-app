@@ -1329,8 +1329,9 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
          -- gia_chot nen ra 0. Gio: don CO TIEN (nhom Mua + TRỪ CÔNG NỢ, giong DON_TINH_TONG_NGAY_SQL o pxkRecalculate.ts; bo don gui
          -- bu thieu hang - da tinh o don goc) co trong so w = gia (gia_chot neu co) x SL thuc xuat (chua co = SL de xuat). Don trong
          -- PXK con hieu luc -> chia "Tiền cần chuyển" THAT cua phieu (sau chiet khau) theo ti le w (xem ddh_tt); chua vao phieu -> w.
+         -- + bo don MUA HÀNG CÔNG NỢ ĐỐI TÁC (2026-10-26, v1.408 - "gán nợ cho đối tác, KTV nhận hàng sẽ không bị tính công nợ hay tiền cần mua").
          CASE WHEN (ddh.loai_don = 'mua' OR (ddh.loai_don = 'cong_no' AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') > 0))
-                AND ddh.gui_bu_nhan_thieu_id IS NULL
+                AND ddh.gui_bu_nhan_thieu_id IS NULL AND ddh.doi_tac_ma IS NULL
            THEN COALESCE(ddh.gia_chot, ddh.gia_de_xuat, 0) * COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat)
            ELSE 0 END as w_tien,
          CASE WHEN pxk.trang_thai_hien_tai != 'Ke toan huy' THEN pxk.id END as pxk_hl,
@@ -4442,14 +4443,16 @@ async function thongTinTraBangQuy(
   db: D1Database, donHangId: string,
 ): Promise<{ canTra: number; quy: number; email: string; tienDaTra: number; maLk: string } | { error: string }> {
   const d = await db.prepare(
-    `SELECT id, ma_lk, loai_don, loai_de_xuat, nguoi_nhan_hang, trang_thai_hien_tai, tien_da_tra,
+    `SELECT id, ma_lk, loai_don, loai_de_xuat, nguoi_nhan_hang, trang_thai_hien_tai, tien_da_tra, doi_tac_ma,
             EXISTS (SELECT 1 FROM phieu_xuat_kho_dong WHERE dat_don_hang_id = dat_don_hang.id) as trong_phieu
      FROM dat_don_hang WHERE id = ?`,
   ).bind(donHangId).first<{
     id: string; ma_lk: string; loai_don: string; loai_de_xuat: string | null; nguoi_nhan_hang: string | null;
-    trang_thai_hien_tai: string; tien_da_tra: number; trong_phieu: number;
+    trang_thai_hien_tai: string; tien_da_tra: number; trong_phieu: number; doi_tac_ma: string | null;
   }>();
   if (!d) return { error: "NOT_FOUND" };
+  // MUA HÀNG CÔNG NỢ ĐỐI TÁC (2026-10-26, v1.408 - "gán nợ cho đối tác, KTV nhận hàng sẽ không bị tính công nợ hay tiền cần mua") - ghi no doi tac, KTV khong tra.
+  if (d.doi_tac_ma) return { error: "DON_KHONG_CAN_CHUYEN_TIEN" };
   if (["TN tu choi", "Tu choi", "Da huy"].includes(d.trang_thai_hien_tai)) return { error: "DONG_DA_DONG" };
   if (!(d.loai_don === "mua" || laTruCongNo(d.loai_de_xuat ?? ""))) return { error: "DON_KHONG_CAN_CHUYEN_TIEN" };
   if (d.trong_phieu) return { error: "DON_DANG_TRONG_PHIEU" };

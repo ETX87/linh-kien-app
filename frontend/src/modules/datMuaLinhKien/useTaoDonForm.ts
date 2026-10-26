@@ -412,7 +412,9 @@ export function useTaoDonForm({
     if ((lk.gia_tri_cong_no ?? 0) > 0) return { gia: lk.gia_tri_cong_no! * sl, giaNiemYet: niemYet, nhan: t("Giá KTV") };
     return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
   }
-  const tongGiaUocTinh = drafts.reduce((sum, d) => sum + (giaUocTinhDong(d).gia ?? 0), 0);
+  // Dong cong no doi tac tach rieng (ghi no doi tac, KTV khong tra - v1.408): tongGiaUocTinh = tien KTV, tongGhiNoDoiTac = phan doi tac.
+  const tongGiaUocTinh = drafts.reduce((sum, d) => sum + (laMuaCongNoDoiTac(d.loai_de_xuat) ? 0 : giaUocTinhDong(d).gia ?? 0), 0);
+  const tongGhiNoDoiTac = drafts.reduce((sum, d) => sum + (laMuaCongNoDoiTac(d.loai_de_xuat) ? giaUocTinhDong(d).gia ?? 0 : 0), 0);
   // Tong tien (gia niem yet x SL) cac dong dang soan cung 1 doi tac - so voi kha dung de canh bao vuot moc (DoiTacCongNoChon).
   function tienDoiTacTrenForm(ma: string): number {
     return drafts.reduce((sum, d) => {
@@ -452,7 +454,7 @@ export function useTaoDonForm({
     activeIdx, setActiveIdx, otherLdeIdx, setOtherLdeIdx, addBlockedHint, setAddBlockedHint,
     activeRowRef, justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
     updateDraft, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
-    giaUocTinhDong, tongGiaUocTinh, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
+    giaUocTinhDong, tongGiaUocTinh, tongGhiNoDoiTac, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
     duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
     laNhomKhLe, khLeSdt, setKhLeSdt, khLeSdtSai, khLeTraCuu, khLeDangTraCuu,
     kiemTra: kiemTraHienTai, dangKiemTra, loiPhieuText, ketQuaTheoDong, coDongBiChan, dongCanXacNhan, hoiXacNhan, setHoiXacNhan,

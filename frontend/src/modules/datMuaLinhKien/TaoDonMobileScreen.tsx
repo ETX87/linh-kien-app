@@ -56,7 +56,7 @@ export function TaoDonMobileScreen({
     danhMuc, nguoiNhanHang, setNguoiNhanHang, drafts, infoExpandedIdx, setInfoExpandedIdx,
     activeIdx, setActiveIdx, otherLdeIdx, setOtherLdeIdx, addBlockedHint, setAddBlockedHint,
     justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
-    updateDraft, isLineComplete, canSubmit, themDong, deleteDraft, giaUocTinhDong, tongGiaUocTinh, tongSoLuong,
+    updateDraft, isLineComplete, canSubmit, themDong, deleteDraft, giaUocTinhDong, tongGiaUocTinh, tongGhiNoDoiTac, tongSoLuong,
     tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien, duPhongDuKien, coDongMuaDuTru,
     targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
     ketQuaTheoDong, loiPhieuText, dongCanXacNhan, hoiXacNhan, setHoiXacNhan,
@@ -413,7 +413,12 @@ export function TaoDonMobileScreen({
         <TongNgayKtvInfo email={targetNguoiNhanHang} themGiaTri={giaTriTinhChietKhau} />
         <div className="flex items-center justify-between text-sm">
           <span className="text-[var(--ink-500)]">{t("{n} dòng · {sl} cái", { n: drafts.length, sl: tongSoLuong })}</span>
-          {tongGiaUocTinh > 0 && <span className="font-bold text-[var(--green-700)]"><Money>{fmtVND(tongGiaUocTinh)}</Money></span>}
+          <span className="text-right">
+            {tongGiaUocTinh > 0 && <span className="font-bold text-[var(--green-700)]"><Money>{fmtVND(tongGiaUocTinh)}</Money></span>}
+            {tongGhiNoDoiTac > 0 && (
+              <span className="block text-[11.5px] text-[var(--ink-500)]">{t("Ghi nợ đối tác")}: <Money>{fmtVND(tongGhiNoDoiTac)}</Money></span>
+            )}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <Btn variant="ghost" size="md" className="h-11 shrink-0" onClick={themDong}>

@@ -985,6 +985,11 @@ dòng nào), FE gửi lô 200. Ghi/hủy CHỈ Kế toán/Admin. Quản lý đ�
 KT mới có quyền chọn lại đối tác"): `GET /doi-tac-cong-no/chon` trả thêm `emails` (Gmail mã KTV đang bật cùng Mã MISA đối tác); `useTaoDonForm` tự điền
 `doi_tac_ma` cho dòng đối tác = đối tác của người nhận hàng (KTV tự đặt = của chính mình, ô chỉ hiện không chọn; nhiều mã của mình mới hiện ô chọn trong số đó),
 GS/TN/KT/Admin vẫn chọn lại được. Dòng chọn tay (`doi_tac_tu_dong=false`, chỉ ở FE) không bị ghi đè khi đổi người nhận; dòng tự điền đổi theo người nhận.
+**KTV nhận hàng KHÔNG bị tính tiền / công nợ** (chốt 2026-10-26, v1.409 — "gán nợ cho đối tác, KTV nhận hàng sẽ không bị tính công nợ hay tiền cần mua"): ngoài các
+chỗ đã có (loai_don 'mua' → không vào công nợ phát sinh KTV; phiếu riêng `so_tien_can_chuyen` NULL; không vào tổng ngày; MISA khách hàng = đối tác), thêm: "Trả bằng
+quỹ dư" chặn đơn đối tác (`thongTinTraBangQuy` → `DON_KHONG_CAN_CHUYEN_TIEN`), báo cáo tổng thể "Tổng thực tế đã mua" bỏ đơn đối tác (`w_tien`), FE: tổng tiền nhóm
+KTV + tổng tiền đã chọn ở danh sách bỏ đơn đối tác, chi tiết đơn đổi nhãn "Tổng tiền đề xuất" → "Ghi nợ đối tác", form tạo đơn tách "Ghi nợ đối tác" khỏi tổng
+giá tham khảo (`tongGhiNoDoiTac`).
 
 **KH lẻ theo từng khách** (chốt 2026-10-09, v1.314, migration `0074`, `lib/khachLe.ts` + `routes/khachLe.ts` tại `/api/khach-le`):
 trước đây mọi KH lẻ dùng chung tài khoản KH_LE_MB/KH_LE_MN nên tiền KH chuyển không gắn được KH nào. Giờ MỖI KH = 1 NGƯỜI NHẬN RIÊNG:

@@ -999,7 +999,8 @@ export function DonHangDetailModal({
             {/* Giá niêm yết (giá bán) + Giá đề xuất = SAU chiet khau (2026-09-28, xem donGiaSauChietKhau). */}
             <QuickStat label={t("Giá niêm yết")} value={giaNiemYet(d) != null ? <Money>{fmtVND(giaNiemYet(d))}</Money> : "—"} />
             <QuickStat label={t("Giá đề xuất")} value={donGiaSauChietKhau(d) != null ? <Money>{fmtVND(donGiaSauChietKhau(d))}</Money> : "—"} tone="green" />
-            <QuickStat label={t("Tổng tiền đề xuất")} value={<Money>{fmtVND(tienSauChietKhau(d))}</Money>} tone="green" />
+            {/* Don doi tac: tien GHI NO DOI TAC, KTV nhan hang khong tra (v1.408). */}
+            <QuickStat label={d.doi_tac_ma ? t("Ghi nợ đối tác") : t("Tổng tiền đề xuất")} value={<Money>{fmtVND(tienSauChietKhau(d))}</Money>} tone="green" />
             {d.gia_chot != null && <QuickStat label={t("Giá chốt")} value={<Money>{fmtVND(d.gia_chot)}</Money>} tone="green" />}
             {/* "Cong no tam tinh" + danh gia (them 04/09/2026) - chi co y nghia voi dong loai_don=
                 'cong_no', chot 1 LAN luc tao don (xem lib/congNoKtv.ts o backend, khong tinh lai). */}
@@ -2255,7 +2256,7 @@ export function DonCuaToiTab({
   // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Preview truoc bulk action") - tong tien cua CAC
   // DONG DANG CHON, hien kem so dong trong nut xac nhan bulk de nguoi dung thay ro quy mo truoc khi
   // bam xac nhan lan 2 (xem BulkConfirmButton).
-  const tongTienDaChon = pageRows.filter((r) => selected.has(r.id)).reduce((s, r) => s + tienSauChietKhau(r), 0);
+  const tongTienDaChon = pageRows.filter((r) => selected.has(r.id) && !r.doi_tac_ma).reduce((s, r) => s + tienSauChietKhau(r), 0);
 
   function toggleSelectAll() {
     setSelected((s) => (s.size === rowsCoTheChon.length ? new Set() : new Set(rowsCoTheChon.map((r) => r.id))));
@@ -3062,7 +3063,8 @@ export function DonHangGroupedList({
     const dongY = dongCon.filter((d) => d.trang_thai === "TN da duyet").length;
     const tuChoi = dongCon.filter((d) => d.trang_thai === "TN tu choi").length;
     const choHang = dongCon.filter((d) => d.trang_thai === "Cho hang").length;
-    const tongTien = dongCon.reduce((s, d) => s + tienSauChietKhau(d), 0);
+    // Tong tien cua KTV - bo don cong no doi tac (ghi no doi tac, KTV khong tra - v1.408).
+    const tongTien = dongCon.reduce((s, d) => s + (d.doi_tac_ma ? 0 : tienSauChietKhau(d)), 0);
     const rowsEnriched: EnrichedRow[] = dongCon.map((d) => {
       const actions = actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, laGs: laGsList });
       const tone = LOAI_DON_TONE[d.loai_don];

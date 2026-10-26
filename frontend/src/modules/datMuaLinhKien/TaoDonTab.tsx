@@ -49,7 +49,7 @@ export function TaoDonTab({
     activeIdx, setActiveIdx, otherLdeIdx, setOtherLdeIdx, addBlockedHint, setAddBlockedHint,
     activeRowRef, justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
     updateDraft, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
-    giaUocTinhDong, tongGiaUocTinh, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
+    giaUocTinhDong, tongGiaUocTinh, tongGhiNoDoiTac, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
     duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
     ketQuaTheoDong, loiPhieuText, dongCanXacNhan, hoiXacNhan, setHoiXacNhan,
     khoiPhucLuc, boNhap, anKhoiPhuc,
@@ -125,6 +125,11 @@ export function TaoDonTab({
                   <span className="font-bold text-[var(--green-700)]"><Money>{fmtVND(tongGiaUocTinh)}</Money></span>
                   <span className="ml-1 text-[11px] text-[var(--ink-400)]">{t("(*Giá tham khảo)")}</span>
                 </>
+              )}
+              {tongGhiNoDoiTac > 0 && (
+                <span className="ml-2 text-[12px] text-[var(--ink-500)]">
+                  · {t("Ghi nợ đối tác")}: <Money>{fmtVND(tongGhiNoDoiTac)}</Money>
+                </span>
               )}
             </div>
             <div className="flex items-center gap-2">

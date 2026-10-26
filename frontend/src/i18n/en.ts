@@ -2138,5 +2138,6 @@ const tuDien: Record<string, string> = {
   "Ngày chứng từ không hợp lệ": "Invalid document date",
   "Tìm KTV (tên, email, khu vực)…": "Search technician (name, email, area)…",
   "✕ Hủy đơn": "✕ Cancel order",
+  "Ghi nợ đối tác": "Charged to partner",
 };
 export default tuDien;
