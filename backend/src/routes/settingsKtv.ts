@@ -9,7 +9,7 @@ import { computeAndStoreHash, getOrComputeHash } from "../lib/contentHash";
 import { nowVN } from "../lib/vnTime";
 import { resyncKhuVucDerivedFieldsForAll, resyncKhuVucDerivedFieldsForEmail } from "../lib/khuVucSync";
 import { relinkTonKhoForMaMisa } from "../lib/ktvTonKhoRelink";
-import { setMocTinhDuPhong, getMocTinhDuPhong } from "../lib/duPhongKtv";
+import { setMocTinhDuPhong, getMocTinhDuPhong, TRA_HANG_DU_TRU_SUBQUERY } from "../lib/duPhongKtv";
 import { maKtvTheoTen } from "../lib/timTheoTen";
 
 // Port rut gon tu backend/src/routes/settings.ts cua he DVBH goc (phan "Danh sach KTV") - danh ba
@@ -88,14 +88,18 @@ settingsKtv.get("/", async (c) => {
        WHERE ddh.loai_de_xuat = 'MUA DỰ TRỮ' AND ddh.trang_thai_hien_tai NOT IN ('Tu choi', 'Da huy')
          AND (? IS NULL OR ddh.updated_at > ?)
        GROUP BY k3.ma_ktv
-     ) dp ON dp.ma_ktv = k.ma_ktv`;
-  const selectCols = `k.*, u.ma_nhan_su as ma_nhan_su, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai, u.bi_khoa as tk_bi_khoa, u.email as tk_email, (SELECT GROUP_CONCAT(k2.ma_ktv, ', ') FROM ktv_lien_he k2 WHERE k2.email_dang_nhap = k.email_dang_nhap AND k2.ma_ktv <> k.ma_ktv) as ma_cung_gmail, (SELECT GROUP_CONCAT(gp.email_phu, ', ') FROM users_gmail_phu gp WHERE gp.email_chinh = k.email_dang_nhap) as gmail_phu, COALESCE(dp.gia_tri, 0) as han_muc_du_phong_phat_sinh`;
+     ) dp ON dp.ma_ktv = k.ma_ktv
+     LEFT JOIN (${TRA_HANG_DU_TRU_SUBQUERY}) dpt ON dpt.ma_ktv = k.ma_ktv`;
+  const selectCols = `k.*, u.ma_nhan_su as ma_nhan_su, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai, u.bi_khoa as tk_bi_khoa, u.email as tk_email, (SELECT GROUP_CONCAT(k2.ma_ktv, ', ') FROM ktv_lien_he k2 WHERE k2.email_dang_nhap = k.email_dang_nhap AND k2.ma_ktv <> k.ma_ktv) as ma_cung_gmail, (SELECT GROUP_CONCAT(gp.email_phu, ', ') FROM users_gmail_phu gp WHERE gp.email_chinh = k.email_dang_nhap) as gmail_phu, COALESCE(dp.gia_tri, 0) as han_muc_du_phong_phat_sinh, COALESCE(dpt.gia_tri, 0) as han_muc_du_phong_tra_hang`;
   const baseSql = `FROM ktv_lien_he k LEFT JOIN users u ON u.email = k.email_dang_nhap ${duPhongJoin} ${where}`;
-  const duPhongBinds = [mocTinhDuPhong, mocTinhDuPhong];
+  // 2 bind cho "phat sinh" (dp) + 2 bind cho "tra hang du tru da chot" (dpt) - dung thu tu xuat hien trong SQL.
+  const duPhongBinds = [mocTinhDuPhong, mocTinhDuPhong, mocTinhDuPhong, mocTinhDuPhong];
   const withMocHienTai = (rows: Record<string, unknown>[]) =>
     rows.map((r) => ({
       ...r,
-      moc_du_phong_hien_tai: (Number(r.han_muc_du_phong) || 0) - (Number(r.han_muc_du_phong_hien_tai) || 0) - (Number(r.han_muc_du_phong_phat_sinh) || 0),
+      moc_du_phong_hien_tai:
+        (Number(r.han_muc_du_phong) || 0) - (Number(r.han_muc_du_phong_hien_tai) || 0) - (Number(r.han_muc_du_phong_phat_sinh) || 0) +
+        (Number(r.han_muc_du_phong_tra_hang) || 0),
     }));
   if (!pageParam) {
     const { results } = await c.env.DB.prepare(`SELECT ${selectCols} ${baseSql} ORDER BY k.ma_ktv`)

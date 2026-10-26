@@ -1628,6 +1628,8 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
         ),
     },
     { key: "han_muc_du_phong_phat_sinh", header: "Hạn mức dự phòng phát sinh", render: (r) => <Money>{fmtVND(r.han_muc_du_phong_phat_sinh)}</Money> },
+    // Tra lai han muc khi ke toan chot phieu TRẢ HÀNG DỮ TRỮ (sau moc) - cong vao "Moc du phong hien tai" (2026-10-26).
+    { key: "han_muc_du_phong_tra_hang", header: "Trả hàng dự trữ đã chốt", render: (r) => <Money>{fmtVND(r.han_muc_du_phong_tra_hang ?? 0)}</Money> },
     { key: "moc_du_phong_hien_tai", header: "Mốc dự phòng hiện tại", render: (r) => <Money>{fmtVND(r.moc_du_phong_hien_tai)}</Money> },
     // FIX (ra soat UI 2026-08-27, hang muc #1): bo "(mã) Tên" lap lai truoc email - cot "Tên hiển thị"
     // da o ngay dau bang, khong can nhac lai o cot cuoi (giam ~50% do dai dong tren bang 25+ dong).

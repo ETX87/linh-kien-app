@@ -102,6 +102,8 @@ export interface KtvLienHeRow {
   han_muc_du_phong_hien_tai: number | null;
   han_muc_du_phong_cap_nhat_luc: string | null;
   han_muc_du_phong_phat_sinh: number;
+  // Don "TRẢ HÀNG DỮ TRỮ" ke toan da chot phieu (sau moc) - tra lai han muc theo gia mua du tru (2026-10-26).
+  han_muc_du_phong_tra_hang?: number;
   moc_du_phong_hien_tai: number;
   // Bat/tat tai khoan KTV (2026-10-01): users.bi_khoa cua email dang nhap; tk_email NULL = chua co dong users
   tk_bi_khoa?: number | null;

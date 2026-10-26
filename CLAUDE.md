@@ -854,6 +854,12 @@ POST `/han-muc-du-tru` {rows ≤ 200} (thêm/sửa/import — trường không g
 `/:ma/bat-tat`, DELETE `/:ma` — ghi CHỈ Kế toán/Admin; sửa "hiện tại" → `setMocTinhDuPhong`. FE `modules/HanMucDuTruTab.tsx` (tab trong
 `DanhSachKtvModule.tsx`): lọc Bật/Tắt/Chưa khớp KTV, Thêm/Sửa/Xoá, công tắc, Import Excel/CSV (cột "ID Misa" + "… hiện tại" / "Hạn mức dự phòng" /
 "Trạng thái"; ô số trống = giữ cũ), file mẫu, tải danh sách.
+**Trả hàng dự trữ trả lại hạn mức** (chốt 2026-10-26, v1.408): "Mốc dự phòng hiện tại" = hạn mức − hiện tại − phát sinh MUA DỰ TRỮ
+**+ TRẢ HÀNG DỮ TRỮ đã chốt** — dòng `loai_don='tra_hang'`, `loai_de_xuat='TRẢ HÀNG DỮ TRỮ'` trong PXK trả hàng Kế toán đã chốt
+("Da chot xong don xuat" / "Kho da nhan hang tra"; không cần Kho), giá trị = `COALESCE(so_luong_thuc_xuat, so_luong_de_xuat)` ×
+`linh_kien.gia_du_phong`, CHỈ phiếu chốt SAU mốc tính dự phòng (log "Da chot xong don xuat" > mốc — giống quy tắc "phát sinh").
+1 SQL dùng chung `duPhongKtv.ts TRA_HANG_DU_TRU_SUBQUERY` (hàm 1 KTV `computeDuPhongTraHang` + bảng Danh sách KTV cột "Trả hàng dự trữ
+đã chốt" `han_muc_du_phong_tra_hang`).
 
 **Tự tạo KTV + duyệt tài khoản từ ETX nhân sự** (chốt 2026-09-29, `lib/etxTuDongKtv.ts`, migration `0044`): chạy CUỐI mỗi
 lần đồng bộ ETX (cron 0h thứ Hai VN + nút "Đồng bộ ngay"; riêng bước này: `POST /api/etx-nhan-su/tu-dong-ktv/run`). Nhân

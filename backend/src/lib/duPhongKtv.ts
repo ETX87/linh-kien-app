@@ -49,7 +49,34 @@ export async function computeDuPhongPhatSinh(
   return row?.gia_tri ?? 0;
 }
 
+// "Tra hang du tru da chot" (CHOT 2026-10-26, chu he thong): don "TRẢ HÀNG DỮ TRỮ" cua KTV (loai_don='tra_hang') khi KE TOAN
+// DA CHOT phieu tra hang (PXK sang "Da chot xong don xuat" - buoc cuoi sau QC, khong can Kho; phieu co ma thung TRA- tu sang
+// "Kho da nhan hang tra") -> TRA LAI han muc du tru theo GIA MUA DU TRU (linh_kien.gia_du_phong) x SL THUC TE Kho nhan
+// (COALESCE(so_luong_thuc_xuat, so_luong_de_xuat)). Cung quy tac moc nhu "phat sinh": chi tinh phieu chot SAU moc tinh du
+// phong (ke toan sua/import "hien tai" la da tinh gop cac lan tra truoc do). Phieu "Ke toan huy" khong tinh.
+// Tra ve SQL subquery (ma_ktv, gia_tri) dung chung cho ham 1 KTV ben duoi va bang Danh sach KTV (settingsKtv.ts) - 2 bind: moc, moc.
+export const TRA_HANG_DU_TRU_SUBQUERY = `
+  SELECT kt.ma_ktv as ma_ktv, SUM(COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) * COALESCE(lk.gia_du_phong, 0)) as gia_tri
+  FROM dat_don_hang ddh
+  JOIN ktv_lien_he kt ON kt.email_dang_nhap = ddh.nguoi_nhan_hang
+  LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
+  JOIN phieu_xuat_kho_dong pd ON pd.dat_don_hang_id = ddh.id
+  JOIN phieu_xuat_kho p ON p.id = pd.phieu_xuat_kho_id
+  WHERE ddh.loai_don = 'tra_hang' AND ddh.loai_de_xuat = 'TRẢ HÀNG DỮ TRỮ'
+    AND p.trang_thai_hien_tai IN ('Da chot xong don xuat', 'Kho da nhan hang tra')
+    AND (? IS NULL OR (SELECT MAX(pl.ngay_xu_ly) FROM phieu_xuat_kho_log pl WHERE pl.phieu_xuat_kho_id = p.id AND pl.trang_thai = 'Da chot xong don xuat') > ?)
+  GROUP BY kt.ma_ktv`;
+
+export async function computeDuPhongTraHang(db: D1Database, maKtv: string, mocTinhDuPhong: string | null): Promise<number> {
+  const row = await db
+    .prepare(`SELECT gia_tri FROM (${TRA_HANG_DU_TRU_SUBQUERY}) WHERE ma_ktv = ?`)
+    .bind(mocTinhDuPhong, mocTinhDuPhong, maKtv)
+    .first<{ gia_tri: number }>();
+  return row?.gia_tri ?? 0;
+}
+
 // "Moc du phong hien tai" = Han muc du phong - Han muc du phong hien tai - Han muc du phong phat sinh
+// + Tra hang du tru da chot (them 2026-10-26)
 // (cong thuc CHOT nguoi dung, KHONG cong "thuc te" nhu cong no vi khong co bang ton kho tuong duong).
 // `loaiTruDonIds` (FIX 2026-09-28, dem trung): khi xet PXK, cac dong CUA CHINH PXK da nam san trong "phat
 // sinh" (don MUA DỰ TRỮ tinh ngay tu luc tao) roi lai bi so them 1 lan nua -> KTV can gap doi han muc.
@@ -63,6 +90,6 @@ export async function computeMocDuPhongHienTai(db: D1Database, maKtv: string, lo
   const hanMuc = ktv?.han_muc_du_phong ?? 0;
   const hienTai = ktv?.han_muc_du_phong_hien_tai ?? 0;
   const moc = await getMocTinhDuPhong(db);
-  const phatSinh = await computeDuPhongPhatSinh(db, maKtv, moc, loaiTruDonIds);
-  return hanMuc - hienTai - phatSinh;
+  const [phatSinh, traHang] = await Promise.all([computeDuPhongPhatSinh(db, maKtv, moc, loaiTruDonIds), computeDuPhongTraHang(db, maKtv, moc)]);
+  return hanMuc - hienTai - phatSinh + traHang;
 }
