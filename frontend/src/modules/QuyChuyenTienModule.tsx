@@ -24,6 +24,7 @@ import { t, dichSau } from "../i18n";
 import type { KhachLeRow } from "./datMuaLinhKien/types";
 import { useNhomKhLe } from "./datMuaLinhKien/KhachLeSdt";
 import { TienNgoaiTab } from "./quyChuyenTien/TienNgoai";
+import { ThanhToanDoiTacTab } from "./quyChuyenTien/ThanhToanDoiTac";
 import { HoanTienTab, TaoHoanTienModal, lamMoiHoanTien, nhanGiaoDichHoanTien, type TrangThaiHt } from "./quyChuyenTien/PhieuHoanTien";
 
 // "Quỹ & chuyển tiền" (2026-09-29, ban 2 quy du KTV - backend routes/quyKtv.ts, lib/quyKtv.ts, migration 0047):
@@ -149,7 +150,11 @@ export function QuyChuyenTienModule({ moPhieuHoanTien = null }: { moPhieuHoanTie
   // + Giam sat (2026-10-21): quy cac tai khoan GS quan ly (backend phamViXem), khong tab KH le.
   const xemNhieuNguoi = xemTatCa || !!user?.la_view || user?.vai_tro === "Giam sat";
 
-  const [tab, setTab] = useState<"khoan" | "so-du" | "so-quy" | "kh-le" | "hoan-tien" | "tien-ngoai">(moPhieuHoanTien ? "hoan-tien" : "khoan");
+  // Cong no doi tac (2026-10-26, v1.404 - "mục thanh toán này hiện chung trong menu Quỹ và chuyển tiền, tab Công nợ đối tác"): CUNG man
+  // man ghi tien doi tac tra (ThanhToanDoiTacTab: tom tat cong no + khoan thanh toan + Ghi / Import) - nhan vien van phong xem (khop backend
+  // xemToanBo), Ke toan/Admin ghi. Quan ly doi tac van o Danh sach KTV.
+  const xemDoiTac = !!user && (xemNhieuNguoi || !(user.la_ktv_dvbh || user.la_ve_tinh));
+  const [tab, setTab] = useState<"khoan" | "so-du" | "so-quy" | "kh-le" | "hoan-tien" | "tien-ngoai" | "doi-tac">(moPhieuHoanTien ? "hoan-tien" : "khoan");
   const [emailLoc, setEmailLoc] = useState("");
   // Chuong / link push mo 1 phieu hoan tien (App.tsx) -> chuyen sang tab Hoàn tiền, HoanTienTab mo chi tiet.
   useEffect(() => {
@@ -196,6 +201,7 @@ export function QuyChuyenTienModule({ moPhieuHoanTien = null }: { moPhieuHoanTie
     ...(xemTatCa ? [{ key: "kh-le", label: t("KH lẻ") }] : []),
     // Khoan tien ngoai vao quy (2026-10-22, migration 0095) - Ke toan/Admin ghi thu cong / import (vd tru luong).
     ...(coTheDieuChinh ? [{ key: "tien-ngoai", label: t("Tiền ngoài vào quỹ") }] : []),
+    ...(xemDoiTac ? [{ key: "doi-tac", label: t("Công nợ đối tác") }] : []),
   ];
 
   return (
@@ -265,6 +271,7 @@ export function QuyChuyenTienModule({ moPhieuHoanTien = null }: { moPhieuHoanTie
         />
       )}
       {tab === "tien-ngoai" && coTheDieuChinh && <TienNgoaiTab ten={ten} />}
+      {tab === "doi-tac" && xemDoiTac && <ThanhToanDoiTacTab />}
       {tab === "so-quy" && <SoQuyTab xemTatCa={xemNhieuNguoi} nguoiOptions={nguoiOptions} emailLoc={emailLoc} setEmailLoc={setEmailLoc} ten={ten} />}
 
       {dieuChinh && (

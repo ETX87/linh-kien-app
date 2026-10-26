@@ -966,6 +966,12 @@ sách (đối tác tự điền, `chuanBiPhieuDat` → `KHONG_DUOC_DAT_CONG_NO_D
 đề xuất qua lại với loại khác (`DOI_LOAI_CONG_NO_DOI_TAC`), chưa hỗ trợ import Excel. UI: tab "Công nợ đối tác" ở Danh sách KTV (`modules/DoiTacCongNoTab.tsx`
 — TN/Kế toán/Admin thêm/sửa/bật-tắt, Kế toán/Admin ghi/hủy thanh toán, chi tiết đơn + khoản trả), ô chọn đối tác + cảnh báo khả dụng ở form tạo đơn
 (`datMuaLinhKien/DoiTacCongNoChon.tsx`), dòng "Đối tác công nợ" ở chi tiết đơn, khối "Chuyển tiền" của phiếu đối tác hiện ghi nợ thay yêu cầu chuyển.
+**Ghi thanh toán đối tác ở Quỹ & chuyển tiền** (chốt 2026-10-26, v1.404 — "mục thanh toán 'Công nợ đối tác' hiện chung trong menu Quỹ và chuyển tiền … kế toán
+chỉ cần vào, add hoặc import số tiền đối tác đã thanh toán"): tab "Công nợ đối tác" (`modules/quyChuyenTien/ThanhToanDoiTac.tsx`, nhân viên văn phòng xem —
+`xemDoiTac` khớp `xemToanBo`) = tóm tắt công nợ từng đối tác (bấm mã = lọc) + danh sách MỌI khoản (`GET /doi-tac-cong-no/thanh-toan?trang_thai=&tu=&den=`, ≤ 1000)
++ "Ghi thanh toán" (POST `/:ma/thanh-toan` sẵn có) + Import Excel/CSV (cột Mã MISA đối tác / Số tiền / Ngày chứng từ / Nội dung, "Nội dung chung cho dòng trống",
+màn kiểm tra chặn tới khi hết dòng lỗi) → `POST /thanh-toan/import` {items ≤ 200} kiểm tra HẾT trước khi ghi (dòng lỗi → 400 `CO_DONG_LOI` + `loi`, không ghi
+dòng nào), FE gửi lô 200. Ghi/hủy CHỈ Kế toán/Admin. Quản lý đối tác (thêm, sửa mốc, bật/tắt) vẫn ở Danh sách KTV.
 
 **KH lẻ theo từng khách** (chốt 2026-10-09, v1.314, migration `0074`, `lib/khachLe.ts` + `routes/khachLe.ts` tại `/api/khach-le`):
 trước đây mọi KH lẻ dùng chung tài khoản KH_LE_MB/KH_LE_MN nên tiền KH chuyển không gắn được KH nào. Giờ MỖI KH = 1 NGƯỜI NHẬN RIÊNG:

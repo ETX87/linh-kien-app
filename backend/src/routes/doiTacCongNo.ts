@@ -149,6 +149,75 @@ doiTacCongNo.post("/:ma/thanh-toan", async (c) => {
   return c.json({ ok: true }, 201);
 });
 
+// GET /thanh-toan?q=&trang_thai=Da ghi|Da huy&tu=&den= - MOI khoan doi tac thanh toan (tab "Công nợ đối tác" o Quỹ & chuyển tiền, 2026-10-26
+// v1.404 - "kế toán chỉ cần vào, add hoặc import số tiền đối tác đã thanh toán"). tu/den = ngay ghi (giờ VN), toi da 1000 dong moi nhat.
+doiTacCongNo.get("/thanh-toan", async (c) => {
+  if (!xemToanBo(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const q = c.req.query("q")?.trim() ?? "";
+  const tt = c.req.query("trang_thai");
+  const tu = c.req.query("tu");
+  const den = c.req.query("den");
+  const dk: string[] = [];
+  const binds: unknown[] = [];
+  if (tt === "Da ghi" || tt === "Da huy") {
+    dk.push("t.trang_thai = ?");
+    binds.push(tt);
+  }
+  if (tu && /^\d{4}-\d{2}-\d{2}$/.test(tu)) {
+    dk.push("substr(t.tao_luc, 1, 10) >= ?");
+    binds.push(tu);
+  }
+  if (den && /^\d{4}-\d{2}-\d{2}$/.test(den)) {
+    dk.push("substr(t.tao_luc, 1, 10) <= ?");
+    binds.push(den);
+  }
+  if (q) {
+    dk.push("(t.ma_doi_tac LIKE ? OR d.ten_misa LIKE ? OR t.noi_dung LIKE ?)");
+    binds.push(`%${q}%`, `%${q}%`, `%${q}%`);
+  }
+  const { results } = await c.env.DB.prepare(
+    `SELECT t.*, d.ten_misa FROM doi_tac_thanh_toan t LEFT JOIN doi_tac_cong_no d ON d.ma_misa = t.ma_doi_tac
+     ${dk.length ? `WHERE ${dk.join(" AND ")}` : ""} ORDER BY t.tao_luc DESC, t.id DESC LIMIT 1000`,
+  ).bind(...binds).all();
+  return c.json({ rows: results, duoc_ghi_thanh_toan: duocGhiThanhToan(c) });
+});
+
+// POST /thanh-toan/import {items: [{ma_doi_tac, so_tien, noi_dung, ngay_chung_tu?}] <= 200} - ghi nhieu khoan 1 lan (them tay nhieu dong /
+// import Excel). Kiem tra HET truoc khi ghi: co dong loi -> 400 `loi` [{dong, loi}] va KHONG ghi dong nao; hop le -> 1 batch.
+doiTacCongNo.post("/thanh-toan/import", async (c) => {
+  if (!duocGhiThanhToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const b = await c.req.json<{ items?: { ma_doi_tac?: string; so_tien?: number; noi_dung?: string; ngay_chung_tu?: string | null }[] }>();
+  const items = Array.isArray(b.items) ? b.items : [];
+  if (items.length === 0 || items.length > 200) return c.json({ error: "INVALID_BODY" }, 400);
+  const { results: dsDt } = await c.env.DB.prepare("SELECT ma_misa FROM doi_tac_cong_no").all<{ ma_misa: string }>();
+  const maChuan = new Map(dsDt.map((d) => [d.ma_misa.trim().toUpperCase(), d.ma_misa]));
+  const loi: { dong: number; loi: string }[] = [];
+  const hopLe: { ma: string; soTien: number; noiDung: string; ngay: string | null }[] = [];
+  items.forEach((it, i) => {
+    const ma = maChuan.get(String(it.ma_doi_tac ?? "").trim().toUpperCase());
+    const soTien = Math.round(Number(it.so_tien));
+    const noiDung = String(it.noi_dung ?? "").trim();
+    const ngay = it.ngay_chung_tu?.trim() || null;
+    if (!ma) loi.push({ dong: i + 1, loi: "DOI_TAC_KHONG_CO" });
+    else if (!Number.isFinite(soTien) || soTien <= 0) loi.push({ dong: i + 1, loi: "SO_TIEN_KHONG_HOP_LE" });
+    else if (!noiDung) loi.push({ dong: i + 1, loi: "THIEU_NOI_DUNG" });
+    else if (ngay && !/^\d{4}-\d{2}-\d{2}$/.test(ngay)) loi.push({ dong: i + 1, loi: "NGAY_KHONG_HOP_LE" });
+    else hopLe.push({ ma, soTien, noiDung: noiDung.slice(0, 500), ngay });
+  });
+  if (loi.length) return c.json({ error: "CO_DONG_LOI", loi }, 400);
+  const email = c.get("user").email;
+  const luc = nowVN();
+  await c.env.DB.batch(
+    hopLe.map((h) =>
+      c.env.DB.prepare(
+        "INSERT INTO doi_tac_thanh_toan (ma_doi_tac, so_tien, ngay_chung_tu, noi_dung, nguoi_tao, tao_luc) VALUES (?, ?, ?, ?, ?, ?)",
+      ).bind(h.ma, h.soTien, h.ngay, h.noiDung, email, luc),
+    ),
+  );
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, ghi: hopLe.length, tong_tien: hopLe.reduce((s, h) => s + h.soTien, 0) }, 201);
+});
+
 // POST /thanh-toan/:id/huy {ly_do} - huy khoan ghi nham (cong no tang lai).
 doiTacCongNo.post("/thanh-toan/:id/huy", async (c) => {
   if (!duocGhiThanhToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
