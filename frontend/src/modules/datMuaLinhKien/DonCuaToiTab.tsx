@@ -884,7 +884,12 @@ export function DonHangDetailModal({
               {t("Từ chối||nút")}
             </Btn>
           )}
-          {actions.huy && <Btn size="sm" variant="ghost" onClick={() => setActionTarget("huy")} disabled={logMutation.isPending}>{t("Hủy")}</Btn>}
+          {/* Nut Huy to + mau do (2026-10-26, "nút hủy nhỏ và khó nhìn quá" - vd DDH-003547 "Chờ thanh toán"). */}
+          {actions.huy && (
+            <Btn variant="danger" onClick={() => setActionTarget("huy")} disabled={logMutation.isPending}>
+              {t("✕ Hủy đơn")}
+            </Btn>
+          )}
           </div>
         </div>
       ) : dayLaiDuoc(d, canTacNghiep) ? (

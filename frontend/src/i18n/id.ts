@@ -2137,5 +2137,6 @@ const tuDien: Record<string, string> = {
   "Mã MISA không có trong danh sách đối tác": "Kode MISA tidak ada di daftar mitra",
   "Ngày chứng từ không hợp lệ": "Tanggal dokumen tidak valid",
   "Tìm KTV (tên, email, khu vực)…": "Cari teknisi (nama, email, area)…",
+  "✕ Hủy đơn": "✕ Batalkan pesanan",
 };
 export default tuDien;
