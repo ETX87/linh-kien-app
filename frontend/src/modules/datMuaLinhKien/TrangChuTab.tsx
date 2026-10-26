@@ -1,5 +1,5 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { forwardRef, lazy, Suspense, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { StatCard } from "../../components/x/StatCard";
 import { Pagination } from "../../components/x/Misc";
 import { Badge, type Tone } from "../../components/x/Badge";
@@ -16,6 +16,11 @@ import { NguoiNhan } from "../../components/ui/TenNguoi";
 import { useAuth } from "../../auth/AuthContext";
 import { TongNgayKtvInfo } from "./TongNgayKtv";
 import { t } from "../../i18n";
+import { khopTim } from "../../lib/boDau";
+import { useToast } from "../../components/ui/Toast";
+
+// Bam ma don o bao cao "Đơn hàng đang tồn theo KTV" = mo chi tiet don ngay tai Trang chu (2026-10-26), tai luoi nhu LienQuanLk.tsx.
+const DonHangDetailModal = lazy(() => import("./DonCuaToiTab").then((m) => ({ default: m.DonHangDetailModal })));
 
 interface TonDongRow {
   id: string;
@@ -148,9 +153,16 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
   });
 
   const [filterKtv, setFilterKtv] = useState("");
+  // O tim KTV (2026-10-26, "bổ sung thêm công cụ tìm kiếm KTV ở mục Đơn hàng đang tồn theo KTV"): loc nhom theo ten / email / khu vuc, bo dau.
+  const [timKtv, setTimKtv] = useState("");
+  const [moDon, setMoDon] = useState<string | null>(null);
+  const auth = useAuth();
+  const u = auth.status === "authenticated" ? auth.user : null;
+  const qc = useQueryClient();
+  const addToast = useToast();
   const [trang, setTrang] = useState(1);
   const [trangDon, setTrangDon] = useState<Record<string, number>>({});
-  useEffect(() => setTrang(1), [khuVucParam, filterKtv]);
+  useEffect(() => setTrang(1), [khuVucParam, filterKtv, timKtv]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   function toggleExpand(email: string) {
     const next = new Set(expanded);
@@ -167,7 +179,13 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
     .map(([value, label]) => ({ value, label }))
     .sort((a, b) => a.label.localeCompare(b.label));
 
-  const groups = [...new Map(rows.map((r) => [r.nguoi_nhan_hang ?? "", r])).keys()].map((email) => {
+  const groups = [...new Map(rows.map((r) => [r.nguoi_nhan_hang ?? "", r])).keys()]
+    .filter((email) => {
+      if (!timKtv.trim()) return true;
+      const r0 = rows.find((r) => (r.nguoi_nhan_hang ?? "") === email);
+      return khopTim(`${r0?.ten_hien_thi ?? ""} ${email} ${r0?.khu_vuc_ten ?? ""} ${r0?.khu_vuc_ma ?? ""}`, timKtv);
+    })
+    .map((email) => {
     const rowsOfKtv = rows.filter((r) => (r.nguoi_nhan_hang ?? "") === email);
     const soNgayList = rowsOfKtv.map((r) => Math.floor((nowMs - parseDbDateTime(r.ngay_tao).getTime()) / 86400000));
     return {
@@ -198,6 +216,14 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
   const filterRow = (
     <div className="flex flex-wrap items-center gap-3 mb-2.5">
       {khuVucOptions.length > 0 && <KhuVucChipFilter value={filterKhuVuc} onChange={setFilterKhuVuc} options={khuVucOptions} />}
+      {ktvOptions.length > 0 && (
+        <input
+          value={timKtv}
+          onChange={(e) => setTimKtv(e.target.value)}
+          placeholder={t("Tìm KTV (tên, email, khu vực)…")}
+          className="focus-ring w-60 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-sm"
+        />
+      )}
       {ktvOptions.length > 0 && (
         <div className="w-56">
           <Select value={filterKtv} onChange={setFilterKtv} options={[{ value: "", label: t("— Tất cả KTV —") }, ...ktvOptions]} />
@@ -304,13 +330,7 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
                               <button
                                 type="button"
                                 className="focus-ring hover:underline text-[var(--color-primary)]"
-                                onClick={() =>
-                                  onJump(
-                                    r.pxk_trang_thai
-                                      ? { tab: "phieu-xuat-kho", filter: r.pxk_trang_thai, nguoiNhanHang: r.nguoi_nhan_hang ?? undefined }
-                                      : { tab: "don-cua-toi", filter: r.ddh_trang_thai ?? "", nguoiNhanHang: r.nguoi_nhan_hang ?? undefined },
-                                  )
-                                }
+                                onClick={() => setMoDon(r.id)}
                               >
                                 {r.id}
                               </button>
@@ -359,6 +379,23 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
         </div>
       )}
     </CollapsibleSection>
+    {moDon && u && (
+      <Suspense fallback={null}>
+        <DonHangDetailModal
+          id={moDon}
+          onClose={() => setMoDon(null)}
+          addToast={addToast}
+          qc={qc}
+          canTacNghiep={!!u.la_tac_nghiep}
+          canTPDvbhXacNhan={!!u.la_tp_dvbh}
+          canActAsTram={false}
+          currentEmail={u.email}
+          isAdmin={u.vai_tro === "Admin"}
+          canXemChiTietCa={false}
+          canKho={!!u.la_kho}
+        />
+      </Suspense>
+    )}
     </div>
   );
 });

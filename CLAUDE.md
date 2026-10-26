@@ -417,6 +417,8 @@ liệu) — cả 2 file cũng nằm ở gốc repo, nên tra cứu lại khi c�
 và đang được đưa dần vào code React thật (không phải "rewrite 1 lần" — từng phần được chuyển hoá theo
 từng đợt phản hồi, xem comment `khop concept-1-structured-neutral.html`/`khop concept 1` rải trong
 code). 2 thay đổi lớn nhất đã áp dụng từ hướng này vào `DatMuaLinhKienModule.tsx`:
+- **Trang chủ — "Đơn hàng đang tồn theo KTV"** (2026-10-26, v1.405, `TonDongTheoKtvReport` ở `TrangChuTab.tsx`): ô "Tìm KTV" lọc nhóm theo tên /
+  email / khu vực (`khopTim`, trên máy); bấm mã đơn trong bảng con = mở `DonHangDetailModal` ngay tại Trang chủ (tải lười) thay vì nhảy sang danh sách.
 - **Trang chủ — số trên thẻ phải khớp danh sách khi bấm** (2026-10-01): thẻ đếm việc CỦA CHÍNH người xem (GS/KTV: PXK
   Chờ tiền/Chờ KTV nhận theo `pxk.nguoi_nhan_hang = mình` — `countCuaToi`/`s_cho_tien`/`s_xac_nhan_nhan`) mang `nguoiNhanHang`
   = email mình để danh sách lọc đúng (trước đó GS thấy 2 nhưng mở ra cả khu vực 28). "Đơn bị từ chối" = sentinel
