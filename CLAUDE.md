@@ -974,6 +974,10 @@ chỉ cần vào, add hoặc import số tiền đối tác đã thanh toán"): 
 + "Ghi thanh toán" (POST `/:ma/thanh-toan` sẵn có) + Import Excel/CSV (cột Mã MISA đối tác / Số tiền / Ngày chứng từ / Nội dung, "Nội dung chung cho dòng trống",
 màn kiểm tra chặn tới khi hết dòng lỗi) → `POST /thanh-toan/import` {items ≤ 200} kiểm tra HẾT trước khi ghi (dòng lỗi → 400 `CO_DONG_LOI` + `loi`, không ghi
 dòng nào), FE gửi lô 200. Ghi/hủy CHỈ Kế toán/Admin. Quản lý đối tác (thêm, sửa mốc, bật/tắt) vẫn ở Danh sách KTV.
+**Đối tác mặc định = người nhận hàng** (chốt 2026-10-26, v1.406 — "KTV đặt công nợ đối tác thì không cần chọn đối tác, mặc định sẽ chính là ktv đó. chỉ có GS, TN,
+KT mới có quyền chọn lại đối tác"): `GET /doi-tac-cong-no/chon` trả thêm `emails` (Gmail mã KTV đang bật cùng Mã MISA đối tác); `useTaoDonForm` tự điền
+`doi_tac_ma` cho dòng đối tác = đối tác của người nhận hàng (KTV tự đặt = của chính mình, ô chỉ hiện không chọn; nhiều mã của mình mới hiện ô chọn trong số đó),
+GS/TN/KT/Admin vẫn chọn lại được. Dòng chọn tay (`doi_tac_tu_dong=false`, chỉ ở FE) không bị ghi đè khi đổi người nhận; dòng tự điền đổi theo người nhận.
 
 **KH lẻ theo từng khách** (chốt 2026-10-09, v1.314, migration `0074`, `lib/khachLe.ts` + `routes/khachLe.ts` tại `/api/khach-le`):
 trước đây mọi KH lẻ dùng chung tài khoản KH_LE_MB/KH_LE_MN nên tiền KH chuyển không gắn được KH nào. Giờ MỖI KH = 1 NGƯỜI NHẬN RIÊNG:

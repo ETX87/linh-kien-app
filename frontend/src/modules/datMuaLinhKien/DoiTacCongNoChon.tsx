@@ -13,7 +13,8 @@ import type { DonHangDraft } from "./types";
 export function DoiTacCongNoChon({ form, d, idx, reqLabelClass }: { form: TaoDonForm; d: DonHangDraft; idx: number; reqLabelClass: (missing: boolean) => string }) {
   if (!laMuaCongNoDoiTac(d.loai_de_xuat)) return null;
   const ds = form.doiTacChon?.rows ?? [];
-  const tuDat = !!form.doiTacChon?.tu_dat;
+  // KTV tu dat co DUNG 1 doi tac (chinh minh) -> chi hien, khong chon; nhieu ma cua minh thi chon trong so do. GS/TN/KT/Admin chon lai duoc.
+  const tuDat = !!form.doiTacChon?.tu_dat && ds.length === 1;
   const dt = ds.find((r) => r.ma_misa === d.doi_tac_ma);
   const tienForm = dt ? form.tienDoiTacTrenForm(dt.ma_misa) : 0;
   const conLai = dt ? dt.kha_dung - tienForm : 0;
@@ -27,7 +28,7 @@ export function DoiTacCongNoChon({ form, d, idx, reqLabelClass }: { form: TaoDon
       ) : (
         <Select
           value={d.doi_tac_ma}
-          onChange={(v) => form.updateDraft(idx, { doi_tac_ma: v })}
+          onChange={(v) => form.updateDraft(idx, { doi_tac_ma: v, doi_tac_tu_dong: false })}
           options={[{ value: "", label: t("-- Chọn đối tác --") }, ...ds.map((r) => ({ value: r.ma_misa, label: `${r.ten_misa} (${r.ma_misa})` }))]}
           className="w-full"
         />

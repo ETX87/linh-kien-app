@@ -57,8 +57,18 @@ doiTacCongNo.get("/chon", async (c) => {
   const duoc = await maDoiTacDuocDat(c);
   if (duoc && duoc.length === 0) return c.json({ rows: [], tu_dat: true });
   const rows = (await docCongNoDoiTac(c.env.DB, duoc ?? undefined)).filter((r) => r.bat_tat === 1);
+  // `emails` = Gmail dang nhap cua ma KTV dang hoat dong co CUNG Ma MISA doi tac (2026-10-26, v1.406 - "KTV đặt công nợ đối tác thì không cần chọn
+  // đối tác, mặc định sẽ chính là ktv đó. chỉ có GS, TN, KT mới có quyền chọn lại đối tác") -> form tu dien doi tac = nguoi nhan hang.
+  const { results: ktv } = await c.env.DB.prepare(
+    `SELECT UPPER(TRIM(ma_misa)) AS ma, LOWER(TRIM(email_dang_nhap)) AS email FROM ktv_lien_he
+     WHERE COALESCE(ngung_hoat_dong, 0) = 0 AND TRIM(COALESCE(email_dang_nhap, '')) <> '' AND TRIM(COALESCE(ma_misa, '')) <> ''
+       AND UPPER(TRIM(ma_misa)) IN (SELECT UPPER(ma_misa) FROM doi_tac_cong_no WHERE bat_tat = 1)`,
+  ).all<{ ma: string; email: string }>();
   return c.json({
-    rows: rows.map((r) => ({ ma_misa: r.ma_misa, ten_misa: r.ten_misa, hien_tai: r.hien_tai, toi_da: r.cong_no_toi_da, kha_dung: r.kha_dung })),
+    rows: rows.map((r) => ({
+      ma_misa: r.ma_misa, ten_misa: r.ten_misa, hien_tai: r.hien_tai, toi_da: r.cong_no_toi_da, kha_dung: r.kha_dung,
+      emails: ktv.filter((k) => k.ma === r.ma_misa.toUpperCase()).map((k) => k.email),
+    })),
     tu_dat: duoc !== null,
   });
 });

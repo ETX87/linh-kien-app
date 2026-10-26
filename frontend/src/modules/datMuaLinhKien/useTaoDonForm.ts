@@ -20,7 +20,7 @@ import { useTongNgayKtv } from "./TongNgayKtv";
 // dien thoai, mo camera chup anh tra hang co the khien trinh duyet TAI LAI trang -> form chi giu trong bo nho nen mat het (ca link anh
 // DA tai len Drive -> KTV chup lai, het han muc 20 anh/ngay ma chua tao duoc don nao). Ghi localStorage theo tai khoan moi lan doi;
 // mo lai form -> khoi phuc (giu 3 ngay). Tao don xong (form ve rong) / bam "Soạn mới" -> xoa.
-export type DoiTacChon = { ma_misa: string; ten_misa: string; hien_tai: number; toi_da: number; kha_dung: number };
+export type DoiTacChon = { ma_misa: string; ten_misa: string; hien_tai: number; toi_da: number; kha_dung: number; emails?: string[] };
 type NhapTaoDon = { luc: number; nguoiNhanHang: string; khLeSdt: string; drafts: DonHangDraft[]; activeIdx: number };
 const NHAP_GIU_MS = 3 * 24 * 60 * 60 * 1000;
 const khoaNhap = (email: string) => `tao-don-nhap:${email.toLowerCase()}`;
@@ -113,14 +113,21 @@ export function useTaoDonForm({
     (o) => coDoiTac || !laMuaCongNoDoiTac(o),
   );
   loaiDeXuatOptionsRef.current = loaiDeXuatOptions;
-  // KTV tu dat (chi 1 doi tac cua minh) -> tu dien doi tac cho dong vua chon loai doi tac.
+  // Doi tac MAC DINH = chinh nguoi nhan hang (2026-10-26, v1.406 - "KTV đặt công nợ đối tác thì không cần chọn đối tác, mặc định sẽ chính là ktv
+  // đó. chỉ có GS, TN, KT mới có quyền chọn lại đối tác"): KTV tu dat -> doi tac cua chinh minh (khong doi duoc, co nhieu ma thi chon trong so
+  // do); GS/TN/KT/Admin -> doi tac co Gmail = nguoi nhan hang (emails tu /chon), van chon lai duoc. Dong da CHON TAY (doi_tac_tu_dong=false)
+  // khong bi ghi de; dong tu dien doi theo nguoi nhan hang.
+  const emailNhanDoiTac = (nguoiNhanHang || currentEmail).trim().toLowerCase();
   useEffect(() => {
-    if (!doiTacChon?.tu_dat || doiTacChon.rows.length !== 1) return;
-    const ma = doiTacChon.rows[0].ma_misa;
-    setDrafts((prev) => (prev.some((d) => laMuaCongNoDoiTac(d.loai_de_xuat) && !d.doi_tac_ma)
-      ? prev.map((d) => (laMuaCongNoDoiTac(d.loai_de_xuat) && !d.doi_tac_ma ? { ...d, doi_tac_ma: ma } : d))
-      : prev));
-  }, [doiTacChon, drafts]);
+    if (!doiTacChon) return;
+    const ds = doiTacChon.rows;
+    const macDinh = doiTacChon.tu_dat
+      ? ((ds.length === 1 ? ds[0] : ds.find((r) => r.emails?.includes(emailNhanDoiTac)))?.ma_misa ?? "")
+      : (ds.find((r) => r.emails?.includes(emailNhanDoiTac))?.ma_misa ?? "");
+    const canSua = (d: DonHangDraft) =>
+      laMuaCongNoDoiTac(d.loai_de_xuat) && (!d.doi_tac_ma || d.doi_tac_tu_dong) && (d.doi_tac_ma ?? "") !== macDinh;
+    setDrafts((prev) => (prev.some(canSua) ? prev.map((d) => (canSua(d) ? { ...d, doi_tac_ma: macDinh, doi_tac_tu_dong: !!macDinh } : d)) : prev));
+  }, [doiTacChon, drafts, emailNhanDoiTac]);
 
   useEffect(() => {
     if (loaiDeXuatOptions.length === 0) return;

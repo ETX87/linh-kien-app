@@ -531,6 +531,8 @@ export interface DonHangDraft {
   anh: { driveFileId: string; url: string }[];
   // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): Ma MISA doi tac ghi no - chi y nghia khi laMuaCongNoDoiTac(loai_de_xuat).
   doi_tac_ma: string;
+  // Doi tac do form tu dien theo nguoi nhan hang (v1.406) - chon tay = false, doi nguoi nhan hang khong ghi de dong chon tay.
+  doi_tac_tu_dong?: boolean;
 }
 
 export interface XepHangLinhKienRow {
