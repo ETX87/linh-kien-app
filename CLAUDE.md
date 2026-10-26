@@ -841,6 +841,16 @@ MISA (`PATCH /:ma/cong-no-misa`) + import hàng loạt KHỚP THEO MÃ MISA (`PO
 **Mã KTV** → dòng đó khớp theo Mã KTV và GÁN/ĐỔI Mã MISA (mã đang thuộc KTV khác → lỗi `ma_misa_cua_ktv_khac`, gán xong
 `relinkTonKhoForMaMisa`). **TN** (`KtvTab mode="tn"`) sửa được Mã/Tên MISA qua cùng PATCH — backend bỏ qua công nợ/hạn
 mức nếu không phải Kế toán/Admin; TN không có Import. `GET /ktv-ton-kho/ma-kho-chua-khop` mở thêm cho TN.
+**Tab "Hạn mức dự trữ" — nguồn DUY NHẤT của hạn mức dự phòng** (chốt 2026-10-26, v1.402, migration `0098` — "bổ sung thêm 1 tab 'Hạn mức dữ trữ'
+trong danh sách KTV cho phép kế toán import, chỉnh sửa, tắt/bật ... 2 cột này sẽ không cho chỉnh sửa mà sẽ kéo về từ tab"): bảng `han_muc_du_tru`
+(khoá `ma_misa` NOCASE, `han_muc_du_phong`, `han_muc_du_phong_hien_tai`, `bat_tat`, ghi chú). TRIGGER đổ sang `ktv_lien_he.han_muc_du_phong/_hien_tai/
+_cap_nhat_luc` của MỌI mã KTV cùng Mã MISA (dòng tắt / không có dòng = NULL), KTV mới / đổi Mã MISA tự nhận, và ép lại nếu đường ghi cũ sửa thẳng
+2 cột → `duPhongKtv.ts`, danh sách KTV, `/cong-no-du-kien` đọc như cũ. Các đường cũ (PATCH `/:ma/dat-mua-lk`, `/:ma/cong-no-misa`, bulk-import, import
+công nợ/MISA) BỎ QUA 2 trường này; form Sửa KTV hiện chỉ đọc. Routes `settingsKtv.ts`: GET `/han-muc-du-tru` (mọi người xem được Danh sách KTV),
+POST `/han-muc-du-tru` {rows ≤ 200} (thêm/sửa/import — trường không gửi = giữ cũ; Mã MISA lưu theo cách viết của KTV; trả `chua_khop_ktv`), PATCH
+`/:ma/bat-tat`, DELETE `/:ma` — ghi CHỈ Kế toán/Admin; sửa "hiện tại" → `setMocTinhDuPhong`. FE `modules/HanMucDuTruTab.tsx` (tab trong
+`DanhSachKtvModule.tsx`): lọc Bật/Tắt/Chưa khớp KTV, Thêm/Sửa/Xoá, công tắc, Import Excel/CSV (cột "ID Misa" + "… hiện tại" / "Hạn mức dự phòng" /
+"Trạng thái"; ô số trống = giữ cũ), file mẫu, tải danh sách.
 
 **Tự tạo KTV + duyệt tài khoản từ ETX nhân sự** (chốt 2026-09-29, `lib/etxTuDongKtv.ts`, migration `0044`): chạy CUỐI mỗi
 lần đồng bộ ETX (cron 0h thứ Hai VN + nút "Đồng bộ ngay"; riêng bước này: `POST /api/etx-nhan-su/tu-dong-ktv/run`). Nhân

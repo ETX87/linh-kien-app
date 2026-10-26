@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { KtvTab } from "./UsersModule";
+import { HanMucDuTruTab } from "./HanMucDuTruTab";
+import { Tabs } from "../components/ui/Tabs";
 import { useAuth } from "../auth/AuthContext";
 
 // Muc menu "Danh sách KTV" (them 2026-09-05, phan hoi "danh sách KTV trong quản lý tài khoản => đẩy
@@ -7,14 +10,24 @@ import { useAuth } from "../auth/AuthContext";
 // nhan doi bang/logic), chi khac o mode: Kế toán duoc sua Tran cong no/Ma MISA/Ten MISA, cac vai tro
 // con lai duoc phep vao muc nay (xem dieu kien allowedModules o App.tsx) chi xem duoc (readonly).
 // Đường vào của Admin ("Quản lý User" > "KTV hiện trường", mode="admin" mac dinh) không đổi.
+// + Tab "Hạn mức dự trữ" (2026-10-26, HanMucDuTruTab): nguon cua 2 cot han muc du phong o danh sach KTV - Ke toan/Admin sua, con lai xem.
 export function DanhSachKtvModule() {
   const auth = useAuth();
   const canEditCongNoMisa = auth.status === "authenticated" && auth.user.la_ke_toan;
   // TN (2026-09-30): sua Ma/Ten MISA (mode "tn"); vua Ke toan vua TN -> "ke-toan" (rong hon).
   const canEditMisa = auth.status === "authenticated" && auth.user.la_tac_nghiep;
+  const [tab, setTab] = useState("ktv");
   return (
     <div className="anim-in">
-      <KtvTab mode={canEditCongNoMisa ? "ke-toan" : canEditMisa ? "tn" : "readonly"} />
+      <Tabs
+        tabs={[
+          { key: "ktv", label: "Danh sách KTV" },
+          { key: "han-muc", label: "Hạn mức dự trữ" },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+      {tab === "ktv" ? <KtvTab mode={canEditCongNoMisa ? "ke-toan" : canEditMisa ? "tn" : "readonly"} /> : <HanMucDuTruTab />}
     </div>
   );
 }

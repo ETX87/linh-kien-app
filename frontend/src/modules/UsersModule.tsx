@@ -1839,11 +1839,11 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] flex items-center gap-1.5">
                 Hạn mức dự phòng
-                <Tooltip text="Nhập tay hoặc import Excel định kỳ - trần được cấp cho KTV mua dự trữ theo giá dự phòng." />
+                <Tooltip text="Lấy từ tab &quot;Hạn mức dự trữ&quot; (theo Mã MISA) - không sửa ở đây." />
               </label>
               <input
                 type="number"
-                disabled={mode === "readonly" || mode === "tn"}
+                disabled
                 value={form.han_muc_du_phong}
                 onChange={(e) => setForm({ ...form, han_muc_du_phong: e.target.value })}
                 className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60"
@@ -1852,11 +1852,11 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] flex items-center gap-1.5">
                 Hạn mức dự phòng hiện tại
-                <Tooltip text="Nhập tay hoặc import Excel định kỳ - số dư còn lại theo lần cập nhật gần nhất (không tự tính)." />
+                <Tooltip text="Lấy từ tab &quot;Hạn mức dự trữ&quot; (theo Mã MISA) - không sửa ở đây." />
               </label>
               <input
                 type="number"
-                disabled={mode === "readonly" || mode === "tn"}
+                disabled
                 value={form.han_muc_du_phong_hien_tai}
                 onChange={(e) => setForm({ ...form, han_muc_du_phong_hien_tai: e.target.value })}
                 className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60"

@@ -249,6 +249,11 @@ settingsKtv.post("/bulk-import", adminOnly, async (c) => {
     offset: number;
   }>();
   if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
+  // Han muc du phong / hien tai CHI sua o tab "Han muc du tru" (2026-10-26, migration 0098 - bang han_muc_du_tru theo Ma MISA, trigger do sang ktv_lien_he) -> bo qua o day.
+  for (const r of body.rows) {
+    delete r.han_muc_du_phong;
+    delete r.han_muc_du_phong_hien_tai;
+  }
 
   const CHUNK_SIZE = 25;
   const offset = Math.max(0, body.offset ?? 0);
@@ -379,6 +384,113 @@ settingsKtv.post("/bulk-import", adminOnly, async (c) => {
 // KTV nay), ktv_cap1_phu_trach (CHI y nghia khi vai_tro_ktv='Ve tinh' - tro toi ma_ktv cua 1 KTV cap 1
 // phu trach truc tiep, xem migration 0009), cong_no (nhap tay/import - tu dong ghi
 // cong_no_cap_nhat_luc = gio hien tai moi lan gia tri thay doi, KHONG co cron dong bo).
+// ============ Tab "Han muc du tru" (chot 2026-10-26, migration 0098) ============
+// "bổ sung thêm 1 tab 'Hạn mức dữ trữ' trong danh sách KTV cho phép kế toán import, chỉnh sửa, tắt/bật ... ID Misa, 'Hạn mức dự phòng hiện
+// tại', 'Hạn mức dự phòng' ... kết nối đến danh sách KTV thay thế vào cột ... (2 cột này sẽ không cho chỉnh sửa)". Bang han_muc_du_tru (khoa
+// = Ma MISA, so khong phan biet hoa/thuong) la NGUON DUY NHAT; trigger do sang ktv_lien_he.han_muc_du_phong/_hien_tai cua MOI ma KTV co
+// cung Ma MISA (dong tat = NULL) nen duPhongKtv.ts / danh sach KTV doc nhu cu. Sua "hien tai" -> doi moc tinh du phong (setMocTinhDuPhong).
+function duocSuaHanMucDuTru(user: { la_ke_toan?: boolean | number | null; vai_tro?: string | null }): boolean {
+  return !!user.la_ke_toan || user.vai_tro === "Admin";
+}
+
+settingsKtv.get("/han-muc-du-tru", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT h.ma_misa, h.han_muc_du_phong, h.han_muc_du_phong_hien_tai, h.bat_tat, h.ghi_chu, h.ngay_tao, h.cap_nhat_luc, h.cap_nhat_boi,
+            (SELECT json_group_array(json_object('ma_ktv', k.ma_ktv, 'ten', COALESCE(k.ten_hien_thi, k.ten_misa, k.ma_ktv), 'ngung', COALESCE(k.ngung_hoat_dong, 0)))
+               FROM ktv_lien_he k WHERE UPPER(TRIM(k.ma_misa)) = UPPER(h.ma_misa)) AS ktv_json
+       FROM han_muc_du_tru h ORDER BY h.ma_misa`,
+  ).all<Record<string, unknown> & { ktv_json: string | null }>();
+  const rows = (results ?? []).map(({ ktv_json, ...r }) => ({ ...r, ktv: ktv_json ? JSON.parse(ktv_json) : [] }));
+  return c.json({ rows, duoc_sua: duocSuaHanMucDuTru(c.get("user")), moc_tinh_du_phong: await getMocTinhDuPhong(c.env.DB) });
+});
+
+// POST /han-muc-du-tru {rows: [{ma_misa, han_muc_du_phong?, han_muc_du_phong_hien_tai?, bat_tat?, ghi_chu?}]} - them/sua 1 dong (form) va
+// import theo lo (<= 200 dong/lan). Truong KHONG gui (undefined) = giu gia tri cu; null = xoa. Dong moi mac dinh bat.
+settingsKtv.post("/han-muc-du-tru", async (c) => {
+  const user = c.get("user");
+  if (!duocSuaHanMucDuTru(user)) return c.json({ error: "FORBIDDEN" }, 403);
+  const body = await c.req.json<{
+    rows: { ma_misa: string; han_muc_du_phong?: number | null; han_muc_du_phong_hien_tai?: number | null; bat_tat?: boolean | number; ghi_chu?: string | null }[];
+  }>();
+  if (!Array.isArray(body.rows) || body.rows.length === 0 || body.rows.length > 200) return c.json({ error: "INVALID_BODY" }, 400);
+  const soHopLe = (v: unknown) => v === undefined || v === null || (typeof v === "number" && Number.isFinite(v) && v >= 0);
+  const now = nowVN();
+  const loi: { ma_misa: string; loi: string }[] = [];
+  const stmts: D1PreparedStatement[] = [];
+  const daGap = new Set<string>();
+  let doiHienTai = false;
+  for (const r of body.rows) {
+    const ma = String(r.ma_misa ?? "").trim();
+    if (!ma) {
+      loi.push({ ma_misa: "", loi: "THIEU_MA_MISA" });
+      continue;
+    }
+    if (daGap.has(ma.toUpperCase())) {
+      loi.push({ ma_misa: ma, loi: "TRUNG_TRONG_LO" });
+      continue;
+    }
+    daGap.add(ma.toUpperCase());
+    if (!soHopLe(r.han_muc_du_phong) || !soHopLe(r.han_muc_du_phong_hien_tai)) {
+      loi.push({ ma_misa: ma, loi: "SO_TIEN_KHONG_HOP_LE" });
+      continue;
+    }
+    if (r.han_muc_du_phong_hien_tai !== undefined) doiHienTai = true;
+    const coHm = r.han_muc_du_phong !== undefined ? 1 : 0;
+    const coHt = r.han_muc_du_phong_hien_tai !== undefined ? 1 : 0;
+    const coBat = r.bat_tat !== undefined ? 1 : 0;
+    const coGc = r.ghi_chu !== undefined ? 1 : 0;
+    stmts.push(
+      c.env.DB.prepare(
+        `INSERT INTO han_muc_du_tru (ma_misa, han_muc_du_phong, han_muc_du_phong_hien_tai, bat_tat, ghi_chu, ngay_tao, cap_nhat_luc, cap_nhat_boi)
+         VALUES (COALESCE((SELECT TRIM(k.ma_misa) FROM ktv_lien_he k WHERE UPPER(TRIM(k.ma_misa)) = UPPER(?1) LIMIT 1), ?1), ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(ma_misa) DO UPDATE SET
+           han_muc_du_phong = CASE WHEN ? THEN excluded.han_muc_du_phong ELSE han_muc_du_tru.han_muc_du_phong END,
+           han_muc_du_phong_hien_tai = CASE WHEN ? THEN excluded.han_muc_du_phong_hien_tai ELSE han_muc_du_tru.han_muc_du_phong_hien_tai END,
+           bat_tat = CASE WHEN ? THEN excluded.bat_tat ELSE han_muc_du_tru.bat_tat END,
+           ghi_chu = CASE WHEN ? THEN excluded.ghi_chu ELSE han_muc_du_tru.ghi_chu END,
+           cap_nhat_luc = excluded.cap_nhat_luc, cap_nhat_boi = excluded.cap_nhat_boi`,
+      ).bind(
+        ma, r.han_muc_du_phong ?? null, r.han_muc_du_phong_hien_tai ?? null, r.bat_tat === undefined ? 1 : r.bat_tat ? 1 : 0,
+        r.ghi_chu?.trim() || null, now, now, user.email, coHm, coHt, coBat, coGc,
+      ),
+    );
+  }
+  if (stmts.length > 0) await c.env.DB.batch(stmts);
+  if (doiHienTai) await setMocTinhDuPhong(c.env.DB, user.email, now);
+  if (stmts.length > 0) await refreshHash(c.env.DB);
+  // Ma MISA trong lo chua khop KTV nao (van luu - KTV them Ma MISA sau se tu nhan qua trigger) -> bao de Ke toan kiem tra.
+  const maDaGhi = [...daGap].filter((m) => !loi.some((l) => l.ma_misa.toUpperCase() === m));
+  let chuaKhop: string[] = [];
+  if (maDaGhi.length > 0) {
+    const { results } = await c.env.DB.prepare(
+      `SELECT value AS ma FROM json_each(?) WHERE NOT EXISTS (SELECT 1 FROM ktv_lien_he k WHERE UPPER(TRIM(k.ma_misa)) = value)`,
+    ).bind(JSON.stringify(maDaGhi)).all<{ ma: string }>();
+    chuaKhop = (results ?? []).map((x) => x.ma);
+  }
+  return c.json({ ok: true, ghi: stmts.length, loi, chua_khop_ktv: chuaKhop });
+});
+
+settingsKtv.patch("/han-muc-du-tru/:ma/bat-tat", async (c) => {
+  const user = c.get("user");
+  if (!duocSuaHanMucDuTru(user)) return c.json({ error: "FORBIDDEN" }, 403);
+  const { bat_tat } = await c.req.json<{ bat_tat: boolean }>();
+  const r = await c.env.DB.prepare("UPDATE han_muc_du_tru SET bat_tat = ?, cap_nhat_luc = ?, cap_nhat_boi = ? WHERE ma_misa = ?")
+    .bind(bat_tat ? 1 : 0, nowVN(), user.email, c.req.param("ma").trim())
+    .run();
+  if (!r.meta.changes) return c.json({ error: "NOT_FOUND" }, 404);
+  await refreshHash(c.env.DB);
+  return c.json({ ok: true });
+});
+
+settingsKtv.delete("/han-muc-du-tru/:ma", async (c) => {
+  const user = c.get("user");
+  if (!duocSuaHanMucDuTru(user)) return c.json({ error: "FORBIDDEN" }, 403);
+  const r = await c.env.DB.prepare("DELETE FROM han_muc_du_tru WHERE ma_misa = ?").bind(c.req.param("ma").trim()).run();
+  if (!r.meta.changes) return c.json({ error: "NOT_FOUND" }, 404);
+  await refreshHash(c.env.DB);
+  return c.json({ ok: true });
+});
+
 settingsKtv.patch("/:ma/dat-mua-lk", adminOnly, async (c) => {
   const ma = c.req.param("ma");
   const body = await c.req.json<{
@@ -386,6 +498,9 @@ settingsKtv.patch("/:ma/dat-mua-lk", adminOnly, async (c) => {
     khu_vuc_ma?: string | null; ktv_cap1_phu_trach?: string | null; cong_no?: number | null; ma_misa?: string | null; ten_misa?: string | null;
     han_muc_du_phong?: number | null; han_muc_du_phong_hien_tai?: number | null; xac_nhan_khu_vuc?: boolean;
   }>();
+  // Han muc du phong / hien tai CHI sua o tab "Han muc du tru" (2026-10-26, migration 0098 - bang han_muc_du_tru theo Ma MISA, trigger do sang ktv_lien_he) -> bo qua o day.
+  delete body.han_muc_du_phong;
+  delete body.han_muc_du_phong_hien_tai;
   const existing = await c.env.DB.prepare(
     "SELECT ten_hien_thi, gmail, vai_tro_ktv, giam_sat_quan_ly, email_dang_nhap, khu_vuc_ma, ktv_cap1_phu_trach, cong_no, ma_misa, ten_misa, han_muc_du_phong, han_muc_du_phong_hien_tai, khu_vuc_xac_nhan_luc FROM ktv_lien_he WHERE ma_ktv = ?",
   )
@@ -522,11 +637,10 @@ settingsKtv.patch("/:ma/cong-no-misa", async (c) => {
     // Xac nhan khu vuc (2026-10-16, migration 0087) - BAT BUOC khi bo sung Ma MISA cho KTV co khu vuc chua tung duoc chon tay.
     khu_vuc_ma?: string | null; xac_nhan_khu_vuc?: boolean;
   }>();
-  if (!duocSuaTien) {
-    delete body.cong_no;
-    delete body.han_muc_du_phong;
-    delete body.han_muc_du_phong_hien_tai;
-  }
+  if (!duocSuaTien) delete body.cong_no;
+  // Han muc du phong / hien tai CHI sua o tab "Han muc du tru" (2026-10-26, migration 0098 - bang han_muc_du_tru theo Ma MISA, trigger do sang ktv_lien_he) -> bo qua o day.
+  delete body.han_muc_du_phong;
+  delete body.han_muc_du_phong_hien_tai;
   const existing = await c.env.DB.prepare(
     "SELECT cong_no, ma_misa, ten_misa, han_muc_du_phong, han_muc_du_phong_hien_tai, khu_vuc_ma, khu_vuc_xac_nhan_luc, email_dang_nhap FROM ktv_lien_he WHERE ma_ktv = ?",
   )
@@ -587,6 +701,11 @@ settingsKtv.post("/bulk-import-cong-no-misa", async (c) => {
     offset: number;
   }>();
   if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
+  // Han muc du phong / hien tai CHI sua o tab "Han muc du tru" (2026-10-26, migration 0098 - bang han_muc_du_tru theo Ma MISA, trigger do sang ktv_lien_he) -> bo qua o day.
+  for (const r of body.rows) {
+    delete r.han_muc_du_phong;
+    delete r.han_muc_du_phong_hien_tai;
+  }
 
   const CHUNK_SIZE = 25;
   const offset = Math.max(0, body.offset ?? 0);

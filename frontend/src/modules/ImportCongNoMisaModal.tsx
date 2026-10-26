@@ -45,8 +45,7 @@ const COT = {
 type CotChon = "cong_no" | "han_muc_du_phong" | "han_muc_du_phong_hien_tai" | "ten_misa" | "ma_misa";
 const COT_CHON: { key: CotChon; nhan: string }[] = [
   { key: "cong_no", nhan: "Trần công nợ" },
-  { key: "han_muc_du_phong", nhan: "Hạn mức dự phòng" },
-  { key: "han_muc_du_phong_hien_tai", nhan: "Hạn mức dự phòng hiện tại" },
+  // Han muc du phong / hien tai: import o tab "Hạn mức dự trữ" (2026-10-26) - backend bo qua 2 cot nay o day.
   { key: "ten_misa", nhan: "Tên trên MISA" },
   { key: "ma_misa", nhan: "Mã MISA (gán/đổi theo cột Mã KTV)" },
 ];
