@@ -207,6 +207,7 @@ export function deriveLoaiDon(vGoc: string): "mua" | "cong_no" | "tra_hang" {
   // Khong phan biet hoa/thuong (2026-10-15) - cung quy tac backend lib/tuDongDuyet.ts deriveLoaiDon.
   const v = vGoc.normalize("NFC").toUpperCase();
   if (v.includes("TRẢ HÀNG")) return "tra_hang";
+  if (laMuaCongNoDoiTac(v)) return "mua"; // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403) - don mua ghi no doi tac
   if (v.includes("CÔNG NỢ") || v.includes("HỖ TRỢ") || v.includes("TRỪ CÔNG NỢ") || v.includes("THẺ BẢO HÀNH"))
     return "cong_no";
   return "mua";
@@ -295,7 +296,12 @@ export function loaiDonLabel(loaiDon: ReturnType<typeof deriveLoaiDon>, loaiDeXu
 // khong phai luong tra hang (da co "TRA HANG") - chot 2026-08-15, doi xung voi validate phia server
 // (POST /phieu-dat, processDatDonHangImportRows trong datMuaLinhKien.ts).
 export function canNoRequired(loaiDeXuat: string): boolean {
-  return loaiDeXuat.includes("CÔNG NỢ") && !loaiDeXuat.includes("TRẢ HÀNG");
+  return loaiDeXuat.includes("CÔNG NỢ") && !loaiDeXuat.includes("TRẢ HÀNG") && !laMuaCongNoDoiTac(loaiDeXuat);
+}
+
+// MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403) - ban sao backend lib/pxkRecalculate.ts laMuaCongNoDoiTac.
+export function laMuaCongNoDoiTac(loaiDeXuat: string | null | undefined): boolean {
+  return (loaiDeXuat ?? "").normalize("NFC").toUpperCase().includes("CÔNG NỢ ĐỐI TÁC");
 }
 
 // Them 2026-09-09 (phan hoi "loại đề xuất MUA HÀNG CÓ ID bắt buộc Mã YCSC liên quan") - RIENG voi
@@ -331,7 +337,7 @@ export function emptyDraft(): DonHangDraft {
   return {
     ma_lk: "", loai_de_xuat: "", so_luong_de_xuat: 1,
     ghi_chu: "", yeu_cau_hoa_don: YEU_CAU_HOA_DON_OPTIONS[0], tt_mail_duyet: "", tt_khach_hang: "", chinh_sach: "", ma_yeu_cau_su_co: "", ma_lada: "",
-    uu_tien: false, anh: [],
+    uu_tien: false, anh: [], doi_tac_ma: "",
   };
 }
 

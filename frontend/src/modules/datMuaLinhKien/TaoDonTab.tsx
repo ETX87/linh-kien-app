@@ -15,6 +15,7 @@ import { LinhKienPicker, ThayTheGoiY } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
 import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal } from "./DuDoanDuyetHint";
+import { DoiTacCongNoChon } from "./DoiTacCongNoChon";
 import { TraHangAnhPicker, NhapKhoiPhucBanner } from "./SharedUi";
 import { useTaoDonForm } from "./useTaoDonForm";
 import { TaoDonMobileScreen } from "./TaoDonMobileScreen";
@@ -376,6 +377,8 @@ export function TaoDonTab({
                     )}
                   </div>
                 </div>
+
+                <DoiTacCongNoChon form={form} d={d} idx={idx} reqLabelClass={reqLabelClass} />
 
                 <div>
                   <label className={reqLabelClass(!(d.so_luong_de_xuat > 0))}>{t("Số lượng *")}</label>

@@ -1988,7 +1988,21 @@ export function PxkDetailModal({
   const veKhoiChuyenTien = (pxk: NonNullable<typeof data>["phieuXuatKho"]) => (
     <div className="border border-[var(--line)] rounded-lg p-3">
       <SectionTitle icon="💲" iconTone="teal">{t("Chuyển tiền")}</SectionTitle>
-      {pxk.so_tien_can_chuyen == null ? (
+      {pxk.doi_tac_ma ? (
+        // Phieu MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): khong chuyen tien - ghi no doi tac khi Ke toan chot phieu.
+        <div className="text-sm space-y-0.5">
+          <div>
+            {t("Công nợ đối tác")}: <b>{pxk.doi_tac_ten ?? pxk.doi_tac_ma}</b> <span className="font-mono text-xs text-[var(--ink-400)]">({pxk.doi_tac_ma})</span>
+          </div>
+          <div>
+            {t("Ghi nợ")}: <b><Money>{fmtVND(tongTienUocTinhPxk)}</Money></b>{" "}
+            <span className="text-xs text-[var(--color-text-secondary)]">
+              {["Dang tao phieu", "Cho ke toan", "Ke toan huy"].includes(trangThai) ? t("— ghi nợ khi Kế toán chốt phiếu") : t("— đã ghi nợ đối tác")}
+            </span>
+          </div>
+          <div className="text-xs text-[var(--ink-400)]">{t("Không cần chuyển tiền")}</div>
+        </div>
+      ) : pxk.so_tien_can_chuyen == null ? (
         canTacNghiep && trangThai === "Dang tao phieu" ? (
           <div className="flex gap-2 items-end">
             {/* SUA (2026-09-22, phan hoi "tổng tiền cần chuyển sẽ tự động = tổng tiền ước tính

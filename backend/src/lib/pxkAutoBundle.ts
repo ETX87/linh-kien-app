@@ -49,28 +49,33 @@ export async function bundleAutoApprovedIntoPxk(
   // trang thai don + ghi chu log don MOI NHAT (ly do tu dong: du hang / hang ve / doi khu vuc / thanh toan sau...).
   const { results: kvDon } = await db
     .prepare(
-      `SELECT d.id, d.khu_vuc_chon, d.ma_lk, d.ten_lk_snapshot, d.so_luong_de_xuat, d.trang_thai_hien_tai,
+      `SELECT d.id, d.khu_vuc_chon, d.doi_tac_ma, d.ma_lk, d.ten_lk_snapshot, d.so_luong_de_xuat, d.trang_thai_hien_tai,
               (SELECT l.ghi_chu FROM dat_don_hang_log l WHERE l.dat_don_hang_id = d.id ORDER BY l.id DESC LIMIT 1) AS ghi_chu_log
        FROM dat_don_hang d WHERE d.id IN (SELECT value FROM json_each(?))`,
     )
     .bind(JSON.stringify(lines.map((l) => l.donHangId)))
     .all<DonVaoPhieu>();
   const donTheoId = new Map(kvDon.map((r) => [r.id, r]));
-  const nhom = new Map<string | null, AutoApprovedLine[]>();
+  // + MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): don doi tac vao phieu RIENG theo doi tac (khong can chuyen tien) - tach nhom theo doi_tac_ma.
+  const nhom = new Map<string, { kv: string | null; dt: string | null; dong: AutoApprovedLine[] }>();
   for (const l of lines) {
-    const kv = donTheoId.get(l.donHangId)?.khu_vuc_chon ?? null;
-    nhom.set(kv, [...(nhom.get(kv) ?? []), l]);
+    const d = donTheoId.get(l.donHangId);
+    const kv = d?.khu_vuc_chon ?? null;
+    const dt = d?.doi_tac_ma ?? null;
+    const key = JSON.stringify([kv, dt]);
+    if (!nhom.has(key)) nhom.set(key, { kv, dt, dong: [] });
+    nhom.get(key)!.dong.push(l);
   }
   let pxkCuoi: string | null = null;
-  for (const [kvChon, dong] of nhom) {
+  for (const { kv: kvChon, dt: doiTac, dong } of nhom.values()) {
     const lyDo = dong.map((l) => moTaDonVaoPhieu(donTheoId.get(l.donHangId), l.donHangId, loaiDon)).join("\n");
-    pxkCuoi = await gomMotNhom(env, db, actorEmail, nguoiNhanHang, loaiDon, dong, kvChon, lyDo);
+    pxkCuoi = await gomMotNhom(env, db, actorEmail, nguoiNhanHang, loaiDon, dong, kvChon, lyDo, doiTac);
   }
   return pxkCuoi;
 }
 
 interface DonVaoPhieu {
-  id: string; khu_vuc_chon: string | null; ma_lk: string | null; ten_lk_snapshot: string | null; so_luong_de_xuat: number | null;
+  id: string; khu_vuc_chon: string | null; doi_tac_ma: string | null; ma_lk: string | null; ten_lk_snapshot: string | null; so_luong_de_xuat: number | null;
   trang_thai_hien_tai: string | null; ghi_chu_log: string | null;
 }
 
@@ -84,7 +89,7 @@ function moTaDonVaoPhieu(d: DonVaoPhieu | undefined, id: string, loaiDon: "mua" 
   const tt = d.trang_thai_hien_tai ?? "";
   const vi =
     loaiDon === "tra_hang" ? "QC đã đồng ý trả hàng"
-    : tt === "TN da duyet" ? "đã duyệt, chờ xuất kho"
+    : tt === "TN da duyet" ? (d.doi_tac_ma ? `đã duyệt, ghi nợ đối tác ${d.doi_tac_ma} (không cần chuyển tiền)` : "đã duyệt, chờ xuất kho")
     : tt === "Cho thanh toan" ? (d.ghi_chu_log ? "chờ chuyển tiền" : "chờ chuyển tiền (kho thiếu hàng — Kế toán xác nhận tiền xong hệ thống xét lại tồn kho)")
     : `${TRANG_THAI_CHO[tt] ?? tt} — cần chuyển tiền trước khi duyệt`;
   const logDong = (d.ghi_chu_log ?? "").split("\n")[0].replace(/^Tự động:\s*/, "").trim();
@@ -100,6 +105,7 @@ async function gomMotNhom(
   lines: AutoApprovedLine[],
   kvChon: string | null,
   lyDo: string,
+  doiTac: string | null = null,
 ): Promise<string> {
   const now = nowVN();
 
@@ -108,10 +114,10 @@ async function gomMotNhom(
       `SELECT id, ma_xuat_kho, so_tien_can_chuyen FROM phieu_xuat_kho
        WHERE nguoi_nhan_hang = ? AND loai_don = ? AND trang_thai_hien_tai = 'Dang tao phieu'
          AND COALESCE(trang_thai_chuyen_tien, '') != 'TN da duyet' AND COALESCE(TRIM(ma_misa), '') = ''
-         AND khu_vuc_chon IS ?
+         AND khu_vuc_chon IS ? AND doi_tac_ma IS ?
        ORDER BY ngay_tao DESC LIMIT 1`,
     )
-    .bind(nguoiNhanHang, loaiDon, kvChon)
+    .bind(nguoiNhanHang, loaiDon, kvChon, doiTac)
     .first<{ id: string; ma_xuat_kho: string; so_tien_can_chuyen: number | null }>();
 
   const statements = [];
@@ -136,10 +142,16 @@ async function gomMotNhom(
       db
         .prepare(
           `INSERT INTO phieu_xuat_kho
-             (id, ma_xuat_kho, ma_xuat_kho_xac_nhan, nguoi_tao, ngay_tao, ghi_chu, so_tien_can_chuyen, trang_thai_chuyen_tien, nguoi_nhan_hang, loai_don, trang_thai_hien_tai, khu_vuc_chon)
-           VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             (id, ma_xuat_kho, ma_xuat_kho_xac_nhan, nguoi_tao, ngay_tao, ghi_chu, so_tien_can_chuyen, trang_thai_chuyen_tien, nguoi_nhan_hang, loai_don, trang_thai_hien_tai, khu_vuc_chon, doi_tac_ma)
+           VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .bind(pxkId, maXuatKho, actorEmail, now, loaiDon === "tra_hang" ? "Tự động gom đơn trả hàng QC đã đồng ý" : "Tự động gom đơn mới (đơn tự động duyệt + đơn cần chuyển tiền trước)", null, null, nguoiNhanHang, loaiDon, "Dang tao phieu", kvChon),
+        .bind(
+          pxkId, maXuatKho, actorEmail, now,
+          loaiDon === "tra_hang" ? "Tự động gom đơn trả hàng QC đã đồng ý"
+            : doiTac ? `Tự động gom đơn mua hàng công nợ đối tác ${doiTac} — không cần chuyển tiền, ghi nợ đối tác khi Kế toán chốt`
+            : "Tự động gom đơn mới (đơn tự động duyệt + đơn cần chuyển tiền trước)",
+          null, null, nguoiNhanHang, loaiDon, "Dang tao phieu", kvChon, doiTac,
+        ),
       db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
         pxkId, "Dang tao phieu", actorEmail, now, `Hệ thống tự tạo phiếu để gom ${lines.length > 1 ? `${lines.length} đơn` : "đơn"}:\n${lyDo}`.slice(0, 2000),
       ),

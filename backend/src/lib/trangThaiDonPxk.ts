@@ -37,6 +37,7 @@ export const TRANG_THAI_PXK_DON_SQL = (a: string) => `COALESCE(
 // dung); trong phieu -> theo trang_thai_chuyen_tien cua phieu (Kế toán duyệt = da_thanh_toan).
 export const THANH_TOAN_DON_SQL = (a: string) => `CASE
   WHEN ${a}.trang_thai_hien_tai IN ('TN tu choi', 'Tu choi', 'Da huy') THEN 'da_huy_bo'
+  WHEN ${a}.doi_tac_ma IS NOT NULL THEN 'cong_no_doi_tac' -- MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): khong chuyen tien, ghi no doi tac
   WHEN NOT (${a}.loai_don = 'mua' OR (${a}.loai_don = 'cong_no' AND ${TRU_CONG_NO_SQL(a)})) THEN 'khong_can'
   ELSE COALESCE(
     (SELECT CASE

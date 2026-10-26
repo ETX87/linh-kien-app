@@ -33,6 +33,7 @@ interface CalculationRow {
   gia_du_phong: number | null;
   don_vi: string | null;
   yeu_cau_hoa_don: string | null;
+  doi_tac_ma: string | null;
 }
 
 // Chot nguoi dung 2026-09-28: PXK cong_no mac dinh tien can chuyen = 0, RIENG dong loai de xuat "TRỪ CÔNG
@@ -41,6 +42,13 @@ interface CalculationRow {
 // Cac dong cong_no con lai (CÔNG NỢ/HỖ TRỢ/THẺ BẢO HÀNH) chi hien so_tien_cong_no, khong cong vao tong.
 export function laTruCongNo(loaiDeXuat: string | null | undefined): boolean {
   return (loaiDeXuat ?? "").toUpperCase().includes("TRỪ CÔNG NỢ");
+}
+
+// MUA HÀNG CÔNG NỢ ĐỐI TÁC (chot 2026-10-26, v1.403, migration 0099): don MUA (loai_don 'mua') ghi no cho 1 doi tac (dat_don_hang.doi_tac_ma)
+// - gia niem yet, vao phieu RIENG khong can chuyen tien, cong vao so cong no doi tac (lib/congNoDoiTac.ts). Ten chua "CÔNG NỢ" nen MOI cho
+// nhan dien "cong no" bang chuoi phai loai tru loai nay (deriveLoaiDon, canNoRequired, laXuatMayDoiBaoHanh...). Ban sao FE: helpers.ts.
+export function laMuaCongNoDoiTac(loaiDeXuat: string | null | undefined): boolean {
+  return (loaiDeXuat ?? "").normalize("NFC").toUpperCase().includes("CÔNG NỢ ĐỐI TÁC");
 }
 
 // DON KH TRA GOP (chot 2026-10-02): loai de xuat "HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX" / "...TG12-NPP" (nhom cong_no vi chua "HỖ TRỢ")
@@ -97,7 +105,7 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
   const { results } = await db.prepare(
     `SELECT ddh.id, ddh.ngay_tao, ddh.so_luong_de_xuat, ddh.so_luong_thuc_xuat, ddh.loai_de_xuat, ddh.loai_don,
             ddh.nguoi_nhan_hang, ddh.so_tien_cong_no, ddh.gia_de_xuat, ddh.gia_chot,
-            lk.gia_ban, lk.gia_tri_cong_no, lk.gia_du_phong, lk.don_vi, ddh.yeu_cau_hoa_don
+            lk.gia_ban, lk.gia_tri_cong_no, lk.gia_du_phong, lk.don_vi, ddh.yeu_cau_hoa_don, ddh.doi_tac_ma
      FROM dat_don_hang ddh LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
      WHERE ddh.id IN (${placeholders})`,
   ).bind(...datDonHangIds).all<CalculationRow>();
@@ -129,6 +137,13 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
     if (row.loai_don === "cong_no" && !laTruCongNo(row.loai_de_xuat)) {
       maTheoDong.set(row.id, laKhTraGop(row.loai_de_xuat) ? "KH_TRA_GOP" : "CONG_NO");
       setTien(row, row.so_tien_cong_no ?? 0);
+      continue;
+    }
+    // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): GIA NIEM YET luc tao (gia_de_xuat; gia chot TN nhap van thang), khong chiet khau, khong tinh vao
+    // tong ngay cua KTV - CUNG cong thuc TIEN_DON_DOI_TAC_SQL (lib/congNoDoiTac.ts) de so ghi no khop tien hien o phieu.
+    if (row.doi_tac_ma) {
+      maTheoDong.set(row.id, "KHONG_CK");
+      total += setTien(row, (row.gia_chot ?? row.gia_de_xuat ?? row.gia_ban ?? 0) * soLuongTinhTien(row));
       continue;
     }
     const email = row.nguoi_nhan_hang ?? "";
@@ -239,7 +254,8 @@ export async function tienUocTinhChoDon(db: D1Database, ids: string[]): Promise<
 // Dieu kien "don tinh vao tong ngay" (chot 2026-09-28): nhom Mua + TRỪ CÔNG NỢ, chua tu choi/huy.
 const DON_TINH_TONG_NGAY_SQL = `(ddh.loai_don = 'mua' OR (ddh.loai_don = 'cong_no' AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') > 0))
          AND ddh.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')
-         AND ddh.gui_bu_nhan_thieu_id IS NULL`; // don gui bu thieu hang (migration 0075) da tinh o don goc
+         AND ddh.gui_bu_nhan_thieu_id IS NULL
+         AND ddh.doi_tac_ma IS NULL`; // don MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403) gia niem yet, khong tinh vao tong ngay KTV // don gui bu thieu hang (migration 0075) da tinh o don goc
 
 // Tong gia tri don trong ngay cua 1 KTV (nguoi nhan hang) theo tung ngay (YYYY-MM-DD, gio VN) - xem CHOT
 // 2026-09-28 o tinhToanPxk. Gia ban = linh_kien.gia_ban (LK khong con trong danh muc -> gia_de_xuat).
@@ -356,10 +372,10 @@ export async function taiTinhPxk(
   nguoiCanBangQuy: string | undefined = nguoiXuLy, // ghi log "Trừ quỹ dư"/"Hoàn tiền về quỹ" (tao phieu moi: co, du khong log sua tong)
 ): Promise<PxkCalculation> {
   const pxk = await db.prepare(
-    "SELECT loai_don, so_tien_can_chuyen, trang_thai_chuyen_tien, trang_thai_hien_tai, da_thanh_toan FROM phieu_xuat_kho WHERE id = ?",
+    "SELECT loai_don, so_tien_can_chuyen, trang_thai_chuyen_tien, trang_thai_hien_tai, da_thanh_toan, doi_tac_ma FROM phieu_xuat_kho WHERE id = ?",
   ).bind(pxkId).first<{
     loai_don: string | null; so_tien_can_chuyen: number | null; trang_thai_chuyen_tien: string | null; trang_thai_hien_tai: string | null;
-    da_thanh_toan: number | null;
+    da_thanh_toan: number | null; doi_tac_ma: string | null;
   }>();
   if (!pxk) return { total: 0, maTheoDong: new Map(), tienUocTinhTheoDong: new Map() };
 
@@ -384,7 +400,8 @@ export async function taiTinhPxk(
     }));
   }
 
-  const totalCanChuyen = pxk.loai_don === "tra_hang" ? 0 : calculation.total;
+  // Phieu doi tac (v1.403): khong can chuyen tien - tien cac dong ghi no doi tac (so_tien_can_chuyen NULL = "Không cần chuyển").
+  const totalCanChuyen = pxk.loai_don === "tra_hang" || pxk.doi_tac_ma ? 0 : calculation.total;
   const soTienLuu = totalCanChuyen > 0 ? totalCanChuyen : null;
   if (capNhatTongTien && pxk.trang_thai_hien_tai === "Dang tao phieu" && pxk.so_tien_can_chuyen !== soTienLuu) {
     // Chot 2026-09-30: Ke toan xac nhan = xac nhan bang chung chuyen tien khop so tien. Phieu DA duoc Ke toan duyet ma tong

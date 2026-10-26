@@ -114,6 +114,14 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   CHUA_CO_MA_MISA_CONG_NO: "Người nhận chưa có Mã MISA — chỉ đặt được đơn mua",
   TRU_CONG_NO_KHONG_PHAI_KTV: "Đơn TRỪ CÔNG NỢ chỉ dành cho KTV có mã KTV",
   TRU_CONG_NO_THIEU_TON: "Tồn kho của KTV không đủ cho đơn TRỪ CÔNG NỢ",
+  // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403)
+  DOI_TAC_CHUA_CHON: "Chưa chọn đối tác cho đơn mua hàng công nợ đối tác",
+  DOI_TAC_KHONG_HOP_LE: "Đối tác không có trong danh sách công nợ đối tác hoặc đang tắt",
+  KHONG_DUOC_DAT_CONG_NO_DOI_TAC: "Bạn không được đặt đơn mua hàng công nợ đối tác (chỉ TN, Kế toán, Giám sát; KTV có Mã MISA trong danh sách đối tác chỉ đặt cho chính mình)",
+  DOI_LOAI_CONG_NO_DOI_TAC: "Không đổi được loại đề xuất giữa đơn công nợ đối tác và loại khác — hủy đơn rồi đặt lại",
+  DON_DOI_TAC_KHAC_PHIEU: "Đơn công nợ đối tác chỉ vào phiếu riêng của đúng đối tác đó (không lẫn đơn thường)",
+  NHIEU_DOI_TAC_TRONG_1_PXK: "1 phiếu chỉ gom đơn của cùng 1 đối tác (hoặc toàn đơn thường)",
+  DOI_TAC_DA_CO: "Mã MISA đối tác này đã có trong danh sách",
   KTV_CHUA_CO_MA_MISA: "Tài khoản này chưa cài đặt mã MISA nên không thể đặt hàng => vui lòng liên hệ giám sát khu vực",
   DON_HANG_KHONG_HOP_LE: "Một số dòng đơn hàng đã chọn không còn hợp lệ (đã bị đổi hoặc gán nơi khác)",
   MA_XUAT_KHO_DA_TON_TAI: "Mã đơn hàng này đã được dùng cho phiếu khác",
@@ -318,6 +326,7 @@ export const TRANG_THAI_PXK_DON_TONE: Record<string, Tone> = {
 };
 export const THANH_TOAN_DON_OPTIONS = [
   { value: "khong_can", label: "Không cần chuyển" },
+  { value: "cong_no_doi_tac", label: "Công nợ đối tác" },
   { value: "cho_thanh_toan", label: "Chờ thanh toán" },
   { value: "cho_xac_nhan", label: "Chờ xác nhận tiền" },
   { value: "da_thanh_toan", label: "Đã thanh toán" },
@@ -325,6 +334,7 @@ export const THANH_TOAN_DON_OPTIONS = [
 ];
 export const THANH_TOAN_DON_TONE: Record<string, Tone> = {
   khong_can: "neutral",
+  cong_no_doi_tac: "info",
   cho_thanh_toan: "warning",
   cho_xac_nhan: "info",
   da_thanh_toan: "success",

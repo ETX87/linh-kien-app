@@ -145,6 +145,7 @@ export interface DonHangRow {
   ten_lk_snapshot: string | null;
   // Don sinh tu combo (migration 0066) - nhan hien thi.
   combo_ma?: string | null;
+  doi_tac_ma?: string | null; // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403) - Ma MISA doi tac ghi no
   loai_de_xuat: string | null;
   so_luong_de_xuat: number;
   so_luong_thuc_xuat: number | null;
@@ -261,6 +262,8 @@ export interface DonHangRow {
 export interface PhieuXuatKhoRow {
   id: string;
   ma_xuat_kho: string;
+  doi_tac_ma?: string | null; // phieu MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403) - khong can chuyen tien
+  doi_tac_ten?: string | null;
   // Dot 2 (muc C/D/E/F, migration 0077).
   ma_xuat_kho_xac_nhan: number;
   ma_misa: string | null;
@@ -526,6 +529,8 @@ export interface DonHangDraft {
   // useTaoDonForm.ts). Da upload SAN len Drive qua POST /tra-hang/upload-anh (xem TraHangAnhPicker
   // trong SharedUi.tsx), chi con {driveFileId, url} de gui kem luc submit.
   anh: { driveFileId: string; url: string }[];
+  // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): Ma MISA doi tac ghi no - chi y nghia khi laMuaCongNoDoiTac(loai_de_xuat).
+  doi_tac_ma: string;
 }
 
 export interface XepHangLinhKienRow {

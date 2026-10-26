@@ -21,7 +21,8 @@ import { nowVN } from "./vnTime";
 import { computeTonKhoChot } from "./tonKhoCongTy";
 import { computeTonKtvConLai } from "./tonKhoKtv";
 import { computeCongNoChot } from "./congNoKtv";
-import { laTruCongNo, khongTinhCongNo, taiTinhPxkMoCuaKtv } from "./pxkRecalculate";
+import { laTruCongNo, khongTinhCongNo, taiTinhPxkMoCuaKtv, laMuaCongNoDoiTac } from "./pxkRecalculate";
+import { docCongNoDoiTac } from "./congNoDoiTac";
 import { nextSequentialId } from "./idCounter";
 import { bundleAutoApprovedIntoPxk } from "./pxkAutoBundle";
 import { goDonKhoiPxk, pxkChuaDonChuaDuyet, TN_DOI_TRONG_PXK_SQL } from "./pxkTuHuy";
@@ -39,6 +40,8 @@ export type LoaiDon = "mua" | "cong_no" | "tra_hang";
 export function deriveLoaiDon(loaiDeXuatGoc: string): LoaiDon {
   const loaiDeXuat = loaiDeXuatGoc.normalize("NFC").toUpperCase();
   if (loaiDeXuat.includes("TRẢ HÀNG")) return "tra_hang";
+  // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403) = don MUA ghi no doi tac - truoc nhanh "CÔNG NỢ" ben duoi.
+  if (laMuaCongNoDoiTac(loaiDeXuat)) return "mua";
   if (loaiDeXuat.includes("CÔNG NỢ") || loaiDeXuat.includes("HỖ TRỢ") || loaiDeXuat.includes("TRỪ CÔNG NỢ") || loaiDeXuat.includes("THẺ BẢO HÀNH"))
     return "cong_no";
   return "mua";
@@ -130,6 +133,7 @@ export interface DongDanhGia {
   dac_thu: number | null;
   cho_phep_gia_0: number | null;
   gia_tri_cong_no: number | null;
+  doi_tac_ma?: string | null; // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403)
 }
 
 export interface KetQuaDong {
@@ -141,6 +145,9 @@ export interface KetQuaDong {
   danhGiaCongNo: "Du" | "Khong du" | null;
   ton: number | null; // ton con lai TRUOC dong nay (kho cong ty, hoac ton KTV voi TRỪ CÔNG NỢ)
   nguonTon: "kho" | "ktv" | null;
+  // Don doi tac vuot muc cong no toi da (v1.403) - ly do ghi vao log khoi tao thay cau "vượt trần công nợ" cua KTV.
+  ghiChuDoiTac?: string;
+  laDoiTac?: boolean;
 }
 
 export interface KetQuaPhieu {
@@ -168,6 +175,11 @@ export async function danhGiaPhieu(db: D1Database, ctx: NguCanhNhan, dongs: Dong
   // Chua gan tran (hoac khong phai KTV) = tran 0 (quy uoc 2026-09-04).
   const danhGiaCongNo: "Du" | "Khong du" | null = coDongCongNo ? (congNoChot + tongMoiCongNo <= (ctx.tranCongNo ?? 0) ? "Du" : "Khong du") : null;
 
+  // Cong no doi tac (MUA HÀNG CÔNG NỢ ĐỐI TÁC, v1.403): doc 1 lan cho moi doi tac co trong phieu, cong don tien cac dong cung doi tac.
+  const maDoiTac = [...new Set(dongs.filter((d) => laMuaCongNoDoiTac(d.loai_de_xuat) && d.doi_tac_ma?.trim()).map((d) => d.doi_tac_ma!.trim()))];
+  const doiTacMap = new Map((maDoiTac.length ? await docCongNoDoiTac(db, maDoiTac) : []).map((r) => [r.ma_misa.toUpperCase(), r]));
+  const daDungDoiTac = new Map<string, number>();
+
   const daDungKho = new Map<string, number>();
   const daDungKtv = new Map<string, number>();
   const tonKhoCache = new Map<string, number>();
@@ -187,7 +199,29 @@ export async function danhGiaPhieu(db: D1Database, ctx: NguCanhNhan, dongs: Dong
       continue;
     }
     const coTien = laDonPhatSinhTien(loaiDon, lde);
-    kq.batBuocChuyenTien = coTien && (d.gia_ban ?? 0) * d.so_luong > 0;
+    const laDoiTac = laMuaCongNoDoiTac(lde);
+    kq.laDoiTac = laDoiTac;
+    // Don doi tac KHONG can chuyen tien (ghi no doi tac) -> khong bao gio "Cho thanh toan".
+    kq.batBuocChuyenTien = coTien && !laDoiTac && (d.gia_ban ?? 0) * d.so_luong > 0;
+    if (laDoiTac) {
+      const dt = d.doi_tac_ma?.trim() ? doiTacMap.get(d.doi_tac_ma.trim().toUpperCase()) : undefined;
+      if (!d.doi_tac_ma?.trim()) {
+        kq.loi = { ma: "DOI_TAC_CHUA_CHON", thongDiep: `${d.ma_lk}: chưa chọn đối tác cho đơn mua hàng công nợ đối tác.` };
+      } else if (!dt || dt.bat_tat !== 1) {
+        kq.loi = { ma: "DOI_TAC_KHONG_HOP_LE", thongDiep: `${d.ma_lk}: đối tác ${d.doi_tac_ma} không có trong danh sách công nợ đối tác hoặc đang tắt.` };
+      } else {
+        const key = dt.ma_misa.toUpperCase();
+        const tienDong = (d.gia_ban ?? 0) * d.so_luong;
+        const daDung = (daDungDoiTac.get(key) ?? 0) + tienDong;
+        daDungDoiTac.set(key, daDung);
+        if (dt.hien_tai + daDung > dt.cong_no_toi_da) {
+          kq.danhGiaCongNo = "Khong du";
+          kq.ghiChuDoiTac = `vượt mốc công nợ đối tác ${dt.ten_misa}: công nợ hiện tại ${tienVnd(dt.hien_tai)} + đơn mới ${tienVnd(daDung)} > tối đa ${tienVnd(dt.cong_no_toi_da)}`;
+        } else {
+          kq.danhGiaCongNo = "Du";
+        }
+      }
+    }
     if (loaiDon === "cong_no" && !laTruCongNo(lde)) {
       kq.soTienCongNo = khongTinhCongNo(lde) ? 0 : (d.gia_tri_cong_no ?? 0) * d.so_luong;
       kq.danhGiaCongNo = canDoiChieuCongNo(loaiDon, lde) && !ctx.laGs ? danhGiaCongNo : null;
@@ -303,7 +337,7 @@ export async function trangThaiSauDuyet(
   const lde = d.loai_de_xuat ?? "";
   if (tuBuoc === "tram") {
     if (d.dac_thu && !boQuaTbpChoDacThu(lde)) return { trangThai: "Cho TBP xac nhan", ton: null };
-    if (canDoiChieuCongNo(d.loai_don, lde) && d.danh_gia_cong_no === "Khong du" && !d.ma_eo) return { trangThai: "Cho GS duyet", ton: null };
+    if ((canDoiChieuCongNo(d.loai_don, lde) || laMuaCongNoDoiTac(lde)) && d.danh_gia_cong_no === "Khong du" && !d.ma_eo) return { trangThai: "Cho GS duyet", ton: null };
   }
   if (laTruCongNo(lde)) {
     // computeTonKtvConLai da tru CA don nay (moi don TRỪ CÔNG NỢ chua huy) -> du khi con >= 0.
@@ -317,7 +351,7 @@ export async function trangThaiSauDuyet(
   const { du, ton, khuVuc } = await donDuTonKhoCongTy(db, donHangId);
   if (du) return { trangThai: "TN da duyet", ton, khuVuc };
   // Thieu hang: don co tien chua thanh toan -> cho KTV chuyen tien truoc (nam trong phieu); da thanh toan / khong tien -> cho hang.
-  const daThanhToan = d.thanh_toan === "da_thanh_toan" || d.thanh_toan === "khong_can";
+  const daThanhToan = d.thanh_toan === "da_thanh_toan" || d.thanh_toan === "khong_can" || d.thanh_toan === "cong_no_doi_tac";
   return { trangThai: d.bat_buoc_chuyen_tien && !daThanhToan ? "Cho thanh toan" : "Cho hang", ton, khuVuc };
 }
 

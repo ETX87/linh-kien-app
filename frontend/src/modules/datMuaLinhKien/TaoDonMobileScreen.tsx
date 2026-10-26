@@ -10,6 +10,7 @@ import { LinhKienPicker, ThayTheGoiY } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
 import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal } from "./DuDoanDuyetHint";
+import { DoiTacCongNoChon } from "./DoiTacCongNoChon";
 import { TraHangAnhPicker, NhapKhoiPhucBanner } from "./SharedUi";
 import type { TaoDonForm } from "./useTaoDonForm";
 import { Money } from "../../components/ui/Money";
@@ -239,6 +240,8 @@ export function TaoDonMobileScreen({
             />
           )}
         </div>
+
+        <DoiTacCongNoChon form={form} d={d} idx={activeIdx} reqLabelClass={reqLabelClass} />
 
         {/* So luong - nut +/- 44px (diem #4), rieng cho man hinh nay. */}
         <div>

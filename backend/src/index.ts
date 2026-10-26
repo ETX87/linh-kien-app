@@ -21,6 +21,7 @@ import partnerApiRoutes from "./routes/partnerApi";
 import khovanLookupRoutes from "./routes/khovanLookup";
 import suachuaPartnerRoutes from "./routes/suachuaPartner";
 import hoiDapRoutes from "./routes/hoiDap";
+import doiTacCongNoRoutes from "./routes/doiTacCongNo";
 import partnerKhoRoutes from "./routes/partnerKho";
 import nhanThieuRoutes, { tuXacNhanVaNhacPxk } from "./routes/nhanThieu";
 import { runDvbhSync } from "./lib/dvbhSyncClient";
@@ -64,6 +65,7 @@ app.route("/api/quy-ktv", quyKtvRoutes);
 app.route("/api/nhan-thieu", nhanThieuRoutes);
 app.route("/api/hoi-dap", hoiDapRoutes); // Hoi dap KTV <-> Mua hang (2026-10-17, migration 0089)
 app.route("/api/khach-le", khachLeRoutes);
+app.route("/api/doi-tac-cong-no", doiTacCongNoRoutes); // MUA HÀNG CÔNG NỢ ĐỐI TÁC (2026-10-26, migration 0099)
 app.route("/api/bao-cao-toc-do", baoCaoTocDoXuLyRoutes);
 app.route("/api/push", pushRoutes);
 app.route("/api/dvbh-sync", dvbhSyncRoutes);

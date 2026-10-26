@@ -43,7 +43,7 @@
 // tra THEM danh sach "canhBaoThieuMisa" (cac KTV dang xuat hien trong file nhung thieu ma_misa hoac
 // ten_misa) de FE hien canh bao ro rang luc tai file.
 import type { Env } from "../types";
-import { tinhToanPxk, laTruCongNo, laKhTraGop } from "./pxkRecalculate";
+import { tinhToanPxk, laTruCongNo, laKhTraGop, laMuaCongNoDoiTac } from "./pxkRecalculate";
 import { tenNguoiNullSql } from "./tenNguoi";
 import { ktvChinhCuaEmailSql } from "./ktvChinh";
 import { boDau } from "./timTheoTen";
@@ -210,7 +210,7 @@ function laTraHangCongNo(loaiDeXuat: string | null): boolean {
 // nhan hang> xuất máy mới đổi bảo hành cho khách hàng <TT khách hàng> <TT+Mail duyệt>" o MOI mau. Khong ap cho dong tra hang
 // (cau rieng KHO_NHAN_TRA) va "TRỪ CÔNG NỢ" (KTV mua lai hang dang giu, khong phai doi bao hanh).
 function laXuatMayDoiBaoHanh(line: Pick<RawLine, "pxk_loai_don" | "loai_de_xuat" | "don_vi">): boolean {
-  if (!laPhanLoaiMay(line.don_vi) || laDongTraHang(line) || laTruCongNo(line.loai_de_xuat)) return false;
+  if (!laPhanLoaiMay(line.don_vi) || laDongTraHang(line) || laTruCongNo(line.loai_de_xuat) || laMuaCongNoDoiTac(line.loai_de_xuat)) return false;
   const ldx = boDau(line.loai_de_xuat ?? "");
   return ldx.includes("cong no") || ldx.includes("ho tro");
 }
@@ -325,8 +325,9 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
          -- PHIEU (migration 0042 - GS nhan hang -> khu vuc dau tien GS phu trach).
          ktv.ma_ktv as ktv_ma_ktv, ${tenNguoiNullSql("pxk.nguoi_nhan_hang")} as ktv_ten,
          -- KH le (migration 0074): khong co trong danh ba KTV -> ma/ten MISA + khu vuc lay tu TAI KHOAN NHOM (KH_LE_MB/MN).
-         COALESCE(NULLIF(TRIM(ktv.ma_misa), ''), NULLIF(TRIM(kln.ma_misa), '')) as ktv_ma_misa,
-         COALESCE(NULLIF(TRIM(ktv.ten_misa), ''), NULLIF(TRIM(kln.ten_misa), '')) as ktv_ten_misa,
+         -- MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): khach hang / doi tuong tren file = DOI TAC ghi no (Ma/Ten MISA doi tac), khong phai KTV nhan.
+         COALESCE(NULLIF(TRIM(dt.ma_misa), ''), NULLIF(TRIM(ktv.ma_misa), ''), NULLIF(TRIM(kln.ma_misa), '')) as ktv_ma_misa,
+         COALESCE(NULLIF(TRIM(dt.ten_misa), ''), NULLIF(TRIM(ktv.ten_misa), ''), NULLIF(TRIM(kln.ten_misa), '')) as ktv_ten_misa,
          COALESCE(pxk.khu_vuc_chon, ktv.khu_vuc_ma, kln.khu_vuc_ma, pxk.khu_vuc_ma) as ktv_khu_vuc_ma, -- Kho chon lai khu vuc (0071) thang
          pxk.mien_xuat as pxk_mien_xuat, -- TN/Ke toan chuyen kho xuat MB/MN (migration 0070) - thang mien theo khu vuc
          pxk.nguoi_nhan_hang
@@ -337,6 +338,7 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
        LEFT JOIN ktv_lien_he ktv ON ktv.ma_ktv = ${ktvChinhCuaEmailSql("pxk.nguoi_nhan_hang")}
        LEFT JOIN khach_le kl ON kl.email = pxk.nguoi_nhan_hang
        LEFT JOIN ktv_lien_he kln ON kln.ma_ktv = kl.nhom_ma
+       LEFT JOIN doi_tac_cong_no dt ON dt.ma_misa = ddh.doi_tac_ma
        WHERE pxk.id IN (${placeholders})
        ORDER BY pxk.ngay_tao, pxk.id, ddh.id`,
     )

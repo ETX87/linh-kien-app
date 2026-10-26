@@ -440,6 +440,7 @@ export function DonHangDetailModal({
       ma_yeu_cau_su_co: d.ma_yeu_cau_su_co ?? "",
       ma_lada: d.ma_lada ?? "",
       uu_tien: d.uu_tien === 1,
+      doi_tac_ma: d.doi_tac_ma ?? "",
       // "anh" khong dung o luong sua nay (chi don loai_don='tra_hang' moi co anh, va dong tra_hang
       // KHONG bao gio vao duoc isCreatorEditWindow - xem giai thich o comment dat_don_hang_log/
       // isCreatorEditWindow ben tren) - de rong cho khop type DonHangDraft.
@@ -1466,6 +1467,13 @@ export function DonHangDetailModal({
                     {d.ma_lk}
                   </button>
                 </KvRow>
+                {/* MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403) */}
+                {d.doi_tac_ma && (
+                  <KvRow label={t("Đối tác công nợ")}>
+                    <span className="font-mono">{d.doi_tac_ma}</span>
+                    <span className="text-[11px] text-[var(--color-text-secondary)]"> · {t("không cần chuyển tiền, ghi nợ đối tác")}</span>
+                  </KvRow>
+                )}
                 <KvRow label={t("Mã YCSC")}>
                   <MaYcscCell value={d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />
                 </KvRow>

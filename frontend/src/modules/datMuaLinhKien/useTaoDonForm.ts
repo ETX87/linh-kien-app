@@ -4,7 +4,7 @@ import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
 import type { DonHangDraft, KhachLeRow, NguoiNhanHangKhaDungRow, KiemTraPhieuDat, KiemTraDong, KetQuaTaoDon } from "./types";
-import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, khongTinhCongNo, useLkCombo, comboThanhLkRow, chinhSachMacDinh } from "./helpers";
+import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, khongTinhCongNo, useLkCombo, comboThanhLkRow, chinhSachMacDinh, laMuaCongNoDoiTac } from "./helpers";
 import { t } from "../../i18n";
 import { GENERIC_ERROR_MESSAGES } from "./constants";
 import { coYeuCauHoaDon } from "./LoaiChietKhau";
@@ -20,6 +20,7 @@ import { useTongNgayKtv } from "./TongNgayKtv";
 // dien thoai, mo camera chup anh tra hang co the khien trinh duyet TAI LAI trang -> form chi giu trong bo nho nen mat het (ca link anh
 // DA tai len Drive -> KTV chup lai, het han muc 20 anh/ngay ma chua tao duoc don nao). Ghi localStorage theo tai khoan moi lan doi;
 // mo lai form -> khoi phuc (giu 3 ngay). Tao don xong (form ve rong) / bam "Soạn mới" -> xoa.
+export type DoiTacChon = { ma_misa: string; ten_misa: string; hien_tai: number; toi_da: number; kha_dung: number };
 type NhapTaoDon = { luc: number; nguoiNhanHang: string; khLeSdt: string; drafts: DonHangDraft[]; activeIdx: number };
 const NHAP_GIU_MS = 3 * 24 * 60 * 60 * 1000;
 const khoaNhap = (email: string) => `tao-don-nhap:${email.toLowerCase()}`;
@@ -100,8 +101,26 @@ export function useTaoDonForm({
 
   const auth = useAuth();
   const currentEmail = auth.status === "authenticated" ? auth.user.email : "";
-  const loaiDeXuatOptions = getOptionsForUser(auth.status === "authenticated" ? auth.user : null, ldeEntries);
+  // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): doi tac nguoi dang nhap duoc dat (TN/Ke toan/GS/Admin = moi doi tac dang bat; KTV = doi tac trung Ma
+  // MISA cua chinh minh, tu dat cho minh - `tu_dat`). Khong co doi tac nao -> AN lua chon nay khoi danh sach loai de xuat.
+  const { data: doiTacChon } = useQuery({
+    queryKey: ["doi-tac-cong-no-chon"],
+    queryFn: () => api.get<{ rows: DoiTacChon[]; tu_dat: boolean }>("/doi-tac-cong-no/chon"),
+    staleTime: 30_000,
+  });
+  const coDoiTac = (doiTacChon?.rows.length ?? 0) > 0;
+  const loaiDeXuatOptions = getOptionsForUser(auth.status === "authenticated" ? auth.user : null, ldeEntries).filter(
+    (o) => coDoiTac || !laMuaCongNoDoiTac(o),
+  );
   loaiDeXuatOptionsRef.current = loaiDeXuatOptions;
+  // KTV tu dat (chi 1 doi tac cua minh) -> tu dien doi tac cho dong vua chon loai doi tac.
+  useEffect(() => {
+    if (!doiTacChon?.tu_dat || doiTacChon.rows.length !== 1) return;
+    const ma = doiTacChon.rows[0].ma_misa;
+    setDrafts((prev) => (prev.some((d) => laMuaCongNoDoiTac(d.loai_de_xuat) && !d.doi_tac_ma)
+      ? prev.map((d) => (laMuaCongNoDoiTac(d.loai_de_xuat) && !d.doi_tac_ma ? { ...d, doi_tac_ma: ma } : d))
+      : prev));
+  }, [doiTacChon, drafts]);
 
   useEffect(() => {
     if (loaiDeXuatOptions.length === 0) return;
@@ -198,6 +217,7 @@ export function useTaoDonForm({
           ma_lada: d.ma_lada.trim().toUpperCase() || undefined,
           uu_tien: d.uu_tien || undefined,
           anh: deriveLoaiDon(d.loai_de_xuat.trim()) === "tra_hang" ? d.anh : undefined,
+          doi_tac_ma: laMuaCongNoDoiTac(d.loai_de_xuat) ? d.doi_tac_ma || undefined : undefined,
         })),
       }),
     onSuccess: (res) => {
@@ -237,7 +257,7 @@ export function useTaoDonForm({
     .filter(({ d }) => d.ma_lk.trim() && d.loai_de_xuat.trim() && d.so_luong_de_xuat > 0);
   const kiemTraKey = JSON.stringify({
     n: nguoiNhanHang,
-    dong: dongKiemTra.map(({ d }) => [d.ma_lk.trim(), d.loai_de_xuat.trim(), d.so_luong_de_xuat]),
+    dong: dongKiemTra.map(({ d }) => [d.ma_lk.trim(), d.loai_de_xuat.trim(), d.so_luong_de_xuat, laMuaCongNoDoiTac(d.loai_de_xuat) ? d.doi_tac_ma : ""]),
   });
   const [kiemTraKeyTre, setKiemTraKeyTre] = useState(kiemTraKey);
   useEffect(() => {
@@ -247,10 +267,10 @@ export function useTaoDonForm({
   const { data: kiemTra, isFetching: dangKiemTra } = useQuery({
     queryKey: ["dat-mua-lk-phieu-dat-kiem-tra", kiemTraKeyTre],
     queryFn: () => {
-      const k = JSON.parse(kiemTraKeyTre) as { n: string; dong: [string, string, number][] };
+      const k = JSON.parse(kiemTraKeyTre) as { n: string; dong: [string, string, number, string][] };
       return api.post<KiemTraPhieuDat>("/dat-mua-lk/phieu-dat/kiem-tra", {
         nguoi_nhan_hang: k.n || undefined,
-        don_hang: k.dong.map(([ma_lk, loai_de_xuat, so_luong_de_xuat]) => ({ ma_lk, loai_de_xuat, so_luong_de_xuat })),
+        don_hang: k.dong.map(([ma_lk, loai_de_xuat, so_luong_de_xuat, doi_tac_ma]) => ({ ma_lk, loai_de_xuat, so_luong_de_xuat, doi_tac_ma: doi_tac_ma || undefined })),
       });
     },
     enabled: (JSON.parse(kiemTraKeyTre) as { dong: unknown[] }).dong.length > 0,
@@ -328,7 +348,9 @@ export function useTaoDonForm({
       (!canNoRequired(d.loai_de_xuat) || d.chinh_sach.trim()) &&
       (!maYcscRequired(d.loai_de_xuat) || coMaIdLienQuan(d.ma_yeu_cau_su_co, d.ma_lada)) &&
       // CHOT (phan hoi 2026-08-24, muc 1): don tra hang bat buoc 1-3 anh linh kien can tra.
-      (deriveLoaiDon(d.loai_de_xuat) !== "tra_hang" || (d.anh.length >= 1 && d.anh.length <= 3))
+      (deriveLoaiDon(d.loai_de_xuat) !== "tra_hang" || (d.anh.length >= 1 && d.anh.length <= 3)) &&
+      // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): bat buoc chon doi tac.
+      (!laMuaCongNoDoiTac(d.loai_de_xuat) || !!d.doi_tac_ma)
     );
   }
 
@@ -357,7 +379,7 @@ export function useTaoDonForm({
   // khop DON_TINH_TONG_NGAY_SQL o backend) - xem truoc muc chiet khau sau khi tao (TongNgayKtv.tsx).
   const giaTriTinhChietKhau = drafts.reduce((sum, d) => {
     const lde = d.loai_de_xuat.trim();
-    if (!lde || (deriveLoaiDon(lde) !== "mua" && !laTruCongNo(lde))) return sum;
+    if (!lde || (deriveLoaiDon(lde) !== "mua" && !laTruCongNo(lde)) || laMuaCongNoDoiTac(lde)) return sum;
     const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
     return sum + (lk?.gia_ban != null ? lk.gia_ban * d.so_luong_de_xuat : 0);
   }, 0);
@@ -376,7 +398,7 @@ export function useTaoDonForm({
     const niemYet = lk.gia_ban * sl;
     const lde = d.loai_de_xuat.trim();
     if (!lde || (deriveLoaiDon(lde) !== "mua" && !laTruCongNo(lde))) return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
-    if (tongNgayData?.kh_le || coYeuCauHoaDon(d.yeu_cau_hoa_don)) return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
+    if (tongNgayData?.kh_le || coYeuCauHoaDon(d.yeu_cau_hoa_don) || laMuaCongNoDoiTac(lde)) return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
     if (laDinhTuFe(lk.don_vi)) return { gia: Math.round(lk.gia_ban * 0.85) * sl, giaNiemYet: niemYet, nhan: t("Đình tủ −15%") };
     if (tongNgaySau < 200000) return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
     if (tongNgaySau < 500000) return { gia: Math.round(lk.gia_ban * 0.7) * sl, giaNiemYet: niemYet, nhan: t("Tổng ngày 200–500k −30%") };
@@ -384,6 +406,14 @@ export function useTaoDonForm({
     return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
   }
   const tongGiaUocTinh = drafts.reduce((sum, d) => sum + (giaUocTinhDong(d).gia ?? 0), 0);
+  // Tong tien (gia niem yet x SL) cac dong dang soan cung 1 doi tac - so voi kha dung de canh bao vuot moc (DoiTacCongNoChon).
+  function tienDoiTacTrenForm(ma: string): number {
+    return drafts.reduce((sum, d) => {
+      if (!laMuaCongNoDoiTac(d.loai_de_xuat) || d.doi_tac_ma !== ma) return sum;
+      const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
+      return sum + (lk?.gia_ban ?? 0) * (d.so_luong_de_xuat || 0);
+    }, 0);
+  }
 
   // "Cong no tam tinh" cua RIENG cac dong loai_don='cong_no' dang soan - CUNG cong thuc voi backend
   // (gia_tri_cong_no x so_luong_de_xuat, xem POST /phieu-dat) nhung tinh tai client de canh bao SONG
@@ -420,6 +450,7 @@ export function useTaoDonForm({
     laNhomKhLe, khLeSdt, setKhLeSdt, khLeSdtSai, khLeTraCuu, khLeDangTraCuu,
     kiemTra: kiemTraHienTai, dangKiemTra, loiPhieuText, ketQuaTheoDong, coDongBiChan, dongCanXacNhan, hoiXacNhan, setHoiXacNhan,
     ketQuaTao, dongKetQuaTao, khoiPhucLuc, boNhap, anKhoiPhuc: () => setKhoiPhucLuc(null),
+    doiTacChon, tienDoiTacTrenForm,
   };
 }
 
