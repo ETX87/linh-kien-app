@@ -463,7 +463,8 @@ export function canNhapMaEo(d: Pick<DonHangRow, "trang_thai" | "loai_don" | "loa
 
 export function actionsFor(
   d: DonHangRow,
-  ctx: { canTacNghiep: boolean; canTPDvbhXacNhan?: boolean; canActAsTram: boolean; currentEmail: string; isAdmin?: boolean; laGs?: boolean },
+  // laKhoMuaHang (2026-10-27): Kho / Mua hang huy duoc don "Cho hang" ma Kho / Mua hang DA xac nhan xu ly (KTV khong huy duoc nua).
+  ctx: { canTacNghiep: boolean; canTPDvbhXacNhan?: boolean; canActAsTram: boolean; currentEmail: string; isAdmin?: boolean; laGs?: boolean; laKhoMuaHang?: boolean },
 ): { duyet: boolean; tuChoi: boolean; choHang: boolean; huy: boolean } {
   // Don tra hang "Cho TN duyet tong" hien chung muc "Chờ tác nghiệp" voi don mua (2026-09-30) -> TN Duyet/Tu choi ngay tren
   // dong (DonCuaToiTab gui sang /tra-hang/bulk-log, xem laTraHangChoTn). Cac buoc tra hang khac xu ly o muc Hang tra.
@@ -500,7 +501,11 @@ export function actionsFor(
   // ticket dang cho tu huy (backend applyDonHangLog); Kho DA tiep nhan -> khoa, cho Kho xu ly (xem laChoHangBiKhoa).
   // Tu dong duyet 100% (2026-10-14): don "Cho hang" khong duyet / chuyen cho hang lai - Kho quyet dinh (hang ve -> tu duyet).
   if (laChoHangMoKhoa(d)) {
-    return { duyet: false, tuChoi: ctx.canTacNghiep, choHang: false, huy: canHuy || ctx.canTacNghiep };
+    return { duyet: false, tuChoi: ctx.canTacNghiep, choHang: false, huy: canHuy || ctx.canTacNghiep || !!ctx.laKhoMuaHang };
+  }
+  // Kho / Mua hang da xac nhan xu ly ticket (2026-10-27): CHI Kho / Mua hang / Admin huy (= huy ticket, don tu huy) - ban sao backend.
+  if (laChoHangBiKhoa(d)) {
+    return { duyet: false, tuChoi: false, choHang: false, huy: !!ctx.laKhoMuaHang || !!ctx.isAdmin };
   }
   if (d.trang_thai === "Cho TN duyet") {
     return { duyet: ctx.canTacNghiep, tuChoi: ctx.canTacNghiep, choHang: ctx.canTacNghiep, huy: canHuy || ctx.canTacNghiep };
@@ -519,9 +524,12 @@ export function actionsFor(
     (ctx.currentEmail === d.nguoi_tao || ctx.currentEmail === d.nguoi_nhan_hang || gsHuyHo);
   // MO RONG (chot 2026-09-28, muc 5): don da vao PXK nhung phieu con "Dang tao phieu" + Ke toan chua duyet chuyen
   // tien (tn_doi_trong_pxk) -> TN van Huy/Tu choi/Cho hang, don tu go khoi phieu.
+  // GS huy ho don "TN da duyet" (2026-10-27): chua vao phieu, hoac phieu Ke toan chua chot tien / phieu khong tien chua chot (gs_huy_trong_pxk).
+  const gsHuyDaDuyet = gsHuyHo && d.trang_thai === "TN da duyet" && (d.ma_xuat_kho == null || !!d.gs_huy_trong_pxk);
   if (d.trang_thai === "TN da duyet" && (d.ma_xuat_kho == null || !!d.tn_doi_trong_pxk)) {
-    return { duyet: false, tuChoi: ctx.canTacNghiep, choHang: ctx.canTacNghiep, huy: ctx.canTacNghiep || !!ctx.isAdmin || tuHuy };
+    return { duyet: false, tuChoi: ctx.canTacNghiep, choHang: ctx.canTacNghiep, huy: ctx.canTacNghiep || !!ctx.isAdmin || tuHuy || gsHuyDaDuyet };
   }
+  if (gsHuyDaDuyet) return { duyet: false, tuChoi: false, choHang: false, huy: true };
   if (tuHuy) return { duyet: false, tuChoi: false, choHang: false, huy: true };
   return { duyet: false, tuChoi: false, choHang: false, huy: false };
 }

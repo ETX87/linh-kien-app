@@ -22,6 +22,8 @@ export interface LkDanhMucRow {
   bat_tat: number;
   // "Only sua chua" - loai khoi picker chon linh kien khi tao don, xem migration 0083.
   chi_sua_chua?: number;
+  // Nhom LK Karofi / B2B (2026-10-27): LK B2B khong xet tran cong no.
+  nhom_lk?: "karofi" | "b2b" | null;
   // Da co san tren API (SELECT * FROM linh_kien) va trong cache IndexedDB (linhKienCache.ts) - chi
   // thieu trong TYPE nay, khong thieu trong DU LIEU THAT (ra soat "Tao Don Linh Kien 2.0" #3, dung
   // cho LinhKienPicker).
@@ -187,6 +189,10 @@ export interface DonHangRow {
   // "Cho TBP xac nhan"/"Cho GS duyet" - tran, cong no chot hien tai, gia tri cong no cua don).
   ma_eo?: string | null;
   ma_eo_nguoi?: string | null;
+  ma_eo_luc?: string | null;
+  // Ly do vuot tran (log khoi tao "Vượt trần công nợ: công nợ chốt X + đơn mới Y > trần Z") cua don DA duoc duyet vuot tran (co ma EO)
+  // - chi tiet don + dong don trong chi tiet PXK (2026-10-27, de Ke toan nhin nhanh). NULL = khong co so lieu (don qua Tram).
+  vuot_tran_ghi_chu?: string | null;
   cong_no_nhan?: { tran: number | null; chot: number; don: number | null } | null;
   tien_da_tra_pxk?: string | null;
   uu_tien: number;
@@ -250,6 +256,10 @@ export interface DonHangRow {
   // 1 = don "TN da duyet" trong PXK con "Dang tao phieu", Ke toan chua duyet chuyen tien -> TN van Huy/Tu choi/
   // Cho hang duoc (don tu go khoi phieu) - backend TN_DOI_TRONG_PXK_SQL.
   tn_doi_trong_pxk?: number | null;
+  // 1 = GS huy ho duoc don "TN da duyet" trong phieu (Ke toan chua chot tien / phieu khong tien chua chot) - backend GS_HUY_TRONG_PXK_SQL.
+  gs_huy_trong_pxk?: number | null;
+  // 1 = Mua hang chuyen duoc don ve "Chờ hàng" (2026-10-27) - backend MUA_HANG_CHO_HANG_DUOC_SQL.
+  mua_hang_cho_hang_duoc?: number | null;
   // Han TN "đẩy lại" don da huy / tu choi (gio VN, = luc huy/tu choi + 24h); null = khong ap dung (2026-10-05).
   day_lai_han?: string | null;
   // 1 = don "Cho hang" ma Kho DA tiep nhan ticket thieu LK (dang xu ly) -> khoa thao tac, cho Kho (2026-09-30). Don

@@ -260,8 +260,12 @@ export const laPhanLoaiMay = (phanLoai: string | null | undefined) => (phanLoai 
 // Don KH tra gop ("HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX/-NPP", chot 2026-10-02): gom MOI dong cung phieu + cung KTV nhan + cung
 // ma LK + cung loai de xuat + cung mau file thanh 1 dong - SL cong lai, Ma YCSC noi bang dau cach " " (2026-10-08, truoc la ", "),
 // TT+Mail duyet / TT khach hang noi bang ", " (bo trung, bo trong), tien (mau Ban hang) cong theo tung dong goc. Dong khac giu nguyen thu tu.
+// MO RONG 2026-10-27 (v1.410 - "khi tải file import misa, cùng các đơn cùng 1 phiếu giống mã linh kiện sẽ gộp chung về 1 dòng (tương tự
+// đơn Trả góp)"): ap cho MOI dong, khong chi tra gop. Khoa gop = mau + phieu + KTV nhan + ma LK + loai de xuat (dien giai theo loai de
+// xuat, vd MDT) + chinh sach voi don HỖ TRỢ 0 ĐỒNG (dien giai trong/ngoai BH) + don gia voi mau Chuyen kho (Thanh tien = SL x don gia goc).
+// Ma Lada noi nhu Ma YCSC.
 type DongMisa = { line: RawLine; template: MisaTemplate };
-function gopDongKhTraGop(lines: DongMisa[], tienTheoDong: Map<string, number>): DongMisa[] {
+function gopDongCungMa(lines: DongMisa[], tienTheoDong: Map<string, number>): DongMisa[] {
   const out: DongMisa[] = [];
   const nhom = new Map<string, { dong: DongMisa; ids: string[] }>();
   const noi = (a: string | null, b: string | null) => {
@@ -274,11 +278,11 @@ function gopDongKhTraGop(lines: DongMisa[], tienTheoDong: Map<string, number>): 
     return ds.length ? [...new Set(ds)].join(" ") : null;
   };
   for (const d of lines) {
-    if (!laKhTraGop(d.line.loai_de_xuat)) {
-      out.push(d);
-      continue;
-    }
-    const key = [d.template, d.line.pxk_id, d.line.nguoi_nhan_hang ?? "", d.line.ma_lk, d.line.loai_de_xuat ?? ""].join("|");
+    const key = [
+      d.template, d.line.pxk_id, d.line.nguoi_nhan_hang ?? "", d.line.ma_lk, d.line.loai_de_xuat ?? "",
+      !laKhTraGop(d.line.loai_de_xuat) && loaiHoTro0Dong(d.line.loai_de_xuat) ? d.line.chinh_sach ?? "" : "",
+      d.template === "chuyen_kho" ? String(d.line.don_gia ?? "") : "",
+    ].join("|");
     const g = nhom.get(key);
     if (!g) {
       const dong = { template: d.template, line: { ...d.line } };
@@ -289,6 +293,7 @@ function gopDongKhTraGop(lines: DongMisa[], tienTheoDong: Map<string, number>): 
     const l = g.dong.line;
     l.so_luong = l.so_luong == null && d.line.so_luong == null ? null : (l.so_luong ?? 0) + (d.line.so_luong ?? 0);
     l.ma_yeu_cau_su_co = noiMa(l.ma_yeu_cau_su_co, d.line.ma_yeu_cau_su_co);
+    l.ma_lada = noiMa(l.ma_lada, d.line.ma_lada);
     l.tt_mail_duyet = noi(l.tt_mail_duyet, d.line.tt_mail_duyet);
     l.tt_khach_hang = noi(l.tt_khach_hang, d.line.tt_khach_hang);
     g.ids.push(d.line.ddh_id);
@@ -372,7 +377,7 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
   }
   const lam2 = (x: number) => Math.round(x * 100) / 100;
 
-  for (const { line, template } of gopDongKhTraGop(lines, tienTheoDong)) {
+  for (const { line, template } of gopDongCungMa(lines, tienTheoDong)) {
     const mien = line.pxk_mien_xuat ?? mienFromKhuVuc(line.ktv_khu_vuc_ma);
     // Kho phia CONG TY cua dong (Ban hang/Xuat kho: "Mã kho"; Chuyen kho: "Nhập tại kho"). LK "Máy" -> kho ky gui KRF
     // (Admin chua dien thi quay ve kho cong ty).

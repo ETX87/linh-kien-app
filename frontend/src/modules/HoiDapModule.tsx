@@ -89,7 +89,7 @@ export function HoiDapModule() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={t("Tìm mã HD, mã LK, mã đơn, nội dung…")}
-          className="focus-ring ml-auto w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-base sm:w-72 sm:text-sm"
+          className="o-tim focus-ring ml-auto w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-base sm:w-72 sm:text-sm"
         />
       </div>
       <PaginatedTable

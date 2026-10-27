@@ -134,7 +134,7 @@ function GanMaKtvModal({ user, onClose, onDone, vanPhong = false }: { user: User
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm mã KTV / tên…"
-            className="focus-ring w-full max-w-xs border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            className="o-tim focus-ring w-full max-w-xs border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
           />
           <label className="flex items-center gap-1.5 text-xs text-[var(--ink-600)]">
             <input type="checkbox" checked={chiChuaCoTk} onChange={(e) => setChiChuaCoTk(e.target.checked)} />
@@ -279,7 +279,7 @@ function UserListTab({ tabValue }: { tabValue: "cho-duyet" | "da-duyet" }) {
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           placeholder="Tìm theo email/tên…"
-          className="focus-ring w-full max-w-xs border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+          className="o-tim focus-ring w-full max-w-xs border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
         />
         {tabValue === "da-duyet" && (
           <label className="flex items-center gap-1.5 text-xs text-[var(--ink-600)]">
@@ -904,7 +904,7 @@ function VanPhongTab() {
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           placeholder="Tìm theo email/tên…"
-          className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-full sm:w-64"
+          className="o-tim focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-full sm:w-64"
         />
         <Select
           value={vaiTro}
@@ -1750,7 +1750,7 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           placeholder="Tìm theo mã/tên/SĐT/email…"
-          className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-full sm:w-56"
+          className="o-tim focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-full sm:w-56"
         />
         <Select value={cap} onChange={(v) => { setCap(v); setPage(1); }} options={[{ value: "", label: "— Mọi cấp —" }, { value: "1", label: "Cấp 1 (KTV/CTV/Trạm)" }, { value: "2", label: "Cấp 2 (Vệ tinh)" }]} className="min-w-0 flex-1 sm:flex-none sm:w-52" />
         <Select value={khuVuc} onChange={(v) => { setKhuVuc(v); setPage(1); }} options={[{ value: "", label: "— Mọi khu vực —" }, ...khuVucOptions]} className="min-w-0 flex-1 sm:flex-none sm:w-44" />
@@ -2398,7 +2398,7 @@ function EtxNhanSuTab() {
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           placeholder="Tìm theo mã NV/tên/gmail/Mã KTV…"
-          className="focus-ring w-full max-w-xs border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+          className="o-tim focus-ring w-full max-w-xs border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
         />
         <Select
           value={trangThai}

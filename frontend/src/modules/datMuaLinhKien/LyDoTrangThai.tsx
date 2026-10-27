@@ -89,7 +89,9 @@ export function giaiThichTrangThai(
         tone: "canhBao",
         tieuDe: t("Chờ hàng — kho công ty khu vực không đủ hàng, đơn chờ Kho xử lý"),
         tiepTheo: [
-          d.kho_dang_xu_ly_thieu_lk
+          d.kho_dang_xu_ly_thieu_lk && !d.tlk_tiep_nhan_luc
+            ? t("Mua hàng đang xử lý đặt hàng cho ticket thiếu hàng{b}.", { b: d.tlk_ngay_du_kien ? t(" · dự kiến có hàng {a}", { a: fmtDate(d.tlk_ngay_du_kien) }) : "" })
+            : d.kho_dang_xu_ly_thieu_lk
             ? t("Kho đã tiếp nhận{a}{b}.", {
                 a: d.tlk_tiep_nhan_luc ? " " + fmtDateTime(d.tlk_tiep_nhan_luc) : "",
                 b: d.tlk_ngay_du_kien ? t(" · dự kiến có hàng {a}", { a: fmtDate(d.tlk_ngay_du_kien) }) : "",

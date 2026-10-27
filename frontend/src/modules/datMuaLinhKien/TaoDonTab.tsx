@@ -17,6 +17,7 @@ import { MaLadaCheck } from "./MaLadaCheck";
 import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal } from "./DuDoanDuyetHint";
 import { DoiTacCongNoChon } from "./DoiTacCongNoChon";
 import { TraHangAnhPicker, NhapKhoiPhucBanner } from "./SharedUi";
+import { NhapTaoDonHoi } from "./NhapTaoDonHoi";
 import { useTaoDonForm } from "./useTaoDonForm";
 import { TaoDonMobileScreen } from "./TaoDonMobileScreen";
 import { KhachLeSdt } from "./KhachLeSdt";
@@ -98,6 +99,7 @@ export function TaoDonTab({
           )}
           <XacNhanTaoDonModal open={hoiXacNhan} dong={dongCanXacNhan} onDatTiep={() => create.mutate(true)} onQuayLai={() => setHoiXacNhan(false)} dangGui={create.isPending} />
           <KetQuaTaoDonModal ketQua={form.ketQuaTao} onClose={form.dongKetQuaTao} />
+          <NhapTaoDonHoi form={form} />
           {/* Canh bao SONG vuot tran cong no (them 2026-09-04) - chi hien khi da co du lieu de ket luan
               "Khong du" (sePhepDuCongNo === false), tranh nhieu khi chua co dong cong_no nao/chua co
               tran. Xem giai thich cong thuc o useTaoDonForm.ts. */}

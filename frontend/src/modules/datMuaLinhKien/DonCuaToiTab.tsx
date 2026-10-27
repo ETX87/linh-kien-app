@@ -51,6 +51,7 @@ import { LinhKienPicker } from "./LinhKienPicker";
 // ThieuLkTab.tsx (file do cung import nguoc lai DonHangDetailModal tu day).
 import { ThieuLkDetailModal } from "./ThieuLkTab";
 import { Money } from "../../components/ui/Money";
+import { DuyetVuotTranKhoi } from "./DuyetVuotTran";
 import { TongNgayKtvInfo } from "./TongNgayKtv";
 import { GanKhachLe } from "./KhachLeSdt";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
@@ -163,7 +164,7 @@ export function DonHangDetailModal({
   const [ghiChu, setGhiChu] = useState("");
   // "Tu choi" bat buoc chon 1 Ly do cham, "Huy" bat buoc nhap ghiChu tu do (phan hoi UX muc 1, xem
   // comment applyDonHangLog o backend).
-  const [actionTarget, setActionTarget] = useState<"tu_choi" | "cho_hang" | "huy" | "duyet_qua_han" | "day_lai" | "duyet_eo" | null>(null);
+  const [actionTarget, setActionTarget] = useState<"tu_choi" | "cho_hang" | "huy" | "duyet_qua_han" | "day_lai" | "duyet_eo" | "mua_hang_cho_hang" | null>(null);
   // Ma EO khi GS / TBP duyet don vuot tran cong no (tu dong duyet 100%, 2026-10-14).
   const [maEo, setMaEo] = useState("");
   // Canh bao "Công nợ tạo hộ" (them 2026-08-24, muc 4) - chan 1 nhip TRUOC khi goi mutation "duyet"
@@ -245,6 +246,19 @@ export function DonHangDetailModal({
       addToast(t("Đã đẩy lại đơn {a} về Chờ TN duyệt", { a: id }));
     },
     onError: (err) => addToast(t("Không đẩy lại được đơn: ") + describeApiError(err)),
+  });
+
+  // Mua hang chuyen don ve "Chờ hàng" (2026-10-27) - POST /don-hang/:id/cho-hang, ticket mo thang o buoc "Chờ mua hàng".
+  const muaHangChoHangMutation = useMutation({
+    mutationFn: () => api.post(`/dat-mua-lk/don-hang/${id}/cho-hang`, { ghi_chu: ghiChu.trim() }),
+    onSuccess: () => {
+      invalidate();
+      invalidatePipelineCounts(qc);
+      setActionTarget(null);
+      setGhiChu("");
+      addToast(t("Đã chuyển đơn {a} sang Chờ hàng — ticket chờ Mua hàng đặt hàng", { a: id }));
+    },
+    onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
   });
 
   // Dua don "Cho thanh toan" da roi phieu vao lai phieu cho thanh toan (2026-10-20, v1.371) - POST /don-hang/:id/vao-phieu.
@@ -356,7 +370,11 @@ export function DonHangDetailModal({
   const personDirChiTiet = usePersonDirectory();
   const authHuy = useAuth();
   const laGsXem = authHuy.status === "authenticated" && authHuy.user.vai_tro === "Giam sat";
-  const actions = d ? actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, isAdmin, laGs: laGsXem }) : { duyet: false, tuChoi: false, choHang: false, huy: false };
+  // Kho / Mua hang (2026-10-27): huy don "Chờ hàng" Kho / Mua hang da xac nhan xu ly; Mua hang chuyen don ve "Chờ hàng".
+  const laMuaHangXem = authHuy.status === "authenticated" && (!!authHuy.user.la_mua_hang || authHuy.user.vai_tro === "Admin");
+  const laKhoMuaHang = authHuy.status === "authenticated" && (!!authHuy.user.la_kho || !!authHuy.user.la_mua_hang);
+  const actions = d ? actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, isAdmin, laGs: laGsXem, laKhoMuaHang }) : { duyet: false, tuChoi: false, choHang: false, huy: false };
+  const muaHangChoHang = !!d && laMuaHangXem && !!d.mua_hang_cho_hang_duoc;
   // Muc #4: SL thuc xuat CHI cho sua khi dong dang "Cho TN duyet" va SL de xuat > 1 (dung dieu kien
   // nguoi dung neu ra). "Da doi" so voi SL de xuat (khong phai so voi gia tri cu da luu - dong nay
   // chua tung duoc duyet nen chua co "gia tri cu" nao khac SL de xuat) la dieu kien bat buoc ghi chu.
@@ -827,8 +845,35 @@ export function DonHangDetailModal({
             <Btn size="sm" onClick={() => dayLaiMutation.mutate()} loading={dayLaiMutation.isPending} disabled={dayLaiMutation.isPending}>{t("Xác nhận đẩy lại")}</Btn>
           </div>
         </div>
-      ) : actions.duyet || actions.tuChoi || actions.choHang || actions.huy ? (
+      ) : actionTarget === "mua_hang_cho_hang" ? (
+        <div className="w-full space-y-2 bg-[var(--surface-100)] border border-dashed border-[var(--line)] rounded-lg p-2.5">
+          <div className="font-semibold text-xs">{t("Mua hàng chuyển đơn {a} sang Chờ hàng", { a: d.id })}</div>
+          <div className="text-[11px] text-[var(--ink-500)]">
+            {t("Đơn đang nằm trong phiếu chưa gửi Kế toán sẽ rời phiếu và mang theo tiền đã thanh toán. Ticket thiếu hàng mở ở bước “Chờ mua hàng” để bạn nhập mã EO + ngày dự kiến; Kho xác nhận hàng về như thường. KTV không tự hủy được đơn khi ticket đang xử lý.")}
+          </div>
+          <div>
+            <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">{t("Lý do (bắt buộc)")}</label>
+            <input
+              value={ghiChu}
+              onChange={(e) => setGhiChu(e.target.value)}
+              placeholder={t("VD: NCC hết hàng, đang đặt lại")}
+              className="focus-ring w-full bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+            />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Btn variant="ghost" size="sm" onClick={() => { setActionTarget(null); setGhiChu(""); }}>{t("Đóng")}</Btn>
+            <Btn size="sm" onClick={() => muaHangChoHangMutation.mutate()} disabled={!ghiChu.trim() || muaHangChoHangMutation.isPending} loading={muaHangChoHangMutation.isPending}>
+              {t("Xác nhận chờ hàng")}
+            </Btn>
+          </div>
+        </div>
+      ) : actions.duyet || actions.tuChoi || actions.choHang || actions.huy || muaHangChoHang ? (
         <div className="w-full space-y-2">
+          {laChoHangBiKhoa(d) && (
+            <div className="text-[11.5px] text-[var(--color-text-secondary)]">
+              {t("🔒 Kho / Mua hàng đã xác nhận xử lý ticket thiếu hàng{a} — KTV không tự hủy được; Kho / Mua hàng hủy = hủy ticket, đơn tự hủy (tiền về quỹ).", { a: thieuLk?.id ? ` ${thieuLk.id}` : "" })}
+            </div>
+          )}
           {laChoHangMoKhoa(d) && (
             <div className="text-[11.5px] text-[var(--color-text-secondary)]">
               {t("Kho chưa tiếp nhận ticket thiếu hàng{a} — thao tác trên đơn sẽ tự hủy ticket đang chờ.", { a: thieuLk?.id ? ` ${thieuLk.id}` : "" })}
@@ -872,6 +917,11 @@ export function DonHangDetailModal({
           {actions.choHang && (
             <Btn size="sm" variant="ghost" onClick={() => setActionTarget("cho_hang")} disabled={logMutation.isPending}>
               {t("Chờ hàng||nút")}
+            </Btn>
+          )}
+          {muaHangChoHang && !actions.choHang && (
+            <Btn size="sm" variant="ghost" onClick={() => setActionTarget("mua_hang_cho_hang")} disabled={muaHangChoHangMutation.isPending}>
+              {t("⏳ Chuyển chờ hàng")}
             </Btn>
           )}
           {actions.tuChoi && (
@@ -1045,6 +1095,8 @@ export function DonHangDetailModal({
 
           {/* "Vì sao đơn ở trạng thái này" (2026-10-15) - ly do + ai xu ly tiep, cho nguoi dat hieu (LyDoTrangThai.tsx). */}
           <LyDoTrangThaiDon d={d} tenNguoi={(e) => formatPersonDisplay(e, personDirChiTiet)} />
+          {/* Don vuot tran da duoc GS / TBP duyet (2026-10-27) - Ke toan nhin nhanh muc vuot + ma EO. */}
+          <DuyetVuotTranKhoi d={d} />
 
           <DetailZone title={t("Thông tin đơn")}>
             {/* "ID hệ thống" (phan hoi 2026-09-05, muc #6: "cần nhìn thấy ID hệ thống của đơn hàng để
@@ -2315,7 +2367,7 @@ export function DonCuaToiTab({
             value={filterQ}
             onChange={(e) => setFilterQ(e.target.value)}
             placeholder={t("Tìm theo mã LK, mã đơn, mã YCSC, mã Lada, mã phiếu/mã đơn hàng/mã MISA, tên KTV…")}
-            className="focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg pl-2.5 pr-7 py-1.5 text-sm w-64"
+            className="o-tim focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg pl-2.5 pr-7 py-1.5 text-sm w-64"
           />
           {/* FIX (ra soat UI 2026-08-27, hang muc #3): placeholder cu liet ke du 6 tieu chi, qua dai so
               voi be rong o input - rut gon con vai tu khoa chinh, chuyen phan liet ke DAY DU sang

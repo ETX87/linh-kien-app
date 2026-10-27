@@ -148,6 +148,9 @@ export interface KetQuaDong {
   // Don doi tac vuot muc cong no toi da (v1.403) - ly do ghi vao log khoi tao thay cau "vượt trần công nợ" cua KTV.
   ghiChuDoiTac?: string;
   laDoiTac?: boolean;
+  // Linh kien nhom B2B (linh_kien.nhom_lk = 'b2b') - BO QUA duyet tran cong no KTV (chot 2026-10-27, "linh kiện b2b bỏ việc duyệt trần
+  // công nợ (log ghi rõ lý do)") - ghi ly do vao log khoi tao.
+  boQuaTranB2b?: boolean;
 }
 
 export interface KetQuaPhieu {
@@ -164,13 +167,20 @@ const tienVnd = (n: number) => `${Math.round(n).toLocaleString("vi-VN")}đ`;
 
 // Danh gia CA phieu dat (chua ghi gi) - thu tu dong = thu tu tru ton. Dung cho tao tay, import, kiem tra truoc.
 export async function danhGiaPhieu(db: D1Database, ctx: NguCanhNhan, dongs: DongDanhGia[]): Promise<KetQuaPhieu> {
+  // LK nhom B2B khong xet tran cong no (chot 2026-10-27) - doc nhom 1 lan cho ca phieu.
+  const maLks = [...new Set(dongs.map((d) => d.ma_lk))];
+  const nhomRows = maLks.length
+    ? (await db.prepare("SELECT ma_linh_kien, nhom_lk FROM linh_kien WHERE ma_linh_kien IN (SELECT value FROM json_each(?))")
+        .bind(JSON.stringify(maLks)).all<{ ma_linh_kien: string; nhom_lk: string | null }>()).results
+    : [];
+  const laB2b = new Set(nhomRows.filter((r) => r.nhom_lk === "b2b").map((r) => r.ma_linh_kien));
+  const xetTran = (d: DongDanhGia) => canDoiChieuCongNo(deriveLoaiDon(d.loai_de_xuat), d.loai_de_xuat) && !laB2b.has(d.ma_lk);
   // Cong no: chot 1 LAN cho ca phieu (cong no chot hien tai + tong cong no tam tinh cac dong cong no thuc su) so voi tran.
   let tongMoiCongNo = 0;
   for (const d of dongs) {
-    const loaiDon = deriveLoaiDon(d.loai_de_xuat);
-    if (canDoiChieuCongNo(loaiDon, d.loai_de_xuat)) tongMoiCongNo += (d.gia_tri_cong_no ?? 0) * d.so_luong;
+    if (xetTran(d)) tongMoiCongNo += (d.gia_tri_cong_no ?? 0) * d.so_luong;
   }
-  const coDongCongNo = !ctx.laGs && dongs.some((d) => canDoiChieuCongNo(deriveLoaiDon(d.loai_de_xuat), d.loai_de_xuat));
+  const coDongCongNo = !ctx.laGs && dongs.some(xetTran);
   const congNoChot = coDongCongNo && ctx.maKtv ? await computeCongNoChot(db, ctx.maKtv) : 0;
   // Chua gan tran (hoac khong phai KTV) = tran 0 (quy uoc 2026-09-04).
   const danhGiaCongNo: "Du" | "Khong du" | null = coDongCongNo ? (congNoChot + tongMoiCongNo <= (ctx.tranCongNo ?? 0) ? "Du" : "Khong du") : null;
@@ -224,7 +234,8 @@ export async function danhGiaPhieu(db: D1Database, ctx: NguCanhNhan, dongs: Dong
     }
     if (loaiDon === "cong_no" && !laTruCongNo(lde)) {
       kq.soTienCongNo = khongTinhCongNo(lde) ? 0 : (d.gia_tri_cong_no ?? 0) * d.so_luong;
-      kq.danhGiaCongNo = canDoiChieuCongNo(loaiDon, lde) && !ctx.laGs ? danhGiaCongNo : null;
+      kq.danhGiaCongNo = canDoiChieuCongNo(loaiDon, lde) && !ctx.laGs && !laB2b.has(ma) ? danhGiaCongNo : null;
+      if (canDoiChieuCongNo(loaiDon, lde) && !ctx.laGs && laB2b.has(ma)) kq.boQuaTranB2b = true;
     }
 
     // ---- Cac truong hop KHONG cho tao ----
@@ -276,6 +287,14 @@ export async function danhGiaPhieu(db: D1Database, ctx: NguCanhNhan, dongs: Dong
     khuVuc: ctx.khuVuc,
   };
 }
+
+// Don vuot tran / vuot moc doi tac DA duoc duyet (co ma EO - GS / TBP) -> ly do vuot tran ghi o log khoi tao (cong no chot + don moi >
+// tran). Dung o chi tiet don + dong don trong chi tiet PXK de Ke toan nhin nhanh (chot 2026-10-27). Don di qua Tram truoc khong co so
+// tien trong log -> NULL (FE chi hien "duyet vuot tran" + ma EO).
+export const VUOT_TRAN_GHI_CHU_SQL = (a: string) => `CASE WHEN ${a}.ma_eo IS NOT NULL THEN (
+  SELECT vl.ghi_chu FROM dat_don_hang_log vl WHERE vl.dat_don_hang_id = ${a}.id
+    AND (vl.ghi_chu LIKE '%ượt trần công nợ: công nợ chốt%' OR vl.ghi_chu LIKE '%ượt mốc công nợ đối tác%')
+  ORDER BY vl.id LIMIT 1) END`;
 
 // Mo ta ngan ket qua 1 dong cho thong bao/log. Ghi ro KHU VUC kho da kiem tra (2026-10-15, "minh bạch cho người đặt hàng hiểu"
 // - ton kho xet theo khu vuc cua don, KTV thay kho khac con hang se khong hieu vi sao thieu).
@@ -370,6 +389,8 @@ async function lyDoTicketTuDong(db: D1Database): Promise<number | null> {
  *  `nguoiTaoTicket` (nguoi tao don - de KTV tu huy ticket = huy don). Dong ticket cu con mo truoc. Bao Kho + khovan. */
 export async function moTicketChoHangTuDong(
   env: Env, db: D1Database, donHangId: string, nguoiTaoTicket: string, lyDo: string, waitUntil?: (p: Promise<unknown>) => void,
+  // "Cho mua hang" (2026-10-27): Mua hang tu day don ve Cho hang -> ticket vao thang buoc Mua hang dat hang (khong qua Kho, khong bao Kho).
+  opts: { choMuaHang?: { nguoi: string } } = {},
 ): Promise<string> {
   const now = nowVN();
   await db
@@ -385,10 +406,15 @@ export async function moTicketChoHangTuDong(
     db.prepare("INSERT INTO thieu_lk (id, dat_don_hang_id, ly_do, ly_do_cham_id, nguoi_tao, ngay_tao) VALUES (?, ?, ?, ?, ?, ?)").bind(
       thieuLkId, donHangId, lyDo.slice(0, 500), await lyDoTicketTuDong(db), nguoiTaoTicket, now,
     ),
-    db.prepare("INSERT INTO thieu_lk_log (thieu_lk_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Cho kho xu ly', ?, ?, ?)").bind(
-      thieuLkId, nguoiTaoTicket, now, `Tự động: ${lyDo}`.slice(0, 1000),
-    ),
+    opts.choMuaHang
+      ? db.prepare("INSERT INTO thieu_lk_log (thieu_lk_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Cho mua hang', ?, ?, ?)").bind(
+          thieuLkId, opts.choMuaHang.nguoi, now, lyDo.slice(0, 1000),
+        )
+      : db.prepare("INSERT INTO thieu_lk_log (thieu_lk_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Cho kho xu ly', ?, ?, ?)").bind(
+          thieuLkId, nguoiTaoTicket, now, `Tự động: ${lyDo}`.slice(0, 1000),
+        ),
   ]);
+  if (opts.choMuaHang) return thieuLkId;
   const don = await db
     .prepare("SELECT ma_lk, ten_lk_snapshot, so_luong_de_xuat, nguoi_tao, email_gs FROM dat_don_hang WHERE id = ?")
     .bind(donHangId)
@@ -448,7 +474,7 @@ export async function baoGsChoDuyet(env: Env, db: D1Database, donHangId: string)
 }
 
 /** Ghi trang thai moi cho don (khong CAS - luong he thong tu dong noi tiep) + 1 dong log. */
-async function ghiTrangThaiDon(db: D1Database, donHangId: string, trangThai: string, nguoi: string, ghiChu: string, tuDong: boolean, tuTrangThai: string): Promise<boolean> {
+export async function ghiTrangThaiDon(db: D1Database, donHangId: string, trangThai: string, nguoi: string, ghiChu: string, tuDong: boolean, tuTrangThai: string): Promise<boolean> {
   const now = nowVN();
   const r = await db
     .prepare("UPDATE dat_don_hang SET trang_thai_hien_tai = ?, version = version + 1, updated_at = ? WHERE id = ? AND trang_thai_hien_tai = ?")
@@ -468,6 +494,7 @@ async function ghiTrangThaiDon(db: D1Database, donHangId: string, trangThai: str
 export async function tacDongSauDinhTuyen(
   env: Env, db: D1Database, donHangId: string, trangThai: string, nguoi: string, lyDoChoHang: string,
   waitUntil?: (p: Promise<unknown>) => void,
+  opts: { choMuaHang?: boolean } = {},
 ): Promise<void> {
   const d = await docDon(db, donHangId);
   if (!d || d.loai_don === "tra_hang") return;
@@ -478,7 +505,7 @@ export async function tacDongSauDinhTuyen(
     if (d.ma_xuat_kho != null) {
       const pxkId = await pxkChuaDonChuaDuyet(db, donHangId);
       if (pxkId) {
-        const go = await goDonKhoiPxk(db, pxkId, donHangId, nguoi, "Hệ thống chuyển chờ hàng đơn", lyDoChoHang, true, true);
+        const go = await goDonKhoiPxk(db, pxkId, donHangId, nguoi, opts.choMuaHang ? "Mua hàng chuyển chờ hàng đơn" : "Hệ thống chuyển chờ hàng đơn", lyDoChoHang, true, true);
         if (go.hoanQuy > 0) {
           const p = thongBaoHoanQuyPhieuHuy(env, db, pxkId, go.hoanQuy);
           if (waitUntil) waitUntil(p);
@@ -486,7 +513,7 @@ export async function tacDongSauDinhTuyen(
         }
       }
     }
-    await moTicketChoHangTuDong(env, db, donHangId, d.nguoi_tao, lyDoChoHang, waitUntil);
+    await moTicketChoHangTuDong(env, db, donHangId, d.nguoi_tao, lyDoChoHang, waitUntil, opts.choMuaHang ? { choMuaHang: { nguoi } } : {});
   } else if (trangThai === "Cho GS duyet") {
     const p = baoGsChoDuyet(env, db, donHangId);
     if (waitUntil) waitUntil(p);
@@ -513,13 +540,13 @@ export async function xuLyDonChoThanhToan(env: Env, db: D1Database, pxkId: strin
   for (const don of results) {
     const { du, ton, khuVuc } = await donDuTonKhoCongTy(db, don.id);
     if (du) {
-      await ghiTrangThaiDon(db, don.id, "TN da duyet", nguoi, `Tự động duyệt: Kế toán đã xác nhận tiền phiếu ${pxkId}, ${moTaThieuTon(ton, don.so_luong_de_xuat, khuVuc)} — đủ hàng`, true, "Cho thanh toan");
+      await ghiTrangThaiDon(db, don.id, "TN da duyet", nguoi, `Tự động duyệt: phiếu ${pxkId} đã đủ tiền (Kế toán xác nhận / quỹ dư), ${moTaThieuTon(ton, don.so_luong_de_xuat, khuVuc)} — đủ hàng`, true, "Cho thanh toan");
       const p = baoNguoiTaoDon(env, db, don.nguoi_tao, "da_duyet", `Đơn hàng "${don.ten_lk_snapshot} (x${don.so_luong_de_xuat})" đã thanh toán và kho đủ hàng — tự động duyệt, chờ xuất kho`, don.id);
       if (waitUntil) waitUntil(p);
       else await p;
       continue;
     }
-    const lyDo = `Kế toán đã xác nhận tiền phiếu ${pxkId} nhưng ${moTaThieuTon(ton, don.so_luong_de_xuat, khuVuc)} — chuyển chờ hàng (đơn giữ tiền đã thanh toán)`;
+    const lyDo = `Phiếu ${pxkId} đã đủ tiền (Kế toán xác nhận / quỹ dư) nhưng ${moTaThieuTon(ton, don.so_luong_de_xuat, khuVuc)} — chuyển chờ hàng (đơn giữ tiền đã thanh toán)`;
     if (!(await ghiTrangThaiDon(db, don.id, "Cho hang", nguoi, `Tự động: ${lyDo}`, true, "Cho thanh toan"))) continue;
     await tacDongSauDinhTuyen(env, db, don.id, "Cho hang", nguoi, lyDo, waitUntil);
     const p = baoNguoiTaoDon(env, db, don.nguoi_tao, "cho_hang", `Đơn hàng "${don.ten_lk_snapshot} (x${don.so_luong_de_xuat})" đã thanh toán nhưng ${moTaThieuTon(ton, don.so_luong_de_xuat, khuVuc)} — chờ Kho xác nhận chờ hàng hoặc từ chối (từ chối thì tiền về quỹ dư)`, don.id);

@@ -221,7 +221,7 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
           value={timKtv}
           onChange={(e) => setTimKtv(e.target.value)}
           placeholder={t("Tìm KTV (tên, email, khu vực)…")}
-          className="focus-ring w-60 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-sm"
+          className="o-tim focus-ring w-60 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2.5 py-1.5 text-sm"
         />
       )}
       {ktvOptions.length > 0 && (

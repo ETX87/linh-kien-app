@@ -1,3 +1,4 @@
+import { ganEnvToanCuc } from "./lib/envToanCuc";
 import { Hono } from "hono";
 import type { Env } from "./types";
 import authRoutes from "./routes/auth";
@@ -42,6 +43,7 @@ const app = new Hono<{ Bindings: Env }>();
 // FORBIDDEN_ROLE...) - chi bo sung cho nhanh catch-all onError ben duoi.
 app.use("*", async (c, next) => {
   c.set("requestId", crypto.randomUUID());
+  ganEnvToanCuc(c.env); // lib/envToanCuc.ts (2026-10-27)
   await next();
 });
 
@@ -95,6 +97,7 @@ export default {
   // muc linh kien thay doi tu lan dong bo truoc sang he DVBH goc. waitUntil() de Cloudflare khong
   // cat request truoc khi cac lenh goi HTTP (qua CASE_LOOKUP_SERVICE) hoan tat.
   scheduled: async (event: ScheduledEvent, env: Env, ctx: ExecutionContext) => {
+    ganEnvToanCuc(env);
     ctx.waitUntil(runDvbhSync(env, env.DB));
     // Them 2026-09-12: PULL bang gia tu doi tac gia88 1 lan/dem luc 0h GIO VN = 17h UTC (xem
     // lib/gia88Sync.ts) - tai dung DUNG cron hang gio co san thay vi them 1 entry cron rieng, chi gate

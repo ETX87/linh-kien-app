@@ -68,7 +68,7 @@ export function ComboTab() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Tìm mã/tên combo hoặc linh kiện thành phần…"
-          className="focus-ring w-full max-w-lg bg-white border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-sm"
+          className="o-tim focus-ring w-full max-w-lg bg-white border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-sm"
         />
         {canWrite && (
           <Btn variant="primary" size="sm" className="ml-auto" onClick={() => setSua("moi")}>

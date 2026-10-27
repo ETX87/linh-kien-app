@@ -495,7 +495,7 @@ function KhoanChuyenTab({ xemTatCa, nguoiOptions, emailLoc, setEmailLoc, ten, co
           ]}
           className="w-full sm:w-52"
         />
-        <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder={t("Tìm mã HĐ / PXK")} className="focus-ring w-44 rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-base sm:text-sm" />
+        <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder={t("Tìm mã HĐ / PXK")} className="o-tim focus-ring w-44 rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-base sm:text-sm" />
         <label className="flex items-center gap-1 text-xs text-[var(--color-text-secondary)]">{t("Từ||ngày")}
           <input type="date" value={tu} onChange={(e) => { setTu(e.target.value); setPage(1); }} className="focus-ring rounded-lg border border-[var(--color-border)] px-2 py-1 text-base sm:text-sm" />
         </label>
@@ -708,7 +708,7 @@ function SoDuTab({ rows, isLoading, isError, ten, coTheDieuChinh, onXemSoQuy, on
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder={t("Tìm theo tên / email")} className="focus-ring w-56 rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-base sm:text-sm" />
+        <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder={t("Tìm theo tên / email")} className="o-tim focus-ring w-56 rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-base sm:text-sm" />
         <label className="flex items-center gap-1.5 text-sm text-[var(--color-text-body)]">
           <input type="checkbox" checked={chiCoQuy} onChange={(e) => { setChiCoQuy(e.target.checked); setPage(1); }} /> {t("Chỉ người có quỹ dư")}
         </label>
@@ -910,7 +910,7 @@ function KhachLeTab({ coTheDieuChinh, onXemSoQuy, onDieuChinh }: {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder={t("Tìm theo SĐT / mã KH")} className="focus-ring w-56 rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-base sm:text-sm" />
+        <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder={t("Tìm theo SĐT / mã KH")} className="o-tim focus-ring w-56 rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-base sm:text-sm" />
         <Select
           value={nhom}
           onChange={(v) => { setNhom(v); setPage(1); }}

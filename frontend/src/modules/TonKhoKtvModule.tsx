@@ -297,7 +297,7 @@ function TonKhoKtvContent() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Tìm theo mã/tên KTV, mã MISA…"
-          className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-full sm:w-64"
+          className="o-tim focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-full sm:w-64"
         />
       </div>
       {/* The mobile (ra soat mobile 2026-09-27): bang 10 cot cuon ngang tren dien thoai chi thay "Mã KTV/Tên",
@@ -518,7 +518,7 @@ function ChuaKhopPanel({ rows }: { rows: MaKhoChuaKhopRow[] }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Tìm theo mã/tên kho…"
-          className="focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-64"
+          className="o-tim focus-ring border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm w-64"
         />
       </div>
       <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">

@@ -300,7 +300,7 @@ export function FilterSearchBar({
               value={searchValue ?? ""}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={searchPlaceholder ?? t("Tìm kiếm...")}
-              className="focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-base sm:text-sm min-w-0 flex-1 basis-40 sm:flex-none sm:w-64"
+              className="o-tim focus-ring bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-base sm:text-sm min-w-0 flex-1 basis-40 sm:flex-none sm:w-64"
             />
           )}
         </div>

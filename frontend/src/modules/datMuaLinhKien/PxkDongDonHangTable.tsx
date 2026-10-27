@@ -11,6 +11,7 @@ import type { DonHangRow, LyDoChamRow } from "./types";
 import { LoaiChietKhauPicker, LoaiChietKhauText, HoaDonGiaNiemYet, duocDoiLoaiChietKhau, DoiLoaiChietKhauNhieuDon, tenLoaiChietKhau, useLoaiChietKhauList } from "./LoaiChietKhau";
 import { describeApiError, invalidatePipelineCounts, laTruCongNo } from "./helpers";
 import { LoaiDeXuatBadge } from "./SharedUi";
+import { DuyetVuotTranBadge } from "./DuyetVuotTran";
 import { DON_CUA_TOI_TRANG_THAI_OPTIONS } from "./constants";
 import { t } from "../../i18n";
 
@@ -641,6 +642,7 @@ export function PxkDongDonHangTable({
               </td>
               <td className={o} title={t(COT_GON[2].tip)}>
                 <LoaiDeXuatBadge loaiDon={d.loai_don ?? pxk.loai_don ?? undefined} loaiDeXuat={d.loai_de_xuat} />
+                <DuyetVuotTranBadge d={d} />
               </td>
               <td className={`${o} text-right`} title={t(COT_GON[3].tip)}>
                 {t("SL {a}", { a: d.so_luong_de_xuat })}
@@ -694,7 +696,7 @@ export function PxkDongDonHangTable({
               {d.ten_lk_snapshot ?? d.ma_lk}
             </td>
             {/* Loai de xuat quyet dinh cach tinh tien (2026-09-28). */}
-            <td className="px-2.5 py-2 whitespace-nowrap"><LoaiDeXuatBadge loaiDon={d.loai_don ?? pxk.loai_don ?? undefined} loaiDeXuat={d.loai_de_xuat} /></td>
+            <td className="px-2.5 py-2 whitespace-nowrap"><LoaiDeXuatBadge loaiDon={d.loai_don ?? pxk.loai_don ?? undefined} loaiDeXuat={d.loai_de_xuat} /><DuyetVuotTranBadge d={d} /></td>
             <td className="px-2.5 py-2 text-right">{d.so_luong_de_xuat}</td>
             <td className="px-2.5 py-2 text-right">{slThucXuat(d) ?? <span className="text-[var(--ink-400)]">—</span>}</td>
             <td className="px-2.5 py-2 text-right" onClick={(e) => e.stopPropagation()}>{oTien(d)}</td>

@@ -561,7 +561,7 @@ export function NhanThieuList({
           </button>
         ))}
       </div>
-      <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder={t("Tìm mã báo / mã phiếu / mã MISA")} className={`${INPUT} w-full sm:w-80`} />
+      <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder={t("Tìm mã báo / mã phiếu / mã MISA")} className={`o-tim ${INPUT} w-full sm:w-80`} />
       <div className="overflow-x-auto rounded-lg border border-[var(--line)] bg-white">
         <table className={TBL}>
           <thead className="tbl-head">

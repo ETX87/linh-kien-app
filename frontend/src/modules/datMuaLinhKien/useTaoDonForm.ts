@@ -62,21 +62,58 @@ export function useTaoDonForm({
 
   const authNhap = useAuth();
   const emailNhap = authNhap.status === "authenticated" ? authNhap.user.email : "";
+  // SUA 2026-10-27 ("khi tắt màn UI tạo đơn sẽ hiện popup hỏi người dùng có thông tin chưa lưu có muốn lưu lại cho lần sau không ... nếu
+  // app bị tắt bất ngờ thì sẽ lưu lại - nhưng lần sau mở lại sẽ hiện popup hỏi ... có muốn mở lại thông tin đã tạo dở không"): KHONG tu
+  // khoi phuc nua - co nhap cu thi form mo RONG + hoi (hoiKhoiPhuc); van ghi nhap moi lan doi (app tat bat ngo van con); dong form co noi
+  // dung -> hoi luu (hoiLuuKhiDong): Luu = giu nhap, Khong luu = xoa.
   const [nhapCu] = useState(() => docNhapTaoDon(emailNhap));
-  const [khoiPhucLuc, setKhoiPhucLuc] = useState<number | null>(nhapCu?.luc ?? null);
-  const [nguoiNhanHang, setNguoiNhanHangState] = useState(nhapCu?.nguoiNhanHang ?? "");
+  const [hoiKhoiPhuc, setHoiKhoiPhuc] = useState<NhapTaoDon | null>(nhapCu);
+  const [khoiPhucLuc, setKhoiPhucLuc] = useState<number | null>(null);
+  const [nguoiNhanHang, setNguoiNhanHangState] = useState("");
   // SDT KH le (migration 0074) - chi dung khi nguoi nhan la tai khoan nhom KH le; doi nguoi nhan -> xoa.
-  const [khLeSdt, setKhLeSdt] = useState(nhapCu?.khLeSdt ?? "");
+  const [khLeSdt, setKhLeSdt] = useState("");
   const setNguoiNhanHang = (v: string) => {
     setNguoiNhanHangState(v);
     setKhLeSdt("");
   };
-  const [drafts, setDrafts] = useState<DonHangDraft[]>(nhapCu?.drafts ?? [emptyDraft()]);
+  const [drafts, setDrafts] = useState<DonHangDraft[]>([emptyDraft()]);
   const [infoExpandedIdx, setInfoExpandedIdx] = useState<Set<number>>(new Set());
-  const [activeIdx, setActiveIdx] = useState(nhapCu ? Math.min(Math.max(0, nhapCu.activeIdx || 0), nhapCu.drafts.length - 1) : 0);
+  const [activeIdx, setActiveIdx] = useState(0);
   useEffect(() => {
+    // Chua tra loi "mo lai don tao do?" -> khong ghi de nhap cu bang form rong.
+    if (hoiKhoiPhuc) return;
     luuNhapTaoDon(emailNhap, { nguoiNhanHang, khLeSdt, drafts, activeIdx });
-  }, [emailNhap, nguoiNhanHang, khLeSdt, drafts, activeIdx]);
+  }, [emailNhap, nguoiNhanHang, khLeSdt, drafts, activeIdx, hoiKhoiPhuc]);
+  function moLaiNhap() {
+    const n = hoiKhoiPhuc;
+    if (!n) return;
+    setNguoiNhanHangState(n.nguoiNhanHang ?? "");
+    setKhLeSdt(n.khLeSdt ?? "");
+    setDrafts(n.drafts);
+    setActiveIdx(Math.min(Math.max(0, n.activeIdx || 0), n.drafts.length - 1));
+    setKhoiPhucLuc(n.luc);
+    setHoiKhoiPhuc(null);
+  }
+  function boQuaNhapCu() {
+    try {
+      localStorage.removeItem(khoaNhap(emailNhap));
+    } catch {
+      // bo qua
+    }
+    setHoiKhoiPhuc(null);
+  }
+  // Dong form (✕ / Esc / Back) khi dang co noi dung chua tao -> NhapTaoDonHoi hoi luu lai cho lan sau (chan dong qua chanDong.tsx).
+  const coNoiDungChuaTao = !hoiKhoiPhuc && coNoiDung(drafts);
+  function luuNhapNgay() {
+    luuNhapTaoDon(emailNhap, { nguoiNhanHang, khLeSdt, drafts, activeIdx });
+  }
+  function xoaNhap() {
+    try {
+      localStorage.removeItem(khoaNhap(emailNhap));
+    } catch {
+      // bo qua
+    }
+  }
   // "Soạn mới" - bo don dang soan da khoi phuc (localStorage tu xoa qua effect tren vi form ve rong).
   function boNhap() {
     setNguoiNhanHangState("");
@@ -432,6 +469,8 @@ export function useTaoDonForm({
     // + don KH tra gop / HỖ TRỢ 0 ĐỒNG (khongTinhCongNo) - gia tri CN = 0, khop backend.
     if (deriveLoaiDon(d.loai_de_xuat.trim()) !== "cong_no" || laTruCongNo(d.loai_de_xuat) || khongTinhCongNo(d.loai_de_xuat)) return sum;
     const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
+    // LK nhom B2B khong xet tran cong no (2026-10-27) - khop backend danhGiaPhieu.
+    if (lk?.nhom_lk === "b2b") return sum;
     return sum + (lk?.gia_tri_cong_no ?? 0) * d.so_luong_de_xuat;
   }, 0);
   // null = khong the danh gia (chua co dong cong_no nao trong luc soan, HOAC chua tai xong du lieu
@@ -459,6 +498,7 @@ export function useTaoDonForm({
     laNhomKhLe, khLeSdt, setKhLeSdt, khLeSdtSai, khLeTraCuu, khLeDangTraCuu,
     kiemTra: kiemTraHienTai, dangKiemTra, loiPhieuText, ketQuaTheoDong, coDongBiChan, dongCanXacNhan, hoiXacNhan, setHoiXacNhan,
     ketQuaTao, dongKetQuaTao, khoiPhucLuc, boNhap, anKhoiPhuc: () => setKhoiPhucLuc(null),
+    hoiKhoiPhuc, moLaiNhap, boQuaNhapCu, coNoiDungChuaTao, luuNhapNgay, xoaNhap,
     doiTacChon, tienDoiTacTrenForm,
   };
 }

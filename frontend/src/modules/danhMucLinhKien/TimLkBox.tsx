@@ -83,7 +83,7 @@ export function TimLkBox({
         onKeyDown={onKeyDown}
         placeholder="Tìm mã/tên, vd: lõi ro, bơm 24, cpf1102…"
         // 16px tren dien thoai - tranh iOS tu phong to khi cham vao o.
-        className="focus-ring w-full bg-white border border-[var(--line)] rounded-lg pl-2.5 pr-8 py-1.5 text-base sm:text-sm"
+        className="o-tim focus-ring w-full bg-white border border-[var(--line)] rounded-lg pl-2.5 pr-8 py-1.5 text-base sm:text-sm"
       />
       {value && (
         <button

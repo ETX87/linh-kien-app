@@ -56,6 +56,50 @@ export const TN_DOI_TRONG_PXK_SQL = (alias: string) => `(
   )
 )`;
 
+/**
+ * GS khu vuc HUY HO don "TN da duyet" DA nam trong phieu (chot 2026-10-27, "Cho GS khả năng hủy đơn nếu phiếu chứa đơn đó chưa được kế
+ * toán duyệt tiền hoặc chưa được kế toán duyệt phiếu (nếu không chuyển tiền)"): phieu "Dang tao phieu" + Ke toan chua chot tien (giong TN)
+ * HOAC phieu KHONG can chuyen tien dang "Cho ke toan" (cho Ke toan chot) ma chua co Ma MISA. Don tu go khoi phieu (goDonKhoiPxk).
+ */
+export const GS_HUY_TRONG_PXK_SQL = (alias: string) => `(
+  ${alias}.trang_thai_hien_tai = 'TN da duyet' AND ${alias}.loai_don IN ('mua', 'cong_no')
+  AND EXISTS (
+    SELECT 1 FROM phieu_xuat_kho_dong gpd JOIN phieu_xuat_kho gp ON gp.id = gpd.phieu_xuat_kho_id
+    WHERE gpd.dat_don_hang_id = ${alias}.id AND (
+      (gp.trang_thai_hien_tai = 'Dang tao phieu' AND NOT ${KE_TOAN_DA_CHOT_TIEN_SQL("gp")})
+      OR (gp.trang_thai_hien_tai = 'Cho ke toan' AND gp.so_tien_can_chuyen IS NULL AND TRIM(COALESCE(gp.ma_misa, '')) = '')
+    )
+  )
+)`;
+
+export async function pxkGsHuyDuoc(db: D1Database, donHangId: string): Promise<string | null> {
+  const row = await db
+    .prepare(
+      `SELECT pd.phieu_xuat_kho_id as pxk_id FROM dat_don_hang ddh
+       JOIN phieu_xuat_kho_dong pd ON pd.dat_don_hang_id = ddh.id
+       JOIN phieu_xuat_kho p ON p.id = pd.phieu_xuat_kho_id AND p.trang_thai_hien_tai != 'Ke toan huy'
+       WHERE ddh.id = ? AND ${GS_HUY_TRONG_PXK_SQL("ddh")}`,
+    )
+    .bind(donHangId)
+    .first<{ pxk_id: string }>();
+  return row?.pxk_id ?? null;
+}
+
+/**
+ * Mua hang day don ve "Cho hang" (chot 2026-10-27, "bổ sung nút chờ hàng cho vai trò mua hàng" + "đẩy đơn lại trạng thái chờ hàng cho nhân
+ * viên mua hàng (nếu đơn chưa được kế toán duyệt phiếu)"): don Mua / Cong no (khong TRỪ CÔNG NỢ - ton KTV, khong don gui bu) dang "Cho TN
+ * duyet" / "Cho thanh toan" / "TN da duyet", CHUA nam trong phieu nao da gui Ke toan (phieu "Dang tao phieu" thi don roi phieu mang theo tien).
+ */
+export const MUA_HANG_CHO_HANG_DUOC_SQL = (alias: string) => `(
+  ${alias}.loai_don IN ('mua', 'cong_no') AND ${alias}.gui_bu_nhan_thieu_id IS NULL
+  AND instr(COALESCE(${alias}.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') = 0
+  AND ${alias}.trang_thai_hien_tai IN ('Cho TN duyet', 'Cho thanh toan', 'TN da duyet')
+  AND NOT EXISTS (
+    SELECT 1 FROM phieu_xuat_kho_dong mpd JOIN phieu_xuat_kho mp ON mp.id = mpd.phieu_xuat_kho_id
+    WHERE mpd.dat_don_hang_id = ${alias}.id AND mp.trang_thai_hien_tai NOT IN ('Dang tao phieu', 'Ke toan huy')
+  )
+)`;
+
 export async function pxkTnDoiDuoc(db: D1Database, donHangId: string): Promise<string | null> {
   const row = await db
     .prepare(

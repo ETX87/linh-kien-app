@@ -175,7 +175,7 @@ export function TienNgoaiTab({ ten }: { ten: (e: string | null | undefined) => s
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder={t("Tìm mã KTV / MISA / tên / nội dung / tên file…")}
-          className="focus-ring h-9 w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[13px] sm:w-72" />
+          className="o-tim focus-ring h-9 w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[13px] sm:w-72" />
         <label className="flex items-center gap-1 text-xs text-[var(--color-text-secondary)]">{t("Từ||ngày")}
           <input type="date" value={tu} onChange={(e) => { setTu(e.target.value); setPage(1); }} className="focus-ring h-9 rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[13px]" />
         </label>
@@ -530,7 +530,7 @@ function DuyetImportModal({ tenFile, dongFile, danhBa, dangTaiDanhBa, onClose, o
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <input value={tim} onChange={(e) => setTim(e.target.value)} placeholder={t("Tìm mã / tên / nội dung…")} className={`${oNhap} w-full sm:w-64`} />
+            <input value={tim} onChange={(e) => setTim(e.target.value)} placeholder={t("Tìm mã / tên / nội dung…")} className={`o-tim ${oNhap} w-full sm:w-64`} />
             <Select value={khuVuc} onChange={setKhuVuc} options={[{ value: "", label: t("Mọi khu vực") }, ...khuVucOptions.map((k) => ({ value: k, label: k }))]} />
             <input value={noiDungChung} onChange={(e) => setNoiDungChung(e.target.value)} placeholder={t("Nội dung chung cho dòng trống (vd Trừ lương T10/2026)")} className={`${oNhap} w-full sm:w-80`} />
             <Btn size="sm" variant="ghost" onClick={() => setDong((cu) => (cu ?? []).map((d) => (hien.some((x) => x.d.stt === d.stt) && !daGui.has(d.stt) ? { ...d, chon: true } : d)))}>{t("Chọn các dòng đang lọc")}</Btn>

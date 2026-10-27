@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { pushOverlayClose } from "../../lib/overlayStack";
+import { ChanDongContext, useDongCoHoi } from "./chanDong";
 import { t, tn } from "../../i18n";
 
 // UI redesign (phan hoi Codex 2026-08-19, muc P2 "Doi Detail Modal sang Drawer"): component RIENG
@@ -31,40 +32,42 @@ export function Drawer({
   footer?: ReactNode;
   headerExtra?: ReactNode;
 }) {
+  // Form ben trong co the chan dong (vd anh bang chung chua bam "Đã chuyển" - chanDong.tsx, 2026-10-27): moi duong dong deu qua `dong`.
+  const [dangKyChan, dong] = useDongCoHoi(onClose);
   // Phase 4 (phim tat, phan hoi Codex 2026-08-19 roadmap goc): Esc dong Drawer - hanh vi nen tang cho
   // moi dialog, ap dung o day (KHONG sua Modal.tsx, tranh dung cham 40 noi dung Modal) vi Drawer moi
   // chi co 2 noi dung (DonHangDetailModal/PxkDetailModal), rui ro thap.
   useEffect(() => {
     if (!open) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") dong();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
+  }, [open, dong]);
 
   // Nut Back cua he dieu hanh (mobile) dong Drawer nay truoc, thay vi thoat thang app (phan hoi
   // 2026-08-28) - dang ky/go dang ky voi ngan xep dung chung, xem overlayStack.ts + useExitConfirm.ts.
   useEffect(() => {
     if (!open) return;
-    return pushOverlayClose(onClose);
-  }, [open, onClose]);
+    return pushOverlayClose(dong);
+  }, [open, dong]);
 
   if (!open) return null;
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-[var(--overlay)] backdrop-blur-[2px]" onClick={onClose} />
+      <div className="fixed inset-0 z-50 bg-[var(--overlay)] backdrop-blur-[2px]" onClick={dong} />
       <div className={`drawer-in fixed inset-y-0 right-0 z-50 w-full ${width} bg-[var(--surface)] shadow-[var(--shadow-drawer)] flex flex-col`}>
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--color-border-soft)] shrink-0">
           <h3 className="text-base font-bold text-[var(--color-text)] truncate">{tn(title)}</h3>
           <div className="flex items-center gap-2 shrink-0">
             {headerExtra}
-            <button onClick={onClose} aria-label={t("Đóng")} className="focus-ring w-10 h-10 sm:w-8 sm:h-8 rounded-[var(--radius-btn)] hover:bg-[var(--color-subtle)] text-[var(--color-text-faint)] hover:text-[var(--color-text-body)]">
+            <button onClick={dong} aria-label={t("Đóng")} className="focus-ring w-10 h-10 sm:w-8 sm:h-8 rounded-[var(--radius-btn)] hover:bg-[var(--color-subtle)] text-[var(--color-text-faint)] hover:text-[var(--color-text-body)]">
               ✕
             </button>
           </div>
         </div>
-        <div className="overflow-y-auto p-5 flex-1">{children}</div>
+        <div className="overflow-y-auto p-5 flex-1"><ChanDongContext.Provider value={dangKyChan}>{children}</ChanDongContext.Provider></div>
         {/* pb cong safe-area (2026-09-29): tren iPhone nut o chan Drawer khong bi thanh Home che/de sat. */}
         {footer && <div className="border-t border-[var(--color-border-soft)] bg-[var(--surface)] px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shrink-0">{footer}</div>}
       </div>

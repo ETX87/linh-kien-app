@@ -12,6 +12,7 @@
 import { nowVN } from "./vnTime";
 import type { Env } from "../types";
 import { notifyWorkflowTask, emailGsListForPxk } from "./taskNotify";
+import { layEnvToanCuc } from "./envToanCuc";
 
 export type LoaiGiaoDichQuy = "nop_tien" | "tra_phieu" | "hoan_phieu" | "dieu_chinh" | "hoan_tien_ktv";
 export const NGUOI_HE_THONG = "he-thong";
@@ -89,12 +90,26 @@ interface PxkTien {
   da_thanh_toan: number;
   trang_thai_chuyen_tien: string | null;
   trang_thai_hien_tai: string | null;
+  // 2026-10-27: KTV CHUA bao "Đã chuyển" (khong co anh bang chung moi chua ghi nhan, ngay_ktv_chuyen NULL) va phieu khong co don "Chờ thanh
+  // toán" -> du tien bang quy / tien don mang theo thi KHONG can Ke toan xac nhan (xem canBangPxk).
+  tu_duyet_du_tien: number;
+  co_cho_thanh_toan: number;
 }
 
 async function docPxkTien(db: D1Database, pxkId: string): Promise<PxkTien | null> {
   return db
     .prepare(
-      "SELECT id, nguoi_nhan_hang, so_tien_can_chuyen, da_thanh_toan, trang_thai_chuyen_tien, trang_thai_hien_tai FROM phieu_xuat_kho WHERE id = ?",
+      `SELECT p.id, p.nguoi_nhan_hang, p.so_tien_can_chuyen, p.da_thanh_toan, p.trang_thai_chuyen_tien, p.trang_thai_hien_tai,
+         (p.ngay_ktv_chuyen IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM json_each(CASE WHEN json_valid(p.bang_chung_chuyen_tien_anh) THEN p.bang_chung_chuyen_tien_anh ELSE '[]' END) a
+            WHERE a.value NOT IN (
+              SELECT j.value FROM khoan_chuyen_tien k, json_each(CASE WHEN json_valid(k.anh) THEN k.anh ELSE '[]' END) j
+              WHERE k.phieu_xuat_kho_id = p.id AND k.trang_thai = 'Da duyet'))) AS tu_duyet_du_tien,
+         EXISTS (
+            SELECT 1 FROM phieu_xuat_kho_dong d JOIN dat_don_hang dd ON dd.id = d.dat_don_hang_id
+            WHERE d.phieu_xuat_kho_id = p.id AND dd.trang_thai_hien_tai = 'Cho thanh toan') AS co_cho_thanh_toan
+       FROM phieu_xuat_kho p WHERE p.id = ?`,
     )
     .bind(pxkId)
     .first<PxkTien>();
@@ -122,6 +137,7 @@ export async function canBangPxk(
 ): Promise<KetQuaCanBang> {
   const khiTraDu: KhiTraDu = opts.khiTraDu ?? "cho-ke-toan";
   const ketQua: KetQuaCanBang = { hoan: 0, tru: 0, daThanhToanDu: false };
+  let xuLyChoThanhToanSau = false;
   let email: string | null = null;
   for (let lan = 0; lan < 3; lan++) {
     const pxk = await docPxkTien(db, pxkId);
@@ -131,7 +147,13 @@ export async function canBangPxk(
     const tong = daHuy ? 0 : Math.max(0, pxk.so_tien_can_chuyen ?? 0);
     const daTra = pxk.da_thanh_toan ?? 0;
     // Khong bat buoc "Dang tao phieu": phieu cu da qua buoc (du lieu truoc gate) duoc Ke toan duyet van phai tru quy.
-    const choTien = !daHuy && pxk.trang_thai_chuyen_tien === "Cho KTV chuyen";
+    // Tien can chuyen = 0 (da du bang quy / tien don mang theo) thi KHONG can Ke toan duyet (chot 2026-10-27, "Các trường hợp tiền cần
+    // chuyển = 0 thì không cần kế toán duyệt tiền"; bug PMH-001400 - don mang tien da tra sang phieu moi bi bat Ke toan xac nhan lai 0d):
+    // KTV chua bao chuyen (khong anh moi) -> dong thang "Ke toan da duyet" (log ro ly do), ke ca phieu dang "KTV da chuyen" do he thong tu
+    // dat truoc day. KTV da bao chuyen -> van cho Ke toan. Phieu co don "Chờ thanh toán" -> xet lai ton nhu luc Ke toan duyet
+    // (xuLyDonChoThanhToan, can env - lib/envToanCuc.ts; khong co env thi giu cho Ke toan nhu cu).
+    const tuDuyet = khiTraDu === "cho-ke-toan" && !!pxk.tu_duyet_du_tien && (!pxk.co_cho_thanh_toan || !!layEnvToanCuc());
+    const choTien = !daHuy && (pxk.trang_thai_chuyen_tien === "Cho KTV chuyen" || (tuDuyet && pxk.trang_thai_chuyen_tien === "KTV da chuyen"));
     const now = nowVN();
     const nguoiGhi = nguoi || NGUOI_HE_THONG;
 
@@ -163,7 +185,7 @@ export async function canBangPxk(
       lenh.push(
         db.prepare(
           `UPDATE phieu_xuat_kho SET trang_thai_chuyen_tien = ?, ly_do_tu_choi_chuyen_tien = NULL, tu_choi_chuyen_tien_luc = NULL WHERE id = ?`,
-        ).bind(khiTraDu === "ke-toan" ? "TN da duyet" : "KTV da chuyen", pxkId),
+        ).bind(khiTraDu === "ke-toan" || tuDuyet ? "TN da duyet" : "KTV da chuyen", pxkId),
       );
     }
     if (nguoi) {
@@ -179,7 +201,9 @@ export async function canBangPxk(
             (thanhToanDu
               ? khiTraDu === "ke-toan"
                 ? " — phiếu đã thanh toán đủ, không cần chuyển thêm"
-                : " — đã đủ tiền, KTV không cần chuyển thêm; chờ Kế toán xác nhận"
+                : tuDuyet
+                  ? " — đã đủ tiền (quỹ dư / tiền đơn đã thanh toán), tiền cần chuyển = 0: tự xác nhận, không cần Kế toán duyệt"
+                  : " — đã đủ tiền, KTV không cần chuyển thêm; chờ Kế toán xác nhận"
               : ` — còn phải chuyển ${tien(tong - sauCung)}`),
         ));
       }
@@ -193,9 +217,16 @@ export async function canBangPxk(
     ketQua.hoan += hoan;
     ketQua.tru += tru;
     ketQua.daThanhToanDu = ketQua.daThanhToanDu || thanhToanDu;
+    if (thanhToanDu && tuDuyet && pxk.co_cho_thanh_toan) xuLyChoThanhToanSau = true;
     break;
   }
   if (email && ketQua.hoan > 0 && opts.phanBoTiep !== false) await phanBoQuy(db, email, nguoi, pxkId);
+  // Phieu vua tu "Kế toán đã duyệt" (du tien) ma con don "Chờ thanh toán" -> xet lai ton nhu luc Ke toan bam duyet (2026-10-27).
+  const env = layEnvToanCuc();
+  if (xuLyChoThanhToanSau && env) {
+    const { xuLyDonChoThanhToan } = await import("./tuDongDuyet");
+    await xuLyDonChoThanhToan(env, db, pxkId, nguoi || NGUOI_HE_THONG);
+  }
   return ketQua;
 }
 

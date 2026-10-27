@@ -69,21 +69,22 @@ function nextStatesForThieuLk(
       // Chuyen Mua hang (2026-10-19): ma chua co ke hoach hang ve -> Mua hang dat hang.
       { trangThai: "Cho mua hang", canDo: kho },
       { trangThai: "Kho tu choi sai TT", canDo: kho },
-      { trangThai: "Da huy bo", canDo: isCreator },
+      { trangThai: "Da huy bo", canDo: isCreator || ctx.canKho || !!ctx.canMuaHang },
     ];
   // "Kho da cap nhat" (2026-09-28): sau tiep nhan, Kho cap nhat lai ngay du kien/ghi chu (lap lai duoc).
   if (r.trang_thai === "Cho mua hang")
     return [
       { trangThai: "Mua hang da dat", canDo: !!ctx.canMuaHang },
       { trangThai: "Mua hang tu choi", canDo: !!ctx.canMuaHang },
-      { trangThai: "Da huy bo", canDo: ctx.canKho || isCreator },
+      // Kho / Mua hang da xac nhan xu ly (2026-10-27): KTV (nguoi tao) khong huy duoc nua - chi Kho / Mua hang (backend applyThieuLkLog).
+      { trangThai: "Da huy bo", canDo: ctx.canKho || !!ctx.canMuaHang },
     ];
   if (r.trang_thai === "Kho da tiep nhan" || r.trang_thai === "Kho da cap nhat" || r.trang_thai === "Mua hang da dat")
     return [
       { trangThai: "Kho da cap nhat", canDo: kho },
       ...(r.trang_thai !== "Mua hang da dat" ? [{ trangThai: "Cho mua hang", canDo: kho }] : []),
       { trangThai: "Kho xac nhan hang da ve", canDo: kho },
-      { trangThai: "Da huy bo", canDo: ctx.canKho || isCreator },
+      { trangThai: "Da huy bo", canDo: ctx.canKho || !!ctx.canMuaHang },
     ];
   // Kho xong phan minh (hang ve / tu choi sai TT) -> don goc da quay ve "Cho TN duyet"; TN duyet o day = duyet luon
   // don goc (backend applyThieuLkLog), hoac duyet tren don goc thi ticket tu dong (2026-09-29).
@@ -190,6 +191,8 @@ function ThieuLkActionForm({
   const isCapNhat = trangThai === "Kho da cap nhat";
   const isTuChoi = trangThai === "Kho tu choi sai TT" || trangThai === "Mua hang tu choi";
   const isDatHang = trangThai === "Mua hang da dat";
+  // Huy bo ticket = huy don goc (2026-10-27: Kho / Mua hang huy ho -> bat buoc ly do, hien cho KTV).
+  const isHuyBo = trangThai === "Da huy bo";
   const isChuyenMua = trangThai === "Cho mua hang";
   const isDoiMa = trangThai === DOI_MA_TUONG_DUONG;
   // LK cung nhom thay the voi ma dang dat (chi ma co trong danh muc) - nguon chung voi goi y luc tao don.
@@ -199,7 +202,7 @@ function ThieuLkActionForm({
     enabled: isDoiMa && !!maLkHienTai,
   });
   const thieuThongTin =
-    ((isGiaiTrinh || isTuChoi) && !ghiChu.trim()) || (isCapNhat && !ghiChu.trim() && !ngayDuKien) || (isDatHang && (!maEo.trim() || !ngayDuKien)) ||
+    ((isGiaiTrinh || isTuChoi || isHuyBo) && !ghiChu.trim()) || (isCapNhat && !ghiChu.trim() && !ngayDuKien) || (isDatHang && (!maEo.trim() || !ngayDuKien)) ||
     (isDoiMa && !maLkMoi);
   // text-base tren mobile: o nhap < 16px lam iOS tu phong to trang khi cham vao.
   const oNhap = "focus-ring w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-2 text-base sm:text-sm";
@@ -248,7 +251,7 @@ function ThieuLkActionForm({
       )}
       <label className="block">
         <span className="mb-1 block text-xs font-semibold text-[var(--color-text-body)]">
-          {isGiaiTrinh ? t("Lý do thiếu hàng *") : isCapNhat ? t("Ghi chú tiến độ") : isTuChoi ? t("Lý do từ chối *") : t("Ghi chú (tuỳ chọn)")}
+          {isGiaiTrinh ? t("Lý do thiếu hàng *") : isCapNhat ? t("Ghi chú tiến độ") : isTuChoi ? t("Lý do từ chối *") : isHuyBo ? t("Lý do hủy *") : t("Ghi chú (tuỳ chọn)")}
         </span>
         <textarea
           rows={2}

@@ -39,7 +39,8 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   STATE_CHANGED: "Trạng thái vừa bị người khác thay đổi — tải lại trang và thử lại",
   DA_DONG: "Dòng này đã đóng, không thể xử lý tiếp",
   DONG_DA_DONG: "Dòng này đã đóng, không thể xử lý tiếp",
-  THIEU_LK_KHO_DANG_XU_LY: "Kho đã tiếp nhận ticket thiếu hàng và đang xử lý — chờ Kho xác nhận hàng về hoặc từ chối rồi mới thay đổi được đơn",
+  THIEU_LK_KHO_DANG_XU_LY: "Kho / Mua hàng đã xác nhận xử lý ticket thiếu hàng — chỉ Kho hoặc Mua hàng hủy được đơn, chờ hàng về hoặc từ chối rồi mới thay đổi được",
+  MUA_HANG_KHONG_CHO_HANG_DUOC: "Đơn không chuyển Chờ hàng được (đã vào phiếu gửi Kế toán, đơn trả hàng / trừ công nợ, hoặc trạng thái không phù hợp)",
   PHIEU_DA_DONG: "Phiếu này đã đóng, không thể xử lý tiếp",
   INVALID_STATE: "Trạng thái hiện tại không cho phép thao tác này",
   INVALID_SO_TIEN_THUC_NHAN: "Số tiền thực nhận phải là số nguyên lớn hơn 0",
@@ -554,6 +555,7 @@ export const TAT_CA_LOAI_TRANG_THAI_OPTIONS = [
   ...DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL.filter((o, i, arr) => arr.findIndex((x) => x.value === o.value) === i),
   // Sentinel muc "Chờ tác nghiệp" (2026-09-30) - "Cho TN duyet" + tra hang "Cho TN duyet tong" (backend donHangListWhere).
   { value: "__CHO_TN__", label: "Chờ tác nghiệp (gồm hàng trả)" },
+  { value: "__CHO_TT__", label: "Chờ thanh toán (gồm đơn đã duyệt chờ tiền)" },
 ];
 
 export const PIPELINE_NOTCH = 10;

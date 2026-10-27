@@ -991,6 +991,29 @@ quỹ dư" chặn đơn đối tác (`thongTinTraBangQuy` → `DON_KHONG_CAN_CHU
 KTV + tổng tiền đã chọn ở danh sách bỏ đơn đối tác, chi tiết đơn đổi nhãn "Tổng tiền đề xuất" → "Ghi nợ đối tác", form tạo đơn tách "Ghi nợ đối tác" khỏi tổng
 giá tham khảo (`tongGhiNoDoiTac`).
 
+**Đợt 13 yêu cầu v1.410** (chốt 2026-10-27): (1+5) **Mua hàng "⏳ Chuyển chờ hàng"** — `POST /dat-mua-lk/don-hang/:id/cho-hang` {ghi_chu bắt buộc}
+(Mua hàng + Admin; `requireDatMuaLkArea` mở riêng route này + `/don-hang/:id/log` cho Mua hàng): đơn Mua/Công nợ (không TRỪ CÔNG NỢ, không gửi bù) "Cho TN duyet"
+/ "Cho thanh toan" / "TN da duyet" CHƯA trong phiếu đã gửi Kế toán (`MUA_HANG_CHO_HANG_DUOC_SQL` ở `lib/pxkTuHuy.ts`, cột `mua_hang_cho_hang_duoc`) → "Cho hang",
+rời phiếu "Dang tao phieu" MANG THEO tiền, ticket mở thẳng ở "Cho mua hang" (`moTicketChoHangTuDong` opts `choMuaHang`, không báo Kho). (2) **LK B2B bỏ duyệt
+trần công nợ**: `danhGiaPhieu` đọc `linh_kien.nhom_lk`, dòng B2B không cộng vào tổng/không "Khong du"; log khởi tạo thêm "Linh kiện B2B — bỏ qua duyệt trần công nợ"
+(`KetQuaDong.boQuaTranB2b`); FE cảnh báo công nợ tạm tính bỏ LK B2B (cache LK thêm `nhom_lk`, SCHEMA_VERSION 5). (3) **Đơn vượt trần đã duyệt** (có `ma_eo`):
+`VUOT_TRAN_GHI_CHU_SQL` (`tuDongDuyet.ts`, đọc log khởi tạo) → chi tiết đơn khối `DuyetVuotTranKhoi` + dòng đơn trong chi tiết PXK badge `DuyetVuotTranBadge`
+("✓ Duyệt vượt trần +X", tooltip mã EO/người duyệt/công nợ + đơn > trần) — `datMuaLinhKien/DuyetVuotTran.tsx`. (4) **Ô tìm kiếm nổi bật**: class `.o-tim`
+(`tokens.css` — nền trắng, viền primary + vòng sáng, icon kính lúp) gắn vào ô tìm chính mọi màn (FilterSearchBar, Bảng giá `TimLkBox`, Đơn hàng, Phiếu xuất,
+Quỹ, Users, Công nợ…) — ô tìm mới cũng gắn class này. (6) **GS hủy hộ đơn "TN da duyet" trong phiếu**: phiếu "Dang tao phieu" + Kế toán chưa chốt tiền, hoặc phiếu
+KHÔNG cần chuyển tiền đang "Cho ke toan" chưa có Mã MISA (`GS_HUY_TRONG_PXK_SQL`/`pxkGsHuyDuoc`, cột `gs_huy_trong_pxk`). (7+10) **Tiền cần chuyển = 0 không cần
+Kế toán duyệt**: `canBangPxk` mặc định ("cho-ke-toan") đủ tiền bằng quỹ / tiền đơn mang theo mà KTV CHƯA báo chuyển (`ngay_ktv_chuyen` NULL, không ảnh bằng chứng
+mới) → thẳng "TN da duyet" (cả phiếu hệ thống từng đặt "KTV da chuyen"); phiếu còn đơn "Cho thanh toan" → gọi `xuLyDonChoThanhToan` (cần env —
+`lib/envToanCuc.ts`, gán ở `index.ts` mỗi request/cron). Bug PMH-001400 (đơn mang tiền sang phiếu mới vẫn bắt Kế toán xác nhận 0đ). Migration `0100` áp 1 lần cho
+phiếu cũ. (8) **Menu "Chờ thanh toán"** = sentinel `__CHO_TT__` (`CHO_THANH_TOAN_GOP_SQL`): "Cho thanh toan" + đơn "TN da duyet" có cột Chuyển tiền
+cho_thanh_toan/cho_xac_nhan (+ counts). (9) **Đơn "Cho hang" Kho/Mua hàng đã xác nhận xử lý**: KTV/người tạo KHÔNG hủy được (đơn lẫn ticket); Kho / Mua hàng /
+Admin hủy = hủy ticket → đơn tự hủy (`applyDonHangLog` gọi `applyThieuLkLog` "Da huy bo", bắt buộc lý do); FE `actionsFor` ctx `laKhoMuaHang`. (11) **Ảnh bằng
+chứng chưa bấm "Đã chuyển"**: đóng Drawer/Modal → popup "Bạn chưa xác nhận chuyển tiền" (Ở lại / Đóng, không xác nhận / Xác nhận đã chuyển) — cơ chế chung
+`components/ui/chanDong.tsx` (`useDongCoHoi` trong Drawer/Modal, form gọi `useChanDong`). (12) **Nháp tạo đơn**: không tự khôi phục nữa — mở form có nháp →
+popup "Mở lại đơn tạo dở?"; đóng form còn nội dung → "Lưu lại cho lần sau / Không lưu / Tiếp tục soạn" (`NhapTaoDonHoi.tsx`); app tắt bất ngờ vẫn tự lưu.
+(13) **File MISA gộp dòng cùng mã LK** trong 1 phiếu cho MỌI loại (`gopDongCungMa`, trước chỉ trả góp): khóa = mẫu + phiếu + KTV + mã LK + loại đề xuất (+ chính
+sách với HỖ TRỢ 0 ĐỒNG, + đơn giá với Chuyển kho); SL cộng, tiền Bán hàng cộng, Mã YCSC/Lada nối.
+
 **KH lẻ theo từng khách** (chốt 2026-10-09, v1.314, migration `0074`, `lib/khachLe.ts` + `routes/khachLe.ts` tại `/api/khach-le`):
 trước đây mọi KH lẻ dùng chung tài khoản KH_LE_MB/KH_LE_MN nên tiền KH chuyển không gắn được KH nào. Giờ MỖI KH = 1 NGƯỜI NHẬN RIÊNG:
 users NỘI BỘ `<ma>@khle.local` (Da duyet, `khu_vuc_dat_hang` = khu vực nhóm, `ma_misa` = của nhóm, `ten` "KH lẻ MN - <SĐT|mã>" — KHÔNG

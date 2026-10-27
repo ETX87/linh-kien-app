@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { pushOverlayClose } from "../../lib/overlayStack";
+import { ChanDongContext, useDongCoHoi } from "./chanDong";
 import { tn } from "../../i18n";
 
 export function Modal({
@@ -33,10 +34,12 @@ export function Modal({
   // Drawer.tsx) truoc day KHONG dang ky voi ngan xep overlay dung chung, nen nut Back tren mobile
   // BO QUA Modal dang mo va nhay thang toi hoi "Thoát ứng dụng?" - hanh vi khac nhau tuy dang mo
   // Drawer hay Modal la nguyen nhan "lúc hỏi lúc không". Them dung 1 effect giong het Drawer.tsx.
+  // Form ben trong co the chan dong (chanDong.tsx, 2026-10-27).
+  const [dangKyChan, dong] = useDongCoHoi(onClose);
   useEffect(() => {
     if (!open) return;
-    return pushOverlayClose(onClose);
-  }, [open, onClose]);
+    return pushOverlayClose(dong);
+  }, [open, dong]);
 
   if (!open) return null;
   // Render qua portal vao document.body (2026-09-29, bug "Đổi loại chiết khấu" chu tran ngang): Modal mo tu TRONG 1 o
@@ -55,13 +58,15 @@ export function Modal({
           <h3 className="text-base font-bold text-[var(--color-text)]">{tn(title)}</h3>
           <div className="flex items-center gap-2 shrink-0">
             {headerExtra}
-            <button onClick={onClose} className="focus-ring w-8 h-8 rounded-[var(--radius-btn)] hover:bg-[var(--color-subtle)] text-[var(--color-text-faint)] hover:text-[var(--color-text-body)]">
+            <button onClick={dong} className="focus-ring w-8 h-8 rounded-[var(--radius-btn)] hover:bg-[var(--color-subtle)] text-[var(--color-text-faint)] hover:text-[var(--color-text-body)]">
               ✕
             </button>
           </div>
         </div>
-        <div className="overflow-y-auto p-5">{children}</div>
-        {footer && <div className="border-t border-[var(--color-border-soft)] bg-[var(--surface)] px-5 py-3">{footer}</div>}
+        <ChanDongContext.Provider value={dangKyChan}>
+          <div className="overflow-y-auto p-5">{children}</div>
+          {footer && <div className="border-t border-[var(--color-border-soft)] bg-[var(--surface)] px-5 py-3">{footer}</div>}
+        </ChanDongContext.Provider>
       </div>
     </div>,
     document.body,

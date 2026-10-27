@@ -411,7 +411,7 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t("Tìm theo tên/email KTV...")}
-          className="focus-ring w-full sm:w-72 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+          className="o-tim focus-ring w-full sm:w-72 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
         />
       )}
 

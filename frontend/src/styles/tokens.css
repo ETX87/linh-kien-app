@@ -369,6 +369,31 @@ body {
   background-image: none;
 }
 
+/* O TIM KIEM NOI BAT (2026-10-27, "Các ô tìm kiếm làm nổi bật hẳn lên ... bảng giá công cụ tìm kiếm ... hiện tại nó mờ mờ"): nen trang,
+   vien xanh chinh 1.5px + vong sang, icon kinh lup, chu dam hon - gan class "o-tim" vao o tim chinh cua moi man (thang cac class nen/vien cu). */
+.o-tim {
+  background-color: #fff !important;
+  border: 1.5px solid var(--color-primary) !important;
+  box-shadow: 0 0 0 3px var(--color-primary-ring);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231467e8' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0.6rem center;
+  background-size: 1rem;
+  padding-left: 2.1rem !important;
+  font-weight: 500;
+  color: var(--color-text);
+}
+.o-tim::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 1;
+  font-weight: 400;
+}
+.o-tim:focus {
+  outline: none;
+  border-color: var(--color-primary-dark) !important;
+  box-shadow: 0 0 0 4px var(--color-primary-ring);
+}
+
 .focus-ring:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;

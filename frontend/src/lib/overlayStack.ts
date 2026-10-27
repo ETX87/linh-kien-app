@@ -17,6 +17,11 @@ export function pushOverlayClose(onClose: () => void): () => void {
   };
 }
 
+// Lop con nam trong ngan xep khong (chanDong.tsx: nut Back da pop lop ra ma form chan dong -> day lai de lan Back sau van dong lop nay).
+export function overlayConTrongStack(onClose: () => void): boolean {
+  return stack.includes(onClose);
+}
+
 // Dong lop TREN CUNG (neu co) - goi tu useExitConfirm khi bat popstate. Tra true neu co lop da dong
 // (nut Back nen dung lai o day, KHONG hien confirm thoat), false neu khong con lop nao mo.
 export function popTopOverlay(): boolean {

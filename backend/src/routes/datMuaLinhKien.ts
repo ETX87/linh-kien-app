@@ -35,7 +35,7 @@ import { computeTonKtvConLai } from "../lib/tonKhoKtv";
 import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
 import { tenNguoiSql as tenNguoiDaySql, tenNguoiNullSql, tenNguoiMap } from "../lib/tenNguoi";
 import { TRANG_THAI_PXK_DON_SQL, THANH_TOAN_DON_SQL } from "../lib/trangThaiDonPxk";
-import { TU_HUY_DUOC_SQL, TN_DOI_TRONG_PXK_SQL, pxkDuocTuHuy, pxkTnDoiDuoc, pxkChuaDonChuaDuyet, goDonKhoiPxk, laVanPhong, danhDauVanPhongTacDong } from "../lib/pxkTuHuy";
+import { TU_HUY_DUOC_SQL, TN_DOI_TRONG_PXK_SQL, GS_HUY_TRONG_PXK_SQL, MUA_HANG_CHO_HANG_DUOC_SQL, pxkGsHuyDuoc, pxkDuocTuHuy, pxkTnDoiDuoc, pxkChuaDonChuaDuyet, goDonKhoiPxk, laVanPhong, danhDauVanPhongTacDong } from "../lib/pxkTuHuy";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, MUA_CONG_NO_ROLES, TRA_HANG_ROLES, type ViecMoiRoleCol } from "../lib/taskNotify";
 import { pushThieuLkToKhovan, buildWorkUrl } from "../lib/khovanPushClient";
 import { ANH_DA_GHI_NHAN_SQL } from "../lib/bangChungChuyenTien";
@@ -43,7 +43,7 @@ import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
 import { tachComboDong } from "../lib/lkCombo";
 import {
   deriveLoaiDon, boQuaTbpChoDacThu, canDoiChieuCongNo, nguCanhNhan, danhGiaPhieu, trangThaiSauDuyet, tacDongSauDinhTuyen, duyetDonKhiHangVe, danhGiaLaiDonChoThanhToan, choPhepThanhToanSau,
-  huyDonChoHangTuDong, baoNguoiTaoDon, moTaThieuTon, moTicketChoHangTuDong, xetLaiTonKhiDoiKhuVuc, baoGsChoDuyet, type DongDanhGia, type KetQuaDong, type KetQuaPhieu,
+  huyDonChoHangTuDong, baoNguoiTaoDon, moTaThieuTon, moTicketChoHangTuDong, xetLaiTonKhiDoiKhuVuc, baoGsChoDuyet, ghiTrangThaiDon, VUOT_TRAN_GHI_CHU_SQL, type DongDanhGia, type KetQuaDong, type KetQuaPhieu,
 } from "../lib/tuDongDuyet";
 
 // Luong chinh "Dat mua linh kien" - phieu dat (header, chi de tong hop hien thi) + dong don hang -
@@ -1913,6 +1913,11 @@ async function donHangListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string
     // xem = don ho TAO bi tu choi, chua mo chi tiet) - truoc day nhay sang "TN tu choi" toan pham vi nen so lech danh sach.
     whereSql += " AND ddh.trang_thai_hien_tai = 'TN tu choi' AND EXISTS (SELECT 1 FROM thong_bao_ktv tb WHERE tb.nguoi_nhan = ? AND tb.loai = 'tu_choi' AND tb.da_doc = 0 AND tb.link_id = ddh.id)";
     binds.push(user.email);
+  } else if (trangThai === "__CHO_TT__") {
+    // Muc "Chờ thanh toán" (sua 2026-10-27, "khi filter đơn hàng chờ thanh toán, nó đang chỉ hiện đơn chờ thành toán (thiếu hàng) (đơn
+    // được duyệt nhưng đang chờ chuyển tiền lại không hiện)"): don "Cho thanh toan" (thieu hang) + don DA duyet ma tien chua duoc Ke toan
+    // xac nhan (cot Chuyen tien = Cho thanh toan / Cho xac nhan tien).
+    whereSql += ` AND ${CHO_THANH_TOAN_GOP_SQL}`;
   } else if (trangThai === "__CHO_TN__") {
     // Muc "Chờ tác nghiệp" (2026-09-30, phan hoi "đơn sau khi KT/Kho/QC xác nhận nhảy sang trạng thái chung với
     // Chờ TN duyệt để TN không bị miss đơn"): don mua/cong no "Cho TN duyet" + don tra hang "Cho TN duyet tong".
@@ -1991,7 +1996,7 @@ datMuaLinhKien.get("/don-hang", async (c) => {
     .bind(...binds)
     .first<{ total: number }>();
   const { results } = await c.env.DB.prepare(
-    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, ${DAC_THU_DON_SQL("ddh")} as dac_thu, lk.dac_thu as lk_dac_thu, lk.gia_ban as lk_gia_ban, ${TU_HUY_DUOC_SQL("ddh")} as tu_huy_duoc, (SELECT u_gs.giam_sat_quan_ly FROM users u_gs WHERE u_gs.email = ddh.nguoi_tao) as gs_nguoi_tao, ${TN_DOI_TRONG_PXK_SQL("ddh")} as tn_doi_trong_pxk, ${dayLaiHanSql("ddh")} as day_lai_han, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
+    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, ${DAC_THU_DON_SQL("ddh")} as dac_thu, lk.dac_thu as lk_dac_thu, lk.gia_ban as lk_gia_ban, ${TU_HUY_DUOC_SQL("ddh")} as tu_huy_duoc, (SELECT u_gs.giam_sat_quan_ly FROM users u_gs WHERE u_gs.email = ddh.nguoi_tao) as gs_nguoi_tao, ${TN_DOI_TRONG_PXK_SQL("ddh")} as tn_doi_trong_pxk, ${GS_HUY_TRONG_PXK_SQL("ddh")} as gs_huy_trong_pxk, ${MUA_HANG_CHO_HANG_DUOC_SQL("ddh")} as mua_hang_cho_hang_duoc, ${dayLaiHanSql("ddh")} as day_lai_han, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
        ${khoDangXuLyThieuLkSql("ddh")} as kho_dang_xu_ly_thieu_lk,
        ${lastGiaiTrinhAtExpr("ddh.id")} as last_giai_trinh_at,
        (SELECT ghi_chu FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) as ghi_chu_xu_ly_gan_nhat,${THIEU_LK_DON_COT("ddh")},
@@ -2087,12 +2092,13 @@ datMuaLinhKien.get("/don-hang-status-counts", async (c) => {
     `SELECT
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ${whereSql}) as total,
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ${whereSql} AND ${conTon.sql}) as mo,
-       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ${whereSql} AND ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.ma_xuat_kho IS NULL) as cho_tao_pxk`,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ${whereSql} AND ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.ma_xuat_kho IS NULL) as cho_tao_pxk,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ${whereSql} AND ${CHO_THANH_TOAN_GOP_SQL}) as cho_tt`,
   )
     // Thu tu bind PHAI khop dung thu tu "?" xuat hien trong SQL: total (chi whereSql) -> mo (whereSql
     // + dongSet) -> cho_tao_pxk (chi whereSql, khong them dieu kien dang bind).
-    .bind(...binds, ...binds, ...conTon.binds, ...binds)
-    .first<{ total: number; mo: number; cho_tao_pxk: number }>();
+    .bind(...binds, ...binds, ...conTon.binds, ...binds, ...binds)
+    .first<{ total: number; mo: number; cho_tao_pxk: number; cho_tt: number }>();
   const { results } = await c.env.DB.prepare(
     `SELECT ddh.trang_thai_hien_tai as trang_thai, COUNT(*) as n FROM dat_don_hang ddh WHERE ${whereSql} GROUP BY ddh.trang_thai_hien_tai`,
   )
@@ -2106,6 +2112,7 @@ datMuaLinhKien.get("/don-hang-status-counts", async (c) => {
   // 2 sentinel 2026-09-30: "Chờ tác nghiệp" (Cho TN duyet + tra hang Cho TN duyet tong - trang thai chi co o tra hang)
   // va "Hàng trả" chờ KT/Kho/QC (trang thai chi co o tra hang) - cong tu cac nhom tren, khop dung dieu kien loc.
   counts.__CHO_TN__ = (counts["Cho TN duyet"] ?? 0) + (counts["Cho TN duyet tong"] ?? 0);
+  counts.__CHO_TT__ = scalarRow?.cho_tt ?? 0;
   counts.__CHO_XAC_NHAN__ = (counts["Cho ke toan duyet mem"] ?? 0) + (counts["Cho kho xac nhan"] ?? 0) + (counts["Cho QC xac nhan"] ?? 0);
   return c.json({ counts });
 });
@@ -2366,6 +2373,13 @@ async function chuanBiPhieuDat(
 // SUA 2026-10-15 ("minh bạch cho mọi thao tác xử lý cho người đặt hàng hiểu"): MOI trang thai khoi tao deu co ly do (truoc chi 3
 // trang thai) - FE LyDoTrangThaiDon doc dong log nay de giai thich cho nguoi dat.
 function ghiChuKhoiTao(kq: KetQuaDong, soLuong: number, phieu: KetQuaPhieu): string | null {
+  const goc = ghiChuKhoiTaoGoc(kq, soLuong, phieu);
+  // LK B2B (2026-10-27): ghi ro ly do khong xet tran cong no.
+  if (!kq.boQuaTranB2b) return goc;
+  const b2b = "Linh kiện B2B — bỏ qua duyệt trần công nợ";
+  return goc ? `${goc} | ${b2b}` : b2b;
+}
+function ghiChuKhoiTaoGoc(kq: KetQuaDong, soLuong: number, phieu: KetQuaPhieu): string | null {
   const tien = (n: number) => `${Math.round(n).toLocaleString("vi-VN")}đ`;
   const vuotTran = kq.danhGiaCongNo === "Khong du"
     ? `vượt trần công nợ: công nợ chốt ${tien(phieu.congNoChot)} + đơn mới ${tien(phieu.tongMoiCongNo)} > trần ${tien(phieu.tranCongNo ?? 0)}`
@@ -3108,6 +3122,7 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
 
   const ddh = await c.env.DB.prepare(
     `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, ${DAC_THU_DON_SQL("ddh")} as dac_thu, lk.dac_thu as lk_dac_thu, ${TU_HUY_DUOC_SQL("ddh")} as tu_huy_duoc, (SELECT u_gs.giam_sat_quan_ly FROM users u_gs WHERE u_gs.email = ddh.nguoi_tao) as gs_nguoi_tao, ${TN_DOI_TRONG_PXK_SQL("ddh")} as tn_doi_trong_pxk, ${dayLaiHanSql("ddh")} as day_lai_han,
+       ${GS_HUY_TRONG_PXK_SQL("ddh")} as gs_huy_trong_pxk, ${MUA_HANG_CHO_HANG_DUOC_SQL("ddh")} as mua_hang_cho_hang_duoc, ${VUOT_TRAN_GHI_CHU_SQL("ddh")} as vuot_tran_ghi_chu,
        ${khoDangXuLyThieuLkSql("ddh")} as kho_dang_xu_ly_thieu_lk,
        lk.gia_ban as lk_gia_ban, lk.gia_tri_cong_no as lk_gia_tri_cong_no, lk.gia_du_phong as lk_gia_du_phong
      FROM dat_don_hang ddh
@@ -3331,6 +3346,11 @@ const THIEU_LK_DON_COT = (a: string) => `
        (SELECT l.ngay_xu_ly FROM thieu_lk_log l WHERE l.thieu_lk_id = ${tlkCuaDon(a)} AND l.trang_thai = 'Kho da tiep nhan' ORDER BY l.id DESC LIMIT 1) as tlk_tiep_nhan_luc,
        (SELECT l.nguoi_xu_ly FROM thieu_lk_log l WHERE l.thieu_lk_id = ${tlkCuaDon(a)} AND l.trang_thai = 'Kho da tiep nhan' ORDER BY l.id DESC LIMIT 1) as tlk_nguoi_tiep_nhan`;
 
+// "Chờ thanh toán" gop (sentinel __CHO_TT__, 2026-10-27): don thieu hang cho chuyen tien + don DA duyet ma tien chua duoc Ke toan
+// xac nhan. Dung CHUNG THANH_TOAN_DON_SQL voi cot "Chuyển tiền" cua danh sach.
+const CHO_THANH_TOAN_GOP_SQL = `(ddh.trang_thai_hien_tai = 'Cho thanh toan' OR (ddh.trang_thai_hien_tai = 'TN da duyet'
+  AND ${THANH_TOAN_DON_SQL("ddh")} IN ('cho_thanh_toan', 'cho_xac_nhan')))`;
+
 // Don bat buoc chuyen tien truoc (migration 0057) ma CHUA "Đã thanh toán" (Ke toan chua xac nhan tien phieu chua don va don
 // khong mang tien da tra) -> chua duoc chuyen "Cho hang" (chot 2026-09-30). Dung CHUNG dinh nghia THANH_TOAN_DON_SQL.
 // Chot 2026-10-02: CHI chan don LINH KIEN DAC THU (hieu luc, DAC_THU_DON_SQL) - don thuong chua tien van "Cho hang" duoc.
@@ -3390,21 +3410,26 @@ async function applyDonHangLog(
   // Cho hang (chon ly do "quan ly thieu linh kien" -> mo ticket thieu_lk) VA Huy.
   // MO RONG (chot 2026-09-28, muc 5): don "TN da duyet" DA vao PXK nhung phieu con "Dang tao phieu" + Ke toan
   // chua duyet chuyen tien -> TN van Huy/Tu choi/Cho hang duoc, don tu go khoi phieu (goDonKhoiPxk o duoi).
-  const tnTrongPxkId =
-    canTacNghiep(c) && ddh.trang_thai === "TN da duyet" && ddh.ma_xuat_kho != null && (hanhDong === "tu_choi" || hanhDong === "huy")
-      ? await pxkTnDoiDuoc(c.env.DB, donHangId)
-      : null;
-  const chuaVaoPxkSauDuyet = ddh.trang_thai === "TN da duyet" && (ddh.ma_xuat_kho == null || !!tnTrongPxkId);
-  const laTuChoiSauDuyet = hanhDong === "tu_choi" && chuaVaoPxkSauDuyet;
-  const laHuySauDuyet = hanhDong === "huy" && chuaVaoPxkSauDuyet;
   const user = c.get("user");
   // GS khu vuc HUY HO don cho KTV khu vuc minh (chot 2026-10-23, v1.399 - "cho phép giám sát khu vực hủy hộ đơn cho ktv khu vực
   // mình"; v1.400 "cho phép hủy hộ đơn hàng do KTV thuộc khu vực của giám sát đặt hàng"): GS = email_gs cua don (GS khu vuc hien tai
   // cua KTV nhan hang) HOAC GS cua KTV TAO don (users.giam_sat_quan_ly cua nguoi_tao) duoc huy NHU CHINH KTV dat don (cung cac buoc
   // nguoi tao huy duoc + tu huy don tu duyet trong phieu chua thao tac); bat buoc ly do, log "GS hủy hộ KTV". Ban sao FE: actionsFor.
+  // v1.410 (2026-10-27): GS huy duoc ca don "TN da duyet" trong phieu Ke toan chua chot tien / phieu khong tien chua chot (pxkGsHuyDuoc).
   const gsHuyHo =
     hanhDong === "huy" && user.vai_tro === "Giam sat" && ddh.nguoi_tao !== user.email &&
     (ddh.email_gs === user.email || ddh.gs_nguoi_tao === user.email);
+  const tnTrongPxkId =
+    ddh.trang_thai === "TN da duyet" && ddh.ma_xuat_kho != null && (hanhDong === "tu_choi" || hanhDong === "huy")
+      ? canTacNghiep(c)
+        ? await pxkTnDoiDuoc(c.env.DB, donHangId)
+        : gsHuyHo
+          ? await pxkGsHuyDuoc(c.env.DB, donHangId)
+          : null
+      : null;
+  const chuaVaoPxkSauDuyet = ddh.trang_thai === "TN da duyet" && (ddh.ma_xuat_kho == null || !!tnTrongPxkId);
+  const laTuChoiSauDuyet = hanhDong === "tu_choi" && chuaVaoPxkSauDuyet;
+  const laHuySauDuyet = hanhDong === "huy" && chuaVaoPxkSauDuyet;
   // KTV/nguoi tao TU HUY don tu duyet da tu gom vao PXK (chot 2026-09-28, lib/pxkTuHuy.ts) - chi khi PXK con
   // "Dang tao phieu", Ke toan chua duyet chuyen tien, van phong chua thao tac tay. Don duy nhat -> huy ca phieu.
   const tuHuyPxkId =
@@ -3419,7 +3444,23 @@ async function applyDonHangLog(
     const khoa = await c.env.DB.prepare(`SELECT ${khoDangXuLyThieuLkSql("dat_don_hang")} as khoa FROM dat_don_hang WHERE id = ?`)
       .bind(donHangId)
       .first<{ khoa: number }>();
-    if (khoa?.khoa) return { error: "THIEU_LK_KHO_DANG_XU_LY", status: 409 };
+    if (khoa?.khoa) {
+      // Kho / Mua hang DA xac nhan xu ly ticket -> KTV / nguoi tao khong huy duoc nua; CHI Kho / Mua hang / Admin huy (chot 2026-10-27,
+      // "Đơn chờ linh kiện không cho phép KTV hủy đơn nếu kho hoặc nhân viên mua hàng đã xác nhận xử lý (kho hoặc nhân viên mua hàng
+      // hủy được)") = huy ticket -> don goc tu huy (applyThieuLkLog "Da huy bo" -> huyDonChoHangTuDong, tien ve quy).
+      if (hanhDong === "huy" && (canKho(c) || laMuaHangXuLy(c))) {
+        if (!ghiChu?.trim()) return { error: "THIEU_LY_DO_HUY", status: 400 };
+        const tk = await c.env.DB.prepare(
+          `SELECT id FROM thieu_lk WHERE dat_don_hang_id = ? AND ${latestThieuLkStatusExpr("thieu_lk.id")} NOT IN ('Da huy bo', 'Da ket thuc')
+           ORDER BY ngay_tao DESC, id DESC LIMIT 1`,
+        ).bind(donHangId).first<{ id: string }>();
+        if (!tk) return { error: "STATE_CHANGED", status: 409 };
+        const r = await applyThieuLkLog(c, tk.id, "Da huy bo", ghiChu, undefined);
+        if ("error" in r) return r;
+        return { nextTrangThai: "Da huy" };
+      }
+      return { error: "THIEU_LK_KHO_DANG_XU_LY", status: 409 };
+    }
     laChoHangMoKhoa = true;
   }
   if (ddh.trang_thai && (DON_HANG_TRANG_THAI_DONG as readonly string[]).includes(ddh.trang_thai) && !laTuChoiSauDuyet && !laHuySauDuyet && !tuHuyPxkId && !laChoHangMoKhoa) {
@@ -3448,7 +3489,7 @@ async function applyDonHangLog(
     // CHI TN/Admin huy duoc - nguoi tao khong tu huy sau khi TN da duyet).
     // + "Cho GS duyet" / "Cho thanh toan" (chot 2026-10-14).
     const tnDuocHuy = canTacNghiep(c) && (ddh.trang_thai === "Cho TN duyet" || ddh.trang_thai === "Cho GS duyet" || ddh.trang_thai === "Cho thanh toan" || laChoHangMoKhoa || chuaVaoPxkSauDuyet);
-    if (laHuySauDuyet && !tnDuocHuy && user.vai_tro !== "Admin") return { error: "FORBIDDEN_ROLE", status: 403 };
+    if (laHuySauDuyet && !tnDuocHuy && !gsHuyHo && user.vai_tro !== "Admin") return { error: "FORBIDDEN_ROLE", status: 403 };
     if (ddh.nguoi_tao !== user.email && user.vai_tro !== "Admin" && !tnDuocHuy && !tuHuyPxkId && !gsHuyHo) return { error: "FORBIDDEN_ROLE", status: 403 };
     // Chot phan hoi UX 2026-08-15 (muc 1): bat buoc nguoi huy nhap ly do (tu do, khong dung danh muc
     // Ly do cham cua TN vi khong hop nghia voi tu huy).
@@ -3883,6 +3924,36 @@ datMuaLinhKien.post("/don-hang/:id/thanh-toan-sau", async (c) => {
   if ("error" in kq) return c.json({ error: kq.error }, kq.error === "NOT_FOUND" ? 404 : 409);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ ok: true, trang_thai: kq.trangThai });
+});
+
+// POST /api/dat-mua-lk/don-hang/:id/cho-hang - { ghi_chu } (chot 2026-10-27, "bổ sung nút chờ hàng cho vai trò mua hàng" + "đẩy đơn lại
+// trạng thái chờ hàng cho nhân viên mua hàng (nếu đơn chưa được kế toán duyệt phiếu)"): Mua hang (+ Admin) chuyen don Mua / Cong no dang
+// "Cho TN duyet" / "Cho thanh toan" / "TN da duyet" (chua nam trong phieu da gui Ke toan - MUA_HANG_CHO_HANG_DUOC_SQL) ve "Cho hang":
+// don dang trong phieu "Dang tao phieu" roi phieu MANG THEO tien da tra, ticket thieu hang mo thang o buoc "Cho mua hang" (Mua hang nhap
+// ma EO + ngay du kien, Kho bao hang ve nhu thuong) - don bi khoa voi KTV (chi Kho / Mua hang huy).
+datMuaLinhKien.post("/don-hang/:id/cho-hang", async (c) => {
+  if (!laMuaHangXuLy(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const user = c.get("user");
+  const id = c.req.param("id");
+  const body = await c.req.json<{ ghi_chu?: string }>().catch(() => ({}) as { ghi_chu?: string });
+  const ghiChu = body.ghi_chu?.trim().slice(0, 500);
+  if (!ghiChu) return c.json({ error: "MISSING_GHI_CHU" }, 400);
+  const ddh = await c.env.DB.prepare(
+    `SELECT trang_thai_hien_tai as trang_thai, nguoi_tao, nguoi_nhan_hang, ten_lk_snapshot, so_luong_de_xuat,
+       ${MUA_HANG_CHO_HANG_DUOC_SQL("dat_don_hang")} as duoc FROM dat_don_hang WHERE id = ?`,
+  ).bind(id).first<{ trang_thai: string; nguoi_tao: string; nguoi_nhan_hang: string | null; ten_lk_snapshot: string; so_luong_de_xuat: number; duoc: number }>();
+  if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
+  if (!ddh.duoc) return c.json({ error: "MUA_HANG_KHONG_CHO_HANG_DUOC" }, 409);
+  const lyDo = `Mua hàng chuyển chờ hàng: ${ghiChu}`;
+  if (!(await ghiTrangThaiDon(c.env.DB, id, "Cho hang", user.email, lyDo, false, ddh.trang_thai))) return c.json({ error: "STATE_CHANGED" }, 409);
+  await tacDongSauDinhTuyen(c.env, c.env.DB, id, "Cho hang", user.email, lyDo, (p) => c.executionCtx.waitUntil(p), { choMuaHang: true });
+  if (ddh.nguoi_tao !== user.email) {
+    c.executionCtx.waitUntil(
+      baoNguoiTaoDon(c.env, c.env.DB, ddh.nguoi_tao, "cho_hang", `Đơn hàng "${ddh.ten_lk_snapshot} (x${ddh.so_luong_de_xuat})" chuyển Chờ hàng — ${lyDo}`, id),
+    );
+  }
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, trang_thai: "Cho hang" });
 });
 
 datMuaLinhKien.post("/don-hang/:id/vao-phieu", async (c) => {
@@ -5096,7 +5167,12 @@ async function applyThieuLkLog(
   const isCancel = trangThai === "Da huy bo";
   // "Da ket thuc" la cua TN (khop cot "Admin xu ly" trong du lieu Excel goc), con lai la Kho.
   if (isCancel) {
-    if (tlk.nguoi_tao !== user.email && user.vai_tro !== "Admin") return { error: "FORBIDDEN_ROLE", status: 403 };
+    // Kho / Mua hang da xac nhan xu ly (2026-10-27): nguoi tao (KTV) KHONG huy duoc nua - chi Kho / Mua hang / Admin (bat buoc ly do).
+    const nhanVienXuLy = canKho(c) || laMuaHangXuLy(c);
+    const dangXuLy = (THIEU_LK_KHO_DANG_XU_LY as readonly string[]).includes(tlk.trang_thai ?? "");
+    if (dangXuLy && !nhanVienXuLy) return { error: "THIEU_LK_KHO_DANG_XU_LY", status: 409 };
+    if (tlk.nguoi_tao !== user.email && !nhanVienXuLy) return { error: "FORBIDDEN_ROLE", status: 403 };
+    if (tlk.nguoi_tao !== user.email && !ghiChu?.trim()) return { error: "THIEU_LY_DO_HUY", status: 400 };
   } else if (trangThai === "Da ket thuc") {
     if (!canTacNghiep(c)) return { error: "FORBIDDEN_ROLE", status: 403 };
   } else if (trangThai === "Mua hang da dat" || trangThai === "Mua hang tu choi") {

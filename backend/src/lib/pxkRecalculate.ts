@@ -426,7 +426,7 @@ export async function taiTinhPxk(
       const ghiChu = `Tự tính lại ${(pxk.so_tien_can_chuyen ?? 0).toLocaleString("vi-VN")}đ → ${totalCanChuyen.toLocaleString("vi-VN")}đ` +
         (datLaiChuyenTien ? ` — đặt lại chuyển tiền từ "${NHAN_CHUYEN_TIEN[pxk.trang_thai_chuyen_tien!] ?? pxk.trang_thai_chuyen_tien}" về "Chờ KTV chuyển" — giữ bằng chứng cũ, KTV chuyển bổ sung/tải thêm ảnh rồi xác nhận lại` : "") +
         (giuDaDuyet ? ` — tiền KTV đã chuyển không đổi, giữ "Kế toán đã duyệt" (không cần xác nhận lại)` : "") +
-        (giuChoKeToan ? ` — phiếu đã thanh toán ${(pxk.da_thanh_toan ?? 0).toLocaleString("vi-VN")}đ, đủ tiền, KTV không cần chuyển thêm; vẫn chờ Kế toán xác nhận` : "");
+        (giuChoKeToan ? ` — phiếu đã thanh toán ${(pxk.da_thanh_toan ?? 0).toLocaleString("vi-VN")}đ, đủ tiền, KTV không cần chuyển thêm` : "");
       await db.prepare(
         "INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)",
       ).bind(pxkId, "Da sua tong tien can chuyen", nguoiXuLy, nowVN(), ghiChu).run();

@@ -113,7 +113,7 @@ export function DoiTacCongNoTab() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={t("Tìm Mã / Tên MISA, KTV…")}
-          className="focus-ring w-64 rounded-lg border border-[var(--line)] px-2.5 py-1.5 text-sm"
+          className="o-tim focus-ring w-64 rounded-lg border border-[var(--line)] px-2.5 py-1.5 text-sm"
         />
         <div className="flex flex-wrap gap-1.5">
           {loc1("tat_ca", t("Tất cả"))}

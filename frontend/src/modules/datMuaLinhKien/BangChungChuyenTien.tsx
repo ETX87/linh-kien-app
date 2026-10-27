@@ -4,6 +4,8 @@ import { api } from "../../api/client";
 import { anhVuaGioiHan } from "../../lib/imageCompress";
 import { Btn } from "../../components/ui/Btn";
 import { FileButton } from "../../components/ui/FileButton";
+import { Modal } from "../../components/ui/Modal";
+import { useChanDong } from "../../components/ui/chanDong";
 import { Select } from "../../components/ui/Select";
 import { ImageLink } from "./SharedUi";
 import { describeApiError } from "./helpers";
@@ -435,8 +437,43 @@ export function BangChungChuyenTienForm({
     onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
   });
 
+  // Tai anh xong ma CHUA bam "Đã chuyển" (2026-10-27, "sẽ hiện popup xác nhận việc bạn chưa ấn xác nhận chuyển tiền, kế toán sẽ không nhận
+  // được thông tin, có xác nhận không?"): dong man chi tiet (✕ / Esc / nen / Back) hoac tai lai trang -> hoi truoc (chanDong.tsx).
+  const coAnhChuaXacNhan = (anh.some((u) => !daLuu.includes(u)) || dangTai > 0) && !xacNhan.isSuccess;
+  const [hoiDong, setHoiDong] = useState<((dong: boolean) => void) | null>(null);
+  useChanDong(coAnhChuaXacNhan, () => new Promise<boolean>((resolve) => setHoiDong(() => resolve)));
+  const traLoi = (dong: boolean) => {
+    hoiDong?.(dong);
+    setHoiDong(null);
+  };
+
   return (
     <div className="mt-2 space-y-2">
+      <Modal open={!!hoiDong} onClose={() => traLoi(false)} title={t("Bạn chưa xác nhận chuyển tiền")} width="max-w-md">
+        <div className="space-y-3 text-sm">
+          <p>
+            {t("Bạn đã tải ảnh bằng chứng nhưng chưa bấm “Đã chuyển” — Kế toán sẽ KHÔNG nhận được thông tin chuyển tiền. Có xác nhận chuyển tiền không?")}
+          </p>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Btn size="sm" variant="ghost" onClick={() => traLoi(false)}>{t("Ở lại")}</Btn>
+            <Btn size="sm" variant="danger" onClick={() => traLoi(true)}>{t("Đóng, không xác nhận")}</Btn>
+            <Btn
+              size="sm"
+              loading={xacNhan.isPending}
+              disabled={dangTai > 0 || xacNhan.isPending || (anh.length === 0 && !ghiChu.trim())}
+              onClick={() =>
+                xacNhan.mutate(undefined, {
+                  onSuccess: () => traLoi(true),
+                  onError: () => traLoi(false),
+                })
+              }
+            >
+              {t("Xác nhận đã chuyển")}
+            </Btn>
+          </div>
+          {dangTai > 0 && <div className="text-[11.5px] text-[var(--color-text-secondary)]">{t("Ảnh đang tải lên — chờ tải xong rồi xác nhận.")}</div>}
+        </div>
+      </Modal>
       <LyDoTuChoiChuyenTien pxk={pxk} />
       {xacNhanLai && !pxk.ly_do_tu_choi_chuyen_tien && (
         <div className="rounded-lg border border-[var(--amber-500)]/30 bg-[var(--amber-100)]/60 px-2.5 py-1.5 text-[11.5px] font-medium text-[var(--amber-700)]">

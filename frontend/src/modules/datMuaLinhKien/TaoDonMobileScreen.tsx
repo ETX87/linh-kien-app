@@ -4,6 +4,8 @@ import { Btn } from "../../components/ui/Btn";
 import { Select } from "../../components/ui/Select";
 import { fmtVND } from "../../types";
 import { pushOverlayClose } from "../../lib/overlayStack";
+import { ChanDongContext, useDongCoHoi } from "../../components/ui/chanDong";
+import { NhapTaoDonHoi } from "./NhapTaoDonHoi";
 import { YEU_CAU_HOA_DON_OPTIONS, CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABELS } from "./constants";
 import { deriveLoaiDon, reqLabelClass, pickLdeQuick, ktvOptionLabel, canNoRequired, maYcscRequired, coMaIdLienQuan } from "./helpers";
 import { LinhKienPicker, ThayTheGoiY } from "./LinhKienPicker";
@@ -67,7 +69,9 @@ export function TaoDonMobileScreen({
   // fixed inset-0 full-man-hinh nhung KHONG dung Modal.tsx (xem giai thich dau file) nen truoc day
   // khong dang ky voi ngan xep overlay dung chung (overlayStack.ts) - nut Back tren mobile bo qua
   // man hinh nay va nhay thang toi hoi "Thoát ứng dụng?". Dang ky dung 1 effect giong Modal.tsx.
-  useEffect(() => pushOverlayClose(onClose), [onClose]);
+  // Dong co hoi (2026-10-27): con noi dung chua tao -> NhapTaoDonHoi hoi luu lai cho lan sau (chanDong.tsx).
+  const [dangKyChan, dong] = useDongCoHoi(onClose);
+  useEffect(() => pushOverlayClose(dong), [dong]);
 
   const [confirmOldUi, setConfirmOldUi] = useState(false);
   // "Co du lieu dang nhap" = it nhat 1 dong khac trang mac dinh (rong) - dung de quyet dinh co can
@@ -107,6 +111,7 @@ export function TaoDonMobileScreen({
   const showInfoBoSung = batBuoc || batBuocYcsc || infoHasData || infoExpandedIdx.has(activeIdx);
 
   return (
+    <ChanDongContext.Provider value={dangKyChan}>
     <div className="fixed inset-0 z-50 flex flex-col bg-[var(--surface)] anim-in" style={{ height: "100dvh" }}>
       {/* Header - tieu de + "Dung giao dien cu" + dong (diem #6: dat xa CTA chinh o duoi) */}
       <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-2.5 border-b border-[var(--line)]">
@@ -119,7 +124,7 @@ export function TaoDonMobileScreen({
           >
             {confirmOldUi ? t("Mất dữ liệu đang nhập — bấm lần nữa?") : t("Dùng giao diện cũ")}
           </button>
-          <button onClick={onClose} className="focus-ring w-9 h-9 shrink-0 rounded-lg hover:bg-slate-100 text-[var(--ink-400)] text-lg flex items-center justify-center">
+          <button onClick={dong} className="focus-ring w-9 h-9 shrink-0 rounded-lg hover:bg-slate-100 text-[var(--ink-400)] text-lg flex items-center justify-center">
             ✕
           </button>
         </div>
@@ -430,5 +435,7 @@ export function TaoDonMobileScreen({
         </div>
       </div>
     </div>
+    <NhapTaoDonHoi form={form} />
+    </ChanDongContext.Provider>
   );
 }

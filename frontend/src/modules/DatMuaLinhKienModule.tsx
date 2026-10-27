@@ -44,6 +44,7 @@ const STAGE_MENU_TARGETS: { key: string; tab: string; filter: string; loaiDon?: 
   { key: "tong-don-hang", tab: "don-cua-toi", filter: "__OPEN__", loaiDon: "tat_ca" },
   { key: "cho-tbp", tab: "don-cua-toi", filter: "Cho TBP xac nhan", loaiDon: "" },
   { key: "cho-gs", tab: "don-cua-toi", filter: "Cho GS duyet", loaiDon: "" },
+  { key: "cho-thanh-toan", tab: "don-cua-toi", filter: "__CHO_TT__", loaiDon: "" },
   { key: "cho-thanh-toan", tab: "don-cua-toi", filter: "Cho thanh toan", loaiDon: "" },
   { key: "cho-tn-duyet", tab: "don-cua-toi", filter: "__CHO_TN__", loaiDon: "tat_ca" },
   { key: "cho-tn-duyet", tab: "don-cua-toi", filter: "Cho TN duyet", loaiDon: "" },
@@ -578,8 +579,9 @@ export function DatMuaLinhKienModule({
               {
                 key: "cho-thanh-toan",
                 label: t("Chờ thanh toán"),
-                count: donHangStatusCounts["Cho thanh toan"],
-                onClick: () => stageJump("cho-thanh-toan", { tab: "don-cua-toi", filter: "Cho thanh toan", loaiDon: "" }),
+                // Gom ca don DA duyet dang cho chuyen tien (2026-10-27, sentinel __CHO_TT__ - truoc chi don "Cho thanh toan" thieu hang).
+                count: donHangStatusCounts.__CHO_TT__ ?? donHangStatusCounts["Cho thanh toan"],
+                onClick: () => stageJump("cho-thanh-toan", { tab: "don-cua-toi", filter: "__CHO_TT__", loaiDon: "" }),
               },
               {
                 key: "cho-tn-duyet",

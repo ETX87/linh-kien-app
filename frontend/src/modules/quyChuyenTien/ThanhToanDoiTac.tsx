@@ -158,7 +158,7 @@ export function ThanhToanDoiTacTab() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Tìm mã / tên đối tác, nội dung…")} className={`${o} w-60`} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Tìm mã / tên đối tác, nội dung…")} className={`o-tim ${o} w-60`} />
         <select value={tt} onChange={(e) => setTt(e.target.value as typeof tt)} className={o}>
           <option value="Da ghi">{t("Đã ghi")}</option>
           <option value="Da huy">{t("Đã hủy")}</option>

@@ -1168,7 +1168,7 @@ export function PhieuXuatKhoTab({
                 onChange={(e) => setTimKiemDonHang(e.target.value)}
                 placeholder={t("Tìm theo mã LK, tên LK, mã đơn, mã YCSC/Lada...")}
                 disabled={!chonKtv}
-                className={`${inputCls} mb-1.5 disabled:bg-[var(--surface-200)]`}
+                className={`o-tim ${inputCls} mb-1.5 disabled:bg-[var(--surface-200)]`}
               />
               {/* SUA (phan hoi 2026-09-28 "danh sách đơn hàng cho hiện thị giống danh sách Dòng đơn hàng trong
                   UI phiếu xuất đã tạo (có các chức năng thay đổi, sửa thông tin...)") - truoc day chi la list
@@ -2402,7 +2402,7 @@ export function PxkDetailModal({
               value={themDonQ}
               onChange={(e) => setThemDonQ(e.target.value)}
               placeholder={t("Tìm theo mã LK, tên LK, mã đơn, mã YCSC/Lada...")}
-              className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+              className="o-tim focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
             />
             <div className="border border-[var(--line)] rounded-lg max-h-72 overflow-y-auto">
               {themDonKhaDungLoading ? (

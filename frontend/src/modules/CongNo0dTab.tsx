@@ -110,7 +110,7 @@ export function CongNo0dTab() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Tìm tên chương trình, mã/tên LK, KTV…"
-          className="focus-ring w-full sm:max-w-md bg-white border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-sm"
+          className="o-tim focus-ring w-full sm:max-w-md bg-white border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-sm"
         />
         <Btn variant="subtle" size="sm" className="ml-auto" onClick={() => setMoImport(true)} title="Tạo nhiều chương trình từ file Excel/CSV">
           ⬆ Import chương trình
@@ -574,7 +574,7 @@ function CongNo0dModal({ row, onClose, onSaved }: { row: CongNo0dRow | null; onC
                   value={timKtv}
                   onChange={(e) => setTimKtv(e.target.value)}
                   placeholder="Tìm mã/tên KTV…"
-                  className="focus-ring flex-1 min-w-[160px] bg-white border border-[var(--color-border)] rounded-lg px-2 py-1 text-sm"
+                  className="o-tim focus-ring flex-1 min-w-[160px] bg-white border border-[var(--color-border)] rounded-lg px-2 py-1 text-sm"
                 />
                 <label className="flex items-center gap-1 text-xs cursor-pointer">
                   <input type="checkbox" checked={chiDaChon} onChange={(e) => setChiDaChon(e.target.checked)} />

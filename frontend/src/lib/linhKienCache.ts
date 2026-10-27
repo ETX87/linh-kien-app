@@ -35,6 +35,8 @@ interface CacheEntry {
   cam_ban: number;
   // Xet duyet ma chuan (2026-09-30, migration 0053) - o chon tao don hien nhan "Chờ xét duyệt".
   trang_thai_ma?: string;
+  // Nhom LK Karofi / B2B (2026-10-27) - LK B2B khong xet tran cong no (canh bao cong no tam tinh o form tao don).
+  nhom_lk?: "karofi" | "b2b" | null;
   nguoi_cap_nhat: string | null;
   ngay_cap_nhat: string | null; // ISO timestamp
 }
@@ -102,6 +104,7 @@ export async function mergeLinhKienToCache(rows: LinhKienRow[]): Promise<void> {
         gia_tri_cong_no: row.gia_tri_cong_no,
         cam_ban: row.cam_ban,
         trang_thai_ma: row.trang_thai_ma,
+        nhom_lk: row.nhom_lk ?? null,
         nguoi_cap_nhat: row.nguoi_cap_nhat,
         ngay_cap_nhat: row.ngay_cap_nhat,
       });
@@ -135,7 +138,8 @@ export async function clearLinhKienCache(): Promise<void> {
 // tren, bat buoc de trinh duyet dang co cache cu tu heal, khong thi picker tao don se KHONG BAO GIO
 // loc duoc "cam_ban" cho cac ma lau khong ai sua (field luon undefined trong cache cu).
 // BUMP len 4 (2026-09-30): them "trang_thai_ma" (xet duyet ma chuan, migration 0053) - cung ly do.
-const SCHEMA_VERSION = 4;
+// BUMP len 5 (2026-10-27): them "nhom_lk" (LK B2B bo qua tran cong no).
+const SCHEMA_VERSION = 5;
 const SCHEMA_VERSION_KEY = "dvbh_lk_cache_schema_version";
 
 export async function ensureCacheSchemaVersion(): Promise<void> {
