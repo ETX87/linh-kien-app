@@ -34,6 +34,7 @@ import { PXK_TRANG_THAI_TONE, CHUYEN_TIEN_TONE, PXK_TRANG_THAI_OPTIONS, CHUYEN_T
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   trangThaiLabel, LOAI_DON_TONE, laTruCongNo,
+  nenKhieuNai,
 } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar, KhuVucChipFilter, ImageLink, LogTieuDe, useTenNguoiLog } from "./SharedUi";
 import { PxkMiniPipeline } from "./PipelineFlow";
@@ -664,9 +665,7 @@ export function PhieuXuatKhoTab({
         <span className="font-mono text-xs">
           {/* !! bat buoc - D1 tra EXISTS(...) ve 0/1 (khong phai boolean that), "0 && <X/>" trong
               JSX se render ra chu "0" thay vi an di neu khong ep kieu truoc. */}
-          <span className="mr-1 inline-block w-3 text-[var(--color-text-secondary)]" title={moRongPxk.has(r.id) ? t("Thu gọn dòng đơn") : t("Xổ xuống xem dòng đơn")}>
-            {moRongPxk.has(r.id) ? "▾" : "▸"}
-          </span>
+          <NutXoDongDon mo={moRongPxk.has(r.id)} onClick={() => toggleMoRong(r.id)} />
           {!!r.co_don_uu_tien && <span title={t("Có dòng ưu tiên bên trong")}>⭐ </span>}
           {/* Bam ID = mo chi tiet phieu (2026-09-29, thay nut "Chi tiết" cuoi dong) - bam phan con lai cua dong van xo/thu dong don. */}
           <button type="button" className="code-link underline underline-offset-2 hover:opacity-80" title={t("Mở chi tiết phiếu")} onClick={(e) => { e.stopPropagation(); setDetailId(r.id); }}>
@@ -778,7 +777,7 @@ export function PhieuXuatKhoTab({
       <div className="space-y-1">
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1 truncate">
-            <span className="mr-1 text-[var(--color-text-secondary)]">{moRongPxk.has(r.id) ? "▾" : "▸"}</span>
+            <NutXoDongDon mo={moRongPxk.has(r.id)} onClick={() => toggleMoRong(r.id)} />
             {!!r.co_don_uu_tien && <span title={t("Có dòng ưu tiên bên trong")} className="text-[var(--orange-600)]">⭐ </span>}
             {r.ma_misa ? (
               <span className="font-mono text-[13px] font-semibold text-[var(--color-text)]">{r.ma_misa}</span>
@@ -1014,7 +1013,9 @@ export function PhieuXuatKhoTab({
         total={data?.total ?? 0}
         onPageChange={setPage}
         rowKey={(r) => r.id}
-        onRowClick={(r) => toggleMoRong(r.id)}
+        // SUA 2026-10-28 ("click vào bất kỳ vị trí nào để mở UI chi tiết của phiếu ... nút tam giác ngược để xổ chi tiết nếu cần xem"):
+        // bam CA DONG = mo chi tiet phieu; xo / thu dong don bang nut ▼ (NutXoDongDon) o cot ID.
+        onRowClick={(r) => setDetailId(r.id)}
         columnConfig={columnConfig}
         mobileCard={renderPxkMobileCard}
         expandedContent={(r) =>
@@ -1037,7 +1038,7 @@ export function PhieuXuatKhoTab({
         // 1 dong. Doi xanh duong nhat -> XANH LA nhat --color-success-soft (phan hoi 2026-09-29 "xanh dương nhạt khó nhìn").
         // SUA 2026-10-15 ("nền màu trắng", "app màu mè"): bo nen cam/xanh la ca dong - nen dong luon trang; phieu co don uu tien = 1
         // vach cam ben trai (o dau tien), da in = xem cot "In phiếu".
-        rowClassName={(r) => (r.co_don_uu_tien ? "[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-warning)] shadow-[inset_3px_0_0_var(--color-warning)]" : "")}
+        rowClassName={(r) => `${r.co_don_uu_tien ? "[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-warning)] shadow-[inset_3px_0_0_var(--color-warning)]" : ""} ${nenKhieuNai(r.co_khieu_nai)}`}
       />
       {showCreate && (() => {
         const dongTaoPxk = () => {
@@ -2621,5 +2622,23 @@ function TaoPxkMobileShell({ onClose, footer, children }: { onClose: () => void;
         {footer}
       </div>
     </div>
+  );
+}
+
+// Nut tam giac nguoc xo / thu dong don cua 1 phieu trong danh sach (2026-10-28) - bam ca dong mo chi tiet phieu, chi nut nay moi xo dong.
+function NutXoDongDon({ mo, onClick }: { mo: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-expanded={mo}
+      title={mo ? t("Thu gọn dòng đơn") : t("Xổ xuống xem dòng đơn")}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className="focus-ring mr-1 inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[11px] text-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]"
+    >
+      {mo ? "▲" : "▼"}
+    </button>
   );
 }

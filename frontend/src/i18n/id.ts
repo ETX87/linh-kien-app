@@ -2174,5 +2174,16 @@ const tuDien: Record<string, string> = {
   "⏳ Chuyển chờ hàng": "⏳ Pindah ke menunggu barang",
   "🔒 Kho / Mua hàng đã xác nhận xử lý ticket thiếu hàng{a} — KTV không tự hủy được; Kho / Mua hàng hủy = hủy ticket, đơn tự hủy (tiền về quỹ).": "🔒 Gudang / Pembelian sudah memproses tiket kekurangan{a} — teknisi tidak dapat membatalkan; pembatalan oleh Gudang / Pembelian = membatalkan tiket, pesanan dibatalkan (uang kembali ke dana).",
   "Mua hàng đang xử lý đặt hàng cho ticket thiếu hàng{b}.": "Pembelian sedang memesan untuk tiket kekurangan{b}.",
+  "Ca khiếu nại": "Kasus keluhan",
+  "Ghi chú khiếu nại (tuỳ chọn) — nhập trước rồi tích": "Catatan keluhan (opsional) — isi dulu lalu centang",
+  "Không có đơn chờ hàng nào đủ tồn kho công ty": "Tidak ada pesanan menunggu barang dengan stok perusahaan cukup",
+  "Rà soát tồn kho công ty và tự xác nhận hàng về cho các đơn chờ hàng đủ hàng (ưu tiên ca khiếu nại > đơn tồn lâu > đơn ưu tiên)?": "Periksa stok perusahaan dan konfirmasi otomatis barang datang untuk pesanan menunggu barang yang stoknya cukup (prioritas: keluhan > terlama > pesanan prioritas)?",
+  "Tự xác nhận hàng về cho đơn chờ hàng theo tồn kho công ty hiện tại — ưu tiên ca khiếu nại > đơn tồn lâu > đơn ưu tiên": "Konfirmasi otomatis barang datang dari stok perusahaan saat ini — prioritas: keluhan > terlama > pesanan prioritas",
+  "tích để đánh dấu đơn quan trọng (tô đỏ ở mọi danh sách, ưu tiên khi hàng về)": "centang untuk menandai penting (merah di semua daftar, diprioritaskan saat barang datang)",
+  "Đánh dấu bởi": "Ditandai oleh",
+  "Đã bỏ đánh dấu ca khiếu nại": "Tanda keluhan dihapus",
+  "Đã tự xác nhận hàng về {n} đơn: {a}": "Konfirmasi otomatis barang datang {n} pesanan: {a}",
+  "Đã đánh dấu ca khiếu nại": "Ditandai sebagai kasus keluhan",
+  "📦 Rà soát hàng về": "📦 Periksa barang datang",
 };
 export default tuDien;

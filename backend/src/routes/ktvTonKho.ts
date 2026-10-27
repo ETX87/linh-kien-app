@@ -9,6 +9,7 @@ import { SL_HO_TRO_0D_SQL, docCongNoTongHop } from "../lib/congNoKtv";
 import { daTruTheoMaHang } from "../lib/tonKhoKtv";
 import { maKtvTheoTen } from "../lib/timTheoTen";
 import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
+import { tuDongXacNhanHangVe } from "../lib/tuDongHangVe";
 
 // "Tồn kho KTV" (them 2026-08-29, phan hoi nguoi dung) - import hang ngay file "Tổng hợp tồn kho"
 // xuat tu MISA (mot bao cao gom NHIEU khoi "Kho: ..." xep lien tiep, moi khoi la 1 KTV/tram - xem
@@ -267,6 +268,10 @@ ktvTonKho.post("/import", adminOrKeToan, async (c) => {
         nowVN(),
       ),
     ]);
+    // Ton kho cong ty vua cap nhat -> tu xac nhan hang ve cho don thieu hang theo uu tien (khieu nai > ton lau > VIP), 2026-10-28.
+    c.executionCtx.waitUntil(
+      tuDongXacNhanHangVe(c.env, c.env.DB, user.email, "Kế toán import tồn kho").catch((e) => console.error("[tuDongXacNhanHangVe]", e)),
+    );
   }
   return c.json({ done, nextOffset, matched, unmatched: Array.from(unmatched) });
 });

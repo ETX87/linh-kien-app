@@ -196,6 +196,11 @@ export interface DonHangRow {
   cong_no_nhan?: { tran: number | null; chot: number; don: number | null } | null;
   tien_da_tra_pxk?: string | null;
   uu_tien: number;
+  // Ca khieu nai (migration 0101, 2026-10-28) - GS / Kho / TN / KT tich; nen do nhat moi danh sach + uu tien 1 khi tu xac nhan hang ve.
+  khieu_nai?: number | null;
+  khieu_nai_luc?: string | null;
+  khieu_nai_boi?: string | null;
+  khieu_nai_ghi_chu?: string | null;
   trang_thai?: string | null;
   // Cot goc "dat_don_hang.trang_thai_hien_tai" (khac "trang_thai" o tren - vai noi API tra ve qua
   // ddh.* thay vi alias) - dung de gate dung dieu kien "con dang Cho TN duyet" cho nut Luu ly do cham
@@ -328,6 +333,7 @@ export interface PhieuXuatKhoRow {
   // TRUOC KHI mo chi tiet (phan hoi 2026-08-19: "tất cả các phiếu... có liên quan đến đơn ưu tiên
   // bên trong, cũng tự động tô màu").
   co_don_uu_tien?: boolean;
+  co_khieu_nai?: number | boolean; // phieu co it nhat 1 don "Ca khiếu nại" (2026-10-28)
 }
 
 export interface DonHangKhaDungRow {
@@ -356,6 +362,7 @@ export interface DonHangKhaDungRow {
 
 export interface ThieuLkRow {
   id: string;
+  ddh_khieu_nai?: number | null; // don goc la "Ca khiếu nại" (2026-10-28)
   dat_don_hang_id: string;
   ly_do_cham_id: number | null;
   ten_ly_do: string | null;

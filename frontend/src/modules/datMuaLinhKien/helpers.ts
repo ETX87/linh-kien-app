@@ -533,3 +533,9 @@ export function actionsFor(
   if (tuHuy) return { duyet: false, tuChoi: false, choHang: false, huy: true };
   return { duyet: false, tuChoi: false, choHang: false, huy: false };
 }
+
+// Ca khieu nai (2026-10-28, migration 0101): class nen do nhat cho dong / the don duoc tich - dung CHUNG moi danh sach (don hang, dong don trong
+// phieu, phieu co don khieu nai, thieu hang). Ghi de hover de dong van do khi re chuot.
+export function nenKhieuNai(laKhieuNai: unknown): string {
+  return laKhieuNai ? "!bg-[var(--color-khieu-nai-bg)] hover:!bg-[var(--color-khieu-nai-hover)]" : "";
+}

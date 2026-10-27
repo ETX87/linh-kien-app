@@ -42,7 +42,7 @@ import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, laTraHangChoTn, laChoHangMoKhoa, laChoHangBiKhoa, dayLaiDuoc, trangThaiLabel, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLkCombo, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
-  donGiaSauChietKhau, tienSauChietKhau, giaNiemYet, boQuaTbpDacThu, canNhapMaEo } from "./helpers";
+  donGiaSauChietKhau, tienSauChietKhau, giaNiemYet, boQuaTbpDacThu, canNhapMaEo, nenKhieuNai } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink, LogTieuDe } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck, isLikelyLadaId } from "./MaLadaCheck";
@@ -52,6 +52,7 @@ import { LinhKienPicker } from "./LinhKienPicker";
 import { ThieuLkDetailModal } from "./ThieuLkTab";
 import { Money } from "../../components/ui/Money";
 import { DuyetVuotTranKhoi } from "./DuyetVuotTran";
+import { KhieuNaiBox } from "./KhieuNai";
 import { TongNgayKtvInfo } from "./TongNgayKtv";
 import { GanKhachLe } from "./KhachLeSdt";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
@@ -1097,6 +1098,8 @@ export function DonHangDetailModal({
           <LyDoTrangThaiDon d={d} tenNguoi={(e) => formatPersonDisplay(e, personDirChiTiet)} />
           {/* Don vuot tran da duoc GS / TBP duyet (2026-10-27) - Ke toan nhin nhanh muc vuot + ma EO. */}
           <DuyetVuotTranKhoi d={d} />
+          {/* Ca khieu nai (2026-10-28) - GS / Kho / TN / KT tich. */}
+          <KhieuNaiBox d={d} onDone={() => { invalidate(); invalidatePipelineCounts(qc); }} addToast={addToast} />
 
           <DetailZone title={t("Thông tin đơn")}>
             {/* "ID hệ thống" (phan hoi 2026-09-05, muc #6: "cần nhìn thấy ID hệ thống của đơn hàng để
@@ -3212,7 +3215,7 @@ export function DonHangGroupedList({
                     // tien chi con 1 vach cam ben trai.
                     className={`cursor-pointer transition-colors border-b border-[var(--line)] last:border-0 border-l-4 hover:bg-[var(--color-surface-soft)] ${
                       row.d.uu_tien === 1 ? "border-l-[var(--color-warning)]" : "border-l-transparent"
-                    }`}
+                    } ${nenKhieuNai(row.d.khieu_nai)}`}
                   >
                     {tableColumns.map((col) => {
                       const width = colWidth(col.key);
@@ -3303,7 +3306,7 @@ export function DonHangGroupedList({
                         onClick={() => onDetail(d.id)}
                         className={`cursor-pointer px-3 py-2.5 border-l-4 active:bg-[var(--color-surface-soft)] ${
                           d.uu_tien === 1 ? "border-l-[var(--color-warning)]" : "border-l-transparent"
-                        }`}
+                        } ${nenKhieuNai(d.khieu_nai)}`}
                       >
                         <div className="flex items-start gap-2">
                           {chonDuoc && (

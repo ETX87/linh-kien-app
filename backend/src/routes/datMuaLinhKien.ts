@@ -41,6 +41,7 @@ import { pushThieuLkToKhovan, buildWorkUrl } from "../lib/khovanPushClient";
 import { ANH_DA_GHI_NHAN_SQL } from "../lib/bangChungChuyenTien";
 import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
 import { tachComboDong } from "../lib/lkCombo";
+import { tuDongXacNhanHangVe } from "../lib/tuDongHangVe";
 import {
   deriveLoaiDon, boQuaTbpChoDacThu, canDoiChieuCongNo, nguCanhNhan, danhGiaPhieu, trangThaiSauDuyet, tacDongSauDinhTuyen, duyetDonKhiHangVe, danhGiaLaiDonChoThanhToan, choPhepThanhToanSau,
   huyDonChoHangTuDong, baoNguoiTaoDon, moTaThieuTon, moTicketChoHangTuDong, xetLaiTonKhiDoiKhuVuc, baoGsChoDuyet, ghiTrangThaiDon, VUOT_TRAN_GHI_CHU_SQL, type DongDanhGia, type KetQuaDong, type KetQuaPhieu,
@@ -3999,6 +4000,35 @@ datMuaLinhKien.post("/don-hang/:id/vao-phieu", async (c) => {
 //  - BAT khi don "Cho TN duyet" (loai de xuat khong bo qua TBP - boQuaTbpChoDacThu) -> "Cho TBP xac nhan".
 // Chi ghi dat_don_hang_log khi trang thai DOI (log cung trang thai "Cho TN duyet" se reset moc han 24h - choTnDuyetAtExpr);
 // nguoi/luc sua luu o dac_thu_nguoi_sua/dac_thu_sua_luc.
+// PATCH /api/dat-mua-lk/don-hang/:id/khieu-nai - { khieu_nai: boolean, ghi_chu? } (chot 2026-10-28, v1.411, migration 0101 - "box tích ca
+// khiếu nại cho GS, Kho, TN, KT có thể tích cho 1 đơn bất kỳ"): GS / Kho / TN (gom Ke toan) / Admin danh dau / bo danh dau. Don khieu nai to
+// do nhat o moi danh sach + uu tien 1 khi tu xac nhan hang ve (lib/tuDongHangVe.ts). Khong ghi dat_don_hang_log (log cung trang thai lam
+// reset han 24h) - luu nguoi / luc / ghi chu tren chinh don.
+datMuaLinhKien.patch("/don-hang/:id/khieu-nai", async (c) => {
+  const user = c.get("user");
+  if (!(canTacNghiep(c) || user.la_ke_toan || user.la_kho || user.vai_tro === "Giam sat" || user.vai_tro === "Admin")) {
+    return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  }
+  const body = await c.req.json<{ khieu_nai?: boolean; ghi_chu?: string }>().catch(() => ({}) as { khieu_nai?: boolean; ghi_chu?: string });
+  const bat = !!body.khieu_nai;
+  const r = await c.env.DB.prepare(
+    `UPDATE dat_don_hang SET khieu_nai = ?, khieu_nai_luc = ?, khieu_nai_boi = ?, khieu_nai_ghi_chu = ? WHERE id = ?`,
+  ).bind(bat ? 1 : 0, nowVN(), user.email, body.ghi_chu?.trim().slice(0, 500) || null, c.req.param("id")).run();
+  if (!r.meta.changes) return c.json({ error: "NOT_FOUND" }, 404);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, khieu_nai: bat });
+});
+
+// POST /api/dat-mua-lk/thieu-lk/tu-dong-hang-ve - "Rà soát hàng về" (2026-10-28): chay ngay lib/tuDongHangVe.ts (Kho / Ke toan / TN / Admin) -
+// cung ham tu goi sau khi import ton kho. Tra danh sach don vua tu xac nhan.
+datMuaLinhKien.post("/thieu-lk/tu-dong-hang-ve", async (c) => {
+  const user = c.get("user");
+  if (!(canKho(c) || canTacNghiep(c) || user.la_ke_toan)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const kq = await tuDongXacNhanHangVe(c.env, c.env.DB, user.email, "rà soát thủ công");
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, da_xac_nhan: kq.daXacNhan, bo_qua: kq.boQua });
+});
+
 datMuaLinhKien.patch("/don-hang/:id/dac-thu", async (c) => {
   if (!canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const user = c.get("user");
@@ -4948,7 +4978,7 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
   // xem docs/audit/RESPONSE_PLAN.md de biet nguong/phuong an xu ly khi log nay cho thay cham that).
   const queryStartedAt = Date.now();
   const { results } = await c.env.DB.prepare(
-    `SELECT tlk.*, sldc.ten_ly_do, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.uu_tien, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao as ddh_nguoi_tao, ddh.loai_chiet_khau_id, ddh.loai_chiet_khau_thu_cong, ddh.so_luong_de_xuat, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai,
+    `SELECT tlk.*, sldc.ten_ly_do, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.uu_tien, ddh.khieu_nai as ddh_khieu_nai, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao as ddh_nguoi_tao, ddh.loai_chiet_khau_id, ddh.loai_chiet_khau_thu_cong, ddh.so_luong_de_xuat, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai,
        ${LK_TRANG_THAI_MA_SQL} as lk_trang_thai_ma, ${LK_NHOM_SQL} as lk_nhom_lk
      FROM thieu_lk tlk
      LEFT JOIN settings_ly_do_cham sldc ON sldc.id = tlk.ly_do_cham_id
@@ -5095,7 +5125,7 @@ datMuaLinhKien.get("/thieu-lk/:id", async (c) => {
     binds.push(user.email);
   }
   const tlk = await c.env.DB.prepare(
-    `SELECT tlk.*, sldc.ten_ly_do, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.uu_tien, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao as ddh_nguoi_tao, ddh.so_luong_de_xuat, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai, ${LK_TRANG_THAI_MA_SQL} as lk_trang_thai_ma, ${LK_NHOM_SQL} as lk_nhom_lk,
+    `SELECT tlk.*, sldc.ten_ly_do, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.uu_tien, ddh.khieu_nai as ddh_khieu_nai, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao as ddh_nguoi_tao, ddh.so_luong_de_xuat, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai, ${LK_TRANG_THAI_MA_SQL} as lk_trang_thai_ma, ${LK_NHOM_SQL} as lk_nhom_lk,
             -- Nut "Đẩy lại đơn gốc" tren ticket (2026-10-16): trang thai + han day lai cua DON GOC (cung dayLaiHanSql voi danh sach don).
             ddh.trang_thai_hien_tai as ddh_trang_thai, ${dayLaiHanSql("ddh")} as ddh_day_lai_han,
             -- "Đẩy lại ticket" (2026-10-16, lib/dayLaiThieuLk.ts): han + trang thai ticket se phuc hoi.

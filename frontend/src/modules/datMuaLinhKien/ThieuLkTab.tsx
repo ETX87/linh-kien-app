@@ -19,7 +19,7 @@ import { fmtDate, fmtDateTime } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import type { ThieuLkRow, LyDoChamRow, NguoiNhanHangKhaDungRow, DonHangRow } from "./types";
 import { THIEU_LK_TRANG_THAI_TONE, THIEU_LK_TRANG_THAI_OPTIONS } from "./constants";
-import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts, trangThaiLabel, formatLkLabel, LOAI_DON_TONE, dayLaiDuoc } from "./helpers";
+import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts, trangThaiLabel, formatLkLabel, LOAI_DON_TONE, dayLaiDuoc, nenKhieuNai } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar, KhuVucChipFilter, LogTieuDe, useTenNguoiLog } from "./SharedUi";
 import { ThieuLkStatusRail } from "./ThieuLkStatusRail";
 // Lien ket 2 chieu voi don goc (phan hoi 2026-09-10: "đơn gốc cũng không có truy vấn đến đơn ticket
@@ -509,6 +509,22 @@ export function ThieuLkTab({
   // cung mo cho chinh TN da tao ticket (nguoi_tao), khong chi Kho - khop quyen da co san o backend
   // (POST /thieu-lk/:id/log: isCancel cho phep nguoi_tao huy bat ky luc nao con dang mo).
   const canMuaHang = !!userNhom?.la_mua_hang || userNhom?.vai_tro === "Admin";
+  // "Rà soát hàng về" (2026-10-28): xac nhan hang ve tu dong theo ton kho cong ty hien tai, uu tien ca khieu nai > ton lau > don uu tien
+  // (backend lib/tuDongHangVe.ts - cung chay tu dong sau moi lan Ke toan import ton kho).
+  const raSoatHangVe = useMutation({
+    mutationFn: () => api.post<{ ok: true; da_xac_nhan: string[]; bo_qua: string[] }>("/dat-mua-lk/thieu-lk/tu-dong-hang-ve", {}),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-thieu-lk"] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
+      invalidatePipelineCounts(qc);
+      addToast(
+        r.da_xac_nhan.length
+          ? t("Đã tự xác nhận hàng về {n} đơn: {a}", { n: r.da_xac_nhan.length, a: r.da_xac_nhan.slice(0, 8).join(", ") + (r.da_xac_nhan.length > 8 ? "…" : "") })
+          : t("Không có đơn chờ hàng nào đủ tồn kho công ty"),
+      );
+    },
+    onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
+  });
   const NEXT_STATES = (r: ThieuLkRow) => nextStatesForThieuLk(r, { canKho, canTacNghiep, currentEmail, canMuaHang });
 
   // Bulk-log (tieu chi UX #4, them 2026-08-15) - chi ap dung cho cac buoc KHONG can nhap lieu bat
@@ -587,10 +603,28 @@ export function ThieuLkTab({
         searchPlaceholder={t("Tìm theo mã TLK, mã đơn, mã YCSC, mã Lada, mã LK, tên LK, tên KTV/người báo...")}
         trailing={
           // Tai Excel (2026-10-02): LUON hien canh o tim (truoc nam trong khoi Bo loc thu gon) - moi vai tro tru KTV/Ve tinh thuan.
-          coTaiExcel ? (
-            <Btn size="sm" variant="ghost" onClick={handleDownloadFullList} disabled={downloadingFull}>
-              {downloadingFull ? t("Đang tải...") : t("⬇ Tải Excel")}
-            </Btn>
+          coTaiExcel || canKho || canTacNghiep || canKeToan ? (
+            <div className="flex items-center gap-2">
+              {(canKho || canTacNghiep || canKeToan) && (
+                <Btn
+                  size="sm"
+                  variant="ghost"
+                  loading={raSoatHangVe.isPending}
+                  disabled={raSoatHangVe.isPending}
+                  title={t("Tự xác nhận hàng về cho đơn chờ hàng theo tồn kho công ty hiện tại — ưu tiên ca khiếu nại > đơn tồn lâu > đơn ưu tiên")}
+                  onClick={() => {
+                    if (window.confirm(t("Rà soát tồn kho công ty và tự xác nhận hàng về cho các đơn chờ hàng đủ hàng (ưu tiên ca khiếu nại > đơn tồn lâu > đơn ưu tiên)?"))) raSoatHangVe.mutate();
+                  }}
+                >
+                  {t("📦 Rà soát hàng về")}
+                </Btn>
+              )}
+              {coTaiExcel && (
+                <Btn size="sm" variant="ghost" onClick={handleDownloadFullList} disabled={downloadingFull}>
+                  {downloadingFull ? t("Đang tải...") : t("⬇ Tải Excel")}
+                </Btn>
+              )}
+            </div>
           ) : undefined
         }
       >
@@ -971,7 +1005,7 @@ function ThieuLkGroupedList({
                     onClick={() => onDetail(r.id)}
                     className={`cursor-pointer transition-colors border-b border-[var(--line)] last:border-0 ${
                       r.uu_tien === 1 ? "shadow-[inset_3px_0_0_var(--color-warning)] [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-warning)] hover:bg-[var(--color-surface-soft)]" : "hover:bg-[var(--color-surface-soft)]"
-                    }`}
+                    } ${nenKhieuNai(r.ddh_khieu_nai)}`}
                   >
                     {effectiveColumns.map((col) => {
                       const width = colWidths[col.key];
@@ -1015,7 +1049,7 @@ function ThieuLkGroupedList({
                   <div
                     key={r.id}
                     onClick={() => onDetail(r.id)}
-                    className={`flex cursor-pointer gap-2 px-3 py-3 ${r.uu_tien === 1 ? "shadow-[inset_3px_0_0_var(--color-warning)] [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-warning)]" : "active:bg-[var(--color-surface-hover)]"}`}
+                    className={`flex cursor-pointer gap-2 px-3 py-3 ${r.uu_tien === 1 ? "shadow-[inset_3px_0_0_var(--color-warning)] [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-warning)]" : "active:bg-[var(--color-surface-hover)]"} ${nenKhieuNai(r.ddh_khieu_nai)}`}
                   >
                     {coChon && (
                       // Vung cham 32x40 quanh checkbox - bam lech khong mo nham Drawer.

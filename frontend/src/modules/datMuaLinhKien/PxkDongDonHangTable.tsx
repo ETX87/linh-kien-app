@@ -9,7 +9,7 @@ import { api, ApiError } from "../../api/client";
 import { fmtDateTime, fmtVND } from "../../types";
 import type { DonHangRow, LyDoChamRow } from "./types";
 import { LoaiChietKhauPicker, LoaiChietKhauText, HoaDonGiaNiemYet, duocDoiLoaiChietKhau, DoiLoaiChietKhauNhieuDon, tenLoaiChietKhau, useLoaiChietKhauList } from "./LoaiChietKhau";
-import { describeApiError, invalidatePipelineCounts, laTruCongNo } from "./helpers";
+import { describeApiError, invalidatePipelineCounts, laTruCongNo, nenKhieuNai } from "./helpers";
 import { LoaiDeXuatBadge } from "./SharedUi";
 import { DuyetVuotTranBadge } from "./DuyetVuotTran";
 import { DON_CUA_TOI_TRANG_THAI_OPTIONS } from "./constants";
@@ -529,7 +529,8 @@ export function PxkDongDonHangTable({
     );
   }
 
-  const nenUuTien = (d: DonHangRow) => (d.uu_tien === 1 ? "shadow-[inset_3px_0_0_var(--color-warning)] [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-warning)]" : "");
+  const nenUuTien = (d: DonHangRow) =>
+    `${d.uu_tien === 1 ? "shadow-[inset_3px_0_0_var(--color-warning)] [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-warning)]" : ""} ${nenKhieuNai(d.khieu_nai)}`;
   const slThucXuat = (d: DonHangRow) =>
     d.so_luong_thuc_xuat == null ? null : d.so_luong_thuc_xuat !== d.so_luong_de_xuat ? (
       <span className="font-semibold text-[var(--amber-700)]" title={t("Khác SL đề xuất")}>{d.so_luong_thuc_xuat}</span>

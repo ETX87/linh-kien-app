@@ -1014,6 +1014,18 @@ popup "Mở lại đơn tạo dở?"; đóng form còn nội dung → "Lưu lạ
 (13) **File MISA gộp dòng cùng mã LK** trong 1 phiếu cho MỌI loại (`gopDongCungMa`, trước chỉ trả góp): khóa = mẫu + phiếu + KTV + mã LK + loại đề xuất (+ chính
 sách với HỖ TRỢ 0 ĐỒNG, + đơn giá với Chuyển kho); SL cộng, tiền Bán hàng cộng, Mã YCSC/Lada nối.
 
+**Đợt v1.411** (chốt 2026-10-28): (1) **Đơn đã thanh toán ưu tiên phiếu riêng**: `bundleAutoApprovedIntoPxk` tách nhóm đơn có `tien_da_tra > 0`
+(không đối tác, không trả hàng) — CHỈ gộp vào phiếu "Dang tao phieu" Kế toán ĐÃ duyệt tiền (`trang_thai_chuyen_tien='TN da duyet'`, có tiền), không thì tạo
+phiếu MỚI (tự "Kế toán đã duyệt" khi đủ tiền nhờ quy tắc tiền cần chuyển = 0); không bao giờ gộp vào phiếu đang chờ chuyển tiền. (2) **Ca khiếu nại**
+(migration `0101`, `dat_don_hang.khieu_nai/_luc/_boi/_ghi_chu`): `PATCH /dat-mua-lk/don-hang/:id/khieu-nai` {khieu_nai, ghi_chu?} — GS / Kho / TN (gồm KT) / Admin;
+không ghi `dat_don_hang_log` (tránh reset hạn 24h). UI `datMuaLinhKien/KhieuNai.tsx` (`KhieuNaiBox` ở chi tiết đơn) + nền đỏ nhạt `nenKhieuNai()` (`helpers.ts`,
+token `--color-khieu-nai-bg`) ở danh sách đơn (desktop + thẻ mobile), dòng đơn trong phiếu, danh sách phiếu (`co_khieu_nai`), Thiếu hàng (`ddh_khieu_nai`),
+Hàng trả. (3) **Tự xác nhận hàng về theo ưu tiên** (`lib/tuDongHangVe.ts`): đơn "Cho hang" (Mua/Công nợ, không TRỪ CÔNG NỢ) xếp ca khiếu nại > ngày tạo cũ >
+cùng ngày đơn ưu tiên ⭐ (VIP = `uu_tien`) > giờ tạo; cấp phát lần lượt trên tồn khả dụng từng (mã LK, khu vực) — CÙNG công thức `donChoHangDuTonKho` —
+đủ thì `duyetDonKhiHangVe` + ticket "Kho xac nhan hang da ve" → "Da ket thuc" + báo người tạo. Tự chạy sau lô cuối import tồn kho (`ktvTonKho.ts POST /import`,
+`waitUntil`) + nút "📦 Rà soát hàng về" ở Thiếu hàng (`POST /dat-mua-lk/thieu-lk/tu-dong-hang-ve`, Kho/TN/KT/Admin). Nguồn tồn kho mới (đồng bộ hệ khác)
+→ ghi bảng + mốc rồi gọi `tuDongXacNhanHangVe`. (4) **Danh sách Phiếu xuất**: bấm CẢ dòng = mở chi tiết phiếu; xổ/thu dòng đơn bằng nút ▼/▲ (`NutXoDongDon`).
+
 **KH lẻ theo từng khách** (chốt 2026-10-09, v1.314, migration `0074`, `lib/khachLe.ts` + `routes/khachLe.ts` tại `/api/khach-le`):
 trước đây mọi KH lẻ dùng chung tài khoản KH_LE_MB/KH_LE_MN nên tiền KH chuyển không gắn được KH nào. Giờ MỖI KH = 1 NGƯỜI NHẬN RIÊNG:
 users NỘI BỘ `<ma>@khle.local` (Da duyet, `khu_vuc_dat_hang` = khu vực nhóm, `ma_misa` = của nhóm, `ten` "KH lẻ MN - <SĐT|mã>" — KHÔNG

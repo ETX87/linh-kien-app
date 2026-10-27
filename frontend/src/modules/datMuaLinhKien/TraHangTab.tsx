@@ -21,6 +21,7 @@ import { TRA_HANG_TRANG_THAI_TONE, TRA_HANG_TRANG_THAI_OPTIONS, TRA_HANG_BULK_ER
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, useNenAnhTraHangEnabled,
   isDonTaoHo, formatLkLabel, LOAI_DON_TONE, loaiDonLabel,
+  nenKhieuNai,
 } from "./helpers";
 import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, LoaiDeXuatBadge, DetailZone, QuickStat, KhuVucChipFilter, ImageLink, ImageThumb, MaYcscCell, LogTieuDe, useTenNguoiLog } from "./SharedUi";
 import { Money } from "../../components/ui/Money";
@@ -923,7 +924,7 @@ function TraHangGroupedList({
                     onClick={() => onDetail(r.id)}
                     className={`cursor-pointer transition-colors border-b border-[var(--line)] last:border-0 ${
                       r.uu_tien === 1 ? "shadow-[inset_3px_0_0_var(--color-warning)] [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-warning)] hover:bg-[var(--color-surface-soft)]" : "hover:bg-[var(--color-surface-soft)]"
-                    }`}
+                    } ${nenKhieuNai(r.khieu_nai)}`}
                   >
                     {effectiveColumns.map((col) => {
                       const width = colWidths[col.key];

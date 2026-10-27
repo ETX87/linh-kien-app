@@ -430,7 +430,11 @@ phieuXuatKho.get("/", async (c) => {
        EXISTS(
          SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id
          WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh.uu_tien = 1
-       ) as co_don_uu_tien
+       ) as co_don_uu_tien,
+       EXISTS(
+         SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id
+         WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh.khieu_nai = 1
+       ) as co_khieu_nai
      FROM phieu_xuat_kho pxk WHERE ${whereSql} ORDER BY ${sapXep ? `${sapXep}, ` : ""}pxk.ngay_tao DESC
      ${pageParam ? "LIMIT ? OFFSET ?" : ""}`,
   )

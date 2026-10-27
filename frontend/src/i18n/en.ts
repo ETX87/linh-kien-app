@@ -2174,5 +2174,16 @@ const tuDien: Record<string, string> = {
   "⏳ Chuyển chờ hàng": "⏳ Move to awaiting goods",
   "🔒 Kho / Mua hàng đã xác nhận xử lý ticket thiếu hàng{a} — KTV không tự hủy được; Kho / Mua hàng hủy = hủy ticket, đơn tự hủy (tiền về quỹ).": "🔒 Warehouse / Purchasing has taken shortage ticket{a} — the technician cannot cancel; Warehouse / Purchasing cancelling = cancelling the ticket, the order is cancelled (money back to the fund).",
   "Mua hàng đang xử lý đặt hàng cho ticket thiếu hàng{b}.": "Purchasing is ordering for the shortage ticket{b}.",
+  "Ca khiếu nại": "Complaint case",
+  "Ghi chú khiếu nại (tuỳ chọn) — nhập trước rồi tích": "Complaint note (optional) — type first, then tick",
+  "Không có đơn chờ hàng nào đủ tồn kho công ty": "No awaiting-goods order has enough company stock",
+  "Rà soát tồn kho công ty và tự xác nhận hàng về cho các đơn chờ hàng đủ hàng (ưu tiên ca khiếu nại > đơn tồn lâu > đơn ưu tiên)?": "Check company stock and auto-confirm arrival for awaiting-goods orders with enough stock (priority: complaint > oldest > priority order)?",
+  "Tự xác nhận hàng về cho đơn chờ hàng theo tồn kho công ty hiện tại — ưu tiên ca khiếu nại > đơn tồn lâu > đơn ưu tiên": "Auto-confirm arrival for awaiting-goods orders from current company stock — priority: complaint > oldest > priority order",
+  "tích để đánh dấu đơn quan trọng (tô đỏ ở mọi danh sách, ưu tiên khi hàng về)": "tick to mark as important (highlighted red in every list, prioritized when goods arrive)",
+  "Đánh dấu bởi": "Marked by",
+  "Đã bỏ đánh dấu ca khiếu nại": "Complaint mark removed",
+  "Đã tự xác nhận hàng về {n} đơn: {a}": "Auto-confirmed arrival for {n} orders: {a}",
+  "Đã đánh dấu ca khiếu nại": "Marked as complaint case",
+  "📦 Rà soát hàng về": "📦 Check arrivals",
 };
 export default tuDien;

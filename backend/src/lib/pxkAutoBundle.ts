@@ -49,7 +49,7 @@ export async function bundleAutoApprovedIntoPxk(
   // trang thai don + ghi chu log don MOI NHAT (ly do tu dong: du hang / hang ve / doi khu vuc / thanh toan sau...).
   const { results: kvDon } = await db
     .prepare(
-      `SELECT d.id, d.khu_vuc_chon, d.doi_tac_ma, d.ma_lk, d.ten_lk_snapshot, d.so_luong_de_xuat, d.trang_thai_hien_tai,
+      `SELECT d.id, d.khu_vuc_chon, d.doi_tac_ma, d.ma_lk, COALESCE(d.tien_da_tra, 0) AS tien_da_tra, d.ten_lk_snapshot, d.so_luong_de_xuat, d.trang_thai_hien_tai,
               (SELECT l.ghi_chu FROM dat_don_hang_log l WHERE l.dat_don_hang_id = d.id ORDER BY l.id DESC LIMIT 1) AS ghi_chu_log
        FROM dat_don_hang d WHERE d.id IN (SELECT value FROM json_each(?))`,
     )
@@ -57,25 +57,30 @@ export async function bundleAutoApprovedIntoPxk(
     .all<DonVaoPhieu>();
   const donTheoId = new Map(kvDon.map((r) => [r.id, r]));
   // + MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): don doi tac vao phieu RIENG theo doi tac (khong can chuyen tien) - tach nhom theo doi_tac_ma.
-  const nhom = new Map<string, { kv: string | null; dt: string | null; dong: AutoApprovedLine[] }>();
+  // Don DA THANH TOAN (mang tien da tra - vd hang ve sau khi chuyen tien, chot 2026-10-28 "đơn đã thanh toán => hàng đã về => cần ưu tiên tạo
+  // phiếu gửi kế toán để xuất hàng đi"): tach nhom rieng - chi gop vao phieu dang tao Ke toan DA duyet tien (cung trang thai da thanh toan),
+  // khong co thi tao phieu MOI; KHONG gop vao phieu dang cho chuyen tien (don se bi giu lai cho KTV chuyen tien cac don khac).
+  const nhom = new Map<string, { kv: string | null; dt: string | null; daTT: boolean; dong: AutoApprovedLine[] }>();
   for (const l of lines) {
     const d = donTheoId.get(l.donHangId);
     const kv = d?.khu_vuc_chon ?? null;
     const dt = d?.doi_tac_ma ?? null;
-    const key = JSON.stringify([kv, dt]);
-    if (!nhom.has(key)) nhom.set(key, { kv, dt, dong: [] });
+    const daTT = loaiDon !== "tra_hang" && !dt && (d?.tien_da_tra ?? 0) > 0;
+    const key = JSON.stringify([kv, dt, daTT]);
+    if (!nhom.has(key)) nhom.set(key, { kv, dt, daTT, dong: [] });
     nhom.get(key)!.dong.push(l);
   }
   let pxkCuoi: string | null = null;
-  for (const { kv: kvChon, dt: doiTac, dong } of nhom.values()) {
-    const lyDo = dong.map((l) => moTaDonVaoPhieu(donTheoId.get(l.donHangId), l.donHangId, loaiDon)).join("\n");
-    pxkCuoi = await gomMotNhom(env, db, actorEmail, nguoiNhanHang, loaiDon, dong, kvChon, lyDo, doiTac);
+  for (const { kv: kvChon, dt: doiTac, daTT, dong } of nhom.values()) {
+    const lyDo = (daTT ? "Đơn đã thanh toán — ưu tiên phiếu riêng (không gộp phiếu đang chờ chuyển tiền) để gửi Kế toán xuất hàng ngay\n" : "") +
+      dong.map((l) => moTaDonVaoPhieu(donTheoId.get(l.donHangId), l.donHangId, loaiDon)).join("\n");
+    pxkCuoi = await gomMotNhom(env, db, actorEmail, nguoiNhanHang, loaiDon, dong, kvChon, lyDo, doiTac, daTT);
   }
   return pxkCuoi;
 }
 
 interface DonVaoPhieu {
-  id: string; khu_vuc_chon: string | null; doi_tac_ma: string | null; ma_lk: string | null; ten_lk_snapshot: string | null; so_luong_de_xuat: number | null;
+  id: string; khu_vuc_chon: string | null; doi_tac_ma: string | null; ma_lk: string | null; tien_da_tra: number; ten_lk_snapshot: string | null; so_luong_de_xuat: number | null;
   trang_thai_hien_tai: string | null; ghi_chu_log: string | null;
 }
 
@@ -106,6 +111,7 @@ async function gomMotNhom(
   kvChon: string | null,
   lyDo: string,
   doiTac: string | null = null,
+  daThanhToan = false,
 ): Promise<string> {
   const now = nowVN();
 
@@ -113,7 +119,8 @@ async function gomMotNhom(
     .prepare(
       `SELECT id, ma_xuat_kho, so_tien_can_chuyen FROM phieu_xuat_kho
        WHERE nguoi_nhan_hang = ? AND loai_don = ? AND trang_thai_hien_tai = 'Dang tao phieu'
-         AND COALESCE(trang_thai_chuyen_tien, '') != 'TN da duyet' AND COALESCE(TRIM(ma_misa), '') = ''
+         AND ${daThanhToan ? "trang_thai_chuyen_tien = 'TN da duyet' AND COALESCE(so_tien_can_chuyen, 0) > 0" : "COALESCE(trang_thai_chuyen_tien, '') != 'TN da duyet'"}
+         AND COALESCE(TRIM(ma_misa), '') = ''
          AND khu_vuc_chon IS ? AND doi_tac_ma IS ?
        ORDER BY ngay_tao DESC LIMIT 1`,
     )
@@ -149,6 +156,7 @@ async function gomMotNhom(
           pxkId, maXuatKho, actorEmail, now,
           loaiDon === "tra_hang" ? "Tự động gom đơn trả hàng QC đã đồng ý"
             : doiTac ? `Tự động gom đơn mua hàng công nợ đối tác ${doiTac} — không cần chuyển tiền, ghi nợ đối tác khi Kế toán chốt`
+            : daThanhToan ? "Tự động tạo phiếu riêng cho đơn đã thanh toán (hàng đã về) — gửi Kế toán xuất hàng ngay"
             : "Tự động gom đơn mới (đơn tự động duyệt + đơn cần chuyển tiền trước)",
           null, null, nguoiNhanHang, loaiDon, "Dang tao phieu", kvChon, doiTac,
         ),
