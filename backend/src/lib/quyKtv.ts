@@ -223,9 +223,10 @@ export async function canBangPxk(
   if (email && ketQua.hoan > 0 && opts.phanBoTiep !== false) await phanBoQuy(db, email, nguoi, pxkId);
   // Phieu vua tu "Kế toán đã duyệt" (du tien) ma con don "Chờ thanh toán" -> xet lai ton nhu luc Ke toan bam duyet (2026-10-27).
   const env = layEnvToanCuc();
-  if (xuLyChoThanhToanSau && env) {
+  if (xuLyChoThanhToanSau && env && (nguoi || email)) {
     const { xuLyDonChoThanhToan } = await import("./tuDongDuyet");
-    await xuLyDonChoThanhToan(env, db, pxkId, nguoi || NGUOI_HE_THONG);
+    // nguoi_xu_ly cua log don la FK users(email) - khong co nguoi thao tac thi ghi theo chu quy (nguoi nhan hang).
+    await xuLyDonChoThanhToan(env, db, pxkId, (nguoi || email)!);
   }
   return ketQua;
 }

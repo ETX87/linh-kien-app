@@ -3,7 +3,7 @@
 -- theo ma KTV chua bao chuyen. Migration nay ap 1 lan cho cac phieu CU dang ket "KTV da chuyen" cung dieu kien (he thong tu dat, KTV chua
 -- bao chuyen, khong anh bang chung moi, khong co don "Chờ thanh toán").
 INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu)
-SELECT p.id, 'Tru quy du', 'he-thong', datetime('now', '+7 hours'),
+SELECT p.id, 'Tru quy du', p.nguoi_nhan_hang, datetime('now', '+7 hours'),
   'Đã thanh toán đủ từ trước — tiền cần chuyển = 0: tự xác nhận, không cần Kế toán duyệt (cập nhật quy tắc 2026-10-27)'
 FROM phieu_xuat_kho p
 WHERE p.trang_thai_hien_tai = 'Dang tao phieu'
