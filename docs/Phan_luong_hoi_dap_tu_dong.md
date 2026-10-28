@@ -1,6 +1,6 @@
 # Phân luồng Hỏi đáp tự động (chat nhanh) — bản đề xuất
 
-Cập nhật 2026-10-28. Khung của màn "💬 Hỏi nhanh" trong khung chat. Toàn bộ nội dung + ảnh nằm trên máy người dùng (đóng gói cùng app, `cayHoiNhanh.ts` + `/huong-dan-goi/`), không lưu D1.
+Cập nhật 2026-10-28. Khung của màn "💬 Hỏi nhanh" trong khung chat. Mỗi vấn đề là 1 hướng dẫn lưu trong D1 (nạp bằng nút "Nạp bộ hướng dẫn", Mua hàng sửa trong app); máy KTV giữ bản sao trong cache và chỉ tải lại khi nội dung đổi — hỏi / xem hướng dẫn không tốn lượt đọc D1.
 
 ## Nguyên tắc
 
@@ -12,11 +12,12 @@ Cập nhật 2026-10-28. Khung của màn "💬 Hỏi nhanh" trong khung chat. T
   - **Xem thêm**: tối đa 2 vấn đề liên quan.
   - **↩ Hỏi việc khác**.
   - **💬 Vẫn cần hỏi Mua hàng**: form điền sẵn.
-- Nội dung sửa trong code (`frontend/src/components/hoiDap/cayHoiNhanh.ts`) rồi deploy; hội thoại đang dở lưu trên trình duyệt 7 ngày.
+- Mã vấn đề (vd `2.1.1a`) ghi trong từ khóa của hướng dẫn, nên Mua hàng sửa tiêu đề hay nội dung thì cây vẫn trỏ đúng.
+  Hướng dẫn bị xoá / tắt thì nhánh đó hiện "Chưa có hướng dẫn — hỏi Mua hàng". Hội thoại đang dở lưu trên trình duyệt 7 ngày.
 - KTV vẫn gõ tự do bất cứ lúc nào (gợi ý hướng dẫn + tự nhận diện mã linh kiện như hiện nay).
 
 Ký hiệu câu trả lời:
-- 📘 = hướng dẫn ngắn (đóng gói cùng app).
+- 📘 = hướng dẫn ngắn (kho hướng dẫn, đọc từ cache trên máy).
 - 📊 = dữ liệu thật của KTV.
 - 💬 = chuyển sang hỏi Mua hàng.
 

@@ -16,6 +16,7 @@ import { khopTim } from "../../lib/boDau";
 import { fmtDateTime } from "../../types";
 import { t } from "../../i18n";
 import { describeApiError } from "../../modules/datMuaLinhKien/helpers";
+import { NapGoiHuongDan } from "./NapGoiHuongDan";
 
 // HỎI ĐÁP TỰ ĐỘNG (2026-10-28, migration 0102, backend routes/huongDan.ts) - "khi KTV click vào mục hỏi sẽ hiện các hướng dẫn, hình ảnh
 // tự động đẩy lên drive và hiện ra trong câu trả lời". Kho huong dan do Mua hang / Admin soan (anh tai len Google Drive qua
@@ -39,12 +40,18 @@ export interface HuongDan {
 
 export const HD_ANH_TOI_DA = 10;
 
+// KTV / nguoi hoi: khoa "huong-dan" nam trong TINH_QUERY (lib/tinhCache.ts) -> luu IndexedDB tren may, chi tai lai khi phien ban
+// md_huong_dan doi (migration 0103 - trigger khi noi dung doi) => hoi / xem huong dan KHONG ton luot doc D1. Khong dat staleTime o day
+// (ghi de mac dinh Infinity cua TINH_QUERY). Man quan ly (tatCa) dung khoa rieng "huong-dan-ql", tai moi (can luot xem / da giai dap moi).
 export function useHuongDan(tatCa = false) {
   return useQuery({
-    queryKey: ["huong-dan", tatCa],
+    queryKey: tatCa ? ["huong-dan-ql"] : ["huong-dan"],
     queryFn: () => api.get<{ quan_ly: boolean; rows: HuongDan[] }>(`/huong-dan${tatCa ? "?tat_ca=1" : ""}`),
-    staleTime: 60_000,
   });
+}
+export function lamMoiHuongDan(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ["huong-dan"] });
+  qc.invalidateQueries({ queryKey: ["huong-dan-ql"] });
 }
 
 /** Tai nhieu anh len Drive qua 1 endpoint (POST body = file) - tra danh sach URL theo thu tu chon. Dung chung huong dan + tin nhan. */
@@ -390,7 +397,7 @@ export function HuongDanForm({ open, onClose, sua, macDinh }: { open: boolean; o
     mutationFn: () => (sua ? api.patch(`/huong-dan/${sua.id}`, v) : api.post("/huong-dan", v)),
     onSuccess: () => {
       toast(sua ? t("Đã lưu hướng dẫn") : t("Đã thêm hướng dẫn"));
-      qc.invalidateQueries({ queryKey: ["huong-dan"] });
+      lamMoiHuongDan(qc);
       onClose();
     },
     onError: (e) => toast(t("Lỗi: ") + describeApiError(e)),
@@ -482,7 +489,7 @@ export function HuongDanQuanLy() {
   const doi = useMutation({
     mutationFn: (a: { id: number; bat_tat?: boolean; xoa?: boolean }) =>
       a.xoa ? api.delete(`/huong-dan/${a.id}`) : api.patch(`/huong-dan/${a.id}/bat-tat`, { bat_tat: a.bat_tat }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["huong-dan"] }),
+    onSuccess: () => lamMoiHuongDan(qc),
     onError: (e) => toast(t("Lỗi: ") + describeApiError(e)),
   });
   return (
@@ -492,7 +499,9 @@ export function HuongDanQuanLy() {
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Tìm hướng dẫn…")} className="o-tim focus-ring w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-base sm:w-72 sm:text-sm" />
-        <Btn className="ml-auto" onClick={() => setForm({ sua: null })}>{t("＋ Thêm hướng dẫn")}</Btn>
+        <span className="ml-auto" />
+        <NapGoiHuongDan dangCo={data?.rows ?? []} />
+        <Btn onClick={() => setForm({ sua: null })}>{t("＋ Thêm hướng dẫn")}</Btn>
       </div>
       {isLoading ? (
         <div className="py-8 text-center text-sm text-[var(--color-text-secondary)]">{t("Đang tải...")}</div>

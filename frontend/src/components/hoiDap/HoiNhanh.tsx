@@ -10,15 +10,15 @@ import { useLkAndLdeCache, trangThaiLabel } from "../../modules/datMuaLinhKien/h
 import type { LkDanhMucRow } from "../../modules/datMuaLinhKien/types";
 import { DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, THIEU_LK_TRANG_THAI_OPTIONS } from "../../modules/datMuaLinhKien/constants";
 import { useLienQuanLk } from "../../modules/danhMucLinhKien/LienQuanLk";
-import { XemAnhLon } from "./HuongDan";
+import { useHuongDan, XemAnhLon, type HuongDan } from "./HuongDan";
 import { TheLk } from "./LkTuDong";
-import { NHOM_HUONG_DAN, VAN_DE_THEO_MA, VD_KHONG_TIM_THAY_LK, type VanDe } from "./cayHoiNhanh";
+import { NHOM_HUONG_DAN, VAN_DE_THEO_MA, VD_KHONG_TIM_THAY_LK, maTuTuKhoa, type VanDe } from "./cayHoiNhanh";
 
 // "💬 Hỏi nhanh" (2026-10-28, docs/Phan_luong_hoi_dap_tu_dong.md): hoi dap dang HOI THOAI cho nguoi hoi - bot hoi, KTV bam lua chon
 // (<= 5 moi cap), lua chon da bam hien nhu tin cua KTV; toi da 4 lan bam toi cau tra loi DUNG 1 VAN DE.
-// CHI TREN MAY NGUOI DUNG (chot 2026-10-28 "các câu hỏi nhanh chỉ lưu trên cache người dùng, không cần lưu về D1"): noi dung = cayHoiNhanh.ts
-// (dong goi cung app), anh = /huong-dan-goi/*.jpg (file tinh, trinh duyet cache); hoi thoai dang do luu localStorage theo tai khoan
-// (KHOA_LUU). Khong ghi gi len server - chi DOC du lieu that (danh muc LK cache, lien-quan LK, danh sach don/phieu).
+// Cau tra loi = huong dan trong kho D1 theo MA "#<ma>" o tu_khoa (Mua hang sua trong app) - doc tu CACHE TREN MAY (useHuongDan, TINH_QUERY
+// "huong-dan", chi tai lai khi noi dung doi - chot 2026-10-28 "lưu về cache của máy họ ... không tốn lượt đọc D1"); kho chua nap goi thi
+// dung noi dung cayHoiNhanh.ts + anh /huong-dan-goi/*. KHONG ghi gi len server (khong dem luot xem); hoi thoai dang do luu localStorage.
 const XemLinhKienDrawer = lazy(() => import("../../modules/DanhMucLinhKienModule").then((m) => ({ default: m.XemLinhKienDrawer })));
 const DonHangDetailModal = lazy(() => import("../../modules/datMuaLinhKien/DonCuaToiTab").then((m) => ({ default: m.DonHangDetailModal })));
 const PxkDetailModal = lazy(() => import("../../modules/datMuaLinhKien/PhieuXuatKhoTab").then((m) => ({ default: m.PxkDetailModal })));
@@ -122,6 +122,16 @@ export function HoiNhanh({ onHoiMuaHang, onXemCauHoi }: { onHoiMuaHang: (g: GoiY
   }, [luot.length]);
   const { danhMuc } = useLkAndLdeCache(true);
   const lkTheoMa = useMemo(() => new Map(danhMuc.map((r) => [r.ma_linh_kien, r])), [danhMuc]);
+  const { data: hdData } = useHuongDan();
+  // Huong dan trong kho theo ma van de; coGoi = kho da nap goi (co it nhat 1 huong dan mang ma) -> khong dung noi dung du phong nua.
+  const { hdTheoMa, coGoi } = useMemo(() => {
+    const m = new Map<string, HuongDan>();
+    for (const h of hdData?.rows ?? []) {
+      const ma = maTuTuKhoa(h.tu_khoa);
+      if (ma && !m.has(ma)) m.set(ma, h);
+    }
+    return { hdTheoMa: m, coGoi: m.size > 0 };
+  }, [hdData]);
 
   const di = (chon: string, buoc: Buoc) => setLuot((ds) => [...ds.slice(0, -1), { ...ds[ds.length - 1], chon }, { buoc }]);
   const lamLai = () => setLuot([{ buoc: { k: "goc" } }]);
@@ -213,6 +223,8 @@ export function HoiNhanh({ onHoiMuaHang, onXemCauHoi }: { onHoiMuaHang: (g: GoiY
         return (
           <TraLoiVanDe
             ma={b.ma}
+            hd={hdTheoMa.get(b.ma)}
+            coGoi={coGoi}
             cuoi={cuoi}
             onXemThem={moVd}
             onDaRo={() => di(t("✓ Đã rõ"), { k: "xong" })}
@@ -303,11 +315,17 @@ function AnhLon({ anh }: { anh: string[] }) {
 }
 
 function TraLoiVanDe({
-  ma, cuoi, onXemThem, onDaRo, onKhac, onHoi,
-}: { ma: string; cuoi: boolean; onXemThem: (ma: string) => void; onDaRo: () => void; onKhac: () => void; onHoi: () => void }) {
+  ma, hd, coGoi, cuoi, onXemThem, onDaRo, onKhac, onHoi,
+}: { ma: string; hd: HuongDan | undefined; coGoi: boolean; cuoi: boolean; onXemThem: (ma: string) => void; onDaRo: () => void; onKhac: () => void; onHoi: () => void }) {
   const goc: VanDe | undefined = ma === "1.5" ? VD_KHONG_TIM_THAY_LK : VAN_DE_THEO_MA.get(ma)?.vd;
   const xemThem = (goc?.xemThem ?? []).filter((m) => m === "1.5" || VAN_DE_THEO_MA.has(m)).slice(0, 2);
-  const noiDung: ReactNode = goc ? (
+  const noiDung: ReactNode = hd ? (
+    <>
+      <div className="font-semibold">📘 {hd.tieu_de}</div>
+      {hd.noi_dung && <div className="whitespace-pre-wrap break-words leading-relaxed">{hd.noi_dung}</div>}
+      <AnhLon anh={hd.anh} />
+    </>
+  ) : !coGoi && goc ? (
     <>
       <div className="font-semibold">📘 {goc.hoi}</div>
       <ol className="list-decimal space-y-1 pl-5 leading-relaxed">{goc.buoc.map((x, i) => <li key={i}><ChuDam s={x} /></li>)}</ol>

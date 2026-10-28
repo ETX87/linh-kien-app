@@ -1,8 +1,8 @@
 // Cay + noi dung "Hỏi nhanh" (2026-10-28, docs/Phan_luong_hoi_dap_tu_dong.md - "mỗi lựa chọn phân nhánh tối đa 5
 // lựa chọn ... hướng dẫn đúng trọng tâm vấn đề KTV thắc mắc (chia nhỏ đến từng vấn đề)").
 // Nhanh 2 "Hướng dẫn dùng app" = Nhom (<= 5) -> Chu de (<= 5) -> Van de (<= 5); MOI van de = 1 cau tra loi ngan (<= 4 buoc, <= 1 anh).
-// Noi dung CHI nam o file nay (dong goi cung app, khong luu D1 - chot 2026-10-28); anh o /huong-dan-goi/<ten>.jpg (frontend/public).
-// Sua / them van de = sua file nay roi deploy.
+// Moi van de nap thanh 1 dong huong_dan trong D1 (nut "Nạp bộ hướng dẫn", tu_khoa bat dau "#<ma>") - Mua hang sua trong app; may KTV
+// giu ban sao (cache TINH_QUERY "huong-dan", chi tai lai khi noi dung doi). Kho chua nap thi dung noi dung file nay + anh /huong-dan-goi/*.
 // Noi dung la du lieu nghiep vu (khong dich), nhan giao dien cua cay (nhanh 1/3/4) dich o HoiNhanh.tsx.
 
 export interface VanDe {
@@ -337,3 +337,28 @@ export const VD_KHONG_TIM_THAY_LK: VanDe = {
   ma: "1.5", hoi: "Không tìm thấy linh kiện cần đặt?", anh: ["tim-lk"], tuKhoa: "không tìm thấy linh kiện, mã mới, chưa có mã",
   buoc: ["Gõ một phần mã hoặc tên, không cần dấu (vd \"loi ro\", \"bom 24\").", "Xem gợi ý \"Có phải bạn muốn tìm…\" và danh sách linh kiện thay thế.", "Vẫn không có: nhờ Mua hàng tạo mã mới (bấm **💬 Vẫn cần hỏi Mua hàng**)."],
 };
+
+/** Noi dung chu cua 1 van de (dung khi nap + khi chua nap). */
+export function noiDungVanDe(vd: VanDe): string {
+  return vd.buoc.map((b, i) => `${i + 1}. ${b.replace(/\*\*/g, "")}`).join("\n");
+}
+
+export interface MucGoi { ma: string; tieu_de: string; noi_dung: string; anh: string[]; tu_khoa: string; nhom: string; stt: number }
+
+/** Goi "Nạp bộ hướng dẫn": moi van de = 1 huong dan. tu_khoa bat dau "#<ma>" (de cay tim theo ma). */
+export function goiHuongDan(): MucGoi[] {
+  const ds: MucGoi[] = [];
+  let stt = 100;
+  const them = (vd: VanDe, nhom: string) => {
+    ds.push({ ma: vd.ma, tieu_de: vd.hoi, noi_dung: noiDungVanDe(vd), anh: vd.anh ?? [], tu_khoa: [`#${vd.ma}`, vd.tuKhoa].filter(Boolean).join(", "), nhom, stt: stt++ });
+  };
+  them(VD_KHONG_TIM_THAY_LK, "Linh kiện");
+  for (const n of NHOM_HUONG_DAN) for (const c of n.chuDe) for (const v of c.vanDe) them(v, `${n.ten} › ${c.ten}`);
+  return ds;
+}
+
+/** Ma van de ghi trong tu_khoa ("#2.1.1a, ...") -> "2.1.1a". */
+export function maTuTuKhoa(tuKhoa: string | null | undefined): string | null {
+  const m = /(?:^|[\s,])#(\d+(?:\.\d+)*[a-z]?)/.exec(tuKhoa ?? "");
+  return m ? m[1] : null;
+}
