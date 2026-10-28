@@ -14,6 +14,7 @@ import { useLkAndLdeCache, describeApiError } from "../../modules/datMuaLinhKien
 import { FileButton } from "../ui/FileButton";
 import type { LkDanhMucRow } from "../../modules/datMuaLinhKien/types";
 import { useTimMaLk, TraLoiLinhKien } from "./LkTuDong";
+import { HoiNhanh, type GoiYHoi } from "./HoiNhanh";
 import {
   AnhLuoi, ChonHuongDanModal, GoiYKhiGo, HuongDanChiTiet, HuongDanDanhSach, HuongDanForm, HuongDanThe, useHuongDan, useTaiAnh,
   type HuongDan, type HuongDanNhap,
@@ -72,7 +73,7 @@ interface ChiTiet {
   phia: "hoi" | "xu_ly";
   quyen: { gui_tin: boolean; tiep_nhan: boolean; da_xu_ly: boolean; tu_choi: boolean; huy_bo: boolean };
 }
-type Man = { ten: "ds" } | { ten: "moi"; loai?: string; maLk?: string; maDon?: string } | { ten: "ct"; id: string } | { ten: "hd"; hd: HuongDan };
+type Man = { ten: "ds" } | { ten: "moi"; loai?: string; maLk?: string; maDon?: string; noiDung?: string } | { ten: "ct"; id: string } | { ten: "hd"; hd: HuongDan };
 const TOI_DA_ANH_TIN = 5;
 
 const O_NHAP = "focus-ring w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-2 text-base sm:text-sm";
@@ -329,6 +330,7 @@ export function HoiDapWidget() {
               onDong={() => setMo(false)}
               onMo={(id) => setMan({ ten: "ct", id })}
               onMoi={() => setMan({ ten: "moi" })}
+              onHoiMuaHang={(g: GoiYHoi) => setMan({ ten: "moi", loai: g.loai, maLk: g.maLk, noiDung: g.noiDung })}
               onXemHd={(hd) => setMan({ ten: "hd", hd })}
             />
           )}
@@ -388,13 +390,18 @@ function DauKhung({ tieuDe, phu, onQuay, onDong }: { tieuDe: ReactNode; phu?: Re
 }
 
 function DanhSach({
-  laXuLy, coTinMoi, onDong, onMo, onMoi, onXemHd,
-}: { laXuLy: boolean; coTinMoi: boolean; onDong: () => void; onMo: (id: string) => void; onMoi: () => void; onXemHd: (hd: HuongDan) => void }) {
+  laXuLy, coTinMoi, onDong, onMo, onMoi, onHoiMuaHang, onXemHd,
+}: { laXuLy: boolean; coTinMoi: boolean; onDong: () => void; onMo: (id: string) => void; onMoi: () => void; onHoiMuaHang: (g: GoiYHoi) => void; onXemHd: (hd: HuongDan) => void }) {
   // Nguoi hoi mo khung -> tab "Hướng dẫn" truoc (tru khi co tin tra loi chua doc); khong co huong dan nao thi an tab.
   const { data: hdData } = useHuongDan();
   const coHd = (hdData?.rows.length ?? 0) > 0;
-  const [tab, setTab] = useState<"hd" | "hoi">(laXuLy || coTinMoi ? "hoi" : "hd");
+  // Nguoi hoi: tab "Hỏi nhanh" (HoiNhanh.tsx - hoi dap dang hoi thoai) mo truoc, tru khi co tin tra loi chua doc.
+  const [tab, setTab] = useState<"nhanh" | "hd" | "hoi">(laXuLy || coTinMoi ? "hoi" : "nhanh");
   const xemHd = coHd && tab === "hd";
+  const xemNhanh = !laXuLy && tab === "nhanh";
+  const tabs = laXuLy
+    ? coHd ? ([["hd", t("📘 Hướng dẫn")], ["hoi", t("💬 Câu hỏi")]] as const) : null
+    : ([["nhanh", t("💬 Hỏi nhanh")], ...(coHd ? ([["hd", t("📘 Hướng dẫn")]] as const) : []), ["hoi", t("🗂 Đã hỏi")]] as const);
   const [loc, setLoc] = useState("__MO__");
   const [q, setQ] = useState("");
   const [qGui, setQGui] = useState("");
@@ -412,9 +419,9 @@ function DanhSach({
   return (
     <>
       <DauKhung tieuDe={t("Hỏi đáp mua hàng")} phu={laXuLy ? t("Giải đáp câu hỏi của KTV về giá, ngày hàng về…") : t("Hỏi nhân viên mua hàng về giá, ngày hàng về…")} onDong={onDong} />
-      {coHd && (
+      {tabs && (
         <div className="flex shrink-0 border-b border-[var(--color-border)]">
-          {([["hd", t("📘 Hướng dẫn")], ["hoi", laXuLy ? t("💬 Câu hỏi") : t("💬 Câu hỏi của tôi")]] as const).map(([k, nhan]) => (
+          {tabs.map(([k, nhan]) => (
             <button
               key={k}
               type="button"
@@ -427,7 +434,9 @@ function DanhSach({
           ))}
         </div>
       )}
-      {xemHd ? (
+      {xemNhanh ? (
+        <HoiNhanh onHoiMuaHang={onHoiMuaHang} onXemCauHoi={() => setTab("hoi")} />
+      ) : xemHd ? (
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
           <HuongDanDanhSach onMo={onXemHd} />
         </div>
@@ -485,12 +494,12 @@ function DanhSach({
 
 function CauHoiMoi({
   goiY, onQuay, onDong, onXong,
-}: { goiY: { loai?: string; maLk?: string; maDon?: string }; onQuay: () => void; onDong: () => void; onXong: (id: string) => void }) {
+}: { goiY: { loai?: string; maLk?: string; maDon?: string; noiDung?: string }; onQuay: () => void; onDong: () => void; onXong: (id: string) => void }) {
   const toast = useToast();
   const [loai, setLoai] = useState(goiY.loai ?? "hoi_gia");
   const [maLk, setMaLk] = useState(goiY.maLk ?? "");
   const [maDon, setMaDon] = useState(goiY.maDon ?? "");
-  const [noiDung, setNoiDung] = useState("");
+  const [noiDung, setNoiDung] = useState(goiY.noiDung ?? "");
   const [anh, setAnh] = useState<string[]>([]);
   // Xem huong dan goi y NGAY TRONG form (giu nguyen noi dung dang soan) - "Vẫn cần hỏi" quay lai form.
   const [xemHd, setXemHd] = useState<HuongDan | null>(null);

@@ -39,7 +39,7 @@ export function useTimMaLk(danhMuc: LkDanhMucRow[]) {
   }, [danhMuc]);
 }
 
-function TheLk({ lk, onMo }: { lk: LkDanhMucRow; onMo: () => void }) {
+export function TheLk({ lk, onMo }: { lk: LkDanhMucRow; onMo: () => void }) {
   const { data, isLoading, isError } = useLienQuanLk(lk.ma_linh_kien);
   const tonCty = tongTonCongTy(data);
   const kho = (data?.ton_kho_cong_ty ?? []).filter((r) => r.sl_ton !== 0).slice(0, 3);
