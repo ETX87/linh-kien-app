@@ -16,7 +16,6 @@ import { khopTim } from "../../lib/boDau";
 import { fmtDateTime } from "../../types";
 import { t } from "../../i18n";
 import { describeApiError } from "../../modules/datMuaLinhKien/helpers";
-import { NapGoiHuongDan } from "./NapGoiHuongDan";
 
 // HỎI ĐÁP TỰ ĐỘNG (2026-10-28, migration 0102, backend routes/huongDan.ts) - "khi KTV click vào mục hỏi sẽ hiện các hướng dẫn, hình ảnh
 // tự động đẩy lên drive và hiện ra trong câu trả lời". Kho huong dan do Mua hang / Admin soan (anh tai len Google Drive qua
@@ -493,9 +492,7 @@ export function HuongDanQuanLy() {
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Tìm hướng dẫn…")} className="o-tim focus-ring w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-base sm:w-72 sm:text-sm" />
-        <span className="ml-auto" />
-        <NapGoiHuongDan dangCo={data?.rows ?? []} />
-        <Btn onClick={() => setForm({ sua: null })}>{t("＋ Thêm hướng dẫn")}</Btn>
+        <Btn className="ml-auto" onClick={() => setForm({ sua: null })}>{t("＋ Thêm hướng dẫn")}</Btn>
       </div>
       {isLoading ? (
         <div className="py-8 text-center text-sm text-[var(--color-text-secondary)]">{t("Đang tải...")}</div>
