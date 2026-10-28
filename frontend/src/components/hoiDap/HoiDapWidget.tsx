@@ -12,6 +12,8 @@ import { t, dichSau } from "../../i18n";
 import { LinhKienPicker } from "../../modules/datMuaLinhKien/LinhKienPicker";
 import { useLkAndLdeCache, describeApiError } from "../../modules/datMuaLinhKien/helpers";
 import { FileButton } from "../ui/FileButton";
+import type { LkDanhMucRow } from "../../modules/datMuaLinhKien/types";
+import { useTimMaLk, TraLoiLinhKien } from "./LkTuDong";
 import {
   AnhLuoi, ChonHuongDanModal, GoiYKhiGo, HuongDanChiTiet, HuongDanDanhSach, HuongDanForm, HuongDanThe, useHuongDan, useTaiAnh,
   type HuongDan, type HuongDanNhap,
@@ -599,6 +601,8 @@ function ChiTietHoiDap({
   const [lyDoMo, setLyDoMo] = useState<"Tu choi" | "Huy bo" | null>(null);
   const [lyDo, setLyDo] = useState("");
   const cuoiRef = useRef<HTMLDivElement>(null);
+  const { danhMuc } = useLkAndLdeCache(true);
+  const timMaLk = useTimMaLk(danhMuc);
   const { data, isLoading, isError } = useQuery({
     queryKey: ["hoi-dap-ct", id],
     queryFn: () => api.get<ChiTiet>(`/hoi-dap/${encodeURIComponent(id)}`),
@@ -650,6 +654,17 @@ function ChiTietHoiDap({
   const tk = data.ticket;
   const q = data.quyen;
   const hdTheoId = new Map(data.huong_dan.map((h) => [h.id, h]));
+  // Tra loi tu dong khi tin cua nguoi hoi nhac ma LK (LkTuDong.tsx) - moi ma chi hien 1 lan (lan dau duoc nhac), ma LK chon o
+  // ticket tinh vao tin dau tien.
+  const lkDaHien = new Set<string>();
+  let daCoTinHoi = false;
+  const lkCuaTin = (m: ChiTiet["tin"][number]): LkDanhMucRow[] => {
+    if (m.phia !== "hoi") return [];
+    const ds = timMaLk(m.noi_dung ?? "", daCoTinHoi ? [] : [tk.ma_lk]).filter((r) => !lkDaHien.has(r.ma_linh_kien));
+    daCoTinHoi = true;
+    for (const r of ds) lkDaHien.add(r.ma_linh_kien);
+    return ds;
+  };
   const coTheGui = (!!tin.trim() || anhCho.length > 0) && dangTai === 0;
   // "Lưu thành hướng dẫn": cau hoi -> tieu de, cac cau tra loi cua Mua hang -> noi dung, anh 2 phia -> anh (<= 10).
   const moLuuHd = () => {
@@ -696,8 +711,10 @@ function ChiTietHoiDap({
             );
           }
           const cuaToi = m.phia === data.phia;
+          const lkTin = lkCuaTin(m);
           return (
-            <div key={m.id} className={`flex ${cuaToi ? "justify-end" : "justify-start"}`}>
+            <div key={m.id} className="space-y-2">
+            <div className={`flex ${cuaToi ? "justify-end" : "justify-start"}`}>
               <div
                 className={`max-w-[85%] rounded-2xl px-3 py-2 text-[13px] ${
                   cuaToi
@@ -715,6 +732,8 @@ function ChiTietHoiDap({
                 )}
                 <div className={`mt-1 text-right text-[10.5px] ${cuaToi ? "text-white/75" : "text-[var(--color-text-faint)]"}`}>{fmtDateTime(m.ngay_tao)}</div>
               </div>
+            </div>
+            <TraLoiLinhKien ds={lkTin} />
             </div>
           );
         })}

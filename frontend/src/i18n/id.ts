@@ -2234,5 +2234,15 @@ const tuDien: Record<string, string> = {
   "📘 Hướng dẫn tự động": "📘 Panduan otomatis",
   "📷 Ảnh": "📷 Gambar",
   "＋ Thêm hướng dẫn": "＋ Tambah panduan",
+  "Bấm để xem thông tin linh kiện": "Ketuk untuk melihat detail suku cadang",
+  "Hết hàng": "Stok habis",
+  "Thông tin linh kiện trong câu hỏi": "Suku cadang dalam pertanyaan",
+  "Thông tin {n} linh kiện trong câu hỏi": "{n} suku cadang dalam pertanyaan",
+  "Tồn kho KTV:": "Stok teknisi:",
+  "Tồn kho công ty:": "Stok perusahaan:",
+  "Tồn kho theo file MISA cập nhật {a}": "Stok menurut file MISA diperbarui {a}",
+  "Xem chi tiết: tồn kho, đơn đang đặt ›": "Lihat detail: stok, pesanan berjalan ›",
+  "Đang tải tồn kho…": "Memuat stok…",
+  "Đơn đang chờ hàng: {a} · Đơn đặt 30 ngày: {b}": "Pesanan menunggu stok: {a} · Pesanan 30 hari: {b}",
 };
 export default tuDien;
