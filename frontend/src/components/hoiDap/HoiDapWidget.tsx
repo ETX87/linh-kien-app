@@ -11,11 +11,19 @@ import { fmtDateTime } from "../../types";
 import { t, dichSau } from "../../i18n";
 import { LinhKienPicker } from "../../modules/datMuaLinhKien/LinhKienPicker";
 import { useLkAndLdeCache, describeApiError } from "../../modules/datMuaLinhKien/helpers";
+import { FileButton } from "../ui/FileButton";
+import {
+  AnhLuoi, ChonHuongDanModal, GoiYKhiGo, HuongDanChiTiet, HuongDanDanhSach, HuongDanForm, HuongDanThe, useHuongDan, useTaiAnh,
+  type HuongDan, type HuongDanNhap,
+} from "./HuongDan";
 
 // HỎI ĐÁP KTV ↔ MUA HÀNG (2026-10-17, backend routes/hoiDap.ts, migration 0089) - "tạo 1 icon chat ở góc bên phải góc dưới, KTV ấn vào
 // sẽ mở giao diện hỏi đáp. KTV sẽ gửi câu hỏi lên và chờ nv mua hàng giải đáp thắc mắc. Mỗi phiên chat sẽ tạo 1 ticket theo dõi".
 // 1 widget cho CA 2 phia: nguoi hoi (KTV...) thay cau hoi cua minh; Mua hang/Admin (la_xu_ly) thay hang cho cua moi nguoi + nut xu ly.
 // Chuong thong bao mo dung ticket qua su kien window "mo-hoi-dap" (detail = id ticket) - xem NotificationBell.tsx.
+// HỎI ĐÁP TỰ ĐỘNG (2026-10-28, migration 0102 - HuongDan.tsx): nguoi hoi mo khung thay ngay tab "Hướng dẫn"; go cau hoi -> goi y huong dan;
+// gui xong he thong tu tra loi bang huong dan khop nhat (tin 'he_thong' kem huong_dan_ids). Tin nhan 2 phia dinh kem anh (tu tai len
+// Drive qua POST /hoi-dap/anh); Mua hang gui kem huong dan ("📘 Hướng dẫn") + "Lưu thành hướng dẫn" tu 1 phien da tra loi.
 
 export type TrangThai = "Cho tiep nhan" | "Dang xu ly" | "Da xu ly" | "Huy bo" | "Tu choi";
 export const TT: Record<TrangThai, { label: string; tone: Tone }> = {
@@ -54,11 +62,16 @@ export interface HoiDapRow {
 }
 interface ChiTiet {
   ticket: HoiDapRow;
-  tin: { id: number; nguoi_gui: string; ten_nguoi_gui: string; phia: "hoi" | "xu_ly" | "he_thong"; noi_dung: string; ngay_tao: string }[];
+  tin: {
+    id: number; nguoi_gui: string; ten_nguoi_gui: string; phia: "hoi" | "xu_ly" | "he_thong"; noi_dung: string; ngay_tao: string;
+    anh: string[]; huong_dan_ids: number[];
+  }[];
+  huong_dan: HuongDan[];
   phia: "hoi" | "xu_ly";
   quyen: { gui_tin: boolean; tiep_nhan: boolean; da_xu_ly: boolean; tu_choi: boolean; huy_bo: boolean };
 }
-type Man = { ten: "ds" } | { ten: "moi"; loai?: string; maLk?: string; maDon?: string } | { ten: "ct"; id: string };
+type Man = { ten: "ds" } | { ten: "moi"; loai?: string; maLk?: string; maDon?: string } | { ten: "ct"; id: string } | { ten: "hd"; hd: HuongDan };
+const TOI_DA_ANH_TIN = 5;
 
 const O_NHAP = "focus-ring w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-2 text-base sm:text-sm";
 
@@ -308,7 +321,24 @@ export function HoiDapWidget() {
           }`}
         >
           {man.ten === "ds" && (
-            <DanhSach laXuLy={!!dem?.la_xu_ly} onDong={() => setMo(false)} onMo={(id) => setMan({ ten: "ct", id })} onMoi={() => setMan({ ten: "moi" })} />
+            <DanhSach
+              laXuLy={!!dem?.la_xu_ly}
+              coTinMoi={(dem?.chua_doc ?? 0) > 0}
+              onDong={() => setMo(false)}
+              onMo={(id) => setMan({ ten: "ct", id })}
+              onMoi={() => setMan({ ten: "moi" })}
+              onXemHd={(hd) => setMan({ ten: "hd", hd })}
+            />
+          )}
+          {man.ten === "hd" && (
+            <>
+              <DauKhung tieuDe={t("Hướng dẫn")} onQuay={() => setMan({ ten: "ds" })} onDong={() => setMo(false)} />
+              <HuongDanChiTiet
+                hd={man.hd}
+                onDaGiaiDap={() => setMan({ ten: "ds" })}
+                onVanHoi={() => setMan({ ten: "moi" })}
+              />
+            </>
           )}
           {man.ten === "moi" && (
             <CauHoiMoi
@@ -355,7 +385,14 @@ function DauKhung({ tieuDe, phu, onQuay, onDong }: { tieuDe: ReactNode; phu?: Re
   );
 }
 
-function DanhSach({ laXuLy, onDong, onMo, onMoi }: { laXuLy: boolean; onDong: () => void; onMo: (id: string) => void; onMoi: () => void }) {
+function DanhSach({
+  laXuLy, coTinMoi, onDong, onMo, onMoi, onXemHd,
+}: { laXuLy: boolean; coTinMoi: boolean; onDong: () => void; onMo: (id: string) => void; onMoi: () => void; onXemHd: (hd: HuongDan) => void }) {
+  // Nguoi hoi mo khung -> tab "Hướng dẫn" truoc (tru khi co tin tra loi chua doc); khong co huong dan nao thi an tab.
+  const { data: hdData } = useHuongDan();
+  const coHd = (hdData?.rows.length ?? 0) > 0;
+  const [tab, setTab] = useState<"hd" | "hoi">(laXuLy || coTinMoi ? "hoi" : "hd");
+  const xemHd = coHd && tab === "hd";
   const [loc, setLoc] = useState("__MO__");
   const [q, setQ] = useState("");
   const [qGui, setQGui] = useState("");
@@ -373,6 +410,27 @@ function DanhSach({ laXuLy, onDong, onMo, onMoi }: { laXuLy: boolean; onDong: ()
   return (
     <>
       <DauKhung tieuDe={t("Hỏi đáp mua hàng")} phu={laXuLy ? t("Giải đáp câu hỏi của KTV về giá, ngày hàng về…") : t("Hỏi nhân viên mua hàng về giá, ngày hàng về…")} onDong={onDong} />
+      {coHd && (
+        <div className="flex shrink-0 border-b border-[var(--color-border)]">
+          {([["hd", t("📘 Hướng dẫn")], ["hoi", laXuLy ? t("💬 Câu hỏi") : t("💬 Câu hỏi của tôi")]] as const).map(([k, nhan]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setTab(k)}
+              className={`focus-ring flex-1 border-b-2 px-3 py-2 text-[13px] font-semibold ${tab === k ? "border-[var(--color-primary)] text-[var(--color-primary-dark)]" : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"}`}
+            >
+              {nhan}
+              {k === "hoi" && coTinMoi && <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-[var(--color-danger)] align-middle" />}
+            </button>
+          ))}
+        </div>
+      )}
+      {xemHd ? (
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+          <HuongDanDanhSach onMo={onXemHd} />
+        </div>
+      ) : (
+      <>
       <div className="shrink-0 space-y-2 border-b border-[var(--color-border)] px-3 py-2">
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
           {locs.map((l) => (
@@ -414,6 +472,8 @@ function DanhSach({ laXuLy, onDong, onMo, onMoi }: { laXuLy: boolean; onDong: ()
           ))
         )}
       </div>
+      </>
+      )}
       <div className="shrink-0 border-t border-[var(--color-border)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
         <Btn className="min-h-10 w-full" onClick={onMoi}>{t("＋ Câu hỏi mới")}</Btn>
       </div>
@@ -429,15 +489,41 @@ function CauHoiMoi({
   const [maLk, setMaLk] = useState(goiY.maLk ?? "");
   const [maDon, setMaDon] = useState(goiY.maDon ?? "");
   const [noiDung, setNoiDung] = useState("");
+  const [anh, setAnh] = useState<string[]>([]);
+  // Xem huong dan goi y NGAY TRONG form (giu nguyen noi dung dang soan) - "Vẫn cần hỏi" quay lai form.
+  const [xemHd, setXemHd] = useState<HuongDan | null>(null);
+  const { tai, dangTai } = useTaiAnh("/hoi-dap/anh");
   const { danhMuc } = useLkAndLdeCache(true);
   const m = useMutation({
-    mutationFn: () => api.post<{ id: string }>("/hoi-dap", { loai, ma_lk: maLk || undefined, ma_don: maDon.trim() || undefined, noi_dung: noiDung.trim() }),
+    mutationFn: () =>
+      api.post<{ id: string; tu_dong?: number }>("/hoi-dap", {
+        loai, ma_lk: maLk || undefined, ma_don: maDon.trim() || undefined, noi_dung: noiDung.trim(), anh: anh.length ? anh : undefined,
+      }),
     onSuccess: (r) => {
-      toast(t("Đã gửi câu hỏi {a} — chờ nhân viên mua hàng tiếp nhận", { a: r.id }));
+      toast(
+        r.tu_dong
+          ? t("Đã gửi câu hỏi {a} — xem ngay hướng dẫn trả lời tự động bên dưới", { a: r.id })
+          : t("Đã gửi câu hỏi {a} — chờ nhân viên mua hàng tiếp nhận", { a: r.id }),
+      );
       onXong(r.id);
     },
     onError: (e) => toast(t("Lỗi: ") + describeApiError(e)),
   });
+  if (xemHd) {
+    return (
+      <>
+        <DauKhung tieuDe={t("Hướng dẫn")} onQuay={() => setXemHd(null)} onDong={onDong} />
+        <HuongDanChiTiet
+          hd={xemHd}
+          onDaGiaiDap={() => {
+            toast(t("Rất vui vì hướng dẫn đã giúp được bạn"));
+            onQuay();
+          }}
+          onVanHoi={() => setXemHd(null)}
+        />
+      </>
+    );
+  }
   return (
     <>
       <DauKhung tieuDe={t("Câu hỏi mới")} onQuay={onQuay} onDong={onDong} />
@@ -471,10 +557,28 @@ function CauHoiMoi({
             className={`${O_NHAP} resize-none`}
           />
         </label>
+        <GoiYKhiGo cauHoi={noiDung} onMo={setXemHd} />
+        <div>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold text-[var(--color-text-body)]">{t("Ảnh đính kèm ({n}/{m})", { n: anh.length, m: TOI_DA_ANH_TIN })}</span>
+            <FileButton
+              multiple
+              accept="image/*"
+              disabled={anh.length >= TOI_DA_ANH_TIN || dangTai > 0}
+              onFilesSelected={async (files) => {
+                const urls = await tai(files.slice(0, TOI_DA_ANH_TIN - anh.length));
+                if (urls.length) setAnh((v) => [...v, ...urls].slice(0, TOI_DA_ANH_TIN));
+              }}
+            >
+              {dangTai > 0 ? t("Đang tải {n} ảnh…", { n: dangTai }) : t("📷 Thêm ảnh")}
+            </FileButton>
+          </div>
+          <AnhLuoi anh={anh} nho onXoa={(i) => setAnh((v) => v.filter((_, j) => j !== i))} />
+        </div>
       </div>
       <div className="flex shrink-0 gap-2 border-t border-[var(--color-border)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
         <Btn variant="ghost" className="min-h-10 flex-1" onClick={onQuay}>{t("Quay lại")}</Btn>
-        <Btn className="min-h-10 flex-1" onClick={() => m.mutate()} loading={m.isPending} disabled={!noiDung.trim()}>
+        <Btn className="min-h-10 flex-1" onClick={() => m.mutate()} loading={m.isPending} disabled={!noiDung.trim() || dangTai > 0}>
           {t("Gửi câu hỏi")}
         </Btn>
       </div>
@@ -488,6 +592,10 @@ function ChiTietHoiDap({
   const toast = useToast();
   const qc = useQueryClient();
   const [tin, setTin] = useState("");
+  const [anhCho, setAnhCho] = useState<string[]>([]);
+  const [chonHd, setChonHd] = useState(false);
+  const [luuHd, setLuuHd] = useState<Partial<HuongDanNhap> | null>(null);
+  const { tai, dangTai } = useTaiAnh("/hoi-dap/anh");
   const [lyDoMo, setLyDoMo] = useState<"Tu choi" | "Huy bo" | null>(null);
   const [lyDo, setLyDo] = useState("");
   const cuoiRef = useRef<HTMLDivElement>(null);
@@ -508,9 +616,14 @@ function ChiTietHoiDap({
   }, [id, soTin, data?.ticket.trang_thai]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const gui = useMutation({
-    mutationFn: () => api.post(`/hoi-dap/${encodeURIComponent(id)}/tin`, { noi_dung: tin.trim() }),
+    mutationFn: (hdIds?: number[]) =>
+      api.post(`/hoi-dap/${encodeURIComponent(id)}/tin`, {
+        noi_dung: tin.trim(), anh: anhCho.length ? anhCho : undefined, huong_dan_ids: hdIds?.length ? hdIds : undefined,
+      }),
     onSuccess: () => {
       setTin("");
+      setAnhCho([]);
+      setChonHd(false);
       onDoi();
     },
     onError: (e) => toast(t("Lỗi: ") + describeApiError(e)),
@@ -536,6 +649,18 @@ function ChiTietHoiDap({
   }
   const tk = data.ticket;
   const q = data.quyen;
+  const hdTheoId = new Map(data.huong_dan.map((h) => [h.id, h]));
+  const coTheGui = (!!tin.trim() || anhCho.length > 0) && dangTai === 0;
+  // "Lưu thành hướng dẫn": cau hoi -> tieu de, cac cau tra loi cua Mua hang -> noi dung, anh 2 phia -> anh (<= 10).
+  const moLuuHd = () => {
+    const traLoi = data.tin.filter((m) => m.phia === "xu_ly");
+    setLuuHd({
+      tieu_de: tk.tieu_de,
+      noi_dung: traLoi.map((m) => m.noi_dung).filter(Boolean).join("\n\n"),
+      anh: [...traLoi, ...data.tin.filter((m) => m.phia === "hoi")].flatMap((m) => m.anh).slice(0, 10),
+      tu_khoa: [t(LOAI[tk.loai] ?? tk.loai), tk.ma_lk].filter(Boolean).join(", "),
+    });
+  };
   return (
     <>
       <DauKhung
@@ -546,6 +671,23 @@ function ChiTietHoiDap({
       />
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-[var(--color-surface-soft)] px-3 py-3">
         {data.tin.map((m) => {
+          if (m.phia === "he_thong" && m.huong_dan_ids.length > 0) {
+            return (
+              <div key={m.id} className="space-y-1.5 rounded-2xl border border-[var(--color-primary)]/30 bg-[var(--color-primary-soft)] px-3 py-2.5">
+                <div className="text-[12px] font-semibold text-[var(--color-primary-dark)]">🤖 {m.noi_dung}</div>
+                {m.huong_dan_ids.map((hid, i) => <HuongDanThe key={hid} hd={hdTheoId.get(hid)} moSan={i === 0 && data.phia === "hoi"} />)}
+                {data.phia === "hoi" && q.huy_bo && (
+                  <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                    <span className="text-[11.5px] text-[var(--color-text-secondary)]">{t("Hướng dẫn đã giải đáp được thắc mắc?")}</span>
+                    <Btn size="sm" variant="success" loading={doiTt.isPending} onClick={() => doiTt.mutate({ trang_thai: "Huy bo", ly_do: "Đã tự giải đáp qua hướng dẫn" })}>
+                      {t("✓ Đã giải đáp, đóng câu hỏi")}
+                    </Btn>
+                  </div>
+                )}
+                <div className="text-right text-[10.5px] text-[var(--color-text-faint)]">{fmtDateTime(m.ngay_tao)}</div>
+              </div>
+            );
+          }
           if (m.phia === "he_thong") {
             return (
               <div key={m.id} className="text-center text-[11px] text-[var(--color-text-secondary)]">
@@ -564,7 +706,13 @@ function ChiTietHoiDap({
                 }`}
               >
                 {!cuaToi && <div className="mb-0.5 text-[11px] font-semibold text-[var(--color-primary-dark)]">{m.ten_nguoi_gui}</div>}
-                <div className="whitespace-pre-wrap break-words">{m.noi_dung}</div>
+                {m.noi_dung && <div className="whitespace-pre-wrap break-words">{m.noi_dung}</div>}
+                {m.anh.length > 0 && <div className={m.noi_dung ? "mt-1.5" : ""}><AnhLuoi anh={m.anh} nho /></div>}
+                {m.huong_dan_ids.length > 0 && (
+                  <div className={`space-y-1.5 ${m.noi_dung || m.anh.length ? "mt-1.5" : ""}`}>
+                    {m.huong_dan_ids.map((hid) => <HuongDanThe key={hid} hd={hdTheoId.get(hid)} moSan={!cuaToi} />)}
+                  </div>
+                )}
                 <div className={`mt-1 text-right text-[10.5px] ${cuaToi ? "text-white/75" : "text-[var(--color-text-faint)]"}`}>{fmtDateTime(m.ngay_tao)}</div>
               </div>
             </div>
@@ -602,6 +750,7 @@ function ChiTietHoiDap({
                 {q.huy_bo && <Btn size="sm" variant="ghost" onClick={() => setLyDoMo("Huy bo")}>{t("Hủy câu hỏi")}</Btn>}
               </div>
             )}
+            {anhCho.length > 0 && <AnhLuoi anh={anhCho} nho onXoa={(i) => setAnhCho((v) => v.filter((_, j) => j !== i))} />}
             <div className="flex items-end gap-2">
               <textarea
                 rows={2}
@@ -610,14 +759,29 @@ function ChiTietHoiDap({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                     e.preventDefault();
-                    if (tin.trim() && !gui.isPending) gui.mutate();
+                    if (coTheGui && !gui.isPending) gui.mutate(undefined);
                   }
                 }}
                 maxLength={2000}
                 placeholder={data.phia === "xu_ly" ? t("Nhập câu trả lời… (Enter để gửi)") : t("Nhập tin nhắn… (Enter để gửi)")}
                 className={`${O_NHAP} resize-none`}
               />
-              <Btn className="min-h-10 shrink-0" onClick={() => gui.mutate()} loading={gui.isPending} disabled={!tin.trim()}>{t("Gửi")}</Btn>
+              <Btn className="min-h-10 shrink-0" onClick={() => gui.mutate(undefined)} loading={gui.isPending} disabled={!coTheGui}>{t("Gửi")}</Btn>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <FileButton
+                multiple
+                accept="image/*"
+                disabled={anhCho.length >= TOI_DA_ANH_TIN || dangTai > 0}
+                onFilesSelected={async (files) => {
+                  const urls = await tai(files.slice(0, TOI_DA_ANH_TIN - anhCho.length));
+                  if (urls.length) setAnhCho((v) => [...v, ...urls].slice(0, TOI_DA_ANH_TIN));
+                }}
+              >
+                {dangTai > 0 ? t("Đang tải {n} ảnh…", { n: dangTai }) : t("📷 Ảnh")}
+              </FileButton>
+              {data.phia === "xu_ly" && <Btn size="sm" variant="ghost" onClick={() => setChonHd(true)}>{t("📘 Gửi hướng dẫn")}</Btn>}
+              {data.phia === "xu_ly" && <Btn size="sm" variant="ghost" className="ml-auto" onClick={moLuuHd}>{t("Lưu thành hướng dẫn")}</Btn>}
             </div>
           </>
         ) : (
@@ -629,9 +793,18 @@ function ChiTietHoiDap({
             {data.phia === "hoi" && (
               <Btn variant="ghost" className="min-h-10 w-full" onClick={() => onHoiTiep(tk)}>{t("Hỏi tiếp (tạo câu hỏi mới)")}</Btn>
             )}
+            {data.phia === "xu_ly" && (
+              <Btn variant="ghost" className="min-h-10 w-full" onClick={moLuuHd}>{t("Lưu thành hướng dẫn")}</Btn>
+            )}
           </div>
         )}
       </div>
+      {data.phia === "xu_ly" && (
+        <>
+          <ChonHuongDanModal open={chonHd} onClose={() => setChonHd(false)} goiYTu={data.tin.filter((m) => m.phia === "hoi").map((m) => m.noi_dung).join(" ")} onChon={(ids) => gui.mutate(ids)} />
+          <HuongDanForm open={!!luuHd} onClose={() => setLuuHd(null)} macDinh={luuHd ?? undefined} />
+        </>
+      )}
     </>
   );
 }

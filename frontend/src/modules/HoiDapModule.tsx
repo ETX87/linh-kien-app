@@ -5,13 +5,28 @@ import { PaginatedTable, type Column } from "../components/ui/PaginatedTable";
 import { fmtDateTime } from "../types";
 import { t } from "../i18n";
 import { BatPushHoiDap, LOAI, LOC_XU_LY, TtBadge, type HoiDapRow } from "../components/hoiDap/HoiDapWidget";
+import { HuongDanQuanLy } from "../components/hoiDap/HuongDan";
 
 // Menu "Hỏi đáp" (2026-10-17, phan hoi "thêm menu sidebar cho nhân viên mua hàng quản lý ticket thắc mắc") - bang quan ly ticket hoi dap
 // cho Mua hang/Admin (backend GET /hoi-dap, cung API voi khung chat). Bam 1 dong = mo khung chat dung ticket (su kien "mo-hoi-dap" ma
 // HoiDapWidget nghe) - tra loi / tiep nhan / da xu ly / tu choi lam o do, khong lap lai giao dien chat o day.
 const PAGE_SIZE = 30;
 
+// Tab "Hướng dẫn tự động" (2026-10-28, migration 0102): kho huong dan KTV xem trong khung Hoi dap + he thong tu tra loi.
 export function HoiDapModule() {
+  const [tab, setTab] = useState<"cau-hoi" | "huong-dan">("cau-hoi");
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-1.5">
+        <button type="button" onClick={() => setTab("cau-hoi")} className={`filter-tab ${tab === "cau-hoi" ? "active" : ""}`}>{t("💬 Câu hỏi của KTV")}</button>
+        <button type="button" onClick={() => setTab("huong-dan")} className={`filter-tab ${tab === "huong-dan" ? "active" : ""}`}>{t("📘 Hướng dẫn tự động")}</button>
+      </div>
+      {tab === "cau-hoi" ? <CauHoiKtv /> : <HuongDanQuanLy />}
+    </div>
+  );
+}
+
+function CauHoiKtv() {
   const [loc, setLoc] = useState("__MO__");
   const [q, setQ] = useState("");
   const [qGui, setQGui] = useState("");

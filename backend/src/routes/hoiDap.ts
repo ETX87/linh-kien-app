@@ -17,6 +17,9 @@ import { nowVN } from "../lib/vnTime";
 import { nextSequentialId } from "../lib/idCounter";
 import { sendPushToUser } from "../lib/webPush";
 import { tenNguoiMap } from "../lib/tenNguoi";
+import { nhanAnhTaiLen, laUrlAnhDrive } from "../lib/anhUpload";
+import { goiYHuongDan } from "../lib/huongDan";
+import { huongDanDangBat, raHuongDan, type HuongDanRow } from "./huongDan";
 
 const hoiDap = new Hono<{ Bindings: Env }>();
 hoiDap.use("*", verifySessionMiddleware, loadUser);
@@ -34,6 +37,35 @@ const NHAN_TT: Record<TrangThai, string> = {
 };
 const TT_MO: TrangThai[] = ["Cho tiep nhan", "Dang xu ly"];
 const MAX_TIN = 2000;
+// Hoi dap tu dong (2026-10-28, migration 0102): tin nhan kem anh Drive (<= 5) + huong dan (<= 5, chi phia xu ly gui kem).
+const ANH_TIN_TOI_DA = 5;
+const HD_TIN_TOI_DA = 5;
+
+function docAnhBody(v: unknown): string[] | "loi" {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v) || v.length > ANH_TIN_TOI_DA || !v.every(laUrlAnhDrive)) return "loi";
+  return v;
+}
+
+function docJsonArr(json: string | null): unknown[] {
+  if (!json) return [];
+  try {
+    const v = JSON.parse(json);
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+const docIds = (json: string | null) => docJsonArr(json).map(Number).filter((x) => Number.isInteger(x));
+const docAnh = (json: string | null) => docJsonArr(json).filter((u): u is string => typeof u === "string");
+
+/** Dong tom tat tin nhan cho thong bao (tin chi co anh / huong dan). */
+function tomTatTin(noiDung: string, soAnh: number, tenHd: string[]): string {
+  const phan = [noiDung];
+  if (tenHd.length) phan.push(`📘 ${tenHd.join("; ")}`);
+  if (soAnh) phan.push(`🖼 ${soAnh} ảnh`);
+  return phan.filter(Boolean).join(" · ");
+}
 
 const laXuLy = (c: C) => !!c.get("user").la_mua_hang || c.get("user").vai_tro === "Admin";
 
@@ -175,12 +207,18 @@ hoiDap.get("/", async (c) => {
 // POST / - { loai, noi_dung, ma_lk?, ma_don? } - tao cau hoi (ticket "Cho tiep nhan") + bao Mua hang.
 hoiDap.post("/", async (c) => {
   const user = c.get("user");
-  const body = await c.req.json<{ loai?: string; noi_dung?: string; ma_lk?: string; ma_don?: string }>().catch(() => ({}) as Record<string, string>);
+  type BodyMoi = { loai?: string; noi_dung?: string; ma_lk?: string; ma_don?: string; anh?: unknown };
+  const body = await c.req.json<BodyMoi>().catch(() => ({}) as BodyMoi);
   const loai = body.loai && body.loai in LOAI ? body.loai : null;
   const noiDung = body.noi_dung?.trim();
   if (!loai) return c.json({ error: "LOAI_KHONG_HOP_LE" }, 400);
   if (!noiDung) return c.json({ error: "THIEU_NOI_DUNG" }, 400);
   if (noiDung.length > MAX_TIN) return c.json({ error: "NOI_DUNG_QUA_DAI" }, 400);
+  const anh = docAnhBody(body.anh);
+  if (anh === "loi") return c.json({ error: "ANH_KHONG_HOP_LE" }, 400);
+  // TRA LOI TU DONG (2026-10-28): huong dan khop nhat voi cau hoi (cung bo cham diem voi goi y tren form - lib/huongDan.ts) -> tin
+  // 'he_thong' kem huong_dan_ids ngay sau cau hoi. Ticket van "Cho tiep nhan" (KTV tu Huy neu da duoc giai dap).
+  const goiY = goiYHuongDan(await huongDanDangBat(c.env.DB), noiDung, 3);
   const maLk = body.ma_lk?.trim().slice(0, 60) || null;
   const maDon = body.ma_don?.trim().slice(0, 60) || null;
   const id = await nextSequentialId(c.env.DB, "hoi_dap", "HD", 6);
@@ -190,14 +228,30 @@ hoiDap.post("/", async (c) => {
       `INSERT INTO hoi_dap (id, nguoi_hoi, loai, ma_lk, ma_don, tieu_de, trang_thai, ngay_tao, cap_nhat_luc, tin_cuoi_luc, tin_cuoi_tu, doc_hoi_luc)
        VALUES (?, ?, ?, ?, ?, ?, 'Cho tiep nhan', ?, ?, ?, 'hoi', ?)`,
     ).bind(id, user.email, loai, maLk, maDon, noiDung.slice(0, 120), now, now, now, now),
-    c.env.DB.prepare("INSERT INTO hoi_dap_tin (hoi_dap_id, nguoi_gui, phia, noi_dung, ngay_tao) VALUES (?, ?, 'hoi', ?, ?)").bind(id, user.email, noiDung, now),
+    c.env.DB.prepare("INSERT INTO hoi_dap_tin (hoi_dap_id, nguoi_gui, phia, noi_dung, ngay_tao, anh) VALUES (?, ?, 'hoi', ?, ?, ?)")
+      .bind(id, user.email, noiDung, now, anh.length ? JSON.stringify(anh) : null),
+    ...(goiY.length
+      ? [
+          c.env.DB.prepare(
+            "INSERT INTO hoi_dap_tin (hoi_dap_id, nguoi_gui, phia, noi_dung, ngay_tao, huong_dan_ids) VALUES (?, ?, 'he_thong', ?, ?, ?)",
+          ).bind(id, user.email, "Trả lời tự động: các hướng dẫn có thể giúp bạn", now, JSON.stringify(goiY.map((h) => h.id))),
+        ]
+      : []),
   ]);
   const ten = (await tenNguoiMap(c.env.DB, [user.email])).get(user.email) ?? user.email;
   c.executionCtx.waitUntil(
     (async () => baoTin(c.env, await emailsXuLy(c.env.DB), user.email, id,
       `${ten} ${LOAI[loai].toLowerCase()} (${id}${maLk ? ` · ${maLk}` : ""}): ${noiDung}`, "💬 Câu hỏi mới từ KTV"))(),
   );
-  return c.json({ ok: true, id }, 201);
+  return c.json({ ok: true, id, tu_dong: goiY.length }, 201);
+});
+
+// POST /anh - tai 1 anh dinh kem tin nhan len Google Drive (body = file anh, moi tai khoan dang nhap). Tra url de gui kem
+// POST / hoac POST /:id/tin. Han muc anh/ngay chung (lib/anhUpload.ts).
+hoiDap.post("/anh", async (c) => {
+  const uploaded = await nhanAnhTaiLen(c, (ext) => `hoi-dap-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`);
+  if (uploaded instanceof Response) return uploaded;
+  return c.json({ ok: true, url: uploaded.thumbnailUrl, han_muc_anh: uploaded.hanMucAnh });
 });
 
 // GET /:id - chi tiet + tin nhan.
@@ -207,13 +261,19 @@ hoiDap.get("/:id", async (c) => {
   const phia = phiaCua(c, t);
   if (!phia) return c.json({ error: "NOT_FOUND" }, 404);
   const { results: tin } = await c.env.DB.prepare("SELECT * FROM hoi_dap_tin WHERE hoi_dap_id = ? ORDER BY id").bind(t.id).all<{
-    id: number; nguoi_gui: string; phia: string; noi_dung: string; ngay_tao: string;
+    id: number; nguoi_gui: string; phia: string; noi_dung: string; ngay_tao: string; anh: string | null; huong_dan_ids: string | null;
   }>();
+  // Huong dan duoc gui kem (ke ca da tat - da gui thi van xem lai duoc; da xoa -> FE hien "đã bị xoá").
+  const hdIds = [...new Set(tin.flatMap((m) => docIds(m.huong_dan_ids)))];
+  const hd = hdIds.length
+    ? (await c.env.DB.prepare("SELECT * FROM huong_dan WHERE id IN (SELECT value FROM json_each(?))").bind(JSON.stringify(hdIds)).all<HuongDanRow>()).results
+    : [];
   const ten = await tenNguoiMap(c.env.DB, [...new Set([t.nguoi_hoi, t.nguoi_xu_ly ?? "", ...tin.map((m) => m.nguoi_gui)].filter(Boolean))]);
   const mo = TT_MO.includes(t.trang_thai);
   return c.json({
     ticket: { ...t, ten_nguoi_hoi: ten.get(t.nguoi_hoi) ?? t.nguoi_hoi, ten_nguoi_xu_ly: t.nguoi_xu_ly ? ten.get(t.nguoi_xu_ly) ?? t.nguoi_xu_ly : null },
-    tin: tin.map((m) => ({ ...m, ten_nguoi_gui: ten.get(m.nguoi_gui) ?? m.nguoi_gui })),
+    tin: tin.map((m) => ({ ...m, anh: docAnh(m.anh), huong_dan_ids: docIds(m.huong_dan_ids), ten_nguoi_gui: ten.get(m.nguoi_gui) ?? m.nguoi_gui })),
+    huong_dan: hd.map(raHuongDan),
     phia,
     quyen: {
       gui_tin: mo,
@@ -243,10 +303,25 @@ hoiDap.post("/:id/tin", async (c) => {
   const phia = phiaCua(c, t);
   if (!phia) return c.json({ error: "NOT_FOUND" }, 404);
   if (!TT_MO.includes(t.trang_thai)) return c.json({ error: "TICKET_DA_DONG", trang_thai: t.trang_thai }, 409);
-  const body = await c.req.json<{ noi_dung?: string }>().catch(() => ({}) as { noi_dung?: string });
-  const noiDung = body.noi_dung?.trim();
-  if (!noiDung) return c.json({ error: "THIEU_NOI_DUNG" }, 400);
+  type BodyTin = { noi_dung?: string; anh?: unknown; huong_dan_ids?: unknown };
+  const body = await c.req.json<BodyTin>().catch(() => ({}) as BodyTin);
+  const noiDung = body.noi_dung?.trim() ?? "";
   if (noiDung.length > MAX_TIN) return c.json({ error: "NOI_DUNG_QUA_DAI" }, 400);
+  const anh = docAnhBody(body.anh);
+  if (anh === "loi") return c.json({ error: "ANH_KHONG_HOP_LE" }, 400);
+  // Huong dan gui kem: chi phia xu ly (Mua hang / Admin), chi huong dan dang bat.
+  const hdGui = Array.isArray(body.huong_dan_ids) ? [...new Set(body.huong_dan_ids.map(Number).filter((x) => Number.isInteger(x) && x > 0))] : [];
+  if (hdGui.length && phia !== "xu_ly") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  if (hdGui.length > HD_TIN_TOI_DA) return c.json({ error: "QUA_SO_HUONG_DAN" }, 400);
+  const hdHopLe = hdGui.length
+    ? (
+        await c.env.DB.prepare("SELECT id, tieu_de FROM huong_dan WHERE bat_tat = 1 AND id IN (SELECT value FROM json_each(?))")
+          .bind(JSON.stringify(hdGui))
+          .all<{ id: number; tieu_de: string }>()
+      ).results
+    : [];
+  if (hdHopLe.length !== hdGui.length) return c.json({ error: "HUONG_DAN_KHONG_CON" }, 409);
+  if (!noiDung && !anh.length && !hdGui.length) return c.json({ error: "THIEU_NOI_DUNG" }, 400);
   const now = nowVN();
   const tuTiepNhan = phia === "xu_ly" && t.trang_thai === "Cho tiep nhan";
   const stmts = [
@@ -259,7 +334,9 @@ hoiDap.post("/:id/tin", async (c) => {
     ...(tuTiepNhan
       ? [c.env.DB.prepare("INSERT INTO hoi_dap_tin (hoi_dap_id, nguoi_gui, phia, noi_dung, ngay_tao) VALUES (?, ?, 'he_thong', 'Đã tiếp nhận câu hỏi', ?)").bind(t.id, user.email, now)]
       : []),
-    c.env.DB.prepare("INSERT INTO hoi_dap_tin (hoi_dap_id, nguoi_gui, phia, noi_dung, ngay_tao) VALUES (?, ?, ?, ?, ?)").bind(t.id, user.email, phia, noiDung, now),
+    c.env.DB.prepare(
+      "INSERT INTO hoi_dap_tin (hoi_dap_id, nguoi_gui, phia, noi_dung, ngay_tao, anh, huong_dan_ids) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    ).bind(t.id, user.email, phia, noiDung, now, anh.length ? JSON.stringify(anh) : null, hdGui.length ? JSON.stringify(hdGui) : null),
   ];
   const kq = await c.env.DB.batch(stmts);
   if (!kq[0].meta.changes) return c.json({ error: "TICKET_DA_DONG" }, 409);
@@ -267,7 +344,7 @@ hoiDap.post("/:id/tin", async (c) => {
   c.executionCtx.waitUntil(
     (async () => {
       const nhan = phia === "xu_ly" ? [t.nguoi_hoi] : t.nguoi_xu_ly ? [t.nguoi_xu_ly] : await emailsXuLy(c.env.DB);
-      await baoTin(c.env, nhan, user.email, t.id, `${ten} (${t.id}): ${noiDung}`);
+      await baoTin(c.env, nhan, user.email, t.id, `${ten} (${t.id}): ${tomTatTin(noiDung, anh.length, hdHopLe.map((h) => h.tieu_de))}`);
     })(),
   );
   return c.json({ ok: true, trang_thai: tuTiepNhan ? "Dang xu ly" : t.trang_thai });
