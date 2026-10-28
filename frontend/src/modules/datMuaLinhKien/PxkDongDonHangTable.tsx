@@ -752,10 +752,10 @@ function ChuyenDonModal({
   const tienDong = don.tien_uoc_tinh ?? 0;
   const canHoiTien = daTraPhieu > 0;
   const { data: dsPhieu, isLoading } = useQuery({
-    queryKey: ["pxk-phieu-nhan-duoc", pxkId],
+    queryKey: ["pxk-phieu-nhan-duoc", pxkId, don.id],
     queryFn: () =>
       api.get<{ rows: { id: string; ma_xuat_kho: string | null; so_tien_can_chuyen: number | null; da_thanh_toan: number | null; ngay_tao: string; so_don: number }[] }>(
-        `/phieu-xuat-kho/${pxkId}/phieu-nhan-duoc`,
+        `/phieu-xuat-kho/${pxkId}/phieu-nhan-duoc?don=${encodeURIComponent(don.id)}`,
       ),
     enabled: cach === "co_san",
   });

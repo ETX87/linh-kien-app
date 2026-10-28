@@ -1028,6 +1028,14 @@ cùng ngày đơn ưu tiên ⭐ (VIP = `uu_tien`) > giờ tạo; cấp phát l�
 `waitUntil`) + nút "📦 Rà soát hàng về" ở Thiếu hàng (`POST /dat-mua-lk/thieu-lk/tu-dong-hang-ve`, Kho/TN/KT/Admin). Nguồn tồn kho mới (đồng bộ hệ khác)
 → ghi bảng + mốc rồi gọi `tuDongXacNhanHangVe`. (4) **Danh sách Phiếu xuất**: bấm CẢ dòng = mở chi tiết phiếu; xổ/thu dòng đơn bằng nút ▼/▲ (`NutXoDongDon`).
 
+**Tách phiếu xuất kho theo LOẠI ĐỀ XUẤT** (chốt 2026-10-28, v1.419 — "nếu khác loại đề xuất thì tách riêng phiếu ngoại trừ đơn MUA HÀNG + MUA HÀNG CÓ ID thì
+gộp chung 1 phiếu được"; trước đó phiếu chỉ tách theo người nhận + `loai_don` nên CÔNG NỢ + HỖ TRỢ 0 ĐỒNG từng chung PCN-001432): 1 phiếu chỉ chứa đơn CÙNG nhóm loại
+đề xuất — `lib/nhomLoaiDeXuat.ts`: `nhomLoaiDeXuat()` (JS) / `nhomLdeSql()` (SQL) = TRIM + viết HOA chữ ASCII (đúng như `UPPER()` của SQLite — 2 bản phải cho cùng kết
+quả), riêng "MUA HÀNG CÓ ID" quy về "MUA HÀNG"; `phieuCungNhomLdeSql(pxk, nhom)` = phiếu không có dòng khác nhóm (phiếu trống hợp lệ). Phiếu KHÔNG lưu loại đề
+xuất — suy từ dòng. Áp ở: tự gom `bundleAutoApprovedIntoPxk` (thêm nhóm vào khóa tách + chỉ gộp vào phiếu đang tạo cùng nhóm), tạo phiếu tay (`NHIEU_LOAI_DE_XUAT_TRONG_1_PXK`),
+thêm dòng `POST /:id/dong` (`DON_KHAC_LOAI_DE_XUAT_PHIEU`), chuyển đơn sang phiếu có sẵn (`/:id/dong/:donHangId/chuyen` + `GET /:id/phieu-nhan-duoc?don=` chỉ liệt kê phiếu
+cùng nhóm). Phiếu cũ đã lẫn loại giữ nguyên (thêm dòng vào phiếu lẫn loại sẽ bị chặn — tách bằng "Bỏ đơn" → "Tách thành phiếu mới").
+
 **KH lẻ theo từng khách** (chốt 2026-10-09, v1.314, migration `0074`, `lib/khachLe.ts` + `routes/khachLe.ts` tại `/api/khach-le`):
 trước đây mọi KH lẻ dùng chung tài khoản KH_LE_MB/KH_LE_MN nên tiền KH chuyển không gắn được KH nào. Giờ MỖI KH = 1 NGƯỜI NHẬN RIÊNG:
 users NỘI BỘ `<ma>@khle.local` (Da duyet, `khu_vuc_dat_hang` = khu vực nhóm, `ma_misa` = của nhóm, `ten` "KH lẻ MN - <SĐT|mã>" — KHÔNG

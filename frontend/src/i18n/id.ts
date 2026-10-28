@@ -2302,5 +2302,7 @@ const tuDien: Record<string, string> = {
   "🗂 Đã hỏi": "🗂 Pertanyaan saya",
   "🗂 Xem câu hỏi tôi đã gửi": "🗂 Lihat pertanyaan saya",
   "🚚 Bao giờ có hàng": "🚚 Kapan barang datang",
+  "1 phiếu chỉ gom đơn cùng loại đề xuất (riêng MUA HÀNG và MUA HÀNG CÓ ID được chung phiếu) — chọn lại các đơn cùng loại": "Satu slip hanya berisi pesanan dengan jenis usulan yang sama (MUA HÀNG dan MUA HÀNG CÓ ID boleh satu slip) — pilih pesanan satu jenis",
+  "Đơn khác loại đề xuất với phiếu này — mỗi loại đề xuất 1 phiếu riêng (riêng MUA HÀNG và MUA HÀNG CÓ ID được chung phiếu)": "Jenis usulan pesanan berbeda dengan slip ini — tiap jenis usulan punya slip sendiri (MUA HÀNG dan MUA HÀNG CÓ ID boleh bersama)",
 };
 export default tuDien;

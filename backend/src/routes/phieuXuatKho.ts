@@ -20,6 +20,7 @@ import { pushPxkToKhovan, notifyPxkAdvancedViaApp, buildWorkUrl } from "../lib/k
 import { timLoaiChietKhauTheoTen, gonTenLoaiChietKhau, choPhepDoiLoaiChietKhau } from "../lib/loaiChietKhau";
 import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, laTruCongNo, type PxkCalculation } from "../lib/pxkRecalculate";
 import { TIEN_DON_DOI_TAC_SQL } from "../lib/congNoDoiTac";
+import { nhomLoaiDeXuat, nhomLdeSql, phieuCungNhomLdeSql } from "../lib/nhomLoaiDeXuat";
 import { laVanPhong, danhDauVanPhongTacDong, huyPxkNeuTrong, lenhMangTienDon } from "../lib/pxkTuHuy";
 import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
 import { ANH_DA_GHI_NHAN_SQL, docAnhBangChung, locTienDocAnh, MAX_ANH_BANG_CHUNG } from "../lib/bangChungChuyenTien";
@@ -894,6 +895,12 @@ phieuXuatKho.post("/", async (c) => {
     .all<{ doi_tac_ma: string | null }>();
   if (dtDon.length !== 1) return c.json({ error: "NHIEU_DOI_TAC_TRONG_1_PXK" }, 400);
   const doiTacPhieu = dtDon[0].doi_tac_ma;
+  // Tach phieu theo LOAI DE XUAT (chot 2026-10-28, lib/nhomLoaiDeXuat.ts): 1 phieu chi 1 nhom loai de xuat (MUA HÀNG + MUA HÀNG CÓ ID chung nhom).
+  const { results: ldeDon } = await c.env.DB.prepare(`SELECT DISTINCT loai_de_xuat FROM dat_don_hang WHERE id IN (${placeholders})`)
+    .bind(...body.dat_don_hang_ids)
+    .all<{ loai_de_xuat: string | null }>();
+  const nhomLdeTao = new Set(ldeDon.map((r) => nhomLoaiDeXuat(r.loai_de_xuat)));
+  if (nhomLdeTao.size > 1) return c.json({ error: "NHIEU_LOAI_DE_XUAT_TRONG_1_PXK", loai_de_xuat: [...nhomLdeTao] }, 400);
 
   // Tong tien la du lieu dan xuat: backend tu tinh tu toan bo dong thay vi tin gia tri client gui len.
   // Tra hang khong co tien; cong_no chi tinh dong "TRỪ CÔNG NỢ" (xem laTruCongNo, lib/pxkRecalculate.ts).
@@ -1652,6 +1659,15 @@ phieuXuatKho.post("/:id/dong", async (c) => {
     `SELECT id FROM dat_don_hang WHERE id IN (SELECT value FROM json_each(?)) AND COALESCE(UPPER(doi_tac_ma), '') <> COALESCE(UPPER(?), '')`,
   ).bind(JSON.stringify(body.dat_don_hang_ids), pxk.doi_tac_ma).all<{ id: string }>();
   if (dtRows.length > 0) return c.json({ error: "DON_DOI_TAC_KHAC_PHIEU", ids: dtRows.map((r) => r.id) }, 409);
+  // Tach phieu theo LOAI DE XUAT (chot 2026-10-28): don them vao phai cung nhom loai de xuat voi cac dong dang co (phieu trong = theo don dau tien).
+  {
+    const { results: ldeRows } = await c.env.DB.prepare(
+      `SELECT DISTINCT d.loai_de_xuat FROM dat_don_hang d
+       WHERE d.id IN (SELECT value FROM json_each(?)) OR d.id IN (SELECT dat_don_hang_id FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ?)`,
+    ).bind(JSON.stringify(body.dat_don_hang_ids), id).all<{ loai_de_xuat: string | null }>();
+    const nhomLdeThem = new Set(ldeRows.map((r) => nhomLoaiDeXuat(r.loai_de_xuat)));
+    if (nhomLdeThem.size > 1) return c.json({ error: "DON_KHAC_LOAI_DE_XUAT_PHIEU", loai_de_xuat: [...nhomLdeThem] }, 409);
+  }
 
   const isTraHang = pxk.loai_don === "tra_hang";
   const placeholders = body.dat_don_hang_ids.map(() => "?").join(", ");
@@ -1761,13 +1777,16 @@ phieuXuatKho.delete("/:id/dong/:donHangId", async (c) => {
 phieuXuatKho.get("/:id/phieu-nhan-duoc", async (c) => {
   const id = c.req.param("id");
   if (!(await duocChuyenDonPxk(c, id))) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  // ?don=<id don dang chuyen> - chi liet ke phieu CUNG nhom loai de xuat voi don (tach phieu theo loai de xuat, 2026-10-28).
+  const donChuyen = c.req.query("don")?.trim() || null;
   const { results } = await c.env.DB.prepare(
     `SELECT p.id, p.ma_xuat_kho, p.so_tien_can_chuyen, p.da_thanh_toan, p.trang_thai_chuyen_tien, p.ngay_tao, p.khu_vuc_chon,
        (SELECT COUNT(*) FROM phieu_xuat_kho_dong d WHERE d.phieu_xuat_kho_id = p.id) AS so_don
      FROM phieu_xuat_kho p JOIN phieu_xuat_kho s ON s.id = ?
      WHERE ${PHIEU_NHAN_DUOC_SQL}
+       ${donChuyen ? `AND ${phieuCungNhomLdeSql("p.id", `(SELECT ${nhomLdeSql("dc.loai_de_xuat")} FROM dat_don_hang dc WHERE dc.id = ?)`)}` : ""}
      ORDER BY p.ngay_tao DESC LIMIT 50`,
-  ).bind(id).all();
+  ).bind(id, ...(donChuyen ? [donChuyen] : [])).all();
   return c.json({ rows: results });
 });
 
@@ -1810,6 +1829,11 @@ phieuXuatKho.post("/:id/dong/:donHangId/chuyen", async (c) => {
       `SELECT p.id, p.ma_xuat_kho FROM phieu_xuat_kho p JOIN phieu_xuat_kho s ON s.id = ? WHERE p.id = ? AND ${PHIEU_NHAN_DUOC_SQL}`,
     ).bind(id, dich).first<{ id: string; ma_xuat_kho: string }>();
     if (!p) return c.json({ error: "PHIEU_DICH_KHONG_HOP_LE" }, 409);
+    // Tach phieu theo LOAI DE XUAT (2026-10-28): phieu dich phai cung nhom loai de xuat voi don.
+    const cungNhom = await c.env.DB.prepare(
+      `SELECT 1 AS ok WHERE ${phieuCungNhomLdeSql("?", `(SELECT ${nhomLdeSql("dc.loai_de_xuat")} FROM dat_don_hang dc WHERE dc.id = ?)`)}`,
+    ).bind(dich, donHangId).first<{ ok: number }>();
+    if (!cungNhom) return c.json({ error: "DON_KHAC_LOAI_DE_XUAT_PHIEU" }, 409);
     dichId = p.id;
     dichMa = p.ma_xuat_kho;
   }

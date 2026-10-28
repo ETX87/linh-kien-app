@@ -13,6 +13,7 @@
 // MO RONG 2026-09-30: gom ca don Mua / TRỪ CÔNG NỢ co tien > 0 CHUA duoc tu dong duyet (bat_buoc_chuyen_tien - yeu cau KTV
 // chuyen tien truoc; "Gửi kế toán" chan phieu con don chua TN duyet). KHONG gop vao phieu Ke toan da duyet tien ('TN da
 // duyet') hay da co ma MISA -> tao phieu moi (chot nguoi dung).
+import { nhomLoaiDeXuat, phieuCungNhomLdeSql } from "./nhomLoaiDeXuat";
 import type { Env } from "../types";
 import { nowVN } from "./vnTime";
 import { nextSequentialId } from "./idCounter";
@@ -49,7 +50,7 @@ export async function bundleAutoApprovedIntoPxk(
   // trang thai don + ghi chu log don MOI NHAT (ly do tu dong: du hang / hang ve / doi khu vuc / thanh toan sau...).
   const { results: kvDon } = await db
     .prepare(
-      `SELECT d.id, d.khu_vuc_chon, d.doi_tac_ma, d.ma_lk, COALESCE(d.tien_da_tra, 0) AS tien_da_tra, d.ten_lk_snapshot, d.so_luong_de_xuat, d.trang_thai_hien_tai,
+      `SELECT d.id, d.khu_vuc_chon, d.doi_tac_ma, d.loai_de_xuat, d.ma_lk, COALESCE(d.tien_da_tra, 0) AS tien_da_tra, d.ten_lk_snapshot, d.so_luong_de_xuat, d.trang_thai_hien_tai,
               (SELECT l.ghi_chu FROM dat_don_hang_log l WHERE l.dat_don_hang_id = d.id ORDER BY l.id DESC LIMIT 1) AS ghi_chu_log
        FROM dat_don_hang d WHERE d.id IN (SELECT value FROM json_each(?))`,
     )
@@ -60,27 +61,29 @@ export async function bundleAutoApprovedIntoPxk(
   // Don DA THANH TOAN (mang tien da tra - vd hang ve sau khi chuyen tien, chot 2026-10-28 "đơn đã thanh toán => hàng đã về => cần ưu tiên tạo
   // phiếu gửi kế toán để xuất hàng đi"): tach nhom rieng - chi gop vao phieu dang tao Ke toan DA duyet tien (cung trang thai da thanh toan),
   // khong co thi tao phieu MOI; KHONG gop vao phieu dang cho chuyen tien (don se bi giu lai cho KTV chuyen tien cac don khac).
-  const nhom = new Map<string, { kv: string | null; dt: string | null; daTT: boolean; dong: AutoApprovedLine[] }>();
+  // + Tach theo LOAI DE XUAT (chot 2026-10-28, lib/nhomLoaiDeXuat.ts): MUA HÀNG + MUA HÀNG CÓ ID chung 1 nhom, loai khac moi loai 1 phieu.
+  const nhom = new Map<string, { kv: string | null; dt: string | null; daTT: boolean; lde: string; dong: AutoApprovedLine[] }>();
   for (const l of lines) {
     const d = donTheoId.get(l.donHangId);
     const kv = d?.khu_vuc_chon ?? null;
     const dt = d?.doi_tac_ma ?? null;
     const daTT = loaiDon !== "tra_hang" && !dt && (d?.tien_da_tra ?? 0) > 0;
-    const key = JSON.stringify([kv, dt, daTT]);
-    if (!nhom.has(key)) nhom.set(key, { kv, dt, daTT, dong: [] });
+    const lde = nhomLoaiDeXuat(d?.loai_de_xuat);
+    const key = JSON.stringify([kv, dt, daTT, lde]);
+    if (!nhom.has(key)) nhom.set(key, { kv, dt, daTT, lde, dong: [] });
     nhom.get(key)!.dong.push(l);
   }
   let pxkCuoi: string | null = null;
-  for (const { kv: kvChon, dt: doiTac, daTT, dong } of nhom.values()) {
+  for (const { kv: kvChon, dt: doiTac, daTT, lde, dong } of nhom.values()) {
     const lyDo = (daTT ? "Đơn đã thanh toán — ưu tiên phiếu riêng (không gộp phiếu đang chờ chuyển tiền) để gửi Kế toán xuất hàng ngay\n" : "") +
       dong.map((l) => moTaDonVaoPhieu(donTheoId.get(l.donHangId), l.donHangId, loaiDon)).join("\n");
-    pxkCuoi = await gomMotNhom(env, db, actorEmail, nguoiNhanHang, loaiDon, dong, kvChon, lyDo, doiTac, daTT);
+    pxkCuoi = await gomMotNhom(env, db, actorEmail, nguoiNhanHang, loaiDon, dong, kvChon, lyDo, doiTac, daTT, lde);
   }
   return pxkCuoi;
 }
 
 interface DonVaoPhieu {
-  id: string; khu_vuc_chon: string | null; doi_tac_ma: string | null; ma_lk: string | null; tien_da_tra: number; ten_lk_snapshot: string | null; so_luong_de_xuat: number | null;
+  id: string; khu_vuc_chon: string | null; doi_tac_ma: string | null; loai_de_xuat: string | null; ma_lk: string | null; tien_da_tra: number; ten_lk_snapshot: string | null; so_luong_de_xuat: number | null;
   trang_thai_hien_tai: string | null; ghi_chu_log: string | null;
 }
 
@@ -112,6 +115,7 @@ async function gomMotNhom(
   lyDo: string,
   doiTac: string | null = null,
   daThanhToan = false,
+  nhomLde = "",
 ): Promise<string> {
   const now = nowVN();
 
@@ -122,9 +126,10 @@ async function gomMotNhom(
          AND ${daThanhToan ? "trang_thai_chuyen_tien = 'TN da duyet' AND COALESCE(so_tien_can_chuyen, 0) > 0" : "COALESCE(trang_thai_chuyen_tien, '') != 'TN da duyet'"}
          AND COALESCE(TRIM(ma_misa), '') = ''
          AND khu_vuc_chon IS ? AND doi_tac_ma IS ?
+         AND ${phieuCungNhomLdeSql("phieu_xuat_kho.id", "?")}
        ORDER BY ngay_tao DESC LIMIT 1`,
     )
-    .bind(nguoiNhanHang, loaiDon, kvChon, doiTac)
+    .bind(nguoiNhanHang, loaiDon, kvChon, doiTac, nhomLde)
     .first<{ id: string; ma_xuat_kho: string; so_tien_can_chuyen: number | null }>();
 
   const statements = [];
