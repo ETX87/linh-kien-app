@@ -1011,6 +1011,8 @@ Admin hủy = hủy ticket → đơn tự hủy (`applyDonHangLog` gọi `applyT
 chứng chưa bấm "Đã chuyển"**: đóng Drawer/Modal → popup "Bạn chưa xác nhận chuyển tiền" (Ở lại / Đóng, không xác nhận / Xác nhận đã chuyển) — cơ chế chung
 `components/ui/chanDong.tsx` (`useDongCoHoi` trong Drawer/Modal, form gọi `useChanDong`). (12) **Nháp tạo đơn**: không tự khôi phục nữa — mở form có nháp →
 popup "Mở lại đơn tạo dở?"; đóng form còn nội dung → "Lưu lại cho lần sau / Không lưu / Tiếp tục soạn" (`NhapTaoDonHoi.tsx`); app tắt bất ngờ vẫn tự lưu.
+**Sửa v1.413** (2026-10-28): tạo đơn xong `useTaoDonForm` reset form về 1 dòng NHƯNG giữ `activeIdx` cũ → màn tạo đơn MOBILE (`TaoDonMobileScreen`
+đọc `drafts[activeIdx]`) trắng lỗi "reading 'loai_de_xuat'" sau "Đặt tiếp" khi đang ở dòng ≥ 2; giờ reset `activeIdx = 0` + fallback `drafts[0]`.
 (13) **File MISA gộp dòng cùng mã LK** trong 1 phiếu cho MỌI loại (`gopDongCungMa`, trước chỉ trả góp): khóa = mẫu + phiếu + KTV + mã LK + loại đề xuất (+ chính
 sách với HỖ TRỢ 0 ĐỒNG, + đơn giá với Chuyển kho); SL cộng, tiền Bán hàng cộng, Mã YCSC/Lada nối.
 

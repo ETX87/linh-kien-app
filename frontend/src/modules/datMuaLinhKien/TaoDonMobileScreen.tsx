@@ -86,7 +86,7 @@ export function TaoDonMobileScreen({
     onUseOldUi();
   }
 
-  const d = drafts[activeIdx];
+  const d = drafts[activeIdx] ?? drafts[0];
   const loaiDon = deriveLoaiDon(d.loai_de_xuat);
   const batBuoc = canNoRequired(d.loai_de_xuat);
   // Xem giai thich o TaoDonTab.tsx - batBuocYcsc rieng cho Mã YCSC ("MUA HÀNG CÓ ID"), batBuoc giu

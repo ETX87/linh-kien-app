@@ -278,6 +278,9 @@ export function useTaoDonForm({
       qc.invalidateQueries({ queryKey: ["nguoi-directory"] });
       setNguoiNhanHang("");
       setDrafts([emptyDraft()]);
+      // Ve dong 1: form con 1 dong rong - activeIdx cu (vd dong 2) lam man mobile doc drafts[1] = undefined -> trang loi
+      // sau khi bam "Đặt tiếp" (2026-10-28).
+      setActiveIdx(0);
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-tom-tat"] });
       invalidatePipelineCounts(qc);
