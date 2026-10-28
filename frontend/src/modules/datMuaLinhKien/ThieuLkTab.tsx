@@ -1355,7 +1355,8 @@ export function ThieuLkDetailModal({
         </div>
       </div>
     ) : nexts.length > 0 || dayLaiTicket || dayLaiDonGoc ? (
-      <div className="flex gap-2 sm:justify-end">
+      // flex-wrap: nhieu nut (Kho/TN co toi 6 nut) khong tran ra ngoai Drawer ben trai.
+      <div className="flex flex-wrap gap-2 sm:justify-end">
         {(dayLaiTicket || dayLaiDonGoc) && (
           <Btn
             variant={nexts.length > 0 ? "ghost" : "primary"}
@@ -1397,6 +1398,8 @@ export function ThieuLkDetailModal({
       // Chi ma ticket (ma da co tien to "TLK") - "Ticket thiếu LK <ma>" bi cat "…" tren mobile, mat dung phan ma.
       title={id}
       onClose={onClose}
+      // Rong hon mac dinh 492px: khoi Xet duyet ma + hang nut thao tac (toi 6 nut) can cho.
+      width="max-w-[760px]"
       footer={footer}
       headerExtra={
         onNavigate && navRows ? (
