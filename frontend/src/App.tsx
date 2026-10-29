@@ -13,7 +13,8 @@ import { BottomTabBar } from "./layout/BottomTabBar";
 import { HoiDapWidget } from "./components/hoiDap/HoiDapWidget";
 import { ROLE_MODULES, MODULE_TITLES, NAV_GROUPS } from "./layout/navConfig";
 import { DatMuaLinhKienModule } from "./modules/DatMuaLinhKienModule";
-import { DanhMucLinhKienModule } from "./modules/DanhMucLinhKienModule";
+import { DanhMucLinhKienModule, XemLinhKienDrawer } from "./modules/DanhMucLinhKienModule";
+import { khopTim } from "./lib/boDau";
 import { TonKhoKtvModule } from "./modules/TonKhoKtvModule";
 import { DanhSachKtvModule } from "./modules/DanhSachKtvModule";
 import { QuyChuyenTienModule } from "./modules/QuyChuyenTienModule";
@@ -259,9 +260,20 @@ function MainApp({
     setActive(mucChoView(tab));
     setPendingDetailOpen({ tab, id: action.id, nonce: Date.now() });
   }
-  function handleCommandSelect(item: CommandItem) {
-    if (item.action) openSearchResult(item.action);
-    else setActive(item.key);
+  // Ctrl+K tim linh kien (2026-10-29): bam 1 LK = drawer thong tin LK (dung chung Bang gia) ngay tai man dang dung;
+  // "Tìm … trong Bảng giá" / chon muc "Bảng giá" khi dang go tu khoa = mo Bang gia voi o tim dien san.
+  const [xemLkTuTim, setXemLkTuTim] = useState<string | null>(null);
+  const [bangGiaTim, setBangGiaTim] = useState<{ q: string; nonce: number } | null>(null);
+  function handleCommandSelect(item: CommandItem, q: string) {
+    const a = item.action;
+    if (!a) {
+      if (item.key === "danh-muc-lk" && q && !khopTim(item.label, q)) setBangGiaTim({ q, nonce: Date.now() });
+      setActive(item.key);
+    } else if (a.type === "linh_kien") setXemLkTuTim(a.id);
+    else if (a.type === "bang_gia") {
+      setBangGiaTim({ q: a.id, nonce: Date.now() });
+      setActive("danh-muc-lk");
+    } else openSearchResult(a);
   }
   // Mo Drawer chi tiet 1 dong tra hang theo dung dat_don_hang.id (them 2026-09-09, xem
   // lib/pxkDeepLink.ts) - khac openPxkFromBell, id truyen vao day PHAI la dat_don_hang.id that
@@ -497,7 +509,7 @@ function MainApp({
               onLeaveForceView={(view) => setActive(mucChoView(view))}
             />
           )}
-          {active === "danh-muc-lk" && <DanhMucLinhKienModule />}
+          {active === "danh-muc-lk" && <DanhMucLinhKienModule timBanDau={bangGiaTim} />}
           {active === "ton-kho-ktv" && <TonKhoKtvModule />}
           {active === "danh-sach-ktv" && <DanhSachKtvModule />}
           {active === "quy-chuyen-tien" && <QuyChuyenTienModule moPhieuHoanTien={moHoanTien} />}
@@ -522,6 +534,7 @@ function MainApp({
         </Modal>
       )}
       <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} items={commandItems} onSelect={handleCommandSelect} />
+      {xemLkTuTim && <XemLinhKienDrawer ma={xemLkTuTim} onClose={() => setXemLkTuTim(null)} />}
       {realIsAdmin && mobilePreviewOpen && (
         <div className="fixed inset-0 z-[100] bg-[rgba(24,24,27,0.65)] flex items-center justify-center p-4 sm:p-8 overflow-auto">
           <div className="relative shrink-0">
