@@ -35,6 +35,7 @@ import { PhanLoaiNhanh } from "./danhMucLinhKien/PhanLoaiNhanh";
 import { linkAnToan } from "../lib/linhAnToan";
 import { anhCuaLk, SO_ANH_LK_TOI_DA } from "../lib/anhLinhKien";
 import { useLienQuanLk, TomTatLienQuan, TonKhoLkTab, DatHangLkTab, LienQuanLkTab } from "./danhMucLinhKien/LienQuanLk";
+import { laKtvXemBangGia } from "../lib/quyenBangGia";
 import { canhBaoHanMucAnh, loiHetHanMucAnh, loiHetHanMucAnhTuMa, type HanMucAnh } from "../lib/hanMucAnh";
 
 const PAGE_SIZE = 20;
@@ -553,7 +554,7 @@ export function XemLinhKienDrawer({ ma, onClose }: { ma: string; onClose: () => 
   const canXetDuyetMa = canXetDuyet || !!authUser?.la_kho;
   const canSua = !!authUser?.quan_ly_danh_muc_lk || canXetDuyet;
   const canDacThu = canSua || !!authUser?.la_tac_nghiep || !!authUser?.la_ke_toan;
-  const ktvXem = !!(authUser?.la_ktv_dvbh || authUser?.la_ve_tinh) && !canSua && !canDacThu;
+  const ktvXem = laKtvXemBangGia(authUser);
   const part = parts?.rows.find((p) => p.ma_linh_kien === dangXem) ?? null;
   if (!part) {
     if (isLoading) return null;
@@ -596,8 +597,12 @@ const TABS = [
 // voi co duoc gan") thay vi tach menu rieng mo cho moi nguoi - nghia la pham vi truy cap 2 tab moi
 // VAN theo dung co xem_danh_muc_lk/quan_ly_danh_muc_lk hien co cua module "Bang Gia", KHONG mo rong
 // cho MOI tai khoan dang nhap nhu de xuat ban dau.
-export function DanhMucLinhKienModule() {
+export function DanhMucLinhKienModule({ timBanDau }: { timBanDau?: { q: string; nonce: number } | null } = {}) {
   const [tab, setTab] = useState("danh-muc");
+  // Mo tu o tim chung Ctrl+K (2026-10-29) -> ve tab Danh muc, o tim dien san.
+  useEffect(() => {
+    if (timBanDau) setTab("danh-muc");
+  }, [timBanDau?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
   const auth = useAuth();
   const u = auth.status === "authenticated" ? auth.user : null;
   // Sua tu khoa / dong nghia = cung nhom sua combo (backend lkSettings quanLyCombo).
@@ -607,7 +612,7 @@ export function DanhMucLinhKienModule() {
   return (
     <div className="anim-in">
       <Tabs active={tab} onChange={setTab} tabs={ktvThuan ? TABS.filter((t) => t.key !== "tu-khoa") : TABS} />
-      {tab === "danh-muc" && <DanhMucTab />}
+      {tab === "danh-muc" && <DanhMucTab timBanDau={timBanDau ?? null} />}
       {tab === "bom-hang" && <BomHangTab />}
       {tab === "thay-the" && <ThayTheTab />}
       {tab === "combo" && <ComboTab />}
@@ -616,7 +621,7 @@ export function DanhMucLinhKienModule() {
   );
 }
 
-function DanhMucTab() {
+function DanhMucTab({ timBanDau }: { timBanDau: { q: string; nonce: number } | null }) {
   const addToast = useToast();
   const qc = useQueryClient();
   // FIX (ma tran kiem soat he thong, Van de #3 sheet "5. Van de phat hien", xac nhan 2026-08-24): file
@@ -648,7 +653,7 @@ function DanhMucTab() {
   // chi giu o tim kiem + loc Phan loai; an LK dang tat, ma cho xet duyet/da doi ma, canh bao chua phan loai,
   // cac bo loc quan tri; drawer an xet duyet ma/tu khoa/nguoi cap nhat. Ai co quyen sua/xet duyet/dac thu
   // (TN, Ke toan...) van xem day du nhu cu.
-  const ktvXem = !!(authUser?.la_ktv_dvbh || authUser?.la_ve_tinh) && !canSua && !canDacThu;
+  const ktvXem = laKtvXemBangGia(authUser);
   const personDir = usePersonDirectory();
   // Them (ra soat UI 2026-08-27, hang muc #5): cot "Lượt dùng 30 ngày" - tai dung DU LIEU DA CO SAN
   // (GET /dat-mua-lk/xep-hang-linh-kien, tinh 1 lan/ngay o backend, dang dung cho goi y trong
@@ -663,7 +668,7 @@ function DanhMucTab() {
   });
   const luotDungByMa = useMemo(() => new Map((xepHangData?.rows ?? []).map((r) => [r.ma_lk, r.so_lan])), [xepHangData]);
   const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(timBanDau?.q ?? "");
   const [moreOpen, setMoreOpen] = useState(false);
   const [filterDacThu, setFilterDacThu] = useState("");
   const [filterChiSuaChua, setFilterChiSuaChua] = useState("");
@@ -728,18 +733,64 @@ function DanhMucTab() {
   );
   const soChoXetDuyet = useMemo(() => (parts?.rows ?? []).filter((p) => p.trang_thai_ma === "Cho xet duyet").length, [parts?.rows]);
   // Mua hang/Admin mo Bang gia luc con LK cho duyet -> loc san "Cho xet duyet" (1 lan, nguoi dung doi lai thoai mai).
+  // SUA (2026-10-29, "khi đã chọn bảng giá cũng không tìm được"): bo loc TU DONG nay tung giu nguyen khi go tim -> tim ma
+  // da xac nhan ra 0 ket qua. Gio: dang co tu khoa thi khong dat loc; bat dau go tim -> bo loc tu dong (locTuDong).
   const daLocMacDinh = useRef(false);
+  const locTuDong = useRef(false);
   useEffect(() => {
     if (daLocMacDinh.current || !parts) return;
     daLocMacDinh.current = true;
-    if (canXetDuyet && soChoXetDuyet > 0) setFilterTrangThaiMa("Cho xet duyet");
-  }, [parts, canXetDuyet, soChoXetDuyet]);
+    if (canXetDuyet && soChoXetDuyet > 0 && !search.trim()) {
+      setFilterTrangThaiMa("Cho xet duyet");
+      locTuDong.current = true;
+    }
+  }, [parts, canXetDuyet, soChoXetDuyet]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Tu Ctrl+K "Tìm … trong Bảng giá": dien tu khoa + bo MOI bo loc (tim trong toan bo danh muc).
+  useEffect(() => {
+    if (!timBanDau) return;
+    setSearch(timBanDau.q);
+    boHetLoc();
+  }, [timBanDau?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
+  function boHetLoc() {
+    setFilterDacThu("");
+    setFilterChiSuaChua("");
+    setFilterBatTat("");
+    setFilterCamBan("");
+    setFilterTrangThaiMa("");
+    setFilterPhanLoai("");
+    setFilterNhomLk("");
+    locTuDong.current = false;
+    setPage(1);
+  }
+  // Ma da doi (A -> B, dong "Da doi ma" bi an khi khong loc trang thai ma): go ma cu A -> hien ma chuan B (2026-10-29).
+  const diemTim = useMemo(() => {
+    const d = kqTim.diem;
+    if (!d || filterTrangThaiMa === "Da doi ma") return d;
+    const out = new Map(d);
+    for (const p of parts?.rows ?? []) {
+      if (p.trang_thai_ma !== "Da doi ma" || !p.ma_chuan) continue;
+      const x = d.get(p.ma_linh_kien);
+      if (x != null) out.set(p.ma_chuan, Math.max(out.get(p.ma_chuan) ?? 0, x));
+    }
+    return out;
+  }, [kqTim.diem, parts?.rows, filterTrangThaiMa]);
+  // So ma khop tu khoa trong TOAN BO danh muc (truoc bo loc) - de bao "N ket qua bi bo loc an" + nut tim trong tat ca.
+  const soKhopTatCa = useMemo(() => {
+    if (!diemTim) return 0;
+    let n = 0;
+    for (const p of parts?.rows ?? []) {
+      if (!diemTim.has(p.ma_linh_kien) || p.trang_thai_ma === "Da doi ma") continue;
+      if (ktvXem && !(p.bat_tat && (p.trang_thai_ma ?? "Da xac nhan") === "Da xac nhan")) continue;
+      n++;
+    }
+    return n;
+  }, [diemTim, parts?.rows, ktvXem]);
   const filteredRows = useMemo(() => {
     let rows = parts?.rows ?? [];
     // "Hay mua" len dau (2026-10-04): co tu khoa -> do sat + uu tien hay dat; o trong -> chinh minh hay chon (lich su tren
     // may) roi hang dat 30 ngay toan he thong, con lai giu thu tu cu.
     const uuTien = (ma: string) => diemHayDat(ma, lichSu.soLanChon, hangCongTy);
-    if (kqTim.diem) rows = sapTheoDiem(rows, (p) => p.ma_linh_kien, kqTim.diem, uuTien);
+    if (diemTim) rows = sapTheoDiem(rows, (p) => p.ma_linh_kien, diemTim, uuTien);
     else rows = rows.map((p, i) => ({ p, i, v: uuTien(p.ma_linh_kien) })).sort((x, y) => y.v - x.v || x.i - y.i).map((x) => x.p);
     if (filterDacThu) rows = rows.filter((p) => (filterDacThu === "true" ? !!p.dac_thu : !p.dac_thu));
     if (filterChiSuaChua) rows = rows.filter((p) => (filterChiSuaChua === "true" ? !!p.chi_sua_chua : !p.chi_sua_chua));
@@ -749,10 +800,10 @@ function DanhMucTab() {
     if (filterNhomLk) rows = rows.filter((p) => p.nhom_lk === filterNhomLk);
     rows = filterTrangThaiMa ? rows.filter((p) => (p.trang_thai_ma ?? "Da xac nhan") === filterTrangThaiMa) : rows.filter((p) => p.trang_thai_ma !== "Da doi ma");
     // Loc "Chờ xét duyệt": ma tao LAU NHAT len dau (2026-10-15 - kiem tra nhanh ma tao lau chua xac nhan).
-    if (filterTrangThaiMa === "Cho xet duyet" && !kqTim.diem) rows = [...rows].sort((x, y) => (x.ngay_tao ?? "").localeCompare(y.ngay_tao ?? ""));
+    if (filterTrangThaiMa === "Cho xet duyet" && !diemTim) rows = [...rows].sort((x, y) => (x.ngay_tao ?? "").localeCompare(y.ngay_tao ?? ""));
     if (ktvXem) rows = rows.filter((p) => !!p.bat_tat && (p.trang_thai_ma ?? "Da xac nhan") === "Da xac nhan");
     return rows;
-  }, [parts?.rows, kqTim, lichSu.soLanChon, hangCongTy, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan, filterTrangThaiMa, filterPhanLoai, filterNhomLk, ktvXem]);
+  }, [parts?.rows, diemTim, lichSu.soLanChon, hangCongTy, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan, filterTrangThaiMa, filterPhanLoai, filterNhomLk, ktvXem]);
 
   // "Phân loại" (doi ten tu "Đơn vị", phan hoi 2026-08-20) dang listdown NHUNG van cho go gia tri
   // moi (chon "tu dong gom tu du lieu hien co", khong phai danh sach co dinh quan ly rieng) - gop
@@ -1336,7 +1387,14 @@ function DanhMucTab() {
       <div className="flex items-center gap-2 flex-wrap mb-3">
         <TimLkBox
           value={search}
-          onChange={(v) => { setSearch(v); setPage(1); }}
+          onChange={(v) => {
+            setSearch(v);
+            setPage(1);
+            if (locTuDong.current && v.trim()) {
+              locTuDong.current = false;
+              setFilterTrangThaiMa("");
+            }
+          }}
           ketQua={filteredRows}
           tong={filteredRows.length}
           toDam={kqTim.toDam}
@@ -1349,7 +1407,12 @@ function DanhMucTab() {
         {search.trim() && (
           <span className="text-xs text-[var(--ink-400)]">
             {filteredRows.length} kết quả
-            {filteredRows.length === 0 && kqTim.goiY && (
+            {soKhopTatCa > filteredRows.length && (
+              <button type="button" className="ml-1 text-[var(--color-link)] hover:underline" onClick={boHetLoc}>
+                · {soKhopTatCa - filteredRows.length} kết quả khác bị bộ lọc ẩn — <b>Tìm trong tất cả</b>
+              </button>
+            )}
+            {filteredRows.length === 0 && soKhopTatCa === 0 && kqTim.goiY && (
               <button type="button" className="ml-1 text-[var(--color-link)] hover:underline" onClick={() => { setSearch(kqTim.goiY!); setPage(1); }}>
                 · Có phải bạn muốn tìm “<b>{kqTim.goiY}</b>”?
               </button>
@@ -1398,7 +1461,7 @@ function DanhMucTab() {
           <span>Trạng thái mã:</span>
           <Select
             value={filterTrangThaiMa}
-            onChange={(v) => { setFilterTrangThaiMa(v); setPage(1); }}
+            onChange={(v) => { setFilterTrangThaiMa(v); locTuDong.current = false; setPage(1); }}
             options={[
               { value: "", label: "Tất cả" },
               ...Object.entries(TRANG_THAI_MA).map(([value, m]) => ({

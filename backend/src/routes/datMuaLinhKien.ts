@@ -3079,6 +3079,20 @@ datMuaLinhKien.get("/search", async (c) => {
     }
   }
 
+  // + tim theo MA LINH KIEN (2026-10-29, "muốn tìm mã linh kiện không tìm được"): don gan nhat co ma LK bat dau bang tu
+  // khoa, cung scope xem don. Bo qua khi tu khoa la tien to ma he thong (DDH-/PMH-/...) de khong lap ket qua.
+  if (!/^(DDH|PMH|PCN|PTL|PXK|TLK|TRA)-/.test(q)) {
+    const scope = scopeDatMuaNguoiTao(c);
+    const daCo = new Set(results.map((r) => r.id));
+    const { results: rows } = await c.env.DB.prepare(
+      `SELECT ddh.id, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.trang_thai_hien_tai AS tt FROM dat_don_hang ddh
+       WHERE UPPER(ddh.ma_lk) LIKE ? || '%'${scope?.whereSql ?? ""} ORDER BY ddh.ngay_tao DESC LIMIT 5`,
+    )
+      .bind(q, ...(scope?.binds ?? []))
+      .all<{ id: string; ma_lk: string | null; ten_lk_snapshot: string | null; tt: string | null }>();
+    for (const r of rows) if (!daCo.has(r.id)) results.push({ type: "don_hang", id: r.id, label: `${r.id} — ${r.ma_lk ?? ""} ${r.ten_lk_snapshot ?? ""}`.trim() });
+  }
+
   // + tim theo TEN KTV (2026-09-29, "các công cụ tìm kiếm cho phép tìm theo tên ktv"): go ten (khong dau) ->
   // don/PXK gan nhat ma KTV do nhan hang hoac tao, CUNG scope xem nhu tim theo ma o tren (khong rong hon).
   const emails = await emailsTheoTen(c.env.DB, c.req.query("q") ?? "");

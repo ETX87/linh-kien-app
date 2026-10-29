@@ -706,6 +706,12 @@ tách từ (≤ 6), mỗi từ khớp 1 trong các dạng gốc / thường / HO
 nên số tham số không đổi (`/status-counts` PXK lặp WHERE 5 lần, D1 ≤ 100 tham số). Dùng ở ô tìm Đơn hàng, Thiếu hàng, Hàng trả và Phiếu xuất (`orDonTrongPxk`
 — trước đây tìm phiếu theo tên/mã LK của dòng không ra gì). Không bỏ dấu (gõ có dấu phải đúng dấu).
 
+**Ô tìm chung Ctrl+K tìm linh kiện** (sửa 2026-10-29, v1.420 — "muốn tìm mã linh kiện không tìm được, khi đã chọn bảng giá cũng không tìm
+được"): `CommandPalette.tsx` trước chỉ tìm đơn/phiếu/ticket/Mã YCSC/tên KTV. Giờ tìm LK TRÊN MÁY (cùng `timLk`, danh mục `settings-linh-kien`
+cache; mã đã đổi A→B hiện B; KTV/Vệ tinh ẩn LK tắt/chờ duyệt theo `laKtvXemBangGia()` ở `lib/quyenBangGia.ts`) → bấm = `XemLinhKienDrawer` tại
+chỗ; "Tìm … trong Bảng giá" = mở Bảng giá điền sẵn từ khóa + bỏ mọi bộ lọc (`DanhMucLinhKienModule` prop `timBanDau`). Backend `/search` thêm đơn
+theo mã LK (tiền tố). Bảng giá: lọc tự động "Chờ xét duyệt" (Mua hàng/Admin) tự bỏ khi bắt đầu gõ tìm; gõ mã cũ đã đổi ra mã chuẩn; có dòng
+"N kết quả khác bị bộ lọc ẩn — Tìm trong tất cả".
 **Tìm linh kiện trên máy người dùng** (2026-10-04, migration `0067`): Bảng giá (ô tìm `danhMucLinhKien/TimLkBox.tsx` + gợi ý xổ
 xuống), `LinhKienPicker` (tạo đơn) và ô gộp mã ở `XetDuyetMaLk` dùng CHUNG bộ tìm `frontend/src/lib/timLinhKien.ts` (`taoBoTimLk`/
 `timLk`/`sapTheoDiem`/`doanToDam`) — tìm rời từ khóa, bỏ dấu, bỏ gạch/dấu chấm trong mã, chấp nhận sai 1 ký tự (từ ≥4 chữ),
