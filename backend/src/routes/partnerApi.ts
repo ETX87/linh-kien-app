@@ -53,11 +53,11 @@ partnerApi.get("/v1/ton-kho", async (c) => {
   const sql =
     nguon === "kho"
       ? `SELECT t.id, t.kho_ma AS ma_kho, k.ten AS ten_kho, NULL AS ma_ktv, NULL AS ten_ktv, NULL AS khu_vuc_ma,
-                t.ma_hang, t.ten_hang, t.dvt, t.cuoi_ky
+                t.ma_hang, t.ten_hang, t.dvt, t.dau_ky, t.nhap_kho, t.xuat_kho, t.cuoi_ky
          FROM kho_cong_ty_ton_kho t LEFT JOIN kho_cong_ty k ON k.ma = t.kho_ma
          WHERE t.id > ? ORDER BY t.id LIMIT ?`
       : `SELECT t.id, t.ma_kho, t.ten_kho, t.ma_ktv, COALESCE(k.ten_hien_thi, k.ten_misa) AS ten_ktv, k.khu_vuc_ma,
-                t.ma_hang, t.ten_hang, t.dvt, t.cuoi_ky
+                t.ma_hang, t.ten_hang, t.dvt, t.dau_ky, t.nhap_kho, t.xuat_kho, t.cuoi_ky
          FROM ktv_ton_kho t LEFT JOIN ktv_lien_he k ON k.ma_ktv = t.ma_ktv
          WHERE t.id > ? ORDER BY t.id LIMIT ?`;
   const [meta, { results }] = await Promise.all([
@@ -66,6 +66,41 @@ partnerApi.get("/v1/ton-kho", async (c) => {
   ]);
   const nextAfterId = results.length === limit ? results[results.length - 1].id : null;
   return c.json({ phien_ban: meta?.updated_at ?? null, rows: results, next_after_id: nextAfterId });
+});
+
+// ---- Cho app "Phan tich ton kho 3T" (2026-10-29) - danh muc LK gon + danh ba kho/KTV de keo ve hang ngay. Chi DOC.
+// /v1/ton-kho o tren tra them dau_ky / nhap_kho / xuat_kho (ky = ky_tu_ngay..ky_den_ngay cua /v1/ton-kho/meta).
+
+// GET /api/partner/v1/linh-kien/danh-sach?after_ma=&limit=2000 - moi LK 1 dong, khong kem anh/ton kho (nhe hon /chi-tiet).
+partnerApi.get("/v1/linh-kien/danh-sach", async (c) => {
+  const afterMa = c.req.query("after_ma") ?? "";
+  const limit = Math.min(5000, Math.max(1, Number(c.req.query("limit") ?? 2000) || 2000));
+  const { results } = await c.env.DB.prepare(
+    `SELECT ma_linh_kien, ten_linh_kien, nhom_lk, don_vi AS phan_loai, phan_loai_dac_thu, gia_ban AS gia_niem_yet, gia_du_phong,
+            bat_tat, trang_thai_ma, ma_chuan, ngay_cap_nhat
+     FROM linh_kien WHERE ma_linh_kien > ? ORDER BY ma_linh_kien LIMIT ?`,
+  )
+    .bind(afterMa, limit)
+    .all<{ ma_linh_kien: string }>();
+  return c.json({ rows: results, next_after_ma: results.length === limit ? results[results.length - 1].ma_linh_kien : null });
+});
+
+// GET /api/partner/v1/danh-ba-kho - kho cong ty + moi ma KTV (ma MISA = ma kho cua KTV trong file ton kho). dang_lam = ma KTV
+// khong bi tat (ngung_hoat_dong) va Gmail dang nhap khong bi khoa (ETX nghi viec / Admin khoa).
+partnerApi.get("/v1/danh-ba-kho", async (c) => {
+  const [kho, ktv] = await Promise.all([
+    c.env.DB.prepare("SELECT ma, ten, bat_tat FROM kho_cong_ty ORDER BY ma").all(),
+    c.env.DB.prepare(
+      `SELECT k.ma_ktv, k.ma_misa, COALESCE(NULLIF(TRIM(k.ten_misa), ''), NULLIF(TRIM(k.ten_hien_thi), ''), k.ma_ktv) AS ten,
+              k.vai_tro_ktv, k.khu_vuc_ma, kv.ten AS khu_vuc_ten,
+              CASE WHEN k.ngung_hoat_dong = 1 OR COALESCE(u.bi_khoa, 0) = 1 THEN 0 ELSE 1 END AS dang_lam
+       FROM ktv_lien_he k
+       LEFT JOIN khu_vuc kv ON kv.ma = k.khu_vuc_ma
+       LEFT JOIN users u ON u.email = k.email_dang_nhap
+       ORDER BY k.ma_ktv`,
+    ).all(),
+  ]);
+  return c.json({ kho_cong_ty: kho.results, ktv: ktv.results });
 });
 
 // GET /api/partner/v1/linh-kien/lich-su?ma=<ma_lk>&limit=50 (2026-10-08, DVBH "Ho so linh kien") - cac don gan nhat

@@ -227,7 +227,8 @@ có cần tải lại toàn bộ tồn kho hay không.
   "phien_ban": "2026-10-12 17:40:05",
   "rows": [
     { "id": 101, "ma_kho": "KHO-MB", "ten_kho": "Kho công ty MB", "ma_ktv": null, "ten_ktv": null, "khu_vuc_ma": null,
-      "ma_hang": "3004030490", "ten_hang": "Bo mạch điều khiển", "dvt": "Cái", "cuoi_ky": 12 }
+      "ma_hang": "3004030490", "ten_hang": "Bo mạch điều khiển", "dvt": "Cái",
+      "dau_ky": 10, "nhap_kho": 5, "xuat_kho": 3, "cuoi_ky": 12 }
   ],
   "next_after_id": 2101
 }
@@ -239,6 +240,7 @@ có cần tải lại toàn bộ tồn kho hay không.
 | `ma_kho`, `ten_kho` | Mã / tên kho |
 | `ma_ktv`, `ten_ktv`, `khu_vuc_ma` | Chỉ với `nguon=ktv`: KTV giữ kho và khu vực. `ma_ktv = null` = mã kho chưa khớp KTV nào |
 | `ma_hang`, `ten_hang`, `dvt` | Mã / tên linh kiện, đơn vị tính |
+| `dau_ky`, `nhap_kho`, `xuat_kho` | Số lượng đầu kỳ / nhập / xuất trong kỳ của file MISA (kỳ = `ky_tu_ngay`..`ky_den_ngay` ở `/v1/ton-kho/meta`; có thể `null`) |
 | `cuoi_ky` | Số lượng tồn cuối kỳ |
 | `next_after_id` | Truyền vào `after_id` để lấy trang kế. `null` = đã hết dữ liệu |
 
@@ -616,6 +618,51 @@ nguyên bản trong file MISA).
 
 Mỗi mã trả đủ 1 dòng cho mỗi khu vực (khu vực không có tồn → các số = 0). Đơn "TRỪ CÔNG NỢ" lấy hàng từ tồn của chính KTV
 nên không tính vào đây.
+
+---
+
+### 4.13. Danh mục linh kiện rút gọn — `GET /v1/linh-kien/danh-sach`
+
+Mỗi linh kiện 1 dòng, không kèm ảnh / tồn kho (nhẹ hơn mục 4.5) — dùng để kéo cả danh mục về hằng ngày.
+
+| Tham số | Bắt buộc | Mô tả |
+|---|---|---|
+| `after_ma` | Không | Con trỏ phân trang (mã cuối trang trước), mặc định trống |
+| `limit` | Không | Mặc định 2000, tối đa 5000 |
+
+```json
+{
+  "rows": [
+    { "ma_linh_kien": "3004030490", "ten_linh_kien": "Bo mạch điều khiển", "nhom_lk": "karofi", "phan_loai": "Bo mạch",
+      "phan_loai_dac_thu": null, "gia_niem_yet": 350000, "gia_du_phong": 300000, "bat_tat": 1,
+      "trang_thai_ma": "Da xac nhan", "ma_chuan": null, "ngay_cap_nhat": "2026-10-20 09:12:00" }
+  ],
+  "next_after_ma": "3004030490"
+}
+```
+
+`next_after_ma = null` = đã hết dữ liệu.
+
+---
+
+### 4.14. Danh bạ kho / KTV — `GET /v1/danh-ba-kho`
+
+Không tham số. Trả toàn bộ kho công ty và mọi mã KTV.
+
+```json
+{
+  "kho_cong_ty": [ { "ma": "6803", "ten": "Kho 6803 - Q2 HCM", "bat_tat": 1 } ],
+  "ktv": [
+    { "ma_ktv": "toannv.mb", "ma_misa": "CTV0015", "ten": "Nguyễn Văn Toàn", "vai_tro_ktv": "KTV",
+      "khu_vuc_ma": "MB3", "khu_vuc_ten": "Miền Bắc 3", "dang_lam": 1 }
+  ]
+}
+```
+
+| Trường | Mô tả |
+|---|---|
+| `ma_misa` | Mã MISA của KTV = mã kho của KTV trong `/v1/ton-kho?nguon=ktv` (`null` = chưa có mã) |
+| `dang_lam` | `1` = mã đang hoạt động và tài khoản không bị khoá; `0` = mã đã tắt hoặc tài khoản bị khoá (nghỉ việc) |
 
 ---
 
