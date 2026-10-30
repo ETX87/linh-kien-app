@@ -10,6 +10,8 @@ import { daTruTheoMaHang } from "../lib/tonKhoKtv";
 import { maKtvTheoTen } from "../lib/timTheoTen";
 import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
 import { tuDongXacNhanHangVe } from "../lib/tuDongHangVe";
+import { BANG, chotTonKho, ghiLoTonKho, lenhXoaTam } from "../lib/tonKhoNhap";
+import { docNguonTonKho } from "../lib/hubMisa";
 
 // "Tồn kho KTV" (them 2026-08-29, phan hoi nguoi dung) - import hang ngay file "Tổng hợp tồn kho"
 // xuat tu MISA (mot bao cao gom NHIEU khoi "Kho: ..." xep lien tiep, moi khoi la 1 KTV/tram - xem
@@ -162,6 +164,8 @@ ktvTonKho.post("/import", adminOrKeToan, async (c) => {
     ky_den_ngay?: string;
   }>();
   if (!Array.isArray(body.rows)) return c.json({ error: "INVALID_BODY" }, 400);
+  // Nguon ton kho = app Phan tich ton kho 3T (2026-10-30): Ke toan nhap file o app do; import o day chi con la duong DU PHONG cho Admin.
+  if ((await docNguonTonKho(c.env.DB)) === "hub" && c.get("user").vai_tro !== "Admin") return c.json({ error: "NGUON_TON_KHO_LA_HUB" }, 409);
 
   const CHUNK_SIZE = 100;
   const offset = Math.max(0, body.offset ?? 0);
@@ -173,107 +177,26 @@ ktvTonKho.post("/import", adminOrKeToan, async (c) => {
 
   // Ghi vao BANG TAM (migration 0065) - lo dau xoa tam, lo cuoi thay bang that trong 1 batch. Dung giua chung = du lieu
   // ton kho cu con nguyen (truoc day lo dau xoa trang bang that).
-  if (offset === 0) {
-    await c.env.DB.batch([c.env.DB.prepare("DELETE FROM ktv_ton_kho_tam"), c.env.DB.prepare("DELETE FROM kho_cong_ty_ton_kho_tam")]);
-  }
+  if (offset === 0) await c.env.DB.batch(lenhXoaTam(c.env.DB, BANG.tam));
 
   const chunk = kieuLo ? body.rows : body.rows.slice(offset, offset + CHUNK_SIZE);
-  const { results: ktvRows } = await c.env.DB.prepare("SELECT ma_ktv, ma_misa FROM ktv_lien_he WHERE ma_misa IS NOT NULL AND ma_misa != ''")
-    .all<{ ma_ktv: string; ma_misa: string }>();
-  const maMisaToKtv = new Map(ktvRows.map((r) => [r.ma_misa.trim().toLowerCase(), r.ma_ktv]));
-  // Them 2026-09-11 ("Kho công ty" - xem lib/tonKhoCongTy.ts) - cung 1 file MISA "Tổng hợp tồn kho"
-  // co the chua LAN dong cua kho vat ly cong ty (vd "6803", "6804-MB") xen giua cac khoi cua tung
-  // KTV. Dong khong khop ma_misa cua KTV nao (nhu cu) se thu khop TIEP voi kho_cong_ty.ma truoc khi
-  // roi vao nhom "chua khop" that su - xem GET /ma-kho-chua-khop (WHERE ma_ktv IS NULL, khong doi).
-  const { results: khoRows } = await c.env.DB.prepare("SELECT ma FROM kho_cong_ty").all<{ ma: string }>();
-  const maKhoCongTySet = new Set(khoRows.map((r) => r.ma.trim().toLowerCase()));
-
-  let matched = 0;
-  const unmatched = new Set<string>();
-  const statements = [];
-  for (const row of chunk) {
-    const maKho = row.ma_kho?.trim();
-    const maHang = row.ma_hang?.trim();
-    if (!maKho || !maHang) continue;
-    const maKtv = maMisaToKtv.get(maKho.toLowerCase()) ?? null;
-    if (maKtv) {
-      matched++;
-      statements.push(
-        c.env.DB.prepare(
-          `INSERT INTO ktv_ton_kho_tam (ma_ktv, ma_kho, ten_kho, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(ma_kho, ma_hang) DO UPDATE SET
-             ma_ktv = excluded.ma_ktv, ten_kho = excluded.ten_kho, ten_hang = excluded.ten_hang, dvt = excluded.dvt,
-             dau_ky = excluded.dau_ky, nhap_kho = excluded.nhap_kho, xuat_kho = excluded.xuat_kho, cuoi_ky = excluded.cuoi_ky`,
-        ).bind(
-          maKtv, maKho, row.ten_kho?.trim() || null, maHang, row.ten_hang?.trim() || null, row.dvt?.trim() || null,
-          row.dau_ky ?? null, row.nhap_kho ?? null, row.xuat_kho ?? null, row.cuoi_ky ?? null,
-        ),
-      );
-    } else if (maKhoCongTySet.has(maKho.toLowerCase())) {
-      matched++;
-      statements.push(
-        c.env.DB.prepare(
-          `INSERT INTO kho_cong_ty_ton_kho_tam (kho_ma, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(kho_ma, ma_hang) DO UPDATE SET
-             ten_hang = excluded.ten_hang, dvt = excluded.dvt,
-             dau_ky = excluded.dau_ky, nhap_kho = excluded.nhap_kho, xuat_kho = excluded.xuat_kho, cuoi_ky = excluded.cuoi_ky`,
-        ).bind(
-          maKho, maHang, row.ten_hang?.trim() || null, row.dvt?.trim() || null,
-          row.dau_ky ?? null, row.nhap_kho ?? null, row.xuat_kho ?? null, row.cuoi_ky ?? null,
-        ),
-      );
-    } else {
-      unmatched.add(maKho);
-      statements.push(
-        c.env.DB.prepare(
-          `INSERT INTO ktv_ton_kho_tam (ma_ktv, ma_kho, ten_kho, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky)
-           VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(ma_kho, ma_hang) DO UPDATE SET
-             ma_ktv = excluded.ma_ktv, ten_kho = excluded.ten_kho, ten_hang = excluded.ten_hang, dvt = excluded.dvt,
-             dau_ky = excluded.dau_ky, nhap_kho = excluded.nhap_kho, xuat_kho = excluded.xuat_kho, cuoi_ky = excluded.cuoi_ky`,
-        ).bind(
-          maKho, row.ten_kho?.trim() || null, maHang, row.ten_hang?.trim() || null, row.dvt?.trim() || null,
-          row.dau_ky ?? null, row.nhap_kho ?? null, row.xuat_kho ?? null, row.cuoi_ky ?? null,
-        ),
-      );
-    }
-  }
-  if (statements.length) await c.env.DB.batch(statements);
+  // Phan loai + ghi bang tam: lib/tonKhoNhap.ts (dung chung voi luong keo ton kho tu app Phan tich ton kho 3T).
+  const { matched, unmatched } = await ghiLoTonKho(c.env.DB, chunk, BANG.tam);
 
   const nextOffset = offset + (kieuLo ? chunk.length : CHUNK_SIZE);
   const done = nextOffset >= total;
   if (done) {
     // Thay bang that + ghi meta trong CUNG 1 batch (giao dich) - "GHI DE toan bo" ca 2 bang nhu cu.
-    await c.env.DB.batch([
-      c.env.DB.prepare("DELETE FROM ktv_ton_kho"),
-      c.env.DB.prepare(
-        `INSERT INTO ktv_ton_kho (ma_ktv, ma_kho, ten_kho, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky)
-         SELECT ma_ktv, ma_kho, ten_kho, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky FROM ktv_ton_kho_tam`,
-      ),
-      c.env.DB.prepare("DELETE FROM kho_cong_ty_ton_kho"),
-      c.env.DB.prepare(
-        `INSERT INTO kho_cong_ty_ton_kho (kho_ma, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky)
-         SELECT kho_ma, ma_hang, ten_hang, dvt, dau_ky, nhap_kho, xuat_kho, cuoi_ky FROM kho_cong_ty_ton_kho_tam`,
-      ),
-      c.env.DB.prepare("DELETE FROM ktv_ton_kho_tam"),
-      c.env.DB.prepare("DELETE FROM kho_cong_ty_ton_kho_tam"),
-      c.env.DB.prepare(
-        `INSERT INTO app_settings (key, value, updated_by, updated_at) VALUES ('ktv_ton_kho_import_meta', ?, ?, ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
-      ).bind(
-        JSON.stringify({ ky_tu_ngay: body.ky_tu_ngay ?? null, ky_den_ngay: body.ky_den_ngay ?? null, so_dong: total }),
-        user.email,
-        nowVN(),
-      ),
-    ]);
+    await chotTonKho(c.env.DB, BANG.tam, BANG.that, {
+      value: { ky_tu_ngay: body.ky_tu_ngay ?? null, ky_den_ngay: body.ky_den_ngay ?? null, so_dong: total, nguon: "file" },
+      updated_by: user.email,
+    });
     // Ton kho cong ty vua cap nhat -> tu xac nhan hang ve cho don thieu hang theo uu tien (khieu nai > ton lau > VIP), 2026-10-28.
     c.executionCtx.waitUntil(
       tuDongXacNhanHangVe(c.env, c.env.DB, user.email, "Kế toán import tồn kho").catch((e) => console.error("[tuDongXacNhanHangVe]", e)),
     );
   }
-  return c.json({ done, nextOffset, matched, unmatched: Array.from(unmatched) });
+  return c.json({ done, nextOffset, matched, unmatched });
 });
 
 // ---------- Kho cong ty (them 2026-09-11 - xem migration 0025 + lib/tonKhoCongTy.ts) ----------

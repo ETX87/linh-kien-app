@@ -24,6 +24,7 @@ import { HBarList } from "../components/charts/BarCharts";
 import { fmtCompactVND, pct } from "../components/charts/chartUtils";
 import { Money } from "../components/ui/Money";
 import { CongNo0dTab } from "./CongNo0dTab";
+import { NguonTonKhoHub, useNguonTonKho } from "./tonKho/NguonTonKhoHub";
 
 // File mau cho "Import tồn kho MISA" - chi can dung dong tieu de cot (parser tim theo TEN cot, xem
 // HEADER_ALIASES o lib/tonKhoImport.ts) + vai dong vi du, KHONG can dung dinh dang goc phuc tap cua
@@ -158,6 +159,7 @@ function TonKhoKtvContent() {
   // Import tồn kho MISA (ghi) - them 2026-09-21: Ke toan duoc mo them (adminOrKeToan o backend),
   // giong dung nhom canSeeChuaKhop o tren.
   const canManage = isAdmin || isKeToan;
+  const nguonTon = useNguonTonKho(canManage).data?.nguon ?? "file";
   const [tab, setTab] = useState<"da-khop" | "chua-khop">("da-khop");
   const qc = useQueryClient();
   const addToast = useToast();
@@ -270,10 +272,12 @@ function TonKhoKtvContent() {
           ({meta.so_dong} dòng đọc được)
         </div>
       )}
+      {canManage && <NguonTonKhoHub isAdmin={isAdmin} />}
       <div className="flex flex-wrap gap-2 items-center">
-        {canManage && (
-          <Btn size="sm" onClick={() => { setImportOpen(true); setImportSummary(null); setImportTotal(0); setImportProcessed(0); }}>
-            📥 Import tồn kho MISA
+        {/* Nguon ton kho = app Phan tich ton kho 3T: Ke toan nhap file ben do; Import o day chi con la du phong cho Admin. */}
+        {canManage && (nguonTon !== "hub" || isAdmin) && (
+          <Btn size="sm" variant={nguonTon === "hub" ? "ghost" : "primary"} onClick={() => { setImportOpen(true); setImportSummary(null); setImportTotal(0); setImportProcessed(0); }}>
+            📥 Import tồn kho MISA{nguonTon === "hub" ? " (dự phòng)" : ""}
           </Btn>
         )}
       </div>

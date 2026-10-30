@@ -74,6 +74,12 @@ export interface Env {
   SUACHUA_SYNC_BASE_URL: string;
   SUACHUA_SYNC_SERVICE: Fetcher;
   SUACHUA_SYNC_API_KEY: string;
+  // App "Phan tich ton kho 3T" - kho du lieu MISA goc (lib/hubMisa.ts, 2026-10-30). HUB_API_KEY = khoa doc do app do cap;
+  // HUB_SYNC_KEY = secret CHUNG 2 ben (app do bao "co phien ton moi"); HUB_SERVICE = Service Binding Worker "phantichtonkho".
+  HUB_SERVICE?: Fetcher;
+  HUB_BASE_URL?: string;
+  HUB_API_KEY?: string;
+  HUB_SYNC_KEY?: string;
   // Them 2026-09-07: dich day THU 3, Worker "khovan" (Quan ly hang ve kho) - chi nhan
   // entity "ktv" (lam danh sach "Nguoi gui hang"), dung khuon external_systems +
   // header X-Api-Key san co cua khovan. Service Binding cung ly do nhu 2 dich tren.

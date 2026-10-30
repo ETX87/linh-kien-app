@@ -51,6 +51,8 @@ users.get("/", async (c) => {
   conditions.push("NOT EXISTS (SELECT 1 FROM khach_le kl WHERE kl.email = users.email)");
   // Gmail dang nhap PHU (0091) - dong users cu cua Gmail do khong con la tai khoan rieng (dang nhap vao tai khoan chinh).
   conditions.push("NOT EXISTS (SELECT 1 FROM users_gmail_phu gp WHERE gp.email_phu = LOWER(users.email))");
+  // Tai khoan HE THONG (migration 0104, *@he-thong.local) - chi dung ten cho thao tac tu dong, khong phai nguoi dung.
+  conditions.push("users.email NOT LIKE '%@he-thong.local'");
 
   if (search) {
     // + ten KHONG dau (2026-09-29, lib/timTheoTen.ts: users.ten/ten_misa + ten KTV trong danh ba).

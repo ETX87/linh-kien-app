@@ -67,12 +67,18 @@
     { "binding": "SUACHUA_SYNC_SERVICE", "service": "suachua", "remote": true },
     { "binding": "KHOVAN_SYNC_SERVICE", "service": "khovan", "remote": true },
     { "binding": "VIPHAM_SYNC_SERVICE", "service": "vipham", "remote": true }
+    // Ton kho tu app "Phan tich ton kho 3T" (lib/hubMisa.ts) - BO COMMENT sau khi Worker "phantichtonkho" da deploy
+    // (binding toi Worker chua ton tai lam deploy loi). Cung tai khoan -> phai goi qua binding, khong qua *.workers.dev.
+    // , { "binding": "HUB_SERVICE", "service": "phantichtonkho", "remote": true }
   ],
 
   "vars": {
     "BOOTSTRAP_ADMIN_EMAIL": "smarttrade.vp@gmail.com",
     "GOOGLE_REDIRECT_URI": "https://linhkien.dichvu3t.workers.dev/api/auth/callback",
     "FRONTEND_URL": "https://linhkien.dichvu3t.workers.dev",
+    // App "Phan tich ton kho 3T" - kho du lieu MISA goc (lib/hubMisa.ts). Secrets: HUB_API_KEY (khoa doc app do cap),
+    // HUB_SYNC_KEY (CHUNG 2 ben). Cong tac nguon ton kho: Cong no > "Nguồn tồn kho" (Admin), mac dinh "file" = nhu cu.
+    "HUB_BASE_URL": "https://phantichtonkho.dichvu3t.workers.dev",
     // Diem noi DUY NHAT toi he DVBH goc (chi tra cuu case theo ID, khong ghi) - xem
     // lib/caseLookupClient.ts + backend/src/routes/partnerApi.ts cua he goc.
     "CASE_LOOKUP_BASE_URL": "https://dvbh.dichvu3t.workers.dev",

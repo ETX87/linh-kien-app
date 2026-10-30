@@ -17,6 +17,8 @@ import baoCaoTocDoXuLyRoutes from "./routes/baoCaoTocDoXuLy";
 import pushRoutes from "./routes/push";
 import dvbhSyncRoutes from "./routes/dvbhSync";
 import gia88SyncRoutes from "./routes/gia88Sync";
+import hubMisaRoutes from "./routes/hubMisa";
+import { keoTonKhoTuHub } from "./lib/hubMisa";
 import etxNhanSuSyncRoutes from "./routes/etxNhanSuSync";
 import partnerApiRoutes from "./routes/partnerApi";
 import khovanLookupRoutes from "./routes/khovanLookup";
@@ -74,6 +76,7 @@ app.route("/api/bao-cao-toc-do", baoCaoTocDoXuLyRoutes);
 app.route("/api/push", pushRoutes);
 app.route("/api/dvbh-sync", dvbhSyncRoutes);
 app.route("/api/gia88-sync", gia88SyncRoutes);
+app.route("/api/hub-misa", hubMisaRoutes); // Ton kho tu app Phan tich ton kho 3T (2026-10-30, lib/hubMisa.ts)
 app.route("/api/etx-nhan-su", etxNhanSuSyncRoutes);
 app.route("/api/partner", partnerApiRoutes);
 // KHONG mount duoi "/api/partner/*" - partnerApiRoutes o tren da co san 1 middleware
@@ -114,6 +117,14 @@ export default {
     // 1 lan/tuan (xem lib/etxNhanSuSync.ts).
     if (new Date(event.scheduledTime).getUTCDay() === 0 && new Date(event.scheduledTime).getUTCHours() === 17) {
       ctx.waitUntil(runEtxNhanSuSyncWithState(env, env.DB));
+    }
+    // Ton kho tu app Phan tich ton kho 3T (2026-10-30): du phong khi lan bao "phien moi" bi lo - kiem tra phien ban moi gio
+    // 8h-18h VN (1h-11h UTC) T2-T7. Nguon "file" -> ham tu bo qua.
+    {
+      const t = new Date(event.scheduledTime);
+      if (t.getUTCHours() >= 1 && t.getUTCHours() <= 11 && t.getUTCDay() !== 0) {
+        ctx.waitUntil(keoTonKhoTuHub(env, { ctx }).then(() => undefined).catch((err) => console.error("[keoTonKhoTuHub]", err)));
+      }
     }
     // 8h sang VN (1h UTC, migration 0075): PXK "Dang gui KTV" qua 10 ngay -> tu "KTV da nhan" + nhac KTV phieu con cho xac nhan.
     if (new Date(event.scheduledTime).getUTCHours() === 1) {

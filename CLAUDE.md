@@ -833,6 +833,18 @@ nhat") → khóa `THIEU_LK_KHO_DANG_XU_LY` + ghi chú chờ Kho. Điều kiện 
 (danh sách + chi tiết đơn, FE `laChoHangMoKhoa`/`laChoHangBiKhoa` ở `helpers.ts`), gắn luôn vào CAS UPDATE (Kho tiếp nhận không
 đổi version đơn). Đóng ticket từ app KHÔNG báo sang khovan (như mọi đường đóng ticket khác).
 
+**Nguồn tồn kho = app "Phân tích tồn kho 3T"** (2026-10-30, v1.422, migration `0104`, `lib/hubMisa.ts` + `lib/tonKhoNhap.ts` + `routes/hubMisa.ts`
+tại `/api/hub-misa`, FE `modules/tonKho/NguonTonKhoHub.tsx` ở màn Công nợ; kế hoạch: repo `phan-tich-ton-kho-3t` `docs/KE_HOACH_KHO_MISA.md`): app đó là KHO
+DỮ LIỆU MISA GỐC — Kế toán nhập file 1 lần bên đó, app này KÉO về giữ bản sao (không gọi bên đó lúc tạo đơn / tự duyệt). Công tắc `app_settings.nguon_ton_kho`
+(Admin): `file` (mặc định, như cũ) | `hub_thu` (chạy song song: kéo vào BẢNG BÓNG `hub_ktv_ton_kho`/`hub_kho_cong_ty_ton_kho`, không ảnh hưởng nghiệp vụ,
+màn Công nợ hiện đối chiếu bóng ↔ thật) | `hub` (kéo vào bảng thật; import file chỉ còn Admin dự phòng — Kế toán bị 409 `NGUON_TON_KHO_LA_HUB`). Phân loại
+dòng (Mã MISA KTV → kho KTV / `kho_cong_ty` → kho công ty / còn lại "chưa khớp") + chốt bảng là CÙNG hàm `ghiLoTonKho`/`chotTonKho` cho import file và kéo về —
+sửa quy tắc ở `lib/tonKhoNhap.ts`. Kéo về ở chế độ `hub` ghi mốc `ktv_ton_kho_import_meta.updated_at` = `phien_ban` của app đó (= lúc Kế toán nhập file, KHÔNG
+phải giờ kéo) → mọi chỗ "đơn sau lần import" giữ đúng nghĩa; xong gọi `tuDongXacNhanHangVe`. Kích hoạt: app đó gọi `POST /api/hub-misa/thong-bao`
+(X-Sync-Key = `HUB_SYNC_KEY`, trong `LA_API_DOI_TAC`) + cron mỗi giờ 8h–18h T2–T7 + nút "Kéo ngay"; khoá chống chạy chồng `app_settings.hub_ton_kho_khoa`.
+Secrets `HUB_API_KEY`, `HUB_SYNC_KEY`; binding `HUB_SERVICE` (đang comment trong `wrangler.jsonc` — bỏ comment sau khi Worker `phantichtonkho` đã deploy).
+API đối tác `/v1/ton-kho` của app này GIỮ NGUYÊN (DVBH không phải đổi).
+
 **Import tồn kho MISA** (sửa 2026-10-03, treo "Đang xử lý... 0/0 dòng"): file MISA khai báo vùng `!ref` tới dòng 1.048.576/cột
 XFD → `sheet_to_json` tạo mảng hàng triệu dòng = treo tab. `lib/tonKhoImport.ts` thu gọn vùng theo ô có giá trị
 (`thuGonVungDuLieu`) + tắt cellText/cellNF/cellStyles…; đọc trong **Web Worker** (`tonKhoImport.worker.ts`, gọi qua
