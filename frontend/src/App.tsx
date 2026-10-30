@@ -11,6 +11,7 @@ import { TopBarActions } from "./layout/TopBarActions";
 import { TopBar } from "./layout/TopBar";
 import { BottomTabBar } from "./layout/BottomTabBar";
 import { HoiDapWidget } from "./components/hoiDap/HoiDapWidget";
+import { NutNopQuyNoi } from "./modules/quyChuyenTien/NutNopQuyNoi";
 import { ROLE_MODULES, MODULE_TITLES, NAV_GROUPS } from "./layout/navConfig";
 import { DatMuaLinhKienModule } from "./modules/DatMuaLinhKienModule";
 import { DanhMucLinhKienModule, XemLinhKienDrawer } from "./modules/DanhMucLinhKienModule";
@@ -540,6 +541,8 @@ function MainApp({
       {isMobile && <BottomTabBar active={active} setActive={setActive} allowedModules={allowedModules} onOpenMore={() => setMobileOpen(true)} />}
       {/* Hoi dap KTV <-> Mua hang (2026-10-17) - icon chat goc duoi phai, moi tai khoan da duyet. */}
       <HoiDapWidget />
+      {/* Nut tron "Nạp quỹ" canh nut chat (2026-10-30, v1.426) - KTV / Ve tinh / GS mo nhanh form nop tien vao quy. */}
+      <NutNopQuyNoi />
       {isMobile && exitConfirmOpen && (
         <Modal open onClose={stayInApp} title={t("Thoát ứng dụng?")}>
           <div className="space-y-4 text-sm">
