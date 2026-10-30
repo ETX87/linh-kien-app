@@ -2384,5 +2384,17 @@ const tuDien: Record<string, string> = {
   "⚠ Linh kiện này chưa có Giá KTV — tổng đặt hôm nay đã từ 500k (mức giá KTV) nhưng dòng này vẫn tính giá niêm yết, không được chiết khấu. Hỏi Mua hàng cập nhật Giá KTV trước khi đặt nếu muốn hưởng chiết khấu.": "⚠ This part has no technician (KTV) price — today's order total has reached 500k (KTV price level) but this line is still charged at the list price, no discount. Ask Purchasing to set the KTV price before ordering if you want the discount.",
   "Nạp quỹ": "Top up",
   "Nạp tiền vào quỹ": "Top up fund",
+  "Chụp ảnh — số tiền tự đọc từ ảnh": "Take a photo — amount is read automatically",
+  "Có yêu cầu nạp quỹ chờ xác nhận": "A fund top-up is waiting for confirmation",
+  "Không còn yêu cầu nào chờ xác nhận": "No top-ups waiting for confirmation",
+  "Không đọc được — nhập số tiền": "Could not read — enter the amount",
+  "Mở mục Nộp tiền vào quỹ": "Open Fund deposits",
+  "Nạp quỹ chờ xác nhận": "Top-ups awaiting confirmation",
+  "Xem danh sách": "View list",
+  "Xác nhận ngay": "Confirm now",
+  "trùng số tiền": "duplicate amount",
+  "tự đọc từ ảnh, sửa nếu sai": "read from photo, edit if wrong",
+  "{n} yêu cầu nạp quỹ chờ xác nhận": "{n} top-ups waiting for confirmation",
+  "Đang đọc số tiền từ ảnh…": "Reading amount from photo…",
 };
 export default tuDien;

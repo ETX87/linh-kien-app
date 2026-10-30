@@ -2384,5 +2384,17 @@ const tuDien: Record<string, string> = {
   "⚠ Linh kiện này chưa có Giá KTV — tổng đặt hôm nay đã từ 500k (mức giá KTV) nhưng dòng này vẫn tính giá niêm yết, không được chiết khấu. Hỏi Mua hàng cập nhật Giá KTV trước khi đặt nếu muốn hưởng chiết khấu.": "⚠ Suku cadang ini belum punya harga KTV — total pesanan hari ini sudah mencapai 500k (tingkat harga KTV) tetapi baris ini tetap dihitung harga daftar, tanpa diskon. Minta Pembelian memperbarui harga KTV sebelum memesan jika ingin mendapat diskon.",
   "Nạp quỹ": "Isi dana",
   "Nạp tiền vào quỹ": "Isi uang ke dana",
+  "Chụp ảnh — số tiền tự đọc từ ảnh": "Ambil foto — jumlah dibaca otomatis",
+  "Có yêu cầu nạp quỹ chờ xác nhận": "Ada isi dana menunggu konfirmasi",
+  "Không còn yêu cầu nào chờ xác nhận": "Tidak ada isi dana yang menunggu konfirmasi",
+  "Không đọc được — nhập số tiền": "Tidak terbaca — masukkan jumlah",
+  "Mở mục Nộp tiền vào quỹ": "Buka Setoran dana",
+  "Nạp quỹ chờ xác nhận": "Isi dana menunggu konfirmasi",
+  "Xem danh sách": "Lihat daftar",
+  "Xác nhận ngay": "Konfirmasi sekarang",
+  "trùng số tiền": "jumlah ganda",
+  "tự đọc từ ảnh, sửa nếu sai": "dibaca dari foto, ubah jika salah",
+  "{n} yêu cầu nạp quỹ chờ xác nhận": "{n} isi dana menunggu konfirmasi",
+  "Đang đọc số tiền từ ảnh…": "Membaca jumlah dari foto…",
 };
 export default tuDien;

@@ -5,6 +5,7 @@ import { Btn } from "../ui/Btn";
 import { Badge, type Tone } from "../x/Badge";
 import { useToast } from "../ui/Toast";
 import { useIsMobile } from "../../hooks/useMediaQuery";
+import { amBao } from "../../lib/amBao";
 import { usePushNotifications } from "../../hooks/usePushNotifications";
 import { pushOverlayClose } from "../../lib/overlayStack";
 import { fmtDateTime } from "../../types";
@@ -94,31 +95,6 @@ interface DemHoiDap {
   chua_doc: number;
   cho_tiep_nhan: number;
   moi_nhat?: MoiNhat | null;
-}
-
-// Am bao ngan 2 not (WebAudio, khong can file am thanh). Trinh duyet chan am thanh khi nguoi dung chua tung bam vao trang - bo qua im lang.
-function amBao() {
-  try {
-    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return;
-    const ac = new Ctx();
-    [880, 1175].forEach((f, i) => {
-      const o = ac.createOscillator();
-      const g = ac.createGain();
-      const t0 = ac.currentTime + i * 0.18;
-      o.type = "sine";
-      o.frequency.value = f;
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(0.18, t0 + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3);
-      o.connect(g).connect(ac.destination);
-      o.start(t0);
-      o.stop(t0 + 0.32);
-    });
-    setTimeout(() => void ac.close().catch(() => undefined), 800);
-  } catch {
-    /* khong phat duoc am thanh - van con popup */
-  }
 }
 
 // Canh bao YEU CAU MOI cho phia Mua hang (phan hoi 2026-10-18 "khi có yêu cầu chat mới đẩy thông báo về cho nhân viên mua hàng"): so moc

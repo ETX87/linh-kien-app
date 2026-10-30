@@ -12,6 +12,7 @@ import { TopBar } from "./layout/TopBar";
 import { BottomTabBar } from "./layout/BottomTabBar";
 import { HoiDapWidget } from "./components/hoiDap/HoiDapWidget";
 import { NutNopQuyNoi } from "./modules/quyChuyenTien/NutNopQuyNoi";
+import { NutNopTienKeToan } from "./modules/quyChuyenTien/NutNopTienKeToan";
 import { ROLE_MODULES, MODULE_TITLES, NAV_GROUPS } from "./layout/navConfig";
 import { DatMuaLinhKienModule } from "./modules/DatMuaLinhKienModule";
 import { DanhMucLinhKienModule, XemLinhKienDrawer } from "./modules/DanhMucLinhKienModule";
@@ -223,7 +224,8 @@ function MainApp({
       window.history.replaceState(window.history.state, "", u.pathname + u.search + u.hash);
       mo(id);
     }
-    const nghe = (e: Event) => { const d = (e as CustomEvent<string>).detail; if (d) mo(d); };
+    // detail rong = chi mo tab "Nộp tiền vào quỹ" (icon noi cua Ke toan), co id = mo luon chi tiet.
+    const nghe = (e: Event) => mo((e as CustomEvent<string>).detail ?? "");
     window.addEventListener("mo-nop-tien", nghe);
     return () => window.removeEventListener("mo-nop-tien", nghe);
   }, []);
@@ -543,6 +545,8 @@ function MainApp({
       <HoiDapWidget />
       {/* Nut tron "Nạp quỹ" canh nut chat (2026-10-30, v1.426) - KTV / Ve tinh / GS mo nhanh form nop tien vao quy. */}
       <NutNopQuyNoi />
+      {/* Icon noi "Nạp quỹ chờ xác nhận" cho Ke toan (2026-10-30, v1.427) - popup danh sach cho + nhac yeu cau moi. */}
+      <NutNopTienKeToan />
       {isMobile && exitConfirmOpen && (
         <Modal open onClose={stayInApp} title={t("Thoát ứng dụng?")}>
           <div className="space-y-4 text-sm">

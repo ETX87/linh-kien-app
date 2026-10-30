@@ -25,7 +25,7 @@ import { t, dichSau } from "../../i18n";
 
 type TrangThai = "Cho ke toan" | "Da duyet" | "Tu choi" | "Da huy";
 type HanhDong = "duyet" | "tu_choi" | "huy";
-interface NopTienRow {
+export interface NopTienRow {
   id: number;
   email: string;
   nguoi_gui: string;
@@ -64,7 +64,7 @@ const ma = (id: number) => `NTQ-${id}`;
 const nhanO = "text-[11px] font-bold uppercase tracking-wide text-[var(--color-text-secondary)]";
 const oNhap = "focus-ring mt-1 w-full rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-base sm:text-sm";
 
-function NtBadge({ tt }: { tt: TrangThai }) {
+export function NtBadge({ tt }: { tt: TrangThai }) {
   return <Badge tone={TT[tt]?.tone ?? "gray"}>{t(TT[tt]?.label ?? tt)}</Badge>;
 }
 
@@ -85,7 +85,7 @@ export function NopTienTab({ xemNhieuNguoi, nguoiOptions, ten, moId, moForm }: {
   const [chiTiet, setChiTiet] = useState<number | null>(null);
   const [form, setForm] = useState(false);
   useEffect(() => {
-    if (moId) setChiTiet(Number(moId.id));
+    if (moId?.id) setChiTiet(Number(moId.id));
   }, [moId]);
   useEffect(() => {
     if (moForm) setForm(true);
@@ -176,8 +176,11 @@ export function NopTienForm({ onClose }: { onClose: () => void }) {
   const [soTien, setSoTien] = useState("");
   const [goTay, setGoTay] = useState(false);
   const [ghiChu, setGhiChu] = useState("");
-  const [ngay, setNgay] = useState("");
+  // Ngay chuyen mac dinh = HOM NAY gio VN (2026-10-30, "ngày chuyển mặc định = hôm nay"), sua duoc.
+  const homNay = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+  const [ngay, setNgay] = useState(homNay);
   const doc = useDocTienAnh(anh, {});
+  const tuDoc = !goTay && doc.xongHet && doc.tong > 0 && soTien === String(doc.tong);
   // Tu dien so tien = tong doc duoc tu anh (khi nguoi dung chua tu go).
   useEffect(() => {
     if (!goTay && doc.xongHet && doc.tong > 0) setSoTien(String(doc.tong));
@@ -252,14 +255,24 @@ export function NopTienForm({ onClose }: { onClose: () => void }) {
             min={1}
             value={soTien}
             onChange={(e) => { setSoTien(e.target.value); setGoTay(true); }}
-            placeholder={anh.length ? t("Đang đọc từ ảnh…") : t("Nhập số tiền")}
+            placeholder={
+              anh.length === 0 ? t("Chụp ảnh — số tiền tự đọc từ ảnh") : !doc.xongHet ? t("Đang đọc số tiền từ ảnh…") : t("Không đọc được — nhập số tiền")
+            }
             className={oNhap}
           />
-          {so > 0 && <span className="mt-0.5 block text-[12px] text-[var(--color-text-secondary)]"><Money>{fmtVND(so)}</Money></span>}
+          {so > 0 && (
+            <span className="mt-0.5 block text-[12px] text-[var(--color-text-secondary)]">
+              <Money>{fmtVND(so)}</Money>
+              {tuDoc && <span className="ml-1.5 text-[var(--color-success-strong)]">· {t("tự đọc từ ảnh, sửa nếu sai")}</span>}
+            </span>
+          )}
+          {anh.length > 0 && !doc.xongHet && dangTai === 0 && !goTay && (
+            <span className="mt-0.5 block text-[12px] text-[var(--color-text-secondary)]">{t("Đang đọc số tiền từ ảnh…")}</span>
+          )}
         </label>
         <label className="block">
           <span className={nhanO}>{t("Ngày chuyển")}</span>
-          <input type="date" value={ngay} onChange={(e) => setNgay(e.target.value)} className={oNhap} />
+          <input type="date" value={ngay} max={homNay} onChange={(e) => setNgay(e.target.value)} className={oNhap} />
         </label>
         <label className="block">
           <span className={nhanO}>{t("Ghi chú")}</span>
@@ -273,7 +286,7 @@ export function NopTienForm({ onClose }: { onClose: () => void }) {
   );
 }
 
-function NopTienChiTiet({ id, row, ten, onClose }: { id: number; row?: NopTienRow; ten: (e: string | null | undefined) => string; onClose: () => void }) {
+export function NopTienChiTiet({ id, row, ten, onClose }: { id: number; row?: NopTienRow; ten: (e: string | null | undefined) => string; onClose: () => void }) {
   const addToast = useToast();
   const qc = useQueryClient();
   // Mo tu chuong / link push khi dong khong nam trong trang dang xem -> tai rieng (loc theo trang thai rong, tim dung id).
