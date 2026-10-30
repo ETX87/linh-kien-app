@@ -562,6 +562,16 @@ sửa 16 đơn kẹt): trước chỉ đổi `loai_don`, đơn kẹt "Cho TN duy
 `trang_thai_hien_tai='Cho ke toan duyet mem'` + `tra_hang_log` + báo Kế toán (không bắt ảnh; đơn đã từ chối/hủy →
 `DON_DA_DONG_KHONG_DOI_LUONG`; "Cho hang" → đóng ticket Thiếu LK); Trả hàng → Mua CHỈ khi còn "Cho ke toan duyet mem" →
 "Cho TN duyet" (log `dat_don_hang_log` mang trạng thái mới), else `TRA_HANG_DA_XU_LY_KHONG_DOI_LUONG`. CAS `quy_cas_guard`.
+**Đổi loại đề xuất (KTV / GS / KT / Kho)** (chốt 2026-10-30, v1.424, `lib/doiLoaiDeXuat.ts` — "nếu đơn hàng chưa được xử lý chuyển tiền, kế toán duyệt,
+kho tiếp nhận chờ hàng => cho KTV, GS, KT, KHO đổi loại đề xuất … nếu loại đề xuất khác phiếu đang giữ thì tự đẩy ra add vào phiếu phù hợp hoặc tạo phiếu mới"):
+`POST /dat-mua-lk/don-hang/:id/doi-loai-de-xuat` {loai_de_xuat, chinh_sach?, ma_yeu_cau_su_co?, ma_lada?, ghi_chu?} — quyền `duocDoiLoaiDeXuat` (người tạo /
+người nhận, GS theo `doiKhuVucDonSql`, Kế toán + TN, Kho, Admin); điều kiện `DOI_LDE_DUOC_SQL` (cờ `duoc_doi_loai_de_xuat` ở chi tiết đơn → nút "Đổi" cạnh
+"Loại đề xuất", `DoiLoaiDeXuat.tsx`): Mua/Công nợ (không trả hàng, gửi bù, đối tác), đơn còn mở, `tien_da_tra = 0`, phiếu chứa đơn còn "Dang tao phieu" + chưa
+Mã MISA + `da_thanh_toan = 0` + chưa "KTV da chuyen" + Kế toán chưa duyệt tiền, đơn "Cho hang" mà ticket Kho/Mua hàng chưa tiếp nhận. Đánh giá lại bằng CHUNG
+`danhGiaPhieu` (chặn giá 0 / chưa Mã MISA sang công nợ / TRỪ CÔNG NỢ thiếu tồn KTV) + xét lại trần (trừ phần công nợ của chính đơn đang tính) → định tuyến:
+Chờ Trạm / Chờ TN giữ nguyên; LK đặc thù sang loại cần TBP → Chờ TBP; vượt trần chưa mã EO → Chờ GS; còn lại tồn kho công ty FIFO (đủ → duyệt, thiếu → Chờ thanh
+toán / Chờ hàng; đang Chờ hàng vẫn thiếu → giữ). Khác `loai_don` / nhóm loại đề xuất của phiếu (hoặc rời trạng thái vào phiếu) → `goDonKhoiPxk` rồi tự gom
+(`bundleAutoApprovedIntoPxk`); cùng nhóm → `taiTinhPxk`. Đổi qua lại TRẢ HÀNG vẫn chỉ ở form Sửa của TN (PATCH `/don-hang/:id`).
 **Kế toán từ chối bằng chứng** (2026-09-29, migration `0046`): nút "↩ Từ chối, đẩy lại" cạnh "Duyệt bằng chứng" →
 `PATCH /:id/chuyen-tien` `{trang_thai:"Cho KTV chuyen", ly_do_tu_choi}` (chỉ Kế toán/Admin, từ "KTV da chuyen", phiếu chưa
 hủy, bắt buộc lý do) → lưu `ly_do_tu_choi_chuyen_tien`/`tu_choi_chuyen_tien_luc`, log 'Ke toan tu choi bang chung chuyen

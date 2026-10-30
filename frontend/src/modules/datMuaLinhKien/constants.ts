@@ -18,6 +18,15 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   KHONG_PHAI_DON_KH_LE_CHUNG: "Đơn này không thuộc tài khoản KH lẻ chung — không cần gán KH",
   DON_DA_DONG: "Đơn đã từ chối / hủy, không thao tác được",
   DON_CON_TRONG_PHIEU: "Đơn đang nằm trong 1 phiếu xuất kho còn hiệu lực — bỏ đơn khỏi phiếu trước",
+  // Doi loai de xuat (v1.424, backend lib/doiLoaiDeXuat.ts)
+  DOI_LUONG_TRA_HANG: "Không đổi qua lại với loại TRẢ HÀNG ở đây — TN dùng nút Sửa đơn",
+  DON_GUI_BU: "Đơn gửi bù nhận thiếu không đổi loại đề xuất được",
+  DON_DA_THANH_TOAN: "Đơn đã có tiền thanh toán — không đổi loại đề xuất được",
+  DOI_LDE_KHO_DA_TIEP_NHAN: "Kho / Mua hàng đã tiếp nhận chờ hàng — không đổi loại đề xuất được",
+  PXK_DA_GUI_KE_TOAN: "Phiếu xuất của đơn đã gửi Kế toán / Kho — không đổi được",
+  PXK_DA_XU_LY_CHUYEN_TIEN: "Phiếu xuất của đơn đã chuyển tiền / Kế toán đã duyệt tiền — không đổi được",
+  LOAI_DE_XUAT_KHONG_HOP_LE: "Loại đề xuất không có trong danh mục (hoặc đang tắt)",
+  LOAI_DE_XUAT_KHONG_DOI: "Loại đề xuất mới trùng loại hiện tại",
   // Combo linh kien (lkSettings.ts /combo)
   THIEU_MA_COMBO: "Chưa nhập mã combo",
   MA_COMBO_QUA_DAI: "Mã combo quá dài (tối đa 200 ký tự)",

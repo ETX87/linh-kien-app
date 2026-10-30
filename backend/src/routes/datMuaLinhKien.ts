@@ -7,7 +7,7 @@ import { Hono } from "hono";
 import { chuanHoaSdt, laNguoiNhanKhLe, nhomKhLeTheoEmail, timHoacTaoKhachLe } from "../lib/khachLe";
 import { laUrlAnhDrive } from "../lib/anhUpload";
 import type { Context } from "hono";
-import type { Env } from "../types";
+import type { Env, AppUser } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
@@ -43,6 +43,7 @@ import { ANH_DA_GHI_NHAN_SQL } from "../lib/bangChungChuyenTien";
 import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
 import { tachComboDong } from "../lib/lkCombo";
 import { tuDongXacNhanHangVe } from "../lib/tuDongHangVe";
+import { doiLoaiDeXuatDon, duocDoiLoaiDeXuat, lyDoKhongDoiDuoc, DOI_LDE_DUOC_SQL } from "../lib/doiLoaiDeXuat";
 import {
   deriveLoaiDon, boQuaTbpChoDacThu, canDoiChieuCongNo, nguCanhNhan, danhGiaPhieu, trangThaiSauDuyet, tacDongSauDinhTuyen, duyetDonKhiHangVe, danhGiaLaiDonChoThanhToan, choPhepThanhToanSau,
   huyDonChoHangTuDong, baoNguoiTaoDon, moTaThieuTon, moTicketChoHangTuDong, xetLaiTonKhiDoiKhuVuc, baoGsChoDuyet, ghiTrangThaiDon, VUOT_TRAN_GHI_CHU_SQL, type DongDanhGia, type KetQuaDong, type KetQuaPhieu,
@@ -3264,7 +3265,8 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
     if (ng.maKtv) congNoNhan = { tran: ng.tranCongNo, chot: await computeCongNoChot(c.env.DB, ng.maKtv), don: ddhX.so_tien_cong_no };
   }
   return c.json({
-    donHang: { ...ddh, cases, logs: logsHienThi, giaiTrinh, qua_han_ly_do_cham: quaHan, tien_uoc_tinh: tienUocTinh, tra_bang_quy: traBangQuy, cong_no_nhan: congNoNhan, duoc_doi_khu_vuc: await duocDoiKhuVucDon(c.env.DB, user, id) },
+    donHang: { ...ddh, cases, logs: logsHienThi, giaiTrinh, qua_han_ly_do_cham: quaHan, tien_uoc_tinh: tienUocTinh, tra_bang_quy: traBangQuy, cong_no_nhan: congNoNhan, duoc_doi_khu_vuc: await duocDoiKhuVucDon(c.env.DB, user, id),
+      duoc_doi_loai_de_xuat: await duocDoiLoaiDeXuatChiTiet(c.env.DB, user, id) },
     pxk: pxk ?? null, thieuLk: thieuLk ?? null,
   });
 });
@@ -4507,6 +4509,47 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ ok: true });
+});
+
+// Co `duoc_doi_loai_de_xuat` o chi tiet don: dung quyen + don con doi duoc (DOI_LDE_DUOC_SQL).
+async function duocDoiLoaiDeXuatChiTiet(db: D1Database, user: AppUser, id: string): Promise<boolean> {
+  if (!(await duocDoiLoaiDeXuat(db, user, id))) return false;
+  return !!(await db.prepare(`SELECT 1 FROM dat_don_hang d WHERE d.id = ? AND ${DOI_LDE_DUOC_SQL("d")}`).bind(id).first());
+}
+
+// POST /api/dat-mua-lk/don-hang/:id/doi-loai-de-xuat - { loai_de_xuat, chinh_sach?, ma_yeu_cau_su_co?, ma_lada?, ghi_chu? } (chot 2026-10-30,
+// v1.424): KTV (nguoi tao / nhan) / GS / Ke toan + TN / Kho / Admin doi loai de xuat khi don CHUA xu ly chuyen tien, Ke toan chua duyet, Kho chua
+// tiep nhan cho hang -> danh gia lai (tran cong no, TBP, ton kho, tien) + tu chuyen phieu theo nhom loai de xuat. Logic + danh sach rui ro:
+// lib/doiLoaiDeXuat.ts. Route chi chuan hoa ten loai theo danh muc + truong bat buoc theo loai moi.
+datMuaLinhKien.post("/don-hang/:id/doi-loai-de-xuat", async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const body = await c.req.json<{ loai_de_xuat?: string; chinh_sach?: string | null; ma_yeu_cau_su_co?: string | null; ma_lada?: string | null; ghi_chu?: string | null }>();
+  const khoa = (v: string) => v.normalize("NFC").trim().replace(/\s+/g, " ").toUpperCase();
+  const gui = khoa(body.loai_de_xuat ?? "");
+  if (!gui) return c.json({ error: "INVALID_BODY" }, 400);
+  // Quyen + dieu kien don TRUOC (bao dung ly do khong doi duoc, khong bat nhap truong bat buoc vo ich).
+  if (!(await duocDoiLoaiDeXuat(c.env.DB, user, id))) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const khongDuoc = await lyDoKhongDoiDuoc(c.env.DB, id);
+  if (khongDuoc) return c.json({ error: khongDuoc }, khongDuoc === "NOT_FOUND" ? 404 : 409);
+  const { results: dsLde } = await c.env.DB.prepare("SELECT ten_option FROM settings_loai_de_xuat WHERE bat_tat = 1").all<{ ten_option: string }>();
+  const lde = dsLde.find((r) => khoa(r.ten_option) === gui)?.ten_option;
+  if (!lde) return c.json({ error: "LOAI_DE_XUAT_KHONG_HOP_LE" }, 400);
+  const cu = await c.env.DB.prepare("SELECT chinh_sach, ma_yeu_cau_su_co, ma_lada FROM dat_don_hang WHERE id = ?")
+    .bind(id)
+    .first<{ chinh_sach: string | null; ma_yeu_cau_su_co: string | null; ma_lada: string | null }>();
+  if (!cu) return c.json({ error: "NOT_FOUND" }, 404);
+  const chinhSach = body.chinh_sach !== undefined ? body.chinh_sach?.trim() || null : cu.chinh_sach;
+  const maYcsc = body.ma_yeu_cau_su_co !== undefined ? body.ma_yeu_cau_su_co?.trim() || null : cu.ma_yeu_cau_su_co;
+  const maLada = body.ma_lada !== undefined ? body.ma_lada?.trim().toUpperCase() || null : cu.ma_lada;
+  if (canNoRequired(lde) && (!(chinhSach ?? chinhSachMacDinh(lde)) || !coMaIdLienQuan(maYcsc, maLada))) return c.json({ error: "THIEU_CHINH_SACH_HOAC_MA_YCSC" }, 400);
+  if (!canNoRequired(lde) && maYcscRequired(lde) && !coMaIdLienQuan(maYcsc, maLada)) return c.json({ error: "THIEU_MA_YCSC" }, 400);
+  const kq = await doiLoaiDeXuatDon(c.env, c.env.DB, user, id, {
+    loaiDeXuat: lde, chinhSach: chinhSach ?? chinhSachMacDinh(lde), maYcsc, maLada, ghiChu: body.ghi_chu?.trim().slice(0, 500) || null,
+  }, (p) => c.executionCtx.waitUntil(p));
+  if ("error" in kq) return c.json({ error: kq.error, ...(kq.message ? { message: kq.message } : {}) }, kq.status);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, loai_de_xuat: lde, trang_thai: kq.trangThai, trang_thai_cu: kq.trangThaiCu, pxk_moi: kq.pxkMoi, pxk_cu: kq.pxkCu, doi_phieu: kq.doiPhieu });
 });
 
 // PATCH /api/dat-mua-lk/don-hang/:id/so-tien-cong-no - them 2026-09-21 (phan hoi "ở bước chờ KTV

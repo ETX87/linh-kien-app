@@ -237,6 +237,8 @@ export interface DonHangRow {
   khu_vuc_chon?: string | null;
   // Nguoi xem duoc chon lai khu vuc xu ly don (chi tiet don / don tra hang, 2026-10-22 - TN/Kho/TBP/GS/nguoi tao ho; duocDoiKhuVucDon).
   duoc_doi_khu_vuc?: boolean;
+  // Nguoi xem doi duoc loai de xuat cua don (chi tiet don, v1.424 - backend lib/doiLoaiDeXuat.ts: quyen + don chua xu ly tien / Kho chua tiep nhan).
+  duoc_doi_loai_de_xuat?: boolean;
   // Trang thai phieu xuat kho + chuyen tien THEO DON (2026-09-29) - MA do backend suy tu PXK chua don (lib/trangThaiDonPxk.ts),
   // nhan o TRANG_THAI_PXK_DON_OPTIONS / THANH_TOAN_DON_OPTIONS (constants.ts). Chi co o GET /don-hang (danh sach).
   trang_thai_pxk?: string | null;

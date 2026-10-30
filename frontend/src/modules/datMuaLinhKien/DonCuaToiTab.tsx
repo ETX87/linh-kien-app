@@ -53,6 +53,7 @@ import { ThieuLkDetailModal } from "./ThieuLkTab";
 import { Money } from "../../components/ui/Money";
 import { DuyetVuotTranKhoi } from "./DuyetVuotTran";
 import { KhieuNaiBox } from "./KhieuNai";
+import { DoiLoaiDeXuatButton } from "./DoiLoaiDeXuat";
 import { TongNgayKtvInfo } from "./TongNgayKtv";
 import { GanKhachLe } from "./KhachLeSdt";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
@@ -1550,7 +1551,12 @@ export function DonHangDetailModal({
                   các thông tin khi người dùng tạo đơn") - truoc day TT khách hàng/TT mail duyệt/Yêu cầu hóa đơn/Chính sách
                   chi thay o form Sua, ghi chu hien 1 dong khong nhan. Truong trong van hien "—" de biet la chua nhap. */}
               <DetailZone title={t("Thông tin đặt hàng")}>
-                <KvRow label={t("Loại đề xuất")}>{d.loai_de_xuat || "—"}</KvRow>
+                <KvRow label={t("Loại đề xuất")}>
+                  <span className="inline-flex flex-wrap items-center gap-1.5">
+                    <span>{d.loai_de_xuat || "—"}</span>
+                    {d.duoc_doi_loai_de_xuat && !isEditMode && <DoiLoaiDeXuatButton don={d} options={loaiDeXuatOptions} addToast={addToast} onDone={invalidate} />}
+                  </span>
+                </KvRow>
                 <KvRow label={t("Chính sách")}>{d.chinh_sach || "—"}</KvRow>
                 <KvRow label={t("Yêu cầu hóa đơn")}>{d.yeu_cau_hoa_don || "—"}</KvRow>
                 <KvRow label={t("TT khách hàng")}><span className="whitespace-pre-line break-words">{d.tt_khach_hang || "—"}</span></KvRow>
