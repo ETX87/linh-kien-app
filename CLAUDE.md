@@ -1049,7 +1049,7 @@ mới) → thẳng "TN da duyet" (cả phiếu hệ thống từng đặt "KTV d
 `lib/envToanCuc.ts`, gán ở `index.ts` mỗi request/cron). Bug PMH-001400 (đơn mang tiền sang phiếu mới vẫn bắt Kế toán xác nhận 0đ). Migration `0100` áp 1 lần cho
 phiếu cũ. (8) **Menu "Chờ thanh toán"** = sentinel `__CHO_TT__` (`CHO_THANH_TOAN_GOP_SQL`): "Cho thanh toan" + đơn "TN da duyet" có cột Chuyển tiền
 cho_thanh_toan/cho_xac_nhan (+ counts). (9) **Đơn "Cho hang" Kho/Mua hàng đã xác nhận xử lý**: KTV/người tạo KHÔNG hủy được (đơn lẫn ticket); Kho / Mua hàng /
-Admin hủy = hủy ticket → đơn tự hủy (`applyDonHangLog` gọi `applyThieuLkLog` "Da huy bo", bắt buộc lý do); FE `actionsFor` ctx `laKhoMuaHang`. (11) **Ảnh bằng
+Admin hủy = hủy ticket → đơn tự hủy (`applyDonHangLog` gọi `applyThieuLkLog` "Da huy bo", bắt buộc lý do); FE `actionsFor` ctx `laKhoMuaHang`. Nút "Hủy bỏ…" ở Drawer ticket thiếu hàng mở khung "Lý do hủy *" (`CAN_NHAP_LIEU` có "Da huy bo", sửa v1.428 — trước gửi thẳng → `THIEU_LY_DO_HUY`); hủy hàng loạt hỏi 1 lý do chung. (11) **Ảnh bằng
 chứng chưa bấm "Đã chuyển"**: đóng Drawer/Modal → popup "Bạn chưa xác nhận chuyển tiền" (Ở lại / Đóng, không xác nhận / Xác nhận đã chuyển) — cơ chế chung
 `components/ui/chanDong.tsx` (`useDongCoHoi` trong Drawer/Modal, form gọi `useChanDong`). (12) **Nháp tạo đơn**: không tự khôi phục nữa — mở form có nháp →
 popup "Mở lại đơn tạo dở?"; đóng form còn nội dung → "Lưu lại cho lần sau / Không lưu / Tiếp tục soạn" (`NhapTaoDonHoi.tsx`); app tắt bất ngờ vẫn tự lưu.

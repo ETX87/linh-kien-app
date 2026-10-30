@@ -105,7 +105,9 @@ function nextStatesForThieuLk(
 // + "Doi ma tuong duong" (2026-10-20): hanh dong gia (khong phai trang thai) - chon LK cung nhom thay the roi gui "Da co hang" /
 //   "Kho xac nhan hang da ve" kem ma_lk_tuong_duong (backend applyThieuLkLog doi ma don goc trong cung batch).
 const DOI_MA_TUONG_DUONG = "Doi ma tuong duong";
-const CAN_NHAP_LIEU = ["Kho da tiep nhan", "Kho da cap nhat", "Kho tu choi sai TT", "Cho mua hang", "Mua hang da dat", "Mua hang tu choi", DOI_MA_TUONG_DUONG];
+// + "Da huy bo" (sua 2026-10-30, v1.428 - Kho bam Huy bo bao "Cần nhập lý do huỷ"): tu v1.410 Kho / Mua hang huy ticket (= huy don goc) bat buoc
+//   ly do (backend THIEU_LY_DO_HUY) nhung nut Huy bo gui thang khong mo khung nhap - khung da co san o "Lý do hủy *".
+const CAN_NHAP_LIEU = ["Kho da tiep nhan", "Kho da cap nhat", "Kho tu choi sai TT", "Da huy bo", "Cho mua hang", "Mua hang da dat", "Mua hang tu choi", DOI_MA_TUONG_DUONG];
 const CO_NGAY_DU_KIEN = ["Kho da tiep nhan", "Kho da cap nhat", "Mua hang da dat"];
 
 // Nhan nut = DONG TU ngan (ra soat mobile 2026-09-29): truoc day dung lai ten trang thai ("Kho đã tiếp nhận…",
@@ -263,6 +265,7 @@ function ThieuLkActionForm({
       </label>
       {isCapNhat && <div className="text-[11px] text-[var(--color-text-secondary)]">{t("Cần đổi ngày dự kiến hoặc nhập ghi chú.")}</div>}
       {isTuChoi && <div className="text-[11px] text-[var(--color-danger-strong)]">{t("Đơn gốc đang chờ hàng sẽ tự hủy (tiền đã trả về quỹ của KTV) và KTV nhận được lý do này.")}</div>}
+      {isHuyBo && <div className="text-[11px] text-[var(--color-danger-strong)]">{t("Hủy ticket = hủy luôn đơn gốc đang chờ hàng (tiền đã trả về quỹ của KTV); KTV nhận được lý do này.")}</div>}
       {isChuyenMua && <div className="text-[11px] text-[var(--color-text-secondary)]">{t("Ticket chuyển sang Mua hàng đặt hàng (Mua hàng nhận thông báo). Khi Mua hàng báo đã đặt, ticket về chờ hàng về như sau khi Kho tiếp nhận; Kho vẫn xác nhận \"Hàng đã về\".")}</div>}
       {isDatHang && <div className="text-[11px] text-[var(--color-text-secondary)]">{t("Người đặt đơn được báo mã EO + ngày dự kiến. Hàng về: Kho bấm \"Hàng đã về\" như thường lệ.")}</div>}
       {isGiaiTrinh && goiY.length > 0 && (
@@ -705,10 +708,16 @@ export function ThieuLkTab({
                 count={selected.size}
                 onConfirm={() => {
                   // Kho tu choi (sai TT) bat buoc ly do (2026-10-20) - hang loat dung chung 1 ly do cho moi dong da chon.
-                  if (s === "Kho tu choi sai TT") {
-                    const lyDo = window.prompt(t("Lý do từ chối (bắt buộc, áp dụng cho {a} dòng đã chọn — KTV nhận được lý do này):", { a: selected.size }))?.trim();
+                  // + Huy bo hang loat (2026-10-30): Kho / Mua hang huy = huy don goc, bat buoc ly do.
+                  if (s === "Kho tu choi sai TT" || s === "Da huy bo") {
+                    const huy = s === "Da huy bo";
+                    const lyDo = window.prompt(
+                      huy
+                        ? t("Lý do hủy (bắt buộc, áp dụng cho {a} dòng đã chọn — đơn gốc bị hủy, KTV nhận được lý do này):", { a: selected.size })
+                        : t("Lý do từ chối (bắt buộc, áp dụng cho {a} dòng đã chọn — KTV nhận được lý do này):", { a: selected.size }),
+                    )?.trim();
                     if (!lyDo) {
-                      if (lyDo !== undefined) addToast(t("Kho từ chối bắt buộc nhập lý do"));
+                      if (lyDo !== undefined) addToast(huy ? t("Hủy bỏ bắt buộc nhập lý do") : t("Kho từ chối bắt buộc nhập lý do"));
                       return;
                     }
                     bulkMutation.mutate({ trangThai: s, ghiChu: lyDo });
