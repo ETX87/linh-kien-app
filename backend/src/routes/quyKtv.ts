@@ -15,6 +15,8 @@ import { xuLyDonChoThanhToan } from "../lib/tuDongDuyet";
 import { notifyWorkflowTask, emailGsListForPxk, pastActorsFor } from "../lib/taskNotify";
 import { bumpVersions } from "../lib/dataVersions";
 import { laEmailKhLeSql } from "../lib/khachLe";
+import { guiNopTien, xuLyNopTien, hanhDongNopTien, laKeToanNopTien, quyCuaNguoiGui, type NopTienRow, type HanhDongNopTien } from "../lib/nopTienQuy";
+import { nhanAnhTaiLen } from "../lib/anhUpload";
 import { taoPhieuHoanTien, xuLyPhieuHoanTien, hanhDongDuoc, type PhieuHoanTienRow, type HanhDongHoanTien } from "../lib/phieuHoanTien";
 
 const quyKtv = new Hono<{ Bindings: Env }>();
@@ -479,7 +481,7 @@ quyKtv.get("/tien-ngoai", async (c) => {
   const tt = c.req.query("trang_thai");
   if (tt === "Da ghi" || tt === "Da huy") { where += " AND n.trang_thai = ?"; binds.push(tt); }
   const nguon = c.req.query("nguon");
-  if (nguon === "thu_cong" || nguon === "import") { where += " AND n.nguon = ?"; binds.push(nguon); }
+  if (nguon === "thu_cong" || nguon === "import" || nguon === "ktv") { where += " AND n.nguon = ?"; binds.push(nguon); }
   const q = c.req.query("q")?.trim();
   if (q) {
     // Ma / noi dung / ten file / email; ten KTV so tren danh ba (ten hien thi, ten MISA) - LIKE chi bo hoa/thuong ASCII, du cho ma.
@@ -601,6 +603,90 @@ quyKtv.post("/tien-ngoai/:id/huy", async (c) => {
   }
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ ok: true, so_du: await soDuQuy(c.env.DB, k.email) });
+});
+
+// ===== KTV TU NOP TIEN VAO QUY (chot 2026-10-30, migration 0104, lib/nopTienQuy.ts) =====
+const NOP_TIEN_TT = ["Cho ke toan", "Da duyet", "Tu choi", "Da huy"];
+// Nguoi co quy dat hang: KTV, Ve tinh (vao quy Tram), Giam sat. Ke toan/Admin ghi bang "Tiền ngoài vào quỹ".
+const duocNopTien = (u: { vai_tro?: string | null; la_ke_toan?: boolean | number | null; la_ktv_dvbh?: boolean | number | null; la_ve_tinh?: boolean | number | null; tram_cha?: string | null; email: string }) =>
+  !laKeToanNopTien(u) && !!quyCuaNguoiGui(u) && (!!u.la_ktv_dvbh || !!u.la_ve_tinh || u.vai_tro === "Giam sat");
+
+// GET /api/quy-ktv/nop-tien?trang_thai=&email=&page=&pageSize= - theo pham vi xem quy (KTV: cua minh; Ve tinh: quy Tram + yeu cau minh gui).
+quyKtv.get("/nop-tien", async (c) => {
+  const pv = await phamViXem(c);
+  if (pv === undefined) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const u = c.get("user");
+  const loc = locEmail("n.email", pv, c.req.query("email")?.trim() || undefined);
+  // Nguoi gui luon thay yeu cau cua chinh minh (vd Ve tinh gui vao quy Tram).
+  const phamVi = pv ? `(n.nguoi_gui = ?${loc.sql.replace(" AND ", " OR ")})` : `1 = 1${loc.sql}`;
+  const phamViBinds = pv ? [u.email, ...loc.binds] : loc.binds;
+  let where = phamVi;
+  const binds: unknown[] = [...phamViBinds];
+  const tt = c.req.query("trang_thai");
+  if (tt && NOP_TIEN_TT.includes(tt)) { where += " AND n.trang_thai = ?"; binds.push(tt); }
+  const page = Math.max(1, Math.trunc(Number(c.req.query("page"))) || 1);
+  const pageSize = Math.min(200, Math.max(1, Math.trunc(Number(c.req.query("pageSize"))) || 20));
+  const dem = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS tat_ca, ${NOP_TIEN_TT.map((t, i) => `SUM(CASE WHEN n.trang_thai = '${t}' THEN 1 ELSE 0 END) AS t${i}`).join(", ")}
+     FROM nop_tien_quy n WHERE ${phamVi}`,
+  ).bind(...phamViBinds).first<Record<string, number | null>>();
+  const tong = await c.env.DB.prepare(`SELECT COUNT(*) AS total FROM nop_tien_quy n WHERE ${where}`).bind(...binds).first<{ total: number }>();
+  // trung: khoan cung chu quy, CUNG so tien trong 30 ngay (khoan chuyen tien Ke toan da duyet / yeu cau nop khac chua bi tu choi-huy)
+  // - nhac Ke toan tranh xac nhan 1 lan chuyen 2 lan (chi tinh cho yeu cau dang cho).
+  const { results } = await c.env.DB.prepare(
+    `SELECT n.*, (SELECT so_du FROM quy_ktv q WHERE q.email = n.email) AS so_du_hien_tai,
+       (SELECT trang_thai FROM khoan_tien_ngoai k WHERE k.id = n.khoan_tien_ngoai_id) AS khoan_trang_thai,
+       CASE WHEN n.trang_thai = 'Cho ke toan' THEN (
+         SELECT group_concat(x, ', ') FROM (
+           SELECT k.phieu_xuat_kho_id AS x FROM khoan_chuyen_tien k WHERE k.email_nguoi_chuyen = n.email AND k.trang_thai = 'Da duyet'
+             AND k.so_tien_thuc_nhan = n.so_tien AND k.duyet_luc >= datetime(n.ngay_tao, '-30 days')
+           UNION ALL
+           SELECT 'NTQ-' || m.id FROM nop_tien_quy m WHERE m.email = n.email AND m.id != n.id AND m.trang_thai IN ('Cho ke toan', 'Da duyet')
+             AND COALESCE(m.so_tien_thuc_nhan, m.so_tien) = n.so_tien AND m.ngay_tao >= datetime(n.ngay_tao, '-30 days')
+         )) END AS trung
+     FROM nop_tien_quy n WHERE ${where}
+     ORDER BY CASE n.trang_thai WHEN 'Cho ke toan' THEN 0 ELSE 1 END, n.id DESC LIMIT ? OFFSET ?`,
+  ).bind(...binds, pageSize, (page - 1) * pageSize).all<NopTienRow>();
+  return c.json({
+    rows: results.map((r) => ({ ...r, hanh_dong: hanhDongNopTien(r, u) })),
+    page, pageSize, total: tong?.total ?? 0,
+    dem: { "": dem?.tat_ca ?? 0, ...Object.fromEntries(NOP_TIEN_TT.map((t, i) => [t, dem?.[`t${i}`] ?? 0])) },
+    // Ke toan / Admin ghi bang "Tiền ngoài vào quỹ" - khong tu nop.
+    coTheGui: duocNopTien(u),
+  });
+});
+
+// POST /api/quy-ktv/nop-tien/anh - tai 1 anh chuyen khoan len Drive (han muc anh/ngay nhu moi cho tai anh).
+quyKtv.post("/nop-tien/anh", async (c) => {
+  if ((await phamViXem(c)) === undefined) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const u = c.get("user");
+  const up = await nhanAnhTaiLen(c, (ext) => `nop-tien-quy-${u.email.split("@")[0]}-${Date.now()}.${ext}`);
+  if (up instanceof Response) return up;
+  return c.json({ ok: true, url: up.thumbnailUrl, han_muc_anh: up.hanMucAnh });
+});
+
+// POST /api/quy-ktv/nop-tien { so_tien, anh: [url], tien_doc_anh?, ghi_chu?, ngay_chuyen? } - KTV gui yeu cau.
+quyKtv.post("/nop-tien", async (c) => {
+  if ((await phamViXem(c)) === undefined) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const u = c.get("user");
+  if (laKeToanNopTien(u)) return c.json({ error: "DUNG_TIEN_NGOAI" }, 409);
+  if (!duocNopTien(u)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const kq = await guiNopTien(c.env, u, body, (p) => c.executionCtx.waitUntil(p));
+  if ("error" in kq) return c.json({ error: kq.error }, kq.status);
+  return c.json({ ok: true, id: kq.id }, 201);
+});
+
+// POST /api/quy-ktv/nop-tien/:id/xu-ly { hanh_dong: duyet|tu_choi|huy, so_tien_thuc_nhan?, ly_do? }
+quyKtv.post("/nop-tien/:id/xu-ly", async (c) => {
+  type BodyNt = { hanh_dong?: string; so_tien_thuc_nhan?: unknown; ly_do?: unknown };
+  const body = await c.req.json<BodyNt>().catch((): BodyNt => ({}));
+  const hd = body.hanh_dong as HanhDongNopTien;
+  if (!["duyet", "tu_choi", "huy"].includes(hd)) return c.json({ error: "INVALID_HANH_DONG" }, 400);
+  const kq = await xuLyNopTien(c.env, c.get("user"), Math.trunc(Number(c.req.param("id"))), hd, body, (p) => c.executionCtx.waitUntil(p));
+  if ("error" in kq) return c.json({ error: kq.error }, kq.status);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, ...kq });
 });
 
 export default quyKtv;

@@ -208,6 +208,24 @@ function MainApp({
     window.addEventListener("mo-phieu-hoan-tien", nghe);
     return () => window.removeEventListener("mo-phieu-hoan-tien", nghe);
   }, []);
+  // KTV nop tien vao quy (2026-10-30, migration 0104): chuong (su kien "mo-nop-tien") + link push "/?nop_tien=<id>" -> Quỹ › tab Nộp tiền.
+  const [moNopTien, setMoNopTien] = useState<{ id: string; nonce: number } | null>(null);
+  useEffect(() => {
+    const mo = (id: string) => {
+      setMoNopTien({ id, nonce: Date.now() });
+      setActive("quy-chuyen-tien");
+    };
+    const u = new URL(window.location.href);
+    const id = u.searchParams.get("nop_tien");
+    if (id) {
+      u.searchParams.delete("nop_tien");
+      window.history.replaceState(window.history.state, "", u.pathname + u.search + u.hash);
+      mo(id);
+    }
+    const nghe = (e: Event) => { const d = (e as CustomEvent<string>).detail; if (d) mo(d); };
+    window.addEventListener("mo-nop-tien", nghe);
+    return () => window.removeEventListener("mo-nop-tien", nghe);
+  }, []);
   // Chuong thong bao (them 2026-09-05, phan hoi "chuyển vị trí chuông thông báo lên top giao diện") -
   // truoc day NotificationBell la 1 phan noi bo cua DatMuaLinhKienModule, CHI hien khi active==="trang-
   // chu" (man Home) - gio nang len render o day, hien tren MOI tab. queryKey "notifications-count"
@@ -512,7 +530,7 @@ function MainApp({
           {active === "danh-muc-lk" && <DanhMucLinhKienModule timBanDau={bangGiaTim} />}
           {active === "ton-kho-ktv" && <TonKhoKtvModule />}
           {active === "danh-sach-ktv" && <DanhSachKtvModule />}
-          {active === "quy-chuyen-tien" && <QuyChuyenTienModule moPhieuHoanTien={moHoanTien} />}
+          {active === "quy-chuyen-tien" && <QuyChuyenTienModule moPhieuHoanTien={moHoanTien} moNopTien={moNopTien} />}
           {active === "hoi-dap" && <HoiDapModule />}
           {active === "bao-cao-toc-do" && <BaoCaoTocDoXuLyModule />}
           {active === "settings" && <SettingsModule />}

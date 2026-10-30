@@ -385,7 +385,7 @@ export function docAnhBangChung(pxk: BangChungPxk): string[] {
   return pxk.bang_chung_chuyen_tien_url ? [pxk.bang_chung_chuyen_tien_url] : [];
 }
 
-function AnhThumb({ url, stt, onXoa, nho, onXem }: { url: string; stt: number; onXoa?: () => void; nho?: boolean; onXem?: () => void }) {
+export function AnhThumb({ url, stt, onXoa, nho, onXem }: { url: string; stt: number; onXoa?: () => void; nho?: boolean; onXem?: () => void }) {
   const img = <img src={url} alt={t("Bằng chứng {a}", { a: stt })} loading="lazy" className={nho ? "h-9 w-9 object-cover" : "h-14 w-14 object-cover"} />;
   const khung = "focus-ring block overflow-hidden rounded-lg border border-[var(--color-border)]";
   return (

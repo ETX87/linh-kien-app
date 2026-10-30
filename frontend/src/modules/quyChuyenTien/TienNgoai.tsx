@@ -42,7 +42,7 @@ interface KhoanTienNgoaiRow {
   so_tien: number;
   noi_dung: string;
   ngay_chung_tu: string | null;
-  nguon: "thu_cong" | "import";
+  nguon: "thu_cong" | "import" | "ktv"; // ktv = KTV tu nop, Ke toan da duyet (migration 0104)
   ten_file: string | null;
   lo_id: string;
   trang_thai: "Da ghi" | "Da huy";
@@ -134,7 +134,7 @@ export function TienNgoaiTab({ ten }: { ten: (e: string | null | undefined) => s
     await exportRowsToExcel(
       all.rows.map((r) => ({
         id: r.id, ngay_tao: r.ngay_tao, ktv: ten(r.email), ma_ktv: r.ma_ktv ?? "", ma_trong_file: r.ma_trong_file ?? "", so_tien: r.so_tien,
-        noi_dung: r.noi_dung, ngay_chung_tu: r.ngay_chung_tu ?? "", nguon: r.nguon === "import" ? `Import ${r.ten_file ?? ""}` : "Thủ công",
+        noi_dung: r.noi_dung, ngay_chung_tu: r.ngay_chung_tu ?? "", nguon: r.nguon === "import" ? `Import ${r.ten_file ?? ""}` : r.nguon === "ktv" ? `KTV nộp ${r.ma_trong_file ?? ""}` : "Thủ công",
         trang_thai: r.trang_thai === "Da ghi" ? "Đã ghi vào quỹ" : `Đã hủy: ${r.ly_do_huy ?? ""}`, nguoi_tao: ten(r.nguoi_tao),
       })),
       "tien-ngoai-vao-quy.xlsx", "Tiền ngoài",
@@ -149,7 +149,7 @@ export function TienNgoaiTab({ ten }: { ten: (e: string | null | undefined) => s
     { key: "ma", header: t("Mã KTV / mã trong file"), render: (r) => <span className="font-mono text-xs">{r.ma_ktv ?? "—"}{r.ma_trong_file && r.ma_trong_file !== r.ma_ktv ? ` · ${r.ma_trong_file}` : ""}</span> },
     { key: "tien", header: t("Số tiền"), className: "text-right", render: (r) => <b className={r.trang_thai === "Da huy" ? "line-through opacity-60" : ""}><Money>{fmtVND(r.so_tien)}</Money></b>, mobile: "meta" },
     { key: "nd", header: t("Nội dung"), render: (r) => <span className="block max-w-[280px] truncate" title={r.noi_dung}>{r.noi_dung}{r.ngay_chung_tu ? ` · ${r.ngay_chung_tu}` : ""}</span>, mobile: "sub" },
-    { key: "nguon", header: t("Nguồn"), render: (r) => <span className="block max-w-[200px] truncate" title={r.ten_file ?? undefined}>{r.nguon === "import" ? t("Import {a}", { a: r.ten_file ?? "" }) : t("Thủ công")}</span> },
+    { key: "nguon", header: t("Nguồn"), render: (r) => <span className="block max-w-[200px] truncate" title={r.ten_file ?? undefined}>{r.nguon === "import" ? t("Import {a}", { a: r.ten_file ?? "" }) : r.nguon === "ktv" ? t("KTV nộp {a}", { a: r.ma_trong_file ?? "" }) : t("Thủ công")}</span> },
     {
       key: "tt", header: t("Trạng thái"), mobile: "badge",
       render: (r) => r.trang_thai === "Da ghi"
@@ -183,7 +183,7 @@ export function TienNgoaiTab({ ten }: { ten: (e: string | null | undefined) => s
           <input type="date" value={den} onChange={(e) => { setDen(e.target.value); setPage(1); }} className="focus-ring h-9 rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[13px]" />
         </label>
         <Select value={tt} onChange={(v) => { setTt(v); setPage(1); }} options={[{ value: "", label: t("Mọi trạng thái") }, { value: "Da ghi", label: t("Đã ghi vào quỹ") }, { value: "Da huy", label: t("Đã hủy") }]} />
-        <Select value={nguon} onChange={(v) => { setNguon(v); setPage(1); }} options={[{ value: "", label: t("Mọi nguồn") }, { value: "import", label: t("Import") }, { value: "thu_cong", label: t("Thủ công") }]} />
+        <Select value={nguon} onChange={(v) => { setNguon(v); setPage(1); }} options={[{ value: "", label: t("Mọi nguồn") }, { value: "import", label: t("Import") }, { value: "thu_cong", label: t("Thủ công") }, { value: "ktv", label: t("KTV tự nộp") }]} />
         <div className="flex flex-wrap gap-2 sm:ml-auto">
           <Btn variant="ghost" onClick={() => void taiFileMau()}>{t("⬇ File mẫu")}</Btn>
           <Btn variant="ghost" onClick={() => void taiDanhSach()}>{t("⬇ Tải danh sách")}</Btn>

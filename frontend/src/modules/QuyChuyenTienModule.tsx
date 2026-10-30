@@ -24,6 +24,7 @@ import { t, dichSau } from "../i18n";
 import type { KhachLeRow } from "./datMuaLinhKien/types";
 import { useNhomKhLe } from "./datMuaLinhKien/KhachLeSdt";
 import { TienNgoaiTab } from "./quyChuyenTien/TienNgoai";
+import { NopTienTab } from "./quyChuyenTien/NopTienQuy";
 import { ThanhToanDoiTacTab } from "./quyChuyenTien/ThanhToanDoiTac";
 import { HoanTienTab, TaoHoanTienModal, lamMoiHoanTien, nhanGiaoDichHoanTien, type TrangThaiHt } from "./quyChuyenTien/PhieuHoanTien";
 
@@ -178,7 +179,10 @@ function TienPhieuHuy({ k }: { k: KhoanRow }) {
   );
 }
 
-export function QuyChuyenTienModule({ moPhieuHoanTien = null }: { moPhieuHoanTien?: { id: string; nonce: number } | null } = {}) {
+export function QuyChuyenTienModule({ moPhieuHoanTien = null, moNopTien = null }: {
+  moPhieuHoanTien?: { id: string; nonce: number } | null;
+  moNopTien?: { id: string; nonce: number } | null; // KTV nop tien vao quy (migration 0104) - chuong / link push
+} = {}) {
   const auth = useAuth();
   const addToast = useToast();
   const qc = useQueryClient();
@@ -194,7 +198,15 @@ export function QuyChuyenTienModule({ moPhieuHoanTien = null }: { moPhieuHoanTie
   // man ghi tien doi tac tra (ThanhToanDoiTacTab: tom tat cong no + khoan thanh toan + Ghi / Import) - nhan vien van phong xem (khop backend
   // xemToanBo), Ke toan/Admin ghi. Quan ly doi tac van o Danh sach KTV.
   const xemDoiTac = !!user && (xemNhieuNguoi || !(user.la_ktv_dvbh || user.la_ve_tinh));
-  const [tab, setTab] = useState<"khoan" | "so-du" | "so-quy" | "kh-le" | "hoan-tien" | "tien-ngoai" | "doi-tac">(moPhieuHoanTien ? "hoan-tien" : "khoan");
+  const [tab, setTab] = useState<"khoan" | "so-du" | "so-quy" | "kh-le" | "hoan-tien" | "tien-ngoai" | "doi-tac" | "nop-tien">(
+    moPhieuHoanTien ? "hoan-tien" : moNopTien ? "nop-tien" : "khoan",
+  );
+  useEffect(() => {
+    if (moNopTien) setTab("nop-tien");
+  }, [moNopTien]);
+  // KTV / Ve tinh / GS tu nop tien vao quy (2026-10-30) - khop duocNopTien backend; Ke toan/Admin dung "Tiền ngoài vào quỹ".
+  const coTheNopTien = !!user && user.vai_tro !== "Admin" && !user.la_ke_toan && (!!user.la_ktv_dvbh || !!user.la_ve_tinh || user.vai_tro === "Giam sat");
+  const [moFormNop, setMoFormNop] = useState(0);
   const [emailLoc, setEmailLoc] = useState("");
   // Chuong / link push mo 1 phieu hoan tien (App.tsx) -> chuyen sang tab Hoàn tiền, HoanTienTab mo chi tiet.
   useEffect(() => {
@@ -203,7 +215,7 @@ export function QuyChuyenTienModule({ moPhieuHoanTien = null }: { moPhieuHoanTie
   // So phieu hoan tien CAN minh xu ly - chung cache voi badge Sidebar (routes/notifications.ts hoanTienCanXuLy).
   const { data: demTb } = useQuery({
     queryKey: ["notifications-count"],
-    queryFn: () => api.get<{ hoanTienCanXuLy?: number }>("/notifications/count"),
+    queryFn: () => api.get<{ hoanTienCanXuLy?: number; nopTienCanXuLy?: number }>("/notifications/count"),
   });
   const [taoHoanTien, setTaoHoanTien] = useState<{ email?: string } | null>(null);
 
@@ -236,6 +248,7 @@ export function QuyChuyenTienModule({ moPhieuHoanTien = null }: { moPhieuHoanTie
     { key: "khoan", label: t("Khoản chuyển tiền") },
     ...(xemNhieuNguoi ? [{ key: "so-du", label: t("Số dư quỹ"), count: tqRows.filter((r) => r.so_du > 0).length }] : []),
     { key: "so-quy", label: t("Sổ quỹ") },
+    { key: "nop-tien", label: t("Nộp tiền vào quỹ"), count: (demTb as { nopTienCanXuLy?: number } | undefined)?.nopTienCanXuLy ?? 0 },
     { key: "hoan-tien", label: t("Hoàn tiền"), count: (demTb as { hoanTienCanXuLy?: number } | undefined)?.hoanTienCanXuLy ?? 0 },
     // KH le theo tung khach (migration 0074) - quy/tien dang giu/don cho hang cua tung KH.
     ...(xemTatCa ? [{ key: "kh-le", label: t("KH lẻ") }] : []),
@@ -266,7 +279,11 @@ export function QuyChuyenTienModule({ moPhieuHoanTien = null }: { moPhieuHoanTie
         </div>
       </div>
 
+      {coTheNopTien && (
+        <Btn className="w-full sm:w-auto" onClick={() => { setTab("nop-tien"); setMoFormNop(Date.now()); }}>{t("＋ Nộp tiền vào quỹ")}</Btn>
+      )}
       <Tabs tabs={tabs} active={tab} onChange={(k) => setTab(k as typeof tab)} />
+      {tab === "nop-tien" && <NopTienTab xemNhieuNguoi={xemNhieuNguoi} nguoiOptions={nguoiOptions} ten={ten} moId={moNopTien} moForm={moFormNop} />}
 
       {tab === "khoan" && (
         <KhoanChuyenTab

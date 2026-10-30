@@ -1,4 +1,5 @@
 import { demHoanTienCanXuLy } from "../lib/phieuHoanTien";
+import { demNopTienCanXuLy } from "../lib/nopTienQuy";
 import { khoNhomLkLoc, locNhomLkSql } from "../lib/nhomLk";
 import { Hono } from "hono";
 import type { Env, AppUser } from "../types";
@@ -89,6 +90,8 @@ export interface NotificationsCountPayload {
   lkChoXetDuyet: number;
   // Phieu hoan tien quy can minh xu ly (migration 0090) - badge muc "Quỹ & chuyển tiền": chu quy cho xac nhan + Ke toan cho xac nhan huy.
   hoanTienCanXuLy: number;
+  // KTV nop tien vao quy cho Ke toan xac nhan (migration 0104) - Sidebar cong vao so muc "Quỹ & chuyển tiền".
+  nopTienCanXuLy: number;
 }
 
 function gsInClause(gsSet: Set<string> | null, ddhAlias: string): { sql: string; binds: string[] } | null {
@@ -383,7 +386,8 @@ notifications.get("/count", async (c) => {
     ? await c.env.DB.prepare("SELECT COUNT(*) as n FROM linh_kien WHERE trang_thai_ma = 'Cho xet duyet'").first<{ n: number }>()
     : null;
   const hoanTienCanXuLy = await demHoanTienCanXuLy(c.env.DB, user);
-  const data: NotificationsCountPayload = { datMuaLk, ktvLogChuaDoc: row?.n ?? 0, lkChoXetDuyet: lkRow?.n ?? 0, hoanTienCanXuLy };
+  const nopTienCanXuLy = await demNopTienCanXuLy(c.env.DB, user);
+  const data: NotificationsCountPayload = { datMuaLk, ktvLogChuaDoc: row?.n ?? 0, lkChoXetDuyet: lkRow?.n ?? 0, hoanTienCanXuLy, nopTienCanXuLy };
   return c.json(data);
 });
 

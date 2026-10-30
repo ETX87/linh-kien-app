@@ -603,6 +603,15 @@ của mình, Vệ tinh xem quỹ của Trạm — khớp điều kiện cấp me
 `GET /dat-mua-lk/don-hang/:id` → `TienBiBotCanhBao` (`BangChungChuyenTien.tsx`, mã DDH trong ghi chú bấm được). **Cảnh báo khoản trùng** (v1.422): form Kế
 toán duyệt (`DuyetChuyenTienForm` `useKhoanTrung`) hỏi `GET /phieu-xuat-kho/:id/khoan-gan-day` (khoản 'Da duyet' 30 ngày của cùng người chuyển, phiếu khác)
 → trùng số thực nhận đang nhập / số đọc từ ảnh → cảnh báo, không chặn.
+**KTV tự nộp tiền vào quỹ** (chốt 2026-10-30, v1.423, migration `0104`, `lib/nopTienQuy.ts`, FE `modules/quyChuyenTien/NopTienQuy.tsx` — phương án A cho
+"giờ muốn cho họ up tiền ngoài vào quỹ thì nên làm thế nào cho dễ thao tác, KTV thực hiện chủ yếu trên điện thoại"): KTV / Vệ tinh (quỹ Trạm) / GS
+(`duocNopTien`, Kế toán/Admin → `DUNG_TIEN_NGOAI`) bấm "＋ Nộp tiền vào quỹ" (đầu màn Quỹ + tab "Nộp tiền vào quỹ"): ảnh chuyển khoản bắt buộc (≤ 5,
+`POST /quy-ktv/nop-tien/anh` → Drive, hạn mức ảnh/ngày) → số tiền tự điền từ OCR (sửa được) → `POST /quy-ktv/nop-tien` = `nop_tien_quy` "Cho ke toan"
+(tiền CHƯA vào quỹ), báo mọi Kế toán (chuông/push loại `nop_tien_quy`, link `/?nop_tien=<id>` → App.tsx `moNopTien`). Kế toán `POST /:id/xu-ly`
+{hanh_dong: duyet, so_tien_thuc_nhan} = 1 batch CAS: `khoan_tien_ngoai` (nguon `ktv`, `ma_trong_file` = NTQ-id, `lo_id` ntq-id) + sổ quỹ 'dieu_chinh'
+→ `phanBoQuy` tự trả phiếu chờ tiền; `tu_choi` (bắt buộc lý do); người gửi `huy` khi còn chờ. Hủy khoản đã duyệt = hủy ở tab "Tiền ngoài vào quỹ"
+(cột `khoan_trang_thai`). `GET /nop-tien` trả `trung` (khoản chuyển tiền / yêu cầu khác cùng quỹ, cùng số, 30 ngày). Badge: `nopTienCanXuLy`
+(`/notifications/count`) cộng vào mục "Quỹ & chuyển tiền".
 **Bỏ đơn ĐÃ THANH TOÁN khỏi phiếu → tự vào phiếu riêng** (2026-10-29, v1.422 — DDH-003687 / PMH-001393 nằm "Chờ tạo phiếu" giữ tiền mà không ai thấy):
 `DELETE /phieu-xuat-kho/:id/dong/:donHangId?giu_tien=1` xong, đơn còn 'TN da duyet' (không trả hàng) → `bundleAutoApprovedIntoPxk(..., { boQuaPxk: id })` (không
 gộp lại chính phiếu vừa bỏ). "Còn tồn" (`donConTonSql`) gồm cả đơn 'TN da duyet' chưa vào phiếu. Log bỏ đơn ghi mã đơn DDH-… (+ mã LK); `LogTieuDe` prop

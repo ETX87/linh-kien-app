@@ -101,13 +101,14 @@ export interface NavCounts {
   hoiDap?: number;
   // Phieu hoan tien quy can minh xu ly (backend demHoanTienCanXuLy, migration 0090).
   hoanTienCanXuLy?: number;
+  nopTienCanXuLy?: number;
 }
 // tachHangTra: desktop co muc "Hàng trả" rieng -> viec tra hang cua Ke toan/Kho/QC khong tinh vao "Đơn hàng" nua.
 export function navCount(countKey: NavItem["countKey"], counts: NavCounts | undefined, tachHangTra = false): number {
   if (!countKey || !counts) return 0;
   if (countKey === "hangTra") return counts.hangTra ?? 0;
   if (countKey === "hoiDap") return counts.hoiDap ?? 0;
-  if (countKey === "hoanTienCanXuLy") return counts.hoanTienCanXuLy ?? 0;
+  if (countKey === "hoanTienCanXuLy") return (counts.hoanTienCanXuLy ?? 0) + (counts.nopTienCanXuLy ?? 0);
   if (countKey === "ktvLogChuaDoc") return counts.ktvLogChuaDoc;
   if (countKey === "lkChoXetDuyet") return counts.lkChoXetDuyet ?? 0;
   if (countKey === "thieuLk") return counts.datMuaLk.thieuLkCanXuLy ?? 0;
