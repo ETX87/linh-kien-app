@@ -438,7 +438,9 @@ export function useTaoDonForm({
   // Dong khac (cong no/tra hang) giu gia niem yet x SL nhu truoc (chi de tham khao).
   const { data: tongNgayData } = useTongNgayKtv(targetNguoiNhanHang);
   const tongNgaySau = (tongNgayData?.rows[0]?.tong_gia_tri ?? 0) + giaTriTinhChietKhau;
-  function giaUocTinhDong(d: DonHangDraft): { gia: number | null; giaNiemYet: number | null; nhan: string | null } {
+  // chuaCoGiaKtv (2026-10-30, "hiện cảnh báo cho ktv với các trường hợp đặt mua gặp phải trường hợp này" - DDH-003275): tong ngay >= 500k
+  // (muc gia KTV) nhung LK chua khai bao Gia KTV -> backend giu GIA NIEM YET, khong chiet khau -> canh bao ngay o dong (CanhBaoChuaCoGiaKtv).
+  function giaUocTinhDong(d: DonHangDraft): { gia: number | null; giaNiemYet: number | null; nhan: string | null; chuaCoGiaKtv?: boolean } {
     const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
     if (lk?.gia_ban == null) return { gia: null, giaNiemYet: null, nhan: null };
     const sl = d.so_luong_de_xuat || 0;
@@ -450,7 +452,7 @@ export function useTaoDonForm({
     if (tongNgaySau < 200000) return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
     if (tongNgaySau < 500000) return { gia: Math.round(lk.gia_ban * 0.7) * sl, giaNiemYet: niemYet, nhan: t("Tổng ngày 200–500k −30%") };
     if ((lk.gia_tri_cong_no ?? 0) > 0) return { gia: lk.gia_tri_cong_no! * sl, giaNiemYet: niemYet, nhan: t("Giá KTV") };
-    return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
+    return { gia: niemYet, giaNiemYet: niemYet, nhan: null, chuaCoGiaKtv: niemYet > 0 };
   }
   // Dong cong no doi tac tach rieng (ghi no doi tac, KTV khong tra - v1.408): tongGiaUocTinh = tien KTV, tongGhiNoDoiTac = phan doi tac.
   const tongGiaUocTinh = drafts.reduce((sum, d) => sum + (laMuaCongNoDoiTac(d.loai_de_xuat) ? 0 : giaUocTinhDong(d).gia ?? 0), 0);

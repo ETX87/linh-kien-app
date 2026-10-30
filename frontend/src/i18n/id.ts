@@ -2381,5 +2381,6 @@ const tuDien: Record<string, string> = {
   "Đổi nhóm Mua ↔ Công nợ: tiền phải chuyển, trần công nợ và phiếu xuất thay đổi theo.": "Beralih Pembelian ↔ Utang: pembayaran, batas utang dan slip keluar ikut berubah.",
   "đơn chuyển sang phiếu {a}": "pesanan pindah ke slip {a}",
   "đơn rời phiếu {a}": "pesanan keluar dari slip {a}",
+  "⚠ Linh kiện này chưa có Giá KTV — tổng đặt hôm nay đã từ 500k (mức giá KTV) nhưng dòng này vẫn tính giá niêm yết, không được chiết khấu. Hỏi Mua hàng cập nhật Giá KTV trước khi đặt nếu muốn hưởng chiết khấu.": "⚠ Suku cadang ini belum punya harga KTV — total pesanan hari ini sudah mencapai 500k (tingkat harga KTV) tetapi baris ini tetap dihitung harga daftar, tanpa diskon. Minta Pembelian memperbarui harga KTV sebelum memesan jika ingin mendapat diskon.",
 };
 export default tuDien;

@@ -114,3 +114,13 @@ export function TongNgayKtvInfo({ email, ngays = [], themGiaTri = 0, anQuy = fal
     </div>
   );
 }
+
+// Canh bao 1 dong tao don: tong ngay da dat muc gia KTV (>= 500k) nhung LK CHUA co Gia KTV -> dong nay tinh gia niem yet, khong chiet
+// khau (quy tac tinhToanPxk o backend lib/pxkRecalculate.ts). Dung o TaoDonTab + TaoDonMobileScreen (co `chuaCoGiaKtv` cua giaUocTinhDong).
+export function CanhBaoChuaCoGiaKtv() {
+  return (
+    <div className="mt-1.5 rounded-lg border border-[var(--color-warning)] bg-[var(--color-warning-soft)] px-2.5 py-1.5 text-xs text-[var(--color-warning-strong)]">
+      {t("⚠ Linh kiện này chưa có Giá KTV — tổng đặt hôm nay đã từ 500k (mức giá KTV) nhưng dòng này vẫn tính giá niêm yết, không được chiết khấu. Hỏi Mua hàng cập nhật Giá KTV trước khi đặt nếu muốn hưởng chiết khấu.")}
+    </div>
+  );
+}

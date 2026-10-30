@@ -16,7 +16,7 @@ import { DoiTacCongNoChon } from "./DoiTacCongNoChon";
 import { TraHangAnhPicker, NhapKhoiPhucBanner } from "./SharedUi";
 import type { TaoDonForm } from "./useTaoDonForm";
 import { Money } from "../../components/ui/Money";
-import { TongNgayKtvInfo } from "./TongNgayKtv";
+import { TongNgayKtvInfo, CanhBaoChuaCoGiaKtv } from "./TongNgayKtv";
 import { t } from "../../i18n";
 import { KhachLeSdt } from "./KhachLeSdt";
 
@@ -94,7 +94,7 @@ export function TaoDonMobileScreen({
   const batBuocYcsc = maYcscRequired(d.loai_de_xuat);
   const thieuMaId = batBuocYcsc && !coMaIdLienQuan(d.ma_yeu_cau_su_co, d.ma_lada); // chi can 1 trong 2 ma
   const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
-  const { gia: giaUocTinh, giaNiemYet, nhan: nhanChietKhau } = giaUocTinhDong(d);
+  const { gia: giaUocTinh, giaNiemYet, nhan: nhanChietKhau, chuaCoGiaKtv } = giaUocTinhDong(d);
   const quickValues = (["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const)
     .map((kw) => pickLdeQuick(loaiDeXuatOptions, kw))
     .filter((v): v is string => !!v);
@@ -278,6 +278,7 @@ export function TaoDonMobileScreen({
             <div className="text-xs text-[var(--ink-500)]">
               {giaUocTinh != null ? <><span className="text-[10px]">{t("Ước tính:")} </span><b className="text-[var(--green-700)]"><Money>{fmtVND(giaUocTinh)}</Money></b>{nhanChietKhau && giaNiemYet != null && giaUocTinh < giaNiemYet && <span className="text-[10px]"> · {nhanChietKhau} · <s><Money>{fmtVND(giaNiemYet)}</Money></s></span>}</> : <span className="text-[var(--ink-400)]">{t("Giá: —")}</span>}
             </div>
+            {chuaCoGiaKtv && <CanhBaoChuaCoGiaKtv />}
           </div>
           <DuDoanDuyetHint ketQua={ketQuaTheoDong.get(activeIdx)} />
         </div>

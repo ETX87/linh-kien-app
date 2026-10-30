@@ -269,7 +269,7 @@ export function TaoDonTab({
           // Chi can 1 trong 2 ma (Mã YCSC / Mã Lada) - thieu = ca 2 deu trong.
           const thieuMaId = batBuocYcsc && !coMaIdLienQuan(d.ma_yeu_cau_su_co, d.ma_lada);
           const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
-          const { gia: giaUocTinh, giaNiemYet, nhan: nhanChietKhau } = giaUocTinhDong(d);
+          const { gia: giaUocTinh, giaNiemYet, nhan: nhanChietKhau, chuaCoGiaKtv } = giaUocTinhDong(d);
           // "khac..." mo Select day du - tu dong mo neu gia tri hien tai KHONG khop 1 trong 3 nut
           // nhanh (vd sua tu don cu / import co san loai it dung), khong chi khi nguoi dung tu bam.
           const quickValues = (["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const)
@@ -434,6 +434,7 @@ export function TaoDonTab({
                       </span>
                     )}
                   </div>
+                  {chuaCoGiaKtv && <CanhBaoChuaCoGiaKtv />}
                 </div>
 
                 {/* Tickbox Uu tien da chuyen len HEADER (phan hoi 2026-08-18 lan 3) - bo khoi day, xem
@@ -562,5 +563,5 @@ export function TaoDonTab({
 // import rieng cho chinh no dung trong isLineComplete).
 import { canNoRequired, maYcscRequired, coMaIdLienQuan } from "./helpers";
 import { Money } from "../../components/ui/Money";
-import { TongNgayKtvInfo } from "./TongNgayKtv";
+import { TongNgayKtvInfo, CanhBaoChuaCoGiaKtv } from "./TongNgayKtv";
 import { t } from "../../i18n";

@@ -2381,5 +2381,6 @@ const tuDien: Record<string, string> = {
   "Đổi nhóm Mua ↔ Công nợ: tiền phải chuyển, trần công nợ và phiếu xuất thay đổi theo.": "Switching Purchase ↔ Debt: payment due, debt ceiling and issue slip change accordingly.",
   "đơn chuyển sang phiếu {a}": "order moved to slip {a}",
   "đơn rời phiếu {a}": "order left slip {a}",
+  "⚠ Linh kiện này chưa có Giá KTV — tổng đặt hôm nay đã từ 500k (mức giá KTV) nhưng dòng này vẫn tính giá niêm yết, không được chiết khấu. Hỏi Mua hàng cập nhật Giá KTV trước khi đặt nếu muốn hưởng chiết khấu.": "⚠ This part has no technician (KTV) price — today's order total has reached 500k (KTV price level) but this line is still charged at the list price, no discount. Ask Purchasing to set the KTV price before ordering if you want the discount.",
 };
 export default tuDien;
