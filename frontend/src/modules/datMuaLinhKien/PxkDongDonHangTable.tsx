@@ -227,7 +227,7 @@ export function PxkDongDonHangTable({
         </p>
         <ul className="list-disc space-y-1.5 pl-5">
           <li><b>{t("Đơn chưa thanh toán")}</b> {t("— áp cho cả nhóm: tiền đã thanh toán của các đơn = 0. Tổng phiếu giảm, phần đã trả thừa hoàn về quỹ dư của KTV.")}</li>
-          <li><b>{t("Đơn đã thanh toán")}</b> {t("— áp cho cả nhóm: mỗi đơn giữ phần tiền đã trả của mình (lần lượt, tối đa số phiếu đã trả) và về trạng thái \"Chờ tạo phiếu\".")}</li>
+          <li><b>{t("Đơn đã thanh toán")}</b> {t("— áp cho cả nhóm: mỗi đơn giữ phần tiền đã trả của mình (lần lượt, tối đa số phiếu đã trả) và tự vào phiếu riêng cho đơn đã thanh toán.")}</li>
         </ul>
         {chonCk.size === donHang.length && (
           <p className="text-[12px] text-[var(--color-text-secondary)]">
@@ -574,7 +574,7 @@ export function PxkDongDonHangTable({
           </li>
           <li>
             <b>{t("Đơn đã thanh toán")}</b> {t("— đơn giữ")} <b><Money>{fmtVND(Math.min(tienDong, daTraPhieu))}</Money></b>{" "}
-            {t("đã trả và về trạng thái \"Chờ tạo phiếu\". Khi vào phiếu mới, số tiền này được trừ vào tiền cần chuyển của phiếu đó. Đơn bị từ chối/hủy thì tiền tự về quỹ.")}
+            {t("đã trả và tự vào 1 phiếu riêng cho đơn đã thanh toán (không gộp lại phiếu này) — số tiền này được trừ vào tiền cần chuyển của phiếu đó. Đơn bị từ chối/hủy thì tiền tự về quỹ.")}
           </li>
         </ul>
         {donHang.length === 1 && (

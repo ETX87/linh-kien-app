@@ -50,7 +50,27 @@ export function ImageLightbox({ url, onClose }: { url: string; onClose: () => vo
 // thái đó do người thao tác xử lý"): NGUOI THAO TAC dung dau (dam) + hanh dong (chu nhat) + trang thai KET QUA trong 1 o
 // vien rieng -> doc thanh "Nguyễn A chuyển sang [Chờ TN duyệt]", khong con nham la Nguyen A dang xu ly buoc do.
 // Dung chung 4 man: don hang, phieu xuat kho, thieu hang, tra hang.
-export function LogTieuDe({ nguoi, hanhDong, trangThai, ghiChu }: { nguoi: ReactNode; hanhDong: string; trangThai?: ReactNode; ghiChu?: string | null }) {
+// Ma don "DDH-…" trong ghi chu log bam duoc de mo chi tiet don (2026-10-29, "bổ sung thêm ID đơn hàng, có thể click vào để xem UI chi
+// tiết của đơn để dễ rà soát").
+const MA_DON_TRONG_LOG = /(DDH-\d+)/;
+export function GhiChuLog({ text, onMoDon }: { text: string; onMoDon?: (id: string) => void }) {
+  if (!onMoDon) return <>{text}</>;
+  return (
+    <>
+      {text.split(MA_DON_TRONG_LOG).map((p, i) =>
+        i % 2 === 1 ? (
+          <button key={i} type="button" className="code-link" onClick={(e) => { e.stopPropagation(); onMoDon(p); }}>
+            {p}
+          </button>
+        ) : (
+          p
+        ),
+      )}
+    </>
+  );
+}
+
+export function LogTieuDe({ nguoi, hanhDong, trangThai, ghiChu, onMoDon }: { nguoi: ReactNode; hanhDong: string; trangThai?: ReactNode; ghiChu?: string | null; onMoDon?: (id: string) => void }) {
   return (
     <>
       <span className="font-semibold text-[var(--color-text)]">{nguoi}</span>{" "}
@@ -63,7 +83,7 @@ export function LogTieuDe({ nguoi, hanhDong, trangThai, ghiChu }: { nguoi: React
           </span>
         </>
       )}
-      {ghiChu && <span className="mt-0.5 block whitespace-pre-line font-normal text-[var(--color-text-body)]">{ghiChu}</span>}
+      {ghiChu && <span className="mt-0.5 block whitespace-pre-line font-normal text-[var(--color-text-body)]"><GhiChuLog text={ghiChu} onMoDon={onMoDon} /></span>}
     </>
   );
 }

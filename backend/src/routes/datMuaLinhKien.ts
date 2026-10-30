@@ -1,4 +1,5 @@
 import { khoNhomLkLoc, locNhomLkSql, locEmailKhoTheoNhomLk } from "../lib/nhomLk";
+import { tienBiBotPxk } from "../lib/tienBiBot";
 import { lenhGhiQuy, phanBoQuy, soDuQuy, thongBaoHoanQuyPhieuHuy } from "../lib/quyKtv";
 import { dayLaiTicketThieuLk, hanDayLaiTicketSql, trangThaiTruocTicketSql, ticketDayLaiCuaDon } from "../lib/dayLaiThieuLk";
 import { ktvChinhCuaEmailSql } from "../lib/ktvChinh";
@@ -1795,17 +1796,20 @@ datMuaLinhKien.post("/case-detail/:id/sync", async (c) => {
 // trò") - loai_don=all = GOP CA 3 loai (mua/cong_no/tra_hang) trong 1 danh sach. "Con ton" khi gop phai
 // dung DUNG tap trang thai dong cua TUNG loai (tra hang co bo trang thai rieng), khong dung chung 1 tap.
 const TAT_CA_LOAI_DON = "all";
+// "Con ton" gom ca don DA duyet nhung CHUA nam trong phieu nao ("Chờ tạo phiếu") - sua 2026-10-29: don bi TN bo khoi phieu
+// (mang theo tien) nam o "TN da duyet" khong phieu bien mat khoi "Còn tồn" cua KTV (DDH-003687 / PMH-001393).
+const CHO_TAO_PHIEU_SQL = "(ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.ma_xuat_kho IS NULL)";
 function donConTonSql(loaiDon: string | undefined): { sql: string; binds: string[] } {
   const ph = (arr: readonly string[]) => arr.map(() => "?").join(",");
   if (loaiDon === TAT_CA_LOAI_DON) {
     return {
       sql: `((ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai NOT IN (${ph(TRA_HANG_TRANG_THAI_DONG_COUNTS)}))
-        OR (ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai NOT IN (${ph(DON_HANG_TRANG_THAI_DONG)})))`,
+        OR (ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai NOT IN (${ph(DON_HANG_TRANG_THAI_DONG)})) OR ${CHO_TAO_PHIEU_SQL})`,
       binds: [...TRA_HANG_TRANG_THAI_DONG_COUNTS, ...DON_HANG_TRANG_THAI_DONG],
     };
   }
   const dongSet = loaiDon === "tra_hang" ? TRA_HANG_TRANG_THAI_DONG_COUNTS : DON_HANG_TRANG_THAI_DONG;
-  return { sql: `ddh.trang_thai_hien_tai NOT IN (${ph(dongSet)})`, binds: [...dongSet] };
+  return { sql: `(ddh.trang_thai_hien_tai NOT IN (${ph(dongSet)}) OR ${CHO_TAO_PHIEU_SQL})`, binds: [...dongSet] };
 }
 
 // Cot loc kieu Excel cua danh sach don (2026-09-28) - khoa = key cot o DonCuaToiTab.tsx (LocCotButton).
@@ -3228,7 +3232,9 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
      WHERE pxkd.dat_don_hang_id = ?`,
   )
     .bind(id)
-    .first();
+    .first<Record<string, unknown> & { id: string }>();
+  // Canh bao "tien da chuyen bi bot" (2026-10-29, lib/tienBiBot.ts) - KTV xem phieu o day.
+  if (pxk) pxk.tien_bi_bot = await tienBiBotPxk(c.env.DB, pxk.id);
 
   // Them (phan hoi 2026-09-10: "đơn gốc cũng không có truy vấn đến đơn ticket đơn thiếu linh kiện") -
   // dat_don_hang khong the co qua 1 ticket thieu_lk dang mo cung luc (xem openThieuLkForDonHang), nen
@@ -4870,6 +4876,7 @@ async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = 
   const q = c.req.query("q")?.trim().normalize("NFC");
   let whereSql = "1=1";
   const binds: unknown[] = [];
+  const truocPhamVi = whereSql.length;
   // FIX (ma tran kiem soat he thong, Van de #4 sheet "5. Van de phat hien", xac nhan 2026-08-24): truoc
   // day MOI vai tro khong phai Kho/TN deu bi loc theo tlk.nguoi_tao (nguoi TAO TICKET, thuong la CHINH
   // Kho bao thieu chu khong phai KTV/GS) - Giam sat gan nhu khong bao gio la nguoi tao ticket nen luon
@@ -4905,6 +4912,12 @@ async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = 
   // Kho chi xu ly 1 nhom LK (Karofi / B2B - 2026-10-16, migration 0088, lib/nhomLk.ts): ap cho danh sach + so dem + tai Excel.
   const nhomKho = khoNhomLkLoc(user);
   if (nhomKho) whereSql += locNhomLkSql("ddh", nhomKho);
+  // Mua hang thay TAT CA ticket "Cho mua hang" (2026-10-29, "vai trò mua hàng nhìn thây tất cả các ticket 'Chờ mua hàng'"): tai khoan
+  // Mua hang kiem Kho/TN di nhanh pham vi cua Kho (GS phu trach / nhom LK) - ticket cho Mua hang bo qua pham vi do. Cac dieu kien tren
+  // chi them SQL, binds giu nguyen thu tu.
+  if (laMuaHangXuLy(c) && whereSql.length > truocPhamVi) {
+    whereSql = `${whereSql.slice(0, truocPhamVi)} AND ((1=1${whereSql.slice(truocPhamVi)}) OR ${latestThieuLkStatusExpr("tlk.id")} = 'Cho mua hang')`;
+  }
   if (donHangId) {
     whereSql += " AND tlk.dat_don_hang_id = ?";
     binds.push(donHangId);
@@ -5122,7 +5135,8 @@ datMuaLinhKien.get("/thieu-lk/:id", async (c) => {
   if (canKho(c) || canTacNghiep(c)) {
     // khong gioi han - chi loc nhom LK Kho duoc gan (Karofi / B2B, 2026-10-16) giong danh sach.
     const nhomKho = khoNhomLkLoc(user);
-    if (nhomKho) whereSql += locNhomLkSql("ddh", nhomKho);
+    // Mua hang kiem Kho van mo duoc ticket "Cho mua hang" nhom khac (2026-10-29, khop thieuLkListWhere).
+    if (nhomKho) whereSql += laMuaHangXuLy(c) ? ` AND (1=1${locNhomLkSql("ddh", nhomKho)} OR ${latestThieuLkStatusExpr("tlk.id")} = 'Cho mua hang')` : locNhomLkSql("ddh", nhomKho);
   } else if (user.vai_tro === "Giam sat") {
     whereSql += ` AND (ddh.email_gs = ? OR ddh.nguoi_tao = ? OR ddh.nguoi_nhan_hang = ? OR ${gsKhuVucXemThemSql("ddh.khu_vuc_ma")})`; // + don chinh GS tao (2026-09-28) / GS nhan hang (2026-09-30) / khu vuc xem them (2026-10-02)
     binds.push(user.email, user.email, user.email, user.email);

@@ -308,6 +308,8 @@ export interface PhieuXuatKhoRow {
   duoc_doi_khu_vuc?: boolean;
   // Nguoi xem duoc chuyen don sang phieu khac (tach phieu moi / them vao phieu co san - 2026-10-23, TN/Ke toan/Kho/Admin/GS; duocChuyenDonPxk).
   duoc_chuyen_don?: boolean;
+  // Bo don / hoan quy SAU khi tien da vao phieu (2026-10-29, backend lib/tienBiBot.ts).
+  tien_bi_bot?: TienBiBot[];
   // Id loai chiet khau co thu tu cao nhat trong cac dong cua phieu (GET /api/phieu-xuat-kho).
   loai_chiet_khau_cao_nhat_id?: number | null;
   so_tien_can_chuyen: number | null;
@@ -641,3 +643,10 @@ export interface CaseGiaiTrinh {
 // "duyet_qua_han" (hang muc #17/#18, 2026-08-25): dong da qua han 24h "Cho TN duyet" - bam "Duyệt"
 // phai chon 1 ly do (tai dung modal/danh sach ly do cua tu_choi/cho_hang) truoc khi thuc su duyet.
 export type ActionTarget = { id: string | "bulk"; action: "tu_choi" | "cho_hang" | "huy" | "duyet_tao_ho" | "duyet_qua_han" };
+
+export interface TienBiBot {
+  ngay_xu_ly: string;
+  nguoi_xu_ly: string | null;
+  trang_thai: string;
+  ghi_chu: string | null;
+}

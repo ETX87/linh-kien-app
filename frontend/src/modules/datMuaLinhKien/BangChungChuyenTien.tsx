@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { anhVuaGioiHan } from "../../lib/imageCompress";
 import { Btn } from "../../components/ui/Btn";
@@ -7,7 +7,8 @@ import { FileButton } from "../../components/ui/FileButton";
 import { Modal } from "../../components/ui/Modal";
 import { useChanDong } from "../../components/ui/chanDong";
 import { Select } from "../../components/ui/Select";
-import { ImageLink } from "./SharedUi";
+import { GhiChuLog, ImageLink } from "./SharedUi";
+import type { TienBiBot } from "./types";
 import { describeApiError } from "./helpers";
 import { fmtDateTime, fmtVND } from "../../types";
 import { KvRow } from "../../components/ui/KvRow";
@@ -87,6 +88,30 @@ export function TienPhieuVaQuy({ tong, daThanhToan, daDuyet, quyDu }: { tong: nu
 }
 
 /**
+ * Canh bao "tien da chuyen bi bot" (2026-10-29): phieu bi bo don / hoan quy SAU khi tien da vao phieu -> tong phieu thap hon so KTV
+ * da chuyen. Liet ke tung lan (luc, nguoi, ghi chu log - ghi chu da co ma don + so tien mang theo / hoan quy) de KTV khong hieu lam.
+ */
+export function TienBiBotCanhBao({ ds, ten, onMoDon }: { ds?: TienBiBot[] | null; ten: (email: string | null) => string; onMoDon?: (id: string) => void }) {
+  if (!ds?.length) return null;
+  return (
+    <div className="my-1.5 rounded-lg border border-[var(--color-warning)]/40 bg-[var(--color-warning-soft)] px-2.5 py-2 text-[12px] text-[var(--color-text)]">
+      <div className="font-semibold">⚠ {t("Phiếu đã bớt đơn SAU KHI tiền được chuyển — tổng phiếu hiện thấp hơn số tiền đã chuyển")}</div>
+      <ul className="mt-1 space-y-1">
+        {ds.map((l, i) => (
+          <li key={i} className="whitespace-pre-line">
+            <span className="text-[var(--color-text-secondary)]">{fmtDateTime(l.ngay_xu_ly)} · {ten(l.nguoi_xu_ly)}:</span>{" "}
+            {l.ghi_chu ? <GhiChuLog text={l.ghi_chu} onMoDon={onMoDon} /> : l.trang_thai}
+          </li>
+        ))}
+      </ul>
+      <div className="mt-1 text-[11.5px] text-[var(--color-text-secondary)]">
+        {t("Tiền của đơn bị bỏ không mất: đơn đã thanh toán mang tiền theo sang phiếu khác, phần còn lại hoàn về quỹ dư của người nhận hàng (tự trừ vào phiếu cần chuyển tiếp theo).")}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Ke toan DUYET khoan chuyen voi SO TIEN THUC NHAN (quy du, migration 0047): mac dinh = so con phai chuyen. Du -> vao quy
  * cua nguoi nhan hang; thieu -> phieu ve "Chờ KTV chuyển" so con thieu. So khac so can chuyen thi phai xac nhan lan 2.
  */
@@ -107,6 +132,7 @@ export function DuyetChuyenTienForm({ pxkId, conPhaiChuyen, pxk, onDone, addToas
   const tatCaAnh = pxk ? docAnhBangChung(pxk) : [];
   const doc = useDocTienAnh(pxk ? anhChuaGhiNhan(tatCaAnh, pxk) : [], docTienDocMap(pxk?.bang_chung_tien_doc));
   const chenh = hopLe ? so - conPhaiChuyen : 0;
+  const trung = useKhoanTrung(pxkId, hopLe && so > 0 ? so : null, doc.items.map((i) => i.soTien));
   const duyet = useMutation({
     mutationFn: () => api.patch<{ conThieu: number; soDuQuy: number }>(`/phieu-xuat-kho/${pxkId}/chuyen-tien`, { trang_thai: "TN da duyet", so_tien_thuc_nhan: so }),
     onSuccess: (r) => {
@@ -145,6 +171,19 @@ export function DuyetChuyenTienForm({ pxkId, conPhaiChuyen, pxk, onDone, addToas
         </div>
       )}
       <TienDocTuAnh doc={doc} soSoSanh={hopLe ? so : null} nhan={t("số thực nhận")} sttCua={(u) => tatCaAnh.indexOf(u) + 1} />
+      {trung.length > 0 && (
+        <div className="rounded-lg border border-[var(--color-warning)]/40 bg-[var(--color-warning-soft)] px-2.5 py-1.5 text-[11.5px] text-[var(--color-text)]">
+          <div className="font-semibold">⚠ {t("Trùng số tiền với khoản đã xác nhận gần đây của cùng người chuyển — kiểm tra sao kê, tránh xác nhận 1 lần chuyển cho 2 phiếu:")}</div>
+          <ul className="mt-0.5 list-disc pl-4">
+            {trung.map((k) => (
+              <li key={k.id}>
+                <span className="font-mono">{k.phieu_xuat_kho_id}</span> · <Money>{fmtVND(k.so_tien_thuc_nhan)}</Money> · {fmtDateTime(k.duyet_luc)}
+                {k.theoAnh && <span className="text-[var(--color-text-secondary)]"> {t("(trùng số đọc từ ảnh)")}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {hopLe && chenh !== 0 && (
         <div className={`rounded-lg border px-2.5 py-1.5 text-[11.5px] ${chenh > 0 ? "border-[var(--color-info)]/30 bg-[var(--color-info-soft)] text-[var(--color-text)]" : "border-[var(--color-warning)]/30 bg-[var(--color-warning-soft)] text-[var(--color-warning-strong)]"}`}>
           {chenh > 0 ? (
@@ -163,6 +202,27 @@ export function DuyetChuyenTienForm({ pxkId, conPhaiChuyen, pxk, onDone, addToas
       )}
     </div>
   );
+}
+
+interface KhoanGanDay { id: number; phieu_xuat_kho_id: string; so_tien_thuc_nhan: number; duyet_luc: string; tien_doc_anh: string | null }
+
+/**
+ * Khoan Ke toan da duyet trong 30 ngay cua CUNG nguoi chuyen (phieu khac) co so tien TRUNG voi so thuc nhan dang nhap hoac so doc
+ * tu anh cua lan chuyen nay; hoac so doc tu anh cu trung so doc tu anh moi (dung lai anh chup man hinh) - 2026-10-29.
+ */
+function useKhoanTrung(pxkId: string, so: number | null, soAnh: (number | null)[]) {
+  const { data } = useQuery({
+    queryKey: ["pxk-khoan-gan-day", pxkId],
+    queryFn: () => api.get<{ rows: KhoanGanDay[] }>(`/phieu-xuat-kho/${pxkId}/khoan-gan-day`),
+    staleTime: 60_000,
+  });
+  const anhMoi = new Set(soAnh.filter((v): v is number => v != null && v > 0));
+  return (data?.rows ?? []).flatMap((k) => {
+    const anhCu = Object.values(docTienDocMap(k.tien_doc_anh)).filter((v): v is number => v != null && v > 0);
+    const theoSo = so != null && k.so_tien_thuc_nhan === so;
+    const theoAnh = anhMoi.has(k.so_tien_thuc_nhan) || anhCu.some((v) => anhMoi.has(v));
+    return theoSo || theoAnh ? [{ ...k, theoAnh: !theoSo && theoAnh }] : [];
+  });
 }
 
 export interface KhoanChuyenTien {

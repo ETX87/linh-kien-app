@@ -18,12 +18,14 @@ export function urlDocDuoc(url: string): string {
   return m ? `https://lh3.googleusercontent.com/d/${m[1]}=w1600` : url;
 }
 
-let workerP: Promise<Worker> | null = null;
-function layWorker(): Promise<Worker> {
-  if (!workerP) {
-    workerP = import("tesseract.js")
+// 2 worker: "vie" (luot chinh) + "eng" (chi tao khi luot chinh khong ra so - PHIEN_BAN_OCR 3).
+const workerP = new Map<string, Promise<Worker>>();
+function layWorker(lang: "vie" | "eng"): Promise<Worker> {
+  let w = workerP.get(lang);
+  if (!w) {
+    w = import("tesseract.js")
       .then((T) =>
-        T.createWorker("vie", 1 /* OEM.LSTM_ONLY */, {
+        T.createWorker(lang, 1 /* OEM.LSTM_ONLY */, {
           workerPath: "/ocr/worker.min.js",
           corePath: "/ocr/core",
           langPath: "/ocr/lang",
@@ -31,11 +33,12 @@ function layWorker(): Promise<Worker> {
         }),
       )
       .catch((e) => {
-        workerP = null; // lan sau thu lai (vd mat mang luc tai thu vien)
+        workerP.delete(lang); // lan sau thu lai (vd mat mang luc tai thu vien)
         throw e;
       });
+    workerP.set(lang, w);
   }
-  return workerP;
+  return w;
 }
 
 // Anh vua chon tren may (KTV) - doc thang tu file, khong phai tai lai tu Drive.
@@ -54,8 +57,10 @@ export const docBiLoi = (url: string) => docLoi.has(url);
  * Phien ban bo nhan dang - TANG moi khi sua cach doc/chon so (tachSoTien, quyetDinhSoTien, SO, NHAN_TIEN...). Ket qua luu
  * server (bang ocr_anh_tien) khac phien ban bi bo qua -> may dau tien mo anh doc lai bang bo moi + ghi de.
  * 2 = 2026-09-30 v1.249 (bo "30 9 2026" -> 9.202, nhan 3 dong tren, doc lai dong so TO khi lan 1 khong ra so).
+ * 3 = 2026-10-30 (luot du phong tieng Anh / psm 11 / anh den trang - CAC_LUOT; bo ngay gio, "o" -> 0, "đ" doc thanh "4",
+ *     so thieu 1 dau phan cach co don vi, bo nam 19xx-20xx).
  */
-export const PHIEN_BAN_OCR = 2;
+export const PHIEN_BAN_OCR = 3;
 let hang: Promise<unknown> = Promise.resolve();
 
 // Chu CAO hon muc nay (px) Tesseract hay doc sai so (da thu that: "3.200.000" dam 64px -> "2.200.000") - so tien tren app
@@ -80,23 +85,68 @@ function catDong(anh: ImageBitmap, bb: { x0: number; y0: number; x1: number; y1:
   return new Promise((res) => c.toBlob(res, "image/png"));
 }
 
+// Anh "den trang": moi diem = kenh MAU TOI NHAT (min R,G,B) -> nen mau (xanh/tim/gradient cua app ngan hang) thanh sang,
+// chu so dam van dam. Luot du phong cuoi cho anh nen mau Tesseract khong tach duoc chu.
+async function denTrang(anh: ImageBitmap): Promise<Blob | null> {
+  const c = document.createElement("canvas");
+  c.width = anh.width;
+  c.height = anh.height;
+  const g = c.getContext("2d", { willReadFrequently: true })!;
+  g.drawImage(anh, 0, 0);
+  const px = g.getImageData(0, 0, c.width, c.height);
+  const d = px.data;
+  for (let i = 0; i < d.length; i += 4) d[i] = d[i + 1] = d[i + 2] = Math.min(d[i], d[i + 1], d[i + 2]);
+  g.putImageData(px, 0, 0);
+  return new Promise((res) => c.toBlob(res, "image/png"));
+}
+
+// Cac luot doc (PHIEN_BAN_OCR 3, 2026-10-30 - ra soat 75 anh chuyen khoan that, "1 số ảnh đang chưa đọc được"): tieng Viet nhu
+// cu (48/75 dung) -> CHI KHI khong ra so moi thu tieng Anh (doc chu so ro hon tren nhieu app ngan hang) o che do 1 khoi (6),
+// che do chu thua (11 - man hinh nhieu khoi roi), roi anh "den trang" -> 68/75 dung. KHONG dat tieng Anh len truoc: anh tieng
+// Viet doc dung bi tieng Anh doc lech chu so (5->3, 9->3) = canh bao nham, te hon "khong doc duoc".
+const CAC_LUOT: { lang: "vie" | "eng"; psm: string; denTrang?: boolean }[] = [
+  { lang: "vie", psm: "6" },
+  { lang: "eng", psm: "6" },
+  { lang: "eng", psm: "11" },
+  { lang: "eng", psm: "6", denTrang: true },
+];
+
+async function docMotLuot(worker: Worker, anh: Blob, psm: string, layBmp: () => Promise<ImageBitmap>): Promise<SoTienDoc> {
+  await worker.setParameters({ tessedit_pageseg_mode: psm as never });
+  const { data } = await worker.recognize(anh, {}, { blocks: true, text: false });
+  const lines: DongChu[] = (data.blocks ?? []).flatMap((b) =>
+    b.paragraphs.flatMap((p) => p.lines.map((l: Line) => ({ text: l.text, cao: Math.max(0, l.bbox.y1 - l.bbox.y0), bbox: l.bbox }))),
+  );
+  return quyetDinhSoTien(lines, async (bbox, caoMoi) => {
+    const cat = await catDong(await layBmp(), bbox, caoMoi);
+    if (!cat) return [];
+    // Dong cat rieng = 1 dong chu (psm 7), xong tra lai che do cua luot.
+    await worker.setParameters({ tessedit_pageseg_mode: "7" as never });
+    try {
+      return cacSoTrong((await worker.recognize(cat, {}, { text: true })).data.text);
+    } finally {
+      await worker.setParameters({ tessedit_pageseg_mode: psm as never });
+    }
+  });
+}
+
 export function docSoTienAnh(url: string): Promise<SoTienDoc> {
   const cu = daDoc.get(url);
   if (cu) return cu;
   const p = (hang = hang.then(async () => {
-    const worker = await layWorker();
-    const anh = anhCucBo.get(url) ?? (await (await fetch(urlDocDuoc(url), { mode: "cors" })).blob());
-    const { data } = await worker.recognize(anh, {}, { blocks: true, text: false });
-    const lines: DongChu[] = (data.blocks ?? []).flatMap((b) =>
-      b.paragraphs.flatMap((p) => p.lines.map((l: Line) => ({ text: l.text, cao: Math.max(0, l.bbox.y1 - l.bbox.y0), bbox: l.bbox }))),
-    );
-    const bmp = { v: null as ImageBitmap | null };
+    const goc = anhCucBo.get(url) ?? (await (await fetch(urlDocDuoc(url), { mode: "cors" })).blob());
+    const bmp = { v: null as ImageBitmap | null, den: null as Blob | null };
+    const layBmp = async () => (bmp.v ??= await createImageBitmap(goc));
     try {
-      return await quyetDinhSoTien(lines, async (bbox, caoMoi) => {
-        bmp.v ??= await createImageBitmap(anh);
-        const cat = await catDong(bmp.v, bbox, caoMoi);
-        return cat ? cacSoTrong((await worker.recognize(cat, {}, { text: true })).data.text) : [];
-      });
+      for (const l of CAC_LUOT) {
+        const worker = await layWorker(l.lang);
+        // Anh "den trang" cung kich thuoc anh goc -> bbox doc lai van dung tren anh goc.
+        const anh = l.denTrang ? (bmp.den ??= await denTrang(await layBmp())) : goc;
+        if (!anh) continue;
+        const kq = await docMotLuot(worker, anh, l.psm, layBmp);
+        if (kq != null) return kq;
+      }
+      return null;
     } finally {
       bmp.v?.close();
     }
@@ -148,10 +198,23 @@ export interface DongChu {
 }
 
 const boDau = (s: string) =>
-  s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+  chuanChuSo(s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase());
+// Chuan hoa loi OCR quanh chu so (2026-10-29, ra soat anh that doc khong ra):
+// - bo ngay / gio ("29/10/2026", "27-10-2026", "14:06:37") - tranh nhat "2026" thanh so tien;
+// - chu "o" dinh sau chu so la so 0 ("2,812,90OVND" Agribank);
+// - chu "đ" nho cuoi so bi doc thanh "4" ("191.2504" = 191.250đ Viettel Money): so co phan cach ma nhom cuoi 4 chu so tan cung "4".
+function chuanChuSo(t: string): string {
+  t = t.replace(/\d{1,2}[/-]\d{1,2}[/-]\d{2,4}/g, " ").replace(/\d{1,2}:\d{2}(:\d{2})?/g, " ");
+  let cu = "";
+  while (cu !== t) {
+    cu = t;
+    t = t.replace(/(\d[.,]?)o/g, "$10");
+  }
+  return t.replace(/(\d{1,3}(?:[.,]\d{3})+)4(?=\s|$)/g, "$1d");
+}
 
 // Dong KHONG phai so tien chuyen: so du, phi, so tai khoan, ma giao dich, ngay gio, hotline...
-const DONG_LOAI = /(so du|balance|\bphi\b|\bfee\b|tai khoan|account|\bstk\b|\bso tk\b|ma (gd|giao dich|tham chieu)|tham chieu|\bref\b|transaction id|hotline|ngay|thoi gian|\btime\b|\bgio\b|so the|ma don)/;
+const DONG_LOAI = /(so du|balance|\bphi\b|\bfee\b|tai khoan|account|\bstk\b|\bso tk\b|ma (gd|giao dich|tham chieu)|tham chieu|\bref\b|transaction id|hotline|ngay|thoi gian|thai gian|\btime\b|\bgio\b|so the|ma don)/;
 // Nhan thuong dung ngay truoc/cung dong voi so tien chuyen.
 // + "chuyen thanh cong" (2026-09-30: Techcombank ghi "Chuyển thành công" ngay tren dong so tien).
 const NHAN_TIEN = /(so tien|amount|chuyen tien|chuyen khoan thanh cong|chuyen thanh cong|giao dich thanh cong|thanh toan|da chuyen|tong tien)/;
@@ -159,7 +222,7 @@ const NHAN_TIEN = /(so tien|amount|chuyen tien|chuyen khoan thanh cong|chuyen th
 // nhan "vnd"/"₫" (chu "d" le truoc so de nham). Nhom: 1 dau, 2 don vi truoc, 3 so, 4 don vi sau.
 // (?!\d) sau nhom so: loi nhan "30 9 2026" truoc day thanh "9 202" = 9.202d (2026-09-30, anh Techcombank that); don vi
 // truoc so chap nhan OCR doc lech "VNO"/"VN0".
-const SO = /([+\-−–]?)\s*(vnd|vn d|vno|vn0|₫)?\s*(\d{1,3}(?:[.,  ]\d{3})+(?!\d)|\d{4,})(?:[.,]\d{1,2}(?!\d))?\s*(vnd|vnđ|vn d|đ|₫|d\b|dong)?/gi;
+const SO = /([+\-−–]?)\s*(vnd|vn d|vno|vn0|₫)?\s*(\d{1,3}(?:[.,  ]\d{3})+(?!\d)|\d{1,3}(?:[.,  ]?\d{3})*[.,  ]\d{3}(?:[.,  ]?\d{3})*(?!\d)|\d{4,})(?:[.,]\d{1,2}(?!\d))?\s*(vnd|vnđ|vn d|vnp|vn\b|vp\b|v\b|đ|₫|d\b|dong)?/gi;
 
 /**
  * Chon so tien chuyen trong cac dong chu OCR (ham thuan, khong phu thuoc thu vien - de kiem thu). Cham diem: co don vi
@@ -170,9 +233,25 @@ export function tachSoTien(lines: DongChu[]): SoTienDoc {
   return chonSoTien(lines)?.giaTri ?? null;
 }
 
-/** Cac so tien (>= 1.000) co trong 1 chuoi - dung doi chieu lan doc lai. */
+/** Cac so tien (>= 1.000, co dau phan cach hoac don vi) co trong 1 chuoi - dung doi chieu lan doc lai. */
 export function cacSoTrong(text: string): number[] {
-  return [...boDau(text).matchAll(SO)].map((m) => Number(m[3].replace(/[^\d]/g, ""))).filter((v) => Number.isFinite(v) && v >= 1000 && v <= 5_000_000_000);
+  return [...boDau(text).matchAll(SO)].map(soHopLe).filter((x): x is SoKhop => x !== null && (x.donVi || x.coPhanCach)).map((x) => x.giaTri);
+}
+
+interface SoKhop { giaTri: number; donVi: boolean; coPhanCach: boolean; dau: boolean }
+/** 1 cum so khop SO -> so tien hop le hoac null (so TK / ma GD / nam / toa do GPS / ngoai khoang). */
+function soHopLe(m: RegExpMatchArray): SoKhop | null {
+  const [, dau, donViTruoc, so, donViSau] = m;
+  const donVi = !!(donViTruoc || donViSau);
+  const coPhanCach = /[.,  ]/.test(so);
+  const chuSo = so.replace(/[^\d]/g, "");
+  if (!coPhanCach && !donVi && chuSo.length > 7) return null; // so TK / ma GD / so dien thoai
+  // Thieu 1 dau phan cach ("3.948350VND" ACB, "28911 400đ" VPBank) chi nhan khi co don vi tien - tranh toa do GPS "105.743916" tren anh chup.
+  if (coPhanCach && !donVi && !/^\d{1,3}([.,  ]\d{3})+$/.test(so)) return null;
+  const giaTri = Number(chuSo);
+  if (!coPhanCach && !donVi && giaTri >= 1900 && giaTri <= 2100) return null; // nam ("Tháng 10, 2026")
+  if (!Number.isFinite(giaTri) || giaTri < 1000 || giaTri > 5_000_000_000) return null;
+  return { giaTri, donVi, coPhanCach, dau: !!dau };
 }
 
 /** Nhu tachSoTien, kem vi tri dong chua so (de doc lai dong do). */
@@ -193,13 +272,10 @@ export function chonSoTien(lines: DongChu[]): { giaTri: number; dong: number } |
       }
     }
     for (const m of t.matchAll(SO)) {
-      const [, dau, donViTruoc, so, donViSau] = m;
-      const donVi = donViTruoc || donViSau;
-      const coPhanCach = /[.,  ]/.test(so);
-      const chuSo = so.replace(/[^\d]/g, "");
-      if (!coPhanCach && !donVi && chuSo.length > 7) continue; // so TK / ma GD / so dien thoai
-      const giaTri = Number(chuSo);
-      if (!Number.isFinite(giaTri) || giaTri < 1000 || giaTri > 5_000_000_000) continue;
+      const k = soHopLe(m);
+      if (!k) continue;
+      const { giaTri, donVi, coPhanCach } = k;
+      const dau = k.dau;
       let diem = 0;
       if (donVi) diem += 3;
       if (NHAN_TIEN.test(t)) diem += 3;

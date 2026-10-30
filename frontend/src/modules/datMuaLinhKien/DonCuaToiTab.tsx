@@ -29,7 +29,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
 import { formatPersonDisplay, usePersonDirectory, doiNguoiThanhTen } from "../../lib/personDisplay";
-import type { DonHangRow, DonHangLogRow, LyDoChamRow, ActionTarget, DonHangDraft, NguoiNhanHangKhaDungRow } from "./types";
+import type { DonHangRow, DonHangLogRow, LyDoChamRow, ActionTarget, DonHangDraft, NguoiNhanHangKhaDungRow, TienBiBot } from "./types";
 import {
   DON_HANG_TRANG_THAI_TONE_ALL, DON_HANG_ROW_STYLE, TRANG_THAI_DOT_TONE, DON_CUA_TOI_TRANG_THAI_OPTIONS,
   DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, DON_HANG_DANG_MO, BULK_LOG_ERROR_MESSAGES, TRA_HANG_BULK_ERROR_MESSAGES, YEU_CAU_HOA_DON_OPTIONS,
@@ -57,7 +57,7 @@ import { TongNgayKtvInfo } from "./TongNgayKtv";
 import { GanKhachLe } from "./KhachLeSdt";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../components/ui/LocCot";
-import { TienPhieuVaQuy, BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung, RutLaiBangChungButton } from "./BangChungChuyenTien";
+import { TienPhieuVaQuy, TienBiBotCanhBao, BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung, RutLaiBangChungButton } from "./BangChungChuyenTien";
 import { TraHangDetailModal } from "./TraHangTab";
 import { t } from "../../i18n";
 import { LyDoTrangThaiDon, tomTatLyDo } from "./LyDoTrangThai";
@@ -92,6 +92,7 @@ interface PxkInfo {
   nguoi_tao?: string | null;
   loai_don?: string | null;
   so_dong?: number | null;
+  tien_bi_bot?: TienBiBot[];
 }
 
 // Them (phan hoi 2026-09-10: "đơn gốc cũng không có truy vấn đến đơn ticket đơn thiếu linh kiện") -
@@ -1627,6 +1628,7 @@ export function DonHangDetailModal({
                     daDuyet={pxk.trang_thai_chuyen_tien === "TN da duyet"}
                     quyDu={pxk.quy_du ?? 0}
                   />
+                  <TienBiBotCanhBao ds={pxk.tien_bi_bot} ten={(e) => (e ? formatNguoiDisplay(e, ktvDisplayMap) : "")} />
                   <KvRow label={t("Trạng thái chuyển tiền")}>
                     <StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} />
                   </KvRow>

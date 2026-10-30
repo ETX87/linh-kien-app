@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -114,6 +114,46 @@ const KET_QUA: Record<KhoanRow["trang_thai"], { label: string; tone: BadgeTone }
   "Da huy": { label: dichSau("Đã hủy"), tone: "gray" },
 };
 const lyDoKhoan = (k: KhoanRow) => (k.trang_thai === "Tu choi" ? k.ly_do_tu_choi : k.trang_thai === "Da huy" ? k.ly_do_huy : k.ghi_chu_ktv);
+
+// Ma phieu bam duoc -> mo nhanh chi tiet phieu (2026-10-29, "trong mục quỹ, có các mã pxk cho phép click vào để xem thông tin phiếu
+// liên quan nhanh"). Drawer chi tiet PXK tai luoi, quyen theo tai khoan dang dang nhap (backend van ap pham vi xem).
+const PxkDetailModal = lazy(() => import("./datMuaLinhKien/PhieuXuatKhoTab").then((m) => ({ default: m.PxkDetailModal })));
+function MaPhieuLink({ id, nhan }: { id: string | null; nhan?: string | null }) {
+  const [mo, setMo] = useState(false);
+  const auth = useAuth();
+  const u = auth.status === "authenticated" ? auth.user : null;
+  const qc = useQueryClient();
+  const addToast = useToast();
+  if (!id) return <>{nhan ?? "—"}</>;
+  return (
+    <>
+      <button
+        type="button"
+        className="code-link font-semibold underline underline-offset-2 hover:opacity-80"
+        title={t("Mở chi tiết phiếu")}
+        onClick={(e) => { e.stopPropagation(); setMo(true); }}
+      >
+        {nhan ?? id}
+      </button>
+      {mo && u && (
+        <Suspense fallback={null}>
+          <PxkDetailModal
+            id={id}
+            onClose={() => setMo(false)}
+            addToast={addToast}
+            qc={qc}
+            canTacNghiep={!!u.la_tac_nghiep}
+            canKho={!!u.la_kho}
+            canKeToan={!!u.la_ke_toan}
+            canDownloadMisa={false}
+            currentEmail={u.email}
+            isAdmin={u.vai_tro === "Admin"}
+          />
+        </Suspense>
+      )}
+    </>
+  );
+}
 
 function ChenhLech({ k }: { k: KhoanRow }) {
   const d = chenhLech(k);
@@ -434,7 +474,7 @@ function KhoanChuyenTab({ xemTatCa, nguoiOptions, emailLoc, setEmailLoc, ten, co
       key: "ma", header: t("Mã HĐ / PXK"), mobile: "title",
       render: (k) => (
         <span className="inline-flex items-center gap-1.5">
-          <span className="font-semibold">{k.ma_xuat_kho ?? k.phieu_xuat_kho_id}</span>
+          <MaPhieuLink id={k.phieu_xuat_kho_id} nhan={k.ma_xuat_kho ?? k.phieu_xuat_kho_id} />
           {/* Phieu huy SAU khi da tra tien - khoan van "Da duyet". Tien di 1 trong 3 noi (2026-10-23, truoc day luon ghi "tiền về quỹ"):
               hoan ve quy du / di THEO DON (don chuyen cho hang mang tien) roi sang phieu khac / con giu o don cho hang. */}
           {k.trang_thai_phieu === "Ke toan huy" && k.trang_thai === "Da duyet" && <TienPhieuHuy k={k} />}
@@ -764,7 +804,7 @@ function SoQuyTab({ xemTatCa, nguoiOptions, emailLoc, setEmailLoc, ten }: {
       render: (g) => <b className={g.so_tien > 0 ? "text-[var(--color-success-strong)]" : "text-[var(--color-danger-strong)]"}>{g.so_tien > 0 ? "+" : "−"}<Money>{fmtVND(Math.abs(g.so_tien))}</Money></b>,
     },
     { key: "sau", header: t("Số dư sau"), className: "text-right", render: (g) => <Money>{fmtVND(g.so_du_sau)}</Money> },
-    { key: "pxk", header: t("Phiếu||cột"), render: (g) => g.ma_xuat_kho ?? g.phieu_xuat_kho_id ?? g.phieu_hoan_tien_id ?? "—" },
+    { key: "pxk", header: t("Phiếu||cột"), render: (g) => (g.phieu_xuat_kho_id ? <MaPhieuLink id={g.phieu_xuat_kho_id} nhan={g.ma_xuat_kho ?? g.phieu_xuat_kho_id} /> : g.phieu_hoan_tien_id ?? "—") },
     { key: "ghi_chu", header: t("Ghi chú"), render: (g) => <span className="block max-w-[300px] truncate" title={g.ghi_chu ?? ""}>{g.ghi_chu}</span> },
     { key: "nguoi_tao", header: t("Người thực hiện"), render: (g) => (g.nguoi_tao === "he-thong" ? t("Hệ thống") : ten(g.nguoi_tao)) },
   ];

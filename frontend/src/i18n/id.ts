@@ -2308,5 +2308,11 @@ const tuDien: Record<string, string> = {
   "🚚 Bao giờ có hàng": "🚚 Kapan barang datang",
   "1 phiếu chỉ gom đơn cùng loại đề xuất (riêng MUA HÀNG và MUA HÀNG CÓ ID được chung phiếu) — chọn lại các đơn cùng loại": "Satu slip hanya berisi pesanan dengan jenis usulan yang sama (MUA HÀNG dan MUA HÀNG CÓ ID boleh satu slip) — pilih pesanan satu jenis",
   "Đơn khác loại đề xuất với phiếu này — mỗi loại đề xuất 1 phiếu riêng (riêng MUA HÀNG và MUA HÀNG CÓ ID được chung phiếu)": "Jenis usulan pesanan berbeda dengan slip ini — tiap jenis usulan punya slip sendiri (MUA HÀNG dan MUA HÀNG CÓ ID boleh bersama)",
+  "(trùng số đọc từ ảnh)": "(sama dengan angka dari gambar)",
+  "Phiếu đã bớt đơn SAU KHI tiền được chuyển — tổng phiếu hiện thấp hơn số tiền đã chuyển": "Pesanan dikeluarkan dari slip SETELAH uang ditransfer — total slip kini lebih kecil dari jumlah yang ditransfer",
+  "Tiền của đơn bị bỏ không mất: đơn đã thanh toán mang tiền theo sang phiếu khác, phần còn lại hoàn về quỹ dư của người nhận hàng (tự trừ vào phiếu cần chuyển tiếp theo).": "Uang pesanan yang dikeluarkan tidak hilang: pesanan yang sudah dibayar membawa uangnya ke slip lain, sisanya dikembalikan ke dana lebih penerima (otomatis dipotong pada slip berikutnya).",
+  "Trùng số tiền với khoản đã xác nhận gần đây của cùng người chuyển — kiểm tra sao kê, tránh xác nhận 1 lần chuyển cho 2 phiếu:": "Jumlah sama dengan transfer yang baru dikonfirmasi dari pengirim yang sama — periksa mutasi rekening, hindari mengonfirmasi 1 transfer untuk 2 slip:",
+  "đã trả và tự vào 1 phiếu riêng cho đơn đã thanh toán (không gộp lại phiếu này) — số tiền này được trừ vào tiền cần chuyển của phiếu đó. Đơn bị từ chối/hủy thì tiền tự về quỹ.": "sudah dibayar dan otomatis masuk slip tersendiri untuk pesanan yang sudah dibayar (tidak digabung kembali ke slip ini) — jumlah ini dipotong dari uang yang harus ditransfer slip tersebut. Jika pesanan ditolak/dibatalkan uang kembali ke dana.",
+  "— áp cho cả nhóm: mỗi đơn giữ phần tiền đã trả của mình (lần lượt, tối đa số phiếu đã trả) và tự vào phiếu riêng cho đơn đã thanh toán.": "— berlaku untuk seluruh kelompok: tiap pesanan menyimpan uang yang sudah dibayar (bergiliran, maksimal yang diterima slip) dan otomatis masuk slip tersendiri untuk pesanan yang sudah dibayar.",
 };
 export default tuDien;

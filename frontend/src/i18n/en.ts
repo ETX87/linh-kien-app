@@ -2308,5 +2308,11 @@ const tuDien: Record<string, string> = {
   "🚚 Bao giờ có hàng": "🚚 When will it arrive",
   "1 phiếu chỉ gom đơn cùng loại đề xuất (riêng MUA HÀNG và MUA HÀNG CÓ ID được chung phiếu) — chọn lại các đơn cùng loại": "A slip can only contain orders of the same proposal type (MUA HÀNG and MUA HÀNG CÓ ID may share a slip) — select orders of one type",
   "Đơn khác loại đề xuất với phiếu này — mỗi loại đề xuất 1 phiếu riêng (riêng MUA HÀNG và MUA HÀNG CÓ ID được chung phiếu)": "This order's proposal type differs from the slip — each proposal type gets its own slip (MUA HÀNG and MUA HÀNG CÓ ID may share)",
+  "(trùng số đọc từ ảnh)": "(matches amount read from image)",
+  "Phiếu đã bớt đơn SAU KHI tiền được chuyển — tổng phiếu hiện thấp hơn số tiền đã chuyển": "Orders were removed from this slip AFTER money was transferred — the slip total is now lower than the amount transferred",
+  "Tiền của đơn bị bỏ không mất: đơn đã thanh toán mang tiền theo sang phiếu khác, phần còn lại hoàn về quỹ dư của người nhận hàng (tự trừ vào phiếu cần chuyển tiếp theo).": "Money of removed orders is not lost: paid orders carry their money to another slip, the rest is refunded to the recipient's surplus fund (deducted from the next slip to pay).",
+  "Trùng số tiền với khoản đã xác nhận gần đây của cùng người chuyển — kiểm tra sao kê, tránh xác nhận 1 lần chuyển cho 2 phiếu:": "Same amount as a recently confirmed transfer from the same sender — check the bank statement to avoid confirming one transfer for 2 slips:",
+  "đã trả và tự vào 1 phiếu riêng cho đơn đã thanh toán (không gộp lại phiếu này) — số tiền này được trừ vào tiền cần chuyển của phiếu đó. Đơn bị từ chối/hủy thì tiền tự về quỹ.": "already paid and automatically goes to a separate slip for paid orders (not merged back into this slip) — this amount is deducted from that slip's amount to transfer. If the order is rejected/cancelled the money returns to the fund.",
+  "— áp cho cả nhóm: mỗi đơn giữ phần tiền đã trả của mình (lần lượt, tối đa số phiếu đã trả) và tự vào phiếu riêng cho đơn đã thanh toán.": "— applies to the whole group: each order keeps its paid amount (in turn, up to what the slip received) and automatically goes to a separate slip for paid orders.",
 };
 export default tuDien;

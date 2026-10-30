@@ -43,7 +43,7 @@ import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportResult, type M
 import { Money } from "../../components/ui/Money";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../components/ui/LocCot";
-import { BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung, DuyetChuyenTienForm, LichSuKhoanChuyen, RutLaiBangChungButton, TienPhieuVaQuy, TuChoiChuyenTienButton, type KhoanChuyenTien } from "./BangChungChuyenTien";
+import { BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung, DuyetChuyenTienForm, LichSuKhoanChuyen, RutLaiBangChungButton, TienPhieuVaQuy, TienBiBotCanhBao, TuChoiChuyenTienButton, type KhoanChuyenTien } from "./BangChungChuyenTien";
 import { doiNguoiThanhTen, formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay";
 import { t } from "../../i18n";
 import { baoLoiTaiAnh, canhBaoHanMucAnh, type HanMucAnh } from "../../lib/hanMucAnh";
@@ -2026,6 +2026,7 @@ export function PxkDetailModal({
             daDuyet={pxk.trang_thai_chuyen_tien === "TN da duyet"}
             quyDu={data?.quyDu}
           />
+          <TienBiBotCanhBao ds={pxk.tien_bi_bot} ten={(e) => (e ? formatNguoiDisplay(e, ktvDisplayMap) : "")} onMoDon={setDonDetailId} />
           <KvRow label={t("Trạng thái")}><StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /></KvRow>
           {/* Nhieu anh (2026-09-29, BangChungChuyenTien.tsx) - dang "Cho KTV chuyen" thi form ben duoi tu hien anh. */}
           {pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen" && docAnhBangChung(pxk).length > 0 && (
@@ -2362,6 +2363,7 @@ export function PxkDetailModal({
                       hanhDong={i === all.length - 1 ? t("tạo phiếu →") : laTrangThaiPhieu ? t("chuyển phiếu sang") : t("đã thao tác:")}
                       trangThai={trangThaiLabel([...PXK_TRANG_THAI_OPTIONS, ...PXK_LOG_ONLY_OPTIONS], l.trang_thai)}
                       ghiChu={l.ghi_chu}
+                      onMoDon={setDonDetailId}
                     />
                   ),
                   time: fmtDateTime(l.ngay_xu_ly),

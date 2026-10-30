@@ -20,7 +20,10 @@ function ocrAssets(): Plugin {
       ...["tesseract-core-lstm.wasm.js", "tesseract-core-simd-lstm.wasm.js", "tesseract-core-relaxedsimd-lstm.wasm.js"].map(
         (f) => [join(pkgDir("tesseract.js-core"), f), join(out, "core", f)] as [string, string],
       ),
-      [join(pkgDir("@tesseract.js-data/vie"), "4.0.0_best_int", "vie.traineddata.gz"), join(out, "lang", "vie.traineddata.gz")],
+      ...["vie", "eng"].map(
+        // eng (2026-10-30): luot du phong khi tieng Viet khong ra so - xem PHIEN_BAN_OCR 3 o lib/docTienAnh.ts.
+        (l) => [join(pkgDir(`@tesseract.js-data/${l}`), "4.0.0_best_int", `${l}.traineddata.gz`), join(out, "lang", `${l}.traineddata.gz`)] as [string, string],
+      ),
     ];
     for (const [src, dst] of files) {
       if (existsSync(dst) && statSync(dst).size === statSync(src).size) continue;

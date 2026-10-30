@@ -370,6 +370,7 @@ export function ThieuLkTab({
   // showKhuVucFilter cua DonCuaToiTab.tsx: moi "nhan vien van phong" lien quan xem toan canh theo Khu
   // vuc, khong chi rieng Kho hanh dong duoc).
   const showKhuVucFilter = canTacNghiep || canKho || canKeToan || isGiamSat;
+  const laMuaHangTk = !!userNhom?.la_mua_hang;
   const [filterKhuVuc, setFilterKhuVuc] = useState<Set<string>>(new Set());
   const khuVucDefaultAppliedRef = useRef(false);
   const { data: khuVucAllData } = useQuery({
@@ -392,8 +393,10 @@ export function ThieuLkTab({
     if (khuVucDefaultAppliedRef.current) return;
     if (!khuVucCuaToiData) return;
     khuVucDefaultAppliedRef.current = true;
+    // Mua hang (kiem Kho) KHONG ap khu vuc mac dinh - thay tat ca ticket "Chờ mua hàng" (2026-10-29).
+    if (laMuaHangTk) return;
     if (khuVucCuaToiData.rows.length > 0) setFilterKhuVuc(new Set(khuVucCuaToiData.rows.map((r) => r.ma)));
-  }, [khuVucCuaToiData, showKhuVucFilter]);
+  }, [khuVucCuaToiData, showKhuVucFilter, laMuaHangTk]);
   const khuVucOptions = showKhuVucFilter ? (khuVucAllData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ten })) : [];
   const khuVucParam = showKhuVucFilter && filterKhuVuc.size > 0 ? [...filterKhuVuc].sort().join(",") : "";
 

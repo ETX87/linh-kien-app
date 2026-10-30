@@ -42,6 +42,8 @@ export async function bundleAutoApprovedIntoPxk(
   nguoiNhanHang: string,
   loaiDon: "mua" | "cong_no" | "tra_hang",
   lines: AutoApprovedLine[],
+  // boQuaPxk: KHONG gop lai vao phieu nay (don vua bi bo ra khoi chinh phieu do - DELETE /phieu-xuat-kho/:id/dong, 2026-10-29).
+  opts: { boQuaPxk?: string } = {},
 ): Promise<string | null> {
   if (lines.length === 0) return null;
   // Don da duoc chon khu vuc xu ly rieng (dat_don_hang.khu_vuc_chon - PATCH /dat-mua-lk/don-hang/:id/khu-vuc, 2026-10-15) di vao
@@ -77,7 +79,7 @@ export async function bundleAutoApprovedIntoPxk(
   for (const { kv: kvChon, dt: doiTac, daTT, lde, dong } of nhom.values()) {
     const lyDo = (daTT ? "Đơn đã thanh toán — ưu tiên phiếu riêng (không gộp phiếu đang chờ chuyển tiền) để gửi Kế toán xuất hàng ngay\n" : "") +
       dong.map((l) => moTaDonVaoPhieu(donTheoId.get(l.donHangId), l.donHangId, loaiDon)).join("\n");
-    pxkCuoi = await gomMotNhom(env, db, actorEmail, nguoiNhanHang, loaiDon, dong, kvChon, lyDo, doiTac, daTT, lde);
+    pxkCuoi = await gomMotNhom(env, db, actorEmail, nguoiNhanHang, loaiDon, dong, kvChon, lyDo, doiTac, daTT, lde, opts.boQuaPxk ?? null);
   }
   return pxkCuoi;
 }
@@ -116,6 +118,7 @@ async function gomMotNhom(
   doiTac: string | null = null,
   daThanhToan = false,
   nhomLde = "",
+  boQuaPxk: string | null = null,
 ): Promise<string> {
   const now = nowVN();
 
@@ -127,9 +130,10 @@ async function gomMotNhom(
          AND COALESCE(TRIM(ma_misa), '') = ''
          AND khu_vuc_chon IS ? AND doi_tac_ma IS ?
          AND ${phieuCungNhomLdeSql("phieu_xuat_kho.id", "?")}
+         AND id IS NOT ?
        ORDER BY ngay_tao DESC LIMIT 1`,
     )
-    .bind(nguoiNhanHang, loaiDon, kvChon, doiTac, nhomLde)
+    .bind(nguoiNhanHang, loaiDon, kvChon, doiTac, nhomLde, boQuaPxk)
     .first<{ id: string; ma_xuat_kho: string; so_tien_can_chuyen: number | null }>();
 
   const statements = [];
