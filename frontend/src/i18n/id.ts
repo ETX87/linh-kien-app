@@ -2399,5 +2399,13 @@ const tuDien: Record<string, string> = {
   "Hủy bỏ bắt buộc nhập lý do": "Pembatalan wajib mengisi alasan",
   "Hủy ticket = hủy luôn đơn gốc đang chờ hàng (tiền đã trả về quỹ của KTV); KTV nhận được lý do này.": "Membatalkan tiket juga membatalkan pesanan asal yang menunggu barang (uang yang dibayar kembali ke dana teknisi); teknisi menerima alasan ini.",
   "Lý do hủy (bắt buộc, áp dụng cho {a} dòng đã chọn — đơn gốc bị hủy, KTV nhận được lý do này):": "Alasan pembatalan (wajib, berlaku untuk {a} baris terpilih — pesanan asal dibatalkan, teknisi menerima alasan ini):",
+  "Quỹ của": "Dana milik",
+  "Số thực nhận đang nhập": "Jumlah diterima yang diisi",
+  "Số tiền nộp": "Jumlah setoran",
+  "Trùng số tiền": "Jumlah ganda",
+  "Đã điền theo số đọc từ ảnh — đối chiếu sao kê, sửa nếu sai.": "Diisi dari jumlah yang terbaca di foto — cocokkan dengan mutasi rekening, ubah jika salah.",
+  "Ảnh chưa đọc được đủ số tiền — đang điền số KTV khai.": "Jumlah belum terbaca di semua foto — memakai jumlah yang dilaporkan teknisi.",
+  "Ảnh {a}/{b}": "Foto {a}/{b}",
+  "Ảnh {a}/{b} · Nộp tiền vào quỹ": "Foto {a}/{b} · Setoran dana",
 };
 export default tuDien;

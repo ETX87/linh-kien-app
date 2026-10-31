@@ -2399,5 +2399,13 @@ const tuDien: Record<string, string> = {
   "Hủy bỏ bắt buộc nhập lý do": "A reason is required to cancel",
   "Hủy ticket = hủy luôn đơn gốc đang chờ hàng (tiền đã trả về quỹ của KTV); KTV nhận được lý do này.": "Cancelling the ticket also cancels the original waiting order (paid money returns to the technician's fund); the technician receives this reason.",
   "Lý do hủy (bắt buộc, áp dụng cho {a} dòng đã chọn — đơn gốc bị hủy, KTV nhận được lý do này):": "Cancel reason (required, applies to the {a} selected rows — original orders are cancelled, technicians receive this reason):",
+  "Quỹ của": "Fund of",
+  "Số thực nhận đang nhập": "Amount received being entered",
+  "Số tiền nộp": "Deposit amount",
+  "Trùng số tiền": "Duplicate amount",
+  "Đã điền theo số đọc từ ảnh — đối chiếu sao kê, sửa nếu sai.": "Filled from the amount read on the photo — check the bank statement, edit if wrong.",
+  "Ảnh chưa đọc được đủ số tiền — đang điền số KTV khai.": "Could not read the amount on every photo — using the amount the technician declared.",
+  "Ảnh {a}/{b}": "Photo {a}/{b}",
+  "Ảnh {a}/{b} · Nộp tiền vào quỹ": "Photo {a}/{b} · Fund deposit",
 };
 export default tuDien;
