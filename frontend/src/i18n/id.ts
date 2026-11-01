@@ -2417,5 +2417,6 @@ const tuDien: Record<string, string> = {
   "Đề xuất đặt thay ({n} chiếc):": "Saran pengganti ({n} buah):",
   "💡 {ma} chỉ còn {a}/{n} — có linh kiện tương đương còn hàng:": "💡 Stok {ma} hanya {a}/{n} — ada suku cadang setara yang tersedia:",
   "💡 {ma} đang hết hàng — có linh kiện tương đương còn hàng:": "💡 Stok {ma} habis — ada suku cadang setara yang tersedia:",
+  "hết hàng": "stok habis",
 };
 export default tuDien;

@@ -26,14 +26,19 @@ import { coQuyenSuaThayThe } from "../../lib/quyenThayThe";
 // Sheet qua ThayTheGoiYTuSheet, da bo). Ap dung cho MOI nguoi dung. Nguoi co quyen sua linh kien (Quan ly danh muc LK / Mua hang /
 // Admin, + Kho / Ke toan / Giam sat tu v1.390 - coQuyenSuaThayThe, khop backend suaThayThe) co them o "+ Thêm vào nhóm thay thế" de bo sung nhanh ma dang chon vao 1 nhom co san.
 // onChon (v1.430): bam 1 ma goi y = doi ngay ma dang dat thanh ma do (giu SL).
-export function ThayTheGoiY({ maLk, addToast, onChon }: { maLk: string; addToast: (msg: string) => void; onChon?: (ma: string) => void }) {
+// khuVuc (v1.431): khu vuc kho cua don (tu ket qua kiem tra phieu) -> moi chip kem so ton "x123" / "hết hàng".
+export function ThayTheGoiY({ maLk, addToast, onChon, khuVuc }: { maLk: string; addToast: (msg: string) => void; onChon?: (ma: string) => void; khuVuc?: string | null }) {
   const qc = useQueryClient();
   const auth = useAuth();
   const u = auth.status === "authenticated" ? auth.user : null;
   const canQuanLy = coQuyenSuaThayThe(u);
   const { data } = useQuery({
-    queryKey: ["lk-thay-the", maLk],
-    queryFn: () => api.get<{ rows: LkDanhMucRow[] }>(`/lk-settings/thay-the/${encodeURIComponent(maLk)}`),
+    queryKey: ["lk-thay-the", maLk, khuVuc ?? ""],
+    queryFn: () =>
+      api.get<{ rows: (LkDanhMucRow & { ton?: number })[] }>(
+        `/lk-settings/thay-the/${encodeURIComponent(maLk)}${khuVuc ? `?khu_vuc=${encodeURIComponent(khuVuc)}` : ""}`,
+      ),
+    staleTime: 30_000,
   });
   const { data: nhomData } = useQuery({
     queryKey: ["lk-nhom-thay-the"],
@@ -78,6 +83,7 @@ export function ThayTheGoiY({ maLk, addToast, onChon }: { maLk: string; addToast
                 className="focus-ring inline-flex items-center gap-1 border border-[var(--ocean-800)] text-[var(--ocean-800)] bg-[var(--ocean-100)] rounded-full px-2.5 py-1 text-[11.5px] font-semibold hover:bg-[var(--ocean-800)] hover:text-white"
               >
                 ↔ {formatLkLabel(r.ma_linh_kien, r.ten_linh_kien)}
+                <TonChip ton={r.ton} />
               </button>
             ) : (
               <span
@@ -85,6 +91,7 @@ export function ThayTheGoiY({ maLk, addToast, onChon }: { maLk: string; addToast
                 className="inline-flex items-center gap-1 border border-[var(--ocean-800)] text-[var(--ocean-800)] bg-[var(--ocean-100)] rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
               >
                 ↔ {formatLkLabel(r.ma_linh_kien, r.ten_linh_kien)}
+                <TonChip ton={r.ton} />
               </span>
             ),
           )}
@@ -104,6 +111,14 @@ export function ThayTheGoiY({ maLk, addToast, onChon }: { maLk: string; addToast
   );
 }
 
+
+// So ton cua ma goi y (v1.431): con hang = "x123" xanh, het = "hết hàng" do; chua biet khu vuc -> khong hien.
+function TonChip({ ton }: { ton?: number }) {
+  if (ton == null) return null;
+  return ton > 0
+    ? <span className="ml-0.5 rounded-full bg-[var(--color-success-soft)] text-[var(--color-success-strong)] px-1.5 text-[10.5px] font-bold">x{ton}</span>
+    : <span className="ml-0.5 rounded-full bg-[var(--color-danger-soft)] text-[var(--color-danger-strong)] px-1.5 text-[10.5px] font-bold">{t("hết hàng")}</span>;
+}
 
 // SUA LAG + tach biet trang thai anh (phan hoi 2026-08-18): ap dung DUNG khuon mau AnhThumbnail cua
 // DanhMucLinhKienModule.tsx (da giai dung bai toan nay) - 1 THE <img> DUY NHAT (khong dung lai lan 2

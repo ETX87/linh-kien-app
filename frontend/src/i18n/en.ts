@@ -2417,5 +2417,6 @@ const tuDien: Record<string, string> = {
   "Đề xuất đặt thay ({n} chiếc):": "Suggested alternatives ({n} pcs):",
   "💡 {ma} chỉ còn {a}/{n} — có linh kiện tương đương còn hàng:": "💡 {ma} has only {a}/{n} in stock — equivalent parts available:",
   "💡 {ma} đang hết hàng — có linh kiện tương đương còn hàng:": "💡 {ma} is out of stock — equivalent parts available:",
+  "hết hàng": "out of stock",
 };
 export default tuDien;

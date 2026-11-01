@@ -9,6 +9,7 @@ import { requireQuanLyDanhMucLk } from "../middleware/requireQuanLyDanhMucLk";
 import { nowVN } from "../lib/vnTime";
 import { chuanMaCombo } from "../lib/lkCombo";
 import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
+import { computeTonKhoChot } from "../lib/tonKhoCongTy";
 
 // Catalog "Dat mua linh kien": danh muc LK, nhom thay the, BOM tra cuu - xem migration
 // 0054_lk_danh_muc.sql + 0055_lk_bom.sql. Doc mo cho moi user da duyet (dropdown tao don), ghi
@@ -281,8 +282,11 @@ lkSettings.delete("/nhom-thay-the/:id", suaThayThe, async (c) => {
 
 // GET /api/lk-settings/thay-the/:ma_lk - goi y ma LK khac cung nhom thay the voi :ma_lk (khong
 // tra chinh :ma_lk). Dung o TaoDonTab khi chon 1 ma_lk - buoc 2 ke hoach "Luong tao don mua hang".
+// ?khu_vuc=<ma> (v1.431, "khi hiện đề xuất hiện luôn là còn hàng hay không (x123)"): kem `ton` = ton kho cong ty con dat duoc o khu vuc
+// cua don (computeTonKhoChot - CUNG cong thuc tu duyet; form lay khu vuc tu POST /phieu-dat/kiem-tra). Khong tru cac dong khac dang soan.
 lkSettings.get("/thay-the/:ma_lk", async (c) => {
   const maLk = c.req.param("ma_lk").trim();
+  const khuVuc = c.req.query("khu_vuc")?.trim() || null;
   const { results } = await c.env.DB.prepare(
     `SELECT DISTINCT dm.ma_linh_kien, dm.ten_linh_kien, dm.gia_ban
      FROM lk_nhom_thay_the_ct ct
@@ -292,8 +296,11 @@ lkSettings.get("/thay-the/:ma_lk", async (c) => {
      ORDER BY dm.ma_linh_kien`,
   )
     .bind(maLk, maLk)
-    .all();
-  return c.json({ rows: results });
+    .all<{ ma_linh_kien: string }>();
+  if (!khuVuc) return c.json({ rows: results });
+  const rows = [];
+  for (const r of results) rows.push({ ...r, ton: await computeTonKhoChot(c.env.DB, khuVuc, r.ma_linh_kien) });
+  return c.json({ rows });
 });
 
 // ---------- BOM tra cuu ----------

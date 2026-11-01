@@ -297,7 +297,7 @@ export function TaoDonMobileScreen({
           </div>
         )}
 
-        {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiY maLk={d.ma_lk.trim()} addToast={addToast} onChon={(ma) => updateDraft(activeIdx, { ma_lk: ma })} />}
+        {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiY maLk={d.ma_lk.trim()} addToast={addToast} onChon={(ma) => updateDraft(activeIdx, { ma_lk: ma })} khuVuc={form.kiemTra?.khu_vuc} />}
 
         {showInfoBoSung ? (
           <>

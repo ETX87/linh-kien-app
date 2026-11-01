@@ -455,7 +455,7 @@ export function TaoDonTab({
                   </div>
                 )}
 
-                {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiY maLk={d.ma_lk.trim()} addToast={addToast} onChon={(ma) => updateDraft(idx, { ma_lk: ma })} />}
+                {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiY maLk={d.ma_lk.trim()} addToast={addToast} onChon={(ma) => updateDraft(idx, { ma_lk: ma })} khuVuc={form.kiemTra?.khu_vuc} />}
 
                 {/* "Thong tin bo sung" - mac dinh AN (phan hoi 2026-08-19 #5), chi tu mo khi batBuoc/
                     da co du lieu/nguoi dung tu bam. Gop het Yeu cau hoa don + Ma YCSC + Chinh sach vao
