@@ -98,6 +98,15 @@ interface GiaoDichRow {
   khoan_tien_ngoai_id?: number | null; // migration 0095
 }
 
+// Nhan loai 1 dong so quy - dung chung cot "Loai" va file tai ve.
+function nhanLoaiGiaoDich(g: GiaoDichRow): { label: string; tone: BadgeTone } | undefined {
+  // Khoan tien ngoai (migration 0095): ghi so loai dieu_chinh kem khoan_tien_ngoai_id -> nhan rieng.
+  if (g.khoan_tien_ngoai_id) {
+    return { label: g.so_tien >= 0 ? dichSau("Tiền ngoài vào quỹ") : dichSau("Hủy tiền ngoài"), tone: g.so_tien >= 0 ? "teal" : "gray" };
+  }
+  return nhanGiaoDichHoanTien(g) ?? LOAI_GIAO_DICH[g.loai];
+}
+
 const LOAI_GIAO_DICH: Record<string, { label: string; tone: BadgeTone }> = {
   nop_tien: { label: dichSau("Nộp tiền (KT xác nhận)"), tone: "teal" },
   tra_phieu: { label: dichSau("Trả phiếu"), tone: "ocean" },
@@ -740,6 +749,26 @@ function SoDuTab({ rows, isLoading, isError, ten, coTheDieuChinh, onXemSoQuy, on
   const [page, setPage] = useState(1);
   const loc = rows.filter((r) => (!chiCoQuy || r.so_du > 0) && (!q.trim() || khopTim(`${ten(r.email)} ${r.email}`, q)));
   const trang = loc.slice((page - 1) * 20, page * 20);
+  const addToast = useToast();
+  async function taiExcel() {
+    try {
+      await exportRowsToExcel(loc.map((r) => ({
+        "Người nhận hàng": ten(r.email) || r.email,
+        "Email": r.email,
+        "Quỹ dư": r.so_du,
+        "Tạm giữ hoàn tiền": r.tam_giu ?? 0,
+        "Còn phải chuyển": r.con_phai_chuyen,
+        "Số phiếu chờ tiền": r.so_phieu_cho,
+        "Đã xác nhận nhận": r.tong_thuc_nhan,
+        "Số khoản đã duyệt": r.so_khoan_duyet,
+        "Số lần từ chối": r.so_lan_tu_choi,
+        "Lần cuối": r.lan_cuoi ?? "",
+        "Quỹ cập nhật lúc": r.cap_nhat_luc ?? "",
+      })), "so_du_quy.xlsx", "Số dư quỹ");
+    } catch (err) {
+      addToast(t("Không tải được file: ") + describeApiError(err));
+    }
+  }
   const columns: Column<TongQuanRow>[] = [
     { key: "nguoi", header: t("Người nhận hàng"), render: (r) => <span className="font-semibold">{ten(r.email) || r.email}</span>, mobile: "title" },
     { key: "so_du", header: t("Quỹ dư"), className: "text-right", render: (r) => <b className={r.so_du > 0 ? "text-[var(--color-success-strong)]" : "text-[var(--color-text-faint)]"}><Money>{fmtVND(r.so_du)}</Money></b>, mobile: "badge" },
@@ -769,6 +798,7 @@ function SoDuTab({ rows, isLoading, isError, ten, coTheDieuChinh, onXemSoQuy, on
         <label className="flex items-center gap-1.5 text-sm text-[var(--color-text-body)]">
           <input type="checkbox" checked={chiCoQuy} onChange={(e) => { setChiCoQuy(e.target.checked); setPage(1); }} /> {t("Chỉ người có quỹ dư")}
         </label>
+        <Btn variant="ghost" size="sm" className="ml-auto" onClick={() => void taiExcel()} disabled={loc.length === 0}>{t("⬇ Tải Excel")}</Btn>
       </div>
       <PaginatedTable
         columns={columns}
@@ -803,16 +833,40 @@ function SoQuyTab({ xemTatCa, nguoiOptions, emailLoc, setEmailLoc, ten }: {
     queryKey: ["quy-ktv-giao-dich", qs, page],
     queryFn: () => api.get<{ rows: GiaoDichRow[]; total: number }>(`/quy-ktv/giao-dich?${qs}${qs ? "&" : ""}page=${page}&pageSize=20`),
   });
+  const addToast = useToast();
+  const [dangTai, setDangTai] = useState(false);
+  async function taiExcel() {
+    setDangTai(true);
+    try {
+      const res = await api.get<{ rows: GiaoDichRow[] }>(`/quy-ktv/giao-dich?${qs}`);
+      await exportRowsToExcel(res.rows.map((g) => {
+        const n = nhanLoaiGiaoDich(g);
+        return {
+          "Thời gian": g.ngay_tao,
+          "Người nhận hàng": ten(g.email) || g.email,
+          "Email": g.email,
+          "Loại": n ? t(n.label) : g.loai,
+          "Biến động": g.so_tien,
+          "Số dư sau": g.so_du_sau,
+          "Mã HĐ / Phiếu": g.phieu_xuat_kho_id ? (g.ma_xuat_kho ?? g.phieu_xuat_kho_id) : (g.phieu_hoan_tien_id ?? ""),
+          "ID phiếu xuất": g.phieu_xuat_kho_id ?? "",
+          "Ghi chú": g.ghi_chu ?? "",
+          "Người thực hiện": g.nguoi_tao === "he-thong" ? t("Hệ thống") : ten(g.nguoi_tao),
+        };
+      }), "so_quy.xlsx", "Sổ quỹ");
+    } catch (err) {
+      addToast(t("Không tải được file: ") + describeApiError(err));
+    } finally {
+      setDangTai(false);
+    }
+  }
   const columns: Column<GiaoDichRow>[] = [
     { key: "ngay", header: t("Thời gian"), render: (g) => fmtDateTime(g.ngay_tao), mobile: "meta" },
     ...(xemTatCa ? [{ key: "nguoi", header: t("Người nhận hàng"), render: (g: GiaoDichRow) => ten(g.email), mobile: "title" as const }] : []),
     {
       key: "loai", header: t("Loại"), mobile: "badge",
       render: (g) => {
-        // Khoan tien ngoai (migration 0095): ghi so loai dieu_chinh kem khoan_tien_ngoai_id -> nhan rieng.
-        const n = g.khoan_tien_ngoai_id
-          ? { label: g.so_tien >= 0 ? dichSau("Tiền ngoài vào quỹ") : dichSau("Hủy tiền ngoài"), tone: (g.so_tien >= 0 ? "teal" : "gray") as BadgeTone }
-          : nhanGiaoDichHoanTien(g) ?? LOAI_GIAO_DICH[g.loai];
+        const n = nhanLoaiGiaoDich(g);
         return <Badge tone={n?.tone ?? "gray"}>{n ? t(n.label) : g.loai}</Badge>;
       },
     },
@@ -835,6 +889,7 @@ function SoQuyTab({ xemTatCa, nguoiOptions, emailLoc, setEmailLoc, ten }: {
           options={[{ value: "", label: t("Tất cả loại") }, ...Object.entries(LOAI_GIAO_DICH).map(([value, v]) => ({ value, label: t(v.label) }))]}
           className="w-full sm:w-52"
         />
+        <Btn variant="ghost" size="sm" className="ml-auto" onClick={() => void taiExcel()} disabled={dangTai || !data?.total}>{dangTai ? t("Đang tải...") : t("⬇ Tải Excel")}</Btn>
       </div>
       <PaginatedTable
         columns={columns}
