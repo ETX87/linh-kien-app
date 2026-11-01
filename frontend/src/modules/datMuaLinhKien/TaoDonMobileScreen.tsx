@@ -12,6 +12,7 @@ import { LinhKienPicker, ThayTheGoiY } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
 import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal } from "./DuDoanDuyetHint";
+import { GoiYThayTheThieuHang } from "./GoiYThayTheThieuHang";
 import { DoiTacCongNoChon } from "./DoiTacCongNoChon";
 import { TraHangAnhPicker, NhapKhoiPhucBanner } from "./SharedUi";
 import type { TaoDonForm } from "./useTaoDonForm";
@@ -281,6 +282,11 @@ export function TaoDonMobileScreen({
             {chuaCoGiaKtv && <CanhBaoChuaCoGiaKtv />}
           </div>
           <DuDoanDuyetHint ketQua={ketQuaTheoDong.get(activeIdx)} />
+          <GoiYThayTheThieuHang
+            ketQua={ketQuaTheoDong.get(activeIdx)}
+            onDoiMa={(ma) => { updateDraft(activeIdx, { ma_lk: ma }); addToast(t("Đã đổi sang {ma}", { ma })); }}
+            onApDung={(phan) => { form.apDungThayThe(activeIdx, phan); addToast(t("Đã chia thành {n} dòng theo đề xuất", { n: phan.length })); }}
+          />
         </div>
 
         {/* Anh linh kien can tra (them 2026-08-24, muc 1) - xem giai thich day du o TaoDonTab.tsx. */}
@@ -291,7 +297,7 @@ export function TaoDonMobileScreen({
           </div>
         )}
 
-        {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiY maLk={d.ma_lk.trim()} addToast={addToast} />}
+        {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiY maLk={d.ma_lk.trim()} addToast={addToast} onChon={(ma) => updateDraft(activeIdx, { ma_lk: ma })} />}
 
         {showInfoBoSung ? (
           <>

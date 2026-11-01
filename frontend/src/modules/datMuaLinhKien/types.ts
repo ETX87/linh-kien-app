@@ -72,6 +72,14 @@ export interface KiemTraDong {
   ton: number | null;
   nguon_ton: "kho" | "ktv" | null;
   bat_buoc_chuyen_tien: boolean;
+  // LK tuong duong con hang cho dong thieu hang (v1.430, GoiYThayTheThieuHang.tsx) - rong neu khong thieu / khong co ma nao con ton.
+  thay_the?: ThayTheConHang[];
+}
+export interface ThayTheConHang {
+  ma_lk: string;
+  ten_lk: string;
+  gia_ban: number | null;
+  ton: number; // ton kho cong ty cung khu vuc cua don, da tru cac dong khac trong phieu
 }
 // Ket qua POST /dat-mua-lk/phieu-dat (2026-10-15): tung dong da tao + trang thai khoi tao + ly do (ghi chu log he thong).
 export interface KetQuaTaoDonDong {

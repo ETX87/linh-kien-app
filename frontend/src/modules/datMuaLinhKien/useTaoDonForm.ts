@@ -387,6 +387,19 @@ export function useTaoDonForm({
     );
   }
 
+  // Goi y LK tuong duong (v1.430, GoiYThayTheThieuHang.tsx): tach dong idx thanh nhieu dong theo phuong an nguoi dung chon - moi dong
+  // giu nguyen moi o khac (loai de xuat, chinh sach, ma YCSC...), chi doi ma LK + SL. Form tu kiem tra lai sau khi doi.
+  function apDungThayThe(idx: number, phan: { ma_lk: string; sl: number }[]) {
+    if (!phan.length) return;
+    setDrafts((prev) => {
+      const goc = prev[idx];
+      if (!goc) return prev;
+      const moi = phan.map((p) => ({ ...goc, ma_lk: p.ma_lk, so_luong_de_xuat: p.sl }));
+      return [...prev.slice(0, idx), ...moi, ...prev.slice(idx + 1)];
+    });
+    setActiveIdx(idx);
+  }
+
   function isLineComplete(d: DonHangDraft): boolean {
     return !!(
       d.ma_lk.trim() &&
@@ -497,7 +510,7 @@ export function useTaoDonForm({
     danhMuc, nguoiNhanHang, setNguoiNhanHang, drafts, infoExpandedIdx, setInfoExpandedIdx,
     activeIdx, setActiveIdx, otherLdeIdx, setOtherLdeIdx, addBlockedHint, setAddBlockedHint,
     activeRowRef, justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
-    updateDraft, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
+    updateDraft, apDungThayThe, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
     giaUocTinhDong, tongGiaUocTinh, tongGhiNoDoiTac, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
     duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
     laNhomKhLe, khLeSdt, setKhLeSdt, khLeSdtSai, khLeTraCuu, khLeDangTraCuu,

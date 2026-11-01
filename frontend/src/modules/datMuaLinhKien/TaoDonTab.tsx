@@ -15,6 +15,7 @@ import { LinhKienPicker, ThayTheGoiY } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
 import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal } from "./DuDoanDuyetHint";
+import { GoiYThayTheThieuHang } from "./GoiYThayTheThieuHang";
 import { DoiTacCongNoChon } from "./DoiTacCongNoChon";
 import { TraHangAnhPicker, NhapKhoiPhucBanner } from "./SharedUi";
 import { NhapTaoDonHoi } from "./NhapTaoDonHoi";
@@ -49,7 +50,7 @@ export function TaoDonTab({
     danhMuc, nguoiNhanHang, setNguoiNhanHang, drafts, infoExpandedIdx, setInfoExpandedIdx,
     activeIdx, setActiveIdx, otherLdeIdx, setOtherLdeIdx, addBlockedHint, setAddBlockedHint,
     activeRowRef, justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
-    updateDraft, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
+    updateDraft, apDungThayThe, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
     giaUocTinhDong, tongGiaUocTinh, tongGhiNoDoiTac, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
     duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
     ketQuaTheoDong, loiPhieuText, dongCanXacNhan, hoiXacNhan, setHoiXacNhan,
@@ -420,6 +421,11 @@ export function TaoDonTab({
                   {/* Canh bao "don nay se tu dong duyet hay khong" (them 2026-09-11) - chi co y nghia
                       khi da chon du Ma LK + Loai de xuat + So luong, xem dieu kien ben trong component. */}
                   <DuDoanDuyetHint ketQua={ketQuaTheoDong.get(idx)} />
+                  <GoiYThayTheThieuHang
+                    ketQua={ketQuaTheoDong.get(idx)}
+                    onDoiMa={(ma) => { updateDraft(idx, { ma_lk: ma }); addToast(t("Đã đổi sang {ma}", { ma })); }}
+                    onApDung={(phan) => { apDungThayThe(idx, phan); addToast(t("Đã chia thành {n} dòng theo đề xuất", { n: phan.length })); }}
+                  />
                 </div>
 
                 <div>
@@ -449,7 +455,7 @@ export function TaoDonTab({
                   </div>
                 )}
 
-                {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiY maLk={d.ma_lk.trim()} addToast={addToast} />}
+                {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiY maLk={d.ma_lk.trim()} addToast={addToast} onChon={(ma) => updateDraft(idx, { ma_lk: ma })} />}
 
                 {/* "Thong tin bo sung" - mac dinh AN (phan hoi 2026-08-19 #5), chi tu mo khi batBuoc/
                     da co du lieu/nguoi dung tu bam. Gop het Yeu cau hoa don + Ma YCSC + Chinh sach vao

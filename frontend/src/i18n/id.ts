@@ -2407,5 +2407,15 @@ const tuDien: Record<string, string> = {
   "Ảnh chưa đọc được đủ số tiền — đang điền số KTV khai.": "Jumlah belum terbaca di semua foto — memakai jumlah yang dilaporkan teknisi.",
   "Ảnh {a}/{b}": "Foto {a}/{b}",
   "Ảnh {a}/{b} · Nộp tiền vào quỹ": "Foto {a}/{b} · Setoran dana",
+  "Bấm để đổi linh kiện đang đặt thành {ma}": "Klik untuk mengganti baris ini menjadi {ma}",
+  "Bỏ qua, vẫn đặt {n} × {ma}": "Abaikan, tetap pesan {n} × {ma}",
+  "bỏ {n} chiếc còn thiếu": "lewati {n} yang kurang",
+  "chờ hàng": "menunggu stok",
+  "kho còn {n}": "stok {n}",
+  "Đã chia thành {n} dòng theo đề xuất": "Dibagi menjadi {n} baris sesuai saran",
+  "Đã đổi sang {ma}": "Diganti ke {ma}",
+  "Đề xuất đặt thay ({n} chiếc):": "Saran pengganti ({n} buah):",
+  "💡 {ma} chỉ còn {a}/{n} — có linh kiện tương đương còn hàng:": "💡 Stok {ma} hanya {a}/{n} — ada suku cadang setara yang tersedia:",
+  "💡 {ma} đang hết hàng — có linh kiện tương đương còn hàng:": "💡 Stok {ma} habis — ada suku cadang setara yang tersedia:",
 };
 export default tuDien;

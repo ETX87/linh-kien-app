@@ -2420,6 +2420,7 @@ datMuaLinhKien.post("/phieu-dat/kiem-tra", async (c) => {
   const kq = await chuanBiPhieuDat(c, body, false);
   if ("error" in kq) return c.json({ loi_phieu: kq.error, dong: [], ...(kq.extra ?? {}) });
   const ds = kq.danhGia;
+  const thayThe = await goiYThayTheThieuHang(c.env.DB, ds.khuVuc, kq.body.don_hang, ds.dong, kq.comboMaCuaDong);
   return c.json({
     loi_phieu: null,
     khu_vuc: ds.khuVuc,
@@ -2438,9 +2439,62 @@ datMuaLinhKien.post("/phieu-dat/kiem-tra", async (c) => {
       ton: d.ton,
       nguon_ton: d.nguonTon,
       bat_buoc_chuyen_tien: d.batBuocChuyenTien,
+      thay_the: thayThe.get(i) ?? [],
     })),
   });
 });
+
+// GOI Y LK TUONG DUONG CON HANG cho dong thieu hang (chot 2026-11-01, v1.430 - "linh kiện họ đặt thiếu hàng và có mã tương đương đủ hàng,
+// hiện 1 nhắc nhở ... đưa ra các đề xuất cho người dùng chọn"). Chi dong lay ton kho CONG TY (nguon_ton 'kho', khong combo, khong loi) dang
+// thieu (Cho hang / Cho thanh toan): ma cung nhom lk_nhom_thay_the_ct, dang bat trong danh muc (khong 'Da doi ma', khong Only sua chua), ton
+// chot CUNG khu vuc cua don (computeTonKhoChot - cung cong thuc danhGiaPhieu) TRU SL cac dong khac trong phieu da dat chinh ma do. Chi tra ma
+// con ton > 0, nhieu ton truoc, toi da 5 ma. FE (GoiYThayTheThieuHang.tsx) tu dung cac phuong an chia SL.
+async function goiYThayTheThieuHang(
+  db: D1Database,
+  khuVuc: string,
+  dongs: PhieuDatDaChuanBi["body"]["don_hang"],
+  ketQua: PhieuDatDaChuanBi["danhGia"]["dong"],
+  comboMa: (string | null)[],
+): Promise<Map<number, { ma_lk: string; ten_lk: string; gia_ban: number | null; ton: number }[]>> {
+  const out = new Map<number, { ma_lk: string; ten_lk: string; gia_ban: number | null; ton: number }[]>();
+  const thieu = ketQua
+    .map((k, i) => ({ k, i }))
+    .filter(({ k, i }) => !k.loi && !comboMa[i] && k.nguonTon === "kho" && (k.trangThai === "Cho hang" || k.trangThai === "Cho thanh toan"));
+  if (!thieu.length || !khuVuc) return out;
+  const maThieu = [...new Set(thieu.map(({ i }) => dongs[i].ma_lk))];
+  const { results } = await db
+    .prepare(
+      `SELECT DISTINCT ct.ma_lk AS goc, dm.ma_linh_kien, dm.ten_linh_kien, dm.gia_ban
+       FROM lk_nhom_thay_the_ct ct
+       JOIN lk_nhom_thay_the_ct ct2 ON ct2.nhom_id = ct.nhom_id AND ct2.ma_lk <> ct.ma_lk
+       JOIN linh_kien dm ON dm.ma_linh_kien = ct2.ma_lk
+       WHERE ct.ma_lk IN (SELECT value FROM json_each(?))
+         AND dm.bat_tat = 1 AND COALESCE(dm.trang_thai_ma, '') <> 'Da doi ma' AND COALESCE(dm.chi_sua_chua, 0) = 0`,
+    )
+    .bind(JSON.stringify(maThieu))
+    .all<{ goc: string; ma_linh_kien: string; ten_linh_kien: string; gia_ban: number | null }>();
+  if (!results.length) return out;
+  // SL cac dong trong phieu dang lay ton kho cong ty theo tung ma (dong khong loi) - dong dang xet KHONG dung ma thay the nen tru het.
+  const daDat = new Map<string, number>();
+  ketQua.forEach((k, i) => {
+    if (!k.loi && k.nguonTon === "kho") daDat.set(dongs[i].ma_lk, (daDat.get(dongs[i].ma_lk) ?? 0) + Number(dongs[i].so_luong_de_xuat));
+  });
+  const tonCache = new Map<string, number>();
+  for (const ma of new Set(results.map((r) => r.ma_linh_kien)).values()) {
+    tonCache.set(ma, (await computeTonKhoChot(db, khuVuc, ma)) - (daDat.get(ma) ?? 0));
+  }
+  for (const { i } of thieu) {
+    const ma = dongs[i].ma_lk;
+    const ds = results
+      .filter((r) => r.goc === ma)
+      .map((r) => ({ ma_lk: r.ma_linh_kien, ten_lk: r.ten_linh_kien, gia_ban: r.gia_ban, ton: tonCache.get(r.ma_linh_kien) ?? 0 }))
+      .filter((r) => r.ton > 0)
+      .sort((a, b) => b.ton - a.ton || a.ma_lk.localeCompare(b.ma_lk))
+      .slice(0, 5);
+    if (ds.length) out.set(i, ds);
+  }
+  return out;
+}
 
 datMuaLinhKien.post("/phieu-dat", async (c) => {
   if (!canCreatePhieuDat(c)) return c.json({ error: c.get("user").la_ve_tinh ? "VE_TINH_KHONG_TAO_DON" : "FORBIDDEN_ROLE" }, 403);

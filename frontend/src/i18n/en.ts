@@ -2407,5 +2407,15 @@ const tuDien: Record<string, string> = {
   "Ảnh chưa đọc được đủ số tiền — đang điền số KTV khai.": "Could not read the amount on every photo — using the amount the technician declared.",
   "Ảnh {a}/{b}": "Photo {a}/{b}",
   "Ảnh {a}/{b} · Nộp tiền vào quỹ": "Photo {a}/{b} · Fund deposit",
+  "Bấm để đổi linh kiện đang đặt thành {ma}": "Click to switch this line to {ma}",
+  "Bỏ qua, vẫn đặt {n} × {ma}": "Ignore, keep ordering {n} × {ma}",
+  "bỏ {n} chiếc còn thiếu": "drop the {n} missing",
+  "chờ hàng": "awaiting stock",
+  "kho còn {n}": "{n} in stock",
+  "Đã chia thành {n} dòng theo đề xuất": "Split into {n} lines as suggested",
+  "Đã đổi sang {ma}": "Switched to {ma}",
+  "Đề xuất đặt thay ({n} chiếc):": "Suggested alternatives ({n} pcs):",
+  "💡 {ma} chỉ còn {a}/{n} — có linh kiện tương đương còn hàng:": "💡 {ma} has only {a}/{n} in stock — equivalent parts available:",
+  "💡 {ma} đang hết hàng — có linh kiện tương đương còn hàng:": "💡 {ma} is out of stock — equivalent parts available:",
 };
 export default tuDien;

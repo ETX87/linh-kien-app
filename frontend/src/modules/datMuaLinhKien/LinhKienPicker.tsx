@@ -25,7 +25,8 @@ import { coQuyenSuaThayThe } from "../../lib/quyenThayThe";
 // Goi y ma LK cung nhom thay the (bang lk_nhom_thay_the - nguon duy nhat tu 2026-10-19, migration 0092; truoc do goi y doc Google
 // Sheet qua ThayTheGoiYTuSheet, da bo). Ap dung cho MOI nguoi dung. Nguoi co quyen sua linh kien (Quan ly danh muc LK / Mua hang /
 // Admin, + Kho / Ke toan / Giam sat tu v1.390 - coQuyenSuaThayThe, khop backend suaThayThe) co them o "+ Thêm vào nhóm thay thế" de bo sung nhanh ma dang chon vao 1 nhom co san.
-export function ThayTheGoiY({ maLk, addToast }: { maLk: string; addToast: (msg: string) => void }) {
+// onChon (v1.430): bam 1 ma goi y = doi ngay ma dang dat thanh ma do (giu SL).
+export function ThayTheGoiY({ maLk, addToast, onChon }: { maLk: string; addToast: (msg: string) => void; onChon?: (ma: string) => void }) {
   const qc = useQueryClient();
   const auth = useAuth();
   const u = auth.status === "authenticated" ? auth.user : null;
@@ -60,20 +61,33 @@ export function ThayTheGoiY({ maLk, addToast }: { maLk: string; addToast: (msg: 
 
   return (
     <div className="col-span-2 sm:col-span-6 -mt-1 text-xs flex items-center gap-2 flex-wrap">
-      {/* Style ".substitute-chip" cua concept 1 (vien+chu+nen indigo, bo tron full) - thay cho danh
-          sach text thuan truoc day. Van la hien thi thuan tuy (khong them onClick chon thay the -
-          ngoai pham vi restyle JSX/className cua dot nay). */}
+      {/* Style ".substitute-chip" cua concept 1. Co onChon -> bam chip = doi sang ma tuong duong (v1.430). */}
       {rows.length > 0 && (
         <>
           <span className="text-[var(--ink-500)]">{t("Có thể thay thế bằng:")}</span>
-          {rows.map((r) => (
-            <span
-              key={r.ma_linh_kien}
-              className="inline-flex items-center gap-1 border border-[var(--ocean-800)] text-[var(--ocean-800)] bg-[var(--ocean-100)] rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
-            >
-              ↔ {formatLkLabel(r.ma_linh_kien, r.ten_linh_kien)}
-            </span>
-          ))}
+          {rows.map((r) =>
+            onChon ? (
+              <button
+                key={r.ma_linh_kien}
+                type="button"
+                onClick={() => {
+                  onChon(r.ma_linh_kien);
+                  addToast(t("Đã đổi sang {ma}", { ma: r.ma_linh_kien }));
+                }}
+                title={t("Bấm để đổi linh kiện đang đặt thành {ma}", { ma: r.ma_linh_kien })}
+                className="focus-ring inline-flex items-center gap-1 border border-[var(--ocean-800)] text-[var(--ocean-800)] bg-[var(--ocean-100)] rounded-full px-2.5 py-1 text-[11.5px] font-semibold hover:bg-[var(--ocean-800)] hover:text-white"
+              >
+                ↔ {formatLkLabel(r.ma_linh_kien, r.ten_linh_kien)}
+              </button>
+            ) : (
+              <span
+                key={r.ma_linh_kien}
+                className="inline-flex items-center gap-1 border border-[var(--ocean-800)] text-[var(--ocean-800)] bg-[var(--ocean-100)] rounded-full px-2.5 py-1 text-[11.5px] font-semibold"
+              >
+                ↔ {formatLkLabel(r.ma_linh_kien, r.ten_linh_kien)}
+              </span>
+            ),
+          )}
         </>
       )}
       {canQuanLy && nhomChuaCo.length > 0 && (
