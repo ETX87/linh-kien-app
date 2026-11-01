@@ -22,6 +22,35 @@ export function gsKhuVucXemThemSql(col: string): string {
 }
 
 /**
+ * GS PHU (chot 2026-11-01, "1 tài khoản GS phụ mới, tôi sẽ chọn khu vực họ có thể quản lý hoặc đặt hàng hộ như giám sát chính (nếu
+ * khu vực đó đã có GS chính) => GS chọn khu vực => phụ trách tất cả KTV thuộc khu vực đó"): khu vuc Admin gan cho tai khoan GS
+ * (user_khu_vuc, truoc goi "Khu vuc xem them") = khu vuc GS PHU TRACH THEM, quyen NHU GS chinh (khu_vuc.gs_email) - khong chi xem:
+ * duyet don vuot tran ("Cho GS duyet"), huy ho don, xac nhan chuyen tien ho, nhan thong bao cho duyet. GS chinh van la 1 nguoi/khu vuc.
+ * Tra true neu `email` la GS chinh HOAC GS phu cua khu vuc `khuVucMa`.
+ */
+export async function laGsCuaKhuVuc(db: D1Database, email: string, khuVucMa: string | null | undefined): Promise<boolean> {
+  if (!khuVucMa) return false;
+  const r = await db
+    .prepare("SELECT 1 FROM khu_vuc WHERE ma = ?1 AND gs_email = ?2 UNION ALL SELECT 1 FROM user_khu_vuc WHERE khu_vuc_ma = ?1 AND user_email = ?2 LIMIT 1")
+    .bind(khuVucMa, email)
+    .first();
+  return !!r;
+}
+
+/** Email cac GS PHU cua 1 khu vuc (tai khoan vai tro Giam sat, khong khoa, duoc Admin gan khu vuc nay) - de bao viec cho duyet. */
+export async function gsPhuCuaKhuVuc(db: D1Database, khuVucMa: string | null | undefined): Promise<string[]> {
+  if (!khuVucMa) return [];
+  const { results } = await db
+    .prepare(
+      `SELECT u.email FROM user_khu_vuc uk JOIN users u ON u.email = uk.user_email
+       WHERE uk.khu_vuc_ma = ? AND u.vai_tro = 'Giam sat' AND COALESCE(u.bi_khoa, 0) = 0`,
+    )
+    .bind(khuVucMa)
+    .all<{ email: string }>();
+  return results.map((r) => r.email);
+}
+
+/**
  * Quyen CHON LAI KHU VUC cua don / phieu xuat (chot 2026-10-22, "Cho phép giám sát, TBP hoặc người tạo đơn hộ chọn lại khu vực cho đơn
  * hàng hoặc phiếu hàng"). TN (gom Ke toan lam thay) / Kho / Ke toan / Admin van duoc nhu cu (kiem tra o route) + TBP (la_tp_dvbh) moi don.
  * Ham nay tra dieu kien SQL tren alias don `a` cho 2 nhom con lai: NGUOI TAO HO (tao don cho nguoi KHAC nhan) va GIAM SAT (don trong pham

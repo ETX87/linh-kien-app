@@ -249,8 +249,12 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
 
   if (user.vai_tro === "Giam sat") {
     const row = await db
-      .prepare("SELECT COUNT(*) as n FROM dat_don_hang ddh WHERE ddh.trang_thai_hien_tai = 'Cho GS duyet' AND ddh.email_gs = ?")
-      .bind(user.email)
+      // + don thuoc khu vuc GS PHU trach (user_khu_vuc, chot 2026-11-01).
+      .prepare(
+        `SELECT COUNT(*) as n FROM dat_don_hang ddh WHERE ddh.trang_thai_hien_tai = 'Cho GS duyet'
+           AND (ddh.email_gs = ? OR COALESCE(ddh.khu_vuc_chon, ddh.khu_vuc_ma) IN (SELECT khu_vuc_ma FROM user_khu_vuc WHERE user_email = ?))`,
+      )
+      .bind(user.email, user.email)
       .first<{ n: number }>();
     out.choGsDuyet = row?.n ?? 0;
   }

@@ -127,8 +127,9 @@ async function duocXacNhanChuyenTienHo(c: Context<{ Bindings: Env }>, pxkId: str
   if (user.email === nguoiNhanHang || user.vai_tro === "Admin" || canTacNghiep(c) || canKeToan(c)) return true;
   const r = await c.env.DB.prepare(
     `SELECT 1 FROM phieu_xuat_kho_dong pd JOIN dat_don_hang d ON d.id = pd.dat_don_hang_id
-     WHERE pd.phieu_xuat_kho_id = ? AND (d.nguoi_tao = ? OR d.email_gs = ?) LIMIT 1`,
-  ).bind(pxkId, user.email, user.email).first();
+     WHERE pd.phieu_xuat_kho_id = ? AND (d.nguoi_tao = ? OR d.email_gs = ?
+       OR (? = 'Giam sat' AND COALESCE(d.khu_vuc_chon, d.khu_vuc_ma) IN (SELECT khu_vuc_ma FROM user_khu_vuc WHERE user_email = ?))) LIMIT 1`,
+  ).bind(pxkId, user.email, user.email, user.vai_tro, user.email).first();
   return !!r;
 }
 

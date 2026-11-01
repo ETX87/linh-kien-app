@@ -56,7 +56,12 @@ suachuaPartner.get("/etx-nhan-su", async (c) => {
 // GET /api/suachua-partner/user-khu-vuc - khu vuc phu trach cua tai khoan nhan su (2026-10-21, yeu cau suachua "chi can
 // dong bo kiem tra 1 ngay 1 lan + bo sung dong bo thu cong"). suachua dung de gioi han pham vi xem (View) va tu suy mien.
 suachuaPartner.get("/user-khu-vuc", async (c) => {
-  const { results } = await c.env.DB.prepare("SELECT user_email, khu_vuc_ma FROM user_khu_vuc").all();
+  // la_gs (2026-11-01): tai khoan vai tro Giam sat -> khu vuc nay la khu vuc GS PHU trach (quyen nhu GS chinh) - suachua dua vao
+  // danh sach GS cua khu vuc (khu_vuc_gs_bh).
+  const { results } = await c.env.DB.prepare(
+    `SELECT uk.user_email, uk.khu_vuc_ma, CASE WHEN u.vai_tro = 'Giam sat' AND COALESCE(u.bi_khoa, 0) = 0 THEN 1 ELSE 0 END AS la_gs
+     FROM user_khu_vuc uk LEFT JOIN users u ON u.email = uk.user_email`,
+  ).all();
   return c.json({ rows: results });
 });
 

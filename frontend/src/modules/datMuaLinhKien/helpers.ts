@@ -461,10 +461,27 @@ export function canNhapMaEo(d: Pick<DonHangRow, "trang_thai" | "loai_don" | "loa
   );
 }
 
+/** Khu vuc GS dang phu trach (GS chinh khu_vuc.gs_email + GS PHU user_khu_vuc, chot 2026-11-01) - dung chung cache
+ *  ["dat-mua-lk-khu-vuc-cua-toi"] voi bo loc khu vuc. Chi goi khi la GS. */
+export function useGsKhuVucSet(laGs: boolean): ReadonlySet<string> | undefined {
+  const { data } = useQuery({
+    queryKey: ["dat-mua-lk-khu-vuc-cua-toi"],
+    queryFn: () => api.get<{ rows: { ma: string; ten: string }[] }>("/dat-mua-lk/khu-vuc-cua-toi"),
+    enabled: laGs,
+  });
+  return useMemo(() => (data ? new Set(data.rows.map((r) => r.ma)) : undefined), [data]);
+}
+
+/** Don thuoc khu vuc GS phu trach (chinh hoac phu) - ban sao backend laGsCuaKhuVuc. */
+function donTrongKhuVucGs(d: DonHangRow, gsKhuVuc?: ReadonlySet<string>): boolean {
+  const kv = d.khu_vuc_chon ?? d.khu_vuc_ma;
+  return !!kv && !!gsKhuVuc?.has(kv);
+}
+
 export function actionsFor(
   d: DonHangRow,
   // laKhoMuaHang (2026-10-27): Kho / Mua hang huy duoc don "Cho hang" ma Kho / Mua hang DA xac nhan xu ly (KTV khong huy duoc nua).
-  ctx: { canTacNghiep: boolean; canTPDvbhXacNhan?: boolean; canActAsTram: boolean; currentEmail: string; isAdmin?: boolean; laGs?: boolean; laKhoMuaHang?: boolean },
+  ctx: { canTacNghiep: boolean; canTPDvbhXacNhan?: boolean; canActAsTram: boolean; currentEmail: string; isAdmin?: boolean; laGs?: boolean; laKhoMuaHang?: boolean; gsKhuVuc?: ReadonlySet<string> },
 ): { duyet: boolean; tuChoi: boolean; choHang: boolean; huy: boolean } {
   // Don tra hang "Cho TN duyet tong" hien chung muc "Chờ tác nghiệp" voi don mua (2026-09-30) -> TN Duyet/Tu choi ngay tren
   // dong (DonCuaToiTab gui sang /tra-hang/bulk-log, xem laTraHangChoTn). Cac buoc tra hang khac xu ly o muc Hang tra.
@@ -477,7 +494,10 @@ export function actionsFor(
   // duyet" nhu cu, khong doi).
   // GS khu vuc huy ho KTV (v1.399/v1.400): GS = email_gs cua don HOAC GS cua KTV tao don (gs_nguoi_tao) duoc huy NHU nguoi tao -
   // ban sao backend gsHuyHo (applyDonHangLog).
-  const gsHuyHo = !!ctx.laGs && d.nguoi_tao !== ctx.currentEmail && (d.email_gs === ctx.currentEmail || d.gs_nguoi_tao === ctx.currentEmail);
+  // + GS PHU cua khu vuc don (2026-11-01).
+  const gsHuyHo =
+    !!ctx.laGs && d.nguoi_tao !== ctx.currentEmail &&
+    (d.email_gs === ctx.currentEmail || d.gs_nguoi_tao === ctx.currentEmail || donTrongKhuVucGs(d, ctx.gsKhuVuc));
   const canHuy = ctx.currentEmail === d.nguoi_tao || !!ctx.isAdmin || gsHuyHo;
   if (d.trang_thai === "Cho Tram duyet") {
     return { duyet: ctx.canActAsTram, tuChoi: ctx.canActAsTram, choHang: false, huy: canHuy };
@@ -490,7 +510,7 @@ export function actionsFor(
   // Tu dong duyet 100% (2026-10-14): don vuot tran -> CHI GS khu vuc cua KTV (email_gs) / Admin duyet (ma EO) hoac tu choi;
   // "Cho thanh toan" (thieu hang, cho KTV chuyen tien) khong ai duyet tay - chi huy (nguoi tao / TN / Admin).
   if (d.trang_thai === "Cho GS duyet") {
-    const laGs = (!!d.email_gs && ctx.currentEmail === d.email_gs) || !!ctx.isAdmin;
+    const laGs = (!!d.email_gs && ctx.currentEmail === d.email_gs) || !!ctx.isAdmin || (!!ctx.laGs && donTrongKhuVucGs(d, ctx.gsKhuVuc));
     return { duyet: laGs, tuChoi: laGs, choHang: false, huy: canHuy || ctx.canTacNghiep };
   }
   if (d.trang_thai === "Cho thanh toan") {

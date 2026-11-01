@@ -18,6 +18,7 @@
 import { locEmailKhoTheoNhomLk } from "./nhomLk";
 import type { Env } from "../types";
 import { nowVN } from "./vnTime";
+import { gsPhuCuaKhuVuc } from "./scopeDatMua";
 import { computeTonKhoChot } from "./tonKhoCongTy";
 import { computeTonKtvConLai } from "./tonKhoKtv";
 import { computeCongNoChot } from "./congNoKtv";
@@ -457,14 +458,17 @@ export async function baoNguoiTaoDon(
 /** Bao GS khu vuc (email_gs cua don) co don vuot tran cho duyet. Khu vuc chua co GS -> khong bao (don cho toi khi co GS). */
 export async function baoGsChoDuyet(env: Env, db: D1Database, donHangId: string): Promise<void> {
   const d = await db
-    .prepare("SELECT email_gs, ten_lk_snapshot, so_luong_de_xuat FROM dat_don_hang WHERE id = ?")
+    .prepare("SELECT email_gs, ten_lk_snapshot, so_luong_de_xuat, COALESCE(khu_vuc_chon, khu_vuc_ma) as khu_vuc_hl FROM dat_don_hang WHERE id = ?")
     .bind(donHangId)
-    .first<{ email_gs: string | null; ten_lk_snapshot: string; so_luong_de_xuat: number }>();
-  if (!d?.email_gs) return;
+    .first<{ email_gs: string | null; ten_lk_snapshot: string; so_luong_de_xuat: number; khu_vuc_hl: string | null }>();
+  if (!d) return;
+  // GS chinh + GS PHU cua khu vuc (chot 2026-11-01) deu duyet duoc -> bao ca hai.
+  const nhan = [...new Set([...(d.email_gs ? [d.email_gs] : []), ...(await gsPhuCuaKhuVuc(db, d.khu_vuc_hl))])];
+  if (!nhan.length) return;
   await notifyWorkflowTask(env, db, {
-    cat1Emails: [d.email_gs],
+    cat1Emails: nhan,
     otherRoles: [],
-    emailGsList: [d.email_gs],
+    emailGsList: d.email_gs ? [d.email_gs] : nhan,
     pastActors: [],
     title: "Đặt mua linh kiện",
     body: `Đơn "${d.ten_lk_snapshot} (x${d.so_luong_de_xuat})" vượt trần công nợ, chờ bạn duyệt (nhập mã EO)`,

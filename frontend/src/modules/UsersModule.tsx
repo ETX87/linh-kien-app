@@ -393,7 +393,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
   // chua gan Khu vuc nao = View khong thay don nao ca. GS gan khu vuc qua khu_vuc.gs_email (Settings >
   // Khu vực), o day chi hien READ-ONLY.
   const isGiamSat = form.vai_tro === "Giam sat";
-  // + GS (2026-10-02): "Khu vực xem thêm" - cung bang user_khu_vuc, MO RONG pham vi xem cua GS (gsKhuVucXemThemSql backend).
+  // GS (2026-11-01): khu vuc tich o day = khu vuc GS PHU trach (user_khu_vuc), quyen nhu GS chinh - xem laGsCuaKhuVuc backend.
   const showKhuVucAssign = form.la_kho || form.la_ke_toan || form.la_tac_nghiep || form.la_view || isGiamSat;
   const { data: khuVucData } = useQuery({ queryKey: ["settings-khu-vuc"], queryFn: () => api.get<{ rows: KhuVucRow[] }>("/settings/khu-vuc") });
   const khuVucRows = khuVucData?.rows ?? [];
@@ -407,7 +407,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
   const saveKhuVuc = useMutation({
     mutationFn: () => api.put(`/users/${encodeURIComponent(user.email)}/khu-vuc`, { khu_vuc_ma: Array.from(effectiveKhuVuc) }),
   });
-  const gsKhuVuc = khuVucRows.filter((k) => k.gs_email === user.email);
+
 
   async function handleSave() {
     await save.mutateAsync();
@@ -513,27 +513,14 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
             )}
           </div>
         )}
-        {isGiamSat && (
-          <div>
-            <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">Khu vực đang phụ trách</label>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {gsKhuVuc.length === 0 ? (
-                <span className="text-[var(--ink-400)] text-xs">— (chưa có khu vực nào)</span>
-              ) : (
-                gsKhuVuc.map((k) => <Badge key={k.ma} tone="ocean">{k.ten}</Badge>)
-              )}
-            </div>
-            <div className="text-[11px] text-[var(--ink-400)] mt-1">Sửa ở Cài đặt › Khu vực.</div>
-          </div>
-        )}
         {showKhuVucAssign && (
           <div>
             <label className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] flex items-center gap-1.5">
-              {isGiamSat && !(form.la_kho || form.la_ke_toan || form.la_tac_nghiep || form.la_view) ? "Khu vực xem thêm" : "Khu vực phụ trách"}
+              {isGiamSat ? "Khu vực phụ trách (Giám sát KTV)" : "Khu vực phụ trách"}
               <Tooltip
                 text={
                   isGiamSat
-                    ? "Giám sát: ngoài khu vực đang phụ trách (Cài đặt › Khu vực), được XEM thêm đơn hàng / phiếu xuất / thiếu hàng / công nợ của các khu vực chọn ở đây. Không đổi Giám sát phụ trách của khu vực."
+                    ? "Giám sát phụ trách TẤT CẢ KTV thuộc các khu vực được tích: xem, đặt hàng hộ, hủy hộ, duyệt đơn vượt trần (mã EO), xác nhận chuyển tiền hộ — như Giám sát chính. Khu vực đã có GS chính vẫn tích thêm được (thành GS phụ). GS chính của khu vực đổi ở Cài đặt › Khu vực."
                     : form.la_view
                     ? "Với vai trò View: đây là phạm vi dữ liệu THẬT SỰ được xem (đơn / phiếu / công nợ / quỹ thuộc các khu vực này). Không chọn khu vực nào = xem TẤT CẢ khu vực."
                     : "Chỉ để tìm kiếm/thống kê/badge - KHÔNG giới hạn quyền xem/xử lý đơn. Có thể chọn nhiều khu vực, cho phép chồng chéo với người khác."
@@ -541,21 +528,34 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
               />
             </label>
             <div className="grid grid-cols-2 gap-1.5 mt-1">
-              {khuVucRows.filter((k) => k.bat_tat).map((k) => (
-                <label key={k.ma} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={effectiveKhuVuc.has(k.ma)}
-                    onChange={(e) => {
-                      const next = new Set(effectiveKhuVuc);
-                      if (e.target.checked) next.add(k.ma);
-                      else next.delete(k.ma);
-                      setKhuVucSelected(next);
-                    }}
-                  />
-                  {k.ten}
-                </label>
-              ))}
+              {khuVucRows.filter((k) => k.bat_tat).map((k) => {
+                // GS (2026-11-01): khu vuc ma chinh nguoi nay la GS chinh -> luon tich, khoa (doi o Cai dat › Khu vuc);
+                // khu vuc khac -> tich = GS phu. Hien ten GS chinh dang co cua khu vuc de Admin biet.
+                const laChinh = isGiamSat && k.gs_email === user.email;
+                const gsChinhKhac = isGiamSat && !laChinh && k.gs_email ? k.gs_ten || k.gs_email : null;
+                return (
+                  <label key={k.ma} className="flex items-start gap-2" title={gsChinhKhac ? `GS chính: ${gsChinhKhac}` : undefined}>
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={laChinh || effectiveKhuVuc.has(k.ma)}
+                      disabled={laChinh}
+                      onChange={(e) => {
+                        const next = new Set(effectiveKhuVuc);
+                        if (e.target.checked) next.add(k.ma);
+                        else next.delete(k.ma);
+                        setKhuVucSelected(next);
+                      }}
+                    />
+                    <span className="min-w-0">
+                      {k.ten}
+                      {laChinh && <span className="ml-1"><Badge tone="ocean">GS chính</Badge></span>}
+                      {!laChinh && isGiamSat && effectiveKhuVuc.has(k.ma) && <span className="ml-1"><Badge tone="teal">GS phụ</Badge></span>}
+                      {gsChinhKhac && <span className="block text-[10px] text-[var(--ink-400)] truncate">GS chính: {gsChinhKhac}</span>}
+                    </span>
+                  </label>
+                );
+              })}
               {/* Chon/bo nhanh MOI khu vuc dang bat (2026-09-30) - chi la chon hang loat, khu vuc them sau KHONG tu cong vao */}
               {(() => {
                 const dangBat = khuVucRows.filter((k) => k.bat_tat);

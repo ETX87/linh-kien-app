@@ -42,7 +42,7 @@ import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts,
   LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, laTraHangChoTn, laChoHangMoKhoa, laChoHangBiKhoa, dayLaiDuoc, trangThaiLabel, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLkCombo, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
-  donGiaSauChietKhau, tienSauChietKhau, giaNiemYet, boQuaTbpDacThu, canNhapMaEo, nenKhieuNai } from "./helpers";
+  donGiaSauChietKhau, tienSauChietKhau, giaNiemYet, boQuaTbpDacThu, canNhapMaEo, nenKhieuNai, useGsKhuVucSet } from "./helpers";
 import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink, LogTieuDe } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck, isLikelyLadaId } from "./MaLadaCheck";
@@ -373,10 +373,11 @@ export function DonHangDetailModal({
   const personDirChiTiet = usePersonDirectory();
   const authHuy = useAuth();
   const laGsXem = authHuy.status === "authenticated" && authHuy.user.vai_tro === "Giam sat";
+  const gsKhuVucXem = useGsKhuVucSet(laGsXem);
   // Kho / Mua hang (2026-10-27): huy don "Chờ hàng" Kho / Mua hang da xac nhan xu ly; Mua hang chuyen don ve "Chờ hàng".
   const laMuaHangXem = authHuy.status === "authenticated" && (!!authHuy.user.la_mua_hang || authHuy.user.vai_tro === "Admin");
   const laKhoMuaHang = authHuy.status === "authenticated" && (!!authHuy.user.la_kho || !!authHuy.user.la_mua_hang);
-  const actions = d ? actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, isAdmin, laGs: laGsXem, laKhoMuaHang }) : { duyet: false, tuChoi: false, choHang: false, huy: false };
+  const actions = d ? actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, isAdmin, laGs: laGsXem, laKhoMuaHang, gsKhuVuc: gsKhuVucXem }) : { duyet: false, tuChoi: false, choHang: false, huy: false };
   const muaHangChoHang = !!d && laMuaHangXem && !!d.mua_hang_cho_hang_duoc;
   // Muc #4: SL thuc xuat CHI cho sua khi dong dang "Cho TN duyet" va SL de xuat > 1 (dung dieu kien
   // nguoi dung neu ra). "Da doi" so voi SL de xuat (khong phai so voi gia tri cu da luu - dong nay
@@ -2745,6 +2746,7 @@ export function DonHangGroupedList({
 }) {
   const authGs = useAuth();
   const laGsList = authGs.status === "authenticated" && authGs.user.vai_tro === "Giam sat";
+  const gsKhuVucList = useGsKhuVucSet(laGsList);
   const ktvDisplayMap = useKtvDisplayMap();
   const personDir = usePersonDirectory();
   // Tach 2 nhom Ly do cham theo quan_ly_don_thieu_linh_kien (xem comment actionsFor.choHang o
@@ -3025,7 +3027,7 @@ export function DonHangGroupedList({
   // (1) Cot nut luon dung NGAY SAU checkbox (bat ke thu tu cot da luu - nguoi dung khong phai keo lai),
   //     an han neu khong dong nao co nut (vd KTV xem don cua minh).
   const actionCount = (d: DonHangRow) => {
-    const a = actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, laGs: laGsList });
+    const a = actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, laGs: laGsList, gsKhuVuc: gsKhuVucList });
     return (a.duyet ? 1 : 0) + (a.choHang ? 1 : 0) + (a.tuChoi ? 1 : 0) + (dayLaiDuoc(d, canTacNghiep) ? 1 : 0);
   };
   const maxActions = rows.reduce((m, d) => Math.max(m, actionCount(d)), 0);
@@ -3129,7 +3131,7 @@ export function DonHangGroupedList({
     // Tong tien cua KTV - bo don cong no doi tac (ghi no doi tac, KTV khong tra - v1.408).
     const tongTien = dongCon.reduce((s, d) => s + (d.doi_tac_ma ? 0 : tienSauChietKhau(d)), 0);
     const rowsEnriched: EnrichedRow[] = dongCon.map((d) => {
-      const actions = actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, laGs: laGsList });
+      const actions = actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, laGs: laGsList, gsKhuVuc: gsKhuVucList });
       const tone = LOAI_DON_TONE[d.loai_don];
       const rowStyle = DON_HANG_ROW_STYLE[d.trang_thai ?? ""] ?? "";
       const chonDuoc = showCheckbox && (d.trang_thai === "Cho Tram duyet" || d.trang_thai === "Cho TN duyet" || laTraHangChoTn(d)) && (actions.duyet || actions.tuChoi);

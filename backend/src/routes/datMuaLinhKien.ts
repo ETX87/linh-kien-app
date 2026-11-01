@@ -14,7 +14,7 @@ import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nextSequentialId } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
 import { emailsTheoTen, orEmailIn, orMaYcsc, orPxkCuaDon, tenLkKhopSql } from "../lib/timTheoTen";
-import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, viewDonScopeSql, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql, laKhoThuan, scopePxkNguoiNhanHang, gsKhuVucXemThemSql, duocDoiKhuVucDon } from "../lib/scopeDatMua";
+import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, viewDonScopeSql, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql, laKhoThuan, scopePxkNguoiNhanHang, gsKhuVucXemThemSql, duocDoiKhuVucDon, laGsCuaKhuVuc } from "../lib/scopeDatMua";
 import { pxkKhopMienXuatSql } from "../lib/mienXuat";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
@@ -3463,6 +3463,7 @@ async function applyDonHangLog(
 ): Promise<{ error: string; status: 404 | 409 | 403 | 400 } | { nextTrangThai: string }> {
   const ddh = await c.env.DB.prepare(
     `SELECT ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao, ddh.nguoi_nhan_hang, ddh.email_gs, ddh.version, (SELECT u_gs.giam_sat_quan_ly FROM users u_gs WHERE u_gs.email = ddh.nguoi_tao) as gs_nguoi_tao, ddh.ly_do_cham, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat,
+            COALESCE(ddh.khu_vuc_chon, ddh.khu_vuc_ma) as khu_vuc_hl,
             ddh.ma_xuat_kho, ddh.danh_gia_cong_no, ddh.ma_eo, ddh.ma_lk, ${DAC_THU_DON_SQL("ddh")} as dac_thu, ${latestDonHangStatusExpr("ddh.id")} as trang_thai, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
             ${lastGiaiTrinhAtExpr("ddh.id")} as last_giai_trinh_at
      FROM dat_don_hang ddh LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk WHERE ddh.id = ?`,
@@ -3470,6 +3471,7 @@ async function applyDonHangLog(
     .bind(donHangId)
     .first<{
       loai_don: string; loai_de_xuat: string | null; nguoi_tao: string; nguoi_nhan_hang: string | null; email_gs: string | null; version: number; ly_do_cham: string | null; gs_nguoi_tao: string | null;
+      khu_vuc_hl: string | null;
       ten_lk_snapshot: string; so_luong_de_xuat: number; ma_xuat_kho: string | null; dac_thu: number | null; trang_thai: string | null;
       cho_tn_duyet_at: string | null; last_giai_trinh_at: string | null; danh_gia_cong_no: string | null; ma_eo: string | null; ma_lk: string | null;
     }>();
@@ -3493,9 +3495,10 @@ async function applyDonHangLog(
   // cua KTV nhan hang) HOAC GS cua KTV TAO don (users.giam_sat_quan_ly cua nguoi_tao) duoc huy NHU CHINH KTV dat don (cung cac buoc
   // nguoi tao huy duoc + tu huy don tu duyet trong phieu chua thao tac); bat buoc ly do, log "GS hủy hộ KTV". Ban sao FE: actionsFor.
   // v1.410 (2026-10-27): GS huy duoc ca don "TN da duyet" trong phieu Ke toan chua chot tien / phieu khong tien chua chot (pxkGsHuyDuoc).
+  // + GS PHU cua khu vuc hieu luc cua don (user_khu_vuc, chot 2026-11-01 - quyen nhu GS chinh, xem laGsCuaKhuVuc).
   const gsHuyHo =
     hanhDong === "huy" && user.vai_tro === "Giam sat" && ddh.nguoi_tao !== user.email &&
-    (ddh.email_gs === user.email || ddh.gs_nguoi_tao === user.email);
+    (ddh.email_gs === user.email || ddh.gs_nguoi_tao === user.email || (await laGsCuaKhuVuc(c.env.DB, user.email, ddh.khu_vuc_hl)));
   const tnTrongPxkId =
     ddh.trang_thai === "TN da duyet" && ddh.ma_xuat_kho != null && (hanhDong === "tu_choi" || hanhDong === "huy")
       ? canTacNghiep(c)
@@ -3599,7 +3602,10 @@ async function applyDonHangLog(
   } else if (ddh.trang_thai === "Cho GS duyet") {
     // Don cong no / ho tro VUOT TRAN (chot 2026-10-14): CHI GS khu vuc cua KTV (dat_don_hang.email_gs) hoac Admin. Duyet bat buoc ma
     // EO (nhap tu do) -> kiem tra ton kho; tu choi bat buoc ly do -> "Da huy".
-    if (user.email !== ddh.email_gs && user.vai_tro !== "Admin") return { error: "KHONG_PHAI_GS_KHU_VUC", status: 403 };
+    // + GS PHU cua khu vuc (chot 2026-11-01).
+    if (user.email !== ddh.email_gs && user.vai_tro !== "Admin" && !(user.vai_tro === "Giam sat" && (await laGsCuaKhuVuc(c.env.DB, user.email, ddh.khu_vuc_hl)))) {
+      return { error: "KHONG_PHAI_GS_KHU_VUC", status: 403 };
+    }
     if (hanhDong === "duyet") {
       if (!maEo) return { error: "MISSING_MA_EO", status: 400 };
       nextTrangThai = await dinhTuyen("gs");
