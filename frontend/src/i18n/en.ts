@@ -2464,5 +2464,6 @@ const tuDien: Record<string, string> = {
   "Tìm người nhận…": "Find recipient…",
   "» Người nhận": "» Recipients",
   "Ẩn danh sách người nhận": "Hide recipient list",
+  "Kéo để đổi độ rộng (bấm đúp: mặc định)": "Drag to resize (double-click: default)",
 };
 export default tuDien;

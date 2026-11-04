@@ -132,9 +132,10 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   đó là đổi cả 2) trừ bộ lọc của chính cột. Đơn hàng: sắp xếp dòng TRONG từng nhóm KTV; sắp xếp cột "Người nhận
   hàng" = đổi thứ tự nhóm. Cột PXK `viec_can_lam` là bản SQL của `pxkViecCanLamTiep()` (FE) — đổi 1 bên phải đổi
   bên kia. Nút lọc cắm vào `Column.filter` (vẽ trong `ResizableHeaderCell`); mobile: toàn bộ chip `LocCotBar` nằm TRONG bảng "Bộ lọc" (mục "Lọc theo cột"), ngoài bảng chỉ hiện chip cột đang lọc; số cột đang lọc cộng vào "Bộ lọc (N)".
-- **Side "Người nhận hàng" ở danh sách Đơn hàng** (2026-11-04, v1.435, `datMuaLinhKien/NguoiNhanSide.tsx`, desktop ≥ lg): cột bên trái
+- **Side "Người nhận hàng" ở danh sách Đơn hàng + Phiếu xuất** (2026-11-04, v1.435; Phiếu xuất + kéo rộng/hẹp v1.436, `datMuaLinhKien/NguoiNhanSide.tsx`, desktop ≥ lg): cột bên trái
   liệt kê người nhận + "(x số đơn)" = CÙNG `gia-tri-loc?cot=nguoi_nhan_hang` của lọc cột (khớp bộ lọc đang xem); bấm tên = đặt lọc cột
-  "Người nhận hàng" (Ctrl + bấm = chọn thêm, bấm lại = bỏ); ẩn/hiện lưu localStorage `dmlk-side-nguoi-nhan`. Cùng đợt: popup lọc cột rộng
+  "Người nhận hàng" (Ctrl + bấm = chọn thêm, bấm lại = bỏ); ẩn/hiện lưu localStorage `dmlk-side-nguoi-nhan` / `pxk-side-nguoi-nhan` (`useHienSideNguoiNhan`), độ rộng kéo mép phải 180–520px
+  lưu `<khoa>-rong` (bấm đúp = 260px); tên người nhận 1 dòng + "…". Cùng đợt: popup lọc cột rộng
   380px + ô `Select` có tìm kiếm rộng ≥ 320px, nhãn dài tự xuống dòng thay vì cắt "…" (tên người dài bị mất chữ).
 - **Xét duyệt mã linh kiện mới** (2026-09-30, migration `0053`, `lib/linhKienXetDuyet.ts`): mọi LK tạo trong app (form,
   import Excel, `/lk-settings/danh-muc` — người có "Quản lý danh mục LK") vào `linh_kien.trang_thai_ma='Cho xet duyet'`

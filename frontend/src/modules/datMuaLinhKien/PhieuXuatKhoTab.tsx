@@ -43,6 +43,7 @@ import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportResult, type M
 import { Money } from "../../components/ui/Money";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../components/ui/LocCot";
+import { NguoiNhanSide, NutMoSideNguoiNhan, useHienSideNguoiNhan } from "./NguoiNhanSide";
 import { BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung, DuyetChuyenTienForm, LichSuKhoanChuyen, RutLaiBangChungButton, TienPhieuVaQuy, TienBiBotCanhBao, TuChoiChuyenTienButton, type KhoanChuyenTien } from "./BangChungChuyenTien";
 import { doiNguoiThanhTen, formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay";
 import { t } from "../../i18n";
@@ -255,6 +256,8 @@ export function PhieuXuatKhoTab({
 
   // Loc cot kieu Excel (phan hoi 2026-09-28) - loc/sap xep o server (PXK_COT_LOC, phieuXuatKho.ts).
   const locCot = useLocCot();
+  // Side phu "Người nhận hàng" (desktop, v1.436) - giong danh sach Don hang (NguoiNhanSide.tsx).
+  const [hienSideNguoiNhan, setHienSideNguoiNhan] = useHienSideNguoiNhan("pxk-side-nguoi-nhan");
 
   // GD4 (phan hoi Codex #16): ve trang 1 moi khi bo loc doi - tranh dung o 1 trang qua so trang moi.
   useEffect(() => {
@@ -889,6 +892,7 @@ export function PhieuXuatKhoTab({
         searchPlaceholder={t("Tìm theo mã PXK, mã đơn hàng, mã YCSC, mã Lada, mã MISA, tên KTV...")}
         activeFilters={
           <>
+            {!hienSideNguoiNhan && <NutMoSideNguoiNhan onClick={() => setHienSideNguoiNhan(true)} />}
             {/* Nut bam nhanh "Đơn chờ xử lý" (them 2026-09-09, phan hoi "thêm 1 nút ấn nhanh...tự
                 filter ra danh sách cần làm theo vai trò bản thân") - chi hien khi vai tro dang xem
                 THAT SU co 1 buoc rieng trong pipeline PXK (pendingTrangThaiForRole khac rong), nhay
@@ -995,6 +999,13 @@ export function PhieuXuatKhoTab({
           minh (⚙ Tuy chinh cot, tinh nang co san cua PaginatedTable, chi chua duoc bat o bang nay) -
           giai quyet ca 2 y "tran/qua dai" (an bot cot khong can) va "man hinh to nhung chu nho" (keo
           rong cot can xem ky) ma khong can ve lai toan bo bang. */}
+      <div className="flex items-start gap-3">
+      {hienSideNguoiNhan && (
+        <div className="sticky top-2 hidden self-start lg:block">
+          <NguoiNhanSide cfg={locCotCfg} khoa="pxk-side-nguoi-nhan" onDong={() => setHienSideNguoiNhan(false)} />
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
       <div className="sm:hidden">
         <LocCotBar cfg={locCotCfg} cots={Object.keys(locCotCfg.tieuDe)} hienTatCa={false} />
       </div>
@@ -1040,6 +1051,8 @@ export function PhieuXuatKhoTab({
         // vach cam ben trai (o dau tien), da in = xem cot "In phiếu".
         rowClassName={(r) => `${r.co_don_uu_tien ? "[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-warning)] shadow-[inset_3px_0_0_var(--color-warning)]" : ""} ${nenKhieuNai(r.co_khieu_nai)}`}
       />
+      </div>
+      </div>
       {showCreate && (() => {
         const dongTaoPxk = () => {
           setShowCreate(false);

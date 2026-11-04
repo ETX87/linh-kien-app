@@ -1,18 +1,59 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, buildQuery } from "../../api/client";
 import type { LocCotCfg } from "../../components/ui/LocCot";
 import { khopTim } from "../../lib/boDau";
 import { t } from "../../i18n";
+import { useLocalStorageState } from "../../hooks/useLocalStorageState";
+import { Btn } from "../../components/ui/Btn";
 
 // Side phu "Người nhận hàng" ben trai danh sach don (desktop, 2026-11-04 - "1 side phụ bên cạnh để hiện thị danh sách các
 // người nhận hàng (kèm sl sau tên (x123)) ... click vào tên người nhận trong side phụ để lọc danh sách chính"). Dung CHUNG
 // endpoint + bo loc cua loc cot Excel (`cfg`, cot nguoi_nhan_hang) nen so dem khop dung danh sach dang xem (tru bo loc cua
 // chinh cot nay) va bam ten = dat bo loc cot "Người nhận hàng" (chip + popup loc cot tu dong theo). Ctrl/⌘ + bam = chon them.
+// Dung chung cho danh sach Don hang + Phieu xuat (v1.436): `khoa` = khoa localStorage rieng moi danh sach (bat/tat + do rong).
+// Keo mep phai de doi do rong (180-520px); ten dai hien 1 dong + "…" (rê chuột xem đủ).
 const COT = "nguoi_nhan_hang";
+const RONG_MIN = 180;
+const RONG_MAX = 520;
 
-export function NguoiNhanSide({ cfg, onDong }: { cfg: LocCotCfg; onDong: () => void }) {
+/** Bat/tat side, luu tren may theo `khoa`. */
+export function useHienSideNguoiNhan(khoa: string) {
+  return useLocalStorageState(khoa, true);
+}
+
+/** Nut mo lai side khi dang an (chi desktop >= lg). */
+export function NutMoSideNguoiNhan({ onClick }: { onClick: () => void }) {
+  return (
+    <Btn size="sm" variant="ghost" className="hidden lg:inline-flex" onClick={onClick} title={t("Hiện danh sách người nhận hàng bên trái")}>
+      {t("» Người nhận")}
+    </Btn>
+  );
+}
+
+export function NguoiNhanSide({ cfg, onDong, khoa }: { cfg: LocCotCfg; onDong: () => void; khoa: string }) {
   const [tim, setTim] = useState("");
+  const [rong, setRong] = useLocalStorageState(`${khoa}-rong`, 260);
+  const keoRef = useRef<{ x: number; rong: number } | null>(null);
+  function batDauKeo(e: React.PointerEvent) {
+    e.preventDefault();
+    keoRef.current = { x: e.clientX, rong };
+    const di = (ev: PointerEvent) => {
+      if (!keoRef.current) return;
+      setRong(Math.round(Math.min(RONG_MAX, Math.max(RONG_MIN, keoRef.current.rong + ev.clientX - keoRef.current.x))));
+    };
+    const tha = () => {
+      keoRef.current = null;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("pointermove", di);
+      window.removeEventListener("pointerup", tha);
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", di);
+    window.addEventListener("pointerup", tha);
+  }
   const locKhac = useMemo(() => {
     const { [COT]: _bo, ...rest } = cfg.loc;
     return rest;
@@ -59,17 +100,27 @@ export function NguoiNhanSide({ cfg, onDong }: { cfg: LocCotCfg; onDong: () => v
       type="button"
       onClick={onClick}
       title={label}
-      className={`flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-[12.5px] leading-snug ${
+      className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12.5px] leading-snug ${
         chon ? "bg-[var(--color-primary-soft)] font-semibold text-[var(--color-primary)]" : "text-[var(--ink-700)] hover:bg-[var(--surface-100)]"
       }`}
     >
-      <span className="min-w-0 flex-1 break-words">{label}</span>
+      <span className="min-w-0 flex-1 truncate whitespace-nowrap">{label}</span>
       <span className={`shrink-0 tabular-nums ${chon ? "" : "text-[var(--ink-400)]"}`}>(x{n})</span>
     </button>
   );
 
   return (
-    <aside className="flex max-h-[calc(100vh-96px)] w-[260px] shrink-0 flex-col rounded-xl border border-[var(--line)] bg-[var(--surface)]">
+    <aside
+      style={{ width: Math.min(RONG_MAX, Math.max(RONG_MIN, rong)) }}
+      className="relative flex max-h-[calc(100vh-96px)] shrink-0 flex-col rounded-xl border border-[var(--line)] bg-[var(--surface)]"
+    >
+      {/* Tay keo doi do rong (mep phai); bam dup = ve mac dinh 260px. */}
+      <div
+        onPointerDown={batDauKeo}
+        onDoubleClick={() => setRong(260)}
+        title={t("Kéo để đổi độ rộng (bấm đúp: mặc định)")}
+        className="absolute -right-1.5 top-0 z-10 h-full w-3 cursor-col-resize after:absolute after:left-1/2 after:top-1/2 after:h-10 after:w-[3px] after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:bg-[var(--line)] hover:after:bg-[var(--color-primary)]"
+      />
       <div className="flex items-center justify-between gap-2 border-b border-[var(--line)] px-3 py-2">
         <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-500)]">{t("Người nhận hàng")}</span>
         <button

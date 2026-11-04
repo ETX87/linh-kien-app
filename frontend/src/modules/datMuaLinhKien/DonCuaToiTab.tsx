@@ -60,7 +60,7 @@ import { TongNgayKtvInfo } from "./TongNgayKtv";
 import { GanKhachLe } from "./KhachLeSdt";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../components/ui/LocCot";
-import { NguoiNhanSide } from "./NguoiNhanSide";
+import { NguoiNhanSide, NutMoSideNguoiNhan, useHienSideNguoiNhan } from "./NguoiNhanSide";
 import { TienPhieuVaQuy, TienBiBotCanhBao, BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung, RutLaiBangChungButton } from "./BangChungChuyenTien";
 import { TraHangDetailModal } from "./TraHangTab";
 import { t } from "../../i18n";
@@ -2084,7 +2084,7 @@ export function DonCuaToiTab({
   const locCot = useLocCot();
   const ktvDisplayMapLoc = useKtvDisplayMap();
   // Side phu "Người nhận hàng" (desktop) - bat/tat luu tren may (NguoiNhanSide.tsx).
-  const [hienSideNguoiNhan, setHienSideNguoiNhan] = useLocalStorageState("dmlk-side-nguoi-nhan", true);
+  const [hienSideNguoiNhan, setHienSideNguoiNhan] = useHienSideNguoiNhan("dmlk-side-nguoi-nhan");
   const locCotCfg: LocCotCfg = {
     ...locCot,
     endpoint: "/dat-mua-lk/don-hang/gia-tri-loc",
@@ -2382,11 +2382,7 @@ export function DonCuaToiTab({
         <Btn size="sm" variant="ghost" onClick={() => setShowFilters((v) => !v)}>
           {showFilters ? t("▲ Ẩn bộ lọc") : `☰ ${t("Bộ lọc")}${activeFilterCount > 0 ? ` (${activeFilterCount})` : ""} ▾`}
         </Btn>
-        {!hienSideNguoiNhan && (
-          <Btn size="sm" variant="ghost" className="hidden lg:inline-flex" onClick={() => setHienSideNguoiNhan(true)} title={t("Hiện danh sách người nhận hàng bên trái")}>
-            {t("» Người nhận")}
-          </Btn>
-        )}
+        {!hienSideNguoiNhan && <NutMoSideNguoiNhan onClick={() => setHienSideNguoiNhan(true)} />}
         {/* FIX (phan hoi 2026-08-28: "'Đang lọc: (còn tồn X)' chuyển lên cùng dòng với nút bộ lọc") -
             dat NGAY SAU nut "Bộ lọc", TRUOC o tim kiem (rong co dinh w-64) - tren man hep, flex-wrap uu
             tien giu cac phan tu DAU hang o line 1, o tim kiem la phan tu it uu tien nhat nen se tu wrap
@@ -2612,7 +2608,7 @@ export function DonCuaToiTab({
       <div className="flex items-start gap-3">
       {hienSideNguoiNhan && (
         <div className="sticky top-2 hidden self-start lg:block">
-          <NguoiNhanSide cfg={locCotCfg} onDong={() => setHienSideNguoiNhan(false)} />
+          <NguoiNhanSide cfg={locCotCfg} khoa="dmlk-side-nguoi-nhan" onDong={() => setHienSideNguoiNhan(false)} />
         </div>
       )}
       <div className="min-w-0 flex-1">

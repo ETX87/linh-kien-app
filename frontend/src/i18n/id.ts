@@ -2464,5 +2464,6 @@ const tuDien: Record<string, string> = {
   "Tìm người nhận…": "Cari penerima…",
   "» Người nhận": "» Penerima",
   "Ẩn danh sách người nhận": "Sembunyikan daftar penerima",
+  "Kéo để đổi độ rộng (bấm đúp: mặc định)": "Seret untuk ubah lebar (klik ganda: bawaan)",
 };
 export default tuDien;
