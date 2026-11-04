@@ -108,3 +108,99 @@ export function TachDonModal({
     </Modal>
   );
 }
+
+// TACH DON NGAY TRONG PHIEU (chot 2026-11-05, v1.440 - "kế toán xác định chỉ cho xuất trước 5 linh kiện, 5 linh kiện còn lại tách ra phiếu khác
+// để xuất sau"). Backend: POST /phieu-xuat-kho/:id/dong/:donHangId/tach (lib/tachDon.ts tachDonTrongPhieu). Dung o bang dong don cua phieu
+// (PxkDongDonHangTable - Drawer chi tiet PXK + dong xo xuong o danh sach).
+export function TachDonPhieuModal({
+  pxkId, donId, maLk, soLuong, tienDong, daTraPhieu, tongPhieu, onClose, onDone,
+}: {
+  pxkId: string;
+  donId: string;
+  maLk: string;
+  soLuong: number;
+  tienDong: number; // tien dong trong phieu (tien_uoc_tinh)
+  daTraPhieu: number;
+  tongPhieu: number | null;
+  onClose: () => void;
+  onDone: (msg: string) => void;
+}) {
+  const qc = useQueryClient();
+  const [sl, setSl] = useState(String(Math.max(1, Math.floor(soLuong / 2))));
+  const [ghiChu, setGhiChu] = useState("");
+  const [loi, setLoi] = useState<string | null>(null);
+  const n = Number(sl);
+  const hopLe = Number.isInteger(n) && n >= 1 && n < soLuong;
+  const tienTach = hopLe ? Math.round((tienDong * n) / soLuong) : 0;
+  const tyLe = (tongPhieu ?? 0) > 0 ? Math.min(1, daTraPhieu / tongPhieu!) : daTraPhieu > 0 ? 1 : 0;
+  const tienMang = Math.min(daTraPhieu, Math.round(tienTach * tyLe));
+  const m = useMutation({
+    mutationFn: () =>
+      api.post<{ ok: true; don_moi: string; phieu_moi: string | null; tien_mang_theo: number }>(
+        `/phieu-xuat-kho/${encodeURIComponent(pxkId)}/dong/${encodeURIComponent(donId)}/tach`,
+        { so_luong: n, ghi_chu: ghiChu.trim() || undefined },
+      ),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["pxk-detail"] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk"] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
+      invalidatePipelineCounts(qc);
+      onDone(
+        r.phieu_moi
+          ? t("Đã tách {n} chiếc sang đơn {id} — vào phiếu {p} để xuất sau", { n, id: r.don_moi, p: r.phieu_moi })
+          : t("Đã tách {n} chiếc sang đơn {id} (chờ tạo phiếu)", { n, id: r.don_moi }),
+      );
+    },
+    onError: (e) => setLoi(describeApiError(e)),
+  });
+  return (
+    <Modal
+      open
+      onClose={() => !m.isPending && onClose()}
+      title={t("Tách đơn {id} — xuất trước một phần", { id: donId })}
+      footer={
+        <div className="flex justify-end gap-2">
+          <Btn variant="ghost" disabled={m.isPending} onClick={onClose}>{t("Hủy")}</Btn>
+          <Btn variant="primary" disabled={!hopLe || m.isPending} loading={m.isPending} onClick={() => { setLoi(null); m.mutate(); }}>
+            {t("✂ Tách đơn")}
+          </Btn>
+        </div>
+      }
+    >
+      <div className="space-y-3 text-sm">
+        <p className="text-[var(--color-text-secondary)]">
+          {t("Dòng {ma} đang xuất {n} chiếc. Phần tách ra thành 1 đơn mới và chuyển sang phiếu khác để xuất sau; phiếu này chỉ xuất phần còn lại.", { ma: maLk, n: soLuong })}
+        </p>
+        <label className="block">
+          <span className="text-xs font-semibold text-[var(--color-text)]">{t("Số lượng tách ra (xuất sau)")}</span>
+          <input
+            type="number"
+            min={1}
+            max={soLuong - 1}
+            value={sl}
+            onChange={(e) => setSl(e.target.value)}
+            className="mt-1 w-32 rounded-lg border border-[var(--color-border)] px-2 py-1.5"
+          />
+          <span className="ml-2 text-xs text-[var(--color-text-faint)]">{t("xuất ở phiếu này: {c}", { c: hopLe ? soLuong - n : "—" })}</span>
+        </label>
+        {hopLe && tienMang > 0 && (
+          <div className="rounded-lg bg-[var(--color-surface-soft)] px-2.5 py-1.5 text-xs text-[var(--color-text-secondary)]">
+            {t("Phần tách mang theo {a}đ đã thanh toán sang phiếu mới (phiếu này giảm tương ứng) — KTV không phải chuyển thêm.", { a: tienMang.toLocaleString("vi-VN") })}
+          </div>
+        )}
+        <label className="block">
+          <span className="text-xs font-semibold text-[var(--color-text)]">{t("Ghi chú (tuỳ chọn)")}</span>
+          <input
+            value={ghiChu}
+            onChange={(e) => setGhiChu(e.target.value)}
+            maxLength={300}
+            placeholder={t("vd: chia hàng cho KTV khác, xuất phần còn lại khi có hàng")}
+            className="mt-1 w-full rounded-lg border border-[var(--color-border)] px-2 py-1.5"
+          />
+        </label>
+        {!hopLe && <div className="text-xs text-[var(--color-danger)]">{t("Số lượng tách phải từ 1 đến {m}", { m: soLuong - 1 })}</div>}
+        {loi && <div className="text-xs text-[var(--color-danger)]">{loi}</div>}
+      </div>
+    </Modal>
+  );
+}

@@ -9,6 +9,7 @@ import { api, ApiError } from "../../api/client";
 import { fmtDateTime, fmtVND } from "../../types";
 import type { DonHangRow, LyDoChamRow } from "./types";
 import { CoSoChietKhauNut } from "./CoSoChietKhau";
+import { TachDonPhieuModal } from "./TachDon";
 import { LoaiChietKhauPicker, LoaiChietKhauText, HoaDonGiaNiemYet, duocDoiLoaiChietKhau, DoiLoaiChietKhauNhieuDon, tenLoaiChietKhau, useLoaiChietKhauList } from "./LoaiChietKhau";
 import { describeApiError, invalidatePipelineCounts, laTruCongNo, nenKhieuNai } from "./helpers";
 import { LoaiDeXuatBadge } from "./SharedUi";
@@ -136,6 +137,29 @@ export function PxkDongDonHangTable({
   const coChuyenDon = !!pxk.duoc_chuyen_don && dangTao && !coMaMisa && donHang.length > 1;
   const coCotNutBo = coCotBo || coChuyenDon;
   const [chuyenDonCho, setChuyenDonCho] = useState<DonHangRow | null>(null);
+  // Tach don ngay trong phieu (v1.440, "kế toán xác định chỉ cho xuất trước 5 linh kiện, 5 linh kiện còn lại tách ra phiếu khác để xuất sau"):
+  // Ke toan / TN, phieu "Dang tao phieu" / "Cho ke toan" chua Ma MISA, khong tra hang; dong da duyet, SL >= 2, chua sua SL thuc xuat.
+  const coTach = (canTacNghiep || canKeToan) && (dangTao || trangThai === "Cho ke toan") && !coMaMisa && pxk.loai_don !== "tra_hang";
+  const duocTach = (d: DonHangRow) =>
+    coTach && (d.trang_thai_hien_tai ?? d.trang_thai) === "TN da duyet" && d.so_luong_de_xuat >= 2 &&
+    (d.so_luong_thuc_xuat == null || d.so_luong_thuc_xuat === d.so_luong_de_xuat);
+  const coCotNut = coCotNutBo || (coTach && donHang.some(duocTach));
+  const [tachCho, setTachCho] = useState<DonHangRow | null>(null);
+  const nutThaoTac = (d: DonHangRow): ReactNode => (
+    <span className="inline-flex items-center gap-2">
+      {duocTach(d) && (
+        <button
+          type="button"
+          className="text-[var(--color-primary)] hover:underline"
+          title={t("Tách đơn: xuất trước một phần, phần còn lại sang phiếu khác để xuất sau")}
+          onClick={() => setTachCho(d)}
+        >
+          {gon ? "✂" : t("✂ Tách")}
+        </button>
+      )}
+      {coCotNutBo && nutBo(d)}
+    </span>
+  );
 
   // Chon NHIEU dong de doi loai chiet khau 1 lan (2026-09-30, phan hoi "cho phép lựa chọn nhiều đơn trong phiếu và sửa
   // chiết khấu 1 lần cho tất cả"). Chi khi TN doi duoc loai chiet khau cua phieu (duocDoiLoaiChietKhau) va phieu co tien.
@@ -588,6 +612,24 @@ export function PxkDongDonHangTable({
     </Modal>
   );
 
+  const hopThoaiTach = tachCho ? (
+    <TachDonPhieuModal
+      pxkId={pxkId}
+      donId={tachCho.id}
+      maLk={tachCho.ma_lk}
+      soLuong={tachCho.so_luong_de_xuat}
+      tienDong={tachCho.tien_uoc_tinh ?? 0}
+      daTraPhieu={pxk.loai_don !== "tra_hang" ? daTraPhieu : 0}
+      tongPhieu={pxk.so_tien_can_chuyen ?? null}
+      onClose={() => setTachCho(null)}
+      onDone={(msg) => {
+        setTachCho(null);
+        lamMoi();
+        addToast(msg);
+      }}
+    />
+  ) : null;
+
   const hopThoaiChuyen = chuyenDonCho ? (
     <ChuyenDonModal
       pxkId={pxkId}
@@ -618,6 +660,7 @@ export function PxkDongDonHangTable({
       <>
       {hopThoaiBo}
       {hopThoaiChuyen}
+      {hopThoaiTach}
       {hopThoaiBoNhieu}
       {thanhChon}
       <table className="border-collapse text-[12px] text-[var(--color-text-body)]" style={{ tableLayout: "fixed", width: RONG_GON }}>
@@ -656,7 +699,7 @@ export function PxkDongDonHangTable({
                 {pxk.loai_don !== "tra_hang" && oLoaiChietKhau(d)}
               </td>
               <td className={o} onClick={(e) => e.stopPropagation()}>{oLyDoCham(d)}</td>
-              <td className={`${oNut} text-center`} onClick={(e) => e.stopPropagation()}>{coCotNutBo && nutBo(d)}</td>
+              <td className={`${oNut} text-center`} onClick={(e) => e.stopPropagation()}>{coCotNut && nutThaoTac(d)}</td>
             </tr>
           ))}
         </tbody>
@@ -669,6 +712,7 @@ export function PxkDongDonHangTable({
     <>
     {hopThoaiBo}
     {hopThoaiChuyen}
+    {hopThoaiTach}
     {hopThoaiBoNhieu}
     {thanhChon}
     <table className="tbl min-w-full border-collapse">
@@ -682,7 +726,7 @@ export function PxkDongDonHangTable({
           <th className="px-2.5 py-2 text-right">{t("Tiền cần chuyển")}</th>
           {pxk.loai_don !== "tra_hang" && <th className="px-2.5 py-2">{t("Loại chiết khấu")}</th>}
           <th className="px-2.5 py-2">{t("Lý do chậm")}</th>
-          {coCotNutBo && <th className="px-2.5 py-2"></th>}
+          {coCotNut && <th className="px-2.5 py-2"></th>}
         </tr>
       </thead>
       <tbody>
@@ -707,8 +751,8 @@ export function PxkDongDonHangTable({
               <td className="px-2.5 py-2" onClick={(e) => e.stopPropagation()}>{oLoaiChietKhau(d)}</td>
             )}
             <td className="px-2.5 py-2" onClick={(e) => e.stopPropagation()}>{oLyDoCham(d)}</td>
-            {coCotNutBo && (
-              <td className="px-2.5 py-2" onClick={(e) => e.stopPropagation()}>{nutBo(d)}</td>
+            {coCotNut && (
+              <td className="px-2.5 py-2 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>{nutThaoTac(d)}</td>
             )}
           </tr>
         ))}
@@ -724,7 +768,7 @@ export function PxkDongDonHangTable({
             <td className="px-2.5 py-2 text-right whitespace-nowrap" title={t("Tổng số tiền thực tế các dòng (theo cột Tiền cần chuyển)")}>
               <Money>{fmtVND(donHang.reduce((t, d) => t + tienThucTe(d), 0))}</Money>
             </td>
-            <td colSpan={(pxk.loai_don !== "tra_hang" ? 2 : 1) + (coCotNutBo ? 1 : 0)}></td>
+            <td colSpan={(pxk.loai_don !== "tra_hang" ? 2 : 1) + (coCotNut ? 1 : 0)}></td>
           </tr>
         </tfoot>
       )}

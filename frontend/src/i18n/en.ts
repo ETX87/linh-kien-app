@@ -2471,5 +2471,16 @@ const tuDien: Record<string, string> = {
   "Lọc nhanh các phiếu đang chờ vai trò của bạn xử lý": "Quick filter: slips waiting for your role",
   "Đơn chờ xử lý": "Waiting for me",
   "⬇ Tải xuống": "⬇ Download",
+  // v1.440
+  "Dòng {ma} đang xuất {n} chiếc. Phần tách ra thành 1 đơn mới và chuyển sang phiếu khác để xuất sau; phiếu này chỉ xuất phần còn lại.": "Line {ma} ships {n} units. The split part becomes a new order moved to another slip to ship later; this slip only ships the rest.",
+  "Phần tách mang theo {a}đ đã thanh toán sang phiếu mới (phiếu này giảm tương ứng) — KTV không phải chuyển thêm.": "The split part carries {a}đ already paid to the new slip (this slip decreases accordingly) — the technician does not pay again.",
+  "Số lượng tách ra (xuất sau)": "Quantity to split off (ship later)",
+  "Tách đơn {id} — xuất trước một phần": "Split order {id} — ship part first",
+  "Tách đơn: xuất trước một phần, phần còn lại sang phiếu khác để xuất sau": "Split order: ship part now, move the rest to another slip to ship later",
+  "vd: chia hàng cho KTV khác, xuất phần còn lại khi có hàng": "e.g. share stock with other technicians, ship the rest when available",
+  "xuất ở phiếu này: {c}": "ships on this slip: {c}",
+  "Đã tách {n} chiếc sang đơn {id} (chờ tạo phiếu)": "Split {n} units into order {id} (waiting for a slip)",
+  "Đã tách {n} chiếc sang đơn {id} — vào phiếu {p} để xuất sau": "Split {n} units into order {id} — added to slip {p} to ship later",
+  "✂ Tách": "✂ Split",
 };
 export default tuDien;

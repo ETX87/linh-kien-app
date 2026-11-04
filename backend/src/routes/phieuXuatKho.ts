@@ -22,6 +22,7 @@ import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, laTruCongNo, type PxkCalcu
 import { TIEN_DON_DOI_TAC_SQL } from "../lib/congNoDoiTac";
 import { nhomLoaiDeXuat, nhomLdeSql, phieuCungNhomLdeSql } from "../lib/nhomLoaiDeXuat";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
+import { tachDonTrongPhieu } from "../lib/tachDon";
 import { tienBiBotPxk } from "../lib/tienBiBot";
 import { laVanPhong, danhDauVanPhongTacDong, huyPxkNeuTrong, lenhMangTienDon } from "../lib/pxkTuHuy";
 import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
@@ -1738,6 +1739,19 @@ phieuXuatKho.delete("/:id/dong/:donHangId", async (c) => {
   return c.json({ ok: true, phieu_moi: phieuMoi });
 });
 
+
+// POST /api/phieu-xuat-kho/:id/dong/:donHangId/tach - { so_luong, ghi_chu? } (chot 2026-11-05, v1.440 - "tách đơn cho phép KT thực hiện ngay ở
+// phiếu kế toán (trước khi kế toán xác nhận phiếu misa)"): Ke toan / TN / Admin tach `so_luong` chiec cua 1 dong sang don MOI ra phieu khac de xuat
+// sau (mang theo phan tien da thanh toan), dong cu giu phan con lai o phieu nay. Phieu "Dang tao phieu" / "Cho ke toan", chua Ma MISA - lib/tachDon.ts.
+phieuXuatKho.post("/:id/dong/:donHangId/tach", async (c) => {
+  if (!canKeToan(c) && !canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const user = c.get("user");
+  const body = await c.req.json<{ so_luong?: number; ghi_chu?: string }>().catch(() => ({}) as { so_luong?: number; ghi_chu?: string });
+  const kq = await tachDonTrongPhieu(c.env, c.env.DB, c.req.param("id"), c.req.param("donHangId"), Number(body.so_luong), user.email, body.ghi_chu?.slice(0, 300));
+  if (!kq.ok) return c.json({ error: kq.error }, kq.status);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, don_moi: kq.donMoi, phieu_moi: kq.phieuMoi, tien_mang_theo: kq.tienMangTheo });
+});
 
 // GET /api/phieu-xuat-kho/:id/khoan-gan-day - cac khoan Ke toan DA DUYET trong 30 ngay cua CUNG nguoi chuyen (nguoi nhan hang cua
 // phieu), tru chinh phieu nay (2026-10-29, "tạo thêm 1 cảnh báo nếu khoản tiền chuyển trùng với 1 khoản gần đây (trên cùng 1 KTV

@@ -1110,6 +1110,12 @@ sách với HỖ TRỢ 0 ĐỒNG, + đơn giá với Chuyển kho); SL cộng, t
   - `GET /thieu-lk` (+ `/:id`) trả `kho_mot_phan` (`donHangVeMotPhan`) → badge "Kho có x/y" + khối hướng dẫn tách đơn.
   - "Rà soát hàng về" trả `cho_phuong_an`.
 
+**Tách đơn ngay trong phiếu xuất** (chốt 2026-11-05, v1.440 — "tách đơn cho phép KT thực hiện ngay ở phiếu kế toán (trước khi kế toán xác nhận phiếu misa) => ví dụ KTV đặt 10 lk, đã chuyển khoản, nhưng kế toán xác định chỉ cho xuất trước 5 linh kiện, 5 linh kiện còn lại tách ra phiếu khác để xuất sau"):
+- `POST /phieu-xuat-kho/:id/dong/:donHangId/tach` {so_luong, ghi_chu?} (Kế toán / TN / Admin) → `tachDonTrongPhieu()` (`lib/tachDon.ts`). Phiếu "Dang tao phieu" / "Cho ke toan", chưa Mã MISA, không trả hàng; đơn "TN da duyet", SL ≥ 2, chưa sửa SL thực xuất.
+- Đơn mới = bản sao (giữ `ngay_tao` + `updated_at`) SL k RA KHỎI phiếu, mang theo phần tiền đã trả (tiền dòng × k/n, theo tỉ lệ phiếu đã trả; CAS `lenhKhoaDaThanhToan`) rồi tự gom (`bundleAutoApprovedIntoPxk`, bỏ qua phiếu nguồn); đơn gốc còn n − k. Công nợ chia theo SL.
+- Phiếu nguồn "Dang tao phieu" → `taiTinhPxk`; "Cho ke toan" → trừ thẳng `so_tien_can_chuyen` (taiTinhPxk không sửa tiền ở bước này). Log phiếu nguồn ghi tách + phiếu đích.
+- FE: nút "✂ Tách" trên dòng đơn (`PxkDongDonHangTable`, cả Drawer lẫn dòng xổ) → `TachDonPhieuModal` (`TachDon.tsx`).
+
 **Đợt v1.411** (chốt 2026-10-28): (1) **Đơn đã thanh toán ưu tiên phiếu riêng**: `bundleAutoApprovedIntoPxk` tách nhóm đơn có `tien_da_tra > 0`
 (không đối tác, không trả hàng) — CHỈ gộp vào phiếu "Dang tao phieu" Kế toán ĐÃ duyệt tiền (`trang_thai_chuyen_tien='TN da duyet'`, có tiền), không thì tạo
 phiếu MỚI (tự "Kế toán đã duyệt" khi đủ tiền nhờ quy tắc tiền cần chuyển = 0); không bao giờ gộp vào phiếu đang chờ chuyển tiền. (2) **Ca khiếu nại**

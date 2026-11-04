@@ -2471,5 +2471,16 @@ const tuDien: Record<string, string> = {
   "Lọc nhanh các phiếu đang chờ vai trò của bạn xử lý": "Filter cepat: slip menunggu peran Anda",
   "Đơn chờ xử lý": "Menunggu saya",
   "⬇ Tải xuống": "⬇ Unduh",
+  // v1.440
+  "Dòng {ma} đang xuất {n} chiếc. Phần tách ra thành 1 đơn mới và chuyển sang phiếu khác để xuất sau; phiếu này chỉ xuất phần còn lại.": "Baris {ma} mengirim {n} unit. Bagian yang dipisah menjadi pesanan baru dan dipindah ke slip lain untuk dikirim nanti; slip ini hanya mengirim sisanya.",
+  "Phần tách mang theo {a}đ đã thanh toán sang phiếu mới (phiếu này giảm tương ứng) — KTV không phải chuyển thêm.": "Bagian yang dipisah membawa {a}đ yang sudah dibayar ke slip baru (slip ini berkurang sesuai) — teknisi tidak perlu membayar lagi.",
+  "Số lượng tách ra (xuất sau)": "Jumlah dipisah (dikirim nanti)",
+  "Tách đơn {id} — xuất trước một phần": "Pisah pesanan {id} — kirim sebagian dulu",
+  "Tách đơn: xuất trước một phần, phần còn lại sang phiếu khác để xuất sau": "Pisah pesanan: kirim sebagian dulu, sisanya ke slip lain untuk dikirim nanti",
+  "vd: chia hàng cho KTV khác, xuất phần còn lại khi có hàng": "mis.: bagi stok untuk teknisi lain, kirim sisanya saat tersedia",
+  "xuất ở phiếu này: {c}": "dikirim di slip ini: {c}",
+  "Đã tách {n} chiếc sang đơn {id} (chờ tạo phiếu)": "{n} unit dipisah ke pesanan {id} (menunggu slip)",
+  "Đã tách {n} chiếc sang đơn {id} — vào phiếu {p} để xuất sau": "{n} unit dipisah ke pesanan {id} — masuk slip {p} untuk dikirim nanti",
+  "✂ Tách": "✂ Pisah",
 };
 export default tuDien;
