@@ -135,7 +135,9 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
 - **Side "Người nhận hàng" ở danh sách Đơn hàng + Phiếu xuất** (2026-11-04, v1.435; Phiếu xuất + kéo rộng/hẹp v1.436, `datMuaLinhKien/NguoiNhanSide.tsx`, desktop ≥ lg): cột bên trái
   liệt kê người nhận + "(x số đơn)" = CÙNG `gia-tri-loc?cot=nguoi_nhan_hang` của lọc cột (khớp bộ lọc đang xem); bấm tên = đặt lọc cột
   "Người nhận hàng" (Ctrl + bấm = chọn thêm, bấm lại = bỏ); ẩn/hiện lưu localStorage `dmlk-side-nguoi-nhan` / `pxk-side-nguoi-nhan` (`useHienSideNguoiNhan`), độ rộng kéo mép phải 180–520px
-  lưu `<khoa>-rong` (bấm đúp = 260px); tên người nhận 1 dòng + "…". Cùng đợt: popup lọc cột rộng
+  lưu `<khoa>-rong` (bấm đúp = 260px); tên người nhận 1 dòng + "…". **Thanh công cụ Phiếu xuất 1 hàng** (v1.438, "thiết kế lại … gọn hàng và sạch sẽ"): nhóm phân đoạn loại đơn | ô tìm | Bộ lọc (số) | Đơn chờ xử lý | ✕ xoá lọc |
+  bên phải ⊞ xổ dòng (icon) + "⬇ Tải xuống ▾" (`datMuaLinhKien/MenuTai.tsx`, gộp Tải chi tiết phiếu / đơn + 3 mẫu MISA) + "+ Tạo phiếu xuất kho" (primary duy nhất);
+  "Tùy chỉnh cột" nằm trong bảng Bộ lọc. Tab này không còn dùng `FilterSearchBar`. Cùng đợt: popup lọc cột rộng
   380px + ô `Select` có tìm kiếm rộng ≥ 320px, nhãn dài tự xuống dòng thay vì cắt "…" (tên người dài bị mất chữ).
 - **Xét duyệt mã linh kiện mới** (2026-09-30, migration `0053`, `lib/linhKienXetDuyet.ts`): mọi LK tạo trong app (form,
   import Excel, `/lk-settings/danh-muc` — người có "Quản lý danh mục LK") vào `linh_kien.trang_thai_ma='Cho xet duyet'`

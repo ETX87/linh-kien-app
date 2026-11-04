@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Btn } from "../../components/ui/Btn";
+import { Btn, btnClasses } from "../../components/ui/Btn";
 import { FileButton } from "../../components/ui/FileButton";
 import { Badge } from "../../components/x/Badge";
 import { Modal } from "../../components/ui/Modal";
@@ -36,7 +36,7 @@ import {
   trangThaiLabel, LOAI_DON_TONE, laTruCongNo,
   nenKhieuNai,
 } from "./helpers";
-import { StatusBadge, LoaiDeXuatBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar, KhuVucChipFilter, ImageLink, LogTieuDe, timelineLogGop, useTenNguoiLog } from "./SharedUi";
+import { StatusBadge, LoaiDeXuatBadge, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, ImageLink, LogTieuDe, timelineLogGop, useTenNguoiLog } from "./SharedUi";
 import { PxkMiniPipeline } from "./PipelineFlow";
 import { BaoNhanThieuModal, NhanThieuCard, nhanThieuPxkQuery } from "./NhanThieu";
 import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportResult, type MisaTemplate } from "../../lib/misaExportTemplates";
@@ -44,6 +44,7 @@ import { Money } from "../../components/ui/Money";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../components/ui/LocCot";
 import { NguoiNhanSide, NutMoSideNguoiNhan, useHienSideNguoiNhan } from "./NguoiNhanSide";
+import { MenuTai } from "./MenuTai";
 import { BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung, DuyetChuyenTienForm, LichSuKhoanChuyen, RutLaiBangChungButton, TienPhieuVaQuy, TienBiBotCanhBao, TuChoiChuyenTienButton, type KhoanChuyenTien } from "./BangChungChuyenTien";
 import { doiNguoiThanhTen, formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay";
 import { t } from "../../i18n";
@@ -817,6 +818,7 @@ export function PhieuXuatKhoTab({
   // trống ra 1 khoảng trông rất xấu" - xem giai thich day du o TraHangTab.tsx, cung 1 sua).
   const columnConfig = useColumnConfig(cols, optionalCols, [], "dmlk-pxk-list");
   const moHetTrang = (data?.rows.length ?? 0) > 0 && (data?.rows ?? []).every((r) => moRongPxk.has(r.id));
+  const soBoLoc = [filterTrangThai, filterNguoiNhanHang, filterQ, khuVucParam].filter(Boolean).length + Object.keys(locCot.loc).length;
   const settingsButtonEl = (
     <ColumnSettingsButton
       toggleableColumns={columnConfig.toggleableColumns}
@@ -829,142 +831,112 @@ export function PhieuXuatKhoTab({
 
   return (
     <div className="mt-4">
-      {/* Sub-tab "Mua hang | Cong no | Tra hang" (dot 3 gop y #8; them Tra hang CHOT vong 7 khi bo
-          tab "Don tra hang" rieng khoi menu) - TN khong bao gio gop cac mang de xuat nay trong cung
-          1 PXK, tach han danh sach xem theo tung mang, mac dinh Mua hang. So (x{n}) canh nhan la so
-          don dang can xu ly (chua o 4 trang thai da xong) cua tung loai. */}
-      <div className="flex gap-1.5 mb-3">
-        {/* "Tất cả" (them 2026-09-11) - cho phep StageMenu nhay thang toi 1 trang thai PXK khong phan
-            biet loai don (vd "Hàng trừ kho"/"Kho đã kết thúc") ma khong ep nguoi dung phai tu chon lai
-            1 trong 3 sub-tab con lai. Nguoi dung van bam lai "Mua hàng"/"Công nợ"/"Trả hàng" binh
-            thuong de thu hep khi can. */}
+      {/* Thanh cong cu 1 HANG (v1.437, "thiết kế lại các chức năng này cho giao diện gọn hàng và sạch sẽ"): truoc day 3 hang (chip loai
+          don / Bo loc + nut nhanh + o tim / Tuy chinh cot + Xo dong + Tao phieu + 5 nut tai). Gio: nhom phan doan loai don | o tim | Bo
+          loc | Cho xu ly | Xoa loc ... ben phai: Xo dong (icon) | Tai xuong ▾ (gop 5 nut tai, MenuTai.tsx) | + Tao phieu xuat kho (primary
+          duy nhat). "Tùy chỉnh cột" chuyen vao bang Bo loc (giong danh sach Don hang). */}
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <div className="inline-flex max-w-full items-center overflow-x-auto rounded-lg border border-[var(--line)] bg-[var(--surface-100)] p-0.5">
+          {(["", "mua", "cong_no", "tra_hang"] as const).map((l) => {
+            const active = xemLoaiDon === l;
+            const n = l ? loaiDonCounts[l] : 0;
+            return (
+              <button
+                key={l || "tat-ca"}
+                type="button"
+                onClick={() => setXemLoaiDon(l)}
+                className={`focus-ring inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-semibold transition-colors ${
+                  active ? "bg-white text-[var(--color-primary)] shadow-sm" : "text-[var(--ink-500)] hover:text-[var(--ink-700)]"
+                }`}
+              >
+                {l ? t(LOAI_DON_TONE[l].label) : t("Tất cả")}
+                {n > 0 && (
+                  <span className="rounded-full bg-[var(--color-warning-soft)] px-1.5 text-[10.5px] font-bold tabular-nums text-[var(--color-warning-strong)]">{n}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {!hienSideNguoiNhan && <NutMoSideNguoiNhan onClick={() => setHienSideNguoiNhan(true)} />}
+        <input
+          value={filterQ}
+          onChange={(e) => setFilterQ(e.target.value)}
+          placeholder={t("Tìm theo mã PXK, mã đơn hàng, mã YCSC, mã Lada, mã MISA, tên KTV...")}
+          className="o-tim focus-ring h-8 min-w-0 flex-1 basis-44 rounded-lg border border-[var(--line)] bg-[var(--surface-100)] px-2.5 text-base sm:max-w-sm sm:text-sm"
+        />
         <button
           type="button"
-          onClick={() => setXemLoaiDon("")}
-          className={`focus-ring rounded-[var(--radius-pill)] font-semibold transition-colors px-[11px] py-1 text-xs ${
-            xemLoaiDon === "" ? "bg-[var(--color-primary)] text-white" : "bg-[var(--color-subtle)] text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary-dark)]"
-          }`}
+          onClick={() => setShowFilters((v) => !v)}
+          className={btnClasses(showFilters || soBoLoc > 0 ? "subtle" : "ghost", "sm", "h-8")}
+          aria-expanded={showFilters}
         >
-          {t("Tất cả")}
+          ☰ {t("Bộ lọc")}
+          {soBoLoc > 0 && <span className="rounded-full bg-[var(--color-primary)] px-1.5 text-[10.5px] font-bold text-white">{soBoLoc}</span>}
+          <span className="text-[10px] opacity-60">{showFilters ? "▲" : "▾"}</span>
         </button>
-        {/* SUA (phan hoi 2026-08-18) - xem giai thich chi tiet o cung mau nut nay trong DonCuaToiTab.
-            SUA (phan hoi nguoi dung: "tab đang xem tô đen, tab còn tồn tô cam => không biết tab nào
-            đang xem") - truoc day active dung mau ocean-800 (xanh/den, khong lien quan he mau
-            cam="con tồn" dung o cac nut khac), khien 2 khai niem "dang xem" va "con tồn" tach roi
-            nhau, de nham "cam = dang chon". Doi active CO dem (attention) sang amber-600 dam (van la
-            1 sac cam, DAM hon amber-100 cua nut chi co dem KHONG active) - "cam = con tồn" nhat quan
-            xuyen suot, chi khac do dam/nhat theo dang xem hay khong; active KHONG dem giu nguyen
-            ocean-800 (khong co gi can canh bao). */}
-        {(["mua", "cong_no", "tra_hang"] as const).map((l) => {
-          const active = xemLoaiDon === l;
-          const conTon = loaiDonCounts[l] > 0;
-          return (
+        {pendingTrangThaiForRole() && (
+          <button
+            type="button"
+            onClick={() => setFilterTrangThai(pendingTrangThaiForRole())}
+            className={btnClasses(filterTrangThai === pendingTrangThaiForRole() ? "subtle" : "ghost", "sm", "h-8")}
+            title={t("Lọc nhanh các phiếu đang chờ vai trò của bạn xử lý")}
+          >
+            {t("Đơn chờ xử lý")}
+          </button>
+        )}
+        {(filterTrangThai || filterNguoiNhanHang || filterQ || khuVucParam) && (
+          <button
+            type="button"
+            onClick={() => {
+              setFilterTrangThai("");
+              setFilterNguoiNhanHang("");
+              setFilterQ("");
+              setFilterKhuVuc(new Set());
+            }}
+            className="focus-ring inline-flex h-8 w-7 items-center justify-center rounded-lg text-sm text-[var(--ink-400)] hover:bg-[var(--surface-100)] hover:text-[var(--color-danger-strong)]"
+            title={t("✕ Xóa bộ lọc")}
+            aria-label={t("✕ Xóa bộ lọc")}
+          >
+            ✕
+          </button>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          {(data?.rows.length ?? 0) > 0 && (
             <button
-              key={l}
               type="button"
-              onClick={() => setXemLoaiDon(l)}
-              className={`focus-ring rounded-[var(--radius-pill)] font-semibold transition-colors px-[11px] py-1 text-xs ${
-                active
-                  ? conTon
-                    ? "bg-[var(--color-warning-strong)] text-white"
-                    : "bg-[var(--color-primary)] text-white"
-                  : conTon
-                    ? "bg-[var(--color-warning-soft)] text-[var(--color-warning-strong)]"
-                    : "bg-[var(--color-subtle)] text-[var(--color-text-secondary)] hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary-dark)]"
-              }`}
+              onClick={() => setMoRongPxk(moHetTrang ? new Set() : new Set((data?.rows ?? []).map((r) => r.id)))}
+              className={btnClasses("ghost", "sm", "h-8 w-8 !px-0")}
+              title={moHetTrang ? t("⊟ Thu gọn tất cả") : t("⊞ Xổ tất cả dòng đơn")}
+              aria-label={moHetTrang ? t("⊟ Thu gọn tất cả") : t("⊞ Xổ tất cả dòng đơn")}
             >
-              {t(LOAI_DON_TONE[l].label)}
-              {loaiDonCounts[l] > 0 ? ` (x${loaiDonCounts[l]})` : ""}
+              {moHetTrang ? "⊟" : "⊞"}
             </button>
-          );
-        })}
+          )}
+          <MenuTai
+            dangTai={downloadingFull || dangTaiDon || misaExportBulkMutation.isPending}
+            muc={[
+              { nhom: t("Danh sách"), nhan: t("⬇ Tải chi tiết phiếu"), moTa: t("Mỗi dòng là 1 phiếu trong danh sách đang xem"), onClick: handleDownloadFullList, dangTai: downloadingFull },
+              { nhan: t("⬇ Tải chi tiết đơn"), moTa: t("Mọi đơn hàng nằm trong các phiếu đang xem — cùng định dạng file tải ở danh sách Đơn hàng"), onClick: taiChiTietDon, dangTai: dangTaiDon },
+              // An voi KTV/Trạm/CTV/Vệ tinh (canDownloadMisa=false, xem giai thich o khai bao prop).
+              ...(canDownloadMisa
+                ? MISA_TEMPLATE_ORDER.map((tpl, i) => ({
+                    nhom: i === 0 ? t("File MISA") : undefined,
+                    nhan: `⬇ MISA ${MISA_TEMPLATE_LABELS[tpl]}`,
+                    onClick: () => misaExportBulkMutation.mutate(tpl),
+                    dangTai: misaExportBulkMutation.isPending && misaExportBulkMutation.variables === tpl,
+                  }))
+                : []),
+            ]}
+          />
+          {canTacNghiep && (
+            <button type="button" onClick={moModalTaoPxk} className={btnClasses("primary", "sm", "h-8")}>
+              {t("+ Tạo phiếu xuất kho")}
+            </button>
+          )}
+        </div>
       </div>
-      {/* UI redesign (phan hoi 2026-08-21, "hợp nhất phong cách giao diện"): chip trang thai + Select
-          nguoi nhan hang gop vao chung khoi loc thu gon (FilterSearchBar), dong bo voi Mua hang/Cong
-          no - "+ Tạo phiếu xuất kho" GIU luon hien (hanh dong chinh, khong phai bo loc). */}
-      <FilterSearchBar
-        showFilters={showFilters}
-        onToggleFilters={() => setShowFilters((v) => !v)}
-        // FIX (ra soat bug mua hang 2026-08-26, BUG-003): thieu filterTrangThai, khop pattern DonCuaToiTab.tsx.
-        activeFilterCount={[filterTrangThai, filterNguoiNhanHang, filterQ, khuVucParam].filter(Boolean).length + Object.keys(locCot.loc).length}
-        searchValue={filterQ}
-        onSearchChange={setFilterQ}
-        searchPlaceholder={t("Tìm theo mã PXK, mã đơn hàng, mã YCSC, mã Lada, mã MISA, tên KTV...")}
-        activeFilters={
-          <>
-            {!hienSideNguoiNhan && <NutMoSideNguoiNhan onClick={() => setHienSideNguoiNhan(true)} />}
-            {/* Nut bam nhanh "Đơn chờ xử lý" (them 2026-09-09, phan hoi "thêm 1 nút ấn nhanh...tự
-                filter ra danh sách cần làm theo vai trò bản thân") - chi hien khi vai tro dang xem
-                THAT SU co 1 buoc rieng trong pipeline PXK (pendingTrangThaiForRole khac rong), nhay
-                thang bo loc trang thai ve dung buoc do, khong dong cham cac bo loc phu khac. */}
-            {pendingTrangThaiForRole() && (
-              <Btn size="sm" variant="ghost" onClick={() => setFilterTrangThai(pendingTrangThaiForRole())}>
-                {t("📋 Đơn chờ xử lý")}
-              </Btn>
-            )}
-            {/* Nut "Xóa bộ lọc" (them 2026-09-09, phan hoi "tab pxk thiếu nút xóa filter") - khac
-                "Xoá tất cả bộ lọc" trong ActiveFiltersBar ben duoi (chi xoa cac chip dang hien: nguoi
-                nhan hang/khu vuc/tim kiem, CO Y khong dong cham trang thai - xem comment "SUA (ra soat
-                #3)"), nut nay xoa THAT SU toan bo ke ca trang thai ve "Tất cả" - dat gan nut bam nhanh
-                o tren cho ro day la cap doi "nhay toi viec cua minh" / "xem het khong loc gi". Chi
-                hien khi co it nhat 1 bo loc dang ap dung, tranh chiem cho khi khong can.
-            */}
-            {(filterTrangThai || filterNguoiNhanHang || filterQ || khuVucParam) && (
-              <Btn
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setFilterTrangThai("");
-                  setFilterNguoiNhanHang("");
-                  setFilterQ("");
-                  setFilterKhuVuc(new Set());
-                }}
-              >
-                {t("✕ Xóa bộ lọc")}
-              </Btn>
-            )}
-          </>
-        }
-        trailing={
-          <div className="flex w-full flex-wrap items-center gap-2">
-            {settingsButtonEl}
-            {(data?.rows.length ?? 0) > 0 && (
-              <Btn size="sm" variant="ghost" onClick={() => setMoRongPxk(moHetTrang ? new Set() : new Set((data?.rows ?? []).map((r) => r.id)))}>
-                {moHetTrang ? t("⊟ Thu gọn tất cả") : t("⊞ Xổ tất cả dòng đơn")}
-              </Btn>
-            )}
-            {canTacNghiep && (
-              <Btn size="sm" onClick={moModalTaoPxk}>
-                {t("+ Tạo phiếu xuất kho")}
-              </Btn>
-            )}
-            {/* Nhom nut TAI DU LIEU tach rieng sat mep PHAI, ngan bang vach doc (phan hoi 2026-10-15 "Nút tải dữ liệu cho tách riêng sang bên phải"). */}
-            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-            <Btn size="sm" variant="ghost" onClick={handleDownloadFullList} disabled={downloadingFull} title={t("Mỗi dòng là 1 phiếu trong danh sách đang xem")}>
-              {downloadingFull ? t("Đang tải...") : t("⬇ Tải chi tiết phiếu")}
-            </Btn>
-            <Btn size="sm" variant="ghost" onClick={taiChiTietDon} disabled={dangTaiDon} title={t("Mọi đơn hàng nằm trong các phiếu đang xem — cùng định dạng file tải ở danh sách Đơn hàng")}>
-              {dangTaiDon ? t("Đang tải...") : t("⬇ Tải chi tiết đơn")}
-            </Btn>
-            {/* Tai gop file MISA cho danh sach PXK dang hien theo bo loc (them 2026-09-02) - 3 nut
-                rieng cho 3 mau, TN/Ke toan tu chon mau nao thi tai mau do (khong con tu dong 1 nut).
-                An het voi KTV/Trạm/CTV/Vệ tinh (canDownloadMisa=false, xem giai thich o khai bao prop). */}
-            {canDownloadMisa && MISA_TEMPLATE_ORDER.map((tpl) => (
-              <Btn
-                key={tpl}
-                size="sm"
-                variant="ghost"
-                onClick={() => misaExportBulkMutation.mutate(tpl)}
-                disabled={misaExportBulkMutation.isPending}
-                loading={misaExportBulkMutation.isPending && misaExportBulkMutation.variables === tpl}
-              >
-                ⬇ MISA {MISA_TEMPLATE_LABELS[tpl]}
-              </Btn>
-            ))}
-            </div>
-          </div>
-        }
-      >
+      {showFilters && (
+        <div className="mb-3 flex flex-wrap items-start gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-100)] p-3">
         <TrangThaiDropdownFilter value={filterTrangThai} onChange={setFilterTrangThai} options={PXK_TRANG_THAI_OPTIONS} counts={statusCountsData?.counts} />
         {/* Bo loc Khu vuc (them 2026-08-31, dong bo voi DonCuaToiTab.tsx). SUA BUG GIAO DIEN (phan hoi
             2026-09-12): bo nhan "Khu vực" rieng ben ngoai (gay lech chieu cao so voi cac o loc khac
@@ -983,7 +955,12 @@ export function PhieuXuatKhoTab({
             <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)] mb-1">{t("Lọc theo cột")}</div>
             <LocCotBar cfg={locCotCfg} cots={Object.keys(locCotCfg.tieuDe)} hienTatCa nhan={null} />
           </div>
-      </FilterSearchBar>
+          <div>
+            <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">{t("Cột hiển thị")}</div>
+            {settingsButtonEl}
+          </div>
+        </div>
+      )}
       {/* SUA (ra soat #3): bo chip "Trạng thái: ..." - gia tri dang chon da hien SAN trong o
           TrangThaiDropdownFilter ngay ben tren (doi tu chip/nut sang dropdown 2026-09-01), khong can
           lap lai o day. */}
@@ -991,7 +968,6 @@ export function PhieuXuatKhoTab({
         chips={[
           ...(filterNguoiNhanHang ? [{ label: t("Người nhận hàng đã lọc"), onClear: () => setFilterNguoiNhanHang("") }] : []),
           ...(khuVucParam ? [{ label: t("Khu vực: {a}", { a: [...filterKhuVuc].map((ma) => khuVucOptions.find((o) => o.value === ma)?.label ?? ma).join(", ") }), onClear: () => setFilterKhuVuc(new Set()) }] : []),
-          ...(filterQ ? [{ label: t("Tìm: \"{a}\"", { a: filterQ }), onClear: () => setFilterQ("") }] : []),
         ]}
       />
       {/* SUA (phan hoi 2026-08-18 muc 2): onRowClick mo thang modal chi tiet (bam CA HANG, khong chi

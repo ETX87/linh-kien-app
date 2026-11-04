@@ -2465,5 +2465,10 @@ const tuDien: Record<string, string> = {
   "» Người nhận": "» Recipients",
   "Ẩn danh sách người nhận": "Hide recipient list",
   "Kéo để đổi độ rộng (bấm đúp: mặc định)": "Drag to resize (double-click: default)",
+  "Danh sách": "Lists",
+  "File MISA": "MISA files",
+  "Lọc nhanh các phiếu đang chờ vai trò của bạn xử lý": "Quick filter: slips waiting for your role",
+  "Đơn chờ xử lý": "Waiting for me",
+  "⬇ Tải xuống": "⬇ Download",
 };
 export default tuDien;
