@@ -59,6 +59,7 @@ export interface DatMuaLkBreakdown {
   thieuLkCanXuLy: number;
   // So ticket "Báo nhận thiếu" cho vai tro nguoi xem (da cong vao thieuLkCanXuLy).
   nhanThieuCanXuLy: number;
+  thieuHangBhCanXuLy: number;
 }
 
 const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
@@ -79,6 +80,7 @@ const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
   choDonBiTuChoi: 0,
   thieuLkCanXuLy: 0,
   nhanThieuCanXuLy: 0,
+  thieuHangBhCanXuLy: 0,
 };
 
 export interface NotificationsCountPayload {
@@ -331,6 +333,18 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
       .first<{ n: number }>();
     out.nhanThieuCanXuLy = row?.n ?? 0;
     out.thieuLkCanXuLy += out.nhanThieuCanXuLy;
+  }
+
+  // Thieu hang bao hanh tu app suachua (2026-11-04, migration 0106) - Kho/TN: cho kho xu ly; Mua hang: cho mua hang. Khong cong vao total.
+  const thbCho = [...(isKho || user.la_tac_nghiep || user.vai_tro === "Admin" ? ["Cho kho xu ly"] : []), ...(user.la_mua_hang || user.vai_tro === "Admin" ? ["Cho mua hang"] : [])];
+  if (thbCho.length > 0) {
+    const row = await db
+      .prepare(`SELECT COUNT(*) as n FROM thieu_hang_bh WHERE trang_thai IN (${thbCho.map(() => "?").join(",")})`)
+      .bind(...thbCho)
+      .first<{ n: number }>()
+      .catch(() => null);
+    out.thieuHangBhCanXuLy = row?.n ?? 0;
+    out.thieuLkCanXuLy += out.thieuHangBhCanXuLy;
   }
 
   out.total =

@@ -21,6 +21,7 @@ import { BangChungAnhList } from "./BangChungChuyenTien";
 import { describeApiError, invalidatePipelineCounts } from "./helpers";
 import { useTenNguoiLog } from "./SharedUi";
 import { useAuth } from "../../auth/AuthContext";
+import { useThbCanXuLy } from "./ThieuHangBh";
 
 const PxkDetailModalLazy = lazy(() => import("./PhieuXuatKhoTab").then((m) => ({ default: m.PxkDetailModal })));
 
@@ -633,8 +634,10 @@ export function NhanThieuList({
 }
 
 /** Menu Thieu hang: 2 muc tach biet - ticket thieu hang dat mua (children) va "KTV báo nhận thiếu". */
-export function ThieuHangTabs({ children, list }: { children: ReactNode; list: ReactNode }) {
-  const [muc, setMuc] = useLocalStorageState<"dat-mua" | "nhan-thieu">("thieu-hang-muc", "dat-mua");
+export function ThieuHangTabs({ children, list, baoHanh }: { children: ReactNode; list: ReactNode; baoHanh?: ReactNode }) {
+  const [muc, setMuc] = useLocalStorageState<"dat-mua" | "nhan-thieu" | "bao-hanh">("thieu-hang-muc", "dat-mua");
+  // Thieu hang bao hanh (2026-11-04) - ticket tu app Sua chua bao hanh; so can xu ly theo vai tro (Kho / Mua hang).
+  const soBh = useThbCanXuLy(!!baoHanh);
   const { data } = useQuery({
     queryKey: ["nhan-thieu-list", "can_xu_ly", "", 1],
     queryFn: () => api.get<{ counts: Record<string, number> }>(`/nhan-thieu${buildQuery({ trang_thai: "can_xu_ly", page: 1 })}`),
@@ -648,7 +651,7 @@ export function ThieuHangTabs({ children, list }: { children: ReactNode; list: R
   const canXuLy = laAdmin ? choKho + choKeToan : (u?.la_kho ? choKho : 0) + (u?.la_ke_toan ? choKeToan : 0) || (u?.la_kho || u?.la_ke_toan ? 0 : choKho + choKeToan);
   return (
     <div className="space-y-3">
-      <div className="flex gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
         <button type="button" className={`filter-tab ${muc === "dat-mua" ? "active" : ""}`} onClick={() => setMuc("dat-mua")}>{t("Thiếu hàng đặt mua")}</button>
         <button type="button" className={`filter-tab ${muc === "nhan-thieu" ? "active" : ""}`} onClick={() => setMuc("nhan-thieu")}>
           {t("KTV báo nhận thiếu")}
@@ -658,8 +661,18 @@ export function ThieuHangTabs({ children, list }: { children: ReactNode; list: R
             </span>
           )}
         </button>
+        {baoHanh && (
+          <button type="button" className={`filter-tab ${muc === "bao-hanh" ? "active" : ""}`} onClick={() => setMuc("bao-hanh")}>
+            {t("Thiếu hàng bảo hành")}
+            {soBh > 0 && (
+              <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--color-warning)] text-white text-[10px] font-bold leading-none">
+                {soBh > 99 ? "99+" : soBh}
+              </span>
+            )}
+          </button>
+        )}
       </div>
-      {muc === "dat-mua" ? children : list}
+      {muc === "dat-mua" ? children : muc === "bao-hanh" && baoHanh ? baoHanh : list}
     </div>
   );
 }

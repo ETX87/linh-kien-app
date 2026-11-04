@@ -88,6 +88,7 @@ const DonCuaToiTab = lazy(() => import("./datMuaLinhKien/DonCuaToiTab").then((m)
 const PhieuXuatKhoTab = lazy(() => import("./datMuaLinhKien/PhieuXuatKhoTab").then((m) => ({ default: m.PhieuXuatKhoTab })));
 const ThieuLkTab = lazy(() => import("./datMuaLinhKien/ThieuLkTab").then((m) => ({ default: m.ThieuLkTab })));
 const ThieuHangTabs = lazy(() => import("./datMuaLinhKien/NhanThieu").then((m) => ({ default: m.ThieuHangTabs })));
+const ThieuHangBhList = lazy(() => import("./datMuaLinhKien/ThieuHangBh").then((m) => ({ default: m.ThieuHangBhList })));
 const NhanThieuList = lazy(() => import("./datMuaLinhKien/NhanThieu").then((m) => ({ default: m.NhanThieuList })));
 const TraHangTab = lazy(() => import("./datMuaLinhKien/TraHangTab").then((m) => ({ default: m.TraHangTab })));
 // Trang chu (them 2026-08-24, khop concept-1-structured-neutral.html renderHome()) - man mac dinh
@@ -1039,6 +1040,7 @@ export function DatMuaLinhKienModule({
         )}
         {activeView === "thieu-lk" && (
           <ThieuHangTabs
+            baoHanh={canKho || canTacNghiep || canKeToan || user?.la_mua_hang || user?.la_view || user?.vai_tro === "Admin" ? <ThieuHangBhList addToast={addToast} /> : undefined}
             list={
               <NhanThieuList
                 addToast={addToast}

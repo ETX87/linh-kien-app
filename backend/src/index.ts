@@ -25,6 +25,7 @@ import hoiDapRoutes from "./routes/hoiDap";
 import huongDanRoutes from "./routes/huongDan";
 import doiTacCongNoRoutes from "./routes/doiTacCongNo";
 import partnerKhoRoutes from "./routes/partnerKho";
+import thieuHangBhRoutes from "./routes/thieuHangBh";
 import nhanThieuRoutes, { tuXacNhanVaNhacPxk } from "./routes/nhanThieu";
 import { runDvbhSync } from "./lib/dvbhSyncClient";
 import { runGia88SyncWithState } from "./lib/gia88Sync";
@@ -66,6 +67,7 @@ app.route("/api/phieu-xuat-kho", phieuXuatKhoRoutes);
 app.route("/api/tra-hang", traHangRoutes);
 app.route("/api/quy-ktv", quyKtvRoutes);
 app.route("/api/nhan-thieu", nhanThieuRoutes);
+app.route("/api/thieu-hang-bh", thieuHangBhRoutes); // Thieu hang bao hanh tu app suachua (2026-11-04, migration 0106)
 app.route("/api/hoi-dap", hoiDapRoutes); // Hoi dap KTV <-> Mua hang (2026-10-17, migration 0089)
 app.route("/api/huong-dan", huongDanRoutes); // Kho huong dan - hoi dap tu dong (2026-10-28, migration 0102)
 app.route("/api/khach-le", khachLeRoutes);

@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import type { Env } from "../types";
 import { khoaKhop } from "../lib/baoVe";
 import { nowVN } from "../lib/vnTime";
+import { nextSequentialId } from "../lib/idCounter";
+import { THB_MO, docThb, thbGhiBuoc, thbThayDoiSau } from "../lib/thieuHangBh";
 
 // He "Sua chua bao hanh" (Worker suachua) goi vao day qua Service Binding khi Admin BH sua tay "Phan
 // loai" (cot don_vi) cua 1 linh kien dong bo (2026-10-11, yeu cau "phan loai cho phep dong bo nguoc ve
@@ -63,6 +65,76 @@ suachuaPartner.get("/user-khu-vuc", async (c) => {
      FROM user_khu_vuc uk LEFT JOIN users u ON u.email = uk.user_email`,
   ).all();
   return c.json({ rows: results });
+});
+
+// ---------- THIEU HANG BAO HANH (2026-11-04, migration 0106) ----------
+// POST /api/suachua-partner/thieu-hang-bh - { items: [{ nguon_id, ma_lk, ten_lk, so_luong, ly_do, ghi_chu, mien, case_id, ktv_email,
+// ktv_ten, nguoi_bao, nguoi_bao_ten }] } (toi da 100). Cung nguon_id + ma_lk dang co ticket MO -> tra lai ticket do (khong tao trung).
+suachuaPartner.post("/thieu-hang-bh", async (c) => {
+  type Item = {
+    nguon_id?: string; ma_lk?: string; ten_lk?: string; so_luong?: number; ly_do?: string; ghi_chu?: string; mien?: string;
+    case_id?: string; ktv_email?: string; ktv_ten?: string; nguoi_bao?: string; nguoi_bao_ten?: string;
+  };
+  const body = await c.req.json<{ items?: Item[] }>().catch(() => ({}) as { items?: Item[] });
+  if (!Array.isArray(body.items) || body.items.length > 100) return c.json({ error: "INVALID_BODY" }, 400);
+  const s = (v: unknown, n = 500) => (typeof v === "string" && v.trim() ? v.trim().slice(0, n) : null);
+  const out: { nguon_id: string; ma_lk: string; id: string; trang_thai: string; moi: boolean }[] = [];
+  const db = c.env.DB;
+  for (const it of body.items) {
+    const nguon = s(it.nguon_id, 60);
+    const ma = s(it.ma_lk, 80);
+    if (!nguon || !ma) continue;
+    const co = await db
+      .prepare(`SELECT id, trang_thai FROM thieu_hang_bh WHERE nguon_id = ? AND ma_lk = ? AND trang_thai IN (${THB_MO.map(() => "?").join(",")}) LIMIT 1`)
+      .bind(nguon, ma, ...THB_MO)
+      .first<{ id: string; trang_thai: string }>();
+    if (co) {
+      out.push({ nguon_id: nguon, ma_lk: ma, id: co.id, trang_thai: co.trang_thai, moi: false });
+      continue;
+    }
+    const lk = await db.prepare("SELECT ten_linh_kien FROM linh_kien WHERE ma_linh_kien = ?").bind(ma).first<{ ten_linh_kien: string }>().catch(() => null);
+    const id = await nextSequentialId(db, "thieu_hang_bh", "THB", 6);
+    const now = nowVN();
+    const sl = Math.max(1, Math.min(999, Math.round(Number(it.so_luong) || 1)));
+    const nguoiBao = s(it.nguoi_bao, 120) ?? "suachua";
+    await db.batch([
+      db
+        .prepare(
+          `INSERT INTO thieu_hang_bh (id, nguon_id, ma_lk, ten_lk, so_luong, ly_do, ghi_chu, mien, case_id, ktv_email, ktv_ten, nguoi_bao, nguoi_bao_ten,
+             trang_thai, ngay_tao, ngay_cap_nhat) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Cho kho xu ly', ?, ?)`,
+        )
+        .bind(id, nguon, ma, lk?.ten_linh_kien ?? s(it.ten_lk, 300), sl, s(it.ly_do, 200), s(it.ghi_chu, 1000), s(it.mien, 10), s(it.case_id, 80),
+          s(it.ktv_email, 120), s(it.ktv_ten, 200), nguoiBao, s(it.nguoi_bao_ten, 200), now, now),
+      db
+        .prepare("INSERT INTO thieu_hang_bh_log (thieu_hang_bh_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Cho kho xu ly', ?, ?, ?)")
+        .bind(id, nguoiBao, now, `App bảo hành báo thiếu hàng (đơn ${nguon})${s(it.ly_do) ? ` — ${s(it.ly_do)}` : ""}`),
+    ]);
+    out.push({ nguon_id: nguon, ma_lk: ma, id, trang_thai: "Cho kho xu ly", moi: true });
+  }
+  return c.json({ rows: out });
+});
+
+// GET /api/suachua-partner/thieu-hang-bh?since=&after_id=&limit= (keo thay doi) | ?ids=a,b (doc theo ma ticket).
+suachuaPartner.get("/thieu-hang-bh", async (c) => {
+  const ids = (c.req.query("ids") ?? "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 200);
+  if (ids.length) return c.json({ rows: await docThb(c.env.DB, ids) });
+  const limit = Math.max(1, Math.min(500, Number(c.req.query("limit")) || 200));
+  const rows = await thbThayDoiSau(c.env.DB, c.req.query("since") ?? "", c.req.query("after_id") ?? "", limit);
+  return c.json({ rows, het: rows.length < limit });
+});
+
+// POST /api/suachua-partner/thieu-hang-bh/:id/huy - { nguoi, ly_do } - Admin BH ben suachua rut lai bao thieu (vd da tim duoc hang).
+suachuaPartner.post("/thieu-hang-bh/:id/huy", async (c) => {
+  const body = await c.req.json<{ nguoi?: string; ly_do?: string }>().catch(() => ({}) as { nguoi?: string; ly_do?: string });
+  const id = c.req.param("id");
+  const row = await c.env.DB.prepare("SELECT trang_thai FROM thieu_hang_bh WHERE id = ?").bind(id).first<{ trang_thai: string }>();
+  if (!row) return c.json({ error: "NOT_FOUND" }, 404);
+  if (!(THB_MO as readonly string[]).includes(row.trang_thai)) return c.json({ error: "WRONG_STATE", trang_thai: row.trang_thai }, 400);
+  const ok = await thbGhiBuoc(c.env.DB, id, row.trang_thai, "Da huy", (body.nguoi ?? "suachua").slice(0, 120), {
+    ghi_chu: `App bảo hành rút lại báo thiếu${body.ly_do?.trim() ? `: ${body.ly_do.trim().slice(0, 500)}` : ""}`,
+  });
+  if (!ok) return c.json({ error: "STATE_CHANGED" }, 409);
+  return c.json({ rows: await docThb(c.env.DB, [id]) });
 });
 
 export default suachuaPartner;
