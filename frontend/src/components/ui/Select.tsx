@@ -119,6 +119,7 @@ function SearchableSelect({
           setQuery("");
         }}
         disabled={disabled}
+        title={selected ? optLabel(selected) : undefined}
         placeholder={t("Gõ để tìm…")}
         // FIX (phan hoi 2026-09-05, giong het comment o <select> thuan phia tren): cung doi bg-surface-100
         // -> bg-surface + border dam hon de khong lan vao panel bo loc bao quanh.
@@ -126,7 +127,7 @@ function SearchableSelect({
       />
       {/* minWidth (phan hoi 2026-09-05: "listdown lỗi hiện thị" - nhan dai bi cat cut khi anchor hep,
           vd o trong 1 <td> chat hep) - xem giai thich day du o DropdownPortal.tsx. */}
-      <DropdownPortal anchorRef={containerRef} contentRef={dropdownRef} open={open} maxHeight={224} minWidth={220} className="rounded-lg py-1">
+      <DropdownPortal anchorRef={containerRef} contentRef={dropdownRef} open={open} maxHeight={224} minWidth={320} className="rounded-lg py-1 max-w-[calc(100vw-16px)]">
         {filtered.length === 0 ? (
           <div className="px-3 py-2 text-xs text-[var(--ink-400)] italic">{t("Không tìm thấy.")}</div>
         ) : (
@@ -151,7 +152,7 @@ function SearchableSelect({
                   setOpen(false);
                   setQuery("");
                 }}
-                className={`w-full text-left px-3 py-1.5 text-sm truncate hover:bg-[var(--color-subtle)] ${v === value ? "bg-[var(--color-primary-soft)] text-[var(--color-primary-dark)] font-semibold" : ""}`}
+                className={`w-full text-left px-3 py-1.5 text-sm leading-snug whitespace-normal break-words hover:bg-[var(--color-subtle)] ${v === value ? "bg-[var(--color-primary-soft)] text-[var(--color-primary-dark)] font-semibold" : ""}`}
               >
                 {optLabel(o)}
               </button>

@@ -128,6 +128,10 @@ export function LocCotButton({ cfg, cot, variant = "icon" }: { cfg: LocCotCfg; c
   );
 }
 
+// Rong 380px (man hep thi vua man) + nhan gia tri tu xuong dong thay vi cat "…" (sua 2026-11-04: ten nguoi tao/nguoi nhan
+// dai bi mat chu khi tim trong o loc cot).
+const rongPopover = () => Math.min(380, window.innerWidth - 16);
+
 function LocCotPopover({ cfg, cot, anchor, onClose }: { cfg: LocCotCfg; cot: string; anchor: HTMLElement | null; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: -9999, left: -9999 });
@@ -168,7 +172,7 @@ function LocCotPopover({ cfg, cot, anchor, onClose }: { cfg: LocCotCfg; cot: str
   useLayoutEffect(() => {
     if (!anchor) return;
     const r = anchor.getBoundingClientRect();
-    const w = 280;
+    const w = rongPopover();
     const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
     const top = Math.min(r.bottom + 4, window.innerHeight - 120);
     setPos({ top, left });
@@ -239,7 +243,7 @@ function LocCotPopover({ cfg, cot, anchor, onClose }: { cfg: LocCotCfg; cot: str
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
       onDragStart={(e) => e.stopPropagation()}
-      style={{ position: "fixed", top: pos.top, left: pos.left, width: 280, zIndex: 80 }}
+      style={{ position: "fixed", top: pos.top, left: pos.left, width: rongPopover(), zIndex: 80 }}
       className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-2 text-sm shadow-[var(--shadow-pop)]"
     >
       <div className="mb-1 px-1 text-[11px] font-bold uppercase tracking-wide text-[var(--ink-400)]">{cfg.tieuDe[cot] ?? cot}</div>
@@ -267,10 +271,10 @@ function LocCotPopover({ cfg, cot, anchor, onClose }: { cfg: LocCotCfg; cot: str
               {tim.trim() ? t("(Chọn tất cả kết quả tìm)") : t("(Chọn tất cả)")}
             </label>
             {khop.map((g) => (
-              <label key={g.v} className="flex cursor-pointer items-center gap-2 px-2 py-1 text-xs hover:bg-[var(--surface-100)]">
-                <input type="checkbox" checked={tapChon.has(g.v)} onChange={() => toggle(g.v)} />
-                <span className="min-w-0 flex-1 truncate" title={g.label}>{g.label}</span>
-                <span className="tabular-nums text-[var(--ink-400)]">{g.n}</span>
+              <label key={g.v} className="flex cursor-pointer items-start gap-2 px-2 py-1 text-xs leading-snug hover:bg-[var(--surface-100)]">
+                <input type="checkbox" className="mt-0.5 shrink-0" checked={tapChon.has(g.v)} onChange={() => toggle(g.v)} />
+                <span className="min-w-0 flex-1 break-words" title={g.label}>{g.label}</span>
+                <span className="shrink-0 tabular-nums text-[var(--ink-400)]">{g.n}</span>
               </label>
             ))}
           </>

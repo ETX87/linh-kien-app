@@ -2458,5 +2458,11 @@ const tuDien: Record<string, string> = {
   "đơn đặt ngày {ngay} {tien}": "orders on {ngay} {tien}",
   "✂ Hàng về một phần — tách đơn": "✂ Partly received — split order",
   "✂ Tách đơn": "✂ Split order",
+  "(Trống)": "(Empty)",
+  "Ctrl + bấm để chọn nhiều người": "Ctrl + click to select several",
+  "Hiện danh sách người nhận hàng bên trái": "Show recipient list on the left",
+  "Tìm người nhận…": "Find recipient…",
+  "» Người nhận": "» Recipients",
+  "Ẩn danh sách người nhận": "Hide recipient list",
 };
 export default tuDien;

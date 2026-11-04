@@ -52,9 +52,11 @@ export function DropdownPortal({
       const r = el.getBoundingClientRect();
       const spaceBelow = window.innerHeight - r.bottom;
       const openUpward = spaceBelow < Math.min(maxHeight, 160) && r.top > spaceBelow;
+      const width = Math.min(minWidth ? Math.max(r.width, minWidth) : r.width, window.innerWidth - 16);
       setPos({
-        left: r.left,
-        width: minWidth ? Math.max(r.width, minWidth) : r.width,
+        // Khong tran mep phai man hinh khi minWidth rong hon o goc.
+        left: Math.max(8, Math.min(r.left, window.innerWidth - width - 8)),
+        width,
         top: openUpward ? undefined : r.bottom + 4,
         bottom: openUpward ? window.innerHeight - r.top + 4 : undefined,
       });
