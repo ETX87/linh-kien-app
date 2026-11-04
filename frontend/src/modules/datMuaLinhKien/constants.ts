@@ -61,6 +61,7 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   DON_DA_DU_TIEN: "Đơn đã được thanh toán đủ",
   DON_KHONG_CAN_CHUYEN_TIEN: "Đơn này không cần chuyển tiền",
   DA_CO_MA_MISA: "Kế toán đã bổ sung mã MISA cho phiếu này — không bỏ đơn khỏi phiếu được nữa",
+  QUA_NHIEU_PHIEU_MISA: "Bộ lọc đang khớp quá 150 phiếu — lọc theo trạng thái / khu vực / người nhận rồi tải file MISA lại",
   DU_LIEU_VUA_DOI: "Tiền của phiếu vừa thay đổi — tải lại rồi thử lại",
   KHOAN_KHONG_HUY_DUOC: "Chỉ hủy được khoản đang ở trạng thái Đã duyệt",
   KHOAN_KHONG_PHAI_MOI_NHAT: "Phiếu đã có lần duyệt mới hơn — chỉ hủy được lần duyệt mới nhất",

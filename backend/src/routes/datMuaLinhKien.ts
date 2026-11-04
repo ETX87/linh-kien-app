@@ -993,16 +993,18 @@ datMuaLinhKien.get("/home-summary", async (c) => {
     if (khuVucSet) {
       const list = [...khuVucSet];
       cteParts.push(
-        `kv_email(email) AS (SELECT email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND khu_vuc_ma IN (${list.map(() => "?").join(",")}))`,
+        // SUA 2026-11-04 (v1.438): D1 chi cho TOI DA 5 ve UNION trong 1 SELECT ("too many terms in compound SELECT") -
+        // truoc day kv_ma/gs_list dung "SELECT ? UNION ALL SELECT ?..." -> tai khoan gan >= 6 khu vuc loi Trang chu. Gio 1 bind JSON.
+        `kv_email(email) AS (SELECT email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND khu_vuc_ma IN (SELECT value FROM json_each(?)))`,
         // Ma khu vuc de so voi cot khu_vuc_ma luu san tren don/PXK (migration 0042).
-        `kv_ma(ma) AS (${list.map(() => "SELECT ?").join(" UNION ALL ")})`,
+        `kv_ma(ma) AS (SELECT value FROM json_each(?))`,
       );
-      cteBinds.push(...list, ...list);
+      cteBinds.push(JSON.stringify(list), JSON.stringify(list));
     }
     if (gsSet) {
       const list = [...gsSet];
-      cteParts.push(`gs_list(email) AS (${list.map(() => "SELECT ?").join(" UNION ALL ")})`);
-      cteBinds.push(...list);
+      cteParts.push(`gs_list(email) AS (SELECT value FROM json_each(?))`);
+      cteBinds.push(JSON.stringify(list));
     }
     const withClause = cteParts.length > 0 ? `WITH ${cteParts.join(", ")} ` : "";
 

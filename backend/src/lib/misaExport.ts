@@ -315,7 +315,6 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
   const db = env.DB;
   const khoBanHang = await loadKhoSettings(db);
   const khoMay = await loadKhoSettings(db, "may_");
-  const placeholders = pxkIds.map(() => "?").join(",");
   const { results } = await db
     .prepare(
       `SELECT
@@ -344,10 +343,10 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
        LEFT JOIN khach_le kl ON kl.email = pxk.nguoi_nhan_hang
        LEFT JOIN ktv_lien_he kln ON kln.ma_ktv = kl.nhom_ma
        LEFT JOIN doi_tac_cong_no dt ON dt.ma_misa = ddh.doi_tac_ma
-       WHERE pxk.id IN (${placeholders})
+       WHERE pxk.id IN (SELECT value FROM json_each(?)) -- 1 bind JSON (D1 <= 100 tham so; truoc 1 "?" moi phieu)
        ORDER BY pxk.ngay_tao, pxk.id, ddh.id`,
     )
-    .bind(...pxkIds)
+    .bind(JSON.stringify(pxkIds))
     .all<RawLine>();
 
   // Xac dinh template cho TUNG dong TRUOC (bo cot "Don dat hang" moi khong co cot Serial rieng nhu mau

@@ -453,76 +453,18 @@ phieuXuatKho.get("/", async (c) => {
 // nay, xem GET /status-counts cung lam vay) de tranh lech bo loc giua "xem" va "xuat".
 phieuXuatKho.get("/misa-export", async (c) => {
   if (!canDownloadMisa(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
-  const user = c.get("user");
-  const scope = scopePxkNguoiNhanHang(c);
-  const trangThai = c.req.query("trang_thai");
-  const nguoiNhanHang = c.req.query("nguoi_nhan_hang");
-  const loaiDon = c.req.query("loai_don");
-  const khuVuc = c.req.query("khu_vuc")?.trim();
-  // .normalize("NFC") - xem giai thich day du o settingsKtv.ts GET / (cung fix, cung ngay).
-  const q = c.req.query("q")?.trim().normalize("NFC");
-  let whereSql = "1=1" + (scope?.whereSql ?? "");
-  const binds: unknown[] = [...(scope?.binds ?? [])];
-  // FIX (phan hoi nguoi dung: "đồng bộ danh sách theo badge" cho Khu vuc phu trach GS) - xem GET /
-  // (cung 1 fix, cung ngay) - ap dung o day de tranh xuat MISA nhieu hon nhung gi GET / that su cho
-  // xem (khong lech "xem" vs "xuat" nhu comment dau file da noi ro).
-  if (scope === null && (canTacNghiep(c) || canKho(c) || canKeToan(c))) {
-    const gsSet = await phuTrachGsSet(c.env.DB, user.email);
-    if (gsSet) {
-      whereSql += ` AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh2.email_gs IN (${[...gsSet].map(() => "?").join(",")}))`;
-      binds.push(...gsSet);
-    }
-  }
-  if (trangThai === "__OPEN__") {
-    // Sentinel "con ton" (them 2026-09-23) - xem giai thich day du o GET / (cung 1 fix, cung ngay, giu
-    // dong bo "xem" vs "xuat" theo dung comment dau file).
-    whereSql += ` AND pxk.trang_thai_hien_tai NOT IN (${TRANG_THAI_DONG.map(() => "?").join(",")})`;
-    binds.push(...TRANG_THAI_DONG);
-  } else if (trangThai === "CHO_TIEN") {
-    // FIX (phan hoi 2026-09-23 "vẫn đếm cả đơn đã hủy") - xem giai thich day du o GET / (cung 1 fix,
-    // cung ngay, giu dong bo "xem" vs "xuat" theo dung comment dau file).
-    whereSql += " AND pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'";
-  } else if (trangThai === "DA_IN") {
-    whereSql += ` AND ${DA_IN_COND}`;
-  } else if (trangThai === "CHOT_CHUA_IN") {
-    whereSql += ` AND ${CHOT_CHUA_IN_COND}`;
-  } else if (trangThai === "Dang tao phieu") {
-    whereSql += " AND pxk.trang_thai_hien_tai = ? AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')";
-    binds.push(trangThai);
-  } else if (trangThai) {
-    whereSql += " AND pxk.trang_thai_hien_tai = ?";
-    binds.push(trangThai);
-  }
-  if (nguoiNhanHang) {
-    whereSql += " AND pxk.nguoi_nhan_hang = ?";
-    binds.push(nguoiNhanHang);
-  }
-  if (loaiDon) {
-    whereSql += " AND pxk.loai_don = ?";
-    binds.push(loaiDon);
-  }
-  if (khuVuc) {
-    const khuVucList = khuVuc.split(",").map((s) => s.trim()).filter(Boolean);
-    if (khuVucList.length > 0) {
-      const { sql, binds: khuVucBinds } = khuVucPxkWhereSql(new Set(khuVucList), "pxk", laKhoThuan(c.get("user")));
-      whereSql += sql;
-      binds.push(...khuVucBinds);
-    }
-  }
-  if (q) {
-    // + tim theo TEN nguoi tao/nguoi nhan hang (2026-09-28, xem lib/timTheoTen.ts).
-    const theoTen = orEmailIn(["pxk.nguoi_tao", "pxk.nguoi_nhan_hang"], await emailsTheoTen(c.env.DB, q));
-    const theoDon = orDonTrongPxk(q); // + ma don / ma yeu cau su co chinh-bo sung cua dong trong phieu (2026-09-29)
-    whereSql += ` AND (pxk.id LIKE ? OR pxk.ma_xuat_kho LIKE ? OR pxk.ma_misa LIKE ? OR pxk.ma_van_don LIKE ? OR pxk.nguoi_tao LIKE ? OR pxk.nguoi_nhan_hang LIKE ?${theoDon.sql}${theoTen.sql})`;
-    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, ...theoDon.binds, ...theoTen.binds);
-  }
-
+  // SUA 2026-11-04 (v1.438): dung CHUNG pxkListWhere() voi GET / (truoc day chep tay, thieu loc cot `cf` -> xuat nhieu phieu hon
+  // man dang xem). Danh sach phieu dua vao buildMisaExportSheets bang 1 bind JSON (truoc 1 "?" moi phieu, > 100 phieu = loi D1).
+  const { whereSql, binds } = await pxkListWhere(c);
   const { results } = await c.env.DB.prepare(`SELECT pxk.id FROM phieu_xuat_kho pxk WHERE ${whereSql} ORDER BY pxk.ngay_tao`)
     .bind(...binds)
     .all<{ id: string }>();
+  // Moi phieu mau Ban hang can ~5 truy van tinh tien (tinhToanPxk) - D1 gioi han 1000 truy van / request -> chan som, bao ro so phieu.
+  if (results.length > MISA_GOP_TOI_DA) return c.json({ error: "QUA_NHIEU_PHIEU_MISA", so_phieu: results.length, toi_da: MISA_GOP_TOI_DA }, 400);
   const result = await buildMisaExportSheets(c.env, results.map((r) => r.id), parseMisaTemplate(c));
   return c.json(result);
 });
+const MISA_GOP_TOI_DA = 150;
 
 // GET /api/phieu-xuat-kho/status-counts?loai_don= - dem tinh theo tung trang_thai (dropdown loc, xem
 // comment tai GET /api/dat-mua-lk/don-hang-status-counts) - scope GIONG HET GET / (scopePxkNguoiNhanHang),
