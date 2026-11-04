@@ -45,6 +45,7 @@ import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../components/ui/LocCot";
 import { NguoiNhanSide, NutMoSideNguoiNhan, useHienSideNguoiNhan } from "./NguoiNhanSide";
 import { MenuTai } from "./MenuTai";
+import { NutKtDuyetNhanh, ThanhDuyetNhanhPxk, type PxkDuyetNhanh } from "./DuyetNhanhPxk";
 import { BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung, DuyetChuyenTienForm, LichSuKhoanChuyen, RutLaiBangChungButton, TienPhieuVaQuy, TienBiBotCanhBao, TuChoiChuyenTienButton, type KhoanChuyenTien } from "./BangChungChuyenTien";
 import { doiNguoiThanhTen, formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay";
 import { t } from "../../i18n";
@@ -263,7 +264,15 @@ export function PhieuXuatKhoTab({
   // GD4 (phan hoi Codex #16): ve trang 1 moi khi bo loc doi - tranh dung o 1 trang qua so trang moi.
   useEffect(() => {
     setPage(1);
+    setChonPxk(new Map());
+    setDangChonTatCa(false);
   }, [filterTrangThai, filterNguoiNhanHang, xemLoaiDon, debouncedQ, khuVucParam, locCot.queryParams.cf, locCot.queryParams.cs, locCot.queryParams.cd]);
+  // Chon nhieu phieu -> Ke toan duyet nhanh hang loat (v1.441, DuyetNhanhPxk.tsx). Giu ca dong (can trang thai / ma) de chay khong goi lai.
+  const [chonPxk, setChonPxk] = useState<Map<string, PxkDuyetNhanh>>(new Map());
+  const [dangChonTatCa, setDangChonTatCa] = useState(false);
+  const coChonPxk = canKeToan;
+  const batChonPxk = (r: PhieuXuatKhoRow) =>
+    setChonPxk((m) => { const n = new Map(m); if (n.has(r.id)) n.delete(r.id); else n.set(r.id, r); return n; });
 
   // GD4 (phan hoi Codex #17): phan trang server-side that su - truoc day tai TOAN BO dong khop bo loc
   // roi tu slice o client.
@@ -664,9 +673,40 @@ export function PhieuXuatKhoTab({
       // nghiep vu - doi nhan "Mã PXK" -> "ID" cho dung ban chat, mã PXK thuc su la ma_misa (cot rieng
       // ben duoi, Ke toan nhap luc "chốt xong đơn xuất").
       key: "id",
-      header: "ID",
+      header: coChonPxk ? (
+        <span className="inline-flex items-center gap-1.5">
+          <input
+            type="checkbox"
+            title={t("Chọn cả trang")}
+            checked={(data?.rows.length ?? 0) > 0 && (data?.rows ?? []).every((r) => chonPxk.has(r.id))}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              const rows = data?.rows ?? [];
+              setDangChonTatCa(false);
+              setChonPxk((m) => {
+                const n = new Map(m);
+                for (const r of rows) {
+                  if (e.target.checked) n.set(r.id, r);
+                  else n.delete(r.id);
+                }
+                return n;
+              });
+            }}
+          />
+          ID
+        </span>
+      ) : "ID",
       render: (r) => (
         <span className="font-mono text-xs">
+          {coChonPxk && (
+            <input
+              type="checkbox"
+              className="mr-1.5 align-middle"
+              checked={chonPxk.has(r.id)}
+              onClick={(e) => e.stopPropagation()}
+              onChange={() => { setDangChonTatCa(false); batChonPxk(r); }}
+            />
+          )}
           {/* !! bat buoc - D1 tra EXISTS(...) ve 0/1 (khong phai boolean that), "0 && <X/>" trong
               JSX se render ra chu "0" thay vi an di neu khong ep kieu truoc. */}
           <NutXoDongDon mo={moRongPxk.has(r.id)} onClick={() => toggleMoRong(r.id)} />
@@ -989,6 +1029,24 @@ export function PhieuXuatKhoTab({
         <LocCotBar cfg={locCotCfg} cots={[...LOC_COT_KHONG_CO_COT, ...locCotDangAp]} hienTatCa />
       </div>
       {xemAnhPxk != null && <XemAnhNhanh items={anhPxkDs} batDau={xemAnhPxk} onClose={() => setXemAnhPxk(null)} />}
+      {coChonPxk && (
+        <ThanhDuyetNhanhPxk
+          chon={[...chonPxk.values()]}
+          tongTheoBoLoc={data?.total ?? 0}
+          dangChonTatCa={dangChonTatCa}
+          onChonTatCa={async () => {
+            try {
+              const res = await taiPhieuTheoBoLoc();
+              setChonPxk(new Map(res.rows.map((r) => [r.id, r])));
+              setDangChonTatCa(true);
+            } catch (err) {
+              addToast(t("Lỗi: ") + describeApiError(err));
+            }
+          }}
+          onBoChon={() => { setChonPxk(new Map()); setDangChonTatCa(false); }}
+          addToast={addToast}
+        />
+      )}
       <PaginatedTable
         columns={cols}
         optionalColumns={optionalCols}
@@ -1823,6 +1881,10 @@ export function PxkDetailModal({
             >
               {t("📤 Gửi kế toán")}
             </Btn>
+          )}
+          {/* Ke toan duyet nhanh (v1.441): Ma don hang = ID phieu, Ma PXK = PXK-ID, gui ke toan - DuyetNhanhPxk.tsx. */}
+          {canKeToan && (trangThai === "Dang tao phieu" || (trangThai === "Cho ke toan" && !pxk.ma_misa)) && (
+            <NutKtDuyetNhanh pxk={{ ...pxk, id, trang_thai: trangThai }} addToast={addToast} />
           )}
           {(canTacNghiep || canKeToan) && ["Dang tao phieu", "Cho ke toan"].includes(trangThai) && (
             // FIX (phan hoi 2026-08-25, hang muc #19): ghi_chu nay BAT BUOC o backend - disable

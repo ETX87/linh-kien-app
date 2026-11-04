@@ -1116,6 +1116,11 @@ sách với HỖ TRỢ 0 ĐỒNG, + đơn giá với Chuyển kho); SL cộng, t
 - Phiếu nguồn "Dang tao phieu" → `taiTinhPxk`; "Cho ke toan" → trừ thẳng `so_tien_can_chuyen` (taiTinhPxk không sửa tiền ở bước này). Log phiếu nguồn ghi tách + phiếu đích.
 - FE: nút "✂ Tách" trên dòng đơn (`PxkDongDonHangTable`, cả Drawer lẫn dòng xổ) → `TachDonPhieuModal` (`TachDon.tsx`).
 
+**Kế toán duyệt nhanh phiếu xuất** (chốt 2026-11-05, v1.441 — "thêm nút duyệt 'Kế toán duyệt nhanh': Mã đơn hàng = ID phiếu, mã PXK = PXK-'ID phiếu'" + chọn nhiều / tất cả phiếu → "KT duyệt nhanh", "KT duyệt trừ kho nhanh", "KT duyệt xong phiếu nhanh", "Trừ kho", "Đã chốt xong đơn xuất"):
+- KHÔNG có API riêng — `datMuaLinhKien/DuyetNhanhPxk.tsx` gọi LẦN LƯỢT đúng các API bấm tay (giữ mọi kiểm tra + tác dụng phụ): `PATCH /:id/ma-xuat-kho` (mã đang gõ sẵn, không có thì = ID phiếu) → `POST /:id/log` "Cho ke toan" (gửi kế toán) → `PATCH /:id/ma-misa` "PXK-<ID>" → `POST /:id/log` "Hang tru kho" | "Da chot xong don xuat". Bước nào lỗi thì dừng phiếu đó, báo lý do, chạy tiếp phiếu sau.
+- "Trừ kho" / "Đã chốt xong đơn xuất" chỉ nhận phiếu "Cho ke toan" đã có đủ Mã đơn hàng + Mã PXK. Trả hàng không trừ kho.
+- UI: nút "⚡ Kế toán duyệt nhanh" ở chi tiết phiếu (Kế toán, phiếu "Dang tao phieu" hoặc "Cho ke toan" chưa Mã MISA); danh sách Phiếu xuất có ô chọn ở cột ID (tiêu đề = chọn cả trang) + thanh `ThanhDuyetNhanhPxk` ("Chọn tất cả N phiếu theo bộ lọc" tải mọi phiếu qua `taiPhieuTheoBoLoc`). Đổi bộ lọc = bỏ chọn. Chưa có ô chọn trên thẻ mobile.
+
 **Đợt v1.411** (chốt 2026-10-28): (1) **Đơn đã thanh toán ưu tiên phiếu riêng**: `bundleAutoApprovedIntoPxk` tách nhóm đơn có `tien_da_tra > 0`
 (không đối tác, không trả hàng) — CHỈ gộp vào phiếu "Dang tao phieu" Kế toán ĐÃ duyệt tiền (`trang_thai_chuyen_tien='TN da duyet'`, có tiền), không thì tạo
 phiếu MỚI (tự "Kế toán đã duyệt" khi đủ tiền nhờ quy tắc tiền cần chuyển = 0); không bao giờ gộp vào phiếu đang chờ chuyển tiền. (2) **Ca khiếu nại**
