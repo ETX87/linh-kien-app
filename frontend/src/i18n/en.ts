@@ -981,6 +981,7 @@ const tuDien: Record<string, string> = {
   "Tồn": "Pending",
   "Tồn đọng toàn hệ thống": "System-wide backlog",
   "Tổng": "Total",
+  "Tổng tồn": "Total open",
   "Tổng OCR": "OCR total",
   "Tổng OCR {a} ảnh": "OCR total of {a} images",
   "Tổng PXK": "Total notes",

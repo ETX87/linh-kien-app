@@ -548,7 +548,7 @@ export function DatMuaLinhKienModule({
           ? [
               {
                 key: "tong-don-hang",
-                label: t("Tổng"),
+                label: t("Tổng tồn"),
                 count: tatCaLoaiCountsData?.counts.__OPEN__,
                 onClick: () => stageJump("tong-don-hang", { tab: "don-cua-toi", filter: "__OPEN__", loaiDon: "tat_ca" }),
               },
