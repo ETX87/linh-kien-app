@@ -23,7 +23,7 @@ import {
   isDonTaoHo, formatLkLabel, LOAI_DON_TONE, loaiDonLabel,
   nenKhieuNai,
 } from "./helpers";
-import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, LoaiDeXuatBadge, DetailZone, QuickStat, KhuVucChipFilter, ImageLink, ImageThumb, MaYcscCell, LogTieuDe, useTenNguoiLog } from "./SharedUi";
+import { ActiveFiltersBar, TrangThaiDropdownFilter, BulkConfirmButton, FilterSearchBar, StatusBadge, LoaiDeXuatBadge, DetailZone, QuickStat, KhuVucChipFilter, ImageLink, ImageThumb, MaYcscCell, LogTieuDe, timelineLogGop, useTenNguoiLog } from "./SharedUi";
 import { Money } from "../../components/ui/Money";
 import { NguoiTao, NguoiNhan } from "../../components/ui/TenNguoi";
 import { doiNguoiThanhTen, usePersonDirectory } from "../../lib/personDisplay";
@@ -1391,17 +1391,16 @@ export function TraHangDetailModal({
 
           <SectionTitle className="mt-0">{t("Lịch sử xử lý")}</SectionTitle>
           <Timeline
-            items={(data?.logs ?? []).map((l) => ({
+            items={timelineLogGop(data?.logs ?? [], (l, _i, phu) => ({
               // Nguoi thao tac -> hanh dong -> trang thai (LogTieuDe, 2026-09-30).
               title: (
                 <LogTieuDe
-                  nguoi={tenLog(l.nguoi_xu_ly)}
+                  nguoi={phu ? "↳" : tenLog(l.nguoi_xu_ly)}
                   hanhDong={t("chuyển sang")}
                   trangThai={trangThaiLabel(TRA_HANG_TRANG_THAI_OPTIONS, l.trang_thai)}
                   ghiChu={l.ghi_chu}
                 />
               ),
-              time: fmtDateTime(l.ngay_xu_ly),
             }))}
           />
         </div>

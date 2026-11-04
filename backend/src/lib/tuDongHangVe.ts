@@ -22,7 +22,19 @@ export interface DonHangVeTuDong {
   uu_tien: number;
 }
 
-export async function donHangVeTheoUuTien(db: D1Database): Promise<DonHangVeTuDong[]> {
+// DUNG KHI DON UU TIEN CAO CHI DU MOT PHAN (chot 2026-11-03, v1.434 - "Trường hợp đơn đặt chờ ưu tiên cao hơn mà không đủ hàng, sẽ không
+// tự động duyệt hàng về ... mà sẽ dừng lại chờ kho hoặc kế toán xác nhận phương án xử lý"): theo thu tu uu tien, gap don dau tien ma ton con
+// lai > 0 nhung < SL can -> ghi vao choPhuongAn (co / can) va KHOA (ma LK, khu vuc) do: cac don xep sau KHONG duoc tu duyet nua (truoc day bo
+// qua don lon roi duyet don nho xep sau). Kho / Ke toan / TN xu ly: tach don (lib/tachDon.ts) hoac doi them hang.
+export interface DonChoPhuongAn {
+  id: string;
+  ma_lk: string;
+  kv: string;
+  co: number;
+  can: number;
+}
+
+export async function donHangVeTheoUuTien(db: D1Database): Promise<{ chon: DonHangVeTuDong[]; choPhuongAn: DonChoPhuongAn[] }> {
   const moc = await getMocTonKhoCongTy(db);
   const { results } = await db
     .prepare(
@@ -55,25 +67,38 @@ export async function donHangVeTheoUuTien(db: D1Database): Promise<DonHangVeTuDo
     .all<DonHangVeTuDong & { sl: number; kha_dung: number }>();
   // Cap phat lan luot theo thu tu uu tien tren phan ton con lai cua tung (ma, khu vuc).
   const conLai = new Map<string, number>();
+  const khoa = new Set<string>();
   const chon: DonHangVeTuDong[] = [];
+  const choPhuongAn: DonChoPhuongAn[] = [];
   for (const r of results) {
     const key = `${r.ma_lk}|${r.kv}`;
+    if (khoa.has(key)) continue;
     const ton = conLai.has(key) ? conLai.get(key)! : r.kha_dung;
     if (r.sl <= ton) {
       chon.push({ id: r.id, ma_lk: r.ma_lk, kv: r.kv, khieu_nai: r.khieu_nai, uu_tien: r.uu_tien });
       conLai.set(key, ton - r.sl);
     } else {
       conLai.set(key, ton);
+      if (ton > 0) {
+        choPhuongAn.push({ id: r.id, ma_lk: r.ma_lk, kv: r.kv, co: ton, can: r.sl });
+        khoa.add(key);
+      }
     }
   }
-  return chon;
+  return { chon, choPhuongAn };
+}
+
+/** Don "Cho hang" dang CHAN tu duyet vi kho chi du mot phan (doc luc xem - FE Thieu hang: "Kho có x/y" + nut tach don). */
+export async function donHangVeMotPhan(db: D1Database): Promise<Map<string, DonChoPhuongAn>> {
+  const { choPhuongAn } = await donHangVeTheoUuTien(db);
+  return new Map(choPhuongAn.map((d) => [d.id, d]));
 }
 
 export async function tuDongXacNhanHangVe(
   env: Env, db: D1Database, nguoi: string, nguon: string,
-): Promise<{ daXacNhan: string[]; boQua: string[] }> {
-  const ds = await donHangVeTheoUuTien(db);
-  const kq = { daXacNhan: [] as string[], boQua: [] as string[] };
+): Promise<{ daXacNhan: string[]; boQua: string[]; choPhuongAn: DonChoPhuongAn[] }> {
+  const { chon: ds, choPhuongAn } = await donHangVeTheoUuTien(db);
+  const kq = { daXacNhan: [] as string[], boQua: [] as string[], choPhuongAn };
   for (const d of ds) {
     const uuTien = d.khieu_nai ? "ca khiếu nại (ưu tiên 1)" : d.uu_tien ? "đơn ưu tiên" : "đơn tồn lâu trước";
     const lyDo = `Tự động xác nhận hàng về (${nguon}): kho công ty khu vực ${d.kv} đủ hàng — xếp theo ${uuTien}`;

@@ -20,7 +20,7 @@ import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import type { ThieuLkRow, LyDoChamRow, NguoiNhanHangKhaDungRow, DonHangRow } from "./types";
 import { THIEU_LK_TRANG_THAI_TONE, THIEU_LK_TRANG_THAI_OPTIONS } from "./constants";
 import { describeApiError, formatNguoiDisplay, useKtvDisplayMap, ktvOptionLabel, invalidatePipelineCounts, trangThaiLabel, formatLkLabel, LOAI_DON_TONE, dayLaiDuoc, nenKhieuNai } from "./helpers";
-import { StatusBadge, LoaiDeXuatBadge, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar, KhuVucChipFilter, LogTieuDe, useTenNguoiLog } from "./SharedUi";
+import { StatusBadge, LoaiDeXuatBadge, BulkConfirmButton, FilterSearchBar, ActiveFiltersBar, KhuVucChipFilter, LogTieuDe, timelineLogGop, useTenNguoiLog } from "./SharedUi";
 import { ThieuLkStatusRail } from "./ThieuLkStatusRail";
 // Lien ket 2 chieu voi don goc (phan hoi 2026-09-10: "đơn gốc cũng không có truy vấn đến đơn ticket
 // đơn thiếu linh kiện") - import truc tiep component Drawer chi tiet don hang, tu quan ly state mo/dong
@@ -36,6 +36,7 @@ import { fetchWithHashCache } from "../../lib/staticListCache";
 import type { LinhKienRow } from "../../types";
 import { XetDuyetMaSection } from "../danhMucLinhKien/XetDuyetMaLk";
 import { DanhGiaThieuLk } from "./DanhGiaThieuLk";
+import { TachDonModal } from "./TachDon";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -150,6 +151,17 @@ function MaLkXacNhanBadge({ tt, chiKhiCho = false }: { tt: string | null | undef
 // bam "Đã có hàng" / "Hàng đã về".
 function KhoDuHangBadge({ du }: { du: number | undefined }) {
   return du ? <Badge tone="success">{t("Đã có đủ hàng tồn trong kho")}</Badge> : null;
+}
+
+// "Kho có x/y" (v1.434): kho cong ty chi du MOT PHAN cho don uu tien cao nhat cua ma -> he thong DUNG tu duyet hang ve (ca don xep sau),
+// cho Kho / Ke toan / TN chon phuong an (tach don giao truoc phan da co, hoac doi them hang).
+function KhoMotPhanBadge({ co, sl }: { co: number | null | undefined; sl: number | null | undefined }) {
+  if (!co) return null;
+  return (
+    <span title={t("Kho công ty chỉ đủ một phần — hệ thống dừng tự duyệt hàng về cho mã này, chờ Kho / Kế toán chọn phương án (tách đơn hoặc chờ đủ).")}>
+      <Badge tone="warning">{t("Kho có {a}/{b}", { a: co, b: sl ?? "?" })}</Badge>
+    </span>
+  );
 }
 
 // Hoi xac nhan truoc "Đã có hàng" (2026-10-16) - 1 lan bam la tiep nhan + hang ve + don goc tu duyet, vao phieu.
@@ -518,15 +530,22 @@ export function ThieuLkTab({
   // "Rà soát hàng về" (2026-10-28): xac nhan hang ve tu dong theo ton kho cong ty hien tai, uu tien ca khieu nai > ton lau > don uu tien
   // (backend lib/tuDongHangVe.ts - cung chay tu dong sau moi lan Ke toan import ton kho).
   const raSoatHangVe = useMutation({
-    mutationFn: () => api.post<{ ok: true; da_xac_nhan: string[]; bo_qua: string[] }>("/dat-mua-lk/thieu-lk/tu-dong-hang-ve", {}),
+    mutationFn: () =>
+      api.post<{ ok: true; da_xac_nhan: string[]; bo_qua: string[]; cho_phuong_an?: { id: string; co: number; can: number }[] }>("/dat-mua-lk/thieu-lk/tu-dong-hang-ve", {}),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-thieu-lk"] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
       invalidatePipelineCounts(qc);
+      const cho = r.cho_phuong_an ?? [];
       addToast(
-        r.da_xac_nhan.length
+        (r.da_xac_nhan.length
           ? t("Đã tự xác nhận hàng về {n} đơn: {a}", { n: r.da_xac_nhan.length, a: r.da_xac_nhan.slice(0, 8).join(", ") + (r.da_xac_nhan.length > 8 ? "…" : "") })
-          : t("Không có đơn chờ hàng nào đủ tồn kho công ty"),
+          : t("Không có đơn chờ hàng nào đủ tồn kho công ty")) +
+          (cho.length
+            ? " · " + t("{n} đơn ưu tiên chỉ đủ một phần — dừng tự duyệt, chờ chọn phương án (tách đơn): {a}", {
+                n: cho.length, a: cho.slice(0, 5).map((d) => `${d.id} (${d.co}/${d.can})`).join(", "),
+              })
+            : ""),
       );
     },
     onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
@@ -859,7 +878,7 @@ function ThieuLkGroupedList({
     { key: "ma_lk_tt", header: t("Mã LK"), render: (r) => <MaLkXacNhanBadge tt={r.lk_trang_thai_ma} /> },
     // Nhom LK Karofi / B2B (2026-10-16, migration 0088) - Kho duoc gan 1 nhom chi thay ticket cua nhom do.
     { key: "nhom_lk", header: t("Nhóm LK"), render: (r) => <NhomLkBadge value={r.lk_nhom_lk} /> },
-    { key: "kho_du_hang", header: t("Kho công ty"), render: (r) => (r.kho_du_hang ? <KhoDuHangBadge du={r.kho_du_hang} /> : <span className="text-[var(--ink-400)]">—</span>) },
+    { key: "kho_du_hang", header: t("Kho công ty"), render: (r) => (r.kho_du_hang ? <KhoDuHangBadge du={r.kho_du_hang} /> : r.kho_mot_phan ? <KhoMotPhanBadge co={r.kho_mot_phan} sl={r.so_luong_de_xuat} /> : <span className="text-[var(--ink-400)]">—</span>) },
     { key: "loai", header: t("Loại"), render: (r) => <LoaiDeXuatBadge loaiDon={r.loai_don} loaiDeXuat={r.loai_de_xuat} /> },
     { key: "loai_chiet_khau", header: t("Loại chiết khấu"), render: (r) => <LoaiChietKhauText id={r.loai_chiet_khau_id} thuCong={r.loai_chiet_khau_thu_cong} /> },
     { key: "nguoi_tao", header: t("TN báo"), render: (r) => formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap) },
@@ -1079,6 +1098,7 @@ function ThieuLkGroupedList({
                         <LoaiDeXuatBadge loaiDon={r.loai_don} loaiDeXuat={r.loai_de_xuat} />
                         <MaLkXacNhanBadge tt={r.lk_trang_thai_ma} chiKhiCho />
                         <KhoDuHangBadge du={r.kho_du_hang} />
+                        <KhoMotPhanBadge co={r.kho_mot_phan} sl={r.so_luong_de_xuat} />
                         {r.so_luong_de_xuat != null && <span className="shrink-0 text-xs text-[var(--color-text-secondary)]">{t("SL {a}", { a: r.so_luong_de_xuat })}</span>}
                       </div>
                       <div className="mt-1 truncate text-xs text-[var(--color-text-secondary)]">
@@ -1168,6 +1188,7 @@ export function ThieuLkDetailModal({
   const [maLkMoi, setMaLkMoi] = useState("");
   const [showDonGoc, setShowDonGoc] = useState(false);
   const [moDayLai, setMoDayLai] = useState(false);
+  const [moTachDon, setMoTachDon] = useState(false);
   const [ghiChuDayLai, setGhiChuDayLai] = useState("");
   const { data, isLoading } = useQuery({
     queryKey: ["thieu-lk-detail", id],
@@ -1440,9 +1461,38 @@ export function ThieuLkDetailModal({
               <MaLkXacNhanBadge tt={tk.lk_trang_thai_ma} />
               {tk.lk_nhom_lk && <NhomLkBadge value={tk.lk_nhom_lk} />}
               <KhoDuHangBadge du={tk.kho_du_hang} />
+              <KhoMotPhanBadge co={tk.kho_mot_phan} sl={tk.so_luong_de_xuat} />
               {tk.so_luong_de_xuat != null && <span className="text-xs font-semibold text-[var(--color-text-body)]">{t("SL {a}", { a: tk.so_luong_de_xuat })}</span>}
             </div>
           </div>
+
+          {/* Hang ve MOT PHAN -> tach don (v1.434): Kho / Ke toan / TN tach phan da ve sang don moi (duyet vao phieu), don goc con lai tiep tuc cho. */}
+          {(canKho || canTacNghiep) && tkDonGoc?.ddh_trang_thai === "Cho hang" && (tk.so_luong_de_xuat ?? 0) >= 2 &&
+            !["Da huy bo", "Da ket thuc"].includes(tk.trang_thai) && (
+            <div className={`mb-4 rounded-xl border p-3 text-xs ${tk.kho_mot_phan ? "border-[var(--color-warning)] bg-[var(--color-warning-soft)]" : "border-[var(--color-border)]"}`}>
+              {tk.kho_mot_phan ? (
+                <div className="mb-2 text-[var(--color-warning-strong)]">
+                  {t("Kho công ty hiện có {a}/{b} chiếc cho đơn này. Đơn đang được ưu tiên nên hệ thống DỪNG tự duyệt hàng về cho mã này (kể cả đơn xếp sau) — chọn phương án: tách phần đã có để giao trước, hoặc giữ chờ đủ hàng.", { a: tk.kho_mot_phan, b: tk.so_luong_de_xuat ?? "?" })}
+                </div>
+              ) : (
+                <div className="mb-2 text-[var(--color-text-secondary)]">{t("Hàng về ít hơn số lượng đặt? Tách phần đã về sang đơn mới (duyệt vào phiếu, chuyển Kế toán), phần còn thiếu tiếp tục chờ Kho.")}</div>
+              )}
+              <Btn size="sm" variant="subtle" onClick={() => setMoTachDon(true)}>{t("✂ Hàng về một phần — tách đơn")}</Btn>
+            </div>
+          )}
+          {moTachDon && tk?.dat_don_hang_id && (
+            <TachDonModal
+              donId={tk.dat_don_hang_id}
+              soLuong={tk.so_luong_de_xuat ?? 0}
+              goiY={tk.kho_mot_phan}
+              onClose={() => setMoTachDon(false)}
+              onDone={(msg) => {
+                setMoTachDon(false);
+                addToast(msg);
+                qc.invalidateQueries({ queryKey: ["thieu-lk-detail", id] });
+              }}
+            />
+          )}
 
           {/* Khung danh gia (2026-10-19): ticket con o buoc Kho/Mua hang quyet dinh - tiep nhan cho hang ve hay chuyen Mua hang. */}
           {["Cho kho xu ly", "Kho da tiep nhan", "Kho da cap nhat", "Cho mua hang"].includes(tk.trang_thai) && (canKho || canTacNghiep || laMuaHangHoacAdmin) && (
@@ -1489,17 +1539,16 @@ export function ThieuLkDetailModal({
             <div className="text-xs text-[var(--ink-400)]">{t("Đang tải lịch sử...")}</div>
           ) : (
             <Timeline
-              items={data.logs.map((l, i, all) => ({
+              items={timelineLogGop(data.logs, (l, i, phu) => ({
                 // Nguoi thao tac -> hanh dong -> trang thai (LogTieuDe, 2026-09-30) - dong cuoi = luc bao thieu hang.
                 title: (
                   <LogTieuDe
-                    nguoi={tenLog(l.nguoi_xu_ly)}
-                    hanhDong={i === all.length - 1 ? t("báo thiếu hàng →") : t("chuyển ticket sang")}
+                    nguoi={phu ? "↳" : tenLog(l.nguoi_xu_ly)}
+                    hanhDong={i === data.logs.length - 1 ? t("báo thiếu hàng →") : t("chuyển ticket sang")}
                     trangThai={trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, l.trang_thai)}
                     ghiChu={l.ghi_chu}
                   />
                 ),
-                time: fmtDateTime(l.ngay_xu_ly),
               }))}
             />
           )}

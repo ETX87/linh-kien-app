@@ -36,7 +36,7 @@ import {
   trangThaiLabel, LOAI_DON_TONE, laTruCongNo,
   nenKhieuNai,
 } from "./helpers";
-import { StatusBadge, LoaiDeXuatBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar, KhuVucChipFilter, ImageLink, LogTieuDe, useTenNguoiLog } from "./SharedUi";
+import { StatusBadge, LoaiDeXuatBadge, ActiveFiltersBar, TrangThaiDropdownFilter, FilterSearchBar, KhuVucChipFilter, ImageLink, LogTieuDe, timelineLogGop, useTenNguoiLog } from "./SharedUi";
 import { PxkMiniPipeline } from "./PipelineFlow";
 import { BaoNhanThieuModal, NhanThieuCard, nhanThieuPxkQuery } from "./NhanThieu";
 import { downloadMisaExport, MISA_TEMPLATE_LABELS, type MisaExportResult, type MisaTemplate } from "../../lib/misaExportTemplates";
@@ -2350,8 +2350,9 @@ export function PxkDetailModal({
               chuyen ra ngoai vao Drawer footer, xem bien `footer` phia tren). */}
           <div>
             <SectionTitle icon="🕐">{t("Lịch sử xử lý")}</SectionTitle>
+            {/* Gop cac buoc tu dong lien tiep (timelineLogGop, v1.434). */}
             <Timeline
-              items={data.logs.map((l, i, all) => {
+              items={timelineLogGop(data.logs, (l, i, phu) => {
                 // Nguoi thao tac -> hanh dong -> trang thai (LogTieuDe, 2026-09-30). Trang thai chinh cua phieu = "chuyển phiếu
                 // sang [..]"; log-only (luu ma, chuyen tien, tru quy...) la chinh hanh dong -> "đã thao tác: [..]".
                 const laTrangThaiPhieu = PXK_TRANG_THAI_OPTIONS.some((o) => o.value === l.trang_thai);
@@ -2359,14 +2360,13 @@ export function PxkDetailModal({
                   dotClassName: TRANG_THAI_DOT_TONE[PXK_TRANG_THAI_TONE[l.trang_thai] ?? PXK_LOG_ONLY_TONE[l.trang_thai] ?? "gray"],
                   title: (
                     <LogTieuDe
-                      nguoi={tenLog(l.nguoi_xu_ly)}
-                      hanhDong={i === all.length - 1 ? t("tạo phiếu →") : laTrangThaiPhieu ? t("chuyển phiếu sang") : t("đã thao tác:")}
+                      nguoi={phu ? (l.nguoi_xu_ly === "he-thong" ? `↳ ${tenLog(l.nguoi_xu_ly)}` : "↳") : tenLog(l.nguoi_xu_ly)}
+                      hanhDong={i === data.logs.length - 1 ? t("tạo phiếu →") : laTrangThaiPhieu ? t("chuyển phiếu sang") : phu ? t("tự động:") : t("đã thao tác:")}
                       trangThai={trangThaiLabel([...PXK_TRANG_THAI_OPTIONS, ...PXK_LOG_ONLY_OPTIONS], l.trang_thai)}
                       ghiChu={l.ghi_chu}
                       onMoDon={setDonDetailId}
                     />
                   ),
-                  time: fmtDateTime(l.ngay_xu_ly),
                 };
               })}
             />

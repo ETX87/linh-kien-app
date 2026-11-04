@@ -8,6 +8,7 @@ import { Money } from "../../components/ui/Money";
 import { api, ApiError } from "../../api/client";
 import { fmtDateTime, fmtVND } from "../../types";
 import type { DonHangRow, LyDoChamRow } from "./types";
+import { CoSoChietKhauNut } from "./CoSoChietKhau";
 import { LoaiChietKhauPicker, LoaiChietKhauText, HoaDonGiaNiemYet, duocDoiLoaiChietKhau, DoiLoaiChietKhauNhieuDon, tenLoaiChietKhau, useLoaiChietKhauList } from "./LoaiChietKhau";
 import { describeApiError, invalidatePipelineCounts, laTruCongNo, nenKhieuNai } from "./helpers";
 import { LoaiDeXuatBadge } from "./SharedUi";
@@ -391,6 +392,7 @@ export function PxkDongDonHangTable({
           <LoaiChietKhauText id={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
         )}
         <HoaDonGiaNiemYet don={d} />
+        <CoSoChietKhauNut json={d.ck_co_so} />
       </span>
     );
   }

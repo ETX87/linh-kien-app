@@ -450,7 +450,8 @@ export function useTaoDonForm({
   // x70%, >=500k gia KTV (LK chua co gia KTV giu gia ban). Khong tinh gia du phong (MUA DỰ TRỮ) - backend chot khi tao.
   // Dong khac (cong no/tra hang) giu gia niem yet x SL nhu truoc (chi de tham khao).
   const { data: tongNgayData } = useTongNgayKtv(targetNguoiNhanHang);
-  const tongNgaySau = (tongNgayData?.rows[0]?.tong_gia_tri ?? 0) + giaTriTinhChietKhau;
+  // v1.434: + phieu dang mo cua KTV (chua Ke toan chot xong don xuat) - backend tong_tinh_ck, khop tinhToanPxk.
+  const tongNgaySau = (tongNgayData?.rows[0]?.tong_tinh_ck ?? tongNgayData?.rows[0]?.tong_gia_tri ?? 0) + giaTriTinhChietKhau;
   // chuaCoGiaKtv (2026-10-30, "hiện cảnh báo cho ktv với các trường hợp đặt mua gặp phải trường hợp này" - DDH-003275): tong ngay >= 500k
   // (muc gia KTV) nhung LK chua khai bao Gia KTV -> backend giu GIA NIEM YET, khong chiet khau -> canh bao ngay o dong (CanhBaoChuaCoGiaKtv).
   function giaUocTinhDong(d: DonHangDraft): { gia: number | null; giaNiemYet: number | null; nhan: string | null; chuaCoGiaKtv?: boolean } {

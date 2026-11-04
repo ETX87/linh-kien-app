@@ -10,6 +10,9 @@ import { trangThaiLabel, describeApiError, useNenAnhTraHangEnabled, LOAI_DON_TON
 import { t } from "../../i18n";
 import { linkAnToan } from "../../lib/linhAnToan";
 import { baoLoiTaiAnh, canhBaoHanMucAnh, type HanMucAnh } from "../../lib/hanMucAnh";
+import type { TimelineItem } from "../../components/ui/Timeline";
+import { fmtDateTime } from "../../types";
+import { MaDonLink, MaPhieuLink } from "./MaLienKet";
 
 // Cac component UI dung chung nhieu tab cua module "Dat mua linh kien" (tach tu
 // DatMuaLinhKienModule.tsx - UI redesign Phase 3, phan hoi Codex 2026-08-19).
@@ -52,22 +55,84 @@ export function ImageLightbox({ url, onClose }: { url: string; onClose: () => vo
 // Dung chung 4 man: don hang, phieu xuat kho, thieu hang, tra hang.
 // Ma don "DDH-…" trong ghi chu log bam duoc de mo chi tiet don (2026-10-29, "bổ sung thêm ID đơn hàng, có thể click vào để xem UI chi
 // tiết của đơn để dễ rà soát").
-const MA_DON_TRONG_LOG = /(DDH-\d+)/;
+// + ma phieu PMH-/PCN-/PTL- (2026-11-03, v1.434 - "các ID đơn, Id phiếu đều có thể click vào"): LUON bam duoc - co onMoDon thi mo don
+// bang ham cua man dang xem (vd Drawer PXK mo don ngay trong phieu), khong thi tu mo Drawer (MaLienKet.tsx).
+const MA_TRONG_LOG = /(DDH-\d+|P(?:MH|CN|TL)-\d+)/;
 export function GhiChuLog({ text, onMoDon }: { text: string; onMoDon?: (id: string) => void }) {
-  if (!onMoDon) return <>{text}</>;
   return (
     <>
-      {text.split(MA_DON_TRONG_LOG).map((p, i) =>
-        i % 2 === 1 ? (
-          <button key={i} type="button" className="code-link" onClick={(e) => { e.stopPropagation(); onMoDon(p); }}>
-            {p}
-          </button>
-        ) : (
+      {text.split(MA_TRONG_LOG).map((p, i) =>
+        i % 2 === 0 ? (
           p
+        ) : p.startsWith("DDH-") ? (
+          onMoDon ? (
+            <button key={i} type="button" className="code-link" onClick={(e) => { e.stopPropagation(); onMoDon(p); }}>
+              {p}
+            </button>
+          ) : (
+            <MaDonLink key={i} id={p} className="code-link" />
+          )
+        ) : (
+          <MaPhieuLink key={i} id={p} className="code-link" />
         ),
       )}
     </>
   );
+}
+
+// GOP LOG TU DONG LIEN TIEP (chot 2026-11-03, v1.434 - "Các log hiện tại đang bị tách nhiều bước khi được tự động => tôi muốn nó gộp lại khi
+// các bước auto được diễn ra liên tục nhưng vẫn dễ hiểu và đầy đủ"): 1 thao tac cua nguoi dung keo theo chuoi buoc tu dong (tinh lai tong,
+// tru/hoan quy, gom phieu, tu duyet...) ghi thanh nhieu dong log cach nhau vai giay. Gop cac dong LIEN TIEP cung nguoi thao tac (hoac buoc
+// he thong / tu dong) cach dong truoc <= GOP_GIAY thanh 1 muc: dong dau = thao tac chinh, cac dong sau = "↳" buoc tiep theo (giu du noi dung).
+// Dung chung 4 man lich su: don hang, phieu xuat kho, thieu hang, tra hang. `logs` theo thu tu hien thi (MOI NHAT truoc).
+const GOP_GIAY = 20;
+const giay = (s: string) => {
+  const v = Date.parse(s.replace(" ", "T"));
+  return Number.isNaN(v) ? null : v / 1000;
+};
+export function timelineLogGop<L extends { nguoi_xu_ly?: string | null; ngay_xu_ly: string; tu_dong?: number | null }>(
+  logs: L[],
+  ve: (l: L, chiSo: number, phu: boolean) => { title: ReactNode; dotClassName?: string },
+): TimelineItem[] {
+  const laHeThong = (l: L) => !l.nguoi_xu_ly || l.nguoi_xu_ly === "he-thong" || !!l.tu_dong;
+  // Duyet tu CU NHAT -> moi nhat, gom chuoi.
+  const nhom: { chiSo: number[] }[] = [];
+  for (let i = logs.length - 1; i >= 0; i--) {
+    const l = logs[i];
+    const cuoi = nhom[nhom.length - 1];
+    if (cuoi) {
+      const truoc = logs[cuoi.chiSo[cuoi.chiSo.length - 1]];
+      const dau = logs[cuoi.chiSo[0]];
+      const a = giay(truoc.ngay_xu_ly);
+      const b = giay(l.ngay_xu_ly);
+      const sat = a != null && b != null && b - a >= 0 && b - a <= GOP_GIAY;
+      if (sat && (l.nguoi_xu_ly === dau.nguoi_xu_ly || laHeThong(l))) {
+        cuoi.chiSo.push(i);
+        continue;
+      }
+    }
+    nhom.push({ chiSo: [i] });
+  }
+  return nhom.reverse().map(({ chiSo }) => {
+    const dau = ve(logs[chiSo[0]], chiSo[0], false);
+    const sau = chiSo.slice(1).map((ci) => ve(logs[ci], ci, true));
+    return {
+      dotClassName: sau.length ? sau[sau.length - 1].dotClassName ?? dau.dotClassName : dau.dotClassName,
+      title: (
+        <>
+          {dau.title}
+          {sau.length > 0 && (
+            <span className="mt-1 block space-y-1 border-l-2 border-[var(--color-border)] pl-2">
+              {sau.map((s, k) => (
+                <span key={k} className="block text-[12px]">{s.title}</span>
+              ))}
+            </span>
+          )}
+        </>
+      ),
+      time: fmtDateTime(logs[chiSo[0]].ngay_xu_ly) + (sau.length ? ` · ${t("{n} bước liên tiếp", { n: sau.length + 1 })}` : ""),
+    };
+  });
 }
 
 export function LogTieuDe({ nguoi, hanhDong, trangThai, ghiChu, onMoDon }: { nguoi: ReactNode; hanhDong: string; trangThai?: ReactNode; ghiChu?: string | null; onMoDon?: (id: string) => void }) {

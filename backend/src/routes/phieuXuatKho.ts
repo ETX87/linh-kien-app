@@ -1034,6 +1034,8 @@ phieuXuatKho.get("/:id", async (c) => {
       return {
         ...d,
         tien_uoc_tinh: tinhTien.tienUocTinhTheoDong.get(d.id) ?? 0,
+        // Co so chiet khau (v1.434): dong con tinh lai duoc -> lan tinh vua xong; dong da khoa -> moc da luu (ddh.ck_co_so).
+        ck_co_so: tinhTien.coSoTheoDong.has(d.id) ? JSON.stringify(tinhTien.coSoTheoDong.get(d.id)) : (d as { ck_co_so?: string | null }).ck_co_so ?? null,
         qua_han_ly_do_cham: !!mocThoiGian && quaHanLyDoCham(mocThoiGian, now),
         giaiTrinh: (giaiTrinhRows as { dat_don_hang_id: string }[]).filter((g) => g.dat_don_hang_id === d.id),
       };
@@ -1688,10 +1690,10 @@ phieuXuatKho.post("/:id/dong", async (c) => {
   if (khongHopLe.length > 0) return c.json({ error: "DON_KHONG_HOP_LE", ids: khongHopLe }, 400);
 
   const { results: donRows } = await c.env.DB.prepare(
-    `SELECT ma_lk FROM dat_don_hang WHERE id IN (${placeholders})`,
+    `SELECT id, ma_lk FROM dat_don_hang WHERE id IN (${placeholders})`,
   )
     .bind(...body.dat_don_hang_ids)
-    .all<{ ma_lk: string }>();
+    .all<{ id: string; ma_lk: string }>();
   const now = nowVN();
   const statements = body.dat_don_hang_ids.flatMap((donHangId) => [
     c.env.DB.prepare("INSERT INTO phieu_xuat_kho_dong (phieu_xuat_kho_id, dat_don_hang_id) VALUES (?, ?)").bind(id, donHangId),
@@ -1700,7 +1702,7 @@ phieuXuatKho.post("/:id/dong", async (c) => {
   ]);
   statements.push(
     c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
-      id, "Da them don vao phieu", user.email, now, `Đã thêm ${body.dat_don_hang_ids.length} đơn: ${(donRows as { ma_lk: string }[]).map((r) => r.ma_lk).join(", ")}`,
+      id, "Da them don vao phieu", user.email, now, `Đã thêm ${body.dat_don_hang_ids.length} đơn: ${(donRows as { id: string; ma_lk: string }[]).map((r) => `${r.id} (${r.ma_lk})`).join(", ")}`,
     ),
   );
   await c.env.DB.batch(statements);
@@ -1780,6 +1782,14 @@ phieuXuatKho.delete("/:id/dong/:donHangId", async (c) => {
       .bind(donHangId).first<{ trang_thai_hien_tai: string; nguoi_nhan_hang: string; loai_don: "mua" | "cong_no" | "tra_hang" }>();
     if (d?.trang_thai_hien_tai === "TN da duyet" && d.loai_don !== "tra_hang") {
       phieuMoi = await bundleAutoApprovedIntoPxk(c.env, c.env.DB, user.email, d.nguoi_nhan_hang, d.loai_don, [{ donHangId, soTien: 0 }], { boQuaPxk: id });
+      // Vet o phieu cu: don da sang phieu nao (v1.434 - "đơn ddh-12121 tại phiếu mới tại PMH-23213 mang theo tiền đã mua"; FE gop chung
+      // voi dong "bỏ đơn" + "tự tính lại" thanh 1 muc, ma don / ma phieu bam duoc).
+      if (phieuMoi) {
+        await c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)")
+          .bind(id, "Da xoa don khoi phieu", user.email, nowVN(),
+            `Đơn ${donHangId} đã vào phiếu ${phieuMoi}, mang theo ${tienMangTheo.toLocaleString("vi-VN")}đ đã thanh toán`)
+          .run();
+      }
     }
   }
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));

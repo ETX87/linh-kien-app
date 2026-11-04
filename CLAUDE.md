@@ -1080,6 +1080,27 @@ popup "Mở lại đơn tạo dở?"; đóng form còn nội dung → "Lưu lạ
 (13) **File MISA gộp dòng cùng mã LK** trong 1 phiếu cho MỌI loại (`gopDongCungMa`, trước chỉ trả góp): khóa = mẫu + phiếu + KTV + mã LK + loại đề xuất (+ chính
 sách với HỖ TRỢ 0 ĐỒNG, + đơn giá với Chuyển kho); SL cộng, tiền Bán hàng cộng, Mã YCSC/Lada nối.
 
+**Đợt v1.434** (chốt 2026-11-03, migration `0105`):
+- **Chiết khấu cộng phiếu đang mở** ("nếu hiện tại KTV có phiếu chờ chuyển tiền hoặc đơn đã chuyển tiền nhưng kế toán chưa chuyển sang trạng thái tạo xong đơn => cho phép tính tổng tiền cả phiếu đó vào … cần giải thích rõ lý do").
+  - Mốc 200k/500k của 1 dòng = tổng ngày + giá bán × SL các đơn KHÁC ngày nằm trong phiếu của KTV mà Kế toán CHƯA chốt xong đơn xuất lúc dòng được tạo.
+  - Mốc chốt = `phieu_xuat_kho.chot_ke_toan_luc`: TRIGGER ghi lần đầu phiếu rời "Dang tao phieu"/"Cho ke toan" (trừ hủy); phiếu cũ backfill từ log.
+  - Hàm `donTrongPhieuMo()` trong `tinhToanPxk` (`pxkRecalculate.ts`) — bỏ qua phiếu hủy / trả hàng / đối tác.
+  - Dòng trong phiếu đã khóa tiền (`khoa_ck` = Kế toán đã duyệt tiền hoặc phiếu qua "Dang tao phieu") dùng mốc đã lưu `dat_don_hang.ck_co_so` (JSON {ma, ly_do, moc, ngay, tong_ngay, phieu}), không đổi giá theo đơn phát sinh sau; chưa từng lưu thì theo quy tắc cũ (chỉ tổng ngày).
+  - `ck_co_so` ghi ở `taiTinhPxk` + `ganLoaiChietKhauDonChuaPxk`.
+  - `GET /tong-ngay-ktv` trả `phieu_mo` + `tong_tinh_ck` → form tạo đơn (`useTaoDonForm` `tongNgaySau`) + `TongNgayKtvLine`.
+  - Giải thích: `datMuaLinhKien/CoSoChietKhau.tsx` (khối ở chi tiết đơn, nút ⓘ ở dòng đơn trong phiếu); đổi quy tắc giá thì sửa câu ở đây.
+- **Gộp log tự động liên tiếp**: `timelineLogGop()` (`SharedUi.tsx`) gộp các log liên tiếp cùng người (hoặc hệ thống / `tu_dong`) cách nhau ≤ 20 giây thành 1 mục, các bước sau hiện "↳" — dùng ở lịch sử đơn / phiếu / thiếu hàng / hàng trả.
+  - `GhiChuLog`: mã `DDH-` và `PMH-`/`PCN-`/`PTL-` trong ghi chú log luôn bấm được (`MaDonLink`/`MaPhieuLink` ở `datMuaLinhKien/MaLienKet.tsx` — Quỹ cũng dùng `MaPhieuLink` này).
+  - Bỏ đơn đã thanh toán khỏi phiếu → log thêm ở phiếu cũ "Đơn … đã vào phiếu …, mang theo …đ"; log thêm dòng ghi mã đơn.
+- **Tách đơn chờ hàng** ("đặt 2, nhưng về có 1 … kho, kế toán, TN khả năng tách đơn … có tiền sẽ chia tiền"): `POST /dat-mua-lk/don-hang/:id/tach-don` {so_luong, duyet?, ghi_chu?} (Kho / TN gồm Kế toán / Admin) → `lib/tachDon.ts`.
+  - Chép đơn "Cho hang" (mọi cột qua `PRAGMA table_info`, giữ `ngay_tao`) thành đơn mới SL k; đơn gốc còn n − k và giữ ticket.
+  - `tien_da_tra` + `so_tien_cong_no` chia theo SL; chép lịch sử + Mã YCSC bổ sung; ghi vết vào log đơn + ticket.
+  - `duyet` (mặc định) → đơn mới `duyetDonKhiHangVe` (vào phiếu, mang tiền); không thì mở ticket riêng. Batch CAS: đơn đổi giữa chừng → `STATE_CHANGED`.
+  - FE `datMuaLinhKien/TachDon.tsx` (Drawer ticket thiếu hàng + nút "✂ Tách đơn" ở chi tiết đơn).
+- **Tự duyệt hàng về DỪNG ở đơn chỉ đủ một phần**: `donHangVeTheoUuTien` — gặp đơn ưu tiên mà tồn còn > 0 nhưng < SL → `choPhuongAn` + khóa (mã, khu vực), đơn xếp sau không tự duyệt.
+  - `GET /thieu-lk` (+ `/:id`) trả `kho_mot_phan` (`donHangVeMotPhan`) → badge "Kho có x/y" + khối hướng dẫn tách đơn.
+  - "Rà soát hàng về" trả `cho_phuong_an`.
+
 **Đợt v1.411** (chốt 2026-10-28): (1) **Đơn đã thanh toán ưu tiên phiếu riêng**: `bundleAutoApprovedIntoPxk` tách nhóm đơn có `tien_da_tra > 0`
 (không đối tác, không trả hàng) — CHỈ gộp vào phiếu "Dang tao phieu" Kế toán ĐÃ duyệt tiền (`trang_thai_chuyen_tien='TN da duyet'`, có tiền), không thì tạo
 phiếu MỚI (tự "Kế toán đã duyệt" khi đủ tiền nhờ quy tắc tiền cần chuyển = 0); không bao giờ gộp vào phiếu đang chờ chuyển tiền. (2) **Ca khiếu nại**

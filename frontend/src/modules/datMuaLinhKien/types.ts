@@ -255,6 +255,7 @@ export interface DonHangRow {
   // Ten lay tu danh sach settings (useLoaiChietKhauList), khong JOIN o tung API.
   loai_chiet_khau_id?: number | null;
   loai_chiet_khau_thu_cong?: number | null;
+  ck_co_so?: string | null; // co so chiet khau (v1.434) - CoSoChietKhau.tsx
   // Gia danh muc (LEFT JOIN linh_kien) - GET /don-hang/:id va GET /phieu-xuat-kho/:id (du 3 cot, dung goi y
   // gia thuc te khi TN doi loai chiet khau - LoaiChietKhauPicker); GET /don-hang chi co lk_gia_ban (cot
   // "Giá niêm yết", 2026-09-28).
@@ -399,6 +400,7 @@ export interface ThieuLkRow {
   ddh_nguoi_tao?: string | null;
   loai_chiet_khau_id?: number | null;
   loai_chiet_khau_thu_cong?: number | null;
+  ck_co_so?: string | null; // co so chiet khau (v1.434) - CoSoChietKhau.tsx
   /** SL cua dong don goc (JOIN dat_don_hang, 2026-09-29 - hien tren the mobile/Drawer). */
   so_luong_de_xuat?: number | null;
   /** Trang thai ma LK cua don goc (linh_kien.trang_thai_ma, 2026-10-16) - "Cho xet duyet" = ma cho Kho/Mua hang xac nhan. */
@@ -406,6 +408,7 @@ export interface ThieuLkRow {
   lk_nhom_lk?: "karofi" | "b2b" | null; // Nhom LK Karofi / B2B cua don goc (2026-10-16, migration 0088)
   /** 1 = ticket con mo + don goc "Cho hang" DA DU ton kho cong ty (xet don cho lau nhat truoc, 2026-10-16) - nhac Kho xac nhan. */
   kho_du_hang?: number;
+  kho_mot_phan?: number | null; // v1.434: kho cong ty chi co x chiec (< SL) - don uu tien cao nhat cua ma -> dung tu duyet, cho tach don
 }
 
 export interface LyDoChamRow {

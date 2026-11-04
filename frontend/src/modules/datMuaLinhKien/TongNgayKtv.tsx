@@ -4,6 +4,7 @@ import { fmtDate, fmtVND } from "../../types";
 import { Money } from "../../components/ui/Money";
 import { LoaiChietKhauChip, useLoaiChietKhauList } from "./LoaiChietKhau";
 import { t } from "../../i18n";
+import { MaPhieuLink } from "./MaLienKet";
 
 // "Tổng tiền KTV đặt Mua + Trừ công nợ trong ngày" (them 2026-09-28) - moc chiet khau 200k/500k cua MOI dong
 // don tinh theo tong nay (lib/pxkRecalculate.ts tinhToanPxk), kem "Ước tính chuyển" (tong tien uoc tinh can
@@ -18,6 +19,9 @@ export interface TongNgayKtvRow {
   tong_gia_tri: number;
   tong_can_chuyen: number;
   so_don: number;
+  // v1.434: phieu cua KTV chua duoc Ke toan chot xong don xuat (don khac ngay) - cong vao moc chiet khau cua don moi.
+  phieu_mo?: { id: string; tong: number }[];
+  tong_tinh_ck?: number;
 }
 
 const MOC_1 = 200000;
@@ -63,7 +67,9 @@ function MucChip({ tong }: { tong: number }) {
  */
 // khLe: nguoi nhan la KH le (migration 0074) - tinh gia niem yet, khong co bac thang -> an muc/goi y chiet khau.
 export function TongNgayKtvLine({ row, themGiaTri = 0, hienNgay = true, khLe = false }: { row: TongNgayKtvRow; themGiaTri?: number; hienNgay?: boolean; khLe?: boolean }) {
-  const tongSau = row.tong_gia_tri + themGiaTri;
+  const coSo = row.tong_tinh_ck ?? row.tong_gia_tri;
+  const tongSau = coSo + themGiaTri;
+  const phieuMo = row.phieu_mo ?? [];
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--color-text-secondary)]">
       <span className="whitespace-nowrap">
@@ -74,6 +80,21 @@ export function TongNgayKtvLine({ row, themGiaTri = 0, hienNgay = true, khLe = f
       <span className="whitespace-nowrap">
         · {t("Ước tính chuyển:")} <Money className="font-semibold text-[var(--color-text)]">{fmtVND(row.tong_can_chuyen)}</Money>
       </span>
+      {phieuMo.length > 0 && !khLe && (
+        <span
+          className="min-w-0"
+          title={t("Các phiếu này chưa được Kế toán chốt xong đơn xuất nên giá trị được cộng vào mức chiết khấu của đơn đặt mới — đặt thêm trước khi Kế toán chốt để hưởng chiết khấu cao hơn.")}
+        >
+          · {t("+ phiếu đang mở")}{" "}
+          {phieuMo.map((p, i) => (
+            <span key={p.id}>
+              {i > 0 && ", "}
+              <MaPhieuLink id={p.id} /> (<Money>{fmtVND(p.tong)}</Money>)
+            </span>
+          ))}{" "}
+          = <Money className="font-semibold text-[var(--color-text)]">{fmtVND(coSo)}</Money>
+        </span>
+      )}
       {themGiaTri > 0 && (
         <span className="whitespace-nowrap">
           · {t("Sau đơn này:")} <Money className="font-semibold text-[var(--color-text)]">{fmtVND(tongSau)}</Money>

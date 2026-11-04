@@ -29,6 +29,7 @@ import { sendPushToUser } from "../lib/webPush";
 import { computeCongNoChot } from "../lib/congNoKtv";
 import { computeMocDuPhongHienTai } from "../lib/duPhongKtv";
 import { computeTonKhoChot, donChoHangDuTonKho } from "../lib/tonKhoCongTy";
+import { tachDonChoHang } from "../lib/tachDon";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
 import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon, laKhTraGop, khongTinhCongNo, laMuaCongNoDoiTac } from "../lib/pxkRecalculate";
 import { duocChonMoiDoiTac, maMisaCuaEmail } from "../lib/congNoDoiTac";
@@ -42,7 +43,7 @@ import { pushThieuLkToKhovan, buildWorkUrl } from "../lib/khovanPushClient";
 import { ANH_DA_GHI_NHAN_SQL } from "../lib/bangChungChuyenTien";
 import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
 import { tachComboDong } from "../lib/lkCombo";
-import { tuDongXacNhanHangVe } from "../lib/tuDongHangVe";
+import { tuDongXacNhanHangVe, donHangVeMotPhan } from "../lib/tuDongHangVe";
 import { doiLoaiDeXuatDon, duocDoiLoaiDeXuat, lyDoKhongDoiDuoc, DOI_LDE_DUOC_SQL } from "../lib/doiLoaiDeXuat";
 import {
   deriveLoaiDon, boQuaTbpChoDacThu, canDoiChieuCongNo, nguCanhNhan, danhGiaPhieu, trangThaiSauDuyet, tacDongSauDinhTuyen, duyetDonKhiHangVe, danhGiaLaiDonChoThanhToan, choPhepThanhToanSau,
@@ -4009,6 +4010,24 @@ datMuaLinhKien.post("/don-hang/:id/thanh-toan-sau", async (c) => {
   return c.json({ ok: true, trang_thai: kq.trangThai });
 });
 
+// POST /api/dat-mua-lk/don-hang/:id/tach-don - { so_luong, duyet?, ghi_chu? } (chot 2026-11-03, v1.434 - "đặt 2, nhưng về có 1 linh kiện =>
+// thêm cho kế toán và kho, TN khả năng tách đơn"): Kho / Ke toan / TN / Admin tach don "Cho hang" thanh 2 don - `so_luong` chiec sang don MOI
+// (duyet = true, mac dinh: phan hang da ve -> duyet + vao phieu, sang Ke toan), don goc con lai tiep tuc cho Kho. Tien da tra + gia tri cong
+// no chia theo SL. Xem lib/tachDon.ts.
+datMuaLinhKien.post("/don-hang/:id/tach-don", async (c) => {
+  const user = c.get("user");
+  if (!(canKho(c) || canTacNghiep(c) || user.la_ke_toan)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const body = await c.req.json<{ so_luong?: number; duyet?: boolean; ghi_chu?: string }>().catch(() => ({}) as { so_luong?: number; duyet?: boolean; ghi_chu?: string });
+  const kq = await tachDonChoHang(c.env, c.env.DB, c.req.param("id"), Number(body.so_luong), user.email, {
+    duyet: body.duyet !== false,
+    ghiChu: body.ghi_chu?.slice(0, 300),
+    waitUntil: (p) => c.executionCtx.waitUntil(p),
+  });
+  if (!kq.ok) return c.json({ error: kq.error }, kq.status);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, don_moi: kq.donMoi, trang_thai_moi: kq.trangThaiMoi });
+});
+
 // POST /api/dat-mua-lk/don-hang/:id/cho-hang - { ghi_chu } (chot 2026-10-27, "bổ sung nút chờ hàng cho vai trò mua hàng" + "đẩy đơn lại
 // trạng thái chờ hàng cho nhân viên mua hàng (nếu đơn chưa được kế toán duyệt phiếu)"): Mua hang (+ Admin) chuyen don Mua / Cong no dang
 // "Cho TN duyet" / "Cho thanh toan" / "TN da duyet" (chua nam trong phieu da gui Ke toan - MUA_HANG_CHO_HANG_DUOC_SQL) ve "Cho hang":
@@ -4108,7 +4127,7 @@ datMuaLinhKien.post("/thieu-lk/tu-dong-hang-ve", async (c) => {
   if (!(canKho(c) || canTacNghiep(c) || user.la_ke_toan)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const kq = await tuDongXacNhanHangVe(c.env, c.env.DB, user.email, "rà soát thủ công");
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
-  return c.json({ ok: true, da_xac_nhan: kq.daXacNhan, bo_qua: kq.boQua });
+  return c.json({ ok: true, da_xac_nhan: kq.daXacNhan, bo_qua: kq.boQua, cho_phuong_an: kq.choPhuongAn });
 });
 
 datMuaLinhKien.patch("/don-hang/:id/dac-thu", async (c) => {
@@ -5121,10 +5140,16 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
   console.log("[thieu-lk-query]", { durationMs: Date.now() - queryStartedAt, rowCount: results.length });
   // Cot "Kho công ty" (2026-10-16): don goc "Cho hang" da du ton kho cong ty -> nhac Kho xac nhan (ticket con mo).
   const duTon = await donChoHangDuTonKho(c.env.DB);
-  const rows = (results as Array<Record<string, unknown>>).map((r) => ({
-    ...r,
-    kho_du_hang: duTon.has(String(r.dat_don_hang_id)) && !(THIEU_LK_TRANG_THAI_DONG as readonly string[]).includes(String(r.trang_thai)) ? 1 : 0,
-  }));
+  // "Kho có x/y" (v1.434): don uu tien cao nhat cua (ma, khu vuc) chi du MOT PHAN -> dung tu duyet, cho Kho / Ke toan tach don.
+  const motPhan = await donHangVeMotPhan(c.env.DB);
+  const rows = (results as Array<Record<string, unknown>>).map((r) => {
+    const mo = !(THIEU_LK_TRANG_THAI_DONG as readonly string[]).includes(String(r.trang_thai));
+    return {
+      ...r,
+      kho_du_hang: duTon.has(String(r.dat_don_hang_id)) && mo ? 1 : 0,
+      kho_mot_phan: mo ? (motPhan.get(String(r.dat_don_hang_id))?.co ?? null) : null,
+    };
+  });
   return c.json({ rows, page, pageSize, total: countRow?.total ?? 0 });
 });
 
@@ -5272,8 +5297,10 @@ datMuaLinhKien.get("/thieu-lk/:id", async (c) => {
   const { results: logs } = await c.env.DB.prepare("SELECT * FROM thieu_lk_log WHERE thieu_lk_id = ? ORDER BY id DESC").bind(id).all();
   const duTonCt = await donChoHangDuTonKho(c.env.DB);
   const tlkRow = tlk as Record<string, unknown>;
-  const khoDuHang = duTonCt.has(String(tlkRow.dat_don_hang_id)) && !(THIEU_LK_TRANG_THAI_DONG as readonly string[]).includes(String(tlkRow.trang_thai)) ? 1 : 0;
-  return c.json({ thieuLk: { ...tlkRow, kho_du_hang: khoDuHang }, logs });
+  const moTk = !(THIEU_LK_TRANG_THAI_DONG as readonly string[]).includes(String(tlkRow.trang_thai));
+  const khoDuHang = duTonCt.has(String(tlkRow.dat_don_hang_id)) && moTk ? 1 : 0;
+  const khoMotPhan = moTk ? ((await donHangVeMotPhan(c.env.DB)).get(String(tlkRow.dat_don_hang_id))?.co ?? null) : null;
+  return c.json({ thieuLk: { ...tlkRow, kho_du_hang: khoDuHang, kho_mot_phan: khoMotPhan }, logs });
 });
 
 // POST /api/dat-mua-lk/thieu-lk/:id/day-lai - { ghi_chu? } (2026-10-16, "đẩy ticket lại trạng thái trước khi bị từ chối => đơn gốc cũng

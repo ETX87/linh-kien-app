@@ -26,6 +26,7 @@ import { useNhomKhLe } from "./datMuaLinhKien/KhachLeSdt";
 import { TienNgoaiTab } from "./quyChuyenTien/TienNgoai";
 import { NopTienTab } from "./quyChuyenTien/NopTienQuy";
 import { ThanhToanDoiTacTab } from "./quyChuyenTien/ThanhToanDoiTac";
+import { MaPhieuLink } from "./datMuaLinhKien/MaLienKet";
 import { HoanTienTab, TaoHoanTienModal, lamMoiHoanTien, nhanGiaoDichHoanTien, type TrangThaiHt } from "./quyChuyenTien/PhieuHoanTien";
 
 // "Quỹ & chuyển tiền" (2026-09-29, ban 2 quy du KTV - backend routes/quyKtv.ts, lib/quyKtv.ts, migration 0047):
@@ -126,44 +127,7 @@ const KET_QUA: Record<KhoanRow["trang_thai"], { label: string; tone: BadgeTone }
 const lyDoKhoan = (k: KhoanRow) => (k.trang_thai === "Tu choi" ? k.ly_do_tu_choi : k.trang_thai === "Da huy" ? k.ly_do_huy : k.ghi_chu_ktv);
 
 // Ma phieu bam duoc -> mo nhanh chi tiet phieu (2026-10-29, "trong mục quỹ, có các mã pxk cho phép click vào để xem thông tin phiếu
-// liên quan nhanh"). Drawer chi tiet PXK tai luoi, quyen theo tai khoan dang dang nhap (backend van ap pham vi xem).
-const PxkDetailModal = lazy(() => import("./datMuaLinhKien/PhieuXuatKhoTab").then((m) => ({ default: m.PxkDetailModal })));
-function MaPhieuLink({ id, nhan }: { id: string | null; nhan?: string | null }) {
-  const [mo, setMo] = useState(false);
-  const auth = useAuth();
-  const u = auth.status === "authenticated" ? auth.user : null;
-  const qc = useQueryClient();
-  const addToast = useToast();
-  if (!id) return <>{nhan ?? "—"}</>;
-  return (
-    <>
-      <button
-        type="button"
-        className="code-link font-semibold underline underline-offset-2 hover:opacity-80"
-        title={t("Mở chi tiết phiếu")}
-        onClick={(e) => { e.stopPropagation(); setMo(true); }}
-      >
-        {nhan ?? id}
-      </button>
-      {mo && u && (
-        <Suspense fallback={null}>
-          <PxkDetailModal
-            id={id}
-            onClose={() => setMo(false)}
-            addToast={addToast}
-            qc={qc}
-            canTacNghiep={!!u.la_tac_nghiep}
-            canKho={!!u.la_kho}
-            canKeToan={!!u.la_ke_toan}
-            canDownloadMisa={false}
-            currentEmail={u.email}
-            isAdmin={u.vai_tro === "Admin"}
-          />
-        </Suspense>
-      )}
-    </>
-  );
-}
+// liên quan nhanh") - component dung chung MaPhieuLink (datMuaLinhKien/MaLienKet.tsx, v1.434).
 
 function ChenhLech({ k }: { k: KhoanRow }) {
   const d = chenhLech(k);

@@ -15,6 +15,21 @@ export interface PxkCalculation {
   total: number;
   maTheoDong: Map<string, MaChietKhau | null>;
   tienUocTinhTheoDong: Map<string, number>;
+  // Co so chiet khau (v1.434) CHI cua dong tinh "song" (con tinh lai duoc) - ghi vao dat_don_hang.ck_co_so (taiTinhPxk /
+  // ganLoaiChietKhauDonChuaPxk). Dong da khoa tien dung moc da luu, khong co trong map nay.
+  coSoTheoDong: Map<string, CoSoChietKhau>;
+}
+
+// Giai thich vi sao 1 dong duoc muc gia (v1.434, "cần giải thích rõ lý do tại sao linh kiện này lại được giảm theo chiết khấu đó").
+// moc = gia tri tinh moc 200k/500k = tong_ngay (don Mua + TRỪ CÔNG NỢ cung ngay tao) + tong cac phieu dang mo (phieu: don KHAC ngay nam
+// trong phieu KTV chua duoc Ke toan chot xong don xuat luc don nay duoc tao - migration 0105). FE: datMuaLinhKien/CoSoChietKhau.tsx.
+export interface CoSoChietKhau {
+  ma: MaChietKhau | null;
+  ly_do: "bac_thang" | "chua_gia_ktv" | "dinh_tu" | "hoa_don" | "du_phong" | "kh_le" | "gia_chot";
+  moc?: number;
+  ngay?: string;
+  tong_ngay?: number;
+  phieu?: { id: string; tong: number }[];
 }
 
 interface CalculationRow {
@@ -34,6 +49,8 @@ interface CalculationRow {
   don_vi: string | null;
   yeu_cau_hoa_don: string | null;
   doi_tac_ma: string | null;
+  ck_co_so: string | null;
+  khoa_ck: number | null; // 1 = dong nam trong phieu da khoa tien (Ke toan da duyet tien / phieu qua buoc tao phieu)
 }
 
 // Chot nguoi dung 2026-09-28: PXK cong_no mac dinh tien can chuyen = 0, RIENG dong loai de xuat "TRỪ CÔNG
@@ -99,13 +116,18 @@ function soLuongTinhTien(row: CalculationRow): number {
 export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Promise<PxkCalculation> {
   const maTheoDong = new Map<string, MaChietKhau | null>();
   const tienUocTinhTheoDong = new Map<string, number>();
-  if (datDonHangIds.length === 0) return { total: 0, maTheoDong, tienUocTinhTheoDong };
+  const coSoTheoDong = new Map<string, CoSoChietKhau>();
+  if (datDonHangIds.length === 0) return { total: 0, maTheoDong, tienUocTinhTheoDong, coSoTheoDong };
 
   const placeholders = datDonHangIds.map(() => "?").join(", ");
   const { results } = await db.prepare(
     `SELECT ddh.id, ddh.ngay_tao, ddh.so_luong_de_xuat, ddh.so_luong_thuc_xuat, ddh.loai_de_xuat, ddh.loai_don,
             ddh.nguoi_nhan_hang, ddh.so_tien_cong_no, ddh.gia_de_xuat, ddh.gia_chot,
-            lk.gia_ban, lk.gia_tri_cong_no, lk.gia_du_phong, lk.don_vi, ddh.yeu_cau_hoa_don, ddh.doi_tac_ma
+            lk.gia_ban, lk.gia_tri_cong_no, lk.gia_du_phong, lk.don_vi, ddh.yeu_cau_hoa_don, ddh.doi_tac_ma, ddh.ck_co_so,
+            (SELECT CASE WHEN p.trang_thai_hien_tai = 'Dang tao phieu' AND NOT ${KE_TOAN_DA_CHOT_TIEN_SQL("p")} THEN 0 ELSE 1 END
+             FROM phieu_xuat_kho_dong pd JOIN phieu_xuat_kho p ON p.id = pd.phieu_xuat_kho_id
+             WHERE pd.dat_don_hang_id = ddh.id AND p.trang_thai_hien_tai <> 'Ke toan huy'
+             ORDER BY p.ngay_tao DESC LIMIT 1) AS khoa_ck
      FROM dat_don_hang ddh LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
      WHERE ddh.id IN (${placeholders})`,
   ).bind(...datDonHangIds).all<CalculationRow>();
@@ -162,6 +184,7 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
       for (const row of rows) {
         total += setTien(row, (row.gia_chot ?? giaBan(row)) * soLuongTinhTien(row));
         maTheoDong.set(row.id, maTheoLoaiDon(row, "KHONG_CK"));
+        if (!row.khoa_ck) coSoTheoDong.set(row.id, { ma: maTheoLoaiDon(row, "KHONG_CK"), ly_do: "kh_le" });
       }
       continue;
     }
@@ -169,14 +192,38 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
     // trong ngày của KTV"): moc 200k/500k cua TUNG dong = tong gia ban x SL thuc xuat (chua co thi de xuat)
     // cua MOI don nhom Mua + TRỪ CÔNG NỢ ma KTV nay nhan, tao CUNG NGAY (gio VN, ngay_tao) voi dong do, KHONG
     // tinh don bi tu choi/huy - bat ke don da vao PXK nao. PXK gom don nhieu ngay -> moi dong theo ngay cua no.
+    // + PHIEU DANG MO (chot 2026-11-03, v1.434 - "chỉ cần KTV lên đơn trước khi kế toán tạo phiếu trên hệ thống kế toán, thì công ty khuyến
+    // khích KTV đặt nhiều đơn hàng và được hưởng chiết khấu"): moc cua dong = tong ngay cua dong + gia tri (gia ban x SL) cac don KHAC ngay
+    // nam trong phieu cua KTV CHUA duoc Ke toan chot xong don xuat TAI THOI DIEM don nay duoc tao (phieu_xuat_kho.chot_ke_toan_luc NULL hoac
+    // sau ngay_tao don). Dong nam trong phieu da khoa tien (khoa_ck) dung moc da luu (ck_co_so) - khong doi gia theo don phat sinh sau; dong
+    // khoa chua tung luu co so = quy tac cu (chi tong ngay).
     const tongTheoNgay = await tongDonTheoNgay(db, email, [...new Set(rows.map(ngayCua).filter(Boolean))]);
-    const giaBacThang = (row: CalculationRow): { donGia: number; ma: MaChietKhau } => {
-      const giaTriNhom = tongTheoNgay.get(ngayCua(row)) ?? giaBan(row) * soLuongTinhTien(row);
-      if (giaTriNhom < 200000) return { donGia: giaBan(row), ma: "KHONG_CK" };
-      if (giaTriNhom < 500000) return { donGia: giaBan(row) * 0.7, ma: "TONG_200_500" };
+    const tuLuc = rows.filter((r) => !r.khoa_ck).reduce<string | null>((m, r) => (r.ngay_tao && (!m || r.ngay_tao < m) ? r.ngay_tao : m), null);
+    const phieuMo = tuLuc ? await donTrongPhieuMo(db, email, tuLuc) : [];
+    const coSoBacThang = (row: CalculationRow): { moc: number; ngay: string; tong_ngay: number; phieu: { id: string; tong: number }[] } => {
+      const ngay = ngayCua(row);
+      if (row.khoa_ck) {
+        const luu = docCoSo(row.ck_co_so);
+        if (luu?.moc != null) return { moc: luu.moc, ngay: luu.ngay ?? ngay, tong_ngay: luu.tong_ngay ?? luu.moc, phieu: luu.phieu ?? [] };
+      }
+      const tongNgay = tongTheoNgay.get(ngay) ?? giaBan(row) * soLuongTinhTien(row);
+      const theoPhieu = new Map<string, number>();
+      if (!row.khoa_ck) {
+        for (const o of phieuMo) {
+          if (o.ngay === ngay || (o.chot_luc && row.ngay_tao && o.chot_luc <= row.ngay_tao)) continue;
+          theoPhieu.set(o.pxk_id, (theoPhieu.get(o.pxk_id) ?? 0) + o.gia_tri);
+        }
+      }
+      const phieu = [...theoPhieu].map(([id, tong]) => ({ id, tong })).sort((a, b) => a.id.localeCompare(b.id));
+      return { moc: tongNgay + phieu.reduce((s, p) => s + p.tong, 0), ngay, tong_ngay: tongNgay, phieu };
+    };
+    const giaBacThang = (row: CalculationRow): { donGia: number; ma: MaChietKhau; coSo: CoSoChietKhau } => {
+      const cs = coSoBacThang(row);
+      if (cs.moc < 200000) return { donGia: giaBan(row), ma: "KHONG_CK", coSo: { ma: "KHONG_CK", ly_do: "bac_thang", ...cs } };
+      if (cs.moc < 500000) return { donGia: giaBan(row) * 0.7, ma: "TONG_200_500", coSo: { ma: "TONG_200_500", ly_do: "bac_thang", ...cs } };
       // LK chua khai bao gia KTV (NULL/0) -> giu gia ban thay vi tinh 0d (cung loai loi voi gia du phong).
-      if ((row.gia_tri_cong_no ?? 0) > 0) return { donGia: row.gia_tri_cong_no!, ma: "GIA_KTV" };
-      return { donGia: giaBan(row), ma: "KHONG_CK" };
+      if ((row.gia_tri_cong_no ?? 0) > 0) return { donGia: row.gia_tri_cong_no!, ma: "GIA_KTV", coSo: { ma: "GIA_KTV", ly_do: "bac_thang", ...cs } };
+      return { donGia: giaBan(row), ma: "KHONG_CK", coSo: { ma: "KHONG_CK", ly_do: "chua_gia_ktv", ...cs } };
     };
 
     // Gia du phong: CHI cac dong MUA DỰ TRỮ (tru Dinh tu), tat-ca-hoac-khong.
@@ -198,21 +245,56 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
     }
 
     for (const row of rows) {
-      const { donGia, ma } =
+      const { donGia, ma, coSo } =
         coYeuCauHoaDon(row.yeu_cau_hoa_don)
-          ? { donGia: giaBan(row), ma: "KHONG_CK" as MaChietKhau }
+          ? { donGia: giaBan(row), ma: "KHONG_CK" as MaChietKhau, coSo: { ma: "KHONG_CK", ly_do: "hoa_don" } as CoSoChietKhau }
           : laDinhTu(row.don_vi)
-            ? { donGia: giaBan(row) * 0.85, ma: "DINH_TU" as MaChietKhau }
+            ? { donGia: giaBan(row) * 0.85, ma: "DINH_TU" as MaChietKhau, coSo: { ma: "DINH_TU", ly_do: "dinh_tu" } as CoSoChietKhau }
             : dungDuPhong && laDuTru(row)
-              ? { donGia: row.gia_du_phong ?? 0, ma: "GIA_DU_PHONG" as MaChietKhau }
+              ? { donGia: row.gia_du_phong ?? 0, ma: "GIA_DU_PHONG" as MaChietKhau, coSo: { ma: "GIA_DU_PHONG", ly_do: "du_phong" } as CoSoChietKhau }
               : giaBacThang(row);
       // Gia chot LUON thang (chot 2026-09-28); nhan loai chiet khau van theo cong thuc.
       total += setTien(row, (row.gia_chot ?? donGia) * soLuongTinhTien(row));
       maTheoDong.set(row.id, maTheoLoaiDon(row, ma));
+      if (!row.khoa_ck) coSoTheoDong.set(row.id, row.gia_chot != null ? { ...coSo, ly_do: "gia_chot" } : coSo);
     }
   }
 
-  return { total, maTheoDong, tienUocTinhTheoDong };
+  return { total, maTheoDong, tienUocTinhTheoDong, coSoTheoDong };
+}
+
+function docCoSo(json: string | null): CoSoChietKhau | null {
+  if (!json) return null;
+  try {
+    const v = JSON.parse(json) as CoSoChietKhau;
+    return v && typeof v === "object" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+// Don nhom Mua + TRỪ CÔNG NỢ cua KTV nam trong phieu CHUA duoc Ke toan chot xong don xuat (chot_ke_toan_luc NULL) hoac chot SAU `tuLuc`
+// (ngay_tao som nhat cua cac dong dang xet) - nguon cong them vao moc chiet khau (v1.434). Phieu huy / tra hang / doi tac khong tinh.
+export async function donTrongPhieuMo(
+  db: D1Database, email: string, tuLuc: string,
+): Promise<{ id: string; ngay: string; gia_tri: number; pxk_id: string; chot_luc: string | null }[]> {
+  if (!email) return [];
+  const { results } = await db
+    .prepare(
+      `SELECT ddh.id, substr(ddh.ngay_tao, 1, 10) AS ngay, p.id AS pxk_id, p.chot_ke_toan_luc AS chot_luc,
+              COALESCE(lk.gia_ban, ddh.gia_de_xuat, 0) * COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) AS gia_tri
+       FROM phieu_xuat_kho p
+       JOIN phieu_xuat_kho_dong pd ON pd.phieu_xuat_kho_id = p.id
+       JOIN dat_don_hang ddh ON ddh.id = pd.dat_don_hang_id
+       LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
+       WHERE p.nguoi_nhan_hang = ? AND (p.chot_ke_toan_luc IS NULL OR p.chot_ke_toan_luc > ?)
+         AND p.trang_thai_hien_tai <> 'Ke toan huy' AND COALESCE(p.loai_don, '') <> 'tra_hang' AND p.doi_tac_ma IS NULL
+         AND ddh.nguoi_nhan_hang = ? AND ${DON_TINH_TONG_NGAY_SQL}`,
+    )
+    .bind(email, tuLuc, email)
+    .all<{ id: string; ngay: string; gia_tri: number; pxk_id: string; chot_luc: string | null }>();
+  const seen = new Set<string>();
+  return results.filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
 }
 
 const ngayCua = (row: CalculationRow) => (row.ngay_tao ?? "").slice(0, 10);
@@ -319,9 +401,13 @@ async function ganLoaiChietKhauDonChuaPxk(db: D1Database, nguoiNhanHang: string)
   await db.batch(
     ids.map((id) => {
       const ma = calculation.maTheoDong.get(id) ?? null;
+      const coSo = calculation.coSoTheoDong.get(id);
       return db
-        .prepare("UPDATE dat_don_hang SET loai_chiet_khau_id = ? WHERE id = ? AND loai_chiet_khau_thu_cong = 0")
-        .bind(ma ? (idTheoMa.get(ma) ?? null) : null, id);
+        .prepare(
+          `UPDATE dat_don_hang SET loai_chiet_khau_id = CASE WHEN loai_chiet_khau_thu_cong = 0 THEN ? ELSE loai_chiet_khau_id END,
+             ck_co_so = COALESCE(?, ck_co_so) WHERE id = ?`,
+        )
+        .bind(ma ? (idTheoMa.get(ma) ?? null) : null, coSo ? JSON.stringify(coSo) : null, id);
     }),
   );
 }
@@ -332,8 +418,13 @@ export async function tongNgayKtv(
   db: D1Database,
   email: string,
   ngays: string[],
-): Promise<{ ngay: string; tong_gia_tri: number; tong_can_chuyen: number; so_don: number }[]> {
+): Promise<{
+  ngay: string; tong_gia_tri: number; tong_can_chuyen: number; so_don: number;
+  phieu_mo: { id: string; tong: number }[]; tong_tinh_ck: number;
+}[]> {
   if (!email || ngays.length === 0) return [];
+  // v1.434: phieu dang mo (chua Ke toan chot xong don xuat) cong vao moc chiet khau cua don MOI tao (tong_tinh_ck) - don khac ngay.
+  const phieuMo = await donTrongPhieuMo(db, email, nowVN());
   const [giaTri, { results }] = await Promise.all([
     tongDonTheoNgay(db, email, ngays),
     db
@@ -348,8 +439,13 @@ export async function tongNgayKtv(
   const calculation = results.length ? await tinhToanPxk(db, results.map((r) => r.id)) : null;
   return ngays.map((ngay) => {
     const dong = results.filter((r) => r.ngay === ngay);
+    const theoPhieu = new Map<string, number>();
+    for (const o of phieuMo) if (o.ngay !== ngay) theoPhieu.set(o.pxk_id, (theoPhieu.get(o.pxk_id) ?? 0) + o.gia_tri);
+    const phieu_mo = [...theoPhieu].map(([id, tong]) => ({ id, tong })).sort((a, b) => a.id.localeCompare(b.id));
     return {
       ngay,
+      phieu_mo,
+      tong_tinh_ck: (giaTri.get(ngay) ?? 0) + phieu_mo.reduce((s, p) => s + p.tong, 0),
       tong_gia_tri: giaTri.get(ngay) ?? 0,
       tong_can_chuyen: dong.reduce((s, r) => s + (calculation?.tienUocTinhTheoDong.get(r.id) ?? 0), 0),
       so_don: dong.length,
@@ -377,7 +473,7 @@ export async function taiTinhPxk(
     loai_don: string | null; so_tien_can_chuyen: number | null; trang_thai_chuyen_tien: string | null; trang_thai_hien_tai: string | null;
     da_thanh_toan: number | null; doi_tac_ma: string | null;
   }>();
-  if (!pxk) return { total: 0, maTheoDong: new Map(), tienUocTinhTheoDong: new Map() };
+  if (!pxk) return { total: 0, maTheoDong: new Map(), tienUocTinhTheoDong: new Map(), coSoTheoDong: new Map() };
 
   const { results: dong } = await db.prepare(
     "SELECT dat_don_hang_id FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ?",
@@ -392,11 +488,13 @@ export async function taiTinhPxk(
     const idTheoMa = new Map(loai.map((row) => [row.ma, row.id]));
     await db.batch(ids.map((id) => {
       const ma = calculation.maTheoDong.get(id) ?? null;
+      const coSo = calculation.coSoTheoDong.get(id);
       return db.prepare(
         datLaiThuCong
-          ? "UPDATE dat_don_hang SET loai_chiet_khau_id = ?, loai_chiet_khau_thu_cong = 0 WHERE id = ?"
-          : "UPDATE dat_don_hang SET loai_chiet_khau_id = ? WHERE id = ? AND loai_chiet_khau_thu_cong = 0",
-      ).bind(ma ? (idTheoMa.get(ma) ?? null) : null, id);
+          ? "UPDATE dat_don_hang SET loai_chiet_khau_id = ?, loai_chiet_khau_thu_cong = 0, ck_co_so = COALESCE(?, ck_co_so) WHERE id = ?"
+          : `UPDATE dat_don_hang SET loai_chiet_khau_id = CASE WHEN loai_chiet_khau_thu_cong = 0 THEN ? ELSE loai_chiet_khau_id END,
+               ck_co_so = COALESCE(?, ck_co_so) WHERE id = ?`,
+      ).bind(ma ? (idTheoMa.get(ma) ?? null) : null, coSo ? JSON.stringify(coSo) : null, id);
     }));
   }
 

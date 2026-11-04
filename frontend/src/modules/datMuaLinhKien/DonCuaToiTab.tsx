@@ -3,6 +3,8 @@ import { useState, useEffect, useMemo, useRef, Fragment, lazy, Suspense } from "
 const PxkDetailModalLazy = lazy(() => import("./PhieuXuatKhoTab").then((m) => ({ default: m.PxkDetailModal })));
 const XemLinhKienDrawerLazy = lazy(() => import("../DanhMucLinhKienModule").then((m) => ({ default: m.XemLinhKienDrawer })));
 import { BangChungAnhPxk } from "./XemAnhNhanh";
+import { CoSoChietKhauKhoi } from "./CoSoChietKhau";
+import { TachDonModal } from "./TachDon";
 import { LoaiChietKhauText, LoaiChietKhauPicker, HoaDonGiaNiemYet, TienDaTraDon, coYeuCauHoaDon, useLoaiChietKhauList, tenLoaiChietKhau, duocDoiLoaiChietKhau } from "./LoaiChietKhau";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -43,7 +45,7 @@ import {
   LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, laTraHangChoTn, laChoHangMoKhoa, laChoHangBiKhoa, dayLaiDuoc, trangThaiLabel, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLkCombo, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
   donGiaSauChietKhau, tienSauChietKhau, giaNiemYet, boQuaTbpDacThu, canNhapMaEo, nenKhieuNai, useGsKhuVucSet } from "./helpers";
-import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink, LogTieuDe } from "./SharedUi";
+import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink, LogTieuDe, timelineLogGop } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck, isLikelyLadaId } from "./MaLadaCheck";
 import { LinhKienPicker } from "./LinhKienPicker";
@@ -444,6 +446,7 @@ export function DonHangDetailModal({
   const { danhMuc, ldeEntries } = useLkAndLdeCache(true);
   const { data: comboData } = useLkCombo();
   const [xemLkChiTiet, setXemLkChiTiet] = useState(false);
+  const [moTachDon, setMoTachDon] = useState(false);
   const auth = useAuth();
   const authUser = auth.status === "authenticated" ? auth.user : null;
   const loaiDeXuatOptions = getOptionsForUser(auth.status === "authenticated" ? auth.user : null, ldeEntries);
@@ -928,6 +931,12 @@ export function DonHangDetailModal({
               {t("⏳ Chuyển chờ hàng")}
             </Btn>
           )}
+          {/* Tach don cho hang (v1.434): hang ve mot phan -> phan da ve sang don moi duyet vao phieu, don goc con lai tiep tuc cho Kho. */}
+          {(canTacNghiep || !!canKho) && d.trang_thai === "Cho hang" && (d.loai_don === "mua" || d.loai_don === "cong_no") && d.so_luong_de_xuat >= 2 && (
+            <Btn size="sm" variant="ghost" onClick={() => setMoTachDon(true)}>
+              {t("✂ Tách đơn")}
+            </Btn>
+          )}
           {actions.tuChoi && (
             <Btn
               size="sm"
@@ -1142,6 +1151,8 @@ export function DonHangDetailModal({
                   <HoaDonGiaNiemYet don={d} />
                   {!pxk && <TienDaTraDon don={d} />}
                 </span>
+                {/* Vi sao duoc muc chiet khau nay (v1.434) - tong ngay + phieu dang mo cong don. */}
+                <CoSoChietKhauKhoi json={d.ck_co_so} />
               </KvRow>
             )}
             {canTacNghiep && d.trang_thai === "Cho thanh toan" && (d.loai_don === "mua" || d.loai_don === "cong_no") && (!pxk || pxk.trang_thai === "Ke toan huy") && (
@@ -1703,20 +1714,20 @@ export function DonHangDetailModal({
               {/* Doi sang Timeline (concept 1, pattern ".timeline") - thay cho danh sach cham tron mau
                   theo tone trang thai truoc day. TRANG_THAI_DOT_TONE khong con dung o day. */}
               <SectionTitle icon="🕐">{t("Lịch sử xử lý")}</SectionTitle>
+              {/* Gop cac buoc tu dong lien tiep (timelineLogGop, v1.434). */}
               <Timeline
-                items={d.logs!.map((l, i, all) => ({
+                items={timelineLogGop(d.logs!, (l, i, phu) => ({
                   dotClassName: TRANG_THAI_DOT_TONE[DON_HANG_TRANG_THAI_TONE_ALL[l.trang_thai] ?? "neutral"],
                   // Nguoi thao tac -> hanh dong -> trang thai ket qua (LogTieuDe, 2026-09-30). Log moi nhat truoc -> dong
                   // CUOI la luc tao don. "Tự động duyệt" (he thong tu duyet luc tao) tach khoi "TN đã duyệt" (chot 2026-09-28).
                   title: (
                     <LogTieuDe
-                      nguoi={l.tu_dong ? t("Hệ thống") : formatPersonDisplay(l.nguoi_xu_ly, personDirChiTiet)}
-                      hanhDong={l.tu_dong ? (l.trang_thai === "TN da duyet" ? t("tự động duyệt đơn của {a} →", { a: formatPersonDisplay(l.nguoi_xu_ly, personDirChiTiet) }) : t("tự động chuyển đơn của {a} →", { a: formatPersonDisplay(l.nguoi_xu_ly, personDirChiTiet) })) : i === all.length - 1 ? t("tạo đơn →") : t("chuyển sang")}
+                      nguoi={(phu ? "↳ " : "") + (l.tu_dong ? t("Hệ thống") : phu ? "" : formatPersonDisplay(l.nguoi_xu_ly, personDirChiTiet))}
+                      hanhDong={l.tu_dong ? (l.trang_thai === "TN da duyet" ? t("tự động duyệt đơn của {a} →", { a: formatPersonDisplay(l.nguoi_xu_ly, personDirChiTiet) }) : t("tự động chuyển đơn của {a} →", { a: formatPersonDisplay(l.nguoi_xu_ly, personDirChiTiet) })) : i === d.logs!.length - 1 ? t("tạo đơn →") : t("chuyển sang")}
                       trangThai={trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, l.trang_thai)}
                       ghiChu={l.ghi_chu}
                     />
                   ),
-                  time: fmtDateTime(l.ngay_xu_ly),
                 }))}
               />
             </div>
@@ -1732,6 +1743,19 @@ export function DonHangDetailModal({
         do voi Modal canh bao ben duoi). */}
     {/* v1.391 ("mở giao diện UI thông tin linh kiện giống trong bảng giá"): CUNG drawer Bang gia (Tổng quan / Tồn kho / Đặt hàng /
         Liên quan) - XemLinhKienDrawer o DanhMucLinhKienModule.tsx, tai lazy. */}
+    {moTachDon && d && (
+      <TachDonModal
+        donId={d.id}
+        soLuong={d.so_luong_de_xuat}
+        tienDaTra={d.tien_da_tra}
+        onClose={() => setMoTachDon(false)}
+        onDone={(msg) => {
+          setMoTachDon(false);
+          addToast(msg);
+          invalidate();
+        }}
+      />
+    )}
     {xemLkChiTiet && d && (
       <Suspense fallback={null}>
         <XemLinhKienDrawerLazy ma={d.ma_lk} onClose={() => setXemLkChiTiet(false)} />
