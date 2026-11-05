@@ -1766,6 +1766,8 @@ export function PxkDetailModal({
   const themDonLoc = (themDonKhaDungData?.rows ?? []).filter(
     (r) =>
       r.nguoi_nhan_hang === data?.phieuXuatKho.nguoi_nhan_hang &&
+      // Phieu "Cho ke toan" (v1.442) chi nhan don da duyet (backend chan don "Cho thanh toan").
+      (data?.phieuXuatKho.trang_thai !== "Cho ke toan" || r.trang_thai_hien_tai !== "Cho thanh toan") &&
       khopDongKhaDung(r, themDonQNorm),
   );
 
@@ -2365,7 +2367,7 @@ export function PxkDetailModal({
                 )}
                 {/* Them don vao phieu dang xem (2026-09-21, yeu cau #4) - CHI hien khi con "Dang tao
                     phieu" (khop gate backend POST /:id/dong). */}
-                {(canTacNghiep || canKeToan) && trangThai === "Dang tao phieu" && (
+                {(canTacNghiep || canKeToan) && (trangThai === "Dang tao phieu" || trangThai === "Cho ke toan") && (
                   <Btn size="sm" variant="ghost" onClick={() => setShowThemDon(true)}>{t("+ Thêm đơn")}</Btn>
                 )}
               </div>

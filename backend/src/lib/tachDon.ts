@@ -146,7 +146,6 @@ export async function tachDonTrongPhieu(
     .first<{ tt: string; ma_misa: string | null; da_tt: number; so_tien_can_chuyen: number | null; nguoi_nhan_hang: string | null; loai_don: string | null }>();
   if (!p) return { ok: false, error: "NOT_FOUND", status: 404 };
   if (p.tt !== "Dang tao phieu" && p.tt !== "Cho ke toan") return { ok: false, error: "PHIEU_DA_CHOT", status: 409 };
-  if (p.ma_misa?.trim()) return { ok: false, error: "DA_CO_MA_MISA", status: 409 };
   if (p.loai_don === "tra_hang") return { ok: false, error: "TRA_HANG_KHONG_TACH", status: 409 };
   const d = await db
     .prepare(
@@ -212,13 +211,6 @@ export async function tachDonTrongPhieu(
       .bind(pxkId, nguoi, now, `Tách đơn ${d.id}: giữ ${conLai}/${d.sl} ${d.ma_lk} ở phiếu này, ${slTach} sang đơn ${newId} xuất sau${moTaTien}${them}`.slice(0, 2000)),
   );
   if (tienMang > 0) lenh.push(db.prepare("UPDATE phieu_xuat_kho SET da_thanh_toan = da_thanh_toan - ? WHERE id = ?").bind(tienMang, pxkId));
-  // "Cho ke toan": taiTinhPxk khong sua tong o buoc nay -> tru thang phan tien cua dong tach.
-  if (p.tt === "Cho ke toan" && p.so_tien_can_chuyen != null) {
-    lenh.push(
-      db.prepare("UPDATE phieu_xuat_kho SET so_tien_can_chuyen = CASE WHEN so_tien_can_chuyen - ? > 0 THEN so_tien_can_chuyen - ? ELSE NULL END WHERE id = ?")
-        .bind(tienDongTach, tienDongTach, pxkId),
-    );
-  }
   try {
     await db.batch(lenh);
   } catch {
@@ -227,7 +219,8 @@ export async function tachDonTrongPhieu(
   if (!(await db.prepare("SELECT 1 FROM dat_don_hang WHERE id = ?").bind(newId).first())) return { ok: false, error: "STATE_CHANGED", status: 409 };
 
   // Phieu nguon "Dang tao phieu" -> tinh lai tien + chiet khau (tong giam dung bang phan da rut, quy can bang lech lam tron).
-  if (p.tt === "Dang tao phieu") await taiTinhPxk(db, pxkId, false, true, nguoi);
+  // v1.442: taiTinhPxk tinh lai ca phieu "Cho ke toan" (du tien giu Ke toan da duyet, thua hoan quy).
+  await taiTinhPxk(db, pxkId, false, true, nguoi);
   const phieuMoi = await bundleAutoApprovedIntoPxk(env, db, nguoi, d.nguoi_nhan_hang, d.loai_don, [{ donHangId: newId, soTien: 0 }], { boQuaPxk: pxkId });
   if (phieuMoi) {
     await db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Da xoa don khoi phieu', ?, ?, ?)")

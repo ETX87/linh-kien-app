@@ -501,7 +501,12 @@ export async function taiTinhPxk(
   // Phieu doi tac (v1.403): khong can chuyen tien - tien cac dong ghi no doi tac (so_tien_can_chuyen NULL = "Không cần chuyển").
   const totalCanChuyen = pxk.loai_don === "tra_hang" || pxk.doi_tac_ma ? 0 : calculation.total;
   const soTienLuu = totalCanChuyen > 0 ? totalCanChuyen : null;
-  if (capNhatTongTien && pxk.trang_thai_hien_tai === "Dang tao phieu" && pxk.so_tien_can_chuyen !== soTienLuu) {
+  // Them / bot dong o buoc "Cho ke toan" (chot 2026-11-05, v1.442 - "nếu kế toán chưa xác nhận chốt xong phiếu (gửi sang kho) thì vẫn có thể thêm
+  // bớt linh kiện như ở bước trước khi nhập mã misa"): tinh lai tien NHU "Dang tao phieu". Du tien -> giu "Ke toan da duyet" + o lai "Cho ke toan"
+  // (thua hoan quy); thieu tien -> phieu tu ve "Dang tao phieu" (Cho ma HD), chuyen tien "Cho KTV chuyen" - giu Ma don hang / Ma MISA, KTV chuyen bo
+  // sung, Ke toan duyet roi "Gửi kế toán" lai.
+  const moTien = pxk.trang_thai_hien_tai === "Dang tao phieu" || pxk.trang_thai_hien_tai === "Cho ke toan";
+  if (capNhatTongTien && moTien && pxk.so_tien_can_chuyen !== soTienLuu) {
     // Chot 2026-09-30: Ke toan xac nhan = xac nhan bang chung chuyen tien khop so tien. Phieu DA duoc Ke toan duyet ma tong
     // moi KHONG vuot so da tra (vd don roi phieu) -> KTV khong phai chuyen them, tien that khong doi -> GIU "Ke toan da
     // duyet", phan tra thua hoan ve quy (canBangPxk ben duoi). Tong tang vuot so da tra -> "Cho KTV chuyen" nhu cu.
@@ -532,7 +537,21 @@ export async function taiTinhPxk(
   }
   // Quy du KTV (migration 0047): tong doi / phieu dang cho tien -> tru quy (du thi "KTV da chuyen" cho Ke toan xac nhan), tong giam
   // duoi so da tra -> hoan phan thua ve quy. Khong lech thi khong ghi gi.
-  if (capNhatTongTien && pxk.trang_thai_hien_tai === "Dang tao phieu") await canBangPxk(db, pxkId, nguoiCanBangQuy);
+  if (capNhatTongTien && (pxk.trang_thai_hien_tai === "Dang tao phieu" || pxk.trang_thai_hien_tai === "Cho ke toan")) await canBangPxk(db, pxkId, nguoiCanBangQuy);
+  // "Cho ke toan" sau khi da tru quy du ma tien chua con "Ke toan da duyet" (tong tang vuot so da tra) -> tu ve "Cho ma HD" cho KTV chuyen bo sung.
+  if (capNhatTongTien && pxk.trang_thai_hien_tai === "Cho ke toan" && soTienLuu != null && pxk.so_tien_can_chuyen !== soTienLuu) {
+    const sau = await db.prepare("SELECT trang_thai_chuyen_tien, da_thanh_toan FROM phieu_xuat_kho WHERE id = ?").bind(pxkId)
+      .first<{ trang_thai_chuyen_tien: string | null; da_thanh_toan: number | null }>();
+    if (sau && sau.trang_thai_chuyen_tien !== "TN da duyet") {
+      await db.batch([
+        db.prepare("UPDATE phieu_xuat_kho SET trang_thai_hien_tai = 'Dang tao phieu', version = version + 1 WHERE id = ? AND trang_thai_hien_tai = 'Cho ke toan'").bind(pxkId),
+        db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Dang tao phieu', ?, ?, ?)").bind(
+          pxkId, nguoiXuLy ?? "he-thong", nowVN(),
+          `Sửa dòng ở bước chờ kế toán: tổng tiền ${totalCanChuyen.toLocaleString("vi-VN")}đ, đã thanh toán ${(sau.da_thanh_toan ?? 0).toLocaleString("vi-VN")}đ — tự trả về chờ mã HĐ, chờ KTV chuyển bổ sung / Kế toán duyệt tiền rồi gửi kế toán lại`,
+        ),
+      ]);
+    }
+  }
 
   return { ...calculation, total: totalCanChuyen };
 }

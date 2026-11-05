@@ -2508,5 +2508,7 @@ const tuDien: Record<string, string> = {
   "⚡ KT duyệt xong phiếu nhanh": "⚡ Quick approve + finalize",
   "⚡ Kế toán duyệt nhanh": "⚡ Accounting quick approve",
   "📦 Trừ kho": "📦 Stock deduct",
+  // v1.442
+  "Phiếu đang chờ kế toán phải còn ít nhất 1 đơn — muốn bỏ hết thì Huỷ phiếu": "A slip waiting for accounting must keep at least 1 order — cancel the slip to remove all",
 };
 export default tuDien;

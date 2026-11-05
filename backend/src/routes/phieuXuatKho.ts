@@ -544,6 +544,13 @@ phieuXuatKho.get("/status-counts", async (c) => {
 // Don Mua/Cong no duoc dua vao phieu (tao phieu tay, them dong, danh sach kha dung): "TN da duyet" + "Cho thanh toan" (2026-10-20,
 // v1.371 - don cho thanh toan da roi phieu khong co duong vao lai; "Gửi kế toán" van chan DON_CHUA_DUYET toi khi Ke toan xac nhan tien).
 const DON_VAO_PHIEU_DUOC = "'TN da duyet', 'Cho thanh toan'";
+// Them / bot / chuyen / tach dong duoc toi khi Ke toan chot xong don xuat (v1.442, chot 2026-11-05 - "nếu kế toán chưa xác nhận chốt xong phiếu
+// (gửi sang kho) thì vẫn có thể thêm bớt linh kiện như ở bước trước khi nhập mã misa"). Tien tinh lai o taiTinhPxk (thieu tien -> ve Cho ma HD).
+const MO_SUA_DONG = ["Dang tao phieu", "Cho ke toan"];
+async function soDongPxk(db: D1Database, pxkId: string): Promise<number> {
+  const r = await db.prepare("SELECT COUNT(*) AS n FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ?").bind(pxkId).first<{ n: number }>();
+  return r?.n ?? 0;
+}
 
 // GET /api/phieu-xuat-kho/don-hang-kha-dung - danh sach dong dat_don_hang DA "TN da duyet" VA CHUA
 // gan vao PXK nao (ma_xuat_kho IS NULL) - nguon cho picker chon dong luc "Tao phieu xuat kho".
@@ -1601,7 +1608,8 @@ phieuXuatKho.post("/:id/dong", async (c) => {
     .bind(id)
     .first<{ ma_xuat_kho: string; nguoi_nhan_hang: string | null; loai_don: string | null; trang_thai: string | null; doi_tac_ma: string | null }>();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
-  if (pxk.trang_thai !== "Dang tao phieu") return c.json({ error: "INVALID_STATE" }, 409);
+  if (!MO_SUA_DONG.includes(pxk.trang_thai ?? "")) return c.json({ error: "INVALID_STATE" }, 409);
+  const choKeToan = pxk.trang_thai === "Cho ke toan";
   // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): phieu doi tac chi nhan don cung doi tac, phieu thuong khong nhan don doi tac (trigger migration 0099 chan cung).
   const { results: dtRows } = await c.env.DB.prepare(
     `SELECT id FROM dat_don_hang WHERE id IN (SELECT value FROM json_each(?)) AND COALESCE(UPPER(doi_tac_ma), '') <> COALESCE(UPPER(?), '')`,
@@ -1624,7 +1632,7 @@ phieuXuatKho.post("/:id/dong", async (c) => {
       ? `SELECT id FROM dat_don_hang ddh WHERE ddh.id IN (${placeholders}) AND ddh.loai_don = 'tra_hang' AND ddh.ma_xuat_kho IS NULL
            AND ddh.nguoi_nhan_hang = ? AND ddh.trang_thai_hien_tai = 'TN da duyet'`
       : `SELECT id FROM dat_don_hang ddh WHERE ddh.id IN (${placeholders}) AND ddh.loai_don = ? AND ddh.ma_xuat_kho IS NULL
-           AND ddh.nguoi_nhan_hang = ? AND ${latestDonHangLogStatusExpr("ddh.id")} IN (${DON_VAO_PHIEU_DUOC})`,
+           AND ddh.nguoi_nhan_hang = ? AND ${latestDonHangLogStatusExpr("ddh.id")} IN (${choKeToan ? "'TN da duyet'" : DON_VAO_PHIEU_DUOC})`,
   )
     .bind(...body.dat_don_hang_ids, isTraHang ? pxk.nguoi_nhan_hang : pxk.loai_don, ...(isTraHang ? [] : [pxk.nguoi_nhan_hang]))
     .all<{ id: string }>();
@@ -1670,9 +1678,10 @@ phieuXuatKho.delete("/:id/dong/:donHangId", async (c) => {
     .bind(id)
     .first<{ trang_thai: string | null; da_thanh_toan: number | null; nguoi_nhan_hang: string | null; ma_misa: string | null }>();
   if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
-  if (pxk.trang_thai !== "Dang tao phieu") return c.json({ error: "INVALID_STATE" }, 409);
-  // Chot 2026-09-30: chi bo don khi Ke toan CHUA bo sung Ma MISA (phieu Ke toan tra ve "Chờ mã HĐ" van giu ma MISA).
-  if (pxk.ma_misa?.trim()) return c.json({ error: "DA_CO_MA_MISA" }, 409);
+  // v1.442 (chot 2026-11-05): bo don duoc toi khi Ke toan chot xong don xuat ("Dang tao phieu" / "Cho ke toan", ke ca da co Ma MISA) - truoc
+  // day chan khi da co Ma MISA (chot 2026-09-30). Phieu "Cho ke toan" phai con >= 1 don (bo het = Huy phieu).
+  if (!MO_SUA_DONG.includes(pxk.trang_thai ?? "")) return c.json({ error: "INVALID_STATE" }, 409);
+  if (pxk.trang_thai === "Cho ke toan" && (await soDongPxk(c.env.DB, id)) <= 1) return c.json({ error: "PHIEU_CHO_KE_TOAN_CON_1_DON" }, 409);
   // Phieu DA CO TIEN tra (chot 2026-09-30): TN chon don bo ra "Đã thanh toán" (?giu_tien=1) -> tien cua dong (toi da
   // phieu da tra) RUT khoi phieu va MANG THEO don (dat_don_hang.tien_da_tra, migration 0056), don ve "Chờ tạo phiếu";
   // vao phieu moi thi tien cong vao phieu do (lenhNhanTienDaTraDon). Mac dinh "Chưa thanh toán" = nhu cu: tong phieu
@@ -1809,8 +1818,8 @@ phieuXuatKho.post("/:id/dong/:donHangId/chuyen", async (c) => {
     .bind(id)
     .first<{ trang_thai: string | null; nguoi_nhan_hang: string | null; loai_don: "mua" | "cong_no" | "tra_hang" | null; ma_misa: string | null; mien_xuat: string | null; doi_tac_ma: string | null }>();
   if (!pxk || !pxk.loai_don || !pxk.nguoi_nhan_hang) return c.json({ error: "NOT_FOUND" }, 404);
-  if (pxk.trang_thai !== "Dang tao phieu") return c.json({ error: "INVALID_STATE" }, 409);
-  if (pxk.ma_misa?.trim()) return c.json({ error: "DA_CO_MA_MISA" }, 409);
+  if (!MO_SUA_DONG.includes(pxk.trang_thai ?? "")) return c.json({ error: "INVALID_STATE" }, 409);
+  if (pxk.trang_thai === "Cho ke toan" && (await soDongPxk(c.env.DB, id)) <= 1) return c.json({ error: "PHIEU_CHO_KE_TOAN_CON_1_DON" }, 409);
   const don = await c.env.DB.prepare(
     `SELECT d.ma_lk, d.khu_vuc_chon FROM phieu_xuat_kho_dong pd JOIN dat_don_hang d ON d.id = pd.dat_don_hang_id
      WHERE pd.phieu_xuat_kho_id = ? AND pd.dat_don_hang_id = ?`,

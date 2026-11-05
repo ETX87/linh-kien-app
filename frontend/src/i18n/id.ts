@@ -2508,5 +2508,7 @@ const tuDien: Record<string, string> = {
   "⚡ KT duyệt xong phiếu nhanh": "⚡ Setujui cepat + finalisasi",
   "⚡ Kế toán duyệt nhanh": "⚡ Persetujuan cepat akuntansi",
   "📦 Trừ kho": "📦 Potong stok",
+  // v1.442
+  "Phiếu đang chờ kế toán phải còn ít nhất 1 đơn — muốn bỏ hết thì Huỷ phiếu": "Slip yang menunggu akuntansi harus menyisakan minimal 1 pesanan — batalkan slip untuk menghapus semua",
 };
 export default tuDien;

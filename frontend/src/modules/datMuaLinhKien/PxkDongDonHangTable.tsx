@@ -108,7 +108,6 @@ export function PxkDongDonHangTable({
   // ve quy) hay "Đã thanh toán" (don mang theo tien cua dong, ve "Chờ tạo phiếu" - vao phieu moi duoc tru tien).
   const [boDonCho, setBoDonCho] = useState<DonHangRow | null>(null);
   const daTraPhieu = pxk.da_thanh_toan ?? 0;
-  const coMaMisa = !!pxk.ma_misa?.trim();
   const boDonMutation = useMutation({
     mutationFn: async ({ donHangId, laDonCuoi, giuTien = false }: { donHangId: string; laDonCuoi: boolean; giuTien?: boolean }) => {
       await api.delete(`/phieu-xuat-kho/${pxkId}/dong/${donHangId}${giuTien ? "?giu_tien=1" : ""}`);
@@ -131,15 +130,19 @@ export function PxkDongDonHangTable({
     },
   });
 
-  const coCotBo = (canTacNghiep || canKeToan) && dangTao;
+  // v1.442 (chot 2026-11-05): them / bot / chuyen / tach dong duoc toi khi Ke toan chot xong don xuat ("Cho ke toan", ke ca da co Ma MISA);
+  // phieu "Cho ke toan" phai con >= 1 don (bo het = Huy phieu). Thieu tien sau khi sua -> phieu tu ve "Cho ma HD" (backend taiTinhPxk).
+  const choKeToan = trangThai === "Cho ke toan";
+  const moSuaDong = dangTao || (choKeToan && donHang.length > 1);
+  const coCotBo = (canTacNghiep || canKeToan) && moSuaDong;
   // Phieu NHIEU don: nut "Bỏ" mo hop 3 lua chon (2026-10-23) - tach thanh phieu moi / them vao phieu co san (TN, Ke toan, Kho, GS -
   // backend duocChuyenDonPxk tra `duoc_chuyen_don`) / chi bo khoi phieu (TN, Ke toan). Phieu 1 don giu nhu cu.
-  const coChuyenDon = !!pxk.duoc_chuyen_don && dangTao && !coMaMisa && donHang.length > 1;
+  const coChuyenDon = !!pxk.duoc_chuyen_don && moSuaDong && donHang.length > 1;
   const coCotNutBo = coCotBo || coChuyenDon;
   const [chuyenDonCho, setChuyenDonCho] = useState<DonHangRow | null>(null);
   // Tach don ngay trong phieu (v1.440, "kế toán xác định chỉ cho xuất trước 5 linh kiện, 5 linh kiện còn lại tách ra phiếu khác để xuất sau"):
   // Ke toan / TN, phieu "Dang tao phieu" / "Cho ke toan" chua Ma MISA, khong tra hang; dong da duyet, SL >= 2, chua sua SL thuc xuat.
-  const coTach = (canTacNghiep || canKeToan) && (dangTao || trangThai === "Cho ke toan") && !coMaMisa && pxk.loai_don !== "tra_hang";
+  const coTach = (canTacNghiep || canKeToan) && (dangTao || choKeToan) && pxk.loai_don !== "tra_hang";
   const duocTach = (d: DonHangRow) =>
     coTach && (d.trang_thai_hien_tai ?? d.trang_thai) === "TN da duyet" && d.so_luong_de_xuat >= 2 &&
     (d.so_luong_thuc_xuat == null || d.so_luong_thuc_xuat === d.so_luong_de_xuat);
@@ -166,7 +169,7 @@ export function PxkDongDonHangTable({
   const coChonCk = canTacNghiep && pxk.loai_don !== "tra_hang" && duocDoiLoaiChietKhau(pxk) && donHang.length > 1;
   // Bo NHIEU don khoi phieu 1 lan (2026-10-19, "thêm các chức năng xử lý hàng loạt cho các đơn được tích chọn => bỏ khỏi phiếu hàng
   // loat") - cung dieu kien nut "✕ Bỏ" tung dong (coCotBo, chua co Ma MISA). O chon hien khi co it nhat 1 thao tac hang loat.
-  const coBoNhieu = coCotBo && !coMaMisa && donHang.length > 1;
+  const coBoNhieu = coCotBo && donHang.length > 1;
   const coChon = coChonCk || coBoNhieu;
   const [chonCk, setChonCk] = useState<Set<string>>(new Set());
   const [moDoiNhieu, setMoDoiNhieu] = useState(false);
@@ -515,8 +518,8 @@ export function PxkDongDonHangTable({
       <button
         type="button"
         className="text-[var(--coral-500)] hover:underline disabled:opacity-50"
-        title={coMaMisa ? t("Kế toán đã bổ sung mã MISA — không bỏ đơn khỏi phiếu được nữa") : t("Bỏ đơn khỏi phiếu")}
-        disabled={boDonMutation.isPending || coMaMisa}
+        title={t("Bỏ đơn khỏi phiếu")}
+        disabled={boDonMutation.isPending}
         onClick={() => {
           if (coChuyenDon) {
             setChuyenDonCho(d);
