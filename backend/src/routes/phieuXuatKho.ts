@@ -12,7 +12,7 @@ import { emailsTheoTen, orDonTrongPxk, orEmailIn } from "../lib/timTheoTen";
 import { bumpVersions } from "../lib/dataVersions";
 import { quaHanLyDoCham, mocTinhHanTn } from "../lib/hanLyDoCham";
 import { MIEN_XUAT_LABEL, MIEN_XUAT_SUA_DUOC, mienTuMaKhuVuc, mienTuKhuVucSql, mienXuatHieuLucSql, khuVucHieuLucSql, type MienXuat } from "../lib/mienXuat";
-import { autoClaimGs, scopePxkNguoiNhanHang, phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql, laKhoThuan, doiKhuVucDonSql } from "../lib/scopeDatMua";
+import { autoClaimGs, scopeDatMuaNguoiTao, scopePxkNguoiNhanHang, phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql, laKhoThuan, doiKhuVucDonSql } from "../lib/scopeDatMua";
 import { sendPushToUser } from "../lib/webPush";
 import { buildMisaExportSheets, resolveMisaTemplateDeXuat, MISA_TEMPLATES, type MisaTemplate } from "../lib/misaExport";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, emailGsListForPxk, PXK_ROLES } from "../lib/taskNotify";
@@ -925,8 +925,16 @@ phieuXuatKho.post("/", async (c) => {
 phieuXuatKho.get("/:id", async (c) => {
   const id = c.req.param("id");
   const scope = scopePxkNguoiNhanHang(c);
-  const whereSql = "pxk.id = ?" + (scope?.whereSql ?? "");
-  const binds = [id, ...(scope?.binds ?? [])];
+  // SUA (2026-11-05, v1.443 - "tài khoản giám sát khi xem 1 đơn hàng, click vào mã phiếu xuất ... không hiện UI phiếu mà đẩy ra màn hình đơn hàng"):
+  // pham vi xem DON cua GS / KTV (scopeDatMuaNguoiTao: don minh dat ho, email_gs = minh, khu vuc xem them...) rong hon pham vi PXK (theo nguoi nhan
+  // hang) -> mo chi tiet don duoc nhung phieu chua don do tra 404. Chi tiet phieu: xem duoc them khi phieu chua >= 1 don minh XEM DUOC (danh sach
+  // phieu giu nguyen pham vi cu).
+  const scopeDon = scope ? scopeDatMuaNguoiTao(c) : null;
+  const whereSql = "pxk.id = ?" + (scope
+    ? ` AND ((1=1${scope.whereSql})${scopeDon ? ` OR EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pdx JOIN dat_don_hang ddh ON ddh.id = pdx.dat_don_hang_id
+         WHERE pdx.phieu_xuat_kho_id = pxk.id${scopeDon.whereSql})` : ""})`
+    : "");
+  const binds = [id, ...(scope?.binds ?? []), ...(scope && scopeDon ? scopeDon.binds : [])];
   const pxk = await c.env.DB.prepare(
     `SELECT pxk.*, pxk.trang_thai_hien_tai as trang_thai, ${ANH_DA_GHI_NHAN_SQL("pxk")} as anh_da_ghi_nhan,
        (SELECT ten_misa FROM doi_tac_cong_no WHERE ma_misa = pxk.doi_tac_ma) as doi_tac_ten,
