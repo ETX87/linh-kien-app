@@ -1276,6 +1276,8 @@ tiết đơn, và kiểm tra tồn tại case lúc gắn thêm case vào đơn. 
 thiếu `SC` từng làm mã "SC261003300" không phản hồi gì, 2026-10-07); `fetchCaseLookupRaw()` quy `t…`/`sc…` về chữ HOA vì DVBH
 lưu + khớp đúng chữ hoa. **ID Lada hiện thẻ tra cứu** (2026-10-20, v1.375 — "ID lada đang không hiện UI thông tin case"): KTV hay gõ CÙNG 1 ID Lada (vd B1430288) vào CẢ ô Mã YCSC lẫn Mã Lada → ô Mã YCSC gặp mã dạng Lada (không phải mã case) thì hiện thẻ `MaLadaCheck` (bỏ qua khi trùng ô Mã Lada cùng dòng — prop `maLada`); chi tiết đơn hiện thẻ đơn Lada dưới dòng "Mã Lada" (hoặc theo Mã YCSC dạng Lada) — `maLadaTraCuu()` ở `DonCuaToiTab.tsx`. **App KTV — khối "Chuyển tiền" lên đầu chi tiết PXK** (v1.375): người xem không phải TN/Kho/Kế toán/Admin → `veKhoiChuyenTien()` vẽ ngay dưới mini pipeline (`uuTienTien`), văn phòng giữ vị trí cũ.
 
+**Link mở thẳng 1 đơn `/DDH-xxxxxx`** (2026-11-06, v1.444 — DVBH CaseDetail tab "Mua hàng"/"Thiếu hàng" gắn link mở đơn): thêm `DDH` vào `DEEP_LINK_ID_RE` (`lib/pxkDeepLink.ts`), `App.tsx` mở như bấm 1 kết quả tìm kiếm loại `don_hang` (cùng quyền xem đơn, giữ link qua vòng đăng nhập Google bằng sessionStorage như `PMH-…`).
+
 **Lưu ý khi sửa endpoint phía hệ gốc**: route `case-lookup` KHÔNG áp dụng rate-limit 30
 lần/ngày+60s/lần của các API partner khác (thiết kế cho export định kỳ) — nó chỉ dựa vào throttle
 chung 60 req/phút/IP qua Cache API của router `/api/partner`, vì được gọi trực tiếp/tương tác (debounce

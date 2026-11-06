@@ -25,7 +25,9 @@ const STORAGE_KEY = "dmlk_pending_pxk_deep_link";
 // backend/src/routes/phieuXuatKho.ts) de link toi cac PXK tao TRUOC thoi diem doi van mo duoc, cong
 // them "TRA" (ma thung hang tra, xem giai thich tren) va "TLK" (ticket thieu linh kien, them 2026-09-10
 // cho link work_url bao khovan - xem lib/khovanPushClient.ts::pushThieuLkToKhovan).
-const DEEP_LINK_ID_RE = /^\/(PMH|PCN|PTL|PXK|TRA|TLK)-\d+\/?$/i;
+// Them 2026-11-06: "DDH" (dong don dat mua / tra hang - id chinh dat_don_hang) de DVBH (CaseDetail tab Mua hàng / Thiếu
+// hàng) gan link mo thang 1 don, vd /DDH-003943 - mo nhu bam 1 ket qua tim kiem loai "don_hang" (cung quyen xem).
+const DEEP_LINK_ID_RE = /^\/(PMH|PCN|PTL|PXK|TRA|TLK|DDH)-\d+\/?$/i;
 
 // Goi 1 LAN duy nhat, cang som cang tot (dau frontend/src/main.tsx, TRUOC khi React mount) - khong
 // phu thuoc trang thai dang nhap, chi doc URL hien tai va ghi nho neu khop mau.

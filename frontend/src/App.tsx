@@ -325,6 +325,8 @@ function MainApp({
         });
     } else if (id.startsWith("TLK-")) {
       openSearchResult({ type: "thieu_lk", id });
+    } else if (id.startsWith("DDH-")) {
+      openSearchResult({ type: "don_hang", id });
     } else {
       openPxkFromBell(id);
     }
