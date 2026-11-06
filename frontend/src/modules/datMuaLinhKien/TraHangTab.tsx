@@ -490,6 +490,12 @@ export function TraHangTab({
     // voi cols cua DonCuaToiTab.tsx (cung 1 khuon dat_don_hang nen moi truong deu co san du lieu, ke
     // ca cac truong TraHangTab truoc day chua tung hien nhu gia_de_xuat/yeu_cau_hoa_don/ghi_chu...).
     // Giu rieng cot "id" (Mã đơn hàng, khong co trong file tham chieu) theo xac nhan nguoi dung.
+    // v1.445 ("đơn trả hàng cần bổ sung thêm cột người nhận hàng (nếu có người tạo hộ)"): dua len ngay sau "Linh kiện" -
+    // danh sach nhom theo NGUOI TAO nen don tao ho truoc day phai keo ngang moi thay nguoi nhan.
+    {
+      key: "nguoi_nhan_hang", header: t("Người nhận hàng"),
+      render: (r) => (r.nguoi_nhan_hang ? <NguoiNhan>{formatNguoiDisplay(r.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>),
+    },
     { key: "ngay_de_xuat", header: t("Ngày đề xuất"), render: (r) => fmtDate(r.ngay_tao) },
     { key: "so_luong_de_xuat", header: t("SL đề xuất"), render: (r) => r.so_luong_de_xuat },
     { key: "sl_thuc_xuat", header: t("SL thực xuất"), render: (r) => r.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
@@ -510,7 +516,6 @@ export function TraHangTab({
         </div>
       ),
     },
-    { key: "nguoi_nhan_hang", header: t("Người nhận hàng"), render: (r) => (r.nguoi_nhan_hang ? <NguoiNhan>{formatNguoiDisplay(r.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>) },
     { key: "ly_do_cham", header: t("Lý do từ chối/chờ hàng"), render: (r) => r.ly_do_cham || <span className="text-[var(--ink-400)]">—</span> },
     // "Khu vực" cua NGUOI NHAN HANG - khong phai cot that tren dat_don_hang, server LEFT JOIN qua
     // ktv_lien_he.khu_vuc_ma (xem GET /tra-hang backend + DonHangRow.khu_vuc_ten trong types.ts).
@@ -1013,6 +1018,11 @@ function TraHangGroupedList({
                             <span>·</span>
                             <span>{fmtDateTime(r.ngay_tao)}</span>
                           </div>
+                          {isDonTaoHo(r) && (
+                            <div className="text-xs text-[var(--ink-500)] mt-0.5 truncate">
+                              {t("Người nhận hàng")}: <NguoiNhan>{formatNguoiDisplay(r.nguoi_nhan_hang ?? "", ktvDisplayMap)}</NguoiNhan>
+                            </div>
+                          )}
                           {actionsCol && <div className="mt-1.5">{actionsCol.render(r)}</div>}
                         </div>
                       </div>
@@ -1348,6 +1358,12 @@ export function TraHangDetailModal({
 
           <DetailZone title={t("Thông tin đơn")}>
             <KvRow label={t("Người tạo")}><NguoiTao>{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</NguoiTao></KvRow>
+            {d.nguoi_nhan_hang && (
+              <KvRow label={t("Người nhận hàng")}>
+                <NguoiNhan>{formatNguoiDisplay(d.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan>
+                {isDonTaoHo(d) && <span className="ml-1.5"><Badge tone="neutral">{t("Đơn tạo hộ")}</Badge></span>}
+              </KvRow>
+            )}
             <KvRow label={t("Ngày tạo")}>{fmtDateTime(d.ngay_tao)}</KvRow>
             <KvRow label={t("Mã LK")}><span className="font-mono text-xs">{d.ma_lk}</span></KvRow>
             <KvRow label={t("Khu vực xử lý")}>
