@@ -27,6 +27,7 @@ interface LinhKienRow {
   don_vi_tinh: string | null;
   ghi_chu_doi_tac: string | null;
   cam_ban: number;
+  bo_ma: number;
   gia_tri_cong_no: number | null;
   trang_thai_ma: string;
   co_tren_gia88: number;
@@ -49,7 +50,8 @@ function normalFieldsDiffer(existing: LinhKienRow, item: Gia88Item): boolean {
     existing.thiet_bi !== item.thietBi ||
     existing.don_vi_tinh !== item.donViTinh ||
     existing.ghi_chu_doi_tac !== item.ghiChuDacBiet ||
-    !!existing.cam_ban !== item.camBan
+    !!existing.cam_ban !== item.camBan ||
+    !!existing.bo_ma !== !!item.boMa
   );
 }
 
@@ -57,7 +59,7 @@ export async function runGia88Sync(env: Env, db: D1Database): Promise<Gia88SyncR
   const items = await fetchGia88Prices(env);
 
   const { results: existingRows } = await db.prepare(
-    "SELECT ma_linh_kien, ten_linh_kien, gia_ban, gia_du_phong, gia_eu, don_vi_nhap, nhan_hang, thiet_bi, don_vi_tinh, ghi_chu_doi_tac, cam_ban, gia_tri_cong_no, trang_thai_ma, co_tren_gia88 FROM linh_kien",
+    "SELECT ma_linh_kien, ten_linh_kien, gia_ban, gia_du_phong, gia_eu, don_vi_nhap, nhan_hang, thiet_bi, don_vi_tinh, ghi_chu_doi_tac, cam_ban, bo_ma, gia_tri_cong_no, trang_thai_ma, co_tren_gia88 FROM linh_kien",
   ).all<LinhKienRow>();
   const existingMap = new Map(existingRows.map((r) => [r.ma_linh_kien, r]));
 
@@ -75,11 +77,11 @@ export async function runGia88Sync(env: Env, db: D1Database): Promise<Gia88SyncR
     if (!existing) {
       statements.push(
         db.prepare(
-          `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_du_phong, gia_eu, don_vi_nhap, nhan_hang, thiet_bi, don_vi_tinh, ghi_chu_doi_tac, cam_ban, gia_tri_cong_no, nguoi_cap_nhat, ngay_cap_nhat, trang_thai_ma, co_tren_gia88)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 'Da xac nhan', 1)`,
+          `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, gia_du_phong, gia_eu, don_vi_nhap, nhan_hang, thiet_bi, don_vi_tinh, ghi_chu_doi_tac, cam_ban, bo_ma, gia_tri_cong_no, nguoi_cap_nhat, ngay_cap_nhat, trang_thai_ma, co_tren_gia88)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 'Da xac nhan', 1)`,
         ).bind(
           ma, item.tenLinhKien, item.giaNY, item.giaDuPhong, item.giaEU, item.donViNhap, item.nhanHang,
-          item.thietBi, item.donViTinh, item.ghiChuDacBiet, item.camBan ? 1 : 0, item.giaKTV, now,
+          item.thietBi, item.donViTinh, item.ghiChuDacBiet, item.camBan ? 1 : 0, item.boMa ? 1 : 0, item.giaKTV, now,
         ),
       );
       insertedCount++;
@@ -92,11 +94,11 @@ export async function runGia88Sync(env: Env, db: D1Database): Promise<Gia88SyncR
     if (existing.trang_thai_ma === TT_MA.CHO) {
       statements.push(
         db.prepare(
-          `UPDATE linh_kien SET ten_linh_kien = ?, gia_ban = ?, gia_du_phong = ?, gia_eu = ?, don_vi_nhap = ?, nhan_hang = ?, thiet_bi = ?, don_vi_tinh = ?, ghi_chu_doi_tac = ?, cam_ban = ?, gia_tri_cong_no = ?,
+          `UPDATE linh_kien SET ten_linh_kien = ?, gia_ban = ?, gia_du_phong = ?, gia_eu = ?, don_vi_nhap = ?, nhan_hang = ?, thiet_bi = ?, don_vi_tinh = ?, ghi_chu_doi_tac = ?, cam_ban = ?, bo_ma = ?, gia_tri_cong_no = ?,
              trang_thai_ma = ?, co_tren_gia88 = 1, nguoi_cap_nhat = NULL, ngay_cap_nhat = ? WHERE ma_linh_kien = ?`,
         ).bind(
           item.tenLinhKien, item.giaNY, item.giaDuPhong, item.giaEU, item.donViNhap, item.nhanHang,
-          item.thietBi, item.donViTinh, item.ghiChuDacBiet, item.camBan ? 1 : 0, item.giaKTV, TT_MA.TU_DONG, now, ma,
+          item.thietBi, item.donViTinh, item.ghiChuDacBiet, item.camBan ? 1 : 0, item.boMa ? 1 : 0, item.giaKTV, TT_MA.TU_DONG, now, ma,
         ),
         logLk(db, {
           ma, hanhDong: "Tu dong duyet", tenCu: existing.ten_linh_kien, tenMoi: existing.ten_linh_kien !== item.tenLinhKien ? item.tenLinhKien : null,
@@ -119,10 +121,10 @@ export async function runGia88Sync(env: Env, db: D1Database): Promise<Gia88SyncR
     if (normalFieldsDiffer(existing, item)) {
       statements.push(
         db.prepare(
-          `UPDATE linh_kien SET ten_linh_kien = ?, gia_ban = ?, gia_du_phong = ?, gia_eu = ?, don_vi_nhap = ?, nhan_hang = ?, thiet_bi = ?, don_vi_tinh = ?, ghi_chu_doi_tac = ?, cam_ban = ?, nguoi_cap_nhat = NULL, ngay_cap_nhat = ? WHERE ma_linh_kien = ?`,
+          `UPDATE linh_kien SET ten_linh_kien = ?, gia_ban = ?, gia_du_phong = ?, gia_eu = ?, don_vi_nhap = ?, nhan_hang = ?, thiet_bi = ?, don_vi_tinh = ?, ghi_chu_doi_tac = ?, cam_ban = ?, bo_ma = ?, nguoi_cap_nhat = NULL, ngay_cap_nhat = ? WHERE ma_linh_kien = ?`,
         ).bind(
           item.tenLinhKien, item.giaNY, item.giaDuPhong, item.giaEU, item.donViNhap, item.nhanHang,
-          item.thietBi, item.donViTinh, item.ghiChuDacBiet, item.camBan ? 1 : 0, now, ma,
+          item.thietBi, item.donViTinh, item.ghiChuDacBiet, item.camBan ? 1 : 0, item.boMa ? 1 : 0, now, ma,
         ),
       );
       rowChanged = true;

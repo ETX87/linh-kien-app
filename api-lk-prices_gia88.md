@@ -111,7 +111,8 @@ HTTP 200, `Content-Type: application/json`. Cấu trúc:
       "giaDuPhong": 18000,
       "giaEU": 35700,
       "ghiChuDacBiet": "",
-      "camBan": false
+      "camBan": false,
+      "boMa": false
     }
   ]
 }
@@ -133,6 +134,7 @@ HTTP 200, `Content-Type: application/json`. Cấu trúc:
 | `giaEU` | number \| null | Giá EU (gồm VAT) |
 | `ghiChuDacBiet` | string | Ghi chú (nếu có) |
 | `camBan` | boolean | `true` = cấm bán |
+| `boMa` | boolean | `true` = **đã bỏ mã** (linh kiện đã bỏ — vẫn còn trong hệ thống vì KTV còn tồn kho, nhưng **KHÔNG nên đặt mới**). Nên gắn nhãn cảnh báo trước tên linh kiện. |
 
 - Mỗi phần tử ứng với **một (Mã linh kiện + Nhãn hàng)**, lấy bản giá **mới nhất**; các mã đã ẩn không xuất hiện.
 - **Giá đều ĐÃ GỒM VAT**, đơn vị **VND**. Giá thiếu dữ liệu trả `null`.

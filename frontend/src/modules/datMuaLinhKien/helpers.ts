@@ -157,6 +157,7 @@ export function comboThanhLkRow(combos: LkComboRow[] | undefined, danhMuc: LkDan
       bat_tat: 1,
       dac_thu: tp.some((x) => x.lk!.dac_thu) ? 1 : 0,
       cam_ban: tp.some((x) => x.lk!.cam_ban) ? 1 : 0,
+      bo_ma: tp.some((x) => x.lk!.bo_ma) ? 1 : 0,
       trang_thai_ma: "Da xac nhan",
       anh_demo: tp.find((x) => x.lk!.anh_demo)?.lk!.anh_demo ?? null,
       ghi_chu: cb.ghi_chu,

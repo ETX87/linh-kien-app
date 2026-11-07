@@ -331,7 +331,7 @@ curl -s "https://linhkien.dichvu3t.workers.dev/api/partner/v1/linh-kien/chi-tiet
       "gia_tri_cong_no": 380000,
       "gia_du_phong": null,
       "gia_eu": null,
-      "bat_tat": 1, "dac_thu": 0, "chi_sua_chua": 0, "cam_ban": 0,
+      "bat_tat": 1, "dac_thu": 0, "chi_sua_chua": 0, "cam_ban": 0, "bo_ma": 0,
       "trang_thai_ma": "Da xac nhan",
       "ma_chuan": null,
       "ghi_chu": null,
@@ -381,6 +381,7 @@ curl -s "https://linhkien.dichvu3t.workers.dev/api/partner/v1/linh-kien/chi-tiet
 | `dac_thu` | `1` = linh kiện đặc thù (cần trưởng bộ phận xác nhận khi đặt) |
 | `chi_sua_chua` | `1` = chỉ dùng cho sửa chữa |
 | `cam_ban` | `1` = linh kiện thuộc dạng không bán |
+| `bo_ma` | `1` = linh kiện đã bỏ mã (theo bảng giá đối tác — vẫn còn tồn ở KTV, không nên đặt mới) |
 | `trang_thai_ma` | `Da xac nhan` / `Tu dong duyet` = mã chuẩn; `Cho xet duyet` = mã mới chờ duyệt; `Da doi ma` = mã cũ đã đổi sang `ma_chuan`; `Tu choi` = mã bị từ chối. Có thể bổ sung giá trị mới |
 | `ma_chuan` | Chỉ có khi `trang_thai_ma = "Da doi ma"`: mã mới thay thế — hãy quy mã cũ về mã này |
 | `ngay_cap_nhat` | Lần sửa gần nhất thông tin linh kiện **hoặc hình ảnh** (`YYYY-MM-DD HH:MM:SS`, giờ VN) |

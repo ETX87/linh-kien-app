@@ -48,6 +48,7 @@ export interface LkDanhMucRow {
   // loc khoi picker o helpers.ts useLkAndLdeCache), cac truong con lai chi hien thi tham khao khi mo
   // LinhKienDetailModal.
   cam_ban?: number | null;
+  bo_ma?: number | null; // "Đã bỏ mã" (migration 0108) - chi canh bao
   gia_du_phong?: number | null;
   gia_eu?: number | null;
   don_vi_nhap?: string | null;

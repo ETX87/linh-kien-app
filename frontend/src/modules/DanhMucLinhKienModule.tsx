@@ -477,15 +477,17 @@ function PartDetailDrawer({
           <div className="space-y-4 min-w-0">
 
           {ktvXem ? (
-            !!part.cam_ban && (
+            (!!part.cam_ban || !!part.bo_ma) && (
               <div className="flex flex-wrap gap-1.5">
-                <Badge tone="coral">Cấm bán (đối tác)</Badge>
+                {!!part.bo_ma && <Badge tone="coral">Đã bỏ mã (đối tác)</Badge>}
+                {!!part.cam_ban && <Badge tone="coral">Cấm bán (đối tác)</Badge>}
               </div>
             )
           ) : (
           <div className="flex flex-wrap gap-1.5">
             {part.trang_thai_ma && part.trang_thai_ma !== "Da xac nhan" && <TrangThaiMaBadge tt={part.trang_thai_ma} />}
             {!!part.bat_tat === false && <Badge tone="gray">Đang ẩn</Badge>}
+            {!!part.bo_ma && <Badge tone="coral">Đã bỏ mã (đối tác)</Badge>}
             {!!part.cam_ban && <Badge tone="coral">Cấm bán (đối tác)</Badge>}
             {!!part.dac_thu && (
               <Badge tone="amber">
@@ -675,6 +677,7 @@ function DanhMucTab({ timBanDau }: { timBanDau: { q: string; nonce: number } | n
   const [filterBatTat, setFilterBatTat] = useState("");
   // "Cấm bán" (them 2026-09-12, tich hop gia88) - loc rieng, cung kieu voi filterBatTat.
   const [filterCamBan, setFilterCamBan] = useState("");
+  const [filterBoMa, setFilterBoMa] = useState("");
   // "Trạng thái mã" (xet duyet ma chuan, migration 0053). Mac dinh "" = an dong chuyen huong "Da doi ma"; Mua hang/Admin
   // mo Bang gia khi co LK cho duyet -> mac dinh loc "Cho xet duyet" (khop so dem tren Sidebar).
   const [filterTrangThaiMa, setFilterTrangThaiMa] = useState("");
@@ -756,6 +759,7 @@ function DanhMucTab({ timBanDau }: { timBanDau: { q: string; nonce: number } | n
     setFilterChiSuaChua("");
     setFilterBatTat("");
     setFilterCamBan("");
+    setFilterBoMa("");
     setFilterTrangThaiMa("");
     setFilterPhanLoai("");
     setFilterNhomLk("");
@@ -796,6 +800,7 @@ function DanhMucTab({ timBanDau }: { timBanDau: { q: string; nonce: number } | n
     if (filterChiSuaChua) rows = rows.filter((p) => (filterChiSuaChua === "true" ? !!p.chi_sua_chua : !p.chi_sua_chua));
     if (filterBatTat) rows = rows.filter((p) => (filterBatTat === "true" ? !!p.bat_tat : !p.bat_tat));
     if (filterCamBan) rows = rows.filter((p) => (filterCamBan === "true" ? !!p.cam_ban : !p.cam_ban));
+    if (filterBoMa) rows = rows.filter((p) => (filterBoMa === "true" ? !!p.bo_ma : !p.bo_ma));
     if (filterPhanLoai) rows = rows.filter((p) => (filterPhanLoai === CHUA_PHAN_LOAI ? !p.don_vi?.trim() : p.don_vi === filterPhanLoai));
     if (filterNhomLk) rows = rows.filter((p) => p.nhom_lk === filterNhomLk);
     rows = filterTrangThaiMa ? rows.filter((p) => (p.trang_thai_ma ?? "Da xac nhan") === filterTrangThaiMa) : rows.filter((p) => p.trang_thai_ma !== "Da doi ma");
@@ -803,7 +808,7 @@ function DanhMucTab({ timBanDau }: { timBanDau: { q: string; nonce: number } | n
     if (filterTrangThaiMa === "Cho xet duyet" && !diemTim) rows = [...rows].sort((x, y) => (x.ngay_tao ?? "").localeCompare(y.ngay_tao ?? ""));
     if (ktvXem) rows = rows.filter((p) => !!p.bat_tat && (p.trang_thai_ma ?? "Da xac nhan") === "Da xac nhan");
     return rows;
-  }, [parts?.rows, diemTim, lichSu.soLanChon, hangCongTy, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan, filterTrangThaiMa, filterPhanLoai, filterNhomLk, ktvXem]);
+  }, [parts?.rows, diemTim, lichSu.soLanChon, hangCongTy, filterDacThu, filterChiSuaChua, filterBatTat, filterCamBan, filterBoMa, filterTrangThaiMa, filterPhanLoai, filterNhomLk, ktvXem]);
 
   // "Phân loại" (doi ten tu "Đơn vị", phan hoi 2026-08-20) dang listdown NHUNG van cho go gia tri
   // moi (chon "tu dong gom tu du lieu hien co", khong phai danh sach co dinh quan ly rieng) - gop
@@ -1123,7 +1128,17 @@ function DanhMucTab({ timBanDau }: { timBanDau: { q: string; nonce: number } | n
 
   const tatCaCot: Column<LinhKienRow>[] = [
     { key: "ma_linh_kien", header: "Mã", render: (p) => <span className="font-mono text-xs"><ToDam text={p.ma_linh_kien} spec={kqTim.toDam} /></span> },
-    { key: "ten_linh_kien", header: "Tên linh kiện", render: (p) => <span className="font-semibold text-[var(--ocean-800)]"><ToDam text={p.ten_linh_kien} spec={kqTim.toDam} /></span> },
+    {
+      key: "ten_linh_kien",
+      header: "Tên linh kiện",
+      // "Đã bỏ mã" (bang gia doi tac v2.0, migration 0108) - nhan canh bao truoc ten theo khuyen nghi tai lieu doi tac.
+      render: (p) => (
+        <span className="font-semibold text-[var(--ocean-800)]">
+          {!!p.bo_ma && <span className="mr-1"><Badge tone="coral">Đã bỏ mã</Badge></span>}
+          <ToDam text={p.ten_linh_kien} spec={kqTim.toDam} />
+        </span>
+      ),
+    },
     { key: "trang_thai_ma", header: "Trạng thái mã", render: (p) => <TrangThaiMaBadge tt={p.trang_thai_ma} /> },
     {
       // Ngay tao ma (2026-10-15, migration 0081): ma CHUA xac nhan hien them so ngay da cho - cam khi > 3 ngay.
@@ -1302,6 +1317,7 @@ function DanhMucTab({ timBanDau }: { timBanDau: { q: string; nonce: number } | n
                 thiet_bi: "Thiết bị",
                 don_vi_nhap: "Đơn vị nhập",
                 cam_ban: "Cấm bán",
+                bo_ma: "Đã bỏ mã",
                 ghi_chu: "Ghi chú",
                 ghi_chu_doi_tac: "Ghi chú đối tác",
                 dac_thu: "Đặc thù",
@@ -1435,6 +1451,10 @@ function DanhMucTab({ timBanDau }: { timBanDau: { q: string; nonce: number } | n
         <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
           <span>Cấm bán:</span>
           <Select value={filterCamBan} onChange={(v) => { setFilterCamBan(v); setPage(1); }} options={BOOL_FILTER_OPTIONS} />
+        </div>
+        <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
+          <span>Đã bỏ mã:</span>
+          <Select value={filterBoMa} onChange={(v) => { setFilterBoMa(v); setPage(1); }} options={BOOL_FILTER_OPTIONS} />
         </div>
         </>}
         <div className="flex items-center gap-1 text-xs text-[var(--ink-500)]">
@@ -1589,6 +1609,7 @@ function DanhMucTab({ timBanDau }: { timBanDau: { q: string; nonce: number } | n
               {editingRow?.don_vi_nhap?.trim() && <KvRow label="Đơn vị nhập">{editingRow.don_vi_nhap}</KvRow>}
               {editingRow?.ghi_chu_doi_tac?.trim() && <KvRow label="Ghi chú đối tác">{editingRow.ghi_chu_doi_tac}</KvRow>}
               <KvRow label="Cấm bán">{editingRow?.cam_ban ? "Có" : "Không"}</KvRow>
+              <KvRow label="Đã bỏ mã">{editingRow?.bo_ma ? "Có" : "Không"}</KvRow>
             </div>
           )}
           <div>

@@ -18,6 +18,8 @@ export interface Gia88Item {
   giaEU: number | null;
   ghiChuDacBiet: string | null;
   camBan: boolean;
+  // v2.0 (2026-11-07): true = LK da bo ma (van con vi KTV con ton, KHONG nen dat moi). Ban API cu khong co -> undefined = false.
+  boMa?: boolean;
 }
 
 interface Gia88Response {

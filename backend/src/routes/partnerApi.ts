@@ -152,7 +152,7 @@ partnerApi.get("/v1/linh-kien/chi-tiet", async (c) => {
   const maQuery = c.req.query("ma")?.trim();
   const limit = Math.min(200, Math.max(1, Number(c.req.query("limit") ?? 100) || 100));
   const COT_LK = `ma_linh_kien, ten_linh_kien, don_vi AS phan_loai, gia_ban AS gia_niem_yet, gia_tri_cong_no, gia_du_phong, gia_eu,
-                  bat_tat, dac_thu, chi_sua_chua, cam_ban, trang_thai_ma, ma_chuan, ghi_chu, anh_demo, anh_ds, ngay_cap_nhat`;
+                  bat_tat, dac_thu, chi_sua_chua, cam_ban, bo_ma, trang_thai_ma, ma_chuan, ghi_chu, anh_demo, anh_ds, ngay_cap_nhat`;
   type LkRow = Record<string, unknown> & { ma_linh_kien: string; anh_demo: string | null; anh_ds: string | null };
   let lks: LkRow[];
   if (maQuery) {

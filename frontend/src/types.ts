@@ -37,6 +37,8 @@ export interface LinhKienRow {
   ghi_chu_doi_tac: string | null; // thong tin phu, khac "ghi_chu" (van tu nhap tay binh thuong)
   // "Cấm bán" - van tim/xem/chon/dat duoc voi moi loai de xuat (chot 2026-10-10), o chon LK chi hien canh bao khi chon.
   cam_ban: number;
+  // "Đã bỏ mã" (bang gia doi tac v2.0, migration 0108) - van con vi KTV con ton, khong nen dat moi. Chi canh bao.
+  bo_ma?: number;
   // Xet duyet ma chuan (2026-09-30, migration 0053 - backend lib/linhKienXetDuyet.ts). "Da doi ma" = dong chuyen huong
   // (an), ma_chuan = ma moi. co_tren_gia88 = 0 -> Mua hang nhap duoc gia tam.
   trang_thai_ma: TrangThaiMaLk;

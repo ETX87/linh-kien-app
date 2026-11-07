@@ -178,7 +178,11 @@ export function LinhKienPickerRow({
       <span className="flex-1 min-w-0">
         {/* SUA (phan hoi 2026-08-19): bo tien to "mã - " lap - nhieu ten_linh_kien da tu chua san ma
             dang "[ma]" trong chuoi, ghep them tien to se hien ma 2 lan. Xem formatLkLabel (helpers.ts). */}
-        <span className="block truncate font-medium text-[var(--ocean-800)]"><ToDam text={formatLkLabel(o.ma_linh_kien, o.ten_linh_kien)} spec={toDam} /></span>
+        <span className="block truncate font-medium text-[var(--ocean-800)]">
+          {/* "Đã bỏ mã" (bang gia doi tac v2.0, migration 0108): nhan canh bao TRUOC ten - van chon/dat duoc. */}
+          {!!o.bo_ma && <span className="mr-1"><Badge tone="danger">{t("Đã bỏ mã")}</Badge></span>}
+          <ToDam text={formatLkLabel(o.ma_linh_kien, o.ten_linh_kien)} spec={toDam} />
+        </span>
         {!!soLanChon && soLanChon >= 2 && <span className="mr-1 text-[10px] font-semibold text-[var(--color-primary)]">{t("⭐ Bạn đã chọn {n} lần", { n: soLanChon })}</span>}
         {rank != null && rank <= 5 && <span className="text-[10px] font-semibold text-[var(--amber-700)]">{t("🔥 #{n} hay đặt (30 ngày)", { n: rank })}</span>}
         {/* LK moi tao trong app, Mua hang chua xac nhan ma chuan (migration 0053) - van dat duoc (chot nguoi dung). */}
@@ -425,6 +429,11 @@ export function LinhKienPicker({
         co gia tri (bo trong thi khong hien dong nay); dong canh bao TBP LUON hien khi dac_thu, khong
         phu thuoc phan_loai_dac_thu co dien hay khong. */}
     {selected?.combo && <ComboThanhPhanNote combo={selected.combo} />}
+    {!!selected?.bo_ma && (
+      <div role="alert" className="mt-1.5 rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-xs font-semibold text-[var(--coral-700)]">
+        {t("⚠ Linh kiện đã bỏ mã (theo bảng giá đối tác) — không nên đặt mới, hãy kiểm tra mã thay thế")}
+      </div>
+    )}
     {!!selected?.cam_ban && (
       <div role="alert" className="mt-1.5 rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-xs font-semibold text-[var(--coral-700)]">
         {t("⚠ Linh kiện thuộc dạng không bán, hãy chắc chắn mình đặt đúng linh kiện")}
@@ -554,6 +563,11 @@ export function LinhKienDetailModal({
           <KvRow label={t("Phân loại")}>
             <span className="font-semibold">{part.don_vi ?? "—"}</span>
           </KvRow>
+          {!!part.bo_ma && (
+            <KvRow label={t("Đã bỏ mã")}>
+              <Badge tone="danger">{t("Đã bỏ mã (đối tác)")}</Badge>
+            </KvRow>
+          )}
           {!!part.cam_ban && (
             <KvRow label={t("Cấm bán")}>
               <Badge tone="danger">{t("Cấm bán (đối tác)")}</Badge>
