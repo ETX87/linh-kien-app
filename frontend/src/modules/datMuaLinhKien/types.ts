@@ -210,6 +210,7 @@ export interface DonHangRow {
   khieu_nai_luc?: string | null;
   khieu_nai_boi?: string | null;
   khieu_nai_ghi_chu?: string | null;
+  yeu_cau_huy_bo_phan?: "kho" | "mua_hang" | "ke_toan" | null; // yeu cau huy dang cho bo phan dong y (v1.455)
   trang_thai?: string | null;
   // Cot goc "dat_don_hang.trang_thai_hien_tai" (khac "trang_thai" o tren - vai noi API tra ve qua
   // ddh.* thay vi alias) - dung de gate dung dieu kien "con dang Cho TN duyet" cho nut Luu ly do cham
@@ -348,6 +349,7 @@ export interface PhieuXuatKhoRow {
   // bên trong, cũng tự động tô màu").
   co_don_uu_tien?: boolean;
   co_khieu_nai?: number | boolean; // phieu co it nhat 1 don "Ca khiếu nại" (2026-10-28)
+  co_yeu_cau_huy?: number | boolean; // phieu co don dang co yeu cau huy cho dong y (v1.455)
 }
 
 export interface DonHangKhaDungRow {
@@ -377,6 +379,7 @@ export interface DonHangKhaDungRow {
 export interface ThieuLkRow {
   id: string;
   ddh_khieu_nai?: number | null; // don goc la "Ca khiếu nại" (2026-10-28)
+  ddh_yeu_cau_huy?: "kho" | "mua_hang" | "ke_toan" | null; // yeu cau huy don goc dang cho dong y (v1.455)
   dat_don_hang_id: string;
   ly_do_cham_id: number | null;
   ten_ly_do: string | null;

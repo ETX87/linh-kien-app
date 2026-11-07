@@ -490,6 +490,8 @@ export const DON_CUA_TOI_TRANG_THAI_OPTIONS = [
   { value: "TN tu choi", label: "TN từ chối" },
   // Sentinel the "Đơn bị từ chối" o Trang chu (2026-10-01) - don minh tao bi tu choi, chua mo xem (GET /don-hang).
   { value: "__TU_CHOI_CHUA_XEM__", label: "Bị từ chối – chưa xem" },
+  // Sentinel "Yêu cầu hủy chờ tôi đồng ý" (v1.455) - don co yeu cau huy dang cho bo phan nguoi xem (GET /don-hang).
+  { value: "__YEU_CAU_HUY__", label: "Yêu cầu hủy chờ tôi đồng ý" },
   { value: "Cho hang", label: "Chờ hàng" },
   { value: "Da huy", label: "Đã hủy" },
 ];

@@ -281,7 +281,7 @@ export function TaoDonMobileScreen({
             </div>
             {chuaCoGiaKtv && <CanhBaoChuaCoGiaKtv />}
           </div>
-          <DuDoanDuyetHint ketQua={ketQuaTheoDong.get(activeIdx)} />
+          <DuDoanDuyetHint ketQua={ketQuaTheoDong.get(activeIdx)} khuVuc={form.kiemTra?.khu_vuc} />
           <GoiYThayTheThieuHang
             ketQua={ketQuaTheoDong.get(activeIdx)}
             onDoiMa={(ma) => { updateDraft(activeIdx, { ma_lk: ma }); addToast(t("Đã đổi sang {ma}", { ma })); }}

@@ -445,7 +445,11 @@ phieuXuatKho.get("/", async (c) => {
        EXISTS(
          SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id
          WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh.khieu_nai = 1
-       ) as co_khieu_nai
+       ) as co_khieu_nai,
+       EXISTS(
+         SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN yeu_cau_huy_don y ON y.dat_don_hang_id = pxkd.dat_don_hang_id
+         WHERE pxkd.phieu_xuat_kho_id = pxk.id AND y.trang_thai = 'Cho dong y'
+       ) as co_yeu_cau_huy
      FROM phieu_xuat_kho pxk WHERE ${whereSql} ORDER BY ${sapXep ? `${sapXep}, ` : ""}pxk.ngay_tao DESC
      ${pageParam ? "LIMIT ? OFFSET ?" : ""}`,
   )
@@ -959,6 +963,7 @@ phieuXuatKho.get("/:id", async (c) => {
   const { results: donHang } = await c.env.DB.prepare(
     `SELECT ddh.*, lk.gia_ban as lk_gia_ban, lk.gia_tri_cong_no as lk_gia_tri_cong_no, lk.gia_du_phong as lk_gia_du_phong,
        ${VUOT_TRAN_GHI_CHU_SQL("ddh")} as vuot_tran_ghi_chu,
+       (SELECT y.bo_phan FROM yeu_cau_huy_don y WHERE y.dat_don_hang_id = ddh.id AND y.trang_thai = 'Cho dong y') as yeu_cau_huy_bo_phan,
        CASE WHEN ddh.loai_don = 'tra_hang' THEN NULL ELSE (SELECT ngay_xu_ly FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id AND trang_thai = 'Cho TN duyet' ORDER BY id DESC LIMIT 1) END as cho_tn_duyet_at,
        CASE WHEN ddh.loai_don = 'tra_hang' THEN NULL ELSE (SELECT MAX(ngay_tao) FROM dat_don_hang_giai_trinh WHERE dat_don_hang_id = ddh.id) END as last_giai_trinh_at
      FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id

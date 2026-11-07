@@ -28,6 +28,7 @@ export interface DatMuaLkBadge {
   thieuLkCanXuLy?: number;
   nhanThieuCanXuLy?: number;
   thieuHangBhCanXuLy?: number;
+  yeuCauHuyCanXuLy?: number;
 }
 
 export interface NotifCounts {
@@ -57,6 +58,7 @@ export function danhSachViecCanLam(n: NotifCounts | undefined, email: string | u
   const don = (filter: string, loaiDon = "all"): JumpTarget => ({ tab: "don-cua-toi", filter, loaiDon, nguoiNhanHang: "" });
   const pxk = (filter: string, nguoiNhanHang = ""): JumpTarget => ({ tab: "phieu-xuat-kho", filter, loaiDon: "", nguoiNhanHang });
   const rows: ViecCanLam[] = [
+    { key: "yeu_cau_huy", label: dichSau("Yêu cầu hủy đơn chờ bạn đồng ý"), count: d.yeuCauHuyCanXuLy ?? 0, jump: don("__YEU_CAU_HUY__") },
     { key: "tien_cua_toi", label: dichSau("Chuyển tiền phiếu của tôi"), count: d.choTienCuaToi ?? 0, jump: pxk("CHO_TIEN", email) },
     { key: "nhan_hang_cua_toi", label: dichSau("Xác nhận đã nhận hàng"), count: d.choNhanHangCuaToi ?? 0, jump: pxk("Dang gui KTV", email) },
     { key: "don_cua_toi", label: dichSau("Đơn của tôi đang chờ duyệt"), count: d.choDonCuaToi ?? 0, jump: don("__OPEN__") },

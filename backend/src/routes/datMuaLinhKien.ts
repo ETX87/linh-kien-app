@@ -1934,6 +1934,14 @@ async function donHangListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string
     // xem = don ho TAO bi tu choi, chua mo chi tiet) - truoc day nhay sang "TN tu choi" toan pham vi nen so lech danh sach.
     whereSql += " AND ddh.trang_thai_hien_tai = 'TN tu choi' AND EXISTS (SELECT 1 FROM thong_bao_ktv tb WHERE tb.nguoi_nhan = ? AND tb.loai = 'tu_choi' AND tb.da_doc = 0 AND tb.link_id = ddh.id)";
     binds.push(user.email);
+  } else if (trangThai === "__YEU_CAU_HUY__") {
+    // "Yêu cầu hủy chờ tôi đồng ý" (v1.455): don co yeu cau huy dang mo cua bo phan nguoi xem (Admin: moi bo phan) - CUNG tap voi
+    // yeuCauHuyCanXuLy o notifications.ts.
+    const boPhan = user.vai_tro === "Admin"
+      ? ["kho", "mua_hang", "ke_toan"]
+      : [user.la_kho ? "kho" : "", user.la_mua_hang ? "mua_hang" : "", user.la_ke_toan ? "ke_toan" : ""].filter(Boolean);
+    whereSql += " AND EXISTS (SELECT 1 FROM yeu_cau_huy_don y WHERE y.dat_don_hang_id = ddh.id AND y.trang_thai = 'Cho dong y' AND y.bo_phan IN (SELECT value FROM json_each(?)))";
+    binds.push(JSON.stringify(boPhan));
   } else if (trangThai === "__CHO_TT__") {
     // Muc "Chờ thanh toán" (sua 2026-10-27, "khi filter đơn hàng chờ thanh toán, nó đang chỉ hiện đơn chờ thành toán (thiếu hàng) (đơn
     // được duyệt nhưng đang chờ chuyển tiền lại không hiện)"): don "Cho thanh toan" (thieu hang) + don DA duyet ma tien chua duoc Ke toan
@@ -2019,6 +2027,7 @@ datMuaLinhKien.get("/don-hang", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, ${DAC_THU_DON_SQL("ddh")} as dac_thu, lk.dac_thu as lk_dac_thu, lk.gia_ban as lk_gia_ban, ${TU_HUY_DUOC_SQL("ddh")} as tu_huy_duoc, (SELECT u_gs.giam_sat_quan_ly FROM users u_gs WHERE u_gs.email = ddh.nguoi_tao) as gs_nguoi_tao, ${TN_DOI_TRONG_PXK_SQL("ddh")} as tn_doi_trong_pxk, ${GS_HUY_TRONG_PXK_SQL("ddh")} as gs_huy_trong_pxk, ${MUA_HANG_CHO_HANG_DUOC_SQL("ddh")} as mua_hang_cho_hang_duoc, ${dayLaiHanSql("ddh")} as day_lai_han, ${choTnDuyetAtExpr("ddh.id")} as cho_tn_duyet_at,
        ${khoDangXuLyThieuLkSql("ddh")} as kho_dang_xu_ly_thieu_lk,
+       (SELECT y.bo_phan FROM yeu_cau_huy_don y WHERE y.dat_don_hang_id = ddh.id AND y.trang_thai = 'Cho dong y') as yeu_cau_huy_bo_phan,
        ${lastGiaiTrinhAtExpr("ddh.id")} as last_giai_trinh_at,
        (SELECT ghi_chu FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) as ghi_chu_xu_ly_gan_nhat,${THIEU_LK_DON_COT("ddh")},
        kv.ten as khu_vuc_ten,
@@ -2467,7 +2476,9 @@ async function goiYThayTheThieuHang(
   const out = new Map<number, { ma_lk: string; ten_lk: string; gia_ban: number | null; ton: number }[]>();
   const thieu = ketQua
     .map((k, i) => ({ k, i }))
-    .filter(({ k, i }) => !k.loi && !comboMa[i] && k.nguonTon === "kho" && (k.trangThai === "Cho hang" || k.trangThai === "Cho thanh toan"));
+    // + don "Cho GS duyet" / "Cho TBP xac nhan" ma kho thieu (v1.455): duyet xong van ket o thieu hang -> goi y luon.
+    .filter(({ k, i }) => !k.loi && !comboMa[i] && k.nguonTon === "kho" && (k.trangThai === "Cho hang" || k.trangThai === "Cho thanh toan"
+      || ((k.trangThai === "Cho GS duyet" || k.trangThai === "Cho TBP xac nhan") && (k.ton ?? 0) < dongs[i].so_luong_de_xuat)));
   if (!thieu.length || !khuVuc) return out;
   const maThieu = [...new Set(thieu.map(({ i }) => dongs[i].ma_lk))];
   const { results } = await db
@@ -3206,6 +3217,7 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
     `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai, ${DAC_THU_DON_SQL("ddh")} as dac_thu, lk.dac_thu as lk_dac_thu, ${TU_HUY_DUOC_SQL("ddh")} as tu_huy_duoc, (SELECT u_gs.giam_sat_quan_ly FROM users u_gs WHERE u_gs.email = ddh.nguoi_tao) as gs_nguoi_tao, ${TN_DOI_TRONG_PXK_SQL("ddh")} as tn_doi_trong_pxk, ${dayLaiHanSql("ddh")} as day_lai_han,
        ${GS_HUY_TRONG_PXK_SQL("ddh")} as gs_huy_trong_pxk, ${MUA_HANG_CHO_HANG_DUOC_SQL("ddh")} as mua_hang_cho_hang_duoc, ${VUOT_TRAN_GHI_CHU_SQL("ddh")} as vuot_tran_ghi_chu,
        ${khoDangXuLyThieuLkSql("ddh")} as kho_dang_xu_ly_thieu_lk,
+       (SELECT y.bo_phan FROM yeu_cau_huy_don y WHERE y.dat_don_hang_id = ddh.id AND y.trang_thai = 'Cho dong y') as yeu_cau_huy_bo_phan,
        lk.gia_ban as lk_gia_ban, lk.gia_tri_cong_no as lk_gia_tri_cong_no, lk.gia_du_phong as lk_gia_du_phong
      FROM dat_don_hang ddh
      LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
@@ -3467,7 +3479,9 @@ async function applyDonHangLog(
   giuPhieuTrong = false,
   // Ghi chu cho dong log "TN da duyet" cua ticket thieu LK khi TN duyet tu CHINH ticket (applyThieuLkLog).
   // maEo: ma EO GS / TBP nhap khi duyet don vuot tran cong no (chot 2026-10-14, migration 0080).
-  opts: { ghiChuTicket?: string; maEo?: string } = {},
+  // boQuaQuyenHuy (v1.455): huy THEO YEU CAU HUY DON da duoc phan loai / bo phan dong y (lib yeu cau huy o cuoi file) - bo qua kiem
+  // tra "ai duoc huy" (nguoi yeu cau la KTV / GS, nguoi bam co the la Kho / Ke toan), cac kiem tra trang thai giu nguyen.
+  opts: { ghiChuTicket?: string; maEo?: string; boQuaQuyenHuy?: boolean } = {},
 ): Promise<{ error: string; status: 404 | 409 | 403 | 400 } | { nextTrangThai: string }> {
   const ddh = await c.env.DB.prepare(
     `SELECT ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao, ddh.nguoi_nhan_hang, ddh.email_gs, ddh.version, (SELECT u_gs.giam_sat_quan_ly FROM users u_gs WHERE u_gs.email = ddh.nguoi_tao) as gs_nguoi_tao, ddh.ly_do_cham, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat,
@@ -3577,12 +3591,12 @@ async function applyDonHangLog(
     // CHI TN/Admin huy duoc - nguoi tao khong tu huy sau khi TN da duyet).
     // + "Cho GS duyet" / "Cho thanh toan" (chot 2026-10-14).
     const tnDuocHuy = canTacNghiep(c) && (ddh.trang_thai === "Cho TN duyet" || ddh.trang_thai === "Cho GS duyet" || ddh.trang_thai === "Cho thanh toan" || laChoHangMoKhoa || chuaVaoPxkSauDuyet);
-    if (laHuySauDuyet && !tnDuocHuy && !gsHuyHo && user.vai_tro !== "Admin") return { error: "FORBIDDEN_ROLE", status: 403 };
-    if (ddh.nguoi_tao !== user.email && user.vai_tro !== "Admin" && !tnDuocHuy && !tuHuyPxkId && !gsHuyHo) return { error: "FORBIDDEN_ROLE", status: 403 };
+    if (laHuySauDuyet && !tnDuocHuy && !gsHuyHo && user.vai_tro !== "Admin" && !opts.boQuaQuyenHuy) return { error: "FORBIDDEN_ROLE", status: 403 };
+    if (ddh.nguoi_tao !== user.email && user.vai_tro !== "Admin" && !tnDuocHuy && !tuHuyPxkId && !gsHuyHo && !opts.boQuaQuyenHuy) return { error: "FORBIDDEN_ROLE", status: 403 };
     // Chot phan hoi UX 2026-08-15 (muc 1): bat buoc nguoi huy nhap ly do (tu do, khong dung danh muc
     // Ly do cham cua TN vi khong hop nghia voi tu huy).
     if (!ghiChu?.trim()) return { error: "THIEU_LY_DO_HUY", status: 400 };
-    if (gsHuyHo && !tnDuocHuy && user.vai_tro !== "Admin") ghiChu = `GS hủy hộ KTV: ${ghiChu.trim()}`;
+    if (gsHuyHo && !tnDuocHuy && user.vai_tro !== "Admin" && !opts.boQuaQuyenHuy) ghiChu = `GS hủy hộ KTV: ${ghiChu.trim()}`;
     nextTrangThai = "Da huy";
   } else if (ddh.trang_thai === "Cho Tram duyet") {
     const nguoiTaoRow = await c.env.DB.prepare("SELECT tram_cha FROM users WHERE email = ?").bind(ddh.nguoi_tao).first<{ tram_cha: string | null }>();
@@ -5134,7 +5148,7 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
   // xem docs/audit/RESPONSE_PLAN.md de biet nguong/phuong an xu ly khi log nay cho thay cham that).
   const queryStartedAt = Date.now();
   const { results } = await c.env.DB.prepare(
-    `SELECT tlk.*, sldc.ten_ly_do, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.uu_tien, ddh.khieu_nai as ddh_khieu_nai, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao as ddh_nguoi_tao, ddh.loai_chiet_khau_id, ddh.loai_chiet_khau_thu_cong, ddh.so_luong_de_xuat, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai,
+    `SELECT tlk.*, sldc.ten_ly_do, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.uu_tien, ddh.khieu_nai as ddh_khieu_nai, (SELECT y.bo_phan FROM yeu_cau_huy_don y WHERE y.dat_don_hang_id = ddh.id AND y.trang_thai = 'Cho dong y') as ddh_yeu_cau_huy, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao as ddh_nguoi_tao, ddh.loai_chiet_khau_id, ddh.loai_chiet_khau_thu_cong, ddh.so_luong_de_xuat, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai,
        ${LK_TRANG_THAI_MA_SQL} as lk_trang_thai_ma, ${LK_NHOM_SQL} as lk_nhom_lk
      FROM thieu_lk tlk
      LEFT JOIN settings_ly_do_cham sldc ON sldc.id = tlk.ly_do_cham_id
@@ -5288,7 +5302,7 @@ datMuaLinhKien.get("/thieu-lk/:id", async (c) => {
     binds.push(user.email);
   }
   const tlk = await c.env.DB.prepare(
-    `SELECT tlk.*, sldc.ten_ly_do, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.uu_tien, ddh.khieu_nai as ddh_khieu_nai, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao as ddh_nguoi_tao, ddh.so_luong_de_xuat, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai, ${LK_TRANG_THAI_MA_SQL} as lk_trang_thai_ma, ${LK_NHOM_SQL} as lk_nhom_lk,
+    `SELECT tlk.*, sldc.ten_ly_do, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.uu_tien, ddh.khieu_nai as ddh_khieu_nai, (SELECT y.bo_phan FROM yeu_cau_huy_don y WHERE y.dat_don_hang_id = ddh.id AND y.trang_thai = 'Cho dong y') as ddh_yeu_cau_huy, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao as ddh_nguoi_tao, ddh.so_luong_de_xuat, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai, ${LK_TRANG_THAI_MA_SQL} as lk_trang_thai_ma, ${LK_NHOM_SQL} as lk_nhom_lk,
             -- Nut "Đẩy lại đơn gốc" tren ticket (2026-10-16): trang thai + han day lai cua DON GOC (cung dayLaiHanSql voi danh sach don).
             ddh.trang_thai_hien_tai as ddh_trang_thai, ${dayLaiHanSql("ddh")} as ddh_day_lai_han,
             -- "Đẩy lại ticket" (2026-10-16, lib/dayLaiThieuLk.ts): han + trang thai ticket se phuc hoi.
@@ -5625,6 +5639,239 @@ datMuaLinhKien.post("/thieu-lk/bulk-log", async (c) => {
 
   if (coThanhCong) c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ results });
+});
+
+// ================= YEU CAU HUY DON (chot 2026-11-07, v1.455, migration 0109) =================
+// "Cho phép KTV, GS hủy bỏ đơn chưa xuất tuy nhiên sẽ cần sự đồng ý từ bộ phận đang xử lý đơn đó (KHO nếu kho đã xác nhận chờ hàng,
+// mua hàng nếu mua hàng đã xác nhận đặt hàng, kế toán nếu kế toán đã lên mã đơn hàng hoặc misa), nếu kế toán duyệt tiền thì KTV vẫn
+// hủy được, tiền trả về quỹ". phanLoaiHuyDon() = 1 nguon quyet dinh giai doan (FE chi hien thi ket qua):
+//  - Khong huy duoc: don tra hang (luong Hang tra), don da dong, phieu chua don da qua buoc Ke toan chot (Kho da nhan lenh xuat).
+//  - Huy NGAY (khong anh huong bo phan nao): don chua vao phieu (tru Cho hang Kho/Mua hang da nhan), don trong phieu "Dang tao phieu"
+//    ma Ke toan CHUA nhap Ma don hang / Ma MISA - KE CA phieu Ke toan da duyet tien (tien cua don tu hoan ve quy qua taiTinhPxk).
+//  - Can dong y: Kho (ticket cho hang "Kho da tiep nhan" / "Kho da cap nhat"), Mua hang ("Cho mua hang" / "Mua hang da dat"),
+//    Ke toan (phieu "Cho ke toan" hoac da co Ma don hang xac nhan / Ma MISA).
+// Thuc hien huy (huy ngay hoac bo phan dong y): go don khoi phieu (tien thua ve quy, phieu trong tu huy) roi applyDonHangLog "huy"
+// boQuaQuyenHuy; don "Cho hang" dang khoa -> bo phan huy ticket (applyThieuLkLog "Da huy bo" -> don tu huy, tien ve quy).
+type BoPhanHuy = "kho" | "mua_hang" | "ke_toan";
+const TEN_BO_PHAN_HUY: Record<BoPhanHuy, string> = { kho: "Kho", mua_hang: "Mua hàng", ke_toan: "Kế toán" };
+interface PhanLoaiHuy {
+  huy_duoc: boolean;
+  bo_phan: BoPhanHuy | null;
+  giai_doan: string;
+  pxk_id: string | null;
+  ticket_id: string | null;
+  ticket_khoa: boolean;
+}
+
+async function phanLoaiHuyDon(db: D1Database, donHangId: string): Promise<PhanLoaiHuy | null> {
+  const r = await db.prepare(
+    `SELECT ddh.loai_don, ddh.trang_thai_hien_tai AS tt,
+       p.id AS pxk_id, p.trang_thai_hien_tai AS pxk_tt, COALESCE(p.ma_xuat_kho_xac_nhan, 0) AS ma_hd, TRIM(COALESCE(p.ma_misa, '')) AS ma_misa,
+       p.ma_xuat_kho, p.trang_thai_chuyen_tien AS tien_tt,
+       (SELECT t.id FROM thieu_lk t WHERE t.dat_don_hang_id = ddh.id AND ${latestThieuLkStatusExpr("t.id")} NOT IN ('Da huy bo', 'Da ket thuc')
+          ORDER BY t.ngay_tao DESC, t.id DESC LIMIT 1) AS ticket_id
+     FROM dat_don_hang ddh
+     LEFT JOIN phieu_xuat_kho_dong pd ON pd.dat_don_hang_id = ddh.id
+     LEFT JOIN phieu_xuat_kho p ON p.id = pd.phieu_xuat_kho_id AND p.trang_thai_hien_tai <> 'Ke toan huy'
+     WHERE ddh.id = ? ORDER BY p.id IS NULL LIMIT 1`,
+  ).bind(donHangId).first<{
+    loai_don: string; tt: string | null; pxk_id: string | null; pxk_tt: string | null; ma_hd: number; ma_misa: string; ma_xuat_kho: string | null;
+    tien_tt: string | null; ticket_id: string | null;
+  }>();
+  if (!r) return null;
+  const kq = (huy_duoc: boolean, bo_phan: BoPhanHuy | null, giai_doan: string, ticket_khoa = false): PhanLoaiHuy =>
+    ({ huy_duoc, bo_phan, giai_doan, pxk_id: r.pxk_id, ticket_id: r.ticket_id, ticket_khoa });
+  if (r.loai_don === "tra_hang") return kq(false, null, "Đơn trả hàng — hủy theo luồng Hàng trả");
+  if (r.tt === "TN tu choi" || r.tt === "Da huy") return kq(false, null, "Đơn đã đóng");
+  if (r.pxk_id) {
+    if (r.pxk_tt !== "Dang tao phieu" && r.pxk_tt !== "Cho ke toan") {
+      return kq(false, null, `Phiếu ${r.ma_xuat_kho ?? r.pxk_id} đã được Kế toán chốt xuất kho — không hủy được nữa`);
+    }
+    if (r.pxk_tt === "Cho ke toan" || r.ma_hd || r.ma_misa) {
+      const ma = [r.ma_hd ? `Mã đơn hàng ${r.ma_xuat_kho}` : "", r.ma_misa ? `Mã MISA ${r.ma_misa}` : ""].filter(Boolean).join(", ");
+      return kq(true, "ke_toan", `Kế toán đang xử lý phiếu ${r.pxk_id}${ma ? ` (đã có ${ma})` : " (chờ mã MISA)"}`);
+    }
+    const tien = r.tien_tt === "TN da duyet" ? " — Kế toán đã duyệt tiền, tiền của đơn trả về quỹ dư" : "";
+    return kq(true, null, `Đơn trong phiếu ${r.pxk_id} đang tạo${tien}`);
+  }
+  if (r.tt === "Cho hang" && r.ticket_id) {
+    const tk = await db.prepare(`SELECT ${latestThieuLkStatusExpr("thieu_lk.id")} AS tt FROM thieu_lk WHERE id = ?`).bind(r.ticket_id).first<{ tt: string | null }>();
+    if (tk?.tt === "Kho da tiep nhan" || tk?.tt === "Kho da cap nhat") return kq(true, "kho", `Kho đã xác nhận chờ hàng (ticket ${r.ticket_id})`, true);
+    if (tk?.tt === "Cho mua hang" || tk?.tt === "Mua hang da dat") {
+      return kq(true, "mua_hang", tk.tt === "Mua hang da dat" ? `Mua hàng đã đặt hàng (ticket ${r.ticket_id})` : `Đang chờ Mua hàng đặt hàng (ticket ${r.ticket_id})`, true);
+    }
+  }
+  return kq(true, null, "Đơn chưa vào phiếu xuất — hủy được ngay");
+}
+
+// Ai duoc YEU CAU huy: nguoi tao / nguoi nhan hang / GS khu vuc (chinh, GS cua KTV tao, GS phu) / Admin.
+async function duocYeuCauHuy(c: Context<{ Bindings: Env }>, donHangId: string): Promise<boolean> {
+  const user = c.get("user");
+  if (user.vai_tro === "Admin") return true;
+  const d = await c.env.DB.prepare(
+    `SELECT ddh.nguoi_tao, ddh.nguoi_nhan_hang, ddh.email_gs, COALESCE(ddh.khu_vuc_chon, ddh.khu_vuc_ma) AS kv,
+       (SELECT u.giam_sat_quan_ly FROM users u WHERE u.email = ddh.nguoi_tao) AS gs_nguoi_tao
+     FROM dat_don_hang ddh WHERE ddh.id = ?`,
+  ).bind(donHangId).first<{ nguoi_tao: string; nguoi_nhan_hang: string | null; email_gs: string | null; kv: string | null; gs_nguoi_tao: string | null }>();
+  if (!d) return false;
+  if (d.nguoi_tao === user.email || d.nguoi_nhan_hang === user.email) return true;
+  if (user.vai_tro !== "Giam sat") return false;
+  return d.email_gs === user.email || d.gs_nguoi_tao === user.email || (await laGsCuaKhuVuc(c.env.DB, user.email, d.kv));
+}
+
+function laNguoiDuyetHuy(c: Context<{ Bindings: Env }>, boPhan: BoPhanHuy): boolean {
+  const u = c.get("user");
+  if (u.vai_tro === "Admin") return true;
+  if (boPhan === "kho") return !!u.la_kho;
+  if (boPhan === "mua_hang") return !!u.la_mua_hang;
+  return !!u.la_ke_toan;
+}
+
+// Thuc hien huy that (huy ngay / bo phan dong y).
+async function thucHienHuyDon(
+  c: Context<{ Bindings: Env }>, donHangId: string, lyDo: string, pl: PhanLoaiHuy,
+): Promise<{ error: string; status: 404 | 409 | 403 | 400 } | { ok: true }> {
+  const user = c.get("user");
+  if (pl.ticket_khoa && pl.ticket_id) {
+    // Cho hang Kho / Mua hang dang xu ly: huy ticket -> don goc tu huy (tien ve quy) - nguoi bam la bo phan (co quyen huy ticket).
+    const r = await applyThieuLkLog(c, pl.ticket_id, "Da huy bo", lyDo, undefined);
+    return "error" in r ? r : { ok: true };
+  }
+  if (pl.pxk_id) {
+    const go = await goDonKhoiPxk(c.env.DB, pl.pxk_id, donHangId, user.email, "Hủy đơn theo yêu cầu", lyDo, true, false);
+    if (go.hoanQuy > 0) c.executionCtx.waitUntil(thongBaoHoanQuyPhieuHuy(c.env, c.env.DB, pl.pxk_id, go.hoanQuy));
+  }
+  const r = await applyDonHangLog(c, donHangId, "huy", undefined, lyDo, undefined, undefined, false, { boQuaQuyenHuy: true });
+  return "error" in r ? r : { ok: true };
+}
+
+async function baoNguoiVeYeuCauHuy(c: Context<{ Bindings: Env }>, emails: string[], noiDung: string, donHangId: string) {
+  const ds = [...new Set(emails.filter(Boolean))];
+  if (ds.length === 0) return;
+  const now = nowVN();
+  await c.env.DB.batch(ds.map((e) =>
+    c.env.DB.prepare("INSERT INTO thong_bao_ktv (nguoi_nhan, loai, noi_dung, link_type, link_id, ngay_tao) VALUES (?, 'yeu_cau_huy', ?, 'don_hang', ?, ?)")
+      .bind(e, noiDung, donHangId, now),
+  ));
+  await Promise.all(ds.map((e) => sendPushToUser(c.env, e, { title: "Yêu cầu hủy đơn", body: noiDung, url: "/" }).catch(() => undefined)));
+}
+
+async function emailsBoPhanHuy(db: D1Database, boPhan: BoPhanHuy, maLk: string | null): Promise<string[]> {
+  if (boPhan === "mua_hang") {
+    const { results } = await db.prepare("SELECT email FROM users WHERE la_mua_hang = 1 AND COALESCE(bi_khoa, 0) = 0").all<{ email: string }>();
+    return results.map((r) => r.email);
+  }
+  const ds = await emailsForRoleOrQC(db, boPhan === "kho" ? "la_kho" : "la_ke_toan", []);
+  return boPhan === "kho" ? locEmailKhoTheoNhomLk(db, ds, maLk) : ds;
+}
+
+// GET /api/dat-mua-lk/don-hang/:id/huy-don - giai doan huy + yeu cau dang mo + quyen nguoi xem (FE: khoi "Hủy đơn" o chi tiet don).
+datMuaLinhKien.get("/don-hang/:id/huy-don", async (c) => {
+  const id = c.req.param("id");
+  const pl = await phanLoaiHuyDon(c.env.DB, id);
+  if (!pl) return c.json({ error: "NOT_FOUND" }, 404);
+  const mo = await c.env.DB.prepare("SELECT * FROM yeu_cau_huy_don WHERE dat_don_hang_id = ? AND trang_thai = 'Cho dong y'").bind(id).first<Record<string, unknown>>();
+  const { results: lichSu } = await c.env.DB.prepare(
+    "SELECT * FROM yeu_cau_huy_don WHERE dat_don_hang_id = ? AND trang_thai <> 'Cho dong y' ORDER BY id DESC LIMIT 5",
+  ).bind(id).all();
+  const boPhanMo = (mo?.bo_phan as BoPhanHuy | undefined) ?? null;
+  return c.json({
+    phan_loai: pl,
+    yeu_cau: mo ?? null,
+    lich_su: lichSu,
+    duoc_yeu_cau: pl.huy_duoc && (await duocYeuCauHuy(c, id)),
+    duoc_duyet: !!boPhanMo && laNguoiDuyetHuy(c, boPhanMo),
+  });
+});
+
+// POST /api/dat-mua-lk/don-hang/:id/yeu-cau-huy {ly_do} - KTV / GS huy don: giai doan khong anh huong ai -> huy ngay; can bo phan
+// dong y -> tao yeu cau "Cho dong y" + bao bo phan. Tra { da_huy } hoac { bo_phan }.
+datMuaLinhKien.post("/don-hang/:id/yeu-cau-huy", async (c) => {
+  const id = c.req.param("id");
+  const user = c.get("user");
+  const body = await c.req.json<{ ly_do?: string }>().catch(() => ({}) as { ly_do?: string });
+  const lyDo = body.ly_do?.trim().slice(0, 1000);
+  if (!lyDo) return c.json({ error: "THIEU_LY_DO_HUY" }, 400);
+  if (!(await duocYeuCauHuy(c, id))) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const pl = await phanLoaiHuyDon(c.env.DB, id);
+  if (!pl) return c.json({ error: "NOT_FOUND" }, 404);
+  if (!pl.huy_duoc) return c.json({ error: "KHONG_HUY_DUOC", giai_doan: pl.giai_doan }, 409);
+  const daCo = await c.env.DB.prepare("SELECT id FROM yeu_cau_huy_don WHERE dat_don_hang_id = ? AND trang_thai = 'Cho dong y'").bind(id).first();
+  if (daCo) return c.json({ error: "DA_CO_YEU_CAU_HUY" }, 409);
+  if (!pl.bo_phan) {
+    const r = await thucHienHuyDon(c, id, lyDo, pl);
+    if ("error" in r) return c.json({ error: r.error }, r.status);
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+    return c.json({ ok: true, da_huy: true });
+  }
+  const now = nowVN();
+  try {
+    await c.env.DB.prepare(
+      "INSERT INTO yeu_cau_huy_don (dat_don_hang_id, nguoi_yeu_cau, ly_do, bo_phan, giai_doan, pxk_id, ngay_tao) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    ).bind(id, user.email, lyDo, pl.bo_phan, pl.giai_doan, pl.pxk_id, now).run();
+  } catch {
+    return c.json({ error: "DA_CO_YEU_CAU_HUY" }, 409);
+  }
+  const d = await c.env.DB.prepare("SELECT ma_lk, ten_lk_snapshot, so_luong_de_xuat FROM dat_don_hang WHERE id = ?").bind(id)
+    .first<{ ma_lk: string | null; ten_lk_snapshot: string; so_luong_de_xuat: number }>();
+  const boPhan = pl.bo_phan;
+  c.executionCtx.waitUntil((async () => {
+    const ds = (await emailsBoPhanHuy(c.env.DB, boPhan, d?.ma_lk ?? null)).filter((e) => e !== user.email);
+    await baoNguoiVeYeuCauHuy(c, ds, `Yêu cầu hủy đơn ${id} "${d?.ten_lk_snapshot ?? ""} (x${d?.so_luong_de_xuat ?? ""})" — cần ${TEN_BO_PHAN_HUY[boPhan]} đồng ý. Lý do: ${lyDo}`, id);
+  })());
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, da_huy: false, bo_phan: boPhan });
+});
+
+// POST /api/dat-mua-lk/yeu-cau-huy/:id/xu-ly {hanh_dong: "dong_y" | "tu_choi" | "rut", ghi_chu?} - bo phan dong y (he thong huy that) /
+// tu choi (bat buoc ghi chu); nguoi yeu cau rut lai. CAS theo trang thai "Cho dong y".
+datMuaLinhKien.post("/yeu-cau-huy/:id/xu-ly", async (c) => {
+  const id = Number(c.req.param("id"));
+  const user = c.get("user");
+  const body = await c.req.json<{ hanh_dong?: string; ghi_chu?: string }>().catch(() => ({}) as { hanh_dong?: string; ghi_chu?: string });
+  const ghiChu = body.ghi_chu?.trim().slice(0, 1000) || null;
+  const yc = await c.env.DB.prepare("SELECT * FROM yeu_cau_huy_don WHERE id = ?").bind(id)
+    .first<{ id: number; dat_don_hang_id: string; nguoi_yeu_cau: string; ly_do: string; bo_phan: BoPhanHuy; trang_thai: string }>();
+  if (!yc) return c.json({ error: "NOT_FOUND" }, 404);
+  if (yc.trang_thai !== "Cho dong y") return c.json({ error: "TRANG_THAI_DA_DOI" }, 409);
+  const now = nowVN();
+  const ghi = (tt: string) =>
+    c.env.DB.prepare("UPDATE yeu_cau_huy_don SET trang_thai = ?, nguoi_xu_ly = ?, ngay_xu_ly = ?, ghi_chu_xu_ly = ? WHERE id = ? AND trang_thai = 'Cho dong y'")
+      .bind(tt, user.email, now, ghiChu, id).run();
+  if (body.hanh_dong === "rut") {
+    if (yc.nguoi_yeu_cau !== user.email && user.vai_tro !== "Admin") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+    if (!(await ghi("Da rut")).meta.changes) return c.json({ error: "TRANG_THAI_DA_DOI" }, 409);
+    return c.json({ ok: true });
+  }
+  if (!laNguoiDuyetHuy(c, yc.bo_phan)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  if (body.hanh_dong === "tu_choi") {
+    if (!ghiChu) return c.json({ error: "MISSING_GHI_CHU" }, 400);
+    if (!(await ghi("Tu choi")).meta.changes) return c.json({ error: "TRANG_THAI_DA_DOI" }, 409);
+    c.executionCtx.waitUntil(baoNguoiVeYeuCauHuy(c, [yc.nguoi_yeu_cau], `${TEN_BO_PHAN_HUY[yc.bo_phan]} từ chối yêu cầu hủy đơn ${yc.dat_don_hang_id}: ${ghiChu}`, yc.dat_don_hang_id));
+    return c.json({ ok: true });
+  }
+  if (body.hanh_dong !== "dong_y") return c.json({ error: "INVALID_HANH_DONG" }, 400);
+  // Phan loai lai luc dong y: don da dong / da qua buoc chot -> khong huy duoc (dong yeu cau); giai doan doi sang bo phan khac -> chi
+  // nguoi co quyen bo phan MOI huy duoc.
+  const pl = await phanLoaiHuyDon(c.env.DB, yc.dat_don_hang_id);
+  if (!pl || !pl.huy_duoc) {
+    await ghi("Tu choi");
+    return c.json({ error: "KHONG_HUY_DUOC", giai_doan: pl?.giai_doan ?? null }, 409);
+  }
+  if (pl.bo_phan && pl.bo_phan !== yc.bo_phan && !laNguoiDuyetHuy(c, pl.bo_phan)) {
+    return c.json({ error: "BO_PHAN_XU_LY_DA_DOI", bo_phan: pl.bo_phan }, 409);
+  }
+  // Khoa yeu cau truoc (tranh 2 nguoi bam cung luc huy 2 lan) - huy loi thi mo lai.
+  if (!(await ghi("Da dong y")).meta.changes) return c.json({ error: "TRANG_THAI_DA_DOI" }, 409);
+  const lyDo = `Hủy theo yêu cầu của ${yc.nguoi_yeu_cau} (${TEN_BO_PHAN_HUY[yc.bo_phan]} đồng ý): ${yc.ly_do}${ghiChu ? ` — ${ghiChu}` : ""}`;
+  const r = await thucHienHuyDon(c, yc.dat_don_hang_id, lyDo, pl);
+  if ("error" in r) {
+    await c.env.DB.prepare("UPDATE yeu_cau_huy_don SET trang_thai = 'Cho dong y', nguoi_xu_ly = NULL, ngay_xu_ly = NULL, ghi_chu_xu_ly = NULL WHERE id = ?").bind(id).run();
+    return c.json({ error: r.error }, r.status);
+  }
+  c.executionCtx.waitUntil(baoNguoiVeYeuCauHuy(c, [yc.nguoi_yeu_cau], `${TEN_BO_PHAN_HUY[yc.bo_phan]} đã đồng ý — đơn ${yc.dat_don_hang_id} đã hủy`, yc.dat_don_hang_id));
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true });
 });
 
 export default datMuaLinhKien;

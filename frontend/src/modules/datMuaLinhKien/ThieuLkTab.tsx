@@ -37,6 +37,7 @@ import type { LinhKienRow } from "../../types";
 import { XetDuyetMaSection } from "../danhMucLinhKien/XetDuyetMaLk";
 import { DanhGiaThieuLk } from "./DanhGiaThieuLk";
 import { TachDonModal } from "./TachDon";
+import { YeuCauHuyChip } from "./YeuCauHuy";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -871,6 +872,7 @@ function ThieuLkGroupedList({
       render: (r) => (
         <div className="font-medium truncate">
           {r.uu_tien === 1 && <PriorityTag />}{" "}
+          <YeuCauHuyChip boPhan={r.ddh_yeu_cau_huy} />{" "}
           {r.ma_lk ? formatLkLabel(r.ma_lk, r.ten_lk_snapshot ?? r.ma_lk) : (r.ten_lk_snapshot ?? r.id)}
         </div>
       ),
@@ -1097,6 +1099,7 @@ function ThieuLkGroupedList({
                         <StatusBadge value={r.trang_thai} tones={THIEU_LK_TRANG_THAI_TONE} options={THIEU_LK_TRANG_THAI_OPTIONS} />
                         <LoaiDeXuatBadge loaiDon={r.loai_don} loaiDeXuat={r.loai_de_xuat} />
                         <MaLkXacNhanBadge tt={r.lk_trang_thai_ma} chiKhiCho />
+                        <YeuCauHuyChip boPhan={r.ddh_yeu_cau_huy} />
                         <KhoDuHangBadge du={r.kho_du_hang} />
                         <KhoMotPhanBadge co={r.kho_mot_phan} sl={r.so_luong_de_xuat} />
                         {r.so_luong_de_xuat != null && <span className="shrink-0 text-xs text-[var(--color-text-secondary)]">{t("SL {a}", { a: r.so_luong_de_xuat })}</span>}

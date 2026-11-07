@@ -55,6 +55,7 @@ import { ThieuLkDetailModal } from "./ThieuLkTab";
 import { Money } from "../../components/ui/Money";
 import { DuyetVuotTranKhoi } from "./DuyetVuotTran";
 import { KhieuNaiBox } from "./KhieuNai";
+import { HuyDonKhoi, YeuCauHuyChip } from "./YeuCauHuy";
 import { DoiLoaiDeXuatButton } from "./DoiLoaiDeXuat";
 import { TongNgayKtvInfo } from "./TongNgayKtv";
 import { GanKhachLe } from "./KhachLeSdt";
@@ -1113,6 +1114,15 @@ export function DonHangDetailModal({
           <DuyetVuotTranKhoi d={d} />
           {/* Ca khieu nai (2026-10-28) - GS / Kho / TN / KT tich. */}
           <KhieuNaiBox d={d} onDone={() => { invalidate(); invalidatePipelineCounts(qc); }} addToast={addToast} />
+          {/* Yeu cau huy don can bo phan dong y (v1.455) - backend phan loai giai doan. */}
+          <HuyDonKhoi
+            donId={d.id}
+            coNutHuyCu={actions.huy}
+            dongDon={d.loai_don === "tra_hang" || d.trang_thai === "TN tu choi" || d.trang_thai === "Da huy"}
+            currentEmail={currentEmail}
+            addToast={addToast}
+            onDone={() => invalidate()}
+          />
 
           <DetailZone title={t("Thông tin đơn")}>
             {/* "ID hệ thống" (phan hoi 2026-09-05, muc #6: "cần nhìn thấy ID hệ thống của đơn hàng để
@@ -2864,6 +2874,7 @@ export function DonHangGroupedList({
             {lyDo && (
               <span title={lyDo} aria-label={lyDo} className="cursor-help text-[12px] leading-none text-[var(--color-text-faint)]">ⓘ</span>
             )}
+            <YeuCauHuyChip boPhan={row.d.yeu_cau_huy_bo_phan} />
             {flags[0] && <Badge tone={flags[0].tone}>{flags[0].label}</Badge>}
             {rest.length > 0 && (
               <span title={rest.map((f) => f.label).join(" · ")} className="rounded-[var(--radius-badge)] bg-[var(--color-neutral-soft)] px-1.5 py-[3px] text-[10.5px] font-semibold leading-none text-[var(--color-text-secondary)]">

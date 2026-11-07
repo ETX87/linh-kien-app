@@ -69,6 +69,8 @@ export interface DatMuaLkBreakdown {
   // So ticket "Báo nhận thiếu" cho vai tro nguoi xem (da cong vao thieuLkCanXuLy).
   nhanThieuCanXuLy: number;
   thieuHangBhCanXuLy: number;
+  // Yeu cau huy don cho bo phan nguoi xem dong y (v1.455, migration 0109): Kho / Mua hang / Ke toan (Admin: tat ca). Cong vao total.
+  yeuCauHuyCanXuLy: number;
 }
 
 const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
@@ -94,6 +96,7 @@ const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
   thieuLkCanXuLy: 0,
   nhanThieuCanXuLy: 0,
   thieuHangBhCanXuLy: 0,
+  yeuCauHuyCanXuLy: 0,
 };
 
 export interface NotificationsCountPayload {
@@ -373,7 +376,22 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
     out.thieuLkCanXuLy += out.thieuHangBhCanXuLy;
   }
 
+  {
+    const boPhan = user.vai_tro === "Admin"
+      ? ["kho", "mua_hang", "ke_toan"]
+      : [user.la_kho ? "kho" : "", user.la_mua_hang ? "mua_hang" : "", user.la_ke_toan ? "ke_toan" : ""].filter(Boolean);
+    if (boPhan.length) {
+      const row = await db
+        .prepare("SELECT COUNT(*) AS n FROM yeu_cau_huy_don WHERE trang_thai = 'Cho dong y' AND bo_phan IN (SELECT value FROM json_each(?))")
+        .bind(JSON.stringify(boPhan))
+        .first<{ n: number }>()
+        .catch(() => null);
+      out.yeuCauHuyCanXuLy = row?.n ?? 0;
+    }
+  }
+
   out.total =
+    out.yeuCauHuyCanXuLy +
     out.choTnDuyet + out.choTnTraHang + out.choTnPxk + out.choKhoThieuLk + out.choKhoPxk + out.choKhoTraHang +
     out.choKeToanPxk + out.choKeToanTien + out.choKeToanTraHang + out.choQcTraHang + out.choTramDuyet + out.choTpXacNhan + out.choGsDuyet +
     out.choDonCuaToi + out.choDonBiTuChoi + out.choTienCuaToi + out.choNhanHangCuaToi;

@@ -52,6 +52,14 @@ r.get("/", async (c) => {
   } else if (tt === "mo") {
     where.push(`trang_thai IN (${THB_MO.map(() => "?").join(",")})`);
     binds.push(...THB_MO);
+  } else if (tt.includes(",")) {
+    // Nhom trang thai (v1.455, cot trang thai ben trai - "Chờ Kho" = "Cho kho xu ly,Kho da tiep nhan"...): chi nhan trang thai hop le.
+    const ds = tt.split(",").filter((x) => (THB_TRANG_THAI as readonly string[]).includes(x));
+    if (!ds.length) where.push("0");
+    else {
+      where.push(`trang_thai IN (${ds.map(() => "?").join(",")})`);
+      binds.push(...ds);
+    }
   } else if ((THB_TRANG_THAI as readonly string[]).includes(tt)) {
     where.push("trang_thai = ?");
     binds.push(tt);

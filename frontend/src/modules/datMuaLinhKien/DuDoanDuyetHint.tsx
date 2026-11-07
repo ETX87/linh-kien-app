@@ -22,6 +22,19 @@ function conTon(r: KiemTraDong): string {
   return t("còn {a}/{b}", { a: Math.max(0, r.ton ?? 0), b: r.so_luong });
 }
 
+// Dong PHU (v1.455, "tài khoản gs đặt hàng không thấy hiện cảnh báo linh kiện thiếu hàng giống bên admin"): don di "Chờ GS duyệt" (vuot tran -
+// hay gap khi GS dat ho KTV) / "Chờ TBP" truoc day CHI hien cau duyet, che mat viec kho thieu hang - gio luon bao them thieu hang (ton kho
+// cong ty la dieu kien xet NGAY SAU khi GS / TBP duyet).
+function thieuHangPhu(r: KiemTraDong, khuVuc?: string | null): string | null {
+  if (r.loi || r.nguon_ton !== "kho" || r.ton == null || r.ton >= r.so_luong) return null;
+  if (r.trang_thai !== "Cho GS duyet" && r.trang_thai !== "Cho TBP xac nhan") return null;
+  return t("⚠ Kho {kv} thiếu hàng ({a}) — sau khi duyệt, đơn sẽ {b}.", {
+    kv: khuVuc ? t("khu vực {a}", { a: khuVuc }) : t("khu vực"),
+    a: conTon(r),
+    b: r.bat_buoc_chuyen_tien ? t("vào phiếu chờ chuyển tiền") : t("chờ hàng"),
+  });
+}
+
 // 1 cau mo ta + tone cho 1 dong ket qua.
 export function moTaKetQua(r: KiemTraDong): { tone: keyof typeof TONE; text: string } | null {
   if (r.loi) return { tone: "chan", text: "✕ " + (r.thong_diep ?? r.loi) };
@@ -52,7 +65,7 @@ export function moTaKetQua(r: KiemTraDong): { tone: keyof typeof TONE; text: str
   }
 }
 
-export function DuDoanDuyetHint({ ketQua }: { ketQua: KiemTraDong[] | undefined }) {
+export function DuDoanDuyetHint({ ketQua, khuVuc }: { ketQua: KiemTraDong[] | undefined; khuVuc?: string | null }) {
   if (!ketQua?.length) return null;
   const nhieu = ketQua.length > 1; // dong combo -> 1 ket qua cho moi LK thanh phan
   return (
@@ -60,10 +73,17 @@ export function DuDoanDuyetHint({ ketQua }: { ketQua: KiemTraDong[] | undefined 
       {ketQua.map((r, i) => {
         const m = moTaKetQua(r);
         if (!m) return null;
+        const phu = thieuHangPhu(r, khuVuc);
+        // Kho da kiem (khu vuc) - de nguoi dat hieu vi sao 2 tai khoan dat cung 1 ma lai ra ket qua ton khac nhau (khu vuc cua don khac nhau).
+        const kvKho = r.nguon_ton === "kho" && khuVuc && !r.loi ? ` (${t("kho khu vực {a}", { a: khuVuc })})` : "";
         return (
-          <div key={i} className={`${KHUNG} ${TONE[m.tone]}`} role={m.tone === "chan" ? "alert" : undefined}>
-            {nhieu && <span className="font-mono font-semibold">{r.ma_lk}: </span>}
-            {m.text}
+          <div key={i}>
+            <div className={`${KHUNG} ${TONE[m.tone]}`} role={m.tone === "chan" ? "alert" : undefined}>
+              {nhieu && <span className="font-mono font-semibold">{r.ma_lk}: </span>}
+              {m.text}
+              {!phu && kvKho}
+            </div>
+            {phu && <div className={`${KHUNG} ${TONE.canhBao}`}>{nhieu && <span className="font-mono font-semibold">{r.ma_lk}: </span>}{phu}</div>}
           </div>
         );
       })}

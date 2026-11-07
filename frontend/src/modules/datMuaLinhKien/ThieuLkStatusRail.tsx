@@ -15,12 +15,12 @@ const DANG_MO = [
 ];
 const DA_DONG = ["Da ket thuc", "Da huy bo"];
 
-interface Muc {
+export interface Muc {
   value: string;
   label: string;
   phu?: string;
 }
-interface Nhom {
+export interface Nhom {
   tieuDe: string;
   value: string;
   canLam?: boolean;
@@ -60,8 +60,8 @@ function nhomTrangThai(canKho: boolean, canTacNghiep: boolean, canMuaHang: boole
 
 function demNhom(g: Nhom, counts: Record<string, number> | undefined): number | undefined {
   if (!counts) return undefined;
-  if (g.value === "__VIEC__") return counts.__VIEC__ ?? g.muc.reduce((s, m) => s + (counts[m.value] ?? 0), 0);
-  return g.muc.reduce((s, m) => s + (counts[m.value] ?? 0), 0);
+  // Nhom co so dem rieng (vd "__VIEC__", "can_xu_ly" - Thieu hang bao hanh) dung so do; con lai cong cac muc.
+  return counts[g.value] ?? g.muc.reduce((s, m) => s + (counts[m.value] ?? 0), 0);
 }
 
 function SoDem({ n, canLam, active }: { n: number | undefined; canLam?: boolean; active?: boolean }) {
@@ -90,7 +90,22 @@ export function ThieuLkStatusRail({
   canTacNghiep: boolean;
   canMuaHang?: boolean;
 }) {
-  const nhom = nhomTrangThai(canKho, canTacNghiep, canMuaHang);
+  return <TrangThaiRail nhom={nhomTrangThai(canKho, canTacNghiep, canMuaHang)} value={value} onChange={onChange} counts={counts} />;
+}
+
+// Khung cot trang thai DUNG CHUNG (2026-11-07, v1.455): "Thiếu hàng đặt mua" (ThieuLkStatusRail) + "Thiếu hàng bảo hành" (ThieuHangBh.tsx) -
+// cung bo cuc / kieu nut / mobile 2 tang, chi khac danh sach nhom. "Tất cả" = value "" (so dem counts[""]).
+export function TrangThaiRail({
+  nhom,
+  value,
+  onChange,
+  counts,
+}: {
+  nhom: Nhom[];
+  value: string;
+  onChange: (v: string) => void;
+  counts: Record<string, number> | undefined;
+}) {
   const dongCls = (active: boolean) =>
     `focus-ring flex w-full items-center justify-between rounded-[var(--radius-btn)] text-left transition-colors ${
       active

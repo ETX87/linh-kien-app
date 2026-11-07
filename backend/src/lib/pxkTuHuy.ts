@@ -184,7 +184,7 @@ export async function goDonKhoiPxk(
     db.prepare("DELETE FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ? AND dat_don_hang_id = ?").bind(pxkId, donHangId),
     db.prepare("UPDATE dat_don_hang SET ma_xuat_kho = NULL, loai_chiet_khau_id = NULL, loai_chiet_khau_thu_cong = 0, updated_at = ? WHERE id = ?").bind(now, donHangId),
     huyPhieu
-      ? db.prepare("UPDATE phieu_xuat_kho SET trang_thai_hien_tai = 'Ke toan huy', version = version + 1 WHERE id = ? AND trang_thai_hien_tai = 'Dang tao phieu'").bind(pxkId)
+      ? db.prepare("UPDATE phieu_xuat_kho SET trang_thai_hien_tai = 'Ke toan huy', version = version + 1 WHERE id = ? AND trang_thai_hien_tai IN ('Dang tao phieu', 'Cho ke toan')").bind(pxkId)
       : db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
           pxkId, "Da xoa don khoi phieu", email, now, `${moTa} ${donRow?.ma_lk ?? donHangId} (${donHangId})${lyDo ? `: ${lyDo}` : ""}${ghiTien}`,
         ),

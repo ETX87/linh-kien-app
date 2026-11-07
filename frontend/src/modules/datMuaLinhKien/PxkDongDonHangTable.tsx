@@ -14,6 +14,7 @@ import { LoaiChietKhauPicker, LoaiChietKhauText, HoaDonGiaNiemYet, duocDoiLoaiCh
 import { describeApiError, invalidatePipelineCounts, laTruCongNo, nenKhieuNai } from "./helpers";
 import { LoaiDeXuatBadge } from "./SharedUi";
 import { DuyetVuotTranBadge } from "./DuyetVuotTran";
+import { YeuCauHuyChip } from "./YeuCauHuy";
 import { DON_CUA_TOI_TRANG_THAI_OPTIONS } from "./constants";
 import { t } from "../../i18n";
 
@@ -688,7 +689,7 @@ export function PxkDongDonHangTable({
             >
               <td className={`${o} font-mono text-[11.5px] text-[var(--color-text-secondary)]`} title={`${t(COT_GON[0].tip)}: ${d.ma_lk}`}>{coChon && oChon(d)}{d.ma_lk}</td>
               <td className={o} title={d.ten_lk_snapshot ?? d.ma_lk}>
-                {chipChuaDuyet(d)} {d.uu_tien === 1 && <span title={t("Ưu tiên")}>⭐ </span>}
+                {chipChuaDuyet(d)} <YeuCauHuyChip boPhan={d.yeu_cau_huy_bo_phan} /> {d.uu_tien === 1 && <span title={t("Ưu tiên")}>⭐ </span>}
                 {d.ten_lk_snapshot ?? d.ma_lk}
               </td>
               <td className={o} title={t(COT_GON[2].tip)}>
@@ -744,7 +745,7 @@ export function PxkDongDonHangTable({
           <tr key={d.id} onClick={() => onOpenDon(d.id)} className={`border-b border-[var(--line)] last:border-0 hover:bg-slate-50 cursor-pointer ${nenUuTien(d)}`}>
             <td className="px-2.5 py-2 font-mono whitespace-nowrap">{coChon && oChon(d)}{d.ma_lk}</td>
             <td className="px-2.5 py-2">
-              {chipChuaDuyet(d)} {d.uu_tien === 1 && <span title={t("Ưu tiên")}>⭐ </span>}
+              {chipChuaDuyet(d)} <YeuCauHuyChip boPhan={d.yeu_cau_huy_bo_phan} /> {d.uu_tien === 1 && <span title={t("Ưu tiên")}>⭐ </span>}
               {d.ten_lk_snapshot ?? d.ma_lk}
             </td>
             {/* Loai de xuat quyet dinh cach tinh tien (2026-09-28). */}

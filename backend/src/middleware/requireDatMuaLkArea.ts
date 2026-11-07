@@ -30,11 +30,12 @@ export async function requireDatMuaLkArea(c: Context<{ Bindings: Env }>, next: N
   // binh thuong theo quyen cua co kia.
   // Mua hang (chi doc) DUOC ghi DUY NHAT thao tac ticket thieu hang (2026-10-19, migration 0093 - "Chờ mua hàng" -> Mua hang bao
   // da dat / tu choi); applyThieuLkLog tu gioi han Mua hang chi lam 2 buoc cua minh.
+  // + (2026-11-07, v1.455) Mua hang dong y / tu choi yeu cau huy don (/yeu-cau-huy/:id/xu-ly).
   // + (2026-10-27) Mua hang chuyen don ve "Chờ hàng" (/don-hang/:id/cho-hang) va huy don chờ hàng Kho/Mua hang dang xu ly (/don-hang/:id/log
   // - applyDonHangLog chi cho Mua hang nhanh huy do).
   const muaHangGhiThieuLk =
     user.la_mua_hang && c.req.method === "POST" &&
-    /^\/api\/dat-mua-lk\/(thieu-lk\/([^/]+\/log|bulk-log)|don-hang\/[^/]+\/(cho-hang|log))$/.test(c.req.path);
+    /^\/api\/dat-mua-lk\/(thieu-lk\/([^/]+\/log|bulk-log)|don-hang\/[^/]+\/(cho-hang|log)|yeu-cau-huy\/[^/]+\/xu-ly)$/.test(c.req.path);
   if (chiDoc && c.req.method !== "GET" && !muaHangGhiThieuLk) {
     return c.json({ error: "VIEW_READONLY" }, 403);
   }

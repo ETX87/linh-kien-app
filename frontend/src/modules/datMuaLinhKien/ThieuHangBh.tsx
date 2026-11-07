@@ -1,7 +1,7 @@
 // THIEU HANG BAO HANH (2026-11-04, backend routes/thieuHangBh.ts, migration 0106) - muc thu 3 trong menu "Thiếu hàng": ticket do app
 // "Sửa chữa bảo hành" gui sang khi don bao hanh cham vi "Không có linh kiện" / "Hết hàng tồn kho". Kho / Mua hang xu ly tai day; moi
 // buoc tu bao ve don bao hanh goc.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
 import { Badge, type Tone } from "../../components/x/Badge";
@@ -12,6 +12,7 @@ import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import { t, dichSau } from "../../i18n";
 import { describeApiError } from "./helpers";
 import { useTenNguoiLog } from "./SharedUi";
+import { TrangThaiRail, type Nhom } from "./ThieuLkStatusRail";
 
 export const THB_TRANG_THAI: Record<string, { label: string; tone: Tone }> = {
   "Cho kho xu ly": { label: dichSau("Chờ Kho xử lý"), tone: "warning" },
@@ -23,12 +24,6 @@ export const THB_TRANG_THAI: Record<string, { label: string; tone: Tone }> = {
   "Mua hang tu choi": { label: dichSau("Không mua được"), tone: "danger" },
   "Da huy": { label: dichSau("App bảo hành rút lại"), tone: "neutral" },
 };
-const LOC = [
-  { value: "can_xu_ly", label: dichSau("Cần tôi xử lý") },
-  { value: "mo", label: dichSau("Đang mở") },
-  { value: "Kho xac nhan hang da ve", label: dichSau("Hàng đã về") },
-  { value: "tat_ca", label: dichSau("Tất cả") },
-];
 const LOI: Record<string, string> = {
   INVALID_TRANSITION: dichSau("Ticket đã chuyển trạng thái khác — tải lại để xem"),
   STATE_CHANGED: dichSau("Trạng thái vừa bị người khác thay đổi — tải lại và thử lại"),
@@ -85,100 +80,192 @@ export function useThbCanXuLy(enabled = true): number {
   return data?.can_xu_ly ?? 0;
 }
 
+// Nhom trang thai cho cot ben trai (v1.455, "Xây dựng lại giao diện cho 'Thiếu hàng bảo hành', tách thành các trạng thái để kho và mua hàng
+// tiện quản lý như chờ kho, chờ mua hàng... tương tự bên thiếu hàng mua hàng") - cung khung TrangThaiRail voi "Thiếu hàng đặt mua".
+const THB_CHO_KHO = ["Cho kho xu ly", "Kho da tiep nhan"];
+const THB_CHO_MUA = ["Cho mua hang", "Mua hang da dat"];
+const THB_DONG = ["Kho tu choi", "Mua hang tu choi", "Da huy"];
+function nhomThb(vai: { kho: boolean; mua_hang: boolean }): Nhom[] {
+  const nhan = (v: string) => t(THB_TRANG_THAI[v]?.label ?? v);
+  const canXuLy = [...(vai.kho ? ["Cho kho xu ly"] : []), ...(vai.mua_hang ? ["Cho mua hang"] : [])];
+  const nhom: Nhom[] = [];
+  if (canXuLy.length) nhom.push({ tieuDe: t("Cần tôi xử lý"), value: "can_xu_ly", canLam: true, muc: canXuLy.map((v) => ({ value: v, label: nhan(v) })) });
+  nhom.push({
+    tieuDe: t("Chờ Kho"),
+    value: THB_CHO_KHO.join(","),
+    muc: [
+      { value: "Cho kho xu ly", label: t("Chờ Kho tiếp nhận") },
+      { value: "Kho da tiep nhan", label: t("Kho đã tiếp nhận"), phu: t("chờ hàng về") },
+    ],
+  });
+  nhom.push({
+    tieuDe: t("Chờ Mua hàng"),
+    value: THB_CHO_MUA.join(","),
+    muc: [
+      { value: "Cho mua hang", label: t("Chờ Mua hàng đặt") },
+      { value: "Mua hang da dat", label: t("Mua hàng đã đặt"), phu: t("chờ hàng về") },
+    ],
+  });
+  nhom.push({ tieuDe: t("Hàng đã về"), value: "Kho xac nhan hang da ve", muc: [{ value: "Kho xac nhan hang da ve", label: nhan("Kho xac nhan hang da ve") }] });
+  nhom.push({ tieuDe: t("Đã đóng"), value: THB_DONG.join(","), muc: THB_DONG.map((v) => ({ value: v, label: nhan(v) })) });
+  return nhom;
+}
+
+// Viec tiep theo / ai dang giu ticket - hien o danh sach de Kho, Mua hang nhin 1 giay biet ticket dang o dau.
+function viecTiep(tt: string): { text: string; cua: "kho" | "mua_hang" | null } {
+  switch (tt) {
+    case "Cho kho xu ly": return { text: t("Kho tiếp nhận / chuyển Mua hàng"), cua: "kho" };
+    case "Kho da tiep nhan": return { text: t("Kho chờ hàng về"), cua: "kho" };
+    case "Cho mua hang": return { text: t("Mua hàng đặt hàng"), cua: "mua_hang" };
+    case "Mua hang da dat": return { text: t("Chờ hàng về (Kho xác nhận)"), cua: "kho" };
+    default: return { text: "—", cua: null };
+  }
+}
+
+// So ngay tu luc bao (ticket con mo) - cam khi > 3 ngay.
+function soNgayCho(r: ThbRow): number | null {
+  if (!(THB_CHO_KHO.includes(r.trang_thai) || THB_CHO_MUA.includes(r.trang_thai))) return null;
+  const ms = Date.now() - new Date(r.ngay_tao.replace(" ", "T") + "+07:00").getTime();
+  return Number.isFinite(ms) ? Math.max(0, Math.floor(ms / 86_400_000)) : null;
+}
+function NgayCho({ r }: { r: ThbRow }) {
+  const n = soNgayCho(r);
+  if (n == null) return <span className="text-[var(--ink-400)]">—</span>;
+  return <span className={n > 3 ? "font-semibold text-[var(--color-warning-strong)]" : ""}>{t("{n} ngày", { n })}</span>;
+}
+
 export function ThieuHangBhList({ addToast }: { addToast: (msg: string) => void }) {
-  const [tt, setTt] = useLocalStorageState("thieu-hang-bh-loc", "can_xu_ly");
+  const [tt, setTt] = useLocalStorageState("thieu-hang-bh-loc-v2", "can_xu_ly");
   const [mien, setMien] = useLocalStorageState("thieu-hang-bh-mien", "");
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [mo, setMo] = useState<ThbRow | null>(null);
+  // "" = Tat ca (khung cot) -> server "tat_ca" (server mac dinh "" = can_xu_ly).
+  const ttGui = tt || "tat_ca";
   const { data, isLoading } = useQuery({
-    queryKey: ["thieu-hang-bh", tt, q, mien, page],
-    queryFn: () => api.get<ListResp>(`/thieu-hang-bh${buildQuery({ trang_thai: tt, q: q.trim() || undefined, mien: mien || undefined, page })}`),
+    queryKey: ["thieu-hang-bh", ttGui, q, mien, page],
+    queryFn: () => api.get<ListResp>(`/thieu-hang-bh${buildQuery({ trang_thai: ttGui, q: q.trim() || undefined, mien: mien || undefined, page })}`),
   });
-  const counts = data?.counts ?? {};
-  const dem = (v: string) =>
-    v === "tat_ca"
-      ? Object.values(counts).reduce((s, n) => s + n, 0)
-      : v === "can_xu_ly"
-        ? data?.can_xu_ly ?? 0
-        : v === "mo"
-          ? ["Cho kho xu ly", "Kho da tiep nhan", "Cho mua hang", "Mua hang da dat"].reduce((s, k) => s + (counts[k] ?? 0), 0)
-          : counts[v] ?? 0;
+  const vai = data?.vai ?? { kho: false, mua_hang: false };
+  const nhom = nhomThb(vai);
+  // Nguoi khong co viec xu ly ma dang loc "Cần tôi xử lý" (gia tri mac dinh) -> chuyen sang "Chờ Kho".
+  const coViec = vai.kho || vai.mua_hang;
+  useEffect(() => {
+    if (data && !coViec && tt === "can_xu_ly") setTt(THB_CHO_KHO.join(","));
+  }, [data, coViec, tt, setTt]);
+  const counts = data
+    ? { ...data.counts, can_xu_ly: data.can_xu_ly, "": Object.values(data.counts).reduce((s, n) => s + n, 0) }
+    : undefined;
   const soTrang = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const ten = useTenNguoiLog();
+  const doi = (v: string) => { setTt(v); setPage(1); };
+  const canToi = (r: ThbRow) => (r.trang_thai === "Cho kho xu ly" && vai.kho) || (r.trang_thai === "Cho mua hang" && vai.mua_hang);
+  const vachCam = "shadow-[inset_3px_0_0_var(--color-warning)]";
 
   return (
-    <div className="space-y-3">
-      <p className="text-xs text-[var(--ink-500)]">
-        {t("Linh kiện còn thiếu để xử lý đơn bảo hành — do app Sửa chữa bảo hành gửi sang khi đơn chậm vì không có linh kiện / hết hàng tồn kho. Mỗi bước xử lý được báo ngay về đơn bảo hành gốc.")}
-      </p>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {LOC.map((o) => (
-          <button key={o.value} type="button" className={`filter-tab ${tt === o.value ? "active" : ""}`} onClick={() => { setTt(o.value); setPage(1); }}>
-            {t(o.label)} <span className="opacity-70">({dem(o.value)})</span>
-          </button>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder={t("Tìm mã ticket / mã đơn BH / linh kiện / case / KTV / mã EO")} className={`o-tim ${INPUT} w-full sm:w-96`} />
-        <select value={mien} onChange={(e) => { setMien(e.target.value); setPage(1); }} className={INPUT}>
-          <option value="">{t("Mọi miền")}</option>
-          <option value="MB">{t("Miền Bắc")}</option>
-          <option value="MN">{t("Miền Nam")}</option>
-          <option value="__none__">{t("Chưa khai báo")}</option>
-        </select>
-      </div>
-      <div className="overflow-x-auto rounded-lg border border-[var(--line)] bg-white">
-        <table className={TBL}>
-          <thead className="tbl-head">
-            <tr>
-              <th className="text-left">{t("Mã ticket")}</th>
-              <th className="text-left">{t("Trạng thái")}</th>
-              <th className="text-left">{t("Linh kiện")}</th>
-              <th className="text-right">{t("SL")}</th>
-              <th className="text-left">{t("Đơn bảo hành")}</th>
-              <th className="text-left">{t("KTV")}</th>
-              <th className="text-left">{t("Miền")}</th>
-              <th className="text-left">{t("Dự kiến có hàng")}</th>
-              <th className="text-left">{t("Ngày báo")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading && (
-              <tr><td colSpan={9} className="text-center text-[var(--ink-500)] py-4">{t("Đang tải...")}</td></tr>
-            )}
-            {!isLoading && (data?.data.length ?? 0) === 0 && (
-              <tr><td colSpan={9} className="text-center text-[var(--ink-500)] py-4">{t("Không có ticket thiếu hàng bảo hành nào")}</td></tr>
-            )}
-            {data?.data.map((r) => {
-              const s = THB_TRANG_THAI[r.trang_thai];
-              return (
-                <tr key={r.id} className="cursor-pointer hover:bg-[var(--color-surface-hover)]" onClick={() => setMo(r)}>
-                  <td className="font-mono font-semibold whitespace-nowrap">{r.id}</td>
-                  <td className="whitespace-nowrap">{s ? <Badge tone={s.tone}>{t(s.label)}</Badge> : r.trang_thai}</td>
-                  <td className="max-w-[260px] truncate" title={`${r.ten_lk ?? ""} (${r.ma_lk})`}>
-                    {r.ten_lk ?? ""} <span className="font-mono text-[var(--ink-500)]">({r.ma_lk})</span>
-                  </td>
-                  <td className="text-right font-semibold">{r.so_luong}</td>
-                  <td className="whitespace-nowrap"><span className="font-mono">{r.nguon_id}</span>{r.case_id ? <span className="text-[var(--ink-500)]"> · {r.case_id}</span> : null}</td>
-                  <td className="max-w-[180px] truncate">{r.ktv_ten ?? r.ktv_email ?? ""}</td>
-                  <td>{r.mien ?? "—"}</td>
-                  <td className="whitespace-nowrap">{r.ngay_du_kien ? fmtDate(r.ngay_du_kien) : "—"}{r.ma_eo_mua ? <span className="text-[var(--ink-500)]"> · EO {r.ma_eo_mua}</span> : null}</td>
-                  <td className="whitespace-nowrap">{fmtDateTime(r.ngay_tao)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      {soTrang > 1 && (
-        <div className="flex items-center gap-2 justify-end text-xs">
-          <Btn size="sm" variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>‹</Btn>
-          <span>{page}/{soTrang}</span>
-          <Btn size="sm" variant="ghost" disabled={page >= soTrang} onClick={() => setPage((p) => p + 1)}>›</Btn>
+    <div className="flex flex-col gap-3 md:flex-row">
+      <TrangThaiRail nhom={nhom} value={tt} onChange={doi} counts={counts} />
+      <div className="min-w-0 flex-1 space-y-3">
+        <p className="text-xs text-[var(--ink-500)]">
+          {t("Linh kiện còn thiếu để xử lý đơn bảo hành — do app Sửa chữa bảo hành gửi sang khi đơn chậm vì không có linh kiện / hết hàng tồn kho. Mỗi bước xử lý được báo ngay về đơn bảo hành gốc.")}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder={t("Tìm mã ticket / mã đơn BH / linh kiện / case / KTV / mã EO")} className={`o-tim ${INPUT} w-full sm:w-96`} />
+          <select value={mien} onChange={(e) => { setMien(e.target.value); setPage(1); }} className={INPUT}>
+            <option value="">{t("Mọi miền")}</option>
+            <option value="MB">{t("Miền Bắc")}</option>
+            <option value="MN">{t("Miền Nam")}</option>
+            <option value="__none__">{t("Chưa khai báo")}</option>
+          </select>
+          {data && <span className="self-center text-xs text-[var(--ink-500)]">{t("{n} ticket", { n: data.total })}</span>}
         </div>
-      )}
-      {mo && <ThbDetailModal row={mo} onClose={() => setMo(null)} addToast={addToast} ten={ten} />}
+
+        {/* Desktop: bang */}
+        <div className="hidden overflow-x-auto rounded-lg border border-[var(--line)] bg-white md:block">
+          <table className={TBL}>
+            <thead className="tbl-head">
+              <tr>
+                <th className="text-left">{t("Mã ticket")}</th>
+                <th className="text-left">{t("Trạng thái")}</th>
+                <th className="text-left">{t("Việc tiếp theo")}</th>
+                <th className="text-left">{t("Linh kiện")}</th>
+                <th className="text-right">{t("SL")}</th>
+                <th className="text-left">{t("Đơn bảo hành")}</th>
+                <th className="text-left">{t("KTV")}</th>
+                <th className="text-left">{t("Miền")}</th>
+                <th className="text-left">{t("Dự kiến có hàng")}</th>
+                <th className="text-left">{t("Đã chờ")}</th>
+                <th className="text-left">{t("Ngày báo")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading && (
+                <tr><td colSpan={11} className="text-center text-[var(--ink-500)] py-4">{t("Đang tải...")}</td></tr>
+              )}
+              {!isLoading && (data?.data.length ?? 0) === 0 && (
+                <tr><td colSpan={11} className="text-center text-[var(--ink-500)] py-4">{t("Không có ticket thiếu hàng bảo hành nào")}</td></tr>
+              )}
+              {data?.data.map((r) => {
+                const s = THB_TRANG_THAI[r.trang_thai];
+                const v = viecTiep(r.trang_thai);
+                return (
+                  <tr key={r.id} className={`cursor-pointer hover:bg-[var(--color-surface-hover)] ${canToi(r) ? vachCam : ""}`} onClick={() => setMo(r)}>
+                    <td className="font-mono font-semibold whitespace-nowrap">{r.id}</td>
+                    <td className="whitespace-nowrap">{s ? <Badge tone={s.tone}>{t(s.label)}</Badge> : r.trang_thai}</td>
+                    <td className={`whitespace-nowrap ${canToi(r) ? "font-semibold text-[var(--color-warning-strong)]" : "text-[var(--color-text-secondary)]"}`}>{v.text}</td>
+                    <td className="max-w-[260px] truncate" title={`${r.ten_lk ?? ""} (${r.ma_lk})`}>
+                      {r.ten_lk ?? ""} <span className="font-mono text-[var(--ink-500)]">({r.ma_lk})</span>
+                    </td>
+                    <td className="text-right font-semibold">{r.so_luong}</td>
+                    <td className="whitespace-nowrap"><span className="font-mono">{r.nguon_id}</span>{r.case_id ? <span className="text-[var(--ink-500)]"> · {r.case_id}</span> : null}</td>
+                    <td className="max-w-[180px] truncate">{r.ktv_ten ?? r.ktv_email ?? ""}</td>
+                    <td>{r.mien ?? "—"}</td>
+                    <td className="whitespace-nowrap">{r.ngay_du_kien ? fmtDate(r.ngay_du_kien) : "—"}{r.ma_eo_mua ? <span className="text-[var(--ink-500)]"> · EO {r.ma_eo_mua}</span> : null}</td>
+                    <td className="whitespace-nowrap"><NgayCho r={r} /></td>
+                    <td className="whitespace-nowrap">{fmtDateTime(r.ngay_tao)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile: the */}
+        <div className="divide-y divide-[var(--line)] overflow-hidden rounded-lg border border-[var(--line)] bg-white md:hidden">
+          {isLoading && <div className="py-4 text-center text-sm text-[var(--ink-500)]">{t("Đang tải...")}</div>}
+          {!isLoading && (data?.data.length ?? 0) === 0 && <div className="py-4 text-center text-sm text-[var(--ink-500)]">{t("Không có ticket thiếu hàng bảo hành nào")}</div>}
+          {data?.data.map((r) => {
+            const s = THB_TRANG_THAI[r.trang_thai];
+            const v = viecTiep(r.trang_thai);
+            return (
+              <button key={r.id} type="button" className={`block w-full px-3 py-2.5 text-left active:bg-[var(--color-surface-hover)] ${canToi(r) ? vachCam : ""}`} onClick={() => setMo(r)}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate font-medium">{r.ten_lk ?? r.ma_lk} <span className="font-mono text-xs text-[var(--ink-500)]">({r.ma_lk})</span></span>
+                  <span className="shrink-0 text-sm font-semibold">x{r.so_luong}</span>
+                </div>
+                <div className="mt-1 flex items-center gap-1.5 overflow-hidden text-xs">
+                  {s && <Badge tone={s.tone}>{t(s.label)}</Badge>}
+                  <span className="truncate text-[var(--ink-500)]">{r.id} · {r.nguon_id}{r.mien ? ` · ${r.mien}` : ""}</span>
+                </div>
+                {v.cua && (
+                  <div className={`mt-0.5 text-xs ${canToi(r) ? "font-semibold text-[var(--color-warning-strong)]" : "text-[var(--ink-500)]"}`}>
+                    → {v.text} · <NgayCho r={r} />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {soTrang > 1 && (
+          <div className="flex items-center gap-2 justify-end text-xs">
+            <Btn size="sm" variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>‹</Btn>
+            <span>{page}/{soTrang}</span>
+            <Btn size="sm" variant="ghost" disabled={page >= soTrang} onClick={() => setPage((p) => p + 1)}>›</Btn>
+          </div>
+        )}
+        {mo && <ThbDetailModal row={mo} onClose={() => setMo(null)} addToast={addToast} ten={ten} />}
+      </div>
     </div>
   );
 }
