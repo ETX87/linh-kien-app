@@ -1,9 +1,10 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { tenNguoiMap } from "../lib/tenNguoi";
-import { cachedReport, buildReportKey } from "../lib/reportCache";
+import { buildReportKey, getVnDateStr } from "../lib/reportCache";
+import { nowVN } from "../lib/vnTime";
 import {
   STAGE_DEFS,
   computeAllStageInstances,
@@ -13,6 +14,7 @@ import {
   filterInstances,
   countDangCho,
   type StageFilter,
+  type AccountRow,
 } from "../lib/slaMetrics";
 
 // Bao cao "Toc do xu ly" (SLA theo tai khoan x giai doan quy trinh) - xem lib/slaMetrics.ts cho
@@ -74,10 +76,25 @@ async function resolveLoaiDeXuatOptions(db: D1Database, loaiDeXuat: string | und
   return new Set((rows.results ?? []).map((r) => r.ten_option));
 }
 
-baoCaoTocDoXuLy.get("/xep-hang", async (c) => {
+// LUU 1 BAN / NGAY (chot 2026-11-07, v1.447 — "1 ngày chỉ load 1 lần lúc người đầu tiên xem và lưu vào D1, sau này ai xem thì trả về
+// dữ liệu có sẵn. ai ấn đồng bộ thì mới load mới và thay thế cho dữ liệu cũ"): truoc day /xep-hang boc cachedReport theo version
+// "dat_mua_lk" (doi moi lan co don thay doi) -> gan nhu MOI lan xem deu tinh lai, va moi giai doan 1 request = doc toan bo 4 bang log
+// x 14 lan. Gio: 1 lan tinh cho CA 14 giai doan (doc log 1 lan), luu vao precomputed_cache theo bo loc + pham vi + NGAY VN; cung ngay
+// thi tra ban da luu (1 SELECT theo khoa), ?dong_bo=1 thi tinh lai va ghi de.
+interface TongHopGiaiDoan {
+  dang_cho: number;
+  rows: AccountRow[];
+}
+interface TongHop {
+  ky_loai: "thang" | "tuan";
+  ky: string;
+  cap_nhat_luc: string;
+  cap_nhat_boi: string;
+  giai_doan: Record<string, TongHopGiaiDoan>;
+}
+
+async function docTongHop(c: Context<{ Bindings: Env }>, dongBo: boolean): Promise<TongHop> {
   const user = c.get("user");
-  const giaiDoan = c.req.query("giai_doan");
-  if (!giaiDoan || !STAGE_DEFS.some((s) => s.key === giaiDoan)) return c.json({ error: "INVALID_GIAI_DOAN" }, 400);
   const kyLoai = c.req.query("ky_loai") === "tuan" ? "tuan" : "thang";
   const ky = c.req.query("ky") || currentKy(kyLoai);
   const khuVuc = c.req.query("khu_vuc")?.trim() || undefined;
@@ -87,34 +104,56 @@ baoCaoTocDoXuLy.get("/xep-hang", async (c) => {
   const scopeEmails = await resolveScopeEmails(c.env.DB, user, khuVuc);
   const loaiDeXuatOptions = await resolveLoaiDeXuatOptions(c.env.DB, loaiDeXuat, nhomId);
   const filter: StageFilter = { scopeEmails, loaiDeXuatOptions };
-
   const scopeKeyPart = scopeEmails === null ? "all" : [...scopeEmails].sort().join(",");
-  const key = buildReportKey(
-    "bao-cao-toc-do/xep-hang-v2", // v2 (v1.446): chi tinh nguoi phu trach, bo ca huy
-    { giai_doan: giaiDoan, ky_loai: kyLoai, ky, khu_vuc: khuVuc, loai_de_xuat: loaiDeXuat, nhom_id: nhomId },
-    [scopeKeyPart],
-  );
+  const key = buildReportKey("bao-cao-toc-do/tong-hop-v1", { ky_loai: kyLoai, ky, khu_vuc: khuVuc, loai_de_xuat: loaiDeXuat, nhom_id: nhomId }, [scopeKeyPart]);
+  const ngay = getVnDateStr();
 
-  const result = await cachedReport(c.env.DB, key, ["dat_mua_lk"], async () => {
-    const range = resolveKyRange(kyLoai, ky);
-    const prevRange = resolveKyRange(kyLoai, range.prevKy);
-    const [all, dangCho] = await Promise.all([computeAllStageInstances(c.env.DB), countDangCho(c.env.DB, giaiDoan, filter)]);
-
-    const inKy = filterInstances(all, giaiDoan, range, filter);
-    const inPrevKy = filterInstances(all, giaiDoan, prevRange, filter);
-    const rows = aggregateByAccount(inKy, inPrevKy);
-
-    if (rows.length > 0) {
-      // Ten theo thu tu chung (lib/tenNguoi.ts); 1 bind JSON thay vi 1 "?" moi nguoi (gioi han 100 tham so D1).
-      const tenByEmail = await tenNguoiMap(c.env.DB, rows.map((r) => r.email));
-      for (const r of rows) r.ten = tenByEmail.get(r.email) ?? null;
+  if (!dongBo) {
+    const row = await c.env.DB.prepare("SELECT payload FROM precomputed_cache WHERE key = ?").bind(key).first<{ payload: string }>();
+    if (row) {
+      const env = JSON.parse(row.payload) as { ngay: string; data: TongHop };
+      if (env.ngay === ngay) return env.data;
     }
+  }
+
+  const range = resolveKyRange(kyLoai, ky);
+  const prevRange = resolveKyRange(kyLoai, range.prevKy);
+  const all = await computeAllStageInstances(c.env.DB);
+  const giaiDoan: Record<string, TongHopGiaiDoan> = {};
+  const moiEmail = new Set<string>();
+  for (const s of STAGE_DEFS) {
+    const rows = aggregateByAccount(filterInstances(all, s.key, range, filter), filterInstances(all, s.key, prevRange, filter));
     rows.sort((a, b) => (b.da_xu_ly + b.tu_choi) - (a.da_xu_ly + a.tu_choi));
+    for (const r of rows) moiEmail.add(r.email);
+    giaiDoan[s.key] = { dang_cho: await countDangCho(c.env.DB, s.key, filter), rows };
+  }
+  if (moiEmail.size > 0) {
+    // Ten theo thu tu chung (lib/tenNguoi.ts); 1 bind JSON thay vi 1 "?" moi nguoi (gioi han 100 tham so D1).
+    const tenByEmail = await tenNguoiMap(c.env.DB, [...moiEmail]);
+    for (const g of Object.values(giaiDoan)) for (const r of g.rows) r.ten = tenByEmail.get(r.email) ?? null;
+  }
+  const data: TongHop = { ky_loai: kyLoai, ky, cap_nhat_luc: nowVN(), cap_nhat_boi: user.email, giai_doan: giaiDoan };
+  await c.env.DB.prepare(
+    `INSERT INTO precomputed_cache (key, payload, updated_at) VALUES (?, ?, datetime('now'))
+     ON CONFLICT(key) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at`,
+  )
+    .bind(key, JSON.stringify({ ngay, data }))
+    .run();
+  return data;
+}
 
-    return { giai_doan: giaiDoan, ky_loai: kyLoai, ky, dang_cho: dangCho, rows };
-  });
+// GET /tong-hop?ky_loai=&ky=&khu_vuc=&nhom_id=&dong_bo=1 — ca 14 giai doan trong 1 lan goi.
+baoCaoTocDoXuLy.get("/tong-hop", async (c) => {
+  return c.json(await docTongHop(c, c.req.query("dong_bo") === "1"));
+});
 
-  return c.json(result);
+// GET /xep-hang?giai_doan= — giu cho tab cu (truoc v1.447), doc tu CUNG ban luu theo ngay.
+baoCaoTocDoXuLy.get("/xep-hang", async (c) => {
+  const giaiDoan = c.req.query("giai_doan");
+  if (!giaiDoan || !STAGE_DEFS.some((s) => s.key === giaiDoan)) return c.json({ error: "INVALID_GIAI_DOAN" }, 400);
+  const th = await docTongHop(c, false);
+  const g = th.giai_doan[giaiDoan] ?? { dang_cho: 0, rows: [] };
+  return c.json({ giai_doan: giaiDoan, ky_loai: th.ky_loai, ky: th.ky, dang_cho: g.dang_cho, rows: g.rows });
 });
 
 export default baoCaoTocDoXuLy;

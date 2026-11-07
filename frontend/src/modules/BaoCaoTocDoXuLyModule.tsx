@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildQuery } from "../api/client";
 import { Card } from "../components/ui/Card";
 import { Tabs } from "../components/ui/Tabs";
@@ -80,17 +80,36 @@ interface Filters {
   nhomId: string;
 }
 
-function useXepHang(giaiDoan: string, filters: Filters) {
+// v1.447: server luu 1 ban / ngay cho CA 14 giai doan (GET /tong-hop) — man nay chi goi 1 lan, nut "Đồng bộ" moi tinh lai (?dong_bo=1).
+interface TongHopResult {
+  ky_loai: "thang" | "tuan";
+  ky: string;
+  cap_nhat_luc: string;
+  cap_nhat_boi: string;
+  giai_doan: Record<string, { dang_cho: number; rows: XepHangRow[] }>;
+}
+
+function tongHopKey(filters: Filters) {
+  return ["bao-cao-toc-do-tong-hop", filters.kyLoai, filters.ky, [...filters.khuVuc].join(","), filters.nhomId];
+}
+
+function useTongHop(filters: Filters) {
   return useQuery({
-    queryKey: ["bao-cao-toc-do-xep-hang", giaiDoan, filters.kyLoai, filters.ky, [...filters.khuVuc].join(","), filters.nhomId],
-    queryFn: () => api.get<XepHangResult>(`/bao-cao-toc-do/xep-hang${xepHangQuery(giaiDoan, filters)}`),
-    enabled: !!giaiDoan,
+    queryKey: tongHopKey(filters),
+    queryFn: () => api.get<TongHopResult>(`/bao-cao-toc-do/tong-hop${xepHangQuery(filters)}`),
+    staleTime: Infinity,
   });
 }
 
-function xepHangQuery(giaiDoan: string, filters: Filters): string {
+function useXepHang(giaiDoan: string, filters: Filters): { data: XepHangResult | undefined; isLoading: boolean } {
+  const { data, isLoading } = useTongHop(filters);
+  const g = data?.giai_doan[giaiDoan];
+  return { isLoading, data: data ? { giai_doan: giaiDoan, ky_loai: data.ky_loai, ky: data.ky, dang_cho: g?.dang_cho ?? 0, rows: g?.rows ?? [] } : undefined };
+}
+
+function xepHangQuery(filters: Filters, dongBo = false): string {
   return buildQuery({
-    giai_doan: giaiDoan,
+    dong_bo: dongBo ? "1" : undefined,
     ky_loai: filters.kyLoai,
     ky: filters.ky,
     khu_vuc: [...filters.khuVuc].join(",") || undefined,
@@ -125,9 +144,8 @@ async function downloadBaoCaoTocDo(stages: GiaiDoanMeta[], filters: Filters) {
   const XLSX = await import("xlsx");
   const workbook = XLSX.utils.book_new();
 
-  const results = await Promise.all(
-    stages.map(async (stage) => ({ stage, data: await api.get<XepHangResult>(`/bao-cao-toc-do/xep-hang${xepHangQuery(stage.key, filters)}`) })),
-  );
+  const tongHop = await api.get<TongHopResult>(`/bao-cao-toc-do/tong-hop${xepHangQuery(filters)}`);
+  const results = stages.map((stage) => ({ stage, data: tongHop.giai_doan[stage.key] ?? { dang_cho: 0, rows: [] } }));
 
   const tongQuanRows = results
     .filter(({ stage }) => stage.noi_bo)
@@ -399,6 +417,16 @@ export function BaoCaoTocDoXuLyModule() {
   const [level1, setLevel1] = useState<"tong-quan" | GiaiDoanMeta["luong"]>("tong-quan");
   const [stageKeyByLuong, setStageKeyByLuong] = useState<Partial<Record<GiaiDoanMeta["luong"], string>>>({});
   const [downloading, setDownloading] = useState(false);
+  const qc = useQueryClient();
+  const { data: tongHop } = useTongHop(filters);
+  const dongBo = useMutation({
+    mutationFn: () => api.get<TongHopResult>(`/bao-cao-toc-do/tong-hop${xepHangQuery(filters, true)}`),
+    onSuccess: (d) => {
+      qc.setQueryData(tongHopKey(filters), d);
+      addToast("Đã đồng bộ báo cáo mới nhất");
+    },
+    onError: (err) => addToast("Lỗi đồng bộ: " + (err instanceof Error ? err.message : String(err))),
+  });
 
   async function handleDownload() {
     setDownloading(true);
@@ -432,9 +460,19 @@ export function BaoCaoTocDoXuLyModule() {
         <div className="text-xs text-[var(--ink-500)] max-w-3xl">
           Tốc độ xử lý trung bình theo từng tài khoản ở từng giai đoạn của quy trình — mỗi giai đoạn chỉ tính lượt do NGƯỜI PHỤ TRÁCH xử lý (vd bước TBP xác nhận chỉ tính TBP): không tính người đặt hàng / KTV tự thao tác, thao tác tự động của hệ thống và các ca hủy. Khoảng chờ KTV hành động xem tab riêng.
         </div>
-        <Btn size="sm" variant="ghost" onClick={() => void handleDownload()} loading={downloading} disabled={stages.length === 0}>
-          ⬇ Tải báo cáo
-        </Btn>
+        <div className="flex items-center gap-2 flex-wrap">
+          {tongHop && (
+            <span className="text-xs text-[var(--ink-500)]" title={`Lưu bởi ${tongHop.cap_nhat_boi}`}>
+              Dữ liệu lúc {tongHop.cap_nhat_luc.slice(11, 16)} {tongHop.cap_nhat_luc.slice(8, 10)}/{tongHop.cap_nhat_luc.slice(5, 7)}
+            </span>
+          )}
+          <Btn size="sm" variant="ghost" onClick={() => dongBo.mutate()} loading={dongBo.isPending} title="Tính lại báo cáo theo dữ liệu mới nhất (thay bản đã lưu hôm nay)">
+            ⟳ Đồng bộ
+          </Btn>
+          <Btn size="sm" variant="ghost" onClick={() => void handleDownload()} loading={downloading} disabled={stages.length === 0}>
+            ⬇ Tải báo cáo
+          </Btn>
+        </div>
       </div>
       <FilterBar filters={filters} setFilters={setFilters} />
       <Tabs tabs={level1Tabs} active={level1} onChange={(k) => setLevel1(k as "tong-quan" | GiaiDoanMeta["luong"])} />
