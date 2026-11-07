@@ -1828,7 +1828,11 @@ phieuXuatKho.post("/:id/dong/:donHangId/chuyen", async (c) => {
     .first<{ trang_thai: string | null; nguoi_nhan_hang: string | null; loai_don: "mua" | "cong_no" | "tra_hang" | null; ma_misa: string | null; mien_xuat: string | null; doi_tac_ma: string | null }>();
   if (!pxk || !pxk.loai_don || !pxk.nguoi_nhan_hang) return c.json({ error: "NOT_FOUND" }, 404);
   if (!MO_SUA_DONG.includes(pxk.trang_thai ?? "")) return c.json({ error: "INVALID_STATE" }, 409);
-  if (pxk.trang_thai === "Cho ke toan" && (await soDongPxk(c.env.DB, id)) <= 1) return c.json({ error: "PHIEU_CHO_KE_TOAN_CON_1_DON" }, 409);
+  const soDongNguon = await soDongPxk(c.env.DB, id);
+  if (pxk.trang_thai === "Cho ke toan" && soDongNguon <= 1) return c.json({ error: "PHIEU_CHO_KE_TOAN_CON_1_DON" }, 409);
+  // Phieu 1 don (2026-11-07, "ghép 2 đơn này làm 1 phiếu"): chi "Thêm vào 1 phiếu có sẵn" (ghep phieu) - phieu nguon trong thi tu huy ben
+  // duoi; "Tách thành phiếu mới" tu phieu 1 don vo nghia.
+  if (body.dich?.trim() === "moi" && soDongNguon <= 1) return c.json({ error: "PHIEU_CHI_1_DON" }, 409);
   const don = await c.env.DB.prepare(
     `SELECT d.ma_lk, d.khu_vuc_chon FROM phieu_xuat_kho_dong pd JOIN dat_don_hang d ON d.id = pd.dat_don_hang_id
      WHERE pd.phieu_xuat_kho_id = ? AND pd.dat_don_hang_id = ?`,
@@ -1902,6 +1906,15 @@ phieuXuatKho.post("/:id/dong/:donHangId/chuyen", async (c) => {
     : await ganLoaiChietKhauChoPxk(c.env.DB, dichId, true, true, user.email);
   if (laVanPhong(user)) await danhDauVanPhongTacDong(c.env.DB, dichId, user.email);
   const conLai = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ?").bind(id).first<{ n: number }>();
+  // Chuyen don cuoi sang phieu khac = ghep phieu -> phieu nguon trong tu huy ngay (tien con lai, neu co, hoan ve quy nhu moi duong huy).
+  let nguonDaHuy = false;
+  if ((conLai?.n ?? 0) === 0) {
+    const huy = await huyPxkNeuTrong(c.env.DB, id, user.email, `Tự hủy phiếu trống: đơn duy nhất ${donHangId} đã chuyển sang phiếu ${dichId}`);
+    if (huy) {
+      nguonDaHuy = true;
+      if (huy.hoanQuy > 0) c.executionCtx.waitUntil(thongBaoHoanQuyPhieuHuy(c.env, c.env.DB, id, huy.hoanQuy));
+    }
+  }
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   if (taoMoi && ketQuaDich.total > 0) {
     c.executionCtx.waitUntil(
@@ -1915,7 +1928,7 @@ phieuXuatKho.post("/:id/dong/:donHangId/chuyen", async (c) => {
       })(),
     );
   }
-  return c.json({ ok: true, phieu_dich: dichId, tao_moi: taoMoi, phieu_trong: (conLai?.n ?? 0) === 0, tien_mang_theo: mang.tien });
+  return c.json({ ok: true, phieu_dich: dichId, tao_moi: taoMoi, phieu_trong: (conLai?.n ?? 0) === 0, nguon_da_huy: nguonDaHuy, tien_mang_theo: mang.tien });
 });
 
 // POST /api/phieu-xuat-kho/:id/huy-neu-trong - dong man chi tiet 1 PXK "Dang tao phieu" khong con dong nao ->

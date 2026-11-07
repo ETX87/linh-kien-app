@@ -206,7 +206,7 @@ export async function goDonKhoiPxk(
 
 /** PXK "Dang tao phieu" khong con dong nao -> huy (dong man phieu trong - chot 2026-09-28, muc 3). Tra ve null neu
  * khong huy, nguoc lai so tien da hoan ve quy (0 neu phieu chua tra tien). */
-export async function huyPxkNeuTrong(db: D1Database, pxkId: string, email: string): Promise<{ hoanQuy: number } | null> {
+export async function huyPxkNeuTrong(db: D1Database, pxkId: string, email: string, ghiChu?: string): Promise<{ hoanQuy: number } | null> {
   const res = await db
     .prepare(
       `UPDATE phieu_xuat_kho SET trang_thai_hien_tai = 'Ke toan huy', version = version + 1
@@ -218,7 +218,7 @@ export async function huyPxkNeuTrong(db: D1Database, pxkId: string, email: strin
   if (!res.meta?.changes) return null;
   await db
     .prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Ke toan huy', ?, ?, ?)")
-    .bind(pxkId, email, nowVN(), "Tự hủy phiếu trống (không còn đơn nào) khi đóng màn phiếu")
+    .bind(pxkId, email, nowVN(), ghiChu ?? "Tự hủy phiếu trống (không còn đơn nào) khi đóng màn phiếu")
     .run();
   const { hoan } = await canBangPxk(db, pxkId, email); // hoan tien da tra (neu co) ve quy du
   return { hoanQuy: hoan };

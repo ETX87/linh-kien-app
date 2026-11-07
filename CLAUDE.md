@@ -293,6 +293,9 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   1 batch: (giu_tien → `lenhMangTienDon`) xoá dòng nguồn + log 2 phiếu + (phiếu mới: INSERT mang `khu_vuc_chon` của đơn, `mien_xuat` phiếu nguồn) + INSERT
   dòng đích + `ma_xuat_kho` đơn + `lenhNhanTienDaTraDon`; sau đó `ganLoaiChietKhauChoPxk` cả 2 phiếu (tính lại tiền, cân bằng quỹ). Phiếu đã có tiền bắt chọn
   "Đơn đã/chưa thanh toán". "Chỉ bỏ khỏi phiếu" (đơn về "Chờ tạo phiếu") = `DELETE` cũ, CHỈ TN/Kế toán.
+  **Ghép phiếu 1 đơn** (2026-11-07, v1.453 — "ghép 2 đơn này làm 1 phiếu"): phiếu "Dang tao phieu" CHỈ 1 đơn cũng mở hộp này nhưng chỉ còn
+  "Ghép vào 1 phiếu có sẵn" (+ "Chỉ bỏ khỏi phiếu"); `/chuyen` chặn `dich:"moi"` khi phiếu nguồn 1 đơn (`PHIEU_CHI_1_DON`), chuyển xong phiếu nguồn
+  trống → `huyPxkNeuTrong` ngay (log "đơn duy nhất … đã chuyển sang phiếu …", hoàn quỹ nếu còn tiền), trả `nguon_da_huy`.
 - **Tách "Đặt mua linh kiện" thành 2 mục Sidebar** (2026-09-29): **"Đơn hàng"** (tên cũ "Đơn đặt hàng") (key `dat-mua-lk`, nhóm menu đơn +
   trả hàng) và **"Phiếu xuất"** (key `phieu-xuat`, nhóm "Xuất kho") — vẫn là CÙNG 1 `DatMuaLinhKienModule` (prop `section`
   chọn view mặc định: Phiếu xuất → `phieu-xuat-kho`, Đơn đặt hàng → đơn/trả hàng xem lần trước), mỗi mục có slot menu giai

@@ -2539,5 +2539,9 @@ const tuDien: Record<string, string> = {
   "Thiếu hàng chờ Mua hàng": "Shortages awaiting Purchasing",
   "▼ Xem (toàn quốc)": "▼ View (nationwide)",
   "Đơn đang chờ duyệt / chờ thanh toán (Chờ GS duyệt, Chờ thanh toán, Trạm, TBP và các bước duyệt trả hàng) - chưa tính 'Chờ hàng'": "Orders awaiting approval / payment (supervisor approval, awaiting payment, station, TBP and return approval steps) - excludes 'Awaiting stock'",
+  "Ghép vào 1 phiếu có sẵn": "Merge into an existing slip",
+  "Chuyển đơn duy nhất của phiếu này sang 1 phiếu đang tạo khác của cùng người nhận — phiếu này không còn đơn sẽ tự hủy.": "Move this slip's only order to another draft slip of the same recipient — this slip will then be empty and cancel itself.",
+  "Đã ghép đơn vào phiếu {a} — phiếu {b} không còn đơn nên đã tự hủy": "Order merged into slip {a} — slip {b} has no orders left and was cancelled",
+  "Đơn về trạng thái \"Chờ tạo phiếu\" — phiếu này không còn đơn sẽ tự hủy.": "The order returns to \"Awaiting slip\" — this slip will then be empty and cancel itself.",
 };
 export default tuDien;

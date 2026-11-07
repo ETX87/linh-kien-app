@@ -2539,5 +2539,9 @@ const tuDien: Record<string, string> = {
   "Thiếu hàng chờ Mua hàng": "Kekurangan menunggu Pembelian",
   "▼ Xem (toàn quốc)": "▼ Lihat (nasional)",
   "Đơn đang chờ duyệt / chờ thanh toán (Chờ GS duyệt, Chờ thanh toán, Trạm, TBP và các bước duyệt trả hàng) - chưa tính 'Chờ hàng'": "Pesanan menunggu persetujuan / pembayaran (persetujuan supervisor, menunggu pembayaran, stasiun, TBP dan langkah persetujuan retur) - tidak termasuk 'Menunggu stok'",
+  "Ghép vào 1 phiếu có sẵn": "Gabungkan ke slip yang sudah ada",
+  "Chuyển đơn duy nhất của phiếu này sang 1 phiếu đang tạo khác của cùng người nhận — phiếu này không còn đơn sẽ tự hủy.": "Pindahkan satu-satunya pesanan slip ini ke slip draf lain dengan penerima yang sama — slip ini akan kosong dan batal otomatis.",
+  "Đã ghép đơn vào phiếu {a} — phiếu {b} không còn đơn nên đã tự hủy": "Pesanan digabung ke slip {a} — slip {b} tidak punya pesanan lagi dan dibatalkan",
+  "Đơn về trạng thái \"Chờ tạo phiếu\" — phiếu này không còn đơn sẽ tự hủy.": "Pesanan kembali ke \"Menunggu slip\" — slip ini akan kosong dan batal otomatis.",
 };
 export default tuDien;

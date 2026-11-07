@@ -136,8 +136,9 @@ export function PxkDongDonHangTable({
   const moSuaDong = dangTao || (choKeToan && donHang.length > 1);
   const coCotBo = (canTacNghiep || canKeToan) && moSuaDong;
   // Phieu NHIEU don: nut "Bỏ" mo hop 3 lua chon (2026-10-23) - tach thanh phieu moi / them vao phieu co san (TN, Ke toan, Kho, GS -
-  // backend duocChuyenDonPxk tra `duoc_chuyen_don`) / chi bo khoi phieu (TN, Ke toan). Phieu 1 don giu nhu cu.
-  const coChuyenDon = !!pxk.duoc_chuyen_don && moSuaDong && donHang.length > 1;
+  // backend duocChuyenDonPxk tra `duoc_chuyen_don`) / chi bo khoi phieu (TN, Ke toan). Phieu 1 don "Dang tao phieu" (2026-11-07, "ghép 2 đơn
+  // này làm 1 phiếu"): hop chi con "Thêm vào 1 phiếu có sẵn" (ghep phieu - phieu nay trong thi backend tu huy) + "Chỉ bỏ khỏi phiếu".
+  const coChuyenDon = !!pxk.duoc_chuyen_don && moSuaDong && (donHang.length > 1 || dangTao);
   const coCotNutBo = coCotBo || coChuyenDon;
   const [chuyenDonCho, setChuyenDonCho] = useState<DonHangRow | null>(null);
   // Tach don ngay trong phieu (v1.440, "kế toán xác định chỉ cho xuất trước 5 linh kiện, 5 linh kiện còn lại tách ra phiếu khác để xuất sau"):
@@ -639,10 +640,11 @@ export function PxkDongDonHangTable({
       don={chuyenDonCho}
       daTraPhieu={pxk.loai_don !== "tra_hang" ? daTraPhieu : 0}
       choBoKhoiPhieu={coCotBo}
+      motDon={donHang.length === 1}
       addToast={addToast}
       onClose={() => setChuyenDonCho(null)}
       onBoKhoiPhieu={(giuTien) => {
-        boDonMutation.mutate({ donHangId: chuyenDonCho.id, laDonCuoi: false, giuTien });
+        boDonMutation.mutate({ donHangId: chuyenDonCho.id, laDonCuoi: donHang.length === 1, giuTien });
         setChuyenDonCho(null);
       }}
       onXong={(phieuDich) => {
@@ -784,12 +786,13 @@ export function PxkDongDonHangTable({
 // 1 phiếu có sẵn'"): tach / them vao phieu co san = POST /phieu-xuat-kho/:id/dong/:donHangId/chuyen; chi bo khoi phieu = DELETE cu (don ve
 // "Chờ tạo phiếu", chi TN / Ke toan). Phieu da co tien: bat buoc chon don da / chua thanh toan (da thanh toan = don mang tien theo).
 function ChuyenDonModal({
-  pxkId, don, daTraPhieu, choBoKhoiPhieu, addToast, onClose, onBoKhoiPhieu, onXong,
+  pxkId, don, daTraPhieu, choBoKhoiPhieu, motDon, addToast, onClose, onBoKhoiPhieu, onXong,
 }: {
   pxkId: string;
   don: DonHangRow;
   daTraPhieu: number;
   choBoKhoiPhieu: boolean;
+  motDon: boolean;
   addToast: (msg: string) => void;
   onClose: () => void;
   onBoKhoiPhieu: (giuTien: boolean) => void;
@@ -811,12 +814,18 @@ function ChuyenDonModal({
   const giuTien = canHoiTien && thanhToan === "da";
   const mutation = useMutation({
     mutationFn: () =>
-      api.post<{ phieu_dich: string; tao_moi: boolean; tien_mang_theo: number }>(`/phieu-xuat-kho/${pxkId}/dong/${don.id}/chuyen`, {
+      api.post<{ phieu_dich: string; tao_moi: boolean; tien_mang_theo: number; nguon_da_huy?: boolean }>(`/phieu-xuat-kho/${pxkId}/dong/${don.id}/chuyen`, {
         dich: cach === "moi" ? "moi" : phieuChon,
         giu_tien: giuTien,
       }),
     onSuccess: (r) => {
-      addToast(r.tao_moi ? t("Đã tách đơn sang phiếu mới {a}", { a: r.phieu_dich }) : t("Đã chuyển đơn sang phiếu {a}", { a: r.phieu_dich }));
+      addToast(
+        r.tao_moi
+          ? t("Đã tách đơn sang phiếu mới {a}", { a: r.phieu_dich })
+          : r.nguon_da_huy
+            ? t("Đã ghép đơn vào phiếu {a} — phiếu {b} không còn đơn nên đã tự hủy", { a: r.phieu_dich, b: pxkId })
+            : t("Đã chuyển đơn sang phiếu {a}", { a: r.phieu_dich }),
+      );
       onXong(r.phieu_dich);
     },
     onError: (err) => {
@@ -854,8 +863,14 @@ function ChuyenDonModal({
       }
     >
       <div className="space-y-2.5 text-[13px] text-[var(--color-text-body)]">
-        {luaChon("moi", t("Tách thành phiếu mới"), t("Tự tạo 1 phiếu mới (cùng người nhận) chỉ chứa đơn này."))}
-        {luaChon("co_san", t("Thêm vào 1 phiếu có sẵn"), t("Chuyển đơn sang 1 phiếu đang tạo khác của cùng người nhận."))}
+        {!motDon && luaChon("moi", t("Tách thành phiếu mới"), t("Tự tạo 1 phiếu mới (cùng người nhận) chỉ chứa đơn này."))}
+        {luaChon(
+          "co_san",
+          motDon ? t("Ghép vào 1 phiếu có sẵn") : t("Thêm vào 1 phiếu có sẵn"),
+          motDon
+            ? t("Chuyển đơn duy nhất của phiếu này sang 1 phiếu đang tạo khác của cùng người nhận — phiếu này không còn đơn sẽ tự hủy.")
+            : t("Chuyển đơn sang 1 phiếu đang tạo khác của cùng người nhận."),
+        )}
         {cach === "co_san" && (
           <div className="ml-6 space-y-1">
             {isLoading ? (
@@ -878,7 +893,13 @@ function ChuyenDonModal({
             )}
           </div>
         )}
-        {choBoKhoiPhieu && luaChon("bo", t("Chỉ bỏ khỏi phiếu"), t("Đơn về trạng thái \"Chờ tạo phiếu\" — Tác nghiệp / Kế toán xếp vào phiếu sau."))}
+        {choBoKhoiPhieu && luaChon(
+          "bo",
+          t("Chỉ bỏ khỏi phiếu"),
+          motDon
+            ? t("Đơn về trạng thái \"Chờ tạo phiếu\" — phiếu này không còn đơn sẽ tự hủy.")
+            : t("Đơn về trạng thái \"Chờ tạo phiếu\" — Tác nghiệp / Kế toán xếp vào phiếu sau."),
+        )}
         {canHoiTien && cach && (
           <div className="rounded-lg border border-[var(--line)] p-2.5">
             <div className="mb-1.5">
