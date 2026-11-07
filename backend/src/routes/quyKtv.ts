@@ -30,6 +30,8 @@ async function phamViXem(c: C): Promise<string[] | null | undefined> {
   if (u.vai_tro === "Admin" || u.la_ke_toan || u.la_tac_nghiep || u.la_mua_hang) return null; // Mua hang: xem, khong dieu chinh
   if (u.la_ve_tinh) return u.tram_cha ? [u.tram_cha] : [];
   if (u.la_ktv_dvbh) return [u.email];
+  // QC dat hang nhu KTV (v1.451): quy cua chinh minh.
+  if (u.vai_tro === "QC") return [u.email];
   // Giam sat (chot 2026-10-21, "ngoài vai trò kế toán, danh sách quỹ sẽ chỉ hiện quỹ theo tài khoản do giám sát đó quản lý"): CHI quy
   // cua tai khoan GS quan ly (users.giam_sat_quan_ly = GS - suy tu Khu vuc ma GS phu trach, lib/khuVucSync.ts) + KTV thuoc "Khu vuc
   // xem them" Admin gan (user_khu_vuc, cung quy tac gsKhuVucXemThemSql) + chinh GS (GS cung dat/nhan hang). Chi xem.
@@ -609,7 +611,7 @@ quyKtv.post("/tien-ngoai/:id/huy", async (c) => {
 const NOP_TIEN_TT = ["Cho ke toan", "Da duyet", "Tu choi", "Da huy"];
 // Nguoi co quy dat hang: KTV, Ve tinh (vao quy Tram), Giam sat. Ke toan/Admin ghi bang "Tiền ngoài vào quỹ".
 const duocNopTien = (u: { vai_tro?: string | null; la_ke_toan?: boolean | number | null; la_ktv_dvbh?: boolean | number | null; la_ve_tinh?: boolean | number | null; tram_cha?: string | null; email: string }) =>
-  !laKeToanNopTien(u) && !!quyCuaNguoiGui(u) && (!!u.la_ktv_dvbh || !!u.la_ve_tinh || u.vai_tro === "Giam sat");
+  !laKeToanNopTien(u) && !!quyCuaNguoiGui(u) && (!!u.la_ktv_dvbh || !!u.la_ve_tinh || u.vai_tro === "Giam sat" || u.vai_tro === "QC");
 
 // GET /api/quy-ktv/nop-tien?trang_thai=&email=&page=&pageSize= - theo pham vi xem quy (KTV: cua minh; Ve tinh: quy Tram + yeu cau minh gui).
 quyKtv.get("/nop-tien", async (c) => {

@@ -475,7 +475,7 @@ export function TrangChuTab({
   const isMobile = useIsMobile();
   const auth = useAuth();
   const me = auth.status === "authenticated" ? auth.user : null;
-  const laKtv = !!(me && (me.la_ktv_dvbh || me.la_ve_tinh));
+  const laKtv = !!(me && (me.la_ktv_dvbh || me.la_ve_tinh || me.vai_tro === "QC"));
   const isManagerish = canTacNghiep || canKho || canKeToan || isGiamSat;
   const ktvReportRef = useRef<TonDongTheoKtvReportHandle>(null);
   // Them (2026-09-01, phan hoi "ấn vào đơn đang tồn 6... làm sao tôi biết 6 đơn này hiện ở đâu để click

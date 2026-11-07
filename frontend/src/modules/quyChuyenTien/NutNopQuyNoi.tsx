@@ -15,7 +15,7 @@ export function NutNopQuyNoi() {
   const isMobile = useIsMobile();
   const [mo, setMo] = useState(false);
   const u = auth.status === "authenticated" ? auth.user : null;
-  const duocNop = !!u && u.vai_tro !== "Admin" && !u.la_ke_toan && (!!u.la_ktv_dvbh || !!u.la_ve_tinh || u.vai_tro === "Giam sat");
+  const duocNop = !!u && u.vai_tro !== "Admin" && !u.la_ke_toan && (!!u.la_ktv_dvbh || !!u.la_ve_tinh || u.vai_tro === "Giam sat" || u.vai_tro === "QC");
   if (!duocNop) return null;
   return (
     <>

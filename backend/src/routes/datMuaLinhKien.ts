@@ -133,6 +133,9 @@ function lastGiaiTrinhAtExpr(donHangIdCol: string): string {
 function canCreatePhieuDat(c: Context<{ Bindings: Env }>): boolean {
   const user = c.get("user");
   if (canTacNghiep(c) || user.vai_tro === "Giam sat") return true;
+  // QC dat hang nhu 1 KTV cho CHINH MINH (chot 2026-11-07, v1.451 — "vai trò QC cấp quyền bổ sung như 1 KTV, có thể đặt hàng, theo dõi
+  // và xác nhận hàng về"). Khong dat ho (canQuanLyDonHo khong gom QC); nguoi nhan phai co Ma nhan hang kem Ma MISA (nguoiNhanChuaCoMaMisa).
+  if (user.vai_tro === "QC") return true;
   if (user.la_ve_tinh) return false;
   return !!user.la_ktv_dvbh;
 }
@@ -242,16 +245,17 @@ async function nguoiNhanHangHopLe(db: D1Database, email: string): Promise<{ emai
 async function nguoiNhanChuaCoMaMisa(db: D1Database, email: string): Promise<boolean> {
   const r = await db
     .prepare(
-      `SELECT u.la_ktv_dvbh, u.la_ve_tinh,
+      `SELECT u.la_ktv_dvbh, u.la_ve_tinh, u.vai_tro,
               EXISTS(SELECT 1 FROM ktv_lien_he k WHERE LOWER(TRIM(k.email_dang_nhap)) = LOWER(u.email) AND COALESCE(k.ngung_hoat_dong, 0) = 0) AS co_ma,
               EXISTS(SELECT 1 FROM ktv_lien_he k WHERE LOWER(TRIM(k.email_dang_nhap)) = LOWER(u.email) AND COALESCE(k.ngung_hoat_dong, 0) = 0
                      AND TRIM(COALESCE(k.ma_misa, '')) <> '') AS co_misa
        FROM users u WHERE u.email = ?`,
     )
     .bind(email)
-    .first<{ la_ktv_dvbh: number; la_ve_tinh: number; co_ma: number; co_misa: number }>();
+    .first<{ la_ktv_dvbh: number; la_ve_tinh: number; vai_tro: string | null; co_ma: number; co_misa: number }>();
   if (!r) return false;
-  return !!(r.la_ktv_dvbh || r.la_ve_tinh || r.co_ma) && !r.co_misa;
+  // QC (v1.451) dat hang nhu KTV -> cung bat buoc Ma nhan hang kem Ma MISA (file MISA lay ma kho / ten MISA tu ma KTV).
+  return !!(r.la_ktv_dvbh || r.la_ve_tinh || r.co_ma || r.vai_tro === "QC") && !r.co_misa;
 }
 
 // GET /api/dat-mua-lk/kiem-tra-ma-misa?nguoi_nhan_hang=<email> - FE hoi truoc khi soan don de hien canh bao + khoa nut gui

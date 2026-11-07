@@ -178,7 +178,7 @@ export function QuyChuyenTienModule({ moPhieuHoanTien = null, moNopTien = null }
     if (moNopTien) setTab("nop-tien");
   }, [moNopTien]);
   // KTV / Ve tinh / GS tu nop tien vao quy (2026-10-30) - khop duocNopTien backend; Ke toan/Admin dung "Tiền ngoài vào quỹ".
-  const coTheNopTien = !!user && user.vai_tro !== "Admin" && !user.la_ke_toan && (!!user.la_ktv_dvbh || !!user.la_ve_tinh || user.vai_tro === "Giam sat");
+  const coTheNopTien = !!user && user.vai_tro !== "Admin" && !user.la_ke_toan && (!!user.la_ktv_dvbh || !!user.la_ve_tinh || user.vai_tro === "Giam sat" || user.vai_tro === "QC");
   const [moFormNop, setMoFormNop] = useState(0);
   const [emailLoc, setEmailLoc] = useState("");
   // Chuong / link push mo 1 phieu hoan tien (App.tsx) -> chuyen sang tab Hoàn tiền, HoanTienTab mo chi tiet.

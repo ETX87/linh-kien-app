@@ -581,6 +581,12 @@ sách + "↩ Đẩy lại chờ duyệt" (kèm ghi chú) ở footer chi tiết �
   - GS khu vực khác: `KHONG_PHAI_GS_KHU_VUC` / `FORBIDDEN_ROLE`;
   - `choGsDuyet` = 1 / 1 / 0;
   - màn tài khoản hiện đúng nhãn, tích thêm MB2 lưu đúng.
+**QC đặt hàng như 1 KTV** (chốt 2026-11-07, v1.451 — "vai trò QC cấp quyền bổ sung như 1 KTV, có thể đặt hàng, theo dõi và xác nhận hàng về"):
+tài khoản `vai_tro='QC'` tạo đơn CHO CHÍNH MÌNH (`canCreatePhieuDat` backend + `canTaoDon` FE; KHÔNG đặt hộ — `canQuanLyDonHo` không gồm QC →
+`FORBIDDEN_ROLE`), BẮT BUỘC có "Mã nhận hàng" kèm Mã MISA (`nguoiNhanChuaCoMaMisa` tính cả QC → `KTV_CHUA_CO_MA_MISA`; Admin tạo ở Quản lý
+người dùng › Nhân viên văn phòng › Mã nhận hàng). Menu thêm Phiếu xuất + Quỹ & chuyển tiền (`ROLE_MODULES.QC`, `canXemPxkTab`); quỹ = của chính
+mình (`phamViXem`), nộp tiền vào quỹ (`duocNopTien` + `coTheNopTien` / `NutNopQuyNoi`), thẻ "Đặt hàng hôm nay" ở Trang chủ. Chuyển tiền / xác
+nhận đã nhận / báo nhận thiếu vốn theo "người nhận hàng = mình" nên không phải sửa. QC vẫn xem toàn bộ đơn/phiếu như trước (scope null).
 **Tự hủy đơn tự duyệt đã vào PXK** (chốt 2026-09-28, `lib/pxkTuHuy.ts`, migration `0036`): người tạo HOẶC KTV nhận
 hàng được Hủy đơn tự duyệt (log đầu tiên đã là "TN da duyet") đã tự gom vào PXK khi PXK còn "Dang tao phieu", Kế
 toán chưa duyệt chuyển tiền (KTV đã báo chuyển vẫn hủy được) và văn phòng CHƯA thao tác tay

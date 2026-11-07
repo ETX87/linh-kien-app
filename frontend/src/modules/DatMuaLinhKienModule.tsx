@@ -190,7 +190,8 @@ export function DatMuaLinhKienModule({
   const canDatHo = !!(user?.la_ktv_dvbh || user?.la_ve_tinh || canTacNghiep || isGiamSat);
   // Tat luong Ve tinh tao don (tu dong duyet 100%, chot 2026-10-14) - khop canCreatePhieuDat backend: TN/GS luon tao, Ve tinh
   // khong, con lai theo co KTV DVBH. canDatHo van dung cho quyen XEM don (Ve tinh van xem don Tram dat cho minh).
-  const canTaoDon = canTacNghiep || isGiamSat || (!user?.la_ve_tinh && !!user?.la_ktv_dvbh);
+  // + QC (v1.451, "vai trò QC cấp quyền bổ sung như 1 KTV"): dat hang cho CHINH MINH (khong dat ho - canDatHo khong gom QC), khop canCreatePhieuDat backend.
+  const canTaoDon = canTacNghiep || isGiamSat || user?.vai_tro === "QC" || (!user?.la_ve_tinh && !!user?.la_ktv_dvbh);
   // Them (phan hoi 2026-09-10: "KTV không thấy PXK ở đâu để check khi Kho gửi hàng") - KTV/Ve tinh
   // truoc day KHONG co lich su hien tab "Phiếu xuất kho" nao, chi vao duoc PHAN UNG (Trang chu "Cần
   // làm" hoac chuong thong bao khi CO 1 PXK dang cho ho xac nhan) - khong browse duoc danh sach/lich
@@ -341,7 +342,7 @@ export function DatMuaLinhKienModule({
   });
   const loaiDonCounts = loaiDonCountsData ?? { mua: 0, cong_no: 0, tra_hang: 0 };
   // + View (2026-10-14, "la_view xem full các menu, đơn + phiếu"): chi doc, du lieu theo Khu vuc (scopePxkNguoiNhanHang).
-  const canXemPxkTab = canTacNghiep || canKho || canKeToan || isGiamSat || isFieldKtv || laMuaHang || laView;
+  const canXemPxkTab = canTacNghiep || canKho || canKeToan || isGiamSat || isFieldKtv || laMuaHang || laView || user?.vai_tro === "QC";
   // Badge "so luong ton" cho MOI muc StageMenu con lai (phan hoi 2026-09-11: "giống như tiêu đề
   // module 'Đặt mua linh kiện (19)' tất cả các menu đều có đếm số lượng tồn") - XAC NHAN voi nguoi
   // dung: dung dung 2 API dem-theo-trang-thai DA CO SAN cho dropdown loc cua tung tab (GET
