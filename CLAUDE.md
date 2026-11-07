@@ -586,7 +586,7 @@ tài khoản `vai_tro='QC'` tạo đơn CHO CHÍNH MÌNH (`canCreatePhieuDat` ba
 `FORBIDDEN_ROLE`), BẮT BUỘC có "Mã nhận hàng" kèm Mã MISA (`nguoiNhanChuaCoMaMisa` tính cả QC → `KTV_CHUA_CO_MA_MISA`; Admin tạo ở Quản lý
 người dùng › Nhân viên văn phòng › Mã nhận hàng). Menu thêm Phiếu xuất + Quỹ & chuyển tiền (`ROLE_MODULES.QC`, `canXemPxkTab`); quỹ = của chính
 mình (`phamViXem`), nộp tiền vào quỹ (`duocNopTien` + `coTheNopTien` / `NutNopQuyNoi`), thẻ "Đặt hàng hôm nay" ở Trang chủ. Chuyển tiền / xác
-nhận đã nhận / báo nhận thiếu vốn theo "người nhận hàng = mình" nên không phải sửa. QC vẫn xem toàn bộ đơn/phiếu như trước (scope null).
+nhận đã nhận / báo nhận thiếu vốn theo "người nhận hàng = mình" nên không phải sửa. QC vẫn xem toàn bộ đơn/phiếu như trước (scope null). v1.452: `canXemPxkTab` (dùng CHUNG cho `tabs[]`/`isValidView` và mục Sidebar) + `canXemDonMuaCongNo` gồm QC — trước đó `tabs[]` có điều kiện PXK riêng không gồm QC nên bấm "Phiếu xuất"/"Chờ KTV nhận" bị đẩy về Hàng trả.
 **Tự hủy đơn tự duyệt đã vào PXK** (chốt 2026-09-28, `lib/pxkTuHuy.ts`, migration `0036`): người tạo HOẶC KTV nhận
 hàng được Hủy đơn tự duyệt (log đầu tiên đã là "TN da duyet") đã tự gom vào PXK khi PXK còn "Dang tao phieu", Kế
 toán chưa duyệt chuyển tiền (KTV đã báo chuyển vẫn hủy được) và văn phòng CHƯA thao tác tay
