@@ -2543,5 +2543,10 @@ const tuDien: Record<string, string> = {
   "Chuyển đơn duy nhất của phiếu này sang 1 phiếu đang tạo khác của cùng người nhận — phiếu này không còn đơn sẽ tự hủy.": "Pindahkan satu-satunya pesanan slip ini ke slip draf lain dengan penerima yang sama — slip ini akan kosong dan batal otomatis.",
   "Đã ghép đơn vào phiếu {a} — phiếu {b} không còn đơn nên đã tự hủy": "Pesanan digabung ke slip {a} — slip {b} tidak punya pesanan lagi dan dibatalkan",
   "Đơn về trạng thái \"Chờ tạo phiếu\" — phiếu này không còn đơn sẽ tự hủy.": "Pesanan kembali ke \"Menunggu slip\" — slip ini akan kosong dan batal otomatis.",
+  "Không có phiếu nào khác của người nhận này nhận được thêm đơn (chỉ phiếu Đang tạo / Chờ mã MISA, cùng loại đề xuất).": "Tidak ada slip lain dari penerima ini yang bisa menerima pesanan (hanya slip Draf / Menunggu kode MISA dengan jenis permintaan sama).",
+  "Phiếu đang chờ Kế toán chỉ nhận đơn đã duyệt": "Slip yang menunggu Akuntansi hanya menerima pesanan yang disetujui",
+  "Thêm đơn vào phiếu này thì chứng từ MISA đã lập sẽ không còn khớp — Kế toán phải cập nhật lại chứng từ trên MISA. Nếu tiền phiếu không còn đủ, phiếu sẽ tự về \"Chờ mã HĐ\" để KTV chuyển bổ sung.": "Menambah pesanan ke slip ini membuat voucher MISA tidak cocok lagi — Akuntansi harus memperbaruinya di MISA. Jika pembayaran slip tidak lagi cukup, slip kembali ke \"Menunggu kode pesanan\" agar teknisi menambah transfer.",
+  "⚠ Phiếu {a} đã có Mã MISA {b}.": "⚠ Slip {a} sudah punya kode MISA {b}.",
+  "⚠ Đã có Mã MISA {a}": "⚠ Sudah ada kode MISA {a}",
 };
 export default tuDien;

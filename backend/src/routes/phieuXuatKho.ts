@@ -165,10 +165,13 @@ async function duocChuyenDonPxk(c: Context<{ Bindings: Env }>, pxkId: string): P
   return !!r;
 }
 
-// Phieu NHAN duoc don chuyen sang tu phieu `nguonId`: cung nguoi nhan + loai, con "Dang tao phieu", chua Ma MISA, Ke toan chua chot tien
-// (cung dieu kien tu gom bundleAutoApprovedIntoPxk - phieu da duyet tien thi KHONG nhan them).
+// Phieu NHAN duoc don chuyen sang tu phieu `nguonId`: cung nguoi nhan + loai + doi tac, con sua dong duoc (MO_SUA_DONG: "Dang tao phieu" /
+// "Cho ke toan" - cung dieu kien them don tay POST /:id/dong). Chot 2026-11-07 (v1.454, "cho phép ghép vào phiếu đã có mã misa (nhưng note cảnh
+// báo đó là phiếu đã có mã misa)"): BO dieu kien chua Ma MISA / Ke toan chua chot tien (truoc 2026-10-23 giong tu gom). Tien phieu dich tinh lai
+// bang taiTinhPxk nhu them don tay: du tien giu "Ke toan da duyet", thieu -> phieu "Cho ke toan" tu ve "Dang tao phieu" (Cho ma HD).
+// Phieu "Cho ke toan" chi nhan don "TN da duyet" (kiem tra rieng - DON_CHUA_DUYET_PHIEU_KE_TOAN).
 const PHIEU_NHAN_DUOC_SQL = `p.id <> s.id AND p.nguoi_nhan_hang = s.nguoi_nhan_hang AND p.loai_don = s.loai_don AND p.doi_tac_ma IS s.doi_tac_ma
-  AND p.trang_thai_hien_tai = 'Dang tao phieu' AND COALESCE(TRIM(p.ma_misa), '') = '' AND COALESCE(p.trang_thai_chuyen_tien, '') != 'TN da duyet'`;
+  AND p.trang_thai_hien_tai IN ('Dang tao phieu', 'Cho ke toan')`;
 
 // CHOT (phan hoi nguoi dung: "bỏ quyền tải file form misa" cho KTV/Trạm/CTV/Vệ tinh) - MISA la form
 // ke toan noi bo, khong lien quan nghiep vu hien truong. KTV/Trạm/CTV (la_ktv_dvbh) va Vệ tinh
@@ -1797,13 +1800,14 @@ phieuXuatKho.get("/:id/phieu-nhan-duoc", async (c) => {
   // ?don=<id don dang chuyen> - chi liet ke phieu CUNG nhom loai de xuat voi don (tach phieu theo loai de xuat, 2026-10-28).
   const donChuyen = c.req.query("don")?.trim() || null;
   const { results } = await c.env.DB.prepare(
-    `SELECT p.id, p.ma_xuat_kho, p.so_tien_can_chuyen, p.da_thanh_toan, p.trang_thai_chuyen_tien, p.ngay_tao, p.khu_vuc_chon,
+    `SELECT p.id, p.ma_xuat_kho, p.ma_misa, p.trang_thai_hien_tai, p.so_tien_can_chuyen, p.da_thanh_toan, p.trang_thai_chuyen_tien, p.ngay_tao, p.khu_vuc_chon,
        (SELECT COUNT(*) FROM phieu_xuat_kho_dong d WHERE d.phieu_xuat_kho_id = p.id) AS so_don
      FROM phieu_xuat_kho p JOIN phieu_xuat_kho s ON s.id = ?
      WHERE ${PHIEU_NHAN_DUOC_SQL}
-       ${donChuyen ? `AND ${phieuCungNhomLdeSql("p.id", `(SELECT ${nhomLdeSql("dc.loai_de_xuat")} FROM dat_don_hang dc WHERE dc.id = ?)`)}` : ""}
-     ORDER BY p.ngay_tao DESC LIMIT 50`,
-  ).bind(id, ...(donChuyen ? [donChuyen] : [])).all();
+       ${donChuyen ? `AND ${phieuCungNhomLdeSql("p.id", `(SELECT ${nhomLdeSql("dc.loai_de_xuat")} FROM dat_don_hang dc WHERE dc.id = ?)`)}
+         AND (p.trang_thai_hien_tai = 'Dang tao phieu' OR (SELECT dc2.trang_thai_hien_tai FROM dat_don_hang dc2 WHERE dc2.id = ?) = 'TN da duyet')` : ""}
+     ORDER BY CASE WHEN COALESCE(TRIM(p.ma_misa), '') = '' THEN 0 ELSE 1 END, p.ngay_tao DESC LIMIT 50`,
+  ).bind(id, ...(donChuyen ? [donChuyen, donChuyen] : [])).all();
   return c.json({ rows: results });
 });
 
@@ -1841,15 +1845,21 @@ phieuXuatKho.post("/:id/dong/:donHangId/chuyen", async (c) => {
 
   let dichId: string;
   let dichMa: string;
+  let dichMisa: string | null = null;
   const taoMoi = dich === "moi";
   if (taoMoi) {
     dichId = await nextSequentialId(c.env.DB, "phieu_xuat_kho", pxkIdPrefix(pxk.loai_don), 6);
     dichMa = dichId;
   } else {
     const p = await c.env.DB.prepare(
-      `SELECT p.id, p.ma_xuat_kho FROM phieu_xuat_kho p JOIN phieu_xuat_kho s ON s.id = ? WHERE p.id = ? AND ${PHIEU_NHAN_DUOC_SQL}`,
-    ).bind(id, dich).first<{ id: string; ma_xuat_kho: string }>();
+      `SELECT p.id, p.ma_xuat_kho, p.ma_misa, p.trang_thai_hien_tai AS trang_thai FROM phieu_xuat_kho p JOIN phieu_xuat_kho s ON s.id = ? WHERE p.id = ? AND ${PHIEU_NHAN_DUOC_SQL}`,
+    ).bind(id, dich).first<{ id: string; ma_xuat_kho: string; ma_misa: string | null; trang_thai: string }>();
     if (!p) return c.json({ error: "PHIEU_DICH_KHONG_HOP_LE" }, 409);
+    if (p.trang_thai === "Cho ke toan") {
+      const dd = await c.env.DB.prepare("SELECT trang_thai_hien_tai AS tt FROM dat_don_hang WHERE id = ?").bind(donHangId).first<{ tt: string | null }>();
+      if (dd?.tt !== "TN da duyet") return c.json({ error: "DON_CHUA_DUYET_PHIEU_KE_TOAN" }, 409);
+    }
+    dichMisa = p.ma_misa?.trim() || null;
     // Tach phieu theo LOAI DE XUAT (2026-10-28): phieu dich phai cung nhom loai de xuat voi don.
     const cungNhom = await c.env.DB.prepare(
       `SELECT 1 AS ok WHERE ${phieuCungNhomLdeSql("?", `(SELECT ${nhomLdeSql("dc.loai_de_xuat")} FROM dat_don_hang dc WHERE dc.id = ?)`)}`,
@@ -1884,7 +1894,8 @@ phieuXuatKho.post("/:id/dong/:donHangId/chuyen", async (c) => {
   } else {
     statements.push(
       c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
-        dichId, "Da them don vao phieu", user.email, now, `Nhận đơn ${donHangId} (${don.ma_lk}) chuyển từ phiếu ${id}`,
+        dichId, "Da them don vao phieu", user.email, now,
+        `Nhận đơn ${donHangId} (${don.ma_lk}) chuyển từ phiếu ${id}${dichMisa ? ` — phiếu đã có Mã MISA ${dichMisa}, Kế toán cần cập nhật chứng từ MISA` : ""}`,
       ),
     );
   }

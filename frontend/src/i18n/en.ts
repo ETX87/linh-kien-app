@@ -2543,5 +2543,10 @@ const tuDien: Record<string, string> = {
   "Chuyển đơn duy nhất của phiếu này sang 1 phiếu đang tạo khác của cùng người nhận — phiếu này không còn đơn sẽ tự hủy.": "Move this slip's only order to another draft slip of the same recipient — this slip will then be empty and cancel itself.",
   "Đã ghép đơn vào phiếu {a} — phiếu {b} không còn đơn nên đã tự hủy": "Order merged into slip {a} — slip {b} has no orders left and was cancelled",
   "Đơn về trạng thái \"Chờ tạo phiếu\" — phiếu này không còn đơn sẽ tự hủy.": "The order returns to \"Awaiting slip\" — this slip will then be empty and cancel itself.",
+  "Không có phiếu nào khác của người nhận này nhận được thêm đơn (chỉ phiếu Đang tạo / Chờ mã MISA, cùng loại đề xuất).": "No other slip of this recipient can take more orders (only Draft / Awaiting MISA code slips with the same request type).",
+  "Phiếu đang chờ Kế toán chỉ nhận đơn đã duyệt": "A slip awaiting Accounting only accepts approved orders",
+  "Thêm đơn vào phiếu này thì chứng từ MISA đã lập sẽ không còn khớp — Kế toán phải cập nhật lại chứng từ trên MISA. Nếu tiền phiếu không còn đủ, phiếu sẽ tự về \"Chờ mã HĐ\" để KTV chuyển bổ sung.": "Adding an order to this slip makes the existing MISA voucher out of date — Accounting must update it in MISA. If the slip's payment is no longer enough, the slip returns to \"Awaiting order code\" for the technician to top up.",
+  "⚠ Phiếu {a} đã có Mã MISA {b}.": "⚠ Slip {a} already has MISA code {b}.",
+  "⚠ Đã có Mã MISA {a}": "⚠ Has MISA code {a}",
 };
 export default tuDien;

@@ -806,12 +806,15 @@ function ChuyenDonModal({
   const { data: dsPhieu, isLoading } = useQuery({
     queryKey: ["pxk-phieu-nhan-duoc", pxkId, don.id],
     queryFn: () =>
-      api.get<{ rows: { id: string; ma_xuat_kho: string | null; so_tien_can_chuyen: number | null; da_thanh_toan: number | null; ngay_tao: string; so_don: number }[] }>(
+      api.get<{ rows: { id: string; ma_xuat_kho: string | null; ma_misa: string | null; trang_thai_hien_tai: string | null; so_tien_can_chuyen: number | null; da_thanh_toan: number | null; ngay_tao: string; so_don: number }[] }>(
         `/phieu-xuat-kho/${pxkId}/phieu-nhan-duoc?don=${encodeURIComponent(don.id)}`,
       ),
     enabled: cach === "co_san",
   });
   const giuTien = canHoiTien && thanhToan === "da";
+  // v1.454 (2026-11-07): ghep duoc vao phieu DA CO Ma MISA / dang "Chờ mã MISA" - canh bao ro, Ke toan phai sua chung tu MISA.
+  const phieuDichChon = cach === "co_san" ? dsPhieu?.rows.find((p) => p.id === phieuChon) : undefined;
+  const dichCoMisa = !!phieuDichChon?.ma_misa?.trim();
   const mutation = useMutation({
     mutationFn: () =>
       api.post<{ phieu_dich: string; tao_moi: boolean; tien_mang_theo: number; nguon_da_huy?: boolean }>(`/phieu-xuat-kho/${pxkId}/dong/${don.id}/chuyen`, {
@@ -830,7 +833,13 @@ function ChuyenDonModal({
     },
     onError: (err) => {
       const code = err instanceof ApiError ? err.code : undefined;
-      addToast(code === "PHIEU_DICH_KHONG_HOP_LE" ? t("Phiếu được chọn không còn nhận thêm đơn — chọn phiếu khác") : t("Lỗi: ") + describeApiError(err));
+      addToast(
+        code === "PHIEU_DICH_KHONG_HOP_LE"
+          ? t("Phiếu được chọn không còn nhận thêm đơn — chọn phiếu khác")
+          : code === "DON_CHUA_DUYET_PHIEU_KE_TOAN"
+            ? t("Phiếu đang chờ Kế toán chỉ nhận đơn đã duyệt")
+            : t("Lỗi: ") + describeApiError(err),
+      );
     },
   });
   const thieuTien = canHoiTien && !thanhToan;
@@ -877,13 +886,18 @@ function ChuyenDonModal({
               <div className="text-[12px] text-[var(--color-text-secondary)]">{t("Đang tải…")}</div>
             ) : (dsPhieu?.rows.length ?? 0) === 0 ? (
               <div className="text-[12px] text-[var(--color-text-secondary)]">
-                {t("Không có phiếu đang tạo nào khác của người nhận này nhận được thêm đơn (phiếu đã chốt tiền / có Mã MISA không nhận).")}
+                {t("Không có phiếu nào khác của người nhận này nhận được thêm đơn (chỉ phiếu Đang tạo / Chờ mã MISA, cùng loại đề xuất).")}
               </div>
             ) : (
               dsPhieu!.rows.map((p) => (
                 <label key={p.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-[var(--surface-100)]">
                   <input type="radio" checked={phieuChon === p.id} onChange={() => setPhieuChon(p.id)} />
                   <span className="font-semibold">{p.ma_xuat_kho ?? p.id}</span>
+                  {p.ma_misa?.trim() ? (
+                    <Badge tone="warning">{t("⚠ Đã có Mã MISA {a}", { a: p.ma_misa })}</Badge>
+                  ) : p.trang_thai_hien_tai === "Cho ke toan" ? (
+                    <Badge tone="warning">{t("Chờ mã MISA")}</Badge>
+                  ) : null}
                   <span className="text-[12px] text-[var(--color-text-secondary)]">
                     {t("{a} đơn", { a: p.so_don })} · {fmtDateTime(p.ngay_tao)} · {t("Tổng")} <Money>{fmtVND(p.so_tien_can_chuyen ?? 0)}</Money>
                     {(p.da_thanh_toan ?? 0) > 0 && <> · {t("đã trả")} <Money>{fmtVND(p.da_thanh_toan ?? 0)}</Money></>}
@@ -891,6 +905,12 @@ function ChuyenDonModal({
                 </label>
               ))
             )}
+          </div>
+        )}
+        {dichCoMisa && (
+          <div className="ml-6 rounded-lg border border-[var(--color-warning)] bg-[var(--color-warning-soft)] p-2.5 text-[12.5px]">
+            <b>{t("⚠ Phiếu {a} đã có Mã MISA {b}.", { a: phieuDichChon!.ma_xuat_kho ?? phieuDichChon!.id, b: phieuDichChon!.ma_misa ?? "" })}</b>{" "}
+            {t("Thêm đơn vào phiếu này thì chứng từ MISA đã lập sẽ không còn khớp — Kế toán phải cập nhật lại chứng từ trên MISA. Nếu tiền phiếu không còn đủ, phiếu sẽ tự về \"Chờ mã HĐ\" để KTV chuyển bổ sung.")}
           </div>
         )}
         {choBoKhoiPhieu && luaChon(
