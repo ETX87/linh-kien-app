@@ -5,19 +5,17 @@ import { Btn } from "../ui/Btn";
 import { Badge, type Tone } from "../x/Badge";
 import { useToast } from "../ui/Toast";
 import { useIsMobile } from "../../hooks/useMediaQuery";
-import { amBao } from "../../lib/amBao";
 import { usePushNotifications } from "../../hooks/usePushNotifications";
 import { pushOverlayClose } from "../../lib/overlayStack";
 import { fmtDateTime } from "../../types";
 import { t, dichSau } from "../../i18n";
-import { LinhKienPicker } from "../../modules/datMuaLinhKien/LinhKienPicker";
 import { useLkAndLdeCache, describeApiError } from "../../modules/datMuaLinhKien/helpers";
 import { FileButton } from "../ui/FileButton";
 import type { LkDanhMucRow } from "../../modules/datMuaLinhKien/types";
 import { useTimMaLk, TraLoiLinhKien } from "./LkTuDong";
-import { HoiNhanh, type GoiYHoi } from "./HoiNhanh";
+import { HoiNhanh, GhiChuTuDong } from "./HoiNhanh";
 import {
-  AnhLuoi, ChonHuongDanModal, GoiYKhiGo, HuongDanChiTiet, HuongDanDanhSach, HuongDanForm, HuongDanThe, useHuongDan, useTaiAnh,
+  AnhLuoi, ChonHuongDanModal, HuongDanChiTiet, HuongDanDanhSach, HuongDanForm, HuongDanThe, useHuongDan, useTaiAnh,
   type HuongDan, type HuongDanNhap,
 } from "./HuongDan";
 
@@ -74,7 +72,7 @@ interface ChiTiet {
   phia: "hoi" | "xu_ly";
   quyen: { gui_tin: boolean; tiep_nhan: boolean; da_xu_ly: boolean; tu_choi: boolean; huy_bo: boolean };
 }
-type Man = { ten: "ds" } | { ten: "moi"; loai?: string; maLk?: string; maDon?: string; noiDung?: string } | { ten: "ct"; id: string } | { ten: "hd"; hd: HuongDan };
+type Man = { ten: "ds" } | { ten: "ct"; id: string } | { ten: "hd"; hd: HuongDan };
 const TOI_DA_ANH_TIN = 5;
 
 const O_NHAP = "focus-ring w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-2 text-base sm:text-sm";
@@ -95,60 +93,6 @@ interface DemHoiDap {
   chua_doc: number;
   cho_tiep_nhan: number;
   moi_nhat?: MoiNhat | null;
-}
-
-// Canh bao YEU CAU MOI cho phia Mua hang (phan hoi 2026-10-18 "khi có yêu cầu chat mới đẩy thông báo về cho nhân viên mua hàng"): so moc
-// `moi_nhat.luc` cua /hoi-dap/dem giua 2 lan hoi - moc moi hon = co cau hoi / tin nhan moi -> popup noi canh icon chat + am bao + lam moi chuong;
-// tab dang an va thiet bi CHUA dang ky push (co push thi he thong da hien thong bao tu backend) -> them thong bao he thong cua trinh duyet.
-// Lan tai dau: con ticket cho thi hien popup nhac (khong am bao).
-function useCanhBaoYeuCauMoi(dem: DemHoiDap | undefined, dangMo: boolean) {
-  const qc = useQueryClient();
-  const push = usePushNotifications();
-  const moc = useRef<string | null>(null);
-  const [tin, setTin] = useState<MoiNhat | null>(null);
-  const m = dem?.la_xu_ly ? dem.moi_nhat ?? null : null;
-  useEffect(() => {
-    if (!dem?.la_xu_ly) return;
-    const lanDau = moc.current === null;
-    if (!m) {
-      if (lanDau) moc.current = "";
-      setTin(null);
-      return;
-    }
-    if (!lanDau && m.luc <= moc.current!) return;
-    moc.current = m.luc;
-    if (lanDau) {
-      if (!dangMo && m.moi) setTin(m);
-      return;
-    }
-    qc.invalidateQueries({ queryKey: ["hoi-dap-ds"] });
-    qc.invalidateQueries({ queryKey: ["notifications-count"] });
-    if (dangMo) return;
-    setTin(m);
-    amBao();
-    if (document.hidden && !push.subscribed && "Notification" in window && Notification.permission === "granted") {
-      try {
-        const n = new Notification(m.moi ? t("💬 Câu hỏi mới từ KTV") : t("💬 Tin nhắn mới từ KTV"), {
-          body: `${m.id} · ${m.ten_nguoi_hoi}: ${m.tieu_de}`,
-          icon: "/icon-192.png",
-          tag: `hoi-dap-${m.id}`,
-        });
-        n.onclick = () => {
-          window.focus();
-          window.dispatchEvent(new CustomEvent("mo-hoi-dap", { detail: m.id }));
-          n.close();
-        };
-      } catch {
-        /* mot so trinh duyet mobile chi cho thong bao qua service worker */
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dem?.la_xu_ly, m?.id, m?.luc]);
-  useEffect(() => {
-    if (dangMo) setTin(null);
-  }, [dangMo]);
-  const tong = (dem?.cho_tiep_nhan ?? 0) + (dem?.chua_doc ?? 0);
-  return { tin, them: tin ? Math.max(0, tong - 1) : 0, tat: () => setTin(null) };
 }
 
 // Nhac bat Web Push tren thiet bi nay cho phia Mua hang - khong bat thi khong nhan duoc thong bao khi dong app (chi con chuong + popup khi dang mo).
@@ -176,26 +120,17 @@ export function BatPushHoiDap() {
   );
 }
 
+// TAT CHAT NGUOI THAT (chot 2026-11-07, v1.449 - "tắt việc chat với người thât, chỉ để lại tính năng tự động phản hồi hướng dẫn theo các vấn đề
+// có sẵn. Ghi rõ đây là tài liệu hướng dẫn tự động, các thông tin thắc mắc linh kiện vui lòng trao đổi trên ứng dụng 'Hỏi đáp linh kiện'"):
+// khung chi con "Hỏi nhanh" + "Hướng dẫn" cho MOI nguoi, khong tao cau hoi moi / nhan tin (backend POST /hoi-dap, /:id/tin tra 410 CHAT_DA_TAT).
+// Man "ct" giu lai de Mua hang / Admin xem lich su ticket cu (menu Hoi dap, chuong thong bao) - chi doc, dong ticket cu.
 export function HoiDapWidget() {
   const isMobile = useIsMobile();
   const qc = useQueryClient();
   const [mo, setMo] = useState(false);
   const [man, setMan] = useState<Man>({ ten: "ds" });
 
-  const [laXuLyTruoc, setLaXuLyTruoc] = useState(false);
-  const { data: dem } = useQuery({
-    queryKey: ["hoi-dap-dem"],
-    queryFn: () => api.get<DemHoiDap>("/hoi-dap/dem"),
-    // Phia Mua hang hoi 20s/lan KE CA khi tab an (phan hoi 2026-10-18 "khi có yêu cầu chat mới đẩy thông báo về cho nhân viên mua hàng")
-    // de canh bao noi kip thoi; nguoi hoi giu 60s.
-    refetchInterval: mo || laXuLyTruoc ? 20_000 : 60_000,
-    refetchIntervalInBackground: laXuLyTruoc,
-  });
-  useEffect(() => setLaXuLyTruoc(!!dem?.la_xu_ly), [dem?.la_xu_ly]);
-  const soBadge = (dem?.chua_doc ?? 0) + (dem?.cho_tiep_nhan ?? 0);
-  const canhBao = useCanhBaoYeuCauMoi(dem, mo);
-
-  // Link push "/?hoi_dap=<id>" (backend baoTin) - mo dung ticket roi xoa tham so khoi thanh dia chi.
+  // Link push cu "/?hoi_dap=<id>" - mo dung ticket roi xoa tham so khoi thanh dia chi.
   useEffect(() => {
     const u = new URL(window.location.href);
     const id = u.searchParams.get("hoi_dap");
@@ -206,7 +141,7 @@ export function HoiDapWidget() {
     setMan({ ten: "ct", id });
   }, []);
 
-  // Chuong thong bao (link_type 'hoi_dap') mo dung ticket.
+  // Chuong thong bao (link_type 'hoi_dap') / menu Hoi dap mo dung ticket cu.
   useEffect(() => {
     const nghe = (e: Event) => {
       const id = (e as CustomEvent<string>).detail;
@@ -230,50 +165,12 @@ export function HoiDapWidget() {
 
   return (
     <>
-      {!mo && canhBao.tin && (
-        <div
-          role="alert"
-          className={`toast-in fixed z-40 w-[300px] max-w-[calc(100vw-1.5rem)] rounded-[var(--radius-card)] border border-[var(--color-border)] border-l-4 border-l-[var(--color-warning)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-raise)] ${
-            isMobile ? "right-3 bottom-[calc(13rem+env(safe-area-inset-bottom))]" : "right-5 bottom-[11.5rem]"
-          }`}
-        >
-          <div className="flex items-start gap-2">
-            <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-bold text-[var(--color-text)]">
-                {canhBao.tin.moi ? t("💬 Câu hỏi mới từ KTV") : t("💬 Tin nhắn mới từ KTV")}
-                {canhBao.them > 0 && <span className="ml-1 font-semibold text-[var(--color-text-secondary)]">{t("(+{n} khác)", { n: canhBao.them })}</span>}
-              </div>
-              <div className="mt-0.5 truncate text-[12px] text-[var(--color-text-secondary)]">
-                <span className="font-mono">{canhBao.tin.id}</span> · {canhBao.tin.ten_nguoi_hoi}
-              </div>
-              <div className="mt-1 line-clamp-2 text-[13px] text-[var(--color-text)]">{canhBao.tin.tieu_de}</div>
-            </div>
-            <button type="button" onClick={canhBao.tat} aria-label={t("Đóng")} className="focus-ring -mr-1 -mt-1 rounded px-1.5 text-[var(--color-text-faint)] hover:text-[var(--color-text)]">
-              ✕
-            </button>
-          </div>
-          <div className="mt-2 flex justify-end">
-            <Btn
-              size="sm"
-              variant="primary"
-              onClick={() => {
-                const id = canhBao.tin!.id;
-                canhBao.tat();
-                setMo(true);
-                setMan({ ten: "ct", id });
-              }}
-            >
-              {t("Mở trả lời")}
-            </Btn>
-          </div>
-        </div>
-      )}
       {!mo && (
         <button
           type="button"
           onClick={() => setMo(true)}
-          title={t("Hỏi đáp mua hàng")}
-          aria-label={t("Hỏi đáp mua hàng")}
+          title={t("Hướng dẫn tự động")}
+          aria-label={t("Hướng dẫn tự động")}
           className={`focus-ring fixed z-40 grid h-[52px] w-[52px] place-items-center rounded-full bg-[var(--color-primary)] text-white shadow-[var(--shadow-raise)] transition-transform hover:scale-105 hover:bg-[var(--color-primary-hover)] ${
             isMobile ? "right-3 bottom-[calc(9rem+env(safe-area-inset-bottom))]" : "right-5 bottom-28"
           }`}
@@ -282,63 +179,27 @@ export function HoiDapWidget() {
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             <path d="M8 9h8M8 13h5" />
           </svg>
-          {soBadge > 0 && (
-            <span className="tabular absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[var(--color-danger)] px-1 text-[11px] font-bold text-white ring-2 ring-[var(--color-surface)]">
-              {soBadge > 99 ? "99+" : soBadge}
-            </span>
-          )}
         </button>
       )}
       {mo && (
         <div
           role="dialog"
-          aria-label={t("Hỏi đáp mua hàng")}
+          aria-label={t("Hướng dẫn tự động")}
           className={`fixed z-50 flex flex-col overflow-hidden bg-[var(--color-surface)] ${
             isMobile
               ? "inset-0 h-[100dvh]"
               : "right-5 bottom-5 h-[min(620px,calc(100vh-2.5rem))] w-[400px] rounded-[var(--radius-card)] border border-[var(--color-border)] shadow-[var(--shadow-raise)]"
           }`}
         >
-          {man.ten === "ds" && (
-            <DanhSach
-              laXuLy={!!dem?.la_xu_ly}
-              coTinMoi={(dem?.chua_doc ?? 0) > 0}
-              onDong={() => setMo(false)}
-              onMo={(id) => setMan({ ten: "ct", id })}
-              onMoi={() => setMan({ ten: "moi" })}
-              onHoiMuaHang={(g: GoiYHoi) => setMan({ ten: "moi", loai: g.loai, maLk: g.maLk, noiDung: g.noiDung })}
-              onXemHd={(hd) => setMan({ ten: "hd", hd })}
-            />
-          )}
+          {man.ten === "ds" && <DanhSach onDong={() => setMo(false)} onXemHd={(hd) => setMan({ ten: "hd", hd })} />}
           {man.ten === "hd" && (
             <>
               <DauKhung tieuDe={t("Hướng dẫn")} onQuay={() => setMan({ ten: "ds" })} onDong={() => setMo(false)} />
-              <HuongDanChiTiet
-                hd={man.hd}
-                onDaGiaiDap={() => setMan({ ten: "ds" })}
-                onVanHoi={() => setMan({ ten: "moi" })}
-              />
+              <HuongDanChiTiet hd={man.hd} onDaGiaiDap={() => setMan({ ten: "ds" })} />
             </>
           )}
-          {man.ten === "moi" && (
-            <CauHoiMoi
-              goiY={man}
-              onQuay={() => setMan({ ten: "ds" })}
-              onDong={() => setMo(false)}
-              onXong={(id) => {
-                lamMoi();
-                setMan({ ten: "ct", id });
-              }}
-            />
-          )}
           {man.ten === "ct" && (
-            <ChiTietHoiDap
-              id={man.id}
-              onQuay={() => setMan({ ten: "ds" })}
-              onDong={() => setMo(false)}
-              onHoiTiep={(tk) => setMan({ ten: "moi", loai: tk.loai, maLk: tk.ma_lk ?? undefined, maDon: tk.ma_don ?? undefined })}
-              onDoi={lamMoi}
-            />
+            <ChiTietHoiDap id={man.id} onQuay={() => setMan({ ten: "ds" })} onDong={() => setMo(false)} onDoi={lamMoi} />
           )}
         </div>
       )}
@@ -365,36 +226,17 @@ function DauKhung({ tieuDe, phu, onQuay, onDong }: { tieuDe: ReactNode; phu?: Re
   );
 }
 
-function DanhSach({
-  laXuLy, coTinMoi, onDong, onMo, onMoi, onHoiMuaHang, onXemHd,
-}: { laXuLy: boolean; coTinMoi: boolean; onDong: () => void; onMo: (id: string) => void; onMoi: () => void; onHoiMuaHang: (g: GoiYHoi) => void; onXemHd: (hd: HuongDan) => void }) {
-  // Nguoi hoi mo khung -> tab "Hướng dẫn" truoc (tru khi co tin tra loi chua doc); khong co huong dan nao thi an tab.
+function DanhSach({ onDong, onXemHd }: { onDong: () => void; onXemHd: (hd: HuongDan) => void }) {
   const { data: hdData } = useHuongDan();
   const coHd = (hdData?.rows.length ?? 0) > 0;
-  // Nguoi hoi: tab "Hỏi nhanh" (HoiNhanh.tsx - hoi dap dang hoi thoai) mo truoc, tru khi co tin tra loi chua doc.
-  const [tab, setTab] = useState<"nhanh" | "hd" | "hoi">(laXuLy || coTinMoi ? "hoi" : "nhanh");
-  const xemHd = coHd && tab === "hd";
-  const xemNhanh = !laXuLy && tab === "nhanh";
-  const tabs = laXuLy
-    ? coHd ? ([["hd", t("📘 Hướng dẫn")], ["hoi", t("💬 Câu hỏi")]] as const) : null
-    : ([["nhanh", t("💬 Hỏi nhanh")], ...(coHd ? ([["hd", t("📘 Hướng dẫn")]] as const) : []), ["hoi", t("🗂 Đã hỏi")]] as const);
-  const [loc, setLoc] = useState("__MO__");
-  const [q, setQ] = useState("");
-  const [qGui, setQGui] = useState("");
-  useEffect(() => {
-    const h = setTimeout(() => setQGui(q.trim()), 400);
-    return () => clearTimeout(h);
-  }, [q]);
-  const { data, isLoading } = useQuery({
-    queryKey: ["hoi-dap-ds", loc, qGui],
-    queryFn: () => api.get<{ la_xu_ly: boolean; rows: HoiDapRow[] }>(`/hoi-dap?trang_thai=${encodeURIComponent(loc)}&q=${encodeURIComponent(qGui)}`),
-    refetchInterval: 20_000,
-  });
-  const rows = data?.rows ?? [];
-  const locs = laXuLy ? LOC_XU_LY : LOC_XU_LY.filter((l) => l.v === "__MO__" || l.v === "");
+  const [tab, setTab] = useState<"nhanh" | "hd">("nhanh");
+  const tabs = coHd ? ([["nhanh", t("💬 Hỏi nhanh")], ["hd", t("📘 Hướng dẫn")]] as const) : null;
   return (
     <>
-      <DauKhung tieuDe={t("Hỏi đáp mua hàng")} phu={laXuLy ? t("Giải đáp câu hỏi của KTV về giá, ngày hàng về…") : t("Hỏi nhân viên mua hàng về giá, ngày hàng về…")} onDong={onDong} />
+      <DauKhung tieuDe={t("Hướng dẫn tự động")} phu={t("Tra cứu nhanh cách dùng app, giá, tồn kho linh kiện…")} onDong={onDong} />
+      <div className="shrink-0 border-b border-[var(--color-border)] px-3 py-2">
+        <GhiChuTuDong />
+      </div>
       {tabs && (
         <div className="flex shrink-0 border-b border-[var(--color-border)]">
           {tabs.map(([k, nhan]) => (
@@ -405,177 +247,24 @@ function DanhSach({
               className={`focus-ring flex-1 border-b-2 px-3 py-2 text-[13px] font-semibold ${tab === k ? "border-[var(--color-primary)] text-[var(--color-primary-dark)]" : "border-transparent text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"}`}
             >
               {nhan}
-              {k === "hoi" && coTinMoi && <span className="ml-1.5 inline-block h-2 w-2 rounded-full bg-[var(--color-danger)] align-middle" />}
             </button>
           ))}
         </div>
       )}
-      {xemNhanh ? (
-        <HoiNhanh onHoiMuaHang={onHoiMuaHang} onXemCauHoi={() => setTab("hoi")} />
-      ) : xemHd ? (
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+      {coHd && tab === "hd" ? (
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <HuongDanDanhSach onMo={onXemHd} />
         </div>
       ) : (
-      <>
-      <div className="shrink-0 space-y-2 border-b border-[var(--color-border)] px-3 py-2">
-        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-          {locs.map((l) => (
-            <button key={l.v} type="button" onClick={() => setLoc(l.v)} className={`filter-tab shrink-0 ${loc === l.v ? "active" : ""}`}>
-              {t(l.label)}
-            </button>
-          ))}
-        </div>
-        {laXuLy && <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Tìm mã HD, mã LK, mã đơn, nội dung…")} className={O_NHAP} />}
-        {laXuLy && <BatPushHoiDap />}
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {isLoading ? (
-          <div className="py-8 text-center text-sm text-[var(--color-text-secondary)]">{t("Đang tải...")}</div>
-        ) : rows.length === 0 ? (
-          <div className="px-6 py-10 text-center text-sm text-[var(--color-text-secondary)]">
-            {laXuLy ? t("Không có câu hỏi nào.") : t("Bạn chưa có câu hỏi nào. Bấm \"Câu hỏi mới\" để hỏi nhân viên mua hàng.")}
-          </div>
-        ) : (
-          rows.map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => onMo(r.id)}
-              className="focus-ring block w-full border-b border-[var(--color-border-soft)] px-3 py-2.5 text-left hover:bg-[var(--color-surface-soft)]"
-            >
-              <div className="flex items-center gap-2">
-                {r.chua_doc && <span aria-label={t("Tin mới")} className="h-2 w-2 shrink-0 rounded-full bg-[var(--color-danger)]" />}
-                <span className="font-mono text-[12px] font-semibold text-[var(--color-primary-dark)]">{r.id}</span>
-                <span className="truncate text-[11.5px] text-[var(--color-text-secondary)]">{t(LOAI[r.loai] ?? r.loai)}{r.ma_lk ? ` · ${r.ma_lk}` : ""}</span>
-                <span className="ml-auto shrink-0"><TtBadge tt={r.trang_thai} /></span>
-              </div>
-              <div className={`mt-1 truncate text-[13px] ${r.chua_doc ? "font-semibold text-[var(--color-text)]" : "text-[var(--color-text-body)]"}`}>{r.tieu_de}</div>
-              <div className="mt-0.5 flex gap-2 truncate text-[11px] text-[var(--color-text-faint)]">
-                {laXuLy && <span className="truncate">{r.ten_nguoi_hoi}</span>}
-                <span className="ml-auto shrink-0">{fmtDateTime(r.tin_cuoi_luc)}</span>
-              </div>
-            </button>
-          ))
-        )}
-      </div>
-      </>
+        <HoiNhanh />
       )}
-      <div className="shrink-0 border-t border-[var(--color-border)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-        <Btn className="min-h-10 w-full" onClick={onMoi}>{t("＋ Câu hỏi mới")}</Btn>
-      </div>
-    </>
-  );
-}
-
-function CauHoiMoi({
-  goiY, onQuay, onDong, onXong,
-}: { goiY: { loai?: string; maLk?: string; maDon?: string; noiDung?: string }; onQuay: () => void; onDong: () => void; onXong: (id: string) => void }) {
-  const toast = useToast();
-  const [loai, setLoai] = useState(goiY.loai ?? "hoi_gia");
-  const [maLk, setMaLk] = useState(goiY.maLk ?? "");
-  const [maDon, setMaDon] = useState(goiY.maDon ?? "");
-  const [noiDung, setNoiDung] = useState(goiY.noiDung ?? "");
-  const [anh, setAnh] = useState<string[]>([]);
-  // Xem huong dan goi y NGAY TRONG form (giu nguyen noi dung dang soan) - "Vẫn cần hỏi" quay lai form.
-  const [xemHd, setXemHd] = useState<HuongDan | null>(null);
-  const { tai, dangTai } = useTaiAnh("/hoi-dap/anh");
-  const { danhMuc } = useLkAndLdeCache(true);
-  const m = useMutation({
-    mutationFn: () =>
-      api.post<{ id: string; tu_dong?: number }>("/hoi-dap", {
-        loai, ma_lk: maLk || undefined, ma_don: maDon.trim() || undefined, noi_dung: noiDung.trim(), anh: anh.length ? anh : undefined,
-      }),
-    onSuccess: (r) => {
-      toast(
-        r.tu_dong
-          ? t("Đã gửi câu hỏi {a} — xem ngay hướng dẫn trả lời tự động bên dưới", { a: r.id })
-          : t("Đã gửi câu hỏi {a} — chờ nhân viên mua hàng tiếp nhận", { a: r.id }),
-      );
-      onXong(r.id);
-    },
-    onError: (e) => toast(t("Lỗi: ") + describeApiError(e)),
-  });
-  if (xemHd) {
-    return (
-      <>
-        <DauKhung tieuDe={t("Hướng dẫn")} onQuay={() => setXemHd(null)} onDong={onDong} />
-        <HuongDanChiTiet
-          hd={xemHd}
-          onDaGiaiDap={() => {
-            toast(t("Rất vui vì hướng dẫn đã giúp được bạn"));
-            onQuay();
-          }}
-          onVanHoi={() => setXemHd(null)}
-        />
-      </>
-    );
-  }
-  return (
-    <>
-      <DauKhung tieuDe={t("Câu hỏi mới")} onQuay={onQuay} onDong={onDong} />
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-3 text-sm">
-        <div>
-          <div className="mb-1 text-xs font-semibold text-[var(--color-text-body)]">{t("Bạn muốn hỏi")}</div>
-          <div className="flex flex-wrap gap-1.5">
-            {Object.entries(LOAI).map(([k, v]) => (
-              <button key={k} type="button" onClick={() => setLoai(k)} className={`filter-tab ${loai === k ? "active" : ""}`}>
-                {t(v)}
-              </button>
-            ))}
-          </div>
-        </div>
-        <label className="block">
-          <span className="mb-1 block text-xs font-semibold text-[var(--color-text-body)]">{t("Linh kiện (nếu có)")}</span>
-          <LinhKienPicker value={maLk} onChange={setMaLk} options={danhMuc} ghiLichSu={false} />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-xs font-semibold text-[var(--color-text-body)]">{t("Mã đơn / mã phiếu (nếu có)")}</span>
-          <input value={maDon} onChange={(e) => setMaDon(e.target.value)} placeholder="DDH-…, PMH-…" className={O_NHAP} />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-xs font-semibold text-[var(--color-text-body)]">{t("Nội dung câu hỏi *")}</span>
-          <textarea
-            rows={5}
-            value={noiDung}
-            onChange={(e) => setNoiDung(e.target.value)}
-            maxLength={2000}
-            placeholder={loai === "hoi_ngay_ve" ? t("VD: Linh kiện này khi nào kho có hàng?") : loai === "hoi_gia" ? t("VD: Giá KTV của linh kiện này là bao nhiêu?") : ""}
-            className={`${O_NHAP} resize-none`}
-          />
-        </label>
-        <GoiYKhiGo cauHoi={noiDung} onMo={setXemHd} />
-        <div>
-          <div className="mb-1 flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold text-[var(--color-text-body)]">{t("Ảnh đính kèm ({n}/{m})", { n: anh.length, m: TOI_DA_ANH_TIN })}</span>
-            <FileButton
-              multiple
-              accept="image/*"
-              disabled={anh.length >= TOI_DA_ANH_TIN || dangTai > 0}
-              onFilesSelected={async (files) => {
-                const urls = await tai(files.slice(0, TOI_DA_ANH_TIN - anh.length));
-                if (urls.length) setAnh((v) => [...v, ...urls].slice(0, TOI_DA_ANH_TIN));
-              }}
-            >
-              {dangTai > 0 ? t("Đang tải {n} ảnh…", { n: dangTai }) : t("📷 Thêm ảnh")}
-            </FileButton>
-          </div>
-          <AnhLuoi anh={anh} nho onXoa={(i) => setAnh((v) => v.filter((_, j) => j !== i))} />
-        </div>
-      </div>
-      <div className="flex shrink-0 gap-2 border-t border-[var(--color-border)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-        <Btn variant="ghost" className="min-h-10 flex-1" onClick={onQuay}>{t("Quay lại")}</Btn>
-        <Btn className="min-h-10 flex-1" onClick={() => m.mutate()} loading={m.isPending} disabled={!noiDung.trim() || dangTai > 0}>
-          {t("Gửi câu hỏi")}
-        </Btn>
-      </div>
     </>
   );
 }
 
 function ChiTietHoiDap({
-  id, onQuay, onDong, onHoiTiep, onDoi,
-}: { id: string; onQuay: () => void; onDong: () => void; onHoiTiep: (tk: HoiDapRow) => void; onDoi: () => void }) {
+  id, onQuay, onDong, onDoi,
+}: { id: string; onQuay: () => void; onDong: () => void; onDoi: () => void }) {
   const toast = useToast();
   const qc = useQueryClient();
   const [tin, setTin] = useState("");
@@ -791,12 +480,19 @@ function ChiTietHoiDap({
         ) : (
           <div className="space-y-2 text-center">
             <div className="text-xs text-[var(--color-text-secondary)]">
-              {t("Phiên hỏi đáp đã đóng — {a}", { a: t(TT[tk.trang_thai].label) })}
+              {q.da_xu_ly || q.tu_choi || q.huy_bo
+                ? t("Tính năng chat với nhân viên đã tắt — không gửi thêm tin nhắn.")
+                : t("Phiên hỏi đáp đã đóng — {a}", { a: t(TT[tk.trang_thai].label) })}
               {tk.ly_do ? ` · ${tk.ly_do}` : ""}
             </div>
-            {data.phia === "hoi" && (
-              <Btn variant="ghost" className="min-h-10 w-full" onClick={() => onHoiTiep(tk)}>{t("Hỏi tiếp (tạo câu hỏi mới)")}</Btn>
+            {(q.da_xu_ly || q.tu_choi || q.huy_bo) && (
+              <div className="flex flex-wrap justify-center gap-1.5">
+                {q.da_xu_ly && <Btn size="sm" variant="success" loading={doiTt.isPending} onClick={() => doiTt.mutate({ trang_thai: "Da xu ly" })}>{t("✓ Đã xử lý")}</Btn>}
+                {q.tu_choi && <Btn size="sm" variant="ghost" onClick={() => setLyDoMo("Tu choi")}>{t("Từ chối…")}</Btn>}
+                {q.huy_bo && <Btn size="sm" variant="ghost" onClick={() => setLyDoMo("Huy bo")}>{t("Hủy câu hỏi")}</Btn>}
+              </div>
             )}
+            {data.phia === "hoi" && <GhiChuTuDong className="text-left" />}
             {data.phia === "xu_ly" && (
               <Btn variant="ghost" className="min-h-10 w-full" onClick={moLuuHd}>{t("Lưu thành hướng dẫn")}</Btn>
             )}

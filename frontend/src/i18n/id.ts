@@ -2513,5 +2513,12 @@ const tuDien: Record<string, string> = {
   "📦 Trừ kho": "📦 Potong stok",
   // v1.442
   "Phiếu đang chờ kế toán phải còn ít nhất 1 đơn — muốn bỏ hết thì Huỷ phiếu": "Slip yang menunggu akuntansi harus menyisakan minimal 1 pesanan — batalkan slip untuk menghapus semua",
+  // v1.449 - tat chat nguoi that
+  "Hướng dẫn tự động": "Panduan otomatis",
+  "Tra cứu nhanh cách dùng app, giá, tồn kho linh kiện…": "Cari cepat cara pakai aplikasi, harga, stok suku cadang…",
+  "Tính năng chat với nhân viên đã tắt — không gửi thêm tin nhắn.": "Fitur chat dengan staf dimatikan — tidak bisa mengirim pesan lagi.",
+  "Đây là tài liệu hướng dẫn tự động. Các thông tin thắc mắc về linh kiện vui lòng trao đổi trên ứng dụng \"Hỏi đáp linh kiện\".": "Ini adalah panduan otomatis. Untuk pertanyaan tentang suku cadang, silakan gunakan aplikasi \"Hỏi đáp linh kiện\" (Tanya jawab suku cadang).",
+  "Chưa có hướng dẫn cho vấn đề này.": "Belum ada panduan untuk masalah ini.",
+  "Bạn không có đơn nào đang chờ hàng với mã này.": "Anda tidak punya pesanan yang menunggu stok dengan kode ini.",
 };
 export default tuDien;

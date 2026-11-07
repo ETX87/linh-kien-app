@@ -102,7 +102,18 @@ function docHoiThoai(email: string): Luot[] | null {
   }
 }
 
-export function HoiNhanh({ onHoiMuaHang, onXemCauHoi }: { onHoiMuaHang: (g: GoiYHoi) => void; onXemCauHoi: () => void }) {
+// TAT CHAT NGUOI THAT (2026-11-07 - "tắt việc chat với người thật, chỉ để lại tính năng tự động phản hồi hướng dẫn theo các vấn đề có sẵn"):
+// khong truyen onHoiMuaHang/onXemCauHoi -> an moi nut "Hỏi Mua hàng", thay bang ghi chu chuyen sang app "Hỏi đáp linh kiện".
+export const GHI_CHU_TU_DONG = dichSau("Đây là tài liệu hướng dẫn tự động. Các thông tin thắc mắc về linh kiện vui lòng trao đổi trên ứng dụng \"Hỏi đáp linh kiện\".");
+export function GhiChuTuDong({ className = "" }: { className?: string }) {
+  return (
+    <div className={`rounded-[var(--radius-btn)] border border-[var(--color-warning)] bg-[var(--color-warning-soft)] px-3 py-2 text-[12.5px] leading-snug text-[var(--color-text)] ${className}`}>
+      ℹ️ {t(GHI_CHU_TU_DONG)}
+    </div>
+  );
+}
+
+export function HoiNhanh({ onHoiMuaHang, onXemCauHoi }: { onHoiMuaHang?: (g: GoiYHoi) => void; onXemCauHoi?: () => void }) {
   const auth = useAuth();
   const email = auth.status === "authenticated" ? auth.user.email : "";
   const [luot, setLuot] = useState<Luot[]>(() => docHoiThoai(email) ?? [{ buoc: { k: "goc" } }]);
@@ -229,7 +240,7 @@ export function HoiNhanh({ onHoiMuaHang, onXemCauHoi }: { onHoiMuaHang: (g: GoiY
             onXemThem={moVd}
             onDaRo={() => di(t("✓ Đã rõ"), { k: "xong" })}
             onKhac={lamLai}
-            onHoi={() => onHoiMuaHang({ loai: "khac", noiDung: (VAN_DE_THEO_MA.get(b.ma)?.vd.hoi ?? VD_KHONG_TIM_THAY_LK.hoi) + " " })}
+            onHoi={onHoiMuaHang && (() => onHoiMuaHang({ loai: "khac", noiDung: (VAN_DE_THEO_MA.get(b.ma)?.vd.hoi ?? VD_KHONG_TIM_THAY_LK.hoi) + " " }))}
           />
         );
       case "cua-toi":
@@ -240,18 +251,23 @@ export function HoiNhanh({ onHoiMuaHang, onXemCauHoi }: { onHoiMuaHang: (g: GoiY
           </BongBot>
         );
       case "ct":
-        return <CuaToi muc={b.muc} cuoi={cuoi} onDaRo={() => di(t("✓ Đã rõ"), { k: "xong" })} onKhac={lamLai} onHoi={() => onHoiMuaHang({ loai: "khac" })} />;
+        return <CuaToi muc={b.muc} cuoi={cuoi} onDaRo={() => di(t("✓ Đã rõ"), { k: "xong" })} onKhac={lamLai} onHoi={onHoiMuaHang && (() => onHoiMuaHang({ loai: "khac" }))} />;
       case "khac":
         return (
           <BongBot>
             <div className="font-semibold">{t("Bạn cần gì khác?")}</div>
-            {cuoi && (
+            {cuoi && onHoiMuaHang ? (
               <div className="space-y-1.5">
                 <NutChon onClick={() => onHoiMuaHang({ loai: "khac" })}>{t("💬 Hỏi nhân viên Mua hàng")}</NutChon>
                 <NutChon onClick={() => onHoiMuaHang({ loai: "khac", noiDung: "[Báo lỗi app] " })}>{t("🐞 Báo lỗi / góp ý về app")}</NutChon>
-                <NutChon onClick={onXemCauHoi}>{t("🗂 Xem câu hỏi tôi đã gửi")}</NutChon>
+                {onXemCauHoi && <NutChon onClick={onXemCauHoi}>{t("🗂 Xem câu hỏi tôi đã gửi")}</NutChon>}
               </div>
-            )}
+            ) : cuoi ? (
+              <div className="space-y-1.5">
+                <GhiChuTuDong />
+                <NutChon phu onClick={lamLai}>{t("↩ Hỏi việc khác")}</NutChon>
+              </div>
+            ) : null}
           </BongBot>
         );
       case "xong":
@@ -286,7 +302,7 @@ export function HoiNhanh({ onHoiMuaHang, onXemCauHoi }: { onHoiMuaHang: (g: GoiY
 }
 
 // 3 nut cuoi moi cau tra loi.
-function NutCuoi({ onDaRo, onKhac, onHoi, them }: { onDaRo: () => void; onKhac: () => void; onHoi: () => void; them?: ReactNode }) {
+function NutCuoi({ onDaRo, onKhac, onHoi, them }: { onDaRo: () => void; onKhac: () => void; onHoi?: () => void; them?: ReactNode }) {
   return (
     <div className="space-y-1.5 pt-1">
       {them}
@@ -294,7 +310,7 @@ function NutCuoi({ onDaRo, onKhac, onHoi, them }: { onDaRo: () => void; onKhac: 
         <NutChon onClick={onDaRo}>{t("✓ Đã rõ")}</NutChon>
         <NutChon phu onClick={onKhac}>{t("↩ Hỏi việc khác")}</NutChon>
       </div>
-      <NutChon phu onClick={onHoi}>{t("💬 Vẫn cần hỏi Mua hàng")}</NutChon>
+      {onHoi && <NutChon phu onClick={onHoi}>{t("💬 Vẫn cần hỏi Mua hàng")}</NutChon>}
     </div>
   );
 }
@@ -316,7 +332,7 @@ function AnhLon({ anh }: { anh: string[] }) {
 
 function TraLoiVanDe({
   ma, hd, coGoi, cuoi, onXemThem, onDaRo, onKhac, onHoi,
-}: { ma: string; hd: HuongDan | undefined; coGoi: boolean; cuoi: boolean; onXemThem: (ma: string) => void; onDaRo: () => void; onKhac: () => void; onHoi: () => void }) {
+}: { ma: string; hd: HuongDan | undefined; coGoi: boolean; cuoi: boolean; onXemThem: (ma: string) => void; onDaRo: () => void; onKhac: () => void; onHoi?: () => void }) {
   const goc: VanDe | undefined = ma === "1.5" ? VD_KHONG_TIM_THAY_LK : VAN_DE_THEO_MA.get(ma)?.vd;
   const xemThem = (goc?.xemThem ?? []).filter((m) => m === "1.5" || VAN_DE_THEO_MA.has(m)).slice(0, 2);
   const noiDung: ReactNode = hd ? (
@@ -332,7 +348,7 @@ function TraLoiVanDe({
       <AnhLon anh={(goc.anh ?? []).map((a) => `/huong-dan-goi/${a}.jpg`)} />
     </>
   ) : (
-    <div>{t("Chưa có hướng dẫn cho vấn đề này — bấm \"Vẫn cần hỏi Mua hàng\" để được trả lời.")}</div>
+    <div>{onHoi ? t("Chưa có hướng dẫn cho vấn đề này — bấm \"Vẫn cần hỏi Mua hàng\" để được trả lời.") : t("Chưa có hướng dẫn cho vấn đề này.")}</div>
   );
   return (
     <BongBot>
@@ -359,7 +375,7 @@ function TraLoiVanDe({
 
 function TraLoiLk({
   muc, lk, ma, cuoi, onHoi, onDaRo, onKhac, onChonLkKhac,
-}: { muc: MucLk; lk: LkDanhMucRow | null; ma: string; cuoi: boolean; onHoi: (g: GoiYHoi) => void; onDaRo: () => void; onKhac: () => void; onChonLkKhac: () => void }) {
+}: { muc: MucLk; lk: LkDanhMucRow | null; ma: string; cuoi: boolean; onHoi?: (g: GoiYHoi) => void; onDaRo: () => void; onKhac: () => void; onChonLkKhac: () => void }) {
   const [xemLk, setXemLk] = useState<string | null>(null);
   const { data, isLoading } = useLienQuanLk(muc === "ve" || muc === "tt" ? ma : null);
   const giaKtv = (lk as (LkDanhMucRow & { gia_tri_cong_no?: number | null }) | null)?.gia_tri_cong_no ?? null;
@@ -390,7 +406,7 @@ function TraLoiLk({
         ) : choHang.length > 0 ? (
           <div>{t("Bạn có {n} đơn đang chờ hàng với mã này — Kho chưa tiếp nhận / chưa báo ngày dự kiến.", { n: choHang.length })}</div>
         ) : (
-          <div>{t("Bạn không có đơn nào đang chờ hàng với mã này. Muốn biết ngày hàng về để đặt, hãy hỏi Mua hàng.")}</div>
+          <div>{onHoi ? t("Bạn không có đơn nào đang chờ hàng với mã này. Muốn biết ngày hàng về để đặt, hãy hỏi Mua hàng.") : t("Bạn không có đơn nào đang chờ hàng với mã này.")}</div>
         )}
       </div>
     );
@@ -419,7 +435,7 @@ function TraLoiLk({
         <NutCuoi
           onDaRo={onDaRo}
           onKhac={onKhac}
-          onHoi={() => onHoi({ loai: loaiHoi, maLk: ma })}
+          onHoi={onHoi && (() => onHoi({ loai: loaiHoi, maLk: ma }))}
           them={
             <div className="grid grid-cols-2 gap-1.5">
               <NutChon phu onClick={() => setXemLk(ma)}>{t("🔎 Xem chi tiết LK")}</NutChon>
@@ -440,7 +456,7 @@ function TraLoiLk({
 interface DonNgan { id: string; ten_lk_snapshot: string | null; ma_lk: string; trang_thai: string; ngay_tao: string; ghi_chu_xu_ly_gan_nhat: string | null }
 interface PhieuNgan { id: string; ma_xuat_kho: string | null; trang_thai: string; trang_thai_chuyen_tien: string | null; so_tien_can_chuyen: number | null; da_thanh_toan?: number; ngay_tao: string }
 
-function CuaToi({ muc, cuoi, onDaRo, onKhac, onHoi }: { muc: MucCuaToi; cuoi: boolean; onDaRo: () => void; onKhac: () => void; onHoi: () => void }) {
+function CuaToi({ muc, cuoi, onDaRo, onKhac, onHoi }: { muc: MucCuaToi; cuoi: boolean; onDaRo: () => void; onKhac: () => void; onHoi?: () => void }) {
   const auth = useAuth();
   const u = auth.status === "authenticated" ? auth.user : null;
   const qc = useQueryClient();

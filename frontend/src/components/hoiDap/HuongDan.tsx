@@ -278,7 +278,7 @@ export function GoiYKhiGo({ cauHoi, onMo }: { cauHoi: string; onMo: (hd: HuongDa
 }
 
 /** Man chi tiet 1 huong dan trong khung chat (nguoi hoi). */
-export function HuongDanChiTiet({ hd, onDaGiaiDap, onVanHoi }: { hd: HuongDan; onDaGiaiDap: () => void; onVanHoi: () => void }) {
+export function HuongDanChiTiet({ hd, onDaGiaiDap, onVanHoi }: { hd: HuongDan; onDaGiaiDap: () => void; onVanHoi?: () => void }) {
   useEffect(() => {
     void api.post(`/huong-dan/${hd.id}/xem`, {}).catch(() => undefined);
   }, [hd.id]);
@@ -290,7 +290,7 @@ export function HuongDanChiTiet({ hd, onDaGiaiDap, onVanHoi }: { hd: HuongDan; o
         <HuongDanNoiDung hd={hd} />
       </div>
       <div className="flex shrink-0 gap-2 border-t border-[var(--color-border)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-        <Btn variant="ghost" className="min-h-10 flex-1" onClick={onVanHoi}>{t("Vẫn cần hỏi")}</Btn>
+        {onVanHoi && <Btn variant="ghost" className="min-h-10 flex-1" onClick={onVanHoi}>{t("Vẫn cần hỏi")}</Btn>}
         <Btn
           variant="success"
           className="min-h-10 flex-1"

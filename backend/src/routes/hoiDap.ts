@@ -126,8 +126,14 @@ function phiaCua(c: C, t: HoiDapRow): "hoi" | "xu_ly" | null {
   return null;
 }
 
+// TAT CHAT NGUOI THAT (chot 2026-11-07, v1.449 - "tắt việc chat với người thât, chỉ để lại tính năng tự động phản hồi hướng dẫn theo các vấn
+// đề có sẵn"): khong tao cau hoi moi, khong nhan tin (410 CHAT_DA_TAT), /dem tra 0 (khong ton luot doc D1 moi 20-60s). Ticket cu van xem
+// duoc; Mua hang / Admin van dong duoc ticket cu (/trang-thai). Bat lai = doi hang so nay + FE HoiDapWidget.tsx.
+const CHAT_NGUOI_THAT = false;
+
 // GET /dem - so cho badge icon chat: chua_doc (tin moi phia ben kia) + cho_tiep_nhan (chi phia xu ly).
 hoiDap.get("/dem", async (c) => {
+  if (!CHAT_NGUOI_THAT) return c.json({ la_xu_ly: laXuLy(c), chua_doc: 0, cho_tiep_nhan: 0, moi_nhat: null });
   const email = c.get("user").email;
   const xuLy = laXuLy(c);
   const cuaToi = await c.env.DB.prepare(
@@ -206,6 +212,7 @@ hoiDap.get("/", async (c) => {
 
 // POST / - { loai, noi_dung, ma_lk?, ma_don? } - tao cau hoi (ticket "Cho tiep nhan") + bao Mua hang.
 hoiDap.post("/", async (c) => {
+  if (!CHAT_NGUOI_THAT) return c.json({ error: "CHAT_DA_TAT" }, 410);
   const user = c.get("user");
   type BodyMoi = { loai?: string; noi_dung?: string; ma_lk?: string; ma_don?: string; anh?: unknown };
   const body = await c.req.json<BodyMoi>().catch(() => ({}) as BodyMoi);
@@ -276,8 +283,8 @@ hoiDap.get("/:id", async (c) => {
     huong_dan: hd.map(raHuongDan),
     phia,
     quyen: {
-      gui_tin: mo,
-      tiep_nhan: phia === "xu_ly" && t.trang_thai === "Cho tiep nhan",
+      gui_tin: mo && CHAT_NGUOI_THAT,
+      tiep_nhan: phia === "xu_ly" && t.trang_thai === "Cho tiep nhan" && CHAT_NGUOI_THAT,
       da_xu_ly: phia === "xu_ly" && mo,
       tu_choi: phia === "xu_ly" && mo,
       huy_bo: phia === "hoi" && mo,
@@ -297,6 +304,7 @@ hoiDap.post("/:id/doc", async (c) => {
 
 // POST /:id/tin - { noi_dung } - nhan tin. Phia xu ly tra loi ticket "Cho tiep nhan" = tu tiep nhan (Dang xu ly).
 hoiDap.post("/:id/tin", async (c) => {
+  if (!CHAT_NGUOI_THAT) return c.json({ error: "CHAT_DA_TAT" }, 410);
   const user = c.get("user");
   const t = await docTicket(c.env.DB, c.req.param("id"));
   if (!t) return c.json({ error: "NOT_FOUND" }, 404);
