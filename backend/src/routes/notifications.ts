@@ -28,6 +28,15 @@ export interface DatMuaLkBreakdown {
   // sidebar tinh dung 4). Dinh nghia GIONG HET cach GET /home-summay tinh "pxk_can_lam" (tru phan da
   // thuoc choKhoPxk/choKeToanPxk) de 2 con so khop nhau.
   choTnPxk: number;
+  // v1.450 (ra soat Trang chu 2026-11-07): tach ro "viec ai" cua PXK - choTnPxk = choTnTaoPxk (phieu "Dang tao phieu" KHONG con tien
+  // treo = TN/KT gui ke toan duoc). Truoc day choTnPxk = MOI phieu "Dang tao phieu" + "Dang gui KTV" (OR dieu kien va phu dinh cua no) -
+  // dem ca viec cua KTV (chuyen tien, xac nhan nhan) vao hang cho cua TN.
+  choTnTaoPxk: number;
+  // Ke toan xac nhan tien KTV da chuyen (pxk.trang_thai_chuyen_tien = 'KTV da chuyen') - truoc day KHONG dem o dau ca.
+  choKeToanTien: number;
+  // Viec cua chinh nguoi nhan hang (KTV / GS / ai dat cho minh): phieu cho minh chuyen tien + phieu dang gui cho minh xac nhan nhan.
+  choTienCuaToi: number;
+  choNhanHangCuaToi: number;
   choKhoThieuLk: number;
   choKhoPxk: number;
   choKhoTraHang: number;
@@ -67,6 +76,10 @@ const EMPTY_DAT_MUA_LK_BREAKDOWN: DatMuaLkBreakdown = {
   choTnDuyet: 0,
   choTnTraHang: 0,
   choTnPxk: 0,
+  choTnTaoPxk: 0,
+  choKeToanTien: 0,
+  choTienCuaToi: 0,
+  choNhanHangCuaToi: 0,
   choKhoThieuLk: 0,
   choKhoPxk: 0,
   choKhoTraHang: 0,
@@ -136,25 +149,20 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
         `SELECT
            (SELECT COUNT(*) FROM dat_don_hang ddh
               WHERE ddh.loai_don != 'tra_hang'
-              AND (SELECT trang_thai FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) = 'Cho TN duyet'${clause?.sql ?? ""}${kvClause?.sql ?? ""}) as cho_tn_duyet,
+              AND ddh.trang_thai_hien_tai = 'Cho TN duyet'${clause?.sql ?? ""}${kvClause?.sql ?? ""}) as cho_tn_duyet,
            (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang'
               AND ddh.trang_thai_hien_tai = 'Cho TN duyet tong') as cho_tn_tra_hang,
            (SELECT COUNT(*) FROM phieu_xuat_kho pxk
-              WHERE (
-                pxk.trang_thai_hien_tai = 'Dang gui KTV'
-                OR (pxk.trang_thai_hien_tai = 'Dang tao phieu' AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'))
-                -- FIX (phan hoi 2026-09-23 "vẫn đếm cả đơn đã hủy") - them dieu kien trang_thai_hien_tai
-                -- (truoc day thieu) - xem giai thich day du o datMuaLinhKien.ts GET /luong-quy-trinh
-                -- (cung 1 fix, cung ngay).
-                OR (pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')
-              )
+              -- v1.450: chi phieu san sang gui ke toan (khong con tien treo) - phieu cho tien la viec cua KTV / Ke toan, "Dang gui KTV" la viec cua KTV.
+              WHERE pxk.trang_thai_hien_tai = 'Dang tao phieu' AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')
               ${pxkClause ? `AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id${pxkClause.sql})` : ""}${pxkKvClause?.sql ?? ""}) as cho_tn_pxk`,
       )
       .bind(...(clause?.binds ?? []), ...(kvClause?.binds ?? []), ...(pxkClause?.binds ?? []), ...(pxkKvClause?.binds ?? []))
       .first<{ cho_tn_duyet: number; cho_tn_tra_hang: number; cho_tn_pxk: number }>();
     out.choTnDuyet = row?.cho_tn_duyet ?? 0;
     out.choTnTraHang = row?.cho_tn_tra_hang ?? 0;
-    out.choTnPxk = row?.cho_tn_pxk ?? 0;
+    out.choTnTaoPxk = row?.cho_tn_pxk ?? 0;
+    out.choTnPxk = out.choTnTaoPxk;
   }
 
   if (isKho) {
@@ -173,7 +181,7 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
            (SELECT COUNT(*) FROM thieu_lk tlk JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id
               WHERE (SELECT trang_thai FROM thieu_lk_log WHERE thieu_lk_id = tlk.id ORDER BY id DESC LIMIT 1) = 'Cho kho xu ly'${thieuLkClause?.sql ?? ""}${thieuLkKvClause?.sql ?? ""}${thieuLkNhomSql}) as cho_kho_thieu_lk,
            (SELECT COUNT(*) FROM phieu_xuat_kho pxk
-              WHERE (SELECT trang_thai FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = pxk.id ORDER BY id DESC LIMIT 1) = 'Da chot xong don xuat'
+              WHERE pxk.trang_thai_hien_tai = 'Da chot xong don xuat'
               ${pxkClause ? `AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id${pxkClause.sql})` : ""}${pxkKvClause?.sql ?? ""}) as cho_kho_pxk,
            -- SUA (migration 0002_tra_hang_pxk.sql): "Cho kho xac nhan nhap kho" khong con dat toi
            -- duoc (da xoa khoi tra_hang_log CHECK) - viec Kho lien quan tra hang o giai doan PXK gio
@@ -206,8 +214,11 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
       .prepare(
         `SELECT
            (SELECT COUNT(*) FROM phieu_xuat_kho pxk
-              WHERE (SELECT trang_thai FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id = pxk.id ORDER BY id DESC LIMIT 1) = 'Cho ke toan'
+              WHERE pxk.trang_thai_hien_tai = 'Cho ke toan'
               ${pxkClause ? `AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id${pxkClause.sql})` : ""}${pxkKvClause?.sql ?? ""}) as cho_ke_toan_pxk,
+           (SELECT COUNT(*) FROM phieu_xuat_kho pxk
+              WHERE pxk.trang_thai_hien_tai IN ('Dang tao phieu', 'Cho ke toan') AND pxk.trang_thai_chuyen_tien = 'KTV da chuyen'
+              ${pxkClause ? `AND EXISTS (SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh2 ON ddh2.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = pxk.id${pxkClause.sql})` : ""}${pxkKvClause?.sql ?? ""}) as cho_ke_toan_tien,
            -- SUA (migration 0002_tra_hang_pxk.sql): "Cho ke toan xac nhan nhap kho" khong con dat toi
            -- duoc - viec KT lien quan tra hang o giai doan PXK gio da nam SAN trong cho_ke_toan_pxk o
            -- tren (query do khong loc loai_don nen tu dong gom ca PXK tra_hang).
@@ -218,11 +229,14 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
       .bind(
         ...(pxkClause?.binds ?? []),
         ...(pxkKvClause?.binds ?? []),
+        ...(pxkClause?.binds ?? []),
+        ...(pxkKvClause?.binds ?? []),
         ...(traHangClause?.binds ?? []),
         ...(traHangKvClause?.binds ?? []),
       )
-      .first<{ cho_ke_toan_pxk: number; cho_ke_toan_tra_hang: number }>();
+      .first<{ cho_ke_toan_pxk: number; cho_ke_toan_tien: number; cho_ke_toan_tra_hang: number }>();
     out.choKeToanPxk = row?.cho_ke_toan_pxk ?? 0;
+    out.choKeToanTien = row?.cho_ke_toan_tien ?? 0;
     out.choKeToanTraHang = row?.cho_ke_toan_tra_hang ?? 0;
   }
 
@@ -242,7 +256,7 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
       .prepare(
         `SELECT COUNT(*) as n FROM dat_don_hang ddh
            WHERE ddh.loai_don != 'tra_hang'
-           AND (SELECT trang_thai FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) = 'Cho TBP xac nhan'${clause?.sql ?? ""}`,
+           AND ddh.trang_thai_hien_tai = 'Cho TBP xac nhan'${clause?.sql ?? ""}`,
       )
       .bind(...(clause?.binds ?? []))
       .first<{ n: number }>();
@@ -268,7 +282,7 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
         .prepare(
           `SELECT COUNT(*) as n FROM dat_don_hang ddh JOIN users u ON u.email = ddh.nguoi_tao
              WHERE u.tram_cha = ? AND ddh.loai_don != 'tra_hang'
-               AND (SELECT trang_thai FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) = 'Cho Tram duyet'`,
+               AND ddh.trang_thai_hien_tai = 'Cho Tram duyet'`,
         )
         .bind(user.email)
         .first<{ n: number }>();
@@ -283,12 +297,24 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
     .prepare(
       `SELECT COUNT(*) as n FROM dat_don_hang ddh
          WHERE ddh.nguoi_tao = ? AND ddh.loai_don != 'tra_hang'
-         AND (SELECT trang_thai FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1)
-           IN ('Cho Tram duyet', 'Cho TBP xac nhan', 'Cho TN duyet', 'Cho GS duyet')`,
+         AND ddh.trang_thai_hien_tai IN ('Cho Tram duyet', 'Cho TBP xac nhan', 'Cho TN duyet', 'Cho GS duyet')`,
     )
     .bind(user.email)
     .first<{ n: number }>();
   out.choDonCuaToi = rowOwn?.n ?? 0;
+
+  // Viec cua chinh nguoi nhan hang (v1.450): chuyen tien phieu cua minh (Ke toan chua nhan bang chung) + xac nhan da nhan hang.
+  const rowNhan = await db
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM phieu_xuat_kho WHERE nguoi_nhan_hang = ? AND loai_don != 'tra_hang' AND trang_thai_hien_tai = 'Dang tao phieu'
+            AND so_tien_can_chuyen IS NOT NULL AND trang_thai_chuyen_tien = 'Cho KTV chuyen') AS cho_tien,
+         (SELECT COUNT(*) FROM phieu_xuat_kho WHERE nguoi_nhan_hang = ? AND loai_don != 'tra_hang' AND trang_thai_hien_tai = 'Dang gui KTV') AS cho_nhan`,
+    )
+    .bind(user.email, user.email)
+    .first<{ cho_tien: number; cho_nhan: number }>();
+  out.choTienCuaToi = rowNhan?.cho_tien ?? 0;
+  out.choNhanHangCuaToi = rowNhan?.cho_nhan ?? 0;
 
   const rowTuChoi = await db
     .prepare("SELECT COUNT(*) as n FROM thong_bao_ktv WHERE nguoi_nhan = ? AND loai = 'tu_choi' AND da_doc = 0")
@@ -349,8 +375,8 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
 
   out.total =
     out.choTnDuyet + out.choTnTraHang + out.choTnPxk + out.choKhoThieuLk + out.choKhoPxk + out.choKhoTraHang +
-    out.choKeToanPxk + out.choKeToanTraHang + out.choQcTraHang + out.choTramDuyet + out.choTpXacNhan + out.choGsDuyet +
-    out.choDonCuaToi + out.choDonBiTuChoi;
+    out.choKeToanPxk + out.choKeToanTien + out.choKeToanTraHang + out.choQcTraHang + out.choTramDuyet + out.choTpXacNhan + out.choGsDuyet +
+    out.choDonCuaToi + out.choDonBiTuChoi + out.choTienCuaToi + out.choNhanHangCuaToi;
 
   return out;
 }
@@ -369,12 +395,14 @@ export async function getDatMuaLkBadge(db: D1Database, user: AppUser): Promise<D
     user.la_tp_dvbh ||
     user.vai_tro === "Admin" ||
     user.vai_tro === "QC" ||
-    user.vai_tro === "Giam sat"
+    user.vai_tro === "Giam sat" ||
+    // v1.450: Mua hang thuan (chi co co nay) truoc day nhan EMPTY -> khong bao gio thay so ticket "Cho mua hang".
+    user.la_mua_hang
   );
   if (!capDung) return EMPTY_DAT_MUA_LK_BREAKDOWN;
 
   const key = buildReportKey(
-    "notifications/count-dat-mua-lk-v2",
+    "notifications/count-dat-mua-lk-v3",
     {
       email: user.email,
       vai_tro: user.vai_tro ?? "",
@@ -384,6 +412,7 @@ export async function getDatMuaLkBadge(db: D1Database, user: AppUser): Promise<D
       la_tac_nghiep: user.la_tac_nghiep ? "1" : "",
       la_tp_dvbh: user.la_tp_dvbh ? "1" : "",
       kho_nhom_lk: user.kho_nhom_lk ?? "",
+      la_mua_hang: user.la_mua_hang ? "1" : "",
     },
     null,
   );

@@ -337,6 +337,9 @@ async function pxkListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string): P
     // tao phieu" lan "Cho ke toan" KHONG qua gate do, nen 1 PXK "Ke toan huy" van co the con mang
     // so_tien_can_chuyen chua duyet, bi dem nham la "Chờ tiền" that su.
     whereSql += " AND pxk.trang_thai_hien_tai = 'Dang tao phieu' AND pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet'";
+  } else if (trangThai === "CHO_KT_TIEN") {
+    // v1.450 (o "Cần làm" cua Ke toan tren Trang chu): KTV da bao chuyen, cho Ke toan xac nhan tien - CUNG dieu kien voi choKeToanTien (notifications.ts).
+    whereSql += " AND pxk.trang_thai_hien_tai IN ('Dang tao phieu', 'Cho ke toan') AND pxk.trang_thai_chuyen_tien = 'KTV da chuyen'";
   } else if (trangThai === "DA_IN") {
     whereSql += ` AND ${DA_IN_COND}`;
   } else if (trangThai === "CHOT_CHUA_IN") {
@@ -519,25 +522,23 @@ phieuXuatKho.get("/status-counts", async (c) => {
   // trang thai dong TRANG_THAI_DONG, khop dung dieu kien cua GET /?trang_thai=__OPEN__ o tren - de
   // "Tổng phiếu xuất" (frontend) doc THANG tu day thay vi tu tinh bang cach tru tung bucket dong.
   const openCond = `pxk.trang_thai_hien_tai NOT IN (${TRANG_THAI_DONG.map(() => "?").join(",")})`;
-  const scalarRow = await c.env.DB.prepare(
-    `SELECT
-       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${whereSql}) as total,
-       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${whereSql} AND ${openCond}) as mo,
-       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${whereSql} AND ${choTienCond}) as cho_tien,
-       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${whereSql} AND ${DA_IN_COND}) as da_in,
-       (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE ${whereSql} AND ${CHOT_CHUA_IN_COND}) as chot_chua_in`,
-  )
-    .bind(...binds, ...binds, ...TRANG_THAI_DONG, ...binds, ...binds, ...binds)
-    .first<{ total: number; mo: number; cho_tien: number; da_in: number; chot_chua_in: number }>();
+  // v1.450 (ra soat Trang chu): 1 lan quet thay vi 6 (5 COUNT con + 1 GROUP BY, moi cai lap lai WHERE pham vi). Nhom theo trang thai +
+  // co "cho tien" - phieu dang cho tien KHONG tinh vao "Dang tao phieu" (giu dung quy uoc cu).
   const { results } = await c.env.DB.prepare(
-    `SELECT pxk.trang_thai_hien_tai as trang_thai, COUNT(*) as n FROM phieu_xuat_kho pxk WHERE ${whereSql} AND NOT (${choTienCond}) GROUP BY pxk.trang_thai_hien_tai`,
+    `SELECT pxk.trang_thai_hien_tai as trang_thai, CASE WHEN ${choTienCond} THEN 1 ELSE 0 END as cho_tien, COUNT(*) as n,
+       SUM(CASE WHEN ${openCond} THEN 1 ELSE 0 END) as mo,
+       SUM(CASE WHEN ${DA_IN_COND} THEN 1 ELSE 0 END) as da_in,
+       SUM(CASE WHEN ${CHOT_CHUA_IN_COND} THEN 1 ELSE 0 END) as chot_chua_in
+     FROM phieu_xuat_kho pxk WHERE ${whereSql} GROUP BY pxk.trang_thai_hien_tai, 2`,
   )
-    .bind(...binds)
-    .all<{ trang_thai: string; n: number }>();
-  const counts: Record<string, number> = { "": scalarRow?.total ?? 0, __OPEN__: scalarRow?.mo ?? 0, CHO_TIEN: scalarRow?.cho_tien ?? 0,
-    DA_IN: scalarRow?.da_in ?? 0, CHOT_CHUA_IN: scalarRow?.chot_chua_in ?? 0,
+    .bind(...TRANG_THAI_DONG, ...binds)
+    .all<{ trang_thai: string; cho_tien: number; n: number; mo: number; da_in: number; chot_chua_in: number }>();
+  const tong = (k: "n" | "mo" | "da_in" | "chot_chua_in") => results.reduce((x, r) => x + (r[k] ?? 0), 0);
+  const counts: Record<string, number> = {
+    "": tong("n"), __OPEN__: tong("mo"), DA_IN: tong("da_in"), CHOT_CHUA_IN: tong("chot_chua_in"),
+    CHO_TIEN: results.filter((r) => r.cho_tien).reduce((x, r) => x + r.n, 0),
   };
-  for (const r of results) counts[r.trang_thai ?? ""] = r.n;
+  for (const r of results) if (!r.cho_tien) counts[r.trang_thai ?? ""] = (counts[r.trang_thai ?? ""] ?? 0) + r.n;
   return c.json({ counts });
 });
 

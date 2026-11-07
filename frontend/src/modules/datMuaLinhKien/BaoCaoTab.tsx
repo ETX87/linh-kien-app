@@ -342,7 +342,7 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
     { label: t("Đơn mua"), value: (r) => r.slDonMua, cell: (r: BaoCaoRow) => <Num value={r.slDonMua} onClick={() => jumpDon("", "mua", r.email)} /> },
     { label: t("Đơn CN"), value: (r) => r.slDonCongNo, cell: (r: BaoCaoRow) => <Num value={r.slDonCongNo} onClick={() => jumpDon("", "cong_no", r.email)} /> },
     { label: t("Đơn trả"), value: (r) => r.slDonTraHang, cell: (r: BaoCaoRow) => <Num value={r.slDonTraHang} onClick={() => jumpTraHang("", r.email)} /> },
-    { label: t("Đơn đang chờ"), title: t("3-4 bước chờ duyệt đầu tiên, chưa tính 'Chờ hàng' (đã duyệt xong, đang chờ Kho tìm nguồn)"), value: (r) => r.slDangCho, cell: (r: BaoCaoRow) => <Num value={r.slDangCho} onClick={() => jumpDon("__OPEN__", undefined, r.email)} /> },
+    { label: t("Đơn đang chờ"), title: t("Đơn đang chờ duyệt / chờ thanh toán (Chờ GS duyệt, Chờ thanh toán, Trạm, TBP và các bước duyệt trả hàng) - chưa tính 'Chờ hàng'"), value: (r) => r.slDangCho, cell: (r: BaoCaoRow) => <Num value={r.slDangCho} onClick={() => jumpDon("__OPEN__", undefined, r.email)} /> },
     { label: t("Bị từ chối/huỷ"), value: (r) => r.slTuChoi, cell: (r: BaoCaoRow) => <Num value={r.slTuChoi} alert={r.slTuChoi > 0} onClick={() => jumpDon("TN tu choi", undefined, r.email)} /> },
     { label: t("Tổng duyệt"), value: (r) => r.slDuyet, cell: (r: BaoCaoRow) => <Num value={r.slDuyet} onClick={() => jumpDon("TN da duyet", undefined, r.email)} /> },
     { label: t("Duyệt mua"), value: (r) => r.slDuyetMua, cell: (r: BaoCaoRow) => <Num value={r.slDuyetMua} onClick={() => jumpDon("TN da duyet", "mua", r.email)} /> },
@@ -391,7 +391,7 @@ export function BaoCaoTab({ onJump, isManagerView, canTraHangView }: { onJump: (
   return (
     <div className="mt-4 space-y-4">
       {thangFilterEl}
-      <BaoCaoCharts tong={tong} rows={rows} thang={thang} full={full} tonDong={tonDong} jumpDon={jumpDon} jumpTraHang={jumpTraHang} jumpPxk={jumpPxk} />
+      <BaoCaoCharts tong={tong} rows={rows} thang={thang} full={full} jumpDon={jumpDon} jumpTraHang={jumpTraHang} jumpPxk={jumpPxk} />
 
       <div className="flex items-center justify-between gap-2 pt-1">
         <h3 className="card-title">{t("Chi tiết theo KTV")}</h3>

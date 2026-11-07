@@ -430,6 +430,24 @@ code). 2 thay đổi lớn nhất đã áp dụng từ hướng này vào `DatMu
   Chờ tiền/Chờ KTV nhận theo `pxk.nguoi_nhan_hang = mình` — `countCuaToi`/`s_cho_tien`/`s_xac_nhan_nhan`) mang `nguoiNhanHang`
   = email mình để danh sách lọc đúng (trước đó GS thấy 2 nhưng mở ra cả khu vực 28). "Đơn bị từ chối" = sentinel
   `__TU_CHOI_CHUA_XEM__` (đơn mình tạo bị từ chối, `thong_bao_ktv` chưa đọc) + `loaiDon:"all"`.
+- **Trang chủ rà soát lại** (chốt 2026-11-07, v1.450 — "làm cả 3 đợt" sau rà soát Trang chủ):
+  - **"Cần làm" = 1 nguồn** `GET /notifications/count` (`computeDatMuaLkBreakdown`) cho Trang chủ, nút "Cần làm (N)" đầu module và badge menu —
+    FE dựng ở `datMuaLinhKien/viecCanLam.ts` (`danhSachViecCanLam` + `moViec`). Thêm việc mới: thêm trường ở breakdown + 1 dòng ở file này.
+    Breakdown thêm `choTnTaoPxk` (phiếu "Dang tao phieu" hết tiền treo — `choTnPxk` = nó, KHÔNG còn đếm phiếu chờ tiền / "Dang gui KTV"),
+    `choKeToanTien` (PXK `trang_thai_chuyen_tien='KTV da chuyen'`, lọc PXK sentinel `CHO_KT_TIEN`), `choTienCuaToi` / `choNhanHangCuaToi`
+    (phiếu của chính người nhận) — cộng vào `total` + số mục "Phiếu xuất" (`navCount`). Mua hàng thuần có badge (`capDung`). Đọc
+    `trang_thai_hien_tai` thay subquery log mới nhất. Việc ở Quỹ (nộp tiền, hoàn tiền) phát sự kiện `mo-nop-tien` / `mo-phieu-hoan-tien`
+    (detail rỗng = chỉ mở tab).
+  - **Bỏ `/luong-quy-trinh` khỏi FE** (dải PipelineFlow đầu module + nguồn "Cần làm" máy tính — đếm bước Trạm/TBP/TN luôn 0 từ khi tự động
+    duyệt). Đầu module mọi màn chỉ còn "Cần làm (N)" + "＋ Tạo đơn". Route backend còn nhưng không ai gọi.
+  - **"Tồn đọng toàn hệ thống" tải lười**: `/home-summary` chỉ trả `coToanHeThong`; số liệu ở `GET /home-summary/toan-he-thong` (3 GROUP BY,
+    gồm Chờ thanh toán / GS / KT xác nhận tiền / Chờ mua hàng) khi bấm mở.
+  - **Đếm số menu 1 lần quét**: `/don-hang-status-counts` (GROUP BY + SUM CASE, đo thật 38k → 21k dòng/lần) và `/phieu-xuat-kho/status-counts`.
+  - **"Đơn hàng đang tồn theo KTV"** theo phạm vi xem (`scopeDatMuaNguoiTao`, cache key theo người khi có scope) + lọc khu vực theo khu vực
+    CỦA ĐƠN (`COALESCE(khu_vuc_chon, khu_vuc_ma)`).
+  - Báo cáo tổng thể: "Đơn đang chờ" / "Tiền chờ duyệt" tính thêm "Cho GS duyet" + "Cho thanh toan" (`DANG_CHO_DUYET_STATES`, cache v3); bỏ
+    biểu đồ "Top 5 KTV tồn đọng"; "Phạm vi dữ liệu" gộp vào hàng tiêu đề "Đang tồn".
+  - Cron 0h VN: thông báo chưa đọc quá 30 ngày → `da_doc = 1` (lúc triển khai 25.904 dòng; 1 tài khoản giữ 8.571).
 - Tab **"Trang chủ"** (`TrangChuTab.tsx`) là view mặc định cho MỌI vai trò khi mở module (thay cho
   logic rẽ nhánh `defaultView` theo `canKho`/`canKeToan`/`canQC` cũ) — gộp cả nội dung "Báo cáo" cũ
   vào bên trong nó (tab "Báo cáo" riêng đã bỏ).

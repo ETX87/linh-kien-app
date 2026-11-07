@@ -7,7 +7,8 @@ import { useAuth } from "../auth/AuthContext";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import type { LuongQuyTrinhStep, JumpTarget, DangTonStep } from "./datMuaLinhKien/types";
-import { PipelineFlow, MyWorkloadStrip } from "./datMuaLinhKien/PipelineFlow";
+import { MyWorkloadStrip } from "./datMuaLinhKien/PipelineFlow";
+import { danhSachViecCanLam, type NotifCounts } from "./datMuaLinhKien/viecCanLam";
 import { CaseDetailModal } from "./datMuaLinhKien/CaseDetailModal";
 import { StageMenu, type StageMenuGroup, type StageMenuItem } from "./datMuaLinhKien/StageMenu";
 import { ErrorBoundary } from "../components/ui/ErrorBoundary";
@@ -730,16 +731,8 @@ export function DatMuaLinhKienModule({
       : []),
   ];
 
-  // Tren mobile bo han thanh "luong quy trinh" (phan hoi 2026-08-19: "bỏ tính năng này, không load,
-  // không đọc, tránh tốn lượt đọc D1") - man hinh hep khong du cho hien huu ich, va day la 1 API rieng
-  // (goi computeDatMuaLkBreakdown-ke tuong tu, doc nhieu bang) nen bo qua ca query (enabled: !isMobile)
-  // thay vi chi an UI, tranh goi API thua tren thiet bi khong dung toi ket qua.
-  const { data: luongQuyTrinh } = useQuery({
-    queryKey: ["dat-mua-lk-luong-quy-trinh"],
-    queryFn: () => api.get<{ steps: LuongQuyTrinhStep[] }>("/dat-mua-lk/luong-quy-trinh"),
-    refetchInterval: 5 * 60_000,
-    enabled: !isMobile,
-  });
+  // v1.450: BO /luong-quy-trinh (dai "luong quy trinh" dau module + nguon "Cần làm" may tinh) - dem theo quy trinh cu (Tram/TBP/TN duyet
+  // luon 0 tu khi tu dong duyet 100%), bo sot viec that, ~16 trieu dong doc/ngay. "Cần làm" = danhSachViecCanLam(/notifications/count).
   // FIX (phan hoi 2026-08-31: "trên app cho ktv, việc cần làm đang không đúng việc chờ ktv... tách ra
   // Cần làm và Đang tồn" + "tương tự tách ra cho tất cả các vai trò" + "TN, KT, Kho thêm 1 ô tồn đọng
   // chung toàn hệ thống") - endpoint rieng, NHE (an toan tren mobile, khac han luong-quy-trinh 16
@@ -749,14 +742,14 @@ export function DatMuaLinhKienModule({
   const { data: homeSummary } = useQuery({
     queryKey: ["dat-mua-lk-home-summary"],
     queryFn: () =>
-      api.get<{ canLam: number; dangTon: number; tonDongToanHeThong: number | null; dangTonSteps: DangTonStep[]; tonDongToanHeThongSteps: DangTonStep[] | null }>(
+      api.get<{ canLam: number; dangTon: number; dangTonSteps: DangTonStep[]; coToanHeThong?: boolean }>(
         "/dat-mua-lk/home-summary",
       ),
     refetchInterval: 5 * 60_000,
   });
   const { data: notifCounts } = useQuery({
     queryKey: ["notifications-count"],
-    queryFn: () => api.get<{ datMuaLk: { total: number; choDonBiTuChoi: number }; ktvLogChuaDoc: number }>("/notifications/count"),
+    queryFn: () => api.get<NotifCounts>("/notifications/count"),
     refetchInterval: 5 * 60_000,
     // enabled: true (bo dieu kien isMobile cu, them 2026-08-26) - can ktvLogChuaDoc cho badge chuong
     // thong bao tren CA desktop (khong chi mobile nhu tongViecCuaToi truoc day). Sidebar.tsx/
@@ -783,79 +776,30 @@ export function DatMuaLinhKienModule({
   // KTV thuong (khong quan ly Ve tinh nao) thanh Tram, vi tram_cha=null cung dung cho ho.
   if (user?.la_tram) myRoleKeys.add("tram");
 
-  // FIX (ra soat 2026-08-29, cung dot voi fix myRoleKeys "ktv" o tren): s.count cua 2 buoc
-  // "cho_tien"/"ktv" la SO TOAN HE THONG (dung cho bang dieu hanh chung/Tac nghiep) - nguoi xem co
-  // roleKey "ktv" phai thay countCuaToi (rieng cua chinh ho, backend loc theo nguoi_nhan_hang), khong
-  // phai s.count, neu khong MOI KTV/Ve tinh se thay CUNG 1 con so gom ca PXK cua nguoi khac. Tinh 1
-  // lan duy nhat o day, dung chung cho moi noi tieu thu luongQuyTrinh.steps ben duoi.
-  const steps = (luongQuyTrinh?.steps ?? []).map((s) =>
-    // + nguoiNhanHang = chinh minh (2026-10-01): GS thay so PXK CUA MINH (vd 2) nhung bam vao lai ra ca khu vuc (28).
-    myRoleKeys.has("ktv") && s.countCuaToi !== undefined ? { ...s, count: s.countCuaToi, nguoiNhanHang: user?.email } : s,
-  );
-
   // "Đơn bị từ chối" van hien rieng 1 StatCard o TrangChuTab.tsx (thong tin, khong phai "viec can lam"
   // theo nghia hang doi xu ly) - KTV-like da duoc cong vao homeSummary.canLam o backend, gia tri nay
   // chi de HIEN THI tach rieng, khong cong them lan nua vao tongViecCuaToi.
   const choDonBiTuChoi = notifCounts?.datMuaLk.choDonBiTuChoi ?? 0;
-  const tongViecCuaToi = homeSummary?.canLam ?? 0;
+  const viecCanLam = danhSachViecCanLam(notifCounts, user?.email);
+  const tongViecCuaToi = viecCanLam.reduce((n, v) => n + v.count, 0) + choDonBiTuChoi;
   const dangTon = homeSummary?.dangTon ?? 0;
-  const tonDongToanHeThong = homeSummary?.tonDongToanHeThong ?? null;
   const dangTonSteps = homeSummary?.dangTonSteps ?? [];
-  // FIX (phan hoi "Cần làm 19 nhưng bấm mở ra Việc của tôi cộng lại chỉ 17, và Kho không thấy dòng nào
-  // dù canLam có tính phần của Kho"): MyWorkloadStrip TRUOC DAY nhan thang `steps` (luong-quy-trinh) -
-  // NGUON KHAC voi tongViecCuaToi (homeSummary.canLam, "nguon DUNG duy nhat" theo comment dau file
-  // backend GET /home-summary). 2 nguon con GAN roleKeys KHAC NHAU cho CUNG 1 trang thai (vd PXK "Dang
-  // gui KTV" - luong-quy-trinh gan roleKeys:["ktv"], home-summary gan roleKeys:["kho"] vi day la buoc
-  // Kho theo doi cho KTV xac nhan) khien nut tieu de dem ca dong nay cho Kho nhung strip chi tiet lai
-  // khong hien dong nao tuong ung. Doi sang dung dangTonSteps.isCanLam (CHINH nguon da cong ra
-  // tongViecCuaToi) - tong theo vai tro cua nguoi xem LUON khop CHINH XAC voi con so tren tieu de.
-  const canLamSteps = dangTonSteps.filter((s) => s.isCanLam);
-  const tonDongToanHeThongSteps = homeSummary?.tonDongToanHeThongSteps ?? null;
   // Nut tieu de bam de mo/dong bang chi tiet tung buoc (MyWorkloadStrip) - mac dinh AN (giam chrome
   // mac dinh, tiep tuc dung tinh than "gọn diện tích" da chot o cac fix truoc). CHI ap dung cho
   // duong vao "dat-mua-lk" that su (khong phai forceView="tra-hang", entry rieng van giu tieu de +
   // hien san chi tiet nhu cu vi khong co nut tieu de nao de bam mo lai).
   const [showWorkloadDetail, setShowWorkloadDetail] = useState(false);
 
-  // SUA (phan hoi 2026-08-19: "mặc định bị thu nhỏ, không đúng ý đồ ban đầu... luôn mở") - mac dinh
-  // MO SAN cho nguoi dung MOI (chua tung luu lua chon). Nut toggle van giu de nguoi dung tu thu gon
-  // neu muon.
-  // SUA (phan hoi chu he thong 2026-08-24: "lưu cache cách người dùng đang xem, nếu họ ẩn thì mặc
-  // định ẩn ở lần mở sau") - doi tu useState (mat het moi lan tai lai trang) sang useLocalStorageState
-  // (cung pattern voi filters:dat-mua-lk-view/filters:dmlk-th-tt... da dung khap module nay) - luu cuc
-  // bo tren trinh duyet cua tung nguoi dung, khong dong bo len server.
-  // FIX (ra soat UI 2026-08-27, hang muc #1): mac dinh "luon mo" (chot 2026-08-19) van dung cho da so
-  // vai tro, nhung KTV/Ve tinh THUAN (khong mang bat ky co quan ly nao) chi lien quan 2/17 buoc nen 17
-  // so mac dinh mo gay nhieu that su - thu gon SAN cho nhanh nay. CHI anh huong NGUOI DUNG MOI/chua tung
-  // luu lua chon (useLocalStorageState uu tien doc localStorage neu da co, khong ghi de lua chon cu).
-  const defaultPipelineCollapsed = !canTacNghiep && !canKho && !canKeToan && !isGiamSat && user?.vai_tro !== "Admin" && user?.vai_tro !== "QC";
-  const [pipelineCollapsed, setPipelineCollapsed] = useLocalStorageState("filters:dmlk-pipeline-collapsed", defaultPipelineCollapsed);
-  // Mobile: khong render thanh pipeline (steps rong vi query da enabled:false o tren) - chi giu lai
-  // duy nhat loi tat "+ Tao don" (hanh dong, khong phai bao cao) de khong mat tinh nang tao don, vi
-  // day la CACH DUY NHAT tao don tren "Don cua toi" (nut rieng da bo, xem DonCuaToiTab.tsx dong 887).
-  // Thi diem gon man Đơn hàng (2026-10-15, phan hoi "app màu mè và rối mặt"): desktop o danh sach don cung chi giu nut
-  // "＋ Tạo đơn", bo dai "Cần làm" (dai nay van o Trang chủ / Phiếu xuất / Hàng trả).
-  const pipelineEl = isMobile || activeView === "don-cua-toi" ? (
-    canTaoDon && (
-      <button
-        type="button"
-        onClick={() => setShowCreateFromPipeline(true)}
-        className="focus-ring inline-flex items-center gap-1 rounded-full bg-[var(--color-primary)] text-white px-3 py-1.5 text-xs font-semibold hover:bg-[var(--color-primary-hover)]"
-      >
-        {t("＋ Tạo đơn")}
-      </button>
-    )
-  ) : (
-    <PipelineFlow
-      steps={steps}
-      myRoleKeys={myRoleKeys}
-      onJump={jumpTo}
-      onCreateDon={() => setShowCreateFromPipeline(true)}
-      canCreateDon={canTaoDon}
-      inHeader={!!headerExtra}
-      collapsed={pipelineCollapsed}
-      onToggleCollapsed={() => setPipelineCollapsed((v) => !v)}
-    />
+  // v1.450: dai "luong quy trinh" (PipelineFlow) da bo - dau module chi con nut "Cần làm (N)" + "＋ Tạo đơn" o MOI man (truoc day chi
+  // dien thoai / danh sach don). Chi tiet viec: bam "Cần làm" (MyWorkloadStrip) hoac o "Cần làm" Trang chu.
+  const pipelineEl = canTaoDon && (
+    <button
+      type="button"
+      onClick={() => setShowCreateFromPipeline(true)}
+      className="focus-ring inline-flex items-center gap-1 rounded-full bg-[var(--color-primary)] text-white px-3 py-1.5 text-xs font-semibold hover:bg-[var(--color-primary-hover)]"
+    >
+      {t("＋ Tạo đơn")}
+    </button>
   );
 
   // Nut "Việc của tôi: N" thay the tieu de trang h1 (phan hoi 2026-08-19) - CHI khi vao thang
@@ -922,7 +866,7 @@ export function DatMuaLinhKienModule({
       {/* Bo dong "Việc của tôi" tu hien (chot 2026-10-16, phan hoi "bỏ dòng việc của tôi" o man Thieu hang) - chi con hien khi bam nut
           "Cần làm" (showWorkloadDetail); viec can lam van o Sidebar/menu giai doan/Trang chu. */}
       {showWorkloadDetail && (
-        <MyWorkloadStrip steps={canLamSteps} myRoleKeys={myRoleKeys} onJump={jumpTo} />
+        <MyWorkloadStrip viec={viecCanLam} onJump={jumpTo} />
       )}
       {/* FIX (phan hoi 2026-08-26): an han thanh tab noi bo khi vao qua 2 duong rieng moi
           forceView="trang-chu"/"thieu-lk" - 2 man nay gio la TRANG DOC LAP thuc su LUC MOI VAO, khong
@@ -967,15 +911,13 @@ export function DatMuaLinhKienModule({
       <Suspense fallback={<TabFallback />}>
         {activeView === "trang-chu" && (
           <TrangChuTab
-            steps={steps}
+            viec={viecCanLam}
             myRoleKeys={myRoleKeys}
             onJump={jumpTo}
             loaiDonCounts={loaiDonCounts}
-            tongViecCuaToi={tongViecCuaToi}
             dangTon={dangTon}
             dangTonSteps={dangTonSteps}
-            tonDongToanHeThong={tonDongToanHeThong}
-            tonDongToanHeThongSteps={tonDongToanHeThongSteps}
+            coToanHeThong={!!homeSummary?.coToanHeThong}
             choDonBiTuChoi={choDonBiTuChoi}
             canTraHangView={canTraHangView}
             isManagerView={isManagerView}

@@ -110,6 +110,9 @@ export default {
       ctx.waitUntil(runGia88SyncWithState(env, env.DB));
       // Don so dem anh tai len cu (lib/anhUpload.ts) - chi can ngay hom nay, giu 30 ngay de tra cuu.
       ctx.waitUntil(env.DB.prepare("DELETE FROM anh_upload_ngay WHERE ngay < date('now', '+7 hours', '-30 days')").run().then(() => undefined));
+      // v1.450: thong bao chua doc qua 30 ngay -> danh dau da doc (1 tai khoan tung giu 8.571 thong bao chua doc, moi lan dem chuong
+      // doc hang nghin dong). Khong xoa - lich su thong bao van xem duoc.
+      ctx.waitUntil(env.DB.prepare("UPDATE thong_bao_ktv SET da_doc = 1 WHERE da_doc = 0 AND ngay_tao < datetime('now', '-30 days')").run().then(() => undefined));
     }
     // Them 2026-09-17: PULL danh ba "ETX nhan su" 1 lan/7 ngay luc 0h thu Hai GIO VN = 17h UTC thu
     // Chu nhat (getUTCDay()===0) - tai dung DUNG cron hang gio co san, gate them theo thu de chi chay

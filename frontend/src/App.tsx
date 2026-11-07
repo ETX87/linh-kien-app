@@ -206,7 +206,8 @@ function MainApp({
       window.history.replaceState(window.history.state, "", u.pathname + u.search + u.hash);
       mo(id);
     }
-    const nghe = (e: Event) => { const d = (e as CustomEvent<string>).detail; if (d) mo(d); };
+    // detail rong = chi mo tab "Hoàn tiền" (o "Cần làm" tren Trang chu, v1.450), co id = mo luon chi tiet.
+    const nghe = (e: Event) => mo((e as CustomEvent<string>).detail ?? "");
     window.addEventListener("mo-phieu-hoan-tien", nghe);
     return () => window.removeEventListener("mo-phieu-hoan-tien", nghe);
   }, []);

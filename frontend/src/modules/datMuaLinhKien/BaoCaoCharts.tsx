@@ -28,7 +28,6 @@ export function BaoCaoCharts({
   rows,
   thang,
   full,
-  tonDong,
   jumpDon,
   jumpTraHang,
   jumpPxk,
@@ -37,7 +36,6 @@ export function BaoCaoCharts({
   rows: BaoCaoRow[];
   thang: number;
   full: boolean;
-  tonDong: (r: BaoCaoRow) => number;
   jumpDon: (filter: string, loaiDon: "mua" | "cong_no" | undefined, email?: string) => void;
   jumpTraHang: (filter: string, email?: string) => void;
   jumpPxk: (filter: string, email?: string) => void;
@@ -50,7 +48,6 @@ export function BaoCaoCharts({
   const isPersonal = rows.length <= 1;
   const kpiWrap = "flex min-w-0";
 
-  const topTonDong = [...rows].filter((r) => tonDong(r) > 0).sort((a, b) => tonDong(b) - tonDong(a)).slice(0, 5);
   const topTien = [...rows].filter((r) => r.tongTienThucTe > 0).sort((a, b) => b.tongTienThucTe - a.tongTienThucTe).slice(0, 5);
 
   return (
@@ -156,19 +153,7 @@ export function BaoCaoCharts({
           </ChartCard>
         ) : (
           <>
-            <ChartCard title={t("Top 5 KTV tồn đọng nhiều nhất")} subtitle={t("Đơn chưa xong + phiếu xuất chưa tới tay KTV")}>
-              <HBarList
-                ranked
-                emptyText={t("Không có KTV nào đang tồn đọng.")}
-                rows={topTonDong.map((r) => ({
-                  key: r.email,
-                  label: formatPersonDisplay(r.email, personDir),
-                  value: tonDong(r),
-                  sub: t("Chờ duyệt {a} · Xuất kho {b}", { a: r.slDangCho, b: r.slChoKeToan + r.slChoKhoGui + r.slDaGui }),
-                  onClick: () => jumpDon("", undefined, r.email),
-                }))}
-              />
-            </ChartCard>
+            {/* v1.450: bo "Top 5 KTV tồn đọng" - trung voi khoi "Đơn hàng đang tồn theo KTV" ngay tren Trang chu. */}
             <ChartCard title={t("Top 5 KTV theo tiền đã mua")} subtitle={t("Tổng thực tế đã duyệt mua")}>
               <HBarList
                 ranked

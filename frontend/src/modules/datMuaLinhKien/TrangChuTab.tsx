@@ -11,7 +11,8 @@ import { STEP_SHORT_LABEL } from "./constants";
 import { KhuVucChipFilter, CollapsibleSection } from "./SharedUi";
 import { BaoCaoTab } from "./BaoCaoTab";
 import { StackedBar } from "../../components/charts/BarCharts";
-import type { JumpTarget, LuongQuyTrinhStep, DangTonStep } from "./types";
+import type { JumpTarget, DangTonStep } from "./types";
+import { moViec, type ViecCanLam } from "./viecCanLam";
 import { NguoiNhan } from "../../components/ui/TenNguoi";
 import { useAuth } from "../../auth/AuthContext";
 import { TongNgayKtvInfo } from "./TongNgayKtv";
@@ -411,15 +412,13 @@ const TonDongTheoKtvReport = forwardRef<TonDongTheoKtvReportHandle, { onJump: (t
 // tach rieng = danger (UI_SPEC neu dich danh), "Đang tồn" (khong phai luot cua minh) = info, "Tồn đọng
 // toàn hệ thống" = purple.
 export function TrangChuTab({
-  steps,
+  viec,
   myRoleKeys,
   onJump,
   loaiDonCounts,
-  tongViecCuaToi,
   dangTon,
   dangTonSteps,
-  tonDongToanHeThong,
-  tonDongToanHeThongSteps,
+  coToanHeThong,
   choDonBiTuChoi,
   canTraHangView,
   isManagerView,
@@ -429,11 +428,11 @@ export function TrangChuTab({
   canKeToan,
   isGiamSat,
 }: {
-  steps: LuongQuyTrinhStep[];
+  // v1.450: "Cần làm" = danhSachViecCanLam(/notifications/count) - CUNG so voi badge menu, may tinh lan dien thoai (viecCanLam.ts).
+  viec: ViecCanLam[];
   myRoleKeys: Set<string>;
   onJump: (t: JumpTarget) => void;
   loaiDonCounts: { mua: number; cong_no: number; tra_hang: number };
-  tongViecCuaToi: number;
   // Them (phan hoi 2026-08-31: "tách ra là 'Cần làm' và 'Đang tồn'") - dangTon la don/PXK/thieu_lk cua
   // CHINH nguoi dang xem (hoac trong pham vi Khu vuc/Khu vuc phu trach cua ho neu la TN/Kho/Ke toan/
   // TBP/QC) van con "tồn" (chua dong ho so) NHUNG khong phai luot xu ly cua ho ngay luc nay - phan
@@ -444,8 +443,8 @@ export function TrangChuTab({
   // click vào xem") - breakdown chi tiet theo TUNG trang thai (moi dong bam-nhay duoc rieng), hien khi
   // bam mo rong the "Đang tồn"/"Tồn đọng toàn hệ thống" - xem DangTonStep o types.ts.
   dangTonSteps: DangTonStep[];
-  tonDongToanHeThong: number | null;
-  tonDongToanHeThongSteps: DangTonStep[] | null;
+  // v1.450: chi la co quyen xem - so lieu tai LUOI qua GET /home-summary/toan-he-thong khi bam mo the.
+  coToanHeThong: boolean;
   // FIX (ra soat "logic sai theo vai tro" 2026-08-29, Bug A): so don CUA CHINH nguoi dang xem dang o
   // trang thai "TN tu choi" VA CHUA xem chi tiet (thong_bao_ktv.da_doc=0, loai='tu_choi') - da CONG
   // SAN vao tongViecCuaToi o component cha, truyen rieng them de ve 1 the rieng ("khong bi troi mat"
@@ -477,7 +476,6 @@ export function TrangChuTab({
   const auth = useAuth();
   const me = auth.status === "authenticated" ? auth.user : null;
   const laKtv = !!(me && (me.la_ktv_dvbh || me.la_ve_tinh));
-  const mySteps = steps.filter((s) => s.count > 0 && s.roleKeys.some((r) => myRoleKeys.has(r))).sort((a, b) => b.count - a.count);
   const isManagerish = canTacNghiep || canKho || canKeToan || isGiamSat;
   const ktvReportRef = useRef<TonDongTheoKtvReportHandle>(null);
   // Them (2026-09-01, phan hoi "ấn vào đơn đang tồn 6... làm sao tôi biết 6 đơn này hiện ở đâu để click
@@ -487,16 +485,13 @@ export function TrangChuTab({
   // the, bam duoc thang toi dung tab/filter) - giong het co che mySteps ben tren.
   const [showToanHeThongDetail, setShowToanHeThongDetail] = useState(false);
   const dangTonRows = dangTonSteps.filter((s) => s.count > 0 && s.roleKeys.some((r) => myRoleKeys.has(r))).sort((a, b) => b.count - a.count);
-  const toanHeThongRows = (tonDongToanHeThongSteps ?? []).filter((s) => s.count > 0).sort((a, b) => b.count - a.count);
-  // FIX ("bấm 'Việc cần làm' trên mobile nhảy sang màn 4 đơn không liên quan") - mySteps o duoi dung
-  // luong-quy-trinh, bi TAT han tren mobile (enabled: !isMobile o DatMuaLinhKienModule.tsx) nen luon
-  // rong, khien "Cần làm" roi vao 1 the gop chung bam-nhay CUNG 1 diem den cung ("don-cua-toi"/
-  // "__OPEN__") du con so thuc su den tu buoc nao (vd PXK "Chờ xác nhận đã nhận hàng" lai bi dan sang
-  // tab don hang). dangTonSteps (home-summary, NHE, chay ca tren mobile) da co san field isCanLam danh
-  // dau dung subset dong gop vao canLam - dung lam nguon thay the, tai su dung CACH loc/sap xep GIONG
-  // HET dangTonRows o tren de moi dong bam-nhay dung tab/filter cua chinh no.
-  const canLamRows = dangTonSteps.filter((s) => s.isCanLam && s.count > 0 && s.roleKeys.some((r) => myRoleKeys.has(r))).sort((a, b) => b.count - a.count);
-
+  const { data: toanHeThong, isFetching: dangTaiToanHeThong } = useQuery({
+    queryKey: ["dat-mua-lk-home-toan-he-thong"],
+    queryFn: () => api.get<{ tong: number; steps: DangTonStep[] }>("/dat-mua-lk/home-summary/toan-he-thong"),
+    enabled: coToanHeThong && showToanHeThongDetail,
+    staleTime: 60_000,
+  });
+  const toanHeThongRows = (toanHeThong?.steps ?? []).filter((s) => s.count > 0).sort((a, b) => b.count - a.count);
   function jumpNum(loaiDon: "mua" | "cong_no" | "tra_hang") {
     function handleClick() {
       if (loaiDon === "tra_hang" && canTraHangView) onJump({ tab: "tra-hang", filter: "" });
@@ -543,39 +538,11 @@ export function TrangChuTab({
       )}
 
       <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)]">{t("Cần làm")}</div>
-      {mySteps.length > 0 ? (
+      {viec.length > 0 ? (
         <div className="flex gap-2 sm:gap-3 flex-wrap">
-          {mySteps.map((s) => (
-            <StatCard
-              key={s.key}
-              label={STEP_SHORT_LABEL[s.key] ?? s.label}
-              value={s.count}
-              tone="warning"
-              onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: s.nguoiNhanHang ?? "", loaiDon: s.loaiDon })}
-            />
+          {viec.map((v) => (
+            <StatCard key={v.key} label={t(v.label)} value={v.count} tone="warning" onClick={() => moViec(v, onJump)} />
           ))}
-        </div>
-      ) : canLamRows.length > 0 ? (
-        // FIX (mobile: luong-quy-trinh bi tat nen mySteps luon rong) - dung tung dong canLamRows (xem
-        // dinh nghia o tren) thay vi 1 the gop chung, GIONG HET pattern dangTonRows ngay ben duoi, de
-        // moi dong bam-nhay dung tab/filter cua chinh no thay vi luon dan ve "don-cua-toi"/"__OPEN__".
-        <div className="flex gap-2 sm:gap-3 flex-wrap">
-          {canLamRows.map((s) => (
-            <StatCard
-              key={s.key}
-              label={s.label}
-              value={s.count}
-              tone="warning"
-              onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: s.nguoiNhanHang ?? "", loaiDon: s.loaiDon })}
-            />
-          ))}
-        </div>
-      ) : tongViecCuaToi > 0 ? (
-        // Fallback CUOI CUNG (giu lai lam luoi an toan) - chi con dung khi canLam>0 nhung khong dong
-        // nao trong dangTonSteps duoc danh dau isCanLam khop voi myRoleKeys (vd vai tro chua co mat
-        // trong danh sach dangTonSteps ben backend) - tranh man hinh trong khong co gi de bam.
-        <div className="flex gap-2 sm:gap-3 flex-wrap">
-          <StatCard label={t("Việc cần làm")} value={tongViecCuaToi} tone="warning" onClick={() => onJump({ tab: "don-cua-toi", filter: "__OPEN__", nguoiNhanHang: "" })} />
         </div>
       ) : (
         <div className="text-sm text-[var(--ink-400)] py-4 text-center rounded-xl border border-dashed border-[var(--line)]">{t("Không có việc gì đang chờ bạn xử lý.")}</div>
@@ -587,13 +554,22 @@ export function TrangChuTab({
           này hiện ở đâu để click vào xem") - THAY the rieng, quyet dinh RIENG "mo report Đơn hàng đang
           tồn theo KTV" (khong khop so, gay nham lan) bang 1 luoi StatCard chi tiet LUON HIEN SAN, GIONG
           HET co che mySteps o tren - moi dong = 1 trang thai cu the, bam thang toi dung tab/filter. */}
-      <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)]">{t("Đang tồn")}</div>
+      {/* v1.450: "Phạm vi dữ liệu" (so don con ton theo loai) gop vao CUNG hang tieu de "Đang tồn" - truoc day 2 khoi rieng cung tra loi
+          "con bao nhieu don chua xong". */}
+      <div className="flex items-center gap-x-1.5 gap-y-0.5 flex-wrap text-xs text-[var(--ink-500)]">
+        <span className="font-semibold uppercase tracking-wide text-[var(--ink-400)] mr-1">{t("Đang tồn")}</span>
+        <span>{t("Mua hàng")} {jumpNum("mua")}</span>
+        <span className="text-[var(--line)]">·</span>
+        <span>{t("Công nợ")} {jumpNum("cong_no")}</span>
+        <span className="text-[var(--line)]">·</span>
+        <span>{t("Trả hàng")} {jumpNum("tra_hang")}</span>
+      </div>
       {dangTonRows.length > 0 ? (
         <div className="flex gap-2 sm:gap-3 flex-wrap">
           {dangTonRows.map((s) => (
             <StatCard
               key={s.key}
-              label={s.label}
+              label={t(s.label)}
               value={s.count}
               tone="info"
               onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: s.nguoiNhanHang ?? "", loaiDon: s.loaiDon })}
@@ -608,45 +584,36 @@ export function TrangChuTab({
         <div className="text-sm text-[var(--ink-400)] py-4 text-center rounded-xl border border-dashed border-[var(--line)]">{t("Không có đơn nào đang tồn.")}</div>
       )}
 
-      {tonDongToanHeThong !== null && (canTacNghiep || canKho || canKeToan) && (
+      {coToanHeThong && (canTacNghiep || canKho || canKeToan) && (
         <>
-          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)]">{t("Tồn đọng toàn hệ thống")}</div>
-          <div className="flex gap-2 sm:gap-3 flex-wrap">
-            <StatCard
-              label={t("Tồn đọng toàn hệ thống")}
-              value={tonDongToanHeThong}
-              tone="purple"
-              onClick={toanHeThongRows.length > 0 ? () => setShowToanHeThongDetail((v) => !v) : undefined}
-            />
-          </div>
-          <div className="text-[11px] text-[var(--color-text-faint)] -mt-2">{t("Toàn quốc, không lọc theo Khu vực của bạn")}</div>
-          {showToanHeThongDetail && toanHeThongRows.length > 0 && (
-            <div className="flex gap-2 sm:gap-3 flex-wrap">
-              {toanHeThongRows.map((s) => (
-                <StatCard
-                  key={s.key}
-                  label={s.label}
-                  value={s.count}
-                  tone="purple"
-                  onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: s.nguoiNhanHang ?? "", loaiDon: s.loaiDon })}
-                />
-              ))}
-            </div>
+          <button
+            type="button"
+            onClick={() => setShowToanHeThongDetail((v) => !v)}
+            className="focus-ring flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ink-400)] hover:text-[var(--color-primary)]"
+          >
+            {t("Tồn đọng toàn hệ thống")}
+            {toanHeThong && <span className="normal-case font-bold text-[var(--color-text)] tabular-nums">{toanHeThong.tong}</span>}
+            <span className="normal-case font-normal">{showToanHeThongDetail ? t("▲ Thu gọn") : t("▼ Xem (toàn quốc)")}</span>
+          </button>
+          {showToanHeThongDetail && (
+            dangTaiToanHeThong && !toanHeThong ? (
+              <div className="text-xs text-[var(--ink-400)]">{t("Đang tải...")}</div>
+            ) : (
+              <div className="flex gap-2 sm:gap-3 flex-wrap">
+                {toanHeThongRows.map((s) => (
+                  <StatCard
+                    key={s.key}
+                    label={t(s.label)}
+                    value={s.count}
+                    tone="purple"
+                    onClick={() => onJump({ tab: s.tab, filter: s.filter, nguoiNhanHang: s.nguoiNhanHang ?? "", loaiDon: s.loaiDon })}
+                  />
+                ))}
+              </div>
+            )
           )}
         </>
       )}
-
-      {/* SUA (phan hoi 2026-08-25: "3 cái này trên giao diện web đang chiếm quá nhiều diện tích
-          không cần thiết") - doi tu Card+table 3 hang (~130px cao) sang 1 hang inline duy nhat, giu
-          nguyen y nghia/hanh vi bam-nhay (jumpNum), chi doi lop trinh bay. */}
-      <div className="flex items-center gap-1.5 flex-wrap text-xs text-[var(--ink-500)]">
-        <span className="font-semibold uppercase tracking-wide text-[var(--ink-400)]">{t("Phạm vi dữ liệu:")}</span>
-        <span>{t("Mua hàng")} {jumpNum("mua")} {t("đơn")}</span>
-        <span className="text-[var(--line)]">·</span>
-        <span>{t("Công nợ")} {jumpNum("cong_no")} {t("đơn")}</span>
-        <span className="text-[var(--line)]">·</span>
-        <span>{t("Trả hàng")} {jumpNum("tra_hang")} {t("đơn")}</span>
-      </div>
 
       {isManagerish && <TonDongTheoKtvReport ref={ktvReportRef} onJump={onJump} />}
 

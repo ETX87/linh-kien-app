@@ -91,6 +91,8 @@ export interface NavCounts {
   datMuaLk: {
     total: number; thieuLkCanXuLy?: number; choTnPxk?: number; choKhoPxk?: number; choKeToanPxk?: number; choKhoThieuLk?: number;
     choKeToanTraHang?: number; choKhoTraHang?: number; choQcTraHang?: number;
+    // v1.450: viec PXK tach theo nguoi lam (Ke toan xac nhan tien, chinh nguoi nhan chuyen tien / xac nhan nhan hang).
+    choKeToanTien?: number; choTienCuaToi?: number; choNhanHangCuaToi?: number;
   };
   ktvLogChuaDoc: number;
   // So LK "Cho xet duyet" ma chuan - backend chi tra > 0 cho Mua hang/Admin (routes/notifications.ts).
@@ -113,7 +115,7 @@ export function navCount(countKey: NavItem["countKey"], counts: NavCounts | unde
   if (countKey === "lkChoXetDuyet") return counts.lkChoXetDuyet ?? 0;
   if (countKey === "thieuLk") return counts.datMuaLk.thieuLkCanXuLy ?? 0;
   const d = counts.datMuaLk;
-  const pxk = (d.choTnPxk ?? 0) + (d.choKhoPxk ?? 0) + (d.choKeToanPxk ?? 0);
+  const pxk = (d.choTnPxk ?? 0) + (d.choKhoPxk ?? 0) + (d.choKeToanPxk ?? 0) + (d.choKeToanTien ?? 0) + (d.choTienCuaToi ?? 0) + (d.choNhanHangCuaToi ?? 0);
   const hangTra = tachHangTra ? (d.choKeToanTraHang ?? 0) + (d.choKhoTraHang ?? 0) + (d.choQcTraHang ?? 0) : 0;
   return countKey === "phieuXuat" ? pxk : Math.max(0, d.total - pxk - (d.choKhoThieuLk ?? 0) - hangTra);
 }

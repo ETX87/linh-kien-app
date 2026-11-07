@@ -507,6 +507,8 @@ export const PXK_TRANG_THAI_OPTIONS = [
   // trang_thai_hien_tai that nen KHONG xuat hien trong StatusBadge cua tung dong (PXK_TRANG_THAI_TONE
   // khong co key nay) - chi dung o day de lam 1 CHIP LOC rieng biet voi "Đang tạo phiếu".
   { value: "CHO_TIEN", label: "Chờ chuyển tiền" },
+  // v1.450: KTV da bao chuyen, cho Ke toan xac nhan tien (o "Cần làm" cua Ke toan) - sentinel, xem GET /phieu-xuat-kho.
+  { value: "CHO_KT_TIEN", label: "Chờ Kế toán xác nhận tiền" },
   { value: "Dang tao phieu", label: "Đang tạo phiếu" },
   { value: "Cho ke toan", label: "Chờ kế toán" },
   { value: "Da chot xong don xuat", label: "Đã chốt xong đơn xuất" },
