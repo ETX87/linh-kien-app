@@ -90,7 +90,7 @@ baoCaoTocDoXuLy.get("/xep-hang", async (c) => {
 
   const scopeKeyPart = scopeEmails === null ? "all" : [...scopeEmails].sort().join(",");
   const key = buildReportKey(
-    "bao-cao-toc-do/xep-hang",
+    "bao-cao-toc-do/xep-hang-v2", // v2 (v1.446): chi tinh nguoi phu trach, bo ca huy
     { giai_doan: giaiDoan, ky_loai: kyLoai, ky, khu_vuc: khuVuc, loai_de_xuat: loaiDeXuat, nhom_id: nhomId },
     [scopeKeyPart],
   );

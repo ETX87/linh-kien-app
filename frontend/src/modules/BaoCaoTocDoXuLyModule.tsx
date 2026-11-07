@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api, buildQuery } from "../api/client";
 import { Card } from "../components/ui/Card";
 import { Tabs } from "../components/ui/Tabs";
@@ -255,42 +255,6 @@ function tbGioToanHeThong(rows: XepHangRow[]): number | null {
   return totalCount > 0 ? totalHours / totalCount : null;
 }
 
-// Bieu do tong quan (them 2026-09-26): gio TB toan he thong theo giai doan (thanh ngang, 1 mau thuong hieu
-// - do lon, khong phai phan loai) + so dang cho o dong phu. Dung useQueries voi DUNG queryKey cua
-// useXepHang() nen chia se cache voi cac dong bang ben duoi, khong goi API them.
-function TongQuanChart({ stages, filters, onJump }: { stages: GiaiDoanMeta[]; filters: Filters; onJump: (luong: GiaiDoanMeta["luong"], key: string) => void }) {
-  const results = useQueries({
-    queries: stages.map((stage) => ({
-      queryKey: ["bao-cao-toc-do-xep-hang", stage.key, filters.kyLoai, filters.ky, [...filters.khuVuc].join(","), filters.nhomId],
-      queryFn: () => api.get<XepHangResult>(`/bao-cao-toc-do/xep-hang${xepHangQuery(stage.key, filters)}`),
-    })),
-  });
-  const rows = stages
-    .map((stage, i) => {
-      const data = results[i]?.data;
-      const tb = data ? tbGioToanHeThong(data.rows) : null;
-      return { stage, tb, dangCho: data?.dang_cho ?? 0 };
-    })
-    .filter((r) => r.tb != null)
-    .sort((a, b) => b.tb! - a.tb!);
-  return (
-    <ChartCard title="Thời gian xử lý trung bình theo giai đoạn" subtitle="Giờ TB toàn hệ thống (bình quân gia quyền theo số lượt) — giai đoạn chậm nhất ở trên cùng">
-      <HBarList
-        emptyText={results.some((r) => r.isLoading) ? "Đang tải…" : "Chưa có dữ liệu trong kỳ này."}
-        rows={rows.map((r, i) => ({
-          key: r.stage.key,
-          label: r.stage.label,
-          value: r.tb!,
-          display: fmtGio(r.tb),
-          color: i === 0 ? "var(--chart-2)" : "var(--chart-1)",
-          sub: `${LUONG_LABELS[r.stage.luong]} · Đang chờ ${r.dangCho}`,
-          onClick: () => onJump(r.stage.luong, r.stage.key),
-        }))}
-      />
-    </ChartCard>
-  );
-}
-
 function TongQuanRow({ stage, filters, onJump }: { stage: GiaiDoanMeta; filters: Filters; onJump: (luong: GiaiDoanMeta["luong"], key: string) => void }) {
   const { data, isLoading } = useXepHang(stage.key, filters);
   const rows = data?.rows ?? [];
@@ -326,7 +290,6 @@ function TongQuanTab({ stages, filters, onJump }: { stages: GiaiDoanMeta[]; filt
   const noiBoStages = stages.filter((s) => s.noi_bo);
   return (
     <div className="space-y-[14px]">
-    <TongQuanChart stages={noiBoStages} filters={filters} onJump={onJump} />
     <div className="border border-[var(--line)] rounded-xl overflow-hidden bg-[var(--surface)]">
       <div className="overflow-x-auto">
         <table className="tbl w-full">
@@ -467,7 +430,7 @@ export function BaoCaoTocDoXuLyModule() {
     <div className="anim-in space-y-3">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="text-xs text-[var(--ink-500)] max-w-3xl">
-          Tốc độ xử lý trung bình theo từng tài khoản ở từng giai đoạn của quy trình - thời gian tính cho các khoảng chờ nhân viên nội bộ thao tác (không tính khoảng chờ KTV hành động, xem tab riêng).
+          Tốc độ xử lý trung bình theo từng tài khoản ở từng giai đoạn của quy trình — mỗi giai đoạn chỉ tính lượt do NGƯỜI PHỤ TRÁCH xử lý (vd bước TBP xác nhận chỉ tính TBP): không tính người đặt hàng / KTV tự thao tác, thao tác tự động của hệ thống và các ca hủy. Khoảng chờ KTV hành động xem tab riêng.
         </div>
         <Btn size="sm" variant="ghost" onClick={() => void handleDownload()} loading={downloading} disabled={stages.length === 0}>
           ⬇ Tải báo cáo

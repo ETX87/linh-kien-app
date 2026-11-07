@@ -33,7 +33,16 @@ export interface StageDef {
   tuChoiStates: string[];
   noiBo: boolean; // false = "cho KTV hanh dong" - KHONG tinh vao SLA nhan vien
   ghiChu?: string;
+  /** Vai tro PHU TRACH giai doan (chot 2026-11-07, v1.446 — "chỉ tính tốc độ xử lý cho người phụ trách nhiệm vụ đó (bỏ các thao tác
+   * thường, bỏ ca hủy) ... không tính tốc độ xử lý của KTV, người đặt hàng"): lượt chỉ được tính khi người làm trạng thái đổi có 1 trong
+   * các vai trò này — người tạo / KTV tự hủy, Admin làm hộ, thao tác tự động của hệ thống bị bỏ. Không khai báo = không lọc (2 giai đoạn
+   * "chờ KTV"). */
+  vaiTro?: VaiTroPhuTrach[];
+  /** Trạng thái đích là HỦY (không phải quyết định xử lý của người phụ trách) — bỏ hẳn khỏi báo cáo. */
+  huyStates?: string[];
 }
+
+export type VaiTroPhuTrach = "tram" | "tbp" | "gs" | "tn" | "kho" | "ke_toan" | "qc";
 
 // Danh sach 14 giai doan - xem bang "ma tran thoi gian xu ly" trong plan (da doi chieu tung dong
 // voi CHECK constraint that cua tung bang log, migrations/0001_init.sql + 0002_tra_hang_pxk.sql, va
@@ -48,6 +57,7 @@ export const STAGE_DEFS: StageDef[] = [
     toStates: ["Cho TBP xac nhan", "Cho TN duyet", "Da huy", "TN da duyet", "Cho thanh toan", "Cho hang", "Cho GS duyet"],
     tuChoiStates: ["Da huy"],
     noiBo: true,
+    vaiTro: ["tram"],
   },
   {
     key: "tbp_xac_nhan",
@@ -58,6 +68,7 @@ export const STAGE_DEFS: StageDef[] = [
     toStates: ["Cho TN duyet", "Da huy", "TN da duyet", "Cho thanh toan", "Cho hang", "Cho GS duyet"],
     tuChoiStates: ["Da huy"],
     noiBo: true,
+    vaiTro: ["tbp"],
   },
   {
     // Tu dong duyet 100% (2026-10-14): don cong no vuot tran cho GS khu vuc duyet (nhap ma EO).
@@ -69,6 +80,7 @@ export const STAGE_DEFS: StageDef[] = [
     toStates: ["TN da duyet", "Cho thanh toan", "Cho hang", "Da huy"],
     tuChoiStates: ["Da huy"],
     noiBo: true,
+    vaiTro: ["gs"],
   },
   {
     key: "tn_duyet_don",
@@ -79,6 +91,7 @@ export const STAGE_DEFS: StageDef[] = [
     toStates: ["TN da duyet", "TN tu choi", "Cho hang"],
     tuChoiStates: ["TN tu choi"],
     noiBo: true,
+    vaiTro: ["tn"],
   },
   {
     key: "kho_xu_ly_thieu",
@@ -86,9 +99,11 @@ export const STAGE_DEFS: StageDef[] = [
     luong: "mua_cong_no",
     logTable: "thieu_lk_log",
     fromStates: ["Cho kho xu ly"],
-    toStates: ["Kho da tiep nhan", "Kho xac nhan hang da ve", "Kho tu choi sai TT", "Da huy bo"],
+    toStates: ["Kho da tiep nhan", "Kho xac nhan hang da ve", "Kho tu choi sai TT", "Cho mua hang", "Da huy bo"],
     tuChoiStates: ["Kho tu choi sai TT", "Da huy bo"],
     noiBo: true,
+    vaiTro: ["kho"],
+    huyStates: ["Da huy bo"],
     ghiChu: "Một phần phản ánh điều kiện khách quan (hàng có về kho hay không), không thuần tốc độ xử lý của Kho.",
   },
   {
@@ -100,6 +115,7 @@ export const STAGE_DEFS: StageDef[] = [
     toStates: ["Cho kho xac nhan", "Tu choi"],
     tuChoiStates: ["Tu choi"],
     noiBo: true,
+    vaiTro: ["ke_toan"],
   },
   {
     key: "th_kho_xac_nhan",
@@ -110,6 +126,7 @@ export const STAGE_DEFS: StageDef[] = [
     toStates: ["Cho QC xac nhan", "Tu choi"],
     tuChoiStates: ["Tu choi"],
     noiBo: true,
+    vaiTro: ["kho"],
   },
   {
     key: "th_qc_xac_nhan",
@@ -120,6 +137,7 @@ export const STAGE_DEFS: StageDef[] = [
     toStates: ["Cho TN duyet tong", "Tu choi"],
     tuChoiStates: ["Tu choi"],
     noiBo: true,
+    vaiTro: ["qc"],
   },
   {
     key: "th_tn_duyet_tong",
@@ -130,6 +148,7 @@ export const STAGE_DEFS: StageDef[] = [
     toStates: ["TN da duyet", "Tu choi"],
     tuChoiStates: ["Tu choi"],
     noiBo: true,
+    vaiTro: ["tn"],
   },
   {
     key: "cho_chuyen_tien",
@@ -155,6 +174,7 @@ export const STAGE_DEFS: StageDef[] = [
     toStates: [],
     tuChoiStates: [],
     noiBo: true,
+    vaiTro: ["ke_toan"],
   },
   {
     key: "tn_tao_pxk",
@@ -165,6 +185,8 @@ export const STAGE_DEFS: StageDef[] = [
     toStates: ["Cho ke toan", "Ke toan huy"],
     tuChoiStates: ["Ke toan huy"],
     noiBo: true,
+    vaiTro: ["tn"],
+    huyStates: ["Ke toan huy"],
   },
   {
     key: "ke_toan_chot_pxk",
@@ -175,6 +197,8 @@ export const STAGE_DEFS: StageDef[] = [
     toStates: ["Da chot xong don xuat", "Ke toan huy"],
     tuChoiStates: ["Ke toan huy"],
     noiBo: true,
+    vaiTro: ["ke_toan"],
+    huyStates: ["Ke toan huy"],
   },
   {
     key: "kho_xu_ly_pxk",
@@ -185,6 +209,7 @@ export const STAGE_DEFS: StageDef[] = [
     toStates: ["Dang gui KTV", "Hang tru kho", "Kho da ket thuc", "Kho da nhan hang tra"],
     tuChoiStates: [],
     noiBo: true,
+    vaiTro: ["kho"],
   },
   {
     key: "cho_ktv_nhan_hang",
@@ -209,6 +234,7 @@ export interface StageInstance {
   gioCho: number;
   ktvEmail: string | null;
   loaiDeXuat: string | null;
+  nguoiTao: string | null;
 }
 
 interface RawLogRow {
@@ -220,6 +246,7 @@ interface RawLogRow {
   ghi_chu: string | null;
   ktv_email: string | null;
   loai_de_xuat: string | null;
+  nguoi_tao: string | null;
 }
 
 /** Parse "YYYY-MM-DD HH:MM:SS" (quy uoc gio VN cua toan he thong, xem lib/vnTime.ts) thanh epoch ms
@@ -260,6 +287,7 @@ function collapseAndMatch(rows: RawLogRow[], logTable: LogTable, stageDefs: Stag
             gioCho: hoursBetween(prevReal.ngay_xu_ly, row.ngay_xu_ly),
             ktvEmail: row.ktv_email,
             loaiDeXuat: row.loai_de_xuat,
+            nguoiTao: row.nguoi_tao,
           });
         }
       }
@@ -315,6 +343,7 @@ function computePxkChuyenTienInstances(rows: RawLogRow[]): StageInstance[] {
           gioCho: hoursBetween(pendingRequest.ngay_xu_ly, row.ngay_xu_ly),
           ktvEmail: row.ktv_email,
           loaiDeXuat: row.loai_de_xuat,
+          nguoiTao: row.nguoi_tao,
         });
       }
       pendingConfirm = row;
@@ -330,6 +359,7 @@ function computePxkChuyenTienInstances(rows: RawLogRow[]): StageInstance[] {
           gioCho: hoursBetween(pendingConfirm.ngay_xu_ly, row.ngay_xu_ly),
           ktvEmail: row.ktv_email,
           loaiDeXuat: row.loai_de_xuat,
+          nguoiTao: row.nguoi_tao,
         });
       }
       pendingConfirm = null;
@@ -342,24 +372,24 @@ async function fetchRaw(db: D1Database, logTable: Exclude<LogTable, "pxk_chuyen_
   let sql: string;
   if (logTable === "dat_don_hang_log") {
     sql = `SELECT l.id, l.dat_don_hang_id as fk_id, l.trang_thai, l.nguoi_xu_ly, l.ngay_xu_ly, NULL as ghi_chu,
-             ddh.nguoi_nhan_hang as ktv_email, ddh.loai_de_xuat as loai_de_xuat
+             ddh.nguoi_nhan_hang as ktv_email, ddh.loai_de_xuat as loai_de_xuat, ddh.nguoi_tao as nguoi_tao
            FROM dat_don_hang_log l JOIN dat_don_hang ddh ON ddh.id = l.dat_don_hang_id
            ORDER BY l.dat_don_hang_id, l.id`;
   } else if (logTable === "tra_hang_log") {
     sql = `SELECT l.id, l.dat_don_hang_id as fk_id, l.trang_thai, l.nguoi_xu_ly, l.ngay_xu_ly, NULL as ghi_chu,
-             ddh.nguoi_nhan_hang as ktv_email, ddh.loai_de_xuat as loai_de_xuat
+             ddh.nguoi_nhan_hang as ktv_email, ddh.loai_de_xuat as loai_de_xuat, ddh.nguoi_tao as nguoi_tao
            FROM tra_hang_log l JOIN dat_don_hang ddh ON ddh.id = l.dat_don_hang_id
            ORDER BY l.dat_don_hang_id, l.id`;
   } else if (logTable === "thieu_lk_log") {
     sql = `SELECT l.id, l.thieu_lk_id as fk_id, l.trang_thai, l.nguoi_xu_ly, l.ngay_xu_ly, NULL as ghi_chu,
-             ddh.nguoi_nhan_hang as ktv_email, ddh.loai_de_xuat as loai_de_xuat
+             ddh.nguoi_nhan_hang as ktv_email, ddh.loai_de_xuat as loai_de_xuat, ddh.nguoi_tao as nguoi_tao
            FROM thieu_lk_log l
            JOIN thieu_lk t ON t.id = l.thieu_lk_id
            JOIN dat_don_hang ddh ON ddh.id = t.dat_don_hang_id
            ORDER BY l.thieu_lk_id, l.id`;
   } else {
     sql = `SELECT l.id, l.phieu_xuat_kho_id as fk_id, l.trang_thai, l.nguoi_xu_ly, l.ngay_xu_ly, l.ghi_chu,
-             pxk.nguoi_nhan_hang as ktv_email,
+             pxk.nguoi_nhan_hang as ktv_email, NULL as nguoi_tao,
              (SELECT ddh.loai_de_xuat FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id
               WHERE pxkd.phieu_xuat_kho_id = pxk.id LIMIT 1) as loai_de_xuat
            FROM phieu_xuat_kho_log l JOIN phieu_xuat_kho pxk ON pxk.id = l.phieu_xuat_kho_id
@@ -379,13 +409,62 @@ export async function computeAllStageInstances(db: D1Database): Promise<StageIns
     fetchRaw(db, "tra_hang_log"),
     fetchRaw(db, "phieu_xuat_kho_log"),
   ]);
-  return [
+  const all = [
     ...collapseAndMatch(ddhRows, "dat_don_hang_log", STAGE_DEFS),
     ...collapseAndMatch(tlkRows, "thieu_lk_log", STAGE_DEFS),
     ...collapseAndMatch(thRows, "tra_hang_log", STAGE_DEFS),
     ...collapseAndMatch(pxkRows, "phieu_xuat_kho_log", STAGE_DEFS),
     ...computePxkChuyenTienInstances(pxkRows),
   ];
+  return locNguoiPhuTrach(all, await docVaiTroNguoiXuLy(db));
+}
+
+interface VaiTroUser {
+  vai_tro: string | null;
+  la_ktv_dvbh: number;
+  la_kho: number;
+  la_ke_toan: number;
+  la_tac_nghiep: number;
+  la_tp_dvbh: number;
+}
+
+async function docVaiTroNguoiXuLy(db: D1Database): Promise<Map<string, VaiTroUser>> {
+  const { results } = await db
+    .prepare("SELECT LOWER(email) as email, vai_tro, la_ktv_dvbh, la_kho, la_ke_toan, la_tac_nghiep, la_tp_dvbh FROM users")
+    .all<VaiTroUser & { email: string }>();
+  return new Map((results ?? []).map((u) => [u.email, u]));
+}
+
+function coVaiTro(u: VaiTroUser, vt: VaiTroPhuTrach, inst: StageInstance): boolean {
+  switch (vt) {
+    case "tram": // Tram = KTV cap 1 duyet don cua Ve tinh — khong phai chinh nguoi dat
+      return !!u.la_ktv_dvbh && (inst.nguoiTao ?? "").toLowerCase() !== inst.nguoiXuLy.toLowerCase();
+    case "tbp":
+      return !!u.la_tp_dvbh;
+    case "gs":
+      return u.vai_tro === "Giam sat";
+    case "tn": // Ke toan lam thay Tac nghiep (chot 2026-10-15, keToanLamThayTn)
+      return !!u.la_tac_nghiep || !!u.la_ke_toan;
+    case "kho":
+      return !!u.la_kho;
+    case "ke_toan":
+      return !!u.la_ke_toan;
+    case "qc":
+      return u.vai_tro === "QC";
+  }
+}
+
+/** Giu lai luot do NGUOI PHU TRACH giai doan xu ly (xem StageDef.vaiTro), bo luot ket thuc bang HUY (StageDef.huyStates). */
+function locNguoiPhuTrach(all: StageInstance[], users: Map<string, VaiTroUser>): StageInstance[] {
+  return all.filter((inst) => {
+    const stage = STAGE_BY_KEY.get(inst.stageKey);
+    if (!stage) return false;
+    if (stage.huyStates?.includes(inst.toState)) return false;
+    if (!stage.vaiTro) return true;
+    const u = users.get(inst.nguoiXuLy.toLowerCase());
+    if (!u) return false; // he thong tu dong / tai khoan khong ton tai
+    return stage.vaiTro.some((vt) => coVaiTro(u, vt, inst));
+  });
 }
 
 export interface KyRange {
