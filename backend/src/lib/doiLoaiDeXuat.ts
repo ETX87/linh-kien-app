@@ -35,7 +35,7 @@ import { laTruCongNo, laMuaCongNoDoiTac, taiTinhPxk, taiTinhPxkMoCuaKtv } from "
 import { getMocTinhCongNo } from "./congNoKtv";
 import { goDonKhoiPxk, laVanPhong, danhDauVanPhongTacDong } from "./pxkTuHuy";
 import { bundleAutoApprovedIntoPxk } from "./pxkAutoBundle";
-import { nhomLoaiDeXuat, nhomLdeSql } from "./nhomLoaiDeXuat";
+import { nhomPhieu, nhomPhieuSql } from "./nhomLoaiDeXuat";
 import { notifyWorkflowTask, emailsForRoleOrQC, MUA_CONG_NO_ROLES } from "./taskNotify";
 
 const TRANG_THAI_DOI_DUOC = ["Cho Tram duyet", "Cho TBP xac nhan", "Cho GS duyet", "Cho TN duyet", "Cho thanh toan", "TN da duyet", "Cho hang"];
@@ -119,7 +119,7 @@ export async function doiLoaiDeXuatDon(
     .prepare(
       `SELECT ddh.version, ddh.loai_don, ddh.loai_de_xuat, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.so_luong_de_xuat, ddh.so_luong_thuc_xuat,
               ddh.gia_chot, ddh.gia_de_xuat, ddh.nguoi_tao, ddh.nguoi_nhan_hang, ddh.email_gs, ddh.ma_eo, ddh.so_tien_cong_no, ddh.updated_at,
-              ddh.trang_thai_hien_tai AS trang_thai, ddh.chinh_sach, ddh.ma_yeu_cau_su_co, ddh.ma_lada,
+              ddh.trang_thai_hien_tai AS trang_thai, ddh.chinh_sach, ddh.ma_yeu_cau_su_co, ddh.ma_lada, ddh.yeu_cau_hoa_don, COALESCE(ddh.kh_chuyen_khoan, 0) AS kh_chuyen_khoan,
               COALESCE(ddh.dac_thu_thu_cong, lk.dac_thu, 0) AS dac_thu, lk.cho_phep_gia_0, lk.gia_tri_cong_no,
               (SELECT x.phieu_xuat_kho_id FROM phieu_xuat_kho_dong x JOIN phieu_xuat_kho p ON p.id = x.phieu_xuat_kho_id
                WHERE x.dat_don_hang_id = ddh.id AND p.trang_thai_hien_tai <> 'Ke toan huy' LIMIT 1) AS pxk_id
@@ -130,7 +130,7 @@ export async function doiLoaiDeXuatDon(
       version: number; loai_don: string; loai_de_xuat: string | null; ma_lk: string; ten_lk_snapshot: string | null; so_luong_de_xuat: number;
       so_luong_thuc_xuat: number | null; gia_chot: number | null; gia_de_xuat: number | null; nguoi_tao: string; nguoi_nhan_hang: string | null;
       email_gs: string | null; ma_eo: string | null; so_tien_cong_no: number | null; updated_at: string | null; trang_thai: string;
-      chinh_sach: string | null; ma_yeu_cau_su_co: string | null; ma_lada: string | null;
+      chinh_sach: string | null; ma_yeu_cau_su_co: string | null; ma_lada: string | null; yeu_cau_hoa_don: string | null; kh_chuyen_khoan: number;
       dac_thu: number; cho_phep_gia_0: number | null; gia_tri_cong_no: number | null; pxk_id: string | null;
     }>();
   if (!d) return { error: "NOT_FOUND", status: 404 };
@@ -140,6 +140,8 @@ export async function doiLoaiDeXuatDon(
   const loaiDonMoi = deriveLoaiDon(ldeMoi);
   if (loaiDonMoi === "tra_hang") return { error: "DOI_LUONG_TRA_HANG", status: 409 };
   if (laMuaCongNoDoiTac(ldeMoi)) return { error: "DOI_LOAI_CONG_NO_DOI_TAC", status: 409 };
+  // Don "KH đã chuyển khoản về công ty" (migration 0111) chi co nghia voi don phat sinh tien (mua / TRỪ CÔNG NỢ).
+  if (d.kh_chuyen_khoan && !(loaiDonMoi === "mua" || laTruCongNo(ldeMoi))) return { error: "KH_CHUYEN_KHOAN_CHI_DON_MUA", status: 409 };
   if (!d.nguoi_nhan_hang) return { error: "NOT_FOUND", status: 404 };
 
   // ---- Danh gia lai bang CUNG bo quyet dinh luc tao don ----
@@ -227,10 +229,10 @@ export async function doiLoaiDeXuatDon(
     const p = await db
       .prepare(
         `SELECT p.loai_don, EXISTS (SELECT 1 FROM phieu_xuat_kho_dong x JOIN dat_don_hang o ON o.id = x.dat_don_hang_id
-           WHERE x.phieu_xuat_kho_id = p.id AND o.id <> ? AND ${nhomLdeSql("o.loai_de_xuat")} <> ?) AS khac_nhom
+           WHERE x.phieu_xuat_kho_id = p.id AND o.id <> ? AND ${nhomPhieuSql("o")} <> ?) AS khac_nhom
          FROM phieu_xuat_kho p WHERE p.id = ?`,
       )
-      .bind(donId, nhomLoaiDeXuat(ldeMoi), pxkCu)
+      .bind(donId, nhomPhieu({ loai_de_xuat: ldeMoi, yeu_cau_hoa_don: d.yeu_cau_hoa_don, kh_chuyen_khoan: d.kh_chuyen_khoan }), pxkCu)
       .first<{ loai_don: string | null; khac_nhom: number }>();
     doiPhieu = !vaoPhieuDuoc || p?.loai_don !== loaiDonMoi || !!p?.khac_nhom;
     if (doiPhieu) {

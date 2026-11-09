@@ -182,6 +182,7 @@ export interface DonHangRow {
   // 6 truong bo sung 2026-08-14 (doi chieu Excel goc, xem migration 0070) - nguoi tao dien luc tao.
   ghi_chu: string | null;
   yeu_cau_hoa_don: string | null;
+  kh_chuyen_khoan?: number | null; // "KH đã chuyển khoản về công ty" (migration 0111)
   tt_mail_duyet: string | null;
   tt_khach_hang: string | null;
   chinh_sach: string | null;
@@ -353,6 +354,9 @@ export interface PhieuXuatKhoRow {
   // bên trong, cũng tự động tô màu").
   co_don_uu_tien?: boolean;
   co_khieu_nai?: number | boolean; // phieu co it nhat 1 don "Ca khiếu nại" (2026-10-28)
+  // Hinh thuc xuat hoa don cua phieu ('' = khong) + phieu "KH đã chuyển khoản về công ty" tieu Quỹ xuất hóa đơn do KH chuyển (2026-11-09).
+  yeu_cau_hd?: string | null;
+  quy_kh?: number | null;
   co_yeu_cau_huy?: number | boolean; // phieu co don dang co yeu cau huy cho dong y (v1.455)
 }
 
@@ -573,6 +577,8 @@ export interface DonHangDraft {
   doi_tac_ma: string;
   // Doi tac do form tu dien theo nguoi nhan hang (v1.406) - chon tay = false, doi nguoi nhan hang khong ghi de dong chon tay.
   doi_tac_tu_dong?: boolean;
+  // "Khách hàng đã chuyển khoản về công ty" (migration 0111) - chi khi da chon 1 hinh thuc xuat hoa don (KhChuyenKhoan.tsx).
+  kh_chuyen_khoan?: boolean;
 }
 
 export interface XepHangLinhKienRow {

@@ -10,6 +10,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nowVN } from "../lib/vnTime";
 import { khuVucViewEmailInSql } from "../lib/scopeDatMua";
+import { khoaQuy, laKhoaQuyKh, giaiKhoaQuy } from "../lib/quyKhoa";
 import { lenhGhiQuy, phanBoQuy, soDuQuy, suaThucNhanKhoan, huyKhoanChuyen, KHOAN_HUY_DUOC_SQL } from "../lib/quyKtv";
 import { xuLyDonChoThanhToan } from "../lib/tuDongDuyet";
 import { notifyWorkflowTask, emailGsListForPxk, pastActorsFor } from "../lib/taskNotify";
@@ -123,29 +124,40 @@ quyKtv.post("/ocr-anh", async (c) => {
 quyKtv.get("/tong-quan", async (c) => {
   const pv = await phamViXem(c);
   if (pv === undefined) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
-  const loc = locEmail("ng.email", pv);
+  const loc = locEmail("ng.nguoi", pv);
   const { results } = await c.env.DB.prepare(
-    `WITH ng AS (
-       SELECT email_nguoi_chuyen AS email FROM khoan_chuyen_tien
+    // 1 dong / QUY (2026-11-09, migration 0111): quy du KTV (email) va "Quỹ xuất hóa đơn do KH chuyển" (khhd:email) la 2 dong rieng -
+    // khoan chuyen / phieu cho tien tinh vao dung quy theo phieu_xuat_kho.quy_kh. ng.nguoi = nguoi nhan hang (loc pham vi theo nguoi).
+    `WITH ng0 AS (
+       SELECT CASE WHEN COALESCE(kp.quy_kh, 0) = 1 THEN 'khhd:' || k.email_nguoi_chuyen ELSE k.email_nguoi_chuyen END AS email
+         FROM khoan_chuyen_tien k LEFT JOIN phieu_xuat_kho kp ON kp.id = k.phieu_xuat_kho_id
        UNION SELECT email FROM quy_ktv
        UNION SELECT email FROM phieu_hoan_tien WHERE trang_thai IN ('Cho KTV xac nhan', 'Cho KT xac nhan')
-       UNION SELECT nguoi_nhan_hang FROM phieu_xuat_kho
+       UNION SELECT CASE WHEN COALESCE(quy_kh, 0) = 1 THEN 'khhd:' || nguoi_nhan_hang ELSE nguoi_nhan_hang END FROM phieu_xuat_kho
          WHERE nguoi_nhan_hang IS NOT NULL AND trang_thai_hien_tai != 'Ke toan huy'
            AND trang_thai_chuyen_tien IN ('Cho KTV chuyen', 'KTV da chuyen')
+     ),
+     ng AS (
+       SELECT email, CASE WHEN email LIKE 'khhd:%' THEN substr(email, 6) ELSE email END AS nguoi,
+              CASE WHEN email LIKE 'khhd:%' THEN 1 ELSE 0 END AS quy_kh
+       FROM ng0
      )
-     SELECT ng.email, COALESCE(q.so_du, 0) AS so_du, q.cap_nhat_luc,
+     SELECT ng.email, ng.nguoi, ng.quy_kh, COALESCE(q.so_du, 0) AS so_du, q.cap_nhat_luc,
        (SELECT COALESCE(SUM(h.so_tien), 0) FROM phieu_hoan_tien h
           WHERE h.email = ng.email AND h.trang_thai IN ('Cho KTV xac nhan', 'Cho KT xac nhan')) AS tam_giu,
-       (SELECT COALESCE(SUM(k.so_tien_thuc_nhan), 0) FROM khoan_chuyen_tien k
-          WHERE k.email_nguoi_chuyen = ng.email AND k.trang_thai = 'Da duyet') AS tong_thuc_nhan,
-       (SELECT COUNT(*) FROM khoan_chuyen_tien k WHERE k.email_nguoi_chuyen = ng.email AND k.trang_thai = 'Da duyet') AS so_khoan_duyet,
-       (SELECT COUNT(*) FROM khoan_chuyen_tien k WHERE k.email_nguoi_chuyen = ng.email AND k.trang_thai = 'Tu choi') AS so_lan_tu_choi,
-       (SELECT MAX(k.duyet_luc) FROM khoan_chuyen_tien k WHERE k.email_nguoi_chuyen = ng.email) AS lan_cuoi,
+       (SELECT COALESCE(SUM(k.so_tien_thuc_nhan), 0) FROM khoan_chuyen_tien k JOIN phieu_xuat_kho kp ON kp.id = k.phieu_xuat_kho_id
+          WHERE k.email_nguoi_chuyen = ng.nguoi AND COALESCE(kp.quy_kh, 0) = ng.quy_kh AND k.trang_thai = 'Da duyet') AS tong_thuc_nhan,
+       (SELECT COUNT(*) FROM khoan_chuyen_tien k JOIN phieu_xuat_kho kp ON kp.id = k.phieu_xuat_kho_id
+          WHERE k.email_nguoi_chuyen = ng.nguoi AND COALESCE(kp.quy_kh, 0) = ng.quy_kh AND k.trang_thai = 'Da duyet') AS so_khoan_duyet,
+       (SELECT COUNT(*) FROM khoan_chuyen_tien k JOIN phieu_xuat_kho kp ON kp.id = k.phieu_xuat_kho_id
+          WHERE k.email_nguoi_chuyen = ng.nguoi AND COALESCE(kp.quy_kh, 0) = ng.quy_kh AND k.trang_thai = 'Tu choi') AS so_lan_tu_choi,
+       (SELECT MAX(k.duyet_luc) FROM khoan_chuyen_tien k JOIN phieu_xuat_kho kp ON kp.id = k.phieu_xuat_kho_id
+          WHERE k.email_nguoi_chuyen = ng.nguoi AND COALESCE(kp.quy_kh, 0) = ng.quy_kh) AS lan_cuoi,
        (SELECT COALESCE(SUM(MAX(COALESCE(p.so_tien_can_chuyen, 0) - p.da_thanh_toan, 0)), 0) FROM phieu_xuat_kho p
-          WHERE p.nguoi_nhan_hang = ng.email AND p.trang_thai_hien_tai != 'Ke toan huy'
+          WHERE p.nguoi_nhan_hang = ng.nguoi AND COALESCE(p.quy_kh, 0) = ng.quy_kh AND p.trang_thai_hien_tai != 'Ke toan huy'
             AND p.trang_thai_chuyen_tien IN ('Cho KTV chuyen', 'KTV da chuyen')) AS con_phai_chuyen,
        (SELECT COUNT(*) FROM phieu_xuat_kho p
-          WHERE p.nguoi_nhan_hang = ng.email AND p.trang_thai_hien_tai != 'Ke toan huy'
+          WHERE p.nguoi_nhan_hang = ng.nguoi AND COALESCE(p.quy_kh, 0) = ng.quy_kh AND p.trang_thai_hien_tai != 'Ke toan huy'
             AND p.trang_thai_chuyen_tien IN ('Cho KTV chuyen', 'KTV da chuyen')) AS so_phieu_cho
      FROM ng LEFT JOIN quy_ktv q ON q.email = ng.email
      WHERE ng.email IS NOT NULL${loc.sql}
@@ -193,7 +205,7 @@ quyKtv.get("/khoan-chuyen", async (c) => {
      ${from} WHERE ${where}`,
   ).bind(...binds).first<{ total: number; tong_thuc_nhan: number; tong_du: number }>();
   const { results } = await c.env.DB.prepare(
-    `SELECT k.*, p.ma_xuat_kho, p.loai_don, p.trang_thai_hien_tai AS trang_thai_phieu,
+    `SELECT k.*, p.ma_xuat_kho, p.loai_don, p.trang_thai_hien_tai AS trang_thai_phieu, COALESCE(p.quy_kh, 0) AS quy_kh,
        CASE WHEN ${KHOAN_HUY_DUOC_SQL} THEN 1 ELSE 0 END AS huy_duoc,
        -- Phieu DA HUY: tien da tra thuc te di dau (2026-10-23, PMH-001137 "thấy ghi tiền đã hủy chuyển về quỹ, thực tế tiền đó đã về quỹ hay
        -- đã chuyển vào đơn"): hoan ve quy (hoan_phieu) / dang giu o don cho hang (tien_da_tra_pxk) / don mang tien sang phieu khac (log
@@ -221,7 +233,8 @@ quyKtv.get("/khoan-chuyen", async (c) => {
 quyKtv.get("/giao-dich", async (c) => {
   const pv = await phamViXem(c);
   if (pv === undefined) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
-  const loc = locEmail("g.email", pv, c.req.query("email")?.trim() || undefined);
+  // pv = danh sach NGUOI -> ca 2 khoa quy cua moi nguoi (quy KTV + khhd: quy KH chuyen); ?email= la KHOA quy dang chon.
+  const loc = locEmail("g.email", pv ? pv.flatMap((e) => [e, khoaQuy(e, true)]) : null, c.req.query("email")?.trim() || undefined);
   const loai = c.req.query("loai");
   let where = `1 = 1${loc.sql}`;
   const binds = [...loc.binds];
@@ -257,10 +270,13 @@ quyKtv.post("/dieu-chinh", async (c) => {
   const soTien = Number(body.so_tien);
   if (!Number.isInteger(soTien) || soTien === 0 || Math.abs(soTien) > 10_000_000_000) return c.json({ error: "INVALID_SO_TIEN" }, 400);
   if (body.loai === "hoan_tien_ktv" && soTien < 0) return c.json({ error: "INVALID_SO_TIEN" }, 400);
-  const tonTai = await c.env.DB.prepare("SELECT 1 AS x FROM users WHERE email = ?").bind(email).first();
+  // email = KHOA quy: quy KTV (email) hoac "Quỹ xuất hóa đơn do KH chuyển" (khhd:email, migration 0111).
+  const quyKh = laKhoaQuyKh(email);
+  const tonTai = await c.env.DB.prepare("SELECT 1 AS x FROM users WHERE email = ?").bind(giaiKhoaQuy(email).email).first();
   if (!tonTai) return c.json({ error: "USER_NOT_FOUND" }, 404);
   // Hoan tien cho KTV = phieu hoan tien (KTV xac nhan, migration 0090). Tru thang chi con cho KH le (khong co tai khoan de xac nhan).
-  if (body.loai === "hoan_tien_ktv") {
+  // Quy KH chuyen (quyKh): tien cua KHACH, khong phai cua KTV -> Ke toan hoan tra thang cho KH, khong qua phieu hoan tien.
+  if (body.loai === "hoan_tien_ktv" && !quyKh) {
     const khLe = await c.env.DB.prepare(`SELECT ${laEmailKhLeSql("?1")} AS la`).bind(email).first<{ la: number }>();
     if (!khLe?.la) return c.json({ error: "DUNG_PHIEU_HOAN_TIEN" }, 409);
   }

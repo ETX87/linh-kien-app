@@ -8,6 +8,7 @@
 //   KTV tu theo) roi: Hoan tien -> tong phieu giam phan thieu, canBangPxk hoan ve quy nguoi nhan hang (tu tru phieu dang cho);
 //   Gui bu -> tao don gui bu (SL thieu, gia chot = don gia don goc, mang theo tien da tra) + phieu gui bu "Dang tao phieu" cho TN.
 // Tu xac nhan sau 10 ngay + nhac hang ngay: tuXacNhanVaNhacPxk() (goi tu cron index.ts).
+import { khoaQuy } from "../lib/quyKhoa";
 import { Hono, type Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
@@ -55,11 +56,12 @@ interface PxkRow {
   mien_xuat: string | null;
   khu_vuc_chon: string | null;
   han_tu_nhan: string | null;
+  quy_kh: number; // phieu KH chuyen khoan (migration 0111) - phieu gui bu + don gui bu giu CUNG quy
 }
 async function docPxk(db: D1Database, id: string): Promise<PxkRow | null> {
   return db
     .prepare(
-      `SELECT id, trang_thai_hien_tai, nguoi_nhan_hang, loai_don, version, so_tien_can_chuyen, da_thanh_toan, mien_xuat, khu_vuc_chon, han_tu_nhan
+      `SELECT id, trang_thai_hien_tai, nguoi_nhan_hang, loai_don, version, so_tien_can_chuyen, da_thanh_toan, mien_xuat, khu_vuc_chon, han_tu_nhan, COALESCE(quy_kh, 0) AS quy_kh
        FROM phieu_xuat_kho WHERE id = ?`,
     )
     .bind(id)
@@ -501,9 +503,9 @@ nhanThieu.post("/:id/ke-toan", async (c) => {
     lenh.push(
       db.prepare(
         `INSERT INTO phieu_xuat_kho (id, ma_xuat_kho, ma_xuat_kho_xac_nhan, nguoi_tao, ngay_tao, ghi_chu, so_tien_can_chuyen, trang_thai_chuyen_tien,
-           nguoi_nhan_hang, loai_don, trang_thai_hien_tai, mien_xuat, khu_vuc_chon)
-         VALUES (?, ?, 0, ?, ?, ?, NULL, NULL, ?, ?, 'Dang tao phieu', ?, ?)`,
-      ).bind(pxkGuiBu, pxkGuiBu, user.email, now, `Phiếu gửi bù thiếu hàng ${t.id} của phiếu ${pxk.id}`, pxk.nguoi_nhan_hang, pxk.loai_don, pxk.mien_xuat, pxk.khu_vuc_chon),
+           nguoi_nhan_hang, loai_don, trang_thai_hien_tai, mien_xuat, khu_vuc_chon, quy_kh)
+         VALUES (?, ?, 0, ?, ?, ?, NULL, NULL, ?, ?, 'Dang tao phieu', ?, ?, ?)`,
+      ).bind(pxkGuiBu, pxkGuiBu, user.email, now, `Phiếu gửi bù thiếu hàng ${t.id} của phiếu ${pxk.id}`, pxk.nguoi_nhan_hang, pxk.loai_don, pxk.mien_xuat, pxk.khu_vuc_chon, pxk.quy_kh),
       db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Dang tao phieu', ?, ?, ?)").bind(
         pxkGuiBu, user.email, now, `Tạo phiếu gửi bù thiếu hàng ${t.id} (phiếu gốc ${pxk.id})`,
       ),
@@ -518,10 +520,10 @@ nhanThieu.post("/:id/ke-toan", async (c) => {
              (id, phieu_dat_id, loai_don, ma_lk, ten_lk_snapshot, loai_de_xuat, so_luong_de_xuat, gia_de_xuat, gia_chot, so_tien_cong_no, danh_gia_cong_no,
               ghi_chu, yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang, chinh_sach, ma_yeu_cau_su_co, ma_lada, nguoi_tao, ngay_tao, updated_at, email_gs,
               nguoi_nhan_hang, uu_tien, trang_thai_hien_tai, tien_da_tra, tien_da_tra_email, tien_da_tra_pxk, bat_buoc_chuyen_tien, dac_thu_thu_cong,
-              combo_ma, khu_vuc_chon, gui_bu_nhan_thieu_id)
+              combo_ma, khu_vuc_chon, gui_bu_nhan_thieu_id, kh_chuyen_khoan)
            SELECT ?, phieu_dat_id, loai_don, ma_lk, ten_lk_snapshot, loai_de_xuat, ?, gia_de_xuat, ?, ?, danh_gia_cong_no,
               ?, yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang, chinh_sach, ma_yeu_cau_su_co, ma_lada, nguoi_tao, ?, ?, email_gs,
-              nguoi_nhan_hang, uu_tien, 'TN da duyet', ?, ?, ?, 0, dac_thu_thu_cong, combo_ma, khu_vuc_chon, ?
+              nguoi_nhan_hang, uu_tien, 'TN da duyet', ?, ?, ?, 0, dac_thu_thu_cong, combo_ma, khu_vuc_chon, ?, kh_chuyen_khoan
            FROM dat_don_hang WHERE id = ?`,
         ).bind(
           donId, x.thieu,
@@ -529,7 +531,7 @@ nhanThieu.post("/:id/ke-toan", async (c) => {
           x.cnMoi != null ? Math.max(0, (x.d.so_tien_cong_no ?? 0) - x.cnMoi) : x.d.so_tien_cong_no,
           `Gửi bù thiếu hàng ${t.id} — đơn gốc ${x.d.id} (phiếu ${pxk.id})`,
           now, now,
-          x.tienThieu, x.tienThieu > 0 ? pxk.nguoi_nhan_hang : null, x.tienThieu > 0 ? pxk.id : null,
+          x.tienThieu, x.tienThieu > 0 && pxk.nguoi_nhan_hang ? khoaQuy(pxk.nguoi_nhan_hang, pxk.quy_kh) : null, x.tienThieu > 0 ? pxk.id : null,
           t.id, x.d.id,
         ),
         db.prepare("INSERT INTO dat_don_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu, tu_dong) VALUES (?, 'TN da duyet', ?, ?, ?, 1)").bind(

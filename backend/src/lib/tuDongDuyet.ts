@@ -30,7 +30,7 @@ import { goDonKhoiPxk, pxkChuaDonChuaDuyet, TN_DOI_TRONG_PXK_SQL } from "./pxkTu
 import { pushThieuLkToKhovan, buildWorkUrl } from "./khovanPushClient";
 import { notifyWorkflowTask, emailsForRoleOrQC, MUA_CONG_NO_ROLES } from "./taskNotify";
 import { sendPushToUser } from "./webPush";
-import { phanBoQuy, thongBaoHoanQuyPhieuHuy } from "./quyKtv";
+import { phanBoQuy, phanBoQuyNguoi, thongBaoHoanQuyPhieuHuy } from "./quyKtv";
 import { THANH_TOAN_DON_SQL } from "./trangThaiDonPxk";
 
 export type LoaiDon = "mua" | "cong_no" | "tra_hang";
@@ -706,7 +706,7 @@ export async function huyDonChoHangTuDong(env: Env, db: D1Database, donHangId: s
   if (!(await ghiTrangThaiDon(db, donHangId, "Da huy", nguoi, ghiChu, false, "Cho hang"))) return false;
   const d = await db.prepare("SELECT nguoi_nhan_hang FROM dat_don_hang WHERE id = ?").bind(donHangId).first<{ nguoi_nhan_hang: string | null }>();
   if (d?.nguoi_nhan_hang) {
-    await phanBoQuy(db, d.nguoi_nhan_hang, nguoi);
+    await phanBoQuyNguoi(db, d.nguoi_nhan_hang, nguoi); // ca quy KTV + quy KH chuyen (tien don ve dung quy cua don)
     await taiTinhPxkMoCuaKtv(db, d.nguoi_nhan_hang, nguoi);
   }
   return true;

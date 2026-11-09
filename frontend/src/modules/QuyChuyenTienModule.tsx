@@ -37,6 +37,9 @@ import { HoanTienTab, TaoHoanTienModal, lamMoiHoanTien, nhanGiaoDichHoanTien, ty
 //    xac nhan da nhan / tu choi -> Ke toan xac nhan huy / day lai. KH le van "Hoàn tiền cho KH" tru thang (khong co tai khoan xac nhan).
 // Pham vi: Admin/Ke toan/TN xem tat ca; KTV (Ve tinh = quy cua Tram) chi thay cua minh (backend loc).
 
+/** Khoa quy cua 1 khoan chuyen tien: phieu KH chuyen khoan -> "khhd:<email>" (quy KH), con lai quy KTV. */
+const quyCuaKhoan = (k: { email_nguoi_chuyen: string; quy_kh?: number }) => (k.quy_kh ? `khhd:${k.email_nguoi_chuyen}` : k.email_nguoi_chuyen);
+
 interface TongQuanRow {
   email: string;
   so_du: number;
@@ -54,6 +57,7 @@ interface KhoanRow {
   phieu_xuat_kho_id: string;
   ma_xuat_kho: string | null;
   email_nguoi_chuyen: string;
+  quy_kh?: number; // khoan cua phieu KH chuyen khoan -> tien vao "Quỹ xuất hóa đơn do KH chuyển" (migration 0111)
   trang_thai: "Da duyet" | "Tu choi" | "Da huy";
   tong_phieu: number | null;
   so_tien_can_chuyen: number | null;
@@ -160,7 +164,9 @@ export function QuyChuyenTienModule({ moPhieuHoanTien = null, moNopTien = null }
   const addToast = useToast();
   const qc = useQueryClient();
   const dir = usePersonDirectory();
-  const ten = (e: string | null | undefined) => (e ? formatPersonDisplay(e, dir) : "");
+  // Khoa quy "khhd:<email>" = "Quỹ xuất hóa đơn do KH chuyển" cua KTV do (migration 0111) - hien ten KTV + ten quy, tach khoi quy du KTV.
+  const ten = (e: string | null | undefined) =>
+    !e ? "" : e.startsWith("khhd:") ? `${formatPersonDisplay(e.slice(5), dir)} · ${t("Quỹ xuất hóa đơn do KH chuyển")}` : formatPersonDisplay(e, dir);
   const user = auth.status === "authenticated" ? auth.user : null;
   const xemTatCa = !!user && (user.vai_tro === "Admin" || !!user.la_ke_toan || !!user.la_tac_nghiep || !!user.la_mua_hang); // Mua hang: xem, khong dieu chinh
   // View (2026-10-14): xem quy NHIEU nguoi (KTV thuoc Khu vuc duoc gan - backend phamViXem) nhung KHONG co tab KH le (/khach-le khong mo cho View).
@@ -403,7 +409,7 @@ function KhoanChuyenTab({ xemTatCa, nguoiOptions, emailLoc, setEmailLoc, ten, co
         chungTu: [
           { nhan: t("Mã HĐ"), giaTri: maHdCua(k.ma_xuat_kho, k.phieu_xuat_kho_id) },
           { nhan: t("Mã PXK"), giaTri: k.phieu_xuat_kho_id },
-          { nhan: t("Người chuyển"), giaTri: ten(k.email_nguoi_chuyen) || "—" },
+          { nhan: t("Người chuyển"), giaTri: ten(quyCuaKhoan(k)) || "—" },
           { nhan: t("KTV báo chuyển lúc"), giaTri: k.ktv_bao_chuyen_luc ? fmtDateTime(k.ktv_bao_chuyen_luc) : "—" },
           { nhan: t("Kế toán xử lý"), giaTri: `${ten(k.nguoi_huy ?? k.nguoi_duyet)} · ${fmtDateTime(k.huy_luc ?? k.duyet_luc)}` },
         ],
@@ -427,7 +433,7 @@ function KhoanChuyenTab({ xemTatCa, nguoiOptions, emailLoc, setEmailLoc, ten, co
         return {
           "Thời gian Kế toán xử lý": k.duyet_luc,
           "Mã HĐ": k.ma_xuat_kho ?? k.phieu_xuat_kho_id,
-          "Người chuyển tiền": ten(k.email_nguoi_chuyen),
+          "Người chuyển tiền": ten(quyCuaKhoan(k)),
           "Kết quả": KET_QUA[k.trang_thai]?.label ?? k.trang_thai,
           "Phiếu đã hủy": k.trang_thai_phieu === "Ke toan huy" ? "Có" : "",
           "Tổng tiền phiếu": k.tong_phieu,
@@ -471,7 +477,7 @@ function KhoanChuyenTab({ xemTatCa, nguoiOptions, emailLoc, setEmailLoc, ten, co
         </span>
       ),
     },
-    ...(xemTatCa ? [{ key: "nguoi", header: t("Người chuyển"), render: (k: KhoanRow) => ten(k.email_nguoi_chuyen), mobile: "sub" as const }] : []),
+    ...(xemTatCa ? [{ key: "nguoi", header: t("Người chuyển"), render: (k: KhoanRow) => ten(quyCuaKhoan(k)), mobile: "sub" as const }] : []),
     {
       key: "kq", header: t("Kết quả"), mobile: "badge",
       render: (k) => <Badge tone={KET_QUA[k.trang_thai]?.tone ?? "gray"}>{KET_QUA[k.trang_thai] ? t(KET_QUA[k.trang_thai].label) : k.trang_thai}</Badge>,
@@ -557,7 +563,7 @@ function KhoanChuyenTab({ xemTatCa, nguoiOptions, emailLoc, setEmailLoc, ten, co
       {suaKhoan && (
         <SuaThucNhanModal
           k={suaKhoan}
-          soDu={soDuCua(suaKhoan.email_nguoi_chuyen)}
+          soDu={soDuCua(quyCuaKhoan(suaKhoan))}
           ten={ten}
           onClose={() => setSuaKhoan(null)}
           onDone={(soDu) => { addToast(t("Đã sửa số thực nhận — quỹ còn {a}", { a: fmtVND(soDu) })); setSuaKhoan(null); onChanged(); }}
@@ -611,7 +617,7 @@ function SuaThucNhanModal({ k, soDu, ten, onClose, onDone }: {
     <Modal open onClose={onClose} title={t("Sửa tiền thực nhận — {a}", { a: k.ma_xuat_kho ?? k.phieu_xuat_kho_id })}>
       <div className="space-y-3 text-sm">
         <div className="text-[var(--color-text-secondary)]">
-          {ten(k.email_nguoi_chuyen)} · {t("duyệt {a} · cần chuyển", { a: fmtDateTime(k.duyet_luc) })} <Money>{fmtVND(k.so_tien_can_chuyen)}</Money>
+          {ten(quyCuaKhoan(k))} · {t("duyệt {a} · cần chuyển", { a: fmtDateTime(k.duyet_luc) })} <Money>{fmtVND(k.so_tien_can_chuyen)}</Money>
         </div>
         <div>
           {t("Thực nhận đang ghi:")} <b><Money>{fmtVND(cu)}</Money></b>
@@ -668,7 +674,7 @@ function HuyKhoanModal({ k, ten, onClose, onDone }: {
     <Modal open onClose={onClose} title={t("Hủy khoản chuyển tiền — {a}", { a: k.ma_xuat_kho ?? k.phieu_xuat_kho_id })}>
       <div className="space-y-3 text-sm">
         <div className="text-[var(--color-text-secondary)]">
-          {t("{a} · duyệt {b} · thực nhận", { a: ten(k.email_nguoi_chuyen), b: fmtDateTime(k.duyet_luc) })}
+          {t("{a} · duyệt {b} · thực nhận", { a: ten(quyCuaKhoan(k)), b: fmtDateTime(k.duyet_luc) })}
           <b className="text-[var(--color-text)]"><Money>{fmtVND(k.so_tien_thuc_nhan)}</Money></b>
         </div>
         <div className="rounded-lg bg-[var(--color-warning-soft)] px-3 py-2 text-[13px] text-[var(--color-text-body)]">
@@ -881,7 +887,8 @@ function DieuChinhModal({ row, ten, onClose, onDone }: {
   const addToast = useToast();
   const [loai, setLoai] = useState<"hoan_tien_ktv" | "cong" | "tru">("hoan_tien_ktv");
   // KTV: "Hoàn tiền" = tao PHIEU HOAN TIEN (tam giu, KTV xac nhan - migration 0090), ghi chu tuy chon. KH le: tru thang nhu cu.
-  const taoPhieu = loai === "hoan_tien_ktv" && !row.laKhLe;
+  // Quy KH chuyen (khhd:) = tien cua KHACH -> hoan tra thang (khong tao phieu hoan tien cho KTV xac nhan).
+  const taoPhieu = loai === "hoan_tien_ktv" && !row.laKhLe && !row.email.startsWith("khhd:");
   const [soTien, setSoTien] = useState("");
   const [lyDo, setLyDo] = useState("");
   const so = Number(soTien);

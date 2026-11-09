@@ -61,7 +61,7 @@ export function LyDoTuChoiChuyenTien({ pxk }: { pxk: BangChungPxk }) {
  * Quy du KTV (2026-09-29, migration 0047): tien cua phieu sau khi tru quy/da tra. `so_tien_can_chuyen` = TONG gia tri
  * phieu; con phai chuyen = tong - da_thanh_toan. Dung chung chi tiet PXK + khoi PXK trong chi tiet don.
  */
-export function TienPhieuVaQuy({ tong, daThanhToan, daDuyet, quyDu }: { tong: number; daThanhToan: number; daDuyet: boolean; quyDu?: number | null }) {
+export function TienPhieuVaQuy({ tong, daThanhToan, daDuyet, quyDu, quyKh }: { tong: number; daThanhToan: number; daDuyet: boolean; quyDu?: number | null; quyKh?: boolean }) {
   const con = Math.max(0, tong - daThanhToan);
   return (
     <>
@@ -78,7 +78,7 @@ export function TienPhieuVaQuy({ tong, daThanhToan, daDuyet, quyDu }: { tong: nu
         </KvRow>
       )}
       {quyDu != null && (
-        <KvRow label={t("Quỹ dư hiện tại")}>
+        <KvRow label={quyKh ? t("Quỹ xuất hóa đơn do KH chuyển") : t("Quỹ dư hiện tại")}>
           <Money>{fmtVND(quyDu)}</Money>
           {quyDu > 0 && <span className="text-[11px] text-[var(--color-text-secondary)]"> {t("— tự trừ vào phiếu cần chuyển tiếp theo")}</span>}
         </KvRow>

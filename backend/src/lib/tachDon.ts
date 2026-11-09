@@ -1,4 +1,5 @@
 import type { Env } from "../types";
+import { khoaQuy } from "./quyKhoa";
 import { nowVN } from "./vnTime";
 import { nextSequentialId } from "./idCounter";
 import { baoNguoiTaoDon, duyetDonKhiHangVe, moTicketChoHangTuDong } from "./tuDongDuyet";
@@ -139,11 +140,11 @@ export async function tachDonTrongPhieu(
 ): Promise<KetQuaTachTrongPhieu> {
   const p = await db
     .prepare(
-      `SELECT trang_thai_hien_tai AS tt, ma_misa, COALESCE(da_thanh_toan, 0) AS da_tt, so_tien_can_chuyen, nguoi_nhan_hang, loai_don
+      `SELECT trang_thai_hien_tai AS tt, ma_misa, COALESCE(da_thanh_toan, 0) AS da_tt, so_tien_can_chuyen, nguoi_nhan_hang, loai_don, COALESCE(quy_kh, 0) AS quy_kh
        FROM phieu_xuat_kho WHERE id = ?`,
     )
     .bind(pxkId)
-    .first<{ tt: string; ma_misa: string | null; da_tt: number; so_tien_can_chuyen: number | null; nguoi_nhan_hang: string | null; loai_don: string | null }>();
+    .first<{ tt: string; ma_misa: string | null; da_tt: number; so_tien_can_chuyen: number | null; nguoi_nhan_hang: string | null; loai_don: string | null; quy_kh: number }>();
   if (!p) return { ok: false, error: "NOT_FOUND", status: 404 };
   if (p.tt !== "Dang tao phieu" && p.tt !== "Cho ke toan") return { ok: false, error: "PHIEU_DA_CHOT", status: 409 };
   if (p.loai_don === "tra_hang") return { ok: false, error: "TRA_HANG_KHONG_TACH", status: 409 };
@@ -194,7 +195,7 @@ export async function tachDonTrongPhieu(
          SELECT ?, ?, NULL, ?, ?, ?, ?, NULL, ${chep.join(", ")}
          FROM dat_don_hang WHERE id = ? AND trang_thai_hien_tai = 'TN da duyet' AND so_luong_de_xuat = ?`,
       )
-      .bind(newId, slTach, tienMang, tienMang > 0 ? p.nguoi_nhan_hang : null, tienMang > 0 ? pxkId : null, cnMoi, d.id, d.sl),
+      .bind(newId, slTach, tienMang, tienMang > 0 && p.nguoi_nhan_hang ? khoaQuy(p.nguoi_nhan_hang, p.quy_kh) : null, tienMang > 0 ? pxkId : null, cnMoi, d.id, d.sl),
     db
       .prepare("UPDATE dat_don_hang SET so_luong_de_xuat = ?, so_luong_thuc_xuat = NULL, so_tien_cong_no = ? WHERE id = ? AND trang_thai_hien_tai = 'TN da duyet' AND so_luong_de_xuat = ?")
       .bind(conLai, cnCon, d.id, d.sl),

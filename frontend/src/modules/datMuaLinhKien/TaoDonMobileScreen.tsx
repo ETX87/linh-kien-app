@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { KhChuyenKhoanCheck } from "./KhChuyenKhoan";
 import type { useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
 import { Select } from "../../components/ui/Select";
@@ -316,6 +317,7 @@ export function TaoDonMobileScreen({
                   </Btn>
                 ))}
               </div>
+              <KhChuyenKhoanCheck d={d} onChange={(v) => updateDraft(activeIdx, { kh_chuyen_khoan: v })} />
             </div>
             <div>
               <label className={reqLabelClass(thieuMaId)}>{t("Mã YCSC liên quan")}{batBuocYcsc ? " *" : ""}</label>

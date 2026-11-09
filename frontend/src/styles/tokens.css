@@ -103,6 +103,9 @@
   /* Ca khieu nai (2026-10-28): nen do nhat cho dong / the don duoc tich "Ca khiếu nại" o moi danh sach. */
   --color-khieu-nai-bg: #fff1f1;
   --color-khieu-nai-hover: #ffe4e4;
+  /* Phieu co YEU CAU XUAT HOA DON (2026-11-09): nen tim nhat o danh sach phieu - bao Ke toan day la phieu can xuat hoa don. */
+  --color-hoa-don-bg: #f8f3ff;
+  --color-hoa-don-hover: #f0e6ff;
   --color-purple: #7e57c2;
   --color-purple-strong: #6b21a8;
   --color-purple-soft: #f4edfd;

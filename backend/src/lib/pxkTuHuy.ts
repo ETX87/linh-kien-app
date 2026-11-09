@@ -1,4 +1,5 @@
 import { nowVN } from "./vnTime";
+import { khoaQuy } from "./quyKhoa";
 import { taiTinhPxk, tinhToanPxk } from "./pxkRecalculate";
 import { canBangPxk, KE_TOAN_DA_CHOT_TIEN_SQL, lenhKhoaDaThanhToan } from "./quyKtv";
 
@@ -136,9 +137,9 @@ export async function pxkDuocTuHuy(db: D1Database, donHangId: string): Promise<s
 export async function lenhMangTienDon(
   db: D1Database, pxkId: string, donHangId: string,
 ): Promise<{ tien: number; lenh: D1PreparedStatement[] }> {
-  const pxk = await db.prepare("SELECT da_thanh_toan, nguoi_nhan_hang FROM phieu_xuat_kho WHERE id = ?")
+  const pxk = await db.prepare("SELECT da_thanh_toan, nguoi_nhan_hang, COALESCE(quy_kh, 0) AS quy_kh FROM phieu_xuat_kho WHERE id = ?")
     .bind(pxkId)
-    .first<{ da_thanh_toan: number | null; nguoi_nhan_hang: string | null }>();
+    .first<{ da_thanh_toan: number | null; nguoi_nhan_hang: string | null; quy_kh: number }>();
   const daTra = pxk?.da_thanh_toan ?? 0;
   if (!pxk?.nguoi_nhan_hang || daTra <= 0) return { tien: 0, lenh: [] };
   const { results } = await db.prepare("SELECT dat_don_hang_id FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ?")
@@ -153,7 +154,7 @@ export async function lenhMangTienDon(
       lenhKhoaDaThanhToan(db, pxkId, daTra),
       db.prepare("UPDATE phieu_xuat_kho SET da_thanh_toan = da_thanh_toan - ? WHERE id = ?").bind(tien, pxkId),
       db.prepare("UPDATE dat_don_hang SET tien_da_tra = tien_da_tra + ?, tien_da_tra_email = ?, tien_da_tra_pxk = ? WHERE id = ?")
-        .bind(tien, pxk.nguoi_nhan_hang, pxkId, donHangId),
+        .bind(tien, khoaQuy(pxk.nguoi_nhan_hang, pxk.quy_kh), pxkId, donHangId), // khoa QUY cua phieu (quy KH chuyen / quy KTV)
     ],
   };
 }

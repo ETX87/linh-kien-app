@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
+import { HoaDonPhieuBadge, HoaDonPhieuGhiChu, nenHoaDon, coChonHoaDon } from "./KhChuyenKhoan";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn, btnClasses } from "../../components/ui/Btn";
 import { FileButton } from "../../components/ui/FileButton";
@@ -728,6 +729,7 @@ export function PhieuXuatKhoTab({
           <button type="button" className="code-link underline underline-offset-2 hover:opacity-80" title={t("Mở chi tiết phiếu")} onClick={(e) => { e.stopPropagation(); setDetailId(r.id); }}>
             {r.id}
           </button>
+          {(coChonHoaDon(r.yeu_cau_hd) || !!r.quy_kh) && <span className="ml-1.5"><HoaDonPhieuBadge hd={r.yeu_cau_hd} quyKh={r.quy_kh} /></span>}
         </span>
       ),
     },
@@ -1099,7 +1101,7 @@ export function PhieuXuatKhoTab({
         // 1 dong. Doi xanh duong nhat -> XANH LA nhat --color-success-soft (phan hoi 2026-09-29 "xanh dương nhạt khó nhìn").
         // SUA 2026-10-15 ("nền màu trắng", "app màu mè"): bo nen cam/xanh la ca dong - nen dong luon trang; phieu co don uu tien = 1
         // vach cam ben trai (o dau tien), da in = xem cot "In phiếu".
-        rowClassName={(r) => `${r.co_don_uu_tien ? "[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-warning)] shadow-[inset_3px_0_0_var(--color-warning)]" : ""} ${nenKhieuNai(r.co_khieu_nai)}`}
+        rowClassName={(r) => `${r.co_don_uu_tien ? "[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-warning)] shadow-[inset_3px_0_0_var(--color-warning)]" : ""} ${nenKhieuNai(r.co_khieu_nai) || nenHoaDon(r.yeu_cau_hd)}`}
       />
       </div>
       </div>
@@ -2094,6 +2096,7 @@ export function PxkDetailModal({
             daThanhToan={pxk.da_thanh_toan ?? 0}
             daDuyet={pxk.trang_thai_chuyen_tien === "TN da duyet"}
             quyDu={data?.quyDu}
+            quyKh={!!pxk.quy_kh}
           />
           <TienBiBotCanhBao ds={pxk.tien_bi_bot} ten={(e) => (e ? formatNguoiDisplay(e, ktvDisplayMap) : "")} onMoDon={setDonDetailId} />
           <KvRow label={t("Trạng thái")}><StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /></KvRow>
@@ -2196,6 +2199,8 @@ export function PxkDetailModal({
               nay ma khong bo sung gi (PxkMiniPipeline da xu ly du ca 5 buoc chinh lan 4 trang thai
               nhanh re) - bo han <Stepper>, chi giu 1 chi bao duy nhat. */}
           <PxkMiniPipeline trangThai={trangThai} />
+          {/* Ghi chu Ke toan: phieu co yeu cau xuat hoa don / KH chuyen khoan ve cong ty (2026-11-09). */}
+          <HoaDonPhieuGhiChu hd={pxk.yeu_cau_hd} quyKh={pxk.quy_kh} />
           {uuTienTien && veKhoiChuyenTien(pxk)}
           <div className="flex gap-3 items-center flex-wrap">
             {pxk.ma_xuat_kho_xac_nhan ? (

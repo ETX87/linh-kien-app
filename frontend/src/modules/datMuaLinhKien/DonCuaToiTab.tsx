@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, Fragment, lazy, Suspense } from "
 // Lazy: PhieuXuatKhoTab da import DonHangDetailModal tu file nay - tranh vong import tinh (2026-10-02).
 const PxkDetailModalLazy = lazy(() => import("./PhieuXuatKhoTab").then((m) => ({ default: m.PxkDetailModal })));
 const XemLinhKienDrawerLazy = lazy(() => import("../DanhMucLinhKienModule").then((m) => ({ default: m.XemLinhKienDrawer })));
+import { KhChuyenKhoanBadge } from "./KhChuyenKhoan";
 import { BangChungAnhPxk } from "./XemAnhNhanh";
 import { CoSoChietKhauKhoi } from "./CoSoChietKhau";
 import { TachDonModal } from "./TachDon";
@@ -1582,7 +1583,10 @@ export function DonHangDetailModal({
                   </span>
                 </KvRow>
                 <KvRow label={t("Chính sách")}>{d.chinh_sach || "—"}</KvRow>
-                <KvRow label={t("Yêu cầu hóa đơn")}>{d.yeu_cau_hoa_don || "—"}</KvRow>
+                <KvRow label={t("Yêu cầu hóa đơn")}>
+                  {d.yeu_cau_hoa_don || "—"}
+                  {!!d.kh_chuyen_khoan && <span className="ml-1.5"><KhChuyenKhoanBadge /></span>}
+                </KvRow>
                 <KvRow label={t("TT khách hàng")}><span className="whitespace-pre-line break-words">{d.tt_khach_hang || "—"}</span></KvRow>
                 <KvRow label={t("TT + Mail duyệt")}><span className="whitespace-pre-line break-words">{d.tt_mail_duyet || "—"}</span></KvRow>
                 <KvRow label={t("Ưu tiên")}>{d.uu_tien === 1 ? t("Có") : t("Không")}</KvRow>

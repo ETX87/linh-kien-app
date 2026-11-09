@@ -11,6 +11,7 @@
 // trạng thái mở trước đó; đơn đang 'Da huy' (không phải trả hàng), log hủy ngay sau 'Cho hang', người hủy KHÔNG phải chính người tạo /
 // người nhận hàng (trừ TN/Kế toán/Admin - cùng quy tắc dayLaiHanSql); trong 24h kể từ lúc ticket đóng. Không báo sang khovan (như mọi
 // đường đóng/mở ticket từ app).
+import { khoaQuy } from "./quyKhoa";
 import type { Env } from "../types";
 import { nowVN } from "./vnTime";
 import { lenhGhiQuy, soDuQuy } from "./quyKtv";
@@ -60,7 +61,7 @@ export async function dayLaiTicketThieuLk(env: Env, db: D1Database, ticketId: st
     .prepare(
       `SELECT t.id, t.dat_don_hang_id, ${hanDayLaiTicketSql("t")} as han, ${trangThaiTruocTicketSql("t")} as trang_thai_truoc,
               (SELECT MAX(id) FROM thieu_lk_log WHERE thieu_lk_id = t.id) as log_tk_id,
-              d.version, d.nguoi_tao, d.nguoi_nhan_hang, d.ten_lk_snapshot, d.so_luong_de_xuat, d.loai_don, d.trang_thai_hien_tai as trang_thai_don,
+              d.version, d.nguoi_tao, d.nguoi_nhan_hang, COALESCE(d.kh_chuyen_khoan, 0) AS kh_chuyen_khoan, d.ten_lk_snapshot, d.so_luong_de_xuat, d.loai_don, d.trang_thai_hien_tai as trang_thai_don,
               (SELECT ngay_xu_ly FROM dat_don_hang_log WHERE id = (SELECT MAX(id) FROM dat_don_hang_log WHERE dat_don_hang_id = d.id)) as huy_luc,
               (SELECT bi_khoa FROM users WHERE email = d.nguoi_nhan_hang) as nhan_bi_khoa
        FROM thieu_lk t JOIN dat_don_hang d ON d.id = t.dat_don_hang_id WHERE t.id = ?`,
@@ -68,7 +69,7 @@ export async function dayLaiTicketThieuLk(env: Env, db: D1Database, ticketId: st
     .bind(ticketId)
     .first<{
       id: string; dat_don_hang_id: string; han: string | null; trang_thai_truoc: string | null; log_tk_id: number;
-      version: number; nguoi_tao: string; nguoi_nhan_hang: string | null; ten_lk_snapshot: string; so_luong_de_xuat: number;
+      version: number; nguoi_tao: string; nguoi_nhan_hang: string | null; kh_chuyen_khoan: number; ten_lk_snapshot: string; so_luong_de_xuat: number;
       loai_don: string; trang_thai_don: string; huy_luc: string | null; nhan_bi_khoa: number | null;
     }>();
   if (!tk) return { error: "NOT_FOUND", status: 404 };
@@ -86,19 +87,21 @@ export async function dayLaiTicketThieuLk(env: Env, db: D1Database, ticketId: st
     .first<{ id: string }>();
   if (conPhieu) return { error: "DON_CON_TRONG_PHIEU", status: 409, pxk: conPhieu.id };
 
+  // Quỹ của đơn: quỹ KTV hoặc "Quỹ xuất hóa đơn do KH chuyển" (migration 0111) - trigger hoàn tiền đã trả về đúng quỹ này.
+  const quyDon = tk.nguoi_nhan_hang ? khoaQuy(tk.nguoi_nhan_hang, tk.kh_chuyen_khoan) : null;
   // Số tiền trigger đã hoàn về quỹ lúc đơn bị hủy (giao dịch SAU lúc hủy, đúng mã đơn).
-  const hoan = tk.nguoi_nhan_hang && tk.huy_luc
+  const hoan = quyDon && tk.huy_luc
     ? await db
         .prepare(
           `SELECT so_tien, phieu_xuat_kho_id FROM quy_ktv_giao_dich
            WHERE email = ? AND loai = 'hoan_phieu' AND ngay_tao >= ? AND instr(ghi_chu, ?) = 1 ORDER BY id DESC LIMIT 1`,
         )
         // instr() thay LIKE: D1 gioi han do dai mau LIKE (~50 byte) -> "LIKE or GLOB pattern too complex" voi cau tieng Viet nay.
-        .bind(tk.nguoi_nhan_hang, tk.huy_luc, `Hoàn tiền đã thanh toán của đơn ${tk.dat_don_hang_id} (`)
+        .bind(quyDon, tk.huy_luc, `Hoàn tiền đã thanh toán của đơn ${tk.dat_don_hang_id} (`)
         .first<{ so_tien: number; phieu_xuat_kho_id: string | null }>()
     : null;
   const tienHoan = Math.max(0, hoan?.so_tien ?? 0);
-  const tienLayLai = tienHoan > 0 && tk.nguoi_nhan_hang ? Math.min(tienHoan, Math.max(0, await soDuQuy(db, tk.nguoi_nhan_hang))) : 0;
+  const tienLayLai = tienHoan > 0 && quyDon ? Math.min(tienHoan, Math.max(0, await soDuQuy(db, quyDon))) : 0;
 
   const nhanTicket: Record<string, string> = {
     "Cho kho xu ly": "Chờ kho xử lý", "Kho da tiep nhan": "Kho đã tiếp nhận", "Kho da cap nhat": "Kho đã cập nhật",
@@ -123,15 +126,15 @@ export async function dayLaiTicketThieuLk(env: Env, db: D1Database, ticketId: st
         .bind(tk.dat_don_hang_id, nguoi, now, ghiChuDon),
       db.prepare("INSERT INTO thieu_lk_log (thieu_lk_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)")
         .bind(tk.id, tk.trang_thai_truoc, nguoi, now, ghiChuTicket),
-      ...(tienLayLai > 0 && tk.nguoi_nhan_hang
+      ...(tienLayLai > 0 && quyDon
         ? [
             // so_du quỹ CHECK >= 0: quỹ vừa bị trừ chỗ khác -> rollback.
             ...lenhGhiQuy(db, {
-              email: tk.nguoi_nhan_hang, loai: "tra_phieu", soTien: -tienLayLai, pxkId: hoan?.phieu_xuat_kho_id ?? null, nguoi, now,
+              email: quyDon, loai: "tra_phieu", soTien: -tienLayLai, pxkId: hoan?.phieu_xuat_kho_id ?? null, nguoi, now,
               ghiChu: `Đẩy lại đơn ${tk.dat_don_hang_id} theo ticket ${tk.id} — lấy lại tiền đã hoàn khi hủy`,
             }),
             db.prepare("UPDATE dat_don_hang SET tien_da_tra = ?, tien_da_tra_email = ?, tien_da_tra_pxk = ? WHERE id = ?")
-              .bind(tienLayLai, tk.nguoi_nhan_hang, hoan?.phieu_xuat_kho_id ?? null, tk.dat_don_hang_id),
+              .bind(tienLayLai, quyDon, hoan?.phieu_xuat_kho_id ?? null, tk.dat_don_hang_id),
           ]
         : []),
     ]);

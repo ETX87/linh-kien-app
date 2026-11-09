@@ -20,7 +20,8 @@ import { pushPxkToKhovan, notifyPxkAdvancedViaApp, buildWorkUrl } from "../lib/k
 import { timLoaiChietKhauTheoTen, gonTenLoaiChietKhau, choPhepDoiLoaiChietKhau } from "../lib/loaiChietKhau";
 import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, laTruCongNo, type PxkCalculation } from "../lib/pxkRecalculate";
 import { TIEN_DON_DOI_TAC_SQL } from "../lib/congNoDoiTac";
-import { nhomLoaiDeXuat, nhomLdeSql, phieuCungNhomLdeSql } from "../lib/nhomLoaiDeXuat";
+import { khoaQuy } from "../lib/quyKhoa";
+import { nhomLoaiDeXuat, nhomPhieu, nhomPhieuSql, phieuCungNhomSql, nhomHoaDonSql } from "../lib/nhomLoaiDeXuat";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
 import { tachDonTrongPhieu } from "../lib/tachDon";
 import { tienBiBotPxk } from "../lib/tienBiBot";
@@ -247,6 +248,9 @@ phieuXuatKho.get("/mo-count", async (c) => {
 // Cot loc kieu Excel cua danh sach PXK (2026-09-28) - khoa = key cot o PhieuXuatKhoTab.tsx. "viec_can_lam"/
 // "da_in_phieu" PHAI khop pxkViecCanLamTiep()/cot "In phiếu" o frontend (cung chuoi hien thi).
 const PXK_DONG_TU = "FROM phieu_xuat_kho_dong lcx JOIN dat_don_hang lcd ON lcd.id = lcx.dat_don_hang_id WHERE lcx.phieu_xuat_kho_id = pxk.id";
+// Hinh thuc xuat hoa don cua phieu (2026-11-09 - phieu tach rieng theo hinh thuc hoa don nen moi dong cung 1 gia tri; phieu cu lan thi lay
+// 1 gia tri bat ky khac rong). '' = khong yeu cau hoa don. FE to mau + ghi chu cho Ke toan.
+const YEU_CAU_HD_PXK_SQL = `(SELECT MAX(${nhomHoaDonSql("lcd.yeu_cau_hoa_don")}) ${PXK_DONG_TU})`;
 const PXK_DONG_JOIN = "JOIN phieu_xuat_kho_dong lcx ON lcx.phieu_xuat_kho_id = pxk.id JOIN dat_don_hang lcd ON lcd.id = lcx.dat_don_hang_id";
 const PXK_COT_LOC: Record<string, CotLoc> = {
   viec_can_lam: {
@@ -437,7 +441,7 @@ phieuXuatKho.get("/", async (c) => {
        ${ANH_DA_GHI_NHAN_SQL("pxk")} as anh_da_ghi_nhan,
        (SELECT COALESCE(SUM(k.so_tien_thuc_nhan), 0) FROM khoan_chuyen_tien k
           WHERE k.phieu_xuat_kho_id = pxk.id AND k.trang_thai = 'Da duyet') as tien_thuc_chuyen,
-       pxk.trang_thai_hien_tai as trang_thai,
+       pxk.trang_thai_hien_tai as trang_thai, COALESCE(pxk.quy_kh, 0) as quy_kh,
        (SELECT COUNT(*) FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = pxk.id) as so_dong,
        -- Cot "Loai phieu" (2026-09-30) = cac loai de xuat KHAC NHAU cua dong don trong phieu (JSON mang - binh thuong 1
        -- phan tu vi 1 phieu chi gom 1 loai). Loc/sap xep cot nay dung PXK_COT_LOC.loai_de_xuat (cung quan he).
@@ -458,6 +462,7 @@ phieuXuatKho.get("/", async (c) => {
          SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id
          WHERE pxkd.phieu_xuat_kho_id = pxk.id AND ddh.khieu_nai = 1
        ) as co_khieu_nai,
+       ${YEU_CAU_HD_PXK_SQL} as yeu_cau_hd,
        EXISTS(
          SELECT 1 FROM phieu_xuat_kho_dong pxkd JOIN yeu_cau_huy_don y ON y.dat_don_hang_id = pxkd.dat_don_hang_id
          WHERE pxkd.phieu_xuat_kho_id = pxk.id AND y.trang_thai = 'Cho dong y'
@@ -869,11 +874,17 @@ phieuXuatKho.post("/", async (c) => {
   if (dtDon.length !== 1) return c.json({ error: "NHIEU_DOI_TAC_TRONG_1_PXK" }, 400);
   const doiTacPhieu = dtDon[0].doi_tac_ma;
   // Tach phieu theo LOAI DE XUAT (chot 2026-10-28, lib/nhomLoaiDeXuat.ts): 1 phieu chi 1 nhom loai de xuat (MUA HÀNG + MUA HÀNG CÓ ID chung nhom).
-  const { results: ldeDon } = await c.env.DB.prepare(`SELECT DISTINCT loai_de_xuat FROM dat_don_hang WHERE id IN (${placeholders})`)
+  // + tach theo HINH THUC HOA DON + KH chuyen khoan (2026-11-09, nhomPhieu): MUA HÀNG khong HĐ / HĐ khong thu phi / co thu phi / xuat cho
+  // tram la cac phieu RIENG; don KH chuyen khoan (tieu Quỹ xuất hóa đơn do KH chuyển) cung phieu rieng.
+  const { results: ldeDon } = await c.env.DB.prepare(
+    `SELECT DISTINCT loai_de_xuat, yeu_cau_hoa_don, COALESCE(kh_chuyen_khoan, 0) AS kh_chuyen_khoan FROM dat_don_hang WHERE id IN (${placeholders})`,
+  )
     .bind(JSON.stringify(body.dat_don_hang_ids))
-    .all<{ loai_de_xuat: string | null }>();
+    .all<{ loai_de_xuat: string | null; yeu_cau_hoa_don: string | null; kh_chuyen_khoan: number }>();
   const nhomLdeTao = new Set(ldeDon.map((r) => nhomLoaiDeXuat(r.loai_de_xuat)));
   if (nhomLdeTao.size > 1) return c.json({ error: "NHIEU_LOAI_DE_XUAT_TRONG_1_PXK", loai_de_xuat: [...nhomLdeTao] }, 400);
+  if (new Set(ldeDon.map((r) => nhomPhieu(r))).size > 1) return c.json({ error: "NHIEU_HINH_THUC_HOA_DON_TRONG_1_PXK" }, 400);
+  const quyKhPhieu = ldeDon[0]?.kh_chuyen_khoan ? 1 : 0;
 
   // Tong tien la du lieu dan xuat: backend tu tinh tu toan bo dong thay vi tin gia tri client gui len.
   // Tra hang khong co tien; cong_no chi tinh dong "TRỪ CÔNG NỢ" (xem laTruCongNo, lib/pxkRecalculate.ts).
@@ -897,8 +908,8 @@ phieuXuatKho.post("/", async (c) => {
 
   const statements = [
     c.env.DB.prepare(
-      "INSERT INTO phieu_xuat_kho (id, ma_xuat_kho, ma_xuat_kho_xac_nhan, nguoi_tao, ngay_tao, ghi_chu, so_tien_can_chuyen, trang_thai_chuyen_tien, nguoi_nhan_hang, loai_don, trang_thai_hien_tai, khu_vuc_chon, doi_tac_ma) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    ).bind(id, maXuatKho, maXacNhan, user.email, now, body.ghi_chu?.trim() || null, coChuyenTien ? soTienCanChuyen : null, coChuyenTien ? "Cho KTV chuyen" : null, nguoiNhanHang, body.loai_don, "Dang tao phieu", kvChonPhieu, doiTacPhieu),
+      "INSERT INTO phieu_xuat_kho (id, ma_xuat_kho, ma_xuat_kho_xac_nhan, nguoi_tao, ngay_tao, ghi_chu, so_tien_can_chuyen, trang_thai_chuyen_tien, nguoi_nhan_hang, loai_don, trang_thai_hien_tai, khu_vuc_chon, doi_tac_ma, quy_kh) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    ).bind(id, maXuatKho, maXacNhan, user.email, now, body.ghi_chu?.trim() || null, coChuyenTien ? soTienCanChuyen : null, coChuyenTien ? "Cho KTV chuyen" : null, nguoiNhanHang, body.loai_don, "Dang tao phieu", kvChonPhieu, doiTacPhieu, quyKhPhieu),
     c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly) VALUES (?, ?, ?, ?)").bind(
       id,
       "Dang tao phieu",
@@ -956,7 +967,7 @@ phieuXuatKho.get("/:id", async (c) => {
     : "");
   const binds = [id, ...(scope?.binds ?? []), ...(scope && scopeDon ? scopeDon.binds : [])];
   const pxk = await c.env.DB.prepare(
-    `SELECT pxk.*, pxk.trang_thai_hien_tai as trang_thai, ${ANH_DA_GHI_NHAN_SQL("pxk")} as anh_da_ghi_nhan,
+    `SELECT pxk.*, pxk.trang_thai_hien_tai as trang_thai, ${ANH_DA_GHI_NHAN_SQL("pxk")} as anh_da_ghi_nhan, ${YEU_CAU_HD_PXK_SQL} as yeu_cau_hd,
        (SELECT ten_misa FROM doi_tac_cong_no WHERE ma_misa = pxk.doi_tac_ma) as doi_tac_ten,
        ${mienXuatHieuLucSql("pxk")} as mien_xuat_hieu_luc, ${mienTuKhuVucSql(khuVucHieuLucSql("pxk"))} as mien_khu_vuc,
        (SELECT ten FROM khu_vuc WHERE ma = pxk.khu_vuc_ma) as khu_vuc_tu_dong_ten, (SELECT ten FROM khu_vuc WHERE ma = pxk.khu_vuc_chon) as khu_vuc_chon_ten,
@@ -1022,7 +1033,9 @@ phieuXuatKho.get("/:id", async (c) => {
   );
 
   // Quy du cua nguoi nhan hang + cac lan Ke toan duyet/tu choi khoan chuyen cua phieu (migration 0047).
-  const quyDu = await soDuQuy(c.env.DB, (pxk as { nguoi_nhan_hang?: string | null }).nguoi_nhan_hang);
+  // Quy CUA PHIEU: phieu KH chuyen khoan -> "Quỹ xuất hóa đơn do KH chuyển" (migration 0111), con lai quy du KTV.
+  const pxkQ = pxk as { nguoi_nhan_hang?: string | null; quy_kh?: number | null };
+  const quyDu = pxkQ.nguoi_nhan_hang ? await soDuQuy(c.env.DB, khoaQuy(pxkQ.nguoi_nhan_hang, pxkQ.quy_kh)) : 0;
   const { results: khoanChuyen } = await c.env.DB.prepare(
     `SELECT id, trang_thai, tong_phieu, da_thanh_toan_truoc, so_tien_can_chuyen, so_tien_thuc_nhan, ly_do_tu_choi, nguoi_duyet, duyet_luc, lich_su,
        thuc_nhan_goc, sua_luc, ly_do_sua, huy_luc, ly_do_huy
@@ -1647,11 +1660,15 @@ phieuXuatKho.post("/:id/dong", async (c) => {
   // Tach phieu theo LOAI DE XUAT (chot 2026-10-28): don them vao phai cung nhom loai de xuat voi cac dong dang co (phieu trong = theo don dau tien).
   {
     const { results: ldeRows } = await c.env.DB.prepare(
-      `SELECT DISTINCT d.loai_de_xuat FROM dat_don_hang d
+      `SELECT DISTINCT d.loai_de_xuat, d.yeu_cau_hoa_don, COALESCE(d.kh_chuyen_khoan, 0) AS kh_chuyen_khoan FROM dat_don_hang d
        WHERE d.id IN (SELECT value FROM json_each(?)) OR d.id IN (SELECT dat_don_hang_id FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ?)`,
-    ).bind(JSON.stringify(body.dat_don_hang_ids), id).all<{ loai_de_xuat: string | null }>();
+    ).bind(JSON.stringify(body.dat_don_hang_ids), id).all<{ loai_de_xuat: string | null; yeu_cau_hoa_don: string | null; kh_chuyen_khoan: number }>();
     const nhomLdeThem = new Set(ldeRows.map((r) => nhomLoaiDeXuat(r.loai_de_xuat)));
     if (nhomLdeThem.size > 1) return c.json({ error: "DON_KHAC_LOAI_DE_XUAT_PHIEU", loai_de_xuat: [...nhomLdeThem] }, 409);
+    // Hinh thuc hoa don / KH chuyen khoan khac phieu (2026-11-09) - phieu KH chuyen khoan con bi trigger trg_pxk_dong_quy_kh chan o tang du lieu.
+    if (new Set(ldeRows.map((r) => nhomPhieu(r))).size > 1) return c.json({ error: "DON_KHAC_HINH_THUC_HOA_DON_PHIEU" }, 409);
+    const quyKhPxk = await c.env.DB.prepare("SELECT COALESCE(quy_kh, 0) AS q FROM phieu_xuat_kho WHERE id = ?").bind(id).first<{ q: number }>();
+    if (ldeRows.some((r) => (r.kh_chuyen_khoan ? 1 : 0) !== (quyKhPxk?.q ?? 0))) return c.json({ error: "DON_KHAC_HINH_THUC_HOA_DON_PHIEU" }, 409);
   }
 
   const isTraHang = pxk.loai_don === "tra_hang";
@@ -1821,10 +1838,11 @@ phieuXuatKho.get("/:id/phieu-nhan-duoc", async (c) => {
        (SELECT COUNT(*) FROM phieu_xuat_kho_dong d WHERE d.phieu_xuat_kho_id = p.id) AS so_don
      FROM phieu_xuat_kho p JOIN phieu_xuat_kho s ON s.id = ?
      WHERE ${PHIEU_NHAN_DUOC_SQL}
-       ${donChuyen ? `AND ${phieuCungNhomLdeSql("p.id", `(SELECT ${nhomLdeSql("dc.loai_de_xuat")} FROM dat_don_hang dc WHERE dc.id = ?)`)}
+       ${donChuyen ? `AND ${phieuCungNhomSql("p.id", `(SELECT ${nhomPhieuSql("dc")} FROM dat_don_hang dc WHERE dc.id = ?)`)}
+         AND COALESCE(p.quy_kh, 0) = COALESCE((SELECT dq.kh_chuyen_khoan FROM dat_don_hang dq WHERE dq.id = ?), 0)
          AND (p.trang_thai_hien_tai = 'Dang tao phieu' OR (SELECT dc2.trang_thai_hien_tai FROM dat_don_hang dc2 WHERE dc2.id = ?) = 'TN da duyet')` : ""}
      ORDER BY CASE WHEN COALESCE(TRIM(p.ma_misa), '') = '' THEN 0 ELSE 1 END, p.ngay_tao DESC LIMIT 50`,
-  ).bind(id, ...(donChuyen ? [donChuyen, donChuyen] : [])).all();
+  ).bind(id, ...(donChuyen ? [donChuyen, donChuyen, donChuyen] : [])).all();
   return c.json({ rows: results });
 });
 
@@ -1879,8 +1897,9 @@ phieuXuatKho.post("/:id/dong/:donHangId/chuyen", async (c) => {
     dichMisa = p.ma_misa?.trim() || null;
     // Tach phieu theo LOAI DE XUAT (2026-10-28): phieu dich phai cung nhom loai de xuat voi don.
     const cungNhom = await c.env.DB.prepare(
-      `SELECT 1 AS ok WHERE ${phieuCungNhomLdeSql("?", `(SELECT ${nhomLdeSql("dc.loai_de_xuat")} FROM dat_don_hang dc WHERE dc.id = ?)`)}`,
-    ).bind(dich, donHangId).first<{ ok: number }>();
+      `SELECT 1 AS ok WHERE ${phieuCungNhomSql("?", `(SELECT ${nhomPhieuSql("dc")} FROM dat_don_hang dc WHERE dc.id = ?)`)}
+         AND COALESCE((SELECT quy_kh FROM phieu_xuat_kho WHERE id = ?), 0) = COALESCE((SELECT kh_chuyen_khoan FROM dat_don_hang WHERE id = ?), 0)`,
+    ).bind(dich, donHangId, dich, donHangId).first<{ ok: number }>();
     if (!cungNhom) return c.json({ error: "DON_KHAC_LOAI_DE_XUAT_PHIEU" }, 409);
     dichId = p.id;
     dichMa = p.ma_xuat_kho;
@@ -1902,8 +1921,9 @@ phieuXuatKho.post("/:id/dong/:donHangId/chuyen", async (c) => {
     statements.push(
       c.env.DB.prepare(
         `INSERT INTO phieu_xuat_kho (id, ma_xuat_kho, ma_xuat_kho_xac_nhan, nguoi_tao, ngay_tao, ghi_chu, so_tien_can_chuyen, trang_thai_chuyen_tien,
-           nguoi_nhan_hang, loai_don, trang_thai_hien_tai, khu_vuc_chon, mien_xuat, doi_tac_ma) VALUES (?, ?, 0, ?, ?, ?, NULL, NULL, ?, ?, 'Dang tao phieu', ?, ?, ?)`,
-      ).bind(dichId, dichMa, user.email, now, `Tách từ phiếu ${id}`, pxk.nguoi_nhan_hang, pxk.loai_don, don.khu_vuc_chon, pxk.mien_xuat, pxk.doi_tac_ma),
+           nguoi_nhan_hang, loai_don, trang_thai_hien_tai, khu_vuc_chon, mien_xuat, doi_tac_ma, quy_kh)
+         VALUES (?, ?, 0, ?, ?, ?, NULL, NULL, ?, ?, 'Dang tao phieu', ?, ?, ?, COALESCE((SELECT quy_kh FROM phieu_xuat_kho WHERE id = ?), 0))`,
+      ).bind(dichId, dichMa, user.email, now, `Tách từ phiếu ${id}`, pxk.nguoi_nhan_hang, pxk.loai_don, don.khu_vuc_chon, pxk.mien_xuat, pxk.doi_tac_ma, id),
       c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
         dichId, "Dang tao phieu", user.email, now, `Tách đơn ${donHangId} (${don.ma_lk}) từ phiếu ${id} thành phiếu mới`,
       ),

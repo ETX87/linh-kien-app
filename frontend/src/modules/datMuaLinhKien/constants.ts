@@ -135,6 +135,13 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   NHIEU_DOI_TAC_TRONG_1_PXK: "1 phiếu chỉ gom đơn của cùng 1 đối tác (hoặc toàn đơn thường)",
   NHIEU_LOAI_DE_XUAT_TRONG_1_PXK: "1 phiếu chỉ gom đơn cùng loại đề xuất (riêng MUA HÀNG và MUA HÀNG CÓ ID được chung phiếu) — chọn lại các đơn cùng loại",
   DON_KHAC_LOAI_DE_XUAT_PHIEU: "Đơn khác loại đề xuất với phiếu này — mỗi loại đề xuất 1 phiếu riêng (riêng MUA HÀNG và MUA HÀNG CÓ ID được chung phiếu)",
+  // Hinh thuc hoa don + KH chuyen khoan (2026-11-09, migration 0111)
+  NHIEU_HINH_THUC_HOA_DON_TRONG_1_PXK: "1 phiếu chỉ gom đơn cùng hình thức xuất hóa đơn (Không / HĐ - Không thu phí / HĐ - Có thu phí / HĐ - Xuất cho trạm) và cùng loại \"KH đã chuyển khoản về công ty\"",
+  DON_KHAC_HINH_THUC_HOA_DON_PHIEU: "Đơn khác hình thức xuất hóa đơn (hoặc khác \"KH đã chuyển khoản về công ty\") với phiếu này — mỗi hình thức 1 phiếu riêng",
+  DON_TRONG_PHIEU_KHONG_DOI_HOA_DON: "Đơn đang nằm trong phiếu đã gửi Kế toán — không đổi được hình thức xuất hóa đơn (phiếu tách theo hình thức hóa đơn)",
+  KH_CHUYEN_KHOAN_CAN_HOA_DON: "Đơn tích \"Khách hàng đã chuyển khoản về công ty\" phải chọn 1 hình thức xuất hóa đơn",
+  KH_CHUYEN_KHOAN_CHI_DON_MUA: "\"Khách hàng đã chuyển khoản về công ty\" chỉ áp dụng cho đơn mua (có tiền thanh toán)",
+  KH_CHUYEN_KHOAN_KHONG_GAN_KH_LE: "Đơn KH chuyển khoản đã có tiền trong Quỹ xuất hóa đơn do KH chuyển — chưa hỗ trợ gán sang KH lẻ",
   DOI_TAC_DA_CO: "Mã MISA đối tác này đã có trong danh sách",
   KTV_CHUA_CO_MA_MISA: "Tài khoản này chưa cài đặt mã MISA nên không thể đặt hàng => vui lòng liên hệ giám sát khu vực",
   DON_HANG_KHONG_HOP_LE: "Một số dòng đơn hàng đã chọn không còn hợp lệ (đã bị đổi hoặc gán nơi khác)",

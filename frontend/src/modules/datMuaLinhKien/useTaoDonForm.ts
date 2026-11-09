@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { duocTichKhChuyenKhoan } from "./KhChuyenKhoan";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
@@ -262,6 +263,7 @@ export function useTaoDonForm({
           uu_tien: d.uu_tien || undefined,
           anh: deriveLoaiDon(d.loai_de_xuat.trim()) === "tra_hang" ? d.anh : undefined,
           doi_tac_ma: laMuaCongNoDoiTac(d.loai_de_xuat) ? d.doi_tac_ma || undefined : undefined,
+          kh_chuyen_khoan: d.kh_chuyen_khoan && duocTichKhChuyenKhoan(d) ? true : undefined,
         })),
       }),
     onSuccess: (res) => {

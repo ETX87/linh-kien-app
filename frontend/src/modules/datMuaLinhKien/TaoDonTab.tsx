@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { KhChuyenKhoanCheck } from "./KhChuyenKhoan";
 import { Btn } from "../../components/ui/Btn";
 import { Badge } from "../../components/x/Badge";
 import { Modal } from "../../components/ui/Modal";
@@ -501,6 +502,7 @@ export function TaoDonTab({
                           </Btn>
                         ))}
                       </div>
+                      <KhChuyenKhoanCheck d={d} onChange={(v) => updateDraft(idx, { kh_chuyen_khoan: v })} />
                     </div>
                     <div>
                       <label className={reqLabelClass(thieuMaId)}>{t("Mã YCSC liên quan")}{batBuocYcsc ? " *" : ""}</label>

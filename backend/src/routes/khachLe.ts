@@ -102,14 +102,16 @@ khachLe.post("/gan-don", async (c) => {
   const id = body.don_hang_id?.trim();
   if (!id) return c.json({ error: "INVALID_BODY" }, 400);
   const don = await c.env.DB.prepare(
-    `SELECT id, nguoi_nhan_hang, trang_thai_hien_tai, loai_don, tien_da_tra, version,
+    `SELECT id, nguoi_nhan_hang, trang_thai_hien_tai, loai_don, tien_da_tra, version, COALESCE(kh_chuyen_khoan, 0) AS kh_chuyen_khoan,
        EXISTS (SELECT 1 FROM phieu_xuat_kho_dong d JOIN phieu_xuat_kho p ON p.id = d.phieu_xuat_kho_id
                WHERE d.dat_don_hang_id = dat_don_hang.id AND p.trang_thai_hien_tai <> 'Ke toan huy') AS trong_phieu
      FROM dat_don_hang WHERE id = ?`,
   )
     .bind(id)
-    .first<{ id: string; nguoi_nhan_hang: string | null; trang_thai_hien_tai: string | null; loai_don: string; tien_da_tra: number | null; version: number; trong_phieu: number }>();
+    .first<{ id: string; nguoi_nhan_hang: string | null; trang_thai_hien_tai: string | null; loai_don: string; tien_da_tra: number | null; version: number; trong_phieu: number; kh_chuyen_khoan: number }>();
   if (!don) return c.json({ error: "NOT_FOUND" }, 404);
+  // Tien don KH chuyen khoan nam o "Quỹ xuất hóa đơn do KH chuyển" (khoa khhd:) - chuyen theo don sang KH le chua ho tro (2026-11-09).
+  if (don.kh_chuyen_khoan && (don.tien_da_tra ?? 0) > 0) return c.json({ error: "KH_CHUYEN_KHOAN_KHONG_GAN_KH_LE" }, 409);
   const nhom = don.nguoi_nhan_hang ? await nhomKhLeTheoEmail(c.env.DB, don.nguoi_nhan_hang) : null;
   if (!nhom) return c.json({ error: "KHONG_PHAI_DON_KH_LE_CHUNG" }, 400);
   if (["TN tu choi", "Tu choi", "Da huy"].includes(don.trang_thai_hien_tai ?? "")) return c.json({ error: "DON_DA_DONG" }, 409);

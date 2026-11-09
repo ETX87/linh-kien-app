@@ -23,3 +23,39 @@ export function phieuCungNhomLdeSql(pxkIdExpr: string, nhomExpr: string): string
   return `NOT EXISTS (SELECT 1 FROM phieu_xuat_kho_dong x_lde JOIN dat_don_hang d_lde ON d_lde.id = x_lde.dat_don_hang_id
     WHERE x_lde.phieu_xuat_kho_id = ${pxkIdExpr} AND ${nhomLdeSql("d_lde.loai_de_xuat")} <> ${nhomExpr})`;
 }
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// TACH PHIEU THEO YEU CAU HOA DON + KH CHUYEN KHOAN (2026-11-09, "Tách riêng các phiếu với các lựa chọn xuất hóa đơn khác nhau: ví dụ
+// đơn MUA HÀNG (không xuất hóa đơn), MUA HÀNG (HĐ - Không thu phí), MUA HÀNG (HĐ - có thu phí), MUA HÀNG (HĐ - Xuất cho trạm)"):
+// "nhom phieu" = nhom loai de xuat | nhom hoa don | co KH chuyen khoan (migration 0111). 1 phieu chi 1 nhom phieu. Phieu KHONG luu nhom -
+// suy tu dong (giong nhom loai de xuat). JS va SQL phai cho CUNG ket qua.
+
+const KHONG_HOA_DON = ["", "Không", "không", "KHÔNG", "Khong", "khong", "KHONG"];
+
+/** Nhom hoa don: "" = khong yeu cau hoa don, con lai = chinh gia tri (da TRIM) - moi lua chon HĐ 1 nhom. */
+export function nhomHoaDon(v: string | null | undefined): string {
+  const s = (v ?? "").trim().normalize("NFC");
+  return KHONG_HOA_DON.includes(s) ? "" : s;
+}
+
+/** Don co chon 1 hinh thuc xuat hoa don bat ky (ke ca "xuất cho Trạm") - dieu kien duoc tich "KH đã chuyển khoản về công ty". */
+export const coChonHoaDon = (v: string | null | undefined) => nhomHoaDon(v) !== "";
+
+export function nhomHoaDonSql(cot: string): string {
+  return `(CASE WHEN TRIM(COALESCE(${cot}, '')) IN (${KHONG_HOA_DON.map((x) => `'${x}'`).join(", ")}) THEN '' ELSE TRIM(${cot}) END)`;
+}
+
+export function nhomPhieu(d: { loai_de_xuat: string | null | undefined; yeu_cau_hoa_don: string | null | undefined; kh_chuyen_khoan: number | boolean | null | undefined }): string {
+  return `${nhomLoaiDeXuat(d.loai_de_xuat)}|${nhomHoaDon(d.yeu_cau_hoa_don)}|${d.kh_chuyen_khoan ? 1 : 0}`;
+}
+
+/** Bieu thuc SQL nhom phieu cua 1 don (`a` = alias dat_don_hang). */
+export function nhomPhieuSql(a: string): string {
+  return `(${nhomLdeSql(`${a}.loai_de_xuat`)} || '|' || ${nhomHoaDonSql(`${a}.yeu_cau_hoa_don`)} || '|' || COALESCE(${a}.kh_chuyen_khoan, 0))`;
+}
+
+/** Dieu kien SQL: phieu `pxkIdExpr` KHONG co dong nao khac nhom phieu `nhomExpr` (phieu trong = hop le). */
+export function phieuCungNhomSql(pxkIdExpr: string, nhomExpr: string): string {
+  return `NOT EXISTS (SELECT 1 FROM phieu_xuat_kho_dong x_np JOIN dat_don_hang d_np ON d_np.id = x_np.dat_don_hang_id
+    WHERE x_np.phieu_xuat_kho_id = ${pxkIdExpr} AND ${nhomPhieuSql("d_np")} <> ${nhomExpr})`;
+}
