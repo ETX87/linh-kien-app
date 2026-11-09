@@ -49,6 +49,7 @@ import { NutKtDuyetNhanh, ThanhDuyetNhanhPxk, type PxkDuyetNhanh } from "./Duyet
 import { BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung, DuyetChuyenTienForm, LichSuKhoanChuyen, RutLaiBangChungButton, TienPhieuVaQuy, TienBiBotCanhBao, TuChoiChuyenTienButton, type KhoanChuyenTien } from "./BangChungChuyenTien";
 import { doiNguoiThanhTen, formatPersonDisplay, usePersonDirectory } from "../../lib/personDisplay";
 import { t } from "../../i18n";
+import { LocNgayTao, chipNgayTao } from "./LocNgayTao";
 import { baoLoiTaiAnh, canhBaoHanMucAnh, type HanMucAnh } from "../../lib/hanMucAnh";
 
 const MISA_TEMPLATE_ORDER: MisaTemplate[] = ["xuat_kho", "chuyen_kho", "ban_hang"];
@@ -218,6 +219,10 @@ export function PhieuXuatKhoTab({
   // tim kiem tu do + nut thu gon "☰ Bộ lọc ▾".
   const [filterQ, setFilterQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
+  // Loc ngay tao phieu (Thang tao / Tu ngay - Den ngay, 2026-11-09 - LocNgayTao.tsx).
+  const [filterTuNgay, setFilterTuNgay] = useState("");
+  const [filterDenNgay, setFilterDenNgay] = useState("");
+  const datNgayTao = (a: string, b: string) => { setFilterTuNgay(a); setFilterDenNgay(b); };
   // Tim kiem tren "Tổng"/"Còn tồn" (2026-10-03, "cho phép tìm kiếm theo tổng"): co tu khoa thi tim TREN MOI trang thai (ke ca
   // don/phieu da xong/da huy - tim theo ma don hang/ma xuat thuong la phieu cu); chon 1 trang thai cu the thi van tim trong do.
   const trangThaiGui = debouncedQ.trim() && filterTrangThai === "__OPEN__" ? "" : filterTrangThai;
@@ -266,7 +271,7 @@ export function PhieuXuatKhoTab({
     setPage(1);
     setChonPxk(new Map());
     setDangChonTatCa(false);
-  }, [filterTrangThai, filterNguoiNhanHang, xemLoaiDon, debouncedQ, khuVucParam, locCot.queryParams.cf, locCot.queryParams.cs, locCot.queryParams.cd]);
+  }, [filterTrangThai, filterNguoiNhanHang, xemLoaiDon, debouncedQ, khuVucParam, filterTuNgay, filterDenNgay, locCot.queryParams.cf, locCot.queryParams.cs, locCot.queryParams.cd]);
   // Chon nhieu phieu -> Ke toan duyet nhanh hang loat (v1.441, DuyetNhanhPxk.tsx). Giu ca dong (can trang thai / ma) de chay khong goi lai.
   const [chonPxk, setChonPxk] = useState<Map<string, PxkDuyetNhanh>>(new Map());
   const [dangChonTatCa, setDangChonTatCa] = useState(false);
@@ -277,7 +282,7 @@ export function PhieuXuatKhoTab({
   // GD4 (phan hoi Codex #17): phan trang server-side that su - truoc day tai TOAN BO dong khop bo loc
   // roi tu slice o client.
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["dat-mua-lk-pxk", filterTrangThai, filterNguoiNhanHang, xemLoaiDon, debouncedQ, khuVucParam, locCot.queryParams, page],
+    queryKey: ["dat-mua-lk-pxk", filterTrangThai, filterNguoiNhanHang, xemLoaiDon, debouncedQ, khuVucParam, filterTuNgay, filterDenNgay, locCot.queryParams, page],
     queryFn: () =>
       api.get<{ rows: PhieuXuatKhoRow[]; total: number }>(
         "/phieu-xuat-kho" +
@@ -287,6 +292,8 @@ export function PhieuXuatKhoTab({
             loai_don: xemLoaiDon,
             q: debouncedQ || undefined,
             khu_vuc: khuVucParam || undefined,
+            tu_ngay: filterTuNgay || undefined,
+            den_ngay: filterDenNgay || undefined,
             ...locCot.queryParams,
             page,
             pageSize: 20,
@@ -308,6 +315,8 @@ export function PhieuXuatKhoTab({
           loai_don: xemLoaiDon,
           q: debouncedQ || undefined,
           khu_vuc: khuVucParam || undefined,
+          tu_ngay: filterTuNgay || undefined,
+          den_ngay: filterDenNgay || undefined,
           ...locCot.queryParams,
         }),
     );
@@ -593,6 +602,8 @@ export function PhieuXuatKhoTab({
             loai_don: xemLoaiDon,
             q: debouncedQ || undefined,
             khu_vuc: khuVucParam || undefined,
+            tu_ngay: filterTuNgay || undefined,
+            den_ngay: filterDenNgay || undefined,
             template,
           }),
       ),
@@ -636,6 +647,8 @@ export function PhieuXuatKhoTab({
       loai_don: xemLoaiDon,
       q: debouncedQ || undefined,
       khu_vuc: khuVucParam || undefined,
+      tu_ngay: filterTuNgay || undefined,
+      den_ngay: filterDenNgay || undefined,
     },
     tieuDe: {
       viec_can_lam: t("Việc cần làm tiếp"),
@@ -858,7 +871,7 @@ export function PhieuXuatKhoTab({
   // trống ra 1 khoảng trông rất xấu" - xem giai thich day du o TraHangTab.tsx, cung 1 sua).
   const columnConfig = useColumnConfig(cols, optionalCols, [], "dmlk-pxk-list");
   const moHetTrang = (data?.rows.length ?? 0) > 0 && (data?.rows ?? []).every((r) => moRongPxk.has(r.id));
-  const soBoLoc = [filterTrangThai, filterNguoiNhanHang, filterQ, khuVucParam].filter(Boolean).length + Object.keys(locCot.loc).length;
+  const soBoLoc = [filterTrangThai, filterNguoiNhanHang, filterQ, khuVucParam, filterTuNgay, filterDenNgay].filter(Boolean).length + Object.keys(locCot.loc).length;
   const settingsButtonEl = (
     <ColumnSettingsButton
       toggleableColumns={columnConfig.toggleableColumns}
@@ -924,7 +937,7 @@ export function PhieuXuatKhoTab({
             {t("Đơn chờ xử lý")}
           </button>
         )}
-        {(filterTrangThai || filterNguoiNhanHang || filterQ || khuVucParam) && (
+        {(filterTrangThai || filterNguoiNhanHang || filterQ || khuVucParam || filterTuNgay || filterDenNgay) && (
           <button
             type="button"
             onClick={() => {
@@ -932,6 +945,7 @@ export function PhieuXuatKhoTab({
               setFilterNguoiNhanHang("");
               setFilterQ("");
               setFilterKhuVuc(new Set());
+              datNgayTao("", "");
             }}
             className="focus-ring inline-flex h-8 w-7 items-center justify-center rounded-lg text-sm text-[var(--ink-400)] hover:bg-[var(--surface-100)] hover:text-[var(--color-danger-strong)]"
             title={t("✕ Xóa bộ lọc")}
@@ -989,6 +1003,7 @@ export function PhieuXuatKhoTab({
             options={[{ value: "", label: t("Tất cả người nhận hàng") }, ...(nguoiNhanHangData?.rows ?? []).map((r) => ({ value: r.email_dang_nhap, label: ktvOptionLabel(r, nguoiNhanHangData?.rows ?? []) }))]}
           />
         )}
+        <LocNgayTao tu={filterTuNgay} den={filterDenNgay} onChange={datNgayTao} />
         {/* Mobile (2026-09-29, phan hoi "lọc cột trên bản mobile cho gọn vào trong bộ lọc"): toan bo chip loc cot nam
               TRONG bang Bo loc thay vi 1 hang chip luon hien tren danh sach; ngoai bang chi con chip cot DANG loc. */}
           <div className="w-full sm:hidden">
@@ -1008,6 +1023,7 @@ export function PhieuXuatKhoTab({
         chips={[
           ...(filterNguoiNhanHang ? [{ label: t("Người nhận hàng đã lọc"), onClear: () => setFilterNguoiNhanHang("") }] : []),
           ...(khuVucParam ? [{ label: t("Khu vực: {a}", { a: [...filterKhuVuc].map((ma) => khuVucOptions.find((o) => o.value === ma)?.label ?? ma).join(", ") }), onClear: () => setFilterKhuVuc(new Set()) }] : []),
+          ...chipNgayTao(filterTuNgay, filterDenNgay, datNgayTao),
         ]}
       />
       {/* SUA (phan hoi 2026-08-18 muc 2): onRowClick mo thang modal chi tiet (bam CA HANG, khong chi

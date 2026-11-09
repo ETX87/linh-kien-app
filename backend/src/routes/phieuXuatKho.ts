@@ -307,6 +307,18 @@ async function pxkListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string): P
   // KHONG truyen page -> tra HET (nut "Tải danh sách chi tiết", them 2026-09-13, mirror settingsKtv.ts).
   let whereSql = "1=1" + (scope?.whereSql ?? "");
   const binds: unknown[] = [...(scope?.binds ?? [])];
+  // Loc theo NGAY TAO phieu (2026-11-09, "bổ sung thêm filter tháng tạo ở đơn hàng và phiếu") - FE chon tu ngay / den ngay hoac
+  // 1 thang (quy ve ngay dau - ngay cuoi thang). Cung kieu voi GET /dat-mua-lk/don-hang (ngay_tao gio VN "YYYY-MM-DD HH:MM:SS").
+  const tuNgay = c.req.query("tu_ngay")?.trim();
+  const denNgay = c.req.query("den_ngay")?.trim();
+  if (tuNgay && /^\d{4}-\d{2}-\d{2}$/.test(tuNgay)) {
+    whereSql += " AND pxk.ngay_tao >= ?";
+    binds.push(tuNgay);
+  }
+  if (denNgay && /^\d{4}-\d{2}-\d{2}$/.test(denNgay)) {
+    whereSql += " AND pxk.ngay_tao <= ?";
+    binds.push(denNgay + " 23:59:59");
+  }
   // FIX (phan hoi nguoi dung: "đồng bộ danh sách theo badge" cho Khu vuc phu trach GS) - xem giai
   // thich day du o GET /dat-mua-lk/don-hang (cung 1 fix, cung ngay) - truoc day chi anh huong
   // /mo-count/status-counts, KHONG anh huong chinh danh sach nay.

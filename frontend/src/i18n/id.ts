@@ -2624,5 +2624,8 @@ const tuDien: Record<string, string> = {
   "✓ Đồng ý hủy": "✓ Setujui pembatalan",
   "✔ Hàng đã về / đã có hàng": "✔ Barang datang / tersedia",
   "✕ Gửi yêu cầu hủy": "✕ Ajukan pembatalan",
+  "Lọc theo Vệ tinh (dành cho Trạm xem đơn của Vệ tinh mình quản lý)": "Filter per satelit (untuk stasiun melihat pesanan satelitnya)",
+  "Tháng tạo": "Bulan dibuat",
+  "Tháng tạo {a}": "Bulan dibuat {a}",
 };
 export default tuDien;

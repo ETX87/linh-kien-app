@@ -65,6 +65,7 @@ import { NguoiNhanSide, NutMoSideNguoiNhan, useHienSideNguoiNhan } from "./Nguoi
 import { TienPhieuVaQuy, TienBiBotCanhBao, BangChungAnhList, BangChungChuyenTienForm, docAnhBangChung, RutLaiBangChungButton } from "./BangChungChuyenTien";
 import { TraHangDetailModal } from "./TraHangTab";
 import { t } from "../../i18n";
+import { LocNgayTao, chipNgayTao } from "./LocNgayTao";
 import { LyDoTrangThaiDon, tomTatLyDo } from "./LyDoTrangThai";
 import { DoiKhuVucDon } from "./KhoXuat";
 
@@ -2407,8 +2408,7 @@ export function DonCuaToiTab({
             ...(khuVucParam
               ? [{ label: t("Khu vực: {a}", { a: [...filterKhuVuc].map((ma) => khuVucOptions.find((o) => o.value === ma)?.label ?? ma).join(", ") }), onClear: () => setFilterKhuVuc(new Set()) }]
               : []),
-            ...(filterTuNgay ? [{ label: t("Từ ngày {a}", { a: filterTuNgay }), onClear: () => setFilterTuNgay("") }] : []),
-            ...(filterDenNgay ? [{ label: t("Đến ngày {a}", { a: filterDenNgay }), onClear: () => setFilterDenNgay("") }] : []),
+            ...chipNgayTao(filterTuNgay, filterDenNgay, (a, b) => { setFilterTuNgay(a); setFilterDenNgay(b); }),
             ...(filterQ ? [{ label: t("Tìm: \"{a}\"", { a: filterQ }), onClear: () => setFilterQ("") }] : []),
           ]}
         />
@@ -2454,31 +2454,19 @@ export function DonCuaToiTab({
               lech chieu cao so voi cac o loc khac cung hang flex-wrap) - nhan da gop vao THANG nut
               trigger cua KhuVucChipFilter (xem triggerLabel trong SharedUi.tsx). */}
           {showKhuVucFilter && khuVucOptions.length > 0 && <KhuVucChipFilter value={filterKhuVuc} onChange={setFilterKhuVuc} options={khuVucOptions} />}
+          {/* Ngay tao: Thang tao / Tu ngay - Den ngay cho MOI vai tro (2026-11-09 - truoc chi Tram + Admin thay, nam trong khoi Ve tinh). */}
+          <LocNgayTao tu={filterTuNgay} den={filterDenNgay} onChange={(a, b) => { setFilterTuNgay(a); setFilterDenNgay(b); }} />
           {(canBulkTram || (showKhuVucFilter && (nguoiNhanHangData?.rows.length ?? 0) > 0)) && (
             <div className="flex gap-2 flex-wrap items-center">
               {canBulkTram && (
                 <div
                   className="flex items-center gap-2 flex-wrap"
-                  title={t("Lọc theo Vệ tinh + khoảng ngày tạo đơn (dành cho Trạm xem đơn của Vệ tinh mình quản lý)")}
+                  title={t("Lọc theo Vệ tinh (dành cho Trạm xem đơn của Vệ tinh mình quản lý)")}
                 >
                   <Select
                     value={filterNguoiTao}
                     onChange={setFilterNguoiTao}
                     options={nguoiTaoOptions}
-                  />
-                  <span className="text-xs text-[var(--ink-500)]">{t("Từ ngày")}</span>
-                  <input
-                    type="date"
-                    value={filterTuNgay}
-                    onChange={(e) => setFilterTuNgay(e.target.value)}
-                    className="focus-ring bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
-                  />
-                  <span className="text-xs text-[var(--ink-500)]">{t("Đến ngày")}</span>
-                  <input
-                    type="date"
-                    value={filterDenNgay}
-                    onChange={(e) => setFilterDenNgay(e.target.value)}
-                    className="focus-ring bg-white border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
                   />
                 </div>
               )}
