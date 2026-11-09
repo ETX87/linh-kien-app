@@ -2643,5 +2643,15 @@ const tuDien: Record<string, string> = {
   "Đơn tích \"Khách hàng đã chuyển khoản về công ty\" phải chọn 1 hình thức xuất hóa đơn": "Orders ticked \"Customer paid the company directly\" must choose an invoice type",
   "Đơn đang nằm trong phiếu đã gửi Kế toán — không đổi được hình thức xuất hóa đơn (phiếu tách theo hình thức hóa đơn)": "Order is in a slip already sent to Accounting — the invoice type cannot be changed (slips are split by invoice type)",
   "— Kế toán lưu ý xuất hóa đơn cho phiếu này.": "— Accounting: please issue an invoice for this slip.",
+  "Còn phải chuyển (phiếu KH)": "Still to transfer (customer slips)",
+  "Khoản chuyển tiền KH": "Customer transfers",
+  "Quỹ KH chuyển (HĐ)": "Customer-paid fund (invoice)",
+  "Số dư theo KTV": "Balance by technician",
+  "Sổ quỹ KH": "Customer fund ledger",
+  "Tiền khách hàng chuyển khoản về công ty cho đơn có yêu cầu xuất hóa đơn. Quỹ gắn theo KTV nhận hàng nhưng TÁCH RIÊNG quỹ cá nhân của KTV: chỉ trả cho phiếu KH chuyển khoản; đơn hủy / từ chối thì tiền về lại quỹ này.": "Money customers transferred to the company for orders requiring an invoice. The fund belongs to the receiving technician but is SEPARATE from the technician's own fund: it only pays customer-paid slips; cancelled / rejected orders return money to this fund.",
+  "Tất cả KTV": "All technicians",
+  "Tồn quỹ KH chuyển": "Customer-paid fund balance",
+  "{a} KTV đang có tồn": "{a} technicians with a balance",
+  "Hoàn tiền cho KH": "Refund to customer",
 };
 export default tuDien;

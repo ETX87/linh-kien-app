@@ -57,6 +57,13 @@ async function phamViXem(c: C): Promise<string[] | null | undefined> {
 }
 const coTheDieuChinh = (c: C) => c.get("user").vai_tro === "Admin" || !!c.get("user").la_ke_toan;
 
+/** ?quy=kh | ktv (2026-11-09, tab rieng "Quỹ KH chuyển (HĐ)"): "kh" = chi "Quỹ xuất hóa đơn do KH chuyển" (khoa khhd:), "ktv" = chi quy du
+ * KTV, khong truyen = ca 2 (tuong thich ban cu). */
+function loaiQuyLoc(c: C): "kh" | "ktv" | null {
+  const q = c.req.query("quy");
+  return q === "kh" || q === "ktv" ? q : null;
+}
+
 /** Dieu kien email (1 bind JSON - khong vuong gioi han 100 tham so D1). */
 function locEmail(cot: string, emails: string[] | null, emailChon?: string): { sql: string; binds: unknown[] } {
   const parts: string[] = [];
@@ -160,7 +167,7 @@ quyKtv.get("/tong-quan", async (c) => {
           WHERE p.nguoi_nhan_hang = ng.nguoi AND COALESCE(p.quy_kh, 0) = ng.quy_kh AND p.trang_thai_hien_tai != 'Ke toan huy'
             AND p.trang_thai_chuyen_tien IN ('Cho KTV chuyen', 'KTV da chuyen')) AS so_phieu_cho
      FROM ng LEFT JOIN quy_ktv q ON q.email = ng.email
-     WHERE ng.email IS NOT NULL${loc.sql}
+     WHERE ng.email IS NOT NULL${loc.sql}${loaiQuyLoc(c) ? ` AND ng.quy_kh = ${loaiQuyLoc(c) === "kh" ? 1 : 0}` : ""}
      ORDER BY so_du DESC, con_phai_chuyen DESC, ng.email`,
   )
     .bind(...loc.binds)
@@ -173,9 +180,13 @@ quyKtv.get("/tong-quan", async (c) => {
 quyKtv.get("/khoan-chuyen", async (c) => {
   const pv = await phamViXem(c);
   if (pv === undefined) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
-  const loc = locEmail("k.email_nguoi_chuyen", pv, c.req.query("email")?.trim() || undefined);
+  // ?email= co the la KHOA quy (khhd:<email>) -> loc theo nguoi + quy KH.
+  const emailQ = c.req.query("email")?.trim() || undefined;
+  const loaiQuy = emailQ && laKhoaQuyKh(emailQ) ? "kh" : loaiQuyLoc(c);
+  const loc = locEmail("k.email_nguoi_chuyen", pv, emailQ ? giaiKhoaQuy(emailQ).email : undefined);
   let where = `1 = 1${loc.sql}`;
   const binds = [...loc.binds];
+  if (loaiQuy) where += ` AND COALESCE(p.quy_kh, 0) = ${loaiQuy === "kh" ? 1 : 0}`;
   const trangThai = c.req.query("trang_thai");
   if (trangThai === "Da duyet" || trangThai === "Tu choi" || trangThai === "Da huy") {
     where += " AND k.trang_thai = ?";
@@ -238,6 +249,8 @@ quyKtv.get("/giao-dich", async (c) => {
   const loai = c.req.query("loai");
   let where = `1 = 1${loc.sql}`;
   const binds = [...loc.binds];
+  const loaiQuy = loaiQuyLoc(c);
+  if (loaiQuy) where += loaiQuy === "kh" ? " AND g.email LIKE 'khhd:%'" : " AND g.email NOT LIKE 'khhd:%'";
   if (loai && ["nop_tien", "tra_phieu", "hoan_phieu", "dieu_chinh", "hoan_tien_ktv"].includes(loai)) {
     where += " AND g.loai = ?";
     binds.push(loai);

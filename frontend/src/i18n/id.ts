@@ -2643,5 +2643,15 @@ const tuDien: Record<string, string> = {
   "Đơn tích \"Khách hàng đã chuyển khoản về công ty\" phải chọn 1 hình thức xuất hóa đơn": "Pesanan bertanda \"Pelanggan sudah transfer ke perusahaan\" harus memilih jenis faktur",
   "Đơn đang nằm trong phiếu đã gửi Kế toán — không đổi được hình thức xuất hóa đơn (phiếu tách theo hình thức hóa đơn)": "Pesanan ada di slip yang sudah dikirim ke Akuntansi — jenis faktur tidak bisa diubah (slip dipisah per jenis faktur)",
   "— Kế toán lưu ý xuất hóa đơn cho phiếu này.": "— Akuntansi: harap terbitkan faktur untuk slip ini.",
+  "Còn phải chuyển (phiếu KH)": "Masih harus ditransfer (slip pelanggan)",
+  "Khoản chuyển tiền KH": "Transfer pelanggan",
+  "Quỹ KH chuyển (HĐ)": "Dana transfer pelanggan (faktur)",
+  "Số dư theo KTV": "Saldo per teknisi",
+  "Sổ quỹ KH": "Buku dana pelanggan",
+  "Tiền khách hàng chuyển khoản về công ty cho đơn có yêu cầu xuất hóa đơn. Quỹ gắn theo KTV nhận hàng nhưng TÁCH RIÊNG quỹ cá nhân của KTV: chỉ trả cho phiếu KH chuyển khoản; đơn hủy / từ chối thì tiền về lại quỹ này.": "Uang yang ditransfer pelanggan ke perusahaan untuk pesanan dengan faktur. Dana milik teknisi penerima tetapi TERPISAH dari dana pribadi teknisi: hanya membayar slip transfer pelanggan; pesanan batal / ditolak mengembalikan uang ke dana ini.",
+  "Tất cả KTV": "Semua teknisi",
+  "Tồn quỹ KH chuyển": "Saldo dana transfer pelanggan",
+  "{a} KTV đang có tồn": "{a} teknisi memiliki saldo",
+  "Hoàn tiền cho KH": "Pengembalian ke pelanggan",
 };
 export default tuDien;
