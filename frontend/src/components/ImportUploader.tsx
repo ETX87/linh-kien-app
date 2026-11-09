@@ -80,6 +80,20 @@ export interface ImportUploaderProps<TSummary> {
   getErrors: (summary: TSummary) => string[];
   successMessage: (summary: TSummary) => string;
   invalidateKeys: QueryKey[];
+  // Ghi theo LO (v1.457, import don hang): file lon gui 1 request vuot gioi han truy van / CPU cua Worker -> loi giua chung, don tao 1 nua.
+  // Co prop nay -> chia file thanh cac lo `size` dong LIEN TIEP, gui lan luot (buildBody nhan offset = so dong cua cac lo truoc de backend
+  // bao "Dòng N" dung so dong trong file), gop ket qua bang `merge`. Lo nao loi -> dung, bao ro lo da xong / lo loi / dong chua import.
+  commitChunk?: {
+    size: number;
+    buildBody: (rows: Record<string, unknown>[], offset: number, filename: string) => unknown;
+    merge: (a: TSummary, b: TSummary) => TSummary;
+  };
+}
+
+// Ket qua lan import vua chay - hien CO DINH trong khung (truoc chi co toast tu tat -> nguoi dung khong thay loi).
+interface KetQuaImport<TSummary> {
+  summary: TSummary | null;
+  loiHeThong: string | null;
 }
 
 export function ImportUploader<TSummary>({
@@ -95,8 +109,11 @@ export function ImportUploader<TSummary>({
   getErrors,
   successMessage,
   invalidateKeys,
+  commitChunk,
 }: ImportUploaderProps<TSummary>) {
-  const [step, setStep] = useState<"idle" | "preview">("idle");
+  const [step, setStep] = useState<"idle" | "preview" | "done">("idle");
+  const [ketQua, setKetQua] = useState<KetQuaImport<TSummary> | null>(null);
+  const [tienDo, setTienDo] = useState<string | null>(null);
   const [preview, setPreview] = useState<TSummary | null>(null);
   const [parsedRows, setParsedRows] = useState<Record<string, unknown>[]>([]);
   const [filename, setFilename] = useState("");
@@ -116,18 +133,60 @@ export function ImportUploader<TSummary>({
       setPreview(summary);
       setStep("preview");
     },
-    onError: (err) => addToast(`Không đọc được file: ${describeError(err)}`),
+    onError: (err) => {
+      const msg = `Không phân tích được file: ${describeError(err)}`;
+      addToast(msg);
+      setKetQua({ summary: null, loiHeThong: msg });
+      setStep("done");
+    },
   });
 
   const commitMutation = useMutation({
-    mutationFn: () => api.post<TSummary>(commitUrl, buildBody(parsedRows, filename)),
-    onSuccess: (summary) => {
-      addToast(successMessage(summary));
-      setStep("idle");
+    mutationFn: async (): Promise<KetQuaImport<TSummary>> => {
+      if (!commitChunk || parsedRows.length <= commitChunk.size) {
+        try {
+          const summary = await api.post<TSummary>(commitUrl, commitChunk ? commitChunk.buildBody(parsedRows, 0, filename) : buildBody(parsedRows, filename));
+          return { summary, loiHeThong: null };
+        } catch (err) {
+          return { summary: null, loiHeThong: `Import thất bại: ${describeError(err)}. Một phần đơn có thể đã được tạo — kiểm tra danh sách trước khi import lại.` };
+        }
+      }
+      const size = commitChunk.size;
+      const soLo = Math.ceil(parsedRows.length / size);
+      let gop: TSummary | null = null;
+      for (let i = 0; i < soLo; i++) {
+        const tu = i * size;
+        const den = Math.min(parsedRows.length, tu + size);
+        setTienDo(`Đang import lô ${i + 1}/${soLo} (dòng ${tu + 1}–${den})…`);
+        try {
+          const s = await api.post<TSummary>(commitUrl, commitChunk.buildBody(parsedRows.slice(tu, den), tu, filename));
+          gop = gop ? commitChunk.merge(gop, s) : s;
+        } catch (err) {
+          return {
+            summary: gop,
+            loiHeThong:
+              `Lô dòng ${tu + 1}–${den} bị lỗi: ${describeError(err)}. ` +
+              (tu > 0 ? `Các dòng 1–${tu} đã import xong (xem kết quả bên dưới). ` : "") +
+              `Dòng ${tu + 1}–${den} có thể đã tạo một phần — kiểm tra danh sách đơn trước khi import lại; dòng ${den + 1}–${parsedRows.length} CHƯA import.`,
+          };
+        }
+      }
+      return { summary: gop, loiHeThong: null };
+    },
+    onSuccess: (kq) => {
+      setTienDo(null);
+      setKetQua(kq);
+      setStep("done");
       setPreview(null);
+      if (kq.summary) addToast(successMessage(kq.summary));
+      if (kq.loiHeThong) addToast(kq.loiHeThong);
       for (const key of invalidateKeys) qc.invalidateQueries({ queryKey: key });
     },
-    onError: (err) => addToast(`Import thất bại: ${describeError(err)}`),
+    onError: (err) => {
+      setTienDo(null);
+      setKetQua({ summary: null, loiHeThong: `Import thất bại: ${describeError(err)}` });
+      setStep("done");
+    },
   });
 
   async function handleFileChosen(file: File) {
@@ -173,6 +232,43 @@ export function ImportUploader<TSummary>({
           />
         </div>
       )}
+      {step === "done" && ketQua && (
+        <div className="anim-in mt-4">
+          <div className="flex items-center gap-2 mb-3 bg-slate-50 rounded-xl p-3">
+            <span className="text-xl">{ketQua.loiHeThong || (ketQua.summary && getErrors(ketQua.summary).length > 0) ? "⚠" : "✓"}</span>
+            <div className="flex-1">
+              <div className="font-semibold text-sm">{filename}</div>
+              <div className="text-xs text-[var(--ink-400)]">Kết quả import</div>
+            </div>
+          </div>
+          {ketQua.loiHeThong && (
+            <div className="text-sm text-[var(--color-danger-strong)] bg-[var(--color-danger-soft)] border border-[var(--color-danger-soft)] rounded-xl p-3 mb-3">{ketQua.loiHeThong}</div>
+          )}
+          {ketQua.summary && (
+            <>
+              <div className="text-sm font-semibold text-[var(--ink-900)] mb-2">{successMessage(ketQua.summary)}</div>
+              {renderSummary(ketQua.summary)}
+              {getErrors(ketQua.summary).length > 0 && (
+                <div className="text-xs text-[var(--coral-500)] mb-3 mt-3 max-h-48 overflow-y-auto border border-[var(--color-danger-soft)] rounded-lg p-2">
+                  <div className="font-semibold mb-1">Các dòng không được tạo / cần kiểm tra ({getErrors(ketQua.summary).length}):</div>
+                  {getErrors(ketQua.summary).map((e, i) => (
+                    <div key={i}>{e}</div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+          <Btn
+            variant="ghost"
+            onClick={() => {
+              setStep("idle");
+              setKetQua(null);
+            }}
+          >
+            Import file khác
+          </Btn>
+        </div>
+      )}
       {step === "preview" && preview && (
         <div className="anim-in mt-4">
           <div className="flex items-center gap-2 mb-4 bg-slate-50 rounded-xl p-3">
@@ -192,7 +288,7 @@ export function ImportUploader<TSummary>({
           )}
           <div className="flex gap-2 mt-4">
             <Btn onClick={() => commitMutation.mutate()} disabled={commitMutation.isPending}>
-              {commitMutation.isPending ? "Đang import…" : "Xác nhận import"}
+              {commitMutation.isPending ? (tienDo ?? "Đang import…") : "Xác nhận import"}
             </Btn>
             <Btn
               variant="ghost"

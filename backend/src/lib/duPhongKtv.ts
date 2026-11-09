@@ -33,7 +33,7 @@ export async function computeDuPhongPhatSinh(
   mocTinhDuPhong: string | null,
   loaiTruDonIds: string[] = [],
 ): Promise<number> {
-  const loaiTruSql = loaiTruDonIds.length > 0 ? ` AND ddh.id NOT IN (${loaiTruDonIds.map(() => "?").join(",")})` : "";
+  const loaiTruSql = loaiTruDonIds.length > 0 ? ` AND ddh.id NOT IN (SELECT value FROM json_each(?))` : "";
   const row = await db
     .prepare(
       `SELECT COALESCE(SUM(ddh.so_luong_de_xuat * COALESCE(lk.gia_du_phong, 0)), 0) as gia_tri
@@ -44,7 +44,7 @@ export async function computeDuPhongPhatSinh(
          AND ddh.trang_thai_hien_tai NOT IN ('Tu choi', 'Da huy')
          AND (? IS NULL OR ddh.updated_at > ?)${loaiTruSql}`,
     )
-    .bind(maKtv, mocTinhDuPhong, mocTinhDuPhong, ...loaiTruDonIds)
+    .bind(maKtv, mocTinhDuPhong, mocTinhDuPhong, ...(loaiTruDonIds.length > 0 ? [JSON.stringify(loaiTruDonIds)] : []))
     .first<{ gia_tri: number }>();
   return row?.gia_tri ?? 0;
 }

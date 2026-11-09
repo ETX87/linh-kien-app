@@ -817,7 +817,7 @@ phieuXuatKho.post("/", async (c) => {
   // gan nham dong dang "Cho TN duyet"/da co ma_xuat_kho tu 1 PXK khac (vd 2 tab cung mo, hoac ID cu
   // con luu trong bo nho trinh duyet). SUA (migration 0002_tra_hang_pxk.sql): tra_hang doc thang cot
   // trang_thai_hien_tai thay vi latestDonHangLogStatusExpr - xem giai thich o GET /don-hang-kha-dung.
-  const placeholders = body.dat_don_hang_ids.map(() => "?").join(", ");
+  const placeholders = "SELECT value FROM json_each(?)";
   const { results: hopLe } = await c.env.DB.prepare(
     isTraHang
       ? `SELECT id FROM dat_don_hang ddh WHERE ddh.id IN (${placeholders}) AND ddh.loai_don = 'tra_hang' AND ddh.ma_xuat_kho IS NULL
@@ -825,7 +825,7 @@ phieuXuatKho.post("/", async (c) => {
       : `SELECT id FROM dat_don_hang ddh WHERE ddh.id IN (${placeholders}) AND ddh.loai_don != 'tra_hang' AND ddh.ma_xuat_kho IS NULL
            AND ${latestDonHangLogStatusExpr("ddh.id")} IN (${DON_VAO_PHIEU_DUOC})`,
   )
-    .bind(...body.dat_don_hang_ids)
+    .bind(JSON.stringify(body.dat_don_hang_ids))
     .all<{ id: string }>();
   const hopLeIds = new Set((hopLe as { id: string }[]).map((r) => r.id));
   const khongHopLe = body.dat_don_hang_ids.filter((id) => !hopLeIds.has(id));
@@ -836,7 +836,7 @@ phieuXuatKho.post("/", async (c) => {
   const { results: ktvRows } = await c.env.DB.prepare(
     `SELECT DISTINCT ddh.nguoi_nhan_hang FROM dat_don_hang ddh WHERE ddh.id IN (${placeholders})`,
   )
-    .bind(...body.dat_don_hang_ids)
+    .bind(JSON.stringify(body.dat_don_hang_ids))
     .all<{ nguoi_nhan_hang: string | null }>();
   const ktvSet = new Set((ktvRows as { nguoi_nhan_hang: string | null }[]).map((r) => r.nguoi_nhan_hang));
   if (ktvSet.size !== 1 || !ktvSet.has(nguoiNhanHang)) return c.json({ error: "NHIEU_KTV_TRONG_1_PXK" }, 400);
@@ -846,19 +846,19 @@ phieuXuatKho.post("/", async (c) => {
   const { results: loaiDonRows } = await c.env.DB.prepare(
     `SELECT DISTINCT ddh.loai_don FROM dat_don_hang ddh WHERE ddh.id IN (${placeholders})`,
   )
-    .bind(...body.dat_don_hang_ids)
+    .bind(JSON.stringify(body.dat_don_hang_ids))
     .all<{ loai_don: string }>();
   const loaiDonSet = new Set((loaiDonRows as { loai_don: string }[]).map((r) => r.loai_don));
   if (loaiDonSet.size !== 1 || !loaiDonSet.has(body.loai_don)) return c.json({ error: "NHIEU_LOAI_TRONG_1_PXK" }, 400);
   // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): 1 phieu CHI gom don cung 1 doi tac (hoac toan don thuong) - phieu doi tac khong can chuyen tien.
   const { results: dtDon } = await c.env.DB.prepare(`SELECT DISTINCT doi_tac_ma FROM dat_don_hang WHERE id IN (${placeholders})`)
-    .bind(...body.dat_don_hang_ids)
+    .bind(JSON.stringify(body.dat_don_hang_ids))
     .all<{ doi_tac_ma: string | null }>();
   if (dtDon.length !== 1) return c.json({ error: "NHIEU_DOI_TAC_TRONG_1_PXK" }, 400);
   const doiTacPhieu = dtDon[0].doi_tac_ma;
   // Tach phieu theo LOAI DE XUAT (chot 2026-10-28, lib/nhomLoaiDeXuat.ts): 1 phieu chi 1 nhom loai de xuat (MUA HÀNG + MUA HÀNG CÓ ID chung nhom).
   const { results: ldeDon } = await c.env.DB.prepare(`SELECT DISTINCT loai_de_xuat FROM dat_don_hang WHERE id IN (${placeholders})`)
-    .bind(...body.dat_don_hang_ids)
+    .bind(JSON.stringify(body.dat_don_hang_ids))
     .all<{ loai_de_xuat: string | null }>();
   const nhomLdeTao = new Set(ldeDon.map((r) => nhomLoaiDeXuat(r.loai_de_xuat)));
   if (nhomLdeTao.size > 1) return c.json({ error: "NHIEU_LOAI_DE_XUAT_TRONG_1_PXK", loai_de_xuat: [...nhomLdeTao] }, 400);
@@ -879,7 +879,7 @@ phieuXuatKho.post("/", async (c) => {
   const maXacNhan = maXuatKhoNhap ? 1 : 0;
   // Moi don da chon CUNG 1 khu vuc xu ly (dat_don_hang.khu_vuc_chon, 2026-10-15) -> phieu mang theo khu vuc do; lan khu vuc -> theo KTV.
   const { results: kvChonDon } = await c.env.DB.prepare(`SELECT DISTINCT khu_vuc_chon FROM dat_don_hang WHERE id IN (${placeholders})`)
-    .bind(...body.dat_don_hang_ids)
+    .bind(JSON.stringify(body.dat_don_hang_ids))
     .all<{ khu_vuc_chon: string | null }>();
   const kvChonPhieu = kvChonDon.length === 1 ? kvChonDon[0].khu_vuc_chon : null;
 
@@ -983,9 +983,9 @@ phieuXuatKho.get("/:id", async (c) => {
       ? (
           await c.env.DB.prepare(
             `SELECT id, dat_don_hang_id, noi_dung, nguoi_tao, ngay_tao FROM dat_don_hang_giai_trinh
-             WHERE dat_don_hang_id IN (${donHangIds.map(() => "?").join(",")}) ORDER BY id DESC`,
+             WHERE dat_don_hang_id IN (SELECT value FROM json_each(?)) ORDER BY id DESC`,
           )
-            .bind(...donHangIds)
+            .bind(JSON.stringify(donHangIds))
             .all<{ id: number; dat_don_hang_id: string; noi_dung: string; nguoi_tao: string; ngay_tao: string }>()
         ).results
       : [];
@@ -1643,7 +1643,7 @@ phieuXuatKho.post("/:id/dong", async (c) => {
   }
 
   const isTraHang = pxk.loai_don === "tra_hang";
-  const placeholders = body.dat_don_hang_ids.map(() => "?").join(", ");
+  const placeholders = "SELECT value FROM json_each(?)";
   const { results: hopLe } = await c.env.DB.prepare(
     isTraHang
       ? `SELECT id FROM dat_don_hang ddh WHERE ddh.id IN (${placeholders}) AND ddh.loai_don = 'tra_hang' AND ddh.ma_xuat_kho IS NULL
@@ -1651,7 +1651,7 @@ phieuXuatKho.post("/:id/dong", async (c) => {
       : `SELECT id FROM dat_don_hang ddh WHERE ddh.id IN (${placeholders}) AND ddh.loai_don = ? AND ddh.ma_xuat_kho IS NULL
            AND ddh.nguoi_nhan_hang = ? AND ${latestDonHangLogStatusExpr("ddh.id")} IN (${choKeToan ? "'TN da duyet'" : DON_VAO_PHIEU_DUOC})`,
   )
-    .bind(...body.dat_don_hang_ids, isTraHang ? pxk.nguoi_nhan_hang : pxk.loai_don, ...(isTraHang ? [] : [pxk.nguoi_nhan_hang]))
+    .bind(JSON.stringify(body.dat_don_hang_ids), isTraHang ? pxk.nguoi_nhan_hang : pxk.loai_don, ...(isTraHang ? [] : [pxk.nguoi_nhan_hang]))
     .all<{ id: string }>();
   const hopLeIds = new Set((hopLe as { id: string }[]).map((r) => r.id));
   const khongHopLe = body.dat_don_hang_ids.filter((did) => !hopLeIds.has(did));
@@ -1660,7 +1660,7 @@ phieuXuatKho.post("/:id/dong", async (c) => {
   const { results: donRows } = await c.env.DB.prepare(
     `SELECT id, ma_lk FROM dat_don_hang WHERE id IN (${placeholders})`,
   )
-    .bind(...body.dat_don_hang_ids)
+    .bind(JSON.stringify(body.dat_don_hang_ids))
     .all<{ id: string; ma_lk: string }>();
   const now = nowVN();
   const statements = body.dat_don_hang_ids.flatMap((donHangId) => [

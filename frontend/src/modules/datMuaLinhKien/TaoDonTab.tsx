@@ -199,6 +199,20 @@ export function TaoDonTab({
                 previewUrl="/dat-mua-lk/don-hang/import/preview"
                 commitUrl="/dat-mua-lk/don-hang/import/commit"
                 buildBody={(rows) => ({ rows })}
+                // Ghi theo lo 80 dong (v1.457) - file lon 1 request vuot gioi han D1/CPU, loi giua chung khong bao gi.
+                commitChunk={{
+                  size: 80,
+                  buildBody: (rows, offset) => ({ rows, dong_bat_dau: offset }),
+                  merge: (a, b) => ({
+                    thanhCong: a.thanhCong + b.thanhCong,
+                    loi: a.loi + b.loi,
+                    errors: [...a.errors, ...b.errors],
+                    soPhieu: a.soPhieu + b.soPhieu,
+                    ktvList: [...new Set([...a.ktvList, ...b.ktvList])],
+                    phieuIds: [...(a.phieuIds ?? []), ...(b.phieuIds ?? [])],
+                    loiHeThong: (a.loiHeThong ?? 0) + (b.loiHeThong ?? 0),
+                  }),
+                }}
                 renderSummary={(s) => (
                   <div className="grid grid-cols-3 gap-3 mb-2">
                     <StatCard label={t("Đơn hợp lệ")} value={s.thanhCong} tone="teal" />

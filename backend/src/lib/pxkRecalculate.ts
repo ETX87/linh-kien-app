@@ -119,7 +119,7 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
   const coSoTheoDong = new Map<string, CoSoChietKhau>();
   if (datDonHangIds.length === 0) return { total: 0, maTheoDong, tienUocTinhTheoDong, coSoTheoDong };
 
-  const placeholders = datDonHangIds.map(() => "?").join(", ");
+  const placeholders = "SELECT value FROM json_each(?)";
   const { results } = await db.prepare(
     `SELECT ddh.id, ddh.ngay_tao, ddh.so_luong_de_xuat, ddh.so_luong_thuc_xuat, ddh.loai_de_xuat, ddh.loai_don,
             ddh.nguoi_nhan_hang, ddh.so_tien_cong_no, ddh.gia_de_xuat, ddh.gia_chot,
@@ -130,7 +130,7 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
              ORDER BY p.ngay_tao DESC LIMIT 1) AS khoa_ck
      FROM dat_don_hang ddh LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
      WHERE ddh.id IN (${placeholders})`,
-  ).bind(...datDonHangIds).all<CalculationRow>();
+  ).bind(JSON.stringify([...new Set(datDonHangIds)])).all<CalculationRow>();
 
   const maTheoLoaiDon = (row: CalculationRow, ma: MaChietKhau): MaChietKhau | null =>
     row.loai_don === "tra_hang"
@@ -349,11 +349,11 @@ export async function tongDonTheoNgay(db: D1Database, email: string, ngays: stri
               COALESCE(SUM(COALESCE(lk.gia_ban, ddh.gia_de_xuat, 0) * COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat)), 0) as tong
        FROM dat_don_hang ddh
        LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
-       WHERE ddh.nguoi_nhan_hang = ? AND substr(ddh.ngay_tao, 1, 10) IN (${ngays.map(() => "?").join(",")})
+       WHERE ddh.nguoi_nhan_hang = ? AND substr(ddh.ngay_tao, 1, 10) IN (SELECT value FROM json_each(?))
          AND ${DON_TINH_TONG_NGAY_SQL}
        GROUP BY substr(ddh.ngay_tao, 1, 10)`,
     )
-    .bind(email, ...ngays)
+    .bind(email, JSON.stringify(ngays))
     .all<{ ngay: string; tong: number }>();
   return new Map(results.map((r) => [r.ngay, r.tong]));
 }
@@ -430,10 +430,10 @@ export async function tongNgayKtv(
     db
       .prepare(
         `SELECT ddh.id, substr(ddh.ngay_tao, 1, 10) as ngay FROM dat_don_hang ddh
-         WHERE ddh.nguoi_nhan_hang = ? AND substr(ddh.ngay_tao, 1, 10) IN (${ngays.map(() => "?").join(",")})
+         WHERE ddh.nguoi_nhan_hang = ? AND substr(ddh.ngay_tao, 1, 10) IN (SELECT value FROM json_each(?))
            AND ${DON_TINH_TONG_NGAY_SQL}`,
       )
-      .bind(email, ...ngays)
+      .bind(email, JSON.stringify(ngays))
       .all<{ id: string; ngay: string }>(),
   ]);
   const calculation = results.length ? await tinhToanPxk(db, results.map((r) => r.id)) : null;

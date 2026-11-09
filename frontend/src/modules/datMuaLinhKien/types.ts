@@ -10,6 +10,8 @@ export interface DatDonHangImportSummary {
   soPhieu: number;
   ktvList: string[];
   phieuIds?: string[];
+  // So KTV loi he thong luc ghi (v1.457) - chi tiet nam trong errors.
+  loiHeThong?: number;
 }
 
 export interface LkDanhMucRow {
