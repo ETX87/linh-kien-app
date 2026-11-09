@@ -12,6 +12,8 @@ export interface DatDonHangImportSummary {
   phieuIds?: string[];
   // So KTV loi he thong luc ghi (v1.457) - chi tiet nam trong errors.
   loiHeThong?: number;
+  // Canh bao dat trung (ma LK + Ma YCSC / ID Lada) - chi o buoc xem truoc (v1.457).
+  canhBao?: string[];
 }
 
 export interface LkDanhMucRow {

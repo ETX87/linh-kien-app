@@ -2722,7 +2722,7 @@ async function processDatDonHangImportRows(
   // Import theo LO (v1.457): FE gui tung lo <= 80 dong (file lon 1 request vuot gioi han truy van D1 / CPU cua Worker -> loi giua chung,
   // don tao 1 nua, phieu gom dang do). dongBatDau = so dong cua lo truoc -> "Dòng N" trong bao loi van dung so dong trong file.
   dongBatDau = 0,
-): Promise<{ thanhCong: number; loi: number; errors: string[]; soPhieu: number; ktvList: string[]; phieuIds?: string[]; loiHeThong?: number }> {
+): Promise<{ thanhCong: number; loi: number; errors: string[]; soPhieu: number; ktvList: string[]; phieuIds?: string[]; loiHeThong?: number; canhBao?: string[] }> {
   // Thu vien doc Excel o trinh duyet giu o SO la number (vd Ma yeu cau su co / TT mail duyet toan chu so) -> `.trim()` tren
   // number nem TypeError = 500 "INTERNAL_ERROR" cho CA file (bao loi 2026-10-02). Chuan hoa moi o ve chuoi truoc.
   const rowsChuan = rowsGoc.map((r) =>
@@ -2900,6 +2900,12 @@ async function processDatDonHangImportRows(
     for (const g of gocDaBo) errors.push(`Dòng ${g + 1 + dongBatDau}: combo "${tachDong.find((t) => t.goc === g)!.comboMa}" không tạo vì có linh kiện thành phần lỗi (xem lỗi phía trên)`);
   }
 
+  // Canh bao DAT TRUNG (v1.457 - "check với hệ thống ID đó đã có đặt mã lk đó chưa, hiện cảnh báo tại thời điểm người dùng import => tránh
+  // việc người dùng không biết lại import nhiều lần"): chi o buoc XEM TRUOC (preview) - commit theo lo se tu thay don lo truoc vua tao.
+  const canhBao = commit ? [] : await canhBaoDatTrungImport(db, valid.map((v) => ({
+    dong: tachDong[v.idx].goc + 1 + dongBatDau, maLk: v.maLk, maYcsc: v.maYeuCauSuCo, maLada: v.maLada,
+  })));
+
   // Gom theo KTV nhan hang - moi nhom = 1 phieu_dat (chot voi chu he thong 2026-08-15).
   const groups = new Map<string, DatDonHangImportValidRow[]>();
   for (const v of valid) {
@@ -3067,8 +3073,75 @@ async function processDatDonHangImportRows(
     errors: errorsGon,
     soPhieu: commit ? soNhomDaTao : groups.size,
     ktvList: [...new Set(validDaTao.map((v) => v.maKtv))],
-    ...(commit ? { phieuIds, loiHeThong } : {}),
+    ...(commit ? { phieuIds, loiHeThong } : { canhBao }),
   };
+}
+
+const NHAN_TRANG_THAI_TRUNG: Record<string, string> = {
+  "TN da duyet": "đã duyệt", "Cho TN duyet": "chờ TN duyệt", "Cho hang": "chờ hàng", "Cho thanh toan": "chờ thanh toán",
+  "Cho GS duyet": "chờ GS duyệt", "Cho TBP xac nhan": "chờ TBP", "Cho tram duyet": "chờ Trạm",
+};
+
+/** Dong import trung (ma LK + Ma YCSC / ID Lada) voi don CON HIEU LUC da co trong he thong hoac voi dong khac trong cung file.
+ * Ma YCSC khop ca ma chinh cua don lan ma bo sung (dat_don_case). So khong phan biet hoa/thuong. Chi canh bao, khong chan. */
+async function canhBaoDatTrungImport(
+  db: D1Database,
+  dongs: { dong: number; maLk: string; maYcsc: string | null; maLada: string | null }[],
+): Promise<string[]> {
+  const chuan = (v: string | null | undefined) => (v ?? "").trim().toUpperCase();
+  const coMa = dongs.filter((d) => chuan(d.maYcsc) || chuan(d.maLada));
+  if (coMa.length === 0) return [];
+  const out: string[] = [];
+  // 1) Trung trong chinh file.
+  const daGap = new Map<string, number>();
+  for (const d of coMa) {
+    for (const [loai, ma] of [["Mã YCSC", chuan(d.maYcsc)], ["ID Lada", chuan(d.maLada)]] as const) {
+      if (!ma) continue;
+      const khoa = `${d.maLk.toUpperCase()}|${ma}`;
+      const truoc = daGap.get(khoa);
+      if (truoc !== undefined && truoc !== d.dong) out.push(`Dòng ${d.dong}: trùng dòng ${truoc} trong file — cùng mã LK ${d.maLk} và ${loai} ${ma}`);
+      else daGap.set(khoa, d.dong);
+    }
+  }
+  // 2) Trung voi don da co (con hieu luc). Loc theo ma LK (co index idx_ddh_ma_lk) - danh sach truyen 1 bind JSON (D1 <= 100 tham so).
+  const maLks = [...new Set(coMa.map((d) => d.maLk))];
+  const maIds = [...new Set(coMa.flatMap((d) => [chuan(d.maYcsc), chuan(d.maLada)]).filter(Boolean))];
+  const daCo: { id: string; ma_lk: string; ycsc: string | null; lada: string | null; ca: string | null; trang_thai_hien_tai: string | null; ngay_tao: string; nguoi_nhan: string | null }[] = [];
+  for (let i = 0; i < maLks.length; i += 200) {
+    const { results } = await db
+      .prepare(
+        `SELECT ddh.id, ddh.ma_lk, UPPER(TRIM(ddh.ma_yeu_cau_su_co)) AS ycsc, UPPER(TRIM(ddh.ma_lada)) AS lada,
+                (SELECT GROUP_CONCAT(UPPER(TRIM(dc.case_id)), ' ') FROM dat_don_case dc WHERE dc.dat_don_hang_id = ddh.id) AS ca,
+                ddh.trang_thai_hien_tai, ddh.ngay_tao, ${tenNguoiDaySql("ddh.nguoi_nhan_hang")} AS nguoi_nhan
+         FROM dat_don_hang ddh
+         WHERE ddh.ma_lk IN (SELECT value FROM json_each(?1))
+           AND COALESCE(ddh.trang_thai_hien_tai, '') NOT IN ('TN tu choi', 'Da huy', 'Tu choi')
+           AND (UPPER(TRIM(ddh.ma_yeu_cau_su_co)) IN (SELECT value FROM json_each(?2))
+             OR UPPER(TRIM(ddh.ma_lada)) IN (SELECT value FROM json_each(?2))
+             OR EXISTS (SELECT 1 FROM dat_don_case dc WHERE dc.dat_don_hang_id = ddh.id AND UPPER(TRIM(dc.case_id)) IN (SELECT value FROM json_each(?2))))
+         ORDER BY ddh.ngay_tao DESC
+         LIMIT 500`,
+      )
+      .bind(JSON.stringify(maLks.slice(i, i + 200)), JSON.stringify(maIds))
+      .all<(typeof daCo)[number]>();
+    daCo.push(...results);
+  }
+  if (daCo.length === 0) return out;
+  for (const d of coMa) {
+    const ycsc = chuan(d.maYcsc);
+    const lada = chuan(d.maLada);
+    const khop = daCo.filter((r) => r.ma_lk.toUpperCase() === d.maLk.toUpperCase() && (
+      (ycsc && (r.ycsc === ycsc || r.lada === ycsc || (r.ca ?? "").split(" ").includes(ycsc))) ||
+      (lada && (r.lada === lada || r.ycsc === lada || (r.ca ?? "").split(" ").includes(lada)))
+    ));
+    if (khop.length === 0) continue;
+    const ma = [ycsc && `Mã YCSC ${ycsc}`, lada && `ID Lada ${lada}`].filter(Boolean).join(" / ");
+    const chiTiet = khop.slice(0, 3).map((r) =>
+      `${r.id} (${NHAN_TRANG_THAI_TRUNG[r.trang_thai_hien_tai ?? ""] ?? r.trang_thai_hien_tai ?? "?"}, ${r.ngay_tao.slice(0, 10)}${r.nguoi_nhan ? `, ${r.nguoi_nhan}` : ""})`,
+    ).join("; ");
+    out.push(`Dòng ${d.dong}: ${ma} đã có ${khop.length} đơn mã LK ${d.maLk}: ${chiTiet}${khop.length > 3 ? "…" : ""} — kiểm tra để tránh đặt trùng`);
+  }
+  return out;
 }
 
 const DAT_DON_HANG_IMPORT_TEMPLATE_CSV =

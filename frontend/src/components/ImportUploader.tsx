@@ -78,6 +78,9 @@ export interface ImportUploaderProps<TSummary> {
   buildBody: (rows: Record<string, unknown>[], filename: string) => unknown;
   renderSummary: (summary: TSummary) => ReactNode;
   getErrors: (summary: TSummary) => string[];
+  // Canh bao KHONG chan (vd dat trung ma LK + Ma YCSC / ID Lada, v1.457): hien o buoc xem truoc, nguoi dung phai tick "da kiem tra"
+  // moi bam duoc "Xác nhận import" - tranh import lai cung 1 file nhieu lan ma khong biet.
+  getWarnings?: (summary: TSummary) => string[];
   successMessage: (summary: TSummary) => string;
   invalidateKeys: QueryKey[];
   // Ghi theo LO (v1.457, import don hang): file lon gui 1 request vuot gioi han truy van / CPU cua Worker -> loi giua chung, don tao 1 nua.
@@ -107,10 +110,12 @@ export function ImportUploader<TSummary>({
   buildBody,
   renderSummary,
   getErrors,
+  getWarnings,
   successMessage,
   invalidateKeys,
   commitChunk,
 }: ImportUploaderProps<TSummary>) {
+  const [daXemCanhBao, setDaXemCanhBao] = useState(false);
   const [step, setStep] = useState<"idle" | "preview" | "done">("idle");
   const [ketQua, setKetQua] = useState<KetQuaImport<TSummary> | null>(null);
   const [tienDo, setTienDo] = useState<string | null>(null);
@@ -131,6 +136,7 @@ export function ImportUploader<TSummary>({
     mutationFn: (rows: Record<string, unknown>[]) => api.post<TSummary>(previewUrl, buildBody(rows, filename)),
     onSuccess: (summary) => {
       setPreview(summary);
+      setDaXemCanhBao(false);
       setStep("preview");
     },
     onError: (err) => {
@@ -202,6 +208,7 @@ export function ImportUploader<TSummary>({
   }
 
   const errors = preview ? getErrors(preview) : [];
+  const warnings = preview && getWarnings ? getWarnings(preview) : [];
 
   return (
     <Card className="p-6 mb-5">
@@ -286,8 +293,24 @@ export function ImportUploader<TSummary>({
               ))}
             </div>
           )}
+          {warnings.length > 0 && (
+            <div className="mt-3 mb-3 rounded-xl border border-[var(--color-warning)] bg-[var(--color-warning-soft)] p-3">
+              <div className="text-sm font-semibold text-[var(--color-warning-strong)] mb-1">
+                ⚠ {warnings.length} dòng có thể ĐẶT TRÙNG (cùng mã LK + Mã YCSC / ID Lada đã có đơn hoặc lặp trong file)
+              </div>
+              <div className="text-xs text-[var(--color-text-body)] max-h-40 overflow-y-auto">
+                {warnings.map((w, i) => (
+                  <div key={i}>{w}</div>
+                ))}
+              </div>
+              <label className="mt-2 flex items-center gap-2 text-sm font-medium cursor-pointer">
+                <input type="checkbox" checked={daXemCanhBao} onChange={(e) => setDaXemCanhBao(e.target.checked)} />
+                Tôi đã kiểm tra, vẫn muốn import các dòng này
+              </label>
+            </div>
+          )}
           <div className="flex gap-2 mt-4">
-            <Btn onClick={() => commitMutation.mutate()} disabled={commitMutation.isPending}>
+            <Btn onClick={() => commitMutation.mutate()} disabled={commitMutation.isPending || (warnings.length > 0 && !daXemCanhBao)}>
               {commitMutation.isPending ? (tienDo ?? "Đang import…") : "Xác nhận import"}
             </Btn>
             <Btn

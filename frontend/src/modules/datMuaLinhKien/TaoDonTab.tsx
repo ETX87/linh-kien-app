@@ -221,6 +221,7 @@ export function TaoDonTab({
                   </div>
                 )}
                 getErrors={(s) => s.errors}
+                getWarnings={(s) => s.canhBao ?? []}
                 successMessage={(s) => t("Đã tạo {p} phiếu đặt cho {k} KTV ({n} dòng)", { p: s.soPhieu, k: s.ktvList.length, n: s.thanhCong })}
                 invalidateKeys={[["dat-mua-lk-don-hang"], ["dat-mua-lk-tom-tat"]]}
               />
