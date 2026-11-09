@@ -1,4 +1,23 @@
-# Báo cáo rà soát bảo mật — App Đặt mua linh kiện (v1.458, 2026-11-09)
+# Báo cáo rà soát bảo mật — App Đặt mua linh kiện (2026-11-09)
+
+> **Cập nhật phạm vi (chủ hệ thống, 2026-11-09):** chỉ xử lý lỗ hổng bị tấn công / chiếm quyền / lỗi làm hỏng hệ thống hoặc sai
+> lệch số liệu. KHÔNG xử lý các mục thuộc quy trình vận hành (#3 kiểm soát 2 người duyệt tiền, #5 xác minh 2 bước, #8 tên miền /
+> WAF, #12 sao lưu) — giữ lại bên dưới chỉ để tham khảo.
+>
+> **Đã sửa ở v1.457–v1.459 (đã deploy):**
+> - Lỗi giới hạn 100 tham số của D1 (phiếu ≥ 100 đơn không mở được, MISA Bán hàng lỗi, import chết giữa chừng; thêm: dòng thời
+>   gian API đối tác, danh sách người nhận thông báo, lọc nhiều khu vực) — danh sách truyền 1 tham số JSON.
+> - #1: KTV / Vệ tinh không còn đọc được danh bạ KTV và hạn mức dự trữ qua API (403); bảng giá trả cho KTV đã bỏ giá dự phòng /
+>   giá EU (cache trên máy tách riêng theo vai trò).
+> - #4: nhật ký thay đổi quyền / khoá / duyệt / Gmail phụ ghi bằng trigger cho MỌI đường ghi (migration 0110), xem ở form sửa
+>   tài khoản › "Lịch sử thay đổi quyền".
+> - #7: hạn phiên tuyệt đối 30 ngày từ lần đăng nhập Google (vẫn tự gia hạn 72h khi dùng).
+> - #10: lỗi import chỉ trả mã tra cứu, không trả chi tiết kỹ thuật.
+> - #11: kiểm tra chữ ký nội dung file (JPG/PNG/GIF/WEBP/HEIC) trước khi đưa lên Drive.
+> - Lọc cột kiểu Excel: tên cột `constructor`/`__proto__` trước làm lỗi 500, nay trả 400.
+>
+> **Còn lại trong phạm vi (chưa sửa):** #2 ảnh chứng từ tiền công khai trên Drive; #6 khoá API đối tác chung phạm vi + né giới
+> hạn tần suất bằng khoá ngẫu nhiên; #9 thư viện `xlsx`.
 
 Phạm vi: mã nguồn backend (Worker Hono + D1), frontend, cấu hình `wrangler.jsonc`, `_headers`, thư viện. Phương pháp: đọc
 code các lớp xác thực, phân quyền, API đối tác, SQL, tải ảnh, header, cùng `npm audit`. **Chưa** thử tấn công thật trên
