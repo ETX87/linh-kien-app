@@ -10,6 +10,9 @@ export const SESSION_COOKIE = "dvbh_session";
 // TTL ban dau (auth.ts /callback) LAN TTL gia han (duoi day) - phai dung 1 hang so, doi rieng se
 // gay lech han giua lan dang nhap dau va cac lan gia han sau.
 export const SESSION_TTL_SECONDS = 72 * 60 * 60;
+// Han TUYET DOI (ra soat bao mat 2026-11-09): phien tu gia han 72h moi lan dung -> cookie bi lay cap (may dung chung, tien ich
+// trinh duyet doc) dung duoc VO THOI HAN. Qua 30 ngay ke tu lan dang nhap Google -> bat dang nhap lai.
+export const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
 export async function verifySessionMiddleware(c: Context<{ Bindings: Env }>, next: Next) {
   const token = getCookie(c, SESSION_COOKIE);
@@ -17,6 +20,8 @@ export async function verifySessionMiddleware(c: Context<{ Bindings: Env }>, nex
 
   const payload = await verifySession(token, c.env.SESSION_SECRET);
   if (!payload) return c.json({ error: "INVALID_TOKEN" }, 401);
+  const lucDangNhap = payload.lt ?? payload.iat;
+  if (Math.floor(Date.now() / 1000) - lucDangNhap > SESSION_MAX_AGE_SECONDS) return c.json({ error: "PHIEN_HET_HAN" }, 401);
 
   c.set("email", payload.email);
   c.set("sessionPv", payload.pv ?? 0);
@@ -27,7 +32,7 @@ export async function verifySessionMiddleware(c: Context<{ Bindings: Env }>, nex
   const now = Math.floor(Date.now() / 1000);
   const remaining = payload.exp - now;
   if (remaining < SESSION_TTL_SECONDS / 2) {
-    const freshToken = await signSession({ email: payload.email, pv: payload.pv ?? 0 }, c.env.SESSION_SECRET, SESSION_TTL_SECONDS);
+    const freshToken = await signSession({ email: payload.email, pv: payload.pv ?? 0, lt: lucDangNhap }, c.env.SESSION_SECRET, SESSION_TTL_SECONDS);
     setCookie(c, SESSION_COOKIE, freshToken, {
       httpOnly: true,
       secure: true,

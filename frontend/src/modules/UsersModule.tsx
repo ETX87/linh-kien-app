@@ -637,6 +637,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
             </Btn>
           </div>
         )}
+        <LichSuQuyen email={user.email} />
         <div className="flex justify-end gap-2 pt-2">
           <Btn variant="ghost" size="sm" onClick={onClose}>Huỷ</Btn>
           <Btn size="sm" onClick={handleSave} loading={save.isPending || saveKhuVuc.isPending} disabled={isSelf && !selfEditAck}>Lưu</Btn>
@@ -2467,6 +2468,59 @@ function MaKtvCell({ row, onSave }: { row: EtxNhanSuRow; onSave: (maKtv: string 
         >
           Lưu
         </button>
+      )}
+    </div>
+  );
+}
+
+
+// Lich su thay doi quyen / khoa / duyet / Gmail phu (migration 0110, ra soat bao mat 2026-11-09) - xo xuong, tai luc mo.
+const NHAN_QUYEN: Record<string, string> = {
+  vai_tro: "Vai trò", trang_thai_duyet: "Duyệt", bi_khoa: "Khoá", la_ktv_dvbh: "KTV DVBH", la_ve_tinh: "Vệ tinh", la_kho: "Kho",
+  la_ke_toan: "Kế toán", la_tac_nghiep: "Tác nghiệp", la_tp_dvbh: "TBP", la_view: "View", la_mua_hang: "Mua hàng",
+  quan_ly_danh_muc_lk: "Quản lý danh mục LK", xem_danh_muc_lk: "Xem danh mục LK", gmail_phu: "Gmail phụ",
+};
+const HANH_DONG_QUYEN: Record<string, string> = { sua: "Sửa quyền", tao: "Tạo tài khoản", them_gmail_phu: "Thêm Gmail phụ", go_gmail_phu: "Gỡ Gmail phụ" };
+
+function moTaThayDoiQuyen(truoc: string | null, sau: string | null): string {
+  const a = (truoc ? JSON.parse(truoc) : {}) as Record<string, unknown>;
+  const b = (sau ? JSON.parse(sau) : {}) as Record<string, unknown>;
+  const gt = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : v === 1 ? "bật" : v === 0 ? "tắt" : String(v));
+  const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => !truoc || !sau || a[k] !== b[k]);
+  return keys
+    .filter((k) => truoc || b[k] !== 0)
+    .map((k) => `${NHAN_QUYEN[k] ?? k}: ${truoc ? `${gt(a[k])} → ` : ""}${gt(b[k])}`)
+    .join(" · ");
+}
+
+function LichSuQuyen({ email }: { email: string }) {
+  const [mo, setMo] = useState(false);
+  const { data, isLoading } = useQuery({
+    queryKey: ["users-quyen-log", email],
+    queryFn: () =>
+      api.get<{ rows: { id: number; hanh_dong: string; truoc: string | null; sau: string | null; nguoi_thuc_hien: string; luc: string }[] }>(
+        `/users/${encodeURIComponent(email)}/quyen-log`,
+      ),
+    enabled: mo,
+    staleTime: 0,
+  });
+  return (
+    <div className="text-[12px]">
+      <button type="button" className="font-semibold text-[var(--color-link)]" onClick={() => setMo((v) => !v)}>
+        {mo ? "▴ Ẩn lịch sử thay đổi quyền" : "▾ Lịch sử thay đổi quyền"}
+      </button>
+      {mo && (
+        <div className="mt-1 max-h-48 overflow-y-auto border border-[var(--color-border)] rounded-lg p-2 space-y-1">
+          {isLoading && <div className="text-[var(--color-text-secondary)]">Đang tải…</div>}
+          {data && data.rows.length === 0 && <div className="text-[var(--color-text-secondary)]">Chưa có thay đổi nào được ghi (ghi từ 09/11/2026).</div>}
+          {data?.rows.map((r) => (
+            <div key={r.id}>
+              <span className="text-[var(--color-text-secondary)]">{fmtDateTime(r.luc)}</span> ·{" "}
+              <b>{HANH_DONG_QUYEN[r.hanh_dong] ?? r.hanh_dong}</b> · {moTaThayDoiQuyen(r.truoc, r.sau)} ·{" "}
+              <span className="text-[var(--color-text-secondary)]">bởi {r.nguoi_thuc_hien === "he_thong" ? "hệ thống" : r.nguoi_thuc_hien}</span>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

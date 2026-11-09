@@ -2069,7 +2069,7 @@ datMuaLinhKien.get("/don-hang", async (c) => {
 // cot cho o loc kieu Excel (2026-09-28). Dat TRUOC /don-hang/:id (Hono khop theo thu tu dang ky).
 datMuaLinhKien.get("/don-hang/gia-tri-loc", async (c) => {
   const cot = c.req.query("cot") ?? "";
-  const def = DON_HANG_COT_LOC[cot];
+  const def = Object.hasOwn(DON_HANG_COT_LOC, cot) ? DON_HANG_COT_LOC[cot] : undefined;
   if (!def) return c.json({ error: "COT_KHONG_HOP_LE" }, 400);
   const { whereSql, binds } = await donHangListWhere(c, cot);
   return c.json({ rows: await giaTriCot(c.env.DB, def, "FROM dat_don_hang ddh", "ddh.id", whereSql, binds) });
@@ -2962,7 +2962,8 @@ async function processDatDonHangImportRows(
   // sau (gom phieu xuat, mo ticket, tinh lai tien) loi -> bao "đã tạo, cần kiểm tra" de khong import lai trung.
   let loiHeThong = 0;
   let soNhomDaTao = 0;
-  const thongDiepLoi = (e: unknown) => (e instanceof Error ? e.message : String(e)).slice(0, 300);
+  // Chi tiet loi ky thuat (cau SQL, ten bang) KHONG tra cho nguoi dung (ra soat bao mat 2026-11-09) - chi ma tra cuu log server.
+  const thongDiepLoi = (_e: unknown) => `lỗi hệ thống, mã tra cứu ${c.get("requestId") ?? "?"}`;
   if (commit && groups.size > 0) {
     const now = nowVN();
     const waitUntil = (p: Promise<unknown>) => c.executionCtx.waitUntil(p);
@@ -3053,7 +3054,7 @@ async function processDatDonHangImportRows(
         await taiTinhPxkMoCuaKtv(db, emailNhanHang, user.email);
       } catch (e) {
         loiHeThong++;
-        console.error("import don hang loi", maKtvNhom, e);
+        console.error(`[${c.get("requestId")}] import don hang loi`, maKtvNhom, e);
         errors.push(
           daGhi
             ? `KTV "${maKtvNhom}" (dòng ${moTaDong}): ĐÃ TẠO ${groupRows.length} đơn nhưng lỗi ở bước gom phiếu xuất / mở ticket / tính lại tiền (${thongDiepLoi(e)}) — kiểm tra lại đơn của KTV này ở danh sách Đơn hàng, KHÔNG import lại các dòng này`

@@ -23,6 +23,21 @@ export function loaiAnhHopLe(contentType: string | null | undefined): string | n
   return LOAI_ANH.has(t) ? t : null;
 }
 
+// Kiem tra NOI DUNG that la anh (chu ky dau file) - khong tin header Content-Type (ra soat bao mat 2026-11-09: file bat ky
+// gan Content-Type: image/jpeg van len Drive CONG KHAI = dung app lam cho chua file doc).
+const HEIF_BRANDS = new Set(["heic", "heix", "hevc", "hevx", "heim", "heis", "mif1", "msf1"]);
+export function laAnhThat(buf: ArrayBuffer): boolean {
+  const b = new Uint8Array(buf, 0, Math.min(buf.byteLength, 16));
+  if (b.length < 12) return false;
+  const ascii = (from: number, to: number) => String.fromCharCode(...b.slice(from, to));
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return true; // JPEG
+  if (b[0] === 0x89 && ascii(1, 4) === "PNG") return true; // PNG
+  if (ascii(0, 4) === "GIF8") return true; // GIF
+  if (ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP") return true; // WEBP
+  if (ascii(4, 8) === "ftyp" && HEIF_BRANDS.has(ascii(8, 12).toLowerCase())) return true; // HEIC/HEIF
+  return false;
+}
+
 // Doc body theo luong, dung ngay khi vuot gioi han (khong doc het 1 file khong lo vao bo nho Worker roi moi kiem tra).
 async function docGioiHan(body: ReadableStream<Uint8Array> | null, max: number): Promise<ArrayBuffer | "qua_lon"> {
   if (!body) return new ArrayBuffer(0);
@@ -103,6 +118,7 @@ export async function nhanAnhTaiLen(c: Ctx, tenFile: (ext: string) => string): P
   const bytes = await docGioiHan(c.req.raw.body, ANH_TOI_DA_BYTE);
   if (bytes === "qua_lon") return c.json({ error: "ANH_QUA_LON" }, 413);
   if (bytes.byteLength === 0) return c.json({ error: "EMPTY_FILE" }, 400);
+  if (!laAnhThat(bytes)) return c.json({ error: "DINH_DANG_ANH_KHONG_HO_TRO" }, 400);
 
   const email = c.get("user").email;
   const ngay = nowVN().slice(0, 10);
@@ -137,6 +153,7 @@ export async function taiAnhTuUrl(c: Ctx, url: string, tenFile: (ext: string) =>
   const bytes = await docGioiHan(imgRes.body, ANH_TOI_DA_BYTE);
   if (bytes === "qua_lon") throw new Error("ANH_QUA_LON");
   if (bytes.byteLength === 0) throw new Error("EMPTY_FILE");
+  if (!laAnhThat(bytes)) throw new Error("DINH_DANG_ANH_KHONG_HO_TRO");
 
   const email = c.get("user").email;
   const ngay = nowVN().slice(0, 10);

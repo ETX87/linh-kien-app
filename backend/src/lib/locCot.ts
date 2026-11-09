@@ -28,7 +28,7 @@ export function docLocCot(raw: string | undefined, defs: Record<string, CotLoc>)
     const obj = JSON.parse(raw) as Record<string, unknown>;
     const out: LocCotInput = {};
     for (const [cot, val] of Object.entries(obj ?? {})) {
-      if (!defs[cot] || !val || typeof val !== "object") continue;
+      if (!Object.hasOwn(defs, cot) || !val || typeof val !== "object") continue;
       const v = (val as { v?: unknown }).v;
       if (!Array.isArray(v)) continue;
       out[cot] = { v: v.map((x) => String(x ?? "")).slice(0, 2000), not: !!(val as { not?: unknown }).not };
@@ -60,7 +60,7 @@ export function sqlLocCot(defs: Record<string, CotLoc>, loc: LocCotInput, boQua?
 
 /** Bieu thuc ORDER BY cua cot sap xep (null = khong sap xep theo cot). */
 export function sqlSapXep(defs: Record<string, CotLoc>, cot: string | undefined, dir: string | undefined): string | null {
-  if (!cot || !defs[cot]) return null;
+  if (!cot || !Object.hasOwn(defs, cot)) return null; // hasOwn: "constructor"/"__proto__" tung lam loi 500
   const def = defs[cot];
   const huong = dir === "desc" ? "DESC" : "ASC";
   const expr = def.kieu === "don" ? def.sortExpr ?? coalesce(def.expr) : `(SELECT MIN(${coalesce(def.expr)}) ${def.tu})`;

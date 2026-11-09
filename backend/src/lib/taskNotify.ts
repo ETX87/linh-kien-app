@@ -39,11 +39,11 @@ export async function emailsForRoleOrQC(db: D1Database, role: ViecMoiRoleCol | "
   }
   const scopeSql = emailGsList.length
     ? `AND (email NOT IN (SELECT DISTINCT nguoi_phu_trach FROM dat_mua_lk_phu_trach_gs)
-         OR email IN (SELECT nguoi_phu_trach FROM dat_mua_lk_phu_trach_gs WHERE giam_sat_email IN (${emailGsList.map(() => "?").join(",")})))`
+         OR email IN (SELECT nguoi_phu_trach FROM dat_mua_lk_phu_trach_gs WHERE giam_sat_email IN (SELECT value FROM json_each(?))))`
     : `AND email NOT IN (SELECT DISTINCT nguoi_phu_trach FROM dat_mua_lk_phu_trach_gs)`;
   const { results } = await db
     .prepare(`SELECT email FROM users WHERE ${role} = 1 AND bi_khoa = 0 ${scopeSql}`)
-    .bind(...emailGsList)
+    .bind(...(emailGsList.length ? [JSON.stringify(emailGsList)] : []))
     .all<{ email: string }>();
   return results.map((r) => r.email);
 }
@@ -90,10 +90,10 @@ async function sendCategory(
   if (emails.length === 0) return;
   const prefCol = CATEGORY_PREF_COL[category];
   const loai = CATEGORY_LOAI[category];
-  const placeholders = emails.map(() => "?").join(",");
+  // 1 bind JSON (D1 <= 100 tham so) - danh sach nguoi nhan thong bao co the > 100.
   const { results } = await db
-    .prepare(`SELECT email, ${prefCol} as pref FROM users WHERE email IN (${placeholders})`)
-    .bind(...emails)
+    .prepare(`SELECT email, ${prefCol} as pref FROM users WHERE email IN (SELECT value FROM json_each(?))`)
+    .bind(JSON.stringify(emails))
     .all<{ email: string; pref: number }>();
   const now = nowVN();
   await Promise.all(

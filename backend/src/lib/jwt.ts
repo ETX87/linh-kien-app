@@ -33,6 +33,8 @@ export interface SessionPayload {
   // "Phien ban phien" (2026-10-08) = users.phien_ban_phien luc ky; "Đăng xuất mọi thiết bị" tang so trong DB -> moi
   // token mang so cu bi loadUser tu choi. Token cu khong co truong nay = 0.
   pv?: number;
+  // Luc dang nhap Google (giay) - giu nguyen qua cac lan gia han phien; token cu khong co = coi nhu luc ky (iat).
+  lt?: number;
   iat: number;
   exp: number;
 }
@@ -40,7 +42,7 @@ export interface SessionPayload {
 export async function signSession(payload: Omit<SessionPayload, "iat" | "exp">, secret: string, ttlSeconds: number): Promise<string> {
   const header = { alg: "HS256", typ: "JWT" };
   const now = Math.floor(Date.now() / 1000);
-  const fullPayload: SessionPayload = { ...payload, iat: now, exp: now + ttlSeconds };
+  const fullPayload: SessionPayload = { ...payload, lt: payload.lt ?? now, iat: now, exp: now + ttlSeconds };
   const headerB64 = base64url(new TextEncoder().encode(JSON.stringify(header)));
   const payloadB64 = base64url(new TextEncoder().encode(JSON.stringify(fullPayload)));
   const signingInput = `${headerB64}.${payloadB64}`;

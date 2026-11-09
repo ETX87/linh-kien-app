@@ -80,8 +80,9 @@ function toIsoVNMaybe(v: string | null): string | null {
   return v.includes(" ") ? toIsoVN(v) : v;
 }
 
-function inPlaceholders(n: number): string {
-  return Array(n).fill("?").join(",");
+// Danh sach id truyen 1 bind JSON (json_each) - D1 toi da 100 tham so/cau lenh, 1 ca > 99 don tung lam API doi tac loi 500.
+function inPlaceholders(_n: number): string {
+  return "SELECT value FROM json_each(?)";
 }
 
 // ---------- Enum su kien on dinh (hop dong THAT voi doi tac) ----------
@@ -187,7 +188,7 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
               loai_de_xuat, so_luong_de_xuat, so_luong_thuc_xuat, ly_do_cham, ma_yeu_cau_su_co, ma_lada
        FROM dat_don_hang WHERE id IN (${idPh})`,
     )
-    .bind(...orderIds)
+    .bind(JSON.stringify(orderIds))
     .all<{
       id: string; ma_lk: string; ten_lk_snapshot: string | null; loai_don: string; trang_thai_hien_tai: string | null;
       nguoi_tao: string; nguoi_nhan_hang: string | null; ngay_tao: string;
@@ -203,7 +204,7 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
        FROM thieu_lk t LEFT JOIN settings_ly_do_cham s ON s.id = t.ly_do_cham_id
        WHERE t.dat_don_hang_id IN (${idPh}) ORDER BY t.ngay_tao`,
     )
-    .bind(...orderIds)
+    .bind(JSON.stringify(orderIds))
     .all<{ id: string; dat_don_hang_id: string; ly_do: string | null; ngay_tao: string; ngay_du_kien_co_hang: string | null; ngay_hang_ve_thuc_te: string | null }>();
 
   // 3) Lien ket PXK - 1 PXK co the gom nhieu dong dat_don_hang (join table phieu_xuat_kho_dong,
@@ -211,7 +212,7 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
   // cho MOI don cung thuoc PXK do, khong chi 1 don.
   const { results: dongRows } = await db
     .prepare(`SELECT phieu_xuat_kho_id, dat_don_hang_id FROM phieu_xuat_kho_dong WHERE dat_don_hang_id IN (${idPh})`)
-    .bind(...orderIds)
+    .bind(JSON.stringify(orderIds))
     .all<{ phieu_xuat_kho_id: string; dat_don_hang_id: string }>();
   const pxkIdToOrderIds = new Map<string, string[]>();
   for (const r of dongRows) {
@@ -226,7 +227,7 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
       : (
           await db
             .prepare(`SELECT id, ma_xuat_kho FROM phieu_xuat_kho WHERE id IN (${inPlaceholders(pxkIds.length)})`)
-            .bind(...pxkIds)
+            .bind(JSON.stringify(pxkIds))
             .all<{ id: string; ma_xuat_kho: string }>()
         ).results;
 
@@ -238,7 +239,7 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
         `SELECT dat_don_hang_id as order_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu
          FROM dat_don_hang_log WHERE dat_don_hang_id IN (${idPh}) ORDER BY dat_don_hang_id, id`,
       )
-      .bind(...orderIds)
+      .bind(JSON.stringify(orderIds))
       .all<RawLogRow>(),
     db
       .prepare(
@@ -246,7 +247,7 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
          FROM thieu_lk_log l JOIN thieu_lk t ON t.id = l.thieu_lk_id
          WHERE t.dat_don_hang_id IN (${idPh}) ORDER BY t.dat_don_hang_id, l.id`,
       )
-      .bind(...orderIds)
+      .bind(JSON.stringify(orderIds))
       .all<RawLogRow>(),
     pxkIds.length === 0
       ? Promise.resolve({ results: [] as (RawLogRow & { phieu_xuat_kho_id: string })[] })
@@ -255,14 +256,14 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
             `SELECT phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu
              FROM phieu_xuat_kho_log WHERE phieu_xuat_kho_id IN (${inPlaceholders(pxkIds.length)}) ORDER BY phieu_xuat_kho_id, id`,
           )
-          .bind(...pxkIds)
+          .bind(JSON.stringify(pxkIds))
           .all<RawLogRow & { phieu_xuat_kho_id: string }>(),
     db
       .prepare(
         `SELECT dat_don_hang_id as order_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu
          FROM tra_hang_log WHERE dat_don_hang_id IN (${idPh}) ORDER BY dat_don_hang_id, id`,
       )
-      .bind(...orderIds)
+      .bind(JSON.stringify(orderIds))
       .all<RawLogRow>(),
   ]);
 
@@ -281,11 +282,11 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
     const [userNames, ktvNames] = await Promise.all([
       db
         .prepare(`SELECT email, COALESCE(NULLIF(TRIM(ten_misa), ''), NULLIF(TRIM(ten), '')) AS ten FROM users WHERE email IN (${ePh})`)
-        .bind(...emailList)
+        .bind(JSON.stringify(emailList))
         .all<{ email: string; ten: string | null }>(),
       db
         .prepare(`SELECT email_dang_nhap AS email, COALESCE(NULLIF(TRIM(ten_hien_thi), ''), NULLIF(TRIM(ten_misa), '')) AS ten FROM ktv_lien_he WHERE email_dang_nhap IN (${ePh})`)
-        .bind(...emailList)
+        .bind(JSON.stringify(emailList))
         .all<{ email: string; ten: string | null }>(),
     ]);
     for (const r of userNames.results) if (r.ten) nameByEmail.set(r.email, r.ten);

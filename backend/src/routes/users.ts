@@ -191,7 +191,7 @@ users.patch("/:email", async (c) => {
   };
 
   await c.env.DB.prepare(
-    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, bi_khoa = ?, la_ktv_dvbh = ?, la_ve_tinh = ?, la_kho = ?, la_ke_toan = ?, la_tac_nghiep = ?, la_tp_dvbh = ?, la_view = ?, la_mua_hang = ?, quan_ly_danh_muc_lk = ?, xem_danh_muc_lk = ?, ma_misa = ?, ten_misa = ?, khu_vuc_dat_hang = ?, kho_nhom_lk = ?, updated_at = ? WHERE email = ?",
+    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, bi_khoa = ?, la_ktv_dvbh = ?, la_ve_tinh = ?, la_kho = ?, la_ke_toan = ?, la_tac_nghiep = ?, la_tp_dvbh = ?, la_view = ?, la_mua_hang = ?, quan_ly_danh_muc_lk = ?, xem_danh_muc_lk = ?, ma_misa = ?, ten_misa = ?, khu_vuc_dat_hang = ?, kho_nhom_lk = ?, updated_at = ?, quyen_sua_boi = ? WHERE email = ?",
   )
     .bind(
       next.trang_thai_duyet,
@@ -212,6 +212,7 @@ users.patch("/:email", async (c) => {
       next.khu_vuc_dat_hang,
       next.kho_nhom_lk,
       nowVN(),
+      c.get("realEmail"), // nguoi thuc hien -> trigger users_quyen_log (migration 0110)
       email,
     )
     .run();
@@ -251,21 +252,31 @@ users.post("/:email/chuyen-nhom-vai-tro", async (c) => {
   const now = nowVN();
   if (body.to === "van_phong") {
     await c.env.DB.batch([
-      c.env.DB.prepare("UPDATE users SET la_ktv_dvbh = 0, la_ve_tinh = 0, updated_at = ? WHERE email = ?").bind(now, email),
+      c.env.DB.prepare("UPDATE users SET la_ktv_dvbh = 0, la_ve_tinh = 0, updated_at = ?, quyen_sua_boi = ? WHERE email = ?").bind(now, c.get("realEmail"), email),
       c.env.DB.prepare("UPDATE ktv_lien_he SET email_dang_nhap = NULL WHERE email_dang_nhap = ?").bind(email),
     ]);
     await resyncKhuVucDerivedFieldsForEmail(c.env.DB, email);
   } else {
     await c.env.DB.batch([
       c.env.DB.prepare(
-        "UPDATE users SET la_ktv_dvbh = 1, la_kho = 0, la_ke_toan = 0, la_tac_nghiep = 0, la_tp_dvbh = 0, la_view = 0, la_mua_hang = 0, updated_at = ? WHERE email = ?",
-      ).bind(now, email),
+        "UPDATE users SET la_ktv_dvbh = 1, la_kho = 0, la_ke_toan = 0, la_tac_nghiep = 0, la_tp_dvbh = 0, la_view = 0, la_mua_hang = 0, updated_at = ?, quyen_sua_boi = ? WHERE email = ?",
+      ).bind(now, c.get("realEmail"), email),
       c.env.DB.prepare("DELETE FROM user_khu_vuc WHERE user_email = ?").bind(email),
     ]);
   }
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["users"]));
   return c.json({ ok: true });
+});
+
+// GET /api/users/:email/quyen-log - lich su thay doi quyen / khoa / duyet / Gmail phu cua 1 tai khoan (migration 0110, ra soat
+// bao mat 2026-11-09). nguoi_thuc_hien = 'he_thong' khi do duong tu dong (dang nhap tu kich hoat, ETX, ...).
+users.get("/:email/quyen-log", async (c) => {
+  const email = decodeURIComponent(c.req.param("email"));
+  const { results } = await c.env.DB.prepare(
+    "SELECT id, hanh_dong, truoc, sau, nguoi_thuc_hien, luc FROM users_quyen_log WHERE email = ? ORDER BY id DESC LIMIT 200",
+  ).bind(email).all();
+  return c.json({ rows: results });
 });
 
 // POST /api/users/:email/dang-xuat-moi-thiet-bi (2026-10-08) - Admin thu hoi MOI phien dang nhap cua 1 tai khoan (mat

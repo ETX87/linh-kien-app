@@ -399,7 +399,7 @@ async function pxkListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string): P
 // Excel (2026-09-28). Dang ky TRUOC "/:id".
 phieuXuatKho.get("/gia-tri-loc", async (c) => {
   const cot = c.req.query("cot") ?? "";
-  const def = PXK_COT_LOC[cot];
+  const def = Object.hasOwn(PXK_COT_LOC, cot) ? PXK_COT_LOC[cot] : undefined;
   if (!def) return c.json({ error: "COT_KHONG_HOP_LE" }, 400);
   const { whereSql, binds } = await pxkListWhere(c, cot);
   return c.json({ rows: await giaTriCot(c.env.DB, def, "FROM phieu_xuat_kho pxk", "pxk.id", whereSql, binds) });

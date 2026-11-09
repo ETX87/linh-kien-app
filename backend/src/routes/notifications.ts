@@ -115,7 +115,7 @@ export interface NotificationsCountPayload {
 function gsInClause(gsSet: Set<string> | null, ddhAlias: string): { sql: string; binds: string[] } | null {
   if (gsSet === null || gsSet.size === 0) return gsSet === null ? null : { sql: " AND 1=0", binds: [] };
   const emails = [...gsSet];
-  return { sql: ` AND ${ddhAlias}.email_gs IN (${emails.map(() => "?").join(",")})`, binds: emails };
+  return { sql: ` AND ${ddhAlias}.email_gs IN (SELECT value FROM json_each(?))`, binds: [JSON.stringify(emails)] };
 }
 
 export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): Promise<DatMuaLkBreakdown> {

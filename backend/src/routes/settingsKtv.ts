@@ -11,6 +11,7 @@ import { resyncKhuVucDerivedFieldsForAll, resyncKhuVucDerivedFieldsForEmail } fr
 import { relinkTonKhoForMaMisa } from "../lib/ktvTonKhoRelink";
 import { setMocTinhDuPhong, getMocTinhDuPhong, TRA_HANG_DU_TRU_SUBQUERY } from "../lib/duPhongKtv";
 import { maKtvTheoTen } from "../lib/timTheoTen";
+import { laKtvThuan } from "../lib/laKtvThuan";
 
 // Port rut gon tu backend/src/routes/settings.ts cua he DVBH goc (phan "Danh sach KTV") - danh ba
 // ky thuat vien/Tram/CTV/Ve tinh dung de chon "nguoi nhan hang" trong module Dat mua linh kien.
@@ -20,6 +21,13 @@ import { maKtvTheoTen } from "../lib/timTheoTen";
 const settingsKtv = new Hono<{ Bindings: Env }>();
 settingsKtv.use("*", verifySessionMiddleware, loadUser);
 const adminOnly = requireRole("Admin");
+
+// Danh ba KTV (SĐT, Gmail, cong no, han muc, Ma MISA moi KTV) chi cho nhan vien van phong / Admin - KTV / Ve tinh khong co menu
+// "Danh sách KTV" va khong duoc doc qua API (ra soat bao mat 2026-11-09). Cac duong GHI da co kiem tra quyen rieng.
+settingsKtv.use("*", async (c, next) => {
+  if (c.req.method === "GET" && laKtvThuan(c.get("user"))) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  await next();
+});
 
 async function refreshHash(db: D1Database) {
   const { results } = await db.prepare("SELECT * FROM ktv_lien_he ORDER BY ma_ktv").all();
@@ -69,8 +77,8 @@ settingsKtv.get("/", async (c) => {
       conditions.push("k.khu_vuc_ma = ?");
       binds.push(khuVucList[0]);
     } else if (khuVucList.length > 1) {
-      conditions.push(`k.khu_vuc_ma IN (${khuVucList.map(() => "?").join(",")})`);
-      binds.push(...khuVucList);
+      conditions.push("k.khu_vuc_ma IN (SELECT value FROM json_each(?))");
+      binds.push(JSON.stringify(khuVucList));
     }
   }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -879,11 +887,11 @@ settingsKtv.patch("/:ma/bat-tat", adminOnly, async (c) => {
   await c.env.DB.batch([
     c.env.DB.prepare("UPDATE ktv_lien_he SET ngung_hoat_dong = ? WHERE ma_ktv = ?").bind(body.bat ? 0 : 1, ma),
     body.bat
-      ? c.env.DB.prepare("UPDATE users SET bi_khoa = 0, updated_at = ? WHERE email = ?").bind(now, ktv.email_dang_nhap)
+      ? c.env.DB.prepare("UPDATE users SET bi_khoa = 0, updated_at = ?, quyen_sua_boi = ? WHERE email = ?").bind(now, c.get("realEmail"), ktv.email_dang_nhap)
       : c.env.DB.prepare(
-          `UPDATE users SET bi_khoa = 1, updated_at = ? WHERE email = ?
+          `UPDATE users SET bi_khoa = 1, updated_at = ?, quyen_sua_boi = ? WHERE email = ?
              AND NOT EXISTS (SELECT 1 FROM ktv_lien_he WHERE email_dang_nhap = ? AND ngung_hoat_dong = 0)`,
-        ).bind(now, ktv.email_dang_nhap, ktv.email_dang_nhap),
+        ).bind(now, c.get("realEmail"), ktv.email_dang_nhap, ktv.email_dang_nhap),
   ]);
   const conMaKhac = await c.env.DB.prepare(
     "SELECT GROUP_CONCAT(ma_ktv, ', ') AS mas FROM ktv_lien_he WHERE email_dang_nhap = ? AND ma_ktv <> ? AND ngung_hoat_dong = 0",

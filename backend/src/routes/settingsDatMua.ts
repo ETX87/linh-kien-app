@@ -28,6 +28,7 @@ import { scopeDatMuaNguoiTao, scopeKtvTonKho } from "../lib/scopeDatMua";
 // (khong can audit trail cho 1 he nho), "/linh-kien/sync-sheet" (khong co Google Sheet nguon o he
 // nay - danh muc quan ly thang qua form + upload anh).
 
+import { laKtvThuan } from "../lib/laKtvThuan";
 const settingsDatMua = new Hono<{ Bindings: Env }>();
 settingsDatMua.use("*", verifySessionMiddleware, loadUser);
 const adminOnly = requireRole("Admin");
@@ -60,13 +61,19 @@ async function refreshHash(db: D1Database, tenBang: string, table: string, order
 // ---------- Linh kien (danh muc rieng cua he nay) ----------
 
 settingsDatMua.get("/linh-kien", async (c) => {
-  const { results } = await c.env.DB.prepare("SELECT * FROM linh_kien ORDER BY ma_linh_kien").all();
+  const { results } = await c.env.DB.prepare("SELECT * FROM linh_kien ORDER BY ma_linh_kien").all<Record<string, unknown>>();
+  // KTV / Ve tinh chi xem Gia NY + Gia KTV (chot 2026-10-11) - bo gia noi bo khoi DU LIEU tra ve, khong chi an tren giao dien
+  // (ra soat bao mat 2026-11-09). Version hash (/linh-kien/version) khong doi -> cache tren may van dung.
+  if (laKtvThuan(c.get("user"))) {
+    return c.json({ rows: results.map(({ gia_du_phong: _a, gia_eu: _b, cho_phep_gia_0_nguoi: _c, ...r }) => r) });
+  }
   return c.json({ rows: results });
 });
 
 settingsDatMua.get("/linh-kien/version", async (c) => {
   const hash = await getOrComputeHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
-  return c.json({ hash });
+  // KTV nhan ban da bo cot gia noi bo -> hash rieng, cache tren may dung chung (KTV + van phong 1 may) khong lan 2 ban.
+  return c.json({ hash: laKtvThuan(c.get("user")) ? `${hash}-ktv` : hash });
 });
 
 // POST /linh-kien - CHI dung de tao MA HOAN TOAN MOI (chua tung xuat hien tren gia88) - Admin/quan ly
