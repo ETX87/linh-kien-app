@@ -114,6 +114,7 @@ partnerApi.get("/v1/linh-kien/lich-su", async (c) => {
     c.env.DB.prepare(
       `SELECT d.id, d.loai_don, d.loai_de_xuat, d.trang_thai_hien_tai, d.so_luong_de_xuat, d.so_luong_thuc_xuat,
               d.ngay_tao, d.updated_at, d.khu_vuc_ma, d.ma_xuat_kho, d.nguoi_nhan_hang,
+              d.ma_yeu_cau_su_co, d.ma_lada,
               COALESCE(
                 (SELECT COALESCE(NULLIF(TRIM(k.ten_hien_thi), ''), NULLIF(TRIM(k.ten_misa), '')) FROM ktv_lien_he k WHERE k.email_dang_nhap = d.nguoi_nhan_hang LIMIT 1),
                 (SELECT COALESCE(NULLIF(TRIM(u.ten_misa), ''), NULLIF(TRIM(u.ten), '')) FROM users u WHERE u.email = d.nguoi_nhan_hang),
@@ -371,6 +372,7 @@ partnerApi.get("/v1/thieu-hang", async (c) => {
               d.trang_thai_hien_tai AS trang_thai_don, k.ma_ktv AS nguoi_nhan_ma_ktv,
               COALESCE(NULLIF(TRIM(k.ten_hien_thi), ''), NULLIF(TRIM(k.ten_misa), ''), NULLIF(TRIM(u.ten_misa), ''), NULLIF(TRIM(u.ten), '')) AS nguoi_nhan_ten,
               COALESCE((SELECT group_concat(dc.case_id) FROM dat_don_case dc WHERE dc.dat_don_hang_id = d.id), d.ma_yeu_cau_su_co) AS case_ids,
+              d.ma_yeu_cau_su_co, d.ma_lada,
               COALESCE(s.ten_ly_do, t.ly_do) AS ly_do, ${TT} AS trang_thai, t.ngay_tao, t.ngay_du_kien_co_hang, t.ngay_hang_ve_thuc_te,
               ${LUC} AS cap_nhat_luc
        FROM thieu_lk t

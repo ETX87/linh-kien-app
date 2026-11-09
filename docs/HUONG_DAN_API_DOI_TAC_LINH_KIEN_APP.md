@@ -1,6 +1,6 @@
 # Hướng dẫn tích hợp API — Hệ thống Mua hàng linh kiện (dành cho đối tác DVBH)
 
-Phiên bản tài liệu: 1.4 — 2026-10-19 · Phiên bản API: **v1**
+Phiên bản tài liệu: 1.5 — 2026-11-09 · Phiên bản API: **v1**
 
 Tài liệu này mô tả các API **chỉ đọc** mà hệ thống Mua hàng linh kiện mở cho đối tác tra cứu:
 lịch sử đơn hàng theo mã ca, tồn kho, lịch sử đặt hàng của từng mã linh kiện, và danh mục linh kiện chi
@@ -10,6 +10,9 @@ Thay đổi 1.1: bổ sung mục 4.5 `linh-kien/chi-tiet` và mục 4.6 hướng
 Thay đổi 1.2: bổ sung 4 API danh sách — 4.7 nhóm thay thế, 4.8 combo, 4.9 từ khóa riêng + nhóm đồng nghĩa, 4.10 công nợ KTV.
 Thay đổi 1.3: bổ sung 4.11 thiếu hàng (ticket chờ hàng) và 4.12 tồn kho khả dụng theo khu vực.
 Thay đổi 1.4: 4.7 nhóm thay thế đã CÓ DỮ LIỆU (trước 2026-10-19 trả `rows: []` vì dữ liệu nằm ngoài hệ thống); mỗi mã thêm `co_trong_danh_muc` + `ghi_chu`.
+Thay đổi 1.5: bổ sung **ID Lada** (`ma_lada`) — trước đây API chỉ trả mã ca / mã YCSC (ID CRM) nên đối tác không nhận được ID Lada. Thêm trường
+`ma_lada` + `ma_yeu_cau_su_co` cho đơn ở 4.1 `case-timeline`, 4.4 `linh-kien/lich-su`, 4.11 `thieu-hang`; thêm mục 4.15 giải thích 2 loại mã.
+Bổ sung trường (không đổi gì sẵn có), tương thích ngược.
 
 ---
 
@@ -114,6 +117,8 @@ Ví dụ kết quả (dữ liệu minh hoạ):
       "so_luong_de_xuat": 1,
       "so_luong_thuc_xuat": null,
       "ly_do_cham": null,
+      "ma_yeu_cau_su_co": "SC261003300",
+      "ma_lada": "B1430288",
       "nguoi_tao": "ktv.a@gmail.com",
       "nguoi_tao_ten": "Nguyễn Văn A",
       "nguoi_nhan_hang": "ktv.a@gmail.com",
@@ -143,6 +148,8 @@ Ví dụ kết quả (dữ liệu minh hoạ):
 | `so_luong_de_xuat` | number | Số lượng đặt |
 | `so_luong_thuc_xuat` | number \| null | Số lượng thực xuất (null = bằng số lượng đặt) |
 | `ly_do_cham` | string \| null | Lý do chậm xử lý (nếu có) |
+| `ma_yeu_cau_su_co` | string \| null | **Mã ca / mã YCSC** của đơn — đúng giá trị dùng để gọi `/v1/case-timeline` (xem mục 4.15) |
+| `ma_lada` | string \| null | **ID Lada** của đơn (xem mục 4.15); `null` = đơn không nhập ID Lada |
 | `nguoi_tao`, `nguoi_nhan_hang` | string | Email người tạo đơn / người nhận hàng |
 | `nguoi_tao_ten`, `nguoi_nhan_hang_ten` | string \| null | Tên hiển thị tương ứng |
 | `ngay_tao` | string | Thời điểm tạo đơn (ISO 8601, +07:00) |
@@ -272,6 +279,7 @@ Tần suất gợi ý: kiểm tra `meta` mỗi 30–60 phút trong giờ làm vi
       "ngay_tao": "2026-10-08 09:12:30", "updated_at": "2026-10-08 10:05:00",
       "khu_vuc_ma": "MB1", "ma_xuat_kho": "XK-2026-0456",
       "nguoi_nhan_hang": "ktv.a@gmail.com", "nguoi_nhan_hang_ten": "Nguyễn Văn A",
+      "ma_yeu_cau_su_co": "SC261003300", "ma_lada": "B1430288",
       "case_ids": "SC261003300,SC261003301" }
   ],
   "thieu_lk": [
@@ -286,6 +294,8 @@ Tần suất gợi ý: kiểm tra `meta` mỗi 30–60 phút trong giờ làm vi
 |---|---|
 | `orders[]` | Đơn gần nhất của mã, mới nhất trước |
 | `orders[].case_ids` | Các mã ca gắn với đơn, **nối bằng dấu phẩy** (tách bằng `,`), có thể null |
+| `orders[].ma_yeu_cau_su_co` | Mã ca / mã YCSC khai báo trên đơn (ID CRM) — xem mục 4.15 |
+| `orders[].ma_lada` | **ID Lada** của đơn, `null` = không nhập. Xem mục 4.15 |
 | `orders[].ma_xuat_kho` | Mã phiếu xuất kho (null = chưa xuất) |
 | `thieu_lk[]` | Tối đa 100 phiếu thiếu hàng gần nhất của mã; `trang_thai` = trạng thái mới nhất |
 
@@ -572,6 +582,7 @@ Danh sách ticket "Thiếu hàng đặt mua": đơn linh kiện kho chưa có h�
     { "id": "TLK-000317", "dat_don_hang_id": "DDH-002653", "ma_linh_kien": "3004030490", "ten_linh_kien": "Bo mạch điều khiển",
       "so_luong": 2, "loai_don": "mua", "loai_de_xuat": "MUA HÀNG", "khu_vuc_ma": "MB1", "trang_thai_don": "Cho hang",
       "nguoi_nhan_ma_ktv": "KTV001", "nguoi_nhan_ten": "Nguyễn Văn A", "case_ids": "SC261003300",
+      "ma_yeu_cau_su_co": "SC261003300", "ma_lada": "B1430288",
       "ly_do": "Kho hết hàng", "trang_thai": "Kho da tiep nhan",
       "ngay_tao": "2026-10-16 09:12:30", "ngay_du_kien_co_hang": "2026-10-20", "ngay_hang_ve_thuc_te": null,
       "cap_nhat_luc": "2026-10-16 14:00:00", "kho_du_hang": false }
@@ -589,6 +600,8 @@ Danh sách ticket "Thiếu hàng đặt mua": đơn linh kiện kho chưa có h�
 | `cap_nhat_luc` | Thời điểm thao tác gần nhất trên ticket |
 | `kho_du_hang` | `true` = ticket còn mở và tồn kho công ty (file MISA mới nhất) đã đủ cho đơn này — xét đơn chờ lâu nhất trước |
 | `nguoi_nhan_ma_ktv` | null khi người nhận không phải KTV (GS, nhân viên văn phòng, KH lẻ) |
+| `ma_yeu_cau_su_co` | Mã ca / mã YCSC khai báo trên đơn gốc (ID CRM) — xem mục 4.15 |
+| `ma_lada` | **ID Lada** của đơn gốc, `null` = không nhập. Xem mục 4.15 |
 
 ### 4.12. Tồn kho khả dụng — `GET /v1/ton-kho-kha-dung`
 
@@ -664,6 +677,26 @@ Không tham số. Trả toàn bộ kho công ty và mọi mã KTV.
 |---|---|
 | `ma_misa` | Mã MISA của KTV = mã kho của KTV trong `/v1/ton-kho?nguon=ktv` (`null` = chưa có mã) |
 | `dang_lam` | `1` = mã đang hoạt động và tài khoản không bị khoá; `0` = mã đã tắt hoặc tài khoản bị khoá (nghỉ việc) |
+
+---
+
+### 4.15. Hai loại mã tham chiếu trên đơn: mã ca (ID CRM) và ID Lada
+
+Mỗi đơn đặt linh kiện có thể mang **2 mã tham chiếu độc lập**, cùng được trả ra ở mục 4.1, 4.4, 4.11:
+
+| Trường | Tên nghiệp vụ | Mô tả |
+|---|---|---|
+| `ma_yeu_cau_su_co` | Mã ca / mã YCSC (ID CRM) | Mã ca sự cố bên hệ DVBH — chính là giá trị truyền vào `id=` của `/v1/case-timeline`. Đơn có thể gắn nhiều ca; danh sách đầy đủ nằm ở `case_ids` (nối bằng dấu phẩy) |
+| `ma_lada` | ID Lada | Mã tra cứu trên hệ Lada do người đặt nhập tay khi tạo đơn (chữ in hoa); `null` = đơn không có ID Lada |
+
+Lưu ý khi dùng:
+
+- **Hai trường không thay thế nhau** — một đơn có thể chỉ có mã ca, chỉ có ID Lada, hoặc cả hai. Không suy mã này ra từ mã kia.
+- Với một số loại đề xuất (công nợ, "HỖ TRỢ…"), hệ thống bắt buộc phải có **ít nhất 1 trong 2** mã — nên khi cần tra cứu chắc chắn có kết quả,
+  hãy đọc cả hai trường thay vì chỉ `ma_yeu_cau_su_co` / `case_ids`.
+- `case_ids` (mục 4.1, 4.4) là **các mã ca gắn với đơn** (gồm ca chính + ca bổ sung), có thể chứa nhiều giá trị; `ma_yeu_cau_su_co` là mã ca
+  khai báo gốc trên đơn. Nếu cần tra 1 ca, dùng `/v1/case-timeline` (tự gộp cả 2 nguồn liên kết ca).
+- `ma_lada` viết dạng chữ HOA; so sánh không phân biệt hoa/thường khi đối chiếu với hệ thống của bạn.
 
 ---
 

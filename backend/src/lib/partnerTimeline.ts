@@ -54,6 +54,12 @@ export interface OrderTimeline {
   nguoi_tao_ten: string | null;
   nguoi_nhan_hang_ten: string | null;
   thieu_lk: ThieuLkInfo[];
+  // Them 2026-11-09 (bo sung, tuong thich nguoc voi v1): doi tac bao "chi nhan duoc ID CRM" - tra
+  // tuong minh ca 2 ma lien quan cua don. `ma_yeu_cau_su_co` = ma ca / ma YCSC (ID CRM ben DVBH, cung
+  // gia tri dung de goi /v1/case-timeline), `ma_lada` = ID Lada (cot dat_don_hang.ma_lada, migration
+  // 0054) - co the null (don khong nhap ID Lada).
+  ma_yeu_cau_su_co: string | null;
+  ma_lada: string | null;
 }
 
 export interface CaseTimelineResult {
@@ -178,7 +184,7 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
   const { results: orderRows } = await db
     .prepare(
       `SELECT id, ma_lk, ten_lk_snapshot, loai_don, trang_thai_hien_tai, nguoi_tao, nguoi_nhan_hang, ngay_tao,
-              loai_de_xuat, so_luong_de_xuat, so_luong_thuc_xuat, ly_do_cham
+              loai_de_xuat, so_luong_de_xuat, so_luong_thuc_xuat, ly_do_cham, ma_yeu_cau_su_co, ma_lada
        FROM dat_don_hang WHERE id IN (${idPh})`,
     )
     .bind(...orderIds)
@@ -186,6 +192,7 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
       id: string; ma_lk: string; ten_lk_snapshot: string | null; loai_don: string; trang_thai_hien_tai: string | null;
       nguoi_tao: string; nguoi_nhan_hang: string | null; ngay_tao: string;
       loai_de_xuat: string | null; so_luong_de_xuat: number; so_luong_thuc_xuat: number | null; ly_do_cham: string | null;
+      ma_yeu_cau_su_co: string | null; ma_lada: string | null;
     }>();
 
   // Ticket thieu LK cua cac don (1 don co the co nhieu ticket qua cac lan "Cho hang") - ly do lay ten
@@ -355,6 +362,8 @@ export async function buildCaseTimeline(db: D1Database, caseId: string): Promise
       ly_do_cham: o.ly_do_cham,
       nguoi_tao_ten: nameOf(o.nguoi_tao),
       nguoi_nhan_hang_ten: nameOf(o.nguoi_nhan_hang),
+      ma_yeu_cau_su_co: o.ma_yeu_cau_su_co,
+      ma_lada: o.ma_lada,
       thieu_lk: thieuLkRows
         .filter((t) => t.dat_don_hang_id === o.id)
         .map((t) => ({
