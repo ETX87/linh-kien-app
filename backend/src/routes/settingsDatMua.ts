@@ -92,6 +92,8 @@ settingsDatMua.post("/linh-kien", linhKienWriteRoles, async (c) => {
   if (body.anh_demo?.trim() && !laUrlHttp(body.anh_demo.trim())) return c.json({ error: "INVALID_URL" }, 400);
   if (!body.ma_linh_kien?.trim() || !body.ten_linh_kien?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
   // Phan loai BAT BUOC (chot 2026-09-30 - "Máy" quyet dinh kho xuat trong file MISA).
+  // Gia vo ly (2026-11-10, LK 3003020204 tung bi nhap 1,11e28d): 0..1 ty.
+  if (body.gia_ban != null && !(Number.isFinite(Number(body.gia_ban)) && Number(body.gia_ban) >= 0 && Number(body.gia_ban) <= 1_000_000_000)) return c.json({ error: "GIA_QUA_LON" }, 400);
   if (!body.don_vi?.trim()) return c.json({ error: "THIEU_PHAN_LOAI" }, 400);
   // Nhom LK Karofi / B2B BAT BUOC (2026-10-16) - Kho xu ly thieu hang theo nhom nay (lib/nhomLk.ts).
   const nhomLk = chuanNhomLk(body.nhom_lk);
@@ -434,7 +436,7 @@ settingsDatMua.post("/linh-kien/:ma/gia-tam", muaHangRoles, async (c) => {
   if (!lk) return c.json({ error: "NOT_FOUND" }, 404);
   if (lk.trang_thai_ma === TT_MA.DA_DOI || lk.trang_thai_ma === TT_MA.TU_CHOI) return c.json({ error: "LK_KHONG_CON_HIEU_LUC" }, 409);
   if (lk.co_tren_gia88) return c.json({ error: "GIA_DO_GIA88_QUAN_LY" }, 409);
-  const so = (v: unknown) => (v === null || v === undefined || v === "" ? null : Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : NaN);
+  const so = (v: unknown) => (v === null || v === undefined || v === "" ? null : Number.isFinite(Number(v)) && Number(v) >= 0 && Number(v) <= 1_000_000_000 ? Number(v) : NaN);
   const giaBan = so(body.gia_ban);
   const giaKtv = so(body.gia_tri_cong_no);
   if (Number.isNaN(giaBan) || Number.isNaN(giaKtv)) return c.json({ error: "GIA_KHONG_HOP_LE" }, 400);

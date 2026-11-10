@@ -125,6 +125,7 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   KHONG_PHAI_GS_KHU_VUC: "Chỉ Giám sát khu vực của KTV nhận hàng được duyệt đơn này",
   VE_TINH_KHONG_TAO_DON: "Tài khoản Vệ tinh không tạo đơn — Trạm phụ trách đặt hàng",
   GIA_0_KHONG_DAT_DUOC: "Linh kiện chưa có giá bán — chưa được phép đặt đơn có tiền",
+  GIA_LK_KHONG_HOP_LE: "Giá trong Bảng giá không hợp lệ (quá 1 tỷ đồng) — liên hệ Mua hàng sửa giá trước khi đặt",
   CHUA_CO_MA_MISA_CONG_NO: "Người nhận chưa có Mã MISA — chỉ đặt được đơn mua",
   TRU_CONG_NO_KHONG_PHAI_KTV: "Đơn TRỪ CÔNG NỢ chỉ dành cho KTV có mã KTV",
   TRU_CONG_NO_THIEU_TON: "Tồn kho của KTV không đủ cho đơn TRỪ CÔNG NỢ",

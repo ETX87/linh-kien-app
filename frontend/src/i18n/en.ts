@@ -2727,5 +2727,6 @@ const tuDien: Record<string, string> = {
   "↩ Đẩy lùi về chờ QC": "↩ Back to awaiting QC",
   "Giá không hợp lệ — tối đa 1 tỷ đồng mỗi chiếc (kiểm tra có gõ nhầm số không)": "Invalid price — at most 1 billion VND per unit (check for a typo)",
   "Số lượng không hợp lệ — tối đa 10.000 chiếc mỗi dòng (kiểm tra có gõ nhầm số không)": "Invalid quantity — at most 10,000 units per line (check for a typo)",
+  "Giá trong Bảng giá không hợp lệ (quá 1 tỷ đồng) — liên hệ Mua hàng sửa giá trước khi đặt": "Price in the price list is invalid (over 1 billion VND) — ask Purchasing to fix it before ordering",
 };
 export default tuDien;

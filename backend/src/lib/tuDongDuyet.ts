@@ -240,7 +240,10 @@ export async function danhGiaPhieu(db: D1Database, ctx: NguCanhNhan, dongs: Dong
     }
 
     // ---- Cac truong hop KHONG cho tao ----
-    if (coTien && !((d.gia_ban ?? 0) > 0) && !d.cho_phep_gia_0) {
+    // Gia trong Bang gia vo ly (2026-11-10: LK 3003020204 bi nhap 1,11e28d -> DDH-005220 day "Σ Tổng cộng" bao cao len 11.111.111…d).
+    if ((d.gia_ban ?? 0) > 1_000_000_000) {
+      kq.loi = { ma: "GIA_LK_KHONG_HOP_LE", thongDiep: `${ma}: giá trong Bảng giá không hợp lệ (quá 1 tỷ đồng) — liên hệ Mua hàng sửa giá trước khi đặt.` };
+    } else     if (coTien && !((d.gia_ban ?? 0) > 0) && !d.cho_phep_gia_0) {
       kq.loi = { ma: "GIA_0_KHONG_DAT_DUOC", thongDiep: `${ma}: linh kiện chưa có giá bán (giá 0đ) — không đặt được đơn mua / trừ công nợ. Liên hệ Mua hàng cập nhật giá hoặc bật "Cho phép giá 0đ" ở Bảng giá.` };
     } else if (loaiDon === "cong_no" && !ctx.coMaMisa) {
       kq.loi = { ma: "CHUA_CO_MA_MISA_CONG_NO", thongDiep: `${ma}: người nhận hàng chưa có Mã MISA — chỉ được đặt đơn mua hàng, không đặt được đơn công nợ / hỗ trợ.` };
