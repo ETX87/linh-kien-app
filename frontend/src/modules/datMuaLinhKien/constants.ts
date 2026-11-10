@@ -78,6 +78,8 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   INVALID_HANH_DONG: "Hành động không hợp lệ",
   INVALID_BODY: "Dữ liệu gửi lên không hợp lệ",
   INVALID_DON_HANG: "Thông tin dòng đơn hàng chưa đầy đủ hoặc không hợp lệ",
+  SO_LUONG_QUA_LON: "Số lượng không hợp lệ — tối đa 10.000 chiếc mỗi dòng (kiểm tra có gõ nhầm số không)",
+  GIA_QUA_LON: "Giá không hợp lệ — tối đa 1 tỷ đồng mỗi chiếc (kiểm tra có gõ nhầm số không)",
   INVALID_CONTENT_TYPE: "Định dạng file không hợp lệ",
   EMPTY_FILE: "File rỗng, vui lòng chọn file khác",
   // Bao ve he thong (2026-10-08, backend lib/baoVe.ts + lib/anhUpload.ts)

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useToast } from "../components/ui/Toast";
 import { useAuth } from "../auth/AuthContext";
+import { buocTraHangCuaToi } from "../layout/navConfig";
 import { useLocalStorageState } from "../hooks/useLocalStorageState";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import type { LuongQuyTrinhStep, JumpTarget, DangTonStep } from "./datMuaLinhKien/types";
@@ -529,13 +530,15 @@ export function DatMuaLinhKienModule({
   // cho DUNG vai tro do (trong pham vi xem). Desktop: muc Sidebar rieng (section "tra-hang", portal vao stageMenuSlots.tra);
   // mobile: nam trong menu "Đơn hàng". Buoc TN duyet tong -> "Chờ tác nghiệp" (cung don mua, TN khong bo sot).
   const isMobile = useIsMobile();
+  // Chi dem buoc cua chinh vai tro dang xem (2026-11-10) - nguoi theo doi (khong xu ly buoc nao) van thay ca 3.
+  const buocTraHangMinh = buocTraHangCuaToi(user);
   const hangTraCon: StageMenuItem[] = canTraHangView
     ? [
-        { key: "hang-tra-kt", label: t("Chờ kế toán"), count: traHangStatusCounts["Cho ke toan duyet mem"],
+        { key: "hang-tra-kt", label: t("Chờ kế toán"), count: buocTraHangMinh.has("Cho ke toan duyet mem") ? traHangStatusCounts["Cho ke toan duyet mem"] : undefined,
           onClick: () => stageJump("hang-tra-kt", { tab: "tra-hang", filter: "Cho ke toan duyet mem" }) },
-        { key: "hang-tra-kho", label: t("Chờ Kho"), count: traHangStatusCounts["Cho kho xac nhan"],
+        { key: "hang-tra-kho", label: t("Chờ Kho"), count: buocTraHangMinh.has("Cho kho xac nhan") ? traHangStatusCounts["Cho kho xac nhan"] : undefined,
           onClick: () => stageJump("hang-tra-kho", { tab: "tra-hang", filter: "Cho kho xac nhan" }) },
-        { key: "hang-tra-qc", label: t("Chờ QC"), count: traHangStatusCounts["Cho QC xac nhan"],
+        { key: "hang-tra-qc", label: t("Chờ QC"), count: buocTraHangMinh.has("Cho QC xac nhan") ? traHangStatusCounts["Cho QC xac nhan"] : undefined,
           onClick: () => stageJump("hang-tra-qc", { tab: "tra-hang", filter: "Cho QC xac nhan" }) },
       ]
     : [];

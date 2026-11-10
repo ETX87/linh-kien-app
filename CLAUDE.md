@@ -105,6 +105,11 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   `QcTuChoiModal`: lý do (bắt buộc, gợi ý `LY_DO_QC_GOI_Y`) + ghi chú → gộp 1 `ghi_chu` "Lý do: … — Ghi chú: …", ảnh ≥ 1, video ≤ 100MB ≤ 2/đơn: trình duyệt
   PUT THẲNG lên Drive qua phiên resumable (`POST /:id/video/bat-dau` → `batDauTaiVideo` kèm header Origin cho CORS; `POST /:id/video/xong` → `hoanTatVideo`
   kiểm tra thư mục app / dung lượng / video/* rồi công khai, bảng `tra_hang_video`); CSP `connect-src` có `https://www.googleapis.com`.
+  **Đếm việc đúng vai trò + chặn số vô lý** (2026-11-10, v1.467): số mục "Hàng trả" + mục con chỉ đếm bước của chính người xem (`buocTraHangCuaToi` ở
+  `layout/navConfig.ts` — Kế toán / Kho / QC; không xử lý bước nào = người theo dõi, thấy cả 3); "Thiếu hàng bảo hành" — "Cần tôi xử lý" + badge chỉ Kho THẬT /
+  Admin đếm "Cho kho xu ly" (`viecKho`, TN chỉ thao tác hộ), Mua hàng "Cho mua hang". Báo cáo tổng thể "Tiền đang đặt mua" / "Tiền chờ duyệt" = giá chốt (nếu
+  có) × SL thực xuất (nếu có), cache `bao-cao-tong-the-v4`. Giới hạn `loiGioiHan` (`datMuaLinhKien.ts`): SL ≤ 10.000/dòng (tạo, kiểm tra, import, sửa, SL thực
+  xuất), giá chốt ≤ 1 tỷ, tiền công nợ ≤ 10 tỷ → `SO_LUONG_QUA_LON` / `GIA_QUA_LON` (Σ Tổng cộng từng ra 11.111.111…đ do 1 đơn gõ nhầm).
 - **Loại chiết khấu** (migration `0033_loai_chiet_khau.sql`, 2026-09-26): `dat_don_hang.loai_chiet_khau_id`
   (+ `loai_chiet_khau_thu_cong` = TN đã chọn tay) → `settings_loai_chiet_khau` (loại có `ma` = hệ thống tự
   gán, `ma` NULL = tự thêm). Gán tự động bằng `tinhToanPxk()` trong `lib/pxkRecalculate.ts` — **CÙNG hàm**

@@ -364,8 +364,10 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
     out.thieuLkCanXuLy += out.nhanThieuCanXuLy;
   }
 
-  // Thieu hang bao hanh tu app suachua (2026-11-04, migration 0106) - Kho/TN: cho kho xu ly; Mua hang: cho mua hang. Khong cong vao total.
-  const thbCho = [...(isKho || user.la_tac_nghiep || user.vai_tro === "Admin" ? ["Cho kho xu ly"] : []), ...(user.la_mua_hang || user.vai_tro === "Admin" ? ["Cho mua hang"] : [])];
+  // Thieu hang bao hanh tu app suachua (2026-11-04, migration 0106) - Kho: cho kho xu ly; Mua hang: cho mua hang. Khong cong vao total.
+  // 2026-11-10 ("vai trò mua hàng không có đơn cần xử lý nhưng vẫn đếm"): TN (gom Ke toan lam thay TN) chi duoc THAO TAC HO Kho, khong tinh la viec
+  // cua minh (giong Thieu hang dat mua - ticket cho Kho nam o "Đang chờ" cua TN) -> chi Kho THAT / Admin dem "Cho kho xu ly".
+  const thbCho = [...(isKho || user.vai_tro === "Admin" ? ["Cho kho xu ly"] : []), ...(user.la_mua_hang || user.vai_tro === "Admin" ? ["Cho mua hang"] : [])];
   if (thbCho.length > 0) {
     const row = await db
       .prepare(`SELECT COUNT(*) as n FROM thieu_hang_bh WHERE trang_thai IN (${thbCho.map(() => "?").join(",")})`)

@@ -2725,5 +2725,7 @@ const tuDien: Record<string, string> = {
   "Đưa về chờ QC xác nhận (gỡ khỏi phiếu trả hàng) — lý do": "Kembalikan ke menunggu QC (hapus dari slip retur) — alasan",
   "Ảnh bằng chứng": "Foto bukti",
   "↩ Đẩy lùi về chờ QC": "↩ Kembali ke menunggu QC",
+  "Giá không hợp lệ — tối đa 1 tỷ đồng mỗi chiếc (kiểm tra có gõ nhầm số không)": "Harga tidak valid — maksimal 1 miliar VND per unit (periksa salah ketik)",
+  "Số lượng không hợp lệ — tối đa 10.000 chiếc mỗi dòng (kiểm tra có gõ nhầm số không)": "Jumlah tidak valid — maksimal 10.000 unit per baris (periksa salah ketik)",
 };
 export default tuDien;

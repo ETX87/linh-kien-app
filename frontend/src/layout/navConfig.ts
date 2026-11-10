@@ -120,3 +120,16 @@ export function navCount(countKey: NavItem["countKey"], counts: NavCounts | unde
   const hangTra = tachHangTra ? (d.choKeToanTraHang ?? 0) + (d.choKhoTraHang ?? 0) + (d.choQcTraHang ?? 0) : 0;
   return countKey === "phieuXuat" ? pxk : Math.max(0, d.total - pxk - (d.choKhoThieuLk ?? 0) - hangTra);
 }
+
+// Buoc don tra hang "cua toi" (2026-11-10, "vai trò kế toán đơn hàng trả không thuộc việc của kế toán nhưng vẫn bị đếm"): Ke toan chi dem
+// "Cho ke toan duyet mem", Kho chi "Cho kho xac nhan", QC chi "Cho QC xac nhan" (Admin / nguoi kiem nhieu co = cong cac buoc cua minh).
+// Nguoi KHONG xu ly buoc nao (Giam sat, View, Mua hang, TN thuan) = nguoi theo doi -> giu ca 3 buoc nhu truoc.
+export const BUOC_TRA_HANG = ["Cho ke toan duyet mem", "Cho kho xac nhan", "Cho QC xac nhan"] as const;
+export function buocTraHangCuaToi(user: { la_ke_toan?: boolean | number | null; la_kho?: boolean | number | null; vai_tro?: string | null } | null | undefined): Set<string> {
+  const admin = user?.vai_tro === "Admin";
+  const s = new Set<string>();
+  if (admin || user?.la_ke_toan) s.add("Cho ke toan duyet mem");
+  if (admin || user?.la_kho) s.add("Cho kho xac nhan");
+  if (admin || user?.vai_tro === "QC") s.add("Cho QC xac nhan");
+  return s.size > 0 ? s : new Set(BUOC_TRA_HANG);
+}

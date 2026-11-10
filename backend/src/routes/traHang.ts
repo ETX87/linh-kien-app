@@ -460,7 +460,7 @@ async function applyTraHangLog(
   let slThucXuatMoi: number | null | undefined; // undefined = khong doi
   if (soLuongThucTe !== undefined && soLuongThucTe !== null) {
     if (trangThaiHienTai !== "Cho kho xac nhan" || hanhDong !== "duyet") return { error: "SO_LUONG_CHI_SUA_O_BUOC_KHO", status: 409 };
-    if (!Number.isInteger(soLuongThucTe) || soLuongThucTe < 1) return { error: "SO_LUONG_KHONG_HOP_LE", status: 400 };
+    if (!Number.isInteger(soLuongThucTe) || soLuongThucTe < 1 || soLuongThucTe > 10_000) return { error: "SO_LUONG_KHONG_HOP_LE", status: 400 };
     const slCu = ddh.so_luong_thuc_xuat ?? ddh.so_luong_de_xuat;
     if (soLuongThucTe !== slCu) {
       slThucXuatMoi = soLuongThucTe === ddh.so_luong_de_xuat ? null : soLuongThucTe;

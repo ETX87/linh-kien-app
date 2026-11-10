@@ -15,6 +15,8 @@ r.use("*", verifySessionMiddleware, loadUser);
 type C = Context<{ Bindings: Env }>;
 const laAdmin = (c: C) => c.get("user").vai_tro === "Admin";
 const vaiKho = (c: C) => !!c.get("user").la_kho || !!c.get("user").la_tac_nghiep || laAdmin(c);
+// "Viec cua toi" (2026-11-10): TN chi thao tac HO Kho (vaiKho) - khong dem / khong loc "Cần tôi xử lý" ticket cho Kho cho TN; chi Kho THAT + Admin.
+const viecKho = (c: C) => !!c.get("user").la_kho || laAdmin(c);
 const vaiMua = (c: C) => !!c.get("user").la_mua_hang || laAdmin(c);
 const xemDuoc = (c: C) => vaiKho(c) || vaiMua(c) || !!c.get("user").la_ke_toan || !!c.get("user").la_view;
 
@@ -26,7 +28,7 @@ r.get("/", async (c) => {
   const mien = c.req.query("mien") ?? "";
   const page = Math.max(1, Number(c.req.query("page")) || 1);
   const pageSize = 30;
-  const canXuLy = [...(vaiKho(c) ? ["Cho kho xu ly"] : []), ...(vaiMua(c) ? ["Cho mua hang"] : [])];
+  const canXuLy = [...(viecKho(c) ? ["Cho kho xu ly"] : []), ...(vaiMua(c) ? ["Cho mua hang"] : [])];
   const where: string[] = [];
   const binds: unknown[] = [];
   const base: string[] = [];
@@ -84,7 +86,8 @@ r.get("/", async (c) => {
     pageSize,
     counts,
     can_xu_ly: canXuLy.reduce((s, k) => s + (counts[k] ?? 0), 0),
-    vai: { kho: vaiKho(c), mua_hang: vaiMua(c) },
+    // vai = viec CUA MINH (khung "Cần tôi xử lý"); quyen bam nut van theo vaiKho / vaiMua (chi tiet ticket).
+    vai: { kho: viecKho(c), mua_hang: vaiMua(c) },
   });
 });
 

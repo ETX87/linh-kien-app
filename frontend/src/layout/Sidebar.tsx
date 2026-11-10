@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { NAV_GROUPS, navCount, type NavCounts } from "./navConfig";
+import { NAV_GROUPS, navCount, buocTraHangCuaToi, type NavCounts } from "./navConfig";
 import { Icon } from "../components/ui/Icon";
 import { useIsMobile } from "../hooks/useMediaQuery";
 import { APP_VERSION } from "../version";
@@ -76,7 +76,7 @@ export function Sidebar({
   const countsDu: NavCounts | undefined = counts
     ? {
         ...counts,
-        hangTra: (tc["Cho ke toan duyet mem"] ?? 0) + (tc["Cho kho xac nhan"] ?? 0) + (tc["Cho QC xac nhan"] ?? 0),
+        hangTra: [...buocTraHangCuaToi(user)].reduce((n, b) => n + (tc[b] ?? 0), 0),
         hoiDap: (hoiDapDem?.cho_tiep_nhan ?? 0) + (hoiDapDem?.chua_doc ?? 0),
       }
     : undefined;

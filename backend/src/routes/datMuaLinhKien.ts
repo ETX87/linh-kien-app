@@ -47,6 +47,18 @@ import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
 import { tachComboDong } from "../lib/lkCombo";
 import { tuDongXacNhanHangVe, donHangVeMotPhan } from "../lib/tuDongHangVe";
 import { doiLoaiDeXuatDon, duocDoiLoaiDeXuat, lyDoKhongDoiDuoc, DOI_LDE_DUOC_SQL } from "../lib/doiLoaiDeXuat";
+
+// Gioi han so hop ly (chot 2026-11-10, "tổng tiền đang bị lỗi" - Σ Tổng cộng bao cao ra 11.111.111…đ vi 1 don go nham SL/gia khong bi chan).
+// SL 1 dong <= 10.000 chiec, gia 1 chiec <= 1 ty, tien cong no 1 don <= 10 ty.
+const SL_TOI_DA = 10_000;
+const GIA_TOI_DA = 1_000_000_000;
+const CONG_NO_TOI_DA = 10_000_000_000;
+function loiGioiHan(b: { so_luong_de_xuat?: unknown; so_luong_thuc_xuat?: unknown; gia_chot?: unknown }): string | null {
+  const sl = (v: unknown, min: number) => v == null || (Number.isInteger(Number(v)) && Number(v) >= min && Number(v) <= SL_TOI_DA);
+  if (!sl(b.so_luong_de_xuat, 1) || !sl(b.so_luong_thuc_xuat, 0)) return "SO_LUONG_QUA_LON";
+  if (b.gia_chot != null && !(Number.isFinite(Number(b.gia_chot)) && Number(b.gia_chot) >= 0 && Number(b.gia_chot) <= GIA_TOI_DA)) return "GIA_QUA_LON";
+  return null;
+}
 import {
   deriveLoaiDon, boQuaTbpChoDacThu, canDoiChieuCongNo, nguCanhNhan, danhGiaPhieu, trangThaiSauDuyet, tacDongSauDinhTuyen, duyetDonKhiHangVe, danhGiaLaiDonChoThanhToan, choPhepThanhToanSau,
   huyDonChoHangTuDong, baoNguoiTaoDon, moTaThieuTon, moTicketChoHangTuDong, xetLaiTonKhiDoiKhuVuc, baoGsChoDuyet, ghiTrangThaiDon, VUOT_TRAN_GHI_CHU_SQL, type DongDanhGia, type KetQuaDong, type KetQuaPhieu,
@@ -1338,7 +1350,7 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
   // key - dung nguyen tac buildReportKey da ghi: khac pham vi xem ra khac key, khong tra nham du lieu
   // ngoai pham vi. scopeCond null (Admin, hoac wantFull) => scope null ("khong gioi han").
   const scopeKeyPart = scopeCond ? scopeBinds : null;
-  const reportKey = buildReportKey("bao-cao-tong-the-v3", { /* -v2 2026-10-15: doi cong thuc "Tổng thực tế đã mua" - bo cache cu */ thang: String(thangParam), full: wantFull ? "1" : undefined }, scopeKeyPart);
+  const reportKey = buildReportKey("bao-cao-tong-the-v4", { /* -v2 2026-10-15: doi cong thuc "Tổng thực tế đã mua" - bo cache cu */ thang: String(thangParam), full: wantFull ? "1" : undefined }, scopeKeyPart);
   const rows = await cachedReport(c.env.DB, reportKey, ["dat_mua_lk"], async () => {
   const { results: donRows } = await c.env.DB.prepare(
     `WITH ddh_kt AS (
@@ -1388,8 +1400,10 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
        ROUND(COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.w_tien > 0 THEN
          CASE WHEN ddh.pxk_tien IS NOT NULL AND ddh.pxk_w > 0 THEN ddh.pxk_tien * ddh.w_tien / ddh.pxk_w ELSE ddh.w_tien END
        ELSE 0 END), 0)) as tong_tien_thuc_te,
-       COALESCE(SUM(ddh.gia_de_xuat * ddh.so_luong_de_xuat), 0) as tong_tien_dat_mua,
-       COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai IN (${DANG_CHO_DUYET_SQL_IN}) THEN ddh.gia_de_xuat * ddh.so_luong_de_xuat ELSE 0 END), 0) as tien_cho_duyet
+       -- 2026-11-10: theo gia + SL HIEN TAI (gia chot neu co, SL thuc xuat neu co) - truoc dung gia niem yet luc tao x SL de xuat ban dau nen
+       -- sua tien don (gia chot / SL thuc xuat) bao cao khong doi.
+       COALESCE(SUM(COALESCE(ddh.gia_chot, ddh.gia_de_xuat, 0) * COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat)), 0) as tong_tien_dat_mua,
+       COALESCE(SUM(CASE WHEN ddh.trang_thai_hien_tai IN (${DANG_CHO_DUYET_SQL_IN}) THEN COALESCE(ddh.gia_chot, ddh.gia_de_xuat, 0) * COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) ELSE 0 END), 0) as tien_cho_duyet
      FROM ddh_tt ddh
      WHERE ${thangWhere}
      GROUP BY ddh.nguoi_nhan_hang`,
@@ -2362,6 +2376,7 @@ async function chuanBiPhieuDat(
   for (const dh of body.don_hang) {
     if (!dh.ma_lk?.trim() || !dh.loai_de_xuat?.trim() || !dh.so_luong_de_xuat || dh.so_luong_de_xuat <= 0)
       return { error: "INVALID_DON_HANG", status: 400 };
+    if (loiGioiHan({ so_luong_de_xuat: dh.so_luong_de_xuat })) return { error: "SO_LUONG_QUA_LON", status: 400, extra: { ma_lk: dh.ma_lk, toi_da: SL_TOI_DA } };
     const lde = dh.loai_de_xuat.trim();
     if (!kiemTraThongTin) continue;
     if (canNoRequired(lde) && (!dh.chinh_sach?.trim() || !coMaIdLienQuan(dh.ma_yeu_cau_su_co, dh.ma_lada)))
@@ -2831,7 +2846,7 @@ async function processDatDonHangImportRows(
       errors.push(`Dòng ${dong}: đơn "${loaiDeXuat}" chưa hỗ trợ import — tạo trên form đặt hàng (chọn đối tác)`);
       continue;
     }
-    if (!soLuong || soLuong <= 0) {
+    if (!soLuong || soLuong <= 0 || !Number.isInteger(soLuong) || soLuong > SL_TOI_DA) {
       errors.push(`Dòng ${dong}: SỐ LƯỢNG ĐỀ XUẤT không hợp lệ`);
       continue;
     }
@@ -4066,6 +4081,7 @@ datMuaLinhKien.post("/don-hang/:id/log", async (c) => {
     so_luong_thuc_xuat?: number; ghi_chu_so_luong?: string; giu_phieu_trong?: boolean;
     ma_eo?: string; // GS / TBP duyet don vuot tran cong no (2026-10-14)
   }>();
+  if (loiGioiHan({ so_luong_thuc_xuat: body.so_luong_thuc_xuat })) return c.json({ error: "SO_LUONG_QUA_LON", toi_da: SL_TOI_DA }, 400);
   const result = await applyDonHangLog(c, id, body.hanh_dong, body.ly_do_cham_id, body.ghi_chu, body.so_luong_thuc_xuat, body.ghi_chu_so_luong, !!body.giu_phieu_trong, {
     maEo: typeof body.ma_eo === "string" ? body.ma_eo : undefined,
   });
@@ -4464,6 +4480,8 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
     ma_lk?: string; loai_de_xuat?: string; so_luong_de_xuat?: number; ghi_chu?: string; chinh_sach?: string; uu_tien?: boolean;
     ghi_chu_so_luong?: string;
   }>();
+  const loiSo = loiGioiHan(body);
+  if (loiSo) return c.json({ error: loiSo, toi_da: loiSo === "GIA_QUA_LON" ? GIA_TOI_DA : SL_TOI_DA }, 400);
   // BUG THAT (phat hien 2026-08-18 cung dot voi ma-misa PXK): "id" khong qualify bi cot "id" cua
   // CHINH dat_don_hang_log (PK) SHADOW trong subquery tuong quan -> trang_thai luon ra NULL ->
   // isCreatorEditWindow ben duoi LUON false (khong khop bat ky trang thai nao trong 3 gia tri so
@@ -4835,7 +4853,7 @@ datMuaLinhKien.patch("/don-hang/:id/so-tien-cong-no", async (c) => {
   if (!canTacNghiep(c) && !user.la_ke_toan && user.vai_tro !== "Admin") return c.json({ error: "FORBIDDEN_ROLE" }, 403);
 
   const body = await c.req.json<{ so_tien_cong_no: number; ghi_chu?: string }>();
-  if (body.so_tien_cong_no == null || Number.isNaN(body.so_tien_cong_no) || body.so_tien_cong_no < 0) {
+  if (body.so_tien_cong_no == null || Number.isNaN(body.so_tien_cong_no) || body.so_tien_cong_no < 0 || body.so_tien_cong_no > CONG_NO_TOI_DA) {
     return c.json({ error: "INVALID_SO_TIEN" }, 400);
   }
 
