@@ -98,6 +98,13 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   `ma_thung_tra` — UNIQUE, mã thùng ghi vào log) SL còn lại "Cho QC xac nhan" + UPDATE đơn gốc SL = SL đạt (`so_luong_thuc_xuat` NULL, công nợ chia theo SL)
   → "TN da duyet" + tự gom phiếu PTL như thường; chép `tra_hang_log`, `tra_hang_anh`, Mã YCSC bổ sung sang đơn mới, báo QC. API trả `don_tach`. UI: ô "SL QC xác
   nhận đạt" ở chi tiết đơn trả hàng (`TraHangTab.tsx`, dùng chung state ô SL của Kho).
+  **Đẩy lùi đơn QC đã duyệt + popup xác nhận đạt + bằng chứng từ chối** (chốt 2026-11-10, v1.466, migration `0113` — DDH-002554 "bị xác nhận nhầm …
+  không cho đẩy lùi sau khi QC xác nhận nhầm"; "khi QC từ chối sẽ nhập lý do từ chối + ghi chú + up ảnh bằng chứng + video bằng chứng (tối đa 100mb)"):
+  `POST /tra-hang/:id/log-lui` nhận đơn "TN da duyet" (QC / Kế toán / Kho / Admin) khi `DAY_LUI_QC_DUOC_SQL` (phiếu PTL chứa đơn chưa qua "Cho ke toan")
+  → `goDonKhoiPxk` (phiếu hết đơn tự hủy) + về "Cho QC xac nhan"; chi tiết trả `day_lui_qc_duoc`. QC duyệt (chi tiết + ✓ danh sách) mở `QcXacNhanDatModal`.
+  `QcTuChoiModal`: lý do (bắt buộc, gợi ý `LY_DO_QC_GOI_Y`) + ghi chú → gộp 1 `ghi_chu` "Lý do: … — Ghi chú: …", ảnh ≥ 1, video ≤ 100MB ≤ 2/đơn: trình duyệt
+  PUT THẲNG lên Drive qua phiên resumable (`POST /:id/video/bat-dau` → `batDauTaiVideo` kèm header Origin cho CORS; `POST /:id/video/xong` → `hoanTatVideo`
+  kiểm tra thư mục app / dung lượng / video/* rồi công khai, bảng `tra_hang_video`); CSP `connect-src` có `https://www.googleapis.com`.
 - **Loại chiết khấu** (migration `0033_loai_chiet_khau.sql`, 2026-09-26): `dat_don_hang.loai_chiet_khau_id`
   (+ `loai_chiet_khau_thu_cong` = TN đã chọn tay) → `settings_loai_chiet_khau` (loại có `ma` = hệ thống tự
   gán, `ma` NULL = tự thêm). Gán tự động bằng `tinhToanPxk()` trong `lib/pxkRecalculate.ts` — **CÙNG hàm**

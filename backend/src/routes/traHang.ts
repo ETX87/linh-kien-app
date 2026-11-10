@@ -14,6 +14,16 @@ import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, TRA_HANG_ROLES, t
 import { nextSequentialId } from "../lib/idCounter";
 import { pushTraHangToKhovan, notifyTraHangQcRejected, notifyTraHangReceivedViaApp, buildWorkUrl } from "../lib/khovanPushClient";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
+import { batDauTaiVideo, hoanTatVideo, VIDEO_TOI_DA_BYTE } from "../lib/googleDrive";
+import { goDonKhoiPxk } from "../lib/pxkTuHuy";
+
+// Don tra hang QC DA DUYET ("TN da duyet") dua lai ve "Cho QC xac nhan" duoc (chot 2026-11-10, DDH-002554 "bị xác nhận nhầm, chỉ duyệt 5, 1 linh kiện
+// sẽ bị từ chối hiện tại đang không cho đẩy lùi sau khi QC xác nhận nhầm") khi phieu tra hang chua bi Ke toan chot (chua vao phieu, hoac phieu con
+// "Dang tao phieu" / "Cho ke toan"). Day lui = go don khoi phieu (phieu het don thi tu huy) + ve "Cho QC xac nhan".
+const DAY_LUI_QC_DUOC_SQL = (a: string) => `(${a}.trang_thai_hien_tai = 'TN da duyet' AND ${a}.loai_don = 'tra_hang' AND NOT EXISTS (
+  SELECT 1 FROM phieu_xuat_kho_dong pdq JOIN phieu_xuat_kho pq ON pq.id = pdq.phieu_xuat_kho_id
+  WHERE pdq.dat_don_hang_id = ${a}.id AND pq.trang_thai_hien_tai NOT IN ('Dang tao phieu', 'Cho ke toan', 'Ke toan huy')))`;
+const MAX_VIDEO_QC = 2;
 
 // Vai tro can bao "viec moi" khi 1 dong tra hang toi trang thai nay (phan hoi 2026-09-05) - dung
 // chung cho ca applyTraHangLog (di xuoi) va POST /:donHangId/log-lui (di lui), vi 2 chieu deu ha
@@ -216,7 +226,11 @@ traHang.get("/:donHangId", async (c) => {
     .bind(donHangId)
     .all();
   const duocDoiKhuVuc = await duocDoiKhuVucDon(c.env.DB, c.get("user"), donHangId);
-  return c.json({ donHang: { ...ganHanGiaiDoan(ddh as Record<string, unknown>), duoc_doi_khu_vuc: duocDoiKhuVuc }, logs, anh });
+  const { results: video } = await c.env.DB.prepare(
+    "SELECT id, drive_file_id, ten_file, kich_thuoc, nguoi_upload, ngay_upload FROM tra_hang_video WHERE dat_don_hang_id = ? ORDER BY id",
+  ).bind(donHangId).all();
+  const dlq = await c.env.DB.prepare(`SELECT ${DAY_LUI_QC_DUOC_SQL("d")} AS ok FROM dat_don_hang d WHERE d.id = ?`).bind(donHangId).first<{ ok: number }>();
+  return c.json({ donHang: { ...ganHanGiaiDoan(ddh as Record<string, unknown>), duoc_doi_khu_vuc: duocDoiKhuVuc, day_lui_qc_duoc: !!dlq?.ok }, logs, anh, video });
 });
 
 // GET /api/tra-hang/resolve-ma-thung/:maThung - tra ve dat_don_hang.id tuong ung voi 1 ma thung tra
@@ -287,6 +301,70 @@ traHang.post("/:donHangId/anh", async (c) => {
     ).bind(donHangId, "Cho QC xac nhan", user.email, nowVN(), "Đã tải ảnh bằng chứng từ chối"),
   ]);
   return c.json({ ok: true, url: uploaded.thumbnailUrl, han_muc_anh: uploaded.hanMucAnh });
+});
+
+// VIDEO bang chung QC tu choi (2026-11-10, <= 100MB, toi da 2 / don) - cung quyen + trang thai voi anh QC (/:donHangId/anh). 2 buoc:
+// /video/bat-dau {ten, kich_thuoc, mime} -> URL phien tai resumable (trinh duyet PUT thang len Google); /video/xong {file_id} -> kiem tra file +
+// chia se cong khai + ghi tra_hang_video + log.
+async function kiemTraVideoQc(c: Context<{ Bindings: Env }>, donHangId: string): Promise<Response | null> {
+  if (!canQC(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const ddh = await c.env.DB.prepare("SELECT trang_thai_hien_tai as trang_thai FROM dat_don_hang WHERE id = ? AND loai_don = 'tra_hang'")
+    .bind(donHangId).first<{ trang_thai: string | null }>();
+  if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
+  if (ddh.trang_thai !== "Cho QC xac nhan") return c.json({ error: "INVALID_STATE" }, 409);
+  const n = await c.env.DB.prepare("SELECT COUNT(*) as n FROM tra_hang_video WHERE dat_don_hang_id = ?").bind(donHangId).first<{ n: number }>();
+  if ((n?.n ?? 0) >= MAX_VIDEO_QC) return c.json({ error: "QUA_NHIEU_VIDEO" }, 400);
+  return null;
+}
+
+traHang.post("/:donHangId/video/bat-dau", async (c) => {
+  const donHangId = c.req.param("donHangId");
+  const chan = await kiemTraVideoQc(c, donHangId);
+  if (chan) return chan;
+  const body = await c.req.json<{ ten?: string; kich_thuoc?: number; mime?: string }>().catch(() => ({}) as { ten?: string; kich_thuoc?: number; mime?: string });
+  const kichThuoc = Number(body.kich_thuoc);
+  const mime = String(body.mime ?? "");
+  if (!mime.startsWith("video/")) return c.json({ error: "VIDEO_KHONG_HOP_LE" }, 400);
+  if (!Number.isFinite(kichThuoc) || kichThuoc <= 0 || kichThuoc > VIDEO_TOI_DA_BYTE) return c.json({ error: "VIDEO_QUA_LON", toi_da: VIDEO_TOI_DA_BYTE }, 400);
+  const duoi = (String(body.ten ?? "").match(/\.([A-Za-z0-9]{2,5})$/)?.[1] ?? "mp4").toLowerCase();
+  try {
+    const url = await batDauTaiVideo(c.env, c.env.DB, `tra-hang-qc-${donHangId}-${Date.now()}.${duoi}`, mime, kichThuoc, c.req.header("Origin") ?? null);
+    return c.json({ upload_url: url });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("video bat-dau", msg);
+    if (msg.startsWith("GOOGLE_DRIVE_NOT_CONNECTED")) return c.json({ error: "GOOGLE_DRIVE_NOT_CONNECTED", message: "Chưa kết nối tài khoản Google Drive - vào Cài đặt để kết nối." }, 400);
+    return c.json({ error: "TAI_VIDEO_THAT_BAI" }, 502);
+  }
+});
+
+traHang.post("/:donHangId/video/xong", async (c) => {
+  const donHangId = c.req.param("donHangId");
+  const chan = await kiemTraVideoQc(c, donHangId);
+  if (chan) return chan;
+  const body = await c.req.json<{ file_id?: string }>().catch(() => ({}) as { file_id?: string });
+  const fileId = String(body.file_id ?? "").trim();
+  if (!/^[A-Za-z0-9_-]{10,200}$/.test(fileId)) return c.json({ error: "VIDEO_KHONG_HOP_LE" }, 400);
+  const da = await c.env.DB.prepare("SELECT 1 FROM tra_hang_video WHERE drive_file_id = ?").bind(fileId).first();
+  if (da) return c.json({ error: "VIDEO_DA_GHI" }, 409);
+  let kq: Awaited<ReturnType<typeof hoanTatVideo>>;
+  try {
+    kq = await hoanTatVideo(c.env, c.env.DB, fileId);
+  } catch (err) {
+    console.error("video xong", err instanceof Error ? err.message : String(err));
+    return c.json({ error: "TAI_VIDEO_THAT_BAI" }, 502);
+  }
+  if (!kq.ok) return c.json({ error: kq.error }, 400);
+  const user = c.get("user");
+  const now = nowVN();
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      "INSERT INTO tra_hang_video (dat_don_hang_id, drive_file_id, ten_file, kich_thuoc, mime, nguoi_upload, ngay_upload) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    ).bind(donHangId, fileId, kq.ten, kq.kichThuoc, kq.mime, user.email, now),
+    c.env.DB.prepare("INSERT INTO tra_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)")
+      .bind(donHangId, "Cho QC xac nhan", user.email, now, `Đã tải video bằng chứng từ chối (${(kq.kichThuoc / 1024 / 1024).toFixed(1)} MB)`),
+  ]);
+  return c.json({ ok: true, file_id: fileId, kich_thuoc: kq.kichThuoc });
 });
 
 // Logic dung chung cho 1 dong don tra hang - tach ra de route bulk-log tai su dung dung 1 cho (them
@@ -634,7 +712,7 @@ traHang.post("/bulk-log", async (c) => {
 // POST /api/tra-hang/:donHangId/log-lui - buoc 4 ke hoach (diem 19): chi Ke toan/Kho day nguoc 1
 // buoc, bat buoc ghi_chu ly do. Khong cho day lui khi da o trang thai dong.
 traHang.post("/:donHangId/log-lui", async (c) => {
-  if (!canKeToan(c) && !canKho(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  if (!canKeToan(c) && !canKho(c) && !canQC(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const donHangId = c.req.param("donHangId");
   const body = await c.req.json<{ ghi_chu: string }>();
   if (!body.ghi_chu?.trim()) return c.json({ error: "MISSING_GHI_CHU" }, 400);
@@ -647,12 +725,38 @@ traHang.post("/:donHangId/log-lui", async (c) => {
   if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
 
   const trangThaiHienTai = ddh.trang_thai ?? "Cho ke toan duyet mem";
+  const user = c.get("user");
+  const now = nowVN();
+
+  // QC da duyet (nham) -> ve "Cho QC xac nhan": go khoi phieu tra hang (chua bi Ke toan chot) roi doi trang thai (2026-11-10).
+  if (trangThaiHienTai === "TN da duyet") {
+    const dk = await c.env.DB.prepare(`SELECT ${DAY_LUI_QC_DUOC_SQL("d")} AS ok, d.version,
+        (SELECT pd.phieu_xuat_kho_id FROM phieu_xuat_kho_dong pd JOIN phieu_xuat_kho p ON p.id = pd.phieu_xuat_kho_id
+          WHERE pd.dat_don_hang_id = d.id AND p.trang_thai_hien_tai IN ('Dang tao phieu', 'Cho ke toan') LIMIT 1) AS pxk
+      FROM dat_don_hang d WHERE d.id = ?`).bind(donHangId).first<{ ok: number; version: number; pxk: string | null }>();
+    if (!dk?.ok) return c.json({ error: "PHIEU_TRA_HANG_DA_CHOT" }, 409);
+    let phieuHuy = false;
+    if (dk.pxk) {
+      const go = await goDonKhoiPxk(c.env.DB, dk.pxk, donHangId, user.email, "Đẩy lùi đơn trả hàng về chờ QC xác nhận", body.ghi_chu.trim(), true, false);
+      phieuHuy = go.huyPhieu;
+    }
+    const kq = await c.env.DB.prepare(
+      "UPDATE dat_don_hang SET trang_thai_hien_tai = 'Cho QC xac nhan', ma_xuat_kho = NULL, version = version + 1, updated_at = ? WHERE id = ? AND trang_thai_hien_tai = 'TN da duyet'",
+    ).bind(now, donHangId).run();
+    if (!kq.meta.changes) return c.json({ error: "STATE_CHANGED" }, 409);
+    await c.env.DB.prepare("INSERT INTO tra_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)")
+      .bind(donHangId, "Cho QC xac nhan", user.email, now,
+        `Đẩy lùi QC đã duyệt về chờ QC xác nhận${dk.pxk ? ` (gỡ khỏi phiếu ${dk.pxk}${phieuHuy ? ", phiếu không còn đơn nên tự hủy" : ""})` : ""}: ${body.ghi_chu.trim()}`.slice(0, 1000))
+      .run();
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+    return c.json({ ok: true, trang_thai: "Cho QC xac nhan", pxk_go: dk.pxk, phieu_huy: phieuHuy });
+  }
+
   const idx = (THU_TU_BUOC as readonly string[]).indexOf(trangThaiHienTai);
   if (idx <= 0) return c.json({ error: "KHONG_THE_DAY_LUI" }, 409);
-
-  const user = c.get("user");
+  // Cac buoc khac giu quyen cu (Ke toan / Kho).
+  if (!canKeToan(c) && !canKho(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const prevTrangThai = THU_TU_BUOC[idx - 1];
-  const now = nowVN();
   // Hanh dong don-tac-nhan (chi Ke toan/Kho, khong phai luong nhieu vai tro cung tranh 1 dong nhu
   // duyet/tu choi) - khong can CAS, nhung van bump version/trang_thai_hien_tai (migration 0087) de
   // cot mirror khong bi lech so voi lich su that.

@@ -96,6 +96,36 @@ function LyDoChamTraHangModal({ cho, onClose, onConfirm, loading }: {
   );
 }
 
+// Ly do tu choi hay gap (goi y - van go tu do duoc).
+const LY_DO_QC_GOI_Y = [
+  "Linh kiện hỏng do tác động bên ngoài",
+  "Linh kiện không đúng mã / sai linh kiện",
+  "Thiếu số lượng so với đơn",
+  "Linh kiện đã qua sử dụng, không đủ điều kiện nhập lại",
+  "Thiếu phụ kiện / tem / bao bì",
+];
+const VIDEO_TOI_DA_MB = 100;
+
+// Tai video bang chung: mo phien resumable o server -> PUT thang file len Google Drive (co tien do) -> bao server ghi nhan (2026-11-10).
+async function taiVideoQc(donHangId: string, file: File, onTienDo: (pt: number) => void): Promise<void> {
+  const mime = file.type && file.type.startsWith("video/") ? file.type : "video/mp4";
+  const { upload_url } = await api.post<{ upload_url: string }>(`/tra-hang/${donHangId}/video/bat-dau`, { ten: file.name, kich_thuoc: file.size, mime });
+  const fileId = await new Promise<string>((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open("PUT", upload_url);
+    x.setRequestHeader("Content-Type", mime);
+    x.upload.onprogress = (e) => { if (e.lengthComputable) onTienDo(Math.round((e.loaded / e.total) * 100)); };
+    x.onload = () => {
+      if (x.status >= 200 && x.status < 300) {
+        try { resolve(String(JSON.parse(x.responseText).id)); } catch { reject(new Error(t("Không đọc được kết quả tải video"))); }
+      } else reject(new Error(t("Tải video lên Drive lỗi ({a})", { a: x.status })));
+    };
+    x.onerror = () => reject(new Error(t("Mất kết nối khi tải video — thử lại")));
+    x.send(file);
+  });
+  await api.post(`/tra-hang/${donHangId}/video/xong`, { file_id: fileId });
+}
+
 function QcTuChoiModal({
   donHangId, onClose, onConfirm, confirmDisabled, confirmLoading, addToast,
 }: {
@@ -108,8 +138,11 @@ function QcTuChoiModal({
 }) {
   const [anh, setAnh] = useState<{ url: string }[]>([]);
   const [uploading, setUploading] = useState(false);
-  // FIX (phan hoi 2026-08-25, hang muc #19): ghi_chu nay BAT BUOC o backend (truoc chi bat buoc anh).
+  // Ly do tu choi (BAT BUOC) + ghi chu (tuy chon) - 2026-11-10; gui len server gop thanh 1 ghi_chu "Lý do: … — Ghi chú: …".
+  const [lyDo, setLyDo] = useState("");
   const [ghiChu, setGhiChu] = useState("");
+  const [video, setVideo] = useState<{ ten: string; mb: number }[]>([]);
+  const [tienDoVideo, setTienDoVideo] = useState<number | null>(null);
   const nenAnh = useNenAnhTraHangEnabled();
 
   async function handleFile(file: File) {
@@ -128,48 +161,151 @@ function QcTuChoiModal({
     }
   }
 
+  async function handleVideo(file: File) {
+    if (video.length >= 2) return;
+    if (file.size > VIDEO_TOI_DA_MB * 1024 * 1024) {
+      addToast(t("Video vượt {a}MB — hãy quay ngắn lại hoặc giảm chất lượng", { a: VIDEO_TOI_DA_MB }));
+      return;
+    }
+    setTienDoVideo(0);
+    try {
+      await taiVideoQc(donHangId, file, setTienDoVideo);
+      setVideo((p) => [...p, { ten: file.name, mb: file.size / 1024 / 1024 }]);
+    } catch (err) {
+      addToast(t("Lỗi tải video: ") + (err instanceof ApiError ? describeApiError(err) : err instanceof Error ? err.message : String(err)));
+    } finally {
+      setTienDoVideo(null);
+    }
+  }
+
+  const dangTai = uploading || tienDoVideo !== null;
+  const noiDungGui = `Lý do: ${lyDo.trim()}` + (ghiChu.trim() ? ` — Ghi chú: ${ghiChu.trim()}` : "") + (video.length ? ` — kèm ${video.length} video bằng chứng` : "");
+
   return (
-    <Modal open title={t("Từ chối dòng {a} — QC — ảnh bằng chứng (bắt buộc)", { a: donHangId })} onClose={onClose}>
+    <Modal open title={t("QC từ chối dòng {a}", { a: donHangId })} onClose={() => !dangTai && onClose()}>
       <div className="space-y-3 text-sm">
-        <div className="flex items-center gap-2 flex-wrap">
-          {anh.map((a, i) => (
-            <ImageLink key={i} url={a.url} className="inline-flex items-center gap-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2 py-1 text-xs text-[var(--ocean-800)] underline underline-offset-2">
-              {t("📷 Ảnh {a}", { a: i + 1 })}
-            </ImageLink>
-          ))}
-          {anh.length < 3 && (
-            <label
-              className={`text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed cursor-pointer ${
-                uploading ? "opacity-50 pointer-events-none" : "border-[var(--line)] text-[var(--ink-500)] hover:border-[var(--ocean-400)] hover:text-[var(--ocean-600)]"
-              }`}
-            >
-              {uploading ? t("Đang tải...") : t("+ Thêm ảnh")}
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void handleFile(f);
-                  e.target.value = "";
-                }}
-              />
-            </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold">{t("Lý do từ chối")} <span className="text-[var(--color-danger)]">*</span></span>
+          <input
+            value={lyDo}
+            onChange={(e) => setLyDo(e.target.value)}
+            list={`ly-do-qc-${donHangId}`}
+            placeholder={t("Chọn hoặc gõ lý do từ chối")}
+            className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+          />
+          <datalist id={`ly-do-qc-${donHangId}`}>
+            {LY_DO_QC_GOI_Y.map((x) => <option key={x} value={x} />)}
+          </datalist>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold">{t("Ghi chú")}</span>
+          <textarea
+            value={ghiChu}
+            onChange={(e) => setGhiChu(e.target.value)}
+            rows={2}
+            placeholder={t("Mô tả thêm tình trạng linh kiện (không bắt buộc)")}
+            className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
+          />
+        </label>
+
+        <div>
+          <div className="mb-1 text-xs font-semibold">{t("Ảnh bằng chứng")} <span className="text-[var(--color-danger)]">*</span></div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {anh.map((a, i) => (
+              <ImageLink key={i} url={a.url} className="inline-flex items-center gap-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2 py-1 text-xs text-[var(--ocean-800)] underline underline-offset-2">
+                {t("📷 Ảnh {a}", { a: i + 1 })}
+              </ImageLink>
+            ))}
+            {anh.length < 3 && (
+              <label
+                className={`text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed cursor-pointer ${
+                  uploading ? "opacity-50 pointer-events-none" : "border-[var(--line)] text-[var(--ink-500)] hover:border-[var(--ocean-400)] hover:text-[var(--ocean-600)]"
+                }`}
+              >
+                {uploading ? t("Đang tải...") : t("+ Thêm ảnh")}
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleFile(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            )}
+          </div>
+          <div className={`mt-1 text-[11px] ${anh.length === 0 ? "text-[var(--coral-600)]" : "text-[var(--ink-400)]"}`}>{t("{a}/3 ảnh (bắt buộc tối thiểu 1)", { a: anh.length })}</div>
+        </div>
+
+        <div>
+          <div className="mb-1 text-xs font-semibold">{t("Video bằng chứng")} <span className="font-normal text-[var(--ink-400)]">{t("(không bắt buộc, tối đa {a}MB / video, 2 video)", { a: VIDEO_TOI_DA_MB })}</span></div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {video.map((v, i) => (
+              <span key={i} className="inline-flex items-center gap-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2 py-1 text-xs">
+                🎬 {v.ten} · {v.mb.toFixed(1)} MB ✓
+              </span>
+            ))}
+            {video.length < 2 && (
+              <label
+                className={`text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed cursor-pointer ${
+                  tienDoVideo !== null ? "opacity-60 pointer-events-none" : "border-[var(--line)] text-[var(--ink-500)] hover:border-[var(--ocean-400)] hover:text-[var(--ocean-600)]"
+                }`}
+              >
+                {tienDoVideo !== null ? t("Đang tải video… {a}%", { a: tienDoVideo }) : t("+ Thêm video")}
+                <input
+                  type="file"
+                  accept="video/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleVideo(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            )}
+          </div>
+          {tienDoVideo !== null && (
+            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-100)]">
+              <div className="h-full bg-[var(--color-primary)] transition-all" style={{ width: `${tienDoVideo}%` }} />
+            </div>
           )}
         </div>
-        <div className={`text-[11px] ${anh.length === 0 ? "text-[var(--coral-600)]" : "text-[var(--ink-400)]"}`}>{t("{a}/3 ảnh (bắt buộc tối thiểu 1)", { a: anh.length })}</div>
-        <input
-          value={ghiChu}
-          onChange={(e) => setGhiChu(e.target.value)}
-          placeholder={t("Lý do từ chối (bắt buộc)")}
-          className="focus-ring w-full bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm"
-        />
+
         <div className="flex justify-end gap-2">
-          <Btn variant="ghost" size="sm" onClick={onClose}>{t("Hủy")}</Btn>
-          <Btn size="sm" variant="danger" disabled={anh.length === 0 || !ghiChu.trim() || confirmDisabled} loading={confirmLoading} onClick={() => onConfirm(ghiChu)}>
+          <Btn variant="ghost" size="sm" onClick={onClose} disabled={dangTai}>{t("Hủy")}</Btn>
+          <Btn size="sm" variant="danger" disabled={anh.length === 0 || !lyDo.trim() || dangTai || confirmDisabled} loading={confirmLoading} onClick={() => onConfirm(noiDungGui)}>
             {t("Xác nhận từ chối")}
           </Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// Hop xac nhan truoc khi QC duyet DAT (2026-11-10, "Thêm popup xác nhận khi QC xác nhận linh kiện trả hàng đạt").
+export function QcXacNhanDatModal({ ten, slDat, slNhan, onClose, onConfirm, loading }: {
+  ten: string; slDat: number; slNhan: number; onClose: () => void; onConfirm: () => void; loading?: boolean;
+}) {
+  return (
+    <Modal open title={t("Xác nhận linh kiện trả hàng ĐẠT")} onClose={onClose}>
+      <div className="space-y-3 text-sm">
+        <div className="rounded-xl border border-[var(--color-success)]/40 bg-[var(--color-success-soft)] px-3 py-2">
+          <div className="font-semibold">{ten}</div>
+          <div className="mt-0.5">{t("QC xác nhận đạt")} <b>{slDat}</b> / {slNhan}</div>
+        </div>
+        <ul className="list-disc space-y-1 pl-5 text-[13px]">
+          <li>{t("{a} chiếc đạt sẽ được duyệt và tự vào phiếu trả hàng.", { a: slDat })}</li>
+          {slDat < slNhan && <li>{t("{a} chiếc còn lại tách thành đơn mới, vẫn chờ QC xác nhận (duyệt hoặc từ chối sau).", { a: slNhan - slDat })}</li>}
+          <li>{t("Kiểm tra kỹ số lượng trước khi xác nhận. Nếu xác nhận nhầm, QC / Kế toán / Kho vẫn đẩy lùi được khi phiếu trả hàng chưa được Kế toán chốt.")}</li>
+        </ul>
+        <div className="flex justify-end gap-2">
+          <Btn variant="ghost" size="sm" onClick={onClose} disabled={loading}>{t("Quay lại")}</Btn>
+          <Btn size="sm" onClick={onConfirm} loading={loading} disabled={loading}>{t("Xác nhận đạt")}</Btn>
         </div>
       </div>
     </Modal>
@@ -226,6 +362,8 @@ export function TraHangTab({
   const [tuChoiTnId, setTuChoiTnId] = useState<string | null>(null);
   // QC tu choi - anh bang chung bat buoc (them 2026-08-24, muc 2) - xem QcTuChoiModal o tren.
   const [tuChoiQcId, setTuChoiQcId] = useState<string | null>(null);
+  // Duyet nhanh o danh sach buoc QC -> hoi xac nhan dat truoc (2026-11-10).
+  const [qcDatNhanh, setQcDatNhanh] = useState<TraHangRow | null>(null);
   // "Tu choi" o buoc Ke toan/Kho (them hang muc #19, 2026-08-25) - truoc day "bam thang" khong hoi gi
   // (backend khong bat buoc), nay backend bat buoc ghi_chu nen can mo modal nhap ly do truoc, cung
   // pattern voi tuChoiTnId (chi khac text tieu de).
@@ -554,7 +692,10 @@ export function TraHangTab({
                 title={t("Duyệt")}
                 aria-label={t("Duyệt")}
                 disabled={logMutation.isPending}
-                onClick={() => logMutation.mutate({ id: r.id, hanhDong: "duyet" })}
+                onClick={() => {
+                  if (r.trang_thai_tra_hang === "Cho QC xac nhan") { setQcDatNhanh(r); return; }
+                  logMutation.mutate({ id: r.id, hanhDong: "duyet" });
+                }}
               >
                 ✓
               </Btn>
@@ -737,6 +878,16 @@ export function TraHangTab({
             </div>
           </div>
         </Modal>
+      )}
+      {qcDatNhanh && (
+        <QcXacNhanDatModal
+          ten={`${qcDatNhanh.ma_lk} · ${qcDatNhanh.ten_lk_snapshot ?? ""}`}
+          slDat={qcDatNhanh.so_luong_thuc_xuat ?? qcDatNhanh.so_luong_de_xuat}
+          slNhan={qcDatNhanh.so_luong_thuc_xuat ?? qcDatNhanh.so_luong_de_xuat}
+          loading={logMutation.isPending}
+          onClose={() => setQcDatNhanh(null)}
+          onConfirm={() => { logMutation.mutate({ id: qcDatNhanh.id, hanhDong: "duyet" }); setQcDatNhanh(null); }}
+        />
       )}
       {tuChoiQcId && (
         <QcTuChoiModal
@@ -1076,6 +1227,7 @@ export function TraHangDetailModal({
         logs: Array<{ id: number; trang_thai: string; nguoi_xu_ly: string; ngay_xu_ly: string; ghi_chu: string | null }>;
         // Anh tra hang (them 2026-08-24) - xem GET /tra-hang/:donHangId o backend.
         anh: Array<{ id: number; loai: "tao_moi" | "qc_tu_choi"; url: string; nguoi_upload: string; ngay_upload: string }>;
+        video?: Array<{ id: number; drive_file_id: string; ten_file: string | null; kich_thuoc: number | null; nguoi_upload: string; ngay_upload: string }>;
       }>(`/tra-hang/${id}`),
   });
 
@@ -1131,8 +1283,14 @@ export function TraHangDetailModal({
   });
 
   const layLuiMutation = useMutation({
-    mutationFn: () => api.post(`/tra-hang/${id}/log-lui`, { ghi_chu: ghiChu.trim() }),
-    onSuccess: () => { invalidate(); addToast(t("Đã đẩy lùi 1 bước")); },
+    mutationFn: () => api.post<{ ok: true; trang_thai: string; pxk_go?: string | null; phieu_huy?: boolean }>(`/tra-hang/${id}/log-lui`, { ghi_chu: ghiChu.trim() }),
+    onSuccess: (res) => {
+      invalidate();
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-pxk"] });
+      addToast(res.pxk_go
+        ? t("Đã đưa về chờ QC xác nhận — gỡ khỏi phiếu {a}{b}", { a: res.pxk_go, b: res.phieu_huy ? t(" (phiếu tự hủy)") : "" })
+        : t("Đã đẩy lùi 1 bước"));
+    },
     onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
   });
 
@@ -1155,7 +1313,12 @@ export function TraHangDetailModal({
   const slQcDuoc = coTheXuLy && trangThai === "Cho QC xac nhan";
   const slQcHopLe = slHopLe && slNhap <= slHienTai;
   const slDatGui = slQcDuoc && slQcHopLe && slNhap < slHienTai ? slNhap : undefined;
-  const coTheDayLui = !!d && (canKeToan || canKho) && CO_THE_DAY_LUI.includes(trangThai);
+  // QC (vai tro QC / Admin) - TraHangDetailModal khong nhan san canQC.
+  const laQcXem = authState.status === "authenticated" && (authState.user.vai_tro === "QC" || authState.user.vai_tro === "Admin");
+  // Day lui don QC da duyet nham ve "Cho QC xac nhan" (2026-11-10) - backend tra day_lui_qc_duoc (phieu tra hang chua bi Ke toan chot).
+  const dayLuiQc = !!d && trangThai === "TN da duyet" && !!(d as { day_lui_qc_duoc?: boolean }).day_lui_qc_duoc && (canKeToan || canKho || laQcXem);
+  const coTheDayLui = !!d && (((canKeToan || canKho) && CO_THE_DAY_LUI.includes(trangThai)) || dayLuiQc);
+  const [hoiQcDat, setHoiQcDat] = useState(false);
   // FIX (phan hoi QA 2026-08-31, muc #2): backend da cho phep chinh nguoi tao (hoac Admin) tu huy don
   // tra hang cua minh o bat ky buoc nao con mo (xem traHang.ts, hanhDong "huy") nhung frontend truoc
   // day khong co duong nao goi toi hanh dong nay - chi co Duyet/Tu choi cho cac vai tro xu ly.
@@ -1229,7 +1392,7 @@ export function TraHangDetailModal({
         </div>
       ) : actionMode === "day_lui" ? (
         <div className="space-y-2">
-          <div className="font-semibold text-xs">{t("Đẩy lùi 1 bước — lý do")}</div>
+          <div className="font-semibold text-xs">{dayLuiQc ? t("Đưa về chờ QC xác nhận (gỡ khỏi phiếu trả hàng) — lý do") : t("Đẩy lùi 1 bước — lý do")}</div>
           <div className="flex gap-2 flex-wrap items-center">
             <input
               value={ghiChu}
@@ -1322,7 +1485,10 @@ export function TraHangDetailModal({
             {coTheXuLy && (
               <Btn
                 size="sm"
-                onClick={() => logMutation.mutate({ hanhDong: "duyet", ghiChu: trangThai !== "Cho TN duyet tong" ? ghiChu : undefined, soLuongThucTe: slGuiDuyet, soLuongDat: slDatGui })}
+                onClick={() => {
+                  if (slQcDuoc) { setHoiQcDat(true); return; }
+                  logMutation.mutate({ hanhDong: "duyet", ghiChu: trangThai !== "Cho TN duyet tong" ? ghiChu : undefined, soLuongThucTe: slGuiDuyet, soLuongDat: slDatGui });
+                }}
                 disabled={logMutation.isPending || (slSuaDuoc && !slHopLe) || (slQcDuoc && !slQcHopLe)}
                 loading={logMutation.isPending}
               >
@@ -1331,7 +1497,7 @@ export function TraHangDetailModal({
             )}
             {coTheDayLui && (
               <Btn size="sm" variant="ghost" onClick={() => { setActionMode("day_lui"); setGhiChu(""); }} disabled={logMutation.isPending}>
-                {t("Đẩy lùi")}
+                {dayLuiQc ? t("↩ Đẩy lùi về chờ QC") : t("Đẩy lùi")}
               </Btn>
             )}
             {coTheXuLy && (
@@ -1409,7 +1575,8 @@ export function TraHangDetailModal({
           {(() => {
             const anhTaoMoi = (data?.anh ?? []).filter((a) => a.loai === "tao_moi");
             const anhQc = (data?.anh ?? []).filter((a) => a.loai === "qc_tu_choi");
-            if (anhTaoMoi.length === 0 && anhQc.length === 0) return null;
+            const videoQc = data?.video ?? [];
+            if (anhTaoMoi.length === 0 && anhQc.length === 0 && videoQc.length === 0) return null;
             return (
               <DetailZone title={t("Ảnh")}>
                 {/* FIX (phan hoi QA 2026-08-31, muc #12): truoc day chi hien link chu "📷 Ảnh N" - phai
@@ -1420,6 +1587,23 @@ export function TraHangDetailModal({
                     <div className="flex gap-1.5 flex-wrap">
                       {anhTaoMoi.map((a) => (
                         <ImageThumb key={a.id} url={a.url} alt={t("Ảnh linh kiện cần trả")} className="w-16 h-16 object-cover rounded-lg border border-[var(--line)] hover:opacity-80 transition-opacity" />
+                      ))}
+                    </div>
+                  </KvRow>
+                )}
+                {videoQc.length > 0 && (
+                  <KvRow label={t("Video bằng chứng QC")}>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {videoQc.map((v, i) => (
+                        <a
+                          key={v.id}
+                          href={`https://drive.google.com/file/d/${encodeURIComponent(v.drive_file_id)}/view`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-lg border border-[var(--line)] bg-[var(--surface-100)] px-2 py-1 text-xs text-[var(--color-primary)] underline underline-offset-2"
+                        >
+                          🎬 {t("Video {a}", { a: i + 1 })}{v.kich_thuoc ? ` · ${(v.kich_thuoc / 1024 / 1024).toFixed(1)} MB` : ""}
+                        </a>
                       ))}
                     </div>
                   </KvRow>
@@ -1468,6 +1652,19 @@ export function TraHangDetailModal({
         confirmDisabled={logMutation.isPending}
         confirmLoading={logMutation.isPending}
         addToast={addToast}
+      />
+    )}
+    {hoiQcDat && d && (
+      <QcXacNhanDatModal
+        ten={`${d.ma_lk} · ${d.ten_lk_snapshot ?? ""}`}
+        slDat={slDatGui ?? slHienTai}
+        slNhan={slHienTai}
+        loading={logMutation.isPending}
+        onClose={() => setHoiQcDat(false)}
+        onConfirm={() => {
+          setHoiQcDat(false);
+          logMutation.mutate({ hanhDong: "duyet", ghiChu, soLuongDat: slDatGui });
+        }}
       />
     )}
     {/* Render SAU Drawer + QcTuChoiModal de luon nam tren cung (xem FIX ngay tren). */}

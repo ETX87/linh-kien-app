@@ -89,3 +89,54 @@ export async function uploadPublicImage(
 
   return { id, thumbnailUrl: `https://drive.google.com/thumbnail?id=${id}&sz=w1000` };
 }
+
+// VIDEO bang chung (2026-11-10, toi da 100MB): Worker KHONG nhan body lon -> mo phien tai "resumable" tren Drive bang token cua app, tra URL
+// phien cho trinh duyet PUT thang file len Google (kem header Origin luc mo phien de Google cho phep CORS tu dung origin do). Xong trinh duyet
+// gui lai id file -> hoanTatVideo() kiem tra file nam trong thu muc app + dung luong / dinh dang roi chia se cong khai theo link.
+export const VIDEO_TOI_DA_BYTE = 100 * 1024 * 1024;
+
+export async function batDauTaiVideo(
+  env: Env, db: D1Database, ten: string, mime: string, kichThuoc: number, origin: string | null,
+): Promise<string> {
+  const { accessToken, folderId } = await getUserAccessToken(env, db);
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json; charset=UTF-8",
+    "X-Upload-Content-Type": mime,
+    "X-Upload-Content-Length": String(kichThuoc),
+  };
+  if (origin) headers.Origin = origin;
+  const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ name: ten, parents: [folderId], mimeType: mime }),
+  });
+  const loc = res.headers.get("Location");
+  if (!res.ok || !loc) throw new Error(`Google Drive resumable init failed: ${res.status} ${await res.text()}`);
+  return loc;
+}
+
+export async function hoanTatVideo(
+  env: Env, db: D1Database, fileId: string,
+): Promise<{ ok: true; ten: string; kichThuoc: number; mime: string } | { ok: false; error: string }> {
+  const { accessToken, folderId } = await getUserAccessToken(env, db);
+  const meta = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,name,size,mimeType,parents`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!meta.ok) return { ok: false, error: "VIDEO_KHONG_TIM_THAY" };
+  const f = (await meta.json()) as { name?: string; size?: string; mimeType?: string; parents?: string[] };
+  const xoa = () => fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`, { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!(f.parents ?? []).includes(folderId)) return { ok: false, error: "VIDEO_KHONG_HOP_LE" };
+  const size = Number(f.size ?? 0);
+  if (!String(f.mimeType ?? "").startsWith("video/") || size <= 0 || size > VIDEO_TOI_DA_BYTE) {
+    await xoa();
+    return { ok: false, error: "VIDEO_KHONG_HOP_LE" };
+  }
+  const perm = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ role: "reader", type: "anyone" }),
+  });
+  if (!perm.ok) throw new Error(`Google Drive set-public failed: ${perm.status} ${await perm.text()}`);
+  return { ok: true, ten: f.name ?? "", kichThuoc: size, mime: f.mimeType ?? "" };
+}
