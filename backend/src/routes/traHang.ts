@@ -301,7 +301,10 @@ async function applyTraHangLog(
   // SL thuc te Kho nhan duoc (2026-10-05) - CHI o buoc "Cho kho xac nhan" + duyet; ghi vao so_luong_thuc_xuat (PXK/MISA doc
   // COALESCE(so_luong_thuc_xuat, so_luong_de_xuat)). Bang SL de xuat -> NULL (khong doi).
   soLuongThucTe?: number,
-): Promise<{ error: string; status: 400 | 404 | 409 | 403 } | { nextTrangThai: string }> {
+  // SL QC xac nhan DAT (chot 2026-11-10, "gửi 6 LK, QC xác nhận 5, 1 LK sẽ được tách riêng đơn chờ QC xác nhận tiếp") - CHI buoc
+  // "Cho QC xac nhan" + duyet. Nho hon SL dang nhan -> phan con lai tach thanh don MOI van "Cho QC xac nhan" (QC duyet / tu choi tiep).
+  soLuongDat?: number,
+): Promise<{ error: string; status: 400 | 404 | 409 | 403 } | { nextTrangThai: string; donTach?: string }> {
   // SUA 2026-08-21: truoc doc trang thai qua subquery tuong quan tra_hang_log (co bug qualify cot "id"
   // bi shadow, da vá bang fallback `?? "Cho ke toan duyet mem"") - doi hang doc thang cot mirror
   // trang_thai_hien_tai (LUON dong bo qua CAS ngay ben duoi), vua don gian hon vua tranh dung ca lop
@@ -388,6 +391,15 @@ async function applyTraHangLog(
     }
   }
 
+  // QC xac nhan SL dat < SL dang nhan -> tach phan con lai (2026-11-10).
+  const slDangNhan = ddh.so_luong_thuc_xuat ?? ddh.so_luong_de_xuat;
+  let slTachQc = 0;
+  if (soLuongDat !== undefined && soLuongDat !== null) {
+    if (trangThaiHienTai !== "Cho QC xac nhan" || hanhDong !== "duyet") return { error: "SL_DAT_CHI_O_BUOC_QC", status: 409 };
+    if (!Number.isInteger(soLuongDat) || soLuongDat < 1 || soLuongDat > slDangNhan) return { error: "SO_LUONG_KHONG_HOP_LE", status: 400 };
+    slTachQc = slDangNhan - soLuongDat;
+  }
+
   // Han 24h tung giai doan (chot 2026-10-01): bo phan dang giu don xu ly (Duyet/Tu choi) SAU han 24h tinh tu moc xu ly cuoi cua
   // giai doan truoc -> BAT BUOC chon ly do cham (cung danh muc settings_ly_do_cham "Mua hàng" voi don mua), ghi vao log. Huy
   // (nguoi tao/TN) khong phai xu ly giai doan nen khong bat.
@@ -427,7 +439,56 @@ async function applyTraHangLog(
 
   // RA SOAT BAO MAT 2026-08-18 (phan hoi Codex #8, migration 0087) - CAS giong applyDonHangLog, xem
   // comment o do.
-  const casResult = await c.env.DB.prepare(
+  let donTach: string | undefined;
+  if (slTachQc > 0) {
+    // 1 batch: INSERT don moi (ban sao, SL con lai, "Cho QC xac nhan") CHON TU don goc voi DUNG version -> UPDATE don goc (SL dat, duyet).
+    // Version doi giua chung -> ca 2 lenh khong khop dong nao -> STATE_CHANGED. Chep lich su tra hang + anh + Ma YCSC bo sung sang don moi.
+    const { results: cot } = await c.env.DB.prepare("PRAGMA table_info(dat_don_hang)").all<{ name: string }>();
+    const BO = new Set(["id", "so_luong_de_xuat", "so_luong_thuc_xuat", "so_tien_cong_no", "ma_xuat_kho", "updated_at", "trang_thai_hien_tai", "version", "ma_thung_tra"]);
+    const chep = cot.map((x) => x.name).filter((n) => !BO.has(n));
+    const newId = await nextSequentialId(c.env.DB, "dat_don_hang", "DDH", 6);
+    const now = nowVN();
+    const dc = await c.env.DB.prepare("SELECT so_tien_cong_no FROM dat_don_hang WHERE id = ?").bind(donHangId).first<{ so_tien_cong_no: number | null }>();
+    const cnTach = dc?.so_tien_cong_no != null ? Math.round((dc.so_tien_cong_no * slTachQc) / slDangNhan) : null;
+    const cnDat = dc?.so_tien_cong_no != null ? dc.so_tien_cong_no - (cnTach ?? 0) : null;
+    const moTaSl = ddh.so_luong_thuc_xuat != null && ddh.so_luong_thuc_xuat !== ddh.so_luong_de_xuat
+      ? ` (đề xuất ${ddh.so_luong_de_xuat}, Kho nhận ${ddh.so_luong_thuc_xuat})` : "";
+    const ghiGoc = `QC xác nhận đạt ${soLuongDat}/${slDangNhan}${moTaSl} — ${slTachQc} chiếc chưa đạt tách sang đơn ${newId} chờ QC xác nhận tiếp`;
+    ghiChu = ghiChu?.trim() ? `${ghiGoc} | ${ghiChu.trim()}` : ghiGoc;
+    // ma_thung_tra UNIQUE (1 thung = 1 don) -> don tach KHONG mang ma thung, ghi ma thung goc vao lich su.
+    const ghiMoi = `Tách từ đơn ${donHangId}${ddh.ma_thung_tra ? ` (thùng ${ddh.ma_thung_tra})` : ""}: ${slTachQc}/${slDangNhan} chiếc QC chưa xác nhận đạt (đơn gốc QC đạt ${soLuongDat}) — chờ QC duyệt hoặc từ chối`;
+    const kq = await c.env.DB.batch([
+      c.env.DB.prepare(
+        `INSERT INTO dat_don_hang (id, so_luong_de_xuat, so_luong_thuc_xuat, so_tien_cong_no, ma_xuat_kho, updated_at, trang_thai_hien_tai, version, ${chep.join(", ")})
+         SELECT ?, ?, NULL, ?, NULL, ?, 'Cho QC xac nhan', 1, ${chep.join(", ")}
+         FROM dat_don_hang WHERE id = ? AND version = ? AND trang_thai_hien_tai = 'Cho QC xac nhan'`,
+      ).bind(newId, slTachQc, cnTach, now, donHangId, ddh.version),
+      c.env.DB.prepare(
+        `UPDATE dat_don_hang SET trang_thai_hien_tai = ?, so_luong_de_xuat = ?, so_luong_thuc_xuat = NULL, so_tien_cong_no = ?, version = version + 1, updated_at = ?
+         WHERE id = ? AND version = ? AND EXISTS (SELECT 1 FROM dat_don_hang WHERE id = ?)`,
+      ).bind(nextTrangThai, soLuongDat, cnDat, now, donHangId, ddh.version, newId),
+    ]);
+    if (!kq[1].meta.changes) {
+      await c.env.DB.prepare("DELETE FROM dat_don_hang WHERE id = ? AND NOT EXISTS (SELECT 1 FROM tra_hang_log WHERE dat_don_hang_id = ?)").bind(newId, newId).run();
+      return { error: "STATE_CHANGED", status: 409 };
+    }
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        `INSERT INTO tra_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu)
+         SELECT ?, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu FROM tra_hang_log WHERE dat_don_hang_id = ? ORDER BY id`,
+      ).bind(newId, donHangId),
+      c.env.DB.prepare("INSERT INTO tra_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Cho QC xac nhan', ?, ?, ?)")
+        .bind(newId, user.email, now, ghiMoi.slice(0, 1000)),
+      c.env.DB.prepare(
+        `INSERT INTO tra_hang_anh (dat_don_hang_id, loai, drive_file_id, url, nguoi_upload, ngay_upload)
+         SELECT ?, loai, drive_file_id, url, nguoi_upload, ngay_upload FROM tra_hang_anh WHERE dat_don_hang_id = ? ORDER BY id`,
+      ).bind(newId, donHangId),
+      c.env.DB.prepare("INSERT OR IGNORE INTO dat_don_case (dat_don_hang_id, case_id) SELECT ?, case_id FROM dat_don_case WHERE dat_don_hang_id = ?").bind(newId, donHangId),
+    ]);
+    donTach = newId;
+  }
+
+  const casResult = donTach ? { meta: { changes: 1 } } : await c.env.DB.prepare(
     maThungTraMoi
       ? "UPDATE dat_don_hang SET trang_thai_hien_tai = ?, ma_thung_tra = ?, version = version + 1, updated_at = ? WHERE id = ? AND version = ?"
       : slThucXuatMoi !== undefined
@@ -442,6 +503,7 @@ async function applyTraHangLog(
           : [nextTrangThai, nowVN(), donHangId, ddh.version]),
     )
     .run();
+  if (donTach) ddh.so_luong_de_xuat = soLuongDat!;
   if (!casResult.meta.changes) return { error: "STATE_CHANGED", status: 409 };
 
   await c.env.DB.prepare("INSERT INTO tra_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)")
@@ -486,6 +548,24 @@ async function applyTraHangLog(
     }
   }
 
+  if (donTach) {
+    const emailGsList = ddh.email_gs ? [ddh.email_gs] : [];
+    c.executionCtx.waitUntil(
+      (async () => {
+        await notifyWorkflowTask(c.env, c.env.DB, {
+          cat1Emails: await emailsForRoleOrQC(c.env.DB, "qc", emailGsList),
+          otherRoles: [],
+          emailGsList,
+          pastActors: [],
+          title: "Trả hàng",
+          body: `Đơn trả hàng ${donTach} "${ddh.ten_lk_snapshot} (x${slTachQc})" tách từ ${donHangId} — chờ QC xác nhận phần còn lại`,
+          linkType: "don_hang",
+          linkId: donTach,
+        });
+      })(),
+    );
+  }
+
   // Bao "viec moi" cho vai tro SAP xu ly buoc tiep theo (phan hoi 2026-09-05).
   const role = roleForTraHangState(nextTrangThai);
   if (role) {
@@ -510,7 +590,7 @@ async function applyTraHangLog(
     );
   }
 
-  return { nextTrangThai };
+  return { nextTrangThai, donTach };
 }
 
 // POST /api/tra-hang/:donHangId/log - { hanh_dong: "duyet" | "tu_choi" | "huy" | "day_lui",
@@ -518,12 +598,12 @@ async function applyTraHangLog(
 // toan/Kho duoc dung, xem route rieng ben duoi thay vi nhanh nay de tach rach ly do bat buoc).
 traHang.post("/:donHangId/log", async (c) => {
   const donHangId = c.req.param("donHangId");
-  const body = await c.req.json<{ hanh_dong: "duyet" | "tu_choi" | "huy"; ghi_chu?: string; ly_do_cham_id?: number; so_luong_thuc_te?: number }>();
-  const result = await applyTraHangLog(c, donHangId, body.hanh_dong, body.ghi_chu, body.ly_do_cham_id, body.so_luong_thuc_te);
+  const body = await c.req.json<{ hanh_dong: "duyet" | "tu_choi" | "huy"; ghi_chu?: string; ly_do_cham_id?: number; so_luong_thuc_te?: number; so_luong_dat?: number }>();
+  const result = await applyTraHangLog(c, donHangId, body.hanh_dong, body.ghi_chu, body.ly_do_cham_id, body.so_luong_thuc_te, body.so_luong_dat);
   if ("error" in result) return c.json({ error: result.error }, result.status);
 
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
-  return c.json({ ok: true, trang_thai: result.nextTrangThai });
+  return c.json({ ok: true, trang_thai: result.nextTrangThai, don_tach: result.donTach ?? null });
 });
 
 // POST /api/tra-hang/bulk-log - { ids, hanh_dong, ghi_chu? } xu ly hang loat nhieu dong tra hang

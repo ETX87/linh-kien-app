@@ -1092,16 +1092,21 @@ export function TraHangDetailModal({
 
   const [choLyDoCham, setChoLyDoCham] = useState<ChoLyDoCham | null>(null);
   const logMutation = useMutation({
-    mutationFn: (args: { hanhDong: "duyet" | "tu_choi" | "huy"; ghiChu?: string; lyDoChamId?: number; soLuongThucTe?: number }) =>
-      api.post(`/tra-hang/${id}/log`, {
+    mutationFn: (args: { hanhDong: "duyet" | "tu_choi" | "huy"; ghiChu?: string; lyDoChamId?: number; soLuongThucTe?: number; soLuongDat?: number }) =>
+      api.post<{ ok: true; trang_thai: string; don_tach: string | null }>(`/tra-hang/${id}/log`, {
         hanh_dong: args.hanhDong,
         ghi_chu: args.ghiChu?.trim() || undefined,
         ly_do_cham_id: args.lyDoChamId,
         so_luong_thuc_te: args.hanhDong === "duyet" ? args.soLuongThucTe : undefined,
+        so_luong_dat: args.hanhDong === "duyet" ? args.soLuongDat : undefined,
       }),
-    onSuccess: (_res, variables) => {
+    onSuccess: (res, variables) => {
       setChoLyDoCham(null);
       invalidate();
+      if (res.don_tach) {
+        addToast(t("QC đã duyệt {a} chiếc — phần còn lại tách sang đơn {b} chờ QC xác nhận tiếp", { a: variables.soLuongDat ?? 0, b: res.don_tach }));
+        return;
+      }
       // "Duyet va tiep theo" (concept 1 da duyet, 2026-08-24) - dong y het DonHangDetailModal: chi tu
       // nhay dong ke tiep khi "duyet" (tu choi/huy nguoi dung can tu xem lai ket qua, khong nhay tiep).
       if (variables.hanhDong === "duyet" && onNavigate && navNextId) onNavigate(navNextId);
@@ -1146,6 +1151,10 @@ export function TraHangDetailModal({
   const slNhap = Number(slThucTe);
   const slHopLe = Number.isInteger(slNhap) && slNhap >= 1;
   const slGuiDuyet = slSuaDuoc && slHopLe && slNhap !== slHienTai ? slNhap : undefined;
+  // QC xac nhan SL DAT (2026-11-10): nho hon SL dang nhan -> phan con lai tach thanh don moi cho QC xac nhan tiep.
+  const slQcDuoc = coTheXuLy && trangThai === "Cho QC xac nhan";
+  const slQcHopLe = slHopLe && slNhap <= slHienTai;
+  const slDatGui = slQcDuoc && slQcHopLe && slNhap < slHienTai ? slNhap : undefined;
   const coTheDayLui = !!d && (canKeToan || canKho) && CO_THE_DAY_LUI.includes(trangThai);
   // FIX (phan hoi QA 2026-08-31, muc #2): backend da cho phep chinh nguoi tao (hoac Admin) tu huy don
   // tra hang cua minh o bat ky buoc nao con mo (xem traHang.ts, hanhDong "huy") nhung frontend truoc
@@ -1273,6 +1282,29 @@ export function TraHangDetailModal({
               <span className="text-xs text-[var(--color-text-muted)]">{t("/ KTV gửi {a}", { a: d.so_luong_de_xuat })}</span>
             </label>
           )}
+          {slQcDuoc && d && (
+            <label className="flex w-full items-center justify-end gap-2 text-sm">
+              <span className="text-[var(--color-text-secondary)]">{t("SL QC xác nhận đạt")}</span>
+              <input
+                type="number"
+                min={1}
+                max={slHienTai}
+                step={1}
+                value={slThucTe}
+                onChange={(e) => setSlThucTe(e.target.value)}
+                className="focus-ring w-20 bg-white border border-[var(--line)] rounded-lg px-2 py-1 text-right font-mono"
+              />
+              <span className="text-xs text-[var(--color-text-muted)]">{t("/ đang nhận {a}", { a: slHienTai })}</span>
+            </label>
+          )}
+          {slQcDuoc && !slQcHopLe && (
+            <div className="w-full text-right text-xs text-[var(--color-danger)]">{t("SL đạt phải từ 1 đến {a}", { a: slHienTai })}</div>
+          )}
+          {slQcDuoc && slDatGui !== undefined && (
+            <div className="w-full text-right text-xs text-[var(--color-warning-strong)]">
+              {t("Duyệt {a} chiếc đạt vào phiếu trả hàng; {b} chiếc còn lại tách thành đơn mới vẫn chờ QC xác nhận (duyệt hoặc từ chối sau).", { a: slDatGui, b: slHienTai - slDatGui })}
+            </div>
+          )}
           {slSuaDuoc && slGuiDuyet !== undefined && (
             <div className="w-full text-right text-xs text-[var(--color-warning-strong)]">
               {t("Duyệt sẽ ghi nhận SL thực tế {a} (khác {b}) — phiếu xuất kho và file MISA dùng số này.", { a: slGuiDuyet, b: slHienTai })}
@@ -1290,8 +1322,8 @@ export function TraHangDetailModal({
             {coTheXuLy && (
               <Btn
                 size="sm"
-                onClick={() => logMutation.mutate({ hanhDong: "duyet", ghiChu: trangThai !== "Cho TN duyet tong" ? ghiChu : undefined, soLuongThucTe: slGuiDuyet })}
-                disabled={logMutation.isPending || (slSuaDuoc && !slHopLe)}
+                onClick={() => logMutation.mutate({ hanhDong: "duyet", ghiChu: trangThai !== "Cho TN duyet tong" ? ghiChu : undefined, soLuongThucTe: slGuiDuyet, soLuongDat: slDatGui })}
+                disabled={logMutation.isPending || (slSuaDuoc && !slHopLe) || (slQcDuoc && !slQcHopLe)}
                 loading={logMutation.isPending}
               >
                 {navNextId && onNavigate ? t("Duyệt và tiếp theo →") : t("Duyệt")}
@@ -1444,7 +1476,7 @@ export function TraHangDetailModal({
         cho={choLyDoCham}
         onClose={() => setChoLyDoCham(null)}
         loading={logMutation.isPending}
-        onConfirm={(lyDoChamId) => logMutation.mutate({ hanhDong: choLyDoCham.hanhDong, ghiChu: choLyDoCham.ghiChu, lyDoChamId, soLuongThucTe: slGuiDuyet })}
+        onConfirm={(lyDoChamId) => logMutation.mutate({ hanhDong: choLyDoCham.hanhDong, ghiChu: choLyDoCham.ghiChu, lyDoChamId, soLuongThucTe: slGuiDuyet, soLuongDat: slDatGui })}
       />
     )}
     </>

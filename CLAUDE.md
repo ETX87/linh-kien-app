@@ -92,6 +92,12 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   `SO_LUONG_CHI_SUA_O_BUOC_KHO`), ghi vào `so_luong_thuc_xuat` trong CÙNG CAS (bằng SL đề xuất → NULL) + log "Kho sửa SL thực tế
   nhận: A → B". PXK/file MISA đọc `COALESCE(so_luong_thuc_xuat, so_luong_de_xuat)` nên tự theo số mới. Duyệt nhanh ở danh sách /
   hàng loạt / qua khovan giữ nguyên SL.
+  **QC xác nhận SL đạt → tách phần còn lại** (chốt 2026-11-10, v1.465 — "gửi 6 LK, QC xác nhận 5, 1 LK sẽ được tách riêng đơn chờ QC xác nhận tiếp"):
+  `POST /tra-hang/:id/log` duyệt ở "Cho QC xac nhan" kèm `so_luong_dat` (1..SL đang nhận = `COALESCE(so_luong_thuc_xuat, so_luong_de_xuat)`; bước khác →
+  `SL_DAT_CHI_O_BUOC_QC`). Nhỏ hơn SL đang nhận → 1 batch CAS theo `version`: INSERT đơn MỚI (chép mọi cột trừ id/SL/công nợ/phiếu/trạng thái/version/
+  `ma_thung_tra` — UNIQUE, mã thùng ghi vào log) SL còn lại "Cho QC xac nhan" + UPDATE đơn gốc SL = SL đạt (`so_luong_thuc_xuat` NULL, công nợ chia theo SL)
+  → "TN da duyet" + tự gom phiếu PTL như thường; chép `tra_hang_log`, `tra_hang_anh`, Mã YCSC bổ sung sang đơn mới, báo QC. API trả `don_tach`. UI: ô "SL QC xác
+  nhận đạt" ở chi tiết đơn trả hàng (`TraHangTab.tsx`, dùng chung state ô SL của Kho).
 - **Loại chiết khấu** (migration `0033_loai_chiet_khau.sql`, 2026-09-26): `dat_don_hang.loai_chiet_khau_id`
   (+ `loai_chiet_khau_thu_cong` = TN đã chọn tay) → `settings_loai_chiet_khau` (loại có `ma` = hệ thống tự
   gán, `ma` NULL = tự thêm). Gán tự động bằng `tinhToanPxk()` trong `lib/pxkRecalculate.ts` — **CÙNG hàm**

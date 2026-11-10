@@ -2705,5 +2705,10 @@ const tuDien: Record<string, string> = {
   "⚠ Thông tin chuyển tiền của bạn đã bị từ chối": "⚠ Your transfer information was rejected",
   "✂ Tách {n} đơn thiếu hàng ra phiếu riêng": "✂ Move {n} out-of-stock orders to a separate slip",
   "✅ Đơn đặt hàng của bạn đã được ghi nhận": "✅ Your order has been recorded",
+  "/ đang nhận {a}": "/ received {a}",
+  "Duyệt {a} chiếc đạt vào phiếu trả hàng; {b} chiếc còn lại tách thành đơn mới vẫn chờ QC xác nhận (duyệt hoặc từ chối sau).": "Approve {a} passed units into the return slip; the remaining {b} are split into a new order still awaiting QC (approve or reject later).",
+  "QC đã duyệt {a} chiếc — phần còn lại tách sang đơn {b} chờ QC xác nhận tiếp": "QC approved {a} units — the rest moved to order {b} awaiting QC",
+  "SL QC xác nhận đạt": "Qty passed QC",
+  "SL đạt phải từ 1 đến {a}": "Passed qty must be 1 to {a}",
 };
 export default tuDien;

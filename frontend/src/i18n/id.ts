@@ -2705,5 +2705,10 @@ const tuDien: Record<string, string> = {
   "⚠ Thông tin chuyển tiền của bạn đã bị từ chối": "⚠ Informasi transfer Anda ditolak",
   "✂ Tách {n} đơn thiếu hàng ra phiếu riêng": "✂ Pisahkan {n} pesanan kekurangan stok ke slip lain",
   "✅ Đơn đặt hàng của bạn đã được ghi nhận": "✅ Pesanan Anda telah dicatat",
+  "/ đang nhận {a}": "/ diterima {a}",
+  "Duyệt {a} chiếc đạt vào phiếu trả hàng; {b} chiếc còn lại tách thành đơn mới vẫn chờ QC xác nhận (duyệt hoặc từ chối sau).": "Setujui {a} unit lolos ke slip retur; {b} sisanya dipisah ke pesanan baru yang masih menunggu QC (setujui atau tolak nanti).",
+  "QC đã duyệt {a} chiếc — phần còn lại tách sang đơn {b} chờ QC xác nhận tiếp": "QC menyetujui {a} unit — sisanya dipindah ke pesanan {b} menunggu QC",
+  "SL QC xác nhận đạt": "Jumlah lolos QC",
+  "SL đạt phải từ 1 đến {a}": "Jumlah lolos harus 1 sampai {a}",
 };
 export default tuDien;
