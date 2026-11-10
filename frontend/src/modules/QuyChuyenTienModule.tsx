@@ -507,9 +507,9 @@ function KhoanChuyenTab({ quy, xemTatCa, nguoiOptions, emailLoc, setEmailLoc, te
       key: "kq", header: t("Kết quả"), mobile: "badge",
       render: (k) => <Badge tone={KET_QUA[k.trang_thai]?.tone ?? "gray"}>{KET_QUA[k.trang_thai] ? t(KET_QUA[k.trang_thai].label) : k.trang_thai}</Badge>,
     },
-    { key: "can", header: t("Cần chuyển"), className: "text-right", render: (k) => <Money>{fmtVND(k.so_tien_can_chuyen)}</Money> },
+    { key: "can", header: t("Cần chuyển"), className: "text-right", mobile: "meta", render: (k) => <Money>{fmtVND(k.so_tien_can_chuyen)}</Money> },
     {
-      key: "thuc", header: t("Thực nhận"), className: "text-right",
+      key: "thuc", header: t("Thực nhận"), className: "text-right", mobile: "meta",
       render: (k) =>
         k.so_tien_thuc_nhan == null ? "—" : (
           <span title={k.thuc_nhan_goc != null ? t("Sửa từ {a}{b}", { a: fmtVND(k.thuc_nhan_goc), b: k.ly_do_sua ? " — " + k.ly_do_sua : "" }) : undefined}>
@@ -867,13 +867,14 @@ function SoQuyTab({ quy, xemTatCa, nguoiOptions, emailLoc, setEmailLoc, ten }: {
         return <Badge tone={n?.tone ?? "gray"}>{n ? t(n.label) : g.loai}</Badge>;
       },
     },
+    // The dien thoai (2026-11-09): truoc day chi hien Thoi gian + Loai, KHONG co so tien - KTV (khong co cot nguoi) dung so tien lam tieu de.
     {
-      key: "tien", header: t("Biến động"), className: "text-right",
+      key: "tien", header: t("Biến động"), className: "text-right", mobile: xemTatCa ? "meta" : "title",
       render: (g) => <b className={g.so_tien > 0 ? "text-[var(--color-success-strong)]" : "text-[var(--color-danger-strong)]"}>{g.so_tien > 0 ? "+" : "−"}<Money>{fmtVND(Math.abs(g.so_tien))}</Money></b>,
     },
-    { key: "sau", header: t("Số dư sau"), className: "text-right", render: (g) => <Money>{fmtVND(g.so_du_sau)}</Money> },
-    { key: "pxk", header: t("Phiếu||cột"), render: (g) => (g.phieu_xuat_kho_id ? <MaPhieuLink id={g.phieu_xuat_kho_id} nhan={g.ma_xuat_kho ?? g.phieu_xuat_kho_id} /> : g.phieu_hoan_tien_id ?? "—") },
-    { key: "ghi_chu", header: t("Ghi chú"), render: (g) => <span className="block max-w-[300px] truncate" title={g.ghi_chu ?? ""}>{g.ghi_chu}</span> },
+    { key: "sau", header: t("Số dư sau"), className: "text-right", render: (g) => <Money>{fmtVND(g.so_du_sau)}</Money>, mobile: "meta" },
+    { key: "pxk", header: t("Phiếu||cột"), mobile: "meta", render: (g) => (g.phieu_xuat_kho_id ? <MaPhieuLink id={g.phieu_xuat_kho_id} nhan={g.ma_xuat_kho ?? g.phieu_xuat_kho_id} /> : g.phieu_hoan_tien_id ?? "—") },
+    { key: "ghi_chu", header: t("Ghi chú"), mobile: "sub", render: (g) => <span className="block max-w-[300px] truncate" title={g.ghi_chu ?? ""}>{g.ghi_chu}</span> },
     { key: "nguoi_tao", header: t("Người thực hiện"), render: (g) => (g.nguoi_tao === "he-thong" ? t("Hệ thống") : ten(g.nguoi_tao)) },
   ];
   return (
