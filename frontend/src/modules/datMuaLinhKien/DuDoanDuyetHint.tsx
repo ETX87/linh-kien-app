@@ -126,41 +126,5 @@ export function XacNhanTaoDonModal({
   );
 }
 
-// "KẾT QUẢ ĐẶT HÀNG" ngay sau khi tao (2026-10-15, "cần có cảnh báo rõ ràng cho từng trường hợp để người đặt hàng biết lý do"):
-// chi mo khi co dong CHUA duyet ngay - moi dong: trang thai + ly do he thong ghi (backend ghiChuKhoiTao) + ai xu ly tiep
-// (giaiThichTrangThai, CUNG bo giai thich voi khung trong chi tiet don). Tat ca tu duyet -> chi toast, khong mo hop nay.
-export function KetQuaTaoDonModal({ ketQua, onClose }: { ketQua: KetQuaTaoDon | null; onClose: () => void }) {
-  const dong = ketQua?.dong ?? [];
-  const soTuDuyet = dong.filter((d) => d.trang_thai === "TN da duyet").length;
-  return (
-    <Modal open={!!ketQua} onClose={onClose} title={t("Kết quả đặt hàng {id}", { id: ketQua?.id ?? "" })}>
-      <div className="space-y-3 text-sm">
-        <div className="text-[var(--color-text-secondary)]">
-          {t("Đã tạo {a} đơn — {b} đơn tự động duyệt, {c} đơn chưa duyệt ngay (lý do từng đơn bên dưới).", { a: dong.length, b: soTuDuyet, c: dong.length - soTuDuyet })}
-        </div>
-        <ul className="space-y-2">
-          {dong.map((d) => {
-            const g = giaiThichTrangThai(d.trang_thai, {}, undefined, d.trang_thai === "TN da duyet");
-            return (
-              <li key={d.id} className={`rounded-lg border px-2.5 py-2 text-[12px] leading-relaxed ${TONE_LY_DO[g?.tone ?? "trung"]}`}>
-                <div className="font-semibold">
-                  {d.ten} · <span className="font-mono">{d.id}</span> → {trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, d.trang_thai)}
-                </div>
-                {d.ly_do && <div><span className="font-semibold">{t("Lý do:")}</span> {d.ly_do}</div>}
-                {g && g.tiepTheo.length > 0 && (
-                  <ul className="mt-0.5 list-disc pl-4">
-                    {g.tiepTheo.map((x, i) => <li key={i}>{x}</li>)}
-                  </ul>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-        <div className="text-[var(--color-text-secondary)]">{t("Theo dõi tiến độ ở danh sách Đơn hàng — mỗi lần đơn đổi trạng thái bạn sẽ nhận thông báo kèm lý do.")}</div>
-        <div className="flex justify-end">
-          <Btn size="sm" onClick={onClose}>{t("Đã hiểu")}</Btn>
-        </div>
-      </div>
-    </Modal>
-  );
-}
+// Hop "Kết quả đặt hàng" chuyen sang KetQuaTaoDon.tsx (2026-11-10 - luon hien, kem phieu xuat + quy du).
+export { KetQuaTaoDonModal } from "./KetQuaTaoDon";

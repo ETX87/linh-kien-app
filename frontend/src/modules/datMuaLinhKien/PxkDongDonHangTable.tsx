@@ -10,6 +10,7 @@ import { fmtDateTime, fmtVND } from "../../types";
 import type { DonHangRow, LyDoChamRow } from "./types";
 import { CoSoChietKhauNut } from "./CoSoChietKhau";
 import { TachDonPhieuModal } from "./TachDon";
+import { NutTachChoHang } from "./TachChoHang";
 import { LoaiChietKhauPicker, LoaiChietKhauText, HoaDonGiaNiemYet, duocDoiLoaiChietKhau, DoiLoaiChietKhauNhieuDon, tenLoaiChietKhau, useLoaiChietKhauList } from "./LoaiChietKhau";
 import { describeApiError, invalidatePipelineCounts, laTruCongNo, nenKhieuNai } from "./helpers";
 import { LoaiDeXuatBadge } from "./SharedUi";
@@ -51,6 +52,7 @@ export function PxkDongDonHangTable({
   pxk: {
     loai_don?: "mua" | "cong_no" | "tra_hang" | null; trang_thai?: string | null; so_tien_can_chuyen?: number | null;
     trang_thai_chuyen_tien?: string | null; da_thanh_toan?: number | null; ma_misa?: string | null; duoc_chuyen_don?: boolean | null;
+    duoc_tach_cho_hang?: boolean | null;
   };
   donHang: DonHangRow[];
   canTacNghiep: boolean;
@@ -216,49 +218,81 @@ export function PxkDongDonHangTable({
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
     },
   });
+  // Bo nhieu don (2026-11-10, "Khi ấn bỏ 3 đơn khỏi phiếu các đơn không tự add vào phiếu xuất mới"): hop thoai LUON hien, lua chon chinh
+  // "Tách N đơn thành 1 phiếu mới" (POST /:id/tach-nhieu - cac don vao chung 1 phieu moi) hoac "Chỉ bỏ khỏi phiếu" (don ve "Chờ tạo phiếu").
+  // Phieu da co tien: chon don chua / da thanh toan ap cho ca nhom (giu_tien).
+  const [giuTienNhieu, setGiuTienNhieu] = useState(false);
   function batDauBoNhieu() {
-    const ids = donHang.filter((d) => chonCk.has(d.id)).map((d) => d.id);
-    if (ids.length === 0) return;
-    if (daTraPhieu > 0 && pxk.loai_don !== "tra_hang") {
-      setHoiBoNhieu(true);
-      return;
-    }
-    const tatCa = ids.length === donHang.length;
-    const canhBao = tatCa
-      ? giuPhieuTrong
-        ? t("\n\nĐây là toàn bộ đơn — phiếu trống sẽ tự hủy khi bạn đóng màn phiếu.")
-        : t("\n\nĐây là toàn bộ đơn — phiếu sẽ bị hủy luôn.")
-      : "";
-    if (window.confirm(t("Bỏ {n} đơn đã chọn khỏi phiếu này?\n\nCác đơn sẽ quay lại danh sách \"khả dụng\" để gán vào phiếu khác.{b}", { n: ids.length, b: canhBao }))) {
-      boNhieuMutation.mutate({ ids, giuTien: false });
-    }
+    if (chonCk.size === 0) return;
+    setGiuTienNhieu(false);
+    setHoiBoNhieu(true);
   }
+  const coTachNhieu = !!pxk.duoc_chuyen_don && chonCk.size > 0 && chonCk.size < donHang.length;
+  const tachNhieuMutation = useMutation({
+    mutationFn: (ids: string[]) =>
+      api.post<{ ok: true; xong: number; phieu_dich: string }>(`/phieu-xuat-kho/${pxkId}/tach-nhieu`, { don_ids: ids, giu_tien: giuTienNhieu }),
+    onSuccess: (r) => {
+      setHoiBoNhieu(false);
+      setChonCk(new Set());
+      addToast(t("Đã tách {n} đơn sang phiếu mới {p}", { n: r.xong, p: r.phieu_dich }));
+    },
+    onError: (err) => {
+      const b = err instanceof ApiError ? (err.body as { xong?: number; phieu_dich?: string | null } | undefined) : undefined;
+      setHoiBoNhieu(false);
+      setChonCk(new Set());
+      addToast((b?.xong ? t("Đã tách {n} đơn sang phiếu {p}, dừng ở đơn tiếp theo: ", { n: b.xong, p: b.phieu_dich ?? "" }) : t("Lỗi: ")) + describeApiError(err));
+    },
+    onSettled: () => {
+      lamMoi();
+      invalidatePipelineCounts(qc);
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
+    },
+  });
   const tienChon = donHang.filter((d) => chonCk.has(d.id)).reduce((s, d) => s + (d.tien_uoc_tinh ?? 0), 0);
+  const dangXuLyNhieu = boNhieuMutation.isPending || tachNhieuMutation.isPending;
+  const idsChon = () => donHang.filter((d) => chonCk.has(d.id)).map((d) => d.id);
+  const coTienPhieu = daTraPhieu > 0 && pxk.loai_don !== "tra_hang";
   const hopThoaiBoNhieu = (
     <Modal
       open={hoiBoNhieu}
-      onClose={() => !boNhieuMutation.isPending && setHoiBoNhieu(false)}
-      title={t("Bỏ {n} đơn khỏi phiếu đã có tiền", { n: chonCk.size })}
+      onClose={() => !dangXuLyNhieu && setHoiBoNhieu(false)}
+      title={t("Bỏ {n} đơn khỏi phiếu", { n: chonCk.size })}
       footer={
         <div className="flex flex-wrap justify-end gap-2">
-          <Btn variant="ghost" disabled={boNhieuMutation.isPending} onClick={() => setHoiBoNhieu(false)}>{t("Đóng")}</Btn>
-          <Btn variant="ghost" disabled={boNhieuMutation.isPending} onClick={() => boNhieuMutation.mutate({ ids: donHang.filter((d) => chonCk.has(d.id)).map((d) => d.id), giuTien: false })}>
-            {t("Đơn chưa thanh toán")}
+          <Btn variant="ghost" disabled={dangXuLyNhieu} onClick={() => setHoiBoNhieu(false)}>{t("Đóng")}</Btn>
+          <Btn variant={coTachNhieu ? "ghost" : "danger"} loading={boNhieuMutation.isPending} disabled={dangXuLyNhieu} onClick={() => boNhieuMutation.mutate({ ids: idsChon(), giuTien: giuTienNhieu })}>
+            {t("Chỉ bỏ khỏi phiếu")}
           </Btn>
-          <Btn loading={boNhieuMutation.isPending} disabled={boNhieuMutation.isPending || tienChon <= 0} onClick={() => boNhieuMutation.mutate({ ids: donHang.filter((d) => chonCk.has(d.id)).map((d) => d.id), giuTien: true })}>
-            {t("Đơn đã thanh toán")}
-          </Btn>
+          {coTachNhieu && (
+            <Btn loading={tachNhieuMutation.isPending} disabled={dangXuLyNhieu} onClick={() => tachNhieuMutation.mutate(idsChon())}>
+              {t("Tách {n} đơn thành 1 phiếu mới", { n: chonCk.size })}
+            </Btn>
+          )}
         </div>
       }
     >
       <div className="space-y-3 text-[13px] text-[var(--color-text-body)]">
-        <p>
-          {t("Phiếu đã được trả")} <b><Money>{fmtVND(daTraPhieu)}</Money></b>{t(". Tiền của các đơn đã chọn trong phiếu:")} <b><Money>{fmtVND(tienChon)}</Money></b>.
-        </p>
         <ul className="list-disc space-y-1.5 pl-5">
-          <li><b>{t("Đơn chưa thanh toán")}</b> {t("— áp cho cả nhóm: tiền đã thanh toán của các đơn = 0. Tổng phiếu giảm, phần đã trả thừa hoàn về quỹ dư của KTV.")}</li>
-          <li><b>{t("Đơn đã thanh toán")}</b> {t("— áp cho cả nhóm: mỗi đơn giữ phần tiền đã trả của mình (lần lượt, tối đa số phiếu đã trả) và tự vào phiếu riêng cho đơn đã thanh toán.")}</li>
+          {coTachNhieu && (
+            <li><b>{t("Tách {n} đơn thành 1 phiếu mới", { n: chonCk.size })}</b> {t("— các đơn đã chọn vào chung 1 phiếu mới của cùng KTV (vd để xuất sau), tiền cần chuyển tính lại cho từng phiếu.")}</li>
+          )}
+          <li><b>{t("Chỉ bỏ khỏi phiếu")}</b> {t("— các đơn quay lại \"Chờ tạo phiếu\", không tự vào phiếu nào; gán vào phiếu khác sau.")}</li>
         </ul>
+        {coTienPhieu && (
+          <div className="rounded-lg border border-[var(--color-border)] px-3 py-2">
+            <p>
+              {t("Phiếu đã được trả")} <b><Money>{fmtVND(daTraPhieu)}</Money></b>{t(". Tiền của các đơn đã chọn trong phiếu:")} <b><Money>{fmtVND(tienChon)}</Money></b>.
+            </p>
+            <label className="mt-1.5 flex items-start gap-2">
+              <input type="radio" className="mt-1" checked={!giuTienNhieu} onChange={() => setGiuTienNhieu(false)} />
+              <span><b>{t("Đơn chưa thanh toán")}</b> {t("— tiền đã thanh toán của các đơn = 0. Tổng phiếu giảm, phần đã trả thừa hoàn về quỹ dư của KTV.")}</span>
+            </label>
+            <label className="mt-1 flex items-start gap-2">
+              <input type="radio" className="mt-1" checked={giuTienNhieu} disabled={tienChon <= 0} onChange={() => setGiuTienNhieu(true)} />
+              <span><b>{t("Đơn đã thanh toán")}</b> {t("— mỗi đơn mang theo phần tiền đã trả của mình (lần lượt, tối đa số phiếu đã trả).")}</span>
+            </label>
+          </div>
+        )}
         {chonCk.size === donHang.length && (
           <p className="text-[12px] text-[var(--color-text-secondary)]">
             {giuPhieuTrong ? t("Đây là toàn bộ đơn — phiếu trống sẽ tự hủy khi bạn đóng màn phiếu.") : t("Đây là toàn bộ đơn — phiếu sẽ bị hủy luôn.")}
@@ -307,7 +341,7 @@ export function PxkDongDonHangTable({
           <span className="ml-1 text-[var(--color-text-secondary)]">{t("Đã chọn")} <b className="text-[var(--color-text)]">{chonCk.size}</b> {t("đơn")}</span>
           {coChonCk && <Btn size="sm" variant="subtle" onClick={() => setMoDoiNhieu(true)}>{t("Đổi loại chiết khấu…")}</Btn>}
           {coBoNhieu && (
-            <Btn size="sm" variant="danger" loading={boNhieuMutation.isPending} disabled={boNhieuMutation.isPending} onClick={batDauBoNhieu}>
+            <Btn size="sm" variant="danger" loading={dangXuLyNhieu} disabled={dangXuLyNhieu} onClick={batDauBoNhieu}>
               {t("✕ Bỏ {n} đơn khỏi phiếu", { n: chonCk.size })}
             </Btn>
           )}
@@ -316,6 +350,13 @@ export function PxkDongDonHangTable({
       {moDoiNhieu && chonDs.length > 0 && (
         <DoiLoaiChietKhauNhieuDon dons={chonDs} onClose={() => setMoDoiNhieu(false)} onDone={() => { setMoDoiNhieu(false); setChonCk(new Set()); }} />
       )}
+    </div>
+  ) : null;
+  // Tach nhanh don kho thieu hang ra phieu cho hang rieng (2026-11-10) - backend quyet dinh duoc / khong (duoc_tach_cho_hang, ca KTV nhan hang).
+  const soDonThieuHang = donHang.filter((d) => (d.trang_thai_hien_tai ?? d.trang_thai) === "Cho thanh toan").length;
+  const nutTachChoHang = pxk.duoc_tach_cho_hang && soDonThieuHang > 0 ? (
+    <div className="mb-1.5" onClick={(e) => e.stopPropagation()}>
+      <NutTachChoHang pxkId={pxkId} soDon={soDonThieuHang} addToast={addToast} />
     </div>
   ) : null;
   const huyCongNoDraft = (id: string) => setSoTienCongNoDraft((p) => { const n = { ...p }; delete n[id]; return n; });
@@ -668,6 +709,7 @@ export function PxkDongDonHangTable({
       {hopThoaiChuyen}
       {hopThoaiTach}
       {hopThoaiBoNhieu}
+      {nutTachChoHang}
       {thanhChon}
       <table className="border-collapse text-[12px] text-[var(--color-text-body)]" style={{ tableLayout: "fixed", width: RONG_GON }}>
         <colgroup>
@@ -720,6 +762,7 @@ export function PxkDongDonHangTable({
     {hopThoaiChuyen}
     {hopThoaiTach}
     {hopThoaiBoNhieu}
+    {nutTachChoHang}
     {thanhChon}
     <table className="tbl min-w-full border-collapse">
       <thead>

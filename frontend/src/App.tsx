@@ -13,6 +13,7 @@ import { BottomTabBar } from "./layout/BottomTabBar";
 import { HoiDapWidget } from "./components/hoiDap/HoiDapWidget";
 import { NutNopQuyNoi } from "./modules/quyChuyenTien/NutNopQuyNoi";
 import { NutNopTienKeToan } from "./modules/quyChuyenTien/NutNopTienKeToan";
+import { TuChoiChuyenTienPopup } from "./modules/datMuaLinhKien/TuChoiChuyenTienPopup";
 import { ROLE_MODULES, MODULE_TITLES, NAV_GROUPS } from "./layout/navConfig";
 import { DatMuaLinhKienModule } from "./modules/DatMuaLinhKienModule";
 import { DanhMucLinhKienModule, XemLinhKienDrawer } from "./modules/DanhMucLinhKienModule";
@@ -550,6 +551,8 @@ function MainApp({
       <NutNopQuyNoi />
       {/* Icon noi "Nạp quỹ chờ xác nhận" cho Ke toan (2026-10-30, v1.427) - popup danh sach cho + nhac yeu cau moi. */}
       <NutNopTienKeToan />
+      {/* Popup lon "Chuyển tiền bị từ chối" cho nguoi nhan hang (2026-11-10). */}
+      <TuChoiChuyenTienPopup />
       {isMobile && exitConfirmOpen && (
         <Modal open onClose={stayInApp} title={t("Thoát ứng dụng?")}>
           <div className="space-y-4 text-sm">

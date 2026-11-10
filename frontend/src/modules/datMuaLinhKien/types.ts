@@ -92,12 +92,20 @@ export interface KetQuaTaoDonDong {
   ten: string; // "<ten LK> (xSL)"
   trang_thai: string;
   ly_do: string | null;
+  pxk?: string | null; // phieu xuat kho don da vao (2026-11-10)
+}
+export interface KetQuaTaoDonPhieu {
+  id: string; trang_thai: string; trang_thai_chuyen_tien: string | null; so_tien_can_chuyen: number | null; da_thanh_toan: number;
+  cho_hang: number; quy_kh: number; doi_tac_ma: string | null; so_don: number; tra_tu_quy: number; so_khoan_duyet: number;
 }
 export interface KetQuaTaoDon {
   id: string;
   trung_lap?: boolean;
   kh_le?: { ma: string; sdt: string | null; moi: boolean } | null;
   dong?: KetQuaTaoDonDong[];
+  phieu?: KetQuaTaoDonPhieu[];
+  quy_du?: { ktv: number; kh: number | null };
+  nguoi_nhan_hang?: string;
 }
 export interface KiemTraPhieuDat {
   loi_phieu: string | null;
@@ -358,6 +366,10 @@ export interface PhieuXuatKhoRow {
   yeu_cau_hd?: string | null;
   quy_kh?: number | null;
   co_yeu_cau_huy?: number | boolean; // phieu co don dang co yeu cau huy cho dong y (v1.455)
+  // Phieu CHO HANG tach rieng don kho thieu hang (migration 0112, 2026-11-10) + (chi tiet) duoc bam tach / phieu lien quan.
+  cho_hang?: number | null;
+  duoc_tach_cho_hang?: boolean;
+  phieu_cho_hang_lien_quan?: { id: string; trang_thai: string; cho_hang: number; so_don: number }[];
 }
 
 export interface DonHangKhaDungRow {

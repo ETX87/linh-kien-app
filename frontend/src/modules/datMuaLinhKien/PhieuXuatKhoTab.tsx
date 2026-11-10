@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { HoaDonPhieuBadge, HoaDonPhieuGhiChu, nenHoaDon, coChonHoaDon } from "./KhChuyenKhoan";
+import { ChoHangBadge, PhieuChoHangCanhBao } from "./TachChoHang";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn, btnClasses } from "../../components/ui/Btn";
 import { FileButton } from "../../components/ui/FileButton";
@@ -730,6 +731,7 @@ export function PhieuXuatKhoTab({
             {r.id}
           </button>
           {(coChonHoaDon(r.yeu_cau_hd) || !!r.quy_kh) && <span className="ml-1.5"><HoaDonPhieuBadge hd={r.yeu_cau_hd} quyKh={r.quy_kh} /></span>}
+          {!!r.cho_hang && <span className="ml-1.5"><ChoHangBadge /></span>}
         </span>
       ),
     },
@@ -2201,6 +2203,8 @@ export function PxkDetailModal({
           <PxkMiniPipeline trangThai={trangThai} />
           {/* Ghi chu Ke toan: phieu co yeu cau xuat hoa don / KH chuyen khoan ve cong ty (2026-11-09). */}
           <HoaDonPhieuGhiChu hd={pxk.yeu_cau_hd} quyKh={pxk.quy_kh} />
+          {/* Phieu cho hang tach rieng / phieu co hang co phieu cho hang lien quan (2026-11-10, migration 0112). */}
+          <PhieuChoHangCanhBao choHang={pxk.cho_hang} lienQuan={pxk.phieu_cho_hang_lien_quan} />
           {uuTienTien && veKhoiChuyenTien(pxk)}
           <div className="flex gap-3 items-center flex-wrap">
             {pxk.ma_xuat_kho_xac_nhan ? (

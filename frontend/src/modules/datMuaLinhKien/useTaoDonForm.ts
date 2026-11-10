@@ -286,7 +286,8 @@ export function useTaoDonForm({
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-tom-tat"] });
       invalidatePipelineCounts(qc);
-      if (dongKq.some((d) => d.trang_thai !== "TN da duyet")) setKetQuaTao(res);
+      // 2026-11-10: LUON mo hop "Đơn đặt hàng đã được ghi nhận" (don + phieu xuat + quy du) - tru khi bam lai trung (khong co du lieu moi).
+      if (!res.trung_lap && dongKq.length > 0) setKetQuaTao(res);
       else onClose();
     },
     onError: (err) =>

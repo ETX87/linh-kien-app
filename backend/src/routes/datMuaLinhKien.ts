@@ -2678,7 +2678,37 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   for (const item of notifyQueue) demTrangThai[item.trangThai] = (demTrangThai[item.trangThai] ?? 0) + 1;
   // Ket qua TUNG dong (2026-10-15) - FE hien "Kết quả đặt hàng" (dong nao tu duyet / vi sao chua duyet / ai xu ly tiep).
   const dongKq = notifyQueue.map((i) => ({ id: i.donHangId, ten: i.tenLkNoiDung, trang_thai: i.trangThai, ly_do: i.lyDo ?? null }));
-  return c.json({ id: phieuDatId, kh_le: khLe ? { ma: khLe.ma, sdt: khLe.sdt, moi: khLe.moi } : null, ket_qua: demTrangThai, dong: dongKq }, 201);
+  // Phieu xuat kho cac don vua tao da vao + quy du con lai (chot 2026-11-10, "Sau khi tạo đơn hàng thành công => ... tạo thành yy phiếu đặt (liệt kê) ...
+  // phiếu PMH-xxx (3 đơn chờ hàng) đang chờ chuyển tiền ... PMH-yyy (3 đơn (1.000.000) đã tự thanh toán từ quỹ dư) - cuối cùng ghi quỹ dư còn 0 đồng").
+  // Doc SAU khi tu gom + tinh lai tien (bundleAutoApprovedIntoPxk / taiTinhPxkMoCuaKtv o tren) -> dung trang thai that.
+  const idsMoi = dongKq.map((d) => d.id);
+  const { results: donPhieu } = await c.env.DB.prepare(
+    `SELECT d.id, (SELECT pd.phieu_xuat_kho_id FROM phieu_xuat_kho_dong pd JOIN phieu_xuat_kho p ON p.id = pd.phieu_xuat_kho_id
+        WHERE pd.dat_don_hang_id = d.id AND p.trang_thai_hien_tai <> 'Ke toan huy' LIMIT 1) AS pxk
+     FROM dat_don_hang d WHERE d.id IN (SELECT value FROM json_each(?))`,
+  ).bind(JSON.stringify(idsMoi)).all<{ id: string; pxk: string | null }>();
+  const pxkCuaDon = new Map(donPhieu.map((r) => [r.id, r.pxk]));
+  const pxkIds = [...new Set(donPhieu.map((r) => r.pxk).filter((x): x is string => !!x))];
+  const { results: phieuKq } = pxkIds.length
+    ? await c.env.DB.prepare(
+        `SELECT p.id, p.trang_thai_hien_tai AS trang_thai, p.trang_thai_chuyen_tien, p.so_tien_can_chuyen, COALESCE(p.da_thanh_toan, 0) AS da_thanh_toan,
+           COALESCE(p.cho_hang, 0) AS cho_hang, COALESCE(p.quy_kh, 0) AS quy_kh, p.doi_tac_ma,
+           (SELECT COUNT(*) FROM phieu_xuat_kho_dong x WHERE x.phieu_xuat_kho_id = p.id) AS so_don,
+           (SELECT COALESCE(SUM(ABS(g.so_tien)), 0) FROM quy_ktv_giao_dich g WHERE g.phieu_xuat_kho_id = p.id AND g.loai = 'tra_phieu')
+             - (SELECT COALESCE(SUM(ABS(g.so_tien)), 0) FROM quy_ktv_giao_dich g WHERE g.phieu_xuat_kho_id = p.id AND g.loai = 'hoan_phieu') AS tra_tu_quy,
+           (SELECT COUNT(*) FROM khoan_chuyen_tien k WHERE k.phieu_xuat_kho_id = p.id AND k.trang_thai = 'Da duyet') AS so_khoan_duyet
+         FROM phieu_xuat_kho p WHERE p.id IN (SELECT value FROM json_each(?)) ORDER BY p.id`,
+      ).bind(JSON.stringify(pxkIds)).all()
+    : { results: [] as unknown[] };
+  const coQuyKh = (phieuKq as { quy_kh: number }[]).some((p) => p.quy_kh === 1);
+  const quyDu = {
+    ktv: await soDuQuy(c.env.DB, khoaQuy(nguoiNhanHang, 0)),
+    kh: coQuyKh ? await soDuQuy(c.env.DB, khoaQuy(nguoiNhanHang, 1)) : null,
+  };
+  return c.json({
+    id: phieuDatId, kh_le: khLe ? { ma: khLe.ma, sdt: khLe.sdt, moi: khLe.moi } : null, ket_qua: demTrangThai,
+    dong: dongKq.map((d) => ({ ...d, pxk: pxkCuaDon.get(d.id) ?? null })), phieu: phieuKq, quy_du: quyDu, nguoi_nhan_hang: nguoiNhanHang,
+  }, 201);
 });
 
 // Import Excel tao hang loat don mua linh kien (tieu chi UX #4, them 2026-08-15) - CHOT voi chu he
