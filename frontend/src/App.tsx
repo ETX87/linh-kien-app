@@ -23,6 +23,7 @@ import { DanhSachKtvModule } from "./modules/DanhSachKtvModule";
 import { QuyChuyenTienModule } from "./modules/QuyChuyenTienModule";
 import { HoiDapModule } from "./modules/HoiDapModule";
 import { BaoCaoTocDoXuLyModule } from "./modules/BaoCaoTocDoXuLyModule";
+import { LuongHeThongModule } from "./modules/LuongHeThongModule";
 import { NotificationBell } from "./modules/datMuaLinhKien/NotificationBell";
 import { SettingsModule } from "./modules/SettingsModule";
 import { UsersModule } from "./modules/UsersModule";
@@ -180,6 +181,11 @@ function MainApp({
   // routes/baoCaoTocDoXuLy.ts (chan KTV/Ve tinh).
   if (role !== "Admin" && !user.la_ktv_dvbh && !user.la_ve_tinh) {
     allowedModules = [...new Set([...allowedModules, "bao-cao-toc-do"])];
+  }
+  // "Luồng & logic hệ thống" (2026-11-11, v1.471): so do luong nghiep vu, noi dung tinh - cung tap nhan vien van phong nhu tren
+  // (KTV / Ve tinh chua mo). Admin co qua ROLE_MODULES.
+  if (role !== "Admin" && !user.la_ktv_dvbh && !user.la_ve_tinh) {
+    allowedModules = [...new Set([...allowedModules, "luong-he-thong"])];
   }
 
   // "Quỹ & chuyển tiền" (2026-09-29) - khop phamViXem() o backend routes/quyKtv.ts: Ke toan/TN xem tat ca, KTV/Ve
@@ -540,6 +546,7 @@ function MainApp({
           {active === "quy-chuyen-tien" && <QuyChuyenTienModule moPhieuHoanTien={moHoanTien} moNopTien={moNopTien} />}
           {active === "hoi-dap" && <HoiDapModule />}
           {active === "bao-cao-toc-do" && <BaoCaoTocDoXuLyModule />}
+          {active === "luong-he-thong" && <LuongHeThongModule />}
           {active === "settings" && <SettingsModule />}
           {active === "users" && <UsersModule pendingKtvSearch={pendingKtvSearch} />}
         </main>

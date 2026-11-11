@@ -426,6 +426,14 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   `quan_ly_danh_muc_lk` — logic này lặp lại (không sinh tự động) ở CẢ `App.tsx`, phải đồng bộ tay khi
   đổi 1 bên, giống quy ước `navConfig.ts` ↔ `moduleAccess.ts` của hệ gốc.
 
+- **Mục "Luồng & logic hệ thống"** (2026-11-11, v1.472 — "Thêm mục logic thể hiện toàn bộ luồng chức năng, logic chạy app 1 cách đẹp đẽ đầy đủ"):
+  menu Sidebar key `luong-he-thong` (nhóm "Hệ thống", icon `flow`) = `modules/LuongHeThongModule.tsx`. Quyền: mọi nhân viên văn phòng + Admin
+  (`App.tsx`, cùng điều kiện "Báo cáo tốc độ xử lý" — KTV / Vệ tinh CHƯA mở). Nội dung TĨNH ở `modules/luongHeThong/noiDung.ts` (không API):
+  tab Tổng quan / Đặt hàng & tự duyệt / Thiếu hàng / Phiếu xuất & tiền / Hàng trả / Giá, công nợ & đặc biệt / Vai trò & quyền / Kết nối hệ khác;
+  mỗi luồng = luồng ngang `LuongNgang.tsx` (màu theo loại mốc: bắt đầu / tự động / chờ người / hoàn tất / hủy), bấm mốc xem ai xử lý, điều kiện,
+  bước kế tiếp, hệ thống tự làm; "▾ Xem chi tiết" mở mọi bước; ô tìm trên máy nhảy tới đúng mốc. **Đổi luồng / trạng thái / quy tắc ở backend
+  thì sửa câu tương ứng trong `noiDung.ts`** (không tự khớp).
+
 ### Nguyên tắc giao diện xuyên suốt — BẮT BUỘC (`DESIGN_GUIDELINES.md`)
 
 Mọi thay đổi UI (màn mới, sửa màn cũ, desktop lẫn mobile) PHẢI tuân theo `DESIGN_GUIDELINES.md` ở gốc

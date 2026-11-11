@@ -85,6 +85,7 @@ const tuDien: Record<string, string> = {
   "Admin đang xem/thao tác thử dưới vai trò": "Admin is viewing/testing as role",
   "Biến động": "Change",
   "Biểu đồ xu hướng: {a}": "Trend chart: {a}",
+  "Luồng & logic hệ thống": "System flows & logic",
   "Báo cáo tốc độ xử lý": "Processing speed report",
   "Báo cáo tổng thể": "Overall report",
   "Báo {a}": "Reported {a}",

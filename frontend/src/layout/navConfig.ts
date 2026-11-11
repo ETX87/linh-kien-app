@@ -48,6 +48,8 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Hệ thống",
     items: [
       { key: "bao-cao-toc-do", label: "Báo cáo tốc độ xử lý", icon: "chart" },
+      // So do toan bo luong nghiep vu (2026-11-11, v1.471) - noi dung tinh, moi nhan vien van phong + Admin (App.tsx).
+      { key: "luong-he-thong", label: "Luồng & logic hệ thống", icon: "flow" },
       { key: "settings", label: "Cài đặt", icon: "settings" },
       { key: "users", label: "Quản lý người dùng", icon: "users" },
     ],
@@ -73,6 +75,7 @@ export const MODULE_TITLES: Record<string, string> = {
   "quy-chuyen-tien": "Quỹ & chuyển tiền",
   "hoi-dap": "Hỏi đáp mua hàng",
   "bao-cao-toc-do": "Báo cáo tốc độ xử lý",
+  "luong-he-thong": "Luồng & logic hệ thống",
   settings: "Cài đặt",
   users: "Quản lý người dùng",
 };

@@ -181,4 +181,12 @@ export const Icon = {
       <path d="M4 7l8 4 8-4M12 11v10" />
     </S>
   ),
+  flow: (p: P) => (
+    <S {...p}>
+      <circle cx="5" cy="6" r="2.2" />
+      <circle cx="19" cy="6" r="2.2" />
+      <circle cx="12" cy="18" r="2.2" />
+      <path d="M7.2 6h9.6M17.8 7.9l-4.6 8.2M10.8 16.1 6.2 7.9" />
+    </S>
+  ),
 };
