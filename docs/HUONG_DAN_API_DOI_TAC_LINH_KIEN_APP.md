@@ -1,6 +1,6 @@
 # Hướng dẫn tích hợp API — Hệ thống Mua hàng linh kiện (dành cho đối tác DVBH)
 
-Phiên bản tài liệu: 1.6 — 2026-11-11 · Phiên bản API: **v1**
+Phiên bản tài liệu: 1.7 — 2026-11-11 · Phiên bản API: **v1**
 
 Tài liệu này mô tả các API **chỉ đọc** mà hệ thống Mua hàng linh kiện mở cho đối tác tra cứu:
 lịch sử đơn hàng theo mã ca, tồn kho, lịch sử đặt hàng của từng mã linh kiện, và danh mục linh kiện chi
@@ -12,6 +12,7 @@ Thay đổi 1.3: bổ sung 4.11 thiếu hàng (ticket chờ hàng) và 4.12 tồ
 Thay đổi 1.4: 4.7 nhóm thay thế đã CÓ DỮ LIỆU (trước 2026-10-19 trả `rows: []` vì dữ liệu nằm ngoài hệ thống); mỗi mã thêm `co_trong_danh_muc` + `ghi_chu`.
 Thay đổi 1.5: bổ sung **ID Lada** (`ma_lada`) — trước đây API chỉ trả mã ca / mã YCSC (ID CRM) nên đối tác không nhận được ID Lada. Thêm trường
 `ma_lada` + `ma_yeu_cau_su_co` cho đơn ở 4.1 `case-timeline`, 4.4 `linh-kien/lich-su`, 4.11 `thieu-hang`; thêm mục 4.15 giải thích 2 loại mã.
+Thay đổi 1.7: mục 4.17 thêm trường `email_nguoi_dat` (đặt thay đúng người dùng — chỉ khóa được quản trị viên bật "đặt thay đúng người bấm").
 Thay đổi 1.6: bổ sung mục 4.17 **đặt linh kiện qua API** (`POST /v1/dat-hang`, `POST /v1/dat-hang/kiem-tra`, `GET /v1/dat-hang`,
 `GET /v1/loai-de-xuat`) — API GHI đầu tiên; chỉ dùng được với khóa đã được quản trị viên gán "Tài khoản đặt hàng".
 Bổ sung trường (không đổi gì sẵn có), tương thích ngược.
@@ -739,6 +740,7 @@ Body JSON (UTF-8):
 
 | Trường | Bắt buộc | Ý nghĩa |
 |---|---|---|
+| `email_nguoi_dat` | Không | Chỉ khóa được bật **"đặt thay đúng người bấm"**: đơn ghi là do chính tài khoản này đặt (theo quyền của tài khoản; phải có trên app, đã duyệt, không khoá). Bỏ trống = tài khoản đặt hàng gán cố định. Khóa chưa bật mà gửi → 403 `KEY_KHONG_DUOC_DAT_THAY_NGUOI_DUNG`; tài khoản không hợp lệ → 403 `TAI_KHOAN_DAT_HANG_KHONG_TON_TAI` / `_BI_KHOA` / `_CHUA_DUYET`. Áp dụng cả `/kiem-tra`. |
 | `ma_yeu_cau` | Có (≤ 48 ký tự) | Mã đơn phía đối tác, **chống tạo trùng**: gửi lại cùng mã → trả phiếu đã tạo (`200`, `trung_lap: true`), không tạo thêm. Gặp lỗi mạng cứ gửi lại cùng mã. |
 | `email_nhan_hang` / `ma_ktv` / `ma_misa` | Không | Người nhận hàng (ưu tiên theo thứ tự). Bỏ trống cả 3 = tài khoản đặt hàng tự nhận. Không tìm thấy → 400 `KHONG_TIM_THAY_NGUOI_NHAN`. |
 | `kh_le_sdt` | Không | Chỉ khi người nhận là tài khoản nhóm KH lẻ — SĐT khách. |

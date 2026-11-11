@@ -15,6 +15,8 @@ import { deriveLoaiDon } from "../lib/tuDongDuyet";
 
 interface DatHangApiBody {
   ma_yeu_cau?: unknown;
+  // v1.471 (migration 0115): key bat dat_thay_nguoi_dung -> don ghi la do tai khoan nay dat (vd DVBH gui email GS bam "Đặt lõi").
+  email_nguoi_dat?: unknown;
   ma_ktv?: unknown;
   ma_misa?: unknown;
   email_nhan_hang?: unknown;
@@ -34,11 +36,17 @@ const chuoi = (v: unknown, max = 500): string | undefined => {
 const SO_DONG_TOI_DA = 100;
 
 // Gan tai khoan dat hang vao context (nhu loadUser) -> moi kiem tra quyen trong taoPhieuDat doc c.get("user") nhu request that.
-async function ganTaiKhoanDatHang(c: Ctx): Promise<Response | null> {
+// email_nguoi_dat (v1.471): CHI key bat dat_thay_nguoi_dung moi duoc gui - don ghi la do chinh tai khoan do dat (quyen cua tai khoan do);
+// key khong bat co ma van gui -> 403 (khong am tham dung email_dat_hang). Bo trong = email_dat_hang co dinh nhu v1.470.
+async function ganTaiKhoanDatHang(c: Ctx, emailNguoiDat?: string): Promise<Response | null> {
   const key = c.get("partnerKey");
-  const row = await c.env.DB.prepare("SELECT email_dat_hang FROM partner_api_keys WHERE id = ?").bind(key.id).first<{ email_dat_hang: string | null }>();
-  if (!row?.email_dat_hang) return c.json({ error: "KEY_CHUA_DUOC_CAP_QUYEN_DAT_HANG" }, 403);
-  const user = await taiAppUserTheoEmail(c.env.DB, row.email_dat_hang);
+  const row = await c.env.DB.prepare("SELECT email_dat_hang, dat_thay_nguoi_dung FROM partner_api_keys WHERE id = ?")
+    .bind(key.id)
+    .first<{ email_dat_hang: string | null; dat_thay_nguoi_dung: number }>();
+  if (emailNguoiDat && !row?.dat_thay_nguoi_dung) return c.json({ error: "KEY_KHONG_DUOC_DAT_THAY_NGUOI_DUNG" }, 403);
+  const email = emailNguoiDat ?? row?.email_dat_hang;
+  if (!email) return c.json({ error: "KEY_CHUA_DUOC_CAP_QUYEN_DAT_HANG" }, 403);
+  const user = await taiAppUserTheoEmail(c.env.DB, email);
   if ("error" in user) return c.json({ error: user.error }, 403);
   await c.env.DB.prepare("PRAGMA foreign_keys = ON").run();
   c.set("user", user);
@@ -117,9 +125,9 @@ export function ganRouteDatHang(partnerApi: Hono<{ Bindings: Env }>) {
   // POST /v1/dat-hang/kiem-tra - CUNG body voi /v1/dat-hang (ma_yeu_cau khong bat buoc), KHONG ghi gi: ket qua du kien tung dong
   // (tu duyet / cho hang / cho thanh toan / cho GS / cho TBP / bi chan + ly do) - y het form tao don hoi truoc.
   partnerApi.post("/v1/dat-hang/kiem-tra", async (c) => {
-    const loi = await ganTaiKhoanDatHang(c);
-    if (loi) return loi;
     const b = await c.req.json<DatHangApiBody>().catch(() => ({}) as DatHangApiBody);
+    const loi = await ganTaiKhoanDatHang(c, chuoi(b.email_nguoi_dat, 200)?.toLowerCase());
+    if (loi) return loi;
     const kq = await chuyenBody(c, b, false);
     if ("error" in kq) return c.json({ error: kq.error, ...(kq.extra ?? {}) }, kq.status);
     return kiemTraPhieuDat(c, kq.body);
@@ -128,9 +136,9 @@ export function ganRouteDatHang(partnerApi: Hono<{ Bindings: Env }>) {
   // POST /v1/dat-hang - tao 1 phieu dat (>= 1 dong). 201 = da tao (id phieu, dong[] {id, trang_thai, ly_do, pxk}, phieu[], quy_du);
   // 200 + trung_lap = ma_yeu_cau da dung truoc do; 4xx = loi, khong tao gi.
   partnerApi.post("/v1/dat-hang", async (c) => {
-    const loi = await ganTaiKhoanDatHang(c);
-    if (loi) return loi;
     const b = await c.req.json<DatHangApiBody>().catch(() => ({}) as DatHangApiBody);
+    const loi = await ganTaiKhoanDatHang(c, chuoi(b.email_nguoi_dat, 200)?.toLowerCase());
+    if (loi) return loi;
     const kq = await chuyenBody(c, b, true);
     if ("error" in kq) return c.json({ error: kq.error, ...(kq.extra ?? {}) }, kq.status);
     return taoPhieuDat(c, kq.body, { partnerKeyId: c.get("partnerKey").id });

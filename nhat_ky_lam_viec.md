@@ -47,3 +47,12 @@ cho người dùng thật.
 - Hệ DVBH (menu "QL NSKX") gửi danh sách mã ca NSKX (+ cặp ID Lada) sang, nhận lại đơn loại "HỖ TRỢ NGOÀI BẢO HÀNH TG12…" còn hiệu lực
   (bỏ đơn huỷ/từ chối) để biết ca nào đã đặt lõi lọc. 3 nhánh khớp đều qua index (dat_don_case, ma_yeu_cau_su_co, ma_lada). Tài liệu §4.16.
 
+## 2026-11-11 — API đặt hàng: đặt thay đúng người bấm (v1.473, migration 0115)
+
+- Hệ DVBH (QL NSKX) đặt lõi lọc "HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX" qua `POST /v1/dat-hang`; chủ hệ thống chốt người đặt = tài khoản người bấm bên DVBH.
+- Thêm `partner_api_keys.dat_thay_nguoi_dung` + trường body `email_nguoi_dat` (cả `/kiem-tra`); Admin bật ở popup "Tài khoản đặt hàng" (Cài đặt › API đối tác).
+  Key chưa bật mà gửi → 403 `KEY_KHONG_DUOC_DAT_THAY_NGUOI_DUNG`. Quyền vẫn do `taoPhieuDat()` kiểm (GS/TN/Admin đặt hộ được).
+- Thử local (DVBH → linh-kien-app): 1 ca 2 dòng + 20 ca 40 dòng (2 phiếu 30 + 10) đúng người tạo / người nhận / mã YCSC / partner_key_id;
+  gửi lại cùng `ma_yeu_cau` → `trung_lap`; key tắt cờ → 403; email không có → 403.
+- **Việc của Admin sau deploy**: bật "đặt thay đúng người bấm" cho khóa API mà DVBH đang dùng.
+

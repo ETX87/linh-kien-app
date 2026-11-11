@@ -1187,7 +1187,7 @@ settingsDatMua.patch("/app-settings", adminOnly, async (c) => {
 
 settingsDatMua.get("/partner-api-keys", adminOnly, async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT id, ten_he_thong, bat_tat, ghi_chu, tao_luc, lan_dung_cuoi, email_dat_hang FROM partner_api_keys ORDER BY tao_luc DESC",
+    "SELECT id, ten_he_thong, bat_tat, ghi_chu, tao_luc, lan_dung_cuoi, email_dat_hang, dat_thay_nguoi_dung FROM partner_api_keys ORDER BY tao_luc DESC",
   ).all();
   return c.json({ rows: results });
 });
@@ -1211,8 +1211,12 @@ settingsDatMua.post("/partner-api-keys", adminOnly, async (c) => {
 
 settingsDatMua.patch("/partner-api-keys/:id", adminOnly, async (c) => {
   const id = Number(c.req.param("id"));
-  const body = await c.req.json<{ bat_tat?: boolean; email_dat_hang?: string | null }>();
-  if (body.bat_tat === undefined && body.email_dat_hang === undefined) return c.json({ error: "INVALID_BODY" }, 400);
+  const body = await c.req.json<{ bat_tat?: boolean; email_dat_hang?: string | null; dat_thay_nguoi_dung?: boolean }>();
+  if (body.bat_tat === undefined && body.email_dat_hang === undefined && body.dat_thay_nguoi_dung === undefined) return c.json({ error: "INVALID_BODY" }, 400);
+  // Dat thay dung nguoi bam (v1.471, migration 0115) - he doi tac gui email_nguoi_dat.
+  if (body.dat_thay_nguoi_dung !== undefined) {
+    await c.env.DB.prepare("UPDATE partner_api_keys SET dat_thay_nguoi_dung = ? WHERE id = ?").bind(body.dat_thay_nguoi_dung ? 1 : 0, id).run();
+  }
   if (body.bat_tat !== undefined) {
     await c.env.DB.prepare("UPDATE partner_api_keys SET bat_tat = ? WHERE id = ?").bind(body.bat_tat ? 1 : 0, id).run();
   }

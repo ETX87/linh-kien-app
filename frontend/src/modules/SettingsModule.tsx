@@ -1050,6 +1050,7 @@ interface PartnerApiKeyRow {
   tao_luc: string;
   lan_dung_cuoi: string | null;
   email_dat_hang: string | null;
+  dat_thay_nguoi_dung: number;
 }
 
 // "API đối tác" (them 2026-09-05, phan hoi "xây dựng cơ chế sẵn sàng cho các hệ thống gọi API tra
@@ -1087,9 +1088,10 @@ function PartnerApiTab() {
 
   // Tai khoan dat hang thay (v1.470) - key co tai khoan nay moi goi duoc POST /api/partner/v1/dat-hang; don tao voi quyen cua tai khoan do.
   const dir = usePersonDirectory();
-  const [ganTk, setGanTk] = useState<{ id: number; ten: string; email: string } | null>(null);
+  const [ganTk, setGanTk] = useState<{ id: number; ten: string; email: string; datThay: boolean } | null>(null);
   const luuTk = useMutation({
-    mutationFn: (v: { id: number; email: string }) => api.patch(`/settings/partner-api-keys/${v.id}`, { email_dat_hang: v.email || null }),
+    mutationFn: (v: { id: number; email: string; datThay: boolean }) =>
+      api.patch(`/settings/partner-api-keys/${v.id}`, { email_dat_hang: v.email || null, dat_thay_nguoi_dung: v.datThay }),
     onSuccess: async () => {
       addToast("Đã lưu");
       setGanTk(null);
@@ -1140,10 +1142,11 @@ function PartnerApiTab() {
                       <button
                         className="hover:underline text-xs text-[var(--ocean-600)]"
                         title="Đơn tạo qua API dùng quyền của tài khoản này"
-                        onClick={() => setGanTk({ id: r.id, ten: r.ten_he_thong, email: r.email_dat_hang ?? "" })}
+                        onClick={() => setGanTk({ id: r.id, ten: r.ten_he_thong, email: r.email_dat_hang ?? "", datThay: !!r.dat_thay_nguoi_dung })}
                       >
-                        {r.email_dat_hang ? formatPersonDisplay(r.email_dat_hang, dir) : "— Chỉ tra cứu (gán…)"}
+                        {r.email_dat_hang ? formatPersonDisplay(r.email_dat_hang, dir) : r.dat_thay_nguoi_dung ? "— Không cố định" : "— Chỉ tra cứu (gán…)"}
                       </button>
+                      {!!r.dat_thay_nguoi_dung && <div className="text-[11px] text-[var(--ink-500)]">+ đặt thay đúng người bấm</div>}
                     </td>
                     <td className="hidden sm:table-cell px-3 py-2">{fmtDateTime(r.tao_luc)}</td>
                     <td className="hidden sm:table-cell px-3 py-2">{r.lan_dung_cuoi ? fmtDateTime(r.lan_dung_cuoi) : "— (chưa từng)"}</td>
@@ -1202,9 +1205,16 @@ function PartnerApiTab() {
               sát / Admin đặt hộ được mọi KTV.
             </div>
             <Select value={ganTk.email} onChange={(v) => setGanTk({ ...ganTk, email: v })} options={tkOptions} className="w-full" />
+            <label className="flex items-start gap-2 text-xs leading-relaxed">
+              <input type="checkbox" className="mt-0.5" checked={ganTk.datThay} onChange={(e) => setGanTk({ ...ganTk, datThay: e.target.checked })} />
+              <span>
+                Cho hệ thống đối tác <b>đặt thay đúng người bấm</b> (gửi <span className="font-mono">email_nguoi_dat</span>): đơn ghi là do chính tài khoản đó đặt, theo
+                quyền của tài khoản đó. Chỉ bật cho hệ thống nội bộ đã tự xác thực người dùng (vd DVBH đặt lõi lọc NSKX).
+              </span>
+            </label>
             <div className="flex justify-end gap-2 pt-2">
               <Btn variant="ghost" size="sm" onClick={() => setGanTk(null)}>Huỷ</Btn>
-              <Btn size="sm" onClick={() => luuTk.mutate({ id: ganTk.id, email: ganTk.email })} loading={luuTk.isPending} disabled={luuTk.isPending}>
+              <Btn size="sm" onClick={() => luuTk.mutate({ id: ganTk.id, email: ganTk.email, datThay: ganTk.datThay })} loading={luuTk.isPending} disabled={luuTk.isPending}>
                 Lưu
               </Btn>
             </div>
