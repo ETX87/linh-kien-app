@@ -41,3 +41,9 @@ Google OAuth Client thật (Drive dùng chung, không cần Service Account riê
 `/api/partner/case-lookup` bên hệ gốc (đã viết code, CHƯA deploy), tạo API key đối tác, copy dữ liệu
 tham chiếu 1 lần, deploy Worker lần đầu, đăng nhập bằng `BOOTSTRAP_ADMIN_EMAIL` và khai báo vai trò
 cho người dùng thật.
+
+## 2026-11-11 — API `POST /api/partner/v1/don-loi-loc` (v1.469)
+
+- Hệ DVBH (menu "QL NSKX") gửi danh sách mã ca NSKX (+ cặp ID Lada) sang, nhận lại đơn loại "HỖ TRỢ NGOÀI BẢO HÀNH TG12…" còn hiệu lực
+  (bỏ đơn huỷ/từ chối) để biết ca nào đã đặt lõi lọc. 3 nhánh khớp đều qua index (dat_don_case, ma_yeu_cau_su_co, ma_lada). Tài liệu §4.16.
+

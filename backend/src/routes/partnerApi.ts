@@ -439,4 +439,45 @@ partnerApi.get("/v1/ton-kho-kha-dung", async (c) => {
   return c.json({ phien_ban_ton_kho: moc, rows: results });
 });
 
+// POST /api/partner/v1/don-loi-loc {case_ids: string[]} (2026-11-11, he DVBH menu "QL NSKX") - voi moi ca gui sang, tra cac don dat
+// linh kien loai de xuat "HỖ TRỢ NGOÀI BẢO HÀNH TG12…" (KH tra gop NSKX/NPP - don dat loi loc) CON HIEU LUC (bo don 'TN tu choi' /
+// 'Tu choi' / 'Da huy'). Ca noi voi don qua dat_don_case (nhieu ca/don) HOAC dat_don_hang.ma_yeu_cau_su_co (cu) - 2 index san co.
+// Don chi khai ID Lada (khong co ma ca) van khop qua "lada": [[ma_lada, case_id], ...] (DVBH lay tu case_lada) - index idx_ddh_ma_lada.
+// Toi da 1000 ca/lan, 1 bind JSON moi nhanh. Ca khong co don nao van tra ve (don: []) de ben goi danh dau "chua len don".
+partnerApi.post("/v1/don-loi-loc", async (c) => {
+  const body = await c.req.json<{ case_ids?: unknown; lada?: unknown }>().catch(() => ({}) as { case_ids?: unknown; lada?: unknown });
+  const ids = Array.isArray(body.case_ids) ? [...new Set(body.case_ids.map((x) => String(x ?? "").trim()).filter(Boolean))] : [];
+  if (!ids.length) return c.json({ error: "MISSING_CASE_IDS" }, 400);
+  if (ids.length > 1000) return c.json({ error: "TOO_MANY_CASE_IDS", max: 1000 }, 400);
+  const idSet = new Set(ids);
+  const lada = (Array.isArray(body.lada) ? body.lada : [])
+    .filter((p): p is unknown[] => Array.isArray(p) && p.length >= 2)
+    .map((p) => [String(p[0] ?? "").trim().toUpperCase(), String(p[1] ?? "").trim()])
+    .filter(([ma, id]) => ma && idSet.has(id))
+    .slice(0, 5000);
+  const json = JSON.stringify(ids);
+  const { results } = await c.env.DB.prepare(
+    `WITH lk AS (
+       SELECT dc.case_id, dc.dat_don_hang_id AS don_id FROM dat_don_case dc WHERE dc.case_id IN (SELECT value FROM json_each(?))
+       UNION
+       SELECT d0.ma_yeu_cau_su_co, d0.id FROM dat_don_hang d0 WHERE d0.ma_yeu_cau_su_co IN (SELECT value FROM json_each(?))
+       UNION
+       SELECT json_extract(j.value, '$[1]'), d1.id FROM json_each(?) j JOIN dat_don_hang d1 ON d1.ma_lada = json_extract(j.value, '$[0]')
+     )
+     SELECT lk.case_id, d.id AS don_id, d.ma_lk, COALESCE(l.ten_linh_kien, d.ten_lk_snapshot) AS ten_lk, d.loai_de_xuat,
+            d.so_luong_de_xuat, d.trang_thai_hien_tai, d.ngay_tao
+     FROM lk JOIN dat_don_hang d ON d.id = lk.don_id
+     LEFT JOIN linh_kien l ON l.ma_linh_kien = d.ma_lk
+     WHERE instr(COALESCE(d.loai_de_xuat, ''), 'HỖ TRỢ NGOÀI BẢO HÀNH TG12') > 0
+       AND COALESCE(d.trang_thai_hien_tai, '') NOT IN ('TN tu choi', 'Tu choi', 'Da huy')
+     ORDER BY lk.case_id, d.ngay_tao`,
+  ).bind(json, json, JSON.stringify(lada)).all<{ case_id: string; don_id: string; ma_lk: string; ten_lk: string | null; loai_de_xuat: string; so_luong_de_xuat: number; trang_thai_hien_tai: string | null; ngay_tao: string }>();
+  const theoCa = new Map<string, unknown[]>(ids.map((id) => [id, []]));
+  for (const r of results) {
+    const { case_id, ...don } = r;
+    theoCa.get(case_id)?.push(don);
+  }
+  return c.json({ rows: [...theoCa.entries()].map(([case_id, don]) => ({ case_id, don })) });
+});
+
 export default partnerApi;

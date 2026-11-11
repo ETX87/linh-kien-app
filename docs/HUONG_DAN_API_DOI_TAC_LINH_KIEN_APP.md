@@ -700,6 +700,20 @@ Lưu ý khi dùng:
 
 ---
 
+### 4.16. Đơn lõi lọc KH trả góp theo ca — `POST /v1/don-loi-loc`
+
+Dùng cho hệ DVBH (menu "QL NSKX", đồng bộ thủ công). Body JSON:
+
+```json
+{ "case_ids": ["SC261003476", "SC261003410"], "lada": [["LD12345", "SC261003410"]] }
+```
+
+- `case_ids` (bắt buộc, ≤ 1000) — mã ca cần kiểm tra. `lada` (tuỳ chọn) — các cặp `[ID Lada, mã ca]` để khớp cả đơn chỉ khai ID Lada.
+- Trả `{ rows: [{ case_id, don: [{ don_id, ma_lk, ten_lk, loai_de_xuat, so_luong_de_xuat, trang_thai_hien_tai, ngay_tao }] }] }` — mọi
+  mã ca gửi lên đều có 1 dòng (`don: []` = chưa có đơn).
+- Chỉ tính đơn loại đề xuất chứa "HỖ TRỢ NGOÀI BẢO HÀNH TG12" (TG12-NSKX / TG12-NPP), **bỏ đơn `TN tu choi` / `Tu choi` / `Da huy`**.
+  Ca khớp qua `dat_don_case`, `ma_yeu_cau_su_co` hoặc `ma_lada`.
+
 ## 5. Bảo mật & sử dụng dữ liệu
 
 - Kết quả có **email và tên** KTV / nhân viên xử lý. Chỉ dùng cho nghiệp vụ dịch vụ bảo hành, không chia sẻ cho
