@@ -7,6 +7,7 @@ import { dsAnhLk } from "../lib/anhLinhKien";
 import { docCongNoTongHop, SL_HO_TRO_0D_SQL } from "../lib/congNoKtv";
 import { donChoHangDuTonKho, getMocTonKhoCongTy } from "../lib/tonKhoCongTy";
 import { ktvChinhCuaEmailSql } from "../lib/ktvChinh";
+import { ganRouteDatHang } from "./partnerDatHang";
 
 // API tra cuu cho CAC HE THONG DOI TAC ben ngoai (khac hoan toan cac router khac trong app - khong
 // dung verifySessionMiddleware/cookie, xac thuc rieng qua header "X-API-Key", xem
@@ -479,5 +480,8 @@ partnerApi.post("/v1/don-loi-loc", async (c) => {
   }
   return c.json({ rows: [...theoCa.entries()].map(([case_id, don]) => ({ case_id, don })) });
 });
+
+// Dat linh kien qua API (v1.470) - xem routes/partnerDatHang.ts.
+ganRouteDatHang(partnerApi);
 
 export default partnerApi;

@@ -2251,7 +2251,7 @@ datMuaLinhKien.get("/loai-don-counts", async (c) => {
 // khi den TN), nguoc lai "Cho TN duyet" luon (KTV/Tram di thang TN, KHONG qua GS - chot
 // 2026-08-13). Dong loai_don='tra_hang' KHONG nhan log o day - dung tra_hang_log rieng, mac dinh
 // suy ngam "Cho ke toan duyet mem" khi chua co log nao (xem traHang.ts).
-interface PhieuDatBody {
+export interface PhieuDatBody {
   ghi_chu?: string;
   nguoi_nhan_hang?: string;
   // SDT KH le (migration 0074) - CHI khi nguoi nhan la tai khoan nhom KH le; bo trong = cap ma KH tu dong.
@@ -2459,9 +2459,12 @@ function ghiChuKhoiTaoGoc(kq: KetQuaDong, soLuong: number, phieu: KetQuaPhieu): 
 // POST /api/dat-mua-lk/phieu-dat/kiem-tra - CUNG body voi POST /phieu-dat, KHONG ghi gi (chot 2026-10-14): form tao don hoi truoc
 // ket qua tung dong (tu duyet / cho hang / cho thanh toan / cho GS / cho TBP / bi chan + ly do) de canh bao + hoi KTV truoc khi gui.
 // Loi cap phieu (nguoi nhan khong hop le, chua co ma MISA...) tra 200 { loi_phieu } de form hien canh bao, khong nem loi.
-datMuaLinhKien.post("/phieu-dat/kiem-tra", async (c) => {
+datMuaLinhKien.post("/phieu-dat/kiem-tra", async (c) => kiemTraPhieuDat(c, await c.req.json<PhieuDatBody>()));
+
+// Than POST /phieu-dat/kiem-tra - export de API doi tac (routes/partnerApi.ts POST /v1/dat-hang/kiem-tra) dung CHUNG (c.get("user") =
+// tai khoan dat hang gan voi API key).
+export async function kiemTraPhieuDat(c: Context<{ Bindings: Env }>, body: PhieuDatBody): Promise<Response> {
   if (!canCreatePhieuDat(c)) return c.json({ loi_phieu: "FORBIDDEN_ROLE", dong: [] });
-  const body = await c.req.json<PhieuDatBody>();
   const kq = await chuanBiPhieuDat(c, body, false);
   if ("error" in kq) return c.json({ loi_phieu: kq.error, dong: [], ...(kq.extra ?? {}) });
   const ds = kq.danhGia;
@@ -2487,7 +2490,7 @@ datMuaLinhKien.post("/phieu-dat/kiem-tra", async (c) => {
       thay_the: thayThe.get(i) ?? [],
     })),
   });
-});
+}
 
 // GOI Y LK TUONG DUONG CON HANG cho dong thieu hang (chot 2026-11-01, v1.430 - "linh kiện họ đặt thiếu hàng và có mã tương đương đủ hàng,
 // hiện 1 nhắc nhở ... đưa ra các đề xuất cho người dùng chọn"). Chi dong lay ton kho CONG TY (nguon_ton 'kho', khong combo, khong loi) dang
@@ -2543,9 +2546,12 @@ async function goiYThayTheThieuHang(
   return out;
 }
 
-datMuaLinhKien.post("/phieu-dat", async (c) => {
+datMuaLinhKien.post("/phieu-dat", async (c) => taoPhieuDat(c, await c.req.json<PhieuDatBody>()));
+
+// Than POST /phieu-dat - export de API doi tac (routes/partnerApi.ts POST /v1/dat-hang) tao don bang CUNG logic (gia, chiet khau, ton kho,
+// tran cong no, tu duyet, gom phieu, thong bao). opts.partnerKeyId -> ghi phieu_dat.partner_key_id (migration 0114) de doi tac tra cuu lai.
+export async function taoPhieuDat(c: Context<{ Bindings: Env }>, bodyGoc: PhieuDatBody, opts: { partnerKeyId?: number } = {}): Promise<Response> {
   if (!canCreatePhieuDat(c)) return c.json({ error: c.get("user").la_ve_tinh ? "VE_TINH_KHONG_TAO_DON" : "FORBIDDEN_ROLE" }, 403);
-  const bodyGoc = await c.req.json<PhieuDatBody>();
   const user = c.get("user");
   // FIX 2026-09-28 (bug "KTV tao 1 don, he thong hien 5 don giong het"): lan bam truoc da luu thanh cong nhung phan hoi khong ve
   // toi may -> KTV bam lai. Gap lai ma cu -> tra ve phieu da tao, KHONG tao them.
@@ -2575,8 +2581,8 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
   const now = nowVN();
   const phieuDatId = await nextSequentialId(c.env.DB, "phieu_dat", phieuDatPrefix(c), 6);
   const statements = [
-    c.env.DB.prepare("INSERT INTO phieu_dat (id, nguoi_tao, ngay_tao, email_gs, ghi_chu, nguoi_nhan_hang, updated_at, client_request_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(
-      phieuDatId, user.email, now, kq.emailGs, body.ghi_chu?.trim() || null, nguoiNhanHang, now, clientRequestId,
+    c.env.DB.prepare("INSERT INTO phieu_dat (id, nguoi_tao, ngay_tao, email_gs, ghi_chu, nguoi_nhan_hang, updated_at, client_request_id, partner_key_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(
+      phieuDatId, user.email, now, kq.emailGs, body.ghi_chu?.trim() || null, nguoiNhanHang, now, clientRequestId, opts.partnerKeyId ?? null,
     ),
   ];
 
@@ -2724,7 +2730,7 @@ datMuaLinhKien.post("/phieu-dat", async (c) => {
     id: phieuDatId, kh_le: khLe ? { ma: khLe.ma, sdt: khLe.sdt, moi: khLe.moi } : null, ket_qua: demTrangThai,
     dong: dongKq.map((d) => ({ ...d, pxk: pxkCuaDon.get(d.id) ?? null })), phieu: phieuKq, quy_du: quyDu, nguoi_nhan_hang: nguoiNhanHang,
   }, 201);
-});
+}
 
 // Import Excel tao hang loat don mua linh kien (tieu chi UX #4, them 2026-08-15) - CHOT voi chu he
 // thong: cac dong CUNG 1 KTV (cot NGUOI NHAN HANG = ma_ktv, khop ktv_lien_he.ma_ktv) gop thanh 1

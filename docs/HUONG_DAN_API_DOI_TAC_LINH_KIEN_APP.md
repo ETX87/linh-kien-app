@@ -1,6 +1,6 @@
 # Hướng dẫn tích hợp API — Hệ thống Mua hàng linh kiện (dành cho đối tác DVBH)
 
-Phiên bản tài liệu: 1.5 — 2026-11-09 · Phiên bản API: **v1**
+Phiên bản tài liệu: 1.6 — 2026-11-11 · Phiên bản API: **v1**
 
 Tài liệu này mô tả các API **chỉ đọc** mà hệ thống Mua hàng linh kiện mở cho đối tác tra cứu:
 lịch sử đơn hàng theo mã ca, tồn kho, lịch sử đặt hàng của từng mã linh kiện, và danh mục linh kiện chi
@@ -12,6 +12,8 @@ Thay đổi 1.3: bổ sung 4.11 thiếu hàng (ticket chờ hàng) và 4.12 tồ
 Thay đổi 1.4: 4.7 nhóm thay thế đã CÓ DỮ LIỆU (trước 2026-10-19 trả `rows: []` vì dữ liệu nằm ngoài hệ thống); mỗi mã thêm `co_trong_danh_muc` + `ghi_chu`.
 Thay đổi 1.5: bổ sung **ID Lada** (`ma_lada`) — trước đây API chỉ trả mã ca / mã YCSC (ID CRM) nên đối tác không nhận được ID Lada. Thêm trường
 `ma_lada` + `ma_yeu_cau_su_co` cho đơn ở 4.1 `case-timeline`, 4.4 `linh-kien/lich-su`, 4.11 `thieu-hang`; thêm mục 4.15 giải thích 2 loại mã.
+Thay đổi 1.6: bổ sung mục 4.17 **đặt linh kiện qua API** (`POST /v1/dat-hang`, `POST /v1/dat-hang/kiem-tra`, `GET /v1/dat-hang`,
+`GET /v1/loai-de-xuat`) — API GHI đầu tiên; chỉ dùng được với khóa đã được quản trị viên gán "Tài khoản đặt hàng".
 Bổ sung trường (không đổi gì sẵn có), tương thích ngược.
 
 ---
@@ -22,7 +24,7 @@ Bổ sung trường (không đổi gì sẵn có), tương thích ngược.
 |---|---|
 | Địa chỉ gốc (Base URL) | `https://linhkien.dichvu3t.workers.dev/api/partner` |
 | Giao thức | HTTPS (bắt buộc) |
-| Phương thức | Chỉ `GET` |
+| Phương thức | `GET` (tra cứu); `POST` cho 4.16 và 4.17 (đặt hàng) |
 | Định dạng trả về | JSON, UTF-8 |
 | Múi giờ | Giờ Việt Nam (UTC+07:00) |
 | Giới hạn tần suất | 600 yêu cầu / phút / khóa API |
@@ -713,6 +715,71 @@ Dùng cho hệ DVBH (menu "QL NSKX", đồng bộ thủ công). Body JSON:
   mã ca gửi lên đều có 1 dòng (`don: []` = chưa có đơn).
 - Chỉ tính đơn loại đề xuất chứa "HỖ TRỢ NGOÀI BẢO HÀNH TG12" (TG12-NSKX / TG12-NPP), **bỏ đơn `TN tu choi` / `Tu choi` / `Da huy`**.
   Ca khớp qua `dat_don_case`, `ma_yeu_cau_su_co` hoặc `ma_lada`.
+
+### 4.17. Đặt linh kiện qua API — `POST /v1/dat-hang`
+
+**Điều kiện:** khóa API phải được quản trị viên gán **"Tài khoản đặt hàng"** (Cài đặt › API đối tác). Đơn tạo qua API được ghi là
+do tài khoản đó đặt và đi **đúng quy trình như khi tài khoản đó bấm "Tạo đơn" trên app**: giá niêm yết / chiết khấu, kiểm tra tồn kho
+công ty theo khu vực, trần công nợ, tự duyệt, tự gom phiếu xuất kho, thông báo. Quyền theo tài khoản: tài khoản **KTV** chỉ đặt cho
+chính mình; tài khoản **Tác nghiệp / Giám sát / Admin** đặt hộ được mọi KTV. Khóa chưa gán → 403 `KEY_CHUA_DUOC_CAP_QUYEN_DAT_HANG`.
+
+Body JSON (UTF-8):
+
+```json
+{
+  "ma_yeu_cau": "DH-2026-000123",
+  "ma_ktv": "and.mn2",
+  "ghi_chu": "Đơn từ hệ thống X",
+  "don_hang": [
+    { "ma_lk": "LK-DEMO-001", "loai_de_xuat": "MUA HÀNG", "so_luong": 2, "ghi_chu": "…" },
+    { "ma_lk": "3003020204", "loai_de_xuat": "CÔNG NỢ", "so_luong": 1, "chinh_sach": "Trong CSBH", "ma_yeu_cau_su_co": "SC261003476" }
+  ]
+}
+```
+
+| Trường | Bắt buộc | Ý nghĩa |
+|---|---|---|
+| `ma_yeu_cau` | Có (≤ 48 ký tự) | Mã đơn phía đối tác, **chống tạo trùng**: gửi lại cùng mã → trả phiếu đã tạo (`200`, `trung_lap: true`), không tạo thêm. Gặp lỗi mạng cứ gửi lại cùng mã. |
+| `email_nhan_hang` / `ma_ktv` / `ma_misa` | Không | Người nhận hàng (ưu tiên theo thứ tự). Bỏ trống cả 3 = tài khoản đặt hàng tự nhận. Không tìm thấy → 400 `KHONG_TIM_THAY_NGUOI_NHAN`. |
+| `kh_le_sdt` | Không | Chỉ khi người nhận là tài khoản nhóm KH lẻ — SĐT khách. |
+| `don_hang[]` | Có (1–100 dòng) | Mỗi dòng 1 đơn. Mã combo được tách thành từng linh kiện thành phần như trên app. |
+| `don_hang[].ma_lk` | Có | Mã linh kiện (mã đã đổi tự quy về mã chuẩn). |
+| `don_hang[].loai_de_xuat` | Có | Đúng tên trong `GET /v1/loai-de-xuat` (không phân biệt hoa/thường). **Không hỗ trợ loại TRẢ HÀNG** (`TRA_HANG_KHONG_HO_TRO_QUA_API`). |
+| `don_hang[].so_luong` | Có | Số nguyên ≥ 1 (≤ 10.000). |
+| `chinh_sach`, `ma_yeu_cau_su_co`, `ma_lada` | Theo loại | Loại CÔNG NỢ bắt buộc chính sách + mã YCSC hoặc ID Lada; loại "HỖ TRỢ" bắt buộc mã YCSC / ID Lada. |
+| `ghi_chu`, `yeu_cau_hoa_don`, `tt_mail_duyet`, `tt_khach_hang`, `uu_tien` (bool), `doi_tac_ma` | Không | Như các ô cùng tên trên form tạo đơn. |
+
+Kết quả `201`:
+
+```json
+{
+  "id": "TN-000157",
+  "ket_qua": { "Cho thanh toan": 1 },
+  "dong": [{ "id": "DDH-000174", "ten": "\"Board … (x2)\"", "trang_thai": "Cho thanh toan",
+             "ly_do": "Tự động: kho công ty khu vực MN3 còn 0, đặt 2 — thiếu hàng, cần chuyển tiền trước", "pxk": "PMH-000033" }],
+  "phieu": [{ "id": "PMH-000033", "trang_thai": "Dang tao phieu", "trang_thai_chuyen_tien": "Cho KTV chuyen", "so_tien_can_chuyen": 1700000, "…": "…" }],
+  "quy_du": { "ktv": 0, "kh": null },
+  "nguoi_nhan_hang": "ktv@…"
+}
+```
+
+`trang_thai` từng đơn: `TN da duyet` (tự duyệt, đã vào phiếu xuất), `Cho thanh toan` (kho thiếu, KTV chuyển tiền trước), `Cho hang`
+(chờ hàng — Kho xử lý), `Cho GS duyet` (vượt trần công nợ), `Cho TBP xac nhan` (linh kiện đặc thù). Lỗi (không tạo gì): 400 / 403 / 409
+kèm `error` — vd `MA_LK_NOT_FOUND` (+`ma_lk`), `LOAI_DE_XUAT_KHONG_HOP_LE` (+`dong`), `KTV_CHUA_CO_MA_MISA`, `NGUOI_NHAN_HANG_DA_TAT`,
+`FORBIDDEN_ROLE` (tài khoản đặt hàng không được đặt hộ), 409 có `loi[]` khi dòng bị chặn (giá 0, chưa có mã MISA cho đơn công nợ…).
+
+**Kiểm tra trước — `POST /v1/dat-hang/kiem-tra`:** cùng body (không cần `ma_yeu_cau`), **không ghi gì**. Trả `loi_phieu` (lỗi cấp phiếu,
+`null` = ổn) + `dong[]` mỗi dòng `trang_thai` dự kiến, `loi`/`thong_diep`, `ton` (tồn kho), `thay_the` (gợi ý linh kiện tương đương còn hàng).
+
+**Tra cứu — `GET /v1/dat-hang`:** `?id=<mã phiếu>` hoặc `?ma_yeu_cau=<mã>` hoặc `?tu_ngay=YYYY-MM-DD&den_ngay=YYYY-MM-DD` (≤ 31 ngày,
+≤ 500 phiếu). Chỉ trả phiếu do **chính khóa này** tạo. Mỗi phiếu: `id, ma_yeu_cau, ngay_tao, nguoi_nhan_hang, ghi_chu, don[]`; mỗi đơn:
+`id, ma_lk, ten_lk, loai_de_xuat, so_luong_de_xuat, so_luong_thuc_xuat, gia_de_xuat, gia_chot, trang_thai, ma_yeu_cau_su_co, ma_lada,
+pxk_id, pxk_trang_thai, pxk_trang_thai_chuyen_tien, pxk_so_tien_can_chuyen, ma_van_don, thieu_hang_trang_thai, ngay_du_kien_co_hang`.
+Lịch sử xử lý chi tiết theo mã ca: mục 4.1.
+
+**Danh mục loại đề xuất — `GET /v1/loai-de-xuat`:** `rows: [{ ten, nhom, loai_don, dat_qua_api }]`.
+
+Hủy đơn / chuyển tiền chưa có API — thao tác trên app.
 
 ## 5. Bảo mật & sử dụng dữ liệu
 

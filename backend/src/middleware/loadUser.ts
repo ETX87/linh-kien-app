@@ -115,6 +115,16 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
   await next();
 }
 
+// Nap tai khoan "dat hang thay" cua 1 API key doi tac (routes/partnerApi.ts /v1/dat-hang) - cung quy tac chan nhu loadUser (khoa / chua
+// duyet / tu choi) + cung keToanLamThayTn, KHONG xem thu / xem nhu. Tra ma loi thay vi Response de route doi tac tu tra 403.
+export async function taiAppUserTheoEmail(db: D1Database, email: string): Promise<AppUser | { error: string }> {
+  const row = await db.prepare(`SELECT ${USER_COLUMNS} FROM users WHERE email = ?`).bind(email).first<UserRow>();
+  if (!row) return { error: "TAI_KHOAN_DAT_HANG_KHONG_TON_TAI" };
+  if (row.bi_khoa) return { error: "TAI_KHOAN_DAT_HANG_BI_KHOA" };
+  if (row.trang_thai_duyet !== "Da duyet") return { error: "TAI_KHOAN_DAT_HANG_CHUA_DUYET" };
+  return keToanLamThayTn(toAppUser(row));
+}
+
 // KE TOAN LAM THAY TAC NGHIEP (chot 2026-10-15, v1.334 - "sau này sẽ cắt bỏ vai trò của TN trong việc duyệt phiếu => các
 // chức năng của TN đều cho phép KT thao tác thay được"): Ke toan mang them quyen TN o MOI kiem tra quyen (backend canTacNghiep
 // + moi cho doc user.la_tac_nghiep, frontend qua /auth/me) - 1 diem duy nhat thay vi sua tung route. Chi doi user TRONG BO

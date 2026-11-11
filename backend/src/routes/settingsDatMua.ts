@@ -1187,7 +1187,7 @@ settingsDatMua.patch("/app-settings", adminOnly, async (c) => {
 
 settingsDatMua.get("/partner-api-keys", adminOnly, async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT id, ten_he_thong, bat_tat, ghi_chu, tao_luc, lan_dung_cuoi FROM partner_api_keys ORDER BY tao_luc DESC",
+    "SELECT id, ten_he_thong, bat_tat, ghi_chu, tao_luc, lan_dung_cuoi, email_dat_hang FROM partner_api_keys ORDER BY tao_luc DESC",
   ).all();
   return c.json({ rows: results });
 });
@@ -1211,9 +1211,20 @@ settingsDatMua.post("/partner-api-keys", adminOnly, async (c) => {
 
 settingsDatMua.patch("/partner-api-keys/:id", adminOnly, async (c) => {
   const id = Number(c.req.param("id"));
-  const body = await c.req.json<{ bat_tat?: boolean }>();
-  if (body.bat_tat === undefined) return c.json({ error: "INVALID_BODY" }, 400);
-  await c.env.DB.prepare("UPDATE partner_api_keys SET bat_tat = ? WHERE id = ?").bind(body.bat_tat ? 1 : 0, id).run();
+  const body = await c.req.json<{ bat_tat?: boolean; email_dat_hang?: string | null }>();
+  if (body.bat_tat === undefined && body.email_dat_hang === undefined) return c.json({ error: "INVALID_BODY" }, 400);
+  if (body.bat_tat !== undefined) {
+    await c.env.DB.prepare("UPDATE partner_api_keys SET bat_tat = ? WHERE id = ?").bind(body.bat_tat ? 1 : 0, id).run();
+  }
+  // Tai khoan dat hang thay (v1.470, migration 0114 - POST /api/partner/v1/dat-hang): null/"" = key chi tra cuu. Phai la tai khoan da duyet.
+  if (body.email_dat_hang !== undefined) {
+    const email = body.email_dat_hang?.trim().toLowerCase() || null;
+    if (email) {
+      const u = await c.env.DB.prepare("SELECT trang_thai_duyet, bi_khoa FROM users WHERE email = ?").bind(email).first<{ trang_thai_duyet: string; bi_khoa: number }>();
+      if (!u || u.trang_thai_duyet !== "Da duyet" || u.bi_khoa) return c.json({ error: "TAI_KHOAN_DAT_HANG_KHONG_HOP_LE" }, 400);
+    }
+    await c.env.DB.prepare("UPDATE partner_api_keys SET email_dat_hang = ? WHERE id = ?").bind(email, id).run();
+  }
   return c.json({ ok: true });
 });
 

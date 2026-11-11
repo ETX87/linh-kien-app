@@ -1049,6 +1049,7 @@ interface PartnerApiKeyRow {
   ghi_chu: string | null;
   tao_luc: string;
   lan_dung_cuoi: string | null;
+  email_dat_hang: string | null;
 }
 
 // "API đối tác" (them 2026-09-05, phan hoi "xây dựng cơ chế sẵn sàng cho các hệ thống gọi API tra
@@ -1084,10 +1085,27 @@ function PartnerApiTab() {
     },
   });
 
+  // Tai khoan dat hang thay (v1.470) - key co tai khoan nay moi goi duoc POST /api/partner/v1/dat-hang; don tao voi quyen cua tai khoan do.
+  const dir = usePersonDirectory();
+  const [ganTk, setGanTk] = useState<{ id: number; ten: string; email: string } | null>(null);
+  const luuTk = useMutation({
+    mutationFn: (v: { id: number; email: string }) => api.patch(`/settings/partner-api-keys/${v.id}`, { email_dat_hang: v.email || null }),
+    onSuccess: async () => {
+      addToast("Đã lưu");
+      setGanTk(null);
+      await qc.invalidateQueries({ queryKey: ["partner-api-keys"] });
+    },
+    onError: (e) => addToast(e instanceof ApiError && e.code === "TAI_KHOAN_DAT_HANG_KHONG_HOP_LE" ? "Tài khoản chưa duyệt hoặc đã bị khoá." : "Không lưu được, thử lại sau."),
+  });
+  const tkOptions = [
+    { value: "", label: "— Không đặt hàng (chỉ tra cứu) —" },
+    ...[...dir.users.keys()].sort().map((email) => ({ value: email, label: `${formatPersonDisplay(email, dir)} · ${email}` })),
+  ];
+
   return (
     <div className="space-y-3">
       <div className="text-xs text-[var(--ink-500)] flex items-center gap-1.5">
-        Key cho các hệ thống đối tác bên ngoài gọi <span className="font-mono">GET /api/partner/v1/case-timeline?id=&lt;case_id&gt;</span> tra cứu đơn hàng + lịch sử xử lý theo mã yêu cầu sự cố.
+        Key cho các hệ thống đối tác bên ngoài gọi API <span className="font-mono">/api/partner/v1/…</span> (tra cứu đơn hàng, tồn kho, linh kiện; đặt linh kiện khi key được gán "Tài khoản đặt hàng").
         <Tooltip text={`Xác thực qua header "X-API-Key" (không liên quan tài khoản Google/đăng nhập). Mỗi key đại diện 1 hệ thống đối tác - khoá 1 key không ảnh hưởng các key khác, dùng khi 1 hệ thống ngừng hợp tác hoặc nghi lộ key.`} />
       </div>
       <Btn size="sm" onClick={() => setCreating(true)}>+ Tạo key mới</Btn>
@@ -1099,6 +1117,7 @@ function PartnerApiTab() {
                 <th className="px-3 py-2">Hệ thống</th>
                 <th className="hidden sm:table-cell px-3 py-2">Ghi chú</th>
                 <th className="px-3 py-2">Trạng thái</th>
+                <th className="px-3 py-2">Tài khoản đặt hàng</th>
                 <th className="hidden sm:table-cell px-3 py-2">Tạo lúc</th>
                 <th className="hidden sm:table-cell px-3 py-2">Lần dùng cuối</th>
                 <th className="px-3 py-2" />
@@ -1107,7 +1126,7 @@ function PartnerApiTab() {
             <tbody>
               {(data?.rows ?? []).length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có key nào.</td>
+                  <td colSpan={7} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có key nào.</td>
                 </tr>
               ) : (
                 (data?.rows ?? []).map((r) => (
@@ -1116,6 +1135,15 @@ function PartnerApiTab() {
                     <td className="hidden sm:table-cell px-3 py-2 text-[var(--ink-500)]">{r.ghi_chu ?? "—"}</td>
                     <td className="px-3 py-2">
                       <Badge tone={r.bat_tat ? "teal" : "coral"}>{r.bat_tat ? "Đang bật" : "Đã khoá"}</Badge>
+                    </td>
+                    <td className="px-3 py-2">
+                      <button
+                        className="hover:underline text-xs text-[var(--ocean-600)]"
+                        title="Đơn tạo qua API dùng quyền của tài khoản này"
+                        onClick={() => setGanTk({ id: r.id, ten: r.ten_he_thong, email: r.email_dat_hang ?? "" })}
+                      >
+                        {r.email_dat_hang ? formatPersonDisplay(r.email_dat_hang, dir) : "— Chỉ tra cứu (gán…)"}
+                      </button>
                     </td>
                     <td className="hidden sm:table-cell px-3 py-2">{fmtDateTime(r.tao_luc)}</td>
                     <td className="hidden sm:table-cell px-3 py-2">{r.lan_dung_cuoi ? fmtDateTime(r.lan_dung_cuoi) : "— (chưa từng)"}</td>
@@ -1159,6 +1187,25 @@ function PartnerApiTab() {
               <Btn variant="ghost" size="sm" onClick={() => setCreating(false)}>Huỷ</Btn>
               <Btn size="sm" onClick={() => create.mutate()} disabled={!form.ten_he_thong.trim() || create.isPending} loading={create.isPending}>
                 Tạo key
+              </Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {ganTk && (
+        <Modal open onClose={() => setGanTk(null)} title={`Tài khoản đặt hàng cho "${ganTk.ten}"`} width="max-w-lg">
+          <div className="space-y-3 text-sm">
+            <div className="text-xs text-[var(--ink-500)] leading-relaxed">
+              Đơn hệ thống đối tác tạo qua <span className="font-mono">POST /api/partner/v1/dat-hang</span> được ghi là do tài khoản này đặt, đi đúng quy trình
+              như khi tài khoản này bấm "Tạo đơn" (giá, chiết khấu, tồn kho, trần công nợ, tự duyệt). Tài khoản KTV chỉ đặt cho chính mình; Tác nghiệp / Giám
+              sát / Admin đặt hộ được mọi KTV.
+            </div>
+            <Select value={ganTk.email} onChange={(v) => setGanTk({ ...ganTk, email: v })} options={tkOptions} className="w-full" />
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn variant="ghost" size="sm" onClick={() => setGanTk(null)}>Huỷ</Btn>
+              <Btn size="sm" onClick={() => luuTk.mutate({ id: ganTk.id, email: ganTk.email })} loading={luuTk.isPending} disabled={luuTk.isPending}>
+                Lưu
               </Btn>
             </div>
           </div>
