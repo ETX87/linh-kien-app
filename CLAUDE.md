@@ -807,6 +807,11 @@ theo MYC <mã>"; HỖ TRỢ 0 ĐỒNG "<kho> xuất hỗ trợ <trong/ngoài BH 
 duyệt>" (KÊNH MT: "xuất hỗ trợ KINH DOANH KRF") + cột Người nhận hàng = "<Tên MISA> (<TT KH>)"; MYC = Mã YCSC, không có thì Mã Lada.
 Giữ nguyên: HỖ TRỢ CÔNG NỢ, TG12 (gộp dòng), trả hàng, xuất máy (`dienGiaiCoDinh` thắng mọi công thức trên), Chuyển kho.
 
+**Giới hạn 255 ký tự / ô + cột "Mã bổ sung"** (chốt 2026-11-11, v1.471, `lib/misaExport.ts` — "file tải mẫu in MISA bị lỗi giới hạn ký tự 1 ô chỉ 255 ký tự"; "cột mã bổ sung 1/2 chỉ được dùng cho danh sách mã CRM hoặc mã Lada"):
+- "Trường mở rộng 1" (= Mã bổ sung 1 trên MISA) = danh sách mã CRM (Mã YCSC + Mã YCSC bổ sung `dat_don_case`), "Trường mở rộng 2" = danh sách Mã Lada — CHỈ mã, nối 1 dấu cách, bỏ trùng (`dsMa`). TRƯỚC đây cột 2 = TT+Mail duyệt (sai). Chuyển kho (1 cột "Trường mở rộng") = mã CRM rồi mã Lada. TT+Mail duyệt vẫn nằm trong Diễn giải đơn HỖ TRỢ 0 ĐỒNG.
+- `MISA_MAX_KY_TU = 255`: gộp dòng cùng mã (`khoaGop`/`gopLine`) DỪNG khi dòng gộp có ô > 255 ký tự → mở dòng mới cùng mã (không mất mã nào, tổng SL giữ nguyên). 1 đơn lẻ vẫn quá dài (tên LK, TT KH…) → cắt về 255 (cột mã cắt tròn mã, cột chữ "…") + trả `catNgan` [{so_phieu, ma_lk, cot, do_dai}] → toast cảnh báo ở `toastKetQuaMisa` (`PhieuXuatKhoTab.tsx`). Dòng file dựng bằng 1 hàm `taoDong()` (closure trong `buildMisaExportSheets`) — thêm cột text mới thì thêm nhãn vào `NHAN_COT`.
+- Kiểm thử local (D1 riêng): phiếu 31 đơn HỖ TRỢ 0 ĐỒNG cùng mã + 26 đơn MUA HÀNG, cả 3 mẫu — mọi ô ≤ 255, SL 31/31, 26/26, cột mã chỉ chứa mã.
+
 **KTV chưa có Mã MISA không đặt hàng được** (chốt 2026-10-08, v1.306): người nhận hàng CUỐI (sau Vệ tinh → Trạm) là KTV (cờ KTV
 DVBH/Vệ tinh hoặc Gmail gắn mã KTV đang hoạt động) mà không mã đang hoạt động nào của Gmail đó có `ma_misa` → `POST /phieu-dat` trả
 409 `KTV_CHUA_CO_MA_MISA`, import Excel báo lỗi dòng (`nguoiNhanChuaCoMaMisa()` ở `datMuaLinhKien.ts`; mọi loại đơn, cả KTV tự đặt

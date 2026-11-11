@@ -1502,6 +1502,7 @@ const tuDien: Record<string, string> = {
   "☰ Bộ lọc Khu vực/KTV ▾": "☰ Area/technician filter ▾",
   "☰ Đổi tháng ▾": "☰ Change month ▾",
   "⚠ Bạn đã dùng hết {n}/{n} ảnh được tải hôm nay - ảnh tiếp theo sẽ bị chặn tới ngày mai": "⚠ You have used all {n}/{n} image uploads for today - further images will be blocked until tomorrow",
+  "⚠ {a} ô dài quá 255 ký tự đã bị cắt (MISA chỉ nhận 255 ký tự/ô) — kiểm tra lại: {b}{c}": "⚠ {a} cells longer than 255 characters were truncated (MISA accepts at most 255 characters per cell) — please check: {b}{c}",
   "⚠ Bỏ {a} dòng TRỪ CÔNG NỢ khỏi file Chuyển kho (phiếu {b}{c}) — dòng TRỪ CÔNG NỢ trừ kho KTV, tải bằng nút \"MISA Bán hàng\"": "⚠ Skipped {a} TRỪ CÔNG NỢ lines from the Transfer file (note {b}{c}) — TRỪ CÔNG NỢ lines deduct the technician's stock; download them with the \"MISA Sales\" button",
   "⚠ Chưa tra cứu được hệ thống Lada lúc này — vẫn tạo đơn được, hãy chắc chắn mã chính xác.": "⚠ Could not look up the Lada system right now — you can still create the order; make sure the code is correct.",
   "⚠ Chưa xong": "⚠ Incomplete",
