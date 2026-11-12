@@ -98,7 +98,7 @@ const DON_DAT_HANG_HEADER = [
   "ĐVT", "Số lượng", "Đơn giá", "Thành tiền", "Tỷ lệ CK (%)",
   "Tiền chiết khấu", "% thuế GTGT", "% thuế suất KHAC", "Tiền thuế GTGT", "Mã khoản mục chi phí",
   "Mã đơn vị", "Mã đối tượng THCP", "Mã công trình", "Số hợp đồng bán", "Mã thống kê",
-  "Biển kiểm soát", "Trường mở rộng 1", "Trường mở rộng 2",
+  "Biển kiểm soát", "Mã sự vụ", "Mã PD EO",
 ];
 
 const CHUYEN_KHO_HEADER = [

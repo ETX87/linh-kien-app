@@ -278,7 +278,7 @@ type DongXuat = { template: "chuyen_kho"; row: ChuyenKhoRow } | { template: "xua
 export const MISA_MAX_KY_TU = 255;
 const NHAN_COT: Record<string, string> = {
   dienGiai: "Diễn giải", veViecDienGiai: "Về việc/Diễn giải", nguoiNhanHang: "Người nhận hàng", tenKhachHang: "Tên khách hàng",
-  tenHang: "Tên hàng", tenNguoiVanChuyen: "Tên người vận chuyển", truongMoRong1: "Trường mở rộng 1", truongMoRong2: "Trường mở rộng 2",
+  tenHang: "Tên hàng", tenNguoiVanChuyen: "Tên người vận chuyển", truongMoRong1: "Mã sự vụ", truongMoRong2: "Mã PD EO",
   truongMoRong: "Trường mở rộng",
 };
 // Cot chi chua danh sach ma (cach nhau 1 dau cach) - khong cat (v1.474), chi canh bao.
