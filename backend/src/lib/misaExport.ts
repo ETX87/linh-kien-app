@@ -272,8 +272,8 @@ type DongXuat = { template: "chuyen_kho"; row: ChuyenKhoRow } | { template: "xua
 
 // GIOI HAN 255 KY TU / O (chot 2026-11-11, v1.471 - "file tải mẫu in MISA bị lỗi giới hạn ký tự 1 ô chỉ 255 ký tự"): MISA AMIS tu
 // choi import o text dai hon 255 ky tu. Nguon dai thuong gap: gop nhieu don cung ma LK (noi Ma YCSC/Lada, TT KH, TT+Mail duyet vao
-// Dien giai). SUA 2026-11-12 (v1.474 - "bỏ logic tách phiếu khi text dài quá 255 ký tự"): KHONG con tach dong gop; don TG12 dung
-// Dien giai ngan theo ID phieu (dienGiaiTraGop). O chu con > 255 -> cat "…"; o ma (Truong mo rong) GIU DU moi ma, chi canh bao
+// Dien giai). SUA 2026-11-12 (v1.474 - "bỏ logic tách phiếu khi text dài quá 255 ký tự"): KHONG con tach dong gop. O chu con > 255
+// -> cat "…"; o ma (Truong mo rong) GIU DU moi ma, chi canh bao
 // (`catNgan` giu_nguyen) - FE bao de Ke toan kiem tra.
 export const MISA_MAX_KY_TU = 255;
 const NHAN_COT: Record<string, string> = {
@@ -290,13 +290,9 @@ function catNganO(_cot: string, v: string): string {
   return v.slice(0, MISA_MAX_KY_TU - 1) + "…";
 }
 
-// Dien giai don KH tra gop TG12 (chot 2026-11-12, v1.474 - "đối với đơn ghép TG12 thì diễn giải sẽ ghi gắn gọn chung cho toàn bộ đơn
-// xuất trên cùng 1 phiếu của ktv là xuất cho mã phiếu xuất kho ID xxxx trên app đặt linh kiện"): 1 cau ngan theo ID phieu, khong noi
-// TT KH / ma YCSC (ma CRM van gop day du o Truong mo rong). Thang ca cau "xuất máy đổi bảo hành"; dong tra hang van giu cau rieng.
-function dienGiaiTraGop(line: RawLine, maKho: string, tenNguoi: string): string {
-  return [maKho, "xuất", line.loai_de_xuat ?? "", "cho", tenNguoi, "theo phiếu xuất kho", line.pxk_id, "trên app đặt linh kiện"]
-    .filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
-}
+// Dien giai don KH tra gop TG12: v1.474 tung dung 1 cau ngan theo ID phieu ("… theo phiếu xuất kho <ID> trên app đặt linh kiện"); BO
+// 2026-11-12 (v1.485 - chu he thong: "tôi cần sửa lại theo mẫu cũ") -> TG12 quay ve cong thuc chung "<kho> xuất <loại đề xuất> cho
+// <Tên MISA> theo MYC <Mã YCSC>" (+ cau xuat may neu LK "Máy"). Gop nhieu don -> Ma YCSC noi dai -> o > 255 bi cat "…" (khong tach dong).
 
 // "Trường mở rộng 1/2" (Mã bổ sung 1/2 tren MISA) CHI chua danh sach MA (chot 2026-11-11, v1.471 - "cột mã bổ sung 1/2 chỉ được dùng
 // cho danh sách mã CRM hoặc mã Lada"): tach theo dau cach / phay / cham phay, bo trung, noi 1 dau cach.
@@ -428,8 +424,6 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
     const traHang = laDongTraHang(line) && mien ? KHO_NHAN_TRA[mien] : null;
     const dienGiaiCoDinh = traHang
       ? `${traHang.dienGiai} ${tenMisa || line.nguoi_nhan_hang || ""}`.trim()
-      : laKhTraGop(line.loai_de_xuat)
-        ? dienGiaiTraGop(line, kho.ma, tenMisa || line.nguoi_nhan_hang || "")
       : laXuatMayDoiBaoHanh(line)
         ? dienGiaiXuatMay(tenMisa || maMisa || line.nguoi_nhan_hang || "", line)
         : null;
