@@ -5,6 +5,8 @@ import { nowVN } from "../lib/vnTime";
 import { nextSequentialId } from "../lib/idCounter";
 import { THB_MO, docThb, thbGhiBuoc, thbThayDoiSau } from "../lib/thieuHangBh";
 import { apDungCapLk, type CapLkItem } from "../lib/donSuaChuaKho";
+import { uploadPublicImage } from "../lib/googleDrive";
+import { ANH_TOI_DA_BYTE, laAnhThat, loaiAnhHopLe } from "../lib/anhUpload";
 
 // He "Sua chua bao hanh" (Worker suachua) goi vao day qua Service Binding khi Admin BH sua tay "Phan
 // loai" (cot don_vi) cua 1 linh kien dong bo (2026-10-11, yeu cau "phan loai cho phep dong bo nguoc ve
@@ -146,6 +148,30 @@ suachuaPartner.post("/cap-lk", async (c) => {
   const body = await c.req.json<{ items?: CapLkItem[] }>().catch(() => ({}) as { items?: CapLkItem[] });
   if (!Array.isArray(body.items) || body.items.length > 100) return c.json({ error: "INVALID_BODY" }, 400);
   return c.json({ rows: await apDungCapLk(c.env.DB, body.items) });
+});
+
+// ---------- ANH CUA APP SUA CHUA (2026-11-12, v1.481) ----------
+// Yeu cau suachua: "Anh tren toan bo he thong phai luu tren link drive da lien ket, khong cho phep luu tren R2 hoac D1". suachua KHONG
+// co ket noi Drive rieng - gui anh sang day de tai len CHINH tai khoan Google Drive da ket noi o Cai dat (uploadPublicImage, chia se
+// cong khai theo link), D1 suachua chi giu link tra ve. POST /api/suachua-partner/anh?ten=<ten file> - body = binary anh (Content-Type
+// = mime anh), toi da 10MB, kiem tra chu ky file that la anh. Khong tinh han muc anh/ngay (suachua tu gioi han theo nguoi dung).
+suachuaPartner.post("/anh", async (c) => {
+  const mime = loaiAnhHopLe(c.req.header("Content-Type") || "image/jpeg");
+  if (!mime) return c.json({ error: "DINH_DANG_ANH_KHONG_HO_TRO" }, 400);
+  const buf = await c.req.arrayBuffer();
+  if (buf.byteLength === 0) return c.json({ error: "EMPTY_FILE" }, 400);
+  if (buf.byteLength > ANH_TOI_DA_BYTE) return c.json({ error: "ANH_QUA_LON" }, 413);
+  if (!laAnhThat(buf)) return c.json({ error: "DINH_DANG_ANH_KHONG_HO_TRO" }, 400);
+  const ext = mime.split("/")[1] || "jpg";
+  const ten = (c.req.query("ten") || `anh-${crypto.randomUUID()}`).replace(/[^\w.\-]+/g, "_").slice(0, 120);
+  try {
+    const anh = await uploadPublicImage(c.env, c.env.DB, buf, mime, `suachua_${ten}.${ext}`);
+    return c.json({ id: anh.id, url: anh.thumbnailUrl });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.startsWith("GOOGLE_DRIVE_NOT_CONNECTED")) return c.json({ error: "GOOGLE_DRIVE_NOT_CONNECTED" }, 503);
+    return c.json({ error: "UPLOAD_FAILED", message: message.slice(0, 300) }, 502);
+  }
 });
 
 export default suachuaPartner;
