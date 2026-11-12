@@ -59,8 +59,10 @@ export const docBiLoi = (url: string) => docLoi.has(url);
  * 2 = 2026-09-30 v1.249 (bo "30 9 2026" -> 9.202, nhan 3 dong tren, doc lai dong so TO khi lan 1 khong ra so).
  * 3 = 2026-10-30 (luot du phong tieng Anh / psm 11 / anh den trang - CAC_LUOT; bo ngay gio, "o" -> 0, "đ" doc thanh "4",
  *     so thieu 1 dau phan cach co don vi, bo nam 19xx-20xx).
+ * 4 = 2026-11-12 (nhan manh "thanh cong"/"so tien" o dong tren +3, nhan yeu "chuyen tien" chung chung +1 - anh MBBank dang hoi
+ *     thoai doc nham so cua bong bong cu).
  */
-export const PHIEN_BAN_OCR = 3;
+export const PHIEN_BAN_OCR = 4;
 let hang: Promise<unknown> = Promise.resolve();
 
 // Chu CAO hon muc nay (px) Tesseract hay doc sai so (da thu that: "3.200.000" dam 64px -> "2.200.000") - so tien tren app
@@ -218,6 +220,10 @@ const DONG_LOAI = /(so du|balance|\bphi\b|\bfee\b|tai khoan|account|\bstk\b|\bso
 // Nhan thuong dung ngay truoc/cung dong voi so tien chuyen.
 // + "chuyen thanh cong" (2026-09-30: Techcombank ghi "Chuyển thành công" ngay tren dong so tien).
 const NHAN_TIEN = /(so tien|amount|chuyen tien|chuyen khoan thanh cong|chuyen thanh cong|giao dich thanh cong|thanh toan|da chuyen|tong tien)/;
+// Nhan MANH (chac chan la tieu de cua so tien) vs nhan yeu "chuyen tien"/"thanh toan" chung chung (2026-11-12, PHIEN_BAN_OCR 4 - anh MBBank
+// dang hoi thoai: moi bong bong "-181,000 VND" / "NGUYEN ... chuyen tien" nen dong mo ta cua bong bong TRUOC duoc tinh la nhan cho so cua
+// bong bong SAU -> so cu 181.000 thang so 327.000 duoi "Chuyển tiền thành công"). Nhan yeu o dong tren chi +1, nhan manh +3.
+const NHAN_MANH = /(thanh cong|so tien|amount|tong tien|da chuyen)/;
 // Don vi tien dung TRUOC so ("VND 310,000" - Techcombank, 2026-09-30) hoac SAU so ("310.000 VND", "310.000đ"). Truoc so chi
 // nhan "vnd"/"₫" (chu "d" le truoc so de nham). Nhom: 1 dau, 2 don vi truoc, 3 so, 4 don vi sau.
 // (?!\d) sau nhom so: loi nhan "30 9 2026" truoc day thanh "9 202" = 9.202d (2026-09-30, anh Techcombank that); don vi
@@ -262,12 +268,12 @@ export function chonSoTien(lines: DongChu[]): { giaTri: number; dong: number } |
     if (DONG_LOAI.test(t)) return;
     // Nhan "Chuyển thành công"/"Số tiền" o toi da 3 dong phia tren (Techcombank: nhan -> 2 dong ten nguoi nhan -> so tien),
     // dung khi gap dong loai (so du, tai khoan...) - nhan do khong con thuoc so nay.
-    let nhanTruoc = false;
+    let nhanTruoc: 0 | 1 | 2 = 0; // 2 = nhan manh, 1 = nhan yeu
     for (let j = i - 1; j >= Math.max(0, i - 3); j--) {
       const tj = boDau(lines[j].text);
       if (DONG_LOAI.test(tj)) break;
       if (NHAN_TIEN.test(tj)) {
-        nhanTruoc = true;
+        nhanTruoc = NHAN_MANH.test(tj) ? 2 : 1;
         break;
       }
     }
@@ -279,7 +285,8 @@ export function chonSoTien(lines: DongChu[]): { giaTri: number; dong: number } |
       let diem = 0;
       if (donVi) diem += 3;
       if (NHAN_TIEN.test(t)) diem += 3;
-      else if (nhanTruoc) diem += 2;
+      else if (nhanTruoc === 2) diem += 3;
+      else if (nhanTruoc === 1) diem += 1;
       if (dau) diem += 1;
       if (coPhanCach) diem += 1;
       if (giaTri % 1000 === 0) diem += 1;
