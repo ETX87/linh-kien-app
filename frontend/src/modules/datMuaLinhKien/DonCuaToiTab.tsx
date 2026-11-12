@@ -2055,6 +2055,9 @@ export function DonCuaToiTab({
   }, [initialLoaiDonOverride]);
   const effectiveLoaiDon = loaiDonOverride !== undefined ? loaiDonOverride : xemLoaiDon;
   const xemTatCaLoai = effectiveLoaiDon === "all";
+  // Co tu khoa tim -> tim tren MOI loai don (2026-11-12, bug "View khong tim thay DDH-002895" - don CONG NO): khi khong co override,
+  // effectiveLoaiDon = xemLoaiDon luu localStorage (mac dinh "mua", khong con nut nao doi) nen o tim am tham chi tim don Mua.
+  const loaiDonGui = debouncedQ.trim() ? "all" : effectiveLoaiDon;
   const trangThaiOptions = xemTatCaLoai ? TAT_CA_LOAI_TRANG_THAI_OPTIONS : xemLoaiDon === "tra_hang" ? TRA_HANG_TRANG_THAI_OPTIONS : DON_CUA_TOI_TRANG_THAI_OPTIONS;
   const isAdmin = user?.vai_tro === "Admin";
   const canActAsTram = canBulkTram || isAdmin;
@@ -2109,7 +2112,7 @@ export function DonCuaToiTab({
       nguoi_nhan_hang: filterNguoiNhanHang || undefined,
       tu_ngay: filterTuNgay || undefined,
       den_ngay: filterDenNgay || undefined,
-      loai_don: effectiveLoaiDon || undefined,
+      loai_don: loaiDonGui || undefined,
       q: debouncedQ || undefined,
       khu_vuc: khuVucParam || undefined,
     },
@@ -2142,7 +2145,7 @@ export function DonCuaToiTab({
             nguoi_nhan_hang: filterNguoiNhanHang || undefined,
             tu_ngay: filterTuNgay || undefined,
             den_ngay: filterDenNgay || undefined,
-            loai_don: effectiveLoaiDon || undefined,
+            loai_don: loaiDonGui || undefined,
             q: debouncedQ || undefined,
             khu_vuc: khuVucParam || undefined,
             ...locCot.queryParams,
@@ -2157,7 +2160,7 @@ export function DonCuaToiTab({
   }
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["dat-mua-lk-don-hang", filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, effectiveLoaiDon, debouncedQ, khuVucParam, locCot.queryParams, page],
+    queryKey: ["dat-mua-lk-don-hang", filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, loaiDonGui, debouncedQ, khuVucParam, locCot.queryParams, page],
     queryFn: () =>
       api.get<{ rows: DonHangRow[]; page: number; pageSize: number; total: number }>(
         "/dat-mua-lk/don-hang" +
@@ -2167,7 +2170,7 @@ export function DonCuaToiTab({
             nguoi_nhan_hang: filterNguoiNhanHang || undefined,
             tu_ngay: filterTuNgay || undefined,
             den_ngay: filterDenNgay || undefined,
-            loai_don: effectiveLoaiDon || undefined,
+            loai_don: loaiDonGui || undefined,
             q: debouncedQ || undefined,
             khu_vuc: khuVucParam || undefined,
             ...locCot.queryParams,
@@ -2184,13 +2187,13 @@ export function DonCuaToiTab({
   useEffect(() => {
     setPage(1);
     setSelected(new Set());
-  }, [filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, effectiveLoaiDon, debouncedQ, khuVucParam, locCot.queryParams.cf, locCot.queryParams.cs, locCot.queryParams.cd]);
+  }, [filterTrangThai, filterNguoiTao, filterNguoiNhanHang, filterTuNgay, filterDenNgay, loaiDonGui, debouncedQ, khuVucParam, locCot.queryParams.cf, locCot.queryParams.cs, locCot.queryParams.cd]);
 
   // Dropdown "Người tạo" (sua 2026-09-29: truoc day chi lay Ve tinh co tram_cha = minh -> TN khong phai Tram cua ai nen
   // chi con "Tất cả người tạo"). Gio lay DANH SACH NGUOI TAO THAT trong pham vi dang xem tu CUNG endpoint loc cot
   // (/don-hang/gia-tri-loc?cot=nguoi_tao, cung WHERE voi danh sach) - BO chinh bo loc nguoi_tao de van chon lai duoc.
   const { data: nguoiTaoData } = useQuery({
-    queryKey: ["dat-mua-lk-nguoi-tao-options", filterTrangThai, filterNguoiNhanHang, filterTuNgay, filterDenNgay, effectiveLoaiDon, debouncedQ, khuVucParam, locCot.queryParams.cf],
+    queryKey: ["dat-mua-lk-nguoi-tao-options", filterTrangThai, filterNguoiNhanHang, filterTuNgay, filterDenNgay, loaiDonGui, debouncedQ, khuVucParam, locCot.queryParams.cf],
     queryFn: () =>
       api.get<{ rows: { v: string; n: number }[] }>(
         "/dat-mua-lk/don-hang/gia-tri-loc" +
@@ -2200,7 +2203,7 @@ export function DonCuaToiTab({
             nguoi_nhan_hang: filterNguoiNhanHang || undefined,
             tu_ngay: filterTuNgay || undefined,
             den_ngay: filterDenNgay || undefined,
-            loai_don: effectiveLoaiDon || undefined,
+            loai_don: loaiDonGui || undefined,
             q: debouncedQ || undefined,
             khu_vuc: khuVucParam || undefined,
             cf: locCot.queryParams.cf,
