@@ -394,6 +394,11 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   `ma_yeu_cau_su_co` bên cạnh `case_ids` (nhiều ca gắn đơn). 2 mã ĐỘC LẬP: loại đề xuất công nợ/HỖ TRỢ chỉ cần 1 trong 2 → đối tác phải đọc cả hai,
   không suy mã này từ mã kia. Tài liệu §4.15 giải thích 2 loại mã.
   **`POST /v1/don-loi-loc`** (2026-11-11, v1.469, §4.16) — hệ DVBH menu "QL NSKX" gửi ≤1000 mã ca (+ cặp `[ma_lada, case_id]`), nhận đơn loại "HỖ TRỢ NGOÀI BẢO HÀNH TG12…" còn hiệu lực (bỏ `TN tu choi`/`Tu choi`/`Da huy`) của từng ca; khớp qua `dat_don_case` / `ma_yeu_cau_su_co` / `ma_lada` (đều có index). Đổi quy tắc "đơn còn hiệu lực" thì báo bên DVBH.
+  **`POST /v1/don-gan-nhat-theo-ca`** (2026-11-12, v1.475) — hệ DVBH "Quản lý tồn" > Danh sách chi tiết, cột "ID đặt hàng gần nhất": gửi ≤1000 cặp
+  `[case_id, ma_lk_thieu]` (+ `lada` `[ma_lada, case_id]`, + `ma_don` `[DDH-xxxxxx, case_id]` đọc từ ô "Mã xuất hàng liên quan" của giải trình), nhận 1 đơn/ca:
+  bỏ đơn trả hàng/`TN tu choi`/`Tu choi`/`Da huy`, ưu tiên đơn đúng mã LK thiếu (kể cả mã cùng nhóm thay thế), rồi đơn tạo mới nhất. Kèm `ngay_duyet`
+  (lần đầu "TN da duyet"), `ngay_xuat` (lần đầu PXK "Dang gui KTV"), `ngay_ktv_nhan`, `trang_thai_pxk` (mã `TRANG_THAI_PXK_DON_SQL`), `ket_thuc`
+  (PXK KTV đã nhận/trừ kho/kho kết thúc). DVBH lưu vào bảng riêng, hỏi lại mỗi giờ 8h–18h — đổi tên trạng thái/quy tắc chọn đơn thì báo bên DVBH.
 - **Đặt linh kiện qua API đối tác** (chốt 2026-11-11, v1.470, migration `0114`, `routes/partnerDatHang.ts` — "tạo 1 api cho phép hệ thống đối tác đặt linh kiện thông qua api"):
   `POST /api/partner/v1/dat-hang` (+ `/kiem-tra`, `GET /v1/dat-hang`, `GET /v1/loai-de-xuat`). Mỗi API key gắn `partner_api_keys.email_dat_hang` (Admin chọn ở Cài đặt ›
   API đối tác; NULL = key chỉ tra cứu → 403 `KEY_CHUA_DUOC_CAP_QUYEN_DAT_HANG`). Route nạp tài khoản đó vào `c.set("user")` (`taiAppUserTheoEmail` ở `loadUser.ts`) rồi gọi

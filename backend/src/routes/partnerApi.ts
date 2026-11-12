@@ -7,6 +7,7 @@ import { dsAnhLk } from "../lib/anhLinhKien";
 import { docCongNoTongHop, SL_HO_TRO_0D_SQL } from "../lib/congNoKtv";
 import { donChoHangDuTonKho, getMocTonKhoCongTy } from "../lib/tonKhoCongTy";
 import { ktvChinhCuaEmailSql } from "../lib/ktvChinh";
+import { TRANG_THAI_PXK_DON_SQL } from "../lib/trangThaiDonPxk";
 import { ganRouteDatHang } from "./partnerDatHang";
 
 // API tra cuu cho CAC HE THONG DOI TAC ben ngoai (khac hoan toan cac router khac trong app - khong
@@ -479,6 +480,92 @@ partnerApi.post("/v1/don-loi-loc", async (c) => {
     theoCa.get(case_id)?.push(don);
   }
   return c.json({ rows: [...theoCa.entries()].map(([case_id, don]) => ({ case_id, don })) });
+});
+
+// POST /api/partner/v1/don-gan-nhat-theo-ca (2026-11-12, he DVBH "Quan ly ton" > Danh sach chi tiet, cot "ID đặt hàng gần nhất").
+// Body: { ca: [[case_id, ma_lk_thieu], ...] (<=1000), lada?: [[ma_lada, case_id]], ma_don?: [[dat_don_hang.id, case_id]] }
+//   - ma_don = ma don DVBH doc duoc tu o "Mã xuất hàng liên quan" cua giai trinh (chi gui ma dang DDH-xxxxxx).
+// Moi ca tra 1 don "gan nhat": bo don tra hang / TN tu choi / Tu choi / Da huy; uu tien don dung ma LK thieu (ke ca ma cung nhom
+// thay the), roi don tao moi nhat. Kem ngay duyet (lan dau "TN da duyet"), ngay xuat (lan dau PXK "Dang gui KTV"), ngay KTV nhan,
+// trang thai don + trang thai PXK (ma ASCII, nhu GET /dat-mua-lk/don-hang). Ngay = gio VN "YYYY-MM-DD HH:MM:SS" nhu luu trong DB.
+// ket_thuc = 1 khi PXK da KTV nhan / tru kho / kho ket thuc -> ben goi it phai hoi lai. Ca khong co don van tra (don: null).
+partnerApi.post("/v1/don-gan-nhat-theo-ca", async (c) => {
+  type Cap = [string, string];
+  const body = await c.req.json<{ ca?: unknown; lada?: unknown; ma_don?: unknown }>().catch(() => ({}) as { ca?: unknown; lada?: unknown; ma_don?: unknown });
+  const cap = (v: unknown, hoa0 = false): Cap[] =>
+    (Array.isArray(v) ? v : [])
+      .filter((p): p is unknown[] => Array.isArray(p) && p.length >= 2)
+      .map((p) => [String(p[0] ?? "").trim(), String(p[1] ?? "").trim()] as Cap)
+      .map(([a, b]) => [hoa0 ? a.toUpperCase() : a, b] as Cap);
+  const ca = new Map<string, string>();
+  for (const [id, ma] of cap(body.ca)) if (id) ca.set(id, ma);
+  if (!ca.size) return c.json({ error: "MISSING_CA" }, 400);
+  if (ca.size > 1000) return c.json({ error: "TOO_MANY_CA", max: 1000 }, 400);
+  const lada = cap(body.lada, true).filter(([ma, id]) => ma && ca.has(id)).slice(0, 5000);
+  const maDon = cap(body.ma_don, true).filter(([ma, id]) => ma && ca.has(id)).slice(0, 5000);
+  const ids = [...ca.keys()];
+  const db = c.env.DB;
+  const maLkThieu = [...new Set([...ca.values()].filter(Boolean))];
+
+  const [donRes, tdRes] = await db.batch([
+    db.prepare(
+      `WITH lk AS (
+         SELECT dc.case_id, dc.dat_don_hang_id AS don_id, 1 AS uu_tien FROM dat_don_case dc WHERE dc.case_id IN (SELECT value FROM json_each(?1))
+         UNION
+         SELECT d0.ma_yeu_cau_su_co, d0.id, 1 FROM dat_don_hang d0 WHERE d0.ma_yeu_cau_su_co IN (SELECT value FROM json_each(?1))
+         UNION
+         SELECT json_extract(j.value, '$[1]'), d1.id, 2 FROM json_each(?2) j JOIN dat_don_hang d1 ON d1.ma_lada = json_extract(j.value, '$[0]')
+         UNION
+         SELECT json_extract(j.value, '$[1]'), d2.id, 3 FROM json_each(?3) j JOIN dat_don_hang d2 ON d2.id = json_extract(j.value, '$[0]')
+       )
+       SELECT lk.case_id, MIN(lk.uu_tien) AS uu_tien, ddh.id AS don_id, ddh.ma_lk, COALESCE(l.ten_linh_kien, ddh.ten_lk_snapshot) AS ten_lk,
+              ddh.loai_de_xuat, ddh.trang_thai_hien_tai, ${TRANG_THAI_PXK_DON_SQL("ddh")} AS trang_thai_pxk, ddh.ngay_tao,
+              (SELECT MIN(g.ngay_xu_ly) FROM dat_don_hang_log g WHERE g.dat_don_hang_id = ddh.id AND g.trang_thai = 'TN da duyet') AS ngay_duyet,
+              (SELECT MIN(pl.ngay_xu_ly) FROM phieu_xuat_kho_dong pd JOIN phieu_xuat_kho_log pl ON pl.phieu_xuat_kho_id = pd.phieu_xuat_kho_id
+                WHERE pd.dat_don_hang_id = ddh.id AND pl.trang_thai = 'Dang gui KTV') AS ngay_xuat,
+              (SELECT MIN(pl.ngay_xu_ly) FROM phieu_xuat_kho_dong pd JOIN phieu_xuat_kho_log pl ON pl.phieu_xuat_kho_id = pd.phieu_xuat_kho_id
+                WHERE pd.dat_don_hang_id = ddh.id AND pl.trang_thai = 'KTV da nhan') AS ngay_ktv_nhan
+       FROM lk JOIN dat_don_hang ddh ON ddh.id = lk.don_id
+       LEFT JOIN linh_kien l ON l.ma_linh_kien = ddh.ma_lk
+       WHERE ddh.loai_don != 'tra_hang' AND COALESCE(ddh.trang_thai_hien_tai, '') NOT IN ('TN tu choi', 'Tu choi', 'Da huy')
+       GROUP BY lk.case_id, ddh.id`,
+    ).bind(JSON.stringify(ids), JSON.stringify(lada), JSON.stringify(maDon)),
+    db.prepare(
+      `SELECT a.ma_lk AS goc, b.ma_lk AS td FROM lk_nhom_thay_the_ct a JOIN lk_nhom_thay_the_ct b ON b.nhom_id = a.nhom_id
+       WHERE a.ma_lk IN (SELECT value FROM json_each(?))`,
+    ).bind(JSON.stringify(maLkThieu)),
+  ]);
+  type DonRow = {
+    case_id: string; uu_tien: number; don_id: string; ma_lk: string; ten_lk: string | null; loai_de_xuat: string | null;
+    trang_thai_hien_tai: string | null; trang_thai_pxk: string | null; ngay_tao: string; ngay_duyet: string | null; ngay_xuat: string | null; ngay_ktv_nhan: string | null;
+  };
+  const tuongDuong = new Map<string, Set<string>>();
+  for (const r of (tdRes.results ?? []) as { goc: string; td: string }[]) {
+    if (!tuongDuong.has(r.goc)) tuongDuong.set(r.goc, new Set([r.goc]));
+    tuongDuong.get(r.goc)!.add(r.td);
+  }
+  const theoCa = new Map<string, DonRow[]>();
+  for (const r of (donRes.results ?? []) as DonRow[]) {
+    const k = String(r.case_id);
+    if (!theoCa.has(k)) theoCa.set(k, []);
+    theoCa.get(k)!.push(r);
+  }
+  const NGUON = ["", "lien_ket", "lada", "giai_trinh"];
+  const KET_THUC = new Set(["ktv_da_nhan", "hang_tru_kho", "kho_da_ket_thuc"]);
+  const rows = ids.map((case_id) => {
+    const ds = theoCa.get(case_id) ?? [];
+    const thieu = ca.get(case_id) ?? "";
+    const khop = (r: DonRow) => !!thieu && (r.ma_lk === thieu || !!tuongDuong.get(thieu)?.has(r.ma_lk));
+    const chon = [...ds].sort((a, b) => Number(khop(b)) - Number(khop(a)) || b.ngay_tao.localeCompare(a.ngay_tao) || b.don_id.localeCompare(a.don_id))[0];
+    if (!chon) return { case_id, so_don: 0, don: null };
+    const { case_id: _c, uu_tien, ...don } = chon;
+    return {
+      case_id,
+      so_don: ds.length,
+      don: { ...don, nguon: NGUON[uu_tien] ?? "lien_ket", khop_ma_lk: khop(chon) ? 1 : 0, ket_thuc: KET_THUC.has(chon.trang_thai_pxk ?? "") ? 1 : 0 },
+    };
+  });
+  return c.json({ rows });
 });
 
 // Dat linh kien qua API (v1.470) - xem routes/partnerDatHang.ts.
