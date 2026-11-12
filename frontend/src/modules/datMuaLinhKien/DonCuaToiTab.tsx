@@ -2011,9 +2011,6 @@ export function DonCuaToiTab({
   // khop trang thai cua tra_hang_log nen se ra rong neu giu nguyen. SUA (2026-08-27): reset ve
   // "__OPEN__" (con ton) thay vi "" (Tat ca) - khop dung mac dinh moi, va "__OPEN__" hop le cho CA 2
   // loai_don (backend tu chon dung tap trang thai "dong" theo loaiDon, xem GET /don-hang).
-  useEffect(() => {
-    if (xemLoaiDon === "tra_hang") setFilterTrangThai("__OPEN__");
-  }, [xemLoaiDon]);
   // SUA BUG (phan hoi 2026-08-21: "ấn TN 2 chỉ hiện 1... ấn TBP 1 lúc thì hiện 1 dòng, lúc lại báo
   // không có dữ liệu") - cac buoc Tram/TBP/TN tren pipeline dem GOP ca "mua" lan "cong_no" (xem
   // GET /luong-quy-trinh, dieu kien "loai_don != 'tra_hang'"), nhung danh sach o day truoc day LUON
@@ -2053,12 +2050,14 @@ export function DonCuaToiTab({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialLoaiDonOverride]);
-  const effectiveLoaiDon = loaiDonOverride !== undefined ? loaiDonOverride : xemLoaiDon;
+  // Bo bo loc an xemLoaiDon (2026-11-12, v1.477 - "bỏ luôn"): khong co override -> "" = GOP Mua + Cong no (truoc la xemLoaiDon luu
+  // localStorage, mac dinh "mua", khong con nut nao doi -> danh sach mac dinh am tham an don CONG NO). Trả hàng co muc rieng.
+  const effectiveLoaiDon = loaiDonOverride !== undefined ? loaiDonOverride : "";
   const xemTatCaLoai = effectiveLoaiDon === "all";
   // Co tu khoa tim -> tim tren MOI loai don (2026-11-12, bug "View khong tim thay DDH-002895" - don CONG NO): khi khong co override,
   // effectiveLoaiDon = xemLoaiDon luu localStorage (mac dinh "mua", khong con nut nao doi) nen o tim am tham chi tim don Mua.
   const loaiDonGui = debouncedQ.trim() ? "all" : effectiveLoaiDon;
-  const trangThaiOptions = xemTatCaLoai ? TAT_CA_LOAI_TRANG_THAI_OPTIONS : xemLoaiDon === "tra_hang" ? TRA_HANG_TRANG_THAI_OPTIONS : DON_CUA_TOI_TRANG_THAI_OPTIONS;
+  const trangThaiOptions = xemTatCaLoai ? TAT_CA_LOAI_TRANG_THAI_OPTIONS : effectiveLoaiDon === "tra_hang" ? TRA_HANG_TRANG_THAI_OPTIONS : DON_CUA_TOI_TRANG_THAI_OPTIONS;
   const isAdmin = user?.vai_tro === "Admin";
   const canActAsTram = canBulkTram || isAdmin;
   // "Tu choi" bat buoc chon Ly do cham khi nguoi bam la TN/Admin tren dong "Cho TN duyet" (khac Tram
@@ -2085,7 +2084,7 @@ export function DonCuaToiTab({
   // So "(N)" canh moi trang thai trong TrangThaiDropdownFilter (them 2026-09-01) - dem TINH theo dung
   // sub-tab dang mo (xemLoaiDon, KHONG phai effectiveLoaiDon co the bi override), bo qua cac bo loc
   // phu khac (nguoi_tao/khu_vuc/ngay/q) - xem GET /don-hang-status-counts.
-  const donHangStatusCountsLoaiDon = xemTatCaLoai ? "all" : xemLoaiDon === "tra_hang" ? "tra_hang" : undefined;
+  const donHangStatusCountsLoaiDon = xemTatCaLoai ? "all" : effectiveLoaiDon === "tra_hang" ? "tra_hang" : undefined;
   const { data: donHangStatusCountsData } = useQuery({
     queryKey: ["dat-mua-lk-don-hang-status-counts", donHangStatusCountsLoaiDon],
     queryFn: () =>
