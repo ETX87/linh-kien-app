@@ -19,6 +19,7 @@ import { AnhThumb, BangChungAnhList } from "../datMuaLinhKien/BangChungChuyenTie
 import { TienDocTuAnh, docDsAnh, docTienDocMap, useDocTienAnh, type TienDocMap } from "../datMuaLinhKien/DocTienAnh";
 import { XemAnhNhanh, type AnhXem } from "../datMuaLinhKien/XemAnhNhanh";
 import { t, dichSau } from "../../i18n";
+import { DanhSachDoiSoat, useDoiSoatNopTien } from "./NopTienDoiSoat";
 
 // KTV TỰ NỘP TIỀN VÀO QUỸ (chot 2026-10-30, phuong an A - backend lib/nopTienQuy.ts, migration 0104). KTV (chu yeu tren dien thoai)
 // chup / chon anh chuyen khoan -> app tu doc so tien (sua duoc) -> gui -> Ke toan doi chieu sao ke, duyet voi so THUC NHAN (thanh 1 khoan
@@ -344,6 +345,11 @@ export function NopTienForm({ onClose }: { onClose: () => void }) {
   );
 }
 
+
+// Popup xu ly / xem 1 yeu cau (dung lai 2026-11-12, v1.481 - "giao diện UI kiểm soát ... hỗ trợ kế toán kiểm soát nội dung thông tin tốt hơn, dễ
+// nhìn, dễ đánh giá nhanh vấn đề ... kích thước cũng cần cân đối để tăng lên dễ nhìn, tô màu các nội dung quan trọng"): 2 cot - TRAI = nguoi nop,
+// anh lon kem so OCR tung anh, o xac nhan; PHAI = tab "Nghi trùng" / "Đã xác nhận của quỹ" (NopTienDoiSoat.tsx) cac khoan da vao CUNG quy,
+// khoan nghi trung xep dau + to do/cam. Hang the so tien (khai / doc tu anh / so du quy) + canh bao tong o tren cung.
 export function NopTienChiTiet({ id, row, ten, onClose }: { id: number; row?: NopTienRow; ten: (e: string | null | undefined) => string; onClose: () => void }) {
   const addToast = useToast();
   const qc = useQueryClient();
@@ -356,11 +362,15 @@ export function NopTienChiTiet({ id, row, ten, onClose }: { id: number; row?: No
   const r = row ?? data?.rows.find((x) => x.id === id);
   const urls = docDsAnh(r?.anh ?? null);
   const doc = useDocTienAnh(urls, docTienDocMap(r?.tien_doc_anh));
+  const ds = useDoiSoatNopTien(id, doc.items, r?.so_tien ?? 0);
   const [thucNhan, setThucNhan] = useState("");
   const [goTay, setGoTay] = useState(false);
   const [lyDo, setLyDo] = useState("");
   const [xacNhan, setXacNhan] = useState(false);
   const [xemAnh, setXemAnh] = useState<number | null>(null);
+  const [tab, setTab] = useState<"nghi" | "tat-ca" | null>(null);
+  const coNghi = ds.soDo + ds.soCam > 0;
+  const tabHien = tab ?? (coNghi ? "nghi" : "tat-ca");
   // So thuc nhan tu dien (2026-10-31, "điền giá trị đã đọc được"): doc DU moi anh -> tong OCR; chua doc xong / co anh khong doc duoc -> so KTV
   // khai. Ke toan go tay thi giu so da go.
   const ocrDu = doc.docDuHet && doc.tong > 0;
@@ -384,69 +394,199 @@ export function NopTienChiTiet({ id, row, ten, onClose }: { id: number; row?: No
   const soHopLe = Number.isInteger(so) && so > 0;
   const lech = soHopLe && so !== r.so_tien;
   const coDuyet = r.hanh_dong.includes("duyet");
+  const ocrKhop = doc.docDuHet && doc.tong === r.so_tien;
+
+  const the = "rounded-xl border px-3 py-2";
+  const theNhan = "text-[11px] font-bold uppercase tracking-wide text-[var(--color-text-secondary)]";
+
+  const footer = r.hanh_dong.length > 0 ? (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {coNghi && coDuyet && (
+        <span className={`mr-auto text-[13px] font-semibold ${ds.soDo ? "text-[var(--color-danger-strong)]" : "text-[var(--color-warning-strong)]"}`}>
+          ⚠ {t("Có {a} khoản nghi trùng — kiểm tra trước khi xác nhận", { a: ds.soDo + ds.soCam })}
+        </span>
+      )}
+      {r.hanh_dong.includes("huy") && <Btn variant="danger" onClick={() => xuLy.mutate("huy")} disabled={xuLy.isPending}>{t("Hủy yêu cầu")}</Btn>}
+      {r.hanh_dong.includes("tu_choi") && (
+        <Btn variant="danger" onClick={() => (lyDo.trim() ? xuLy.mutate("tu_choi") : addToast(t("Nhập lý do từ chối")))} disabled={xuLy.isPending}>{t("Từ chối")}</Btn>
+      )}
+      {coDuyet && (
+        <Btn onClick={() => (lech && !xacNhan ? setXacNhan(true) : xuLy.mutate("duyet"))} disabled={!soHopLe || xuLy.isPending} loading={xuLy.isPending}>
+          {lech && xacNhan ? `${t("Xác nhận nhận")} ${fmtVND(so)}` : <>{t("✓ Xác nhận vào quỹ")}{soHopLe && ` · ${fmtVND(so)}`}</>}
+        </Btn>
+      )}
+    </div>
+  ) : undefined;
+
   return (
-    <Modal open onClose={onClose} title={`${ma(r.id)} · ${t("Nộp tiền vào quỹ")}`} width="max-w-xl">
-      <div className="space-y-2 text-sm">
-        <KvRow label={t("Trạng thái")}><NtBadge tt={r.trang_thai} /></KvRow>
-        <KvRow label={t("Người nộp")}>{ten(r.nguoi_gui)}{r.email !== r.nguoi_gui && <span className="text-[12px] text-[var(--color-text-secondary)]"> → {t("quỹ của")} {ten(r.email)}</span>}</KvRow>
-        <KvRow label={t("Số tiền khai")}><b><Money>{fmtVND(r.so_tien)}</Money></b></KvRow>
-        {r.so_tien_thuc_nhan != null && <KvRow label={t("Kế toán xác nhận")}><b><Money>{fmtVND(r.so_tien_thuc_nhan)}</Money></b></KvRow>}
-        {r.ngay_chuyen && <KvRow label={t("Ngày chuyển")}>{r.ngay_chuyen}</KvRow>}
-        <KvRow label={t("Gửi lúc")}>{fmtDateTime(r.ngay_tao)}</KvRow>
-        {r.ghi_chu && <KvRow label={t("Ghi chú")}><span className="whitespace-pre-line">{r.ghi_chu}</span></KvRow>}
-        {r.nguoi_xu_ly && <KvRow label={t("Xử lý")}>{ten(r.nguoi_xu_ly)} · {fmtDateTime(r.xu_ly_luc)}</KvRow>}
-        {r.ly_do && <KvRow label={r.trang_thai === "Tu choi" ? t("Lý do từ chối") : t("Ghi chú Kế toán")}><span className="whitespace-pre-line">{r.ly_do}</span></KvRow>}
-        {r.khoan_trang_thai === "Da huy" && (
-          <div className="rounded-lg bg-[var(--color-warning-soft)] px-2.5 py-1.5 text-[12px]">{t("Kế toán đã hủy khoản tiền này ở “Tiền ngoài vào quỹ” — tiền đã trừ lại khỏi quỹ.")}</div>
-        )}
-        <KvRow label={t("Ảnh")}><BangChungAnhList urls={urls} onXem={setXemAnh} /></KvRow>
-        <TienDocTuAnh doc={doc} soSoSanh={coDuyet ? (soHopLe ? so : null) : r.so_tien} nhan={coDuyet ? t("số thực nhận") : t("số tiền khai")} sttCua={(u) => urls.indexOf(u) + 1} />
-        {r.trung && (
-          <div className="rounded-lg border border-[var(--color-warning)]/40 bg-[var(--color-warning-soft)] px-2.5 py-1.5 text-[12px]">
-            ⚠ {t("Trùng số tiền với khoản gần đây của cùng quỹ (30 ngày): {a} — kiểm tra sao kê, tránh ghi 1 lần chuyển 2 lần.", { a: r.trung })}
+    <Modal open onClose={onClose} title={`${ma(r.id)} · ${t("Nộp tiền vào quỹ")}`} width="max-w-6xl" height="max-h-[94vh]" footer={footer} headerExtra={<NtBadge tt={r.trang_thai} />}>
+      <div className="space-y-3 text-[14px]">
+        {/* Canh bao tong - nhin 1 giay biet co van de */}
+        {ds.soDo > 0 ? (
+          <div className="rounded-xl border-2 border-[var(--color-danger)] bg-[var(--color-danger-soft)] px-3 py-2 text-[14px] font-semibold text-[var(--color-danger-strong)]">
+            ⛔ {t("Nghi trùng ảnh chuyển khoản với {a} khoản đã vào quỹ này — xem tab “Nghi trùng”.", { a: ds.soDo })}
           </div>
-        )}
-        {r.hanh_dong.length > 0 && (
-          <div className="space-y-2 border-t border-[var(--color-border)] pt-2">
-            {coDuyet && (
-              <label className="block">
-                <span className={nhanO}>{t("Số tiền thực nhận (theo sao kê)")}</span>
-                <input type="number" inputMode="numeric" min={1} value={thucNhan} onChange={(e) => { setThucNhan(e.target.value); setGoTay(true); setXacNhan(false); }} className={oNhap} />
-                {!goTay && (
-                  <span className="mt-0.5 block text-[12px] text-[var(--color-text-secondary)]">
-                    {ocrDu ? t("Đã điền theo số đọc từ ảnh — đối chiếu sao kê, sửa nếu sai.") : doc.xongHet ? t("Ảnh chưa đọc được đủ số tiền — đang điền số KTV khai.") : t("Đang đọc số tiền từ ảnh…")}
-                  </span>
-                )}
-              </label>
-            )}
-            {(coDuyet || r.hanh_dong.includes("tu_choi")) && (
-              <label className="block">
-                <span className={nhanO}>{t("Ghi chú / lý do từ chối")}</span>
-                <textarea value={lyDo} onChange={(e) => setLyDo(e.target.value)} rows={2} maxLength={500} className={oNhap} />
-              </label>
-            )}
-            {lech && coDuyet && (
-              <div className="rounded-lg bg-[var(--color-warning-soft)] px-2.5 py-1.5 text-[12px]">
-                {t("Số thực nhận khác số KTV khai")} (<Money>{fmtVND(r.so_tien)}</Money>) — {t("kiểm tra lại sao kê trước khi xác nhận.")}
+        ) : ds.soCam > 0 ? (
+          <div className="rounded-xl border-2 border-[var(--color-warning)] bg-[var(--color-warning-soft)] px-3 py-2 text-[14px] font-semibold text-[var(--color-warning-strong)]">
+            ⚠ {t("Có {a} khoản cùng số tiền / ảnh gần giống trong 180 ngày — đối chiếu sao kê.", { a: ds.soCam })}
+          </div>
+        ) : !ds.isLoading && !ds.dangSoHinh && doc.xongHet && urls.length > 0 ? (
+          <div className="rounded-xl border border-[var(--color-success)]/40 bg-[var(--color-success-soft)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-success-strong)]">
+            ✓ {t("Không thấy khoản trùng số tiền hay giống ảnh trong {a} khoản 180 ngày của quỹ.", { a: ds.tong })}
+          </div>
+        ) : null}
+
+        {/* So tien chinh */}
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <div className={`${the} border-[var(--color-primary)]/30 bg-[var(--color-primary-soft)]`}>
+            <div className={theNhan}>{t("Số tiền khai")}</div>
+            <div className="text-[22px] font-extrabold tabular text-[var(--color-primary-dark)]"><Money>{fmtVND(r.so_tien)}</Money></div>
+          </div>
+          <div className={`${the} ${!doc.xongHet ? "border-[var(--color-border)]" : ocrKhop ? "border-[var(--color-success)]/40 bg-[var(--color-success-soft)]" : "border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)]"}`}>
+            <div className={theNhan}>{t("Đọc từ ảnh")}</div>
+            <div className={`text-[22px] font-extrabold tabular ${!doc.xongHet ? "text-[var(--color-text-secondary)]" : ocrKhop ? "text-[var(--color-success-strong)]" : "text-[var(--color-danger-strong)]"}`}>
+              {!doc.xongHet ? t("Đang đọc…") : doc.tong > 0 ? <Money>{fmtVND(doc.tong)}</Money> : "—"}
+            </div>
+            {doc.xongHet && (
+              <div className={`text-[12px] font-semibold ${ocrKhop ? "text-[var(--color-success-strong)]" : "text-[var(--color-danger-strong)]"}`}>
+                {ocrKhop ? `✓ ${t("Khớp số khai")}` : !doc.docDuHet ? t("Có ảnh không đọc được — xem bằng mắt") : <>{t("Lệch")} <Money>{fmtVND(doc.tong - r.so_tien)}</Money></>}
               </div>
             )}
-            <div className="flex flex-wrap justify-end gap-2">
-              {r.hanh_dong.includes("huy") && <Btn variant="danger" onClick={() => xuLy.mutate("huy")} disabled={xuLy.isPending}>{t("Hủy yêu cầu")}</Btn>}
-              {r.hanh_dong.includes("tu_choi") && (
-                <Btn variant="danger" onClick={() => (lyDo.trim() ? xuLy.mutate("tu_choi") : addToast(t("Nhập lý do từ chối")))} disabled={xuLy.isPending}>{t("Từ chối")}</Btn>
+          </div>
+          {r.so_tien_thuc_nhan != null ? (
+            <div className={`${the} border-[var(--color-success)]/40 bg-[var(--color-success-soft)]`}>
+              <div className={theNhan}>{t("Kế toán xác nhận")}</div>
+              <div className="text-[22px] font-extrabold tabular text-[var(--color-success-strong)]"><Money>{fmtVND(r.so_tien_thuc_nhan)}</Money></div>
+            </div>
+          ) : (
+            <div className={`${the} border-[var(--color-border)]`}>
+              <div className={theNhan}>{t("Ngày chuyển")}</div>
+              <div className="text-[18px] font-bold tabular">{r.ngay_chuyen ?? "—"}</div>
+              <div className="text-[12px] text-[var(--color-text-secondary)]">{t("Gửi lúc")} {fmtDateTime(r.ngay_tao)}</div>
+            </div>
+          )}
+          <div className={`${the} border-[var(--color-border)]`}>
+            <div className={theNhan}>{t("Số dư quỹ hiện tại")}</div>
+            <div className="text-[18px] font-bold tabular">{r.so_du_hien_tai != null ? <Money>{fmtVND(r.so_du_hien_tai)}</Money> : "—"}</div>
+          </div>
+        </div>
+
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+          {/* TRAI: nguoi nop + anh + xac nhan */}
+          <div className="space-y-3">
+            <div className={`${the} space-y-1 border-[var(--color-border)]`}>
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <span className={theNhan}>{t("Người nộp")}</span>
+                <span className="text-[15px] font-bold text-[var(--color-primary-dark)]">{ten(r.nguoi_gui)}</span>
+              </div>
+              {r.email !== r.nguoi_gui && (
+                <div className="text-[13px]"><span className="text-[var(--color-text-secondary)]">{t("Vào quỹ của")}</span> <b>{ten(r.email)}</b></div>
               )}
-              {coDuyet && (
-                <Btn
-                  onClick={() => (lech && !xacNhan ? setXacNhan(true) : xuLy.mutate("duyet"))}
-                  disabled={!soHopLe || xuLy.isPending}
-                  loading={xuLy.isPending}
-                >
-                  {lech && xacNhan ? <>{t("Xác nhận nhận")} <Money>{fmtVND(so)}</Money></> : t("✓ Xác nhận vào quỹ")}
-                </Btn>
+              {r.so_tien_thuc_nhan != null && (
+                <div className="text-[13px] text-[var(--color-text-secondary)]">{t("Ngày chuyển")} <b className="text-[var(--color-text)]">{r.ngay_chuyen ?? "—"}</b> · {t("Gửi lúc")} {fmtDateTime(r.ngay_tao)}</div>
+              )}
+              {r.ghi_chu && (
+                <div className="rounded-lg bg-[var(--color-info-soft)] px-2.5 py-1.5 text-[13px]">
+                  <span className="font-semibold">{t("KTV ghi chú")}:</span> <span className="whitespace-pre-line">{r.ghi_chu}</span>
+                </div>
+              )}
+              {r.nguoi_xu_ly && <div className="text-[13px] text-[var(--color-text-secondary)]">{t("Xử lý")}: <b className="text-[var(--color-text)]">{ten(r.nguoi_xu_ly)}</b> · {fmtDateTime(r.xu_ly_luc)}</div>}
+              {r.ly_do && (
+                <div className={`rounded-lg px-2.5 py-1.5 text-[13px] ${r.trang_thai === "Tu choi" ? "bg-[var(--color-danger-soft)] text-[var(--color-danger-strong)]" : "bg-[var(--color-info-soft)]"}`}>
+                  <span className="font-semibold">{r.trang_thai === "Tu choi" ? t("Lý do từ chối") : t("Ghi chú Kế toán")}:</span> <span className="whitespace-pre-line">{r.ly_do}</span>
+                </div>
+              )}
+              {r.khoan_trang_thai === "Da huy" && (
+                <div className="rounded-lg bg-[var(--color-warning-soft)] px-2.5 py-1.5 text-[12px]">{t("Kế toán đã hủy khoản tiền này ở “Tiền ngoài vào quỹ” — tiền đã trừ lại khỏi quỹ.")}</div>
               )}
             </div>
+
+            <div>
+              <div className={`${theNhan} mb-1.5`}>{t("Ảnh chuyển khoản ({a})", { a: urls.length })}</div>
+              <div className="flex flex-wrap gap-2.5">
+                {doc.items.map((d, i) => {
+                  const nghi = ds.anhCuaToiNghi.get(d.url);
+                  return (
+                    <button
+                      key={d.url}
+                      type="button"
+                      onClick={() => setXemAnh(i)}
+                      className={`focus-ring relative overflow-hidden rounded-xl border-2 bg-[var(--color-surface)] text-left ${nghi === "do" ? "border-[var(--color-danger)]" : nghi === "cam" ? "border-[var(--color-warning)]" : "border-[var(--color-border)]"}`}
+                    >
+                      <img src={d.url} alt={t("Ảnh {a}", { a: i + 1 })} className="h-44 w-32 object-cover" />
+                      <span className="absolute left-1 top-1 rounded-md bg-black/60 px-1.5 text-[11px] font-bold text-white">{i + 1}</span>
+                      {nghi && (
+                        <span className={`absolute right-1 top-1 rounded-md px-1.5 text-[11px] font-bold text-white ${nghi === "do" ? "bg-[var(--color-danger)]" : "bg-[var(--color-warning-strong)]"}`}>⚠ {t("trùng")}</span>
+                      )}
+                      <div className="px-1.5 py-1 text-center text-[14px] font-extrabold tabular">
+                        {!d.xong ? <span className="text-[12px] font-normal text-[var(--color-text-secondary)]">{t("Đang đọc…")}</span> : d.soTien != null ? <Money>{fmtVND(d.soTien)}</Money> : <span className="text-[12px] font-normal text-[var(--color-text-faint)]">{t("Không đọc được")}</span>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {r.trung && (
+              <div className="rounded-lg border border-[var(--color-warning)]/40 bg-[var(--color-warning-soft)] px-2.5 py-1.5 text-[13px]">
+                ⚠ {t("Trùng số tiền với khoản gần đây của cùng quỹ (30 ngày): {a} — kiểm tra sao kê, tránh ghi 1 lần chuyển 2 lần.", { a: r.trung })}
+              </div>
+            )}
+
+            {(coDuyet || r.hanh_dong.includes("tu_choi")) && (
+              <div className={`${the} space-y-2 border-[var(--color-primary)]/40`}>
+                {coDuyet && (
+                  <label className="block">
+                    <span className={nhanO}>{t("Số tiền thực nhận (theo sao kê)")}</span>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      value={thucNhan}
+                      onChange={(e) => { setThucNhan(e.target.value); setGoTay(true); setXacNhan(false); }}
+                      className="focus-ring mt-1 w-full rounded-lg border-2 border-[var(--color-primary)]/50 px-3 py-2 text-[20px] font-extrabold tabular"
+                    />
+                    <span className="mt-0.5 flex flex-wrap gap-x-2 text-[12.5px]">
+                      {soHopLe && <b className="text-[var(--color-primary-dark)]"><Money>{fmtVND(so)}</Money></b>}
+                      {!goTay && (
+                        <span className="text-[var(--color-text-secondary)]">
+                          {ocrDu ? t("Đã điền theo số đọc từ ảnh — đối chiếu sao kê, sửa nếu sai.") : doc.xongHet ? t("Ảnh chưa đọc được đủ số tiền — đang điền số KTV khai.") : t("Đang đọc số tiền từ ảnh…")}
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                )}
+                {lech && coDuyet && (
+                  <div className="rounded-lg bg-[var(--color-warning-soft)] px-2.5 py-1.5 text-[13px] font-medium text-[var(--color-warning-strong)]">
+                    {t("Số thực nhận khác số KTV khai")} (<Money>{fmtVND(r.so_tien)}</Money>) — {t("kiểm tra lại sao kê trước khi xác nhận.")}
+                  </div>
+                )}
+                <label className="block">
+                  <span className={nhanO}>{t("Ghi chú / lý do từ chối")}</span>
+                  <textarea value={lyDo} onChange={(e) => setLyDo(e.target.value)} rows={2} maxLength={500} className={oNhap} />
+                </label>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* PHAI: doi soat lich su quy */}
+          <div className="rounded-xl border border-[var(--color-border)] p-2.5 lg:max-h-[68vh] lg:overflow-y-auto">
+            <div className="mb-2 flex flex-wrap items-center gap-1.5">
+              <button type="button" onClick={() => setTab("nghi")} className={`focus-ring filter-tab ${tabHien === "nghi" ? "active" : ""}`}>
+                {t("Nghi trùng")}
+                {coNghi && <span className={`ml-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ${ds.soDo ? "bg-[var(--color-danger)]" : "bg-[var(--color-warning-strong)]"}`}>{ds.soDo + ds.soCam}</span>}
+              </button>
+              <button type="button" onClick={() => setTab("tat-ca")} className={`focus-ring filter-tab ${tabHien === "tat-ca" ? "active" : ""}`}>
+                {t("Đã xác nhận của quỹ")} <span className="tabular opacity-70">({ds.tong})</span>
+              </button>
+              {ds.dangSoHinh && <span className="ml-auto text-[12px] text-[var(--color-text-secondary)]">{t("Đang so sánh ảnh…")}</span>}
+            </div>
+            <div className="mb-2 text-[12px] text-[var(--color-text-secondary)]">
+              {t("Các khoản đã vào quỹ của {a} trong 180 ngày (chuyển tiền phiếu, nộp tiền, tiền ngoài). Khoản cùng số tiền với 1 ảnh hoặc ảnh giống (màu + bố cục) xếp lên đầu. Bấm ảnh để xem lớn.", { a: ten(r.email) })}
+            </div>
+            <DanhSachDoiSoat ds={ds} ten={ten} chiNghi={tabHien === "nghi"} />
+          </div>
+        </div>
       </div>
       {xemAnh != null && urls.length > 0 && (
         <XemAnhNhanh items={anhXemNopTien(r, ten, coDuyet && soHopLe ? { nhan: t("Số thực nhận đang nhập"), giaTri: so } : undefined)} batDau={xemAnh} onClose={() => setXemAnh(null)} />

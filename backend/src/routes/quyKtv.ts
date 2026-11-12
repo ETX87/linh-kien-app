@@ -708,6 +708,38 @@ quyKtv.post("/nop-tien", async (c) => {
   return c.json({ ok: true, id: kq.id }, 201);
 });
 
+// GET /api/quy-ktv/nop-tien/:id/doi-soat (2026-11-12, v1.481 - "tab bên cạnh hiện các hóa đơn đã xác nhận của cùng KTV nhận quỹ ... số tiền
+// tương đương với 1 trong các ảnh ... đẩy lên trên cùng và hiện cảnh báo"): MOI khoan tien da vao CUNG quy trong 180 ngay - khoan chuyen tien
+// PXK Ke toan da duyet (anh bang chung), yeu cau nop tien khac (da duyet / dang cho), tien ngoai nhap tay/import (khong anh). Chi doc; viec so
+// so tien OCR tung anh + so "van anh" (mau, bo cuc) lam tren trinh duyet Ke toan (NopTienDoiSoat.tsx).
+quyKtv.get("/nop-tien/:id/doi-soat", async (c) => {
+  const pv = await phamViXem(c);
+  if (pv === undefined) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const id = Math.trunc(Number(c.req.param("id")));
+  const n = await c.env.DB.prepare("SELECT id, email, nguoi_gui, ngay_tao FROM nop_tien_quy WHERE id = ?").bind(id).first<{ id: number; email: string; nguoi_gui: string; ngay_tao: string }>();
+  if (!n) return c.json({ error: "NOT_FOUND" }, 404);
+  if (pv && !pv.includes(n.email) && n.nguoi_gui !== c.get("user").email) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const tu = "datetime('now', '+7 hours', '-180 days')";
+  const { results } = await c.env.DB.prepare(
+    `SELECT * FROM (
+       SELECT 'pxk' AS loai, k.id AS id, k.phieu_xuat_kho_id AS ma, k.so_tien_thuc_nhan AS so_tien, k.anh, k.tien_doc_anh,
+              k.duyet_luc AS luc, k.nguoi_duyet AS nguoi, k.ktv_bao_chuyen_luc AS ngay_chuyen, k.ghi_chu_ktv AS ghi_chu, 'Da duyet' AS trang_thai
+         FROM khoan_chuyen_tien k
+        WHERE k.email_nguoi_chuyen = ?1 AND k.trang_thai = 'Da duyet' AND k.lich_su = 0 AND k.duyet_luc >= ${tu}
+       UNION ALL
+       SELECT 'ntq', m.id, 'NTQ-' || m.id, COALESCE(m.so_tien_thuc_nhan, m.so_tien), m.anh, m.tien_doc_anh,
+              COALESCE(m.xu_ly_luc, m.ngay_tao), COALESCE(m.nguoi_xu_ly, m.nguoi_gui), m.ngay_chuyen, m.ghi_chu, m.trang_thai
+         FROM nop_tien_quy m
+        WHERE m.email = ?1 AND m.id != ?2 AND m.trang_thai IN ('Da duyet', 'Cho ke toan') AND m.ngay_tao >= ${tu}
+       UNION ALL
+       SELECT 'ngoai', t.id, 'TN-' || t.id, t.so_tien, NULL, NULL, t.ngay_tao, t.nguoi_tao, t.ngay_chung_tu, t.noi_dung, 'Da duyet'
+         FROM khoan_tien_ngoai t
+        WHERE t.email = ?1 AND t.trang_thai = 'Da ghi' AND t.nguon != 'ktv' AND t.ngay_tao >= ${tu}
+     ) ORDER BY luc DESC LIMIT 150`,
+  ).bind(n.email, id).all();
+  return c.json({ rows: results });
+});
+
 // POST /api/quy-ktv/nop-tien/:id/xu-ly { hanh_dong: duyet|tu_choi|huy, so_tien_thuc_nhan?, ly_do? }
 quyKtv.post("/nop-tien/:id/xu-ly", async (c) => {
   type BodyNt = { hanh_dong?: string; so_tien_thuc_nhan?: unknown; ly_do?: unknown };
