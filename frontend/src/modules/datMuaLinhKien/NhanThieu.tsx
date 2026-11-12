@@ -648,11 +648,30 @@ export function ThieuHangTabs({ children, list, baoHanh }: { children: ReactNode
   const laAdmin = u?.vai_tro === "Admin";
   const choKho = data?.counts["Cho kho kiem tra"] ?? 0;
   const choKeToan = data?.counts["Cho ke toan"] ?? 0;
+  // "Chờ duyệt hủy" (v1.480): don KTV / GS yeu cau huy cho Kho / Mua hang dong y -> cham DO tren tab "Thiếu hàng đặt mua" (Kho / Mua hang / TN / Admin).
+  const xemChoHuy = !!(u && (u.la_kho || u.la_mua_hang || u.la_tac_nghiep || laAdmin));
+  const { data: choHuyData } = useQuery({
+    queryKey: ["dat-mua-lk-thieu-lk-status-counts", "tab-cho-huy"],
+    queryFn: () => api.get<{ counts: Record<string, number> }>("/dat-mua-lk/thieu-lk-status-counts"),
+    enabled: xemChoHuy,
+    staleTime: 30_000,
+  });
+  const choHuy = choHuyData?.counts["__CHO_HUY__"] ?? 0;
   const canXuLy = laAdmin ? choKho + choKeToan : (u?.la_kho ? choKho : 0) + (u?.la_ke_toan ? choKeToan : 0) || (u?.la_kho || u?.la_ke_toan ? 0 : choKho + choKeToan);
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-1.5">
-        <button type="button" className={`filter-tab ${muc === "dat-mua" ? "active" : ""}`} onClick={() => setMuc("dat-mua")}>{t("Thiếu hàng đặt mua")}</button>
+        <button type="button" className={`filter-tab ${muc === "dat-mua" ? "active" : ""}`} onClick={() => setMuc("dat-mua")}>
+          {t("Thiếu hàng đặt mua")}
+          {choHuy > 0 && (
+            <span
+              title={t("{n} đơn chờ duyệt hủy", { n: choHuy })}
+              className="ml-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--color-danger)] px-1 text-[10px] font-bold leading-none text-white"
+            >
+              {t("{n} chờ hủy", { n: choHuy > 99 ? "99+" : choHuy })}
+            </span>
+          )}
+        </button>
         <button type="button" className={`filter-tab ${muc === "nhan-thieu" ? "active" : ""}`} onClick={() => setMuc("nhan-thieu")}>
           {t("KTV báo nhận thiếu")}
           {canXuLy > 0 && (

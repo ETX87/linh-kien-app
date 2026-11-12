@@ -24,6 +24,8 @@ export interface Nhom {
   tieuDe: string;
   value: string;
   canLam?: boolean;
+  // Muc NOI BAT mau do khi co so > 0 (v1.480 "Chờ duyệt hủy") - ve thanh 1 dong rieng o dau cot, khong co muc con.
+  nguyHiem?: boolean;
   muc: Muc[];
 }
 
@@ -48,6 +50,8 @@ function nhomTrangThai(canKho: boolean, canTacNghiep: boolean, canMuaHang: boole
     "Mua hang tu choi": t("chờ TN duyệt"),
   };
   const nhom: Nhom[] = [];
+  // "Chờ duyệt hủy" (v1.480): KTV / GS yeu cau huy don dang cho Kho / Mua hang dong y - tab rieng, Kho + Mua hang (va TN) cung thay.
+  if (canKho || canMuaHang || canTacNghiep) nhom.push({ tieuDe: t("Chờ duyệt hủy"), value: "__CHO_HUY__", nguyHiem: true, muc: [] });
   if (coViec) nhom.push({ tieuDe: t("Cần xử lý"), value: "__VIEC__", canLam: true, muc: canXuLy.map((v) => ({ value: v, label: nhan(v) })) });
   nhom.push({
     tieuDe: coViec ? t("Đang chờ") : t("Đang xử lý"),
@@ -119,6 +123,33 @@ export function TrangThaiRail({
       <nav aria-label={t("Lọc theo trạng thái")} className="content-card hidden w-[232px] shrink-0 self-start p-2 md:block md:sticky md:top-3">
         {nhom.map((g) => {
           const activeNhom = value === g.value;
+          if (g.nguyHiem) {
+            const n = counts?.[g.value];
+            const co = (n ?? 0) > 0;
+            return (
+              <button
+                key={g.tieuDe}
+                type="button"
+                onClick={() => onChange(g.value)}
+                aria-pressed={activeNhom}
+                title={t("Đơn KTV / GS yêu cầu hủy, đang chờ Kho / Mua hàng đồng ý")}
+                className={`focus-ring mb-2 flex w-full items-center justify-between rounded-[var(--radius-btn)] border px-2.5 py-2 text-left text-[13px] font-semibold transition-colors ${
+                  co
+                    ? `border-[var(--color-danger)] bg-[var(--color-danger-soft)] text-[var(--color-danger-strong)] ${activeNhom ? "ring-2 ring-[var(--color-danger)]/40" : ""}`
+                    : activeNhom
+                      ? "border-transparent bg-[var(--color-primary-soft)] text-[var(--color-primary-dark)]"
+                      : "border-transparent text-[var(--color-text)] hover:bg-[var(--color-surface-hover)]"
+                }`}
+              >
+                <span className="truncate">⏳ {g.tieuDe}</span>
+                {n !== undefined && (
+                  <span className={`ml-2 min-w-[22px] shrink-0 rounded-full px-1.5 text-center text-[11px] font-bold tabular-nums ${co ? "bg-[var(--color-danger)] text-white" : "bg-[var(--color-subtle)] text-[var(--color-text-secondary)]"}`}>
+                    {n}
+                  </span>
+                )}
+              </button>
+            );
+          }
           return (
             <div key={g.tieuDe} className="mb-2 last:mb-0">
               <button
@@ -179,7 +210,7 @@ function MobileTrangThai({
   onChange: (v: string) => void;
   counts: Record<string, number> | undefined;
 }) {
-  const tang1 = [...nhom.map((g) => ({ value: g.value, label: g.tieuDe, n: demNhom(g, counts), canLam: g.canLam })), { value: "", label: t("Tất cả"), n: counts?.[""], canLam: false }];
+  const tang1 = [...nhom.map((g) => ({ value: g.value, label: g.tieuDe, n: demNhom(g, counts), canLam: g.canLam, nguyHiem: g.nguyHiem })), { value: "", label: t("Tất cả"), n: counts?.[""], canLam: false, nguyHiem: false }];
   // Nhom dang chon: chinh no, hoac nhom chua muc dang chon.
   const nhomChon = nhom.find((g) => g.value === value || g.muc.some((m) => m.value === value));
   return (
@@ -194,7 +225,9 @@ function MobileTrangThai({
               onClick={() => onChange(x.value)}
               aria-pressed={active}
               // Nhan tren / so duoi: 4 o chia deu ~80px khong du cho "Cần xử lý (3)" 1 dong (bi cat "Cần …").
-              className={`filter-tab min-h-12 flex-col justify-center gap-0 px-1 py-1 leading-tight ${active ? "active" : ""}`}
+              className={`filter-tab min-h-12 flex-col justify-center gap-0 px-1 py-1 leading-tight ${active ? "active" : ""} ${
+                x.nguyHiem && (x.n ?? 0) > 0 ? "!border-[var(--color-danger)] !bg-[var(--color-danger-soft)] !text-[var(--color-danger-strong)]" : ""
+              }`}
             >
               <span className="max-w-full truncate">{x.label}</span>
               <span

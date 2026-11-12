@@ -5174,6 +5174,10 @@ function canKho(c: Context<{ Bindings: Env }>): boolean {
 // "Kho da tiep nhan" nhung tab mo mac dinh loc "Cho kho xu ly" -> bam vao khong thay don nao). Cung tap trang thai
 // voi thieuLkCanXuLy trong routes/notifications.ts - doi 1 ben phai doi ben kia.
 const THIEU_LK_VIEC = "__VIEC__";
+// "Chờ duyệt hủy" (v1.480): ticket con mo ma don goc co yeu cau huy (KTV / GS gui) dang cho Kho / Mua hang dong y - muc rieng o cot trang thai.
+const THIEU_LK_CHO_HUY = "__CHO_HUY__";
+const THIEU_LK_CHO_HUY_SQL = `EXISTS (SELECT 1 FROM yeu_cau_huy_don ych WHERE ych.dat_don_hang_id = ddh.id AND ych.trang_thai = 'Cho dong y' AND ych.bo_phan IN ('kho', 'mua_hang'))
+  AND ${latestThieuLkStatusExpr("tlk.id")} NOT IN ('Da huy bo', 'Da ket thuc')`;
 // Nguoi xu ly ticket "Cho mua hang" (2026-10-19): Mua hang + Admin.
 function laMuaHangXuLy(c: Context<{ Bindings: Env }>): boolean {
   const u = c.get("user");
@@ -5280,7 +5284,9 @@ async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = 
     whereSql += ` AND ddh.id IN (SELECT value FROM json_each(?)) AND ${latestThieuLkStatusExpr("tlk.id")} NOT IN ('Da huy bo', 'Da ket thuc')`;
     binds.push(JSON.stringify([...ds]));
   }
-  if (trangThai === THIEU_LK_VIEC) {
+  if (trangThai === THIEU_LK_CHO_HUY) {
+    whereSql += ` AND ${THIEU_LK_CHO_HUY_SQL}`;
+  } else if (trangThai === THIEU_LK_VIEC) {
     const ds = thieuLkTrangThaiViec(c);
     whereSql += ds.length ? ` AND ${latestThieuLkStatusExpr("tlk.id")} IN (${ds.map(() => "?").join(",")})` : " AND 1=0";
     binds.push(...ds);
@@ -5399,6 +5405,10 @@ datMuaLinhKien.get("/thieu-lk-status-counts", async (c) => {
   for (const r of results) if (r.trang_thai) counts[r.trang_thai] = r.n;
   const viec = thieuLkTrangThaiViec(c);
   counts[THIEU_LK_VIEC] = viec.reduce((s, t) => s + (counts[t] ?? 0), 0);
+  const choHuy = await c.env.DB.prepare(
+    `SELECT COUNT(*) as n FROM thieu_lk tlk LEFT JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id WHERE ${whereSql} AND ${THIEU_LK_CHO_HUY_SQL}`,
+  ).bind(...binds).first<{ n: number }>();
+  counts[THIEU_LK_CHO_HUY] = choHuy?.n ?? 0;
   // So ticket theo trang thai ma LK (chip loc "Mã chờ xác nhận"/"Mã đã xác nhận", 2026-10-16) - CUNG bo loc danh sach (ke ca trang
   // thai ticket dang chon), tru chinh bo loc ma LK.
   const kq = await thieuLkListWhere(c, false, true);
