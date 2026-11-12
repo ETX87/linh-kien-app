@@ -5797,6 +5797,16 @@ async function applyThieuLkLog(
       }
     } else if (await huyDonChoHangTuDong(c.env, c.env.DB, tlk.dat_don_hang_id, user.email, tomTat)) {
       const lyDo = ghiChu?.trim() ? `: ${ghiChu.trim()}` : "";
+      // Don da huy -> yeu cau huy dang cho bo phan dong y (KTV / GS gui truoc do) tu dong "Da dong y" (v1.479 - Kho huy thang tren
+      // ticket hoac don goc thay vi bam "Đồng ý hủy"); bao nguoi gui neu khac nguoi tao (nguoi tao duoc bao ngay duoi).
+      const ycMo = await c.env.DB.prepare(
+        "UPDATE yeu_cau_huy_don SET trang_thai = 'Da dong y', nguoi_xu_ly = ?, ngay_xu_ly = ?, ghi_chu_xu_ly = ? WHERE dat_don_hang_id = ? AND trang_thai = 'Cho dong y' RETURNING nguoi_yeu_cau",
+      ).bind(user.email, nowVN(), `Tự đóng: ${trangThai === "Da huy bo" ? "ticket chờ hàng đã hủy" : "đơn đã hủy"}${lyDo}`, tlk.dat_don_hang_id)
+        .all<{ nguoi_yeu_cau: string }>();
+      const nguoiGui = ycMo.results.map((r) => r.nguoi_yeu_cau).filter((e) => e !== donGoc!.nguoi_tao && e !== user.email);
+      if (nguoiGui.length) {
+        c.executionCtx.waitUntil(baoNguoiVeYeuCauHuy(c, nguoiGui, `Đơn ${tlk.dat_don_hang_id} ${tenDon} đã hủy theo yêu cầu${lyDo}`, tlk.dat_don_hang_id));
+      }
       c.executionCtx.waitUntil(
         baoNguoiTaoDon(
           c.env, c.env.DB, donGoc.nguoi_tao, "huy",

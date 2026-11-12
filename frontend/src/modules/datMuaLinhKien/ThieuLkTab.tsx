@@ -37,7 +37,7 @@ import type { LinhKienRow } from "../../types";
 import { XetDuyetMaSection } from "../danhMucLinhKien/XetDuyetMaLk";
 import { DanhGiaThieuLk } from "./DanhGiaThieuLk";
 import { TachDonModal } from "./TachDon";
-import { YeuCauHuyChip } from "./YeuCauHuy";
+import { HuyDonKhoi, YeuCauHuyChip } from "./YeuCauHuy";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -1230,6 +1230,7 @@ export function ThieuLkDetailModal({
       // Don goc doi trang thai theo ticket (Cho hang -> Cho TN duyet, TN duyet ticket -> duyet don) - 2026-09-29.
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
       qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-detail"] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-huy-don"] });
       invalidatePipelineCounts(qc);
       // 2026-10-02 (phan hoi Kho "xác nhận hàng đã về... tự động next phiếu tiếp theo làm nhân viên kho dễ nhầm lẫn là
       // chưa bấm thành công"): BO "Duyet va tiep theo" - xu ly xong GIU NGUYEN ticket vua thao tac (chi tiet tai lai,
@@ -1465,9 +1466,29 @@ export function ThieuLkDetailModal({
               {tk.lk_nhom_lk && <NhomLkBadge value={tk.lk_nhom_lk} />}
               <KhoDuHangBadge du={tk.kho_du_hang} />
               <KhoMotPhanBadge co={tk.kho_mot_phan} sl={tk.so_luong_de_xuat} />
+              <YeuCauHuyChip boPhan={tk.ddh_yeu_cau_huy} />
               {tk.so_luong_de_xuat != null && <span className="text-xs font-semibold text-[var(--color-text-body)]">{t("SL {a}", { a: tk.so_luong_de_xuat })}</span>}
             </div>
           </div>
+
+          {/* Yeu cau huy don goc dang cho bo phan dong y (v1.479): Kho / Mua hang dong y ngay tren ticket = huy ca ticket lan don goc
+              (cung API voi khoi o chi tiet don goc - POST /dat-mua-lk/yeu-cau-huy/:id/xu-ly). */}
+          {tk.ddh_yeu_cau_huy && tk.dat_don_hang_id && (
+            <div className="mb-4">
+              <HuyDonKhoi
+                donId={tk.dat_don_hang_id}
+                coNutHuyCu
+                dongDon={false}
+                currentEmail={currentEmail}
+                addToast={addToast}
+                onDone={() => {
+                  qc.invalidateQueries({ queryKey: ["thieu-lk-detail", id] });
+                  qc.invalidateQueries({ queryKey: ["dat-mua-lk-thieu-lk"] });
+                  qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang-detail"] });
+                }}
+              />
+            </div>
+          )}
 
           {/* Hang ve MOT PHAN -> tach don (v1.434): Kho / Ke toan / TN tach phan da ve sang don moi (duyet vao phieu), don goc con lai tiep tuc cho. */}
           {(canKho || canTacNghiep) && tkDonGoc?.ddh_trang_thai === "Cho hang" && (tk.so_luong_de_xuat ?? 0) >= 2 &&
