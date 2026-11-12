@@ -41,6 +41,8 @@ export type LoaiDon = "mua" | "cong_no" | "tra_hang";
 export function deriveLoaiDon(loaiDeXuatGoc: string): LoaiDon {
   const loaiDeXuat = loaiDeXuatGoc.normalize("NFC").toUpperCase();
   if (loaiDeXuat.includes("TRẢ HÀNG")) return "tra_hang";
+  // Don "SỬA CHỮA TẠI KHO" dong bo tu app Sua chua (v1.478) - khong phat sinh tien.
+  if (loaiDeXuat.includes("SỬA CHỮA TẠI KHO")) return "cong_no";
   // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403) = don MUA ghi no doi tac - truoc nhanh "CÔNG NỢ" ben duoi.
   if (laMuaCongNoDoiTac(loaiDeXuat)) return "mua";
   if (loaiDeXuat.includes("CÔNG NỢ") || loaiDeXuat.includes("HỖ TRỢ") || loaiDeXuat.includes("TRỪ CÔNG NỢ") || loaiDeXuat.includes("THẺ BẢO HÀNH"))

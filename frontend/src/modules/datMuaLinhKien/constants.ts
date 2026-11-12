@@ -227,6 +227,11 @@ export const DON_HANG_TRANG_THAI_TONE: Record<string, Tone> = {
   "Da huy": "neutral",
   "Cho GS duyet": "purple",
   "Cho thanh toan": "warning",
+  // Don "SỬA CHỮA TẠI KHO" dong bo tu app Sua chua (v1.478) - chi xem.
+  "SC de xuat": "neutral",
+  "SC cho kho in": "purple",
+  "SC kho da in": "purple",
+  "SC kho da xuat": "success",
 };
 
 // Phan hoi UX muc 2 (2026-08-15): to mau/gach ngang TEN LINH KIEN theo trang thai dong don hang -
@@ -503,6 +508,11 @@ export const DON_CUA_TOI_TRANG_THAI_OPTIONS = [
   // Sentinel "Yêu cầu hủy chờ tôi đồng ý" (v1.455) - don co yeu cau huy dang cho bo phan nguoi xem (GET /don-hang).
   { value: "__YEU_CAU_HUY__", label: "Yêu cầu hủy chờ tôi đồng ý" },
   { value: "Cho hang", label: "Chờ hàng" },
+  // Don "SỬA CHỮA TẠI KHO" dong bo tu app Sua chua bao hanh (v1.478) - chi xem, khong tao duoc tren app nay.
+  { value: "SC de xuat", label: "Sửa chữa · NV đề xuất" },
+  { value: "SC cho kho in", label: "Sửa chữa · Chờ Kho in" },
+  { value: "SC kho da in", label: "Sửa chữa · Kho đã in" },
+  { value: "SC kho da xuat", label: "Sửa chữa · Kho đã xuất" },
   { value: "Da huy", label: "Đã hủy" },
 ];
 export const PXK_TRANG_THAI_OPTIONS = [

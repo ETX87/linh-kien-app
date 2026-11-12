@@ -1393,3 +1393,15 @@ Client, chưa `wrangler d1 create`, chưa deploy Worker thật, chưa có API ke
 `CASE_LOOKUP_API_KEY`. `wrangler.jsonc` có nhiều giá trị `REPLACE_...` placeholder. Không tự ý chạy
 các lệnh tạo tài nguyên/deploy khi chưa xác nhận với người yêu cầu — làm theo checklist trong
 `DEPLOY.md`.
+
+## Đơn "SỬA CHỮA TẠI KHO" đồng bộ từ app Sửa chữa bảo hành (2026-11-12, v1.478, migration `0116`)
+
+Nguyên văn yêu cầu (chủ hệ thống): *"luồng "Cấp lk" ... khi đơn cấp Lk đến bước kế toán xác nhận xong / kho in, kho xuất... => sẽ bắn API sang linh-kien-app để tạo 1 lịch sử đơn đặt (mỗi thay đổi sẽ lưu log theo api (kiểm soát tránh trùng log) ... loại đề xuất "SỬA CHỮA TẠI KHO" (đơn này không hiện trong danh sách lựa chọn trên hệ thống - chỉ đồng bộ API về) ... các đơn này sẽ hoạt động như 1 đơn hàng bình thường nhưng sẽ khóa không cho chỉnh sửa hoặc thay đổi vì chỉ là đơn view log lịch sử"*.
+
+- `POST /api/suachua-partner/cap-lk {items[]}` (X-Sync-Key = `SUACHUA_SYNC_API_KEY`, ≤100) → `lib/donSuaChuaKho.ts apDungCapLk`. 1 DX bên suachua = 1 `phieu_dat` `SK-…` (`nguon_ngoai='suachua'`) + 1 `dat_don_hang` (`nguon_ngoai`, `nguon_ngoai_id`, `ngoai_rev`, `ngoai_cap_nhat`, `ngoai_info` JSON).
+- Đơn: `loai_de_xuat` "SỬA CHỮA TẠI KHO" (không có trong `settings_loai_de_xuat`; `deriveLoaiDon` → `cong_no`), `loai_don='cong_no'`, giá NULL, khu vực NULL (không trừ tồn kho công ty), `ma_misa` = mã PXK MISA bên suachua, `ma_yeu_cau_su_co` + `dat_don_case` = case. Người tạo = người nhận = NV sửa chữa (chưa có → `users` "Cho duyet" tối thiểu). Mã LK chưa có → tự thêm `chi_sua_chua=1`.
+- Trạng thái riêng `SC cho kho in` → `SC kho da in` → `SC kho da xuat` (+ `Da huy`), nằm trong `DON_HANG_TRANG_THAI_DONG` → không bị gom PXK, không đếm việc TN, không vào báo cáo tiền. FE: tone + nhãn "Sửa chữa · …" ở `constants.ts` (+ i18n en/id).
+- **Khoá cứng bằng trigger** (migration 0116): UPDATE/DELETE `dat_don_hang` / `phieu_dat` nguồn ngoài bị `RAISE(IGNORE)` trừ khi `ngoai_rev` tăng (chỉ API đồng bộ làm); INSERT `phieu_xuat_kho_dong` / `thieu_lk` / `yeu_cau_huy_don` → `RAISE(ABORT,'DON_SUA_CHUA_KHOA')`; INSERT `dat_don_hang_log` / `dat_don_hang_giai_trinh` → bỏ qua. Lưu ý khi viết code mới: lệnh UPDATE hàng loạt sẽ âm thầm bỏ qua các đơn này (meta.changes nhỏ hơn số dòng khớp).
+- Nhật ký: bảng `dat_don_ngoai_log` (`UNIQUE(dat_don_hang_id, su_kien)` chống trùng); `GET /dat-mua-lk/don-hang/:id` gộp vào "Lịch sử xử lý". Bản tin `cap_nhat_luc` ≤ `ngoai_cap_nhat` → bỏ qua (không ghi gì).
+- Chi tiết đơn (`DonCuaToiTab.tsx`): banner "🔒 Đơn đồng bộ từ app Sửa chữa bảo hành — chỉ xem" (DX, đơn BH, KTV, NV, mã ĐH), ẩn footer thao tác + nút "✎ Sửa".
+- Kiểm thử: 2 Worker local nối service binding — tạo / cập nhật từng bước / chống trùng / bản tin cũ / khoá trigger / API chi tiết đều đạt (xem CLAUDE.md repo `gui-bao-hanh-linh-kien`, mục cùng ngày).

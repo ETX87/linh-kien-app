@@ -4,6 +4,7 @@ import { khoaKhop } from "../lib/baoVe";
 import { nowVN } from "../lib/vnTime";
 import { nextSequentialId } from "../lib/idCounter";
 import { THB_MO, docThb, thbGhiBuoc, thbThayDoiSau } from "../lib/thieuHangBh";
+import { apDungCapLk, type CapLkItem } from "../lib/donSuaChuaKho";
 
 // He "Sua chua bao hanh" (Worker suachua) goi vao day qua Service Binding khi Admin BH sua tay "Phan
 // loai" (cot don_vi) cua 1 linh kien dong bo (2026-10-11, yeu cau "phan loai cho phep dong bo nguoc ve
@@ -135,6 +136,16 @@ suachuaPartner.post("/thieu-hang-bh/:id/huy", async (c) => {
   });
   if (!ok) return c.json({ error: "STATE_CHANGED" }, 409);
   return c.json({ rows: await docThb(c.env.DB, [id]) });
+});
+
+// ---------- DON "SỬA CHỮA TẠI KHO" (2026-11-12, v1.478, migration 0116) ----------
+// POST /api/suachua-partner/cap-lk - { items: CapLkItem[] } (toi da 100). Moi item = trang thai HIEN TAI cua 1 de xuat cap linh kien
+// (DX-xxxxxx) ben suachua; tao / cap nhat 1 don dat CHI XEM + nhat ky chong trung (lib/donSuaChuaKho.ts). Tra { rows: [{ nguon_id,
+// ddh_id, ok, bo_qua?, loi? }] } - suachua chi danh dau "da day" dong ok.
+suachuaPartner.post("/cap-lk", async (c) => {
+  const body = await c.req.json<{ items?: CapLkItem[] }>().catch(() => ({}) as { items?: CapLkItem[] });
+  if (!Array.isArray(body.items) || body.items.length > 100) return c.json({ error: "INVALID_BODY" }, 400);
+  return c.json({ rows: await apDungCapLk(c.env.DB, body.items) });
 });
 
 export default suachuaPartner;

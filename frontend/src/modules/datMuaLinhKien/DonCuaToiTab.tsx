@@ -376,6 +376,15 @@ export function DonHangDetailModal({
   const d = data?.donHang;
   const pxk = data?.pxk;
   const thieuLk = data?.thieuLk;
+  // Don "SỬA CHỮA TẠI KHO" dong bo tu app Sua chua bao hanh (v1.478): chi xem - an moi nut thao tac (backend khoa cung bang trigger).
+  const khoaNgoai = !!d?.nguon_ngoai;
+  const ngoaiInfo = (() => {
+    try {
+      return d?.ngoai_info ? (JSON.parse(d.ngoai_info) as Record<string, string | null>) : null;
+    } catch {
+      return null;
+    }
+  })();
   const personDirChiTiet = usePersonDirectory();
   const authHuy = useAuth();
   const laGsXem = authHuy.status === "authenticated" && authHuy.user.vai_tro === "Giam sat";
@@ -995,7 +1004,7 @@ export function DonHangDetailModal({
       }
       onClose={onClose}
       width={DRAWER_WIDTH_CHI_TIET}
-      footer={footer}
+      footer={khoaNgoai ? undefined : footer}
       // CHOT (ra soat module "Dat Mua Linh Kien 2.0" #18): nut Sua dat canh nut dong ✕ (headerExtra),
       // tach khoi hang badge trang thai ben trong noi dung - truoc day 2 cum "xem" va "sua" cung 1
       // hang ngang, khong phan biet ro "khu vuc thong tin" va "khu vuc dieu khien modal".
@@ -1009,7 +1018,7 @@ export function DonHangDetailModal({
               onNext={() => navNextId && onNavigate(navNextId)}
             />
           )}
-          {canEditFull && !isEditMode ? (
+          {canEditFull && !isEditMode && !khoaNgoai ? (
             <Btn size="sm" variant="ghost" onClick={startEdit}>{t("✎ Sửa")}</Btn>
           ) : undefined}
         </>
@@ -1020,6 +1029,18 @@ export function DonHangDetailModal({
         <div className="text-sm text-[var(--ink-500)] py-4 text-center">{t("Đang tải...")}</div>
       ) : !d ? null : (
         <div className="space-y-4 text-sm">
+          {khoaNgoai && (
+            <div className="rounded-lg border border-[var(--line)] bg-[var(--color-info-soft,#eef4ff)] px-3 py-2 text-[13px] text-[var(--color-text-body)]">
+              <div className="font-semibold">🔒 {t("Đơn đồng bộ từ app Sửa chữa bảo hành — chỉ xem")}</div>
+              <div className="mt-0.5 text-[var(--color-text-secondary)]">
+                {d.nguon_ngoai_id}
+                {ngoaiInfo?.don_vi_id ? ` · ${ngoaiInfo.don_vi_id}` : ""}
+                {ngoaiInfo?.ktv_ten || ngoaiInfo?.ktv_email ? ` · KTV: ${ngoaiInfo.ktv_ten ?? ngoaiInfo.ktv_email}` : ""}
+                {ngoaiInfo?.nv_ten ? ` · NV: ${ngoaiInfo.nv_ten}` : ""}
+                {ngoaiInfo?.ma_don_hang ? ` · ĐH: ${ngoaiInfo.ma_don_hang}` : ""}
+              </div>
+            </div>
+          )}
           {/* SUA (ra soat UI/UX 2026-08-28, van de #2/#3/#4/#11: "chia thành các vùng dữ liệu" + tien
               gom 1 cho + badge trang thai qua tai): thay khoi KvRow phang truoc day bang 1 dai "chỉ số
               nhanh" ngay duoi tieu de (SL/gia/trang thai noi bat NGAY, khong phai cuon vao than moi

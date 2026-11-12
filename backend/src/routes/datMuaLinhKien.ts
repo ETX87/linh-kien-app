@@ -86,7 +86,8 @@ datMuaLinhKien.use("*", verifySessionMiddleware, loadUser, requireDatMuaLkArea);
 
 // Trang thai "dong" tren 1 DONG don hang - khong the goi applyDonHangLog nua (Cho hang chi mo/dong
 // qua thieu_lk, khong qua applyDonHangLog truc tiep).
-const DON_HANG_TRANG_THAI_DONG = ["TN da duyet", "TN tu choi", "Da huy", "Cho hang"] as const;
+// + 3 trang thai don "SỬA CHỮA TẠI KHO" dong bo tu app Sua chua (v1.478, lib/donSuaChuaKho.ts) - don chi xem, khong phai viec cua ai ben nay.
+const DON_HANG_TRANG_THAI_DONG = ["TN da duyet", "TN tu choi", "Da huy", "Cho hang", "SC cho kho in", "SC kho da in", "SC kho da xuat"] as const;
 // Cung dinh nghia voi TRANG_THAI_DONG trong traHang.ts (khong export/dung chung 1 file duoc vi 2
 // router doc lap nhau, giong pattern latestStatusExpr moi noi tu dinh nghia rieng) - dung cho
 // GET /loai-don-counts ben duoi. SUA (migration 0002_tra_hang_pxk.sql): "Da hoan thanh" khong con
@@ -3455,8 +3456,17 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
     ddh.loai_don === "tra_hang"
       ? (await c.env.DB.prepare("SELECT * FROM tra_hang_log WHERE dat_don_hang_id = ? ORDER BY id DESC").bind(id).all<{ ngay_xu_ly: string }>()).results
       : [];
-  const logsHienThi = traHangLogs.length
-    ? [...(logs as { ngay_xu_ly: string }[]), ...traHangLogs].sort((a, b) => (a.ngay_xu_ly < b.ngay_xu_ly ? 1 : a.ngay_xu_ly > b.ngay_xu_ly ? -1 : 0))
+  // Don "SỬA CHỮA TẠI KHO" (v1.478): lich su = nhat ky nhan qua API tu app Sua chua (dat_don_ngoai_log), khong co dat_don_hang_log.
+  const ngoaiLogs = (ddh as { nguon_ngoai?: string | null }).nguon_ngoai
+    ? (
+        await c.env.DB.prepare(
+          `SELECT id, trang_thai, COALESCE(nguoi_xu_ly_ten, nguoi_xu_ly, 'App Sửa chữa') AS nguoi_xu_ly, ngay_xu_ly, ghi_chu
+           FROM dat_don_ngoai_log WHERE dat_don_hang_id = ? ORDER BY ngay_xu_ly DESC, id DESC`,
+        ).bind(id).all<{ ngay_xu_ly: string }>()
+      ).results
+    : [];
+  const logsHienThi = traHangLogs.length || ngoaiLogs.length
+    ? [...(logs as { ngay_xu_ly: string }[]), ...traHangLogs, ...ngoaiLogs].sort((a, b) => (a.ngay_xu_ly < b.ngay_xu_ly ? 1 : a.ngay_xu_ly > b.ngay_xu_ly ? -1 : 0))
     : logs;
 
   // FIX (ra soat "logic sai theo vai tro" 2026-08-31, phan hoi "Vệ tinh không cần quan tâm đến PXK...

@@ -162,6 +162,10 @@ export interface GiaiTrinhRow {
 
 export interface DonHangRow {
   id: string;
+  // Don "SỬA CHỮA TẠI KHO" dong bo tu app Sua chua (v1.478): nguon_ngoai = "suachua" -> chi xem, moi thao tac bi khoa.
+  nguon_ngoai?: string | null;
+  nguon_ngoai_id?: string | null;
+  ngoai_info?: string | null;
   phieu_dat_id: string;
   loai_don: "mua" | "cong_no" | "tra_hang";
   ma_lk: string;
