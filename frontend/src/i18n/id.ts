@@ -1504,6 +1504,7 @@ const tuDien: Record<string, string> = {
   "☰ Đổi tháng ▾": "☰ Ganti bulan ▾",
   "⚠ Bạn đã dùng hết {n}/{n} ảnh được tải hôm nay - ảnh tiếp theo sẽ bị chặn tới ngày mai": "⚠ Anda sudah memakai {n}/{n} unggahan gambar hari ini - gambar berikutnya akan diblokir sampai besok",
   "⚠ {a} ô dài quá 255 ký tự đã bị cắt (MISA chỉ nhận 255 ký tự/ô) — kiểm tra lại: {b}{c}": "⚠ {a} sel lebih dari 255 karakter dipotong (MISA hanya menerima 255 karakter per sel) — periksa: {b}{c}",
+  "⚠ {a} ô mã sự cố dài quá 255 ký tự (giữ đủ mọi mã, MISA có thể từ chối) — kiểm tra lại: {b}": "⚠ {a} sel kode insiden melebihi 255 karakter (semua kode dipertahankan, MISA mungkin menolak) — periksa: {b}",
   "⚠ Bỏ {a} dòng TRỪ CÔNG NỢ khỏi file Chuyển kho (phiếu {b}{c}) — dòng TRỪ CÔNG NỢ trừ kho KTV, tải bằng nút \"MISA Bán hàng\"": "⚠ {a} baris TRỪ CÔNG NỢ dilewati dari file Transfer gudang (SJ {b}{c}) — baris TRỪ CÔNG NỢ memotong stok teknisi; unduh dengan tombol \"MISA Penjualan\"",
   "⚠ Chưa tra cứu được hệ thống Lada lúc này — vẫn tạo đơn được, hãy chắc chắn mã chính xác.": "⚠ Sistem Lada tidak bisa dicek saat ini — pesanan tetap bisa dibuat; pastikan kodenya benar.",
   "⚠ Chưa xong": "⚠ Belum lengkap",

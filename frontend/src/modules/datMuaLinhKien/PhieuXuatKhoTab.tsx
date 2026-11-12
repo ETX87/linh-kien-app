@@ -93,10 +93,16 @@ function toastKetQuaMisa(result: MisaExportResult, ok: boolean, addToast: (msg: 
     );
   } else if (!ok) addToast(t("Không có dòng nào để xuất"));
   if (ok) toastCanhBaoThieuMisa(result, addToast);
-  const cat = result.catNgan ?? [];
+  const dsO = (ds: NonNullable<MisaExportResult["catNgan"]>) =>
+    ds.slice(0, 5).map((c) => `${c.so_phieu} · ${c.ma_lk} · ${c.cot} (${c.do_dai})`).join("; ") + (ds.length > 5 ? "…" : "");
+  const all = result.catNgan ?? [];
+  const cat = all.filter((c) => !c.giu_nguyen);
+  const giu = all.filter((c) => c.giu_nguyen);
   if (ok && cat.length > 0) {
-    const ds = cat.slice(0, 5).map((c) => `${c.so_phieu} · ${c.ma_lk} · ${c.cot} (${c.do_dai})`).join("; ");
-    addToast(t("⚠ {a} ô dài quá 255 ký tự đã bị cắt (MISA chỉ nhận 255 ký tự/ô) — kiểm tra lại: {b}{c}", { a: cat.length, b: ds, c: cat.length > 5 ? "…" : "" }));
+    addToast(t("⚠ {a} ô dài quá 255 ký tự đã bị cắt (MISA chỉ nhận 255 ký tự/ô) — kiểm tra lại: {b}{c}", { a: cat.length, b: dsO(cat), c: "" }));
+  }
+  if (ok && giu.length > 0) {
+    addToast(t("⚠ {a} ô mã sự cố dài quá 255 ký tự (giữ đủ mọi mã, MISA có thể từ chối) — kiểm tra lại: {b}", { a: giu.length, b: dsO(giu) }));
   }
 }
 

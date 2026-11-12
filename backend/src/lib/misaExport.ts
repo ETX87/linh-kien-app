@@ -126,7 +126,7 @@ export interface MisaExportResult {
   // giam cong no -> chi hach toan bang mau Ban hang (tru kho KTV); Chuyen kho se chuyen nguoc hang KTV ve kho cong ty.
   boQuaTruCongNo: { so_phieu: string; ma_lk: string }[];
   // O bi cat ve 255 ky tu (v1.471) - 1 don le van dai qua sau khi da tach dong gop; FE canh bao.
-  catNgan: { so_phieu: string; ma_lk: string; cot: string; do_dai: number }[];
+  catNgan: { so_phieu: string; ma_lk: string; cot: string; do_dai: number; giu_nguyen?: boolean }[];
 }
 
 interface RawLine {
@@ -272,28 +272,30 @@ type DongXuat = { template: "chuyen_kho"; row: ChuyenKhoRow } | { template: "xua
 
 // GIOI HAN 255 KY TU / O (chot 2026-11-11, v1.471 - "file tải mẫu in MISA bị lỗi giới hạn ký tự 1 ô chỉ 255 ký tự"): MISA AMIS tu
 // choi import o text dai hon 255 ky tu. Nguon dai thuong gap: gop nhieu don cung ma LK (noi Ma YCSC/Lada, TT KH, TT+Mail duyet vao
-// Dien giai). Xu ly 2 lop: (1) gop dong DUNG LAI truoc khi 1 o vuot 255 -> mo dong moi cung ma (khong mat ma nao); (2) 1 don le van
-// dai qua (ten LK / TT KH rat dai) -> cat ve 255 (cot ma: cat tron ma, cot chu: "…") + tra `catNgan` de FE canh bao.
+// Dien giai). SUA 2026-11-12 (v1.474 - "bỏ logic tách phiếu khi text dài quá 255 ký tự"): KHONG con tach dong gop; don TG12 dung
+// Dien giai ngan theo ID phieu (dienGiaiTraGop). O chu con > 255 -> cat "…"; o ma (Truong mo rong) GIU DU moi ma, chi canh bao
+// (`catNgan` giu_nguyen) - FE bao de Ke toan kiem tra.
 export const MISA_MAX_KY_TU = 255;
 const NHAN_COT: Record<string, string> = {
   dienGiai: "Diễn giải", veViecDienGiai: "Về việc/Diễn giải", nguoiNhanHang: "Người nhận hàng", tenKhachHang: "Tên khách hàng",
   tenHang: "Tên hàng", tenNguoiVanChuyen: "Tên người vận chuyển", truongMoRong1: "Trường mở rộng 1", truongMoRong2: "Trường mở rộng 2",
   truongMoRong: "Trường mở rộng",
 };
-// Cot chi chua danh sach ma (cach nhau 1 dau cach) - cat tron ma, khong cat giua ma.
+// Cot chi chua danh sach ma (cach nhau 1 dau cach) - khong cat (v1.474), chi canh bao.
 const COT_MA = new Set(["truongMoRong1", "truongMoRong2", "truongMoRong"]);
 function cotQuaDai(row: DonDatHangRow | ChuyenKhoRow): string[] {
   return Object.entries(row).filter(([, v]) => typeof v === "string" && v.length > MISA_MAX_KY_TU).map(([k]) => k);
 }
-function catNganO(cot: string, v: string): string {
-  if (!COT_MA.has(cot)) return v.slice(0, MISA_MAX_KY_TU - 1) + "…";
-  let out = "";
-  for (const ma of v.split(" ")) {
-    const moi = out ? `${out} ${ma}` : ma;
-    if (moi.length > MISA_MAX_KY_TU) break;
-    out = moi;
-  }
-  return out || v.slice(0, MISA_MAX_KY_TU);
+function catNganO(_cot: string, v: string): string {
+  return v.slice(0, MISA_MAX_KY_TU - 1) + "…";
+}
+
+// Dien giai don KH tra gop TG12 (chot 2026-11-12, v1.474 - "đối với đơn ghép TG12 thì diễn giải sẽ ghi gắn gọn chung cho toàn bộ đơn
+// xuất trên cùng 1 phiếu của ktv là xuất cho mã phiếu xuất kho ID xxxx trên app đặt linh kiện"): 1 cau ngan theo ID phieu, khong noi
+// TT KH / ma YCSC (ma CRM van gop day du o Truong mo rong). Thang ca cau "xuất máy đổi bảo hành"; dong tra hang van giu cau rieng.
+function dienGiaiTraGop(line: RawLine, maKho: string, tenNguoi: string): string {
+  return [maKho, "xuất", line.loai_de_xuat ?? "", "cho", tenNguoi, "theo phiếu xuất kho", line.pxk_id, "trên app đặt linh kiện"]
+    .filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
 }
 
 // "Trường mở rộng 1/2" (Mã bổ sung 1/2 tren MISA) CHI chua danh sach MA (chot 2026-11-11, v1.471 - "cột mã bổ sung 1/2 chỉ được dùng
@@ -309,7 +311,7 @@ function dsMa(...nguon: (string | null | undefined)[]): string[] {
 // MO RONG 2026-10-27 (v1.410 - "khi tải file import misa, cùng các đơn cùng 1 phiếu giống mã linh kiện sẽ gộp chung về 1 dòng (tương tự
 // đơn Trả góp)"): ap cho MOI dong, khong chi tra gop. Khoa gop = mau + phieu + KTV nhan + ma LK + loai de xuat (dien giai theo loai de
 // xuat, vd MDT) + chinh sach voi don HỖ TRỢ 0 ĐỒNG (dien giai trong/ngoai BH) + don gia voi mau Chuyen kho (Thanh tien = SL x don gia goc).
-// Ma Lada / Ma YCSC bo sung noi nhu Ma YCSC. v1.471: gop xong ma 1 o > 255 ky tu -> mo dong moi (xem MISA_MAX_KY_TU).
+// Ma Lada / Ma YCSC bo sung noi nhu Ma YCSC. v1.474 (2026-11-12, "bỏ logic tách phiếu khi text dài quá 255 ký tự"): LUON gop het, khong tach dong khi o > 255 ky tu.
 function khoaGop(d: DongMisa): string {
   return [
     d.template, d.line.pxk_id, d.line.nguoi_nhan_hang ?? "", d.line.ma_lk, d.line.loai_de_xuat ?? "",
@@ -426,6 +428,8 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
     const traHang = laDongTraHang(line) && mien ? KHO_NHAN_TRA[mien] : null;
     const dienGiaiCoDinh = traHang
       ? `${traHang.dienGiai} ${tenMisa || line.nguoi_nhan_hang || ""}`.trim()
+      : laKhTraGop(line.loai_de_xuat)
+        ? dienGiaiTraGop(line, kho.ma, tenMisa || line.nguoi_nhan_hang || "")
       : laXuatMayDoiBaoHanh(line)
         ? dienGiaiXuatMay(tenMisa || maMisa || line.nguoi_nhan_hang || "", line)
         : null;
@@ -561,11 +565,8 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
     if (g) {
       const line = gopLine(g.line, d.line);
       const ids = [...g.ids, d.line.ddh_id];
-      const dong = taoDong(line, g.template, tienCua(ids));
-      if (cotQuaDai(dong.row).length === 0) {
-        Object.assign(g, { line, ids, dong });
-        continue;
-      }
+      Object.assign(g, { line, ids, dong: taoDong(line, g.template, tienCua(ids)) });
+      continue;
     }
     const moi: Nhom = { line: { ...d.line }, template: d.template, ids: [d.line.ddh_id], dong: taoDong(d.line, d.template, tienCua([d.line.ddh_id])) };
     nhomMo.set(key, moi);
@@ -575,8 +576,10 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
     const row = dong.row as unknown as Record<string, unknown>;
     for (const cot of cotQuaDai(dong.row)) {
       const v = row[cot] as string;
-      catNgan.push({ so_phieu: line.pxk_ma_xuat_kho || line.pxk_id, ma_lk: line.ma_lk, cot: NHAN_COT[cot] ?? cot, do_dai: v.length });
-      row[cot] = catNganO(cot, v);
+      // Cot ma (Truong mo rong): GIU DU moi ma, chi canh bao (chot 2026-11-12, v1.474); cot chu: cat "…".
+      const giuNguyen = COT_MA.has(cot);
+      catNgan.push({ so_phieu: line.pxk_ma_xuat_kho || line.pxk_id, ma_lk: line.ma_lk, cot: NHAN_COT[cot] ?? cot, do_dai: v.length, giu_nguyen: giuNguyen });
+      if (!giuNguyen) row[cot] = catNganO(cot, v);
     }
     if (dong.template === "chuyen_kho") sheets.chuyen_kho.push(dong.row);
     else sheets[dong.template].push(dong.row);
