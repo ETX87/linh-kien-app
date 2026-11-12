@@ -393,10 +393,12 @@ datMuaLinhKien.get("/cong-no-du-kien", async (c) => {
   // Nguoi nhan la GS -> khong doi chieu tran (2026-10-16, cung quy tac nguCanhNhan().laGs o lib/tuDongDuyet.ts) - FE an canh bao.
   const laGs = await c.env.DB.prepare("SELECT 1 FROM users WHERE email = ? AND vai_tro = 'Giam sat'").bind(nguoiNhanHang).first();
   if (laGs) return c.json({ tran: null, cong_no_chot: 0, khong_xet_tran: true });
-  const ktvRow = await c.env.DB.prepare("SELECT ma_ktv, cong_no FROM ktv_lien_he WHERE email_dang_nhap = ?")
+  const ktvRow = await c.env.DB.prepare("SELECT ma_ktv, cong_no, khong_tran_cong_no FROM ktv_lien_he WHERE email_dang_nhap = ?")
     .bind(nguoiNhanHang)
-    .first<{ ma_ktv: string; cong_no: number | null }>();
+    .first<{ ma_ktv: string; cong_no: number | null; khong_tran_cong_no: number | null }>();
   if (!ktvRow) return c.json({ tran: null, cong_no_chot: 0 });
+  // KTV "Khong co tran cong no" (migration 0117) - khong xet tran, FE an canh bao nhu GS.
+  if (ktvRow.khong_tran_cong_no) return c.json({ tran: null, cong_no_chot: 0, khong_xet_tran: true });
   const congNoChot = await computeCongNoChot(c.env.DB, ktvRow.ma_ktv);
   return c.json({ tran: ktvRow.cong_no, cong_no_chot: congNoChot });
 });
@@ -2427,9 +2429,9 @@ async function chuanBiPhieuDat(
 function ghiChuKhoiTao(kq: KetQuaDong, soLuong: number, phieu: KetQuaPhieu): string | null {
   const goc = ghiChuKhoiTaoGoc(kq, soLuong, phieu);
   // LK B2B (2026-10-27): ghi ro ly do khong xet tran cong no.
-  if (!kq.boQuaTranB2b) return goc;
-  const b2b = "Linh kiện B2B — bỏ qua duyệt trần công nợ";
-  return goc ? `${goc} | ${b2b}` : b2b;
+  const them = kq.boQuaTranB2b ? "Linh kiện B2B — bỏ qua duyệt trần công nợ" : kq.boQuaTranKtv ? "KTV không có trần công nợ — bỏ qua duyệt trần" : "";
+  if (!them) return goc;
+  return goc ? `${goc} | ${them}` : them;
 }
 function ghiChuKhoiTaoGoc(kq: KetQuaDong, soLuong: number, phieu: KetQuaPhieu): string | null {
   const tien = (n: number) => `${Math.round(n).toLocaleString("vi-VN")}đ`;

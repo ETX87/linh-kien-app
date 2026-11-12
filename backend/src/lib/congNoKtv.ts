@@ -122,7 +122,7 @@ export function danhGiaCongNo3Muc(congNoChot: number, tranCongNo: number | null)
 
 export type CongNoTongHopRow = {
   ma_ktv: string; ten_hien_thi: string | null; ma_misa: string | null; ten_misa: string | null; khu_vuc_ma: string | null;
-  cong_no: number | null; cong_no_cap_nhat_luc: string | null; so_ma_hang: number; tong_cuoi_ky: number;
+  cong_no: number | null; cong_no_cap_nhat_luc: string | null; khong_tran_cong_no: number; so_ma_hang: number; tong_cuoi_ky: number;
   cong_no_thuc_te: number; cong_no_phat_sinh: number; cong_no_da_tru: number; sl_ho_tro_0d: number;
   cong_no_chot: number; danh_gia_cong_no: DanhGiaCongNo3Muc;
 };
@@ -164,7 +164,7 @@ export async function docCongNoTongHop(db: D1Database, where: string, binds: unk
        WHERE ${CONG_NO_DA_TRU_WHERE_SQL}
        GROUP BY pv.ma_ktv
      )
-     SELECT k.ma_ktv, k.ten_hien_thi, k.ma_misa, k.ten_misa, k.khu_vuc_ma, k.cong_no, k.cong_no_cap_nhat_luc,
+     SELECT k.ma_ktv, k.ten_hien_thi, k.ma_misa, k.ten_misa, k.khu_vuc_ma, k.cong_no, k.cong_no_cap_nhat_luc, COALESCE(k.khong_tran_cong_no, 0) as khong_tran_cong_no,
        COUNT(t.id) as so_ma_hang, SUM(t.cuoi_ky) as tong_cuoi_ky,
        COALESCE(tt.gia_tri, 0) as cong_no_thuc_te, COALESCE(ps.gia_tri, 0) as cong_no_phat_sinh,
        COALESCE(dt.gia_tri, 0) as cong_no_da_tru, COALESCE(tt.sl_0d, 0) as sl_ho_tro_0d
@@ -181,6 +181,6 @@ export async function docCongNoTongHop(db: D1Database, where: string, binds: unk
     .all<Omit<CongNoTongHopRow, "cong_no_chot" | "danh_gia_cong_no">>();
   return results.map((r) => {
     const congNoChot = r.cong_no_thuc_te + r.cong_no_phat_sinh - r.cong_no_da_tru;
-    return { ...r, cong_no_chot: congNoChot, danh_gia_cong_no: danhGiaCongNo3Muc(congNoChot, r.cong_no) };
+    return { ...r, cong_no_chot: congNoChot, danh_gia_cong_no: r.khong_tran_cong_no ? "Binh thuong" : danhGiaCongNo3Muc(congNoChot, r.cong_no) };
   });
 }

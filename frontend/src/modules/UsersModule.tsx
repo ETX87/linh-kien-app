@@ -1340,7 +1340,7 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
   const [form, setForm] = useState({
     ma_ktv: "", ten_hien_thi: "", sdt: "", vai_tro_ktv: "KTV" as KtvLienHeRow["vai_tro_ktv"], email_dang_nhap: "",
     khu_vuc_ma: "", ktv_cap1_phu_trach: "", cong_no: "", ma_misa: "", ten_misa: "",
-    han_muc_du_phong: "", han_muc_du_phong_hien_tai: "",
+    han_muc_du_phong: "", han_muc_du_phong_hien_tai: "", khong_tran: false,
   });
   const [bulkOpen, setBulkOpen] = useState(false);
   const [importCongNoOpen, setImportCongNoOpen] = useState(false);
@@ -1418,7 +1418,7 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
     if (row === "new")
       setForm({
         ma_ktv: "", ten_hien_thi: "", sdt: "", vai_tro_ktv: "KTV", email_dang_nhap: "", khu_vuc_ma: "", ktv_cap1_phu_trach: "", cong_no: "", ma_misa: "", ten_misa: "",
-        han_muc_du_phong: "", han_muc_du_phong_hien_tai: "",
+        han_muc_du_phong: "", han_muc_du_phong_hien_tai: "", khong_tran: false,
       });
     else
       setForm({
@@ -1434,8 +1434,16 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
         ten_misa: row.ten_misa ?? "",
         han_muc_du_phong: row.han_muc_du_phong != null ? String(row.han_muc_du_phong) : "",
         han_muc_du_phong_hien_tai: row.han_muc_du_phong_hien_tai != null ? String(row.han_muc_du_phong_hien_tai) : "",
+        khong_tran: !!row.khong_tran_cong_no,
       });
   }
+  // "Không có trần công nợ" (migration 0117) - Kế toán / TN / Admin, lưu qua PATCH riêng khi giá trị đổi.
+  const duocSuaKhongTran = mode === "admin" || mode === "ke-toan" || mode === "tn";
+  const luuKhongTran = async () => {
+    if (!duocSuaKhongTran || editing === "new" || !editing) return;
+    if (!!editing.khong_tran_cong_no === form.khong_tran) return;
+    await api.patch(`/settings/ktv-lien-he/${encodeURIComponent(form.ma_ktv)}/khong-tran-cong-no`, { khong_tran: form.khong_tran });
+  };
 
   const onSaveSuccess = async () => {
     addToast("Đã lưu");
@@ -1460,6 +1468,7 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
         han_muc_du_phong_hien_tai: form.han_muc_du_phong_hien_tai !== "" ? Number(form.han_muc_du_phong_hien_tai) : null,
         xac_nhan_khu_vuc: canXacNhanKv && xacNhanKv,
       });
+      await luuKhongTran();
     },
     onSuccess: onSaveSuccess,
     onError: onSaveError,
@@ -1469,8 +1478,8 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
   // SUA 2026-09-13: them 2 truong Han muc du phong vao cung uy quyen nay (Ke toan cung la nguoi quan
   // ly cac muc tien du tru cho KTV, giong tinh than cong_no/ma_misa/ten_misa da co san).
   const saveKeToan = useMutation({
-    mutationFn: () =>
-      api.patch(`/settings/ktv-lien-he/${encodeURIComponent(form.ma_ktv)}/cong-no-misa`, {
+    mutationFn: async () => {
+      await api.patch(`/settings/ktv-lien-he/${encodeURIComponent(form.ma_ktv)}/cong-no-misa`, {
         ma_misa: form.ma_misa.trim() || null,
         ten_misa: form.ten_misa.trim() || null,
         ...(canXacNhanKv ? { khu_vuc_ma: form.khu_vuc_ma || null, xac_nhan_khu_vuc: true } : {}),
@@ -1481,7 +1490,9 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
               han_muc_du_phong: form.han_muc_du_phong !== "" ? Number(form.han_muc_du_phong) : null,
               han_muc_du_phong_hien_tai: form.han_muc_du_phong_hien_tai !== "" ? Number(form.han_muc_du_phong_hien_tai) : null,
             }),
-      }),
+      });
+      await luuKhongTran();
+    },
     onSuccess: onSaveSuccess,
     onError: onSaveError,
   });
@@ -1596,7 +1607,11 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
       key: "cong_no", mobile: "meta",
       header: "Trần công nợ",
       render: (r) =>
-        r.cong_no != null ? (
+        r.khong_tran_cong_no ? (
+          <span title={r.khong_tran_cong_no_luc ? `Bật lúc ${fmtDateTime(r.khong_tran_cong_no_luc)}${r.khong_tran_cong_no_boi ? ` · ${r.khong_tran_cong_no_boi}` : ""}` : undefined}>
+            <Badge tone="teal">Không có trần</Badge>
+          </span>
+        ) : r.cong_no != null ? (
           // FIX (ra soat UI 2026-08-27): tooltip truoc day hien nguyen chuoi gio VN "tho" tu DB, khong
           // qua fmtDateTime - dung quy uoc chung "moi cot thoi gian hien theo gio VN qua helper co san"
           // (xem CLAUDE.md/memory feedback_vn_timezone).
@@ -1835,6 +1850,21 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
                 onChange={(e) => setForm({ ...form, cong_no: e.target.value })}
                 className="focus-ring w-full border border-[var(--line)] rounded-lg px-2.5 py-1.5 text-sm mt-1 disabled:opacity-60"
               />
+              {editing !== "new" && (
+                <label className="flex items-start gap-2 mt-2 text-[12.5px] text-[var(--ink-700)] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    disabled={!duocSuaKhongTran}
+                    checked={form.khong_tran}
+                    onChange={(e) => setForm({ ...form, khong_tran: e.target.checked })}
+                  />
+                  <span>
+                    KTV không có trần công nợ
+                    <span className="block text-[11.5px] text-[var(--ink-400)]">Đơn công nợ của KTV này không xét trần — không phải chờ duyệt vượt trần.</span>
+                  </span>
+                </label>
+              )}
             </div>
             {/* He thong "Han muc du phong KTV" (them 2026-09-13) - mirror dung cap input Tran cong no
                 o tren, du dieu kien cho ca mode="admin" (PATCH /:ma/dat-mua-lk) lan "ke-toan" (PATCH

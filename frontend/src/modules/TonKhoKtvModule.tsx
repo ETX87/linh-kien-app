@@ -137,7 +137,7 @@ function CongNoOverview({ rows, onOpen }: { rows: KtvTonKhoSummaryRow[]; onOpen:
               value: r.cong_no_chot,
               display: fmtCompactVND(r.cong_no_chot),
               color: r.danh_gia_cong_no === "Vuot tran" ? "var(--chart-bad)" : r.danh_gia_cong_no === "Canh bao" ? "var(--chart-warn)" : "var(--chart-good)",
-              sub: r.cong_no ? `Trần ${fmtCompactVND(r.cong_no)} · dùng ${pct(r.cong_no_chot, r.cong_no)}` : "Chưa đặt trần công nợ",
+              sub: r.khong_tran_cong_no ? "Không có trần công nợ" : r.cong_no ? `Trần ${fmtCompactVND(r.cong_no)} · dùng ${pct(r.cong_no_chot, r.cong_no)}` : "Chưa đặt trần công nợ",
               onClick: () => onOpen(r),
             }))}
           />
@@ -332,7 +332,7 @@ function TonKhoKtvContent() {
               </span>
               <span>
                 <span className="text-[var(--color-text-muted)]">Trần </span>
-                {r.cong_no != null ? <Money>{fmtVND(r.cong_no)}</Money> : "—"}
+                {r.khong_tran_cong_no ? "Không có trần" : r.cong_no != null ? <Money>{fmtVND(r.cong_no)}</Money> : "—"}
               </span>
               <span>
                 <span className="text-[var(--color-text-muted)]">Tồn </span>
@@ -393,7 +393,7 @@ function TonKhoKtvContent() {
                   <td className="px-3 py-2">{r.ma_misa ?? "—"}</td>
                   <td className="px-3 py-2">
                     <span title={r.cong_no_cap_nhat_luc ? `Cập nhật lúc ${fmtDateTime(r.cong_no_cap_nhat_luc)}` : undefined}>
-                      {r.cong_no != null ? <Money>{fmtVND(r.cong_no)}</Money> : "—"}
+                      {r.khong_tran_cong_no ? "Không có trần" : r.cong_no != null ? <Money>{fmtVND(r.cong_no)}</Money> : "—"}
                     </span>
                   </td>
                   <td className="px-3 py-2 font-mono text-xs"><Money>{fmtVND(r.cong_no_thuc_te)}</Money></td>

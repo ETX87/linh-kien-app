@@ -90,6 +90,10 @@ export interface KtvLienHeRow {
   ktv_cap1_phu_trach: string | null;
   cong_no: number | null;
   cong_no_cap_nhat_luc: string | null;
+  // KTV "Không có trần công nợ" (migration 0117) - đơn không xét trần.
+  khong_tran_cong_no?: number | null;
+  khong_tran_cong_no_luc?: string | null;
+  khong_tran_cong_no_boi?: string | null;
   // Them 2026-08-28 (phan hoi "thêm 1 cột tài khoản MISA cho admin bổ sung, có thể import") - truong
   // tham chieu tu do, dung doi soat cheo voi phan mem ke toan MISA, khong FK/rang buoc gi.
   ma_misa: string | null;
@@ -126,6 +130,7 @@ export interface KtvTonKhoSummaryRow {
   ten_misa: string | null;
   cong_no: number | null;
   cong_no_cap_nhat_luc: string | null;
+  khong_tran_cong_no?: number;
   so_ma_hang: number;
   tong_cuoi_ky: number | null;
   // He thong "Cong no KTV" (them 04/09/2026) - tinh server-side (khong luu cot rieng, xem

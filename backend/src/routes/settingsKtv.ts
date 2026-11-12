@@ -697,6 +697,29 @@ settingsKtv.patch("/:ma/cong-no-misa", async (c) => {
   return c.json({ ok: true });
 });
 
+// PATCH /:ma/khong-tran-cong-no {khong_tran: boolean} (2026-11-12, v1.484, migration 0117) - "1 số KTV không có trần công nợ, cho phép
+// KT, TN set up trong mục ds KTV" -> bat = don dat cho KTV nay KHONG doi chieu tran (khong vao "Cho GS duyet", TBP khong doi ma EO),
+// xem nguCanhNhan().khongTran o lib/tuDongDuyet.ts. Ke toan / TN / Admin.
+settingsKtv.patch("/:ma/khong-tran-cong-no", async (c) => {
+  const user = c.get("user");
+  if (user.vai_tro !== "Admin" && !user.la_ke_toan && !user.la_tac_nghiep) return c.json({ error: "FORBIDDEN" }, 403);
+  const ma = c.req.param("ma");
+  const body = await c.req.json<{ khong_tran?: boolean }>().catch(() => ({} as { khong_tran?: boolean }));
+  if (typeof body.khong_tran !== "boolean") return c.json({ error: "INVALID_BODY" }, 400);
+  const r = await c.env.DB.prepare(
+    "UPDATE ktv_lien_he SET khong_tran_cong_no = ?, khong_tran_cong_no_luc = ?, khong_tran_cong_no_boi = ? WHERE ma_ktv = ? AND COALESCE(khong_tran_cong_no, 0) <> ?",
+  )
+    .bind(body.khong_tran ? 1 : 0, nowVN(), user.email, ma, body.khong_tran ? 1 : 0)
+    .run();
+  if (!r.meta.changes) {
+    const co = await c.env.DB.prepare("SELECT 1 FROM ktv_lien_he WHERE ma_ktv = ?").bind(ma).first();
+    if (!co) return c.json({ error: "NOT_FOUND" }, 404);
+  } else {
+    await refreshHash(c.env.DB);
+  }
+  return c.json({ ok: true });
+});
+
 // POST /bulk-import-cong-no-misa (2026-09-29, "Bổ sung thêm chức năng import ở Danh sách KTV cho vai trò kế toán,
 // họ có thể import trần công nợ... dựa theo Mã tài khoản MISA") - Ke toan (+ Admin) import HANG LOAT dung cac truong
 // da uy quyen o PATCH /:ma/cong-no-misa (tran cong no, han muc du phong, han muc du phong hien tai, ten tren MISA),
@@ -1028,6 +1051,7 @@ settingsKtv.post("/:ma/doi-ma", adminOnly, async (c) => {
           `UPDATE ktv_lien_he SET ${[...chu, ...so].join(", ")},
              ktv_cap1_phu_trach = COALESCE(ktv_cap1_phu_trach, NULLIF(${o("ktv_cap1_phu_trach")}, ?2)),
              ngung_hoat_dong = ${o("ngung_hoat_dong")},
+             khong_tran_cong_no = MAX(COALESCE(khong_tran_cong_no, 0), COALESCE(${o("khong_tran_cong_no")}, 0)),
              email_dang_nhap = COALESCE(?3, email_dang_nhap),
              ten_hien_thi = COALESCE(?4, ten_hien_thi, ${o("ten_hien_thi")}),
              ghi_chu = ?5, nguoi_cap_nhat = ?6, ngay_cap_nhat = ?7

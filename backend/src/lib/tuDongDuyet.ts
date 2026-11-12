@@ -96,6 +96,8 @@ export interface NguCanhNhan {
   // Nguoi nhan la Giam sat (2026-10-16, chot "Không xét trần cho GS"): GS co ma nhan hang de quan ly ton kho/cong no (migration 0085)
   // nhung don cong no GS tu nhan KHONG doi chieu tran (tran trong = 0 -> moi don thanh "Cho GS duyet", GS tu duyet don minh).
   laGs: boolean;
+  // KTV "Khong co tran cong no" (2026-11-12, migration 0117 - ktv_lien_he.khong_tran_cong_no): khong doi chieu tran nhu GS.
+  khongTran: boolean;
   khuVuc: string;
 }
 
@@ -107,14 +109,16 @@ export async function nguCanhNhan(db: D1Database, nguoiNhan: string, nguoiTao: s
             COALESCE(k.ngung_hoat_dong, 0), k.ma_ktv LIMIT 1) AS ma_ktv,
          (SELECT k.cong_no FROM ktv_lien_he k WHERE k.email_dang_nhap = ? ORDER BY CASE WHEN TRIM(COALESCE(k.ma_misa, '')) <> '' THEN 0 ELSE 1 END,
             COALESCE(k.ngung_hoat_dong, 0), k.ma_ktv LIMIT 1) AS cong_no,
+         (SELECT k.khong_tran_cong_no FROM ktv_lien_he k WHERE k.email_dang_nhap = ? ORDER BY CASE WHEN TRIM(COALESCE(k.ma_misa, '')) <> '' THEN 0 ELSE 1 END,
+            COALESCE(k.ngung_hoat_dong, 0), k.ma_ktv LIMIT 1) AS khong_tran,
          (EXISTS (SELECT 1 FROM ktv_lien_he k WHERE LOWER(TRIM(k.email_dang_nhap)) = LOWER(?) AND COALESCE(k.ngung_hoat_dong, 0) = 0
                     AND TRIM(COALESCE(k.ma_misa, '')) <> '')
           OR EXISTS (SELECT 1 FROM khach_le kl JOIN ktv_lien_he kn ON kn.ma_ktv = kl.nhom_ma
                      WHERE kl.email = ? AND TRIM(COALESCE(kn.ma_misa, '')) <> '')) AS co_misa,
          EXISTS (SELECT 1 FROM users u WHERE u.email = ? AND u.vai_tro = 'Giam sat') AS la_gs`,
     )
-    .bind(nguoiNhan, nguoiNhan, nguoiNhan, nguoiNhan, nguoiNhan)
-    .first<{ ma_ktv: string | null; cong_no: number | null; co_misa: number; la_gs: number }>();
+    .bind(nguoiNhan, nguoiNhan, nguoiNhan, nguoiNhan, nguoiNhan, nguoiNhan)
+    .first<{ ma_ktv: string | null; cong_no: number | null; khong_tran: number | null; co_misa: number; la_gs: number }>();
   return {
     nguoiNhan,
     nguoiTao,
@@ -122,6 +126,7 @@ export async function nguCanhNhan(db: D1Database, nguoiNhan: string, nguoiTao: s
     tranCongNo: r?.cong_no ?? null,
     coMaMisa: !!r?.co_misa,
     laGs: !!r?.la_gs,
+    khongTran: !!r?.khong_tran,
     khuVuc: await khuVucDonDuKien(db, nguoiNhan, nguoiTao),
   };
 }
@@ -154,6 +159,8 @@ export interface KetQuaDong {
   // Linh kien nhom B2B (linh_kien.nhom_lk = 'b2b') - BO QUA duyet tran cong no KTV (chot 2026-10-27, "linh kiện b2b bỏ việc duyệt trần
   // công nợ (log ghi rõ lý do)") - ghi ly do vao log khoi tao.
   boQuaTranB2b?: boolean;
+  // KTV nhan hang "Khong co tran cong no" (migration 0117) - ghi ly do vao log khoi tao.
+  boQuaTranKtv?: boolean;
 }
 
 export interface KetQuaPhieu {
@@ -183,7 +190,7 @@ export async function danhGiaPhieu(db: D1Database, ctx: NguCanhNhan, dongs: Dong
   for (const d of dongs) {
     if (xetTran(d)) tongMoiCongNo += (d.gia_tri_cong_no ?? 0) * d.so_luong;
   }
-  const coDongCongNo = !ctx.laGs && dongs.some(xetTran);
+  const coDongCongNo = !ctx.laGs && !ctx.khongTran && dongs.some(xetTran);
   const congNoChot = coDongCongNo && ctx.maKtv ? await computeCongNoChot(db, ctx.maKtv) : 0;
   // Chua gan tran (hoac khong phai KTV) = tran 0 (quy uoc 2026-09-04).
   const danhGiaCongNo: "Du" | "Khong du" | null = coDongCongNo ? (congNoChot + tongMoiCongNo <= (ctx.tranCongNo ?? 0) ? "Du" : "Khong du") : null;
@@ -237,8 +244,9 @@ export async function danhGiaPhieu(db: D1Database, ctx: NguCanhNhan, dongs: Dong
     }
     if (loaiDon === "cong_no" && !laTruCongNo(lde)) {
       kq.soTienCongNo = khongTinhCongNo(lde) ? 0 : (d.gia_tri_cong_no ?? 0) * d.so_luong;
-      kq.danhGiaCongNo = canDoiChieuCongNo(loaiDon, lde) && !ctx.laGs && !laB2b.has(ma) ? danhGiaCongNo : null;
-      if (canDoiChieuCongNo(loaiDon, lde) && !ctx.laGs && laB2b.has(ma)) kq.boQuaTranB2b = true;
+      kq.danhGiaCongNo = canDoiChieuCongNo(loaiDon, lde) && !ctx.laGs && !ctx.khongTran && !laB2b.has(ma) ? danhGiaCongNo : null;
+      if (canDoiChieuCongNo(loaiDon, lde) && !ctx.laGs && !ctx.khongTran && laB2b.has(ma)) kq.boQuaTranB2b = true;
+      if (canDoiChieuCongNo(loaiDon, lde) && !ctx.laGs && ctx.khongTran) kq.boQuaTranKtv = true;
     }
 
     // ---- Cac truong hop KHONG cho tao ----
