@@ -719,13 +719,38 @@ quyKtv.get("/nop-tien/:id/doi-soat", async (c) => {
   const n = await c.env.DB.prepare("SELECT id, email, nguoi_gui, ngay_tao FROM nop_tien_quy WHERE id = ?").bind(id).first<{ id: number; email: string; nguoi_gui: string; ngay_tao: string }>();
   if (!n) return c.json({ error: "NOT_FOUND" }, 404);
   if (pv && !pv.includes(n.email) && n.nguoi_gui !== c.get("user").email) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  return c.json({ rows: await docKhoanDoiSoat(c.env.DB, n.email, id, "") });
+});
+
+// GET /api/quy-ktv/pxk/:id/doi-soat (2026-11-13, v1.487 - "click hình ảnh trong phiếu, mở giao diện kèm chức năng đối chiếu ảnh để hỗ trợ kế toán
+// rà soát"): CUNG nguon lich su voi doi soat nop tien, theo nguoi nhan hang cua phieu, BO moi khoan cua CHINH phieu nay (anh cu cua phieu
+// duoc duyet o lan truoc khong phai trung). FE: datMuaLinhKien/DoiSoatAnhPxk.tsx.
+quyKtv.get("/pxk/:id/doi-soat", async (c) => {
+  const pv = await phamViXem(c);
+  if (pv === undefined) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const id = c.req.param("id");
+  const p = await c.env.DB.prepare("SELECT id, nguoi_nhan_hang FROM phieu_xuat_kho WHERE id = ?").bind(id).first<{ id: string; nguoi_nhan_hang: string | null }>();
+  if (!p || !p.nguoi_nhan_hang) return c.json({ error: "NOT_FOUND" }, 404);
+  if (pv && !pv.includes(p.nguoi_nhan_hang)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  return c.json({ rows: await docKhoanDoiSoat(c.env.DB, p.nguoi_nhan_hang, -1, p.id) });
+});
+
+// Moi khoan tien da vao quy cua 1 nguoi trong 180 ngay (+ phieu xuat KHAC dang cho Ke toan xac nhan tien co anh) - dung chung doi soat
+// nop tien / phieu xuat. truNtq / truPxk = bo chinh yeu cau / phieu dang xem.
+async function docKhoanDoiSoat(db: D1Database, email: string, truNtq: number, truPxk: string) {
   const tu = "datetime('now', '+7 hours', '-180 days')";
-  const { results } = await c.env.DB.prepare(
+  const { results } = await db.prepare(
     `SELECT * FROM (
        SELECT 'pxk' AS loai, k.id AS id, k.phieu_xuat_kho_id AS ma, k.so_tien_thuc_nhan AS so_tien, k.anh, k.tien_doc_anh,
               k.duyet_luc AS luc, k.nguoi_duyet AS nguoi, k.ktv_bao_chuyen_luc AS ngay_chuyen, k.ghi_chu_ktv AS ghi_chu, 'Da duyet' AS trang_thai
          FROM khoan_chuyen_tien k
-        WHERE k.email_nguoi_chuyen = ?1 AND k.trang_thai = 'Da duyet' AND k.lich_su = 0 AND k.duyet_luc >= ${tu}
+        WHERE k.email_nguoi_chuyen = ?1 AND k.trang_thai = 'Da duyet' AND k.lich_su = 0 AND k.duyet_luc >= ${tu} AND k.phieu_xuat_kho_id != ?3
+       UNION ALL
+       SELECT 'pxk', -p.rowid, p.id, p.so_tien_can_chuyen, COALESCE(p.bang_chung_chuyen_tien_anh, json_array(p.bang_chung_chuyen_tien_url)),
+              p.bang_chung_tien_doc, COALESCE(p.ngay_ktv_chuyen, p.ngay_tao), NULL, p.ngay_ktv_chuyen, p.bang_chung_chuyen_tien_ghi_chu, 'Cho ke toan'
+         FROM phieu_xuat_kho p
+        WHERE p.nguoi_nhan_hang = ?1 AND p.id != ?3 AND p.trang_thai_chuyen_tien = 'KTV da chuyen' AND p.trang_thai_hien_tai != 'Ke toan huy'
+          AND COALESCE(p.bang_chung_chuyen_tien_anh, p.bang_chung_chuyen_tien_url) IS NOT NULL
        UNION ALL
        SELECT 'ntq', m.id, 'NTQ-' || m.id, COALESCE(m.so_tien_thuc_nhan, m.so_tien), m.anh, m.tien_doc_anh,
               COALESCE(m.xu_ly_luc, m.ngay_tao), COALESCE(m.nguoi_xu_ly, m.nguoi_gui), m.ngay_chuyen, m.ghi_chu, m.trang_thai
@@ -736,9 +761,9 @@ quyKtv.get("/nop-tien/:id/doi-soat", async (c) => {
          FROM khoan_tien_ngoai t
         WHERE t.email = ?1 AND t.trang_thai = 'Da ghi' AND t.nguon != 'ktv' AND t.ngay_tao >= ${tu}
      ) ORDER BY luc DESC LIMIT 150`,
-  ).bind(n.email, id).all();
-  return c.json({ rows: results });
-});
+  ).bind(email, truNtq, truPxk).all();
+  return results;
+}
 
 // POST /api/quy-ktv/nop-tien/:id/xu-ly { hanh_dong: duyet|tu_choi|huy, so_tien_thuc_nhan?, ly_do? }
 quyKtv.post("/nop-tien/:id/xu-ly", async (c) => {

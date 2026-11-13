@@ -2115,7 +2115,7 @@ export function PxkDetailModal({
           <KvRow label={t("Trạng thái")}><StatusBadge value={pxk.trang_thai_chuyen_tien ?? ""} tones={CHUYEN_TIEN_TONE} options={CHUYEN_TIEN_OPTIONS} /></KvRow>
           {/* Nhieu anh (2026-09-29, BangChungChuyenTien.tsx) - dang "Cho KTV chuyen" thi form ben duoi tu hien anh. */}
           {pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen" && docAnhBangChung(pxk).length > 0 && (
-            <KvRow label={t("Bằng chứng")}><BangChungAnhPxk pxk={pxk} ten={(e) => (e ? formatNguoiDisplay(e, ktvDisplayMap) : "")} /></KvRow>
+            <KvRow label={t("Bằng chứng")}><BangChungAnhPxk pxk={pxk} doiSoat={canKeToan || canTacNghiep || isAdmin} ten={(e) => (e ? formatNguoiDisplay(e, ktvDisplayMap) : "")} /></KvRow>
           )}
           {pxk.trang_thai_chuyen_tien !== "Cho KTV chuyen" && pxk.bang_chung_chuyen_tien_ghi_chu && (
             <KvRow label={t("Ghi chú")}><span className="text-xs text-[var(--ink-600)]">{pxk.bang_chung_chuyen_tien_ghi_chu}</span></KvRow>

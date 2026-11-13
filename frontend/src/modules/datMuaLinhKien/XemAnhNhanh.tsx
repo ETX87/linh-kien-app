@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { Badge, type Tone } from "../../components/x/Badge";
 import { fmtDateTime, fmtVND } from "../../types";
 import { docDsAnh, docTienDocMap, useDocTienAnh, type TienDocMap } from "./DocTienAnh";
@@ -323,15 +323,30 @@ export function anhXemCuaPxk(pxk: PxkAnhXem, ten: (email: string | null | undefi
   }));
 }
 
-/** Anh bang chung cua 1 PXK (chi tiet PXK / chi tiet don) - bam anh mo "Xem ảnh nhanh" trong pham vi anh cua phieu do. */
-export function BangChungAnhPxk({ pxk, ten, nho }: { pxk: PxkAnhXem; ten: (email: string | null | undefined) => string; nho?: boolean }) {
+// Tai luoi (tranh vong import: DoiSoatAnhPxk dung lai XemAnhNhanh / anhXemCuaPxk cua file nay).
+const DoiSoatAnhPxkModal = lazy(() => import("./DoiSoatAnhPxk").then((m) => ({ default: m.DoiSoatAnhPxkModal })));
+
+/** Anh bang chung cua 1 PXK (chi tiet PXK / chi tiet don) - bam anh mo "Xem ảnh nhanh" trong pham vi anh cua phieu do.
+ *  doiSoat (v1.487, Ke toan / TN / Admin): bam anh mo popup DOI SOAT anh voi cac khoan khac cua cung nguoi (DoiSoatAnhPxk.tsx). */
+export function BangChungAnhPxk({ pxk, ten, nho, doiSoat }: { pxk: PxkAnhXem; ten: (email: string | null | undefined) => string; nho?: boolean; doiSoat?: boolean }) {
   const [xem, setXem] = useState<number | null>(null);
   const urls = docAnhBangChung(pxk);
   if (urls.length === 0) return null;
   return (
     <>
       <BangChungAnhList urls={urls} nho={nho} onXem={setXem} />
-      {xem != null && <XemAnhNhanh items={anhXemCuaPxk(pxk, ten)} batDau={xem} onClose={() => setXem(null)} />}
+      {doiSoat && (
+        <button type="button" onClick={() => setXem(0)} className="focus-ring mt-1 text-[12px] font-semibold text-[var(--color-primary)] hover:underline">
+          🔍 {t("Đối soát ảnh với các khoản khác")}
+        </button>
+      )}
+      {xem != null && (doiSoat ? (
+        <Suspense fallback={null}>
+          <DoiSoatAnhPxkModal pxk={pxk} ten={ten} batDau={xem} onClose={() => setXem(null)} />
+        </Suspense>
+      ) : (
+        <XemAnhNhanh items={anhXemCuaPxk(pxk, ten)} batDau={xem} onClose={() => setXem(null)} />
+      ))}
     </>
   );
 }

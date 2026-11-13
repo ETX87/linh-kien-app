@@ -152,11 +152,16 @@ export interface KetQuaKhoan {
 
 const MAX_ANH_SO_HINH = 80;
 
-/** Doi soat yeu cau (anh + OCR tung anh) voi lich su cung quy. */
+/** Doi soat yeu cau nop tien (anh + OCR tung anh) voi lich su cung quy. */
 export function useDoiSoatNopTien(id: number, docItems: KetQuaDocAnh[], soKhai: number) {
+  return useDoiSoatAnh(`/quy-ktv/nop-tien/${id}/doi-soat`, docItems, soKhai);
+}
+
+/** Doi soat bo anh bat ky voi lich su quy - duongDan tra { rows: KhoanDoiSoat[] } (nop tien / phieu xuat - v1.487). soKhai = 0: khong so so khai. */
+export function useDoiSoatAnh(duongDan: string, docItems: KetQuaDocAnh[], soKhai: number) {
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["quy-ktv-nop-tien", "doi-soat", id],
-    queryFn: () => api.get<{ rows: KhoanDoiSoat[] }>(`/quy-ktv/nop-tien/${id}/doi-soat`),
+    queryKey: ["quy-ktv-doi-soat", duongDan],
+    queryFn: () => api.get<{ rows: KhoanDoiSoat[] }>(duongDan),
     staleTime: 60_000,
   });
   const rows = useMemo(() => data?.rows ?? [], [data]);
@@ -209,7 +214,7 @@ export function useDoiSoatNopTien(id: number, docItems: KetQuaDocAnh[], soKhai: 
           lyDo.push(t("Ảnh {a} ({b}) bằng đúng số tiền của khoản này", { a: i + 1, b: fmtVND(a) }));
         }
       });
-      if (k.so_tien != null && k.so_tien === soKhai && !trungTien) {
+      if (soKhai > 0 && k.so_tien != null && k.so_tien === soKhai && !trungTien) {
         trungTien = true;
         lyDo.push(t("Số tiền khai {a} bằng đúng số tiền của khoản này", { a: fmtVND(soKhai) }));
       }
@@ -237,7 +242,7 @@ function MaKhoan({ k }: { k: KhoanDoiSoat }) {
 }
 
 export function DanhSachDoiSoat({ ds, ten, chiNghi }: {
-  ds: ReturnType<typeof useDoiSoatNopTien>;
+  ds: ReturnType<typeof useDoiSoatAnh>;
   ten: (e: string | null | undefined) => string;
   chiNghi: boolean;
 }) {
@@ -270,7 +275,7 @@ export function DanhSachDoiSoat({ ds, ten, chiNghi }: {
           tien: x.k.so_tien != null ? [{ nhan: t("Đã xác nhận"), giaTri: fmtVND(x.k.so_tien) }] : [],
           soSanh: x.k.so_tien != null ? { nhan: t("Đã xác nhận"), giaTri: x.k.so_tien } : null,
           chungTu: [
-            { nhan: t("Xác nhận lúc"), giaTri: fmtDateTime(x.k.luc) },
+            { nhan: x.k.trang_thai === "Cho ke toan" ? t("Gửi lúc") : t("Xác nhận lúc"), giaTri: fmtDateTime(x.k.luc) },
             ...(x.k.nguoi ? [{ nhan: t("Người xác nhận"), giaTri: ten(x.k.nguoi) || x.k.nguoi }] : []),
           ],
           ghiChu: x.lyDo.map((l, j) => ({ nhan: `⚠ ${j + 1}`, giaTri: l })),

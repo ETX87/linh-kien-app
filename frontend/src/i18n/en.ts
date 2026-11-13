@@ -2775,5 +2775,12 @@ const tuDien: Record<string, string> = {
   "Ảnh {a}/{b} · {c}": "Image {a}/{b} · {c}",
   "Có {a} khoản nghi trùng — kiểm tra trước khi xác nhận": "{a} suspected duplicates — check before confirming",
   "Ảnh giống nhất {p}%": "Most similar image {p}%",
+  "Bấm ảnh để xem lớn, chuyển ảnh bằng ← →.": "Click an image to enlarge, use ← → to switch.",
+  "Chỉ cộng ảnh của lần chuyển này ({a}/{b} ảnh)": "Only images of this transfer are counted ({a}/{b} images)",
+  "Các khoản tiền của {a} trong 180 ngày (chuyển tiền phiếu khác, nộp tiền, tiền ngoài) và phiếu khác đang chờ Kế toán xác nhận tiền. Khoản cùng số tiền với 1 ảnh hoặc ảnh giống (màu + bố cục) xếp lên đầu.": "Payments of {a} in the last 180 days (other slip transfers, fund deposits, external money) and other slips awaiting Accounting confirmation. Items with the same amount as an image or a similar image (color + layout) are listed first.",
+  "Khớp": "Matched",
+  "Nghi trùng ảnh chuyển khoản với {a} khoản khác của cùng người — xem tab “Nghi trùng”.": "Transfer image suspected duplicate of {a} other payments of the same person — see the “Suspected duplicates” tab.",
+  "Đối soát ảnh chuyển tiền": "Transfer image reconciliation",
+  "Đối soát ảnh với các khoản khác": "Reconcile images with other payments",
 };
 export default tuDien;
