@@ -1,6 +1,6 @@
 import type { Env } from "../types";
 import { nowVN } from "./vnTime";
-import { getMocTonKhoCongTy } from "./tonKhoCongTy";
+import { getMocTonKhoCongTy, KHONG_KIEM_TON_SQL, TON_KHONG_KIEM } from "./tonKhoCongTy";
 import { baoNguoiTaoDon, duyetDonKhiHangVe } from "./tuDongDuyet";
 
 // TU DONG XAC NHAN HANG VE cho don thieu hang khi ton kho cong ty duoc cap nhat (chot 2026-10-28, v1.411 - "Khi hệ thống cập nhật hàng về kho
@@ -20,6 +20,7 @@ export interface DonHangVeTuDong {
   kv: string;
   khieu_nai: number;
   uu_tien: number;
+  khong_kiem_ton?: boolean; // LK "Không kiểm tra tồn kho" (migration 0118) - ly do ghi khac
 }
 
 // DUNG KHI DON UU TIEN CAO CHI DU MOT PHAN (chot 2026-11-03, v1.434 - "Trường hợp đơn đặt chờ ưu tiên cao hơn mà không đủ hàng, sẽ không
@@ -47,7 +48,7 @@ export async function donHangVeTheoUuTien(db: D1Database): Promise<{ chon: DonHa
        ),
        cap AS (SELECT DISTINCT ma_lk, kv FROM cho),
        ton AS (
-         SELECT c.ma_lk, c.kv,
+         SELECT c.ma_lk, c.kv, CASE WHEN ${KHONG_KIEM_TON_SQL("c.ma_lk")} THEN ${TON_KHONG_KIEM} ELSE
            COALESCE((SELECT SUM(t.cuoi_ky) FROM kho_cong_ty_ton_kho t JOIN kho_cong_ty k ON k.ma = t.kho_ma
                      JOIN kho_cong_ty_khu_vuc x ON x.kho_ma = k.ma
                      WHERE k.bat_tat = 1 AND x.khu_vuc_ma = c.kv AND t.ma_hang = c.ma_lk), 0)
@@ -55,7 +56,7 @@ export async function donHangVeTheoUuTien(db: D1Database): Promise<{ chon: DonHa
                        WHERE d.ma_lk = c.ma_lk AND COALESCE(d.khu_vuc_chon, d.khu_vuc_ma) = c.kv AND d.loai_don IN ('mua', 'cong_no')
                          AND instr(COALESCE(d.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') = 0
                          AND d.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy', 'Cho hang')
-                         AND (? IS NULL OR d.ngay_tao > ?)), 0) AS kha_dung
+                         AND (? IS NULL OR d.ngay_tao > ?)), 0) END AS kha_dung
          FROM cap c
        )
        SELECT c.id, c.ma_lk, c.kv, c.sl, c.khieu_nai, c.uu_tien, t.kha_dung
@@ -75,7 +76,7 @@ export async function donHangVeTheoUuTien(db: D1Database): Promise<{ chon: DonHa
     if (khoa.has(key)) continue;
     const ton = conLai.has(key) ? conLai.get(key)! : r.kha_dung;
     if (r.sl <= ton) {
-      chon.push({ id: r.id, ma_lk: r.ma_lk, kv: r.kv, khieu_nai: r.khieu_nai, uu_tien: r.uu_tien });
+      chon.push({ id: r.id, ma_lk: r.ma_lk, kv: r.kv, khieu_nai: r.khieu_nai, uu_tien: r.uu_tien, khong_kiem_ton: r.kha_dung >= TON_KHONG_KIEM });
       conLai.set(key, ton - r.sl);
     } else {
       conLai.set(key, ton);
@@ -101,7 +102,9 @@ export async function tuDongXacNhanHangVe(
   const kq = { daXacNhan: [] as string[], boQua: [] as string[], choPhuongAn };
   for (const d of ds) {
     const uuTien = d.khieu_nai ? "ca khiếu nại (ưu tiên 1)" : d.uu_tien ? "đơn ưu tiên" : "đơn tồn lâu trước";
-    const lyDo = `Tự động xác nhận hàng về (${nguon}): kho công ty khu vực ${d.kv} đủ hàng — xếp theo ${uuTien}`;
+    const lyDo = d.khong_kiem_ton
+      ? `Tự động xác nhận hàng về (${nguon}): linh kiện ${d.ma_lk} không cần kiểm tra tồn kho (mặc định có hàng)`
+      : `Tự động xác nhận hàng về (${nguon}): kho công ty khu vực ${d.kv} đủ hàng — xếp theo ${uuTien}`;
     const now = nowVN();
     // Ticket mo cua don -> "Kho xac nhan hang da ve" + "Da ket thuc" (cung vet nhu Kho bam "Hàng đã về").
     const tk = await db

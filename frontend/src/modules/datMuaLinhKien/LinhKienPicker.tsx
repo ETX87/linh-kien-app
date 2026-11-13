@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { laTonKhongKiem } from "../../lib/tonKhongKiem";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
 import { Badge } from "../../components/x/Badge";
@@ -115,6 +116,7 @@ export function ThayTheGoiY({ maLk, addToast, onChon, khuVuc }: { maLk: string; 
 // So ton cua ma goi y (v1.431): con hang = "x123" xanh, het = "hết hàng" do; chua biet khu vuc -> khong hien.
 function TonChip({ ton }: { ton?: number }) {
   if (ton == null) return null;
+  if (laTonKhongKiem(ton)) return <span className="ml-0.5 rounded-full bg-[var(--color-success-soft)] text-[var(--color-success-strong)] px-1.5 text-[10.5px] font-bold">{t("luôn có hàng")}</span>;
   return ton > 0
     ? <span className="ml-0.5 rounded-full bg-[var(--color-success-soft)] text-[var(--color-success-strong)] px-1.5 text-[10.5px] font-bold">x{ton}</span>
     : <span className="ml-0.5 rounded-full bg-[var(--color-danger-soft)] text-[var(--color-danger-strong)] px-1.5 text-[10.5px] font-bold">{t("hết hàng")}</span>;

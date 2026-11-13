@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { laTonKhongKiem } from "../../lib/tonKhongKiem";
 import { api } from "../../api/client";
 import { Badge } from "../../components/x/Badge";
 import { fmtDate } from "../../types";
@@ -49,7 +50,7 @@ export function DanhGiaThieuLk({ id }: { id: string }) {
       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-4">
         <div>
           <div className="text-[11px] text-[var(--color-text-secondary)]">{t("Tồn kho còn đặt được")}</div>
-          <div className="font-semibold">{fmtSl(data.ton_con_dat)} <span className="text-[11px] font-normal text-[var(--color-text-secondary)]">/ {t("cần {a}", { a: fmtSl(data.sl) })}</span></div>
+          <div className="font-semibold">{laTonKhongKiem(data.ton_con_dat) ? t("Không kiểm tra tồn kho") : fmtSl(data.ton_con_dat)} <span className="text-[11px] font-normal text-[var(--color-text-secondary)]">/ {t("cần {a}", { a: fmtSl(data.sl) })}</span></div>
           {data.khu_vuc && <div className="text-[11px] text-[var(--color-text-secondary)]">{t("Kho khu vực {a}", { a: data.khu_vuc })}</div>}
         </div>
         <div>

@@ -19,7 +19,7 @@ import { locEmailKhoTheoNhomLk } from "./nhomLk";
 import type { Env } from "../types";
 import { nowVN } from "./vnTime";
 import { gsPhuCuaKhuVuc } from "./scopeDatMua";
-import { computeTonKhoChot } from "./tonKhoCongTy";
+import { computeTonKhoChot, TON_KHONG_KIEM } from "./tonKhoCongTy";
 import { computeTonKtvConLai } from "./tonKhoKtv";
 import { computeCongNoChot } from "./congNoKtv";
 import { laTruCongNo, khongTinhCongNo, taiTinhPxkMoCuaKtv, laMuaCongNoDoiTac } from "./pxkRecalculate";
@@ -313,6 +313,7 @@ export const VUOT_TRAN_GHI_CHU_SQL = (a: string) => `CASE WHEN ${a}.ma_eo IS NOT
 // Mo ta ngan ket qua 1 dong cho thong bao/log. Ghi ro KHU VUC kho da kiem tra (2026-10-15, "minh bạch cho người đặt hàng hiểu"
 // - ton kho xet theo khu vuc cua don, KTV thay kho khac con hang se khong hieu vi sao thieu).
 export function moTaThieuTon(ton: number | null, soLuong: number, khuVuc?: string | null): string {
+  if ((ton ?? 0) >= TON_KHONG_KIEM) return "linh kiện không cần kiểm tra tồn kho (mặc định có hàng)";
   return `kho công ty${khuVuc ? ` khu vực ${khuVuc}` : ""} còn ${Math.max(0, ton ?? 0)}, đặt ${soLuong}`;
 }
 

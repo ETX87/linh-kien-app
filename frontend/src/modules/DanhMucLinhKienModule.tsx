@@ -496,6 +496,7 @@ function PartDetailDrawer({
             )}
             {!!part.chi_sua_chua && <Badge tone="coral">Only sửa chữa</Badge>}
             {!part.dac_thu && !part.chi_sua_chua && !!part.bat_tat && <Badge tone="teal">Đang hiển thị bình thường</Badge>}
+            {!!part.khong_kiem_ton && <Badge tone="teal">Không kiểm tra tồn kho — mặc định có hàng</Badge>}
           </div>
           )}
 
@@ -892,6 +893,18 @@ function DanhMucTab({ timBanDau }: { timBanDau: { q: string; nonce: number } | n
     },
     onError: () => addToast("Không thể cập nhật cho phép giá 0đ."),
   });
+  // "Không kiểm tra tồn kho" (2026-11-13, v1.489) - LK nhu phi dich vu: dat don luon coi la co hang (backend PATCH /khong-kiem-ton).
+  const toggleKhongKiemTon = useMutation({
+    mutationFn: ({ ma, khong_kiem_ton }: { ma: string; khong_kiem_ton: boolean }) =>
+      api.patch(`/settings/linh-kien/${encodeURIComponent(ma)}/khong-kiem-ton`, { khong_kiem_ton }),
+    onSuccess: (_r, v) => {
+      addToast(v.khong_kiem_ton
+        ? `${v.ma}: không kiểm tra tồn kho — đặt đơn mặc định có hàng (đơn đang chờ hàng / chờ thanh toán của mã này được xét lại)`
+        : `${v.ma}: kiểm tra tồn kho như bình thường`);
+      qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
+    },
+    onError: () => addToast("Không thể cập nhật kiểm tra tồn kho."),
+  });
   const togglePart = useMutation({
     mutationFn: ({ ma, bat_tat }: { ma: string; bat_tat: boolean }) => api.patch(`/settings/linh-kien/${ma}`, { bat_tat }),
     onSuccess: () => {
@@ -1220,6 +1233,21 @@ function DanhMucTab({ timBanDau }: { timBanDau: { q: string; nonce: number } | n
           <span className="text-xs text-[var(--color-danger-strong)]">Chặn</span>
         );
       },
+    },
+    {
+      key: "khong_kiem_ton",
+      header: "Kiểm tra tồn kho",
+      render: (p) =>
+        canDacThu && p.trang_thai_ma !== "Da doi ma" ? (
+          <span onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1.5" title="Tắt kiểm tra tồn kho cho linh kiện không có hàng thật (vd phí dịch vụ) — đặt đơn luôn coi là có hàng">
+            <ToggleSwitch checked={!p.khong_kiem_ton} onChange={() => toggleKhongKiemTon.mutate({ ma: p.ma_linh_kien, khong_kiem_ton: !p.khong_kiem_ton })} />
+            {p.khong_kiem_ton ? <span className="text-xs font-semibold text-[var(--color-success-strong)]">Luôn có hàng</span> : <span className="text-xs text-[var(--ink-400)]">Có</span>}
+          </span>
+        ) : p.khong_kiem_ton ? (
+          <span className="text-xs font-semibold text-[var(--color-success-strong)]">Luôn có hàng</span>
+        ) : (
+          <span className="text-xs text-[var(--ink-400)]">Có</span>
+        ),
     },
     {
       key: "phan_loai_dac_thu",

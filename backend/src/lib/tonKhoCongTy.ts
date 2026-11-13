@@ -55,9 +55,23 @@ export async function computeTonKhoPhatSinh(
 
 // "Ton chot" = Ton goc - Ton phat sinh (co the am neu da dat vuot ton thuc te ghi nhan luc import -
 // khong clamp ve 0, ben goi chi can so sanh >= so_luong_de_xuat cua dong DANG xet).
+// LK "Không kiểm tra tồn kho" (chot 2026-11-13, v1.489, migration 0118 - "1 số link kiện thuộc dạng không cần kiểm tra tồn kho, ví dụ
+// như phí dịch vụ. mặc định đặt là có hàng"): computeTonKhoChot tra so nay -> moi noi so ton >= SL deu coi la du (tao don, doi loai de
+// xuat, xet lai khi doi khu vuc / thanh toan, goi y thay the). Hien thi: moTaThieuTon (tuDongDuyet.ts) + FE lib/tonKhongKiem.ts doi so nay
+// thanh "không kiểm tra tồn kho". 2 truy van SQL (donChoHangDuTonKho, tuDongHangVe.ts) dung KHONG_KIEM_TON_SQL cho cung ket qua.
+export const TON_KHONG_KIEM = 1_000_000_000;
+export const KHONG_KIEM_TON_SQL = (maLk: string) =>
+  `EXISTS (SELECT 1 FROM linh_kien lkt WHERE lkt.ma_linh_kien = ${maLk} AND lkt.khong_kiem_ton = 1)`;
+
+export async function laLkKhongKiemTon(db: D1Database, maLk: string): Promise<boolean> {
+  const r = await db.prepare("SELECT khong_kiem_ton FROM linh_kien WHERE ma_linh_kien = ?").bind(maLk).first<{ khong_kiem_ton: number }>();
+  return !!r?.khong_kiem_ton;
+}
+
 export async function computeTonKhoChot(
   db: D1Database, khuVucMa: string | null, maLk: string, truocDon?: { id: string; ngay_tao: string },
 ): Promise<number> {
+  if (await laLkKhongKiemTon(db, maLk)) return TON_KHONG_KIEM;
   if (!khuVucMa) return 0;
   const moc = await getMocTonKhoCongTy(db);
   const [tonGoc, tonPhatSinh] = await Promise.all([
@@ -84,7 +98,7 @@ export async function donChoHangDuTonKho(db: D1Database): Promise<Set<string>> {
        ),
        cap AS (SELECT DISTINCT ma_lk, kv FROM cho),
        ton AS (
-         SELECT c.ma_lk, c.kv,
+         SELECT c.ma_lk, c.kv, CASE WHEN ${KHONG_KIEM_TON_SQL("c.ma_lk")} THEN ${TON_KHONG_KIEM} ELSE
            COALESCE((SELECT SUM(t.cuoi_ky) FROM kho_cong_ty_ton_kho t JOIN kho_cong_ty k ON k.ma = t.kho_ma
                      JOIN kho_cong_ty_khu_vuc x ON x.kho_ma = k.ma
                      WHERE k.bat_tat = 1 AND x.khu_vuc_ma = c.kv AND t.ma_hang = c.ma_lk), 0)
@@ -92,7 +106,7 @@ export async function donChoHangDuTonKho(db: D1Database): Promise<Set<string>> {
                        WHERE d.ma_lk = c.ma_lk AND COALESCE(d.khu_vuc_chon, d.khu_vuc_ma) = c.kv AND d.loai_don IN ('mua', 'cong_no')
                          AND instr(COALESCE(d.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') = 0
                          AND d.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy', 'Cho hang')
-                         AND (? IS NULL OR d.ngay_tao > ?)), 0) AS kha_dung
+                         AND (? IS NULL OR d.ngay_tao > ?)), 0) END AS kha_dung
          FROM cap c
        ),
        luy_ke AS (

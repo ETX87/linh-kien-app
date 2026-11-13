@@ -29,6 +29,8 @@ import { scopeDatMuaNguoiTao, scopeKtvTonKho } from "../lib/scopeDatMua";
 // nay - danh muc quan ly thang qua form + upload anh).
 
 import { laKtvThuan } from "../lib/laKtvThuan";
+import { tuDongXacNhanHangVe } from "../lib/tuDongHangVe";
+import { danhGiaLaiDonChoThanhToan } from "../lib/tuDongDuyet";
 const settingsDatMua = new Hono<{ Bindings: Env }>();
 settingsDatMua.use("*", verifySessionMiddleware, loadUser);
 const adminOnly = requireRole("Admin");
@@ -202,6 +204,40 @@ settingsDatMua.patch("/linh-kien/:ma/gia-0", async (c) => {
     .run();
   if (!r.meta.changes) return c.json({ error: "NOT_FOUND" }, 404);
   await refreshHash(c.env.DB, "linh_kien", "linh_kien", "ma_linh_kien");
+  return c.json({ ok: true });
+});
+
+// PATCH /linh-kien/:ma/khong-kiem-ton - { khong_kiem_ton: boolean } (chot 2026-11-13, v1.489, migration 0118 - "1 số link kiện thuộc dạng
+// không cần kiểm tra tồn kho, ví dụ như phí dịch vụ. mặc định đặt là có hàng"). Cung nhom quyen "Cho phép giá 0đ". Cot noi bo (khong cham
+// ngay_cap_nhat). Bat -> chay nen: don "Cho hang" cua ma tu xac nhan hang ve (tuDongXacNhanHangVe) + don "Cho thanh toan" xet lai (tu duyet).
+settingsDatMua.patch("/linh-kien/:ma/khong-kiem-ton", async (c) => {
+  const u = c.get("user");
+  if (!u.quan_ly_danh_muc_lk && !laMuaHangHoacAdmin(u) && !u.la_tac_nghiep && !u.la_ke_toan) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const ma = c.req.param("ma");
+  const body = await c.req.json<{ khong_kiem_ton?: boolean }>();
+  if (typeof body.khong_kiem_ton !== "boolean") return c.json({ error: "INVALID_BODY" }, 400);
+  const db = c.env.DB;
+  const r = await db.prepare("UPDATE linh_kien SET khong_kiem_ton = ?, khong_kiem_ton_nguoi = ?, khong_kiem_ton_luc = ? WHERE ma_linh_kien = ?")
+    .bind(body.khong_kiem_ton ? 1 : 0, u.email, nowVN(), ma)
+    .run();
+  if (!r.meta.changes) return c.json({ error: "NOT_FOUND" }, 404);
+  await refreshHash(db, "linh_kien", "linh_kien", "ma_linh_kien");
+  if (body.khong_kiem_ton) {
+    const env = c.env;
+    c.executionCtx.waitUntil((async () => {
+      try {
+        const { results } = await db
+          .prepare("SELECT id FROM dat_don_hang WHERE ma_lk = ? AND trang_thai_hien_tai = 'Cho thanh toan' ORDER BY ngay_tao, id")
+          .bind(ma)
+          .all<{ id: string }>();
+        for (const d of results) await danhGiaLaiDonChoThanhToan(env, db, d.id, u.email, `linh kiện ${ma} chuyển sang không kiểm tra tồn kho`);
+        await tuDongXacNhanHangVe(env, db, u.email, `linh kiện ${ma} không kiểm tra tồn kho`);
+        await bumpVersions(db, ["dat_mua_lk"]);
+      } catch (e) {
+        console.error("khong-kiem-ton xet lai don", e);
+      }
+    })());
+  }
   return c.json({ ok: true });
 });
 

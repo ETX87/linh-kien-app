@@ -18,6 +18,8 @@ export interface LinhKienRow {
   chi_sua_chua: number;
   // "Cho phép giá 0đ" (migration 0080, tu dong duyet 100%): LK chua co gia ban van dat duoc don MUA / TRỪ CÔNG NỢ.
   cho_phep_gia_0?: number;
+  // "Không kiểm tra tồn kho" (migration 0118, 2026-11-13): phi dich vu... - dat don luon coi la co hang.
+  khong_kiem_ton?: number;
   // "Phân loại đặc thù" (them 2026-08-25) - CHI co y nghia khi dac_thu=1, giai thich RO linh kien nay
   // thuoc dang dac thu gi (vd "Hàng nhập riêng"/"Độc quyền hãng X"...), listdown tu do (dung y het
   // don_vi/"Phân loại" - khong phai bang settings rieng, tu goi y tu cac gia tri da co san).

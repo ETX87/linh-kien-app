@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { laTonKhongKiem } from "../../lib/tonKhongKiem";
 import type { KiemTraDong, ThayTheConHang } from "./types";
 import { t } from "../../i18n";
 
@@ -90,7 +91,7 @@ export function GoiYThayTheThieuHang({
           >
             ↔ <span className="font-mono">{b.ma_lk}</span>
             <span className="font-normal truncate max-w-[180px]">{b.ten_lk}</span>
-            <span className="font-normal opacity-80">· {t("kho còn {n}", { n: b.ton })}</span>
+            <span className="font-normal opacity-80">· {laTonKhongKiem(b.ton) ? t("luôn có hàng") : t("kho còn {n}", { n: b.ton })}</span>
           </button>
         ))}
       </div>

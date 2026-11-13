@@ -2791,5 +2791,9 @@ const tuDien: Record<string, string> = {
   "{ma}: kho {kv} thiếu hàng và kho miền còn lại cũng hết — đơn sẽ chờ hàng.": "{ma}: the warehouse of {kv} is short and the other region is also out of stock — the order will wait for stock.",
   "{ma}: kho {kv} thiếu hàng — kho {mien} còn hàng:": "{ma}: the warehouse of {kv} is short — {mien} still has stock:",
   "Đặt trái miền: tạo đơn như bình thường, sau khi được đồng ý thì mở chi tiết đơn và đổi “Khu vực xử lý” sang khu vực còn hàng — đơn tự duyệt nếu đủ hàng.": "Cross-region order: create the order as usual; once agreed, open the order details and change “Processing area” to an area with stock — the order is auto-approved if stock is enough.",
+  "Không kiểm tra tồn kho": "No stock check",
+  "luôn có hàng": "always in stock",
+  "✅ Linh kiện không cần kiểm tra tồn kho (mặc định có hàng) — đơn tự động duyệt và vào phiếu xuất.": "✅ This part needs no stock check (always in stock) — the order is auto-approved and added to a delivery note.",
+  "✅ Linh kiện không cần kiểm tra tồn kho (mặc định có hàng) — đơn tự động duyệt, vào phiếu chờ chuyển tiền.": "✅ This part needs no stock check (always in stock) — the order is auto-approved and added to a note awaiting payment.",
 };
 export default tuDien;

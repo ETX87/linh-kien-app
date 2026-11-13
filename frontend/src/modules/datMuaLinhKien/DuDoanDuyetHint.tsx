@@ -5,6 +5,7 @@ import { t } from "../../i18n";
 import { giaiThichTrangThai, TONE_LY_DO } from "./LyDoTrangThai";
 import { trangThaiLabel } from "./helpers";
 import { DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL } from "./constants";
+import { laTonKhongKiem } from "../../lib/tonKhongKiem";
 
 // Ket qua DU KIEN cua tung dong ngay luc soan don (viet lai 2026-10-14, tu dong duyet 100% - truoc goi GET /du-doan-duyet chi xem
 // ton kho). Nguon: POST /dat-mua-lk/phieu-dat/kiem-tra (useTaoDonForm.ts ketQuaTheoDong) - CUNG bo quyet dinh voi luc tao that
@@ -40,6 +41,13 @@ export function moTaKetQua(r: KiemTraDong): { tone: keyof typeof TONE; text: str
   if (r.loi) return { tone: "chan", text: "✕ " + (r.thong_diep ?? r.loi) };
   switch (r.trang_thai) {
     case "TN da duyet":
+      if (r.nguon_ton === "kho" && laTonKhongKiem(r.ton))
+        return {
+          tone: "ok",
+          text: r.bat_buoc_chuyen_tien
+            ? t("✅ Linh kiện không cần kiểm tra tồn kho (mặc định có hàng) — đơn tự động duyệt, vào phiếu chờ chuyển tiền.")
+            : t("✅ Linh kiện không cần kiểm tra tồn kho (mặc định có hàng) — đơn tự động duyệt và vào phiếu xuất."),
+        };
       return {
         tone: "ok",
         text:
@@ -75,7 +83,7 @@ export function DuDoanDuyetHint({ ketQua, khuVuc }: { ketQua: KiemTraDong[] | un
         if (!m) return null;
         const phu = thieuHangPhu(r, khuVuc);
         // Kho da kiem (khu vuc) - de nguoi dat hieu vi sao 2 tai khoan dat cung 1 ma lai ra ket qua ton khac nhau (khu vuc cua don khac nhau).
-        const kvKho = r.nguon_ton === "kho" && khuVuc && !r.loi ? ` (${t("kho khu vực {a}", { a: khuVuc })})` : "";
+        const kvKho = r.nguon_ton === "kho" && khuVuc && !r.loi && !laTonKhongKiem(r.ton) ? ` (${t("kho khu vực {a}", { a: khuVuc })})` : "";
         return (
           <div key={i}>
             <div className={`${KHUNG} ${TONE[m.tone]}`} role={m.tone === "chan" ? "alert" : undefined}>

@@ -2791,5 +2791,9 @@ const tuDien: Record<string, string> = {
   "{ma}: kho {kv} thiếu hàng và kho miền còn lại cũng hết — đơn sẽ chờ hàng.": "{ma}: gudang {kv} kekurangan stok dan wilayah lainnya juga habis — pesanan akan menunggu stok.",
   "{ma}: kho {kv} thiếu hàng — kho {mien} còn hàng:": "{ma}: gudang {kv} kekurangan stok — {mien} masih ada stok:",
   "Đặt trái miền: tạo đơn như bình thường, sau khi được đồng ý thì mở chi tiết đơn và đổi “Khu vực xử lý” sang khu vực còn hàng — đơn tự duyệt nếu đủ hàng.": "Pesan lintas wilayah: buat pesanan seperti biasa; setelah disetujui, buka detail pesanan dan ubah “Area pemrosesan” ke area yang ada stok — pesanan otomatis disetujui jika stok cukup.",
+  "Không kiểm tra tồn kho": "Tanpa cek stok",
+  "luôn có hàng": "selalu tersedia",
+  "✅ Linh kiện không cần kiểm tra tồn kho (mặc định có hàng) — đơn tự động duyệt và vào phiếu xuất.": "✅ Suku cadang ini tidak perlu cek stok (selalu tersedia) — pesanan otomatis disetujui dan masuk nota keluar.",
+  "✅ Linh kiện không cần kiểm tra tồn kho (mặc định có hàng) — đơn tự động duyệt, vào phiếu chờ chuyển tiền.": "✅ Suku cadang ini tidak perlu cek stok (selalu tersedia) — pesanan otomatis disetujui, masuk nota menunggu transfer.",
 };
 export default tuDien;
