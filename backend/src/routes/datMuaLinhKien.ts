@@ -30,7 +30,7 @@ import { lookupLada, ladaPreview, isLikelyLadaId, type LadaPreview } from "../li
 import { sendPushToUser } from "../lib/webPush";
 import { computeCongNoChot } from "../lib/congNoKtv";
 import { computeMocDuPhongHienTai } from "../lib/duPhongKtv";
-import { computeTonKhoChot, donChoHangDuTonKho } from "../lib/tonKhoCongTy";
+import { computeTonKhoChot, donChoHangDuTonKho, getMocTonKhoCongTy } from "../lib/tonKhoCongTy";
 import { tachDonChoHang } from "../lib/tachDon";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
 import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon, laKhTraGop, khongTinhCongNo, laMuaCongNoDoiTac } from "../lib/pxkRecalculate";
@@ -2472,6 +2472,8 @@ export async function kiemTraPhieuDat(c: Context<{ Bindings: Env }>, body: Phieu
   if ("error" in kq) return c.json({ loi_phieu: kq.error, dong: [], ...(kq.extra ?? {}) });
   const ds = kq.danhGia;
   const thayThe = await goiYThayTheThieuHang(c.env.DB, ds.khuVuc, kq.body.don_hang, ds.dong, kq.comboMaCuaDong);
+  // Ton kho mien con lai (v1.488) - chi GS / TN (gom Ke toan) / Admin dat ho moi can, KTV tu dat khong doi duoc khu vuc xu ly.
+  const mienKhac = canQuanLyDonHo(c) ? await tonKhoMienKhac(c.env.DB, ds.khuVuc, kq.body.don_hang, ds.dong, kq.comboMaCuaDong) : null;
   return c.json({
     loi_phieu: null,
     khu_vuc: ds.khuVuc,
@@ -2491,8 +2493,59 @@ export async function kiemTraPhieuDat(c: Context<{ Bindings: Env }>, body: Phieu
       nguon_ton: d.nguonTon,
       bat_buoc_chuyen_tien: d.batBuocChuyenTien,
       thay_the: thayThe.get(i) ?? [],
+      // null = khong kiem (dong du hang / nguoi dat khong phai GS-TN); [] = da kiem, mien con lai cung het hang.
+      ton_mien_khac: mienKhac ? mienKhac.get(i) ?? null : null,
     })),
   });
+}
+
+// TON KHO MIEN CON LAI KHI KHU VUC CUA DON THIEU HANG (chot 2026-11-13, v1.488 - "khi GS, TN, tạo đơn hộ KTV nếu khu vực của KTV không có hàng, check
+// luôn tồn kho tại khu vực miền còn lại và hiện cảnh báo đồng thời. nếu kv khác còn hàng thì hiện đề xuất khu vực còn hàng (có thể đổi lại khu vực sau
+// khi xin đề xuất đặt hàng trái miền)"). "Mien con lai" = khu vuc dang bat co bo kho cong ty dang bat KHONG chung kho nao voi khu vuc cua don (MB <-> MN;
+// khong dua vao ten ma). Ton moi (khu vuc, ma) = CUNG cong thuc computeTonKhoChot (ton goc kho cua khu vuc - don dang giu cua chinh khu vuc do sau moc
+// import) -> dung la so ma xetLaiTonKhiDoiKhuVuc dung khi doi "Khu vuc xu ly" cua don sang khu vuc do. 1 truy van cho moi dong thieu. Chi dong lay ton
+// kho cong ty dang thieu (cung dieu kien goiYThayTheThieuHang). Tra Map dong -> [{khu_vuc, ten, ton}] (ton > 0, nhieu truoc; rong = mien kia cung het).
+async function tonKhoMienKhac(
+  db: D1Database,
+  khuVuc: string,
+  dongs: PhieuDatDaChuanBi["body"]["don_hang"],
+  ketQua: PhieuDatDaChuanBi["danhGia"]["dong"],
+  comboMa: (string | null)[],
+): Promise<Map<number, { khu_vuc: string; ten: string | null; ton: number }[]>> {
+  const out = new Map<number, { khu_vuc: string; ten: string | null; ton: number }[]>();
+  const thieu = ketQua
+    .map((k, i) => ({ k, i }))
+    .filter(({ k, i }) => !k.loi && !comboMa[i] && k.nguonTon === "kho" && (k.ton ?? 0) < Number(dongs[i].so_luong_de_xuat)
+      && ["Cho hang", "Cho thanh toan", "Cho GS duyet", "Cho TBP xac nhan"].includes(k.trangThai ?? ""));
+  if (!thieu.length || !khuVuc) return out;
+  const maThieu = [...new Set(thieu.map(({ i }) => dongs[i].ma_lk))];
+  const moc = await getMocTonKhoCongTy(db);
+  const { results } = await db
+    .prepare(
+      `SELECT kv.ma AS khu_vuc, kv.ten, m.value AS ma_lk,
+         (SELECT COALESCE(SUM(t.cuoi_ky), 0) FROM kho_cong_ty_ton_kho t JOIN kho_cong_ty k ON k.ma = t.kho_ma
+            JOIN kho_cong_ty_khu_vuc x ON x.kho_ma = k.ma WHERE k.bat_tat = 1 AND x.khu_vuc_ma = kv.ma AND t.ma_hang = m.value)
+         - (SELECT COALESCE(SUM(d.so_luong_de_xuat), 0) FROM dat_don_hang d
+            WHERE d.ma_lk = m.value AND COALESCE(d.khu_vuc_chon, d.khu_vuc_ma) = kv.ma AND d.loai_don IN ('mua', 'cong_no')
+              AND instr(COALESCE(d.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') = 0 AND d.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')
+              AND (?2 IS NULL OR d.ngay_tao > ?2)) AS ton
+       FROM khu_vuc kv, json_each(?1) m
+       WHERE kv.ma != ?3 AND COALESCE(kv.bat_tat, 1) = 1
+         AND EXISTS (SELECT 1 FROM kho_cong_ty_khu_vuc a JOIN kho_cong_ty ka ON ka.ma = a.kho_ma WHERE ka.bat_tat = 1 AND a.khu_vuc_ma = kv.ma)
+         AND NOT EXISTS (SELECT 1 FROM kho_cong_ty_khu_vuc a JOIN kho_cong_ty ka ON ka.ma = a.kho_ma AND ka.bat_tat = 1
+                         JOIN kho_cong_ty_khu_vuc b ON b.kho_ma = a.kho_ma WHERE a.khu_vuc_ma = kv.ma AND b.khu_vuc_ma = ?3)
+       ORDER BY kv.stt, kv.ma`,
+    )
+    .bind(JSON.stringify(maThieu), moc, khuVuc)
+    .all<{ khu_vuc: string; ten: string | null; ma_lk: string; ton: number }>();
+  for (const { i } of thieu) {
+    const ma = dongs[i].ma_lk;
+    out.set(i, results.filter((r) => r.ma_lk === ma && r.ton > 0)
+      .map((r) => ({ khu_vuc: r.khu_vuc, ten: r.ten, ton: r.ton }))
+      .sort((a, b) => b.ton - a.ton)
+      .slice(0, 5));
+  }
+  return out;
 }
 
 // GOI Y LK TUONG DUONG CON HANG cho dong thieu hang (chot 2026-11-01, v1.430 - "linh kiện họ đặt thiếu hàng và có mã tương đương đủ hàng,

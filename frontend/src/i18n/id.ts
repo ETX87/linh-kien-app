@@ -2782,5 +2782,14 @@ const tuDien: Record<string, string> = {
   "Nghi trùng ảnh chuyển khoản với {a} khoản khác của cùng người — xem tab “Nghi trùng”.": "Gambar transfer dicurigai duplikat dengan {a} pembayaran lain dari orang yang sama — lihat tab “Dicurigai duplikat”.",
   "Đối soát ảnh chuyển tiền": "Rekonsiliasi gambar transfer",
   "Đối soát ảnh với các khoản khác": "Rekonsiliasi gambar dengan pembayaran lain",
+  "còn {n}": "sisa {n}",
+  "khu vực của KTV": "area teknisi",
+  "khu vực {kv}": "area {kv}",
+  "miền Bắc": "wilayah Utara",
+  "miền Nam": "wilayah Selatan",
+  "miền còn lại": "wilayah lainnya",
+  "{ma}: kho {kv} thiếu hàng và kho miền còn lại cũng hết — đơn sẽ chờ hàng.": "{ma}: gudang {kv} kekurangan stok dan wilayah lainnya juga habis — pesanan akan menunggu stok.",
+  "{ma}: kho {kv} thiếu hàng — kho {mien} còn hàng:": "{ma}: gudang {kv} kekurangan stok — {mien} masih ada stok:",
+  "Đặt trái miền: tạo đơn như bình thường, sau khi được đồng ý thì mở chi tiết đơn và đổi “Khu vực xử lý” sang khu vực còn hàng — đơn tự duyệt nếu đủ hàng.": "Pesan lintas wilayah: buat pesanan seperti biasa; setelah disetujui, buka detail pesanan dan ubah “Area pemrosesan” ke area yang ada stok — pesanan otomatis disetujui jika stok cukup.",
 };
 export default tuDien;

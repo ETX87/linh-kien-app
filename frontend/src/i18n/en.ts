@@ -2782,5 +2782,14 @@ const tuDien: Record<string, string> = {
   "Nghi trùng ảnh chuyển khoản với {a} khoản khác của cùng người — xem tab “Nghi trùng”.": "Transfer image suspected duplicate of {a} other payments of the same person — see the “Suspected duplicates” tab.",
   "Đối soát ảnh chuyển tiền": "Transfer image reconciliation",
   "Đối soát ảnh với các khoản khác": "Reconcile images with other payments",
+  "còn {n}": "{n} left",
+  "khu vực của KTV": "the technician's area",
+  "khu vực {kv}": "area {kv}",
+  "miền Bắc": "the North",
+  "miền Nam": "the South",
+  "miền còn lại": "the other region",
+  "{ma}: kho {kv} thiếu hàng và kho miền còn lại cũng hết — đơn sẽ chờ hàng.": "{ma}: the warehouse of {kv} is short and the other region is also out of stock — the order will wait for stock.",
+  "{ma}: kho {kv} thiếu hàng — kho {mien} còn hàng:": "{ma}: the warehouse of {kv} is short — {mien} still has stock:",
+  "Đặt trái miền: tạo đơn như bình thường, sau khi được đồng ý thì mở chi tiết đơn và đổi “Khu vực xử lý” sang khu vực còn hàng — đơn tự duyệt nếu đủ hàng.": "Cross-region order: create the order as usual; once agreed, open the order details and change “Processing area” to an area with stock — the order is auto-approved if stock is enough.",
 };
 export default tuDien;

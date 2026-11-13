@@ -17,6 +17,7 @@ import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
 import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal } from "./DuDoanDuyetHint";
 import { GoiYThayTheThieuHang } from "./GoiYThayTheThieuHang";
+import { TonMienKhacHint } from "./TonMienKhac";
 import { DoiTacCongNoChon } from "./DoiTacCongNoChon";
 import { TraHangAnhPicker, NhapKhoiPhucBanner } from "./SharedUi";
 import { NhapTaoDonHoi } from "./NhapTaoDonHoi";
@@ -437,6 +438,7 @@ export function TaoDonTab({
                   {/* Canh bao "don nay se tu dong duyet hay khong" (them 2026-09-11) - chi co y nghia
                       khi da chon du Ma LK + Loai de xuat + So luong, xem dieu kien ben trong component. */}
                   <DuDoanDuyetHint ketQua={ketQuaTheoDong.get(idx)} khuVuc={form.kiemTra?.khu_vuc} />
+                  <TonMienKhacHint ketQua={ketQuaTheoDong.get(idx)} khuVuc={form.kiemTra?.khu_vuc} />
                   <GoiYThayTheThieuHang
                     ketQua={ketQuaTheoDong.get(idx)}
                     onDoiMa={(ma) => { updateDraft(idx, { ma_lk: ma }); addToast(t("Đã đổi sang {ma}", { ma })); }}

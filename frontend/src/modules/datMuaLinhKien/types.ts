@@ -79,6 +79,8 @@ export interface KiemTraDong {
   bat_buoc_chuyen_tien: boolean;
   // LK tuong duong con hang cho dong thieu hang (v1.430, GoiYThayTheThieuHang.tsx) - rong neu khong thieu / khong co ma nao con ton.
   thay_the?: ThayTheConHang[];
+  // Ton kho khu vuc MIEN CON LAI khi dong thieu hang (v1.488, TonMienKhac.tsx) - chi GS / TN dat ho: null = khong kiem, [] = mien kia cung het.
+  ton_mien_khac?: { khu_vuc: string; ten: string | null; ton: number }[] | null;
 }
 export interface ThayTheConHang {
   ma_lk: string;

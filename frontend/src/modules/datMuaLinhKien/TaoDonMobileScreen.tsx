@@ -14,6 +14,7 @@ import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
 import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal } from "./DuDoanDuyetHint";
 import { GoiYThayTheThieuHang } from "./GoiYThayTheThieuHang";
+import { TonMienKhacHint } from "./TonMienKhac";
 import { DoiTacCongNoChon } from "./DoiTacCongNoChon";
 import { TraHangAnhPicker, NhapKhoiPhucBanner } from "./SharedUi";
 import type { TaoDonForm } from "./useTaoDonForm";
@@ -283,6 +284,7 @@ export function TaoDonMobileScreen({
             {chuaCoGiaKtv && <CanhBaoChuaCoGiaKtv />}
           </div>
           <DuDoanDuyetHint ketQua={ketQuaTheoDong.get(activeIdx)} khuVuc={form.kiemTra?.khu_vuc} />
+                  <TonMienKhacHint ketQua={ketQuaTheoDong.get(activeIdx)} khuVuc={form.kiemTra?.khu_vuc} />
           <GoiYThayTheThieuHang
             ketQua={ketQuaTheoDong.get(activeIdx)}
             onDoiMa={(ma) => { updateDraft(activeIdx, { ma_lk: ma }); addToast(t("Đã đổi sang {ma}", { ma })); }}
