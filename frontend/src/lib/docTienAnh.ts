@@ -61,8 +61,9 @@ export const docBiLoi = (url: string) => docLoi.has(url);
  *     so thieu 1 dau phan cach co don vi, bo nam 19xx-20xx).
  * 4 = 2026-11-12 (nhan manh "thanh cong"/"so tien" o dong tren +3, nhan yeu "chuyen tien" chung chung +1 - anh MBBank dang hoi
  *     thoai doc nham so cua bong bong cu).
+ * 5 = 2026-11-13 (dong so TO doc doi chieu them bang bo tieng Anh, lech -> khong doc duoc - anh BIDV doc so 3 thanh 5; doiChieuEng).
  */
-export const PHIEN_BAN_OCR = 4;
+export const PHIEN_BAN_OCR = 5;
 let hang: Promise<unknown> = Promise.resolve();
 
 // Chu CAO hon muc nay (px) Tesseract hay doc sai so (da thu that: "3.200.000" dam 64px -> "2.200.000") - so tien tren app
@@ -119,15 +120,16 @@ async function docMotLuot(worker: Worker, anh: Blob, psm: string, layBmp: () => 
   const lines: DongChu[] = (data.blocks ?? []).flatMap((b) =>
     b.paragraphs.flatMap((p) => p.lines.map((l: Line) => ({ text: l.text, cao: Math.max(0, l.bbox.y1 - l.bbox.y0), bbox: l.bbox }))),
   );
-  return quyetDinhSoTien(lines, async (bbox, caoMoi) => {
+  return quyetDinhSoTien(lines, async (bbox, caoMoi, lang) => {
     const cat = await catDong(await layBmp(), bbox, caoMoi);
     if (!cat) return [];
-    // Dong cat rieng = 1 dong chu (psm 7), xong tra lai che do cua luot.
-    await worker.setParameters({ tessedit_pageseg_mode: "7" as never });
+    // Dong cat rieng = 1 dong chu (psm 7), xong tra lai che do cua luot. `lang` = doc doi chieu bang bo ngon ngu khac (PHIEN_BAN_OCR 5).
+    const wk = lang ? await layWorker(lang) : worker;
+    await wk.setParameters({ tessedit_pageseg_mode: "7" as never });
     try {
-      return cacSoTrong((await worker.recognize(cat, {}, { text: true })).data.text);
+      return cacSoTrong((await wk.recognize(cat, {}, { text: true })).data.text);
     } finally {
-      await worker.setParameters({ tessedit_pageseg_mode: psm as never });
+      if (wk === worker) await worker.setParameters({ tessedit_pageseg_mode: psm as never });
     }
   });
 }
@@ -166,7 +168,17 @@ export function docSoTienAnh(url: string): Promise<SoTienDoc> {
   return kq;
 }
 
-type DocLai = (bbox: { x0: number; y0: number; x1: number; y1: number }, caoMoi: number) => Promise<number[]>;
+type DocLai = (bbox: { x0: number; y0: number; x1: number; y1: number }, caoMoi: number, lang?: "eng") => Promise<number[]>;
+
+// DOI CHIEU BANG BO TIENG ANH (2026-11-13, PHIEN_BAN_OCR 5 - "fix orc" anh BIDV "3,142,000 VND" chu vang nen xanh dam doc thanh 5.142.000):
+// font so cua vai app ngan hang (BIDV: so 3 dau phang) bo tieng Viet doc nham 3->5 o moi co / dao mau / nguong, bo tieng Anh doc dung o moi co.
+// Nguoc lai o anh khac bo tieng Anh tung doc lech (5->3, 9->3) -> KHONG thay han, chi doi chieu: so cua dong TO da chot duoc doc them 1 lan
+// bang tieng Anh, ra so KHAC -> "khong doc duoc" (Ke toan xem bang mat) thay vi dua ra so co the sai. Tieng Anh khong ra so nao -> giu so cu.
+async function doiChieuEng(so: SoTienDoc, bbox: { x0: number; y0: number; x1: number; y1: number }, docLai: DocLai): Promise<SoTienDoc> {
+  if (so == null) return null;
+  const eng = await docLai(bbox, 32, "eng");
+  return eng.length === 0 || eng.includes(so) ? so : null;
+}
 
 /**
  * Tu cac dong OCR lan 1 ra so tien cuoi (tach khoi tesseract de kiem thu tren node). Dong so tien CAO -> cat rieng doc lai
@@ -179,9 +191,9 @@ export async function quyetDinhSoTien(lines: DongChu[], docLai: DocLai): Promise
     const dong = lines[chon.dong];
     if (dong.cao <= CAO_CAN_DOC_LAI || !dong.bbox) return chon.giaTri;
     const lan2 = await docLai(dong.bbox, 32);
-    if (lan2.includes(chon.giaTri)) return chon.giaTri;
+    if (lan2.includes(chon.giaTri)) return doiChieuEng(chon.giaTri, dong.bbox, docLai);
     const lan3 = await docLai(dong.bbox, 24);
-    return [chon.giaTri, ...lan2].find((v) => lan3.includes(v)) ?? null;
+    return doiChieuEng([chon.giaTri, ...lan2].find((v) => lan3.includes(v)) ?? null, dong.bbox, docLai);
   }
   const to = lines
     .filter((d) => d.bbox && d.cao > CAO_CAN_DOC_LAI && (d.text.match(/\d/g)?.length ?? 0) >= 4 && !DONG_LOAI.test(boDau(d.text)))
@@ -190,7 +202,7 @@ export async function quyetDinhSoTien(lines: DongChu[], docLai: DocLai): Promise
   const lan2 = await docLai(to.bbox!, 32);
   if (!lan2.length) return null;
   const lan3 = await docLai(to.bbox!, 24);
-  return lan2.find((v) => lan3.includes(v)) ?? null;
+  return doiChieuEng(lan2.find((v) => lan3.includes(v)) ?? null, to.bbox!, docLai);
 }
 
 export interface DongChu {
