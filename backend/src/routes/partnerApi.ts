@@ -9,6 +9,7 @@ import { donChoHangDuTonKho, getMocTonKhoCongTy } from "../lib/tonKhoCongTy";
 import { ktvChinhCuaEmailSql } from "../lib/ktvChinh";
 import { TRANG_THAI_PXK_DON_SQL } from "../lib/trangThaiDonPxk";
 import { ganRouteDatHang } from "./partnerDatHang";
+import { docDongHoaDon } from "../lib/hoaDonDvbh";
 
 // API tra cuu cho CAC HE THONG DOI TAC ben ngoai (khac hoan toan cac router khac trong app - khong
 // dung verifySessionMiddleware/cookie, xac thuc rieng qua header "X-API-Key", xem
@@ -446,6 +447,15 @@ partnerApi.get("/v1/ton-kho-kha-dung", async (c) => {
 // 'Tu choi' / 'Da huy'). Ca noi voi don qua dat_don_case (nhieu ca/don) HOAC dat_don_hang.ma_yeu_cau_su_co (cu) - 2 index san co.
 // Don chi khai ID Lada (khong co ma ca) van khop qua "lada": [[ma_lada, case_id], ...] (DVBH lay tu case_lada) - index idx_ddh_ma_lada.
 // Toi da 1000 ca/lan, 1 bind JSON moi nhanh. Ca khong co don nao van tra ve (don: []) de ben goi danh dau "chua len don".
+// GET /api/partner/v1/don-hoa-don?tu_ngay=YYYY-MM-DD (2026-11-14, he DVBH module "Sửa DT · HĐ · BH") - moi dong don co yeu cau xuat
+// hoa don thuoc phieu xuat kho Ke toan da chot tu tu_ngay (mac dinh 01/11/2026), toi da 2000 dong, gom ca dong da huy (da_huy = 1).
+// DVBH goi khi bam "Đồng bộ" - bu cho cac lan day (lib/hoaDonDvbh.ts pushHoaDonPxkSangDvbh) bi loi.
+partnerApi.get("/v1/don-hoa-don", async (c) => {
+  const tuNgay = c.req.query("tu_ngay") ?? "2026-11-01";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(tuNgay)) return c.json({ error: "INVALID_TU_NGAY" }, 400);
+  return c.json({ rows: await docDongHoaDon(c.env.DB, { tuNgay }) });
+});
+
 partnerApi.post("/v1/don-loi-loc", async (c) => {
   const body = await c.req.json<{ case_ids?: unknown; lada?: unknown }>().catch(() => ({}) as { case_ids?: unknown; lada?: unknown });
   const ids = Array.isArray(body.case_ids) ? [...new Set(body.case_ids.map((x) => String(x ?? "").trim()).filter(Boolean))] : [];

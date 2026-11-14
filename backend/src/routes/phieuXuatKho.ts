@@ -17,6 +17,7 @@ import { sendPushToUser } from "../lib/webPush";
 import { buildMisaExportSheets, resolveMisaTemplateDeXuat, MISA_TEMPLATES, type MisaTemplate } from "../lib/misaExport";
 import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, emailGsListForPxk, PXK_ROLES } from "../lib/taskNotify";
 import { pushPxkToKhovan, notifyPxkAdvancedViaApp, buildWorkUrl } from "../lib/khovanPushClient";
+import { pushHoaDonPxkSangDvbh } from "../lib/hoaDonDvbh";
 import { timLoaiChietKhauTheoTen, gonTenLoaiChietKhau, choPhepDoiLoaiChietKhau } from "../lib/loaiChietKhau";
 import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, laTruCongNo, type PxkCalculation } from "../lib/pxkRecalculate";
 import { TIEN_DON_DOI_TAC_SQL } from "../lib/congNoDoiTac";
@@ -2324,6 +2325,11 @@ phieuXuatKho.post("/:id/log", async (c) => {
     .bind(target, id, pxk.version)
     .run();
   if (!casResult.meta.changes) return c.json({ error: "STATE_CHANGED" }, 409);
+  // Ke toan CHOT phieu (roi "Dang tao phieu"/"Cho ke toan" sang buoc da chot) -> day cac dong co yeu cau xuat hoa don sang DVBH
+  // (danh sach "Đơn xuất hóa đơn", lib/hoaDonDvbh.ts). Best-effort, khong chan thao tac.
+  if ((hienTai === "Dang tao phieu" || hienTai === "Cho ke toan") && !["Dang tao phieu", "Cho ke toan", "Ke toan huy"].includes(target)) {
+    c.executionCtx.waitUntil(pushHoaDonPxkSangDvbh(c.env, id));
+  }
 
   if (keToanTruKho) {
     // Giu moc "Da chot xong don xuat" trong lich su (bao cao toc do xu ly Ke toan doc moc nay).
