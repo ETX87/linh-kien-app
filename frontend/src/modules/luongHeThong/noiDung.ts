@@ -124,7 +124,7 @@ const LUONG_DAT_HANG: Luong = {
       loai: "tu_dong",
       ai: "Hệ thống",
       moTa: "Tồn kho công ty theo KHU VỰC CỦA ĐƠN (file MISA mới nhất − SL các đơn khác đang giữ hàng), trừ dần theo thứ tự tạo: đơn trước đủ, đơn sau thiếu.",
-      tiepTheo: ["Đủ hàng → TN đã duyệt (tự động) + vào phiếu", "Thiếu + đơn có tiền → Chờ thanh toán", "Thiếu + không có tiền → Chờ hàng + mở ticket"],
+      tiepTheo: ["Đủ hàng → Đã duyệt (tự động) + vào phiếu", "Thiếu + đơn có tiền → Chờ thanh toán", "Thiếu + không có tiền → Chờ hàng + mở ticket"],
       tuDong: ["Lý do ghi vào lịch sử đơn kèm khu vực kho đã kiểm (vd “Kho MB1 còn 0, cần 2”).", "Form tạo đơn gợi ý LK tương đương còn hàng (chip “x123”) + phương án tách dòng."],
     },
     {
@@ -134,7 +134,7 @@ const LUONG_DAT_HANG: Luong = {
       loai: "cho",
       ai: "KTV chuyển tiền → Kế toán xác nhận",
       moTa: "Kho thiếu nhưng đơn có tiền: đơn vào phiếu “chờ hàng” riêng để KTV chuyển tiền trước.",
-      tiepTheo: ["Kế toán xác nhận tiền → xét lại tồn: đủ → TN đã duyệt; vẫn thiếu → Chờ hàng (mang theo tiền)"],
+      tiepTheo: ["Kế toán xác nhận tiền → xét lại tồn: đủ → Đã duyệt; vẫn thiếu → Chờ hàng (mang theo tiền)"],
       tuDong: [
         "Sửa mã / SL / giá về 0đ → đánh giá lại ngay; hết tiền phải chuyển mà vẫn thiếu → Chờ hàng.",
         "TN / Kế toán có nút “⏭ Cho phép thanh toán sau” (đi tiếp như đã trả, tiền vẫn thu ở phiếu).",
@@ -147,16 +147,16 @@ const LUONG_DAT_HANG: Luong = {
       loai: "cho",
       ai: "Kho (và Mua hàng nếu Kho chuyển)",
       moTa: "Ticket Thiếu hàng tự mở (lý do “Kho hết hàng”). Đơn Chờ hàng do KHO quyết định — xem tab Thiếu hàng.",
-      tiepTheo: ["Hàng đã về → TN đã duyệt + vào phiếu", "Kho từ chối / hủy ticket → đơn Đã hủy, tiền về quỹ"],
+      tiepTheo: ["Hàng đã về → Đã duyệt + vào phiếu", "Kho từ chối / hủy ticket → đơn Đã hủy, tiền về quỹ"],
       luuY: ["Kho chưa tiếp nhận: TN vẫn từ chối/hủy được, ticket tự hủy.", "Kho / Mua hàng đã tiếp nhận: khóa đơn, KTV không hủy được (phải gửi yêu cầu hủy)."],
     },
     {
       key: "duyet",
-      ten: "TN đã duyệt",
+      ten: "Đã duyệt",
       ma: "TN da duyet",
       loai: "xong",
       ai: "Hệ thống (log “Tự động duyệt đơn”)",
-      moTa: "Đơn tự gom vào phiếu xuất kho đang tạo của người nhận (bundleAutoApprovedIntoPxk). Lịch sử phiếu ghi rõ lý do gom.",
+      moTa: "Từ v1.494 nhãn trạng thái của đơn đã duyệt hiện THEO BƯỚC CỦA PHIẾU chứa đơn (Chờ KTV chuyển tiền / Chờ Kế toán xác nhận tiền / Kế toán đang chốt phiếu / Kho đang xuất hàng / Đang giao — chờ KTV xác nhận / KTV đã nhận hàng…), chi tiết đơn có luồng ngang Đặt đơn → Duyệt & kiểm kho → Chuyển tiền → Kế toán chốt → Kho xuất hàng → Giao KTV → KTV đã nhận. Đơn tự gom vào phiếu xuất kho đang tạo của người nhận (bundleAutoApprovedIntoPxk). Lịch sử phiếu ghi rõ lý do gom.",
       tuDong: [
         "Tách phiếu theo: người nhận, loại đơn, NHÓM loại đề xuất (MUA HÀNG + MUA HÀNG CÓ ID gộp chung), hình thức hóa đơn, cờ KH chuyển khoản, đối tác, khu vực chọn, phiếu chờ hàng.",
         "Đơn đã thanh toán ưu tiên phiếu riêng (chỉ gộp vào phiếu Kế toán đã duyệt tiền).",
@@ -177,7 +177,7 @@ const LUONG_TRAM: Luong = {
   moTa: "Vệ tinh là tài khoản riêng gắn 1 Trạm (KTV cấp 1). Mọi tiền, quỹ, phiếu đi theo người nhận cuối là Trạm.",
   moc: [
     { key: "vt", ten: "Trạm đặt cho Vệ tinh", loai: "bat_dau", ai: "Trạm (KTV cấp 1)", moTa: "Vệ tinh theo dõi đơn của mình; Trạm đặt và nhận hàng thay." },
-    { key: "tram", ten: "Chờ Trạm duyệt", ma: "Cho Tram duyet", loai: "cho", ai: "Trạm", moTa: "Đơn cũ / đơn đặt hộ của Vệ tinh chờ Trạm duyệt (duyệt / từ chối hàng loạt).", tiepTheo: ["Duyệt → định tuyến lại như đơn thường (TBP → trần → tồn kho)", "Từ chối → TN từ chối"] },
+    { key: "tram", ten: "Chờ Trạm duyệt", ma: "Cho Tram duyet", loai: "cho", ai: "Trạm", moTa: "Đơn cũ / đơn đặt hộ của Vệ tinh chờ Trạm duyệt (duyệt / từ chối hàng loạt).", tiepTheo: ["Duyệt → định tuyến lại như đơn thường (TBP → trần → tồn kho)", "Từ chối → Bị từ chối"] },
     { key: "tiep", ten: "Định tuyến lại", loai: "tu_dong", ai: "Hệ thống (trangThaiSauDuyet)", moTa: "Sau khi Trạm / TBP / GS duyệt, hệ thống chạy tiếp đúng bộ quy tắc tự duyệt." },
   ],
 };
@@ -193,7 +193,7 @@ const LUONG_THIEU_LK: Luong = {
     { key: "mua", ten: "Chờ mua hàng", ma: "Cho mua hang", loai: "cho", ai: "Mua hàng (la_mua_hang) / Admin", moTa: "Mua hàng thấy TẤT CẢ ticket Chờ mua hàng (không giới hạn phạm vi).", tiepTheo: ["Đã đặt hàng (bắt buộc mã EO + ngày dự kiến) → Mua hàng đã đặt", "Không mua được (bắt buộc ghi chú) → ticket hủy, đơn gốc tự hủy, tiền về quỹ"] },
     { key: "da-dat", ten: "Mua hàng đã đặt", ma: "Mua hang da dat", loai: "cho", ai: "Kho theo dõi", moTa: "Lưu mã EO + dự kiến, báo người tạo. Kho cập nhật / xác nhận hàng về như thường." },
     { key: "ve", ten: "Hàng đã về", ma: "Kho xac nhan hang da ve", loai: "tu_dong", ai: "Kho / TN thay Kho", moTa: "Ghi ngày hàng về thực tế.", tuDong: ["Đơn gốc tự duyệt + vào phiếu (duyetDonKhiHangVe).", "Có thể “Đổi LK tương đương” cùng nhóm thay thế rồi xác nhận có hàng (đổi mã, giá theo mã mới).", "Kho chỉ có 1 phần: “✂ Tách đơn” — phần có hàng đi trước, phần còn lại giữ ticket."] },
-    { key: "ket", ten: "TN đã duyệt", ma: "Da ket thuc", loai: "xong", ai: "Hệ thống", moTa: "Ticket đóng khi đơn gốc đã duyệt." },
+    { key: "ket", ten: "Đã duyệt đơn gốc", ma: "Da ket thuc", loai: "xong", ai: "Hệ thống", moTa: "Ticket đóng khi đơn gốc đã duyệt." },
   ],
   nhanh: [
     { ten: "Kho từ chối (sai TT) / Đã huỷ bỏ", loai: "huy", moTa: "Đơn gốc tự hủy, tiền về quỹ, báo người tạo. Kho / Mua hàng hủy ticket bắt buộc lý do." },
@@ -271,8 +271,8 @@ const LUONG_TRA_HANG: Luong = {
     { key: "tao", ten: "Tạo đơn trả hàng", loai: "bat_dau", ai: "KTV / người đặt hộ", moTa: "Mỗi dòng 1–3 ảnh (Drive). KTV hạn mức 50 ảnh/ngày; form lưu nháp nếu trình duyệt tải lại khi mở camera.", dieuKien: ["Đổi qua lại Mua ↔ Trả hàng chỉ ở form Sửa của TN khi còn Chờ kế toán duyệt mềm."] },
     { key: "kt", ten: "Chờ kế toán duyệt mềm", ma: "Cho ke toan duyet mem", loai: "cho", ai: "Kế toán", moTa: "Duyệt / từ chối về mặt chứng từ, công nợ." },
     { key: "kho", ten: "Chờ kho xác nhận", ma: "Cho kho xac nhan", loai: "cho", ai: "Kho (hoặc qua khovan)", moTa: "Xác nhận đã nhận hàng; sửa “SL thực tế nhận về” (ghi vào SL thực xuất → file MISA theo số mới)." },
-    { key: "qc", ten: "Chờ QC xác nhận", ma: "Cho QC xac nhan", loai: "cho", ai: "QC", moTa: "Popup xác nhận SL đạt. Đạt ít hơn SL đang nhận → TÁCH: phần đạt đi tiếp, phần còn lại thành đơn mới chờ QC.", tiepTheo: ["Đạt → TN đã duyệt + tự gom phiếu PTL", "Từ chối: lý do + ghi chú + ≥ 1 ảnh + video ≤ 100MB"] },
-    { key: "xong", ten: "TN đã duyệt", ma: "TN da duyet", loai: "xong", ai: "Hệ thống", moTa: "Từ đây đi chung luồng Phiếu xuất (PTL): Kế toán chốt Chuyển kho (NTMB / NTMN) → Kho xác nhận đã nhận hàng trả.", luuY: ["Đơn cũ còn bước “Chờ TN duyệt tổng”.", "QC xác nhận nhầm: QC / Kế toán / Kho đẩy lùi về Chờ QC khi phiếu PTL chưa qua Chờ mã MISA.", "TRẢ HÀNG DỮ TRỮ đã chốt trả lại hạn mức dự phòng của KTV."] },
+    { key: "qc", ten: "Chờ QC xác nhận", ma: "Cho QC xac nhan", loai: "cho", ai: "QC", moTa: "Popup xác nhận SL đạt. Đạt ít hơn SL đang nhận → TÁCH: phần đạt đi tiếp, phần còn lại thành đơn mới chờ QC.", tiepTheo: ["Đạt → Đã duyệt + tự gom phiếu PTL", "Từ chối: lý do + ghi chú + ≥ 1 ảnh + video ≤ 100MB"] },
+    { key: "xong", ten: "QC đã duyệt", ma: "TN da duyet", loai: "xong", ai: "Hệ thống", moTa: "Từ đây đi chung luồng Phiếu xuất (PTL): Kế toán chốt Chuyển kho (NTMB / NTMN) → Kho xác nhận đã nhận hàng trả.", luuY: ["Đơn cũ còn bước “Chờ TN duyệt tổng”.", "QC xác nhận nhầm: QC / Kế toán / Kho đẩy lùi về Chờ QC khi phiếu PTL chưa qua Chờ mã MISA.", "TRẢ HÀNG DỮ TRỮ đã chốt trả lại hạn mức dự phòng của KTV."] },
   ],
 };
 

@@ -3445,7 +3445,9 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
        ${GS_HUY_TRONG_PXK_SQL("ddh")} as gs_huy_trong_pxk, ${MUA_HANG_CHO_HANG_DUOC_SQL("ddh")} as mua_hang_cho_hang_duoc, ${VUOT_TRAN_GHI_CHU_SQL("ddh")} as vuot_tran_ghi_chu,
        ${khoDangXuLyThieuLkSql("ddh")} as kho_dang_xu_ly_thieu_lk,
        (SELECT y.bo_phan FROM yeu_cau_huy_don y WHERE y.dat_don_hang_id = ddh.id AND y.trang_thai = 'Cho dong y') as yeu_cau_huy_bo_phan,
-       lk.gia_ban as lk_gia_ban, lk.gia_tri_cong_no as lk_gia_tri_cong_no, lk.gia_du_phong as lk_gia_du_phong
+       lk.gia_ban as lk_gia_ban, lk.gia_tri_cong_no as lk_gia_tri_cong_no, lk.gia_du_phong as lk_gia_du_phong,
+       -- Buoc hien tai cua don trong phieu (v1.494 - luong quy trinh + nhan trang thai theo buoc o chi tiet don, CUNG bieu thuc danh sach).
+       ${TRANG_THAI_PXK_DON_SQL("ddh")} as trang_thai_pxk, ${THANH_TOAN_DON_SQL("ddh")} as thanh_toan
      FROM dat_don_hang ddh
      LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
      WHERE ${whereSql}`,
@@ -3538,7 +3540,15 @@ datMuaLinhKien.get("/don-hang/:id", async (c) => {
             pxk.ma_xuat_kho_xac_nhan, pxk.ma_misa, pxk.ma_van_don, pxk.ngay_tao, pxk.nguoi_tao, pxk.loai_don,
             (SELECT COUNT(*) FROM phieu_xuat_kho_dong d2 WHERE d2.phieu_xuat_kho_id = pxk.id) as so_dong,
             ${ANH_DA_GHI_NHAN_SQL("pxk")} as anh_da_ghi_nhan,
-            (SELECT so_du FROM quy_ktv WHERE email = pxk.nguoi_nhan_hang) as quy_du
+            (SELECT so_du FROM quy_ktv WHERE email = pxk.nguoi_nhan_hang) as quy_du,
+            -- Luong quy trinh o chi tiet don (v1.494): lan GAN NHAT phieu vao tung buoc + Ke toan duyet tien -> gio cua tung moc.
+            (SELECT json_group_object(trang_thai, t) FROM (
+               SELECT trang_thai, MAX(ngay_xu_ly) as t FROM phieu_xuat_kho_log
+               WHERE phieu_xuat_kho_id = pxk.id
+                 AND trang_thai IN ('Dang tao phieu', 'Cho ke toan', 'Da chot xong don xuat', 'Dang gui KTV', 'KTV da nhan', 'Ke toan huy',
+                                    'Hang tru kho', 'Kho da ket thuc', 'Kho da nhan hang tra', 'Da dinh bang chung chuyen tien',
+                                    'Ke toan da duyet bang chung chuyen tien', 'Tru quy du')
+               GROUP BY trang_thai)) as moc_log
      FROM phieu_xuat_kho_dong pxkd JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
      WHERE pxkd.dat_don_hang_id = ?`,
   )

@@ -10,13 +10,13 @@ import { StatCard } from "../../components/ui/StatCard";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import { fmtVND } from "../../types";
-import type { DatDonHangImportSummary, KiemTraDong } from "./types";
+import type { DatDonHangImportSummary, KiemTraDong, DonHangDraft } from "./types";
 import { YEU_CAU_HOA_DON_OPTIONS, CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABELS } from "./constants";
 import { deriveLoaiDon, reqLabelClass, pickLdeQuick, ktvOptionLabel, formatLkLabel } from "./helpers";
 import { LinhKienPicker, ThayTheGoiY } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
-import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal } from "./DuDoanDuyetHint";
+import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal, moTaKetQua } from "./DuDoanDuyetHint";
 import { GoiYThayTheThieuHang } from "./GoiYThayTheThieuHang";
 import { TonMienKhacHint } from "./TonMienKhac";
 import { DoiTacCongNoChon } from "./DoiTacCongNoChon";
@@ -60,33 +60,66 @@ export function TaoDonTab({
     khoiPhucLuc, boNhap, anKhoiPhuc,
   } = form;
 
-  // THIET KE LAI desktop (chot 2026-11-14, v1.491 - "giao diện chiếm 95% diện tích màn làm việc, phân tích chức năng của các thao tác,
-  // nghiên cứu thói quen người dùng => sắp xếp lại giao diện, phân bố, khu vực hiện thị, nhóm các vấn đề"). Phan tich thao tac:
-  //  - Cap PHIEU (1 lan / phieu): nguoi nhan hang, SDT KH le, Import Excel -> thanh tren cung (chi TN/GS co).
-  //  - Cap DONG (lap lai moi LK): KTV/TN thuong dat nhieu LK CUNG 1 ca (cung loai de xuat, ma YCSC/Lada, mail duyet) -> cot TRAI = danh sach
-  //    dong luon thay het (trang thai du kien tung dong), nut "+ Thêm dòng" / "⧉ Sao chép dòng" o chan cot de them nhanh.
-  //  - Soan 1 dong (cot GIUA) chia 3 nhom theo thu tu nhap thuc te: (1) Linh kien & so luong (+ goi y ton kho / thay the - can nhin NGAY
-  //    canh o chon LK), (2) Loai de xuat / chinh sach / hoa don (quyet dinh luong duyet + gia), (3) Ma lien quan & phe duyet + ghi chu.
-  //    Man rong nen HIEN DU moi o (bo khoi "Thông tin bổ sung" thu gon - truoc phai bam mo moi thay Ma YCSC/Lada).
-  //  - Cot PHAI = tong hop + kiem tra truoc (tong tien, chiet khau ngay, canh bao cong no / MISA, dong chua xong) + 1 nut chinh "Tạo đơn"
-  //    luon co dinh o day cot, khong phai cuon tim.
-  // Duoi lg (mobile chon "giao dien cu" / cua so hep) 3 cot xep doc, ca than cuon chung.
+  // THIET KE LAI desktop lan 2 (chot 2026-11-14, v1.494 - "giao diện thiết kế tạo đơn có quá nhiều vùng bị trống ... trong 3-5s phải biết
+  // nhập cái gì, nhập ở đâu, các cảnh báo rõ ràng, đầy đủ"). Danh gia ban v1.491 (3 cot: danh sach | soan 2 cot | tong hop): cot danh sach
+  // trong ~80% (KTV thuong 1-3 dong), cot soan lech (nhom LK ngan, 2 nhom phai dai -> khoang trong lon), o ma bi hep, canh bao rai rac, khong
+  // chi ra con thieu gi. Chot kieu "GIO HANG":
+  //  - TRAI: khung soan 1 dong - moi nhom 1 HANG NGANG (nhan + so thu tu ben trai, o nhap tren luoi 12 cot) theo dung thu tu nhap 1->4;
+  //    ngay duoi la BANG "Đơn đang tạo" (moi dong 1 hang: LK, loai, SL, ma, gia, ket qua du kien) - lap khoang trong bang thong tin co ich.
+  //  - PHAI (360px): "Cần nhập" (checklist o bat buoc cua dong dang soan, bam = nhay toi o) -> "Cảnh báo" gom 1 cho, dem so, mau theo muc
+  //    (do = khong tao duoc, cam = se cho/vuot tran, xanh = thong tin) -> tong tien -> nut "Tạo đơn" co dinh + ly do khi bi khoa.
   const d = drafts[activeIdx] ?? drafts[0];
   const idx = drafts[activeIdx] ? activeIdx : 0;
   const loaiDon = deriveLoaiDon(d.loai_de_xuat);
   const batBuoc = canNoRequired(d.loai_de_xuat);
-  // "MUA HÀNG CÓ ID" bat buoc rieng Ma YCSC/Lada (maYcscRequired), batBuoc (canNoRequired) chi cho Chinh sach.
   const batBuocYcsc = maYcscRequired(d.loai_de_xuat);
   const thieuMaId = batBuocYcsc && !coMaIdLienQuan(d.ma_yeu_cau_su_co, d.ma_lada);
   const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
   const { gia: giaUocTinh, giaNiemYet, nhan: nhanChietKhau, chuaCoGiaKtv } = giaUocTinhDong(d);
-  // "khac..." mo Select day du - tu mo neu gia tri hien tai KHONG khop nut nhanh (sua don cu / import / don giong).
   const quickValues = LDE_NHANH.map((kw) => pickLdeQuick(loaiDeXuatOptions, kw)).filter((v): v is string => !!v);
   const isOtherValue = d.loai_de_xuat.trim() !== "" && !quickValues.includes(d.loai_de_xuat);
   const showOtherSelect = otherLdeIdx.has(idx) || isOtherValue;
-  const dongChuaXong = drafts.map((x, i) => (isLineComplete(x) ? -1 : i)).filter((i) => i >= 0);
-  const soBiChan = [...ketQuaTheoDong.values()].filter((ds) => ds.some((r) => r.loi)).length;
-  const oNhap = "focus-ring w-full bg-[var(--surface-100)] border rounded-lg px-2.5 py-1.5 text-sm";
+  const canNhap = yeuCauDong(d);
+  const conThieu = canNhap.filter((x) => !x.xong);
+
+  // Canh bao gom 1 cho (cot phai) - moi muc 1 dong, bam muc gan voi dong -> nhay toi dong do.
+  type CanhBao = { muc: "chan" | "canh" | "tin"; text: string; dong?: number };
+  const canhBao: CanhBao[] = [];
+  if (chuaCoMaMisa) canhBao.push({ muc: "chan", text: t("Tài khoản nhận hàng chưa cài đặt mã MISA nên không thể đặt hàng — liên hệ giám sát khu vực.") });
+  if (loiPhieuText) canhBao.push({ muc: "chan", text: loiPhieuText });
+  drafts.forEach((x, i) => {
+    for (const r of ketQuaTheoDong.get(i) ?? []) {
+      const m = moTaKetQua(r);
+      if (!m || m.tone === "ok") continue;
+      canhBao.push({ muc: r.loi ? "chan" : "canh", text: m.text.replace(/^[✕⚠🔒✅ℹ]\s*/u, ""), dong: i });
+    }
+    if (giaUocTinhDong(x).chuaCoGiaKtv) canhBao.push({ muc: "tin", text: t("Linh kiện chưa có Giá KTV — dòng này tính giá niêm yết, không được chiết khấu."), dong: i });
+  });
+  if (sePhepDuCongNo === false && congNoDuKien)
+    canhBao.push({ muc: "canh", text: t("Vượt trần công nợ dự kiến: {a} / {b}", { a: fmtVND(congNoDuKien.cong_no_chot + tongCongNoTamTinh), b: fmtVND(congNoDuKien.tran ?? 0) }) });
+  if (coDongMuaDuTru && duPhongDuKien)
+    canhBao.push({ muc: "tin", text: t("Mốc dự phòng còn khả dụng: {a} / {b}", { a: fmtVND(duPhongDuKien.moc_hien_tai), b: fmtVND(duPhongDuKien.tran ?? 0) }) });
+  const thuTu = { chan: 0, canh: 1, tin: 2 } as const;
+  canhBao.sort((a, b) => thuTu[a.muc] - thuTu[b.muc]);
+  const soDongChuaXong = drafts.filter((x) => !isLineComplete(x)).length;
+  const lyDoKhoa = create.isPending
+    ? null
+    : soDongChuaXong > 0
+      ? t("Còn {n} dòng chưa nhập đủ thông tin bắt buộc", { n: soDongChuaXong })
+      : canhBao.some((c) => c.muc === "chan")
+        ? t("Có dòng không tạo được — xem mục Cảnh báo")
+        : !canSubmit
+          ? t("Kiểm tra lại SĐT khách hàng lẻ")
+          : null;
+
+  function denO(id: string) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    (el.querySelector("input, select, textarea, button") as HTMLElement | null)?.focus();
+  }
+  const oNhap = "focus-ring w-full h-9 bg-white border rounded-lg px-2.5 text-sm placeholder:text-[var(--ink-400)]";
+  const vienO = (thieu: boolean) => (thieu ? "border-[var(--coral-400)] bg-[var(--coral-100)]/25" : "border-[var(--line)]");
 
   return (
     <Modal
@@ -95,8 +128,7 @@ export function TaoDonTab({
       onClose={onClose}
       width="max-w-[95vw]"
       height="h-[95vh] max-h-[95vh]"
-      bodyClassName="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden"
-      // Chieu "giao dien cu -> moi" tren mobile (phan hoi 2026-08-22) - chi hien khi isMobile.
+      bodyClassName="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden bg-[var(--surface-100)]"
       headerExtra={
         isMobile ? (
           <button onClick={() => setPreferOldUi(false)} className="focus-ring text-[11px] font-semibold text-[var(--ocean-600)] underline underline-offset-2 px-1">
@@ -110,12 +142,12 @@ export function TaoDonTab({
       <NhapTaoDonHoi form={form} />
 
       <div className="lg:h-full flex flex-col min-h-0">
-        {/* ── Thanh cap PHIEU (TN/GS dat ho): nguoi nhan hang + SDT KH le + Import Excel ── */}
+        {/* ── Cap PHIEU (TN/GS dat ho): 1 hang gon ── */}
         {canQuanLy && (
-          <div className="shrink-0 border-b border-[var(--line)] bg-[var(--surface-100)] px-5 py-3">
-            <div className="flex items-start gap-4 flex-wrap">
-              <div className="w-full max-w-[460px]">
-                <label className="block text-[11px] font-bold uppercase tracking-wide text-[var(--ocean-700)] mb-1">{t("👤 Người nhận hàng")}</label>
+          <div className="shrink-0 border-b border-[var(--line)] bg-white px-5 py-2.5">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-[12px] font-bold text-[var(--ocean-700)] shrink-0">{t("👤 Người nhận hàng")}</span>
+              <div className="w-full max-w-[440px]">
                 <Select
                   value={nguoiNhanHang}
                   onChange={setNguoiNhanHang}
@@ -124,16 +156,16 @@ export function TaoDonTab({
                     ...(nguoiNhanHangData?.rows ?? []).map((r) => ({ value: r.email_dang_nhap, label: ktvOptionLabel(r, nguoiNhanHangData?.rows ?? []) })),
                   ]}
                 />
-                <div className="text-[11px] text-[var(--ink-500)] mt-1">{t("Tạo hộ cho KTV/Trạm khác — bỏ trống nếu bạn tự nhận hàng.")}</div>
               </div>
-              <div className="min-w-[260px] -mt-2.5">
-                <KhachLeSdt form={form} />
-              </div>
-              <div className="ml-auto pt-5">
+              <span className="text-[11px] text-[var(--ink-500)]">{t("Tạo hộ cho KTV/Trạm khác — bỏ trống nếu bạn tự nhận hàng.")}</span>
+              <div className="ml-auto">
                 <Btn variant="ghost" size="sm" onClick={() => setShowImport((v) => !v)}>
                   {showImport ? t("▲ Ẩn Import") : t("⇩ Import Excel")}
                 </Btn>
               </div>
+            </div>
+            <div className="max-w-[560px] empty:hidden [&>div]:mt-2">
+              <KhachLeSdt form={form} compact />
             </div>
             {showImport && (
               <div className="mt-3 pt-3 border-t border-[var(--line)] max-h-[45vh] overflow-y-auto">
@@ -144,149 +176,91 @@ export function TaoDonTab({
         )}
 
         <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
-          {/* ── Cot 1: danh sach dong ── */}
-          <aside className="lg:w-[300px] xl:w-[330px] shrink-0 flex flex-col min-h-0 border-b lg:border-b-0 lg:border-r border-[var(--line)] bg-[var(--surface-100)]">
-            <div className="shrink-0 flex items-center justify-between px-4 pt-3 pb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-500)]">{t("Danh sách linh kiện")}</span>
-              <span className="text-[11px] text-[var(--ink-400)]">{t("{n} dòng · {sl} cái", { n: drafts.length, sl: tongSoLuong })}</span>
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto px-2.5 pb-2 space-y-1.5 max-h-[40vh] lg:max-h-none">
-              {drafts.map((x, i) => {
-                const lkX = x.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === x.ma_lk) : undefined;
-                const giaX = giaUocTinhDong(x).gia;
-                const xong = isLineComplete(x);
-                const kq = ketQuaDong(ketQuaTheoDong.get(i));
-                const dangMo = i === idx;
-                return (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setActiveIdx(i)}
-                    className={`focus-ring w-full text-left rounded-lg border px-2.5 py-2 transition-colors ${
-                      dangMo ? "bg-white border-[var(--color-primary)] shadow-[0_0_0_2px_var(--color-primary-soft)]" : "bg-white/70 border-[var(--line)] hover:bg-white"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <span className={`shrink-0 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center ${dangMo ? "bg-[var(--color-primary)] text-white" : "bg-[var(--surface-200)] text-[var(--ink-600)]"}`}>{i + 1}</span>
-                      {x.uu_tien && <span title={t("Ưu tiên")}>⭐</span>}
-                      <span className="flex-1 min-w-0 truncate font-semibold text-[var(--ink-800)]">
-                        {x.ma_lk ? (lkX ? formatLkLabel(x.ma_lk, lkX.ten_linh_kien) : x.ma_lk) : <span className="text-[var(--ink-400)] font-normal italic">{t("(Chưa chọn linh kiện)")}</span>}
-                      </span>
-                      <span className="shrink-0 font-mono text-[var(--ink-500)]">×{x.so_luong_de_xuat}</span>
-                    </div>
-                    <div className="mt-1 pl-[26px] flex items-center gap-1.5 text-[10.5px] text-[var(--ink-500)] min-w-0">
-                      <span className="truncate min-w-0">{x.loai_de_xuat || t("Chưa chọn loại")}</span>
-                      {(x.ma_yeu_cau_su_co.trim() || x.ma_lada.trim()) && (
-                        <span className="shrink-0 font-mono" title={[x.ma_yeu_cau_su_co, x.ma_lada].filter((v) => v.trim()).join(" · ")}>
-                          🎫 {x.ma_yeu_cau_su_co.trim() || x.ma_lada.trim()}
-                        </span>
-                      )}
-                      <span className="ml-auto shrink-0 flex items-center gap-1.5">
-                        {giaX != null && <Money className="text-[var(--ink-700)] font-semibold">{fmtVND(giaX)}</Money>}
-                        {!xong ? <Badge tone="warning" variant="dot">{t("Chưa xong")}</Badge> : kq ? <Badge tone={kq.tone} variant="dot">{t(kq.nhan)}</Badge> : null}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="shrink-0 border-t border-[var(--line)] p-2.5 space-y-1.5">
-              <div className="grid grid-cols-2 gap-1.5">
-                <Btn variant="ghost" size="sm" onClick={themDong} title={t("Thêm 1 dòng trống (giữ loại đề xuất)")}>
-                  {t("+ Thêm dòng")}
-                </Btn>
-                <Btn variant="ghost" size="sm" onClick={() => saoChepDong()} title={t("Thêm dòng mới chép y nguyên dòng đang soạn (bỏ trống linh kiện): loại đề xuất, mã YCSC / Lada, chính sách, mail duyệt…")}>
-                  {t("⧉ Sao chép dòng")}
-                </Btn>
-              </div>
-              {addBlockedHint && !isLineComplete(drafts[idx]) && (
-                <div className="text-[11px] text-[var(--coral-600)] font-medium">
-                  {t("⚠ Điền xong Mã linh kiện/Số lượng (dòng {n}) trước khi thêm dòng mới", { n: idx + 1 })}
-                </div>
-              )}
-            </div>
-          </aside>
-
-          {/* ── Cot 2: soan dong dang chon ── */}
-          <section className="flex-1 min-w-0 min-h-0 lg:overflow-y-auto">
-            <div ref={activeRowRef} className="sticky top-0 z-[1] flex items-center gap-3 flex-wrap px-5 py-2.5 border-b border-[var(--line)] bg-white/95 backdrop-blur-sm">
-              <span className="text-sm font-bold text-[var(--color-text)]">
-                {t("Dòng {n}", { n: idx + 1 })}
-                {drafts.length > 1 ? <span className="font-normal text-[var(--ink-400)]"> / {drafts.length}</span> : null}
-              </span>
-              <label className="flex items-center gap-1.5 text-xs font-medium text-[var(--ink-600)] cursor-pointer select-none" title={t("Đánh dấu dòng này là ưu tiên")}>
-                <input type="checkbox" checked={d.uu_tien} onChange={(e) => updateDraft(idx, { uu_tien: e.target.checked })} className="w-3.5 h-3.5 accent-[var(--orange-600)]" />
-                {t("Ưu tiên")}
-              </label>
-              <div className="ml-auto flex items-center gap-1.5">
-                <Btn size="sm" variant="ghost" onClick={() => setActiveIdx(Math.max(0, idx - 1))} disabled={idx === 0} title={t("Dòng trước")}>‹</Btn>
-                <Btn size="sm" variant="ghost" onClick={() => setActiveIdx(Math.min(drafts.length - 1, idx + 1))} disabled={idx >= drafts.length - 1} title={t("Dòng sau")}>›</Btn>
-                <Btn size="sm" variant="ghost" onClick={() => saoChepDong(idx)}>{t("⧉ Sao chép dòng")}</Btn>
-                <Btn size="sm" variant="danger" onClick={() => deleteDraft(idx)} disabled={drafts.length === 1}>{t("Xóa dòng")}</Btn>
-              </div>
-            </div>
-
-            <div className={`p-5 grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] items-start ${justAdded ? "anim-in" : ""}`}>
-              {/* Nhom 1: linh kien & so luong (+ goi y ton kho, thay the - can thay ngay canh o chon LK) */}
-              <Nhom so={1} tieuDe={t("Linh kiện & số lượng")}>
-                <div>
-                  <label className={reqLabelClass(!d.ma_lk.trim())}>{t("Mã linh kiện *")}</label>
-                  <LinhKienPicker key={idx} value={d.ma_lk} onChange={(v) => updateDraft(idx, { ma_lk: v })} options={danhMuc} autoFocus={justAdded} loaiDeXuat={d.loai_de_xuat} />
-                </div>
-                <div className="flex items-start gap-5 flex-wrap">
-                  <div>
-                    <label className={reqLabelClass(!(d.so_luong_de_xuat > 0))}>{t("Số lượng *")}</label>
-                    <div className="flex items-center border border-[var(--line)] rounded-lg overflow-hidden w-fit bg-[var(--surface-100)]">
-                      <button type="button" onClick={() => updateDraft(idx, { so_luong_de_xuat: Math.max(1, d.so_luong_de_xuat - 1) })} className="focus-ring w-9 h-9 flex items-center justify-center text-[var(--ink-600)] font-bold hover:bg-[var(--surface-200)]">−</button>
-                      <input
-                        type="number"
-                        min={1}
-                        value={d.so_luong_de_xuat}
-                        onChange={(e) => updateDraft(idx, { so_luong_de_xuat: Number(e.target.value) })}
-                        className="focus-ring w-16 text-center text-sm bg-[var(--surface-100)] border-x border-[var(--line)] py-2"
-                      />
-                      <button type="button" onClick={() => updateDraft(idx, { so_luong_de_xuat: d.so_luong_de_xuat + 1 })} className="focus-ring w-9 h-9 flex items-center justify-center text-[var(--ink-600)] font-bold hover:bg-[var(--surface-200)]">+</button>
-                    </div>
-                  </div>
-                  <div className="min-w-0">
-                    <label className="block text-[11px] font-semibold mb-1 text-[var(--ink-600)]">{t("Giá ước tính")}</label>
-                    <div className="flex items-center gap-2 flex-wrap min-h-9">
-                      {giaUocTinh != null ? <b className="text-base text-[var(--color-text)]"><Money>{fmtVND(giaUocTinh)}</Money></b> : <span className="text-sm text-[var(--ink-400)]">{t("Chưa rõ giá")}</span>}
-                      {nhanChietKhau && giaNiemYet != null && giaUocTinh != null && giaUocTinh < giaNiemYet && (
-                        <span className="text-xs text-[var(--ink-500)]">
-                          {nhanChietKhau} · {t("niêm yết")} <s><Money>{fmtVND(giaNiemYet)}</Money></s>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                {chuaCoGiaKtv && <CanhBaoChuaCoGiaKtv />}
-                {/* Ket qua du kien (tu duyet / cho hang / bi chan...) + ton mien khac + goi y LK tuong duong. */}
-                <div className="empty:hidden -mt-1.5">
-                  <DuDoanDuyetHint ketQua={ketQuaTheoDong.get(idx)} khuVuc={form.kiemTra?.khu_vuc} />
-                  <TonMienKhacHint ketQua={ketQuaTheoDong.get(idx)} khuVuc={form.kiemTra?.khu_vuc} />
-                  <GoiYThayTheThieuHang
-                    ketQua={ketQuaTheoDong.get(idx)}
-                    onDoiMa={(ma) => { updateDraft(idx, { ma_lk: ma }); addToast(t("Đã đổi sang {ma}", { ma })); }}
-                    onApDung={(phan) => { apDungThayThe(idx, phan); addToast(t("Đã chia thành {n} dòng theo đề xuất", { n: phan.length })); }}
-                  />
-                </div>
-                {d.ma_lk.trim() && !lk?.combo && <ThayTheGoiY maLk={d.ma_lk.trim()} addToast={addToast} onChon={(ma) => updateDraft(idx, { ma_lk: ma })} khuVuc={form.kiemTra?.khu_vuc} />}
-                {/* Anh LK can tra - chi don Tra hang, bat buoc 1-3 anh (isLineComplete). */}
-                {loaiDon === "tra_hang" && (
-                  <div>
-                    <label className={reqLabelClass(d.anh.length === 0)}>{t("Ảnh linh kiện cần trả *")}</label>
-                    <TraHangAnhPicker photos={d.anh} onChange={(anh) => updateDraft(idx, { anh })} addToast={addToast} />
+          {/* ═════ TRAI: khung soan + bang don dang tao ═════ */}
+          <section className="flex-1 min-w-0 min-h-0 lg:overflow-y-auto p-4 space-y-4">
+            <div ref={activeRowRef} className={`bg-white border border-[var(--line)] rounded-xl shadow-sm ${justAdded ? "anim-in" : ""}`}>
+              {/* Tieu de dong dang soan */}
+              <div className="flex items-center gap-3 px-5 py-3 border-b border-[var(--line)]">
+                <span className="shrink-0 rounded-full bg-[var(--color-primary)] text-white text-[12px] font-bold px-2.5 py-0.5">
+                  {t("Dòng {n}", { n: idx + 1 })}{drafts.length > 1 ? `/${drafts.length}` : ""}
+                </span>
+                <span className="min-w-0 truncate text-sm font-semibold text-[var(--color-text)]">
+                  {d.ma_lk ? (lk ? formatLkLabel(d.ma_lk, lk.ten_linh_kien) : d.ma_lk) : <span className="font-normal text-[var(--ink-400)]">{t("Đang soạn dòng mới")}</span>}
+                </span>
+                <label className="ml-auto shrink-0 flex items-center gap-1.5 text-xs font-medium text-[var(--ink-600)] cursor-pointer select-none" title={t("Đánh dấu dòng này là ưu tiên")}>
+                  <input type="checkbox" checked={d.uu_tien} onChange={(e) => updateDraft(idx, { uu_tien: e.target.checked })} className="w-3.5 h-3.5 accent-[var(--orange-600)]" />
+                  ⭐ {t("Ưu tiên")}
+                </label>
+                {drafts.length > 1 && (
+                  <div className="shrink-0 flex items-center gap-1">
+                    <Btn size="sm" variant="ghost" onClick={() => setActiveIdx(Math.max(0, idx - 1))} disabled={idx === 0} title={t("Dòng trước")}>‹</Btn>
+                    <Btn size="sm" variant="ghost" onClick={() => setActiveIdx(Math.min(drafts.length - 1, idx + 1))} disabled={idx >= drafts.length - 1} title={t("Dòng sau")}>›</Btn>
                   </div>
                 )}
-              </Nhom>
+              </div>
 
-              <div className="flex flex-col gap-4 min-w-0">
-                {/* Nhom 2: loai de xuat / chinh sach / hoa don - quyet dinh luong duyet + gia */}
-                <Nhom so={2} tieuDe={t("Loại đề xuất & chính sách")}>
-                  <div>
+              <div className="divide-y divide-[var(--line)]">
+                {/* 1. Linh kien */}
+                <Hang so={1} tieuDe={t("Linh kiện")} goiY={t("Bắt buộc")}>
+                  <div className="grid grid-cols-12 gap-3 items-start">
+                    <div id="tdo-lk" className="col-span-12 xl:col-span-7">
+                      <label className={reqLabelClass(!d.ma_lk.trim())}>{t("Mã linh kiện *")}</label>
+                      <LinhKienPicker key={idx} value={d.ma_lk} onChange={(v) => updateDraft(idx, { ma_lk: v })} options={danhMuc} autoFocus={justAdded} loaiDeXuat={d.loai_de_xuat} />
+                    </div>
+                    <div id="tdo-sl" className="col-span-5 xl:col-span-2">
+                      <label className={reqLabelClass(!(d.so_luong_de_xuat > 0))}>{t("Số lượng *")}</label>
+                      <div className="flex items-center border border-[var(--line)] rounded-lg overflow-hidden h-9 bg-white">
+                        <button type="button" onClick={() => updateDraft(idx, { so_luong_de_xuat: Math.max(1, d.so_luong_de_xuat - 1) })} className="focus-ring w-9 h-full shrink-0 text-[var(--ink-600)] font-bold hover:bg-[var(--surface-100)]">−</button>
+                        <input
+                          type="number"
+                          min={1}
+                          value={d.so_luong_de_xuat}
+                          onChange={(e) => updateDraft(idx, { so_luong_de_xuat: Number(e.target.value) })}
+                          className="focus-ring flex-1 min-w-0 h-full text-center text-sm font-semibold border-x border-[var(--line)]"
+                        />
+                        <button type="button" onClick={() => updateDraft(idx, { so_luong_de_xuat: d.so_luong_de_xuat + 1 })} className="focus-ring w-9 h-full shrink-0 text-[var(--ink-600)] font-bold hover:bg-[var(--surface-100)]">+</button>
+                      </div>
+                    </div>
+                    <div className="col-span-7 xl:col-span-3">
+                      <label className="block text-[11px] font-semibold mb-1 text-[var(--ink-600)]">{t("Giá ước tính")}</label>
+                      <div className="h-9 flex items-center gap-2 rounded-lg bg-[var(--surface-100)] px-3 min-w-0">
+                        {giaUocTinh != null ? <b className="text-[15px] text-[var(--color-text)]"><Money>{fmtVND(giaUocTinh)}</Money></b> : <span className="text-sm text-[var(--ink-400)]">{t("Chưa rõ giá")}</span>}
+                        {nhanChietKhau && giaNiemYet != null && giaUocTinh != null && giaUocTinh < giaNiemYet && (
+                          <s className="text-[11px] text-[var(--ink-400)] truncate" title={`${nhanChietKhau} · ${t("niêm yết")} ${fmtVND(giaNiemYet)}`}><Money>{fmtVND(giaNiemYet)}</Money></s>
+                        )}
+                      </div>
+                      {nhanChietKhau && giaNiemYet != null && giaUocTinh != null && giaUocTinh < giaNiemYet && (
+                        <div className="mt-0.5 text-[11px] text-[var(--ink-500)] truncate">{nhanChietKhau}</div>
+                      )}
+                    </div>
+                  </div>
+                  {/* Ket qua du kien dong nay (tu duyet / cho hang / bi chan) + goi y ton / thay the - ngay duoi o chon LK. */}
+                  <div className="empty:hidden mt-1">
+                    <DuDoanDuyetHint ketQua={ketQuaTheoDong.get(idx)} khuVuc={form.kiemTra?.khu_vuc} />
+                    <TonMienKhacHint ketQua={ketQuaTheoDong.get(idx)} khuVuc={form.kiemTra?.khu_vuc} />
+                    <GoiYThayTheThieuHang
+                      ketQua={ketQuaTheoDong.get(idx)}
+                      onDoiMa={(ma) => { updateDraft(idx, { ma_lk: ma }); addToast(t("Đã đổi sang {ma}", { ma })); }}
+                      onApDung={(phan) => { apDungThayThe(idx, phan); addToast(t("Đã chia thành {n} dòng theo đề xuất", { n: phan.length })); }}
+                    />
+                  </div>
+                  {chuaCoGiaKtv && <CanhBaoChuaCoGiaKtv />}
+                  {d.ma_lk.trim() && !lk?.combo && (
+                    <div className="mt-2"><ThayTheGoiY maLk={d.ma_lk.trim()} addToast={addToast} onChon={(ma) => updateDraft(idx, { ma_lk: ma })} khuVuc={form.kiemTra?.khu_vuc} /></div>
+                  )}
+                  {loaiDon === "tra_hang" && (
+                    <div id="tdo-anh" className="mt-3">
+                      <label className={reqLabelClass(d.anh.length === 0)}>{t("Ảnh linh kiện cần trả *")}</label>
+                      <TraHangAnhPicker photos={d.anh} onChange={(anh) => updateDraft(idx, { anh })} addToast={addToast} />
+                    </div>
+                  )}
+                </Hang>
+
+                {/* 2. Phan loai: loai de xuat, doi tac, chinh sach, hoa don */}
+                <Hang so={2} tieuDe={t("Phân loại đơn")} goiY={t("Quyết định luồng duyệt & giá")}>
+                  <div id="tdo-lde">
                     <label className={reqLabelClass(!d.loai_de_xuat.trim())}>{t("Loại đề xuất *")}</label>
-                    <div className="flex gap-1 flex-wrap">
+                    <div className="flex gap-1.5 flex-wrap items-center">
                       {LDE_NHANH.map((kw) => {
                         const matched = pickLdeQuick(loaiDeXuatOptions, kw);
                         if (!matched) return null;
@@ -297,7 +271,6 @@ export function TaoDonTab({
                             variant={d.loai_de_xuat === matched ? "primary" : "ghost"}
                             onClick={() => {
                               updateDraft(idx, { loai_de_xuat: matched });
-                              // Bam nut nhanh -> bo "ket dinh" che do "khac..." cua dong (phan hoi 2026-08-19 #5).
                               setOtherLdeIdx((s) => {
                                 if (!s.has(idx)) return s;
                                 const next = new Set(s);
@@ -310,22 +283,25 @@ export function TaoDonTab({
                           </Btn>
                         );
                       })}
-                      <Btn size="sm" variant={showOtherSelect ? "primary" : "ghost"} onClick={() => setOtherLdeIdx((s) => new Set(s).add(idx))}>
-                        {t("khác…")}
-                      </Btn>
+                      {showOtherSelect ? (
+                        <Select
+                          value={d.loai_de_xuat}
+                          onChange={(v) => updateDraft(idx, { loai_de_xuat: v })}
+                          options={[{ value: "", label: t("-- Chọn loại khác --") }, ...loaiDeXuatOptions.map((o) => ({ value: o, label: o }))]}
+                          className="min-w-[260px] flex-1 max-w-[420px]"
+                        />
+                      ) : (
+                        <Btn size="sm" variant="ghost" onClick={() => setOtherLdeIdx((s) => new Set(s).add(idx))}>
+                          {t("Loại khác…")}
+                        </Btn>
+                      )}
                     </div>
-                    {showOtherSelect && (
-                      <Select
-                        value={d.loai_de_xuat}
-                        onChange={(v) => updateDraft(idx, { loai_de_xuat: v })}
-                        options={[{ value: "", label: t("-- Chọn --") }, ...loaiDeXuatOptions.map((o) => ({ value: o, label: o }))]}
-                        className="mt-1.5"
-                      />
-                    )}
                   </div>
-                  <DoiTacCongNoChon form={form} d={d} idx={idx} reqLabelClass={reqLabelClass} />
-                  <div className="grid gap-3">
-                    <div className="max-w-[320px]">
+                  <div id="tdo-doitac" className="empty:hidden mt-3">
+                    <DoiTacCongNoChon form={form} d={d} idx={idx} reqLabelClass={reqLabelClass} />
+                  </div>
+                  <div className="grid grid-cols-12 gap-3 mt-3 items-start">
+                    <div id="tdo-cs" className="col-span-12 md:col-span-4">
                       <label className={reqLabelClass(batBuoc && !d.chinh_sach.trim())}>{t("Chính sách")}{batBuoc ? " *" : ""}</label>
                       <Select
                         value={d.chinh_sach}
@@ -333,56 +309,61 @@ export function TaoDonTab({
                         options={[{ value: "", label: t("-- Không chọn --") }, ...CHINH_SACH_OPTIONS.map((o) => ({ value: o, label: o }))]}
                       />
                     </div>
-                    <div>
+                    <div className="col-span-12 md:col-span-8">
                       <label className="block text-[11px] font-semibold mb-1 text-[var(--ink-600)]">{t("Yêu cầu hóa đơn")}</label>
-                      <div className="flex gap-1 flex-wrap">
+                      <div className="flex gap-1.5 flex-wrap">
                         {YEU_CAU_HOA_DON_OPTIONS.map((o) => (
                           <Btn key={o} type="button" size="sm" variant={d.yeu_cau_hoa_don === o ? "primary" : "ghost"} onClick={() => updateDraft(idx, { yeu_cau_hoa_don: o })}>
                             {YEU_CAU_HOA_DON_SHORT_LABELS[o] ?? o}
                           </Btn>
                         ))}
                       </div>
+                      <KhChuyenKhoanCheck d={d} onChange={(v) => updateDraft(idx, { kh_chuyen_khoan: v })} />
                     </div>
                   </div>
-                  <KhChuyenKhoanCheck d={d} onChange={(v) => updateDraft(idx, { kh_chuyen_khoan: v })} />
-                </Nhom>
+                </Hang>
 
-                {/* Nhom 3: ma lien quan & phe duyet + ghi chu - hay lap lai giua cac dong cung ca (dung "⧉ Sao chép dòng") */}
-                <Nhom so={3} tieuDe={t("Mã liên quan, phê duyệt & ghi chú")} moTa={batBuocYcsc ? t("Chỉ cần nhập 1 trong 2: Mã YCSC hoặc Mã Lada.") : undefined}>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="min-w-0">
+                {/* 3. Ma lien quan & phe duyet */}
+                <Hang so={3} tieuDe={t("Mã liên quan & phê duyệt")} goiY={batBuocYcsc ? t("Bắt buộc 1 trong 2 mã") : t("Tuỳ chọn")}>
+                  <div className="grid grid-cols-12 gap-3 items-start">
+                    <div id="tdo-ycsc" className="col-span-12 md:col-span-4 min-w-0">
                       <label className={reqLabelClass(thieuMaId)}>{t("Mã YCSC liên quan")}{batBuocYcsc ? " *" : ""}</label>
                       <input
                         value={d.ma_yeu_cau_su_co}
                         onChange={(e) => updateDraft(idx, { ma_yeu_cau_su_co: e.target.value })}
                         maxLength={20}
-                        className={`${oNhap} ${thieuMaId ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
+                        placeholder={t("VD: T1234567")}
+                        className={`${oNhap} ${vienO(thieuMaId)}`}
                       />
                       <MaYeuCauSuCoCheck value={d.ma_yeu_cau_su_co} nguoiNhanHang={nguoiNhanHang || currentEmail} maLada={d.ma_lada} />
                     </div>
-                    <div className="min-w-0">
+                    <div className="col-span-12 md:col-span-4 min-w-0">
                       <label className={reqLabelClass(thieuMaId)}>{t("Mã Lada liên quan")}{batBuocYcsc ? " *" : ""}</label>
                       <input
                         value={d.ma_lada}
                         onChange={(e) => updateDraft(idx, { ma_lada: e.target.value })}
                         maxLength={20}
                         placeholder="VD: D1154680"
-                        className={`${oNhap} font-mono uppercase ${thieuMaId ? "border-[var(--coral-400)]" : "border-[var(--line)]"}`}
+                        className={`${oNhap} font-mono uppercase ${vienO(thieuMaId)}`}
                       />
                       <MaLadaCheck value={d.ma_lada} />
                     </div>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
+                    <div className="col-span-12 md:col-span-4 min-w-0">
                       <label className="block text-[11px] font-semibold mb-1 text-[var(--ink-600)]">{t("TT+Mail duyệt")}</label>
                       <input
                         value={d.tt_mail_duyet}
                         onChange={(e) => updateDraft(idx, { tt_mail_duyet: e.target.value })}
-                        placeholder={t("Mã/nội dung email phê duyệt đặc biệt (nếu có)")}
+                        placeholder={t("Mã/nội dung email phê duyệt")}
                         className={`${oNhap} border-[var(--line)]`}
                       />
                     </div>
-                    <div>
+                  </div>
+                </Hang>
+
+                {/* 4. Thong tin them */}
+                <Hang so={4} tieuDe={t("Thông tin thêm")} goiY={t("Tuỳ chọn")}>
+                  <div className="grid grid-cols-12 gap-3">
+                    <div className="col-span-12 md:col-span-5">
                       <label className="block text-[11px] font-semibold mb-1 text-[var(--ink-600)]">{t("TT khách hàng")}</label>
                       <input
                         value={d.tt_khach_hang}
@@ -391,75 +372,177 @@ export function TaoDonTab({
                         className={`${oNhap} border-[var(--line)]`}
                       />
                     </div>
+                    <div className="col-span-12 md:col-span-7">
+                      <label className="block text-[11px] font-semibold mb-1 text-[var(--ink-600)]">{t("Ghi chú")}</label>
+                      <input
+                        value={d.ghi_chu}
+                        onChange={(e) => updateDraft(idx, { ghi_chu: e.target.value })}
+                        placeholder={t("Ghi chú cho người xử lý (nếu có)")}
+                        className={`${oNhap} border-[var(--line)]`}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold mb-1 text-[var(--ink-600)]">{t("Ghi chú (tuỳ chọn)")}</label>
-                    <input value={d.ghi_chu} onChange={(e) => updateDraft(idx, { ghi_chu: e.target.value })} className={`${oNhap} border-[var(--line)]`} />
-                  </div>
-                </Nhom>
+                </Hang>
+              </div>
+            </div>
+
+            {/* Bang "Don dang tao" - moi dong 1 hang, bam = soan dong do */}
+            <div className="bg-white border border-[var(--line)] rounded-xl shadow-sm overflow-hidden">
+              <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[var(--line)]">
+                <span className="text-[13px] font-bold text-[var(--color-text)]">{t("Đơn đang tạo")}</span>
+                <span className="text-[12px] text-[var(--ink-500)]">{t("{n} dòng · {sl} cái", { n: drafts.length, sl: tongSoLuong })}</span>
+                <div className="ml-auto flex items-center gap-1.5">
+                  <Btn variant="ghost" size="sm" onClick={themDong} title={t("Thêm 1 dòng trống (giữ loại đề xuất)")}>{t("+ Thêm dòng")}</Btn>
+                  <Btn variant="subtle" size="sm" onClick={() => saoChepDong()} title={t("Thêm dòng mới chép y nguyên dòng đang soạn (bỏ trống linh kiện): loại đề xuất, mã YCSC / Lada, chính sách, mail duyệt…")}>
+                    {t("⧉ Sao chép dòng")}
+                  </Btn>
+                </div>
+              </div>
+              {addBlockedHint && !isLineComplete(drafts[idx]) && (
+                <div className="px-4 py-1.5 text-[11.5px] font-medium text-[var(--coral-700)] bg-[var(--coral-100)]/40 border-b border-[var(--line)]">
+                  {t("⚠ Điền xong Mã linh kiện/Số lượng (dòng {n}) trước khi thêm dòng mới", { n: idx + 1 })}
+                </div>
+              )}
+              <div className="overflow-x-auto">
+                <table className="tbl w-full">
+                  <thead>
+                    <tr className="tbl-head">
+                      <th className="px-3 py-2 w-10">#</th>
+                      <th className="px-3 py-2">{t("Linh kiện")}</th>
+                      <th className="px-3 py-2">{t("Loại đề xuất")}</th>
+                      <th className="px-3 py-2 text-right">{t("SL")}</th>
+                      <th className="px-3 py-2">{t("Mã YCSC / Lada")}</th>
+                      <th className="px-3 py-2 text-right">{t("Giá ước tính")}</th>
+                      <th className="px-3 py-2">{t("Kết quả dự kiến")}</th>
+                      <th className="px-3 py-2 w-[1%]"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drafts.map((x, i) => {
+                      const lkX = x.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === x.ma_lk) : undefined;
+                      const giaX = giaUocTinhDong(x).gia;
+                      const thieu = yeuCauDong(x).filter((y) => !y.xong);
+                      const kq = ketQuaDong(ketQuaTheoDong.get(i));
+                      const dangMo = i === idx;
+                      return (
+                        <tr
+                          key={i}
+                          onClick={() => setActiveIdx(i)}
+                          className={`border-t cursor-pointer border-l-[3px] ${dangMo ? "bg-[var(--color-primary-soft)] border-l-[var(--color-primary)]" : "border-l-transparent hover:bg-[var(--surface-100)]"}`}
+                        >
+                          <td className="px-3 py-2 font-semibold text-[var(--ink-500)]">{x.uu_tien ? "⭐" : i + 1}</td>
+                          <td className="px-3 py-2 max-w-[360px] truncate font-semibold text-[var(--color-text)]" title={lkX ? formatLkLabel(x.ma_lk, lkX.ten_linh_kien) : x.ma_lk}>
+                            {x.ma_lk ? (lkX ? formatLkLabel(x.ma_lk, lkX.ten_linh_kien) : x.ma_lk) : <span className="font-normal italic text-[var(--ink-400)]">{t("(Chưa chọn linh kiện)")}</span>}
+                          </td>
+                          <td className="px-3 py-2 max-w-[200px] truncate">{x.loai_de_xuat || "—"}</td>
+                          <td className="px-3 py-2 text-right font-mono">{x.so_luong_de_xuat}</td>
+                          <td className="px-3 py-2 font-mono">{x.ma_yeu_cau_su_co.trim() || x.ma_lada.trim() || "—"}</td>
+                          <td className="px-3 py-2 text-right">{giaX != null ? <Money>{fmtVND(giaX)}</Money> : "—"}</td>
+                          <td className="px-3 py-2">
+                            {thieu.length ? (
+                              <Badge tone="warning" variant="dot">{t("Thiếu: {a}", { a: thieu.map((y) => t(y.nhan)).join(", ") })}</Badge>
+                            ) : kq ? (
+                              <Badge tone={kq.tone} variant="dot">{t(kq.nhan)}</Badge>
+                            ) : (
+                              <span className="text-[var(--ink-400)]">{t("Đang kiểm tra…")}</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-1">
+                              <button type="button" onClick={() => saoChepDong(i)} title={t("⧉ Sao chép dòng")} className="focus-ring w-7 h-7 rounded-md text-[var(--ink-500)] hover:bg-[var(--surface-200)]">⧉</button>
+                              <button type="button" onClick={() => deleteDraft(i)} disabled={drafts.length === 1} title={t("Xóa dòng")} className="focus-ring w-7 h-7 rounded-md text-[var(--color-danger-strong)] hover:bg-[var(--color-danger-soft)] disabled:opacity-30 disabled:hover:bg-transparent">✕</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           </section>
 
-          {/* ── Cot 3: tong hop, kiem tra & tao don ── */}
-          <aside className="lg:w-[320px] xl:w-[360px] shrink-0 flex flex-col min-h-0 border-t lg:border-t-0 lg:border-l border-[var(--line)] bg-[var(--surface-100)]">
-            <div className="flex-1 min-h-0 lg:overflow-y-auto p-4 space-y-3">
-              <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--ink-500)]">{t("Tổng hợp & kiểm tra")}</div>
+          {/* ═════ PHAI: can nhap -> canh bao -> tong tien -> Tao don ═════ */}
+          <aside className="lg:w-[340px] xl:w-[370px] shrink-0 flex flex-col min-h-0 border-t lg:border-t-0 lg:border-l border-[var(--line)] bg-white">
+            <div className="flex-1 min-h-0 lg:overflow-y-auto p-4 space-y-4">
               <NhapKhoiPhucBanner luc={khoiPhucLuc} onSoanMoi={boNhap} onAn={anKhoiPhuc} />
-              <div className="bg-white border border-[var(--line)] rounded-xl p-3 space-y-1.5 text-sm">
-                <div className="flex justify-between"><span className="text-[var(--ink-500)]">{t("Số dòng")}</span><b>{drafts.length}</b></div>
-                <div className="flex justify-between"><span className="text-[var(--ink-500)]">{t("Tổng số lượng")}</span><b>{tongSoLuong}</b></div>
-                <div className="flex justify-between items-baseline">
-                  <span className="text-[var(--ink-500)]">{t("Giá tham khảo")}</span>
-                  <b className="text-base text-[var(--color-text)]">{tongGiaUocTinh > 0 ? <Money>{fmtVND(tongGiaUocTinh)}</Money> : "—"}</b>
-                </div>
-                {tongGhiNoDoiTac > 0 && (
-                  <div className="flex justify-between"><span className="text-[var(--ink-500)]">{t("Ghi nợ đối tác")}</span><Money>{fmtVND(tongGhiNoDoiTac)}</Money></div>
+
+              {/* Can nhap cho dong dang soan - checklist bam = nhay toi o */}
+              <div>
+                <TieuDeKhoi>{t("Dòng {n} — cần nhập", { n: idx + 1 })}</TieuDeKhoi>
+                <ul className="space-y-1">
+                  {canNhap.map((y) => (
+                    <li key={y.id}>
+                      <button
+                        type="button"
+                        onClick={() => denO(y.id)}
+                        className={`focus-ring w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] ${
+                          y.xong ? "text-[var(--ink-500)] hover:bg-[var(--surface-100)]" : "bg-[var(--coral-100)]/45 text-[var(--coral-700)] font-semibold hover:bg-[var(--coral-100)]/70"
+                        }`}
+                      >
+                        <span className={`shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${y.xong ? "bg-[var(--color-success)] text-white" : "border-2 border-[var(--coral-400)]"}`}>
+                          {y.xong ? "✓" : ""}
+                        </span>
+                        <span className="flex-1">{t(y.nhan)}</span>
+                        {!y.xong && <span className="text-[11px] font-medium opacity-80">{t("Nhập →")}</span>}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {conThieu.length === 0 && <div className="mt-1.5 text-[12px] text-[var(--color-success-strong)] font-medium">{t("✓ Dòng này đã đủ thông tin bắt buộc")}</div>}
+              </div>
+
+              {/* Canh bao gom 1 cho */}
+              <div>
+                <TieuDeKhoi>
+                  {t("Cảnh báo")}
+                  {canhBao.length > 0 && <span className="ml-1.5 rounded-full bg-[var(--color-danger-soft)] text-[var(--color-danger-strong)] px-1.5 text-[11px]">{canhBao.length}</span>}
+                </TieuDeKhoi>
+                {canhBao.length === 0 ? (
+                  <div className="rounded-lg bg-[var(--color-success-soft)] px-3 py-2 text-[12.5px] font-medium text-[var(--color-success-strong)]">{t("✓ Không có cảnh báo")}</div>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {canhBao.map((c, k) => (
+                      <li key={k}>
+                        <button
+                          type="button"
+                          disabled={c.dong == null}
+                          onClick={() => c.dong != null && setActiveIdx(c.dong)}
+                          className={`focus-ring w-full text-left rounded-lg border-l-[3px] px-2.5 py-1.5 text-[12px] leading-snug ${
+                            c.muc === "chan"
+                              ? "border-[var(--color-danger)] bg-[var(--color-danger-soft)] text-[var(--color-danger-strong)]"
+                              : c.muc === "canh"
+                                ? "border-[var(--color-warning)] bg-[var(--color-warning-soft)] text-[var(--color-warning-strong)]"
+                                : "border-[var(--ocean-500)] bg-[var(--ocean-100)]/50 text-[var(--ocean-700)]"
+                          }`}
+                        >
+                          {c.dong != null && <b>{t("Dòng {n}", { n: c.dong + 1 })}: </b>}
+                          {c.text}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
-              {/* Tong dat Mua + TRỪ CÔNG NỢ trong ngay cua KTV nhan hang + muc chiet khau sau don nay (2026-09-28). */}
-              <div className="bg-white border border-[var(--line)] rounded-xl p-3 empty:hidden">
-                <TongNgayKtvInfo email={targetNguoiNhanHang} themGiaTri={giaTriTinhChietKhau} />
-              </div>
-              {chuaCoMaMisa && (
-                <div role="alert" className="rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-[12px] font-bold text-[var(--coral-700)]">
-                  {t("⚠ Tài khoản này chưa cài đặt mã MISA nên không thể đặt hàng => vui lòng liên hệ giám sát khu vực")}
-                </div>
-              )}
-              {loiPhieuText && (
-                <div role="alert" className="rounded-lg border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-2.5 py-1.5 text-[12px] font-bold text-[var(--color-danger-strong)]">
-                  ⚠ {loiPhieuText}
-                </div>
-              )}
-              {sePhepDuCongNo === false && congNoDuKien && (
-                <div className="rounded-lg border border-[var(--coral-500)]/40 bg-[var(--coral-100)]/60 px-2.5 py-1.5 text-[11px] font-bold text-[var(--coral-700)]">
-                  {t("⚠ Vượt trần công nợ dự kiến:")} <Money>{fmtVND(congNoDuKien.cong_no_chot + tongCongNoTamTinh)}</Money> / <Money>{fmtVND(congNoDuKien.tran ?? 0)}</Money>
-                </div>
-              )}
-              {coDongMuaDuTru && duPhongDuKien && (
-                <div className="rounded-lg border border-[var(--ocean-500)]/30 bg-[var(--ocean-100)]/50 px-2.5 py-1.5 text-[11px] font-medium text-[var(--ocean-700)]">
-                  {t("ℹ Mốc dự phòng hiện tại còn khả dụng:")} <Money>{fmtVND(duPhongDuKien.moc_hien_tai)}</Money> / <Money>{fmtVND(duPhongDuKien.tran ?? 0)}</Money>
-                </div>
-              )}
-              {soBiChan > 0 && (
-                <div className="rounded-lg border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--color-danger-strong)]">
-                  {t("⚠ {n} dòng không tạo được — xem lý do ở từng dòng", { n: soBiChan })}
-                </div>
-              )}
-              {dongChuaXong.length > 0 && (
-                <div className="rounded-lg border border-[var(--color-warning)] bg-[var(--color-warning-soft)] px-2.5 py-2 text-[12px] text-[var(--color-warning-strong)]">
-                  <div className="font-semibold mb-1">{t("Dòng chưa điền xong:")}</div>
-                  <div className="flex gap-1 flex-wrap">
-                    {dongChuaXong.map((i) => (
-                      <button key={i} type="button" onClick={() => setActiveIdx(i)} className="focus-ring rounded-md bg-white border border-[var(--color-warning)] px-2 py-0.5 text-[11px] font-semibold hover:bg-[var(--surface-100)]">
-                        {t("Dòng {n}", { n: i + 1 })}
-                      </button>
-                    ))}
+
+              {/* Tong tien */}
+              <div>
+                <TieuDeKhoi>{t("Tổng đơn")}</TieuDeKhoi>
+                <div className="rounded-xl border border-[var(--line)] p-3">
+                  <div className="text-[11px] text-[var(--ink-500)]">{t("Giá tham khảo (sau chiết khấu)")}</div>
+                  <div className="text-2xl font-bold text-[var(--color-text)] leading-tight">{tongGiaUocTinh > 0 ? <Money>{fmtVND(tongGiaUocTinh)}</Money> : "—"}</div>
+                  <div className="mt-1 text-[12px] text-[var(--ink-500)]">
+                    {t("{n} dòng · {sl} cái", { n: drafts.length, sl: tongSoLuong })}
+                    {tongGhiNoDoiTac > 0 && <> · {t("Ghi nợ đối tác")}: <Money>{fmtVND(tongGhiNoDoiTac)}</Money></>}
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-[var(--line)] empty:hidden text-[12px]">
+                    <TongNgayKtvInfo email={targetNguoiNhanHang} themGiaTri={giaTriTinhChietKhau} />
                   </div>
                 </div>
-              )}
+              </div>
             </div>
-            <div className="shrink-0 border-t border-[var(--line)] bg-white p-4">
+            <div className="shrink-0 border-t border-[var(--line)] p-4 space-y-2">
+              {lyDoKhoa && <div className="text-[12px] font-medium text-[var(--coral-700)] text-center">⚠ {lyDoKhoa}</div>}
               <Btn size="md" className="w-full h-11 text-base" onClick={() => create.mutate()} disabled={!canSubmit || create.isPending}>
                 {create.isPending ? t("Đang tạo...") : drafts.length > 1 ? t("Tạo {n} đơn", { n: drafts.length }) : t("Tạo đơn")}
               </Btn>
@@ -473,18 +556,38 @@ export function TaoDonTab({
 
 const LDE_NHANH = ["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const;
 
-// Nhom o nhap trong cot soan dong - khung trang, so thu tu + tieu de (DESIGN_GUIDELINES: vien mong, bo goc xl, khong to mau).
-function Nhom({ so, tieuDe, moTa, children }: { so: number; tieuDe: string; moTa?: string; children: ReactNode }) {
+// O bat buoc cua 1 dong (CUNG dieu kien isLineComplete o useTaoDonForm.ts - doi 1 ben doi ca 2). id = vung o tren form (bam checklist = nhay toi).
+function yeuCauDong(x: DonHangDraft): { id: string; nhan: string; xong: boolean }[] {
+  const ds = [
+    { id: "tdo-lk", nhan: dichSau("Mã linh kiện"), xong: !!x.ma_lk.trim() },
+    { id: "tdo-sl", nhan: dichSau("Số lượng"), xong: x.so_luong_de_xuat > 0 },
+    { id: "tdo-lde", nhan: dichSau("Loại đề xuất"), xong: !!x.loai_de_xuat.trim() },
+  ];
+  if (laMuaCongNoDoiTac(x.loai_de_xuat)) ds.push({ id: "tdo-doitac", nhan: dichSau("Đối tác công nợ"), xong: !!x.doi_tac_ma });
+  if (canNoRequired(x.loai_de_xuat)) ds.push({ id: "tdo-cs", nhan: dichSau("Chính sách"), xong: !!x.chinh_sach.trim() });
+  if (maYcscRequired(x.loai_de_xuat)) ds.push({ id: "tdo-ycsc", nhan: dichSau("Mã YCSC hoặc Mã Lada"), xong: coMaIdLienQuan(x.ma_yeu_cau_su_co, x.ma_lada) });
+  if (deriveLoaiDon(x.loai_de_xuat) === "tra_hang") ds.push({ id: "tdo-anh", nhan: dichSau("Ảnh linh kiện cần trả (1–3)"), xong: x.anh.length >= 1 && x.anh.length <= 3 });
+  return ds;
+}
+
+// 1 nhom o nhap = 1 HANG NGANG: nhan + so thu tu ben trai (cot 170px), o nhap ben phai - quet mat doc theo cot nhan la biet thu tu nhap.
+function Hang({ so, tieuDe, goiY, children }: { so: number; tieuDe: string; goiY?: string; children: ReactNode }) {
   return (
-    <section className="bg-white border border-[var(--line)] rounded-xl min-w-0">
-      <header className="flex items-center gap-2 px-4 py-2.5 border-b border-[var(--line)]">
-        <span className="shrink-0 w-5 h-5 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary-dark)] text-[11px] font-bold flex items-center justify-center">{so}</span>
-        <h4 className="text-[13px] font-bold text-[var(--color-text)]">{tieuDe}</h4>
-        {moTa && <span className="ml-auto text-[11px] text-[var(--ink-500)] truncate">{moTa}</span>}
-      </header>
-      <div className="p-4 flex flex-col gap-3.5">{children}</div>
-    </section>
+    <div className="grid lg:grid-cols-[170px_minmax(0,1fr)] gap-x-5 gap-y-2 px-5 py-4">
+      <div className="flex lg:flex-col gap-2 lg:gap-1 items-center lg:items-start">
+        <div className="flex items-center gap-2">
+          <span className="shrink-0 w-6 h-6 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary-dark)] text-[12px] font-bold flex items-center justify-center">{so}</span>
+          <span className="text-[13px] font-bold text-[var(--color-text)]">{tieuDe}</span>
+        </div>
+        {goiY && <span className="lg:pl-8 text-[11px] text-[var(--ink-500)]">{goiY}</span>}
+      </div>
+      <div className="min-w-0">{children}</div>
+    </div>
   );
+}
+
+function TieuDeKhoi({ children }: { children: ReactNode }) {
+  return <div className="mb-1.5 flex items-center text-[11px] font-bold uppercase tracking-wide text-[var(--ink-500)]">{children}</div>;
 }
 
 // Trang thai du kien 1 dong (tu POST /phieu-dat/kiem-tra) cho danh sach dong - dong combo lay ket qua "xau" nhat.
@@ -553,7 +656,7 @@ function ImportDonExcel() {
 // canNoRequired/maYcscRequired duoc dung lai o day (import truc tiep, khong qua form) vi la ham thuan
 // tuy (khong dinh state) - chi import 1 lan o dau file, khong lap trong useTaoDonForm.ts (ham do da
 // import rieng cho chinh no dung trong isLineComplete).
-import { canNoRequired, maYcscRequired, coMaIdLienQuan } from "./helpers";
+import { canNoRequired, maYcscRequired, coMaIdLienQuan, laMuaCongNoDoiTac } from "./helpers";
 import { Money } from "../../components/ui/Money";
 import { TongNgayKtvInfo, CanhBaoChuaCoGiaKtv } from "./TongNgayKtv";
 import { t, dichSau } from "../../i18n";

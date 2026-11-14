@@ -65,7 +65,7 @@ export function danhSachViecCanLam(n: NotifCounts | undefined, email: string | u
     { key: "tram", label: dichSau("Trạm duyệt"), count: d.choTramDuyet ?? 0, jump: don("Cho Tram duyet") },
     { key: "tbp", label: dichSau("TBP duyệt LK đặc thù"), count: d.choTpXacNhan ?? 0, jump: don("Cho TBP xac nhan") },
     { key: "gs", label: dichSau("GS duyệt đơn vượt trần"), count: d.choGsDuyet ?? 0, jump: don("Cho GS duyet") },
-    { key: "tn_duyet", label: dichSau("Chờ TN duyệt"), count: d.choTnDuyet ?? 0, jump: don("Cho TN duyet") },
+    { key: "tn_duyet", label: dichSau("Chờ duyệt đơn"), count: d.choTnDuyet ?? 0, jump: don("Cho TN duyet") },
     { key: "tn_tao_pxk", label: dichSau("Phiếu chờ gửi kế toán"), count: d.choTnTaoPxk ?? 0, jump: pxk("Dang tao phieu") },
     { key: "kt_tien", label: dichSau("Xác nhận tiền KTV đã chuyển"), count: d.choKeToanTien ?? 0, jump: pxk("CHO_KT_TIEN") },
     { key: "kt_pxk", label: dichSau("Chờ mã MISA"), count: d.choKeToanPxk ?? 0, jump: pxk("Cho ke toan") },

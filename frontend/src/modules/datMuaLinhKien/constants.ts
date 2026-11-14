@@ -326,7 +326,7 @@ export const TRANG_THAI_PXK_DON_OPTIONS = [
   { value: "cho_tao_phieu", label: "Chờ tạo phiếu" },
   { value: "cho_ktv_chuyen_tien", label: "Chờ KTV chuyển tiền" },
   { value: "cho_xac_nhan_chuyen_tien", label: "Chờ xác nhận chuyển tiền" },
-  { value: "cho_gui_ke_toan", label: "Chờ TN gửi kế toán" },
+  { value: "cho_gui_ke_toan", label: "Chờ gửi kế toán" },
   { value: "cho_ke_toan_chot", label: "Chờ kế toán chốt" },
   { value: "cho_kho_gui_hang", label: "Chờ kho gửi hàng" },
   { value: "cho_kho_nhan_hang_tra", label: "Chờ kho nhận hàng trả" },
@@ -496,13 +496,13 @@ export const DON_CUA_TOI_TRANG_THAI_OPTIONS = [
   // Tu dong duyet 100% (2026-10-14, migration 0080).
   { value: "Cho GS duyet", label: "Chờ GS duyệt (vượt trần)" },
   { value: "Cho thanh toan", label: "Chờ thanh toán (thiếu hàng)" },
-  { value: "Cho TN duyet", label: "Chờ TN duyệt" },
-  { value: "TN da duyet", label: "TN đã duyệt" },
+  { value: "Cho TN duyet", label: "Chờ duyệt đơn" },
+  { value: "TN da duyet", label: "Đã duyệt" },
   // Sentinel "Đơn chờ tạo xuất" (them 2026-09-11, muc menu StageMenu) - khac "TN da duyet" o tren (gom
   // CA dong da gan PXK) - sentinel nay CHI dong chua gan PXK nao (ma_xuat_kho IS NULL), xem GET
   // /don-hang?trang_thai=__CHO_TAO_PXK__.
   { value: "__CHO_TAO_PXK__", label: "Chờ tạo phiếu xuất" },
-  { value: "TN tu choi", label: "TN từ chối" },
+  { value: "TN tu choi", label: "Bị từ chối" },
   // Sentinel the "Đơn bị từ chối" o Trang chu (2026-10-01) - don minh tao bi tu choi, chua mo xem (GET /don-hang).
   { value: "__TU_CHOI_CHUA_XEM__", label: "Bị từ chối – chưa xem" },
   // Sentinel "Yêu cầu hủy chờ tôi đồng ý" (v1.455) - don co yeu cau huy dang cho bo phan nguoi xem (GET /don-hang).
@@ -565,7 +565,7 @@ export const THIEU_LK_TRANG_THAI_OPTIONS = [
   { value: "Kho tu choi sai TT", label: "Kho từ chối (sai TT)" },
   { value: "Da huy bo", label: "Đã huỷ bỏ" },
   // Gia tri DB giu "Da ket thuc", nhan doi thanh "TN đã duyệt" (2026-09-29): ticket dong khi TN duyet don goc.
-  { value: "Da ket thuc", label: "TN đã duyệt" },
+  { value: "Da ket thuc", label: "Đã duyệt đơn gốc" },
 ];
 export const TRA_HANG_TRANG_THAI_OPTIONS = [
   { value: "", label: "Tất cả" },
@@ -591,7 +591,7 @@ export const DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL = [...DON_CUA_TOI_TRANG_THAI_OPT
 export const TAT_CA_LOAI_TRANG_THAI_OPTIONS = [
   ...DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL.filter((o, i, arr) => arr.findIndex((x) => x.value === o.value) === i),
   // Sentinel muc "Chờ tác nghiệp" (2026-09-30) - "Cho TN duyet" + tra hang "Cho TN duyet tong" (backend donHangListWhere).
-  { value: "__CHO_TN__", label: "Chờ tác nghiệp (gồm hàng trả)" },
+  { value: "__CHO_TN__", label: "Chờ duyệt đơn (gồm hàng trả)" },
   { value: "__CHO_TT__", label: "Chờ thanh toán (gồm đơn đã duyệt chờ tiền)" },
 ];
 

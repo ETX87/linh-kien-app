@@ -30,6 +30,7 @@ import { exportRowsToExcel } from "../../lib/exportExcel";
 import { fmtDate, fmtDateTime, fmtVND } from "../../types";
 import { useAuth } from "../../auth/AuthContext";
 import { guiTaoDonGiong } from "./taoDonGiong";
+import { LuongDon, TrangThaiDonBadge, nhanTrangThaiDon } from "./LuongDon";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
 import { formatPersonDisplay, usePersonDirectory, doiNguoiThanhTen } from "../../lib/personDisplay";
@@ -101,6 +102,7 @@ interface PxkInfo {
   loai_don?: string | null;
   so_dong?: number | null;
   tien_bi_bot?: TienBiBot[];
+  moc_log?: string | null; // JSON {trang_thai: gio} - gio phieu vao tung buoc (luong quy trinh, v1.494)
 }
 
 // Them (phan hoi 2026-09-10: "đơn gốc cũng không có truy vấn đến đơn ticket đơn thiếu linh kiện") -
@@ -1075,6 +1077,8 @@ export function DonHangDetailModal({
               </div>
             </div>
           )}
+          {/* Luong quy trinh cua don (v1.494): don dang o buoc nao, cho ai - xem LuongDon.tsx. */}
+          <LuongDon d={d} mocPhieu={pxk?.moc_log} />
           {/* SUA (ra soat UI/UX 2026-08-28, van de #2/#3/#4/#11: "chia thành các vùng dữ liệu" + tien
               gom 1 cho + badge trang thai qua tai): thay khoi KvRow phang truoc day bang 1 dai "chỉ số
               nhanh" ngay duoi tieu de (SL/gia/trang thai noi bat NGAY, khong phai cuon vao than moi
@@ -1135,7 +1139,7 @@ export function DonHangDetailModal({
             <div className="flex-1 min-w-[160px] self-center">
               <div className="flex items-center gap-1.5 flex-wrap">
                 {tone && d && <LoaiDeXuatBadge loaiDon={d.loai_don} loaiDeXuat={d.loai_de_xuat} />}
-                <StatusBadge value={d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} options={DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL} />
+                <TrangThaiDonBadge d={d} tones={DON_HANG_TRANG_THAI_TONE_ALL} />
                 {d.loai_don === "tra_hang" && (
                   <span className="text-[var(--ink-400)] text-xs">{t("(xử lý ở luồng quy trình phía trên)")}</span>
                 )}
@@ -2919,7 +2923,7 @@ export function DonHangGroupedList({
         const lyDo = tomTatLyDo(row.d);
         return (
           <div className="flex items-center gap-1 whitespace-nowrap">
-            <StatusBadge value={row.d.trang_thai ?? ""} tones={DON_HANG_TRANG_THAI_TONE_ALL} options={DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL} />
+            <TrangThaiDonBadge d={row.d} tones={DON_HANG_TRANG_THAI_TONE_ALL} />
             {lyDo && (
               <span title={lyDo} aria-label={lyDo} className="cursor-help text-[12px] leading-none text-[var(--color-text-faint)]">ⓘ</span>
             )}
@@ -3162,7 +3166,7 @@ export function DonHangGroupedList({
     trang_thai: {
       text: (d) => {
         const flags = trangThaiFlags(d);
-        return [trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, d.trang_thai ?? ""), ...(flags[0] ? [flags[0].label] : [])];
+        return [nhanTrangThaiDon(d).nhan, ...(flags[0] ? [flags[0].label] : [])];
       },
       font: BADGE_FONT,
       // padding 2 badge + khe 4px + "+N" (~30px) khi co tu 2 co phu tro len
@@ -3388,7 +3392,7 @@ export function DonHangGroupedList({
                         // xuất (mua hàng, công nợ...) - giao diện mobile") - dao Trang thai LEN TRUOC loai
                         // don, vi MAX_BADGE=1 phia duoi CHI hien badges[0] (tru truong hop canh bao cong no
                         // o tren van uu tien tuyet doi, khong doi).
-                        { tone: DON_HANG_TRANG_THAI_TONE_ALL[d.trang_thai ?? ""] ?? "neutral", label: trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, d.trang_thai ?? "") },
+                        { ...nhanTrangThaiDon(d), label: nhanTrangThaiDon(d).nhan },
                         { tone: tone.tone, label: loaiDeXuatText(d.loai_don, d.loai_de_xuat), dot: false },
                         ...(d.qua_han_ly_do_cham ? [{ tone: "danger" as Tone, label: t("Quá hạn") }] : []),
                         // "Đơn tạo hộ" (yeu cau nguoi dung 2026-08-27) - xem giai thich day du o KvRow

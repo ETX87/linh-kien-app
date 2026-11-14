@@ -594,7 +594,7 @@ export function DatMuaLinhKienModule({
               },
               {
                 key: "cho-tn-duyet",
-                label: t("Chờ tác nghiệp"),
+                label: t("Chờ duyệt đơn"),
                 count: choTacNghiepCount,
                 onClick: () => stageJump("cho-tn-duyet", { tab: "don-cua-toi", filter: "__CHO_TN__", loaiDon: "tat_ca" }),
               },
