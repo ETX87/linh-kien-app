@@ -105,6 +105,9 @@ const LY_DO_QC_GOI_Y = [
   "Thiếu phụ kiện / tem / bao bì",
 ];
 const VIDEO_TOI_DA_MB = 100;
+// So anh / video bang chung QC tu choi toi da moi don (2026-11-14: 3 anh + 2 video -> 30 + 30) - khop MAX_ANH_QC / MAX_VIDEO_QC o backend traHang.ts.
+const ANH_QC_TOI_DA = 30;
+const VIDEO_QC_TOI_DA = 30;
 
 // Tai video bang chung: mo phien resumable o server -> PUT thang file len Google Drive (co tien do) -> bao server ghi nhan (2026-11-10).
 async function taiVideoQc(donHangId: string, file: File, onTienDo: (pt: number) => void): Promise<void> {
@@ -136,33 +139,59 @@ function QcTuChoiModal({
   confirmLoading?: boolean;
   addToast: (msg: string) => void;
 }) {
-  const [anh, setAnh] = useState<{ url: string }[]>([]);
+  const [anhMoi, setAnhMoi] = useState<{ url: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   // Ly do tu choi (BAT BUOC) + ghi chu (tuy chon) - 2026-11-10; gui len server gop thanh 1 ghi_chu "Lý do: … — Ghi chú: …".
   const [lyDo, setLyDo] = useState("");
   const [ghiChu, setGhiChu] = useState("");
-  const [video, setVideo] = useState<{ ten: string; mb: number }[]>([]);
+  const [videoMoi, setVideoMoi] = useState<{ ten: string; mb: number }[]>([]);
   const [tienDoVideo, setTienDoVideo] = useState<number | null>(null);
   const nenAnh = useNenAnhTraHangEnabled();
+  // FIX (2026-11-14, "QC từ chối dòng DDH-007491": up ảnh rồi đến khi từ chối lại bắt up lại, rồi báo vượt giới hạn số ảnh):
+  // anh/video QC da LUU tren server ngay khi tai (tra_hang_anh loai 'qc_tu_choi' / tra_hang_video), nhung hop chi nho trong
+  // state -> dong/mo lai hop (hoac dien thoai tai lai trang sau khi mo camera) la ve 0 anh, nut bi khoa, tai them thi server
+  // da du 3 -> QUA_NHIEU_ANH. Gio hop doc luon anh/video da co tu chi tiet don (chung cache ["tra-hang-detail", id]).
+  const { data: daCo } = useQuery({
+    queryKey: ["tra-hang-detail", donHangId],
+    queryFn: () => api.get<{
+      anh: Array<{ id: number; loai: string; url: string }>;
+      video?: Array<{ id: number; ten_file: string | null; kich_thuoc: number | null }>;
+    }>(`/tra-hang/${donHangId}`),
+  });
+  const anh = (() => {
+    const ds = (daCo?.anh ?? []).filter((a) => a.loai === "qc_tu_choi").map((a) => ({ url: a.url }));
+    for (const a of anhMoi) if (!ds.some((x) => x.url === a.url)) ds.push(a);
+    return ds;
+  })();
+  const video = (() => {
+    const ds = (daCo?.video ?? []).map((v) => ({ ten: v.ten_file ?? "video", mb: (v.kich_thuoc ?? 0) / 1024 / 1024 }));
+    for (const v of videoMoi) if (!ds.some((x) => x.ten === v.ten && Math.abs(x.mb - v.mb) < 0.01)) ds.push(v);
+    return ds;
+  })();
+  const qcLocal = useQueryClient();
+  const lamMoiDaCo = () => qcLocal.invalidateQueries({ queryKey: ["tra-hang-detail", donHangId] });
 
   async function handleFile(file: File) {
-    if (anh.length >= 3) return;
+    if (anh.length >= ANH_QC_TOI_DA) return;
     setUploading(true);
     try {
       const upload = await anhVuaGioiHan(nenAnh ? await compressImage(file) : file);
       const bytes = await upload.arrayBuffer();
       const res = await api.postBinary<{ ok: true; url: string; han_muc_anh?: HanMucAnh | null }>(`/tra-hang/${donHangId}/anh`, bytes, upload.type || "image/jpeg");
       canhBaoHanMucAnh(res.han_muc_anh, addToast);
-      setAnh((prev) => [...prev, { url: res.url }]);
+      setAnhMoi((prev) => [...prev, { url: res.url }]);
+      void lamMoiDaCo();
     } catch (err) {
       baoLoiTaiAnh(err, addToast, describeApiError);
+      // Server bao da du anh -> nap lai danh sach anh that de hien dung (khong bat tai them).
+      void lamMoiDaCo();
     } finally {
       setUploading(false);
     }
   }
 
   async function handleVideo(file: File) {
-    if (video.length >= 2) return;
+    if (video.length >= VIDEO_QC_TOI_DA) return;
     if (file.size > VIDEO_TOI_DA_MB * 1024 * 1024) {
       addToast(t("Video vượt {a}MB — hãy quay ngắn lại hoặc giảm chất lượng", { a: VIDEO_TOI_DA_MB }));
       return;
@@ -170,7 +199,10 @@ function QcTuChoiModal({
     setTienDoVideo(0);
     try {
       await taiVideoQc(donHangId, file, setTienDoVideo);
-      setVideo((p) => [...p, { ten: file.name, mb: file.size / 1024 / 1024 }]);
+      setVideoMoi((p) => [...p, { ten: file.name, mb: file.size / 1024 / 1024 }]);
+      // Ten video luu tren server la ten file tren Drive (co the khac ten may) -> nap lai roi bo ban tam de khong dem trung.
+      await qcLocal.refetchQueries({ queryKey: ["tra-hang-detail", donHangId] });
+      if (qcLocal.getQueryState(["tra-hang-detail", donHangId])?.status === "success") setVideoMoi([]);
     } catch (err) {
       addToast(t("Lỗi tải video: ") + (err instanceof ApiError ? describeApiError(err) : err instanceof Error ? err.message : String(err)));
     } finally {
@@ -216,7 +248,7 @@ function QcTuChoiModal({
                 {t("📷 Ảnh {a}", { a: i + 1 })}
               </ImageLink>
             ))}
-            {anh.length < 3 && (
+            {anh.length < ANH_QC_TOI_DA && (
               <label
                 className={`text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed cursor-pointer ${
                   uploading ? "opacity-50 pointer-events-none" : "border-[var(--line)] text-[var(--ink-500)] hover:border-[var(--ocean-400)] hover:text-[var(--ocean-600)]"
@@ -237,18 +269,18 @@ function QcTuChoiModal({
               </label>
             )}
           </div>
-          <div className={`mt-1 text-[11px] ${anh.length === 0 ? "text-[var(--coral-600)]" : "text-[var(--ink-400)]"}`}>{t("{a}/3 ảnh (bắt buộc tối thiểu 1)", { a: anh.length })}</div>
+          <div className={`mt-1 text-[11px] ${anh.length === 0 ? "text-[var(--coral-600)]" : "text-[var(--ink-400)]"}`}>{t("{n}/{max} ảnh (bắt buộc tối thiểu 1)", { n: anh.length, max: ANH_QC_TOI_DA })}</div>
         </div>
 
         <div>
-          <div className="mb-1 text-xs font-semibold">{t("Video bằng chứng")} <span className="font-normal text-[var(--ink-400)]">{t("(không bắt buộc, tối đa {a}MB / video, 2 video)", { a: VIDEO_TOI_DA_MB })}</span></div>
+          <div className="mb-1 text-xs font-semibold">{t("Video bằng chứng")} <span className="font-normal text-[var(--ink-400)]">{t("(không bắt buộc, tối đa {a}MB / video, {b} video)", { a: VIDEO_TOI_DA_MB, b: VIDEO_QC_TOI_DA })}</span></div>
           <div className="flex items-center gap-2 flex-wrap">
             {video.map((v, i) => (
               <span key={i} className="inline-flex items-center gap-1 bg-[var(--surface-100)] border border-[var(--line)] rounded-lg px-2 py-1 text-xs">
                 🎬 {v.ten} · {v.mb.toFixed(1)} MB ✓
               </span>
             ))}
-            {video.length < 2 && (
+            {video.length < VIDEO_QC_TOI_DA && (
               <label
                 className={`text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed cursor-pointer ${
                   tienDoVideo !== null ? "opacity-60 pointer-events-none" : "border-[var(--line)] text-[var(--ink-500)] hover:border-[var(--ocean-400)] hover:text-[var(--ocean-600)]"

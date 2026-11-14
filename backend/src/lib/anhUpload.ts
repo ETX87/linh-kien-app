@@ -101,7 +101,8 @@ export interface AnhDaTai {
 function hanMucAnhNgay(c: Ctx): number | null {
   if (c.get("realIsAdmin")) return null;
   const u = c.get("user");
-  if (u.la_ke_toan || u.la_tac_nghiep || u.vai_tro === "Giam sat") return ANH_NGAY_VAN_PHONG;
+  // QC vao nhom 100 anh/ngay (2026-11-14): bang chung tu choi tra hang nang len toi da 30 anh / don, 20/ngay khong du.
+  if (u.la_ke_toan || u.la_tac_nghiep || u.vai_tro === "Giam sat" || u.vai_tro === "QC") return ANH_NGAY_VAN_PHONG;
   return u.la_ktv_dvbh || u.la_ve_tinh ? ANH_NGAY_KTV : ANH_NGAY_MAC_DINH;
 }
 

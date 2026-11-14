@@ -1187,6 +1187,7 @@ const tuDien: Record<string, string> = {
   "{n} đơn tồn": "{n} pending",
   "{n} đơn · {k} KTV": "{n} orders · {k} technicians",
   "{n}/{max} ảnh (bắt buộc tối thiểu 1)": "{n}/{max} photos (at least 1 required)",
+  "(không bắt buộc, tối đa {a}MB / video, {b} video)": "(optional, up to {a}MB / video, {b} videos)",
   "{p} tổng đơn": "{p} of orders",
   "· Dư vào quỹ": "· Surplus to fund",
   "· Thành tiền mới:": "· New total:",

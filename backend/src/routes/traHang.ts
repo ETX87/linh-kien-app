@@ -23,7 +23,7 @@ import { goDonKhoiPxk } from "../lib/pxkTuHuy";
 const DAY_LUI_QC_DUOC_SQL = (a: string) => `(${a}.trang_thai_hien_tai = 'TN da duyet' AND ${a}.loai_don = 'tra_hang' AND NOT EXISTS (
   SELECT 1 FROM phieu_xuat_kho_dong pdq JOIN phieu_xuat_kho pq ON pq.id = pdq.phieu_xuat_kho_id
   WHERE pdq.dat_don_hang_id = ${a}.id AND pq.trang_thai_hien_tai NOT IN ('Dang tao phieu', 'Cho ke toan', 'Ke toan huy')))`;
-const MAX_VIDEO_QC = 2;
+const MAX_VIDEO_QC = 30; // 2026-11-14: 2 -> 30 (khop VIDEO_QC_TOI_DA o FE TraHangTab.tsx)
 
 // Vai tro can bao "viec moi" khi 1 dong tra hang toi trang thai nay (phan hoi 2026-09-05) - dung
 // chung cho ca applyTraHangLog (di xuoi) va POST /:donHangId/log-lui (di lui), vi 2 chieu deu ha
@@ -59,7 +59,7 @@ const TRANG_THAI_DONG = ["TN da duyet", "Tu choi", "Da huy"] as const;
 const MAX_BULK_IDS = 100;
 // Anh tra hang (phan hoi 2026-08-24, migration 0003_tra_hang_anh.sql) - toi da 3 anh/loai/dong,
 // dung chung cho ca "tao_moi" (luc tao don) va "qc_tu_choi" (QC tu choi).
-const MAX_ANH_TRA_HANG = 3;
+const MAX_ANH_TRA_HANG = 30; // chi dung cho anh QC tu choi (/:donHangId/anh); 2026-11-14: 3 -> 30 (khop ANH_QC_TOI_DA o FE TraHangTab.tsx)
 const THU_TU_BUOC = [
   "Cho ke toan duyet mem",
   "Cho kho xac nhan",

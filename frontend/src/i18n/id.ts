@@ -1187,6 +1187,7 @@ const tuDien: Record<string, string> = {
   "{n} đơn tồn": "{n} tertunda",
   "{n} đơn · {k} KTV": "{n} pesanan · {k} teknisi",
   "{n}/{max} ảnh (bắt buộc tối thiểu 1)": "{n}/{max} foto (minimal 1 wajib)",
+  "(không bắt buộc, tối đa {a}MB / video, {b} video)": "(opsional, maks {a}MB / video, {b} video)",
   "{p} tổng đơn": "{p} dari total pesanan",
   "· Dư vào quỹ": "· Kelebihan ke dana",
   "· Thành tiền mới:": "· Total baru:",

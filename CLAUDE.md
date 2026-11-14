@@ -102,7 +102,7 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   không cho đẩy lùi sau khi QC xác nhận nhầm"; "khi QC từ chối sẽ nhập lý do từ chối + ghi chú + up ảnh bằng chứng + video bằng chứng (tối đa 100mb)"):
   `POST /tra-hang/:id/log-lui` nhận đơn "TN da duyet" (QC / Kế toán / Kho / Admin) khi `DAY_LUI_QC_DUOC_SQL` (phiếu PTL chứa đơn chưa qua "Cho ke toan")
   → `goDonKhoiPxk` (phiếu hết đơn tự hủy) + về "Cho QC xac nhan"; chi tiết trả `day_lui_qc_duoc`. QC duyệt (chi tiết + ✓ danh sách) mở `QcXacNhanDatModal`.
-  `QcTuChoiModal`: lý do (bắt buộc, gợi ý `LY_DO_QC_GOI_Y`) + ghi chú → gộp 1 `ghi_chu` "Lý do: … — Ghi chú: …", ảnh ≥ 1, video ≤ 100MB ≤ 2/đơn: trình duyệt
+  `QcTuChoiModal`: lý do (bắt buộc, gợi ý `LY_DO_QC_GOI_Y`) + ghi chú → gộp 1 `ghi_chu` "Lý do: … — Ghi chú: …", ảnh 1–30, video ≤ 100MB ≤ 30/đơn (v1.492, trước 3 ảnh / 2 video; QC 100 ảnh/ngày; hộp đọc lại ảnh/video đã lưu trên server — đóng/mở lại không mất): trình duyệt
   PUT THẲNG lên Drive qua phiên resumable (`POST /:id/video/bat-dau` → `batDauTaiVideo` kèm header Origin cho CORS; `POST /:id/video/xong` → `hoanTatVideo`
   kiểm tra thư mục app / dung lượng / video/* rồi công khai, bảng `tra_hang_video`); CSP `connect-src` có `https://www.googleapis.com`.
   **Đếm việc đúng vai trò + chặn số vô lý** (2026-11-10, v1.467): số mục "Hàng trả" + mục con chỉ đếm bước của chính người xem (`buocTraHangCuaToi` ở
