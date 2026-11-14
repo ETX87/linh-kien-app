@@ -29,6 +29,7 @@ import { api, buildQuery } from "../../api/client";
 import { exportRowsToExcel } from "../../lib/exportExcel";
 import { fmtDate, fmtDateTime, fmtVND } from "../../types";
 import { useAuth } from "../../auth/AuthContext";
+import { guiTaoDonGiong } from "./taoDonGiong";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
 import { formatPersonDisplay, usePersonDirectory, doiNguoiThanhTen } from "../../lib/personDisplay";
@@ -392,6 +393,34 @@ export function DonHangDetailModal({
   // Kho / Mua hang (2026-10-27): huy don "Chờ hàng" Kho / Mua hang da xac nhan xu ly; Mua hang chuyen don ve "Chờ hàng".
   const laMuaHangXem = authHuy.status === "authenticated" && (!!authHuy.user.la_mua_hang || authHuy.user.vai_tro === "Admin");
   const laKhoMuaHang = authHuy.status === "authenticated" && (!!authHuy.user.la_kho || !!authHuy.user.la_mua_hang);
+  // "⧉ Tạo đơn giống" (chot 2026-11-14, v1.491): moi tai khoan duoc tao don (cung dieu kien canTaoDon o DatMuaLinhKienModule) -> day
+  // 1 dong chep don nay vao form tao don (taoDonGiong.ts); form dang mo thi them dong, chua mo thi App mo form. Khong chep anh tra hang.
+  const uTao = authHuy.status === "authenticated" ? authHuy.user : null;
+  const duocTaoDonGiong = !!uTao && (!!uTao.la_tac_nghiep || uTao.vai_tro === "Admin" || uTao.vai_tro === "Giam sat" || uTao.vai_tro === "QC" || (!uTao.la_ve_tinh && !!uTao.la_ktv_dvbh));
+  function taoDonGiong() {
+    if (!d) return;
+    guiTaoDonGiong({
+      nguoiNhanHang: d.nguoi_nhan_hang,
+      draft: {
+        ...emptyDraft(),
+        ma_lk: d.ma_lk ?? "",
+        loai_de_xuat: d.loai_de_xuat ?? "",
+        so_luong_de_xuat: Math.max(1, Number(d.so_luong_de_xuat) || 1),
+        ghi_chu: d.ghi_chu ?? "",
+        yeu_cau_hoa_don: d.yeu_cau_hoa_don || emptyDraft().yeu_cau_hoa_don,
+        kh_chuyen_khoan: !!d.kh_chuyen_khoan,
+        tt_mail_duyet: d.tt_mail_duyet ?? "",
+        tt_khach_hang: d.tt_khach_hang ?? "",
+        chinh_sach: d.chinh_sach ?? "",
+        ma_yeu_cau_su_co: d.ma_yeu_cau_su_co ?? "",
+        ma_lada: d.ma_lada ?? "",
+        uu_tien: !!d.uu_tien,
+        doi_tac_ma: d.doi_tac_ma ?? "",
+        doi_tac_tu_dong: false,
+      },
+    });
+    onClose();
+  }
   const actions = d ? actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, isAdmin, laGs: laGsXem, laKhoMuaHang, gsKhuVuc: gsKhuVucXem }) : { duyet: false, tuChoi: false, choHang: false, huy: false };
   const muaHangChoHang = !!d && laMuaHangXem && !!d.mua_hang_cho_hang_duoc;
   // Muc #4: SL thuc xuat CHI cho sua khi dong dang "Cho TN duyet" va SL de xuat > 1 (dung dieu kien
@@ -1018,6 +1047,11 @@ export function DonHangDetailModal({
               onNext={() => navNextId && onNavigate(navNextId)}
             />
           )}
+          {d && duocTaoDonGiong && !khoaNgoai && !isEditMode ? (
+            <Btn size="sm" variant="ghost" onClick={taoDonGiong} title={t("Mở form tạo đơn điền sẵn y hệt đơn này (linh kiện đã có trong danh sách đang tạo thì để trống)")}>
+              {t("⧉ Tạo đơn giống")}
+            </Btn>
+          ) : undefined}
           {canEditFull && !isEditMode && !khoaNgoai ? (
             <Btn size="sm" variant="ghost" onClick={startEdit}>{t("✎ Sửa")}</Btn>
           ) : undefined}

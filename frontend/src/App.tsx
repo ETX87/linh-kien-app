@@ -11,6 +11,7 @@ import { TopBarActions } from "./layout/TopBarActions";
 import { TopBar } from "./layout/TopBar";
 import { BottomTabBar } from "./layout/BottomTabBar";
 import { HoiDapWidget } from "./components/hoiDap/HoiDapWidget";
+import { TaoDonGiongHost } from "./modules/datMuaLinhKien/TaoDonGiongHost";
 import { NutNopQuyNoi } from "./modules/quyChuyenTien/NutNopQuyNoi";
 import { NutNopTienKeToan } from "./modules/quyChuyenTien/NutNopTienKeToan";
 import { TuChoiChuyenTienPopup } from "./modules/datMuaLinhKien/TuChoiChuyenTienPopup";
@@ -554,6 +555,8 @@ function MainApp({
       {isMobile && <BottomTabBar active={active} setActive={setActive} allowedModules={allowedModules} onOpenMore={() => setMobileOpen(true)} />}
       {/* Hoi dap KTV <-> Mua hang (2026-10-17) - icon chat goc duoi phai, moi tai khoan da duyet. */}
       <HoiDapWidget />
+      {/* "⧉ Tạo đơn giống" o chi tiet don khi chua co form tao don nao dang mo (v1.491). */}
+      <TaoDonGiongHost />
       {/* Nut tron "Nạp quỹ" canh nut chat (2026-10-30, v1.426) - KTV / Ve tinh / GS mo nhanh form nop tien vao quy. */}
       <NutNopQuyNoi />
       {/* Icon noi "Nạp quỹ chờ xác nhận" cho Ke toan (2026-10-30, v1.427) - popup danh sach cho + nhac yeu cau moi. */}

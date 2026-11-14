@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { layHangChoTaoGiong, dangKyFormTaoDon, SU_KIEN_TAO_DON_GIONG } from "./taoDonGiong";
 import { duocTichKhChuyenKhoan } from "./KhChuyenKhoan";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -78,6 +79,8 @@ export function useTaoDonForm({
     setKhLeSdt("");
   };
   const [drafts, setDrafts] = useState<DonHangDraft[]>([emptyDraft()]);
+  const draftsRef = useRef(drafts);
+  draftsRef.current = drafts;
   const [infoExpandedIdx, setInfoExpandedIdx] = useState<Set<number>>(new Set());
   const [activeIdx, setActiveIdx] = useState(0);
   useEffect(() => {
@@ -90,8 +93,14 @@ export function useTaoDonForm({
     if (!n) return;
     setNguoiNhanHangState(n.nguoiNhanHang ?? "");
     setKhLeSdt(n.khLeSdt ?? "");
-    setDrafts(n.drafts);
-    setActiveIdx(Math.min(Math.max(0, n.activeIdx || 0), n.drafts.length - 1));
+    // Dong da them qua "Tạo đơn giống đơn này" trong luc dang hoi -> giu lai, noi sau nhap cu.
+    // Ma LK trung voi nhap cu -> bo trong (cung quy tac "co trong danh sach dang tao thi bo trong").
+    const maNhap = new Set(n.drafts.map((d) => d.ma_lk.trim().toUpperCase()).filter(Boolean));
+    const themTuDonGiong = draftsRef.current
+      .filter((d) => coNoiDung([d]))
+      .map((d) => (maNhap.has(d.ma_lk.trim().toUpperCase()) ? { ...d, ma_lk: "" } : d));
+    setDrafts([...n.drafts, ...themTuDonGiong]);
+    setActiveIdx(themTuDonGiong.length ? n.drafts.length : Math.min(Math.max(0, n.activeIdx || 0), n.drafts.length - 1));
     setKhoiPhucLuc(n.luc);
     setHoiKhoiPhuc(null);
   }
@@ -431,6 +440,56 @@ export function useTaoDonForm({
     setJustAdded(true);
   }
 
+  // "⧉ Sao chép dòng" (chot 2026-11-14, v1.491 - "copy y nguyên nội dung đơn bên trên ngoại trừ bỏ trống linh kiện => tiết kiệm thời gian
+  // nhập liệu lại thông tin mã phê duyệt, mã sự cố, loại đề xuất"): them 1 dong MOI cuoi danh sach = ban sao dong idx (mac dinh dong dang
+  // mo), bo trong Ma LK + anh tra hang (anh gan voi LK). KHONG doi dong nguon hoan tat nhu "+ Thêm dòng" - muc dich la chep thong tin.
+  function saoChepDong(idx: number = activeIdx) {
+    const goc = drafts[idx];
+    if (!goc) return;
+    setAddBlockedHint(false);
+    setDrafts((prev) => [...prev, { ...goc, ma_lk: "", anh: [] }]);
+    setActiveIdx(drafts.length);
+    setJustAdded(true);
+  }
+
+  // "Tạo đơn giống đơn này" tu chi tiet don (taoDonGiong.ts): lay hang cho -> them dong. Ma LK DA CO trong danh sach dang tao -> bo trong
+  // (chot nguoi dung). Form dang chi co 1 dong rong -> thay dong do; TN/GS dang tao hop trong -> lay luon nguoi nhan hang cua don goc.
+  const nhanTaoGiongRef = useRef<() => void>(() => {});
+  nhanTaoGiongRef.current = () => {
+    const ds = layHangChoTaoGiong();
+    if (!ds.length) return;
+    const truoc = draftsRef.current;
+    const formTrong = truoc.length === 1 && !coNoiDung(truoc);
+    const next = formTrong ? [] : [...truoc];
+    const boTrong: string[] = [];
+    for (const { draft } of ds) {
+      const ma = draft.ma_lk.trim();
+      const trung = !!ma && next.some((d) => d.ma_lk.trim().toUpperCase() === ma.toUpperCase());
+      if (trung) boTrong.push(ma);
+      next.push({ ...emptyDraft(), ...draft, ma_lk: trung ? "" : draft.ma_lk, anh: [] });
+    }
+    setDrafts(next);
+    setActiveIdx(next.length - 1);
+    setJustAdded(true);
+    const nhan = ds[0].nguoiNhanHang?.trim();
+    if (canQuanLy && formTrong && !nguoiNhanHang && nhan && nhan.toLowerCase() !== currentEmail.toLowerCase()) setNguoiNhanHang(nhan);
+    addToast(
+      boTrong.length
+        ? t("Đã thêm dòng giống đơn — linh kiện {ma} đã có trong danh sách nên để trống, chọn linh kiện khác", { ma: boTrong.join(", ") })
+        : t("Đã thêm dòng giống đơn đang xem — kiểm tra lại rồi bấm Tạo đơn"),
+    );
+  };
+  useEffect(() => {
+    const huyDangKy = dangKyFormTaoDon();
+    const nghe = () => nhanTaoGiongRef.current();
+    window.addEventListener(SU_KIEN_TAO_DON_GIONG, nghe);
+    nghe();
+    return () => {
+      window.removeEventListener(SU_KIEN_TAO_DON_GIONG, nghe);
+      huyDangKy();
+    };
+  }, []);
+
   function deleteDraft(idx: number) {
     if (drafts.length === 1) return;
     setDrafts((prev) => prev.filter((_, i) => i !== idx));
@@ -514,7 +573,7 @@ export function useTaoDonForm({
     danhMuc, nguoiNhanHang, setNguoiNhanHang, drafts, infoExpandedIdx, setInfoExpandedIdx,
     activeIdx, setActiveIdx, otherLdeIdx, setOtherLdeIdx, addBlockedHint, setAddBlockedHint,
     activeRowRef, justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
-    updateDraft, apDungThayThe, isLineComplete, canSubmit, showImport, setShowImport, themDong, deleteDraft,
+    updateDraft, apDungThayThe, isLineComplete, canSubmit, showImport, setShowImport, themDong, saoChepDong, deleteDraft,
     giaUocTinhDong, tongGiaUocTinh, tongGhiNoDoiTac, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
     duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
     laNhomKhLe, khLeSdt, setKhLeSdt, khLeSdtSai, khLeTraCuu, khLeDangTraCuu,

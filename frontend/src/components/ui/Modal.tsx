@@ -13,6 +13,7 @@ export function Modal({
   height = "max-h-[88vh]",
   footer,
   headerExtra,
+  bodyClassName = "overflow-y-auto p-5",
 }: {
   open: boolean;
   onClose: () => void;
@@ -29,6 +30,9 @@ export function Modal({
   // hanh dong dieu khien chinh modal thay vi lan vao hang thong tin/badge ben trong (ra soat module
   // "Dat Mua Linh Kien 2.0" #18). Mac dinh undefined = khong doi giao dien cac noi goi Modal khac.
   headerExtra?: ReactNode;
+  // Lop CSS vung noi dung - mac dinh cuon doc + p-5. Man tu chia nhieu cot cuon rieng (vd Tao don desktop v1.491) truyen
+  // "flex-1 min-h-0 overflow-hidden" de tu quan ly cuon tung cot.
+  bodyClassName?: string;
 }) {
   // FIX (phan hoi 2026-08-28: "popup thoát app lúc hỏi lúc không") - Modal (dung o ~40 noi, khac
   // Drawer.tsx) truoc day KHONG dang ky voi ngan xep overlay dung chung, nen nut Back tren mobile
@@ -64,7 +68,7 @@ export function Modal({
           </div>
         </div>
         <ChanDongContext.Provider value={dangKyChan}>
-          <div className="overflow-y-auto p-5">{children}</div>
+          <div className={bodyClassName}>{children}</div>
           {footer && <div className="border-t border-[var(--color-border-soft)] bg-[var(--surface)] px-5 py-3">{footer}</div>}
         </ChanDongContext.Provider>
       </div>

@@ -61,7 +61,7 @@ export function TaoDonMobileScreen({
     danhMuc, nguoiNhanHang, setNguoiNhanHang, drafts, infoExpandedIdx, setInfoExpandedIdx,
     activeIdx, setActiveIdx, otherLdeIdx, setOtherLdeIdx, addBlockedHint, setAddBlockedHint,
     justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
-    updateDraft, isLineComplete, canSubmit, themDong, deleteDraft, giaUocTinhDong, tongGiaUocTinh, tongGhiNoDoiTac, tongSoLuong,
+    updateDraft, isLineComplete, canSubmit, themDong, saoChepDong, deleteDraft, giaUocTinhDong, tongGiaUocTinh, tongGhiNoDoiTac, tongSoLuong,
     tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien, duPhongDuKien, coDongMuaDuTru,
     targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
     ketQuaTheoDong, loiPhieuText, dongCanXacNhan, hoiXacNhan, setHoiXacNhan,
@@ -174,6 +174,15 @@ export function TaoDonMobileScreen({
           className="focus-ring shrink-0 flex items-center justify-center rounded-full h-8 px-3 text-xs font-semibold bg-white border border-dashed border-[var(--line)] text-[var(--ink-500)]"
         >
           {t("+ Dòng")}
+        </button>
+        {/* Sao chep dong dang xem (v1.491) - giu loai de xuat / ma YCSC / Lada / chinh sach..., bo trong Ma LK. */}
+        <button
+          type="button"
+          onClick={() => saoChepDong()}
+          className="focus-ring shrink-0 flex items-center justify-center rounded-full h-8 px-3 text-xs font-semibold bg-white border border-dashed border-[var(--line)] text-[var(--ink-500)]"
+          title={t("Thêm dòng mới chép y nguyên dòng đang xem (bỏ trống linh kiện)")}
+        >
+          {t("⧉ Sao chép")}
         </button>
         {drafts.length > 1 && (
           <button
