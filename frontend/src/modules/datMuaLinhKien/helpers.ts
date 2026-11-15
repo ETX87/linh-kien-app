@@ -305,9 +305,14 @@ export function canNoRequired(loaiDeXuat: string): boolean {
 export function laCongNoSuaChua(loaiDeXuat: string | null | undefined): boolean {
   return (loaiDeXuat ?? "").normalize("NFC").toUpperCase().includes("CÔNG NỢ SỬA CHỮA");
 }
+// v1.496: ma app Bao hanh doi tra (DH-000123 / DH-000123-1) quy ve HOA; ma go tay khac giu nguyen. Rong / > 40 ky tu -> null.
+export function laMaDonBhApp(v: string | null | undefined): boolean {
+  return /^DH-\d{6}(-\d{1,3})?$/i.test((v ?? "").trim());
+}
 export function chuanMaDonBh(v: string | null | undefined): string | null {
-  const s = (v ?? "").trim().toUpperCase();
-  return /^DH-\d{6}(-\d{1,3})?$/.test(s) ? s : null;
+  const s = (v ?? "").trim().replace(/\s+/g, " ");
+  if (!s || s.length > 40) return null;
+  return laMaDonBhApp(s) ? s.toUpperCase() : s;
 }
 
 // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403) - ban sao backend lib/pxkRecalculate.ts laMuaCongNoDoiTac.

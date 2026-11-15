@@ -136,8 +136,8 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   DOI_LOAI_CONG_NO_DOI_TAC: "Không đổi được loại đề xuất giữa đơn công nợ đối tác và loại khác — hủy đơn rồi đặt lại",
   // CÔNG NỢ SỬA CHỮA (v1.495).
   NGUOI_NHAN_KHONG_PHAI_NV_SUA_CHUA: "Loại CÔNG NỢ SỬA CHỮA chỉ đặt cho tài khoản NV sửa chữa (Admin bật cờ “NV sửa chữa” ở Quản lý người dùng)",
-  THIEU_MA_DON_BH: "Đơn CÔNG NỢ SỬA CHỮA phải nhập mã đơn bảo hành (DH-000123 hoặc DH-000123-1)",
-  MA_DON_BH_KHONG_HOP_LE: "Mã đơn bảo hành không đúng dạng (DH-000123 hoặc DH-000123-1)",
+  THIEU_MA_DON_BH: "Đơn CÔNG NỢ SỬA CHỮA phải chọn hoặc nhập mã đơn bảo hành",
+  MA_DON_BH_KHONG_HOP_LE: "Mã đơn bảo hành quá dài (tối đa 40 ký tự)",
   DOI_LOAI_CONG_NO_SUA_CHUA: "Không đổi được loại đề xuất giữa đơn công nợ sửa chữa và loại khác — hủy đơn rồi đặt lại",
   DON_DOI_TAC_KHAC_PHIEU: "Đơn công nợ đối tác chỉ vào phiếu riêng của đúng đối tác đó (không lẫn đơn thường)",
   NHIEU_DOI_TAC_TRONG_1_PXK: "1 phiếu chỉ gom đơn của cùng 1 đối tác (hoặc toàn đơn thường)",

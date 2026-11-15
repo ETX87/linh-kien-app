@@ -33,7 +33,8 @@ import { computeMocDuPhongHienTai } from "../lib/duPhongKtv";
 import { computeTonKhoChot, donChoHangDuTonKho, getMocTonKhoCongTy } from "../lib/tonKhoCongTy";
 import { tachDonChoHang } from "../lib/tachDon";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
-import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon, laKhTraGop, khongTinhCongNo, laMuaCongNoDoiTac, laCongNoSuaChua, chuanMaDonBh } from "../lib/pxkRecalculate";
+import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon, laKhTraGop, khongTinhCongNo, laMuaCongNoDoiTac, laCongNoSuaChua, chuanMaDonBh, laMaDonBhApp } from "../lib/pxkRecalculate";
+import { goiYDonBh, traDonBh } from "../lib/donBhClient";
 import { duocChonMoiDoiTac, maMisaCuaEmail } from "../lib/congNoDoiTac";
 import { computeTonKtvConLai } from "../lib/tonKhoKtv";
 import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
@@ -2483,6 +2484,18 @@ function ghiChuKhoiTaoGoc(kq: KetQuaDong, soLuong: number, phieu: KetQuaPhieu): 
 // POST /api/dat-mua-lk/phieu-dat/kiem-tra - CUNG body voi POST /phieu-dat, KHONG ghi gi (chot 2026-10-14): form tao don hoi truoc
 // ket qua tung dong (tu duyet / cho hang / cho thanh toan / cho GS / cho TBP / bi chan + ly do) de canh bao + hoi KTV truoc khi gui.
 // Loi cap phieu (nguoi nhan khong hop le, chua co ma MISA...) tra 200 { loi_phieu } de form hien canh bao, khong nem loi.
+// GET /api/dat-mua-lk/don-bh-goi-y?nguoi_nhan_hang=&q= (v1.496) - goi y "Mã đơn bảo hành" cho don CÔNG NỢ SỬA CHỮA tu app Bao hanh doi tra:
+// khong co q = don vi NV nhan hang dang sua; q >= 2 ky tu = tim moi don vi theo ma / ma case. ket_noi=false khi app kia khong tra loi.
+datMuaLinhKien.get("/don-bh-goi-y", async (c) => {
+  const user = c.get("user");
+  if (!canCreatePhieuDat(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const nhan = (c.req.query("nguoi_nhan_hang") ?? "").trim() || user.email;
+  // Chi TN / GS / Admin xem goi y cua nguoi khac (dat ho); con lai luon la chinh minh.
+  const email = nhan !== user.email && !canQuanLyDonHo(c) ? user.email : nhan;
+  const rows = await goiYDonBh(c.env, email, c.req.query("q") ?? "");
+  return c.json({ rows: rows ?? [], ket_noi: rows !== null });
+});
+
 datMuaLinhKien.post("/phieu-dat/kiem-tra", async (c) => kiemTraPhieuDat(c, await c.req.json<PhieuDatBody>()));
 
 // Than POST /phieu-dat/kiem-tra - export de API doi tac (routes/partnerApi.ts POST /v1/dat-hang/kiem-tra) dung CHUNG (c.get("user") =
@@ -2668,6 +2681,12 @@ export async function taoPhieuDat(c: Context<{ Bindings: Env }>, bodyGoc: PhieuD
   // Dong vao phieu ngay: tu duyet + don co tien (KTV chuyen tien truoc - ke ca "Cho thanh toan").
   const vaoPhieu: Record<"mua" | "cong_no", { donHangId: string; soTien: number }[]> = { mua: [], cong_no: [] };
 
+  // CÔNG NỢ SỬA CHỮA (v1.496): ma don bao hanh co tren app Bao hanh doi tra -> bh_lien_ket = 1 (giai doan tu tru cong no chi tu dong voi don
+  // lien ket). Ma go tay ngoai app / khong ket noi duoc -> 0, KHONG chan dat hang.
+  const lienKetBh = new Map<string, boolean>();
+  for (const ma of new Set(body.don_hang.map((dh) => dh.bh_don_vi_id).filter((m): m is string => !!m && laMaDonBhApp(m)))) {
+    lienKetBh.set(ma, !!(await traDonBh(c.env, ma)));
+  }
   for (const [i, dh] of body.don_hang.entries()) {
     const lde = dh.loai_de_xuat.trim();
     const kqDong = danhGia.dong[i];
@@ -2686,8 +2705,8 @@ export async function taoPhieuDat(c: Context<{ Bindings: Env }>, bodyGoc: PhieuD
            (id, phieu_dat_id, loai_don, ma_lk, ten_lk_snapshot, loai_de_xuat, so_luong_de_xuat, gia_de_xuat,
             so_tien_cong_no, danh_gia_cong_no, ghi_chu, yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang, chinh_sach, ma_yeu_cau_su_co, ma_lada,
             nguoi_tao, ngay_tao, updated_at, email_gs, nguoi_nhan_hang, uu_tien, trang_thai_hien_tai, bat_buoc_chuyen_tien, combo_ma, doi_tac_ma,
-            kh_chuyen_khoan, bh_don_vi_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            kh_chuyen_khoan, bh_don_vi_id, bh_lien_ket)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         donHangId, phieuDatId, loai_don, dh.ma_lk.trim(), lk.ten_lk, lde, dh.so_luong_de_xuat, lk.gia_ban,
         kqDong.soTienCongNo, kqDong.danhGiaCongNo,
@@ -2695,6 +2714,7 @@ export async function taoPhieuDat(c: Context<{ Bindings: Env }>, bodyGoc: PhieuD
         dh.chinh_sach?.trim() || chinhSachMacDinh(lde), dh.ma_yeu_cau_su_co?.trim() || null, dh.ma_lada?.trim().toUpperCase() || null,
         user.email, now, now, kq.emailGs, nguoiNhanHang, dh.uu_tien ? 1 : 0, trangThaiKhoiTao, kqDong.batBuocChuyenTien ? 1 : 0,
         comboMaCuaDong[i] ?? null, dh.doi_tac_ma ?? null, dh.kh_chuyen_khoan ? 1 : 0, dh.bh_don_vi_id ?? null,
+        dh.bh_don_vi_id && lienKetBh.get(dh.bh_don_vi_id) ? 1 : 0,
       ),
     );
     if (loai_don !== "tra_hang") {

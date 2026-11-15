@@ -69,10 +69,15 @@ export function laTruCongNo(loaiDeXuat: string | null | undefined): boolean {
 export function laCongNoSuaChua(loaiDeXuat: string | null | undefined): boolean {
   return (loaiDeXuat ?? "").normalize("NFC").toUpperCase().includes("CÔNG NỢ SỬA CHỮA");
 }
-// Ma don bao hanh app Bao hanh doi tra: don cha "DH-000123" hoac don vi con "DH-000123-1". Tra ve dang chuan (HOA) hoac null.
+// Ma don bao hanh (v1.496 - "vẫn cho nhập tay nếu không có (vì có thể đặt cho đơn không thuộc app đổi trả)"): ma app Bao hanh doi tra
+// (don cha "DH-000123" / don vi "DH-000123-1") quy ve chu HOA; ma go tay khac giu nguyen (bo khoang trang thua). Rong / > 40 ky tu -> null.
+export function laMaDonBhApp(v: string | null | undefined): boolean {
+  return /^DH-\d{6}(-\d{1,3})?$/i.test((v ?? "").trim());
+}
 export function chuanMaDonBh(v: string | null | undefined): string | null {
-  const s = (v ?? "").trim().toUpperCase();
-  return /^DH-\d{6}(-\d{1,3})?$/.test(s) ? s : null;
+  const s = (v ?? "").trim().replace(/\s+/g, " ");
+  if (!s || s.length > 40) return null;
+  return laMaDonBhApp(s) ? s.toUpperCase() : s;
 }
 
 export function laMuaCongNoDoiTac(loaiDeXuat: string | null | undefined): boolean {
