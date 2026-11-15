@@ -261,7 +261,7 @@ export function laTruCongNo(loaiDeXuat: string | null | undefined): boolean {
 // trong routes/datMuaLinhKien.ts (server cung dien khi bo trong - import Excel).
 
 export function chinhSachMacDinh(loaiDeXuat: string | null | undefined): string {
-  return laTruCongNo(loaiDeXuat) ? "Trong CSBH" : "";
+  return laTruCongNo(loaiDeXuat) || laCongNoSuaChua(loaiDeXuat) ? "Trong CSBH" : "";
 }
 
 /** Ban sao laKhTraGop() (backend lib/pxkRecalculate.ts): "HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX/-NPP" - gia tri CN = 0 (chot 2026-10-02). */
@@ -297,7 +297,17 @@ export function loaiDonLabel(loaiDon: ReturnType<typeof deriveLoaiDon>, loaiDeXu
 // khong phai luong tra hang (da co "TRA HANG") - chot 2026-08-15, doi xung voi validate phia server
 // (POST /phieu-dat, processDatDonHangImportRows trong datMuaLinhKien.ts).
 export function canNoRequired(loaiDeXuat: string): boolean {
-  return loaiDeXuat.includes("CÔNG NỢ") && !loaiDeXuat.includes("TRẢ HÀNG") && !laMuaCongNoDoiTac(loaiDeXuat);
+  // CÔNG NỢ SỬA CHỮA (v1.495): thay Chính sách + Mã YCSC bằng Mã đơn bảo hành bắt buộc (CongNoSuaChua.tsx).
+  return loaiDeXuat.includes("CÔNG NỢ") && !loaiDeXuat.includes("TRẢ HÀNG") && !laMuaCongNoDoiTac(loaiDeXuat) && !laCongNoSuaChua(loaiDeXuat);
+}
+
+// CÔNG NỢ SỬA CHỮA (v1.495) - ban sao backend lib/pxkRecalculate.ts laCongNoSuaChua / chuanMaDonBh.
+export function laCongNoSuaChua(loaiDeXuat: string | null | undefined): boolean {
+  return (loaiDeXuat ?? "").normalize("NFC").toUpperCase().includes("CÔNG NỢ SỬA CHỮA");
+}
+export function chuanMaDonBh(v: string | null | undefined): string | null {
+  const s = (v ?? "").trim().toUpperCase();
+  return /^DH-\d{6}(-\d{1,3})?$/.test(s) ? s : null;
 }
 
 // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403) - ban sao backend lib/pxkRecalculate.ts laMuaCongNoDoiTac.
@@ -338,7 +348,7 @@ export function emptyDraft(): DonHangDraft {
   return {
     ma_lk: "", loai_de_xuat: "", so_luong_de_xuat: 1,
     ghi_chu: "", yeu_cau_hoa_don: YEU_CAU_HOA_DON_OPTIONS[0], tt_mail_duyet: "", tt_khach_hang: "", chinh_sach: "", ma_yeu_cau_su_co: "", ma_lada: "",
-    uu_tien: false, anh: [], doi_tac_ma: "",
+    uu_tien: false, anh: [], doi_tac_ma: "", bh_don_vi_id: "",
   };
 }
 

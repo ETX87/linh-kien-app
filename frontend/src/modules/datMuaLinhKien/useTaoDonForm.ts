@@ -6,7 +6,7 @@ import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
 import type { DonHangDraft, KhachLeRow, NguoiNhanHangKhaDungRow, KiemTraPhieuDat, KiemTraDong, KetQuaTaoDon } from "./types";
-import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, khongTinhCongNo, useLkCombo, comboThanhLkRow, chinhSachMacDinh, laMuaCongNoDoiTac } from "./helpers";
+import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, khongTinhCongNo, useLkCombo, comboThanhLkRow, chinhSachMacDinh, laMuaCongNoDoiTac, laCongNoSuaChua, chuanMaDonBh } from "./helpers";
 import { t } from "../../i18n";
 import { GENERIC_ERROR_MESSAGES } from "./constants";
 import { coYeuCauHoaDon } from "./LoaiChietKhau";
@@ -273,6 +273,7 @@ export function useTaoDonForm({
           anh: deriveLoaiDon(d.loai_de_xuat.trim()) === "tra_hang" ? d.anh : undefined,
           doi_tac_ma: laMuaCongNoDoiTac(d.loai_de_xuat) ? d.doi_tac_ma || undefined : undefined,
           kh_chuyen_khoan: d.kh_chuyen_khoan && duocTichKhChuyenKhoan(d) ? true : undefined,
+          bh_don_vi_id: laCongNoSuaChua(d.loai_de_xuat) ? chuanMaDonBh(d.bh_don_vi_id) ?? undefined : undefined,
         })),
       }),
     onSuccess: (res) => {
@@ -422,7 +423,9 @@ export function useTaoDonForm({
       // CHOT (phan hoi 2026-08-24, muc 1): don tra hang bat buoc 1-3 anh linh kien can tra.
       (deriveLoaiDon(d.loai_de_xuat) !== "tra_hang" || (d.anh.length >= 1 && d.anh.length <= 3)) &&
       // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): bat buoc chon doi tac.
-      (!laMuaCongNoDoiTac(d.loai_de_xuat) || !!d.doi_tac_ma)
+      (!laMuaCongNoDoiTac(d.loai_de_xuat) || !!d.doi_tac_ma) &&
+      // CÔNG NỢ SỬA CHỮA (v1.495): bat buoc ma don bao hanh dung dang.
+      (!laCongNoSuaChua(d.loai_de_xuat) || !!chuanMaDonBh(d.bh_don_vi_id))
     );
   }
 

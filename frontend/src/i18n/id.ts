@@ -2900,5 +2900,15 @@ const tuDien: Record<string, string> = {
   "✓ Dòng này đã đủ thông tin bắt buộc": "✓ Baris ini sudah lengkap",
   "✓ Không có cảnh báo": "✓ Tidak ada peringatan",
   "Chờ gửi kế toán": "Menunggu dikirim ke akuntansi",
+  "Không đổi được loại đề xuất giữa đơn công nợ sửa chữa và loại khác — hủy đơn rồi đặt lại": "Tidak dapat mengubah jenis permintaan antara pesanan konsinyasi perbaikan dan jenis lain — batalkan lalu pesan ulang",
+  "Loại CÔNG NỢ SỬA CHỮA chỉ đặt cho tài khoản NV sửa chữa (Admin bật cờ “NV sửa chữa” ở Quản lý người dùng)": "Jenis KONSINYASI PERBAIKAN hanya untuk akun staf perbaikan (Admin mengaktifkan “Staf perbaikan” di Manajemen pengguna)",
+  "Mã không đúng dạng — nhập mã đơn trên app Bảo hành đổi trả, dạng DH-000123 hoặc DH-000123-1": "Kode tidak valid — masukkan kode pesanan dari aplikasi Garansi, mis. DH-000123 atau DH-000123-1",
+  "Mã đơn bảo hành": "Kode pesanan garansi",
+  "Mã đơn bảo hành (app Bảo hành đổi trả) đang sửa cần linh kiện này — dùng để đối trừ công nợ khi linh kiện đã thay thế.": "Pesanan garansi (aplikasi Garansi) yang sedang diperbaiki dan membutuhkan suku cadang ini — dipakai untuk mengimbangi utang setelah suku cadang diganti.",
+  "Mã đơn bảo hành *": "Kode pesanan garansi *",
+  "Mã đơn bảo hành không đúng dạng (DH-000123 hoặc DH-000123-1)": "Kode pesanan garansi tidak valid (DH-000123 atau DH-000123-1)",
+  "VD: DH-000123-1": "mis. DH-000123-1",
+  "Đơn CÔNG NỢ SỬA CHỮA phải nhập mã đơn bảo hành (DH-000123 hoặc DH-000123-1)": "Pesanan KONSINYASI PERBAIKAN wajib kode pesanan garansi (DH-000123 atau DH-000123-1)",
+  "NV sửa chữa": "Staf perbaikan",
 };
 export default tuDien;

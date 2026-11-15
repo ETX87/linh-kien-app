@@ -22,7 +22,7 @@ import { gsPhuCuaKhuVuc } from "./scopeDatMua";
 import { computeTonKhoChot, TON_KHONG_KIEM } from "./tonKhoCongTy";
 import { computeTonKtvConLai } from "./tonKhoKtv";
 import { computeCongNoChot } from "./congNoKtv";
-import { laTruCongNo, khongTinhCongNo, taiTinhPxkMoCuaKtv, laMuaCongNoDoiTac } from "./pxkRecalculate";
+import { laTruCongNo, khongTinhCongNo, taiTinhPxkMoCuaKtv, laMuaCongNoDoiTac, laCongNoSuaChua } from "./pxkRecalculate";
 import { docCongNoDoiTac } from "./congNoDoiTac";
 import { nextSequentialId } from "./idCounter";
 import { bundleAutoApprovedIntoPxk } from "./pxkAutoBundle";
@@ -63,7 +63,8 @@ export function laDonPhatSinhTien(loaiDon: string, loaiDeXuat: string): boolean 
 
 // Don can doi chieu TRAN CONG NO (cong no / ho tro thuc su): khong tinh TRỪ CÔNG NỢ (doi chieu ton KTV) va TG12 (KH tra gop).
 export function canDoiChieuCongNo(loaiDon: string, loaiDeXuat: string): boolean {
-  return loaiDon === "cong_no" && !laTruCongNo(loaiDeXuat) && !khongTinhCongNo(loaiDeXuat); // + HỖ TRỢ 0 ĐỒNG (2026-10-15)
+  // + HỖ TRỢ 0 ĐỒNG (2026-10-15); + CÔNG NỢ SỬA CHỮA (v1.495 - NV sua chua khong xet tran, cong no van ghi nhan)
+  return loaiDon === "cong_no" && !laTruCongNo(loaiDeXuat) && !khongTinhCongNo(loaiDeXuat) && !laCongNoSuaChua(loaiDeXuat);
 }
 
 // Khu vuc DU KIEN cua don sap tao - BAN SAO chuoi trigger trg_ddh_khu_vuc_i (migration 0055): KTV nhan -> khu vuc dat hang nguoi
@@ -159,6 +160,8 @@ export interface KetQuaDong {
   // Linh kien nhom B2B (linh_kien.nhom_lk = 'b2b') - BO QUA duyet tran cong no KTV (chot 2026-10-27, "linh kiện b2b bỏ việc duyệt trần
   // công nợ (log ghi rõ lý do)") - ghi ly do vao log khoi tao.
   boQuaTranB2b?: boolean;
+  // CÔNG NỢ SỬA CHỮA (v1.495) - khong xet tran cong no (ghi ro ly do o log khoi tao).
+  boQuaTranSuaChua?: boolean;
   // KTV nhan hang "Khong co tran cong no" (migration 0117) - ghi ly do vao log khoi tao.
   boQuaTranKtv?: boolean;
 }
@@ -247,6 +250,7 @@ export async function danhGiaPhieu(db: D1Database, ctx: NguCanhNhan, dongs: Dong
       kq.danhGiaCongNo = canDoiChieuCongNo(loaiDon, lde) && !ctx.laGs && !ctx.khongTran && !laB2b.has(ma) ? danhGiaCongNo : null;
       if (canDoiChieuCongNo(loaiDon, lde) && !ctx.laGs && !ctx.khongTran && laB2b.has(ma)) kq.boQuaTranB2b = true;
       if (canDoiChieuCongNo(loaiDon, lde) && !ctx.laGs && ctx.khongTran) kq.boQuaTranKtv = true;
+      if (laCongNoSuaChua(lde)) kq.boQuaTranSuaChua = true;
     }
 
     // ---- Cac truong hop KHONG cho tao ----

@@ -58,6 +58,7 @@ const LUONG_DAT_HANG: Luong = {
       moTa: "Chọn người nhận hàng, mã linh kiện (hoặc combo), loại đề xuất, SL, chính sách, Mã YCSC / Mã Lada, yêu cầu hóa đơn. Form kiểm tra trước từng dòng (POST /phieu-dat/kiem-tra) và hiện ngay kết quả dự kiến.",
       dieuKien: [
         "Vệ tinh KHÔNG tạo đơn (Trạm đặt thay).",
+        "CÔNG NỢ SỬA CHỮA: chỉ cho tài khoản có cờ “NV sửa chữa” (NV tự đặt, TN / GS / Admin đặt hộ); mỗi dòng bắt buộc Mã đơn bảo hành (DH-000123 / DH-000123-1, app Bảo hành đổi trả); chưa hỗ trợ Import Excel.",
         "Người nhận là KTV phải có Mã MISA (KTV_CHUA_CO_MA_MISA), tài khoản không bị tắt (NGUOI_NHAN_HANG_DA_TAT).",
         "Loại đề xuất chứa “HỖ TRỢ” bắt buộc Mã YCSC (hoặc Mã Lada với công nợ/HỖ TRỢ).",
         "SL ≤ 10.000/dòng, giá chốt ≤ 1 tỷ, tiền công nợ ≤ 10 tỷ; tối đa 300 dòng/lần.",
@@ -101,7 +102,7 @@ const LUONG_DAT_HANG: Luong = {
       ai: "Hệ thống",
       moTa: "Chỉ đơn công nợ thật: công nợ chốt + tiền công nợ của các dòng > trần công nợ của KTV thì cần GS duyệt.",
       dieuKien: [
-        "Không xét: TRỪ CÔNG NỢ, KH trả góp TG12, HỖ TRỢ 0 ĐỒNG, LK nhóm B2B, người nhận là Giám sát.",
+        "Không xét: TRỪ CÔNG NỢ, KH trả góp TG12, HỖ TRỢ 0 ĐỒNG, CÔNG NỢ SỬA CHỮA, LK nhóm B2B, người nhận là Giám sát.",
         "Công nợ chốt = thực tế (file MISA, trừ SL “Công nợ 0 đồng”) + phát sinh − đã trừ.",
         "Công nợ đối tác: cộng dồn theo đối tác, vượt “Công nợ tối đa” cũng vào Chờ GS.",
       ],

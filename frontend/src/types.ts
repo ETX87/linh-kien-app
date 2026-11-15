@@ -255,6 +255,7 @@ export interface UserRow {
   la_tp_dvbh: number;
   la_view: number;
   la_mua_hang: number;
+  la_nv_sua_chua?: number;
   quan_ly_danh_muc_lk: number;
   xem_danh_muc_lk: number;
   tram_cha: string | null;

@@ -19,6 +19,7 @@ export interface AppUser {
   la_tp_dvbh: boolean;
   la_view: boolean;
   la_mua_hang: boolean;
+  la_nv_sua_chua?: boolean; // "NV sửa chữa" (v1.495) - thay loai CÔNG NỢ SỬA CHỮA
   quan_ly_danh_muc_lk: boolean;
   xem_danh_muc_lk: boolean;
   tram_cha: string | null;

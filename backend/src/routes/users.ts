@@ -144,6 +144,7 @@ users.patch("/:email", async (c) => {
     la_tp_dvbh?: boolean;
     la_view?: boolean;
     la_mua_hang?: boolean;
+    la_nv_sua_chua?: boolean;
     quan_ly_danh_muc_lk?: boolean;
     xem_danh_muc_lk?: boolean;
     ma_misa?: string | null;
@@ -180,6 +181,7 @@ users.patch("/:email", async (c) => {
     la_tp_dvbh: body.la_tp_dvbh !== undefined ? (body.la_tp_dvbh ? 1 : 0) : existing.la_tp_dvbh,
     la_view: body.la_view !== undefined ? (body.la_view ? 1 : 0) : existing.la_view,
     la_mua_hang: body.la_mua_hang !== undefined ? (body.la_mua_hang ? 1 : 0) : existing.la_mua_hang,
+    la_nv_sua_chua: body.la_nv_sua_chua !== undefined ? (body.la_nv_sua_chua ? 1 : 0) : existing.la_nv_sua_chua,
     quan_ly_danh_muc_lk: body.quan_ly_danh_muc_lk !== undefined ? (body.quan_ly_danh_muc_lk ? 1 : 0) : existing.quan_ly_danh_muc_lk,
     xem_danh_muc_lk: body.xem_danh_muc_lk !== undefined ? (body.xem_danh_muc_lk ? 1 : 0) : existing.xem_danh_muc_lk,
     // Ma/Ten MISA (2026-10-19, gop ve 1 nguon): CHI con o ma KTV (ktv_lien_he) - form tai khoan khong sua nua, bo qua body.
@@ -191,7 +193,7 @@ users.patch("/:email", async (c) => {
   };
 
   await c.env.DB.prepare(
-    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, bi_khoa = ?, la_ktv_dvbh = ?, la_ve_tinh = ?, la_kho = ?, la_ke_toan = ?, la_tac_nghiep = ?, la_tp_dvbh = ?, la_view = ?, la_mua_hang = ?, quan_ly_danh_muc_lk = ?, xem_danh_muc_lk = ?, ma_misa = ?, ten_misa = ?, khu_vuc_dat_hang = ?, kho_nhom_lk = ?, updated_at = ?, quyen_sua_boi = ? WHERE email = ?",
+    "UPDATE users SET trang_thai_duyet = ?, vai_tro = ?, bi_khoa = ?, la_ktv_dvbh = ?, la_ve_tinh = ?, la_kho = ?, la_ke_toan = ?, la_tac_nghiep = ?, la_tp_dvbh = ?, la_view = ?, la_mua_hang = ?, la_nv_sua_chua = ?, quan_ly_danh_muc_lk = ?, xem_danh_muc_lk = ?, ma_misa = ?, ten_misa = ?, khu_vuc_dat_hang = ?, kho_nhom_lk = ?, updated_at = ?, quyen_sua_boi = ? WHERE email = ?",
   )
     .bind(
       next.trang_thai_duyet,
@@ -205,6 +207,7 @@ users.patch("/:email", async (c) => {
       next.la_tp_dvbh,
       next.la_view,
       next.la_mua_hang,
+      next.la_nv_sua_chua,
       next.quan_ly_danh_muc_lk,
       next.xem_danh_muc_lk,
       next.ma_misa,

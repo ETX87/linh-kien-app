@@ -75,7 +75,7 @@ export async function clearLdeCache(): Promise<void> {
 
 // Loc options phu hop voi user hien tai dua tren vai_tro_json cua moi nhom.
 export function getOptionsForUser(
-  user: { la_ktv_dvbh?: boolean; la_ve_tinh?: boolean; la_tac_nghiep?: boolean; vai_tro?: string | null } | null,
+  user: { la_ktv_dvbh?: boolean; la_ve_tinh?: boolean; la_tac_nghiep?: boolean; la_nv_sua_chua?: boolean; vai_tro?: string | null } | null,
   entries: LdeEntry[],
 ): string[] {
   const active = entries.filter((e) => e.bat_tat);
@@ -96,6 +96,8 @@ export function getOptionsForUser(
     // khong co checkbox nao de gan cho TN (xem VAI_TRO_TOKENS o SettingsModule.tsx) - dan toi MOI
     // nhom du duoc dat ten "co TN" van khong bao gio khop duoc voi TN, luon ra danh sach rong.
     if (user?.la_tac_nghiep) userFlags.add("la_tac_nghiep");
+    // NV sua chua van phong (v1.495) - nhom loai de xuat "NV sửa chữa" (CÔNG NỢ SỬA CHỮA).
+    if (user?.la_nv_sua_chua) userFlags.add("la_nv_sua_chua");
     if (user?.vai_tro) userFlags.add(`vai_tro:${user.vai_tro}`);
 
     const matchedNhomIds = new Set(

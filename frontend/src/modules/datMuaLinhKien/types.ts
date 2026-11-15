@@ -175,6 +175,7 @@ export interface DonHangRow {
   // Don sinh tu combo (migration 0066) - nhan hien thi.
   combo_ma?: string | null;
   doi_tac_ma?: string | null; // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403) - Ma MISA doi tac ghi no
+  bh_don_vi_id?: string | null; // CÔNG NỢ SỬA CHỮA (v1.495) - ma don bao hanh app Bao hanh doi tra
   loai_de_xuat: string | null;
   so_luong_de_xuat: number;
   so_luong_thuc_xuat: number | null;
@@ -595,6 +596,8 @@ export interface DonHangDraft {
   doi_tac_ma: string;
   // Doi tac do form tu dien theo nguoi nhan hang (v1.406) - chon tay = false, doi nguoi nhan hang khong ghi de dong chon tay.
   doi_tac_tu_dong?: boolean;
+  // CÔNG NỢ SỬA CHỮA (v1.495): ma don bao hanh (DH-000123 / DH-000123-1) - bat buoc voi loai nay.
+  bh_don_vi_id?: string;
   // "Khách hàng đã chuyển khoản về công ty" (migration 0111) - chi khi da chon 1 hinh thuc xuat hoa don (KhChuyenKhoan.tsx).
   kh_chuyen_khoan?: boolean;
 }

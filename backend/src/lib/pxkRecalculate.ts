@@ -64,6 +64,17 @@ export function laTruCongNo(loaiDeXuat: string | null | undefined): boolean {
 // MUA HÀNG CÔNG NỢ ĐỐI TÁC (chot 2026-10-26, v1.403, migration 0099): don MUA (loai_don 'mua') ghi no cho 1 doi tac (dat_don_hang.doi_tac_ma)
 // - gia niem yet, vao phieu RIENG khong can chuyen tien, cong vao so cong no doi tac (lib/congNoDoiTac.ts). Ten chua "CÔNG NỢ" nen MOI cho
 // nhan dien "cong no" bang chuoi phai loai tru loai nay (deriveLoaiDon, canNoRequired, laXuatMayDoiBaoHanh...). Ban sao FE: helpers.ts.
+// CÔNG NỢ SỬA CHỮA (v1.495, migration 0119): NV sua chua van phong dat linh kien ky gui de sua san pham bao hanh - don cong no, BAT
+// BUOC gan don bao hanh (bh_don_vi_id), KHONG xet tran cong no. Ban sao FE: helpers.ts laCongNoSuaChua.
+export function laCongNoSuaChua(loaiDeXuat: string | null | undefined): boolean {
+  return (loaiDeXuat ?? "").normalize("NFC").toUpperCase().includes("CÔNG NỢ SỬA CHỮA");
+}
+// Ma don bao hanh app Bao hanh doi tra: don cha "DH-000123" hoac don vi con "DH-000123-1". Tra ve dang chuan (HOA) hoac null.
+export function chuanMaDonBh(v: string | null | undefined): string | null {
+  const s = (v ?? "").trim().toUpperCase();
+  return /^DH-\d{6}(-\d{1,3})?$/.test(s) ? s : null;
+}
+
 export function laMuaCongNoDoiTac(loaiDeXuat: string | null | undefined): boolean {
   return (loaiDeXuat ?? "").normalize("NFC").toUpperCase().includes("CÔNG NỢ ĐỐI TÁC");
 }

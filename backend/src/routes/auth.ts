@@ -311,7 +311,7 @@ auth.get("/view-as-user/options", verifySessionMiddleware, loadUser, async (c) =
   const ten = tenNguoiSql("tk.email"); // alias "tk": tenNguoiSql ben trong da dung alias u/k
   const { results } = await c.env.DB.prepare(
     `SELECT tk.email, ${ten} as ten, tk.vai_tro, tk.la_ktv_dvbh, tk.la_ve_tinh, tk.la_kho, tk.la_ke_toan, tk.la_tac_nghiep,
-            tk.la_tp_dvbh, tk.la_view, tk.la_mua_hang
+            tk.la_tp_dvbh, tk.la_view, tk.la_mua_hang, tk.la_nv_sua_chua
      FROM users tk
      WHERE tk.trang_thai_duyet = 'Da duyet' AND COALESCE(tk.bi_khoa, 0) = 0 AND tk.email != ?
        AND NOT EXISTS (SELECT 1 FROM khach_le kl WHERE kl.email = tk.email) -- KH le (0074) khong phai nguoi dung

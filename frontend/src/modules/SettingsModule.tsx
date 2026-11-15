@@ -296,6 +296,7 @@ const VAI_TRO_TOKENS = [
   { value: "la_ktv_dvbh", label: "KTV / CTV / Trạm" },
   { value: "la_ve_tinh", label: "Vệ tinh" },
   { value: "la_tac_nghiep", label: "Tác nghiệp" },
+  { value: "la_nv_sua_chua", label: "NV sửa chữa" },
   { value: "vai_tro:QC", label: "QC" },
   { value: "vai_tro:Giam sat", label: "Giám sát" },
 ];

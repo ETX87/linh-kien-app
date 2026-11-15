@@ -2900,5 +2900,15 @@ const tuDien: Record<string, string> = {
   "✓ Dòng này đã đủ thông tin bắt buộc": "✓ This line has all required info",
   "✓ Không có cảnh báo": "✓ No warnings",
   "Chờ gửi kế toán": "Awaiting send to accounting",
+  "Không đổi được loại đề xuất giữa đơn công nợ sửa chữa và loại khác — hủy đơn rồi đặt lại": "Cannot switch the request type between a repair consignment order and other types — cancel and reorder",
+  "Loại CÔNG NỢ SỬA CHỮA chỉ đặt cho tài khoản NV sửa chữa (Admin bật cờ “NV sửa chữa” ở Quản lý người dùng)": "The REPAIR CONSIGNMENT type is only for repair-staff accounts (Admin enables “Repair staff” in User management)",
+  "Mã không đúng dạng — nhập mã đơn trên app Bảo hành đổi trả, dạng DH-000123 hoặc DH-000123-1": "Invalid code — enter the order code from the Warranty app, e.g. DH-000123 or DH-000123-1",
+  "Mã đơn bảo hành": "Warranty order code",
+  "Mã đơn bảo hành (app Bảo hành đổi trả) đang sửa cần linh kiện này — dùng để đối trừ công nợ khi linh kiện đã thay thế.": "Warranty order (Warranty app) being repaired that needs this part — used to offset the debt once the part is replaced.",
+  "Mã đơn bảo hành *": "Warranty order code *",
+  "Mã đơn bảo hành không đúng dạng (DH-000123 hoặc DH-000123-1)": "Invalid warranty order code (DH-000123 or DH-000123-1)",
+  "VD: DH-000123-1": "e.g. DH-000123-1",
+  "Đơn CÔNG NỢ SỬA CHỮA phải nhập mã đơn bảo hành (DH-000123 hoặc DH-000123-1)": "REPAIR CONSIGNMENT orders need a warranty order code (DH-000123 or DH-000123-1)",
+  "NV sửa chữa": "Repair staff",
 };
 export default tuDien;

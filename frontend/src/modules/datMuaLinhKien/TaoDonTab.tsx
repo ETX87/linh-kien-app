@@ -297,6 +297,9 @@ export function TaoDonTab({
                       )}
                     </div>
                   </div>
+                  <div className="empty:hidden mt-3">
+                    <MaDonBhInput id="tdo-bh" d={d} onChange={(v) => updateDraft(idx, { bh_don_vi_id: v })} />
+                  </div>
                   <div id="tdo-doitac" className="empty:hidden mt-3">
                     <DoiTacCongNoChon form={form} d={d} idx={idx} reqLabelClass={reqLabelClass} />
                   </div>
@@ -436,7 +439,7 @@ export function TaoDonTab({
                           </td>
                           <td className="px-3 py-2 max-w-[200px] truncate">{x.loai_de_xuat || "—"}</td>
                           <td className="px-3 py-2 text-right font-mono">{x.so_luong_de_xuat}</td>
-                          <td className="px-3 py-2 font-mono">{x.ma_yeu_cau_su_co.trim() || x.ma_lada.trim() || "—"}</td>
+                          <td className="px-3 py-2 font-mono">{x.ma_yeu_cau_su_co.trim() || x.ma_lada.trim() || x.bh_don_vi_id?.trim() || "—"}</td>
                           <td className="px-3 py-2 text-right">{giaX != null ? <Money>{fmtVND(giaX)}</Money> : "—"}</td>
                           <td className="px-3 py-2">
                             {thieu.length ? (
@@ -564,6 +567,7 @@ function yeuCauDong(x: DonHangDraft): { id: string; nhan: string; xong: boolean 
     { id: "tdo-lde", nhan: dichSau("Loại đề xuất"), xong: !!x.loai_de_xuat.trim() },
   ];
   if (laMuaCongNoDoiTac(x.loai_de_xuat)) ds.push({ id: "tdo-doitac", nhan: dichSau("Đối tác công nợ"), xong: !!x.doi_tac_ma });
+  if (laCongNoSuaChua(x.loai_de_xuat)) ds.push({ id: "tdo-bh", nhan: dichSau("Mã đơn bảo hành"), xong: !!chuanMaDonBh(x.bh_don_vi_id) });
   if (canNoRequired(x.loai_de_xuat)) ds.push({ id: "tdo-cs", nhan: dichSau("Chính sách"), xong: !!x.chinh_sach.trim() });
   if (maYcscRequired(x.loai_de_xuat)) ds.push({ id: "tdo-ycsc", nhan: dichSau("Mã YCSC hoặc Mã Lada"), xong: coMaIdLienQuan(x.ma_yeu_cau_su_co, x.ma_lada) });
   if (deriveLoaiDon(x.loai_de_xuat) === "tra_hang") ds.push({ id: "tdo-anh", nhan: dichSau("Ảnh linh kiện cần trả (1–3)"), xong: x.anh.length >= 1 && x.anh.length <= 3 });
@@ -656,7 +660,8 @@ function ImportDonExcel() {
 // canNoRequired/maYcscRequired duoc dung lai o day (import truc tiep, khong qua form) vi la ham thuan
 // tuy (khong dinh state) - chi import 1 lan o dau file, khong lap trong useTaoDonForm.ts (ham do da
 // import rieng cho chinh no dung trong isLineComplete).
-import { canNoRequired, maYcscRequired, coMaIdLienQuan, laMuaCongNoDoiTac } from "./helpers";
+import { canNoRequired, maYcscRequired, coMaIdLienQuan, laMuaCongNoDoiTac, laCongNoSuaChua, chuanMaDonBh } from "./helpers";
+import { MaDonBhInput } from "./CongNoSuaChua";
 import { Money } from "../../components/ui/Money";
 import { TongNgayKtvInfo, CanhBaoChuaCoGiaKtv } from "./TongNgayKtv";
 import { t, dichSau } from "../../i18n";

@@ -21,6 +21,7 @@ interface TaiKhoan {
   la_tp_dvbh: number;
   la_view: number;
   la_mua_hang: number;
+  la_nv_sua_chua?: number;
 }
 
 const CO_VAI_TRO: [keyof TaiKhoan, string][] = [
@@ -31,6 +32,7 @@ const CO_VAI_TRO: [keyof TaiKhoan, string][] = [
   ["la_ke_toan", "Kế toán"],
   ["la_tp_dvbh", "TP DVBH"],
   ["la_mua_hang", "Mua hàng"],
+  ["la_nv_sua_chua", "NV sửa chữa"],
   ["la_view", "View"],
 ];
 

@@ -36,6 +36,7 @@ const ROLE_FLAGS: { key: keyof UserRow; label: string }[] = [
   { key: "la_tp_dvbh", label: "TP DVBH" },
   { key: "la_view", label: "View" },
   { key: "la_mua_hang", label: "Mua hàng" },
+  { key: "la_nv_sua_chua", label: "NV sửa chữa" },
 ];
 
 // Nhan hien thi co dau cho users.trang_thai_duyet (gia tri DB khong dau) - truoc day in tho "Da duyet".
@@ -356,6 +357,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
     la_tp_dvbh: !!user.la_tp_dvbh,
     la_view: !!user.la_view,
     la_mua_hang: !!user.la_mua_hang,
+    la_nv_sua_chua: !!user.la_nv_sua_chua,
     quan_ly_danh_muc_lk: !!user.quan_ly_danh_muc_lk,
     xem_danh_muc_lk: !!user.xem_danh_muc_lk,
     khu_vuc_dat_hang: user.khu_vuc_dat_hang ?? "",
@@ -376,6 +378,7 @@ function EditUserModal({ user, onClose, onSaved }: { user: UserRow; onClose: () 
         la_tp_dvbh: form.la_tp_dvbh,
         la_view: form.la_view,
         la_mua_hang: form.la_mua_hang,
+        la_nv_sua_chua: form.la_nv_sua_chua,
         quan_ly_danh_muc_lk: form.quan_ly_danh_muc_lk,
         xem_danh_muc_lk: form.xem_danh_muc_lk,
         // KTV/Ve tinh: khu vuc lay tu danh ba KTV -> khong gui (giu nguyen).
@@ -2507,7 +2510,7 @@ function MaKtvCell({ row, onSave }: { row: EtxNhanSuRow; onSave: (maKtv: string 
 // Lich su thay doi quyen / khoa / duyet / Gmail phu (migration 0110, ra soat bao mat 2026-11-09) - xo xuong, tai luc mo.
 const NHAN_QUYEN: Record<string, string> = {
   vai_tro: "Vai trò", trang_thai_duyet: "Duyệt", bi_khoa: "Khoá", la_ktv_dvbh: "KTV DVBH", la_ve_tinh: "Vệ tinh", la_kho: "Kho",
-  la_ke_toan: "Kế toán", la_tac_nghiep: "Tác nghiệp", la_tp_dvbh: "TBP", la_view: "View", la_mua_hang: "Mua hàng",
+  la_ke_toan: "Kế toán", la_tac_nghiep: "Tác nghiệp", la_tp_dvbh: "TBP", la_view: "View", la_mua_hang: "Mua hàng", la_nv_sua_chua: "NV sửa chữa",
   quan_ly_danh_muc_lk: "Quản lý danh mục LK", xem_danh_muc_lk: "Xem danh mục LK", gmail_phu: "Gmail phụ",
 };
 const HANH_DONG_QUYEN: Record<string, string> = { sua: "Sửa quyền", tao: "Tạo tài khoản", them_gmail_phu: "Thêm Gmail phụ", go_gmail_phu: "Gỡ Gmail phụ" };

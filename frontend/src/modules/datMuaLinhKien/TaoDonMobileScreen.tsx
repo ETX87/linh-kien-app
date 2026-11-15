@@ -16,6 +16,7 @@ import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal } from "./DuDoan
 import { GoiYThayTheThieuHang } from "./GoiYThayTheThieuHang";
 import { TonMienKhacHint } from "./TonMienKhac";
 import { DoiTacCongNoChon } from "./DoiTacCongNoChon";
+import { MaDonBhInput } from "./CongNoSuaChua";
 import { TraHangAnhPicker, NhapKhoiPhucBanner } from "./SharedUi";
 import type { TaoDonForm } from "./useTaoDonForm";
 import { Money } from "../../components/ui/Money";
@@ -259,6 +260,7 @@ export function TaoDonMobileScreen({
         </div>
 
         <DoiTacCongNoChon form={form} d={d} idx={activeIdx} reqLabelClass={reqLabelClass} />
+        <MaDonBhInput d={d} cao="h-11" onChange={(v) => updateDraft(activeIdx, { bh_don_vi_id: v })} />
 
         {/* So luong - nut +/- 44px (diem #4), rieng cho man hinh nay. */}
         <div>

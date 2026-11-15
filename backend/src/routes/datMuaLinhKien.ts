@@ -33,7 +33,7 @@ import { computeMocDuPhongHienTai } from "../lib/duPhongKtv";
 import { computeTonKhoChot, donChoHangDuTonKho, getMocTonKhoCongTy } from "../lib/tonKhoCongTy";
 import { tachDonChoHang } from "../lib/tachDon";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
-import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon, laKhTraGop, khongTinhCongNo, laMuaCongNoDoiTac } from "../lib/pxkRecalculate";
+import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon, laKhTraGop, khongTinhCongNo, laMuaCongNoDoiTac, laCongNoSuaChua, chuanMaDonBh } from "../lib/pxkRecalculate";
 import { duocChonMoiDoiTac, maMisaCuaEmail } from "../lib/congNoDoiTac";
 import { computeTonKtvConLai } from "../lib/tonKhoKtv";
 import { type CotLoc, docLocCot, sqlLocCot, sqlSapXep, tenNguoiSql, giaTriCot } from "../lib/locCot";
@@ -185,7 +185,8 @@ function canQuanLyDonHo(c: Context<{ Bindings: Env }>): boolean {
 // da co ban sao, day la nguon that cho backend) - xem POST /phieu-dat va processDatDonHangImportRows.
 function canNoRequired(loaiDeXuat: string): boolean {
   // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403) la don MUA - khong bat Chinh sach / Ma YCSC.
-  return loaiDeXuat.includes("CÔNG NỢ") && !loaiDeXuat.includes("TRẢ HÀNG") && !laMuaCongNoDoiTac(loaiDeXuat);
+  // CÔNG NỢ SỬA CHỮA (v1.495): thay Chinh sach + Ma YCSC bang MA DON BAO HANH bat buoc (xem chuanBiPhieuDat).
+  return loaiDeXuat.includes("CÔNG NỢ") && !loaiDeXuat.includes("TRẢ HÀNG") && !laMuaCongNoDoiTac(loaiDeXuat) && !laCongNoSuaChua(loaiDeXuat);
 }
 
 // Them 2026-09-09 (phan hoi "loại đề xuất MUA HÀNG CÓ ID bắt buộc Mã YCSC liên quan") - RIENG voi
@@ -203,7 +204,7 @@ function maYcscRequired(loaiDeXuat: string): boolean {
 // Chinh sach mac dinh (chot 2026-10-08): don "TRỪ CÔNG NỢ" bo trong -> "Trong CSBH" (tao tay + import Excel). Ban sao FE:
 // chinhSachMacDinh() helpers.ts.
 function chinhSachMacDinh(loaiDeXuat: string | null | undefined): string | null {
-  return laTruCongNo(loaiDeXuat) ? "Trong CSBH" : null;
+  return laTruCongNo(loaiDeXuat) || laCongNoSuaChua(loaiDeXuat) ? "Trong CSBH" : null;
 }
 
 // Ma ID lien quan (2026-09-30): noi nao "bat buoc Mã YCSC" thi chi can 1 trong 2 - Mã YCSC (case DVBH) HOAC
@@ -2273,6 +2274,8 @@ export interface PhieuDatBody {
     // "Khách hàng đã chuyển khoản về công ty" (migration 0111) - CHI khi da chon 1 hinh thuc xuat hoa don; tien Ke toan xac nhan vao
     // "Quỹ xuất hóa đơn do KH chuyển" cua nguoi nhan hang (khong vao quy du KTV), don chi tieu tien trong quy do.
     kh_chuyen_khoan?: boolean;
+    // CÔNG NỢ SỬA CHỮA (v1.495): ma don bao hanh app Bao hanh doi tra ("DH-000123" / "DH-000123-1") - BAT BUOC voi loai nay.
+    bh_don_vi_id?: string;
   }[];
 }
 
@@ -2371,6 +2374,22 @@ async function chuanBiPhieuDat(
   } else {
     for (const dh of body.don_hang) dh.doi_tac_ma = undefined;
   }
+  // CÔNG NỢ SỬA CHỮA (chot 2026-11-16, v1.495): CHI dat cho nguoi nhan la "NV sửa chữa" (users.la_nv_sua_chua) - NV tu dat cho minh, TN /
+  // GS / Admin dat ho. Moi dong BAT BUOC ma don bao hanh (de giai doan sau tu tru cong no theo xu ly xac). Dong loai khac -> bo ma.
+  if (body.don_hang.some((dh) => laCongNoSuaChua(dh.loai_de_xuat))) {
+    const nv = await c.env.DB.prepare("SELECT la_nv_sua_chua FROM users WHERE email = ?").bind(nguoiNhanHang).first<{ la_nv_sua_chua: number }>();
+    if (!nv?.la_nv_sua_chua) return { error: "NGUOI_NHAN_KHONG_PHAI_NV_SUA_CHUA", status: 403 };
+  }
+  for (const dh of body.don_hang) {
+    if (!laCongNoSuaChua(dh.loai_de_xuat)) {
+      dh.bh_don_vi_id = undefined;
+      continue;
+    }
+    const ma = chuanMaDonBh(dh.bh_don_vi_id);
+    if (ma) dh.bh_don_vi_id = ma;
+    else if (kiemTraThongTin) return { error: dh.bh_don_vi_id?.trim() ? "MA_DON_BH_KHONG_HOP_LE" : "THIEU_MA_DON_BH", status: 400, extra: { ma_lk: dh.ma_lk } };
+    else dh.bh_don_vi_id = undefined;
+  }
   const recipientRow = await c.env.DB.prepare("SELECT giam_sat_quan_ly FROM users WHERE email = ?")
     .bind(nguoiNhanHang)
     .first<{ giam_sat_quan_ly: string | null }>();
@@ -2429,7 +2448,9 @@ async function chuanBiPhieuDat(
 function ghiChuKhoiTao(kq: KetQuaDong, soLuong: number, phieu: KetQuaPhieu): string | null {
   const goc = ghiChuKhoiTaoGoc(kq, soLuong, phieu);
   // LK B2B (2026-10-27): ghi ro ly do khong xet tran cong no.
-  const them = kq.boQuaTranB2b ? "Linh kiện B2B — bỏ qua duyệt trần công nợ" : kq.boQuaTranKtv ? "KTV không có trần công nợ — bỏ qua duyệt trần" : "";
+  const them = kq.boQuaTranSuaChua
+    ? "Công nợ sửa chữa — không xét trần công nợ"
+    : kq.boQuaTranB2b ? "Linh kiện B2B — bỏ qua duyệt trần công nợ" : kq.boQuaTranKtv ? "KTV không có trần công nợ — bỏ qua duyệt trần" : "";
   if (!them) return goc;
   return goc ? `${goc} | ${them}` : them;
 }
@@ -2665,15 +2686,15 @@ export async function taoPhieuDat(c: Context<{ Bindings: Env }>, bodyGoc: PhieuD
            (id, phieu_dat_id, loai_don, ma_lk, ten_lk_snapshot, loai_de_xuat, so_luong_de_xuat, gia_de_xuat,
             so_tien_cong_no, danh_gia_cong_no, ghi_chu, yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang, chinh_sach, ma_yeu_cau_su_co, ma_lada,
             nguoi_tao, ngay_tao, updated_at, email_gs, nguoi_nhan_hang, uu_tien, trang_thai_hien_tai, bat_buoc_chuyen_tien, combo_ma, doi_tac_ma,
-            kh_chuyen_khoan)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            kh_chuyen_khoan, bh_don_vi_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         donHangId, phieuDatId, loai_don, dh.ma_lk.trim(), lk.ten_lk, lde, dh.so_luong_de_xuat, lk.gia_ban,
         kqDong.soTienCongNo, kqDong.danhGiaCongNo,
         dh.ghi_chu?.trim() || null, dh.yeu_cau_hoa_don?.trim() || null, dh.tt_mail_duyet?.trim() || null, dh.tt_khach_hang?.trim() || null,
         dh.chinh_sach?.trim() || chinhSachMacDinh(lde), dh.ma_yeu_cau_su_co?.trim() || null, dh.ma_lada?.trim().toUpperCase() || null,
         user.email, now, now, kq.emailGs, nguoiNhanHang, dh.uu_tien ? 1 : 0, trangThaiKhoiTao, kqDong.batBuocChuyenTien ? 1 : 0,
-        comboMaCuaDong[i] ?? null, dh.doi_tac_ma ?? null, dh.kh_chuyen_khoan ? 1 : 0,
+        comboMaCuaDong[i] ?? null, dh.doi_tac_ma ?? null, dh.kh_chuyen_khoan ? 1 : 0, dh.bh_don_vi_id ?? null,
       ),
     );
     if (loai_don !== "tra_hang") {
@@ -2906,6 +2927,11 @@ async function processDatDonHangImportRows(
     // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): can chon doi tac + canh bao kha dung -> chi tao tren form, chua ho tro import.
     if (laMuaCongNoDoiTac(loaiDeXuat)) {
       errors.push(`Dòng ${dong}: đơn "${loaiDeXuat}" chưa hỗ trợ import — tạo trên form đặt hàng (chọn đối tác)`);
+      continue;
+    }
+    // CÔNG NỢ SỬA CHỮA (v1.495): can ma don bao hanh tung dong -> chi tao tren form.
+    if (laCongNoSuaChua(loaiDeXuat)) {
+      errors.push(`Dòng ${dong}: đơn "${loaiDeXuat}" chưa hỗ trợ import — tạo trên form đặt hàng (nhập mã đơn bảo hành)`);
       continue;
     }
     if (!soLuong || soLuong <= 0 || !Number.isInteger(soLuong) || soLuong > SL_TOI_DA) {
@@ -4644,6 +4670,7 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
     const nextLde = !daCoPxk && body.loai_de_xuat !== undefined ? body.loai_de_xuat.trim() : (existing.loai_de_xuat ?? "");
     // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): don gan voi 1 doi tac + phieu rieng -> khong doi qua lai voi loai khac (huy, dat lai).
     if (laMuaCongNoDoiTac(nextLde) !== laMuaCongNoDoiTac(existing.loai_de_xuat ?? "")) return c.json({ error: "DOI_LOAI_CONG_NO_DOI_TAC" }, 409);
+    if (laCongNoSuaChua(nextLde) !== laCongNoSuaChua(existing.loai_de_xuat ?? "")) return c.json({ error: "DOI_LOAI_CONG_NO_SUA_CHUA" }, 409);
     const nextChinhSach = body.chinh_sach !== undefined ? body.chinh_sach?.trim() || null : existing.chinh_sach;
     const nextMaYeuCauSuCo = body.ma_yeu_cau_su_co !== undefined ? body.ma_yeu_cau_su_co?.trim() || null : existing.ma_yeu_cau_su_co;
     const nextMaLada = body.ma_lada !== undefined ? body.ma_lada?.trim().toUpperCase() || null : existing.ma_lada;

@@ -418,6 +418,7 @@ export function DonHangDetailModal({
         ma_lada: d.ma_lada ?? "",
         uu_tien: !!d.uu_tien,
         doi_tac_ma: d.doi_tac_ma ?? "",
+        bh_don_vi_id: d.bh_don_vi_id ?? "",
         doi_tac_tu_dong: false,
       },
     });
@@ -1625,6 +1626,8 @@ export function DonHangDetailModal({
                   <MaYcscCell value={d.ma_yeu_cau_su_co} canXemChiTietCa={canXemChiTietCa} openCase={openCase} />
                 </KvRow>
                 {d.ma_lada && <KvRow label={t("Mã Lada")}><span className="font-mono">{d.ma_lada}</span></KvRow>}
+                {/* CÔNG NỢ SỬA CHỮA (v1.495): don bao hanh (app Bao hanh doi tra) dung linh kien nay. */}
+                {d.bh_don_vi_id && <KvRow label={t("Đơn bảo hành")}><span className="font-mono">{d.bh_don_vi_id}</span></KvRow>}
                 {/* The thong tin don Lada (2026-10-20, "ID lada đang không hiện UI thông tin case") - cung the tra cuu
                     nhu luc tao don (MaLadaCheck, GET /kiem-tra-ma-lada, co cache 5 phut phia server). */}
                 {maLadaTraCuu(d) && <div className="pb-1"><MaLadaCheck value={maLadaTraCuu(d)!} /></div>}

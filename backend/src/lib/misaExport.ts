@@ -143,6 +143,7 @@ interface RawLine {
   don_gia: number | null;
   ma_yeu_cau_su_co: string | null;
   ma_lada: string | null;
+  bh_don_vi_id?: string | null; // CÔNG NỢ SỬA CHỮA (v1.495): ma don bao hanh - dung lam MYC khi khong co Ma YCSC / Lada
   ma_ycsc_bo_sung: string | null; // Ma YCSC bo sung (dat_don_case), noi 1 dau cach
   chinh_sach: string | null;
   tt_mail_duyet: string | null;
@@ -327,6 +328,7 @@ function gopLine(l: RawLine, d: RawLine): RawLine {
     ma_yeu_cau_su_co: noiMa(l.ma_yeu_cau_su_co, d.ma_yeu_cau_su_co),
     ma_ycsc_bo_sung: noiMa(l.ma_ycsc_bo_sung, d.ma_ycsc_bo_sung),
     ma_lada: noiMa(l.ma_lada, d.ma_lada),
+    bh_don_vi_id: noiMa(l.bh_don_vi_id ?? null, d.bh_don_vi_id ?? null),
     tt_mail_duyet: noi(l.tt_mail_duyet, d.tt_mail_duyet),
     tt_khach_hang: noi(l.tt_khach_hang, d.tt_khach_hang),
   };
@@ -349,7 +351,7 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
          pxk.ma_xuat_kho as pxk_ma_xuat_kho, pxk.ngay_tao as pxk_ngay_tao, pxk.loai_don as pxk_loai_don,
          ddh.ma_lk, COALESCE(ddh.ten_lk_snapshot, lk.ten_linh_kien) as ten_lk, lk.don_vi,
          ddh.loai_de_xuat, COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) as so_luong,
-         COALESCE(ddh.gia_chot, ddh.gia_de_xuat) as don_gia, ddh.ma_yeu_cau_su_co, ddh.ma_lada, ddh.chinh_sach,
+         COALESCE(ddh.gia_chot, ddh.gia_de_xuat) as don_gia, ddh.ma_yeu_cau_su_co, ddh.ma_lada, ddh.bh_don_vi_id, ddh.chinh_sach,
          (SELECT group_concat(case_id, ' ') FROM dat_don_case WHERE dat_don_hang_id = ddh.id) as ma_ycsc_bo_sung, ddh.tt_mail_duyet, ddh.tt_khach_hang,
          (SELECT loai_file_xuat_misa FROM settings_loai_de_xuat WHERE ten_option = ddh.loai_de_xuat LIMIT 1) as loai_file_xuat_misa,
          -- Ma/ten MISA: CHI tu ma KTV cua nguoi nhan (2026-10-19 gop ve 1 nguon - GS/van phong co "Mã nhận hàng" mang Ma MISA,
@@ -482,7 +484,7 @@ export async function buildMisaExportSheets(env: Env, pxkIds: string[], forceTem
       // hanh (dienGiaiCoDinh) giu cau rieng. Ma MYC: Ma YCSC, khong co thi Ma Lada (don HỖ TRỢ bat buoc 1 trong 2).
       const ldx = line.loai_de_xuat;
       const tenNguoi = tenMisa || line.nguoi_nhan_hang || "";
-      const maMyc = line.ma_yeu_cau_su_co || line.ma_lada;
+      const maMyc = line.ma_yeu_cau_su_co || line.ma_lada || line.bh_don_vi_id;
       const theoMyc = maMyc ? `theo MYC ${maMyc}` : "";
       const hoTro0d = loaiHoTro0Dong(ldx);
       const ttKhachHang = motDong(line.tt_khach_hang);

@@ -134,6 +134,11 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   DOI_TAC_KHONG_HOP_LE: "Đối tác không có trong danh sách công nợ đối tác hoặc đang tắt",
   KHONG_DUOC_DAT_CONG_NO_DOI_TAC: "Bạn không được đặt đơn mua hàng công nợ đối tác (chỉ TN, Kế toán, Giám sát; KTV có Mã MISA trong danh sách đối tác chỉ đặt cho chính mình)",
   DOI_LOAI_CONG_NO_DOI_TAC: "Không đổi được loại đề xuất giữa đơn công nợ đối tác và loại khác — hủy đơn rồi đặt lại",
+  // CÔNG NỢ SỬA CHỮA (v1.495).
+  NGUOI_NHAN_KHONG_PHAI_NV_SUA_CHUA: "Loại CÔNG NỢ SỬA CHỮA chỉ đặt cho tài khoản NV sửa chữa (Admin bật cờ “NV sửa chữa” ở Quản lý người dùng)",
+  THIEU_MA_DON_BH: "Đơn CÔNG NỢ SỬA CHỮA phải nhập mã đơn bảo hành (DH-000123 hoặc DH-000123-1)",
+  MA_DON_BH_KHONG_HOP_LE: "Mã đơn bảo hành không đúng dạng (DH-000123 hoặc DH-000123-1)",
+  DOI_LOAI_CONG_NO_SUA_CHUA: "Không đổi được loại đề xuất giữa đơn công nợ sửa chữa và loại khác — hủy đơn rồi đặt lại",
   DON_DOI_TAC_KHAC_PHIEU: "Đơn công nợ đối tác chỉ vào phiếu riêng của đúng đối tác đó (không lẫn đơn thường)",
   NHIEU_DOI_TAC_TRONG_1_PXK: "1 phiếu chỉ gom đơn của cùng 1 đối tác (hoặc toàn đơn thường)",
   NHIEU_LOAI_DE_XUAT_TRONG_1_PXK: "1 phiếu chỉ gom đơn cùng loại đề xuất (riêng MUA HÀNG và MUA HÀNG CÓ ID được chung phiếu) — chọn lại các đơn cùng loại",

@@ -31,7 +31,7 @@ import { nowVN } from "./vnTime";
 import { KE_TOAN_DA_CHOT_TIEN_SQL, thongBaoHoanQuyPhieuHuy } from "./quyKtv";
 import { doiKhuVucDonSql } from "./scopeDatMua";
 import { deriveLoaiDon, boQuaTbpChoDacThu, canDoiChieuCongNo, nguCanhNhan, danhGiaPhieu, donDuTonKhoCongTy, tacDongSauDinhTuyen, baoNguoiTaoDon, moTaThieuTon } from "./tuDongDuyet";
-import { laTruCongNo, laMuaCongNoDoiTac, taiTinhPxk, taiTinhPxkMoCuaKtv } from "./pxkRecalculate";
+import { laTruCongNo, laMuaCongNoDoiTac, laCongNoSuaChua, taiTinhPxk, taiTinhPxkMoCuaKtv } from "./pxkRecalculate";
 import { getMocTinhCongNo } from "./congNoKtv";
 import { goDonKhoiPxk, laVanPhong, danhDauVanPhongTacDong } from "./pxkTuHuy";
 import { bundleAutoApprovedIntoPxk } from "./pxkAutoBundle";
@@ -46,7 +46,7 @@ const sqlList = (xs: string[]) => xs.map((x) => `'${x}'`).join(", ");
 
 /** Don `a` (dat_don_hang) con doi duoc loai de xuat (chua tinh quyen nguoi xem). Khong bind. */
 export const DOI_LDE_DUOC_SQL = (a: string) => `(
-  ${a}.loai_don IN ('mua', 'cong_no') AND ${a}.gui_bu_nhan_thieu_id IS NULL AND ${a}.doi_tac_ma IS NULL
+  ${a}.loai_don IN ('mua', 'cong_no') AND ${a}.gui_bu_nhan_thieu_id IS NULL AND ${a}.doi_tac_ma IS NULL AND ${a}.bh_don_vi_id IS NULL
   AND ${a}.trang_thai_hien_tai IN (${sqlList(TRANG_THAI_DOI_DUOC)})
   AND COALESCE(${a}.tien_da_tra, 0) = 0
   AND NOT (${a}.trang_thai_hien_tai = 'Cho hang' AND EXISTS (
@@ -74,17 +74,18 @@ export async function duocDoiLoaiDeXuat(db: D1Database, user: AppUser, donId: st
 export async function lyDoKhongDoiDuoc(db: D1Database, donId: string): Promise<string | null> {
   const r = await db
     .prepare(
-      `SELECT d.loai_don, d.gui_bu_nhan_thieu_id, d.doi_tac_ma, d.trang_thai_hien_tai, COALESCE(d.tien_da_tra, 0) AS tien_da_tra, ${DOI_LDE_DUOC_SQL("d")} AS duoc,
+      `SELECT d.loai_don, d.gui_bu_nhan_thieu_id, d.doi_tac_ma, d.bh_don_vi_id, d.trang_thai_hien_tai, COALESCE(d.tien_da_tra, 0) AS tien_da_tra, ${DOI_LDE_DUOC_SQL("d")} AS duoc,
               (SELECT p.trang_thai_hien_tai FROM phieu_xuat_kho_dong x JOIN phieu_xuat_kho p ON p.id = x.phieu_xuat_kho_id
                WHERE x.dat_don_hang_id = d.id AND p.trang_thai_hien_tai <> 'Ke toan huy' LIMIT 1) AS pxk_tt
        FROM dat_don_hang d WHERE d.id = ?`,
     )
     .bind(donId)
-    .first<{ loai_don: string; gui_bu_nhan_thieu_id: string | null; doi_tac_ma: string | null; trang_thai_hien_tai: string; tien_da_tra: number; duoc: number; pxk_tt: string | null }>();
+    .first<{ loai_don: string; gui_bu_nhan_thieu_id: string | null; doi_tac_ma: string | null; bh_don_vi_id: string | null; trang_thai_hien_tai: string; tien_da_tra: number; duoc: number; pxk_tt: string | null }>();
   if (!r) return "NOT_FOUND";
   if (r.duoc) return null;
   if (r.loai_don === "tra_hang") return "DOI_LUONG_TRA_HANG";
   if (r.doi_tac_ma) return "DOI_LOAI_CONG_NO_DOI_TAC";
+  if (r.bh_don_vi_id) return "DOI_LOAI_CONG_NO_SUA_CHUA";
   if (r.gui_bu_nhan_thieu_id) return "DON_GUI_BU";
   if (!TRANG_THAI_DOI_DUOC.includes(r.trang_thai_hien_tai)) return "DON_DA_DONG";
   if (r.tien_da_tra > 0) return "DON_DA_THANH_TOAN";
@@ -140,6 +141,7 @@ export async function doiLoaiDeXuatDon(
   const loaiDonMoi = deriveLoaiDon(ldeMoi);
   if (loaiDonMoi === "tra_hang") return { error: "DOI_LUONG_TRA_HANG", status: 409 };
   if (laMuaCongNoDoiTac(ldeMoi)) return { error: "DOI_LOAI_CONG_NO_DOI_TAC", status: 409 };
+  if (laCongNoSuaChua(ldeMoi) || laCongNoSuaChua(ldeCu)) return { error: "DOI_LOAI_CONG_NO_SUA_CHUA", status: 409 };
   // Don "KH đã chuyển khoản về công ty" (migration 0111) chi co nghia voi don phat sinh tien (mua / TRỪ CÔNG NỢ).
   if (d.kh_chuyen_khoan && !(loaiDonMoi === "mua" || laTruCongNo(ldeMoi))) return { error: "KH_CHUYEN_KHOAN_CHI_DON_MUA", status: 409 };
   if (!d.nguoi_nhan_hang) return { error: "NOT_FOUND", status: 404 };

@@ -47,6 +47,7 @@ export function applyViewAsOverride(user: AppUser, role: ViewAsRole): AppUser {
     la_tp_dvbh: false,
     la_view: false,
     la_mua_hang: false,
+    la_nv_sua_chua: false,
     quan_ly_danh_muc_lk: false,
     xem_danh_muc_lk: false,
     la_tram: false,

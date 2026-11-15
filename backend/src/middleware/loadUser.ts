@@ -27,6 +27,7 @@ interface UserRow {
   la_tp_dvbh: number;
   la_view: number;
   la_mua_hang: number;
+  la_nv_sua_chua: number;
   quan_ly_danh_muc_lk: number;
   xem_danh_muc_lk: number;
   tram_cha: string | null;
@@ -39,7 +40,7 @@ interface UserRow {
 }
 
 const USER_COLUMNS =
-  "email, ten, vai_tro, trang_thai_duyet, bi_khoa, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, la_tac_nghiep, la_tp_dvbh, la_view, la_mua_hang, quan_ly_danh_muc_lk, xem_danh_muc_lk, tram_cha, giam_sat_quan_ly, nhan_tb_nhiem_vu, nhan_tb_lien_quan, nhan_tb_theo_doi, phien_ban_phien, kho_nhom_lk";
+  "email, ten, vai_tro, trang_thai_duyet, bi_khoa, la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, la_tac_nghiep, la_tp_dvbh, la_view, la_mua_hang, la_nv_sua_chua, quan_ly_danh_muc_lk, xem_danh_muc_lk, tram_cha, giam_sat_quan_ly, nhan_tb_nhiem_vu, nhan_tb_lien_quan, nhan_tb_theo_doi, phien_ban_phien, kho_nhom_lk";
 
 export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
   const email = c.get("email");
@@ -149,6 +150,7 @@ function toAppUser(row: UserRow): AppUser {
     la_tp_dvbh: !!row.la_tp_dvbh,
     la_view: !!row.la_view,
     la_mua_hang: !!row.la_mua_hang,
+    la_nv_sua_chua: !!row.la_nv_sua_chua,
     quan_ly_danh_muc_lk: !!row.quan_ly_danh_muc_lk,
     xem_danh_muc_lk: !!row.xem_danh_muc_lk,
     tram_cha: row.tram_cha ?? null,
