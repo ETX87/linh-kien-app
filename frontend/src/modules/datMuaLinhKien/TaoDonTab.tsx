@@ -44,6 +44,8 @@ export function TaoDonTab({
   // app) - CHI anh huong tren mobile (desktop luon dung Modal, khong doc gia tri nay).
   const [preferOldUi, setPreferOldUi] = useLocalStorageState("dmlk-taodon-prefer-old-ui", false);
   const form = useTaoDonForm({ addToast, qc, canQuanLy, onClose });
+  // v1.510: nhac sai loai de xuat theo don bao hanh (cung query goi y voi o Mã đơn bảo hành) - goi TRUOC return mobile (thu tu hook).
+  const donBhRows = useGoiYDonBh(form.targetNguoiNhanHang, !isMobile && form.drafts.some((x) => laDonSuaChua(x.loai_de_xuat))).data?.rows;
 
   if (isMobile && !preferOldUi) {
     return <TaoDonMobileScreen form={form} canQuanLy={canQuanLy} addToast={addToast} qc={qc} onClose={onClose} onUseOldUi={() => setPreferOldUi(true)} />;
@@ -94,6 +96,8 @@ export function TaoDonTab({
       if (!m || m.tone === "ok") continue;
       canhBao.push({ muc: r.loi ? "chan" : "canh", text: m.text.replace(/^[✕⚠🔒✅ℹ]\s*/u, ""), dong: i });
     }
+    const saiLoai = canhBaoLoaiDonBh(donBhKhop(donBhRows, x.bh_don_vi_id), x.loai_de_xuat);
+    if (saiLoai) canhBao.push({ muc: "canh", text: saiLoai.text, dong: i });
     if (giaUocTinhDong(x).chuaCoGiaKtv) canhBao.push({ muc: "tin", text: t("Linh kiện chưa có Giá KTV — dòng này tính giá niêm yết, không được chiết khấu."), dong: i });
   });
   if (sePhepDuCongNo === false && congNoDuKien)
@@ -661,7 +665,7 @@ function ImportDonExcel() {
 // tuy (khong dinh state) - chi import 1 lan o dau file, khong lap trong useTaoDonForm.ts (ham do da
 // import rieng cho chinh no dung trong isLineComplete).
 import { canNoRequired, maYcscRequired, coMaIdLienQuan, laMuaCongNoDoiTac, laDonSuaChua, chuanMaDonBh } from "./helpers";
-import { MaDonBhInput } from "./CongNoSuaChua";
+import { MaDonBhInput, useGoiYDonBh, donBhKhop, canhBaoLoaiDonBh } from "./CongNoSuaChua";
 import { Money } from "../../components/ui/Money";
 import { TongNgayKtvInfo, CanhBaoChuaCoGiaKtv } from "./TongNgayKtv";
 import { t, dichSau } from "../../i18n";

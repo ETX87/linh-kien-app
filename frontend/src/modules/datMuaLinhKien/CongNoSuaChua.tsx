@@ -41,7 +41,7 @@ const nhanBh = (r: DonBh) =>
 // v1.502 - "Danh sách ID lựa chọn cho nv sửa chữa chỉ hiện theo đúng case họ đang nhận trên app đổi trả. case này không có thì không hiện":
 // danh sach chon CHI la don vi NV nhan hang dang sua (app doi tra: nguoi_sua_chua = NV, dang sua) - go chu chi LOC trong danh sach nay (ma don /
 // ma case SC), KHONG tim rong ra don cua NV khac / da qua buoc sua nua. Ma khong co trong danh sach van go tay duoc (don ngoai app doi tra).
-function useGoiYDonBh(email: string, bat: boolean) {
+export function useGoiYDonBh(email: string, bat: boolean) {
   return useQuery({
     queryKey: ["don-bh-goi-y", email, ""],
     queryFn: () => api.get<{ rows: DonBh[]; ket_noi: boolean }>(`/dat-mua-lk/don-bh-goi-y?nguoi_nhan_hang=${encodeURIComponent(email)}`),
@@ -80,6 +80,33 @@ function tuDienTheoDon(d: DonHangDraft, r: DonBh, tenNv: string): Partial<DonHan
   return patch;
 }
 
+// v1.510 (chot 2026-11-17 - "khi tạo đơn trên app linh kiện, nv sửa chữa có thể chọn nhầm loại đề xuất => dựa vào thông tin case nv chọn =>
+// nếu sai loại đề xuất => hiện cảnh báo nhắc nhở, ví dụ: đây là case bảo hành của đối tác KRF, loại đề xuất nên là "Hỗ trợ sửa chữa 0 đồng"..."):
+// don bao hanh khop trong danh sach goi y (ma don / ma don cha) + loai dang chon khac loai theo don -> cau nhac + loai dung. Dung CHUNG o ma don BH
+// (desktop + mobile) va khoi "Cảnh báo" cot phai form desktop. Server van tu ap lai loai dung luc tao don (chuanBiPhieuDat).
+export function donBhKhop(rows: DonBh[] | undefined, ma: string | null | undefined): DonBh | undefined {
+  const m = (ma ?? "").trim().toUpperCase();
+  return m ? rows?.find((r) => r.id === m || r.parent_id === m) : undefined;
+}
+export function canhBaoLoaiDonBh(khop: DonBh | undefined, lde: string): { loaiDung: string; text: string } | null {
+  if (!khop || !laDonSuaChua(lde)) return null;
+  const loaiDung = loaiDeXuatTheoDonBh(khop);
+  if (!loaiDung || loaiDung === lde) return null;
+  const doiTac = khop.doi_tac ? `${t("đối tác")} ${khop.doi_tac}` : t("đối tác");
+  const lyDo = laMuaHangSuaChua(loaiDung)
+    ? t("Đây là case đã HẾT bảo hành")
+    : laHoTroSuaChua0d(loaiDung)
+      ? `${t("Đây là case bảo hành (còn BH) của")} ${doiTac} (Karofi)`
+      : `${t("Đây là case bảo hành (còn BH) của")} ${doiTac} (${t("ngoài Karofi")})`;
+  return { loaiDung, text: `${lyDo} — ${t("loại đề xuất nên là")} "${loaiDung}", ${t("không phải")} "${lde}".` };
+}
+const giaiThichLoai = (lde: string) =>
+  laMuaHangSuaChua(lde)
+    ? t("NV chuyển tiền như đơn mua hàng thường, không xác nhận xác / trừ công nợ.")
+    : laHoTroSuaChua0d(lde)
+      ? t("0 đồng, không tính công nợ NV — Admin BH vẫn xác nhận xác.")
+      : t("Linh kiện ký gửi — Admin BH xác nhận xác rồi trừ công nợ NV.");
+
 const moTa = (r: DonBh) =>
   [r.case_id, r.ten_lk ?? r.ma_lk, r.san_pham_bh]
     .filter((v, i, a): v is string => !!v && a.findIndex((x) => (x ?? "").trim().toLowerCase() === v.trim().toLowerCase()) === i)
@@ -115,8 +142,9 @@ export function MaDonBhInput({
   const rows = dangLoc
     ? dsRows.filter((r) => [r.id, r.parent_id, r.case_id ?? ""].some((x) => x.toUpperCase().includes(maHoa)))
     : dsRows;
-  const khop = dsRows.find((r) => r.id === maHoa || r.parent_id === maHoa);
+  const khop = donBhKhop(dsRows, maHoa);
   const ldeTheoBh = khop ? loaiDeXuatTheoDonBh(khop) : null;
+  const saiLoai = canhBaoLoaiDonBh(khop, d.loai_de_xuat);
   const hopLe = !!chuanMaDonBh(v);
   const goiY = !data
     ? ""
@@ -185,14 +213,23 @@ export function MaDonBhInput({
       <div className={`mt-1 text-[11px] ${khop ? "text-[var(--color-success-strong)]" : "text-[var(--ink-500)]"}`}>
         {goiY || t("Mã đơn bảo hành đang sửa cần linh kiện này — dùng để đối trừ công nợ khi linh kiện đã thay thế.")}
       </div>
-      {khop && (
-        <div className={`mt-1 text-[11px] ${ldeTheoBh && ldeTheoBh !== d.loai_de_xuat ? "text-[var(--color-warning-strong)] font-semibold" : "text-[var(--ink-500)]"}`}>
+      {saiLoai ? (
+        <div role="alert" className="mt-1.5 rounded-lg border-l-[3px] border-[var(--color-warning)] bg-[var(--color-warning-soft)] px-2.5 py-2 text-[12px] leading-snug text-[var(--color-warning-strong)]">
+          <div className="font-semibold">⚠ {t("Loại đề xuất chưa đúng với case")}</div>
+          <div className="mt-0.5">{saiLoai.text}</div>
+          <div className="mt-0.5 text-[11px] opacity-90">{nhanBh(khop!)} · {giaiThichLoai(saiLoai.loaiDung)} {t("Nếu vẫn để nguyên, khi tạo đơn hệ thống sẽ tự đặt đúng loại.")}</div>
+          <button
+            type="button"
+            onClick={() => onChange(tuDienTheoDon(d, khop!, tenNv))}
+            className="focus-ring mt-1.5 rounded-md bg-[var(--color-warning)] px-2.5 py-1 text-[12px] font-semibold text-white hover:opacity-90"
+          >
+            {t("Đổi sang")} "{saiLoai.loaiDung}"
+          </button>
+        </div>
+      ) : khop && (
+        <div className="mt-1 text-[11px] text-[var(--ink-500)]">
           {nhanBh(khop) || t("Đơn bảo hành chưa có Hãng / Đối tác / bảo hành")}
-          {ldeTheoBh
-            ? ldeTheoBh !== d.loai_de_xuat
-              ? ` — ${t("hệ thống sẽ đặt loại")} "${ldeTheoBh}"`
-              : ` — ${t("loại đề xuất theo đơn bảo hành")}`
-            : ` — ${t("chưa đủ thông tin, giữ loại đang chọn")}`}
+          {ldeTheoBh ? ` — ${t("loại đề xuất theo đơn bảo hành")}` : ` — ${t("chưa đủ thông tin, giữ loại đang chọn")}`}
         </div>
       )}
     </div>
