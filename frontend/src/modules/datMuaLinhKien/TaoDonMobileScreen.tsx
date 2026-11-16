@@ -262,7 +262,7 @@ export function TaoDonMobileScreen({
         </div>
 
         <DoiTacCongNoChon form={form} d={d} idx={activeIdx} reqLabelClass={reqLabelClass} />
-        <MaDonBhInput d={d} cao="h-11" email={form.targetNguoiNhanHang} onChange={(v) => updateDraft(activeIdx, { bh_don_vi_id: v })} />
+        <MaDonBhInput d={d} cao="h-11" email={form.targetNguoiNhanHang} tenNv={form.tenNguoiNhan} onChange={(patch) => updateDraft(activeIdx, patch)} />
 
         {/* So luong - nut +/- 44px (diem #4), rieng cho man hinh nay. */}
         <div>

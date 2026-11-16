@@ -40,6 +40,29 @@ function useGoiYDonBh(email: string, q: string, bat: boolean) {
 }
 
 // Don may: ten LK (= may gui sua) thuong TRUNG ten san pham bao hanh -> bo phan trung (so khong phan biet hoa/thuong).
+// Ten ngan tu ten hien thi danh ba ("(ma) KTV Long An - Nguyễn Văn An" / "KTV Demo – Nguyễn Văn An" -> "Nguyễn Văn An").
+const tenNgan = (s: string) => s.split(/\s[-–]\s/).pop()!.trim() || s;
+
+// v1.499 - "khi chọn mã sửa chữa liên quan, tự động điền các cột thông tin ... Mã sự cố: SCxxxxxx / TT duyệt mail: Xuất công nợ sửa chữa cho nv
+// nguyễn văn an / TT khách hàng: Tên KH / Ghi chú: (thông tin mã sửa chữa từ hệ thống app) => các thông tin này mặc định điền".
+// O nao nguoi dung da tu go (khac gia tri tu dien lan truoc) thi GIU NGUYEN; o trong / dang la gia tri tu dien thi thay.
+function tuDienTheoDon(d: DonHangDraft, r: DonBh, tenNv: string): Partial<DonHangDraft> {
+  const moi = {
+    ma_yeu_cau_su_co: r.case_id ?? "",
+    tt_mail_duyet: tenNv ? `Xuất công nợ sửa chữa cho NV ${tenNgan(tenNv)}` : "Xuất công nợ sửa chữa",
+    tt_khach_hang: r.ten_khach_hang ?? "",
+    ghi_chu: [`Đơn sửa chữa ${r.id}`, r.case_id && `case ${r.case_id}`, r.san_pham_bh ?? r.ten_lk, r.ten_lk && r.san_pham_bh && r.ten_lk !== r.san_pham_bh ? `LK gửi: ${r.ten_lk}` : null]
+      .filter(Boolean).join(" · "),
+  };
+  const cu = d.bh_tu_dien;
+  const patch: Partial<DonHangDraft> = { bh_tu_dien: moi };
+  for (const k of ["ma_yeu_cau_su_co", "tt_mail_duyet", "tt_khach_hang", "ghi_chu"] as const) {
+    const hienTai = (d[k] ?? "").trim();
+    if (!hienTai || (cu && hienTai === cu[k].trim())) patch[k] = moi[k];
+  }
+  return patch;
+}
+
 const moTa = (r: DonBh) =>
   [r.case_id, r.ten_lk ?? r.ma_lk, r.san_pham_bh]
     .filter((v, i, a): v is string => !!v && a.findIndex((x) => (x ?? "").trim().toLowerCase() === v.trim().toLowerCase()) === i)
@@ -49,12 +72,15 @@ export function MaDonBhInput({
   d,
   onChange,
   email,
+  tenNv = "",
   id,
   cao = "h-9",
 }: {
   d: DonHangDraft;
-  onChange: (v: string) => void;
+  // Go tay -> chi bh_don_vi_id; chon 1 don trong danh sach -> kem cac o tu dien (tuDienTheoDon).
+  onChange: (patch: Partial<DonHangDraft>) => void;
   email: string;
+  tenNv?: string;
   id?: string;
   cao?: string;
 }) {
@@ -91,13 +117,13 @@ export function MaDonBhInput({
       <input
         value={v}
         onChange={(e) => {
-          onChange(e.target.value);
+          onChange({ bh_don_vi_id: e.target.value });
           setMo(true);
         }}
         onFocus={() => setMo(true)}
         onBlur={() => setTimeout(() => setMo(false), 150)}
         maxLength={40}
-        placeholder={t("Chọn đơn đang sửa hoặc gõ mã (VD: DH-000123-1)")}
+        placeholder={t("Chọn đơn đang sửa hoặc gõ mã đơn / mã SC (VD: DH-000123-1, SC2611…)")}
         className={`focus-ring w-full ${cao} bg-white border rounded-lg px-2.5 text-sm font-mono ${hopLe ? "border-[var(--line)]" : "border-[var(--coral-400)] bg-[var(--coral-100)]/25"}`}
       />
       {mo && (
@@ -117,7 +143,7 @@ export function MaDonBhInput({
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
-                  onChange(r.id);
+                  onChange({ bh_don_vi_id: r.id, ...tuDienTheoDon(d, r, tenNv) });
                   setMo(false);
                 }}
                 className={`block w-full text-left px-3 py-2 border-b border-[var(--line)] last:border-b-0 hover:bg-[var(--surface-100)] ${r.id === maHoa ? "bg-[var(--color-primary-soft)]" : ""}`}

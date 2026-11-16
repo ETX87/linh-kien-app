@@ -2927,6 +2927,7 @@ const tuDien: Record<string, string> = {
   "đã qua bước sửa": "sudah melewati tahap perbaikan",
   "App Bảo hành đổi trả": "Aplikasi Garansi",
   "Đơn tạo từ app Bảo hành đổi trả — sửa linh kiện / số lượng / ghi chú trên app đó": "Pesanan dibuat dari aplikasi Garansi — ubah suku cadang / jumlah / catatan di sana",
+  "Chọn đơn đang sửa hoặc gõ mã đơn / mã SC (VD: DH-000123-1, SC2611…)": "Pilih pesanan yang sedang diperbaiki atau ketik kode pesanan / SC (mis. DH-000123-1, SC2611…)",
   "Tạo từ": "Dibuat dari",
   "sửa linh kiện / số lượng trên app Bảo hành đổi trả": "ubah suku cadang / jumlah di aplikasi Garansi",
 };

@@ -299,7 +299,7 @@ export function TaoDonTab({
                     </div>
                   </div>
                   <div className="empty:hidden mt-3">
-                    <MaDonBhInput id="tdo-bh" d={d} email={targetNguoiNhanHang} onChange={(v) => updateDraft(idx, { bh_don_vi_id: v })} />
+                    <MaDonBhInput id="tdo-bh" d={d} email={targetNguoiNhanHang} tenNv={form.tenNguoiNhan} onChange={(patch) => updateDraft(idx, patch)} />
                   </div>
                   <div id="tdo-doitac" className="empty:hidden mt-3">
                     <DoiTacCongNoChon form={form} d={d} idx={idx} reqLabelClass={reqLabelClass} />

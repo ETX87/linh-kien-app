@@ -604,6 +604,9 @@ export interface DonHangDraft {
   doi_tac_tu_dong?: boolean;
   // CÔNG NỢ SỬA CHỮA (v1.495): ma don bao hanh (DH-000123 / DH-000123-1) - bat buoc voi loai nay.
   bh_don_vi_id?: string;
+  // v1.499: gia tri form TU DIEN lan gan nhat khi chon don bao hanh (Mã YCSC / TT mail duyệt / TT khách hàng / Ghi chú) - chon don khac thi
+  // chi ghi de o con trong hoac van dung gia tri tu dien cu (nguoi dung da sua tay thi giu). Chi o form, khong gui server.
+  bh_tu_dien?: { ma_yeu_cau_su_co: string; tt_mail_duyet: string; tt_khach_hang: string; ghi_chu: string };
   // "Khách hàng đã chuyển khoản về công ty" (migration 0111) - chi khi da chon 1 hinh thuc xuat hoa don (KhChuyenKhoan.tsx).
   kh_chuyen_khoan?: boolean;
 }

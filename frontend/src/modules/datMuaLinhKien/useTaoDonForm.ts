@@ -169,6 +169,10 @@ export function useTaoDonForm({
   const nhanLaNvSuaChua = canQuanLy && nguoiNhanHang
     ? !!nguoiNhanHangData?.rows.find((r) => r.email_dang_nhap === nguoiNhanHang)?.la_nv_sua_chua
     : !!(auth.status === "authenticated" && auth.user.la_nv_sua_chua);
+  // Ten nguoi nhan hang (v1.499) - "TT+Mail duyệt" tu dien "Xuất công nợ sửa chữa cho NV <tên>" khi chon don bao hanh.
+  const tenNguoiNhan = canQuanLy && nguoiNhanHang
+    ? (nguoiNhanHangData?.rows.find((r) => r.email_dang_nhap === nguoiNhanHang)?.ten_hien_thi ?? nguoiNhanHang)
+    : (auth.status === "authenticated" ? auth.user.ten || auth.user.email : "");
   const ldeTheoQuyen = getOptionsForUser(auth.status === "authenticated" ? auth.user : null, ldeEntries).filter(
     (o) => (coDoiTac || !laMuaCongNoDoiTac(o)) && (nhanLaNvSuaChua || !laCongNoSuaChua(o)),
   );
@@ -593,7 +597,7 @@ export function useTaoDonForm({
     kiemTra: kiemTraHienTai, dangKiemTra, loiPhieuText, ketQuaTheoDong, coDongBiChan, dongCanXacNhan, hoiXacNhan, setHoiXacNhan,
     ketQuaTao, dongKetQuaTao, khoiPhucLuc, boNhap, anKhoiPhuc: () => setKhoiPhucLuc(null),
     hoiKhoiPhuc, moLaiNhap, boQuaNhapCu, coNoiDungChuaTao, luuNhapNgay, xoaNhap,
-    doiTacChon, tienDoiTacTrenForm, nhanLaNvSuaChua,
+    doiTacChon, tienDoiTacTrenForm, nhanLaNvSuaChua, tenNguoiNhan,
   };
 }
 
