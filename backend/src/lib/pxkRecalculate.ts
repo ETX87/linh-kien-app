@@ -66,8 +66,21 @@ export function laTruCongNo(loaiDeXuat: string | null | undefined): boolean {
 // nhan dien "cong no" bang chuoi phai loai tru loai nay (deriveLoaiDon, canNoRequired, laXuatMayDoiBaoHanh...). Ban sao FE: helpers.ts.
 // CÔNG NỢ SỬA CHỮA (v1.495, migration 0119): NV sua chua van phong dat linh kien ky gui de sua san pham bao hanh - don cong no, BAT
 // BUOC gan don bao hanh (bh_don_vi_id), KHONG xet tran cong no. Ban sao FE: helpers.ts laCongNoSuaChua.
+// TRỪ CÔNG NỢ - SỬA CHỮA / TRẢ HÀNG CÔNG NỢ - SỬA CHỮA (2026-11-16, app Bao hanh doi tra v1.139 - "Hệ thống tự tạo đơn trừ công nợ sửa
+// chữa trên app lk ... Diễn giải MISA tương tự đơn phân loại: trừ công nợ"): CHI tao qua API /suachua-partner/tru-cong-no khi Admin BH xac
+// nhan tieu hao linh kien cap cho NV sua chua. Tru cong no = 0đ (NV KHONG chuyen tien), kiem SL theo lan cap goc (khong theo ton MISA),
+// MISA / "Hàng trừ kho" / "đã trừ" nhu don TRỪ CÔNG NỢ. Ten co dau "-" de KHONG trung chuoi "CÔNG NỢ SỬA CHỮA" (laCongNoSuaChua).
+export const LDX_TRU_CONG_NO_SUA_CHUA = "TRỪ CÔNG NỢ - SỬA CHỮA";
+export const LDX_TRA_HANG_SUA_CHUA = "TRẢ HÀNG CÔNG NỢ - SỬA CHỮA";
+export function laTruCongNoSuaChua(loaiDeXuat: string | null | undefined): boolean {
+  return (loaiDeXuat ?? "").normalize("NFC").toUpperCase().includes(LDX_TRU_CONG_NO_SUA_CHUA);
+}
+export function laTraHangSuaChua(loaiDeXuat: string | null | undefined): boolean {
+  return (loaiDeXuat ?? "").normalize("NFC").toUpperCase().includes(LDX_TRA_HANG_SUA_CHUA);
+}
 export function laCongNoSuaChua(loaiDeXuat: string | null | undefined): boolean {
-  return (loaiDeXuat ?? "").normalize("NFC").toUpperCase().includes("CÔNG NỢ SỬA CHỮA");
+  const u = (loaiDeXuat ?? "").normalize("NFC").toUpperCase();
+  return u.includes("CÔNG NỢ SỬA CHỮA") && !u.includes("TRỪ CÔNG NỢ") && !u.includes("TRẢ HÀNG");
 }
 // Ma don bao hanh (v1.496 - "vẫn cho nhập tay nếu không có (vì có thể đặt cho đơn không thuộc app đổi trả)"): ma app Bao hanh doi tra
 // (don cha "DH-000123" / don vi "DH-000123-1") quy ve chu HOA; ma go tay khac giu nguyen (bo khoang trang thua). Rong / > 40 ky tu -> null.
@@ -168,6 +181,12 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
   const nhomTheoKtv = new Map<string, CalculationRow[]>();
   for (const row of results) {
     if (row.loai_don === "tra_hang") {
+      maTheoDong.set(row.id, null);
+      setTien(row, 0);
+      continue;
+    }
+    // TRỪ CÔNG NỢ - SỬA CHỮA: tru cong no ky gui NV sua chua, KHONG phat sinh tien (khong chuyen tien, khong bac thang).
+    if (laTruCongNoSuaChua(row.loai_de_xuat)) {
       maTheoDong.set(row.id, null);
       setTien(row, 0);
       continue;

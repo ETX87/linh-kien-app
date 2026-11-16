@@ -4,7 +4,7 @@ import { taiAppUserTheoEmail } from "../middleware/loadUser";
 import { nowVN } from "../lib/vnTime";
 import { bumpVersions } from "../lib/dataVersions";
 import { traDonBh } from "../lib/donBhClient";
-import { laCongNoSuaChua } from "../lib/pxkRecalculate";
+import { laCongNoSuaChua, LDX_TRU_CONG_NO_SUA_CHUA, LDX_TRA_HANG_SUA_CHUA } from "../lib/pxkRecalculate";
 import { TRANG_THAI_PXK_DON_SQL } from "../lib/trangThaiDonPxk";
 import { latestThieuLkStatusExpr, phanLoaiHuyDon, taoPhieuDat, thucHienHuyDon, yeuCauHuyDon } from "./datMuaLinhKien";
 
@@ -56,6 +56,15 @@ const NHAN_PXK: Record<string, string> = {
   ktv_da_nhan: "NV đã nhận hàng",
   hang_tru_kho: "Đã trừ kho",
   kho_da_ket_thuc: "Kho đã kết thúc",
+  cho_kho_nhan_hang_tra: "Kế toán đã chốt — chờ Kho nhận hàng trả",
+  kho_da_nhan_hang_tra: "Kho đã nhận hàng trả",
+};
+// 2026-11-16: don "TRẢ HÀNG CÔNG NỢ - SỬA CHỮA" (linh kien du NV tra kho) - cac buoc rieng cua luong tra hang.
+const NHAN_TRA_HANG: Record<string, string> = {
+  "Cho ke toan duyet mem": "Trả hàng — chờ Kế toán duyệt",
+  "Cho kho xac nhan": "Trả hàng — chờ Kho nhận",
+  "Cho QC xac nhan": "Trả hàng — chờ QC kiểm",
+  "Cho TN duyet tong": "Trả hàng — chờ Tác nghiệp duyệt",
 };
 const NHAN_TICKET: Record<string, string> = {
   "Cho kho xu ly": "Chờ hàng — chờ Kho tiếp nhận",
@@ -68,6 +77,7 @@ const NHAN_TICKET: Record<string, string> = {
 export function nhanDonSc(r: { tt: string; pxk_tt: string | null; ticket_tt: string | null; ngay_du_kien: string | null }): { nhan: string; buoc: string } {
   if (r.tt === "Da huy") return { nhan: "Đã hủy", buoc: "dong" };
   if (r.tt === "TN tu choi" || r.tt === "Tu choi") return { nhan: "Bị từ chối", buoc: "dong" };
+  if (NHAN_TRA_HANG[r.tt]) return { nhan: NHAN_TRA_HANG[r.tt], buoc: "xu_ly" };
   if (r.tt === "Cho hang") {
     const n = (r.ticket_tt && NHAN_TICKET[r.ticket_tt]) || "Chờ hàng về kho";
     return { nhan: r.ngay_du_kien ? `${n} (dự kiến ${r.ngay_du_kien.slice(8, 10)}/${r.ngay_du_kien.slice(5, 7)})` : n, buoc: "cho" };
@@ -78,7 +88,7 @@ export function nhanDonSc(r: { tt: string; pxk_tt: string | null; ticket_tt: str
   if (r.tt === "Cho TN duyet" || r.tt === "Cho Tram duyet") return { nhan: "Chờ duyệt đơn", buoc: "cho" };
   if (r.tt === "TN da duyet") {
     const p = r.pxk_tt ?? "cho_tao_phieu";
-    const buoc = ["ktv_da_nhan", "hang_tru_kho", "kho_da_ket_thuc"].includes(p) ? "xong" : ["cho_ke_toan_chot", "cho_kho_gui_hang", "cho_ktv_xac_nhan"].includes(p) ? "xu_ly" : "cho";
+    const buoc = ["ktv_da_nhan", "hang_tru_kho", "kho_da_ket_thuc", "kho_da_nhan_hang_tra"].includes(p) ? "xong" : ["cho_ke_toan_chot", "cho_kho_gui_hang", "cho_ktv_xac_nhan", "cho_kho_nhan_hang_tra"].includes(p) ? "xu_ly" : "cho";
     return { nhan: NHAN_PXK[p] ?? "Đã duyệt", buoc };
   }
   return { nhan: r.tt, buoc: "cho" };
@@ -91,7 +101,7 @@ interface DonScRow {
   ngay_du_kien: string | null; yeu_cau_huy_bo_phan: string | null;
 }
 
-async function docDonSc(db: D1Database, where: string, binds: unknown[]): Promise<Record<string, unknown>[]> {
+async function docDonSc(db: D1Database, where: string, binds: unknown[], chiCsc = true): Promise<Record<string, unknown>[]> {
   const { results } = await db.prepare(
     `SELECT ddh.id, ddh.loai_de_xuat, ddh.nguon_tao, ddh.nguon_tao_id, ddh.bh_don_vi_id, COALESCE(ddh.bh_lien_ket, 0) AS bh_lien_ket, ddh.ma_lk,
        ddh.ten_lk_snapshot AS ten_lk, COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) AS so_luong, ddh.ghi_chu, ddh.nguoi_tao,
@@ -103,13 +113,13 @@ async function docDonSc(db: D1Database, where: string, binds: unknown[]): Promis
        (SELECT t.ngay_du_kien_co_hang FROM thieu_lk t WHERE t.dat_don_hang_id = ddh.id ORDER BY t.ngay_tao DESC, t.id DESC LIMIT 1) AS ngay_du_kien,
        (SELECT y.bo_phan FROM yeu_cau_huy_don y WHERE y.dat_don_hang_id = ddh.id AND y.trang_thai = 'Cho dong y') AS yeu_cau_huy_bo_phan
      FROM dat_don_hang ddh
-     WHERE ddh.bh_don_vi_id IS NOT NULL AND ${where}
+     WHERE ${chiCsc ? "ddh.bh_don_vi_id IS NOT NULL AND " : ""}${where}
      ORDER BY ddh.ngay_tao DESC, ddh.id DESC LIMIT 2000`,
   ).bind(...binds).all<DonScRow>();
   const out: Record<string, unknown>[] = [];
   for (const r of results) {
     // loc loai de xuat o JS (SQLite UPPER khong ha chu co dau).
-    if (!laCongNoSuaChua(r.loai_de_xuat)) continue;
+    if (chiCsc && !laCongNoSuaChua(r.loai_de_xuat)) continue;
     const { nhan, buoc } = nhanDonSc(r);
     // "Sua / huy ngay" chi khi Ke toan chua xu ly (phanLoaiHuyDon: huy duoc + khong can bo phan dong y) - chi tinh cho don con mo.
     let suaDuoc = false;
@@ -270,5 +280,83 @@ export function ganRouteDonSc(r: Hono<{ Bindings: Env }>) {
     if (res.status >= 400) return res;
     const j = (await res.json().catch(() => ({}))) as Record<string, unknown>;
     return c.json({ ...j, don: (await docDonSc(c.env.DB, "ddh.id = ?", [id]))[0] });
+  });
+
+  // ---- TRỪ CÔNG NỢ SỬA CHỮA (2026-11-16, app Bao hanh doi tra v1.139) ----
+  // Nguyen van: "Admin bảo hành sẽ xác nhận lk theo các trạng thái xác khác nhau => Hệ thống tự tạo đơn trừ công nợ sửa chữa trên app lk =>
+  // Kế toán duyệt và trừ công nợ" + "Diễn giải MISA tương tự đơn phân loại: trừ công nợ".
+  // POST /tru-cong-no {ddh_goc, loai: 'tru' | 'tra', so_luong, nguoi_thao_tac, ghi_chu?, lan?}: 1 lan cap (don CÔNG NỢ SỬA CHỮA da giao xong cho
+  // NV) -> tao don "TRỪ CÔNG NỢ - SỬA CHỮA" (SL da dung, 0đ, tru cong no ky gui) hoac "TRẢ HÀNG CÔNG NỢ - SỬA CHỮA" (SL du tra kho) bang tai khoan NV.
+  // Tong SL tru + tra (don chua huy) <= SL da nhan cua lan cap -> khong tru 2 lan. Chong tao trung: client_request_id "tc:<loai>:<goc>:<lan>".
+  // nguon_tao = 'doitra', nguon_tao_id = "<loai>:<DDH goc>".
+  r.post("/tru-cong-no", async (c) => {
+    const b = await c.req.json<Record<string, unknown>>().catch(() => ({}) as Record<string, unknown>);
+    const goc = chuoi(b.ddh_goc, 40);
+    const loai = b.loai === "tra" ? "tra" : b.loai === "tru" ? "tru" : null;
+    const sl = Number(b.so_luong);
+    if (!goc || !loai || !Number.isInteger(sl) || sl < 1) return c.json({ error: "INVALID_BODY" }, 400);
+    const d = await c.env.DB.prepare(
+      `SELECT id, loai_de_xuat, nguoi_nhan_hang, ma_lk, bh_don_vi_id, ma_yeu_cau_su_co, ma_lada, tt_khach_hang, chinh_sach,
+         COALESCE(so_luong_thuc_xuat, so_luong_de_xuat) AS sl_nhan, trang_thai_hien_tai AS tt FROM dat_don_hang WHERE id = ?`,
+    ).bind(goc).first<{ id: string; loai_de_xuat: string | null; nguoi_nhan_hang: string | null; ma_lk: string; bh_don_vi_id: string | null;
+      ma_yeu_cau_su_co: string | null; ma_lada: string | null; tt_khach_hang: string | null; chinh_sach: string | null; sl_nhan: number; tt: string }>();
+    if (!d) return c.json({ error: "NOT_FOUND" }, 404);
+    if (!laCongNoSuaChua(d.loai_de_xuat) || !d.nguoi_nhan_hang) return c.json({ error: "KHONG_PHAI_DON_SUA_CHUA" }, 409);
+    const trangThai = (await docDonSc(c.env.DB, "ddh.id = ?", [goc]))[0] as { buoc?: string; nhan?: string } | undefined;
+    if (trangThai?.buoc !== "xong") return c.json({ error: "NV_CHUA_NHAN_HANG", nhan: trangThai?.nhan ?? null }, 409);
+    const lan = Math.max(1, Number(b.lan) || 1);
+    // Goi lai cung lan -> tra don da tao (khong tinh vao gioi han SL).
+    const daCo = await c.env.DB.prepare("SELECT dd.id FROM dat_don_hang dd JOIN phieu_dat pd ON pd.id = dd.phieu_dat_id WHERE pd.client_request_id = ? LIMIT 1")
+      .bind(`tc:${loai}:${goc}:${lan}`).first<{ id: string }>();
+    if (daCo) return c.json({ ok: true, trung_lap: true, don: (await docDonSc(c.env.DB, "ddh.id = ?", [daCo.id], false))[0] });
+    const daDung = await c.env.DB.prepare(
+      `SELECT COALESCE(SUM(COALESCE(so_luong_thuc_xuat, so_luong_de_xuat)), 0) AS n FROM dat_don_hang
+       WHERE nguon_tao = 'doitra' AND nguon_tao_id IN (?, ?) AND trang_thai_hien_tai NOT IN ('Da huy', 'TN tu choi')`,
+    ).bind(`tru:${goc}`, `tra:${goc}`).first<{ n: number }>();
+    const conLai = d.sl_nhan - (daDung?.n ?? 0);
+    if (sl > conLai) return c.json({ error: "VUOT_SL_NHAN", sl_nhan: d.sl_nhan, con_lai: Math.max(0, conLai) }, 409);
+    const loi = await ganNv(c, d.nguoi_nhan_hang);
+    if (loi) return loi;
+    const nguoi = chuoi(b.nguoi_thao_tac, 200)?.toLowerCase() ?? d.nguoi_nhan_hang;
+    const ten = await c.env.DB.prepare(
+      `SELECT COALESCE((SELECT k.ten_hien_thi FROM ktv_lien_he k WHERE LOWER(k.email_dang_nhap) = LOWER(u.email) LIMIT 1), u.ten, u.email) AS ten
+       FROM users u WHERE u.email = ?`,
+    ).bind(d.nguoi_nhan_hang).first<{ ten: string }>();
+    const tenNv = (ten?.ten ?? d.nguoi_nhan_hang).split(/\s[-–]\s/).pop()!.trim();
+    const nhan = loai === "tru" ? "Trừ công nợ sửa chữa" : "Trả kho linh kiện dư sau sửa chữa";
+    const res = await taoPhieuDat(
+      c,
+      {
+        nguoi_nhan_hang: d.nguoi_nhan_hang,
+        client_request_id: `tc:${loai}:${goc}:${lan}`,
+        don_hang: [{
+          ma_lk: d.ma_lk,
+          loai_de_xuat: loai === "tru" ? LDX_TRU_CONG_NO_SUA_CHUA : LDX_TRA_HANG_SUA_CHUA,
+          so_luong_de_xuat: sl,
+          ghi_chu: [`[App Bảo hành đổi trả — ${nguoi} xác nhận] ${nhan} — lần cấp ${goc}${d.bh_don_vi_id ? ` · đơn BH ${d.bh_don_vi_id}` : ""}`, chuoi(b.ghi_chu, 400)]
+            .filter(Boolean).join(" "),
+          ma_yeu_cau_su_co: d.ma_yeu_cau_su_co ?? undefined,
+          ma_lada: d.ma_lada ?? (d.ma_yeu_cau_su_co ? undefined : d.bh_don_vi_id ?? goc),
+          chinh_sach: d.chinh_sach ?? "Trong CSBH",
+          tt_khach_hang: d.tt_khach_hang ?? undefined,
+          tt_mail_duyet: `${nhan} cho NV ${tenNv}`,
+        }],
+      },
+      { tuSuaChua: true },
+    );
+    const j = (await res.clone().json().catch(() => ({}))) as { id?: string; error?: string };
+    if (res.status >= 400 || !j.id) return res;
+    await c.env.DB.prepare("UPDATE dat_don_hang SET nguon_tao = 'doitra', nguon_tao_id = ?, bh_don_vi_id = ? WHERE phieu_dat_id = ?")
+      .bind(`${loai}:${goc}`, d.bh_don_vi_id, j.id).run();
+    const don = await c.env.DB.prepare("SELECT id FROM dat_don_hang WHERE phieu_dat_id = ? ORDER BY id LIMIT 1").bind(j.id).first<{ id: string }>();
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+    return c.json({ ok: true, don: don ? (await docDonSc(c.env.DB, "ddh.id = ?", [don.id], false))[0] : null }, 201);
+  });
+
+  // GET /tru-cong-no?ids=DDH-..,..  trang thai cac don tru cong no / tra hang sua chua (cung bo nhan / buoc voi /don-sc).
+  r.get("/tru-cong-no", async (c) => {
+    const ids = (c.req.query("ids") ?? "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 500);
+    if (!ids.length) return c.json({ rows: [] });
+    return c.json({ rows: await docDonSc(c.env.DB, "ddh.id IN (SELECT value FROM json_each(?))", [JSON.stringify(ids)], false) });
   });
 }

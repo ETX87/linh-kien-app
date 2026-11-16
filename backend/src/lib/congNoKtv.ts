@@ -73,9 +73,13 @@ export const CONG_NO_DA_TRU_FROM_SQL = `
   JOIN phieu_xuat_kho_dong ctn_d ON ctn_d.dat_don_hang_id = ddh.id
   JOIN phieu_xuat_kho ctn_p ON ctn_p.id = ctn_d.phieu_xuat_kho_id
   LEFT JOIN linh_kien ctn_lk ON ctn_lk.ma_linh_kien = ddh.ma_lk`;
+// 2026-11-16: "TRỪ CÔNG NỢ - SỬA CHỮA" (0đ, khong co buoc duyet tien) -> tinh "da tru" tu luc Ke toan CHOT phieu ("Kế toán duyệt và trừ công nợ").
 export const CONG_NO_DA_TRU_WHERE_SQL = `ddh.loai_don = 'cong_no' AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') > 0
   AND ddh.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')
-  AND ctn_p.trang_thai_hien_tai <> 'Ke toan huy' AND ctn_p.trang_thai_chuyen_tien = 'TN da duyet'
+  AND ctn_p.trang_thai_hien_tai <> 'Ke toan huy'
+  AND (ctn_p.trang_thai_chuyen_tien = 'TN da duyet'
+       OR (instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ - SỬA CHỮA') > 0
+           AND ctn_p.trang_thai_hien_tai IN ('Da chot xong don xuat', 'Dang gui KTV', 'KTV da nhan', 'Hang tru kho', 'Kho da ket thuc')))
   AND (? IS NULL OR ddh.ngay_tao > ?)`;
 export const CONG_NO_DA_TRU_GIA_TRI_SQL = "COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) * COALESCE(ctn_lk.gia_tri_cong_no, 0)";
 

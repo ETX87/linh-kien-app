@@ -22,7 +22,7 @@ import { gsPhuCuaKhuVuc } from "./scopeDatMua";
 import { computeTonKhoChot, TON_KHONG_KIEM } from "./tonKhoCongTy";
 import { computeTonKtvConLai } from "./tonKhoKtv";
 import { computeCongNoChot } from "./congNoKtv";
-import { laTruCongNo, khongTinhCongNo, taiTinhPxkMoCuaKtv, laMuaCongNoDoiTac, laCongNoSuaChua } from "./pxkRecalculate";
+import { laTruCongNo, khongTinhCongNo, taiTinhPxkMoCuaKtv, laMuaCongNoDoiTac, laCongNoSuaChua, laTruCongNoSuaChua } from "./pxkRecalculate";
 import { docCongNoDoiTac } from "./congNoDoiTac";
 import { nextSequentialId } from "./idCounter";
 import { bundleAutoApprovedIntoPxk } from "./pxkAutoBundle";
@@ -58,6 +58,8 @@ export function boQuaTbpChoDacThu(loaiDeXuat: string): boolean {
 
 // Don "phat sinh tien" (KTV phai chuyen tien): Mua + TRỪ CÔNG NỢ - cung tap voi bat_buoc_chuyen_tien (migration 0057).
 export function laDonPhatSinhTien(loaiDon: string, loaiDeXuat: string): boolean {
+  // TRỪ CÔNG NỢ - SỬA CHỮA (2026-11-16): tru cong no ky gui NV sua chua - khong phat sinh tien.
+  if (laTruCongNoSuaChua(loaiDeXuat)) return false;
   return loaiDon === "mua" || laTruCongNo(loaiDeXuat);
 }
 
@@ -263,6 +265,13 @@ export async function danhGiaPhieu(db: D1Database, ctx: NguCanhNhan, dongs: Dong
       kq.loi = { ma: "CHUA_CO_MA_MISA_CONG_NO", thongDiep: `${ma}: người nhận hàng chưa có Mã MISA — chỉ được đặt đơn mua hàng, không đặt được đơn công nợ / hỗ trợ.` };
     }
 
+    if (laTruCongNoSuaChua(lde)) {
+      // TRỪ CÔNG NỢ - SỬA CHỮA: SL da kiem theo lan cap goc o /suachua-partner/tru-cong-no (linh kien vua xuat chua co trong file MISA
+      // ton kho KTV) -> khong doi chieu ton KTV, tu duyet.
+      kq.nguonTon = "ktv";
+      kq.trangThai = "TN da duyet";
+      continue;
+    }
     if (laTruCongNo(lde)) {
       // TRỪ CÔNG NỢ: ton kho CUA KTV nhan hang, tru dan cac dong cung ma trong phieu - thieu thi KHONG cho tao.
       kq.nguonTon = "ktv";

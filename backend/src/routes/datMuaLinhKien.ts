@@ -33,7 +33,7 @@ import { computeMocDuPhongHienTai } from "../lib/duPhongKtv";
 import { computeTonKhoChot, donChoHangDuTonKho, getMocTonKhoCongTy } from "../lib/tonKhoCongTy";
 import { tachDonChoHang } from "../lib/tachDon";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
-import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon, laKhTraGop, khongTinhCongNo, laMuaCongNoDoiTac, laCongNoSuaChua, chuanMaDonBh, laMaDonBhApp } from "../lib/pxkRecalculate";
+import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon, laKhTraGop, khongTinhCongNo, laMuaCongNoDoiTac, laCongNoSuaChua, chuanMaDonBh, laMaDonBhApp, laTruCongNoSuaChua, laTraHangSuaChua } from "../lib/pxkRecalculate";
 import { goiYDonBh, traDonBh } from "../lib/donBhClient";
 import { duocChonMoiDoiTac, maMisaCuaEmail } from "../lib/congNoDoiTac";
 import { computeTonKtvConLai } from "../lib/tonKhoKtv";
@@ -2413,7 +2413,8 @@ async function chuanBiPhieuDat(
     if (!canNoRequired(lde) && maYcscRequired(lde) && !coMaIdLienQuan(dh.ma_yeu_cau_su_co, dh.ma_lada))
       return { error: "THIEU_MA_YCSC", status: 400, extra: { ma_lk: dh.ma_lk } };
     // Dong tra hang BAT BUOC 1-3 anh linh kien can tra (phan hoi 2026-08-24, muc 1).
-    if (deriveLoaiDon(lde) === "tra_hang") {
+    // TRẢ HÀNG CÔNG NỢ - SỬA CHỮA (tao tu app Bao hanh doi tra khi Admin BH xac nhan linh kien du) - khong bat anh.
+    if (deriveLoaiDon(lde) === "tra_hang" && !laTraHangSuaChua(lde)) {
       const soAnh = dh.anh?.length ?? 0;
       if (soAnh < 1 || soAnh > 3) return { error: "THIEU_ANH_TRA_HANG", status: 400, extra: { ma_lk: dh.ma_lk } };
     }
@@ -2646,8 +2647,11 @@ datMuaLinhKien.post("/phieu-dat", async (c) => taoPhieuDat(c, await c.req.json<P
 
 // Than POST /phieu-dat - export de API doi tac (routes/partnerApi.ts POST /v1/dat-hang) tao don bang CUNG logic (gia, chiet khau, ton kho,
 // tran cong no, tu duyet, gom phieu, thong bao). opts.partnerKeyId -> ghi phieu_dat.partner_key_id (migration 0114) de doi tac tra cuu lai.
-export async function taoPhieuDat(c: Context<{ Bindings: Env }>, bodyGoc: PhieuDatBody, opts: { partnerKeyId?: number } = {}): Promise<Response> {
+export async function taoPhieuDat(c: Context<{ Bindings: Env }>, bodyGoc: PhieuDatBody, opts: { partnerKeyId?: number; tuSuaChua?: boolean } = {}): Promise<Response> {
   if (!canCreatePhieuDat(c)) return c.json({ error: c.get("user").la_ve_tinh ? "VE_TINH_KHONG_TAO_DON" : "FORBIDDEN_ROLE" }, 403);
+  // 2026-11-16: 2 loai tru cong no / tra hang SỬA CHỮA chi tao qua API app Bao hanh doi tra (Admin BH xac nhan tieu hao).
+  if (!opts.tuSuaChua && (bodyGoc.don_hang ?? []).some((d) => laTruCongNoSuaChua(d.loai_de_xuat) || laTraHangSuaChua(d.loai_de_xuat)))
+    return c.json({ error: "LOAI_CHI_TAO_TU_APP_DOI_TRA" }, 403);
   const user = c.get("user");
   // FIX 2026-09-28 (bug "KTV tao 1 don, he thong hien 5 don giong het"): lan bam truoc da luu thanh cong nhung phan hoi khong ve
   // toi may -> KTV bam lai. Gap lai ma cu -> tra ve phieu da tao, KHONG tao them.
