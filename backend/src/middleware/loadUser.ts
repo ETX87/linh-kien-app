@@ -97,7 +97,7 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
       }
       c.set("viewAsRole", null);
       c.set("viewAsUser", { email: target.email, ten: target.ten });
-      c.set("user", keToanLamThayTn(toAppUser(target)));
+      c.set("user", quyenHieuLuc(toAppUser(target)));
       await next();
       return;
     }
@@ -108,10 +108,10 @@ export async function loadUser(c: Context<{ Bindings: Env }>, next: Next) {
   const viewAsCookie = getCookie(c, VIEW_AS_COOKIE);
   if (realIsAdmin && isViewAsRole(viewAsCookie)) {
     c.set("viewAsRole", viewAsCookie);
-    c.set("user", keToanLamThayTn(applyViewAsOverride(user, viewAsCookie)));
+    c.set("user", quyenHieuLuc(applyViewAsOverride(user, viewAsCookie)));
   } else {
     c.set("viewAsRole", null);
-    c.set("user", keToanLamThayTn(user));
+    c.set("user", quyenHieuLuc(user));
   }
   await next();
 }
@@ -123,7 +123,7 @@ export async function taiAppUserTheoEmail(db: D1Database, email: string): Promis
   if (!row) return { error: "TAI_KHOAN_DAT_HANG_KHONG_TON_TAI" };
   if (row.bi_khoa) return { error: "TAI_KHOAN_DAT_HANG_BI_KHOA" };
   if (row.trang_thai_duyet !== "Da duyet") return { error: "TAI_KHOAN_DAT_HANG_CHUA_DUYET" };
-  return keToanLamThayTn(toAppUser(row));
+  return quyenHieuLuc(toAppUser(row));
 }
 
 // KE TOAN LAM THAY TAC NGHIEP (chot 2026-10-15, v1.334 - "sau này sẽ cắt bỏ vai trò của TN trong việc duyệt phiếu => các
@@ -131,6 +131,22 @@ export async function taiAppUserTheoEmail(db: D1Database, email: string): Promis
 // + moi cho doc user.la_tac_nghiep, frontend qua /auth/me) - 1 diem duy nhat thay vi sua tung route. Chi doi user TRONG BO
 // NHO cua request: cot users.la_tac_nghiep trong DB khong doi -> thong bao viec theo vai tro (emailsForRoleOrQC doc DB),
 // danh sach Users van tach TN/Ke toan nhu cu. Cho nao uu tien Ke toan truoc TN (vd day lai chuyen tien) da xet canKeToan truoc.
+// Quyen hieu luc trong request = 2 quy tac "lam thay" ben duoi (1 diem duy nhat cho moi request + xem thu / xem nhu + tai khoan doi tac).
+function quyenHieuLuc(user: AppUser): AppUser {
+  return nvSuaChuaNhuKtv(keToanLamThayTn(user));
+}
+
+// NV SUA CHUA NHU 1 KTV NHAN HANG (v1.501 - tai khoan "(vietnv.ktvscvp) KTV sửa chữa HN - Nguyễn Vũ Việt" CHI co co "NV sửa chữa" bi day ra man
+// "chưa được phê duyệt", ca khi Admin "Xem như người dùng"): tai khoan co la_nv_sua_chua ma KHONG co vai tro / co nghiep vu nao khac -> mang
+// la_ktv_dvbh TRONG BO NHO request (nhu keToanLamThayTn) => vao module, chi thay don / phieu / quy / ton kho cua CHINH MINH (scope KTV), xac nhan
+// da nhan hang... Cot users.la_ktv_dvbh trong DB KHONG doi (danh sach Users, thong bao theo vai tro van nhu cu). nv_sua_chua_thuan = true de FE
+// KHONG cap nhom loai de xuat cua KTV (chi "CÔNG NỢ SỬA CHỮA" - getOptionsForUser).
+function nvSuaChuaNhuKtv(user: AppUser): AppUser {
+  if (!user.la_nv_sua_chua || user.vai_tro || user.la_ktv_dvbh || user.la_ve_tinh || user.la_kho || user.la_ke_toan || user.la_tac_nghiep
+    || user.la_tp_dvbh || user.la_view || user.la_mua_hang) return user;
+  return { ...user, la_ktv_dvbh: true, nv_sua_chua_thuan: true };
+}
+
 function keToanLamThayTn(user: AppUser): AppUser {
   return user.la_ke_toan && !user.la_tac_nghiep ? { ...user, la_tac_nghiep: true } : user;
 }

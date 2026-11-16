@@ -20,6 +20,7 @@ export interface AppUser {
   la_view: boolean;
   la_mua_hang: boolean;
   la_nv_sua_chua?: boolean; // "NV sửa chữa" (v1.495) - thay loai CÔNG NỢ SỬA CHỮA
+  nv_sua_chua_thuan?: boolean; // v1.501: chi co co NV sua chua - backend cap la_ktv_dvbh trong bo nho, KHONG cap loai de xuat cua KTV
   quan_ly_danh_muc_lk: boolean;
   xem_danh_muc_lk: boolean;
   tram_cha: string | null;

@@ -26,6 +26,7 @@ export interface AppUser {
   la_view: boolean; // "View" (them 2026-08-26) - chi doc bao cao/danh sach, khong tao/duyet/sua
   la_mua_hang: boolean; // "Mua hang" (2026-09-30, migration 0053) - xet duyet/sua ma linh kien moi
   la_nv_sua_chua: boolean; // "NV sửa chữa" (v1.495, migration 0119) - dat loai CÔNG NỢ SỬA CHỮA
+  nv_sua_chua_thuan?: boolean; // v1.501: CHI co co NV sua chua -> loadUser cap la_ktv_dvbh trong bo nho (nvSuaChuaNhuKtv)
   quan_ly_danh_muc_lk: boolean; // Quyen SUA danh muc linh kien
   xem_danh_muc_lk: boolean; // Quyen XEM danh muc linh kien (doc lap voi quyen sua)
   tram_cha: string | null;

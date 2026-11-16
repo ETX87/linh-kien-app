@@ -75,7 +75,7 @@ export async function clearLdeCache(): Promise<void> {
 
 // Loc options phu hop voi user hien tai dua tren vai_tro_json cua moi nhom.
 export function getOptionsForUser(
-  user: { la_ktv_dvbh?: boolean; la_ve_tinh?: boolean; la_tac_nghiep?: boolean; la_nv_sua_chua?: boolean; vai_tro?: string | null } | null,
+  user: { la_ktv_dvbh?: boolean; la_ve_tinh?: boolean; la_tac_nghiep?: boolean; la_nv_sua_chua?: boolean; nv_sua_chua_thuan?: boolean; vai_tro?: string | null } | null,
   entries: LdeEntry[],
 ): string[] {
   const active = entries.filter((e) => e.bat_tat);
@@ -88,7 +88,8 @@ export function getOptionsForUser(
     matched = active;
   } else {
     const userFlags = new Set<string>();
-    if (user?.la_ktv_dvbh) userFlags.add("la_ktv_dvbh");
+    // NV sua chua "thuan" (v1.501) mang la_ktv_dvbh chi de vao module / scope KTV - KHONG nhan loai de xuat cua KTV.
+    if (user?.la_ktv_dvbh && !user.nv_sua_chua_thuan) userFlags.add("la_ktv_dvbh");
     if (user?.la_ve_tinh) userFlags.add("la_ve_tinh");
     // FIX (phan hoi 2026-09-11: "vai trò TN đang không nhìn thấy các loại đề xuất để chọn") - TN
     // (la_tac_nghiep) co quyen "tao ho" (canDatHo o DatMuaLinhKienModule.tsx) nhung token nay truoc
