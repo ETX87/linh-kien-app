@@ -1458,6 +1458,7 @@ Chốt qua AskUserQuestion (16/11/2026, cả 4 theo phương án đề xuất): 
   - `POST /suachua-partner/don-sc` nhận `loai_de_xuat` (app đổi trả tự tính theo Hãng / Đối tác / bảo hành) — ưu tiên hơn tra ngược `traDonBh` (tra ngược lỗi / chậm thì đơn từng rơi về CÔNG NỢ SỬA CHỮA). `/don-sc/:id/sua` tạo lại giữ loại đơn cũ.
   - HỖ TRỢ SỬA CHỮA 0 ĐỒNG: app đổi trả nay vẫn bắt Admin BH xác nhận xác (không tạo đơn trừ / trả); MUA HÀNG SỬA CHỮA chuyển tiền như đơn mua thường, không xác nhận xác.
   - Tài liệu `docs/Huong_dan_cap_LK_sua_chua_tra_xac.html` (NV sửa chữa / Admin BH / Kế toán / Trả xác, ảnh minh họa).
+  - Deploy (16/11/2026): `npm run deploy` (Version ID `17ef188c`, không migration), sau đó app đổi trả v1.143 (`2d6bc7df`).
 
 ## Đơn "SỬA CHỮA TẠI KHO" đồng bộ từ app Sửa chữa bảo hành (2026-11-12, v1.478, migration `0116`)
 
