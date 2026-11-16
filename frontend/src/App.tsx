@@ -50,7 +50,7 @@ const ACTIVE_MODULE_KEY = "dat_mua_lk_active_module";
 // dong subtitle luon hien ten UNG DUNG chung "Đặt mua linh kiện" thay vi vai tro THAT cua ho. Ham nay
 // tra ve dung (cac) co dang bat, join bang " · " neu vo tinh bat nhieu co cung luc - chi fallback ve
 // ten ung dung khi KHONG co vai_tro lan co nao (khong nen xay ra, xem laTaiKhoanMuaHangThuanTuy).
-function roleDisplayLabel(user: { vai_tro: string | null; la_kho: boolean; la_ke_toan: boolean; la_tac_nghiep: boolean; la_tp_dvbh: boolean; la_ktv_dvbh: boolean; la_ve_tinh: boolean; la_view: boolean; la_mua_hang: boolean }): string {
+function roleDisplayLabel(user: { vai_tro: string | null; la_kho: boolean; la_ke_toan: boolean; la_tac_nghiep: boolean; la_tp_dvbh: boolean; la_ktv_dvbh: boolean; la_ve_tinh: boolean; la_view: boolean; la_mua_hang: boolean; la_nv_sua_chua?: boolean; nv_sua_chua_thuan?: boolean }): string {
   if (user.vai_tro) return user.vai_tro;
   const labels: string[] = [];
   if (user.la_kho) labels.push("Kho");
@@ -58,7 +58,9 @@ function roleDisplayLabel(user: { vai_tro: string | null; la_kho: boolean; la_ke
   // Ke toan duoc server cap them la_tac_nghiep (lam thay TN, 2026-10-15) - khong hien them nhan TN.
   if (user.la_tac_nghiep && !user.la_ke_toan) labels.push(t("Tác nghiệp (TN)"));
   if (user.la_tp_dvbh) labels.push("TP DVBH");
-  if (user.la_ktv_dvbh) labels.push("KTV DVBH");
+  // NV sua chua "thuan" (v1.501) mang la_ktv_dvbh trong bo nho - hien dung vai tro.
+  if (user.la_ktv_dvbh && !user.nv_sua_chua_thuan) labels.push("KTV DVBH");
+  if (user.la_nv_sua_chua) labels.push(t("NV sửa chữa"));
   if (user.la_ve_tinh) labels.push(t("Vệ tinh"));
   if (user.la_view) labels.push("View");
   if (user.la_mua_hang) labels.push(t("Mua hàng"));

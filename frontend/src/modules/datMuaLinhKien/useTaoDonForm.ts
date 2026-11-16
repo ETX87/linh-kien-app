@@ -565,7 +565,8 @@ export function useTaoDonForm({
   const tongCongNoTamTinh = drafts.reduce((sum, d) => {
     // "TRỪ CÔNG NỢ" khong doi chieu cong no (chot 2026-09-28) - khop backend POST /phieu-dat.
     // + don KH tra gop / HỖ TRỢ 0 ĐỒNG (khongTinhCongNo) - gia tri CN = 0, khop backend.
-    if (deriveLoaiDon(d.loai_de_xuat.trim()) !== "cong_no" || laTruCongNo(d.loai_de_xuat) || khongTinhCongNo(d.loai_de_xuat)) return sum;
+    // + CÔNG NỢ SỬA CHỮA (v1.504) khong xet tran - khop backend canDoiChieuCongNo (truoc day form van bao "Vượt trần công nợ dự kiến").
+    if (deriveLoaiDon(d.loai_de_xuat.trim()) !== "cong_no" || laTruCongNo(d.loai_de_xuat) || khongTinhCongNo(d.loai_de_xuat) || laCongNoSuaChua(d.loai_de_xuat)) return sum;
     const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
     // LK nhom B2B khong xet tran cong no (2026-10-27) - khop backend danhGiaPhieu.
     if (lk?.nhom_lk === "b2b") return sum;

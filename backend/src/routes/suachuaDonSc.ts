@@ -3,6 +3,7 @@ import type { Env } from "../types";
 import { taiAppUserTheoEmail } from "../middleware/loadUser";
 import { nowVN } from "../lib/vnTime";
 import { bumpVersions } from "../lib/dataVersions";
+import { traDonBh } from "../lib/donBhClient";
 import { laCongNoSuaChua } from "../lib/pxkRecalculate";
 import { TRANG_THAI_PXK_DON_SQL } from "../lib/trangThaiDonPxk";
 import { latestThieuLkStatusExpr, phanLoaiHuyDon, taoPhieuDat, thucHienHuyDon, yeuCauHuyDon } from "./datMuaLinhKien";
@@ -130,10 +131,23 @@ async function taoDonTuDeXuat(
 ): Promise<{ id: string; trang_thai: string; ly_do: string | null } | Response> {
   const ghiChuTao = [`[App Bảo hành đổi trả ${b.dx_id}${b.nguoi_thao_tac !== b.nv_email ? ` — ${b.nguoi_thao_tac} tạo hộ` : ""}]`, b.ghi_chu]
     .filter(Boolean).join(" ");
+  // v1.504: dien san Mã YCSC (case) / TT khách hàng / TT+Mail duyệt nhu form app nay tu dien khi chon don bao hanh (v1.499) - lay tu app doi
+  // tra (traDonBh); khong ket noi duoc thi bo trong (khong chan tao don).
+  const bh = await traDonBh(c.env, b.unit_id);
+  const ten = await c.env.DB.prepare(
+    `SELECT COALESCE((SELECT k.ten_hien_thi FROM ktv_lien_he k WHERE LOWER(k.email_dang_nhap) = LOWER(u.email) LIMIT 1), u.ten, u.email) AS ten
+     FROM users u WHERE u.email = ?`,
+  ).bind(b.nv_email).first<{ ten: string }>();
+  const tenNv = (ten?.ten ?? b.nv_email).split(/\s[-–]\s/).pop()!.trim();
   const res = await taoPhieuDat(c, {
     nguoi_nhan_hang: b.nv_email,
     client_request_id: `sc:${b.dx_id}:${b.lan}`,
-    don_hang: [{ ma_lk: b.ma_lk, loai_de_xuat: LOAI_DE_XUAT, so_luong_de_xuat: b.so_luong, ghi_chu: ghiChuTao, bh_don_vi_id: b.unit_id }],
+    don_hang: [{
+      ma_lk: b.ma_lk, loai_de_xuat: LOAI_DE_XUAT, so_luong_de_xuat: b.so_luong, ghi_chu: ghiChuTao, bh_don_vi_id: b.unit_id,
+      ma_yeu_cau_su_co: bh?.case_id ?? undefined,
+      tt_khach_hang: bh?.ten_khach_hang ?? undefined,
+      tt_mail_duyet: `Xuất công nợ sửa chữa cho NV ${tenNv}`,
+    }],
   });
   const j = (await res.clone().json().catch(() => ({}))) as { id?: string; error?: string };
   if (res.status >= 400 || !j.id) return res;
