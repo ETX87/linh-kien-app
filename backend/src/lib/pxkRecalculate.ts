@@ -82,6 +82,34 @@ export function laCongNoSuaChua(loaiDeXuat: string | null | undefined): boolean 
   const u = (loaiDeXuat ?? "").normalize("NFC").toUpperCase();
   return u.includes("CÔNG NỢ SỬA CHỮA") && !u.includes("TRỪ CÔNG NỢ") && !u.includes("TRẢ HÀNG");
 }
+// 2026-11-16 (v1.508, app Bao hanh doi tra v1.142) - nguyen van: "Đơn của đối tác Karofi => mặc định xuất sang đơn "HỖ TRỢ SỬA CHỮA 0 ĐỒNG" (nếu
+// còn bảo hành), các đối tác khác sẽ xuất "CÔNG NỢ SỬA CHỮA". Trường hợp hết bảo hành => đề xuất dạng "MUA HÀNG SỬA CHỮA". => Chỉ có đơn "CÔNG NỢ
+// SỬA CHỮA" mới cần lên đơn trừ công nợ". 3 loai cap linh kien cho NV sua chua (goi chung laDonSuaChua - cung bat buoc ma don bao hanh + nguoi
+// nhan la NV sua chua):
+//  - HỖ TRỢ SỬA CHỮA 0 ĐỒNG: loai_don cong_no (chua "HỖ TRỢ"), KHONG tinh cong no (khongTinhCongNo, trigger migration 0122), khong chuyen tien;
+//    MISA dien giai nhu HỖ TRỢ 0 ĐỒNG ("xuất hỗ trợ trong BH ...").
+//  - MUA HÀNG SỬA CHỮA: loai_don mua - nhu MUA HÀNG thuong (chot: gia theo quy tac chiet khau, NV chuyen tien vao phieu, Ke toan xac nhan).
+// Ban sao FE: helpers.ts.
+export const LDX_CONG_NO_SUA_CHUA = "CÔNG NỢ SỬA CHỮA";
+export const LDX_HO_TRO_SUA_CHUA_0D = "HỖ TRỢ SỬA CHỮA 0 ĐỒNG";
+export const LDX_MUA_HANG_SUA_CHUA = "MUA HÀNG SỬA CHỮA";
+export function laHoTroSuaChua0d(loaiDeXuat: string | null | undefined): boolean {
+  return (loaiDeXuat ?? "").normalize("NFC").toUpperCase().includes(LDX_HO_TRO_SUA_CHUA_0D);
+}
+export function laMuaHangSuaChua(loaiDeXuat: string | null | undefined): boolean {
+  return (loaiDeXuat ?? "").normalize("NFC").toUpperCase().includes(LDX_MUA_HANG_SUA_CHUA);
+}
+export function laDonSuaChua(loaiDeXuat: string | null | undefined): boolean {
+  return laCongNoSuaChua(loaiDeXuat) || laHoTroSuaChua0d(loaiDeXuat) || laMuaHangSuaChua(loaiDeXuat);
+}
+// Loai de xuat theo don bao hanh (Hang / Doi tac / con-het bao hanh do Admin BH chot ben app doi tra). Ban sao app doi tra lib/doiTac.ts
+// loaiDeXuatSuaChua - doi 1 ben doi ca 2. null = don chua du thong tin (giu loai nguoi dat chon).
+export function loaiDeXuatTheoDonBh(bh: { loai_bao_hanh?: string | null; doi_tac_karofi?: number | boolean | null } | null | undefined): string | null {
+  if (!bh) return null;
+  if (bh.loai_bao_hanh === "ngoai_bh") return LDX_MUA_HANG_SUA_CHUA;
+  if (bh.loai_bao_hanh !== "trong_bh" || bh.doi_tac_karofi === null || bh.doi_tac_karofi === undefined) return null;
+  return bh.doi_tac_karofi ? LDX_HO_TRO_SUA_CHUA_0D : LDX_CONG_NO_SUA_CHUA;
+}
 // Ma don bao hanh (v1.496 - "vẫn cho nhập tay nếu không có (vì có thể đặt cho đơn không thuộc app đổi trả)"): ma app Bao hanh doi tra
 // (don cha "DH-000123" / don vi "DH-000123-1") quy ve chu HOA; ma go tay khac giu nguyen (bo khoang trang thua). Rong / > 40 ky tu -> null.
 export function laMaDonBhApp(v: string | null | undefined): boolean {
@@ -124,7 +152,7 @@ export function laHoTro0Dong(loaiDeXuat: string | null | undefined): boolean {
 
 // Loai de xuat nhom cong_no nhung KHONG tinh gia tri cong no / khong doi chieu tran: KH tra gop + HỖ TRỢ 0 ĐỒNG.
 export function khongTinhCongNo(loaiDeXuat: string | null | undefined): boolean {
-  return laKhTraGop(loaiDeXuat) || laHoTro0Dong(loaiDeXuat);
+  return laKhTraGop(loaiDeXuat) || laHoTro0Dong(loaiDeXuat) || laHoTroSuaChua0d(loaiDeXuat);
 }
 
 // Chot 2026-09-29: don CO yeu cau xuat hoa don (cot "Yêu cầu hóa đơn" khac trong / khac "Không") tinh theo GIA NIEM YET,

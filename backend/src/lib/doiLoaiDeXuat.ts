@@ -31,7 +31,7 @@ import { nowVN } from "./vnTime";
 import { KE_TOAN_DA_CHOT_TIEN_SQL, thongBaoHoanQuyPhieuHuy } from "./quyKtv";
 import { doiKhuVucDonSql } from "./scopeDatMua";
 import { deriveLoaiDon, boQuaTbpChoDacThu, canDoiChieuCongNo, nguCanhNhan, danhGiaPhieu, donDuTonKhoCongTy, tacDongSauDinhTuyen, baoNguoiTaoDon, moTaThieuTon } from "./tuDongDuyet";
-import { laTruCongNo, laMuaCongNoDoiTac, laCongNoSuaChua, taiTinhPxk, taiTinhPxkMoCuaKtv } from "./pxkRecalculate";
+import { laTruCongNo, laMuaCongNoDoiTac, laDonSuaChua, taiTinhPxk, taiTinhPxkMoCuaKtv } from "./pxkRecalculate";
 import { getMocTinhCongNo } from "./congNoKtv";
 import { goDonKhoiPxk, laVanPhong, danhDauVanPhongTacDong } from "./pxkTuHuy";
 import { bundleAutoApprovedIntoPxk } from "./pxkAutoBundle";
@@ -141,7 +141,7 @@ export async function doiLoaiDeXuatDon(
   const loaiDonMoi = deriveLoaiDon(ldeMoi);
   if (loaiDonMoi === "tra_hang") return { error: "DOI_LUONG_TRA_HANG", status: 409 };
   if (laMuaCongNoDoiTac(ldeMoi)) return { error: "DOI_LOAI_CONG_NO_DOI_TAC", status: 409 };
-  if (laCongNoSuaChua(ldeMoi) || laCongNoSuaChua(ldeCu)) return { error: "DOI_LOAI_CONG_NO_SUA_CHUA", status: 409 };
+  if (laDonSuaChua(ldeMoi) || laDonSuaChua(ldeCu)) return { error: "DOI_LOAI_CONG_NO_SUA_CHUA", status: 409 };
   // Don "KH đã chuyển khoản về công ty" (migration 0111) chi co nghia voi don phat sinh tien (mua / TRỪ CÔNG NỢ).
   if (d.kh_chuyen_khoan && !(loaiDonMoi === "mua" || laTruCongNo(ldeMoi))) return { error: "KH_CHUYEN_KHOAN_CHI_DON_MUA", status: 409 };
   if (!d.nguoi_nhan_hang) return { error: "NOT_FOUND", status: 404 };

@@ -187,7 +187,8 @@ const laMuaDuTru = (ldx: string | null) => boDau(ldx ?? "").includes("mua du tru
 const laDonCongNo = (ldx: string | null) => boDau(ldx ?? "").startsWith("cong no");
 function loaiHoTro0Dong(ldx: string | null): "kenh_mt" | "thuong" | null {
   const s = boDau(ldx ?? "");
-  if (!s.includes("ho tro 0 dong")) return null;
+  // HỖ TRỢ SỬA CHỮA 0 ĐỒNG (v1.508): dien giai nhu HỖ TRỢ 0 ĐỒNG ("xuất hỗ trợ trong BH ...").
+  if (!s.includes("ho tro 0 dong") && !s.includes("ho tro sua chua 0 dong")) return null;
   return s.includes("kenh mt") ? "kenh_mt" : "thuong";
 }
 // "Chính sách" cua don: "Trong CSBH" -> "trong BH", "Ngoài CSBH" -> "ngoài BH", trong -> bo qua.

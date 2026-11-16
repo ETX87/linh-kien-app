@@ -4,7 +4,8 @@ import { taiAppUserTheoEmail } from "../middleware/loadUser";
 import { nowVN } from "../lib/vnTime";
 import { bumpVersions } from "../lib/dataVersions";
 import { traDonBh } from "../lib/donBhClient";
-import { laCongNoSuaChua, laTruCongNoSuaChua, laTraHangSuaChua, LDX_TRU_CONG_NO_SUA_CHUA, LDX_TRA_HANG_SUA_CHUA } from "../lib/pxkRecalculate";
+import { laCongNoSuaChua, laTruCongNoSuaChua, laTraHangSuaChua, laDonSuaChua, laHoTroSuaChua0d, laMuaHangSuaChua, loaiDeXuatTheoDonBh, LDX_TRU_CONG_NO_SUA_CHUA, LDX_TRA_HANG_SUA_CHUA } from "../lib/pxkRecalculate";
+import { goDonKhoiPxk } from "../lib/pxkTuHuy";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
 import { TRANG_THAI_PXK_DON_SQL } from "../lib/trangThaiDonPxk";
 import { latestThieuLkStatusExpr, phanLoaiHuyDon, taoPhieuDat, thucHienHuyDon, yeuCauHuyDon } from "./datMuaLinhKien";
@@ -143,7 +144,8 @@ async function docDonSc(db: D1Database, where: string, binds: unknown[], chiCsc 
   const out: Record<string, unknown>[] = [];
   for (const r of results) {
     // loc loai de xuat o JS (SQLite UPPER khong ha chu co dau).
-    if (chiCsc && !laCongNoSuaChua(r.loai_de_xuat)) continue;
+    // v1.508: ca 3 loai cap linh kien sua chua (CÔNG NỢ / HỖ TRỢ SỬA CHỮA 0 ĐỒNG / MUA HÀNG SỬA CHỮA).
+    if (chiCsc && !laDonSuaChua(r.loai_de_xuat)) continue;
     const { nhan, buoc } = nhanDonSc(r);
     // "Sua / huy ngay" chi khi Ke toan chua xu ly (phanLoaiHuyDon: huy duoc + khong can bo phan dong y) - chi tinh cho don con mo.
     let suaDuoc = false;
@@ -173,14 +175,22 @@ async function taoDonTuDeXuat(
      FROM users u WHERE u.email = ?`,
   ).bind(b.nv_email).first<{ ten: string }>();
   const tenNv = (ten?.ten ?? b.nv_email).split(/\s[-–]\s/).pop()!.trim();
+  // v1.508: loai theo don bao hanh (Karofi con BH = HỖ TRỢ SỬA CHỮA 0 ĐỒNG, het BH = MUA HÀNG SỬA CHỮA, con lai CÔNG NỢ SỬA CHỮA). taoPhieuDat
+  // cung tu chon lai theo don bao hanh - day chi de dien dung TT+Mail duyet.
+  const lde = loaiDeXuatTheoDonBh(bh) ?? LOAI_DE_XUAT;
+  const ttDuyet = laHoTroSuaChua0d(lde)
+    ? `Xuất hỗ trợ sửa chữa 0 đồng${bh?.doi_tac ? ` (${bh.doi_tac}, trong BH)` : ""} cho NV ${tenNv}`
+    : laMuaHangSuaChua(lde)
+      ? `Mua hàng sửa chữa (hết bảo hành) cho NV ${tenNv}`
+      : `Xuất công nợ sửa chữa cho NV ${tenNv}`;
   const res = await taoPhieuDat(c, {
     nguoi_nhan_hang: b.nv_email,
     client_request_id: `sc:${b.dx_id}:${b.lan}`,
     don_hang: [{
-      ma_lk: b.ma_lk, loai_de_xuat: LOAI_DE_XUAT, so_luong_de_xuat: b.so_luong, ghi_chu: ghiChuTao, bh_don_vi_id: b.unit_id,
+      ma_lk: b.ma_lk, loai_de_xuat: lde, so_luong_de_xuat: b.so_luong, ghi_chu: ghiChuTao, bh_don_vi_id: b.unit_id,
       ma_yeu_cau_su_co: bh?.case_id ?? undefined,
       tt_khach_hang: bh?.ten_khach_hang ?? undefined,
-      tt_mail_duyet: `Xuất công nợ sửa chữa cho NV ${tenNv}`,
+      tt_mail_duyet: ttDuyet,
     }],
   });
   const j = (await res.clone().json().catch(() => ({}))) as { id?: string; error?: string };
@@ -294,7 +304,7 @@ export function ganRouteDonSc(r: Hono<{ Bindings: Env }>) {
     const b = await c.req.json<Record<string, unknown>>().catch(() => ({}) as Record<string, unknown>);
     const d = await docDon(c.env.DB, id);
     if (!d) return c.json({ error: "NOT_FOUND" }, 404);
-    if (!laCongNoSuaChua(d.loai_de_xuat) || !d.nguoi_nhan_hang) return c.json({ error: "KHONG_PHAI_DON_SUA_CHUA" }, 409);
+    if (!laDonSuaChua(d.loai_de_xuat) || !d.nguoi_nhan_hang) return c.json({ error: "KHONG_PHAI_DON_SUA_CHUA" }, 409);
     const lyDo = chuoi(b.ly_do, 900);
     if (!lyDo) return c.json({ error: "THIEU_LY_DO_HUY" }, 400);
     const loi = await ganNv(c, d.nguoi_nhan_hang);
@@ -401,7 +411,7 @@ export function ganRouteDonSc(r: Hono<{ Bindings: Env }>) {
     const d = await c.env.DB.prepare("SELECT id, loai_de_xuat, nguoi_nhan_hang FROM dat_don_hang WHERE id = ?").bind(id)
       .first<{ id: string; loai_de_xuat: string | null; nguoi_nhan_hang: string | null }>();
     if (!d) return c.json({ error: "NOT_FOUND" }, 404);
-    if (!laCongNoSuaChua(d.loai_de_xuat) || !d.nguoi_nhan_hang) return c.json({ error: "KHONG_PHAI_DON_SUA_CHUA" }, 409);
+    if (!laDonSuaChua(d.loai_de_xuat) || !d.nguoi_nhan_hang) return c.json({ error: "KHONG_PHAI_DON_SUA_CHUA" }, 409);
     const tt = (await docDonSc(c.env.DB, "ddh.id = ?", [id]))[0] as { buoc?: string; nhan?: string; pxk_id?: string | null } | undefined;
     if (tt?.buoc === "xong") return c.json({ ok: true, da_nhan_truoc: true, don: tt });
     if (tt?.buoc === "dong") return c.json({ error: "DON_DA_DONG", nhan: tt.nhan }, 409);
@@ -422,6 +432,55 @@ export function ganRouteDonSc(r: Hono<{ Bindings: Env }>) {
         : `[App Bảo hành đổi trả — ${nguoi}] Xác nhận đã nhận linh kiện`).run();
     c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
     return c.json({ ok: true, pxk_id: p.id, don: (await docDonSc(c.env.DB, "ddh.id = ?", [id]))[0] });
+  });
+
+  // POST /tru-cong-no/:id/huy {nguoi_thao_tac, ly_do} | {kiem_tra: true} (2026-11-16, v1.508 - app doi tra v1.142). Nguyen van: "Sau khi admin bh
+  // xác nhận trừ xác => tạo tự động đơn trừ xác trên app linh kiện (có thể thay đổi trạng thái, hủy bỏ, chỉnh sửa trước khi kế toán duyệt chốt trừ
+  // công nợ)". Chot: Admin BH sua / huy xac nhan tieu hao ben app doi tra -> don TRỪ / TRẢ HÀNG CÔNG NỢ - SỬA CHỮA o day huy theo (sua = huy + tao
+  // lan gui moi). CHI khi Ke toan chua chot: don chua vao phieu, hoac phieu con "Dang tao phieu" / "Cho ke toan". Go don khoi phieu (phieu 1 don tu
+  // huy) roi don -> "Da huy" (log). kiem_tra = chi tra { huy_duoc, ly_do } (app doi tra kiem tra ca 2 don truoc khi huy).
+  r.post("/tru-cong-no/:id/huy", async (c) => {
+    const id = c.req.param("id");
+    const b = await c.req.json<Record<string, unknown>>().catch(() => ({}) as Record<string, unknown>);
+    const d = await c.env.DB.prepare(
+      "SELECT id, loai_de_xuat, loai_don, nguoi_nhan_hang, nguon_tao, trang_thai_hien_tai AS tt, version FROM dat_don_hang WHERE id = ?",
+    ).bind(id).first<{ id: string; loai_de_xuat: string | null; loai_don: string; nguoi_nhan_hang: string | null; nguon_tao: string | null; tt: string; version: number }>();
+    if (!d) return c.json({ error: "NOT_FOUND" }, 404);
+    if (!(laTruCongNoSuaChua(d.loai_de_xuat) || laTraHangSuaChua(d.loai_de_xuat)) || d.nguon_tao !== "doitra" || !d.nguoi_nhan_hang) {
+      return c.json({ error: "KHONG_PHAI_DON_TRU_SUA_CHUA" }, 409);
+    }
+    const daDong = ["Da huy", "TN tu choi", "Tu choi"].includes(d.tt);
+    const p = await c.env.DB.prepare(
+      `SELECT p.id, p.trang_thai_hien_tai AS tt FROM phieu_xuat_kho_dong pd JOIN phieu_xuat_kho p ON p.id = pd.phieu_xuat_kho_id
+       WHERE pd.dat_don_hang_id = ? AND p.trang_thai_hien_tai <> 'Ke toan huy' ORDER BY pd.rowid DESC LIMIT 1`,
+    ).bind(id).first<{ id: string; tt: string | null }>();
+    const daChot = !!p && !["Dang tao phieu", "Cho ke toan"].includes(p.tt ?? "Dang tao phieu");
+    if (b.kiem_tra === true) {
+      return c.json({ huy_duoc: daDong || !daChot, da_huy: daDong, ly_do: daChot ? `Kế toán đã chốt phiếu ${p!.id} — không sửa / hủy được nữa` : null });
+    }
+    if (daDong) return c.json({ ok: true, da_huy_truoc: true });
+    if (daChot) return c.json({ error: "KE_TOAN_DA_CHOT", message: `Kế toán đã chốt phiếu ${p!.id} — không sửa / hủy được nữa` }, 409);
+    const nguoi = chuoi(b.nguoi_thao_tac, 200)?.toLowerCase() ?? d.nguoi_nhan_hang;
+    const lyDo = chuoi(b.ly_do, 500) ?? "Hủy theo app Bảo hành đổi trả";
+    const ghi = `[App Bảo hành đổi trả — ${nguoi}] ${lyDo}`;
+    if (p) await goDonKhoiPxk(c.env.DB, p.id, id, d.nguoi_nhan_hang, "Hủy đơn trừ / trả công nợ sửa chữa", ghi, true, false);
+    const now = nowVN();
+    const cas = await c.env.DB.prepare("UPDATE dat_don_hang SET trang_thai_hien_tai = 'Da huy', version = version + 1, updated_at = ? WHERE id = ? AND version = ?")
+      .bind(now, id, d.version).run();
+    if (!cas.meta.changes) {
+      // Don vua bi doi o noi khac (CAS truot): doc lai roi CAS lan nua.
+      const v = await c.env.DB.prepare("SELECT version, trang_thai_hien_tai AS tt FROM dat_don_hang WHERE id = ?").bind(id).first<{ version: number; tt: string }>();
+      if (!v || v.tt === "Da huy") return c.json({ ok: true, da_huy_truoc: true });
+      const cas2 = await c.env.DB.prepare("UPDATE dat_don_hang SET trang_thai_hien_tai = 'Da huy', version = version + 1, updated_at = ? WHERE id = ? AND version = ?").bind(now, id, v.version).run();
+      if (!cas2.meta.changes) return c.json({ error: "STATE_CHANGED" }, 409);
+    }
+    await c.env.DB.prepare(
+      d.loai_don === "tra_hang"
+        ? "INSERT INTO tra_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Da huy', ?, ?, ?)"
+        : "INSERT INTO dat_don_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Da huy', ?, ?, ?)",
+    ).bind(id, d.nguoi_nhan_hang, now, ghi).run();
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+    return c.json({ ok: true, pxk_id: p?.id ?? null });
   });
 
   // GET /tru-cong-no?ids=DDH-..,..  trang thai cac don tru cong no / tra hang sua chua (cung bo nhan / buoc voi /don-sc).

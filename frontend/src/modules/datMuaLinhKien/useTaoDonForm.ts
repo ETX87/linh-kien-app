@@ -6,7 +6,7 @@ import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
 import type { DonHangDraft, KhachLeRow, NguoiNhanHangKhaDungRow, KiemTraPhieuDat, KiemTraDong, KetQuaTaoDon } from "./types";
-import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, khongTinhCongNo, useLkCombo, comboThanhLkRow, chinhSachMacDinh, laMuaCongNoDoiTac, laCongNoSuaChua, chuanMaDonBh } from "./helpers";
+import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, khongTinhCongNo, useLkCombo, comboThanhLkRow, chinhSachMacDinh, laMuaCongNoDoiTac, laCongNoSuaChua, laDonSuaChua, chuanMaDonBh } from "./helpers";
 import { t } from "../../i18n";
 import { GENERIC_ERROR_MESSAGES } from "./constants";
 import { coYeuCauHoaDon } from "./LoaiChietKhau";
@@ -174,12 +174,13 @@ export function useTaoDonForm({
     ? (nguoiNhanHangData?.rows.find((r) => r.email_dang_nhap === nguoiNhanHang)?.ten_hien_thi ?? nguoiNhanHang)
     : (auth.status === "authenticated" ? auth.user.ten || auth.user.email : "");
   const ldeTheoQuyen = getOptionsForUser(auth.status === "authenticated" ? auth.user : null, ldeEntries).filter(
-    (o) => (coDoiTac || !laMuaCongNoDoiTac(o)) && (nhanLaNvSuaChua || !laCongNoSuaChua(o)),
+    (o) => (coDoiTac || !laMuaCongNoDoiTac(o)) && (nhanLaNvSuaChua || !laDonSuaChua(o)),
   );
-  const ldeSuaChua = nhanLaNvSuaChua && !ldeTheoQuyen.some(laCongNoSuaChua)
-    ? ldeEntries.find((e) => e.bat_tat && laCongNoSuaChua(e.ten_option))?.ten_option
-    : undefined;
-  const loaiDeXuatOptions = ldeSuaChua ? [ldeSuaChua, ...ldeTheoQuyen] : ldeTheoQuyen;
+  // v1.508: 3 loai cap linh kien sua chua (CÔNG NỢ / HỖ TRỢ SỬA CHỮA 0 ĐỒNG / MUA HÀNG SỬA CHỮA) - nguoi nhan la NV sua chua thi luon co du 3.
+  const ldeSuaChua = nhanLaNvSuaChua
+    ? ldeEntries.filter((e) => e.bat_tat && laDonSuaChua(e.ten_option) && !ldeTheoQuyen.includes(e.ten_option)).map((e) => e.ten_option)
+    : [];
+  const loaiDeXuatOptions = [...ldeSuaChua, ...ldeTheoQuyen];
   loaiDeXuatOptionsRef.current = loaiDeXuatOptions;
   // Doi tac MAC DINH = chinh nguoi nhan hang (2026-10-26, v1.406 - "KTV đặt công nợ đối tác thì không cần chọn đối tác, mặc định sẽ chính là ktv
   // đó. chỉ có GS, TN, KT mới có quyền chọn lại đối tác"): KTV tu dat -> doi tac cua chinh minh (khong doi duoc, co nhieu ma thi chon trong so
@@ -287,7 +288,7 @@ export function useTaoDonForm({
           anh: deriveLoaiDon(d.loai_de_xuat.trim()) === "tra_hang" ? d.anh : undefined,
           doi_tac_ma: laMuaCongNoDoiTac(d.loai_de_xuat) ? d.doi_tac_ma || undefined : undefined,
           kh_chuyen_khoan: d.kh_chuyen_khoan && duocTichKhChuyenKhoan(d) ? true : undefined,
-          bh_don_vi_id: laCongNoSuaChua(d.loai_de_xuat) ? chuanMaDonBh(d.bh_don_vi_id) ?? undefined : undefined,
+          bh_don_vi_id: laDonSuaChua(d.loai_de_xuat) ? chuanMaDonBh(d.bh_don_vi_id) ?? undefined : undefined,
         })),
       }),
     onSuccess: (res) => {
@@ -439,7 +440,7 @@ export function useTaoDonForm({
       // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): bat buoc chon doi tac.
       (!laMuaCongNoDoiTac(d.loai_de_xuat) || !!d.doi_tac_ma) &&
       // CÔNG NỢ SỬA CHỮA (v1.495): bat buoc ma don bao hanh dung dang.
-      (!laCongNoSuaChua(d.loai_de_xuat) || !!chuanMaDonBh(d.bh_don_vi_id))
+      (!laDonSuaChua(d.loai_de_xuat) || !!chuanMaDonBh(d.bh_don_vi_id))
     );
   }
 

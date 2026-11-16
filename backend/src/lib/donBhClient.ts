@@ -14,6 +14,11 @@ export interface DonBh {
   ten_khach_hang: string | null;
   trang_thai: string;
   nguoi_sua_chua: string | null;
+  // v1.508 (app doi tra v1.142): Hang / Doi tac / con-het bao hanh Admin BH chot -> loaiDeXuatTheoDonBh (pxkRecalculate.ts).
+  hang?: string | null;
+  doi_tac?: string | null;
+  doi_tac_karofi?: number | null;
+  loai_bao_hanh?: string | null;
 }
 
 async function goi<T>(env: Env, query: Record<string, string>): Promise<T | null> {

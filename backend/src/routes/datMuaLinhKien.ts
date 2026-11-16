@@ -33,7 +33,7 @@ import { computeMocDuPhongHienTai } from "../lib/duPhongKtv";
 import { computeTonKhoChot, donChoHangDuTonKho, getMocTonKhoCongTy } from "../lib/tonKhoCongTy";
 import { tachDonChoHang } from "../lib/tachDon";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
-import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon, laKhTraGop, khongTinhCongNo, laMuaCongNoDoiTac, laCongNoSuaChua, chuanMaDonBh, laMaDonBhApp, laTruCongNoSuaChua, laTraHangSuaChua } from "../lib/pxkRecalculate";
+import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon, laKhTraGop, khongTinhCongNo, laMuaCongNoDoiTac, laCongNoSuaChua, chuanMaDonBh, laMaDonBhApp, laTruCongNoSuaChua, laTraHangSuaChua, laDonSuaChua, laMuaHangSuaChua, loaiDeXuatTheoDonBh } from "../lib/pxkRecalculate";
 import { goiYDonBh, traDonBh } from "../lib/donBhClient";
 import { duocChonMoiDoiTac, maMisaCuaEmail } from "../lib/congNoDoiTac";
 import { computeTonKtvConLai } from "../lib/tonKhoKtv";
@@ -197,6 +197,8 @@ function canNoRequired(loaiDeXuat: string): boolean {
 // HÀNG") nen validate tach rieng khong bi chong cheo - xem 3 noi goi ben duoi.
 function maYcscRequired(loaiDeXuat: string): boolean {
   // + moi loai chua "HỖ TRỢ" (chot 2026-09-29) - "HỖ TRỢ CÔNG NỢ" da nam trong canNoRequired (bat buoc ca Chinh sach).
+  // v1.508: HỖ TRỢ SỬA CHỮA 0 ĐỒNG (va 2 loai sua chua khac) dung MA DON BAO HANH thay Ma YCSC.
+  if (laDonSuaChua(loaiDeXuat)) return false;
   return canNoRequired(loaiDeXuat) || loaiDeXuat.includes("MUA HÀNG CÓ ID") || loaiDeXuat.toUpperCase().includes("HỖ TRỢ");
 }
 
@@ -206,7 +208,8 @@ function maYcscRequired(loaiDeXuat: string): boolean {
 // Chinh sach mac dinh (chot 2026-10-08): don "TRỪ CÔNG NỢ" bo trong -> "Trong CSBH" (tao tay + import Excel). Ban sao FE:
 // chinhSachMacDinh() helpers.ts.
 function chinhSachMacDinh(loaiDeXuat: string | null | undefined): string | null {
-  return laTruCongNo(loaiDeXuat) || laCongNoSuaChua(loaiDeXuat) ? "Trong CSBH" : null;
+  if (laMuaHangSuaChua(loaiDeXuat)) return "Ngoài CSBH"; // v1.508: het bao hanh
+  return laTruCongNo(loaiDeXuat) || laDonSuaChua(loaiDeXuat) ? "Trong CSBH" : null;
 }
 
 // Ma ID lien quan (2026-09-30): noi nao "bat buoc Mã YCSC" thi chi can 1 trong 2 - Mã YCSC (case DVBH) HOAC
@@ -2383,12 +2386,17 @@ async function chuanBiPhieuDat(
   }
   // CÔNG NỢ SỬA CHỮA (chot 2026-11-16, v1.495): CHI dat cho nguoi nhan la "NV sửa chữa" (users.la_nv_sua_chua) - NV tu dat cho minh, TN /
   // GS / Admin dat ho. Moi dong BAT BUOC ma don bao hanh (de giai doan sau tu tru cong no theo xu ly xac). Dong loai khac -> bo ma.
-  if (body.don_hang.some((dh) => laCongNoSuaChua(dh.loai_de_xuat))) {
+  // v1.508: ap cho ca 3 loai cap linh kien sua chua (CÔNG NỢ / HỖ TRỢ SỬA CHỮA 0 ĐỒNG / MUA HÀNG SỬA CHỮA - laDonSuaChua).
+  if (body.don_hang.some((dh) => laDonSuaChua(dh.loai_de_xuat))) {
     const nv = await c.env.DB.prepare("SELECT la_nv_sua_chua FROM users WHERE email = ?").bind(nguoiNhanHang).first<{ la_nv_sua_chua: number }>();
     if (!nv?.la_nv_sua_chua) return { error: "NGUOI_NHAN_KHONG_PHAI_NV_SUA_CHUA", status: 403 };
   }
+  // v1.508 (app doi tra v1.142): "Đơn của đối tác Karofi => mặc định xuất sang đơn "HỖ TRỢ SỬA CHỮA 0 ĐỒNG" (nếu còn bảo hành), các đối tác khác
+  // sẽ xuất "CÔNG NỢ SỬA CHỮA". Trường hợp hết bảo hành => "MUA HÀNG SỬA CHỮA"" - ma don bao hanh co tren app doi tra va du Hang / Doi tac /
+  // bao hanh -> HE THONG chon loai (ghi de lua chon tren form); don nhap tay ngoai app / chua du thong tin -> giu loai nguoi dat chon.
+  const bhCache = new Map<string, Awaited<ReturnType<typeof traDonBh>>>();
   for (const dh of body.don_hang) {
-    if (!laCongNoSuaChua(dh.loai_de_xuat)) {
+    if (!laDonSuaChua(dh.loai_de_xuat)) {
       dh.bh_don_vi_id = undefined;
       continue;
     }
@@ -2396,6 +2404,14 @@ async function chuanBiPhieuDat(
     if (ma) dh.bh_don_vi_id = ma;
     else if (kiemTraThongTin) return { error: dh.bh_don_vi_id?.trim() ? "MA_DON_BH_KHONG_HOP_LE" : "THIEU_MA_DON_BH", status: 400, extra: { ma_lk: dh.ma_lk } };
     else dh.bh_don_vi_id = undefined;
+    if (ma && laMaDonBhApp(ma)) {
+      if (!bhCache.has(ma)) bhCache.set(ma, await traDonBh(c.env, ma));
+      const theoBh = loaiDeXuatTheoDonBh(bhCache.get(ma));
+      if (theoBh && theoBh !== dh.loai_de_xuat.trim()) {
+        dh.loai_de_xuat = theoBh;
+        if (laMuaHangSuaChua(theoBh)) dh.chinh_sach = "Ngoài CSBH";
+      }
+    }
   }
   const recipientRow = await c.env.DB.prepare("SELECT giam_sat_quan_ly FROM users WHERE email = ?")
     .bind(nguoiNhanHang)
@@ -2959,8 +2975,8 @@ async function processDatDonHangImportRows(
       errors.push(`Dòng ${dong}: đơn "${loaiDeXuat}" chưa hỗ trợ import — tạo trên form đặt hàng (chọn đối tác)`);
       continue;
     }
-    // CÔNG NỢ SỬA CHỮA (v1.495): can ma don bao hanh tung dong -> chi tao tren form.
-    if (laCongNoSuaChua(loaiDeXuat)) {
+    // CÔNG NỢ SỬA CHỮA (v1.495) + HỖ TRỢ SỬA CHỮA 0 ĐỒNG / MUA HÀNG SỬA CHỮA (v1.508): can ma don bao hanh tung dong -> chi tao tren form.
+    if (laDonSuaChua(loaiDeXuat)) {
       errors.push(`Dòng ${dong}: đơn "${loaiDeXuat}" chưa hỗ trợ import — tạo trên form đặt hàng (nhập mã đơn bảo hành)`);
       continue;
     }
@@ -4709,7 +4725,8 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
     const nextLde = !daCoPxk && body.loai_de_xuat !== undefined ? body.loai_de_xuat.trim() : (existing.loai_de_xuat ?? "");
     // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): don gan voi 1 doi tac + phieu rieng -> khong doi qua lai voi loai khac (huy, dat lai).
     if (laMuaCongNoDoiTac(nextLde) !== laMuaCongNoDoiTac(existing.loai_de_xuat ?? "")) return c.json({ error: "DOI_LOAI_CONG_NO_DOI_TAC" }, 409);
-    if (laCongNoSuaChua(nextLde) !== laCongNoSuaChua(existing.loai_de_xuat ?? "")) return c.json({ error: "DOI_LOAI_CONG_NO_SUA_CHUA" }, 409);
+    // v1.508: 3 loai cap linh kien sua chua do HE THONG chon theo don bao hanh -> khong doi qua lai (ke ca giua 3 loai).
+    if ((laDonSuaChua(nextLde) || laDonSuaChua(existing.loai_de_xuat)) && nextLde !== (existing.loai_de_xuat ?? "")) return c.json({ error: "DOI_LOAI_CONG_NO_SUA_CHUA" }, 409);
     const nextChinhSach = body.chinh_sach !== undefined ? body.chinh_sach?.trim() || null : existing.chinh_sach;
     const nextMaYeuCauSuCo = body.ma_yeu_cau_su_co !== undefined ? body.ma_yeu_cau_su_co?.trim() || null : existing.ma_yeu_cau_su_co;
     const nextMaLada = body.ma_lada !== undefined ? body.ma_lada?.trim().toUpperCase() || null : existing.ma_lada;

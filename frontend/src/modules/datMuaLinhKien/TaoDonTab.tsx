@@ -567,7 +567,7 @@ function yeuCauDong(x: DonHangDraft): { id: string; nhan: string; xong: boolean 
     { id: "tdo-lde", nhan: dichSau("Loại đề xuất"), xong: !!x.loai_de_xuat.trim() },
   ];
   if (laMuaCongNoDoiTac(x.loai_de_xuat)) ds.push({ id: "tdo-doitac", nhan: dichSau("Đối tác công nợ"), xong: !!x.doi_tac_ma });
-  if (laCongNoSuaChua(x.loai_de_xuat)) ds.push({ id: "tdo-bh", nhan: dichSau("Mã đơn bảo hành"), xong: !!chuanMaDonBh(x.bh_don_vi_id) });
+  if (laDonSuaChua(x.loai_de_xuat)) ds.push({ id: "tdo-bh", nhan: dichSau("Mã đơn bảo hành"), xong: !!chuanMaDonBh(x.bh_don_vi_id) });
   if (canNoRequired(x.loai_de_xuat)) ds.push({ id: "tdo-cs", nhan: dichSau("Chính sách"), xong: !!x.chinh_sach.trim() });
   if (maYcscRequired(x.loai_de_xuat)) ds.push({ id: "tdo-ycsc", nhan: dichSau("Mã YCSC hoặc Mã Lada"), xong: coMaIdLienQuan(x.ma_yeu_cau_su_co, x.ma_lada) });
   if (deriveLoaiDon(x.loai_de_xuat) === "tra_hang") ds.push({ id: "tdo-anh", nhan: dichSau("Ảnh linh kiện cần trả (1–3)"), xong: x.anh.length >= 1 && x.anh.length <= 3 });
@@ -660,7 +660,7 @@ function ImportDonExcel() {
 // canNoRequired/maYcscRequired duoc dung lai o day (import truc tiep, khong qua form) vi la ham thuan
 // tuy (khong dinh state) - chi import 1 lan o dau file, khong lap trong useTaoDonForm.ts (ham do da
 // import rieng cho chinh no dung trong isLineComplete).
-import { canNoRequired, maYcscRequired, coMaIdLienQuan, laMuaCongNoDoiTac, laCongNoSuaChua, chuanMaDonBh } from "./helpers";
+import { canNoRequired, maYcscRequired, coMaIdLienQuan, laMuaCongNoDoiTac, laDonSuaChua, chuanMaDonBh } from "./helpers";
 import { MaDonBhInput } from "./CongNoSuaChua";
 import { Money } from "../../components/ui/Money";
 import { TongNgayKtvInfo, CanhBaoChuaCoGiaKtv } from "./TongNgayKtv";

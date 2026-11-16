@@ -261,7 +261,8 @@ export function laTruCongNo(loaiDeXuat: string | null | undefined): boolean {
 // trong routes/datMuaLinhKien.ts (server cung dien khi bo trong - import Excel).
 
 export function chinhSachMacDinh(loaiDeXuat: string | null | undefined): string {
-  return laTruCongNo(loaiDeXuat) || laCongNoSuaChua(loaiDeXuat) ? "Trong CSBH" : "";
+  if (laMuaHangSuaChua(loaiDeXuat)) return "Ngoài CSBH"; // v1.508: het bao hanh
+  return laTruCongNo(loaiDeXuat) || laDonSuaChua(loaiDeXuat) ? "Trong CSBH" : "";
 }
 
 /** Ban sao laKhTraGop() (backend lib/pxkRecalculate.ts): "HỖ TRỢ NGOÀI BẢO HÀNH TG12-NSKX/-NPP" - gia tri CN = 0 (chot 2026-10-02). */
@@ -280,7 +281,7 @@ export function laHoTro0Dong(loaiDeXuat: string | null | undefined): boolean {
   return (loaiDeXuat ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").toLowerCase().includes("ho tro 0 dong");
 }
 export function khongTinhCongNo(loaiDeXuat: string | null | undefined): boolean {
-  return laKhTraGop(loaiDeXuat) || laHoTro0Dong(loaiDeXuat);
+  return laKhTraGop(loaiDeXuat) || laHoTro0Dong(loaiDeXuat) || laHoTroSuaChua0d(loaiDeXuat);
 }
 
 /** Ban sao boQuaTbpChoDacThu() (backend datMuaLinhKien.ts): loai MUA / HỖ TRỢ / TRỪ CÔNG NỢ bo qua buoc TBP du LK dac thu. */
@@ -305,6 +306,28 @@ export function canNoRequired(loaiDeXuat: string): boolean {
 export function laCongNoSuaChua(loaiDeXuat: string | null | undefined): boolean {
   return (loaiDeXuat ?? "").normalize("NFC").toUpperCase().includes("CÔNG NỢ SỬA CHỮA");
 }
+// v1.508 (app doi tra v1.142) - ban sao backend lib/pxkRecalculate.ts: 3 loai cap linh kien cho NV sua chua. He thong chon theo don bao hanh:
+// het bao hanh -> MUA HÀNG SỬA CHỮA; con bao hanh + doi tac Karofi -> HỖ TRỢ SỬA CHỮA 0 ĐỒNG; doi tac khac -> CÔNG NỢ SỬA CHỮA.
+export const LDX_CONG_NO_SUA_CHUA = "CÔNG NỢ SỬA CHỮA";
+export const LDX_HO_TRO_SUA_CHUA_0D = "HỖ TRỢ SỬA CHỮA 0 ĐỒNG";
+export const LDX_MUA_HANG_SUA_CHUA = "MUA HÀNG SỬA CHỮA";
+export function laHoTroSuaChua0d(loaiDeXuat: string | null | undefined): boolean {
+  return (loaiDeXuat ?? "").normalize("NFC").toUpperCase().includes(LDX_HO_TRO_SUA_CHUA_0D);
+}
+export function laMuaHangSuaChua(loaiDeXuat: string | null | undefined): boolean {
+  return (loaiDeXuat ?? "").normalize("NFC").toUpperCase().includes(LDX_MUA_HANG_SUA_CHUA);
+}
+export function laDonSuaChua(loaiDeXuat: string | null | undefined): boolean {
+  const u = (loaiDeXuat ?? "").normalize("NFC").toUpperCase();
+  if (u.includes("TRỪ CÔNG NỢ") || u.includes("TRẢ HÀNG")) return false;
+  return laCongNoSuaChua(loaiDeXuat) || laHoTroSuaChua0d(loaiDeXuat) || laMuaHangSuaChua(loaiDeXuat);
+}
+export function loaiDeXuatTheoDonBh(bh: { loai_bao_hanh?: string | null; doi_tac_karofi?: number | boolean | null } | null | undefined): string | null {
+  if (!bh) return null;
+  if (bh.loai_bao_hanh === "ngoai_bh") return LDX_MUA_HANG_SUA_CHUA;
+  if (bh.loai_bao_hanh !== "trong_bh" || bh.doi_tac_karofi === null || bh.doi_tac_karofi === undefined) return null;
+  return bh.doi_tac_karofi ? LDX_HO_TRO_SUA_CHUA_0D : LDX_CONG_NO_SUA_CHUA;
+}
 // v1.496: ma app Bao hanh doi tra (DH-000123 / DH-000123-1) quy ve HOA; ma go tay khac giu nguyen. Rong / > 40 ky tu -> null.
 export function laMaDonBhApp(v: string | null | undefined): boolean {
   return /^DH-\d{6}(-\d{1,3})?$/i.test((v ?? "").trim());
@@ -325,6 +348,7 @@ export function laMuaCongNoDoiTac(loaiDeXuat: string | null | undefined): boolea
 // buoc CA 2). Validate CA 2 PHIA, day la nguon that cho backend (xem datMuaLinhKien.ts).
 export function maYcscRequired(loaiDeXuat: string): boolean {
   // + moi loai chua "HỖ TRỢ" (chot 2026-09-29) - "HỖ TRỢ CÔNG NỢ" da nam trong canNoRequired (bat buoc ca Chinh sach).
+  if (laDonSuaChua(loaiDeXuat)) return false; // v1.508: loai sua chua dung Ma don bao hanh
   return canNoRequired(loaiDeXuat) || loaiDeXuat.includes("MUA HÀNG CÓ ID") || loaiDeXuat.toUpperCase().includes("HỖ TRỢ");
 }
 

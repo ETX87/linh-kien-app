@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { t } from "../../i18n";
-import { chuanMaDonBh, laCongNoSuaChua, laMaDonBhApp } from "./helpers";
+import { chuanMaDonBh, laDonSuaChua, laMaDonBhApp, laHoTroSuaChua0d, laMuaHangSuaChua, loaiDeXuatTheoDonBh, chinhSachMacDinh } from "./helpers";
 import type { DonHangDraft } from "./types";
 
 // CÔNG NỢ SỬA CHỮA (chot 2026-11-16, v1.495 + v1.496, migration 0119/0120): NV sua chua van phong dat linh kien ky gui de sua san pham bao
@@ -20,7 +20,23 @@ interface DonBh {
   san_pham_bh: string | null;
   ten_khach_hang: string | null;
   trang_thai: string;
+  // v1.508 (app doi tra v1.142): Hang / Doi tac / con-het bao hanh do Admin BH chot -> loai de xuat (loaiDeXuatTheoDonBh).
+  hang?: string | null;
+  doi_tac?: string | null;
+  doi_tac_karofi?: number | null;
+  loai_bao_hanh?: string | null;
 }
+
+// TT+Mail duyet tu dien theo loai cap linh kien sua chua.
+const ttDuyetTheoLoai = (lde: string, tenNv: string, doiTac?: string | null) => {
+  const nv = tenNv ? ` cho NV ${tenNgan(tenNv)}` : "";
+  if (laHoTroSuaChua0d(lde)) return `Xuất hỗ trợ sửa chữa 0 đồng${doiTac ? ` (${doiTac}, trong BH)` : ""}${nv}`;
+  if (laMuaHangSuaChua(lde)) return `Mua hàng sửa chữa (hết bảo hành)${nv}`;
+  return `Xuất công nợ sửa chữa${nv}`;
+};
+const nhanBh = (r: DonBh) =>
+  [r.hang && `Hãng ${r.hang}`, r.doi_tac && `Đối tác ${r.doi_tac}`, r.loai_bao_hanh === "trong_bh" ? "Còn bảo hành" : r.loai_bao_hanh === "ngoai_bh" ? "Hết bảo hành" : null]
+    .filter(Boolean).join(" · ");
 
 // v1.502 - "Danh sách ID lựa chọn cho nv sửa chữa chỉ hiện theo đúng case họ đang nhận trên app đổi trả. case này không có thì không hiện":
 // danh sach chon CHI la don vi NV nhan hang dang sua (app doi tra: nguoi_sua_chua = NV, dang sua) - go chu chi LOC trong danh sach nay (ma don /
@@ -42,15 +58,21 @@ const tenNgan = (s: string) => s.split(/\s[-–]\s/).pop()!.trim() || s;
 // nguyễn văn an / TT khách hàng: Tên KH / Ghi chú: (thông tin mã sửa chữa từ hệ thống app) => các thông tin này mặc định điền".
 // O nao nguoi dung da tu go (khac gia tri tu dien lan truoc) thi GIU NGUYEN; o trong / dang la gia tri tu dien thi thay.
 function tuDienTheoDon(d: DonHangDraft, r: DonBh, tenNv: string): Partial<DonHangDraft> {
+  // v1.508: loai de xuat do HE THONG chon theo don bao hanh (server cung ap lai luc tao don).
+  const lde = loaiDeXuatTheoDonBh(r) ?? d.loai_de_xuat;
   const moi = {
     ma_yeu_cau_su_co: r.case_id ?? "",
-    tt_mail_duyet: tenNv ? `Xuất công nợ sửa chữa cho NV ${tenNgan(tenNv)}` : "Xuất công nợ sửa chữa",
+    tt_mail_duyet: ttDuyetTheoLoai(lde, tenNv, r.doi_tac),
     tt_khach_hang: r.ten_khach_hang ?? "",
     ghi_chu: [`Đơn sửa chữa ${r.id}`, r.case_id && `case ${r.case_id}`, r.san_pham_bh ?? r.ten_lk, r.ten_lk && r.san_pham_bh && r.ten_lk.trim().toLowerCase() !== r.san_pham_bh.trim().toLowerCase() ? `LK gửi: ${r.ten_lk}` : null]
       .filter(Boolean).join(" · "),
   };
   const cu = d.bh_tu_dien;
   const patch: Partial<DonHangDraft> = { bh_tu_dien: moi };
+  if (lde !== d.loai_de_xuat) {
+    patch.loai_de_xuat = lde;
+    patch.chinh_sach = chinhSachMacDinh(lde);
+  }
   for (const k of ["ma_yeu_cau_su_co", "tt_mail_duyet", "tt_khach_hang", "ghi_chu"] as const) {
     const hienTai = (d[k] ?? "").trim();
     if (!hienTai || (cu && hienTai === cu[k].trim())) patch[k] = moi[k];
@@ -79,7 +101,7 @@ export function MaDonBhInput({
   id?: string;
   cao?: string;
 }) {
-  const laSuaChua = laCongNoSuaChua(d.loai_de_xuat);
+  const laSuaChua = laDonSuaChua(d.loai_de_xuat);
   const v = d.bh_don_vi_id ?? "";
   const [mo, setMo] = useState(false);
   const ds = useGoiYDonBh(email, laSuaChua);
@@ -94,6 +116,7 @@ export function MaDonBhInput({
     ? dsRows.filter((r) => [r.id, r.parent_id, r.case_id ?? ""].some((x) => x.toUpperCase().includes(maHoa)))
     : dsRows;
   const khop = dsRows.find((r) => r.id === maHoa || r.parent_id === maHoa);
+  const ldeTheoBh = khop ? loaiDeXuatTheoDonBh(khop) : null;
   const hopLe = !!chuanMaDonBh(v);
   const goiY = !data
     ? ""
@@ -152,6 +175,7 @@ export function MaDonBhInput({
                   <span className="font-mono font-semibold text-[var(--color-text)]">{r.id}</span>
                 </div>
                 <div className="text-[11.5px] text-[var(--ink-500)] truncate">{moTa(r) || "—"}</div>
+                {nhanBh(r) && <div className="text-[11px] text-[var(--ink-400)] truncate">{nhanBh(r)}{loaiDeXuatTheoDonBh(r) ? ` → ${loaiDeXuatTheoDonBh(r)}` : ""}</div>}
                 {r.ten_khach_hang && <div className="text-[11px] text-[var(--ink-400)] truncate">{r.ten_khach_hang}</div>}
               </button>
             ))
@@ -161,6 +185,16 @@ export function MaDonBhInput({
       <div className={`mt-1 text-[11px] ${khop ? "text-[var(--color-success-strong)]" : "text-[var(--ink-500)]"}`}>
         {goiY || t("Mã đơn bảo hành đang sửa cần linh kiện này — dùng để đối trừ công nợ khi linh kiện đã thay thế.")}
       </div>
+      {khop && (
+        <div className={`mt-1 text-[11px] ${ldeTheoBh && ldeTheoBh !== d.loai_de_xuat ? "text-[var(--color-warning-strong)] font-semibold" : "text-[var(--ink-500)]"}`}>
+          {nhanBh(khop) || t("Đơn bảo hành chưa có Hãng / Đối tác / bảo hành")}
+          {ldeTheoBh
+            ? ldeTheoBh !== d.loai_de_xuat
+              ? ` — ${t("hệ thống sẽ đặt loại")} "${ldeTheoBh}"`
+              : ` — ${t("loại đề xuất theo đơn bảo hành")}`
+            : ` — ${t("chưa đủ thông tin, giữ loại đang chọn")}`}
+        </div>
+      )}
     </div>
   );
 }
