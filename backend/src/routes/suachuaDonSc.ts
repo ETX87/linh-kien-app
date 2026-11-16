@@ -4,7 +4,8 @@ import { taiAppUserTheoEmail } from "../middleware/loadUser";
 import { nowVN } from "../lib/vnTime";
 import { bumpVersions } from "../lib/dataVersions";
 import { traDonBh } from "../lib/donBhClient";
-import { laCongNoSuaChua, LDX_TRU_CONG_NO_SUA_CHUA, LDX_TRA_HANG_SUA_CHUA } from "../lib/pxkRecalculate";
+import { laCongNoSuaChua, laTruCongNoSuaChua, laTraHangSuaChua, LDX_TRU_CONG_NO_SUA_CHUA, LDX_TRA_HANG_SUA_CHUA } from "../lib/pxkRecalculate";
+import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
 import { TRANG_THAI_PXK_DON_SQL } from "../lib/trangThaiDonPxk";
 import { latestThieuLkStatusExpr, phanLoaiHuyDon, taoPhieuDat, thucHienHuyDon, yeuCauHuyDon } from "./datMuaLinhKien";
 
@@ -42,6 +43,29 @@ async function ganNv(c: Ctx, email: string): Promise<Response | null> {
   c.set("viewAsRole", null);
   c.set("viewAsUser", null);
   return null;
+}
+
+// 2026-11-16 (v1.507): "Tất cả bước trừ tự động tạo phiếu đẩy kế toán, không qua bước TN vì vai trò Tác nghiệp không xử lý bước này (trả
+// hàng sửa chữa) cũng đi thẳng qua kế toán không cần đi theo luồng trả hàng công nợ". Phieu chua don vua tao (tu gom "Dang tao phieu")
+// -> chuyen thang "Cho ke toan" (bo kiem tra ma xuat kho / giai trinh cua TN). Chi ap phieu CHI gom don TRỪ / TRẢ HÀNG - SỬA CHỮA.
+async function dayPhieuSuaChuaSangKeToan(db: D1Database, donId: string, actor: string, ghiChu: string): Promise<string | null> {
+  const p = await db.prepare(
+    `SELECT p.id, p.version, p.trang_thai_hien_tai AS tt FROM phieu_xuat_kho_dong d JOIN phieu_xuat_kho p ON p.id = d.phieu_xuat_kho_id
+     WHERE d.dat_don_hang_id = ? ORDER BY d.rowid DESC LIMIT 1`,
+  ).bind(donId).first<{ id: string; version: number; tt: string | null }>();
+  if (!p || (p.tt ?? "Dang tao phieu") !== "Dang tao phieu") return p?.id ?? null;
+  const { results } = await db.prepare(
+    "SELECT ddh.loai_de_xuat FROM phieu_xuat_kho_dong d JOIN dat_don_hang ddh ON ddh.id = d.dat_don_hang_id WHERE d.phieu_xuat_kho_id = ?",
+  ).bind(p.id).all<{ loai_de_xuat: string | null }>();
+  if (!results.length || !results.every((r) => laTruCongNoSuaChua(r.loai_de_xuat) || laTraHangSuaChua(r.loai_de_xuat))) return p.id;
+  const cas = await db.prepare(
+    "UPDATE phieu_xuat_kho SET trang_thai_hien_tai = 'Cho ke toan', ma_xuat_kho_xac_nhan = 1, version = version + 1 WHERE id = ? AND version = ?",
+  ).bind(p.id, p.version).run();
+  if (cas.meta.changes) {
+    await db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Cho ke toan', ?, ?, ?)")
+      .bind(p.id, actor, nowVN(), ghiChu).run();
+  }
+  return p.id;
 }
 
 // Nhan trang thai hien thi ben app doi tra (ban rut gon cua nhanTrangThaiDon o FE LuongDon.tsx - doi luong o backend thi sua ca 2).
@@ -348,9 +372,56 @@ export function ganRouteDonSc(r: Hono<{ Bindings: Env }>) {
     if (res.status >= 400 || !j.id) return res;
     await c.env.DB.prepare("UPDATE dat_don_hang SET nguon_tao = 'doitra', nguon_tao_id = ?, bh_don_vi_id = ? WHERE phieu_dat_id = ?")
       .bind(`${loai}:${goc}`, d.bh_don_vi_id, j.id).run();
-    const don = await c.env.DB.prepare("SELECT id FROM dat_don_hang WHERE phieu_dat_id = ? ORDER BY id LIMIT 1").bind(j.id).first<{ id: string }>();
+    const don = await c.env.DB.prepare("SELECT id, trang_thai_hien_tai AS tt, version, ma_xuat_kho FROM dat_don_hang WHERE phieu_dat_id = ? ORDER BY id LIMIT 1")
+      .bind(j.id).first<{ id: string; tt: string; version: number; ma_xuat_kho: string | null }>();
+    if (don) {
+      const ghiPhieu = `Tự động từ app Bảo hành đổi trả (${nguoi} xác nhận tiêu hao) — ${nhan}, gửi thẳng Kế toán, không qua Tác nghiệp`;
+      if (loai === "tra" && don.tt !== "TN da duyet" && don.tt !== "Da huy") {
+        // Tra hang sua chua: bo cac buoc KT duyet mem / Kho / QC / TN cua luong tra hang cong no - linh kien du Admin BH da nhan lai.
+        const cas = await c.env.DB.prepare("UPDATE dat_don_hang SET trang_thai_hien_tai = 'TN da duyet', version = version + 1, updated_at = ? WHERE id = ? AND version = ?")
+          .bind(nowVN(), don.id, don.version).run();
+        if (cas.meta.changes) {
+          await c.env.DB.prepare("INSERT INTO tra_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'TN da duyet', ?, ?, ?)")
+            .bind(don.id, d.nguoi_nhan_hang, nowVN(), `Tự động — ${nhan}: Admin BH (${nguoi}) đã nhận lại linh kiện dư, không qua luồng trả hàng công nợ`).run();
+          if (!don.ma_xuat_kho) await bundleAutoApprovedIntoPxk(c.env, c.env.DB, d.nguoi_nhan_hang, d.nguoi_nhan_hang, "tra_hang", [{ donHangId: don.id, soTien: 0 }]);
+        }
+      }
+      await dayPhieuSuaChuaSangKeToan(c.env.DB, don.id, d.nguoi_nhan_hang, ghiPhieu);
+    }
     c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
     return c.json({ ok: true, don: don ? (await docDonSc(c.env.DB, "ddh.id = ?", [don.id], false))[0] : null }, 201);
+  });
+
+  // POST /don-sc/:id/da-nhan {nguoi_thao_tac, tu_dong?}: NV sua chua xac nhan da nhan linh kien (2026-11-16, v1.507 - "YC phải xác nhận đã
+  // nhận mới cho đóng đơn sửa chữa"). Phieu xuat chua don "Dang gui KTV" -> "KTV da nhan" (CAS + log, giong POST /phieu-xuat-kho/:id/log).
+  // Ca phieu duoc xac nhan (1 phieu co the gom nhieu lan cap cua cung NV). Da qua buoc nay -> ok (da_nhan_truoc). Chua gui -> 409 CHUA_GUI_HANG.
+  r.post("/don-sc/:id/da-nhan", async (c) => {
+    const id = c.req.param("id");
+    const b = await c.req.json<Record<string, unknown>>().catch(() => ({}) as Record<string, unknown>);
+    const d = await c.env.DB.prepare("SELECT id, loai_de_xuat, nguoi_nhan_hang FROM dat_don_hang WHERE id = ?").bind(id)
+      .first<{ id: string; loai_de_xuat: string | null; nguoi_nhan_hang: string | null }>();
+    if (!d) return c.json({ error: "NOT_FOUND" }, 404);
+    if (!laCongNoSuaChua(d.loai_de_xuat) || !d.nguoi_nhan_hang) return c.json({ error: "KHONG_PHAI_DON_SUA_CHUA" }, 409);
+    const tt = (await docDonSc(c.env.DB, "ddh.id = ?", [id]))[0] as { buoc?: string; nhan?: string; pxk_id?: string | null } | undefined;
+    if (tt?.buoc === "xong") return c.json({ ok: true, da_nhan_truoc: true, don: tt });
+    if (tt?.buoc === "dong") return c.json({ error: "DON_DA_DONG", nhan: tt.nhan }, 409);
+    const p = tt?.pxk_id
+      ? await c.env.DB.prepare("SELECT id, version, trang_thai_hien_tai AS tt FROM phieu_xuat_kho WHERE id = ?").bind(tt.pxk_id).first<{ id: string; version: number; tt: string | null }>()
+      : null;
+    if (!p || p.tt !== "Dang gui KTV") return c.json({ error: "CHUA_GUI_HANG", nhan: tt?.nhan ?? null }, 409);
+    const moBaoThieu = await c.env.DB.prepare("SELECT id FROM nhan_thieu WHERE phieu_xuat_kho_id = ? AND trang_thai = 'Cho kho kiem tra' LIMIT 1").bind(p.id).first<{ id: string }>();
+    if (moBaoThieu) return c.json({ error: "DANG_BAO_NHAN_THIEU", message: `Phiếu ${p.id} đang có báo nhận thiếu ${moBaoThieu.id} chờ Kho kiểm tra.` }, 409);
+    const cas = await c.env.DB.prepare("UPDATE phieu_xuat_kho SET trang_thai_hien_tai = 'KTV da nhan', version = version + 1 WHERE id = ? AND version = ?")
+      .bind(p.id, p.version).run();
+    if (!cas.meta.changes) return c.json({ error: "STATE_CHANGED" }, 409);
+    const nguoi = chuoi(b.nguoi_thao_tac, 200)?.toLowerCase() ?? d.nguoi_nhan_hang;
+    const tuDong = b.tu_dong === true;
+    await c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'KTV da nhan', ?, ?, ?)")
+      .bind(p.id, d.nguoi_nhan_hang, nowVN(), tuDong
+        ? `[App Bảo hành đổi trả — ${nguoi}] Tự động xác nhận đã nhận đủ khi đóng đơn sửa chữa (NV chưa bấm "Đã nhận")`
+        : `[App Bảo hành đổi trả — ${nguoi}] Xác nhận đã nhận linh kiện`).run();
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+    return c.json({ ok: true, pxk_id: p.id, don: (await docDonSc(c.env.DB, "ddh.id = ?", [id]))[0] });
   });
 
   // GET /tru-cong-no?ids=DDH-..,..  trang thai cac don tru cong no / tra hang sua chua (cung bo nhan / buoc voi /don-sc).

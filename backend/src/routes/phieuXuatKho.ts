@@ -19,7 +19,7 @@ import { notifyWorkflowTask, emailsForRoleOrQC, pastActorsFor, emailGsListForPxk
 import { pushPxkToKhovan, notifyPxkAdvancedViaApp, buildWorkUrl } from "../lib/khovanPushClient";
 import { pushHoaDonPxkSangDvbh } from "../lib/hoaDonDvbh";
 import { timLoaiChietKhauTheoTen, gonTenLoaiChietKhau, choPhepDoiLoaiChietKhau } from "../lib/loaiChietKhau";
-import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, laTruCongNo, type PxkCalculation } from "../lib/pxkRecalculate";
+import { taiTinhPxk, taiTinhPxkMoCuaKtv, tinhToanPxk, laTruCongNo, laTraHangSuaChua, type PxkCalculation } from "../lib/pxkRecalculate";
 import { TIEN_DON_DOI_TAC_SQL } from "../lib/congNoDoiTac";
 import { khoaQuy } from "../lib/quyKhoa";
 import { nhomLoaiDeXuat, nhomPhieu, nhomPhieuSql, phieuCungNhomSql, nhomHoaDonSql } from "../lib/nhomLoaiDeXuat";
@@ -2438,6 +2438,14 @@ phieuXuatKho.post("/:id/log", async (c) => {
         .bind(id)
         .first<{ total: number; with_box: number }>();
       daNhanQuaTraHangBox = !!rows && rows.total > 0 && rows.with_box === rows.total;
+      // TRẢ HÀNG CÔNG NỢ - SỬA CHỮA (2026-11-16, v1.507): linh kien du Admin BH ben app doi tra da nhan lai tai kho -> Ke toan chot xong
+      // la ket thuc, khong qua Kho xac nhan / khovan.
+      if (!daNhanQuaTraHangBox) {
+        const { results: ldxTra } = await c.env.DB.prepare(
+          "SELECT ddh.loai_de_xuat FROM phieu_xuat_kho_dong pxkd JOIN dat_don_hang ddh ON ddh.id = pxkd.dat_don_hang_id WHERE pxkd.phieu_xuat_kho_id = ?",
+        ).bind(id).all<{ loai_de_xuat: string | null }>();
+        daNhanQuaTraHangBox = ldxTra.length > 0 && ldxTra.every((r) => laTraHangSuaChua(r.loai_de_xuat));
+      }
     }
 
     if (daNhanQuaTraHangBox) {
