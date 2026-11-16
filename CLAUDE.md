@@ -1462,6 +1462,7 @@ Chốt qua AskUserQuestion (16/11/2026, cả 4 theo phương án đề xuất): 
 - **v1.510 (17/11/2026) — cảnh báo chọn sai loại đề xuất theo case** — *"khi tạo đơn trên app đổi trả thì sẽ tự động tạo đúng loại đề xuất, nhưng khi tạo đơn trên app linh kiện, nv sửa chữa có thể chọn nhầm loại đề xuất => dựa vào thông tin case nv chọn => nếu sai loại đề xuất => hiện cảnh báo nhắc nhở, ví dụ: đây là case bảo hành của đối tác KRF, loại đề xuất nên là "Hỗ trợ sửa chữa 0 đồng", hoặc đây là case của đối tác ngoài KRF, đề xuất chọn loại Công nợ sửa chữa..."*
   - `canhBaoLoaiDonBh()` + `donBhKhop()` (`datMuaLinhKien/CongNoSuaChua.tsx`): mã đơn BH khớp danh sách gợi ý (đơn NV đang sửa) mà loại đang chọn khác `loaiDeXuatTheoDonBh` → khối cam dưới ô "Mã đơn bảo hành" (desktop + mobile: lý do theo case — Karofi còn BH / đối tác ngoài Karofi còn BH / hết BH, ý nghĩa loại đúng, nút "Đổi sang …" = `tuDienTheoDon`) + 1 mục "Cảnh báo" cột phải form desktop (`TaoDonTab.tsx`, hook `useGoiYDonBh` gọi TRƯỚC `return` mobile). Chỉ nhắc, không chặn — server vẫn tự áp loại đúng lúc tạo đơn (`chuanBiPhieuDat`). Mã gõ tay không có trong danh sách thì không nhắc.
   - Kiểm thử 2 Worker local (dữ liệu demo): chọn case Karofi → tự HỖ TRỢ 0đ; bấm lại CÔNG NỢ SỬA CHỮA → hiện cảnh báo ở ô + cột phải; bấm "Đổi sang" → về HỖ TRỢ 0đ, hết cảnh báo.
+  - Deploy (17/11/2026): `npm run deploy` (Version ID `387089ea`, không migration).
 
 ## Đơn "SỬA CHỮA TẠI KHO" đồng bộ từ app Sửa chữa bảo hành (2026-11-12, v1.478, migration `0116`)
 
