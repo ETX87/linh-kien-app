@@ -1689,6 +1689,10 @@ datMuaLinhKien.get("/kiem-tra-ma-yeu-cau", async (c) => {
   const maKtvCase = extractMaKtv(full.ky_thuat_vien);
   const preview = miniCasePreview(full);
   if (!maKtvCase || !nguoiNhanHang) return c.json({ found: true, khopKtv: null, preview });
+  // v1.503 - "nhân viên sửa chữa văn phòng tạo đơn sửa chữa không bị cảnh báo không phải đơn của bạn": case bao hanh LUON do KTV hien truong
+  // xu ly (KTV gui san pham ve), NV sua chua van phong chi sua tai kho -> nguoi nhan la NV sua chua thi KHONG so khop KTV (khong chan, khong to do).
+  const nhanLaNvSc = await c.env.DB.prepare("SELECT la_nv_sua_chua FROM users WHERE email = ?").bind(nguoiNhanHang).first<{ la_nv_sua_chua: number }>();
+  if (nhanLaNvSc?.la_nv_sua_chua) return c.json({ found: true, khopKtv: null, preview });
 
   const ktvRow = await c.env.DB.prepare("SELECT ma_ktv FROM ktv_lien_he WHERE email_dang_nhap = ?")
     .bind(nguoiNhanHang)
