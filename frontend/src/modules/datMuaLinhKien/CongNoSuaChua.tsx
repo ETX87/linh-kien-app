@@ -39,7 +39,11 @@ function useGoiYDonBh(email: string, q: string, bat: boolean) {
   });
 }
 
-const moTa = (r: DonBh) => [r.case_id, r.ten_lk ?? r.ma_lk, r.san_pham_bh].filter(Boolean).join(" · ");
+// Don may: ten LK (= may gui sua) thuong TRUNG ten san pham bao hanh -> bo phan trung (so khong phan biet hoa/thuong).
+const moTa = (r: DonBh) =>
+  [r.case_id, r.ten_lk ?? r.ma_lk, r.san_pham_bh]
+    .filter((v, i, a): v is string => !!v && a.findIndex((x) => (x ?? "").trim().toLowerCase() === v.trim().toLowerCase()) === i)
+    .join(" · ");
 
 export function MaDonBhInput({
   d,
