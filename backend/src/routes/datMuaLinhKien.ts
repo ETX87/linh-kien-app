@@ -1360,7 +1360,7 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
   // key - dung nguyen tac buildReportKey da ghi: khac pham vi xem ra khac key, khong tra nham du lieu
   // ngoai pham vi. scopeCond null (Admin, hoac wantFull) => scope null ("khong gioi han").
   const scopeKeyPart = scopeCond ? scopeBinds : null;
-  const reportKey = buildReportKey("bao-cao-tong-the-v4", { /* -v2 2026-10-15: doi cong thuc "Tổng thực tế đã mua" - bo cache cu */ thang: String(thangParam), full: wantFull ? "1" : undefined }, scopeKeyPart);
+  const reportKey = buildReportKey("bao-cao-tong-the-v5", { /* -v5 2026-11-16 (v1.509): bo don TRU CONG NO - SUA CHUA khoi "Tổng thực tế đã mua" */ thang: String(thangParam), full: wantFull ? "1" : undefined }, scopeKeyPart);
   const rows = await cachedReport(c.env.DB, reportKey, ["dat_mua_lk"], async () => {
   const { results: donRows } = await c.env.DB.prepare(
     `WITH ddh_kt AS (
@@ -1372,7 +1372,9 @@ datMuaLinhKien.get("/bao-cao-tong-the", async (c) => {
          -- bu thieu hang - da tinh o don goc) co trong so w = gia (gia_chot neu co) x SL thuc xuat (chua co = SL de xuat). Don trong
          -- PXK con hieu luc -> chia "Tiền cần chuyển" THAT cua phieu (sau chiet khau) theo ti le w (xem ddh_tt); chua vao phieu -> w.
          -- + bo don MUA HÀNG CÔNG NỢ ĐỐI TÁC (2026-10-26, v1.408 - "gán nợ cho đối tác, KTV nhận hàng sẽ không bị tính công nợ hay tiền cần mua").
-         CASE WHEN (ddh.loai_don = 'mua' OR (ddh.loai_don = 'cong_no' AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') > 0))
+         -- + bo don TRỪ CÔNG NỢ - SỬA CHỮA (v1.509, 0đ - chung tu tru xac, khong phai tien mua).
+         CASE WHEN (ddh.loai_don = 'mua' OR (ddh.loai_don = 'cong_no' AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') > 0
+                  AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ - SỬA CHỮA') = 0))
                 AND ddh.gui_bu_nhan_thieu_id IS NULL AND ddh.doi_tac_ma IS NULL
            THEN COALESCE(ddh.gia_chot, ddh.gia_de_xuat, 0) * COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat)
            ELSE 0 END as w_tien,

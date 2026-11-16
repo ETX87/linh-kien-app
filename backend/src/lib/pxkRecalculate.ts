@@ -397,7 +397,10 @@ export async function tienUocTinhChoDon(db: D1Database, ids: string[]): Promise<
 }
 
 // Dieu kien "don tinh vao tong ngay" (chot 2026-09-28): nhom Mua + TRỪ CÔNG NỢ, chua tu choi/huy.
-const DON_TINH_TONG_NGAY_SQL = `(ddh.loai_don = 'mua' OR (ddh.loai_don = 'cong_no' AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') > 0))
+// v1.509: bo don "TRỪ CÔNG NỢ - SỬA CHỮA" (0đ, chung tu tru xac cua NV sua chua) - truoc day cong theo gia ban vao tong ngay, day don MUA
+// HÀNG SỬA CHỮA cung ngay len muc chiet khau gia KTV sai.
+const DON_TINH_TONG_NGAY_SQL = `(ddh.loai_don = 'mua' OR (ddh.loai_don = 'cong_no' AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ') > 0
+           AND instr(COALESCE(ddh.loai_de_xuat, ''), 'TRỪ CÔNG NỢ - SỬA CHỮA') = 0))
          AND ddh.trang_thai_hien_tai NOT IN ('TN tu choi', 'Da huy')
          AND ddh.gui_bu_nhan_thieu_id IS NULL
          AND ddh.doi_tac_ma IS NULL`; // don MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403) gia niem yet, khong tinh vao tong ngay KTV // don gui bu thieu hang (migration 0075) da tinh o don goc

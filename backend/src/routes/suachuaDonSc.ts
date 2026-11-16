@@ -163,7 +163,7 @@ async function docDonSc(db: D1Database, where: string, binds: unknown[], chiCsc 
 // Tao 1 don tu de xuat (dung chung cho tao moi + sua ma LK / SL). Tra { id } hoac Response loi.
 async function taoDonTuDeXuat(
   c: Ctx,
-  b: { dx_id: string; lan: number; unit_id: string; nv_email: string; nguoi_thao_tac: string; ma_lk: string; so_luong: number; ghi_chu?: string },
+  b: { dx_id: string; lan: number; unit_id: string; nv_email: string; nguoi_thao_tac: string; ma_lk: string; so_luong: number; ghi_chu?: string; loai?: string },
 ): Promise<{ id: string; trang_thai: string; ly_do: string | null } | Response> {
   const ghiChuTao = [`[App Bảo hành đổi trả ${b.dx_id}${b.nguoi_thao_tac !== b.nv_email ? ` — ${b.nguoi_thao_tac} tạo hộ` : ""}]`, b.ghi_chu]
     .filter(Boolean).join(" ");
@@ -177,7 +177,8 @@ async function taoDonTuDeXuat(
   const tenNv = (ten?.ten ?? b.nv_email).split(/\s[-–]\s/).pop()!.trim();
   // v1.508: loai theo don bao hanh (Karofi con BH = HỖ TRỢ SỬA CHỮA 0 ĐỒNG, het BH = MUA HÀNG SỬA CHỮA, con lai CÔNG NỢ SỬA CHỮA). taoPhieuDat
   // cung tu chon lai theo don bao hanh - day chi de dien dung TT+Mail duyet.
-  const lde = loaiDeXuatTheoDonBh(bh) ?? LOAI_DE_XUAT;
+  // v1.508/1.509: app doi tra gui san loai (b.loai) - uu tien, khong phu thuoc lan goi nguoc traDonBh (loi / cham thi tung roi ve CÔNG NỢ am tham).
+  const lde = (b.loai && laDonSuaChua(b.loai) ? b.loai : null) ?? loaiDeXuatTheoDonBh(bh) ?? LOAI_DE_XUAT;
   const ttDuyet = laHoTroSuaChua0d(lde)
     ? `Xuất hỗ trợ sửa chữa 0 đồng${bh?.doi_tac ? ` (${bh.doi_tac}, trong BH)` : ""} cho NV ${tenNv}`
     : laMuaHangSuaChua(lde)
@@ -240,7 +241,7 @@ export function ganRouteDonSc(r: Hono<{ Bindings: Env }>) {
     if (loi) return loi;
     const kq = await taoDonTuDeXuat(c, {
       dx_id: dxId, lan: 1, unit_id: unitId, nv_email: nv, nguoi_thao_tac: chuoi(b.nguoi_thao_tac, 200)?.toLowerCase() ?? nv, ma_lk: maLk, so_luong: sl,
-      ghi_chu: chuoi(b.ghi_chu, 500),
+      ghi_chu: chuoi(b.ghi_chu, 500), loai: chuoi(b.loai_de_xuat, 60),
     });
     if (kq instanceof Response) return kq;
     c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
@@ -286,7 +287,7 @@ export function ganRouteDonSc(r: Hono<{ Bindings: Env }>) {
     const ghiGoc = (d.ghi_chu ?? "").replace(/^\[App Bảo hành đổi trả [^\]]*\]\s*/, "");
     const kq = await taoDonTuDeXuat(c, {
       dx_id: d.nguon_tao_id, lan, unit_id: d.bh_don_vi_id, nv_email: d.nguoi_nhan_hang, nguoi_thao_tac: nguoi, ma_lk: maLk, so_luong: sl,
-      ghi_chu: ghiChu === undefined ? ghiGoc || undefined : ghiChu ?? undefined,
+      ghi_chu: ghiChu === undefined ? ghiGoc || undefined : ghiChu ?? undefined, loai: d.loai_de_xuat ?? undefined, // giu loai cua don cu
     });
     if (kq instanceof Response) {
       const j = (await kq.clone().json().catch(() => ({}))) as Record<string, unknown>;
