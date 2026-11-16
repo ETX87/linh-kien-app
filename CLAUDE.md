@@ -1452,6 +1452,7 @@ Chốt qua AskUserQuestion (16/11/2026, cả 4 theo phương án đề xuất): 
 - Hệ thống chọn loại: `loaiDeXuatTheoDonBh()` (hết BH → MUA HÀNG SC; còn BH + Karofi → HỖ TRỢ SC 0 ĐỒNG; còn lại CÔNG NỢ SC; thiếu thông tin → null giữ loại người đặt) — dữ liệu `hang / doi_tac / doi_tac_karofi / loai_bao_hanh` từ API gợi ý app đổi trả (`lib/donBhClient.ts`). `chuanBiPhieuDat` ghi đè loại của dòng có mã đơn BH dạng app (cả `/kiem-tra`); `taoDonTuDeXuat` (`suachuaDonSc.ts`) chọn loại + câu TT+Mail duyệt theo loại. FE `MaDonBhInput` chọn đơn → tự đổi loại + chính sách, dòng báo "Hãng · Đối tác · Còn/Hết BH — hệ thống sẽ đặt loại …"; người nhận là NV sửa chữa có đủ 3 loại trong danh sách.
 - `POST /suachua-partner/tru-cong-no/:id/huy` {nguoi_thao_tac, ly_do} | {kiem_tra: true}: CHỈ đơn TRỪ / TRẢ HÀNG CÔNG NỢ - SỬA CHỮA nguồn `doitra`, khi chưa vào phiếu hoặc phiếu còn "Dang tao phieu" / "Cho ke toan" (else 409 `KE_TOAN_DA_CHOT`) → `goDonKhoiPxk` (phiếu 1 đơn tự hủy) + CAS "Da huy" + log (`tra_hang_log` với đơn trả). App đổi trả gọi khi Admin BH sửa / hủy xác nhận tiêu hao (sửa = hủy + tạo lần gửi mới).
 - Kiểm thử: xem CLAUDE.md app đổi trả mục v1.142 (2 Worker local, 31/32 đạt + giao diện).
+- Deploy (16/11/2026): migration 0122 lên D1 production + `npm run deploy` (Version ID `93f60dd3`), sau đó app đổi trả v1.142 (`9f3e011d`).
 
 ## Đơn "SỬA CHỮA TẠI KHO" đồng bộ từ app Sửa chữa bảo hành (2026-11-12, v1.478, migration `0116`)
 
