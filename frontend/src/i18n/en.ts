@@ -2928,6 +2928,9 @@ const tuDien: Record<string, string> = {
   "App Bảo hành đổi trả": "Warranty app",
   "Đơn tạo từ app Bảo hành đổi trả — sửa linh kiện / số lượng / ghi chú trên app đó": "Order created from the Warranty app — edit part / quantity / note there",
   "Chọn đơn đang sửa hoặc gõ mã đơn / mã SC (VD: DH-000123-1, SC2611…)": "Pick an order under repair or type an order / SC code (e.g. DH-000123-1, SC2611…)",
+  "Không có đơn đang sửa khớp mã này — đơn ngoài app thì cứ gõ tay mã.": "No order under repair matches this code — for orders outside the app, just type the code.",
+  "NV nhận hàng không có đơn bảo hành nào đang sửa trên app Bảo hành đổi trả — đơn ngoài app thì gõ tay mã.": "The receiving repair staff has no warranty order under repair on the Warranty app — for orders outside the app, type the code.",
+  "Đơn bảo hành NV nhận hàng đang sửa": "Warranty orders the receiving staff is repairing",
   "Tạo từ": "Created from",
   "sửa linh kiện / số lượng trên app Bảo hành đổi trả": "edit part / quantity on the Warranty app",
 };

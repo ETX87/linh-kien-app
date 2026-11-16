@@ -2928,6 +2928,9 @@ const tuDien: Record<string, string> = {
   "App Bảo hành đổi trả": "Aplikasi Garansi",
   "Đơn tạo từ app Bảo hành đổi trả — sửa linh kiện / số lượng / ghi chú trên app đó": "Pesanan dibuat dari aplikasi Garansi — ubah suku cadang / jumlah / catatan di sana",
   "Chọn đơn đang sửa hoặc gõ mã đơn / mã SC (VD: DH-000123-1, SC2611…)": "Pilih pesanan yang sedang diperbaiki atau ketik kode pesanan / SC (mis. DH-000123-1, SC2611…)",
+  "Không có đơn đang sửa khớp mã này — đơn ngoài app thì cứ gõ tay mã.": "Tidak ada pesanan dalam perbaikan yang cocok — untuk pesanan di luar aplikasi, ketik kodenya.",
+  "NV nhận hàng không có đơn bảo hành nào đang sửa trên app Bảo hành đổi trả — đơn ngoài app thì gõ tay mã.": "Staf penerima tidak memiliki pesanan garansi yang sedang diperbaiki di aplikasi Garansi — untuk pesanan di luar aplikasi, ketik kodenya.",
+  "Đơn bảo hành NV nhận hàng đang sửa": "Pesanan garansi yang sedang diperbaiki staf penerima",
   "Tạo từ": "Dibuat dari",
   "sửa linh kiện / số lượng trên app Bảo hành đổi trả": "ubah suku cadang / jumlah di aplikasi Garansi",
 };

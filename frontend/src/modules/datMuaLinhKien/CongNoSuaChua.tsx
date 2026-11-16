@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { t } from "../../i18n";
@@ -22,18 +22,13 @@ interface DonBh {
   trang_thai: string;
 }
 
-function useGoiYDonBh(email: string, q: string, bat: boolean) {
-  const [qTre, setQTre] = useState(q);
-  useEffect(() => {
-    const h = setTimeout(() => setQTre(q.trim().length >= 2 ? q.trim() : ""), 300);
-    return () => clearTimeout(h);
-  }, [q]);
+// v1.502 - "Danh sách ID lựa chọn cho nv sửa chữa chỉ hiện theo đúng case họ đang nhận trên app đổi trả. case này không có thì không hiện":
+// danh sach chon CHI la don vi NV nhan hang dang sua (app doi tra: nguoi_sua_chua = NV, dang sua) - go chu chi LOC trong danh sach nay (ma don /
+// ma case SC), KHONG tim rong ra don cua NV khac / da qua buoc sua nua. Ma khong co trong danh sach van go tay duoc (don ngoai app doi tra).
+function useGoiYDonBh(email: string, bat: boolean) {
   return useQuery({
-    queryKey: ["don-bh-goi-y", email, qTre],
-    queryFn: () =>
-      api.get<{ rows: DonBh[]; ket_noi: boolean }>(
-        `/dat-mua-lk/don-bh-goi-y?nguoi_nhan_hang=${encodeURIComponent(email)}${qTre ? `&q=${encodeURIComponent(qTre)}` : ""}`,
-      ),
+    queryKey: ["don-bh-goi-y", email, ""],
+    queryFn: () => api.get<{ rows: DonBh[]; ket_noi: boolean }>(`/dat-mua-lk/don-bh-goi-y?nguoi_nhan_hang=${encodeURIComponent(email)}`),
     enabled: bat && !!email,
     staleTime: 60_000,
   });
@@ -87,17 +82,18 @@ export function MaDonBhInput({
   const laSuaChua = laCongNoSuaChua(d.loai_de_xuat);
   const v = d.bh_don_vi_id ?? "";
   const [mo, setMo] = useState(false);
-  // 2 truy van: danh sach don NV dang sua (luon tai khi dong la CÔNG NỢ SỬA CHỮA - de nhan dien ma da chon) + tim theo tu khoa khi dang go.
-  const ds = useGoiYDonBh(email, "", laSuaChua);
+  const ds = useGoiYDonBh(email, laSuaChua);
   const dsRows = ds.data?.rows ?? [];
   const maHoa = v.trim().toUpperCase();
-  const timDangBat = mo && v.trim().length >= 2 && !dsRows.some((r) => r.id === maHoa);
-  const tim = useGoiYDonBh(email, timDangBat ? v : "", laSuaChua && timDangBat);
+  // Dang go (chua trung dung 1 ma trong danh sach) -> loc theo ma don / ma don cha / ma case.
+  const dangLoc = !!maHoa && !dsRows.some((r) => r.id === maHoa);
   if (!laSuaChua) return null;
-  const data = timDangBat ? tim.data : ds.data;
-  const isFetching = timDangBat ? tim.isFetching : ds.isFetching;
-  const rows = data?.rows ?? [];
-  const khop = [...dsRows, ...(tim.data?.rows ?? [])].find((r) => r.id === maHoa || r.parent_id === maHoa);
+  const data = ds.data;
+  const isFetching = ds.isFetching;
+  const rows = dangLoc
+    ? dsRows.filter((r) => [r.id, r.parent_id, r.case_id ?? ""].some((x) => x.toUpperCase().includes(maHoa)))
+    : dsRows;
+  const khop = dsRows.find((r) => r.id === maHoa || r.parent_id === maHoa);
   const hopLe = !!chuanMaDonBh(v);
   const goiY = !data
     ? ""
@@ -129,12 +125,16 @@ export function MaDonBhInput({
       {mo && (
         <div className="absolute z-20 mt-1 w-full max-h-72 overflow-y-auto rounded-lg border border-[var(--line)] bg-white shadow-lg">
           <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-500)] border-b border-[var(--line)]">
-            {timDangBat ? t("Kết quả tìm trên app Bảo hành đổi trả") : t("Đơn bảo hành đang sửa")}
+            {t("Đơn bảo hành NV nhận hàng đang sửa")}
             {isFetching && <span className="ml-2 font-normal normal-case">{t("Đang tải…")}</span>}
           </div>
           {rows.length === 0 ? (
             <div className="px-3 py-2.5 text-[12px] text-[var(--ink-500)]">
-              {data && !data.ket_noi ? t("Không kết nối được app Bảo hành đổi trả.") : t("Không có đơn phù hợp — cứ gõ tay mã đơn bảo hành.")}
+              {data && !data.ket_noi
+                ? t("Không kết nối được app Bảo hành đổi trả.")
+                : dsRows.length === 0
+                  ? t("NV nhận hàng không có đơn bảo hành nào đang sửa trên app Bảo hành đổi trả — đơn ngoài app thì gõ tay mã.")
+                  : t("Không có đơn đang sửa khớp mã này — đơn ngoài app thì cứ gõ tay mã.")}
             </div>
           ) : (
             rows.map((r) => (
@@ -150,7 +150,6 @@ export function MaDonBhInput({
               >
                 <div className="flex items-center gap-2 text-[13px]">
                   <span className="font-mono font-semibold text-[var(--color-text)]">{r.id}</span>
-                  {r.trang_thai !== "cho_chan_doan" && <span className="text-[11px] text-[var(--ink-400)]">{t("đã qua bước sửa")}</span>}
                 </div>
                 <div className="text-[11.5px] text-[var(--ink-500)] truncate">{moTa(r) || "—"}</div>
                 {r.ten_khach_hang && <div className="text-[11px] text-[var(--ink-400)] truncate">{r.ten_khach_hang}</div>}
