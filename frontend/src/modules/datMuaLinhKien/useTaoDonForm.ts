@@ -156,9 +156,26 @@ export function useTaoDonForm({
     staleTime: 30_000,
   });
   const coDoiTac = (doiTacChon?.rows.length ?? 0) > 0;
-  const loaiDeXuatOptions = getOptionsForUser(auth.status === "authenticated" ? auth.user : null, ldeEntries).filter(
-    (o) => coDoiTac || !laMuaCongNoDoiTac(o),
+  const { data: nguoiNhanHangData } = useQuery({
+    queryKey: ["dat-mua-lk-nguoi-nhan-hang-kha-dung"],
+    queryFn: () => api.get<{ rows: NguoiNhanHangKhaDungRow[] }>("/dat-mua-lk/nguoi-nhan-hang-kha-dung"),
+    // KTV bi tat tai khoan khong duoc chon lam nguoi nhan hang (backend cung chan NGUOI_NHAN_HANG_DA_TAT)
+    select: (d) => ({ rows: d.rows.filter((r) => !r.bi_khoa) }),
+    enabled: canQuanLy,
+  });
+  // CÔNG NỢ SỬA CHỮA theo NGUOI NHAN HANG (v1.498 - "tạo đơn cho nv sửa chữa hiện đề xuất "CÔNG NỢ SỬA CHỮA" hiện trong danh sách ưu
+  // tiên"): nguoi nhan la NV sua chua -> luon co loai nay (ca khi TN / GS dat ho - nhom loai de xuat chi gan token la_nv_sua_chua) + dung
+  // DAU hang nut chon nhanh (ldeNhanh); nguoi nhan khac -> an (backend chan NGUOI_NHAN_KHONG_PHAI_NV_SUA_CHUA).
+  const nhanLaNvSuaChua = canQuanLy && nguoiNhanHang
+    ? !!nguoiNhanHangData?.rows.find((r) => r.email_dang_nhap === nguoiNhanHang)?.la_nv_sua_chua
+    : !!(auth.status === "authenticated" && auth.user.la_nv_sua_chua);
+  const ldeTheoQuyen = getOptionsForUser(auth.status === "authenticated" ? auth.user : null, ldeEntries).filter(
+    (o) => (coDoiTac || !laMuaCongNoDoiTac(o)) && (nhanLaNvSuaChua || !laCongNoSuaChua(o)),
   );
+  const ldeSuaChua = nhanLaNvSuaChua && !ldeTheoQuyen.some(laCongNoSuaChua)
+    ? ldeEntries.find((e) => e.bat_tat && laCongNoSuaChua(e.ten_option))?.ten_option
+    : undefined;
+  const loaiDeXuatOptions = ldeSuaChua ? [ldeSuaChua, ...ldeTheoQuyen] : ldeTheoQuyen;
   loaiDeXuatOptionsRef.current = loaiDeXuatOptions;
   // Doi tac MAC DINH = chinh nguoi nhan hang (2026-10-26, v1.406 - "KTV đặt công nợ đối tác thì không cần chọn đối tác, mặc định sẽ chính là ktv
   // đó. chỉ có GS, TN, KT mới có quyền chọn lại đối tác"): KTV tu dat -> doi tac cua chinh minh (khong doi duoc, co nhieu ma thi chon trong so
@@ -183,13 +200,6 @@ export function useTaoDonForm({
     setDrafts((prev) => (prev.length === 1 && !prev[0].loai_de_xuat ? [{ ...prev[0], loai_de_xuat: matched }] : prev));
   }, [loaiDeXuatOptions.length]);
 
-  const { data: nguoiNhanHangData } = useQuery({
-    queryKey: ["dat-mua-lk-nguoi-nhan-hang-kha-dung"],
-    queryFn: () => api.get<{ rows: NguoiNhanHangKhaDungRow[] }>("/dat-mua-lk/nguoi-nhan-hang-kha-dung"),
-    // KTV bi tat tai khoan khong duoc chon lam nguoi nhan hang (backend cung chan NGUOI_NHAN_HANG_DA_TAT)
-    select: (d) => ({ rows: d.rows.filter((r) => !r.bi_khoa) }),
-    enabled: canQuanLy,
-  });
 
   // Canh bao SONG vuot tran cong no ngay luc soan don (them 2026-09-04, phan hoi "ngay thời điểm
   // người dùng tạo đơn linh kiện chứa công nợ đã phải hiện cảnh báo rồi") - KHAC voi danh_gia_cong_no
@@ -583,7 +593,7 @@ export function useTaoDonForm({
     kiemTra: kiemTraHienTai, dangKiemTra, loiPhieuText, ketQuaTheoDong, coDongBiChan, dongCanXacNhan, hoiXacNhan, setHoiXacNhan,
     ketQuaTao, dongKetQuaTao, khoiPhucLuc, boNhap, anKhoiPhuc: () => setKhoiPhucLuc(null),
     hoiKhoiPhuc, moLaiNhap, boQuaNhapCu, coNoiDungChuaTao, luuNhapNgay, xoaNhap,
-    doiTacChon, tienDoiTacTrenForm,
+    doiTacChon, tienDoiTacTrenForm, nhanLaNvSuaChua,
   };
 }
 

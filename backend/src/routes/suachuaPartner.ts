@@ -7,6 +7,7 @@ import { THB_MO, docThb, thbGhiBuoc, thbThayDoiSau } from "../lib/thieuHangBh";
 import { apDungCapLk, type CapLkItem } from "../lib/donSuaChuaKho";
 import { uploadPublicImage } from "../lib/googleDrive";
 import { ANH_TOI_DA_BYTE, laAnhThat, loaiAnhHopLe } from "../lib/anhUpload";
+import { ganRouteDonSc } from "./suachuaDonSc";
 
 // He "Sua chua bao hanh" (Worker suachua) goi vao day qua Service Binding khi Admin BH sua tay "Phan
 // loai" (cot don_vi) cua 1 linh kien dong bo (2026-10-11, yeu cau "phan loai cho phep dong bo nguoc ve
@@ -19,6 +20,9 @@ suachuaPartner.use("*", async (c, next) => {
   if (!(await khoaKhop(c.req.header("X-Sync-Key"), c.env.SUACHUA_SYNC_API_KEY))) return c.json({ error: "INVALID_KEY" }, 401);
   await next();
 });
+
+// CÔNG NỢ SỬA CHỮA tao / sua / huy / doc tu app Bao hanh doi tra (v1.498) - xem routes/suachuaDonSc.ts.
+ganRouteDonSc(suachuaPartner);
 
 // POST /api/suachua-partner/phan-loai - { rows: [{ ma_linh_kien, don_vi }] } (toi da 500 dong/lan).
 suachuaPartner.post("/phan-loai", async (c) => {

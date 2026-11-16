@@ -153,7 +153,8 @@ function canCreatePhieuDat(c: Context<{ Bindings: Env }>): boolean {
   // và xác nhận hàng về"). Khong dat ho (canQuanLyDonHo khong gom QC); nguoi nhan phai co Ma nhan hang kem Ma MISA (nguoiNhanChuaCoMaMisa).
   if (user.vai_tro === "QC") return true;
   if (user.la_ve_tinh) return false;
-  return !!user.la_ktv_dvbh;
+  // NV sua chua (v1.498): dat CÔNG NỢ SỬA CHỮA cho chinh minh (tren app nay hoac qua app Bao hanh doi tra) du khong co co KTV.
+  return !!user.la_ktv_dvbh || !!user.la_nv_sua_chua;
 }
 
 function canTacNghiep(c: Context<{ Bindings: Env }>): boolean {
@@ -347,14 +348,15 @@ datMuaLinhKien.get("/nguoi-nhan-hang-kha-dung", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT dsk.ma_ktv, ${tenNguoiDaySql("dsk.email_dang_nhap")} AS ten_hien_thi, dsk.email_dang_nhap, ${tenNguoiNullSql("gs.email")} AS ten_gs,
             MAX(COALESCE(u.bi_khoa, 0), dsk.ngung_hoat_dong) AS bi_khoa, -- tat theo MA (0060) hoac ca Gmail
-            EXISTS(SELECT 1 FROM khach_le_nhom kn WHERE kn.ma_ktv = dsk.ma_ktv) AS la_nhom_kh_le -- chon nhom -> nhap SDT KH le (0074)
+            EXISTS(SELECT 1 FROM khach_le_nhom kn WHERE kn.ma_ktv = dsk.ma_ktv) AS la_nhom_kh_le, -- chon nhom -> nhap SDT KH le (0074)
+            COALESCE(u.la_nv_sua_chua, 0) AS la_nv_sua_chua -- v1.498: form dua "CÔNG NỢ SỬA CHỮA" len dau hang chon nhanh
      FROM ktv_lien_he dsk
      JOIN users u ON u.email = dsk.email_dang_nhap
      LEFT JOIN users gs ON gs.email = u.giam_sat_quan_ly
      WHERE ${ktvWhereSql}
      UNION ALL
      SELECT '' as ma_ktv, ${tenNguoiDaySql("u2.email")} as ten_hien_thi, u2.email as email_dang_nhap, NULL as ten_gs, COALESCE(u2.bi_khoa, 0) AS bi_khoa,
-            0 AS la_nhom_kh_le
+            0 AS la_nhom_kh_le, COALESCE(u2.la_nv_sua_chua, 0) AS la_nv_sua_chua
      FROM users u2
      WHERE ${gsWhereSql}
      ORDER BY ten_hien_thi`,
@@ -4619,7 +4621,7 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
     `SELECT nguoi_tao, nguoi_nhan_hang, ma_xuat_kho, so_luong_thuc_xuat, gia_chot, ma_misa, ly_do_cham,
        ma_lk, ten_lk_snapshot, loai_de_xuat, so_luong_de_xuat, gia_de_xuat, ghi_chu, chinh_sach,
        ma_yeu_cau_su_co, ma_lada, yeu_cau_hoa_don, tt_khach_hang, tt_mail_duyet, uu_tien, loai_don, trang_thai_hien_tai, email_gs,
-       COALESCE(kh_chuyen_khoan, 0) AS kh_chuyen_khoan,
+       COALESCE(kh_chuyen_khoan, 0) AS kh_chuyen_khoan, nguon_tao, nguon_tao_id,
        ${latestDonHangStatusExpr("dat_don_hang.id")} as trang_thai,
        (SELECT pxk.trang_thai_hien_tai FROM phieu_xuat_kho_dong pxkd JOIN phieu_xuat_kho pxk ON pxk.id = pxkd.phieu_xuat_kho_id
         WHERE pxkd.dat_don_hang_id = dat_don_hang.id) as pxk_trang_thai,
@@ -4635,9 +4637,18 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
       chinh_sach: string | null; ma_yeu_cau_su_co: string | null; ma_lada: string | null; yeu_cau_hoa_don: string | null;
       tt_khach_hang: string | null; tt_mail_duyet: string | null; uu_tien: number; trang_thai: string | null;
       loai_don: string; trang_thai_hien_tai: string; email_gs: string | null; kh_chuyen_khoan: number;
+      nguon_tao: string | null; nguon_tao_id: string | null;
       pxk_trang_thai: string | null; pxk_id: string | null;
     }>();
   if (!existing) return c.json({ error: "NOT_FOUND" }, 404);
+  // Don CONG NO SUA CHUA tao tu app Bao hanh doi tra (v1.498, migration 0121): "Nếu tạo trên hệ thống nào thì khóa chỉ cho chỉnh sửa thông
+  // tin từ hệ thống đó" -> noi dung don (ma LK / SL / loai de xuat / ghi chu) chi sua tren app doi tra; xu ly (Ke toan, Kho) van o day.
+  if (existing.nguon_tao === "doitra") {
+    const doi = (v: unknown, cu: unknown) => v !== undefined && String(v ?? "").trim() !== String(cu ?? "").trim();
+    if (doi(body.ma_lk, existing.ma_lk) || doi(body.so_luong_de_xuat, existing.so_luong_de_xuat) || doi(body.loai_de_xuat, existing.loai_de_xuat) || doi(body.ghi_chu, existing.ghi_chu)) {
+      return c.json({ error: "DON_TAO_TU_APP_DOI_TRA", de_xuat: existing.nguon_tao_id }, 409);
+    }
+  }
 
   const isCreatorEditWindow =
     user.email === existing.nguoi_tao &&
@@ -5273,7 +5284,7 @@ async function tomTatThieuLk(
   return `Tự động: ${THIEU_LK_NHAN[buocMoi.trangThai] ?? buocMoi.trangThai} (ticket ${thieuLkId}) → ${ketQua}.\nQuá trình xử lý thiếu LK:\n${dong.join("\n")}`.slice(0, 2000);
 }
 
-function latestThieuLkStatusExpr(thieuLkIdCol: string): string {
+export function latestThieuLkStatusExpr(thieuLkIdCol: string): string {
   return `(SELECT trang_thai FROM thieu_lk_log WHERE thieu_lk_id = ${thieuLkIdCol} ORDER BY id DESC LIMIT 1)`;
 }
 
@@ -5991,7 +6002,7 @@ datMuaLinhKien.post("/thieu-lk/bulk-log", async (c) => {
 // boQuaQuyenHuy; don "Cho hang" dang khoa -> bo phan huy ticket (applyThieuLkLog "Da huy bo" -> don tu huy, tien ve quy).
 type BoPhanHuy = "kho" | "mua_hang" | "ke_toan";
 const TEN_BO_PHAN_HUY: Record<BoPhanHuy, string> = { kho: "Kho", mua_hang: "Mua hàng", ke_toan: "Kế toán" };
-interface PhanLoaiHuy {
+export interface PhanLoaiHuy {
   huy_duoc: boolean;
   bo_phan: BoPhanHuy | null;
   giai_doan: string;
@@ -6000,7 +6011,7 @@ interface PhanLoaiHuy {
   ticket_khoa: boolean;
 }
 
-async function phanLoaiHuyDon(db: D1Database, donHangId: string): Promise<PhanLoaiHuy | null> {
+export async function phanLoaiHuyDon(db: D1Database, donHangId: string): Promise<PhanLoaiHuy | null> {
   const r = await db.prepare(
     `SELECT ddh.loai_don, ddh.trang_thai_hien_tai AS tt,
        p.id AS pxk_id, p.trang_thai_hien_tai AS pxk_tt, COALESCE(p.ma_xuat_kho_xac_nhan, 0) AS ma_hd, TRIM(COALESCE(p.ma_misa, '')) AS ma_misa,
@@ -6065,7 +6076,7 @@ function laNguoiDuyetHuy(c: Context<{ Bindings: Env }>, boPhan: BoPhanHuy): bool
 }
 
 // Thuc hien huy that (huy ngay / bo phan dong y).
-async function thucHienHuyDon(
+export async function thucHienHuyDon(
   c: Context<{ Bindings: Env }>, donHangId: string, lyDo: string, pl: PhanLoaiHuy,
 ): Promise<{ error: string; status: 404 | 409 | 403 | 400 } | { ok: true }> {
   const user = c.get("user");
@@ -6124,10 +6135,15 @@ datMuaLinhKien.get("/don-hang/:id/huy-don", async (c) => {
 // POST /api/dat-mua-lk/don-hang/:id/yeu-cau-huy {ly_do} - KTV / GS huy don: giai doan khong anh huong ai -> huy ngay; can bo phan
 // dong y -> tao yeu cau "Cho dong y" + bao bo phan. Tra { da_huy } hoac { bo_phan }.
 datMuaLinhKien.post("/don-hang/:id/yeu-cau-huy", async (c) => {
-  const id = c.req.param("id");
-  const user = c.get("user");
   const body = await c.req.json<{ ly_do?: string }>().catch(() => ({}) as { ly_do?: string });
-  const lyDo = body.ly_do?.trim().slice(0, 1000);
+  return yeuCauHuyDon(c, c.req.param("id"), body.ly_do);
+});
+
+// Than cua POST /don-hang/:id/yeu-cau-huy - dung chung voi app Bao hanh doi tra huy don CONG NO SUA CHUA no tao (suachuaPartner.ts, v1.498):
+// nguoi goi = tai khoan da gan vao c.get("user").
+export async function yeuCauHuyDon(c: Context<{ Bindings: Env }>, id: string, lyDoGui: string | undefined): Promise<Response> {
+  const user = c.get("user");
+  const lyDo = lyDoGui?.trim().slice(0, 1000);
   if (!lyDo) return c.json({ error: "THIEU_LY_DO_HUY" }, 400);
   if (!(await duocYeuCauHuy(c, id))) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const pl = await phanLoaiHuyDon(c.env.DB, id);
@@ -6158,7 +6174,7 @@ datMuaLinhKien.post("/don-hang/:id/yeu-cau-huy", async (c) => {
   })());
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ ok: true, da_huy: false, bo_phan: boPhan });
-});
+}
 
 // POST /api/dat-mua-lk/yeu-cau-huy/:id/xu-ly {hanh_dong: "dong_y" | "tu_choi" | "rut", ghi_chu?} - bo phan dong y (he thong huy that) /
 // tu choi (bat buoc ghi chu); nguoi yeu cau rut lai. CAS theo trang thai "Cho dong y".

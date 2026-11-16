@@ -2925,5 +2925,9 @@ const tuDien: Record<string, string> = {
   "Đơn bảo hành đang sửa": "Pesanan garansi yang sedang diperbaiki",
   "Đơn trên app Bảo hành đổi trả": "Pesanan di aplikasi Garansi",
   "đã qua bước sửa": "sudah melewati tahap perbaikan",
+  "App Bảo hành đổi trả": "Aplikasi Garansi",
+  "Đơn tạo từ app Bảo hành đổi trả — sửa linh kiện / số lượng / ghi chú trên app đó": "Pesanan dibuat dari aplikasi Garansi — ubah suku cadang / jumlah / catatan di sana",
+  "Tạo từ": "Dibuat dari",
+  "sửa linh kiện / số lượng trên app Bảo hành đổi trả": "ubah suku cadang / jumlah di aplikasi Garansi",
 };
 export default tuDien;

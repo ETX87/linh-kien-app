@@ -344,6 +344,12 @@ export function reqLabelClass(missing: boolean): string {
 // Tim option Loai de xuat khop 3 nut bam nhanh pho bien nhat (MUA HANG/CONG NO/TRU CONG NO) - khop
 // ca bien the co tien to ngoac nhu "(TBP DONG Y) MUA HANG" cho TN/Admin lan chuoi thuan cho KTV
 // (xem migration 0061_loai_de_xuat_settings.sql).
+// Hang nut chon nhanh loai de xuat o form tao don (desktop + mobile). Nguoi nhan la NV sua chua -> "CÔNG NỢ SỬA CHỮA" dung dau (v1.498).
+export function ldeNhanh(nhanLaNvSuaChua: boolean): string[] {
+  const goc = ["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"];
+  return nhanLaNvSuaChua ? ["CÔNG NỢ SỬA CHỮA", ...goc] : goc;
+}
+
 export function pickLdeQuick(options: string[], keyword: string): string | undefined {
   return options.find((o) => o.replace(/^\([^)]*\)\s*/, "").trim() === keyword);
 }

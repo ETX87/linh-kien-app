@@ -8,7 +8,7 @@ import { pushOverlayClose } from "../../lib/overlayStack";
 import { ChanDongContext, useDongCoHoi } from "../../components/ui/chanDong";
 import { NhapTaoDonHoi } from "./NhapTaoDonHoi";
 import { YEU_CAU_HOA_DON_OPTIONS, CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABELS } from "./constants";
-import { deriveLoaiDon, reqLabelClass, pickLdeQuick, ktvOptionLabel, canNoRequired, maYcscRequired, coMaIdLienQuan } from "./helpers";
+import { deriveLoaiDon, reqLabelClass, pickLdeQuick, ktvOptionLabel, canNoRequired, maYcscRequired, coMaIdLienQuan, ldeNhanh } from "./helpers";
 import { LinhKienPicker, ThayTheGoiY } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
@@ -67,6 +67,7 @@ export function TaoDonMobileScreen({
     targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
     ketQuaTheoDong, loiPhieuText, dongCanXacNhan, hoiXacNhan, setHoiXacNhan,
     khoiPhucLuc, boNhap, anKhoiPhuc,
+    nhanLaNvSuaChua,
   } = form;
 
   // FIX (phan hoi 2026-08-28: "ở giao diện tạo đơn ấn lùi vẫn báo thoát app") - man hinh nay la
@@ -99,7 +100,8 @@ export function TaoDonMobileScreen({
   const thieuMaId = batBuocYcsc && !coMaIdLienQuan(d.ma_yeu_cau_su_co, d.ma_lada); // chi can 1 trong 2 ma
   const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
   const { gia: giaUocTinh, giaNiemYet, nhan: nhanChietKhau, chuaCoGiaKtv } = giaUocTinhDong(d);
-  const quickValues = (["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const)
+  const ldeNhanhDs = ldeNhanh(nhanLaNvSuaChua);
+  const quickValues = ldeNhanhDs
     .map((kw) => pickLdeQuick(loaiDeXuatOptions, kw))
     .filter((v): v is string => !!v);
   const isOtherValue = d.loai_de_xuat.trim() !== "" && !quickValues.includes(d.loai_de_xuat);
@@ -223,7 +225,7 @@ export function TaoDonMobileScreen({
         <div>
           <label className={reqLabelClass(!d.loai_de_xuat.trim())}>{t("Loại đề xuất *")}</label>
           <div className="flex gap-1.5 flex-wrap">
-            {(["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const).map((kw) => {
+            {ldeNhanhDs.map((kw) => {
               const matched = pickLdeQuick(loaiDeXuatOptions, kw);
               if (!matched) return null;
               return (

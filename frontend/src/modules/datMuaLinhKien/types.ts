@@ -167,6 +167,9 @@ export interface DonHangRow {
   // Don "SỬA CHỮA TẠI KHO" dong bo tu app Sua chua (v1.478): nguon_ngoai = "suachua" -> chi xem, moi thao tac bi khoa.
   nguon_ngoai?: string | null;
   nguon_ngoai_id?: string | null;
+  // CÔNG NỢ SỬA CHỮA tao tu app Bao hanh doi tra (v1.498, migration 0121): "doitra" + ma de xuat DX-xxxxxx ben do.
+  nguon_tao?: string | null;
+  nguon_tao_id?: string | null;
   ngoai_info?: string | null;
   phieu_dat_id: string;
   loai_don: "mua" | "cong_no" | "tra_hang";
@@ -470,6 +473,8 @@ export interface NguoiNhanHangKhaDungRow {
   bi_khoa?: number;
   // 1 = tai khoan nhom KH le (KH_LE_MB/KH_LE_MN, migration 0074) - tao don hien o nhap SDT KH
   la_nhom_kh_le?: number;
+  // 1 = tai khoan "NV sửa chữa" (v1.498) - form tao don dua "CÔNG NỢ SỬA CHỮA" len dau hang chon nhanh.
+  la_nv_sua_chua?: number;
 }
 // KH le (bang khach_le, GET /khach-le/tra-cuu + GET /khach-le)
 export interface KhachLeRow {

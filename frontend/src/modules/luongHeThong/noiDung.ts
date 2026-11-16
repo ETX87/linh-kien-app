@@ -58,7 +58,7 @@ const LUONG_DAT_HANG: Luong = {
       moTa: "Chọn người nhận hàng, mã linh kiện (hoặc combo), loại đề xuất, SL, chính sách, Mã YCSC / Mã Lada, yêu cầu hóa đơn. Form kiểm tra trước từng dòng (POST /phieu-dat/kiem-tra) và hiện ngay kết quả dự kiến.",
       dieuKien: [
         "Vệ tinh KHÔNG tạo đơn (Trạm đặt thay).",
-        "CÔNG NỢ SỬA CHỮA: chỉ cho tài khoản có cờ “NV sửa chữa” (NV tự đặt, TN / GS / Admin đặt hộ); mỗi dòng bắt buộc Mã đơn bảo hành: chọn trong danh sách đơn NV nhận hàng đang sửa (lấy thẳng từ app Bảo hành đổi trả, gõ mã / mã case để tìm) hoặc nhập tay mã bất kỳ (≤ 40 ký tự) cho đơn ngoài app; đơn ghi nhận có liên kết app đổi trả hay nhập tay; chưa hỗ trợ Import Excel.",
+        "CÔNG NỢ SỬA CHỮA: chỉ cho tài khoản có cờ “NV sửa chữa” (NV tự đặt, TN / GS / Admin đặt hộ); mỗi dòng bắt buộc Mã đơn bảo hành: chọn trong danh sách đơn NV nhận hàng đang sửa (lấy thẳng từ app Bảo hành đổi trả, gõ mã / mã case để tìm) hoặc nhập tay mã bất kỳ (≤ 40 ký tự) cho đơn ngoài app; đơn ghi nhận có liên kết app đổi trả hay nhập tay; chưa hỗ trợ Import Excel. Cấp linh kiện tạo được ở CẢ app Bảo hành đổi trả (tự tạo đơn cùng loại ở đây qua API) — Kế toán / Kho xử lý duy nhất ở app này; nội dung đơn chỉ sửa ở app tạo ra nó (app đổi trả sửa linh kiện / số lượng khi Kế toán chưa xử lý); trạng thái tự cập nhật về app đổi trả.",
         "Người nhận là KTV phải có Mã MISA (KTV_CHUA_CO_MA_MISA), tài khoản không bị tắt (NGUOI_NHAN_HANG_DA_TAT).",
         "Loại đề xuất chứa “HỖ TRỢ” bắt buộc Mã YCSC (hoặc Mã Lada với công nợ/HỖ TRỢ).",
         "SL ≤ 10.000/dòng, giá chốt ≤ 1 tỷ, tiền công nợ ≤ 10 tỷ; tối đa 300 dòng/lần.",

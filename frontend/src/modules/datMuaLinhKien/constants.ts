@@ -139,6 +139,7 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   THIEU_MA_DON_BH: "Đơn CÔNG NỢ SỬA CHỮA phải chọn hoặc nhập mã đơn bảo hành",
   MA_DON_BH_KHONG_HOP_LE: "Mã đơn bảo hành quá dài (tối đa 40 ký tự)",
   DOI_LOAI_CONG_NO_SUA_CHUA: "Không đổi được loại đề xuất giữa đơn công nợ sửa chữa và loại khác — hủy đơn rồi đặt lại",
+  DON_TAO_TU_APP_DOI_TRA: "Đơn tạo từ app Bảo hành đổi trả — sửa linh kiện / số lượng / ghi chú trên app đó",
   DON_DOI_TAC_KHAC_PHIEU: "Đơn công nợ đối tác chỉ vào phiếu riêng của đúng đối tác đó (không lẫn đơn thường)",
   NHIEU_DOI_TAC_TRONG_1_PXK: "1 phiếu chỉ gom đơn của cùng 1 đối tác (hoặc toàn đơn thường)",
   NHIEU_LOAI_DE_XUAT_TRONG_1_PXK: "1 phiếu chỉ gom đơn cùng loại đề xuất (riêng MUA HÀNG và MUA HÀNG CÓ ID được chung phiếu) — chọn lại các đơn cùng loại",

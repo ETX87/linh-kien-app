@@ -12,7 +12,7 @@ import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import { fmtVND } from "../../types";
 import type { DatDonHangImportSummary, KiemTraDong, DonHangDraft } from "./types";
 import { YEU_CAU_HOA_DON_OPTIONS, CHINH_SACH_OPTIONS, YEU_CAU_HOA_DON_SHORT_LABELS } from "./constants";
-import { deriveLoaiDon, reqLabelClass, pickLdeQuick, ktvOptionLabel, formatLkLabel } from "./helpers";
+import { deriveLoaiDon, reqLabelClass, pickLdeQuick, ktvOptionLabel, formatLkLabel, ldeNhanh } from "./helpers";
 import { LinhKienPicker, ThayTheGoiY } from "./LinhKienPicker";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck } from "./MaLadaCheck";
@@ -52,7 +52,7 @@ export function TaoDonTab({
   const {
     danhMuc, nguoiNhanHang, setNguoiNhanHang, drafts,
     activeIdx, setActiveIdx, otherLdeIdx, setOtherLdeIdx, addBlockedHint,
-    activeRowRef, justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create,
+    activeRowRef, justAdded, currentEmail, loaiDeXuatOptions, nguoiNhanHangData, create, nhanLaNvSuaChua,
     updateDraft, apDungThayThe, isLineComplete, canSubmit, showImport, setShowImport, themDong, saoChepDong, deleteDraft,
     giaUocTinhDong, tongGiaUocTinh, tongGhiNoDoiTac, tongSoLuong, tongCongNoTamTinh, sePhepDuCongNo, congNoDuKien,
     duPhongDuKien, coDongMuaDuTru, targetNguoiNhanHang, giaTriTinhChietKhau, chuaCoMaMisa,
@@ -76,6 +76,7 @@ export function TaoDonTab({
   const thieuMaId = batBuocYcsc && !coMaIdLienQuan(d.ma_yeu_cau_su_co, d.ma_lada);
   const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
   const { gia: giaUocTinh, giaNiemYet, nhan: nhanChietKhau, chuaCoGiaKtv } = giaUocTinhDong(d);
+  const LDE_NHANH = ldeNhanh(nhanLaNvSuaChua);
   const quickValues = LDE_NHANH.map((kw) => pickLdeQuick(loaiDeXuatOptions, kw)).filter((v): v is string => !!v);
   const isOtherValue = d.loai_de_xuat.trim() !== "" && !quickValues.includes(d.loai_de_xuat);
   const showOtherSelect = otherLdeIdx.has(idx) || isOtherValue;
@@ -557,7 +558,6 @@ export function TaoDonTab({
   );
 }
 
-const LDE_NHANH = ["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"] as const;
 
 // O bat buoc cua 1 dong (CUNG dieu kien isLineComplete o useTaoDonForm.ts - doi 1 ben doi ca 2). id = vung o tren form (bam checklist = nhay toi).
 function yeuCauDong(x: DonHangDraft): { id: string; nhan: string; xong: boolean }[] {

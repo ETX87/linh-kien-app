@@ -1055,7 +1055,7 @@ export function DonHangDetailModal({
               {t("⧉ Tạo đơn giống")}
             </Btn>
           ) : undefined}
-          {canEditFull && !isEditMode && !khoaNgoai ? (
+          {canEditFull && !isEditMode && !khoaNgoai && d?.nguon_tao !== "doitra" ? (
             <Btn size="sm" variant="ghost" onClick={startEdit}>{t("✎ Sửa")}</Btn>
           ) : undefined}
         </>
@@ -1631,6 +1631,14 @@ export function DonHangDetailModal({
                   <KvRow label={t("Đơn bảo hành")}>
                     <span className="font-mono">{d.bh_don_vi_id}</span>
                     <span className="text-[11px] text-[var(--color-text-secondary)]"> · {d.bh_lien_ket ? t("trên app Bảo hành đổi trả") : t("nhập tay (ngoài app Bảo hành đổi trả)")}</span>
+                  </KvRow>
+                )}
+                {/* v1.498: don tao tu app Bao hanh doi tra - noi dung (ma LK / SL / ghi chu) chi sua ben do, xu ly van o day. */}
+                {d.nguon_tao === "doitra" && (
+                  <KvRow label={t("Tạo từ")}>
+                    <span>{t("App Bảo hành đổi trả")}</span>
+                    {d.nguon_tao_id && <span className="font-mono"> · {d.nguon_tao_id}</span>}
+                    <span className="text-[11px] text-[var(--color-text-secondary)]"> · {t("sửa linh kiện / số lượng trên app Bảo hành đổi trả")}</span>
                   </KvRow>
                 )}
                 {/* The thong tin don Lada (2026-10-20, "ID lada đang không hiện UI thông tin case") - cung the tra cuu
