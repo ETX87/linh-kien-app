@@ -135,9 +135,15 @@ export function scopeDatMuaNguoiTao(c: Context<{ Bindings: Env }>): { whereSql: 
   if (user.vai_tro === "Giam sat") {
     // + don CHINH GS tao (2026-09-28: GS dat duoc cho KTV ngoai khu vuc -> email_gs la GS khac).
     // + don GS la NGUOI NHAN (2026-09-30, khu vuc dat hang 0055: don GS nhan hang co the thuoc khu vuc cua GS khac).
+    // + don KHONG co khu vuc (khu_vuc_ma NULL - chi don "SỬA CHỮA TẠI KHO" dong bo tu app Sua chua, trigger khu vuc/email_gs bi khoa
+    // RAISE(IGNORE)): khop theo NGUOI NHAN (NV sua chua) - GS quan ly NV do, hoac NV thuoc khu vuc GS phu trach them. Sua 2026-11-16
+    // ("nhân viên không tìm được case SỬA CHỮA TẠI KHO" - GS tim SC261029115 ra rong).
     return {
-      whereSql: ` AND (ddh.email_gs = ? OR ddh.nguoi_tao = ? OR ddh.nguoi_nhan_hang = ? OR ${gsKhuVucXemThemSql("ddh.khu_vuc_ma")})`,
-      binds: [user.email, user.email, user.email, user.email],
+      whereSql:
+        ` AND (ddh.email_gs = ? OR ddh.nguoi_tao = ? OR ddh.nguoi_nhan_hang = ? OR ${gsKhuVucXemThemSql("ddh.khu_vuc_ma")}` +
+        ` OR (ddh.khu_vuc_ma IS NULL AND (ddh.nguoi_nhan_hang IN (SELECT email FROM users WHERE giam_sat_quan_ly = ?)` +
+        ` OR ddh.nguoi_nhan_hang IN (SELECT email_dang_nhap FROM ktv_lien_he WHERE email_dang_nhap IS NOT NULL AND ${gsKhuVucXemThemSql("khu_vuc_ma")}))))`,
+      binds: [user.email, user.email, user.email, user.email, user.email, user.email],
     };
   }
   if (user.la_ktv_dvbh || user.la_ve_tinh) {
