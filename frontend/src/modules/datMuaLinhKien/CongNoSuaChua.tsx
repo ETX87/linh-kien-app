@@ -51,7 +51,7 @@ function tuDienTheoDon(d: DonHangDraft, r: DonBh, tenNv: string): Partial<DonHan
     ma_yeu_cau_su_co: r.case_id ?? "",
     tt_mail_duyet: tenNv ? `Xuất công nợ sửa chữa cho NV ${tenNgan(tenNv)}` : "Xuất công nợ sửa chữa",
     tt_khach_hang: r.ten_khach_hang ?? "",
-    ghi_chu: [`Đơn sửa chữa ${r.id}`, r.case_id && `case ${r.case_id}`, r.san_pham_bh ?? r.ten_lk, r.ten_lk && r.san_pham_bh && r.ten_lk !== r.san_pham_bh ? `LK gửi: ${r.ten_lk}` : null]
+    ghi_chu: [`Đơn sửa chữa ${r.id}`, r.case_id && `case ${r.case_id}`, r.san_pham_bh ?? r.ten_lk, r.ten_lk && r.san_pham_bh && r.ten_lk.trim().toLowerCase() !== r.san_pham_bh.trim().toLowerCase() ? `LK gửi: ${r.ten_lk}` : null]
       .filter(Boolean).join(" · "),
   };
   const cu = d.bh_tu_dien;
