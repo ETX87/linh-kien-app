@@ -610,13 +610,16 @@ export function PhieuXuatKhoTab({
       api.get<MisaExportResult>(
         "/phieu-xuat-kho/misa-export" +
           buildQuery({
-            trang_thai: filterTrangThai || undefined,
+            // SUA 2026-11-17 ("khi kế toán lọc filter, nhưng tải file mẫu misa vẫn ra hết"): dung DUNG bo loc cua danh sach -
+            // trang thai da quy doi (trangThaiGui) + loc theo cot (locCot.queryParams, vd Loai phieu) truoc day bi thieu.
+            trang_thai: trangThaiGui || undefined,
             nguoi_nhan_hang: filterNguoiNhanHang || undefined,
             loai_don: xemLoaiDon,
             q: debouncedQ || undefined,
             khu_vuc: khuVucParam || undefined,
             tu_ngay: filterTuNgay || undefined,
             den_ngay: filterDenNgay || undefined,
+            ...locCot.queryParams,
             template,
           }),
       ),

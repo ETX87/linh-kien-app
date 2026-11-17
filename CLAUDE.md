@@ -1503,3 +1503,11 @@ Nguyên văn yêu cầu (chủ hệ thống): *"luồng "Cấp lk" ... khi đơn
 - Danh sách KTV đổi tên cột: "Hạn mức dự trữ (trần)", "Đã mua theo MISA" (tooltip lúc Kế toán nhập = mốc), "Mua sau mốc MISA", "Trả hàng dự trữ đã chốt", **"Đã mua dự trữ"** (mới = MISA + mua sau mốc − trả), **"Còn được mua"** (trước "Mốc dự phòng hiện tại", âm tô đỏ). Câu nhắc khi tạo đơn: "Dự trữ còn được mua: … / hạn mức …".
 
 **(d) Ghi nhận / kiểm thử:** Deploy 17/11/2026 (migration 0123 + Version ID `6ab3cd17`). typecheck 0 lỗi. Chạy công thức trên D1 production (chỉ đọc): NS-3871 phát sinh 0 → 8.810.000đ, NS-3895 135.000 → 7.625.000đ, thanhnd.ptdv-hcm hiện tại 13.868.000 + 1.760.000. Sau khi sửa, nhiều KTV bị giảm "còn được mua" ngay và có thể bị chặn đặt thêm dự trữ — đúng số thật. Mốc dữ liệu cũ = lần sửa gần nhất của dòng (có thể muộn hơn lúc nhập "hiện tại" thật nếu sau đó chỉ bật/tắt) — Kế toán nhập lại "hiện tại" là có mốc chuẩn. Mục công nợ vẫn dùng mốc chung kiểu cũ (`congNoKtv.ts`), chưa đổi.
+
+## Tải file MISA gộp theo đúng bộ lọc đang xem (17/11/2026) — v1.513
+
+**(a) Nguyên văn:** *"khi kế toán lọc filter, nhưng tải file mẫu misa vẫn ra hết => fix lại, danh sách tải ra chỉ bao gồm danh sách phù hợp đã lọc"* (ảnh: lọc cột "Loại phiếu (trừ 1)" còn 7 dòng).
+
+**(b) Nguyên nhân + đã sửa:** nút tải MISA gộp (`misaExportBulkMutation`, `PhieuXuatKhoTab.tsx`) gọi `GET /phieu-xuat-kho/misa-export` KHÔNG kèm bộ lọc theo cột (`locCot.queryParams` — Loại phiếu, In phiếu, Người tạo, Người nhận…) và dùng `filterTrangThai` thay vì `trangThaiGui` như danh sách. Backend đã dùng chung `pxkListWhere()` với danh sách (v1.438) nên chỉ sửa frontend: gửi đúng cùng bộ tham số với danh sách.
+
+**(d) Kiểm thử:** typecheck 0 lỗi. Chưa bấm thử trên giao diện. Deploy 17/11/2026.
