@@ -22,3 +22,10 @@ hrApi*.js
 # Thu vien doc chu tren anh (tesseract.js) - vite.config.ts tu chep tu node_modules moi lan build
 frontend/public/ocr/
 *.traineddata
+
+# Bao cao / ra soat bao mat & audit KHONG day len repo (chot 2026-11-17). Giu ban tren may.
+docs/BAO_CAO_BAO_MAT*
+docs/audit/
+**/*BAO_CAO_BAO_MAT*
+**/*bao_mat*.md
+**/*SECURITY_AUDIT*
