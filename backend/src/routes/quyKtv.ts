@@ -259,14 +259,68 @@ quyKtv.get("/giao-dich", async (c) => {
   const page = Math.max(1, (Math.trunc(Number(pageParam)) || 1));
   const pageSize = Math.min(200, Math.max(1, (Math.trunc(Number(c.req.query("pageSize"))) || 20)));
   const tong = await c.env.DB.prepare(`SELECT COUNT(*) AS total FROM quy_ktv_giao_dich g WHERE ${where}`).bind(...binds).first<{ total: number }>();
+  // Thuc chi mua hang (2026-11-17): tien phieu dang giu that (pxk_da_tt) + tien quy rong cua (nguoi, phieu) de biet da hoan / di theo don.
+  // Hien o dong tra_phieu CUOI cung cua phieu (dong truoc gop vao dong cuoi, tranh cong trung). "Da mua" = Ke toan da duyet
+  // tien (trang_thai_chuyen_tien = 'TN da duyet') va phieu khong bi huy.
   const { results } = await c.env.DB.prepare(
-    `SELECT g.*, p.ma_xuat_kho, ht.trang_thai AS ht_trang_thai FROM quy_ktv_giao_dich g LEFT JOIN phieu_xuat_kho p ON p.id = g.phieu_xuat_kho_id
+    `SELECT g.*, p.ma_xuat_kho, ht.trang_thai AS ht_trang_thai,
+       p.trang_thai_chuyen_tien AS pxk_tt_tien, p.trang_thai_hien_tai AS pxk_tt, p.da_thanh_toan AS pxk_da_tt,
+       CASE WHEN g.phieu_xuat_kho_id IS NOT NULL AND g.loai IN ('tra_phieu','hoan_phieu') THEN
+         (SELECT -COALESCE(SUM(x.so_tien), 0) FROM quy_ktv_giao_dich x WHERE x.phieu_xuat_kho_id = g.phieu_xuat_kho_id AND x.email = g.email AND x.loai IN ('tra_phieu','hoan_phieu')) END AS thuc_chi_phieu,
+       CASE WHEN g.loai = 'tra_phieu' AND g.phieu_xuat_kho_id IS NOT NULL THEN
+         (SELECT MAX(x.id) FROM quy_ktv_giao_dich x WHERE x.phieu_xuat_kho_id = g.phieu_xuat_kho_id AND x.email = g.email AND x.loai = 'tra_phieu') END AS tra_cuoi_id
+     FROM quy_ktv_giao_dich g LEFT JOIN phieu_xuat_kho p ON p.id = g.phieu_xuat_kho_id
        LEFT JOIN phieu_hoan_tien ht ON ht.id = g.phieu_hoan_tien_id
      WHERE ${where} ORDER BY g.id DESC ${pageParam ? "LIMIT ? OFFSET ?" : ""}`,
   )
     .bind(...binds, ...(pageParam ? [pageSize, (page - 1) * pageSize] : []))
     .all();
   return c.json({ rows: results, page, pageSize, total: tong?.total ?? 0 });
+});
+
+// GET /api/quy-ktv/giao-dich/tong-ket?email=&quy= (2026-11-17, "nhìn nhanh bao nhiêu tiền đã được tính là mua thành công";
+// moc chot "Kế toán đã duyệt"). Tinh theo NOI TIEN DANG NAM THAT, khong cong theo dong so quy: phieu tu huy (kho het hang)
+// thi tien KHONG hoan ve quy ma di theo don (dat_don_hang.tien_da_tra) roi sang phieu moi KHONG ghi dong so nao (vd PMH-001595
+// -> DDH-004410 -> PMH-002528). Vi vay:
+//   Da mua    = SUM(phieu.da_thanh_toan) cua phieu (chu quy = nguoi nhan hang + quy_kh) Ke toan da duyet tien ('TN da duyet'), chua huy
+//   Tam giu   = da_thanh_toan cua phieu con lai + tien don dang giu (tien_da_tra) cua chu quy
+//   So du     = tong bien dong so quy (bat bien so_du = tong so_tien)
+//   Chenh lech = (nop + dieu chinh - hoan tien KTV) - (da mua + tam giu + so du): tien phieu tra thang khong qua quy (du lieu truoc
+//   khi co quy / tien chuyen ngoai) -> hien rieng, khong tron vao cac o kia.
+quyKtv.get("/giao-dich/tong-ket", async (c) => {
+  const pv = await phamViXem(c);
+  if (pv === undefined) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const ds = pv ? pv.flatMap((e) => [e, khoaQuy(e, true)]) : null;
+  const chon = c.req.query("email")?.trim() || undefined;
+  const loaiQuy = loaiQuyLoc(c);
+  const dk = (cot: string) => {
+    const l = locEmail(cot, ds, chon);
+    let sql = l.sql;
+    if (loaiQuy) sql += loaiQuy === "kh" ? ` AND ${cot} LIKE 'khhd:%'` : ` AND ${cot} NOT LIKE 'khhd:%'`;
+    return { sql, binds: l.binds };
+  };
+  const KHOA_PXK = "(CASE WHEN p.quy_kh = 1 THEN 'khhd:' || p.nguoi_nhan_hang ELSE p.nguoi_nhan_hang END)";
+  const DA_MUA = "(p.trang_thai_chuyen_tien = 'TN da duyet' AND COALESCE(p.trang_thai_hien_tai, '') <> 'Ke toan huy')";
+  const g = dk("g.email"), pp = dk(KHOA_PXK), dd = dk("d.tien_da_tra_email");
+  const r = await c.env.DB.prepare(
+    `SELECT
+       (SELECT COALESCE(SUM(g.so_tien),0) FROM quy_ktv_giao_dich g WHERE g.loai = 'nop_tien'${g.sql}) AS da_nop,
+       (SELECT COALESCE(SUM(g.so_tien),0) FROM quy_ktv_giao_dich g WHERE g.loai = 'dieu_chinh'${g.sql}) AS dieu_chinh,
+       (SELECT COALESCE(-SUM(g.so_tien),0) FROM quy_ktv_giao_dich g WHERE g.loai = 'hoan_tien_ktv'${g.sql}) AS hoan_ktv,
+       (SELECT COALESCE(SUM(g.so_tien),0) FROM quy_ktv_giao_dich g WHERE 1 = 1${g.sql}) AS so_du,
+       (SELECT COALESCE(SUM(p.da_thanh_toan),0) FROM phieu_xuat_kho p WHERE p.da_thanh_toan > 0 AND ${DA_MUA}${pp.sql}) AS da_mua,
+       (SELECT COUNT(*) FROM phieu_xuat_kho p WHERE p.da_thanh_toan > 0 AND ${DA_MUA}${pp.sql}) AS so_phieu_mua,
+       (SELECT COALESCE(SUM(p.da_thanh_toan),0) FROM phieu_xuat_kho p WHERE p.da_thanh_toan > 0 AND NOT ${DA_MUA}${pp.sql}) AS giu_phieu,
+       (SELECT COUNT(*) FROM phieu_xuat_kho p WHERE p.da_thanh_toan > 0 AND NOT ${DA_MUA}${pp.sql}) AS so_phieu_giu,
+       (SELECT COALESCE(SUM(d.tien_da_tra),0) FROM dat_don_hang d WHERE d.tien_da_tra > 0${dd.sql}) AS giu_don,
+       (SELECT COUNT(*) FROM dat_don_hang d WHERE d.tien_da_tra > 0${dd.sql}) AS so_don_giu`,
+  ).bind(...g.binds, ...g.binds, ...g.binds, ...g.binds, ...pp.binds, ...pp.binds, ...pp.binds, ...pp.binds, ...dd.binds, ...dd.binds)
+    .first<Record<string, number>>();
+  const x = r ?? {};
+  const n = (k: string) => Number(x[k] ?? 0);
+  const tamGiu = n("giu_phieu") + n("giu_don");
+  const chenhLech = n("da_nop") + n("dieu_chinh") - n("hoan_ktv") - (n("da_mua") + tamGiu + n("so_du"));
+  return c.json({ ...x, tam_giu: tamGiu, chenh_lech: chenhLech });
 });
 
 // POST /api/quy-ktv/dieu-chinh { email, loai: 'dieu_chinh' | 'hoan_tien_ktv', so_tien, ghi_chu } - Ke toan/Admin.

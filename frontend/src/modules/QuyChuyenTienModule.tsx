@@ -103,6 +103,97 @@ interface GiaoDichRow {
   phieu_hoan_tien_id?: string | null;
   ht_trang_thai?: TrangThaiHt | null;
   khoan_tien_ngoai_id?: number | null; // migration 0095
+  // Thuc chi mua hang (2026-11-17)
+  pxk_tt_tien?: string | null;
+  pxk_tt?: string | null;
+  thuc_chi_phieu?: number | null; // tien quy rong cua (nguoi, phieu) = tong tru - tong hoan
+  pxk_da_tt?: number | null; // tien phieu dang giu that
+  tra_cuoi_id?: number | null;
+}
+
+// Thuc chi mua hang (2026-11-17, "nhìn nhanh bao nhiêu tiền đã được tính là mua thành công"; chot moc "Kế toán đã duyệt").
+// Hien o dong "Tra phieu" CUOI cua phieu, theo TIEN PHIEU DANG GIU THAT (pxk_da_tt):
+//   phieu Ke toan da duyet tien ('TN da duyet'), chua huy -> "Da mua"; phieu chua duyet -> "Dang tam giu";
+//   phieu da huy: tien quy rong = 0 -> "Da hoan het"; con > 0 -> tien KHONG ve quy ma di theo don sang phieu khac (vd PMH-001595
+//   tu huy vi kho het hang -> DDH-004410 -> PMH-002528) -> "Đi theo đơn" (tinh o phieu moi, xem o tong ket phia tren).
+type ThucChi = { kind: "mua" | "giu" | "hoan" | "theo_don"; tien: number };
+function thucChiCua(g: GiaoDichRow): ThucChi | null {
+  if (!g.phieu_xuat_kho_id || g.thuc_chi_phieu == null) return null;
+  const huy = g.pxk_tt === "Ke toan huy";
+  if (huy) return g.thuc_chi_phieu > 0 ? { kind: "theo_don", tien: g.thuc_chi_phieu } : { kind: "hoan", tien: 0 };
+  const tien = Math.max(0, g.pxk_da_tt ?? 0);
+  if (tien <= 0) return { kind: "hoan", tien: 0 };
+  return { kind: g.pxk_tt_tien === "TN da duyet" ? "mua" : "giu", tien };
+}
+const NHAN_THUC_CHI: Record<ThucChi["kind"], { label: string; tone: BadgeTone; giai: string }> = {
+  mua: { label: dichSau("Đã mua"), tone: "teal", giai: dichSau("Kế toán đã duyệt — tiền đã tính là mua thành công") },
+  giu: { label: dichSau("Đang tạm giữ"), tone: "amber", giai: dichSau("Phiếu chưa được Kế toán duyệt — tiền có thể còn được hoàn") },
+  hoan: { label: dichSau("Đã hoàn hết"), tone: "gray", giai: dichSau("Phiếu hủy / giảm, tiền đã hoàn về quỹ — không tính là đã chi") },
+  theo_don: { label: dichSau("Đi theo đơn"), tone: "violet", giai: dichSau("Phiếu tự hủy, tiền đi theo đơn sang phiếu khác (không về quỹ) — tính ở phiếu mới") },
+};
+function ThucChiCell({ g }: { g: GiaoDichRow }) {
+  const tc = thucChiCua(g);
+  const mo = "text-xs text-[var(--color-text-faint)]";
+  if (!tc) return <span className={mo}>—</span>;
+  if (g.loai === "hoan_phieu") return <span className={mo}>{t("hoàn cho phiếu")}</span>;
+  // Phieu tru quy nhieu lan: chi dong tra_phieu CUOI hien, dong truoc ghi "gop" (tranh cong trung).
+  if (g.tra_cuoi_id != null && g.tra_cuoi_id !== g.id) return <span className={mo}>{t("gộp ở dòng sau")}</span>;
+  const n = NHAN_THUC_CHI[tc.kind];
+  return (
+    <span className="inline-flex items-center justify-end gap-1.5 whitespace-nowrap" title={t(n.giai)}>
+      {tc.kind === "mua" || tc.kind === "giu"
+        ? <b><Money>{fmtVND(tc.tien)}</Money></b>
+        : <s className="text-[var(--color-text-faint)]"><Money>{fmtVND(tc.kind === "hoan" ? Math.abs(g.so_tien) : tc.tien)}</Money></s>}
+      <Badge tone={n.tone}>{t(n.label)}</Badge>
+    </span>
+  );
+}
+function thucChiExcel(g: GiaoDichRow): { tien: number | string; tt: string } {
+  const tc = thucChiCua(g);
+  if (!tc) return { tien: "", tt: "" };
+  if (g.loai === "hoan_phieu") return { tien: "", tt: t("Hoàn cho phiếu") };
+  if (g.tra_cuoi_id != null && g.tra_cuoi_id !== g.id) return { tien: "", tt: t("Gộp ở dòng sau") };
+  return { tien: tc.kind === "mua" || tc.kind === "giu" ? tc.tien : 0, tt: t(NHAN_THUC_CHI[tc.kind].label) };
+}
+
+interface TongKetQuy {
+  da_nop: number; dieu_chinh: number; hoan_ktv: number; so_du: number; da_mua: number; so_phieu_mua: number;
+  tam_giu: number; giu_phieu: number; so_phieu_giu: number; giu_don: number; so_don_giu: number; chenh_lech: number;
+}
+function TongKetQuyStrip({ qs }: { qs: string }) {
+  const { data } = useQuery({
+    queryKey: ["quy-ktv-tong-ket", qs],
+    queryFn: () => api.get<TongKetQuy>(`/quy-ktv/giao-dich/tong-ket?${qs}`),
+  });
+  if (!data) return null;
+  const o = (label: string, v: number, sub: string, mau: string) => (
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3" style={{ borderLeft: `4px solid ${mau}` }}>
+      <div className="text-xs text-[var(--color-text-secondary)]">{label}</div>
+      <div className="text-lg font-bold" style={{ color: mau }}><Money>{fmtVND(v)}</Money></div>
+      <div className="text-[11px] text-[var(--color-text-faint)]">{sub}</div>
+    </div>
+  );
+  const subGiu = [
+    data.so_phieu_giu ? t("{n} phiếu chưa KT duyệt", { n: String(data.so_phieu_giu) }) : "",
+    data.so_don_giu ? t("{n} đơn chờ hàng giữ tiền", { n: String(data.so_don_giu) }) : "",
+  ].filter(Boolean).join(" · ") || t("Không có");
+  const ra = data.hoan_ktv - data.dieu_chinh;
+  return (
+    <div className="space-y-1">
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        {o(t("Đã nộp vào quỹ"), data.da_nop, t("Kế toán đã xác nhận"), "#2563eb")}
+        {o(t("✅ Đã mua thành công"), data.da_mua, t("{n} phiếu — Kế toán đã duyệt", { n: String(data.so_phieu_mua) }), "#15803d")}
+        {o(t("⏳ Đang tạm giữ"), data.tam_giu, subGiu, "#b45309")}
+        {o(t("Số dư còn trong quỹ"), data.so_du, t("Chưa dùng"), "#475569")}
+      </div>
+      <div className="text-[11px] text-[var(--color-text-faint)]">
+        {t("Đã nộp")} <Money>{fmtVND(data.da_nop)}</Money> = {t("đã mua")} <Money>{fmtVND(data.da_mua)}</Money> + {t("tạm giữ")} <Money>{fmtVND(data.tam_giu)}</Money> + {t("số dư")} <Money>{fmtVND(data.so_du)}</Money>
+        {ra !== 0 && <> {ra > 0 ? "+" : "−"} {t("hoàn tiền cho KTV / điều chỉnh")} <Money>{fmtVND(Math.abs(ra))}</Money></>}
+        {data.chenh_lech !== 0 && <> {data.chenh_lech > 0 ? "+" : "−"} <span className="text-[var(--color-warning-strong)]" title={t("Tiền phiếu trả thẳng không qua quỹ (dữ liệu trước khi có quỹ / chuyển ngoài) hoặc tiền chưa xác định")}>{t("chênh lệch chưa qua quỹ")} <Money>{fmtVND(Math.abs(data.chenh_lech))}</Money></span></>}
+        {" · "}{t("Tính theo nơi tiền đang nằm thật: phiếu hủy / giảm đã hoàn về quỹ thì không tính là đã chi.")}
+      </div>
+    </div>
+  );
 }
 
 // Nhan loai 1 dong so quy - dung chung cot "Loai" va file tai ve.
@@ -844,6 +935,8 @@ function SoQuyTab({ quy, xemTatCa, nguoiOptions, emailLoc, setEmailLoc, ten }: {
           "Email": g.email,
           "Loại": n ? t(n.label) : g.loai,
           "Biến động": g.so_tien,
+          "Thực chi mua hàng": thucChiExcel(g).tien,
+          "Tình trạng thực chi": thucChiExcel(g).tt,
           "Số dư sau": g.so_du_sau,
           "Mã HĐ / Phiếu": g.phieu_xuat_kho_id ? (g.ma_xuat_kho ?? g.phieu_xuat_kho_id) : (g.phieu_hoan_tien_id ?? ""),
           "ID phiếu xuất": g.phieu_xuat_kho_id ?? "",
@@ -872,13 +965,16 @@ function SoQuyTab({ quy, xemTatCa, nguoiOptions, emailLoc, setEmailLoc, ten }: {
       key: "tien", header: t("Biến động"), className: "text-right", mobile: xemTatCa ? "meta" : "title",
       render: (g) => <b className={g.so_tien > 0 ? "text-[var(--color-success-strong)]" : "text-[var(--color-danger-strong)]"}>{g.so_tien > 0 ? "+" : "−"}<Money>{fmtVND(Math.abs(g.so_tien))}</Money></b>,
     },
+    { key: "thuc_chi", header: t("Thực chi mua hàng"), className: "text-right", mobile: "meta", render: (g) => <ThucChiCell g={g} /> },
     { key: "sau", header: t("Số dư sau"), className: "text-right", render: (g) => <Money>{fmtVND(g.so_du_sau)}</Money>, mobile: "meta" },
     { key: "pxk", header: t("Phiếu||cột"), mobile: "meta", render: (g) => (g.phieu_xuat_kho_id ? <MaPhieuLink id={g.phieu_xuat_kho_id} nhan={g.ma_xuat_kho ?? g.phieu_xuat_kho_id} /> : g.phieu_hoan_tien_id ?? "—") },
     { key: "ghi_chu", header: t("Ghi chú"), mobile: "sub", render: (g) => <span className="block max-w-[300px] truncate" title={g.ghi_chu ?? ""}>{g.ghi_chu}</span> },
     { key: "nguoi_tao", header: t("Người thực hiện"), render: (g) => (g.nguoi_tao === "he-thong" ? t("Hệ thống") : ten(g.nguoi_tao)) },
   ];
+  const qsTong = new URLSearchParams({ quy, ...(emailLoc ? { email: emailLoc } : {}) }).toString();
   return (
     <div className="space-y-3">
+      <TongKetQuyStrip qs={qsTong} />
       <div className="flex flex-wrap items-center gap-2">
         {xemTatCa && <Select value={emailLoc} onChange={(v) => { setEmailLoc(v); setPage(1); }} options={nguoiOptions} className="w-full sm:w-60" />}
         <Select

@@ -1475,3 +1475,17 @@ Nguyên văn yêu cầu (chủ hệ thống): *"luồng "Cấp lk" ... khi đơn
 - Nhật ký: bảng `dat_don_ngoai_log` (`UNIQUE(dat_don_hang_id, su_kien)` chống trùng); `GET /dat-mua-lk/don-hang/:id` gộp vào "Lịch sử xử lý". Bản tin `cap_nhat_luc` ≤ `ngoai_cap_nhat` → bỏ qua (không ghi gì).
 - Chi tiết đơn (`DonCuaToiTab.tsx`): banner "🔒 Đơn đồng bộ từ app Sửa chữa bảo hành — chỉ xem" (DX, đơn BH, KTV, NV, mã ĐH), ẩn footer thao tác + nút "✎ Sửa".
 - Kiểm thử: 2 Worker local nối service binding — tạo / cập nhật từng bước / chống trùng / bản tin cũ / khoá trigger / API chi tiết đều đạt (xem CLAUDE.md repo `gui-bao-hanh-linh-kien`, mục cùng ngày).
+
+## Sổ quỹ: cột "Thực chi mua hàng" + 4 ô tổng kết (17/11/2026) — v1.511
+
+**(a) Nguyên văn yêu cầu:** *"trong mục "sổ quỹ", khoản nào thực tế đã được sử dụng thật để mua hàng rất kho phân biệt. với vai trò kiểm soát dòng tiền, làm sao để cho 1 người không có nghiệp vụ kế toán, nhìn nhanh là hiểu được trong các dòng xuất nhập lịch sử này biết được thực tế bao nhiêu tiền đã được tính là mua thành công (ví dụ thêm 1 cột thực tiền đã chi)"* → chốt mốc "mua thành công" = **"Kế toán đã duyệt"** (`trang_thai_chuyen_tien = 'TN da duyet'`, phiếu chưa `Ke toan huy`).
+
+**(b) Đã làm:**
+- `GET /api/quy-ktv/giao-dich/tong-ket?email=&quy=` (cùng phạm vi xem với Sổ quỹ, bỏ qua lọc loại): Đã nộp, Đã mua thành công (+ số phiếu), Đang tạm giữ (phiếu chưa KT duyệt + tiền đơn chờ hàng đang giữ `tien_da_tra`), Số dư, hoàn tiền KTV / điều chỉnh, **chênh lệch** (= vào quỹ − đã mua − tạm giữ − số dư: tiền phiếu trả thẳng không qua quỹ).
+- **Tính theo nơi tiền đang nằm thật, KHÔNG cộng theo dòng sổ quỹ**: phiếu tự huỷ (kho hết hàng) thì tiền không hoàn về quỹ mà đi theo đơn (`dat_don_hang.tien_da_tra`) rồi sang phiếu mới mà KHÔNG ghi dòng sổ nào — ví dụ thật PMH-001595 (337.500đ, tự huỷ) → DDH-004410 → PMH-002528. Đã mua = `SUM(phieu_xuat_kho.da_thanh_toan)` của phiếu chủ quỹ (`quy_kh` → khoá `khhd:`) đã KT duyệt.
+- `GET /giao-dich` trả thêm `pxk_tt_tien`, `pxk_tt`, `pxk_da_tt`, `thuc_chi_phieu` (tiền quỹ ròng của người + phiếu), `tra_cuoi_id`.
+- Sổ quỹ (`QuyChuyenTienModule.tsx`): dải 4 ô (Đã nộp / ✅ Đã mua thành công / ⏳ Đang tạm giữ / Số dư) + dòng cân đối; cột **"Thực chi mua hàng"** ở dòng "Trả phiếu" CUỐI của mỗi phiếu: số tiền phiếu đang giữ + nhãn Đã mua / Đang tạm giữ; phiếu huỷ đã hoàn hết → "Đã hoàn hết" (gạch số); phiếu huỷ mà tiền đi theo đơn → "Đi theo đơn"; dòng trả phiếu trước → "gộp ở dòng sau", dòng hoàn → "hoàn cho phiếu". Excel thêm 2 cột. Không có migration.
+
+**(c) Ghi nhận:** toàn hệ thống lúc làm có chênh lệch ~14,5 triệu (phiếu trả trước khi có quỹ / chuyển ngoài) — hiện thành dòng riêng. Phiếu nhận tiền qua đơn không có dòng sổ quỹ nên chỉ thấy ở ô tổng, không có dòng trong bảng.
+
+**(d) Kiểm thử:** typecheck backend + frontend 0 lỗi. Chạy câu tổng kết trên D1 production (chỉ đọc) với KTV toannv.mb: nộp 4.334.800 = đã mua 4.056.800 (PMH-000168/000978/001299/002528) + tạm giữ 278.000 (PMH-002117) + số dư 0 — khớp. Chưa xem bằng mắt trên giao diện.
