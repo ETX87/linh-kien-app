@@ -56,3 +56,13 @@ cho người dùng thật.
   gửi lại cùng `ma_yeu_cau` → `trung_lap`; key tắt cờ → 403; email không có → 403.
 - **Việc của Admin sau deploy**: bật "đặt thay đúng người bấm" cho khóa API mà DVBH đang dùng.
 
+
+## 2026-11-17 — Rà soát "đổi tên trạm/KTV làm tách dòng báo cáo" (không sửa code)
+
+Bối cảnh: chủ hệ thống đổi tên trạm hàng loạt bên Odoo; app DVBH bị tách dòng báo cáo KTV và đã sửa ở v1.621 (gom theo `(ma)`).
+Rà soát app này: mọi báo cáo/gom/lọc KTV dùng `ma_ktv` (`ktv_lien_he`, khoá chính) hoặc email người nhận (`dat_don_hang.nguoi_nhan_hang`,
+`congNoKtv`/`duPhongKtv` GROUP BY `ma_ktv`); tên hiển thị lấy từ `ktv_lien_he.ten_hien_thi` (1 dòng/mã). Chuỗi `ky_thuat_vien` của DVBH chỉ
+dùng để hiện trên từng ca (tra cứu trực tiếp, luôn là tên mới nhất) và để khớp KTV khi kiểm tra mã YCSC — đã trích `(ma)` qua `lib/ktvCode.ts
+extractMaKtv`. → Không bị ảnh hưởng, không cần sửa.
+Dữ liệu thật (SELECT D1 remote): 1.211 mã KTV, 0 mã trùng theo hoa/thường. 2 dòng có `ten_hien_thi` lệch mã (`huytp.ctv-kdtt` mang tên
+"(huytp.kdtt)…", và 1 dòng `ma_ktv` dính cả hàng dữ liệu dán có tab "NS-487…") — lỗi nhập liệu danh bạ, chưa sửa (cần người quyết).
