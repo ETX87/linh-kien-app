@@ -5,7 +5,6 @@ import { Hono } from "hono";
 import type { Env, AppUser } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
-import { boPhanCua } from "../lib/viPham";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql } from "../lib/scopeDatMua";
 
@@ -457,10 +456,11 @@ notifications.get("/count", async (c) => {
     : null;
   const hoanTienCanXuLy = await demHoanTienCanXuLy(c.env.DB, user);
   const nopTienCanXuLy = await demNopTienCanXuLy(c.env.DB, user);
-  const boPhan = boPhanCua(user);
-  const vpRow = boPhan.length && !user.la_ktv_dvbh && !user.la_ve_tinh
-    ? await c.env.DB.prepare("SELECT COUNT(*) as n FROM vi_pham WHERE trang_thai = 'Cho giai trinh' AND bo_phan IN (SELECT value FROM json_each(?))")
-        .bind(JSON.stringify(boPhan)).first<{ n: number }>()
+  // Chi ca MINH la nguoi phu trach (vi_pham.nguoi_phu_trach, migration 0126).
+  const vpRow = !user.la_ktv_dvbh && !user.la_ve_tinh
+    ? await c.env.DB.prepare(
+        "SELECT COUNT(*) as n FROM vi_pham v WHERE v.trang_thai = 'Cho giai trinh' AND EXISTS (SELECT 1 FROM json_each(COALESCE(v.nguoi_phu_trach, '[]')) j WHERE j.value = ?)",
+      ).bind(user.email).first<{ n: number }>()
     : null;
   const data: NotificationsCountPayload = {
     datMuaLk, ktvLogChuaDoc: row?.n ?? 0, lkChoXetDuyet: lkRow?.n ?? 0, hoanTienCanXuLy, nopTienCanXuLy, viPhamCanGiaiTrinh: vpRow?.n ?? 0,

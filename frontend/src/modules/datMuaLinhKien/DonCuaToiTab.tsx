@@ -1,3 +1,4 @@
+import { ViPhamBanner } from "../viPham/ViPhamUi";
 import { useState, useEffect, useMemo, useRef, Fragment, lazy, Suspense } from "react";
 // Lazy: PhieuXuatKhoTab da import DonHangDetailModal tu file nay - tranh vong import tinh (2026-10-02).
 const PxkDetailModalLazy = lazy(() => import("./PhieuXuatKhoTab").then((m) => ({ default: m.PxkDetailModal })));
@@ -1080,6 +1081,8 @@ export function DonHangDetailModal({
           )}
           {/* Luong quy trinh cua don (v1.494): don dang o buoc nao, cho ai - xem LuongDon.tsx. */}
           <LuongDon d={d} mocPhieu={pxk?.moc_log} />
+          {/* Ca qua han SLA lien quan don (v1.518) - xem viPham/ViPhamUi.tsx. */}
+          <ViPhamBanner ids={[d.id]} />
           {/* SUA (ra soat UI/UX 2026-08-28, van de #2/#3/#4/#11: "chia thành các vùng dữ liệu" + tien
               gom 1 cho + badge trang thai qua tai): thay khoi KvRow phang truoc day bang 1 dai "chỉ số
               nhanh" ngay duoi tieu de (SL/gia/trang thai noi bat NGAY, khong phai cuon vao than moi

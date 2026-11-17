@@ -223,6 +223,24 @@ function MainApp({
     window.addEventListener("mo-phieu-hoan-tien", nghe);
     return () => window.removeEventListener("mo-phieu-hoan-tien", nghe);
   }, []);
+  // Qua han & vi pham (v1.518): chuong (su kien "mo-vi-pham") + link push "/?vi_pham=<tab>" -> menu "Quá hạn & vi phạm" dung tab.
+  const [moViPham, setMoViPham] = useState<{ tab: string; nonce: number } | null>(null);
+  useEffect(() => {
+    const mo = (tab: string) => {
+      setMoViPham({ tab: tab || "can_toi", nonce: Date.now() });
+      setActive("vi-pham");
+    };
+    const u = new URL(window.location.href);
+    const tab = u.searchParams.get("vi_pham");
+    if (tab) {
+      u.searchParams.delete("vi_pham");
+      window.history.replaceState(window.history.state, "", u.pathname + u.search + u.hash);
+      mo(tab);
+    }
+    const nghe = (e: Event) => mo((e as CustomEvent<string>).detail ?? "can_toi");
+    window.addEventListener("mo-vi-pham", nghe);
+    return () => window.removeEventListener("mo-vi-pham", nghe);
+  }, []);
   // KTV nop tien vao quy (2026-10-30, migration 0104): chuong (su kien "mo-nop-tien") + link push "/?nop_tien=<id>" -> Quỹ › tab Nộp tiền.
   const [moNopTien, setMoNopTien] = useState<{ id: string; nonce: number } | null>(null);
   useEffect(() => {
@@ -551,7 +569,7 @@ function MainApp({
           {active === "quy-chuyen-tien" && <QuyChuyenTienModule moPhieuHoanTien={moHoanTien} moNopTien={moNopTien} />}
           {active === "bao-cao-toc-do" && <BaoCaoTocDoXuLyModule />}
           {active === "luong-he-thong" && <LuongHeThongModule />}
-          {active === "vi-pham" && <ViPhamModule />}
+          {active === "vi-pham" && <ViPhamModule moTab={moViPham} />}
           {active === "settings" && <SettingsModule />}
           {active === "users" && <UsersModule pendingKtvSearch={pendingKtvSearch} />}
         </main>

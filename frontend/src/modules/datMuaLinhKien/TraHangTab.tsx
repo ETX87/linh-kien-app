@@ -1,3 +1,4 @@
+import { ViPhamBanner } from "../viPham/ViPhamUi";
 import { useState, useEffect, useRef, Fragment } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
@@ -1586,6 +1587,7 @@ export function TraHangDetailModal({
             </div>
           </div>
 
+          <ViPhamBanner ids={[d.id]} />
           <DetailZone title={t("Thông tin đơn")}>
             <KvRow label={t("Người tạo")}><NguoiTao>{formatNguoiDisplay(d.nguoi_tao, ktvDisplayMap)}</NguoiTao></KvRow>
             {d.nguoi_nhan_hang && (

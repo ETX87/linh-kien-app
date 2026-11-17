@@ -120,6 +120,9 @@ vẫn hoạt động) → Tác nghiệp duyệt tổng (đồng ý/từ chối) 
   vi phạm; Admin gỡ thẻ kèm lý do. Màn "Quá hạn & vi phạm" cho nhân viên văn phòng. Đối tác đọc `GET /api/partner/v1/vi-pham`. → ✅ Đã làm.
 - Mặc định (chưa có số chốt từ quản lý): 24h mỗi bước (Mua hàng 48h), hạn giải trình 24h, không tính cuối tuần. Bước "KTV xác nhận đã
   nhận hàng" / "KTV chuyển tiền" CHƯA tính (đã có tự xác nhận sau 10 ngày; KTV chưa có màn giải trình). → ⏳ Chờ quản lý chốt số giờ.
+- v1.518: người phải giải trình cụ thể theo khu vực / GS của đơn; thông báo ca mới / sắp hết hạn / gắn thẻ; thanh cảnh báo trong chi tiết
+  đơn / phiếu / ticket; giải trình bắt buộc chọn lý do; "Báo không đúng" → Admin xem xét; tab "Tổng hợp theo dõi"; tài liệu
+  `docs/Huong_dan_giai_trinh_qua_han_theo_vai_tro.html`. → ✅ Đã làm.
 - Chưa làm: "Trả key API cũ" (key chỉ lưu dạng băm — không lấy lại được bản gốc, cần quản lý nói rõ là cấp lại hay thu hồi); luồng
   chuyển kho nội bộ thật.
 

@@ -1,3 +1,4 @@
+import { ViPhamBanner } from "../viPham/ViPhamUi";
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { HoaDonPhieuBadge, HoaDonPhieuGhiChu, nenHoaDon, coChonHoaDon } from "./KhChuyenKhoan";
 import { ChoHangBadge, PhieuChoHangCanhBao } from "./TachChoHang";
@@ -2215,6 +2216,7 @@ export function PxkDetailModal({
               nay ma khong bo sung gi (PxkMiniPipeline da xu ly du ca 5 buoc chinh lan 4 trang thai
               nhanh re) - bo han <Stepper>, chi giu 1 chi bao duy nhat. */}
           <PxkMiniPipeline trangThai={trangThai} />
+          <ViPhamBanner ids={[id]} />
           {/* Ghi chu Ke toan: phieu co yeu cau xuat hoa don / KH chuyen khoan ve cong ty (2026-11-09). */}
           <HoaDonPhieuGhiChu hd={pxk.yeu_cau_hd} quyKh={pxk.quy_kh} />
           {/* Phieu cho hang tach rieng / phieu co hang co phieu cho hang lien quan (2026-11-10, migration 0112). */}

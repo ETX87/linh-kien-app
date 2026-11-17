@@ -5,11 +5,13 @@ import { loadUser } from "../middleware/loadUser";
 import { nowVN } from "../lib/vnTime";
 import { tenNguoiNullSql } from "../lib/tenNguoi";
 import { docLocCot, sqlLocCot, sqlSapXep, giaTriCot, tenNguoiSql, type CotLoc } from "../lib/locCot";
-import { BUOC_VI_PHAM, BUOC_THEO_MA, TEN_BO_PHAN, TRANG_THAI_VI_PHAM, boPhanCua, docCauHinh, quetViPham, type BoPhan } from "../lib/viPham";
+import {
+  BUOC_VI_PHAM, BUOC_THEO_MA, TEN_BO_PHAN, TRANG_THAI_VI_PHAM, boPhanCua, docCauHinh, quetViPham, thongBaoViPham, tinhHan, type BoPhan,
+} from "../lib/viPham";
 
-// Man "Quá hạn & vi phạm" (2026-11-17, v1.517, migration 0125) - xem lib/viPham.ts cho luong + quy tac quet.
-// Xem: moi nhan vien van phong + Admin (cung tap "Báo cáo tốc độ xử lý"). Giai trinh: dung bo phan (boPhanCua) + Admin.
-// Go the / cau hinh SLA / quet ngay: CHI Admin.
+// Man "Quá hạn & vi phạm" (v1.517, migration 0125; v1.518 migration 0126 - nguoi phu trach cu the, ly do, bao khong dung, tong hop).
+// Xem: moi nhan vien van phong + Admin. Giai trinh / bao khong dung: nguoi trong nguoi_phu_trach hoac cung bo phan + Admin.
+// Go the / xu ly bao khong dung / cau hinh SLA / quet ngay: CHI Admin. Xem lib/viPham.ts cho luong + quy tac quet.
 const viPham = new Hono<{ Bindings: Env }>();
 viPham.use("*", verifySessionMiddleware, loadUser);
 viPham.use("*", async (c, next) => {
@@ -19,6 +21,7 @@ viPham.use("*", async (c, next) => {
 });
 
 const laAdmin = (u: AppUser) => u.vai_tro === "Admin";
+const CUA_TOI_SQL = "EXISTS (SELECT 1 FROM json_each(COALESCE(v.nguoi_phu_trach, '[]')) j WHERE j.value = ?)";
 
 /** Cot chung cho man noi bo + API doi tac. Alias: v = vi_pham, d = don goc. */
 export const VI_PHAM_COT_SQL = `
@@ -26,9 +29,15 @@ export const VI_PHAM_COT_SQL = `
   v.nguoi_nhan_hang, ${tenNguoiNullSql("v.nguoi_nhan_hang")} AS nguoi_nhan_hang_ten,
   v.moc_vao, v.so_gio_sla, v.han, v.ket_thuc_luc, v.trang_thai_sau,
   v.nguoi_xu_ly, ${tenNguoiNullSql("v.nguoi_xu_ly")} AS nguoi_xu_ly_ten, (SELECT u.ma_nhan_su FROM users u WHERE u.email = v.nguoi_xu_ly) AS nguoi_xu_ly_ma_nhan_su,
-  v.trang_thai, v.han_giai_trinh, v.giai_trinh, v.nguoi_giai_trinh, ${tenNguoiNullSql("v.nguoi_giai_trinh")} AS nguoi_giai_trinh_ten,
+  (SELECT json_group_array(json_object('email', j.value, 'ten', ${tenNguoiNullSql("j.value")},
+      'ma_nhan_su', (SELECT u.ma_nhan_su FROM users u WHERE u.email = j.value)))
+   FROM json_each(COALESCE(v.nguoi_phu_trach, '[]')) j) AS phu_trach_json,
+  v.trang_thai, v.han_giai_trinh, v.ly_do, v.giai_trinh, v.nguoi_giai_trinh, ${tenNguoiNullSql("v.nguoi_giai_trinh")} AS nguoi_giai_trinh_ten,
   (SELECT u.ma_nhan_su FROM users u WHERE u.email = v.nguoi_giai_trinh) AS nguoi_giai_trinh_ma_nhan_su,
-  v.giai_trinh_luc, v.giai_trinh_tu_dong, v.gan_the_luc, v.go_the_ly_do, v.go_the_boi, v.go_the_luc, v.tao_luc, v.cap_nhat_luc,
+  v.giai_trinh_luc, v.giai_trinh_tu_dong, v.nhac_luc, v.gan_the_luc,
+  v.khieu_nai, v.khieu_nai_boi, ${tenNguoiNullSql("v.khieu_nai_boi")} AS khieu_nai_boi_ten, v.khieu_nai_luc, v.khieu_nai_ket_qua,
+  v.khieu_nai_xu_ly_boi, v.khieu_nai_xu_ly_luc, v.khieu_nai_phan_hoi,
+  v.go_the_ly_do, v.go_the_boi, v.go_the_luc, v.tao_luc, v.cap_nhat_luc,
   d.ma_yeu_cau_su_co, d.ma_lada, d.ma_lk, d.ten_lk_snapshot AS ten_lk, d.loai_de_xuat,
   CASE WHEN v.doi_tuong = 'phieu' THEN (SELECT json_group_array(pd.dat_don_hang_id) FROM phieu_xuat_kho_dong pd WHERE pd.phieu_xuat_kho_id = v.phieu_xuat_kho_id) END AS don_ids_json`;
 export const VI_PHAM_FROM_SQL = "FROM vi_pham v LEFT JOIN dat_don_hang d ON d.id = v.dat_don_hang_id";
@@ -38,15 +47,17 @@ export interface ViPhamRow {
   buoc: string;
   bo_phan: BoPhan;
   han: string;
+  trang_thai: string;
   ket_thuc_luc: string | null;
   don_ids_json: string | null;
+  phu_trach_json: string | null;
   giai_trinh_tu_dong: number;
   [k: string]: unknown;
 }
 
 /** Bo sung nhan + so gio tre (tinh tai thoi diem doc) cho 1 dong. */
 export function boSungViPham(r: ViPhamRow, now: string) {
-  const { don_ids_json, ...rest } = r;
+  const { don_ids_json, phu_trach_json, ...rest } = r;
   const den = r.ket_thuc_luc ?? now;
   const gioTre = Math.max(0, Math.round(((Date.parse(den.replace(" ", "T") + "Z") - Date.parse(r.han.replace(" ", "T") + "Z")) / 3_600_000) * 10) / 10);
   return {
@@ -56,7 +67,23 @@ export function boSungViPham(r: ViPhamRow, now: string) {
     so_gio_tre: gioTre,
     dang_cho: r.ket_thuc_luc === null,
     giai_trinh_tu_dong: !!r.giai_trinh_tu_dong,
+    nguoi_phu_trach: phu_trach_json ? (JSON.parse(phu_trach_json) as { email: string; ten: string | null; ma_nhan_su: string | null }[]) : [],
     don_ids: don_ids_json ? (JSON.parse(don_ids_json) as string[]) : r.dat_don_hang_id ? [r.dat_don_hang_id as string] : [],
+  };
+}
+
+/** Them co thao tac theo nguoi dang xem. */
+function voiQuyen(user: AppUser, r: ReturnType<typeof boSungViPham>) {
+  const laNguoiPt = r.nguoi_phu_trach.some((p) => p.email === user.email);
+  const cungBoPhan = boPhanCua(user).includes(r.bo_phan as BoPhan);
+  const duocLam = laNguoiPt || cungBoPhan;
+  return {
+    ...r,
+    la_cua_toi: laNguoiPt,
+    duoc_giai_trinh: r.trang_thai === "Cho giai trinh" && duocLam,
+    duoc_bao_khong_dung: (r.trang_thai === "Cho giai trinh" || r.trang_thai === "Gan the") && duocLam,
+    duoc_xu_ly_bao: laAdmin(user) && r.trang_thai === "Cho xem xet",
+    duoc_go_the: laAdmin(user) && (r.trang_thai === "Gan the" || r.trang_thai === "Cho giai trinh"),
   };
 }
 
@@ -68,9 +95,12 @@ const COT_LOC: Record<string, CotLoc> = {
   khu_vuc_ma: { kieu: "don", expr: "v.khu_vuc_ma", khuVuc: true },
   nguoi_nhan_hang: { kieu: "don", expr: "v.nguoi_nhan_hang", sortExpr: tenNguoiSql("v.nguoi_nhan_hang") },
   nguoi_xu_ly: { kieu: "don", expr: "v.nguoi_xu_ly", sortExpr: tenNguoiSql("v.nguoi_xu_ly") },
+  nguoi_phu_trach: { kieu: "nhieu", tu: "FROM json_each(COALESCE(v.nguoi_phu_trach, '[]')) jpt WHERE 1 = 1", join: ", json_each(COALESCE(v.nguoi_phu_trach, '[]')) jpt", expr: "jpt.value" },
+  ly_do: { kieu: "don", expr: "v.ly_do" },
   doi_tuong_id: { kieu: "don", expr: "v.doi_tuong_id" },
   moc_vao: { kieu: "don", expr: "substr(v.moc_vao, 1, 10)", sortExpr: "v.moc_vao" },
   han: { kieu: "don", expr: "substr(v.han, 1, 10)", sortExpr: "v.han" },
+  han_giai_trinh: { kieu: "don", expr: "substr(v.han_giai_trinh, 1, 10)", sortExpr: "v.han_giai_trinh" },
   ket_thuc_luc: { kieu: "don", expr: "substr(v.ket_thuc_luc, 1, 10)", sortExpr: "v.ket_thuc_luc" },
   so_gio_tre: { kieu: "don", expr: "v.han", sortExpr: "(julianday(COALESCE(v.ket_thuc_luc, datetime('now', '+7 hours'))) - julianday(v.han))" },
 };
@@ -81,11 +111,15 @@ function listWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string): { whereSql
   const binds: unknown[] = [];
   const tab = c.req.query("tab") ?? "can_toi";
   if (tab === "can_toi") {
-    dk.push("v.trang_thai = 'Cho giai trinh' AND v.bo_phan IN (SELECT value FROM json_each(?))");
-    binds.push(JSON.stringify(boPhanCua(user)));
+    dk.push(`v.trang_thai = 'Cho giai trinh' AND ${CUA_TOI_SQL}`);
+    binds.push(user.email);
+  } else if (tab === "cua_toi") {
+    dk.push(`(${CUA_TOI_SQL} OR v.nguoi_giai_trinh = ? OR v.khieu_nai_boi = ?)`);
+    binds.push(user.email, user.email, user.email);
   } else if (tab === "cho") dk.push("v.trang_thai = 'Cho giai trinh'");
   else if (tab === "da_giai_trinh") dk.push("v.trang_thai = 'Da giai trinh'");
   else if (tab === "gan_the") dk.push("v.trang_thai = 'Gan the'");
+  else if (tab === "cho_xem_xet") dk.push("v.trang_thai = 'Cho xem xet'");
   else if (tab === "da_go") dk.push("v.trang_thai = 'Da go the'");
   else if (tab === "dang_cho") dk.push("v.ket_thuc_luc IS NULL");
   const loai = c.req.query("loai");
@@ -93,15 +127,15 @@ function listWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string): { whereSql
     dk.push("v.loai = ?");
     binds.push(loai);
   }
-  const tu = c.req.query("tu");
-  const den = c.req.query("den");
-  if (tu) {
-    dk.push("v.han >= ?");
-    binds.push(tu);
+  const boPhan = c.req.query("bo_phan");
+  if (boPhan) {
+    dk.push("v.bo_phan = ?");
+    binds.push(boPhan);
   }
-  if (den) {
-    dk.push("v.han < date(?, '+1 day')");
-    binds.push(den);
+  const nguoi = c.req.query("nguoi");
+  if (nguoi) {
+    dk.push(`(${CUA_TOI_SQL} OR v.nguoi_giai_trinh = ?)`);
+    binds.push(nguoi, nguoi);
   }
   const q = c.req.query("q")?.trim();
   if (q) {
@@ -119,7 +153,8 @@ viPham.get("/", async (c) => {
   const page = Math.max(1, Math.trunc(Number(c.req.query("page"))) || 1);
   const pageSize = Math.min(500, Math.max(1, Math.trunc(Number(c.req.query("pageSize"))) || 50));
   const { whereSql, binds } = listWhere(c);
-  const sapXep = sqlSapXep(COT_LOC, c.req.query("cs"), c.req.query("cd")) ?? "v.han DESC";
+  // Mac dinh: ca sap het han giai trinh len dau, roi qua han lau nhat.
+  const sapXep = sqlSapXep(COT_LOC, c.req.query("cs"), c.req.query("cd")) ?? "CASE WHEN v.trang_thai = 'Cho giai trinh' THEN v.han_giai_trinh END IS NULL, v.han_giai_trinh, v.han";
   const [tong, ds] = await Promise.all([
     db.prepare(`SELECT COUNT(*) AS n ${VI_PHAM_FROM_SQL} WHERE ${whereSql}`).bind(...binds).first<{ n: number }>(),
     db
@@ -128,18 +163,8 @@ viPham.get("/", async (c) => {
       .all<ViPhamRow>(),
   ]);
   const user = c.get("user");
-  const cuaToi = new Set(boPhanCua(user));
   const now = nowVN();
-  return c.json({
-    rows: (ds.results ?? []).map((r) => ({
-      ...boSungViPham(r, now),
-      duoc_giai_trinh: r.trang_thai === "Cho giai trinh" && cuaToi.has(r.bo_phan),
-      duoc_go_the: laAdmin(user) && r.trang_thai !== "Da go the",
-    })),
-    total: tong?.n ?? 0,
-    page,
-    pageSize,
-  });
+  return c.json({ rows: (ds.results ?? []).map((r) => voiQuyen(user, boSungViPham(r, now))), total: tong?.n ?? 0, page, pageSize });
 });
 
 viPham.get("/gia-tri-loc", async (c) => {
@@ -150,25 +175,72 @@ viPham.get("/gia-tri-loc", async (c) => {
   return c.json({ rows: await giaTriCot(c.env.DB, def, VI_PHAM_FROM_SQL, "v.id", whereSql, binds) });
 });
 
+/** Ca lien quan 1 don / phieu / ticket - banner trong man chi tiet. ids = ma DDH / TLK / PMH… (phan cach dau phay, <= 50). */
+viPham.get("/theo-doi-tuong", async (c) => {
+  const ids = (c.req.query("ids") ?? "").split(",").map((x) => x.trim().toUpperCase()).filter(Boolean).slice(0, 50);
+  if (!ids.length) return c.json({ rows: [] });
+  const ds = JSON.stringify(ids);
+  const { results } = await c.env.DB.prepare(
+    `SELECT ${VI_PHAM_COT_SQL} ${VI_PHAM_FROM_SQL}
+     WHERE v.doi_tuong_id IN (SELECT value FROM json_each(?)) OR v.dat_don_hang_id IN (SELECT value FROM json_each(?))
+        OR v.phieu_xuat_kho_id IN (SELECT pd.phieu_xuat_kho_id FROM phieu_xuat_kho_dong pd WHERE pd.dat_don_hang_id IN (SELECT value FROM json_each(?)))
+     ORDER BY v.moc_vao DESC LIMIT 30`,
+  )
+    .bind(ds, ds, ds)
+    .all<ViPhamRow>();
+  const user = c.get("user");
+  const now = nowVN();
+  return c.json({ rows: (results ?? []).map((r) => voiQuyen(user, boSungViPham(r, now))) });
+});
+
 /** So dem cho tab + badge menu. */
 viPham.get("/dem", async (c) => {
   const user = c.get("user");
   const row = await c.env.DB.prepare(
     `SELECT
-       SUM(CASE WHEN trang_thai = 'Cho giai trinh' AND bo_phan IN (SELECT value FROM json_each(?)) THEN 1 ELSE 0 END) AS can_toi,
-       SUM(CASE WHEN trang_thai = 'Cho giai trinh' THEN 1 ELSE 0 END) AS cho,
-       SUM(CASE WHEN trang_thai = 'Da giai trinh' THEN 1 ELSE 0 END) AS da_giai_trinh,
-       SUM(CASE WHEN trang_thai = 'Gan the' THEN 1 ELSE 0 END) AS gan_the,
-       SUM(CASE WHEN trang_thai = 'Da go the' THEN 1 ELSE 0 END) AS da_go,
-       SUM(CASE WHEN ket_thuc_luc IS NULL THEN 1 ELSE 0 END) AS dang_cho,
+       SUM(CASE WHEN v.trang_thai = 'Cho giai trinh' AND ${CUA_TOI_SQL} THEN 1 ELSE 0 END) AS can_toi,
+       SUM(CASE WHEN v.trang_thai = 'Cho giai trinh' THEN 1 ELSE 0 END) AS cho,
+       SUM(CASE WHEN v.trang_thai = 'Da giai trinh' THEN 1 ELSE 0 END) AS da_giai_trinh,
+       SUM(CASE WHEN v.trang_thai = 'Gan the' THEN 1 ELSE 0 END) AS gan_the,
+       SUM(CASE WHEN v.trang_thai = 'Cho xem xet' THEN 1 ELSE 0 END) AS cho_xem_xet,
+       SUM(CASE WHEN v.trang_thai = 'Da go the' THEN 1 ELSE 0 END) AS da_go,
+       SUM(CASE WHEN v.ket_thuc_luc IS NULL THEN 1 ELSE 0 END) AS dang_cho,
+       SUM(CASE WHEN v.trang_thai = 'Gan the' AND ${CUA_TOI_SQL} THEN 1 ELSE 0 END) AS gan_the_cua_toi,
        COUNT(*) AS tat_ca
-     FROM vi_pham`,
+     FROM vi_pham v`,
   )
-    .bind(JSON.stringify(boPhanCua(user)))
+    .bind(user.email, user.email)
     .first<Record<string, number | null>>();
   const out: Record<string, number> = {};
   for (const [k, v] of Object.entries(row ?? {})) out[k] = v ?? 0;
   return c.json(out);
+});
+
+/** Tong hop theo bo phan + theo nguoi (de quan ly theo doi ton). */
+viPham.get("/tong-hop", async (c) => {
+  const db = c.env.DB;
+  const [bp, nguoi, chuaCo] = await Promise.all([
+    db.prepare(
+      `SELECT bo_phan,
+         SUM(trang_thai = 'Cho giai trinh') AS cho, SUM(trang_thai = 'Da giai trinh') AS da_giai_trinh, SUM(trang_thai = 'Gan the') AS gan_the,
+         SUM(trang_thai = 'Cho xem xet') AS cho_xem_xet, SUM(trang_thai = 'Da go the') AS da_go, SUM(ket_thuc_luc IS NULL) AS dang_cho, COUNT(*) AS tong
+       FROM vi_pham GROUP BY bo_phan`,
+    ).all<Record<string, number | string>>(),
+    db.prepare(
+      `SELECT j.value AS email, ${tenNguoiNullSql("j.value")} AS ten, (SELECT u.ma_nhan_su FROM users u WHERE u.email = j.value) AS ma_nhan_su,
+         SUM(v.trang_thai = 'Cho giai trinh') AS cho, SUM(v.trang_thai = 'Gan the') AS gan_the, SUM(v.trang_thai = 'Cho xem xet') AS cho_xem_xet,
+         SUM(v.trang_thai = 'Da giai trinh' AND v.nguoi_giai_trinh = j.value) AS da_giai_trinh, MIN(CASE WHEN v.trang_thai = 'Cho giai trinh' THEN v.han_giai_trinh END) AS han_som_nhat,
+         group_concat(DISTINCT v.bo_phan) AS bo_phan
+       FROM vi_pham v, json_each(COALESCE(v.nguoi_phu_trach, '[]')) j
+       GROUP BY j.value ORDER BY cho DESC, gan_the DESC`,
+    ).all<Record<string, number | string | null>>(),
+    db.prepare("SELECT COUNT(*) AS n FROM vi_pham WHERE trang_thai = 'Cho giai trinh' AND COALESCE(nguoi_phu_trach, '[]') = '[]'").first<{ n: number }>(),
+  ]);
+  return c.json({
+    bo_phan: (bp.results ?? []).map((r) => ({ ...r, ten_bo_phan: TEN_BO_PHAN[r.bo_phan as BoPhan] ?? r.bo_phan })),
+    nguoi: nguoi.results ?? [],
+    chua_co_nguoi_phu_trach: chuaCo?.n ?? 0,
+  });
 });
 
 viPham.get("/buoc", async (c) => {
@@ -189,6 +261,14 @@ viPham.get("/buoc", async (c) => {
     trang_thai: TRANG_THAI_VI_PHAM,
     lan_quet: (await c.env.DB.prepare("SELECT MAX(quet_luc) AS l FROM vi_pham_quet").first<{ l: string | null }>())?.l ?? null,
   });
+});
+
+/** Danh muc ly do giai trinh = danh muc "lý do chậm" nhom Mua hàng (Cài đặt) + "Khác". */
+viPham.get("/ly-do", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    "SELECT ten_ly_do FROM settings_ly_do_cham WHERE bat_tat = 1 AND he_thong_su_dung LIKE '%Mua hàng%' ORDER BY stt, id",
+  ).all<{ ten_ly_do: string }>();
+  return c.json({ rows: [...(results ?? []).map((r) => r.ten_ly_do), "Khác"] });
 });
 
 viPham.put("/buoc/:ma", async (c) => {
@@ -213,28 +293,106 @@ viPham.put("/buoc/:ma", async (c) => {
 
 viPham.post("/quet", async (c) => {
   if (!laAdmin(c.get("user"))) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
-  return c.json(await quetViPham(c.env.DB));
+  return c.json(await quetViPham(c.env));
 });
 
+async function docMot(db: D1Database, id: number) {
+  return db
+    .prepare("SELECT id, bo_phan, trang_thai, nguoi_phu_trach, doi_tuong_id, buoc, gio_giai_trinh FROM vi_pham v LEFT JOIN sla_buoc s ON s.ma = v.buoc WHERE v.id = ?")
+    .bind(id)
+    .first<{ id: number; bo_phan: BoPhan; trang_thai: string; nguoi_phu_trach: string | null; doi_tuong_id: string; buoc: string; gio_giai_trinh: number | null }>();
+}
+function duocLam(user: AppUser, v: { bo_phan: BoPhan; nguoi_phu_trach: string | null }): boolean {
+  const pt = v.nguoi_phu_trach ? (JSON.parse(v.nguoi_phu_trach) as string[]) : [];
+  return pt.includes(user.email) || boPhanCua(user).includes(v.bo_phan);
+}
+
 viPham.post("/:id/giai-trinh", async (c) => {
+  const user = c.get("user");
+  const id = Number(c.req.param("id"));
+  const b = await c.req.json<{ ly_do?: string; noi_dung?: string }>();
+  const lyDo = (b.ly_do ?? "").trim();
+  const noiDung = (b.noi_dung ?? "").trim();
+  if (!lyDo) return c.json({ error: "THIEU_LY_DO" }, 400);
+  if (noiDung.length < 5) return c.json({ error: "NOI_DUNG_QUA_NGAN" }, 400);
+  if (noiDung.length > 2000 || lyDo.length > 200) return c.json({ error: "NOI_DUNG_QUA_DAI" }, 400);
+  const v = await docMot(c.env.DB, id);
+  if (!v) return c.json({ error: "NOT_FOUND" }, 404);
+  if (!duocLam(user, v)) return c.json({ error: "KHONG_PHAI_NGUOI_PHU_TRACH" }, 403);
+  const now = nowVN();
+  const r = await c.env.DB.prepare(
+    `UPDATE vi_pham SET trang_thai = 'Da giai trinh', ly_do = ?, giai_trinh = ?, nguoi_giai_trinh = ?, giai_trinh_luc = ?, giai_trinh_tu_dong = 0, cap_nhat_luc = ?
+     WHERE id = ? AND trang_thai = 'Cho giai trinh'`,
+  )
+    .bind(lyDo, noiDung, user.email, now, now, id)
+    .run();
+  if (!r.meta.changes) return c.json({ error: v.trang_thai === "Gan the" ? "DA_GAN_THE" : "TRANG_THAI_DA_DOI" }, 409);
+  return c.json({ ok: true });
+});
+
+/** "Báo không đúng" (ca ghi nhan sai: khong phai bo phan minh, don bi treo do ben khac, he thong ghi sai…) -> Admin xem xet. Tam dung gan the. */
+viPham.post("/:id/bao-khong-dung", async (c) => {
   const user = c.get("user");
   const id = Number(c.req.param("id"));
   const { noi_dung } = await c.req.json<{ noi_dung?: string }>();
   const noiDung = (noi_dung ?? "").trim();
   if (noiDung.length < 5) return c.json({ error: "NOI_DUNG_QUA_NGAN" }, 400);
-  if (noiDung.length > 2000) return c.json({ error: "NOI_DUNG_QUA_DAI" }, 400);
-  const v = await c.env.DB.prepare("SELECT bo_phan, trang_thai FROM vi_pham WHERE id = ?").bind(id).first<{ bo_phan: BoPhan; trang_thai: string }>();
+  const v = await docMot(c.env.DB, id);
   if (!v) return c.json({ error: "NOT_FOUND" }, 404);
-  if (!boPhanCua(user).includes(v.bo_phan)) return c.json({ error: "KHONG_PHAI_BO_PHAN" }, 403);
+  if (!duocLam(user, v)) return c.json({ error: "KHONG_PHAI_NGUOI_PHU_TRACH" }, 403);
   const now = nowVN();
   const r = await c.env.DB.prepare(
-    `UPDATE vi_pham SET trang_thai = 'Da giai trinh', giai_trinh = ?, nguoi_giai_trinh = ?, giai_trinh_luc = ?, giai_trinh_tu_dong = 0, cap_nhat_luc = ?
-     WHERE id = ? AND trang_thai = 'Cho giai trinh'`,
+    `UPDATE vi_pham SET khieu_nai_truoc = trang_thai, trang_thai = 'Cho xem xet', khieu_nai = ?, khieu_nai_boi = ?, khieu_nai_luc = ?,
+       khieu_nai_ket_qua = NULL, khieu_nai_xu_ly_boi = NULL, khieu_nai_xu_ly_luc = NULL, khieu_nai_phan_hoi = NULL, cap_nhat_luc = ?
+     WHERE id = ? AND trang_thai IN ('Cho giai trinh', 'Gan the')`,
   )
-    .bind(noiDung, user.email, now, now, id)
+    .bind(noiDung.slice(0, 2000), user.email, now, now, id)
     .run();
-  if (!r.meta.changes) return c.json({ error: v.trang_thai === "Gan the" ? "DA_GAN_THE" : "TRANG_THAI_DA_DOI" }, 409);
+  if (!r.meta.changes) return c.json({ error: "TRANG_THAI_DA_DOI" }, 409);
+  const { results: admins } = await c.env.DB.prepare("SELECT email FROM users WHERE vai_tro = 'Admin' AND COALESCE(bi_khoa, 0) = 0").all<{ email: string }>();
+  c.executionCtx.waitUntil(
+    thongBaoViPham(c.env, (admins ?? []).map((a) => a.email), "📝 Báo ghi nhận quá hạn không đúng",
+      `${v.doi_tuong_id} (${BUOC_THEO_MA.get(v.buoc)?.ten ?? v.buoc}): "${noiDung.slice(0, 120)}" — cần Admin xem xét.`, "cho_xem_xet"),
+  );
   return c.json({ ok: true });
+});
+
+/** Admin xu ly "Báo không đúng": chap_nhan -> "Da go the"; tu_choi -> tra ve trang thai truoc (Cho giai trinh: gia han them gio_giai_trinh). */
+viPham.post("/:id/xu-ly-bao", async (c) => {
+  const user = c.get("user");
+  if (!laAdmin(user)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const id = Number(c.req.param("id"));
+  const b = await c.req.json<{ ket_qua?: "chap_nhan" | "tu_choi"; phan_hoi?: string }>();
+  const phanHoi = (b.phan_hoi ?? "").trim();
+  if (b.ket_qua !== "chap_nhan" && b.ket_qua !== "tu_choi") return c.json({ error: "KET_QUA_KHONG_HOP_LE" }, 400);
+  if (phanHoi.length < 3) return c.json({ error: "THIEU_PHAN_HOI" }, 400);
+  const v = await c.env.DB.prepare("SELECT v.*, s.gio_giai_trinh AS gio_cfg FROM vi_pham v LEFT JOIN sla_buoc s ON s.ma = v.buoc WHERE v.id = ?")
+    .bind(id)
+    .first<{ trang_thai: string; khieu_nai_truoc: string | null; khieu_nai_boi: string | null; doi_tuong_id: string; gio_cfg: number | null }>();
+  if (!v) return c.json({ error: "NOT_FOUND" }, 404);
+  if (v.trang_thai !== "Cho xem xet") return c.json({ error: "TRANG_THAI_DA_DOI" }, 409);
+  const now = nowVN();
+  const chapNhan = b.ket_qua === "chap_nhan";
+  const ve = chapNhan ? "Da go the" : v.khieu_nai_truoc === "Gan the" ? "Gan the" : "Cho giai trinh";
+  const hanMoi = tinhHan(now, v.gio_cfg ?? 24, false);
+  const r = await c.env.DB.prepare(
+    `UPDATE vi_pham SET trang_thai = ?, khieu_nai_ket_qua = ?, khieu_nai_xu_ly_boi = ?, khieu_nai_xu_ly_luc = ?, khieu_nai_phan_hoi = ?,
+       han_giai_trinh = CASE WHEN ? = 'Cho giai trinh' THEN ? ELSE han_giai_trinh END, nhac_luc = CASE WHEN ? = 'Cho giai trinh' THEN NULL ELSE nhac_luc END,
+       go_the_ly_do = CASE WHEN ? = 'Da go the' THEN ? ELSE go_the_ly_do END, go_the_boi = CASE WHEN ? = 'Da go the' THEN ? ELSE go_the_boi END,
+       go_the_luc = CASE WHEN ? = 'Da go the' THEN ? ELSE go_the_luc END, cap_nhat_luc = ?
+     WHERE id = ? AND trang_thai = 'Cho xem xet'`,
+  )
+    .bind(ve, chapNhan ? "Chap nhan" : "Tu choi", user.email, now, phanHoi, ve, hanMoi, ve, ve, `Chấp nhận báo không đúng: ${phanHoi}`, ve, user.email, ve, now, now, id)
+    .run();
+  if (!r.meta.changes) return c.json({ error: "TRANG_THAI_DA_DOI" }, 409);
+  if (v.khieu_nai_boi) {
+    c.executionCtx.waitUntil(
+      thongBaoViPham(c.env, [v.khieu_nai_boi], chapNhan ? "✓ Báo không đúng được chấp nhận" : "✕ Báo không đúng bị từ chối",
+        chapNhan ? `${v.doi_tuong_id}: Admin đã gỡ ghi nhận — ${phanHoi}` : `${v.doi_tuong_id}: Admin từ chối — ${phanHoi}.${ve === "Cho giai trinh" ? ` Vui lòng giải trình trước ${hanMoi.slice(11, 16)} ${hanMoi.slice(8, 10)}/${hanMoi.slice(5, 7)}.` : ""}`,
+        "cua_toi"),
+    );
+  }
+  return c.json({ ok: true, trang_thai: ve });
 });
 
 viPham.post("/:id/go-the", async (c) => {
@@ -246,7 +404,7 @@ viPham.post("/:id/go-the", async (c) => {
   if (lyDo.length < 3) return c.json({ error: "THIEU_LY_DO" }, 400);
   const now = nowVN();
   const r = await c.env.DB.prepare(
-    "UPDATE vi_pham SET trang_thai = 'Da go the', go_the_ly_do = ?, go_the_boi = ?, go_the_luc = ?, cap_nhat_luc = ? WHERE id = ? AND trang_thai <> 'Da go the'",
+    "UPDATE vi_pham SET trang_thai = 'Da go the', go_the_ly_do = ?, go_the_boi = ?, go_the_luc = ?, cap_nhat_luc = ? WHERE id = ? AND trang_thai IN ('Cho giai trinh', 'Gan the')",
   )
     .bind(lyDo.slice(0, 1000), user.email, now, now, id)
     .run();

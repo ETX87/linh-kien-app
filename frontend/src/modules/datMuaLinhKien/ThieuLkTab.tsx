@@ -1,3 +1,4 @@
+import { ViPhamBanner } from "../viPham/ViPhamUi";
 import { Fragment, useState, useEffect, useRef } from "react";
 import { NhomLkBadge } from "../danhMucLinhKien/NhomLk";
 import { LoaiChietKhauText } from "./LoaiChietKhau";
@@ -1453,6 +1454,7 @@ export function ThieuLkDetailModal({
         <div className="py-4 text-center text-sm text-[var(--ink-500)]">{isLoading ? t("Đang tải...") : t("Không tìm thấy ticket.")}</div>
       ) : (
         <div className="text-sm">
+          <ViPhamBanner ids={[id]} />
           {/* Khoi tom tat dau Drawer (2026-09-29): LK + trang thai + loai + SL doc duoc ngay, khong phai do tung dong
               "nhan: gia tri" nhu truoc (Ma LK nam dong thu 4, trang thai dong thu 3). */}
           <div className="mb-4 rounded-xl border border-[var(--color-border-soft)] bg-[var(--color-subtle)] p-3">

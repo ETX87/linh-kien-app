@@ -105,7 +105,7 @@ export default {
     ganEnvToanCuc(env);
     ctx.waitUntil(runDvbhSync(env, env.DB));
     // Qua han SLA tung buoc -> ghi nhan vi pham + gan the khi het han giai trinh (lib/viPham.ts) - moi gio.
-    ctx.waitUntil(quetViPham(env.DB).then(() => undefined).catch((err) => console.error("[quetViPham]", err)));
+    ctx.waitUntil(quetViPham(env).then(() => undefined).catch((err) => console.error("[quetViPham]", err)));
     // Them 2026-09-12: PULL bang gia tu doi tac gia88 1 lan/dem luc 0h GIO VN = 17h UTC (xem
     // lib/gia88Sync.ts) - tai dung DUNG cron hang gio co san thay vi them 1 entry cron rieng, chi gate
     // theo gio de tranh chay 24 lan/ngay khong can thiet (doi tac chi khuyen nghi "moi ngay/moi ca").

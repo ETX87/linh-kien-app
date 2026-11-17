@@ -1550,6 +1550,13 @@ Nguyên văn yêu cầu (chủ hệ thống): *"luồng "Cấp lk" ... khi đơn
 
 **(d) Kiểm thử:** local D1 dev + giao diện — xem `nhat_ky_lam_viec.md` cùng ngày.
 
+**v1.518 (17/11/2026, migration `0126`)** — *"phân rõ được tồn theo vai trò nào, ai là người cần giải trình, và nếu họ cần giải trình thì họ làm sao biết được cần giải trình ở đâu, giải trình như thế nào, xác định được đơn chưa giải trình, đã giải trình, gặp về đề, cần theo dõi như thế nào?"* + *"Rà soát lại toàn bộ các bước quy trình giải trình tồn theo từng vai trò"* + *"Xây đựng tài liệu html chi tiết theo từng bước giải trình có hình ảnh hướng dẫn theo từng vai trò"*:
+- `vi_pham.nguoi_phu_trach` (JSON email) = `nguoiPhuTrach()` (`lib/viPham.ts`, danh bạ `docDanhBaPhuTrach`): GS = `email_gs` của đơn + GS chính/phụ khu vực; bộ phận khác = người gán khu vực của đơn (`user_khu_vuc`) → người không gán khu vực → cả bộ phận; Kho lọc `kho_nhom_lk`; TN rỗng → Kế toán. Tính lại mỗi lần quét khi còn "Cho giai trinh" (đổi người → `bao_luc` NULL → báo người mới). "Cần tôi giải trình", badge `viPhamCanGiaiTrinh` theo cột này; quyền giải trình = có tên HOẶC cùng bộ phận + Admin.
+- Thông báo (`guiThongBaoQuet`): gộp theo người mỗi lần quét — ca chưa báo (`bao_luc`), còn ≤ `GIO_NHAC`=6 giờ (`nhac_luc`), vừa gắn thẻ; chuông `link_type` `vi_pham` (link_id = tab) + push `/?vi_pham=<tab>` → App.tsx sự kiện `mo-vi-pham`. `thongBaoViPham()` cho báo không đúng / Admin xử lý.
+- Giải trình bắt buộc `ly_do` (`GET /vi-pham/ly-do` = `settings_ly_do_cham` "Mua hàng" + "Khác"). "Báo không đúng" `POST /:id/bao-khong-dung` → `Cho xem xet` (lưu `khieu_nai_truoc`), Admin `POST /:id/xu-ly-bao` chap_nhan → `Da go the` / tu_choi → trạng thái trước (Cho giai trinh gia hạn `gio_giai_trinh`).
+- `GET /vi-pham/theo-doi-tuong?ids=` → `ViPhamBanner` (`modules/viPham/ViPhamUi.tsx`, dùng chung hộp/chi tiết với màn chính) trong chi tiết đơn, PXK, ticket thiếu hàng, đơn trả hàng (chỉ văn phòng). `GET /vi-pham/tong-hop` → tab "Tổng hợp theo dõi". Tab mới "Của tôi", "Chờ Admin xem xét".
+- Tài liệu người dùng `docs/Huong_dan_giai_trinh_qua_han_theo_vai_tro.html` (16 ảnh chụp local, base64) — kèm mục "Rà soát quy trình & điểm cần chốt".
+
 ## Nhận việc từ Trợ lý Mây (tự sửa)
 - Issue gắn nhãn `may:phan-tich` là ĐỀ XUẤT CẢI TIẾN cần phân tích trước: workflow `may-phan-tich` chỉ ĐỌC mã để soạn BRD cho Giám đốc duyệt — không sửa mã ở bước này. Khi duyệt, BRD nằm ở đầu issue; làm đúng BRD và lưu nó vào `docs/yeu-cau/MAY-xxxxx.md`.
 - Issue gắn nhãn `may:tu-sua` là việc do Trợ lý Mây chuyển sang, mã `MAY-xxxxx` ở tiêu đề. Sửa ĐÚNG phạm vi mô tả.

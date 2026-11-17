@@ -90,3 +90,26 @@ chi tiết hiện 4 mốc, lưu cấu hình SLA. Typecheck 2 phía sạch.
 **Còn dở / cần quản lý chốt**: số giờ SLA thật (đang mặc định 24h, Mua hàng 48h, giải trình 24h); bước của KTV chưa tính; "Trả key API cũ"
 (key chỉ lưu băm — cần nói rõ cấp lại hay thu hồi); chuyển kho nội bộ chưa có luồng thật; lý do chậm bắt buộc của trả hàng vẫn cố định 24h
 (đổi SLA trả hàng ở cấu hình không đổi chỗ bắt buộc đó). Chưa cập nhật nội dung tĩnh "Luồng & logic hệ thống".
+
+## 2026-11-17 — Giải trình quá hạn: người phụ trách cụ thể, thông báo, báo không đúng, tổng hợp + tài liệu HTML (v1.518, migration 0126)
+
+**Yêu cầu (nguyên văn)**: "1. tôi cần phân rõ được tồn theo vai trò nào, ai là người cần giải trình, và nếu họ cần giải trình thì họ làm sao biết
+được cần giải trình ở đâu, giải trình như thế nào, xác định được đơn chưa giải trình, đã giải trình, gặp về đề, cần theo dõi như thế nào?
+2. Rà soát lại toàn bộ các bước quy trình giải trình tồn theo từng vai trò 3. Xây đựng tài liệu html chi tiết theo từng bước giải trình có hình
+ảnh hướng dẫn theo từng vai trò".
+
+**Rà soát v1.517 thấy hở**: "Cần tôi" theo cả bộ phận (Kho MB thấy ca MN, GS thấy ca GS khác); không có thông báo; mở đơn không thấy quá hạn;
+giải trình chữ tự do, không có đường báo ghi nhận sai; không có màn theo dõi tồn theo bộ phận / người.
+
+**Đã làm**: migration `0126` (dựng lại `vi_pham`: `nguoi_phu_trach`, `ly_do`, `bao_luc`, `nhac_luc`, `khieu_nai*`, trạng thái `Cho xem xet`);
+`lib/viPham.ts` (`nguoiPhuTrach`, thông báo gộp theo người, nhắc 6h); `routes/viPham.ts` (tab của tôi / chờ xem xét, giải trình có lý do, báo
+không đúng, Admin xử lý, theo đối tượng, tổng hợp); badge theo người phụ trách; FE `modules/viPham/ViPhamUi.tsx` + banner trong 4 màn chi
+tiết + chuông / push mở đúng tab; dịch EN/ID; tài liệu `docs/Huong_dan_giai_trinh_qua_han_theo_vai_tro.html` (16 ảnh); API đối tác 1.9.
+
+**Kiểm thử (local)**: quét gán đúng người (Kho MB2 chỉ nhận ca MB2, Kho không gán khu vực nhận phần còn lại, GS 2 ca, TN không có ai →
+Kế toán); thông báo gộp 1 dòng / người, quét lại không gửi trùng, đổi người phụ trách → báo người mới; nhắc khi còn ≤ 6h; giải trình thiếu
+lý do → 400; báo không đúng → chặn giải trình khi đang chờ xem xét (409); Admin chấp nhận → Đã gỡ thẻ, từ chối → Chờ giải trình hạn mới +24h;
+tổng hợp khớp; giao diện 4 vai trò (Kho, GS, Kế toán, Admin) + điện thoại + banner trong chi tiết đơn / phiếu; typecheck 2 phía sạch.
+
+**Còn dở / cần chốt**: số giờ SLA thật; bước KTV; bước "TN gửi kế toán" và "Kho đã tiếp nhận — chờ hàng về" chưa tính; lý do chậm trả hàng cố
+định 24h; chỉ Admin gỡ thẻ / xem xét; nhân sự chưa gán khu vực dễ bị dồn ca.

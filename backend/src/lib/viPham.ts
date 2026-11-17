@@ -21,6 +21,8 @@
  *   - Don cho duyet (tn_duyet): giai trinh ly do cham da co o dat_don_hang_giai_trinh trong khoang cho.
  */
 import { nowVN } from "./vnTime";
+import type { Env } from "../types";
+import { sendPushToUser } from "./webPush";
 
 export type BoPhan = "tbp" | "gs" | "tn" | "kho" | "mua_hang" | "ke_toan" | "qc";
 type Nguon = "dat_don_hang_log" | "tra_hang_log" | "thieu_lk_log" | "phieu_xuat_kho_log" | "khoan_chuyen_tien";
@@ -131,6 +133,8 @@ interface ThucThe {
   nguoi_nhan_hang: string | null;
   loai_don: string | null;
   ngay_tao: string | null;
+  email_gs: string | null;
+  nhom_lk: string | null;
 }
 
 interface Khoang {
@@ -163,27 +167,29 @@ const NGUON_LOG = {
     fk: "dat_don_hang_id",
     dangO: "SELECT id FROM dat_don_hang WHERE trang_thai_hien_tai IN (SELECT value FROM json_each(?)) AND COALESCE(loai_don, '') <> 'tra_hang'",
     thucThe: `SELECT d.id, d.id AS dat_don_hang_id, NULL AS phieu_xuat_kho_id, COALESCE(d.khu_vuc_chon, d.khu_vuc_ma) AS khu_vuc_ma,
-                d.nguoi_nhan_hang, d.loai_don, d.ngay_tao FROM dat_don_hang d WHERE d.id IN (SELECT value FROM json_each(?))`,
+                d.nguoi_nhan_hang, d.loai_don, d.ngay_tao, d.email_gs, (SELECT lk.nhom_lk FROM linh_kien lk WHERE lk.ma_linh_kien = d.ma_lk) AS nhom_lk
+                FROM dat_don_hang d WHERE d.id IN (SELECT value FROM json_each(?))`,
   },
   tra_hang_log: {
     fk: "dat_don_hang_id",
     dangO: "SELECT id FROM dat_don_hang WHERE trang_thai_hien_tai IN (SELECT value FROM json_each(?)) AND loai_don = 'tra_hang'",
     thucThe: `SELECT d.id, d.id AS dat_don_hang_id, NULL AS phieu_xuat_kho_id, COALESCE(d.khu_vuc_chon, d.khu_vuc_ma) AS khu_vuc_ma,
-                d.nguoi_nhan_hang, d.loai_don, d.ngay_tao FROM dat_don_hang d WHERE d.id IN (SELECT value FROM json_each(?))`,
+                d.nguoi_nhan_hang, d.loai_don, d.ngay_tao, d.email_gs, (SELECT lk.nhom_lk FROM linh_kien lk WHERE lk.ma_linh_kien = d.ma_lk) AS nhom_lk
+                FROM dat_don_hang d WHERE d.id IN (SELECT value FROM json_each(?))`,
   },
   thieu_lk_log: {
     fk: "thieu_lk_id",
     dangO: `SELECT t.id FROM thieu_lk t
             WHERE (SELECT l.trang_thai FROM thieu_lk_log l WHERE l.thieu_lk_id = t.id ORDER BY l.id DESC LIMIT 1) IN (SELECT value FROM json_each(?))`,
     thucThe: `SELECT t.id, t.dat_don_hang_id, NULL AS phieu_xuat_kho_id, COALESCE(d.khu_vuc_chon, d.khu_vuc_ma) AS khu_vuc_ma,
-                d.nguoi_nhan_hang, d.loai_don, t.ngay_tao
+                d.nguoi_nhan_hang, d.loai_don, t.ngay_tao, d.email_gs, (SELECT lk.nhom_lk FROM linh_kien lk WHERE lk.ma_linh_kien = d.ma_lk) AS nhom_lk
               FROM thieu_lk t JOIN dat_don_hang d ON d.id = t.dat_don_hang_id WHERE t.id IN (SELECT value FROM json_each(?))`,
   },
   phieu_xuat_kho_log: {
     fk: "phieu_xuat_kho_id",
     dangO: "SELECT id FROM phieu_xuat_kho WHERE trang_thai_hien_tai IN (SELECT value FROM json_each(?))",
     thucThe: `SELECT p.id, NULL AS dat_don_hang_id, p.id AS phieu_xuat_kho_id, COALESCE(p.khu_vuc_chon, p.khu_vuc_ma) AS khu_vuc_ma,
-                p.nguoi_nhan_hang, p.loai_don, p.ngay_tao FROM phieu_xuat_kho p WHERE p.id IN (SELECT value FROM json_each(?))`,
+                p.nguoi_nhan_hang, p.loai_don, p.ngay_tao, NULL AS email_gs, NULL AS nhom_lk FROM phieu_xuat_kho p WHERE p.id IN (SELECT value FROM json_each(?))`,
   },
 } as const;
 
@@ -363,28 +369,118 @@ async function quetChuyenTien(
   return { ungVien, ghiMoc, dongMo };
 }
 
+// ---------- Nguoi phu trach CU THE (v1.518) ----------
+
+interface NguoiBoPhan {
+  email: string;
+  vai_tro: string | null;
+  la_tac_nghiep: number;
+  la_kho: number;
+  la_ke_toan: number;
+  la_mua_hang: number;
+  la_tp_dvbh: number;
+  kho_nhom_lk: string | null;
+}
+
+export interface DanhBaPhuTrach {
+  nguoi: NguoiBoPhan[];
+  khuVuc: Map<string, Set<string>>; // email -> tap khu vuc duoc gan (user_khu_vuc)
+  gsKhuVuc: Map<string, string>; // khu vuc -> GS chinh
+}
+
+export async function docDanhBaPhuTrach(db: D1Database): Promise<DanhBaPhuTrach> {
+  const [u, kv, gs] = await Promise.all([
+    db
+      .prepare(
+        `SELECT email, vai_tro, la_tac_nghiep, la_kho, la_ke_toan, la_mua_hang, la_tp_dvbh, kho_nhom_lk FROM users
+         WHERE trang_thai_duyet = 'Da duyet' AND COALESCE(bi_khoa, 0) = 0
+           AND (la_tac_nghiep = 1 OR la_kho = 1 OR la_ke_toan = 1 OR la_mua_hang = 1 OR la_tp_dvbh = 1 OR vai_tro IN ('QC', 'Giam sat'))`,
+      )
+      .all<NguoiBoPhan>(),
+    db.prepare("SELECT user_email, khu_vuc_ma FROM user_khu_vuc").all<{ user_email: string; khu_vuc_ma: string }>(),
+    db.prepare("SELECT ma, gs_email FROM khu_vuc WHERE gs_email IS NOT NULL").all<{ ma: string; gs_email: string }>(),
+  ]);
+  const khuVuc = new Map<string, Set<string>>();
+  for (const r of kv.results ?? []) {
+    const s = khuVuc.get(r.user_email) ?? new Set<string>();
+    s.add(r.khu_vuc_ma);
+    khuVuc.set(r.user_email, s);
+  }
+  return { nguoi: u.results ?? [], khuVuc, gsKhuVuc: new Map((gs.results ?? []).map((r) => [r.ma, r.gs_email])) };
+}
+
+function thuocBoPhan(n: NguoiBoPhan, bp: BoPhan): boolean {
+  switch (bp) {
+    case "tbp": return !!n.la_tp_dvbh;
+    case "gs": return n.vai_tro === "Giam sat";
+    case "tn": return !!n.la_tac_nghiep;
+    case "kho": return !!n.la_kho;
+    case "mua_hang": return !!n.la_mua_hang;
+    case "ke_toan": return !!n.la_ke_toan;
+    case "qc": return n.vai_tro === "QC";
+  }
+}
+
+/**
+ * Nguoi PHAI giai trinh 1 ca (cung nguyen tac "Khu vuc la chuan" cua module):
+ *  - GS: GS cua don (email_gs = GS khu vuc hien tai cua KTV nhan) + GS chinh / GS phu cua khu vuc cua don.
+ *  - Bo phan khac: nguoi cua bo phan DUOC GAN khu vuc cua don; khong ai duoc gan -> nguoi KHONG gan khu vuc nao (phu trach chung);
+ *    van khong co -> ca bo phan. Kho thuan co "Xu ly thieu hang cho nhom LK" -> chi nhom LK cua don (khong con ai thi bo loc nay).
+ *  - TN khong co ai -> Ke toan (Ke toan lam thay TN).
+ */
+export function nguoiPhuTrach(db: DanhBaPhuTrach, bp: BoPhan, khuVuc: string | null, emailGs: string | null, nhomLk: string | null): string[] {
+  let thanhVien = db.nguoi.filter((n) => thuocBoPhan(n, bp));
+  if (bp === "tn" && thanhVien.length === 0) thanhVien = db.nguoi.filter((n) => n.la_ke_toan);
+  if (bp === "gs") {
+    const out = new Set<string>();
+    const laGs = new Set(thanhVien.map((n) => n.email));
+    if (emailGs && laGs.has(emailGs)) out.add(emailGs);
+    if (khuVuc) {
+      const chinh = db.gsKhuVuc.get(khuVuc);
+      if (chinh && laGs.has(chinh)) out.add(chinh);
+      for (const n of thanhVien) if (db.khuVuc.get(n.email)?.has(khuVuc)) out.add(n.email);
+    }
+    return [...out];
+  }
+  let chon = khuVuc ? thanhVien.filter((n) => db.khuVuc.get(n.email)?.has(khuVuc)) : [];
+  if (chon.length === 0) chon = thanhVien.filter((n) => !db.khuVuc.get(n.email)?.size);
+  if (chon.length === 0) chon = thanhVien;
+  if (bp === "kho" && nhomLk) {
+    const theoNhom = chon.filter((n) => !n.kho_nhom_lk || n.kho_nhom_lk === nhomLk);
+    if (theoNhom.length) chon = theoNhom;
+  }
+  return chon.map((n) => n.email).sort();
+}
+
 function loaiCua(u: UngVien): "dat_hang" | "tra_hang" {
   if (u.buoc.loai) return u.buoc.loai;
   return u.thucThe.loai_don === "tra_hang" ? "tra_hang" : "dat_hang";
 }
 
-function lenhGhiUngVien(db: D1Database, u: UngVien, now: string): D1PreparedStatement {
+function lenhGhiUngVien(db: D1Database, u: UngVien, now: string, phuTrach: string): D1PreparedStatement {
   const han = tinhHan(u.moc, u.cfg.so_gio, !!u.cfg.tinh_cuoi_tuan);
   // Han giai trinh tinh tu luc QUA HAN, nhung khong som hon luc he thong ghi nhan (lan quet dau / quet tre van du thoi gian giai trinh).
   const hanGiaiTrinh = tinhHan(han > now ? han : now, u.cfg.gio_giai_trinh, !!u.cfg.tinh_cuoi_tuan);
   return db
     .prepare(
       `INSERT INTO vi_pham (buoc, loai, bo_phan, doi_tuong, doi_tuong_id, dat_don_hang_id, phieu_xuat_kho_id, khu_vuc_ma, nguoi_nhan_hang,
-         moc_vao, so_gio_sla, han, ket_thuc_luc, trang_thai_sau, nguoi_xu_ly, han_giai_trinh, tao_luc, cap_nhat_luc)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         moc_vao, so_gio_sla, han, ket_thuc_luc, trang_thai_sau, nguoi_xu_ly, han_giai_trinh, nguoi_phu_trach, tao_luc, cap_nhat_luc)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(buoc, doi_tuong_id, moc_vao) DO UPDATE SET
-         ket_thuc_luc = excluded.ket_thuc_luc, trang_thai_sau = excluded.trang_thai_sau, nguoi_xu_ly = excluded.nguoi_xu_ly,
+         ket_thuc_luc = COALESCE(vi_pham.ket_thuc_luc, excluded.ket_thuc_luc),
+         trang_thai_sau = COALESCE(vi_pham.trang_thai_sau, excluded.trang_thai_sau),
+         nguoi_xu_ly = COALESCE(vi_pham.nguoi_xu_ly, excluded.nguoi_xu_ly),
+         nguoi_phu_trach = CASE WHEN vi_pham.trang_thai = 'Cho giai trinh' THEN excluded.nguoi_phu_trach ELSE vi_pham.nguoi_phu_trach END,
+         -- doi nguoi phu trach -> bao lai (nguoi moi chua tung duoc bao)
+         bao_luc = CASE WHEN vi_pham.trang_thai = 'Cho giai trinh' AND COALESCE(vi_pham.nguoi_phu_trach, '') <> COALESCE(excluded.nguoi_phu_trach, '')
+                        AND vi_pham.nguoi_phu_trach IS NOT NULL THEN NULL ELSE vi_pham.bao_luc END,
          cap_nhat_luc = excluded.cap_nhat_luc
-       WHERE vi_pham.ket_thuc_luc IS NULL AND excluded.ket_thuc_luc IS NOT NULL`,
+       WHERE (vi_pham.ket_thuc_luc IS NULL AND excluded.ket_thuc_luc IS NOT NULL)
+          OR (vi_pham.trang_thai = 'Cho giai trinh' AND COALESCE(vi_pham.nguoi_phu_trach, '') <> COALESCE(excluded.nguoi_phu_trach, ''))`,
     )
     .bind(
       u.buoc.ma, loaiCua(u), u.buoc.boPhan, u.buoc.doiTuong, u.fk, u.thucThe.dat_don_hang_id, u.thucThe.phieu_xuat_kho_id,
-      u.thucThe.khu_vuc_ma, u.thucThe.nguoi_nhan_hang, u.moc, u.cfg.so_gio, han, u.ketThuc, u.trangThaiSau, u.nguoiXuLy, hanGiaiTrinh, now, now,
+      u.thucThe.khu_vuc_ma, u.thucThe.nguoi_nhan_hang, u.moc, u.cfg.so_gio, han, u.ketThuc, u.trangThaiSau, u.nguoiXuLy, hanGiaiTrinh, phuTrach, now, now,
     );
 }
 
@@ -393,10 +489,10 @@ function lenhGiaiTrinhTuDong(db: D1Database, u: UngVien, now: string): D1Prepare
   if (u.buoc.nguon === "tra_hang_log" && u.ghiChuKetThuc?.startsWith("Chậm quá hạn") && u.nguoiXuLy) {
     return db
       .prepare(
-        `UPDATE vi_pham SET trang_thai = 'Da giai trinh', giai_trinh = ?, nguoi_giai_trinh = ?, giai_trinh_luc = ?, giai_trinh_tu_dong = 1, cap_nhat_luc = ?
+        `UPDATE vi_pham SET trang_thai = 'Da giai trinh', ly_do = ?, giai_trinh = ?, nguoi_giai_trinh = ?, giai_trinh_luc = ?, giai_trinh_tu_dong = 1, cap_nhat_luc = ?
          WHERE buoc = ? AND doi_tuong_id = ? AND moc_vao = ? AND trang_thai = 'Cho giai trinh'`,
       )
-      .bind(u.ghiChuKetThuc, u.nguoiXuLy, u.ketThuc, now, u.buoc.ma, u.fk, u.moc);
+      .bind(/lý do: ([^|]+)/.exec(u.ghiChuKetThuc)?.[1]?.trim() ?? null, u.ghiChuKetThuc, u.nguoiXuLy, u.ketThuc, now, u.buoc.ma, u.fk, u.moc);
   }
   if (u.buoc.ma === "tn_duyet") {
     // Giai trinh ly do cham da nhap o chi tiet don trong khoang cho -> lay lan gan nhat.
@@ -425,7 +521,8 @@ export interface KetQuaQuet {
 }
 
 /** Quet toan bo buoc dang bat. An toan khi chay lap / chay song song (khoa tu nhien + UPSERT co dieu kien). */
-export async function quetViPham(db: D1Database): Promise<KetQuaQuet> {
+export async function quetViPham(env: Env): Promise<KetQuaQuet> {
+  const db = env.DB;
   const now = nowVN();
   const cfg = await docCauHinh(db);
   const dangBat = BUOC_VI_PHAM.filter((b) => cfg.get(b.ma)?.bat_tat);
@@ -448,9 +545,11 @@ export async function quetViPham(db: D1Database): Promise<KetQuaQuet> {
   }
 
   const truoc = (await db.prepare("SELECT COUNT(*) AS n FROM vi_pham").first<{ n: number }>())?.n ?? 0;
+  const danhBa = await docDanhBaPhuTrach(db);
   const lenh: D1PreparedStatement[] = [];
   for (const u of ungVien) {
-    lenh.push(lenhGhiUngVien(db, u, now));
+    const pt = nguoiPhuTrach(danhBa, u.buoc.boPhan, u.thucThe.khu_vuc_ma, u.thucThe.email_gs, u.thucThe.nhom_lk);
+    lenh.push(lenhGhiUngVien(db, u, now, JSON.stringify(pt)));
     const gt = lenhGiaiTrinhTuDong(db, u, now);
     if (gt) lenh.push(gt);
   }
@@ -461,10 +560,77 @@ export async function quetViPham(db: D1Database): Promise<KetQuaQuet> {
     .prepare("UPDATE vi_pham SET trang_thai = 'Gan the', gan_the_luc = ?, cap_nhat_luc = ? WHERE trang_thai = 'Cho giai trinh' AND han_giai_trinh < ?")
     .bind(now, now, now)
     .run();
+  // Sap het han giai trinh (con <= GIO_NHAC gio) -> nhac 1 lan.
+  const sapHet = tinhHan(now, GIO_NHAC, true);
+  const nhac = await db
+    .prepare("UPDATE vi_pham SET nhac_luc = ? WHERE trang_thai = 'Cho giai trinh' AND nhac_luc IS NULL AND han_giai_trinh <= ? AND tao_luc < ?")
+    .bind(now, sapHet, now)
+    .run();
+  await guiThongBaoQuet(env, now, { nhac: (nhac.meta.changes ?? 0) > 0 });
   // Ghi moc SAU cung: loi giua chung thi lan sau quet lai tu moc cu (UPSERT khong sinh trung).
   for (const khoi of chiaKhoi(lenhPhu, 80)) await db.batch(khoi);
   const sau = (await db.prepare("SELECT COUNT(*) AS n FROM vi_pham").first<{ n: number }>())?.n ?? 0;
   return { ung_vien: ungVien.length, ghi_moi: sau - truoc, gan_the: ganThe.meta.changes ?? 0 };
+}
+
+// ---------- Thong bao (gop theo nguoi, 1 lan quet toi da 3 thong bao / nguoi) ----------
+
+const GIO_NHAC = 6;
+
+async function guiThongBaoQuet(env: Env, now: string, opts: { nhac: boolean }): Promise<void> {
+  const db = env.DB;
+  const docNhom = async (dk: string) =>
+    (
+      await db
+        .prepare(`SELECT j.value AS email, COUNT(*) AS n, MIN(v.han_giai_trinh) AS han FROM vi_pham v, json_each(COALESCE(v.nguoi_phu_trach, '[]')) j
+                  WHERE ${dk} GROUP BY j.value`)
+        .bind(now)
+        .all<{ email: string; n: number; han: string }>()
+    ).results ?? [];
+  // Ca chua bao lan nao (gom ca ghi truoc khi co thong bao) -> bao 1 lan.
+  await db.prepare("UPDATE vi_pham SET bao_luc = ? WHERE bao_luc IS NULL AND trang_thai = 'Cho giai trinh' AND COALESCE(nguoi_phu_trach, '[]') <> '[]'").bind(now).run();
+  const moi = await docNhom("v.bao_luc = ? AND v.trang_thai = 'Cho giai trinh'");
+  const sapHet = opts.nhac ? await docNhom("v.nhac_luc = ? AND v.trang_thai = 'Cho giai trinh'") : [];
+  const biGan = await docNhom("v.gan_the_luc = ?");
+  const tin: { email: string; loai: string; tieuDe: string; noiDung: string }[] = [];
+  const hh = (s: string) => `${s.slice(11, 16)} ${s.slice(8, 10)}/${s.slice(5, 7)}`;
+  for (const r of moi) {
+    tin.push({ email: r.email, loai: "vi_pham", tieuDe: "⏰ Ca quá hạn cần giải trình",
+      noiDung: `Bạn có ${r.n} ca quá hạn mới cần giải trình — hạn sớm nhất ${hh(r.han)}. Mở menu "Quá hạn & vi phạm" › "Cần tôi giải trình".` });
+  }
+  for (const r of sapHet) {
+    tin.push({ email: r.email, loai: "vi_pham", tieuDe: "⚠ Sắp hết hạn giải trình",
+      noiDung: `${r.n} ca sắp hết hạn giải trình (sớm nhất ${hh(r.han)}). Quá hạn mà chưa giải trình sẽ bị gắn thẻ vi phạm.` });
+  }
+  for (const r of biGan) {
+    tin.push({ email: r.email, loai: "vi_pham_gan_the", tieuDe: "🚩 Bị gắn thẻ vi phạm",
+      noiDung: `${r.n} ca đã bị gắn thẻ vi phạm vì chưa giải trình đúng hạn. Nếu ghi nhận sai, mở ca và bấm "Báo không đúng".` });
+  }
+  if (!tin.length) return;
+  for (const khoi of chiaKhoi(tin, 80)) {
+    await db.batch(
+      khoi.map((t) =>
+        db
+          .prepare("INSERT INTO thong_bao_ktv (nguoi_nhan, loai, noi_dung, link_type, link_id, ngay_tao) VALUES (?, ?, ?, 'vi_pham', 'can_toi', ?)")
+          .bind(t.email, t.loai, t.noiDung, now),
+      ),
+    );
+  }
+  await Promise.all(tin.map((t) => sendPushToUser(env, t.email, { title: t.tieuDe, body: t.noiDung, url: "/?vi_pham=can_toi" }).catch(() => undefined)));
+}
+
+/** Thong bao don le (bao khong dung -> Admin, Admin xu ly -> nguoi bao). */
+export async function thongBaoViPham(env: Env, emails: string[], tieuDe: string, noiDung: string, tab: string): Promise<void> {
+  const now = nowVN();
+  const ds = [...new Set(emails)].filter(Boolean);
+  if (!ds.length) return;
+  await env.DB.batch(
+    ds.map((e) =>
+      env.DB.prepare("INSERT INTO thong_bao_ktv (nguoi_nhan, loai, noi_dung, link_type, link_id, ngay_tao) VALUES (?, 'vi_pham', ?, 'vi_pham', ?, ?)")
+        .bind(e, noiDung, tab, now),
+    ),
+  );
+  await Promise.all(ds.map((e) => sendPushToUser(env, e, { title: tieuDe, body: noiDung, url: `/?vi_pham=${tab}` }).catch(() => undefined)));
 }
 
 // ---------- Quyen ----------

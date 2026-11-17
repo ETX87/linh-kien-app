@@ -89,6 +89,12 @@ bước + thực thể có log mới → bước quá hạn thành 1 ca `vi_pham
 + số giờ giải trình). Bộ phận phụ trách (theo cờ vai trò; Kế toán làm thay TN) giải trình → "Đã giải trình"; hết hạn → "Gắn thẻ"; Admin gỡ →
 "Đã gỡ thẻ". Lý do chậm bắt buộc của trả hàng và giải trình lý do chậm trên đơn tự thành giải trình. Ca vẫn giữ khi đơn rời bước (ghi người
 xử lý, lúc rời). Lần đầu chạy không quét ngược lịch sử. Đối tác kéo `GET /api/partner/v1/vi-pham` (con trỏ `cap_nhat_luc`, `id`).
+Người PHẢI giải trình (`vi_pham.nguoi_phu_trach`, tính lại mỗi lần quét khi còn chờ): GS = GS của đơn + GS chính/phụ khu vực; bộ phận khác = người
+được gán khu vực của đơn → không ai thì người không gán khu vực → không ai thì cả bộ phận (Kho lọc thêm nhóm LK; TN không có ai → Kế toán).
+Thông báo chuông + đẩy gộp theo người: ca mới / còn ≤ 6 giờ hết hạn giải trình / bị gắn thẻ. Giải trình = chọn lý do (danh mục lý do chậm
+"Mua hàng" + "Khác") + nội dung. "Báo không đúng" → "Chờ Admin xem xét" (không gắn thẻ) → Admin chấp nhận (gỡ) / từ chối (trả về, gia hạn
+giải trình). Chi tiết đơn / phiếu / ticket / đơn trả hàng hiện thanh cảnh báo quá hạn. Tab "Tổng hợp theo dõi" theo bộ phận và theo người.
+Hướng dẫn người dùng: `docs/Huong_dan_giai_trinh_qua_han_theo_vai_tro.html`.
 
 ## 10. Lịch chạy tự động (cron mỗi giờ)
 

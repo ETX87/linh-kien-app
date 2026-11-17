@@ -43,6 +43,8 @@ const LOAI_TONE: Record<string, Tone> = {
   hoi_dap: "info", // Hoi dap KTV <-> Mua hang (2026-10-17)
   phieu_hoan_tien: "warning", // Phieu hoan tien quy (2026-10-19, migration 0090)
   nop_tien_quy: "info", // KTV nop tien vao quy (2026-10-30, migration 0104)
+  vi_pham: "warning", // Qua han SLA can giai trinh (v1.518)
+  vi_pham_gan_the: "danger",
   // Them (phan hoi 2026-09-05: "khi đến các nhiệm vụ của mỗi vai trò + khu vực sẽ có thông báo đẩy về
   // cho người xử lý") - 3 loai DOC LAP nguoi dung tu bat/tat (xem cong tac o footer Drawer ben duoi):
   // "viec_moi" = nhiem vu TRUC TIEP phai xu ly, "lien_quan" = viec cung quy trinh/khu vuc nhung chua
@@ -64,6 +66,8 @@ const LOAI_LABEL: Record<string, string> = {
   hoi_dap: dichSau("Hỏi đáp"),
   phieu_hoan_tien: dichSau("Hoàn tiền quỹ"),
   nop_tien_quy: dichSau("Nộp tiền vào quỹ"),
+  vi_pham: dichSau("Quá hạn cần giải trình"),
+  vi_pham_gan_the: dichSau("Gắn thẻ vi phạm"),
   viec_moi: dichSau("Việc mới"),
   lien_quan: dichSau("Liên quan"),
   theo_doi: dichSau("Theo dõi"),
@@ -138,6 +142,10 @@ export function NotificationBell({
     } else if (row.link_type === "nop_tien_quy" && row.link_id) {
       setOpen(false);
       window.dispatchEvent(new CustomEvent("mo-nop-tien", { detail: row.link_id }));
+    } else if (row.link_type === "vi_pham") {
+      // App.tsx nghe: mo menu "Quá hạn & vi phạm" dung tab (link_id = tab).
+      setOpen(false);
+      window.dispatchEvent(new CustomEvent("mo-vi-pham", { detail: row.link_id || "can_toi" }));
     }
   }
 
