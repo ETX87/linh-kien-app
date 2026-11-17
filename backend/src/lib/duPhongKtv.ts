@@ -21,30 +21,35 @@ export async function setMocTinhDuPhong(db: D1Database, updatedBy: string, updat
     .run();
 }
 
-// "Han muc du phong phat sinh" = tong gia tri (gia_du_phong x so_luong_de_xuat) cac dong dat_don_hang
-// loai_de_xuat = 'MUA DỰ TRỮ' cua 1 KTV, tinh TU moc tinh du phong tro di (dat_don_hang.updated_at >
-// moc). KHAC cong_no_phat_sinh: tinh CA don dang cho xu ly LAN don da dong (xac nhan nguoi dung "chặn
-// ngay lúc tạo đơn" - khong loc theo trang_thai_hien_tai), CHI loai tru don da Tu choi/Da huy (khong
-// con hieu luc). mocTinhDuPhong=null (chua tung sua) -> khong loc theo thoi gian (tinh tu dau).
-// `loaiTruDonIds`: bo qua cac dong nay (dung khi xet CHINH cac dong do - xem computeMocDuPhongHienTai).
-export async function computeDuPhongPhatSinh(
-  db: D1Database,
-  maKtv: string,
-  mocTinhDuPhong: string | null,
-  loaiTruDonIds: string[] = [],
-): Promise<number> {
-  const loaiTruSql = loaiTruDonIds.length > 0 ? ` AND ddh.id NOT IN (SELECT value FROM json_each(?))` : "";
+// MOC TINH DU TRU THEO TUNG MA MISA (sua 2026-11-17, migration 0123 - "kiểm tra logic tăng quỹ mua dữ trữ ... mức tiền quỹ dự trữ
+// của KTV không tăng dù họ đặt mua dữ trữ"): moc = han_muc_du_tru.hien_tai_luc = luc Ke toan nhap "Hạn mức dự phòng hiện tại"
+// (so MISA) cho CHINH Ma MISA cua KTV. Truoc day dung 1 moc CHUNG (getMocTinhDuPhong) + loc ddh.updated_at > moc -> sai 2 chieu:
+// Ke toan sua 1 KTV la moc moi KTV nhay theo, don da mua nhung MISA chua ghi bi bo mat (NS-3871 mua 8,81tr ngay 10-13/11, moc
+// nhay 16/11 -> coi nhu chua mua); don cu da trong MISA chi doi trang thai sau moc thi bi cong lai.
+// Join theo alias KTV `k` -> them `h` (NULL khi chua nhap "hien tai" / dong tat).
+export const HAN_MUC_MOC_JOIN = (k: string, h: string) => `LEFT JOIN han_muc_du_tru ${h} ON ${h}.ma_misa = TRIM(${k}.ma_misa) AND ${h}.bat_tat = 1`;
+
+// "Da mua du tru phat sinh" = gia du phong x SL cua don MUA DỰ TRỮ (tru Tu choi / Da huy, tinh CA don dang cho - "chặn ngay lúc
+// tạo đơn") ma MISA CHUA ghi nhan tai luc nhap "hien tai": don chua duoc Ke toan chot xuat ("Da chot xong don xuat") truoc moc
+// cua KTV. Chua nhap "hien tai" (moc NULL) -> tinh moi don. Subquery (ma_ktv, gia_tri) dung chung ham 1 KTV + bang Danh sach KTV.
+// `loaiTruSql`: them dieu kien bo qua dong (khi xet CHINH cac dong do - xem computeMocDuPhongHienTai).
+export const PHAT_SINH_DU_TRU_SUBQUERY = (loaiTruSql = "") => `
+  SELECT k3.ma_ktv as ma_ktv, SUM(ddh.so_luong_de_xuat * COALESCE(lk.gia_du_phong, 0)) as gia_tri
+  FROM dat_don_hang ddh
+  JOIN ktv_lien_he k3 ON k3.email_dang_nhap = ddh.nguoi_nhan_hang
+  ${HAN_MUC_MOC_JOIN("k3", "h3")}
+  LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
+  WHERE ddh.loai_de_xuat = 'MUA DỰ TRỮ' AND ddh.trang_thai_hien_tai NOT IN ('Tu choi', 'Da huy')
+    AND (h3.hien_tai_luc IS NULL OR NOT EXISTS (
+      SELECT 1 FROM phieu_xuat_kho_dong pd3 JOIN phieu_xuat_kho_log pl3 ON pl3.phieu_xuat_kho_id = pd3.phieu_xuat_kho_id
+      WHERE pd3.dat_don_hang_id = ddh.id AND pl3.trang_thai = 'Da chot xong don xuat' AND pl3.ngay_xu_ly <= h3.hien_tai_luc))${loaiTruSql}
+  GROUP BY k3.ma_ktv`;
+
+export async function computeDuPhongPhatSinh(db: D1Database, maKtv: string, loaiTruDonIds: string[] = []): Promise<number> {
+  const co = loaiTruDonIds.length > 0;
   const row = await db
-    .prepare(
-      `SELECT COALESCE(SUM(ddh.so_luong_de_xuat * COALESCE(lk.gia_du_phong, 0)), 0) as gia_tri
-       FROM dat_don_hang ddh
-       JOIN ktv_lien_he k ON k.email_dang_nhap = ddh.nguoi_nhan_hang
-       LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
-       WHERE k.ma_ktv = ? AND ddh.loai_de_xuat = 'MUA DỰ TRỮ'
-         AND ddh.trang_thai_hien_tai NOT IN ('Tu choi', 'Da huy')
-         AND (? IS NULL OR ddh.updated_at > ?)${loaiTruSql}`,
-    )
-    .bind(maKtv, mocTinhDuPhong, mocTinhDuPhong, ...(loaiTruDonIds.length > 0 ? [JSON.stringify(loaiTruDonIds)] : []))
+    .prepare(`SELECT gia_tri FROM (${PHAT_SINH_DU_TRU_SUBQUERY(co ? " AND ddh.id NOT IN (SELECT value FROM json_each(?))" : "")}) WHERE ma_ktv = ?`)
+    .bind(...(co ? [JSON.stringify(loaiTruDonIds)] : []), maKtv)
     .first<{ gia_tri: number }>();
   return row?.gia_tri ?? 0;
 }
@@ -52,31 +57,30 @@ export async function computeDuPhongPhatSinh(
 // "Tra hang du tru da chot" (CHOT 2026-10-26, chu he thong): don "TRẢ HÀNG DỮ TRỮ" cua KTV (loai_don='tra_hang') khi KE TOAN
 // DA CHOT phieu tra hang (PXK sang "Da chot xong don xuat" - buoc cuoi sau QC, khong can Kho; phieu co ma thung TRA- tu sang
 // "Kho da nhan hang tra") -> TRA LAI han muc du tru theo GIA MUA DU TRU (linh_kien.gia_du_phong) x SL THUC TE Kho nhan
-// (COALESCE(so_luong_thuc_xuat, so_luong_de_xuat)). Cung quy tac moc nhu "phat sinh": chi tinh phieu chot SAU moc tinh du
-// phong (ke toan sua/import "hien tai" la da tinh gop cac lan tra truoc do). Phieu "Ke toan huy" khong tinh.
-// Tra ve SQL subquery (ma_ktv, gia_tri) dung chung cho ham 1 KTV ben duoi va bang Danh sach KTV (settingsKtv.ts) - 2 bind: moc, moc.
+// (COALESCE(so_luong_thuc_xuat, so_luong_de_xuat)). Chi tinh phieu chot SAU moc cua KTV (moc theo Ma MISA, 2026-11-17).
+// Phieu "Ke toan huy" khong tinh. Subquery (ma_ktv, gia_tri), KHONG bind.
 export const TRA_HANG_DU_TRU_SUBQUERY = `
   SELECT kt.ma_ktv as ma_ktv, SUM(COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) * COALESCE(lk.gia_du_phong, 0)) as gia_tri
   FROM dat_don_hang ddh
   JOIN ktv_lien_he kt ON kt.email_dang_nhap = ddh.nguoi_nhan_hang
+  ${HAN_MUC_MOC_JOIN("kt", "ht")}
   LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
   JOIN phieu_xuat_kho_dong pd ON pd.dat_don_hang_id = ddh.id
   JOIN phieu_xuat_kho p ON p.id = pd.phieu_xuat_kho_id
   WHERE ddh.loai_don = 'tra_hang' AND ddh.loai_de_xuat = 'TRẢ HÀNG DỮ TRỮ'
     AND p.trang_thai_hien_tai IN ('Da chot xong don xuat', 'Kho da nhan hang tra')
-    AND (? IS NULL OR (SELECT MAX(pl.ngay_xu_ly) FROM phieu_xuat_kho_log pl WHERE pl.phieu_xuat_kho_id = p.id AND pl.trang_thai = 'Da chot xong don xuat') > ?)
+    AND (ht.hien_tai_luc IS NULL OR (SELECT MAX(pl.ngay_xu_ly) FROM phieu_xuat_kho_log pl WHERE pl.phieu_xuat_kho_id = p.id AND pl.trang_thai = 'Da chot xong don xuat') > ht.hien_tai_luc)
   GROUP BY kt.ma_ktv`;
 
-export async function computeDuPhongTraHang(db: D1Database, maKtv: string, mocTinhDuPhong: string | null): Promise<number> {
+export async function computeDuPhongTraHang(db: D1Database, maKtv: string): Promise<number> {
   const row = await db
     .prepare(`SELECT gia_tri FROM (${TRA_HANG_DU_TRU_SUBQUERY}) WHERE ma_ktv = ?`)
-    .bind(mocTinhDuPhong, mocTinhDuPhong, maKtv)
+    .bind(maKtv)
     .first<{ gia_tri: number }>();
   return row?.gia_tri ?? 0;
 }
 
-// "Moc du phong hien tai" = Han muc du phong - Han muc du phong hien tai - Han muc du phong phat sinh
-// + Tra hang du tru da chot (them 2026-10-26)
+// "Con duoc mua du tru" (truoc goi "Moc du phong hien tai") = Han muc - Hien tai (so MISA) - Phat sinh + Tra hang du tru da chot
 // (cong thuc CHOT nguoi dung, KHONG cong "thuc te" nhu cong no vi khong co bang ton kho tuong duong).
 // `loaiTruDonIds` (FIX 2026-09-28, dem trung): khi xet PXK, cac dong CUA CHINH PXK da nam san trong "phat
 // sinh" (don MUA DỰ TRỮ tinh ngay tu luc tao) roi lai bi so them 1 lan nua -> KTV can gap doi han muc.
@@ -89,7 +93,6 @@ export async function computeMocDuPhongHienTai(db: D1Database, maKtv: string, lo
   }>();
   const hanMuc = ktv?.han_muc_du_phong ?? 0;
   const hienTai = ktv?.han_muc_du_phong_hien_tai ?? 0;
-  const moc = await getMocTinhDuPhong(db);
-  const [phatSinh, traHang] = await Promise.all([computeDuPhongPhatSinh(db, maKtv, moc, loaiTruDonIds), computeDuPhongTraHang(db, maKtv, moc)]);
+  const [phatSinh, traHang] = await Promise.all([computeDuPhongPhatSinh(db, maKtv, loaiTruDonIds), computeDuPhongTraHang(db, maKtv)]);
   return hanMuc - hienTai - phatSinh + traHang;
 }

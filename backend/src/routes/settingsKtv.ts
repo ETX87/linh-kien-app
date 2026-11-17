@@ -9,7 +9,7 @@ import { computeAndStoreHash, getOrComputeHash } from "../lib/contentHash";
 import { nowVN } from "../lib/vnTime";
 import { resyncKhuVucDerivedFieldsForAll, resyncKhuVucDerivedFieldsForEmail } from "../lib/khuVucSync";
 import { relinkTonKhoForMaMisa } from "../lib/ktvTonKhoRelink";
-import { setMocTinhDuPhong, getMocTinhDuPhong, TRA_HANG_DU_TRU_SUBQUERY } from "../lib/duPhongKtv";
+import { setMocTinhDuPhong, getMocTinhDuPhong, TRA_HANG_DU_TRU_SUBQUERY, PHAT_SINH_DU_TRU_SUBQUERY, HAN_MUC_MOC_JOIN } from "../lib/duPhongKtv";
 import { maKtvTheoTen } from "../lib/timTheoTen";
 import { laKtvThuan } from "../lib/laKtvThuan";
 
@@ -87,21 +87,13 @@ settingsKtv.get("/", async (c) => {
   // tinh gop qua 1 CTE thay vi N+1 query rieng tung KTV, giong dung pattern "phat_sinh" cua
   // ktvTonKho.ts GET / (cong no). KHAC cong no: khong loc theo trang_thai_hien_tai cu the (tinh CA
   // don dang cho xu ly), chi loai Tu choi/Da huy - xem computeDuPhongPhatSinh().
-  const mocTinhDuPhong = await getMocTinhDuPhong(c.env.DB);
-  const duPhongJoin = `LEFT JOIN (
-       SELECT k3.ma_ktv, SUM(ddh.so_luong_de_xuat * COALESCE(lk.gia_du_phong, 0)) as gia_tri
-       FROM dat_don_hang ddh
-       JOIN ktv_lien_he k3 ON k3.email_dang_nhap = ddh.nguoi_nhan_hang
-       LEFT JOIN linh_kien lk ON lk.ma_linh_kien = ddh.ma_lk
-       WHERE ddh.loai_de_xuat = 'MUA DỰ TRỮ' AND ddh.trang_thai_hien_tai NOT IN ('Tu choi', 'Da huy')
-         AND (? IS NULL OR ddh.updated_at > ?)
-       GROUP BY k3.ma_ktv
-     ) dp ON dp.ma_ktv = k.ma_ktv
-     LEFT JOIN (${TRA_HANG_DU_TRU_SUBQUERY}) dpt ON dpt.ma_ktv = k.ma_ktv`;
-  const selectCols = `k.*, u.ma_nhan_su as ma_nhan_su, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai, u.bi_khoa as tk_bi_khoa, u.email as tk_email, (SELECT GROUP_CONCAT(k2.ma_ktv, ', ') FROM ktv_lien_he k2 WHERE k2.email_dang_nhap = k.email_dang_nhap AND k2.ma_ktv <> k.ma_ktv) as ma_cung_gmail, (SELECT GROUP_CONCAT(gp.email_phu, ', ') FROM users_gmail_phu gp WHERE gp.email_chinh = k.email_dang_nhap) as gmail_phu, COALESCE(dp.gia_tri, 0) as han_muc_du_phong_phat_sinh, COALESCE(dpt.gia_tri, 0) as han_muc_du_phong_tra_hang`;
+  // Moc theo TUNG Ma MISA (2026-11-17, migration 0123) - xem PHAT_SINH_DU_TRU_SUBQUERY.
+  const duPhongJoin = `LEFT JOIN (${PHAT_SINH_DU_TRU_SUBQUERY()}) dp ON dp.ma_ktv = k.ma_ktv
+     LEFT JOIN (${TRA_HANG_DU_TRU_SUBQUERY}) dpt ON dpt.ma_ktv = k.ma_ktv
+     ${HAN_MUC_MOC_JOIN("k", "hm")}`;
+  const selectCols = `k.*, u.ma_nhan_su as ma_nhan_su, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai, u.bi_khoa as tk_bi_khoa, u.email as tk_email, (SELECT GROUP_CONCAT(k2.ma_ktv, ', ') FROM ktv_lien_he k2 WHERE k2.email_dang_nhap = k.email_dang_nhap AND k2.ma_ktv <> k.ma_ktv) as ma_cung_gmail, (SELECT GROUP_CONCAT(gp.email_phu, ', ') FROM users_gmail_phu gp WHERE gp.email_chinh = k.email_dang_nhap) as gmail_phu, COALESCE(dp.gia_tri, 0) as han_muc_du_phong_phat_sinh, COALESCE(dpt.gia_tri, 0) as han_muc_du_phong_tra_hang, hm.hien_tai_luc as han_muc_du_phong_moc`;
   const baseSql = `FROM ktv_lien_he k LEFT JOIN users u ON u.email = k.email_dang_nhap ${duPhongJoin} ${where}`;
-  // 2 bind cho "phat sinh" (dp) + 2 bind cho "tra hang du tru da chot" (dpt) - dung thu tu xuat hien trong SQL.
-  const duPhongBinds = [mocTinhDuPhong, mocTinhDuPhong, mocTinhDuPhong, mocTinhDuPhong];
+  const duPhongBinds: unknown[] = []; // khong con bind moc (moc theo Ma MISA, doc trong SQL)
   const withMocHienTai = (rows: Record<string, unknown>[]) =>
     rows.map((r) => ({
       ...r,
@@ -407,7 +399,7 @@ function duocSuaHanMucDuTru(user: { la_ke_toan?: boolean | number | null; vai_tr
 
 settingsKtv.get("/han-muc-du-tru", async (c) => {
   const { results } = await c.env.DB.prepare(
-    `SELECT h.ma_misa, h.han_muc_du_phong, h.han_muc_du_phong_hien_tai, h.bat_tat, h.ghi_chu, h.ngay_tao, h.cap_nhat_luc, h.cap_nhat_boi,
+    `SELECT h.ma_misa, h.han_muc_du_phong, h.han_muc_du_phong_hien_tai, h.hien_tai_luc, h.bat_tat, h.ghi_chu, h.ngay_tao, h.cap_nhat_luc, h.cap_nhat_boi,
             (SELECT json_group_array(json_object('ma_ktv', k.ma_ktv, 'ten', COALESCE(k.ten_hien_thi, k.ten_misa, k.ma_ktv), 'ngung', COALESCE(k.ngung_hoat_dong, 0)))
                FROM ktv_lien_he k WHERE UPPER(TRIM(k.ma_misa)) = UPPER(h.ma_misa)) AS ktv_json
        FROM han_muc_du_tru h ORDER BY h.ma_misa`,
@@ -453,17 +445,19 @@ settingsKtv.post("/han-muc-du-tru", async (c) => {
     const coGc = r.ghi_chu !== undefined ? 1 : 0;
     stmts.push(
       c.env.DB.prepare(
-        `INSERT INTO han_muc_du_tru (ma_misa, han_muc_du_phong, han_muc_du_phong_hien_tai, bat_tat, ghi_chu, ngay_tao, cap_nhat_luc, cap_nhat_boi)
-         VALUES (COALESCE((SELECT TRIM(k.ma_misa) FROM ktv_lien_he k WHERE UPPER(TRIM(k.ma_misa)) = UPPER(?1) LIMIT 1), ?1), ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO han_muc_du_tru (ma_misa, han_muc_du_phong, han_muc_du_phong_hien_tai, bat_tat, ghi_chu, ngay_tao, cap_nhat_luc, cap_nhat_boi, hien_tai_luc)
+         VALUES (COALESCE((SELECT TRIM(k.ma_misa) FROM ktv_lien_he k WHERE UPPER(TRIM(k.ma_misa)) = UPPER(?1) LIMIT 1), ?1), ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(ma_misa) DO UPDATE SET
            han_muc_du_phong = CASE WHEN ? THEN excluded.han_muc_du_phong ELSE han_muc_du_tru.han_muc_du_phong END,
            han_muc_du_phong_hien_tai = CASE WHEN ? THEN excluded.han_muc_du_phong_hien_tai ELSE han_muc_du_tru.han_muc_du_phong_hien_tai END,
            bat_tat = CASE WHEN ? THEN excluded.bat_tat ELSE han_muc_du_tru.bat_tat END,
            ghi_chu = CASE WHEN ? THEN excluded.ghi_chu ELSE han_muc_du_tru.ghi_chu END,
-           cap_nhat_luc = excluded.cap_nhat_luc, cap_nhat_boi = excluded.cap_nhat_boi`,
+           cap_nhat_luc = excluded.cap_nhat_luc, cap_nhat_boi = excluded.cap_nhat_boi,
+           -- Moc tinh du tru RIENG Ma MISA nay (2026-11-17, migration 0123): moi lan Ke toan nhap "hien tai" (so MISA luc nay).
+           hien_tai_luc = CASE WHEN ? THEN excluded.hien_tai_luc ELSE han_muc_du_tru.hien_tai_luc END`,
       ).bind(
         ma, r.han_muc_du_phong ?? null, r.han_muc_du_phong_hien_tai ?? null, r.bat_tat === undefined ? 1 : r.bat_tat ? 1 : 0,
-        r.ghi_chu?.trim() || null, now, now, user.email, coHm, coHt, coBat, coGc,
+        r.ghi_chu?.trim() || null, now, now, user.email, coHt ? now : null, coHm, coHt, coBat, coGc, coHt,
       ),
     );
   }

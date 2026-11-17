@@ -1489,3 +1489,17 @@ Nguyên văn yêu cầu (chủ hệ thống): *"luồng "Cấp lk" ... khi đơn
 **(c) Ghi nhận:** toàn hệ thống lúc làm có chênh lệch ~14,5 triệu (phiếu trả trước khi có quỹ / chuyển ngoài) — hiện thành dòng riêng. Phiếu nhận tiền qua đơn không có dòng sổ quỹ nên chỉ thấy ở ô tổng, không có dòng trong bảng.
 
 **(d) Kiểm thử:** typecheck backend + frontend 0 lỗi. Chạy câu tổng kết trên D1 production (chỉ đọc) với KTV toannv.mb: nộp 4.334.800 = đã mua 4.056.800 (PMH-000168/000978/001299/002528) + tạm giữ 278.000 (PMH-002117) + số dư 0 — khớp. Chưa xem bằng mắt trên giao diện.
+
+## Hạn mức dự trữ: mốc tính theo từng Mã MISA + tách "Đã mua dự trữ" / "Còn được mua" (17/11/2026) — v1.512
+
+**(a) Nguyên văn yêu cầu:** *"kiểm tra logic tăng quỹ mua dữ trữ. hình như mức tiền quỹ dự trữ của KTV không tăng dù họ đặt mua dữ trữ (phân biệt giữa tiền quỹ dữ trữ đã mua và hạn mức quỹ dữ trữ)"* → sau khi báo nguyên nhân + phương án: *"Làm theo đề xuất"*.
+
+**(b) Lỗi tìm được (dữ liệu production):** "phát sinh" MUA DỰ TRỮ dùng 1 mốc CHUNG (`app_settings du_phong_ktv_import_meta`) + lọc `dat_don_hang.updated_at > mốc`. Kế toán nhập "hiện tại" cho BẤT KỲ KTV nào là mốc của mọi KTV nhảy theo → đơn đã mua nhưng MISA chưa ghi bị bỏ mất: NS-3871 mua 8.810.000đ (19 đơn 10–13/11, KT chốt 14/11), mốc nhảy 16/11 09:59 → phát sinh 0, hiện tại 0 → còn được mua đủ 10tr. Ngược lại đơn cũ đã có trong MISA chỉ đổi trạng thái sau mốc thì bị cộng lại (NS-3895 135.000đ).
+
+**(c) Đã sửa:**
+- `migrations/0123_han_muc_du_tru_moc_rieng.sql`: cột `han_muc_du_tru.hien_tai_luc` = lúc Kế toán nhập "Hạn mức dự phòng hiện tại" (số MISA) cho chính Mã MISA đó; dữ liệu cũ lấy `cap_nhat_luc` của dòng có "hiện tại".
+- `lib/duPhongKtv.ts`: `HAN_MUC_MOC_JOIN`, `PHAT_SINH_DU_TRU_SUBQUERY` (dùng chung hàm 1 KTV + bảng Danh sách KTV): phát sinh = đơn MUA DỰ TRỮ (trừ Từ chối / Đã huỷ) **chưa được Kế toán chốt xuất ("Da chot xong don xuat") trước mốc của KTV**; chưa nhập "hiện tại" → tính mọi đơn. `TRA_HANG_DU_TRU_SUBQUERY` cũng theo mốc riêng (không còn bind). `computeDuPhongPhatSinh(db, ma, loaiTru)` / `computeDuPhongTraHang(db, ma)` bỏ tham số mốc.
+- `POST /settings/ktv-lien-he/han-muc-du-tru`: nhập / import "hiện tại" ghi `hien_tai_luc` cho đúng dòng đó. `setMocTinhDuPhong` (mốc chung) vẫn ghi nhưng không còn dùng để tính dự trữ.
+- Danh sách KTV đổi tên cột: "Hạn mức dự trữ (trần)", "Đã mua theo MISA" (tooltip lúc Kế toán nhập = mốc), "Mua sau mốc MISA", "Trả hàng dự trữ đã chốt", **"Đã mua dự trữ"** (mới = MISA + mua sau mốc − trả), **"Còn được mua"** (trước "Mốc dự phòng hiện tại", âm tô đỏ). Câu nhắc khi tạo đơn: "Dự trữ còn được mua: … / hạn mức …".
+
+**(d) Ghi nhận / kiểm thử:** typecheck 0 lỗi. Chạy công thức trên D1 production (chỉ đọc): NS-3871 phát sinh 0 → 8.810.000đ, NS-3895 135.000 → 7.625.000đ, thanhnd.ptdv-hcm hiện tại 13.868.000 + 1.760.000. Sau khi sửa, nhiều KTV bị giảm "còn được mua" ngay và có thể bị chặn đặt thêm dự trữ — đúng số thật. Mốc dữ liệu cũ = lần sửa gần nhất của dòng (có thể muộn hơn lúc nhập "hiện tại" thật nếu sau đó chỉ bật/tắt) — Kế toán nhập lại "hiện tại" là có mốc chuẩn. Mục công nợ vẫn dùng mốc chung kiểu cũ (`congNoKtv.ts`), chưa đổi.

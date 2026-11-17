@@ -110,6 +110,7 @@ export interface KtvLienHeRow {
   han_muc_du_phong_hien_tai: number | null;
   han_muc_du_phong_cap_nhat_luc: string | null;
   han_muc_du_phong_phat_sinh: number;
+  han_muc_du_phong_moc?: string | null; // luc Ke toan nhap "hien tai" cua Ma MISA nay (moc rieng, migration 0123)
   // Don "TRẢ HÀNG DỮ TRỮ" ke toan da chot phieu (sau moc) - tra lai han muc theo gia mua du tru (2026-10-26).
   han_muc_du_phong_tra_hang?: number;
   moc_du_phong_hien_tai: number;

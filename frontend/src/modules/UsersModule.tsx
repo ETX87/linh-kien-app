@@ -1628,7 +1628,8 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
     // TOAN server-side (GET /settings/ktv-lien-he tra kem, xem duPhongKtv.ts), khong sua tay duoc.
     {
       key: "han_muc_du_phong",
-      header: "Hạn mức dự phòng",
+      // Doi ten 2026-11-17 cho de phan biet: HAN MUC (tran) / DA MUA / CON DUOC MUA.
+      header: "Hạn mức dự trữ (trần)",
       render: (r) =>
         r.han_muc_du_phong != null ? (
           <span title={r.han_muc_du_phong_cap_nhat_luc ? `Cập nhật lúc ${fmtDateTime(r.han_muc_du_phong_cap_nhat_luc)}` : undefined}><Money>{fmtVND(r.han_muc_du_phong)}</Money></span>
@@ -1638,18 +1639,26 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
     },
     {
       key: "han_muc_du_phong_hien_tai",
-      header: "Hạn mức dự phòng hiện tại",
+      header: "Đã mua theo MISA",
       render: (r) =>
         r.han_muc_du_phong_hien_tai != null ? (
-          <span title={r.han_muc_du_phong_cap_nhat_luc ? `Cập nhật lúc ${fmtDateTime(r.han_muc_du_phong_cap_nhat_luc)}` : undefined}><Money>{fmtVND(r.han_muc_du_phong_hien_tai)}</Money></span>
+          <span title={r.han_muc_du_phong_moc ? `Số MISA Kế toán nhập lúc ${fmtDateTime(r.han_muc_du_phong_moc)} — mốc tính phần mua sau` : undefined}><Money>{fmtVND(r.han_muc_du_phong_hien_tai)}</Money></span>
         ) : (
           "—"
         ),
     },
-    { key: "han_muc_du_phong_phat_sinh", header: "Hạn mức dự phòng phát sinh", render: (r) => <Money>{fmtVND(r.han_muc_du_phong_phat_sinh)}</Money> },
+    { key: "han_muc_du_phong_phat_sinh", header: "Mua sau mốc MISA", render: (r) => <Money>{fmtVND(r.han_muc_du_phong_phat_sinh)}</Money> },
     // Tra lai han muc khi ke toan chot phieu TRẢ HÀNG DỮ TRỮ (sau moc) - cong vao "Moc du phong hien tai" (2026-10-26).
     { key: "han_muc_du_phong_tra_hang", header: "Trả hàng dự trữ đã chốt", render: (r) => <Money>{fmtVND(r.han_muc_du_phong_tra_hang ?? 0)}</Money> },
-    { key: "moc_du_phong_hien_tai", header: "Mốc dự phòng hiện tại", render: (r) => <Money>{fmtVND(r.moc_du_phong_hien_tai)}</Money> },
+    // "Đã mua dự trữ" = số MISA + mua sau mốc − trả hàng dự trữ đã chốt (2026-11-17, tách khỏi hạn mức cho dễ đọc).
+    {
+      key: "da_mua_du_tru", header: "Đã mua dự trữ",
+      render: (r) => <b><Money>{fmtVND((Number(r.han_muc_du_phong_hien_tai) || 0) + (Number(r.han_muc_du_phong_phat_sinh) || 0) - (Number(r.han_muc_du_phong_tra_hang) || 0))}</Money></b>,
+    },
+    {
+      key: "moc_du_phong_hien_tai", header: "Còn được mua",
+      render: (r) => <b className={r.moc_du_phong_hien_tai < 0 ? "text-[var(--color-danger-strong)]" : "text-[var(--color-success-strong)]"}><Money>{fmtVND(r.moc_du_phong_hien_tai)}</Money></b>,
+    },
     // FIX (ra soat UI 2026-08-27, hang muc #1): bo "(mã) Tên" lap lai truoc email - cot "Tên hiển thị"
     // da o ngay dau bang, khong can nhac lai o cot cuoi (giam ~50% do dai dong tren bang 25+ dong).
     {

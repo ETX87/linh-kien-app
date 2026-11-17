@@ -436,7 +436,7 @@ export function TaoDonMobileScreen({
             desktop, cung dieu kien). */}
         {coDongMuaDuTru && duPhongDuKien && (
           <div className="rounded-lg border border-[var(--ocean-500)]/30 bg-[var(--ocean-100)]/50 px-2.5 py-1.5 text-[11px] font-medium text-[var(--ocean-700)]">
-            {t("ℹ Mốc dự phòng hiện tại còn khả dụng:")} <Money>{fmtVND(duPhongDuKien.moc_hien_tai)}</Money> / <Money>{fmtVND(duPhongDuKien.tran ?? 0)}</Money>
+            {t("ℹ Hạn mức dự trữ còn được mua:")} <Money>{fmtVND(duPhongDuKien.moc_hien_tai)}</Money> / <Money>{fmtVND(duPhongDuKien.tran ?? 0)}</Money>
           </div>
         )}
         <TongNgayKtvInfo email={targetNguoiNhanHang} themGiaTri={giaTriTinhChietKhau} />

@@ -103,7 +103,7 @@ export function TaoDonTab({
   if (sePhepDuCongNo === false && congNoDuKien)
     canhBao.push({ muc: "canh", text: t("Vượt trần công nợ dự kiến: {a} / {b}", { a: fmtVND(congNoDuKien.cong_no_chot + tongCongNoTamTinh), b: fmtVND(congNoDuKien.tran ?? 0) }) });
   if (coDongMuaDuTru && duPhongDuKien)
-    canhBao.push({ muc: "tin", text: t("Mốc dự phòng còn khả dụng: {a} / {b}", { a: fmtVND(duPhongDuKien.moc_hien_tai), b: fmtVND(duPhongDuKien.tran ?? 0) }) });
+    canhBao.push({ muc: "tin", text: t("Dự trữ còn được mua: {a} / hạn mức {b}", { a: fmtVND(duPhongDuKien.moc_hien_tai), b: fmtVND(duPhongDuKien.tran ?? 0) }) });
   const thuTu = { chan: 0, canh: 1, tin: 2 } as const;
   canhBao.sort((a, b) => thuTu[a.muc] - thuTu[b.muc]);
   const soDongChuaXong = drafts.filter((x) => !isLineComplete(x)).length;
