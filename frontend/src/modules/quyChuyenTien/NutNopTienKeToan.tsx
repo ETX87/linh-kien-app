@@ -58,7 +58,8 @@ export function NutNopTienKeToan() {
   }, [data]);
 
   if (!duocDuyet || (!laKeToan && tong === 0)) return null;
-  const viTriNut = isMobile ? "right-[4.75rem] bottom-[calc(9rem+env(safe-area-inset-bottom))]" : "right-[5.5rem] bottom-28";
+  // Goc duoi phai - cho cua nut chat Hoi dap cu (da xoa 2026-11-17, v1.516).
+  const viTriNut = isMobile ? "right-3 bottom-[calc(9rem+env(safe-area-inset-bottom))]" : "right-5 bottom-28";
   const viTriKhung = isMobile
     ? "inset-x-3 bottom-[calc(13rem+env(safe-area-inset-bottom))] max-h-[60dvh]"
     : "right-5 bottom-[11.5rem] w-[360px] max-h-[min(480px,calc(100vh-14rem))]";

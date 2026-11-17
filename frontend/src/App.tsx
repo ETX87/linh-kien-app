@@ -10,7 +10,6 @@ import { Sidebar } from "./layout/Sidebar";
 import { TopBarActions } from "./layout/TopBarActions";
 import { TopBar } from "./layout/TopBar";
 import { BottomTabBar } from "./layout/BottomTabBar";
-import { HoiDapWidget } from "./components/hoiDap/HoiDapWidget";
 import { TaoDonGiongHost } from "./modules/datMuaLinhKien/TaoDonGiongHost";
 import { NutNopQuyNoi } from "./modules/quyChuyenTien/NutNopQuyNoi";
 import { NutNopTienKeToan } from "./modules/quyChuyenTien/NutNopTienKeToan";
@@ -22,7 +21,6 @@ import { khopTim } from "./lib/boDau";
 import { TonKhoKtvModule } from "./modules/TonKhoKtvModule";
 import { DanhSachKtvModule } from "./modules/DanhSachKtvModule";
 import { QuyChuyenTienModule } from "./modules/QuyChuyenTienModule";
-import { HoiDapModule } from "./modules/HoiDapModule";
 import { BaoCaoTocDoXuLyModule } from "./modules/BaoCaoTocDoXuLyModule";
 import { LuongHeThongModule } from "./modules/LuongHeThongModule";
 import { NotificationBell } from "./modules/datMuaLinhKien/NotificationBell";
@@ -150,8 +148,7 @@ function MainApp({
   // "Mua hang" (2026-09-30, dot 2): xem TOAN BO cac man nghiep vu, CHI DOC (backend requireDatMuaLkArea chan ghi, scope
   // tra null - lib/scopeDatMua.ts). KHONG gom "Báo cáo tốc độ xử lý" (chi Admin + View, danh gia nhan su).
   if (role !== "Admin" && user.la_mua_hang) {
-    // + "hoi-dap" (2026-10-17): quan ly ticket hoi dap KTV <-> Mua hang (khop laXuLy() o backend routes/hoiDap.ts). Admin co qua ROLE_MODULES.
-    allowedModules = [...new Set([...allowedModules, "trang-chu", "dat-mua-lk", "phieu-xuat", "thieu-lk", "tra-hang", "ton-kho-ktv", "quy-chuyen-tien", "hoi-dap"])];
+    allowedModules = [...new Set([...allowedModules, "trang-chu", "dat-mua-lk", "phieu-xuat", "thieu-lk", "tra-hang", "ton-kho-ktv", "quy-chuyen-tien"])];
   }
   // "Phiếu xuất" (tach khoi "Đặt mua linh kiện" 2026-09-29) - khop canXemPxkTab o DatMuaLinhKienModule.tsx (TN/Kho/Ke
   // toan/GS/KTV/Ve tinh). Admin + "Giam sat" da co qua ROLE_MODULES.
@@ -547,7 +544,6 @@ function MainApp({
           {active === "ton-kho-ktv" && <TonKhoKtvModule />}
           {active === "danh-sach-ktv" && <DanhSachKtvModule />}
           {active === "quy-chuyen-tien" && <QuyChuyenTienModule moPhieuHoanTien={moHoanTien} moNopTien={moNopTien} />}
-          {active === "hoi-dap" && <HoiDapModule />}
           {active === "bao-cao-toc-do" && <BaoCaoTocDoXuLyModule />}
           {active === "luong-he-thong" && <LuongHeThongModule />}
           {active === "settings" && <SettingsModule />}
@@ -555,8 +551,6 @@ function MainApp({
         </main>
       </div>
       {isMobile && <BottomTabBar active={active} setActive={setActive} allowedModules={allowedModules} onOpenMore={() => setMobileOpen(true)} />}
-      {/* Hoi dap KTV <-> Mua hang (2026-10-17) - icon chat goc duoi phai, moi tai khoan da duyet. */}
-      <HoiDapWidget />
       {/* "⧉ Tạo đơn giống" o chi tiet don khi chua co form tao don nao dang mo (v1.491). */}
       <TaoDonGiongHost />
       {/* Nut tron "Nạp quỹ" canh nut chat (2026-10-30, v1.426) - KTV / Ve tinh / GS mo nhanh form nop tien vao quy. */}

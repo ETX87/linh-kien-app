@@ -21,8 +21,6 @@ import etxNhanSuSyncRoutes from "./routes/etxNhanSuSync";
 import partnerApiRoutes from "./routes/partnerApi";
 import khovanLookupRoutes from "./routes/khovanLookup";
 import suachuaPartnerRoutes from "./routes/suachuaPartner";
-import hoiDapRoutes from "./routes/hoiDap";
-import huongDanRoutes from "./routes/huongDan";
 import doiTacCongNoRoutes from "./routes/doiTacCongNo";
 import partnerKhoRoutes from "./routes/partnerKho";
 import thieuHangBhRoutes from "./routes/thieuHangBh";
@@ -68,8 +66,8 @@ app.route("/api/tra-hang", traHangRoutes);
 app.route("/api/quy-ktv", quyKtvRoutes);
 app.route("/api/nhan-thieu", nhanThieuRoutes);
 app.route("/api/thieu-hang-bh", thieuHangBhRoutes); // Thieu hang bao hanh tu app suachua (2026-11-04, migration 0106)
-app.route("/api/hoi-dap", hoiDapRoutes); // Hoi dap KTV <-> Mua hang (2026-10-17, migration 0089)
-app.route("/api/huong-dan", huongDanRoutes); // Kho huong dan - hoi dap tu dong (2026-10-28, migration 0102)
+// "/api/hoi-dap" + "/api/huong-dan" (Hoi dap KTV <-> Mua hang, migration 0089/0102/0103) DA XOA 2026-11-17 (v1.516, chu he thong: "xóa bỏ luôn
+// tính năng hỏi đáp"). Bang hoi_dap*, huong_dan con nguyen du lieu tren D1 - chua xoa.
 app.route("/api/khach-le", khachLeRoutes);
 app.route("/api/doi-tac-cong-no", doiTacCongNoRoutes); // MUA HÀNG CÔNG NỢ ĐỐI TÁC (2026-10-26, migration 0099)
 app.route("/api/bao-cao-toc-do", baoCaoTocDoXuLyRoutes);

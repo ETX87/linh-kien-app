@@ -9,7 +9,7 @@ const NopTienForm = lazy(() => import("./NopTienQuy").then((m) => ({ default: m.
 // Nut tron NOI "Nạp quỹ" canh nut chat Hoi dap (2026-10-30, v1.426 - "thêm quỹ cho ktv hoặc gs tạo 1 nút tròn nổi bên cạnh nút chat để ktv truy
 // cập nhanh việc nạp quỹ"): bam = mo thang form KTV nop tien vao quy (NopTienForm, POST /quy-ktv/nop-tien), khong can vao menu Quỹ. Chi hien cho
 // nguoi duoc nop tien = KTV / Ve tinh / GS, tru Ke toan/Admin - KHOP coTheNopTien (QuyChuyenTienModule.tsx) va duocNopTien backend (quyKtv.ts).
-// Vi tri: cung hang voi nut chat (HoiDapWidget: desktop right-5 bottom-28, mobile right-3 bottom 9rem), lech trai 1 nut.
+// Vi tri: goc duoi phai (desktop right-5 bottom-28, mobile right-3 bottom 9rem) - cho cua nut chat Hoi dap cu (da xoa 2026-11-17, v1.516).
 export function NutNopQuyNoi() {
   const auth = useAuth();
   const isMobile = useIsMobile();
@@ -25,7 +25,7 @@ export function NutNopQuyNoi() {
         title={t("Nạp tiền vào quỹ")}
         aria-label={t("Nạp tiền vào quỹ")}
         className={`focus-ring fixed z-40 grid h-[52px] w-[52px] place-items-center rounded-full border border-[var(--color-primary)] bg-[var(--color-surface)] text-[var(--color-primary)] shadow-[var(--shadow-raise)] transition-transform hover:scale-105 hover:bg-[var(--color-primary-soft)] ${
-          isMobile ? "right-[4.75rem] bottom-[calc(9rem+env(safe-area-inset-bottom))]" : "right-[5.5rem] bottom-28"
+          isMobile ? "right-3 bottom-[calc(9rem+env(safe-area-inset-bottom))]" : "right-5 bottom-28"
         }`}
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

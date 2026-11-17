@@ -131,10 +131,6 @@ export function NotificationBell({
     } else if (row.link_type === "phieu_xuat_kho" && row.link_id) {
       setOpen(false);
       onOpenPxk(row.link_id);
-    } else if (row.link_type === "hoi_dap" && row.link_id) {
-      // Mo dung ticket trong khung chat (HoiDapWidget nghe su kien nay).
-      setOpen(false);
-      window.dispatchEvent(new CustomEvent("mo-hoi-dap", { detail: row.link_id }));
     } else if (row.link_type === "phieu_hoan_tien" && row.link_id) {
       // App.tsx nghe su kien nay: mo "Quỹ & chuyển tiền" › tab Hoàn tiền + chi tiet phieu.
       setOpen(false);
