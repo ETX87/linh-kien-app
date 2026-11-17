@@ -49,7 +49,7 @@ import { KhachLeSdt } from "./KhachLeSdt";
 //   7) Toan bo state/logic nghiep vu dung CHUNG voi ban desktop qua useTaoDonForm (khong co 2 nguon su
 //      that rieng biet giua 2 man hinh).
 export function TaoDonMobileScreen({
-  form, canQuanLy, addToast, onClose, onUseOldUi,
+  form, canQuanLy, addToast, onClose, onUseOldUi, nhanDoiGiaoDien,
 }: {
   form: TaoDonForm;
   canQuanLy: boolean;
@@ -57,6 +57,8 @@ export function TaoDonMobileScreen({
   qc: ReturnType<typeof useQueryClient>;
   onClose: () => void;
   onUseOldUi: () => void;
+  // Web (2026-11-17): nut doi qua giao dien day du - form dung chung nen KHONG mat du lieu, khong can hoi lai.
+  nhanDoiGiaoDien?: string;
 }) {
   const {
     danhMuc, nguoiNhanHang, setNguoiNhanHang, drafts, infoExpandedIdx, setInfoExpandedIdx,
@@ -83,7 +85,7 @@ export function TaoDonMobileScreen({
   // canh bao truoc khi chuyen sang giao dien cu hay khong (diem #6).
   const hasDraftData = drafts.some((d) => d.ma_lk.trim() || d.loai_de_xuat.trim() || d.ghi_chu.trim());
   function handleOldUiClick() {
-    if (hasDraftData && !confirmOldUi) {
+    if (!nhanDoiGiaoDien && hasDraftData && !confirmOldUi) {
       setConfirmOldUi(true);
       setTimeout(() => setConfirmOldUi(false), 3000);
       return;
@@ -128,7 +130,7 @@ export function TaoDonMobileScreen({
             onClick={handleOldUiClick}
             className={`focus-ring text-[11px] font-semibold underline underline-offset-2 px-1.5 py-1 rounded ${confirmOldUi ? "text-[var(--coral-600)]" : "text-[var(--ink-500)]"}`}
           >
-            {confirmOldUi ? t("Mất dữ liệu đang nhập — bấm lần nữa?") : t("Dùng giao diện cũ")}
+            {nhanDoiGiaoDien ?? (confirmOldUi ? t("Mất dữ liệu đang nhập — bấm lần nữa?") : t("Dùng giao diện cũ"))}
           </button>
           <button onClick={dong} className="focus-ring w-9 h-9 shrink-0 rounded-lg hover:bg-slate-100 text-[var(--ink-400)] text-lg flex items-center justify-center">
             ✕

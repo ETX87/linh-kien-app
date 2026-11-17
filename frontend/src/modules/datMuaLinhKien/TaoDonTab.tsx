@@ -43,12 +43,25 @@ export function TaoDonTab({
   // Nho lua chon "giao diện cũ" qua localStorage (dung tinh than useLocalStorageState da dung khap
   // app) - CHI anh huong tren mobile (desktop luon dung Modal, khong doc gia tri nay).
   const [preferOldUi, setPreferOldUi] = useLocalStorageState("dmlk-taodon-prefer-old-ui", false);
+  // Web (2026-11-17, "thêm 1 nút đổi qua lại giữa 2 giao diện tạo đơn để người dùng lựa chọn, (lưu cache theo máy khi họ đổi)"):
+  // "day_du" = Modal bang nhieu dong (mac dinh) | "gon" = man tung dong (TaoDonMobileScreen) dat trong khung 560px giua man hinh.
+  const [giaoDienWeb, setGiaoDienWeb] = useLocalStorageState<"day_du" | "gon">("dmlk-taodon-giao-dien-web", "day_du");
   const form = useTaoDonForm({ addToast, qc, canQuanLy, onClose });
   // v1.510: nhac sai loai de xuat theo don bao hanh (cung query goi y voi o Mã đơn bảo hành) - goi TRUOC return mobile (thu tu hook).
   const donBhRows = useGoiYDonBh(form.targetNguoiNhanHang, !isMobile && form.drafts.some((x) => laDonSuaChua(x.loai_de_xuat))).data?.rows;
 
   if (isMobile && !preferOldUi) {
     return <TaoDonMobileScreen form={form} canQuanLy={canQuanLy} addToast={addToast} qc={qc} onClose={onClose} onUseOldUi={() => setPreferOldUi(true)} />;
+  }
+  if (!isMobile && giaoDienWeb === "gon") {
+    // transform tao "containing block" -> fixed inset-0 cua man gon chi phu khung 560px, khong phu ca trang.
+    return (
+      <div className="fixed inset-0 z-50 flex justify-center bg-slate-900/40 backdrop-blur-[1px]">
+        <div className="relative h-full w-full max-w-[560px] shadow-2xl [transform:translateZ(0)]">
+          <TaoDonMobileScreen form={form} canQuanLy={canQuanLy} addToast={addToast} qc={qc} onClose={onClose} onUseOldUi={() => setGiaoDienWeb("day_du")} nhanDoiGiaoDien={t("🖥 Giao diện đầy đủ")} />
+        </div>
+      </div>
+    );
   }
 
   const {
@@ -139,7 +152,11 @@ export function TaoDonTab({
           <button onClick={() => setPreferOldUi(false)} className="focus-ring text-[11px] font-semibold text-[var(--ocean-600)] underline underline-offset-2 px-1">
             {t("Dùng giao diện mới")}
           </button>
-        ) : undefined
+        ) : (
+          <button onClick={() => setGiaoDienWeb("gon")} title={t("Đổi sang giao diện nhập từng dòng (nhớ trên máy này)")} className="focus-ring text-[12px] font-semibold text-[var(--ocean-600)] underline underline-offset-2 px-1">
+            {t("📱 Giao diện gọn")}
+          </button>
+        )
       }
     >
       <XacNhanTaoDonModal open={hoiXacNhan} dong={dongCanXacNhan} onDatTiep={() => create.mutate(true)} onQuayLai={() => setHoiXacNhan(false)} dangGui={create.isPending} />

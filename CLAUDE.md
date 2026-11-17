@@ -1511,3 +1511,11 @@ Nguyên văn yêu cầu (chủ hệ thống): *"luồng "Cấp lk" ... khi đơn
 **(b) Nguyên nhân + đã sửa:** nút tải MISA gộp (`misaExportBulkMutation`, `PhieuXuatKhoTab.tsx`) gọi `GET /phieu-xuat-kho/misa-export` KHÔNG kèm bộ lọc theo cột (`locCot.queryParams` — Loại phiếu, In phiếu, Người tạo, Người nhận…) và dùng `filterTrangThai` thay vì `trangThaiGui` như danh sách. Backend đã dùng chung `pxkListWhere()` với danh sách (v1.438) nên chỉ sửa frontend: gửi đúng cùng bộ tham số với danh sách.
 
 **(d) Kiểm thử:** typecheck 0 lỗi. Chưa bấm thử trên giao diện. Deploy 17/11/2026.
+
+## Nút đổi qua lại 2 giao diện tạo đơn trên web (17/11/2026) — v1.514
+
+**(a) Nguyên văn:** *"trên giao diện tạo đơn đặt linh kiện web, thêm 1 nút đổi qua lại giữa 2 giao diện tạo đơn để người dùng lựa chọn, (lưu cache theo máy khi họ đổi)"*
+
+**(b) Đã làm** (`TaoDonTab.tsx`, `TaoDonMobileScreen.tsx`): trên máy tính, tiêu đề Modal tạo đơn có nút "📱 Giao diện gọn" → hiện màn nhập từng dòng (`TaoDonMobileScreen`) trong khung 560px giữa màn hình (bọc `transform` để `fixed inset-0` của màn gọn chỉ phủ khung); màn gọn có nút "🖥 Giao diện đầy đủ" để quay lại. Lựa chọn nhớ trên máy (`localStorage` `dmlk-taodon-giao-dien-web`, mặc định "đầy đủ"). Hai giao diện dùng chung `useTaoDonForm` nên đổi qua lại KHÔNG mất dữ liệu đang nhập (bỏ hỏi xác nhận khi đổi trên web). Điện thoại giữ nguyên cách cũ (`dmlk-taodon-prefer-old-ui`).
+
+**(d) Kiểm thử:** typecheck 0 lỗi. Chưa bấm thử trên giao diện. Deploy 17/11/2026.
