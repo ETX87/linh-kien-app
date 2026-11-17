@@ -1013,7 +1013,10 @@ xoá mã nguồn 2 phía — FE `components/hoiDap/*` (widget chat, Hỏi nhanh,
 `public/huong-dan-goi/*`, menu "Hỏi đáp" + số đếm Sidebar (`countKey` `hoiDap`), khoá cache `huong-dan` (`TINH_QUERY`), nhánh mở ticket ở chuông thông báo
 (thông báo `hoi_dap` cũ vẫn hiện nhãn, bấm chỉ đánh dấu đã đọc); BE `routes/hoiDap.ts`, `routes/huongDan.ts`, `lib/huongDan.ts` + 2 mount `/api/hoi-dap`,
 `/api/huong-dan` ở `index.ts`. 2 nút nổi "Nạp quỹ" (`NutNopQuyNoi`, `NutNopTienKeToan`) dời vào đúng chỗ nút chat cũ (`right-5 bottom-28`, mobile `right-3`).
-Bảng D1 `hoi_dap`, `hoi_dap_tin`, `huong_dan` (+ trigger `trg_md_huong_dan_*`, domain `md_huong_dan`) VẪN CÒN dữ liệu — chưa xoá, chờ chủ hệ thống quyết.
+Bảng D1 `hoi_dap` (22 dòng), `hoi_dap_tin` (93), `huong_dan` (85) + trigger `trg_md_huong_dan_*`, domain `md_huong_dan`, bộ đếm `id_counters` 'hoi_dap'
+ĐÃ XOÁ bằng migration `0124_xoa_hoi_dap.sql` (chủ hệ thống: "Xoá 3 bảng"); mốc khôi phục Time Travel ghi trong file migration (giữ 30 ngày).
+**Báo cáo bảo mật / audit không đẩy lên repo** (cùng ngày — "xóa vấn đề bảo mật khỏi repo và sau này không đẩy file đó lên"; repo ETX87 công khai):
+`docs/BAO_CAO_BAO_MAT_*` + `docs/audit/` đã gỡ khỏi repo (giữ bản trên máy) và nằm trong `.gitignore`. Báo cáo bảo mật mới đặt vào đó, không commit.
 Mọi mô tả Hỏi đáp bên dưới chỉ còn là lịch sử.
 
 **ĐÃ TẮT CHAT NGƯỜI THẬT** (chốt 2026-11-07, v1.449 — "tắt việc chat với người thât, chỉ để lại tính năng tự động phản hồi hướng dẫn theo các vấn đề có sẵn"): khung icon chat (`HoiDapWidget.tsx`) chỉ còn "Hỏi nhanh" + "Hướng dẫn" cho MỌI người, khung ghi chú `GhiChuTuDong` (`HoiNhanh.tsx`) "tài liệu hướng dẫn tự động … trao đổi trên ứng dụng "Hỏi đáp linh kiện"", bỏ mọi nút "Hỏi Mua hàng" (prop `onHoiMuaHang` không truyền). Backend `hoiDap.ts` hằng `CHAT_NGUOI_THAT = false`: POST `/` + `/:id/tin` → 410 `CHAT_DA_TAT`, `/dem` trả 0, `gui_tin`/`tiep_nhan` false; ticket cũ vẫn xem được, Mua hàng/Admin vẫn đóng được. Bật lại = đổi hằng số + khôi phục widget. Mô tả cũ bên dưới là lịch sử.

@@ -22,3 +22,11 @@ hrApi*.js
 # Thu vien doc chu tren anh (tesseract.js) - vite.config.ts tu chep tu node_modules moi lan build
 frontend/public/ocr/
 *.traineddata
+
+# Bao cao / ra soat bao mat & audit KHONG BAO GIO day len repo (repo ETX87 cong khai) - chot 2026-11-17:
+# "xóa vấn đề bảo mật khỏi repo và sau này không đẩy file đó lên". Giu ban tren may.
+docs/BAO_CAO_BAO_MAT*
+docs/audit/
+**/*BAO_CAO_BAO_MAT*
+**/*bao_mat*.md
+**/*SECURITY_AUDIT*
