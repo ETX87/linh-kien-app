@@ -111,6 +111,18 @@ vẫn hoạt động) → Tác nghiệp duyệt tổng (đồng ý/từ chối) 
   dư/hạn mức ở giai đoạn này. *(Nguồn #2, điểm 13 — chốt câu hỏi C1)* → ✅ Đúng theo yêu cầu (chưa có
   tính năng này, không phải thiếu sót).
 
+### A8. SLA từng bước, quá hạn, giải trình, gắn thẻ vi phạm (2026-11-17, v1.517)
+
+- Nguyên văn quản lý: *"API: Bổ sung: Trả hàng - Các ca quá hạn - giải trình liên quan; Đặt linh kiện - Các ca quá hạn; Các ca bị gắn thẻ
+  vi phạm"*, *"Cải tiến đặt hàng: Trạng thái ghi rõ thuộc bước nào; Đặt SLA từng bước; Các ca quá hạn xử lý"*. Chốt: *"app vi phạm là 1 app
+  bên ngoài … triển khai theo hướng mở để đối tác tự kéo, chúng ta cung cấp api là đc"*.
+- Mỗi bước có SLA (giờ) do Admin cấu hình; quá hạn → bộ phận phụ trách giải trình trong hạn giải trình; hết hạn chưa giải trình → gắn thẻ
+  vi phạm; Admin gỡ thẻ kèm lý do. Màn "Quá hạn & vi phạm" cho nhân viên văn phòng. Đối tác đọc `GET /api/partner/v1/vi-pham`. → ✅ Đã làm.
+- Mặc định (chưa có số chốt từ quản lý): 24h mỗi bước (Mua hàng 48h), hạn giải trình 24h, không tính cuối tuần. Bước "KTV xác nhận đã
+  nhận hàng" / "KTV chuyển tiền" CHƯA tính (đã có tự xác nhận sau 10 ngày; KTV chưa có màn giải trình). → ⏳ Chờ quản lý chốt số giờ.
+- Chưa làm: "Trả key API cũ" (key chỉ lưu dạng băm — không lấy lại được bản gốc, cần quản lý nói rõ là cấp lại hay thu hồi); luồng
+  chuyển kho nội bộ thật.
+
 ---
 
 ## PHẦN B — Yêu cầu bảo mật, phân quyền & kiến trúc dữ liệu

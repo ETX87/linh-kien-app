@@ -80,10 +80,20 @@ Kế toán chốt → Kho nhận hàng trả. Mỗi giai đoạn hạn 24h, quá
 tiêu hao bên app Bảo hành → tự tạo đơn TRỪ CÔNG NỢ - SỬA CHỮA / TRẢ HÀNG CÔNG NỢ - SỬA CHỮA đi thẳng Kế toán. Đơn "SỬA CHỮA TẠI KHO" cũ
 đồng bộ về chỉ để xem (khoá bằng trigger).
 
+## 10a. SLA, quá hạn & vi phạm
+
+12 bước có SLA (bảng `sla_buoc`, Admin sửa ở menu "Quá hạn & vi phạm" › Cấu hình SLA): TBP xác nhận, GS duyệt vượt trần, Duyệt đơn
+(TN), Kho tiếp nhận thiếu hàng, Mua hàng đặt hàng, Kế toán xác nhận chuyển tiền, Kế toán chốt phiếu, Kho xuất hàng, 4 bước trả hàng.
+Hạn = lúc vào bước + số giờ; hạn rơi vào T7/CN thì dời sang thứ Hai (trừ bước bật "tính cuối tuần"). Cron mỗi giờ quét thực thể đang ở
+bước + thực thể có log mới → bước quá hạn thành 1 ca `vi_pham` "Chờ giải trình" (hạn giải trình = lúc quá hạn, không sớm hơn lúc ghi nhận,
++ số giờ giải trình). Bộ phận phụ trách (theo cờ vai trò; Kế toán làm thay TN) giải trình → "Đã giải trình"; hết hạn → "Gắn thẻ"; Admin gỡ →
+"Đã gỡ thẻ". Lý do chậm bắt buộc của trả hàng và giải trình lý do chậm trên đơn tự thành giải trình. Ca vẫn giữ khi đơn rời bước (ghi người
+xử lý, lúc rời). Lần đầu chạy không quét ngược lịch sử. Đối tác kéo `GET /api/partner/v1/vi-pham` (con trỏ `cap_nhat_luc`, `id`).
+
 ## 10. Lịch chạy tự động (cron mỗi giờ)
 
 Đồng bộ danh bạ KTV / danh mục LK sang DVBH + app Bảo hành mỗi giờ; giá gia88 0h VN; ETX nhân sự 0h thứ Hai (tự tạo KTV + tài khoản, nghỉ
-việc tự khoá); 8h VN tự xác nhận phiếu quá hạn nhận + nhắc KTV; 0h dọn thông báo cũ / bộ đếm ảnh.
+việc tự khoá); 8h VN tự xác nhận phiếu quá hạn nhận + nhắc KTV; mỗi giờ quét quá hạn SLA + gắn thẻ vi phạm; 0h dọn thông báo cũ / bộ đếm ảnh.
 
 ## 11. Kết nối hệ khác
 

@@ -66,3 +66,27 @@ dùng để hiện trên từng ca (tra cứu trực tiếp, luôn là tên mớ
 extractMaKtv`. → Không bị ảnh hưởng, không cần sửa.
 Dữ liệu thật (SELECT D1 remote): 1.211 mã KTV, 0 mã trùng theo hoa/thường. 2 dòng có `ten_hien_thi` lệch mã (`huytp.ctv-kdtt` mang tên
 "(huytp.kdtt)…", và 1 dòng `ma_ktv` dính cả hàng dữ liệu dán có tab "NS-487…") — lỗi nhập liệu danh bạ, chưa sửa (cần người quyết).
+
+
+## 2026-11-17 — SLA từng bước, quá hạn, giải trình, gắn thẻ vi phạm + API đối tác (v1.517, migration 0125)
+
+**Yêu cầu (quản lý, nguyên văn)**: "A. App đặt linh kiện 1. Trả key API cũ 2. API: Bổ sung: Trả hàng - Các ca quá hạn - giải trình liên quan /
+Đặt linh kiện - Các ca quá hạn / Các ca bị gắn thẻ vi phạm 3. Cải tiến Trả hàng … thiếu giải trình gắn thẻ → Đổ về App Tổng hợp vi phạm / Đặt
+hàng: … 4. Cải tiến đặt hàng: Trạng thái ghi rõ thuộc bước nào, Đặt SLA từng bước, Các ca quá hạn xử lý 5. Có tình huống nào xử lý loằng
+ngoằng ko? Chuyển kho thì ntn?". Chốt thêm: "app vi phạm là 1 app bên ngoài … chỉ cần các thông tin ghi nhận vi phạm trên app linh kiện" →
+"triển khai theo hướng mở để đối tác tự kéo, chúng ta cung cấp api là đc".
+
+**Đã làm**: `migrations/0125_vi_pham_sla.sql` (`sla_buoc`, `vi_pham`, `vi_pham_quet`); `lib/viPham.ts` (12 bước, tính hạn, quét theo mốc id
+log, giải trình tự động từ lý do chậm, gắn thẻ); `routes/viPham.ts` `/api/vi-pham` (danh sách + lọc cột kiểu Excel, đếm, giải trình, gỡ thẻ,
+cấu hình SLA, quét ngay); cron mỗi giờ; `GET /api/partner/v1/vi-pham` + `/v1/vi-pham/buoc` (tài liệu API 1.8 §4.18); badge
+`viPhamCanGiaiTrinh`; FE `modules/ViPhamModule.tsx` (menu "Quá hạn & vi phạm", tab theo trạng thái, chi tiết luồng ngang + "Xem chi tiết",
+hộp giải trình / gỡ thẻ, Cấu hình SLA); dịch EN/ID.
+
+**Kiểm thử (local, D1 dev)**: quét lần đầu ghi 65 ca đang quá hạn, lần 2 không trùng; đơn trả hàng rời bước kèm lý do chậm → tự "Đã giải
+trình" + ghi người / lúc rời bước; hạn giải trình qua → "Gắn thẻ"; giải trình lần 2 → 409, giải trình sau gắn thẻ → `DA_GAN_THE`; gỡ thẻ OK;
+API đối tác: con trỏ trang 2 nối đúng, lọc trạng thái/loại, bước sai 400, thiếu key 401; giao diện: giải trình qua form lưu đúng tiếng Việt,
+chi tiết hiện 4 mốc, lưu cấu hình SLA. Typecheck 2 phía sạch.
+
+**Còn dở / cần quản lý chốt**: số giờ SLA thật (đang mặc định 24h, Mua hàng 48h, giải trình 24h); bước của KTV chưa tính; "Trả key API cũ"
+(key chỉ lưu băm — cần nói rõ cấp lại hay thu hồi); chuyển kho nội bộ chưa có luồng thật; lý do chậm bắt buộc của trả hàng vẫn cố định 24h
+(đổi SLA trả hàng ở cấu hình không đổi chỗ bắt buộc đó). Chưa cập nhật nội dung tĩnh "Luồng & logic hệ thống".

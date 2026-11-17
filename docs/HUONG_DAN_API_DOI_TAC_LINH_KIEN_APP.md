@@ -1,6 +1,6 @@
 # Hướng dẫn tích hợp API — Hệ thống Mua hàng linh kiện (dành cho đối tác DVBH)
 
-Phiên bản tài liệu: 1.7 — 2026-11-11 · Phiên bản API: **v1**
+Phiên bản tài liệu: 1.8 — 2026-11-17 · Phiên bản API: **v1**
 
 Tài liệu này mô tả các API **chỉ đọc** mà hệ thống Mua hàng linh kiện mở cho đối tác tra cứu:
 lịch sử đơn hàng theo mã ca, tồn kho, lịch sử đặt hàng của từng mã linh kiện, và danh mục linh kiện chi
@@ -12,6 +12,7 @@ Thay đổi 1.3: bổ sung 4.11 thiếu hàng (ticket chờ hàng) và 4.12 tồ
 Thay đổi 1.4: 4.7 nhóm thay thế đã CÓ DỮ LIỆU (trước 2026-10-19 trả `rows: []` vì dữ liệu nằm ngoài hệ thống); mỗi mã thêm `co_trong_danh_muc` + `ghi_chu`.
 Thay đổi 1.5: bổ sung **ID Lada** (`ma_lada`) — trước đây API chỉ trả mã ca / mã YCSC (ID CRM) nên đối tác không nhận được ID Lada. Thêm trường
 `ma_lada` + `ma_yeu_cau_su_co` cho đơn ở 4.1 `case-timeline`, 4.4 `linh-kien/lich-su`, 4.11 `thieu-hang`; thêm mục 4.15 giải thích 2 loại mã.
+Thay đổi 1.8: bổ sung mục 4.18 **quá hạn SLA, giải trình, gắn thẻ vi phạm** (`GET /v1/vi-pham`, `GET /v1/vi-pham/buoc`) — đối tác tự kéo.
 Thay đổi 1.7: mục 4.17 thêm trường `email_nguoi_dat` (đặt thay đúng người dùng — chỉ khóa được quản trị viên bật "đặt thay đúng người bấm").
 Thay đổi 1.6: bổ sung mục 4.17 **đặt linh kiện qua API** (`POST /v1/dat-hang`, `POST /v1/dat-hang/kiem-tra`, `GET /v1/dat-hang`,
 `GET /v1/loai-de-xuat`) — API GHI đầu tiên; chỉ dùng được với khóa đã được quản trị viên gán "Tài khoản đặt hàng".
@@ -782,6 +783,63 @@ Lịch sử xử lý chi tiết theo mã ca: mục 4.1.
 **Danh mục loại đề xuất — `GET /v1/loai-de-xuat`:** `rows: [{ ten, nhom, loai_don, dat_qua_api }]`.
 
 Hủy đơn / chuyển tiền chưa có API — thao tác trên app.
+
+### 4.18. Quá hạn SLA, giải trình, gắn thẻ vi phạm — `GET /v1/vi-pham`
+
+Mỗi bước xử lý có hạn (SLA, giờ). Đơn / ticket / phiếu nằm ở 1 bước quá hạn → hệ thống ghi nhận 1 **ca quá hạn**, bộ phận phụ trách
+giải trình trong "hạn giải trình"; hết hạn mà chưa giải trình → **gắn thẻ vi phạm**. Quản trị viên có thể gỡ thẻ (kèm lý do). Hệ thống
+quét **mỗi giờ**. Đối tác **tự kéo** — app không đẩy sang.
+
+**Vòng đời `trang_thai`:** `Cho giai trinh` → `Da giai trinh` | `Gan the` → (`Da go the`). Ca vẫn giữ nguyên sau khi đơn rời bước
+(`ket_thuc_luc` được điền).
+
+**Các bước (`buoc`)** — danh mục + SLA đang áp: `GET /v1/vi-pham/buoc`.
+
+| `buoc` | Bước | `loai` | `bo_phan` | Đối tượng |
+|---|---|---|---|---|
+| `tbp_xac_nhan` | TBP xác nhận LK đặc thù | dat_hang | tbp | đơn |
+| `gs_duyet` | GS duyệt đơn vượt trần | dat_hang | gs | đơn |
+| `tn_duyet` | Duyệt đơn (Tác nghiệp) | dat_hang | tn | đơn |
+| `kho_thieu` | Kho tiếp nhận thiếu hàng | dat_hang | kho | ticket thiếu hàng |
+| `mua_hang_dat` | Mua hàng đặt hàng | dat_hang | mua_hang | ticket thiếu hàng |
+| `kt_duyet_tien` | Kế toán xác nhận chuyển tiền | theo phiếu | ke_toan | phiếu |
+| `kt_chot_phieu` | Kế toán chốt phiếu xuất | theo phiếu | ke_toan | phiếu |
+| `kho_xuat` | Kho xuất hàng | theo phiếu | kho | phiếu |
+| `th_ke_toan` / `th_kho` / `th_qc` / `th_tn` | 4 bước duyệt đơn trả hàng | tra_hang | ke_toan / kho / qc / tn | đơn |
+
+**Tham số:** `cap_nhat_tu` + `after_id` (con trỏ), `loai=dat_hang|tra_hang`, `trang_thai` (nhiều giá trị, phân cách dấu phẩy),
+`buoc`, `bo_phan`, `khu_vuc`, `don` (mã DDH — gồm cả ca của phiếu chứa đơn đó), `limit` (≤ 500, mặc định 200).
+
+**Đồng bộ tăng dần:** sắp xếp theo `cap_nhat_luc, id`. Mọi thay đổi (ghi nhận mới, rời bước, giải trình, gắn thẻ, gỡ thẻ) đều làm mới
+`cap_nhat_luc`. Gọi lần đầu không có con trỏ; lấy `next.cap_nhat_tu` + `next.after_id` gọi tiếp tới khi `next = null`; lưu con trỏ cuối, lần
+sau gọi từ đó. Dòng đã nhận có thể xuất hiện lại khi đổi trạng thái → ghi đè theo `id`.
+
+```json
+{
+  "rows": [{
+    "id": 59, "buoc": "kho_thieu", "ten_buoc": "Kho tiếp nhận thiếu hàng", "loai": "dat_hang",
+    "bo_phan": "kho", "ten_bo_phan": "Kho", "doi_tuong": "ticket", "doi_tuong_id": "TLK-000078",
+    "dat_don_hang_id": "DDH-000216", "phieu_xuat_kho_id": null, "don_ids": ["DDH-000216"],
+    "ma_yeu_cau_su_co": "SC261003300", "ma_lada": null, "ma_lk": "2004020155", "ten_lk": "Lõi …", "loai_de_xuat": "…",
+    "khu_vuc_ma": "MN3", "nguoi_nhan_hang": "ktv@…", "nguoi_nhan_hang_ten": "…",
+    "moc_vao": "2026-11-11 11:19:04", "so_gio_sla": 24, "han": "2026-11-12 11:19:04", "so_gio_tre": 130, "dang_cho": true,
+    "ket_thuc_luc": null, "trang_thai_sau": null, "nguoi_xu_ly": null, "nguoi_xu_ly_ten": null, "nguoi_xu_ly_ma_nhan_su": null,
+    "trang_thai": "Da giai trinh", "han_giai_trinh": "2026-11-18 21:21:19",
+    "giai_trinh": "Kho chờ hàng nhà cung cấp về", "nguoi_giai_trinh": "kho@…", "nguoi_giai_trinh_ten": "…",
+    "nguoi_giai_trinh_ma_nhan_su": "NS-1234", "giai_trinh_luc": "2026-11-17 21:40:00", "giai_trinh_tu_dong": false,
+    "gan_the_luc": null, "go_the_ly_do": null, "go_the_boi": null, "go_the_luc": null,
+    "tao_luc": "2026-11-17 21:21:19", "cap_nhat_luc": "2026-11-17 21:40:00"
+  }],
+  "next": { "cap_nhat_tu": "2026-11-17 21:40:00", "after_id": 59 },
+  "thoi_diem": "2026-11-17 21:45:00"
+}
+```
+
+Ghi chú: giờ theo giờ Việt Nam (`YYYY-MM-DD HH:MM:SS`). `han` không rơi vào T7/CN (dời sang thứ Hai) trừ bước bật "tính cuối tuần".
+`so_gio_tre` = (`ket_thuc_luc` hoặc thời điểm gọi) − `han`. `nguoi_xu_ly` = người làm đơn rời bước (có thể khác bộ phận phụ trách, vd hủy
+đơn). `giai_trinh_tu_dong = true`: giải trình lấy từ lý do chậm đã nhập lúc xử lý (trả hàng) hoặc giải trình lý do chậm trên đơn. Người
+định danh bằng email + `ma_nhan_su` (NS-xxxx). `so_gio_sla` là SLA tại thời điểm ghi nhận (đổi cấu hình sau không đổi ca cũ). Lỗi:
+`INVALID_LOAI`, `INVALID_BUOC` (400).
 
 ## 5. Bảo mật & sử dụng dữ liệu
 

@@ -10,6 +10,9 @@ import { ktvChinhCuaEmailSql } from "../lib/ktvChinh";
 import { TRANG_THAI_PXK_DON_SQL } from "../lib/trangThaiDonPxk";
 import { ganRouteDatHang } from "./partnerDatHang";
 import { docDongHoaDon } from "../lib/hoaDonDvbh";
+import { VI_PHAM_COT_SQL, VI_PHAM_FROM_SQL, boSungViPham, type ViPhamRow } from "./viPham";
+import { BUOC_THEO_MA } from "../lib/viPham";
+import { nowVN } from "../lib/vnTime";
 
 // API tra cuu cho CAC HE THONG DOI TAC ben ngoai (khac hoan toan cac router khac trong app - khong
 // dung verifySessionMiddleware/cookie, xac thuc rieng qua header "X-API-Key", xem
@@ -576,6 +579,85 @@ partnerApi.post("/v1/don-gan-nhat-theo-ca", async (c) => {
     };
   });
   return c.json({ rows });
+});
+
+
+// GET /api/partner/v1/vi-pham (2026-11-17, v1.517) - cac ca QUA HAN SLA tung buoc + giai trinh + gan the vi pham (xem lib/viPham.ts).
+// Doi tac TU KEO (chot quan ly). Con tro: cap_nhat_tu + after_id (thu tu cap_nhat_luc, id) - moi doi trang thai / giai trinh / roi buoc
+// deu doi cap_nhat_luc nen doi tac keo lai tu con tro cuoi la nhan du thay doi. Loc: loai=dat_hang|tra_hang, trang_thai (danh sach,
+// "Cho giai trinh,Da giai trinh,Gan the,Da go the"), buoc, bo_phan, don (ma DDH), khu_vuc. limit <= 500.
+partnerApi.get("/v1/vi-pham", async (c) => {
+  const db = c.env.DB;
+  const limit = Math.min(500, Math.max(1, Number(c.req.query("limit") ?? 200) || 200));
+  const dk: string[] = ["1 = 1"];
+  const binds: unknown[] = [];
+  const tu = c.req.query("cap_nhat_tu")?.trim();
+  const afterId = Number(c.req.query("after_id") ?? "");
+  if (tu && Number.isFinite(afterId) && afterId > 0) {
+    dk.push("(v.cap_nhat_luc > ? OR (v.cap_nhat_luc = ? AND v.id > ?))");
+    binds.push(tu, tu, afterId);
+  } else if (tu) {
+    dk.push("v.cap_nhat_luc >= ?");
+    binds.push(tu);
+  }
+  const loai = c.req.query("loai");
+  if (loai) {
+    if (loai !== "dat_hang" && loai !== "tra_hang") return c.json({ error: "INVALID_LOAI" }, 400);
+    dk.push("v.loai = ?");
+    binds.push(loai);
+  }
+  const trangThai = tachMa(c.req.query("trang_thai"));
+  if (trangThai.length) {
+    dk.push("v.trang_thai IN (SELECT value FROM json_each(?))");
+    binds.push(JSON.stringify(trangThai));
+  }
+  const buoc = tachMa(c.req.query("buoc"));
+  if (buoc.some((b) => !BUOC_THEO_MA.has(b))) return c.json({ error: "INVALID_BUOC" }, 400);
+  if (buoc.length) {
+    dk.push("v.buoc IN (SELECT value FROM json_each(?))");
+    binds.push(JSON.stringify(buoc));
+  }
+  const boPhan = tachMa(c.req.query("bo_phan"));
+  if (boPhan.length) {
+    dk.push("v.bo_phan IN (SELECT value FROM json_each(?))");
+    binds.push(JSON.stringify(boPhan));
+  }
+  const khuVuc = tachMa(c.req.query("khu_vuc"));
+  if (khuVuc.length) {
+    dk.push("v.khu_vuc_ma IN (SELECT value FROM json_each(?))");
+    binds.push(JSON.stringify(khuVuc));
+  }
+  const don = tachMa(c.req.query("don")).map((x) => x.toUpperCase());
+  if (don.length) {
+    dk.push(`(v.dat_don_hang_id IN (SELECT value FROM json_each(?))
+             OR v.phieu_xuat_kho_id IN (SELECT pd.phieu_xuat_kho_id FROM phieu_xuat_kho_dong pd WHERE pd.dat_don_hang_id IN (SELECT value FROM json_each(?))))`);
+    binds.push(JSON.stringify(don), JSON.stringify(don));
+  }
+  const { results } = await db
+    .prepare(`SELECT ${VI_PHAM_COT_SQL} ${VI_PHAM_FROM_SQL} WHERE ${dk.join(" AND ")} ORDER BY v.cap_nhat_luc, v.id LIMIT ?`)
+    .bind(...binds, limit)
+    .all<ViPhamRow & { cap_nhat_luc: string }>();
+  const now = nowVN();
+  const rows = (results ?? []).map((r) => boSungViPham(r, now));
+  const cuoi = results && results.length === limit ? results[results.length - 1] : null;
+  return c.json({ rows, next: cuoi ? { cap_nhat_tu: cuoi.cap_nhat_luc, after_id: cuoi.id } : null, thoi_diem: now });
+});
+
+// GET /api/partner/v1/vi-pham/buoc - danh muc buoc + SLA dang ap (de doi tac hien thi / doi chieu).
+partnerApi.get("/v1/vi-pham/buoc", async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT ma, so_gio, gio_giai_trinh, tinh_cuoi_tuan, bat_tat FROM sla_buoc").all<{
+    ma: string; so_gio: number; gio_giai_trinh: number; tinh_cuoi_tuan: number; bat_tat: number;
+  }>();
+  const cfg = new Map((results ?? []).map((r) => [r.ma, r]));
+  return c.json({
+    buoc: [...BUOC_THEO_MA.values()].map((b) => {
+      const k = cfg.get(b.ma);
+      return {
+        ma: b.ma, ten: b.ten, loai: b.loai, bo_phan: b.boPhan, doi_tuong: b.doiTuong,
+        so_gio_sla: k?.so_gio ?? null, gio_giai_trinh: k?.gio_giai_trinh ?? null, tinh_cuoi_tuan: !!k?.tinh_cuoi_tuan, bat: !!k?.bat_tat,
+      };
+    }),
+  });
 });
 
 // Dat linh kien qua API (v1.470) - xem routes/partnerDatHang.ts.

@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import type { Env, AppUser } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
+import { boPhanCua } from "../lib/viPham";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
 import { phuTrachGsSet, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql } from "../lib/scopeDatMua";
 
@@ -108,6 +109,8 @@ export interface NotificationsCountPayload {
   lkChoXetDuyet: number;
   // Phieu hoan tien quy can minh xu ly (migration 0090) - badge muc "Quỹ & chuyển tiền": chu quy cho xac nhan + Ke toan cho xac nhan huy.
   hoanTienCanXuLy: number;
+  // Vi pham qua han cho chinh bo phan minh giai trinh (migration 0125) - badge muc "Quá hạn & vi phạm".
+  viPhamCanGiaiTrinh?: number;
   // KTV nop tien vao quy cho Ke toan xac nhan (migration 0104) - Sidebar cong vao so muc "Quỹ & chuyển tiền".
   nopTienCanXuLy: number;
 }
@@ -454,7 +457,14 @@ notifications.get("/count", async (c) => {
     : null;
   const hoanTienCanXuLy = await demHoanTienCanXuLy(c.env.DB, user);
   const nopTienCanXuLy = await demNopTienCanXuLy(c.env.DB, user);
-  const data: NotificationsCountPayload = { datMuaLk, ktvLogChuaDoc: row?.n ?? 0, lkChoXetDuyet: lkRow?.n ?? 0, hoanTienCanXuLy, nopTienCanXuLy };
+  const boPhan = boPhanCua(user);
+  const vpRow = boPhan.length && !user.la_ktv_dvbh && !user.la_ve_tinh
+    ? await c.env.DB.prepare("SELECT COUNT(*) as n FROM vi_pham WHERE trang_thai = 'Cho giai trinh' AND bo_phan IN (SELECT value FROM json_each(?))")
+        .bind(JSON.stringify(boPhan)).first<{ n: number }>()
+    : null;
+  const data: NotificationsCountPayload = {
+    datMuaLk, ktvLogChuaDoc: row?.n ?? 0, lkChoXetDuyet: lkRow?.n ?? 0, hoanTienCanXuLy, nopTienCanXuLy, viPhamCanGiaiTrinh: vpRow?.n ?? 0,
+  };
   return c.json(data);
 });
 

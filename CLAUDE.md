@@ -1533,6 +1533,23 @@ Nguyên văn yêu cầu (chủ hệ thống): *"luồng "Cấp lk" ... khi đơn
 
 **v1.515 (17/11/2026)** — nguyên văn: *"giao diện gọn đang bị thu nhỏ trên web"*. Khung giao diện gọn trên web đổi từ rộng 560px sang 95% × 95% màn hình, căn giữa, bo góc (như Modal đầy đủ); bỏ chiều cao cứng `100dvh` của màn gọn khi đặt trong khung web (để thanh nút dưới không bị cắt). Typecheck 0 lỗi, chưa bấm thử giao diện.
 
+## SLA từng bước, quá hạn, giải trình, gắn thẻ vi phạm (17/11/2026) — v1.517, migration `0125`
+
+**(a) Nguyên văn:** quản lý yêu cầu *"API: Bổ sung: Trả hàng - Các ca quá hạn - giải trình liên quan / Đặt linh kiện - Các ca quá hạn / Các ca bị gắn thẻ vi phạm"*, *"Đặt SLA từng bước / Các ca quá hạn xử lý"*; chốt *"app vi phạm là 1 app bên ngoài … triển khai theo hướng mở để đối tác tự kéo, chúng ta cung cấp api là đc"*.
+
+**(b) Thiết kế:**
+- Định nghĩa bước (trạng thái, bảng log, bộ phận) ở CODE `BUOC_VI_PHAM` (`lib/viPham.ts`); bảng `sla_buoc` chỉ giữ phần Admin sửa (số giờ, giờ giải trình, tính cuối tuần, bật/tắt). Thêm bước = thêm dòng code + seed migration.
+- `quetViPham()` (cron mỗi giờ + `POST /api/vi-pham/quet` Admin): mỗi nguồn (`dat_don_hang_log`, `tra_hang_log`, `thieu_lk_log`, `phieu_xuat_kho_log`, `khoan_chuyen_tien`) đọc thực thể ĐANG ở bước theo dõi + thực thể có log id > mốc (`vi_pham_quet`), gộp log thành khoảng (bỏ log cùng trạng thái + trạng thái chỉ-audit của phiếu — `TRANG_THAI_THAT`; thêm trạng thái thật mới ở log phải thêm vào đây), khoảng quá hạn → UPSERT `vi_pham` (khoá `buoc, doi_tuong_id, moc_vao`; chỉ cập nhật khi rời bước). Lần đầu: mốc = id hiện tại, KHÔNG quét ngược lịch sử. Hạn giải trình tính từ max(hạn, lúc ghi nhận).
+- Giải trình tự động: trả hàng — log rời bước có ghi chú "Chậm quá hạn…" (`traHang.ts` bắt chọn lý do chậm); `tn_duyet` — `dat_don_hang_giai_trinh` trong khoảng. Đổi câu "Chậm quá hạn" ở `traHang.ts` phải sửa điều kiện `startsWith` ở `lenhGiaiTrinhTuDong`.
+- Kế toán duyệt tiền: khoảng = `khoan_chuyen_tien.ktv_bao_chuyen_luc` → `duyet_luc`; đang chờ = phiếu `trang_thai_chuyen_tien='KTV da chuyen'` (`ngay_ktv_chuyen`); TN trả lại / KTV rút lại → đóng ca ở lúc quét.
+- Quyền: xem = nhân viên văn phòng + Admin (cùng tập Báo cáo tốc độ); giải trình = `boPhanCua()` (cờ vai trò, Kế toán có `tn` qua `keToanLamThayTn`) + Admin; gỡ thẻ / cấu hình / quét = Admin. Badge `viPhamCanGiaiTrinh` (`/notifications/count`).
+- API đối tác `GET /api/partner/v1/vi-pham` (con trỏ `cap_nhat_tu` + `after_id` theo `cap_nhat_luc, id`; lọc loai/trang_thai/buoc/bo_phan/khu_vuc/don) + `/v1/vi-pham/buoc`; cột chung `VI_PHAM_COT_SQL` / `boSungViPham` ở `routes/viPham.ts` (màn nội bộ + API cùng 1 bộ). Tài liệu §4.18.
+- FE `modules/ViPhamModule.tsx` (key `vi-pham`, nhóm "Hệ thống").
+
+**(c) Chưa làm / mặc định chờ chốt:** SLA mặc định 24h (Mua hàng 48h), giải trình 24h; bước KTV chưa tính; lý do chậm bắt buộc của trả hàng vẫn cố định 24h (`hanLyDoCham.ts`) — không theo cấu hình; chưa cập nhật `luongHeThong/noiDung.ts`.
+
+**(d) Kiểm thử:** local D1 dev + giao diện — xem `nhat_ky_lam_viec.md` cùng ngày.
+
 ## Nhận việc từ Trợ lý Mây (tự sửa)
 - Issue gắn nhãn `may:phan-tich` là ĐỀ XUẤT CẢI TIẾN cần phân tích trước: workflow `may-phan-tich` chỉ ĐỌC mã để soạn BRD cho Giám đốc duyệt — không sửa mã ở bước này. Khi duyệt, BRD nằm ở đầu issue; làm đúng BRD và lưu nó vào `docs/yeu-cau/MAY-xxxxx.md`.
 - Issue gắn nhãn `may:tu-sua` là việc do Trợ lý Mây chuyển sang, mã `MAY-xxxxx` ở tiêu đề. Sửa ĐÚNG phạm vi mô tả.

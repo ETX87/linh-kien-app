@@ -6,7 +6,7 @@ export interface NavItem {
   label: string;
   // Tên khoá trong `Icon` (components/ui/Icon.tsx) — hoặc 1 emoji (fallback cho link ngoài).
   icon: keyof typeof Icon | string;
-  countKey?: "datMuaLk" | "phieuXuat" | "ktvLogChuaDoc" | "thieuLk" | "lkChoXetDuyet" | "hangTra" | "hoanTienCanXuLy";
+  countKey?: "datMuaLk" | "phieuXuat" | "ktvLogChuaDoc" | "thieuLk" | "lkChoXetDuyet" | "hangTra" | "hoanTienCanXuLy" | "viPham";
   // Chi hien tren desktop (Sidebar rong) - mobile gop vao muc khac (vd "Hàng trả" nam trong menu con "Đơn hàng").
   desktopOnly?: boolean;
   // "href" — mục menu là LIÊN KẾT RA NGOÀI (Worker/app khác), KHÔNG tham gia allowedModules/setActive;
@@ -46,6 +46,8 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Hệ thống",
     items: [
       { key: "bao-cao-toc-do", label: "Báo cáo tốc độ xử lý", icon: "chart" },
+      // Qua han SLA / giai trinh / gan the vi pham (2026-11-17, v1.517) - moi nhan vien van phong + Admin (App.tsx).
+      { key: "vi-pham", label: "Quá hạn & vi phạm", icon: "clock", countKey: "viPham" },
       // So do toan bo luong nghiep vu (2026-11-11, v1.471) - noi dung tinh, moi nhan vien van phong + Admin (App.tsx).
       { key: "luong-he-thong", label: "Luồng & logic hệ thống", icon: "flow" },
       { key: "settings", label: "Cài đặt", icon: "settings" },
@@ -73,6 +75,7 @@ export const MODULE_TITLES: Record<string, string> = {
   "quy-chuyen-tien": "Quỹ & chuyển tiền",
   "bao-cao-toc-do": "Báo cáo tốc độ xử lý",
   "luong-he-thong": "Luồng & logic hệ thống",
+  "vi-pham": "Quá hạn & vi phạm",
   settings: "Cài đặt",
   users: "Quản lý người dùng",
 };
@@ -103,11 +106,13 @@ export interface NavCounts {
   // Phieu hoan tien quy can minh xu ly (backend demHoanTienCanXuLy, migration 0090).
   hoanTienCanXuLy?: number;
   nopTienCanXuLy?: number;
+  viPhamCanGiaiTrinh?: number;
 }
 // tachHangTra: desktop co muc "Hàng trả" rieng -> viec tra hang cua Ke toan/Kho/QC khong tinh vao "Đơn hàng" nua.
 export function navCount(countKey: NavItem["countKey"], counts: NavCounts | undefined, tachHangTra = false): number {
   if (!countKey || !counts) return 0;
   if (countKey === "hangTra") return counts.hangTra ?? 0;
+  if (countKey === "viPham") return counts.viPhamCanGiaiTrinh ?? 0;
   if (countKey === "hoanTienCanXuLy") return (counts.hoanTienCanXuLy ?? 0) + (counts.nopTienCanXuLy ?? 0);
   if (countKey === "ktvLogChuaDoc") return counts.ktvLogChuaDoc;
   if (countKey === "lkChoXetDuyet") return counts.lkChoXetDuyet ?? 0;

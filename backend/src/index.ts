@@ -14,6 +14,8 @@ import traHangRoutes from "./routes/traHang";
 import quyKtvRoutes from "./routes/quyKtv";
 import khachLeRoutes from "./routes/khachLe";
 import baoCaoTocDoXuLyRoutes from "./routes/baoCaoTocDoXuLy";
+import viPhamRoutes from "./routes/viPham";
+import { quetViPham } from "./lib/viPham";
 import pushRoutes from "./routes/push";
 import dvbhSyncRoutes from "./routes/dvbhSync";
 import gia88SyncRoutes from "./routes/gia88Sync";
@@ -71,6 +73,7 @@ app.route("/api/thieu-hang-bh", thieuHangBhRoutes); // Thieu hang bao hanh tu ap
 app.route("/api/khach-le", khachLeRoutes);
 app.route("/api/doi-tac-cong-no", doiTacCongNoRoutes); // MUA HÀNG CÔNG NỢ ĐỐI TÁC (2026-10-26, migration 0099)
 app.route("/api/bao-cao-toc-do", baoCaoTocDoXuLyRoutes);
+app.route("/api/vi-pham", viPhamRoutes); // Qua han SLA / giai trinh / gan the vi pham (2026-11-17, migration 0125)
 app.route("/api/push", pushRoutes);
 app.route("/api/dvbh-sync", dvbhSyncRoutes);
 app.route("/api/gia88-sync", gia88SyncRoutes);
@@ -101,6 +104,8 @@ export default {
   scheduled: async (event: ScheduledEvent, env: Env, ctx: ExecutionContext) => {
     ganEnvToanCuc(env);
     ctx.waitUntil(runDvbhSync(env, env.DB));
+    // Qua han SLA tung buoc -> ghi nhan vi pham + gan the khi het han giai trinh (lib/viPham.ts) - moi gio.
+    ctx.waitUntil(quetViPham(env.DB).then(() => undefined).catch((err) => console.error("[quetViPham]", err)));
     // Them 2026-09-12: PULL bang gia tu doi tac gia88 1 lan/dem luc 0h GIO VN = 17h UTC (xem
     // lib/gia88Sync.ts) - tai dung DUNG cron hang gio co san thay vi them 1 entry cron rieng, chi gate
     // theo gio de tranh chay 24 lan/ngay khong can thiet (doi tac chi khuyen nghi "moi ngay/moi ca").
