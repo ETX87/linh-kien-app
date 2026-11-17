@@ -1,0 +1,96 @@
+# Tổng hợp logic — App Đặt linh kiện (`linh-kien-app`)
+
+> Mô tả logic **đang chạy thật** (theo code + `CLAUDE.md` tới 17/11/2026, v1.516). `CLAUDE.md` giữ chi tiết kỹ thuật (tên hàm, mã lỗi,
+> migration, lý do từng quyết định); file này là bản tóm tắt nghiệp vụ để nắm nhanh. Yêu cầu đã chốt: `Yeu_cau_tong_hop_du_an.md`
+> (đóng vai trò SRS); lịch sử: `nhat_ky_lam_viec.md`. Trong app còn có màn "Luồng & logic hệ thống" (`modules/luongHeThong/noiDung.ts`).
+> Logic đổi thì sửa đè đúng mục. Không ghi tài khoản, mật khẩu, khoá.
+
+## 1. Hệ thống là gì
+
+- Quản lý toàn bộ luồng **mua / xuất kho / trả hàng / công nợ linh kiện** cho KTV, Trạm, văn phòng — tách từ module "Đặt mua linh kiện"
+  của DVBH (19/08/2026), nay là hệ độc lập: 1 Worker (Hono, phục vụ cả API và React build) + D1. Cron mỗi giờ. Ảnh lưu Google Drive.
+- Đơn = `dat_don_hang` (DDH-…); phiếu xuất kho = `phieu_xuat_kho` (PMH mua / PCN công nợ / PTL trả hàng).
+
+## 2. Vai trò (cờ trên tài khoản)
+
+| Vai trò | Việc chính |
+|---|---|
+| KTV DVBH / Vệ tinh (Vệ tinh → Trạm nhận thay; Vệ tinh không tự tạo đơn) | Đặt hàng cho mình, chuyển tiền, xác nhận nhận hàng, báo nhận thiếu |
+| Tác nghiệp (TN) — Kế toán được làm thay toàn bộ | Duyệt tay đơn còn sót, sửa / chuyển đơn, quản lý phiếu xuất |
+| Kế toán | Xác nhận tiền, mã đơn hàng / mã MISA, chốt phiếu, quỹ, công nợ, hạn mức dự trữ |
+| Kho | Thiếu hàng (tiếp nhận, hàng về, từ chối), in / gửi phiếu, nhận hàng trả |
+| Mua hàng | Xem toàn bộ (chỉ đọc) + xét duyệt mã LK + ticket "Chờ mua hàng" |
+| QC | Kiểm hàng trả; đặt hàng cho chính mình như 1 KTV |
+| Giám sát (GS chính theo khu vực + GS phụ) | Đặt hộ mọi KTV, duyệt vượt trần (mã EO), hủy hộ, xác nhận chuyển tiền hộ |
+| TBP | Duyệt LK đặc thù |
+| View | Xem mọi menu, chỉ đọc, theo khu vực được gán |
+| NV sửa chữa | Đặt CÔNG NỢ SỬA CHỮA cho chính mình (như 1 KTV) |
+| Admin | Toàn quyền |
+
+Phạm vi dữ liệu theo **Khu vực** (khu vực hiệu lực của đơn / phiếu = khu vực chọn tay nếu có, không thì khu vực tự tính bằng trigger).
+
+## 3. Tạo đơn & tự động duyệt (100%)
+
+1 bộ quyết định dùng chung cho tạo tay, import Excel, kiểm tra trước trên form, API đối tác:
+- **Chặn tạo**: đơn có tiền mà giá 0 (trừ LK cho phép giá 0đ); công nợ khi người nhận chưa có Mã MISA; TRỪ CÔNG NỢ thiếu tồn KTV.
+- LK đặc thù (loại đề xuất không bỏ qua TBP) → **Chờ TBP**; công nợ vượt trần → **Chờ GS duyệt** (nhập mã EO). GS, KTV "không có trần",
+  LK B2B, HỖ TRỢ 0 ĐỒNG, trả góp TG12, đơn sửa chữa không xét trần.
+- Còn lại kiểm **tồn kho công ty theo khu vực của đơn** (FIFO theo thời gian tạo): đủ → tự duyệt + vào phiếu; thiếu + có tiền → **Chờ thanh toán**
+  (vào phiếu, KTV chuyển tiền trước); thiếu + không tiền → **Chờ hàng** + ticket thiếu hàng. LK "không kiểm tra tồn kho" luôn coi là đủ.
+- Mọi quyết định tự động ghi lý do vào lịch sử đơn; giao diện giải thích "đang ở đâu, chờ ai" bằng luồng quy trình ngang.
+
+## 4. Giá & chiết khấu
+
+Giá chốt tay luôn thắng. Bậc thang theo **tổng ngày** của KTV (+ phiếu đang mở chưa chốt): < 200k giá bán, 200–500k ×70%, ≥ 500k giá KTV;
+Đình tủ ×85%; có yêu cầu hóa đơn / KH lẻ / công nợ đối tác = giá niêm yết. Dự phòng chỉ cho MUA DỰ TRỮ trong hạn mức. Backend là nguồn
+duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xem trước.
+
+## 5. Phiếu xuất kho & tiền
+
+`Dang tao phieu` (chờ chuyển tiền / chờ mã HĐ) → `Cho ke toan` (Kế toán nhập Mã MISA) → `Da chot xong don xuat` → `Dang gui KTV` →
+`KTV da nhan` (tự xác nhận sau 10 ngày) | `Hang tru kho` | `Kho da nhan hang tra`; `Ke toan huy`.
+- 1 phiếu chỉ chứa đơn cùng người nhận + loại đơn + nhóm loại đề xuất + hình thức hóa đơn + đối tác + cờ chờ hàng.
+- **Quỹ tiền dư KTV**: mọi tiền KTV chuyển vào quỹ người nhận, Kế toán nhập số thực nhận → quỹ tự trả phiếu thiếu cũ nhất; thừa ở lại quỹ;
+  hủy / giảm thì hoàn quỹ. Quỹ KH chuyển khoản (xuất hóa đơn) tách riêng. Tiền cần chuyển = 0 thì không cần Kế toán duyệt.
+- Thêm / bớt / tách / chuyển đơn được tới khi Kế toán chốt; đẩy lùi từng bước có lý do; Kế toán duyệt nhanh hàng loạt.
+- OCR đọc số tiền ảnh chuyển khoản trên trình duyệt + đối soát ảnh nghi trùng — chỉ cảnh báo, không chặn.
+
+## 6. Thiếu hàng
+
+- **Đặt mua**: ticket theo đơn "Chờ hàng": Kho tiếp nhận / cập nhật dự kiến / chuyển Mua hàng / hàng đã về / từ chối (bắt buộc lý do);
+  hàng về → đơn tự duyệt vào phiếu; từ chối / hủy → đơn tự hủy, tiền về quỹ. Tự xác nhận hàng về theo ưu tiên (khiếu nại > ngày cũ > VIP)
+  sau mỗi lần nhập tồn. Tách đơn khi về một phần; đổi sang LK tương đương.
+- **KTV báo nhận thiếu** (ticket NTH): Kho kiểm → gửi bù hoặc hoàn tiền → Kế toán cân đối.
+- **Thiếu hàng bảo hành** (ticket THB) nhận từ app Bảo hành đổi trả, phản hồi trạng thái về đơn gốc.
+
+## 7. Hàng trả
+
+Kế toán duyệt mềm → Kho xác nhận (sửa SL thực nhận) → QC xác nhận (tách phần chưa đạt, từ chối kèm ảnh / video) → tự gom phiếu PTL →
+Kế toán chốt → Kho nhận hàng trả. Mỗi giai đoạn hạn 24h, quá hạn bắt lý do chậm.
+
+## 8. Công nợ, dự trữ, công nợ đối tác
+
+- Công nợ chốt = thực tế (file MISA) + phát sinh − đã trừ (đơn TRỪ CÔNG NỢ đã duyệt tiền); công nợ 0 đồng theo chương trình.
+- Hạn mức dự trữ theo Mã MISA (tab riêng): đã mua dự trữ = số MISA + mua sau mốc MISA của từng KTV − trả hàng dự trữ đã chốt.
+- MUA HÀNG CÔNG NỢ ĐỐI TÁC: phiếu riêng, không cần chuyển tiền, ghi nợ đối tác, vượt hạn mức → chờ GS.
+
+## 9. Công nợ sửa chữa (NV sửa chữa)
+
+3 loại theo đơn bảo hành (hết BH → MUA HÀNG SỬA CHỮA; còn BH + Karofi → HỖ TRỢ SỬA CHỮA 0 ĐỒNG; còn lại → CÔNG NỢ SỬA CHỮA). Admin BH xác nhận
+tiêu hao bên app Bảo hành → tự tạo đơn TRỪ CÔNG NỢ - SỬA CHỮA / TRẢ HÀNG CÔNG NỢ - SỬA CHỮA đi thẳng Kế toán. Đơn "SỬA CHỮA TẠI KHO" cũ
+đồng bộ về chỉ để xem (khoá bằng trigger).
+
+## 10. Lịch chạy tự động (cron mỗi giờ)
+
+Đồng bộ danh bạ KTV / danh mục LK sang DVBH + app Bảo hành mỗi giờ; giá gia88 0h VN; ETX nhân sự 0h thứ Hai (tự tạo KTV + tài khoản, nghỉ
+việc tự khoá); 8h VN tự xác nhận phiếu quá hạn nhận + nhắc KTV; 0h dọn thông báo cũ / bộ đếm ảnh.
+
+## 11. Kết nối hệ khác
+
+DVBH (tra case CRM, API đối tác tồn kho / lịch sử LK / đơn theo ca / đặt hàng qua API) · App Bảo hành đổi trả (Service Binding: phân loại,
+thiếu hàng BH, đơn sửa chữa, trừ công nợ) · Phân tích tồn kho 3T (kho dữ liệu MISA) · khovan (đẩy phiếu sang kho) · ETX nhân sự · gia88 (giá).
+
+## 12. Giới hạn & bảo vệ chung
+
+Giới hạn tần suất theo tài khoản / IP / khoá API; request ghi phải cùng origin; ảnh chỉ JPG/PNG/WEBP/GIF/HEIC ≤ 10MB, hạn mức ảnh / ngày
+theo vai trò; thu hồi phiên "đăng xuất mọi thiết bị". Danh sách tham số truyền 1 bind JSON (D1 ≤ 100 tham số).
