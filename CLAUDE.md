@@ -1475,3 +1475,13 @@ Nguyên văn yêu cầu (chủ hệ thống): *"luồng "Cấp lk" ... khi đơn
 - Nhật ký: bảng `dat_don_ngoai_log` (`UNIQUE(dat_don_hang_id, su_kien)` chống trùng); `GET /dat-mua-lk/don-hang/:id` gộp vào "Lịch sử xử lý". Bản tin `cap_nhat_luc` ≤ `ngoai_cap_nhat` → bỏ qua (không ghi gì).
 - Chi tiết đơn (`DonCuaToiTab.tsx`): banner "🔒 Đơn đồng bộ từ app Sửa chữa bảo hành — chỉ xem" (DX, đơn BH, KTV, NV, mã ĐH), ẩn footer thao tác + nút "✎ Sửa".
 - Kiểm thử: 2 Worker local nối service binding — tạo / cập nhật từng bước / chống trùng / bản tin cũ / khoá trigger / API chi tiết đều đạt (xem CLAUDE.md repo `gui-bao-hanh-linh-kien`, mục cùng ngày).
+
+## Nhận việc từ Trợ lý Mây (tự sửa)
+- Issue gắn nhãn `may:phan-tich` là ĐỀ XUẤT CẢI TIẾN cần phân tích trước: workflow `may-phan-tich` chỉ ĐỌC mã để soạn BRD cho Giám đốc duyệt — không sửa mã ở bước này. Khi duyệt, BRD nằm ở đầu issue; làm đúng BRD và lưu nó vào `docs/yeu-cau/MAY-xxxxx.md`.
+- Issue gắn nhãn `may:tu-sua` là việc do Trợ lý Mây chuyển sang, mã `MAY-xxxxx` ở tiêu đề. Sửa ĐÚNG phạm vi mô tả.
+- Kiểm tra bắt buộc trước khi mở PR: `npm run build` (eslint chạy trước; đỏ = dừng). Flutter: `flutter analyze && flutter build web`.
+- Nhánh `may/may-xxxxx`, PR vào `main`, tiêu đề bắt đầu bằng mã, mô tả tiếng Việt (nguyên nhân · cách sửa · cách thử), ghi `Closes #<issue>`.
+- KHÔNG BAO GIỜ: sửa `firestore.rules`/`storage.rules`/hàm `hrLink`/secrets; chạy `firebase deploy` trần; đổi tính năng ngoài issue; xoá dữ liệu.
+- Không chắc / cần người quyết: bình luận `MÂY: CẦN NGƯỜI` + lý do rồi dừng.
+- Deploy do workflow `may-deploy` làm sau khi được duyệt — KHÔNG tự deploy trong lúc sửa.
+- Khi làm việc TRONG PHIÊN NÀY (không phải workflow) mà bản sửa giải quyết một issue Mây đang mở (`gh issue list --label may:cho-duyet,may:tu-sua`): ghi mã `MAY-xxxxx` vào dòng đầu commit → Trợ lý Mây tự báo hoàn thành, không cần Giám đốc bấm tay.
