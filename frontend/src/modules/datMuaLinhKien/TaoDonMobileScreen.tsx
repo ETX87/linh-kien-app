@@ -120,7 +120,7 @@ export function TaoDonMobileScreen({
 
   return (
     <ChanDongContext.Provider value={dangKyChan}>
-    <div className="fixed inset-0 z-50 flex flex-col bg-[var(--surface)] anim-in" style={{ height: "100dvh" }}>
+    <div className="fixed inset-0 z-50 flex flex-col bg-[var(--surface)] anim-in" style={nhanDoiGiaoDien ? undefined : { height: "100dvh" }}>
       {/* Header - tieu de + "Dung giao dien cu" + dong (diem #6: dat xa CTA chinh o duoi) */}
       <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-2.5 border-b border-[var(--line)]">
         <h3 className="font-display font-bold text-[var(--ink-900)] text-sm">{t("🧾 Tạo đơn đặt linh kiện")}</h3>

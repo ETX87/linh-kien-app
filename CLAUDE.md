@@ -1519,3 +1519,5 @@ Nguyên văn yêu cầu (chủ hệ thống): *"luồng "Cấp lk" ... khi đơn
 **(b) Đã làm** (`TaoDonTab.tsx`, `TaoDonMobileScreen.tsx`): trên máy tính, tiêu đề Modal tạo đơn có nút "📱 Giao diện gọn" → hiện màn nhập từng dòng (`TaoDonMobileScreen`) trong khung 560px giữa màn hình (bọc `transform` để `fixed inset-0` của màn gọn chỉ phủ khung); màn gọn có nút "🖥 Giao diện đầy đủ" để quay lại. Lựa chọn nhớ trên máy (`localStorage` `dmlk-taodon-giao-dien-web`, mặc định "đầy đủ"). Hai giao diện dùng chung `useTaoDonForm` nên đổi qua lại KHÔNG mất dữ liệu đang nhập (bỏ hỏi xác nhận khi đổi trên web). Điện thoại giữ nguyên cách cũ (`dmlk-taodon-prefer-old-ui`).
 
 **(d) Kiểm thử:** typecheck 0 lỗi. Chưa bấm thử trên giao diện. Deploy 17/11/2026.
+
+**v1.515 (17/11/2026)** — nguyên văn: *"giao diện gọn đang bị thu nhỏ trên web"*. Khung giao diện gọn trên web đổi từ rộng 560px sang 95% × 95% màn hình, căn giữa, bo góc (như Modal đầy đủ); bỏ chiều cao cứng `100dvh` của màn gọn khi đặt trong khung web (để thanh nút dưới không bị cắt). Typecheck 0 lỗi, chưa bấm thử giao diện.

@@ -44,7 +44,7 @@ export function TaoDonTab({
   // app) - CHI anh huong tren mobile (desktop luon dung Modal, khong doc gia tri nay).
   const [preferOldUi, setPreferOldUi] = useLocalStorageState("dmlk-taodon-prefer-old-ui", false);
   // Web (2026-11-17, "thêm 1 nút đổi qua lại giữa 2 giao diện tạo đơn để người dùng lựa chọn, (lưu cache theo máy khi họ đổi)"):
-  // "day_du" = Modal bang nhieu dong (mac dinh) | "gon" = man tung dong (TaoDonMobileScreen) dat trong khung 560px giua man hinh.
+  // "day_du" = Modal bang nhieu dong (mac dinh) | "gon" = man tung dong (TaoDonMobileScreen) dat trong khung 95% x 95% man hinh (v1.515, truoc 560px bi thu nho).
   const [giaoDienWeb, setGiaoDienWeb] = useLocalStorageState<"day_du" | "gon">("dmlk-taodon-giao-dien-web", "day_du");
   const form = useTaoDonForm({ addToast, qc, canQuanLy, onClose });
   // v1.510: nhac sai loai de xuat theo don bao hanh (cung query goi y voi o Mã đơn bảo hành) - goi TRUOC return mobile (thu tu hook).
@@ -56,8 +56,8 @@ export function TaoDonTab({
   if (!isMobile && giaoDienWeb === "gon") {
     // transform tao "containing block" -> fixed inset-0 cua man gon chi phu khung 560px, khong phu ca trang.
     return (
-      <div className="fixed inset-0 z-50 flex justify-center bg-slate-900/40 backdrop-blur-[1px]">
-        <div className="relative h-full w-full max-w-[560px] shadow-2xl [transform:translateZ(0)]">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-[1px]">
+        <div className="relative h-[95vh] w-[95vw] overflow-hidden rounded-2xl shadow-2xl [transform:translateZ(0)]">
           <TaoDonMobileScreen form={form} canQuanLy={canQuanLy} addToast={addToast} qc={qc} onClose={onClose} onUseOldUi={() => setGiaoDienWeb("day_du")} nhanDoiGiaoDien={t("🖥 Giao diện đầy đủ")} />
         </div>
       </div>
