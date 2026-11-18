@@ -67,6 +67,9 @@ duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xe
 
 Kế toán duyệt mềm → Kho xác nhận (sửa SL thực nhận) → QC xác nhận (tách phần chưa đạt, từ chối kèm ảnh / video) → tự gom phiếu PTL →
 Kế toán chốt → Kho nhận hàng trả. Mỗi giai đoạn hạn 24h, quá hạn bắt lý do chậm.
+**Tự hủy chờ Kho**: đơn ở "Chờ kho xác nhận" quá 10 ngày (KTV không gửi hàng) = "Đơn tự hủy" — tính lúc đọc, KHÔNG đổi trạng thái
+(`traHangTuHuySql` ở `lib/hanLyDoCham.ts`): không đếm "Chờ Kho" / việc cần làm / còn tồn, nằm ở tab "Đơn tự hủy (quá 10 ngày)" (lọc `__TU_HUY_KHO__`);
+hàng về muộn Kho vẫn xác nhận như thường từ tab đó.
 
 ## 8. Công nợ, dự trữ, công nợ đối tác
 
@@ -86,9 +89,10 @@ tiêu hao bên app Bảo hành → tự tạo đơn TRỪ CÔNG NỢ - SỬA CH�
 (TN), Kho tiếp nhận thiếu hàng, Mua hàng đặt hàng, Kế toán xác nhận chuyển tiền, Kế toán chốt phiếu, Kho xuất hàng, 4 bước trả hàng.
 Hạn = lúc vào bước + số giờ; hạn rơi vào T7/CN thì dời sang thứ Hai (trừ bước bật "tính cuối tuần"). Cron mỗi giờ quét thực thể đang ở
 bước + thực thể có log mới → bước quá hạn thành 1 ca `vi_pham` "Chờ giải trình" (hạn giải trình = lúc quá hạn, không sớm hơn lúc ghi nhận,
-+ số giờ giải trình). Bộ phận phụ trách (theo cờ vai trò; Kế toán làm thay TN) giải trình → "Đã giải trình"; hết hạn → "Gắn thẻ" (kết quả cuối,
-không gỡ). Chỉ nhân viên văn phòng giải trình, KTV không. Lý do chậm bắt buộc của trả hàng và giải trình lý do chậm trên đơn tự thành giải trình. Ca vẫn giữ khi đơn rời bước (ghi người
-xử lý, lúc rời). Lần đầu chạy không quét ngược lịch sử. Đối tác kéo `GET /api/partner/v1/vi-pham` (con trỏ `cap_nhat_luc`, `id`).
++ số giờ giải trình). Bộ phận phụ trách (theo cờ vai trò; Kế toán làm thay TN) giải trình → "Đã giải trình"; hết hạn → **"Tồn CEO"** (`Ton CEO`, trước v1.524 gọi "Gắn thẻ"; kết quả cuối,
+không gỡ; chuyển ở lần quét mỗi giờ kế tiếp sau hạn). Chỉ nhân viên văn phòng giải trình, KTV không. Lý do chậm bắt buộc của trả hàng và giải trình lý do chậm trên đơn tự thành giải trình. Ca vẫn giữ khi đơn rời bước (ghi người
+xử lý, lúc rời). Lần đầu chạy không quét ngược lịch sử. Đối tác kéo `GET /api/partner/v1/vi-pham` (con trỏ `cap_nhat_luc`, `id`) + danh sách Tồn CEO
+`GET /api/partner/v1/danh-sach-ton?loai=ton-ceo` (cùng hình dạng API `danh-sach-ton?loai=canh-bao-ceo` của DVBH).
 Người PHẢI giải trình (`vi_pham.nguoi_phu_trach`, tính lại mỗi lần quét khi còn chờ): GS = GS của đơn + GS chính/phụ khu vực; bộ phận khác = người
 được gán khu vực của đơn → không ai thì người không gán khu vực → không ai thì cả bộ phận (Kho lọc thêm nhóm LK; TN không có ai → Kế toán).
 Thông báo chuông + đẩy gộp theo người: ca mới / còn ≤ 6 giờ hết hạn giải trình / bị gắn thẻ. Giải trình = chọn lý do ("Ghi nhận không

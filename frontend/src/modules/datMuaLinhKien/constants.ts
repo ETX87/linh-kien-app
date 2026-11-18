@@ -582,6 +582,8 @@ export const TRA_HANG_TRANG_THAI_OPTIONS = [
   { value: "__CHO_XAC_NHAN__", label: "Chờ xác nhận (KT/Kho/QC)" },
   { value: "Cho ke toan duyet mem", label: "Chờ kế toán duyệt mềm" },
   { value: "Cho kho xac nhan", label: "Chờ kho xác nhận" },
+  // v1.524: cho Kho qua 10 ngay (KTV khong gui hang) - khong dem viec, Kho van xac nhan duoc neu hang ve muon.
+  { value: "__TU_HUY_KHO__", label: "Tự hủy (chờ Kho quá 10 ngày)" },
   { value: "Cho QC xac nhan", label: "Chờ QC xác nhận" },
   { value: "Cho TN duyet tong", label: "Chờ TN duyệt tổng" },
   { value: "TN da duyet", label: "TN đã duyệt (chờ tạo PXK)" },

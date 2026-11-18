@@ -585,7 +585,7 @@ partnerApi.post("/v1/don-gan-nhat-theo-ca", async (c) => {
 // GET /api/partner/v1/vi-pham (2026-11-17, v1.517) - cac ca QUA HAN SLA tung buoc + giai trinh + gan the vi pham (xem lib/viPham.ts).
 // Doi tac TU KEO (chot quan ly). Con tro: cap_nhat_tu + after_id (thu tu cap_nhat_luc, id) - moi doi trang thai / giai trinh / roi buoc
 // deu doi cap_nhat_luc nen doi tac keo lai tu con tro cuoi la nhan du thay doi. Loc: loai=dat_hang|tra_hang, trang_thai (danh sach,
-// "Cho giai trinh,Da giai trinh,Gan the,Da go the"), buoc, bo_phan, don (ma DDH), khu_vuc. limit <= 500.
+// "Cho giai trinh,Da giai trinh,Ton CEO; "Gan the" van nhan = Ton CEO"), buoc, bo_phan, don (ma DDH), khu_vuc. limit <= 500.
 partnerApi.get("/v1/vi-pham", async (c) => {
   const db = c.env.DB;
   const limit = Math.min(500, Math.max(1, Number(c.req.query("limit") ?? 200) || 200));
@@ -606,7 +606,8 @@ partnerApi.get("/v1/vi-pham", async (c) => {
     dk.push("v.loai = ?");
     binds.push(loai);
   }
-  const trangThai = tachMa(c.req.query("trang_thai"));
+  // "Gan the" (ten cu truoc v1.524) van nhan = "Ton CEO".
+  const trangThai = tachMa(c.req.query("trang_thai")).map((x) => (x === "Gan the" ? "Ton CEO" : x));
   if (trangThai.length) {
     dk.push("v.trang_thai IN (SELECT value FROM json_each(?))");
     binds.push(JSON.stringify(trangThai));
@@ -657,6 +658,54 @@ partnerApi.get("/v1/vi-pham/buoc", async (c) => {
         so_gio_sla: k?.so_gio ?? null, gio_giai_trinh: k?.gio_giai_trinh ?? null, tinh_cuoi_tuan: !!k?.tinh_cuoi_tuan, bat: !!k?.bat_tat,
       };
     }),
+  });
+});
+
+// GET /api/partner/v1/danh-sach-ton?loai=ton-ceo (2026-11-18, v1.524) - "Danh sách các đơn bị lỗi tồn CEO sẽ bắn API sang cho đối tác. tương
+// tự như cách app DVBH đang bắn đơn tồn CEO sang app vi phạm của đối tác (bên ngoài)". CUNG HINH DANG voi DVBH GET /api/partner/danh-sach-ton
+// ?loai=canh-bao-ceo (loai, mo_ta, thoi_diem_lay, chot_luc, tong_hop[], so_ca, cases[]) de app vi pham dung lai bo doc. "Ton CEO" = vi pham
+// het han giai trinh ma chua giai trinh (lib/viPham.ts quetViPham). Tinh tai thoi diem goi (chot_luc = null). Mac dinh: ca chuyen Ton CEO
+// trong 30 ngay gan nhat; tu_ngay / den_ngay (YYYY-MM-DD, theo ngay chuyen Ton CEO, gio VN); con_ton=1 chi ca thuc the van ket o buoc;
+// loai=dat_hang|tra_hang qua tham so nhom. <= 2000 ca (vuot -> con_nua = true, thu hep ngay).
+const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+partnerApi.get("/v1/danh-sach-ton", async (c) => {
+  const loai = c.req.query("loai");
+  if (loai !== "ton-ceo") return c.json({ error: "INVALID_LOAI", loai_hop_le: ["ton-ceo"] }, 400);
+  const now = nowVN();
+  const tuNgay = c.req.query("tu_ngay")?.trim() || new Date(Date.parse(now.slice(0, 10) + "T00:00:00Z") - 30 * 86_400_000).toISOString().slice(0, 10);
+  const denNgay = c.req.query("den_ngay")?.trim() || now.slice(0, 10);
+  if (!NGAY_RE.test(tuNgay) || !NGAY_RE.test(denNgay)) return c.json({ error: "INVALID_NGAY" }, 400);
+  const dk = ["v.trang_thai = 'Ton CEO'", "v.gan_the_luc >= ?", "v.gan_the_luc < date(?, '+1 day')"];
+  const binds: unknown[] = [tuNgay + " 00:00:00", denNgay];
+  const nhom = c.req.query("nhom");
+  if (nhom) {
+    if (nhom !== "dat_hang" && nhom !== "tra_hang") return c.json({ error: "INVALID_NHOM" }, 400);
+    dk.push("v.loai = ?");
+    binds.push(nhom);
+  }
+  if (c.req.query("con_ton") === "1") dk.push("v.ket_thuc_luc IS NULL");
+  const GIOI_HAN = 2000;
+  const { results } = await c.env.DB
+    .prepare(`SELECT ${VI_PHAM_COT_SQL} ${VI_PHAM_FROM_SQL} WHERE ${dk.join(" AND ")} ORDER BY v.gan_the_luc DESC, v.id DESC LIMIT ?`)
+    .bind(...binds, GIOI_HAN + 1)
+    .all<ViPhamRow>();
+  const ds = (results ?? []).slice(0, GIOI_HAN).map((r) => {
+    const x = boSungViPham(r, now);
+    return { ...x, con_ton: x.dang_cho, nhom: [x.buoc] };
+  });
+  const dem = new Map<string, number>();
+  for (const r of ds) dem.set(r.buoc, (dem.get(r.buoc) ?? 0) + 1);
+  return c.json({
+    loai,
+    mo_ta: "Tồn CEO — quá hạn SLA, hết hạn giải trình mà chưa giải trình",
+    thoi_diem_lay: now,
+    chot_luc: null,
+    tu_ngay: tuNgay,
+    den_ngay: denNgay,
+    tong_hop: [...BUOC_THEO_MA.values()].map((b) => ({ ma: b.ma, ten: b.ten, loai: b.loai, bo_phan: b.boPhan, so_ca: dem.get(b.ma) ?? 0 })),
+    so_ca: ds.length,
+    con_nua: (results ?? []).length > GIOI_HAN,
+    cases: ds,
   });
 });
 

@@ -1,6 +1,6 @@
 # Hướng dẫn tích hợp API — Hệ thống Mua hàng linh kiện (dành cho đối tác DVBH)
 
-Phiên bản tài liệu: 2.0 — 2026-11-18 · Phiên bản API: **v1**
+Phiên bản tài liệu: 2.1 — 2026-11-18 · Phiên bản API: **v1**
 
 Tài liệu này mô tả các API **chỉ đọc** mà hệ thống Mua hàng linh kiện mở cho đối tác tra cứu:
 lịch sử đơn hàng theo mã ca, tồn kho, lịch sử đặt hàng của từng mã linh kiện, và danh mục linh kiện chi
@@ -12,6 +12,7 @@ Thay đổi 1.3: bổ sung 4.11 thiếu hàng (ticket chờ hàng) và 4.12 tồ
 Thay đổi 1.4: 4.7 nhóm thay thế đã CÓ DỮ LIỆU (trước 2026-10-19 trả `rows: []` vì dữ liệu nằm ngoài hệ thống); mỗi mã thêm `co_trong_danh_muc` + `ghi_chu`.
 Thay đổi 1.5: bổ sung **ID Lada** (`ma_lada`) — trước đây API chỉ trả mã ca / mã YCSC (ID CRM) nên đối tác không nhận được ID Lada. Thêm trường
 `ma_lada` + `ma_yeu_cau_su_co` cho đơn ở 4.1 `case-timeline`, 4.4 `linh-kien/lich-su`, 4.11 `thieu-hang`; thêm mục 4.15 giải thích 2 loại mã.
+Thay đổi 2.1: trạng thái `Gan the` đổi tên thành **`Ton CEO`** (lọc `trang_thai=Gan the` vẫn nhận); thêm `ton_ceo`, `ton_ceo_luc`; thêm mục 4.19 **danh sách Tồn CEO** (`GET /v1/danh-sach-ton?loai=ton-ceo`).
 Thay đổi 2.0: bỏ trạng thái `Cho xem xet` / `Da go the` và các trường `khieu_nai*`, `go_the*` (không có bước Admin xem xét / gỡ thẻ). Ca ghi nhận sai = giải trình với `ly_do` "Ghi nhận không đúng / không thuộc trách nhiệm".
 Thay đổi 1.9: mục 4.18 thêm `nguoi_phu_trach` (người phải giải trình), `ly_do`, trạng thái `Cho xem xet` + các trường "báo không đúng" (`khieu_nai*`).
 Thay đổi 1.8: bổ sung mục 4.18 **quá hạn SLA, giải trình, gắn thẻ vi phạm** (`GET /v1/vi-pham`, `GET /v1/vi-pham/buoc`) — đối tác tự kéo.
@@ -789,10 +790,10 @@ Hủy đơn / chuyển tiền chưa có API — thao tác trên app.
 ### 4.18. Quá hạn SLA, giải trình, gắn thẻ vi phạm — `GET /v1/vi-pham`
 
 Mỗi bước xử lý có hạn (SLA, giờ). Đơn / ticket / phiếu nằm ở 1 bước quá hạn → hệ thống ghi nhận 1 **ca quá hạn**, bộ phận phụ trách
-giải trình trong "hạn giải trình"; hết hạn mà chưa giải trình → **gắn thẻ vi phạm**. Hệ thống
+giải trình trong "hạn giải trình"; hết hạn mà chưa giải trình → **Tồn CEO**. Hệ thống
 quét **mỗi giờ**. Đối tác **tự kéo** — app không đẩy sang.
 
-**Vòng đời `trang_thai`:** `Cho giai trinh` → `Da giai trinh` (có giải trình trước hạn) | `Gan the` (hết hạn chưa giải trình — kết quả cuối, không gỡ).
+**Vòng đời `trang_thai`:** `Cho giai trinh` → `Da giai trinh` (có giải trình trước hạn) | `Ton CEO` (hết hạn chưa giải trình — kết quả cuối, không gỡ; trước bản 2.1 tên `Gan the`, `gan_the_luc` = `ton_ceo_luc` = lúc chuyển).
 Chỉ nhân viên văn phòng giải trình (KTV không). Ca ghi nhận sai vẫn là `Da giai trinh` với `ly_do` = "Ghi nhận không đúng / không thuộc trách nhiệm" — đối tác tự đánh giá. Ca vẫn giữ nguyên sau khi đơn rời bước
 (`ket_thuc_luc` được điền).
 
@@ -844,6 +845,28 @@ Ghi chú: giờ theo giờ Việt Nam (`YYYY-MM-DD HH:MM:SS`). `han` không rơi
 đơn). `giai_trinh_tu_dong = true`: giải trình lấy từ lý do chậm đã nhập lúc xử lý (trả hàng) hoặc giải trình lý do chậm trên đơn. `nguoi_phu_trach` = người PHẢI giải trình (GS của đơn / người của bộ phận được gán khu vực của đơn — xem tài liệu nội bộ). Người
 định danh bằng email + `ma_nhan_su` (NS-xxxx). `so_gio_sla` là SLA tại thời điểm ghi nhận (đổi cấu hình sau không đổi ca cũ). Lỗi:
 `INVALID_LOAI`, `INVALID_BUOC` (400).
+
+### 4.19. Danh sách Tồn CEO — `GET /v1/danh-sach-ton?loai=ton-ceo`
+
+Các ca quá hạn SLA mà **hết hạn giải trình chưa giải trình** (trạng thái `Ton CEO`). Cùng hình dạng với API DVBH
+`GET /api/partner/danh-sach-ton?loai=canh-bao-ceo` để app đối tác dùng lại bộ đọc. Tính tại thời điểm gọi (`chot_luc = null`).
+
+Tham số: `tu_ngay`, `den_ngay` (`YYYY-MM-DD`, theo ngày chuyển Tồn CEO, giờ VN; mặc định 30 ngày gần nhất), `nhom` = `dat_hang` | `tra_hang`,
+`con_ton=1` (chỉ ca mà đơn / phiếu vẫn còn kẹt ở bước). Tối đa 2000 ca (`con_nua: true` = còn nữa, thu hẹp khoảng ngày).
+
+```json
+{
+  "loai": "ton-ceo", "mo_ta": "Tồn CEO — quá hạn SLA, hết hạn giải trình mà chưa giải trình",
+  "thoi_diem_lay": "2026-11-18 16:30:35", "chot_luc": null, "tu_ngay": "2026-10-19", "den_ngay": "2026-11-18",
+  "tong_hop": [{ "ma": "th_kho", "ten": "Kho xác nhận (trả hàng)", "loai": "tra_hang", "bo_phan": "kho", "so_ca": 1 }],
+  "so_ca": 1, "con_nua": false,
+  "cases": [{ "id": 1, "buoc": "th_kho", "trang_thai": "Ton CEO", "ton_ceo": true, "ton_ceo_luc": "2026-11-18 16:30:35",
+              "con_ton": true, "nhom": ["th_kho"], "...": "các trường như 4.18" }]
+}
+```
+
+`tong_hop` liệt kê đủ mọi bước (bước không có ca = 0). Khuyến nghị kéo 15–60 phút/lần (hệ thống chuyển Tồn CEO ở lần quét mỗi giờ).
+Lỗi: `INVALID_LOAI` (kèm `loai_hop_le`), `INVALID_NGAY`, `INVALID_NHOM` (400).
 
 ## 5. Bảo mật & sử dụng dữ liệu
 

@@ -66,6 +66,9 @@ export function boSungViPham(r: ViPhamRow, now: string) {
     giai_trinh_tu_dong: !!r.giai_trinh_tu_dong,
     nguoi_phu_trach: phu_trach_json ? (JSON.parse(phu_trach_json) as { email: string; ten: string | null; ma_nhan_su: string | null }[]) : [],
     don_ids: don_ids_json ? (JSON.parse(don_ids_json) as string[]) : r.dat_don_hang_id ? [r.dat_don_hang_id as string] : [],
+    // v1.524: het han giai trinh ma chua giai trinh -> "Ton CEO" (truoc goi "Gan the"); gan_the_luc = luc chuyen.
+    ton_ceo: r.trang_thai === "Ton CEO",
+    ton_ceo_luc: r.trang_thai === "Ton CEO" ? ((r.gan_the_luc as string | null) ?? null) : null,
   };
 }
 
@@ -112,7 +115,7 @@ function listWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string): { whereSql
     binds.push(user.email, user.email);
   } else if (tab === "cho") dk.push("v.trang_thai = 'Cho giai trinh'");
   else if (tab === "da_giai_trinh") dk.push("v.trang_thai = 'Da giai trinh'");
-  else if (tab === "gan_the") dk.push("v.trang_thai = 'Gan the'");
+  else if (tab === "gan_the") dk.push("v.trang_thai = 'Ton CEO'");
   else if (tab === "dang_cho") dk.push("v.ket_thuc_luc IS NULL");
   const loai = c.req.query("loai");
   if (loai === "dat_hang" || loai === "tra_hang") {
@@ -193,9 +196,9 @@ viPham.get("/dem", async (c) => {
        SUM(CASE WHEN v.trang_thai = 'Cho giai trinh' AND ${CUA_TOI_SQL} THEN 1 ELSE 0 END) AS can_toi,
        SUM(CASE WHEN v.trang_thai = 'Cho giai trinh' THEN 1 ELSE 0 END) AS cho,
        SUM(CASE WHEN v.trang_thai = 'Da giai trinh' THEN 1 ELSE 0 END) AS da_giai_trinh,
-       SUM(CASE WHEN v.trang_thai = 'Gan the' THEN 1 ELSE 0 END) AS gan_the,
+       SUM(CASE WHEN v.trang_thai = 'Ton CEO' THEN 1 ELSE 0 END) AS gan_the,
        SUM(CASE WHEN v.ket_thuc_luc IS NULL THEN 1 ELSE 0 END) AS dang_cho,
-       SUM(CASE WHEN v.trang_thai = 'Gan the' AND ${CUA_TOI_SQL} THEN 1 ELSE 0 END) AS gan_the_cua_toi,
+       SUM(CASE WHEN v.trang_thai = 'Ton CEO' AND ${CUA_TOI_SQL} THEN 1 ELSE 0 END) AS gan_the_cua_toi,
        COUNT(*) AS tat_ca
      FROM vi_pham v`,
   )
@@ -212,13 +215,13 @@ viPham.get("/tong-hop", async (c) => {
   const [bp, nguoi, chuaCo] = await Promise.all([
     db.prepare(
       `SELECT bo_phan,
-         SUM(trang_thai = 'Cho giai trinh') AS cho, SUM(trang_thai = 'Da giai trinh') AS da_giai_trinh, SUM(trang_thai = 'Gan the') AS gan_the,
+         SUM(trang_thai = 'Cho giai trinh') AS cho, SUM(trang_thai = 'Da giai trinh') AS da_giai_trinh, SUM(trang_thai = 'Ton CEO') AS gan_the,
          SUM(ket_thuc_luc IS NULL) AS dang_cho, COUNT(*) AS tong
        FROM vi_pham GROUP BY bo_phan`,
     ).all<Record<string, number | string>>(),
     db.prepare(
       `SELECT j.value AS email, ${tenNguoiNullSql("j.value")} AS ten, (SELECT u.ma_nhan_su FROM users u WHERE u.email = j.value) AS ma_nhan_su,
-         SUM(v.trang_thai = 'Cho giai trinh') AS cho, SUM(v.trang_thai = 'Gan the') AS gan_the,
+         SUM(v.trang_thai = 'Cho giai trinh') AS cho, SUM(v.trang_thai = 'Ton CEO') AS gan_the,
          SUM(v.trang_thai = 'Da giai trinh' AND v.nguoi_giai_trinh = j.value) AS da_giai_trinh, MIN(CASE WHEN v.trang_thai = 'Cho giai trinh' THEN v.han_giai_trinh END) AS han_som_nhat,
          group_concat(DISTINCT v.bo_phan) AS bo_phan
        FROM vi_pham v, json_each(COALESCE(v.nguoi_phu_trach, '[]')) j
@@ -316,7 +319,7 @@ viPham.post("/:id/giai-trinh", async (c) => {
   )
     .bind(lyDo, noiDung, user.email, now, now, id)
     .run();
-  if (!r.meta.changes) return c.json({ error: v.trang_thai === "Gan the" ? "DA_GAN_THE" : "TRANG_THAI_DA_DOI" }, 409);
+  if (!r.meta.changes) return c.json({ error: v.trang_thai === "Ton CEO" ? "DA_GAN_THE" : "TRANG_THAI_DA_DOI" }, 409);
   return c.json({ ok: true });
 });
 

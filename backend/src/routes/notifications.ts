@@ -1,3 +1,4 @@
+import { traHangTuHuySql } from "../lib/hanLyDoCham";
 import { demHoanTienCanXuLy } from "../lib/phieuHoanTien";
 import { demNopTienCanXuLy } from "../lib/nopTienQuy";
 import { khoNhomLkLoc, locNhomLkSql } from "../lib/nhomLk";
@@ -193,7 +194,7 @@ export async function computeDatMuaLkBreakdown(db: D1Database, user: AppUser): P
            -- da nam SAN trong cho_kho_pxk o tren (query do khong loc loai_don nen tu dong gom ca PXK
            -- tra_hang, khong can dem lai o day tranh trung).
            (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang'
-              AND ddh.trang_thai_hien_tai = 'Cho kho xac nhan'
+              AND ddh.trang_thai_hien_tai = 'Cho kho xac nhan' AND NOT ${traHangTuHuySql("ddh")} -- bo don tu huy qua 10 ngay (v1.524)
               ${traHangClause?.sql ?? ""}${traHangKvClause?.sql ?? ""}) as cho_kho_tra_hang`,
       )
       .bind(

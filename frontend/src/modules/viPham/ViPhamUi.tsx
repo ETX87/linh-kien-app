@@ -43,7 +43,7 @@ export interface ViPhamRow {
   nguoi_xu_ly: string | null;
   nguoi_xu_ly_ten: string | null;
   nguoi_phu_trach: NguoiPt[];
-  trang_thai: "Cho giai trinh" | "Da giai trinh" | "Gan the";
+  trang_thai: "Cho giai trinh" | "Da giai trinh" | "Ton CEO";
   han_giai_trinh: string;
   ly_do: string | null;
   giai_trinh: string | null;
@@ -65,12 +65,12 @@ export interface ViPhamRow {
 export const NHAN_TT: Record<string, string> = {
   "Cho giai trinh": "Chờ giải trình",
   "Da giai trinh": "Đã giải trình",
-  "Gan the": "Gắn thẻ vi phạm",
+  "Ton CEO": "Tồn CEO",
 };
 export const TONE_TT: Record<string, BadgeTone> = {
   "Cho giai trinh": "amber",
   "Da giai trinh": "teal",
-  "Gan the": "coral",
+  "Ton CEO": "coral",
 };
 export const NHAN_LOAI: Record<string, string> = { dat_hang: "Đặt hàng", tra_hang: "Trả hàng" };
 
@@ -195,7 +195,7 @@ export function ChiTietViPham({ r, onClose }: { r: ViPhamRow; onClose: () => voi
       ? { nhan: t("Chờ giải trình"), luc: r.han_giai_trinh, kieu: "dang" }
       : r.trang_thai === "Da giai trinh"
         ? { nhan: t("Đã giải trình"), luc: r.giai_trinh_luc, kieu: "xong" }
-        : { nhan: t("Gắn thẻ vi phạm"), luc: r.gan_the_luc, kieu: "do" };
+        : { nhan: t("Tồn CEO"), luc: r.gan_the_luc, kieu: "do" };
   const moc: Moc[] = [
     { nhan: t("Vào bước"), luc: r.moc_vao, kieu: "xong" },
     { nhan: t("Hạn {n}h", { n: r.so_gio_sla }), luc: r.han, kieu: "tre" },
@@ -261,7 +261,7 @@ export function ChiTietViPham({ r, onClose }: { r: ViPhamRow; onClose: () => voi
             <Hang k={t("Người phải giải trình")} v={tenPt(r.nguoi_phu_trach)} />
             <Hang k={t("Hạn giải trình")} v={r.han_giai_trinh} />
             {r.nhac_luc && <Hang k={t("Đã nhắc lúc")} v={r.nhac_luc} />}
-            {r.gan_the_luc && <Hang k={t("Gắn thẻ lúc")} v={r.gan_the_luc} />}
+            {r.gan_the_luc && <Hang k={t("Chuyển Tồn CEO lúc")} v={r.gan_the_luc} />}
           </dl>
         )}
       </Modal>
@@ -289,7 +289,7 @@ export function ViPhamBanner({ ids }: { ids: (string | null | undefined)[] }) {
   return (
     <div className="mb-3 space-y-1.5">
       {rows.map((r) => {
-        const canhBao = r.trang_thai === "Cho giai trinh" || r.trang_thai === "Gan the";
+        const canhBao = r.trang_thai === "Cho giai trinh" || r.trang_thai === "Ton CEO";
         return (
           <div
             key={r.id}

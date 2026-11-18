@@ -20,7 +20,7 @@ import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, viewDonScopeSql, khuVu
 import { pxkKhopMienXuatSql } from "../lib/mienXuat";
 import { bumpVersions } from "../lib/dataVersions";
 import { cachedReport, buildReportKey } from "../lib/reportCache";
-import { quaHanLyDoCham, mocTinhHanTn } from "../lib/hanLyDoCham";
+import { quaHanLyDoCham, mocTinhHanTn, traHangTuHuySql } from "../lib/hanLyDoCham";
 import { getDatMuaLkBadge } from "./notifications";
 import { csvTemplateResponse } from "../lib/csvTemplate";
 import { getOrCompute } from "../lib/precomputedCache";
@@ -773,7 +773,7 @@ datMuaLinhKien.get("/luong-quy-trinh", async (c) => {
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho Tram duyet' AND ddh.nguoi_tao IN (SELECT email FROM users WHERE tram_cha = ?)) as tram,
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TBP xac nhan') as tp_dvbh,
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho ke toan duyet mem'${ddhScope}) as tra_hang_kt,
-       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho kho xac nhan'${ddhScope}) as tra_hang_kho,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho kho xac nhan' AND NOT ${traHangTuHuySql("ddh")}${ddhScope}) as tra_hang_kho,
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho QC xac nhan') as tra_hang_qc,
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TN duyet'${ddhScope}) as tac_nghiep,
        -- CHOT (ra soat module "Dat Mua Linh Kien 2.0" #12): tach rieng 3 buoc con thieu cua luong tra
@@ -1007,7 +1007,7 @@ datMuaLinhKien.get("/home-summary", async (c) => {
     if (canTacNghiep(c) || canKho(c)) muaCongNoDangTonConds.push("ddh.trang_thai_hien_tai = 'Cho hang'"); // diem 3
     const traHangDangTonConds: string[] = [];
     if (user.la_ke_toan || user.vai_tro === "Admin") traHangDangTonConds.push("ddh.trang_thai_hien_tai = 'Cho ke toan duyet mem'");
-    if (canKho(c)) traHangDangTonConds.push("ddh.trang_thai_hien_tai = 'Cho kho xac nhan'");
+    if (canKho(c)) traHangDangTonConds.push(`(ddh.trang_thai_hien_tai = 'Cho kho xac nhan' AND NOT ${traHangTuHuySql("ddh")})`);
     if (user.vai_tro === "QC" || user.vai_tro === "Admin") traHangDangTonConds.push("ddh.trang_thai_hien_tai = 'Cho QC xac nhan'");
     if (canTacNghiep(c)) traHangDangTonConds.push(`ddh.trang_thai_hien_tai IN (${TRA_HANG_MO_STATES.map((s) => `'${s}'`).join(",")})`);
 
@@ -1093,7 +1093,7 @@ datMuaLinhKien.get("/home-summary", async (c) => {
          (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.ma_xuat_kho IS NULL${ddhScope()}) as g_tn_da_duyet_chua_pxk,
          (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho hang'${ddhScope()}) as g_cho_hang,
          (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho ke toan duyet mem'${ddhScope()}) as g_tra_hang_kt,
-         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho kho xac nhan'${ddhScope()}) as g_tra_hang_kho,
+         (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho kho xac nhan' AND NOT ${traHangTuHuySql("ddh")}${ddhScope()}) as g_tra_hang_kho,
          (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho QC xac nhan'${ddhScope()}) as g_tra_hang_qc,
          (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TN duyet tong'${ddhScope()}) as g_tra_hang_tn,
          (SELECT COUNT(*) FROM phieu_xuat_kho pxk WHERE pxk.trang_thai_hien_tai = 'Dang tao phieu' AND NOT (pxk.so_tien_can_chuyen IS NOT NULL AND pxk.trang_thai_chuyen_tien != 'TN da duyet')${pxkScope()}) as g_pxk_tao_pxk,
@@ -1156,6 +1156,7 @@ datMuaLinhKien.get("/home-summary/toan-he-thong", async (c) => {
          CASE WHEN trang_thai_hien_tai = 'TN da duyet' AND ma_xuat_kho IS NULL THEN 1 ELSE 0 END AS chua_pxk, COUNT(*) AS n
        FROM dat_don_hang WHERE trang_thai_hien_tai NOT IN ('TN tu choi', 'Tu choi', 'Da huy')
          AND NOT (trang_thai_hien_tai = 'TN da duyet' AND ma_xuat_kho IS NOT NULL)
+         AND NOT ${traHangTuHuySql("dat_don_hang")}
        GROUP BY 1, 2, 3`,
     ),
     c.env.DB.prepare(
@@ -1852,12 +1853,14 @@ function donConTonSql(loaiDon: string | undefined): { sql: string; binds: string
   if (loaiDon === TAT_CA_LOAI_DON) {
     return {
       sql: `((ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai NOT IN (${ph(TRA_HANG_TRANG_THAI_DONG_COUNTS)}))
-        OR (ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai NOT IN (${ph(DON_HANG_TRANG_THAI_DONG)})) OR ${CHO_TAO_PHIEU_SQL})`,
+        OR (ddh.loai_don != 'tra_hang' AND ddh.trang_thai_hien_tai NOT IN (${ph(DON_HANG_TRANG_THAI_DONG)})) OR ${CHO_TAO_PHIEU_SQL})
+        AND NOT ${traHangTuHuySql("ddh")}`,
       binds: [...TRA_HANG_TRANG_THAI_DONG_COUNTS, ...DON_HANG_TRANG_THAI_DONG],
     };
   }
   const dongSet = loaiDon === "tra_hang" ? TRA_HANG_TRANG_THAI_DONG_COUNTS : DON_HANG_TRANG_THAI_DONG;
-  return { sql: `(ddh.trang_thai_hien_tai NOT IN (${ph(dongSet)}) OR ${CHO_TAO_PHIEU_SQL})`, binds: [...dongSet] };
+  // Don tra hang tu huy (cho Kho qua 10 ngay, v1.524) khong tinh "con ton".
+  return { sql: `((ddh.trang_thai_hien_tai NOT IN (${ph(dongSet)}) OR ${CHO_TAO_PHIEU_SQL}) AND NOT ${traHangTuHuySql("ddh")})`, binds: [...dongSet] };
 }
 
 // Cot loc kieu Excel cua danh sach don (2026-09-28) - khoa = key cot o DonCuaToiTab.tsx (LocCotButton).
@@ -1983,6 +1986,10 @@ async function donHangListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string
     // Muc "Chờ tác nghiệp" (2026-09-30, phan hoi "đơn sau khi KT/Kho/QC xác nhận nhảy sang trạng thái chung với
     // Chờ TN duyệt để TN không bị miss đơn"): don mua/cong no "Cho TN duyet" + don tra hang "Cho TN duyet tong".
     whereSql += " AND (ddh.trang_thai_hien_tai = 'Cho TN duyet' OR (ddh.loai_don = 'tra_hang' AND ddh.trang_thai_hien_tai = 'Cho TN duyet tong'))";
+  } else if (trangThai === "__TU_HUY_KHO__") {
+    whereSql += ` AND ${traHangTuHuySql("ddh")}`; // don tra hang tu huy - cho Kho qua 10 ngay (v1.524)
+  } else if (trangThai === "Cho kho xac nhan") {
+    whereSql += ` AND ddh.trang_thai_hien_tai = 'Cho kho xac nhan' AND NOT ${traHangTuHuySql("ddh")}`;
   } else if (trangThai) {
     // RA SOAT CHI PHI D1 2026-08-18 (phan hoi Codex #11/#13, migration 0087+0088): doc truc tiep cot
     // trang_thai_hien_tai (co index idx_ddh_loai_don_trang_thai) thay vi correlated subquery - cot
@@ -2156,14 +2163,18 @@ datMuaLinhKien.get("/don-hang-status-counts", async (c) => {
     `SELECT ddh.trang_thai_hien_tai as trang_thai, COUNT(*) as n,
        SUM(CASE WHEN ${conTon.sql} THEN 1 ELSE 0 END) as mo,
        SUM(CASE WHEN ddh.trang_thai_hien_tai = 'TN da duyet' AND ddh.ma_xuat_kho IS NULL THEN 1 ELSE 0 END) as cho_tao_pxk,
-       SUM(CASE WHEN ${CHO_THANH_TOAN_GOP_SQL} THEN 1 ELSE 0 END) as cho_tt
+       SUM(CASE WHEN ${CHO_THANH_TOAN_GOP_SQL} THEN 1 ELSE 0 END) as cho_tt,
+       SUM(CASE WHEN ${traHangTuHuySql("ddh")} THEN 1 ELSE 0 END) as tu_huy
      FROM dat_don_hang ddh WHERE ${whereSql} GROUP BY ddh.trang_thai_hien_tai`,
   )
     .bind(...conTon.binds, ...binds)
-    .all<{ trang_thai: string; n: number; mo: number; cho_tao_pxk: number; cho_tt: number }>();
-  const tong = (k: "n" | "mo" | "cho_tao_pxk" | "cho_tt") => results.reduce((x, r) => x + (r[k] ?? 0), 0);
+    .all<{ trang_thai: string; n: number; mo: number; cho_tao_pxk: number; cho_tt: number; tu_huy: number }>();
+  const tong = (k: "n" | "mo" | "cho_tao_pxk" | "cho_tt" | "tu_huy") => results.reduce((x, r) => x + (r[k] ?? 0), 0);
   const counts: Record<string, number> = { "": tong("n"), __OPEN__: tong("mo"), __CHO_TAO_PXK__: tong("cho_tao_pxk") };
   for (const r of results) counts[r.trang_thai ?? ""] = r.n;
+  // Don tra hang tu huy (cho Kho qua 10 ngay, v1.524): tach khoi "Cho kho xac nhan" -> tab rieng "Đơn tự hủy".
+  counts.__TU_HUY_KHO__ = tong("tu_huy");
+  if (counts["Cho kho xac nhan"] != null) counts["Cho kho xac nhan"] -= counts.__TU_HUY_KHO__;
   // 2 sentinel 2026-09-30: "Chờ tác nghiệp" (Cho TN duyet + tra hang Cho TN duyet tong - trang thai chi co o tra hang)
   // va "Hàng trả" chờ KT/Kho/QC (trang thai chi co o tra hang) - cong tu cac nhom tren, khop dung dieu kien loc.
   counts.__CHO_TN__ = (counts["Cho TN duyet"] ?? 0) + (counts["Cho TN duyet tong"] ?? 0);
@@ -2244,7 +2255,7 @@ datMuaLinhKien.get("/loai-don-counts", async (c) => {
     `SELECT
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'mua' AND ${muaCongNoSql}${scopeSql}${extraScopeSql}) as mua,
        (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'cong_no' AND ${muaCongNoSql}${scopeSql}${extraScopeSql}) as cong_no,
-       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ${traHangSql}${scopeSql}${extraScopeSql}) as tra_hang`,
+       (SELECT COUNT(*) FROM dat_don_hang ddh WHERE ddh.loai_don = 'tra_hang' AND ${traHangSql} AND NOT ${traHangTuHuySql("ddh")}${scopeSql}${extraScopeSql}) as tra_hang`,
   )
     .bind(
       ...muaCongNoBinds, ...scopeBinds, ...extraScopeBinds,

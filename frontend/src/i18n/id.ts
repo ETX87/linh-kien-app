@@ -3066,5 +3066,14 @@ const tuDien: Record<string, string> = {
   "Tính giá niêm yết. Tiền Kế toán xác nhận vào Quỹ KH chuyển khoản (không vào quỹ của KTV); đơn chỉ dùng tiền trong quỹ này.": "Berlaku harga daftar. Uang yang dikonfirmasi Akuntansi masuk ke dana transfer pelanggan (bukan dana teknisi); pesanan hanya memakai uang di dana ini.",
   "Loại đề xuất đang chọn không cần chuyển tiền nên không tích được — chỉ áp dụng cho đơn cần chuyển tiền (Mua hàng, Mua hàng sửa chữa, Trừ công nợ).": "Jenis usulan yang dipilih tidak perlu transfer, jadi tidak bisa dicentang — hanya untuk pesanan yang perlu transfer (Pembelian, Pembelian perbaikan, Potong utang).",
   "Chọn loại đề xuất cần chuyển tiền (Mua hàng, Mua hàng sửa chữa, Trừ công nợ) để tích.": "Pilih jenis usulan yang perlu transfer (Pembelian, Pembelian perbaikan, Potong utang) untuk mencentang.",
+  "Chuyển Tồn CEO": "Dipindah ke tunggakan CEO",
+  "Chuyển Tồn CEO lúc": "Dipindah ke tunggakan CEO pada",
+  "Tồn CEO": "Tunggakan CEO",
+  "Chờ Kho xác nhận quá 10 ngày (KTV chưa gửi hàng) — không còn tính là việc cần xử lý. Hàng về muộn: Kho vẫn xác nhận bình thường.": "Menunggu Gudang lebih dari 10 hari (teknisi belum mengirim barang) — tidak lagi dihitung sebagai tugas. Jika barang datang terlambat, Gudang tetap bisa mengonfirmasi.",
+  "Mỗi bước có hạn xử lý (SLA). Quá hạn → người phụ trách giải trình; hết hạn giải trình mà chưa giải trình → hệ thống chuyển sang Tồn CEO (gửi đối tác qua API).": "Setiap langkah memiliki batas waktu (SLA). Terlambat → penanggung jawab menjelaskan; tanpa penjelasan hingga batas → sistem memindahkan ke tunggakan CEO (dikirim ke mitra via API).",
+  "Tự hủy (chờ Kho quá 10 ngày)": "Batal otomatis (menunggu Gudang lebih dari 10 hari)",
+  "Tự hủy — quá 10 ngày": "Batal otomatis — lebih dari 10 hari",
+  "Đã quét: {a} ca mới, {b} chuyển Tồn CEO": "Dipindai: {a} kasus baru, {b} dipindah ke tunggakan CEO",
+  "Đơn tự hủy (quá 10 ngày)": "Batal otomatis (lebih dari 10 hari)",
 };
 export default tuDien;

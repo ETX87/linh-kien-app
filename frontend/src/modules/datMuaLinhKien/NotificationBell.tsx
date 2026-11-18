@@ -67,7 +67,7 @@ const LOAI_LABEL: Record<string, string> = {
   phieu_hoan_tien: dichSau("Hoàn tiền quỹ"),
   nop_tien_quy: dichSau("Nộp tiền vào quỹ"),
   vi_pham: dichSau("Quá hạn cần giải trình"),
-  vi_pham_gan_the: dichSau("Gắn thẻ vi phạm"),
+  vi_pham_gan_the: dichSau("Chuyển Tồn CEO"),
   viec_moi: dichSau("Việc mới"),
   lien_quan: dichSau("Liên quan"),
   theo_doi: dichSau("Theo dõi"),

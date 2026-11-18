@@ -460,6 +460,8 @@ export interface TraHangRow extends DonHangRow {
   trang_thai_tra_hang: string;
   // Han 24h tung giai doan (2026-10-01, GET /tra-hang): qua_han_ly_do_cham (ke thua DonHangRow) = da qua han buoc dang giu.
   han_giai_doan?: string | null;
+  // v1.524: don "Cho kho xac nhan" qua 10 ngay (KTV khong gui hang) - tinh luc doc, Kho van xac nhan duoc neu hang ve muon.
+  tu_huy_qua_han?: number;
 }
 
 export type KtvDisplayMap = Map<string, { ma_ktv: string; ten_hien_thi: string | null }>;

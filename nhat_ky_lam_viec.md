@@ -159,3 +159,24 @@ xet' / 'Da go the'.
 - **Giải thích:** ô chỉ dành cho đơn cần chuyển tiền; ảnh đang chọn HỖ TRỢ SỬA CHỮA 0 ĐỒNG (0đ) nên ô mờ. MUA HÀNG SỬA CHỮA vẫn tích được.
 - **Đã làm:** gỡ phần ẩn ô + chặn server của v1.522 (giữ ưu tiên 3 loại sửa chữa). Câu dưới ô khi bị mờ ghi rõ "Loại đề xuất đang chọn không cần chuyển tiền nên không tích được — chỉ áp dụng cho đơn cần chuyển tiền (Mua hàng, Mua hàng sửa chữa, Trừ công nợ)" (+ EN/ID).
 - **Kiểm thử:** typecheck backend + frontend 0 lỗi. Chưa bấm thử trên giao diện.
+
+## 2026-11-18 — Hàng trả tự hủy chờ Kho 10 ngày, "Tồn CEO", API danh sách Tồn CEO (v1.524, migration 0127)
+
+**Yêu cầu (nguyên văn):** "1. bước chờ kho (trả hàng) => đơn quá hạn 10 ngày cho vào danh sách hủy bỏ (do KTV không gửi hàng). không đếm
+trong danh sách cần xử lý nữa. vẫn có thể vào danh sách đơn tự hủy để tìm nếu sau này hàng về muộn. (chia tab đơn đang chờ, đơn tự hủy)
+2. Đơn sau mốc hạn giải trình mà không giải trình sẽ chuyển sang trạng thái tồn CEO sau khi hết Hạn giải trình (giờ)) 3. Danh sách các đơn
+bị lỗi tồn CEO sẽ bắn API sang cho đối tác. tương tự như cách app DVBH đang bắn đơn tồn CEO sang app vi phạm của đối tác (bên ngoài)"
+
+**Đã làm:**
+- `traHangTuHuySql()` (`lib/hanLyDoCham.ts`): đơn trả hàng "Cho kho xac nhan" quá 10 ngày từ lúc vào bước = tự hủy, TÍNH LÚC ĐỌC (không đổi trạng thái → hàng
+  về muộn Kho xác nhận bình thường). Loại khỏi: lọc "Cho kho xac nhan", `__CHO_XAC_NHAN__`, `__OPEN__`/còn tồn (`donConTonSql`), số đếm menu, badge
+  `choKhoTraHang`, Trang chủ (đang tồn / toàn hệ thống), `/loai-don-counts`. Sentinel mới `__TU_HUY_KHO__` + cột `tu_huy_qua_han`. FE: Hàng trả › Chờ Kho có 2 tab
+  "Đơn đang chờ" / "Đơn tự hủy (quá 10 ngày)", badge "Tự hủy — quá 10 ngày".
+- Vi phạm: `Gan the` → `Ton CEO` (migration 0127 dựng lại bảng `vi_pham`, đổi dữ liệu cũ), nhãn / thông báo "Tồn CEO". API `/v1/vi-pham` vẫn nhận lọc `Gan the`,
+  thêm `ton_ceo`, `ton_ceo_luc`.
+- `GET /api/partner/v1/danh-sach-ton?loai=ton-ceo` cùng hình dạng API `danh-sach-ton?loai=canh-bao-ceo` của DVBH (DVBH cũng để đối tác KÉO, không đẩy) — tài liệu §4.19.
+
+**Kiểm thử (Worker + D1 local):** đơn chờ Kho 11 ngày → chỉ ở `__TU_HUY_KHO__`, đơn 3 ngày ở "Chờ kho" (counts 1/1, `choKhoTraHang` = 1); quét vi phạm →
+ca hết hạn giải trình thành `Ton CEO`, API danh sách Tồn CEO trả đúng, `trang_thai=Gan the` vẫn ra; giao diện 2 tab xem bằng mắt.
+
+**Còn lại:** app vi phạm phía đối tác cần thêm bước kéo API mới. Ca vi phạm bước "Kho xác nhận (trả hàng)" của đơn tự hủy vẫn giữ như cũ.

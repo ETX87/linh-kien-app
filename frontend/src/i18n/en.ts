@@ -3066,5 +3066,14 @@ const tuDien: Record<string, string> = {
   "Tính giá niêm yết. Tiền Kế toán xác nhận vào Quỹ KH chuyển khoản (không vào quỹ của KTV); đơn chỉ dùng tiền trong quỹ này.": "List price applies. Money confirmed by Accounting goes to the customer transfer fund (not the technician fund); the order only uses money in this fund.",
   "Loại đề xuất đang chọn không cần chuyển tiền nên không tích được — chỉ áp dụng cho đơn cần chuyển tiền (Mua hàng, Mua hàng sửa chữa, Trừ công nợ).": "The selected request type needs no payment, so this can't be ticked — only for orders that require payment (Purchase, Repair purchase, Debt deduction).",
   "Chọn loại đề xuất cần chuyển tiền (Mua hàng, Mua hàng sửa chữa, Trừ công nợ) để tích.": "Choose a request type that requires payment (Purchase, Repair purchase, Debt deduction) to tick.",
+  "Chuyển Tồn CEO": "Moved to CEO backlog",
+  "Chuyển Tồn CEO lúc": "Moved to CEO backlog at",
+  "Tồn CEO": "CEO backlog",
+  "Chờ Kho xác nhận quá 10 ngày (KTV chưa gửi hàng) — không còn tính là việc cần xử lý. Hàng về muộn: Kho vẫn xác nhận bình thường.": "Waiting for Warehouse over 10 days (technician has not sent the goods) — no longer counted as a task. If goods arrive late, Warehouse can still confirm as usual.",
+  "Mỗi bước có hạn xử lý (SLA). Quá hạn → người phụ trách giải trình; hết hạn giải trình mà chưa giải trình → hệ thống chuyển sang Tồn CEO (gửi đối tác qua API).": "Each step has a processing deadline (SLA). Overdue → the person in charge explains; no explanation by the deadline → the system moves it to the CEO backlog (sent to the partner via API).",
+  "Tự hủy (chờ Kho quá 10 ngày)": "Auto-cancelled (waiting for Warehouse over 10 days)",
+  "Tự hủy — quá 10 ngày": "Auto-cancelled — over 10 days",
+  "Đã quét: {a} ca mới, {b} chuyển Tồn CEO": "Scanned: {a} new cases, {b} moved to CEO backlog",
+  "Đơn tự hủy (quá 10 ngày)": "Auto-cancelled (over 10 days)",
 };
 export default tuDien;

@@ -155,7 +155,7 @@ export function ViPhamModule({ moTab }: { moTab?: { tab: string; nonce: number }
     { key: "can_toi", label: "Cần tôi giải trình", count: d.can_toi },
     { key: "cua_toi", label: "Của tôi" },
     { key: "cho", label: "Chờ giải trình" },
-    { key: "gan_the", label: "Gắn thẻ vi phạm" },
+    { key: "gan_the", label: "Tồn CEO" },
     { key: "da_giai_trinh", label: "Đã giải trình" },
     { key: "dang_cho", label: "Đang quá hạn" },
     { key: "tat_ca", label: "Tất cả" },
@@ -168,12 +168,12 @@ export function ViPhamModule({ moTab }: { moTab?: { tab: string; nonce: number }
     <div className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <p className="text-sm text-[var(--color-text-secondary)] max-w-3xl">
-          {t("Mỗi bước có hạn xử lý (SLA). Quá hạn → người phụ trách giải trình; hết hạn giải trình mà chưa giải trình → hệ thống gắn thẻ vi phạm.")}
+          {t("Mỗi bước có hạn xử lý (SLA). Quá hạn → người phụ trách giải trình; hết hạn giải trình mà chưa giải trình → hệ thống chuyển sang Tồn CEO (gửi đối tác qua API).")}
           {buoc.data?.lan_quet && ` ${t("Lần quét gần nhất: {a}", { a: ngayGio(buoc.data.lan_quet) })}.`}
         </p>
         <div className="flex gap-2 text-xs">
           <button className="kpi-card px-3 py-2 text-left" onClick={() => doiTab("can_toi")}>{t("Cần tôi giải trình")}: <b className="text-[var(--color-warning-strong)]">{d.can_toi ?? 0}</b></button>
-          <button className="kpi-card px-3 py-2 text-left" onClick={() => doiTab("gan_the")}>{t("Gắn thẻ")}: <b className="text-[var(--color-danger)]">{d.gan_the ?? 0}</b></button>
+          <button className="kpi-card px-3 py-2 text-left" onClick={() => doiTab("gan_the")}>{t("Tồn CEO")}: <b className="text-[var(--color-danger)]">{d.gan_the ?? 0}</b></button>
           <button className="kpi-card px-3 py-2 text-left" onClick={() => doiTab("cho")}>{t("Chờ giải trình")}: <b>{d.cho ?? 0}</b></button>
         </div>
       </div>
@@ -250,7 +250,7 @@ function TongHop({ onMo, tenBp }: { onMo: (boPhan?: string, nguoi?: string) => v
         <div className="overflow-x-auto">
           <table className="tbl w-full [&_th]:px-3 [&_th]:py-2 [&_td]:px-3 [&_td]:py-2 [&_tbody_tr]:border-t [&_tbody_tr:hover]:bg-[var(--color-surface-hover)]">
             <thead className="tbl-head">
-              <tr><th>{t("Bộ phận")}</th><th>{t("Chờ giải trình")}</th><th>{t("Gắn thẻ vi phạm")}</th><th>{t("Đã giải trình")}</th><th>{t("Đang quá hạn")}</th><th>{t("Tổng")}</th></tr>
+              <tr><th>{t("Bộ phận")}</th><th>{t("Chờ giải trình")}</th><th>{t("Tồn CEO")}</th><th>{t("Đã giải trình")}</th><th>{t("Đang quá hạn")}</th><th>{t("Tổng")}</th></tr>
             </thead>
             <tbody>
               {d.bo_phan.map((r) => (
@@ -272,7 +272,7 @@ function TongHop({ onMo, tenBp }: { onMo: (boPhan?: string, nguoi?: string) => v
         <div className="overflow-x-auto">
           <table className="tbl w-full [&_th]:px-3 [&_th]:py-2 [&_td]:px-3 [&_td]:py-2 [&_tbody_tr]:border-t [&_tbody_tr:hover]:bg-[var(--color-surface-hover)]">
             <thead className="tbl-head">
-              <tr><th>{t("Người")}</th><th>{t("Mã nhân sự")}</th><th>{t("Bộ phận")}</th><th>{t("Chờ giải trình")}</th><th>{t("Hạn sớm nhất")}</th><th>{t("Gắn thẻ vi phạm")}</th><th>{t("Đã tự giải trình")}</th></tr>
+              <tr><th>{t("Người")}</th><th>{t("Mã nhân sự")}</th><th>{t("Bộ phận")}</th><th>{t("Chờ giải trình")}</th><th>{t("Hạn sớm nhất")}</th><th>{t("Tồn CEO")}</th><th>{t("Đã tự giải trình")}</th></tr>
             </thead>
             <tbody>
               {d.nguoi.map((r) => (
@@ -299,7 +299,7 @@ function CauHinhSla({ ds, onDoi }: { ds: BuocCfg[]; onDoi: () => void }) {
   const [sua, setSua] = useState<Record<string, BuocCfg>>({});
   const quet = useMutation({
     mutationFn: () => api.post<{ ung_vien: number; ghi_moi: number; gan_the: number }>("/vi-pham/quet", {}),
-    onSuccess: (r) => { addToast(t("Đã quét: {a} ca mới, {b} gắn thẻ", { a: r.ghi_moi, b: r.gan_the })); onDoi(); },
+    onSuccess: (r) => { addToast(t("Đã quét: {a} ca mới, {b} chuyển Tồn CEO", { a: r.ghi_moi, b: r.gan_the })); onDoi(); },
     onError: (e) => addToast(describeApiError(e)),
   });
   const luu = useMutation({

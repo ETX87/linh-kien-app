@@ -6,7 +6,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nowVN } from "../lib/vnTime";
-import { mocGiaiDoanTraHangSql, quaHanGiaiDoanTraHang, tinhHanLyDoCham, TRA_HANG_GIAI_DOAN_HAN } from "../lib/hanLyDoCham";
+import { mocGiaiDoanTraHangSql, quaHanGiaiDoanTraHang, tinhHanLyDoCham, TRA_HANG_GIAI_DOAN_HAN, traHangTuHuySql } from "../lib/hanLyDoCham";
 import { emailsTheoTen, orEmailIn, orMaYcsc, orPxkCuaDon, tenLkKhopSql } from "../lib/timTheoTen";
 import { bumpVersions } from "../lib/dataVersions";
 import { scopeDatMuaNguoiTao, khuVucSetWhereSql, phuTrachGsSet, duocDoiKhuVucDon } from "../lib/scopeDatMua";
@@ -143,12 +143,17 @@ traHang.get("/", async (c) => {
     // tu 2026-08-27 (dropdown filter cua chinh tab nay) nhung route nay chua tung xu ly, khien chon
     // "Còn tồn" tren dropdown truoc day luon ra danh sach rong (trang_thai_hien_tai='__OPEN__' khong
     // khop dong nao that).
-    whereSql += ` AND ddh.trang_thai_hien_tai NOT IN (${TRANG_THAI_DONG.map(() => "?").join(",")})`;
+    whereSql += ` AND ddh.trang_thai_hien_tai NOT IN (${TRANG_THAI_DONG.map(() => "?").join(",")}) AND NOT ${traHangTuHuySql("ddh")}`;
     binds.push(...TRANG_THAI_DONG);
   } else if (trangThai === "__CHO_XAC_NHAN__") {
     // Muc Sidebar "Hàng trả" (2026-09-30): tong don CHO CAC BEN XAC NHAN (Ke toan/Kho/QC) - buoc TN duyet tong nam o
-    // "Chờ tác nghiệp" cung don mua (GET /dat-mua-lk/don-hang?trang_thai=__CHO_TN__).
-    whereSql += " AND ddh.trang_thai_hien_tai IN ('Cho ke toan duyet mem', 'Cho kho xac nhan', 'Cho QC xac nhan')";
+    // "Chờ tác nghiệp" cung don mua (GET /dat-mua-lk/don-hang?trang_thai=__CHO_TN__). Bo don tu huy (v1.524).
+    whereSql += ` AND ddh.trang_thai_hien_tai IN ('Cho ke toan duyet mem', 'Cho kho xac nhan', 'Cho QC xac nhan') AND NOT ${traHangTuHuySql("ddh")}`;
+  } else if (trangThai === "__TU_HUY_KHO__") {
+    // Tab "Đơn tự hủy" (v1.524): cho Kho qua 10 ngay (KTV khong gui hang) - hang ve muon Kho van xac nhan tu day.
+    whereSql += ` AND ${traHangTuHuySql("ddh")}`;
+  } else if (trangThai === "Cho kho xac nhan") {
+    whereSql += ` AND ddh.trang_thai_hien_tai = 'Cho kho xac nhan' AND NOT ${traHangTuHuySql("ddh")}`;
   } else if (trangThai) {
     whereSql += " AND ddh.trang_thai_hien_tai = ?";
     binds.push(trangThai);
@@ -189,7 +194,8 @@ traHang.get("/", async (c) => {
     `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai_tra_hang,
        (SELECT ghi_chu FROM dat_don_hang_log WHERE dat_don_hang_id = ddh.id ORDER BY id DESC LIMIT 1) as ghi_chu_xu_ly_gan_nhat,
        kv.ten as khu_vuc_ten,
-       ${mocGiaiDoanTraHangSql("ddh")} as moc_giai_doan
+       ${mocGiaiDoanTraHangSql("ddh")} as moc_giai_doan,
+       CASE WHEN ${traHangTuHuySql("ddh")} THEN 1 ELSE 0 END as tu_huy_qua_han
      FROM dat_don_hang ddh
      -- "Khu vực" (them 2026-09-12, dong bo voi GET /don-hang - phan hoi "sắp xếp cột bảng danh sách
      -- đơn giống" file tham chieu) - lay tu Khu vuc cua CHINH nguoi_nhan_hang qua ktv_lien_he.khu_vuc_ma.
@@ -210,7 +216,7 @@ traHang.get("/:donHangId", async (c) => {
   const whereSql = "ddh.id = ? AND ddh.loai_don = 'tra_hang'" + (scope?.whereSql ?? "");
   const binds = [donHangId, ...(scope?.binds ?? [])];
   const ddh = await c.env.DB.prepare(
-    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai_tra_hang, ${mocGiaiDoanTraHangSql("ddh")} as moc_giai_doan FROM dat_don_hang ddh WHERE ${whereSql}`,
+    `SELECT ddh.*, ddh.trang_thai_hien_tai as trang_thai_tra_hang, ${mocGiaiDoanTraHangSql("ddh")} as moc_giai_doan, CASE WHEN ${traHangTuHuySql("ddh")} THEN 1 ELSE 0 END as tu_huy_qua_han FROM dat_don_hang ddh WHERE ${whereSql}`,
   )
     .bind(...binds)
     .first();

@@ -7,7 +7,7 @@
  *
  * Luong 1 vi pham:
  *   thuc the vao buoc (moc_vao) -> qua han (moc_vao + so_gio, T7/CN day sang thu 2) -> dong vi_pham "Cho giai trinh"
- *   -> bo phan giai trinh truoc han_giai_trinh -> "Da giai trinh"  |  het han_giai_trinh -> "Gan the"  |  Admin go -> "Da go the".
+ *   -> bo phan giai trinh truoc han_giai_trinh -> "Da giai trinh"  |  het han_giai_trinh -> "Ton CEO" (v1.524, truoc la "Gan the")  |  Admin go -> "Da go the".
  * Thuc the roi buoc (ke ca sau khi da ghi nhan) -> ghi ket_thuc_luc / nguoi_xu_ly / trang_thai_sau (vi pham van giu).
  *
  * Quet (quetViPham) chay moi gio trong cron + nut "Quét ngay" (Admin). Moi lan chi doc:
@@ -66,7 +66,7 @@ export const TEN_BO_PHAN: Record<BoPhan, string> = {
 };
 
 // 'Cho xem xet' / 'Da go the' con trong CHECK (migration 0126) nhung KHONG dung (chot 2026-11-18: khong co buoc Admin xem xet / go the).
-export const TRANG_THAI_VI_PHAM = ["Cho giai trinh", "Da giai trinh", "Gan the"] as const;
+export const TRANG_THAI_VI_PHAM = ["Cho giai trinh", "Da giai trinh", "Ton CEO"] as const;
 /** Ca ghi nhan sai (khong thuoc trach nhiem bo phan) -> giai trinh voi ly do nay, tinh la "Da giai trinh" nhu moi giai trinh khac. */
 export const LY_DO_KHONG_DUNG = "Ghi nhận không đúng / không thuộc trách nhiệm";
 
@@ -560,7 +560,7 @@ export async function quetViPham(env: Env): Promise<KetQuaQuet> {
 
   // Het han giai trinh -> gan the.
   const ganThe = await db
-    .prepare("UPDATE vi_pham SET trang_thai = 'Gan the', gan_the_luc = ?, cap_nhat_luc = ? WHERE trang_thai = 'Cho giai trinh' AND han_giai_trinh < ?")
+    .prepare("UPDATE vi_pham SET trang_thai = 'Ton CEO', gan_the_luc = ?, cap_nhat_luc = ? WHERE trang_thai = 'Cho giai trinh' AND han_giai_trinh < ?")
     .bind(now, now, now)
     .run();
   // Sap het han giai trinh (con <= GIO_NHAC gio) -> nhac 1 lan.
@@ -603,11 +603,11 @@ async function guiThongBaoQuet(env: Env, now: string, opts: { nhac: boolean }): 
   }
   for (const r of sapHet) {
     tin.push({ email: r.email, loai: "vi_pham", tieuDe: "⚠ Sắp hết hạn giải trình",
-      noiDung: `${r.n} ca sắp hết hạn giải trình (sớm nhất ${hh(r.han)}). Quá hạn mà chưa giải trình sẽ bị gắn thẻ vi phạm. Ca không thuộc trách nhiệm của bạn: giải trình, chọn lý do "Ghi nhận không đúng".` });
+      noiDung: `${r.n} ca sắp hết hạn giải trình (sớm nhất ${hh(r.han)}). Hết hạn mà chưa giải trình sẽ chuyển sang Tồn CEO (báo đối tác). Ca không thuộc trách nhiệm của bạn: giải trình, chọn lý do "Ghi nhận không đúng".` });
   }
   for (const r of biGan) {
-    tin.push({ email: r.email, loai: "vi_pham_gan_the", tieuDe: "🚩 Bị gắn thẻ vi phạm",
-      noiDung: `${r.n} ca đã bị gắn thẻ vi phạm vì chưa giải trình đúng hạn.` });
+    tin.push({ email: r.email, loai: "vi_pham_gan_the", tieuDe: "🚩 Ca chuyển Tồn CEO",
+      noiDung: `${r.n} ca đã chuyển sang Tồn CEO vì chưa giải trình đúng hạn.` });
   }
   if (!tin.length) return;
   for (const khoi of chiaKhoi(tin, 80)) {

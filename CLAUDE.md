@@ -1562,6 +1562,11 @@ Nguyên văn yêu cầu (chủ hệ thống): *"luồng "Cấp lk" ... khi đơn
 - Ca ghi nhận sai = giải trình với ly do `LY_DO_KHONG_DUNG` ("Ghi nhận không đúng / không thuộc trách nhiệm", đầu danh sách `GET /vi-pham/ly-do`, trả kèm `khong_dung`) → "Da giai trinh". Gắn thẻ là kết quả cuối.
 - Chỉ BO giải trình; KTV không (không bước nào giao KTV, route chặn KTV/Vệ tinh). Tài liệu HTML cập nhật (14 ảnh), API đối tác 2.0.
 
+**v1.524 (18/11/2026, migration `0127`)** — *"bước chờ kho (trả hàng) => đơn quá hạn 10 ngày cho vào danh sách hủy bỏ … vẫn có thể vào danh sách đơn tự hủy để tìm nếu sau này hàng về muộn"* + *"Đơn sau mốc hạn giải trình mà không giải trình sẽ chuyển sang trạng thái tồn CEO"* + *"Danh sách các đơn bị lỗi tồn CEO sẽ bắn API sang cho đối tác. tương tự như cách app DVBH …"*:
+- Hàng trả "Đơn tự hủy": `traHangTuHuySql()` (`lib/hanLyDoCham.ts`) = "Cho kho xac nhan" quá 10 ngày từ lúc vào bước, TÍNH LÚC ĐỌC (không đổi trạng thái — hàng về muộn Kho xác nhận như thường). Mọi chỗ đếm / lọc "Cho kho xac nhan", `__CHO_XAC_NHAN__`, còn tồn (`donConTonSql`), badge `choKhoTraHang`, Trang chủ, `/loai-don-counts` loại nó ra; sentinel `__TU_HUY_KHO__` (counts + danh sách), cột `tu_huy_qua_han`. Thêm chỗ đếm việc Kho trả hàng mới → nối `AND NOT traHangTuHuySql(...)`. FE: Chờ Kho có 2 tab "Đơn đang chờ" / "Đơn tự hủy (quá 10 ngày)" (`TraHangTab.tsx`).
+- Vi phạm: trạng thái `Gan the` đổi thành **`Ton CEO`** (bảng dựng lại, cột `gan_the_luc` giữ tên = lúc chuyển); nhãn "Tồn CEO". API `/v1/vi-pham` vẫn nhận lọc `Gan the`, thêm `ton_ceo`/`ton_ceo_luc`.
+- `GET /api/partner/v1/danh-sach-ton?loai=ton-ceo` — cùng hình dạng `danh-sach-ton?loai=canh-bao-ceo` của DVBH (DVBH cũng để đối tác KÉO). Tài liệu §4.19 (2.1). App vi phạm phía đối tác chưa kéo.
+
 ## Nhận việc từ Trợ lý Mây (tự sửa)
 - Issue gắn nhãn `may:phan-tich` là ĐỀ XUẤT CẢI TIẾN cần phân tích trước: workflow `may-phan-tich` chỉ ĐỌC mã để soạn BRD cho Giám đốc duyệt — không sửa mã ở bước này. Khi duyệt, BRD nằm ở đầu issue; làm đúng BRD và lưu nó vào `docs/yeu-cau/MAY-xxxxx.md`.
 - Issue gắn nhãn `may:tu-sua` là việc do Trợ lý Mây chuyển sang, mã `MAY-xxxxx` ở tiêu đề. Sửa ĐÚNG phạm vi mô tả.

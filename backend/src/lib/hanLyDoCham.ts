@@ -47,6 +47,15 @@ export function mocGiaiDoanTraHangSql(alias: string): string {
        AND l.id > COALESCE((SELECT MAX(l2.id) FROM tra_hang_log l2 WHERE l2.dat_don_hang_id = ${alias}.id AND l2.trang_thai <> ${alias}.trang_thai_hien_tai), 0)),
     ${alias}.ngay_tao)`;
 }
+/** Don tra hang "TU HUY" (chot 2026-11-18, v1.524 — "bước chờ kho (trả hàng) => đơn quá hạn 10 ngày cho vào danh sách hủy bỏ (do KTV không
+ * gửi hàng). không đếm trong danh sách cần xử lý nữa. vẫn có thể vào danh sách đơn tự hủy để tìm nếu sau này hàng về muộn"):
+ * don o "Cho kho xac nhan" qua TRA_HANG_TU_HUY_NGAY ngay tinh tu moc vao buoc. TINH LUC DOC, KHONG doi trang thai -> hang ve muon
+ * Kho van xac nhan binh thuong (don tu quay ve luong). Dung CHUNG cho danh sach / so dem / badge / con ton. Khong bind. */
+export const TRA_HANG_TU_HUY_NGAY = 10;
+export function traHangTuHuySql(alias: string): string {
+  return `(${alias}.loai_don = 'tra_hang' AND ${alias}.trang_thai_hien_tai = 'Cho kho xac nhan'
+    AND ${mocGiaiDoanTraHangSql(alias)} <= datetime('now', '+7 hours', '-${TRA_HANG_TU_HUY_NGAY} days'))`;
+}
 export function quaHanGiaiDoanTraHang(trangThai: string | null | undefined, moc: string | null | undefined, nowVnStr: string): boolean {
   return !!moc && !!trangThai && (TRA_HANG_GIAI_DOAN_HAN as readonly string[]).includes(trangThai) && quaHanLyDoCham(moc, nowVnStr);
 }

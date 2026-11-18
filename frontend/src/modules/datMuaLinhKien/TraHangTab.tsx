@@ -54,7 +54,14 @@ function PriorityTag() {
 // thao tac (cung danh muc ly do cham "Mua hàng" voi don mua).
 type ChoLyDoCham = { ids: string[]; hanhDong: "duyet" | "tu_choi"; ghiChu?: string };
 
-function QuaHanBadge({ r }: { r: Pick<TraHangRow, "qua_han_ly_do_cham" | "han_giai_doan"> }) {
+function QuaHanBadge({ r }: { r: Pick<TraHangRow, "qua_han_ly_do_cham" | "han_giai_doan" | "tu_huy_qua_han"> }) {
+  if (r.tu_huy_qua_han) {
+    return (
+      <span title={t("Chờ Kho xác nhận quá 10 ngày (KTV chưa gửi hàng) — không còn tính là việc cần xử lý. Hàng về muộn: Kho vẫn xác nhận bình thường.")}>
+        <Badge tone="neutral">{t("Tự hủy — quá 10 ngày")}</Badge>
+      </span>
+    );
+  }
   if (!r.qua_han_ly_do_cham) return null;
   return (
     <span title={r.han_giai_doan ? t("Hạn xử lý bước này: {a} — xử lý sẽ phải chọn lý do chậm", { a: fmtDateTime(r.han_giai_doan) }) : undefined}>
@@ -788,6 +795,16 @@ export function TraHangTab({
 
   return (
     <div className="mt-4">
+      {/* v1.524: buoc Cho Kho chia 2 tab - don dang cho | don tu huy (qua 10 ngay, KTV khong gui hang). */}
+      {(filterTrangThai === "Cho kho xac nhan" || filterTrangThai === "__TU_HUY_KHO__") && (
+        <div className="flex gap-1 mb-3">
+          {([["Cho kho xac nhan", t("Đơn đang chờ")], ["__TU_HUY_KHO__", t("Đơn tự hủy (quá 10 ngày)")]] as const).map(([v, nhan]) => (
+            <button key={v} type="button" className={`filter-tab${filterTrangThai === v ? " active" : ""}`} onClick={() => setFilterTrangThai(v)}>
+              {nhan} <span className="opacity-70">({statusCountsData?.counts?.[v] ?? 0})</span>
+            </button>
+          ))}
+        </div>
+      )}
       <FilterSearchBar
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters((v) => !v)}
