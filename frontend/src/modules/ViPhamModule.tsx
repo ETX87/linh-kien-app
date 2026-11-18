@@ -43,7 +43,7 @@ export function ViPhamModule({ moTab }: { moTab?: { tab: string; nonce: number }
   const [qGui, setQGui] = useState("");
   const [page, setPage] = useState(1);
   const [chiTiet, setChiTiet] = useState<ViPhamRow | null>(null);
-  const [hop, setHop] = useState<{ r: ViPhamRow; loai: "giai_trinh" | "bao" | "xu_ly" | "go_the" } | null>(null);
+  const [hop, setHop] = useState<ViPhamRow | null>(null);
   const [locBoPhan, setLocBoPhan] = useState<string | undefined>();
   const [locNguoi, setLocNguoi] = useState<string | undefined>();
   const locCot = useLocCot(() => setPage(1));
@@ -135,8 +135,6 @@ export function ViPhamModule({ moTab }: { moTab?: { tab: string; nonce: number }
       render: (r) =>
         r.giai_trinh ? (
           <span className="block max-w-[260px] truncate" title={`${r.ly_do ?? ""} — ${r.giai_trinh}`}>{r.ly_do ? <b>{r.ly_do}: </b> : null}{r.giai_trinh}</span>
-        ) : r.khieu_nai && r.trang_thai === "Cho xem xet" ? (
-          <span className="block max-w-[260px] truncate text-[var(--color-purple-strong)]" title={r.khieu_nai}>{t("Báo không đúng")}: {r.khieu_nai}</span>
         ) : (
           "—"
         ),
@@ -149,7 +147,7 @@ export function ViPhamModule({ moTab }: { moTab?: { tab: string; nonce: number }
       sortKey: "nguoi_xu_ly",
       render: (r) => (r.ket_thuc_luc ? `${r.nguoi_xu_ly_ten ?? r.nguoi_xu_ly ?? t("Hệ thống")} · ${ngayGio(r.ket_thuc_luc)}` : "—"),
     },
-    { key: "tt", header: "", mobileHint: "actions", render: (r) => <NutViPham r={r} nho onMo={(l) => setHop({ r, loai: l })} /> },
+    { key: "tt", header: "", mobileHint: "actions", render: (r) => <NutViPham r={r} nho onMo={() => setHop(r)} /> },
   ];
 
   const d = dem.data ?? {};
@@ -158,9 +156,7 @@ export function ViPhamModule({ moTab }: { moTab?: { tab: string; nonce: number }
     { key: "cua_toi", label: "Của tôi" },
     { key: "cho", label: "Chờ giải trình" },
     { key: "gan_the", label: "Gắn thẻ vi phạm" },
-    { key: "cho_xem_xet", label: "Chờ Admin xem xét", count: isAdmin ? d.cho_xem_xet : undefined },
     { key: "da_giai_trinh", label: "Đã giải trình" },
-    { key: "da_go", label: "Đã gỡ thẻ" },
     { key: "dang_cho", label: "Đang quá hạn" },
     { key: "tat_ca", label: "Tất cả" },
     { key: "tong_hop", label: "Tổng hợp theo dõi" },
@@ -225,14 +221,14 @@ export function ViPhamModule({ moTab }: { moTab?: { tab: string; nonce: number }
         </>
       )}
       {chiTiet && <ChiTietViPham r={chiTiet} onClose={() => setChiTiet(null)} />}
-      {hop && <HopViPham r={hop.r} loai={hop.loai} onClose={() => setHop(null)} />}
+      {hop && <HopViPham r={hop} onClose={() => setHop(null)} />}
     </div>
   );
 }
 
 interface TongHopData {
-  bo_phan: { bo_phan: string; ten_bo_phan: string; cho: number; da_giai_trinh: number; gan_the: number; cho_xem_xet: number; da_go: number; dang_cho: number; tong: number }[];
-  nguoi: { email: string; ten: string | null; ma_nhan_su: string | null; cho: number; gan_the: number; cho_xem_xet: number; da_giai_trinh: number; han_som_nhat: string | null; bo_phan: string }[];
+  bo_phan: { bo_phan: string; ten_bo_phan: string; cho: number; da_giai_trinh: number; gan_the: number; dang_cho: number; tong: number }[];
+  nguoi: { email: string; ten: string | null; ma_nhan_su: string | null; cho: number; gan_the: number; da_giai_trinh: number; han_som_nhat: string | null; bo_phan: string }[];
   chua_co_nguoi_phu_trach: number;
 }
 
@@ -246,7 +242,7 @@ function TongHop({ onMo, tenBp }: { onMo: (boPhan?: string, nguoi?: string) => v
     <div className="space-y-4">
       {d.chua_co_nguoi_phu_trach > 0 && (
         <p className="text-sm rounded-lg border border-[var(--color-danger)] bg-[var(--color-danger-soft)] p-2">
-          ⚠ {t("{n} ca chưa xác định được người phải giải trình (bộ phận chưa có ai / khu vực chưa có GS) — Admin gán khu vực cho nhân sự hoặc gỡ ghi nhận.", { n: d.chua_co_nguoi_phu_trach })}
+          ⚠ {t("{n} ca chưa xác định được người phải giải trình (bộ phận chưa có ai / khu vực chưa có GS) — cần gán khu vực cho nhân sự ở Quản lý người dùng.", { n: d.chua_co_nguoi_phu_trach })}
         </p>
       )}
       <div>
@@ -254,7 +250,7 @@ function TongHop({ onMo, tenBp }: { onMo: (boPhan?: string, nguoi?: string) => v
         <div className="overflow-x-auto">
           <table className="tbl w-full [&_th]:px-3 [&_th]:py-2 [&_td]:px-3 [&_td]:py-2 [&_tbody_tr]:border-t [&_tbody_tr:hover]:bg-[var(--color-surface-hover)]">
             <thead className="tbl-head">
-              <tr><th>{t("Bộ phận")}</th><th>{t("Chờ giải trình")}</th><th>{t("Gắn thẻ vi phạm")}</th><th>{t("Chờ Admin xem xét")}</th><th>{t("Đã giải trình")}</th><th>{t("Đã gỡ thẻ")}</th><th>{t("Đang quá hạn")}</th><th>{t("Tổng")}</th></tr>
+              <tr><th>{t("Bộ phận")}</th><th>{t("Chờ giải trình")}</th><th>{t("Gắn thẻ vi phạm")}</th><th>{t("Đã giải trình")}</th><th>{t("Đang quá hạn")}</th><th>{t("Tổng")}</th></tr>
             </thead>
             <tbody>
               {d.bo_phan.map((r) => (
@@ -262,9 +258,7 @@ function TongHop({ onMo, tenBp }: { onMo: (boPhan?: string, nguoi?: string) => v
                   <td className="font-semibold">{t(r.ten_bo_phan)}</td>
                   <td><So n={r.cho} mau="text-[var(--color-warning-strong)]" /></td>
                   <td><So n={r.gan_the} mau="text-[var(--color-danger)]" /></td>
-                  <td><So n={r.cho_xem_xet} /></td>
                   <td><So n={r.da_giai_trinh} /></td>
-                  <td><So n={r.da_go} /></td>
                   <td><So n={r.dang_cho} /></td>
                   <td><So n={r.tong} /></td>
                 </tr>
@@ -278,7 +272,7 @@ function TongHop({ onMo, tenBp }: { onMo: (boPhan?: string, nguoi?: string) => v
         <div className="overflow-x-auto">
           <table className="tbl w-full [&_th]:px-3 [&_th]:py-2 [&_td]:px-3 [&_td]:py-2 [&_tbody_tr]:border-t [&_tbody_tr:hover]:bg-[var(--color-surface-hover)]">
             <thead className="tbl-head">
-              <tr><th>{t("Người")}</th><th>{t("Mã nhân sự")}</th><th>{t("Bộ phận")}</th><th>{t("Chờ giải trình")}</th><th>{t("Hạn sớm nhất")}</th><th>{t("Gắn thẻ vi phạm")}</th><th>{t("Chờ Admin xem xét")}</th><th>{t("Đã tự giải trình")}</th></tr>
+              <tr><th>{t("Người")}</th><th>{t("Mã nhân sự")}</th><th>{t("Bộ phận")}</th><th>{t("Chờ giải trình")}</th><th>{t("Hạn sớm nhất")}</th><th>{t("Gắn thẻ vi phạm")}</th><th>{t("Đã tự giải trình")}</th></tr>
             </thead>
             <tbody>
               {d.nguoi.map((r) => (
@@ -289,7 +283,6 @@ function TongHop({ onMo, tenBp }: { onMo: (boPhan?: string, nguoi?: string) => v
                   <td><So n={r.cho} mau="text-[var(--color-warning-strong)]" /></td>
                   <td>{r.han_som_nhat ? ngayGio(r.han_som_nhat) : "—"}</td>
                   <td><So n={r.gan_the} mau="text-[var(--color-danger)]" /></td>
-                  <td><So n={r.cho_xem_xet} /></td>
                   <td><So n={r.da_giai_trinh} /></td>
                 </tr>
               ))}

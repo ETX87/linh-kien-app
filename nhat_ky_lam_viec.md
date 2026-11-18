@@ -113,3 +113,17 @@ tổng hợp khớp; giao diện 4 vai trò (Kho, GS, Kế toán, Admin) + đi�
 
 **Còn dở / cần chốt**: số giờ SLA thật; bước KTV; bước "TN gửi kế toán" và "Kho đã tiếp nhận — chờ hàng về" chưa tính; lý do chậm trả hàng cố
 định 24h; chỉ Admin gỡ thẻ / xem xét; nhân sự chưa gán khu vực dễ bị dồn ca.
+
+## 2026-11-18 — Bỏ bước Admin xem xét / gỡ thẻ; ghi nhận sai = giải trình; chỉ BO giải trình (v1.519)
+
+**Yêu cầu (nguyên văn)**: "việc giải trình không đúng cũng chỉ tính là giải trình thôi, không cần phải thêm vai trò của admin. admin không thực
+hiện công việc xác nhận bỏ thẻ trên hệ thống này" + "2. KTV không cần giải trình, BO tham gia việc giải trình là được".
+
+**Đã làm**: bỏ route báo không đúng / Admin xử lý / gỡ thẻ, tab "Chờ Admin xem xét" + "Đã gỡ thẻ", các nút + hộp tương ứng, cột khiếu nại / gỡ
+thẻ ở API; thêm lý do "Ghi nhận không đúng / không thuộc trách nhiệm" đầu danh sách + dòng gợi ý trong hộp giải trình; thông báo không còn nhắc
+"Báo không đúng"; tài liệu HTML viết lại mục 1, 6, 8, 9, 11, 12 + chụp lại 13 ảnh; API đối tác 2.0. KTV vốn không có bước nào → không đổi code,
+ghi rõ trong tài liệu. Không migration (cột / giá trị CHECK cũ để nguyên, không dùng).
+
+**Kiểm thử (local)**: giải trình với lý do "Ghi nhận không đúng" → "Đã giải trình"; 3 route cũ → 404; `/dem` không còn số chờ xem xét / đã gỡ;
+giao diện Kho / GS / Kế toán / Admin / điện thoại chụp lại; typecheck 2 phía sạch. Production lúc làm không có ca nào ở trạng thái 'Cho xem
+xet' / 'Da go the'.

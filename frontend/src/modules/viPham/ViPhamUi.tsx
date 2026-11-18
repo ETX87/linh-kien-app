@@ -10,8 +10,8 @@ import { MaDonLink, MaPhieuLink } from "../datMuaLinhKien/MaLienKet";
 import { describeApiError } from "../datMuaLinhKien/helpers";
 import { t } from "../../i18n";
 
-// Thanh phan dung chung "Quá hạn & vi phạm" (v1.518): hop giai trinh / bao khong dung / Admin xu ly / go the, chi tiet 1 ca, banner trong chi
-// tiet don / phieu / ticket. Backend: routes/viPham.ts, lib/viPham.ts.
+// Thanh phan dung chung "Quá hạn & vi phạm" (v1.518/1.519): hop giai trinh, chi tiet 1 ca, banner trong chi tiet don / phieu / ticket.
+// Ghi nhan sai = giai trinh voi ly do "Ghi nhận không đúng…" (khong co buoc Admin xem xet / go the - chot 2026-11-18). Backend: routes/viPham.ts, lib/viPham.ts.
 
 export interface NguoiPt {
   email: string;
@@ -43,7 +43,7 @@ export interface ViPhamRow {
   nguoi_xu_ly: string | null;
   nguoi_xu_ly_ten: string | null;
   nguoi_phu_trach: NguoiPt[];
-  trang_thai: "Cho giai trinh" | "Da giai trinh" | "Gan the" | "Cho xem xet" | "Da go the";
+  trang_thai: "Cho giai trinh" | "Da giai trinh" | "Gan the";
   han_giai_trinh: string;
   ly_do: string | null;
   giai_trinh: string | null;
@@ -53,16 +53,6 @@ export interface ViPhamRow {
   giai_trinh_tu_dong: boolean;
   nhac_luc: string | null;
   gan_the_luc: string | null;
-  khieu_nai: string | null;
-  khieu_nai_boi_ten: string | null;
-  khieu_nai_boi: string | null;
-  khieu_nai_luc: string | null;
-  khieu_nai_ket_qua: string | null;
-  khieu_nai_phan_hoi: string | null;
-  khieu_nai_xu_ly_luc: string | null;
-  go_the_ly_do: string | null;
-  go_the_boi: string | null;
-  go_the_luc: string | null;
   ma_yeu_cau_su_co: string | null;
   ma_lada: string | null;
   ma_lk: string | null;
@@ -70,24 +60,17 @@ export interface ViPhamRow {
   don_ids: string[];
   la_cua_toi: boolean;
   duoc_giai_trinh: boolean;
-  duoc_bao_khong_dung: boolean;
-  duoc_xu_ly_bao: boolean;
-  duoc_go_the: boolean;
 }
 
 export const NHAN_TT: Record<string, string> = {
   "Cho giai trinh": "Chờ giải trình",
   "Da giai trinh": "Đã giải trình",
   "Gan the": "Gắn thẻ vi phạm",
-  "Cho xem xet": "Chờ Admin xem xét",
-  "Da go the": "Đã gỡ thẻ",
 };
 export const TONE_TT: Record<string, BadgeTone> = {
   "Cho giai trinh": "amber",
   "Da giai trinh": "teal",
   "Gan the": "coral",
-  "Cho xem xet": "violet",
-  "Da go the": "gray",
 };
 export const NHAN_LOAI: Record<string, string> = { dat_hang: "Đặt hàng", tra_hang: "Trả hàng" };
 
@@ -110,7 +93,7 @@ export function conLai(han: string): string | null {
   return h < 1 ? t("còn {n} phút", { n: Math.max(1, Math.round(h * 60)) }) : t("còn {a}", { a: gioTre(Math.round(h * 10) / 10) });
 }
 export function tenPt(ds: NguoiPt[]): string {
-  if (!ds.length) return t("Chưa xác định — Admin xử lý");
+  if (!ds.length) return t("Chưa xác định người phụ trách");
   return ds.map((p) => p.ten ?? p.email).join(", ");
 }
 
@@ -139,49 +122,35 @@ export function lamMoiViPham(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ["notifications-count"] });
 }
 
-type LoaiHop = "giai_trinh" | "bao" | "xu_ly" | "go_the";
+type LoaiHop = "giai_trinh";
 
-/** Hop thao tac tren 1 ca. */
-export function HopViPham({ r, loai, onClose }: { r: ViPhamRow; loai: LoaiHop; onClose: () => void }) {
+/** Hop giai trinh 1 ca. Ca ghi nhan sai -> chon ly do "Ghi nhận không đúng…" (van tinh la giai trinh). */
+export function HopViPham({ r, onClose }: { r: ViPhamRow; loai?: LoaiHop; onClose: () => void }) {
   const qc = useQueryClient();
   const addToast = useToast();
   const [lyDo, setLyDo] = useState("");
   const [nd, setNd] = useState("");
-  const [ketQua, setKetQua] = useState<"chap_nhan" | "tu_choi">("tu_choi");
   const [loi, setLoi] = useState<string | null>(null);
-  const dsLyDo = useQuery({ queryKey: ["vi-pham-ly-do"], queryFn: () => api.get<{ rows: string[] }>("/vi-pham/ly-do"), enabled: loai === "giai_trinh" });
-  const cauHinh: Record<LoaiHop, { tieuDe: string; nhan: string; toiThieu: number; nut: string; ok: string }> = {
-    giai_trinh: { tieuDe: t("Giải trình quá hạn — {a}", { a: r.doi_tuong_id }), nhan: t("Nội dung giải trình"), toiThieu: 5, nut: t("Gửi giải trình"), ok: t("Đã ghi giải trình") },
-    bao: { tieuDe: t("Báo ghi nhận không đúng — {a}", { a: r.doi_tuong_id }), nhan: t("Vì sao không đúng?"), toiThieu: 5, nut: t("Gửi cho Admin"), ok: t("Đã gửi — chờ Admin xem xét") },
-    xu_ly: { tieuDe: t("Xem xét báo không đúng — {a}", { a: r.doi_tuong_id }), nhan: t("Phản hồi cho người báo"), toiThieu: 3, nut: t("Lưu kết quả"), ok: t("Đã xử lý") },
-    go_the: { tieuDe: t("Gỡ thẻ vi phạm — {a}", { a: r.doi_tuong_id }), nhan: t("Lý do gỡ"), toiThieu: 3, nut: t("Gỡ thẻ"), ok: t("Đã gỡ thẻ") },
-  };
-  const ch = cauHinh[loai];
+  const dsLyDo = useQuery({ queryKey: ["vi-pham-ly-do"], queryFn: () => api.get<{ rows: string[]; khong_dung: string }>("/vi-pham/ly-do") });
   const gui = useMutation({
-    mutationFn: async () => {
-      const body = nd.trim();
-      if (loai === "giai_trinh") await api.post(`/vi-pham/${r.id}/giai-trinh`, { ly_do: lyDo, noi_dung: body });
-      else if (loai === "bao") await api.post(`/vi-pham/${r.id}/bao-khong-dung`, { noi_dung: body });
-      else if (loai === "xu_ly") await api.post(`/vi-pham/${r.id}/xu-ly-bao`, { ket_qua: ketQua, phan_hoi: body });
-      else await api.post(`/vi-pham/${r.id}/go-the`, { ly_do: body });
-    },
+    mutationFn: () => api.post(`/vi-pham/${r.id}/giai-trinh`, { ly_do: lyDo, noi_dung: nd.trim() }),
     onSuccess: () => {
-      addToast(ch.ok);
+      addToast(t("Đã ghi giải trình"));
       lamMoiViPham(qc);
       onClose();
     },
     onError: (e) => setLoi(describeApiError(e)),
   });
-  const duGui = nd.trim().length >= ch.toiThieu && (loai !== "giai_trinh" || !!lyDo);
+  const khongDung = !!lyDo && lyDo === dsLyDo.data?.khong_dung;
   return (
     <Modal
       open
       onClose={onClose}
-      title={ch.tieuDe}
+      title={t("Giải trình quá hạn — {a}", { a: r.doi_tuong_id })}
       footer={
         <div className="flex justify-end gap-2">
           <Btn variant="ghost" onClick={onClose}>{t("Huỷ")}</Btn>
-          <Btn loading={gui.isPending} disabled={!duGui} onClick={() => { setLoi(null); gui.mutate(); }}>{ch.nut}</Btn>
+          <Btn loading={gui.isPending} disabled={!lyDo || nd.trim().length < 5} onClick={() => { setLoi(null); gui.mutate(); }}>{t("Gửi giải trình")}</Btn>
         </div>
       }
     >
@@ -189,33 +158,17 @@ export function HopViPham({ r, loai, onClose }: { r: ViPhamRow; loai: LoaiHop; o
         <b>{t(r.ten_buoc)}</b> · {t(r.ten_bo_phan)} · {t("hạn {a}", { a: ngayGio(r.han) })} · <span className="text-[var(--color-danger)]">{t("trễ {a}", { a: gioTre(r.so_gio_tre) })}</span>
         {r.trang_thai === "Cho giai trinh" && <div className="mt-1">{t("Hạn giải trình: {a}", { a: ngayGio(r.han_giai_trinh) })} {conLai(r.han_giai_trinh) && `(${conLai(r.han_giai_trinh)})`}</div>}
       </div>
-      {loai === "giai_trinh" && (
-        <>
-          <label className="text-sm font-semibold">{t("Lý do chậm")} *</label>
-          <select className="mt-1 mb-3 w-full rounded-lg border border-[var(--color-border)] p-2 text-sm" value={lyDo} onChange={(e) => setLyDo(e.target.value)}>
-            <option value="">{t("— Chọn lý do —")}</option>
-            {(dsLyDo.data?.rows ?? []).map((x) => (<option key={x} value={x}>{x}</option>))}
-          </select>
-        </>
-      )}
-      {loai === "bao" && (
-        <p className="text-sm text-[var(--color-text-secondary)] mb-2">
-          {t("Dùng khi ca này không phải trách nhiệm của bạn / bộ phận bạn (vd đơn treo do bên khác, hệ thống ghi sai). Trong lúc Admin xem xét, ca không bị gắn thẻ.")}
-        </p>
-      )}
-      {loai === "xu_ly" && (
-        <>
-          <div className="rounded-lg border border-[var(--color-border)] p-3 text-sm mb-3">
-            <div className="text-xs text-[var(--color-text-secondary)] mb-1">{r.khieu_nai_boi_ten ?? r.khieu_nai_boi} · {ngayGio(r.khieu_nai_luc)}</div>
-            {r.khieu_nai}
-          </div>
-          <div className="flex gap-2 mb-3">
-            <button className={`filter-tab ${ketQua === "chap_nhan" ? "active" : ""}`} onClick={() => setKetQua("chap_nhan")}>{t("Chấp nhận — gỡ ghi nhận")}</button>
-            <button className={`filter-tab ${ketQua === "tu_choi" ? "active" : ""}`} onClick={() => setKetQua("tu_choi")}>{t("Từ chối — trả lại để giải trình")}</button>
-          </div>
-        </>
-      )}
-      <label className="text-sm font-semibold">{ch.nhan} *</label>
+      <label className="text-sm font-semibold">{t("Lý do chậm")} *</label>
+      <select className="mt-1 w-full rounded-lg border border-[var(--color-border)] p-2 text-sm" value={lyDo} onChange={(e) => setLyDo(e.target.value)}>
+        <option value="">{t("— Chọn lý do —")}</option>
+        {(dsLyDo.data?.rows ?? []).map((x) => (<option key={x} value={x}>{x}</option>))}
+      </select>
+      <p className="text-xs text-[var(--color-text-secondary)] mt-1 mb-3">
+        {khongDung
+          ? t("Ghi rõ vì sao ca này không thuộc trách nhiệm của bạn / bộ phận bạn (vd đơn treo do KTV chưa chuyển tiền, ghi sai khu vực).")
+          : t("Ca không thuộc trách nhiệm của bạn? Chọn lý do \"Ghi nhận không đúng / không thuộc trách nhiệm\" và ghi rõ nguyên nhân.")}
+      </p>
+      <label className="text-sm font-semibold">{t("Nội dung giải trình")} *</label>
       <textarea className="mt-1 w-full rounded-lg border border-[var(--color-border)] p-2 text-sm min-h-[100px]" value={nd} maxLength={2000} onChange={(e) => setNd(e.target.value)} />
       {loi && <p className="text-sm text-[var(--color-danger)] mt-1">{loi}</p>}
     </Modal>
@@ -228,9 +181,6 @@ export function NutViPham({ r, onMo, nho }: { r: ViPhamRow; onMo: (l: LoaiHop) =
   return (
     <div className="flex flex-wrap gap-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
       {r.duoc_giai_trinh && <Btn size={s} onClick={() => onMo("giai_trinh")}>{t("Giải trình")}</Btn>}
-      {r.duoc_bao_khong_dung && <Btn size={s} variant="ghost" onClick={() => onMo("bao")}>{t("Báo không đúng")}</Btn>}
-      {r.duoc_xu_ly_bao && <Btn size={s} onClick={() => onMo("xu_ly")}>{t("Xem xét")}</Btn>}
-      {r.duoc_go_the && r.trang_thai === "Gan the" && <Btn size={s} variant="ghost" onClick={() => onMo("go_the")}>{t("Gỡ thẻ")}</Btn>}
     </div>
   );
 }
@@ -239,17 +189,13 @@ export function NutViPham({ r, onMo, nho }: { r: ViPhamRow; onMo: (l: LoaiHop) =
 export function ChiTietViPham({ r, onClose }: { r: ViPhamRow; onClose: () => void }) {
   const [mo, setMo] = useState(false);
   const [hop, setHop] = useState<LoaiHop | null>(null);
-  type Moc = { nhan: string; luc: string | null; kieu: "xong" | "dang" | "tre" | "do" | "tim" };
+  type Moc = { nhan: string; luc: string | null; kieu: "xong" | "dang" | "tre" | "do" };
   const cuoi: Moc =
     r.trang_thai === "Cho giai trinh"
       ? { nhan: t("Chờ giải trình"), luc: r.han_giai_trinh, kieu: "dang" }
       : r.trang_thai === "Da giai trinh"
         ? { nhan: t("Đã giải trình"), luc: r.giai_trinh_luc, kieu: "xong" }
-        : r.trang_thai === "Gan the"
-          ? { nhan: t("Gắn thẻ vi phạm"), luc: r.gan_the_luc, kieu: "do" }
-          : r.trang_thai === "Cho xem xet"
-            ? { nhan: t("Chờ Admin xem xét"), luc: r.khieu_nai_luc, kieu: "tim" }
-            : { nhan: t("Đã gỡ thẻ"), luc: r.go_the_luc, kieu: "xong" };
+        : { nhan: t("Gắn thẻ vi phạm"), luc: r.gan_the_luc, kieu: "do" };
   const moc: Moc[] = [
     { nhan: t("Vào bước"), luc: r.moc_vao, kieu: "xong" },
     { nhan: t("Hạn {n}h", { n: r.so_gio_sla }), luc: r.han, kieu: "tre" },
@@ -261,7 +207,6 @@ export function ChiTietViPham({ r, onClose }: { r: ViPhamRow; onClose: () => voi
     dang: "var(--color-warning)",
     tre: "var(--color-danger)",
     do: "var(--color-danger)",
-    tim: "var(--color-purple)",
   };
   const Hang = ({ k, v }: { k: string; v: React.ReactNode }) => (
     <>
@@ -299,17 +244,6 @@ export function ChiTietViPham({ r, onClose }: { r: ViPhamRow; onClose: () => voi
             {r.giai_trinh}
           </div>
         )}
-        {r.khieu_nai && (
-          <div className="mt-3 rounded-lg border border-[var(--color-border)] p-3 text-sm">
-            <div className="text-xs text-[var(--color-text-secondary)] mb-1">{t("Báo không đúng")} · {r.khieu_nai_boi_ten ?? r.khieu_nai_boi} · {ngayGio(r.khieu_nai_luc)}</div>
-            {r.khieu_nai}
-            {r.khieu_nai_ket_qua && (
-              <div className="mt-1">
-                <b>{r.khieu_nai_ket_qua === "Chap nhan" ? t("Admin chấp nhận") : t("Admin từ chối")}</b> ({ngayGio(r.khieu_nai_xu_ly_luc)}): {r.khieu_nai_phan_hoi}
-              </div>
-            )}
-          </div>
-        )}
         <button className="mt-3 text-sm text-[var(--color-primary)] font-semibold" onClick={() => setMo((x) => !x)}>
           {mo ? `▴ ${t("Thu gọn")}` : `▾ ${t("Xem chi tiết")}`}
         </button>
@@ -328,7 +262,6 @@ export function ChiTietViPham({ r, onClose }: { r: ViPhamRow; onClose: () => voi
             <Hang k={t("Hạn giải trình")} v={r.han_giai_trinh} />
             {r.nhac_luc && <Hang k={t("Đã nhắc lúc")} v={r.nhac_luc} />}
             {r.gan_the_luc && <Hang k={t("Gắn thẻ lúc")} v={r.gan_the_luc} />}
-            {r.go_the_luc && <Hang k={t("Gỡ thẻ")} v={`${r.go_the_luc} · ${r.go_the_boi} · ${r.go_the_ly_do}`} />}
           </dl>
         )}
       </Modal>
@@ -351,7 +284,7 @@ export function ViPhamBanner({ ids }: { ids: (string | null | undefined)[] }) {
   });
   const [xem, setXem] = useState<ViPhamRow | null>(null);
   const [hop, setHop] = useState<{ r: ViPhamRow; loai: LoaiHop } | null>(null);
-  const rows = (q.data?.rows ?? []).filter((r) => r.trang_thai !== "Da go the");
+  const rows = q.data?.rows ?? [];
   if (!rows.length) return null;
   return (
     <div className="mb-3 space-y-1.5">

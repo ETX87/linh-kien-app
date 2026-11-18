@@ -1557,6 +1557,11 @@ Nguyên văn yêu cầu (chủ hệ thống): *"luồng "Cấp lk" ... khi đơn
 - `GET /vi-pham/theo-doi-tuong?ids=` → `ViPhamBanner` (`modules/viPham/ViPhamUi.tsx`, dùng chung hộp/chi tiết với màn chính) trong chi tiết đơn, PXK, ticket thiếu hàng, đơn trả hàng (chỉ văn phòng). `GET /vi-pham/tong-hop` → tab "Tổng hợp theo dõi". Tab mới "Của tôi", "Chờ Admin xem xét".
 - Tài liệu người dùng `docs/Huong_dan_giai_trinh_qua_han_theo_vai_tro.html` (16 ảnh chụp local, base64) — kèm mục "Rà soát quy trình & điểm cần chốt".
 
+**v1.519 (18/11/2026)** — *"việc giải trình không đúng cũng chỉ tính là giải trình thôi, không cần phải thêm vai trò của admin. admin không thực hiện công việc xác nhận bỏ thẻ trên hệ thống này"* + *"KTV không cần giải trình, BO tham gia việc giải trình là được"*:
+- BỎ hẳn "Báo không đúng" / Admin xem xét / gỡ thẻ (route `/:id/bao-khong-dung`, `/:id/xu-ly-bao`, `/:id/go-the`, `thongBaoViPham`, tab "Chờ Admin xem xét", "Đã gỡ thẻ", cột `khieu_nai*`/`go_the*` ở API). Cột + giá trị CHECK 'Cho xem xet'/'Da go the' còn trong DB (migration 0126) nhưng không dùng — đừng dựng lại luồng Admin.
+- Ca ghi nhận sai = giải trình với ly do `LY_DO_KHONG_DUNG` ("Ghi nhận không đúng / không thuộc trách nhiệm", đầu danh sách `GET /vi-pham/ly-do`, trả kèm `khong_dung`) → "Da giai trinh". Gắn thẻ là kết quả cuối.
+- Chỉ BO giải trình; KTV không (không bước nào giao KTV, route chặn KTV/Vệ tinh). Tài liệu HTML cập nhật (14 ảnh), API đối tác 2.0.
+
 ## Nhận việc từ Trợ lý Mây (tự sửa)
 - Issue gắn nhãn `may:phan-tich` là ĐỀ XUẤT CẢI TIẾN cần phân tích trước: workflow `may-phan-tich` chỉ ĐỌC mã để soạn BRD cho Giám đốc duyệt — không sửa mã ở bước này. Khi duyệt, BRD nằm ở đầu issue; làm đúng BRD và lưu nó vào `docs/yeu-cau/MAY-xxxxx.md`.
 - Issue gắn nhãn `may:tu-sua` là việc do Trợ lý Mây chuyển sang, mã `MAY-xxxxx` ở tiêu đề. Sửa ĐÚNG phạm vi mô tả.

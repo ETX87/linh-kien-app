@@ -3054,5 +3054,10 @@ const tuDien: Record<string, string> = {
   "Của tôi": "Milik saya",
   "Tổng hợp theo dõi": "Ringkasan pemantauan",
   "Báo ghi nhận quá hạn không đúng": "Catatan terlambat dilaporkan salah",
+  // Quá hạn & vi phạm (v1.519)
+  "Chưa xác định người phụ trách": "Belum ada penanggung jawab",
+  "Ghi rõ vì sao ca này không thuộc trách nhiệm của bạn / bộ phận bạn (vd đơn treo do KTV chưa chuyển tiền, ghi sai khu vực).": "Jelaskan mengapa kasus ini bukan tanggung jawab Anda / bagian Anda (mis. menunggu transfer teknisi, salah area).",
+  "Ca không thuộc trách nhiệm của bạn? Chọn lý do \"Ghi nhận không đúng / không thuộc trách nhiệm\" và ghi rõ nguyên nhân.": "Bukan tanggung jawab Anda? Pilih alasan \"Ghi nhận không đúng / không thuộc trách nhiệm\" dan jelaskan penyebabnya.",
+  "{n} ca chưa xác định được người phải giải trình (bộ phận chưa có ai / khu vực chưa có GS) — cần gán khu vực cho nhân sự ở Quản lý người dùng.": "{n} kasus belum memiliki penanggung jawab (tidak ada staf di bagian / tidak ada supervisor area) — tetapkan area untuk staf di Manajemen pengguna.",
 };
 export default tuDien;

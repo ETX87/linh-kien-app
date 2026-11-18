@@ -65,7 +65,10 @@ export const TEN_BO_PHAN: Record<BoPhan, string> = {
   qc: "QC",
 };
 
-export const TRANG_THAI_VI_PHAM = ["Cho giai trinh", "Da giai trinh", "Gan the", "Da go the"] as const;
+// 'Cho xem xet' / 'Da go the' con trong CHECK (migration 0126) nhung KHONG dung (chot 2026-11-18: khong co buoc Admin xem xet / go the).
+export const TRANG_THAI_VI_PHAM = ["Cho giai trinh", "Da giai trinh", "Gan the"] as const;
+/** Ca ghi nhan sai (khong thuoc trach nhiem bo phan) -> giai trinh voi ly do nay, tinh la "Da giai trinh" nhu moi giai trinh khac. */
+export const LY_DO_KHONG_DUNG = "Ghi nhận không đúng / không thuộc trách nhiệm";
 
 // Trang thai THAT cua tung bang log (log chi-audit cua phieu - "Da luu ma MISA", "Da them don vao phieu"… - khong phai roi buoc).
 const TRANG_THAI_THAT: Record<Exclude<Nguon, "khoan_chuyen_tien">, Set<string>> = {
@@ -600,11 +603,11 @@ async function guiThongBaoQuet(env: Env, now: string, opts: { nhac: boolean }): 
   }
   for (const r of sapHet) {
     tin.push({ email: r.email, loai: "vi_pham", tieuDe: "⚠ Sắp hết hạn giải trình",
-      noiDung: `${r.n} ca sắp hết hạn giải trình (sớm nhất ${hh(r.han)}). Quá hạn mà chưa giải trình sẽ bị gắn thẻ vi phạm.` });
+      noiDung: `${r.n} ca sắp hết hạn giải trình (sớm nhất ${hh(r.han)}). Quá hạn mà chưa giải trình sẽ bị gắn thẻ vi phạm. Ca không thuộc trách nhiệm của bạn: giải trình, chọn lý do "Ghi nhận không đúng".` });
   }
   for (const r of biGan) {
     tin.push({ email: r.email, loai: "vi_pham_gan_the", tieuDe: "🚩 Bị gắn thẻ vi phạm",
-      noiDung: `${r.n} ca đã bị gắn thẻ vi phạm vì chưa giải trình đúng hạn. Nếu ghi nhận sai, mở ca và bấm "Báo không đúng".` });
+      noiDung: `${r.n} ca đã bị gắn thẻ vi phạm vì chưa giải trình đúng hạn.` });
   }
   if (!tin.length) return;
   for (const khoi of chiaKhoi(tin, 80)) {
@@ -617,20 +620,6 @@ async function guiThongBaoQuet(env: Env, now: string, opts: { nhac: boolean }): 
     );
   }
   await Promise.all(tin.map((t) => sendPushToUser(env, t.email, { title: t.tieuDe, body: t.noiDung, url: "/?vi_pham=can_toi" }).catch(() => undefined)));
-}
-
-/** Thong bao don le (bao khong dung -> Admin, Admin xu ly -> nguoi bao). */
-export async function thongBaoViPham(env: Env, emails: string[], tieuDe: string, noiDung: string, tab: string): Promise<void> {
-  const now = nowVN();
-  const ds = [...new Set(emails)].filter(Boolean);
-  if (!ds.length) return;
-  await env.DB.batch(
-    ds.map((e) =>
-      env.DB.prepare("INSERT INTO thong_bao_ktv (nguoi_nhan, loai, noi_dung, link_type, link_id, ngay_tao) VALUES (?, 'vi_pham', ?, 'vi_pham', ?, ?)")
-        .bind(e, noiDung, tab, now),
-    ),
-  );
-  await Promise.all(ds.map((e) => sendPushToUser(env, e, { title: tieuDe, body: noiDung, url: `/?vi_pham=${tab}` }).catch(() => undefined)));
 }
 
 // ---------- Quyen ----------

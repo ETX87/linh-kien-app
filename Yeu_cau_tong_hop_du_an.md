@@ -123,6 +123,10 @@ vẫn hoạt động) → Tác nghiệp duyệt tổng (đồng ý/từ chối) 
 - v1.518: người phải giải trình cụ thể theo khu vực / GS của đơn; thông báo ca mới / sắp hết hạn / gắn thẻ; thanh cảnh báo trong chi tiết
   đơn / phiếu / ticket; giải trình bắt buộc chọn lý do; "Báo không đúng" → Admin xem xét; tab "Tổng hợp theo dõi"; tài liệu
   `docs/Huong_dan_giai_trinh_qua_han_theo_vai_tro.html`. → ✅ Đã làm.
+- Chốt 2026-11-18 (ĐÈ "Báo không đúng → Admin xem xét" của v1.518): *"việc giải trình không đúng cũng chỉ tính là giải trình thôi, không cần
+  phải thêm vai trò của admin. admin không thực hiện công việc xác nhận bỏ thẻ trên hệ thống này"*; *"KTV không cần giải trình, BO tham gia
+  việc giải trình là được"* → ghi nhận sai = giải trình với lý do "Ghi nhận không đúng / không thuộc trách nhiệm"; không có gỡ thẻ; chỉ BO
+  giải trình. → ✅ v1.519.
 - Chưa làm: "Trả key API cũ" (key chỉ lưu dạng băm — không lấy lại được bản gốc, cần quản lý nói rõ là cấp lại hay thu hồi); luồng
   chuyển kho nội bộ thật.
 

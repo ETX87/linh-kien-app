@@ -3054,5 +3054,10 @@ const tuDien: Record<string, string> = {
   "Của tôi": "Mine",
   "Tổng hợp theo dõi": "Tracking summary",
   "Báo ghi nhận quá hạn không đúng": "Overdue record reported incorrect",
+  // Quá hạn & vi phạm (v1.519)
+  "Chưa xác định người phụ trách": "No one assigned yet",
+  "Ghi rõ vì sao ca này không thuộc trách nhiệm của bạn / bộ phận bạn (vd đơn treo do KTV chưa chuyển tiền, ghi sai khu vực).": "Explain why this case is not your / your department's responsibility (e.g. waiting for the technician's transfer, wrong area).",
+  "Ca không thuộc trách nhiệm của bạn? Chọn lý do \"Ghi nhận không đúng / không thuộc trách nhiệm\" và ghi rõ nguyên nhân.": "Not your responsibility? Choose the reason \"Ghi nhận không đúng / không thuộc trách nhiệm\" and explain the cause.",
+  "{n} ca chưa xác định được người phải giải trình (bộ phận chưa có ai / khu vực chưa có GS) — cần gán khu vực cho nhân sự ở Quản lý người dùng.": "{n} cases have no one assigned to explain (no staff in the department / no supervisor for the area) — assign areas to staff in User management.",
 };
 export default tuDien;
