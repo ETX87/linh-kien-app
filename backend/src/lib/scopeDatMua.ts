@@ -168,7 +168,10 @@ export function scopeDatMuaNguoiTao(c: Context<{ Bindings: Env }>): { whereSql: 
  */
 export function scopePxkNguoiNhanHang(c: Context<{ Bindings: Env }>): { whereSql: string; binds: string[] } | null {
   const user = c.get("user");
-  if (user.la_tac_nghiep || user.la_kho || user.la_ke_toan || user.vai_tro === "Admin" || user.vai_tro === "QC" || user.la_mua_hang) {
+  // v1.520 (2026-11-18): BO "QC" khoi nhom khong gioi han - QC dat hang nhu 1 KTV (v1.451) nen chi thay PXK cua
+  // CHINH minh (roi xuong nhanh cuoi). Truoc day QC thay "Cho KTV nhan" + moi phieu cua tat ca KTV. Buoc QC cua
+  // hang tra nam o luong tra_hang (truoc PXK) nen khong can xem PXK nguoi khac.
+  if (user.la_tac_nghiep || user.la_kho || user.la_ke_toan || user.vai_tro === "Admin" || user.la_mua_hang) {
     return null; // khong gioi han
   }
   // + PXK ma CHINH minh la nguoi nhan hang (2026-09-30: GS diepbush tu dat don cho minh, TN tao PMH-000082 nguoi

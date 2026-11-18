@@ -127,3 +127,10 @@ ghi rõ trong tài liệu. Không migration (cột / giá trị CHECK cũ để 
 **Kiểm thử (local)**: giải trình với lý do "Ghi nhận không đúng" → "Đã giải trình"; 3 route cũ → 404; `/dem` không còn số chờ xem xét / đã gỡ;
 giao diện Kho / GS / Kế toán / Admin / điện thoại chụp lại; typecheck 2 phía sạch. Production lúc làm không có ca nào ở trạng thái 'Cho xem
 xet' / 'Da go the'.
+
+## 2026-11-18 — QC chỉ thấy phiếu xuất của chính mình (v1.520)
+
+- **Yêu cầu (nguyên văn):** "fix lại tài khoản QC đang nhìn thấy phiếu chờ nhận hàng và các phiếu khác của tất cả KTV"
+- **Nguyên nhân:** `scopePxkNguoiNhanHang()` (`lib/scopeDatMua.ts`) xếp `vai_tro='QC'` vào nhóm không giới hạn (như TN/Kho/Kế toán) từ trước khi QC được đặt hàng như KTV (v1.451) → menu Phiếu xuất (Tổng phiếu, Chờ KTV nhận 99+…) hiện phiếu của mọi KTV.
+- **Đã sửa:** bỏ QC khỏi nhóm không giới hạn → QC thuần chỉ thấy phiếu có người nhận hàng = chính mình (danh sách, số đếm menu, Ctrl+K, nhận thiếu). Chi tiết phiếu vẫn mở được khi phiếu chứa đơn QC xem được (quy tắc v1.443). Tài khoản QC kiêm TN/Kho/Kế toán/Mua hàng/Admin giữ quyền theo vai trò kia. Phạm vi ĐƠN của QC (đơn trả hàng chờ QC xác nhận) không đổi.
+- **Kiểm thử:** typecheck backend 0 lỗi. Chưa xem bằng mắt trên giao diện.

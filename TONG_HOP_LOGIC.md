@@ -20,7 +20,7 @@
 | Kế toán | Xác nhận tiền, mã đơn hàng / mã MISA, chốt phiếu, quỹ, công nợ, hạn mức dự trữ |
 | Kho | Thiếu hàng (tiếp nhận, hàng về, từ chối), in / gửi phiếu, nhận hàng trả |
 | Mua hàng | Xem toàn bộ (chỉ đọc) + xét duyệt mã LK + ticket "Chờ mua hàng" |
-| QC | Kiểm hàng trả; đặt hàng cho chính mình như 1 KTV |
+| QC | Kiểm hàng trả; đặt hàng cho chính mình như 1 KTV; phiếu xuất chỉ thấy phiếu mình nhận (v1.520) |
 | Giám sát (GS chính theo khu vực + GS phụ) | Đặt hộ mọi KTV, duyệt vượt trần (mã EO), hủy hộ, xác nhận chuyển tiền hộ |
 | TBP | Duyệt LK đặc thù |
 | View | Xem mọi menu, chỉ đọc, theo khu vực được gán |
