@@ -191,3 +191,14 @@ ca hết hạn giải trình thành `Ton CEO`, API danh sách Tồn CEO trả đ
 **Kiểm thử (Worker + D1 local, 3 ca Tồn CEO):** trang 2 ca + `con_nua` → trang sau ra ca còn lại; gọi lại với `next` cuối → rỗng, con trỏ giữ nguyên; giả lập đơn rời bước → chỉ ca đó tới lại 1 lần (`con_ton: false`);
 con trỏ sai dạng → `INVALID_CAP_NHAT_TU`; không con trỏ → như cũ.
 
+## 2026-11-18 — Không tính Tồn CEO cho Kho với đơn trả hàng tự hủy (v1.526)
+
+**Yêu cầu:** sau khi báo 41 ca Tồn CEO ở bước "Kho xác nhận (trả hàng)" phần lớn do KTV chưa gửi hàng, chủ hệ thống chọn "Có, loại trừ".
+
+**Đã làm:** `quetViPham` (`lib/viPham.ts`), trước bước chuyển Tồn CEO: ca `th_kho` còn đang chờ của đơn tự hủy (`traHangTuHuySql`, chờ Kho > 10 ngày) → "Da giai trinh",
+tự động, lý do `LY_DO_TU_HUY_TRA_HANG`, bỏ `gan_the_luc`; cả ca đã Tồn CEO. `ket_thuc_luc` giữ NULL — hàng về muộn Kho xác nhận thì vẫn ghi lúc rời bước. Tài liệu API 2.3.
+
+**Kiểm thử (Worker + D1 local):** đơn chờ Kho 11 ngày — 2 ca (1 Tồn CEO, 1 chờ giải trình) → "Đã giải trình" kèm lý do, rời danh sách Tồn CEO API; đơn 3 ngày giữ nguyên; quét lại không đổi.
+
+**Lưu ý:** từ khoảng ngày 2 (hết SLA 24h + giải trình 24h) tới ngày 10 ca vẫn là Tồn CEO, tới ngày 10 tự gỡ. 41 ca hiện tại trên production chưa ca nào quá 10 ngày.
+

@@ -69,7 +69,8 @@ Kế toán duyệt mềm → Kho xác nhận (sửa SL thực nhận) → QC xá
 Kế toán chốt → Kho nhận hàng trả. Mỗi giai đoạn hạn 24h, quá hạn bắt lý do chậm.
 **Tự hủy chờ Kho**: đơn ở "Chờ kho xác nhận" quá 10 ngày (KTV không gửi hàng) = "Đơn tự hủy" — tính lúc đọc, KHÔNG đổi trạng thái
 (`traHangTuHuySql` ở `lib/hanLyDoCham.ts`): không đếm "Chờ Kho" / việc cần làm / còn tồn, nằm ở tab "Đơn tự hủy (quá 10 ngày)" (lọc `__TU_HUY_KHO__`);
-hàng về muộn Kho vẫn xác nhận như thường từ tab đó.
+hàng về muộn Kho vẫn xác nhận như thường từ tab đó. Ca quá hạn "Kho xác nhận (trả hàng)" của đơn tự hủy KHÔNG tính cho Kho: lần quét kế tiếp
+tự chuyển "Đã giải trình" (lý do "Đơn tự hủy — KTV không gửi hàng"), kể cả ca đã Tồn CEO.
 
 ## 8. Công nợ, dự trữ, công nợ đối tác
 

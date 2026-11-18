@@ -23,6 +23,7 @@
 import { nowVN } from "./vnTime";
 import type { Env } from "../types";
 import { sendPushToUser } from "./webPush";
+import { traHangTuHuySql, TRA_HANG_TU_HUY_NGAY } from "./hanLyDoCham";
 
 export type BoPhan = "tbp" | "gs" | "tn" | "kho" | "mua_hang" | "ke_toan" | "qc";
 type Nguon = "dat_don_hang_log" | "tra_hang_log" | "thieu_lk_log" | "phieu_xuat_kho_log" | "khoan_chuyen_tien";
@@ -68,6 +69,8 @@ export const TEN_BO_PHAN: Record<BoPhan, string> = {
 // 'Cho xem xet' / 'Da go the' con trong CHECK (migration 0126) nhung KHONG dung (chot 2026-11-18: khong co buoc Admin xem xet / go the).
 export const TRANG_THAI_VI_PHAM = ["Cho giai trinh", "Da giai trinh", "Ton CEO"] as const;
 /** Ca ghi nhan sai (khong thuoc trach nhiem bo phan) -> giai trinh voi ly do nay, tinh la "Da giai trinh" nhu moi giai trinh khac. */
+/** Ly do tu dong cho ca Kho xac nhan tra hang cua don tu huy (v1.526). */
+export const LY_DO_TU_HUY_TRA_HANG = "Đơn tự hủy — KTV không gửi hàng";
 export const LY_DO_KHONG_DUNG = "Ghi nhận không đúng / không thuộc trách nhiệm";
 
 // Trang thai THAT cua tung bang log (log chi-audit cua phieu - "Da luu ma MISA", "Da them don vao phieu"… - khong phai roi buoc).
@@ -558,7 +561,25 @@ export async function quetViPham(env: Env): Promise<KetQuaQuet> {
   }
   for (const khoi of chiaKhoi(lenh, 80)) await db.batch(khoi);
 
-  // Het han giai trinh -> gan the.
+  // Tra hang TU HUY (cho Kho qua 10 ngay = KTV khong gui hang, v1.526 - chot "loai tru"): khong tinh cho Kho. Ca Kho xac nhan (th_kho)
+  // con dang cho cua don tu huy -> tu "Da giai trinh" voi ly do co dinh (ke ca ca da Ton CEO). Chay TRUOC buoc chuyen Ton CEO.
+  // ket_thuc_luc giu NULL: hang ve muon, Kho xac nhan thi lan quet sau van ghi luc / nguoi roi buoc nhu thuong.
+  await db
+    .prepare(
+      `UPDATE vi_pham SET trang_thai = 'Da giai trinh', ly_do = ?, giai_trinh = ?, nguoi_giai_trinh = NULL, giai_trinh_luc = ?,
+         giai_trinh_tu_dong = 1, gan_the_luc = NULL, cap_nhat_luc = ?
+       WHERE buoc = 'th_kho' AND trang_thai IN ('Cho giai trinh', 'Ton CEO') AND ket_thuc_luc IS NULL
+         AND EXISTS (SELECT 1 FROM dat_don_hang d WHERE d.id = vi_pham.doi_tuong_id AND ${traHangTuHuySql("d")})`,
+    )
+    .bind(
+      LY_DO_TU_HUY_TRA_HANG,
+      `Đơn trả hàng chờ Kho quá ${TRA_HANG_TU_HUY_NGAY} ngày (KTV không gửi hàng) — hệ thống chuyển sang "Đơn tự hủy", không tính cho Kho.`,
+      now,
+      now,
+    )
+    .run();
+
+  // Het han giai trinh -> Ton CEO.
   const ganThe = await db
     .prepare("UPDATE vi_pham SET trang_thai = 'Ton CEO', gan_the_luc = ?, cap_nhat_luc = ? WHERE trang_thai = 'Cho giai trinh' AND han_giai_trinh < ?")
     .bind(now, now, now)

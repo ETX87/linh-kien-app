@@ -1567,6 +1567,7 @@ Nguyên văn yêu cầu (chủ hệ thống): *"luồng "Cấp lk" ... khi đơn
 - Vi phạm: trạng thái `Gan the` đổi thành **`Ton CEO`** (bảng dựng lại, cột `gan_the_luc` giữ tên = lúc chuyển); nhãn "Tồn CEO". API `/v1/vi-pham` vẫn nhận lọc `Gan the`, thêm `ton_ceo`/`ton_ceo_luc`.
 - `GET /api/partner/v1/danh-sach-ton?loai=ton-ceo` — cùng hình dạng `danh-sach-ton?loai=canh-bao-ceo` của DVBH (DVBH cũng để đối tác KÉO). Tài liệu §4.19 (2.2). App vi phạm phía đối tác chưa kéo.
 - v1.525 ("tránh 1 ca bị kéo lại liên tục"): API danh sách Tồn CEO nhận con trỏ `cap_nhat_tu` + `after_id` (thứ tự `cap_nhat_luc, id`, limit ≤ 500) → trả `next`; ca Tồn CEO chỉ đổi `cap_nhat_luc` khi đơn / phiếu rời bước nên mỗi ca tới đối tác tối đa 2 lần.
+- v1.526 (chốt "loại trừ" — Tồn CEO bước Kho xác nhận trả hàng phần lớn do KTV chưa gửi hàng): mỗi lần quét, ca `th_kho` còn đang chờ (`ket_thuc_luc` NULL) của đơn TỰ HỦY (`traHangTuHuySql`) → tự "Da giai trinh", `giai_trinh_tu_dong=1`, `ly_do` = `LY_DO_TU_HUY_TRA_HANG` ("Đơn tự hủy — KTV không gửi hàng"), bỏ `gan_the_luc` — kể cả ca đã Tồn CEO (đối tác nhận lại 1 lần với trạng thái mới). Chạy TRƯỚC bước chuyển Tồn CEO trong `quetViPham`. Ca từ ngày 2 tới ngày 10 vẫn có thể là Tồn CEO, tới ngày 10 tự gỡ.
 
 ## Nhận việc từ Trợ lý Mây (tự sửa)
 - Issue gắn nhãn `may:phan-tich` là ĐỀ XUẤT CẢI TIẾN cần phân tích trước: workflow `may-phan-tich` chỉ ĐỌC mã để soạn BRD cho Giám đốc duyệt — không sửa mã ở bước này. Khi duyệt, BRD nằm ở đầu issue; làm đúng BRD và lưu nó vào `docs/yeu-cau/MAY-xxxxx.md`.
