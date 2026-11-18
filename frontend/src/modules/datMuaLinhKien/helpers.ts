@@ -371,7 +371,8 @@ export function reqLabelClass(missing: boolean): string {
 // Hang nut chon nhanh loai de xuat o form tao don (desktop + mobile). Nguoi nhan la NV sua chua -> "CÔNG NỢ SỬA CHỮA" dung dau (v1.498).
 export function ldeNhanh(nhanLaNvSuaChua: boolean): string[] {
   const goc = ["MUA HÀNG", "MUA HÀNG CÓ ID", "CÔNG NỢ", "TRỪ CÔNG NỢ"];
-  return nhanLaNvSuaChua ? ["CÔNG NỢ SỬA CHỮA", ...goc] : goc;
+  // v1.522 (2026-11-18 - "Ưu tiên hiện 3 lựa chọn phân loại đơn sửa chữa cho nv sửa chữa"): ca 3 loai sua chua dung DAU hang nut chon nhanh.
+  return nhanLaNvSuaChua ? ["CÔNG NỢ SỬA CHỮA", "HỖ TRỢ SỬA CHỮA 0 ĐỒNG", "MUA HÀNG SỬA CHỮA", ...goc] : goc;
 }
 
 export function pickLdeQuick(options: string[], keyword: string): string | undefined {

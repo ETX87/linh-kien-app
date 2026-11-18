@@ -144,3 +144,11 @@ xet' / 'Da go the'.
   - Đổi tên hiển thị quỹ "Quỹ xuất hóa đơn do KH chuyển" / tab "Quỹ KH chuyển (HĐ)" → "Quỹ KH chuyển khoản" (khoá `khhd:` giữ nguyên); thêm bản dịch EN/ID.
 - **Rủi ro đã xem:** tách quỹ / phiếu / trigger không phụ thuộc hóa đơn; tổng ngày chiết khấu không đổi; MISA vẫn ghi khách là KTV (Kế toán nhận biết qua nhãn "KH chuyển khoản" trên phiếu); quỹ KH dư thì Kế toán "Hoàn tiền cho KH".
 - **Kiểm thử:** typecheck backend + frontend 0 lỗi. D1 production (chỉ đọc): 8 đơn đang tích ô này, 0 đơn "HĐ - Xuất cho trạm" → không đơn cũ nào đổi giá. Chưa bấm thử trên giao diện.
+
+## 2026-11-18 — Form tạo đơn sửa chữa: ẩn ô "KH chuyển khoản", ưu tiên 3 loại sửa chữa (v1.522)
+
+- **Yêu cầu (nguyên văn):** "1. KTV sủa chữa không hiện tích 2. Ưu tiên hiện 3 lựa chọn phân loại đơn sửa chữa cho nv sửa chữa"
+- **Đã làm:**
+  - Ô "Khách hàng đã chuyển khoản về công ty" ẩn hẳn với đơn sửa chữa (CÔNG NỢ SỬA CHỮA / HỖ TRỢ SỬA CHỮA 0 ĐỒNG / MUA HÀNG SỬA CHỮA) — `KhChuyenKhoan.tsx`; server cũng chặn cờ này với đơn sửa chữa (`KH_CHUYEN_KHOAN_CHI_DON_MUA`).
+  - Người nhận là NV sửa chữa: hàng nút chọn nhanh loại đề xuất đưa cả 3 loại sửa chữa lên đầu (`ldeNhanh` ở `helpers.ts`), trước chỉ có CÔNG NỢ SỬA CHỮA, 2 loại kia nằm trong "Loại khác".
+- **Kiểm thử:** typecheck backend + frontend 0 lỗi. Chưa bấm thử trên giao diện.

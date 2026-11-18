@@ -3,7 +3,7 @@
 // YET (tinhToanPxk). Luong don giu nguyen; tien Ke toan xac nhan vao "Quỹ KH chuyển khoản" CUA KTV nhan hang (khong vao quy du ca nhan KTV).
 import { t } from "../../i18n";
 import { Badge } from "../../components/x/Badge";
-import { deriveLoaiDon, laTruCongNo, laMuaCongNoDoiTac } from "./helpers";
+import { deriveLoaiDon, laTruCongNo, laMuaCongNoDoiTac, laDonSuaChua } from "./helpers";
 import type { DonHangDraft } from "./types";
 import { YEU_CAU_HOA_DON_SHORT_LABELS } from "./constants";
 
@@ -17,10 +17,13 @@ export function coChonHoaDon(v: string | null | undefined): boolean {
 
 export function duocTichKhChuyenKhoan(d: Pick<DonHangDraft, "loai_de_xuat">): boolean {
   const lde = d.loai_de_xuat.trim();
-  return !!lde && !laMuaCongNoDoiTac(lde) && (deriveLoaiDon(lde) === "mua" || laTruCongNo(lde));
+  // v1.522: don sua chua (CÔNG NỢ / HỖ TRỢ 0 ĐỒNG / MUA HÀNG SỬA CHỮA) KHONG dung o nay - an han tren form.
+  return !!lde && !laMuaCongNoDoiTac(lde) && !laDonSuaChua(lde) && (deriveLoaiDon(lde) === "mua" || laTruCongNo(lde));
 }
 
 export function KhChuyenKhoanCheck({ d, onChange }: { d: DonHangDraft; onChange: (v: boolean) => void }) {
+  // v1.522 (2026-11-18 - "KTV sửa chữa không hiện tích"): don sua chua an han o tich.
+  if (laDonSuaChua(d.loai_de_xuat)) return null;
   const duoc = duocTichKhChuyenKhoan(d);
   const tich = !!d.kh_chuyen_khoan && duoc;
   return (
