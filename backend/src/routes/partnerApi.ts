@@ -672,11 +672,31 @@ partnerApi.get("/v1/danh-sach-ton", async (c) => {
   const loai = c.req.query("loai");
   if (loai !== "ton-ceo") return c.json({ error: "INVALID_LOAI", loai_hop_le: ["ton-ceo"] }, 400);
   const now = nowVN();
-  const tuNgay = c.req.query("tu_ngay")?.trim() || new Date(Date.parse(now.slice(0, 10) + "T00:00:00Z") - 30 * 86_400_000).toISOString().slice(0, 10);
-  const denNgay = c.req.query("den_ngay")?.trim() || now.slice(0, 10);
-  if (!NGAY_RE.test(tuNgay) || !NGAY_RE.test(denNgay)) return c.json({ error: "INVALID_NGAY" }, 400);
-  const dk = ["v.trang_thai = 'Ton CEO'", "v.gan_the_luc >= ?", "v.gan_the_luc < date(?, '+1 day')"];
-  const binds: unknown[] = [tuNgay + " 00:00:00", denNgay];
+  // CON TRO (v1.525, "tránh 1 ca bị kéo lại liên tục"): gui cap_nhat_tu (+ after_id) = next cua lan truoc -> chi tra ca CHUYEN Ton CEO
+  // hoac THAY DOI sau moc (thu tu cap_nhat_luc, id). Ca Ton CEO chi doi cap_nhat_luc khi don / phieu roi buoc (con_ton -> false) nen moi ca
+  // di qua toi da 2 lan. Lan dau: cap_nhat_tu=2000-01-01. Co con tro thi bo qua tu_ngay / den_ngay.
+  const conTroTu = c.req.query("cap_nhat_tu")?.trim();
+  const afterId = Number(c.req.query("after_id") ?? "");
+  const dk = ["v.trang_thai = 'Ton CEO'"];
+  const binds: unknown[] = [];
+  let tuNgay: string | null = null;
+  let denNgay: string | null = null;
+  if (conTroTu) {
+    if (!/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/.test(conTroTu)) return c.json({ error: "INVALID_CAP_NHAT_TU" }, 400);
+    if (Number.isFinite(afterId) && afterId > 0) {
+      dk.push("(v.cap_nhat_luc > ? OR (v.cap_nhat_luc = ? AND v.id > ?))");
+      binds.push(conTroTu, conTroTu, afterId);
+    } else {
+      dk.push("v.cap_nhat_luc >= ?");
+      binds.push(conTroTu);
+    }
+  } else {
+    tuNgay = c.req.query("tu_ngay")?.trim() || new Date(Date.parse(now.slice(0, 10) + "T00:00:00Z") - 30 * 86_400_000).toISOString().slice(0, 10);
+    denNgay = c.req.query("den_ngay")?.trim() || now.slice(0, 10);
+    if (!NGAY_RE.test(tuNgay) || !NGAY_RE.test(denNgay)) return c.json({ error: "INVALID_NGAY" }, 400);
+    dk.push("v.gan_the_luc >= ?", "v.gan_the_luc < date(?, '+1 day')");
+    binds.push(tuNgay + " 00:00:00", denNgay);
+  }
   const nhom = c.req.query("nhom");
   if (nhom) {
     if (nhom !== "dat_hang" && nhom !== "tra_hang") return c.json({ error: "INVALID_NHOM" }, 400);
@@ -684,12 +704,20 @@ partnerApi.get("/v1/danh-sach-ton", async (c) => {
     binds.push(nhom);
   }
   if (c.req.query("con_ton") === "1") dk.push("v.ket_thuc_luc IS NULL");
-  const GIOI_HAN = 2000;
+  const GIOI_HAN = conTroTu ? Math.min(500, Math.max(1, Number(c.req.query("limit") ?? 200) || 200)) : 2000;
   const { results } = await c.env.DB
-    .prepare(`SELECT ${VI_PHAM_COT_SQL} ${VI_PHAM_FROM_SQL} WHERE ${dk.join(" AND ")} ORDER BY v.gan_the_luc DESC, v.id DESC LIMIT ?`)
+    .prepare(`SELECT ${VI_PHAM_COT_SQL} ${VI_PHAM_FROM_SQL} WHERE ${dk.join(" AND ")}
+              ORDER BY ${conTroTu ? "v.cap_nhat_luc, v.id" : "v.gan_the_luc DESC, v.id DESC"} LIMIT ?`)
     .bind(...binds, GIOI_HAN + 1)
     .all<ViPhamRow>();
-  const ds = (results ?? []).slice(0, GIOI_HAN).map((r) => {
+  const trang = (results ?? []).slice(0, GIOI_HAN);
+  const conNua = (results ?? []).length > GIOI_HAN;
+  const cuoi = trang[trang.length - 1] as (ViPhamRow & { cap_nhat_luc: string }) | undefined;
+  // next LUON tra khi dung con tro (ke ca het du lieu) de doi tac luu lai va lan sau gui tiep; khong co ca moi -> giu nguyen con tro cu.
+  const next = conTroTu
+    ? (cuoi ? { cap_nhat_tu: cuoi.cap_nhat_luc, after_id: cuoi.id } : { cap_nhat_tu: conTroTu, after_id: Number.isFinite(afterId) && afterId > 0 ? afterId : 0 })
+    : null;
+  const ds = trang.map((r) => {
     const x = boSungViPham(r, now);
     return { ...x, con_ton: x.dang_cho, nhom: [x.buoc] };
   });
@@ -704,7 +732,8 @@ partnerApi.get("/v1/danh-sach-ton", async (c) => {
     den_ngay: denNgay,
     tong_hop: [...BUOC_THEO_MA.values()].map((b) => ({ ma: b.ma, ten: b.ten, loai: b.loai, bo_phan: b.boPhan, so_ca: dem.get(b.ma) ?? 0 })),
     so_ca: ds.length,
-    con_nua: (results ?? []).length > GIOI_HAN,
+    con_nua: conNua,
+    next,
     cases: ds,
   });
 });

@@ -92,7 +92,7 @@ bước + thực thể có log mới → bước quá hạn thành 1 ca `vi_pham
 + số giờ giải trình). Bộ phận phụ trách (theo cờ vai trò; Kế toán làm thay TN) giải trình → "Đã giải trình"; hết hạn → **"Tồn CEO"** (`Ton CEO`, trước v1.524 gọi "Gắn thẻ"; kết quả cuối,
 không gỡ; chuyển ở lần quét mỗi giờ kế tiếp sau hạn). Chỉ nhân viên văn phòng giải trình, KTV không. Lý do chậm bắt buộc của trả hàng và giải trình lý do chậm trên đơn tự thành giải trình. Ca vẫn giữ khi đơn rời bước (ghi người
 xử lý, lúc rời). Lần đầu chạy không quét ngược lịch sử. Đối tác kéo `GET /api/partner/v1/vi-pham` (con trỏ `cap_nhat_luc`, `id`) + danh sách Tồn CEO
-`GET /api/partner/v1/danh-sach-ton?loai=ton-ceo` (cùng hình dạng API `danh-sach-ton?loai=canh-bao-ceo` của DVBH).
+`GET /api/partner/v1/danh-sach-ton?loai=ton-ceo` (cùng hình dạng API `danh-sach-ton?loai=canh-bao-ceo` của DVBH; kéo tăng dần bằng con trỏ `cap_nhat_tu` + `after_id` → `next`).
 Người PHẢI giải trình (`vi_pham.nguoi_phu_trach`, tính lại mỗi lần quét khi còn chờ): GS = GS của đơn + GS chính/phụ khu vực; bộ phận khác = người
 được gán khu vực của đơn → không ai thì người không gán khu vực → không ai thì cả bộ phận (Kho lọc thêm nhóm LK; TN không có ai → Kế toán).
 Thông báo chuông + đẩy gộp theo người: ca mới / còn ≤ 6 giờ hết hạn giải trình / bị gắn thẻ. Giải trình = chọn lý do ("Ghi nhận không

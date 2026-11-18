@@ -1,6 +1,6 @@
 # Hướng dẫn tích hợp API — Hệ thống Mua hàng linh kiện (dành cho đối tác DVBH)
 
-Phiên bản tài liệu: 2.1 — 2026-11-18 · Phiên bản API: **v1**
+Phiên bản tài liệu: 2.2 — 2026-11-18 · Phiên bản API: **v1**
 
 Tài liệu này mô tả các API **chỉ đọc** mà hệ thống Mua hàng linh kiện mở cho đối tác tra cứu:
 lịch sử đơn hàng theo mã ca, tồn kho, lịch sử đặt hàng của từng mã linh kiện, và danh mục linh kiện chi
@@ -12,6 +12,7 @@ Thay đổi 1.3: bổ sung 4.11 thiếu hàng (ticket chờ hàng) và 4.12 tồ
 Thay đổi 1.4: 4.7 nhóm thay thế đã CÓ DỮ LIỆU (trước 2026-10-19 trả `rows: []` vì dữ liệu nằm ngoài hệ thống); mỗi mã thêm `co_trong_danh_muc` + `ghi_chu`.
 Thay đổi 1.5: bổ sung **ID Lada** (`ma_lada`) — trước đây API chỉ trả mã ca / mã YCSC (ID CRM) nên đối tác không nhận được ID Lada. Thêm trường
 `ma_lada` + `ma_yeu_cau_su_co` cho đơn ở 4.1 `case-timeline`, 4.4 `linh-kien/lich-su`, 4.11 `thieu-hang`; thêm mục 4.15 giải thích 2 loại mã.
+Thay đổi 2.2: mục 4.19 thêm **con trỏ** `cap_nhat_tu` + `after_id` → trả `next`; mỗi ca chỉ nhận lại khi thay đổi (không kéo lại cả danh sách mỗi ngày).
 Thay đổi 2.1: trạng thái `Gan the` đổi tên thành **`Ton CEO`** (lọc `trang_thai=Gan the` vẫn nhận); thêm `ton_ceo`, `ton_ceo_luc`; thêm mục 4.19 **danh sách Tồn CEO** (`GET /v1/danh-sach-ton?loai=ton-ceo`).
 Thay đổi 2.0: bỏ trạng thái `Cho xem xet` / `Da go the` và các trường `khieu_nai*`, `go_the*` (không có bước Admin xem xét / gỡ thẻ). Ca ghi nhận sai = giải trình với `ly_do` "Ghi nhận không đúng / không thuộc trách nhiệm".
 Thay đổi 1.9: mục 4.18 thêm `nguoi_phu_trach` (người phải giải trình), `ly_do`, trạng thái `Cho xem xet` + các trường "báo không đúng" (`khieu_nai*`).
@@ -866,7 +867,17 @@ Tham số: `tu_ngay`, `den_ngay` (`YYYY-MM-DD`, theo ngày chuyển Tồn CEO, g
 ```
 
 `tong_hop` liệt kê đủ mọi bước (bước không có ca = 0). Khuyến nghị kéo 15–60 phút/lần (hệ thống chuyển Tồn CEO ở lần quét mỗi giờ).
-Lỗi: `INVALID_LOAI` (kèm `loai_hop_le`), `INVALID_NGAY`, `INVALID_NHOM` (400).
+
+**Kéo tăng dần bằng con trỏ (khuyến nghị — tránh nhận lại cùng 1 ca mỗi ngày):**
+
+1. Lần đầu: `?loai=ton-ceo&cap_nhat_tu=2000-01-01` (lấy toàn bộ). Có con trỏ thì `tu_ngay` / `den_ngay` bị bỏ qua.
+2. Lưu `next` (`{ "cap_nhat_tu": "...", "after_id": 123 }`) của phản hồi; lần sau gửi đúng 2 giá trị đó: `&cap_nhat_tu=<next.cap_nhat_tu>&after_id=<next.after_id>`.
+3. `con_nua: true` → gọi lại ngay với `next` mới tới khi `false`. `limit` ≤ 500 (mặc định 200), sắp xếp `cap_nhat_luc, id` tăng dần.
+4. Không có ca mới → `cases: []`, `next` giữ nguyên con trỏ cũ.
+
+Mỗi ca đến **1 lần** khi chuyển Tồn CEO; chỉ đến thêm **1 lần nữa** khi đơn / phiếu rời bước (`con_ton` → `false`, `ket_thuc_luc` có giá trị).
+Đối tác vẫn nên lưu theo `id` (thêm mới hoặc ghi đè) để an toàn khi gọi lại. Ở chế độ con trỏ, `tong_hop` / `so_ca` chỉ đếm các ca trong trang này. Lỗi thêm: `INVALID_CAP_NHAT_TU` (400).
+Lỗi: `INVALID_LOAI` (kèm `loai_hop_le`), `INVALID_NGAY`, `INVALID_NHOM`, `INVALID_CAP_NHAT_TU` (400).
 
 ## 5. Bảo mật & sử dụng dữ liệu
 

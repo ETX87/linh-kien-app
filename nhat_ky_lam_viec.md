@@ -180,3 +180,14 @@ bị lỗi tồn CEO sẽ bắn API sang cho đối tác. tương tự như các
 ca hết hạn giải trình thành `Ton CEO`, API danh sách Tồn CEO trả đúng, `trang_thai=Gan the` vẫn ra; giao diện 2 tab xem bằng mắt.
 
 **Còn lại:** app vi phạm phía đối tác cần thêm bước kéo API mới. Ca vi phạm bước "Kho xác nhận (trả hàng)" của đơn tự hủy vẫn giữ như cũ.
+
+## 2026-11-18 — Con trỏ cho API danh sách Tồn CEO (v1.525)
+
+**Yêu cầu (nguyên văn):** "để tránh việc ca vi phạm cấp CEO bị đối tác kéo đi kéo lại mỗi ngày, có giải pháp nào để trách 1 ca bị kéo lại liên tục khoonng?" → chọn "Thêm con trỏ".
+
+**Đã làm:** `GET /api/partner/v1/danh-sach-ton?loai=ton-ceo` nhận `cap_nhat_tu` (+ `after_id`, `limit` ≤ 500): chỉ trả ca có `cap_nhat_luc` sau mốc, thứ tự `cap_nhat_luc, id`, luôn trả
+`next` (không có ca mới → giữ con trỏ cũ). Không gửi con trỏ = như cũ (theo ngày). Tài liệu đối tác §4.19 bản 2.2.
+
+**Kiểm thử (Worker + D1 local, 3 ca Tồn CEO):** trang 2 ca + `con_nua` → trang sau ra ca còn lại; gọi lại với `next` cuối → rỗng, con trỏ giữ nguyên; giả lập đơn rời bước → chỉ ca đó tới lại 1 lần (`con_ton: false`);
+con trỏ sai dạng → `INVALID_CAP_NHAT_TU`; không con trỏ → như cũ.
+
