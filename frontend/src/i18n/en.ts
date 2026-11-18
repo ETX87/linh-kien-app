@@ -3064,5 +3064,7 @@ const tuDien: Record<string, string> = {
   "Khách hàng chuyển khoản về công ty → tính giá niêm yết, không hưởng chiết khấu (Đình tủ, bậc thang, giá KTV, dự phòng).": "Customer paid the company directly → list price, no discounts (cabinet, tier, technician price, reserve).",
   "Khách hàng chuyển khoản về công ty → tính giá niêm yết, không áp chiết khấu.": "Customer paid the company directly → list price, no discount.",
   "Tính giá niêm yết. Tiền Kế toán xác nhận vào Quỹ KH chuyển khoản (không vào quỹ của KTV); đơn chỉ dùng tiền trong quỹ này.": "List price applies. Money confirmed by Accounting goes to the customer transfer fund (not the technician fund); the order only uses money in this fund.",
+  "Loại đề xuất đang chọn không cần chuyển tiền nên không tích được — chỉ áp dụng cho đơn cần chuyển tiền (Mua hàng, Mua hàng sửa chữa, Trừ công nợ).": "The selected request type needs no payment, so this can't be ticked — only for orders that require payment (Purchase, Repair purchase, Debt deduction).",
+  "Chọn loại đề xuất cần chuyển tiền (Mua hàng, Mua hàng sửa chữa, Trừ công nợ) để tích.": "Choose a request type that requires payment (Purchase, Repair purchase, Debt deduction) to tick.",
 };
 export default tuDien;

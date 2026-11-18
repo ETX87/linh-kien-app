@@ -2337,7 +2337,7 @@ async function chuanBiPhieuDat(
     if (!dh.kh_chuyen_khoan) continue;
     // v1.521 (2026-11-18): BO dieu kien phai chon hinh thuc hoa don - KH chuyen khoan khong xuat hoa don van tich duoc (tinh gia niem yet).
     const lde = String(dh.loai_de_xuat ?? "");
-    if (laMuaCongNoDoiTac(lde) || laDonSuaChua(lde) || !(deriveLoaiDon(lde) === "mua" || laTruCongNo(lde))) {
+    if (laMuaCongNoDoiTac(lde) || !(deriveLoaiDon(lde) === "mua" || laTruCongNo(lde))) {
       return { error: "KH_CHUYEN_KHOAN_CHI_DON_MUA", status: 400, extra: { ma_lk: dh.ma_lk } };
     }
   }

@@ -152,3 +152,10 @@ xet' / 'Da go the'.
   - Ô "Khách hàng đã chuyển khoản về công ty" ẩn hẳn với đơn sửa chữa (CÔNG NỢ SỬA CHỮA / HỖ TRỢ SỬA CHỮA 0 ĐỒNG / MUA HÀNG SỬA CHỮA) — `KhChuyenKhoan.tsx`; server cũng chặn cờ này với đơn sửa chữa (`KH_CHUYEN_KHOAN_CHI_DON_MUA`).
   - Người nhận là NV sửa chữa: hàng nút chọn nhanh loại đề xuất đưa cả 3 loại sửa chữa lên đầu (`ldeNhanh` ở `helpers.ts`), trước chỉ có CÔNG NỢ SỬA CHỮA, 2 loại kia nằm trong "Loại khác".
 - **Kiểm thử:** typecheck backend + frontend 0 lỗi. Chưa bấm thử trên giao diện.
+
+## 2026-11-18 — Sửa lại v1.522: không ẩn ô "KH chuyển khoản" với đơn sửa chữa (v1.523)
+
+- **Yêu cầu (nguyên văn):** "sai ý tôi rồi, ý tôi là sao nó không hiện" — người dùng hỏi vì sao ô không tích được, không phải muốn ẩn.
+- **Giải thích:** ô chỉ dành cho đơn cần chuyển tiền; ảnh đang chọn HỖ TRỢ SỬA CHỮA 0 ĐỒNG (0đ) nên ô mờ. MUA HÀNG SỬA CHỮA vẫn tích được.
+- **Đã làm:** gỡ phần ẩn ô + chặn server của v1.522 (giữ ưu tiên 3 loại sửa chữa). Câu dưới ô khi bị mờ ghi rõ "Loại đề xuất đang chọn không cần chuyển tiền nên không tích được — chỉ áp dụng cho đơn cần chuyển tiền (Mua hàng, Mua hàng sửa chữa, Trừ công nợ)" (+ EN/ID).
+- **Kiểm thử:** typecheck backend + frontend 0 lỗi. Chưa bấm thử trên giao diện.

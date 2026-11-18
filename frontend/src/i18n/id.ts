@@ -3064,5 +3064,7 @@ const tuDien: Record<string, string> = {
   "Khách hàng chuyển khoản về công ty → tính giá niêm yết, không hưởng chiết khấu (Đình tủ, bậc thang, giá KTV, dự phòng).": "Pelanggan transfer langsung ke perusahaan → harga daftar, tanpa diskon (lemari, bertingkat, harga teknisi, cadangan).",
   "Khách hàng chuyển khoản về công ty → tính giá niêm yết, không áp chiết khấu.": "Pelanggan transfer langsung ke perusahaan → harga daftar, tanpa diskon.",
   "Tính giá niêm yết. Tiền Kế toán xác nhận vào Quỹ KH chuyển khoản (không vào quỹ của KTV); đơn chỉ dùng tiền trong quỹ này.": "Berlaku harga daftar. Uang yang dikonfirmasi Akuntansi masuk ke dana transfer pelanggan (bukan dana teknisi); pesanan hanya memakai uang di dana ini.",
+  "Loại đề xuất đang chọn không cần chuyển tiền nên không tích được — chỉ áp dụng cho đơn cần chuyển tiền (Mua hàng, Mua hàng sửa chữa, Trừ công nợ).": "Jenis usulan yang dipilih tidak perlu transfer, jadi tidak bisa dicentang — hanya untuk pesanan yang perlu transfer (Pembelian, Pembelian perbaikan, Potong utang).",
+  "Chọn loại đề xuất cần chuyển tiền (Mua hàng, Mua hàng sửa chữa, Trừ công nợ) để tích.": "Pilih jenis usulan yang perlu transfer (Pembelian, Pembelian perbaikan, Potong utang) untuk mencentang.",
 };
 export default tuDien;
