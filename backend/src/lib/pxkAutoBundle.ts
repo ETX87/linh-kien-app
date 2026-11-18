@@ -127,7 +127,7 @@ async function gomMotNhom(
   choHang = false,
 ): Promise<string> {
   const now = nowVN();
-  // nhomLde = "<loai de xuat>|<hoa don>|<KH chuyen khoan 0/1>" (nhomPhieu) -> phieu tieu "Quỹ xuất hóa đơn do KH chuyển" khi co KH.
+  // nhomLde = "<loai de xuat>|<hoa don>|<KH chuyen khoan 0/1>" (nhomPhieu) -> phieu tieu "Quỹ KH chuyển khoản" khi co KH.
   const [, hoaDonNhom = "", khNhom = "0"] = nhomLde.split("|");
   const quyKh = khNhom === "1" ? 1 : 0;
 
@@ -179,7 +179,7 @@ async function gomMotNhom(
             : choHang ? "Phiếu CHỜ HÀNG — tách riêng đơn kho thiếu hàng; đơn có hàng ở phiếu khác để Kế toán xuất trước"
             : "Tự động gom đơn mới (đơn tự động duyệt + đơn cần chuyển tiền trước)") +
             (hoaDonNhom ? ` — YÊU CẦU XUẤT HÓA ĐƠN: ${hoaDonNhom}` : "") +
-            (quyKh ? " — KH đã chuyển khoản về công ty (tiền vào Quỹ xuất hóa đơn do KH chuyển)" : ""),
+            (quyKh ? " — KH đã chuyển khoản về công ty (tiền vào Quỹ KH chuyển khoản)" : ""),
           null, null, nguoiNhanHang, loaiDon, "Dang tao phieu", kvChon, doiTac, quyKh, choHang ? 1 : 0,
         ),
       db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(

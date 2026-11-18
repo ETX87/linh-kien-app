@@ -134,3 +134,13 @@ xet' / 'Da go the'.
 - **Nguyên nhân:** `scopePxkNguoiNhanHang()` (`lib/scopeDatMua.ts`) xếp `vai_tro='QC'` vào nhóm không giới hạn (như TN/Kho/Kế toán) từ trước khi QC được đặt hàng như KTV (v1.451) → menu Phiếu xuất (Tổng phiếu, Chờ KTV nhận 99+…) hiện phiếu của mọi KTV.
 - **Đã sửa:** bỏ QC khỏi nhóm không giới hạn → QC thuần chỉ thấy phiếu có người nhận hàng = chính mình (danh sách, số đếm menu, Ctrl+K, nhận thiếu). Chi tiết phiếu vẫn mở được khi phiếu chứa đơn QC xem được (quy tắc v1.443). Tài khoản QC kiêm TN/Kho/Kế toán/Mua hàng/Admin giữ quyền theo vai trò kia. Phạm vi ĐƠN của QC (đơn trả hàng chờ QC xác nhận) không đổi.
 - **Kiểm thử:** typecheck backend 0 lỗi. Chưa xem bằng mắt trên giao diện.
+
+## 2026-11-18 — "KH đã chuyển khoản về công ty" không cần xuất hóa đơn, tính giá niêm yết (v1.521)
+
+- **Yêu cầu (nguyên văn):** "đặt hàng cần chuyển tiền, cho phép tích chọn KH chuyển tiền kể cả không xuất hóa đơn => kiểm tra các rủi ro có thể => phân tích"; sau phân tích chốt giá: "Giá niêm yết".
+- **Đã làm:**
+  - Bỏ điều kiện phải chọn hình thức hóa đơn: form (`duocTichKhChuyenKhoan`), tạo đơn (`KH_CHUYEN_KHOAN_CAN_HOA_DON`), sửa đơn (không còn chặn bỏ hóa đơn). Vẫn chỉ đơn mua / TRỪ CÔNG NỢ không đối tác.
+  - Giá: đơn tích ô này tính giá niêm yết, nhãn `KHONG_CK`, lý do `kh_chuyen_khoan` (`tinhToanPxk`), không dùng giá dự phòng; form tạo đơn (`giaUocTinhDong`), chip "KH chuyển khoản · giá niêm yết" và giải thích ở `CoSoChietKhau.tsx` theo cùng quy tắc. Áp cả "HĐ - Xuất cho trạm" (trước được chiết khấu).
+  - Đổi tên hiển thị quỹ "Quỹ xuất hóa đơn do KH chuyển" / tab "Quỹ KH chuyển (HĐ)" → "Quỹ KH chuyển khoản" (khoá `khhd:` giữ nguyên); thêm bản dịch EN/ID.
+- **Rủi ro đã xem:** tách quỹ / phiếu / trigger không phụ thuộc hóa đơn; tổng ngày chiết khấu không đổi; MISA vẫn ghi khách là KTV (Kế toán nhận biết qua nhãn "KH chuyển khoản" trên phiếu); quỹ KH dư thì Kế toán "Hoàn tiền cho KH".
+- **Kiểm thử:** typecheck backend + frontend 0 lỗi. D1 production (chỉ đọc): 8 đơn đang tích ô này, 0 đơn "HĐ - Xuất cho trạm" → không đơn cũ nào đổi giá. Chưa bấm thử trên giao diện.

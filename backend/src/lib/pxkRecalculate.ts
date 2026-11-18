@@ -25,7 +25,7 @@ export interface PxkCalculation {
 // trong phieu KTV chua duoc Ke toan chot xong don xuat luc don nay duoc tao - migration 0105). FE: datMuaLinhKien/CoSoChietKhau.tsx.
 export interface CoSoChietKhau {
   ma: MaChietKhau | null;
-  ly_do: "bac_thang" | "chua_gia_ktv" | "dinh_tu" | "hoa_don" | "du_phong" | "kh_le" | "gia_chot";
+  ly_do: "bac_thang" | "chua_gia_ktv" | "dinh_tu" | "hoa_don" | "kh_chuyen_khoan" | "du_phong" | "kh_le" | "gia_chot";
   moc?: number;
   ngay?: string;
   tong_ngay?: number;
@@ -48,6 +48,7 @@ interface CalculationRow {
   gia_du_phong: number | null;
   don_vi: string | null;
   yeu_cau_hoa_don: string | null;
+  kh_chuyen_khoan: number | null;
   doi_tac_ma: string | null;
   ck_co_so: string | null;
   khoa_ck: number | null; // 1 = dong nam trong phieu da khoa tien (Ke toan da duyet tien / phieu qua buoc tao phieu)
@@ -180,7 +181,7 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
   const { results } = await db.prepare(
     `SELECT ddh.id, ddh.ngay_tao, ddh.so_luong_de_xuat, ddh.so_luong_thuc_xuat, ddh.loai_de_xuat, ddh.loai_don,
             ddh.nguoi_nhan_hang, ddh.so_tien_cong_no, ddh.gia_de_xuat, ddh.gia_chot,
-            lk.gia_ban, lk.gia_tri_cong_no, lk.gia_du_phong, lk.don_vi, ddh.yeu_cau_hoa_don, ddh.doi_tac_ma, ddh.ck_co_so,
+            lk.gia_ban, lk.gia_tri_cong_no, lk.gia_du_phong, lk.don_vi, ddh.yeu_cau_hoa_don, COALESCE(ddh.kh_chuyen_khoan, 0) AS kh_chuyen_khoan, ddh.doi_tac_ma, ddh.ck_co_so,
             (SELECT CASE WHEN p.trang_thai_hien_tai = 'Dang tao phieu' AND NOT ${KE_TOAN_DA_CHOT_TIEN_SQL("p")} THEN 0 ELSE 1 END
              FROM phieu_xuat_kho_dong pd JOIN phieu_xuat_kho p ON p.id = pd.phieu_xuat_kho_id
              WHERE pd.dat_don_hang_id = ddh.id AND p.trang_thai_hien_tai <> 'Ke toan huy'
@@ -290,7 +291,7 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
     };
 
     // Gia du phong: CHI cac dong MUA DỰ TRỮ (tru Dinh tu), tat-ca-hoac-khong.
-    const duTru = rows.filter((row) => !laDinhTu(row.don_vi) && laDuTru(row) && !coYeuCauHoaDon(row.yeu_cau_hoa_don));
+    const duTru = rows.filter((row) => !laDinhTu(row.don_vi) && laDuTru(row) && !coYeuCauHoaDon(row.yeu_cau_hoa_don) && !row.kh_chuyen_khoan);
     let dungDuPhong = false;
     if (duTru.length > 0) {
       const giaDuPhong = duTru.reduce((sum, row) => sum + (row.gia_du_phong ?? 0) * soLuongTinhTien(row), 0);
@@ -311,6 +312,9 @@ export async function tinhToanPxk(db: D1Database, datDonHangIds: string[]): Prom
       const { donGia, ma, coSo } =
         coYeuCauHoaDon(row.yeu_cau_hoa_don)
           ? { donGia: giaBan(row), ma: "KHONG_CK" as MaChietKhau, coSo: { ma: "KHONG_CK", ly_do: "hoa_don" } as CoSoChietKhau }
+          // v1.521 (2026-11-18): "Khách hàng đã chuyển khoản về công ty" (ke ca KHONG xuat hoa don / HĐ xuất cho trạm) -> GIA NIEM YET.
+          : row.kh_chuyen_khoan
+            ? { donGia: giaBan(row), ma: "KHONG_CK" as MaChietKhau, coSo: { ma: "KHONG_CK", ly_do: "kh_chuyen_khoan" } as CoSoChietKhau }
           : laDinhTu(row.don_vi)
             ? { donGia: giaBan(row) * 0.85, ma: "DINH_TU" as MaChietKhau, coSo: { ma: "DINH_TU", ly_do: "dinh_tu" } as CoSoChietKhau }
             : dungDuPhong && laDuTru(row)

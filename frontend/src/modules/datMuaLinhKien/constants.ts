@@ -150,7 +150,7 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   DON_TRONG_PHIEU_KHONG_DOI_HOA_DON: "Đơn đang nằm trong phiếu đã gửi Kế toán — không đổi được hình thức xuất hóa đơn (phiếu tách theo hình thức hóa đơn)",
   KH_CHUYEN_KHOAN_CAN_HOA_DON: "Đơn tích \"Khách hàng đã chuyển khoản về công ty\" phải chọn 1 hình thức xuất hóa đơn",
   KH_CHUYEN_KHOAN_CHI_DON_MUA: "\"Khách hàng đã chuyển khoản về công ty\" chỉ áp dụng cho đơn mua (có tiền thanh toán)",
-  KH_CHUYEN_KHOAN_KHONG_GAN_KH_LE: "Đơn KH chuyển khoản đã có tiền trong Quỹ xuất hóa đơn do KH chuyển — chưa hỗ trợ gán sang KH lẻ",
+  KH_CHUYEN_KHOAN_KHONG_GAN_KH_LE: "Đơn KH chuyển khoản đã có tiền trong Quỹ KH chuyển khoản — chưa hỗ trợ gán sang KH lẻ",
   DOI_TAC_DA_CO: "Mã MISA đối tác này đã có trong danh sách",
   KTV_CHUA_CO_MA_MISA: "Tài khoản này chưa cài đặt mã MISA nên không thể đặt hàng => vui lòng liên hệ giám sát khu vực",
   DON_HANG_KHONG_HOP_LE: "Một số dòng đơn hàng đã chọn không còn hợp lệ (đã bị đổi hoặc gán nơi khác)",

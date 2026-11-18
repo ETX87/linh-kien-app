@@ -10,7 +10,7 @@ import { t } from "../../i18n";
 
 export interface CoSoChietKhau {
   ma: string | null;
-  ly_do: "bac_thang" | "chua_gia_ktv" | "dinh_tu" | "hoa_don" | "du_phong" | "kh_le" | "gia_chot";
+  ly_do: "bac_thang" | "chua_gia_ktv" | "dinh_tu" | "hoa_don" | "kh_chuyen_khoan" | "du_phong" | "kh_le" | "gia_chot";
   moc?: number;
   ngay?: string;
   tong_ngay?: number;
@@ -41,6 +41,7 @@ export function tomTatCoSo(cs: CoSoChietKhau): string {
   switch (cs.ly_do) {
     case "dinh_tu": return t("Linh kiện phân loại Đình tủ luôn giảm 15% (giá niêm yết × 85%), không phụ thuộc tổng đặt.");
     case "hoa_don": return t("Đơn có yêu cầu hóa đơn → tính giá niêm yết, không áp chiết khấu.");
+    case "kh_chuyen_khoan": return t("Khách hàng chuyển khoản về công ty → tính giá niêm yết, không áp chiết khấu.");
     case "du_phong": return t("Đơn MUA DỰ TRỮ còn trong hạn mức dự phòng → tính theo giá dự phòng.");
     case "kh_le": return t("Khách lẻ → tính giá niêm yết, không chiết khấu.");
     default: {

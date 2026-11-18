@@ -80,16 +80,19 @@ export function coYeuCauHoaDon(v: string | null | undefined): boolean {
 // hien canh loai chiet khau khi dong co yeu cau hoa don. Chi dong tinh tien nhu don mua (mua + TRỪ CÔNG NỢ) va
 // CHUA co gia chot tay (gia chot thang moi cong thuc). Rê chuot xem giai thich day du.
 export function HoaDonGiaNiemYet({ don }: {
-  don: { yeu_cau_hoa_don?: string | null; loai_don?: string | null; loai_de_xuat?: string | null; gia_chot?: number | null };
+  don: { yeu_cau_hoa_don?: string | null; loai_don?: string | null; loai_de_xuat?: string | null; gia_chot?: number | null; kh_chuyen_khoan?: number | boolean | null };
 }) {
   const tinhNhuMua = don.loai_don === "mua" || laTruCongNo(don.loai_de_xuat);
-  if (!tinhNhuMua || don.gia_chot != null || !coYeuCauHoaDon(don.yeu_cau_hoa_don)) return null;
+  const hd = coYeuCauHoaDon(don.yeu_cau_hoa_don);
+  if (!tinhNhuMua || don.gia_chot != null || (!hd && !don.kh_chuyen_khoan)) return null;
   return (
     <span
-      title={t("Đơn có yêu cầu hóa đơn (\"{a}\") → tính giá niêm yết, không hưởng chiết khấu (Đình tủ, bậc thang, giá KTV, dự phòng).", { a: don.yeu_cau_hoa_don })}
+      title={hd
+        ? t("Đơn có yêu cầu hóa đơn (\"{a}\") → tính giá niêm yết, không hưởng chiết khấu (Đình tủ, bậc thang, giá KTV, dự phòng).", { a: don.yeu_cau_hoa_don })
+        : t("Khách hàng chuyển khoản về công ty → tính giá niêm yết, không hưởng chiết khấu (Đình tủ, bậc thang, giá KTV, dự phòng).")}
       className="inline-flex shrink-0 items-center whitespace-nowrap rounded-[var(--radius-badge)] bg-[var(--color-neutral-soft)] px-2 py-[3px] text-[11px] font-semibold leading-none text-[var(--color-text-secondary)]"
     >
-      {t("HĐ · giá niêm yết")}
+      {hd ? t("HĐ · giá niêm yết") : t("KH chuyển khoản · giá niêm yết")}
     </span>
   );
 }

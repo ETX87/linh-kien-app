@@ -41,7 +41,7 @@ import { HoanTienTab, TaoHoanTienModal, lamMoiHoanTien, nhanGiaoDichHoanTien, ty
 const quyCuaKhoan = (k: { email_nguoi_chuyen: string; quy_kh?: number }) => (k.quy_kh ? `khhd:${k.email_nguoi_chuyen}` : k.email_nguoi_chuyen);
 
 interface TongQuanRow {
-  email: string; // KHOA quy: email (quy KTV) hoac "khhd:<email>" (Quỹ xuất hóa đơn do KH chuyển)
+  email: string; // KHOA quy: email (quy KTV) hoac "khhd:<email>" (Quỹ KH chuyển khoản)
   nguoi?: string;
   quy_kh?: number;
   so_du: number;
@@ -59,7 +59,7 @@ interface KhoanRow {
   phieu_xuat_kho_id: string;
   ma_xuat_kho: string | null;
   email_nguoi_chuyen: string;
-  quy_kh?: number; // khoan cua phieu KH chuyen khoan -> tien vao "Quỹ xuất hóa đơn do KH chuyển" (migration 0111)
+  quy_kh?: number; // khoan cua phieu KH chuyen khoan -> tien vao "Quỹ KH chuyển khoản" (migration 0111)
   trang_thai: "Da duyet" | "Tu choi" | "Da huy";
   tong_phieu: number | null;
   so_tien_can_chuyen: number | null;
@@ -259,9 +259,9 @@ export function QuyChuyenTienModule({ moPhieuHoanTien = null, moNopTien = null }
   const addToast = useToast();
   const qc = useQueryClient();
   const dir = usePersonDirectory();
-  // Khoa quy "khhd:<email>" = "Quỹ xuất hóa đơn do KH chuyển" cua KTV do (migration 0111) - hien ten KTV + ten quy, tach khoi quy du KTV.
+  // Khoa quy "khhd:<email>" = "Quỹ KH chuyển khoản" cua KTV do (migration 0111) - hien ten KTV + ten quy, tach khoi quy du KTV.
   const ten = (e: string | null | undefined) =>
-    !e ? "" : e.startsWith("khhd:") ? `${formatPersonDisplay(e.slice(5), dir)} · ${t("Quỹ xuất hóa đơn do KH chuyển")}` : formatPersonDisplay(e, dir);
+    !e ? "" : e.startsWith("khhd:") ? `${formatPersonDisplay(e.slice(5), dir)} · ${t("Quỹ KH chuyển khoản")}` : formatPersonDisplay(e, dir);
   const user = auth.status === "authenticated" ? auth.user : null;
   const xemTatCa = !!user && (user.vai_tro === "Admin" || !!user.la_ke_toan || !!user.la_tac_nghiep || !!user.la_mua_hang); // Mua hang: xem, khong dieu chinh
   // View (2026-10-14): xem quy NHIEU nguoi (KTV thuoc Khu vuc duoc gan - backend phamViXem) nhung KHONG co tab KH le (/khach-le khong mo cho View).
@@ -298,7 +298,7 @@ export function QuyChuyenTienModule({ moPhieuHoanTien = null, moNopTien = null }
     queryFn: () => api.get<{ rows: TongQuanRow[]; coTheDieuChinh: boolean }>("/quy-ktv/tong-quan"),
   });
   // TACH 2 QUY (2026-11-09, "Tách riêng khoản quỹ này ra tab riêng để dễ tìm kiếm, quản lý, kiểm soát"): cac tab / the tong cua man chinh
-  // CHI quy du KTV; "Quỹ xuất hóa đơn do KH chuyển" (khoa khhd:) nam o tab rieng "Quỹ KH chuyển (HĐ)" (QuyKhTab cuoi file).
+  // CHI quy du KTV; "Quỹ KH chuyển khoản" (khoa khhd:) nam o tab rieng "Quỹ KH chuyển khoản" (QuyKhTab cuoi file).
   const tqTatCa = useMemo(() => tongQuan.data?.rows ?? [], [tongQuan.data]);
   const tqRows = useMemo(() => tqTatCa.filter((r) => !r.quy_kh), [tqTatCa]);
   const tqKh = useMemo(() => tqTatCa.filter((r) => !!r.quy_kh), [tqTatCa]);
@@ -327,7 +327,7 @@ export function QuyChuyenTienModule({ moPhieuHoanTien = null, moNopTien = null }
     ...(xemNhieuNguoi ? [{ key: "so-du", label: t("Số dư quỹ"), count: tqRows.filter((r) => r.so_du > 0).length }] : []),
     { key: "so-quy", label: t("Sổ quỹ") },
     // Quy KH chuyen khoan ve cong ty (migration 0111) - tab rieng: so du theo KTV + so quy + khoan chuyen tien, tach han quy KTV.
-    ...(xemNhieuNguoi || tqKh.length > 0 ? [{ key: "quy-kh", label: t("Quỹ KH chuyển (HĐ)"), count: tqKh.filter((r) => r.so_du > 0).length }] : []),
+    ...(xemNhieuNguoi || tqKh.length > 0 ? [{ key: "quy-kh", label: t("Quỹ KH chuyển khoản"), count: tqKh.filter((r) => r.so_du > 0).length }] : []),
     { key: "nop-tien", label: t("Nộp tiền vào quỹ"), count: (demTb as { nopTienCanXuLy?: number } | undefined)?.nopTienCanXuLy ?? 0 },
     { key: "hoan-tien", label: t("Hoàn tiền"), count: (demTb as { hoanTienCanXuLy?: number } | undefined)?.hoanTienCanXuLy ?? 0 },
     // KH le theo tung khach (migration 0074) - quy/tien dang giu/don cho hang cua tung KH.
@@ -1148,7 +1148,7 @@ function KhachLeTab({ coTheDieuChinh, onXemSoQuy, onDieuChinh }: {
   );
 }
 
-// TAB "Quỹ KH chuyển (HĐ)" (2026-11-09) - "Quỹ xuất hóa đơn do KH chuyển" cua tung KTV (khoa khhd:, migration 0111): tien KH chuyen ve cong ty
+// TAB "Quỹ KH chuyển khoản" (2026-11-09) - "Quỹ KH chuyển khoản" cua tung KTV (khoa khhd:, migration 0111): tien KH chuyen ve cong ty
 // cho don co yeu cau xuat hoa don, tach han quy du ca nhan KTV. 3 muc: so du theo KTV / so quy (moi bien dong) / khoan chuyen tien Ke toan
 // xac nhan cua phieu KH - dung lai dung cac bang cua quy KTV, chi loc ?quy=kh o server.
 function QuyKhTab({ rows, isLoading, isError, xemNhieuNguoi, ten, coTheDieuChinh, onDieuChinh, onChanged }: {
@@ -1163,7 +1163,7 @@ function QuyKhTab({ rows, isLoading, isError, xemNhieuNguoi, ten, coTheDieuChinh
 }) {
   const [muc, setMuc] = useState<"so-du" | "so-quy" | "khoan">(xemNhieuNguoi ? "so-du" : "so-quy");
   const [emailLoc, setEmailLoc] = useState("");
-  // Trong tab nay moi dong deu la quy KH -> chi hien ten KTV (khong lap " · Quỹ xuất hóa đơn do KH chuyển").
+  // Trong tab nay moi dong deu la quy KH -> chi hien ten KTV (khong lap " · Quỹ KH chuyển khoản").
   const tenNguoi = (e: string | null | undefined) => (e?.startsWith("khhd:") ? ten(e.slice(5)) : ten(e));
   const nguoiOptions = [{ value: "", label: t("Tất cả KTV") }, ...rows.map((r) => ({ value: r.email, label: tenNguoi(r.email) || r.email }))];
   const tong = rows.reduce((s, r) => s + r.so_du, 0);

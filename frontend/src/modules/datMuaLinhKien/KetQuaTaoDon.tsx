@@ -126,7 +126,7 @@ export function KetQuaTaoDonModal({ ketQua, onClose }: { ketQua: KetQuaTaoDon | 
           <div className="rounded-xl border border-[var(--color-border)] px-3 py-2 text-[13px]">
             {t("Quỹ dư của {a} còn", { a: tenNguoi(ketQua.nguoi_nhan_hang) })} <b><Money>{fmtVND(ketQua.quy_du.ktv)}</Money></b>
             {ketQua.quy_du.kh != null && (
-              <> · {t("Quỹ xuất hóa đơn do KH chuyển còn")} <b><Money>{fmtVND(ketQua.quy_du.kh)}</Money></b></>
+              <> · {t("Quỹ KH chuyển khoản còn")} <b><Money>{fmtVND(ketQua.quy_du.kh)}</Money></b></>
             )}
           </div>
         )}

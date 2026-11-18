@@ -57,7 +57,7 @@ async function phamViXem(c: C): Promise<string[] | null | undefined> {
 }
 const coTheDieuChinh = (c: C) => c.get("user").vai_tro === "Admin" || !!c.get("user").la_ke_toan;
 
-/** ?quy=kh | ktv (2026-11-09, tab rieng "Quỹ KH chuyển (HĐ)"): "kh" = chi "Quỹ xuất hóa đơn do KH chuyển" (khoa khhd:), "ktv" = chi quy du
+/** ?quy=kh | ktv (2026-11-09, tab rieng "Quỹ KH chuyển khoản"): "kh" = chi "Quỹ KH chuyển khoản" (khoa khhd:), "ktv" = chi quy du
  * KTV, khong truyen = ca 2 (tuong thich ban cu). */
 function loaiQuyLoc(c: C): "kh" | "ktv" | null {
   const q = c.req.query("quy");
@@ -133,7 +133,7 @@ quyKtv.get("/tong-quan", async (c) => {
   if (pv === undefined) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const loc = locEmail("ng.nguoi", pv);
   const { results } = await c.env.DB.prepare(
-    // 1 dong / QUY (2026-11-09, migration 0111): quy du KTV (email) va "Quỹ xuất hóa đơn do KH chuyển" (khhd:email) la 2 dong rieng -
+    // 1 dong / QUY (2026-11-09, migration 0111): quy du KTV (email) va "Quỹ KH chuyển khoản" (khhd:email) la 2 dong rieng -
     // khoan chuyen / phieu cho tien tinh vao dung quy theo phieu_xuat_kho.quy_kh. ng.nguoi = nguoi nhan hang (loc pham vi theo nguoi).
     `WITH ng0 AS (
        SELECT CASE WHEN COALESCE(kp.quy_kh, 0) = 1 THEN 'khhd:' || k.email_nguoi_chuyen ELSE k.email_nguoi_chuyen END AS email
@@ -337,7 +337,7 @@ quyKtv.post("/dieu-chinh", async (c) => {
   const soTien = Number(body.so_tien);
   if (!Number.isInteger(soTien) || soTien === 0 || Math.abs(soTien) > 10_000_000_000) return c.json({ error: "INVALID_SO_TIEN" }, 400);
   if (body.loai === "hoan_tien_ktv" && soTien < 0) return c.json({ error: "INVALID_SO_TIEN" }, 400);
-  // email = KHOA quy: quy KTV (email) hoac "Quỹ xuất hóa đơn do KH chuyển" (khhd:email, migration 0111).
+  // email = KHOA quy: quy KTV (email) hoac "Quỹ KH chuyển khoản" (khhd:email, migration 0111).
   const quyKh = laKhoaQuyKh(email);
   const tonTai = await c.env.DB.prepare("SELECT 1 AS x FROM users WHERE email = ?").bind(giaiKhoaQuy(email).email).first();
   if (!tonTai) return c.json({ error: "USER_NOT_FOUND" }, 404);

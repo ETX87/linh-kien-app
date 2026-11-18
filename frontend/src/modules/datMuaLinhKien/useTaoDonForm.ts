@@ -541,7 +541,7 @@ export function useTaoDonForm({
     const niemYet = lk.gia_ban * sl;
     const lde = d.loai_de_xuat.trim();
     if (!lde || (deriveLoaiDon(lde) !== "mua" && !laTruCongNo(lde))) return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
-    if (tongNgayData?.kh_le || coYeuCauHoaDon(d.yeu_cau_hoa_don) || laMuaCongNoDoiTac(lde)) return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
+    if (tongNgayData?.kh_le || coYeuCauHoaDon(d.yeu_cau_hoa_don) || (d.kh_chuyen_khoan && duocTichKhChuyenKhoan(d)) || laMuaCongNoDoiTac(lde)) return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
     if (laDinhTuFe(lk.don_vi)) return { gia: Math.round(lk.gia_ban * 0.85) * sl, giaNiemYet: niemYet, nhan: t("Đình tủ −15%") };
     if (tongNgaySau < 200000) return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
     if (tongNgaySau < 500000) return { gia: Math.round(lk.gia_ban * 0.7) * sl, giaNiemYet: niemYet, nhan: t("Tổng ngày 200–500k −30%") };

@@ -3176,7 +3176,7 @@ export function DonHangGroupedList({
       text: (d) =>
         (tenLoaiChietKhau(loaiChietKhauList, d.loai_chiet_khau_id) ?? dash) +
         (d.loai_chiet_khau_thu_cong ? " ✎" : "") +
-        (coYeuCauHoaDon(d.yeu_cau_hoa_don) && d.gia_chot == null ? t("     HĐ · giá niêm yết") : ""), // chip HoaDonGiaNiemYet
+        (d.gia_chot == null ? (coYeuCauHoaDon(d.yeu_cau_hoa_don) ? t("     HĐ · giá niêm yết") : d.kh_chuyen_khoan ? t("     KH chuyển khoản · giá niêm yết") : "") : ""), // chip HoaDonGiaNiemYet
       font: BADGE_FONT,
       extra: BADGE_PAD,
       max: 360,

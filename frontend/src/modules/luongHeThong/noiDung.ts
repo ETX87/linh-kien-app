@@ -332,7 +332,7 @@ export const NHOM: Nhom[] = [
         tieuDe: "Quỹ & chuyển tiền",
         bieuTuong: "💰",
         dong: [
-          "Tab: Khoản chuyển tiền · Số dư quỹ · Sổ quỹ · Hoàn tiền · Tiền ngoài vào quỹ · Nộp tiền vào quỹ · Quỹ KH chuyển (HĐ) · Công nợ đối tác · KH lẻ.",
+          "Tab: Khoản chuyển tiền · Số dư quỹ · Sổ quỹ · Hoàn tiền · Tiền ngoài vào quỹ · Nộp tiền vào quỹ · Quỹ KH chuyển khoản · Công nợ đối tác · KH lẻ.",
           "Phiếu hoàn tiền HT-…: Kế toán tạo → tiền TẠM GIỮ khỏi quỹ → KTV “Đã nhận tiền” (trừ hẳn) hoặc từ chối → Kế toán hủy (trả lại) / đẩy lại KTV.",
           "Nộp tiền vào quỹ: KTV / GS gửi ảnh chuyển khoản (nút tròn “Nạp quỹ”) → Kế toán duyệt số thực nhận → tự trả phiếu chờ tiền.",
           "Tiền ngoài vào quỹ: Kế toán thêm tay hoặc import theo Mã MISA / Mã KTV (vd trừ lương đầu tháng).",
@@ -398,7 +398,7 @@ export const NHOM: Nhom[] = [
         bieuTuong: "🧾",
         dong: [
           "Đặt cho tài khoản nhóm KH lẻ → nhập SĐT khách → mỗi khách 1 người nhận riêng (KL<MB|MN>-…), quỹ / phiếu / chuyển tiền như KTV, giá niêm yết.",
-          "“Khách hàng đã chuyển khoản về công ty” (cần chọn hình thức HĐ): tiền vào “Quỹ xuất hóa đơn do KH chuyển” gắn theo KTV, tách hẳn quỹ KTV, phiếu riêng.",
+          "“Khách hàng đã chuyển khoản về công ty” (đơn mua, có hoặc không xuất HĐ — tính giá niêm yết): tiền vào “Quỹ KH chuyển khoản” gắn theo KTV, tách hẳn quỹ KTV, phiếu riêng.",
         ],
       },
       {

@@ -2284,7 +2284,7 @@ export interface PhieuDatBody {
     // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): Ma MISA doi tac ghi no (doi_tac_cong_no). KTV duoc phep (trung Ma MISA) bo trong = tu dien.
     doi_tac_ma?: string;
     // "Khách hàng đã chuyển khoản về công ty" (migration 0111) - CHI khi da chon 1 hinh thuc xuat hoa don; tien Ke toan xac nhan vao
-    // "Quỹ xuất hóa đơn do KH chuyển" cua nguoi nhan hang (khong vao quy du KTV), don chi tieu tien trong quy do.
+    // "Quỹ KH chuyển khoản" cua nguoi nhan hang (khong vao quy du KTV), don chi tieu tien trong quy do.
     kh_chuyen_khoan?: boolean;
     // CÔNG NỢ SỬA CHỮA (v1.495): ma don bao hanh app Bao hanh doi tra ("DH-000123" / "DH-000123-1") - BAT BUOC voi loai nay.
     bh_don_vi_id?: string;
@@ -2335,7 +2335,7 @@ async function chuanBiPhieuDat(
   body.don_hang = tachDon.map((t) => t.dong);
   for (const dh of body.don_hang) {
     if (!dh.kh_chuyen_khoan) continue;
-    if (!coChonHoaDon(dh.yeu_cau_hoa_don)) return { error: "KH_CHUYEN_KHOAN_CAN_HOA_DON", status: 400, extra: { ma_lk: dh.ma_lk } };
+    // v1.521 (2026-11-18): BO dieu kien phai chon hinh thuc hoa don - KH chuyen khoan khong xuat hoa don van tich duoc (tinh gia niem yet).
     const lde = String(dh.loai_de_xuat ?? "");
     if (laMuaCongNoDoiTac(lde) || !(deriveLoaiDon(lde) === "mua" || laTruCongNo(lde))) {
       return { error: "KH_CHUYEN_KHOAN_CHI_DON_MUA", status: 400, extra: { ma_lk: dh.ma_lk } };
@@ -4796,10 +4796,9 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
     if (nextTn && next.gia_chot !== existing.gia_chot) thayDoiTao.push(`Giá chốt ${existing.gia_chot ?? "—"} → ${next.gia_chot ?? "—"}`);
     if (nextTn && next.ma_xuat_kho !== existing.ma_xuat_kho) thayDoiTao.push(`Mã đơn hàng ${existing.ma_xuat_kho ?? "—"} → ${next.ma_xuat_kho ?? "—"}`);
     if (nextTn && next.ma_misa !== existing.ma_misa) thayDoiTao.push(`Mã MISA ${existing.ma_misa ?? "—"} → ${next.ma_misa ?? "—"}`);
-    // Hinh thuc hoa don (2026-11-09): don "KH đã chuyển khoản về công ty" bat buoc giu 1 hinh thuc xuat hoa don; doi hinh thuc = doi
+    // Hinh thuc hoa don (2026-11-09; v1.521 bo bat buoc giu hoa don voi don "KH đã chuyển khoản về công ty"): doi hinh thuc = doi
     // nhom phieu -> chi khi phieu con "Dang tao phieu" (go ra + gom lai dung nhom ben duoi), phieu da gui Ke toan thi khong doi duoc.
     const doiNhomHd = nhomHoaDon(next.yeu_cau_hoa_don) !== nhomHoaDon(existing.yeu_cau_hoa_don);
-    if (existing.kh_chuyen_khoan && !coChonHoaDon(next.yeu_cau_hoa_don)) return c.json({ error: "KH_CHUYEN_KHOAN_CAN_HOA_DON" }, 409);
     if (doiNhomHd && existing.pxk_id && existing.pxk_trang_thai && !["Dang tao phieu", "Ke toan huy"].includes(existing.pxk_trang_thai)) {
       return c.json({ error: "DON_TRONG_PHIEU_KHONG_DOI_HOA_DON", pxk: existing.pxk_id }, 409);
     }
@@ -5077,7 +5076,7 @@ async function thongTinTraBangQuy(
   const tien = (await tienUocTinhChoDon(db, [donHangId])).get(donHangId) ?? 0;
   const canTra = Math.max(0, tien - (d.tien_da_tra ?? 0));
   if (canTra <= 0) return { error: "DON_DA_DU_TIEN" };
-  // Don KH chuyen khoan chi tieu "Quỹ xuất hóa đơn do KH chuyển" (migration 0111), don thuong chi tieu quy du KTV.
+  // Don KH chuyen khoan chi tieu "Quỹ KH chuyển khoản" (migration 0111), don thuong chi tieu quy du KTV.
   const quy = khoaQuy(d.nguoi_nhan_hang, d.kh_chuyen_khoan);
   return { canTra, quy: await soDuQuy(db, quy), email: quy, tienDaTra: d.tien_da_tra ?? 0, maLk: d.ma_lk };
 }

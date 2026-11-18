@@ -87,7 +87,7 @@ export function lenhKhoaTrangThaiChuyenTien(db: D1Database, pxkId: string, mongD
 interface PxkTien {
   id: string;
   nguoi_nhan_hang: string | null;
-  quy_kh: number; // 1 = phieu tieu "Quỹ xuất hóa đơn do KH chuyển" (migration 0111) - khoa quy = khoaQuy(nguoi_nhan_hang, quy_kh)
+  quy_kh: number; // 1 = phieu tieu "Quỹ KH chuyển khoản" (migration 0111) - khoa quy = khoaQuy(nguoi_nhan_hang, quy_kh)
   so_tien_can_chuyen: number | null;
   da_thanh_toan: number;
   trang_thai_chuyen_tien: string | null;
@@ -253,7 +253,7 @@ export async function phanBoQuy(db: D1Database, email: string, nguoi?: string | 
   }
 }
 
-/** Phan bo CA 2 quy cua 1 nguoi nhan hang (quy KTV + "Quỹ xuất hóa đơn do KH chuyển") - dung sau thao tac khong biet tien vua
+/** Phan bo CA 2 quy cua 1 nguoi nhan hang (quy KTV + "Quỹ KH chuyển khoản") - dung sau thao tac khong biet tien vua
  * hoan ve quy nao (vd trigger hoan tien don bi huy - tien ve DUNG khoa quy luu o don). */
 export async function phanBoQuyNguoi(db: D1Database, email: string, nguoi?: string | null): Promise<void> {
   await phanBoQuy(db, email, nguoi);
@@ -289,7 +289,7 @@ export async function duyetKhoanChuyen(
       bang_chung_chuyen_tien_ghi_chu: string | null; ngay_ktv_chuyen: string | null; bang_chung_tien_doc: string | null;
     }>();
   if (!pxk || !pxk.nguoi_nhan_hang) return null;
-  // Tien thuc nhan vao QUY CUA PHIEU: phieu KH chuyen khoan (quy_kh) -> "Quỹ xuất hóa đơn do KH chuyển", khong vao quy du KTV.
+  // Tien thuc nhan vao QUY CUA PHIEU: phieu KH chuyen khoan (quy_kh) -> "Quỹ KH chuyển khoản", khong vao quy du KTV.
   const email = khoaQuy(pxk.nguoi_nhan_hang, pxk.quy_kh);
   const tong = Math.max(0, pxk.so_tien_can_chuyen ?? 0);
   const daTra = pxk.da_thanh_toan ?? 0;
@@ -612,7 +612,7 @@ export async function thongBaoHoanQuyPhieuHuy(env: Env, db: D1Database, pxkId: s
   const pxk = await docPxkTien(db, pxkId);
   if (!pxk?.nguoi_nhan_hang) return;
   const soDu = await soDuQuy(db, khoaQuy(pxk.nguoi_nhan_hang, pxk.quy_kh));
-  const tenQuy = pxk.quy_kh ? "Quỹ xuất hóa đơn do KH chuyển" : "quỹ của bạn";
+  const tenQuy = pxk.quy_kh ? "Quỹ KH chuyển khoản" : "quỹ của bạn";
   await notifyWorkflowTask(env, db, {
     cat1Emails: [pxk.nguoi_nhan_hang],
     otherRoles: [],

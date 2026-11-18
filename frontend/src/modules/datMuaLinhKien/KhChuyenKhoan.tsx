@@ -1,13 +1,13 @@
-// "KHÁCH HÀNG ĐÃ CHUYỂN KHOẢN VỀ CÔNG TY" (2026-11-09, migration 0111 - backend lib/quyKhoa.ts). Tich duoc khi don da chon 1 hinh thuc
-// xuat hoa don (ke ca "HĐ - Xuất cho trạm") va la don phat sinh tien (mua / TRỪ CÔNG NỢ, khong phai cong no doi tac). Luong don giu nguyen;
-// tien Ke toan xac nhan vao "Quỹ xuất hóa đơn do KH chuyển" CUA KTV nhan hang (khong vao quy du ca nhan KTV) va don chi tieu quy nay.
+// "KHÁCH HÀNG ĐÃ CHUYỂN KHOẢN VỀ CÔNG TY" (2026-11-09, migration 0111 - backend lib/quyKhoa.ts). Tich duoc khi la don phat sinh tien (mua /
+// TRỪ CÔNG NỢ, khong phai cong no doi tac) - v1.521 (2026-11-18) BO dieu kien phai chon hinh thuc xuat hoa don; don tich o nay tinh GIA NIEM
+// YET (tinhToanPxk). Luong don giu nguyen; tien Ke toan xac nhan vao "Quỹ KH chuyển khoản" CUA KTV nhan hang (khong vao quy du ca nhan KTV).
 import { t } from "../../i18n";
 import { Badge } from "../../components/x/Badge";
 import { deriveLoaiDon, laTruCongNo, laMuaCongNoDoiTac } from "./helpers";
 import type { DonHangDraft } from "./types";
 import { YEU_CAU_HOA_DON_SHORT_LABELS } from "./constants";
 
-export const TEN_QUY_KH = "Quỹ xuất hóa đơn do KH chuyển";
+export const TEN_QUY_KH = "Quỹ KH chuyển khoản";
 
 /** Co chon 1 hinh thuc xuat hoa don (khac "Không") - ban sao FE cua coChonHoaDon (backend lib/nhomLoaiDeXuat.ts). */
 export function coChonHoaDon(v: string | null | undefined): boolean {
@@ -15,9 +15,9 @@ export function coChonHoaDon(v: string | null | undefined): boolean {
   return s !== "" && s.toLowerCase() !== "không" && s.toLowerCase() !== "khong";
 }
 
-export function duocTichKhChuyenKhoan(d: Pick<DonHangDraft, "yeu_cau_hoa_don" | "loai_de_xuat">): boolean {
+export function duocTichKhChuyenKhoan(d: Pick<DonHangDraft, "loai_de_xuat">): boolean {
   const lde = d.loai_de_xuat.trim();
-  return coChonHoaDon(d.yeu_cau_hoa_don) && !laMuaCongNoDoiTac(lde) && (deriveLoaiDon(lde) === "mua" || laTruCongNo(lde));
+  return !!lde && !laMuaCongNoDoiTac(lde) && (deriveLoaiDon(lde) === "mua" || laTruCongNo(lde));
 }
 
 export function KhChuyenKhoanCheck({ d, onChange }: { d: DonHangDraft; onChange: (v: boolean) => void }) {
@@ -31,8 +31,8 @@ export function KhChuyenKhoanCheck({ d, onChange }: { d: DonHangDraft; onChange:
           <b>{t("Khách hàng đã chuyển khoản về công ty")}</b>
           <span className="block text-[11.5px] text-[var(--ink-400)]">
             {duoc
-              ? t("Tiền Kế toán xác nhận vào Quỹ xuất hóa đơn do KH chuyển (không vào quỹ của KTV); đơn chỉ dùng tiền trong quỹ này.")
-              : t("Chọn 1 hình thức xuất hóa đơn (đơn mua) để tích.")}
+              ? t("Tính giá niêm yết. Tiền Kế toán xác nhận vào Quỹ KH chuyển khoản (không vào quỹ của KTV); đơn chỉ dùng tiền trong quỹ này.")
+              : t("Chỉ áp dụng cho đơn mua hàng (cần chuyển tiền).")}
           </span>
         </span>
       </label>
@@ -43,7 +43,7 @@ export function KhChuyenKhoanCheck({ d, onChange }: { d: DonHangDraft; onChange:
 /** Nhan hien thi tren chi tiet don / dong don. */
 export function KhChuyenKhoanBadge({ title }: { title?: string }) {
   return (
-    <span title={title ?? t("Tiền vào Quỹ xuất hóa đơn do KH chuyển, không vào quỹ của KTV")}>
+    <span title={title ?? t("Tiền vào Quỹ KH chuyển khoản, không vào quỹ của KTV")}>
       <Badge tone="purple" variant="soft">{t("KH chuyển khoản về công ty")}</Badge>
     </span>
   );
@@ -81,7 +81,7 @@ export function HoaDonPhieuGhiChu({ hd, quyKh }: { hd: string | null | undefined
       )}
       {!!quyKh && (
         <div className="mt-0.5">
-          💳 <b>{t("Khách hàng đã chuyển khoản về công ty")}</b> — {t("tiền xác nhận vào Quỹ xuất hóa đơn do KH chuyển (không vào quỹ của KTV).")}
+          💳 <b>{t("Khách hàng đã chuyển khoản về công ty")}</b> — {t("tiền xác nhận vào Quỹ KH chuyển khoản (không vào quỹ của KTV).")}
         </div>
       )}
     </div>

@@ -78,7 +78,7 @@ export function TienPhieuVaQuy({ tong, daThanhToan, daDuyet, quyDu, quyKh }: { t
         </KvRow>
       )}
       {quyDu != null && (
-        <KvRow label={quyKh ? t("Quỹ xuất hóa đơn do KH chuyển") : t("Quỹ dư hiện tại")}>
+        <KvRow label={quyKh ? t("Quỹ KH chuyển khoản") : t("Quỹ dư hiện tại")}>
           <Money>{fmtVND(quyDu)}</Money>
           {quyDu > 0 && <span className="text-[11px] text-[var(--color-text-secondary)]"> {t("— tự trừ vào phiếu cần chuyển tiếp theo")}</span>}
         </KvRow>

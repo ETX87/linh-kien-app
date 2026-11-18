@@ -373,7 +373,7 @@ export interface PhieuXuatKhoRow {
   // bên trong, cũng tự động tô màu").
   co_don_uu_tien?: boolean;
   co_khieu_nai?: number | boolean; // phieu co it nhat 1 don "Ca khiếu nại" (2026-10-28)
-  // Hinh thuc xuat hoa don cua phieu ('' = khong) + phieu "KH đã chuyển khoản về công ty" tieu Quỹ xuất hóa đơn do KH chuyển (2026-11-09).
+  // Hinh thuc xuat hoa don cua phieu ('' = khong) + phieu "KH đã chuyển khoản về công ty" tieu Quỹ KH chuyển khoản (2026-11-09).
   yeu_cau_hd?: string | null;
   quy_kh?: number | null;
   co_yeu_cau_huy?: number | boolean; // phieu co don dang co yeu cau huy cho dong y (v1.455)

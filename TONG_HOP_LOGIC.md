@@ -42,7 +42,7 @@ Phạm vi dữ liệu theo **Khu vực** (khu vực hiệu lực của đơn / p
 ## 4. Giá & chiết khấu
 
 Giá chốt tay luôn thắng. Bậc thang theo **tổng ngày** của KTV (+ phiếu đang mở chưa chốt): < 200k giá bán, 200–500k ×70%, ≥ 500k giá KTV;
-Đình tủ ×85%; có yêu cầu hóa đơn / KH lẻ / công nợ đối tác = giá niêm yết. Dự phòng chỉ cho MUA DỰ TRỮ trong hạn mức. Backend là nguồn
+Đình tủ ×85%; có yêu cầu hóa đơn / KH chuyển khoản về công ty / KH lẻ / công nợ đối tác = giá niêm yết. Dự phòng chỉ cho MUA DỰ TRỮ trong hạn mức. Backend là nguồn
 duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xem trước.
 
 ## 5. Phiếu xuất kho & tiền
@@ -51,7 +51,7 @@ duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xe
 `KTV da nhan` (tự xác nhận sau 10 ngày) | `Hang tru kho` | `Kho da nhan hang tra`; `Ke toan huy`.
 - 1 phiếu chỉ chứa đơn cùng người nhận + loại đơn + nhóm loại đề xuất + hình thức hóa đơn + đối tác + cờ chờ hàng.
 - **Quỹ tiền dư KTV**: mọi tiền KTV chuyển vào quỹ người nhận, Kế toán nhập số thực nhận → quỹ tự trả phiếu thiếu cũ nhất; thừa ở lại quỹ;
-  hủy / giảm thì hoàn quỹ. Quỹ KH chuyển khoản (xuất hóa đơn) tách riêng. Tiền cần chuyển = 0 thì không cần Kế toán duyệt.
+  hủy / giảm thì hoàn quỹ. Quỹ KH chuyển khoản (đơn tích "KH đã chuyển khoản về công ty", có hoặc không xuất hóa đơn) tách riêng. Tiền cần chuyển = 0 thì không cần Kế toán duyệt.
 - Thêm / bớt / tách / chuyển đơn được tới khi Kế toán chốt; đẩy lùi từng bước có lý do; Kế toán duyệt nhanh hàng loạt.
 - OCR đọc số tiền ảnh chuyển khoản trên trình duyệt + đối soát ảnh nghi trùng — chỉ cảnh báo, không chặn.
 

@@ -110,7 +110,7 @@ khachLe.post("/gan-don", async (c) => {
     .bind(id)
     .first<{ id: string; nguoi_nhan_hang: string | null; trang_thai_hien_tai: string | null; loai_don: string; tien_da_tra: number | null; version: number; trong_phieu: number; kh_chuyen_khoan: number }>();
   if (!don) return c.json({ error: "NOT_FOUND" }, 404);
-  // Tien don KH chuyen khoan nam o "Quỹ xuất hóa đơn do KH chuyển" (khoa khhd:) - chuyen theo don sang KH le chua ho tro (2026-11-09).
+  // Tien don KH chuyen khoan nam o "Quỹ KH chuyển khoản" (khoa khhd:) - chuyen theo don sang KH le chua ho tro (2026-11-09).
   if (don.kh_chuyen_khoan && (don.tien_da_tra ?? 0) > 0) return c.json({ error: "KH_CHUYEN_KHOAN_KHONG_GAN_KH_LE" }, 409);
   const nhom = don.nguoi_nhan_hang ? await nhomKhLeTheoEmail(c.env.DB, don.nguoi_nhan_hang) : null;
   if (!nhom) return c.json({ error: "KHONG_PHAI_DON_KH_LE_CHUNG" }, 400);

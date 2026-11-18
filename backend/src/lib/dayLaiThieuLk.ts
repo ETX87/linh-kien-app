@@ -87,7 +87,7 @@ export async function dayLaiTicketThieuLk(env: Env, db: D1Database, ticketId: st
     .first<{ id: string }>();
   if (conPhieu) return { error: "DON_CON_TRONG_PHIEU", status: 409, pxk: conPhieu.id };
 
-  // Quỹ của đơn: quỹ KTV hoặc "Quỹ xuất hóa đơn do KH chuyển" (migration 0111) - trigger hoàn tiền đã trả về đúng quỹ này.
+  // Quỹ của đơn: quỹ KTV hoặc "Quỹ KH chuyển khoản" (migration 0111) - trigger hoàn tiền đã trả về đúng quỹ này.
   const quyDon = tk.nguoi_nhan_hang ? khoaQuy(tk.nguoi_nhan_hang, tk.kh_chuyen_khoan) : null;
   // Số tiền trigger đã hoàn về quỹ lúc đơn bị hủy (giao dịch SAU lúc hủy, đúng mã đơn).
   const hoan = quyDon && tk.huy_luc

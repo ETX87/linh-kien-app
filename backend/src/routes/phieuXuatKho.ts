@@ -900,7 +900,7 @@ phieuXuatKho.post("/", async (c) => {
   const doiTacPhieu = dtDon[0].doi_tac_ma;
   // Tach phieu theo LOAI DE XUAT (chot 2026-10-28, lib/nhomLoaiDeXuat.ts): 1 phieu chi 1 nhom loai de xuat (MUA HÀNG + MUA HÀNG CÓ ID chung nhom).
   // + tach theo HINH THUC HOA DON + KH chuyen khoan (2026-11-09, nhomPhieu): MUA HÀNG khong HĐ / HĐ khong thu phi / co thu phi / xuat cho
-  // tram la cac phieu RIENG; don KH chuyen khoan (tieu Quỹ xuất hóa đơn do KH chuyển) cung phieu rieng.
+  // tram la cac phieu RIENG; don KH chuyen khoan (tieu Quỹ KH chuyển khoản) cung phieu rieng.
   const { results: ldeDon } = await c.env.DB.prepare(
     `SELECT DISTINCT loai_de_xuat, yeu_cau_hoa_don, COALESCE(kh_chuyen_khoan, 0) AS kh_chuyen_khoan FROM dat_don_hang WHERE id IN (${placeholders})`,
   )
@@ -1058,7 +1058,7 @@ phieuXuatKho.get("/:id", async (c) => {
   );
 
   // Quy du cua nguoi nhan hang + cac lan Ke toan duyet/tu choi khoan chuyen cua phieu (migration 0047).
-  // Quy CUA PHIEU: phieu KH chuyen khoan -> "Quỹ xuất hóa đơn do KH chuyển" (migration 0111), con lai quy du KTV.
+  // Quy CUA PHIEU: phieu KH chuyen khoan -> "Quỹ KH chuyển khoản" (migration 0111), con lai quy du KTV.
   const pxkQ = pxk as { nguoi_nhan_hang?: string | null; quy_kh?: number | null };
   const quyDu = pxkQ.nguoi_nhan_hang ? await soDuQuy(c.env.DB, khoaQuy(pxkQ.nguoi_nhan_hang, pxkQ.quy_kh)) : 0;
   const { results: khoanChuyen } = await c.env.DB.prepare(
