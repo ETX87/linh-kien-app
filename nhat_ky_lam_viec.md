@@ -250,3 +250,13 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
 **Đã làm:** `GIO_NHAC` (`backend/src/lib/viPham.ts`) 2 → 6 giờ làm việc: ca còn ≤ 6 giờ làm việc là hết hạn giải trình được nhắc 1 lần (chuông + đẩy). Hạn giải trình mặc định 8 giờ làm việc nên lời nhắc tới khoảng 2 giờ làm việc sau khi ghi nhận ca. Popup khi mở app coi ca là "sắp hết hạn" khi đã được nhắc (`nhac_luc`) hoặc còn ≤ 6 giờ lịch.
 
 **Kiểm thử:** typecheck backend + frontend 0 lỗi. Ca đã được nhắc trước đây không nhắc lại (mỗi ca nhắc 1 lần).
+
+## 2026-11-19 — Quá hạn & vi phạm: Tác nghiệp không còn là người phải giải trình (v1.531, migration 0130)
+
+**Yêu cầu (nguyên văn):** "các ca này đang bị đẩy sang cho vai trò tác nghiệp xử lý, nhưng hiện tại TN không còn tham gia nữa => kiểm tra lại logic" (ảnh màn "Cần tôi giải trình": 7 ca Kho + 1 ca "Duyệt đơn (Tác nghiệp)").
+
+**Nguyên nhân:** (1) 1 tài khoản Tác nghiệp có bật thêm cờ Kho (để thao tác hộ) nên được tính là người của bộ phận Kho → nhận mọi ca Kho miền Nam (56 ca Chờ giải trình / Tồn CEO). (2) Bước "Chờ TN duyệt" / "Chờ TN duyệt tổng" (trả hàng) vẫn giao người có cờ Tác nghiệp, chỉ chuyển Kế toán khi không còn TN nào.
+
+**Đã sửa:** `nguoiPhuTrach()` (`lib/viPham.ts`): bộ phận `tn` → Kế toán; người có cờ Tác nghiệp mà không phải Kế toán bị loại khỏi Kho / Mua hàng / QC / TBP / GS (loại xong không còn ai thì giữ danh sách cũ). Tên bước / bộ phận: "Duyệt đơn (Kế toán thay TN)", "Duyệt tổng trả hàng (Kế toán thay TN)", "Kế toán (thay Tác nghiệp)". Migration `0130` sửa 1 lần các ca đang mở. Tài liệu hướng dẫn HTML sửa 2 dòng bảng bước.
+
+**Kiểm thử:** typecheck 0 lỗi; migration chạy trên D1 local (ca TN → Kế toán test); xem trước trên D1 thật bằng SELECT chỉ đọc: 56 ca Kho bỏ đúng tài khoản Tác nghiệp, các bộ phận khác giữ nguyên.

@@ -100,7 +100,7 @@ không gỡ; chuyển ở lần quét mỗi giờ kế tiếp sau hạn). Chỉ 
 xử lý, lúc rời). Lần đầu chạy không quét ngược lịch sử. Đối tác kéo `GET /api/partner/v1/vi-pham` (con trỏ `cap_nhat_luc`, `id`) + danh sách Tồn CEO
 `GET /api/partner/v1/danh-sach-ton?loai=ton-ceo` (cùng hình dạng API `danh-sach-ton?loai=canh-bao-ceo` của DVBH; kéo tăng dần bằng con trỏ `cap_nhat_tu` + `after_id` → `next`).
 Người PHẢI giải trình (`vi_pham.nguoi_phu_trach`, tính lại mỗi lần quét khi còn chờ): GS = GS của đơn + GS chính/phụ khu vực; bộ phận khác = người
-được gán khu vực của đơn → không ai thì người không gán khu vực → không ai thì cả bộ phận (Kho lọc thêm nhóm LK; TN không có ai → Kế toán).
+được gán khu vực của đơn → không ai thì người không gán khu vực → không ai thì cả bộ phận (Kho lọc thêm nhóm LK). Tác nghiệp KHÔNG còn tham gia giải trình (v1.531): 2 bước của TN (Chờ duyệt đơn, duyệt tổng trả hàng) giao Kế toán; người có cờ Tác nghiệp (không phải Kế toán) không tính vào Kho / Mua hàng / QC / TBP / GS dù có bật cờ đó.
 Thông báo chuông + đẩy gộp theo người: ca mới / còn ≤ 6 giờ làm việc là hết hạn giải trình / chuyển Tồn CEO. Mở app (nhân viên văn phòng) mà còn ca chờ mình giải trình → popup nhắc (`NhacGiaiTrinhPopup`): số ca, ca sắp hết hạn, nút Giải trình từng ca, "Mở danh sách cần giải trình"; "Để sau" ẩn tới lần mở app sau hoặc khi có ca mới / ca chuyển sắp hết hạn. Giải trình = chọn lý do ("Ghi nhận không
 đúng / không thuộc trách nhiệm" + danh mục lý do chậm "Mua hàng" + "Khác") + nội dung; ca ghi nhận sai cũng chỉ là 1 giải trình, không có bước
 Admin xem xét / gỡ thẻ. Chi tiết đơn / phiếu / ticket / đơn trả hàng hiện thanh cảnh báo quá hạn. Tab "Tổng hợp theo dõi" theo bộ phận và theo người.

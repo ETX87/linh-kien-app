@@ -44,7 +44,7 @@ export interface BuocViPham {
 export const BUOC_VI_PHAM: BuocViPham[] = [
   { ma: "tbp_xac_nhan", ten: "TBP xác nhận LK đặc thù", loai: "dat_hang", nguon: "dat_don_hang_log", trangThai: "Cho TBP xac nhan", boPhan: "tbp", doiTuong: "don" },
   { ma: "gs_duyet", ten: "GS duyệt đơn vượt trần", loai: "dat_hang", nguon: "dat_don_hang_log", trangThai: "Cho GS duyet", boPhan: "gs", doiTuong: "don" },
-  { ma: "tn_duyet", ten: "Duyệt đơn (Tác nghiệp)", loai: "dat_hang", nguon: "dat_don_hang_log", trangThai: "Cho TN duyet", boPhan: "tn", doiTuong: "don" },
+  { ma: "tn_duyet", ten: "Duyệt đơn (Kế toán thay TN)", loai: "dat_hang", nguon: "dat_don_hang_log", trangThai: "Cho TN duyet", boPhan: "tn", doiTuong: "don" },
   { ma: "kho_thieu", ten: "Kho tiếp nhận thiếu hàng", loai: "dat_hang", nguon: "thieu_lk_log", trangThai: "Cho kho xu ly", boPhan: "kho", doiTuong: "ticket" },
   { ma: "mua_hang_dat", ten: "Mua hàng đặt hàng", loai: "dat_hang", nguon: "thieu_lk_log", trangThai: "Cho mua hang", boPhan: "mua_hang", doiTuong: "ticket" },
   { ma: "kt_duyet_tien", ten: "Kế toán xác nhận chuyển tiền", loai: null, nguon: "khoan_chuyen_tien", trangThai: "KTV da chuyen", boPhan: "ke_toan", doiTuong: "phieu" },
@@ -53,14 +53,14 @@ export const BUOC_VI_PHAM: BuocViPham[] = [
   { ma: "th_ke_toan", ten: "Kế toán duyệt (trả hàng)", loai: "tra_hang", nguon: "tra_hang_log", trangThai: "Cho ke toan duyet mem", boPhan: "ke_toan", doiTuong: "don" },
   { ma: "th_kho", ten: "Kho xác nhận (trả hàng)", loai: "tra_hang", nguon: "tra_hang_log", trangThai: "Cho kho xac nhan", boPhan: "kho", doiTuong: "don" },
   { ma: "th_qc", ten: "QC xác nhận (trả hàng)", loai: "tra_hang", nguon: "tra_hang_log", trangThai: "Cho QC xac nhan", boPhan: "qc", doiTuong: "don" },
-  { ma: "th_tn", ten: "TN duyệt tổng (trả hàng)", loai: "tra_hang", nguon: "tra_hang_log", trangThai: "Cho TN duyet tong", boPhan: "tn", doiTuong: "don" },
+  { ma: "th_tn", ten: "Duyệt tổng trả hàng (Kế toán thay TN)", loai: "tra_hang", nguon: "tra_hang_log", trangThai: "Cho TN duyet tong", boPhan: "tn", doiTuong: "don" },
 ];
 export const BUOC_THEO_MA = new Map(BUOC_VI_PHAM.map((b) => [b.ma, b]));
 
 export const TEN_BO_PHAN: Record<BoPhan, string> = {
   tbp: "Trưởng bộ phận DVBH",
   gs: "Giám sát",
-  tn: "Tác nghiệp",
+  tn: "Kế toán (thay Tác nghiệp)",
   kho: "Kho",
   mua_hang: "Mua hàng",
   ke_toan: "Kế toán",
@@ -431,11 +431,16 @@ function thuocBoPhan(n: NguoiBoPhan, bp: BoPhan): boolean {
  *  - GS: GS cua don (email_gs = GS khu vuc hien tai cua KTV nhan) + GS chinh / GS phu cua khu vuc cua don.
  *  - Bo phan khac: nguoi cua bo phan DUOC GAN khu vuc cua don; khong ai duoc gan -> nguoi KHONG gan khu vuc nao (phu trach chung);
  *    van khong co -> ca bo phan. Kho thuan co "Xu ly thieu hang cho nhom LK" -> chi nhom LK cua don (khong con ai thi bo loc nay).
- *  - TN khong co ai -> Ke toan (Ke toan lam thay TN).
+ *  - Buoc cua TN ("Cho TN duyet", "Cho TN duyet tong") -> KE TOAN (v1.531, chot 2026-11-19: "TN khong con tham gia nua" - Ke toan lam thay TN).
+ *  - Nguoi co co Tac nghiep KHONG tinh vao bo phan khac (Kho, Mua hang, QC, TBP, GS) - co Kho cua TN chi de thao tac ho; tru khi la Ke toan
+ *    (bo phan ke_toan giu nguyen). Loai xong ma bo phan khong con ai -> giu danh sach cu.
  */
 export function nguoiPhuTrach(db: DanhBaPhuTrach, bp: BoPhan, khuVuc: string | null, emailGs: string | null, nhomLk: string | null): string[] {
-  let thanhVien = db.nguoi.filter((n) => thuocBoPhan(n, bp));
-  if (bp === "tn" && thanhVien.length === 0) thanhVien = db.nguoi.filter((n) => n.la_ke_toan);
+  let thanhVien = db.nguoi.filter((n) => thuocBoPhan(n, bp === "tn" ? "ke_toan" : bp));
+  if (bp !== "tn" && bp !== "ke_toan") {
+    const khongTn = thanhVien.filter((n) => !n.la_tac_nghiep || n.la_ke_toan);
+    if (khongTn.length) thanhVien = khongTn;
+  }
   if (bp === "gs") {
     const out = new Set<string>();
     const laGs = new Set(thanhVien.map((n) => n.email));
