@@ -270,3 +270,11 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
 **Câu hỏi kèm theo (nguyên văn):** "tại sao logic vượt trần này hiện thị số lại lệch thế? công nợ bên dưới ghi 6tr bên trên lại ghi 9tr" (đơn DDH-007559). Dòng "Lý do" là log lúc tạo đơn 14/11 12:18 (công nợ chốt khi đó 9.395.900đ); dòng "công nợ hiện tại" tính lúc xem (6.091.300đ) — Kế toán import file tồn kho MISA mới lúc 19/11 09:02 nên công nợ thực tế đổi. Không sửa code phần này.
 
 **Kiểm thử:** typecheck backend + frontend 0 lỗi. Chưa xem cột mới bằng mắt trên giao diện.
+
+## 2026-11-19 — Tự xét lại đơn "Chờ GS duyệt" khi công nợ giảm (v1.533)
+
+**Yêu cầu (nguyên văn):** "Có, làm luôn" — trả lời câu hỏi "Có cho hệ thống tự xét lại đơn "Chờ GS duyệt" khi công nợ giảm không?" (đơn DDH-007559: lúc tạo 9.395.900 + 1.221.000 > trần 10tr; sau import MISA 19/11 công nợ còn 6.091.300 nhưng đơn vẫn chờ GS).
+
+**Đã làm:** `xetLaiDonChoGsDuyet()` ở `lib/tuDongDuyet.ts` (quy tắc ở CLAUDE.md). Gọi sau lô cuối import tồn kho MISA và mỗi giờ (cron).
+
+**Kiểm thử:** typecheck backend 0 lỗi. D1 local (route thử tạm, đã gỡ): đơn hết vượt trần → "TN da duyet" + log tự động đủ số liệu; đơn vẫn vượt giữ "Cho GS duyet"; gọi lần 2 không làm gì. Xem trước trên D1 thật (chỉ đọc): 3 đơn chờ GS vì vượt trần — chỉ DDH-007559 qua (2 đơn còn lại: KTV chưa đặt trần; công nợ 15,7tr > trần 6,8tr). Cron đầu giờ sau deploy sẽ chuyển đơn này.

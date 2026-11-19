@@ -740,3 +740,67 @@ export async function huyDonChoHangTuDong(env: Env, db: D1Database, donHangId: s
 }
 
 export { tienVnd };
+
+/**
+ * XET LAI DON "Cho GS duyet" VI VUOT TRAN khi cong no giam (2026-11-19, v1.533 - DDH-007559: luc tao don cong no chot 9.395.900 + don
+ * 1.221.000 > tran 10.000.000 -> cho GS; Ke toan import file MISA moi 19/11, cong no con 6.091.300 -> het vuot tran nhung don van nam
+ * cho GS. Chot "Có, làm luôn"). Chi don cong no that (`canDoiChieuCongNo`) `danh_gia_cong_no = 'Khong du'` chua co ma EO; KHONG ap
+ * MUA HÀNG CÔNG NỢ ĐỐI TÁC (vuot moc doi tac - so khac). Moi nguoi nhan: cong no chot HIEN TAI (computeCongNoChot), xet don CU NHAT
+ * truoc, CONG DON tien cong no tung don duoc qua (computeCongNoChot chi tinh don 'TN da duyet' nen don vua qua ma sang Cho hang /
+ * Cho thanh toan khong tu cong) - gap don van vuot thi DUNG (don sau cho tiep, giu thu tu). Qua tran -> danh_gia_cong_no = 'Du' +
+ * dinh tuyen nhu GS vua duyet (trangThaiSauDuyet "gs": ton kho -> duyet / cho thanh toan / cho hang) + bao nguoi tao.
+ * Goi: sau lo cuoi import ton kho (ktvTonKho.ts) + cron moi gio (index.ts). `nguoi` null = cron -> ghi log theo nguoi tao don (tu_dong = 1).
+ */
+export async function xetLaiDonChoGsDuyet(
+  env: Env, db: D1Database, nguoi: string | null, nguon: string, waitUntil?: (p: Promise<unknown>) => void,
+): Promise<{ da_qua: string[] }> {
+  const { results } = await db
+    .prepare(
+      `SELECT id, nguoi_nhan_hang, nguoi_tao, loai_don, loai_de_xuat, COALESCE(so_tien_cong_no, 0) AS so_tien, ten_lk_snapshot, so_luong_de_xuat
+       FROM dat_don_hang
+       WHERE trang_thai_hien_tai = 'Cho GS duyet' AND danh_gia_cong_no = 'Khong du' AND ma_eo IS NULL AND nguoi_nhan_hang IS NOT NULL
+       ORDER BY nguoi_nhan_hang, ngay_tao, id`,
+    )
+    .all<{ id: string; nguoi_nhan_hang: string; nguoi_tao: string; loai_don: string; loai_de_xuat: string | null; so_tien: number; ten_lk_snapshot: string; so_luong_de_xuat: number }>();
+  const daQua: string[] = [];
+  const theoNguoi = new Map<string, typeof results>();
+  for (const r of results) {
+    const lde = r.loai_de_xuat ?? "";
+    if (laMuaCongNoDoiTac(lde) || !canDoiChieuCongNo(r.loai_don, lde)) continue;
+    theoNguoi.set(r.nguoi_nhan_hang, [...(theoNguoi.get(r.nguoi_nhan_hang) ?? []), r]);
+  }
+  const tien = (n: number) => `${Math.round(n).toLocaleString("vi-VN")}đ`;
+  for (const [nguoiNhan, dons] of theoNguoi) {
+    const ctx = await nguCanhNhan(db, nguoiNhan, dons[0].nguoi_tao);
+    const khongXet = ctx.laGs || ctx.khongTran;
+    let dangDung = khongXet || !ctx.maKtv ? 0 : await computeCongNoChot(db, ctx.maKtv);
+    const tran = ctx.tranCongNo ?? 0;
+    for (const d of dons) {
+      if (!khongXet && dangDung + d.so_tien > tran) break;
+      const lyDoTran = khongXet
+        ? (ctx.laGs ? "Người nhận là Giám sát — không xét trần công nợ" : "KTV không có trần công nợ — bỏ qua duyệt trần")
+        : `Công nợ hiện tại ${tien(dangDung)} + đơn ${tien(d.so_tien)} ≤ trần ${tien(tran)}`;
+      const r = await db
+        .prepare("UPDATE dat_don_hang SET danh_gia_cong_no = 'Du' WHERE id = ? AND trang_thai_hien_tai = 'Cho GS duyet' AND danh_gia_cong_no = 'Khong du' AND ma_eo IS NULL")
+        .bind(d.id)
+        .run();
+      if (!r.meta.changes) continue;
+      const kq = await trangThaiSauDuyet(db, d.id, "gs");
+      const tonTxt = kq.ton != null ? ` — ${moTaThieuTon(kq.ton, d.so_luong_de_xuat, kq.khuVuc ?? null)}` : "";
+      const ghiChu = `Tự động xét lại (${nguon}): hết vượt trần công nợ — ${lyDoTran}, không cần Giám sát duyệt${tonTxt}`;
+      const ai = nguoi ?? d.nguoi_tao;
+      if (!(await ghiTrangThaiDon(db, d.id, kq.trangThai, ai, ghiChu, true, "Cho GS duyet"))) {
+        await db.prepare("UPDATE dat_don_hang SET danh_gia_cong_no = 'Khong du' WHERE id = ? AND trang_thai_hien_tai = 'Cho GS duyet'").bind(d.id).run();
+        continue;
+      }
+      dangDung += d.so_tien;
+      daQua.push(d.id);
+      await tacDongSauDinhTuyen(env, db, d.id, kq.trangThai, ai, ghiChu, waitUntil);
+      const nhan = kq.trangThai === "TN da duyet" ? "đã tự động duyệt" : kq.trangThai === "Cho thanh toan" ? "chờ chuyển tiền (kho thiếu hàng)" : kq.trangThai === "Cho hang" ? "chuyển chờ hàng về" : `chuyển "${kq.trangThai}"`;
+      const p = baoNguoiTaoDon(env, db, d.nguoi_tao, "da_duyet", `Đơn hàng "${d.ten_lk_snapshot} (x${d.so_luong_de_xuat})" hết vượt trần công nợ (công nợ đã giảm) — không cần Giám sát duyệt, ${nhan}`, d.id);
+      if (waitUntil) waitUntil(p);
+      else await p.catch(() => undefined);
+    }
+  }
+  return { da_qua: daQua };
+}

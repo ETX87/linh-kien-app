@@ -10,6 +10,7 @@ import { daTruTheoMaHang } from "../lib/tonKhoKtv";
 import { maKtvTheoTen } from "../lib/timTheoTen";
 import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
 import { tuDongXacNhanHangVe } from "../lib/tuDongHangVe";
+import { xetLaiDonChoGsDuyet } from "../lib/tuDongDuyet";
 
 // "Tồn kho KTV" (them 2026-08-29, phan hoi nguoi dung) - import hang ngay file "Tổng hợp tồn kho"
 // xuat tu MISA (mot bao cao gom NHIEU khoi "Kho: ..." xep lien tiep, moi khoi la 1 KTV/tram - xem
@@ -270,7 +271,10 @@ ktvTonKho.post("/import", adminOrKeToan, async (c) => {
     ]);
     // Ton kho cong ty vua cap nhat -> tu xac nhan hang ve cho don thieu hang theo uu tien (khieu nai > ton lau > VIP), 2026-10-28.
     c.executionCtx.waitUntil(
-      tuDongXacNhanHangVe(c.env, c.env.DB, user.email, "Kế toán import tồn kho").catch((e) => console.error("[tuDongXacNhanHangVe]", e)),
+      tuDongXacNhanHangVe(c.env, c.env.DB, user.email, "Kế toán import tồn kho").catch((e) => console.error("[tuDongXacNhanHangVe]", e))
+        // Cong no thuc te vua doi theo file MISA moi -> xet lai don "Cho GS duyet" vi vuot tran (v1.533).
+        .then(() => xetLaiDonChoGsDuyet(c.env, c.env.DB, user.email, "Kế toán import tồn kho MISA", (p) => c.executionCtx.waitUntil(p)))
+        .catch((e) => console.error("[xetLaiDonChoGsDuyet]", e)),
     );
   }
   return c.json({ done, nextOffset, matched, unmatched: Array.from(unmatched) });
