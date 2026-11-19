@@ -11,7 +11,8 @@ import { t } from "../../i18n";
 // giải trình. đẩy qua thông báo, khi mở sẽ hiện popup nhắc nhở"). Nguon: GET /vi-pham?tab=can_toi (ca "Cho giai trinh" co ten minh trong
 // nguoi_phu_trach — cung tap voi badge / tab "Cần tôi giải trình"). Hoi lai 5 phut / khi quay lai tab.
 // "Để sau" = an trong PHIEN mo app nay (sessionStorage) — mo app lai, co ca moi hoac ca chuyen sang "sắp hết hạn" thi hien lai.
-const GIO_SAP_HET = 2; // gio lich; khop nguong nhac cua backend (GIO_NHAC = 2 gio lam viec) o muc gan dung
+// "Sap het han" = backend da danh dau nhac (nhac_luc, con <= GIO_NHAC = 6 gio lam viec) hoac con <= 6 gio lich (truoc lan quet ke tiep).
+const GIO_SAP_HET = 6;
 const KHOA_AN = "nhac-giai-trinh-an";
 
 export function NhacGiaiTrinhPopup({ onMoDanhSach }: { onMoDanhSach: () => void }) {
@@ -31,7 +32,7 @@ export function NhacGiaiTrinhPopup({ onMoDanhSach }: { onMoDanhSach: () => void 
   const tong = data?.total ?? 0;
   const sapHet = rows.filter((r) => {
     const ms = Date.parse(r.han_giai_trinh.replace(" ", "T") + "+07:00") - Date.now();
-    return ms <= GIO_SAP_HET * 3_600_000;
+    return !!r.nhac_luc || ms <= GIO_SAP_HET * 3_600_000;
   });
   // Khoa = tap ca + ca nao dang "sap het" -> doi thi hien lai.
   const khoa = rows.map((r) => r.id + (sapHet.includes(r) ? "!" : "")).join(",");

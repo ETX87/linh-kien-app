@@ -242,3 +242,11 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
 **Đã làm:** quét mỗi giờ + báo đích danh + nhắc sắp hết hạn + đẩy chuông/push đã có từ v1.518 (ngưỡng nhắc đang là 2 giờ làm việc từ v1.527, tương đương 6 giờ lịch cũ — không đổi). Thêm `frontend/src/modules/viPham/NhacGiaiTrinhPopup.tsx` gắn ở `App.tsx`: nhân viên văn phòng mở app mà còn ca "Chờ giải trình" có tên mình (`GET /vi-pham?tab=can_toi`, hỏi lại 5 phút / khi quay lại tab) → popup: tổng số ca, số ca sắp hết hạn (khung đỏ), tối đa 20 ca kèm hạn + nút "Giải trình" (mở hộp giải trình có sẵn), nút "Mở danh sách cần giải trình". "Để sau" / ✕ = ẩn trong phiên (sessionStorage) — mở app lại, có ca mới hoặc ca chuyển sang sắp hết hạn thì hiện lại. Không đổi backend.
 
 **Kiểm thử:** typecheck frontend 0 lỗi, build sạch. Worker local + phiên ký tay tài khoản Kho test (46 ca chờ): popup hiện đúng số ca / 20 ca sắp hết hạn; "Để sau" rồi tải lại trang không hiện lại; xoá phiên → hiện lại; "Mở danh sách" mở menu "Quá hạn & vi phạm" tab "Cần tôi giải trình". Chưa thử trên điện thoại.
+
+## 2026-11-19 — Ngưỡng nhắc sắp hết hạn giải trình: 6 giờ làm việc (v1.530)
+
+**Yêu cầu (nguyên văn):** "Đổi sang 6 giờ"
+
+**Đã làm:** `GIO_NHAC` (`backend/src/lib/viPham.ts`) 2 → 6 giờ làm việc: ca còn ≤ 6 giờ làm việc là hết hạn giải trình được nhắc 1 lần (chuông + đẩy). Hạn giải trình mặc định 8 giờ làm việc nên lời nhắc tới khoảng 2 giờ làm việc sau khi ghi nhận ca. Popup khi mở app coi ca là "sắp hết hạn" khi đã được nhắc (`nhac_luc`) hoặc còn ≤ 6 giờ lịch.
+
+**Kiểm thử:** typecheck backend + frontend 0 lỗi. Ca đã được nhắc trước đây không nhắc lại (mỗi ca nhắc 1 lần).

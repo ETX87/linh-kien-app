@@ -598,7 +598,7 @@ export async function quetViPham(env: Env): Promise<KetQuaQuet> {
 
 // ---------- Thong bao (gop theo nguoi, 1 lan quet toi da 3 thong bao / nguoi) ----------
 
-const GIO_NHAC = 2; // gio lam viec (truoc 6 gio lich, khi han giai trinh con 24h)
+const GIO_NHAC = 6; // gio lam viec (chot 2026-11-19 v1.530: "nhac lai khi con 6 gio la het han giai trinh")
 
 async function guiThongBaoQuet(env: Env, now: string, opts: { nhac: boolean }): Promise<void> {
   const db = env.DB;
