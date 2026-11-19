@@ -216,3 +216,4 @@ tự động, lý do `LY_DO_TU_HUY_TRA_HANG`, bỏ `gan_the_luc`; cả ca đã T
 **Kiểm thử:** typecheck backend + frontend 0 lỗi; chạy hàm trên node: T2 09:00 + 8h → T3 09:00; T6 14:00 + 8h → T2 09:00; T7 10:00 + 8h → T2 15:00; CN 10:00 + 8h → T2 17:00; T6 09:00 + 16h → T2 14:00; T2 12:30 + 8h → T3 12:00; giờ làm việc T6 17:00 → T2 09:00 = 5h. Chưa xem giao diện.
 
 **Lưu ý / còn dở:** chưa trừ ngày lễ; giờ nghỉ trưa chọn 12:00–13:00 (đổi ở `CA_LAM_VIEC`). Hạn ngắn hơn ~3 lần → lần quét đầu sau khi deploy sẽ ghi nhận thêm nhiều ca quá hạn + gửi thông báo giải trình cho bộ phận.
+- Bổ sung cùng ngày (migration 0129, chủ hệ thống chốt "Đổi sang 40h"): bước "Kho xác nhận trả hàng" trên production đang đặt 120 giờ → 40 giờ làm việc (sau 0128 số 120 bị hiểu là 120 giờ làm việc ~2,7 tuần). Production sau 0128: hạn giải trình 48 → 16, "Mua hàng đặt hàng" 24 → 8, "QC trả hàng" → 16.
