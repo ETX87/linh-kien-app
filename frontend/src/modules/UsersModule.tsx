@@ -1311,7 +1311,8 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
   const pageSize = 50;
   const { data: khuVucData } = useQuery({ queryKey: ["settings-khu-vuc"], queryFn: () => api.get<{ rows: KhuVucRow[] }>("/settings/khu-vuc") });
   const khuVucOptions = (khuVucData?.rows ?? []).map((k) => ({ value: k.ma, label: k.ten }));
-  const query = buildQuery({ search: search || undefined, cap: cap || undefined, khu_vuc_ma: khuVuc || undefined, page, pageSize });
+  // cong_no=1: kem cot Cong no hien tai (v1.532) - backend bo qua voi KTV thuan.
+  const query = buildQuery({ search: search || undefined, cap: cap || undefined, khu_vuc_ma: khuVuc || undefined, page, pageSize, cong_no: 1 });
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["settings-ktv", search, cap, khuVuc, page],
     queryFn: () => api.get<Paged<KtvLienHeRow>>(`/settings/ktv-lien-he${query}`),
@@ -1621,6 +1622,23 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
           <span title={r.cong_no_cap_nhat_luc ? `Cập nhật lúc ${fmtDateTime(r.cong_no_cap_nhat_luc)}` : undefined}><Money>{fmtVND(r.cong_no)}</Money></span>
         ) : (
           "—"
+        ),
+    },
+    // Cong no hien tai (2026-11-19, v1.532 - "Danh sách KTV không thấy hiện cột công nợ hiện tại, chỉ thấy cột trần công nợ"): CUNG so voi
+    // menu Cong no (docCongNoTongHop: thuc te theo file MISA + phat sinh - da tru). Mau theo danh gia 3 muc cua man Cong no.
+    {
+      key: "cong_no_hien_tai", mobile: "meta",
+      header: "Công nợ hiện tại",
+      render: (r) =>
+        r.cong_no_hien_tai == null ? (
+          <span className="text-[var(--color-text-secondary)]" title="Chưa có tồn kho trong file MISA gần nhất">—</span>
+        ) : (
+          <span
+            className={r.cong_no_danh_gia === "Vuot tran" ? "font-semibold text-[var(--color-danger)]" : r.cong_no_danh_gia === "Canh bao" ? "font-semibold text-[var(--color-warning)]" : undefined}
+            title={r.cong_no_danh_gia === "Vuot tran" ? "Vượt trần công nợ" : r.cong_no_danh_gia === "Canh bao" ? "Sắp chạm trần công nợ" : "Công nợ chốt = thực tế (file MISA) + phát sinh − đã trừ — cùng số với menu Công nợ"}
+          >
+            <Money>{fmtVND(r.cong_no_hien_tai)}</Money>
+          </span>
         ),
     },
     // He thong "Han muc du phong KTV" (them 2026-09-13) - 4 cot mirror dung tinh than cot "Trần công

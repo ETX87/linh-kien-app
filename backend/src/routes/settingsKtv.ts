@@ -12,6 +12,7 @@ import { relinkTonKhoForMaMisa } from "../lib/ktvTonKhoRelink";
 import { setMocTinhDuPhong, getMocTinhDuPhong, TRA_HANG_DU_TRU_SUBQUERY, PHAT_SINH_DU_TRU_SUBQUERY, HAN_MUC_MOC_JOIN } from "../lib/duPhongKtv";
 import { maKtvTheoTen } from "../lib/timTheoTen";
 import { laKtvThuan } from "../lib/laKtvThuan";
+import { docCongNoTongHop } from "../lib/congNoKtv";
 
 // Port rut gon tu backend/src/routes/settings.ts cua he DVBH goc (phan "Danh sach KTV") - danh ba
 // ky thuat vien/Tram/CTV/Ve tinh dung de chon "nguoi nhan hang" trong module Dat mua linh kien.
@@ -101,11 +102,24 @@ settingsKtv.get("/", async (c) => {
         (Number(r.han_muc_du_phong) || 0) - (Number(r.han_muc_du_phong_hien_tai) || 0) - (Number(r.han_muc_du_phong_phat_sinh) || 0) +
         (Number(r.han_muc_du_phong_tra_hang) || 0),
     }));
+  // Cong no hien tai (2026-11-19, v1.532 - "Danh sách KTV không thấy hiện cột công nợ hiện tại, chỉ thấy cột trần công nợ"): CHI khi goi
+  // ?cong_no=1 (man Danh sach KTV) + nguoi xem khong phai KTV thuan. Dung CHUNG docCongNoTongHop() voi menu Cong no (cong_no_chot =
+  // thuc te + phat sinh - da tru) -> 2 man luon cung so. KTV khong co ton kho trong file MISA gan nhat -> khong co dong (cot hien "—").
+  const kemCongNo = c.req.query("cong_no") === "1" && !laKtvThuan(c.get("user"));
+  const ganCongNo = async (rows: Record<string, unknown>[]) => {
+    if (!kemCongNo || !rows.length) return rows;
+    const cn = await docCongNoTongHop(c.env.DB, "WHERE k.ma_ktv IN (SELECT value FROM json_each(?))", [JSON.stringify(rows.map((r) => r.ma_ktv))]);
+    const theoMa = new Map(cn.map((x) => [x.ma_ktv, x]));
+    return rows.map((r) => {
+      const x = theoMa.get(r.ma_ktv as string);
+      return { ...r, cong_no_hien_tai: x ? x.cong_no_chot : null, cong_no_danh_gia: x ? x.danh_gia_cong_no : null };
+    });
+  };
   if (!pageParam) {
     const { results } = await c.env.DB.prepare(`SELECT ${selectCols} ${baseSql} ORDER BY k.ma_ktv`)
       .bind(...duPhongBinds, ...binds)
       .all();
-    return c.json({ rows: withMocHienTai(results as Record<string, unknown>[]) });
+    return c.json({ rows: await ganCongNo(withMocHienTai(results as Record<string, unknown>[])) });
   }
 
   const page = Math.max(1, Number(pageParam) || 1);
@@ -115,7 +129,7 @@ settingsKtv.get("/", async (c) => {
   const { results } = await c.env.DB.prepare(`SELECT ${selectCols} ${baseSql} ORDER BY k.ma_ktv LIMIT ? OFFSET ?`)
     .bind(...duPhongBinds, ...binds, pageSize, offset)
     .all();
-  return c.json({ rows: withMocHienTai(results as Record<string, unknown>[]), page, pageSize, total: countRow?.total ?? 0 });
+  return c.json({ rows: await ganCongNo(withMocHienTai(results as Record<string, unknown>[])), page, pageSize, total: countRow?.total ?? 0 });
 });
 
 settingsKtv.get("/version", async (c) => {

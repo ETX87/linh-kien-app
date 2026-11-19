@@ -260,3 +260,13 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
 **Đã sửa:** `nguoiPhuTrach()` (`lib/viPham.ts`): bộ phận `tn` → Kế toán; người có cờ Tác nghiệp mà không phải Kế toán bị loại khỏi Kho / Mua hàng / QC / TBP / GS (loại xong không còn ai thì giữ danh sách cũ). Tên bước / bộ phận: "Duyệt đơn (Kế toán thay TN)", "Duyệt tổng trả hàng (Kế toán thay TN)", "Kế toán (thay Tác nghiệp)". Migration `0130` sửa 1 lần các ca đang mở. Tài liệu hướng dẫn HTML sửa 2 dòng bảng bước.
 
 **Kiểm thử:** typecheck 0 lỗi; migration chạy trên D1 local (ca TN → Kế toán test); xem trước trên D1 thật bằng SELECT chỉ đọc: 56 ca Kho bỏ đúng tài khoản Tác nghiệp, các bộ phận khác giữ nguyên.
+
+## 2026-11-19 — Cột "Công nợ hiện tại" ở Danh sách KTV (v1.532)
+
+**Yêu cầu (nguyên văn):** "Danh sách KTV không thấy hiện cột công nợ hiện tại, chỉ thấy cột trần công nợ".
+
+**Đã làm:** `GET /settings/ktv-lien-he?cong_no=1` kèm `cong_no_hien_tai` / `cong_no_danh_gia` tính bằng CHÍNH `docCongNoTongHop()` của menu Công nợ (chỉ khi người xem không phải KTV thuần — KTV không xem được công nợ người khác). Cột "Công nợ hiện tại" ngay sau "Trần công nợ": đỏ khi vượt trần, cam khi cảnh báo, "—" khi KTV không có tồn kho trong file MISA gần nhất.
+
+**Câu hỏi kèm theo (nguyên văn):** "tại sao logic vượt trần này hiện thị số lại lệch thế? công nợ bên dưới ghi 6tr bên trên lại ghi 9tr" (đơn DDH-007559). Dòng "Lý do" là log lúc tạo đơn 14/11 12:18 (công nợ chốt khi đó 9.395.900đ); dòng "công nợ hiện tại" tính lúc xem (6.091.300đ) — Kế toán import file tồn kho MISA mới lúc 19/11 09:02 nên công nợ thực tế đổi. Không sửa code phần này.
+
+**Kiểm thử:** typecheck backend + frontend 0 lỗi. Chưa xem cột mới bằng mắt trên giao diện.

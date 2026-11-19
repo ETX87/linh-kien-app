@@ -92,6 +92,10 @@ export interface KtvLienHeRow {
   ktv_cap1_phu_trach: string | null;
   cong_no: number | null;
   cong_no_cap_nhat_luc: string | null;
+  // Cong no hien tai (= cong no chot cua menu Cong no: thuc te + phat sinh - da tru) - chi co khi goi ?cong_no=1 va nguoi xem
+  // khong phai KTV thuan (v1.532). null = KTV khong co ton kho trong file MISA gan nhat.
+  cong_no_hien_tai?: number | null;
+  cong_no_danh_gia?: "Vuot tran" | "Canh bao" | "Binh thuong" | null;
   // KTV "Không có trần công nợ" (migration 0117) - đơn không xét trần.
   khong_tran_cong_no?: number | null;
   khong_tran_cong_no_luc?: string | null;
