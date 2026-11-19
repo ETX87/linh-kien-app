@@ -1546,7 +1546,7 @@ Nguyên văn yêu cầu (chủ hệ thống): *"luồng "Cấp lk" ... khi đơn
 - API đối tác `GET /api/partner/v1/vi-pham` (con trỏ `cap_nhat_tu` + `after_id` theo `cap_nhat_luc, id`; lọc loai/trang_thai/buoc/bo_phan/khu_vuc/don) + `/v1/vi-pham/buoc`; cột chung `VI_PHAM_COT_SQL` / `boSungViPham` ở `routes/viPham.ts` (màn nội bộ + API cùng 1 bộ). Tài liệu §4.18.
 - FE `modules/ViPhamModule.tsx` (key `vi-pham`, nhóm "Hệ thống").
 
-**(c) Chưa làm / mặc định chờ chốt:** SLA mặc định 24h (Mua hàng 48h), giải trình 24h; bước KTV chưa tính; lý do chậm bắt buộc của trả hàng vẫn cố định 24h (`hanLyDoCham.ts`) — không theo cấu hình; chưa cập nhật `luongHeThong/noiDung.ts`.
+**(c) Chưa làm / mặc định chờ chốt:** ~~SLA 24h (Mua hàng 48h), giải trình 24h~~ → từ v1.527 tính theo GIỜ LÀM VIỆC (mục "SLA giờ làm việc" bên dưới); bước KTV chưa tính; lý do chậm bắt buộc của trả hàng cố định (`GIO_SLA_LY_DO_CHAM`) — không theo cấu hình; chưa cập nhật `luongHeThong/noiDung.ts`.
 
 **(d) Kiểm thử:** local D1 dev + giao diện — xem `nhat_ky_lam_viec.md` cùng ngày.
 
@@ -1568,6 +1568,18 @@ Nguyên văn yêu cầu (chủ hệ thống): *"luồng "Cấp lk" ... khi đơn
 - `GET /api/partner/v1/danh-sach-ton?loai=ton-ceo` — cùng hình dạng `danh-sach-ton?loai=canh-bao-ceo` của DVBH (DVBH cũng để đối tác KÉO). Tài liệu §4.19 (2.2). App vi phạm phía đối tác chưa kéo.
 - v1.525 ("tránh 1 ca bị kéo lại liên tục"): API danh sách Tồn CEO nhận con trỏ `cap_nhat_tu` + `after_id` (thứ tự `cap_nhat_luc, id`, limit ≤ 500) → trả `next`; ca Tồn CEO chỉ đổi `cap_nhat_luc` khi đơn / phiếu rời bước nên mỗi ca tới đối tác tối đa 2 lần.
 - v1.526 (chốt "loại trừ" — Tồn CEO bước Kho xác nhận trả hàng phần lớn do KTV chưa gửi hàng): mỗi lần quét, ca `th_kho` còn đang chờ (`ket_thuc_luc` NULL) của đơn TỰ HỦY (`traHangTuHuySql`) → tự "Da giai trinh", `giai_trinh_tu_dong=1`, `ly_do` = `LY_DO_TU_HUY_TRA_HANG` ("Đơn tự hủy — KTV không gửi hàng"), bỏ `gan_the_luc` — kể cả ca đã Tồn CEO (đối tác nhận lại 1 lần với trạng thái mới). Chạy TRƯỚC bước chuyển Tồn CEO trong `quetViPham`. Ca từ ngày 2 tới ngày 10 vẫn có thể là Tồn CEO, tới ngày 10 tự gỡ.
+
+## SLA theo GIỜ LÀM VIỆC (19/11/2026) — v1.527, migration `0128`
+
+Nguyên văn: *"các logic quá hạn SLA trên toàn bộ hệ thống từ 24h =>8h, 48h => 16h làm việc (loại trừ 8h chủ nhật và 4h chiều thứ 7)"*.
+- `backend/src/lib/gioLamViec.ts` = nguồn DUY NHẤT của giờ làm việc (`CA_LAM_VIEC`: T2–T6 08:00–12:00 + 13:00–17:00, T7 08:00–12:00, CN nghỉ; chưa trừ ngày lễ):
+  `congGioLamViec` (hạn = mốc + N giờ làm việc; mốc ngoài giờ → đếm từ đầu ca kế tiếp; hết đúng cuối ca → hạn = cuối ca), `gioLamViecGiua`. Đổi khung giờ chỉ sửa ở đây.
+- `tinhHanLyDoCham` (`hanLyDoCham.ts`) = mốc + `GIO_SLA_LY_DO_CHAM` = 8 giờ làm việc → áp cho hạn "Lý do chậm" của TN (đơn, PXK gửi kế toán) và hạn 4 giai đoạn trả
+  hàng (ghi chú log "Chậm quá hạn 8 giờ làm việc …" — giữ tiền tố "Chậm quá hạn" vì `viPham.ts` nhận diện giải trình tự động bằng nó).
+- Vi phạm (`viPham.ts tinhHan`): `tinh_cuoi_tuan` = 0 nay nghĩa là giờ làm việc, = 1 = giờ lịch 24/7 (UI "Giờ lịch 24/7"). Migration `0128` đổi `sla_buoc` 24 → 8, 48 → 16
+  (cả hạn giải trình), bước Admin đã đặt số khác giữ nguyên. `so_gio_tre` tính theo giờ làm việc; nhắc sắp hết hạn giải trình khi còn ≤ 2 giờ làm việc (`GIO_NHAC`).
+  Ca đã ghi nhận trước giữ hạn cũ; đơn / phiếu đang nằm ở bước sẽ bị đánh giá lại theo hạn mới ở lần quét kế tiếp.
+- KHÔNG đổi (không phải SLA): đẩy lại đơn / ticket trong 24h, trả hàng tự hủy 10 ngày, tự xác nhận nhận hàng 10 ngày.
 
 ## Nhận việc từ Trợ lý Mây (tự sửa)
 - Issue gắn nhãn `may:phan-tich` là ĐỀ XUẤT CẢI TIẾN cần phân tích trước: workflow `may-phan-tich` chỉ ĐỌC mã để soạn BRD cho Giám đốc duyệt — không sửa mã ở bước này. Khi duyệt, BRD nằm ở đầu issue; làm đúng BRD và lưu nó vào `docs/yeu-cau/MAY-xxxxx.md`.

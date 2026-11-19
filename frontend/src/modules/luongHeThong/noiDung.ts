@@ -267,7 +267,7 @@ const LUONG_NHAN_THIEU: Luong = {
 const LUONG_TRA_HANG: Luong = {
   key: "tra-hang",
   ten: "Đơn trả hàng (loại đề xuất TRẢ HÀNG …)",
-  moTa: "4 bước duyệt riêng (tra_hang_log), mỗi bước có hạn 24h tính từ mốc xử lý cuối của bước trước (đẩy qua T7/CN). Quá hạn mà Duyệt / Từ chối phải chọn lý do chậm.",
+  moTa: "4 bước duyệt riêng (tra_hang_log), mỗi bước có hạn 8 giờ làm việc (T2–T6 8h, T7 sáng 4h, CN nghỉ) tính từ mốc xử lý cuối của bước trước. Quá hạn mà Duyệt / Từ chối phải chọn lý do chậm.",
   moc: [
     { key: "tao", ten: "Tạo đơn trả hàng", loai: "bat_dau", ai: "KTV / người đặt hộ", moTa: "Mỗi dòng 1–3 ảnh (Drive). KTV hạn mức 50 ảnh/ngày; form lưu nháp nếu trình duyệt tải lại khi mở camera.", dieuKien: ["Đổi qua lại Mua ↔ Trả hàng chỉ ở form Sửa của TN khi còn Chờ kế toán duyệt mềm."] },
     { key: "kt", ten: "Chờ kế toán duyệt mềm", ma: "Cho ke toan duyet mem", loai: "cho", ai: "Kế toán", moTa: "Duyệt / từ chối về mặt chứng từ, công nợ." },
@@ -467,7 +467,7 @@ export interface KetNoi {
 
 export const KET_NOI: KetNoi[] = [
   { ten: "Hệ DVBH gốc", bieuTuong: "🏢", chieu: "hai_chieu", dong: ["Tra cứu ca sự cố khi nhập Mã YCSC (GET /api/partner/case-lookup) — điểm nối DUY NHẤT để đọc ca.", "Mỗi giờ đẩy danh bạ KTV + danh mục LK sang DVBH.", "DVBH kéo tồn kho (8h–18h), lịch sử LK, timeline ca, đơn lỗi lọc TG12 (menu QL NSKX).", "Link /DDH-xxxxxx mở thẳng 1 đơn."] },
-  { ten: "khovan (kho vận)", bieuTuong: "🚚", chieu: "hai_chieu", dong: ["Kế toán chốt xuất → đẩy phiếu sang khovan.", "Kho xác nhận hàng trả qua khovan (không bị chặn hạn 24h).", "khovan không có trạng thái rút lại — đẩy lùi chỉ đổi phía app."] },
+  { ten: "khovan (kho vận)", bieuTuong: "🚚", chieu: "hai_chieu", dong: ["Kế toán chốt xuất → đẩy phiếu sang khovan.", "Kho xác nhận hàng trả qua khovan (không bị chặn hạn 8h làm việc).", "khovan không có trạng thái rút lại — đẩy lùi chỉ đổi phía app."] },
   { ten: "App Sửa chữa bảo hành", bieuTuong: "🛠️", chieu: "hai_chieu", dong: ["Nhận ticket Thiếu hàng bảo hành, đẩy kết quả từng bước về đơn bảo hành gốc.", "Nhận Phân loại LK đồng bộ ngược (chỉ dòng có thay đổi).", "Cung cấp khu vực + GS phụ cho app sửa chữa (mỗi giờ)."] },
   { ten: "API đối tác (X-API-Key)", bieuTuong: "🔑", chieu: "vao", dong: ["Tra cứu: tồn kho, danh mục LK chi tiết, thay thế, combo, từ khóa, công nợ KTV, thiếu hàng, tồn khả dụng, danh bạ kho.", "Đặt linh kiện: POST /v1/dat-hang (+ kiểm tra, trạng thái) — dùng CHÍNH logic tạo đơn, mỗi key gắn 1 tài khoản đặt hàng.", "Tài liệu: docs/HUONG_DAN_API_DOI_TAC_LINH_KIEN_APP.md."] },
   { ten: "gia88 / cổng Lada", bieuTuong: "💲", chieu: "vao", dong: ["0h VN kéo giá NY / giá KTV + danh sách LK; mã chờ xét duyệt có trên gia88 → “Tự động duyệt”.", "Tra cứu đơn Lada theo Mã Lada."] },

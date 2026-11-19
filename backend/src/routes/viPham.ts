@@ -3,6 +3,7 @@ import type { Env, AppUser } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { nowVN } from "../lib/vnTime";
+import { gioLamViecGiua, parseGioVn } from "../lib/gioLamViec";
 import { tenNguoiNullSql } from "../lib/tenNguoi";
 import { docLocCot, sqlLocCot, sqlSapXep, giaTriCot, tenNguoiSql, type CotLoc } from "../lib/locCot";
 import {
@@ -56,7 +57,8 @@ export interface ViPhamRow {
 export function boSungViPham(r: ViPhamRow, now: string) {
   const { don_ids_json, phu_trach_json, ...rest } = r;
   const den = r.ket_thuc_luc ?? now;
-  const gioTre = Math.max(0, Math.round(((Date.parse(den.replace(" ", "T") + "Z") - Date.parse(r.han.replace(" ", "T") + "Z")) / 3_600_000) * 10) / 10);
+  // So gio tre tinh theo GIO LAM VIEC (2026-11-19, v1.527 - cung don vi voi han SLA).
+  const gioTre = Math.round(gioLamViecGiua(parseGioVn(r.han), parseGioVn(den)) * 10) / 10;
   return {
     ...rest,
     ten_buoc: BUOC_THEO_MA.get(r.buoc)?.ten ?? r.buoc,
@@ -240,7 +242,7 @@ viPham.get("/buoc", async (c) => {
   const cfg = await docCauHinh(c.env.DB);
   return c.json({
     buoc: BUOC_VI_PHAM.map((b) => ({
-      ...(cfg.get(b.ma) ?? { so_gio: 24, gio_giai_trinh: 24, tinh_cuoi_tuan: 0, bat_tat: 0, cap_nhat_luc: null, cap_nhat_boi: null }),
+      ...(cfg.get(b.ma) ?? { so_gio: 8, gio_giai_trinh: 8, tinh_cuoi_tuan: 0, bat_tat: 0, cap_nhat_luc: null, cap_nhat_boi: null }),
       ma: b.ma,
       ten: b.ten,
       loai: b.loai,

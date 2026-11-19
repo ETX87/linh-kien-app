@@ -1,5 +1,8 @@
+import { congGioLamViec, parseGioVn } from "./gioLamViec";
+
 /**
- * Tinh han "Ly do cham" cho 1 dong dat_don_hang (CHOT 2026-08-14 voi chu he thong): 24h tinh tu luc
+ * Tinh han "Ly do cham" cho 1 dong dat_don_hang (CHOT 2026-08-14 voi chu he thong; tu 2026-11-19 = 8 GIO LAM VIEC, xem
+ * GIO_SLA_LY_DO_CHAM - phan mo ta 24h/T7-CN ben duoi la quy tac cu): 24h tinh tu luc
  * dong chuyen "Cho TN duyet" (dat_don_hang_log.ngay_xu_ly); neu han (cong thuc +24h don gian) roi
  * vao thu 7/CN thi day tiep TUNG NGAY cho den khi roi vao ngay thuong - vd tao thu 6 17h => han
  * thuc te la thu 2 17h (cong ca T7 lan CN, khong phai chi 1 ngay). Dung chung boi datMuaLinhKien.ts
@@ -10,15 +13,15 @@
  * quy doi timezone them lan nua (Workers runtime chay UTC).
  */
 function parseVnTime(s: string): Date {
-  return new Date(s.replace(" ", "T") + "Z");
+  return parseGioVn(s);
 }
 
+/** So GIO LAM VIEC cua han "Ly do cham" (TN) + han tung giai doan tra hang. Doi 2026-11-19 (v1.527): 24h lich (day qua T7/CN)
+ * -> 8 gio lam viec (lib/gioLamViec.ts - T2-T6 8h, T7 sang 4h, CN nghi). */
+export const GIO_SLA_LY_DO_CHAM = 8;
+
 export function tinhHanLyDoCham(choTnDuyetAt: string): Date {
-  let deadline = new Date(parseVnTime(choTnDuyetAt).getTime() + 24 * 60 * 60 * 1000);
-  while (deadline.getUTCDay() === 0 || deadline.getUTCDay() === 6) {
-    deadline = new Date(deadline.getTime() + 24 * 60 * 60 * 1000);
-  }
-  return deadline;
+  return congGioLamViec(parseVnTime(choTnDuyetAt), GIO_SLA_LY_DO_CHAM);
 }
 
 export function quaHanLyDoCham(choTnDuyetAt: string, nowVnStr: string): boolean {
@@ -36,7 +39,7 @@ export function mocTinhHanTn(lastGiaiTrinhAt: string | null | undefined, choTnDu
 }
 
 /** Han 24h TUNG GIAI DOAN cua don TRA HANG (chot 2026-10-01): Ke toan duyet mem / Kho xac nhan / QC xac nhan / TN duyet tong -
- * moi buoc co 24h (cung quy tac day qua T7/CN nhu tinhHanLyDoCham) tinh tu MOC XU LY CUOI cua giai doan truoc = lan dau don vao
+ * moi buoc co 8 gio lam viec (tu 2026-11-19, cung tinhHanLyDoCham; truoc la 24h) tinh tu MOC XU LY CUOI cua giai doan truoc = lan dau don vao
  * trang thai hien tai sau lan doi trang thai gan nhat (log cung trang thai, vd QC tai anh, KHONG reset dong ho). Buoc dau chua co
  * log (don tao thang la tra hang) -> ngay_tao. Qua han ma bam Duyet/Tu choi -> bat buoc chon ly do cham (routes/traHang.ts).
  * `alias` = bang dat_don_hang (cot id/trang_thai_hien_tai/ngay_tao). */

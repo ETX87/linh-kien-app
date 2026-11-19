@@ -65,7 +65,7 @@ function QuaHanBadge({ r }: { r: Pick<TraHangRow, "qua_han_ly_do_cham" | "han_gi
   if (!r.qua_han_ly_do_cham) return null;
   return (
     <span title={r.han_giai_doan ? t("Hạn xử lý bước này: {a} — xử lý sẽ phải chọn lý do chậm", { a: fmtDateTime(r.han_giai_doan) }) : undefined}>
-      <Badge tone="danger">{t("Quá hạn 24h")}</Badge>
+      <Badge tone="danger">{t("Quá hạn 8h làm việc")}</Badge>
     </span>
   );
 }
@@ -82,10 +82,10 @@ function LyDoChamTraHangModal({ cho, onClose, onConfirm, loading }: {
     queryFn: () => api.get<{ rows: LyDoChamRow[] }>("/dat-mua-lk/ly-do-cham?he_thong=" + encodeURIComponent("Mua hàng")),
   });
   return (
-    <Modal open title={cho.ids.length > 1 ? t("{a} đơn quá hạn 24h — chọn lý do chậm", { a: cho.ids.length }) : t("Đơn {a} quá hạn 24h — chọn lý do chậm", { a: cho.ids[0] })} onClose={onClose}>
+    <Modal open title={cho.ids.length > 1 ? t("{a} đơn quá hạn 8h làm việc — chọn lý do chậm", { a: cho.ids.length }) : t("Đơn {a} quá hạn 8h làm việc — chọn lý do chậm", { a: cho.ids[0] })} onClose={onClose}>
       <div className="space-y-3 text-sm">
         <div className="text-[var(--ink-600)]">
-          {t("Bước này đã quá 24h kể từ khi bộ phận trước chuyển sang. Chọn lý do chậm để {a} — lý do được ghi vào lịch sử xử lý.", { a: cho.hanhDong === "duyet" ? t("duyệt") : t("từ chối") })}
+          {t("Bước này đã quá 8h làm việc kể từ khi bộ phận trước chuyển sang. Chọn lý do chậm để {a} — lý do được ghi vào lịch sử xử lý.", { a: cho.hanhDong === "duyet" ? t("duyệt") : t("từ chối") })}
         </div>
         <Select
           value={lyDo}
@@ -620,7 +620,7 @@ export function TraHangTab({
       setChoLyDoCham(canLyDo.length > 0 ? { ids: canLyDo, hanhDong: vars.hanhDong, ghiChu: vars.ghiChu } : null);
       const conLai = failed.filter(([id]) => !canLyDo.includes(id));
       if (failed.length === 0) addToast(t("Đã xử lý thành công {a} dòng", { a: entries.length }));
-      else if (conLai.length === 0) addToast(t("Thành công {a}/{b} dòng. {c} dòng quá hạn 24h — chọn lý do chậm để xử lý tiếp", { a: entries.length - failed.length, b: entries.length, c: canLyDo.length }));
+      else if (conLai.length === 0) addToast(t("Thành công {a}/{b} dòng. {c} dòng quá hạn 8h làm việc — chọn lý do chậm để xử lý tiếp", { a: entries.length - failed.length, b: entries.length, c: canLyDo.length }));
       else addToast(t("Thành công {a}/{b} dòng. Thất bại: {c} — đã giữ lại các dòng lỗi, bấm lại để thử lại", { a: entries.length - failed.length, b: entries.length, c: conLai.map(([id, code]) => id + ": " + (TRA_HANG_BULK_ERROR_MESSAGES[code] ? t(TRA_HANG_BULK_ERROR_MESSAGES[code]) : code)).join("; ") }));
       qc.invalidateQueries({ queryKey: ["tra-hang"] });
       invalidatePipelineCounts(qc);
@@ -1169,7 +1169,7 @@ function TraHangGroupedList({
                     // CHUAN HOA (dong bo voi DonCuaToiTab.tsx) - them "Đơn tạo hộ" khi co, isDonTaoHo()
                     // dung chung cho moi loai_don.
                     ...(isDonTaoHo(r) ? [{ tone: "neutral" as Tone, label: t("Đơn tạo hộ") }] : []),
-                    ...(r.qua_han_ly_do_cham ? [{ tone: "danger" as Tone, label: t("Quá hạn 24h") }] : []),
+                    ...(r.qua_han_ly_do_cham ? [{ tone: "danger" as Tone, label: t("Quá hạn 8h làm việc") }] : []),
                   ];
                   // SUA (phan hoi 2026-08-28, dong bo voi DonCuaToiTab.tsx): giam ve 1 - xem giai thich
                   // day du o DonCuaToiTab.tsx (MAX_BADGE gan voi comment "ẩn cả thẻ nếu không đủ diện

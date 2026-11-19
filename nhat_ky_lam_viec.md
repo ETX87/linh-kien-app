@@ -202,3 +202,17 @@ tự động, lý do `LY_DO_TU_HUY_TRA_HANG`, bỏ `gan_the_luc`; cả ca đã T
 
 **Lưu ý:** từ khoảng ngày 2 (hết SLA 24h + giải trình 24h) tới ngày 10 ca vẫn là Tồn CEO, tới ngày 10 tự gỡ. 41 ca hiện tại trên production chưa ca nào quá 10 ngày.
 
+
+## 2026-11-19 — SLA tính theo giờ làm việc (v1.527, migration 0128)
+
+**Yêu cầu (nguyên văn):** "các logic quá hạn SLA trên toàn bộ hệ thống từ 24h =>8h, 48h => 16h làm việc (loại trừ 8h chủ nhật và 4h chiều thứ 7)."
+
+**Đã làm:**
+- `backend/src/lib/gioLamViec.ts`: giờ làm việc T2–T6 08:00–12:00 + 13:00–17:00, T7 08:00–12:00, CN nghỉ (44h/tuần); hàm cộng giờ làm việc + đếm giờ làm việc giữa 2 mốc.
+- Hạn "Lý do chậm" của TN (đơn + chặn gửi kế toán) và hạn 4 giai đoạn trả hàng: 24h lịch (dời qua T7/CN) → 8 giờ làm việc.
+- Quá hạn & vi phạm: hạn SLA + hạn giải trình theo giờ làm việc; migration 0128 đổi `sla_buoc` 24 → 8, 48 → 16; "trễ X giờ" theo giờ làm việc; nhắc sắp hết hạn giải trình khi còn ≤ 2 giờ làm việc; cột cấu hình "Tính cuối tuần" đổi thành "Giờ lịch 24/7".
+- Nhãn giao diện "quá hạn 24h" → "quá hạn 8h làm việc" (+ bản dịch EN/ID), mục Luồng & logic hệ thống, tài liệu API đối tác, TONG_HOP_LOGIC, Yêu cầu tổng hợp.
+
+**Kiểm thử:** typecheck backend + frontend 0 lỗi; chạy hàm trên node: T2 09:00 + 8h → T3 09:00; T6 14:00 + 8h → T2 09:00; T7 10:00 + 8h → T2 15:00; CN 10:00 + 8h → T2 17:00; T6 09:00 + 16h → T2 14:00; T2 12:30 + 8h → T3 12:00; giờ làm việc T6 17:00 → T2 09:00 = 5h. Chưa xem giao diện.
+
+**Lưu ý / còn dở:** chưa trừ ngày lễ; giờ nghỉ trưa chọn 12:00–13:00 (đổi ở `CA_LAM_VIEC`). Hạn ngắn hơn ~3 lần → lần quét đầu sau khi deploy sẽ ghi nhận thêm nhiều ca quá hạn + gửi thông báo giải trình cho bộ phận.

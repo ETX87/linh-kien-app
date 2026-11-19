@@ -6,7 +6,7 @@
  * cấp api là đc" (KHONG day sang he khac - doi tac doc GET /api/partner/v1/vi-pham).
  *
  * Luong 1 vi pham:
- *   thuc the vao buoc (moc_vao) -> qua han (moc_vao + so_gio, T7/CN day sang thu 2) -> dong vi_pham "Cho giai trinh"
+ *   thuc the vao buoc (moc_vao) -> qua han (moc_vao + so_gio GIO LAM VIEC - lib/gioLamViec.ts) -> dong vi_pham "Cho giai trinh"
  *   -> bo phan giai trinh truoc han_giai_trinh -> "Da giai trinh"  |  het han_giai_trinh -> "Ton CEO" (v1.524, truoc la "Gan the")  |  Admin go -> "Da go the".
  * Thuc the roi buoc (ke ca sau khi da ghi nhan) -> ghi ket_thuc_luc / nguoi_xu_ly / trang_thai_sau (vi pham van giu).
  *
@@ -17,10 +17,11 @@
  * Lan dau (chua co moc) chi lay moc hien tai: KHONG ghi nhan nguoc lich su cu.
  *
  * Giai trinh TU DONG (khong bat nhap lai o man vi pham):
- *   - Tra hang: bo phan xu ly qua han da BAT BUOC chon ly do cham (routes/traHang.ts ghi "Chậm quá hạn 24h … - lý do: …" vao log).
+ *   - Tra hang: bo phan xu ly qua han da BAT BUOC chon ly do cham (routes/traHang.ts ghi "Chậm quá hạn 8 giờ làm việc … - lý do: …" vao log).
  *   - Don cho duyet (tn_duyet): giai trinh ly do cham da co o dat_don_hang_giai_trinh trong khoang cho.
  */
 import { nowVN } from "./vnTime";
+import { congGioLamViec, fmtGioVn, parseGioVn } from "./gioLamViec";
 import type { Env } from "../types";
 import { sendPushToUser } from "./webPush";
 import { traHangTuHuySql, TRA_HANG_TU_HUY_NGAY } from "./hanLyDoCham";
@@ -84,19 +85,17 @@ const TRANG_THAI_THAT: Record<Exclude<Nguon, "khoan_chuyen_tien">, Set<string>> 
 // ---------- Gio ----------
 
 function parseVn(s: string): Date {
-  return new Date(s.replace(" ", "T").slice(0, 19) + "Z");
+  return parseGioVn(s);
 }
 function fmtVn(d: Date): string {
-  return d.toISOString().slice(0, 19).replace("T", " ");
+  return fmtGioVn(d);
 }
 
-/** Han = moc + so gio; khong tinh cuoi tuan -> han roi vao T7/CN thi day tung ngay sang thu 2 (cung quy tac tinhHanLyDoCham). */
+/** Han = moc + so gio. Mac dinh (tinh_cuoi_tuan = 0) = GIO LAM VIEC (lib/gioLamViec.ts, chot 2026-11-19 v1.527 - T2-T6 8h,
+ * T7 sang 4h, CN nghi); tinh_cuoi_tuan = 1 = gio lich lien tuc (24/7). */
 export function tinhHan(moc: string, soGio: number, tinhCuoiTuan: boolean): string {
-  let d = new Date(parseVn(moc).getTime() + soGio * 3_600_000);
-  if (!tinhCuoiTuan) {
-    while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d = new Date(d.getTime() + 86_400_000);
-  }
-  return fmtVn(d);
+  if (tinhCuoiTuan) return fmtVn(new Date(parseVn(moc).getTime() + soGio * 3_600_000));
+  return fmtVn(congGioLamViec(parseVn(moc), soGio));
 }
 
 export function soGioGiua(tu: string, den: string): number {
@@ -585,7 +584,7 @@ export async function quetViPham(env: Env): Promise<KetQuaQuet> {
     .bind(now, now, now)
     .run();
   // Sap het han giai trinh (con <= GIO_NHAC gio) -> nhac 1 lan.
-  const sapHet = tinhHan(now, GIO_NHAC, true);
+  const sapHet = tinhHan(now, GIO_NHAC, false);
   const nhac = await db
     .prepare("UPDATE vi_pham SET nhac_luc = ? WHERE trang_thai = 'Cho giai trinh' AND nhac_luc IS NULL AND han_giai_trinh <= ? AND tao_luc < ?")
     .bind(now, sapHet, now)
@@ -599,7 +598,7 @@ export async function quetViPham(env: Env): Promise<KetQuaQuet> {
 
 // ---------- Thong bao (gop theo nguoi, 1 lan quet toi da 3 thong bao / nguoi) ----------
 
-const GIO_NHAC = 6;
+const GIO_NHAC = 2; // gio lam viec (truoc 6 gio lich, khi han giai trinh con 24h)
 
 async function guiThongBaoQuet(env: Env, now: string, opts: { nhac: boolean }): Promise<void> {
   const db = env.DB;

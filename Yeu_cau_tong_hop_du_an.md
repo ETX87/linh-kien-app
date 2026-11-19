@@ -119,7 +119,10 @@ vẫn hoạt động) → Tác nghiệp duyệt tổng (đồng ý/từ chối) 
 - Mỗi bước có SLA (giờ) do Admin cấu hình; quá hạn → bộ phận phụ trách giải trình trong hạn giải trình; hết hạn chưa giải trình → gắn thẻ
   vi phạm; Admin gỡ thẻ kèm lý do. Màn "Quá hạn & vi phạm" cho nhân viên văn phòng. Đối tác đọc `GET /api/partner/v1/vi-pham`. → ✅ Đã làm.
 - Mặc định (chưa có số chốt từ quản lý): 24h mỗi bước (Mua hàng 48h), hạn giải trình 24h, không tính cuối tuần. Bước "KTV xác nhận đã
-  nhận hàng" / "KTV chuyển tiền" CHƯA tính (đã có tự xác nhận sau 10 ngày; KTV chưa có màn giải trình). → ⏳ Chờ quản lý chốt số giờ.
+  nhận hàng" / "KTV chuyển tiền" CHƯA tính (đã có tự xác nhận sau 10 ngày; KTV chưa có màn giải trình).
+- v1.527 (2026-11-19) chốt: *"các logic quá hạn SLA trên toàn bộ hệ thống từ 24h =>8h, 48h => 16h làm việc (loại trừ 8h chủ nhật và 4h
+  chiều thứ 7)"* → mọi hạn SLA (Lý do chậm TN, 4 giai đoạn trả hàng, 12 bước SLA, hạn giải trình) tính theo giờ làm việc: T2–T6 08–12 + 13–17,
+  T7 08–12, CN nghỉ; 24h → 8, 48h → 16. → ✅ Đã làm.
 - v1.518: người phải giải trình cụ thể theo khu vực / GS của đơn; thông báo ca mới / sắp hết hạn / gắn thẻ; thanh cảnh báo trong chi tiết
   đơn / phiếu / ticket; giải trình bắt buộc chọn lý do; "Báo không đúng" → Admin xem xét; tab "Tổng hợp theo dõi"; tài liệu
   `docs/Huong_dan_giai_trinh_qua_han_theo_vai_tro.html`. → ✅ Đã làm.

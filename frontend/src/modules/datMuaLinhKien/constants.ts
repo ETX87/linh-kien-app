@@ -104,7 +104,7 @@ export const GENERIC_ERROR_MESSAGES: Record<string, string> = {
   MISSING_GHI_CHU: "Cần nhập ghi chú/lý do",
   MISSING_GIAI_TRINH: "Cần nhập giải trình",
   MISSING_LY_DO_TU_CHOI: "Kho từ chối bắt buộc nhập lý do",
-  DUYET_TREN_DON_GOC: "Đơn gốc đã quá hạn duyệt 24h — hãy duyệt trên đơn gốc để chọn lý do chậm (ticket sẽ tự đóng theo)",
+  DUYET_TREN_DON_GOC: "Đơn gốc đã quá hạn duyệt 8h làm việc — hãy duyệt trên đơn gốc để chọn lý do chậm (ticket sẽ tự đóng theo)",
   MISSING_IDS: "Chưa chọn dòng nào để xử lý",
   MISSING_CASE_ID: "Thiếu mã case",
   MISSING_CHUYEN_TIEN_APPROVED: "Cần Tác nghiệp xác nhận chuyển tiền trước",
@@ -206,7 +206,7 @@ export const TRA_HANG_BULK_ERROR_MESSAGES: Record<string, string> = {
   // chua co san anh bang chung (phai tai anh + tu choi tung dong rieng, khong the qua bulk).
   MISSING_ANH_QC: "cần ảnh bằng chứng — mở từng dòng để tải ảnh rồi từ chối",
   // Han 24h tung giai doan (2026-10-01) - TraHangTab bat ma nay, hoi ly do cham 1 lan cho ca nhom roi gui lai.
-  MISSING_LY_DO_CHAM: "quá hạn 24h — cần chọn lý do chậm",
+  MISSING_LY_DO_CHAM: "quá hạn 8h làm việc — cần chọn lý do chậm",
   LY_DO_CHAM_KHONG_HOP_LE: "lý do chậm không hợp lệ",
   // Phat hien khi ra soat QA 2026-08-19: THIEU key nay khien 1 dong that bai do 2 nguoi cung xu ly
   // dong thoi (optimistic-concurrency, xem applyTraHangLog o backend) bi dem NHAM thanh thanh cong

@@ -66,7 +66,7 @@ duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xe
 ## 7. Hàng trả
 
 Kế toán duyệt mềm → Kho xác nhận (sửa SL thực nhận) → QC xác nhận (tách phần chưa đạt, từ chối kèm ảnh / video) → tự gom phiếu PTL →
-Kế toán chốt → Kho nhận hàng trả. Mỗi giai đoạn hạn 24h, quá hạn bắt lý do chậm.
+Kế toán chốt → Kho nhận hàng trả. Mỗi giai đoạn hạn 8 giờ làm việc (xem 10a), quá hạn bắt lý do chậm.
 **Tự hủy chờ Kho**: đơn ở "Chờ kho xác nhận" quá 10 ngày (KTV không gửi hàng) = "Đơn tự hủy" — tính lúc đọc, KHÔNG đổi trạng thái
 (`traHangTuHuySql` ở `lib/hanLyDoCham.ts`): không đếm "Chờ Kho" / việc cần làm / còn tồn, nằm ở tab "Đơn tự hủy (quá 10 ngày)" (lọc `__TU_HUY_KHO__`);
 hàng về muộn Kho vẫn xác nhận như thường từ tab đó. Ca quá hạn "Kho xác nhận (trả hàng)" của đơn tự hủy KHÔNG tính cho Kho: lần quét kế tiếp
@@ -88,7 +88,11 @@ tiêu hao bên app Bảo hành → tự tạo đơn TRỪ CÔNG NỢ - SỬA CH�
 
 12 bước có SLA (bảng `sla_buoc`, Admin sửa ở menu "Quá hạn & vi phạm" › Cấu hình SLA): TBP xác nhận, GS duyệt vượt trần, Duyệt đơn
 (TN), Kho tiếp nhận thiếu hàng, Mua hàng đặt hàng, Kế toán xác nhận chuyển tiền, Kế toán chốt phiếu, Kho xuất hàng, 4 bước trả hàng.
-Hạn = lúc vào bước + số giờ; hạn rơi vào T7/CN thì dời sang thứ Hai (trừ bước bật "tính cuối tuần"). Cron mỗi giờ quét thực thể đang ở
+**Mọi hạn SLA tính theo GIỜ LÀM VIỆC** (`lib/gioLamViec.ts`, từ v1.527): T2–T6 08:00–12:00 + 13:00–17:00 (8h), T7 08:00–12:00 (4h),
+CN nghỉ, chưa trừ ngày lễ. Mặc định mỗi bước 8 giờ làm việc (Mua hàng đặt hàng 16), hạn giải trình 8; hạn "Lý do chậm" của TN và hạn từng
+giai đoạn trả hàng cố định 8 giờ làm việc (`GIO_SLA_LY_DO_CHAM`). Hạn = lúc vào bước + số giờ làm việc (vào ngoài giờ thì đếm từ đầu ca kế
+tiếp); bước bật "Giờ lịch 24/7" (`tinh_cuoi_tuan` = 1) thì cộng giờ lịch liên tục. "Trễ X giờ" cũng tính theo giờ làm việc; nhắc sắp hết
+hạn giải trình khi còn ≤ 2 giờ làm việc. Cron mỗi giờ quét thực thể đang ở
 bước + thực thể có log mới → bước quá hạn thành 1 ca `vi_pham` "Chờ giải trình" (hạn giải trình = lúc quá hạn, không sớm hơn lúc ghi nhận,
 + số giờ giải trình). Bộ phận phụ trách (theo cờ vai trò; Kế toán làm thay TN) giải trình → "Đã giải trình"; hết hạn → **"Tồn CEO"** (`Ton CEO`, trước v1.524 gọi "Gắn thẻ"; kết quả cuối,
 không gỡ; chuyển ở lần quét mỗi giờ kế tiếp sau hạn). Chỉ nhân viên văn phòng giải trình, KTV không. Lý do chậm bắt buộc của trả hàng và giải trình lý do chậm trên đơn tự thành giải trình. Ca vẫn giữ khi đơn rời bước (ghi người

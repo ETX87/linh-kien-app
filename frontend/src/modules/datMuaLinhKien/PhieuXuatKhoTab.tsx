@@ -1690,7 +1690,7 @@ export function PxkDetailModal({
     onError: (err) => {
       const code = err instanceof ApiError ? err.code : undefined;
       if (code === "THIEU_LY_DO_CHAM") {
-        addToast(t("Còn dòng chưa nhập Lý do chậm (quá 24h) - điền ở bảng dòng đơn hàng bên dưới trước khi gửi kế toán"));
+        addToast(t("Còn dòng chưa nhập Lý do chậm (quá 8h làm việc) - điền ở bảng dòng đơn hàng bên dưới trước khi gửi kế toán"));
       } else if (code === "MA_XUAT_KHO_CHUA_XAC_NHAN") {
         addToast(t("Cần nhập Mã đơn hàng trước khi gửi kế toán"));
       } else if (code === "MISSING_MA_MISA") {

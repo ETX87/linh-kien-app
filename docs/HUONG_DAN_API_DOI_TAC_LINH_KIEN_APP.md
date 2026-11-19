@@ -842,7 +842,7 @@ sau gọi từ đó. Dòng đã nhận có thể xuất hiện lại khi đổi 
 }
 ```
 
-Ghi chú: giờ theo giờ Việt Nam (`YYYY-MM-DD HH:MM:SS`). `han` không rơi vào T7/CN (dời sang thứ Hai) trừ bước bật "tính cuối tuần".
+Ghi chú: giờ theo giờ Việt Nam (`YYYY-MM-DD HH:MM:SS`). `han` = lúc vào bước + số giờ LÀM VIỆC (từ 19/11/2026: T2–T6 08:00–12:00 + 13:00–17:00, T7 08:00–12:00, CN nghỉ); bước bật `tinh_cuoi_tuan` thì cộng giờ lịch liên tục. `so_gio_tre` tính theo giờ làm việc.
 `so_gio_tre` = (`ket_thuc_luc` hoặc thời điểm gọi) − `han`. `nguoi_xu_ly` = người làm đơn rời bước (có thể khác bộ phận phụ trách, vd hủy
 đơn). `giai_trinh_tu_dong = true`: giải trình lấy từ lý do chậm đã nhập lúc xử lý (trả hàng) hoặc giải trình lý do chậm trên đơn. `nguoi_phu_trach` = người PHẢI giải trình (GS của đơn / người của bộ phận được gán khu vực của đơn — xem tài liệu nội bộ). Người
 định danh bằng email + `ma_nhan_su` (NS-xxxx). `so_gio_sla` là SLA tại thời điểm ghi nhận (đổi cấu hình sau không đổi ca cũ). Lỗi:

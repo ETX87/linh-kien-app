@@ -817,7 +817,7 @@ export function DonHangDetailModal({
         // do (dung ca danh sach lyDoData) - day chi la giai trinh ly do cham xu ly, khong phai
         // tu choi/mo ticket thieu hang.
         <div className="w-full space-y-2 bg-[var(--surface-100)] border border-dashed border-[var(--coral-500)] rounded-lg p-2.5">
-          <div className="font-semibold text-xs text-[var(--coral-600)]">{t("Đơn đã quá hạn 24h — chọn lý do trước khi duyệt dòng {a}", { a: d.id })}</div>
+          <div className="font-semibold text-xs text-[var(--coral-600)]">{t("Đơn đã quá hạn 8h làm việc — chọn lý do trước khi duyệt dòng {a}", { a: d.id })}</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
               <label className="block text-[10.5px] font-bold text-[var(--ink-500)] uppercase tracking-wide mb-1">{t("Lý do chậm (bắt buộc)")}</label>
@@ -2341,7 +2341,7 @@ export function DonCuaToiTab({
         setSelected(new Set(canLyDo));
         setActionTarget({ id: canLyDo.length === 1 ? canLyDo[0] : "bulk", action: vars.hanh_dong === "tu_choi" ? "tu_choi" : "duyet_qua_han" });
         if (vars.hanh_dong === "tu_choi" && vars.ghi_chu) setActionGhiChu(vars.ghi_chu);
-        addToast(t("{a} đơn trả hàng quá hạn 24h — chọn lý do chậm để xử lý tiếp", { a: canLyDo.length }));
+        addToast(t("{a} đơn trả hàng quá hạn 8h làm việc — chọn lý do chậm để xử lý tiếp", { a: canLyDo.length }));
         qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
         invalidatePipelineCounts(qc);
         return;
@@ -2639,7 +2639,7 @@ export function DonCuaToiTab({
                 <Select
                   value={bulkLyDoChamId}
                   onChange={setBulkLyDoChamId}
-                  options={[{ value: "", label: bulkCoDongTN ? t("-- Chọn lý do chậm --") : t("-- Lý do chậm (chỉ khi quá hạn 24h) --") }, ...(bulkLyDoData?.rows ?? []).map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+                  options={[{ value: "", label: bulkCoDongTN ? t("-- Chọn lý do chậm --") : t("-- Lý do chậm (chỉ khi quá hạn 8h làm việc) --") }, ...(bulkLyDoData?.rows ?? []).map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
                   className="w-full"
                 />
               )}
@@ -3665,7 +3665,7 @@ export function DonHangGroupedList({
                   <Select
                     value={bulkLyDoChamId}
                     onChange={setBulkLyDoChamId}
-                    options={[{ value: "", label: t("-- Lý do chậm (chỉ khi quá hạn 24h) --") }, ...(bulkLyDoData?.rows ?? []).map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
+                    options={[{ value: "", label: t("-- Lý do chậm (chỉ khi quá hạn 8h làm việc) --") }, ...(bulkLyDoData?.rows ?? []).map((l) => ({ value: String(l.id), label: l.ten_ly_do }))]}
                     className="w-full"
                   />
                 )}
@@ -3728,7 +3728,7 @@ export function DonHangGroupedList({
                 hang, chi la giai trinh ly do cham xu ly). */}
             <Modal open={isDuyetQuaHan} onClose={() => { setActionTarget(null); setBulkLyDoChamId(""); }} title={targetId ? t("Duyệt dòng {a} đã quá hạn — chọn lý do chậm", { a: targetId }) : t("Duyệt {a} dòng đã quá hạn — chọn lý do chậm", { a: selected.size })}>
               <div className="space-y-3">
-                <div className="text-xs text-[var(--coral-600)]">{t("Đơn này đã quá 24h chưa được tiếp nhận. Vui lòng chọn lý do trước khi duyệt.")}</div>
+                <div className="text-xs text-[var(--coral-600)]">{t("Đơn này đã quá 8h làm việc chưa được tiếp nhận. Vui lòng chọn lý do trước khi duyệt.")}</div>
                 <Select
                   value={bulkLyDoChamId}
                   onChange={setBulkLyDoChamId}

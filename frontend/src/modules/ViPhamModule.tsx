@@ -313,7 +313,7 @@ function CauHinhSla({ ds, onDoi }: { ds: BuocCfg[]; onDoi: () => void }) {
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <p className="text-sm text-[var(--color-text-secondary)] flex-1">
-          {t("Hạn tính từ lúc đơn / phiếu vào bước. Không tính cuối tuần: hạn rơi vào T7/CN thì dời sang thứ Hai. Đổi cấu hình chỉ áp cho ca ghi nhận sau đó. Hệ thống tự quét mỗi giờ.")}
+          {t("Hạn tính theo GIỜ LÀM VIỆC từ lúc đơn / phiếu vào bước (T2–T6 08:00–12:00, 13:00–17:00; T7 08:00–12:00; CN nghỉ). Bật “Giờ lịch 24/7” để tính liên tục cả ngoài giờ. Đổi cấu hình chỉ áp cho ca ghi nhận sau đó. Hệ thống tự quét mỗi giờ.")}
         </p>
         <Btn variant="ghost" loading={quet.isPending} onClick={() => quet.mutate()}>{t("Quét ngay")}</Btn>
       </div>
@@ -322,7 +322,7 @@ function CauHinhSla({ ds, onDoi }: { ds: BuocCfg[]; onDoi: () => void }) {
           <thead className="tbl-head">
             <tr>
               <th>{t("Bước")}</th><th>{t("Bộ phận")}</th><th>{t("SLA (giờ)")}</th><th>{t("Hạn giải trình (giờ)")}</th>
-              <th>{t("Tính cuối tuần")}</th><th>{t("Bật")}</th><th>{t("Cập nhật")}</th><th></th>
+              <th>{t("Giờ lịch 24/7")}</th><th>{t("Bật")}</th><th>{t("Cập nhật")}</th><th></th>
             </tr>
           </thead>
           <tbody>

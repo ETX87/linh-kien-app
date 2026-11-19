@@ -6,7 +6,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nowVN } from "../lib/vnTime";
-import { mocGiaiDoanTraHangSql, quaHanGiaiDoanTraHang, tinhHanLyDoCham, TRA_HANG_GIAI_DOAN_HAN, traHangTuHuySql } from "../lib/hanLyDoCham";
+import { GIO_SLA_LY_DO_CHAM, mocGiaiDoanTraHangSql, quaHanGiaiDoanTraHang, tinhHanLyDoCham, TRA_HANG_GIAI_DOAN_HAN, traHangTuHuySql } from "../lib/hanLyDoCham";
 import { emailsTheoTen, orEmailIn, orMaYcsc, orPxkCuaDon, tenLkKhopSql } from "../lib/timTheoTen";
 import { bumpVersions } from "../lib/dataVersions";
 import { scopeDatMuaNguoiTao, khuVucSetWhereSql, phuTrachGsSet, duocDoiKhuVucDon } from "../lib/scopeDatMua";
@@ -496,7 +496,7 @@ async function applyTraHangLog(
       .first<{ ten_ly_do: string }>();
     if (!lyDo) return { error: "LY_DO_CHAM_KHONG_HOP_LE", status: 400 };
     const han = tinhHanLyDoCham(ddh.moc_giai_doan!).toISOString().slice(0, 16).replace("T", " ");
-    ghiChu = `Chậm quá hạn 24h (hạn ${han}) - lý do: ${lyDo.ten_ly_do}` + (ghiChu?.trim() ? ` | ${ghiChu.trim()}` : "");
+    ghiChu = `Chậm quá hạn ${GIO_SLA_LY_DO_CHAM} giờ làm việc (hạn ${han}) - lý do: ${lyDo.ten_ly_do}` + (ghiChu?.trim() ? ` | ${ghiChu.trim()}` : "");
   }
 
   // Luong C moi (chot 08/09/2026, xem Artifact "Ma tran luong Kho van"): dung LUC chuyen "Cho ke
