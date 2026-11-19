@@ -217,3 +217,20 @@ tự động, lý do `LY_DO_TU_HUY_TRA_HANG`, bỏ `gan_the_luc`; cả ca đã T
 
 **Lưu ý / còn dở:** chưa trừ ngày lễ; giờ nghỉ trưa chọn 12:00–13:00 (đổi ở `CA_LAM_VIEC`). Hạn ngắn hơn ~3 lần → lần quét đầu sau khi deploy sẽ ghi nhận thêm nhiều ca quá hạn + gửi thông báo giải trình cho bộ phận.
 - Bổ sung cùng ngày (migration 0129, chủ hệ thống chốt "Đổi sang 40h"): bước "Kho xác nhận trả hàng" trên production đang đặt 120 giờ → 40 giờ làm việc (sau 0128 số 120 bị hiểu là 120 giờ làm việc ~2,7 tuần). Production sau 0128: hạn giải trình 48 → 16, "Mua hàng đặt hàng" 24 → 8, "QC trả hàng" → 16.
+
+## 2026-11-19 — Đổi sang LK tương đương bỏ giá chốt của mã cũ (v1.528)
+
+**Yêu cầu (nguyên văn):** "check giúp tôi logic này tại sao đơn này mua dữ trữ mà đến kế toán giá lại không đúng" → đồng ý hướng sửa ("ok").
+
+**Nguyên nhân:** DDH-007748 (MUA DỰ TRỮ, phiếu PMH-002733) đặt mã 2003030346, TN nhập tay giá chốt 425.000 (= giá dự phòng mã cũ).
+Kho đổi sang mã tương đương 2003030291 (giá dự phòng 515.000) — lệnh đổi mã chỉ sửa mã / tên / giá bán, giữ `gia_chot` → phiếu tính
+425.000 × 2 = 850.000 thay vì 1.030.000 (thiếu 180.000). Nhãn "Giá dự phòng (trong hạn mức)" che mất việc đang dùng giá chốt tay.
+
+**Đã làm:**
+- `applyThieuLkLog` (`datMuaLinhKien.ts`): đổi LK tương đương → `gia_chot = NULL` trong cùng lệnh đổi mã, log ticket ghi "bỏ giá chốt …đ của mã cũ".
+- `PxkDongDonHangTable.tsx`: cột Loại chiết khấu có nhãn chấm "Giá chốt tay" (rê chuột xem số) khi dòng đang áp giá chốt.
+
+**Chưa làm:** dữ liệu PMH-002733 giữ nguyên (phiếu đã "Đã chốt xong đơn xuất", có mã MISA) — muốn thu đủ thì Kế toán đẩy lùi phiếu rồi sửa giá.
+Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 390.000 — do người nhập, không phải lỗi hệ thống.
+
+**Kiểm thử:** typecheck backend + frontend 0 lỗi. Chưa chạy thử thao tác đổi mã trên giao diện.

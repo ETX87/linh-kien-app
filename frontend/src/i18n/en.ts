@@ -745,6 +745,8 @@ const tuDien: Record<string, string> = {
   "Phân loại đặc thù": "Special category",
   "Phạm vi dữ liệu:": "Data scope:",
   "Quay lại": "Back",
+  "Giá chốt tay": "Manual fixed price",
+  "Tiền dòng này tính theo giá chốt nhập tay {g}đ, không theo loại chiết khấu.": "This line is priced at the manually fixed price {g}đ, not by the discount type.",
   "Quá hạn": "Overdue",
   "Quá hạn - cần lý do": "Overdue - reason needed",
   "Quá hạn - cần lý do chậm": "Overdue - delay reason needed",

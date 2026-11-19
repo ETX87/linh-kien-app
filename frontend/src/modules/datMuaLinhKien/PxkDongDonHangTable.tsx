@@ -461,6 +461,12 @@ export function PxkDongDonHangTable({
         ) : (
           <LoaiChietKhauText id={d.loai_chiet_khau_id} thuCong={d.loai_chiet_khau_thu_cong} />
         )}
+        {/* Gia chot tay THANG gia theo loai chiet khau (v1.528) - hien ro de khong tuong tien tinh theo nhan loai. */}
+        {d.gia_chot != null && (
+          <span title={t("Tiền dòng này tính theo giá chốt nhập tay {g}đ, không theo loại chiết khấu.", { g: d.gia_chot.toLocaleString("vi-VN") })}>
+            <Badge tone="warning" variant="dot">{t("Giá chốt tay")}</Badge>
+          </span>
+        )}
         <HoaDonGiaNiemYet don={d} />
         <CoSoChietKhauNut json={d.ck_co_so} />
       </span>

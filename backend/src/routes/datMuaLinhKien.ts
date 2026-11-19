@@ -5855,12 +5855,12 @@ async function applyThieuLkLog(
   //   Kho xac nhan HANG DA VE           -> don TU DUYET + vao phieu (mang theo tien da tra), ticket dong "Da ket thuc";
   //   Kho TU CHOI (sai TT) / ticket HUY -> don TU HUY (tien da tra ve quy du, bao KTV), ticket dong.
   // Log don ghi tom tat TOAN BO qua trinh Kho xu ly ticket.
-  let donGoc: { trang_thai: string | null; nguoi_tao: string; ten_lk_snapshot: string; so_luong_de_xuat: number; ma_lk: string; nguoi_nhan_hang: string | null } | null = null;
+  let donGoc: { trang_thai: string | null; nguoi_tao: string; ten_lk_snapshot: string; so_luong_de_xuat: number; ma_lk: string; nguoi_nhan_hang: string | null; gia_chot: number | null } | null = null;
   if ((THIEU_LK_TIEP_TUC_LUONG as readonly string[]).includes(trangThai)) {
     donGoc = await c.env.DB
-      .prepare("SELECT trang_thai_hien_tai as trang_thai, nguoi_tao, ten_lk_snapshot, so_luong_de_xuat, ma_lk, nguoi_nhan_hang FROM dat_don_hang WHERE id = ?")
+      .prepare("SELECT trang_thai_hien_tai as trang_thai, nguoi_tao, ten_lk_snapshot, so_luong_de_xuat, ma_lk, nguoi_nhan_hang, gia_chot FROM dat_don_hang WHERE id = ?")
       .bind(tlk.dat_don_hang_id)
-      .first<{ trang_thai: string | null; nguoi_tao: string; ten_lk_snapshot: string; so_luong_de_xuat: number; ma_lk: string; nguoi_nhan_hang: string | null }>();
+      .first<{ trang_thai: string | null; nguoi_tao: string; ten_lk_snapshot: string; so_luong_de_xuat: number; ma_lk: string; nguoi_nhan_hang: string | null; gia_chot: number | null }>();
     if (donGoc?.trang_thai !== "Cho hang") donGoc = null;
   }
   // DOI SANG LK TUONG DUONG roi xac nhan co hang (chot 2026-10-20, "cho phép kho có quyền sửa lại linh kiện chờ hàng sang linh kiện
@@ -5881,7 +5881,12 @@ async function applyThieuLkLog(
       ).bind(donGoc.ma_lk, maMoi).first();
       if (!cungNhom) return { error: "KHONG_PHAI_LK_TUONG_DUONG", status: 400 };
       doiMa = { cu: donGoc.ma_lk, moi: maMoi };
-      const nhanDoi = `Đổi sang LK tương đương ${donGoc.ma_lk} → ${maMoi}`;
+      // Gia chot nhap tay la gia cua MA CU -> bo khi doi ma (sua 2026-11-19, v1.528: DDH-007748 doi 2003030346 -> 2003030291 van giu
+      // gia chot 425.000 = gia du phong ma cu, trong khi gia du phong ma moi 515.000 -> phieu thieu tien). Gia tinh lai theo ma moi.
+      const boGiaChot = donGoc.gia_chot != null
+        ? ` (bỏ giá chốt ${donGoc.gia_chot.toLocaleString("vi-VN")}đ của mã cũ — giá tính lại theo mã mới)`
+        : "";
+      const nhanDoi = `Đổi sang LK tương đương ${donGoc.ma_lk} → ${maMoi}${boGiaChot}`;
       ghiChu = ghiChu?.trim() ? `${nhanDoi} — ${ghiChu.trim()}` : nhanDoi;
       statements[viTriLogChinh] = c.env.DB.prepare("INSERT INTO thieu_lk_log (thieu_lk_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)")
         .bind(id, trangThai, user.email, now, ghiChu);
@@ -5889,7 +5894,7 @@ async function applyThieuLkLog(
         // CAS: don da doi ma / roi "Cho hang" giua luc doc va luc ghi -> CHECK x=0 vi pham -> rollback ca batch.
         c.env.DB.prepare("INSERT INTO quy_cas_guard (x) SELECT 1 WHERE (SELECT ma_lk || '|' || trang_thai_hien_tai FROM dat_don_hang WHERE id = ?) IS NOT ?")
           .bind(tlk.dat_don_hang_id, `${donGoc.ma_lk}|Cho hang`),
-        c.env.DB.prepare("UPDATE dat_don_hang SET ma_lk = ?, ten_lk_snapshot = ?, gia_de_xuat = ?, updated_at = ? WHERE id = ?")
+        c.env.DB.prepare("UPDATE dat_don_hang SET ma_lk = ?, ten_lk_snapshot = ?, gia_de_xuat = ?, gia_chot = NULL, updated_at = ? WHERE id = ?")
           .bind(maMoi, lk.ten_linh_kien, lk.gia_ban, now, tlk.dat_don_hang_id),
       );
       donGoc.ten_lk_snapshot = lk.ten_linh_kien;

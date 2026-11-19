@@ -745,6 +745,8 @@ const tuDien: Record<string, string> = {
   "Phân loại đặc thù": "Kategori khusus",
   "Phạm vi dữ liệu:": "Cakupan data:",
   "Quay lại": "Kembali",
+  "Giá chốt tay": "Harga tetap manual",
+  "Tiền dòng này tính theo giá chốt nhập tay {g}đ, không theo loại chiết khấu.": "Baris ini dihitung dengan harga tetap manual {g}đ, bukan berdasarkan jenis diskon.",
   "Quá hạn": "Terlambat",
   "Quá hạn - cần lý do": "Terlambat - perlu alasan",
   "Quá hạn - cần lý do chậm": "Terlambat - perlu alasan keterlambatan",

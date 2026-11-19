@@ -59,7 +59,8 @@ duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xe
 
 - **Đặt mua**: ticket theo đơn "Chờ hàng": Kho tiếp nhận / cập nhật dự kiến / chuyển Mua hàng / hàng đã về / từ chối (bắt buộc lý do);
   hàng về → đơn tự duyệt vào phiếu; từ chối / hủy → đơn tự hủy, tiền về quỹ. Tự xác nhận hàng về theo ưu tiên (khiếu nại > ngày cũ > VIP)
-  sau mỗi lần nhập tồn. Tách đơn khi về một phần; đổi sang LK tương đương.
+  sau mỗi lần nhập tồn. Tách đơn khi về một phần; đổi sang LK tương đương (đổi mã thì BỎ giá chốt tay của mã cũ — giá tính lại theo mã mới).
+  Giá chốt tay luôn thắng giá theo loại chiết khấu; dòng đơn trong phiếu có nhãn "Giá chốt tay" khi đang áp.
 - **KTV báo nhận thiếu** (ticket NTH): Kho kiểm → gửi bù hoặc hoàn tiền → Kế toán cân đối.
 - **Thiếu hàng bảo hành** (ticket THB) nhận từ app Bảo hành đổi trả, phản hồi trạng thái về đơn gốc.
 
