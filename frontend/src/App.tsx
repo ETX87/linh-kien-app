@@ -14,6 +14,7 @@ import { TaoDonGiongHost } from "./modules/datMuaLinhKien/TaoDonGiongHost";
 import { NutNopQuyNoi } from "./modules/quyChuyenTien/NutNopQuyNoi";
 import { NutNopTienKeToan } from "./modules/quyChuyenTien/NutNopTienKeToan";
 import { TuChoiChuyenTienPopup } from "./modules/datMuaLinhKien/TuChoiChuyenTienPopup";
+import { NhacGiaiTrinhPopup } from "./modules/viPham/NhacGiaiTrinhPopup";
 import { ROLE_MODULES, MODULE_TITLES, NAV_GROUPS } from "./layout/navConfig";
 import { DatMuaLinhKienModule } from "./modules/DatMuaLinhKienModule";
 import { DanhMucLinhKienModule, XemLinhKienDrawer } from "./modules/DanhMucLinhKienModule";
@@ -583,6 +584,7 @@ function MainApp({
       <NutNopTienKeToan />
       {/* Popup lon "Chuyển tiền bị từ chối" cho nguoi nhan hang (2026-11-10). */}
       <TuChoiChuyenTienPopup />
+      <NhacGiaiTrinhPopup onMoDanhSach={() => window.dispatchEvent(new CustomEvent("mo-vi-pham", { detail: "can_toi" }))} />
       {isMobile && exitConfirmOpen && (
         <Modal open onClose={stayInApp} title={t("Thoát ứng dụng?")}>
           <div className="space-y-4 text-sm">

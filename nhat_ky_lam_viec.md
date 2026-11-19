@@ -234,3 +234,11 @@ Kho đổi sang mã tương đương 2003030291 (giá dự phòng 515.000) — l
 Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 390.000 — do người nhập, không phải lỗi hệ thống.
 
 **Kiểm thử:** typecheck backend + frontend 0 lỗi. Chưa chạy thử thao tác đổi mã trên giao diện.
+
+## 2026-11-19 — Popup nhắc giải trình khi mở app (v1.529)
+
+**Yêu cầu (nguyên văn):** "Hệ thống tự quét mỗi giờ. Ca quá hạn sẽ báo đích danh người phải giải trình, và nhắc lại khi còn 6 giờ là hết hạn giải trình. đẩy qua thông báo, khi mở sẽ hiện popup nhắc nhở."
+
+**Đã làm:** quét mỗi giờ + báo đích danh + nhắc sắp hết hạn + đẩy chuông/push đã có từ v1.518 (ngưỡng nhắc đang là 2 giờ làm việc từ v1.527, tương đương 6 giờ lịch cũ — không đổi). Thêm `frontend/src/modules/viPham/NhacGiaiTrinhPopup.tsx` gắn ở `App.tsx`: nhân viên văn phòng mở app mà còn ca "Chờ giải trình" có tên mình (`GET /vi-pham?tab=can_toi`, hỏi lại 5 phút / khi quay lại tab) → popup: tổng số ca, số ca sắp hết hạn (khung đỏ), tối đa 20 ca kèm hạn + nút "Giải trình" (mở hộp giải trình có sẵn), nút "Mở danh sách cần giải trình". "Để sau" / ✕ = ẩn trong phiên (sessionStorage) — mở app lại, có ca mới hoặc ca chuyển sang sắp hết hạn thì hiện lại. Không đổi backend.
+
+**Kiểm thử:** typecheck frontend 0 lỗi, build sạch. Worker local + phiên ký tay tài khoản Kho test (46 ca chờ): popup hiện đúng số ca / 20 ca sắp hết hạn; "Để sau" rồi tải lại trang không hiện lại; xoá phiên → hiện lại; "Mở danh sách" mở menu "Quá hạn & vi phạm" tab "Cần tôi giải trình". Chưa thử trên điện thoại.
