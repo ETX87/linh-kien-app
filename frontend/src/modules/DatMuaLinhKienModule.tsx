@@ -116,6 +116,7 @@ export function DatMuaLinhKienModule({
   onLeaveForceView,
   externalDetailOpen,
   onExternalDetailOpenConsumed,
+  externalJump,
 }: {
   forceView?: string;
   openCase?: (id: string, tab?: string) => void;
@@ -126,6 +127,8 @@ export function DatMuaLinhKienModule({
   // duoi day chac chan chay lai ke ca bam lai DUNG 1 dong thong bao vua xem xong.
   externalDetailOpen?: { tab: "don-cua-toi" | "phieu-xuat-kho" | "tra-hang" | "thieu-lk"; id: string; nonce: number } | null;
   onExternalDetailOpenConsumed?: () => void;
+  // Nhay toi 1 danh sach tu NGOAI module (v1.535 - popup "Việc bạn cần xử lý" khi KTV mo app, App.tsx) - cung jumpTo() nhu "Cần làm".
+  externalJump?: { target: JumpTarget; nonce: number } | null;
   // FIX (phan hoi 2026-08-26: "click vào thẻ trang chủ, kích để xem đơn hàng, mà vẫn ở thẻ trang chủ
   // là sao?") - khi vao qua forceView="trang-chu"/"thieu-lk" (muc menu rieng cap App.tsx) roi nhay
   // NOI BO sang view khac (vd bam so lieu StatCard -> "don-cua-toi"), Sidebar/tieu de h1 (dieu khien
@@ -468,7 +471,7 @@ export function DatMuaLinhKienModule({
   // Bam muc Sidebar "Hàng trả" (desktop, 2026-09-30) = mo danh sach TONG cho Ke toan/Kho/QC xac nhan (khong roi vao bo
   // loc mac dinh theo vai tro cua TraHangTab). Bo qua khi dang mo tu chuong thong bao (effect ben duoi mo dung dong do).
   useEffect(() => {
-    if (section !== "tra-hang" || externalDetailOpen) return;
+    if (section !== "tra-hang" || externalDetailOpen || externalJump) return;
     jumpTo({ tab: "tra-hang", filter: "__CHO_XAC_NHAN__" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section]);
@@ -482,6 +485,11 @@ export function DatMuaLinhKienModule({
     onExternalDetailOpenConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [externalDetailOpen?.nonce]);
+  useEffect(() => {
+    if (!externalJump) return;
+    jumpTo(externalJump.target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalJump?.nonce]);
   const filterFor = (tab: string) => (jumpTarget?.tab === tab ? jumpTarget.filter : undefined);
   const nguoiNhanHangFor = (tab: string) => (jumpTarget?.tab === tab ? jumpTarget.nguoiNhanHang : undefined);
   // Them (migration 0002_tra_hang_pxk.sql) - dat truoc sub-tab loai_don cua PhieuXuatKhoTab khi bam
@@ -509,7 +517,7 @@ export function DatMuaLinhKienModule({
   // Bam muc Sidebar "Đơn hàng"/"Phiếu xuất" (2026-10-03, "click vào đơn hàng mặc định là chọn tổng... tương tự ở phiếu") = mo
   // muc "Tổng"/"Tổng phiếu" (cung jump voi muc con). Chi theo lan BAM (nonce) - dieu huong noi bo/chuong thong bao khong doi.
   useEffect(() => {
-    if (!sidebarClick || externalDetailOpen) return;
+    if (!sidebarClick || externalDetailOpen || externalJump) return;
     if (sidebarClick.key === "dat-mua-lk" && canXemDonMuaCongNo) {
       stageJump("tong-don-hang", { tab: "don-cua-toi", filter: "__OPEN__", loaiDon: "tat_ca" });
     } else if (sidebarClick.key === "phieu-xuat" && canXemPxkTab) {

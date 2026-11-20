@@ -288,3 +288,11 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
 **Đã làm (2):** cron 0h VN xoá hẳn thông báo chuông (`thong_bao_ktv`) quá 10 ngày (`lib/donThongBao.ts` `xoaThongBaoCu`, lô 5.000 dòng), thay quy tắc cũ "chưa đọc quá 30 ngày → đánh dấu đã đọc". D1 thật lúc làm: 149.555 dòng, 117.411 dòng quá 10 ngày (sẽ xoá ở lần chạy 0h đầu tiên); 82.544 dòng chưa đọc. Ảnh hưởng: thẻ "Đơn bị từ chối" chỉ còn đếm đơn bị từ chối trong 10 ngày.
 
 **Kiểm thử:** typecheck backend 0 lỗi. Chưa chạy lần xoá thật (cron 0h VN).
+
+## 2026-11-20 — Popup "Việc bạn cần xử lý" khi KTV mở app (v1.535)
+
+**Yêu cầu (nguyên văn):** "Có, làm luôn" — trả lời câu hỏi làm popup "việc bạn cần xử lý" cho KTV khi mở app (yêu cầu gốc: "khi ktv vào app, hiện tại có hiện 1 popup nhắc nhở các đơn tồn cần xử lý không? ví dụ 2 phiếu đang chờ bạn chuyển tiền => click vào để xem...").
+
+**Đã làm:** `frontend/src/modules/datMuaLinhKien/NhacViecPopup.tsx` gắn ở `App.tsx`. Nguồn số = chung với ô "Cần làm" ở Trang chủ + số menu (`/notifications/count`, `danhSachViecCanLam`), thêm "Đơn của bạn bị từ chối", bỏ "Đơn của tôi đang chờ duyệt"; lời riêng KTV ("Phiếu chờ bạn chuyển tiền", "Phiếu chờ bạn xác nhận đã nhận hàng"). Chỉ KTV / Vệ tinh / NV sửa chữa thuần. Bấm 1 mục → mở đúng danh sách (prop mới `externalJump` của `DatMuaLinhKienModule`). "Để sau" ẩn tới lần mở app sau hoặc khi 1 việc tăng số. Bổ sung bản dịch EN / ID cho câu mới của popup này và popup nhắc giải trình (v1.529).
+
+**Kiểm thử:** typecheck frontend 0 lỗi, build sạch. Worker local + phiên ký tay KTV có 2 phiếu chờ chuyển tiền: popup hiện "2 · Phiếu chờ bạn chuyển tiền"; bấm → mở Phiếu xuất › Chờ chuyển tiền lọc theo KTV, đủ 2 phiếu. Chưa thử trên điện thoại.

@@ -3077,5 +3077,18 @@ const tuDien: Record<string, string> = {
   "Tự hủy — quá 10 ngày": "Batal otomatis — lebih dari 10 hari",
   "Đã quét: {a} ca mới, {b} chuyển Tồn CEO": "Dipindai: {a} kasus baru, {b} dipindah ke tunggakan CEO",
   "Đơn tự hủy (quá 10 ngày)": "Batal otomatis (lebih dari 10 hari)",
+  "Bạn đang có {n} ca quá hạn chờ bạn giải trình.": "Anda memiliki {n} kasus terlambat yang menunggu penjelasan Anda.",
+  "Bạn đang có {n} việc chờ xử lý. Bấm vào từng mục để xem danh sách.": "Anda memiliki {n} tugas yang menunggu. Ketuk item untuk membuka daftar.",
+  "Hết hạn mà chưa giải trình, ca sẽ chuyển sang Tồn CEO (báo đối tác). Ca không thuộc trách nhiệm của bạn: vẫn giải trình, chọn lý do \"Ghi nhận không đúng\".": "Jika tidak dijelaskan sebelum batas waktu, kasus pindah ke tunggakan CEO (dilaporkan ke mitra). Jika bukan tanggung jawab Anda, tetap jelaskan dan pilih alasan \"Pencatatan tidak benar\".",
+  "Mở danh sách cần giải trình": "Buka daftar untuk dijelaskan",
+  "{n} ca sắp hết hạn giải trình.": "{n} kasus mendekati batas waktu penjelasan.",
+  "… và {n} ca khác trong danh sách": "… dan {n} kasus lain dalam daftar",
+  "⏰ Bạn có ca quá hạn cần giải trình": "⏰ Anda memiliki kasus terlambat untuk dijelaskan",
+  "⚠ Sắp hết hạn giải trình": "⚠ Batas waktu penjelasan sudah dekat",
+  "Đơn của bạn bị từ chối — xem lý do": "Pesanan Anda ditolak — lihat alasannya",
+  "Để sau": "Nanti",
+  "📋 Việc bạn cần xử lý": "📋 Tugas yang menunggu Anda",
+  "Phiếu chờ bạn chuyển tiền": "Slip menunggu pembayaran Anda",
+  "Phiếu chờ bạn xác nhận đã nhận hàng": "Slip menunggu konfirmasi penerimaan Anda",
 };
 export default tuDien;

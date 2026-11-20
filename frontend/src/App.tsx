@@ -15,6 +15,8 @@ import { NutNopQuyNoi } from "./modules/quyChuyenTien/NutNopQuyNoi";
 import { NutNopTienKeToan } from "./modules/quyChuyenTien/NutNopTienKeToan";
 import { TuChoiChuyenTienPopup } from "./modules/datMuaLinhKien/TuChoiChuyenTienPopup";
 import { NhacGiaiTrinhPopup } from "./modules/viPham/NhacGiaiTrinhPopup";
+import { NhacViecKtvPopup } from "./modules/datMuaLinhKien/NhacViecPopup";
+import type { JumpTarget } from "./modules/datMuaLinhKien/types";
 import { ROLE_MODULES, MODULE_TITLES, NAV_GROUPS } from "./layout/navConfig";
 import { DatMuaLinhKienModule } from "./modules/DatMuaLinhKienModule";
 import { DanhMucLinhKienModule, XemLinhKienDrawer } from "./modules/DanhMucLinhKienModule";
@@ -274,6 +276,8 @@ function MainApp({
     queryFn: () => api.get<{ ktvLogChuaDoc: number }>("/notifications/count"),
     refetchInterval: 5 * 60_000,
   });
+  // Popup "Việc bạn cần xử lý" cua KTV (v1.535) bam 1 viec -> mo dung danh sach trong DatMuaLinhKienModule (prop externalJump).
+  const [pendingJump, setPendingJump] = useState<{ target: JumpTarget; nonce: number } | null>(null);
   const [pendingDetailOpen, setPendingDetailOpen] = useState<{ tab: "don-cua-toi" | "phieu-xuat-kho" | "tra-hang" | "thieu-lk"; id: string; nonce: number } | null>(null);
   // Deep link "?ktvSearch=<email hoac ma_ktv>" (them 2026-09-28, phan hoi tu vi-pham-app: Admin gan/doi
   // lai KTV cho 1 gmail dang nhap chi sua duoc TAI DAY - ktv_lien_he ben vi-pham-app chi la cache doc-
@@ -548,6 +552,7 @@ function MainApp({
               externalDetailOpen={pendingDetailOpen}
               sidebarClick={sidebarClick}
               onExternalDetailOpenConsumed={() => setPendingDetailOpen(null)}
+              externalJump={pendingJump}
               // FIX (phan hoi 2026-08-26, cung van de tren): khi nguoi dung bam so lieu/StatCard nhay
               // sang noi dung khac tu "Trang chủ"/"Thiếu linh kiện" (vd "Đơn của tôi"), noi dung thuc
               // te da chuyen sang "Đặt mua linh kiện" - goi callback nay de Sidebar/tieu de h1 (dieu
@@ -584,6 +589,15 @@ function MainApp({
       <NutNopTienKeToan />
       {/* Popup lon "Chuyển tiền bị từ chối" cho nguoi nhan hang (2026-11-10). */}
       <TuChoiChuyenTienPopup />
+      <NhacViecKtvPopup
+        onMo={(v) => {
+          if (v.suKien) window.dispatchEvent(new CustomEvent(v.suKien, { detail: "" }));
+          else if (v.jump) {
+            setActive(mucChoView(v.jump.tab));
+            setPendingJump({ target: v.jump, nonce: Date.now() });
+          }
+        }}
+      />
       <NhacGiaiTrinhPopup onMoDanhSach={() => window.dispatchEvent(new CustomEvent("mo-vi-pham", { detail: "can_toi" }))} />
       {isMobile && exitConfirmOpen && (
         <Modal open onClose={stayInApp} title={t("Thoát ứng dụng?")}>

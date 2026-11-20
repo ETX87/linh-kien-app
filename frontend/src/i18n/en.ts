@@ -3077,5 +3077,18 @@ const tuDien: Record<string, string> = {
   "Tự hủy — quá 10 ngày": "Auto-cancelled — over 10 days",
   "Đã quét: {a} ca mới, {b} chuyển Tồn CEO": "Scanned: {a} new cases, {b} moved to CEO backlog",
   "Đơn tự hủy (quá 10 ngày)": "Auto-cancelled (over 10 days)",
+  "Bạn đang có {n} ca quá hạn chờ bạn giải trình.": "You have {n} overdue cases waiting for your explanation.",
+  "Bạn đang có {n} việc chờ xử lý. Bấm vào từng mục để xem danh sách.": "You have {n} tasks waiting. Tap an item to open the list.",
+  "Hết hạn mà chưa giải trình, ca sẽ chuyển sang Tồn CEO (báo đối tác). Ca không thuộc trách nhiệm của bạn: vẫn giải trình, chọn lý do \"Ghi nhận không đúng\".": "If not explained before the deadline, the case moves to the CEO backlog (reported to partners). If it is not your responsibility, still explain it and choose the reason \"Recorded incorrectly\".",
+  "Mở danh sách cần giải trình": "Open list to explain",
+  "{n} ca sắp hết hạn giải trình.": "{n} cases are close to the explanation deadline.",
+  "… và {n} ca khác trong danh sách": "… and {n} more cases in the list",
+  "⏰ Bạn có ca quá hạn cần giải trình": "⏰ You have overdue cases to explain",
+  "⚠ Sắp hết hạn giải trình": "⚠ Explanation deadline is near",
+  "Đơn của bạn bị từ chối — xem lý do": "Your orders were rejected — see why",
+  "Để sau": "Later",
+  "📋 Việc bạn cần xử lý": "📋 Tasks waiting for you",
+  "Phiếu chờ bạn chuyển tiền": "Slips waiting for your payment",
+  "Phiếu chờ bạn xác nhận đã nhận hàng": "Slips waiting for you to confirm receipt",
 };
 export default tuDien;

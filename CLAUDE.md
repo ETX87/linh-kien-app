@@ -500,6 +500,11 @@ code). 2 thay đổi lớn nhất đã áp dụng từ hướng này vào `DatMu
     (phiếu của chính người nhận) — cộng vào `total` + số mục "Phiếu xuất" (`navCount`). Mua hàng thuần có badge (`capDung`). Đọc
     `trang_thai_hien_tai` thay subquery log mới nhất. Việc ở Quỹ (nộp tiền, hoàn tiền) phát sự kiện `mo-nop-tien` / `mo-phieu-hoan-tien`
     (detail rỗng = chỉ mở tab).
+  - **Popup "Việc bạn cần xử lý" khi KTV mở app** (2026-11-20, v1.535 — "khi ktv vào app … popup nhắc nhở các đơn tồn cần xử lý … ví dụ 2 phiếu đang chờ bạn
+    chuyển tiền => click vào để xem"): `datMuaLinhKien/NhacViecPopup.tsx` (mount ở `App.tsx`) — CÙNG `/notifications/count` + `danhSachViecCanLam()` với "Cần làm"
+    (bỏ "Đơn của tôi đang chờ duyệt", thêm "Đơn bị từ chối" `choDonBiTuChoi`, lời riêng KTV `NHAN_KTV`). Chỉ KTV / Vệ tinh / NV sửa chữa thuần (`la_ktv_dvbh` /
+    `la_ve_tinh`, không Admin). Bấm mục → App `setActive(mucChoView)` + prop `externalJump` của `DatMuaLinhKienModule` (`jumpTo`, chặn hiệu ứng section /
+    sidebarClick khi có); việc ở Quỹ phát sự kiện như "Cần làm". "Để sau" = sessionStorage theo số từng việc — mở app lại hoặc 1 việc tăng số thì hiện lại.
   - **Bỏ `/luong-quy-trinh` khỏi FE** (dải PipelineFlow đầu module + nguồn "Cần làm" máy tính — đếm bước Trạm/TBP/TN luôn 0 từ khi tự động
     duyệt). Đầu module mọi màn chỉ còn "Cần làm (N)" + "＋ Tạo đơn". Route backend còn nhưng không ai gọi.
   - **"Tồn đọng toàn hệ thống" tải lười**: `/home-summary` chỉ trả `coToanHeThong`; số liệu ở `GET /home-summary/toan-he-thong` (3 GROUP BY,
