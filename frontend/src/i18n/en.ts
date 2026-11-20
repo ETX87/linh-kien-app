@@ -3090,5 +3090,8 @@ const tuDien: Record<string, string> = {
   "📋 Việc bạn cần xử lý": "📋 Tasks waiting for you",
   "Phiếu chờ bạn chuyển tiền": "Slips waiting for your payment",
   "Phiếu chờ bạn xác nhận đã nhận hàng": "Slips waiting for you to confirm receipt",
+  "✓ đã đủ": "✓ fully paid",
+  "còn {x}": "{x} left",
+  "Tổng phiếu {a} · đã thanh toán {b} · còn phải chuyển {c}": "Slip total {a} · paid {b} · still to transfer {c}",
 };
 export default tuDien;

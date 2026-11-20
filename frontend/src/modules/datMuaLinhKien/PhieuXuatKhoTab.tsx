@@ -795,7 +795,21 @@ export function PhieuXuatKhoTab({
     // thuan/tra hang luu NULL -> "—".
     {
       key: "so_tien_can_chuyen", header: t("Tiền cần chuyển"),
-      render: (r) => (r.so_tien_can_chuyen != null ? <Money>{fmtVND(r.so_tien_can_chuyen)}</Money> : <span className="text-[var(--ink-400)]">—</span>),
+      // So = TONG phieu; 2026-11-20 (v1.536): them nhan "✓ đã đủ" / "còn X" theo da_thanh_toan (phieu gui bu mang san tien tung bi
+      // hieu nham la con phai chuyen). 1 dong, khong xuong dong.
+      render: (r) => {
+        if (r.so_tien_can_chuyen == null) return <span className="text-[var(--ink-400)]">—</span>;
+        const tong = r.so_tien_can_chuyen;
+        const daTra = r.da_thanh_toan ?? 0;
+        const con = Math.max(0, tong - daTra);
+        return (
+          <span className="whitespace-nowrap" title={t("Tổng phiếu {a} · đã thanh toán {b} · còn phải chuyển {c}", { a: fmtVND(tong), b: fmtVND(daTra), c: fmtVND(con) })}>
+            <Money>{fmtVND(tong)}</Money>
+            {tong > 0 && con === 0 && <span className="ml-1.5 text-xs font-semibold text-[var(--color-success-strong)]">{t("✓ đã đủ")}</span>}
+            {daTra > 0 && con > 0 && <span className="ml-1.5 text-xs font-semibold text-[var(--color-warning-strong)]">{t("còn {x}", { x: fmtVND(con) })}</span>}
+          </span>
+        );
+      },
     },
     {
       key: "loai_chiet_khau", header: t("Loại chiết khấu"), filter: loc("loai_chiet_khau"),

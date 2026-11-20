@@ -296,3 +296,9 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
 **Đã làm:** `frontend/src/modules/datMuaLinhKien/NhacViecPopup.tsx` gắn ở `App.tsx`. Nguồn số = chung với ô "Cần làm" ở Trang chủ + số menu (`/notifications/count`, `danhSachViecCanLam`), thêm "Đơn của bạn bị từ chối", bỏ "Đơn của tôi đang chờ duyệt"; lời riêng KTV ("Phiếu chờ bạn chuyển tiền", "Phiếu chờ bạn xác nhận đã nhận hàng"). Chỉ KTV / Vệ tinh / NV sửa chữa thuần. Bấm 1 mục → mở đúng danh sách (prop mới `externalJump` của `DatMuaLinhKienModule`). "Để sau" ẩn tới lần mở app sau hoặc khi 1 việc tăng số. Bổ sung bản dịch EN / ID cho câu mới của popup này và popup nhắc giải trình (v1.529).
 
 **Kiểm thử:** typecheck frontend 0 lỗi, build sạch. Worker local + phiên ký tay KTV có 2 phiếu chờ chuyển tiền: popup hiện "2 · Phiếu chờ bạn chuyển tiền"; bấm → mở Phiếu xuất › Chờ chuyển tiền lọc theo KTV, đủ 2 phiếu. Chưa thử trên điện thoại.
+
+## 2026-11-20 — Cột "Tiền cần chuyển" ở danh sách Phiếu xuất ghi rõ đã đủ / còn thiếu (v1.536)
+- **Yêu cầu:** "ktv báo thiếu hàng, kho xác nhận sẽ gửi bù, kế toán vào xác nhận nhưng đơn lại bị đẩy lại chờ tạo xuất là sao nhỉ" → sau khi giải thích: "Có, sửa luôn".
+- **Kiểm tra (D1 production, chỉ đọc):** NTH-000004 "Da gui bu" đúng luồng — Kế toán xác nhận tạo phiếu gửi bù PMH-002814 ("Dang tao phieu"), 3 đơn gửi bù DDH-008219/8220/8221 mang 818.100đ từ PMH-002263; phiếu mới tổng 818.100 / đã trả 818.100, chuyển tiền "Kế toán đã duyệt". Không phải lỗi; cột "Tiền cần chuyển" hiện TỔNG phiếu nên dễ hiểu nhầm là KTV còn phải chuyển.
+- **Đã làm:** `PhieuXuatKhoTab.tsx` cột "Tiền cần chuyển" thêm nhãn "✓ đã đủ" (đã trả ≥ tổng) / "còn X" (đã trả một phần), tooltip tổng · đã trả · còn phải chuyển; i18n en/id. Không đổi backend.
+- **Kiểm thử:** typecheck frontend 0 lỗi. Chưa xem bằng mắt trên giao diện.
