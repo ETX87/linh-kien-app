@@ -121,7 +121,8 @@ việc tự khoá); 8h VN tự xác nhận phiếu quá hạn nhận + nhắc KT
 ## 11. Kết nối hệ khác
 
 DVBH (tra case CRM, API đối tác tồn kho / lịch sử LK / đơn theo ca / đặt hàng qua API) · App Bảo hành đổi trả (Service Binding: phân loại,
-thiếu hàng BH, đơn sửa chữa, trừ công nợ) · Phân tích tồn kho 3T (kho dữ liệu MISA) · khovan (đẩy phiếu sang kho) · ETX nhân sự · gia88 (giá).
+thiếu hàng BH, đơn sửa chữa, trừ công nợ; `GET /api/suachua-partner/lk-theo-case` trả linh kiện đã đặt theo mã case — bỏ đơn trả
+hàng / từ chối / hủy — để app đó ưu tiên lên đầu ô chọn linh kiện khi gửi bảo hành) · Phân tích tồn kho 3T (kho dữ liệu MISA) · khovan (đẩy phiếu sang kho) · ETX nhân sự · gia88 (giá).
 
 ## 12. Giới hạn & bảo vệ chung
 

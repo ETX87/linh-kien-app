@@ -24,6 +24,29 @@ suachuaPartner.use("*", async (c, next) => {
 // CÔNG NỢ SỬA CHỮA tao / sua / huy / doc tu app Bao hanh doi tra (v1.498) - xem routes/suachuaDonSc.ts.
 ganRouteDonSc(suachuaPartner);
 
+// GET /api/suachua-partner/lk-theo-case?case_id=SC123 (v1.539, 20/11/2026) - app Bao hanh doi tra goi khi KTV / NV chon ma case
+// luc tao don gui bao hanh: tra cac linh kien DA DAT ben nay cho case do (de uu tien len dau o chon linh kien). Khop ma case qua
+// dat_don_hang.ma_yeu_cau_su_co (co index) + dat_don_case; nhan 3 dang chu (SC / Sc / sc). Bo don tra hang + don bi tu choi / huy.
+suachuaPartner.get("/lk-theo-case", async (c) => {
+  const raw = (c.req.query("case_id") ?? "").trim();
+  if (raw.length < 3 || raw.length > 60) return c.json({ rows: [] });
+  const up = raw.toUpperCase();
+  const ds = [...new Set([raw, up, up.toLowerCase(), up.slice(0, 1) + up.slice(1).toLowerCase()])];
+  const ph = ds.map(() => "?").join(",");
+  const { results } = await c.env.DB.prepare(
+    `SELECT d.ma_lk, MAX(d.ten_lk_snapshot) AS ten_lk, SUM(COALESCE(d.so_luong_thuc_xuat, d.so_luong_de_xuat)) AS so_luong,
+            COUNT(*) AS so_don, MAX(d.ngay_tao) AS ngay_moi, GROUP_CONCAT(d.id) AS don_ids
+       FROM dat_don_hang d
+      WHERE (d.ma_yeu_cau_su_co IN (${ph}) OR d.id IN (SELECT dat_don_hang_id FROM dat_don_case WHERE case_id IN (${ph})))
+        AND d.loai_don <> 'tra_hang'
+        AND COALESCE(d.trang_thai_hien_tai, '') NOT IN ('TN tu choi', 'Tu choi', 'Da huy')
+      GROUP BY d.ma_lk ORDER BY ngay_moi DESC LIMIT 50`,
+  )
+    .bind(...ds, ...ds)
+    .all();
+  return c.json({ rows: results ?? [] });
+});
+
 // POST /api/suachua-partner/phan-loai - { rows: [{ ma_linh_kien, don_vi }] } (toi da 500 dong/lan).
 suachuaPartner.post("/phan-loai", async (c) => {
   const body = await c.req.json<{ rows?: { ma_linh_kien?: string; don_vi?: string | null }[] }>().catch(() => ({}) as { rows?: undefined });

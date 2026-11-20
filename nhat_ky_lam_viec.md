@@ -323,3 +323,12 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
   - Phiếu trống: nút "🗑 Hủy phiếu trống" trong chi tiết phiếu (văn phòng / người nhận / người tạo; `/huy-neu-trong` mở thêm Kho + người nhận + người tạo); cron mỗi giờ `huyMoiPhieuTrongCu` hủy phiếu trống im lặng ≥ 30 phút; danh sách "tất cả" ẩn phiếu đã hủy không còn đơn. Phiếu PMH-002819 trong ảnh thực ra ĐÃ tự hủy (10:52, đổi hình thức hóa đơn đơn cuối) — chỉ là vẫn hiện trong danh sách.
 - **Kiểm thử (Worker + D1 local, bản sao dữ liệu demo):** kiểm tra trả PMH-000030; tạo đơn mặc định → phiếu mới PMH-000039; chọn gộp → vào PMH-000030, phiếu về "Chờ KTV chuyển" còn thiếu 450.000đ + log đúng; Admin bỏ tích KH đơn trong phiếu chưa tiền → sang phiếu quỹ KTV, phiếu cũ tự hủy và ẩn khỏi danh sách tất cả (lọc hủy vẫn thấy); đơn trong phiếu có tiền → 409 đúng mã; KTV hủy phiếu trống của mình → OK. Typecheck 2 phía 0 lỗi. Giao diện (ô chọn trên form, ô KH trong form sửa, nút hủy phiếu trống) CHƯA xem bằng mắt.
 
+
+## 2026-11-20 — API linh kiện đã đặt theo mã case cho app Bảo hành đổi trả (v1.539)
+
+- Yêu cầu (phía app Bảo hành đổi trả): "khi họ chọn 1 mã ID => ưu tiên hiện top danh sách các mã họ đã đặt hàng bên linh kiện app liên quan
+  đến mã ID đó - chỉ tính mã chưa bị hủy hoặc từ chối".
+- Đã làm: `GET /api/suachua-partner/lk-theo-case?case_id=` (X-Sync-Key) — khớp `dat_don_hang.ma_yeu_cau_su_co` (index sẵn) + `dat_don_case`,
+  nhận SC / Sc / sc; bỏ `loai_don='tra_hang'` và 'TN tu choi' / 'Tu choi' / 'Da huy'; gom theo mã LK (SL thực xuất hoặc đề xuất), ≤50 dòng.
+  Chỉ đọc, không có migration.
+- Kiểm thử: typecheck sạch; câu truy vấn chạy trên D1 production (chỉ đọc): SC261012203 ra 6 linh kiện, 26 dòng đọc.
