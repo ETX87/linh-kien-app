@@ -61,6 +61,10 @@ export interface Env {
   // Binding (RPC noi bo, khong qua fetch() mang that) thay the - xem wrangler.jsonc muc "services"
   // (service: "dvbh", dung ten script suy tu chinh URL "dvbh.dichvu3t.workers.dev").
   CASE_LOOKUP_SERVICE: Fetcher;
+  // v1.543: app EO Mua hang (Worker "muahang") - API chi doc GET /api/partner/theo-id, key = secret DOC_API_KEY ben do.
+  // Chua dat secret MUAHANG_DOC_API_KEY -> khung "Mua hàng (EO)" bao chua ket noi (khong loi).
+  MUAHANG_SERVICE?: Fetcher;
+  MUAHANG_DOC_API_KEY?: string;
   // Dong bo danh ba KTV/danh muc linh kien sang he DVBH goc (them 2026-08-28, xem
   // lib/dvbhSyncClient.ts + routes/dvbhSync.ts) - CHIEU NGUOC LAI voi CASE_LOOKUP_API_KEY o tren (he
   // nay GHI sang DVBH thay vi doc). Key RIENG, KHONG dung chung CASE_LOOKUP_API_KEY - key ghi rui ro

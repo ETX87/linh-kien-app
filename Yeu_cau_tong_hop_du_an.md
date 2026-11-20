@@ -135,6 +135,9 @@ vẫn hoạt động) → Tác nghiệp duyệt tổng (đồng ý/từ chối) 
 
 ---
 
+- **Kết quả Mua hàng (EO) theo ID** (2026-11-20, v1.543): "dựa vào ID case và ID đơn hàng để trả kết quả về bên app linh kiện" — chi tiết đơn
+  và ticket thiếu hàng hiện PO bên app EO Mua hàng (mã 3TDO, trạng thái, SL đặt / về / thiếu, ngày dự kiến) khớp theo mã đơn / ticket / case.
+
 ## PHẦN B — Yêu cầu bảo mật, phân quyền & kiến trúc dữ liệu
 
 *(Nguồn: "Vấn đề do Codex ghi nhận.txt" — audit sau khi đã có code chạy thật, phát hiện lỗ hổng +

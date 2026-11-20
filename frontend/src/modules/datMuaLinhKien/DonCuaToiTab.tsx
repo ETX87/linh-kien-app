@@ -49,6 +49,7 @@ import {
   LOAI_DON_TONE, loaiDonLabel, deriveLoaiDon, laTruCongNo, actionsFor, laTraHangChoTn, laChoHangMoKhoa, laChoHangBiKhoa, dayLaiDuoc, trangThaiLabel, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft,
   useLkAndLdeCache, useLkCombo, formatLkLabel, isCongNoTaoHo, isDonTaoHo,
   donGiaSauChietKhau, tienSauChietKhau, giaNiemYet, boQuaTbpDacThu, canNhapMaEo, nenKhieuNai, useGsKhuVucSet } from "./helpers";
+import { MuaHangZone } from "./KetQuaMuaHang";
 import { StatusBadge, LoaiDeXuatBadge, loaiDeXuatText, ActiveFiltersBar, TrangThaiDropdownFilter, KhuVucChipFilter, BulkConfirmButton, MaYcscCell, DetailZone, QuickStat, ImageLink, LogTieuDe, timelineLogGop } from "./SharedUi";
 import { MaYeuCauSuCoCheck } from "./MaYeuCauSuCoCheck";
 import { MaLadaCheck, isLikelyLadaId } from "./MaLadaCheck";
@@ -1822,6 +1823,9 @@ export function DonHangDetailModal({
               </Btn>
             </DetailZone>
           )}
+          {/* v1.543: ket qua app EO Mua hang (PO, SL ve, ngay du kien) theo ma don / ticket / case. Don co ticket thieu hang -> luon hien
+              (ke ca "chua co PO"); don khac chi hien khi Mua hang co dong ghi ma don / case nay. */}
+          <MuaHangZone don={d.id} coTicket={!!thieuLk} />
 
           {/* CHOT (ra soat module #18): them 1 cham tron nho dau moi dong theo dung tone trang thai
               (khong to mau ca dong chu) - du quet nhanh "chuoi mau" cua hanh trinh xu ly ma khong

@@ -1613,6 +1613,12 @@ Nguyên văn: *"các logic quá hạn SLA trên toàn bộ hệ thống từ 24h
 - Deploy do workflow `may-deploy` làm sau khi được duyệt — KHÔNG tự deploy trong lúc sửa.
 - Khi làm việc TRONG PHIÊN NÀY (không phải workflow) mà bản sửa giải quyết một issue Mây đang mở (`gh issue list --label may:cho-duyet,may:tu-sua`): ghi mã `MAY-xxxxx` vào dòng đầu commit → Trợ lý Mây tự báo hoàn thành, không cần Giám đốc bấm tay.
 
+## Kết quả Mua hàng (EO) theo ID case / ID đơn (2026-11-20, v1.543)
+- Đọc từ app EO Mua hàng (Worker `muahang`, repo `../EO MUA HANG/eomua` v0.108): `lib/muaHangClient.ts` → Service Binding `MUAHANG_SERVICE`
+  `GET /api/partner/theo-id?ids=&po_lk=`, header `X-API-Key` = secret `MUAHANG_DOC_API_KEY` (cùng giá trị `DOC_API_KEY` bên muahang). Chưa đặt / lỗi → `ket_noi=false`.
+- Route `GET /api/dat-mua-lk/mua-hang-eo?don=|ticket=` (phạm vi `scopeDatMuaNguoiTao`): ids = mã đơn + mọi `thieu_lk.id` của đơn + `dat_don_case.case_id`;
+  po_lk = `thieu_lk.ma_eo_mua` ~ `ddh.ma_lk`. FE `modules/datMuaLinhKien/KetQuaMuaHang.tsx` (`KetQuaMuaHang`, `MuaHangZone`) dùng ở `DanhGiaThieuLk` và chi tiết đơn (`DonCuaToiTab`).
+
 <!-- may-ba-lan -->
 ## Ba làn xử lý của Trợ lý Mây (Giám đốc chốt 18/11/2026 — áp dụng VĨNH VIỄN cho app này)
 Mỗi việc Mây giao thuộc MỘT trong ba làn. Khi viết ý tưởng / BRD, dòng đầu ghi `**Làn:** nhanh | thường | đầy đủ — <lý do 1 câu>`.

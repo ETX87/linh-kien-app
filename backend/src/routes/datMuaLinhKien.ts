@@ -48,6 +48,7 @@ import { quyVeMaChuan } from "../lib/linhKienXetDuyet";
 import { tachComboDong } from "../lib/lkCombo";
 import { tuDongXacNhanHangVe, donHangVeMotPhan } from "../lib/tuDongHangVe";
 import { doiLoaiDeXuatDon, duocDoiLoaiDeXuat, lyDoKhongDoiDuoc, DOI_LDE_DUOC_SQL } from "../lib/doiLoaiDeXuat";
+import { layKetQuaMuaHang } from "../lib/muaHangClient";
 
 // Gioi han so hop ly (chot 2026-11-10, "tổng tiền đang bị lỗi" - Σ Tổng cộng bao cao ra 11.111.111…đ vi 1 don go nham SL/gia khong bi chan).
 // SL 1 dong <= 10.000 chiec, gia 1 chiec <= 1 ty, tien cong no 1 don <= 10 ty.
@@ -5690,6 +5691,29 @@ datMuaLinhKien.get("/thieu-lk-status-counts", async (c) => {
     .bind(...kqDu.binds, JSON.stringify([...dsDu]))
     .first<{ n: number }>();
   return c.json({ counts, ma_lk: { cho, da: (maLk?.tong ?? 0) - cho }, du_hang: duRow?.n ?? 0 });
+});
+
+// GET /api/dat-mua-lk/mua-hang-eo?don=DDH-... | ?ticket=TLK-... (v1.543, 20/11/2026 - "dựa vào ID case và ID đơn hàng để trả kết quả về bên app
+// linh kiện"): ket qua ben app EO Mua hang cho 1 don: PO (3TDO), trang thai, SL dat / ve / thieu, ngay du kien. Gui sang muahang moi ma cua don:
+// ma don, cac ticket thieu hang cua don, ma case (dat_don_case) + cap "ma EO ticket ghi ~ ma LK". Pham vi xem = nhu chi tiet don (scopeDatMuaNguoiTao).
+datMuaLinhKien.get("/mua-hang-eo", async (c) => {
+  const db = c.env.DB;
+  let donId = (c.req.query("don") ?? "").trim();
+  const ticket = (c.req.query("ticket") ?? "").trim();
+  if (!donId && ticket) donId = (await db.prepare("SELECT dat_don_hang_id FROM thieu_lk WHERE id = ?").bind(ticket).first<{ dat_don_hang_id: string }>())?.dat_don_hang_id ?? "";
+  if (!donId) return c.json({ error: "NOT_FOUND" }, 404);
+  const scope = scopeDatMuaNguoiTao(c);
+  const don = await db.prepare(`SELECT ddh.id, ddh.ma_lk FROM dat_don_hang ddh WHERE ddh.id = ?${scope?.whereSql ?? ""}`)
+    .bind(donId, ...(scope?.binds ?? [])).first<{ id: string; ma_lk: string }>();
+  if (!don) return c.json({ error: "NOT_FOUND" }, 404);
+  const [{ results: tk }, { results: cs }] = await Promise.all([
+    db.prepare("SELECT id, ma_eo_mua FROM thieu_lk WHERE dat_don_hang_id = ?").bind(don.id).all<{ id: string; ma_eo_mua: string | null }>(),
+    db.prepare("SELECT case_id FROM dat_don_case WHERE dat_don_hang_id = ?").bind(don.id).all<{ case_id: string }>(),
+  ]);
+  const ids = [don.id, ...tk.map((t) => t.id), ...cs.map((x) => x.case_id)];
+  const poLk = tk.filter((t) => t.ma_eo_mua).flatMap((t) => String(t.ma_eo_mua).split(/[\s,;]+/).filter(Boolean).map((po) => `${po}~${don.ma_lk}`));
+  const kq = await layKetQuaMuaHang(c.env, ids, poLk);
+  return c.json({ ket_noi: kq !== null, ma_da_hoi: ids, rows: kq?.rows ?? [] });
 });
 
 // GET /api/dat-mua-lk/thieu-lk/:id - chi tiet 1 ticket + lich su xu ly (them 2026-08-21, phan hoi

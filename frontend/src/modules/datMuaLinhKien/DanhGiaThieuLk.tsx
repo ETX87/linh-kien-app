@@ -6,6 +6,7 @@ import { fmtDate } from "../../types";
 import { t } from "../../i18n";
 import { trangThaiLabel } from "./helpers";
 import { THIEU_LK_TRANG_THAI_OPTIONS } from "./constants";
+import { KetQuaMuaHang } from "./KetQuaMuaHang";
 
 // Khung "Thông tin để Kho đánh giá" trong Drawer ticket thiếu hàng (2026-10-19): giúp Kho chọn TIẾP NHẬN chờ hàng về (mã đang có hàng
 // về / EO đang về) hay CHUYỂN MUA HÀNG đặt hàng (chưa có kế hoạch hàng về). Nguồn: GET /dat-mua-lk/thieu-lk/:id/danh-gia. EO mua hàng
@@ -61,10 +62,11 @@ export function DanhGiaThieuLk({ id }: { id: string }) {
           <div className="text-[11px] text-[var(--color-text-secondary)]">{t("Hàng về gần nhất")}</div>
           <div className="font-semibold">{data.ngay_hang_ve_gan_nhat ? fmtDate(data.ngay_hang_ve_gan_nhat) : "—"}</div>
         </div>
-        <div>
-          <div className="text-[11px] text-[var(--color-text-secondary)]">{t("EO mua hàng")}</div>
-          <div className="text-[12px] text-[var(--color-text-secondary)]">{data.eo.ket_noi ? "" : t("Chưa kết nối app EO mua hàng")}</div>
-        </div>
+      </div>
+      {/* v1.543: ket qua app EO Mua hang theo ma ticket / don / case (thay o "Chưa kết nối app EO mua hàng") */}
+      <div className="mt-2.5">
+        <div className="mb-1 text-[11px] font-semibold text-[var(--color-text-secondary)]">{t("Mua hàng (EO) cho ticket này")}</div>
+        <KetQuaMuaHang ticket={id} />
       </div>
       {data.ticket_cung_ma.length > 0 && (
         <div className="mt-2.5">

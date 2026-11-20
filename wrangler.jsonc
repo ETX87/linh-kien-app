@@ -66,7 +66,9 @@
     { "binding": "CASE_LOOKUP_SERVICE", "service": "dvbh", "remote": true },
     { "binding": "SUACHUA_SYNC_SERVICE", "service": "suachua", "remote": true },
     { "binding": "KHOVAN_SYNC_SERVICE", "service": "khovan", "remote": true },
-    { "binding": "VIPHAM_SYNC_SERVICE", "service": "vipham", "remote": true }
+    { "binding": "VIPHAM_SYNC_SERVICE", "service": "vipham", "remote": true },
+    // v1.543 (20/11/2026): doc ket qua Mua hang (app "muahang" - EO mua hang) theo ID case / don / ticket - lib/muaHangClient.ts
+    { "binding": "MUAHANG_SERVICE", "service": "muahang", "remote": true }
   ],
 
   "vars": {

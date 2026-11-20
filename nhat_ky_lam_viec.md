@@ -357,3 +357,13 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
 - **Đã làm (chỉ frontend):** `modules/viPham/ViPhamUi.tsx` thêm `moTaLoi()` + khối `KhoiLoiViPham` ("Lỗi vi phạm": việc bộ phận phải làm ở bước — bảng `VIEC_BUOC` theo mã bước, khớp `BUOC_VI_PHAM` backend — + diễn biến: vào bước lúc nào, hạn SLA, xử lý lúc nào / bởi ai hoặc chưa xử lý, trễ bao lâu + dòng "Tra cứu" mã đơn / phiếu / ticket + LK) ở đầu hộp giải trình và chi tiết ca; cột "Lỗi vi phạm" ở danh sách (rê chuột xem đủ câu). `MaLienKet.tsx` thêm `MaTicketLink` (mở Drawer chi tiết ticket thiếu hàng tại chỗ) — mã TLK trong `MaDoiTuong` (bảng, popup nhắc giải trình, thanh cảnh báo) giờ bấm được. Bản dịch EN / ID.
 - **Kiểm thử:** typecheck + build sạch. Worker + D1 local, ca mẫu `kho_thieu` ticket TLK-T9 (đã xoá sau khi thử): popup nhắc khi mở app hiện link TLK-T9; hộp giải trình hiện khối "Lỗi vi phạm" đúng câu; bấm TLK-T9 mở đúng chi tiết ticket; bảng "Quá hạn & vi phạm" có cột mới.
 
+## 2026-11-20 — Kết quả Mua hàng (EO) theo ID case / ID đơn ở chi tiết đơn + ticket thiếu hàng (v1.543)
+- **Yêu cầu:** "việc dở liên quan đến việc dựa vào ID case và ID đơn hàng để trả kết quả về bên app linh kiện".
+- **Đã làm:** backend `lib/muaHangClient.ts` (`layKetQuaMuaHang` gọi app EO Mua hàng v0.108 `GET /api/partner/theo-id` qua Service Binding `MUAHANG_SERVICE`,
+  secret `MUAHANG_DOC_API_KEY`; lỗi / chưa cấu hình → null) + `GET /api/dat-mua-lk/mua-hang-eo?don=|ticket=` (phạm vi xem như chi tiết đơn; gửi mã đơn,
+  ticket của đơn, case của đơn, cặp `3TDO~mã LK` từ `thieu_lk.ma_eo_mua`). FE `KetQuaMuaHang.tsx`: trong "Thông tin để Kho đánh giá" của ticket thay ô
+  "Chưa kết nối app EO mua hàng" bằng danh sách PO khớp; chi tiết đơn thêm khung "Mua hàng (EO)" (`MuaHangZone`). Bản dịch EN / ID.
+- **Dữ liệu thật:** bên Mua hàng 852 dòng có ID đặt hàng (`DDH-…`, `TLK-00…` và mã cũ `TLK-<hex>` không còn bên app này), 882 dòng có ID CRM; 321 ticket bên này đã ghi mã EO.
+- **Kiểm thử:** typecheck + build sạch; API Mua hàng thật trả đúng PO cho `DDH-008172`, `TLK-001254`, case `B1466610`, `T21306` (401 khi thiếu khoá).
+  Chưa mở được giao diện app này với tài khoản thật để xem khung mới (cần đăng nhập).
+
