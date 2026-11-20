@@ -509,7 +509,7 @@ code). 2 thay đổi lớn nhất đã áp dụng từ hướng này vào `DatMu
     CỦA ĐƠN (`COALESCE(khu_vuc_chon, khu_vuc_ma)`).
   - Báo cáo tổng thể: "Đơn đang chờ" / "Tiền chờ duyệt" tính thêm "Cho GS duyet" + "Cho thanh toan" (`DANG_CHO_DUYET_STATES`, cache v3); bỏ
     biểu đồ "Top 5 KTV tồn đọng"; "Phạm vi dữ liệu" gộp vào hàng tiêu đề "Đang tồn".
-  - Cron 0h VN: thông báo chưa đọc quá 30 ngày → `da_doc = 1` (lúc triển khai 25.904 dòng; 1 tài khoản giữ 8.571).
+  - Cron 0h VN: ~~thông báo chưa đọc quá 30 ngày → `da_doc = 1`~~ → từ v1.534 (2026-11-20, "các thông báo sau 10 ngày tự clear để giảm tải áp lực cho hệ thống lưu trữ") XOÁ HẲN mọi thông báo chuông (`thong_bao_ktv`) quá 10 ngày, đã đọc lẫn chưa đọc — `xoaThongBaoCu()` (`lib/donThongBao.ts`, lô 5.000 dòng). Lúc làm: 149.555 dòng, 117.411 quá 10 ngày. Thẻ "Đơn bị từ chối" (`__TU_CHOI_CHUA_XEM__`) vì vậy chỉ còn đếm đơn bị từ chối trong 10 ngày.
 - Tab **"Trang chủ"** (`TrangChuTab.tsx`) là view mặc định cho MỌI vai trò khi mở module (thay cho
   logic rẽ nhánh `defaultView` theo `canKho`/`canKeToan`/`canQC` cũ) — gộp cả nội dung "Báo cáo" cũ
   vào bên trong nó (tab "Báo cáo" riêng đã bỏ).

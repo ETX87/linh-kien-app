@@ -278,3 +278,13 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
 **Đã làm:** `xetLaiDonChoGsDuyet()` ở `lib/tuDongDuyet.ts` (quy tắc ở CLAUDE.md). Gọi sau lô cuối import tồn kho MISA và mỗi giờ (cron).
 
 **Kiểm thử:** typecheck backend 0 lỗi. D1 local (route thử tạm, đã gỡ): đơn hết vượt trần → "TN da duyet" + log tự động đủ số liệu; đơn vẫn vượt giữ "Cho GS duyet"; gọi lần 2 không làm gì. Xem trước trên D1 thật (chỉ đọc): 3 đơn chờ GS vì vượt trần — chỉ DDH-007559 qua (2 đơn còn lại: KTV chưa đặt trần; công nợ 15,7tr > trần 6,8tr). Cron đầu giờ sau deploy sẽ chuyển đơn này.
+
+## 2026-11-20 — Thông báo chuông tự xoá sau 10 ngày (v1.534)
+
+**Yêu cầu (nguyên văn):** "1. khi ktv vào app, hiện tại có hiện 1 popup nhắc nhở các đơn tồn cần xử lý không? ví dụ 2 phiếu đang chờ bạn chuyển tiền => click vào để xem... 2. thêm nguyên tắc các thông báo sau 10 ngày tự clear để giảm tải áp lực cho hệ thống lưu trữ"
+
+**Trả lời (1):** chưa có — KTV chỉ có popup "Chuyển tiền bị từ chối" và số "Cần làm" ở Trang chủ / menu; không có popup tổng hợp việc tồn khi mở app. Chưa làm, chờ chủ hệ thống chốt.
+
+**Đã làm (2):** cron 0h VN xoá hẳn thông báo chuông (`thong_bao_ktv`) quá 10 ngày (`lib/donThongBao.ts` `xoaThongBaoCu`, lô 5.000 dòng), thay quy tắc cũ "chưa đọc quá 30 ngày → đánh dấu đã đọc". D1 thật lúc làm: 149.555 dòng, 117.411 dòng quá 10 ngày (sẽ xoá ở lần chạy 0h đầu tiên); 82.544 dòng chưa đọc. Ảnh hưởng: thẻ "Đơn bị từ chối" chỉ còn đếm đơn bị từ chối trong 10 ngày.
+
+**Kiểm thử:** typecheck backend 0 lỗi. Chưa chạy lần xoá thật (cron 0h VN).
