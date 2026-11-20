@@ -69,7 +69,7 @@ duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xe
   sau mỗi lần nhập tồn. Tách đơn khi về một phần; đổi sang LK tương đương (đổi mã thì BỎ giá chốt tay của mã cũ — giá tính lại theo mã mới).
   Giá chốt tay luôn thắng giá theo loại chiết khấu; dòng đơn trong phiếu có nhãn "Giá chốt tay" khi đang áp.
 - **KTV báo nhận thiếu** (ticket NTH): Kho kiểm → gửi bù hoặc hoàn tiền → Kế toán cân đối. Với gửi bù, Kế toán chọn: tạo đơn + phiếu gửi bù trên app (SL thực xuất đơn gốc = SL thực nhận, tiền phần thiếu sang phiếu gửi bù) HOẶC "Kho gửi bù ngoài hệ thống" (không tạo đơn / phiếu, giữ nguyên SL + tiền phiếu gốc, ticket "Đã gửi bù" không có phiếu gửi bù).
-- **Thiếu hàng bảo hành** (ticket THB) nhận từ app Bảo hành đổi trả, phản hồi trạng thái về đơn gốc.
+- **Thiếu hàng bảo hành** (ticket THB) nhận từ app Bảo hành đổi trả, phản hồi trạng thái về đơn gốc. Ticket THB chỉ báo thiếu — KHÔNG tạo đơn xuất; muốn xuất linh kiện cho NV sửa chữa phải có đề xuất linh kiện (đơn DDH) bên app đổi trả. Ô tìm Ctrl+K tìm được ticket THB theo mã ticket / mã case / mã đơn BH (Kho, TN, Mua hàng, Kế toán, View, Admin) và đơn sửa chữa theo mã đơn BH.
 
 ## 7. Hàng trả
 

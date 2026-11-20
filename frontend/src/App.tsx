@@ -20,6 +20,8 @@ import type { JumpTarget } from "./modules/datMuaLinhKien/types";
 import { ROLE_MODULES, MODULE_TITLES, NAV_GROUPS } from "./layout/navConfig";
 import { DatMuaLinhKienModule } from "./modules/DatMuaLinhKienModule";
 import { DanhMucLinhKienModule, XemLinhKienDrawer } from "./modules/DanhMucLinhKienModule";
+import { XemThieuHangBh } from "./modules/datMuaLinhKien/ThieuHangBh";
+import { useToast } from "./components/ui/Toast";
 import { khopTim } from "./lib/boDau";
 import { TonKhoKtvModule } from "./modules/TonKhoKtvModule";
 import { DanhSachKtvModule } from "./modules/DanhSachKtvModule";
@@ -320,6 +322,9 @@ function MainApp({
   // Ctrl+K tim linh kien (2026-10-29): bam 1 LK = drawer thong tin LK (dung chung Bang gia) ngay tai man dang dung;
   // "Tìm … trong Bảng giá" / chon muc "Bảng giá" khi dang go tu khoa = mo Bang gia voi o tim dien san.
   const [xemLkTuTim, setXemLkTuTim] = useState<string | null>(null);
+  // Ticket thieu hang bao hanh (THB-...) tim tu Ctrl+K (2026-11-20) - mo chi tiet ngay tai man dang dung.
+  const [xemThbTuTim, setXemThbTuTim] = useState<string | null>(null);
+  const addToastToanCuc = useToast();
   const [bangGiaTim, setBangGiaTim] = useState<{ q: string; nonce: number } | null>(null);
   function handleCommandSelect(item: CommandItem, q: string) {
     const a = item.action;
@@ -327,10 +332,11 @@ function MainApp({
       if (item.key === "danh-muc-lk" && q && !khopTim(item.label, q)) setBangGiaTim({ q, nonce: Date.now() });
       setActive(item.key);
     } else if (a.type === "linh_kien") setXemLkTuTim(a.id);
+    else if (a.type === "thieu_hang_bh") setXemThbTuTim(a.id);
     else if (a.type === "bang_gia") {
       setBangGiaTim({ q: a.id, nonce: Date.now() });
       setActive("danh-muc-lk");
-    } else openSearchResult(a);
+    } else openSearchResult(a as { type: "don_hang" | "phieu_xuat_kho" | "thieu_lk"; id: string });
   }
   // Mo Drawer chi tiet 1 dong tra hang theo dung dat_don_hang.id (them 2026-09-09, xem
   // lib/pxkDeepLink.ts) - khac openPxkFromBell, id truyen vao day PHAI la dat_don_hang.id that
@@ -612,6 +618,7 @@ function MainApp({
       )}
       <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} items={commandItems} onSelect={handleCommandSelect} />
       {xemLkTuTim && <XemLinhKienDrawer ma={xemLkTuTim} onClose={() => setXemLkTuTim(null)} />}
+      {xemThbTuTim && <XemThieuHangBh id={xemThbTuTim} onClose={() => setXemThbTuTim(null)} addToast={addToastToanCuc} />}
       {realIsAdmin && mobilePreviewOpen && (
         <div className="fixed inset-0 z-[100] bg-[rgba(24,24,27,0.65)] flex items-center justify-center p-4 sm:p-8 overflow-auto">
           <div className="relative shrink-0">

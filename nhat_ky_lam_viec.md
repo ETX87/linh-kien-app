@@ -339,3 +339,10 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
 - **Đã làm:** PATCH `/don-hang/:id` cho đổi cờ khi phiếu còn "Dang tao phieu" / "Cho ke toan" kể cả đã có tiền: gỡ đơn như đơn CHƯA thanh toán (`goDonKhoiPxk` không mang tiền → tổng giảm, thừa hoàn về quỹ cũ, phiếu hết đơn tự hủy + báo hoàn quỹ) rồi gom vào phiếu đúng quỹ. Chỉ chặn khi phiếu đã qua Kế toán chốt hoặc đơn mang tiền riêng (`tien_da_tra`). Form sửa đơn hiện cảnh báo "đổi quỹ tiền" khi đơn đang trong phiếu; i18n bổ sung cả 4 câu "Hủy phiếu trống" còn thiếu của v1.538.
 - **Kiểm thử (Worker + D1 local):** bỏ tích KH đơn duy nhất của phiếu đã đủ 450.000đ → phiếu tự hủy, 450.000đ về Quỹ KH chuyển khoản, đơn sang phiếu quỹ KTV "Chờ KTV chuyển". Typecheck 2 phía 0 lỗi. Giao diện chưa xem bằng mắt.
 
+
+## 2026-11-20 — Ô tìm Ctrl+K tìm ticket thiếu hàng bảo hành + đơn theo mã đơn BH (v1.540)
+
+- **Yêu cầu (nguyên văn):** "các đơn đặt trên hệ thống app đổi trả đã tự động đẩy sang hệ thống app đặt linh kiện chưa? ví dụ như đơn này: SC2611120758" → rồi "công cụ tìm kiếm không tìm thấy".
+- **Kiểm tra (D1 production, chỉ đọc):** case SC2611120758 / DH-006691-1 KHÔNG có đơn đặt hàng nào — bên app đổi trả mới "Báo thiếu hàng" (ticket THB-000181, Kho đã xác nhận hàng về), chưa tạo đề xuất linh kiện. Luồng đẩy đơn vẫn chạy (8 đơn `nguon_tao='doitra'`). Ctrl+K không ra vì `/dat-mua-lk/search` chưa tìm bảng `thieu_hang_bh`.
+- **Đã làm:** `GET /dat-mua-lk/search` thêm ticket THB theo tiền tố mã ticket / `case_id` / `nguon_id` (cùng quyền xem với `routes/thieuHangBh.ts`) + đơn theo tiền tố `bh_don_vi_id`. FE: loại kết quả `thieu_hang_bh` (nhóm "Thiếu hàng bảo hành") → `XemThieuHangBh` (ThieuHangBh.tsx) mở chi tiết ticket ngay tại màn đang dùng.
+- **Kiểm thử:** typecheck backend + frontend 0 lỗi; câu SQL chạy trên D1 production (chỉ đọc) ra THB-000181 với "SC2611120758" và "DH-006691". Chưa bấm thử trên giao diện.

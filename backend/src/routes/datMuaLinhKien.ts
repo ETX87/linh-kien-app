@@ -3439,7 +3439,7 @@ datMuaLinhKien.get("/search", async (c) => {
   const user = c.get("user");
   const q = (c.req.query("q") ?? "").trim().toUpperCase();
   if (q.length < 3) return c.json({ results: [] });
-  const results: { type: "don_hang" | "phieu_xuat_kho" | "thieu_lk"; id: string; label: string }[] = [];
+  const results: { type: "don_hang" | "phieu_xuat_kho" | "thieu_lk" | "thieu_hang_bh"; id: string; label: string }[] = [];
 
   {
     const scope = scopeDatMuaNguoiTao(c);
@@ -3500,23 +3500,43 @@ datMuaLinhKien.get("/search", async (c) => {
     const scope = scopeDatMuaNguoiTao(c);
     const daCo = new Set(results.map((r) => r.id));
     const theoMa = orMaYcsc("ddh", q);
+    // + ma don bao hanh cua don sua chua (DH-006691 / DH-006691-1, 2026-11-20 - tim tien to).
     const { results: rows } = await c.env.DB.prepare(
-      `SELECT ddh.id, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.ma_yeu_cau_su_co, ddh.ma_lada FROM dat_don_hang ddh
-       WHERE (0${theoMa.sql})${scope?.whereSql ?? ""} ORDER BY ddh.ngay_tao DESC LIMIT 5`,
+      `SELECT ddh.id, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.ma_yeu_cau_su_co, ddh.ma_lada, ddh.bh_don_vi_id FROM dat_don_hang ddh
+       WHERE (0${theoMa.sql} OR UPPER(ddh.bh_don_vi_id) LIKE ? || '%')${scope?.whereSql ?? ""} ORDER BY ddh.ngay_tao DESC LIMIT 5`,
     )
-      .bind(...theoMa.binds, ...(scope?.binds ?? []))
-      .all<{ id: string; ma_lk: string | null; ten_lk_snapshot: string | null; ma_yeu_cau_su_co: string | null; ma_lada: string | null }>();
+      .bind(...theoMa.binds, q, ...(scope?.binds ?? []))
+      .all<{ id: string; ma_lk: string | null; ten_lk_snapshot: string | null; ma_yeu_cau_su_co: string | null; ma_lada: string | null; bh_don_vi_id: string | null }>();
     for (const r of rows) {
       if (daCo.has(r.id)) continue;
-      // Nhan theo ma THUC SU khop tu khoa (Ma Lada hay Ma YCSC chinh/bo sung).
-      const maKhop = r.ma_lada?.toUpperCase().includes(q) ? `Lada ${r.ma_lada}` : `YCSC ${r.ma_yeu_cau_su_co ?? q}`;
+      // Nhan theo ma THUC SU khop tu khoa (Ma Lada / ma don BH / Ma YCSC chinh/bo sung).
+      const maKhop = r.ma_lada?.toUpperCase().includes(q)
+        ? `Lada ${r.ma_lada}`
+        : r.bh_don_vi_id?.toUpperCase().startsWith(q)
+          ? `Đơn BH ${r.bh_don_vi_id}`
+          : `YCSC ${r.ma_yeu_cau_su_co ?? q}`;
       results.push({ type: "don_hang", id: r.id, label: `${r.id} — ${maKhop} — ${r.ten_lk_snapshot ?? r.ma_lk ?? ""}` });
     }
   }
 
+  // + ticket THIEU HANG BAO HANH (THB-..., app Sua chua bao hanh gui sang) theo ma ticket / ma case / ma don BH
+  // (2026-11-20 - "SC2611120758 công cụ tìm kiếm không tìm thấy": case chi co ticket THB, chua co don). Quyen xem
+  // = CUNG xemDuoc() o routes/thieuHangBh.ts (Kho / TN / Mua hang / Ke toan / View / Admin) - doi 1 ben doi ca 2.
+  if (user.la_kho || user.la_tac_nghiep || user.la_mua_hang || user.la_ke_toan || user.la_view || user.vai_tro === "Admin") {
+    const { results: rows } = await c.env.DB.prepare(
+      `SELECT id, ma_lk, ten_lk, case_id, nguon_id FROM thieu_hang_bh
+       WHERE UPPER(id) LIKE ? || '%' OR UPPER(case_id) LIKE ? || '%' OR UPPER(nguon_id) LIKE ? || '%'
+       ORDER BY ngay_tao DESC LIMIT 5`,
+    )
+      .bind(q, q, q)
+      .all<{ id: string; ma_lk: string | null; ten_lk: string | null; case_id: string | null; nguon_id: string | null }>();
+    for (const r of rows)
+      results.push({ type: "thieu_hang_bh", id: r.id, label: `${r.id} — ${r.nguon_id ?? ""}${r.case_id ? ` · ${r.case_id}` : ""} — ${r.ten_lk ?? r.ma_lk ?? ""}` });
+  }
+
   // + tim theo MA LINH KIEN (2026-10-29, "muốn tìm mã linh kiện không tìm được"): don gan nhat co ma LK bat dau bang tu
   // khoa, cung scope xem don. Bo qua khi tu khoa la tien to ma he thong (DDH-/PMH-/...) de khong lap ket qua.
-  if (!/^(DDH|PMH|PCN|PTL|PXK|TLK|TRA)-/.test(q)) {
+  if (!/^(DDH|PMH|PCN|PTL|PXK|TLK|TRA|THB)-/.test(q)) {
     const scope = scopeDatMuaNguoiTao(c);
     const daCo = new Set(results.map((r) => r.id));
     const { results: rows } = await c.env.DB.prepare(

@@ -26,7 +26,7 @@ import { t } from "../../i18n";
 // LK, action "linh_kien") + dong "Tìm “…” trong Bảng giá" (action "bang_gia", mo Bang gia voi o tim dien san). Ma da doi
 // (A -> B) hien ma chuan B. Backend /dat-mua-lk/search them don theo MA LK.
 export type CommandAction =
-  | { type: "don_hang" | "phieu_xuat_kho" | "thieu_lk"; id: string }
+  | { type: "don_hang" | "phieu_xuat_kho" | "thieu_lk" | "thieu_hang_bh"; id: string }
   | { type: "linh_kien"; id: string }
   | { type: "bang_gia"; id: string };
 export interface CommandItem {
@@ -37,8 +37,8 @@ export interface CommandItem {
   action?: CommandAction;
 }
 
-const SEARCH_TYPE_ICON: Record<string, string> = { don_hang: "📄", phieu_xuat_kho: "📦", thieu_lk: "⚠" };
-const SEARCH_TYPE_GROUP: Record<string, string> = { don_hang: "Đơn hàng", phieu_xuat_kho: "Phiếu xuất kho", thieu_lk: "Thiếu LK" };
+const SEARCH_TYPE_ICON: Record<string, string> = { don_hang: "📄", phieu_xuat_kho: "📦", thieu_lk: "⚠", thieu_hang_bh: "🛠" };
+const SEARCH_TYPE_GROUP: Record<string, string> = { don_hang: "Đơn hàng", phieu_xuat_kho: "Phiếu xuất kho", thieu_lk: "Thiếu LK", thieu_hang_bh: "Thiếu hàng bảo hành" };
 
 interface PaletteProps {
   open: boolean;
@@ -114,7 +114,7 @@ function PaletteBody({ onClose, items, onSelect }: PaletteProps) {
     let cancelled = false;
     const hen = setTimeout(() => {
       api
-        .get<{ results: { type: "don_hang" | "phieu_xuat_kho" | "thieu_lk"; id: string; label: string }[] }>(`/dat-mua-lk/search?q=${encodeURIComponent(needle)}`)
+        .get<{ results: { type: "don_hang" | "phieu_xuat_kho" | "thieu_lk" | "thieu_hang_bh"; id: string; label: string }[] }>(`/dat-mua-lk/search?q=${encodeURIComponent(needle)}`)
         .then((res) => {
           if (cancelled) return;
           setSearchResults(

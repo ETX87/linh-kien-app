@@ -372,3 +372,21 @@ function ThbDetailModal({ row, onClose, addToast, ten }: { row: ThbRow; onClose:
     </Modal>
   );
 }
+
+// Mo chi tiet 1 ticket THB tu o tim Ctrl+K (2026-11-20) - tai ticket truoc roi dung LAI ThbDetailModal (cung queryKey
+// chi tiet nen modal khong tai lai). Khong co quyen / khong thay -> bao loi va dong.
+export function XemThieuHangBh({ id, onClose, addToast }: { id: string; onClose: () => void; addToast: (msg: string) => void }) {
+  const ten = useTenNguoiLog();
+  const { data, error } = useQuery({
+    queryKey: ["thieu-hang-bh-ct", id],
+    queryFn: () => api.get<{ ticket: ThbRow; log: LogRow[]; vai: { kho: boolean; mua_hang: boolean } }>(`/thieu-hang-bh/${encodeURIComponent(id)}`),
+  });
+  useEffect(() => {
+    if (error) {
+      addToast(t("Lỗi: {msg}", { msg: loi(error) }));
+      onClose();
+    }
+  }, [error]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!data) return null;
+  return <ThbDetailModal row={data.ticket} onClose={onClose} addToast={addToast} ten={ten} />;
+}
