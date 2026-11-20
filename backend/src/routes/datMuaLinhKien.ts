@@ -4334,9 +4334,11 @@ datMuaLinhKien.post("/don-hang/:id/day-lai", async (c) => {
   const body = await c.req.json<{ ghi_chu?: string }>().catch(() => ({}) as { ghi_chu?: string });
   // Don bi huy theo TICKET thieu hang (Kho tu choi / huy ticket khi don dang Cho hang) -> phuc hoi THEO TICKET (2026-10-16): ticket ve
   // trang thai truoc khi bi tu choi, don ve "Cho hang" (khong ve "Cho TN duyet") - lib/dayLaiThieuLk.ts.
-  const ticketPhucHoi = await ticketDayLaiCuaDon(c.env.DB, id);
+  // Admin đẩy lại không giới hạn 24h (2026-11-20, v1.541); TN / Kế toán vẫn 24h.
+  const laAdmin = user.vai_tro === "Admin";
+  const ticketPhucHoi = await ticketDayLaiCuaDon(c.env.DB, id, laAdmin);
   if (ticketPhucHoi) {
-    const kq = await dayLaiTicketThieuLk(c.env, c.env.DB, ticketPhucHoi, user.email, body.ghi_chu);
+    const kq = await dayLaiTicketThieuLk(c.env, c.env.DB, ticketPhucHoi, user.email, body.ghi_chu, { boQuaHan: laAdmin });
     if ("error" in kq) return c.json({ error: kq.error, han: kq.han, pxk: kq.pxk }, kq.status);
     c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
     return c.json({ ok: true, trang_thai: "Cho hang", ticket: ticketPhucHoi, trang_thai_ticket: kq.trangThaiTicket, tien_lay_lai: kq.tienLayLai });
@@ -4357,7 +4359,8 @@ datMuaLinhKien.post("/don-hang/:id/day-lai", async (c) => {
   if (!(DAY_LAI_TRANG_THAI as readonly string[]).includes(ddh.trang_thai)) return c.json({ error: "DON_KHONG_DAY_LAI_DUOC" }, 409);
   // han NULL = don do chinh nguoi tao / nguoi nhan hang tu huy - xem dayLaiHanSql.
   if (!ddh.han) return c.json({ error: "KHONG_PHAI_TN_HUY_TU_CHOI" }, 409);
-  if (ddh.han < ddh.bay_gio) return c.json({ error: "QUA_24H_KHONG_DAY_LAI", han: ddh.han }, 409);
+  if (ddh.han < ddh.bay_gio && !laAdmin) return c.json({ error: "QUA_24H_KHONG_DAY_LAI", han: ddh.han }, 409);
+  const adminQuaHan = ddh.han < ddh.bay_gio;
   if (ddh.nhan_bi_khoa) return c.json({ error: "NGUOI_NHAN_HANG_DA_TAT" }, 409);
 
   // Lien ket phieu cu: phieu da huy ("Ke toan huy" - don van giu ma_xuat_kho) -> bo lien ket de don di lai tu dau; phieu con
@@ -4385,7 +4388,7 @@ datMuaLinhKien.post("/don-hang/:id/day-lai", async (c) => {
     .run();
   if (!cas.meta.changes) return c.json({ error: "STATE_CHANGED" }, 409);
   const tuTrangThai = ddh.trang_thai === "Da huy" ? "đã hủy" : "đã từ chối";
-  const ghiChu = `Đẩy lại đơn ${tuTrangThai} về chờ duyệt${body.ghi_chu?.trim() ? `: ${body.ghi_chu.trim()}` : ""}`;
+  const ghiChu = `Đẩy lại đơn ${tuTrangThai} về chờ duyệt${adminQuaHan ? " (Admin đẩy lại khi đã quá 24h)" : ""}${body.ghi_chu?.trim() ? `: ${body.ghi_chu.trim()}` : ""}`;
   await c.env.DB.prepare("INSERT INTO dat_don_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Cho TN duyet', ?, ?, ?)")
     .bind(id, user.email, now, ghiChu)
     .run();
@@ -5803,7 +5806,9 @@ datMuaLinhKien.get("/thieu-lk/:id", async (c) => {
 datMuaLinhKien.post("/thieu-lk/:id/day-lai", async (c) => {
   if (!canTacNghiep(c) && !canKho(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const body = await c.req.json<{ ghi_chu?: string }>().catch(() => ({}) as { ghi_chu?: string });
-  const kq = await dayLaiTicketThieuLk(c.env, c.env.DB, c.req.param("id"), c.get("user").email, body.ghi_chu);
+  const kq = await dayLaiTicketThieuLk(c.env, c.env.DB, c.req.param("id"), c.get("user").email, body.ghi_chu, {
+    boQuaHan: c.get("user").vai_tro === "Admin",
+  });
   if ("error" in kq) return c.json({ error: kq.error, han: kq.han, pxk: kq.pxk }, kq.status);
   c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
   return c.json({ ok: true, don_hang_id: kq.donHangId, trang_thai_ticket: kq.trangThaiTicket, tien_lay_lai: kq.tienLayLai, tien_hoan: kq.tienHoan });

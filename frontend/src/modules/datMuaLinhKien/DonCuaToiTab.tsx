@@ -1004,9 +1004,13 @@ export function DonHangDetailModal({
           )}
           </div>
         </div>
-      ) : dayLaiDuoc(d, canTacNghiep) ? (
+      ) : dayLaiDuoc(d, canTacNghiep, !!isAdmin) ? (
         <div className="w-full flex items-center justify-end gap-2 flex-wrap">
-          <span className="text-[11.5px] text-[var(--color-text-secondary)]">{t("Đẩy lại được đến {a}", { a: fmtDateTime(d.day_lai_han) })}</span>
+          <span className="text-[11.5px] text-[var(--color-text-secondary)]">
+            {dayLaiDuoc(d, canTacNghiep)
+              ? t("Đẩy lại được đến {a}", { a: fmtDateTime(d.day_lai_han) })
+              : t("Đã quá 24h — Admin vẫn đẩy lại được")}
+          </span>
           <Btn size="sm" variant="ghost" onClick={() => setActionTarget("day_lai")}>{t("↩ Đẩy lại chờ duyệt")}</Btn>
         </div>
       ) : laChoHangBiKhoa(d) ? (
@@ -2883,6 +2887,7 @@ export function DonHangGroupedList({
   columnSettingsSlot: HTMLDivElement | null;
 }) {
   const authGs = useAuth();
+  const isAdmin = authGs.status === "authenticated" && authGs.user.vai_tro === "Admin";
   const laGsList = authGs.status === "authenticated" && authGs.user.vai_tro === "Giam sat";
   const gsKhuVucList = useGsKhuVucSet(laGsList);
   const ktvDisplayMap = useKtvDisplayMap();
@@ -3115,7 +3120,7 @@ export function DonHangGroupedList({
               ✕
             </Btn>
           )}
-{dayLaiDuoc(row.d, canTacNghiep) && (
+{dayLaiDuoc(row.d, canTacNghiep, !!isAdmin) && (
             <Btn
               size="sm"
               variant="ghost"
@@ -3167,7 +3172,7 @@ export function DonHangGroupedList({
   //     an han neu khong dong nao co nut (vd KTV xem don cua minh).
   const actionCount = (d: DonHangRow) => {
     const a = actionsFor(d, { canTacNghiep, canTPDvbhXacNhan, canActAsTram, currentEmail, laGs: laGsList, gsKhuVuc: gsKhuVucList });
-    return (a.duyet ? 1 : 0) + (a.choHang ? 1 : 0) + (a.tuChoi ? 1 : 0) + (dayLaiDuoc(d, canTacNghiep) ? 1 : 0);
+    return (a.duyet ? 1 : 0) + (a.choHang ? 1 : 0) + (a.tuChoi ? 1 : 0) + (dayLaiDuoc(d, canTacNghiep, !!isAdmin) ? 1 : 0);
   };
   const maxActions = rows.reduce((m, d) => Math.max(m, actionCount(d)), 0);
   const actionCol = effectiveColumns.find((c) => c.key === "hanh_dong");
@@ -3608,7 +3613,7 @@ export function DonHangGroupedList({
                                   ✕
                                 </Btn>
                               )}
-{dayLaiDuoc(d, canTacNghiep) && (
+{dayLaiDuoc(d, canTacNghiep, !!isAdmin) && (
                                 <Btn
                                   size="sm"
                                   variant="ghost"

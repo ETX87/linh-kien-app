@@ -3111,5 +3111,6 @@ const tuDien: Record<string, string> = {
   "Phiếu không còn đơn nào — hủy phiếu trống này.": "This slip has no orders left — cancel the empty slip.",
   "Phiếu đã có đơn hoặc không còn ở bước tạo phiếu — không hủy": "The slip has orders or is past the drafting step — not cancelled",
   "Đã hủy phiếu trống {a}": "Cancelled empty slip {a}",
+  "Đã quá 24h — Admin vẫn đẩy lại được": "Past 24h — Admin can still push it back",
 };
 export default tuDien;

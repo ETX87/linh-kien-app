@@ -491,8 +491,10 @@ export function laTraHangChoTn(d: Pick<DonHangRow, "loai_don" | "trang_thai">): 
 
 // TN "đẩy lại" don da huy / da tu choi ve "Chờ TN duyệt" trong 24h (chot 2026-10-05) - han do backend tinh (day_lai_han,
 // gio VN), POST /don-hang/:id/day-lai kiem tra lai.
-export function dayLaiDuoc(d: DonHangRow, canTacNghiep: boolean): boolean {
+// laAdmin (2026-11-20, v1.541 - "cho phép admin đẩy lại không giới hạn 24h"): Admin bấm được cả khi đã quá hạn (backend cũng bỏ qua hạn).
+export function dayLaiDuoc(d: DonHangRow, canTacNghiep: boolean, laAdmin = false): boolean {
   if (!canTacNghiep || !d.day_lai_han) return false;
+  if (laAdmin) return true;
   const bayGioVN = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 19).replace("T", " ");
   return d.day_lai_han > bayGioVN;
 }

@@ -1254,8 +1254,10 @@ export function ThieuLkDetailModal({
   const tkDonGoc = tk as (ThieuLkRow & {
     ddh_trang_thai?: string | null; ddh_day_lai_han?: string | null; day_lai_ticket_han?: string | null; day_lai_ticket_ve?: string | null;
   }) | undefined;
-  const dayLaiTicket = !!tkDonGoc?.day_lai_ticket_ve && dayLaiDuoc({ day_lai_han: tkDonGoc.day_lai_ticket_han ?? null } as DonHangRow, canTacNghiep || canKho);
-  const dayLaiDonGoc = !dayLaiTicket && !!tkDonGoc?.dat_don_hang_id && dayLaiDuoc({ day_lai_han: tkDonGoc.ddh_day_lai_han ?? null } as DonHangRow, canTacNghiep);
+  const authDayLai = useAuth();
+  const laAdminDayLai = authDayLai.status === "authenticated" && authDayLai.user.vai_tro === "Admin";
+  const dayLaiTicket = !!tkDonGoc?.day_lai_ticket_ve && dayLaiDuoc({ day_lai_han: tkDonGoc.day_lai_ticket_han ?? null } as DonHangRow, canTacNghiep || canKho, laAdminDayLai);
+  const dayLaiDonGoc = !dayLaiTicket && !!tkDonGoc?.dat_don_hang_id && dayLaiDuoc({ day_lai_han: tkDonGoc.ddh_day_lai_han ?? null } as DonHangRow, canTacNghiep, laAdminDayLai);
   const nhanTicketVe = tkDonGoc?.day_lai_ticket_ve ? trangThaiLabel(THIEU_LK_TRANG_THAI_OPTIONS, tkDonGoc.day_lai_ticket_ve) : "";
   const dayLaiMutation = useMutation({
     mutationFn: () =>

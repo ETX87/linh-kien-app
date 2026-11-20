@@ -43,19 +43,22 @@ export function trangThaiTruocTicketSql(t: string): string {
 }
 
 /** Ticket mới nhất của đơn có đẩy lại được không (để POST /don-hang/:id/day-lai chuyển sang phục hồi theo ticket). */
-export async function ticketDayLaiCuaDon(db: D1Database, donHangId: string): Promise<string | null> {
+// boQuaHan (2026-11-20, v1.541 - "cho phép admin đẩy lại không giới hạn 24h"): Admin đẩy lại được cả khi đã quá 24h.
+export async function ticketDayLaiCuaDon(db: D1Database, donHangId: string, boQuaHan = false): Promise<string | null> {
   const r = await db
     .prepare(`SELECT t.id, ${hanDayLaiTicketSql("t")} as han, ? as bay_gio FROM thieu_lk t WHERE t.dat_don_hang_id = ? ORDER BY t.id DESC LIMIT 1`)
     .bind(nowVN(), donHangId)
     .first<{ id: string; han: string | null; bay_gio: string }>();
-  return r && r.han && r.han >= r.bay_gio ? r.id : null;
+  return r && r.han && (boQuaHan || r.han >= r.bay_gio) ? r.id : null;
 }
 
 export type KetQuaDayLaiTicket =
   | { ok: true; donHangId: string; trangThaiTicket: string; tienLayLai: number; tienHoan: number }
   | { error: string; status: 404 | 409; han?: string; pxk?: string };
 
-export async function dayLaiTicketThieuLk(env: Env, db: D1Database, ticketId: string, nguoi: string, ghiChuNguoiDung?: string): Promise<KetQuaDayLaiTicket> {
+export async function dayLaiTicketThieuLk(
+  env: Env, db: D1Database, ticketId: string, nguoi: string, ghiChuNguoiDung?: string, opts: { boQuaHan?: boolean } = {},
+): Promise<KetQuaDayLaiTicket> {
   const now = nowVN();
   const tk = await db
     .prepare(
@@ -76,7 +79,8 @@ export async function dayLaiTicketThieuLk(env: Env, db: D1Database, ticketId: st
   if (!tk.han || !tk.trang_thai_truoc || !(TRANG_THAI_MO as readonly string[]).includes(tk.trang_thai_truoc)) {
     return { error: "TICKET_KHONG_DAY_LAI_DUOC", status: 409 };
   }
-  if (tk.han < now) return { error: "QUA_24H_KHONG_DAY_LAI", status: 409, han: tk.han };
+  const quaHan = tk.han < now;
+  if (quaHan && !opts.boQuaHan) return { error: "QUA_24H_KHONG_DAY_LAI", status: 409, han: tk.han };
   if (tk.nhan_bi_khoa) return { error: "NGUOI_NHAN_HANG_DA_TAT", status: 409 };
   const conPhieu = await db
     .prepare(
@@ -107,7 +111,7 @@ export async function dayLaiTicketThieuLk(env: Env, db: D1Database, ticketId: st
     "Cho kho xu ly": "Chờ kho xử lý", "Kho da tiep nhan": "Kho đã tiếp nhận", "Kho da cap nhat": "Kho đã cập nhật",
     "Cho mua hang": "Chờ mua hàng", "Mua hang da dat": "Mua hàng đã đặt",
   };
-  const them = ghiChuNguoiDung?.trim() ? `: ${ghiChuNguoiDung.trim().slice(0, 500)}` : "";
+  const them = (quaHan ? " (Admin đẩy lại khi đã quá 24h)" : "") + (ghiChuNguoiDung?.trim() ? `: ${ghiChuNguoiDung.trim().slice(0, 500)}` : "");
   const ghiChuTicket = `Đẩy lại ticket về "${nhanTicket[tk.trang_thai_truoc]}" (trước khi bị từ chối / hủy) — đơn gốc ${tk.dat_don_hang_id} về Chờ hàng${them}`;
   const ghiChuDon = `Đẩy lại theo ticket ${tk.id}: ticket về "${nhanTicket[tk.trang_thai_truoc]}", đơn về Chờ hàng${
     tienLayLai > 0 ? ` (lấy lại ${tienLayLai.toLocaleString("vi-VN")}đ đã hoàn về quỹ)` : ""
