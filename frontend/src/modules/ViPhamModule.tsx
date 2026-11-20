@@ -12,7 +12,7 @@ import { LocCotButton, useLocCot, type LocCotCfg } from "../components/ui/LocCot
 import { describeApiError } from "./datMuaLinhKien/helpers";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 import {
-  ChiTietViPham, HopViPham, MaDoiTuong, NHAN_LOAI, NHAN_TT, NutViPham, TONE_TT, conLai, gioTre, lamMoiViPham, ngayGio, tenPt, type ViPhamRow,
+  ChiTietViPham, HopViPham, MaDoiTuong, NHAN_LOAI, NHAN_TT, NutViPham, TONE_TT, conLai, gioTre, lamMoiViPham, moTaLoi, ngayGio, tenPt, type ViPhamRow,
 } from "./viPham/ViPhamUi";
 import { t } from "../i18n";
 
@@ -92,6 +92,15 @@ export function ViPhamModule({ moTab }: { moTab?: { tab: string; nonce: number }
   const cot: Column<ViPhamRow>[] = [
     { key: "ma", header: t("Đơn / phiếu"), filter: loc("doi_tuong_id"), render: (r) => <MaDoiTuong r={r} />, mobile: "title" },
     { key: "buoc", header: t("Bước quá hạn"), filter: loc("buoc"), sortKey: "buoc", render: (r) => t(r.ten_buoc), mobile: "sub" },
+    {
+      key: "loi",
+      header: t("Lỗi vi phạm"),
+      render: (r) => {
+        const m = moTaLoi(r);
+        return <span className="block max-w-[320px] truncate" title={`${m.viec}
+${m.dienBien}`}>{m.viec}</span>;
+      },
+    },
     { key: "bo_phan", header: t("Bộ phận"), filter: loc("bo_phan"), sortKey: "bo_phan", render: (r) => t(r.ten_bo_phan), mobile: "meta" },
     {
       key: "phu_trach",

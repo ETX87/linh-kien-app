@@ -6,9 +6,9 @@ import { Btn } from "../../components/ui/Btn";
 import { Badge, type BadgeTone } from "../../components/ui/Badge";
 import { Modal } from "../../components/ui/Modal";
 import { useToast } from "../../components/ui/Toast";
-import { MaDonLink, MaPhieuLink } from "../datMuaLinhKien/MaLienKet";
+import { MaDonLink, MaPhieuLink, MaTicketLink } from "../datMuaLinhKien/MaLienKet";
 import { describeApiError } from "../datMuaLinhKien/helpers";
-import { t } from "../../i18n";
+import { dichSau, t } from "../../i18n";
 
 // Thanh phan dung chung "Quá hạn & vi phạm" (v1.518/1.519): hop giai trinh, chi tiet 1 ca, banner trong chi tiet don / phieu / ticket.
 // Ghi nhan sai = giai trinh voi ly do "Ghi nhận không đúng…" (khong co buoc Admin xem xet / go the - chot 2026-11-18). Backend: routes/viPham.ts, lib/viPham.ts.
@@ -97,12 +97,67 @@ export function tenPt(ds: NguoiPt[]): string {
   return ds.map((p) => p.ten ?? p.email).join(", ");
 }
 
+// Viec bo phan phai lam o tung buoc (khop BUOC_VI_PHAM o backend/src/lib/viPham.ts - them buoc moi thi them cau o day).
+const VIEC_BUOC: Record<string, string> = {
+  tbp_xac_nhan: dichSau("TBP phải xác nhận (duyệt / từ chối) đơn có linh kiện đặc thù"),
+  gs_duyet: dichSau("GS phải duyệt (nhập mã EO) hoặc từ chối đơn vượt trần công nợ"),
+  tn_duyet: dichSau("Kế toán (thay Tác nghiệp) phải duyệt hoặc từ chối đơn đang chờ duyệt"),
+  kho_thieu: dichSau("Kho phải tiếp nhận ticket thiếu hàng (tiếp nhận chờ hàng / đã có hàng / chuyển Mua hàng / từ chối)"),
+  mua_hang_dat: dichSau("Mua hàng phải đặt hàng (nhập mã EO + ngày dự kiến) hoặc báo không mua được"),
+  kt_duyet_tien: dichSau("Kế toán phải xác nhận (duyệt / từ chối) bằng chứng chuyển tiền KTV đã gửi"),
+  kt_chot_phieu: dichSau("Kế toán phải nhập Mã MISA và chốt xong đơn xuất (hoặc trả về / hủy phiếu)"),
+  kho_xuat: dichSau("Kho phải in phiếu, đóng gói và gửi hàng cho KTV"),
+  th_ke_toan: dichSau("Kế toán phải duyệt hoặc từ chối đơn trả hàng"),
+  th_kho: dichSau("Kho phải xác nhận đã nhận hàng trả về (hoặc từ chối)"),
+  th_qc: dichSau("QC phải kiểm tra và xác nhận đạt / từ chối hàng trả"),
+  th_tn: dichSau("Kế toán (thay Tác nghiệp) phải duyệt tổng đơn trả hàng"),
+};
+const LOAI_DOI_TUONG: Record<ViPhamRow["doi_tuong"], string> = { don: dichSau("Đơn"), ticket: dichSau("Ticket thiếu hàng"), phieu: dichSau("Phiếu xuất") };
+
+/** Cau mo ta loi vi pham: viec gi, cua ai, han bao nhieu, da xu ly chua (v1.542 - "thiếu mô tả lỗi vi phạm là gì"). */
+export function moTaLoi(r: ViPhamRow): { viec: string; dienBien: string } {
+  const viec = t(VIEC_BUOC[r.buoc] ?? "{a} phải xử lý bước \"{b}\"", { a: t(r.ten_bo_phan), b: t(r.ten_buoc) });
+  const vao = t("{a} {b} vào bước \"{c}\" lúc {d}, hạn xử lý {e} giờ (SLA) → {f}.", {
+    a: t(LOAI_DOI_TUONG[r.doi_tuong]),
+    b: r.doi_tuong_id,
+    c: t(r.ten_buoc),
+    d: ngayGio(r.moc_vao),
+    e: r.so_gio_sla,
+    f: ngayGio(r.han),
+  });
+  const ket = r.dang_cho
+    ? t("Tới giờ vẫn chưa được xử lý — đã trễ {a}.", { a: gioTre(r.so_gio_tre) })
+    : t("Đến {a} mới được xử lý ({b}) — trễ {c}.", {
+        a: ngayGio(r.ket_thuc_luc),
+        b: r.nguoi_xu_ly_ten ?? r.nguoi_xu_ly ?? t("Hệ thống"),
+        c: gioTre(r.so_gio_tre),
+      });
+  return { viec, dienBien: `${vao} ${ket}` };
+}
+
+/** Khoi "Lỗi vi phạm" + link mo don / phieu / ticket (dung trong hop giai trinh + chi tiet ca). */
+export function KhoiLoiViPham({ r }: { r: ViPhamRow }) {
+  const m = moTaLoi(r);
+  return (
+    <div className="rounded-lg border border-[var(--color-danger)] bg-[var(--color-danger-soft)] p-3 text-sm mb-3">
+      <div className="text-xs font-semibold text-[var(--color-danger)] mb-0.5">{t("Lỗi vi phạm")}</div>
+      <div className="font-semibold">{m.viec}</div>
+      <div className="mt-0.5">{m.dienBien}</div>
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="text-[var(--color-text-secondary)]">{t("Tra cứu")}:</span>
+        <MaDoiTuong r={r} />
+        {r.ma_lk && <span className="text-[var(--color-text-secondary)]">{r.ma_lk}{r.ten_lk ? ` · ${r.ten_lk}` : ""}</span>}
+      </div>
+    </div>
+  );
+}
+
 export function MaDoiTuong({ r }: { r: ViPhamRow }) {
   if (r.doi_tuong === "phieu") return <MaPhieuLink id={r.phieu_xuat_kho_id} />;
   if (r.doi_tuong === "ticket")
     return (
       <span className="whitespace-nowrap">
-        <span className="font-semibold">{r.doi_tuong_id}</span>
+        <MaTicketLink id={r.doi_tuong_id} />
         {r.dat_don_hang_id && (
           <span className="text-[var(--color-text-secondary)]">
             {" · "}
@@ -154,10 +209,10 @@ export function HopViPham({ r, onClose }: { r: ViPhamRow; loai?: LoaiHop; onClos
         </div>
       }
     >
-      <div className="rounded-lg bg-[var(--color-surface-soft)] p-3 text-sm mb-3">
-        <b>{t(r.ten_buoc)}</b> · {t(r.ten_bo_phan)} · {t("hạn {a}", { a: ngayGio(r.han) })} · <span className="text-[var(--color-danger)]">{t("trễ {a}", { a: gioTre(r.so_gio_tre) })}</span>
-        {r.trang_thai === "Cho giai trinh" && <div className="mt-1">{t("Hạn giải trình: {a}", { a: ngayGio(r.han_giai_trinh) })} {conLai(r.han_giai_trinh) && `(${conLai(r.han_giai_trinh)})`}</div>}
-      </div>
+      <KhoiLoiViPham r={r} />
+      {r.trang_thai === "Cho giai trinh" && (
+        <div className="text-sm mb-3">{t("Hạn giải trình: {a}", { a: ngayGio(r.han_giai_trinh) })} {conLai(r.han_giai_trinh) && `(${conLai(r.han_giai_trinh)})`}</div>
+      )}
       <label className="text-sm font-semibold">{t("Lý do chậm")} *</label>
       <select className="mt-1 w-full rounded-lg border border-[var(--color-border)] p-2 text-sm" value={lyDo} onChange={(e) => setLyDo(e.target.value)}>
         <option value="">{t("— Chọn lý do —")}</option>
@@ -224,6 +279,7 @@ export function ChiTietViPham({ r, onClose }: { r: ViPhamRow; onClose: () => voi
           {t("Người phải giải trình")}: <b>{tenPt(r.nguoi_phu_trach)}</b>
           {r.trang_thai === "Cho giai trinh" && <> · {t("hạn {a}", { a: ngayGio(r.han_giai_trinh) })} <span className="text-[var(--color-warning)]">{conLai(r.han_giai_trinh) ?? ""}</span></>}
         </div>
+        <KhoiLoiViPham r={r} />
         <div className="relative flex justify-between px-2 pt-2 pb-1">
           <div className="absolute left-6 right-6 top-[15px] h-[2px] bg-[var(--color-border)]" />
           {moc.map((m, i) => (

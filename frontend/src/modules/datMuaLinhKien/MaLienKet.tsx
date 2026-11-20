@@ -9,6 +9,7 @@ import { t } from "../../i18n";
 // theo tai khoan dang dang nhap (backend van ap pham vi xem).
 const PxkDetailModal = lazy(() => import("./PhieuXuatKhoTab").then((m) => ({ default: m.PxkDetailModal })));
 const DonHangDetailModal = lazy(() => import("./DonCuaToiTab").then((m) => ({ default: m.DonHangDetailModal })));
+const ThieuLkDetailModal = lazy(() => import("./ThieuLkTab").then((m) => ({ default: m.ThieuLkDetailModal })));
 
 const CLS = "code-link font-semibold underline underline-offset-2 hover:opacity-80";
 
@@ -69,6 +70,35 @@ export function MaDonLink({ id, nhan, className }: { id: string; nhan?: ReactNod
             isAdmin={u.vai_tro === "Admin"}
             canXemChiTietCa={false}
             canKho={!!u.la_kho}
+          />
+        </Suspense>
+      )}
+    </>
+  );
+}
+
+/** Ma ticket thieu hang (TLK-…) bam duoc - mo Drawer chi tiet ticket tai cho (v1.542, man "Quá hạn & vi phạm"). */
+export function MaTicketLink({ id, nhan, className }: { id: string; nhan?: ReactNode; className?: string }) {
+  const [mo, setMo] = useState(false);
+  const auth = useAuth();
+  const u = auth.status === "authenticated" ? auth.user : null;
+  const qc = useQueryClient();
+  const addToast = useToast();
+  return (
+    <>
+      <button type="button" className={className ?? CLS} title={t("Mở chi tiết ticket thiếu hàng")} onClick={(e) => { e.stopPropagation(); setMo(true); }}>
+        {nhan ?? id}
+      </button>
+      {mo && u && (
+        <Suspense fallback={null}>
+          <ThieuLkDetailModal
+            id={id}
+            onClose={() => setMo(false)}
+            addToast={addToast}
+            qc={qc}
+            canKho={!!u.la_kho}
+            canTacNghiep={!!u.la_tac_nghiep}
+            currentEmail={u.email}
           />
         </Suspense>
       )}
