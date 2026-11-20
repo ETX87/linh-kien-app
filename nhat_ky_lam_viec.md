@@ -367,3 +367,13 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
 - **Kiểm thử:** typecheck + build sạch; API Mua hàng thật trả đúng PO cho `DDH-008172`, `TLK-001254`, case `B1466610`, `T21306` (401 khi thiếu khoá).
   Chưa mở được giao diện app này với tài khoản thật để xem khung mới (cần đăng nhập).
 
+## 2026-11-20 — Dữ liệu: chuyển ticket còn mở sang "Mua hàng đã đặt" theo PO bên app EO Mua hàng (không đổi code, không deploy)
+- **Yêu cầu:** "chạy lại 1 lượt các đơn đặt hàng có mã LK-xxxx xem đơn nào trên app lk vẫn chưa chuyển trạng thái thì bắn sang".
+- **Đối chiếu (D1 thật 2 app):** bên Mua hàng 423 dòng EO ghi mã `TLK-…` / `DDH-…` (268 dòng hiệu lực) ↔ 345 ticket bên này. 9 ticket còn mở
+  (8 "Kho đã tiếp nhận", 1 "Kho đã cập nhật") dù Mua hàng đã có PO hiệu lực cùng mã LK, chưa ghi mã EO: TLK-000080, 000081 (3TDO-000742), 000122 (3TDO-000764),
+  000186, 000227 (3TDO-000770), 000252, 000257, 000292 (3TDO-000780), 001222 (3TDO-000847). Không có ticket mở mà dòng EO đã hủy; 2 mã `DDH-…` bên Mua hàng không có bên này.
+- **Đã làm:** theo đúng luồng ticket → ghi log "Chờ mua hàng" rồi "Mua hàng đã đặt" (ghi chú "EO 3TDO-… · Đồng bộ từ app EO Mua hàng … · Dự kiến có hàng …",
+  người thực hiện = tài khoản quản trị bootstrap), ghi `ma_eo_mua` + ngày dự kiến của Mua hàng (2 ticket Mua hàng chưa có ngày dự kiến → giữ ngày Kho đã nhập),
+  tăng version `dat_mua_lk`. Mỗi câu có điều kiện trạng thái mới nhất (chạy lại không ghi trùng). Đơn gốc giữ "Chờ hàng"; không gửi thông báo cho người tạo đơn.
+- **Kiểm thử:** sau khi chạy, 9 ticket = "Mua hàng đã đặt" có mã EO, mỗi ticket 2 dòng log; đối chiếu lại toàn bộ còn 0 ticket mở có PO hiệu lực.
+
