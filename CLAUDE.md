@@ -935,7 +935,7 @@ công nợ phát sinh lọc theo nó), đơn công nợ giảm `so_tien_cong_no`
 về quỹ người nhận (Kế toán sửa được số) → "Da hoan tien" (không có dòng tiền → "Da can doi"). `gui_bu`: rút tiền khỏi phiếu gốc (tổng + đã
 trả), tạo đơn gửi bù (clone đơn gốc, SL thiếu, `gia_chot` = đơn giá thực trả, `tien_da_tra`, log 'TN da duyet' tu_dong,
 `dat_don_hang.gui_bu_nhan_thieu_id` — KHÔNG tính vào tổng ngày chiết khấu) + phiếu gửi bù "Dang tao phieu" (cùng `mien_xuat`/`khu_vuc_chon`)
-→ đủ tiền thì đặt luôn "Kế toán đã duyệt" tiền; TN xử lý tiếp như phiếu thường. **Tự xác nhận**: `phieu_xuat_kho.han_tu_nhan` (TRIGGER
+→ đủ tiền thì đặt luôn "Kế toán đã duyệt" tiền; TN xử lý tiếp như phiếu thường. **Kho gửi bù ngoài hệ thống** (v1.537): Kế toán chọn "Không tạo đơn xuất bù" (`POST /nhan-thieu/:id/ke-toan` `gui_bu_ngoai: true`, chỉ phương án `gui_bu`) → không tạo đơn/phiếu gửi bù, không đổi SL thực xuất đơn gốc, tiền giữ ở phiếu gốc, ticket "Da gui bu" `pxk_gui_bu_id` NULL. **Tự xác nhận**: `phieu_xuat_kho.han_tu_nhan` (TRIGGER
 `trg_pxk_han_tu_nhan` = +10 ngày mỗi lần vào "Dang gui KTV"; phiếu cũ lúc triển khai: lần gửi + 10 ngày nhưng không sớm hơn +3 ngày).
 Cron 8h VN (`tuXacNhanVaNhacPxk`, index.ts `getUTCHours()===1`): quá hạn + không có ticket mở → "KTV da nhan" (log "Hệ thống tự xác
 nhận…", `nguoi_xu_ly` = người nhận) + 1 thông báo/KTV/ngày liệt kê phiếu chờ + hạn. UI: khối "Nhận hàng" trong chi tiết PXK

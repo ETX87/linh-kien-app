@@ -334,6 +334,8 @@ function TicketNhanThieu({
   const [phuongAn, setPhuongAn] = useState("");
   const [slKho, setSlKho] = useState<Record<string, string>>({});
   const [soTienHoan, setSoTienHoan] = useState("");
+  // v1.537: Ke toan chon co tao don + phieu gui bu tren app khong (false = Kho gui bu ngoai he thong).
+  const [taoPhieuGuiBu, setTaoPhieuGuiBu] = useState(true);
   const [moLog, setMoLog] = useState(false);
   const tt = NHAN_THIEU_TRANG_THAI[tk.trang_thai];
   const choKho = tk.trang_thai === "Cho kho kiem tra";
@@ -348,10 +350,10 @@ function TicketNhanThieu({
     : 0;
 
   const goi = useMutation({
-    mutationFn: (v: { path: string; body: Record<string, unknown> }) => api.post<{ ok: true; pxk_gui_bu_id?: string | null; so_tien_hoan?: number }>(`/nhan-thieu/${tk.id}/${v.path}`, v.body),
+    mutationFn: (v: { path: string; body: Record<string, unknown> }) => api.post<{ ok: true; pxk_gui_bu_id?: string | null; so_tien_hoan?: number; gui_bu_ngoai?: boolean }>(`/nhan-thieu/${tk.id}/${v.path}`, v.body),
     onSuccess: (r, v) => {
       if (v.path === "ke-toan") {
-        addToast(r.pxk_gui_bu_id ? t("Đã tạo phiếu gửi bù {a}", { a: r.pxk_gui_bu_id }) : (r.so_tien_hoan ?? 0) > 0 ? t("Đã hoàn {a} về quỹ KTV", { a: fmtVND(r.so_tien_hoan ?? 0) }) : t("Đã cập nhật"));
+        addToast(r.gui_bu_ngoai ? t("Đã xác nhận Kho gửi bù ngoài hệ thống") : r.pxk_gui_bu_id ? t("Đã tạo phiếu gửi bù {a}", { a: r.pxk_gui_bu_id }) : (r.so_tien_hoan ?? 0) > 0 ? t("Đã hoàn {a} về quỹ KTV", { a: fmtVND(r.so_tien_hoan ?? 0) }) : t("Đã cập nhật"));
       } else addToast(t("Đã cập nhật"));
       setGhiChu("");
       lamMoi();
@@ -374,6 +376,7 @@ function TicketNhanThieu({
       <BangDong tk={tk} slKho={choKho && canKho ? slKho : undefined} setSlKho={choKho && canKho ? setSlKho : undefined} goiY={choKeToan ? goiY?.don_gia : undefined} choKeToan={choKeToan} />
       {tk.so_tien_hoan != null && tk.so_tien_hoan > 0 && <div className="text-xs">{t("Đã hoàn về quỹ KTV")}: <b>{fmtVND(tk.so_tien_hoan)}</b></div>}
       {tk.pxk_gui_bu_id && <div className="text-xs">{t("Phiếu gửi bù")}: <b className="font-mono">{tk.pxk_gui_bu_id}</b></div>}
+      {tk.trang_thai === "Da gui bu" && !tk.pxk_gui_bu_id && <div className="text-xs">{t("Kho gửi bù ngoài hệ thống — không tạo phiếu gửi bù")}</div>}
 
       {choKho && canKho && (
         <div className="space-y-2 border-t border-[var(--line)] pt-2">
@@ -411,8 +414,22 @@ function TicketNhanThieu({
       {choKeToan && canKeToan && (
         <div className="space-y-2 border-t border-[var(--line)] pt-2">
           <div className="text-xs font-semibold">{t("Kế toán cân đối phiếu trên MISA theo SL thực nhận")}</div>
+          {tk.phuong_an === "gui_bu" && (
+            <div className="flex flex-col gap-1">
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input type="radio" name={`gb-${tk.id}`} checked={taoPhieuGuiBu} onChange={() => setTaoPhieuGuiBu(true)} />
+                {t("Tạo đơn + phiếu gửi bù trên app (Kho xuất lại theo phiếu mới)")}
+              </label>
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input type="radio" name={`gb-${tk.id}`} checked={!taoPhieuGuiBu} onChange={() => setTaoPhieuGuiBu(false)} />
+                {t("Không tạo đơn xuất bù — Kho tự gửi bù ngoài hệ thống")}
+              </label>
+            </div>
+          )}
           <div className="text-xs text-[var(--ink-500)]">
-            {tk.phuong_an === "gui_bu"
+            {tk.phuong_an === "gui_bu" && !taoPhieuGuiBu
+              ? t("Xác nhận xong: giữ nguyên SL và tiền của phiếu gốc, không tạo đơn / phiếu mới. Kho tự gửi phần thiếu cho KTV.")
+              : tk.phuong_an === "gui_bu"
               ? t("Xác nhận xong: SL thực xuất của đơn gốc = SL thực nhận, hệ thống tạo đơn + phiếu gửi bù phần thiếu{a}.", {
                   a: tongGoiY > 0 ? t(" và chuyển {b} đã thanh toán sang phiếu gửi bù (KTV không phải chuyển lại)", { b: fmtVND(tongGoiY) }) : "",
                 })
@@ -439,7 +456,11 @@ function TicketNhanThieu({
               onClick={() =>
                 goi.mutate({
                   path: "ke-toan",
-                  body: { ghi_chu: ghiChu.trim() || undefined, so_tien_hoan: tk.phuong_an === "hoan_tien" && soTienHoan !== "" ? Number(soTienHoan) : undefined },
+                  body: {
+                    ghi_chu: ghiChu.trim() || undefined,
+                    so_tien_hoan: tk.phuong_an === "hoan_tien" && soTienHoan !== "" ? Number(soTienHoan) : undefined,
+                    gui_bu_ngoai: tk.phuong_an === "gui_bu" && !taoPhieuGuiBu ? true : undefined,
+                  },
                 })
               }
             >

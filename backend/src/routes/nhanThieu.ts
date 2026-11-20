@@ -426,16 +426,47 @@ nhanThieu.post("/:id/kho", async (c) => {
   return c.json({ ok: true });
 });
 
-// POST /api/nhan-thieu/:id/ke-toan - { ghi_chu?, so_tien_hoan? } Ke toan xac nhan DA can doi phieu tren MISA theo SL thuc nhan.
+// POST /api/nhan-thieu/:id/ke-toan - { ghi_chu?, so_tien_hoan?, gui_bu_ngoai? } Ke toan xac nhan DA can doi phieu tren MISA theo SL thuc nhan.
+// gui_bu_ngoai (2026-11-20, v1.537 - "thêm 1 lựa chọn cho kế toán là có tạo đơn xuất bù không ... kho tự triển khai xuất ko cần tạo lại
+// đơn"): CHI voi phuong an gui_bu - Kho tu gui bu NGOAI he thong -> KHONG tao don/phieu gui bu, KHONG doi SL thuc xuat don goc, tien
+// GIU NGUYEN o phieu goc (KTV van nhan du hang, MISA khong can dieu chinh). Ticket -> "Da gui bu", pxk_gui_bu_id NULL.
 nhanThieu.post("/:id/ke-toan", async (c) => {
   const user = c.get("user");
   if (!canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const t = await docTicket(c.env.DB, c.req.param("id"));
   if (!t) return c.json({ error: "NOT_FOUND" }, 404);
   if (t.trang_thai !== "Cho ke toan") return c.json({ error: "INVALID_STATE" }, 409);
-  const body = await c.req.json<{ ghi_chu?: string; so_tien_hoan?: unknown }>().catch(() => ({}) as { ghi_chu?: string; so_tien_hoan?: unknown });
+  const body = await c.req.json<{ ghi_chu?: string; so_tien_hoan?: unknown; gui_bu_ngoai?: unknown }>().catch(
+    () => ({}) as { ghi_chu?: string; so_tien_hoan?: unknown; gui_bu_ngoai?: unknown },
+  );
   const ghiChu = (body.ghi_chu ?? "").trim().slice(0, 1000);
   const db = c.env.DB;
+  if (body.gui_bu_ngoai === true) {
+    if (t.phuong_an !== "gui_bu") return c.json({ error: "GUI_BU_NGOAI_CHI_KHI_GUI_BU" }, 400);
+    const now = nowVN();
+    const ghiLog = `Kế toán xác nhận Kho gửi bù NGOÀI hệ thống — không tạo đơn / phiếu gửi bù, giữ nguyên SL và tiền của phiếu ${t.phieu_xuat_kho_id}${ghiChu ? `. ${ghiChu}` : ""}`;
+    try {
+      await db.batch([
+        lenhKhoa(db, "SELECT 1 FROM nhan_thieu WHERE id = ? AND version = ?", t.id, t.version),
+        db.prepare("UPDATE nhan_thieu SET trang_thai = 'Da gui bu', so_tien_hoan = NULL, pxk_gui_bu_id = NULL, version = version + 1 WHERE id = ?").bind(t.id),
+        db.prepare("INSERT INTO nhan_thieu_log (nhan_thieu_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Da gui bu', ?, ?, ?)").bind(t.id, user.email, now, ghiLog),
+        db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, 'Ke toan can doi nhan thieu', ?, ?, ?)").bind(
+          t.phieu_xuat_kho_id, user.email, now, `${t.id}: ${ghiLog}`,
+        ),
+      ]);
+    } catch {
+      return c.json({ error: "STATE_CHANGED" }, 409);
+    }
+    const pxkNgoai = await docPxk(db, t.phieu_xuat_kho_id);
+    if (pxkNgoai?.nguoi_nhan_hang) {
+      c.executionCtx.waitUntil(
+        thongBao(c.env, db, t.phieu_xuat_kho_id, [pxkNgoai.nguoi_nhan_hang], [],
+          `Phiếu ${t.phieu_xuat_kho_id} thiếu hàng (${t.id}): Kho gửi bù phần thiếu ngoài hệ thống — không tạo phiếu mới`),
+      );
+    }
+    c.executionCtx.waitUntil(bumpVersions(db, ["dat_mua_lk"]));
+    return c.json({ ok: true, trang_thai: "Da gui bu", so_tien_hoan: 0, pxk_gui_bu_id: null, don_gui_bu: [], gui_bu_ngoai: true });
+  }
   const pxk = (await docPxk(db, t.phieu_xuat_kho_id))!;
   if (!pxk.nguoi_nhan_hang) return c.json({ error: "PHIEU_KHONG_CO_NGUOI_NHAN" }, 409);
   const dongPxk = await docDongPxk(db, pxk.id);

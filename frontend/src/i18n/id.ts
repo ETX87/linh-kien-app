@@ -3093,5 +3093,10 @@ const tuDien: Record<string, string> = {
   "✓ đã đủ": "✓ lunas",
   "còn {x}": "sisa {x}",
   "Tổng phiếu {a} · đã thanh toán {b} · còn phải chuyển {c}": "Total slip {a} · dibayar {b} · sisa transfer {c}",
+  "Đã xác nhận Kho gửi bù ngoài hệ thống": "Dikonfirmasi: gudang mengirim kekurangan di luar sistem",
+  "Kho gửi bù ngoài hệ thống — không tạo phiếu gửi bù": "Gudang mengirim kekurangan di luar sistem — tanpa slip pengganti",
+  "Tạo đơn + phiếu gửi bù trên app (Kho xuất lại theo phiếu mới)": "Buat pesanan + slip pengganti di aplikasi (gudang mengirim dengan slip baru)",
+  "Không tạo đơn xuất bù — Kho tự gửi bù ngoài hệ thống": "Tanpa pesanan pengganti — gudang mengirim kekurangan di luar sistem",
+  "Xác nhận xong: giữ nguyên SL và tiền của phiếu gốc, không tạo đơn / phiếu mới. Kho tự gửi phần thiếu cho KTV.": "Setelah konfirmasi: slip asli tetap jumlah dan uangnya, tanpa pesanan / slip baru. Gudang mengirim sendiri kekurangan ke teknisi.",
 };
 export default tuDien;

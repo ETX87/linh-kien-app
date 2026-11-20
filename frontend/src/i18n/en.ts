@@ -3093,5 +3093,10 @@ const tuDien: Record<string, string> = {
   "✓ đã đủ": "✓ fully paid",
   "còn {x}": "{x} left",
   "Tổng phiếu {a} · đã thanh toán {b} · còn phải chuyển {c}": "Slip total {a} · paid {b} · still to transfer {c}",
+  "Đã xác nhận Kho gửi bù ngoài hệ thống": "Confirmed: warehouse sends the shortfall outside the system",
+  "Kho gửi bù ngoài hệ thống — không tạo phiếu gửi bù": "Warehouse sent the shortfall outside the system — no replacement slip",
+  "Tạo đơn + phiếu gửi bù trên app (Kho xuất lại theo phiếu mới)": "Create replacement orders + slip in the app (warehouse ships on the new slip)",
+  "Không tạo đơn xuất bù — Kho tự gửi bù ngoài hệ thống": "No replacement orders — warehouse sends the shortfall outside the system",
+  "Xác nhận xong: giữ nguyên SL và tiền của phiếu gốc, không tạo đơn / phiếu mới. Kho tự gửi phần thiếu cho KTV.": "On confirm: the original slip keeps its quantities and money, no new order / slip. The warehouse sends the shortfall to the technician itself.",
 };
 export default tuDien;

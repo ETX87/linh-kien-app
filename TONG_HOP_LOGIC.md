@@ -61,7 +61,7 @@ duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xe
   hàng về → đơn tự duyệt vào phiếu; từ chối / hủy → đơn tự hủy, tiền về quỹ. Tự xác nhận hàng về theo ưu tiên (khiếu nại > ngày cũ > VIP)
   sau mỗi lần nhập tồn. Tách đơn khi về một phần; đổi sang LK tương đương (đổi mã thì BỎ giá chốt tay của mã cũ — giá tính lại theo mã mới).
   Giá chốt tay luôn thắng giá theo loại chiết khấu; dòng đơn trong phiếu có nhãn "Giá chốt tay" khi đang áp.
-- **KTV báo nhận thiếu** (ticket NTH): Kho kiểm → gửi bù hoặc hoàn tiền → Kế toán cân đối.
+- **KTV báo nhận thiếu** (ticket NTH): Kho kiểm → gửi bù hoặc hoàn tiền → Kế toán cân đối. Với gửi bù, Kế toán chọn: tạo đơn + phiếu gửi bù trên app (SL thực xuất đơn gốc = SL thực nhận, tiền phần thiếu sang phiếu gửi bù) HOẶC "Kho gửi bù ngoài hệ thống" (không tạo đơn / phiếu, giữ nguyên SL + tiền phiếu gốc, ticket "Đã gửi bù" không có phiếu gửi bù).
 - **Thiếu hàng bảo hành** (ticket THB) nhận từ app Bảo hành đổi trả, phản hồi trạng thái về đơn gốc.
 
 ## 7. Hàng trả
