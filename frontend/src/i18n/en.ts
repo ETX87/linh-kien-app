@@ -3104,5 +3104,12 @@ const tuDien: Record<string, string> = {
   "Phiếu {ma} sẽ quay về chờ chuyển bổ sung phần tiền tăng thêm; Kế toán xác nhận lại rồi mới xuất cả phiếu.": "Slip {ma} goes back to waiting for the extra transfer; Accounting re-confirms before the whole slip ships.",
   "Phiếu đã đủ tiền được gửi Kế toán xuất hàng ngay, đơn mới đi phiếu riêng.": "The paid slip goes to Accounting to ship now; the new order goes on its own slip.",
   "Tách phiếu mới chờ chuyển tiền": "New separate slip awaiting transfer",
+  "không đổi được vì phiếu đã được Kế toán chốt xuất hoặc đơn đang giữ tiền riêng.": "cannot change: the slip was already finalised by Accounting or the order holds its own money.",
+  "Đổi ô này đổi quỹ tiền: đơn sẽ rời phiếu {p} (tính như đơn chưa thanh toán, tiền thừa hoàn về quỹ) rồi vào phiếu đúng quỹ.": "Changing this switches the fund: the order leaves slip {p} (counted as unpaid, surplus refunded to the fund) and joins a slip of the right fund.",
+  "Không hủy được phiếu trống: ": "Could not cancel the empty slip: ",
+  "Hủy phiếu trống": "Cancel empty slip",
+  "Phiếu không còn đơn nào — hủy phiếu trống này.": "This slip has no orders left — cancel the empty slip.",
+  "Phiếu đã có đơn hoặc không còn ở bước tạo phiếu — không hủy": "The slip has orders or is past the drafting step — not cancelled",
+  "Đã hủy phiếu trống {a}": "Cancelled empty slip {a}",
 };
 export default tuDien;

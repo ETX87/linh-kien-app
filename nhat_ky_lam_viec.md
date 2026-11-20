@@ -332,3 +332,10 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
   nhận SC / Sc / sc; bỏ `loai_don='tra_hang'` và 'TN tu choi' / 'Tu choi' / 'Da huy'; gom theo mã LK (SL thực xuất hoặc đề xuất), ≤50 dòng.
   Chỉ đọc, không có migration.
 - Kiểm thử: typecheck sạch; câu truy vấn chạy trên D1 production (chỉ đọc): SC261012203 ra 6 linh kiện, 26 dòng đọc.
+
+## 2026-11-20 — Ô "KH đã chuyển khoản" khi sửa đơn: đổi được cả khi phiếu đã có tiền (v1.539)
+- **Yêu cầu:** "không tích được" (ảnh chi tiết DDH-008239: ô bị khoá "đơn / phiếu đã có tiền thanh toán — bỏ đơn khỏi phiếu trước").
+- **Kiểm tra (D1 production, chỉ đọc):** lúc kiểm DDH-008239 đã không còn trong phiếu nào, không giữ tiền — v1.538 khoá khi phiếu chứa đơn đã có tiền nên phải bỏ đơn khỏi phiếu bằng tay.
+- **Đã làm:** PATCH `/don-hang/:id` cho đổi cờ khi phiếu còn "Dang tao phieu" / "Cho ke toan" kể cả đã có tiền: gỡ đơn như đơn CHƯA thanh toán (`goDonKhoiPxk` không mang tiền → tổng giảm, thừa hoàn về quỹ cũ, phiếu hết đơn tự hủy + báo hoàn quỹ) rồi gom vào phiếu đúng quỹ. Chỉ chặn khi phiếu đã qua Kế toán chốt hoặc đơn mang tiền riêng (`tien_da_tra`). Form sửa đơn hiện cảnh báo "đổi quỹ tiền" khi đơn đang trong phiếu; i18n bổ sung cả 4 câu "Hủy phiếu trống" còn thiếu của v1.538.
+- **Kiểm thử (Worker + D1 local):** bỏ tích KH đơn duy nhất của phiếu đã đủ 450.000đ → phiếu tự hủy, 450.000đ về Quỹ KH chuyển khoản, đơn sang phiếu quỹ KTV "Chờ KTV chuyển". Typecheck 2 phía 0 lỗi. Giao diện chưa xem bằng mắt.
+

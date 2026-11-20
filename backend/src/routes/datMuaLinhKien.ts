@@ -4870,13 +4870,16 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
       if (nextKh && (laMuaCongNoDoiTac(next.loai_de_xuat) || !(next.loai_don === "mua" || laTruCongNo(next.loai_de_xuat)))) {
         return c.json({ error: "KH_CHUYEN_KHOAN_CHI_DON_MUA" }, 400);
       }
+      // v1.539 ("không tích được" - phieu da co tien): phieu con "Dang tao phieu" / "Cho ke toan" (Ke toan chua chot) -> don tu roi phieu nhu
+      // DON CHUA THANH TOAN (tong phieu giam, phan tra thua hoan ve quy cu - canBangPxk), roi gom vao phieu dung quy moi. Chi chan khi phieu da
+      // chot xuat, hoac don dang MANG tien rieng (tien_da_tra - tien thuoc quy cu, chua co duong chuyen quy).
       const trongPhieu = !!existing.pxk_id && existing.pxk_trang_thai !== "Ke toan huy";
-      if (existing.tien_da_tra > 0 || (trongPhieu && (existing.pxk_trang_thai !== "Dang tao phieu" || (existing.pxk_da_tt ?? 0) > 0))) {
+      if (existing.tien_da_tra > 0 || (trongPhieu && !["Dang tao phieu", "Cho ke toan"].includes(existing.pxk_trang_thai ?? ""))) {
         return c.json({ error: "KH_CHUYEN_KHOAN_KHONG_DOI_DUOC", pxk: existing.pxk_id }, 409);
       }
       thayDoiTao.push(nextKh ? "Tích \"KH đã chuyển khoản về công ty\"" : "Bỏ \"KH đã chuyển khoản về công ty\"");
     }
-    const goTruocDoiKh = doiKh && !!existing.pxk_id && existing.pxk_trang_thai === "Dang tao phieu";
+    const goTruocDoiKh = doiKh && !!existing.pxk_id && ["Dang tao phieu", "Cho ke toan"].includes(existing.pxk_trang_thai ?? "");
     const thayDoiTinhTien = doiKh ||
       next.ma_lk !== existing.ma_lk ||
       next.loai_de_xuat !== existing.loai_de_xuat ||
@@ -4907,7 +4910,9 @@ datMuaLinhKien.patch("/don-hang/:id", async (c) => {
     }
 
     if (goTruocDoiKh) {
-      await goDonKhoiPxk(c.env.DB, existing.pxk_id!, id, user.email, "Đổi KH chuyển khoản, gỡ đơn", nextKh ? "KH đã chuyển khoản về công ty" : "Bỏ KH chuyển khoản", true, false);
+      const go = await goDonKhoiPxk(c.env.DB, existing.pxk_id!, id, user.email, "Đổi KH chuyển khoản, gỡ đơn",
+        (nextKh ? "KH đã chuyển khoản về công ty" : "Bỏ KH chuyển khoản") + ((existing.pxk_da_tt ?? 0) > 0 ? " — tính là đơn chưa thanh toán (đổi quỹ tiền)" : ""), true, false);
+      if (go.hoanQuy > 0) c.executionCtx.waitUntil(thongBaoHoanQuyPhieuHuy(c.env, c.env.DB, existing.pxk_id!, go.hoanQuy));
     }
     const nowSua = nowVN();
     const statementsSua = [

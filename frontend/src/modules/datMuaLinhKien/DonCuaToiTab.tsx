@@ -1499,12 +1499,20 @@ export function DonHangDetailModal({
                   ))}
                 </div>
                 {/* v1.538 ("khi tôi sửa đơn, thiếu nút tích KH đã thanh toán"): doi co = doi quy tien -> khoa khi don / phieu da giu tien. */}
-                {(d.tien_da_tra ?? 0) > 0 || (pxk && (pxk.trang_thai !== "Dang tao phieu" || (pxk.da_thanh_toan ?? 0) > 0)) ? (
+                {/* v1.539: phieu con "Dang tao phieu" / "Cho ke toan" (ke ca da co tien) -> doi duoc, don tu roi phieu nhu don chua thanh toan. */}
+                {(d.tien_da_tra ?? 0) > 0 || (pxk && !["Dang tao phieu", "Cho ke toan", "Ke toan huy"].includes(pxk.trang_thai ?? "")) ? (
                   <div className="mt-2 text-[11.5px] text-[var(--ink-500)]">
-                    {editDraft.kh_chuyen_khoan ? "✓ " : ""}{t("Khách hàng đã chuyển khoản về công ty")}: {t("không đổi được vì đơn / phiếu đã có tiền thanh toán — bỏ đơn khỏi phiếu trước nếu cần đổi.")}
+                    {editDraft.kh_chuyen_khoan ? "✓ " : ""}{t("Khách hàng đã chuyển khoản về công ty")}: {t("không đổi được vì phiếu đã được Kế toán chốt xuất hoặc đơn đang giữ tiền riêng.")}
                   </div>
                 ) : (
-                  <KhChuyenKhoanCheck d={editDraft} onChange={(v) => updateEditDraft({ kh_chuyen_khoan: v })} />
+                  <>
+                    <KhChuyenKhoanCheck d={editDraft} onChange={(v) => updateEditDraft({ kh_chuyen_khoan: v })} />
+                    {pxk && pxk.trang_thai !== "Ke toan huy" && !!editDraft.kh_chuyen_khoan !== !!d.kh_chuyen_khoan && (
+                      <div className="mt-1 text-[11.5px] text-[var(--color-warning-strong)]">
+                        ⚠ {t("Đổi ô này đổi quỹ tiền: đơn sẽ rời phiếu {p} (tính như đơn chưa thanh toán, tiền thừa hoàn về quỹ) rồi vào phiếu đúng quỹ.", { p: pxk.id })}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-2">

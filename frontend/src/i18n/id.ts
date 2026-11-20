@@ -3104,5 +3104,12 @@ const tuDien: Record<string, string> = {
   "Phiếu {ma} sẽ quay về chờ chuyển bổ sung phần tiền tăng thêm; Kế toán xác nhận lại rồi mới xuất cả phiếu.": "Slip {ma} kembali menunggu transfer tambahan; Akuntansi mengonfirmasi ulang sebelum seluruh slip dikirim.",
   "Phiếu đã đủ tiền được gửi Kế toán xuất hàng ngay, đơn mới đi phiếu riêng.": "Slip lunas dikirim ke Akuntansi untuk segera dikirim; pesanan baru di slip terpisah.",
   "Tách phiếu mới chờ chuyển tiền": "Slip baru terpisah menunggu transfer",
+  "không đổi được vì phiếu đã được Kế toán chốt xuất hoặc đơn đang giữ tiền riêng.": "tidak bisa diubah: slip sudah difinalisasi Akuntansi atau pesanan memegang uang sendiri.",
+  "Đổi ô này đổi quỹ tiền: đơn sẽ rời phiếu {p} (tính như đơn chưa thanh toán, tiền thừa hoàn về quỹ) rồi vào phiếu đúng quỹ.": "Mengubah ini mengganti dana: pesanan keluar dari slip {p} (dihitung belum dibayar, kelebihan dikembalikan ke dana) lalu masuk slip dana yang benar.",
+  "Không hủy được phiếu trống: ": "Tidak bisa membatalkan slip kosong: ",
+  "Hủy phiếu trống": "Batalkan slip kosong",
+  "Phiếu không còn đơn nào — hủy phiếu trống này.": "Slip ini tidak punya pesanan lagi — batalkan slip kosong.",
+  "Phiếu đã có đơn hoặc không còn ở bước tạo phiếu — không hủy": "Slip sudah berisi pesanan atau sudah lewat tahap pembuatan — tidak dibatalkan",
+  "Đã hủy phiếu trống {a}": "Slip kosong {a} dibatalkan",
 };
 export default tuDien;
