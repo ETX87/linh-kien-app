@@ -15,6 +15,7 @@ import { MaLadaCheck } from "./MaLadaCheck";
 import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal } from "./DuDoanDuyetHint";
 import { GoiYThayTheThieuHang } from "./GoiYThayTheThieuHang";
 import { TonMienKhacHint } from "./TonMienKhac";
+import { GopPhieuDaDuTien } from "./GopPhieuDaDuTien";
 import { DoiTacCongNoChon } from "./DoiTacCongNoChon";
 import { MaDonBhInput } from "./CongNoSuaChua";
 import { TraHangAnhPicker, NhapKhoiPhucBanner } from "./SharedUi";
@@ -442,6 +443,7 @@ export function TaoDonMobileScreen({
           </div>
         )}
         <TongNgayKtvInfo email={targetNguoiNhanHang} themGiaTri={giaTriTinhChietKhau} />
+        <GopPhieuDaDuTien kiemTra={form.kiemTra} gop={form.gopPhieuDaDuTien} setGop={form.setGopPhieuDaDuTien} gon />
         <div className="flex items-center justify-between text-sm">
           <span className="text-[var(--ink-500)]">{t("{n} dòng · {sl} cái", { n: drafts.length, sl: tongSoLuong })}</span>
           <span className="text-right">

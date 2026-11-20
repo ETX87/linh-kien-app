@@ -266,12 +266,15 @@ export function useTaoDonForm({
   // Chot chan dong bo chong bam dup: create.isPending chi co hieu luc SAU lan render ke tiep, 2 cu cham
   // lien tiep trong cung 1 khung hinh van goi mutate() 2 lan.
   const dangGuiRef = useRef(false);
+  // v1.538 ("có ktv muốn được chuyển về trong cùng 1 lần"): mac dinh TACH phieu moi cho chuyen tien; true = gop vao phieu da du tien.
+  const [gopPhieuDaDuTien, setGopPhieuDaDuTien] = useState(false);
 
   const createMutation = useMutation({
     mutationFn: () =>
       api.post<KetQuaTaoDon>("/dat-mua-lk/phieu-dat", {
         client_request_id: clientRequestId,
         nguoi_nhan_hang: nguoiNhanHang || undefined,
+        gop_phieu_da_du_tien: gopPhieuDaDuTien && (kiemTraHienTai?.phieu_da_du_tien?.length ?? 0) > 0 ? true : undefined,
         kh_le_sdt: laNhomKhLe && khLeSdtSo ? khLeSdtSo : undefined,
         don_hang: drafts.map((d) => ({
           ma_lk: d.ma_lk,
@@ -304,6 +307,7 @@ export function useTaoDonForm({
       qc.invalidateQueries({ queryKey: ["khach-le"] });
       qc.invalidateQueries({ queryKey: ["nguoi-directory"] });
       setNguoiNhanHang("");
+      setGopPhieuDaDuTien(false);
       setDrafts([emptyDraft()]);
       // Ve dong 1: form con 1 dong rong - activeIdx cu (vd dong 2) lam man mobile doc drafts[1] = undefined -> trang loi
       // sau khi bam "Đặt tiếp" (2026-10-28).
@@ -332,7 +336,8 @@ export function useTaoDonForm({
     .filter(({ d }) => d.ma_lk.trim() && d.loai_de_xuat.trim() && d.so_luong_de_xuat > 0);
   const kiemTraKey = JSON.stringify({
     n: nguoiNhanHang,
-    dong: dongKiemTra.map(({ d }) => [d.ma_lk.trim(), d.loai_de_xuat.trim(), d.so_luong_de_xuat, laMuaCongNoDoiTac(d.loai_de_xuat) ? d.doi_tac_ma : ""]),
+    dong: dongKiemTra.map(({ d }) => [d.ma_lk.trim(), d.loai_de_xuat.trim(), d.so_luong_de_xuat, laMuaCongNoDoiTac(d.loai_de_xuat) ? d.doi_tac_ma : "",
+      d.yeu_cau_hoa_don.trim(), d.kh_chuyen_khoan && duocTichKhChuyenKhoan(d) ? 1 : 0]),
   });
   const [kiemTraKeyTre, setKiemTraKeyTre] = useState(kiemTraKey);
   useEffect(() => {
@@ -342,10 +347,14 @@ export function useTaoDonForm({
   const { data: kiemTra, isFetching: dangKiemTra } = useQuery({
     queryKey: ["dat-mua-lk-phieu-dat-kiem-tra", kiemTraKeyTre],
     queryFn: () => {
-      const k = JSON.parse(kiemTraKeyTre) as { n: string; dong: [string, string, number, string][] };
+      const k = JSON.parse(kiemTraKeyTre) as { n: string; dong: [string, string, number, string, string?, number?][] };
       return api.post<KiemTraPhieuDat>("/dat-mua-lk/phieu-dat/kiem-tra", {
         nguoi_nhan_hang: k.n || undefined,
-        don_hang: k.dong.map(([ma_lk, loai_de_xuat, so_luong_de_xuat, doi_tac_ma]) => ({ ma_lk, loai_de_xuat, so_luong_de_xuat, doi_tac_ma: doi_tac_ma || undefined })),
+        // + hinh thuc hoa don / KH chuyen khoan (v1.538) - de server biet dong vao NHOM phieu nao (goi y gop phieu da du tien).
+        don_hang: k.dong.map(([ma_lk, loai_de_xuat, so_luong_de_xuat, doi_tac_ma, yeu_cau_hoa_don, kh_chuyen_khoan]) => ({
+          ma_lk, loai_de_xuat, so_luong_de_xuat, doi_tac_ma: doi_tac_ma || undefined,
+          yeu_cau_hoa_don: yeu_cau_hoa_don || undefined, kh_chuyen_khoan: kh_chuyen_khoan ? true : undefined,
+        })),
       });
     },
     enabled: (JSON.parse(kiemTraKeyTre) as { dong: unknown[] }).dong.length > 0,
@@ -600,6 +609,7 @@ export function useTaoDonForm({
     ketQuaTao, dongKetQuaTao, khoiPhucLuc, boNhap, anKhoiPhuc: () => setKhoiPhucLuc(null),
     hoiKhoiPhuc, moLaiNhap, boQuaNhapCu, coNoiDungChuaTao, luuNhapNgay, xoaNhap,
     doiTacChon, tienDoiTacTrenForm, nhanLaNvSuaChua, tenNguoiNhan,
+    gopPhieuDaDuTien, setGopPhieuDaDuTien,
   };
 }
 

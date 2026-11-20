@@ -43,7 +43,10 @@ export async function bundleAutoApprovedIntoPxk(
   loaiDon: "mua" | "cong_no" | "tra_hang",
   lines: AutoApprovedLine[],
   // boQuaPxk: KHONG gop lai vao phieu nay (don vua bi bo ra khoi chinh phieu do - DELETE /phieu-xuat-kho/:id/dong, 2026-10-29).
-  opts: { boQuaPxk?: string } = {},
+  // gopPhieuDaDuTien (v1.538, chot 2026-11-20 - "thêm lựa chọn cho người tạo (có muốn tách thành phiếu chờ chuyển/ phiếu đã có đủ tiền không - vì có
+  // ktv muốn được chuyển về trong cùng 1 lần)"): don MOI can chuyen tien duoc gop vao phieu dang tao Ke toan DA duyet tien (mac dinh tach phieu moi).
+  // Phieu do tu ve "Cho KTV chuyen" so con thieu (taiTinhPxk), KTV chuyen bo sung roi Ke toan duyet lai. Chi nguoi tao don chon (POST /phieu-dat).
+  opts: { boQuaPxk?: string; gopPhieuDaDuTien?: boolean } = {},
 ): Promise<string | null> {
   if (lines.length === 0) return null;
   // Don da duoc chon khu vuc xu ly rieng (dat_don_hang.khu_vuc_chon - PATCH /dat-mua-lk/don-hang/:id/khu-vuc, 2026-10-15) di vao
@@ -84,7 +87,8 @@ export async function bundleAutoApprovedIntoPxk(
     const lyDo = (daTT ? "Đơn đã thanh toán — ưu tiên phiếu riêng (không gộp phiếu đang chờ chuyển tiền) để gửi Kế toán xuất hàng ngay\n" : "") +
       (ch ? "Đơn kho thiếu hàng — tách phiếu riêng (phiếu chờ hàng) để đơn có hàng được xuất trước\n" : "") +
       dong.map((l) => moTaDonVaoPhieu(donTheoId.get(l.donHangId), l.donHangId, loaiDon)).join("\n");
-    pxkCuoi = await gomMotNhom(env, db, actorEmail, nguoiNhanHang, loaiDon, dong, kvChon, lyDo, doiTac, daTT, lde, opts.boQuaPxk ?? null, ch);
+    pxkCuoi = await gomMotNhom(env, db, actorEmail, nguoiNhanHang, loaiDon, dong, kvChon, lyDo, doiTac, daTT, lde, opts.boQuaPxk ?? null, ch,
+      !!opts.gopPhieuDaDuTien && loaiDon !== "tra_hang" && !doiTac && !daTT && !ch);
   }
   return pxkCuoi;
 }
@@ -125,6 +129,7 @@ async function gomMotNhom(
   nhomLde = "",
   boQuaPxk: string | null = null,
   choHang = false,
+  gopPhieuDaDuTien = false,
 ): Promise<string> {
   const now = nowVN();
   // nhomLde = "<loai de xuat>|<hoa don>|<KH chuyen khoan 0/1>" (nhomPhieu) -> phieu tieu "Quỹ KH chuyển khoản" khi co KH.
@@ -133,18 +138,20 @@ async function gomMotNhom(
 
   const existing = await db
     .prepare(
-      `SELECT id, ma_xuat_kho, so_tien_can_chuyen FROM phieu_xuat_kho
+      `SELECT id, ma_xuat_kho, so_tien_can_chuyen, trang_thai_chuyen_tien FROM phieu_xuat_kho
        WHERE nguoi_nhan_hang = ? AND loai_don = ? AND trang_thai_hien_tai = 'Dang tao phieu'
-         AND ${daThanhToan ? "trang_thai_chuyen_tien = 'TN da duyet' AND COALESCE(so_tien_can_chuyen, 0) > 0" : "COALESCE(trang_thai_chuyen_tien, '') != 'TN da duyet'"}
+         AND ${daThanhToan ? "trang_thai_chuyen_tien = 'TN da duyet' AND COALESCE(so_tien_can_chuyen, 0) > 0"
+           : gopPhieuDaDuTien ? "1 = 1" : "COALESCE(trang_thai_chuyen_tien, '') != 'TN da duyet'"}
          AND COALESCE(TRIM(ma_misa), '') = ''
          AND khu_vuc_chon IS ? AND doi_tac_ma IS ?
          AND COALESCE(quy_kh, 0) = ? AND COALESCE(cho_hang, 0) = ?
          AND ${phieuCungNhomSql("phieu_xuat_kho.id", "?")}
          AND id IS NOT ?
-       ORDER BY ngay_tao DESC LIMIT 1`,
+       ORDER BY ${gopPhieuDaDuTien ? "(COALESCE(trang_thai_chuyen_tien, '') = 'TN da duyet') DESC, " : ""}ngay_tao DESC LIMIT 1`,
     )
     .bind(nguoiNhanHang, loaiDon, kvChon, doiTac, quyKh, choHang ? 1 : 0, nhomLde, boQuaPxk)
-    .first<{ id: string; ma_xuat_kho: string; so_tien_can_chuyen: number | null }>();
+    .first<{ id: string; ma_xuat_kho: string; so_tien_can_chuyen: number | null; trang_thai_chuyen_tien: string | null }>();
+  const gopVaoPhieuDaDuyet = !!existing && gopPhieuDaDuTien && existing.trang_thai_chuyen_tien === "TN da duyet";
 
   const statements = [];
   let pxkId: string;
@@ -158,7 +165,7 @@ async function gomMotNhom(
     // tu toan bo dong, doi -> reset trang thai chuyen tien giong luong them dong thu cong.
     statements.push(
       db.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
-        pxkId, "Da them don vao phieu", actorEmail, now, `Hệ thống tự gom vào phiếu đang tạo:\n${lyDo}`.slice(0, 2000),
+        pxkId, "Da them don vao phieu", actorEmail, now, `${gopVaoPhieuDaDuyet ? "Người đặt chọn GỘP vào phiếu đã đủ tiền (giao hàng 1 lần) — phiếu chờ KTV chuyển bổ sung phần tăng thêm" : "Hệ thống tự gom vào phiếu đang tạo"}:\n${lyDo}`.slice(0, 2000),
       ),
     );
   } else {
@@ -201,7 +208,12 @@ async function gomMotNhom(
 
   // Chi bao KTV khi PXK vua CHUYEN sang "co tien can chuyen" (tu 0/chua co sang > 0) - tranh spam
   // thong bao lap lai moi lan gop them dong vao 1 PXK dang cho KTV chuyen tu truoc.
-  const vuaCanChuyenTien = soTienTruoc <= 0 && ketQuaTaiTinh.total > 0;
+  let vuaCanChuyenTien = soTienTruoc <= 0 && ketQuaTaiTinh.total > 0;
+  // Gop vao phieu Ke toan da duyet tien -> tong tang, phieu ve "Cho KTV chuyen" so con thieu -> bao KTV chuyen bo sung.
+  if (gopVaoPhieuDaDuyet) {
+    const sau = await db.prepare("SELECT trang_thai_chuyen_tien FROM phieu_xuat_kho WHERE id = ?").bind(pxkId).first<{ trang_thai_chuyen_tien: string | null }>();
+    if (sau?.trang_thai_chuyen_tien === "Cho KTV chuyen") vuaCanChuyenTien = true;
+  }
   if (vuaCanChuyenTien) {
     const emailGsList = await emailGsListForPxk(db, pxkId);
     await notifyWorkflowTask(env, db, {

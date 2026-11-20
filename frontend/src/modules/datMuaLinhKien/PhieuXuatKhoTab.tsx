@@ -1857,8 +1857,24 @@ export function PxkDetailModal({
   // Phieu trong (TN bo het don / doi trang thai don cuoi tu man nay) -> dong man hoac chuyen sang phieu khac thi
   // TU HUY phieu (chot 2026-09-28, muc 3 "phiếu trống nếu người dùng tắt đi sẽ tự hủy bỏ").
   const phieuTrong = !!pxk && trangThai === "Dang tao phieu" && (data?.donHang.length ?? 0) === 0;
+  // v1.538 ("Đơn trống nhưng không có nút hủy bỏ vẫn hiện đơn trống"): moi nguoi lien quan (van phong / nguoi nhan / nguoi tao) huy duoc phieu trong.
+  const duocHuyPhieuTrong = phieuTrong && (canTacNghiep || canKeToan || canKho || isAdmin || pxk?.nguoi_nhan_hang === currentEmail || pxk?.nguoi_tao === currentEmail);
+  const [dangHuyTrong, setDangHuyTrong] = useState(false);
+  async function huyPhieuTrongNgay() {
+    setDangHuyTrong(true);
+    try {
+      const r = await api.post<{ da_huy: boolean }>(`/phieu-xuat-kho/${id}/huy-neu-trong`, {});
+      addToast(r.da_huy ? t("Đã hủy phiếu trống {a}", { a: id }) : t("Phiếu đã có đơn hoặc không còn ở bước tạo phiếu — không hủy"));
+      invalidate();
+      if (r.da_huy) onClose();
+    } catch (err) {
+      addToast(t("Không hủy được phiếu trống: ") + describeApiError(err));
+    } finally {
+      setDangHuyTrong(false);
+    }
+  }
   async function roiPhieu(tiepTheo: () => void) {
-    if (phieuTrong && (canTacNghiep || canKeToan)) {
+    if (duocHuyPhieuTrong) {
       try {
         const r = await api.post<{ da_huy: boolean }>(`/phieu-xuat-kho/${id}/huy-neu-trong`, {});
         if (r.da_huy) {
@@ -1922,6 +1938,14 @@ export function PxkDetailModal({
             nen giu nho/an chu - doi sang size="md" + luon hien chu, bo "px-2". Cac nut trong TABLE
             (DonCuaToiTab.tsx/ThieuLkTab.tsx cot "hanh dong") KHONG doi, van giu icon nho vi phai
             gon trong 1 dong danh sach. */}
+        {duocHuyPhieuTrong && (
+          <div className="rounded-lg border border-[var(--color-danger)]/40 bg-[var(--color-danger-soft)] px-3 py-2 text-[12.5px] text-[var(--color-danger-strong)] flex items-center justify-between gap-2 flex-wrap">
+            <span>{t("Phiếu không còn đơn nào — hủy phiếu trống này.")}</span>
+            <Btn variant="danger" onClick={() => void huyPhieuTrongNgay()} disabled={dangHuyTrong} loading={dangHuyTrong}>
+              🗑 {t("Hủy phiếu trống")}
+            </Btn>
+          </div>
+        )}
         <div className="flex gap-2 flex-wrap">
           {canTacNghiep && trangThai === "Dang tao phieu" && (
             <Btn

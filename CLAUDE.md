@@ -1269,6 +1269,14 @@ sách với HỖ TRỢ 0 ĐỒNG, + đơn giá với Chuyển kho); SL cộng, t
 - "Trừ kho" / "Đã chốt xong đơn xuất" chỉ nhận phiếu "Cho ke toan" đã có đủ Mã đơn hàng + Mã PXK. Trả hàng không trừ kho.
 - UI: nút "⚡ Kế toán duyệt nhanh" ở chi tiết phiếu (Kế toán, phiếu "Dang tao phieu" hoặc "Cho ke toan" chưa Mã MISA); danh sách Phiếu xuất có ô chọn ở cột ID (tiêu đề = chọn cả trang) + thanh `ThanhDuyetNhanhPxk` ("Chọn tất cả N phiếu theo bộ lọc" tải mọi phiếu qua `taiPhieuTheoBoLoc`). Đổi bộ lọc = bỏ chọn. Chưa có ô chọn trên thẻ mobile.
 
+**Chọn tách / gộp phiếu đã đủ tiền khi tạo đơn** (chốt 2026-11-20, v1.538 — "thêm lựa chọn cho người tạo (có muốn tách thành phiếu chờ chuyển/ phiếu đã có
+đủ tiền không - vì có ktv muốn được chuyển về trong cùng 1 lần)"): mặc định `gomMotNhom` KHÔNG gộp đơn mới vào phiếu "Dang tao phieu" Kế toán đã duyệt tiền.
+`POST /phieu-dat/kiem-tra` trả `phieu_da_du_tien` (`phieuDaDuTienCoTheGop` — cùng điều kiện nhóm phiếu, `khu_vuc_chon` NULL, không chờ hàng / đối tác); form
+(`GopPhieuDaDuTien.tsx`) cho chọn, gửi `gop_phieu_da_du_tien` → `bundleAutoApprovedIntoPxk` opts `gopPhieuDaDuTien` (bỏ lọc trạng thái tiền, ưu tiên phiếu đã
+duyệt) → `taiTinhPxk` đưa phiếu về "Cho KTV chuyen" phần thiếu + báo KTV. Cùng đợt: PATCH đơn nhận `kh_chuyen_khoan` (gỡ khỏi phiếu chưa tiền trước khi ghi
+vì trigger `trg_ddh_kh_chuyen_khoan_khoa`), nút "Hủy phiếu trống", cron `huyMoiPhieuTrongCu` (phiếu trống ≥ 30 phút), danh sách PXK "tất cả" ẩn phiếu
+đã hủy không còn đơn.
+
 **Đợt v1.411** (chốt 2026-10-28): (1) **Đơn đã thanh toán ưu tiên phiếu riêng**: `bundleAutoApprovedIntoPxk` tách nhóm đơn có `tien_da_tra > 0`
 (không đối tác, không trả hàng) — CHỈ gộp vào phiếu "Dang tao phieu" Kế toán ĐÃ duyệt tiền (`trang_thai_chuyen_tien='TN da duyet'`, có tiền), không thì tạo
 phiếu MỚI (tự "Kế toán đã duyệt" khi đủ tiền nhờ quy tắc tiền cần chuyển = 0); không bao giờ gộp vào phiếu đang chờ chuyển tiền. (2) **Ca khiếu nại**

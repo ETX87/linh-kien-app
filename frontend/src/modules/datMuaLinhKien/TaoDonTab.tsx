@@ -19,6 +19,7 @@ import { MaLadaCheck } from "./MaLadaCheck";
 import { DuDoanDuyetHint, XacNhanTaoDonModal, KetQuaTaoDonModal, moTaKetQua } from "./DuDoanDuyetHint";
 import { GoiYThayTheThieuHang } from "./GoiYThayTheThieuHang";
 import { TonMienKhacHint } from "./TonMienKhac";
+import { GopPhieuDaDuTien } from "./GopPhieuDaDuTien";
 import { DoiTacCongNoChon } from "./DoiTacCongNoChon";
 import { TraHangAnhPicker, NhapKhoiPhucBanner } from "./SharedUi";
 import { NhapTaoDonHoi } from "./NhapTaoDonHoi";
@@ -563,6 +564,9 @@ export function TaoDonTab({
                   <div className="mt-2 pt-2 border-t border-[var(--line)] empty:hidden text-[12px]">
                     <TongNgayKtvInfo email={targetNguoiNhanHang} themGiaTri={giaTriTinhChietKhau} />
                   </div>
+                </div>
+                <div className="mt-2 empty:hidden">
+                  <GopPhieuDaDuTien kiemTra={form.kiemTra} gop={form.gopPhieuDaDuTien} setGop={form.setGopPhieuDaDuTien} />
                 </div>
               </div>
             </div>

@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef, Fragment, lazy, Suspense } from "
 // Lazy: PhieuXuatKhoTab da import DonHangDetailModal tu file nay - tranh vong import tinh (2026-10-02).
 const PxkDetailModalLazy = lazy(() => import("./PhieuXuatKhoTab").then((m) => ({ default: m.PxkDetailModal })));
 const XemLinhKienDrawerLazy = lazy(() => import("../DanhMucLinhKienModule").then((m) => ({ default: m.XemLinhKienDrawer })));
-import { KhChuyenKhoanBadge } from "./KhChuyenKhoan";
+import { KhChuyenKhoanBadge, KhChuyenKhoanCheck } from "./KhChuyenKhoan";
 import { BangChungAnhPxk } from "./XemAnhNhanh";
 import { CoSoChietKhauKhoi } from "./CoSoChietKhau";
 import { TachDonModal } from "./TachDon";
@@ -512,6 +512,7 @@ export function DonHangDetailModal({
       ma_lada: d.ma_lada ?? "",
       uu_tien: d.uu_tien === 1,
       doi_tac_ma: d.doi_tac_ma ?? "",
+      kh_chuyen_khoan: !!d.kh_chuyen_khoan,
       // "anh" khong dung o luong sua nay (chi don loai_don='tra_hang' moi co anh, va dong tra_hang
       // KHONG bao gio vao duoc isCreatorEditWindow - xem giai thich o comment dat_don_hang_log/
       // isCreatorEditWindow ben tren) - de rong cho khop type DonHangDraft.
@@ -601,6 +602,8 @@ export function DonHangDetailModal({
       ma_lada: editDraft.ma_lada.trim().toUpperCase(), // gui ca chuoi rong = xoa ma
       uu_tien: editDraft.uu_tien,
     };
+    // v1.538: chi gui khi DOI co (backend chan doi khi don / phieu da giu tien).
+    if (!!editDraft.kh_chuyen_khoan !== !!d?.kh_chuyen_khoan) body.kh_chuyen_khoan = !!editDraft.kh_chuyen_khoan;
     if (tnCoreDraft) {
       const slThucXuat = Number(tnCoreDraft.so_luong_thuc_xuat);
       const slGoc = d?.so_luong_thuc_xuat ?? d?.so_luong_de_xuat;
@@ -1495,6 +1498,14 @@ export function DonHangDetailModal({
                     </Btn>
                   ))}
                 </div>
+                {/* v1.538 ("khi tôi sửa đơn, thiếu nút tích KH đã thanh toán"): doi co = doi quy tien -> khoa khi don / phieu da giu tien. */}
+                {(d.tien_da_tra ?? 0) > 0 || (pxk && (pxk.trang_thai !== "Dang tao phieu" || (pxk.da_thanh_toan ?? 0) > 0)) ? (
+                  <div className="mt-2 text-[11.5px] text-[var(--ink-500)]">
+                    {editDraft.kh_chuyen_khoan ? "✓ " : ""}{t("Khách hàng đã chuyển khoản về công ty")}: {t("không đổi được vì đơn / phiếu đã có tiền thanh toán — bỏ đơn khỏi phiếu trước nếu cần đổi.")}
+                  </div>
+                ) : (
+                  <KhChuyenKhoanCheck d={editDraft} onChange={(v) => updateEditDraft({ kh_chuyen_khoan: v })} />
+                )}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>

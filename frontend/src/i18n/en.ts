@@ -3098,5 +3098,11 @@ const tuDien: Record<string, string> = {
   "Tạo đơn + phiếu gửi bù trên app (Kho xuất lại theo phiếu mới)": "Create replacement orders + slip in the app (warehouse ships on the new slip)",
   "Không tạo đơn xuất bù — Kho tự gửi bù ngoài hệ thống": "No replacement orders — warehouse sends the shortfall outside the system",
   "Xác nhận xong: giữ nguyên SL và tiền của phiếu gốc, không tạo đơn / phiếu mới. Kho tự gửi phần thiếu cho KTV.": "On confirm: the original slip keeps its quantities and money, no new order / slip. The warehouse sends the shortfall to the technician itself.",
+  "Bạn đang có phiếu đã đủ tiền: {ma}": "You already have a fully paid slip: {ma}",
+  "Gộp vào phiếu đã đủ tiền (nhận hàng 1 lần)": "Merge into the fully paid slip (receive goods at once)",
+  "Kế toán đã xác nhận": "Accounting confirmed",
+  "Phiếu {ma} sẽ quay về chờ chuyển bổ sung phần tiền tăng thêm; Kế toán xác nhận lại rồi mới xuất cả phiếu.": "Slip {ma} goes back to waiting for the extra transfer; Accounting re-confirms before the whole slip ships.",
+  "Phiếu đã đủ tiền được gửi Kế toán xuất hàng ngay, đơn mới đi phiếu riêng.": "The paid slip goes to Accounting to ship now; the new order goes on its own slip.",
+  "Tách phiếu mới chờ chuyển tiền": "New separate slip awaiting transfer",
 };
 export default tuDien;

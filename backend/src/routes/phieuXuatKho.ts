@@ -402,6 +402,10 @@ async function pxkListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string): P
     // trang_thai_hien_tai (co index idx_pxk_trang_thai_nhan_hang) thay vi correlated subquery.
     whereSql += " AND pxk.trang_thai_hien_tai = ?";
     binds.push(trangThai);
+  } else {
+    // v1.538 ("Đơn trống nhưng không có nút hủy bỏ vẫn hiện đơn trống"): xem tat ca -> an phieu DA HUY khong con don nao (tu huy khi don cuoi
+    // roi phieu - khong con gi de xem); loc trang thai "Ke toan huy" van thay.
+    whereSql += " AND NOT (pxk.trang_thai_hien_tai = 'Ke toan huy' AND NOT EXISTS (SELECT 1 FROM phieu_xuat_kho_dong x_tr WHERE x_tr.phieu_xuat_kho_id = pxk.id))";
   }
   if (nguoiNhanHang) {
     whereSql += " AND pxk.nguoi_nhan_hang = ?";
@@ -2117,9 +2121,14 @@ async function phieuChoHangLienQuan(db: D1Database, id: string): Promise<unknown
 // POST /api/phieu-xuat-kho/:id/huy-neu-trong - dong man chi tiet 1 PXK "Dang tao phieu" khong con dong nao ->
 // tu huy phieu (chot 2026-09-28, muc 3: "phiếu trống nếu người dùng tắt đi sẽ tự hủy bỏ"). Khong trong -> bo qua.
 phieuXuatKho.post("/:id/huy-neu-trong", async (c) => {
-  if (!canTacNghiep(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const pxkId = c.req.param("id");
-  const huy = await huyPxkNeuTrong(c.env.DB, pxkId, c.get("user").email);
+  // v1.538: + Kho / nguoi nhan / nguoi tao phieu huy duoc phieu TRONG (huyPxkNeuTrong chi huy khi khong con dong nao - vo hai).
+  if (!canTacNghiep(c) && !canKeToan(c) && !canKho(c)) {
+    const p = await c.env.DB.prepare("SELECT nguoi_nhan_hang, nguoi_tao FROM phieu_xuat_kho WHERE id = ?").bind(pxkId).first<{ nguoi_nhan_hang: string | null; nguoi_tao: string | null }>();
+    const email = c.get("user").email;
+    if (!p || (p.nguoi_nhan_hang !== email && p.nguoi_tao !== email)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  }
+  const huy = await huyPxkNeuTrong(c.env.DB, pxkId, c.get("user").email, "Hủy phiếu trống (không còn đơn nào)");
   if (huy) {
     c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
     if (huy.hoanQuy > 0) c.executionCtx.waitUntil(thongBaoHoanQuyPhieuHuy(c.env, c.env.DB, pxkId, huy.hoanQuy));

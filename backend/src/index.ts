@@ -29,6 +29,7 @@ import thieuHangBhRoutes from "./routes/thieuHangBh";
 import nhanThieuRoutes, { tuXacNhanVaNhacPxk } from "./routes/nhanThieu";
 import { runDvbhSync } from "./lib/dvbhSyncClient";
 import { xetLaiDonChoGsDuyet } from "./lib/tuDongDuyet";
+import { huyMoiPhieuTrongCu } from "./lib/pxkTuHuy";
 import { xoaThongBaoCu } from "./lib/donThongBao";
 import { runGia88SyncWithState } from "./lib/gia88Sync";
 import { runEtxNhanSuSyncWithState } from "./lib/etxNhanSuSync";
@@ -110,6 +111,8 @@ export default {
     ctx.waitUntil(quetViPham(env).then(() => undefined).catch((err) => console.error("[quetViPham]", err)));
     // Don "Cho GS duyet" vi vuot tran ma cong no da giam -> tu xet lai (v1.533, lib/tuDongDuyet.ts xetLaiDonChoGsDuyet) - moi gio.
     ctx.waitUntil(xetLaiDonChoGsDuyet(env, env.DB, null, "kiểm tra định kỳ", (p) => ctx.waitUntil(p)).then(() => undefined).catch((err) => console.error("[xetLaiDonChoGsDuyet]", err)));
+    // Phieu "Dang tao phieu" trong (khong con don) qua 30 phut -> tu huy (v1.538, lib/pxkTuHuy.ts huyMoiPhieuTrongCu) - moi gio.
+    ctx.waitUntil(huyMoiPhieuTrongCu(env.DB).then(() => undefined).catch((err) => console.error("[huyMoiPhieuTrongCu]", err)));
     // Them 2026-09-12: PULL bang gia tu doi tac gia88 1 lan/dem luc 0h GIO VN = 17h UTC (xem
     // lib/gia88Sync.ts) - tai dung DUNG cron hang gio co san thay vi them 1 entry cron rieng, chi gate
     // theo gio de tranh chay 24 lan/ngay khong can thiet (doi tac chi khuyen nghi "moi ngay/moi ca").

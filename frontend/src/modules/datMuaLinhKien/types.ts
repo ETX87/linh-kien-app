@@ -116,6 +116,8 @@ export interface KiemTraPhieuDat {
   cong_no_chot?: number;
   tong_moi_cong_no?: number;
   tran_cong_no?: number | null;
+  // v1.538: phieu dang tao Ke toan DA duyet tien co the gop don moi (mac dinh tach phieu moi cho chuyen tien).
+  phieu_da_du_tien?: { id: string; loai_don: string; tong: number; da_thanh_toan: number; so_don: number; dong: number[] }[];
   dong: KiemTraDong[];
 }
 

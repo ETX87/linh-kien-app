@@ -50,6 +50,13 @@ duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xe
 `Dang tao phieu` (chờ chuyển tiền / chờ mã HĐ) → `Cho ke toan` (Kế toán nhập Mã MISA) → `Da chot xong don xuat` → `Dang gui KTV` →
 `KTV da nhan` (tự xác nhận sau 10 ngày) | `Hang tru kho` | `Kho da nhan hang tra`; `Ke toan huy`.
 - 1 phiếu chỉ chứa đơn cùng người nhận + loại đơn + nhóm loại đề xuất + hình thức hóa đơn + đối tác + cờ chờ hàng.
+- Đơn mới cần chuyển tiền mặc định KHÔNG gộp vào phiếu đang tạo mà Kế toán đã duyệt đủ tiền (tạo phiếu riêng chờ chuyển). Nếu người nhận đang có
+  phiếu như vậy (cùng nhóm phiếu), form tạo đơn cho chọn **Tách phiếu mới** (mặc định) hoặc **Gộp vào phiếu đã đủ tiền** (nhận hàng 1 lần): gộp thì
+  phiếu về "Chờ KTV chuyển" phần tăng thêm, Kế toán xác nhận lại. Đơn kho thiếu ("Chờ thanh toán") vẫn đi phiếu chờ hàng riêng.
+- Phiếu "Đang tạo phiếu" không còn đơn: ai liên quan (văn phòng / người nhận / người tạo) bấm "Hủy phiếu trống"; cron mỗi giờ tự hủy phiếu trống
+  im lặng ≥ 30 phút. Danh sách "tất cả" ẩn phiếu đã hủy không còn đơn (lọc "Kế toán hủy" vẫn thấy).
+- Sửa đơn: tích / bỏ "KH đã chuyển khoản về công ty" được khi đơn chưa giữ tiền và phiếu chứa đơn còn "Đang tạo phiếu", chưa có tiền
+  (đơn tự rời phiếu cũ, gom lại đúng quỹ / nhóm).
 - **Quỹ tiền dư KTV**: mọi tiền KTV chuyển vào quỹ người nhận, Kế toán nhập số thực nhận → quỹ tự trả phiếu thiếu cũ nhất; thừa ở lại quỹ;
   hủy / giảm thì hoàn quỹ. Quỹ KH chuyển khoản (đơn tích "KH đã chuyển khoản về công ty", có hoặc không xuất hóa đơn) tách riêng. Tiền cần chuyển = 0 thì không cần Kế toán duyệt.
 - Thêm / bớt / tách / chuyển đơn được tới khi Kế toán chốt; đẩy lùi từng bước có lý do; Kế toán duyệt nhanh hàng loạt.
@@ -109,7 +116,7 @@ Hướng dẫn người dùng: `docs/Huong_dan_giai_trinh_qua_han_theo_vai_tro.h
 ## 10. Lịch chạy tự động (cron mỗi giờ)
 
 Đồng bộ danh bạ KTV / danh mục LK sang DVBH + app Bảo hành mỗi giờ; giá gia88 0h VN; ETX nhân sự 0h thứ Hai (tự tạo KTV + tài khoản, nghỉ
-việc tự khoá); 8h VN tự xác nhận phiếu quá hạn nhận + nhắc KTV; mỗi giờ quét quá hạn SLA + gắn thẻ vi phạm; 0h dọn thông báo cũ / bộ đếm ảnh.
+việc tự khoá); 8h VN tự xác nhận phiếu quá hạn nhận + nhắc KTV; mỗi giờ quét quá hạn SLA + gắn thẻ vi phạm, tự hủy phiếu trống; 0h dọn thông báo cũ / bộ đếm ảnh.
 
 ## 11. Kết nối hệ khác
 

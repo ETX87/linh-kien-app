@@ -224,3 +224,25 @@ export async function huyPxkNeuTrong(db: D1Database, pxkId: string, email: strin
   const { hoan } = await canBangPxk(db, pxkId, email); // hoan tien da tra (neu co) ve quy du
   return { hoanQuy: hoan };
 }
+
+// DON PHIEU TRONG CON SOT (v1.538, chot 2026-11-20 - "Đơn trống nhưng không có nút hủy bỏ vẫn hiện đơn trống"): phieu "Dang tao phieu" khong con
+// dong nao ma khong ai dong man chi tiet (KTV / Kho mo man, don roi phieu qua duong khac...) -> cron moi gio tu huy phieu trong da im lang
+// >= 30 phut (lan ghi log cuoi + ngay tao) - tranh huy phieu nguoi dung vua bo het don va dang them don khac. Nguoi ghi log = nguoi tao phieu.
+export async function huyMoiPhieuTrongCu(db: D1Database): Promise<number> {
+  const moc = new Date(Date.now() + 7 * 3600_000 - 30 * 60_000).toISOString().slice(0, 19).replace("T", " ");
+  const { results } = await db
+    .prepare(
+      `SELECT p.id, p.nguoi_tao FROM phieu_xuat_kho p
+       WHERE p.trang_thai_hien_tai = 'Dang tao phieu' AND p.ngay_tao < ?1
+         AND NOT EXISTS (SELECT 1 FROM phieu_xuat_kho_dong x WHERE x.phieu_xuat_kho_id = p.id)
+         AND COALESCE((SELECT MAX(l.ngay_xu_ly) FROM phieu_xuat_kho_log l WHERE l.phieu_xuat_kho_id = p.id), '') < ?1
+       LIMIT 200`,
+    )
+    .bind(moc)
+    .all<{ id: string; nguoi_tao: string }>();
+  let n = 0;
+  for (const r of results) {
+    if (await huyPxkNeuTrong(db, r.id, r.nguoi_tao, "Hệ thống tự hủy phiếu trống (không còn đơn nào quá 30 phút)")) n++;
+  }
+  return n;
+}
