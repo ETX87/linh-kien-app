@@ -3186,5 +3186,9 @@ const tuDien: Record<string, string> = {
   "Đính kèm ảnh bằng chứng": "Attach evidence images",
   "Admin BH duyệt hướng xử lý \"Dịch vụ tính phí\"": "Warranty Admin approved handling \"Paid service\"",
   "Lọc theo cột (như Excel):": "Filter by column (like Excel):",
+  "Ứng dụng đã có phiên bản mới — tải lại để dùng bản mới nhất.": "A new version of the app is available — reload to use the latest version.",
+  "Tải lại": "Reload",
+  "Ảnh bằng chứng là tùy chọn — nên đính kèm nếu có.": "Evidence photos are optional — attach them if you have any.",
+  "(tùy chọn, tối đa 5 ảnh: tin nhắn, email, ảnh chụp màn hình…)": "(optional, up to 5 photos: messages, emails, screenshots…)",
 };
 export default tuDien;

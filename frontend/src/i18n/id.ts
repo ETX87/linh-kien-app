@@ -3186,5 +3186,9 @@ const tuDien: Record<string, string> = {
   "Đính kèm ảnh bằng chứng": "Lampirkan gambar bukti",
   "Admin BH duyệt hướng xử lý \"Dịch vụ tính phí\"": "Admin Garansi menyetujui penanganan \"Layanan berbayar\"",
   "Lọc theo cột (như Excel):": "Saring per kolom (seperti Excel):",
+  "Ứng dụng đã có phiên bản mới — tải lại để dùng bản mới nhất.": "Versi baru aplikasi tersedia — muat ulang untuk memakai versi terbaru.",
+  "Tải lại": "Muat ulang",
+  "Ảnh bằng chứng là tùy chọn — nên đính kèm nếu có.": "Foto bukti opsional — lampirkan jika ada.",
+  "(tùy chọn, tối đa 5 ảnh: tin nhắn, email, ảnh chụp màn hình…)": "(opsional, maks. 5 foto: pesan, email, tangkapan layar…)",
 };
 export default tuDien;

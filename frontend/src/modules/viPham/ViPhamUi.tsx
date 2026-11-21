@@ -194,10 +194,11 @@ export const PHAN_LOAI_LOI: { ma: PhanLoaiLoi; nhan: string; goiY: string }[] = 
   { ma: "cua_toi", nhan: dichSau("Lỗi của tôi"), goiY: dichSau("Do chính bạn xử lý chậm — không cần bằng chứng.") },
   { ma: "khac", nhan: dichSau("Khác"), goiY: dichSau("Nguyên nhân khác — ghi rõ trong nội dung.") },
 ];
+/** v1.553: chỉ còn 2 lựa chọn khi giải trình (bỏ "Lỗi của tôi", "Khác" — giữ trong PHAN_LOAI_LOI để hiện nhãn ca cũ), ảnh bằng chứng TÙY CHỌN ("ảnh là tùy chọn, ko bắt buộc"). */
+export const PHAN_LOAI_LOI_CHON = PHAN_LOAI_LOI.filter((p) => p.ma === "noi_bo" || p.ma === "doi_tac");
 const MAX_BANG_CHUNG = 5;
 const LOI_GIAI_TRINH: Record<string, string> = {
   THIEU_PHAN_LOAI_LOI: dichSau("Chọn lỗi thuộc về ai."),
-  THIEU_BANG_CHUNG: dichSau("Không phải lỗi của bạn thì phải đính kèm ít nhất 1 ảnh bằng chứng."),
   QUA_SO_ANH_BANG_CHUNG: dichSau("Tối đa 5 ảnh bằng chứng."),
   NOI_DUNG_QUA_NGAN: dichSau("Nội dung giải trình tối thiểu 5 ký tự."),
 };
@@ -213,7 +214,7 @@ export function HopViPham({ r, onClose }: { r: ViPhamRow; loai?: LoaiHop; onClos
   const [dangTai, setDangTai] = useState(0);
   const [loi, setLoi] = useState<string | null>(null);
   const dsLyDo = useQuery({ queryKey: ["vi-pham-ly-do"], queryFn: () => api.get<{ rows: string[]; khong_dung: string }>("/vi-pham/ly-do") });
-  const canBangChung = !!phanLoai && phanLoai !== "cua_toi";
+  const canBangChung = !!phanLoai;
   const gui = useMutation({
     mutationFn: () =>
       api.post(`/vi-pham/${r.id}/giai-trinh`, { ly_do: lyDo, noi_dung: nd.trim(), phan_loai_loi: phanLoai, bang_chung: canBangChung ? anh : [] }),
@@ -251,9 +252,7 @@ export function HopViPham({ r, onClose }: { r: ViPhamRow; loai?: LoaiHop; onClos
     ? t("Chọn lý do chậm")
     : !phanLoai
       ? t("Chọn lỗi thuộc về ai")
-      : canBangChung && anh.length === 0
-        ? t("Đính kèm ảnh bằng chứng")
-        : nd.trim().length < 5
+      : nd.trim().length < 5
           ? t("Nhập nội dung giải trình")
           : dangTai > 0
             ? t("Đang tải ảnh…")
@@ -288,7 +287,7 @@ export function HopViPham({ r, onClose }: { r: ViPhamRow; loai?: LoaiHop; onClos
       </p>
       <div className="text-sm font-semibold">{t("2. Lỗi thuộc về")} *</div>
       <div className="mt-1 grid grid-cols-2 gap-2 mb-1">
-        {PHAN_LOAI_LOI.map((p) => (
+        {PHAN_LOAI_LOI_CHON.map((p) => (
           <button
             key={p.ma}
             type="button"
@@ -299,11 +298,11 @@ export function HopViPham({ r, onClose }: { r: ViPhamRow; loai?: LoaiHop; onClos
           </button>
         ))}
       </div>
-      <p className="text-xs text-[var(--color-text-secondary)] mb-3">{goiY ? t(goiY) : t("Không phải lỗi của bạn thì cần đính kèm ảnh bằng chứng.")}</p>
+      <p className="text-xs text-[var(--color-text-secondary)] mb-3">{goiY ? t(goiY) : t("Ảnh bằng chứng là tùy chọn — nên đính kèm nếu có.")}</p>
       {canBangChung && (
         <div className="mb-3">
           <div className="text-sm font-semibold">
-            {t("3. Ảnh bằng chứng")} * <span className="font-normal text-xs text-[var(--color-text-secondary)]">{t("(1–5 ảnh: tin nhắn, email, ảnh chụp màn hình…)")}</span>
+            {t("3. Ảnh bằng chứng")} <span className="font-normal text-xs text-[var(--color-text-secondary)]">{t("(tùy chọn, tối đa 5 ảnh: tin nhắn, email, ảnh chụp màn hình…)")}</span>
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             {anh.map((u, i) => (<AnhThumb key={u} url={u} stt={i + 1} onXoa={() => setAnh((x) => x.filter((y) => y !== u))} />))}

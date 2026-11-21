@@ -462,3 +462,10 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
 - Yêu cầu nguyên văn: "thêm cột TB ngày làm việc bên cạnh cột \"TB giờ\"".
 - Đã làm: `BaoCaoTocDoXuLyModule.tsx` thêm cột "TB ngày làm việc" (= TB giờ làm việc ÷ 8, 1 chữ số thập phân) ngay sau "TB giờ xử lý" và "TB giờ (toàn hệ thống)"; file Excel thêm 2 cột tương ứng. Không đổi API.
 - Kiểm thử: typecheck frontend 0 lỗi, build qua. Chưa xem bằng mắt trên production.
+
+## 2026-11-21 — v1.553: Giải trình — lỗi "không xác định (THIEU_PHAN_LOAI_LOI)" + bỏ "Lỗi của tôi" / "Khác"
+
+- Báo lỗi: ảnh hộp "Giải trình quá hạn — TLK-000781" báo "không xác định (mã: THIEU_PHAN_LOAI_LOI)". Nguyên nhân: tab mở từ trước v1.548 (hộp cũ không có ô "Lỗi thuộc về") gửi giải trình thiếu trường mới, server từ chối, giao diện cũ không biết mã lỗi.
+- Yêu cầu thêm nguyên văn: "bỏ lựa chọn \"lỗi của tôi\" và \"khác\"".
+- Đã làm: server trả kèm câu "đã có phiên bản mới, tải lại trang" (giao diện cũ hiện được); thanh nhắc "Ứng dụng đã có phiên bản mới — Tải lại" (`BanMoiBanner.tsx`, so file index.html mỗi 5 phút / khi quay lại tab); "Lỗi thuộc về" chỉ còn Lỗi nội bộ / Lỗi đối tác, ảnh bằng chứng tùy chọn — yêu cầu thêm "ảnh là tùy chọn, ko bắt buộc" (ca cũ giữ nhãn). Tài liệu API 2.5.
+- Kiểm thử: typecheck backend + frontend, build. Chưa xem bằng mắt trên production.

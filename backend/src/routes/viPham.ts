@@ -93,6 +93,8 @@ function voiQuyen(user: AppUser, r: ReturnType<typeof boSungViPham>) {
 
 /** Phan loai loi khi giai trinh (v1.548). Khac 'cua_toi' -> bat buoc anh bang chung. */
 export const PHAN_LOAI_LOI: Record<string, string> = { noi_bo: "Lỗi nội bộ", doi_tac: "Lỗi đối tác", cua_toi: "Lỗi của tôi", khac: "Khác" };
+/** v1.553 (2026-11-21, "bỏ lựa chọn \"lỗi của tôi\" và \"khác\""): chỉ còn 2 lựa chọn; ảnh bằng chứng tùy chọn (0–5). cua_toi / khac giữ nhãn cho ca cũ. */
+const PHAN_LOAI_LOI_CHON = new Set(["noi_bo", "doi_tac"]);
 const MAX_BANG_CHUNG = 5;
 
 const COT_LOC: Record<string, CotLoc> = {
@@ -334,8 +336,11 @@ viPham.post("/:id/giai-trinh", async (c) => {
   const phanLoai = (b.phan_loai_loi ?? "").trim();
   const bangChung = Array.isArray(b.bang_chung) ? [...new Set(b.bang_chung.filter(laUrlAnhDrive))] : [];
   if (!lyDo) return c.json({ error: "THIEU_LY_DO" }, 400);
-  if (!PHAN_LOAI_LOI[phanLoai]) return c.json({ error: "THIEU_PHAN_LOAI_LOI" }, 400);
-  if (phanLoai !== "cua_toi" && bangChung.length === 0) return c.json({ error: "THIEU_BANG_CHUNG" }, 400);
+  // v1.553: tab cu (truoc v1.548) khong co o "Loi thuoc ve" va khong biet ma loi -> kem message (client cu hien body.message).
+  if (!PHAN_LOAI_LOI_CHON.has(phanLoai))
+    return c.json({ error: "THIEU_PHAN_LOAI_LOI", message: b.phan_loai_loi === undefined
+      ? "Ứng dụng đã có phiên bản mới (bắt buộc chọn \"Lỗi thuộc về\"). Hãy tải lại trang (F5 / kéo xuống để làm mới) rồi giải trình lại."
+      : "Chọn lỗi thuộc về ai." }, 400);
   if (bangChung.length > MAX_BANG_CHUNG) return c.json({ error: "QUA_SO_ANH_BANG_CHUNG" }, 400);
   if (noiDung.length < 5) return c.json({ error: "NOI_DUNG_QUA_NGAN" }, 400);
   if (noiDung.length > 2000 || lyDo.length > 200) return c.json({ error: "NOI_DUNG_QUA_DAI" }, 400);
