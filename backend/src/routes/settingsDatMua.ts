@@ -90,6 +90,7 @@ settingsDatMua.post("/linh-kien", linhKienWriteRoles, async (c) => {
     // dac_thu=true, frontend tu an o nhap khi chua tick dac_thu.
     phan_loai_dac_thu?: string;
     nhom_lk?: string; // "karofi" | "b2b" - BAT BUOC (2026-10-16, migration 0088)
+    khong_kiem_ton?: boolean; // v1.549 - "Luôn có hàng" chọn ngay lúc tạo (cot noi bo, migration 0118)
   }>();
   if (body.anh_demo?.trim() && !laUrlHttp(body.anh_demo.trim())) return c.json({ error: "INVALID_URL" }, 400);
   if (!body.ma_linh_kien?.trim() || !body.ten_linh_kien?.trim()) return c.json({ error: "MISSING_FIELDS" }, 400);
@@ -107,14 +108,16 @@ settingsDatMua.post("/linh-kien", linhKienWriteRoles, async (c) => {
   const user = c.get("user");
   // LK tao trong app vao "Cho xet duyet" (DEFAULT cot trang_thai_ma, migration 0053) - Mua hang xac nhan ma chuan.
   const row = await c.env.DB.prepare(
-    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, nhom_lk, nguoi_cap_nhat, ngay_cap_nhat)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+    `INSERT INTO linh_kien (ma_linh_kien, ten_linh_kien, gia_ban, don_vi, ghi_chu, anh_demo, dac_thu, chi_sua_chua, phan_loai_dac_thu, nhom_lk, nguoi_cap_nhat, ngay_cap_nhat,
+       khong_kiem_ton, khong_kiem_ton_nguoi, khong_kiem_ton_luc)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
   )
     .bind(
       body.ma_linh_kien.trim(), body.ten_linh_kien.trim(), body.gia_ban ?? null,
       body.don_vi?.trim() || null, body.ghi_chu?.trim() || null, body.anh_demo?.trim() || null,
       body.dac_thu ? 1 : 0, body.chi_sua_chua ? 1 : 0, body.dac_thu ? body.phan_loai_dac_thu?.trim() || null : null,
       nhomLk, user.email, nowVN(),
+      body.khong_kiem_ton ? 1 : 0, body.khong_kiem_ton ? user.email : null, body.khong_kiem_ton ? nowVN() : null,
     )
     .first();
   await logLk(c.env.DB, { ma: body.ma_linh_kien.trim(), hanhDong: "Tao moi", tenMoi: body.ten_linh_kien.trim(), nguoi: user.email }).run();

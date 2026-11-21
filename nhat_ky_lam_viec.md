@@ -432,3 +432,11 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
   khác loại + căn cứ gợi ý ghi rõ lý do, TT+Mail duyệt tự điền "Mua hàng sửa chữa (dịch vụ tính phí) …". Đơn đã tạo không đổi.
 - Kiểm thử: typecheck 0 lỗi. Chưa bấm thử trên giao diện.
 
+## 2026-11-21 — v1.549: Ô "Luôn có hàng" trong form Thêm / Sửa linh kiện
+
+- Yêu cầu nguyên văn: "khi tạo lk thiếu lựa chọn này" (ảnh cột "Kiểm tra tồn kho — Luôn có hàng" ở Bảng giá).
+- Đã làm: form Thêm / Sửa LK (`DanhMucLinhKienModule.tsx`) thêm ô "Luôn có hàng (không kiểm tra tồn kho)". Thêm mới → `POST /settings/linh-kien`
+  nhận `khong_kiem_ton` (ghi kèm người + giờ bật). Sửa → đổi ô thì gọi chính `PATCH /linh-kien/:ma/khong-kiem-ton` (bật thì xét lại đơn Chờ hàng /
+  Chờ thanh toán của mã như công tắc ở bảng).
+- Kiểm thử: typecheck 0 lỗi; câu INSERT mới chạy đúng trên D1 local (dòng thử đã xoá). Chưa bấm thử form trên giao diện.
+

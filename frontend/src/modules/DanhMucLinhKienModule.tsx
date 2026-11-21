@@ -712,7 +712,7 @@ function DanhMucTab({ timBanDau }: { timBanDau: { q: string; nonce: number } | n
   const [catalogImportSummary, setCatalogImportSummary] = useState<{ success: number; errorCount: number; anhLoi: number; coAnh: number } | null>(null);
   const [catalogImportFailDetails, setCatalogImportFailDetails] = useState<{ ma_linh_kien: string; status: string }[]>([]);
   const [form, setForm] = useState({
-    ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "", nhom_lk: "" as NhomLk | "",
+    ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, khong_kiem_ton: false, phan_loai_dac_thu: "", nhom_lk: "" as NhomLk | "",
   });
 
   const { data: parts } = useQuery({
@@ -829,7 +829,7 @@ function DanhMucTab({ timBanDau }: { timBanDau: { q: string; nonce: number } | n
   const viewingRow = viewingMa ? parts?.rows.find((p) => p.ma_linh_kien === viewingMa) ?? null : null;
 
   function openAdd() {
-    setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "", nhom_lk: "" as NhomLk | "" });
+    setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, khong_kiem_ton: false, phan_loai_dac_thu: "", nhom_lk: "" as NhomLk | "" });
     setStagedImages([]);
     setFormMode("add");
   }
@@ -849,6 +849,7 @@ function DanhMucTab({ timBanDau }: { timBanDau: { q: string; nonce: number } | n
       ghi_chu: p.ghi_chu ?? "",
       dac_thu: !!p.dac_thu,
       chi_sua_chua: !!p.chi_sua_chua,
+      khong_kiem_ton: !!p.khong_kiem_ton,
       phan_loai_dac_thu: p.phan_loai_dac_thu ?? "",
       nhom_lk: p.nhom_lk ?? "",
     });
@@ -975,13 +976,14 @@ function DanhMucTab({ timBanDau }: { timBanDau: { q: string; nonce: number } | n
         chi_sua_chua: form.chi_sua_chua,
         phan_loai_dac_thu: form.dac_thu ? form.phan_loai_dac_thu.trim() || undefined : undefined,
         nhom_lk: form.nhom_lk || undefined,
+        khong_kiem_ton: form.khong_kiem_ton, // v1.549 - "Luôn có hàng" chọn ngay lúc tạo
       }),
     onSuccess: async () => {
       // Anh (neu co chon luc them moi) chi upload duoc BAY GIO - dong vua duoc tao that su trong DB,
       // POST .../anh doi hoi dong da ton tai (xem backend/src/routes/settingsDatMua.ts).
       if (stagedImages.length) await uploadAnhForMa(form.ma_linh_kien.trim(), stagedImages.map((a) => a.file));
       addToast("Đã thêm linh kiện mới - chờ Mua hàng xác nhận mã chuẩn");
-      setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, phan_loai_dac_thu: "", nhom_lk: "" as NhomLk | "" });
+      setForm({ ma_linh_kien: "", ten_linh_kien: "", gia_ban: "", don_vi: "", ghi_chu: "", dac_thu: false, chi_sua_chua: false, khong_kiem_ton: false, phan_loai_dac_thu: "", nhom_lk: "" as NhomLk | "" });
       closeForm();
       qc.invalidateQueries({ queryKey: ["settings-linh-kien"] });
     },
@@ -1002,15 +1004,23 @@ function DanhMucTab({ timBanDau }: { timBanDau: { q: string; nonce: number } | n
   // vo tac dung. Form Sua van HIEN 2 truong nay (tinh, khong phai input) de nguoi dung biet gia tri
   // hien tai, xem JSX ben duoi.
   const editMutation = useMutation({
-    mutationFn: () =>
-      api.patch(`/settings/linh-kien/${editingMa}`, {
+    mutationFn: async () => {
+      // v1.549 (2026-11-21 - "khi tạo lk thiếu lựa chọn này"): o "Luôn có hàng" trong form Sua - doi thi goi CHINH route bat/tat
+      // /khong-kiem-ton (route do xet lai don Cho hang / Cho thanh toan cua ma khi bat), KHONG gui qua PATCH chung.
+      const goc = parts?.rows.find((p) => p.ma_linh_kien === editingMa);
+      const kq = await api.patch(`/settings/linh-kien/${editingMa}`, {
         don_vi: form.don_vi.trim() || null,
         ghi_chu: form.ghi_chu.trim() || null,
         dac_thu: form.dac_thu,
         chi_sua_chua: form.chi_sua_chua,
         phan_loai_dac_thu: form.dac_thu ? form.phan_loai_dac_thu.trim() || null : null,
         ...(form.nhom_lk ? { nhom_lk: form.nhom_lk } : {}),
-      }),
+      });
+      if (editingMa && form.khong_kiem_ton !== !!goc?.khong_kiem_ton) {
+        await api.patch(`/settings/linh-kien/${encodeURIComponent(editingMa)}/khong-kiem-ton`, { khong_kiem_ton: form.khong_kiem_ton });
+      }
+      return kq;
+    },
     onSuccess: () => {
       addToast("Đã cập nhật linh kiện");
       closeForm();
@@ -1777,6 +1787,12 @@ function DanhMucTab({ timBanDau }: { timBanDau: { q: string; nonce: number } | n
             <input type="checkbox" checked={form.chi_sua_chua} onChange={(e) => setForm({ ...form, chi_sua_chua: e.target.checked })} className="w-4 h-4" />
             <span className="font-semibold">Only sửa chữa</span>
             <Tooltip text={`Mã này sẽ không hiện trong danh sách chọn khi tạo đơn mua hàng ở module "Đặt mua linh kiện".`} />
+          </label>
+          {/* v1.549: "Luôn có hàng" (không kiểm tra tồn kho - vd phí dịch vụ) chọn ngay ở form Thêm / Sửa, cùng nghĩa cột "Kiểm tra tồn kho". */}
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={form.khong_kiem_ton} onChange={(e) => setForm({ ...form, khong_kiem_ton: e.target.checked })} className="w-4 h-4" />
+            <span className="font-semibold">Luôn có hàng (không kiểm tra tồn kho)</span>
+            <Tooltip text="Dùng cho linh kiện không có hàng thật trong kho (vd phí dịch vụ): đặt đơn luôn coi là đủ hàng, không chờ hàng / không tạo ticket thiếu hàng." />
           </label>
           <div className="flex justify-end gap-2">
             <Btn variant="ghost" onClick={closeForm}>
