@@ -105,7 +105,7 @@ async function docTongHop(c: Context<{ Bindings: Env }>, dongBo: boolean): Promi
   const loaiDeXuatOptions = await resolveLoaiDeXuatOptions(c.env.DB, loaiDeXuat, nhomId);
   const filter: StageFilter = { scopeEmails, loaiDeXuatOptions };
   const scopeKeyPart = scopeEmails === null ? "all" : [...scopeEmails].sort().join(",");
-  const key = buildReportKey("bao-cao-toc-do/tong-hop-v1", { ky_loai: kyLoai, ky, khu_vuc: khuVuc, loai_de_xuat: loaiDeXuat, nhom_id: nhomId }, [scopeKeyPart]);
+  const key = buildReportKey("bao-cao-toc-do/tong-hop-v2" /* v1.551: gio lam viec */, { ky_loai: kyLoai, ky, khu_vuc: khuVuc, loai_de_xuat: loaiDeXuat, nhom_id: nhomId }, [scopeKeyPart]);
   const ngay = getVnDateStr();
 
   if (!dongBo) {

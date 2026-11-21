@@ -1608,6 +1608,9 @@ Nguyên văn: *"các logic quá hạn SLA trên toàn bộ hệ thống từ 24h
 - Vi phạm (`viPham.ts tinhHan`): `tinh_cuoi_tuan` = 0 nay nghĩa là giờ làm việc, = 1 = giờ lịch 24/7 (UI "Giờ lịch 24/7"). Migration `0128` đổi `sla_buoc` 24 → 8, 48 → 16
   (cả hạn giải trình), bước Admin đã đặt số khác giữ nguyên. `so_gio_tre` tính theo giờ làm việc; nhắc sắp hết hạn giải trình khi còn ≤ 2 giờ làm việc (`GIO_NHAC`).
   Ca đã ghi nhận trước giữ hạn cũ; đơn / phiếu đang nằm ở bước sẽ bị đánh giá lại theo hạn mới ở lần quét kế tiếp.
+- Báo cáo "Tốc độ xử lý" (v1.551, 2026-11-21 — "các tốc độ xử trong các báo cáo đã tính lại theo mốc 8h làm việc chưa?" → "Đổi sang giờ làm việc"): giờ chờ mỗi
+  lượt (`hoursBetween` ở `lib/slaMetrics.ts`) = `gioLamViecGiua` thay giờ lịch → TB giờ xử lý, kỳ trước, chậm / nhanh nhất, tab chờ KTV đều theo giờ làm việc;
+  cache báo cáo đổi khoá `bao-cao-toc-do/tong-hop-v2` (kỳ cũ tính lại theo cách mới).
 - KHÔNG đổi (không phải SLA): đẩy lại đơn / ticket trong 24h, trả hàng tự hủy 10 ngày, tự xác nhận nhận hàng 10 ngày.
 
 ## Nhận việc từ Trợ lý Mây (tự sửa)

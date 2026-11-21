@@ -450,3 +450,10 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
 - Kiểm thử: typecheck + build 0 lỗi. Worker local (D1 local, đăng nhập dev): 10 cột trả danh sách giá trị đúng; lọc chọn / loại trừ, sắp xếp SL, khoảng ngày,
   danh sách giá trị theo bộ lọc khác, file tải về, cột sai → 400 đều đúng. Đã xem giao diện: nút phễu ở tiêu đề, hộp lọc, bảng Bộ lọc.
 
+## 2026-11-21 — v1.551: Báo cáo "Tốc độ xử lý" tính theo giờ làm việc
+
+- Yêu cầu nguyên văn: "các tốc độ xử trong các báo cáo đã tính lại theo mốc 8h làm việc chưa?" → trả lời chưa → "Đổi sang giờ làm việc".
+- Đã làm: `lib/slaMetrics.ts` `hoursBetween` dùng `gioLamViecGiua` (cùng khung giờ với SLA / vi phạm: T2–T6 8–12h + 13–17h, T7 8–12h, CN nghỉ) thay
+  giờ lịch 24/7; đổi khoá cache báo cáo `tong-hop-v2` để mọi kỳ (cả kỳ cũ) tính lại; câu mô tả trên màn báo cáo ghi rõ "tính theo giờ làm việc".
+- Kiểm thử: typecheck 0 lỗi; thử hàm với mốc thật: 16h T7 → 9h T2 = 1,0 giờ; 9h–15h30 = 5,5 giờ; 17h30 T6 → 8h30 T7 = 0,5 giờ. Chưa mở báo cáo trên production.
+

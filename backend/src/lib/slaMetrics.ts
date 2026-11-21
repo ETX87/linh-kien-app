@@ -19,6 +19,7 @@
  * phai xu ly rieng bang cach doi chieu 3 mau ghi_chu co dinh (xem computePxkChuyenTienInstances).
  */
 import { nowVN } from "./vnTime";
+import { gioLamViecGiua, parseGioVn } from "./gioLamViec";
 
 export type Luong = "mua_cong_no" | "tra_hang" | "pxk" | "cho_ktv";
 export type LogTable = "dat_don_hang_log" | "thieu_lk_log" | "tra_hang_log" | "phieu_xuat_kho_log" | "pxk_chuyen_tien";
@@ -255,8 +256,11 @@ function toEpochMs(vnDatetime: string): number {
   return new Date(vnDatetime.replace(" ", "T") + "Z").getTime();
 }
 
+// v1.551 (2026-11-21, "các tốc độ xử trong các báo cáo đã tính lại theo mốc 8h làm việc chưa?" -> "Đổi sang giờ làm việc"): gio cho
+// = GIO LAM VIEC giua 2 moc (lib/gioLamViec.ts - T2-T6 8-12h + 13-17h, T7 8-12h, CN nghi), cung cach tinh voi SLA / vi pham; truoc la gio lich 24/7.
 function hoursBetween(startVn: string, endVn: string): number {
-  return (toEpochMs(endVn) - toEpochMs(startVn)) / 3_600_000;
+  if (toEpochMs(endVn) <= toEpochMs(startVn)) return 0;
+  return gioLamViecGiua(parseGioVn(startVn), parseGioVn(endVn));
 }
 
 /** Gop N dong log lien tiep cung 1 fk_id thanh day "chuyen trang thai THAT" (bo dong audit-only) roi

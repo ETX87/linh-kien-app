@@ -458,7 +458,7 @@ export function BaoCaoTocDoXuLyModule() {
     <div className="anim-in space-y-3">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="text-xs text-[var(--ink-500)] max-w-3xl">
-          Tốc độ xử lý trung bình theo từng tài khoản ở từng giai đoạn của quy trình — mỗi giai đoạn chỉ tính lượt do NGƯỜI PHỤ TRÁCH xử lý (vd bước TBP xác nhận chỉ tính TBP): không tính người đặt hàng / KTV tự thao tác, thao tác tự động của hệ thống và các ca hủy. Khoảng chờ KTV hành động xem tab riêng.
+          Tốc độ xử lý trung bình theo từng tài khoản ở từng giai đoạn của quy trình, tính theo GIỜ LÀM VIỆC (T2–T6 8h–12h, 13h–17h; T7 8h–12h; không tính đêm, chiều T7, Chủ nhật) — mỗi giai đoạn chỉ tính lượt do NGƯỜI PHỤ TRÁCH xử lý (vd bước TBP xác nhận chỉ tính TBP): không tính người đặt hàng / KTV tự thao tác, thao tác tự động của hệ thống và các ca hủy. Khoảng chờ KTV hành động xem tab riêng.
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {tongHop && (
