@@ -16,6 +16,8 @@ import { pushTraHangToKhovan, notifyTraHangQcRejected, notifyTraHangReceivedViaA
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
 import { batDauTaiVideo, hoanTatVideo, VIDEO_TOI_DA_BYTE } from "../lib/googleDrive";
 import { goDonKhoiPxk } from "../lib/pxkTuHuy";
+import { docLocCot, giaTriCot, sqlLocCot, sqlSapXep, tenNguoiSql, type CotLoc } from "../lib/locCot";
+import { TRANG_THAI_PXK_DON_SQL } from "../lib/trangThaiDonPxk";
 
 // Don tra hang QC DA DUYET ("TN da duyet") dua lai ve "Cho QC xac nhan" duoc (chot 2026-11-10, DDH-002554 "bị xác nhận nhầm, chỉ duyệt 5, 1 linh kiện
 // sẽ bị từ chối hiện tại đang không cho đẩy lùi sau khi QC xác nhận nhầm") khi phieu tra hang chua bi Ke toan chot (chua vao phieu, hoac phieu con
@@ -103,7 +105,23 @@ function canTacNghiep(c: Context<{ Bindings: Env }>): boolean {
 // nay) de xu ly; KTV/Tram/Ve tinh/Giam sat bi gioi han theo quan he - RA SOAT BAO MAT 2026-08-18
 // (phan hoi Codex): truoc day KHONG scope cho AI ca, du comment cu noi "KTV xem qua tab Don cua toi"
 // nhung endpoint nay van goi truc tiep duoc va tra ve TOAN BO du lieu tra hang he thong.
-traHang.get("/", async (c) => {
+// v1.550 (2026-11-21, "ở mục trả hàng thêm các bộ lọc và table thêm các filter dạng excel"): dieu kien WHERE cua GET /tra-hang
+// tach ham de GET /tra-hang/gia-tri-loc dung lai Y HET (cung kieu donHangListWhere ben datMuaLinhKien.ts). Them tu_ngay/den_ngay,
+// nguoi_nhan_hang va loc cot Excel (cf, TRA_HANG_COT_LOC) - boQuaCot = bo loc cua chinh cot dang lay danh sach gia tri.
+export const TRA_HANG_COT_LOC: Record<string, CotLoc> = {
+  loai_de_xuat: { kieu: "don", expr: "ddh.loai_de_xuat" },
+  trang_thai: { kieu: "don", expr: "ddh.trang_thai_hien_tai" },
+  nguoi_tao: { kieu: "don", expr: "ddh.nguoi_tao", sortExpr: tenNguoiSql("ddh.nguoi_tao") },
+  nguoi_nhan_hang: { kieu: "don", expr: "ddh.nguoi_nhan_hang", sortExpr: tenNguoiSql("ddh.nguoi_nhan_hang") },
+  khu_vuc: { kieu: "don", expr: "COALESCE(ddh.khu_vuc_chon, ddh.khu_vuc_ma)", khuVuc: true },
+  yeu_cau_hoa_don: { kieu: "don", expr: "ddh.yeu_cau_hoa_don" },
+  ma_lk: { kieu: "don", expr: "ddh.ma_lk" },
+  ngay_de_xuat: { kieu: "don", expr: "substr(ddh.ngay_tao, 1, 10)", sortExpr: "ddh.ngay_tao" },
+  so_luong_de_xuat: { kieu: "don", expr: "ddh.so_luong_de_xuat", sortExpr: "ddh.so_luong_de_xuat" },
+  trang_thai_pxk: { kieu: "don", expr: TRANG_THAI_PXK_DON_SQL("ddh") },
+};
+
+async function traHangListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string): Promise<{ whereSql: string; binds: unknown[] }> {
   const user = c.get("user");
   const scope = scopeDatMuaNguoiTao(c);
   const trangThai = c.req.query("trang_thai");
@@ -121,10 +139,6 @@ traHang.get("/", async (c) => {
   // Them phan trang server-side, cung pattern voi GET /dat-mua-lk/don-hang. "nguoi_tao" chuyen tu loc
   // client-side (tren data.rows) sang server-side de khop dung tong so sau khi phan trang that su.
   // KHONG truyen page -> tra HET (nut "Tải danh sách chi tiết", them 2026-09-13, mirror settingsKtv.ts).
-  const pageParam = c.req.query("page");
-  const page = Math.max(1, (Math.trunc(Number(pageParam)) || 1));
-  const pageSize = Math.min(1000, Math.max(1, (Math.trunc(Number(c.req.query("pageSize"))) || 20)));
-  const offset = (page - 1) * pageSize;
   let whereSql = "ddh.loai_don = 'tra_hang'" + (scope?.whereSql ?? "");
   const binds: unknown[] = [...(scope?.binds ?? [])];
   // FIX (phan hoi nguoi dung: "đồng bộ danh sách theo badge" cho Khu vuc phu trach GS) - xem giai
@@ -170,6 +184,21 @@ traHang.get("/", async (c) => {
       binds.push(...khuVucBinds);
     }
   }
+  const nguoiNhanHang = c.req.query("nguoi_nhan_hang");
+  if (nguoiNhanHang) {
+    whereSql += " AND ddh.nguoi_nhan_hang = ?";
+    binds.push(nguoiNhanHang);
+  }
+  const tuNgay = c.req.query("tu_ngay");
+  if (tuNgay) {
+    whereSql += " AND ddh.ngay_tao >= ?";
+    binds.push(tuNgay);
+  }
+  const denNgay = c.req.query("den_ngay");
+  if (denNgay) {
+    whereSql += " AND ddh.ngay_tao <= ?";
+    binds.push(denNgay + " 23:59:59");
+  }
   if (q) {
     const theoTen = orEmailIn(["ddh.nguoi_tao", "ddh.nguoi_nhan_hang"], await emailsTheoTen(c.env.DB, q));
     const theoMa = orMaYcsc("ddh", q); // + ma yeu cau su co chinh/bo sung (2026-09-29)
@@ -178,6 +207,30 @@ traHang.get("/", async (c) => {
     whereSql += ` AND (ddh.ma_lk LIKE ? OR ${tenLk.sql} OR ddh.id LIKE ? OR ddh.nguoi_tao LIKE ?${theoMa.sql}${theoPxk.sql}${theoTen.sql})`;
     binds.push(`%${q}%`, ...tenLk.binds, `%${q}%`, `%${q}%`, ...theoMa.binds, ...theoPxk.binds, ...theoTen.binds);
   }
+  const locCot = sqlLocCot(TRA_HANG_COT_LOC, docLocCot(c.req.query("cf"), TRA_HANG_COT_LOC), boQuaCot);
+  whereSql += locCot.sql;
+  binds.push(...locCot.binds);
+  return { whereSql, binds };
+}
+
+// GET /api/tra-hang/gia-tri-loc?cot=<cot>&<cung bo loc GET /tra-hang> - danh sach gia tri + so dong cho o loc cot Excel (v1.550).
+// Dat TRUOC /:donHangId (Hono khop theo thu tu dang ky).
+traHang.get("/gia-tri-loc", async (c) => {
+  const cot = c.req.query("cot") ?? "";
+  const def = Object.hasOwn(TRA_HANG_COT_LOC, cot) ? TRA_HANG_COT_LOC[cot] : undefined;
+  if (!def) return c.json({ error: "COT_KHONG_HOP_LE" }, 400);
+  const { whereSql, binds } = await traHangListWhere(c, cot);
+  return c.json({ rows: await giaTriCot(c.env.DB, def, "FROM dat_don_hang ddh", "ddh.id", whereSql, binds) });
+});
+
+traHang.get("/", async (c) => {
+  // KHONG truyen page -> tra HET (nut "Tải danh sách chi tiết", them 2026-09-13, mirror settingsKtv.ts).
+  const pageParam = c.req.query("page");
+  const page = Math.max(1, (Math.trunc(Number(pageParam)) || 1));
+  const pageSize = Math.min(1000, Math.max(1, (Math.trunc(Number(c.req.query("pageSize"))) || 20)));
+  const offset = (page - 1) * pageSize;
+  const { whereSql, binds } = await traHangListWhere(c);
+  const sapXep = sqlSapXep(TRA_HANG_COT_LOC, c.req.query("cs"), c.req.query("cd"));
 
   const countRow = await c.env.DB.prepare(`SELECT COUNT(*) as total FROM dat_don_hang ddh WHERE ${whereSql}`)
     .bind(...binds)
@@ -200,7 +253,7 @@ traHang.get("/", async (c) => {
      -- "Khu vực" (them 2026-09-12, dong bo voi GET /don-hang - phan hoi "sắp xếp cột bảng danh sách
      -- đơn giống" file tham chieu) - lay tu Khu vuc cua CHINH nguoi_nhan_hang qua ktv_lien_he.khu_vuc_ma.
      LEFT JOIN khu_vuc kv ON kv.ma = COALESCE(ddh.khu_vuc_chon, ddh.khu_vuc_ma) -- cot luu san, migration 0042 (+ Kho chon lai 0071)
-     WHERE ${whereSql} ORDER BY ddh.ngay_tao DESC
+     WHERE ${whereSql} ORDER BY ${sapXep ? `${sapXep}, ` : ""}ddh.ngay_tao DESC
      ${pageParam ? "LIMIT ? OFFSET ?" : ""}`,
   )
     .bind(...binds, ...(pageParam ? [pageSize, offset] : []))

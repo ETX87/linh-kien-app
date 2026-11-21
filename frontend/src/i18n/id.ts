@@ -3185,5 +3185,6 @@ const tuDien: Record<string, string> = {
   "Đang tải ảnh…": "Mengunggah gambar…",
   "Đính kèm ảnh bằng chứng": "Lampirkan gambar bukti",
   "Admin BH duyệt hướng xử lý \"Dịch vụ tính phí\"": "Admin Garansi menyetujui penanganan \"Layanan berbayar\"",
+  "Lọc theo cột (như Excel):": "Saring per kolom (seperti Excel):",
 };
 export default tuDien;

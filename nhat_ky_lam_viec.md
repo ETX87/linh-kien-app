@@ -440,3 +440,13 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
   Chờ thanh toán của mã như công tắc ở bảng).
 - Kiểm thử: typecheck 0 lỗi; câu INSERT mới chạy đúng trên D1 local (dòng thử đã xoá). Chưa bấm thử form trên giao diện.
 
+## 2026-11-21 — v1.550: Hàng trả — thêm bộ lọc ngày + lọc cột kiểu Excel
+
+- Yêu cầu nguyên văn: "ở mục trả hàng thêm các bộ lọc và table thêm các filter dạng excel".
+- Đã làm: backend `traHang.ts` tách `traHangListWhere()`, thêm lọc Từ/Đến ngày tạo, người nhận hàng, lọc + sắp xếp theo cột (`cf`/`cs`/`cd`, 10 cột) và API
+  `GET /tra-hang/gia-tri-loc`. Frontend `TraHangTab.tsx`: nút phễu ở tiêu đề 9 cột bảng (chọn nhiều, loại trừ, tìm không dấu, sắp xếp A→Z / Z→A), ô Tháng / Từ
+  ngày / Đến ngày, cụm "Lọc theo cột (như Excel)" trong bảng Bộ lọc (thêm cột "Phiếu xuất kho"), chip cột đang lọc + xoá nhanh. File "Tải danh sách chi tiết"
+  theo đúng mọi bộ lọc.
+- Kiểm thử: typecheck + build 0 lỗi. Worker local (D1 local, đăng nhập dev): 10 cột trả danh sách giá trị đúng; lọc chọn / loại trừ, sắp xếp SL, khoảng ngày,
+  danh sách giá trị theo bộ lọc khác, file tải về, cột sai → 400 đều đúng. Đã xem giao diện: nút phễu ở tiêu đề, hộp lọc, bảng Bộ lọc.
+

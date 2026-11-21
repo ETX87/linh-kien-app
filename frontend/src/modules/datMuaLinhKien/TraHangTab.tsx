@@ -18,7 +18,7 @@ import { fmtDate, fmtDateTime, fmtVND } from "../../types";
 import { useLocalStorageState } from "../../hooks/useLocalStorageState";
 import { anhVuaGioiHan, compressImage } from "../../lib/imageCompress";
 import type { TraHangRow, LyDoChamRow } from "./types";
-import { TRA_HANG_TRANG_THAI_TONE, TRA_HANG_TRANG_THAI_OPTIONS, TRA_HANG_BULK_ERROR_MESSAGES } from "./constants";
+import { TRA_HANG_TRANG_THAI_TONE, TRA_HANG_TRANG_THAI_OPTIONS, TRA_HANG_BULK_ERROR_MESSAGES, TRANG_THAI_PXK_DON_OPTIONS } from "./constants";
 import {
   describeApiError, formatNguoiDisplay, useKtvDisplayMap, invalidatePipelineCounts, trangThaiLabel, useNenAnhTraHangEnabled,
   isDonTaoHo, formatLkLabel, LOAI_DON_TONE, loaiDonLabel,
@@ -32,6 +32,8 @@ import { t } from "../../i18n";
 import { baoLoiTaiAnh, canhBaoHanMucAnh, type HanMucAnh } from "../../lib/hanMucAnh";
 import { DoiKhuVucDon } from "./KhoXuat";
 import { useAuth } from "../../auth/AuthContext";
+import { useLocCot, LocCotButton, LocCotBar, type LocCotCfg } from "../../components/ui/LocCot";
+import { LocNgayTao, chipNgayTao } from "./LocNgayTao";
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -428,6 +430,11 @@ export function TraHangTab({
     return () => clearTimeout(hen);
   }, [filterQ]);
   const [showFilters, setShowFilters] = useState(false);
+  // v1.550 (2026-11-21, "ở mục trả hàng thêm các bộ lọc và table thêm các filter dạng excel"): loc ngay tao + loc cot kieu Excel
+  // (loc / sap xep o SERVER - GET /tra-hang?cf=&cs=&cd=, danh sach gia tri GET /tra-hang/gia-tri-loc; dung chung LocCot.tsx voi Don hang).
+  const [filterTuNgay, setFilterTuNgay] = useState("");
+  const [filterDenNgay, setFilterDenNgay] = useState("");
+  const locCot = useLocCot();
   const [detailId, setDetailId] = useState<string | null>(null);
   useEffect(() => {
     if (initialDetailIdOverride) {
@@ -469,22 +476,54 @@ export function TraHangTab({
   useEffect(() => {
     setPage(1);
     setSelected(new Set());
-  }, [filterTrangThai, filterNguoiTao, debouncedQ, khuVucParam]);
+  }, [filterTrangThai, filterNguoiTao, debouncedQ, khuVucParam, filterTuNgay, filterDenNgay, locCot.queryParams.cf, locCot.queryParams.cs, locCot.queryParams.cd]);
+  // Bo loc chung (khong gom page) - dung cho danh sach, file tai ve va o loc cot.
+  const thamSoLoc = {
+    trang_thai: filterTrangThai || undefined,
+    nguoi_tao: filterNguoiTao || undefined,
+    q: debouncedQ || undefined,
+    khu_vuc: khuVucParam || undefined,
+    tu_ngay: filterTuNgay || undefined,
+    den_ngay: filterDenNgay || undefined,
+  };
+  const locCotCfg: LocCotCfg = {
+    ...locCot,
+    endpoint: "/tra-hang/gia-tri-loc",
+    params: thamSoLoc,
+    tieuDe: {
+      ma_lk: t("Mã linh kiện"),
+      nguoi_nhan_hang: t("Người nhận hàng"),
+      ngay_de_xuat: t("Ngày đề xuất"),
+      so_luong_de_xuat: t("SL đề xuất"),
+      loai_de_xuat: t("Loại đề xuất"),
+      yeu_cau_hoa_don: t("Yêu cầu hóa đơn"),
+      trang_thai: t("Trạng thái"),
+      trang_thai_pxk: t("Phiếu xuất kho"),
+      khu_vuc: t("Khu vực"),
+      nguoi_tao: t("Người tạo"),
+    },
+    nhan: {
+      nguoi_tao: (v) => formatNguoiDisplay(v, ktvDisplayMap),
+      nguoi_nhan_hang: (v) => (v ? formatNguoiDisplay(v, ktvDisplayMap) : ""),
+      trang_thai: (v) => trangThaiLabel(TRA_HANG_TRANG_THAI_OPTIONS, v),
+      trang_thai_pxk: (v) => (v ? trangThaiLabel(TRANG_THAI_PXK_DON_OPTIONS, v) : t("— (chưa vào phiếu)")),
+      ngay_de_xuat: (v) => (v ? `${v.slice(8, 10)}/${v.slice(5, 7)}/${v.slice(0, 4)}` : ""),
+    },
+  };
+  const loc = (cot: string) => <LocCotButton cfg={locCotCfg} cot={cot} />;
 
   // GD4 (phan hoi Codex #17): phan trang server-side that su - truoc day tai TOAN BO dong khop
   // trang_thai roi loc/slice o client, "nguoi_tao" gio cung loc server-side (xem GET /tra-hang) de
   // total/trang khop dung sau khi loc, khong con lech nhu khi loc them 1 lop o client tren du lieu
   // da phan trang.
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["tra-hang", filterTrangThai, filterNguoiTao, debouncedQ, khuVucParam, page],
+    queryKey: ["tra-hang", thamSoLoc, locCot.queryParams, page],
     queryFn: () =>
       api.get<{ rows: TraHangRow[]; total: number }>(
         "/tra-hang" +
           buildQuery({
-            trang_thai: filterTrangThai || undefined,
-            nguoi_tao: filterNguoiTao || undefined,
-            q: debouncedQ || undefined,
-            khu_vuc: khuVucParam || undefined,
+            ...thamSoLoc,
+            ...locCot.queryParams,
             page,
             pageSize: 20,
           }),
@@ -498,13 +537,7 @@ export function TraHangTab({
     setDownloadingFull(true);
     try {
       const res = await api.get<{ rows: TraHangRow[] }>(
-        "/tra-hang" +
-          buildQuery({
-            trang_thai: filterTrangThai || undefined,
-            nguoi_tao: filterNguoiTao || undefined,
-            q: debouncedQ || undefined,
-            khu_vuc: khuVucParam || undefined,
-          }),
+        "/tra-hang" + buildQuery({ ...thamSoLoc, ...locCot.queryParams }),
       );
       await exportRowsToExcel(doiNguoiThanhTen(res.rows, personDir), "tra_hang_chi_tiet.xlsx", "Trả hàng");
     } catch (err) {
@@ -651,7 +684,7 @@ export function TraHangTab({
       // hàng") - gop "Mã LK"/"Tên LK" thanh 1 cot "Linh kiện" DUY NHAT, dung y het bo cuc/hanh vi cot
       // "linh_kien" cua DonCuaToiTab.tsx (mono ma_lk nho phia tren + ten LK dam bam-mo-chi-tiet phia
       // duoi, kem ⭐ uu tien/🔒 dac thu) thay vi 2 cot phang rieng nhu truoc.
-      key: "linh_kien", header: t("Linh kiện"),
+      key: "linh_kien", header: t("Linh kiện"), filter: loc("ma_lk"),
       // SUA BUG GIAO DIEN (phan hoi 2026-09-12, kem anh chup ma LK lap 2 lan trong cung 1 dong don) -
       // truoc day hien ma_lk RIENG 1 dong tren, gay lap voi ten_lk_snapshot da TU chua san ma trong
       // chuoi - gop ve DUNG 1 dong bang formatLkLabel() (dong bo voi LinhKienPicker.tsx/DonCuaToiTab.tsx).
@@ -671,17 +704,17 @@ export function TraHangTab({
     // v1.445 ("đơn trả hàng cần bổ sung thêm cột người nhận hàng (nếu có người tạo hộ)"): dua len ngay sau "Linh kiện" -
     // danh sach nhom theo NGUOI TAO nen don tao ho truoc day phai keo ngang moi thay nguoi nhan.
     {
-      key: "nguoi_nhan_hang", header: t("Người nhận hàng"),
+      key: "nguoi_nhan_hang", header: t("Người nhận hàng"), filter: loc("nguoi_nhan_hang"),
       render: (r) => (r.nguoi_nhan_hang ? <NguoiNhan>{formatNguoiDisplay(r.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>),
     },
-    { key: "ngay_de_xuat", header: t("Ngày đề xuất"), render: (r) => fmtDate(r.ngay_tao) },
-    { key: "so_luong_de_xuat", header: t("SL đề xuất"), render: (r) => r.so_luong_de_xuat },
+    { key: "ngay_de_xuat", header: t("Ngày đề xuất"), filter: loc("ngay_de_xuat"), render: (r) => fmtDate(r.ngay_tao) },
+    { key: "so_luong_de_xuat", header: t("SL đề xuất"), filter: loc("so_luong_de_xuat"), render: (r) => r.so_luong_de_xuat },
     { key: "sl_thuc_xuat", header: t("SL thực xuất"), render: (r) => r.so_luong_thuc_xuat ?? <span className="text-[var(--ink-400)]">—</span> },
     { key: "gia", header: t("Giá đề xuất"), render: (r) => (r.gia_de_xuat != null ? <span className="text-[var(--green-700)] font-semibold"><Money>{fmtVND(r.gia_de_xuat)}</Money></span> : "—") },
-    { key: "loai", header: t("Loại"), render: (r) => <LoaiDeXuatBadge loaiDon={r.loai_don ?? "tra_hang"} loaiDeXuat={r.loai_de_xuat} /> },
-    { key: "yeu_cau_hoa_don", header: t("Yêu cầu hóa đơn"), render: (r) => r.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
+    { key: "loai", header: t("Loại"), filter: loc("loai_de_xuat"), render: (r) => <LoaiDeXuatBadge loaiDon={r.loai_don ?? "tra_hang"} loaiDeXuat={r.loai_de_xuat} /> },
+    { key: "yeu_cau_hoa_don", header: t("Yêu cầu hóa đơn"), filter: loc("yeu_cau_hoa_don"), render: (r) => r.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
     {
-      key: "trang_thai_tra_hang", header: t("Trạng thái"),
+      key: "trang_thai_tra_hang", header: t("Trạng thái"), filter: loc("trang_thai"),
       render: (r) => (
         <div className="flex flex-col gap-0.5 items-start">
           <Badge tone={TRA_HANG_TRANG_THAI_TONE[r.trang_thai_tra_hang] ?? "neutral"}>
@@ -697,10 +730,10 @@ export function TraHangTab({
     { key: "ly_do_cham", header: t("Lý do từ chối/chờ hàng"), render: (r) => r.ly_do_cham || <span className="text-[var(--ink-400)]">—</span> },
     // "Khu vực" cua NGUOI NHAN HANG - khong phai cot that tren dat_don_hang, server LEFT JOIN qua
     // ktv_lien_he.khu_vuc_ma (xem GET /tra-hang backend + DonHangRow.khu_vuc_ten trong types.ts).
-    { key: "khu_vuc", header: t("Khu vực"), render: (r) => r.khu_vuc_ten || <span className="text-[var(--ink-400)]">—</span> },
+    { key: "khu_vuc", header: t("Khu vực"), filter: loc("khu_vuc"), render: (r) => r.khu_vuc_ten || <span className="text-[var(--ink-400)]">—</span> },
     { key: "ghi_chu", header: t("Ghi chú người đặt hàng"), render: (r) => r.ghi_chu || <span className="text-[var(--ink-400)]">—</span> },
     { key: "ghi_chu_admin", header: t("Ghi chú Admin"), render: (r) => r.ghi_chu_xu_ly_gan_nhat || <span className="text-[var(--ink-400)]">—</span> },
-    { key: "nguoi_tao_yc", header: t("Người tạo yêu cầu"), render: (r) => <NguoiTao>{formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap)}</NguoiTao> },
+    { key: "nguoi_tao_yc", header: t("Người tạo yêu cầu"), filter: loc("nguoi_tao"), render: (r) => <NguoiTao>{formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap)}</NguoiTao> },
     { key: "ma_ycsc", header: t("Mã yêu cầu sự cố"), render: (r) => <MaYcscCell value={r.ma_yeu_cau_su_co} canXemChiTietCa={false} /> },
     {
       key: "actions", header: "", mobileHint: "actions",
@@ -775,7 +808,7 @@ export function TraHangTab({
   ];
 
   // FIX (ra soat bug mua hang 2026-08-26, BUG-003): thieu filterTrangThai, khop pattern DonCuaToiTab.tsx.
-  const activeFilterCount = [filterTrangThai, filterNguoiTao, filterQ, khuVucParam].filter(Boolean).length;
+  const activeFilterCount = [filterTrangThai, filterNguoiTao, filterQ, khuVucParam, filterTuNgay, filterDenNgay].filter(Boolean).length + Object.keys(locCot.loc).length;
 
   // Nang len goi useColumnConfig O DAY (2026-08-21, sua loi UX "nút Tùy chỉnh cột khiến table bị
   // trống ra 1 khoảng trông rất xấu") - truoc day PaginatedTable tu goi hook nay noi bo VA tu ve nut
@@ -828,11 +861,17 @@ export function TraHangTab({
               ...(filterNguoiTao ? [{ label: `KTV: ${formatNguoiDisplay(filterNguoiTao, ktvDisplayMap)}`, onClear: () => setFilterNguoiTao("") }] : []),
               ...(khuVucParam ? [{ label: t("Khu vực: {a}", { a: [...filterKhuVuc].map((ma) => khuVucOptions.find((o) => o.value === ma)?.label ?? ma).join(", ") }), onClear: () => setFilterKhuVuc(new Set()) }] : []),
               ...(filterQ ? [{ label: t("Tìm: \"{a}\"", { a: filterQ }), onClear: () => setFilterQ("") }] : []),
+              ...chipNgayTao(filterTuNgay, filterDenNgay, (a, b) => { setFilterTuNgay(a); setFilterDenNgay(b); }),
             ]}
           />
         }
       >
         <TrangThaiDropdownFilter value={filterTrangThai} onChange={setFilterTrangThai} options={TRA_HANG_TRANG_THAI_OPTIONS} counts={statusCountsData?.counts} />
+        <LocNgayTao tu={filterTuNgay} den={filterDenNgay} onChange={(a, b) => { setFilterTuNgay(a); setFilterDenNgay(b); }} />
+        <div className="w-full">
+          <div className="text-xs text-[var(--ink-500)] mb-1">{t("Lọc theo cột (như Excel):")}</div>
+          <LocCotBar cfg={locCotCfg} cots={Object.keys(locCotCfg.tieuDe)} hienTatCa nhan={null} />
+        </div>
         {/* Bo loc Khu vuc (them 2026-08-31, dong bo voi DonCuaToiTab.tsx). SUA BUG GIAO DIEN (phan hoi
             2026-09-12): bo nhan "Khu vực" rieng ben ngoai (gay lech chieu cao so voi cac o loc khac
             cung hang) - nhan da gop vao THANG nut trigger (xem triggerLabel trong SharedUi.tsx). */}
@@ -852,6 +891,8 @@ export function TraHangTab({
           </div>
         )}
       </FilterSearchBar>
+      {/* Cot dang loc / sap xep (chip xoa nhanh). */}
+      <LocCotBar cfg={locCotCfg} cots={Object.keys(locCotCfg.tieuDe)} hienTatCa={false} />
       {/* Dong bo pattern "Chọn tất cả" voi ThieuLkTab.tsx/DonHangGroupedList (2026-08-28, cung dot
           chuyen sang TraHangGroupedList) - dat O DAY (thanh phan cha), ap dung xuyen suot MOI nhom KTV
           tren trang, khong rieng 1 nhom. */}

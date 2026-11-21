@@ -150,6 +150,11 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   đó là đổi cả 2) trừ bộ lọc của chính cột. Đơn hàng: sắp xếp dòng TRONG từng nhóm KTV; sắp xếp cột "Người nhận
   hàng" = đổi thứ tự nhóm. Cột PXK `viec_can_lam` là bản SQL của `pxkViecCanLamTiep()` (FE) — đổi 1 bên phải đổi
   bên kia. Nút lọc cắm vào `Column.filter` (vẽ trong `ResizableHeaderCell`); mobile: toàn bộ chip `LocCotBar` nằm TRONG bảng "Bộ lọc" (mục "Lọc theo cột"), ngoài bảng chỉ hiện chip cột đang lọc; số cột đang lọc cộng vào "Bộ lọc (N)".
+- **Lọc cột kiểu Excel ở Hàng trả** (2026-11-21, v1.550 — "ở mục trả hàng thêm các bộ lọc và table thêm các filter dạng excel"): `GET /tra-hang` tách điều kiện
+  ra `traHangListWhere()` (`traHang.ts`, dùng chung với `GET /tra-hang/gia-tri-loc?cot=` — đặt TRƯỚC `/:donHangId`), nhận thêm `tu_ngay`/`den_ngay`/
+  `nguoi_nhan_hang` + `cf`/`cs`/`cd` theo `TRA_HANG_COT_LOC` (mã LK, người nhận, ngày đề xuất, SL, loại đề xuất, HĐ, trạng thái, phiếu xuất kho, khu vực, người
+  tạo). FE `TraHangTab.tsx`: nút phễu ở tiêu đề cột (cùng `LocCot.tsx`), `LocNgayTao` + mọi cột lọc trong bảng "Bộ lọc", chip cột đang lọc; danh sách / "Tải
+  danh sách chi tiết" / ô lọc dùng chung `thamSoLoc`. Sắp xếp cột = sắp dòng trong từng nhóm người tạo.
 - **Side "Người nhận hàng" ở danh sách Đơn hàng + Phiếu xuất** (2026-11-04, v1.435; Phiếu xuất + kéo rộng/hẹp v1.436, `datMuaLinhKien/NguoiNhanSide.tsx`, desktop ≥ lg): cột bên trái
   liệt kê người nhận + "(x số đơn)" = CÙNG `gia-tri-loc?cot=nguoi_nhan_hang` của lọc cột (khớp bộ lọc đang xem); bấm tên = đặt lọc cột
   "Người nhận hàng" (Ctrl + bấm = chọn thêm, bấm lại = bỏ); ẩn/hiện lưu localStorage `dmlk-side-nguoi-nhan` / `pxk-side-nguoi-nhan` (`useHienSideNguoiNhan`), độ rộng kéo mép phải 180–520px

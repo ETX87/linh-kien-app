@@ -3185,5 +3185,6 @@ const tuDien: Record<string, string> = {
   "Đang tải ảnh…": "Uploading images…",
   "Đính kèm ảnh bằng chứng": "Attach evidence images",
   "Admin BH duyệt hướng xử lý \"Dịch vụ tính phí\"": "Warranty Admin approved handling \"Paid service\"",
+  "Lọc theo cột (như Excel):": "Filter by column (like Excel):",
 };
 export default tuDien;
