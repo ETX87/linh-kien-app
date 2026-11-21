@@ -124,11 +124,12 @@ interface DonScRow {
   ma_lk: string; ten_lk: string | null; so_luong: number; ghi_chu: string | null; nguoi_tao: string; nguoi_nhan_hang: string | null;
   ngay_tao: string; tt: string; pxk_tt: string | null; pxk_id: string | null; ma_misa: string | null; ticket_tt: string | null;
   ngay_du_kien: string | null; yeu_cau_huy_bo_phan: string | null;
+  loai_goi_y: string | null; loai_goi_y_ly_do: string | null; // v1.547 - app doi tra canh bao lan cap chon khac loai goi y
 }
 
 async function docDonSc(db: D1Database, where: string, binds: unknown[], chiCsc = true): Promise<Record<string, unknown>[]> {
   const { results } = await db.prepare(
-    `SELECT ddh.id, ddh.loai_de_xuat, ddh.nguon_tao, ddh.nguon_tao_id, ddh.bh_don_vi_id, COALESCE(ddh.bh_lien_ket, 0) AS bh_lien_ket, ddh.ma_lk,
+    `SELECT ddh.id, ddh.loai_de_xuat, ddh.nguon_tao, ddh.nguon_tao_id, ddh.bh_don_vi_id, COALESCE(ddh.bh_lien_ket, 0) AS bh_lien_ket, ddh.ma_lk, ddh.loai_goi_y, ddh.loai_goi_y_ly_do,
        ddh.ten_lk_snapshot AS ten_lk, COALESCE(ddh.so_luong_thuc_xuat, ddh.so_luong_de_xuat) AS so_luong, ddh.ghi_chu, ddh.nguoi_tao,
        ddh.nguoi_nhan_hang, ddh.ngay_tao, ddh.trang_thai_hien_tai AS tt, ${TRANG_THAI_PXK_DON_SQL("ddh")} AS pxk_tt,
        (SELECT pd.phieu_xuat_kho_id FROM phieu_xuat_kho_dong pd WHERE pd.dat_don_hang_id = ddh.id ORDER BY pd.rowid DESC LIMIT 1) AS pxk_id,

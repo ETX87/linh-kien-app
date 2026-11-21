@@ -59,6 +59,7 @@ import { LinhKienPicker } from "./LinhKienPicker";
 import { ThieuLkDetailModal } from "./ThieuLkTab";
 import { Money } from "../../components/ui/Money";
 import { DuyetVuotTranKhoi } from "./DuyetVuotTran";
+import { LoaiGoiYKhoi, LoaiGoiYBadge } from "./CongNoSuaChua";
 import { KhieuNaiBox } from "./KhieuNai";
 import { HuyDonKhoi, YeuCauHuyChip } from "./YeuCauHuy";
 import { DoiLoaiDeXuatButton } from "./DoiLoaiDeXuat";
@@ -1152,6 +1153,7 @@ export function DonHangDetailModal({
             <div className="flex-1 min-w-[160px] self-center">
               <div className="flex items-center gap-1.5 flex-wrap">
                 {tone && d && <LoaiDeXuatBadge loaiDon={d.loai_don} loaiDeXuat={d.loai_de_xuat} />}
+                {d && <LoaiGoiYBadge d={d} />}
                 <TrangThaiDonBadge d={d} tones={DON_HANG_TRANG_THAI_TONE_ALL} />
                 {d.loai_don === "tra_hang" && (
                   <span className="text-[var(--ink-400)] text-xs">{t("(xử lý ở luồng quy trình phía trên)")}</span>
@@ -1183,6 +1185,8 @@ export function DonHangDetailModal({
           </div>
 
           {/* "Vì sao đơn ở trạng thái này" (2026-10-15) - ly do + ai xu ly tiep, cho nguoi dat hieu (LyDoTrangThai.tsx). */}
+          {/* v1.547: don cap LK sua chua chon KHAC loai he thong goi y theo don bao hanh. */}
+          <LoaiGoiYKhoi d={d} />
           <LyDoTrangThaiDon d={d} tenNguoi={(e) => formatPersonDisplay(e, personDirChiTiet)} />
           {/* Don vuot tran da duoc GS / TBP duyet (2026-10-27) - Ke toan nhin nhanh muc vuot + ma EO. */}
           <DuyetVuotTranKhoi d={d} />
@@ -3008,7 +3012,7 @@ export function DonHangGroupedList({
         row.d.thanh_toan ? <StatusBadge phu value={row.d.thanh_toan} tones={THANH_TOAN_DON_TONE} options={THANH_TOAN_DON_OPTIONS} /> : <span className="text-[var(--ink-400)]">—</span>,
     },
     // Loai / Ghi chu nguoi dat hang / Ma YCSC / Ma Lada dua len NGAY SAU "Chuyển tiền" (phan hoi 2026-10-04).
-    { key: "loai", header: t("Loại"), filter: loc("loai_de_xuat"), render: (row) => <LoaiDeXuatBadge loaiDon={row.d.loai_don} loaiDeXuat={row.d.loai_de_xuat} /> },
+    { key: "loai", header: t("Loại"), filter: loc("loai_de_xuat"), render: (row) => <><LoaiDeXuatBadge loaiDon={row.d.loai_don} loaiDeXuat={row.d.loai_de_xuat} /><LoaiGoiYBadge d={row.d} /></> },
     { key: "ghi_chu", header: t("Ghi chú người đặt hàng"), render: (row) => row.d.ghi_chu || <span className="text-[var(--ink-400)]">—</span> },
     {
       key: "ma_ycsc",

@@ -3151,5 +3151,15 @@ const tuDien: Record<string, string> = {
   "Ngày dự kiến có hàng không được trước hôm nay — kiểm tra lại năm": "Tanggal perkiraan tidak boleh sebelum hari ini — periksa tahunnya",
   "Ngày dự kiến không được trước hôm nay — kiểm tra lại năm": "Tanggal perkiraan tidak boleh sebelum hari ini — periksa tahunnya",
   "Ngày dự kiến không được quá 1 năm kể từ hôm nay — kiểm tra lại năm": "Tanggal perkiraan tidak boleh lebih dari 1 tahun dari hari ini — periksa tahunnya",
+  "Bạn vẫn được giữ loại đang chọn (VD: sản phẩm hết bảo hành nhưng linh kiện bên trong còn bảo hành). Đơn sẽ được gắn cảnh báo cho Kế toán, Kho và Admin BH thấy.": "Anda tetap boleh memakai jenis yang dipilih (mis. produk habis garansi tetapi suku cadang di dalamnya masih bergaransi). Pesanan akan ditandai untuk Akuntansi, Gudang dan Admin Garansi.",
+  "Căn cứ gợi ý": "Dasar saran",
+  "Hệ thống gợi ý": "Saran sistem",
+  "Khác loại gợi ý": "Beda dari jenis saran",
+  "Loại đề xuất KHÁC loại hệ thống gợi ý theo đơn bảo hành": "Jenis permintaan BERBEDA dari jenis yang disarankan oleh pesanan garansi",
+  "Loại đề xuất khác loại hệ thống gợi ý theo case": "Jenis permintaan berbeda dari jenis yang disarankan untuk kasus ini",
+  "Người đặt đã chủ động chọn khác (VD: sản phẩm hết bảo hành nhưng linh kiện bên trong còn bảo hành) — Kế toán, Kho, Admin BH kiểm tra lại trước khi xử lý.": "Pemesan sengaja memilih jenis lain (mis. produk habis garansi tetapi suku cadang di dalamnya masih bergaransi) — Akuntansi, Gudang dan Admin Garansi periksa kembali sebelum memproses.",
+  "Đang chọn": "Dipilih",
+  "hệ thống gợi ý loại": "sistem menyarankan jenis",
+  "bạn đang chọn": "Anda memilih",
 };
 export default tuDien;

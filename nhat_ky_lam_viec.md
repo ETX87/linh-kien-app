@@ -397,3 +397,15 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
 - **Nguyên nhân:** nút Admin thấy là "⏳ Chuyển chờ hàng" của Mua hàng (chỉ Mua hàng + Admin). Nút "Chờ hàng" của Tác nghiệp (Kế toán làm thay) bị ẩn khi Kế toán đã duyệt tiền phiếu (`TN_DOI_TRONG_PXK_SQL`) — ví dụ đơn trong PMH-002831.
 - **Đã làm:** `POST /dat-mua-lk/don-hang/:id/cho-hang` nhận thêm `la_ke_toan`; log ghi "Kế toán chuyển chờ hàng: …" (Mua hàng / Admin giữ "Mua hàng …"). FE `DonCuaToiTab.tsx` hiện nút cho Kế toán. Điều kiện đơn giữ nguyên (`MUA_HANG_CHO_HANG_DUOC_SQL`), tiền đã trả đi theo đơn, ticket mở ở "Chờ mua hàng".
 - **Kiểm thử:** typecheck 2 phía sạch. Chưa bấm thử trên giao diện.
+
+## 2026-11-21 — v1.547: Cho chọn lại loại đề xuất cấp LK sửa chữa + cảnh báo "Khác loại gợi ý" (migration `0134`, + app đổi trả v1.152)
+
+- Yêu cầu nguyên văn: "sẽ cho ktv chọn lại, nhưng trên app đổi trả và app linh kiện, sẽ hiện cảnh báo rất rõ ràng cho các đơn vị, bộ phận liên
+  quan biết linh kiện này đang được chọn loại đề xuất khác với đề xuất thực tế phải chọn. (vì trong thực tế, sp hết bảo hành nhưng lk bên trong
+  sp có thể vẫn còn bảo hành)".
+- Đã làm: `chuanBiPhieuDat` không còn ghi đè loại đề xuất theo đơn bảo hành; loại khác gợi ý → lưu `dat_don_hang.loai_goi_y` + `loai_goi_y_ly_do`,
+  ghi thêm dòng cảnh báo vào log tạo đơn. FE: chip đỏ "⚠ Khác loại gợi ý" (danh sách đơn, header chi tiết đơn, dòng đơn trong phiếu), khối đỏ giải
+  thích trong chi tiết đơn; cảnh báo ở form tạo đơn đổi câu ("hệ thống gợi ý … bạn đang chọn …", vẫn được giữ loại). `/suachua-partner/don-sc`
+  trả 2 cột mới → app đổi trả hiện cảnh báo ở màn Cấp linh kiện, Linh kiện của tôi, chi tiết đơn BH, hộp xác nhận tiêu hao.
+- Kiểm thử: typecheck backend + frontend 2 app 0 lỗi, khoá dịch đủ. Chưa bấm thử trên giao diện.
+

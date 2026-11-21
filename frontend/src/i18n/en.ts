@@ -3151,5 +3151,15 @@ const tuDien: Record<string, string> = {
   "Ngày dự kiến có hàng không được trước hôm nay — kiểm tra lại năm": "Expected arrival date cannot be before today — check the year",
   "Ngày dự kiến không được trước hôm nay — kiểm tra lại năm": "Expected date cannot be before today — check the year",
   "Ngày dự kiến không được quá 1 năm kể từ hôm nay — kiểm tra lại năm": "Expected date cannot be more than 1 year from today — check the year",
+  "Bạn vẫn được giữ loại đang chọn (VD: sản phẩm hết bảo hành nhưng linh kiện bên trong còn bảo hành). Đơn sẽ được gắn cảnh báo cho Kế toán, Kho và Admin BH thấy.": "You may keep the selected type (e.g. product out of warranty but the part inside is still under warranty). The order will be flagged for Accounting, Warehouse and Warranty Admin.",
+  "Căn cứ gợi ý": "Basis of suggestion",
+  "Hệ thống gợi ý": "System suggests",
+  "Khác loại gợi ý": "Differs from suggested type",
+  "Loại đề xuất KHÁC loại hệ thống gợi ý theo đơn bảo hành": "Request type DIFFERS from the type suggested by the warranty order",
+  "Loại đề xuất khác loại hệ thống gợi ý theo case": "Request type differs from the type suggested for this case",
+  "Người đặt đã chủ động chọn khác (VD: sản phẩm hết bảo hành nhưng linh kiện bên trong còn bảo hành) — Kế toán, Kho, Admin BH kiểm tra lại trước khi xử lý.": "The requester deliberately chose a different type (e.g. product out of warranty but the part inside is still under warranty) — Accounting, Warehouse and Warranty Admin should double-check before processing.",
+  "Đang chọn": "Selected",
+  "hệ thống gợi ý loại": "the system suggests type",
+  "bạn đang chọn": "you selected",
 };
 export default tuDien;

@@ -182,6 +182,8 @@ export interface DonHangRow {
   doi_tac_ma?: string | null; // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403) - Ma MISA doi tac ghi no
   bh_don_vi_id?: string | null; // CÔNG NỢ SỬA CHỮA (v1.495) - ma don bao hanh app Bao hanh doi tra
   bh_lien_ket?: number | null; // 1 = ma co tren app Bao hanh doi tra luc tao don (v1.496)
+  loai_goi_y?: string | null; // v1.547 - loai he thong goi y theo don bao hanh KHAC loai dang chon (NULL = khop)
+  loai_goi_y_ly_do?: string | null;
   loai_de_xuat: string | null;
   so_luong_de_xuat: number;
   so_luong_thuc_xuat: number | null;

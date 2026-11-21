@@ -95,7 +95,9 @@ tự chuyển "Đã giải trình" (lý do "Đơn tự hủy — KTV không gử
 
 ## 9. Công nợ sửa chữa (NV sửa chữa)
 
-3 loại theo đơn bảo hành (hết BH → MUA HÀNG SỬA CHỮA; còn BH + Karofi → HỖ TRỢ SỬA CHỮA 0 ĐỒNG; còn lại → CÔNG NỢ SỬA CHỮA). Admin BH xác nhận
+3 loại theo đơn bảo hành (hết BH → MUA HÀNG SỬA CHỮA; còn BH + Karofi → HỖ TRỢ SỬA CHỮA 0 ĐỒNG; còn lại → CÔNG NỢ SỬA CHỮA) = loại hệ thống GỢI Ý; người đặt được chọn loại khác (VD sản phẩm hết BH nhưng linh kiện
+bên trong còn BH) — đơn lưu `loai_goi_y` + lý do, gắn cảnh báo đỏ "Khác loại gợi ý" ở danh sách đơn, chi tiết đơn, dòng đơn trong phiếu và
+bên app Bảo hành đổi trả. Admin BH xác nhận
 tiêu hao bên app Bảo hành → tự tạo đơn TRỪ CÔNG NỢ - SỬA CHỮA / TRẢ HÀNG CÔNG NỢ - SỬA CHỮA đi thẳng Kế toán. Đơn "SỬA CHỮA TẠI KHO" cũ
 đồng bộ về chỉ để xem (khoá bằng trigger).
 

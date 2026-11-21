@@ -83,7 +83,7 @@ function tuDienTheoDon(d: DonHangDraft, r: DonBh, tenNv: string): Partial<DonHan
 // v1.510 (chot 2026-11-17 - "khi tạo đơn trên app linh kiện, nv sửa chữa có thể chọn nhầm loại đề xuất => dựa vào thông tin case nv chọn =>
 // nếu sai loại đề xuất => hiện cảnh báo nhắc nhở, ví dụ: đây là case bảo hành của đối tác KRF, loại đề xuất nên là "Hỗ trợ sửa chữa 0 đồng"..."):
 // don bao hanh khop trong danh sach goi y (ma don / ma don cha) + loai dang chon khac loai theo don -> cau nhac + loai dung. Dung CHUNG o ma don BH
-// (desktop + mobile) va khoi "Cảnh báo" cot phai form desktop. Server van tu ap lai loai dung luc tao don (chuanBiPhieuDat).
+// (desktop + mobile) va khoi "Cảnh báo" cot phai form desktop. v1.547: server KHONG ghi de nua - giu loai nguoi dat, luu loai_goi_y de canh bao.
 export function donBhKhop(rows: DonBh[] | undefined, ma: string | null | undefined): DonBh | undefined {
   const m = (ma ?? "").trim().toUpperCase();
   return m ? rows?.find((r) => r.id === m || r.parent_id === m) : undefined;
@@ -98,7 +98,7 @@ export function canhBaoLoaiDonBh(khop: DonBh | undefined, lde: string): { loaiDu
     : laHoTroSuaChua0d(loaiDung)
       ? `${t("Đây là case bảo hành (còn BH) của")} ${doiTac} (Karofi)`
       : `${t("Đây là case bảo hành (còn BH) của")} ${doiTac} (${t("ngoài Karofi")})`;
-  return { loaiDung, text: `${lyDo} — ${t("loại đề xuất nên là")} "${loaiDung}", ${t("không phải")} "${lde}".` };
+  return { loaiDung, text: `${lyDo} — ${t("hệ thống gợi ý loại")} "${loaiDung}", ${t("bạn đang chọn")} "${lde}".` };
 }
 const giaiThichLoai = (lde: string) =>
   laMuaHangSuaChua(lde)
@@ -215,9 +215,10 @@ export function MaDonBhInput({
       </div>
       {saiLoai ? (
         <div role="alert" className="mt-1.5 rounded-lg border-l-[3px] border-[var(--color-warning)] bg-[var(--color-warning-soft)] px-2.5 py-2 text-[12px] leading-snug text-[var(--color-warning-strong)]">
-          <div className="font-semibold">⚠ {t("Loại đề xuất chưa đúng với case")}</div>
+          <div className="font-semibold">⚠ {t("Loại đề xuất khác loại hệ thống gợi ý theo case")}</div>
           <div className="mt-0.5">{saiLoai.text}</div>
-          <div className="mt-0.5 text-[11px] opacity-90">{nhanBh(khop!)} · {giaiThichLoai(saiLoai.loaiDung)} {t("Nếu vẫn để nguyên, khi tạo đơn hệ thống sẽ tự đặt đúng loại.")}</div>
+          <div className="mt-0.5 text-[11px] opacity-90">{nhanBh(khop!)} · {giaiThichLoai(saiLoai.loaiDung)}</div>
+          <div className="mt-0.5 text-[11px] font-semibold">{t("Bạn vẫn được giữ loại đang chọn (VD: sản phẩm hết bảo hành nhưng linh kiện bên trong còn bảo hành). Đơn sẽ được gắn cảnh báo cho Kế toán, Kho và Admin BH thấy.")}</div>
           <button
             type="button"
             onClick={() => onChange(tuDienTheoDon(d, khop!, tenNv))}
@@ -232,6 +233,37 @@ export function MaDonBhInput({
           {ldeTheoBh ? ` — ${t("loại đề xuất theo đơn bảo hành")}` : ` — ${t("chưa đủ thông tin, giữ loại đang chọn")}`}
         </div>
       )}
+    </div>
+  );
+}
+
+// v1.547 (2026-11-21, "sẽ cho ktv chọn lại, nhưng ... hiện cảnh báo rất rõ ràng cho các đơn vị, bộ phận liên quan biết linh kiện này đang được
+// chọn loại đề xuất khác với đề xuất thực tế phải chọn"): don co dat_don_hang.loai_goi_y (server luu luc tao don) -> chip o danh sach / dong
+// don trong phieu + khoi do o chi tiet don.
+type CoLoaiGoiY = { loai_de_xuat?: string | null; loai_goi_y?: string | null; loai_goi_y_ly_do?: string | null };
+export function LoaiGoiYBadge({ d }: { d: CoLoaiGoiY }) {
+  if (!d.loai_goi_y) return null;
+  return (
+    <span
+      title={`${t("Hệ thống gợi ý")}: ${d.loai_goi_y}${d.loai_goi_y_ly_do ? ` — ${d.loai_goi_y_ly_do}` : ""}`}
+      className="ml-1 inline-flex items-center rounded-md border border-[var(--color-danger)] bg-[var(--color-danger-soft)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--color-danger-strong)] whitespace-nowrap"
+    >
+      ⚠ {t("Khác loại gợi ý")}
+    </span>
+  );
+}
+export function LoaiGoiYKhoi({ d }: { d: CoLoaiGoiY }) {
+  if (!d.loai_goi_y) return null;
+  return (
+    <div role="alert" className="mb-3 rounded-lg border-l-[3px] border-[var(--color-danger)] bg-[var(--color-danger-soft)] px-3 py-2.5 text-[13px] leading-snug text-[var(--color-danger-strong)]">
+      <div className="font-semibold">⚠ {t("Loại đề xuất KHÁC loại hệ thống gợi ý theo đơn bảo hành")}</div>
+      <div className="mt-1">
+        {t("Đang chọn")}: <b>{d.loai_de_xuat}</b> · {t("Hệ thống gợi ý")}: <b>{d.loai_goi_y}</b>
+      </div>
+      {d.loai_goi_y_ly_do && <div className="mt-0.5 text-[12px]">{t("Căn cứ gợi ý")}: {d.loai_goi_y_ly_do}</div>}
+      <div className="mt-1 text-[12px]">
+        {giaiThichLoai(d.loai_de_xuat ?? "")} {t("Người đặt đã chủ động chọn khác (VD: sản phẩm hết bảo hành nhưng linh kiện bên trong còn bảo hành) — Kế toán, Kho, Admin BH kiểm tra lại trước khi xử lý.")}
+      </div>
     </div>
   );
 }

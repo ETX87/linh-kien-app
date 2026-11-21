@@ -2303,6 +2303,9 @@ export interface PhieuDatBody {
     kh_chuyen_khoan?: boolean;
     // CÔNG NỢ SỬA CHỮA (v1.495): ma don bao hanh app Bao hanh doi tra ("DH-000123" / "DH-000123-1") - BAT BUOC voi loai nay.
     bh_don_vi_id?: string;
+    // v1.547: loai he thong goi y theo don bao hanh KHAC loai nguoi dat chon (server tu dien trong chuanBiPhieuDat, client gui len bi bo qua).
+    loai_goi_y?: string | null;
+    loai_goi_y_ly_do?: string | null;
   }[];
 }
 
@@ -2411,8 +2414,12 @@ async function chuanBiPhieuDat(
   // v1.508 (app doi tra v1.142): "Đơn của đối tác Karofi => mặc định xuất sang đơn "HỖ TRỢ SỬA CHỮA 0 ĐỒNG" (nếu còn bảo hành), các đối tác khác
   // sẽ xuất "CÔNG NỢ SỬA CHỮA". Trường hợp hết bảo hành => "MUA HÀNG SỬA CHỮA"" - ma don bao hanh co tren app doi tra va du Hang / Doi tac /
   // bao hanh -> HE THONG chon loai (ghi de lua chon tren form); don nhap tay ngoai app / chua du thong tin -> giu loai nguoi dat chon.
+  // v1.547 (2026-11-21, "sẽ cho ktv chọn lại ... vì trong thực tế, sp hết bảo hành nhưng lk bên trong sp có thể vẫn còn bảo hành"): KHONG ghi
+  // de nua - giu loai nguoi dat chon, chi luu loai goi y + ly do (dat_don_hang.loai_goi_y) de canh bao cac bo phan.
   const bhCache = new Map<string, Awaited<ReturnType<typeof traDonBh>>>();
   for (const dh of body.don_hang) {
+    dh.loai_goi_y = null;
+    dh.loai_goi_y_ly_do = null;
     if (!laDonSuaChua(dh.loai_de_xuat)) {
       dh.bh_don_vi_id = undefined;
       continue;
@@ -2423,10 +2430,11 @@ async function chuanBiPhieuDat(
     else dh.bh_don_vi_id = undefined;
     if (ma && laMaDonBhApp(ma)) {
       if (!bhCache.has(ma)) bhCache.set(ma, await traDonBh(c.env, ma));
-      const theoBh = loaiDeXuatTheoDonBh(bhCache.get(ma));
-      if (theoBh && theoBh !== dh.loai_de_xuat.trim()) {
-        dh.loai_de_xuat = theoBh;
-        if (laMuaHangSuaChua(theoBh)) dh.chinh_sach = "Ngoài CSBH";
+      const bh = bhCache.get(ma);
+      const theoBh = loaiDeXuatTheoDonBh(bh);
+      if (theoBh && bh && theoBh !== dh.loai_de_xuat.trim()) {
+        dh.loai_goi_y = theoBh;
+        dh.loai_goi_y_ly_do = lyDoLoaiGoiY(ma, bh);
       }
     }
   }
@@ -2486,6 +2494,13 @@ async function chuanBiPhieuDat(
 // Ghi chu log khoi tao theo ket qua danh gia (giai thich vi sao don di nhanh do).
 // SUA 2026-10-15 ("minh bạch cho mọi thao tác xử lý cho người đặt hàng hiểu"): MOI trang thai khoi tao deu co ly do (truoc chi 3
 // trang thai) - FE LyDoTrangThaiDon doc dong log nay de giai thich cho nguoi dat.
+// v1.547: ly do loai he thong goi y cho don cap linh kien sua chua (theo Hang / Doi tac / con-het BH tren app Bao hanh doi tra luc tao don).
+function lyDoLoaiGoiY(ma: string, bh: { hang?: string | null; doi_tac?: string | null; doi_tac_karofi?: number | null; loai_bao_hanh?: string | null }): string {
+  const dt = [bh.hang && `hãng ${bh.hang}`, bh.doi_tac && `đối tác ${bh.doi_tac}`].filter(Boolean).join(", ");
+  const bhText = bh.loai_bao_hanh === "ngoai_bh" ? "sản phẩm HẾT bảo hành" : `sản phẩm còn bảo hành${bh.doi_tac_karofi ? " (Karofi)" : " (ngoài Karofi)"}`;
+  return `đơn BH ${ma}: ${bhText}${dt ? ` — ${dt}` : ""}`;
+}
+
 function ghiChuKhoiTao(kq: KetQuaDong, soLuong: number, phieu: KetQuaPhieu): string | null {
   const goc = ghiChuKhoiTaoGoc(kq, soLuong, phieu);
   // LK B2B (2026-10-27): ghi ro ly do khong xet tran cong no.
@@ -2781,7 +2796,10 @@ export async function taoPhieuDat(c: Context<{ Bindings: Env }>, bodyGoc: PhieuD
     if ((trangThaiKhoiTao === "TN da duyet" || kqDong.batBuocChuyenTien) && (loai_don === "mua" || loai_don === "cong_no")) {
       vaoPhieu[loai_don].push({ donHangId, soTien: (lk.gia_ban ?? 0) * dh.so_luong_de_xuat });
     }
-    const ghiChuLog = ghiChuKhoiTao(kqDong, dh.so_luong_de_xuat, danhGia);
+    const ghiChuLog = [
+      ghiChuKhoiTao(kqDong, dh.so_luong_de_xuat, danhGia),
+      dh.loai_goi_y ? `⚠ Chọn loại "${lde}" KHÁC loại hệ thống gợi ý "${dh.loai_goi_y}" (${dh.loai_goi_y_ly_do})` : null,
+    ].filter(Boolean).join("\n") || null;
     notifyQueue.push({ donHangId, trangThai: trangThaiKhoiTao, tenLkNoiDung: `"${lk.ten_lk} (x${dh.so_luong_de_xuat})"`, lyDo: ghiChuLog });
     statements.push(
       c.env.DB.prepare(
@@ -2789,8 +2807,8 @@ export async function taoPhieuDat(c: Context<{ Bindings: Env }>, bodyGoc: PhieuD
            (id, phieu_dat_id, loai_don, ma_lk, ten_lk_snapshot, loai_de_xuat, so_luong_de_xuat, gia_de_xuat,
             so_tien_cong_no, danh_gia_cong_no, ghi_chu, yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang, chinh_sach, ma_yeu_cau_su_co, ma_lada,
             nguoi_tao, ngay_tao, updated_at, email_gs, nguoi_nhan_hang, uu_tien, trang_thai_hien_tai, bat_buoc_chuyen_tien, combo_ma, doi_tac_ma,
-            kh_chuyen_khoan, bh_don_vi_id, bh_lien_ket)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            kh_chuyen_khoan, bh_don_vi_id, bh_lien_ket, loai_goi_y, loai_goi_y_ly_do)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         donHangId, phieuDatId, loai_don, dh.ma_lk.trim(), lk.ten_lk, lde, dh.so_luong_de_xuat, lk.gia_ban,
         kqDong.soTienCongNo, kqDong.danhGiaCongNo,
@@ -2798,7 +2816,7 @@ export async function taoPhieuDat(c: Context<{ Bindings: Env }>, bodyGoc: PhieuD
         dh.chinh_sach?.trim() || chinhSachMacDinh(lde), dh.ma_yeu_cau_su_co?.trim() || null, dh.ma_lada?.trim().toUpperCase() || null,
         user.email, now, now, kq.emailGs, nguoiNhanHang, dh.uu_tien ? 1 : 0, trangThaiKhoiTao, kqDong.batBuocChuyenTien ? 1 : 0,
         comboMaCuaDong[i] ?? null, dh.doi_tac_ma ?? null, dh.kh_chuyen_khoan ? 1 : 0, dh.bh_don_vi_id ?? null,
-        dh.bh_don_vi_id && lienKetBh.get(dh.bh_don_vi_id) ? 1 : 0,
+        dh.bh_don_vi_id && lienKetBh.get(dh.bh_don_vi_id) ? 1 : 0, dh.loai_goi_y ?? null, dh.loai_goi_y_ly_do ?? null,
       ),
     );
     if (loai_don !== "tra_hang") {
