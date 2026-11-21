@@ -1611,6 +1611,8 @@ Nguyên văn: *"các logic quá hạn SLA trên toàn bộ hệ thống từ 24h
 - Báo cáo "Tốc độ xử lý" (v1.551, 2026-11-21 — "các tốc độ xử trong các báo cáo đã tính lại theo mốc 8h làm việc chưa?" → "Đổi sang giờ làm việc"): giờ chờ mỗi
   lượt (`hoursBetween` ở `lib/slaMetrics.ts`) = `gioLamViecGiua` thay giờ lịch → TB giờ xử lý, kỳ trước, chậm / nhanh nhất, tab chờ KTV đều theo giờ làm việc;
   cache báo cáo đổi khoá `bao-cao-toc-do/tong-hop-v2` (kỳ cũ tính lại theo cách mới).
+  v1.552 ("thêm cột TB ngày làm việc bên cạnh cột \"TB giờ\""): thêm cột "TB ngày làm việc" = TB giờ làm việc ÷ 8 (1 ngày làm việc = 8 giờ) cạnh
+  "TB giờ xử lý" và "TB giờ (toàn hệ thống)" + file Excel — chỉ hiển thị, không đổi API.
 - KHÔNG đổi (không phải SLA): đẩy lại đơn / ticket trong 24h, trả hàng tự hủy 10 ngày, tự xác nhận nhận hàng 10 ngày.
 
 ## Nhận việc từ Trợ lý Mây (tự sửa)

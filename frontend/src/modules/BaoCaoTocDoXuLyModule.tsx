@@ -63,6 +63,16 @@ function fmtGio(h: number | null): string {
   return `${h.toFixed(1)}h`;
 }
 
+// v1.552 (2026-11-21, "thêm cột TB ngày làm việc bên cạnh cột TB giờ"): 1 ngày làm việc = 8 giờ làm việc (cùng mốc SLA,
+// lib/gioLamViec.ts backend). TB giờ đã tính theo giờ làm việc (v1.551) nên ngày = giờ / 8.
+const GIO_MOT_NGAY = 8;
+const ngayLv = (h: number | null) => (h == null ? null : h / GIO_MOT_NGAY);
+function fmtNgay(h: number | null): string {
+  const n = ngayLv(h);
+  if (n == null) return "—";
+  return `${n.toFixed(1)} ngày`;
+}
+
 function XuHuongBadge({ percent }: { percent: number | null }) {
   if (percent == null || Math.abs(percent) < 1) return <span className="text-[var(--ink-400)]">—</span>;
   const slower = percent > 0; // gio TB tang = xu ly cham di
@@ -156,6 +166,7 @@ async function downloadBaoCaoTocDo(stages: GiaiDoanMeta[], filters: Filters) {
         "Luồng": LUONG_LABELS[stage.luong],
         "Giai đoạn": stage.label,
         "TB giờ (toàn hệ thống)": totalCount > 0 ? round1(totalHours / totalCount) : null,
+        "TB ngày làm việc (toàn hệ thống)": totalCount > 0 ? round1(ngayLv(totalHours / totalCount)) : null,
         "Đang chờ": data.dang_cho,
         "Tổng đã xử lý": totalCount,
       };
@@ -170,6 +181,7 @@ async function downloadBaoCaoTocDo(stages: GiaiDoanMeta[], filters: Filters) {
       "Đã xử lý": r.da_xu_ly,
       "Từ chối": r.tu_choi,
       "TB giờ xử lý": round1(r.tb_gio),
+      "TB ngày làm việc": round1(ngayLv(r.tb_gio)),
       "TB giờ kỳ trước": round1(r.tb_gio_ky_truoc),
       "Xu hướng (%)": round1(r.xu_huong_phan_tram),
     }));
@@ -230,18 +242,19 @@ function StageLeaderboard({ stage, filters }: { stage: GiaiDoanMeta; filters: Fi
                 <th className="px-3 py-2 text-right whitespace-nowrap">Đã xử lý</th>
                 <th className="px-3 py-2 text-right whitespace-nowrap">Từ chối</th>
                 <th className="px-3 py-2 text-right whitespace-nowrap">TB giờ xử lý</th>
+                <th className="px-3 py-2 text-right whitespace-nowrap" title="1 ngày làm việc = 8 giờ làm việc">TB ngày làm việc</th>
                 <th className="px-3 py-2 text-right whitespace-nowrap">Xu hướng</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-[var(--ink-400)]">Đang tải…</td>
+                  <td colSpan={6} className="px-3 py-6 text-center text-[var(--ink-400)]">Đang tải…</td>
                 </tr>
               )}
               {!isLoading && (data?.rows.length ?? 0) === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có dữ liệu trong kỳ này.</td>
+                  <td colSpan={6} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có dữ liệu trong kỳ này.</td>
                 </tr>
               )}
               {(data?.rows ?? []).map((r) => (
@@ -253,6 +266,7 @@ function StageLeaderboard({ stage, filters }: { stage: GiaiDoanMeta; filters: Fi
                   <td className="px-3 py-2 text-right font-mono">{r.da_xu_ly}</td>
                   <td className="px-3 py-2 text-right font-mono">{r.tu_choi}</td>
                   <td className="px-3 py-2 text-right font-mono font-semibold">{fmtGio(r.tb_gio)}</td>
+                  <td className="px-3 py-2 text-right font-mono">{fmtNgay(r.tb_gio)}</td>
                   <td className="px-3 py-2 text-right"><XuHuongBadge percent={r.xu_huong_phan_tram} /></td>
                 </tr>
               ))}
@@ -296,6 +310,7 @@ function TongQuanRow({ stage, filters, onJump }: { stage: GiaiDoanMeta; filters:
         <div className="text-xs text-[var(--ink-400)]">{LUONG_LABELS[stage.luong]}</div>
       </td>
       <td className="px-3 py-2 text-right font-mono font-semibold">{isLoading ? "…" : fmtGio(tbGio)}</td>
+      <td className="px-3 py-2 text-right font-mono">{isLoading ? "…" : fmtNgay(tbGio)}</td>
       <td className="px-3 py-2 text-right font-mono">{isLoading ? "…" : (data?.dang_cho ?? 0)}</td>
       <td className="px-3 py-2 text-xs">{cham ? `${cham.ten ?? cham.email} (${fmtGio(cham.tb_gio)})` : "—"}</td>
       <td className="px-3 py-2 text-xs">{nhanh ? `${nhanh.ten ?? nhanh.email} (${fmtGio(nhanh.tb_gio)})` : "—"}</td>
@@ -315,6 +330,7 @@ function TongQuanTab({ stages, filters, onJump }: { stages: GiaiDoanMeta[]; filt
             <tr className="tbl-head">
               <th className="px-3 py-2 whitespace-nowrap">Giai đoạn</th>
               <th className="px-3 py-2 text-right whitespace-nowrap">TB giờ (toàn hệ thống)</th>
+              <th className="px-3 py-2 text-right whitespace-nowrap" title="1 ngày làm việc = 8 giờ làm việc">TB ngày làm việc</th>
               <th className="px-3 py-2 text-right whitespace-nowrap">Đang chờ</th>
               <th className="px-3 py-2 whitespace-nowrap">Chậm nhất</th>
               <th className="px-3 py-2 whitespace-nowrap">Nhanh nhất</th>

@@ -457,3 +457,8 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
   giờ lịch 24/7; đổi khoá cache báo cáo `tong-hop-v2` để mọi kỳ (cả kỳ cũ) tính lại; câu mô tả trên màn báo cáo ghi rõ "tính theo giờ làm việc".
 - Kiểm thử: typecheck 0 lỗi; thử hàm với mốc thật: 16h T7 → 9h T2 = 1,0 giờ; 9h–15h30 = 5,5 giờ; 17h30 T6 → 8h30 T7 = 0,5 giờ. Chưa mở báo cáo trên production.
 
+## 2026-11-21 — v1.552: Báo cáo Tốc độ xử lý thêm cột TB ngày làm việc
+
+- Yêu cầu nguyên văn: "thêm cột TB ngày làm việc bên cạnh cột \"TB giờ\"".
+- Đã làm: `BaoCaoTocDoXuLyModule.tsx` thêm cột "TB ngày làm việc" (= TB giờ làm việc ÷ 8, 1 chữ số thập phân) ngay sau "TB giờ xử lý" và "TB giờ (toàn hệ thống)"; file Excel thêm 2 cột tương ứng. Không đổi API.
+- Kiểm thử: typecheck frontend 0 lỗi, build qua. Chưa xem bằng mắt trên production.
