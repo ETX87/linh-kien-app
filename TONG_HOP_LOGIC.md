@@ -68,6 +68,9 @@ duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xe
   hàng về → đơn tự duyệt vào phiếu; từ chối / hủy → đơn tự hủy, tiền về quỹ. Tự xác nhận hàng về theo ưu tiên (khiếu nại > ngày cũ > VIP)
   sau mỗi lần nhập tồn. Tách đơn khi về một phần; đổi sang LK tương đương (đổi mã thì BỎ giá chốt tay của mã cũ — giá tính lại theo mã mới).
   Giá chốt tay luôn thắng giá theo loại chiết khấu; dòng đơn trong phiếu có nhãn "Giá chốt tay" khi đang áp.
+- **Chuyển đơn về "Chờ hàng" bằng tay**: Mua hàng / Kế toán / Admin bấm "⏳ Chuyển chờ hàng" (bắt buộc ghi chú) ở chi tiết đơn Mua / Công nợ
+  (không TRỪ CÔNG NỢ, không gửi bù) đang Chờ duyệt / Chờ thanh toán / Đã duyệt mà phiếu chứa đơn còn "Đang tạo phiếu" — kể cả khi Kế toán đã duyệt tiền
+  phiếu. Đơn rời phiếu MANG THEO tiền đã trả, ticket mở thẳng ở "Chờ mua hàng". Nút "Chờ hàng" của Tác nghiệp chỉ có khi Kế toán CHƯA duyệt tiền phiếu.
   Ngày dự kiến có hàng (Kho tiếp nhận / cập nhật, Mua hàng "Đã đặt hàng", cả ticket bảo hành) là TUỲ CHỌN — Mua hàng chưa rõ ngày thì bỏ trống (mã EO vẫn bắt buộc);
   nếu nhập phải là ngày thật từ hôm nay tới tối đa 1 năm sau; giá trị 01/01/1900 coi như trống (`lib/ngayDuKien.ts`, v1.545).
 - **Đẩy lại** đơn / ticket bị người khác hủy / từ chối: ticket về trạng thái trước khi bị từ chối, đơn về Chờ hàng, lấy lại tiền đã hoàn về quỹ

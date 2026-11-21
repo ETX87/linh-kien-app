@@ -1209,7 +1209,7 @@ KTV + tổng tiền đã chọn ở danh sách bỏ đơn đối tác, chi tiế
 giá tham khảo (`tongGhiNoDoiTac`).
 
 **Đợt 13 yêu cầu v1.410** (chốt 2026-10-27): (1+5) **Mua hàng "⏳ Chuyển chờ hàng"** — `POST /dat-mua-lk/don-hang/:id/cho-hang` {ghi_chu bắt buộc}
-(Mua hàng + Admin; `requireDatMuaLkArea` mở riêng route này + `/don-hang/:id/log` cho Mua hàng): đơn Mua/Công nợ (không TRỪ CÔNG NỢ, không gửi bù) "Cho TN duyet"
+(Mua hàng + Admin + Kế toán từ v1.546 — nút "Chờ hàng" của TN bị khoá khi Kế toán đã duyệt tiền phiếu; `requireDatMuaLkArea` mở riêng route này + `/don-hang/:id/log` cho Mua hàng): đơn Mua/Công nợ (không TRỪ CÔNG NỢ, không gửi bù) "Cho TN duyet"
 / "Cho thanh toan" / "TN da duyet" CHƯA trong phiếu đã gửi Kế toán (`MUA_HANG_CHO_HANG_DUOC_SQL` ở `lib/pxkTuHuy.ts`, cột `mua_hang_cho_hang_duoc`) → "Cho hang",
 rời phiếu "Dang tao phieu" MANG THEO tiền, ticket mở thẳng ở "Cho mua hang" (`moTicketChoHangTuDong` opts `choMuaHang`, không báo Kho). (2) **LK B2B bỏ duyệt
 trần công nợ**: `danhGiaPhieu` đọc `linh_kien.nhom_lk`, dòng B2B không cộng vào tổng/không "Khong du"; log khởi tạo thêm "Linh kiện B2B — bỏ qua duyệt trần công nợ"

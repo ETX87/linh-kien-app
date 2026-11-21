@@ -395,7 +395,8 @@ export function DonHangDetailModal({
   const laGsXem = authHuy.status === "authenticated" && authHuy.user.vai_tro === "Giam sat";
   const gsKhuVucXem = useGsKhuVucSet(laGsXem);
   // Kho / Mua hang (2026-10-27): huy don "Chờ hàng" Kho / Mua hang da xac nhan xu ly; Mua hang chuyen don ve "Chờ hàng".
-  const laMuaHangXem = authHuy.status === "authenticated" && (!!authHuy.user.la_mua_hang || authHuy.user.vai_tro === "Admin");
+  // + Ke toan (v1.546): bam "Chuyển chờ hàng" nhu Mua hang (backend POST /don-hang/:id/cho-hang cung mo).
+  const laMuaHangXem = authHuy.status === "authenticated" && (!!authHuy.user.la_mua_hang || !!authHuy.user.la_ke_toan || authHuy.user.vai_tro === "Admin");
   const laKhoMuaHang = authHuy.status === "authenticated" && (!!authHuy.user.la_kho || !!authHuy.user.la_mua_hang);
   // "⧉ Tạo đơn giống" (chot 2026-11-14, v1.491): moi tai khoan duoc tao don (cung dieu kien canTaoDon o DatMuaLinhKienModule) -> day
   // 1 dong chep don nay vao form tao don (taoDonGiong.ts); form dang mo thi them dong, chua mo thi App mo form. Khong chep anh tra hang.

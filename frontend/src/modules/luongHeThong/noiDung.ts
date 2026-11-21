@@ -168,7 +168,7 @@ const LUONG_DAT_HANG: Luong = {
   nhanh: [
     { ten: "Từ chối / Hủy", loai: "huy", moTa: "TBP, GS từ chối → Đã hủy. Người tạo / người nhận / GS khu vực hủy hộ khi đơn chưa có bộ phận xử lý; tiền đã trả tự về quỹ (trigger)." },
     { ten: "Đẩy lại trong 24h", loai: "cho", moTa: "Đơn bị NGƯỜI KHÁC hủy / từ chối: TN / Kế toán / Admin “↩ Đẩy lại chờ duyệt” trong 24h (đơn từ ticket thì phục hồi về Chờ hàng)." },
-    { ten: "Mua hàng chuyển chờ hàng", loai: "cho", moTa: "Mua hàng “⏳ Chuyển chờ hàng” đơn chưa vào phiếu đã gửi Kế toán → Chờ hàng, ticket mở thẳng ở Chờ mua hàng." },
+    { ten: "Mua hàng chuyển chờ hàng", loai: "cho", moTa: "Mua hàng / Kế toán “⏳ Chuyển chờ hàng” đơn chưa vào phiếu đã gửi Kế toán → Chờ hàng, ticket mở thẳng ở Chờ mua hàng." },
   ],
 };
 

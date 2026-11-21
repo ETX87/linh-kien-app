@@ -4456,8 +4456,9 @@ datMuaLinhKien.post("/don-hang/:id/tach-don", async (c) => {
 // "Cho TN duyet" / "Cho thanh toan" / "TN da duyet" (chua nam trong phieu da gui Ke toan - MUA_HANG_CHO_HANG_DUOC_SQL) ve "Cho hang":
 // don dang trong phieu "Dang tao phieu" roi phieu MANG THEO tien da tra, ticket thieu hang mo thang o buoc "Cho mua hang" (Mua hang nhap
 // ma EO + ngay du kien, Kho bao hang ve nhu thuong) - don bi khoa voi KTV (chi Kho / Mua hang huy).
+// v1.546 (2026-11-21, "Có, mở cho Kế toán"): Ke toan cung bam duoc (don phieu da duyet tien thi nut "Chờ hàng" cua TN bi khoa).
 datMuaLinhKien.post("/don-hang/:id/cho-hang", async (c) => {
-  if (!laMuaHangXuLy(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  if (!laMuaHangXuLy(c) && !c.get("user").la_ke_toan) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
   const user = c.get("user");
   const id = c.req.param("id");
   const body = await c.req.json<{ ghi_chu?: string }>().catch(() => ({}) as { ghi_chu?: string });
@@ -4469,7 +4470,7 @@ datMuaLinhKien.post("/don-hang/:id/cho-hang", async (c) => {
   ).bind(id).first<{ trang_thai: string; nguoi_tao: string; nguoi_nhan_hang: string | null; ten_lk_snapshot: string; so_luong_de_xuat: number; duoc: number }>();
   if (!ddh) return c.json({ error: "NOT_FOUND" }, 404);
   if (!ddh.duoc) return c.json({ error: "MUA_HANG_KHONG_CHO_HANG_DUOC" }, 409);
-  const lyDo = `Mua hàng chuyển chờ hàng: ${ghiChu}`;
+  const lyDo = `${laMuaHangXuLy(c) ? "Mua hàng" : "Kế toán"} chuyển chờ hàng: ${ghiChu}`;
   if (!(await ghiTrangThaiDon(c.env.DB, id, "Cho hang", user.email, lyDo, false, ddh.trang_thai))) return c.json({ error: "STATE_CHANGED" }, 409);
   await tacDongSauDinhTuyen(c.env, c.env.DB, id, "Cho hang", user.email, lyDo, (p) => c.executionCtx.waitUntil(p), { choMuaHang: true });
   if (ddh.nguoi_tao !== user.email) {

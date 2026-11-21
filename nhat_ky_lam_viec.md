@@ -392,3 +392,8 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
 - **Kiểm thử:** typecheck 2 phía sạch; hàm kiểm tra ngày thử 8 trường hợp (trống, 1900, 30/02, quá khứ, hôm nay, +1 năm, quá 1 năm, sai dạng) đúng; migration chạy D1 local. Chưa bấm thử form trên giao diện.
 - **Lưu ý:** phiên khác đang sửa dở `suachuaPartner.ts` (v1.544 tra mã Lada) — không nằm trong commit này; deploy từ worktree sạch của commit.
 
+## 2026-11-21 — v1.546: Kế toán được bấm "⏳ Chuyển chờ hàng"
+- **Yêu cầu:** "tại sao vai trò kế toán không có nút bấm chuyển sang thiếu hàng "Chờ hàng về" như admin?" → "Có, mở cho Kế toán".
+- **Nguyên nhân:** nút Admin thấy là "⏳ Chuyển chờ hàng" của Mua hàng (chỉ Mua hàng + Admin). Nút "Chờ hàng" của Tác nghiệp (Kế toán làm thay) bị ẩn khi Kế toán đã duyệt tiền phiếu (`TN_DOI_TRONG_PXK_SQL`) — ví dụ đơn trong PMH-002831.
+- **Đã làm:** `POST /dat-mua-lk/don-hang/:id/cho-hang` nhận thêm `la_ke_toan`; log ghi "Kế toán chuyển chờ hàng: …" (Mua hàng / Admin giữ "Mua hàng …"). FE `DonCuaToiTab.tsx` hiện nút cho Kế toán. Điều kiện đơn giữ nguyên (`MUA_HANG_CHO_HANG_DUOC_SQL`), tiền đã trả đi theo đơn, ticket mở ở "Chờ mua hàng".
+- **Kiểm thử:** typecheck 2 phía sạch. Chưa bấm thử trên giao diện.
