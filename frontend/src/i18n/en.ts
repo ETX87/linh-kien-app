@@ -3146,5 +3146,10 @@ const tuDien: Record<string, string> = {
   "PO bị trả về": "PO returned",
   "PO bị từ chối": "PO rejected",
   "PO đã hủy": "PO cancelled",
+  "Ngày dự kiến có hàng không hợp lệ": "Expected arrival date is invalid",
+  "Ngày dự kiến có hàng không được quá 1 năm kể từ hôm nay — kiểm tra lại năm": "Expected arrival date cannot be more than 1 year from today — check the year",
+  "Ngày dự kiến có hàng không được trước hôm nay — kiểm tra lại năm": "Expected arrival date cannot be before today — check the year",
+  "Ngày dự kiến không được trước hôm nay — kiểm tra lại năm": "Expected date cannot be before today — check the year",
+  "Ngày dự kiến không được quá 1 năm kể từ hôm nay — kiểm tra lại năm": "Expected date cannot be more than 1 year from today — check the year",
 };
 export default tuDien;

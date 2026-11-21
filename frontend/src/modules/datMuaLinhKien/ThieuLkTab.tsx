@@ -1,4 +1,5 @@
 import { ViPhamBanner } from "../viPham/ViPhamUi";
+import { canhBaoNgayDuKien, homNayVN, ngayDuKienToiDa } from "../../lib/ngayDuKien";
 import { Fragment, useState, useEffect, useRef } from "react";
 import { NhomLkBadge } from "../danhMucLinhKien/NhomLk";
 import { LoaiChietKhauText } from "./LoaiChietKhau";
@@ -218,8 +219,8 @@ function ThieuLkActionForm({
     enabled: isDoiMa && !!maLkHienTai,
   });
   const thieuThongTin =
-    ((isGiaiTrinh || isTuChoi || isHuyBo) && !ghiChu.trim()) || (isCapNhat && !ghiChu.trim() && !ngayDuKien) || (isDatHang && (!maEo.trim() || !ngayDuKien)) ||
-    (isDoiMa && !maLkMoi);
+    ((isGiaiTrinh || isTuChoi || isHuyBo) && !ghiChu.trim()) || (isCapNhat && !ghiChu.trim() && !ngayDuKien) || (isDatHang && !maEo.trim()) ||
+    (isDoiMa && !maLkMoi) || ((isGiaiTrinh || isCapNhat || isDatHang) && !!canhBaoNgayDuKien(ngayDuKien));
   // text-base tren mobile: o nhap < 16px lam iOS tu phong to trang khi cham vao.
   const oNhap = "focus-ring w-full rounded-[var(--radius-btn)] border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-2 text-base sm:text-sm";
   return (
@@ -261,8 +262,9 @@ function ThieuLkActionForm({
       )}
       {(isGiaiTrinh || isCapNhat || isDatHang) && (
         <label className="block">
-          <span className="mb-1 block text-xs font-semibold text-[var(--color-text-body)]">{isDatHang ? t("Ngày dự kiến có hàng *") : t("Ngày dự kiến có hàng")}</span>
-          <input type="date" value={ngayDuKien} onChange={(e) => setNgayDuKien(e.target.value)} className={oNhap} />
+          <span className="mb-1 block text-xs font-semibold text-[var(--color-text-body)]">{isDatHang ? t("Ngày dự kiến có hàng (bỏ trống nếu chưa rõ)") : t("Ngày dự kiến có hàng")}</span>
+          <input type="date" value={ngayDuKien} min={homNayVN()} max={ngayDuKienToiDa()} onChange={(e) => setNgayDuKien(e.target.value)} className={oNhap} />
+          {canhBaoNgayDuKien(ngayDuKien) && <span className="mt-0.5 block text-xs text-[var(--color-danger)]">{t(canhBaoNgayDuKien(ngayDuKien)!)}</span>}
         </label>
       )}
       <label className="block">

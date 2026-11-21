@@ -3146,5 +3146,10 @@ const tuDien: Record<string, string> = {
   "PO bị trả về": "PO dikembalikan",
   "PO bị từ chối": "PO ditolak",
   "PO đã hủy": "PO dibatalkan",
+  "Ngày dự kiến có hàng không hợp lệ": "Tanggal perkiraan barang tiba tidak valid",
+  "Ngày dự kiến có hàng không được quá 1 năm kể từ hôm nay — kiểm tra lại năm": "Tanggal perkiraan tidak boleh lebih dari 1 tahun dari hari ini — periksa tahunnya",
+  "Ngày dự kiến có hàng không được trước hôm nay — kiểm tra lại năm": "Tanggal perkiraan tidak boleh sebelum hari ini — periksa tahunnya",
+  "Ngày dự kiến không được trước hôm nay — kiểm tra lại năm": "Tanggal perkiraan tidak boleh sebelum hari ini — periksa tahunnya",
+  "Ngày dự kiến không được quá 1 năm kể từ hôm nay — kiểm tra lại năm": "Tanggal perkiraan tidak boleh lebih dari 1 tahun dari hari ini — periksa tahunnya",
 };
 export default tuDien;

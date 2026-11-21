@@ -1,6 +1,7 @@
 // THIEU HANG BAO HANH (2026-11-04, backend routes/thieuHangBh.ts, migration 0106) - muc thu 3 trong menu "Thiếu hàng": ticket do app
 // "Sửa chữa bảo hành" gui sang khi don bao hanh cham vi "Không có linh kiện" / "Hết hàng tồn kho". Kho / Mua hang xu ly tai day; moi
 // buoc tu bao ve don bao hanh goc.
+import { canhBaoNgayDuKien, homNayVN, ngayDuKienToiDa } from "../../lib/ngayDuKien";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
@@ -31,6 +32,9 @@ const LOI: Record<string, string> = {
   THIEU_MA_EO: dichSau("Nhập mã EO đặt hàng"),
   THIEU_NGAY_DU_KIEN: dichSau("Nhập ngày dự kiến có hàng"),
   INVALID_NGAY: dichSau("Ngày không hợp lệ"),
+  NGAY_DU_KIEN_KHONG_HOP_LE: dichSau("Ngày dự kiến có hàng không hợp lệ"),
+  NGAY_DU_KIEN_TRONG_QUA_KHU: dichSau("Ngày dự kiến có hàng không được trước hôm nay — kiểm tra lại năm"),
+  NGAY_DU_KIEN_QUA_XA: dichSau("Ngày dự kiến có hàng không được quá 1 năm kể từ hôm nay — kiểm tra lại năm"),
 };
 const loi = (e: unknown) => (e instanceof ApiError && e.code && LOI[e.code] ? t(LOI[e.code]) : describeApiError(e));
 const TBL = "tbl w-full [&_th]:px-2.5 [&_th]:py-2 [&_td]:px-2.5 [&_td]:py-1.5 [&_tbody>tr]:border-t [&_tbody>tr]:border-[var(--line)]";
@@ -281,7 +285,7 @@ function ThbDetailModal({ row, onClose, addToast, ten }: { row: ThbRow; onClose:
   const tk = data?.ticket ?? row;
   const vai = data?.vai ?? { kho: false, mua_hang: false };
   const [ghiChu, setGhiChu] = useState("");
-  const [ngay, setNgay] = useState(tk.ngay_du_kien ?? "");
+  const [ngay, setNgay] = useState(tk.ngay_du_kien?.startsWith("1900-") ? "" : tk.ngay_du_kien ?? "");
   const [eo, setEo] = useState(tk.ma_eo_mua ?? "");
   const m = useMutation({
     mutationFn: (den: string) =>
@@ -336,7 +340,8 @@ function ThbDetailModal({ row, onClose, addToast, ten }: { row: ThbRow; onClose:
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <label className="block">
                 <span className="text-xs text-[var(--ink-500)]">{t("Ngày dự kiến có hàng")}</span>
-                <input type="date" value={ngay} onChange={(e) => setNgay(e.target.value)} className={`${INPUT} w-full`} />
+                <input type="date" value={ngay} min={homNayVN()} max={ngayDuKienToiDa()} onChange={(e) => setNgay(e.target.value)} className={`${INPUT} w-full`} />
+                {canhBaoNgayDuKien(ngay) && <span className="mt-0.5 block text-xs text-[var(--color-danger)]">{t(canhBaoNgayDuKien(ngay)!)}</span>}
               </label>
               {vai.mua_hang && (tt === "Cho mua hang" || tt === "Mua hang da dat") && (
                 <label className="block">

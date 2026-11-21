@@ -1,4 +1,5 @@
 import { khoNhomLkLoc, locNhomLkSql, locEmailKhoTheoNhomLk } from "../lib/nhomLk";
+import { chuanNgayDuKien, loiNgayDuKien } from "../lib/ngayDuKien";
 import { tienBiBotPxk } from "../lib/tienBiBot";
 import { lenhGhiQuy, phanBoQuyNguoi, soDuQuy, thongBaoHoanQuyPhieuHuy } from "../lib/quyKtv";
 import { khoaQuy } from "../lib/quyKhoa";
@@ -5850,6 +5851,8 @@ async function applyThieuLkLog(
   maEo?: string,
   maLkTuongDuong?: string,
 ): Promise<{ error: string; status: 404 | 409 | 403 | 400 } | { ok: true }> {
+  // 01/01/1900 (Mua hang tung dien khi chua ro ngay) = trong (v1.545).
+  if (ngayDuKienCoHang !== undefined) ngayDuKienCoHang = chuanNgayDuKien(ngayDuKienCoHang);
   // BUG THAT (cung dot ma-misa PXK) - phai qualify "thieu_lk.id", xem giai thich o openThieuLkForDonHang.
   const tlk = await c.env.DB.prepare(`SELECT nguoi_tao, dat_don_hang_id, ${latestThieuLkStatusExpr("thieu_lk.id")} as trang_thai FROM thieu_lk WHERE id = ?`)
     .bind(id)
@@ -5907,15 +5910,20 @@ async function applyThieuLkLog(
   if (trangThai === "Cho mua hang" && !["Cho kho xu ly", "Kho da tiep nhan", "Kho da cap nhat"].includes(tlk.trang_thai ?? "")) {
     return { error: "INVALID_TRANG_THAI", status: 400 };
   }
-  // Mua hang: chi xu ly ticket dang "Cho mua hang". Da dat = bat buoc ma EO + ngay du kien; tu choi = bat buoc ly do.
+  // Mua hang: chi xu ly ticket dang "Cho mua hang". Da dat = bat buoc ma EO (ngay du kien tuy chon); tu choi = bat buoc ly do.
   if ((trangThai === "Mua hang da dat" || trangThai === "Mua hang tu choi") && tlk.trang_thai !== "Cho mua hang") {
     return { error: "INVALID_TRANG_THAI", status: 400 };
   }
   if (trangThai === "Mua hang da dat") {
     if (!maEo?.trim()) return { error: "THIEU_MA_EO", status: 400 };
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(ngayDuKienCoHang?.trim() ?? "")) return { error: "THIEU_NGAY_DU_KIEN", status: 400 };
+    // Ngay du kien TUY CHON (chot 21/11/2026 - Mua hang thuong chua biet ngay hang ve; truoc bat buoc nen dien 01/01/1900).
   }
   if (trangThai === "Mua hang tu choi" && !ghiChu?.trim()) return { error: "MISSING_GHI_CHU", status: 400 };
+  // Ngay du kien nhap tay phai hop ly (v1.545 - tung luu 01/01/1900 do go nham nam).
+  if (ngayDuKienCoHang?.trim()) {
+    const loiNgay = loiNgayDuKien(ngayDuKienCoHang);
+    if (loiNgay) return { error: loiNgay, status: 400 };
+  }
   // "Kho da cap nhat" (2026-09-28): Kho cap nhat lai ngay du kien/ghi chu SAU khi da tiep nhan (lap lai duoc) - phai
   // co it nhat 1 thong tin moi, khong thi chi la 1 dong log rong.
   if (trangThai === "Kho da cap nhat") {

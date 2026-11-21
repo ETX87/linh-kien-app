@@ -61,7 +61,7 @@ export function KetQuaMuaHang({ don, ticket, hienKhiRong = true }: { don?: strin
           <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
             <span>{t("Đặt {a} · về {b} · thiếu {c}", { a: fmtSl(r.sl_dat), b: fmtSl(r.sl_ve), c: fmtSl(r.sl_con_thieu) })}</span>
             {r.ngay_dat_hang && <span>{t("Ngày đặt {a}", { a: fmtDate(r.ngay_dat_hang) })}</span>}
-            {!r.ket_thuc && <span className={r.canh_bao ? "font-semibold text-[var(--color-danger)]" : ""}>{t("Dự kiến {a}", { a: r.ngay_du_kien ? fmtDate(r.ngay_du_kien) : "—" })}{r.so_lan_lui > 0 ? ` · ${t("đổi {n} lần", { n: r.so_lan_lui })}` : ""}</span>}
+            {!r.ket_thuc && <span className={r.canh_bao ? "font-semibold text-[var(--color-danger)]" : ""}>{t("Dự kiến {a}", { a: r.ngay_du_kien && !r.ngay_du_kien.startsWith("1900-") ? fmtDate(r.ngay_du_kien) : "—" })}{r.so_lan_lui > 0 ? ` · ${t("đổi {n} lần", { n: r.so_lan_lui })}` : ""}</span>}
             {r.ngay_ve_gan_nhat && <span>{t("Về gần nhất {a}", { a: fmtDate(r.ngay_ve_gan_nhat) })}</span>}
             {r.canh_bao && <span className="text-[var(--color-danger)]">{r.canh_bao}</span>}
           </div>

@@ -383,3 +383,12 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
 - Yêu cầu (phía app đổi trả): tạo đơn gửi bảo hành theo mã Lada, chung ô "Mã yêu cầu"; *"thông tin logic có thể xin bên app linh kiện - bên đó có truy vấn theo ID lada"*.
 - Đã làm: `GET /api/suachua-partner/lada?id=` (X-Sync-Key) dùng lại `lookupLada` + `ladaPreview` + cache 10 phút như `/dat-mua-lk/kiem-tra-ma-lada`; trả `{found, preview, warning}`. `lk-theo-case` khớp thêm `dat_don_hang.ma_lada` (có index) để linh kiện đặt theo mã Lada cũng được ưu tiên bên app đổi trả.
 - Kiểm thử: typecheck sạch; luồng đầu cuối thử phía app đổi trả bằng Worker giả (chưa gọi hệ Lada thật trước deploy).
+
+## 2026-11-21 — Ngày dự kiến có hàng 01/01/1900: cho bỏ trống + chặn ngày vô lý + dọn dữ liệu (v1.545, migration `0133`)
+- **Yêu cầu:** "fix lỗi 01/01/1900" (ảnh ticket TLK-001237 "Dự kiến có hàng 01/01/1900"). Chốt qua câu hỏi: ô ngày dự kiến khi Mua hàng "Đã đặt hàng" → **cho bỏ trống**; dữ liệu cũ: "mặc định giá trị 01/01/1900 thì để trống".
+- **Nguyên nhân (D1 thật, chỉ đọc):** ô bắt buộc nhưng Mua hàng thường chưa biết ngày hàng về → điền 01/01/1900 cho qua; backend chỉ kiểm dạng YYYY-MM-DD. 136 ticket thiếu hàng + 20 ticket thiếu hàng bảo hành đang lưu 1900-01-01.
+- **Đã làm:** `backend/src/lib/ngayDuKien.ts` (`chuanNgayDuKien` — 1900-xx-xx = trống; `loiNgayDuKien` — ngày thật, từ hôm nay giờ VN tới tối đa 365 ngày) gắn vào `applyThieuLkLog` (mọi bước có ngày: Kho tiếp nhận / cập nhật / Mua hàng đã đặt) và `routes/thieuHangBh.ts`; bỏ bắt buộc ngày ở "Mua hàng đã đặt" (cả 2 loại ticket), mã EO vẫn bắt buộc. FE `frontend/src/lib/ngayDuKien.ts` (bản sao): ô ngày có min/max, câu báo đỏ + khoá nút khi ngày sai, nhãn "Ngày dự kiến có hàng (bỏ trống nếu chưa rõ)"; câu lỗi mới ở `constants.ts` + `ThieuHangBh.tsx`; i18n EN/ID. `KetQuaMuaHang` hiện "—" nếu EO trả 1900.
+- **Dữ liệu (migration 0133):** ngày 1900 → trống ở `thieu_lk` + `thieu_hang_bh` (đổi `ngay_cap_nhat` để app Sửa chữa bảo hành kéo lại); bỏ đoạn "Dự kiến có hàng 01/01/1900" trong ghi chú lịch sử ticket, log đơn gốc, thông báo chuông.
+- **Kiểm thử:** typecheck 2 phía sạch; hàm kiểm tra ngày thử 8 trường hợp (trống, 1900, 30/02, quá khứ, hôm nay, +1 năm, quá 1 năm, sai dạng) đúng; migration chạy D1 local. Chưa bấm thử form trên giao diện.
+- **Lưu ý:** phiên khác đang sửa dở `suachuaPartner.ts` (v1.544 tra mã Lada) — không nằm trong commit này; deploy từ worktree sạch của commit.
+

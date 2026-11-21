@@ -1,8 +1,9 @@
 // THIEU HANG BAO HANH - man Kho / Mua hang xu ly ticket do app "Sua chua bao hanh" gui sang (2026-11-04, migration 0106, xem
 // lib/thieuHangBh.ts). Router RIENG (khong dung requireDatMuaLkArea - middleware do chan ghi voi Mua hang chi doc).
 //   Kho / TN / Admin: Tiep nhan (ngay du kien) | Chuyen Mua hang | Xac nhan hang da ve | Tu choi (bat buoc ly do).
-//   Mua hang / Admin: Da dat hang (bat buoc ma EO + ngay du kien) | Khong mua duoc (bat buoc ghi chu).
+//   Mua hang / Admin: Da dat hang (bat buoc ma EO, ngay du kien tuy chon tu v1.545) | Khong mua duoc (bat buoc ghi chu).
 // Moi buoc day ngay ban tin ve suachua (waitUntil).
+import { chuanNgayDuKien, loiNgayDuKien } from "../lib/ngayDuKien";
 import { Hono, type Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
@@ -114,16 +115,17 @@ r.post("/:id/log", async (c) => {
   const id = c.req.param("id");
   const den = body.trang_thai ?? "";
   const ghiChu = (body.ghi_chu ?? "").trim().slice(0, 1000);
-  const ngay = (body.ngay_du_kien ?? "").trim();
+  const ngay = chuanNgayDuKien(body.ngay_du_kien);
   const eo = (body.ma_eo_mua ?? "").trim().slice(0, 80);
   if (ngay && !/^\d{4}-\d{2}-\d{2}$/.test(ngay)) return c.json({ error: "INVALID_NGAY" }, 400);
+  const loiNgay = loiNgayDuKien(ngay);
+  if (loiNgay) return c.json({ error: loiNgay }, 400);
   const row = await c.env.DB.prepare("SELECT trang_thai FROM thieu_hang_bh WHERE id = ?").bind(id).first<{ trang_thai: string }>();
   if (!row) return c.json({ error: "NOT_FOUND" }, 404);
   if (!thbChuyenHopLe(row.trang_thai, den, { kho: vaiKho(c), muaHang: vaiMua(c) })) return c.json({ error: "INVALID_TRANSITION", trang_thai: row.trang_thai }, 400);
   if ((den === "Kho tu choi" || den === "Mua hang tu choi") && !ghiChu) return c.json({ error: "MISSING_LY_DO_TU_CHOI" }, 400);
   if (den === "Mua hang da dat") {
     if (!eo) return c.json({ error: "THIEU_MA_EO" }, 400);
-    if (!ngay) return c.json({ error: "THIEU_NGAY_DU_KIEN" }, 400);
   }
   const ok = await thbGhiBuoc(c.env.DB, id, row.trang_thai, den, c.get("user").email, {
     ghi_chu: ghiChu || null,
