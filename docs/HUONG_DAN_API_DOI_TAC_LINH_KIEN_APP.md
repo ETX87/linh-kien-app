@@ -1,6 +1,6 @@
 # Hướng dẫn tích hợp API — Hệ thống Mua hàng linh kiện (dành cho đối tác DVBH)
 
-Phiên bản tài liệu: 2.3 — 2026-11-18 · Phiên bản API: **v1**
+Phiên bản tài liệu: 2.4 — 2026-11-21 · Phiên bản API: **v1**
 
 Tài liệu này mô tả các API **chỉ đọc** mà hệ thống Mua hàng linh kiện mở cho đối tác tra cứu:
 lịch sử đơn hàng theo mã ca, tồn kho, lịch sử đặt hàng của từng mã linh kiện, và danh mục linh kiện chi
@@ -12,6 +12,7 @@ Thay đổi 1.3: bổ sung 4.11 thiếu hàng (ticket chờ hàng) và 4.12 tồ
 Thay đổi 1.4: 4.7 nhóm thay thế đã CÓ DỮ LIỆU (trước 2026-10-19 trả `rows: []` vì dữ liệu nằm ngoài hệ thống); mỗi mã thêm `co_trong_danh_muc` + `ghi_chu`.
 Thay đổi 1.5: bổ sung **ID Lada** (`ma_lada`) — trước đây API chỉ trả mã ca / mã YCSC (ID CRM) nên đối tác không nhận được ID Lada. Thêm trường
 `ma_lada` + `ma_yeu_cau_su_co` cho đơn ở 4.1 `case-timeline`, 4.4 `linh-kien/lich-su`, 4.11 `thieu-hang`; thêm mục 4.15 giải thích 2 loại mã.
+Thay đổi 2.4: mục 4.18 thêm `phan_loai_loi` (`noi_bo` | `doi_tac` | `cua_toi` | `khac`, null với ca cũ / giải trình tự động), `ten_phan_loai_loi` và `bang_chung` (mảng link ảnh, bắt buộc có khi lỗi không phải `cua_toi`).
 Thay đổi 2.3: ca bước `th_kho` (Kho xác nhận trả hàng) của đơn trả hàng chờ Kho quá 10 ngày (KTV không gửi hàng) tự thành `Da giai trinh` với `ly_do` "Đơn tự hủy — KTV không gửi hàng" — kể cả ca đã `Ton CEO` (ca đó đến lại 1 lần qua con trỏ, `ton_ceo: false`); đối tác cập nhật theo `id`.
 Thay đổi 2.2: mục 4.19 thêm **con trỏ** `cap_nhat_tu` + `after_id` → trả `next`; mỗi ca chỉ nhận lại khi thay đổi (không kéo lại cả danh sách mỗi ngày).
 Thay đổi 2.1: trạng thái `Gan the` đổi tên thành **`Ton CEO`** (lọc `trang_thai=Gan the` vẫn nhận); thêm `ton_ceo`, `ton_ceo_luc`; thêm mục 4.19 **danh sách Tồn CEO** (`GET /v1/danh-sach-ton?loai=ton-ceo`).
@@ -796,7 +797,7 @@ giải trình trong "hạn giải trình"; hết hạn mà chưa giải trình �
 quét **mỗi giờ**. Đối tác **tự kéo** — app không đẩy sang.
 
 **Vòng đời `trang_thai`:** `Cho giai trinh` → `Da giai trinh` (có giải trình trước hạn) | `Ton CEO` (hết hạn chưa giải trình — kết quả cuối, không gỡ; trước bản 2.1 tên `Gan the`, `gan_the_luc` = `ton_ceo_luc` = lúc chuyển).
-Chỉ nhân viên văn phòng giải trình (KTV không). Ca ghi nhận sai vẫn là `Da giai trinh` với `ly_do` = "Ghi nhận không đúng / không thuộc trách nhiệm" — đối tác tự đánh giá. Ca vẫn giữ nguyên sau khi đơn rời bước
+Chỉ nhân viên văn phòng giải trình (KTV không). Mỗi giải trình (từ 2026-11-21) có `phan_loai_loi` — lỗi thuộc về ai: `noi_bo` (lỗi nội bộ), `doi_tac` (lỗi đối tác), `cua_toi` (lỗi của người giải trình), `khac` — và `bang_chung` (mảng link ảnh Google Drive, 1–5 ảnh, bắt buộc khi không phải `cua_toi`). Ca ghi nhận sai vẫn là `Da giai trinh` với `ly_do` = "Ghi nhận không đúng / không thuộc trách nhiệm" — đối tác tự đánh giá. Ca vẫn giữ nguyên sau khi đơn rời bước
 (`ket_thuc_luc` được điền).
 
 **Các bước (`buoc`)** — danh mục + SLA đang áp: `GET /v1/vi-pham/buoc`.

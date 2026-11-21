@@ -409,3 +409,16 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
   trả 2 cột mới → app đổi trả hiện cảnh báo ở màn Cấp linh kiện, Linh kiện của tôi, chi tiết đơn BH, hộp xác nhận tiêu hao.
 - Kiểm thử: typecheck backend + frontend 2 app 0 lỗi, khoá dịch đủ. Chưa bấm thử trên giao diện.
 
+
+## 2026-11-21 — v1.548: Giải trình quá hạn thêm "Lỗi thuộc về" + ảnh bằng chứng (migration `0135`)
+
+- Yêu cầu nguyên văn: "khi giải trình sẽ thêm lựa chọn: 1. Sau khi giải trình bắt lỗi: lỗi nội bộ, lỗi đối tác, lỗi của tôi, khác
+  2. Bằng chứng của việc giải trình nếu không phải lỗi của bản thân".
+- Đã làm: cột `vi_pham.phan_loai_loi` (`noi_bo` / `doi_tac` / `cua_toi` / `khac`) + `vi_pham.bang_chung` (JSON link ảnh Drive). `POST /vi-pham/:id/giai-trinh`
+  bắt buộc `phan_loai_loi` (`THIEU_PHAN_LOAI_LOI`); khác "Lỗi của tôi" bắt buộc 1–5 ảnh bằng chứng (`THIEU_BANG_CHUNG`, chỉ nhận link Drive). Route tải ảnh
+  `POST /vi-pham/:id/anh` (cùng quyền giải trình, hạn mức ảnh/ngày như mọi chỗ tải ảnh). Hộp giải trình (`ViPhamUi.tsx`): 1. Lý do chậm → 2. Lỗi thuộc về
+  (4 nút) → 3. Ảnh bằng chứng (chỉ hiện khi không phải lỗi của mình) → nội dung; footer ghi còn thiếu gì. Chi tiết ca hiện nhãn lỗi + ảnh; danh sách thêm cột
+  "Lỗi thuộc về" (lọc được, "📎N" = số ảnh). API đối tác `/v1/vi-pham` trả thêm `phan_loai_loi`, `ten_phan_loai_loi`, `bang_chung` (tài liệu 2.4).
+  Ca đã giải trình trước đây / giải trình tự động: 2 cột để trống.
+- Kiểm thử local (Worker + D1 local, tài khoản Kế toán thử): thiếu phân loại → 400, lỗi đối tác không ảnh / ảnh không phải link Drive → 400, có ảnh Drive → ghi
+  đúng; giao diện: chọn "Lỗi đối tác" hiện mục ảnh bắt buộc, "Lỗi của tôi" ẩn mục ảnh, cột "Lỗi đối tác · 📎1" ở tab Đã giải trình. Chưa thử tải ảnh thật lên Drive.

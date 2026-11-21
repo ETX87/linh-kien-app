@@ -1,4 +1,8 @@
 import { useState } from "react";
+import { FileButton } from "../../components/ui/FileButton";
+import { anhVuaGioiHan } from "../../lib/imageCompress";
+import { baoLoiTaiAnh, canhBaoHanMucAnh, type HanMucAnh } from "../../lib/hanMucAnh";
+import { AnhThumb, BangChungAnhList } from "../datMuaLinhKien/BangChungChuyenTien";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
@@ -46,6 +50,9 @@ export interface ViPhamRow {
   trang_thai: "Cho giai trinh" | "Da giai trinh" | "Ton CEO";
   han_giai_trinh: string;
   ly_do: string | null;
+  phan_loai_loi: PhanLoaiLoi | null;
+  ten_phan_loai_loi: string | null;
+  bang_chung: string[];
   giai_trinh: string | null;
   nguoi_giai_trinh: string | null;
   nguoi_giai_trinh_ten: string | null;
@@ -179,33 +186,89 @@ export function lamMoiViPham(qc: ReturnType<typeof useQueryClient>) {
 
 type LoaiHop = "giai_trinh";
 
+/** Phan loai loi khi giai trinh (v1.548) - khop PHAN_LOAI_LOI o backend routes/viPham.ts. */
+export type PhanLoaiLoi = "noi_bo" | "doi_tac" | "cua_toi" | "khac";
+export const PHAN_LOAI_LOI: { ma: PhanLoaiLoi; nhan: string; goiY: string }[] = [
+  { ma: "noi_bo", nhan: dichSau("Lỗi nội bộ"), goiY: dichSau("Do bộ phận / người khác trong công ty (vd Kho, Kế toán, Mua hàng xử lý chậm).") },
+  { ma: "doi_tac", nhan: dichSau("Lỗi đối tác"), goiY: dichSau("Do nhà cung cấp, hãng, đơn vị vận chuyển, KTV / đối tác bên ngoài.") },
+  { ma: "cua_toi", nhan: dichSau("Lỗi của tôi"), goiY: dichSau("Do chính bạn xử lý chậm — không cần bằng chứng.") },
+  { ma: "khac", nhan: dichSau("Khác"), goiY: dichSau("Nguyên nhân khác — ghi rõ trong nội dung.") },
+];
+const MAX_BANG_CHUNG = 5;
+const LOI_GIAI_TRINH: Record<string, string> = {
+  THIEU_PHAN_LOAI_LOI: dichSau("Chọn lỗi thuộc về ai."),
+  THIEU_BANG_CHUNG: dichSau("Không phải lỗi của bạn thì phải đính kèm ít nhất 1 ảnh bằng chứng."),
+  QUA_SO_ANH_BANG_CHUNG: dichSau("Tối đa 5 ảnh bằng chứng."),
+  NOI_DUNG_QUA_NGAN: dichSau("Nội dung giải trình tối thiểu 5 ký tự."),
+};
+
 /** Hop giai trinh 1 ca. Ca ghi nhan sai -> chon ly do "Ghi nhận không đúng…" (van tinh la giai trinh). */
 export function HopViPham({ r, onClose }: { r: ViPhamRow; loai?: LoaiHop; onClose: () => void }) {
   const qc = useQueryClient();
   const addToast = useToast();
   const [lyDo, setLyDo] = useState("");
   const [nd, setNd] = useState("");
+  const [phanLoai, setPhanLoai] = useState<PhanLoaiLoi | "">("");
+  const [anh, setAnh] = useState<string[]>([]);
+  const [dangTai, setDangTai] = useState(0);
   const [loi, setLoi] = useState<string | null>(null);
   const dsLyDo = useQuery({ queryKey: ["vi-pham-ly-do"], queryFn: () => api.get<{ rows: string[]; khong_dung: string }>("/vi-pham/ly-do") });
+  const canBangChung = !!phanLoai && phanLoai !== "cua_toi";
   const gui = useMutation({
-    mutationFn: () => api.post(`/vi-pham/${r.id}/giai-trinh`, { ly_do: lyDo, noi_dung: nd.trim() }),
+    mutationFn: () =>
+      api.post(`/vi-pham/${r.id}/giai-trinh`, { ly_do: lyDo, noi_dung: nd.trim(), phan_loai_loi: phanLoai, bang_chung: canBangChung ? anh : [] }),
     onSuccess: () => {
       addToast(t("Đã ghi giải trình"));
       lamMoiViPham(qc);
       onClose();
     },
-    onError: (e) => setLoi(describeApiError(e)),
+    onError: (e) => {
+      const ma = (e as { code?: string }).code ?? "";
+      setLoi(LOI_GIAI_TRINH[ma] ? t(LOI_GIAI_TRINH[ma]) : describeApiError(e));
+    },
   });
+
+  async function taiAnh(files: File[]) {
+    const chon = files.slice(0, Math.max(0, MAX_BANG_CHUNG - anh.length));
+    if (files.length > chon.length) addToast(t("Tối đa {a} ảnh", { a: MAX_BANG_CHUNG }));
+    for (const f of chon) {
+      setDangTai((n) => n + 1);
+      try {
+        const g = await anhVuaGioiHan(f);
+        const res = await api.postBinary<{ ok: true; url: string; han_muc_anh?: HanMucAnh | null }>(`/vi-pham/${r.id}/anh`, await g.arrayBuffer(), g.type || "image/jpeg");
+        canhBaoHanMucAnh(res.han_muc_anh, addToast);
+        setAnh((x) => (x.includes(res.url) || x.length >= MAX_BANG_CHUNG ? x : [...x, res.url]));
+      } catch (err) {
+        baoLoiTaiAnh(err, addToast, describeApiError);
+      } finally {
+        setDangTai((n) => n - 1);
+      }
+    }
+  }
+
   const khongDung = !!lyDo && lyDo === dsLyDo.data?.khong_dung;
+  const thieu = !lyDo
+    ? t("Chọn lý do chậm")
+    : !phanLoai
+      ? t("Chọn lỗi thuộc về ai")
+      : canBangChung && anh.length === 0
+        ? t("Đính kèm ảnh bằng chứng")
+        : nd.trim().length < 5
+          ? t("Nhập nội dung giải trình")
+          : dangTai > 0
+            ? t("Đang tải ảnh…")
+            : null;
+  const goiY = PHAN_LOAI_LOI.find((p) => p.ma === phanLoai)?.goiY;
   return (
     <Modal
       open
       onClose={onClose}
       title={t("Giải trình quá hạn — {a}", { a: r.doi_tuong_id })}
       footer={
-        <div className="flex justify-end gap-2">
+        <div className="flex items-center justify-end gap-2">
+          {thieu && <span className="text-xs text-[var(--color-text-secondary)] mr-auto">{thieu}</span>}
           <Btn variant="ghost" onClick={onClose}>{t("Huỷ")}</Btn>
-          <Btn loading={gui.isPending} disabled={!lyDo || nd.trim().length < 5} onClick={() => { setLoi(null); gui.mutate(); }}>{t("Gửi giải trình")}</Btn>
+          <Btn loading={gui.isPending} disabled={!!thieu} onClick={() => { setLoi(null); gui.mutate(); }}>{t("Gửi giải trình")}</Btn>
         </div>
       }
     >
@@ -213,7 +276,7 @@ export function HopViPham({ r, onClose }: { r: ViPhamRow; loai?: LoaiHop; onClos
       {r.trang_thai === "Cho giai trinh" && (
         <div className="text-sm mb-3">{t("Hạn giải trình: {a}", { a: ngayGio(r.han_giai_trinh) })} {conLai(r.han_giai_trinh) && `(${conLai(r.han_giai_trinh)})`}</div>
       )}
-      <label className="text-sm font-semibold">{t("Lý do chậm")} *</label>
+      <label className="text-sm font-semibold">{t("1. Lý do chậm")} *</label>
       <select className="mt-1 w-full rounded-lg border border-[var(--color-border)] p-2 text-sm" value={lyDo} onChange={(e) => setLyDo(e.target.value)}>
         <option value="">{t("— Chọn lý do —")}</option>
         {(dsLyDo.data?.rows ?? []).map((x) => (<option key={x} value={x}>{x}</option>))}
@@ -223,7 +286,36 @@ export function HopViPham({ r, onClose }: { r: ViPhamRow; loai?: LoaiHop; onClos
           ? t("Ghi rõ vì sao ca này không thuộc trách nhiệm của bạn / bộ phận bạn (vd đơn treo do KTV chưa chuyển tiền, ghi sai khu vực).")
           : t("Ca không thuộc trách nhiệm của bạn? Chọn lý do \"Ghi nhận không đúng / không thuộc trách nhiệm\" và ghi rõ nguyên nhân.")}
       </p>
-      <label className="text-sm font-semibold">{t("Nội dung giải trình")} *</label>
+      <div className="text-sm font-semibold">{t("2. Lỗi thuộc về")} *</div>
+      <div className="mt-1 grid grid-cols-2 gap-2 mb-1">
+        {PHAN_LOAI_LOI.map((p) => (
+          <button
+            key={p.ma}
+            type="button"
+            onClick={() => setPhanLoai(p.ma)}
+            className={`rounded-lg border px-3 py-2 text-left text-sm ${phanLoai === p.ma ? "border-[var(--color-primary)] bg-[var(--color-primary-soft)] font-semibold text-[var(--color-primary)]" : "border-[var(--color-border)]"}`}
+          >
+            {phanLoai === p.ma ? "● " : "○ "}{t(p.nhan)}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-[var(--color-text-secondary)] mb-3">{goiY ? t(goiY) : t("Không phải lỗi của bạn thì cần đính kèm ảnh bằng chứng.")}</p>
+      {canBangChung && (
+        <div className="mb-3">
+          <div className="text-sm font-semibold">
+            {t("3. Ảnh bằng chứng")} * <span className="font-normal text-xs text-[var(--color-text-secondary)]">{t("(1–5 ảnh: tin nhắn, email, ảnh chụp màn hình…)")}</span>
+          </div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            {anh.map((u, i) => (<AnhThumb key={u} url={u} stt={i + 1} onXoa={() => setAnh((x) => x.filter((y) => y !== u))} />))}
+            {anh.length < MAX_BANG_CHUNG && (
+              <FileButton accept="image/*" multiple variant={anh.length ? "subtle" : "primary"} disabled={dangTai > 0} onFilesSelected={(fs) => void taiAnh(fs)}>
+                {dangTai > 0 ? t("Đang tải...") : anh.length === 0 ? t("📷 Chụp / chọn ảnh") : t("+ Thêm ảnh")}
+              </FileButton>
+            )}
+          </div>
+        </div>
+      )}
+      <label className="text-sm font-semibold">{canBangChung ? t("4. Nội dung giải trình") : t("3. Nội dung giải trình")} *</label>
       <textarea className="mt-1 w-full rounded-lg border border-[var(--color-border)] p-2 text-sm min-h-[100px]" value={nd} maxLength={2000} onChange={(e) => setNd(e.target.value)} />
       {loi && <p className="text-sm text-[var(--color-danger)] mt-1">{loi}</p>}
     </Modal>
@@ -297,7 +389,16 @@ export function ChiTietViPham({ r, onClose }: { r: ViPhamRow; onClose: () => voi
               {r.giai_trinh_tu_dong && ` · ${t("lấy từ lý do chậm đã nhập")}`}
             </div>
             {r.ly_do && <div className="font-semibold">{r.ly_do}</div>}
+            {r.ten_phan_loai_loi && (
+              <div className="my-1"><Badge tone={r.phan_loai_loi === "cua_toi" ? "amber" : "gray"}>{t(r.ten_phan_loai_loi)}</Badge></div>
+            )}
             {r.giai_trinh}
+            {r.bang_chung?.length > 0 && (
+              <div className="mt-2">
+                <div className="text-xs text-[var(--color-text-secondary)] mb-1">{t("Bằng chứng")}</div>
+                <BangChungAnhList urls={r.bang_chung} />
+              </div>
+            )}
           </div>
         )}
         <button className="mt-3 text-sm text-[var(--color-primary)] font-semibold" onClick={() => setMo((x) => !x)}>

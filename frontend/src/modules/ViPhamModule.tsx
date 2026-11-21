@@ -13,6 +13,7 @@ import { describeApiError } from "./datMuaLinhKien/helpers";
 import { usePersonDirectory, formatPersonDisplay } from "../lib/personDisplay";
 import {
   ChiTietViPham, HopViPham, MaDoiTuong, NHAN_LOAI, NHAN_TT, NutViPham, TONE_TT, conLai, gioTre, lamMoiViPham, moTaLoi, ngayGio, tenPt, type ViPhamRow,
+  PHAN_LOAI_LOI,
 } from "./viPham/ViPhamUi";
 import { t } from "../i18n";
 
@@ -75,7 +76,7 @@ export function ViPhamModule({ moTab }: { moTab?: { tab: string; nonce: number }
     tieuDe: {
       doi_tuong_id: t("Đơn / phiếu"), loai: t("Loại"), buoc: t("Bước"), bo_phan: t("Bộ phận"), khu_vuc_ma: t("Khu vực"),
       nguoi_nhan_hang: t("Người nhận hàng"), nguoi_phu_trach: t("Người phải giải trình"), moc_vao: t("Vào bước"), han: t("Hạn"),
-      han_giai_trinh: t("Hạn giải trình"), ket_thuc_luc: t("Rời bước"), nguoi_xu_ly: t("Người xử lý"), trang_thai: t("Trạng thái"), ly_do: t("Lý do"),
+      han_giai_trinh: t("Hạn giải trình"), ket_thuc_luc: t("Rời bước"), nguoi_xu_ly: t("Người xử lý"), trang_thai: t("Trạng thái"), ly_do: t("Lý do"), phan_loai_loi: t("Lỗi thuộc về"),
     },
     nhan: {
       loai: (v) => t(NHAN_LOAI[v] ?? v),
@@ -85,6 +86,7 @@ export function ViPhamModule({ moTab }: { moTab?: { tab: string; nonce: number }
       nguoi_nhan_hang: ten,
       nguoi_xu_ly: ten,
       nguoi_phu_trach: ten,
+      phan_loai_loi: (v) => t(PHAN_LOAI_LOI.find((p) => p.ma === v)?.nhan ?? v),
     },
   };
   const loc = (cot: string) => <LocCotButton cfg={locCfg} cot={cot} />;
@@ -137,6 +139,13 @@ ${m.dienBien}`}>{m.viec}</span>;
     { key: "khu_vuc", header: t("Khu vực"), filter: loc("khu_vuc_ma"), sortKey: "khu_vuc_ma", render: (r) => r.khu_vuc_ma ?? "—" },
     { key: "moc_vao", header: t("Vào bước"), filter: loc("moc_vao"), sortKey: "moc_vao", render: (r) => ngayGio(r.moc_vao) },
     { key: "han", header: t("Hạn (SLA)"), filter: loc("han"), sortKey: "han", render: (r) => `${ngayGio(r.han)} · ${r.so_gio_sla}h` },
+    {
+      key: "phan_loai_loi",
+      header: t("Lỗi thuộc về"),
+      filter: loc("phan_loai_loi"),
+      sortKey: "phan_loai_loi",
+      render: (r) => (r.ten_phan_loai_loi ? <span>{t(r.ten_phan_loai_loi)}{r.bang_chung?.length ? ` · 📎${r.bang_chung.length}` : ""}</span> : "—"),
+    },
     {
       key: "giai_trinh",
       header: t("Giải trình"),

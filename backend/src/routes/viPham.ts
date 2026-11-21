@@ -5,6 +5,7 @@ import { loadUser } from "../middleware/loadUser";
 import { nowVN } from "../lib/vnTime";
 import { gioLamViecGiua, parseGioVn } from "../lib/gioLamViec";
 import { tenNguoiNullSql } from "../lib/tenNguoi";
+import { nhanAnhTaiLen, laUrlAnhDrive } from "../lib/anhUpload";
 import { docLocCot, sqlLocCot, sqlSapXep, giaTriCot, tenNguoiSql, type CotLoc } from "../lib/locCot";
 import {
   BUOC_VI_PHAM, BUOC_THEO_MA, TEN_BO_PHAN, TRANG_THAI_VI_PHAM, LY_DO_KHONG_DUNG, boPhanCua, docCauHinh, quetViPham, type BoPhan,
@@ -33,7 +34,7 @@ export const VI_PHAM_COT_SQL = `
   (SELECT json_group_array(json_object('email', j.value, 'ten', ${tenNguoiNullSql("j.value")},
       'ma_nhan_su', (SELECT u.ma_nhan_su FROM users u WHERE u.email = j.value)))
    FROM json_each(COALESCE(v.nguoi_phu_trach, '[]')) j) AS phu_trach_json,
-  v.trang_thai, v.han_giai_trinh, v.ly_do, v.giai_trinh, v.nguoi_giai_trinh, ${tenNguoiNullSql("v.nguoi_giai_trinh")} AS nguoi_giai_trinh_ten,
+  v.trang_thai, v.han_giai_trinh, v.ly_do, v.phan_loai_loi, v.bang_chung AS bang_chung_json, v.giai_trinh, v.nguoi_giai_trinh, ${tenNguoiNullSql("v.nguoi_giai_trinh")} AS nguoi_giai_trinh_ten,
   (SELECT u.ma_nhan_su FROM users u WHERE u.email = v.nguoi_giai_trinh) AS nguoi_giai_trinh_ma_nhan_su,
   v.giai_trinh_luc, v.giai_trinh_tu_dong, v.nhac_luc, v.gan_the_luc, v.tao_luc, v.cap_nhat_luc,
   d.ma_yeu_cau_su_co, d.ma_lada, d.ma_lk, d.ten_lk_snapshot AS ten_lk, d.loai_de_xuat,
@@ -49,13 +50,15 @@ export interface ViPhamRow {
   ket_thuc_luc: string | null;
   don_ids_json: string | null;
   phu_trach_json: string | null;
+  bang_chung_json?: string | null;
+  phan_loai_loi?: string | null;
   giai_trinh_tu_dong: number;
   [k: string]: unknown;
 }
 
 /** Bo sung nhan + so gio tre (tinh tai thoi diem doc) cho 1 dong. */
 export function boSungViPham(r: ViPhamRow, now: string) {
-  const { don_ids_json, phu_trach_json, ...rest } = r;
+  const { don_ids_json, phu_trach_json, bang_chung_json, ...rest } = r;
   const den = r.ket_thuc_luc ?? now;
   // So gio tre tinh theo GIO LAM VIEC (2026-11-19, v1.527 - cung don vi voi han SLA).
   const gioTre = Math.round(gioLamViecGiua(parseGioVn(r.han), parseGioVn(den)) * 10) / 10;
@@ -67,6 +70,8 @@ export function boSungViPham(r: ViPhamRow, now: string) {
     dang_cho: r.ket_thuc_luc === null,
     giai_trinh_tu_dong: !!r.giai_trinh_tu_dong,
     nguoi_phu_trach: phu_trach_json ? (JSON.parse(phu_trach_json) as { email: string; ten: string | null; ma_nhan_su: string | null }[]) : [],
+    ten_phan_loai_loi: r.phan_loai_loi ? (PHAN_LOAI_LOI[r.phan_loai_loi] ?? r.phan_loai_loi) : null,
+    bang_chung: bang_chung_json ? (JSON.parse(bang_chung_json) as string[]) : [],
     don_ids: don_ids_json ? (JSON.parse(don_ids_json) as string[]) : r.dat_don_hang_id ? [r.dat_don_hang_id as string] : [],
     // v1.524: het han giai trinh ma chua giai trinh -> "Ton CEO" (truoc goi "Gan the"); gan_the_luc = luc chuyen.
     ton_ceo: r.trang_thai === "Ton CEO",
@@ -86,7 +91,12 @@ function voiQuyen(user: AppUser, r: ReturnType<typeof boSungViPham>) {
   };
 }
 
+/** Phan loai loi khi giai trinh (v1.548). Khac 'cua_toi' -> bat buoc anh bang chung. */
+export const PHAN_LOAI_LOI: Record<string, string> = { noi_bo: "Lỗi nội bộ", doi_tac: "Lỗi đối tác", cua_toi: "Lỗi của tôi", khac: "Khác" };
+const MAX_BANG_CHUNG = 5;
+
 const COT_LOC: Record<string, CotLoc> = {
+  phan_loai_loi: { kieu: "don", expr: "v.phan_loai_loi" },
   buoc: { kieu: "don", expr: "v.buoc" },
   bo_phan: { kieu: "don", expr: "v.bo_phan" },
   loai: { kieu: "don", expr: "v.loai" },
@@ -302,13 +312,31 @@ function duocLam(user: AppUser, v: { bo_phan: BoPhan; nguoi_phu_trach: string | 
   return pt.includes(user.email) || boPhanCua(user).includes(v.bo_phan);
 }
 
+// POST /api/vi-pham/:id/anh - tai 1 anh bang chung giai trinh len Drive (han muc anh/ngay nhu moi cho tai anh).
+viPham.post("/:id/anh", async (c) => {
+  const user = c.get("user");
+  const v = await docMot(c.env.DB, Number(c.req.param("id")));
+  if (!v) return c.json({ error: "NOT_FOUND" }, 404);
+  if (!duocLam(user, v)) return c.json({ error: "KHONG_PHAI_NGUOI_PHU_TRACH" }, 403);
+  const up = await nhanAnhTaiLen(c, (ext) => `giai-trinh-vp${v.id}-${user.email.split("@")[0]}-${Date.now()}.${ext}`);
+  if (up instanceof Response) return up;
+  return c.json({ ok: true, url: up.thumbnailUrl, han_muc_anh: up.hanMucAnh });
+});
+
+// POST /api/vi-pham/:id/giai-trinh { ly_do, noi_dung, phan_loai_loi, bang_chung? }
+// v1.548: phan_loai_loi bat buoc (noi_bo | doi_tac | cua_toi | khac); khac 'cua_toi' -> 1..5 anh bang chung (link Drive).
 viPham.post("/:id/giai-trinh", async (c) => {
   const user = c.get("user");
   const id = Number(c.req.param("id"));
-  const b = await c.req.json<{ ly_do?: string; noi_dung?: string }>();
+  const b = await c.req.json<{ ly_do?: string; noi_dung?: string; phan_loai_loi?: string; bang_chung?: unknown }>();
   const lyDo = (b.ly_do ?? "").trim();
   const noiDung = (b.noi_dung ?? "").trim();
+  const phanLoai = (b.phan_loai_loi ?? "").trim();
+  const bangChung = Array.isArray(b.bang_chung) ? [...new Set(b.bang_chung.filter(laUrlAnhDrive))] : [];
   if (!lyDo) return c.json({ error: "THIEU_LY_DO" }, 400);
+  if (!PHAN_LOAI_LOI[phanLoai]) return c.json({ error: "THIEU_PHAN_LOAI_LOI" }, 400);
+  if (phanLoai !== "cua_toi" && bangChung.length === 0) return c.json({ error: "THIEU_BANG_CHUNG" }, 400);
+  if (bangChung.length > MAX_BANG_CHUNG) return c.json({ error: "QUA_SO_ANH_BANG_CHUNG" }, 400);
   if (noiDung.length < 5) return c.json({ error: "NOI_DUNG_QUA_NGAN" }, 400);
   if (noiDung.length > 2000 || lyDo.length > 200) return c.json({ error: "NOI_DUNG_QUA_DAI" }, 400);
   const v = await docMot(c.env.DB, id);
@@ -316,10 +344,11 @@ viPham.post("/:id/giai-trinh", async (c) => {
   if (!duocLam(user, v)) return c.json({ error: "KHONG_PHAI_NGUOI_PHU_TRACH" }, 403);
   const now = nowVN();
   const r = await c.env.DB.prepare(
-    `UPDATE vi_pham SET trang_thai = 'Da giai trinh', ly_do = ?, giai_trinh = ?, nguoi_giai_trinh = ?, giai_trinh_luc = ?, giai_trinh_tu_dong = 0, cap_nhat_luc = ?
+    `UPDATE vi_pham SET trang_thai = 'Da giai trinh', ly_do = ?, giai_trinh = ?, phan_loai_loi = ?, bang_chung = ?, nguoi_giai_trinh = ?, giai_trinh_luc = ?,
+       giai_trinh_tu_dong = 0, cap_nhat_luc = ?
      WHERE id = ? AND trang_thai = 'Cho giai trinh'`,
   )
-    .bind(lyDo, noiDung, user.email, now, now, id)
+    .bind(lyDo, noiDung, phanLoai, bangChung.length ? JSON.stringify(bangChung) : null, user.email, now, now, id)
     .run();
   if (!r.meta.changes) return c.json({ error: v.trang_thai === "Ton CEO" ? "DA_GAN_THE" : "TRANG_THAI_DA_DOI" }, 409);
   return c.json({ ok: true });
