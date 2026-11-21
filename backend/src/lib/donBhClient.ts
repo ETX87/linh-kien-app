@@ -19,6 +19,7 @@ export interface DonBh {
   doi_tac?: string | null;
   doi_tac_karofi?: number | null;
   loai_bao_hanh?: string | null;
+  huong_xu_ly?: string | null; // v1.548: "dich_vu_tinh_phi" -> MUA HÀNG SỬA CHỮA (ưu tiên hơn bảo hành)
 }
 
 async function goi<T>(env: Env, query: Record<string, string>): Promise<T | null> {

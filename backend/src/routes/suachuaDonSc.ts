@@ -183,7 +183,7 @@ async function taoDonTuDeXuat(
   const ttDuyet = laHoTroSuaChua0d(lde)
     ? `Xuất hỗ trợ sửa chữa 0 đồng${bh?.doi_tac ? ` (${bh.doi_tac}, trong BH)` : ""} cho NV ${tenNv}`
     : laMuaHangSuaChua(lde)
-      ? `Mua hàng sửa chữa (hết bảo hành) cho NV ${tenNv}`
+      ? `Mua hàng sửa chữa (${bh?.huong_xu_ly === "dich_vu_tinh_phi" ? "dịch vụ tính phí" : "hết bảo hành"}) cho NV ${tenNv}`
       : `Xuất công nợ sửa chữa cho NV ${tenNv}`;
   const res = await taoPhieuDat(c, {
     nguoi_nhan_hang: b.nv_email,

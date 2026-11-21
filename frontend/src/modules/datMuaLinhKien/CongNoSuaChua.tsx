@@ -25,17 +25,18 @@ interface DonBh {
   doi_tac?: string | null;
   doi_tac_karofi?: number | null;
   loai_bao_hanh?: string | null;
+  huong_xu_ly?: string | null; // v1.548: "dich_vu_tinh_phi" -> MUA HÀNG SỬA CHỮA (ưu tiên hơn bảo hành)
 }
 
 // TT+Mail duyet tu dien theo loai cap linh kien sua chua.
-const ttDuyetTheoLoai = (lde: string, tenNv: string, doiTac?: string | null) => {
+const ttDuyetTheoLoai = (lde: string, tenNv: string, doiTac?: string | null, tinhPhi?: boolean) => {
   const nv = tenNv ? ` cho NV ${tenNgan(tenNv)}` : "";
   if (laHoTroSuaChua0d(lde)) return `Xuất hỗ trợ sửa chữa 0 đồng${doiTac ? ` (${doiTac}, trong BH)` : ""}${nv}`;
-  if (laMuaHangSuaChua(lde)) return `Mua hàng sửa chữa (hết bảo hành)${nv}`;
+  if (laMuaHangSuaChua(lde)) return `Mua hàng sửa chữa (${tinhPhi ? "dịch vụ tính phí" : "hết bảo hành"})${nv}`;
   return `Xuất công nợ sửa chữa${nv}`;
 };
 const nhanBh = (r: DonBh) =>
-  [r.hang && `Hãng ${r.hang}`, r.doi_tac && `Đối tác ${r.doi_tac}`, r.loai_bao_hanh === "trong_bh" ? "Còn bảo hành" : r.loai_bao_hanh === "ngoai_bh" ? "Hết bảo hành" : null]
+  [r.hang && `Hãng ${r.hang}`, r.doi_tac && `Đối tác ${r.doi_tac}`, r.loai_bao_hanh === "trong_bh" ? "Còn bảo hành" : r.loai_bao_hanh === "ngoai_bh" ? "Hết bảo hành" : null, r.huong_xu_ly === "dich_vu_tinh_phi" ? "Dịch vụ tính phí" : null]
     .filter(Boolean).join(" · ");
 
 // v1.502 - "Danh sách ID lựa chọn cho nv sửa chữa chỉ hiện theo đúng case họ đang nhận trên app đổi trả. case này không có thì không hiện":
@@ -62,7 +63,7 @@ function tuDienTheoDon(d: DonHangDraft, r: DonBh, tenNv: string): Partial<DonHan
   const lde = loaiDeXuatTheoDonBh(r) ?? d.loai_de_xuat;
   const moi = {
     ma_yeu_cau_su_co: r.case_id ?? "",
-    tt_mail_duyet: ttDuyetTheoLoai(lde, tenNv, r.doi_tac),
+    tt_mail_duyet: ttDuyetTheoLoai(lde, tenNv, r.doi_tac, r.huong_xu_ly === "dich_vu_tinh_phi"),
     tt_khach_hang: r.ten_khach_hang ?? "",
     ghi_chu: [`Đơn sửa chữa ${r.id}`, r.case_id && `case ${r.case_id}`, r.san_pham_bh ?? r.ten_lk, r.ten_lk && r.san_pham_bh && r.ten_lk.trim().toLowerCase() !== r.san_pham_bh.trim().toLowerCase() ? `LK gửi: ${r.ten_lk}` : null]
       .filter(Boolean).join(" · "),
@@ -93,7 +94,9 @@ export function canhBaoLoaiDonBh(khop: DonBh | undefined, lde: string): { loaiDu
   const loaiDung = loaiDeXuatTheoDonBh(khop);
   if (!loaiDung || loaiDung === lde) return null;
   const doiTac = khop.doi_tac ? `${t("đối tác")} ${khop.doi_tac}` : t("đối tác");
-  const lyDo = laMuaHangSuaChua(loaiDung)
+  const lyDo = khop.huong_xu_ly === "dich_vu_tinh_phi"
+    ? t("Admin BH duyệt hướng xử lý \"Dịch vụ tính phí\"")
+    : laMuaHangSuaChua(loaiDung)
     ? t("Đây là case đã HẾT bảo hành")
     : laHoTroSuaChua0d(loaiDung)
       ? `${t("Đây là case bảo hành (còn BH) của")} ${doiTac} (Karofi)`

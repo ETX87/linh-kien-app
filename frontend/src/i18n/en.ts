@@ -3184,5 +3184,6 @@ const tuDien: Record<string, string> = {
   "Tối đa 5 ảnh bằng chứng.": "At most 5 evidence images.",
   "Đang tải ảnh…": "Uploading images…",
   "Đính kèm ảnh bằng chứng": "Attach evidence images",
+  "Admin BH duyệt hướng xử lý \"Dịch vụ tính phí\"": "Warranty Admin approved handling \"Paid service\"",
 };
 export default tuDien;

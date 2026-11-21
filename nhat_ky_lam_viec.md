@@ -422,3 +422,13 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
   Ca đã giải trình trước đây / giải trình tự động: 2 cột để trống.
 - Kiểm thử local (Worker + D1 local, tài khoản Kế toán thử): thiếu phân loại → 400, lỗi đối tác không ảnh / ảnh không phải link Drive → 400, có ảnh Drive → ghi
   đúng; giao diện: chọn "Lỗi đối tác" hiện mục ảnh bắt buộc, "Lỗi của tôi" ẩn mục ảnh, cột "Lỗi đối tác · 📎1" ở tab Đã giải trình. Chưa thử tải ảnh thật lên Drive.
+
+## 2026-11-21 — v1.548: Hướng xử lý "Dịch vụ tính phí" → MUA HÀNG SỬA CHỮA (+ app đổi trả v1.154)
+
+- Yêu cầu nguyên văn: "khi admin bh duyệt sẽ chọn loại hình thức tính phí => từ đó suy ra loại đề xuất luôn (song song với hạn bảo hành - ưu
+  tiên cái này trước)".
+- Đã làm: `loaiDeXuatTheoDonBh` (backend `pxkRecalculate.ts` + bản sao FE `helpers.ts`) đọc thêm `huong_xu_ly` từ API gợi ý app đổi trả
+  (`donBhClient.ts`): "dich_vu_tinh_phi" → MUA HÀNG SỬA CHỮA trước khi xét trong / ngoài bảo hành. Ô chọn đơn BH hiện "Dịch vụ tính phí", cảnh báo
+  khác loại + căn cứ gợi ý ghi rõ lý do, TT+Mail duyệt tự điền "Mua hàng sửa chữa (dịch vụ tính phí) …". Đơn đã tạo không đổi.
+- Kiểm thử: typecheck 0 lỗi. Chưa bấm thử trên giao diện.
+

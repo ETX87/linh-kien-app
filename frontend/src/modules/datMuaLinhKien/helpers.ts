@@ -322,8 +322,11 @@ export function laDonSuaChua(loaiDeXuat: string | null | undefined): boolean {
   if (u.includes("TRỪ CÔNG NỢ") || u.includes("TRẢ HÀNG")) return false;
   return laCongNoSuaChua(loaiDeXuat) || laHoTroSuaChua0d(loaiDeXuat) || laMuaHangSuaChua(loaiDeXuat);
 }
-export function loaiDeXuatTheoDonBh(bh: { loai_bao_hanh?: string | null; doi_tac_karofi?: number | boolean | null } | null | undefined): string | null {
+// v1.548 (2026-11-21 - "khi admin bh duyệt sẽ chọn loại hình thức tính phí => từ đó suy ra loại đề xuất luôn (song song với hạn bảo hành -
+// ưu tiên cái này trước)"): Huong xu ly "Dịch vụ tính phí" (huong_xu_ly = dich_vu_tinh_phi) -> MUA HÀNG SỬA CHỮA, ưu tiên hơn trong / ngoài BH.
+export function loaiDeXuatTheoDonBh(bh: { loai_bao_hanh?: string | null; doi_tac_karofi?: number | boolean | null; huong_xu_ly?: string | null } | null | undefined): string | null {
   if (!bh) return null;
+  if (bh.huong_xu_ly === "dich_vu_tinh_phi") return LDX_MUA_HANG_SUA_CHUA;
   if (bh.loai_bao_hanh === "ngoai_bh") return LDX_MUA_HANG_SUA_CHUA;
   if (bh.loai_bao_hanh !== "trong_bh" || bh.doi_tac_karofi === null || bh.doi_tac_karofi === undefined) return null;
   return bh.doi_tac_karofi ? LDX_HO_TRO_SUA_CHUA_0D : LDX_CONG_NO_SUA_CHUA;

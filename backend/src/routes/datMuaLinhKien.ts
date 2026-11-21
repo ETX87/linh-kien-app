@@ -2495,9 +2495,9 @@ async function chuanBiPhieuDat(
 // SUA 2026-10-15 ("minh bạch cho mọi thao tác xử lý cho người đặt hàng hiểu"): MOI trang thai khoi tao deu co ly do (truoc chi 3
 // trang thai) - FE LyDoTrangThaiDon doc dong log nay de giai thich cho nguoi dat.
 // v1.547: ly do loai he thong goi y cho don cap linh kien sua chua (theo Hang / Doi tac / con-het BH tren app Bao hanh doi tra luc tao don).
-function lyDoLoaiGoiY(ma: string, bh: { hang?: string | null; doi_tac?: string | null; doi_tac_karofi?: number | null; loai_bao_hanh?: string | null }): string {
+function lyDoLoaiGoiY(ma: string, bh: { hang?: string | null; doi_tac?: string | null; doi_tac_karofi?: number | null; loai_bao_hanh?: string | null; huong_xu_ly?: string | null }): string {
   const dt = [bh.hang && `hãng ${bh.hang}`, bh.doi_tac && `đối tác ${bh.doi_tac}`].filter(Boolean).join(", ");
-  const bhText = bh.loai_bao_hanh === "ngoai_bh" ? "sản phẩm HẾT bảo hành" : `sản phẩm còn bảo hành${bh.doi_tac_karofi ? " (Karofi)" : " (ngoài Karofi)"}`;
+  const bhText = bh.huong_xu_ly === "dich_vu_tinh_phi" ? "Admin BH duyệt hướng xử lý Dịch vụ tính phí" : bh.loai_bao_hanh === "ngoai_bh" ? "sản phẩm HẾT bảo hành" : `sản phẩm còn bảo hành${bh.doi_tac_karofi ? " (Karofi)" : " (ngoài Karofi)"}`;
   return `đơn BH ${ma}: ${bhText}${dt ? ` — ${dt}` : ""}`;
 }
 

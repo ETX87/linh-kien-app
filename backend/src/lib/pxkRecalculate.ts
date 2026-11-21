@@ -105,8 +105,11 @@ export function laDonSuaChua(loaiDeXuat: string | null | undefined): boolean {
 }
 // Loai de xuat theo don bao hanh (Hang / Doi tac / con-het bao hanh do Admin BH chot ben app doi tra). Ban sao app doi tra lib/doiTac.ts
 // loaiDeXuatSuaChua - doi 1 ben doi ca 2. null = don chua du thong tin (giu loai nguoi dat chon).
-export function loaiDeXuatTheoDonBh(bh: { loai_bao_hanh?: string | null; doi_tac_karofi?: number | boolean | null } | null | undefined): string | null {
+// v1.548 (2026-11-21 - "khi admin bh duyệt sẽ chọn loại hình thức tính phí => từ đó suy ra loại đề xuất luôn (song song với hạn bảo hành -
+// ưu tiên cái này trước)"): Huong xu ly "Dịch vụ tính phí" (huong_xu_ly = dich_vu_tinh_phi) -> MUA HÀNG SỬA CHỮA, ưu tiên hơn trong / ngoài BH.
+export function loaiDeXuatTheoDonBh(bh: { loai_bao_hanh?: string | null; doi_tac_karofi?: number | boolean | null; huong_xu_ly?: string | null } | null | undefined): string | null {
   if (!bh) return null;
+  if (bh.huong_xu_ly === "dich_vu_tinh_phi") return LDX_MUA_HANG_SUA_CHUA;
   if (bh.loai_bao_hanh === "ngoai_bh") return LDX_MUA_HANG_SUA_CHUA;
   if (bh.loai_bao_hanh !== "trong_bh" || bh.doi_tac_karofi === null || bh.doi_tac_karofi === undefined) return null;
   return bh.doi_tac_karofi ? LDX_HO_TRO_SUA_CHUA_0D : LDX_CONG_NO_SUA_CHUA;

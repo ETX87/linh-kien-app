@@ -3184,5 +3184,6 @@ const tuDien: Record<string, string> = {
   "Tối đa 5 ảnh bằng chứng.": "Maksimal 5 gambar bukti.",
   "Đang tải ảnh…": "Mengunggah gambar…",
   "Đính kèm ảnh bằng chứng": "Lampirkan gambar bukti",
+  "Admin BH duyệt hướng xử lý \"Dịch vụ tính phí\"": "Admin Garansi menyetujui penanganan \"Layanan berbayar\"",
 };
 export default tuDien;
