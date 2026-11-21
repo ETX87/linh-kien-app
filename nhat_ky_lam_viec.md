@@ -377,3 +377,9 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
   tăng version `dat_mua_lk`. Mỗi câu có điều kiện trạng thái mới nhất (chạy lại không ghi trùng). Đơn gốc giữ "Chờ hàng"; không gửi thông báo cho người tạo đơn.
 - **Kiểm thử:** sau khi chạy, 9 ticket = "Mua hàng đã đặt" có mã EO, mỗi ticket 2 dòng log; đối chiếu lại toàn bộ còn 0 ticket mở có PO hiệu lực.
 
+
+## 21/11/2026 — v1.544: API tra mã Lada cho app Bảo hành đổi trả
+
+- Yêu cầu (phía app đổi trả): tạo đơn gửi bảo hành theo mã Lada, chung ô "Mã yêu cầu"; *"thông tin logic có thể xin bên app linh kiện - bên đó có truy vấn theo ID lada"*.
+- Đã làm: `GET /api/suachua-partner/lada?id=` (X-Sync-Key) dùng lại `lookupLada` + `ladaPreview` + cache 10 phút như `/dat-mua-lk/kiem-tra-ma-lada`; trả `{found, preview, warning}`. `lk-theo-case` khớp thêm `dat_don_hang.ma_lada` (có index) để linh kiện đặt theo mã Lada cũng được ưu tiên bên app đổi trả.
+- Kiểm thử: typecheck sạch; luồng đầu cuối thử phía app đổi trả bằng Worker giả (chưa gọi hệ Lada thật trước deploy).

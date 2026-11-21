@@ -8,6 +8,7 @@ import { apDungCapLk, type CapLkItem } from "../lib/donSuaChuaKho";
 import { uploadPublicImage } from "../lib/googleDrive";
 import { ANH_TOI_DA_BYTE, laAnhThat, loaiAnhHopLe } from "../lib/anhUpload";
 import { ganRouteDonSc } from "./suachuaDonSc";
+import { lookupLada, ladaPreview, isLikelyLadaId, type LadaPreview } from "../lib/ladaLookupClient";
 
 // He "Sua chua bao hanh" (Worker suachua) goi vao day qua Service Binding khi Admin BH sua tay "Phan
 // loai" (cot don_vi) cua 1 linh kien dong bo (2026-10-11, yeu cau "phan loai cho phep dong bo nguoc ve
@@ -37,14 +38,33 @@ suachuaPartner.get("/lk-theo-case", async (c) => {
     `SELECT d.ma_lk, MAX(d.ten_lk_snapshot) AS ten_lk, SUM(COALESCE(d.so_luong_thuc_xuat, d.so_luong_de_xuat)) AS so_luong,
             COUNT(*) AS so_don, MAX(d.ngay_tao) AS ngay_moi, GROUP_CONCAT(d.id) AS don_ids
        FROM dat_don_hang d
-      WHERE (d.ma_yeu_cau_su_co IN (${ph}) OR d.id IN (SELECT dat_don_hang_id FROM dat_don_case WHERE case_id IN (${ph})))
+      WHERE (d.ma_yeu_cau_su_co IN (${ph}) OR d.id IN (SELECT dat_don_hang_id FROM dat_don_case WHERE case_id IN (${ph})) OR d.ma_lada = ?)
         AND d.loai_don <> 'tra_hang'
         AND COALESCE(d.trang_thai_hien_tai, '') NOT IN ('TN tu choi', 'Tu choi', 'Da huy')
       GROUP BY d.ma_lk ORDER BY ngay_moi DESC LIMIT 50`,
   )
-    .bind(...ds, ...ds)
+    .bind(...ds, ...ds, up)
     .all();
   return c.json({ rows: results ?? [] });
+});
+
+// GET /api/suachua-partner/lada?id=D1154680 (v1.544, 21/11/2026) - app Bao hanh doi tra tra ma Lada khi KTV nhap ma Lada thay
+// ma case (cung o "Ma yeu cau"). Dung lai lookupLada (center.dichvu3t.com, token chi nam ben nay) + cache 10 phut theo ID nhu
+// /dat-mua-lk/kiem-tra-ma-lada. Tra { found, preview, warning } - warning = loi API ngoai (khac "khong tim thay").
+suachuaPartner.get("/lada", async (c) => {
+  const id = (c.req.query("id") ?? "").trim().toUpperCase();
+  if (!isLikelyLadaId(id)) return c.json({ found: false, preview: null, warning: "INVALID_LADA_ID" });
+  const cache = caches.default;
+  const cacheKey = new Request(`https://lada-lookup.internal/${encodeURIComponent(id)}`);
+  const hit = await cache.match(cacheKey);
+  if (hit) return c.json({ found: true, preview: (await hit.json()) as LadaPreview, warning: null });
+  const kq = await lookupLada(c.env, id);
+  if (!kq.found || !kq.row) return c.json({ found: false, preview: null, warning: kq.warning ?? null });
+  const preview = ladaPreview(kq.row);
+  c.executionCtx.waitUntil(
+    cache.put(cacheKey, new Response(JSON.stringify(preview), { headers: { "Content-Type": "application/json", "Cache-Control": "max-age=600" } })),
+  );
+  return c.json({ found: true, preview, warning: null });
 });
 
 // POST /api/suachua-partner/phan-loai - { rows: [{ ma_linh_kien, don_vi }] } (toi da 500 dong/lan).

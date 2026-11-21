@@ -123,7 +123,7 @@ việc tự khoá); 8h VN tự xác nhận phiếu quá hạn nhận + nhắc KT
 ## 11. Kết nối hệ khác
 
 DVBH (tra case CRM, API đối tác tồn kho / lịch sử LK / đơn theo ca / đặt hàng qua API) · App Bảo hành đổi trả (Service Binding: phân loại,
-thiếu hàng BH, đơn sửa chữa, trừ công nợ; `GET /api/suachua-partner/lk-theo-case` trả linh kiện đã đặt theo mã case — bỏ đơn trả
+thiếu hàng BH, đơn sửa chữa, trừ công nợ; `GET /api/suachua-partner/lk-theo-case` trả linh kiện đã đặt theo mã case hoặc mã Lada (`ma_lada`); `GET /api/suachua-partner/lada?id=` tra mã Lada (center.dichvu3t.com, cache 10 phút) cho app đổi trả — bỏ đơn trả
 hàng / từ chối / hủy — để app đó ưu tiên lên đầu ô chọn linh kiện khi gửi bảo hành) · Phân tích tồn kho 3T (kho dữ liệu MISA) · khovan (đẩy phiếu sang kho) · ETX nhân sự · gia88 (giá) · **EO Mua hàng** (`muahang`, Service Binding
 `MUAHANG_SERVICE`, chỉ đọc `GET /api/partner/theo-id`): khung "Mua hàng (EO)" ở chi tiết đơn và chi tiết ticket thiếu hàng hiện PO (3TDO), trạng thái,
 SL đặt / về / thiếu, ngày dự kiến, ngày về. App gửi mã đơn, các ticket của đơn, mã case của đơn + cặp "mã EO ticket đã ghi ~ mã LK của đơn"; bên Mua hàng
