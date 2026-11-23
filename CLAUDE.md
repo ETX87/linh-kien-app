@@ -1280,7 +1280,7 @@ sách với HỖ TRỢ 0 ĐỒNG, + đơn giá với Chuyển kho); SL cộng, t
 (`GopPhieuDaDuTien.tsx`) cho chọn, gửi `gop_phieu_da_du_tien` → `bundleAutoApprovedIntoPxk` opts `gopPhieuDaDuTien` (bỏ lọc trạng thái tiền, ưu tiên phiếu đã
 duyệt) → `taiTinhPxk` đưa phiếu về "Cho KTV chuyen" phần thiếu + báo KTV. Cùng đợt: PATCH đơn nhận `kh_chuyen_khoan` (gỡ khỏi phiếu chưa tiền trước khi ghi
 vì trigger `trg_ddh_kh_chuyen_khoan_khoa`), nút "Hủy phiếu trống", cron `huyMoiPhieuTrongCu` (phiếu trống ≥ 30 phút), danh sách PXK "tất cả" ẩn phiếu
-đã hủy không còn đơn.
+đã hủy không còn đơn (v1.555: có gõ từ khóa tìm thì không ẩn — tìm mã phiếu phải ra).
 
 **Đợt v1.411** (chốt 2026-10-28): (1) **Đơn đã thanh toán ưu tiên phiếu riêng**: `bundleAutoApprovedIntoPxk` tách nhóm đơn có `tien_da_tra > 0`
 (không đối tác, không trả hàng) — CHỈ gộp vào phiếu "Dang tao phieu" Kế toán ĐÃ duyệt tiền (`trang_thai_chuyen_tien='TN da duyet'`, có tiền), không thì tạo

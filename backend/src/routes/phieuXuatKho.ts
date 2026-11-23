@@ -402,9 +402,10 @@ async function pxkListWhere(c: Context<{ Bindings: Env }>, boQuaCot?: string): P
     // trang_thai_hien_tai (co index idx_pxk_trang_thai_nhan_hang) thay vi correlated subquery.
     whereSql += " AND pxk.trang_thai_hien_tai = ?";
     binds.push(trangThai);
-  } else {
+  } else if (!q) {
     // v1.538 ("Đơn trống nhưng không có nút hủy bỏ vẫn hiện đơn trống"): xem tat ca -> an phieu DA HUY khong con don nao (tu huy khi don cuoi
     // roi phieu - khong con gi de xem); loc trang thai "Ke toan huy" van thay.
+    // v1.555 ("phiếu này sao không tìm thấy" - PMH-001702 tu huy, tien di theo don): CO go tu khoa tim thi KHONG an - tim ma phieu phai ra.
     whereSql += " AND NOT (pxk.trang_thai_hien_tai = 'Ke toan huy' AND NOT EXISTS (SELECT 1 FROM phieu_xuat_kho_dong x_tr WHERE x_tr.phieu_xuat_kho_id = pxk.id))";
   }
   if (nguoiNhanHang) {

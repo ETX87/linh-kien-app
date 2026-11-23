@@ -489,3 +489,15 @@ phụ trách). Nhưng app CHƯA nối App Nhiệm vụ: không có code gọi c�
 
 **Còn dở:** chưa đẩy các việc khác (đơn chờ duyệt, phiếu chờ Kế toán…) lên App Nhiệm vụ — chỉ ca giải trình theo yêu cầu.
 
+## 2026-11-23 — v1.555: Tìm mã phiếu đã tự hủy (trống) ra được trong danh sách Phiếu xuất
+
+**Yêu cầu (nguyên văn):** "phiếu này sao không tìm thấy" (ảnh chi tiết PMH-001702: Đã huỷ, Kế toán đã duyệt 940.100đ, không còn đơn).
+
+**Tra dữ liệu thật (chỉ đọc):** PMH-001702 tự hủy 02/11 vì đơn duy nhất DDH-004773 kho MB2 hết hàng → đơn sang Chờ hàng, MANG THEO 940.100đ. 21/11 Mua hàng
+hủy ticket TLK-000837 ("krf đã hủy đặt hàng") → đơn tự hủy, 940.100đ về quỹ KTV thanhhai78tk (`hoan_phieu`), cùng ngày 14:29 quỹ tự trả phiếu PMH-002891. Tiền
+không mất. Phiếu không tìm thấy vì v1.538 ẩn phiếu "Ke toan huy" không còn đơn khỏi danh sách xem tất cả — kể cả khi gõ đúng mã.
+
+**Đã sửa:** `pxkListWhere` (`phieuXuatKho.ts`) chỉ ẩn phiếu hủy trống khi KHÔNG gõ từ khóa tìm.
+
+**Kiểm thử:** typecheck backend 0 lỗi. Chưa thử trên giao diện.
+
