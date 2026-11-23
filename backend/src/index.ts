@@ -16,6 +16,7 @@ import khachLeRoutes from "./routes/khachLe";
 import baoCaoTocDoXuLyRoutes from "./routes/baoCaoTocDoXuLy";
 import viPhamRoutes from "./routes/viPham";
 import { quetViPham } from "./lib/viPham";
+import { dayCongNhiemVu } from "./lib/congNhiemVu";
 import pushRoutes from "./routes/push";
 import dvbhSyncRoutes from "./routes/dvbhSync";
 import gia88SyncRoutes from "./routes/gia88Sync";
@@ -108,7 +109,8 @@ export default {
     ganEnvToanCuc(env);
     ctx.waitUntil(runDvbhSync(env, env.DB));
     // Qua han SLA tung buoc -> ghi nhan vi pham + gan the khi het han giai trinh (lib/viPham.ts) - moi gio.
-    ctx.waitUntil(quetViPham(env).then(() => undefined).catch((err) => console.error("[quetViPham]", err)));
+    // v1.554: quet xong -> day anh chup du ca "Cho giai trinh" len App Nhiem vu eOffice (lib/congNhiemVu.ts).
+    ctx.waitUntil(quetViPham(env).then(() => dayCongNhiemVu(env)).then(() => undefined).catch((err) => console.error("[quetViPham]", err)));
     // Don "Cho GS duyet" vi vuot tran ma cong no da giam -> tu xet lai (v1.533, lib/tuDongDuyet.ts xetLaiDonChoGsDuyet) - moi gio.
     ctx.waitUntil(xetLaiDonChoGsDuyet(env, env.DB, null, "kiểm tra định kỳ", (p) => ctx.waitUntil(p)).then(() => undefined).catch((err) => console.error("[xetLaiDonChoGsDuyet]", err)));
     // Phieu "Dang tao phieu" trong (khong con don) qua 30 phut -> tu huy (v1.538, lib/pxkTuHuy.ts huyMoiPhieuTrongCu) - moi gio.

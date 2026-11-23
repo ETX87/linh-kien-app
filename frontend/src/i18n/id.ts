@@ -3190,5 +3190,14 @@ const tuDien: Record<string, string> = {
   "Tải lại": "Muat ulang",
   "Ảnh bằng chứng là tùy chọn — nên đính kèm nếu có.": "Foto bukti opsional — lampirkan jika ada.",
   "(tùy chọn, tối đa 5 ảnh: tin nhắn, email, ảnh chụp màn hình…)": "(opsional, maks. 5 foto: pesan, email, tangkapan layar…)",
+  "App Nhiệm vụ eOffice": "Aplikasi Tugas eOffice",
+  "Chưa kết nối (chưa nạp khoá cổng nhiệm vụ).": "Belum terhubung (kunci gerbang tugas belum diatur).",
+  "Chưa đẩy lần nào. Hệ thống tự đẩy mỗi giờ sau khi quét và ngay khi có ca được giải trình.": "Belum pernah dikirim. Sistem mengirim tiap jam setelah pemindaian dan segera setelah kasus dijelaskan.",
+  "Lần đẩy cuối {a} lỗi: {b}": "Pengiriman terakhir {a} gagal: {b}",
+  "Lần đẩy cuối {a}: {b} việc cho {c} người ({d} sắp hết hạn).": "Pengiriman terakhir {a}: {b} tugas untuk {c} orang ({d} segera jatuh tempo).",
+  "Lỗi gửi App Nhiệm vụ: {a}": "Gagal mengirim ke Aplikasi Tugas: {a}",
+  "{a} người không tra ra trên eOffice.": "{a} orang tidak ditemukan di eOffice.",
+  "Đã đẩy {a} việc cho {b} người lên App Nhiệm vụ": "Terkirim {a} tugas untuk {b} orang ke Aplikasi Tugas",
+  "Đẩy lên App Nhiệm vụ": "Kirim ke Aplikasi Tugas",
 };
 export default tuDien;

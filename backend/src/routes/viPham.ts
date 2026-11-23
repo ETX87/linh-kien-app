@@ -3,6 +3,7 @@ import type { Env, AppUser } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { nowVN } from "../lib/vnTime";
+import { dayCongNhiemVu, trangThaiCong } from "../lib/congNhiemVu";
 import { gioLamViecGiua, parseGioVn } from "../lib/gioLamViec";
 import { tenNguoiNullSql } from "../lib/tenNguoi";
 import { nhanAnhTaiLen, laUrlAnhDrive } from "../lib/anhUpload";
@@ -300,7 +301,21 @@ viPham.put("/buoc/:ma", async (c) => {
 
 viPham.post("/quet", async (c) => {
   if (!laAdmin(c.get("user"))) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
-  return c.json(await quetViPham(c.env));
+  const kq = await quetViPham(c.env);
+  c.executionCtx.waitUntil(dayCongNhiemVu(c.env).then(() => undefined).catch(() => undefined));
+  return c.json(kq);
+});
+
+// v1.554: App Nhiem vu eOffice - trang thai lan day cuoi + day ngay (Admin).
+viPham.get("/nhiem-vu", async (c) => {
+  if (!laAdmin(c.get("user"))) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  return c.json(await trangThaiCong(c.env));
+});
+viPham.post("/nhiem-vu/day", async (c) => {
+  if (!laAdmin(c.get("user"))) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const kq = await dayCongNhiemVu(c.env, { force: true });
+  if (!kq) return c.json({ error: "CHUA_CO_KHOA_NHIEM_VU" }, 409);
+  return c.json(kq);
 });
 
 async function docMot(db: D1Database, id: number) {
@@ -356,6 +371,8 @@ viPham.post("/:id/giai-trinh", async (c) => {
     .bind(lyDo, noiDung, phanLoai, bangChung.length ? JSON.stringify(bangChung) : null, user.email, now, now, id)
     .run();
   if (!r.meta.changes) return c.json({ error: v.trang_thai === "Ton CEO" ? "DA_GAN_THE" : "TRANG_THAI_DA_DOI" }, 409);
+  // v1.554: ca vua giai trinh -> go khoi App Nhiem vu ngay (anh chup du, loi cong khong anh huong ket qua).
+  c.executionCtx.waitUntil(dayCongNhiemVu(c.env).then(() => undefined).catch(() => undefined));
   return c.json({ ok: true });
 });
 

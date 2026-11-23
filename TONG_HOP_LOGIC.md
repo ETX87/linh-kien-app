@@ -122,6 +122,11 @@ Thông báo chuông + đẩy gộp theo người: ca mới / còn ≤ 6 giờ l�
 đúng / không thuộc trách nhiệm" + danh mục lý do chậm "Mua hàng" + "Khác") + **lỗi thuộc về** (Lỗi nội bộ / Lỗi đối tác — bắt buộc; từ v1.553 bỏ "Lỗi của tôi" / "Khác", ca cũ giữ nhãn) + **ảnh bằng chứng** 0–5 ảnh (tùy chọn từ v1.553) + nội dung; ca ghi nhận sai cũng chỉ là 1 giải trình, không có bước
 Admin xem xét / gỡ thẻ. Chi tiết đơn / phiếu / ticket / đơn trả hàng hiện thanh cảnh báo quá hạn. Mỗi ca hiện "Lỗi vi phạm" (v1.542, `moTaLoi`/`KhoiLoiViPham` ở `modules/viPham/ViPhamUi.tsx`): bộ phận phải làm gì ở bước đó, vào bước lúc nào, hạn SLA, đã xử lý lúc nào / chưa xử lý, trễ bao lâu — cột "Lỗi vi phạm" ở danh sách, khối đầu hộp giải trình + chi tiết ca; mã đơn / phiếu / ticket TLK đều bấm được để mở chi tiết (`MaTicketLink`). Thêm bước SLA mới phải thêm câu ở `VIEC_BUOC`. Tab "Tổng hợp theo dõi" theo bộ phận và theo người.
 Hướng dẫn người dùng: `docs/Huong_dan_giai_trinh_qua_han_theo_vai_tro.html`.
+**App Nhiệm vụ eOffice** (v1.554, `lib/congNhiemVu.ts`, mã app `dat-linh-kien`, secret `TASK_FEED_KEY`): mỗi ca "Chờ giải trình" thành 1 việc `VP-<id>` của
+TỪNG người trong `nguoi_phu_trach` (gửi theo Mã nhân sự, chưa có thì email) — tiêu đề mã đơn / phiếu / ticket · tên bước · lúc quá hạn SLA · hạn giải trình,
+hạn = ngày hạn giải trình, khẩn (🔴) khi còn ≤ 6 giờ làm việc, bấm mở "Cần tôi giải trình". Luôn gửi ẢNH CHỤP ĐỦ (`toanBo`): ca đã giải trình / chuyển Tồn
+CEO tự biến mất. Gửi: cron mỗi giờ ngay sau quét, ngay sau khi 1 ca được giải trình, Admin bấm "Đẩy lên App Nhiệm vụ" (tab Cấu hình SLA, hiện lần đẩy
+cuối). Danh sách không đổi so với lần gửi thành công trước thì không gọi cổng. Chưa nạp khoá → bỏ qua, không ảnh hưởng nghiệp vụ.
 
 ## 10. Lịch chạy tự động (cron mỗi giờ)
 

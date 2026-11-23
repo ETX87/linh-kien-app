@@ -65,6 +65,9 @@ export interface Env {
   // Chua dat secret MUAHANG_DOC_API_KEY -> khung "Mua hàng (EO)" bao chua ket noi (khong loi).
   MUAHANG_SERVICE?: Fetcher;
   MUAHANG_DOC_API_KEY?: string;
+  // v1.554: khoa Cong nhiem vu eOffice (app "dat-linh-kien") - day ca qua han cho giai trinh len App Nhiem vu (lib/congNhiemVu.ts).
+  // Chua dat secret -> bo qua im lang.
+  TASK_FEED_KEY?: string;
   // Dong bo danh ba KTV/danh muc linh kien sang he DVBH goc (them 2026-08-28, xem
   // lib/dvbhSyncClient.ts + routes/dvbhSync.ts) - CHIEU NGUOC LAI voi CASE_LOOKUP_API_KEY o tren (he
   // nay GHI sang DVBH thay vi doc). Key RIENG, KHONG dung chung CASE_LOOKUP_API_KEY - key ghi rui ro

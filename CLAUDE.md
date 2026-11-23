@@ -1581,6 +1581,10 @@ Nguyên văn yêu cầu (chủ hệ thống): *"luồng "Cấp lk" ... khi đơn
 - Thông báo (`guiThongBaoQuet`): gộp theo người mỗi lần quét — ca chưa báo (`bao_luc`), còn ≤ `GIO_NHAC`=6 giờ (`nhac_luc`), vừa gắn thẻ; chuông `link_type` `vi_pham` (link_id = tab) + push `/?vi_pham=<tab>` → App.tsx sự kiện `mo-vi-pham`. `thongBaoViPham()` cho báo không đúng / Admin xử lý.
 - Giải trình bắt buộc `ly_do` (`GET /vi-pham/ly-do` = `settings_ly_do_cham` "Mua hàng" + "Khác"). "Báo không đúng" `POST /:id/bao-khong-dung` → `Cho xem xet` (lưu `khieu_nai_truoc`), Admin `POST /:id/xu-ly-bao` chap_nhan → `Da go the` / tu_choi → trạng thái trước (Cho giai trinh gia hạn `gio_giai_trinh`).
 - `GET /vi-pham/theo-doi-tuong?ids=` → `ViPhamBanner` (`modules/viPham/ViPhamUi.tsx`, dùng chung hộp/chi tiết với màn chính) trong chi tiết đơn, PXK, ticket thiếu hàng, đơn trả hàng (chỉ văn phòng). `GET /vi-pham/tong-hop` → tab "Tổng hợp theo dõi". Tab mới "Của tôi", "Chờ Admin xem xét".
+- **App Nhiệm vụ eOffice** (v1.554, `lib/congNhiemVu.ts`, mã app `dat-linh-kien`, secret `TASK_FEED_KEY`): ảnh chụp đủ (`toanBo`) ca "Chờ giải trình" theo
+  từng người trong `nguoi_phu_trach` (Mã NS → email), id `VP-<id>`, khẩn khi còn ≤ `GIO_NHAC` giờ làm việc, link `/?vi_pham=can_toi`. Gửi sau `quetViPham` (cron),
+  sau giải trình, "Quét ngay", nút Admin "Đẩy lên App Nhiệm vụ" (`POST /vi-pham/nhiem-vu/day`); danh sách không đổi (hash) thì không gọi cổng. TUYỆT ĐỐI
+  không gửi `toanBo` với danh sách thiếu (người vắng mặt = cổng xoá hết việc của họ).
 - Popup nhắc khi MỞ APP (v1.529, `modules/viPham/NhacGiaiTrinhPopup.tsx`, mount ở `App.tsx`): còn ca "Cho giai trinh" có tên mình (`GET /vi-pham?tab=can_toi`) → popup số ca + ca sắp hết hạn (đã nhắc `nhac_luc` hoặc còn ≤ 6 giờ); ngưỡng nhắc backend `GIO_NHAC` = 6 giờ làm việc (v1.530) + nút Giải trình / Mở danh sách; "Để sau" ẩn theo sessionStorage (khoá = tập id + ca sắp hết), có ca mới thì hiện lại.
 - Tài liệu người dùng `docs/Huong_dan_giai_trinh_qua_han_theo_vai_tro.html` (16 ảnh chụp local, base64) — kèm mục "Rà soát quy trình & điểm cần chốt".
 

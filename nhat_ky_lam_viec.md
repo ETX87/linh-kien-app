@@ -469,3 +469,23 @@ Dòng DDH-007749 cùng phiếu có giá chốt tay 320.000 < giá dự phòng 39
 - Yêu cầu thêm nguyên văn: "bỏ lựa chọn \"lỗi của tôi\" và \"khác\"".
 - Đã làm: server trả kèm câu "đã có phiên bản mới, tải lại trang" (giao diện cũ hiện được); thanh nhắc "Ứng dụng đã có phiên bản mới — Tải lại" (`BanMoiBanner.tsx`, so file index.html mỗi 5 phút / khi quay lại tab); "Lỗi thuộc về" chỉ còn Lỗi nội bộ / Lỗi đối tác, ảnh bằng chứng tùy chọn — yêu cầu thêm "ảnh là tùy chọn, ko bắt buộc" (ca cũ giữ nhãn). Tài liệu API 2.5.
 - Kiểm thử: typecheck backend + frontend, build. Chưa xem bằng mắt trên production.
+
+## 2026-11-23 — v1.554: Đẩy ca quá hạn chờ giải trình lên App Nhiệm vụ eOffice
+
+**Yêu cầu (nguyên văn):** "kiểm tra logic cửa app nhiệm vụ: đây các nhiệm vụ cần giải trình quá hạn chờ giải trình." → sau khi báo kết quả kiểm tra: "Làm luôn".
+
+**Kiểm tra trước khi làm:** logic trong app đúng (ca hết hạn giải trình tự chuyển Tồn CEO; lúc kiểm có 3 ca "Chờ giải trình", 61 ca Tồn CEO, không ca nào thiếu người
+phụ trách). Nhưng app CHƯA nối App Nhiệm vụ: không có code gọi cổng, Worker chưa có khoá, cổng giữ 0 người / 0 việc cho mã app `dat-linh-kien`.
+
+**Đã làm:**
+- `backend/src/lib/congNhiemVu.ts`: gom ca "Chờ giải trình" theo từng người phụ trách (Mã NS, chưa có thì email), gửi ảnh chụp đủ `toanBo` lên cổng
+  `taskFeedNhan`; lưu kết quả lần gửi ở `app_settings` `cong_nhiem_vu_state` (bỏ qua khi danh sách không đổi).
+- Gọi: cron mỗi giờ sau `quetViPham`, sau `POST /vi-pham/:id/giai-trinh`, sau "Quét ngay"; route Admin `GET /vi-pham/nhiem-vu`, `POST /vi-pham/nhiem-vu/day`.
+- FE: khối "App Nhiệm vụ eOffice" ở tab Cấu hình SLA (trạng thái lần đẩy cuối + nút "Đẩy lên App Nhiệm vụ"); bản dịch EN/ID.
+- Nạp secret `TASK_FEED_KEY` cho Worker (khoá app `dat-linh-kien` đã được cấp sẵn).
+
+**Kiểm thử:** typecheck backend + frontend 0 lỗi; xem trước dữ liệu thật (chỉ đọc): 3 ca, 9 người (2 người chưa có Mã NS → gửi theo email). Kết quả gửi thật ghi
+ở phần báo cáo phiên.
+
+**Còn dở:** chưa đẩy các việc khác (đơn chờ duyệt, phiếu chờ Kế toán…) lên App Nhiệm vụ — chỉ ca giải trình theo yêu cầu.
+

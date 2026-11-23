@@ -197,7 +197,10 @@ ${m.dienBien}`}>{m.viec}</span>;
       </div>
       <Tabs tabs={tabs} active={tab} onChange={doiTab} />
       {tab === "cau_hinh" ? (
-        <CauHinhSla ds={buoc.data?.buoc ?? []} onDoi={() => { qc.invalidateQueries({ queryKey: ["vi-pham-buoc"] }); lamMoiViPham(qc); }} />
+        <div className="space-y-4">
+          <AppNhiemVu />
+          <CauHinhSla ds={buoc.data?.buoc ?? []} onDoi={() => { qc.invalidateQueries({ queryKey: ["vi-pham-buoc"] }); lamMoiViPham(qc); }} />
+        </div>
       ) : tab === "tong_hop" ? (
         <TongHop tenBp={buoc.data?.bo_phan ?? {}} onMo={(bp, nguoi) => { setTab("tat_ca"); setPage(1); setLocBoPhan(bp); setLocNguoi(nguoi); }} />
       ) : (
@@ -308,6 +311,40 @@ function TongHop({ onMo, tenBp }: { onMo: (boPhan?: string, nguoi?: string) => v
           </table>
         </div>
       </div>
+    </div>
+  );
+}
+
+// v1.554: day ca "Chờ giải trình" len App Nhiem vu eOffice (backend lib/congNhiemVu.ts) - trang thai + nut day ngay (Admin).
+type KetQuaNv = { ok: boolean; nguoi: number; viec: number; khan: number; viecMoi?: number; khongRo?: unknown[]; loi?: string; luc: string };
+function AppNhiemVu() {
+  const addToast = useToast();
+  const tt = useQuery({ queryKey: ["vi-pham-nhiem-vu"], queryFn: () => api.get<{ bat: boolean; lan_cuoi: KetQuaNv | null }>("/vi-pham/nhiem-vu") });
+  const day = useMutation({
+    mutationFn: () => api.post<KetQuaNv>("/vi-pham/nhiem-vu/day", {}),
+    onSuccess: (r) => {
+      addToast(r.ok ? t("Đã đẩy {a} việc cho {b} người lên App Nhiệm vụ", { a: r.viec, b: r.nguoi }) : t("Lỗi gửi App Nhiệm vụ: {a}", { a: r.loi ?? "" }));
+      tt.refetch();
+    },
+    onError: (e) => addToast(describeApiError(e)),
+  });
+  const l = tt.data?.lan_cuoi;
+  const khongRo = Array.isArray(l?.khongRo) ? l!.khongRo.length : 0;
+  return (
+    <div className="kpi-card px-4 py-3 flex items-center gap-3 flex-wrap">
+      <div className="flex-1 min-w-[260px] text-sm">
+        <div className="font-semibold">{t("App Nhiệm vụ eOffice")}</div>
+        <div className="text-[var(--color-text-secondary)]">
+          {!tt.data ? "…" : !tt.data.bat
+            ? t("Chưa kết nối (chưa nạp khoá cổng nhiệm vụ).")
+            : !l ? t("Chưa đẩy lần nào. Hệ thống tự đẩy mỗi giờ sau khi quét và ngay khi có ca được giải trình.")
+            : l.ok
+              ? t("Lần đẩy cuối {a}: {b} việc cho {c} người ({d} sắp hết hạn).", { a: ngayGio(l.luc), b: l.viec, c: l.nguoi, d: l.khan }) +
+                (khongRo ? " " + t("{a} người không tra ra trên eOffice.", { a: khongRo }) : "")
+              : t("Lần đẩy cuối {a} lỗi: {b}", { a: ngayGio(l.luc), b: l.loi ?? "" })}
+        </div>
+      </div>
+      <Btn variant="ghost" disabled={!tt.data?.bat} loading={day.isPending} onClick={() => day.mutate()}>{t("Đẩy lên App Nhiệm vụ")}</Btn>
     </div>
   );
 }

@@ -3190,5 +3190,14 @@ const tuDien: Record<string, string> = {
   "Tải lại": "Reload",
   "Ảnh bằng chứng là tùy chọn — nên đính kèm nếu có.": "Evidence photos are optional — attach them if you have any.",
   "(tùy chọn, tối đa 5 ảnh: tin nhắn, email, ảnh chụp màn hình…)": "(optional, up to 5 photos: messages, emails, screenshots…)",
+  "App Nhiệm vụ eOffice": "eOffice Task app",
+  "Chưa kết nối (chưa nạp khoá cổng nhiệm vụ).": "Not connected (task gateway key not set).",
+  "Chưa đẩy lần nào. Hệ thống tự đẩy mỗi giờ sau khi quét và ngay khi có ca được giải trình.": "Not pushed yet. The system pushes every hour after scanning and right after a case is explained.",
+  "Lần đẩy cuối {a} lỗi: {b}": "Last push {a} failed: {b}",
+  "Lần đẩy cuối {a}: {b} việc cho {c} người ({d} sắp hết hạn).": "Last push {a}: {b} tasks for {c} people ({d} due soon).",
+  "Lỗi gửi App Nhiệm vụ: {a}": "Task app push error: {a}",
+  "{a} người không tra ra trên eOffice.": "{a} people not found in eOffice.",
+  "Đã đẩy {a} việc cho {b} người lên App Nhiệm vụ": "Pushed {a} tasks for {b} people to the Task app",
+  "Đẩy lên App Nhiệm vụ": "Push to Task app",
 };
 export default tuDien;
