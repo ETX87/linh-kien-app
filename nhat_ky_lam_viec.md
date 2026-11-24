@@ -513,3 +513,15 @@ không mất. Phiếu không tìm thấy vì v1.538 ẩn phiếu "Ke toan huy" k
 **Kiểm thử:** typecheck 2 phía 0 lỗi; chạy Worker local với khoá thật: `/api/cua-so` trả cửa sổ đang bật ("Nghỉ lễ vui vẻ.", `mauPhang`), popup hiện đúng trên máy tính + điện thoại (375px), nút đếm ngược rồi mở khoá, Esc đóng được sau khi hết khoá. Mới xem bằng mắt bố cục `mauPhang` (cửa sổ đang bật); 3 bố cục còn lại + bố cục cũ chưa có dữ liệu thật để xem.
 
 **Còn dở:** mỗi app đang dùng CHUNG 1 mã khoá — nên xin Giám đốc tạo mã riêng từng app (eOffice › Quản trị › Cửa sổ thông tin › Kết nối app ngoài) rồi `wrangler secret put CUA_SO_KHOA` lại, để thu hồi được từng app.
+
+## 2026-11-24 — Tách CLAUDE.md thành bản rút gọn + CLAUDE-full.md (không đổi code)
+
+**Yêu cầu** (Trợ lý Mây nhắn theo lời Giám đốc): CLAUDE.md ~340 KB làm phiên Claude đám mây gần đầy bộ nhớ ngay khi mở → rút gọn dưới ~10 KB,
+chi tiết chuyển sang tệp riêng. Anh Thái: *"tạo riêng 1 file claude.md rút gọn cho đối tác, 1 file claude-full.md để dành cho việc lưu chi tiết các công việc sau này.
+sau này file claude.md lưu ngắn gọn còn file claude-full.md để lưu dữ liệu chi tiết rõ ràng"*.
+
+**Đã làm**: `git mv CLAUDE.md CLAUDE-full.md` (giữ nguyên toàn bộ nội dung, thêm đầu đề giải thích); viết `CLAUDE.md` mới ~8,7 KB: hệ thống là gì, lệnh,
+12 luật bắt buộc, bảng "nguồn sự thật duy nhất", vai trò, giao diện, danh mục tài liệu, mục nhận việc Trợ lý Mây (ba làn, lỗi máy chạy sai luật).
+**Quy ước từ nay**: tính năng / quyết định mới ghi chi tiết vào `CLAUDE-full.md`; `CLAUDE.md` chỉ thêm khi là luật chung, giữ dưới 10 KB.
+
+**Kiểm thử**: `wc -c` CLAUDE.md = 8.702 byte. Không đổi mã nguồn, không deploy.
