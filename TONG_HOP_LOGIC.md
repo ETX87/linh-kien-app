@@ -142,6 +142,8 @@ hàng / từ chối / hủy — để app đó ưu tiên lên đầu ô chọn l
 SL đặt / về / thiếu, ngày dự kiến, ngày về. App gửi mã đơn, các ticket của đơn, mã case của đơn + cặp "mã EO ticket đã ghi ~ mã LK của đơn"; bên Mua hàng
 khớp nếu mã nằm trong ô ID CRM hoặc ID đặt hàng của dòng EO. Đơn có ticket → khung luôn hiện (kể cả "chưa có PO"); đơn khác chỉ hiện khi có PO khớp.
 
+**Cửa sổ thông tin eOffice** (popup toàn màn hình Giám đốc soạn): `GET /api/cua-so` (không cần đăng nhập) → Worker gọi `csApi` eOffice bằng secret `CUA_SO_KHOA`, đệm 60 giây, kèm tranh SVG. Frontend `CuaSoThongTin` hiện mỗi lần mở app (và khi quay lại sau ≥ 10 phút ẩn), nút "Vào app" khoá vài giây (theo `khoaNutGiay`). API lỗi / chậm / chưa có khoá → không hiện, người dùng vào app bình thường. Cùng 1 bộ mã ở mọi app hệ DVBH.
+
 ## 12. Giới hạn & bảo vệ chung
 
 Giới hạn tần suất theo tài khoản / IP / khoá API; request ghi phải cùng origin; ảnh chỉ JPG/PNG/WEBP/GIF/HEIC ≤ 10MB, hạn mức ảnh / ngày

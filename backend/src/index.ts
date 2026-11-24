@@ -35,6 +35,7 @@ import { xoaThongBaoCu } from "./lib/donThongBao";
 import { runGia88SyncWithState } from "./lib/gia88Sync";
 import { runEtxNhanSuSyncWithState } from "./lib/etxNhanSuSync";
 import { chanGhiTuSiteKhac, gioiHanTanSuat, headerBaoMatApi } from "./lib/baoVe";
+import { layCuaSoThongTin } from "./lib/cuaSoThongTin";
 
 // He doc lap "Dat mua linh kien" - tach tu he DVBH goc (xem CLAUDE.md muc "Nguon goc tach he
 // thong"). CO 1 cron job DUY NHAT (them 2026-08-28, xem `scheduled` o duoi) - dong bo danh ba KTV/
@@ -59,6 +60,8 @@ app.use("/api/*", headerBaoMatApi);
 app.use("/api/*", gioiHanTanSuat);
 app.use("/api/*", chanGhiTuSiteKhac);
 
+// Cua so thong tin eOffice (2026-11-24): khong can dang nhap - hien ca o man dang nhap.
+app.get("/api/cua-so", async (c) => c.json(await layCuaSoThongTin(c.env.CUA_SO_KHOA)));
 app.route("/api/auth", authRoutes);
 app.route("/api/users", usersRoutes);
 app.route("/api/notifications", notificationsRoutes);

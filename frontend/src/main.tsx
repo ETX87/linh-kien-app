@@ -6,6 +6,7 @@ import { ToastProvider } from "./components/ui/Toast";
 import { App } from "./App";
 import { ErrorBoundary, taiLaiDeLayBanMoi } from "./components/ui/ErrorBoundary";
 import { BanMoiBanner } from "./components/ui/BanMoiBanner";
+import { CuaSoThongTin } from "./components/CuaSoThongTin";
 import { capturePxkDeepLinkFromUrl } from "./lib/pxkDeepLink";
 import "./styles/tokens.css";
 import { NgonNguGate } from "./i18n";
@@ -36,6 +37,7 @@ createRoot(document.getElementById("root")!).render(
             <NgonNguGate>
               <App />
               <BanMoiBanner />
+              <CuaSoThongTin />
             </NgonNguGate>
           </ErrorBoundary>
         </ToastProvider>

@@ -501,3 +501,15 @@ không mất. Phiếu không tìm thấy vì v1.538 ẩn phiếu "Ke toan huy" k
 
 **Kiểm thử:** typecheck backend 0 lỗi. Chưa thử trên giao diện.
 
+
+## 2026-11-24 — v1.556: Cửa sổ thông tin eOffice (popup Giám đốc) trên mọi app hệ DVBH
+
+**Yêu cầu (nguyên văn):** "phân tích yêu cầu tạo popup trên tất cả các app người dùng của hệ thống dvbh của hệ thống máy chủ công ty gửi sang" → "làm luôn cho toàn bộ hệ thống app dvbh: đặt lk, đổi trả, ông thợ, vi phạm, tiếp nhận..." → "thêm cả muahang" → "cả ccdc". Tài liệu nguồn: "API Cửa sổ thông tin — dành cho app ngoài (ETX87)".
+
+**Đã làm (app này là bản mẫu, chép y hệt sang các app khác):**
+- `backend/src/lib/cuaSoThongTin.ts` + `GET /api/cua-so` (không cần đăng nhập): Worker gọi `csApi` eOffice bằng secret `CUA_SO_KHOA`, đệm 60 giây trong isolate (`kiemLaiSauGiay`), tải kèm tranh SVG (≤ 200KB, 1,5 giây). Lỗi / chậm / chưa đặt khoá → "không có cửa sổ".
+- `frontend/src/components/CuaSoThongTin.tsx` (gắn ở `main.tsx`, ngoài App → hiện cả màn đăng nhập, phủ trên mọi popup khác): 4 bố cục kiểu Apple (`apTrang`, `dem`, `mauPhang`, `theSP`) + bố cục cũ (thẻ trắng); tranh đổi màu nét theo bố cục, hiện qua `data:` URL trong `<img>` (không chèn SVG vào DOM). Nút khoá `khoaNutGiay` giây, đếm "(3)…(1)"; Esc / nút Back chỉ đóng sau khi hết khoá. Hiện mỗi lần mở app và khi quay lại app sau khi ẩn ≥ 10 phút (không phải mỗi lần đổi tab — tránh làm phiền nhân viên văn phòng).
+
+**Kiểm thử:** typecheck 2 phía 0 lỗi; chạy Worker local với khoá thật: `/api/cua-so` trả cửa sổ đang bật ("Nghỉ lễ vui vẻ.", `mauPhang`), popup hiện đúng trên máy tính + điện thoại (375px), nút đếm ngược rồi mở khoá, Esc đóng được sau khi hết khoá. Mới xem bằng mắt bố cục `mauPhang` (cửa sổ đang bật); 3 bố cục còn lại + bố cục cũ chưa có dữ liệu thật để xem.
+
+**Còn dở:** mỗi app đang dùng CHUNG 1 mã khoá — nên xin Giám đốc tạo mã riêng từng app (eOffice › Quản trị › Cửa sổ thông tin › Kết nối app ngoài) rồi `wrangler secret put CUA_SO_KHOA` lại, để thu hồi được từng app.
