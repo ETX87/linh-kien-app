@@ -34,6 +34,44 @@ import { t } from "../../i18n";
 // các đơn chung 1 khoảng cách cột", nguoi dung chon phuong an "Lưới cột chung"): KHONG tieu de cot, dong thap (~32px),
 // chu 12px, cot do rong CO DINH (COT_GON, table-layout fixed) -> dong don cua MOI phieu xo xuong thang hang tu tren
 // xuong; y nghia tung o hien khi re chuot (title). Drawer chi tiet van dung ban day du co tieu de.
+// MAY-00591 (GD duyet 24/11/2026, chi Tham xin): KTV xem ngay ma ca cua tung dong khi bam "KTV đã nhận" - 1 dong chu nho
+// duoi ten LK: "CRM <ma YCSC> +N · Lada <ma Lada> · Đơn BH <ma don bao hanh>". Ma nao trong thi AN (khong in "—", luat tinh gon
+// 04/10/2026); dong khong co ma nao -> khong ve gi. "+N" = so ma CRM bo sung (dat_don_case) KHAC ma chinh. Chi hien, khong doi du lieu.
+function dsMaCrm(d: DonHangRow): string[] {
+  const ds: string[] = [];
+  for (const m of [d.ma_yeu_cau_su_co, ...(d.ma_ycsc_bo_sung ?? "").split(/\s+/)]) {
+    const v = (m ?? "").trim();
+    if (v && !ds.includes(v)) ds.push(v);
+  }
+  return ds;
+}
+
+export function MaCaDong({ d, gon = false }: { d: DonHangRow; gon?: boolean }) {
+  const crm = dsMaCrm(d);
+  const lada = (d.ma_lada ?? "").trim();
+  const bh = (d.bh_don_vi_id ?? "").trim();
+  const phan: { nhan: string; ma: string; them?: number }[] = [];
+  if (crm.length > 0) phan.push({ nhan: "CRM", ma: crm[0], them: crm.length - 1 });
+  if (lada) phan.push({ nhan: "Lada", ma: lada });
+  if (bh) phan.push({ nhan: t("Đơn BH"), ma: bh });
+  if (phan.length === 0) return null;
+  const tieuDe = phan.map((p) => `${p.nhan} ${p.ma}`).join(" · ") + (crm.length > 1 ? ` (CRM: ${crm.join(", ")})` : "");
+  return (
+    <div
+      className={`text-[11px] leading-snug text-[var(--color-text-secondary)] ${gon ? "overflow-hidden text-ellipsis whitespace-nowrap" : "mt-0.5 flex flex-wrap gap-x-1.5"}`}
+      title={tieuDe}
+    >
+      {phan.map((p, i) => (
+        <span key={p.nhan} className={gon ? undefined : "whitespace-nowrap"}>
+          {i > 0 && <span className="text-[var(--ink-400)]">{gon ? " · " : "· "}</span>}
+          {p.nhan} <span className="font-mono text-[var(--color-text-body)]">{p.ma}</span>
+          {!!p.them && <span className="text-[var(--ink-400)]"> +{p.them}</span>}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 const COT_GON = [
   { w: 112, tip: "Mã linh kiện" },
   { w: 250, tip: "Tên linh kiện" },
@@ -740,6 +778,7 @@ export function PxkDongDonHangTable({
               <td className={o} title={d.ten_lk_snapshot ?? d.ma_lk}>
                 {chipChuaDuyet(d)} <YeuCauHuyChip boPhan={d.yeu_cau_huy_bo_phan} /> {d.uu_tien === 1 && <span title={t("Ưu tiên")}>⭐ </span>}
                 {d.ten_lk_snapshot ?? d.ma_lk}
+                <MaCaDong d={d} gon />
               </td>
               <td className={o} title={t(COT_GON[2].tip)}>
                 <LoaiDeXuatBadge loaiDon={d.loai_don ?? pxk.loai_don ?? undefined} loaiDeXuat={d.loai_de_xuat} />
@@ -798,6 +837,7 @@ export function PxkDongDonHangTable({
             <td className="px-2.5 py-2">
               {chipChuaDuyet(d)} <YeuCauHuyChip boPhan={d.yeu_cau_huy_bo_phan} /> {d.uu_tien === 1 && <span title={t("Ưu tiên")}>⭐ </span>}
               {d.ten_lk_snapshot ?? d.ma_lk}
+              <MaCaDong d={d} />
             </td>
             {/* Loai de xuat quyet dinh cach tinh tien (2026-09-28). */}
             <td className="px-2.5 py-2 whitespace-nowrap"><LoaiDeXuatBadge loaiDon={d.loai_don ?? pxk.loai_don ?? undefined} loaiDeXuat={d.loai_de_xuat} /><LoaiGoiYBadge d={d} /><DuyetVuotTranBadge d={d} /></td>

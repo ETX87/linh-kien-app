@@ -513,3 +513,10 @@ không mất. Phiếu không tìm thấy vì v1.538 ẩn phiếu "Ke toan huy" k
 **Kiểm thử:** typecheck 2 phía 0 lỗi; chạy Worker local với khoá thật: `/api/cua-so` trả cửa sổ đang bật ("Nghỉ lễ vui vẻ.", `mauPhang`), popup hiện đúng trên máy tính + điện thoại (375px), nút đếm ngược rồi mở khoá, Esc đóng được sau khi hết khoá. Mới xem bằng mắt bố cục `mauPhang` (cửa sổ đang bật); 3 bố cục còn lại + bố cục cũ chưa có dữ liệu thật để xem.
 
 **Còn dở:** mỗi app đang dùng CHUNG 1 mã khoá — nên xin Giám đốc tạo mã riêng từng app (eOffice › Quản trị › Cửa sổ thông tin › Kết nối app ngoài) rồi `wrangler secret put CUA_SO_KHOA` lại, để thu hồi được từng app.
+
+## 2026-11-24 · MAY-00591 · Hiện mã ca (CRM · Lada · Đơn BH) trên "Dòng đơn hàng" của phiếu xuất
+
+Theo BRD đã duyệt (`docs/yeu-cau/MAY-00591.md`): mỗi dòng đơn trong phiếu xuất hiện thêm 1 dòng chữ nhỏ dưới tên LK với mã CRM (+ số mã bổ sung),
+mã Lada, mã đơn bảo hành; mã trống thì ẩn. Áp cho chi tiết phiếu (máy tính + điện thoại) và dòng xổ ở danh sách Phiếu xuất. `GET /phieu-xuat-kho/:id`
+trả thêm `ma_ycsc_bo_sung` (gộp mã `dat_don_case` của từng đơn). Dữ liệu thật (đọc 24/11): 7.637 dòng phiếu — 4.544 có mã CRM, 531 có mã Lada,
+79 có đơn bảo hành, 0 đơn có mã CRM bổ sung khác mã chính; phiếu người báo PCN-002792 (DDH-007841) sẽ hiện "CRM SC2611090566 · Đơn BH DH-005452-1".
