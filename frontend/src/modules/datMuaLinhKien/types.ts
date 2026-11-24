@@ -211,6 +211,8 @@ export interface DonHangRow {
   chinh_sach: string | null;
   ma_yeu_cau_su_co: string | null;
   ma_lada?: string | null; // "Mã Lada liên quan" (migration 0054)
+  // Ma CRM bo sung (dat_don_case) noi 1 dau cach - CHI GET /phieu-xuat-kho/:id tra (MAY-00591, dong ma ca trong "Dòng đơn hàng").
+  ma_ycsc_bo_sung?: string | null;
   tien_da_tra?: number; // tien da thanh toan don MANG THEO khi chua vao phieu (migration 0056)
   // TN / Ke toan cho phep thanh toan sau (migration 0094) - don "Cho thanh toan" di tiep khong cho tien.
   thanh_toan_sau_luc?: string | null;

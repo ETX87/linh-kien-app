@@ -61,6 +61,11 @@ duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xe
   hủy / giảm thì hoàn quỹ. Quỹ KH chuyển khoản (đơn tích "KH đã chuyển khoản về công ty", có hoặc không xuất hóa đơn) tách riêng. Tiền cần chuyển = 0 thì không cần Kế toán duyệt.
 - Thêm / bớt / tách / chuyển đơn được tới khi Kế toán chốt; đẩy lùi từng bước có lý do; Kế toán duyệt nhanh hàng loạt.
 - OCR đọc số tiền ảnh chuyển khoản trên trình duyệt + đối soát ảnh nghi trùng — chỉ cảnh báo, không chặn.
+- **Mã ca trên "Dòng đơn hàng" (MAY-00591, 24/11/2026)**: trước đây bảng dòng đơn của phiếu (chi tiết phiếu trên máy tính / điện thoại và
+  dòng xổ ở danh sách Phiếu xuất) chỉ có Mã, Tên LK, Loại đề xuất, SL, Tiền, Lý do chậm — KTV phải chạm từng dòng mới thấy mã ca. Nay ngay dưới
+  tên LK có 1 dòng chữ nhỏ "CRM <Mã YCSC> +N · Lada <Mã Lada> · Đơn BH <đơn bảo hành>" cho mọi người xem phiếu. Mã trống thì ẩn (không in "—"),
+  dòng không có mã nào thì không thêm gì; "+N" = số mã CRM bổ sung (gắn thêm vào đơn) khác mã chính, rê chuột / giữ để xem đủ. "ID truy xuất" = cùng
+  mã CRM, "Mã lô SCTK" = mã đơn bảo hành. Chỉ hiện, không đổi dữ liệu, không đổi nút "KTV đã nhận" hay quy trình nhận hàng.
 
 ## 6. Thiếu hàng
 

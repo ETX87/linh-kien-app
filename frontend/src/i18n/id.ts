@@ -2626,6 +2626,7 @@ const tuDien: Record<string, string> = {
   "Đã đồng ý hủy": "Pembatalan disetujui",
   "Đã đồng ý — đơn đã hủy": "Disetujui — pesanan dibatalkan",
   "Đơn bảo hành": "Pekerjaan garansi",
+  "Đơn BH": "Pekerjaan garansi",
   "Đồng ý hủy đơn này? Đơn sẽ bị hủy ngay, tiền đã thanh toán (nếu có) trả về quỹ dư của KTV.": "Setujui pembatalan pesanan ini? Pesanan langsung dibatalkan; dana yang sudah dibayar (jika ada) kembali ke saldo teknisi.",
   "đơn bị hủy ngay, tiền đã thanh toán (nếu có) trả về quỹ dư.": "pesanan langsung dibatalkan; dana yang sudah dibayar (jika ada) kembali ke saldo.",
   "đơn chỉ bị hủy khi {a} đồng ý; bạn sẽ nhận thông báo kết quả.": "pesanan hanya dibatalkan setelah {a} menyetujui; Anda akan diberi tahu hasilnya.",

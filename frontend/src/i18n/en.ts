@@ -2626,6 +2626,7 @@ const tuDien: Record<string, string> = {
   "Đã đồng ý hủy": "Cancellation approved",
   "Đã đồng ý — đơn đã hủy": "Approved — order cancelled",
   "Đơn bảo hành": "Warranty job",
+  "Đơn BH": "Warranty job",
   "Đồng ý hủy đơn này? Đơn sẽ bị hủy ngay, tiền đã thanh toán (nếu có) trả về quỹ dư của KTV.": "Approve cancelling this order? It will be cancelled immediately; any paid amount returns to the technician's balance fund.",
   "đơn bị hủy ngay, tiền đã thanh toán (nếu có) trả về quỹ dư.": "the order is cancelled immediately; any paid amount returns to the balance fund.",
   "đơn chỉ bị hủy khi {a} đồng ý; bạn sẽ nhận thông báo kết quả.": "the order is only cancelled after {a} approves; you will be notified of the result.",
