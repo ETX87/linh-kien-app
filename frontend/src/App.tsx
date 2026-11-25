@@ -27,6 +27,7 @@ import { TonKhoKtvModule } from "./modules/TonKhoKtvModule";
 import { DanhSachKtvModule } from "./modules/DanhSachKtvModule";
 import { QuyChuyenTienModule } from "./modules/QuyChuyenTienModule";
 import { BaoCaoTocDoXuLyModule } from "./modules/BaoCaoTocDoXuLyModule";
+import { BcKpisModule } from "./modules/BcKpisModule";
 import { LuongHeThongModule } from "./modules/LuongHeThongModule";
 import { ViPhamModule } from "./modules/ViPhamModule";
 import { NotificationBell } from "./modules/datMuaLinhKien/NotificationBell";
@@ -186,7 +187,7 @@ function MainApp({
   // "Báo cáo tốc độ xử lý" mo cho MOI nhan vien van phong (chot 2026-10-17 - ghi de "chi Admin + View"), khop gate backend
   // routes/baoCaoTocDoXuLy.ts (chan KTV/Ve tinh).
   if (role !== "Admin" && !user.la_ktv_dvbh && !user.la_ve_tinh) {
-    allowedModules = [...new Set([...allowedModules, "bao-cao-toc-do"])];
+    allowedModules = [...new Set([...allowedModules, "bao-cao-toc-do", "bc-kpis"])]; // + BC KPIs (v1.562) cung gate backend routes/baoCaoKpi.ts
   }
   // "Luồng & logic hệ thống" (2026-11-11, v1.471): so do luong nghiep vu, noi dung tinh - cung tap nhan vien van phong nhu tren
   // (KTV / Ve tinh chua mo). Admin co qua ROLE_MODULES.
@@ -580,6 +581,7 @@ function MainApp({
           {active === "danh-sach-ktv" && <DanhSachKtvModule />}
           {active === "quy-chuyen-tien" && <QuyChuyenTienModule moPhieuHoanTien={moHoanTien} moNopTien={moNopTien} />}
           {active === "bao-cao-toc-do" && <BaoCaoTocDoXuLyModule />}
+          {active === "bc-kpis" && <BcKpisModule />}
           {active === "luong-he-thong" && <LuongHeThongModule />}
           {active === "vi-pham" && <ViPhamModule moTab={moViPham} />}
           {active === "settings" && <SettingsModule />}

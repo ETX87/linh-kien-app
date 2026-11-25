@@ -1639,6 +1639,17 @@ Nguyên văn: *"các logic quá hạn SLA trên toàn bộ hệ thống từ 24h
   Tiền phiếu: `tinhToanPxk` đã ưu tiên `gia_chot` cho mọi nhánh có tiền → không đổi công thức.
 - Không áp: đơn công nợ / hỗ trợ (tiền = `so_tien_cong_no`), Import Excel, API đối tác, form sửa đơn của người tạo.
 
+## BC KPIs — báo cáo mua hàng tháng (25/11/2026) — v1.562
+- Nguyên văn: "xây dựng trên app mục BC KPIs cho phép tải về (bc này không cần chạy liên tục, chỉ cần thêm nút load bc, thì mới load số liệu khi cần)" —
+  dựng lại 3 chỉ số của file Excel "BC mua hang 2610.xlsx" (sheet 1. KPIs KHO, 2. Ms Hằng, DON, PHIEU, THIEU LK).
+- BE `routes/baoCaoKpi.ts` mount `/api/bao-cao-kpi` (cạnh `/api/bao-cao-toc-do`); 2 truy vấn (đơn tháng + phiếu tháng, log qua `json_each` 1 bind), gom trong JS.
+  Hằng `MUC_TIEU_THIEU` {MB 0.015, MN 0.02}, `MUC_TIEU_TOC_DO_GIO` 24, `MUC_TIEU_TOC_DO_GIO_LV` 8. `tuanExcel()` = WEEKNUM kiểu 1, đệm 2 số ("w04").
+  Không cache (khác báo cáo tốc độ) — người dùng chủ động bấm, tháng 10 ~0,3 giây trên local.
+- FE `modules/BcKpisModule.tsx`, key menu `bc-kpis` (navConfig nhóm Hệ thống, App.tsx mở cùng tập nhân viên văn phòng với `bao-cao-toc-do`).
+  Excel tạo phía trình duyệt từ kết quả đã tải (xlsx import động), không gọi API lần 2.
+- Khác file Excel cũ (cố ý): tốc độ Kho tính đúng chiều (Kho xuất − chốt; file cũ trừ ngược nên ~99% "đạt"); mặc định bỏ đơn hủy (ô tick để tính như cũ);
+  đơn thiếu lấy ticket MỚI NHẤT; "Đã về hàng" gồm cả ticket "Kho xac nhan hang da ve" / có `ngay_hang_ve_thuc_te`.
+
 ## Nhận việc từ Trợ lý Mây (tự sửa)
 - Issue gắn nhãn `may:phan-tich` là ĐỀ XUẤT CẢI TIẾN cần phân tích trước: workflow `may-phan-tich` chỉ ĐỌC mã để soạn BRD cho Giám đốc duyệt — không sửa mã ở bước này. Khi duyệt, BRD nằm ở đầu issue; làm đúng BRD và lưu nó vào `docs/yeu-cau/MAY-xxxxx.md`.
 - Issue gắn nhãn `may:tu-sua` là việc do Trợ lý Mây chuyển sang, mã `MAY-xxxxx` ở tiêu đề. Sửa ĐÚNG phạm vi mô tả.

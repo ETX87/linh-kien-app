@@ -14,6 +14,7 @@ import traHangRoutes from "./routes/traHang";
 import quyKtvRoutes from "./routes/quyKtv";
 import khachLeRoutes from "./routes/khachLe";
 import baoCaoTocDoXuLyRoutes from "./routes/baoCaoTocDoXuLy";
+import baoCaoKpiRoutes from "./routes/baoCaoKpi";
 import viPhamRoutes from "./routes/viPham";
 import { quetViPham } from "./lib/viPham";
 import { dayCongNhiemVu } from "./lib/congNhiemVu";
@@ -80,6 +81,7 @@ app.route("/api/thieu-hang-bh", thieuHangBhRoutes); // Thieu hang bao hanh tu ap
 app.route("/api/khach-le", khachLeRoutes);
 app.route("/api/doi-tac-cong-no", doiTacCongNoRoutes); // MUA HÀNG CÔNG NỢ ĐỐI TÁC (2026-10-26, migration 0099)
 app.route("/api/bao-cao-toc-do", baoCaoTocDoXuLyRoutes);
+app.route("/api/bao-cao-kpi", baoCaoKpiRoutes); // BC KPIs (2026-11-25, v1.562) - chi tinh khi bam "Tải số liệu"
 app.route("/api/vi-pham", viPhamRoutes); // Qua han SLA / giai trinh / gan the vi pham (2026-11-17, migration 0125)
 app.route("/api/push", pushRoutes);
 app.route("/api/dvbh-sync", dvbhSyncRoutes);

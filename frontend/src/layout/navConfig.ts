@@ -46,6 +46,8 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Hệ thống",
     items: [
       { key: "bao-cao-toc-do", label: "Báo cáo tốc độ xử lý", icon: "chart" },
+      // BC KPIs (2026-11-25, v1.562): ty le thieu hang, toc do Kho, don co ma su co - chi tinh khi bam "Tải số liệu", tai Excel.
+      { key: "bc-kpis", label: "BC KPIs", icon: "chart" },
       // Qua han SLA / giai trinh / gan the vi pham (2026-11-17, v1.517) - moi nhan vien van phong + Admin (App.tsx).
       { key: "vi-pham", label: "Quá hạn & vi phạm", icon: "clock", countKey: "viPham" },
       // So do toan bo luong nghiep vu (2026-11-11, v1.471) - noi dung tinh, moi nhan vien van phong + Admin (App.tsx).
@@ -74,6 +76,7 @@ export const MODULE_TITLES: Record<string, string> = {
   "danh-sach-ktv": "Danh sách KTV",
   "quy-chuyen-tien": "Quỹ & chuyển tiền",
   "bao-cao-toc-do": "Báo cáo tốc độ xử lý",
+  "bc-kpis": "BC KPIs",
   "luong-he-thong": "Luồng & logic hệ thống",
   "vi-pham": "Quá hạn & vi phạm",
   settings: "Cài đặt",

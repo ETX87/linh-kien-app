@@ -611,3 +611,24 @@ Import Excel, API đối tác và sửa đơn sau khi tạo không có ô này (
 -5 → báo lỗi; tạo đơn trên giao diện web nhập 250.000 → DDH-000185 `gia_chot` 250.000, log đúng, phiếu PMH-000033 dòng phí dịch vụ 250.000đ
 (các dòng khác vẫn chiết khấu theo giá KTV). Chưa chụp màn điện thoại (dùng chung component).
 
+
+## 2026-11-25 — v1.562: mục "BC KPIs" (tỷ lệ thiếu hàng, tốc độ Kho, đơn có mã sự cố) + tải Excel
+
+**Yêu cầu (nguyên văn):** "đây là báo cáo mua hàng tháng 10 của tôi. hãy phân tích các chỉ số => liệt kê các số liệu cần thiết => báo cáo các số liệu có trên hệ thống => đề xuất phương án triển khai => xây dựng trên app mục BC KPIs cho phép tải về (bc này không cần chạy liên tục, chỉ cần thêm nút load bc, thì mới load số liệu khi cần)".
+
+**Phân tích file "BC mua hang 2610.xlsx":** 3 chỉ số — (1) tỷ lệ thiếu hàng theo Miền × Tuần (SL xuất; B2B không tính; mục tiêu MB 1,5% / MN 2%);
+(2) tỷ lệ phiếu Kho xử lý ≤ 24h sau khi Kế toán chốt; (3) sheet "Ms Hằng": đơn có Mã yêu cầu sự cố / Mã Lada + tổng thời gian xử lý.
+Mọi cột nguồn đều có trong D1. Hai điểm lệch của file cũ: công thức tốc độ Kho trừ ngược (chốt − kho → số âm → gần như phiếu nào cũng "đạt",
+99,6% / 99,4%); tỷ lệ thiếu cộng cả đơn hủy / từ chối vào mẫu số (có 1 đơn hủy SL ~3.000 ở MB tuần 42).
+
+**Số thật tháng 10 (bỏ đơn hủy, chạy 25/11):** thiếu hàng MB 0,65% · MN 0,49% (đạt mục tiêu); Kho xuất ≤ 24h MB 81,7% (411/503) · MN 69,1% (504/729);
+2.009 đơn có mã sự cố / Lada (chưa lọc giá trị rác), TB ~10 ngày từ tạo đơn đến KTV nhận / hoàn tất.
+
+**Đã làm:**
+- API `GET /api/bao-cao-kpi?thang=YYYY-MM[&gom_huy=1]` (`routes/baoCaoKpi.ts`) — tính tại chỗ, không cache, không cron; chặn KTV / Vệ tinh.
+- Màn **Hệ thống › BC KPIs** (`modules/BcKpisModule.tsx`): chọn tháng, ô "Tính cả đơn hủy / từ chối", nút **Tải số liệu** (chỉ lúc bấm mới gọi API),
+  ô KPI + 2 bảng Miền × Tuần có dòng Tổng, nút **Tải Excel** (6 sheet: Ghi chú, Tỷ lệ thiếu hàng, Tốc độ Kho, Mã sự cố - Lada, DON, PHIEU).
+- Mã sự cố / Lada kiểu "Ko", "k", "0", "-" coi như không có mã.
+
+**Kiểm thử:** typecheck 2 phía 0 lỗi, build xanh. Chạy local trên bản sao 8 bảng của D1 thật: API tháng 10 trả 4.143 đơn / 1.534 phiếu trong ~0,3 giây,
+tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa bấm thử nút Tải Excel trong trình duyệt (không tải file về máy khi kiểm thử).

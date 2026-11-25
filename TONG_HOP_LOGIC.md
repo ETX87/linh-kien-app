@@ -131,6 +131,19 @@ hạn = ngày hạn giải trình, khẩn (🔴) khi còn ≤ 6 giờ làm việ
 CEO tự biến mất. Gửi: cron mỗi giờ ngay sau quét, ngay sau khi 1 ca được giải trình, Admin bấm "Đẩy lên App Nhiệm vụ" (tab Cấu hình SLA, hiện lần đẩy
 cuối). Danh sách không đổi so với lần gửi thành công trước thì không gọi cổng. Chưa nạp khoá → bỏ qua, không ảnh hưởng nghiệp vụ.
 
+## 10b. BC KPIs (menu Hệ thống › BC KPIs)
+
+Chỉ tính khi bấm "Tải số liệu" (`GET /api/bao-cao-kpi`, `routes/baoCaoKpi.ts`), không lưu, không chạy nền; nhân viên văn phòng + Admin xem (chặn KTV / Vệ tinh).
+Tuần = WEEKNUM của Excel (tuần bắt đầu Chủ nhật). Miền theo khu vực hiệu lực (có "MB" / "MN"; không có = Khác); phiếu đã chuyển kho xuất thì theo miền xuất.
+- **Tỷ lệ thiếu hàng** (đơn mua / công nợ tạo trong tháng; SL = SL thực xuất, chưa có thì SL đề xuất; mặc định bỏ đơn Đã hủy / Từ chối / TN từ chối):
+  phân loại theo ticket thiếu LK mới nhất của đơn — không có ticket = Bình thường; LK nhóm b2b = B2B; lý do "Do nhà máy hết hàng" = Khách quan;
+  ticket Đã kết thúc / Kho xác nhận hàng về / có ngày hàng về / đơn đã vào phiếu = Đã về hàng; còn lại = Có đơn thiếu.
+  Tỷ lệ = Có đơn thiếu ÷ (Có đơn thiếu + Bình thường + Đã về hàng); B2B + Khách quan không tính. Mục tiêu MB 1,5%, MN 2%. "Tỷ lệ phát sinh" = (thiếu + đã về) ÷ cùng mẫu số.
+- **Tốc độ Kho** (phiếu tạo trong tháng): giờ từ `chot_ke_toan_luc` → log đầu tiên Đang gửi KTV / Hàng trừ kho / Kho đã kết thúc / Kho đã nhận hàng trả.
+  Đạt ≤ 24 giờ lịch (kèm ≤ 8 giờ làm việc theo `lib/gioLamViec.ts`). Chưa chốt: không xét; đã chốt chưa xuất còn trong hạn: "Đang xử lý" (không vào tỷ lệ); quá hạn chưa xuất: Không đạt.
+- **Đơn có mã sự cố / Lada** (bỏ đơn hủy; giá trị "Ko", "k", "0", "-"… coi như không có mã): giờ tạo đơn → Kho xuất, giờ tạo đơn → hoàn tất
+  (KTV đã nhận / Hàng trừ kho / Kho đã kết thúc / Kho đã nhận hàng trả), chưa xong thì tính đến lúc chạy.
+
 ## 10. Lịch chạy tự động (cron mỗi giờ)
 
 Đồng bộ danh bạ KTV / danh mục LK sang DVBH + app Bảo hành mỗi giờ; giá gia88 0h VN; ETX nhân sự 0h thứ Hai (tự tạo KTV + tài khoản, nghỉ
