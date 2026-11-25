@@ -1520,11 +1520,16 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
   // văn phòng".
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
   const chuyenSangVanPhong = useMutation({
-    mutationFn: (email: string) => api.post(`/users/${encodeURIComponent(email)}/chuyen-nhom-vai-tro`, { to: "van_phong" }),
-    onSuccess: async (_res, email) => {
+    mutationFn: (email: string) => api.post<{ ok: true; ma_giu_lien_ket?: string[] }>(`/users/${encodeURIComponent(email)}/chuyen-nhom-vai-tro`, { to: "van_phong" }),
+    onSuccess: async (kq, email) => {
       await qc.invalidateQueries({ queryKey: ["settings-ktv"] });
       await qc.invalidateQueries({ queryKey: ["users"] });
-      addToast("Đã chuyển sang nhóm văn phòng - chọn vai trò cụ thể bên dưới");
+      const giu = kq?.ma_giu_lien_ket ?? [];
+      addToast(
+        giu.length
+          ? `Đã chuyển sang nhóm văn phòng — giữ liên kết mã ${giu.join(", ")} (có Mã MISA / đã có đơn) để đơn không mất Mã MISA. Chọn vai trò cụ thể bên dưới`
+          : "Đã chuyển sang nhóm văn phòng - chọn vai trò cụ thể bên dưới",
+      );
       const res = await api.get<{ rows: UserRow[] }>(`/users?tab=da-duyet&search=${encodeURIComponent(email)}`);
       const u = res.rows.find((r) => r.email === email);
       if (u) setEditingUser(u);
@@ -1753,7 +1758,7 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
               onClick={() => {
                 if (
                   window.confirm(
-                    `Chuyển tài khoản "${r.email_dang_nhap}" sang nhóm Nhân viên văn phòng?\n\nSẽ tắt cờ KTV DVBH/Vệ tinh và huỷ liên kết với hồ sơ KTV "${r.ma_ktv}" (danh bạ vẫn giữ nguyên nhưng mã tự chuyển "Mã đã tắt", bật lại được ở cột Tài khoản). Bạn cần chọn vai trò văn phòng cụ thể (Kho/Kế toán/TN/...) ngay sau đó.`,
+                    `Chuyển tài khoản "${r.email_dang_nhap}" sang nhóm Nhân viên văn phòng?\n\nSẽ tắt cờ KTV DVBH/Vệ tinh . Mã KTV "${r.ma_ktv}": nếu có Mã MISA hoặc đã có đơn thì GIỮ liên kết (đơn không mất Mã MISA, mã hiện nhãn "VP: …" ở thẻ này); nếu chưa dùng thì huỷ liên kết và tự tắt mã (bật lại được ở cột Tài khoản). Bạn cần chọn vai trò văn phòng cụ thể (Kho/Kế toán/TN/...) ngay sau đó.`,
                   )
                 ) {
                   chuyenSangVanPhong.mutate(r.email_dang_nhap!);

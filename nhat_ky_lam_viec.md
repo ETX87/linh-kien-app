@@ -558,3 +558,17 @@ Chưa xem giao diện bằng trình duyệt (cần đăng nhập Google Admin).
   (trước: cả 6 đang bật; bật lại được bằng công tắc).
 
 **Kiểm thử:** typecheck 2 phía 0 lỗi, build xanh. Chưa xem giao diện bằng trình duyệt (cần đăng nhập Google Admin).
+
+## 2026-11-25 — v1.559: Sửa lỗi đơn mất Mã MISA sau khi chuyển tài khoản sang văn phòng
+
+**Yêu cầu (nguyên văn):** "kiểm tra đơn tạo của nhất tâm lại không ra thông tin mã misa => check bug".
+
+**Nguyên nhân:** Mã MISA của đơn không lưu trên đơn mà tra theo người nhận hàng → mã KTV đang gắn Gmail đó. Sáng 25/11 tài khoản được
+"Chuyển sang văn phòng" → Gmail bị gỡ khỏi mã NS-848 (Mã MISA TBP04) → 5 đơn của anh Nhất Tâm (3 đơn đang mở) mất Mã MISA. Cùng lỗi: NS-044
+(NV0000015, 1 đơn đang mở).
+
+**Đã sửa:** `POST /users/:email/chuyen-nhom-vai-tro` (van_phong) giữ liên kết mã có Mã MISA hoặc Gmail đã có đơn; chỉ gỡ + tắt mã chưa dùng.
+Toast + hộp xác nhận ở thẻ KTV nói rõ. Dữ liệu: gắn lại NS-848 → nhattam8688@…, NS-044 → huonggiang20124@…, bật lại 2 mã (trước: chưa gắn, đã tắt).
+4 mã còn lại tắt ở v1.558 không có Mã MISA / đơn → giữ nguyên.
+
+**Kiểm thử:** typecheck 2 phía 0 lỗi; câu điều kiện chạy thử trên D1 thật (GS01 có Mã MISA → giữ liên kết).

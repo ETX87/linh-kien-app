@@ -261,14 +261,23 @@ users.post("/:email/chuyen-nhom-vai-tro", async (c) => {
 
   const now = nowVN();
   if (body.to === "van_phong") {
+    // GIU LIEN KET ma KTV neu ma co Ma MISA hoac Gmail da co don (nguoi nhan hang) - 2026-11-25 v1.559, bug "đơn tạo của nhất tâm lại
+    // không ra thông tin mã misa": Ma MISA cua don KHONG luu tren don ma tra theo nguoi_nhan_hang -> ma KTV dang gan Gmail
+    // (ktvChinhCuaEmailSql) => go Gmail la moi don cu mat Ma MISA (file MISA, chot ke toan). Ma giu lai hien o the KTV kem nhan "VP: ..."
+    // (giong GS co ma dat hang). Ma con lai (tao nham, chua dung) -> go Gmail + TU TAT (v1.558), Admin bat lai duoc.
+    const dieuKienGo = `email_dang_nhap = ?1 AND NULLIF(TRIM(COALESCE(ma_misa, '')), '') IS NULL
+       AND NOT EXISTS (SELECT 1 FROM dat_don_hang d WHERE d.nguoi_nhan_hang = ?1)`;
+    const { results: giu } = await c.env.DB.prepare(`SELECT ma_ktv FROM ktv_lien_he WHERE email_dang_nhap = ?1 AND NOT (${dieuKienGo})`)
+      .bind(email)
+      .all<{ ma_ktv: string }>();
     await c.env.DB.batch([
       c.env.DB.prepare("UPDATE users SET la_ktv_dvbh = 0, la_ve_tinh = 0, updated_at = ?, quyen_sua_boi = ? WHERE email = ?").bind(now, c.get("realEmail"), email),
-      // Tu TAT ma KTV cu (ngung_hoat_dong = 1, 2026-11-25 v1.558): danh ba giu lai (ton kho / lich su theo ma) nhung khong con hien
-      // nhu KTV dang lam o the "KTV hiện trường"; Admin bat lai duoc bang cong tac o cot "Tài khoản".
-      c.env.DB.prepare("UPDATE ktv_lien_he SET email_dang_nhap = NULL, ngung_hoat_dong = 1, ngay_cap_nhat = ? WHERE email_dang_nhap = ?").bind(now, email),
+      c.env.DB.prepare(`UPDATE ktv_lien_he SET email_dang_nhap = NULL, ngung_hoat_dong = 1, ngay_cap_nhat = ?2 WHERE ${dieuKienGo}`).bind(email, now),
     ]);
     await resyncKhuVucDerivedFieldsForEmail(c.env.DB, email);
     await refreshKtvHash(c.env.DB);
+    c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["users"]));
+    return c.json({ ok: true, ma_giu_lien_ket: giu.map((r) => r.ma_ktv) });
   } else {
     await c.env.DB.batch([
       c.env.DB.prepare(
