@@ -267,6 +267,7 @@ export function TaoDonTab({
                       onApDung={(phan) => { apDungThayThe(idx, phan); addToast(t("Đã chia thành {n} dòng theo đề xuất", { n: phan.length })); }}
                     />
                   </div>
+                  <PhiDichVuInput form={form} d={d} idx={idx} />
                   {chuaCoGiaKtv && <CanhBaoChuaCoGiaKtv />}
                   {d.ma_lk.trim() && !lk?.combo && (
                     <div className="mt-2"><ThayTheGoiY maLk={d.ma_lk.trim()} addToast={addToast} onChon={(ma) => updateDraft(idx, { ma_lk: ma })} khuVuc={form.kiemTra?.khu_vuc} /></div>
@@ -689,4 +690,5 @@ import { canNoRequired, maYcscRequired, coMaIdLienQuan, laMuaCongNoDoiTac, laDon
 import { MaDonBhInput, useGoiYDonBh, donBhKhop, canhBaoLoaiDonBh } from "./CongNoSuaChua";
 import { Money } from "../../components/ui/Money";
 import { TongNgayKtvInfo, CanhBaoChuaCoGiaKtv } from "./TongNgayKtv";
+import { PhiDichVuInput } from "./PhiDichVu";
 import { t, dichSau } from "../../i18n";

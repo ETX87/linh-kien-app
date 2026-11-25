@@ -125,6 +125,20 @@ export function chuanMaDonBh(v: string | null | undefined): string | null {
   return laMaDonBhApp(s) ? s.toUpperCase() : s;
 }
 
+// MA PHI DICH VU (2026-11-25, v1.561 - nguyen van: "với mã linh kiện phí dịch vụ (đang để 150.000) cho phép ktv sửa lại số tiền thực tế"):
+// nhan dien theo TEN linh kien chua "phi dich vu" (so khong dau / hoa-thuong) - bat ca ma 10002 "Phí dịch vụ" lan 1002 "phí dịch vụ", khong can
+// cot danh muc moi. Ma nay KTV duoc nhap don gia thuc te luc tao don (POST /phieu-dat gia_ktv_nhap) -> ghi dat_don_hang.gia_chot (gia chot
+// LUON thang gia theo chiet khau, xem tinhToanPxk). Ban sao FE: helpers.ts laPhiDichVu.
+export function laPhiDichVu(tenLk: string | null | undefined): boolean {
+  return (tenLk ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/gi, "d")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .includes("phi dich vu");
+}
+
 export function laMuaCongNoDoiTac(loaiDeXuat: string | null | undefined): boolean {
   return (loaiDeXuat ?? "").normalize("NFC").toUpperCase().includes("CÔNG NỢ ĐỐI TÁC");
 }

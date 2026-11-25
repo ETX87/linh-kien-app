@@ -251,6 +251,8 @@ nếu có khác biệt với C1/C2 ở trên)
   **audit ma trận quyền hôm nay cho thấy đây là 1 NGUYÊN TẮC CHUNG cần rà soát thêm** ở các chỗ khác
   (QC/TP DVBH ở màn Báo cáo và Trả hàng chỉ-xem — xem Vấn đề #2, #5 trong `Ma_tran_kiem_soat_he_thong.xlsx`,
   sheet "5. Vấn đề phát hiện").
+- **Phí dịch vụ do KTV nhập số tiền thực tế** (25/11/2026): "với mã linh kiện phí dịch vụ (đang để 150.000) cho phép ktv sửa lại số tiền thực tế. (khi ktv chọn mã phí dịch vụ, hiện cảnh báo là phí có thể thay đổi và hiện số tiền để ktv nhập hoặc giữ nguyên)" → ✅ Đã làm (v1.561): chọn mã có tên
+  "phí dịch vụ" → cảnh báo + ô số tiền điền sẵn giá danh mục, giữ nguyên hoặc sửa; số khác ghi làm giá chốt của đơn.
 
 ---
 

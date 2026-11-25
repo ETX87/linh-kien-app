@@ -284,6 +284,18 @@ export function khongTinhCongNo(loaiDeXuat: string | null | undefined): boolean 
   return laKhTraGop(loaiDeXuat) || laHoTro0Dong(loaiDeXuat) || laHoTroSuaChua0d(loaiDeXuat);
 }
 
+/** Ban sao laPhiDichVu (backend lib/pxkRecalculate.ts, v1.561 - 2026-11-25): LK co TEN chua "phí dịch vụ" (ma 10002 / 1002) - KTV duoc nhap
+ * don gia THUC TE luc tao don (draft.gia_dv) thay gia danh muc; server ghi gia_chot. */
+export function laPhiDichVu(tenLk: string | null | undefined): boolean {
+  return (tenLk ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").toLowerCase().replace(/\s+/g, " ").includes("phi dich vu");
+}
+/** Don gia phi dich vu KTV nhap tren form: undefined = chua sua (giu gia danh muc), null = o dang trong / sai (chua dat duoc), so = gia nhap. */
+export function giaPhiDichVuNhap(giaDv: string | undefined): number | null | undefined {
+  if (giaDv === undefined) return undefined;
+  const n = Number(giaDv.replace(/\D/g, ""));
+  return giaDv.replace(/\D/g, "") && Number.isFinite(n) && n > 0 && n <= 1_000_000_000 ? n : null;
+}
+
 /** Ban sao boQuaTbpChoDacThu() (backend datMuaLinhKien.ts): loai MUA / HỖ TRỢ / TRỪ CÔNG NỢ bo qua buoc TBP du LK dac thu. */
 export function boQuaTbpDacThu(loaiDeXuat: string | null | undefined): boolean {
   const upper = (loaiDeXuat ?? "").toUpperCase();

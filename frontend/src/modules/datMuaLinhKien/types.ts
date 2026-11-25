@@ -615,6 +615,8 @@ export interface DonHangDraft {
   bh_tu_dien?: { ma_yeu_cau_su_co: string; tt_mail_duyet: string; tt_khach_hang: string; ghi_chu: string };
   // "Khách hàng đã chuyển khoản về công ty" (migration 0111) - chi khi da chon 1 hinh thuc xuat hoa don (KhChuyenKhoan.tsx).
   kh_chuyen_khoan?: boolean;
+  // PHI DICH VU (v1.561): don gia thuc te KTV go (chi so) - undefined = giu gia danh muc. Doi Ma LK -> xoa.
+  gia_dv?: string;
 }
 
 export interface XepHangLinhKienRow {

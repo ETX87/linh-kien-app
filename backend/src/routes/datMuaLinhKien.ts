@@ -34,7 +34,7 @@ import { computeMocDuPhongHienTai } from "../lib/duPhongKtv";
 import { computeTonKhoChot, donChoHangDuTonKho, getMocTonKhoCongTy } from "../lib/tonKhoCongTy";
 import { tachDonChoHang } from "../lib/tachDon";
 import { bundleAutoApprovedIntoPxk } from "../lib/pxkAutoBundle";
-import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon, laKhTraGop, khongTinhCongNo, laMuaCongNoDoiTac, laCongNoSuaChua, chuanMaDonBh, laMaDonBhApp, laTruCongNoSuaChua, laTraHangSuaChua, laDonSuaChua, laMuaHangSuaChua, loaiDeXuatTheoDonBh } from "../lib/pxkRecalculate";
+import { taiTinhPxk, taiTinhPxkMoCuaKtv, laTruCongNo, tongNgayKtv, tienUocTinhChoDon, laKhTraGop, khongTinhCongNo, laMuaCongNoDoiTac, laCongNoSuaChua, chuanMaDonBh, laMaDonBhApp, laTruCongNoSuaChua, laTraHangSuaChua, laDonSuaChua, laMuaHangSuaChua, loaiDeXuatTheoDonBh, laPhiDichVu } from "../lib/pxkRecalculate";
 import { goiYDonBh, traDonBh } from "../lib/donBhClient";
 import { duocChonMoiDoiTac, maMisaCuaEmail } from "../lib/congNoDoiTac";
 import { computeTonKtvConLai } from "../lib/tonKhoKtv";
@@ -2306,6 +2306,8 @@ export interface PhieuDatBody {
     // v1.547: loai he thong goi y theo don bao hanh KHAC loai nguoi dat chon (server tu dien trong chuanBiPhieuDat, client gui len bi bo qua).
     loai_goi_y?: string | null;
     loai_goi_y_ly_do?: string | null;
+    // v1.561 (2026-11-25): don gia THUC TE KTV nhap cho ma PHI DICH VU (laPhiDichVu) - khac gia danh muc thi ghi gia_chot. Ma khac -> bo qua.
+    gia_ktv_nhap?: number | null;
   }[];
 }
 
@@ -2471,7 +2473,16 @@ async function chuanBiPhieuDat(
   ).bind(JSON.stringify(maLkList)).all<LkDongPhieu>();
   const lkMap = new Map(lkRows.map((r) => [r.ma_linh_kien, r]));
   for (const dh of body.don_hang) {
-    if (!lkMap.get(dh.ma_lk.trim())) return { error: "MA_LK_NOT_FOUND", status: 400, extra: { ma_lk: dh.ma_lk } };
+    const lk = lkMap.get(dh.ma_lk.trim());
+    if (!lk) return { error: "MA_LK_NOT_FOUND", status: 400, extra: { ma_lk: dh.ma_lk } };
+    // PHI DICH VU (v1.561): KTV nhap don gia thuc te (> 0, toi da 1 ty). Ma khong phai phi dich vu / trung gia danh muc -> bo (giu gia danh muc).
+    if (dh.gia_ktv_nhap == null || !laPhiDichVu(lk.ten_lk)) {
+      dh.gia_ktv_nhap = null;
+    } else {
+      const g = Number(dh.gia_ktv_nhap);
+      if (!(Number.isFinite(g) && g > 0 && g <= GIA_TOI_DA)) return { error: "GIA_PHI_DICH_VU_KHONG_HOP_LE", status: 400, extra: { ma_lk: dh.ma_lk } };
+      dh.gia_ktv_nhap = Math.round(g) === lk.gia_ban ? null : Math.round(g);
+    }
   }
 
   // Bo quyet dinh dung chung (lib/tuDongDuyet.ts): chan / TBP / GS (vuot tran) / tu duyet / cho thanh toan / cho hang.
@@ -2479,7 +2490,8 @@ async function chuanBiPhieuDat(
   const dongs: DongDanhGia[] = body.don_hang.map((dh) => {
     const lk = lkMap.get(dh.ma_lk.trim())!;
     return {
-      ma_lk: dh.ma_lk.trim(), loai_de_xuat: dh.loai_de_xuat.trim(), so_luong: dh.so_luong_de_xuat, gia_ban: lk.gia_ban, dac_thu: lk.dac_thu,
+      // Phi dich vu KTV nhap gia thuc te -> danh gia (chuyen tien / gia 0 / qua 1 ty / cong no doi tac) theo gia do.
+      ma_lk: dh.ma_lk.trim(), loai_de_xuat: dh.loai_de_xuat.trim(), so_luong: dh.so_luong_de_xuat, gia_ban: dh.gia_ktv_nhap ?? lk.gia_ban, dac_thu: lk.dac_thu,
       cho_phep_gia_0: lk.cho_phep_gia_0, gia_tri_cong_no: lk.gia_tri_cong_no, doi_tac_ma: dh.doi_tac_ma ?? null,
     };
   });
@@ -2794,11 +2806,14 @@ export async function taoPhieuDat(c: Context<{ Bindings: Env }>, bodyGoc: PhieuD
     const donHangId = await nextSequentialId(c.env.DB, "dat_don_hang", "DDH", 6);
     const trangThaiKhoiTao = kqDong.trangThai;
     if ((trangThaiKhoiTao === "TN da duyet" || kqDong.batBuocChuyenTien) && (loai_don === "mua" || loai_don === "cong_no")) {
-      vaoPhieu[loai_don].push({ donHangId, soTien: (lk.gia_ban ?? 0) * dh.so_luong_de_xuat });
+      vaoPhieu[loai_don].push({ donHangId, soTien: (dh.gia_ktv_nhap ?? lk.gia_ban ?? 0) * dh.so_luong_de_xuat });
     }
     const ghiChuLog = [
       ghiChuKhoiTao(kqDong, dh.so_luong_de_xuat, danhGia),
       dh.loai_goi_y ? `⚠ Chọn loại "${lde}" KHÁC loại hệ thống gợi ý "${dh.loai_goi_y}" (${dh.loai_goi_y_ly_do})` : null,
+      dh.gia_ktv_nhap != null
+        ? `💲 Phí dịch vụ: người đặt nhập đơn giá thực tế ${dh.gia_ktv_nhap.toLocaleString("vi-VN")}đ (giá danh mục ${(lk.gia_ban ?? 0).toLocaleString("vi-VN")}đ) — ghi làm giá chốt`
+        : null,
     ].filter(Boolean).join("\n") || null;
     notifyQueue.push({ donHangId, trangThai: trangThaiKhoiTao, tenLkNoiDung: `"${lk.ten_lk} (x${dh.so_luong_de_xuat})"`, lyDo: ghiChuLog });
     statements.push(
@@ -2807,8 +2822,8 @@ export async function taoPhieuDat(c: Context<{ Bindings: Env }>, bodyGoc: PhieuD
            (id, phieu_dat_id, loai_don, ma_lk, ten_lk_snapshot, loai_de_xuat, so_luong_de_xuat, gia_de_xuat,
             so_tien_cong_no, danh_gia_cong_no, ghi_chu, yeu_cau_hoa_don, tt_mail_duyet, tt_khach_hang, chinh_sach, ma_yeu_cau_su_co, ma_lada,
             nguoi_tao, ngay_tao, updated_at, email_gs, nguoi_nhan_hang, uu_tien, trang_thai_hien_tai, bat_buoc_chuyen_tien, combo_ma, doi_tac_ma,
-            kh_chuyen_khoan, bh_don_vi_id, bh_lien_ket, loai_goi_y, loai_goi_y_ly_do)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            kh_chuyen_khoan, bh_don_vi_id, bh_lien_ket, loai_goi_y, loai_goi_y_ly_do, gia_chot)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         donHangId, phieuDatId, loai_don, dh.ma_lk.trim(), lk.ten_lk, lde, dh.so_luong_de_xuat, lk.gia_ban,
         kqDong.soTienCongNo, kqDong.danhGiaCongNo,
@@ -2817,6 +2832,7 @@ export async function taoPhieuDat(c: Context<{ Bindings: Env }>, bodyGoc: PhieuD
         user.email, now, now, kq.emailGs, nguoiNhanHang, dh.uu_tien ? 1 : 0, trangThaiKhoiTao, kqDong.batBuocChuyenTien ? 1 : 0,
         comboMaCuaDong[i] ?? null, dh.doi_tac_ma ?? null, dh.kh_chuyen_khoan ? 1 : 0, dh.bh_don_vi_id ?? null,
         dh.bh_don_vi_id && lienKetBh.get(dh.bh_don_vi_id) ? 1 : 0, dh.loai_goi_y ?? null, dh.loai_goi_y_ly_do ?? null,
+        dh.gia_ktv_nhap ?? null,
       ),
     );
     if (loai_don !== "tra_hang") {

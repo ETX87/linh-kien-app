@@ -1627,6 +1627,18 @@ Nguyên văn: *"các logic quá hạn SLA trên toàn bộ hệ thống từ 24h
   "TB giờ xử lý" và "TB giờ (toàn hệ thống)" + file Excel — chỉ hiển thị, không đổi API.
 - KHÔNG đổi (không phải SLA): đẩy lại đơn / ticket trong 24h, trả hàng tự hủy 10 ngày, tự xác nhận nhận hàng 10 ngày.
 
+## Phí dịch vụ — KTV nhập số tiền thực tế (25/11/2026) — v1.561
+- Nguyên văn: "với mã linh kiện phí dịch vụ (đang để 150.000) cho phép ktv sửa lại số tiền thực tế. (khi ktv chọn mã phí dịch vụ, hiện cảnh báo là phí có thể thay đổi và hiện số tiền để ktv nhập hoặc giữ nguyên)".
+- Nhận diện: `laPhiDichVu(ten_linh_kien)` — tên chứa "phi dich vu" sau khi bỏ dấu (BE `lib/pxkRecalculate.ts`, FE `datMuaLinhKien/helpers.ts`, đổi 1 bên đổi cả 2).
+  Chọn theo tên để bắt cả 2 mã đang dùng (`10002`, `1002`) mà không thêm cột danh mục.
+- FE: `DonHangDraft.gia_dv` (chuỗi số; undefined = giữ giá danh mục, đổi Mã LK / sao chép / tách thay thế → xoá). `useTaoDonForm.giaDvDraft(d)` →
+  `{ laPdv, gia, hopLe }`; `isLineComplete` chặn ô trống / 0; `giaUocTinhDong` trả gia nhập × SL (nhãn "Phí dịch vụ thực tế"); gửi `gia_ktv_nhap`
+  ở cả `/phieu-dat` lẫn `/phieu-dat/kiem-tra`. UI `PhiDichVu.tsx` (`PhiDichVuInput`) đặt dưới ô Mã LK ở `TaoDonTab` + `TaoDonMobileScreen`.
+- BE `chuanBiPhieuDat`: `gia_ktv_nhap` chỉ giữ khi mã là phí dịch vụ; kiểm > 0 và ≤ `GIA_TOI_DA` (lỗi `GIA_PHI_DICH_VU_KHONG_HOP_LE`); trùng `gia_ban` → bỏ.
+  `DongDanhGia.gia_ban` = giá nhập. `taoPhieuDat` INSERT thêm `gia_chot` (= giá nhập), `gia_de_xuat` giữ ảnh chụp giá danh mục; log khởi tạo thêm dòng 💲.
+  Tiền phiếu: `tinhToanPxk` đã ưu tiên `gia_chot` cho mọi nhánh có tiền → không đổi công thức.
+- Không áp: đơn công nợ / hỗ trợ (tiền = `so_tien_cong_no`), Import Excel, API đối tác, form sửa đơn của người tạo.
+
 ## Nhận việc từ Trợ lý Mây (tự sửa)
 - Issue gắn nhãn `may:phan-tich` là ĐỀ XUẤT CẢI TIẾN cần phân tích trước: workflow `may-phan-tich` chỉ ĐỌC mã để soạn BRD cho Giám đốc duyệt — không sửa mã ở bước này. Khi duyệt, BRD nằm ở đầu issue; làm đúng BRD và lưu nó vào `docs/yeu-cau/MAY-xxxxx.md`.
 - Issue gắn nhãn `may:tu-sua` là việc do Trợ lý Mây chuyển sang, mã `MAY-xxxxx` ở tiêu đề. Sửa ĐÚNG phạm vi mô tả.

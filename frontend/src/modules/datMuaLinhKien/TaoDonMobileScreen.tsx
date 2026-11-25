@@ -22,6 +22,7 @@ import { TraHangAnhPicker, NhapKhoiPhucBanner } from "./SharedUi";
 import type { TaoDonForm } from "./useTaoDonForm";
 import { Money } from "../../components/ui/Money";
 import { TongNgayKtvInfo, CanhBaoChuaCoGiaKtv } from "./TongNgayKtv";
+import { PhiDichVuInput } from "./PhiDichVu";
 import { t } from "../../i18n";
 import { KhachLeSdt } from "./KhachLeSdt";
 
@@ -223,6 +224,7 @@ export function TaoDonMobileScreen({
         <div>
           <label className={reqLabelClass(!d.ma_lk.trim())}>{t("Mã linh kiện *")}</label>
           <LinhKienPicker value={d.ma_lk} onChange={(v) => updateDraft(activeIdx, { ma_lk: v })} options={danhMuc} autoFocus={justAdded} loaiDeXuat={d.loai_de_xuat} />
+          <PhiDichVuInput form={form} d={d} idx={activeIdx} cao="h-11" />
         </div>
 
         <div>

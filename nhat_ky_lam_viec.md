@@ -588,3 +588,26 @@ phiếu bị giữ "Chờ KTV chuyển" cần chuyển 0đ → nút duyệt (ch�
 đã đủ tiền, cũng không còn phiếu "KTV đã chuyển" thiếu tiền mà quỹ người nhận còn dư.
 
 **Kiểm thử:** typecheck backend 0 lỗi, build xanh. Chưa thử lại thao tác duyệt trên giao diện.
+
+## 2026-11-25 — v1.561: KTV sửa số tiền thực tế cho mã Phí dịch vụ
+
+**Yêu cầu (nguyên văn):** "với mã linh kiện phí dịch vụ (đang để 150.000) cho phép ktv sửa lại số tiền thực tế. (khi ktv chọn mã phí dịch vụ, hiện cảnh báo là phí có thể thay đổi và hiện số tiền để ktv nhập hoặc giữ nguyên)".
+
+**Đã làm:**
+- Nhận diện "mã phí dịch vụ" theo TÊN linh kiện có chữ "phí dịch vụ" (không phân biệt dấu / hoa thường) → bắt cả mã `10002` "Phí dịch vụ" lẫn `1002`
+  "phí dịch vụ" (đều 150.000đ), không cần migration / cột mới. Hàm `laPhiDichVu` (BE `lib/pxkRecalculate.ts`, bản sao FE `helpers.ts`).
+- Form tạo đơn (web + điện thoại): chọn mã phí dịch vụ → khung vàng cảnh báo "Phí dịch vụ có thể thay đổi theo thực tế…" + ô **Số tiền thực tế (đ)**
+  điền sẵn giá danh mục; KTV gõ số khác hoặc bấm "↺ Giữ nguyên". Ô trống / 0 → dòng chưa đủ thông tin, không tạo được. Giá ước tính, tổng đơn,
+  tiền đối tác trên form theo số đã nhập; ẩn cảnh báo "chưa có Giá KTV" với mã này. Component `PhiDichVu.tsx`.
+- Server `POST /phieu-dat` (+ `/phieu-dat/kiem-tra`) nhận `gia_ktv_nhap` (chỉ khi mã là phí dịch vụ; > 0, ≤ 1 tỷ, sai → `GIA_PHI_DICH_VU_KHONG_HOP_LE`).
+  Số khác giá danh mục → ghi `dat_don_hang.gia_chot` (giá chốt luôn thắng chiết khấu → PXK, MISA, quỹ đều theo số này) + dòng log
+  "💲 Phí dịch vụ: người đặt nhập đơn giá thực tế …". Bộ quyết định tự duyệt (chuyển tiền / giá 0 / công nợ đối tác) dùng số đã nhập.
+- Bản dịch EN / ID cho các câu mới.
+
+**Giới hạn:** chỉ tác động đơn có tiền (mua / trừ công nợ / công nợ đối tác); đơn loại công nợ / hỗ trợ vẫn tính theo giá trị công nợ như cũ.
+Import Excel, API đối tác và sửa đơn sau khi tạo không có ô này (Kế toán vẫn sửa giá chốt như trước).
+
+**Kiểm thử:** typecheck 2 phía 0 lỗi, build xanh, bản dịch không thiếu câu mới. Chạy local (DB demo, thêm mã 10002): API kiểm tra trước nhận 250.000 → tự duyệt,
+-5 → báo lỗi; tạo đơn trên giao diện web nhập 250.000 → DDH-000185 `gia_chot` 250.000, log đúng, phiếu PMH-000033 dòng phí dịch vụ 250.000đ
+(các dòng khác vẫn chiết khấu theo giá KTV). Chưa chụp màn điện thoại (dùng chung component).
+

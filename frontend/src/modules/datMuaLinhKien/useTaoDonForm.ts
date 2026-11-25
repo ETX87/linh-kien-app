@@ -6,7 +6,7 @@ import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { getOptionsForUser } from "../../lib/loaiDeXuatCache";
 import type { DonHangDraft, KhachLeRow, NguoiNhanHangKhaDungRow, KiemTraPhieuDat, KiemTraDong, KetQuaTaoDon } from "./types";
-import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, khongTinhCongNo, useLkCombo, comboThanhLkRow, chinhSachMacDinh, laMuaCongNoDoiTac, laCongNoSuaChua, laDonSuaChua, chuanMaDonBh } from "./helpers";
+import { describeApiError, canNoRequired, maYcscRequired, coMaIdLienQuan, pickLdeQuick, emptyDraft, useLkAndLdeCache, invalidatePipelineCounts, deriveLoaiDon, laTruCongNo, laKhTraGop, khongTinhCongNo, useLkCombo, comboThanhLkRow, chinhSachMacDinh, laMuaCongNoDoiTac, laCongNoSuaChua, laDonSuaChua, chuanMaDonBh, laPhiDichVu, giaPhiDichVuNhap } from "./helpers";
 import { t } from "../../i18n";
 import { GENERIC_ERROR_MESSAGES } from "./constants";
 import { coYeuCauHoaDon } from "./LoaiChietKhau";
@@ -269,6 +269,19 @@ export function useTaoDonForm({
   // v1.538 ("có ktv muốn được chuyển về trong cùng 1 lần"): mac dinh TACH phieu moi cho chuyen tien; true = gop vao phieu da du tien.
   const [gopPhieuDaDuTien, setGopPhieuDaDuTien] = useState(false);
 
+  // PHI DICH VU (v1.561 - "khi ktv chọn mã phí dịch vụ, hiện cảnh báo là phí có thể thay đổi và hiện số tiền để ktv nhập hoặc giữ nguyên"):
+  // dong chon ma co ten "phí dịch vụ" -> o so tien (mac dinh = gia danh muc). gia = don gia KTV da sua (null = giu gia danh muc / chua phai
+  // phi dich vu); hopLe = false khi o dang trong / sai.
+  function giaDvDraft(d: DonHangDraft): { laPdv: boolean; gia: number | null; hopLe: boolean } {
+    const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
+    if (!lk || !laPhiDichVu(lk.ten_linh_kien)) return { laPdv: false, gia: null, hopLe: true };
+    const g = giaPhiDichVuNhap(d.gia_dv);
+    if (g === undefined) return { laPdv: true, gia: null, hopLe: true };
+    if (g === null) return { laPdv: true, gia: null, hopLe: false };
+    return { laPdv: true, gia: g === lk.gia_ban ? null : g, hopLe: true };
+  }
+  const giaKtvNhapGui = (d: DonHangDraft) => giaDvDraft(d).gia ?? undefined;
+
   const createMutation = useMutation({
     mutationFn: () =>
       api.post<KetQuaTaoDon>("/dat-mua-lk/phieu-dat", {
@@ -292,6 +305,7 @@ export function useTaoDonForm({
           doi_tac_ma: laMuaCongNoDoiTac(d.loai_de_xuat) ? d.doi_tac_ma || undefined : undefined,
           kh_chuyen_khoan: d.kh_chuyen_khoan && duocTichKhChuyenKhoan(d) ? true : undefined,
           bh_don_vi_id: laDonSuaChua(d.loai_de_xuat) ? chuanMaDonBh(d.bh_don_vi_id) ?? undefined : undefined,
+          gia_ktv_nhap: giaKtvNhapGui(d),
         })),
       }),
     onSuccess: (res) => {
@@ -337,7 +351,7 @@ export function useTaoDonForm({
   const kiemTraKey = JSON.stringify({
     n: nguoiNhanHang,
     dong: dongKiemTra.map(({ d }) => [d.ma_lk.trim(), d.loai_de_xuat.trim(), d.so_luong_de_xuat, laMuaCongNoDoiTac(d.loai_de_xuat) ? d.doi_tac_ma : "",
-      d.yeu_cau_hoa_don.trim(), d.kh_chuyen_khoan && duocTichKhChuyenKhoan(d) ? 1 : 0]),
+      d.yeu_cau_hoa_don.trim(), d.kh_chuyen_khoan && duocTichKhChuyenKhoan(d) ? 1 : 0, giaKtvNhapGui(d) ?? 0]),
   });
   const [kiemTraKeyTre, setKiemTraKeyTre] = useState(kiemTraKey);
   useEffect(() => {
@@ -347,13 +361,14 @@ export function useTaoDonForm({
   const { data: kiemTra, isFetching: dangKiemTra } = useQuery({
     queryKey: ["dat-mua-lk-phieu-dat-kiem-tra", kiemTraKeyTre],
     queryFn: () => {
-      const k = JSON.parse(kiemTraKeyTre) as { n: string; dong: [string, string, number, string, string?, number?][] };
+      const k = JSON.parse(kiemTraKeyTre) as { n: string; dong: [string, string, number, string, string?, number?, number?][] };
       return api.post<KiemTraPhieuDat>("/dat-mua-lk/phieu-dat/kiem-tra", {
         nguoi_nhan_hang: k.n || undefined,
         // + hinh thuc hoa don / KH chuyen khoan (v1.538) - de server biet dong vao NHOM phieu nao (goi y gop phieu da du tien).
-        don_hang: k.dong.map(([ma_lk, loai_de_xuat, so_luong_de_xuat, doi_tac_ma, yeu_cau_hoa_don, kh_chuyen_khoan]) => ({
+        don_hang: k.dong.map(([ma_lk, loai_de_xuat, so_luong_de_xuat, doi_tac_ma, yeu_cau_hoa_don, kh_chuyen_khoan, gia_ktv_nhap]) => ({
           ma_lk, loai_de_xuat, so_luong_de_xuat, doi_tac_ma: doi_tac_ma || undefined,
           yeu_cau_hoa_don: yeu_cau_hoa_don || undefined, kh_chuyen_khoan: kh_chuyen_khoan ? true : undefined,
+          gia_ktv_nhap: gia_ktv_nhap || undefined,
         })),
       });
     },
@@ -415,6 +430,8 @@ export function useTaoDonForm({
       prev.map((d, i) => {
         if (i !== idx) return d;
         const next = { ...d, ...patch };
+        // Doi Ma LK -> bo don gia phi dich vu da nhap cho ma cu (v1.561).
+        if (patch.ma_lk !== undefined && patch.ma_lk !== d.ma_lk && patch.gia_dv === undefined) next.gia_dv = undefined;
         // Doi loai de xuat: chinh sach dang trong (hoac la gia tri tu dien cua loai cu) -> theo mac dinh cua loai moi.
         if (patch.loai_de_xuat !== undefined && patch.chinh_sach === undefined && (!d.chinh_sach.trim() || d.chinh_sach === chinhSachMacDinh(d.loai_de_xuat))) {
           next.chinh_sach = chinhSachMacDinh(patch.loai_de_xuat);
@@ -431,7 +448,7 @@ export function useTaoDonForm({
     setDrafts((prev) => {
       const goc = prev[idx];
       if (!goc) return prev;
-      const moi = phan.map((p) => ({ ...goc, ma_lk: p.ma_lk, so_luong_de_xuat: p.sl }));
+      const moi = phan.map((p) => ({ ...goc, ma_lk: p.ma_lk, so_luong_de_xuat: p.sl, gia_dv: undefined }));
       return [...prev.slice(0, idx), ...moi, ...prev.slice(idx + 1)];
     });
     setActiveIdx(idx);
@@ -449,7 +466,9 @@ export function useTaoDonForm({
       // MUA HÀNG CÔNG NỢ ĐỐI TÁC (v1.403): bat buoc chon doi tac.
       (!laMuaCongNoDoiTac(d.loai_de_xuat) || !!d.doi_tac_ma) &&
       // CÔNG NỢ SỬA CHỮA (v1.495): bat buoc ma don bao hanh dung dang.
-      (!laDonSuaChua(d.loai_de_xuat) || !!chuanMaDonBh(d.bh_don_vi_id))
+      (!laDonSuaChua(d.loai_de_xuat) || !!chuanMaDonBh(d.bh_don_vi_id)) &&
+      // PHI DICH VU (v1.561): o so tien da sua thi phai la so hop le (> 0).
+      giaDvDraft(d).hopLe
     );
   }
 
@@ -474,7 +493,7 @@ export function useTaoDonForm({
     const goc = drafts[idx];
     if (!goc) return;
     setAddBlockedHint(false);
-    setDrafts((prev) => [...prev, { ...goc, ma_lk: "", anh: [] }]);
+    setDrafts((prev) => [...prev, { ...goc, ma_lk: "", anh: [], gia_dv: undefined }]);
     setActiveIdx(drafts.length);
     setJustAdded(true);
   }
@@ -530,7 +549,8 @@ export function useTaoDonForm({
     const lde = d.loai_de_xuat.trim();
     if (!lde || (deriveLoaiDon(lde) !== "mua" && !laTruCongNo(lde)) || laMuaCongNoDoiTac(lde)) return sum;
     const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
-    return sum + (lk?.gia_ban != null ? lk.gia_ban * d.so_luong_de_xuat : 0);
+    const gia = giaDvDraft(d).gia ?? lk?.gia_ban;
+    return sum + (gia != null ? gia * d.so_luong_de_xuat : 0);
   }, 0);
 
   // Gia uoc tinh SAU CHIET KHAU tung dong (2026-10-12, phan hoi "giá 557 là giá niêm yết trong khi hiển thị được hưởng chiết
@@ -545,6 +565,12 @@ export function useTaoDonForm({
   // (muc gia KTV) nhung LK chua khai bao Gia KTV -> backend giu GIA NIEM YET, khong chiet khau -> canh bao ngay o dong (CanhBaoChuaCoGiaKtv).
   function giaUocTinhDong(d: DonHangDraft): { gia: number | null; giaNiemYet: number | null; nhan: string | null; chuaCoGiaKtv?: boolean } {
     const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
+    const pdv = giaDvDraft(d);
+    // Phi dich vu KTV da sua so tien -> server ghi gia chot (luon thang chiet khau) = gia nhap x SL.
+    if (pdv.gia != null) {
+      const sl0 = d.so_luong_de_xuat || 0;
+      return { gia: pdv.gia * sl0, giaNiemYet: pdv.gia * sl0, nhan: t("Phí dịch vụ thực tế") };
+    }
     if (lk?.gia_ban == null) return { gia: null, giaNiemYet: null, nhan: null };
     const sl = d.so_luong_de_xuat || 0;
     const niemYet = lk.gia_ban * sl;
@@ -555,7 +581,8 @@ export function useTaoDonForm({
     if (tongNgaySau < 200000) return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
     if (tongNgaySau < 500000) return { gia: Math.round(lk.gia_ban * 0.7) * sl, giaNiemYet: niemYet, nhan: t("Tổng ngày 200–500k −30%") };
     if ((lk.gia_tri_cong_no ?? 0) > 0) return { gia: lk.gia_tri_cong_no! * sl, giaNiemYet: niemYet, nhan: t("Giá KTV") };
-    return { gia: niemYet, giaNiemYet: niemYet, nhan: null, chuaCoGiaKtv: niemYet > 0 };
+    // Phi dich vu (v1.561) khong phai linh kien - khong canh bao "chua co Gia KTV" (KTV tu nhap so tien thuc te o o rieng).
+    return { gia: niemYet, giaNiemYet: niemYet, nhan: null, chuaCoGiaKtv: niemYet > 0 && !pdv.laPdv };
   }
   // Dong cong no doi tac tach rieng (ghi no doi tac, KTV khong tra - v1.408): tongGiaUocTinh = tien KTV, tongGhiNoDoiTac = phan doi tac.
   const tongGiaUocTinh = drafts.reduce((sum, d) => sum + (laMuaCongNoDoiTac(d.loai_de_xuat) ? 0 : giaUocTinhDong(d).gia ?? 0), 0);
@@ -565,7 +592,7 @@ export function useTaoDonForm({
     return drafts.reduce((sum, d) => {
       if (!laMuaCongNoDoiTac(d.loai_de_xuat) || d.doi_tac_ma !== ma) return sum;
       const lk = d.ma_lk.trim() ? danhMuc.find((m) => m.ma_linh_kien === d.ma_lk) : undefined;
-      return sum + (lk?.gia_ban ?? 0) * (d.so_luong_de_xuat || 0);
+      return sum + (giaDvDraft(d).gia ?? lk?.gia_ban ?? 0) * (d.so_luong_de_xuat || 0);
     }, 0);
   }
 
@@ -609,7 +636,7 @@ export function useTaoDonForm({
     ketQuaTao, dongKetQuaTao, khoiPhucLuc, boNhap, anKhoiPhuc: () => setKhoiPhucLuc(null),
     hoiKhoiPhuc, moLaiNhap, boQuaNhapCu, coNoiDungChuaTao, luuNhapNgay, xoaNhap,
     doiTacChon, tienDoiTacTrenForm, nhanLaNvSuaChua, tenNguoiNhan,
-    gopPhieuDaDuTien, setGopPhieuDaDuTien,
+    gopPhieuDaDuTien, setGopPhieuDaDuTien, giaDvDraft,
   };
 }
 

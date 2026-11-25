@@ -41,7 +41,8 @@ Phạm vi dữ liệu theo **Khu vực** (khu vực hiệu lực của đơn / p
 
 ## 4. Giá & chiết khấu
 
-Giá chốt tay luôn thắng. Bậc thang theo **tổng ngày** của KTV (+ phiếu đang mở chưa chốt): < 200k giá bán, 200–500k ×70%, ≥ 500k giá KTV;
+Giá chốt tay luôn thắng. **Phí dịch vụ** (LK có tên "phí dịch vụ", vd mã 10002 / 1002 — 150.000đ): lúc tạo đơn KTV được nhập số tiền thực tế
+(mặc định giá danh mục); khác giá danh mục → ghi làm giá chốt của đơn (không chiết khấu), log ghi rõ. Bậc thang theo **tổng ngày** của KTV (+ phiếu đang mở chưa chốt): < 200k giá bán, 200–500k ×70%, ≥ 500k giá KTV;
 Đình tủ ×85%; có yêu cầu hóa đơn / KH chuyển khoản về công ty / KH lẻ / công nợ đối tác = giá niêm yết. Dự phòng chỉ cho MUA DỰ TRỮ trong hạn mức. Backend là nguồn
 duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xem trước.
 
