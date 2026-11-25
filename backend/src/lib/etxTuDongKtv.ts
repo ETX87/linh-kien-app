@@ -4,6 +4,7 @@ import { boDau } from "./timTheoTen";
 import { nowVN } from "./vnTime";
 import { computeAndStoreHash } from "./contentHash";
 import { resyncKhuVucDerivedFieldsForAll } from "./khuVucSync";
+import { COT_VAI_TRO_SQL, vaiTroVanPhong, type CoVaiTroRow } from "./vaiTroVanPhong";
 
 // Tu dong TAO KTV + DUYET tai khoan tu danh ba ETX nhan su (chot nguoi dung 2026-09-29: "tự động duyệt các tài khoản
 // từ ETX nhân sự với chức danh có chứa CTV, KTV, Kỹ thuật viên => nếu còn đang làm việc => nếu chưa kích hoạt tài khoản
@@ -98,11 +99,13 @@ export async function tuDongTaoKtvTuEtx(db: D1Database): Promise<EtxTuDongKtvRes
       .prepare("SELECT ma_nhan_su, ho_ten, chuc_danh, gmail, quan_ly_truc_tiep FROM etx_nhan_su WHERE trang_thai_lam_viec = 'on' AND gmail IS NOT NULL AND TRIM(gmail) != '' ORDER BY ma_nhan_su")
       .all<{ ma_nhan_su: string; ho_ten: string; chuc_danh: string | null; gmail: string; quan_ly_truc_tiep: string | null }>(),
     db.prepare("SELECT ma_ktv, email_dang_nhap FROM ktv_lien_he").all<{ ma_ktv: string; email_dang_nhap: string | null }>(),
-    db.prepare("SELECT email, trang_thai_duyet FROM users").all<{ email: string; trang_thai_duyet: string }>(),
+    db.prepare(`SELECT email, trang_thai_duyet, ${COT_VAI_TRO_SQL} FROM users`).all<{ email: string; trang_thai_duyet: string } & CoVaiTroRow>(),
   ]);
   const emailKtv = new Set(ktv.map((r) => (r.email_dang_nhap ?? "").trim().toLowerCase()).filter(Boolean));
   const maKtv = new Set(ktv.map((r) => r.ma_ktv.trim().toUpperCase()));
   const trangThaiUser = new Map(users.map((u) => [u.email.trim().toLowerCase(), u.trang_thai_duyet]));
+  // Gmail da khai bao vai tro van phong (Giam sat / Admin / QC / co van phong) - ke ca tai khoan "Cho duyet": khong tu bien thanh KTV.
+  const coVanPhong = new Set(users.filter((u) => vaiTroVanPhong(u)).map((u) => u.email.trim().toLowerCase()));
   // Gmail dang nhap PHU cua 1 tai khoan khac (migration 0091) - khong tao them ma KTV/tai khoan cho Gmail do.
   const gmailPhu = await dsGmailPhu(db);
 
@@ -119,7 +122,7 @@ export async function tuDongTaoKtvTuEtx(db: D1Database): Promise<EtxTuDongKtvRes
     const email = r.gmail.trim().toLowerCase();
     const ma = r.ma_nhan_su.trim();
     if (!EMAIL_RE.test(email) || !ma) continue;
-    if (emailKtv.has(email) || gmailPhu.has(email) || maKtv.has(ma.toUpperCase()) || daXuLy.has(email)) continue;
+    if (emailKtv.has(email) || gmailPhu.has(email) || coVanPhong.has(email) || maKtv.has(ma.toUpperCase()) || daXuLy.has(email)) continue;
     const tt = trangThaiUser.get(email);
     if (tt && tt !== "Cho duyet") continue;
     daXuLy.add(email);
@@ -163,9 +166,13 @@ export async function tuDongTaoKtvTuEtx(db: D1Database): Promise<EtxTuDongKtvRes
 // cung ket qua voi buoc tu dong o tren (KTV ma = Ma NV + users "Da duyet"/la_ktv_dvbh) nhung KHONG doi chuc danh co CTV/KTV
 // (Admin tu quyet) - chuc danh khong nhan ra thi vai tro KTV. Gmail da la Email dang nhap cua KTV -> chi lien ket + duyet.
 // Ma NV da la ma_ktv cua KTV khac: KTV do chua co email dang nhap thi gan Gmail vao, co email khac -> MA_KTV_CUA_NGUOI_KHAC.
-export type TaoTaiKhoanEtxLoi = "NOT_FOUND" | "THIEU_GMAIL" | "MA_KTV_CUA_NGUOI_KHAC" | "LA_GMAIL_PHU";
+// CHAN (2026-11-25, yeu cau "thêm chặn nếu tk đã có khai báo gs hoặc ktv không cho tạo từ etx nữa"): Gmail da co tai khoan khai bao
+// vai tro van phong (Giam sat / Admin / QC / Kho / Ke toan / TN / TP DVBH / View / Mua hang) -> DA_CO_VAI_TRO_VAN_PHONG; tai khoan
+// "Da duyet" da la KTV / Ve tinh -> DA_LA_KTV (gan ma bang "Gắn mã KTV" o Quan ly nguoi dung). Truoc day nut nay bat lai co KTV
+// va gan Gmail vao ma, bien Giam sat thanh KTV.
+export type TaoTaiKhoanEtxLoi = "NOT_FOUND" | "THIEU_GMAIL" | "MA_KTV_CUA_NGUOI_KHAC" | "LA_GMAIL_PHU" | "DA_CO_VAI_TRO_VAN_PHONG" | "DA_LA_KTV";
 
-export async function taoTaiKhoanTuEtx(db: D1Database, maNhanSu: string): Promise<{ ok: true; ma_ktv: string; email: string } | { ok: false; error: TaoTaiKhoanEtxLoi }> {
+export async function taoTaiKhoanTuEtx(db: D1Database, maNhanSu: string): Promise<{ ok: true; ma_ktv: string; email: string } | { ok: false; error: TaoTaiKhoanEtxLoi; vai_tro?: string | null }> {
   const r = await db
     .prepare("SELECT ma_nhan_su, ho_ten, chuc_danh, gmail, trang_thai_lam_viec, ma_ktv, quan_ly_truc_tiep FROM etx_nhan_su WHERE ma_nhan_su = ?")
     .bind(maNhanSu)
@@ -176,6 +183,13 @@ export async function taoTaiKhoanTuEtx(db: D1Database, maNhanSu: string): Promis
   const email = (r.gmail ?? "").trim().toLowerCase();
   if (!EMAIL_RE.test(email)) return { ok: false, error: "THIEU_GMAIL" };
   if (await emailChinhCuaGmail(db, email)) return { ok: false, error: "LA_GMAIL_PHU" };
+  const tk = await db
+    .prepare(`SELECT trang_thai_duyet, la_ktv_dvbh, la_ve_tinh, ${COT_VAI_TRO_SQL} FROM users WHERE LOWER(email) = ?`)
+    .bind(email)
+    .first<{ trang_thai_duyet: string; la_ktv_dvbh: number; la_ve_tinh: number } & CoVaiTroRow>();
+  const vaiTroVp = vaiTroVanPhong(tk);
+  if (vaiTroVp) return { ok: false, error: "DA_CO_VAI_TRO_VAN_PHONG", vai_tro: vaiTroVp };
+  if (tk && tk.trang_thai_duyet === "Da duyet" && (tk.la_ktv_dvbh === 1 || tk.la_ve_tinh === 1)) return { ok: false, error: "DA_LA_KTV" };
   const ma = r.ma_nhan_su.trim();
   const now = nowVN();
 

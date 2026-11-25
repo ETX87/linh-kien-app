@@ -126,6 +126,9 @@ export interface KtvLienHeRow {
   ma_cung_gmail?: string | null;
   // Gmail dang nhap PHU cua tai khoan (migration 0091), noi bang ", "; NULL = khong co.
   gmail_phu?: string | null;
+  // Vai tro van phong cua nguoi gan voi ma (tai khoan dang nhap, chua co thi theo Gmail danh ba) - 2026-11-25, lib/vaiTroVanPhong.ts.
+  vp_email?: string | null;
+  vp_vai_tro?: string | null;
 }
 
 // Them 2026-08-29 (phan hoi "xây dựng settings quản lý Tồn kho công nợ KTV", import hang ngay tu
@@ -302,6 +305,8 @@ export interface EtxNhanSuRow {
   lien_ket_bi_khoa: number | null;
   // Trang thai tai khoan dat hang (2026-10-01, backend etxNhanSuSync.ts TK_TRANG_THAI_SQL)
   tk_trang_thai: "da_tao" | "van_phong" | "cho_duyet" | "tu_choi" | "chua_tao" | "khong_gmail";
+  // Ma vai tro van phong cua tai khoan theo Gmail ETX (2026-11-25, backend lib/vaiTroVanPhong.ts) - co thi khong tao KTV tu ETX.
+  tk_vai_tro_vp?: string | null;
 }
 export interface EtxNhanSuSyncStatus {
   last_run_at: string | null;

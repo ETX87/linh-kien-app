@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { nhanVaiTroVanPhong } from "../lib/vaiTroVanPhong";
 import { NHOM_LK_LABEL, NHOM_LK_LIST, type NhomLk } from "../lib/nhomLk";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, buildQuery, ApiError } from "../api/client";
@@ -1555,7 +1556,19 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
     { key: "ma_nhan_su", mobile: "meta", header: "Mã nhân sự", render: (r) => (r.ma_nhan_su ? <span className="font-mono text-xs">{r.ma_nhan_su}</span> : "—") },
     { key: "ten_hien_thi", mobile: "title", header: "Tên hiển thị", render: (r) => r.ten_hien_thi ?? "—" },
     { key: "sdt", mobile: "sub", header: "SĐT", render: (r) => r.sdt ?? "—" },
-    { key: "vai_tro_ktv", mobile: "badge", header: "Vai trò", render: (r) => r.vai_tro_ktv ?? "—" },
+    {
+      key: "vai_tro_ktv", mobile: "badge", header: "Vai trò",
+      // Nguoi gan voi ma da khai bao vai tro van phong (2026-11-25) - vd ma con sot sau khi chuyen sang Giam sat: hien ro canh vai tro KTV.
+      render: (r) =>
+        r.vp_vai_tro ? (
+          <span className="flex items-center gap-1.5" title={`Tài khoản ${r.vp_email ?? ""} đang là tài khoản văn phòng (${nhanVaiTroVanPhong(r.vp_vai_tro)})${r.tk_email ? "" : " — mã KTV này không còn gắn Gmail đăng nhập"}`}>
+            {r.vai_tro_ktv ?? "—"}
+            <Badge tone="ocean">VP: {nhanVaiTroVanPhong(r.vp_vai_tro)}</Badge>
+          </span>
+        ) : (
+          r.vai_tro_ktv ?? "—"
+        ),
+    },
     {
       key: "tk_bat_tat", mobile: "meta",
       header: "Tài khoản",
@@ -2379,10 +2392,11 @@ function EtxNhanSuTab() {
       header: "Tài khoản đặt hàng",
       render: (r) => {
         const tt = TK_TRANG_THAI[r.tk_trang_thai] ?? TK_TRANG_THAI.chua_tao;
-        const coNut = ["chua_tao", "cho_duyet", "tu_choi"].includes(r.tk_trang_thai); // ca nhan su "Đã nghỉ" (2026-10-15)
+        // Gmail da khai bao vai tro van phong (Giam sat / Admin / Kho...) -> an nut, backend cung chan DA_CO_VAI_TRO_VAN_PHONG (2026-11-25).
+        const coNut = ["chua_tao", "cho_duyet", "tu_choi"].includes(r.tk_trang_thai) && !r.tk_vai_tro_vp; // ca nhan su "Đã nghỉ" (2026-10-15)
         return (
           <span className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-            <Badge tone={tt.tone}>{tt.label}</Badge>
+            <Badge tone={r.tk_vai_tro_vp ? "ocean" : tt.tone}>{r.tk_vai_tro_vp ? `TK văn phòng: ${nhanVaiTroVanPhong(r.tk_vai_tro_vp)}` : tt.label}</Badge>
             {coNut && (
               <Btn size="sm" variant="subtle" onClick={() => xacNhanTao(r)} loading={taoTaiKhoan.isPending && taoTaiKhoan.variables === r.ma_nhan_su}>
                 Tạo tài khoản
@@ -2506,6 +2520,8 @@ const TAO_TK_LOI: Record<string, string> = {
   MA_KTV_CUA_NGUOI_KHAC: "Mã NV đã là Mã KTV của người khác (email đăng nhập khác) — kiểm tra ở thẻ KTV hiện trường",
   LA_GMAIL_PHU: "Gmail này đang là Gmail đăng nhập phụ của tài khoản khác — gỡ Gmail phụ trước nếu muốn tạo tài khoản riêng",
   NOT_FOUND: "không tìm thấy nhân sự",
+  DA_CO_VAI_TRO_VAN_PHONG: "Gmail này đã là tài khoản văn phòng (Giám sát / Admin / Kho / Kế toán…) — không tạo KTV từ ETX. Muốn đổi sang KTV thì dùng \"Chuyển KTV\" ở thẻ Nhân viên văn phòng",
+  DA_LA_KTV: "Gmail này đã là tài khoản KTV — gắn mã bằng \"Gắn mã KTV\" ở Quản lý người dùng, không tạo lại từ ETX",
 };
 
 function MaKtvCell({ row, onSave }: { row: EtxNhanSuRow; onSave: (maKtv: string | null) => void }) {

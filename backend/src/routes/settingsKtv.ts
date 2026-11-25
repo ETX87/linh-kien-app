@@ -13,6 +13,7 @@ import { setMocTinhDuPhong, getMocTinhDuPhong, TRA_HANG_DU_TRU_SUBQUERY, PHAT_SI
 import { maKtvTheoTen } from "../lib/timTheoTen";
 import { laKtvThuan } from "../lib/laKtvThuan";
 import { docCongNoTongHop } from "../lib/congNoKtv";
+import { vaiTroVanPhongSql } from "../lib/vaiTroVanPhong";
 
 // Port rut gon tu backend/src/routes/settings.ts cua he DVBH goc (phan "Danh sach KTV") - danh ba
 // ky thuat vien/Tram/CTV/Ve tinh dung de chon "nguoi nhan hang" trong module Dat mua linh kien.
@@ -92,8 +93,11 @@ settingsKtv.get("/", async (c) => {
   const duPhongJoin = `LEFT JOIN (${PHAT_SINH_DU_TRU_SUBQUERY()}) dp ON dp.ma_ktv = k.ma_ktv
      LEFT JOIN (${TRA_HANG_DU_TRU_SUBQUERY}) dpt ON dpt.ma_ktv = k.ma_ktv
      ${HAN_MUC_MOC_JOIN("k", "hm")}`;
-  const selectCols = `k.*, u.ma_nhan_su as ma_nhan_su, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai, u.bi_khoa as tk_bi_khoa, u.email as tk_email, (SELECT GROUP_CONCAT(k2.ma_ktv, ', ') FROM ktv_lien_he k2 WHERE k2.email_dang_nhap = k.email_dang_nhap AND k2.ma_ktv <> k.ma_ktv) as ma_cung_gmail, (SELECT GROUP_CONCAT(gp.email_phu, ', ') FROM users_gmail_phu gp WHERE gp.email_chinh = k.email_dang_nhap) as gmail_phu, COALESCE(dp.gia_tri, 0) as han_muc_du_phong_phat_sinh, COALESCE(dpt.gia_tri, 0) as han_muc_du_phong_tra_hang, hm.hien_tai_luc as han_muc_du_phong_moc`;
-  const baseSql = `FROM ktv_lien_he k LEFT JOIN users u ON u.email = k.email_dang_nhap ${duPhongJoin} ${where}`;
+  const selectCols = `k.*, u.ma_nhan_su as ma_nhan_su, u.giam_sat_quan_ly as giam_sat_quan_ly_hien_tai, u.bi_khoa as tk_bi_khoa, u.email as tk_email, (SELECT GROUP_CONCAT(k2.ma_ktv, ', ') FROM ktv_lien_he k2 WHERE k2.email_dang_nhap = k.email_dang_nhap AND k2.ma_ktv <> k.ma_ktv) as ma_cung_gmail, (SELECT GROUP_CONCAT(gp.email_phu, ', ') FROM users_gmail_phu gp WHERE gp.email_chinh = k.email_dang_nhap) as gmail_phu, COALESCE(dp.gia_tri, 0) as han_muc_du_phong_phat_sinh, COALESCE(dpt.gia_tri, 0) as han_muc_du_phong_tra_hang, hm.hien_tai_luc as han_muc_du_phong_moc, uv.email as vp_email, ${vaiTroVanPhongSql("uv")} as vp_vai_tro`;
+  // Vai tro van phong cua nguoi gan voi ma (2026-11-25): tai khoan dang nhap, ma chua co thi theo Gmail danh ba - vd ma KTV con sot
+  // sau khi nguoi do chuyen sang Giam sat (go Gmail khoi ma nhung danh ba giu lai) -> the KTV hien ro "TK văn phòng: Giám sát".
+  const baseSql = `FROM ktv_lien_he k LEFT JOIN users u ON u.email = k.email_dang_nhap
+     LEFT JOIN users uv ON uv.email = COALESCE(k.email_dang_nhap, NULLIF(LOWER(TRIM(k.gmail)), '')) ${duPhongJoin} ${where}`;
   const duPhongBinds: unknown[] = []; // khong con bind moc (moc theo Ma MISA, doc trong SQL)
   const withMocHienTai = (rows: Record<string, unknown>[]) =>
     rows.map((r) => ({

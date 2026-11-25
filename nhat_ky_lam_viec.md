@@ -525,3 +525,22 @@ sau này file claude.md lưu ngắn gọn còn file claude-full.md để lưu d�
 **Quy ước từ nay**: tính năng / quyết định mới ghi chi tiết vào `CLAUDE-full.md`; `CLAUDE.md` chỉ thêm khi là luật chung, giữ dưới 10 KB.
 
 **Kiểm thử**: `wc -c` CLAUDE.md = 8.702 byte. Không đổi mã nguồn, không deploy.
+
+## 2026-11-25 — v1.557: Chặn tạo tài khoản từ ETX khi đã khai báo vai trò + hiện vai trò văn phòng ở thẻ KTV
+
+**Yêu cầu (nguyên văn):** "tài khoản này tôi chuyển sang giám sát mà bên ktv vẫn bị tồn lại là lỗi gì" → "1. thêm chặn nếu tk đã có khai báo gs hoặc ktv không cho tạo từ etx nữa
+2. tài khoản đã có vai trò văn phòng thì hiện thị vai rõ vai trò nếu hiện trong đs ktv".
+
+**Nguyên nhân:** thẻ "KTV hiện trường" liệt kê theo danh bạ mã KTV, không theo tài khoản. Chuyển sang văn phòng / Giám sát chỉ gỡ Gmail khỏi mã, danh bạ giữ
+lại (mã NS-848 còn 4 dòng tồn kho MISA) → mã vẫn hiện như KTV. Nút "Tạo tài khoản" ở tab ETX nhân sự không kiểm vai trò → bấm sẽ gắn lại Gmail + bật cờ KTV.
+
+**Đã làm:**
+- `backend/src/lib/vaiTroVanPhong.ts` (mới): bộ mã vai trò văn phòng (vai_tro + 6 cờ văn phòng) — biểu thức SQL + hàm JS dùng chung.
+- `taoTaiKhoanTuEtx`: chặn `DA_CO_VAI_TRO_VAN_PHONG` / `DA_LA_KTV`; `tuDongTaoKtvTuEtx` bỏ qua Gmail có vai trò văn phòng.
+- GET `/etx-nhan-su` trả `tk_vai_tro_vp` → ẩn nút "Tạo tài khoản", nhãn "TK văn phòng: Giám sát".
+- GET `/settings/ktv-lien-he` trả `vp_email` / `vp_vai_tro` (theo Email đăng nhập, chưa có thì theo Gmail danh bạ) → cột "Vai trò" thẻ KTV thêm nhãn "VP: Giám sát".
+
+**Kiểm thử:** typecheck 2 phía 0 lỗi. Chạy biểu thức SQL trên D1 thật (chỉ đọc): 15 mã KTV ra vai trò văn phòng, gồm NS-848 → Giám sát, NS-3683 → Giám sát · View.
+Chưa xem giao diện bằng trình duyệt (cần đăng nhập Google Admin).
+
+**Còn dở:** mã NS-848 vẫn nằm trong danh bạ (giữ để không mất 4 dòng tồn kho MISA) — chưa làm tự tắt mã khi chuyển sang văn phòng.

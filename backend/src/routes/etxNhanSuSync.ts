@@ -7,6 +7,7 @@ import { runEtxNhanSuSyncWithState } from "../lib/etxNhanSuSync";
 import { tuDongTaoKtvTuEtx, taoTaiKhoanTuEtx } from "../lib/etxTuDongKtv";
 import { resyncKhuVucDerivedFieldsForEmail } from "../lib/khuVucSync";
 import { nowVN } from "../lib/vnTime";
+import { vaiTroVanPhongSql } from "../lib/vaiTroVanPhong";
 
 // Quan tri "ETX nhan su" (xem lib/etxNhanSuSync.ts) - danh ba nhan su dong bo tu he ETX, du lieu
 // nhay cam hon ktv_lien_he nen Admin-only TOAN BO router (khac settingsKtv.ts, noi GET / mo cho moi
@@ -64,7 +65,7 @@ etxNhanSuSync.get("/", async (c) => {
   }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  const selectCols = `e.*, k.email_dang_nhap as lien_ket_email, u.bi_khoa as lien_ket_bi_khoa, ${TK_TRANG_THAI_SQL} as tk_trang_thai`;
+  const selectCols = `e.*, k.email_dang_nhap as lien_ket_email, u.bi_khoa as lien_ket_bi_khoa, ${TK_TRANG_THAI_SQL} as tk_trang_thai, ${vaiTroVanPhongSql("ug")} as tk_vai_tro_vp`;
   const baseSql = `FROM etx_nhan_su e LEFT JOIN ktv_lien_he k ON k.ma_ktv = e.ma_ktv LEFT JOIN users u ON u.email = k.email_dang_nhap
     LEFT JOIN users ug ON ug.email = LOWER(TRIM(e.gmail)) ${where}`;
 
@@ -108,7 +109,7 @@ etxNhanSuSync.post("/tu-dong-ktv/run", async (c) => {
 // POST /:maNhanSu/tao-tai-khoan - Admin tao tai khoan dat hang thu cong cho 1 nhan su (lib/etxTuDongKtv.ts taoTaiKhoanTuEtx).
 etxNhanSuSync.post("/:maNhanSu/tao-tai-khoan", async (c) => {
   const kq = await taoTaiKhoanTuEtx(c.env.DB, c.req.param("maNhanSu"));
-  if (!kq.ok) return c.json({ error: kq.error }, kq.error === "NOT_FOUND" ? 404 : 400);
+  if (!kq.ok) return c.json({ error: kq.error, vai_tro: kq.vai_tro ?? null }, kq.error === "NOT_FOUND" ? 404 : 400);
   await resyncKhuVucDerivedFieldsForEmail(c.env.DB, kq.email);
   return c.json(kq);
 });
