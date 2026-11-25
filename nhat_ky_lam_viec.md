@@ -572,3 +572,19 @@ Toast + hộp xác nhận ở thẻ KTV nói rõ. Dữ liệu: gắn lại NS-84
 4 mã còn lại tắt ở v1.558 không có Mã MISA / đơn → giữ nguyên.
 
 **Kiểm thử:** typecheck 2 phía 0 lỗi; câu điều kiện chạy thử trên D1 thật (GS01 có Mã MISA → giữ liên kết).
+
+## 2026-11-25 — v1.560: Quỹ dư không tự trừ phiếu đang chờ Kế toán (PMH-003000)
+
+**Yêu cầu (nguyên văn):** "PMH-003000 đơn này kế toán báo lỗi quỹ dư nhưng không tự trừ tiền, kế toán duyệt phiếu chuyển về = 0 thì không duyệt được".
+
+**Nguyên nhân:** KTV chuyển 1 lần 25tr, đính cùng sao kê cho PMH-002999 và PMH-003000. Kế toán duyệt PMH-002999 thực nhận 25tr → dư 17,6tr vào quỹ,
+nhưng quỹ chỉ tự trừ phiếu "Chờ KTV chuyển" → PMH-003000 (đang "KTV đã chuyển") không được trừ. Kế toán từ chối ("trùng sao kê") → quỹ trừ đủ nhưng
+phiếu bị giữ "Chờ KTV chuyển" cần chuyển 0đ → nút duyệt (chỉ nhận "KTV đã chuyển") không dùng được. Kế toán phải tự đính ghi chú rồi duyệt 0đ.
+
+**Đã sửa:** `lib/quyKtv.ts` — `canBangPxk` + `phanBoQuy` trừ quỹ cả phiếu "KTV đã chuyển"; `routes/phieuXuatKho.ts` — Kế toán từ chối mà quỹ đã trả đủ
+→ phiếu đóng "Kế toán đã duyệt" (TN đẩy lại giữ như cũ).
+
+**Dữ liệu:** PMH-003000 đã xong (Kế toán đã duyệt, đủ 13.824.000đ, quỹ còn 3.788.650đ, khớp sổ). Quét toàn bộ: không còn phiếu nào kẹt "Chờ KTV chuyển"
+đã đủ tiền, cũng không còn phiếu "KTV đã chuyển" thiếu tiền mà quỹ người nhận còn dư.
+
+**Kiểm thử:** typecheck backend 0 lỗi, build xanh. Chưa thử lại thao tác duyệt trên giao diện.

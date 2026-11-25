@@ -155,7 +155,11 @@ export async function canBangPxk(
     // dat truoc day. KTV da bao chuyen -> van cho Ke toan. Phieu co don "Chờ thanh toán" -> xet lai ton nhu luc Ke toan duyet
     // (xuLyDonChoThanhToan, can env - lib/envToanCuc.ts; khong co env thi giu cho Ke toan nhu cu).
     const tuDuyet = khiTraDu === "cho-ke-toan" && !!pxk.tu_duyet_du_tien && (!pxk.co_cho_thanh_toan || !!layEnvToanCuc());
-    const choTien = !daHuy && (pxk.trang_thai_chuyen_tien === "Cho KTV chuyen" || (tuDuyet && pxk.trang_thai_chuyen_tien === "KTV da chuyen"));
+    // + phieu "KTV da chuyen" (2026-11-25 v1.560, bug PMH-003000 "kế toán báo lỗi quỹ dư nhưng không tự trừ tiền"): KTV chuyen 1 lan cho
+    // 2 phieu, Ke toan duyet phieu dau -> phan du vao quy nhung phieu sau (dang cho Ke toan) khong duoc tru. Nay quy tru ca phieu dang cho
+    // Ke toan; du tien thi GIU "KTV da chuyen" (khiTraDu mac dinh) -> Ke toan thay "cần chuyển 0đ" va xac nhan thuc nhan 0d (hoac so that,
+    // du vao quy).
+    const choTien = !daHuy && (pxk.trang_thai_chuyen_tien === "Cho KTV chuyen" || pxk.trang_thai_chuyen_tien === "KTV da chuyen");
     const now = nowVN();
     const nguoiGhi = nguoi || NGUOI_HE_THONG;
 
@@ -233,14 +237,14 @@ export async function canBangPxk(
   return ketQua;
 }
 
-/** Quy `email` (KHOA quy - lib/quyKhoa.ts) con tien -> tru cho cac phieu CUNG QUY dang "Cho KTV chuyen" con thieu, CU NHAT truoc.
+/** Quy `email` (KHOA quy - lib/quyKhoa.ts) con tien -> tru cho cac phieu CUNG QUY dang "Cho KTV chuyen" / "KTV da chuyen" (v1.560) con thieu, CU NHAT truoc.
  * Quy KTV chi tra phieu quy_kh = 0; quy KH chuyen chi tra phieu quy_kh = 1 cua cung nguoi nhan hang. */
 export async function phanBoQuy(db: D1Database, email: string, nguoi?: string | null, boQuaPxkId?: string): Promise<void> {
   const k = giaiKhoaQuy(email);
   const { results } = await db
     .prepare(
       `SELECT id FROM phieu_xuat_kho
-       WHERE nguoi_nhan_hang = ? AND COALESCE(quy_kh, 0) = ? AND trang_thai_hien_tai != 'Ke toan huy' AND trang_thai_chuyen_tien = 'Cho KTV chuyen'
+       WHERE nguoi_nhan_hang = ? AND COALESCE(quy_kh, 0) = ? AND trang_thai_hien_tai != 'Ke toan huy' AND trang_thai_chuyen_tien IN ('Cho KTV chuyen', 'KTV da chuyen')
          AND COALESCE(so_tien_can_chuyen, 0) > da_thanh_toan
        ORDER BY ngay_tao, id`,
     )

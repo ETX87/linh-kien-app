@@ -1612,8 +1612,11 @@ phieuXuatKho.patch("/:id/chuyen-tien", async (c) => {
     } catch {
       return c.json({ error: "STATE_CHANGED" }, 409);
     }
-    // ve "Cho KTV chuyen" -> quy du (neu co) tru tiep; da du tien thi GIU "Cho KTV chuyen" (khong tu cho duyet lai).
-    await canBangPxk(c.env.DB, id, user.email, { khiTraDu: "giu" });
+    // ve "Cho KTV chuyen" -> quy du (neu co) tru tiep. TN day lai: da du tien thi GIU "Cho KTV chuyen" (khong tu cho duyet lai).
+    // KE TOAN tu choi ma quy da tra DU phieu (2026-11-25 v1.560, bug PMH-003000: tu choi "trùng sao kê" -> phieu ket "Chờ KTV chuyển" voi
+    // cần chuyển 0đ, Ke toan khong bam duyet duoc vi nut duyet chi nhan "KTV da chuyen") -> dong luon "Ke toan da duyet": tien tu quy
+    // (Ke toan da xac nhan tu truoc), khong con gi de KTV chuyen.
+    await canBangPxk(c.env.DB, id, user.email, { khiTraDu: laKeToanDay ? "ke-toan" : "giu" });
     // Bao KTV nhan hang (nguoi chuyen tien) + TN "viec moi": chuyen lai/bo sung bang chung.
     c.executionCtx.waitUntil(
       (async () => {

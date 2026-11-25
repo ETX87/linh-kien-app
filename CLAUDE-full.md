@@ -715,7 +715,10 @@ tien', báo việc mới cho KTV nhận hàng + TN; GIỮ ảnh/ghi chú. Lý do
 **Quỹ tiền dư KTV** (chốt 2026-09-29, `lib/quyKtv.ts`, migration `0047`): MỌI tiền chuyển đi qua quỹ của NGƯỜI NHẬN HÀNG
 (Vệ tinh → Trạm). Kế toán duyệt = nhập **số thực nhận** (`PATCH /:id/chuyen-tien` `so_tien_thuc_nhan`, `duyetKhoanChuyen()`):
 quỹ +T (`nop_tien`) → `canBangPxk()` trừ quỹ trả phiếu (`tra_phieu`, tối đa số còn thiếu) → đủ thì "TN da duyet", thiếu thì
-về "Cho KTV chuyen" số còn thiếu; dư nằm lại quỹ và `phanBoQuy()` tự trừ cho phiếu "Cho KTV chuyen" CŨ NHẤT của cùng người.
+về "Cho KTV chuyen" số còn thiếu; dư nằm lại quỹ và `phanBoQuy()` tự trừ cho phiếu "Cho KTV chuyen" CŨ NHẤT của cùng người. **Sửa v1.560** (2026-11-25, bug PMH-003000
+"kế toán báo lỗi quỹ dư nhưng không tự trừ tiền, kế toán duyệt phiếu chuyển về = 0 thì không duyệt được" — KTV chuyển 1 lần 25tr cho 2 phiếu):
+`canBangPxk` / `phanBoQuy` trừ quỹ cả phiếu "KTV da chuyen" (đủ → giữ "KTV da chuyen", Kế toán xác nhận 0đ); Kế toán TỪ CHỐI mà quỹ đã trả đủ
+→ `khiTraDu: "ke-toan"` đóng "TN da duyet" (trước kẹt "Cho KTV chuyen" cần chuyển 0đ, nút duyệt chỉ nhận "KTV da chuyen"); TN đẩy lại vẫn "giu".
 Quỹ đủ trả hết → phiếu sang "KTV da chuyen" CHỜ Kế toán xác nhận (log 'Tru quy du'; thực nhận 0đ hợp lệ khi đã đủ) — sửa
 2026-09-30, trước đó tự "TN da duyet"; chỉ khi chính Kế toán duyệt/sửa khoản của phiếu đó mới đóng thẳng (`canBangPxk(..., {
 khiTraDu })`: "ke-toan" | "cho-ke-toan" mặc định | "giu" khi Kế toán từ chối). Tổng giảm/phiếu hủy sau khi đã trả → hoàn

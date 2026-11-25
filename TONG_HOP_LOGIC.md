@@ -59,6 +59,8 @@ duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xe
   ("Đang tạo phiếu" / "Chờ mã MISA", kể cả đã có tiền): đơn tự rời phiếu cũ như đơn chưa thanh toán (tiền thừa hoàn về quỹ cũ), gom lại đúng quỹ / nhóm.
 - **Quỹ tiền dư KTV**: mọi tiền KTV chuyển vào quỹ người nhận, Kế toán nhập số thực nhận → quỹ tự trả phiếu thiếu cũ nhất; thừa ở lại quỹ;
   hủy / giảm thì hoàn quỹ. Quỹ KH chuyển khoản (đơn tích "KH đã chuyển khoản về công ty", có hoặc không xuất hóa đơn) tách riêng. Tiền cần chuyển = 0 thì không cần Kế toán duyệt.
+  Quỹ còn tiền thì tự trừ cả phiếu đang chờ Kế toán ("KTV đã chuyển") — đủ thì Kế toán xác nhận thực nhận 0đ; Kế toán từ chối bằng chứng mà quỹ
+  đã trả đủ phiếu thì phiếu đóng luôn "Kế toán đã duyệt" (TN đẩy lại thì giữ "Chờ KTV chuyển").
 - Thêm / bớt / tách / chuyển đơn được tới khi Kế toán chốt; đẩy lùi từng bước có lý do; Kế toán duyệt nhanh hàng loạt.
 - OCR đọc số tiền ảnh chuyển khoản trên trình duyệt + đối soát ảnh nghi trùng — chỉ cảnh báo, không chặn.
 
