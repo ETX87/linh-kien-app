@@ -1593,6 +1593,7 @@ Nguyên văn yêu cầu (chủ hệ thống): *"luồng "Cấp lk" ... khi đơn
   sau giải trình, "Quét ngay", nút Admin "Đẩy lên App Nhiệm vụ" (`POST /vi-pham/nhiem-vu/day`); danh sách không đổi (hash) thì không gọi cổng. TUYỆT ĐỐI
   không gửi `toanBo` với danh sách thiếu (người vắng mặt = cổng xoá hết việc của họ).
 - Popup nhắc khi MỞ APP (v1.529, `modules/viPham/NhacGiaiTrinhPopup.tsx`, mount ở `App.tsx`): còn ca "Cho giai trinh" có tên mình (`GET /vi-pham?tab=can_toi`) → popup số ca + ca sắp hết hạn (đã nhắc `nhac_luc` hoặc còn ≤ 6 giờ); ngưỡng nhắc backend `GIO_NHAC` = 6 giờ làm việc (v1.530) + nút Giải trình / Mở danh sách; "Để sau" ẩn theo sessionStorage (khoá = tập id + ca sắp hết), có ca mới thì hiện lại.
+- Tài liệu KTV `docs/Huong_dan_KTV_dat_hang_linh_kien.html` (25/11/2026, app v1.563, 39 ảnh base64) thay bản Word/PDF v1.462 — đổi luồng đặt / chuyển tiền / nhận / hủy / trả hàng của KTV thì sửa cả file này.
 - Tài liệu người dùng `docs/Huong_dan_giai_trinh_qua_han_theo_vai_tro.html` (16 ảnh chụp local, base64) — kèm mục "Rà soát quy trình & điểm cần chốt".
 
 **v1.519 (18/11/2026)** — *"việc giải trình không đúng cũng chỉ tính là giải trình thôi, không cần phải thêm vai trò của admin. admin không thực hiện công việc xác nhận bỏ thẻ trên hệ thống này"* + *"KTV không cần giải trình, BO tham gia việc giải trình là được"*:

@@ -655,3 +655,17 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
   → tự "Đã giải trình" (ghi nhận không đúng — sinh sai do quét lại lịch sử). Rà toàn bảng: 93 ca có khoảng kết thúc trước khi bật module (17/11);
   90 đã giải trình, 2 Tồn CEO (đối tác đã kéo — không đụng, chỉ liệt kê), 1 ca trên.
 - Kiểm thử: typecheck backend 0 lỗi, build xanh; truy vấn D1 thật đối chiếu.
+
+## 2026-11-25 — Tài liệu HTML hướng dẫn vai trò KTV (chỉ tài liệu, app v1.563)
+
+- Yêu cầu nguyên văn: "rà soát lại tài liệu hướng dẫn cho vai trò KTV => tạo lại tài liệu hướng dẫn html cho vai trò KTV đầy đủ quy trình, ảnh minh họa, hướng dẫn chi tiết".
+- Rà soát: bản cũ `docs/Huong_dan_su_dung_App_Dat_hang_linh_kien.docx/.pdf` dừng ở v1.462 (09/11, không nằm trong git) — thiếu ~20 thay đổi với KTV
+  (popup Việc cần xử lý, form tạo đơn giỏ hàng + luồng ngang chi tiết đơn, phiếu chờ hàng tách riêng, tách / gộp phiếu đã đủ tiền, Phí dịch vụ nhập tay,
+  KH chuyển khoản không cần hóa đơn, sổ quỹ 4 ô, quỹ dư trừ cả phiếu "KTV đã chuyển", trả hàng tự hủy 10 ngày, tự xét lại Chờ GS duyệt, thông báo tự xoá 10 ngày),
+  và còn mô tả khung chat Hỏi đáp đã gỡ (v1.516).
+- Đã làm: `docs/Huong_dan_KTV_dat_hang_linh_kien.html` — 18 mục (5W1H, luồng ngang đơn mua / công nợ + nhánh rẽ, đăng nhập / Trang chủ / menu, tạo đơn,
+  loại đề xuất & giá, theo dõi đơn, phiếu xuất, chuyển tiền, quỹ, nhận hàng / báo nhận thiếu, hủy / yêu cầu hủy, thiếu hàng, trả hàng, công nợ, bảng giá,
+  thông báo, tình huống, có gì mới so với v1.462), 39 ảnh (36 chụp mới trên điện thoại + máy tính, 3 ảnh trạng thái đã tải ảnh chuyển khoản lấy từ bản v1.462).
+- Cách chụp: Worker local + bản sao dữ liệu demo riêng (tài khoản KTV Demo), cấu hình tạm KHÔNG có service binding `remote` (bản thường gọi Worker thật
+  và làm `wrangler dev` sập khi trang huỷ request); Chrome headless qua CDP. Đã tạo thêm 3 đơn demo khi chụp (chỉ trên DB tạm).
+- Phát hiện (chưa sửa): câu mô tả tab "Quỹ KH chuyển khoản" (`QuyChuyenTienModule.tsx`) vẫn ghi "cho đơn có yêu cầu xuất hóa đơn" — lệch với v1.521.
