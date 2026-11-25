@@ -10,8 +10,7 @@
 Hệ Cloudflare Workers (Hono) + D1 độc lập, tách từ module "Đặt mua linh kiện" của hệ DVBH gốc (2026-08-19).
 Luồng: đặt đơn linh kiện → tự duyệt / chờ hàng / chờ thanh toán → phiếu xuất kho (PXK) → chuyển tiền / quỹ KTV →
 Kế toán chốt MISA → Kho xuất → KTV nhận. Kèm: Thiếu hàng, Hàng trả, Công nợ, Bảng giá, Quỹ & chuyển tiền, Vi phạm/SLA.
-Điểm nối hệ khác (DVBH case-lookup, app Sửa chữa bảo hành / đổi trả, EO Mua hàng, eOffice, API đối tác):
-xem `CLAUDE-full.md` + `docs/HUONG_DAN_API_DOI_TAC_LINH_KIEN_APP.md`.
+Điểm nối hệ khác: `CLAUDE-full.md` + `docs/HUONG_DAN_API_DOI_TAC_LINH_KIEN_APP.md`.
 
 ## Lệnh
 
@@ -25,7 +24,7 @@ npm run db:migrate:local    # migration vào D1 local
 npm run db:migrate:remote   # migration vào D1 THẬT
 npm run deploy              # build + wrangler deploy (Worker THẬT)
 ```
-Không có test suite — kiểm bằng typecheck + chạy local (Worker + D1 local).
+Không có test suite — kiểm bằng typecheck + chạy local.
 
 ## Luật bắt buộc
 
@@ -64,11 +63,10 @@ Không có test suite — kiểm bằng typecheck + chạy local (Worker + D1 lo
 
 Nhiều hằng / hàm có **bản sao FE ↔ BE** (ghi rõ trong `CLAUDE-full.md`): đổi 1 bên phải đổi bên kia.
 
-## Vai trò (tóm tắt)
+## Vai trò
 
-`vai_tro` ∈ Admin | QC | Giam sat; phân quyền thực tế theo cờ: `la_ktv_dvbh, la_ve_tinh, la_kho, la_ke_toan, la_tac_nghiep,
-la_tp_dvbh, la_view, la_mua_hang, la_nv_sua_chua`. **Kế toán làm thay Tác nghiệp** (cấp `la_tac_nghiep` trong bộ nhớ request,
-`middleware/loadUser.ts`). View = chỉ đọc theo khu vực. Chi tiết: `CLAUDE-full.md` mục "Auth & vai trò", "Khu vực".
+`vai_tro` ∈ Admin | QC | Giam sat + cờ `la_*` (KTV, Vệ tinh, Kho, Kế toán, TN, TBP, View, Mua hàng, NV sửa chữa). Kế toán làm thay TN
+(`middleware/loadUser.ts`). Chi tiết: `CLAUDE-full.md` mục "Auth & vai trò".
 
 ## Giao diện
 
@@ -76,8 +74,7 @@ la_tp_dvbh, la_view, la_mua_hang, la_nv_sua_chua`. **Kế toán làm thay Tác n
   tối đa 1 nút primary/vùng, nền trắng, bảng 1 dòng không xuống dòng.
 - Bảng dữ liệu kiểu Excel (lọc + sắp xếp trên tiêu đề, lọc phía server) — `lib/locCot.ts` + `components/ui/LocCot.tsx`.
 - Bộ lọc mặc định chọn nhiều (checkbox). Màn chi tiết: luồng quy trình ngang + "▾ Xem chi tiết".
-- Đa ngôn ngữ: `t("câu tiếng Việt")`, câu mới chạy `node frontend/scripts/kiem-tra-dich.mjs`; không `t()` trong hằng cấp module.
-- Ô tìm chính gắn class `.o-tim`.
+- Đa ngôn ngữ: `t("câu tiếng Việt")`, chạy `node frontend/scripts/kiem-tra-dich.mjs`.
 
 ## Tài liệu
 
@@ -87,8 +84,7 @@ la_tp_dvbh, la_view, la_mua_hang, la_nv_sua_chua`. **Kế toán làm thay Tác n
 | `TONG_HOP_LOGIC.md` | Logic nghiệp vụ đang chạy thật |
 | `nhat_ky_lam_viec.md` | Nhật ký từng đợt (mới nhất ở cuối) |
 | `Yeu_cau_tong_hop_du_an.md` | Đặc tả yêu cầu (vai trò SRS) |
-| `DEPLOY.md` | Checklist tài nguyên / deploy |
-| `DESIGN_GUIDELINES.md` | Quy tắc giao diện |
+| `DEPLOY.md`, `DESIGN_GUIDELINES.md` | Deploy, giao diện |
 | `docs/HUONG_DAN_API_DOI_TAC_LINH_KIEN_APP.md` | API cho đối tác |
 
 ## Nhận việc từ Trợ lý Mây
@@ -100,14 +96,7 @@ la_tp_dvbh, la_view, la_mua_hang, la_nv_sua_chua`. **Kế toán làm thay Tác n
 - KHÔNG: sửa secrets / luật bảo mật, deploy trần, đổi tính năng ngoài issue, xoá dữ liệu. Không chắc → bình luận `MÂY: CẦN NGƯỜI` rồi dừng.
   Deploy do workflow `may-deploy` làm sau khi duyệt.
 - Làm trong phiên thường mà giải quyết issue Mây đang mở → ghi mã `MAY-xxxxx` ở dòng đầu commit.
-- **Ba làn** (dòng đầu ý tưởng/BRD ghi `**Làn:** nhanh | thường | đầy đủ — <lý do>`):
-  - *Nhanh* (không qua duyệt): lệnh Giám đốc, cấp/thu quyền cá nhân, dữ liệu sai/kẹt, danh mục/cấu hình, lỗi rõ sửa nhỏ, hỏi cách dùng, lấy số liệu
-    → làm xong báo `## BÁO CÁO KẾT QUẢ` (Đã làm · Vì sao bị · Đã sửa · Không đụng tới).
-  - *Thường*: cải tiến nhỏ (cột, bộ lọc, nút, hiển thị) — 1 bản cách làm, duyệt 1 lần.
-  - *Đầy đủ*: đổi luật/cách tính, tính năng lớn, tiền/công nợ, phân quyền nhóm, xoá thật → ý tưởng → BRD → thẩm định → duyệt.
-  - Phân vân → chọn làn cao hơn.
-- **Máy chạy sai luật đã chốt = LỖI → làn nhanh**: sửa đúng luật, đếm bản ghi bị sai, báo ngắn; không biến thành đề xuất đổi luật;
-  không đụng dữ liệu đã đẩy sang hệ ngoài (chỉ liệt kê).
+- Ba làn xử lý và luật "máy chạy sai luật = lỗi": xem 2 mục cuối file (workflow Mây tự đồng bộ, không sửa tay).
 
 <!-- may-ba-lan -->
 ## Ba làn xử lý của Trợ lý Mây (Giám đốc chốt 18/11/2026 — áp dụng VĨNH VIỄN cho app này)
