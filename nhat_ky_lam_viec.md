@@ -544,3 +544,17 @@ lại (mã NS-848 còn 4 dòng tồn kho MISA) → mã vẫn hiện như KTV. N�
 Chưa xem giao diện bằng trình duyệt (cần đăng nhập Google Admin).
 
 **Còn dở:** mã NS-848 vẫn nằm trong danh bạ (giữ để không mất 4 dòng tồn kho MISA) — chưa làm tự tắt mã khi chuyển sang văn phòng.
+
+## 2026-11-25 — v1.558: Chuyển sang văn phòng thì tự tắt mã KTV cũ
+
+**Yêu cầu:** "Làm luôn" (việc còn dở của v1.557: chuyển tài khoản sang văn phòng / Giám sát thì tự tắt mã KTV cũ).
+
+**Đã làm:**
+- `POST /users/:email/chuyen-nhom-vai-tro` (van_phong): gỡ Gmail + `ngung_hoat_dong = 1` cho mã cũ, tính lại hash danh bạ.
+- `PATCH /settings/ktv-lien-he/:ma/bat-tat`: bật/tắt được cả mã chưa gắn tài khoản (trước báo `CHUA_CO_TAI_KHOAN`).
+- Gắn Gmail cho mã đang trống (form KTV / "Gắn mã KTV" / "Tạo tài khoản" ETX qua mã có sẵn) → mã tự bật lại.
+- Thẻ KTV, cột "Tài khoản": mã chưa gắn tài khoản có công tắc + nhãn "Mã đã tắt".
+- Dữ liệu: tắt 6 mã sót cùng kiểu (Gmail đã gỡ, người đó nay là tài khoản văn phòng): NS-848, NS-3683, NS-044, NS-1330, tuannv.gsmb, thienpt.bh
+  (trước: cả 6 đang bật; bật lại được bằng công tắc).
+
+**Kiểm thử:** typecheck 2 phía 0 lỗi, build xanh. Chưa xem giao diện bằng trình duyệt (cần đăng nhập Google Admin).

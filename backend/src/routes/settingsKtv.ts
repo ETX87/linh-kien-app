@@ -597,6 +597,10 @@ settingsKtv.patch("/:ma/dat-mua-lk", adminOnly, async (c) => {
     )
     .run();
   if (duPhongHienTaiChanged) await setMocTinhDuPhong(c.env.DB, c.get("user").email, duPhongCapNhatLuc!);
+  // Gan Gmail cho ma DANG TRONG (vd ma tu tat khi nguoi cu chuyen sang van phong, v1.558) = dung lai ma -> bat lai ma.
+  if (next.email_dang_nhap && !existing.email_dang_nhap) {
+    await c.env.DB.prepare("UPDATE ktv_lien_he SET ngung_hoat_dong = 0 WHERE ma_ktv = ?").bind(ma).run();
+  }
 
   if (next.email_dang_nhap) {
     await provisionPlaceholderUser(c.env.DB, { email: next.email_dang_nhap, ten: existing.ten_hien_thi, vaiTroKtv: next.vai_tro_ktv }).then((stmt) => stmt.run());
@@ -913,9 +917,14 @@ settingsKtv.patch("/:ma/bat-tat", adminOnly, async (c) => {
   if (typeof body.bat !== "boolean") return c.json({ error: "MISSING_BAT" }, 400);
   const ktv = await c.env.DB.prepare("SELECT email_dang_nhap FROM ktv_lien_he WHERE ma_ktv = ?").bind(ma).first<{ email_dang_nhap: string | null }>();
   if (!ktv) return c.json({ error: "NOT_FOUND" }, 404);
-  if (!ktv.email_dang_nhap) return c.json({ error: "CHUA_CO_TAI_KHOAN" }, 400);
-  const coTaiKhoan = await c.env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(ktv.email_dang_nhap).first();
-  if (!coTaiKhoan) return c.json({ error: "CHUA_CO_TAI_KHOAN" }, 400);
+  // Ma CHUA gan tai khoan (2026-11-25, v1.558 - vd ma con sot sau khi nguoi do chuyen sang van phong / Giam sat): chi bat/tat MA,
+  // khong dong toi tai khoan nao. Truoc day tra CHUA_CO_TAI_KHOAN -> Admin khong tat duoc, chi con cach xoa ma (mat lien ket ton kho).
+  const coTaiKhoan = ktv.email_dang_nhap ? await c.env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(ktv.email_dang_nhap).first() : null;
+  if (!ktv.email_dang_nhap || !coTaiKhoan) {
+    await c.env.DB.prepare("UPDATE ktv_lien_he SET ngung_hoat_dong = ?, ngay_cap_nhat = ? WHERE ma_ktv = ?").bind(body.bat ? 0 : 1, nowVN(), ma).run();
+    await refreshHash(c.env.DB);
+    return c.json({ ok: true, ma_khac_dang_bat: null, chua_co_tai_khoan: true });
+  }
   // SUA 2026-10-01 (migration 0060): tat THEO MA (ktv_lien_he.ngung_hoat_dong) - nhieu ma co the dung CHUNG 1 Gmail. Bat 1 ma =
   // mo khoa Gmail; tat 1 ma chi khoa Gmail khi KHONG con ma nao khac cung Gmail dang bat.
   const now = nowVN();

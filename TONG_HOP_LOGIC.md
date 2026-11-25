@@ -132,7 +132,8 @@ cuối). Danh sách không đổi so với lần gửi thành công trước th�
 
 Đồng bộ danh bạ KTV / danh mục LK sang DVBH + app Bảo hành mỗi giờ; giá gia88 0h VN; ETX nhân sự 0h thứ Hai (tự tạo KTV + tài khoản, nghỉ
 việc tự khoá — Gmail đã là tài khoản văn phòng / Giám sát không bao giờ tự tạo KTV; nút "Tạo tài khoản" ở tab ETX cũng bị chặn khi Gmail đã
-khai báo vai trò văn phòng hoặc đã là KTV); 8h VN tự xác nhận phiếu quá hạn nhận + nhắc KTV; mỗi giờ quét quá hạn SLA + gắn thẻ vi phạm, tự hủy phiếu trống; 0h dọn thông báo cũ / bộ đếm ảnh.
+khai báo vai trò văn phòng hoặc đã là KTV). Chuyển tài khoản KTV sang văn phòng: gỡ Gmail khỏi mã KTV + TỰ TẮT mã (danh bạ giữ lại,
+Admin bật lại được kể cả khi mã chưa gắn tài khoản); gắn Gmail cho mã đang trống thì mã tự bật lại; 8h VN tự xác nhận phiếu quá hạn nhận + nhắc KTV; mỗi giờ quét quá hạn SLA + gắn thẻ vi phạm, tự hủy phiếu trống; 0h dọn thông báo cũ / bộ đếm ảnh.
 
 ## 11. Kết nối hệ khác
 

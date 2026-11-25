@@ -11,6 +11,13 @@ import { resyncKhuVucDerivedFieldsForEmail } from "../lib/khuVucSync";
 import { emailsTheoTen } from "../lib/timTheoTen";
 import { ktvChinhCuaEmailSql } from "../lib/ktvChinh";
 import { chuanMaNhanSu } from "../lib/maNhanSu";
+import { computeAndStoreHash } from "../lib/contentHash";
+
+// Danh ba KTV doi (go Gmail / tat ma) -> tinh lai hash de cron dong bo danh ba sang DVBH nhan ban moi (cung buoc refreshHash o settingsKtv.ts).
+async function refreshKtvHash(db: D1Database) {
+  const { results } = await db.prepare("SELECT * FROM ktv_lien_he ORDER BY ma_ktv").all();
+  await computeAndStoreHash(db, "ktv_lien_he", results);
+}
 
 // Port rut gon tu backend/src/routes/users.ts cua he DVBH goc - bo cac truong khong con ton tai o
 // he nay (khu_vuc_phu_trach, la_ksnb_doi_tac, modules, co_the_import_tranh_chap - xem types.ts).
@@ -256,9 +263,12 @@ users.post("/:email/chuyen-nhom-vai-tro", async (c) => {
   if (body.to === "van_phong") {
     await c.env.DB.batch([
       c.env.DB.prepare("UPDATE users SET la_ktv_dvbh = 0, la_ve_tinh = 0, updated_at = ?, quyen_sua_boi = ? WHERE email = ?").bind(now, c.get("realEmail"), email),
-      c.env.DB.prepare("UPDATE ktv_lien_he SET email_dang_nhap = NULL WHERE email_dang_nhap = ?").bind(email),
+      // Tu TAT ma KTV cu (ngung_hoat_dong = 1, 2026-11-25 v1.558): danh ba giu lai (ton kho / lich su theo ma) nhung khong con hien
+      // nhu KTV dang lam o the "KTV hiện trường"; Admin bat lai duoc bang cong tac o cot "Tài khoản".
+      c.env.DB.prepare("UPDATE ktv_lien_he SET email_dang_nhap = NULL, ngung_hoat_dong = 1, ngay_cap_nhat = ? WHERE email_dang_nhap = ?").bind(now, email),
     ]);
     await resyncKhuVucDerivedFieldsForEmail(c.env.DB, email);
+    await refreshKtvHash(c.env.DB);
   } else {
     await c.env.DB.batch([
       c.env.DB.prepare(

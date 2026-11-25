@@ -1533,10 +1533,12 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
 
   const batTat = useMutation({
     mutationFn: ({ ma, bat }: { ma: string; bat: boolean }) =>
-      api.patch<{ ok: true; ma_khac_dang_bat: string | null }>(`/settings/ktv-lien-he/${encodeURIComponent(ma)}/bat-tat`, { bat }),
+      api.patch<{ ok: true; ma_khac_dang_bat: string | null; chua_co_tai_khoan?: boolean }>(`/settings/ktv-lien-he/${encodeURIComponent(ma)}/bat-tat`, { bat }),
     onSuccess: async (res, { ma, bat }) => {
       addToast(
-        bat
+        res.chua_co_tai_khoan
+          ? `Đã ${bat ? "bật" : "tắt"} mã ${ma} (mã chưa gắn tài khoản)`
+          : bat
           ? `Đã bật mã ${ma}`
           : res.ma_khac_dang_bat
             ? `Đã tắt mã ${ma} — Gmail vẫn đăng nhập được vì mã ${res.ma_khac_dang_bat} (cùng Gmail) đang bật`
@@ -1573,7 +1575,28 @@ export function KtvTab({ mode = "admin", initialSearch }: { mode?: KtvTabMode; i
       key: "tk_bat_tat", mobile: "meta",
       header: "Tài khoản",
       render: (r) => {
-        if (!r.tk_email) return <span className="text-[var(--color-text-faint)]">Chưa có</span>;
+        // Ma chua gan tai khoan (2026-11-25, v1.558): van bat/tat duoc THEO MA - vd ma tu tat khi nguoi do chuyen sang van phong.
+        if (!r.tk_email) {
+          const maBat = !r.ngung_hoat_dong;
+          return (
+            <span className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+              {mode === "admin" && (
+                <ToggleSwitch
+                  checked={maBat}
+                  onChange={() => {
+                    if (batTat.isPending) return;
+                    if (maBat && !window.confirm(`Tắt mã ${r.ma_ktv} (${r.ten_hien_thi ?? r.ma_ktv})?
+
+Mã này chưa gắn tài khoản nào — chỉ đánh dấu ngừng dùng, dữ liệu cũ (tồn kho, đơn) giữ nguyên.`)) return;
+                    batTat.mutate({ ma: r.ma_ktv, bat: !maBat });
+                  }}
+                />
+              )}
+              <span className="text-[var(--color-text-faint)]">Chưa có</span>
+              {!maBat && <Badge tone="coral">Mã đã tắt</Badge>}
+            </span>
+          );
+        }
         // Bat/tat THEO MA (migration 0060): ma tat rieng (ngung_hoat_dong) hoac ca Gmail bi khoa (tk_bi_khoa).
         const bat = !r.ngung_hoat_dong && !r.tk_bi_khoa;
         return (
@@ -1730,7 +1753,7 @@ Mã này sẽ không hiện trong danh sách chọn người nhận hàng. ${
               onClick={() => {
                 if (
                   window.confirm(
-                    `Chuyển tài khoản "${r.email_dang_nhap}" sang nhóm Nhân viên văn phòng?\n\nSẽ tắt cờ KTV DVBH/Vệ tinh và huỷ liên kết với hồ sơ KTV "${r.ma_ktv}" (danh bạ vẫn giữ nguyên, chỉ mất "người đăng nhập"). Bạn cần chọn vai trò văn phòng cụ thể (Kho/Kế toán/TN/...) ngay sau đó.`,
+                    `Chuyển tài khoản "${r.email_dang_nhap}" sang nhóm Nhân viên văn phòng?\n\nSẽ tắt cờ KTV DVBH/Vệ tinh và huỷ liên kết với hồ sơ KTV "${r.ma_ktv}" (danh bạ vẫn giữ nguyên nhưng mã tự chuyển "Mã đã tắt", bật lại được ở cột Tài khoản). Bạn cần chọn vai trò văn phòng cụ thể (Kho/Kế toán/TN/...) ngay sau đó.`,
                   )
                 ) {
                   chuyenSangVanPhong.mutate(r.email_dang_nhap!);

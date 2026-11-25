@@ -209,7 +209,7 @@ export async function taoTaiKhoanTuEtx(db: D1Database, maNhanSu: string): Promis
     const emailCu = (ktvTheoMa.email_dang_nhap ?? "").trim().toLowerCase();
     if (emailCu && emailCu !== email) return { ok: false, error: "MA_KTV_CUA_NGUOI_KHAC" };
     maKtv = ktvTheoMa.ma_ktv;
-    stmts.push(db.prepare("UPDATE ktv_lien_he SET email_dang_nhap = ?, ngay_cap_nhat = ? WHERE ma_ktv = ?").bind(email, now, maKtv));
+    stmts.push(db.prepare("UPDATE ktv_lien_he SET email_dang_nhap = ?, ngung_hoat_dong = 0, ngay_cap_nhat = ? WHERE ma_ktv = ?").bind(email, now, maKtv));
     doiDanhBa = true;
   } else {
     maKtv = ma;
