@@ -632,3 +632,15 @@ Mọi cột nguồn đều có trong D1. Hai điểm lệch của file cũ: côn
 
 **Kiểm thử:** typecheck 2 phía 0 lỗi, build xanh. Chạy local trên bản sao 8 bảng của D1 thật: API tháng 10 trả 4.143 đơn / 1.534 phiếu trong ~0,3 giây,
 tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa bấm thử nút Tải Excel trong trình duyệt (không tải file về máy khi kiểm thử).
+
+## 2026-11-25 — Cập nhật tài liệu hướng dẫn cấp LK sửa chữa / xác / trả xác / trừ công nợ (chỉ tài liệu, app vẫn v1.562)
+
+- Yêu cầu nguyên văn: "rà soát lại luồng trả trả xác linh kiện, kiểm tra xem đã có tài liệu hướng dẫn, mô tả html chưa?" → "Cập nhật tài liệu".
+- Rà soát: luồng trong `routes/suachuaDonSc.ts` (`/tru-cong-no`, `/tru-cong-no/:id/huy`, `/don-sc/:id/da-nhan`, `dayPhieuSuaChuaSangKeToan`) + Kế toán chốt
+  phiếu trả tự "Kho đã nhận hàng trả" vẫn đúng luật đã chốt. Hai điểm biên rủi ro thấp (chưa sửa): 2 lần xác nhận khác `lan` gửi cùng lúc có thể cùng lọt
+  kiểm tra `VUOT_SL_NHAN`; phiếu trả gom chung đơn trả hàng thường thì không tự đẩy thẳng Kế toán.
+- Đã làm: `docs/Huong_dan_cap_LK_sua_chua_tra_xac.html` (bản v1.509) cập nhật theo v1.562: thêm Tóm tắt 5W1H; loại đơn là GỢI Ý, người đặt được chọn lại
+  kèm cảnh báo "⚠ Khác loại gợi ý" (v1.547) — mục 1.1 mới + ảnh chụp chi tiết đơn; cảnh báo chọn sai loại ở form (v1.510); "Dịch vụ tính phí" → MUA HÀNG
+  SỬA CHỮA, xét trước bảo hành (v1.548) ở bảng loại đơn, thứ tự xét, Admin BH phân loại, Kế toán, Tình huống; thêm mục Lịch sử cập nhật tài liệu.
+- Kiểm thử: ảnh chụp từ Worker local dữ liệu demo (gắn tạm `loai_goi_y` cho 1 đơn demo, đã gỡ) — khối đỏ + chip "Khác loại gợi ý" ở chi tiết đơn hiển thị
+  đúng (lần đầu xem thử giao diện v1.547); mở file HTML bằng Chrome, bố cục đúng. Chưa chụp khối cam cảnh báo ở form tạo đơn (cần chạy kèm app đổi trả).
