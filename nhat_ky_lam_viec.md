@@ -677,3 +677,12 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
   khoản về công ty cho đơn tích "Khách hàng đã chuyển khoản về công ty" (có hay không xuất hóa đơn đều được)…" (từ v1.521 không còn bắt chọn hóa đơn);
   bản dịch EN / ID sửa theo. Không đổi logic.
 - Kiểm thử: typecheck frontend 0 lỗi, build xanh; `kiem-tra-dich` câu mới đủ EN / ID (34 câu thiếu dịch có sẵn từ trước, không đổi).
+
+## 2026-11-25 — v1.565: Gộp "Thiếu hàng bảo hành" vào danh sách Thiếu hàng + cột "Nguồn tiếp nhận"
+
+- Yêu cầu nguyên văn: "gộp thiếu hàng lk dặt mua với đổi trả vào cùng 1 tab để tiện quản lý và phản hồi kết quả, bổ sung thêm 1 cột nguồn tiếp nhận" (kèm ảnh 3 tab Thiếu hàng đặt mua / KTV báo nhận thiếu / Thiếu hàng bảo hành).
+- Đã làm: backend `GET /dat-mua-lk/thieu-lk` + `/thieu-lk-status-counts` trả chung ticket TLK (đặt mua) và THB (thiếu hàng bảo hành từ app Bảo hành đổi trả), phân trang / lọc / đếm phía server;
+  tham số + cột **Nguồn tiếp nhận** (chọn nhiều): App đặt LK · Đổi trả — cấp LK · API đối tác · Đổi trả — thiếu hàng BH. Giao diện: menu Thiếu hàng còn 2 tab — "Thiếu hàng (đặt mua + bảo hành)" (chip "BH n" = THB chờ mình) và "KTV báo nhận thiếu";
+  dòng THB bấm mở popup xử lý THB như cũ (mỗi bước vẫn báo về đơn bảo hành gốc). KTV không thấy THB (như trước).
+- Kiểm thử: typecheck 2 phía 0 lỗi, build xanh, bản dịch EN / ID đủ câu mới. Local (D1 demo + 3 THB mẫu, tài khoản Admin): thứ tự trộn theo ngày báo, ghép các trang khớp danh sách đầy đủ 26/26, lọc nguồn / từ khoá / nhóm trạng thái, số đếm có THB, bấm "Chuyển Mua hàng" trong popup THB → dòng đổi "Chờ Mua hàng" ngay; xem giao diện máy tính + điện thoại.
+- Lưu ý: THB "Hàng đã về" đếm vào nhóm "Đã duyệt đơn gốc", THB từ chối / không mua được đếm vào "Đã huỷ bỏ" (dòng vẫn ghi nhãn gốc). Chưa thử với tài khoản Kho / Mua hàng thật trên production.

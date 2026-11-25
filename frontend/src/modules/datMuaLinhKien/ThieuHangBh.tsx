@@ -295,6 +295,9 @@ function ThbDetailModal({ row, onClose, addToast, ten }: { row: ThbRow; onClose:
       setGhiChu("");
       qc.invalidateQueries({ queryKey: ["thieu-hang-bh"] });
       qc.invalidateQueries({ queryKey: ["thieu-hang-bh-ct", row.id] });
+      // v1.565: ticket THB nam chung danh sach "Thiếu hàng" (ThieuLkTab).
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-thieu-lk"] });
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-thieu-lk-status-counts"] });
       qc.invalidateQueries({ queryKey: ["notifications-count"] });
     },
     onError: (e) => addToast(t("Lỗi: {msg}", { msg: loi(e) })),

@@ -413,6 +413,13 @@ export interface DonHangKhaDungRow {
 
 export interface ThieuLkRow {
   id: string;
+  // v1.565 - ticket "Thiếu hàng bảo hành" (THB) gop chung danh sach: loai_ticket "bh", thb_trang_thai = trang thai goc THB.
+  loai_ticket?: "bh";
+  nguon_tiep_nhan?: "app_lk" | "doitra_cap" | "api" | "bh" | null;
+  thb_trang_thai?: string;
+  case_id?: string | null;
+  ktv_ten?: string | null;
+  mien?: string | null;
   ddh_khieu_nai?: number | null; // don goc la "Ca khiếu nại" (2026-10-28)
   ddh_yeu_cau_huy?: "kho" | "mua_hang" | "ke_toan" | null; // yeu cau huy don goc dang cho dong y (v1.455)
   dat_don_hang_id: string;

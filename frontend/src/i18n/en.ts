@@ -3206,5 +3206,18 @@ const tuDien: Record<string, string> = {
   "{a} người không tra ra trên eOffice.": "{a} people not found in eOffice.",
   "Đã đẩy {a} việc cho {b} người lên App Nhiệm vụ": "Pushed {a} tasks for {b} people to the Task app",
   "Đẩy lên App Nhiệm vụ": "Push to Task app",
+  // v1.565 - gop Thieu hang bao hanh + cot Nguon tiep nhan
+  "API đối tác": "Partner API",
+  "App đặt LK": "Parts ordering app",
+  "BH {n}": "Warranty {n}",
+  "Nguồn tiếp nhận": "Intake source",
+  "Nguồn: {a}": "Source: {a}",
+  "Thiếu hàng (đặt mua + bảo hành)": "Shortages (orders + warranty)",
+  "Tìm theo mã TLK / THB, mã đơn, mã đơn BH, mã YCSC / case, mã Lada, mã LK, tên LK, tên KTV...": "Search by TLK / THB code, order, warranty order, case / YCSC, Lada, part code, part name, technician...",
+  "{n} ticket thiếu hàng bảo hành chờ bạn xử lý": "{n} warranty shortage tickets waiting for you",
+  "Đơn BH": "Warranty order",
+  "Đơn bảo hành {a}": "Warranty order {a}",
+  "Đổi trả — cấp LK": "Warranty app — parts issue",
+  "Đổi trả — thiếu hàng BH": "Warranty app — warranty shortage",
 };
 export default tuDien;

@@ -3206,5 +3206,18 @@ const tuDien: Record<string, string> = {
   "{a} người không tra ra trên eOffice.": "{a} orang tidak ditemukan di eOffice.",
   "Đã đẩy {a} việc cho {b} người lên App Nhiệm vụ": "Terkirim {a} tugas untuk {b} orang ke Aplikasi Tugas",
   "Đẩy lên App Nhiệm vụ": "Kirim ke Aplikasi Tugas",
+  // v1.565 - gop Thieu hang bao hanh + cot Nguon tiep nhan
+  "API đối tác": "API mitra",
+  "App đặt LK": "Aplikasi pesan suku cadang",
+  "BH {n}": "Garansi {n}",
+  "Nguồn tiếp nhận": "Sumber penerimaan",
+  "Nguồn: {a}": "Sumber: {a}",
+  "Thiếu hàng (đặt mua + bảo hành)": "Kekurangan (pesanan + garansi)",
+  "Tìm theo mã TLK / THB, mã đơn, mã đơn BH, mã YCSC / case, mã Lada, mã LK, tên LK, tên KTV...": "Cari kode TLK / THB, pesanan, pesanan garansi, case / YCSC, Lada, kode suku cadang, nama suku cadang, teknisi...",
+  "{n} ticket thiếu hàng bảo hành chờ bạn xử lý": "{n} tiket kekurangan garansi menunggu Anda",
+  "Đơn BH": "Pesanan garansi",
+  "Đơn bảo hành {a}": "Pesanan garansi {a}",
+  "Đổi trả — cấp LK": "Aplikasi garansi — pengeluaran suku cadang",
+  "Đổi trả — thiếu hàng BH": "Aplikasi garansi — kekurangan garansi",
 };
 export default tuDien;

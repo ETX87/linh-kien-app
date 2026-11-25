@@ -40,6 +40,27 @@ import { XetDuyetMaSection } from "../danhMucLinhKien/XetDuyetMaLk";
 import { DanhGiaThieuLk } from "./DanhGiaThieuLk";
 import { TachDonModal } from "./TachDon";
 import { HuyDonKhoi, YeuCauHuyChip } from "./YeuCauHuy";
+import { THB_TRANG_THAI, XemThieuHangBh } from "./ThieuHangBh";
+
+// v1.565 - cot / bo loc "Nguồn tiếp nhận" (ban sao NGUON_TLK_SQL backend routes/datMuaLinhKien.ts). Ticket "bh" = Thieu hang bao hanh (THB)
+// do app Bao hanh doi tra gui sang - xu ly o popup rieng (XemThieuHangBh), khong co nut nhanh / chon hang loat o danh sach.
+const NGUON_TIEP_NHAN: Record<string, { label: string; tone: "neutral" | "info" | "warning" | "success" }> = {
+  app_lk: { label: dichSau("App đặt LK"), tone: "neutral" },
+  doitra_cap: { label: dichSau("Đổi trả — cấp LK"), tone: "info" },
+  api: { label: dichSau("API đối tác"), tone: "success" },
+  bh: { label: dichSau("Đổi trả — thiếu hàng BH"), tone: "warning" },
+};
+function NguonTiepNhanBadge({ r }: { r: ThieuLkRow }) {
+  const n = NGUON_TIEP_NHAN[r.nguon_tiep_nhan ?? "app_lk"] ?? NGUON_TIEP_NHAN.app_lk;
+  return <Badge tone={n.tone}>{t(n.label)}</Badge>;
+}
+function TrangThaiDong({ r }: { r: ThieuLkRow }) {
+  if (r.loai_ticket === "bh") {
+    const s = THB_TRANG_THAI[r.thb_trang_thai ?? ""];
+    return s ? <Badge tone={s.tone}>{t(s.label)}</Badge> : <span>{r.thb_trang_thai}</span>;
+  }
+  return <StatusBadge value={r.trang_thai} tones={THIEU_LK_TRANG_THAI_TONE} options={THIEU_LK_TRANG_THAI_OPTIONS} />;
+}
 
 // Nhan "Ưu tiên" (concept 1 "Structured Neutral" da duyet, 2026-08-24, pattern ".priority-tag") - thay
 // cho ngoi sao "⭐" tho truoc day, presentational thuan tuy (khong doc/ghi state).
@@ -436,6 +457,12 @@ export function ThieuLkTab({
     enabled: showKhuVucFilter,
   });
 
+  // Loc "Nguồn tiếp nhận" (v1.565) - chon nhieu, khong chon = tat ca.
+  const [filterNguon, setFilterNguon] = useState<Set<string>>(new Set());
+  const nguonParam = [...filterNguon].sort().join(",");
+  const nguonOptions = Object.entries(NGUON_TIEP_NHAN).map(([value, n]) => ({ value, label: t(n.label) }));
+  // Ticket THB dang mo (popup xu ly rieng cua THB).
+  const [moThb, setMoThb] = useState<string | null>(null);
   // Loc nhanh theo trang thai MA LK cua don goc (2026-10-16): "" | "cho" | "da".
   const [filterMaLk, setFilterMaLk] = useState<"" | "cho" | "da">("");
   // Loc "Kho đã có đủ hàng" (2026-10-16).
@@ -444,12 +471,12 @@ export function ThieuLkTab({
   useEffect(() => {
     setPage(1);
     setSelected(new Set());
-  }, [filterTrangThai, debouncedQ, khuVucParam, filterNguoiNhanHang, filterMaLk, filterDuHang]);
+  }, [filterTrangThai, debouncedQ, khuVucParam, filterNguoiNhanHang, filterMaLk, filterDuHang, nguonParam]);
 
   // GD4 (phan hoi Codex #17): phan trang server-side - truoc day tai het toan bo dong khop bo loc
   // roi tu slice o client, moi lan doi trang van doc lai het du lieu tu D1.
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["dat-mua-lk-thieu-lk", filterTrangThai, debouncedQ, khuVucParam, filterNguoiNhanHang, filterMaLk, filterDuHang, page],
+    queryKey: ["dat-mua-lk-thieu-lk", filterTrangThai, debouncedQ, khuVucParam, filterNguoiNhanHang, filterMaLk, filterDuHang, nguonParam, page],
     queryFn: () =>
       api.get<{ rows: ThieuLkRow[]; total: number }>(
         "/dat-mua-lk/thieu-lk" +
@@ -460,6 +487,7 @@ export function ThieuLkTab({
             q: debouncedQ || undefined,
             khu_vuc: khuVucParam || undefined,
             nguoi_nhan_hang: filterNguoiNhanHang || undefined,
+            nguon: nguonParam || undefined,
             page,
             pageSize: 20,
           }),
@@ -470,13 +498,14 @@ export function ThieuLkTab({
   // SUA 2026-09-28 (cot trang thai ben trai): gui CUNG bo loc voi danh sach (tru trang thai) de so moi muc = so dong
   // that khi bam vao. 1 truy van GROUP BY o server; chi tai lai khi doi khu vuc/nguoi nhan/tim kiem hoac sau thao tac.
   const { data: statusCountsData } = useQuery({
-    queryKey: ["dat-mua-lk-thieu-lk-status-counts", khuVucParam, filterNguoiNhanHang, debouncedQ, filterMaLk, filterTrangThai, filterDuHang],
+    queryKey: ["dat-mua-lk-thieu-lk-status-counts", khuVucParam, filterNguoiNhanHang, debouncedQ, filterMaLk, filterTrangThai, filterDuHang, nguonParam],
     queryFn: () =>
       api.get<{ counts: Record<string, number>; ma_lk?: { cho: number; da: number }; du_hang?: number }>(
         "/dat-mua-lk/thieu-lk-status-counts" +
           buildQuery({
             khu_vuc: khuVucParam || undefined, nguoi_nhan_hang: filterNguoiNhanHang || undefined, q: debouncedQ || undefined,
             ma_lk_tt: filterMaLk || undefined, trang_thai: filterTrangThai || undefined, du_hang: filterDuHang ? 1 : undefined,
+            nguon: nguonParam || undefined,
           }),
       ),
   });
@@ -497,6 +526,7 @@ export function ThieuLkTab({
             q: debouncedQ || undefined,
             khu_vuc: khuVucParam || undefined,
             nguoi_nhan_hang: filterNguoiNhanHang || undefined,
+            nguon: nguonParam || undefined,
           }),
       );
       await exportRowsToExcel(doiNguoiThanhTen(res.rows, personDir), "thieu_lk_chi_tiet.xlsx", "Thiếu LK");
@@ -554,7 +584,8 @@ export function ThieuLkTab({
     },
     onError: (err) => addToast(t("Lỗi: ") + describeApiError(err)),
   });
-  const NEXT_STATES = (r: ThieuLkRow) => nextStatesForThieuLk(r, { canKho, canTacNghiep, currentEmail, canMuaHang });
+  // Ticket THB: xu ly trong popup rieng (XemThieuHangBh) - khong nut nhanh / chon hang loat o danh sach.
+  const NEXT_STATES = (r: ThieuLkRow) => (r.loai_ticket === "bh" ? [] : nextStatesForThieuLk(r, { canKho, canTacNghiep, currentEmail, canMuaHang }));
 
   // Bulk-log (tieu chi UX #4, them 2026-08-15) - chi ap dung cho cac buoc KHONG can nhap lieu bat
   // buoc ("Kho da tiep nhan" can giai trinh rieng tung dong nen loai khoi bulk). Thanh hanh dong chi
@@ -611,7 +642,7 @@ export function ThieuLkTab({
   // chip/nut sang dropdown 2026-09-01), them chip nua se TRUNG LAP (xem comment tuong tu o
   // DonCuaToiTab.tsx/PhieuXuatKhoTab.tsx).
   // Trang thai da hien o cot ben trai (ThieuLkStatusRail) nen khong dem vao "Bộ lọc (N)" nua (2026-09-28).
-  const activeFilterCount = [filterQ, khuVucParam, filterNguoiNhanHang].filter(Boolean).length;
+  const activeFilterCount = [filterQ, khuVucParam, filterNguoiNhanHang, nguonParam].filter(Boolean).length;
   // "⚙ Tuỳ chỉnh cột" (phan hoi 2026-09-05: "button 'Tùy chỉnh cột' vẫn đang ở bên ngoài" so voi Mua
   // hàng/Công nợ) - truoc day 1 hang rieng LUON hien phia tren danh sach (xem ThieuLkGroupedList).
   // Doi sang Portal vao trong bang loc (mac dinh AN theo showFilters), khop DUNG pattern DonCuaToiTab.tsx
@@ -629,7 +660,7 @@ export function ThieuLkTab({
         activeFilterCount={activeFilterCount}
         searchValue={filterQ}
         onSearchChange={setFilterQ}
-        searchPlaceholder={t("Tìm theo mã TLK, mã đơn, mã YCSC, mã Lada, mã LK, tên LK, tên KTV/người báo...")}
+        searchPlaceholder={t("Tìm theo mã TLK / THB, mã đơn, mã đơn BH, mã YCSC / case, mã Lada, mã LK, tên LK, tên KTV...")}
         trailing={
           // Tai Excel (2026-10-02): LUON hien canh o tim (truoc nam trong khoi Bo loc thu gon) - moi vai tro tru KTV/Ve tinh thuan.
           coTaiExcel || canKho || canTacNghiep || canKeToan ? (
@@ -662,6 +693,7 @@ export function ThieuLkTab({
             bo nhan "Khu vực" rieng ben ngoai (gay lech chieu cao so voi cac o loc khac cung hang) -
             nhan da gop vao THANG nut trigger (xem triggerLabel trong SharedUi.tsx). */}
         {showKhuVucFilter && khuVucOptions.length > 0 && <KhuVucChipFilter value={filterKhuVuc} onChange={setFilterKhuVuc} options={khuVucOptions} />}
+        <KhuVucChipFilter value={filterNguon} onChange={setFilterNguon} options={nguonOptions} tieuDe={t("Nguồn tiếp nhận")} />
         {/* Bo loc "Nguoi nhan hang" (them 2026-09-05, cung phan hoi tren). */}
         {(nguoiNhanHangData?.rows.length ?? 0) > 0 && (
           <Select
@@ -700,6 +732,7 @@ export function ThieuLkTab({
         chips={[
           ...(khuVucParam ? [{ label: t("Khu vực: {a}", { a: [...filterKhuVuc].map((ma) => khuVucOptions.find((o) => o.value === ma)?.label ?? ma).join(", ") }), onClear: () => setFilterKhuVuc(new Set()) }] : []),
           ...(filterNguoiNhanHang ? [{ label: t("Người nhận hàng đã lọc"), onClear: () => setFilterNguoiNhanHang("") }] : []),
+          ...(nguonParam ? [{ label: t("Nguồn: {a}", { a: [...filterNguon].map((v) => nguonOptions.find((o) => o.value === v)?.label ?? v).join(", ") }), onClear: () => setFilterNguon(new Set()) }] : []),
           ...(filterQ ? [{ label: t("Tìm: \"{a}\"", { a: filterQ }), onClear: () => setFilterQ("") }] : []),
         ]}
       />
@@ -764,7 +797,7 @@ export function ThieuLkTab({
         pageSize={20}
         total={data?.total ?? 0}
         onPageChange={setPage}
-        onDetail={(id) => setDetailId(id)}
+        onDetail={(id) => (data?.rows.find((r) => r.id === id)?.loai_ticket === "bh" ? setMoThb(id) : setDetailId(id))}
         ktvDisplayMap={ktvDisplayMap}
         nextStates={NEXT_STATES}
         onGiaiTrinh={(r, tt) => { setDetailIdRaw(r.id); setDetailAction(tt); }}
@@ -779,6 +812,7 @@ export function ThieuLkTab({
       />
       {/* Chua cho thanh hang loat noi (fixed) tren mobile khong che the cuoi danh sach. */}
       {selected.size > 0 && <div className="h-16 sm:hidden" />}
+      {moThb && <XemThieuHangBh id={moThb} onClose={() => setMoThb(null)} addToast={addToast} />}
       {detailId && (
         <ThieuLkDetailModal
           key={detailId}
@@ -791,7 +825,7 @@ export function ThieuLkTab({
           canKho={canKho}
           canTacNghiep={canTacNghiep}
           currentEmail={currentEmail}
-          navRows={data?.rows}
+          navRows={data?.rows.filter((r) => r.loai_ticket !== "bh")}
           onNavigate={setDetailId}
         />
       )}
@@ -880,13 +914,24 @@ function ThieuLkGroupedList({
         </div>
       ),
     },
-    { key: "ma_lk_tt", header: t("Mã LK"), render: (r) => <MaLkXacNhanBadge tt={r.lk_trang_thai_ma} /> },
+    { key: "nguon_tiep_nhan", header: t("Nguồn tiếp nhận"), render: (r) => <NguonTiepNhanBadge r={r} /> },
+    { key: "ma_lk_tt", header: t("Mã LK"), render: (r) => (r.loai_ticket === "bh" ? <span className="text-[var(--ink-400)]">—</span> : <MaLkXacNhanBadge tt={r.lk_trang_thai_ma} />) },
     // Nhom LK Karofi / B2B (2026-10-16, migration 0088) - Kho duoc gan 1 nhom chi thay ticket cua nhom do.
     { key: "nhom_lk", header: t("Nhóm LK"), render: (r) => <NhomLkBadge value={r.lk_nhom_lk} /> },
     { key: "kho_du_hang", header: t("Kho công ty"), render: (r) => (r.kho_du_hang ? <KhoDuHangBadge du={r.kho_du_hang} /> : r.kho_mot_phan ? <KhoMotPhanBadge co={r.kho_mot_phan} sl={r.so_luong_de_xuat} /> : <span className="text-[var(--ink-400)]">—</span>) },
-    { key: "loai", header: t("Loại"), render: (r) => <LoaiDeXuatBadge loaiDon={r.loai_don} loaiDeXuat={r.loai_de_xuat} /> },
+    {
+      key: "loai", header: t("Loại"),
+      render: (r) =>
+        r.loai_ticket === "bh" ? (
+          <span className="whitespace-nowrap text-xs" title={t("Đơn bảo hành {a}", { a: r.dat_don_hang_id })}>
+            {t("Đơn BH")} <span className="font-mono">{r.dat_don_hang_id}</span>{r.case_id ? ` · ${r.case_id}` : ""}
+          </span>
+        ) : (
+          <LoaiDeXuatBadge loaiDon={r.loai_don} loaiDeXuat={r.loai_de_xuat} />
+        ),
+    },
     { key: "loai_chiet_khau", header: t("Loại chiết khấu"), render: (r) => <LoaiChietKhauText id={r.loai_chiet_khau_id} thuCong={r.loai_chiet_khau_thu_cong} /> },
-    { key: "nguoi_tao", header: t("TN báo"), render: (r) => formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap) },
+    { key: "nguoi_tao", header: t("TN báo"), render: (r) => (r.loai_ticket === "bh" ? (r.nguoi_tao ?? t("App Bảo hành đổi trả")) : formatNguoiDisplay(r.nguoi_tao, ktvDisplayMap)) },
     { key: "ngay_tao", header: t("Ngày báo"), render: (r) => fmtDateTime(r.ngay_tao) },
     // fmtDate: truoc day in thang chuoi ISO "2026-10-05" (lech dinh dang dd/mm/yyyy cua moi cot ngay khac).
     { key: "ngay_du_kien_co_hang", header: t("Ngày dự kiến có hàng"), render: (r) => fmtDate(r.ngay_du_kien_co_hang) },
@@ -895,7 +940,7 @@ function ThieuLkGroupedList({
       key: "trang_thai", header: t("Trạng thái"),
       render: (r) => (
         <div className="flex flex-col gap-0.5 items-start">
-          <StatusBadge value={r.trang_thai} tones={THIEU_LK_TRANG_THAI_TONE} options={THIEU_LK_TRANG_THAI_OPTIONS} />
+          <TrangThaiDong r={r} />
         </div>
       ),
     },
@@ -1099,8 +1144,13 @@ function ThieuLkGroupedList({
                         {r.ma_lk ? formatLkLabel(r.ma_lk, r.ten_lk_snapshot ?? r.ma_lk) : (r.ten_lk_snapshot ?? r.id)}
                       </div>
                       <div className="mt-1 flex items-center gap-1.5 overflow-hidden">
-                        <StatusBadge value={r.trang_thai} tones={THIEU_LK_TRANG_THAI_TONE} options={THIEU_LK_TRANG_THAI_OPTIONS} />
-                        <LoaiDeXuatBadge loaiDon={r.loai_don} loaiDeXuat={r.loai_de_xuat} />
+                        <TrangThaiDong r={r} />
+                        {r.nguon_tiep_nhan && r.nguon_tiep_nhan !== "app_lk" && <NguonTiepNhanBadge r={r} />}
+                        {r.loai_ticket === "bh" ? (
+                          <span className="shrink-0 truncate text-xs text-[var(--color-text-secondary)]">{t("Đơn BH")} {r.dat_don_hang_id}</span>
+                        ) : (
+                          <LoaiDeXuatBadge loaiDon={r.loai_don} loaiDeXuat={r.loai_de_xuat} />
+                        )}
                         <MaLkXacNhanBadge tt={r.lk_trang_thai_ma} chiKhiCho />
                         <YeuCauHuyChip boPhan={r.ddh_yeu_cau_huy} />
                         <KhoDuHangBadge du={r.kho_du_hang} />

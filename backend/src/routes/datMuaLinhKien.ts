@@ -16,6 +16,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nextSequentialId, reserveSequentialIds } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
+import type { ThbRow } from "../lib/thieuHangBh";
 import { emailsTheoTen, orEmailIn, orMaYcsc, orPxkCuaDon, tenLkKhopSql } from "../lib/timTheoTen";
 import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, viewDonScopeSql, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql, laKhoThuan, scopePxkNguoiNhanHang, gsKhuVucXemThemSql, duocDoiKhuVucDon, laGsCuaKhuVuc } from "../lib/scopeDatMua";
 import { pxkKhopMienXuatSql } from "../lib/mienXuat";
@@ -5617,7 +5618,95 @@ async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = 
     whereSql += ` AND (ddh.ma_lk LIKE ? OR ${tenLk.sql} OR tlk.id LIKE ? OR tlk.nguoi_tao LIKE ? OR ddh.id LIKE ?${theoMa.sql}${theoPxk.sql}${theoTen.sql})`;
     binds.push(`%${q}%`, ...tenLk.binds, `%${q}%`, `%${q}%`, `%${q}%`, ...theoMa.binds, ...theoPxk.binds, ...theoTen.binds);
   }
+  // Loc "Nguồn tiếp nhận" (v1.565): nhieu gia tri = HOAC; chi chon "bh" -> khong lay ticket TLK nao.
+  const nguon = nguonTiepNhanLoc(c);
+  if (nguon) {
+    const dsTlk = nguon.filter((x) => x !== "bh");
+    if (!dsTlk.length) whereSql += " AND 0";
+    else {
+      whereSql += ` AND ${NGUON_TLK_SQL} IN (${dsTlk.map(() => "?").join(",")})`;
+      binds.push(...dsTlk);
+    }
+  }
   return { whereSql, binds };
+}
+
+// ---- GOP "Thiếu hàng bảo hành" VAO danh sach Thieu hang (v1.565, 25/11/2026) ----
+// Nguyen van: "gộp thiếu hàng lk dặt mua với đổi trả vào cùng 1 tab để tiện quản lý và phản hồi kết quả, bổ sung thêm 1 cột nguồn tiếp nhận".
+// Ticket THB (bang thieu_hang_bh, app Bao hanh doi tra gui sang) di CHUNG danh sach / phan trang / so dem voi ticket TLK; xu ly van o popup
+// rieng cua THB (routes/thieuHangBh.ts - moi buoc day ket qua ve don bao hanh goc). Trang thai THB quy ve nhom trang thai TLK de loc / dem
+// (Hang da ve -> "Da ket thuc", tu choi / khong mua duoc / app rut lai -> "Da huy bo"); dong van giu nhan goc (thb_trang_thai).
+// Nguon tiep nhan: app_lk = dat tren app nay | doitra_cap = cap LK tu app Bao hanh doi tra (don nguon_tao doitra / dong bo suachua) |
+// api = API doi tac (phieu_dat.partner_key_id) | bh = ticket thieu hang bao hanh (THB). Ban sao nhan o FE ThieuLkTab.tsx (NGUON_TIEP_NHAN).
+const NGUON_TLK_SQL = `(CASE WHEN ddh.nguon_tao = 'doitra' OR ddh.nguon_ngoai = 'suachua' THEN 'doitra_cap'
+  WHEN (SELECT pdn.partner_key_id FROM phieu_dat pdn WHERE pdn.id = ddh.phieu_dat_id) IS NOT NULL THEN 'api' ELSE 'app_lk' END)`;
+const NGUON_HOP_LE = ["app_lk", "doitra_cap", "api", "bh"];
+function nguonTiepNhanLoc(c: Context<{ Bindings: Env }>): string[] | null {
+  const ds = (c.req.query("nguon") ?? "").split(",").map((x) => x.trim()).filter((x) => NGUON_HOP_LE.includes(x));
+  return ds.length ? ds : null;
+}
+const THB_SANG_TLK: Record<string, string> = { "Kho xac nhan hang da ve": "Da ket thuc", "Kho tu choi": "Da huy bo", "Mua hang tu choi": "Da huy bo", "Da huy": "Da huy bo" };
+const THB_TT_GOP_SQL = `(CASE trang_thai WHEN 'Kho xac nhan hang da ve' THEN 'Da ket thuc' WHEN 'Kho tu choi' THEN 'Da huy bo'
+  WHEN 'Mua hang tu choi' THEN 'Da huy bo' WHEN 'Da huy' THEN 'Da huy bo' ELSE trang_thai END)`;
+// Ai thay ticket THB: cung tap voi routes/thieuHangBh.ts xemDuoc (Kho / TN / Admin / Mua hang / Ke toan / View).
+function xemThbGop(c: Context<{ Bindings: Env }>): boolean {
+  const u = c.get("user");
+  return !!(u.la_kho || u.la_tac_nghiep || u.la_mua_hang || u.la_ke_toan || u.la_view || u.vai_tro === "Admin");
+}
+// "Viec can xu ly" cua ticket THB - khop badge Sidebar (routes/notifications.ts thbCho): Kho THAT / Admin = cho Kho, Mua hang / Admin = cho Mua hang.
+function thbViec(c: Context<{ Bindings: Env }>): string[] {
+  const u = c.get("user");
+  return [...(u.la_kho || u.vai_tro === "Admin" ? ["Cho kho xu ly"] : []), ...(laMuaHangXuLy(c) ? ["Cho mua hang"] : [])];
+}
+// WHERE cho phan THB cua danh sach gop - null = khong lay THB (khong co quyen xem / dang loc theo khai niem chi TLK co).
+function thbGopWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = false): { whereSql: string; binds: unknown[] } | null {
+  if (!xemThbGop(c)) return null;
+  if (c.req.query("dat_don_hang_id") || c.req.query("ma_lk_tt") || c.req.query("du_hang") === "1") return null;
+  const nguon = nguonTiepNhanLoc(c);
+  if (nguon && !nguon.includes("bh")) return null;
+  let whereSql = "1=1";
+  const binds: unknown[] = [];
+  const tt = boQuaTrangThai ? undefined : c.req.query("trang_thai");
+  if (tt === THIEU_LK_CHO_HUY) return null;
+  if (tt === THIEU_LK_VIEC) {
+    const ds = thbViec(c);
+    if (!ds.length) return null;
+    whereSql += ` AND trang_thai IN (${ds.map(() => "?").join(",")})`;
+    binds.push(...ds);
+  } else if (tt) {
+    const ds = tt.split(",").map((x) => x.trim()).filter(Boolean).slice(0, 20);
+    whereSql += ` AND ${THB_TT_GOP_SQL} IN (${ds.map(() => "?").join(",")})`;
+    binds.push(...ds);
+  }
+  // Khu vuc (MB1, MN2...) -> mien THB (MB / MN); ticket chua khai bao mien van hien (khong biet thuoc khu nao).
+  const khuVuc = (c.req.query("khu_vuc") ?? "").split(",").map((x) => x.trim().toUpperCase()).filter(Boolean);
+  if (khuVuc.length) {
+    const mien = [...new Set(khuVuc.map((k) => k.slice(0, 2)).filter((m) => m === "MB" || m === "MN"))];
+    whereSql += mien.length ? ` AND (mien IS NULL OR mien IN (${mien.map(() => "?").join(",")}))` : " AND mien IS NULL";
+    binds.push(...mien);
+  }
+  const nguoiNhan = c.req.query("nguoi_nhan_hang")?.trim();
+  if (nguoiNhan) {
+    whereSql += " AND LOWER(COALESCE(ktv_email, '')) = LOWER(?)";
+    binds.push(nguoiNhan);
+  }
+  const q = c.req.query("q")?.trim().normalize("NFC").toLowerCase();
+  if (q) {
+    whereSql += ` AND (LOWER(id) LIKE ? OR LOWER(nguon_id) LIKE ? OR LOWER(ma_lk) LIKE ? OR LOWER(COALESCE(ten_lk,'')) LIKE ?
+      OR LOWER(COALESCE(case_id,'')) LIKE ? OR LOWER(COALESCE(ktv_ten,'')) LIKE ? OR LOWER(COALESCE(ktv_email,'')) LIKE ? OR LOWER(COALESCE(ma_eo_mua,'')) LIKE ?)`;
+    for (let i = 0; i < 8; i++) binds.push(`%${q}%`);
+  }
+  return { whereSql, binds };
+}
+// 1 ticket THB -> dong cung hinh dang ticket TLK cua danh sach (FE ThieuLkRow, loai_ticket = "bh").
+function thbSangDongTlk(r: ThbRow): Record<string, unknown> {
+  return {
+    id: r.id, loai_ticket: "bh", nguon_tiep_nhan: "bh", dat_don_hang_id: r.nguon_id, ma_lk: r.ma_lk, ten_lk_snapshot: r.ten_lk,
+    so_luong_de_xuat: r.so_luong, nguoi_nhan_hang: r.ktv_email || r.ktv_ten || r.nguon_id, nguoi_tao: r.nguoi_bao, ngay_tao: r.ngay_tao,
+    ngay_du_kien_co_hang: r.ngay_du_kien, ngay_hang_ve_thuc_te: r.trang_thai === "Kho xac nhan hang da ve" ? r.ngay_cap_nhat?.slice(0, 10) ?? null : null,
+    trang_thai: THB_SANG_TLK[r.trang_thai] ?? r.trang_thai, thb_trang_thai: r.trang_thai, ten_ly_do: r.ly_do, ma_eo_mua: r.ma_eo_mua,
+    case_id: r.case_id, mien: r.mien, ktv_ten: r.ktv_ten, uu_tien: 0, kho_du_hang: 0, kho_mot_phan: null,
+  };
 }
 
 datMuaLinhKien.get("/thieu-lk", async (c) => {
@@ -5637,6 +5726,8 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
   const offset = (page - 1) * pageSize;
 
   const { whereSql, binds } = await thieuLkListWhere(c);
+  // v1.565: ticket THB gop chung danh sach - lay du (offset + pageSize) dong moi ben, tron theo ngay bao giam dan roi cat trang.
+  const thb = thbGopWhere(c);
 
   // SUA 2026-08-21: count query gio can JOIN ddh giong query chinh ben duoi vi whereSql (nhanh "q")
   // co the tham chieu ddh.ma_lk/ddh.ten_lk_snapshot - truoc do count khong JOIN vi whereSql chua bao
@@ -5658,14 +5749,14 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
   const queryStartedAt = Date.now();
   const { results } = await c.env.DB.prepare(
     `SELECT tlk.*, sldc.ten_ly_do, ddh.ma_lk, ddh.ten_lk_snapshot, ddh.uu_tien, ddh.khieu_nai as ddh_khieu_nai, (SELECT y.bo_phan FROM yeu_cau_huy_don y WHERE y.dat_don_hang_id = ddh.id AND y.trang_thai = 'Cho dong y') as ddh_yeu_cau_huy, ddh.nguoi_nhan_hang, ddh.loai_don, ddh.loai_de_xuat, ddh.nguoi_tao as ddh_nguoi_tao, ddh.loai_chiet_khau_id, ddh.loai_chiet_khau_thu_cong, ddh.so_luong_de_xuat, ${latestThieuLkStatusExpr("tlk.id")} as trang_thai,
-       ${LK_TRANG_THAI_MA_SQL} as lk_trang_thai_ma, ${LK_NHOM_SQL} as lk_nhom_lk
+       ${LK_TRANG_THAI_MA_SQL} as lk_trang_thai_ma, ${LK_NHOM_SQL} as lk_nhom_lk, ${NGUON_TLK_SQL} as nguon_tiep_nhan
      FROM thieu_lk tlk
      LEFT JOIN settings_ly_do_cham sldc ON sldc.id = tlk.ly_do_cham_id
      LEFT JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id
      WHERE ${whereSql} ORDER BY tlk.ngay_tao DESC
-     ${pageParam ? "LIMIT ? OFFSET ?" : ""}`,
+     ${pageParam ? (thb ? "LIMIT ?" : "LIMIT ? OFFSET ?") : ""}`,
   )
-    .bind(...binds, ...(pageParam ? [pageSize, offset] : []))
+    .bind(...binds, ...(pageParam ? (thb ? [offset + pageSize] : [pageSize, offset]) : []))
     .all();
   console.log("[thieu-lk-query]", { durationMs: Date.now() - queryStartedAt, rowCount: results.length });
   // Cot "Kho công ty" (2026-10-16): don goc "Cho hang" da du ton kho cong ty -> nhac Kho xac nhan (ticket con mo).
@@ -5680,7 +5771,20 @@ datMuaLinhKien.get("/thieu-lk", async (c) => {
       kho_mot_phan: mo ? (motPhan.get(String(r.dat_don_hang_id))?.co ?? null) : null,
     };
   });
-  return c.json({ rows, page, pageSize, total: countRow?.total ?? 0 });
+  if (!thb) return c.json({ rows, page, pageSize, total: countRow?.total ?? 0 });
+  const [thbDem, thbDs] = await Promise.all([
+    c.env.DB.prepare(`SELECT COUNT(*) AS n FROM thieu_hang_bh WHERE ${thb.whereSql}`).bind(...thb.binds).first<{ n: number }>(),
+    c.env.DB.prepare(`SELECT * FROM thieu_hang_bh WHERE ${thb.whereSql} ORDER BY ngay_tao DESC, id DESC ${pageParam ? "LIMIT ?" : ""}`)
+      .bind(...thb.binds, ...(pageParam ? [offset + pageSize] : []))
+      .all<ThbRow>(),
+  ]);
+  const tron: Record<string, unknown>[] = [...(rows as Record<string, unknown>[]), ...thbDs.results.map(thbSangDongTlk)].sort((a, b) => String(b.ngay_tao ?? "").localeCompare(String(a.ngay_tao ?? "")));
+  return c.json({
+    rows: pageParam ? tron.slice(offset, offset + pageSize) : tron,
+    page,
+    pageSize,
+    total: (countRow?.total ?? 0) + (thbDem?.n ?? 0),
+  });
 });
 
 // GET /api/dat-mua-lk/thieu-lk-status-counts - dem tinh theo tung trang_thai (dropdown loc, xem
@@ -5703,6 +5807,21 @@ datMuaLinhKien.get("/thieu-lk-status-counts", async (c) => {
   for (const r of results) if (r.trang_thai) counts[r.trang_thai] = r.n;
   const viec = thieuLkTrangThaiViec(c);
   counts[THIEU_LK_VIEC] = viec.reduce((s, t) => s + (counts[t] ?? 0), 0);
+  // v1.565: cong ticket THB (gop chung danh sach) vao so dem tung trang thai + "Cần xử lý" (theo viec THB cua nguoi xem).
+  const thb = thbGopWhere(c, true);
+  if (thb) {
+    const { results: thbDem } = await c.env.DB.prepare(
+      `SELECT ${THB_TT_GOP_SQL} AS tt, SUM(CASE WHEN trang_thai IN (SELECT value FROM json_each(?)) THEN 1 ELSE 0 END) AS viec, COUNT(*) AS n
+       FROM thieu_hang_bh WHERE ${thb.whereSql} GROUP BY ${THB_TT_GOP_SQL}`,
+    )
+      .bind(JSON.stringify(thbViec(c)), ...thb.binds)
+      .all<{ tt: string; viec: number | null; n: number }>();
+    for (const r of thbDem) {
+      counts[r.tt] = (counts[r.tt] ?? 0) + r.n;
+      counts[""] += r.n;
+      counts[THIEU_LK_VIEC] += r.viec ?? 0;
+    }
+  }
   const choHuy = await c.env.DB.prepare(
     `SELECT COUNT(*) as n FROM thieu_lk tlk LEFT JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id WHERE ${whereSql} AND ${THIEU_LK_CHO_HUY_SQL}`,
   ).bind(...binds).first<{ n: number }>();

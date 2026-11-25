@@ -206,7 +206,7 @@ const LUONG_THIEU_LK: Luong = {
 const LUONG_THIEU_BH: Luong = {
   key: "thieu-bh",
   ten: "Thiếu hàng BẢO HÀNH (từ app Sửa chữa bảo hành)",
-  moTa: "App Sửa chữa gửi sang khi đơn bảo hành có lý do chậm “Không có linh kiện” / “Hết hàng tồn kho”. Ticket THB-… riêng, mỗi bước đẩy ngược kết quả về đơn bảo hành gốc.",
+  moTa: "App Sửa chữa gửi sang khi đơn bảo hành có lý do chậm “Không có linh kiện” / “Hết hàng tồn kho”. Ticket THB-… riêng, mỗi bước đẩy ngược kết quả về đơn bảo hành gốc. Từ v1.565 hiện CHUNG danh sách Thiếu hàng với ticket đặt mua (cột / bộ lọc “Nguồn tiếp nhận” = Đổi trả — thiếu hàng BH), bấm dòng mở popup xử lý THB.",
   moc: [
     { key: "nhan", ten: "Nhận từ Sửa chữa", loai: "bat_dau", ai: "Hệ thống (POST /api/suachua-partner/thieu-hang-bh)", moTa: "Trùng đơn bảo hành + mã LK đang mở thì dùng lại ticket cũ." },
     { key: "kho", ten: "Chờ kho xử lý", loai: "cho", ai: "Kho / TN / Admin", moTa: "Tiếp nhận (ngày dự kiến), chuyển Mua hàng, xác nhận hàng về, hoặc từ chối (bắt buộc lý do)." },

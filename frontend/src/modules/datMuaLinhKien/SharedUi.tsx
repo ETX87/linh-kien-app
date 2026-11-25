@@ -450,10 +450,13 @@ export function KhuVucChipFilter({
   value,
   onChange,
   options,
+  tieuDe,
 }: {
   value: Set<string>;
   onChange: (next: Set<string>) => void;
   options: { value: string; label: string }[];
+  // v1.565: dung lai cho bo loc chon nhieu khac (vd "Nguồn tiếp nhận" o Thieu hang) - mac dinh "Khu vực".
+  tieuDe?: string;
 }) {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
@@ -483,8 +486,9 @@ export function KhuVucChipFilter({
   // lech thang dung. Gop nhan "Khu vực: " VAO THANG nut trigger (giong cach "Còn tồn (2)" tu mo ta
   // trong chinh no) - bo nhan rieng ben ngoai o CA 4 noi goi (DonCuaToiTab/PhieuXuatKhoTab/ThieuLkTab/
   // TraHangTab), gio chi con 1 dong cao bang cac o loc khac.
-  const triggerLabel =
-    value.size === 0 ? t("Khu vực: Tất cả") : value.size <= 2 ? t("Khu vực: {a}", { a: selectedLabels.join(", ") }) : t("Khu vực ({a})", { a: value.size });
+  const triggerLabel = tieuDe
+    ? value.size === 0 ? `${tieuDe}: ${t("Tất cả")}` : value.size <= 2 ? `${tieuDe}: ${selectedLabels.join(", ")}` : `${tieuDe} (${value.size})`
+    : value.size === 0 ? t("Khu vực: Tất cả") : value.size <= 2 ? t("Khu vực: {a}", { a: selectedLabels.join(", ") }) : t("Khu vực ({a})", { a: value.size });
 
   return (
     <div className="relative inline-block">

@@ -655,10 +655,13 @@ export function NhanThieuList({
 }
 
 /** Menu Thieu hang: 2 muc tach biet - ticket thieu hang dat mua (children) va "KTV báo nhận thiếu". */
-export function ThieuHangTabs({ children, list, baoHanh }: { children: ReactNode; list: ReactNode; baoHanh?: ReactNode }) {
-  const [muc, setMuc] = useLocalStorageState<"dat-mua" | "nhan-thieu" | "bao-hanh">("thieu-hang-muc", "dat-mua");
+// v1.565 ("gộp thiếu hàng lk đặt mua với đổi trả vào cùng 1 tab"): ticket "Thiếu hàng bảo hành" nam CHUNG muc dau (ThieuLkTab, cot "Nguồn tiếp nhận")
+// - bo tab rieng; coBaoHanh = nguoi xem thay ticket THB (hien so can xu ly THB tren tab gop).
+export function ThieuHangTabs({ children, list, coBaoHanh }: { children: ReactNode; list: ReactNode; coBaoHanh?: boolean }) {
+  const [mucLuu, setMuc] = useLocalStorageState<"dat-mua" | "nhan-thieu" | "bao-hanh">("thieu-hang-muc", "dat-mua");
+  const muc = mucLuu === "bao-hanh" ? "dat-mua" : mucLuu;
   // Thieu hang bao hanh (2026-11-04) - ticket tu app Sua chua bao hanh; so can xu ly theo vai tro (Kho / Mua hang).
-  const soBh = useThbCanXuLy(!!baoHanh);
+  const soBh = useThbCanXuLy(!!coBaoHanh);
   const { data } = useQuery({
     queryKey: ["nhan-thieu-list", "can_xu_ly", "", 1],
     queryFn: () => api.get<{ counts: Record<string, number> }>(`/nhan-thieu${buildQuery({ trang_thai: "can_xu_ly", page: 1 })}`),
@@ -683,7 +686,15 @@ export function ThieuHangTabs({ children, list, baoHanh }: { children: ReactNode
     <div className="space-y-3">
       <div className="flex flex-wrap gap-1.5">
         <button type="button" className={`filter-tab ${muc === "dat-mua" ? "active" : ""}`} onClick={() => setMuc("dat-mua")}>
-          {t("Thiếu hàng đặt mua")}
+          {coBaoHanh ? t("Thiếu hàng (đặt mua + bảo hành)") : t("Thiếu hàng đặt mua")}
+          {soBh > 0 && (
+            <span
+              title={t("{n} ticket thiếu hàng bảo hành chờ bạn xử lý", { n: soBh })}
+              className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--color-warning)] text-white text-[10px] font-bold leading-none"
+            >
+              {t("BH {n}", { n: soBh > 99 ? "99+" : soBh })}
+            </span>
+          )}
           {choHuy > 0 && (
             <span
               title={t("{n} đơn chờ duyệt hủy", { n: choHuy })}
@@ -701,18 +712,8 @@ export function ThieuHangTabs({ children, list, baoHanh }: { children: ReactNode
             </span>
           )}
         </button>
-        {baoHanh && (
-          <button type="button" className={`filter-tab ${muc === "bao-hanh" ? "active" : ""}`} onClick={() => setMuc("bao-hanh")}>
-            {t("Thiếu hàng bảo hành")}
-            {soBh > 0 && (
-              <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--color-warning)] text-white text-[10px] font-bold leading-none">
-                {soBh > 99 ? "99+" : soBh}
-              </span>
-            )}
-          </button>
-        )}
       </div>
-      {muc === "dat-mua" ? children : muc === "bao-hanh" && baoHanh ? baoHanh : list}
+      {muc === "dat-mua" ? children : list}
     </div>
   );
 }
