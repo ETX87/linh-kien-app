@@ -2669,7 +2669,7 @@ const tuDien: Record<string, string> = {
   "Khoản chuyển tiền KH": "Customer transfers",
   "Số dư theo KTV": "Balance by technician",
   "Sổ quỹ KH": "Customer fund ledger",
-  "Tiền khách hàng chuyển khoản về công ty cho đơn có yêu cầu xuất hóa đơn. Quỹ gắn theo KTV nhận hàng nhưng TÁCH RIÊNG quỹ cá nhân của KTV: chỉ trả cho phiếu KH chuyển khoản; đơn hủy / từ chối thì tiền về lại quỹ này.": "Money customers transferred to the company for orders requiring an invoice. The fund belongs to the receiving technician but is SEPARATE from the technician's own fund: it only pays customer-paid slips; cancelled / rejected orders return money to this fund.",
+  "Tiền khách hàng tự chuyển khoản về công ty cho đơn tích \"Khách hàng đã chuyển khoản về công ty\" (có hay không xuất hóa đơn đều được). Quỹ gắn theo KTV nhận hàng nhưng TÁCH RIÊNG quỹ cá nhân của KTV: chỉ trả cho phiếu KH chuyển khoản; đơn hủy / từ chối thì tiền về lại quỹ này.": "Money customers transferred to the company for orders ticked \"Customer transferred to the company\" (with or without an invoice). The fund belongs to the receiving technician but is SEPARATE from the technician's own fund: it only pays customer-paid slips; cancelled / rejected orders return money to this fund.",
   "Tất cả KTV": "All technicians",
   "Tồn quỹ KH chuyển": "Customer-paid fund balance",
   "{a} KTV đang có tồn": "{a} technicians with a balance",

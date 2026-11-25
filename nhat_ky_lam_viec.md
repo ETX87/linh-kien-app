@@ -669,3 +669,11 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
 - Cách chụp: Worker local + bản sao dữ liệu demo riêng (tài khoản KTV Demo), cấu hình tạm KHÔNG có service binding `remote` (bản thường gọi Worker thật
   và làm `wrangler dev` sập khi trang huỷ request); Chrome headless qua CDP. Đã tạo thêm 3 đơn demo khi chụp (chỉ trên DB tạm).
 - Phát hiện (chưa sửa): câu mô tả tab "Quỹ KH chuyển khoản" (`QuyChuyenTienModule.tsx`) vẫn ghi "cho đơn có yêu cầu xuất hóa đơn" — lệch với v1.521.
+
+## 2026-11-25 — v1.564: Sửa câu giới thiệu tab "Quỹ KH chuyển khoản"
+
+- Yêu cầu nguyên văn: "Sửa luôn" — trả lời câu hỏi sửa câu mô tả tab Quỹ KH chuyển khoản cho khớp v1.521 (phát hiện khi làm tài liệu KTV).
+- Đã làm: `QuyChuyenTienModule.tsx` — câu "Tiền khách hàng chuyển khoản về công ty cho đơn có yêu cầu xuất hóa đơn…" đổi thành "Tiền khách hàng tự chuyển
+  khoản về công ty cho đơn tích "Khách hàng đã chuyển khoản về công ty" (có hay không xuất hóa đơn đều được)…" (từ v1.521 không còn bắt chọn hóa đơn);
+  bản dịch EN / ID sửa theo. Không đổi logic.
+- Kiểm thử: typecheck frontend 0 lỗi, build xanh; `kiem-tra-dich` câu mới đủ EN / ID (34 câu thiếu dịch có sẵn từ trước, không đổi).

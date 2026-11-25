@@ -2669,7 +2669,7 @@ const tuDien: Record<string, string> = {
   "Khoản chuyển tiền KH": "Transfer pelanggan",
   "Số dư theo KTV": "Saldo per teknisi",
   "Sổ quỹ KH": "Buku dana pelanggan",
-  "Tiền khách hàng chuyển khoản về công ty cho đơn có yêu cầu xuất hóa đơn. Quỹ gắn theo KTV nhận hàng nhưng TÁCH RIÊNG quỹ cá nhân của KTV: chỉ trả cho phiếu KH chuyển khoản; đơn hủy / từ chối thì tiền về lại quỹ này.": "Uang yang ditransfer pelanggan ke perusahaan untuk pesanan dengan faktur. Dana milik teknisi penerima tetapi TERPISAH dari dana pribadi teknisi: hanya membayar slip transfer pelanggan; pesanan batal / ditolak mengembalikan uang ke dana ini.",
+  "Tiền khách hàng tự chuyển khoản về công ty cho đơn tích \"Khách hàng đã chuyển khoản về công ty\" (có hay không xuất hóa đơn đều được). Quỹ gắn theo KTV nhận hàng nhưng TÁCH RIÊNG quỹ cá nhân của KTV: chỉ trả cho phiếu KH chuyển khoản; đơn hủy / từ chối thì tiền về lại quỹ này.": "Uang yang ditransfer pelanggan ke perusahaan untuk pesanan yang dicentang \"Pelanggan sudah transfer ke perusahaan\" (dengan atau tanpa faktur). Dana milik teknisi penerima tetapi TERPISAH dari dana pribadi teknisi: hanya membayar slip transfer pelanggan; pesanan batal / ditolak mengembalikan uang ke dana ini.",
   "Tất cả KTV": "Semua teknisi",
   "Tồn quỹ KH chuyển": "Saldo dana transfer pelanggan",
   "{a} KTV đang có tồn": "{a} teknisi memiliki saldo",

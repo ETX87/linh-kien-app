@@ -1177,7 +1177,7 @@ function QuyKhTab({ rows, isLoading, isError, xemNhieuNguoi, ten, coTheDieuChinh
   return (
     <div className="space-y-3">
       <div className="rounded-xl border border-[var(--color-purple)]/30 bg-[var(--color-hoa-don-bg)] px-3 py-2 text-[13px] text-[var(--color-purple-strong)]">
-        💳 {t("Tiền khách hàng chuyển khoản về công ty cho đơn có yêu cầu xuất hóa đơn. Quỹ gắn theo KTV nhận hàng nhưng TÁCH RIÊNG quỹ cá nhân của KTV: chỉ trả cho phiếu KH chuyển khoản; đơn hủy / từ chối thì tiền về lại quỹ này.")}
+        💳 {t("Tiền khách hàng tự chuyển khoản về công ty cho đơn tích \"Khách hàng đã chuyển khoản về công ty\" (có hay không xuất hóa đơn đều được). Quỹ gắn theo KTV nhận hàng nhưng TÁCH RIÊNG quỹ cá nhân của KTV: chỉ trả cho phiếu KH chuyển khoản; đơn hủy / từ chối thì tiền về lại quỹ này.")}
       </div>
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3 sm:gap-[14px]">
         <div className="flex min-w-0">
