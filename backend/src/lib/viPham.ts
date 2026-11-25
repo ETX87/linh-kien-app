@@ -150,6 +150,8 @@ interface Khoang {
   trangThaiSau: string | null;
   nguoiXuLy: string | null;
   ghiChuKetThuc: string | null;
+  /** id dong log lam khoang ket thuc (nguon log) - de bo khoang da dong TRUOC moc quet (khong quet nguoc lich su). */
+  idKetThuc?: number | null;
 }
 
 interface UngVien extends Khoang {
@@ -221,6 +223,7 @@ function tachKhoang(fk: string, rows: LogRow[], that: Set<string>, mocDau: { tra
       hienTai.trangThaiSau = r.trang_thai;
       hienTai.nguoiXuLy = r.nguoi_xu_ly;
       hienTai.ghiChuKetThuc = r.ghi_chu;
+      hienTai.idKetThuc = r.id;
       ds.push(hienTai);
     }
     hienTai = { fk, trangThai: r.trang_thai, moc: r.ngay_xu_ly, ketThuc: null, trangThaiSau: null, nguoiXuLy: null, ghiChuKetThuc: null };
@@ -278,6 +281,9 @@ async function quetNguonLog(
   }
 
   const theoTrangThai = new Map(buocs.map((b) => [b.trangThai, b]));
+  // KHONG quet nguoc lich su (v1.563): thuc the co log moi (vd don bi huy) bi doc lai TOAN BO log -> chi xet khoang con mo hoac
+  // ket thuc bang log SAU moc quet truoc. Khoang da dong truoc moc = da xet o lan quet truoc / co truoc khi bat module -> bo qua.
+  const mocXet = mocCu ?? maxId;
   const ungVien: UngVien[] = [];
   for (const id of ids) {
     const tt = thucThe.get(id);
@@ -292,6 +298,7 @@ async function quetNguonLog(
     for (const k of tachKhoang(id, rows, TRANG_THAI_THAT[nguon], mocDau)) {
       const b = theoTrangThai.get(k.trangThai);
       if (!b) continue;
+      if (k.ketThuc !== null && (k.idKetThuc ?? 0) <= mocXet) continue;
       const c = cfg.get(b.ma);
       if (!c || !c.bat_tat) continue;
       const han = tinhHan(k.moc, c.so_gio, !!c.tinh_cuoi_tuan);

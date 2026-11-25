@@ -644,3 +644,14 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
   SỬA CHỮA, xét trước bảo hành (v1.548) ở bảng loại đơn, thứ tự xét, Admin BH phân loại, Kế toán, Tình huống; thêm mục Lịch sử cập nhật tài liệu.
 - Kiểm thử: ảnh chụp từ Worker local dữ liệu demo (gắn tạm `loai_goi_y` cho 1 đơn demo, đã gỡ) — khối đỏ + chip "Khác loại gợi ý" ở chi tiết đơn hiển thị
   đúng (lần đầu xem thử giao diện v1.547); mở file HTML bằng Chrome, bố cục đúng. Chưa chụp khối cam cảnh báo ở form tạo đơn (cần chạy kèm app đổi trả).
+
+## 2026-11-25 — v1.563: đơn cũ bị hủy không còn sinh lại ca "Chờ giải trình" quá hạn của tháng trước
+
+- Yêu cầu nguyên văn: "đơn này hủy lâu rồi sao vẫn còn đẩy lại yêu cầu giải trình?" (ảnh DDH-001568 — Nguồn 24V 1.5A KAROFI, 2 thanh quá hạn
+  "Kho tiếp nhận thiếu hàng" + "Duyệt đơn (Kế toán thay TN)").
+- Nguyên nhân: 25/11 14:52 ticket TLK-000200 bị hủy bỏ → đơn tự hủy → có log mới → lần quét vi phạm 15:00 đọc lại TOÀN BỘ log của đơn / ticket và
+  sinh ca cho các khoảng đã đóng từ tháng 10 (chờ duyệt 09/10→12/10, chờ Kho 12/10→17/10), trái luật đã chốt "không quét ngược lịch sử".
+- Đã sửa (`lib/viPham.ts`): chỉ xét khoảng còn mở hoặc kết thúc bằng log sau mốc quét trước. Dữ liệu: ca DDH-001568 bước Duyệt đơn còn "Chờ giải trình"
+  → tự "Đã giải trình" (ghi nhận không đúng — sinh sai do quét lại lịch sử). Rà toàn bảng: 93 ca có khoảng kết thúc trước khi bật module (17/11);
+  90 đã giải trình, 2 Tồn CEO (đối tác đã kéo — không đụng, chỉ liệt kê), 1 ca trên.
+- Kiểm thử: typecheck backend 0 lỗi, build xanh; truy vấn D1 thật đối chiếu.

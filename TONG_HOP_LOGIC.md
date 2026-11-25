@@ -117,7 +117,7 @@ hạn giải trình khi còn ≤ 2 giờ làm việc. Cron mỗi giờ quét th�
 bước + thực thể có log mới → bước quá hạn thành 1 ca `vi_pham` "Chờ giải trình" (hạn giải trình = lúc quá hạn, không sớm hơn lúc ghi nhận,
 + số giờ giải trình). Bộ phận phụ trách (theo cờ vai trò; Kế toán làm thay TN) giải trình → "Đã giải trình"; hết hạn → **"Tồn CEO"** (`Ton CEO`, trước v1.524 gọi "Gắn thẻ"; kết quả cuối,
 không gỡ; chuyển ở lần quét mỗi giờ kế tiếp sau hạn). Chỉ nhân viên văn phòng giải trình, KTV không. Lý do chậm bắt buộc của trả hàng và giải trình lý do chậm trên đơn tự thành giải trình. Ca vẫn giữ khi đơn rời bước (ghi người
-xử lý, lúc rời). Lần đầu chạy không quét ngược lịch sử. Đối tác kéo `GET /api/partner/v1/vi-pham` (con trỏ `cap_nhat_luc`, `id`) + danh sách Tồn CEO
+xử lý, lúc rời). Không quét ngược lịch sử: lần đầu chạy lấy mốc hiện tại; thực thể có log mới (vd đơn vừa bị hủy) chỉ xét khoảng còn mở hoặc vừa kết thúc sau lần quét trước — khoảng đã đóng từ trước bỏ qua (v1.563). Đối tác kéo `GET /api/partner/v1/vi-pham` (con trỏ `cap_nhat_luc`, `id`) + danh sách Tồn CEO
 `GET /api/partner/v1/danh-sach-ton?loai=ton-ceo` (cùng hình dạng API `danh-sach-ton?loai=canh-bao-ceo` của DVBH; kéo tăng dần bằng con trỏ `cap_nhat_tu` + `after_id` → `next`).
 Người PHẢI giải trình (`vi_pham.nguoi_phu_trach`, tính lại mỗi lần quét khi còn chờ): GS = GS của đơn + GS chính/phụ khu vực; bộ phận khác = người
 được gán khu vực của đơn → không ai thì người không gán khu vực → không ai thì cả bộ phận (Kho lọc thêm nhóm LK). Tác nghiệp KHÔNG còn tham gia giải trình (v1.531): 2 bước của TN (Chờ duyệt đơn, duyệt tổng trả hàng) giao Kế toán; người có cờ Tác nghiệp (không phải Kế toán) không tính vào Kho / Mua hàng / QC / TBP / GS dù có bật cờ đó.
