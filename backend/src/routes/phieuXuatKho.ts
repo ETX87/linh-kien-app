@@ -1664,6 +1664,63 @@ phieuXuatKho.patch("/:id/so-tien-can-chuyen", async (c) => {
   return c.json({ ok: true, so_tien_can_chuyen: ketQua.total });
 });
 
+// PATCH /api/phieu-xuat-kho/:id/dong/:donId/tien - { tien: number | null, ly_do } - SUA TAY "Tiền cần chuyển" cua 1 dong (2026-11-26 v1.570,
+// PMH-003012 "đơn này bị sai tiền, tiền chưa được kế toán duyệt thì cho phép sửa tiền"). Ghi dat_don_hang.gia_chot = tien / SL tinh tien (gia
+// chot LUON thang gia theo chiet khau - tinhToanPxk) roi tinh lai phieu (taiTinhPxk -> canBangPxk hoan / tru quy). tien = null -> bo gia chot,
+// ve gia tu tinh. Ke toan / TN / Admin; CHI khi phieu "Dang tao phieu" VA Ke toan CHUA duyet tien (trang_thai_chuyen_tien <> 'TN da duyet').
+phieuXuatKho.patch("/:id/dong/:donId/tien", async (c) => {
+  if (!canTacNghiep(c) && !canKeToan(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
+  const id = c.req.param("id");
+  const donId = c.req.param("donId");
+  const user = c.get("user");
+  const body = await c.req.json<{ tien?: number | null; ly_do?: string }>().catch(() => ({}) as { tien?: number | null; ly_do?: string });
+  const lyDo = (body.ly_do ?? "").trim().slice(0, 500);
+  if (!lyDo) return c.json({ error: "MISSING_LY_DO" }, 400);
+  const tien = body.tien == null ? null : Number(body.tien);
+  if (tien != null && !(Number.isInteger(tien) && tien >= 0 && tien <= 10_000_000_000)) return c.json({ error: "INVALID_SO_TIEN" }, 400);
+
+  const pxk = await c.env.DB.prepare(
+    "SELECT trang_thai_hien_tai, trang_thai_chuyen_tien, loai_don, doi_tac_ma FROM phieu_xuat_kho WHERE id = ?",
+  ).bind(id).first<{ trang_thai_hien_tai: string | null; trang_thai_chuyen_tien: string | null; loai_don: string | null; doi_tac_ma: string | null }>();
+  if (!pxk) return c.json({ error: "NOT_FOUND" }, 404);
+  if (pxk.trang_thai_hien_tai !== "Dang tao phieu" || pxk.trang_thai_chuyen_tien === "TN da duyet") return c.json({ error: "KE_TOAN_DA_DUYET_TIEN" }, 409);
+  if (pxk.loai_don === "tra_hang") return c.json({ error: "PHIEU_KHONG_CO_TIEN" }, 409);
+  const don = await c.env.DB.prepare(
+    `SELECT d.id, d.ma_lk, d.gia_chot, COALESCE(d.so_luong_thuc_xuat, d.so_luong_de_xuat) AS sl FROM dat_don_hang d
+     JOIN phieu_xuat_kho_dong pd ON pd.dat_don_hang_id = d.id AND pd.phieu_xuat_kho_id = ? WHERE d.id = ?`,
+  ).bind(id, donId).first<{ id: string; ma_lk: string | null; gia_chot: number | null; sl: number }>();
+  if (!don) return c.json({ error: "DON_KHONG_THUOC_PHIEU" }, 404);
+  if (!don.sl || don.sl <= 0) return c.json({ error: "INVALID_SO_LUONG" }, 409);
+  if (tien != null && tien % don.sl !== 0) return c.json({ error: "TIEN_KHONG_CHIA_HET_SL", so_luong: don.sl }, 400);
+  const giaChotMoi = tien == null ? null : tien / don.sl;
+
+  const tienCu = (await tinhToanPxk(c.env.DB, [donId])).tienUocTinhTheoDong.get(donId) ?? 0;
+  await c.env.DB.prepare("UPDATE dat_don_hang SET gia_chot = ?, updated_at = ? WHERE id = ?").bind(giaChotMoi, nowVN(), donId).run();
+  // Dong khong tinh tien theo gia (vd cong no tinh theo so tien cong no) -> gia chot khong co tac dung: tra lai nhu cu, bao loi.
+  const tienMoi = (await tinhToanPxk(c.env.DB, [donId])).tienUocTinhTheoDong.get(donId) ?? 0;
+  if (tien != null && tienMoi !== tien) {
+    await c.env.DB.prepare("UPDATE dat_don_hang SET gia_chot = ? WHERE id = ?").bind(don.gia_chot, donId).run();
+    return c.json({ error: "DONG_KHONG_SUA_TIEN_DUOC" }, 409);
+  }
+  const now = nowVN();
+  const vnd = (n: number) => `${n.toLocaleString("vi-VN")}đ`;
+  const moTa = tien == null
+    ? `Bỏ tiền sửa tay dòng ${donId} (${don.ma_lk ?? ""}) — về giá tự tính: ${vnd(tienCu)} → ${vnd(tienMoi)}. Lý do: ${lyDo}`
+    : `Sửa tay tiền cần chuyển dòng ${donId} (${don.ma_lk ?? ""}): ${vnd(tienCu)} → ${vnd(tienMoi)}${don.sl > 1 ? ` (${vnd(giaChotMoi!)} × ${don.sl})` : ""}. Lý do: ${lyDo}`;
+  await c.env.DB.batch([
+    c.env.DB.prepare("INSERT INTO phieu_xuat_kho_log (phieu_xuat_kho_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu) VALUES (?, ?, ?, ?, ?)").bind(
+      id, "Da sua tong tien can chuyen", user.email, now, moTa,
+    ),
+    c.env.DB.prepare(
+      `INSERT INTO dat_don_hang_log (dat_don_hang_id, trang_thai, nguoi_xu_ly, ngay_xu_ly, ghi_chu)
+       SELECT ?, COALESCE((SELECT trang_thai FROM dat_don_hang_log WHERE dat_don_hang_id = ? ORDER BY id DESC LIMIT 1), 'TN da duyet'), ?, ?, ?`,
+    ).bind(donId, donId, user.email, now, `Sửa: ${moTa}`),
+  ]);
+  const ketQua = await taiTinhPxk(c.env.DB, id, false, true, user.email);
+  c.executionCtx.waitUntil(bumpVersions(c.env.DB, ["dat_mua_lk"]));
+  return c.json({ ok: true, tien_dong: tienMoi, so_tien_can_chuyen: ketQua.total });
+});
+
 // POST /api/phieu-xuat-kho/:id/dong - them 2026-09-21 (phan hoi "cho phép thêm đơn vào phiếu đang
 // xem") - truoc gio KHONG co route nao gan them 1 dong dat_don_hang vao 1 PXK DA TAO (chi gan luc
 // POST / tao phieu). Dieu kien hop le GIONG HET buoc kiem tra o POST / (bien theo loai_don, xem

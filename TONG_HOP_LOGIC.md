@@ -71,6 +71,9 @@ duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xe
   hàng về → đơn tự duyệt vào phiếu; từ chối / hủy → đơn tự hủy, tiền về quỹ. Tự xác nhận hàng về theo ưu tiên (khiếu nại > ngày cũ > VIP)
   sau mỗi lần nhập tồn. Tách đơn khi về một phần; đổi sang LK tương đương (đổi mã thì BỎ giá chốt tay của mã cũ — giá tính lại theo mã mới).
   Giá chốt tay luôn thắng giá theo loại chiết khấu; dòng đơn trong phiếu có nhãn "Giá chốt tay" khi đang áp.
+  **Sửa tiền 1 dòng trong phiếu (v1.570)**: khi phiếu còn "Đang tạo phiếu" VÀ Kế toán CHƯA duyệt tiền — TN bấm số tiền mở "Sửa SL thực xuất / Đơn giá" như cũ;
+  Kế toán bấm số tiền mở "Sửa tiền cần chuyển" (nhập tiền của dòng + lý do bắt buộc, hoặc "Về giá tự tính") → ghi giá chốt = tiền ÷ SL, phiếu và quỹ dư tự tính lại,
+  log ở cả phiếu và đơn. Kế toán đã duyệt tiền thì không sửa được.
 - **Chuyển đơn về "Chờ hàng" bằng tay**: Mua hàng / Kế toán / Admin bấm "⏳ Chuyển chờ hàng" (bắt buộc ghi chú) ở chi tiết đơn Mua / Công nợ
   (không TRỪ CÔNG NỢ, không gửi bù) đang Chờ duyệt / Chờ thanh toán / Đã duyệt mà phiếu chứa đơn còn "Đang tạo phiếu" — kể cả khi Kế toán đã duyệt tiền
   phiếu. Đơn rời phiếu MANG THEO tiền đã trả, ticket mở thẳng ở "Chờ mua hàng". Nút "Chờ hàng" của Tác nghiệp chỉ có khi Kế toán CHƯA duyệt tiền phiếu.

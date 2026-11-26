@@ -1705,3 +1705,12 @@ Phân vân giữa hai làn → chọn làn CAO hơn (an toàn hơn).
 - Người báo hỏi thêm việc khác trong cùng báo cáo → ghi 1 dòng "Tách việc riêng: …", không gộp vào bản sửa lỗi.
 - **`/v1/case-timeline?ma_don=` (2026-11-26, v1.567)**: tham số tuỳ chọn `ma_don=DDH-..,DDH-..` (≤20, chỉ nhận dạng `DDH-<số>`) — `buildCaseTimeline(db, caseId, maDon)` UNION thêm các đơn có `id` trong danh sách. DVBH gửi các mã DDH người dùng ghi ở ô "Mã xuất hàng liên quan" của giải trình để đơn trạm đặt không chọn mã ca vẫn hiện ở chi tiết ca DVBH (cùng nguồn khớp thứ 3 của `/v1/don-gan-nhat-theo-ca`).
 - **`trang_thai_pxk` trong API đối tác (2026-11-26, v1.568)**: `/v1/case-timeline` (`OrderTimeline.trang_thai_pxk`) và `/v1/linh-kien/lich-su` trả thêm mã trạng thái phiếu chứa đơn — cùng biểu thức `TRANG_THAI_PXK_DON_SQL` (lib/trangThaiDonPxk.ts) với danh sách đơn hàng. DVBH dùng để hiện trạng thái mới nhất (đơn đã duyệt → theo phiếu).
+
+**Kế toán sửa tiền cần chuyển 1 dòng PXK** (2026-11-26, v1.570 — "đơn này bị sai tiền, tiền chưa được kế toán duyệt thì cho phép sửa tiền", ảnh PMH-003012):
+`PATCH /api/phieu-xuat-kho/:id/dong/:donId/tien` { tien: number | null, ly_do } (Kế toán / TN / Admin). Điều kiện: phiếu "Dang tao phieu" VÀ
+`trang_thai_chuyen_tien <> 'TN da duyet'` (khác → 409 `KE_TOAN_DA_DUYET_TIEN`), phiếu không phải trả hàng, đơn thuộc phiếu. Ghi `dat_don_hang.gia_chot` = tien ÷ SL tính tiền
+(không chia hết → `TIEN_KHONG_CHIA_HET_SL`; tien null = bỏ giá chốt), kiểm lại bằng `tinhToanPxk` — dòng không tính theo giá (công nợ, đơn đồng bộ bị trigger khoá)
+→ trả giá cũ, 409 `DONG_KHONG_SUA_TIEN_DUOC`. Log phiếu 'Da sua tong tien can chuyen' + log đơn (trạng thái hiện tại) ghi tiền cũ → mới + lý do, rồi `taiTinhPxk`
+(tự đặt lại chuyển tiền / `canBangPxk` hoàn-trừ quỹ). FE `PxkDongDonHangTable.tsx` `SuaTienCanChuyenDongModal`: Kế toán (không phải TN) bấm số tiền dòng; TN vẫn mở
+`SuaTienDongModal`; cả hai chỉ bấm được khi chưa "Kế toán đã duyệt"; dòng có giá chốt hiện dấu ✎. Bối cảnh PMH-003012: DDH-004676 tạo 30/10 khi danh mục ghi giá 224đ
+(`gia_de_xuat` 224) nên phiếu cũ PMH-001638 chỉ thu 190đ; giá sau sửa 224.000đ → phiếu mới tính 190.400đ (Đinh tủ −15%), còn thiếu 190.210đ.

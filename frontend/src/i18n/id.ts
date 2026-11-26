@@ -3221,5 +3221,23 @@ const tuDien: Record<string, string> = {
   "Đổi trả — thiếu hàng BH": "Aplikasi garansi — kekurangan garansi",
   // v1.566 - goi y ticket THB khi Danh sach Don hang tim ra 0 don
   "Không có đơn đặt linh kiện nào khớp “{q}”, nhưng mã này có {n} phiếu thiếu hàng bảo hành (app Bảo hành đổi trả gửi sang) — xem ở menu Thiếu hàng:": "Tidak ada pesanan suku cadang yang cocok dengan “{q}”, tetapi kode ini memiliki {n} tiket kekurangan garansi (dikirim aplikasi Garansi) — lihat menu Kekurangan:",
+  // v1.570 - Ke toan sua tien can chuyen 1 dong PXK
+  "Bấm để sửa tiền cần chuyển của dòng (Kế toán chưa duyệt tiền)": "Klik untuk mengubah jumlah transfer baris ini (Akuntansi belum menyetujui uang)",
+  "Đang áp tiền sửa tay / giá chốt": "Jumlah manual / harga tetap diterapkan",
+  "Kế toán đã duyệt tiền phiếu này — không sửa tiền được nữa": "Akuntansi telah menyetujui uang slip ini — jumlah tidak dapat diubah lagi",
+  "Số tiền phải chia hết cho số lượng của dòng": "Jumlah harus habis dibagi jumlah barang pada baris",
+  "Dòng này không tính tiền theo giá (vd công nợ / đơn đồng bộ) — không sửa tiền ở đây được": "Baris ini tidak dihitung dari harga satuan (mis. utang / pesanan sinkron) — jumlah tidak dapat diubah di sini",
+  "Cần nhập lý do sửa tiền": "Masukkan alasan perubahan jumlah",
+  "Đã sửa tiền dòng {a}: {b} — tổng phiếu {c}": "Baris {a} diperbarui: {b} — total slip {c}",
+  "Sửa tiền cần chuyển — {a}": "Ubah jumlah transfer — {a}",
+  "Về giá tự tính": "Kembali ke harga otomatis",
+  "Tiền đang tính:": "Jumlah saat ini:",
+  "SL tính tiền:": "Jml ditagih:",
+  "đang áp tiền sửa tay": "jumlah manual diterapkan",
+  "Tiền cần chuyển của dòng (đ) *": "Jumlah transfer baris (VND) *",
+  "Đơn giá: {a} × {b}": "Harga satuan: {a} × {b}",
+  "Lý do sửa *": "Alasan *",
+  "vd: giá danh mục sai lúc đặt, chốt lại theo giá thật": "mis. harga katalog salah saat dipesan, ubah ke harga sebenarnya",
+  "Chỉ sửa được khi Kế toán chưa duyệt tiền. Tổng phiếu và quỹ dư tự tính lại; nếu KTV đã báo chuyển mà tổng mới cao hơn số đã trả, phiếu về \"Chờ KTV chuyển\" để chuyển bổ sung.": "Hanya dapat diubah sebelum Akuntansi menyetujui uang. Total slip dan dana saldo dihitung ulang; jika teknisi sudah melapor transfer dan total baru melebihi yang dibayar, slip kembali ke \"Menunggu transfer teknisi\" untuk transfer tambahan.",
 };
 export default tuDien;

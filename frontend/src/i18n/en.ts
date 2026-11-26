@@ -3221,5 +3221,23 @@ const tuDien: Record<string, string> = {
   "Đổi trả — thiếu hàng BH": "Warranty app — warranty shortage",
   // v1.566 - goi y ticket THB khi Danh sach Don hang tim ra 0 don
   "Không có đơn đặt linh kiện nào khớp “{q}”, nhưng mã này có {n} phiếu thiếu hàng bảo hành (app Bảo hành đổi trả gửi sang) — xem ở menu Thiếu hàng:": "No parts order matches “{q}”, but this code has {n} warranty shortage tickets (sent by the Warranty app) — see the Shortages menu:",
+  // v1.570 - Ke toan sua tien can chuyen 1 dong PXK
+  "Bấm để sửa tiền cần chuyển của dòng (Kế toán chưa duyệt tiền)": "Click to edit this line's amount to transfer (Accounting has not approved the money yet)",
+  "Đang áp tiền sửa tay / giá chốt": "Manual amount / fixed price applied",
+  "Kế toán đã duyệt tiền phiếu này — không sửa tiền được nữa": "Accounting has approved this slip's money — the amount can no longer be edited",
+  "Số tiền phải chia hết cho số lượng của dòng": "The amount must be divisible by the line quantity",
+  "Dòng này không tính tiền theo giá (vd công nợ / đơn đồng bộ) — không sửa tiền ở đây được": "This line is not priced by unit price (e.g. debt / synced order) — the amount cannot be edited here",
+  "Cần nhập lý do sửa tiền": "Please enter a reason for editing the amount",
+  "Đã sửa tiền dòng {a}: {b} — tổng phiếu {c}": "Updated line {a}: {b} — slip total {c}",
+  "Sửa tiền cần chuyển — {a}": "Edit amount to transfer — {a}",
+  "Về giá tự tính": "Back to auto price",
+  "Tiền đang tính:": "Current amount:",
+  "SL tính tiền:": "Billed qty:",
+  "đang áp tiền sửa tay": "manual amount applied",
+  "Tiền cần chuyển của dòng (đ) *": "Line amount to transfer (VND) *",
+  "Đơn giá: {a} × {b}": "Unit price: {a} × {b}",
+  "Lý do sửa *": "Reason *",
+  "vd: giá danh mục sai lúc đặt, chốt lại theo giá thật": "e.g. catalogue price was wrong when ordered, fix to the real price",
+  "Chỉ sửa được khi Kế toán chưa duyệt tiền. Tổng phiếu và quỹ dư tự tính lại; nếu KTV đã báo chuyển mà tổng mới cao hơn số đã trả, phiếu về \"Chờ KTV chuyển\" để chuyển bổ sung.": "Editable only before Accounting approves the money. The slip total and balance fund are recalculated; if the technician already reported a transfer and the new total exceeds the amount paid, the slip returns to \"Waiting for technician transfer\" for a top-up.",
 };
 export default tuDien;

@@ -729,3 +729,16 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
 - Đã làm: `xemThbDuoc()` trong `backend/src/lib/thieuHangBh.ts` = nguồn duy nhất cho quyền xem THB (thay 3 chỗ viết riêng), thêm Giám sát — chỉ xem,
   không có nút xử lý (thao tác vẫn chỉ Kho / TN / Mua hàng / Admin), không đổi badge việc.
 - Kiểm thử: typecheck backend 0 lỗi, build xanh; câu tìm chạy trên D1 thật (chỉ đọc) ra đủ THB-000144 → 147 cho mã SC2611090581. Chưa mở lại Ctrl+K trên giao diện thật.
+
+## 2026-11-26 — v1.570: Kế toán sửa tiền cần chuyển từng dòng phiếu khi chưa duyệt tiền
+
+- Yêu cầu nguyên văn (ảnh phiếu PMH-003012, khoanh ô "190.400đ (ước tính)"): "đơn này bị sai tiền, tiền chưa được kế toán duyệt thì cho phép sửa tiền".
+- Tra D1 thật (chỉ đọc): DDH-004676 tạo 30/10 lúc danh mục ghi giá 224đ → phiếu PMH-001638 chỉ thu 190đ; giá đã sửa thành 224.000đ nên phiếu mới PMH-003012
+  tính 224.000 × 85% = 190.400đ, trừ 190đ mang theo còn 190.210đ. Trước đây chỉ TN sửa được đơn giá (popup "Sửa SL thực xuất / Đơn giá"), Kế toán không sửa được,
+  và không có điều kiện "Kế toán chưa duyệt tiền".
+- Đã làm: route `PATCH /phieu-xuat-kho/:id/dong/:donId/tien` (Kế toán / TN / Admin, lý do bắt buộc, chỉ khi phiếu đang tạo và Kế toán chưa duyệt tiền; ghi giá chốt,
+  tính lại phiếu + quỹ, log phiếu + đơn) + popup "Sửa tiền cần chuyển" cho Kế toán ở bảng Dòng đơn hàng; TN giữ popup cũ; cả hai khoá khi đã "Kế toán đã duyệt".
+  Bản dịch EN / ID cho 17 câu mới.
+- Không sửa dữ liệu PMH-003012: chưa rõ số tiền đúng của dòng — Kế toán tự sửa bằng nút mới.
+- Kiểm thử: typecheck 2 phía 0 lỗi, build xanh. Chưa thử bấm trên giao diện thật / tài khoản Kế toán.
+

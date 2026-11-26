@@ -111,6 +111,7 @@ export function PxkDongDonHangTable({
   // Phieu DA CO TIEN tra (chot 2026-09-30): bo don -> hoi TN don do "Chưa thanh toán" (tien cua don = 0, phan thua hoan
   // ve quy) hay "Đã thanh toán" (don mang theo tien cua dong, ve "Chờ tạo phiếu" - vao phieu moi duoc tru tien).
   const [boDonCho, setBoDonCho] = useState<DonHangRow | null>(null);
+  const [suaTienKt, setSuaTienKt] = useState<DonHangRow | null>(null);
   const daTraPhieu = pxk.da_thanh_toan ?? 0;
   const boDonMutation = useMutation({
     mutationFn: async ({ donHangId, laDonCuoi, giuTien = false }: { donHangId: string; laDonCuoi: boolean; giuTien?: boolean }) => {
@@ -380,9 +381,18 @@ export function PxkDongDonHangTable({
         ) : (
           <span className="text-[var(--ink-400)]">—</span>
         );
-      return canTacNghiep && dangTao ? (
-        <button type="button" className="hover:underline decoration-dotted underline-offset-2" title={t("Bấm để sửa SL thực xuất/Đơn giá thực tế")} onClick={() => onSuaTien(d.id)}>
+      // Sua tien khi Ke toan CHUA duyet tien (v1.570, PMH-003012 "tiền chưa được kế toán duyệt thì cho phép sửa tiền"): TN -> popup SL thuc
+      // xuat / Don gia nhu cu; Ke toan (khong phai TN) -> popup sua Tien can chuyen cua dong (PATCH /phieu-xuat-kho/:id/dong/:donId/tien).
+      const suaDuocTien = dangTao && pxk.trang_thai_chuyen_tien !== "TN da duyet" && (canTacNghiep || canKeToan);
+      return suaDuocTien ? (
+        <button
+          type="button"
+          className="hover:underline decoration-dotted underline-offset-2"
+          title={canTacNghiep ? t("Bấm để sửa SL thực xuất/Đơn giá thực tế") : t("Bấm để sửa tiền cần chuyển của dòng (Kế toán chưa duyệt tiền)")}
+          onClick={() => (canTacNghiep ? onSuaTien(d.id) : setSuaTienKt(d))}
+        >
           {noiDung}
+          {d.gia_chot != null && <span className="ml-1 not-italic text-[11px] text-[var(--ocean-700)]" title={t("Đang áp tiền sửa tay / giá chốt")}>✎</span>}
         </button>
       ) : (
         noiDung
@@ -617,6 +627,10 @@ export function PxkDongDonHangTable({
       d.so_luong_thuc_xuat
     );
 
+  const hopThoaiSuaTienKt = suaTienKt ? (
+    <SuaTienCanChuyenDongModal pxkId={pxkId} don={suaTienKt} addToast={addToast} onClose={() => setSuaTienKt(null)} onSaved={lamMoi} />
+  ) : null;
+
   const tienDong = boDonCho?.tien_uoc_tinh ?? 0;
   const hopThoaiBo = (
     <Modal
@@ -713,6 +727,8 @@ export function PxkDongDonHangTable({
     return (
       <>
       {hopThoaiBo}
+    {hopThoaiSuaTienKt}
+      {hopThoaiSuaTienKt}
       {hopThoaiChuyen}
       {hopThoaiTach}
       {hopThoaiBoNhieu}
@@ -994,3 +1010,96 @@ function ChuyenDonModal({
     </Modal>
   );
 }
+
+// Popup Ke toan sua "Tiền cần chuyển" 1 dong khi Ke toan CHUA duyet tien (2026-11-26 v1.570, PMH-003012 "đơn này bị sai tiền, tiền chưa được kế toán
+// duyệt thì cho phép sửa tiền"). Backend PATCH /phieu-xuat-kho/:id/dong/:donId/tien ghi gia chot = tien / SL roi tinh lai phieu + quy. Bat buoc ly do;
+// "Về giá tự tính" bo gia chot. TN dung popup "Sửa SL thực xuất / Đơn giá" (SuaTienDongModal) nhu cu.
+const LOI_SUA_TIEN: Record<string, string> = {
+  KE_TOAN_DA_DUYET_TIEN: "Kế toán đã duyệt tiền phiếu này — không sửa tiền được nữa",
+  TIEN_KHONG_CHIA_HET_SL: "Số tiền phải chia hết cho số lượng của dòng",
+  DONG_KHONG_SUA_TIEN_DUOC: "Dòng này không tính tiền theo giá (vd công nợ / đơn đồng bộ) — không sửa tiền ở đây được",
+  MISSING_LY_DO: "Cần nhập lý do sửa tiền",
+};
+function SuaTienCanChuyenDongModal({
+  pxkId, don, addToast, onClose, onSaved,
+}: { pxkId: string; don: DonHangRow; addToast: (msg: string) => void; onClose: () => void; onSaved: () => void }) {
+  const qc = useQueryClient();
+  const sl = don.so_luong_thuc_xuat ?? don.so_luong_de_xuat;
+  const tienHienTai = don.tien_uoc_tinh ?? (don.gia_chot ?? don.gia_de_xuat ?? 0) * sl;
+  const [tien, setTien] = useState(String(tienHienTai));
+  const [lyDo, setLyDo] = useState("");
+  const soTien = Number(tien);
+  const hopLe = tien.trim() !== "" && Number.isInteger(soTien) && soTien >= 0;
+  const mutation = useMutation({
+    mutationFn: (tienGui: number | null) =>
+      api.patch<{ ok: true; tien_dong: number; so_tien_can_chuyen: number }>(`/phieu-xuat-kho/${pxkId}/dong/${don.id}/tien`, { tien: tienGui, ly_do: lyDo.trim() }),
+    onSuccess: (r) => {
+      onClose();
+      onSaved();
+      qc.invalidateQueries({ queryKey: ["dat-mua-lk-don-hang"] });
+      addToast(t("Đã sửa tiền dòng {a}: {b} — tổng phiếu {c}", { a: don.ma_lk, b: fmtVND(r.tien_dong), c: fmtVND(r.so_tien_can_chuyen) }));
+    },
+    onError: (err) => {
+      const code = err instanceof ApiError ? err.code : undefined;
+      addToast(t("Lỗi: ") + (code && LOI_SUA_TIEN[code] ? t(LOI_SUA_TIEN[code]) : describeApiError(err)));
+    },
+  });
+  return (
+    <Modal
+      open
+      title={t("Sửa tiền cần chuyển — {a}", { a: don.ma_lk })}
+      width="max-w-sm"
+      onClose={() => !mutation.isPending && onClose()}
+      footer={
+        <div className="flex flex-wrap justify-end gap-2">
+          <Btn variant="ghost" size="sm" disabled={mutation.isPending} onClick={onClose}>{t("Huỷ")}</Btn>
+          {don.gia_chot != null && (
+            <Btn variant="ghost" size="sm" disabled={mutation.isPending || !lyDo.trim()} onClick={() => mutation.mutate(null)}>
+              {t("Về giá tự tính")}
+            </Btn>
+          )}
+          <Btn size="sm" loading={mutation.isPending} disabled={!hopLe || !lyDo.trim() || mutation.isPending} onClick={() => mutation.mutate(soTien)}>
+            {t("Lưu")}
+          </Btn>
+        </div>
+      }
+    >
+      <div className="space-y-3 text-sm">
+        <div className="text-xs text-[var(--ink-500)]">
+          {t("Tiền đang tính:")} <span className="font-semibold text-[var(--ink-700)]"><Money>{fmtVND(tienHienTai)}</Money></span>
+          {" · "}{t("SL tính tiền:")} {sl}
+          {don.gia_chot != null && <span className="text-[var(--ocean-700)]"> · {t("đang áp tiền sửa tay")}</span>}
+        </div>
+        <div>
+          <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">{t("Tiền cần chuyển của dòng (đ) *")}</label>
+          <input
+            type="number"
+            min={0}
+            autoFocus
+            value={tien}
+            onChange={(e) => setTien(e.target.value)}
+            className="focus-ring w-full bg-[var(--surface)] border border-[var(--ink-400)] rounded-lg px-2.5 py-1.5 text-sm text-right"
+          />
+          {hopLe && sl > 1 && (
+            <div className={`mt-1 text-[11px] ${soTien % sl === 0 ? "text-[var(--ink-400)]" : "text-[var(--coral-600)]"}`}>
+              {soTien % sl === 0 ? t("Đơn giá: {a} × {b}", { a: fmtVND(soTien / sl), b: sl }) : t("Số tiền phải chia hết cho số lượng của dòng")}
+            </div>
+          )}
+        </div>
+        <div>
+          <label className="block text-[11px] font-semibold text-[var(--ink-600)] mb-1">{t("Lý do sửa *")}</label>
+          <input
+            value={lyDo}
+            onChange={(e) => setLyDo(e.target.value)}
+            placeholder={t("vd: giá danh mục sai lúc đặt, chốt lại theo giá thật")}
+            className={`focus-ring w-full bg-[var(--surface)] border rounded-lg px-2.5 py-1.5 text-sm ${!lyDo.trim() ? "border-[var(--coral-400)]" : "border-[var(--ink-400)]"}`}
+          />
+        </div>
+        <div className="text-[11px] text-[var(--ink-400)]">
+          {t("Chỉ sửa được khi Kế toán chưa duyệt tiền. Tổng phiếu và quỹ dư tự tính lại; nếu KTV đã báo chuyển mà tổng mới cao hơn số đã trả, phiếu về \"Chờ KTV chuyển\" để chuyển bổ sung.")}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
