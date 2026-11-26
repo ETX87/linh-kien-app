@@ -1669,6 +1669,19 @@ Nguyên văn: *"các logic quá hạn SLA trên toàn bộ hệ thống từ 24h
 - Route `GET /api/dat-mua-lk/mua-hang-eo?don=|ticket=` (phạm vi `scopeDatMuaNguoiTao`): ids = mã đơn + mọi `thieu_lk.id` của đơn + `dat_don_case.case_id`;
   po_lk = `thieu_lk.ma_eo_mua` ~ `ddh.ma_lk`. FE `modules/datMuaLinhKien/KetQuaMuaHang.tsx` (`KetQuaMuaHang`, `MuaHangZone`) dùng ở `DanhGiaThieuLk` và chi tiết đơn (`DonCuaToiTab`).
 
+## Đồng bộ ngày dự kiến EO → ticket thiếu hàng THB / TLK (2026-11-26, v1.568, migration `0136`)
+- Báo lỗi: LK 3004022213 — Mua hàng nhập ngày dự kiến 07/12 trên EO (PO 3TDO-000847, dòng ghi ID CRM `THB-000147`) ngày 20/11, ticket THB-000147 bên này
+  trống ngày tới 26/11 (phải gõ tay lại). Trước v1.568 ngày trên ticket CHỈ nhập tay; kết nối v1.543 chỉ hiện khung xem. Lúc tra: 3 THB + 39 TLK đang mở trống / lệch.
+  Chốt nguyên văn: "Có, EO ghi đè luôn".
+- `lib/dongBoNgayEo.ts` `dongBoNgayEo(env, chayThu?)`, gọi trong `scheduled()` mỗi giờ. Ticket mở: THB trạng thái thuộc `THB_MO`; TLK trạng thái log mới nhất KHÔNG thuộc
+  Đã hủy / Đã kết thúc / Hàng đã về / Kho từ chối sai TT / Mua hàng từ chối. 1 lần `POST muahang /api/partner/theo-id` (EO v0.126, ≤1000 ids / ≤1000 cặp):
+  ids = mã ticket + mã đơn DDH của TLK; po_lk = mọi `3TDO-\d+` trong `ma_eo_mua` ~ mã LK. Khớp khi `khop_theo` chứa 1 khoá của ticket; lọc `trang_thai_eo = ISSUED`,
+  `!ket_thuc`, có `ngay_du_kien`; lấy ngày sớm nhất. Khác 10 ký tự đầu → UPDATE ngày + `ma_eo_mua` (đổi sang PO chỉ khi ô chưa chứa PO đó).
+- THB: cập nhật `ngay_cap_nhat` (để suachua kéo `since=` thấy) + 1 dòng `thieu_hang_bh_log` cùng trạng thái, người "Hệ thống (đồng bộ EO Mua hàng)", rồi `pushThieuHangBhToSuachua`.
+  TLK: KHÔNG chèn `thieu_lk_log` — trạng thái = log mới nhất và SLA (`viPham.ts`, `dayLaiThieuLk.ts`) tính theo giờ log → chèn sẽ reset đồng hồ.
+- Mọi lần ghi đè → `dong_bo_ngay_eo_log` (ticket, loại, ngày cũ / mới, mã EO cũ / mới, eo_item_id, khop_theo, lúc). Log cron: `[dongBoNgayEo] {ticket, khop, sua}`.
+- Hệ quả đã chấp nhận: Kho / Mua hàng sửa tay ngày trên ticket mà EO có ngày khác → giờ sau bị EO ghi đè lại. Muốn đổi ngày → sửa trên EO.
+
 <!-- may-ba-lan -->
 ## Ba làn xử lý của Trợ lý Mây (Giám đốc chốt 18/11/2026 — áp dụng VĨNH VIỄN cho app này)
 Mỗi việc Mây giao thuộc MỘT trong ba làn. Khi viết ý tưởng / BRD, dòng đầu ghi `**Làn:** nhanh | thường | đầy đủ — <lý do 1 câu>`.

@@ -18,6 +18,7 @@ import baoCaoKpiRoutes from "./routes/baoCaoKpi";
 import viPhamRoutes from "./routes/viPham";
 import { quetViPham } from "./lib/viPham";
 import { dayCongNhiemVu } from "./lib/congNhiemVu";
+import { dongBoNgayEo } from "./lib/dongBoNgayEo";
 import pushRoutes from "./routes/push";
 import dvbhSyncRoutes from "./routes/dvbhSync";
 import gia88SyncRoutes from "./routes/gia88Sync";
@@ -118,6 +119,8 @@ export default {
     ctx.waitUntil(quetViPham(env).then(() => dayCongNhiemVu(env)).then(() => undefined).catch((err) => console.error("[quetViPham]", err)));
     // Don "Cho GS duyet" vi vuot tran ma cong no da giam -> tu xet lai (v1.533, lib/tuDongDuyet.ts xetLaiDonChoGsDuyet) - moi gio.
     ctx.waitUntil(xetLaiDonChoGsDuyet(env, env.DB, null, "kiểm tra định kỳ", (p) => ctx.waitUntil(p)).then(() => undefined).catch((err) => console.error("[xetLaiDonChoGsDuyet]", err)));
+    // v1.568: ngay du kien tren EO Mua hang -> ghi de len ticket thieu hang THB / TLK dang mo (lib/dongBoNgayEo.ts) - moi gio.
+    ctx.waitUntil(dongBoNgayEo(env).then((kq) => console.log("[dongBoNgayEo]", JSON.stringify({ ticket: kq.ticket, khop: kq.khop, sua: kq.sua.length }))).catch((err) => console.error("[dongBoNgayEo]", err)));
     // Phieu "Dang tao phieu" trong (khong con don) qua 30 phut -> tu huy (v1.538, lib/pxkTuHuy.ts huyMoiPhieuTrongCu) - moi gio.
     ctx.waitUntil(huyMoiPhieuTrongCu(env.DB).then(() => undefined).catch((err) => console.error("[huyMoiPhieuTrongCu]", err)));
     // Them 2026-09-12: PULL bang gia tu doi tac gia88 1 lan/dem luc 0h GIO VN = 17h UTC (xem

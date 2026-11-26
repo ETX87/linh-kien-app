@@ -703,3 +703,12 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
 - Đã làm: `GET /api/partner/v1/case-timeline` thêm tham số tuỳ chọn `ma_don` (≤20 mã dạng `DDH-<số>`), `buildCaseTimeline` gộp thêm các đơn đó.
   Không đổi cấu trúc kết quả, không ghi dữ liệu (không tự gắn mã ca vào đơn). Tài liệu API lên 2.6.
 - Kiểm thử: typecheck backend; gọi thật API sau deploy với ca SC261020228.
+
+## 2026-11-26 — v1.568: Ngày dự kiến trên EO Mua hàng tự ghi đè lên ticket thiếu hàng THB / TLK (mỗi giờ)
+
+- Báo lỗi (nguyên văn): "Nhân viên báo bug: 3004022213 linh kiện này nhân viên đã cập nhật trên EO Mua hàng ngày dự kiến hàng về rồi. Nhưng trên app đặt hàng
+  vẫn chưa có thông tin => kiểm tra các app liên kết xem logic nhận thông tin ngày dự kiến có bị bug không". Chốt: "Có, EO ghi đè luôn".
+- Vì sao: tra D1 thật 3 app (chỉ đọc) — EO dòng 9154 (3TDO-000847, ID CRM THB-000147) có ngày 07/12 từ 20/11; ticket THB-000147 bên này + app Sửa chữa bảo hành chỉ có
+  ngày từ 26/11 14:04 do Mua hàng gõ tay. App không có đường nhận ngày từ EO. Lúc tra: 3 THB + 29 TLK đang mở trống ngày, 10 TLK khác ngày EO.
+- Đã làm: `lib/dongBoNgayEo.ts` + cron mỗi giờ + migration 0136 (`dong_bo_ngay_eo_log`); EO v0.126 thêm `POST /api/partner/theo-id`.
+- Kiểm thử: typecheck backend; sau deploy kiểm tra lượt cron đầu qua `dong_bo_ngay_eo_log` trên D1 thật.

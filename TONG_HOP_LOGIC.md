@@ -76,6 +76,10 @@ duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xe
   phiếu. Đơn rời phiếu MANG THEO tiền đã trả, ticket mở thẳng ở "Chờ mua hàng". Nút "Chờ hàng" của Tác nghiệp chỉ có khi Kế toán CHƯA duyệt tiền phiếu.
   Ngày dự kiến có hàng (Kho tiếp nhận / cập nhật, Mua hàng "Đã đặt hàng", cả ticket bảo hành) là TUỲ CHỌN — Mua hàng chưa rõ ngày thì bỏ trống (mã EO vẫn bắt buộc);
   nếu nhập phải là ngày thật từ hôm nay tới tối đa 1 năm sau; giá trị 01/01/1900 coi như trống (`lib/ngayDuKien.ts`, v1.545).
+  **EO Mua hàng là nguồn chuẩn của ngày dự kiến (v1.568)**: mỗi giờ app hỏi EO cho mọi ticket THB / TLK đang mở; dòng EO đã ban hành, chưa kết thúc, có ngày dự kiến
+  và ghi mã ticket (hoặc mã đơn DDH của TLK) ở ô ID CRM / ID đặt hàng, hoặc khớp "mã EO ticket ghi ~ mã LK" → ngày dự kiến của ticket bị GHI ĐÈ bằng ngày sớm nhất
+  của EO (kể cả ngày Kho / Mua hàng đã nhập tay), kèm mã PO nếu ticket chưa ghi. EO chưa có ngày → giữ nguyên ticket. THB đổi ngày → thêm 1 dòng lịch sử
+  "tự động theo EO Mua hàng" + đẩy sang app Sửa chữa bảo hành. TLK không thêm dòng lịch sử (giữ đồng hồ SLA), chỉ ghi nhật ký `dong_bo_ngay_eo_log`.
 - **Đẩy lại** đơn / ticket bị người khác hủy / từ chối: ticket về trạng thái trước khi bị từ chối, đơn về Chờ hàng, lấy lại tiền đã hoàn về quỹ
   (tối đa số dư quỹ). TN / Kế toán / Kho trong 24h kể từ lúc hủy; Admin không giới hạn thời gian.
 - **KTV báo nhận thiếu** (ticket NTH): Kho kiểm → gửi bù hoặc hoàn tiền → Kế toán cân đối. Với gửi bù, Kế toán chọn: tạo đơn + phiếu gửi bù trên app (SL thực xuất đơn gốc = SL thực nhận, tiền phần thiếu sang phiếu gửi bù) HOẶC "Kho gửi bù ngoài hệ thống" (không tạo đơn / phiếu, giữ nguyên SL + tiền phiếu gốc, ticket "Đã gửi bù" không có phiếu gửi bù).
@@ -156,7 +160,7 @@ khai báo vai trò văn phòng hoặc đã là KTV). Chuyển tài khoản KTV s
 DVBH (tra case CRM, API đối tác tồn kho / lịch sử LK / đơn theo ca — `case-timeline` khớp mã ca trên đơn + mã đơn DDH DVBH gửi kèm từ giải trình (`ma_don`, v1.567) / đặt hàng qua API) · App Bảo hành đổi trả (Service Binding: phân loại,
 thiếu hàng BH, đơn sửa chữa, trừ công nợ; `GET /api/suachua-partner/lk-theo-case` trả linh kiện đã đặt theo mã case hoặc mã Lada (`ma_lada`); `GET /api/suachua-partner/lada?id=` tra mã Lada (center.dichvu3t.com, cache 10 phút) cho app đổi trả — bỏ đơn trả
 hàng / từ chối / hủy — để app đó ưu tiên lên đầu ô chọn linh kiện khi gửi bảo hành) · Phân tích tồn kho 3T (kho dữ liệu MISA) · khovan (đẩy phiếu sang kho) · ETX nhân sự · gia88 (giá) · **EO Mua hàng** (`muahang`, Service Binding
-`MUAHANG_SERVICE`, chỉ đọc `GET /api/partner/theo-id`): khung "Mua hàng (EO)" ở chi tiết đơn và chi tiết ticket thiếu hàng hiện PO (3TDO), trạng thái,
+`MUAHANG_SERVICE`, chỉ đọc `GET /api/partner/theo-id`; `POST /api/partner/theo-id` mỗi giờ để đồng bộ ngày dự kiến sang ticket THB / TLK): khung "Mua hàng (EO)" ở chi tiết đơn và chi tiết ticket thiếu hàng hiện PO (3TDO), trạng thái,
 SL đặt / về / thiếu, ngày dự kiến, ngày về. App gửi mã đơn, các ticket của đơn, mã case của đơn + cặp "mã EO ticket đã ghi ~ mã LK của đơn"; bên Mua hàng
 khớp nếu mã nằm trong ô ID CRM hoặc ID đặt hàng của dòng EO. Đơn có ticket → khung luôn hiện (kể cả "chưa có PO"); đơn khác chỉ hiện khi có PO khớp.
 
