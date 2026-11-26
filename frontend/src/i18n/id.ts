@@ -3239,5 +3239,8 @@ const tuDien: Record<string, string> = {
   "Lý do sửa *": "Alasan *",
   "vd: giá danh mục sai lúc đặt, chốt lại theo giá thật": "mis. harga katalog salah saat dipesan, ubah ke harga sebenarnya",
   "Chỉ sửa được khi Kế toán chưa duyệt tiền. Tổng phiếu và quỹ dư tự tính lại; nếu KTV đã báo chuyển mà tổng mới cao hơn số đã trả, phiếu về \"Chờ KTV chuyển\" để chuyển bổ sung.": "Hanya dapat diubah sebelum Akuntansi menyetujui uang. Total slip dan dana saldo dihitung ulang; jika teknisi sudah melapor transfer dan total baru melebihi yang dibayar, slip kembali ke \"Menunggu transfer teknisi\" untuk transfer tambahan.",
+  // v1.571 - cot Hoa don o Danh sach Don hang
+  "Hóa đơn": "Faktur",
+  "— (chưa chọn)": "— (belum dipilih)",
 };
 export default tuDien;

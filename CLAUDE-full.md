@@ -1714,3 +1714,9 @@ Phân vân giữa hai làn → chọn làn CAO hơn (an toàn hơn).
 (tự đặt lại chuyển tiền / `canBangPxk` hoàn-trừ quỹ). FE `PxkDongDonHangTable.tsx` `SuaTienCanChuyenDongModal`: Kế toán (không phải TN) bấm số tiền dòng; TN vẫn mở
 `SuaTienDongModal`; cả hai chỉ bấm được khi chưa "Kế toán đã duyệt"; dòng có giá chốt hiện dấu ✎. Bối cảnh PMH-003012: DDH-004676 tạo 30/10 khi danh mục ghi giá 224đ
 (`gia_de_xuat` 224) nên phiếu cũ PMH-001638 chỉ thu 190đ; giá sau sửa 224.000đ → phiếu mới tính 190.400đ (Đinh tủ −15%), còn thiếu 190.210đ.
+
+**Cột "Hóa đơn" ở Danh sách Đơn hàng** (2026-11-26, v1.571 — "Danh sách đơn hàng, bổ sung thêm cột hóa đơn, có thể filter, tôi cần filter rồi tải về lấy ds các đơn xuất
+hóa đơn cho khách hàng để làm báo cáo"): cột `yeu_cau_hoa_don` vốn có (lọc `DON_HANG_COT_LOC.yeu_cau_hoa_don` phía server) nhưng bị ẩn mặc định từ đợt gọn bảng 15/10 →
+đưa vào `COT_CHINH` (`DonCuaToiTab.tsx`, hiện cả với người đã tuỳ chỉnh cột — `useColumnConfig` chèn cột mặc định mới), tiêu đề "Hóa đơn", nhãn
+`YEU_CAU_HOA_DON_SHORT_LABELS` (rê chuột xem chuỗi đầy đủ), bộ lọc hiện nhãn ngắn + "— (chưa chọn)" cho đơn NULL. Nút "Tải danh sách chi tiết" đã gửi `locCot.queryParams`
+nên file = đúng các đơn đang lọc. Số liệu D1 26/11: Không 8.180 · NULL 833 · HĐ không thu phí 81 · HĐ có thu phí 48 · HĐ xuất cho Trạm 17.

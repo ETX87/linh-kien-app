@@ -58,6 +58,8 @@ duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xe
   im lặng ≥ 30 phút. Danh sách "tất cả" ẩn phiếu đã hủy không còn đơn (lọc "Kế toán hủy" vẫn thấy).
 - Sửa đơn: tích / bỏ "KH đã chuyển khoản về công ty" được khi đơn không giữ tiền riêng và phiếu chứa đơn chưa được Kế toán chốt xuất
   ("Đang tạo phiếu" / "Chờ mã MISA", kể cả đã có tiền): đơn tự rời phiếu cũ như đơn chưa thanh toán (tiền thừa hoàn về quỹ cũ), gom lại đúng quỹ / nhóm.
+- **Danh sách Đơn hàng — cột "Hóa đơn"** (v1.571): hiện mặc định, nhãn gọn (Không / HĐ - Không thu phí / HĐ - Có thu phí / HĐ - Xuất cho trạm), lọc chọn nhiều
+  trên tiêu đề cột (lọc phía server); "Tải danh sách chi tiết" xuất đúng các đơn đang lọc (cột `yeu_cau_hoa_don` trong file).
 - **Quỹ tiền dư KTV**: mọi tiền KTV chuyển vào quỹ người nhận, Kế toán nhập số thực nhận → quỹ tự trả phiếu thiếu cũ nhất; thừa ở lại quỹ;
   hủy / giảm thì hoàn quỹ. Quỹ KH chuyển khoản (đơn tích "KH đã chuyển khoản về công ty", có hoặc không xuất hóa đơn) tách riêng. Tiền cần chuyển = 0 thì không cần Kế toán duyệt.
   Quỹ còn tiền thì tự trừ cả phiếu đang chờ Kế toán ("KTV đã chuyển") — đủ thì Kế toán xác nhận thực nhận 0đ; Kế toán từ chối bằng chứng mà quỹ

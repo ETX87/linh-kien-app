@@ -742,3 +742,11 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
 - Không sửa dữ liệu PMH-003012: chưa rõ số tiền đúng của dòng — Kế toán tự sửa bằng nút mới.
 - Kiểm thử: typecheck 2 phía 0 lỗi, build xanh. Chưa thử bấm trên giao diện thật / tài khoản Kế toán.
 
+## 2026-11-26 — v1.571: Cột "Hóa đơn" hiện mặc định ở Danh sách Đơn hàng (lọc + tải về)
+
+- Yêu cầu nguyên văn: "Danh sách đơn hàng, bổ sung thêm cột hóa đơn, có thể filter, tôi cần filter rồi tải về lấy ds các đơn xuất hóa đơn cho khách hàng để làm báo cáo".
+- Hiện trạng: cột "Yêu cầu hóa đơn" + bộ lọc server đã có nhưng bị ẩn mặc định (gọn bảng 15/10, nằm trong "Tùy chỉnh cột").
+- Đã làm: đưa cột vào nhóm cột chính (hiện mặc định), tiêu đề "Hóa đơn", nhãn gọn 1 dòng (tô màu khi có hóa đơn), bộ lọc hiện nhãn gọn + "— (chưa chọn)". Bản dịch EN / ID.
+  "Tải danh sách chi tiết" đã theo đúng bộ lọc cột → lọc Hóa đơn rồi tải là ra danh sách báo cáo.
+- Kiểm thử: typecheck frontend 0 lỗi. Chưa xem trên giao diện thật. Lúc làm thư mục có thay đổi chưa commit của phiên khác → chỉ commit đúng file của đợt này, CHƯA deploy.
+

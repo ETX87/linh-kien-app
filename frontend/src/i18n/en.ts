@@ -3239,5 +3239,8 @@ const tuDien: Record<string, string> = {
   "Lý do sửa *": "Reason *",
   "vd: giá danh mục sai lúc đặt, chốt lại theo giá thật": "e.g. catalogue price was wrong when ordered, fix to the real price",
   "Chỉ sửa được khi Kế toán chưa duyệt tiền. Tổng phiếu và quỹ dư tự tính lại; nếu KTV đã báo chuyển mà tổng mới cao hơn số đã trả, phiếu về \"Chờ KTV chuyển\" để chuyển bổ sung.": "Editable only before Accounting approves the money. The slip total and balance fund are recalculated; if the technician already reported a transfer and the new total exceeds the amount paid, the slip returns to \"Waiting for technician transfer\" for a top-up.",
+  // v1.571 - cot Hoa don o Danh sach Don hang
+  "Hóa đơn": "Invoice",
+  "— (chưa chọn)": "— (not set)",
 };
 export default tuDien;

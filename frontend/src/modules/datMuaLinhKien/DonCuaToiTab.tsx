@@ -2233,10 +2233,11 @@ export function DonCuaToiTab({
       trang_thai: t("Trạng thái"),
       trang_thai_pxk: t("Phiếu xuất kho"),
       thanh_toan: t("Chuyển tiền"),
-      yeu_cau_hoa_don: t("Yêu cầu hóa đơn"),
+      yeu_cau_hoa_don: t("Hóa đơn"),
       khu_vuc: t("Khu vực"),
     },
     nhan: {
+      yeu_cau_hoa_don: (v) => (v ? t(YEU_CAU_HOA_DON_SHORT_LABELS[v] ?? v) : t("— (chưa chọn)")),
       nguoi_tao: (v) => formatNguoiDisplay(v, ktvDisplayMapLoc),
       nguoi_nhan_hang: (v) => formatNguoiDisplay(v, ktvDisplayMapLoc),
       trang_thai: (v) => trangThaiLabel(DON_CUA_TOI_TRANG_THAI_OPTIONS_ALL, v),
@@ -3077,7 +3078,19 @@ export function DonHangGroupedList({
         </span>
       ),
     },
-    { key: "yeu_cau_hoa_don", header: t("Yêu cầu hóa đơn"), filter: loc("yeu_cau_hoa_don"), render: (row) => row.d.yeu_cau_hoa_don || <span className="text-[var(--ink-400)]">—</span> },
+    // "Hóa đơn" (2026-11-26 v1.571, "Danh sách đơn hàng, bổ sung thêm cột hóa đơn, có thể filter, tôi cần filter rồi tải về lấy ds các đơn xuất hóa đơn
+    // cho khách hàng để làm báo cáo"): cot CHINH (hien mac dinh), nhan rut gon 1 dong, re chuot xem chuoi day du; loc chon nhieu o tieu de (server).
+    {
+      key: "yeu_cau_hoa_don", header: t("Hóa đơn"), filter: loc("yeu_cau_hoa_don"),
+      render: (row) =>
+        row.d.yeu_cau_hoa_don ? (
+          <span title={row.d.yeu_cau_hoa_don} className={coYeuCauHoaDon(row.d.yeu_cau_hoa_don) || row.d.yeu_cau_hoa_don.includes("Trạm") ? "font-medium text-[var(--ocean-700)]" : "text-[var(--ink-400)]"}>
+            {t(YEU_CAU_HOA_DON_SHORT_LABELS[row.d.yeu_cau_hoa_don] ?? row.d.yeu_cau_hoa_don)}
+          </span>
+        ) : (
+          <span className="text-[var(--ink-400)]">—</span>
+        ),
+    },
     { key: "nguoi_nhan_hang", header: t("Người nhận hàng"), filter: loc("nguoi_nhan_hang"), render: (row) => (row.d.nguoi_nhan_hang ? <NguoiNhan>{formatNguoiDisplay(row.d.nguoi_nhan_hang, ktvDisplayMap)}</NguoiNhan> : <span className="text-[var(--ink-400)]">—</span>) },
     { key: "ly_do_cham", header: t("Lý do từ chối/chờ hàng"), render: (row) => row.d.ly_do_cham || <span className="text-[var(--ink-400)]">—</span> },
     // "Khu vực" cua NGUOI NHAN HANG (khong phai cot that tren dat_don_hang - server LEFT JOIN qua
@@ -3162,7 +3175,7 @@ export function DonHangGroupedList({
   // o day, van AN MAC DINH nhu truoc.
   // GON BANG (2026-10-15, phan hoi "app màu mè và rối mặt" - thi diem o Đơn hàng): mac dinh chi hien cac cot COT_CHINH (~9 cot);
   // cot con lai van giu dinh nghia, chuyen sang "Tùy chỉnh cột" (an mac dinh, nguoi dung tu bat lai, thu tu bat = thu tu hien).
-  const COT_CHINH = new Set(["chon", "linh_kien", "trang_thai", "trang_thai_pxk", "thanh_toan", "loai", "sl", "gia", "nguoi_nhan_hang", "ngay_de_xuat", "khu_vuc", "hanh_dong"]);
+  const COT_CHINH = new Set(["chon", "linh_kien", "trang_thai", "trang_thai_pxk", "thanh_toan", "loai", "sl", "gia", "yeu_cau_hoa_don", "nguoi_nhan_hang", "ngay_de_xuat", "khu_vuc", "hanh_dong"]); // + "Hóa đơn" v1.571
   const colsPhu = cols.filter((c) => !COT_CHINH.has(c.key));
   const colsChinh = cols.filter((c) => COT_CHINH.has(c.key));
   const optionalCols: Column<EnrichedRow>[] = [
