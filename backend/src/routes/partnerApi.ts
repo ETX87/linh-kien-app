@@ -24,14 +24,18 @@ import { nowVN } from "../lib/vnTime";
 const partnerApi = new Hono<{ Bindings: Env }>();
 partnerApi.use("*", partnerApiAuth());
 
-// GET /api/partner/v1/case-timeline?id=<case_id> - tra toan bo don hang gan voi case_id + timeline
+// GET /api/partner/v1/case-timeline?id=<case_id>[&ma_don=DDH-..,DDH-..] - tra toan bo don hang gan voi case_id (+ cac don
+// co ma trong ma_don) + timeline
 // da chuan hoa (gop 4 bang log noi bo thanh 1 mang su kien phang, xem lib/partnerTimeline.ts). Luon
 // 200 (orders: [] khi khong khop don nao) - case_id hop le ve cu phap, chi la chua/khong con du lieu
 // noi bo nao gan voi no.
 partnerApi.get("/v1/case-timeline", async (c) => {
   const caseId = c.req.query("id")?.trim();
   if (!caseId) return c.json({ error: "MISSING_ID" }, 400);
-  const result = await buildCaseTimeline(c.env.DB, caseId);
+  // ma_don (tuy chon, 2026-11-26): "DDH-000123,DDH-000456" - ma don DVBH ghi trong giai trinh, gop them vao ket qua
+  // du don khong gan ma ca. Chi nhan dung dang DDH-<so>, toi da 20 ma.
+  const maDon = [...new Set((c.req.query("ma_don") ?? "").toUpperCase().match(/DDH-\d{3,}/g) ?? [])].slice(0, 20);
+  const result = await buildCaseTimeline(c.env.DB, caseId, maDon);
   return c.json(result);
 });
 

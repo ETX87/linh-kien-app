@@ -1690,3 +1690,4 @@ Phân vân giữa hai làn → chọn làn CAO hơn (an toàn hơn).
   đã đẩy sang hệ thống ngoài (Lada…) — chỉ liệt kê để người điều phối xử lý.
 - KHÔNG biến lỗi thành đề xuất đổi luật, KHÔNG hỏi lại Giám đốc điều luật đã chốt, KHÔNG viết dài theo khuôn làn đầy đủ.
 - Người báo hỏi thêm việc khác trong cùng báo cáo → ghi 1 dòng "Tách việc riêng: …", không gộp vào bản sửa lỗi.
+- **`/v1/case-timeline?ma_don=` (2026-11-26, v1.567)**: tham số tuỳ chọn `ma_don=DDH-..,DDH-..` (≤20, chỉ nhận dạng `DDH-<số>`) — `buildCaseTimeline(db, caseId, maDon)` UNION thêm các đơn có `id` trong danh sách. DVBH gửi các mã DDH người dùng ghi ở ô "Mã xuất hàng liên quan" của giải trình để đơn trạm đặt không chọn mã ca vẫn hiện ở chi tiết ca DVBH (cùng nguồn khớp thứ 3 của `/v1/don-gan-nhat-theo-ca`).

@@ -162,17 +162,21 @@ interface RawLogRow {
 // "case_id" la khai niem cua he DVBH goc). Tra { case_id, orders: [] } (200, KHONG phai 404) khi
 // khong co don nao khop - case_id hop le ve mat cu phap, chi la chua/khong con don noi bo nao gan
 // voi no, don gian hoa xu ly phia doi tac (khong phai phan biet 404 vs 200-rong).
-export async function buildCaseTimeline(db: D1Database, caseId: string): Promise<CaseTimelineResult> {
+export async function buildCaseTimeline(db: D1Database, caseId: string, maDon: string[] = []): Promise<CaseTimelineResult> {
   // 1) Tim toan bo dat_don_hang_id gan voi case nay - UNION ca cot don ma_yeu_cau_su_co (legacy, 1-1,
   // xem migrations/0001_init.sql:185) LAN bang dat_don_case (many-to-many that su, migration
   // 0001_init.sql:214) de khong bo sot du lieu cu chi gan qua duong legacy.
+  // + maDon (2026-11-26): ma DDH-xxxxxx ben DVBH doc tu o "Mã xuất hàng liên quan" cua giai trinh - don tram dat KHONG
+  // chon ma ca van hien o chi tiet ca DVBH (cung nguon khop thu 3 cua /v1/don-gan-nhat-theo-ca).
   const { results: idRows } = await db
     .prepare(
       `SELECT id FROM dat_don_hang WHERE ma_yeu_cau_su_co = ?
        UNION
-       SELECT dat_don_hang_id as id FROM dat_don_case WHERE case_id = ?`,
+       SELECT dat_don_hang_id as id FROM dat_don_case WHERE case_id = ?
+       UNION
+       SELECT id FROM dat_don_hang WHERE id IN (SELECT value FROM json_each(?))`,
     )
-    .bind(caseId, caseId)
+    .bind(caseId, caseId, JSON.stringify(maDon))
     .all<{ id: string }>();
   const orderIds = idRows.map((r) => r.id);
   if (orderIds.length === 0) return { case_id: caseId, orders: [] };

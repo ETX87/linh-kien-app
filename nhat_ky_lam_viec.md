@@ -694,3 +694,12 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
 - Đã làm: danh sách Đơn hàng tìm ra 0 đơn với từ khoá ≥ 3 ký tự → gọi lại `/dat-mua-lk/search` (cùng quyền xem THB với Ctrl+K: Kho / TN / Mua hàng / Kế toán / View / Admin) và hiện dòng gợi ý "Không có đơn đặt linh kiện nào khớp …, nhưng mã này có n phiếu thiếu hàng bảo hành" + chip bấm mở chi tiết ticket THB (popup `XemThieuHangBh` có sẵn). Không thêm API backend.
 - Kiểm thử: build frontend (tsc -b + vite) xanh; bản dịch EN / ID đủ câu mới. Chưa thử trên giao diện thật bằng tài khoản Kho / Mua hàng.
 
+
+## 2026-11-26 — v1.567: API `case-timeline` nhận thêm mã đơn DDH (đơn không gắn mã ca vẫn hiện ở chi tiết ca DVBH)
+
+- Yêu cầu (từ hệ DVBH, ca SC261020228): "ca giải trình này gs đã điền mã DDH-xxxx sao vẫn không liên kết với bên linh kiện?" → chủ hệ thống chọn "Sửa cả 2 app".
+- Vì sao: đã tra D1 thật (chỉ đọc) — đơn DDH-004676 do trạm tạo 30/10 KHÔNG chọn mã ca (`ma_yeu_cau_su_co` trống, không có dòng `dat_don_case`);
+  `/v1/case-timeline` chỉ khớp theo mã ca nên DVBH không thấy đơn dù giám sát đã ghi mã DDH trong giải trình.
+- Đã làm: `GET /api/partner/v1/case-timeline` thêm tham số tuỳ chọn `ma_don` (≤20 mã dạng `DDH-<số>`), `buildCaseTimeline` gộp thêm các đơn đó.
+  Không đổi cấu trúc kết quả, không ghi dữ liệu (không tự gắn mã ca vào đơn). Tài liệu API lên 2.6.
+- Kiểm thử: typecheck backend; gọi thật API sau deploy với ca SC261020228.
