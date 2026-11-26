@@ -686,3 +686,11 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
   dòng THB bấm mở popup xử lý THB như cũ (mỗi bước vẫn báo về đơn bảo hành gốc). KTV không thấy THB (như trước).
 - Kiểm thử: typecheck 2 phía 0 lỗi, build xanh, bản dịch EN / ID đủ câu mới. Local (D1 demo + 3 THB mẫu, tài khoản Admin): thứ tự trộn theo ngày báo, ghép các trang khớp danh sách đầy đủ 26/26, lọc nguồn / từ khoá / nhóm trạng thái, số đếm có THB, bấm "Chuyển Mua hàng" trong popup THB → dòng đổi "Chờ Mua hàng" ngay; xem giao diện máy tính + điện thoại.
 - Lưu ý: THB "Hàng đã về" đếm vào nhóm "Đã duyệt đơn gốc", THB từ chối / không mua được đếm vào "Đã huỷ bỏ" (dòng vẫn ghi nhãn gốc). Chưa thử với tài khoản Kho / Mua hàng thật trên production.
+
+## 2026-11-26 — v1.566: Danh sách Đơn hàng tìm ra 0 đơn → gợi ý ticket Thiếu hàng bảo hành khớp mã
+
+- Yêu cầu nguyên văn (người dùng báo từ app Bảo hành đổi trả, ảnh đơn DH-006253-1): "mã "SC2611090581" này đã tạo đơn linh kiện, nhưng bên app linh kiện lại không tìm thấy =>> check bug"; tìm ở "Danh sách Đơn hàng".
+- Đã tra D1 thật (chỉ đọc): ca này KHÔNG có đơn đặt (DDH) nào — chỉ có 4 ticket THB-000144 → 147 (mã case đúng `SC2611090581`, "Mua hàng đã đặt" EO 14.11). Dữ liệu 2 bên khớp; Ctrl+K và tab Thiếu hàng đều tìm ra. Danh sách Đơn hàng chỉ chứa đơn đặt nên ra trống → người dùng tưởng mất đơn.
+- Đã làm: danh sách Đơn hàng tìm ra 0 đơn với từ khoá ≥ 3 ký tự → gọi lại `/dat-mua-lk/search` (cùng quyền xem THB với Ctrl+K: Kho / TN / Mua hàng / Kế toán / View / Admin) và hiện dòng gợi ý "Không có đơn đặt linh kiện nào khớp …, nhưng mã này có n phiếu thiếu hàng bảo hành" + chip bấm mở chi tiết ticket THB (popup `XemThieuHangBh` có sẵn). Không thêm API backend.
+- Kiểm thử: build frontend (tsc -b + vite) xanh; bản dịch EN / ID đủ câu mới. Chưa thử trên giao diện thật bằng tài khoản Kho / Mua hàng.
+

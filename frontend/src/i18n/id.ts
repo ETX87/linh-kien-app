@@ -3219,5 +3219,7 @@ const tuDien: Record<string, string> = {
   "Đơn bảo hành {a}": "Pesanan garansi {a}",
   "Đổi trả — cấp LK": "Aplikasi garansi — pengeluaran suku cadang",
   "Đổi trả — thiếu hàng BH": "Aplikasi garansi — kekurangan garansi",
+  // v1.566 - goi y ticket THB khi Danh sach Don hang tim ra 0 don
+  "Không có đơn đặt linh kiện nào khớp “{q}”, nhưng mã này có {n} phiếu thiếu hàng bảo hành (app Bảo hành đổi trả gửi sang) — xem ở menu Thiếu hàng:": "Tidak ada pesanan suku cadang yang cocok dengan “{q}”, tetapi kode ini memiliki {n} tiket kekurangan garansi (dikirim aplikasi Garansi) — lihat menu Kekurangan:",
 };
 export default tuDien;

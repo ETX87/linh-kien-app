@@ -57,6 +57,7 @@ import { LinhKienPicker } from "./LinhKienPicker";
 // Lien ket 2 chieu voi ticket thieu LK (phan hoi 2026-09-10) - xem giai thich import vong o
 // ThieuLkTab.tsx (file do cung import nguoc lai DonHangDetailModal tu day).
 import { ThieuLkDetailModal } from "./ThieuLkTab";
+import { GoiYThbTheoMa } from "./ThieuHangBh";
 import { Money } from "../../components/ui/Money";
 import { DuyetVuotTranKhoi } from "./DuyetVuotTran";
 import { LoaiGoiYKhoi, LoaiGoiYBadge } from "./CongNoSuaChua";
@@ -2727,6 +2728,8 @@ export function DonCuaToiTab({
       )}
       <div className="min-w-0 flex-1">
       <LocCotBar cfg={locCotCfg} cots={Object.keys(locCotCfg.tieuDe)} hienTatCa={false} />
+      {/* v1.566: tim ra 0 don ma tu khoa khop ticket Thieu hang bao hanh (THB) -> goi y + mo chi tiet ticket (ThieuHangBh.tsx). */}
+      {!isLoading && !isError && (data?.total ?? 0) === 0 && debouncedQ.trim().length >= 3 && <GoiYThbTheoMa q={debouncedQ} addToast={addToast} />}
       <DonHangGroupedList
         locCot={locCotCfg}
         rows={pageRows}

@@ -3219,5 +3219,7 @@ const tuDien: Record<string, string> = {
   "Đơn bảo hành {a}": "Warranty order {a}",
   "Đổi trả — cấp LK": "Warranty app — parts issue",
   "Đổi trả — thiếu hàng BH": "Warranty app — warranty shortage",
+  // v1.566 - goi y ticket THB khi Danh sach Don hang tim ra 0 don
+  "Không có đơn đặt linh kiện nào khớp “{q}”, nhưng mã này có {n} phiếu thiếu hàng bảo hành (app Bảo hành đổi trả gửi sang) — xem ở menu Thiếu hàng:": "No parts order matches “{q}”, but this code has {n} warranty shortage tickets (sent by the Warranty app) — see the Shortages menu:",
 };
 export default tuDien;

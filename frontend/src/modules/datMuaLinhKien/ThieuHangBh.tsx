@@ -398,3 +398,43 @@ export function XemThieuHangBh({ id, onClose, addToast }: { id: string; onClose:
   if (!data) return null;
   return <ThbDetailModal row={data.ticket} onClose={onClose} addToast={addToast} ten={ten} />;
 }
+
+// GOI Y KHI DANH SACH DON HANG TIM RA 0 DON (v1.566, 26/11/2026). Bao loi: "mã "SC2611090581" này đã tạo đơn linh kiện, nhưng bên app linh
+// kiện lại không tìm thấy" - ca do KHONG co don dat (DDH), chi co 4 ticket THB (app Bao hanh doi tra bao thieu hang, Mua hang da dat EO) nen
+// o tim Danh sach Don hang ra trong. Dung LAI /dat-mua-lk/search (cung quyen xem THB voi Ctrl+K: Kho / TN / Mua hang / Ke toan / View / Admin,
+// tim theo tien to ma THB / ma case / ma don BH) -> hien dong goi y + chip mo chi tiet ticket. Khong co quyen / khong khop -> khong hien gi.
+export function GoiYThbTheoMa({ q, addToast }: { q: string; addToast: (msg: string) => void }) {
+  const tuKhoa = q.trim();
+  const [moId, setMoId] = useState<string | null>(null);
+  const { data } = useQuery({
+    queryKey: ["goi-y-thb-theo-ma", tuKhoa.toUpperCase()],
+    queryFn: () => api.get<{ results: { type: string; id: string; label: string }[] }>(`/dat-mua-lk/search?q=${encodeURIComponent(tuKhoa)}`),
+    enabled: tuKhoa.length >= 3,
+    staleTime: 60_000,
+  });
+  const ds = (data?.results ?? []).filter((r) => r.type === "thieu_hang_bh");
+  if (!ds.length) return null;
+  return (
+    <div className="mb-2 rounded-lg border border-[var(--line)] bg-[var(--surface-100)] px-3 py-2 text-sm">
+      <div className="text-[var(--ink-600)]">
+        {t("Không có đơn đặt linh kiện nào khớp “{q}”, nhưng mã này có {n} phiếu thiếu hàng bảo hành (app Bảo hành đổi trả gửi sang) — xem ở menu Thiếu hàng:", {
+          q: tuKhoa,
+          n: ds.length >= 5 ? "5+" : ds.length,
+        })}
+      </div>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        {ds.map((r) => (
+          <button
+            key={r.id}
+            type="button"
+            onClick={() => setMoId(r.id)}
+            className="focus-ring rounded-md border border-[var(--line)] bg-[var(--surface)] px-2 py-0.5 text-xs hover:border-[var(--green-700)]"
+          >
+            🛠 {r.label}
+          </button>
+        ))}
+      </div>
+      {moId && <XemThieuHangBh id={moId} onClose={() => setMoId(null)} addToast={addToast} />}
+    </div>
+  );
+}
