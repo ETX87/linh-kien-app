@@ -16,7 +16,7 @@ import { loadUser } from "../middleware/loadUser";
 import { requireDatMuaLkArea } from "../middleware/requireDatMuaLkArea";
 import { nextSequentialId, reserveSequentialIds } from "../lib/idCounter";
 import { nowVN } from "../lib/vnTime";
-import type { ThbRow } from "../lib/thieuHangBh";
+import { xemThbDuoc, type ThbRow } from "../lib/thieuHangBh";
 import { emailsTheoTen, orEmailIn, orMaYcsc, orPxkCuaDon, tenLkKhopSql } from "../lib/timTheoTen";
 import { scopeDatMuaNguoiTao, phuTrachGsSet, autoClaimGs, viewDonScopeSql, khuVucCuaToiSet, khuVucSetWhereSql, khuVucPxkWhereSql, laKhoThuan, scopePxkNguoiNhanHang, gsKhuVucXemThemSql, duocDoiKhuVucDon, laGsCuaKhuVuc } from "../lib/scopeDatMua";
 import { pxkKhopMienXuatSql } from "../lib/mienXuat";
@@ -3558,8 +3558,8 @@ datMuaLinhKien.get("/search", async (c) => {
 
   // + ticket THIEU HANG BAO HANH (THB-..., app Sua chua bao hanh gui sang) theo ma ticket / ma case / ma don BH
   // (2026-11-20 - "SC2611120758 công cụ tìm kiếm không tìm thấy": case chi co ticket THB, chua co don). Quyen xem
-  // = CUNG xemDuoc() o routes/thieuHangBh.ts (Kho / TN / Mua hang / Ke toan / View / Admin) - doi 1 ben doi ca 2.
-  if (user.la_kho || user.la_tac_nghiep || user.la_mua_hang || user.la_ke_toan || user.la_view || user.vai_tro === "Admin") {
+  // = xemThbDuoc() (lib/thieuHangBh.ts, nguon duy nhat - gom ca Giam sat tu v1.569).
+  if (xemThbDuoc(user)) {
     const { results: rows } = await c.env.DB.prepare(
       `SELECT id, ma_lk, ten_lk, case_id, nguon_id FROM thieu_hang_bh
        WHERE UPPER(id) LIKE ? || '%' OR UPPER(case_id) LIKE ? || '%' OR UPPER(nguon_id) LIKE ? || '%'
@@ -5648,10 +5648,9 @@ function nguonTiepNhanLoc(c: Context<{ Bindings: Env }>): string[] | null {
 const THB_SANG_TLK: Record<string, string> = { "Kho xac nhan hang da ve": "Da ket thuc", "Kho tu choi": "Da huy bo", "Mua hang tu choi": "Da huy bo", "Da huy": "Da huy bo" };
 const THB_TT_GOP_SQL = `(CASE trang_thai WHEN 'Kho xac nhan hang da ve' THEN 'Da ket thuc' WHEN 'Kho tu choi' THEN 'Da huy bo'
   WHEN 'Mua hang tu choi' THEN 'Da huy bo' WHEN 'Da huy' THEN 'Da huy bo' ELSE trang_thai END)`;
-// Ai thay ticket THB: cung tap voi routes/thieuHangBh.ts xemDuoc (Kho / TN / Admin / Mua hang / Ke toan / View).
+// Ai thay ticket THB: xemThbDuoc() (lib/thieuHangBh.ts - nguon duy nhat, gom ca Giam sat tu v1.569).
 function xemThbGop(c: Context<{ Bindings: Env }>): boolean {
-  const u = c.get("user");
-  return !!(u.la_kho || u.la_tac_nghiep || u.la_mua_hang || u.la_ke_toan || u.la_view || u.vai_tro === "Admin");
+  return xemThbDuoc(c.get("user"));
 }
 // "Viec can xu ly" cua ticket THB - khop badge Sidebar (routes/notifications.ts thbCho): Kho THAT / Admin = cho Kho, Mua hang / Admin = cho Mua hang.
 function thbViec(c: Context<{ Bindings: Env }>): string[] {

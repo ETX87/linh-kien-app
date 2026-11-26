@@ -720,3 +720,12 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
   (vd DDH-004676: phiếu đang "Chờ KTV chuyển tiền", đã thử biểu thức trên D1 thật, chỉ đọc).
 - Đã làm: 2 API thêm trường `trang_thai_pxk` (dùng lại `TRANG_THAI_PXK_DON_SQL`), tương thích ngược. Tài liệu API 2.7.
 - Kiểm thử: typecheck backend; chạy thử biểu thức trên D1 thật cho DDH-004676 → `cho_ktv_chuyen_tien`.
+
+## 2026-11-26 — v1.569: Giám sát xem được ticket Thiếu hàng bảo hành (Ctrl+K, danh sách Thiếu hàng, gợi ý ở Đơn hàng)
+
+- Yêu cầu nguyên văn (kèm ảnh Ctrl+K tìm "SC2611090581" ở chế độ "Đang xem như" Phạm Giang ra "Không tìm thấy kết quả nào khớp"): "vẫn không thấy, cả fix cho cả tài khoản thamnth1508@gmail.com".
+- Vì sao: ca SC2611090581 chỉ có 4 ticket THB (THB-000144 → 147), không có đơn đặt. Quyền xem THB chỉ gồm Kho / TN / Mua hàng / Kế toán / View / Admin;
+  phamgiang3104 và thamnth1508 là Giám sát thuần (không có cờ nào trong số đó) → Ctrl+K, danh sách Thiếu hàng, gợi ý ở Danh sách Đơn hàng đều trống.
+- Đã làm: `xemThbDuoc()` trong `backend/src/lib/thieuHangBh.ts` = nguồn duy nhất cho quyền xem THB (thay 3 chỗ viết riêng), thêm Giám sát — chỉ xem,
+  không có nút xử lý (thao tác vẫn chỉ Kho / TN / Mua hàng / Admin), không đổi badge việc.
+- Kiểm thử: typecheck backend 0 lỗi, build xanh; câu tìm chạy trên D1 thật (chỉ đọc) ra đủ THB-000144 → 147 cho mã SC2611090581. Chưa mở lại Ctrl+K trên giao diện thật.

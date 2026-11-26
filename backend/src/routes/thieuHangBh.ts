@@ -8,7 +8,7 @@ import { Hono, type Context } from "hono";
 import type { Env } from "../types";
 import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
-import { THB_MO, THB_TRANG_THAI, docThb, pushThieuHangBhToSuachua, thbChuyenHopLe, thbGhiBuoc, type ThbRow } from "../lib/thieuHangBh";
+import { THB_MO, THB_TRANG_THAI, docThb, xemThbDuoc, pushThieuHangBhToSuachua, thbChuyenHopLe, thbGhiBuoc, type ThbRow } from "../lib/thieuHangBh";
 
 const r = new Hono<{ Bindings: Env }>();
 r.use("*", verifySessionMiddleware, loadUser);
@@ -19,7 +19,7 @@ const vaiKho = (c: C) => !!c.get("user").la_kho || !!c.get("user").la_tac_nghiep
 // "Viec cua toi" (2026-11-10): TN chi thao tac HO Kho (vaiKho) - khong dem / khong loc "Cần tôi xử lý" ticket cho Kho cho TN; chi Kho THAT + Admin.
 const viecKho = (c: C) => !!c.get("user").la_kho || laAdmin(c);
 const vaiMua = (c: C) => !!c.get("user").la_mua_hang || laAdmin(c);
-const xemDuoc = (c: C) => vaiKho(c) || vaiMua(c) || !!c.get("user").la_ke_toan || !!c.get("user").la_view;
+const xemDuoc = (c: C) => xemThbDuoc(c.get("user")); // lib/thieuHangBh.ts - gom ca Giam sat (chi doc, v1.569)
 
 // GET /api/thieu-hang-bh?trang_thai=can_xu_ly|mo|tat_ca|<trang thai>&q=&mien=&page=
 r.get("/", async (c) => {

@@ -5,6 +5,13 @@ import { nowVN } from "./vnTime";
 // cham vi "Khong co linh kien" / "Het hang ton kho". Kho / Mua hang xu ly o day; moi lan doi trang thai day nguoc ve suachua
 // (pushThieuHangBhToSuachua), suachua con tu keo lai moi 15 phut (GET /api/suachua-partner/thieu-hang-bh?since=) phong khi lo ban tin.
 
+// AI DUOC XEM ticket THB (chi doc) - NGUON DUY NHAT cho routes/thieuHangBh.ts (danh sach / chi tiet), Ctrl+K (/dat-mua-lk/search) va danh sach
+// Thieu hang gop (xemThbGop). Kho / TN / Mua hang / Ke toan / View / Admin + GIAM SAT (2026-11-26 v1.569, "SC2611090581 ... vẫn không thấy, cả fix cho
+// cả tài khoản thamnth1508" - GS tra ca bao hanh cua KTV nhung bi loai). Thao tac van chi Kho / TN / Mua hang / Admin.
+export function xemThbDuoc(u: { vai_tro?: string | null; la_kho?: unknown; la_tac_nghiep?: unknown; la_mua_hang?: unknown; la_ke_toan?: unknown; la_view?: unknown }): boolean {
+  return !!(u.la_kho || u.la_tac_nghiep || u.la_mua_hang || u.la_ke_toan || u.la_view || u.vai_tro === "Admin" || u.vai_tro === "Giam sat");
+}
+
 export const THB_MO = ["Cho kho xu ly", "Kho da tiep nhan", "Cho mua hang", "Mua hang da dat"] as const;
 export const THB_DONG = ["Kho xac nhan hang da ve", "Kho tu choi", "Mua hang tu choi", "Da huy"] as const;
 export const THB_TRANG_THAI = [...THB_MO, ...THB_DONG] as const;
