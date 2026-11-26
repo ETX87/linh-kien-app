@@ -454,6 +454,8 @@ export interface ThieuLkRow {
   lk_nhom_lk?: "karofi" | "b2b" | null; // Nhom LK Karofi / B2B cua don goc (2026-10-16, migration 0088)
   /** 1 = ticket con mo + don goc "Cho hang" DA DU ton kho cong ty (xet don cho lau nhat truoc, 2026-10-16) - nhac Kho xac nhan. */
   kho_du_hang?: number;
+  /** v1.572: JSON {po, sl_ve, sl_dat, ngay_ve} - EO Mua hang bao moi dong khop da ket thuc + co hang ve (cron dongBoNgayEo). */
+  eo_ve_du?: string | null;
   kho_mot_phan?: number | null; // v1.434: kho cong ty chi co x chiec (< SL) - don uu tien cao nhat cua ma -> dung tu duyet, cho tach don
 }
 

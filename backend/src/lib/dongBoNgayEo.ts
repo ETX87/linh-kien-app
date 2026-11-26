@@ -15,12 +15,27 @@ import type { DongMuaHang } from "./muaHangClient";
  * nhieu dong -> ngay SOM nhat. EO khong co ngay -> GIU nguyen ticket (khong xoa).
  * Khac ngay -> ghi de ngay (+ ma EO neu ticket chua ghi PO do), ghi dong_bo_ngay_eo_log; THB them 1 dong thieu_hang_bh_log (khong anh huong SLA)
  * va day sang app Sua chua bao hanh. TLK KHONG chen thieu_lk_log (trang thai = log moi nhat, SLA tinh theo gio log).
+ *
+ * CANH BAO "EO BAO DA VE" (v1.572, cung lan chay): moi dong EO khop ticket (bo dong "Đơn trên EO bị hủy") deu da ket thuc va tong SL ve > 0
+ * -> ghi eo_ve_du = JSON {po, sl_ve, sl_dat, ngay_ve} len ticket (NULL khi khong con dung). FE hien nhan + chip loc "EO báo đã về" de Kho
+ * kiem hang thuc te va bam "Hàng đã về" - KHONG tu doi trang thai ticket (keo theo duyet don / vao phieu / tien).
  */
 const TLK_DONG = ["Da huy bo", "Da ket thuc", "Kho xac nhan hang da ve", "Kho tu choi sai TT", "Mua hang tu choi"];
 const THB_MO_SQL = "('Cho kho xu ly','Kho da tiep nhan','Cho mua hang','Mua hang da dat')";
 const NGUOI_HE_THONG = "Hệ thống (đồng bộ EO Mua hàng)";
 
-interface Ticket { id: string; loai: "THB" | "TLK"; don: string | null; ma_lk: string; ma_eo: string | null; ngay: string | null }
+interface Ticket { id: string; loai: "THB" | "TLK"; don: string | null; ma_lk: string; ma_eo: string | null; ngay: string | null; ve_du: string | null }
+
+/** Moi dong EO khop (tru dong bi huy) da ket thuc + co hang ve -> JSON canh bao; nguoc lai null. */
+function tinhVeDu(hop: DongMuaHang[]): string | null {
+  const ds = hop.filter((r) => r.trang_thai_eo === "ISSUED" && r.trang_thai !== "Đơn trên EO bị hủy");
+  if (!ds.length || !ds.every((r) => r.ket_thuc)) return null;
+  const slVe = ds.reduce((a, r) => a + (Number(r.sl_ve) || 0), 0);
+  if (slVe <= 0) return null;
+  const po = [...new Set(ds.map((r) => r.ma_phe_duyet || r.eo_code))].join(", ");
+  const ngay = ds.map((r) => String(r.ngay_ve_gan_nhat ?? "").slice(0, 10)).filter(Boolean).sort().pop() ?? null;
+  return JSON.stringify({ po, sl_ve: slVe, sl_dat: ds.reduce((a, r) => a + (Number(r.sl_dat) || 0), 0), ngay_ve: ngay });
+}
 
 const poTrong = (s: string | null) => [...new Set((String(s ?? "").toUpperCase().match(/3TDO-\d+/g) ?? []))];
 
@@ -39,21 +54,21 @@ async function goiTheoId(env: Env, ids: string[], poLk: string[]): Promise<DongM
 export async function dongBoNgayEo(env: Env, chayThu = false) {
   const db = env.DB;
   const [{ results: thb }, { results: tlk }] = await Promise.all([
-    db.prepare(`SELECT id, ma_lk, ma_eo_mua, ngay_du_kien FROM thieu_hang_bh WHERE trang_thai IN ${THB_MO_SQL}`)
-      .all<{ id: string; ma_lk: string; ma_eo_mua: string | null; ngay_du_kien: string | null }>(),
+    db.prepare(`SELECT id, ma_lk, ma_eo_mua, ngay_du_kien, eo_ve_du FROM thieu_hang_bh WHERE trang_thai IN ${THB_MO_SQL}`)
+      .all<{ id: string; ma_lk: string; ma_eo_mua: string | null; ngay_du_kien: string | null; eo_ve_du: string | null }>(),
     db.prepare(
-      `SELECT * FROM (SELECT t.id, t.dat_don_hang_id, d.ma_lk, t.ma_eo_mua, t.ngay_du_kien_co_hang,
+      `SELECT * FROM (SELECT t.id, t.dat_don_hang_id, d.ma_lk, t.ma_eo_mua, t.ngay_du_kien_co_hang, t.eo_ve_du,
          (SELECT l.trang_thai FROM thieu_lk_log l WHERE l.thieu_lk_id = t.id ORDER BY l.id DESC LIMIT 1) AS tt
        FROM thieu_lk t JOIN dat_don_hang d ON d.id = t.dat_don_hang_id) x
        WHERE COALESCE(x.tt, '') NOT IN (SELECT value FROM json_each(?))`,
     ).bind(JSON.stringify(TLK_DONG))
-      .all<{ id: string; dat_don_hang_id: string; ma_lk: string; ma_eo_mua: string | null; ngay_du_kien_co_hang: string | null }>(),
+      .all<{ id: string; dat_don_hang_id: string; ma_lk: string; ma_eo_mua: string | null; ngay_du_kien_co_hang: string | null; eo_ve_du: string | null }>(),
   ]);
   const ds: Ticket[] = [
-    ...thb.map((r) => ({ id: r.id, loai: "THB" as const, don: null, ma_lk: r.ma_lk, ma_eo: r.ma_eo_mua, ngay: r.ngay_du_kien })),
-    ...tlk.map((r) => ({ id: r.id, loai: "TLK" as const, don: r.dat_don_hang_id, ma_lk: r.ma_lk, ma_eo: r.ma_eo_mua, ngay: r.ngay_du_kien_co_hang })),
+    ...thb.map((r) => ({ id: r.id, loai: "THB" as const, don: null, ma_lk: r.ma_lk, ma_eo: r.ma_eo_mua, ngay: r.ngay_du_kien, ve_du: r.eo_ve_du })),
+    ...tlk.map((r) => ({ id: r.id, loai: "TLK" as const, don: r.dat_don_hang_id, ma_lk: r.ma_lk, ma_eo: r.ma_eo_mua, ngay: r.ngay_du_kien_co_hang, ve_du: r.eo_ve_du })),
   ];
-  const kq = { ticket: ds.length, khop: 0, sua: [] as { id: string; cu: string | null; moi: string; po: string | null }[] };
+  const kq = { ticket: ds.length, khop: 0, sua: [] as { id: string; cu: string | null; moi: string; po: string | null }[], ve_du: [] as string[] };
   if (!ds.length) return kq;
   const ids = [...new Set(ds.flatMap((t) => [t.id, ...(t.don ? [t.don] : [])]))];
   const poLk = [...new Set(ds.flatMap((t) => poTrong(t.ma_eo).map((po) => `${po}~${t.ma_lk.toUpperCase()}`)))];
@@ -64,7 +79,13 @@ export async function dongBoNgayEo(env: Env, chayThu = false) {
   const thbDoi: string[] = [];
   for (const t of ds) {
     const khoa = new Set([t.id.toUpperCase(), ...(t.don ? [t.don.toUpperCase()] : []), ...poTrong(t.ma_eo).map((po) => `${po}~${t.ma_lk.toUpperCase()}`)]);
-    const hop = rows.filter((r) => r.trang_thai_eo === "ISSUED" && !r.ket_thuc && r.ngay_du_kien && r.khop_theo.some((k) => khoa.has(k.toUpperCase())))
+    const tatCa = rows.filter((r) => r.khop_theo.some((k) => khoa.has(k.toUpperCase())));
+    const veDu = tinhVeDu(tatCa);
+    if (veDu) kq.ve_du.push(t.id);
+    if ((veDu ?? "") !== (t.ve_du ?? "")) {
+      ghi.push(db.prepare(`UPDATE ${t.loai === "THB" ? "thieu_hang_bh" : "thieu_lk"} SET eo_ve_du = ? WHERE id = ?`).bind(veDu, t.id));
+    }
+    const hop = tatCa.filter((r) => r.trang_thai_eo === "ISSUED" && !r.ket_thuc && r.ngay_du_kien)
       .sort((a, b) => String(a.ngay_du_kien).localeCompare(String(b.ngay_du_kien)));
     if (!hop.length) continue;
     kq.khop++;

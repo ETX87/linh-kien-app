@@ -5518,7 +5518,7 @@ const LK_TRANG_THAI_MA_SQL = "COALESCE((SELECT lkx.trang_thai_ma FROM linh_kien 
 // Nhom LK Karofi / B2B cua don goc (2026-10-16, migration 0088) - hien cot "Nhóm LK" o man Thieu hang.
 const LK_NHOM_SQL = "(SELECT lkn.nhom_lk FROM linh_kien lkn WHERE lkn.ma_linh_kien = ddh.ma_lk)";
 
-async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = false, boQuaMaLk = false, boQuaDuHang = false): Promise<{ whereSql: string; binds: unknown[] }> {
+async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = false, boQuaMaLk = false, boQuaDuHang = false, boQuaEoVeDu = false): Promise<{ whereSql: string; binds: unknown[] }> {
   const user = c.get("user");
   const donHangId = c.req.query("dat_don_hang_id");
   const trangThai = boQuaTrangThai ? undefined : c.req.query("trang_thai");
@@ -5582,6 +5582,10 @@ async function thieuLkListWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = 
     const ds = await donChoHangDuTonKho(c.env.DB);
     whereSql += ` AND ddh.id IN (SELECT value FROM json_each(?)) AND ${latestThieuLkStatusExpr("tlk.id")} NOT IN ('Da huy bo', 'Da ket thuc')`;
     binds.push(JSON.stringify([...ds]));
+  }
+  // Loc "EO báo đã về" (v1.572): EO Mua hang bao moi dong khop da ket thuc + co hang ve (eo_ve_du do cron lib/dongBoNgayEo.ts ghi), ticket con mo.
+  if (!boQuaEoVeDu && c.req.query("eo_ve_du") === "1") {
+    whereSql += ` AND tlk.eo_ve_du IS NOT NULL AND ${latestThieuLkStatusExpr("tlk.id")} NOT IN (${EO_VE_DU_TT_DONG})`;
   }
   if (trangThai === THIEU_LK_CHO_HUY) {
     whereSql += ` AND ${THIEU_LK_CHO_HUY_SQL}`;
@@ -5657,14 +5661,17 @@ function thbViec(c: Context<{ Bindings: Env }>): string[] {
   const u = c.get("user");
   return [...(u.la_kho || u.vai_tro === "Admin" ? ["Cho kho xu ly"] : []), ...(laMuaHangXuLy(c) ? ["Cho mua hang"] : [])];
 }
+// Ticket TLK da dong / da ve / bi tu choi -> khong canh bao "EO báo đã về" (v1.572).
+const EO_VE_DU_TT_DONG = "'Da huy bo', 'Da ket thuc', 'Kho xac nhan hang da ve', 'Kho tu choi sai TT', 'Mua hang tu choi'";
 // WHERE cho phan THB cua danh sach gop - null = khong lay THB (khong co quyen xem / dang loc theo khai niem chi TLK co).
-function thbGopWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = false): { whereSql: string; binds: unknown[] } | null {
+function thbGopWhere(c: Context<{ Bindings: Env }>, boQuaTrangThai = false, boQuaEoVeDu = false): { whereSql: string; binds: unknown[] } | null {
   if (!xemThbGop(c)) return null;
   if (c.req.query("dat_don_hang_id") || c.req.query("ma_lk_tt") || c.req.query("du_hang") === "1") return null;
   const nguon = nguonTiepNhanLoc(c);
   if (nguon && !nguon.includes("bh")) return null;
   let whereSql = "1=1";
   const binds: unknown[] = [];
+  if (!boQuaEoVeDu && c.req.query("eo_ve_du") === "1") whereSql += ` AND eo_ve_du IS NOT NULL AND trang_thai IN ('Cho kho xu ly','Kho da tiep nhan','Cho mua hang','Mua hang da dat')`;
   const tt = boQuaTrangThai ? undefined : c.req.query("trang_thai");
   if (tt === THIEU_LK_CHO_HUY) return null;
   if (tt === THIEU_LK_VIEC) {
@@ -5704,7 +5711,7 @@ function thbSangDongTlk(r: ThbRow): Record<string, unknown> {
     so_luong_de_xuat: r.so_luong, nguoi_nhan_hang: r.ktv_email || r.ktv_ten || r.nguon_id, nguoi_tao: r.nguoi_bao, ngay_tao: r.ngay_tao,
     ngay_du_kien_co_hang: r.ngay_du_kien, ngay_hang_ve_thuc_te: r.trang_thai === "Kho xac nhan hang da ve" ? r.ngay_cap_nhat?.slice(0, 10) ?? null : null,
     trang_thai: THB_SANG_TLK[r.trang_thai] ?? r.trang_thai, thb_trang_thai: r.trang_thai, ten_ly_do: r.ly_do, ma_eo_mua: r.ma_eo_mua,
-    case_id: r.case_id, mien: r.mien, ktv_ten: r.ktv_ten, uu_tien: 0, kho_du_hang: 0, kho_mot_phan: null,
+    case_id: r.case_id, mien: r.mien, ktv_ten: r.ktv_ten, uu_tien: 0, kho_du_hang: 0, kho_mot_phan: null, eo_ve_du: r.eo_ve_du ?? null,
   };
 }
 
@@ -5844,7 +5851,19 @@ datMuaLinhKien.get("/thieu-lk-status-counts", async (c) => {
   )
     .bind(...kqDu.binds, JSON.stringify([...dsDu]))
     .first<{ n: number }>();
-  return c.json({ counts, ma_lk: { cho, da: (maLk?.tong ?? 0) - cho }, du_hang: duRow?.n ?? 0 });
+  // So ticket "EO báo đã về" (chip loc, v1.572) - cung bo loc danh sach, tru chinh bo loc nay; cong ca THB.
+  const kqEo = await thieuLkListWhere(c, false, false, false, true);
+  const eoRow = await c.env.DB.prepare(
+    `SELECT COUNT(*) as n FROM thieu_lk tlk LEFT JOIN dat_don_hang ddh ON ddh.id = tlk.dat_don_hang_id
+     WHERE ${kqEo.whereSql} AND tlk.eo_ve_du IS NOT NULL AND ${latestThieuLkStatusExpr("tlk.id")} NOT IN (${EO_VE_DU_TT_DONG})`,
+  ).bind(...kqEo.binds).first<{ n: number }>();
+  const thbEo = thbGopWhere(c, false, true);
+  const thbEoRow = thbEo
+    ? await c.env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM thieu_hang_bh WHERE ${thbEo.whereSql} AND eo_ve_du IS NOT NULL AND trang_thai IN ('Cho kho xu ly','Kho da tiep nhan','Cho mua hang','Mua hang da dat')`,
+    ).bind(...thbEo.binds).first<{ n: number }>()
+    : null;
+  return c.json({ counts, ma_lk: { cho, da: (maLk?.tong ?? 0) - cho }, du_hang: duRow?.n ?? 0, eo_ve_du: (eoRow?.n ?? 0) + (thbEoRow?.n ?? 0) });
 });
 
 // GET /api/dat-mua-lk/mua-hang-eo?don=DDH-... | ?ticket=TLK-... (v1.543, 20/11/2026 - "dựa vào ID case và ID đơn hàng để trả kết quả về bên app

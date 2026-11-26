@@ -3,6 +3,7 @@ import { canhBaoNgayDuKien, homNayVN, ngayDuKienToiDa } from "../../lib/ngayDuKi
 import { Fragment, useState, useEffect, useRef } from "react";
 import { NhomLkBadge } from "../danhMucLinhKien/NhomLk";
 import { LoaiChietKhauText } from "./LoaiChietKhau";
+import { EoVeDuBadge, EoVeDuBanner, docEoVeDu } from "./EoVeDu";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Btn } from "../../components/ui/Btn";
@@ -467,23 +468,24 @@ export function ThieuLkTab({
   const [filterMaLk, setFilterMaLk] = useState<"" | "cho" | "da">("");
   // Loc "Kho đã có đủ hàng" (2026-10-16).
   const [filterDuHang, setFilterDuHang] = useState(false);
+  const [filterEoVeDu, setFilterEoVeDu] = useState(false); // v1.572: chip "EO báo đã về"
   // GD4 (phan hoi Codex #16): ve trang 1 + xoa selection dang chon khi doi bo loc trang thai.
   useEffect(() => {
     setPage(1);
     setSelected(new Set());
-  }, [filterTrangThai, debouncedQ, khuVucParam, filterNguoiNhanHang, filterMaLk, filterDuHang, nguonParam]);
+  }, [filterTrangThai, debouncedQ, khuVucParam, filterNguoiNhanHang, filterMaLk, filterDuHang, filterEoVeDu, nguonParam]);
 
   // GD4 (phan hoi Codex #17): phan trang server-side - truoc day tai het toan bo dong khop bo loc
   // roi tu slice o client, moi lan doi trang van doc lai het du lieu tu D1.
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["dat-mua-lk-thieu-lk", filterTrangThai, debouncedQ, khuVucParam, filterNguoiNhanHang, filterMaLk, filterDuHang, nguonParam, page],
+    queryKey: ["dat-mua-lk-thieu-lk", filterTrangThai, debouncedQ, khuVucParam, filterNguoiNhanHang, filterMaLk, filterDuHang, filterEoVeDu, nguonParam, page],
     queryFn: () =>
       api.get<{ rows: ThieuLkRow[]; total: number }>(
         "/dat-mua-lk/thieu-lk" +
           buildQuery({
             trang_thai: filterTrangThai || undefined,
             ma_lk_tt: filterMaLk || undefined,
-            du_hang: filterDuHang ? 1 : undefined,
+            du_hang: filterDuHang ? 1 : undefined, eo_ve_du: filterEoVeDu ? 1 : undefined,
             q: debouncedQ || undefined,
             khu_vuc: khuVucParam || undefined,
             nguoi_nhan_hang: filterNguoiNhanHang || undefined,
@@ -498,13 +500,13 @@ export function ThieuLkTab({
   // SUA 2026-09-28 (cot trang thai ben trai): gui CUNG bo loc voi danh sach (tru trang thai) de so moi muc = so dong
   // that khi bam vao. 1 truy van GROUP BY o server; chi tai lai khi doi khu vuc/nguoi nhan/tim kiem hoac sau thao tac.
   const { data: statusCountsData } = useQuery({
-    queryKey: ["dat-mua-lk-thieu-lk-status-counts", khuVucParam, filterNguoiNhanHang, debouncedQ, filterMaLk, filterTrangThai, filterDuHang, nguonParam],
+    queryKey: ["dat-mua-lk-thieu-lk-status-counts", khuVucParam, filterNguoiNhanHang, debouncedQ, filterMaLk, filterTrangThai, filterDuHang, filterEoVeDu, nguonParam],
     queryFn: () =>
-      api.get<{ counts: Record<string, number>; ma_lk?: { cho: number; da: number }; du_hang?: number }>(
+      api.get<{ counts: Record<string, number>; ma_lk?: { cho: number; da: number }; du_hang?: number; eo_ve_du?: number }>(
         "/dat-mua-lk/thieu-lk-status-counts" +
           buildQuery({
             khu_vuc: khuVucParam || undefined, nguoi_nhan_hang: filterNguoiNhanHang || undefined, q: debouncedQ || undefined,
-            ma_lk_tt: filterMaLk || undefined, trang_thai: filterTrangThai || undefined, du_hang: filterDuHang ? 1 : undefined,
+            ma_lk_tt: filterMaLk || undefined, trang_thai: filterTrangThai || undefined, du_hang: filterDuHang ? 1 : undefined, eo_ve_du: filterEoVeDu ? 1 : undefined,
             nguon: nguonParam || undefined,
           }),
       ),
@@ -522,7 +524,7 @@ export function ThieuLkTab({
           buildQuery({
             trang_thai: filterTrangThai || undefined,
             ma_lk_tt: filterMaLk || undefined,
-            du_hang: filterDuHang ? 1 : undefined,
+            du_hang: filterDuHang ? 1 : undefined, eo_ve_du: filterEoVeDu ? 1 : undefined,
             q: debouncedQ || undefined,
             khu_vuc: khuVucParam || undefined,
             nguoi_nhan_hang: filterNguoiNhanHang || undefined,
@@ -727,6 +729,9 @@ export function ThieuLkTab({
         <button type="button" className={`filter-tab ${filterDuHang ? "active" : ""}`} onClick={() => setFilterDuHang((v) => !v)} title={t("Đơn chờ hàng đã có đủ tồn kho công ty (xét đơn chờ lâu nhất trước) — Kho có thể xác nhận")}>
           {t("Kho đã có đủ hàng ({n})", { n: statusCountsData?.du_hang ?? 0 })}
         </button>
+        <button type="button" className={`filter-tab ${filterEoVeDu ? "active" : ""}`} onClick={() => setFilterEoVeDu((v) => !v)} title={t("EO Mua hàng báo hàng đã về đủ (PO đã kết thúc) nhưng ticket chưa xác nhận Hàng đã về — Kho kiểm tra hàng thực tế rồi xác nhận")}>
+          {t("EO báo đã về ({n})", { n: statusCountsData?.eo_ve_du ?? 0 })}
+        </button>
       </div>
       <ActiveFiltersBar
         chips={[
@@ -918,7 +923,7 @@ function ThieuLkGroupedList({
     { key: "ma_lk_tt", header: t("Mã LK"), render: (r) => (r.loai_ticket === "bh" ? <span className="text-[var(--ink-400)]">—</span> : <MaLkXacNhanBadge tt={r.lk_trang_thai_ma} />) },
     // Nhom LK Karofi / B2B (2026-10-16, migration 0088) - Kho duoc gan 1 nhom chi thay ticket cua nhom do.
     { key: "nhom_lk", header: t("Nhóm LK"), render: (r) => <NhomLkBadge value={r.lk_nhom_lk} /> },
-    { key: "kho_du_hang", header: t("Kho công ty"), render: (r) => (r.kho_du_hang ? <KhoDuHangBadge du={r.kho_du_hang} /> : r.kho_mot_phan ? <KhoMotPhanBadge co={r.kho_mot_phan} sl={r.so_luong_de_xuat} /> : <span className="text-[var(--ink-400)]">—</span>) },
+    { key: "kho_du_hang", header: t("Kho công ty"), render: (r) => (r.eo_ve_du || r.kho_du_hang || r.kho_mot_phan ? <span className="inline-flex flex-wrap gap-1"><EoVeDuBadge raw={r.eo_ve_du} trangThai={r.trang_thai} />{r.kho_du_hang ? <KhoDuHangBadge du={r.kho_du_hang} /> : <KhoMotPhanBadge co={r.kho_mot_phan} sl={r.so_luong_de_xuat} />}</span> : <span className="text-[var(--ink-400)]">—</span>) },
     {
       key: "loai", header: t("Loại"),
       render: (r) =>
@@ -1153,6 +1158,7 @@ function ThieuLkGroupedList({
                         )}
                         <MaLkXacNhanBadge tt={r.lk_trang_thai_ma} chiKhiCho />
                         <YeuCauHuyChip boPhan={r.ddh_yeu_cau_huy} />
+                        <EoVeDuBadge raw={r.eo_ve_du} trangThai={r.trang_thai} />
                         <KhoDuHangBadge du={r.kho_du_hang} />
                         <KhoMotPhanBadge co={r.kho_mot_phan} sl={r.so_luong_de_xuat} />
                         {r.so_luong_de_xuat != null && <span className="shrink-0 text-xs text-[var(--color-text-secondary)]">{t("SL {a}", { a: r.so_luong_de_xuat })}</span>}
@@ -1520,12 +1526,15 @@ export function ThieuLkDetailModal({
               {(tk.loai_don || tk.loai_de_xuat) && <LoaiDeXuatBadge loaiDon={tk.loai_don} loaiDeXuat={tk.loai_de_xuat} />}
               <MaLkXacNhanBadge tt={tk.lk_trang_thai_ma} />
               {tk.lk_nhom_lk && <NhomLkBadge value={tk.lk_nhom_lk} />}
+              <EoVeDuBadge raw={tk.eo_ve_du} trangThai={tk.trang_thai} />
               <KhoDuHangBadge du={tk.kho_du_hang} />
               <KhoMotPhanBadge co={tk.kho_mot_phan} sl={tk.so_luong_de_xuat} />
               <YeuCauHuyChip boPhan={tk.ddh_yeu_cau_huy} />
               {tk.so_luong_de_xuat != null && <span className="text-xs font-semibold text-[var(--color-text-body)]">{t("SL {a}", { a: tk.so_luong_de_xuat })}</span>}
             </div>
           </div>
+
+          {docEoVeDu(tk.eo_ve_du, tk.trang_thai) && <div className="mb-4"><EoVeDuBanner raw={tk.eo_ve_du} trangThai={tk.trang_thai} /></div>}
 
           {/* Yeu cau huy don goc dang cho bo phan dong y (v1.479): Kho / Mua hang dong y ngay tren ticket = huy ca ticket lan don goc
               (cung API voi khoi o chi tiet don goc - POST /dat-mua-lk/yeu-cau-huy/:id/xu-ly). */}

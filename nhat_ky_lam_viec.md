@@ -750,3 +750,10 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
   "Tải danh sách chi tiết" đã theo đúng bộ lọc cột → lọc Hóa đơn rồi tải là ra danh sách báo cáo.
 - Kiểm thử: typecheck frontend 0 lỗi. Chưa xem trên giao diện thật. Lúc làm thư mục có thay đổi chưa commit của phiên khác → chỉ commit đúng file của đợt này, CHƯA deploy.
 
+## 2026-11-26 — v1.572: Cảnh báo "EO báo đã về" — Kho thấy ticket mà EO Mua hàng báo hàng đã về đủ nhưng chưa xác nhận
+
+- Yêu cầu: "Có, thêm cảnh báo" (sau khi đối chiếu: 5 ticket TLK-000658/659, THB-000093/095/098 đã về đủ trên EO 20–23/11 nhưng vẫn "Mua hàng đã đặt").
+- Đã làm: migration 0137 (cột `eo_ve_du` trên `thieu_lk` + `thieu_hang_bh`); cron mỗi giờ `dongBoNgayEo` tính và ghi cờ; API lọc `eo_ve_du=1` + số đếm;
+  FE nhãn đỏ "EO báo đã về x/y" (danh sách, thẻ mobile, chi tiết TLK), khung cảnh báo (chi tiết TLK + THB), chip lọc "EO báo đã về (n)". Không tự đổi trạng thái ticket.
+- Kiểm thử: typecheck backend + frontend; local (D1 local, gắn cờ thử 2 ticket): số đếm = 2, chip lọc ra đúng 2 ticket, chi tiết hiện nhãn + khung cảnh báo;
+  sau deploy kiểm lượt cron đầu trên D1 thật.

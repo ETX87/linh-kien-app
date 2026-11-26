@@ -120,7 +120,7 @@ export default {
     // Don "Cho GS duyet" vi vuot tran ma cong no da giam -> tu xet lai (v1.533, lib/tuDongDuyet.ts xetLaiDonChoGsDuyet) - moi gio.
     ctx.waitUntil(xetLaiDonChoGsDuyet(env, env.DB, null, "kiểm tra định kỳ", (p) => ctx.waitUntil(p)).then(() => undefined).catch((err) => console.error("[xetLaiDonChoGsDuyet]", err)));
     // v1.568: ngay du kien tren EO Mua hang -> ghi de len ticket thieu hang THB / TLK dang mo (lib/dongBoNgayEo.ts) - moi gio.
-    ctx.waitUntil(dongBoNgayEo(env).then((kq) => console.log("[dongBoNgayEo]", JSON.stringify({ ticket: kq.ticket, khop: kq.khop, sua: kq.sua.length }))).catch((err) => console.error("[dongBoNgayEo]", err)));
+    ctx.waitUntil(dongBoNgayEo(env).then((kq) => console.log("[dongBoNgayEo]", JSON.stringify({ ticket: kq.ticket, khop: kq.khop, sua: kq.sua.length, eo_ve_du: kq.ve_du.length }))).catch((err) => console.error("[dongBoNgayEo]", err)));
     // Phieu "Dang tao phieu" trong (khong con don) qua 30 phut -> tu huy (v1.538, lib/pxkTuHuy.ts huyMoiPhieuTrongCu) - moi gio.
     ctx.waitUntil(huyMoiPhieuTrongCu(env.DB).then(() => undefined).catch((err) => console.error("[huyMoiPhieuTrongCu]", err)));
     // Them 2026-09-12: PULL bang gia tu doi tac gia88 1 lan/dem luc 0h GIO VN = 17h UTC (xem

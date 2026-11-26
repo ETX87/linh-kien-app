@@ -1682,6 +1682,17 @@ Nguyên văn: *"các logic quá hạn SLA trên toàn bộ hệ thống từ 24h
 - Mọi lần ghi đè → `dong_bo_ngay_eo_log` (ticket, loại, ngày cũ / mới, mã EO cũ / mới, eo_item_id, khop_theo, lúc). Log cron: `[dongBoNgayEo] {ticket, khop, sua}`.
 - Hệ quả đã chấp nhận: Kho / Mua hàng sửa tay ngày trên ticket mà EO có ngày khác → giờ sau bị EO ghi đè lại. Muốn đổi ngày → sửa trên EO.
 
+## Cảnh báo "EO báo đã về" cho Kho (2026-11-26, v1.572, migration `0137`)
+- Yêu cầu: "Có, thêm cảnh báo" (đề xuất: cảnh báo Kho khi EO báo hàng đã về đủ mà ticket chưa xác nhận). Lúc tra: 5 ticket (TLK-000658/659, THB-000093/095/098)
+  đã về đủ trên EO 20–23/11 nhưng còn "Mua hàng đã đặt" — THB không có cơ chế tự xác nhận; TLK tự xác nhận theo tồn kho công ty đúng khu vực (`tuDongHangVe.ts`) nên
+  không bắt được khi tồn khu vực = 0.
+- Cột mới `thieu_lk.eo_ve_du`, `thieu_hang_bh.eo_ve_du` (JSON {po, sl_ve, sl_dat, ngay_ve}). `dongBoNgayEo` → `tinhVeDu(dòng khớp)`: bỏ dòng `trang_thai = "Đơn trên EO bị hủy"`,
+  cần còn ≥1 dòng ISSUED, tất cả `ket_thuc`, tổng `sl_ve > 0`; ghi / xoá (NULL) khi giá trị đổi. Log cron thêm `eo_ve_du`.
+- API `GET /thieu-lk?eo_ve_du=1` (TLK: cột khác NULL + trạng thái chưa đóng `EO_VE_DU_TT_DONG`; THB: khác NULL + `THB_MO`), `thieu-lk-status-counts` trả `eo_ve_du` (TLK + THB,
+  cùng bộ lọc, trừ chính bộ lọc này — `thieuLkListWhere(..., boQuaEoVeDu)`, `thbGopWhere(c, boQuaTrangThai, boQuaEoVeDu)`).
+- FE `modules/datMuaLinhKien/EoVeDu.tsx` (`docEoVeDu`, `EoVeDuBadge`, `EoVeDuBanner`): cột "Kho công ty" + thẻ mobile + đầu chi tiết TLK (nhãn + khung), chi tiết THB (`ThieuHangBh.tsx`, khung);
+  chip `filterEoVeDu` cạnh "Kho đã có đủ hàng". Không tự đổi trạng thái (kéo theo duyệt đơn / vào phiếu / tiền).
+
 <!-- may-ba-lan -->
 ## Ba làn xử lý của Trợ lý Mây (Giám đốc chốt 18/11/2026 — áp dụng VĨNH VIỄN cho app này)
 Mỗi việc Mây giao thuộc MỘT trong ba làn. Khi viết ý tưởng / BRD, dòng đầu ghi `**Làn:** nhanh | thường | đầy đủ — <lý do 1 câu>`.

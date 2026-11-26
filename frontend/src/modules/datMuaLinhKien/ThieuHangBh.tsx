@@ -14,6 +14,7 @@ import { t, dichSau } from "../../i18n";
 import { describeApiError } from "./helpers";
 import { useTenNguoiLog } from "./SharedUi";
 import { TrangThaiRail, type Nhom } from "./ThieuLkStatusRail";
+import { EoVeDuBanner } from "./EoVeDu";
 
 export const THB_TRANG_THAI: Record<string, { label: string; tone: Tone }> = {
   "Cho kho xu ly": { label: dichSau("Chờ Kho xử lý"), tone: "warning" },
@@ -57,6 +58,7 @@ export interface ThbRow {
   trang_thai: string;
   ngay_du_kien: string | null;
   ma_eo_mua: string | null;
+  eo_ve_du?: string | null;
   ghi_chu_xu_ly: string | null;
   nguoi_xu_ly: string | null;
   nguoi_xu_ly_ten: string | null;
@@ -336,6 +338,7 @@ function ThbDetailModal({ row, onClose, addToast, ten }: { row: ThbRow; onClose:
           {tk.ngay_du_kien && <div><span className="text-[var(--ink-500)]">{t("Dự kiến có hàng")}: </span><b>{fmtDate(tk.ngay_du_kien)}</b></div>}
           {tk.ma_eo_mua && <div><span className="text-[var(--ink-500)]">{t("Mã EO")}: </span><span className="font-mono">{tk.ma_eo_mua}</span></div>}
         </div>
+        <EoVeDuBanner raw={tk.eo_ve_du} trangThai={tk.trang_thai} />
         {tk.ghi_chu && <p className="rounded-lg bg-[var(--surface-100)] px-3 py-2 whitespace-pre-wrap">{tk.ghi_chu}</p>}
 
         {canNhap && (

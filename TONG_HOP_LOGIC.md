@@ -85,6 +85,9 @@ duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xe
   và ghi mã ticket (hoặc mã đơn DDH của TLK) ở ô ID CRM / ID đặt hàng, hoặc khớp "mã EO ticket ghi ~ mã LK" → ngày dự kiến của ticket bị GHI ĐÈ bằng ngày sớm nhất
   của EO (kể cả ngày Kho / Mua hàng đã nhập tay), kèm mã PO nếu ticket chưa ghi. EO chưa có ngày → giữ nguyên ticket. THB đổi ngày → thêm 1 dòng lịch sử
   "tự động theo EO Mua hàng" + đẩy sang app Sửa chữa bảo hành. TLK không thêm dòng lịch sử (giữ đồng hồ SLA), chỉ ghi nhật ký `dong_bo_ngay_eo_log`.
+  **Cảnh báo "EO báo đã về" (v1.572)**: cùng lượt chạy mỗi giờ, ticket đang mở mà MỌI dòng EO khớp (trừ dòng bị hủy) đã kết thúc và có hàng nhập kho → nhãn đỏ
+  "EO báo đã về x/y" ở danh sách Thiếu hàng + khung cảnh báo trong chi tiết ticket (TLK và THB) + chip lọc "EO báo đã về (n)". Hệ thống KHÔNG tự xác nhận hàng về —
+  Kho kiểm hàng thực tế rồi bấm "Hàng đã về". Ticket đóng / không còn đúng điều kiện → hết cảnh báo.
 - **Đẩy lại** đơn / ticket bị người khác hủy / từ chối: ticket về trạng thái trước khi bị từ chối, đơn về Chờ hàng, lấy lại tiền đã hoàn về quỹ
   (tối đa số dư quỹ). TN / Kế toán / Kho trong 24h kể từ lúc hủy; Admin không giới hạn thời gian.
 - **KTV báo nhận thiếu** (ticket NTH): Kho kiểm → gửi bù hoặc hoàn tiền → Kế toán cân đối. Với gửi bù, Kế toán chọn: tạo đơn + phiếu gửi bù trên app (SL thực xuất đơn gốc = SL thực nhận, tiền phần thiếu sang phiếu gửi bù) HOẶC "Kho gửi bù ngoài hệ thống" (không tạo đơn / phiếu, giữ nguyên SL + tiền phiếu gốc, ticket "Đã gửi bù" không có phiếu gửi bù).

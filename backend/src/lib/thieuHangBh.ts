@@ -33,6 +33,7 @@ export interface ThbRow {
   trang_thai: string;
   ngay_du_kien: string | null;
   ma_eo_mua: string | null;
+  eo_ve_du?: string | null; // v1.572: JSON canh bao EO bao da ve (lib/dongBoNgayEo.ts)
   ghi_chu_xu_ly: string | null;
   nguoi_xu_ly: string | null;
   nguoi_xu_ly_ten?: string | null;
