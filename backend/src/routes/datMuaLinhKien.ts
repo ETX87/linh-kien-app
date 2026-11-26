@@ -1662,7 +1662,8 @@ function miniCasePreview(p: CaseLookupPreview) {
 // cho moi ky tu go dot ngot khop 500ms debounce cua FE (xem MaYeuCauSuCoCheck.tsx).
 function isLikelyCaseId(id: string): boolean {
   // + dang "SC" + so (2026-10-07: DVBH co ~4.600 case "SC26100799"/"SC261003300" - truoc day bi loc bo, go ma SC khong ra gi).
-  return id.length > 5 && (/^\d+$/.test(id) || /^(T|SC)\d+$/i.test(id));
+  // + dang "TSC" + so (v1.573: ma su co 3T mo dang "TSCxxxxxxxxxx" bi loc bo -> khong tu bat don/case).
+  return id.length > 5 && (/^\d+$/.test(id) || /^(TSC|SC|T)\d+$/i.test(id));
 }
 
 // Gian cach toi thieu giua 2 lan tra cuu "Mã yêu cầu sự cố" tren CUNG 1 tai khoan (phan hoi 2026-09-09:

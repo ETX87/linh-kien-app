@@ -1438,8 +1438,8 @@ tinh, quan_huyen, hang, san_pham_bao_hanh, tien_do_hoan_thanh`.
 `env.CASE_LOOKUP_BASE_URL` + `env.CASE_LOOKUP_API_KEY`, dùng ở 3 chỗ trong
 `routes/datMuaLinhKien.ts`: kiểm tra mã yêu cầu sự cố lúc tạo đơn, hiển thị thông tin case ở màn chi
 tiết đơn, và kiểm tra tồn tại case lúc gắn thêm case vào đơn. Ô "Mã YCSC" chỉ gửi tra cứu khi mã đúng dạng
-`isLikelyCaseId()` (> 5 ký tự: toàn số / `T`+số / `SC`+số — có bản sao FE ở `MaYeuCauSuCoCheck.tsx`, đổi 1 bên đổi cả 2;
-thiếu `SC` từng làm mã "SC261003300" không phản hồi gì, 2026-10-07); `fetchCaseLookupRaw()` quy `t…`/`sc…` về chữ HOA vì DVBH
+`isLikelyCaseId()` (> 5 ký tự: toàn số / `T`+số / `SC`+số / `TSC`+số — có bản sao FE ở `MaYeuCauSuCoCheck.tsx`, đổi 1 bên đổi cả 2;
+thiếu `SC` từng làm mã "SC261003300" không phản hồi gì, 2026-10-07; thiếu `TSC` làm mã sự cố 3T "TSCxxxxxxxxxx" không tự bắt case, v1.573); `fetchCaseLookupRaw()` quy `t…`/`sc…`/`tsc…` về chữ HOA vì DVBH
 lưu + khớp đúng chữ hoa. **ID Lada hiện thẻ tra cứu** (2026-10-20, v1.375 — "ID lada đang không hiện UI thông tin case"): KTV hay gõ CÙNG 1 ID Lada (vd B1430288) vào CẢ ô Mã YCSC lẫn Mã Lada → ô Mã YCSC gặp mã dạng Lada (không phải mã case) thì hiện thẻ `MaLadaCheck` (bỏ qua khi trùng ô Mã Lada cùng dòng — prop `maLada`); chi tiết đơn hiện thẻ đơn Lada dưới dòng "Mã Lada" (hoặc theo Mã YCSC dạng Lada) — `maLadaTraCuu()` ở `DonCuaToiTab.tsx`. **App KTV — khối "Chuyển tiền" lên đầu chi tiết PXK** (v1.375): người xem không phải TN/Kho/Kế toán/Admin → `veKhoiChuyenTien()` vẽ ngay dưới mini pipeline (`uuTienTien`), văn phòng giữ vị trí cũ.
 
 **Link mở thẳng 1 đơn `/DDH-xxxxxx`** (2026-11-06, v1.444 — DVBH CaseDetail tab "Mua hàng"/"Thiếu hàng" gắn link mở đơn): thêm `DDH` vào `DEEP_LINK_ID_RE` (`lib/pxkDeepLink.ts`), `App.tsx` mở như bấm 1 kết quả tìm kiếm loại `don_hang` (cùng quyền xem đơn, giữ link qua vòng đăng nhập Google bằng sessionStorage như `PMH-…`).

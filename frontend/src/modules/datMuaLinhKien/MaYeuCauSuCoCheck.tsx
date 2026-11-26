@@ -23,7 +23,7 @@ import { MaLadaCheck, isLikelyLadaId } from "./MaLadaCheck";
 // (xem isLikelyCaseId trong datMuaLinhKien.ts, day la nguon that) de tranh goi debounce roi bi
 // server tra rong ngay lap tuc trong luc go do (vd "12", "case001").
 function isLikelyCaseId(id: string): boolean {
-  return id.length > 5 && (/^\d+$/.test(id) || /^(T|SC)\d+$/i.test(id)); // + "SC" + so (2026-10-07)
+  return id.length > 5 && (/^\d+$/.test(id) || /^(TSC|SC|T)\d+$/i.test(id)); // + "SC" + so (2026-10-07), + "TSC" + so (v1.573)
 }
 
 // maLada: gia tri o "Mã Lada" cung dong - KTV hay go CUNG 1 ID Lada vao ca 2 o (du lieu that 2026-10-20) nen trung thi

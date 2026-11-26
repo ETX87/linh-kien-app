@@ -757,3 +757,12 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
   FE nhãn đỏ "EO báo đã về x/y" (danh sách, thẻ mobile, chi tiết TLK), khung cảnh báo (chi tiết TLK + THB), chip lọc "EO báo đã về (n)". Không tự đổi trạng thái ticket.
 - Kiểm thử: typecheck backend + frontend; local (D1 local, gắn cờ thử 2 ticket): số đếm = 2, chip lọc ra đúng 2 ticket, chi tiết hiện nhãn + khung cảnh báo;
   sau deploy kiểm lượt cron đầu trên D1 thật.
+
+## 2026-11-26 — v1.573: Mã sự cố 3T dạng "TSCxxxxxxxxxx" không tự bắt case
+
+- Yêu cầu nguyên văn: "fix lỗi: mã sự cố 3T mở dạng "TSCxxxxxxxxxx" đang không tự bắt đơn".
+- Nguyên nhân: bộ lọc `isLikelyCaseId()` (backend + bản sao FE `MaYeuCauSuCoCheck.tsx`) chỉ nhận toàn số / `T`+số / `SC`+số → mã `TSC`+số bị bỏ
+  trước khi tra cứu DVBH: ô Mã YCSC không hiện thẻ case, không cảnh báo, chi tiết đơn không kéo được case.
+- Đã sửa: thêm dạng `TSC`+số ở cả 2 bản `isLikelyCaseId()` + `fetchCaseLookupRaw()` quy `tsc…` về chữ HOA (DVBH khớp đúng chữ hoa).
+- Kiểm thử: typecheck backend + frontend 0 lỗi; chạy thử biểu thức với mẫu: TSC2611260012 / tsc… / SC… / T… / số → nhận; TS123456, TSC12, D1154680 → không.
+  Chưa thử gõ mã TSC thật trên giao diện (cần DVBH có case TSC tương ứng).
