@@ -13,6 +13,7 @@ Thay đổi 1.4: 4.7 nhóm thay thế đã CÓ DỮ LIỆU (trước 2026-10-19 
 Thay đổi 1.5: bổ sung **ID Lada** (`ma_lada`) — trước đây API chỉ trả mã ca / mã YCSC (ID CRM) nên đối tác không nhận được ID Lada. Thêm trường
 `ma_lada` + `ma_yeu_cau_su_co` cho đơn ở 4.1 `case-timeline`, 4.4 `linh-kien/lich-su`, 4.11 `thieu-hang`; thêm mục 4.15 giải thích 2 loại mã.
 Thay đổi 2.6 (v1.567, 2026-11-26): 4.1 `case-timeline` nhận thêm tham số tuỳ chọn `ma_don` (mã đơn DDH ghi trong giải trình DVBH); không đổi cấu trúc kết quả.
+Thay đổi 2.7 (v1.568, 2026-11-26): đơn ở 4.1 `case-timeline` và 4.4 `linh-kien/lich-su` trả thêm `trang_thai_pxk` — mã trạng thái phiếu xuất kho chứa đơn (`cho_tao_phieu`, `cho_ktv_chuyen_tien`, `cho_xac_nhan_chuyen_tien`, `cho_gui_ke_toan`, `cho_ke_toan_chot`, `cho_kho_gui_hang`, `cho_ktv_xac_nhan`, `ktv_da_nhan`, `hang_tru_kho`, `kho_da_ket_thuc`, `phieu_da_huy`…; `null` khi đơn chưa duyệt) để hiện trạng thái mới nhất của đơn theo phiếu.
 Thay đổi 2.5 (v1.553): giải trình mới chỉ còn `phan_loai_loi` = `noi_bo` | `doi_tac`, `bang_chung` tùy chọn (có thể rỗng); `cua_toi` / `khac` chỉ còn ở ca giải trình trước đó.
 
 Thay đổi 2.4: mục 4.18 thêm `phan_loai_loi` (`noi_bo` | `doi_tac` | `cua_toi` | `khac`, null với ca cũ / giải trình tự động), `ten_phan_loai_loi` và `bang_chung` (mảng link ảnh, bắt buộc có khi lỗi không phải `cua_toi`).

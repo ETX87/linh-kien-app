@@ -115,6 +115,8 @@ partnerApi.get("/v1/danh-ba-kho", async (c) => {
 
 // GET /api/partner/v1/linh-kien/lich-su?ma=<ma_lk>&limit=50 (2026-10-08, DVBH "Ho so linh kien") - cac don gan nhat
 // cua 1 ma linh kien (mua/cong no/tra hang, ca gan kem) + ticket thieu hang cua ma do (trang thai = log moi nhat).
+// trang_thai_pxk (2026-11-26): ma trang thai phieu xuat kho chua don (cung bieu thuc GET /dat-mua-lk/don-hang) - DVBH hien trang
+// thai moi nhat theo phieu khi don da duyet.
 // Index idx_ddh_ma_lk (migration 0072). Ten nguoi nhan lay qua subquery LIMIT 1 (1 Gmail co the gan nhieu ma KTV).
 partnerApi.get("/v1/linh-kien/lich-su", async (c) => {
   const ma = c.req.query("ma")?.trim();
@@ -123,7 +125,7 @@ partnerApi.get("/v1/linh-kien/lich-su", async (c) => {
   const [orders, thieuLk] = await Promise.all([
     c.env.DB.prepare(
       `SELECT d.id, d.loai_don, d.loai_de_xuat, d.trang_thai_hien_tai, d.so_luong_de_xuat, d.so_luong_thuc_xuat,
-              d.ngay_tao, d.updated_at, d.khu_vuc_ma, d.ma_xuat_kho, d.nguoi_nhan_hang,
+              d.ngay_tao, d.updated_at, d.khu_vuc_ma, d.ma_xuat_kho, d.nguoi_nhan_hang, ${TRANG_THAI_PXK_DON_SQL("d")} AS trang_thai_pxk,
               d.ma_yeu_cau_su_co, d.ma_lada,
               COALESCE(
                 (SELECT COALESCE(NULLIF(TRIM(k.ten_hien_thi), ''), NULLIF(TRIM(k.ten_misa), '')) FROM ktv_lien_he k WHERE k.email_dang_nhap = d.nguoi_nhan_hang LIMIT 1),

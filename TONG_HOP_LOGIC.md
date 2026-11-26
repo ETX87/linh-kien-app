@@ -157,7 +157,7 @@ khai báo vai trò văn phòng hoặc đã là KTV). Chuyển tài khoản KTV s
 
 ## 11. Kết nối hệ khác
 
-DVBH (tra case CRM, API đối tác tồn kho / lịch sử LK / đơn theo ca — `case-timeline` khớp mã ca trên đơn + mã đơn DDH DVBH gửi kèm từ giải trình (`ma_don`, v1.567) / đặt hàng qua API) · App Bảo hành đổi trả (Service Binding: phân loại,
+DVBH (tra case CRM, API đối tác tồn kho / lịch sử LK / đơn theo ca — `case-timeline` khớp mã ca trên đơn + mã đơn DDH DVBH gửi kèm từ giải trình (`ma_don`, v1.567); `case-timeline` + `linh-kien/lich-su` kèm `trang_thai_pxk` = trạng thái phiếu chứa đơn (v1.568) / đặt hàng qua API) · App Bảo hành đổi trả (Service Binding: phân loại,
 thiếu hàng BH, đơn sửa chữa, trừ công nợ; `GET /api/suachua-partner/lk-theo-case` trả linh kiện đã đặt theo mã case hoặc mã Lada (`ma_lada`); `GET /api/suachua-partner/lada?id=` tra mã Lada (center.dichvu3t.com, cache 10 phút) cho app đổi trả — bỏ đơn trả
 hàng / từ chối / hủy — để app đó ưu tiên lên đầu ô chọn linh kiện khi gửi bảo hành) · Phân tích tồn kho 3T (kho dữ liệu MISA) · khovan (đẩy phiếu sang kho) · ETX nhân sự · gia88 (giá) · **EO Mua hàng** (`muahang`, Service Binding
 `MUAHANG_SERVICE`, chỉ đọc `GET /api/partner/theo-id`; `POST /api/partner/theo-id` mỗi giờ để đồng bộ ngày dự kiến sang ticket THB / TLK): khung "Mua hàng (EO)" ở chi tiết đơn và chi tiết ticket thiếu hàng hiện PO (3TDO), trạng thái,

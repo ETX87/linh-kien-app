@@ -712,3 +712,11 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
   ngày từ 26/11 14:04 do Mua hàng gõ tay. App không có đường nhận ngày từ EO. Lúc tra: 3 THB + 29 TLK đang mở trống ngày, 10 TLK khác ngày EO.
 - Đã làm: `lib/dongBoNgayEo.ts` + cron mỗi giờ + migration 0136 (`dong_bo_ngay_eo_log`); EO v0.126 thêm `POST /api/partner/theo-id`.
 - Kiểm thử: typecheck backend; sau deploy kiểm tra lượt cron đầu qua `dong_bo_ngay_eo_log` trên D1 thật.
+
+## 2026-11-26 — v1.568: API đối tác trả thêm trạng thái phiếu của đơn (`trang_thai_pxk`)
+
+- Yêu cầu (từ hệ DVBH, nguyên văn): "trạng thái của đơn hàng đang dừng ở TN duyệt, tôi cần trạng thái mới nhất của đơn (nếu đơn đó vào phiếu sẽ hiện trạng thái theo phiếu)".
+- Vì sao: `/v1/case-timeline` và `/v1/linh-kien/lich-su` chỉ trả `trang_thai_hien_tai` của đơn — dừng ở "TN da duyet" khi đơn đã sang phiếu
+  (vd DDH-004676: phiếu đang "Chờ KTV chuyển tiền", đã thử biểu thức trên D1 thật, chỉ đọc).
+- Đã làm: 2 API thêm trường `trang_thai_pxk` (dùng lại `TRANG_THAI_PXK_DON_SQL`), tương thích ngược. Tài liệu API 2.7.
+- Kiểm thử: typecheck backend; chạy thử biểu thức trên D1 thật cho DDH-004676 → `cho_ktv_chuyen_tien`.

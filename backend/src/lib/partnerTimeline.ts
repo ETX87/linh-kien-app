@@ -12,6 +12,8 @@
 // lien tiep thanh 1 "stage instance" co gioCho (thoi gian cho), con o day chi can list PHANG tung su
 // kien don le (khong ghep cap) vi muc dich la tra cuu lich su, khong phai do SLA.
 
+import { TRANG_THAI_PXK_DON_SQL } from "./trangThaiDonPxk";
+
 export interface TimelineEvent {
   at: string; // ISO 8601 co offset, vd "2026-08-24T10:00:00+07:00" - xem toIsoVN()
   event: string; // ma su kien on dinh, xem cac *_EVENT map duoi
@@ -60,6 +62,9 @@ export interface OrderTimeline {
   // 0054) - co the null (don khong nhap ID Lada).
   ma_yeu_cau_su_co: string | null;
   ma_lada: string | null;
+  // Them 2026-11-26 (tuong thich nguoc): ma trang thai phieu xuat kho chua don (lib/trangThaiDonPxk.ts TRANG_THAI_PXK_DON_SQL:
+  // cho_tao_phieu | cho_ktv_chuyen_tien | ... | ktv_da_nhan | kho_da_ket_thuc | phieu_da_huy | khac) - null khi don chua duyet.
+  trang_thai_pxk: string | null;
 }
 
 export interface CaseTimelineResult {
@@ -189,15 +194,16 @@ export async function buildCaseTimeline(db: D1Database, caseId: string, maDon: s
   const { results: orderRows } = await db
     .prepare(
       `SELECT id, ma_lk, ten_lk_snapshot, loai_don, trang_thai_hien_tai, nguoi_tao, nguoi_nhan_hang, ngay_tao,
-              loai_de_xuat, so_luong_de_xuat, so_luong_thuc_xuat, ly_do_cham, ma_yeu_cau_su_co, ma_lada
-       FROM dat_don_hang WHERE id IN (${idPh})`,
+              loai_de_xuat, so_luong_de_xuat, so_luong_thuc_xuat, ly_do_cham, ma_yeu_cau_su_co, ma_lada,
+              ${TRANG_THAI_PXK_DON_SQL("ddh")} AS trang_thai_pxk
+       FROM dat_don_hang ddh WHERE id IN (${idPh})`,
     )
     .bind(JSON.stringify(orderIds))
     .all<{
       id: string; ma_lk: string; ten_lk_snapshot: string | null; loai_don: string; trang_thai_hien_tai: string | null;
       nguoi_tao: string; nguoi_nhan_hang: string | null; ngay_tao: string;
       loai_de_xuat: string | null; so_luong_de_xuat: number; so_luong_thuc_xuat: number | null; ly_do_cham: string | null;
-      ma_yeu_cau_su_co: string | null; ma_lada: string | null;
+      ma_yeu_cau_su_co: string | null; ma_lada: string | null; trang_thai_pxk: string | null;
     }>();
 
   // Ticket thieu LK cua cac don (1 don co the co nhieu ticket qua cac lan "Cho hang") - ly do lay ten
@@ -369,6 +375,7 @@ export async function buildCaseTimeline(db: D1Database, caseId: string, maDon: s
       nguoi_nhan_hang_ten: nameOf(o.nguoi_nhan_hang),
       ma_yeu_cau_su_co: o.ma_yeu_cau_su_co,
       ma_lada: o.ma_lada,
+      trang_thai_pxk: o.trang_thai_pxk,
       thieu_lk: thieuLkRows
         .filter((t) => t.dat_don_hang_id === o.id)
         .map((t) => ({
