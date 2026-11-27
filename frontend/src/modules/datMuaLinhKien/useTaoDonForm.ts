@@ -577,6 +577,13 @@ export function useTaoDonForm({
     const lde = d.loai_de_xuat.trim();
     if (!lde || (deriveLoaiDon(lde) !== "mua" && !laTruCongNo(lde))) return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
     if (tongNgayData?.kh_le || coYeuCauHoaDon(d.yeu_cau_hoa_don) || (d.kh_chuyen_khoan && duocTichKhChuyenKhoan(d)) || laMuaCongNoDoiTac(lde)) return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
+    // LK B2B (v1.575, ban sao tinhToanPxk backend): ngoai hoa don / KH chuyen khoan / KH le (da xu ly o tren) -> LUON gia KTV, chua co gia KTV
+    // -> gia niem yet. Khong bac thang 200-500k, khong Dinh tu.
+    if (lk.nhom_lk === "b2b") {
+      return (lk.gia_tri_cong_no ?? 0) > 0
+        ? { gia: lk.gia_tri_cong_no! * sl, giaNiemYet: niemYet, nhan: t("Giá KTV (B2B)") }
+        : { gia: niemYet, giaNiemYet: niemYet, nhan: null, chuaCoGiaKtv: niemYet > 0 };
+    }
     if (laDinhTuFe(lk.don_vi)) return { gia: Math.round(lk.gia_ban * 0.85) * sl, giaNiemYet: niemYet, nhan: t("Đình tủ −15%") };
     if (tongNgaySau < 200000) return { gia: niemYet, giaNiemYet: niemYet, nhan: null };
     if (tongNgaySau < 500000) return { gia: Math.round(lk.gia_ban * 0.7) * sl, giaNiemYet: niemYet, nhan: t("Tổng ngày 200–500k −30%") };

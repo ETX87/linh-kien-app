@@ -1733,3 +1733,10 @@ hóa đơn cho khách hàng để làm báo cáo"): cột `yeu_cau_hoa_don` vố
 đưa vào `COT_CHINH` (`DonCuaToiTab.tsx`, hiện cả với người đã tuỳ chỉnh cột — `useColumnConfig` chèn cột mặc định mới), tiêu đề "Hóa đơn", nhãn
 `YEU_CAU_HOA_DON_SHORT_LABELS` (rê chuột xem chuỗi đầy đủ), bộ lọc hiện nhãn ngắn + "— (chưa chọn)" cho đơn NULL. Nút "Tải danh sách chi tiết" đã gửi `locCot.queryParams`
 nên file = đúng các đơn đang lọc. Số liệu D1 26/11: Không 8.180 · NULL 833 · HĐ không thu phí 81 · HĐ có thu phí 48 · HĐ xuất cho Trạm 17.
+
+**Giá linh kiện B2B** (chốt 2026-11-27, v1.575 — "sửa lại logic, với linh kiện B2B không áp dụng chính sác 200-500k, chỉ có giá KTV hoặc giá niêm yết" → hỏi lại chốt:
+"Linh kiện B2B ngoại trừ xuất hóa đơn, còn lại đều theo giá KTV, nếu chưa có giá KTV sẽ theo giá niêm yết"; tiền B2B "Vẫn cộng (giữ như cũ)" vào tổng ngày):
+`tinhToanPxk` (`lib/pxkRecalculate.ts`) đọc `lk.nhom_lk`; thứ tự xét dòng: giá chốt > KH lẻ / đối tác > yêu cầu hóa đơn (trừ "xuất cho Trạm") > KH chuyển khoản >
+**B2B** (`gia_tri_cong_no` > 0 → `GIA_KTV`, không thì `KHONG_CK` giá bán; `ck_co_so.ly_do = "b2b"`) > Đình tủ > dự phòng > bậc thang. Dòng B2B không vào nhóm giá dự phòng
+(`duTru`). Bản sao FE: `useTaoDonForm.ts` `giaUocTinhDong` (nhãn "Giá KTV (B2B)", chưa có giá KTV → cảnh báo `chuaCoGiaKtv`), `CoSoChietKhau.tsx` câu giải thích "b2b",
+`luongHeThong/noiDung.ts`. Phiếu đã Kế toán duyệt tiền giữ nguyên; phiếu đang mở đổi khi tính lại (lúc deploy chỉ PMH-003092 có dòng B2B). D1 27/11: 2.198 LK B2B, 398 có Giá KTV.

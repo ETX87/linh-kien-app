@@ -367,6 +367,7 @@ export const NHOM: Nhom[] = [
         bieuTuong: "🏷️",
         dong: [
           "Giá chốt tay LUÔN thắng.",
+          "LK nhóm B2B (v1.575): luôn GIÁ KTV (chưa có giá KTV → giá niêm yết) — không áp bậc thang 200–500k, không Đình tủ, không giá dự phòng; trừ đơn có yêu cầu hóa đơn / KH chuyển khoản / KH lẻ (giá niêm yết). Tiền B2B vẫn cộng vào tổng ngày để xét mốc cho LK khác.",
           "LK phân loại “Đình tủ”: luôn × 85%.",
           "Bậc thang theo TỔNG NGÀY của KTV (giá bán × SL các đơn Mua + TRỪ CÔNG NỢ tạo cùng ngày, trừ đơn hủy/từ chối) + đơn khác ngày trong phiếu Kế toán chưa chốt: < 200k giá bán · 200–500k × 70% · ≥ 500k giá KTV (LK chưa có giá KTV giữ giá bán).",
           "Có yêu cầu hóa đơn (trừ “HĐ - Xuất cho trạm”), KH lẻ, công nợ đối tác → GIÁ NIÊM YẾT, nhãn Không chiết khấu.",

@@ -775,3 +775,15 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
 - Đã sửa: lỗi giải mã đổi thành `GOOGLE_DRIVE_NOT_CONNECTED` (thông báo dễ hiểu); tab Cài đặt › Google Drive hiện "Cần kết nối lại" + nút kết nối.
 - Việc còn lại: Admin vào Cài đặt › Google Drive bấm "Kết nối tài khoản Google Drive" uỷ quyền lại (OAuth phải do người làm) — xong là tải ảnh chạy lại.
 - Kiểm thử: typecheck backend + frontend 0 lỗi; đã kiểm D1 thật có 1 dòng token (uỷ quyền 2026-08-19) và lịch sử deploy có các lần "Secret Change" 27/11.
+
+## 2026-11-27 — v1.575: Linh kiện B2B luôn tính Giá KTV (bỏ bậc thang 200–500k)
+
+- Yêu cầu nguyên văn (ảnh LK BH004-036 "Board nguồn máy nóng lạnh 2317", nhóm Linh kiện B2B, giá NY 160.000đ / giá KTV 145.200đ): "sửa lại logic, với linh kiện B2B không áp dụng
+  chính sác 200-500k, chỉ có giá KTV hoặc giá niêm yết". Chốt khi hỏi lại: "Linh kiện B2B ngoại trừ xuất hóa đơn, còn lại đều theo giá KTV, nếu chưa có giá KTV sẽ theo giá niêm yết";
+  tiền B2B vẫn cộng vào tổng ngày như cũ.
+- Vì sao: bậc thang 200–500k (× 70%) làm LK B2B bán dưới giá KTV (vd 160.000 × 70% = 112.000đ < 145.200đ).
+- Đã làm: `tinhToanPxk` thêm nhánh B2B (giá KTV / giá niêm yết, không bậc thang, không Đình tủ, không giá dự phòng; hóa đơn / KH chuyển khoản / KH lẻ / giá chốt giữ như cũ);
+  bản sao FE giá ước tính lúc tạo đơn + câu giải thích ⓘ + màn "Luồng & logic hệ thống"; bản dịch EN / ID.
+- Ảnh hưởng: phiếu Kế toán đã duyệt tiền không đổi; phiếu đang mở có dòng B2B lúc deploy: PMH-003092 (đổi khi phiếu được tính lại). 1.800 / 2.198 LK B2B chưa có Giá KTV → giá niêm yết.
+- Kiểm thử: typecheck 2 phía 0 lỗi. Chưa thử tạo đơn B2B trên giao diện.
+

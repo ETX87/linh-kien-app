@@ -10,7 +10,7 @@ import { t } from "../../i18n";
 
 export interface CoSoChietKhau {
   ma: string | null;
-  ly_do: "bac_thang" | "chua_gia_ktv" | "dinh_tu" | "hoa_don" | "kh_chuyen_khoan" | "du_phong" | "kh_le" | "gia_chot";
+  ly_do: "bac_thang" | "chua_gia_ktv" | "dinh_tu" | "hoa_don" | "kh_chuyen_khoan" | "du_phong" | "kh_le" | "gia_chot" | "b2b";
   moc?: number;
   ngay?: string;
   tong_ngay?: number;
@@ -44,6 +44,10 @@ export function tomTatCoSo(cs: CoSoChietKhau): string {
     case "kh_chuyen_khoan": return t("Khách hàng chuyển khoản về công ty → tính giá niêm yết, không áp chiết khấu.");
     case "du_phong": return t("Đơn MUA DỰ TRỮ còn trong hạn mức dự phòng → tính theo giá dự phòng.");
     case "kh_le": return t("Khách lẻ → tính giá niêm yết, không chiết khấu.");
+    // v1.575: LK B2B khong theo bac thang tong ngay - luon Gia KTV, chua co Gia KTV thi gia niem yet.
+    case "b2b": return cs.ma === "GIA_KTV"
+      ? t("Linh kiện B2B → luôn tính Giá KTV (không áp mức 200–500k theo tổng đặt trong ngày).")
+      : t("Linh kiện B2B chưa có Giá KTV → tính giá niêm yết (B2B không áp mức 200–500k theo tổng đặt trong ngày).");
     default: {
       const moc = cs.moc ?? 0;
       const phan = [t("đơn đặt ngày {ngay} {tien}", { ngay: cs.ngay ? fmtDate(cs.ngay) : "", tien: fmtVND(cs.tong_ngay ?? moc) })];

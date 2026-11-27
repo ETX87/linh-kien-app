@@ -3242,5 +3242,9 @@ const tuDien: Record<string, string> = {
   // v1.571 - cot Hoa don o Danh sach Don hang
   "Hóa đơn": "Faktur",
   "— (chưa chọn)": "— (belum dipilih)",
+  // v1.575 - LK B2B luon gia KTV
+  "Giá KTV (B2B)": "Harga teknisi (B2B)",
+  "Linh kiện B2B chưa có Giá KTV → tính giá niêm yết (B2B không áp mức 200–500k theo tổng đặt trong ngày).": "Suku cadang B2B tanpa harga teknisi → harga daftar (B2B tidak memakai tingkat 200–500k total harian).",
+  "Linh kiện B2B → luôn tính Giá KTV (không áp mức 200–500k theo tổng đặt trong ngày).": "Suku cadang B2B → selalu harga teknisi (tingkat 200–500k total harian tidak berlaku).",
 };
 export default tuDien;
