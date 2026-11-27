@@ -1740,3 +1740,10 @@ nên file = đúng các đơn đang lọc. Số liệu D1 26/11: Không 8.180 ·
 **B2B** (`gia_tri_cong_no` > 0 → `GIA_KTV`, không thì `KHONG_CK` giá bán; `ck_co_so.ly_do = "b2b"`) > Đình tủ > dự phòng > bậc thang. Dòng B2B không vào nhóm giá dự phòng
 (`duTru`). Bản sao FE: `useTaoDonForm.ts` `giaUocTinhDong` (nhãn "Giá KTV (B2B)", chưa có giá KTV → cảnh báo `chuaCoGiaKtv`), `CoSoChietKhau.tsx` câu giải thích "b2b",
 `luongHeThong/noiDung.ts`. Phiếu đã Kế toán duyệt tiền giữ nguyên; phiếu đang mở đổi khi tính lại (lúc deploy chỉ PMH-003092 có dòng B2B). D1 27/11: 2.198 LK B2B, 398 có Giá KTV.
+
+**Phiếu đủ tiền nhờ quỹ ở nhánh Kế toán từ chối → xét lại đơn "Chờ thanh toán"** (2026-11-27, v1.576 — người dùng gửi ảnh PMH-002984 + "check bug"): lỗi `DON_CHUA_DUYET`
+"Phiếu còn 8 đơn chưa được TN duyệt". D1: phiếu `trang_thai_chuyen_tien = 'TN da duyet'` (log 'Tru quy du' "Đã thanh toán đủ từ trước — phiếu đã thanh toán đủ" sau
+'Ke toan tu choi bang chung chuyen tien' 26/11 17:03) nhưng 8 đơn `Cho thanh toan`. Nguyên nhân: `canBangPxk` chỉ đặt `xuLyChoThanhToanSau` khi `tuDuyet`, nhánh
+`khiTraDu "ke-toan"` (từ chối có quỹ đủ – v1.560; sửa thực nhận tăng) bỏ sót. Sửa: điều kiện `(tuDuyet || khiTraDu === "ke-toan")` (đường duyệt khoản gọi lại
+`xuLyDonChoThanhToan` lần 2 = no-op); cổng "Cho ke toan" trong `phieuXuatKho.ts` gọi `xuLyDonChoThanhToan` trước khi kiểm (phiếu đã "TN da duyet") rồi đọc lại
+tiền phiếu — tự gỡ phiếu đã kẹt, không cần sửa tay D1. D1 27/11: chỉ PMH-002984 có đơn "Chờ thanh toán" trong phiếu "TN da duyet".

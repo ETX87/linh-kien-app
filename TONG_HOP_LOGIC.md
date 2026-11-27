@@ -55,6 +55,8 @@ duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xe
 - Đơn mới cần chuyển tiền mặc định KHÔNG gộp vào phiếu đang tạo mà Kế toán đã duyệt đủ tiền (tạo phiếu riêng chờ chuyển). Nếu người nhận đang có
   phiếu như vậy (cùng nhóm phiếu), form tạo đơn cho chọn **Tách phiếu mới** (mặc định) hoặc **Gộp vào phiếu đã đủ tiền** (nhận hàng 1 lần): gộp thì
   phiếu về "Chờ KTV chuyển" phần tăng thêm, Kế toán xác nhận lại. Đơn kho thiếu ("Chờ thanh toán") vẫn đi phiếu chờ hàng riêng.
+- Phiếu vừa đủ tiền theo BẤT KỲ đường nào (Kế toán duyệt khoản, tự đủ bằng quỹ, Kế toán từ chối ảnh nhưng quỹ đã trả đủ, sửa thực nhận tăng) → đơn "Chờ thanh toán"
+  trong phiếu được xét lại tồn: đủ → tự duyệt ở lại phiếu; vẫn thiếu → rời phiếu mang theo tiền sang "Chờ hàng". Bấm gửi Kế toán cũng chạy lại bước này trước khi kiểm.
 - Phiếu "Đang tạo phiếu" không còn đơn: ai liên quan (văn phòng / người nhận / người tạo) bấm "Hủy phiếu trống"; cron mỗi giờ tự hủy phiếu trống
   im lặng ≥ 30 phút. Danh sách "tất cả" ẩn phiếu đã hủy không còn đơn (lọc "Kế toán hủy" vẫn thấy).
 - Sửa đơn: tích / bỏ "KH đã chuyển khoản về công ty" được khi đơn không giữ tiền riêng và phiếu chứa đơn chưa được Kế toán chốt xuất

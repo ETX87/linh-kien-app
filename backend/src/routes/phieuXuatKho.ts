@@ -2286,6 +2286,18 @@ phieuXuatKho.post("/:id/log", async (c) => {
     if (hienTai !== "Dang tao phieu") return c.json({ error: "INVALID_STATE" }, 409);
     if (!canTacNghiep(c)) return c.json({ error: "FORBIDDEN_ROLE" }, 403);
     if (!pxk.ma_xuat_kho_xac_nhan) return c.json({ error: "MA_XUAT_KHO_CHUA_XAC_NHAN" }, 409);
+    // TU GO KET (2026-11-27 v1.576, bug PMH-002984): phieu da du tien ("TN da duyet") ma con don "Chờ thanh toán" (luong cu bo sot buoc xet
+    // lai ton) -> xet lai ngay nhu luc Ke toan xac nhan tien: du hang -> tu duyet, van thieu -> roi phieu mang theo tien sang "Chờ hàng".
+    if (pxk.trang_thai_chuyen_tien === "TN da duyet") {
+      await xuLyDonChoThanhToan(c.env, c.env.DB, id, user.email, (p) => c.executionCtx.waitUntil(p));
+      const sau = await c.env.DB.prepare("SELECT trang_thai_chuyen_tien, so_tien_can_chuyen FROM phieu_xuat_kho WHERE id = ?")
+        .bind(id)
+        .first<{ trang_thai_chuyen_tien: string | null; so_tien_can_chuyen: number | null }>();
+      if (sau) {
+        pxk.trang_thai_chuyen_tien = sau.trang_thai_chuyen_tien;
+        pxk.so_tien_can_chuyen = sau.so_tien_can_chuyen;
+      }
+    }
     const coDong = await c.env.DB.prepare("SELECT 1 FROM phieu_xuat_kho_dong WHERE phieu_xuat_kho_id = ? LIMIT 1").bind(id).first();
     if (!coDong) return c.json({ error: "PHIEU_TRONG" }, 409);
     if (pxk.so_tien_can_chuyen != null && pxk.trang_thai_chuyen_tien !== "TN da duyet") return c.json({ error: "MISSING_CHUYEN_TIEN_APPROVED" }, 409);

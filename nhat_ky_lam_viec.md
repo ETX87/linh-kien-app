@@ -787,3 +787,14 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
 - Ảnh hưởng: phiếu Kế toán đã duyệt tiền không đổi; phiếu đang mở có dòng B2B lúc deploy: PMH-003092 (đổi khi phiếu được tính lại). 1.800 / 2.198 LK B2B chưa có Giá KTV → giá niêm yết.
 - Kiểm thử: typecheck 2 phía 0 lỗi. Chưa thử tạo đơn B2B trên giao diện.
 
+
+## 2026-11-27 — v1.576: Phiếu đủ tiền nhờ quỹ dư nhưng đơn kẹt "Chờ thanh toán" → không gửi được Kế toán (PMH-002984)
+
+- Yêu cầu nguyên văn: "check bug" (ảnh PMH-002984 bấm gửi Kế toán báo "Phiếu còn 8 đơn chưa được TN duyệt: DDH-008810 … DDH-009063 …").
+- Vì sao bị: PMH-002984 là phiếu chờ hàng (8 đơn kho MN3 thiếu → "Chờ thanh toán"). 26/11 17:03 Kế toán **từ chối** ảnh bằng chứng, nhưng quỹ dư đã trả đủ
+  7.620.000đ → `canBangPxk(khiTraDu "ke-toan")` (luồng sửa PMH-003000, v1.560) chốt luôn "Kế toán đã duyệt" mà KHÔNG chạy bước xét lại tồn các đơn "Chờ thanh toán"
+  (`xuLyDonChoThanhToan` chỉ gọi ở luồng tự duyệt / Kế toán bấm duyệt). 8 đơn kẹt mãi "Chờ thanh toán" → cổng gửi Kế toán chặn `DON_CHUA_DUYET`.
+- Đã sửa: `canBangPxk` gọi `xuLyDonChoThanhToan` cả khi phiếu đủ tiền theo nhánh "ke-toan"; cổng gửi Kế toán (`POST /phieu-xuat-kho/:id/log` → "Cho ke toan") tự xét lại
+  đơn "Chờ thanh toán" khi phiếu đã "Kế toán đã duyệt" (tự gỡ phiếu đã kẹt): đủ hàng → tự duyệt ở lại phiếu; vẫn thiếu → rời phiếu mang theo tiền sang "Chờ hàng" + ticket.
+- Phạm vi D1 27/11 (chỉ đọc): chỉ PMH-002984 bị kẹt. Không ghi tay dữ liệu — TN bấm gửi Kế toán lại là phiếu tự gỡ.
+- Kiểm thử: typecheck 2 phía. Chưa thử bấm trên giao diện thật.

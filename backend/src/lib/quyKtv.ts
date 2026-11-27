@@ -223,7 +223,10 @@ export async function canBangPxk(
     ketQua.hoan += hoan;
     ketQua.tru += tru;
     ketQua.daThanhToanDu = ketQua.daThanhToanDu || thanhToanDu;
-    if (thanhToanDu && tuDuyet && pxk.co_cho_thanh_toan) xuLyChoThanhToanSau = true;
+    // + khiTraDu "ke-toan" (2026-11-27 v1.576, bug PMH-002984): Ke toan tu choi bang chung ma quy da tra du -> phieu dong "TN da duyet"
+    // nhung truoc day KHONG xet lai don "Chờ thanh toán" -> 8 don ket mai, TN gui Ke toan bi chan DON_CHUA_DUYET. Nay xet lai nhu Ke toan
+    // bam duyet (goi lap lai an toan - duong duyet khoan van tu goi xuLyDonChoThanhToan sau, luc do khong con don nao).
+    if (thanhToanDu && (tuDuyet || khiTraDu === "ke-toan") && pxk.co_cho_thanh_toan) xuLyChoThanhToanSau = true;
     break;
   }
   if (email && ketQua.hoan > 0 && opts.phanBoTiep !== false) await phanBoQuy(db, email, nguoi, pxkId);
