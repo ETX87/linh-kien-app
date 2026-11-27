@@ -1747,3 +1747,12 @@ nên file = đúng các đơn đang lọc. Số liệu D1 26/11: Không 8.180 ·
 `khiTraDu "ke-toan"` (từ chối có quỹ đủ – v1.560; sửa thực nhận tăng) bỏ sót. Sửa: điều kiện `(tuDuyet || khiTraDu === "ke-toan")` (đường duyệt khoản gọi lại
 `xuLyDonChoThanhToan` lần 2 = no-op); cổng "Cho ke toan" trong `phieuXuatKho.ts` gọi `xuLyDonChoThanhToan` trước khi kiểm (phiếu đã "TN da duyet") rồi đọc lại
 tiền phiếu — tự gỡ phiếu đã kẹt, không cần sửa tay D1. D1 27/11: chỉ PMH-002984 có đơn "Chờ thanh toán" trong phiếu "TN da duyet".
+
+## Tạm dừng đẩy sang Kho vận (v1.577, 2026-11-27)
+
+- Yêu cầu: "Tắt đẩy Kho vận" — sau lỗi đồng bộ `ktv->khovan` 401 (khoá `KHOVAN_SYNC_API_KEY` đổi 27/11, khovan đang tạm dừng nên không nhận khoá mới).
+- Cơ chế: var `KHOVAN_TAM_DUNG="1"` (`wrangler.jsonc`) → `khovanTamDung(env)` (`lib/khovanPushClient.ts`): `pushPxkToKhovan`, `pushThieuLkToKhovan`,
+  `updateKhovanBoxStatus` (qc_rejected/received/handed_over) không gọi mạng; `pushTraHangToKhovan` trả `{ ok: true }` (Kế toán duyệt trả hàng không bị chặn);
+  `dvbhSyncClient.ts` `dichDangBat()` bỏ dịch "khovan" khỏi chạy đồng bộ, số "đang chờ" và "lần đồng bộ gần nhất".
+- Bật lại: xoá var (hoặc khác "1") + đồng bộ khoá `KHOVAN_SYNC_API_KEY` với khovan + deploy. Con trỏ `dvbh_sync_state` (ktv, khovan) giữ nguyên → bật lại sẽ gửi bù.
+- Code nằm ở commit ec0cc4e (nhãn commit ghi nhầm "v1.575" do trùng lúc phiên khác cũng ra v1.575/v1.576) + commit tài liệu v1.577.

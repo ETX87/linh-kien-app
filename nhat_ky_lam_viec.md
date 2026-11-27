@@ -798,3 +798,12 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
   đơn "Chờ thanh toán" khi phiếu đã "Kế toán đã duyệt" (tự gỡ phiếu đã kẹt): đủ hàng → tự duyệt ở lại phiếu; vẫn thiếu → rời phiếu mang theo tiền sang "Chờ hàng" + ticket.
 - Phạm vi D1 27/11 (chỉ đọc): chỉ PMH-002984 bị kẹt. Không ghi tay dữ liệu — TN bấm gửi Kế toán lại là phiếu tự gỡ.
 - Kiểm thử: typecheck 2 phía. Chưa thử bấm trên giao diện thật.
+
+## 2026-11-27 — v1.577: Tắt đẩy sang Kho vận (lỗi đồng bộ ktv->khovan 401)
+
+- Yêu cầu nguyên văn: "check bug 2 trong ảnh" (Đồng bộ DVBH báo "ktv->khovan … 401 API key không hợp lệ") → chọn "Tắt đẩy Kho vận".
+- Nguyên nhân: khoá `KHOVAN_SYNC_API_KEY` đổi sáng 27/11, khovan (đang tạm dừng) vẫn giữ khoá cũ → mọi lệnh đẩy sang khovan 401
+  (đồng bộ KTV, PXK, ticket thiếu LK, thùng trả hàng — Kế toán duyệt trả hàng bị chặn).
+- Đã làm: var `KHOVAN_TAM_DUNG="1"` — bỏ qua mọi lệnh đẩy / báo trạng thái sang khovan, đồng bộ danh bạ bỏ dịch khovan (hết lỗi, hết "50 KTV đang chờ").
+  Code ở commit ec0cc4e (nhãn commit ghi nhầm v1.575 vì trùng lúc với phiên khác) — phiên bản đúng là v1.577.
+- Kiểm thử: typecheck backend + frontend 0 lỗi. Chưa bấm "Đồng bộ ngay" trên giao diện (cần đăng nhập Admin).
