@@ -3246,5 +3246,14 @@ const tuDien: Record<string, string> = {
   "Giá KTV (B2B)": "Technician price (B2B)",
   "Linh kiện B2B chưa có Giá KTV → tính giá niêm yết (B2B không áp mức 200–500k theo tổng đặt trong ngày).": "B2B part without a technician price → list price (B2B parts do not use the 200–500k daily-total tier).",
   "Linh kiện B2B → luôn tính Giá KTV (không áp mức 200–500k theo tổng đặt trong ngày).": "B2B part → always the technician price (the 200–500k daily-total tier does not apply).",
+  "Có {n} đơn kho thiếu hàng — chọn cách lập phiếu xuất kho": "{n} order(s) short of stock — choose how to make the delivery slip",
+  "Có hàng": "In stock",
+  "Phiếu đang tạo của bạn: {ma}": "Your open slip: {ma}",
+  "Gộp chung 1 phiếu (chuyển tiền 1 lần)": "Merge into 1 slip (transfer once)",
+  "Đơn có hàng phải chờ đơn thiếu hàng về đủ mới xuất cả phiếu.": "In-stock orders wait until the short order arrives, then the whole slip ships.",
+  "Tách phiếu chờ hàng riêng": "Separate waiting-for-stock slip",
+  "Đơn có hàng được Kế toán xuất trước; đơn thiếu hàng đi phiếu chờ hàng, chuyển tiền riêng.": "Accounting ships in-stock orders first; the short order goes on a waiting slip with its own transfer.",
+  "Chọn 1 cách trước khi tạo đơn": "Choose one option before creating the order",
+  "Chọn gộp chung hay tách phiếu xuất kho (ô bên trên)": "Choose to merge or split the delivery slip (box above)",
 };
 export default tuDien;

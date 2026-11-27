@@ -118,6 +118,8 @@ export interface KiemTraPhieuDat {
   tran_cong_no?: number | null;
   // v1.538: phieu dang tao Ke toan DA duyet tien co the gop don moi (mac dinh tach phieu moi cho chuyen tien).
   phieu_da_du_tien?: { id: string; loai_don: string; tong: number; da_thanh_toan: number; so_don: number; dong: number[] }[];
+  // v1.578: nhom co don thieu hang ("Cho thanh toan") se bi tach phieu cho hang - nguoi tao BAT BUOC chon gop chung / tach.
+  tach_cho_hang?: { loai_don: string; dong_thieu: number[]; dong_co_hang: number[]; phieu_mo: string | null }[];
   dong: KiemTraDong[];
 }
 

@@ -445,7 +445,7 @@ export function TaoDonMobileScreen({
           </div>
         )}
         <TongNgayKtvInfo email={targetNguoiNhanHang} themGiaTri={giaTriTinhChietKhau} />
-        <GopPhieuDaDuTien kiemTra={form.kiemTra} gop={form.gopPhieuDaDuTien} setGop={form.setGopPhieuDaDuTien} gon />
+        <GopPhieuDaDuTien kiemTra={form.kiemTra} gop={form.gopPhieuDaDuTien} setGop={form.setGopPhieuDaDuTien} gopThieu={form.gopDonThieuHang} setGopThieu={form.setGopDonThieuHang} gon />
         <div className="flex items-center justify-between text-sm">
           <span className="text-[var(--ink-500)]">{t("{n} dòng · {sl} cái", { n: drafts.length, sl: tongSoLuong })}</span>
           <span className="text-right">

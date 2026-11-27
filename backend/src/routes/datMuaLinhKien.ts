@@ -2291,6 +2291,9 @@ export interface PhieuDatBody {
   client_request_id?: string;
   // v1.538: true = don can chuyen tien GOP vao phieu dang tao Ke toan DA duyet tien (giao 1 lan, KTV chuyen bo sung); mac dinh tach phieu moi.
   gop_phieu_da_du_tien?: boolean;
+  // v1.578 ("hiện nhắc nhở và cho ktv hoặc người đặt lựa chọn gộp chung 1 phiếu hay tách phiếu chứ không tự quyết"): false = don thieu hang
+  // ("Cho thanh toan") GOP CHUNG phieu voi don co hang; true / khong gui = tach phieu cho hang rieng (quy tac 2026-11-10, giu cho API doi tac).
+  tach_phieu_cho_hang?: boolean;
   don_hang: {
     // KHONG con nhan so_tien_cong_no tu client (them 04/09/2026) - server tu tinh gia_tri_cong_no x so_luong_de_xuat.
     ma_lk: string; loai_de_xuat: string; so_luong_de_xuat: number;
@@ -2578,9 +2581,11 @@ export async function kiemTraPhieuDat(c: Context<{ Bindings: Env }>, body: Phieu
   // Ton kho mien con lai (v1.488) - chi GS / TN (gom Ke toan) / Admin dat ho moi can, KTV tu dat khong doi duoc khu vuc xu ly.
   const mienKhac = canQuanLyDonHo(c) ? await tonKhoMienKhac(c.env.DB, ds.khuVuc, kq.body.don_hang, ds.dong, kq.comboMaCuaDong) : null;
   const phieuDaDuTien = kq.nhomKhLe ? [] : await phieuDaDuTienCoTheGop(c.env.DB, kq.nguoiNhanHang, kq.body.don_hang, ds.dong);
+  const tachChoHang = kq.nhomKhLe ? [] : await tachChoHangCoTheGop(c.env.DB, kq.nguoiNhanHang, kq.body.don_hang, ds.dong);
   return c.json({
     loi_phieu: null,
     phieu_da_du_tien: phieuDaDuTien,
+    tach_cho_hang: tachChoHang,
     khu_vuc: ds.khuVuc,
     danh_gia_cong_no: ds.danhGiaCongNo,
     cong_no_chot: ds.congNoChot,
@@ -2639,6 +2644,46 @@ async function phieuDaDuTienCoTheGop(
       .first<{ id: string; tong: number; da_thanh_toan: number; so_don: number }>();
     if (!p) continue;
     out.push({ id: p.id, loai_don: g.loaiDon, tong: p.tong, da_thanh_toan: p.da_thanh_toan, so_don: p.so_don, dong: g.dong });
+  }
+  return out;
+}
+
+// DON THIEU HANG SE BI TACH PHIEU CHO HANG (v1.578, 2026-11-27 - "khi tạo đơn, hiện nhắc nhở và cho ktv hoặc người đặt lựa chọn gộp chung 1 phiếu hay
+// tách phiếu chứ không tự quyết"). Mac dinh bundleAutoApprovedIntoPxk dua don "Cho thanh toan" (kho thieu, can chuyen tien truoc) vao phieu CHO HANG
+// rieng (cho_hang = 1). Tra nhom (loai_don, nhom phieu) co ca dong thieu hang LAN dong co hang vao phieu (hoac 1 phieu dang tao thuong cua nguoi nhan
+// cung nhom, chua duoc Ke toan duyet tien) -> form bat nguoi tao CHON gop / tach. Tach theo loai de xuat / hoa don / KH chuyen khoan van bat buoc.
+async function tachChoHangCoTheGop(
+  db: D1Database,
+  nguoiNhanHang: string,
+  dongs: PhieuDatDaChuanBi["body"]["don_hang"],
+  ketQua: PhieuDatDaChuanBi["danhGia"]["dong"],
+): Promise<{ loai_don: string; dong_thieu: number[]; dong_co_hang: number[]; phieu_mo: string | null }[]> {
+  const nhom = new Map<string, { loaiDon: string; nhomLde: string; thieu: number[]; coHang: number[] }>();
+  ketQua.forEach((k, i) => {
+    if (k.loi || (k.loaiDon !== "mua" && k.loaiDon !== "cong_no") || dongs[i].doi_tac_ma) return;
+    if (k.trangThai !== "TN da duyet" && !k.batBuocChuyenTien) return;
+    const nhomLde = nhomPhieu({ loai_de_xuat: dongs[i].loai_de_xuat, yeu_cau_hoa_don: dongs[i].yeu_cau_hoa_don, kh_chuyen_khoan: dongs[i].kh_chuyen_khoan });
+    const key = JSON.stringify([k.loaiDon, nhomLde]);
+    if (!nhom.has(key)) nhom.set(key, { loaiDon: k.loaiDon, nhomLde, thieu: [], coHang: [] });
+    (k.trangThai === "Cho thanh toan" ? nhom.get(key)!.thieu : nhom.get(key)!.coHang).push(i);
+  });
+  const out: { loai_don: string; dong_thieu: number[]; dong_co_hang: number[]; phieu_mo: string | null }[] = [];
+  for (const g of nhom.values()) {
+    if (!g.thieu.length) continue;
+    const quyKh = g.nhomLde.split("|")[2] === "1" ? 1 : 0;
+    // Cung dieu kien gomMotNhom (phieu thuong, khong cho hang, chua Ke toan duyet tien) - don thieu hang gop vao phieu nay neu nguoi tao chon gop.
+    const p = await db
+      .prepare(
+        `SELECT id FROM phieu_xuat_kho
+         WHERE nguoi_nhan_hang = ? AND loai_don = ? AND trang_thai_hien_tai = 'Dang tao phieu' AND COALESCE(trang_thai_chuyen_tien, '') != 'TN da duyet'
+           AND COALESCE(TRIM(ma_misa), '') = '' AND khu_vuc_chon IS NULL AND doi_tac_ma IS NULL
+           AND COALESCE(quy_kh, 0) = ? AND COALESCE(cho_hang, 0) = 0 AND ${phieuCungNhomSql("phieu_xuat_kho.id", "?")}
+         ORDER BY ngay_tao DESC LIMIT 1`,
+      )
+      .bind(nguoiNhanHang, g.loaiDon, quyKh, g.nhomLde)
+      .first<{ id: string }>();
+    if (!g.coHang.length && !p) continue;
+    out.push({ loai_don: g.loaiDon, dong_thieu: g.thieu, dong_co_hang: g.coHang, phieu_mo: p?.id ?? null });
   }
   return out;
 }
@@ -2867,7 +2912,9 @@ export async function taoPhieuDat(c: Context<{ Bindings: Env }>, bodyGoc: PhieuD
   // Gom dong tu duyet / can chuyen tien vao 1 PXK ngay (dong bo, TRUOC khi tra ve - mo lai chi tiet thay du lieu nhat quan).
   for (const loaiDon of ["mua", "cong_no"] as const) {
     if (vaoPhieu[loaiDon].length > 0) {
-      await bundleAutoApprovedIntoPxk(c.env, c.env.DB, user.email, nguoiNhanHang, loaiDon, vaoPhieu[loaiDon], { gopPhieuDaDuTien: bodyGoc.gop_phieu_da_du_tien === true });
+      await bundleAutoApprovedIntoPxk(c.env, c.env.DB, user.email, nguoiNhanHang, loaiDon, vaoPhieu[loaiDon], {
+        gopPhieuDaDuTien: bodyGoc.gop_phieu_da_du_tien === true, gopDonThieuHang: bodyGoc.tach_phieu_cho_hang === false,
+      });
     }
   }
   // Dong thieu hang khong tien -> mo ticket cho hang (Kho xac nhan / tu choi). Nguoi tao ticket = nguoi tao don.

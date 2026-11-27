@@ -159,7 +159,7 @@ const LUONG_DAT_HANG: Luong = {
       ai: "Hệ thống (log “Tự động duyệt đơn”)",
       moTa: "Từ v1.494 nhãn trạng thái của đơn đã duyệt hiện THEO BƯỚC CỦA PHIẾU chứa đơn (Chờ KTV chuyển tiền / Chờ Kế toán xác nhận tiền / Kế toán đang chốt phiếu / Kho đang xuất hàng / Đang giao — chờ KTV xác nhận / KTV đã nhận hàng…), chi tiết đơn có luồng ngang Đặt đơn → Duyệt & kiểm kho → Chuyển tiền → Kế toán chốt → Kho xuất hàng → Giao KTV → KTV đã nhận. Đơn tự gom vào phiếu xuất kho đang tạo của người nhận (bundleAutoApprovedIntoPxk). Lịch sử phiếu ghi rõ lý do gom.",
       tuDong: [
-        "Tách phiếu theo: người nhận, loại đơn, NHÓM loại đề xuất (MUA HÀNG + MUA HÀNG CÓ ID gộp chung), hình thức hóa đơn, cờ KH chuyển khoản, đối tác, khu vực chọn, phiếu chờ hàng.",
+        "Tách phiếu theo: người nhận, loại đơn, NHÓM loại đề xuất (MUA HÀNG + MUA HÀNG CÓ ID gộp chung), hình thức hóa đơn, cờ KH chuyển khoản, đối tác, khu vực chọn, phiếu chờ hàng (đơn thiếu hàng: người đặt chọn gộp chung hay tách phiếu chờ hàng khi tạo đơn).",
         "Đơn đã thanh toán ưu tiên phiếu riêng (chỉ gộp vào phiếu Kế toán đã duyệt tiền).",
       ],
       tiepTheo: ["→ Luồng Phiếu xuất kho"],

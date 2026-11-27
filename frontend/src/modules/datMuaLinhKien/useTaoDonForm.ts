@@ -267,7 +267,11 @@ export function useTaoDonForm({
   // lien tiep trong cung 1 khung hinh van goi mutate() 2 lan.
   const dangGuiRef = useRef(false);
   // v1.538 ("có ktv muốn được chuyển về trong cùng 1 lần"): mac dinh TACH phieu moi cho chuyen tien; true = gop vao phieu da du tien.
-  const [gopPhieuDaDuTien, setGopPhieuDaDuTien] = useState(false);
+  // v1.578 ("cho ktv hoặc người đặt lựa chọn gộp chung 1 phiếu hay tách phiếu chứ không tự quyết"): null = CHUA chon -> chan tao don khi form
+  // dang hien hop chon (GopPhieuDaDuTien.tsx). Ap dung ca lua chon phieu da du tien (truoc mac dinh tach).
+  const [gopPhieuDaDuTien, setGopPhieuDaDuTien] = useState<boolean | null>(null);
+  // true = gop don thieu hang chung phieu voi don co hang; false = tach phieu cho hang rieng; null = chua chon.
+  const [gopDonThieuHang, setGopDonThieuHang] = useState<boolean | null>(null);
 
   // PHI DICH VU (v1.561 - "khi ktv chọn mã phí dịch vụ, hiện cảnh báo là phí có thể thay đổi và hiện số tiền để ktv nhập hoặc giữ nguyên"):
   // dong chon ma co ten "phí dịch vụ" -> o so tien (mac dinh = gia danh muc). gia = don gia KTV da sua (null = giu gia danh muc / chua phai
@@ -287,7 +291,8 @@ export function useTaoDonForm({
       api.post<KetQuaTaoDon>("/dat-mua-lk/phieu-dat", {
         client_request_id: clientRequestId,
         nguoi_nhan_hang: nguoiNhanHang || undefined,
-        gop_phieu_da_du_tien: gopPhieuDaDuTien && (kiemTraHienTai?.phieu_da_du_tien?.length ?? 0) > 0 ? true : undefined,
+        gop_phieu_da_du_tien: gopPhieuDaDuTien === true && (kiemTraHienTai?.phieu_da_du_tien?.length ?? 0) > 0 ? true : undefined,
+        tach_phieu_cho_hang: gopDonThieuHang === true && (kiemTraHienTai?.tach_cho_hang?.length ?? 0) > 0 ? false : undefined,
         kh_le_sdt: laNhomKhLe && khLeSdtSo ? khLeSdtSo : undefined,
         don_hang: drafts.map((d) => ({
           ma_lk: d.ma_lk,
@@ -321,7 +326,8 @@ export function useTaoDonForm({
       qc.invalidateQueries({ queryKey: ["khach-le"] });
       qc.invalidateQueries({ queryKey: ["nguoi-directory"] });
       setNguoiNhanHang("");
-      setGopPhieuDaDuTien(false);
+      setGopPhieuDaDuTien(null);
+      setGopDonThieuHang(null);
       setDrafts([emptyDraft()]);
       // Ve dong 1: form con 1 dong rong - activeIdx cu (vd dong 2) lam man mobile doc drafts[1] = undefined -> trang loi
       // sau khi bam "Đặt tiếp" (2026-10-28).
@@ -472,7 +478,11 @@ export function useTaoDonForm({
     );
   }
 
-  const canSubmit = !chuaCoMaMisa && !khLeSdtSai && !coDongBiChan && drafts.every(isLineComplete);
+  // v1.578: form dang hien hop chon gop/tach phieu ma nguoi dat chua chon -> chua cho tao (khong tu quyet thay nguoi dat).
+  const chuaChonPhieu =
+    ((kiemTraHienTai?.phieu_da_du_tien?.length ?? 0) > 0 && gopPhieuDaDuTien === null) ||
+    ((kiemTraHienTai?.tach_cho_hang?.length ?? 0) > 0 && gopDonThieuHang === null);
+  const canSubmit = !chuaCoMaMisa && !khLeSdtSai && !coDongBiChan && !chuaChonPhieu && drafts.every(isLineComplete);
   const [showImport, setShowImport] = useState(false);
 
   function themDong() {
@@ -643,7 +653,7 @@ export function useTaoDonForm({
     ketQuaTao, dongKetQuaTao, khoiPhucLuc, boNhap, anKhoiPhuc: () => setKhoiPhucLuc(null),
     hoiKhoiPhuc, moLaiNhap, boQuaNhapCu, coNoiDungChuaTao, luuNhapNgay, xoaNhap,
     doiTacChon, tienDoiTacTrenForm, nhanLaNvSuaChua, tenNguoiNhan,
-    gopPhieuDaDuTien, setGopPhieuDaDuTien, giaDvDraft,
+    gopPhieuDaDuTien, setGopPhieuDaDuTien, gopDonThieuHang, setGopDonThieuHang, chuaChonPhieu, giaDvDraft,
   };
 }
 

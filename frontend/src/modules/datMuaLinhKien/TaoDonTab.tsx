@@ -127,6 +127,8 @@ export function TaoDonTab({
       ? t("Còn {n} dòng chưa nhập đủ thông tin bắt buộc", { n: soDongChuaXong })
       : canhBao.some((c) => c.muc === "chan")
         ? t("Có dòng không tạo được — xem mục Cảnh báo")
+        : form.chuaChonPhieu
+          ? t("Chọn gộp chung hay tách phiếu xuất kho (ô bên trên)")
         : !canSubmit
           ? t("Kiểm tra lại SĐT khách hàng lẻ")
           : null;
@@ -567,7 +569,7 @@ export function TaoDonTab({
                   </div>
                 </div>
                 <div className="mt-2 empty:hidden">
-                  <GopPhieuDaDuTien kiemTra={form.kiemTra} gop={form.gopPhieuDaDuTien} setGop={form.setGopPhieuDaDuTien} />
+                  <GopPhieuDaDuTien kiemTra={form.kiemTra} gop={form.gopPhieuDaDuTien} setGop={form.setGopPhieuDaDuTien} gopThieu={form.gopDonThieuHang} setGopThieu={form.setGopDonThieuHang} />
                 </div>
               </div>
             </div>

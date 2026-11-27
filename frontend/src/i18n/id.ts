@@ -3246,5 +3246,14 @@ const tuDien: Record<string, string> = {
   "Giá KTV (B2B)": "Harga teknisi (B2B)",
   "Linh kiện B2B chưa có Giá KTV → tính giá niêm yết (B2B không áp mức 200–500k theo tổng đặt trong ngày).": "Suku cadang B2B tanpa harga teknisi → harga daftar (B2B tidak memakai tingkat 200–500k total harian).",
   "Linh kiện B2B → luôn tính Giá KTV (không áp mức 200–500k theo tổng đặt trong ngày).": "Suku cadang B2B → selalu harga teknisi (tingkat 200–500k total harian tidak berlaku).",
+  "Có {n} đơn kho thiếu hàng — chọn cách lập phiếu xuất kho": "{n} pesanan kekurangan stok — pilih cara membuat slip keluar",
+  "Có hàng": "Ada stok",
+  "Phiếu đang tạo của bạn: {ma}": "Slip terbuka Anda: {ma}",
+  "Gộp chung 1 phiếu (chuyển tiền 1 lần)": "Gabung jadi 1 slip (transfer sekali)",
+  "Đơn có hàng phải chờ đơn thiếu hàng về đủ mới xuất cả phiếu.": "Pesanan yang ada stok menunggu pesanan kurang stok tiba, lalu seluruh slip dikirim.",
+  "Tách phiếu chờ hàng riêng": "Pisahkan slip tunggu stok",
+  "Đơn có hàng được Kế toán xuất trước; đơn thiếu hàng đi phiếu chờ hàng, chuyển tiền riêng.": "Akuntansi mengirim pesanan yang ada stok lebih dulu; pesanan kurang stok masuk slip tunggu dengan transfer sendiri.",
+  "Chọn 1 cách trước khi tạo đơn": "Pilih satu cara sebelum membuat pesanan",
+  "Chọn gộp chung hay tách phiếu xuất kho (ô bên trên)": "Pilih gabung atau pisah slip keluar (kotak di atas)",
 };
 export default tuDien;

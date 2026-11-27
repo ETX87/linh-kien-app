@@ -46,7 +46,9 @@ export async function bundleAutoApprovedIntoPxk(
   // gopPhieuDaDuTien (v1.538, chot 2026-11-20 - "thêm lựa chọn cho người tạo (có muốn tách thành phiếu chờ chuyển/ phiếu đã có đủ tiền không - vì có
   // ktv muốn được chuyển về trong cùng 1 lần)"): don MOI can chuyen tien duoc gop vao phieu dang tao Ke toan DA duyet tien (mac dinh tach phieu moi).
   // Phieu do tu ve "Cho KTV chuyen" so con thieu (taiTinhPxk), KTV chuyen bo sung roi Ke toan duyet lai. Chi nguoi tao don chon (POST /phieu-dat).
-  opts: { boQuaPxk?: string; gopPhieuDaDuTien?: boolean } = {},
+  // gopDonThieuHang (v1.578, 2026-11-27 - "cho ktv hoặc người đặt lựa chọn gộp chung 1 phiếu hay tách phiếu chứ không tự quyết"): nguoi tao chon GOP
+  // -> don "Cho thanh toan" (kho thieu) KHONG tach phieu cho hang rieng, vao chung phieu voi don co hang (chuyen tien 1 lan, ca phieu cho hang ve).
+  opts: { boQuaPxk?: string; gopPhieuDaDuTien?: boolean; gopDonThieuHang?: boolean } = {},
 ): Promise<string | null> {
   if (lines.length === 0) return null;
   // Don da duoc chon khu vuc xu ly rieng (dat_don_hang.khu_vuc_chon - PATCH /dat-mua-lk/don-hang/:id/khu-vuc, 2026-10-15) di vao
@@ -77,7 +79,7 @@ export async function bundleAutoApprovedIntoPxk(
     const daTT = loaiDon !== "tra_hang" && !dt && (d?.tien_da_tra ?? 0) > 0;
     // Nhom phieu = loai de xuat | hinh thuc hoa don | KH chuyen khoan (2026-11-09, lib/nhomLoaiDeXuat.ts nhomPhieu).
     const lde = nhomPhieu({ loai_de_xuat: d?.loai_de_xuat, yeu_cau_hoa_don: d?.yeu_cau_hoa_don, kh_chuyen_khoan: d?.kh_chuyen_khoan });
-    const ch = loaiDon !== "tra_hang" && !dt && !daTT && d?.trang_thai_hien_tai === "Cho thanh toan";
+    const ch = loaiDon !== "tra_hang" && !dt && !daTT && d?.trang_thai_hien_tai === "Cho thanh toan" && !opts.gopDonThieuHang;
     const key = JSON.stringify([kv, dt, daTT, ch, lde]);
     if (!nhom.has(key)) nhom.set(key, { kv, dt, daTT, ch, lde, dong: [] });
     nhom.get(key)!.dong.push(l);
@@ -86,6 +88,8 @@ export async function bundleAutoApprovedIntoPxk(
   for (const { kv: kvChon, dt: doiTac, daTT, ch, lde, dong } of nhom.values()) {
     const lyDo = (daTT ? "Đơn đã thanh toán — ưu tiên phiếu riêng (không gộp phiếu đang chờ chuyển tiền) để gửi Kế toán xuất hàng ngay\n" : "") +
       (ch ? "Đơn kho thiếu hàng — tách phiếu riêng (phiếu chờ hàng) để đơn có hàng được xuất trước\n" : "") +
+      (opts.gopDonThieuHang && dong.some((l) => donTheoId.get(l.donHangId)?.trang_thai_hien_tai === "Cho thanh toan")
+        ? "Người đặt chọn GỘP đơn kho thiếu hàng chung phiếu (chuyển tiền 1 lần) — phiếu chờ đủ hàng mới xuất cả phiếu\n" : "") +
       dong.map((l) => moTaDonVaoPhieu(donTheoId.get(l.donHangId), l.donHangId, loaiDon)).join("\n");
     pxkCuoi = await gomMotNhom(env, db, actorEmail, nguoiNhanHang, loaiDon, dong, kvChon, lyDo, doiTac, daTT, lde, opts.boQuaPxk ?? null, ch,
       !!opts.gopPhieuDaDuTien && loaiDon !== "tra_hang" && !doiTac && !daTT && !ch);

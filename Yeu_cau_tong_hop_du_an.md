@@ -58,6 +58,7 @@ nơi khác tôi chưa biết):
   điểm 3)* → ✅ Đã làm (`loai_don` + 3 tab riêng).
 - **ai là người tạo đơn** (KTV tự tạo / Tác nghiệp tạo hộ / GS tạo hộ)
 - Các loại đề xuất khác nhau xử lý độc lập, lên PXK riêng không lẫn lộn chung các loại đề xuất khác nhau vào chung 1 PXK hoặc luồng xử lý ( Mua hàng / Công nợ / Trả hàng)
+- (2026-11-27, v1.578) Gộp hay tách phiếu theo tình trạng hàng / tiền (đơn thiếu hàng ↔ đơn có hàng, đơn mới ↔ phiếu đã đủ tiền) do **người đặt chọn** khi tạo đơn — "hiện nhắc nhở và cho ktv hoặc người đặt lựa chọn gộp chung 1 phiếu hay tách phiếu chứ không tự quyết". Tách theo loại đề xuất / hóa đơn vẫn bắt buộc.
 ### A3. Luồng chính (Mua hàng / Công nợ)
 
 - KTV/Trạm/Vệ tinh/GS lên đơn (chọn mã LK theo Danh mục linh kiện + loại đề xuất + số lượng + ghi

@@ -1285,6 +1285,15 @@ sách với HỖ TRỢ 0 ĐỒNG, + đơn giá với Chuyển kho); SL cộng, t
 - "Trừ kho" / "Đã chốt xong đơn xuất" chỉ nhận phiếu "Cho ke toan" đã có đủ Mã đơn hàng + Mã PXK. Trả hàng không trừ kho.
 - UI: nút "⚡ Kế toán duyệt nhanh" ở chi tiết phiếu (Kế toán, phiếu "Dang tao phieu" hoặc "Cho ke toan" chưa Mã MISA); danh sách Phiếu xuất có ô chọn ở cột ID (tiêu đề = chọn cả trang) + thanh `ThanhDuyetNhanhPxk` ("Chọn tất cả N phiếu theo bộ lọc" tải mọi phiếu qua `taiPhieuTheoBoLoc`). Đổi bộ lọc = bỏ chọn. Chưa có ô chọn trên thẻ mobile.
 
+**Chọn gộp / tách đơn thiếu hàng khi tạo đơn** (2026-11-27, v1.578 — "khi tạo đơn, hiện nhắc nhở và cho ktv hoặc người đặt lựa chọn gộp chung 1 phiếu
+hay tách phiếu chứ không tự quyết"): `POST /phieu-dat/kiem-tra` trả `tach_cho_hang` (`tachChoHangCoTheGop` trong `routes/datMuaLinhKien.ts`: nhóm
+[loai_don, nhomPhieu] có dòng "Cho thanh toan" + dòng vào phiếu khác (tự duyệt / bắt buộc chuyển tiền) HOẶC phiếu "Dang tao phieu" thường của người nhận
+chưa Kế toán duyệt tiền, `cho_hang` 0, cùng nhóm). Body POST `tach_phieu_cho_hang: false` → `bundleAutoApprovedIntoPxk` opts `gopDonThieuHang` (cờ `ch`
+= false → đơn thiếu vào chung nhóm; log phiếu ghi "Người đặt chọn GỘP…"). Không gửi = tách như cũ (giữ API đối tác). FE `GopPhieuDaDuTien.tsx` (2 hộp
+`HopChon`), state `gopDonThieuHang` / `gopPhieuDaDuTien` kiểu `boolean | null` — null + hộp đang hiện = `chuaChonPhieu` chặn `canSubmit` (hộp phiếu đủ
+tiền cũng thành bắt buộc chọn, bỏ mặc định "tách"). Tách sau vẫn được: nút "✂ Tách đơn chờ hàng" ở chi tiết phiếu. Thử local (DB demo): gộp → 2 đơn
+cùng PMH-000033; không gửi → đơn thiếu sang phiếu chờ hàng PMH-000032.
+
 **Chọn tách / gộp phiếu đã đủ tiền khi tạo đơn** (chốt 2026-11-20, v1.538 — "thêm lựa chọn cho người tạo (có muốn tách thành phiếu chờ chuyển/ phiếu đã có
 đủ tiền không - vì có ktv muốn được chuyển về trong cùng 1 lần)"): mặc định `gomMotNhom` KHÔNG gộp đơn mới vào phiếu "Dang tao phieu" Kế toán đã duyệt tiền.
 `POST /phieu-dat/kiem-tra` trả `phieu_da_du_tien` (`phieuDaDuTienCoTheGop` — cùng điều kiện nhóm phiếu, `khu_vuc_chon` NULL, không chờ hàng / đối tác); form

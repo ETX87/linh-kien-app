@@ -52,9 +52,12 @@ duy nhất tính tiền (`tinhToanPxk`), form tạo đơn có bản sao để xe
 `Dang tao phieu` (chờ chuyển tiền / chờ mã HĐ) → `Cho ke toan` (Kế toán nhập Mã MISA) → `Da chot xong don xuat` → `Dang gui KTV` →
 `KTV da nhan` (tự xác nhận sau 10 ngày) | `Hang tru kho` | `Kho da nhan hang tra`; `Ke toan huy`.
 - 1 phiếu chỉ chứa đơn cùng người nhận + loại đơn + nhóm loại đề xuất + hình thức hóa đơn + đối tác + cờ chờ hàng.
-- Đơn mới cần chuyển tiền mặc định KHÔNG gộp vào phiếu đang tạo mà Kế toán đã duyệt đủ tiền (tạo phiếu riêng chờ chuyển). Nếu người nhận đang có
-  phiếu như vậy (cùng nhóm phiếu), form tạo đơn cho chọn **Tách phiếu mới** (mặc định) hoặc **Gộp vào phiếu đã đủ tiền** (nhận hàng 1 lần): gộp thì
-  phiếu về "Chờ KTV chuyển" phần tăng thêm, Kế toán xác nhận lại. Đơn kho thiếu ("Chờ thanh toán") vẫn đi phiếu chờ hàng riêng.
+- Người đặt TỰ CHỌN gộp / tách phiếu khi tạo đơn (v1.578 — hệ thống không tự quyết). Form hiện ô chọn BẮT BUỘC (chưa chọn thì nút Tạo đơn khoá) khi:
+  - **Có đơn kho thiếu** ("Chờ thanh toán") cùng nhóm phiếu với đơn có hàng trong lần đặt, hoặc với phiếu đang tạo của người nhận: **Gộp chung 1 phiếu**
+    (chuyển tiền 1 lần, cả phiếu chờ đủ hàng mới xuất) hoặc **Tách phiếu chờ hàng riêng** (đơn có hàng xuất trước). Lịch sử phiếu ghi lựa chọn.
+  - **Người nhận có phiếu đang tạo Kế toán đã duyệt đủ tiền** cùng nhóm: **Gộp vào phiếu đã đủ tiền** (phiếu về "Chờ KTV chuyển" phần tăng thêm, Kế toán
+    xác nhận lại) hoặc **Tách phiếu mới chờ chuyển tiền**.
+  - Tách theo người nhận / loại đơn / loại đề xuất / hóa đơn / KH chuyển khoản / đối tác vẫn BẮT BUỘC, không hỏi. API đối tác không gửi lựa chọn → tách như cũ.
 - Phiếu vừa đủ tiền theo BẤT KỲ đường nào (Kế toán duyệt khoản, tự đủ bằng quỹ, Kế toán từ chối ảnh nhưng quỹ đã trả đủ, sửa thực nhận tăng) → đơn "Chờ thanh toán"
   trong phiếu được xét lại tồn: đủ → tự duyệt ở lại phiếu; vẫn thiếu → rời phiếu mang theo tiền sang "Chờ hàng". Bấm gửi Kế toán cũng chạy lại bước này trước khi kiểm.
 - Phiếu "Đang tạo phiếu" không còn đơn: ai liên quan (văn phòng / người nhận / người tạo) bấm "Hủy phiếu trống"; cron mỗi giờ tự hủy phiếu trống

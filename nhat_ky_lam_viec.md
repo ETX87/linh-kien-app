@@ -807,3 +807,14 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
 - Đã làm: var `KHOVAN_TAM_DUNG="1"` — bỏ qua mọi lệnh đẩy / báo trạng thái sang khovan, đồng bộ danh bạ bỏ dịch khovan (hết lỗi, hết "50 KTV đang chờ").
   Code ở commit ec0cc4e (nhãn commit ghi nhầm v1.575 vì trùng lúc với phiên khác) — phiên bản đúng là v1.577.
 - Kiểm thử: typecheck backend + frontend 0 lỗi. Chưa bấm "Đồng bộ ngay" trên giao diện (cần đăng nhập Admin).
+
+## 2026-11-27 — v1.578: Người đặt tự chọn gộp chung / tách phiếu khi tạo đơn
+
+- Yêu cầu nguyên văn (ảnh XH-003862: DDH-009265 có hàng → PMH-003211, DDH-009266 thiếu hàng → PMH-003212 phiếu chờ hàng): "khi tạo đơn, hiện nhắc nhở và cho ktv
+  hoặc người đặt lựa chọn gộp chung 1 phiếu hay tách phiếu chứ không tự quyết."
+- Vì sao bị tách: luật 2026-11-10 tự đưa đơn kho thiếu ("Chờ thanh toán") sang phiếu chờ hàng riêng, người đặt không được hỏi → phải chuyển tiền 2 lần.
+- Đã làm: form tạo đơn (giao diện đầy đủ + gọn) hiện ô chọn BẮT BUỘC "Gộp chung 1 phiếu (chuyển tiền 1 lần)" / "Tách phiếu chờ hàng riêng" khi lần đặt có đơn thiếu
+  hàng cùng nhóm với đơn có hàng hoặc với phiếu đang tạo; chưa chọn thì nút Tạo đơn khoá + nhắc. Ô "phiếu đã đủ tiền" (v1.538) cũng thành bắt buộc chọn (bỏ mặc định tách).
+  Tách theo loại đề xuất / hóa đơn / KH chuyển khoản / đối tác giữ nguyên (luật Kế toán). API đối tác không đổi (không gửi lựa chọn = tách như cũ).
+- Kiểm thử: typecheck + build 2 phía 0 lỗi; local DB demo: kiểm tra trước trả đúng nhóm; gộp → cả 2 đơn vào PMH-000033 (log ghi "Người đặt chọn GỘP…"),
+  không gửi → đơn thiếu sang phiếu chờ hàng PMH-000032; giao diện: chưa chọn nút khoá, chọn "Gộp" nút mở. Chưa thử trên production.
