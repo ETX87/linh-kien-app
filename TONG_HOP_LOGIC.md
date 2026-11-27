@@ -8,7 +8,8 @@
 ## 1. Hệ thống là gì
 
 - Quản lý toàn bộ luồng **mua / xuất kho / trả hàng / công nợ linh kiện** cho KTV, Trạm, văn phòng — tách từ module "Đặt mua linh kiện"
-  của DVBH (19/08/2026), nay là hệ độc lập: 1 Worker (Hono, phục vụ cả API và React build) + D1. Cron mỗi giờ. Ảnh lưu Google Drive.
+  của DVBH (19/08/2026), nay là hệ độc lập: 1 Worker (Hono, phục vụ cả API và React build) + D1. Cron mỗi giờ. Ảnh lưu Google Drive
+  (uỷ quyền 1 tài khoản Google; token lưu mã hoá theo khoá hệ thống — đổi khoá thì Admin phải "Kết nối lại" ở Cài đặt › Google Drive, trang này báo "Cần kết nối lại").
 - Đơn = `dat_don_hang` (DDH-…); phiếu xuất kho = `phieu_xuat_kho` (PMH mua / PCN công nợ / PTL trả hàng).
 
 ## 2. Vai trò (cờ trên tài khoản)

@@ -38,7 +38,15 @@ async function getUserAccessToken(env: Env, db: D1Database): Promise<{ accessTok
     .first<{ refresh_token_enc: string; folder_id: string }>();
   if (!row) throw new Error("GOOGLE_DRIVE_NOT_CONNECTED: chua ket noi tai khoan Google Drive - vao Cai dat de ket noi.");
 
-  const refreshToken = await decryptSecret(env, row.refresh_token_enc);
+  // Token ma hoa bang khoa dan xuat tu SESSION_SECRET (lib/secretBox.ts) - doi SESSION_SECRET thi
+  // token cu KHONG giai ma duoc nua (loi AES-GCM "Decryption failed") -> bao nhu chua ket noi de moi
+  // noi upload hien cau "vao Cai dat de ket noi" thay vi loi ma hoa kho hieu; Admin ket noi lai la xong.
+  let refreshToken: string;
+  try {
+    refreshToken = await decryptSecret(env, row.refresh_token_enc);
+  } catch {
+    throw new Error("GOOGLE_DRIVE_NOT_CONNECTED: ket noi Google Drive het hieu luc (doi khoa he thong) - Admin vao Cai dat ket noi lai.");
+  }
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },

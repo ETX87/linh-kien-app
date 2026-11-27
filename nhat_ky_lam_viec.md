@@ -766,3 +766,12 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
 - Đã sửa: thêm dạng `TSC`+số ở cả 2 bản `isLikelyCaseId()` + `fetchCaseLookupRaw()` quy `tsc…` về chữ HOA (DVBH khớp đúng chữ hoa).
 - Kiểm thử: typecheck backend + frontend 0 lỗi; chạy thử biểu thức với mẫu: TSC2611260012 / tsc… / SC… / T… / số → nhận; TS123456, TSC12, D1154680 → không.
   Chưa thử gõ mã TSC thật trên giao diện (cần DVBH có case TSC tương ứng).
+
+## 2026-11-27 — v1.574: Lỗi tải ảnh "Decryption failed … AES-GCM"
+
+- Yêu cầu: ảnh chụp màn hình Tạo đơn (trả hàng LK khác) — bấm "Thêm ảnh" báo "Lỗi tải ảnh: Decryption failed … AES-GCM".
+- Nguyên nhân: token Google Drive (uỷ quyền 19/08) lưu mã hoá bằng khoá dẫn xuất từ `SESSION_SECRET`; sáng 27/11 các secret Worker được đổi
+  → token cũ không giải mã được → MỌI chỗ tải ảnh đều lỗi. Không phải lỗi phía người dùng.
+- Đã sửa: lỗi giải mã đổi thành `GOOGLE_DRIVE_NOT_CONNECTED` (thông báo dễ hiểu); tab Cài đặt › Google Drive hiện "Cần kết nối lại" + nút kết nối.
+- Việc còn lại: Admin vào Cài đặt › Google Drive bấm "Kết nối tài khoản Google Drive" uỷ quyền lại (OAuth phải do người làm) — xong là tải ảnh chạy lại.
+- Kiểm thử: typecheck backend + frontend 0 lỗi; đã kiểm D1 thật có 1 dòng token (uỷ quyền 2026-08-19) và lịch sử deploy có các lần "Secret Change" 27/11.

@@ -193,7 +193,9 @@ Assets chặn trước khi tới Worker; `curl` không tái hiện được lỗ
   `routes/baoCaoTocDoXuLy.ts` chỉ chặn KTV/Vệ tinh (`la_ktv_dvbh`/`la_ve_tinh`), FE `App.tsx` cấp module `bao-cao-toc-do` cho cùng tập; phạm vi:
   View theo Khu vực được gán (`resolveScopeEmails`), còn lại xem toàn bộ. **Lọc theo Khu vực / nhóm loại đề xuất truyền 1 bind JSON** (sửa 2026-10-23, v1.396 — "vào báo cáo tốc độ tải bị báo lỗi" INTERNAL_ERROR): `countDangCho` (`lib/slaMetrics.ts`) + `resolveScopeEmails` từng đặt 1 `?` mỗi email KTV → khu vực đông KTV (MB3 ~122) vượt giới hạn 100 tham số D1; giờ `IN (SELECT value FROM json_each(?))`.
 - `routes/settingsDatMua.ts` — CRUD `linh_kien` (danh mục riêng, KHÔNG chung với module "giải trình"
-  như hệ gốc), Google Drive OAuth (uỷ quyền tài khoản thật để upload ảnh minh hoạ linh kiện),
+  như hệ gốc), Google Drive OAuth (uỷ quyền tài khoản thật để upload ảnh minh hoạ linh kiện; refresh token mã hoá AES-GCM bằng khoá dẫn xuất từ
+  `SESSION_SECRET` — `lib/secretBox.ts`. **Đổi `SESSION_SECRET` = token cũ hỏng** (v1.574): `getUserAccessToken` bắt lỗi giải mã → ném `GOOGLE_DRIVE_NOT_CONNECTED`
+  (người tải ảnh thấy "vào Cài đặt để kết nối" thay vì lỗi AES-GCM); `/google-drive/status` trả `can_ket_noi_lai` → tab Google Drive hiện "Cần kết nối lại"),
   `settings_ly_do_cham`, `settings_loai_de_xuat`/`_nhom`. Mount tại `/api/settings`.
 - `routes/settingsKtv.ts` — CRUD `ktv_lien_he` (danh bạ KTV/CTV/Trạm/Vệ tinh), mount riêng tại
   `/api/settings/ktv-lien-he` để giữ nguyên đường dẫn phía frontend. Có cơ chế

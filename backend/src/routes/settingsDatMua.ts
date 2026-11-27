@@ -7,7 +7,7 @@ import { verifySessionMiddleware } from "../middleware/session";
 import { loadUser } from "../middleware/loadUser";
 import { requireRole } from "../middleware/requireRole";
 import { requireQuanLyDanhMucLk } from "../middleware/requireQuanLyDanhMucLk";
-import { encryptSecret } from "../lib/secretBox";
+import { encryptSecret, decryptSecret } from "../lib/secretBox";
 import { computeAndStoreHash, getOrComputeHash } from "../lib/contentHash";
 import { nowVN } from "../lib/vnTime";
 import { resyncKhuVucDerivedFieldsForAll } from "../lib/khuVucSync";
@@ -814,7 +814,15 @@ settingsDatMua.get("/google-drive/status", adminOnly, async (c) => {
     google_email: string; folder_id: string; authorized_by: string; authorized_at: string;
   }>();
   if (!row) return c.json({ connected: false });
-  return c.json({ connected: true, ...row });
+  // Kiem token con giai ma duoc khong (doi SESSION_SECRET -> token cu hong, xem lib/googleDrive.ts).
+  const enc = await c.env.DB.prepare("SELECT refresh_token_enc FROM google_drive_oauth WHERE id = 1").first<{ refresh_token_enc: string }>();
+  let can_ket_noi_lai = false;
+  try {
+    await decryptSecret(c.env, enc?.refresh_token_enc ?? "");
+  } catch {
+    can_ket_noi_lai = true;
+  }
+  return c.json({ connected: true, can_ket_noi_lai, ...row });
 });
 
 settingsDatMua.get("/google-drive/authorize", adminOnly, async (c) => {

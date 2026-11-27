@@ -809,7 +809,7 @@ function KhuVucTab() {
 function GoogleDriveTab() {
   const { data, isLoading } = useQuery({
     queryKey: ["google-drive-status"],
-    queryFn: () => api.get<{ connected: boolean; google_email?: string; authorized_at?: string }>("/settings/google-drive/status"),
+    queryFn: () => api.get<{ connected: boolean; can_ket_noi_lai?: boolean; google_email?: string; authorized_at?: string }>("/settings/google-drive/status"),
   });
 
   return (
@@ -824,7 +824,7 @@ function GoogleDriveTab() {
           ) : (
             <>
               <KvRow label="Trạng thái">
-                {data?.connected ? <Badge tone="teal">Đã kết nối</Badge> : <Badge tone="gray">Chưa kết nối</Badge>}
+                {data?.connected ? (data.can_ket_noi_lai ? <Badge tone="coral">Cần kết nối lại</Badge> : <Badge tone="teal">Đã kết nối</Badge>) : <Badge tone="gray">Chưa kết nối</Badge>}
               </KvRow>
               {data?.connected && (
                 <>
@@ -834,8 +834,13 @@ function GoogleDriveTab() {
                   <KvRow label="Uỷ quyền lúc">{data.authorized_at}</KvRow>
                 </>
               )}
+              {data?.can_ket_noi_lai && (
+                <div className="text-xs text-[var(--color-danger-strong)] mt-2">
+                  Khoá hệ thống đã đổi nên kết nối cũ không dùng được — mọi thao tác tải ảnh đang báo lỗi. Bấm "Kết nối tài khoản Google Drive" để uỷ quyền lại.
+                </div>
+              )}
               <div className="mt-3">
-                {data?.connected ? (
+                {data?.connected && !data.can_ket_noi_lai ? (
                   <a href="/api/settings/google-drive/authorize" className="inline-block">
                     <Btn size="sm" variant="ghost">Kết nối lại / đổi tài khoản</Btn>
                   </a>
