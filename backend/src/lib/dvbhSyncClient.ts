@@ -1,3 +1,4 @@
+import { khovanTamDung } from "./khovanPushClient";
 import type { Env } from "../types";
 import { nowVN } from "./vnTime";
 
@@ -110,8 +111,13 @@ export interface PendingSyncCounts {
 // bo GAN NHAT cua dich cham nhat van tinh la "dang cho" (vi it nhat 1 dich con thieu no), dung de tinh
 // so "dang cho" theo huong bi quan nhat (khop dung tinh than UI hien tai: 0 = da xong het, > 0 la con
 // viec o DAU DO).
-async function getEffectiveSinceForPending(db: D1Database, entity: EntityKey): Promise<string> {
-  const targets = ENTITIES[entity].targets;
+// Dich dang bat cua 1 entity - bo "khovan" khi tam dung (KHOVAN_TAM_DUNG, xem khovanPushClient.ts).
+function dichDangBat(env: Env, entity: EntityKey): TargetKey[] {
+  return ENTITIES[entity].targets.filter((t) => !(t === "khovan" && khovanTamDung(env)));
+}
+
+async function getEffectiveSinceForPending(env: Env, db: D1Database, entity: EntityKey): Promise<string> {
+  const targets = dichDangBat(env, entity);
   const placeholders = targets.map(() => "?").join(",");
   const { results } = await db
     .prepare(`SELECT last_synced_at FROM dvbh_sync_state WHERE entity = ? AND target IN (${placeholders})`)
@@ -121,11 +127,11 @@ async function getEffectiveSinceForPending(db: D1Database, entity: EntityKey): P
   return results.reduce((min, r) => (r.last_synced_at < min ? r.last_synced_at : min), results[0].last_synced_at);
 }
 
-export async function getPendingSyncCounts(db: D1Database): Promise<PendingSyncCounts> {
+export async function getPendingSyncCounts(env: Env, db: D1Database): Promise<PendingSyncCounts> {
   const [ktvSince, linhKienSince, khuVucSince] = await Promise.all([
-    getEffectiveSinceForPending(db, "ktv"),
-    getEffectiveSinceForPending(db, "linh_kien"),
-    getEffectiveSinceForPending(db, "khu_vuc"),
+    getEffectiveSinceForPending(env, db, "ktv"),
+    getEffectiveSinceForPending(env, db, "linh_kien"),
+    getEffectiveSinceForPending(env, db, "khu_vuc"),
   ]);
   const [ktvRow, linhKienRow, khuVucRow] = await Promise.all([
     db.prepare("SELECT COUNT(*) as cnt FROM ktv_lien_he WHERE ngay_cap_nhat > ?").bind(ktvSince).first<{ cnt: number }>(),
@@ -144,8 +150,8 @@ export interface DvbhSyncLastRun {
 // "Lan dong bo gan nhat" hien thi cho nguoi dung = CU NHAT (MIN) trong so cac dich cua entity do -
 // phan anh dung "toan bo da dong bo xong toi moc thoi gian nay", tranh lac quan qua muc chi vi 1 dich
 // da xong con dich kia thi chua (tra null neu it nhat 1 dich CHUA TUNG dong bo lan nao).
-async function getOldestSyncedAt(db: D1Database, entity: EntityKey): Promise<string | null> {
-  const targets = ENTITIES[entity].targets;
+async function getOldestSyncedAt(env: Env, db: D1Database, entity: EntityKey): Promise<string | null> {
+  const targets = dichDangBat(env, entity);
   const placeholders = targets.map(() => "?").join(",");
   const { results } = await db
     .prepare(`SELECT last_synced_at FROM dvbh_sync_state WHERE entity = ? AND target IN (${placeholders})`)
@@ -157,8 +163,8 @@ async function getOldestSyncedAt(db: D1Database, entity: EntityKey): Promise<str
   return vals.reduce((min, v) => (v < min ? v : min), vals[0]);
 }
 
-export async function getLastSyncTimes(db: D1Database): Promise<DvbhSyncLastRun> {
-  const [ktv, linhKien, khuVuc] = await Promise.all([getOldestSyncedAt(db, "ktv"), getOldestSyncedAt(db, "linh_kien"), getOldestSyncedAt(db, "khu_vuc")]);
+export async function getLastSyncTimes(env: Env, db: D1Database): Promise<DvbhSyncLastRun> {
+  const [ktv, linhKien, khuVuc] = await Promise.all([getOldestSyncedAt(env, db, "ktv"), getOldestSyncedAt(env, db, "linh_kien"), getOldestSyncedAt(env, db, "khu_vuc")]);
   return { ktv, linhKien, khuVuc };
 }
 
@@ -220,7 +226,7 @@ export async function runDvbhSync(env: Env, db: D1Database): Promise<DvbhSyncRes
   const totals: Record<EntityKey, number> = { ktv: 0, linh_kien: 0, khu_vuc: 0 };
 
   for (const entity of Object.keys(ENTITIES) as EntityKey[]) {
-    for (const target of ENTITIES[entity].targets) {
+    for (const target of dichDangBat(env, entity)) {
       try {
         totals[entity] += await syncEntityToTarget(env, db, entity, target);
       } catch (err) {

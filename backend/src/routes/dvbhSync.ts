@@ -16,7 +16,7 @@ const dvbhSync = new Hono<{ Bindings: Env }>();
 dvbhSync.use("*", verifySessionMiddleware, loadUser, requireRole("Admin"));
 
 dvbhSync.get("/", async (c) => {
-  const [pending, lastRun] = await Promise.all([getPendingSyncCounts(c.env.DB), getLastSyncTimes(c.env.DB)]);
+  const [pending, lastRun] = await Promise.all([getPendingSyncCounts(c.env, c.env.DB), getLastSyncTimes(c.env, c.env.DB)]);
   return c.json({
     ktvPending: pending.ktv,
     linhKienPending: pending.linhKien,

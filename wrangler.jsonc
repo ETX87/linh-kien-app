@@ -84,6 +84,8 @@
     // Diem noi toi Worker "khovan" (he Quan ly hang ve kho, doc lap - xem KHOVAN_SYNC_SERVICE o tren).
     // Chi dung de GHI (dong bo day danh sach KTV lam "Nguoi gui hang"), khong doc gi tu day.
     "KHOVAN_SYNC_BASE_URL": "https://khovan.dichvu3t.workers.dev",
+    // 2026-11-27 (v1.575): TAM DUNG day sang khovan - "1" = bo qua moi lenh day + dong bo KTV toi khovan.
+    "KHOVAN_TAM_DUNG": "1",
     // Diem noi toi Worker "vipham" (module Giai trinh vi pham, doc lap - xem VIPHAM_SYNC_SERVICE o
     // tren). Chi dung de GHI (dong bo danh ba KTV), khong doc gi tu day.
     "VIPHAM_SYNC_BASE_URL": "https://vipham.dichvu3t.workers.dev",

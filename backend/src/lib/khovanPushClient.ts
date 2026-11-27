@@ -4,6 +4,13 @@ import type { Env } from "../types";
 // frontend/src/lib/pxkDeepLink.ts - dung LAI dung mau duong dan da lam cho PXK "/PMH-000001/"). Ham
 // nay chi ghep chuoi, khong validate id - noi goi (pushPxkToKhovan/pushTraHangToKhovan) da biet chac
 // id hop le vi vua tu sinh/doc tu DB.
+// Tam dung day sang khovan (chot nguoi dung 2026-11-27 "Tắt đẩy Kho vận", v1.575): var KHOVAN_TAM_DUNG="1"
+// trong wrangler.jsonc -> MOI lenh day/bao trang thai sang khovan bo qua (khong goi mang), dong bo danh ba
+// KTV bo dich "khovan" (dvbhSyncClient.ts). Kho thao tac thang tren linh-kien-app. Bat lai: xoa var + deploy.
+export function khovanTamDung(env: Env): boolean {
+  return env.KHOVAN_TAM_DUNG === "1";
+}
+
 export function buildWorkUrl(env: Env, id: string): string {
   return `${env.FRONTEND_URL.replace(/\/$/, "")}/${id}/`;
 }
@@ -34,6 +41,7 @@ export async function pushPxkToKhovan(
   // Kho xuat "bac"/"nam" cua phieu (chuyen tay hoac theo khu vuc, migration 0070) - de khovan biet kho MB/MN nao xu ly.
   mienXuat?: string | null,
 ): Promise<void> {
+  if (khovanTamDung(env)) return;
   const url = `${env.KHOVAN_SYNC_BASE_URL.replace(/\/$/, "")}/api/v1/inbound/orders`;
   try {
     const res = await env.KHOVAN_SYNC_SERVICE.fetch(url, {
@@ -70,6 +78,7 @@ export async function pushTraHangToKhovan(
   note: string,
   workUrl?: string | null,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (khovanTamDung(env)) return { ok: true };
   const url = `${env.KHOVAN_SYNC_BASE_URL.replace(/\/$/, "")}/api/v1/inbound/orders`;
   try {
     const res = await env.KHOVAN_SYNC_SERVICE.fetch(url, {
@@ -98,6 +107,7 @@ export async function pushTraHangToKhovan(
 // thay vi tich hop moi). Goi tu openThieuLkForDonHang() ngay luc tao ticket (trang thai dau tien luon
 // la "Cho kho xu ly") - best-effort giong pushPxkToKhovan (loi/khovan down KHONG duoc chan tao ticket).
 export async function pushThieuLkToKhovan(env: Env, thieuLkId: string, senderName: string, note: string, workUrl?: string | null): Promise<void> {
+  if (khovanTamDung(env)) return;
   const url = `${env.KHOVAN_SYNC_BASE_URL.replace(/\/$/, "")}/api/v1/inbound/orders`;
   try {
     const res = await env.KHOVAN_SYNC_SERVICE.fetch(url, {
@@ -127,6 +137,7 @@ export async function pushThieuLkToKhovan(env: Env, thieuLkId: string, senderNam
 // pushPxkToKhovan/pushTraHangToKhovan - day chi la cap nhat hien thi cho khop thuc te, khong phai
 // moc kich hoat vat ly nao, loi o day khong nen chan thao tac cua nguoi dung).
 async function updateKhovanBoxStatus(env: Env, orderCode: string, boxStatus: "qc_rejected" | "received" | "handed_over", note: string): Promise<void> {
+  if (khovanTamDung(env)) return;
   const url = `${env.KHOVAN_SYNC_BASE_URL.replace(/\/$/, "")}/api/v1/inbound/orders/${encodeURIComponent(orderCode)}/status`;
   try {
     const res = await env.KHOVAN_SYNC_SERVICE.fetch(url, {

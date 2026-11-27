@@ -91,6 +91,8 @@ export interface Env {
   KHOVAN_SYNC_BASE_URL: string;
   KHOVAN_SYNC_SERVICE: Fetcher;
   KHOVAN_SYNC_API_KEY: string;
+  // "1" = tam dung day sang khovan (xem lib/khovanPushClient.ts khovanTamDung).
+  KHOVAN_TAM_DUNG?: string;
   // Them 2026-09-11: dich day THU 4, Worker "vipham" (Giai trinh vi pham) - chi nhan entity "ktv"
   // (khop ten KTV vi pham). Service Binding cung ly do nhu 3 dich tren.
   VIPHAM_SYNC_BASE_URL: string;
