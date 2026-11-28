@@ -818,3 +818,12 @@ tổng khớp truy vấn đối chiếu; màn hình hiển thị đúng. Chưa b
   Tách theo loại đề xuất / hóa đơn / KH chuyển khoản / đối tác giữ nguyên (luật Kế toán). API đối tác không đổi (không gửi lựa chọn = tách như cũ).
 - Kiểm thử: typecheck + build 2 phía 0 lỗi; local DB demo: kiểm tra trước trả đúng nhóm; gộp → cả 2 đơn vào PMH-000033 (log ghi "Người đặt chọn GỘP…"),
   không gửi → đơn thiếu sang phiếu chờ hàng PMH-000032; giao diện: chưa chọn nút khoá, chọn "Gộp" nút mở. Chưa thử trên production.
+
+## 2026-11-28 — v1.579: Báo cáo tốc độ xử lý thêm cột SLA + So với SLA
+
+- Yêu cầu nguyên văn (ảnh tab Tổng quan): "báo cáo tốc độ, thêm cột SLA sau cột TB giờ làm việc và cột so sánh với SLA (đạt/không đạt)".
+- Đã làm: API danh sách giai đoạn trả kèm SLA (giờ làm việc) đọc từ cấu hình "Quá hạn & vi phạm › Cấu hình SLA" (ghép giai đoạn ↔ bước SLA ở `STAGE_SLA_MA`).
+  Màn báo cáo thêm 2 cột sau "TB ngày làm việc": **SLA** (vd 8h; bước chưa có SLA để "—"; bước tắt ghi "(tắt)") và **So với SLA** (✓ Đạt khi TB giờ ≤ SLA,
+  ✗ Không đạt khi vượt; rê chuột xem % SLA). Có ở tab Tổng quan (TB toàn hệ thống), bảng từng giai đoạn (từng tài khoản) và file Excel tải về.
+- Kiểm thử: typecheck + build 2 phía 0 lỗi; local (DB demo, Admin): API trả đúng SLA 11 giai đoạn (8h), 4 giai đoạn không SLA = null; tab Tổng quan hiện 2 cột,
+  Kho xử lý thiếu / Kho xác nhận trả hàng (TB 0.0h) hiện "✓ Đạt". Chưa có dữ liệu demo vượt SLA để thấy "Không đạt" trên giao diện.

@@ -19,6 +19,11 @@ interface GiaiDoanMeta {
   luong: "mua_cong_no" | "tra_hang" | "pxk" | "cho_ktv";
   noi_bo: boolean;
   ghi_chu: string | null;
+  /** v1.579: SLA (giờ làm việc) của bước — đọc sống từ cấu hình Vi phạm/SLA; null = bước chưa đặt SLA. */
+  sla_gio: number | null;
+  sla_bat: boolean;
+  /** true = SLA bước này đang đặt theo giờ lịch 24/7 (TB giờ báo cáo luôn là giờ làm việc). */
+  sla_gio_lich: boolean;
 }
 interface XepHangRow {
   email: string;
@@ -71,6 +76,49 @@ function fmtNgay(h: number | null): string {
   const n = ngayLv(h);
   if (n == null) return "—";
   return `${n.toFixed(1)} ngày`;
+}
+
+// v1.579 (2026-11-28, "thêm cột SLA sau cột TB giờ làm việc và cột so sánh với SLA (đạt/không đạt)"): Đạt = TB giờ ≤ SLA.
+function slaDat(tbGio: number | null, stage: GiaiDoanMeta): boolean | null {
+  if (tbGio == null || stage.sla_gio == null) return null;
+  return tbGio <= stage.sla_gio;
+}
+function slaTitle(stage: GiaiDoanMeta): string {
+  if (stage.sla_gio == null) return "Bước này chưa đặt SLA";
+  const parts = [`SLA ${stage.sla_gio} giờ làm việc (${fmtNgay(stage.sla_gio)}) — cấu hình ở màn Vi phạm / SLA`];
+  if (stage.sla_gio_lich) parts.push("Lưu ý: bước này đang đặt SLA theo giờ lịch 24/7, còn TB giờ tính theo giờ làm việc");
+  if (!stage.sla_bat) parts.push("Bước đang TẮT ghi nhận quá hạn");
+  return parts.join(" · ");
+}
+function SlaCell({ stage }: { stage: GiaiDoanMeta }) {
+  return (
+    <td className="px-3 py-2 text-right font-mono whitespace-nowrap" title={slaTitle(stage)}>
+      {stage.sla_gio == null ? <span className="text-[var(--ink-400)]">—</span> : `${stage.sla_gio}h`}
+      {stage.sla_gio != null && !stage.sla_bat && <span className="text-xs text-[var(--ink-400)]"> (tắt)</span>}
+    </td>
+  );
+}
+function SlaDatCell({ tbGio, stage, loading }: { tbGio: number | null; stage: GiaiDoanMeta; loading?: boolean }) {
+  const dat = slaDat(tbGio, stage);
+  const title =
+    dat == null
+      ? stage.sla_gio == null ? "Bước này chưa đặt SLA" : "Chưa có lượt xử lý để so"
+      : `TB ${fmtGio(tbGio)} / SLA ${stage.sla_gio}h (${Math.round((tbGio! / stage.sla_gio!) * 100)}% SLA)`;
+  return (
+    <td className="px-3 py-2 text-right whitespace-nowrap" title={title}>
+      {loading ? "…" : dat == null ? (
+        <span className="text-[var(--ink-400)]">—</span>
+      ) : dat ? (
+        <span className="font-semibold text-[var(--teal-600)]">✓ Đạt</span>
+      ) : (
+        <span className="font-semibold text-[var(--coral-600)]">✗ Không đạt</span>
+      )}
+    </td>
+  );
+}
+function slaDatText(tbGio: number | null, stage: GiaiDoanMeta): string | null {
+  const dat = slaDat(tbGio, stage);
+  return dat == null ? null : dat ? "Đạt" : "Không đạt";
 }
 
 function XuHuongBadge({ percent }: { percent: number | null }) {
@@ -162,11 +210,14 @@ async function downloadBaoCaoTocDo(stages: GiaiDoanMeta[], filters: Filters) {
     .map(({ stage, data }) => {
       const totalCount = data.rows.reduce((s, r) => s + r.da_xu_ly + r.tu_choi, 0);
       const totalHours = data.rows.reduce((s, r) => s + (r.tb_gio ?? 0) * (r.da_xu_ly + r.tu_choi), 0);
+      const tb = totalCount > 0 ? totalHours / totalCount : null;
       return {
         "Luồng": LUONG_LABELS[stage.luong],
         "Giai đoạn": stage.label,
-        "TB giờ (toàn hệ thống)": totalCount > 0 ? round1(totalHours / totalCount) : null,
-        "TB ngày làm việc (toàn hệ thống)": totalCount > 0 ? round1(ngayLv(totalHours / totalCount)) : null,
+        "TB giờ (toàn hệ thống)": round1(tb),
+        "TB ngày làm việc (toàn hệ thống)": round1(ngayLv(tb)),
+        "SLA (giờ làm việc)": stage.sla_gio,
+        "So với SLA": slaDatText(tb, stage),
         "Đang chờ": data.dang_cho,
         "Tổng đã xử lý": totalCount,
       };
@@ -182,6 +233,8 @@ async function downloadBaoCaoTocDo(stages: GiaiDoanMeta[], filters: Filters) {
       "Từ chối": r.tu_choi,
       "TB giờ xử lý": round1(r.tb_gio),
       "TB ngày làm việc": round1(ngayLv(r.tb_gio)),
+      "SLA (giờ làm việc)": stage.sla_gio,
+      "So với SLA": slaDatText(r.tb_gio, stage),
       "TB giờ kỳ trước": round1(r.tb_gio_ky_truoc),
       "Xu hướng (%)": round1(r.xu_huong_phan_tram),
     }));
@@ -243,18 +296,20 @@ function StageLeaderboard({ stage, filters }: { stage: GiaiDoanMeta; filters: Fi
                 <th className="px-3 py-2 text-right whitespace-nowrap">Từ chối</th>
                 <th className="px-3 py-2 text-right whitespace-nowrap">TB giờ xử lý</th>
                 <th className="px-3 py-2 text-right whitespace-nowrap" title="1 ngày làm việc = 8 giờ làm việc">TB ngày làm việc</th>
+                <th className="px-3 py-2 text-right whitespace-nowrap" title="Hạn xử lý của bước (giờ làm việc), cấu hình ở màn Vi phạm / SLA">SLA</th>
+                <th className="px-3 py-2 text-right whitespace-nowrap" title="Đạt = TB giờ xử lý ≤ SLA">So với SLA</th>
                 <th className="px-3 py-2 text-right whitespace-nowrap">Xu hướng</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-[var(--ink-400)]">Đang tải…</td>
+                  <td colSpan={8} className="px-3 py-6 text-center text-[var(--ink-400)]">Đang tải…</td>
                 </tr>
               )}
               {!isLoading && (data?.rows.length ?? 0) === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có dữ liệu trong kỳ này.</td>
+                  <td colSpan={8} className="px-3 py-6 text-center text-[var(--ink-400)]">Chưa có dữ liệu trong kỳ này.</td>
                 </tr>
               )}
               {(data?.rows ?? []).map((r) => (
@@ -267,6 +322,8 @@ function StageLeaderboard({ stage, filters }: { stage: GiaiDoanMeta; filters: Fi
                   <td className="px-3 py-2 text-right font-mono">{r.tu_choi}</td>
                   <td className="px-3 py-2 text-right font-mono font-semibold">{fmtGio(r.tb_gio)}</td>
                   <td className="px-3 py-2 text-right font-mono">{fmtNgay(r.tb_gio)}</td>
+                  <SlaCell stage={stage} />
+                  <SlaDatCell tbGio={r.tb_gio} stage={stage} />
                   <td className="px-3 py-2 text-right"><XuHuongBadge percent={r.xu_huong_phan_tram} /></td>
                 </tr>
               ))}
@@ -311,6 +368,8 @@ function TongQuanRow({ stage, filters, onJump }: { stage: GiaiDoanMeta; filters:
       </td>
       <td className="px-3 py-2 text-right font-mono font-semibold">{isLoading ? "…" : fmtGio(tbGio)}</td>
       <td className="px-3 py-2 text-right font-mono">{isLoading ? "…" : fmtNgay(tbGio)}</td>
+      <SlaCell stage={stage} />
+      <SlaDatCell tbGio={tbGio} stage={stage} loading={isLoading} />
       <td className="px-3 py-2 text-right font-mono">{isLoading ? "…" : (data?.dang_cho ?? 0)}</td>
       <td className="px-3 py-2 text-xs">{cham ? `${cham.ten ?? cham.email} (${fmtGio(cham.tb_gio)})` : "—"}</td>
       <td className="px-3 py-2 text-xs">{nhanh ? `${nhanh.ten ?? nhanh.email} (${fmtGio(nhanh.tb_gio)})` : "—"}</td>
@@ -331,6 +390,8 @@ function TongQuanTab({ stages, filters, onJump }: { stages: GiaiDoanMeta[]; filt
               <th className="px-3 py-2 whitespace-nowrap">Giai đoạn</th>
               <th className="px-3 py-2 text-right whitespace-nowrap">TB giờ (toàn hệ thống)</th>
               <th className="px-3 py-2 text-right whitespace-nowrap" title="1 ngày làm việc = 8 giờ làm việc">TB ngày làm việc</th>
+              <th className="px-3 py-2 text-right whitespace-nowrap" title="Hạn xử lý của bước (giờ làm việc), cấu hình ở màn Vi phạm / SLA">SLA</th>
+              <th className="px-3 py-2 text-right whitespace-nowrap" title="Đạt = TB giờ toàn hệ thống ≤ SLA">So với SLA</th>
               <th className="px-3 py-2 text-right whitespace-nowrap">Đang chờ</th>
               <th className="px-3 py-2 whitespace-nowrap">Chậm nhất</th>
               <th className="px-3 py-2 whitespace-nowrap">Nhanh nhất</th>

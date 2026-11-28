@@ -43,6 +43,22 @@ export interface StageDef {
   huyStates?: string[];
 }
 
+/** v1.579 (2026-11-28, "thêm cột SLA sau cột TB giờ làm việc và cột so sánh với SLA (đạt/không đạt)"): giai đoạn báo cáo -> mã bước SLA
+ * (`sla_buoc.ma`, định nghĩa ở lib/viPham.ts BUOC_VI_PHAM — Admin cấu hình số giờ ở màn Vi phạm/SLA). Giai đoạn không có ở đây = chưa đặt SLA. */
+export const STAGE_SLA_MA: Record<string, string> = {
+  tbp_xac_nhan: "tbp_xac_nhan",
+  gs_duyet_vuot_tran: "gs_duyet",
+  tn_duyet_don: "tn_duyet",
+  kho_xu_ly_thieu: "kho_thieu",
+  th_ke_toan_duyet_mem: "th_ke_toan",
+  th_kho_xac_nhan: "th_kho",
+  th_qc_xac_nhan: "th_qc",
+  th_tn_duyet_tong: "th_tn",
+  ke_toan_duyet_chuyen_tien: "kt_duyet_tien",
+  ke_toan_chot_pxk: "kt_chot_phieu",
+  kho_xu_ly_pxk: "kho_xuat",
+};
+
 export type VaiTroPhuTrach = "tram" | "tbp" | "gs" | "tn" | "kho" | "ke_toan" | "qc";
 
 // Danh sach 14 giai doan - xem bang "ma tran thoi gian xu ly" trong plan (da doi chieu tung dong

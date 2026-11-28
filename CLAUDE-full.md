@@ -1639,6 +1639,11 @@ Nguyên văn: *"các logic quá hạn SLA trên toàn bộ hệ thống từ 24h
   cache báo cáo đổi khoá `bao-cao-toc-do/tong-hop-v2` (kỳ cũ tính lại theo cách mới).
   v1.552 ("thêm cột TB ngày làm việc bên cạnh cột \"TB giờ\""): thêm cột "TB ngày làm việc" = TB giờ làm việc ÷ 8 (1 ngày làm việc = 8 giờ) cạnh
   "TB giờ xử lý" và "TB giờ (toàn hệ thống)" + file Excel — chỉ hiển thị, không đổi API.
+  v1.579 (2026-11-28, "báo cáo tốc độ, thêm cột SLA sau cột TB giờ làm việc và cột so sánh với SLA (đạt/không đạt)"): `GET /api/bao-cao-toc-do/giai-doan`
+  trả thêm `sla_gio` / `sla_bat` / `sla_gio_lich` đọc sống `sla_buoc` (`docCauHinh`) qua bảng ghép `STAGE_SLA_MA` (`lib/slaMetrics.ts`: tbp_xac_nhan, gs_duyet_vuot_tran→gs_duyet,
+  tn_duyet_don→tn_duyet, kho_xu_ly_thieu→kho_thieu, 4 bước trả hàng→th_*, ke_toan_duyet_chuyen_tien→kt_duyet_tien, ke_toan_chot_pxk→kt_chot_phieu, kho_xu_ly_pxk→kho_xuat;
+  còn lại chưa có SLA). FE thêm cột "SLA" + "So với SLA" (✓ Đạt nếu TB ≤ SLA / ✗ Không đạt) sau "TB ngày làm việc" ở Tổng quan (TB toàn hệ thống) và bảng từng giai đoạn
+  (TB từng tài khoản) + 2 cột trong Excel. Thêm bước SLA mới khớp 1 giai đoạn báo cáo → thêm dòng `STAGE_SLA_MA`. SLA không cache (đổi cấu hình là thấy ngay), TB giờ vẫn cache theo ngày.
 - KHÔNG đổi (không phải SLA): đẩy lại đơn / ticket trong 24h, trả hàng tự hủy 10 ngày, tự xác nhận nhận hàng 10 ngày.
 
 ## Phí dịch vụ — KTV nhập số tiền thực tế (25/11/2026) — v1.561

@@ -5,8 +5,10 @@ import { loadUser } from "../middleware/loadUser";
 import { tenNguoiMap } from "../lib/tenNguoi";
 import { buildReportKey, getVnDateStr } from "../lib/reportCache";
 import { nowVN } from "../lib/vnTime";
+import { docCauHinh } from "../lib/viPham";
 import {
   STAGE_DEFS,
+  STAGE_SLA_MA,
   computeAllStageInstances,
   resolveKyRange,
   currentKy,
@@ -33,8 +35,24 @@ baoCaoTocDoXuLy.use("*", async (c, next) => {
   await next();
 });
 
-baoCaoTocDoXuLy.get("/giai-doan", (c) => {
-  return c.json({ giai_doan: STAGE_DEFS.map((s) => ({ key: s.key, label: s.label, luong: s.luong, noi_bo: s.noiBo, ghi_chu: s.ghiChu ?? null })) });
+// v1.579: kem SLA (gio lam viec) cua tung giai doan doc song tu sla_buoc (Admin sua o man Vi pham/SLA) - FE so TB gio voi SLA -> Dat / Khong dat.
+baoCaoTocDoXuLy.get("/giai-doan", async (c) => {
+  const cauHinh = await docCauHinh(c.env.DB);
+  return c.json({
+    giai_doan: STAGE_DEFS.map((s) => {
+      const sla = STAGE_SLA_MA[s.key] ? cauHinh.get(STAGE_SLA_MA[s.key]) : undefined;
+      return {
+        key: s.key,
+        label: s.label,
+        luong: s.luong,
+        noi_bo: s.noiBo,
+        ghi_chu: s.ghiChu ?? null,
+        sla_gio: sla ? sla.so_gio : null,
+        sla_bat: sla ? sla.bat_tat === 1 : false,
+        sla_gio_lich: sla ? sla.tinh_cuoi_tuan === 1 : false,
+      };
+    }),
+  });
 });
 
 /** "View" chi xem theo Khu vuc duoc gan (user_khu_vuc) - dung y giong khuVucViewEmailInSql() nhung
